@@ -1,0 +1,26 @@
+{
+  "name": "@areasong/areaforge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev": "pnpm --filter @areaforge/web dev",
+    "build": "pnpm --filter @areaforge/web build",
+    "start": "pnpm --filter @areaforge/web start",
+    "lint": "pnpm --filter @areaforge/web lint",
+    "typecheck": "pnpm db:generate && pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "check": "pnpm typecheck && pnpm lint && pnpm db:validate && pnpm build",
+    "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma generate",
+    "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma validate",
+    "db:migrate:dev": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "dotenv": "^17.2.3",
+    "prisma": "^7.6.0",
+    "typescript": "^5.9.3"
+  }
+}

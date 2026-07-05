@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../packages/db/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SubjectCode {
+  MATH
+  ENGLISH
+  POLITICS
+  DATA_STRUCTURE
+  COMPUTER_ORGANIZATION
+  OPERATING_SYSTEM
+  COMPUTER_NETWORK
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  SKIPPED
+  DEFERRED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskDebtStatus {
+  NONE
+  ACCEPTABLE
+  NEEDS_RECOVERY
+  STAGE_IMPACT
+  PLAN_BREAKING
+}
+
+enum StudySessionStatus {
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELED
+}
+
+enum SyllabusNodeKind {
+  SUBJECT
+  CHAPTER
+  TOPIC
+  PROBLEM_TYPE
+}
+
+enum SyllabusNodeStatus {
+  NOT_STARTED
+  LEARNING
+  COVERED
+  NEEDS_REVIEW
+  MASTERED
+  WEAK
+  DEFERRED
+}
+
+enum MasteryLevel {
+  SEEN
+  LEARNED
+  BASIC_EXERCISES
+  CAN_EXPLAIN
+  RETEST_PASSED
+  EXAM_STABLE
+}
+
+enum MistakeCause {
+  UNKNOWN
+  CONCEPT_CONFUSION
+  FORMULA_UNFAMILIAR
+  WRONG_APPROACH
+  CARELESS
+  TIME_PRESSURE
+  UNFAMILIAR_PATTERN
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  auditEvents  AuditEvent[]
+}
+
+model Subject {
+  id            String         @id @default(cuid())
+  code          SubjectCode    @unique
+  name          String
+  color         String
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  tasks         StudyTask[]
+  sessions      StudySession[]
+  syllabusNodes SyllabusNode[]
+  notes         Note[]
+  mistakes      Mistake[]
+}
+
+model SyllabusNode {
+  id             String             @id @default(cuid())
+  subjectId      String
+  parentId       String?
+  title          String
+  kind           SyllabusNodeKind
+  status         SyllabusNodeStatus @default(NOT_STARTED)
+  masteryLevel   MasteryLevel?
+  sortOrder      Int                @default(0)
+  targetMinutes  Int                @default(0)
+  actualMinutes  Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  subject        Subject            @relation(fields: [subjectId], references: [id])
+  parent         SyllabusNode?      @relation("SyllabusTree", fields: [parentId], references: [id])
+  children       SyllabusNode[]     @relation("SyllabusTree")
+  tasks          StudyTask[]
+  sessions       StudySession[]
+  notes          Note[]
+  mistakes       Mistake[]
+
+  @@index([subjectId])
+  @@index([parentId])
+}
+
+model StudyTask {
+  id              String          @id @default(cuid())
+  subjectId       String
+  syllabusNodeId  String?
+  title           String
+  type            String
+  status          TaskStatus      @default(TODO)
+  priority        TaskPriority    @default(MEDIUM)
+  debtStatus      TaskDebtStatus  @default(NONE)
+  plannedDate     DateTime
+  estimatedMinutes Int           @default(0)
+  actualMinutes   Int            @default(0)
+  reviewText      String?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  subject         Subject        @relation(fields: [subjectId], references: [id])
+  syllabusNode    SyllabusNode?  @relation(fields: [syllabusNodeId], references: [id])
+  sessions        StudySession[]
+  notes           Note[]
+
+  @@index([plannedDate])
+  @@index([subjectId])
+  @@index([syllabusNodeId])
+}
+
+model StudySession {
+  id                       String             @id @default(cuid())
+  subjectId                String
+  taskId                   String?
+  syllabusNodeId           String?
+  status                   StudySessionStatus @default(RUNNING)
+  startedAt                DateTime
+  pausedAt                 DateTime?
+  endedAt                  DateTime?
+  accumulatedPauseSeconds  Int                @default(0)
+  effectiveMinutes         Int                @default(0)
+  qualityScore             Int?
+  isEffective              Boolean?
+  note                     String?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  subject                  Subject            @relation(fields: [subjectId], references: [id])
+  task                     StudyTask?         @relation(fields: [taskId], references: [id])
+  syllabusNode             SyllabusNode?      @relation(fields: [syllabusNodeId], references: [id])
+
+  @@index([status])
+  @@index([startedAt])
+  @@index([subjectId])
+}
+
+model DailyReview {
+  id              String   @id @default(cuid())
+  reviewDate      DateTime @unique
+  totalMinutes    Int      @default(0)
+  effectiveMinutes Int     @default(0)
+  summary         String?
+  lostControl     String?
+  keepAction      String?
+  tomorrowMinimum String?
+  mood            String?
+  aiSuggestion    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Note {
+  id             String        @id @default(cuid())
+  subjectId      String
+  syllabusNodeId String?
+  taskId         String?
+  title          String
+  content        String
+  masteryStatus  String?
+  nextReviewAt   DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  subject        Subject       @relation(fields: [subjectId], references: [id])
+  syllabusNode   SyllabusNode? @relation(fields: [syllabusNodeId], references: [id])
+  task           StudyTask?    @relation(fields: [taskId], references: [id])
+  attachments    Attachment[]
+
+  @@index([subjectId])
+  @@index([syllabusNodeId])
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  noteId       String?
+  originalName String
+  storedName   String
+  mimeType     String
+  sizeBytes    Int
+  hash         String
+  uri          String
+  createdAt    DateTime @default(now())
+  note         Note?    @relation(fields: [noteId], references: [id])
+
+  @@index([hash])
+  @@index([noteId])
+}
+
+model Mistake {
+  id             String        @id @default(cuid())
+  subjectId      String
+  syllabusNodeId String?
+  title          String
+  source         String?
+  cause          MistakeCause  @default(UNKNOWN)
+  correctIdea    String?
+  nextReviewAt   DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  subject        Subject       @relation(fields: [subjectId], references: [id])
+  syllabusNode   SyllabusNode? @relation(fields: [syllabusNodeId], references: [id])
+
+  @@index([subjectId])
+  @@index([syllabusNodeId])
+  @@index([nextReviewAt])
+}
+
+model MotivationVault {
+  id                    String   @id @default(cuid())
+  whyStarted            String?
+  neverReturnTo         String?
+  futureSelf            String?
+  messageToFuture       String?
+  firstSimulationDiary  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+}
+

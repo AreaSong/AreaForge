@@ -1,0 +1,44 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: areaforge-web
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-areaforge}:${POSTGRES_PASSWORD:-areaforge}@postgres:5432/${POSTGRES_DB:-areaforge}
+      APP_URL: ${APP_URL:-http://127.0.0.1:3000}
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local-development-secret-change-me}
+      AI_ENABLED: ${AI_ENABLED:-false}
+      AI_BASE_URL: ${AI_BASE_URL:-https://sub2api.example.com/v1}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      UPLOAD_DIR: /app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - areaforge-uploads:/app/uploads
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: areaforge-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-areaforge}
+      POSTGRES_USER: ${POSTGRES_USER:-areaforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-areaforge}
+    ports:
+      - "54329:5432"
+    volumes:
+      - areaforge-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-areaforge} -d ${POSTGRES_DB:-areaforge}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  areaforge-postgres-data:
+  areaforge-uploads:
