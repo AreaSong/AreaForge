@@ -35,6 +35,8 @@
 ## 当前低风险进展
 
 - `packages/ai` 已补充鞭策、每日复盘建议和明日任务建议的结构化 schema 与本地规则 fallback。
+- `packages/ai` 已补充非外呼 provider 抽象、安全执行器、mock provider、AI 状态枚举和敏感上下文字段拦截。
+- AI mock 成功、mock 失败、输出非法和敏感字段拦截已有包内测试覆盖；默认不调用外部 AI。
 - 已新增 `POST /api/ai/discipline`、`POST /api/ai/daily-review`、`POST /api/ai/tomorrow-plan`，当前全部返回 `local_rule_fallback`，不调用外部 AI。
 - 首页已展示本地规则 AI 建议草稿；这些建议不自动覆盖任务、复盘或用户记录。
 - 当前实现不读取动机档案，不发送完整情绪记录或完整复盘正文。
@@ -42,7 +44,8 @@
 ## 仍待高风险确认后推进
 
 - 接入 Sub2API / OpenAI 兼容接口并发起真实外部 AI 调用。
-- 实现 prompt 数据最小化、超时、失败回退、mock 成功/失败测试和日志脱敏验证。
+- 实现真实外呼 provider 的超时、重试、日志脱敏、限流与 provider 错误映射；当前只有非外呼 mock provider 和本地回退执行器。
+- 将 `AI_ENABLED=true` 接入真实 provider 分支前，必须再次确认隐私、密钥、费用和外部调用边界。
 - 若要保存 AI 建议审计历史，需要单独评估是否新增模型与 migration。
 
 ## 高风险确认

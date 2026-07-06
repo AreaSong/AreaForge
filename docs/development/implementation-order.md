@@ -19,22 +19,117 @@
 - 每日任务 CRUD。
 - 学习计时开始、暂停、继续、结束持久化。
 - 每晚复盘保存。
-- 考纲树与笔记基础 API/UI 已启动，附件上传仍待高风险确认。
-- 任务债务、打卡检查、反假学习和恢复模式已有本地规则与首页基础展示。
-- 错题与掌握证明基础版已启动，考纲节点可看到任务、计时、笔记、错题证据计数。
+- 考纲树与笔记基础 API/UI 已启动，受限 Markdown 考纲导入已实现；附件上传仍待高风险确认。
+- 任务债务、打卡检查、反假学习和恢复模式已有低风险闭环：本地规则、首页展示、恢复模式任务裁剪、补做/拆小/改复习任务轻量流转和计时收口反假学习判断；`packages/core/src/study-integrity.ts` 已沉淀结构化收口、近窗打卡历史和轻量债务动作规则；完整 `CheckIn`、债务事件账本、结构化收口字段和恢复状态仍需 migration 确认。
+- 错题与掌握证明基础版已启动，考纲节点可看到任务、计时、笔记、错题证据计数；`packages/core/src/mastery-proof.ts` 已沉淀掌握等级、缺失条件、缺失证据和下一步动作的纯规则；`packages/core/src/syllabus-map.ts` 已沉淀作战地图格子状态、标记、原因和下一步动作纯规则；考纲服务和页面已开始消费这些规则。
 - 动机封存、情绪标签、阶段称号和动机唤醒基础版已完成，且默认不进入 AI 上下文。
 - 基础统计与作战地图完善已完成低风险闭环：统计页、只读统计 API、近 7 天派生指标、风险提醒、作战地图状态筛选。
 - 周审判与月复盘报告已完成低风险闭环：只读周期报告 API、报告页、规则策略和本地规则复盘草稿。
-- 全真模拟考试已启动低风险基础入口：复用 `StudyTask.type = "simulation_exam"` 保存模拟任务和文本化结果，提供 `/simulation` 页面、本地阶段准备度草稿和第一次全真自测阶段日记保存；完整 `SimulationExam`、阶段计划和 AI 阶段调整仍需高风险确认后推进。
-- AI 建议已启动 disabled 基础入口：`packages/ai` 提供结构化 schema 和本地规则 fallback，Web 提供 AI 建议 API 与首页草稿展示；真实外部 AI 调用仍需高风险确认。
+- 全真模拟考试已启动低风险基础入口：复用 `StudyTask.type = "simulation_exam"` 保存模拟任务和文本化结果，提供 `/simulation` 页面、本地阶段准备度草稿和第一次全真自测阶段日记保存；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并已接入模拟结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用，并已接入 `/simulation` 阶段调整草稿；完整 `SimulationExam`、阶段计划和 AI 阶段调整仍需高风险确认后推进。
+- AI 建议已启动 disabled 基础入口：`packages/ai` 提供结构化 schema、本地规则 fallback、非外呼 provider 抽象、mock 测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页草稿展示；真实外部 AI 调用仍需高风险确认。
 
 ## 下一步主线
 
 1. `tasks/active/0004-mvp-syllabus-notes-upload.md`：确认附件风险方案后，实现附件上传与鉴权访问。
 2. `tasks/backlog/0005-mvp-ai-discipline.md`：确认 AI 隐私边界后接入真实外部 AI 适配器。
-3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：继续补任务债务处理动作、恢复模式持久化和更完整的连续性统计。
+3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：确认 migration 方案后，基于已收口的 core 规则补结构化 `CheckIn`、债务事件账本、恢复状态和更完整的连续性统计。
 4. `tasks/backlog/0013-simulation-stage-adjustment.md`：继续完成结构化全真模拟考试、阶段计划和 AI 阶段调整。
 5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复和发布闭环。
+
+## 下一批高风险确认包
+
+这些包命中仓库高风险边界。进入实现前必须先确认对应影响、风险、验证和回滚。
+
+| 确认包 | 影响 | 主要风险 | 验证 | 回滚 |
+|---|---|---|---|---|
+| 结构化业务 migration | 新增 `CheckIn`、任务债务事件、结构化收口、掌握证明、模拟考试和阶段计划等表/字段 | migration 失败、旧数据映射不完整、派生统计口径变化 | `pnpm db:validate`、migration deploy dry run、相关 API/页面烟测、`pnpm check` | additive migration 优先；不删除旧字段；失败时回滚代码并保留备份，已部署环境按备份恢复 |
+| 附件上传与鉴权访问 | 服务器开始写入 `UPLOAD_DIR`，数据库和文件目录共同成为持久化状态 | MIME 伪造、路径穿越、软链接逃逸、孤儿文件、隐私文件泄露 | 未登录 401、允许类型成功、超大/伪造/路径攻击失败、响应头检查、metadata/文件对账、`pnpm check` | 先关闭上传入口；保留已有文件和 metadata；清理孤儿文件前先生成只读审计清单并再次确认 |
+| 真实 AI provider | `AI_ENABLED=true` 时向外部 Sub2API / OpenAI 兼容接口发送最小化上下文 | API Key 泄露、费用失控、敏感正文进入 prompt、输出非法、外呼失败影响主流程 | mock/真实失败回退、schema 校验、日志脱敏扫描、客户端 bundle 密钥扫描、AI API 烟测、`pnpm check` | 关闭 `AI_ENABLED` 回到本地规则；保留 provider 代码但不外呼；不自动删除用户原始记录 |
+| 部署、备份与恢复 | 引入生产发布、migration deploy、数据库/上传目录备份和恢复演练 | 发布中断、migration 后不可逆、备份缺失、附件 metadata 与文件不一致 | Compose config、生产变量检查、发布前备份点、临时库恢复、临时上传目录对账、登录和首页烟测 | 回滚到上一镜像 tag；使用发布前数据库和上传目录备份恢复；保留失败日志和版本记录 |
+
+## docs 100% 实施路线
+
+以下路线以 `docs/product/**`、`docs/modules/**`、`docs/architecture/**`、`docs/security/**` 和 `docs/deployment/**` 为完整范围，不只覆盖 v0.1 或单个 MVP。
+
+### 0. 当前基线收口
+
+- 保持当前低风险基线可验证：登录、任务、计时、复盘、考纲、笔记、错题、动机、统计、报告、模拟基础入口、AI fallback、storage 纯规则，以及 core 中的收口、打卡、债务、掌握证明、作战地图、模拟结果和阶段调整规则。
+- 每次进入高风险阶段前先跑与改动范围匹配的验证，至少包括相关包测试、`pnpm check` 和 `git diff --check`。
+- 文档同步到 `docs/**`、`tasks/**`、`workflow/**`，避免后续按过时状态判断进度。
+
+### 1. 结构化数据模型批次
+
+需要明确 migration 方案、验证和回滚后推进，建议按 additive migration（只新增字段/表，暂不删除旧字段）拆批：
+
+1. `StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、反假学习原因、是否产生笔记/错题。
+2. `CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。
+3. 任务债务事件账本：补做、延期、放弃、拆小、合并、改复习、父子关系、重排采纳记录。
+4. 掌握证明：掌握条件、证据引用、复测记录。
+5. 结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。
+6. 阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的应用记录。
+
+### 2. 第一版功能补全
+
+- 打卡与连续性从派生统计升级为结构化快照。
+- 任务债务从轻量流转升级为事件账本和可审计重排建议。
+- 恢复模式从规则裁剪升级为持久化状态、手动触发和退出条件。
+- 反假学习从文本化 note 升级为结构化收口和低转化统计。
+- 掌握证明从证据计数升级为条件、证据和复测闭环。
+- 笔记资料库补齐附件上传、鉴权访问和复习提醒。
+- 首页、统计、报告、作战地图统一读取结构化数据，而不是重复散落推导。
+
+### 3. 附件与资料库闭环
+
+需要附件高风险确认后推进：
+
+- `POST /api/attachments`：单文件上传，第一版优先关联 `noteId`。
+- `GET /api/attachments/:id`：鉴权下载或受控预览。
+- 服务端写入 `UPLOAD_DIR`，随机 storedName，数据库只保存 metadata、hash、URI。
+- 校验大小、允许 MIME、magic bytes、路径穿越、真实路径和软链接逃逸。
+- 数据库写入失败时补偿孤儿文件；文件写入失败时不创建 metadata。
+- 下载响应包含 `X-Content-Type-Options: nosniff` 和私有缓存策略。
+
+### 4. AI 闭环
+
+需要 AI 高风险确认后推进：
+
+- 接入 Sub2API / OpenAI 兼容 provider，只在 `AI_ENABLED=true` 时外呼。
+- 请求前做数据最小化，默认不发送动机档案、完整情绪记录和完整复盘正文。
+- 输出必须结构化校验，失败回退本地规则。
+- 超时、重试、限流、错误映射和日志脱敏必须先落地。
+- AI 只返回鞭策、复盘建议、明日任务建议和阶段调整草稿，不直接覆盖用户记录。
+- 若保存 AI 建议历史，必须单独确认模型和 migration。
+
+### 5. 第二阶段长期能力
+
+- 完整全真模拟考试和 2026 年 12 月同步自测专题流程。
+- 周审判、月复盘从只读派生报告升级为阶段决策入口。
+- 任务债务自动重排建议、知识点遗忘风险、笔记复习提醒。
+- 作战地图高级筛选和风险可视化。
+- 状态主题、阶段称号、动机唤醒和长期 AI 阶段调整联动。
+- 所有“建议”都需要用户确认后才应用，不自动改写计划。
+
+### 6. 部署、备份、恢复和发布闭环
+
+需要部署高风险确认后推进：
+
+- 生产 `docker-compose.prod.yml`、Next.js standalone 镜像、PostgreSQL 16、Nginx HTTPS 反代。
+- 生产 PostgreSQL 不暴露公网端口，Web 仅绑定本机端口供 Nginx。
+- 发布前备份数据库、上传目录、生产 `.env` 和当前版本 tag。
+- 执行 Prisma migration deploy 前有备份点和回滚说明。
+- 每日 `pg_dump`，上传目录同周期备份，至少保留 14 天。
+- 在临时库和临时上传目录做恢复演练，验证登录、首页和附件 metadata/文件本体一致。
+
+### 7. 全量验收
+
+完成 docs 100% 需要逐项证明：
+
+- `docs/product/feature-scope.md` 第一版必须项全部有真实代码、页面/API 或明确暂缓依据。
+- 第二阶段增强项有对应模型、页面/API、规则和验证，暂缓项未被误算为完成。
+- 所有写 API 服务端鉴权，页面和组件不直接访问 Prisma。
+- `packages/core` 保持平台无关，`packages/ai` 不直接写用户数据，`packages/storage` 不把文件放入 `public/`。
+- `pnpm check`、相关包测试、Prisma validate、Compose config、关键 API 烟测和主要页面验证通过。
+- 上传、AI、migration、部署、备份恢复均有影响、风险、验证和回滚记录。
 
 ## 前置主闭环验收
 

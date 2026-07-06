@@ -1,4 +1,11 @@
-import { evaluateSimulationReadiness, type SimulationReadinessSummary } from "@areaforge/core";
+import {
+  draftStageAdjustment,
+  evaluateSimulationReadiness,
+  summarizeSimulationResult,
+  type StageAdjustmentDraft,
+  type SimulationReadinessSummary,
+  type SimulationResultSummary,
+} from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getAnalyticsSummary } from "./analytics-service";
@@ -45,6 +52,10 @@ export interface SimulationStageDraftDto {
     intensityAdjustment: string;
     modeRecommendation: "recovery" | "strengthening" | "simulation_window" | "steady";
     taskActions: string[];
+    risk: StageAdjustmentDraft["risk"];
+    taskIntensity: StageAdjustmentDraft["taskIntensity"];
+    requiresUserConfirmation: true;
+    canAutoApply: false;
     privacyBoundary: string;
   };
 }
@@ -120,6 +131,8 @@ export async function completeSimulationTask(
     select: {
       id: true,
       type: true,
+      estimatedMinutes: true,
+      plannedDate: true,
     },
   });
 
@@ -133,7 +146,10 @@ export async function completeSimulationTask(
       status: "DONE",
       debtStatus: "NONE",
       actualMinutes: input.durationMinutes,
-      reviewText: composeSimulationReview(input),
+      reviewText: composeSimulationReview(
+        input,
+        maybeSummarizeSimulationResult(input, existing.estimatedMinutes, isFirstSimulationTask(existing.plannedDate)),
+      ),
       completedAt: new Date(),
     },
     include: {
@@ -161,7 +177,19 @@ export async function getSimulationStageDraft(now = new Date()): Promise<Simulat
     dueMistakeCount: analytics.totals.dueMistakes,
     hasFirstSimulationDiary: Boolean(motivationVault?.firstSimulationDiary),
   });
-  const modeRecommendation = chooseMode(readiness);
+  const stageAdjustment = draftStageAdjustment({
+    stageGoal: "2026 年 12 月同步全真自测",
+    taskCompletionRate: analytics.totals.weeklyTaskCompletionRate,
+    subjectInvestmentBalance: calculateSubjectInvestmentBalance(analytics.subjects),
+    mistakeReviewRate: calculateMistakeReviewRate(analytics.totals.totalMistakes, analytics.totals.dueMistakes),
+    reviewCompletionRate: analytics.totals.reviewCompletionRate,
+    currentStreakDays: analytics.totals.streakDays,
+    breakCount: analytics.totals.missedDays,
+    lowConversionCount: analytics.totals.lowConversionCount,
+    weakSubjectNames: chooseFocusSubjects(analytics.subjects),
+    simulationScoreRate: null,
+    daysToFinal: daysUntil(new Date("2027-12-20T08:30:00+08:00"), now),
+  });
 
   return {
     simulationNode: {
@@ -173,11 +201,18 @@ export async function getSimulationStageDraft(now = new Date()): Promise<Simulat
     readiness,
     draft: {
       status: "local_rule_fallback",
-      riskConclusion: createRiskConclusion(readiness),
-      focusSubjects: chooseFocusSubjects(analytics.subjects),
-      intensityAdjustment: createIntensityAdjustment(modeRecommendation),
-      modeRecommendation,
-      taskActions: readiness.nextActions,
+      riskConclusion: stageAdjustment.riskConclusion,
+      focusSubjects: stageAdjustment.focusSubjects,
+      intensityAdjustment: stageAdjustment.nextStageEmphasis,
+      modeRecommendation: mapStageAdjustmentMode(stageAdjustment.mode, readiness),
+      taskActions: [
+        ...readiness.nextActions,
+        ...stageAdjustment.taskAdjustmentActions.map(labelStageTaskAction),
+      ].slice(0, 6),
+      risk: stageAdjustment.risk,
+      taskIntensity: stageAdjustment.taskIntensity,
+      requiresUserConfirmation: stageAdjustment.requiresUserConfirmation,
+      canAutoApply: stageAdjustment.canAutoApply,
       privacyBoundary: "本草稿由本地规则生成，不调用外部 AI，不发送动机档案、完整情绪记录或复盘正文。",
     },
   };
@@ -201,7 +236,10 @@ export async function saveFirstSimulationDiary(
   );
 }
 
-function composeSimulationReview(input: CompleteSimulationTaskInput): string {
+function composeSimulationReview(
+  input: CompleteSimulationTaskInput,
+  resultSummary: SimulationResultSummary | null,
+): string {
   const lines = [
     ["目标分", input.targetScore],
     ["实际分", input.actualScore],
@@ -209,6 +247,7 @@ function composeSimulationReview(input: CompleteSimulationTaskInput): string {
     ["空题数量", input.blankCount === undefined ? undefined : `${input.blankCount}`],
     ["失分原因", input.lossReason],
     ["心态记录", input.mindset],
+    ["规则复盘", resultSummary ? formatSimulationResultSummary(resultSummary) : undefined],
     ["考后总结", input.summary],
   ];
 
@@ -216,6 +255,81 @@ function composeSimulationReview(input: CompleteSimulationTaskInput): string {
     .filter(([, value]) => value !== undefined && `${value}`.trim().length > 0)
     .map(([label, value]) => `${label}：${value}`)
     .join("\n");
+}
+
+function maybeSummarizeSimulationResult(
+  input: CompleteSimulationTaskInput,
+  targetDurationMinutes: number,
+  isFirstSynchronizedSimulation: boolean,
+): SimulationResultSummary | null {
+  const targetScore = parseScore(input.targetScore);
+  const actualScore = parseScore(input.actualScore);
+  if (targetScore == null || actualScore == null) return null;
+
+  return summarizeSimulationResult({
+    targetScore,
+    actualScore,
+    targetDurationMinutes,
+    actualDurationMinutes: input.durationMinutes ?? targetDurationMinutes,
+    blankQuestionCount: input.blankCount ?? 0,
+    lossReasons: splitLossReasons(input.lossReason),
+    mood: input.mindset,
+    isFirstSynchronizedSimulation,
+  });
+}
+
+function parseScore(value: string | undefined): number | null {
+  if (!value) return null;
+  const normalized = value.trim();
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+  return Number(normalized);
+}
+
+function splitLossReasons(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/[\n,，;；、]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function isFirstSimulationTask(plannedDate: Date): boolean {
+  return Math.abs(plannedDate.getTime() - simulationDate.getTime()) <= 1000 * 60 * 60 * 24 * 7;
+}
+
+function formatSimulationResultSummary(summary: SimulationResultSummary): string {
+  return [
+    `表现：${labelSimulationPerformance(summary.performance)}，分差 ${summary.scoreGap >= 0 ? "+" : ""}${summary.scoreGap}，达成率 ${Math.round(summary.scoreRate * 100)}%。`,
+    `时间压力：${labelTimePressure(summary.timePressure)}。`,
+    `主要短板：${summary.mainShortfalls.join("、")}。`,
+    `下一步：${summary.nextActions.join(" / ")}`,
+    summary.shouldRecalibratePlan ? "需要重校准阶段计划：是。" : "需要重校准阶段计划：否。",
+    `考后必填：${summary.postSimulationRequiredFields.join("、")}。`,
+  ].join("\n");
+}
+
+function labelSimulationPerformance(performance: SimulationResultSummary["performance"]): string {
+  switch (performance) {
+    case "above_target":
+      return "超过目标";
+    case "near_target":
+      return "接近目标";
+    case "below_target":
+      return "低于目标";
+    case "collapse":
+      return "明显崩盘";
+  }
+}
+
+function labelTimePressure(pressure: SimulationResultSummary["timePressure"]): string {
+  switch (pressure) {
+    case "low":
+      return "低";
+    case "medium":
+      return "中";
+    case "high":
+      return "高";
+  }
 }
 
 async function assertSubjectExists(subjectId: string): Promise<void> {
@@ -226,39 +340,6 @@ async function assertSubjectExists(subjectId: string): Promise<void> {
 
   if (!subject) {
     throw new ApiError("SUBJECT_NOT_FOUND", 404);
-  }
-}
-
-function chooseMode(readiness: SimulationReadinessSummary): SimulationStageDraftDto["draft"]["modeRecommendation"] {
-  if (readiness.level === "simulation_window") return "simulation_window";
-  if (readiness.level === "not_ready") return "recovery";
-  if (readiness.level === "warming_up") return "strengthening";
-  return "steady";
-}
-
-function createRiskConclusion(readiness: SimulationReadinessSummary): string {
-  switch (readiness.level) {
-    case "simulation_window":
-      return "阶段节点已到，目标是完成一次真实压力测试并立刻复盘。";
-    case "ready":
-      return "当前数据支持进入全真自测，但自测后仍必须回到错题和时间分配复盘。";
-    case "warming_up":
-      return "准备度处在启动区，模拟前应先压完成率、复盘率和薄弱点。";
-    case "not_ready":
-      return "当前不适合用分数评价自己，先恢复有效学习和最小闭环。";
-  }
-}
-
-function createIntensityAdjustment(mode: SimulationStageDraftDto["draft"]["modeRecommendation"]): string {
-  switch (mode) {
-    case "simulation_window":
-      return "不再扩新内容，按考试节奏完成模拟，然后当天写阶段日记。";
-    case "recovery":
-      return "降低任务数量，先做 30 到 90 分钟有效学习和错题复盘。";
-    case "strengthening":
-      return "保持任务量克制，优先薄弱节点、到期错题和复盘收口。";
-    case "steady":
-      return "维持当前节奏，可以安排一次完整模拟并补足考后总结。";
   }
 }
 
@@ -280,6 +361,50 @@ function chooseFocusSubjects(
     .map((subject) => subject.subjectName);
 
   return focus.length > 0 ? focus : ["数学", "英语", "408"];
+}
+
+function calculateSubjectInvestmentBalance(subjects: Array<{ share: number }>): number {
+  const maxShare = Math.max(0, ...subjects.map((subject) => subject.share));
+  return Math.max(0, Math.min(1, 1 - maxShare / 100));
+}
+
+function calculateMistakeReviewRate(totalMistakes: number, dueMistakes: number): number {
+  if (totalMistakes <= 0) return 1;
+  return Math.max(0, Math.min(1, 1 - dueMistakes / totalMistakes));
+}
+
+function mapStageAdjustmentMode(
+  mode: StageAdjustmentDraft["mode"],
+  readiness: SimulationReadinessSummary,
+): SimulationStageDraftDto["draft"]["modeRecommendation"] {
+  if (readiness.level === "simulation_window") return "simulation_window";
+  switch (mode) {
+    case "recovery":
+      return "recovery";
+    case "strengthen":
+      return "strengthening";
+    case "sprint":
+      return "simulation_window";
+    case "maintain":
+      return "steady";
+  }
+}
+
+function labelStageTaskAction(action: StageAdjustmentDraft["taskAdjustmentActions"][number]): string {
+  switch (action) {
+    case "split":
+      return "把过大的任务拆小，只保留能完成的最小动作。";
+    case "defer":
+      return "延期低优先级任务，避免挤占有效学习。";
+    case "drop":
+      return "放弃当前阶段低价值任务，先保关键目标。";
+    case "convert_review":
+      return "把低转化任务改成复习或错题任务。";
+    case "simulate":
+      return "安排一次完整模拟，并当天完成复盘。";
+    case "retest":
+      return "对薄弱节点安排复测，补掌握证明。";
+  }
 }
 
 function serializeTask(task: {

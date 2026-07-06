@@ -1,6 +1,6 @@
 # 0009 错题与掌握证明基础版
 
-状态：基础版已启动。当前复用现有 `Mistake`、`SyllabusNode.masteryLevel` 和节点关联，不新增 migration。
+状态：基础版已启动，纯规则基线已补强。当前复用现有 `Mistake`、`SyllabusNode.masteryLevel` 和节点关联，不新增 migration。
 
 ## 目标
 
@@ -40,6 +40,9 @@
 - 新增 `/mistakes` 工作页。
 - 考纲节点展示任务、计时、笔记、错题证据计数。
 - 服务端限制无证据节点不能直接标记 `mastered`。
+- `packages/core/src/mastery-proof.ts` 已提供掌握证明纯规则：按课程/教材、自己的理解、基础题、综合题、错题复盘和 7 天后复测条件，判断允许掌握等级、缺失条件、缺失证据和下一步动作。
+- `packages/core/src/syllabus-map.ts` 已提供作战地图纯规则：按节点状态、掌握等级、证据数、错题数、上次复习间隔、复测和重点标记，推导网格状态、打勾/打叉/星标/警告标记、原因和下一步动作。
+- 考纲服务已把掌握证明和作战地图规则写入 `SyllabusNodeDto`；`/syllabus` 页面已展示地图状态、标记、规则原因、掌握缺口和下一步动作，并用规则判断“掌握”按钮是否可用。
 - 不提供删除错题入口，避免破坏性写操作。
 
 ## 延后到 migration 后
@@ -52,6 +55,9 @@
 
 ## 验证
 
+- `pnpm --filter @areaforge/core test`
+- `pnpm --filter @areaforge/core typecheck`
+- `pnpm --filter @areaforge/web typecheck`
 - `pnpm check`
 - API 烟测：创建错题、更新错因、设置复习时间。
 - 页面烟测：错题列表、考纲节点证据展示。

@@ -1,4 +1,10 @@
-import type { DashboardSnapshot, MotivationWakeSignal, StageLevelSummary } from "@areaforge/core";
+import type {
+  DashboardSnapshot,
+  MasteryProofSummary,
+  MotivationWakeSignal,
+  StageLevelSummary,
+  SyllabusMapSignal,
+} from "@areaforge/core";
 
 export type TaskStatusDto = "todo" | "in_progress" | "done" | "skipped" | "deferred";
 export type TaskPriorityDto = "low" | "medium" | "high" | "critical";
@@ -107,6 +113,8 @@ export interface SyllabusNodeDto {
     noteCount: number;
     mistakeCount: number;
   };
+  masteryProof: MasteryProofSummary;
+  mapSignal: SyllabusMapSignal;
   children: SyllabusNodeDto[];
 }
 
@@ -207,6 +215,7 @@ export interface TodayDashboardDto {
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];
   debtTasks: StudyTaskDto[];
+  visibleRecoveryTasks: StudyTaskDto[];
   activeSession: StudySessionDto | null;
   review: DailyReviewDto | null;
   syllabusOverview: SyllabusOverviewDto[];

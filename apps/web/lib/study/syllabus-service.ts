@@ -1,3 +1,11 @@
+import {
+  evaluateMasteryProof,
+  evaluateSyllabusMapSignal,
+  parseSyllabusMarkdown,
+  type MasteryProofCondition,
+  type MasteryProofLevel,
+  type SyllabusMapNodeStatus,
+} from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import type {
@@ -30,6 +38,18 @@ export interface UpdateSyllabusNodeInput {
   masteryLevel?: MasteryLevelDto | null;
   sortOrder?: number;
   targetMinutes?: number;
+}
+
+export interface ImportSyllabusMarkdownInput {
+  subjectId: string;
+  parentId?: string | null;
+  markdown: string;
+}
+
+export interface ImportSyllabusMarkdownResult {
+  importedCount: number;
+  ignoredLines: number[];
+  nodes: SyllabusNodeDto[];
 }
 
 interface FlatSyllabusNode {
@@ -122,6 +142,85 @@ export async function createSyllabusNode(
   return serializeNode({ ...node, subject: node.subject }, []);
 }
 
+export async function importSyllabusMarkdown(
+  input: ImportSyllabusMarkdownInput,
+  actorId: string,
+): Promise<ImportSyllabusMarkdownResult> {
+  await assertSubjectExists(input.subjectId);
+  if (input.parentId) {
+    await assertSyllabusNodeBelongsToSubject(input.parentId, input.subjectId);
+  }
+
+  const parsed = parseSyllabusMarkdown({
+    markdown: input.markdown,
+    maxLines: 80,
+    maxDepth: 5,
+    maxTitleLength: 120,
+  });
+
+  if (parsed.errors.length > 0) {
+    throw new ApiError("SYLLABUS_MARKDOWN_INVALID", 400);
+  }
+
+  const nodes = await prisma.$transaction(async (tx) => {
+    const createdNodes: SyllabusNodeDto[] = [];
+    const parentByDepth = new Map<number, string>();
+
+    for (const [index, parsedNode] of parsed.nodes.entries()) {
+      const parentId = resolveImportedParentId(parsedNode.depth, input.parentId ?? null, parentByDepth);
+      const node = await tx.syllabusNode.create({
+        data: {
+          subjectId: input.subjectId,
+          parentId,
+          title: parsedNode.title,
+          kind: toDbKind(parsedNode.kind),
+          status: "NOT_STARTED",
+          sortOrder: parsedNode.sourceLine * 10 + index,
+          targetMinutes: 0,
+        },
+        include: {
+          subject: true,
+          _count: {
+            select: {
+              tasks: true,
+              sessions: true,
+              notes: true,
+              mistakes: true,
+            },
+          },
+        },
+      });
+
+      await tx.auditEvent.create({
+        data: {
+          actorId,
+          action: "SYLLABUS_NODE_IMPORTED_MARKDOWN",
+          entityType: "SyllabusNode",
+          entityId: node.id,
+          metadata: {
+            sourceLine: parsedNode.sourceLine,
+            importParentId: input.parentId ?? null,
+          },
+        },
+      });
+
+      parentByDepth.set(parsedNode.depth, node.id);
+      for (const depth of Array.from(parentByDepth.keys())) {
+        if (depth > parsedNode.depth) parentByDepth.delete(depth);
+      }
+      createdNodes.push(serializeNode({ ...node, subject: node.subject }, []));
+    }
+
+    return createdNodes;
+  });
+
+  return {
+    importedCount: nodes.length,
+    ignoredLines: parsed.ignoredLines,
+    nodes,
+  };
+}
+
 export async function updateSyllabusNode(
   id: string,
   input: UpdateSyllabusNodeInput,
@@ -151,7 +250,7 @@ export async function updateSyllabusNode(
   }
 
   if (input.status === "mastered") {
-    await assertNodeHasMasteryEvidence(id);
+    assertNodeCanMarkMastery(existing, input.masteryLevel ?? "learned");
   }
 
   const node = await prisma.syllabusNode.update({
@@ -198,16 +297,23 @@ async function assertSubjectExists(subjectId: string): Promise<void> {
   }
 }
 
-async function assertNodeHasMasteryEvidence(nodeId: string): Promise<void> {
-  const [taskCount, sessionCount, noteCount, mistakeCount] = await Promise.all([
-    prisma.studyTask.count({ where: { syllabusNodeId: nodeId } }),
-    prisma.studySession.count({ where: { syllabusNodeId: nodeId, status: "COMPLETED" } }),
-    prisma.note.count({ where: { syllabusNodeId: nodeId } }),
-    prisma.mistake.count({ where: { syllabusNodeId: nodeId } }),
-  ]);
+function resolveImportedParentId(
+  depth: number,
+  fallbackParentId: string | null,
+  parentByDepth: Map<number, string>,
+): string | null {
+  for (let parentDepth = depth - 1; parentDepth >= 0; parentDepth -= 1) {
+    const parentId = parentByDepth.get(parentDepth);
+    if (parentId) return parentId;
+  }
 
-  if (taskCount + sessionCount + noteCount + mistakeCount === 0) {
-    throw new ApiError("MASTERY_EVIDENCE_REQUIRED", 400);
+  return fallbackParentId;
+}
+
+function assertNodeCanMarkMastery(node: FlatSyllabusNode, requestedLevel: MasteryLevelDto): void {
+  const proof = createMasteryProof(node, requestedLevel);
+  if (!proof.canMarkRequestedLevel) {
+    throw new ApiError("MASTERY_PROOF_REQUIRED", 400);
   }
 }
 
@@ -257,6 +363,15 @@ function buildTree(nodes: FlatSyllabusNode[]): SyllabusNodeDto[] {
 }
 
 function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): SyllabusNodeDto {
+  const masteryLevel = node.masteryLevel ? fromDbMastery(node.masteryLevel) : null;
+  const status = fromDbStatus(node.status);
+  const evidence = {
+    taskCount: node._count?.tasks ?? 0,
+    sessionCount: node._count?.sessions ?? 0,
+    noteCount: node._count?.notes ?? 0,
+    mistakeCount: node._count?.mistakes ?? 0,
+  };
+
   return {
     id: node.id,
     subjectId: node.subjectId,
@@ -265,19 +380,76 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
     parentId: node.parentId,
     title: node.title,
     kind: fromDbKind(node.kind),
-    status: fromDbStatus(node.status),
-    masteryLevel: node.masteryLevel ? fromDbMastery(node.masteryLevel) : null,
+    status,
+    masteryLevel,
     sortOrder: node.sortOrder,
     targetMinutes: node.targetMinutes,
     actualMinutes: node.actualMinutes,
-    evidence: {
-      taskCount: node._count?.tasks ?? 0,
-      sessionCount: node._count?.sessions ?? 0,
-      noteCount: node._count?.notes ?? 0,
-      mistakeCount: node._count?.mistakes ?? 0,
-    },
+    evidence,
+    masteryProof: createMasteryProof(node, masteryLevel ?? "learned"),
+    mapSignal: evaluateSyllabusMapSignal({
+      nodeStatus: status as SyllabusMapNodeStatus,
+      masteryLevel,
+      evidenceCount: evidence.taskCount + evidence.sessionCount + evidence.noteCount + evidence.mistakeCount,
+      mistakeCount: evidence.mistakeCount,
+      retestPassed: masteryLevel === "retest_passed" || masteryLevel === "exam_stable",
+      isHighFrequency: node.kind === "PROBLEM_TYPE",
+      isPersonalFocus: status === "weak" || status === "needs_review",
+    }),
     children,
   };
+}
+
+function createMasteryProof(node: FlatSyllabusNode, requestedLevel: MasteryLevelDto) {
+  const masteryLevel = node.masteryLevel ? fromDbMastery(node.masteryLevel) : null;
+  const evidence = {
+    taskCount: node._count?.tasks ?? 0,
+    sessionCount: node._count?.sessions ?? 0,
+    noteCount: node._count?.notes ?? 0,
+    mistakeCount: node._count?.mistakes ?? 0,
+    reviewedMistakeCount: masteryLevel === "exam_stable" ? node._count?.mistakes ?? 0 : 0,
+    retestPassedCount: masteryLevel === "retest_passed" || masteryLevel === "exam_stable" ? 1 : 0,
+  };
+
+  return evaluateMasteryProof({
+    requestedLevel: requestedLevel as MasteryProofLevel,
+    completedConditions: inferMasteryConditions(node, masteryLevel),
+    evidence,
+  });
+}
+
+function inferMasteryConditions(
+  node: FlatSyllabusNode,
+  masteryLevel: MasteryLevelDto | null,
+): MasteryProofCondition[] {
+  const conditions = new Set<MasteryProofCondition>();
+  const evidenceCount =
+    (node._count?.tasks ?? 0) +
+    (node._count?.sessions ?? 0) +
+    (node._count?.notes ?? 0) +
+    (node._count?.mistakes ?? 0);
+
+  if (node.status !== "NOT_STARTED" || evidenceCount > 0) conditions.add("course_or_textbook");
+  if ((node._count?.notes ?? 0) > 0 || masteryRank(masteryLevel) >= masteryRank("can_explain")) {
+    conditions.add("own_explanation");
+  }
+  if ((node._count?.tasks ?? 0) > 0 || (node._count?.sessions ?? 0) > 0 || masteryRank(masteryLevel) >= masteryRank("basic_exercises")) {
+    conditions.add("basic_exercise");
+  }
+  if (masteryLevel === "exam_stable") {
+    conditions.add("comprehensive_exercise");
+    conditions.add("mistake_reviewed");
+  }
+  if (masteryLevel === "retest_passed" || masteryLevel === "exam_stable") {
+    conditions.add("delayed_retest");
+  }
+
+  return Array.from(conditions);
+}
+
+function masteryRank(level: MasteryLevelDto | null): number {
+  const order: MasteryLevelDto[] = ["seen", "learned", "basic_exercises", "can_explain", "retest_passed", "exam_stable"];
+  return level ? order.indexOf(level) : -1;
 }
 
 function toDbKind(kind: SyllabusNodeKindDto): DbSyllabusNodeKind {

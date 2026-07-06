@@ -39,7 +39,9 @@
 ### 当前低风险进展
 
 - 考纲树、笔记基础 API/UI 已实现。
+- `POST /api/syllabus/import-markdown` 和 `/syllabus` Markdown 导入表单已实现：只新增节点，不删除、不覆盖、不做 AI/PDF 解析；解析规则位于 `packages/core/src/syllabus-import.ts`，限制行数、层级和标题长度。
 - `packages/storage` 已补充纯校验能力：允许 MIME、大小限制、magic bytes 识别、声明 MIME 不一致拦截、安全 storedName/URI 规则和原始文件名元数据清理。
+- `packages/storage` 已补充附件落盘前安全底座纯函数：metadata 草稿、sha256、允许 MIME 解析、安全上传目录路径拼接、目录逃逸判断和私有 `nosniff` 下载响应头生成。
 - 这些能力尚未启用附件上传或文件落盘，只作为后续高风险实现的安全地基。
 
 ### 已允许直接推进
@@ -47,6 +49,7 @@
 - 复用现有 `SyllabusNode`、`Note`、`StudyTask.syllabusNodeId`、`StudySession.syllabusNodeId`。
 - 不做 schema 重设计，不新增 migration。
 - 新增考纲树读取、创建、更新 API。
+- 新增受限 Markdown 考纲导入 API。
 - 新增笔记读取、创建 API。
 - 首页任务创建和专注计时支持关联考纲节点。
 - 新增 `/syllabus` 和 `/notes` 工作页。

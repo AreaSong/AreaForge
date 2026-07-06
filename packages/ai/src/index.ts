@@ -1,34 +1,48 @@
 import { z } from "zod";
 
 export const localFallbackStatus = "local_rule_fallback" as const;
+export const aiGeneratedStatus = "ai_generated" as const;
+export const aiInvalidFallbackStatus = "ai_invalid_fallback" as const;
+export const aiErrorFallbackStatus = "ai_error_fallback" as const;
+
+export const aiAdviceStatusSchema = z.enum([
+  localFallbackStatus,
+  aiGeneratedStatus,
+  aiInvalidFallbackStatus,
+  aiErrorFallbackStatus,
+]);
+
+export type AiAdviceStatus = z.infer<typeof aiAdviceStatusSchema>;
+
+export type AiAdviceKind = "discipline" | "daily_review" | "tomorrow_plan";
 
 export const disciplineAdviceSchema = z.object({
-  status: z.literal(localFallbackStatus).default(localFallbackStatus),
-  line: z.string().min(1),
-  nextAction: z.string().min(1),
-  reason: z.string().min(1),
+  status: aiAdviceStatusSchema.default(localFallbackStatus),
+  line: z.string().min(1).max(500),
+  nextAction: z.string().min(1).max(500),
+  reason: z.string().min(1).max(800),
 });
 
 export type DisciplineAdvice = z.infer<typeof disciplineAdviceSchema>;
 
 export const dailyReviewAdviceSchema = z.object({
-  status: z.literal(localFallbackStatus).default(localFallbackStatus),
-  title: z.string().min(1),
-  observations: z.array(z.string().min(1)).min(1).max(5),
-  nextReviewPrompt: z.string().min(1),
-  reason: z.string().min(1),
+  status: aiAdviceStatusSchema.default(localFallbackStatus),
+  title: z.string().min(1).max(120),
+  observations: z.array(z.string().min(1).max(300)).min(1).max(5),
+  nextReviewPrompt: z.string().min(1).max(500),
+  reason: z.string().min(1).max(800),
 });
 
 export type DailyReviewAdvice = z.infer<typeof dailyReviewAdviceSchema>;
 
 export const tomorrowPlanAdviceSchema = z.object({
-  status: z.literal(localFallbackStatus).default(localFallbackStatus),
-  title: z.string().min(1),
-  minimumTaskTitle: z.string().min(1),
+  status: aiAdviceStatusSchema.default(localFallbackStatus),
+  title: z.string().min(1).max(120),
+  minimumTaskTitle: z.string().min(1).max(160),
   estimatedMinutes: z.number().int().min(5).max(240),
   priority: z.enum(["low", "medium", "high", "critical"]),
-  reason: z.string().min(1),
-  cautions: z.array(z.string().min(1)).max(5),
+  reason: z.string().min(1).max(800),
+  cautions: z.array(z.string().min(1).max(240)).max(5),
 });
 
 export type TomorrowPlanAdvice = z.infer<typeof tomorrowPlanAdviceSchema>;
@@ -57,6 +71,35 @@ export interface TomorrowPlanContext {
   debtCount: number;
   topTaskTitle?: string;
   weakSubject?: string;
+}
+
+export interface AiJsonProviderRequest<TContext> {
+  kind: AiAdviceKind;
+  context: TContext;
+}
+
+export interface AiJsonProvider {
+  externalCall: boolean;
+  generateJson<TContext>(request: AiJsonProviderRequest<TContext>): Promise<unknown>;
+}
+
+export interface GenerateAdviceInput<TContext, TAdvice extends { status: AiAdviceStatus }> {
+  kind: AiAdviceKind;
+  context: TContext;
+  provider?: AiJsonProvider;
+  fallback: (context: TContext) => TAdvice;
+  validate: (value: unknown) => TAdvice;
+}
+
+export interface GenerateAdviceResult<TAdvice> {
+  advice: TAdvice;
+  meta: {
+    status: AiAdviceStatus;
+    externalCall: boolean;
+    sensitiveContextIncluded: boolean;
+    sensitiveContextKeys: string[];
+    reason: string;
+  };
 }
 
 export function createFallbackDisciplineAdvice(context: DisciplineContext): DisciplineAdvice {
@@ -166,4 +209,163 @@ export function validateDailyReviewAdvice(value: unknown): DailyReviewAdvice {
 
 export function validateTomorrowPlanAdvice(value: unknown): TomorrowPlanAdvice {
   return tomorrowPlanAdviceSchema.parse(value);
+}
+
+export async function generateAdviceWithProvider<TContext, TAdvice extends { status: AiAdviceStatus }>(
+  input: GenerateAdviceInput<TContext, TAdvice>,
+): Promise<GenerateAdviceResult<TAdvice>> {
+  const sensitiveContextKeys = findSensitiveContextKeys(input.context);
+
+  if (sensitiveContextKeys.length > 0) {
+    return createFallbackResult({
+      advice: input.fallback(input.context),
+      status: aiErrorFallbackStatus,
+      externalCall: false,
+      sensitiveContextKeys,
+      reason: `AI 上下文包含敏感字段，已拦截外部生成：${sensitiveContextKeys.join(", ")}`,
+    });
+  }
+
+  if (!input.provider) {
+    return createFallbackResult({
+      advice: input.fallback(input.context),
+      status: localFallbackStatus,
+      externalCall: false,
+      sensitiveContextKeys,
+      reason: "AI disabled：当前仅使用本地规则生成结构化建议，没有调用外部 AI。",
+    });
+  }
+
+  try {
+    const generated = await input.provider.generateJson({
+      kind: input.kind,
+      context: input.context,
+    });
+    const advice = input.validate(withAdviceStatus(generated, aiGeneratedStatus));
+
+    return {
+      advice,
+      meta: {
+        status: aiGeneratedStatus,
+        externalCall: input.provider.externalCall,
+        sensitiveContextIncluded: false,
+        sensitiveContextKeys,
+        reason: input.provider.externalCall
+          ? "AI provider 返回结构化建议，输出已通过 schema 校验。"
+          : "Mock AI provider 返回结构化建议，输出已通过 schema 校验。",
+      },
+    };
+  } catch {
+    return createFallbackResult({
+      advice: input.fallback(input.context),
+      status: aiInvalidFallbackStatus,
+      externalCall: input.provider.externalCall,
+      sensitiveContextKeys,
+      reason: "AI provider 输出无效、超时或报错，已回退本地规则建议。",
+    });
+  }
+}
+
+export function createStaticJsonProvider(value: unknown): AiJsonProvider {
+  return {
+    externalCall: false,
+    async generateJson() {
+      return value;
+    },
+  };
+}
+
+export function createThrowingJsonProvider(): AiJsonProvider {
+  return {
+    externalCall: false,
+    async generateJson() {
+      throw new Error("AI_PROVIDER_ERROR");
+    },
+  };
+}
+
+export function findSensitiveContextKeys(value: unknown): string[] {
+  return Array.from(new Set(findSensitiveContextKeysInternal(value))).sort();
+}
+
+function createFallbackResult<TAdvice extends { status: AiAdviceStatus }>(input: {
+  advice: TAdvice;
+  status: AiAdviceStatus;
+  externalCall: boolean;
+  sensitiveContextKeys: string[];
+  reason: string;
+}): GenerateAdviceResult<TAdvice> {
+  return {
+    advice: setAdviceStatus(input.advice, input.status),
+    meta: {
+      status: input.status,
+      externalCall: input.externalCall,
+      sensitiveContextIncluded: input.sensitiveContextKeys.length > 0,
+      sensitiveContextKeys: input.sensitiveContextKeys,
+      reason: input.reason,
+    },
+  };
+}
+
+function setAdviceStatus<TAdvice extends { status: AiAdviceStatus }>(
+  advice: TAdvice,
+  status: AiAdviceStatus,
+): TAdvice {
+  return {
+    ...advice,
+    status,
+  };
+}
+
+function withAdviceStatus(value: unknown, status: AiAdviceStatus): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  return {
+    ...value,
+    status,
+  };
+}
+
+function findSensitiveContextKeysInternal(value: unknown, path = "context"): string[] {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => findSensitiveContextKeysInternal(item, `${path}[${index}]`));
+  }
+
+  return Object.entries(value).flatMap(([key, item]) => {
+    const nextPath = `${path}.${key}`;
+    const current = isSensitiveContextKey(key) ? [nextPath] : [];
+    return [...current, ...findSensitiveContextKeysInternal(item, nextPath)];
+  });
+}
+
+function isSensitiveContextKey(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return [
+    "whystarted",
+    "neverreturnto",
+    "futureself",
+    "messagetofuture",
+    "firstsimulationdiary",
+    "summary",
+    "lostcontrol",
+    "keepaction",
+    "tomorrowminimum",
+    "reviews",
+    "reviewtext",
+    "sessionnote",
+    "note",
+    "content",
+    "attachment",
+    "attachments",
+    "file",
+    "files",
+    "prompt",
+    "apikey",
+  ].includes(normalized);
 }

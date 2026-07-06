@@ -55,7 +55,7 @@ export default async function SimulationPage() {
           <Metric icon={CalendarClock} label="阶段节点" value={`${workspace.stage.simulationNode.daysToSimulation} 天`} sub={formatDate(workspace.stage.simulationNode.date)} />
           <Metric icon={Target} label="准备度" value={`${workspace.stage.readiness.score} 分`} sub={labelReadiness(workspace.stage.readiness.level)} />
           <Metric icon={ListChecks} label="模拟记录" value={`${workspace.tasks.length} 条`} sub={`${workspace.tasks.filter((task) => task.status === "done").length} 条已完成`} />
-          <Metric icon={BrainCircuit} label="草稿状态" value="本地规则" sub="只生成建议，不自动应用" />
+          <Metric icon={BrainCircuit} label="草稿状态" value={labelDraftRisk(workspace.stage.draft.risk)} sub={workspace.stage.draft.canAutoApply ? "可直接应用" : "只生成建议，不自动应用"} />
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
@@ -67,6 +67,9 @@ export default async function SimulationPage() {
               </p>
               <p className="rounded-md border border-sky-300/20 bg-sky-300/10 px-4 py-3 text-sm leading-6 text-sky-50">
                 {workspace.stage.draft.intensityAdjustment}
+              </p>
+              <p className="rounded-md border border-white/10 bg-[#151a20] px-4 py-3 text-sm leading-6 text-zinc-200">
+                任务强度：{labelTaskIntensity(workspace.stage.draft.taskIntensity)} / 应用边界：{workspace.stage.draft.requiresUserConfirmation ? "需要用户确认" : "无需确认"}
               </p>
               <div className="rounded-md border border-white/10 bg-[#151a20] p-4">
                 <p className="text-sm text-zinc-400">重点科目</p>
@@ -90,7 +93,7 @@ export default async function SimulationPage() {
               <p className="rounded-md border border-white/10 bg-[#151a20] px-4 py-3 text-sm leading-6 text-zinc-200">
                 {workspace.stage.readiness.reason}
               </p>
-              {workspace.stage.readiness.nextActions.map((action) => (
+              {workspace.stage.draft.taskActions.map((action) => (
                 <p key={action} className="rounded-md border border-teal-300/20 bg-teal-300/10 px-4 py-3 text-sm leading-6 text-teal-50">
                   {action}
                 </p>
@@ -146,6 +149,36 @@ function labelReadiness(level: string): string {
       return "准备中";
     case "not_ready":
       return "先恢复闭环";
+    default:
+      return "未知";
+  }
+}
+
+function labelDraftRisk(risk: string): string {
+  switch (risk) {
+    case "low":
+      return "低风险";
+    case "medium":
+      return "中风险";
+    case "high":
+      return "高风险";
+    case "critical":
+      return "严重风险";
+    default:
+      return "本地规则";
+  }
+}
+
+function labelTaskIntensity(intensity: string): string {
+  switch (intensity) {
+    case "reduce":
+      return "降载";
+    case "keep":
+      return "维持";
+    case "increase":
+      return "加压";
+    case "sprint":
+      return "冲刺";
     default:
       return "未知";
   }

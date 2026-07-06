@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, FastForward, Plus, X } from "lucide-react";
+import { Check, FastForward, Plus, RotateCcw, Scissors, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import type { StudyTaskDto, SubjectDto, SyllabusNodeDto } from "@/lib/study/types";
@@ -196,6 +196,36 @@ export function TaskPanel({ subjects, tasks, syllabusNodes }: TaskPanelProps) {
               >
                 <FastForward className="h-4 w-4" aria-hidden="true" />
                 延期
+              </button>
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-sky-300/25 px-3 text-sm text-sky-100 hover:bg-sky-400/10"
+                type="button"
+                onClick={() => act(`/api/tasks/${task.id}/recover`, { reviewText: "从任务面板补做" })}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                补做
+              </button>
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-violet-300/25 px-3 text-sm text-violet-100 hover:bg-violet-400/10"
+                type="button"
+                onClick={() =>
+                  act(`/api/tasks/${task.id}/split`, {
+                    title: `${task.title} / 最小推进`,
+                    estimatedMinutes: Math.min(45, Math.max(15, Math.ceil(task.estimatedMinutes / 2))),
+                    reviewText: "从任务面板拆小",
+                  })
+                }
+              >
+                <Scissors className="h-4 w-4" aria-hidden="true" />
+                拆小
+              </button>
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-blue-300/25 px-3 text-sm text-blue-100 hover:bg-blue-400/10"
+                type="button"
+                onClick={() => act(`/api/tasks/${task.id}/convert-review`, { reviewText: "从任务面板改成复习任务" })}
+              >
+                <Check className="h-4 w-4" aria-hidden="true" />
+                改复习
               </button>
               <button
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-red-300/25 px-3 text-sm text-red-100 hover:bg-red-400/10"

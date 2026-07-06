@@ -5,6 +5,7 @@ import {
   evaluateStageLevel,
   evaluateDailyCheckIn,
   getTimerElapsedSeconds,
+  normalizeStudyCloseout,
   type DashboardInput,
   type StudyTaskInput,
 } from "@areaforge/core";
@@ -58,6 +59,24 @@ export interface EndSessionInput {
   nextAction: string;
   note?: string;
   completeTask: boolean;
+}
+
+export interface RecoverTaskInput {
+  plannedDate?: string;
+  reviewText?: string;
+}
+
+export interface SplitTaskInput {
+  title: string;
+  plannedDate?: string;
+  estimatedMinutes: number;
+  reviewText?: string;
+}
+
+export interface ConvertTaskToReviewInput {
+  plannedDate?: string;
+  estimatedMinutes?: number;
+  reviewText?: string;
 }
 
 export interface SaveReviewInput {
@@ -237,13 +256,17 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     reviewSubmitted: Boolean(review),
     taskCompletionRate,
   });
+  const recoveryTaskCandidates = getRecoveryTaskCandidates(taskDtos, debtTaskDtos);
   const recovery = createRecoveryPlan({
     riskState: snapshot.riskState,
     debtCount,
     missedDays,
     effectiveMinutes,
-    topTask: snapshot.topTasks[0],
+    topTask: recoveryTaskCandidates[0] ? toCoreTask(recoveryTaskCandidates[0]) : snapshot.topTasks[0],
   });
+  const visibleRecoveryTasks = recovery.active
+    ? recoveryTaskCandidates.slice(0, recovery.visibleTaskLimit)
+    : taskDtos;
 
   return {
     studyDay: {
@@ -273,6 +296,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     subjects: subjects.map(serializeSubject),
     tasks: taskDtos,
     debtTasks: debtTaskDtos,
+    visibleRecoveryTasks,
     activeSession: activeSession ? serializeSession(activeSession) : null,
     review: review ? serializeReview(review) : null,
     syllabusOverview: subjects.map((subject) => serializeSyllabusOverview(subject)),
@@ -427,6 +451,104 @@ export async function dropStudyTask(id: string, actorId: string): Promise<StudyT
   return serializeTask(task);
 }
 
+export async function recoverStudyTask(id: string, input: RecoverTaskInput, actorId: string): Promise<StudyTaskDto> {
+  const existing = await getTaskForLightweightDebtAction(id);
+  const task = await prisma.studyTask.update({
+    where: { id },
+    data: {
+      status: "TODO",
+      debtStatus: "ACCEPTABLE",
+      plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
+      reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "补做：拉回今天作为恢复任务"),
+      completedAt: null,
+    },
+    include: {
+      subject: true,
+      syllabusNode: true,
+    },
+  });
+
+  await audit(actorId, "STUDY_TASK_RECOVERED", "StudyTask", task.id);
+  return serializeTask(task);
+}
+
+export async function splitStudyTask(id: string, input: SplitTaskInput, actorId: string): Promise<{
+  originalTask: StudyTaskDto;
+  task: StudyTaskDto;
+}> {
+  const existing = await getTaskForLightweightDebtAction(id);
+  const plannedDate = input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start;
+
+  const [originalTask, task] = await prisma.$transaction(async (tx) => {
+    const createdTask = await tx.studyTask.create({
+      data: {
+        subjectId: existing.subjectId,
+        syllabusNodeId: existing.syllabusNodeId,
+        title: input.title,
+        type: existing.type === "simulation_exam" ? "review" : existing.type,
+        status: "TODO",
+        priority: existing.priority,
+        debtStatus: "ACCEPTABLE",
+        plannedDate,
+        estimatedMinutes: input.estimatedMinutes,
+        reviewText: mergeTaskReviewText(null, input.reviewText, `由任务「${existing.title}」拆小而来`),
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    const updatedOriginal = await tx.studyTask.update({
+      where: { id },
+      data: {
+        status: existing.status === "DONE" || existing.status === "SKIPPED" ? existing.status : "DEFERRED",
+        debtStatus: existing.status === "DONE" || existing.status === "SKIPPED" ? existing.debtStatus : "ACCEPTABLE",
+        reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, `拆小：生成「${input.title}」作为最小推进任务`),
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    return [updatedOriginal, createdTask];
+  });
+
+  await audit(actorId, "STUDY_TASK_SPLIT_LIGHTWEIGHT", "StudyTask", task.id);
+  return {
+    originalTask: serializeTask(originalTask),
+    task: serializeTask(task),
+  };
+}
+
+export async function convertStudyTaskToReview(
+  id: string,
+  input: ConvertTaskToReviewInput,
+  actorId: string,
+): Promise<StudyTaskDto> {
+  const existing = await getTaskForLightweightDebtAction(id);
+  const task = await prisma.studyTask.update({
+    where: { id },
+    data: {
+      type: "review",
+      status: "TODO",
+      debtStatus: "ACCEPTABLE",
+      plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
+      estimatedMinutes: input.estimatedMinutes ?? Math.min(90, Math.max(25, existing.estimatedMinutes)),
+      reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "改成复习任务：先复盘产出，再决定是否继续原任务"),
+      completedAt: null,
+    },
+    include: {
+      subject: true,
+      syllabusNode: true,
+    },
+  });
+
+  await audit(actorId, "STUDY_TASK_CONVERTED_TO_REVIEW", "StudyTask", task.id);
+  return serializeTask(task);
+}
+
 export async function getActiveStudySession(): Promise<StudySessionDto | null> {
   const session = await prisma.studySession.findFirst({
     where: {
@@ -562,7 +684,16 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
     accumulatedPauseSeconds: pauseSeconds,
   });
   const effectiveMinutes = Math.max(0, Math.floor(effectiveSeconds / 60));
-  const note = composeSessionCloseout(input);
+  const closeout = normalizeStudyCloseout({
+    minutes: effectiveMinutes,
+    userMarkedEffective: input.isEffective,
+    understandingLevel: input.understandingLevel,
+    minimalOutput: input.minimalOutput,
+    nextAction: input.nextAction,
+    note: input.note,
+  });
+  const isEffective = closeout.isEffective;
+  const note = closeout.closeoutText;
 
   const session = await prisma.studySession.update({
     where: { id },
@@ -573,7 +704,7 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
       accumulatedPauseSeconds: pauseSeconds,
       effectiveMinutes,
       qualityScore: input.qualityScore,
-      isEffective: input.isEffective,
+      isEffective,
       note,
     },
     include: {
@@ -590,8 +721,8 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
         actualMinutes: {
           increment: effectiveMinutes,
         },
-        status: input.completeTask ? "DONE" : "IN_PROGRESS",
-        completedAt: input.completeTask ? now : undefined,
+        status: input.completeTask && isEffective ? "DONE" : "IN_PROGRESS",
+        completedAt: input.completeTask && isEffective ? now : undefined,
       },
     });
   }
@@ -693,6 +824,22 @@ async function assertSubjectExists(subjectId: string): Promise<void> {
   if (!subject) {
     throw new ApiError("SUBJECT_NOT_FOUND", 404);
   }
+}
+
+async function getTaskForLightweightDebtAction(id: string) {
+  const task = await prisma.studyTask.findUnique({
+    where: { id },
+    include: {
+      subject: true,
+      syllabusNode: true,
+    },
+  });
+
+  if (!task) {
+    throw new ApiError("TASK_NOT_FOUND", 404);
+  }
+
+  return task;
 }
 
 async function getTodaySessionMetrics(start: Date, end: Date): Promise<{ totalMinutes: number; effectiveMinutes: number }> {
@@ -909,6 +1056,31 @@ function toCoreTask(task: StudyTaskDto): StudyTaskInput {
   };
 }
 
+function getRecoveryTaskCandidates(todayTasks: StudyTaskDto[], debtTasks: StudyTaskDto[]): StudyTaskDto[] {
+  const seen = new Set<string>();
+  return [...debtTasks, ...todayTasks]
+    .filter((task) => task.status !== "done" && task.status !== "skipped")
+    .filter((task) => {
+      if (seen.has(task.id)) return false;
+      seen.add(task.id);
+      return true;
+    })
+    .sort((left, right) => priorityRank(right.priority) - priorityRank(left.priority));
+}
+
+function priorityRank(priority: StudyTaskDto["priority"]): number {
+  switch (priority) {
+    case "critical":
+      return 4;
+    case "high":
+      return 3;
+    case "medium":
+      return 2;
+    case "low":
+      return 1;
+  }
+}
+
 function normalizeOptionalText(value: string | undefined): string | null {
   const normalized = value?.trim() ?? "";
   return normalized.length > 0 ? normalized : null;
@@ -985,15 +1157,10 @@ function fromDbSessionStatus(status: DbStudySessionStatus): "running" | "paused"
   return status.toLowerCase() as "running" | "paused" | "completed" | "canceled";
 }
 
-function composeSessionCloseout(input: EndSessionInput): string {
-  return [
-    `理解程度：${input.understandingLevel}`,
-    `最小产出：${input.minimalOutput}`,
-    `下一步动作：${input.nextAction}`,
-    input.note ? `补充：${input.note}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+function mergeTaskReviewText(existing: string | null, note: string | undefined, fallback: string): string {
+  const addition = note?.trim() || fallback;
+  const merged = existing?.trim() ? `${existing.trim()}\n${addition}` : addition;
+  return merged.slice(0, 2000);
 }
 
 async function audit(actorId: string, action: string, entityType: string, entityId: string): Promise<void> {

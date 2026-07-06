@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import path from "node:path";
+
 export const defaultAllowedUploadMimeTypes = [
   "image/png",
   "image/jpeg",
@@ -12,6 +15,15 @@ export interface UploadPolicy {
   allowedMimeTypes: readonly string[];
 }
 
+export interface AttachmentMetadataDraft {
+  originalName: string;
+  storedName: string;
+  mimeType: AllowedUploadMimeType;
+  sizeBytes: number;
+  hash: string;
+  uri: string;
+}
+
 export interface UploadValidationResult {
   allowed: boolean;
   detectedMimeType: AllowedUploadMimeType | null;
@@ -24,12 +36,39 @@ export interface UploadValidationResult {
     | "declared_mime_mismatch";
 }
 
+export type AttachmentMetadataDraftResult =
+  | {
+      ok: true;
+      draft: AttachmentMetadataDraft;
+      validation: UploadValidationResult;
+    }
+  | {
+      ok: false;
+      draft: null;
+      validation: UploadValidationResult;
+    };
+
+export interface SafeAttachmentPath {
+  uploadRoot: string;
+  filePath: string;
+}
+
+export interface AttachmentResponseHeaderInput {
+  mimeType: string;
+  originalName: string;
+  sizeBytes?: number;
+  disposition?: "attachment" | "inline";
+}
+
 const attachmentUriPrefix = "upload://attachment/";
 
-export function createUploadPolicy(maxUploadMb: number): UploadPolicy {
+export function createUploadPolicy(
+  maxUploadMb: number,
+  allowedMimeTypes: readonly string[] = defaultAllowedUploadMimeTypes,
+): UploadPolicy {
   return {
     maxBytes: maxUploadMb * 1024 * 1024,
-    allowedMimeTypes: defaultAllowedUploadMimeTypes,
+    allowedMimeTypes,
   };
 }
 
@@ -90,6 +129,49 @@ export function validateUploadBytes(
   return { allowed: true, detectedMimeType, reason: "ok" };
 }
 
+export function createAttachmentMetadataDraft(input: {
+  bytes: Uint8Array;
+  declaredMimeType?: string | null;
+  originalName: string;
+  randomId: string;
+  policy: UploadPolicy;
+}): AttachmentMetadataDraftResult {
+  const validation = validateUploadBytes(input.bytes, input.declaredMimeType, input.policy);
+  if (!validation.allowed || !validation.detectedMimeType) {
+    return {
+      ok: false,
+      draft: null,
+      validation,
+    };
+  }
+
+  const storedName = createStoredAttachmentName(input.randomId, validation.detectedMimeType);
+  return {
+    ok: true,
+    draft: {
+      originalName: normalizeOriginalFileName(input.originalName),
+      storedName,
+      mimeType: validation.detectedMimeType,
+      sizeBytes: input.bytes.length,
+      hash: createSha256Hex(input.bytes),
+      uri: createAttachmentUri(storedName),
+    },
+    validation,
+  };
+}
+
+export function parseAllowedUploadMimeTypes(value: string | null | undefined): readonly string[] {
+  if (!value) return defaultAllowedUploadMimeTypes;
+
+  const allowed = new Set(defaultAllowedUploadMimeTypes);
+  const parsed = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => allowed.has(item as AllowedUploadMimeType));
+
+  return parsed.length > 0 ? Array.from(new Set(parsed)) : defaultAllowedUploadMimeTypes;
+}
+
 export function createStoredAttachmentName(randomId: string, mimeType: AllowedUploadMimeType): string {
   if (!/^[a-zA-Z0-9_-]{16,}$/.test(randomId)) {
     throw new Error("UNSAFE_STORAGE_ID");
@@ -121,8 +203,63 @@ export function normalizeOriginalFileName(name: string): string {
   return normalized.slice(0, 180) || "attachment";
 }
 
+export function createSafeAttachmentFilePath(uploadDir: string, storedName: string): SafeAttachmentPath {
+  if (!isSafeStoredAttachmentName(storedName)) {
+    throw new Error("UNSAFE_STORED_NAME");
+  }
+
+  const uploadRoot = path.resolve(uploadDir);
+  if (!path.isAbsolute(uploadRoot) || uploadRoot === path.parse(uploadRoot).root) {
+    throw new Error("UNSAFE_UPLOAD_DIR");
+  }
+
+  const filePath = path.resolve(uploadRoot, storedName);
+  if (!isPathInsideDirectory(uploadRoot, filePath)) {
+    throw new Error("UPLOAD_PATH_ESCAPE");
+  }
+
+  return {
+    uploadRoot,
+    filePath,
+  };
+}
+
+export function isPathInsideDirectory(parentDir: string, childPath: string): boolean {
+  const relativePath = path.relative(path.resolve(parentDir), path.resolve(childPath));
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+export function createAttachmentResponseHeaders(input: AttachmentResponseHeaderInput): Record<string, string> {
+  const originalName = normalizeOriginalFileName(input.originalName);
+  const disposition = input.disposition ?? "attachment";
+  const headers: Record<string, string> = {
+    "Content-Type": input.mimeType,
+    "Content-Disposition": createContentDisposition(disposition, originalName),
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+  };
+
+  if (input.sizeBytes !== undefined) {
+    headers["Content-Length"] = String(input.sizeBytes);
+  }
+
+  return headers;
+}
+
 export function isSafeStoredAttachmentName(storedName: string): boolean {
   return /^[a-zA-Z0-9_-]{16,}\.(png|jpg|webp|pdf)$/.test(storedName);
+}
+
+function createSha256Hex(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function createContentDisposition(disposition: "attachment" | "inline", fileName: string): string {
+  const asciiName = fileName
+    .replace(/[^\x20-\x7e]/g, "_")
+    .replace(/[\\"]/g, "_")
+    .trim() || "attachment";
+  return `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
 function extensionForMimeType(mimeType: AllowedUploadMimeType): "png" | "jpg" | "webp" | "pdf" {

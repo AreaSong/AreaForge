@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  aiErrorFallbackStatus,
+  aiGeneratedStatus,
+  aiInvalidFallbackStatus,
   createFallbackDailyReviewAdvice,
   createFallbackDisciplineAdvice,
   createFallbackTomorrowPlanAdvice,
+  createStaticJsonProvider,
+  createThrowingJsonProvider,
+  findSensitiveContextKeys,
+  generateAdviceWithProvider,
   validateDailyReviewAdvice,
   validateDisciplineAdvice,
   validateTomorrowPlanAdvice,
@@ -48,4 +55,128 @@ test("fallback tomorrow plan narrows recovery days", () => {
   assert.equal(validateTomorrowPlanAdvice(advice).priority, "critical");
   assert.equal(advice.estimatedMinutes, 30);
   assert.match(advice.minimumTaskTitle, /数学错题复盘/);
+});
+
+test("mock provider success is validated as ai generated output", async () => {
+  const result = await generateAdviceWithProvider({
+    kind: "discipline",
+    context: {
+      phase: "基础唤醒期",
+      riskState: "stable",
+      streakDays: 3,
+      taskCompletionRate: 0.6,
+      effectiveMinutes: 80,
+    },
+    provider: createStaticJsonProvider({
+      line: "保持推进，但别扩任务。",
+      nextAction: "先完成一段 45 分钟计时。",
+      reason: "mock structured result",
+    }),
+    fallback: createFallbackDisciplineAdvice,
+    validate: validateDisciplineAdvice,
+  });
+
+  assert.equal(result.meta.status, aiGeneratedStatus);
+  assert.equal(result.meta.externalCall, false);
+  assert.equal(result.advice.status, aiGeneratedStatus);
+  assert.equal(result.advice.line, "保持推进，但别扩任务。");
+});
+
+test("mock provider invalid output falls back without breaking advice shape", async () => {
+  const result = await generateAdviceWithProvider({
+    kind: "tomorrow_plan",
+    context: {
+      riskState: "stable",
+      recoveryActive: false,
+      debtCount: 0,
+      weakSubject: "英语",
+    },
+    provider: createStaticJsonProvider({
+      title: "",
+      minimumTaskTitle: "bad",
+      estimatedMinutes: 999,
+      priority: "urgent",
+      reason: "",
+      cautions: [],
+    }),
+    fallback: createFallbackTomorrowPlanAdvice,
+    validate: validateTomorrowPlanAdvice,
+  });
+
+  assert.equal(result.meta.status, aiInvalidFallbackStatus);
+  assert.equal(result.advice.status, aiInvalidFallbackStatus);
+  assert.equal(result.advice.priority, "medium");
+  assert.match(result.meta.reason, /回退/);
+});
+
+test("provider errors fall back to local rules", async () => {
+  const result = await generateAdviceWithProvider({
+    kind: "daily_review",
+    context: {
+      totalMinutes: 120,
+      effectiveMinutes: 40,
+      taskCompletionRate: 0.2,
+      lowConversionCount: 1,
+      reviewSubmitted: false,
+      moodTag: "很累",
+    },
+    provider: createThrowingJsonProvider(),
+    fallback: createFallbackDailyReviewAdvice,
+    validate: validateDailyReviewAdvice,
+  });
+
+  assert.equal(result.meta.status, aiInvalidFallbackStatus);
+  assert.equal(result.meta.externalCall, false);
+  assert.match(result.advice.nextReviewPrompt, /3 句话/);
+});
+
+test("sensitive context is blocked before provider execution", async () => {
+  let called = false;
+  const result = await generateAdviceWithProvider({
+    kind: "daily_review",
+    context: {
+      totalMinutes: 20,
+      effectiveMinutes: 0,
+      taskCompletionRate: 0,
+      lowConversionCount: 0,
+      reviewSubmitted: true,
+      moodTag: "焦虑",
+      summary: "这是一段完整复盘正文，不能进入外部 AI 上下文。",
+      whyStarted: "动机档案也不能默认发送。",
+    },
+    provider: {
+      externalCall: true,
+      async generateJson() {
+        called = true;
+        return {};
+      },
+    },
+    fallback: createFallbackDailyReviewAdvice,
+    validate: validateDailyReviewAdvice,
+  });
+
+  assert.equal(called, false);
+  assert.equal(result.meta.status, aiErrorFallbackStatus);
+  assert.equal(result.meta.externalCall, false);
+  assert.equal(result.meta.sensitiveContextIncluded, true);
+  assert.deepEqual(result.meta.sensitiveContextKeys, ["context.summary", "context.whyStarted"]);
+});
+
+test("sensitive context finder detects nested private fields", () => {
+  assert.deepEqual(
+    findSensitiveContextKeys({
+      safe: {
+        value: 1,
+      },
+      nested: {
+        firstSimulationDiary: "private",
+      },
+      tasks: [
+        {
+          reviewText: "private",
+        },
+      ],
+    }),
+    ["context.nested.firstSimulationDiary", "context.tasks[0].reviewText"],
+  );
 });

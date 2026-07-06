@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  createAttachmentMetadataDraft,
+  createAttachmentResponseHeaders,
   createAttachmentUri,
+  createSafeAttachmentFilePath,
   createStoredAttachmentName,
   createUploadPolicy,
   detectUploadMimeType,
   isAllowedUpload,
+  isPathInsideDirectory,
   normalizeOriginalFileName,
+  parseAllowedUploadMimeTypes,
   parseAttachmentUri,
   validateUploadBytes,
 } from "./index";
@@ -57,4 +62,77 @@ test("stored attachment names and URIs reject path traversal inputs", () => {
 test("normalizeOriginalFileName keeps metadata only and drops paths", () => {
   assert.equal(normalizeOriginalFileName("../notes/final.pdf"), "final.pdf");
   assert.equal(normalizeOriginalFileName(""), "attachment");
+});
+
+test("createAttachmentMetadataDraft prepares safe metadata without file writes", () => {
+  const policy = createUploadPolicy(1);
+  const result = createAttachmentMetadataDraft({
+    bytes: pdf,
+    declaredMimeType: "application/pdf",
+    originalName: "../private/考研资料.pdf",
+    randomId: "abcDEF1234567890",
+    policy,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.validation.reason, "ok");
+  if (!result.ok) throw new Error("expected draft");
+
+  assert.equal(result.draft.originalName, "考研资料.pdf");
+  assert.equal(result.draft.storedName, "abcDEF1234567890.pdf");
+  assert.equal(result.draft.mimeType, "application/pdf");
+  assert.equal(result.draft.sizeBytes, pdf.length);
+  assert.equal(result.draft.hash.length, 64);
+  assert.equal(result.draft.uri, "upload://attachment/abcDEF1234567890.pdf");
+});
+
+test("createAttachmentMetadataDraft returns validation failure without metadata", () => {
+  const result = createAttachmentMetadataDraft({
+    bytes: png,
+    declaredMimeType: "application/pdf",
+    originalName: "spoof.pdf",
+    randomId: "abcDEF1234567890",
+    policy: createUploadPolicy(1),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.draft, null);
+  assert.equal(result.validation.reason, "declared_mime_mismatch");
+});
+
+test("parseAllowedUploadMimeTypes ignores unsupported env values", () => {
+  assert.deepEqual(parseAllowedUploadMimeTypes("image/png,text/html,image/png"), ["image/png"]);
+  assert.deepEqual(parseAllowedUploadMimeTypes("text/html,application/x-msdownload"), [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "application/pdf",
+  ]);
+});
+
+test("createSafeAttachmentFilePath keeps files inside upload root", () => {
+  const resolved = createSafeAttachmentFilePath("/app/uploads", "abcDEF1234567890.png");
+
+  assert.equal(resolved.uploadRoot, "/app/uploads");
+  assert.equal(resolved.filePath, "/app/uploads/abcDEF1234567890.png");
+  assert.equal(isPathInsideDirectory("/app/uploads", "/app/uploads/abcDEF1234567890.png"), true);
+  assert.equal(isPathInsideDirectory("/app/uploads", "/app/uploads-next/abcDEF1234567890.png"), false);
+  assert.throws(() => createSafeAttachmentFilePath("/", "abcDEF1234567890.png"), /UNSAFE_UPLOAD_DIR/);
+  assert.throws(() => createSafeAttachmentFilePath("/app/uploads", "../abcDEF1234567890.png"), /UNSAFE_STORED_NAME/);
+});
+
+test("createAttachmentResponseHeaders emits private nosniff download headers", () => {
+  const headers = createAttachmentResponseHeaders({
+    mimeType: "application/pdf",
+    originalName: "../资料 \"final\".pdf",
+    sizeBytes: 7,
+  });
+
+  assert.equal(headers["Content-Type"], "application/pdf");
+  assert.equal(headers["Cache-Control"], "private, no-store");
+  assert.equal(headers["X-Content-Type-Options"], "nosniff");
+  assert.equal(headers["Content-Length"], "7");
+  assert.match(headers["Content-Disposition"], /^attachment;/);
+  assert.match(headers["Content-Disposition"], /filename="[^"]*_final_\.pdf"/);
+  assert.match(headers["Content-Disposition"], /filename\*=UTF-8''/);
 });

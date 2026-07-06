@@ -41,6 +41,7 @@ export default async function Home() {
   ]);
   const { metrics, snapshot } = dashboard;
   const themeClass = getThemeShellClass(snapshot.themeState);
+  const visibleTasks = dashboard.recovery.active ? dashboard.visibleRecoveryTasks : dashboard.tasks;
 
   return (
     <main className={`min-h-screen text-zinc-100 ${themeClass}`}>
@@ -127,7 +128,7 @@ export default async function Home() {
           <FocusTimer
             key={dashboard.activeSession?.id ?? "idle"}
             subjects={dashboard.subjects}
-            tasks={dashboard.tasks}
+            tasks={visibleTasks}
             syllabusNodes={syllabusNodes}
             activeSession={dashboard.activeSession}
           />
@@ -179,7 +180,7 @@ export default async function Home() {
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-          <TaskPanel subjects={dashboard.subjects} tasks={dashboard.tasks} syllabusNodes={syllabusNodes} />
+          <TaskPanel subjects={dashboard.subjects} tasks={visibleTasks} syllabusNodes={syllabusNodes} />
 
           <div className="rounded-lg border border-white/10 bg-[#101419] p-5">
             <SectionTitle icon={BookOpen} title="考纲作战地图" />

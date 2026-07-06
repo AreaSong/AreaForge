@@ -55,6 +55,7 @@ export interface AnalyticsSummaryDto {
     dueMistakes: number;
     dueNotes: number;
     weakNodeCount: number;
+    lowConversionCount: number;
   };
   daily: AnalyticsDailyPointDto[];
   subjects: AnalyticsSubjectShareDto[];
@@ -195,6 +196,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
   const reviewCompletionRate = reviews.length / weekDays;
   const streakDays = calculateStreak(daily);
   const missedDays = daily.filter((point) => point.effectiveMinutes === 0).length;
+  const lowConversionCount = sessions.filter((session) => session.isEffective === false).length;
   const weakNodeMap = new Map(weakNodes.map((node) => [node.id, node]));
 
   for (const node of reviewRiskNodes) {
@@ -239,6 +241,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
       dueMistakes: dueMistakes.length,
       dueNotes: dueNotes.length,
       weakNodeCount: weakNodeMap.size,
+      lowConversionCount,
     },
     daily,
     subjects: buildSubjectShares(subjects, sessions),

@@ -38,6 +38,10 @@ Nginx -> web container -> PostgreSQL
 - `AI_BASE_URL`
 - `AI_API_KEY`
 - `AI_MODEL`
+- `AI_TIMEOUT_MS`
+- `AI_MAX_RETRIES`
+- `AI_LOG_PROMPTS`
+- `AI_ALLOW_SENSITIVE_CONTEXT`
 - `UPLOAD_DIR`
 - `MAX_UPLOAD_MB`
 

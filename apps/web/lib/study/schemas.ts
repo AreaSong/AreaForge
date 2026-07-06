@@ -26,6 +26,12 @@ export const createSyllabusNodeSchema = z.object({
   targetMinutes: z.number().int().min(0).max(100000).default(0),
 });
 
+export const importSyllabusMarkdownSchema = z.object({
+  subjectId: z.string().min(1),
+  parentId: z.string().min(1).nullable().optional(),
+  markdown: z.string().trim().min(1).max(20000),
+});
+
 export const updateSyllabusNodeSchema = z.object({
   parentId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(120).optional(),
@@ -152,6 +158,24 @@ export const completeTaskSchema = z.object({
 
 export const deferTaskSchema = z.object({
   plannedDate: z.string().datetime().optional(),
+  reviewText: z.string().trim().max(2000).optional(),
+});
+
+export const recoverTaskSchema = z.object({
+  plannedDate: z.string().datetime().optional(),
+  reviewText: z.string().trim().max(2000).optional(),
+});
+
+export const splitTaskSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  plannedDate: z.string().datetime().optional(),
+  estimatedMinutes: z.number().int().min(5).max(240).default(30),
+  reviewText: z.string().trim().max(2000).optional(),
+});
+
+export const convertTaskToReviewSchema = z.object({
+  plannedDate: z.string().datetime().optional(),
+  estimatedMinutes: z.number().int().min(5).max(240).optional(),
   reviewText: z.string().trim().max(2000).optional(),
 });
 

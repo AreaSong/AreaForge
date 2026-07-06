@@ -1,6 +1,6 @@
 # 0008 任务债务、打卡、反假学习与恢复模式
 
-状态：低风险规则层已启动。当前只使用已有任务、计时和复盘数据推导打卡、恢复建议、欠账预览和低转化信号；未新增 migration。
+状态：低风险规则层已收口到可继续推进 migration 前的基线。当前只使用已有任务、计时和复盘数据推导打卡、恢复建议、欠账预览和低转化信号；未新增 migration。
 
 ## 目标
 
@@ -44,14 +44,21 @@
 ## 当前进展
 
 - `packages/core` 已补充打卡判断和恢复计划纯函数。
+- `packages/core/src/study-integrity.ts` 已补充结构化计时收口归一、近窗打卡历史汇总和轻量任务债务动作总结纯函数，用于后续 `CheckIn`、结构化收口字段和债务事件账本 migration 前的规则基线。
 - 首页已展示打卡连续性原因、恢复模式建议和欠账预览。
-- Dashboard API 已返回 `checkIn`、`recovery`、`debtTasks` 和低转化次数。
-- 后续仍需正式实现补做/拆小/改复习任务、结构化反假问题、恢复模式任务裁剪和必要 migration 方案。
+- Dashboard API 已返回 `checkIn`、`recovery`、`debtTasks`、`visibleRecoveryTasks` 和低转化次数。
+- 恢复模式已对首页任务入口做低风险裁剪：只把最小可执行任务传给计时器和任务面板，不删除原任务。
+- 已新增任务轻量流转 API/UI：补做、拆小、改成复习任务；当前复用 `StudyTask` 现有字段和 `reviewText` 备注，不代表完整债务事件账本。
+- 计时结束已接入反假学习规则，结果写入现有 `StudySession.isEffective` 和文本化 `note`。
+- 后续仍需结构化反假问题、持久化 `CheckIn`、债务事件账本、恢复模式状态和必要 migration 方案。
 
 ## 验证
 
+- `pnpm --filter @areaforge/core test`
+- `pnpm --filter @areaforge/core typecheck`
+- `pnpm --filter @areaforge/web typecheck`
 - `pnpm check`
-- API 烟测：完成、延期、放弃和补做路径可用。
+- API 烟测：完成、延期、放弃、补做、拆小、改复习和计时收口路径可用。
 - 页面烟测：首页正常、断签警报和恢复模式状态可读。
 
 ## 风险

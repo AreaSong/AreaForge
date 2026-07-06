@@ -47,6 +47,11 @@
 - `POST /api/tasks/:id/complete`
 - `POST /api/tasks/:id/defer`
 - `POST /api/tasks/:id/drop`
+- `POST /api/tasks/:id/recover`
+- `POST /api/tasks/:id/split`
+- `POST /api/tasks/:id/convert-review`
+
+当前补做、拆小和改复习任务复用 `StudyTask` 现有字段，只记录轻量备注，不代表完整任务债务事件账本已经落地。完整父子关系、债务处理历史和重排采纳记录仍需 migration 后推进。
 
 ### Timer
 
@@ -62,6 +67,7 @@
 - 状态变化时写入。
 - 支持刷新页面后恢复 active session。
 - 同一用户第一版只允许一个 active session。
+- 计时结束会基于现有收口字段运行反假学习规则，当前结果写入 `StudySession.isEffective` 和文本化 `note`；结构化收口字段仍需 migration。
 
 ### Syllabus
 
@@ -69,6 +75,8 @@
 - `POST /api/syllabus/nodes`
 - `PATCH /api/syllabus/nodes/:id`
 - `POST /api/syllabus/import-markdown`
+
+Markdown 导入只解析标题和列表，创建新的 `SyllabusNode`，不删除、不覆盖、不调用 AI，也不解析 PDF。当前限制行数、层级和标题长度，失败时不写入任何节点。
 
 ### Notes / Attachments
 
@@ -117,3 +125,4 @@
 
 AI API 只返回建议，不直接修改用户原始数据。
 当前 AI API 在 `AI_ENABLED=false` 时只返回 `local_rule_fallback` 本地规则建议，不调用外部 AI，不发送动机档案、完整情绪记录或完整复盘正文。
+AI 建议结构已预留 `ai_generated`、`ai_invalid_fallback` 和 `ai_error_fallback` 状态，用于后续真实 provider 接入后的成功、校验失败和错误回退；当前生产路径仍不发起外部请求。

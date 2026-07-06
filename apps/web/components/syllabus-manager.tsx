@@ -34,6 +34,8 @@ export function SyllabusManager({ subjects, nodes }: SyllabusManagerProps) {
   const [status, setStatus] = useState<SyllabusNodeStatusDto>("not_started");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [targetMinutes, setTargetMinutes] = useState(45);
+  const [importMarkdown, setImportMarkdown] = useState("");
+  const [importNotice, setImportNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -50,6 +52,7 @@ export function SyllabusManager({ subjects, nodes }: SyllabusManagerProps) {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setImportNotice(null);
 
     const response = await fetch("/api/syllabus/nodes", {
       method: "POST",
@@ -72,6 +75,35 @@ export function SyllabusManager({ subjects, nodes }: SyllabusManagerProps) {
 
     setTitle("");
     setParentId("");
+    startTransition(() => router.refresh());
+  }
+
+  async function submitImport(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setImportNotice(null);
+
+    const response = await fetch("/api/syllabus/import-markdown", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectId,
+        parentId: parentId || null,
+        markdown: importMarkdown,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(body?.error ?? "导入考纲失败");
+      return;
+    }
+
+    const body = (await response.json()) as { import?: { importedCount: number; ignoredLines: number[] } };
+    const importedCount = body.import?.importedCount ?? 0;
+    const ignoredCount = body.import?.ignoredLines.length ?? 0;
+    setImportMarkdown("");
+    setImportNotice(`已导入 ${importedCount} 个节点${ignoredCount > 0 ? `，忽略 ${ignoredCount} 行` : ""}。`);
     startTransition(() => router.refresh());
   }
 
@@ -185,6 +217,28 @@ export function SyllabusManager({ subjects, nodes }: SyllabusManagerProps) {
         </form>
 
         {error ? <p className="mt-4 text-sm text-red-200">{error}</p> : null}
+
+        <div className="mt-6 border-t border-white/10 pt-5">
+          <h3 className="text-sm font-medium text-zinc-100">Markdown 导入</h3>
+          <form className="mt-3 grid gap-3" onSubmit={submitImport}>
+            <textarea
+              className="min-h-36 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
+              value={importMarkdown}
+              onChange={(event) => setImportMarkdown(event.target.value)}
+              placeholder={"# 第一章\n## 极限\n- 极限定义\n  - 夹逼准则"}
+              required
+            />
+            <button
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-teal-300/25 px-4 font-medium text-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
+              type="submit"
+              disabled={isPending || !subjectId || importMarkdown.trim().length === 0}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              导入节点
+            </button>
+          </form>
+          {importNotice ? <p className="mt-3 text-sm text-teal-200">{importNotice}</p> : null}
+        </div>
       </section>
 
       <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
@@ -283,8 +337,8 @@ function SyllabusTreeNode({
   onUpdate: (id: string, body: Partial<{ status: SyllabusNodeStatusDto; masteryLevel: MasteryLevelDto | null; targetMinutes: number }>) => Promise<void>;
 }) {
   const progress = node.targetMinutes === 0 ? 0 : Math.min(100, Math.round((node.actualMinutes / node.targetMinutes) * 100));
-  const evidenceCount =
-    node.evidence.taskCount + node.evidence.sessionCount + node.evidence.noteCount + node.evidence.mistakeCount;
+  const evidenceCount = node.masteryProof.evidenceCount;
+  const canMarkLearned = node.masteryProof.canMarkRequestedLevel;
 
   return (
     <article className="rounded-md border border-white/10 bg-[#151a20] p-4">
@@ -301,7 +355,11 @@ function SyllabusTreeNode({
             证据：任务 {node.evidence.taskCount} / 计时 {node.evidence.sessionCount} / 笔记 {node.evidence.noteCount} / 错题 {node.evidence.mistakeCount}
           </p>
           {node.masteryLevel ? <p className="mt-1 text-xs text-teal-200">掌握等级：{labelMastery(node.masteryLevel)}</p> : null}
-          <p className="mt-2 text-xs text-zinc-400">{nodeActionHint(node, evidenceCount)}</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            地图：{labelMapCell(node.mapSignal.cellStatus)} / 标记：{node.mapSignal.markers.map(labelMapMarker).join("、") || "无"}
+          </p>
+          <p className="mt-2 text-xs text-zinc-400">{node.mapSignal.nextAction}</p>
+          <p className="mt-1 text-xs text-zinc-500">{node.masteryProof.nextAction}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <select
@@ -315,8 +373,8 @@ function SyllabusTreeNode({
             className="inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10"
             type="button"
             onClick={() => onUpdate(node.id, { status: "mastered", masteryLevel: "learned" })}
-            disabled={evidenceCount === 0}
-            title={evidenceCount === 0 ? "需要至少一条任务、计时、笔记或错题证据" : "标记为掌握"}
+            disabled={!canMarkLearned}
+            title={canMarkLearned ? "标记为掌握" : node.masteryProof.nextAction}
           >
             <Save className="h-4 w-4" aria-hidden="true" />
             掌握
@@ -328,6 +386,19 @@ function SyllabusTreeNode({
           还没有掌握证据，不能直接标记掌握。
         </p>
       ) : null}
+      {evidenceCount > 0 && !canMarkLearned ? (
+        <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+          掌握证明还缺：{[
+            ...node.masteryProof.missingConditions.map(labelMasteryCondition),
+            ...node.masteryProof.missingEvidence,
+          ].join("、")}
+        </p>
+      ) : null}
+      <div className="mt-3 grid gap-1 text-xs text-zinc-500">
+        {node.mapSignal.reasons.slice(0, 2).map((reason) => (
+          <p key={reason}>{reason}</p>
+        ))}
+      </div>
       <div className="mt-3 h-2 rounded-md bg-white/10">
         <div className="h-2 rounded-md bg-teal-400" style={{ width: `${progress}%` }} />
       </div>
@@ -452,21 +523,53 @@ function labelStatus(status: SyllabusNodeStatusDto): string {
   }
 }
 
-function nodeActionHint(node: SyllabusNodeDto, evidenceCount: number): string {
-  switch (node.status) {
+function labelMapCell(status: SyllabusNodeDto["mapSignal"]["cellStatus"]): string {
+  switch (status) {
     case "not_started":
-      return "下一步：为这个节点创建任务，完成一次计时或笔记后再推进状态。";
+      return "未开始";
     case "learning":
-      return "下一步：继续计时，并留下一个可检查产出。";
+      return "学习中";
     case "covered":
-      return evidenceCount > 0 ? "下一步：安排复测，确认是否能标记掌握。" : "下一步：补一条任务、计时、笔记或错题证据。";
-    case "needs_review":
-      return "下一步：查看到期笔记或错题，完成一次复习后更新状态。";
-    case "mastered":
-      return "下一步：保持复测节奏，避免只凭印象掌握。";
+      return "已覆盖";
+    case "verified":
+      return "已验证";
     case "weak":
-      return "下一步：先复盘错题，再补一条能讲清楚的笔记。";
+      return "薄弱";
+    case "forgetting_risk":
+      return "遗忘风险";
+    case "mistake_hotspot":
+      return "错题高发";
     case "deferred":
-      return "下一步：确认是否继续暂缓，或重新排入明日最小任务。";
+      return "暂缓";
+  }
+}
+
+function labelMapMarker(marker: SyllabusNodeDto["mapSignal"]["markers"][number]): string {
+  switch (marker) {
+    case "check":
+      return "打勾";
+    case "cross":
+      return "打叉";
+    case "star":
+      return "星标";
+    case "warning":
+      return "警告";
+  }
+}
+
+function labelMasteryCondition(condition: SyllabusNodeDto["masteryProof"]["missingConditions"][number]): string {
+  switch (condition) {
+    case "course_or_textbook":
+      return "看完课程或教材";
+    case "own_explanation":
+      return "自己的理解";
+    case "basic_exercise":
+      return "基础题";
+    case "comprehensive_exercise":
+      return "综合题";
+    case "mistake_reviewed":
+      return "错题复盘";
+    case "delayed_retest":
+      return "7 天后复测";
   }
 }

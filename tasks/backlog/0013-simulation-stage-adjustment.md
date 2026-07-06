@@ -37,6 +37,10 @@
 
 - 已启动无 migration 基础入口：使用 `StudyTask.type = "simulation_exam"` 保存模拟考试任务与文本化结果，不新增 `SimulationExam` 表。
 - 已新增本地规则阶段草稿入口：根据近 7 天统计、薄弱节点、到期错题和第一次全真日记状态生成准备度和下一步动作，不调用外部 AI。
+- `packages/core/src/simulation-result.ts` 已提供模拟考试结果纯规则：按目标分、实际分、用时、空题、失分原因、心态和是否第一次同步自测，生成分差、表现等级、时间压力、主要短板、下一步动作、是否需要重校准计划和考后必填字段。
+- `packages/core/src/stage-adjustment.ts` 已提供阶段调整纯规则：根据阶段目标、任务完成率、科目投入均衡、错题复盘率、复盘完成率、连续性、断签、低转化、薄弱科目、模拟分数和终局倒计时，生成恢复/强化/冲刺/维持模式、风险结论、重点科目、任务强度和待确认动作；规则明确 `canAutoApply=false`。
+- 模拟考试保存结果时已接入模拟结果复盘纯规则，并把分差、达成率、时间压力、主要短板、下一步动作、是否需要重校准计划和考后必填项写入现有文本化 `reviewText`。
+- `/simulation` 阶段调整草稿已接入 `draftStageAdjustment`，展示风险等级、任务强度、重点科目、待确认动作和“只生成建议，不自动应用”边界。
 - 已新增第一次全真自测阶段日记保存入口：写入 `MotivationVault.firstSimulationDiary`。
 - 该进展只能算低风险基础版，不能替代完整结构化模拟考试模型。
 
@@ -48,6 +52,9 @@
 
 ## 验证
 
+- `pnpm --filter @areaforge/core test`
+- `pnpm --filter @areaforge/core typecheck`
+- `pnpm --filter @areaforge/web typecheck`
 - `pnpm check`
 - API 烟测：创建模拟考试、保存结果、生成复盘。
 - 页面烟测：模拟考试列表、详情和阶段调整草稿。
