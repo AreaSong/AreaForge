@@ -13,7 +13,10 @@ export const serverEnvSchema = z.object({
   APP_URL: z.string().url().default("http://127.0.0.1:3000"),
   APP_VERSION: z.string().default("0.1.0"),
   DATABASE_URL: z.string().min(1),
-  NEXTAUTH_SECRET: z.string().min(16),
+  AUTH_SESSION_COOKIE_NAME: z.string().default("af_session"),
+  AUTH_SESSION_SECRET: z.string().min(32),
+  AUTH_ADMIN_EMAIL: z.string().email().optional(),
+  AUTH_ADMIN_PASSWORD_HASH: z.string().optional(),
   AI_ENABLED: booleanFromString.default(false),
   AI_BASE_URL: z.string().url().optional(),
   AI_API_KEY: z.string().optional(),
@@ -32,4 +35,3 @@ export type ServerEnv = z.infer<typeof serverEnvSchema>;
 export function parseServerEnv(env: NodeJS.ProcessEnv): ServerEnv {
   return serverEnvSchema.parse(env);
 }
-

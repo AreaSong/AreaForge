@@ -10,7 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@areaforge/ai": "workspace:*",
+    "@areaforge/config": "workspace:*",
     "@areaforge/core": "workspace:*",
+    "@areaforge/db": "workspace:*",
+    "@areaforge/storage": "workspace:*",
     "@areaforge/ui": "workspace:*",
     "lucide-react": "^0.561.0",
     "next": "16.2.10",

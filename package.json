@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.28.2",
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev": "pnpm --filter @areaforge/web dev",
     "build": "pnpm --filter @areaforge/web build",
@@ -14,6 +14,7 @@
     "check": "pnpm typecheck && pnpm lint && pnpm db:validate && pnpm build",
     "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma generate",
     "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma validate",
+    "db:migrate:diff:empty": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script",
     "db:migrate:dev": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy"
   },

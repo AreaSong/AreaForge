@@ -8,15 +8,23 @@
 
 ## 源事实
 
-- 产品定位与功能边界：`AreaForge产品方案.md` 与 `docs/product/**`。
-- 工程结构与分层：`AreaForge工程结构方案.md` 与 `docs/architecture/**`。
+- 产品定位与功能边界：`docs/product/**`。
+- 工程结构与分层：`docs/architecture/**`。
+- 业务模块设计：`docs/modules/**`。
+- 页面状态与交互：`docs/ux/**`。
+- 开发顺序与验证门禁：`docs/development/**`。
+- 部署、备份与恢复：`docs/deployment/**`。
+- 安全边界与威胁模型：`docs/security/**`。
 - 技术决策：`docs/adr/**`。
-- 轻量任务：`tasks/**`。
-- 版本规划：`workflow/**`。
+- 轻量任务拆分：`tasks/**`；为空或冲突时，以 `docs/development/implementation-order.md` 为准。
+- 版本规划：`workflow/**`；为空或冲突时，以 `docs/product/roadmap.md` 为准。
 
 ## 工作原则
 
 - 先读方案、上下文和最近的局部 `AGENTS.md`，再改代码。
+- 开发前协作流程遵循 `docs/development/codex-workflow.md`。
+- 文档或入口变更后，按 `docs/development/doc-sync-checklist.md` 检查漂移。
+- 验证选择遵循 `docs/development/validation-matrix.md`。
 - 第一版围绕“计划任务 -> 专注计时 -> 关联大纲 -> 产出笔记/错题 -> 晚间复盘 -> AI 鞭策 -> 明日调整”闭环。
 - `packages/core` 放平台无关业务规则，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量。
 - `packages/db` 集中数据库访问；页面和组件不直接调用 Prisma。
@@ -34,10 +42,11 @@
 - 网页内触发部署、执行服务器命令、一键更新。
 - 将动机档案、情绪记录、复盘正文发送给 AI 的默认策略变化。
 
+文件上传、附件访问、AI 调用和备份恢复的细化安全边界见 `docs/security/file-ai-safety.md`。
+
 ## 验证要求
 
 - 常规代码改动：运行 `pnpm check`，若耗时或环境不允许，至少运行相关 `typecheck`、`lint`、`db:validate`、`build`。
 - `packages/core` 规则改动：补充或运行对应单元测试。
 - UI 改动：能启动时用浏览器或截图检查主要页面状态。
 - Prisma schema 改动：运行 `pnpm db:validate`。
-

@@ -8,7 +8,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-areaforge}:${POSTGRES_PASSWORD:-areaforge}@postgres:5432/${POSTGRES_DB:-areaforge}
       APP_URL: ${APP_URL:-http://127.0.0.1:3000}
       APP_VERSION: ${APP_VERSION:-0.1.0}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local-development-secret-change-me}
+      AUTH_SESSION_COOKIE_NAME: ${AUTH_SESSION_COOKIE_NAME:-af_session}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-local-development-secret-change-me}
       AI_ENABLED: ${AI_ENABLED:-false}
       AI_BASE_URL: ${AI_BASE_URL:-https://sub2api.example.com/v1}
       AI_API_KEY: ${AI_API_KEY:-}
@@ -18,7 +19,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
     volumes:
       - areaforge-uploads:/app/uploads
 
@@ -30,7 +31,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-areaforge}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-areaforge}
     ports:
-      - "54329:5432"
+      - "127.0.0.1:54329:5432"
     volumes:
       - areaforge-postgres-data:/var/lib/postgresql/data
     healthcheck:
