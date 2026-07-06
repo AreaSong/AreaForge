@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@areaforge/ai": "workspace:*",
+    "@areaforge/auth": "workspace:*",
     "@areaforge/config": "workspace:*",
     "@areaforge/core": "workspace:*",
     "@areaforge/db": "workspace:*",
@@ -19,7 +20,8 @@
     "lucide-react": "^0.561.0",
     "next": "16.2.10",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

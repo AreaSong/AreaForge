@@ -1,118 +1,232 @@
 "use client";
 
-import { Pause, Play, RotateCcw, Square } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Pause, Play, Square } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { getTimerElapsedSeconds, type TimerStatus } from "@areaforge/core";
+import type { StudySessionDto, StudyTaskDto, SubjectDto, SyllabusNodeDto } from "@/lib/study/types";
 
 interface FocusTimerProps {
-  subject: string;
-  taskTitle: string;
-  syllabusNode: string;
+  subjects: SubjectDto[];
+  tasks: StudyTaskDto[];
+  syllabusNodes: SyllabusNodeDto[];
+  activeSession: StudySessionDto | null;
 }
 
-export function FocusTimer({ subject, taskTitle, syllabusNode }: FocusTimerProps) {
-  const [status, setStatus] = useState<TimerStatus>("idle");
-  const [startedAt, setStartedAt] = useState<Date | undefined>();
-  const [pausedAt, setPausedAt] = useState<Date | undefined>();
-  const [endedAt, setEndedAt] = useState<Date | undefined>();
-  const [accumulatedPauseSeconds, setAccumulatedPauseSeconds] = useState(0);
+interface FlatNode {
+  id: string;
+  subjectId: string;
+  title: string;
+  depth: number;
+}
+
+export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession }: FocusTimerProps) {
+  const router = useRouter();
+  const [session, setSession] = useState(activeSession);
+  const [selectedTaskId, setSelectedTaskId] = useState(tasks.find((task) => task.status !== "done")?.id ?? "");
+  const [selectedSubjectId, setSelectedSubjectId] = useState(subjects[0]?.id ?? "");
+  const [selectedSyllabusNodeId, setSelectedSyllabusNodeId] = useState("");
+  const [isEnding, setIsEnding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [isPending, startTransition] = useTransition();
+  const flatNodes = useMemo(() => flattenNodes(syllabusNodes), [syllabusNodes]);
+
+  const timerStatus: TimerStatus = isEnding
+    ? "ending"
+    : session?.status === "running" || session?.status === "paused"
+      ? session.status
+      : "idle";
 
   useEffect(() => {
-    if (status !== "running") return;
+    if (timerStatus !== "running") return;
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
-  }, [status]);
+  }, [timerStatus]);
 
-  const elapsedSeconds = useMemo(
-    () =>
-      getTimerElapsedSeconds({
-        status,
-        startedAt,
-        pausedAt,
-        endedAt,
-        accumulatedPauseSeconds,
-        now,
-      }),
-    [accumulatedPauseSeconds, endedAt, now, pausedAt, startedAt, status],
-  );
+  const elapsedSeconds = useMemo(() => {
+    if (!session) return 0;
 
-  const isFocused = status === "running" || status === "paused";
+    return getTimerElapsedSeconds({
+      status: timerStatus,
+      startedAt: new Date(session.startedAt),
+      pausedAt: session.pausedAt ? new Date(session.pausedAt) : undefined,
+      endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
+      accumulatedPauseSeconds: session.accumulatedPauseSeconds,
+      now,
+    });
+  }, [now, session, timerStatus]);
 
-  function start() {
-    const next = new Date();
-    setStartedAt(next);
-    setPausedAt(undefined);
-    setEndedAt(undefined);
-    setAccumulatedPauseSeconds(0);
-    setNow(next);
-    setStatus("running");
+  const activeTask = tasks.find((task) => task.id === selectedTaskId);
+  const resolvedSubjectId = activeTask?.subjectId ?? selectedSubjectId;
+  const nodeOptions = flatNodes.filter((node) => node.subjectId === resolvedSubjectId);
+  const canStart = Boolean(selectedTaskId || selectedSubjectId);
+  const title = session?.taskTitle ?? activeTask?.title ?? "选择任务后开始";
+  const subject = session?.subjectName ?? activeTask?.subjectName ?? subjects.find((item) => item.id === selectedSubjectId)?.name ?? "未选择科目";
+  const selectedNodeTitle = flatNodes.find((node) => node.id === selectedSyllabusNodeId)?.title;
+  const syllabusNode = session?.syllabusNodeTitle ?? activeTask?.syllabusNodeTitle ?? selectedNodeTitle ?? "未关联考纲节点";
+  const isFocused = timerStatus === "running" || timerStatus === "paused" || timerStatus === "ending";
+
+  async function mutate(path: string, body?: unknown) {
+    setError(null);
+    const response = await fetch(path, {
+      method: "POST",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = (await response.json().catch(() => null)) as { session?: StudySessionDto; error?: string } | null;
+    if (!response.ok) throw new Error(data?.error ?? "请求失败");
+    if (data?.session) setSession(data.session);
+    startTransition(() => router.refresh());
   }
 
-  function pause() {
-    setPausedAt(new Date());
-    setStatus("paused");
-  }
-
-  function resume() {
-    if (pausedAt) {
-      setAccumulatedPauseSeconds((value) => value + Math.floor((Date.now() - pausedAt.getTime()) / 1000));
+  async function start() {
+    try {
+      await mutate(
+        "/api/study-sessions/start",
+        selectedTaskId
+          ? { taskId: selectedTaskId }
+          : { subjectId: selectedSubjectId, syllabusNodeId: selectedSyllabusNodeId || null },
+      );
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "开始失败");
     }
-    setPausedAt(undefined);
-    setNow(new Date());
-    setStatus("running");
   }
 
-  function end() {
-    setEndedAt(new Date());
-    setPausedAt(undefined);
-    setStatus("completed");
+  async function pause() {
+    if (!session) return;
+    try {
+      await mutate(`/api/study-sessions/${session.id}/pause`);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "暂停失败");
+    }
   }
 
-  function reset() {
-    setStartedAt(undefined);
-    setPausedAt(undefined);
-    setEndedAt(undefined);
-    setAccumulatedPauseSeconds(0);
-    setNow(new Date());
-    setStatus("idle");
+  async function resume() {
+    if (!session) return;
+    try {
+      await mutate(`/api/study-sessions/${session.id}/resume`);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "继续失败");
+    }
+  }
+
+  async function end(formData: FormData) {
+    if (!session) return;
+    try {
+      await mutate(`/api/study-sessions/${session.id}/end`, {
+        qualityScore: Number(formData.get("qualityScore")),
+        isEffective: formData.get("isEffective") === "true",
+        understandingLevel: String(formData.get("understandingLevel") ?? ""),
+        minimalOutput: String(formData.get("minimalOutput") ?? ""),
+        nextAction: String(formData.get("nextAction") ?? ""),
+        note: String(formData.get("note") ?? ""),
+        completeTask: formData.get("completeTask") === "on",
+      });
+      setSession(null);
+      setIsEnding(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "结束失败");
+    }
   }
 
   return (
     <section
       className={`rounded-lg border bg-[#101419] p-5 transition-all duration-300 ${
-        isFocused ? "border-teal-300/50 shadow-[0_0_0_1px_rgba(45,212,191,0.28)] lg:col-span-1" : "border-white/10"
+        isFocused ? "border-teal-300/50 shadow-[0_0_0_1px_rgba(45,212,191,0.28)]" : "border-white/10"
       }`}
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm text-teal-300">{subject}</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{taskTitle}</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{title}</h2>
           <p className="mt-2 text-sm text-zinc-400">{syllabusNode}</p>
         </div>
         <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
-          {labelStatus(status)}
+          {labelStatus(timerStatus)}
         </span>
       </div>
 
-      <div className={`mt-7 grid gap-5 ${isFocused ? "lg:grid-cols-[1fr_0.6fr]" : ""}`}>
+      <div className={`mt-7 grid gap-5 ${isFocused ? "lg:grid-cols-[1fr_0.82fr]" : ""}`}>
         <div className="rounded-lg border border-white/10 bg-[#151a20] p-5">
           <p className="text-sm text-zinc-500">本次专注</p>
           <p className={`${isFocused ? "text-6xl" : "text-5xl"} mt-3 font-semibold tabular-nums text-white`}>
             {formatElapsed(elapsedSeconds)}
           </p>
+
+          {!session ? (
+            <div className="mt-5 grid gap-3">
+              <label className="grid gap-2 text-sm text-zinc-300">
+                任务
+                <select
+                  className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
+                  value={selectedTaskId}
+                  onChange={(event) => {
+                    setSelectedTaskId(event.target.value);
+                    setSelectedSyllabusNodeId("");
+                  }}
+                >
+                  <option value="">不关联任务</option>
+                  {tasks
+                    .filter((task) => task.status !== "done" && task.status !== "skipped")
+                    .map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {task.subjectName} / {task.title}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm text-zinc-300">
+                科目
+                <select
+                  className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
+                  value={selectedSubjectId}
+                  onChange={(event) => {
+                    setSelectedSubjectId(event.target.value);
+                    setSelectedSyllabusNodeId("");
+                  }}
+                  disabled={Boolean(selectedTaskId)}
+                >
+                  {subjects.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm text-zinc-300">
+                考纲节点
+                <select
+                  className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
+                  value={selectedSyllabusNodeId}
+                  onChange={(event) => setSelectedSyllabusNodeId(event.target.value)}
+                  disabled={Boolean(selectedTaskId)}
+                >
+                  <option value="">{activeTask?.syllabusNodeTitle ?? "不关联考纲节点"}</option>
+                  {nodeOptions.map((node) => (
+                    <option key={node.id} value={node.id}>
+                      {"  ".repeat(node.depth)}
+                      {node.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
+
           <div className="mt-5 flex flex-wrap gap-3">
-            {status === "idle" || status === "completed" ? (
+            {!session ? (
               <button
-                className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] transition hover:bg-teal-300"
+                className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] transition hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
                 onClick={start}
+                disabled={!canStart || isPending}
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
                 开始
               </button>
             ) : null}
-            {status === "running" ? (
+            {timerStatus === "running" ? (
               <button
                 className="inline-flex h-11 items-center gap-2 rounded-md border border-white/10 px-4 font-medium text-zinc-100 transition hover:bg-white/10"
                 type="button"
@@ -122,7 +236,7 @@ export function FocusTimer({ subject, taskTitle, syllabusNode }: FocusTimerProps
                 暂停
               </button>
             ) : null}
-            {status === "paused" ? (
+            {timerStatus === "paused" ? (
               <button
                 className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] transition hover:bg-teal-300"
                 type="button"
@@ -132,37 +246,80 @@ export function FocusTimer({ subject, taskTitle, syllabusNode }: FocusTimerProps
                 继续
               </button>
             ) : null}
-            {status === "running" || status === "paused" ? (
+            {timerStatus === "running" || timerStatus === "paused" ? (
               <button
                 className="inline-flex h-11 items-center gap-2 rounded-md border border-red-300/30 px-4 font-medium text-red-100 transition hover:bg-red-400/10"
                 type="button"
-                onClick={end}
+                onClick={() => setIsEnding(true)}
               >
                 <Square className="h-4 w-4" aria-hidden="true" />
                 结束
               </button>
             ) : null}
-            {status === "completed" ? (
-              <button
-                className="inline-flex h-11 items-center gap-2 rounded-md border border-white/10 px-4 font-medium text-zinc-100 transition hover:bg-white/10"
-                type="button"
-                onClick={reset}
-              >
-                <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                重置
-              </button>
-            ) : null}
           </div>
+          {error ? <p className="mt-4 text-sm text-red-200">{error}</p> : null}
         </div>
 
         <div className="rounded-lg border border-white/10 bg-[#151a20] p-5">
           <p className="text-sm text-zinc-500">结束后收口</p>
-          <div className="mt-4 grid gap-3 text-sm text-zinc-300">
-            <p>质量评分：未填写</p>
-            <p>理解程度：未标记</p>
-            <p>最小产出：未提交</p>
-            <p>关联进度：线性表 / 链表基本操作</p>
-          </div>
+          {isEnding ? (
+            <form action={end} className="mt-4 grid gap-3">
+              <label className="grid gap-2 text-sm text-zinc-300">
+                学习质量
+                <select name="qualityScore" className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100">
+                  <option value="5">5 / 很扎实</option>
+                  <option value="4">4 / 有推进</option>
+                  <option value="3">3 / 勉强有效</option>
+                  <option value="2">2 / 转化偏低</option>
+                  <option value="1">1 / 基本无效</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm text-zinc-300">
+                是否有效学习
+                <select name="isEffective" className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100">
+                  <option value="true">有效</option>
+                  <option value="false">低转化，需要补产出</option>
+                </select>
+              </label>
+              <input
+                className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+                name="understandingLevel"
+                placeholder="理解程度"
+                required
+              />
+              <textarea
+                className="min-h-20 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm text-zinc-100"
+                name="minimalOutput"
+                placeholder="最小产出"
+                required
+              />
+              <input
+                className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+                name="nextAction"
+                placeholder="下一步动作"
+                required
+              />
+              <textarea
+                className="min-h-16 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm text-zinc-100"
+                name="note"
+                placeholder="补充记录"
+              />
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <input name="completeTask" type="checkbox" className="h-4 w-4" />
+                同时完成关联任务
+              </label>
+              <button className="h-11 rounded-md bg-teal-400 px-4 font-medium text-[#071011]" type="submit">
+                保存收口
+              </button>
+            </form>
+          ) : (
+            <div className="mt-4 grid gap-3 text-sm text-zinc-300">
+              <p>质量评分：{session?.qualityScore ?? "未填写"}</p>
+              <p>是否有效：{session?.isEffective == null ? "未标记" : session.isEffective ? "有效" : "低转化"}</p>
+              <p>最小产出：{session?.note ? "已提交" : "未提交"}</p>
+              <p>关联进度：{syllabusNode}</p>
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -191,3 +348,14 @@ function formatElapsed(seconds: number): string {
   return [hours, minutes, remainingSeconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
+function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {
+  return nodes.flatMap((node) => [
+    {
+      id: node.id,
+      subjectId: node.subjectId,
+      title: node.title,
+      depth,
+    },
+    ...flattenNodes(node.children, depth + 1),
+  ]);
+}

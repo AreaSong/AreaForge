@@ -1,6 +1,6 @@
 # 0002 单管理员登录与初始化数据
 
-状态：待启动。认证、会话和 seed 属于高风险边界，开始实现前必须先说明影响、风险、验证和回滚思路。
+状态：已完成。认证、会话和 seed 属于高风险边界，本任务已按影响、风险、验证和回滚思路完成实现与烟测。
 
 ## 目标
 
@@ -79,10 +79,16 @@
 
 ## 验证
 
-- `pnpm db:validate`
-- `pnpm db:migrate:dev`
-- `pnpm db:generate`
-- `pnpm check`
-- 浏览器手动烟测：未登录访问首页、登录成功、登录失败、注销、刷新后保持登录。
-- API 手动烟测：未登录访问受保护 API 返回 401 或跳转，登录后可访问。
-- seed 重复执行验证：管理员不重复，科目不重复，默认不覆盖已有密码。
+- `DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54330/areaforge AUTH_SESSION_SECRET=local-development-secret-change-me pnpm db:validate`
+- `DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54330/areaforge AUTH_SESSION_SECRET=local-development-secret-change-me pnpm db:migrate:dev`
+- `DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54330/areaforge AUTH_SESSION_SECRET=local-development-secret-change-me pnpm db:generate`
+- `DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54330/areaforge AUTH_SESSION_SECRET=local-development-secret-change-me pnpm -r --if-present typecheck`
+- `DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54330/areaforge AUTH_SESSION_SECRET=local-development-secret-change-me pnpm check`
+- `pnpm install --frozen-lockfile`
+- `docker compose config`
+- `POSTGRES_DB=areaforge POSTGRES_USER=areaforge POSTGRES_PASSWORD=areaforge APP_URL=http://127.0.0.1:3000 AUTH_SESSION_SECRET=local-development-secret-change-me docker compose -f docker-compose.prod.yml config`
+- `git diff --check`
+- 旧引用扫描只剩 `docs/architecture/auth-security.md` 中“不引入 NextAuth”的设计说明。
+- `pnpm db:seed` 重复执行通过；当前本地库验证为 1 个管理员、7 个科目。
+- API 烟测通过：未登录访问首页返回 `307 -> /login`；登录成功返回最小用户信息；Cookie 写入 `af_session` 且为 `HttpOnly`；`GET /api/auth/me` 登录后返回用户、注销后返回 `401`；注销返回 `{"ok":true}`。
+- 登录限速烟测通过：连续错误密码第 6 次返回 `429 {"error":"TOO_MANY_ATTEMPTS","retryAfterSeconds":600}`。

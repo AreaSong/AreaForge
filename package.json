@@ -12,16 +12,19 @@
     "typecheck": "pnpm db:generate && pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "check": "pnpm typecheck && pnpm lint && pnpm db:validate && pnpm build",
+    "auth:hash": "tsx scripts/auth/hash-password.ts",
     "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma generate",
     "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma validate",
     "db:migrate:diff:empty": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script",
     "db:migrate:dev": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy"
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "tsx scripts/db/seed.ts"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "dotenv": "^17.2.3",
     "prisma": "^7.6.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }
 }

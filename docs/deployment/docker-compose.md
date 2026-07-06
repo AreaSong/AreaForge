@@ -16,10 +16,17 @@
 
 ## 本地开发
 
-本地使用 `docker-compose.yml`。PostgreSQL 映射到宿主机 `127.0.0.1:54329`，和 `.env.example`、根脚本默认 `DATABASE_URL` 一致：
+本地使用 `docker-compose.yml`。PostgreSQL 默认映射到宿主机 `127.0.0.1:54329`，和 `.env.example`、根脚本默认 `DATABASE_URL` 一致：
 
 ```bash
 docker compose up -d postgres
+```
+
+如果 54329 已被其他项目占用，可以临时换端口：
+
+```bash
+POSTGRES_PORT=54330 docker compose up -d postgres
+DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54330/areaforge pnpm db:migrate:dev
 ```
 
 Web 开发仍推荐本机运行：

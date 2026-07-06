@@ -27,6 +27,18 @@
 
 - `GET /api/dashboard/today`
 
+### Analytics
+
+- `GET /api/analytics/summary`
+
+统计 API 只读派生，不写统计快照表。第一版从任务、计时、复盘、错题、笔记和考纲节点实时计算近 7 天统计、风险提醒与下一步动作。
+
+### Reports
+
+- `GET /api/reports/periodic`
+
+周期报告 API 只读派生，不写报告快照表。第一版返回周审判和月复盘数据报告、规则策略和本地规则复盘草稿；默认不把长期记录、情绪记录或动机档案发送给 AI。
+
 ### Tasks
 
 - `GET /api/tasks`
@@ -67,10 +79,35 @@
 
 附件不通过 public 直接暴露，必须走鉴权接口。
 
+### Mistakes
+
+- `GET /api/mistakes`
+- `POST /api/mistakes`
+- `PATCH /api/mistakes/:id`
+
+错题用于记录错因、正确思路和下次复习时间，可关联科目和考纲节点。第一版不提供默认删除入口。
+
 ### Review
 
 - `GET /api/reviews/today`
 - `POST /api/reviews/today`
+
+### Motivation / Stage
+
+- `GET /api/motivation-vault`
+- `POST /api/motivation-vault`
+
+动机档案只用于用户主动查看和关键节点唤醒。默认不进入 AI 上下文，首页只展示唤醒信号，不展示动机正文。
+
+### Simulation
+
+- `GET /api/simulation/tasks`
+- `POST /api/simulation/tasks`
+- `POST /api/simulation/tasks/:id/complete`
+- `GET /api/simulation/stage`
+- `POST /api/simulation/first-diary`
+
+当前模拟考试入口复用 `StudyTask.type = "simulation_exam"` 和 `MotivationVault.firstSimulationDiary`，不代表完整 `SimulationExam` 表已经落地。结构化模拟考试结果、阶段计划应用记录和 AI 阶段调整建议仍需 migration 与 AI 隐私边界确认后推进。
 
 ### AI
 
@@ -79,3 +116,4 @@
 - `POST /api/ai/tomorrow-plan`
 
 AI API 只返回建议，不直接修改用户原始数据。
+当前 AI API 在 `AI_ENABLED=false` 时只返回 `local_rule_fallback` 本地规则建议，不调用外部 AI，不发送动机档案、完整情绪记录或完整复盘正文。

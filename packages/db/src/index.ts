@@ -14,11 +14,21 @@ export function createPrismaClient(connectionString = process.env.DATABASE_URL):
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export function getPrismaClient(): PrismaClient {
+  const client = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = client;
+  }
+
+  return client;
 }
 
-export type { PrismaClient };
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, property, receiver) {
+    const value = Reflect.get(getPrismaClient(), property, receiver);
+    return typeof value === "function" ? value.bind(getPrismaClient()) : value;
+  },
+});
 
+export type { PrismaClient };

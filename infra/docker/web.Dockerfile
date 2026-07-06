@@ -8,6 +8,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
+COPY packages/auth/package.json packages/auth/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/ai/package.json packages/ai/package.json
@@ -31,4 +32,3 @@ USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 CMD ["node", "apps/web/server.js"]
-

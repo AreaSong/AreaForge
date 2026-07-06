@@ -90,6 +90,21 @@ model User {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   auditEvents  AuditEvent[]
+  sessions     AuthSession[]
+}
+
+model AuthSession {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Subject {
@@ -277,4 +292,3 @@ model AuditEvent {
   @@index([actorId])
   @@index([entityType, entityId])
 }
-

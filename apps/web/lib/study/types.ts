@@ -1,0 +1,219 @@
+import type { DashboardSnapshot, MotivationWakeSignal, StageLevelSummary } from "@areaforge/core";
+
+export type TaskStatusDto = "todo" | "in_progress" | "done" | "skipped" | "deferred";
+export type TaskPriorityDto = "low" | "medium" | "high" | "critical";
+export type StudySessionStatusDto = "running" | "paused" | "completed" | "canceled";
+export type SyllabusNodeKindDto = "subject" | "chapter" | "topic" | "problem_type";
+export type SyllabusNodeStatusDto =
+  | "not_started"
+  | "learning"
+  | "covered"
+  | "needs_review"
+  | "mastered"
+  | "weak"
+  | "deferred";
+export type MasteryLevelDto =
+  | "seen"
+  | "learned"
+  | "basic_exercises"
+  | "can_explain"
+  | "retest_passed"
+  | "exam_stable";
+export type NoteMasteryStatusDto = "understood" | "partial" | "unknown" | "relearn" | "before_exam";
+export type MistakeCauseDto =
+  | "unknown"
+  | "concept_confusion"
+  | "formula_unfamiliar"
+  | "wrong_approach"
+  | "careless"
+  | "time_pressure"
+  | "unfamiliar_pattern";
+
+export interface SubjectDto {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+}
+
+export interface StudyTaskDto {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  subjectColor: string;
+  syllabusNodeId: string | null;
+  syllabusNodeTitle: string | null;
+  title: string;
+  type: string;
+  status: TaskStatusDto;
+  priority: TaskPriorityDto;
+  debtStatus: string;
+  plannedDate: string;
+  estimatedMinutes: number;
+  actualMinutes: number;
+  reviewText: string | null;
+  completedAt: string | null;
+}
+
+export interface StudySessionDto {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  taskId: string | null;
+  taskTitle: string | null;
+  syllabusNodeId: string | null;
+  syllabusNodeTitle: string | null;
+  status: StudySessionStatusDto;
+  startedAt: string;
+  pausedAt: string | null;
+  endedAt: string | null;
+  accumulatedPauseSeconds: number;
+  effectiveMinutes: number;
+  qualityScore: number | null;
+  isEffective: boolean | null;
+  note: string | null;
+}
+
+export interface DailyReviewDto {
+  id: string;
+  reviewDate: string;
+  totalMinutes: number;
+  effectiveMinutes: number;
+  summary: string | null;
+  lostControl: string | null;
+  keepAction: string | null;
+  tomorrowMinimum: string | null;
+  mood: string | null;
+  aiSuggestion: string | null;
+}
+
+export interface SyllabusNodeDto {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  subjectColor: string;
+  parentId: string | null;
+  title: string;
+  kind: SyllabusNodeKindDto;
+  status: SyllabusNodeStatusDto;
+  masteryLevel: MasteryLevelDto | null;
+  sortOrder: number;
+  targetMinutes: number;
+  actualMinutes: number;
+  evidence: {
+    taskCount: number;
+    sessionCount: number;
+    noteCount: number;
+    mistakeCount: number;
+  };
+  children: SyllabusNodeDto[];
+}
+
+export interface AttachmentDto {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  hash: string;
+  uri: string;
+  createdAt: string;
+}
+
+export interface NoteDto {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  subjectColor: string;
+  syllabusNodeId: string | null;
+  syllabusNodeTitle: string | null;
+  taskId: string | null;
+  taskTitle: string | null;
+  title: string;
+  content: string;
+  masteryStatus: NoteMasteryStatusDto | null;
+  nextReviewAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  attachments: AttachmentDto[];
+}
+
+export interface MistakeDto {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  subjectColor: string;
+  syllabusNodeId: string | null;
+  syllabusNodeTitle: string | null;
+  title: string;
+  source: string | null;
+  cause: MistakeCauseDto;
+  correctIdea: string | null;
+  nextReviewAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MotivationVaultDto {
+  id: string;
+  whyStarted: string | null;
+  neverReturnTo: string | null;
+  futureSelf: string | null;
+  messageToFuture: string | null;
+  firstSimulationDiary: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SyllabusOverviewDto {
+  label: string;
+  progress: number;
+  color: string;
+}
+
+export interface TodayDashboardDto {
+  studyDay: {
+    key: string;
+    start: string;
+    end: string;
+  };
+  metrics: {
+    daysToSimulation: number;
+    daysToFinal: number;
+    todayMinutes: number;
+    effectiveMinutes: number;
+    taskCompletionRate: number;
+    streakDays: number;
+    missedDays: number;
+    debtCount: number;
+  };
+  snapshot: DashboardSnapshot;
+  stage: StageLevelSummary;
+  motivationWake: MotivationWakeSignal;
+  checkIn: {
+    completedMinimumAction: boolean;
+    lowEfficiency: boolean;
+    reason: string;
+    effectiveSessionCount: number;
+    reviewSubmitted: boolean;
+  };
+  recovery: {
+    active: boolean;
+    minimumMinutes: number;
+    visibleTaskLimit: number;
+    reason: string;
+    action: string;
+  };
+  subjects: SubjectDto[];
+  tasks: StudyTaskDto[];
+  debtTasks: StudyTaskDto[];
+  activeSession: StudySessionDto | null;
+  review: DailyReviewDto | null;
+  syllabusOverview: SyllabusOverviewDto[];
+  signals: {
+    antiFake: string;
+    lowConversionCount: number;
+    review: string;
+    ai: string;
+  };
+}
