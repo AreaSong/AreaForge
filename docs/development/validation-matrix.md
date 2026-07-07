@@ -84,7 +84,7 @@
 - `pnpm --filter @areaforge/web typecheck`
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
-- API 烟测：complete、defer、drop、recover、split、convert-review 和 end-session 自动完成路径同时写入 `AuditEvent` 与 `TaskDebtEvent`；拆小任务写入 `parentTaskId`；旧任务仍按 `StudyTask.status/debtStatus/plannedDate` fallback。
+- API 烟测：complete、defer、drop、recover、split、convert-review、end-session 自动完成路径和模拟考试完成路径同时写入 `AuditEvent` 与 `TaskDebtEvent`；拆小任务写入 `parentTaskId`；旧任务仍按 `StudyTask.status/debtStatus/plannedDate` fallback。
 - 页面烟测：首页任务区、欠账预览和 `/reports` 对旧数据与新事件账本展示一致。
 
 注意：Batch 2 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `parentTaskId` 和 `model TaskDebtEvent` 在 schema 中出现；Batch 2 完成并更新台账后，门禁应要求 Batch 2 字段/模型存在，并继续阻止 Batch 3-6 未确认模型越界。
@@ -275,7 +275,7 @@
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。
-- `pnpm risk:preflight` 只证明 Package A-E 的护栏存在，不执行上传、后续 migration、AI 外呼、部署或备份恢复；其中 Package B 检查 Batch 0-1 字段/模型已存在、Batch 2-6 确认包和专项验证存在且未确认模型仍未越界；Package C 还检查真实 provider 未接线、Web 侧不读取 AI env/key、AI 上下文保持聚合最小化、首页只允许本地 fallback 成本边界；Package D 还检查只读重排 API、只读阶段调整草稿 API、confirm-only DTO、UI 标签和文档边界。
+- `pnpm risk:preflight` 只证明 Package A-E 的护栏存在，不执行上传、后续 migration、AI 外呼、部署或备份恢复；其中 Package B 检查 Batch 0-2 字段/模型已存在、Batch 3-6 确认包和专项验证存在且未确认模型仍未越界；Package C 还检查真实 provider 未接线、Web 侧不读取 AI env/key、AI 上下文保持聚合最小化、首页只允许本地 fallback 成本边界；Package D 还检查只读重排 API、只读阶段调整草稿 API、confirm-only DTO、UI 标签和文档边界。
 - `pnpm docs:completion` 用于最终完成验收；在 `feature-traceability` 仍有“基础版 / 待确认 / 未实现”、Package A-E 完成行缺少验证/烟测/文档同步/残余风险证据、Package B Batch 0-6 未全部完成，或缺少高风险完成记录时，预期应失败。
 - 日常文档同步不要求 `pnpm docs:completion` 通过；声称 AreaForge docs 100% 完成前必须通过。
 

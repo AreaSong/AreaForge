@@ -50,6 +50,7 @@ export interface SubjectDto {
 export interface StudyTaskDto {
   id: string;
   subjectId: string;
+  parentTaskId: string | null;
   subjectName: string;
   subjectColor: string;
   syllabusNodeId: string | null;

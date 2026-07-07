@@ -21,10 +21,10 @@
 | 今日作战台 | 已完成 | `GET /api/dashboard/today`、`apps/web/app/page.tsx` | `workflow/versions/v0.3-structured-learning-state.md` |
 | 双节点倒计时 | 已完成 | 首页和阶段规则使用 2026/2027 节点 | 后续与冲刺模式联动 |
 | 每日任务 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/tasks`；今日任务表单支持写入已有 `StudyTask.type` | `tasks/backlog/0015-structured-state-migration.md` |
-| 任务债务基础版 | 已完成 | `StudyTask.status/debtStatus`、任务面板、complete/defer/drop/recover/split/convert-review API；轻量债务动作已用现有结构和 `AuditEvent` 留痕 | 完整债务事件账本和重排应用仍由 Package B Batch 2 / Package D 承接 |
-| 学习计时 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/study-sessions/*`；Package B Batch 0 已追加 `StudySession` 结构化收口字段；Batch 1 已让结束计时刷新 `CheckIn` 日快照 | 后续承接债务、恢复、掌握证明等 Batch 2-6 |
+| 任务债务基础版 | 已完成 | `StudyTask.status/debtStatus`、任务面板、complete/defer/drop/recover/split/convert-review API；Package B Batch 2 已新增 `TaskDebtEvent` 事件账本和 `StudyTask.parentTaskId`，债务动作继续写 `AuditEvent` 并同步写事件账本 | 重排确认、驳回和应用仍由 Package D 承接 |
+| 学习计时 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/study-sessions/*`；Package B Batch 0 已追加 `StudySession` 结构化收口字段；Batch 1 已让结束计时刷新 `CheckIn` 日快照；Batch 2 已让有效自动完成任务写入债务事件账本 | 后续承接恢复、掌握证明等 Batch 3-6 |
 | 专注计时模式 | 已完成 | 首页 `FocusTimer` 与 active session 恢复 | 后续 UX 打磨 |
-| 打卡 | 已完成 | `evaluateDailyCheckIn`、`CheckIn` 日快照、首页 `dashboard.checkIn`、analytics/reports 逐日快照优先和缺失日期 fallback；不把打开应用算作打卡，active session 时长只实时展示、结束后固化 | 债务事件、恢复状态和更长期连续性仍由 Package B Batch 2-3 承接 |
+| 打卡 | 已完成 | `evaluateDailyCheckIn`、`CheckIn` 日快照、首页 `dashboard.checkIn`、analytics/reports 逐日快照优先和缺失日期 fallback；不把打开应用算作打卡，active session 时长只实时展示、结束后固化 | 恢复状态和更长期连续性仍由 Package B Batch 3 承接 |
 | 每晚复盘 | 已完成 | `DailyReview`、`/api/reviews/today` | AI 真实建议和结构化统计继续增强 |
 | 考纲进度树 | 已完成 | `/syllabus`、`/api/syllabus/*`、Markdown 导入 | 附件和自动状态更新后增强 |
 | 知识点掌握状态 | 已完成 | `SyllabusNode.status`、`masteryLevel`、`/syllabus` 状态筛选、节点卡片和最近证据时间派生 | 显式条件/证据表仍由 Package B Batch 4 承接 |
@@ -32,7 +32,7 @@
 | 笔记与资料上传 | 基础版 / 待确认 | 笔记 API/UI 已有；按科目、节点、掌握状态和复习提醒筛选已有；storage 纯规则已有 | `tasks/active/0004-mvp-syllabus-notes-upload.md` |
 | 情绪与状态记录基础版 | 已完成 | `tasks/done/0010-motivation-emotion-stage.md` | 完整情绪历史表暂不做 |
 | 恢复模式基础版 | 已完成 | `createRecoveryPlan`、`rankRecoveryTaskCandidates`、首页 `visibleRecoveryTasks` 和恢复原因；规则触发时只保留最小任务入口 | 持久化恢复状态仍由 Package B Batch 3 承接 |
-| 反假学习检查基础版 | 已完成 | 计时结束写 `isEffective`、`isLowConversion`、反假学习原因、补产出要求、最小产出、下一步动作和文本 note；Batch 0 已结构化收口字段；Batch 1 已把低转化次数写入 `CheckIn` 日快照 | 历史 note 不解析；债务、恢复和长期闭环继续由 Package B Batch 2-6 承接 |
+| 反假学习检查基础版 | 已完成 | 计时结束写 `isEffective`、`isLowConversion`、反假学习原因、补产出要求、最小产出、下一步动作和文本 note；Batch 0 已结构化收口字段；Batch 1 已把低转化次数写入 `CheckIn` 日快照；Batch 2 已把有效自动完成任务写入债务事件账本 | 历史 note 不解析；恢复和长期闭环继续由 Package B Batch 3-6 承接 |
 | 考研作战地图概览版 | 已完成 | `tasks/done/0011-analytics-map.md`、`packages/core/src/syllabus-map.ts` | 高级可视化见 `0016` |
 | 动机封存 | 已完成 | `tasks/done/0010-motivation-emotion-stage.md` | AI 默认仍不读取动机档案 |
 | 阶段称号基础版 | 已完成 | `packages/core` 阶段规则、首页展示 | 与模拟成绩联动待第二阶段 |

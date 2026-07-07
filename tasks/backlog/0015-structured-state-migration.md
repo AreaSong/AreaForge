@@ -1,6 +1,6 @@
 # 0015 结构化学习状态 migration 确认包
 
-状态：进行中。Package B Batch 0 和 Batch 1 已确认、实施并验证完成；Batch 2-6 仍命中数据库 migration 高风险边界，开始实现前必须先确认影响、风险、验证和回滚。
+状态：进行中。Package B Batch 0、Batch 1 和 Batch 2 已确认、实施并验证完成；Batch 3-6 仍命中数据库 migration 高风险边界，开始实现前必须先确认影响、风险、验证和回滚。
 
 ## 目标
 
@@ -10,7 +10,7 @@
 
 - `StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、是否产生笔记/错题、反假学习原因。
 - `CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。
-- 任务债务事件账本：补做、延期、放弃、拆小、合并、改复习、父子关系、重排采纳记录。
+- 任务债务事件账本：补做、延期、放弃、拆小、改复习、完成动作和父子关系；合并、重排采纳记录仍归后续确认。
 - 恢复模式状态：触发原因、开始时间、目标分钟、退出条件、用户手动触发记录。
 - 掌握证明：条件勾选、证据引用、复测记录。
 - 模拟考试和阶段计划所需的基础结构可以作为同批或后续批次，但必须单独列出。
@@ -31,7 +31,7 @@
 |---|---|---|
 | Batch 0 | 已完成 | `StudySession` 结构化收口字段；只新增字段并保留 `note` 双写；临时库 deploy、API 烟测和首页刷新烟测通过 |
 | Batch 1 | 已完成 | `CheckIn` 日快照；新增 additive migration；新写路径 upsert；dashboard/analytics/reports 快照优先并保留缺失日期 fallback |
-| Batch 2 | 待确认 | `StudyTask.parentTaskId` 与 `TaskDebtEvent` |
+| Batch 2 | 已完成 | `StudyTask.parentTaskId` 与 `TaskDebtEvent`；债务动作双写 `AuditEvent` 与事件账本；拆小任务写入父子关系 |
 | Batch 3 | 待确认 | `RecoveryState` |
 | Batch 4 | 待确认 | 掌握证明条件、证据和复测记录 |
 | Batch 5 | 待确认 | `SimulationExam` 与 `SimulationSubjectResult` |
@@ -39,7 +39,7 @@
 
 ## 当前推荐下一步
 
-下一步再单独确认 Batch 2。Batch 2-6 的确认细节已全部补齐到 `docs/development/high-risk-confirmation-packets.md`，对应验证门禁见 `docs/development/validation-matrix.md`。未获得对应批次确认前，只能继续做文档、护栏和只读检查，不能改 `prisma/schema.prisma`、不能生成后续 migration。
+下一步再单独确认 Batch 3。Batch 3-6 的确认细节已全部补齐到 `docs/development/high-risk-confirmation-packets.md`，对应验证门禁见 `docs/development/validation-matrix.md`。未获得对应批次确认前，只能继续做文档、护栏和只读检查，不能改 `prisma/schema.prisma`、不能生成后续 migration。
 
 Batch 0 已完成，且只处理 `StudySession` 结束计时收口，不新增其它表：
 
@@ -56,13 +56,21 @@ Batch 1 已完成：
 - 已新增 `CheckIn` schema 和 `20260707010000_add_check_in_snapshots` additive migration。
 - 新写路径在结束计时、保存复盘、任务创建、任务计划日变化和任务状态变化后按学习日幂等 upsert 快照；`startStudySession` 只在关联任务 `TODO -> IN_PROGRESS` 时刷新任务计划日，不把 active session 时长写入快照。
 - `getTodayDashboard`、`getAnalyticsSummary` 和 `getPeriodicReport` 已改为优先读取 `CheckIn`，缺失日期继续复用 `buildDailyCheckInSnapshot` 从 sessions/tasks/reviews 派生。
-- `pnpm risk:preflight` 已按完成台账允许 Batch 1 `CheckIn`，并继续阻止 Batch 2-6 未确认结构提前出现。
+- `pnpm risk:preflight` 已按完成台账允许 Batch 2 `TaskDebtEvent` 和 `parentTaskId`，并继续阻止 Batch 3-6 未确认结构提前出现。
+
+Batch 2 已完成：
+
+- 已新增 `StudyTask.parentTaskId`、`TaskTree` 自关联、`TaskDebtEvent` schema 和 `20260707020000_add_task_debt_events` additive migration。
+- `completeStudyTask`、`deferStudyTask`、`dropStudyTask`、`recoverStudyTask`、`splitStudyTask`、`convertStudyTaskToReview`、`endStudySession` 的有效自动完成路径，以及模拟考试完成路径，均保留现有 `AuditEvent` 并在同一事务内写入 `TaskDebtEvent`。
+- `splitStudyTask` 创建的子任务写入 `parentTaskId`，同时继续保留 `reviewText` 说明。
+- `GET /api/tasks/debt-reorder` 仍为只读建议，不写 `reorder_suggested` / `reorder_applied`，不自动应用任务重排。
+- 旧任务和旧拆小记录不回填，读取侧继续按 `StudyTask.status/debtStatus/plannedDate` fallback。
 
 Batch 0 确认细节见 `docs/development/high-risk-confirmation-packets.md` 的 “Batch 0 确认包：`StudySession` 结构化收口字段”。
 
 ## Batch 1 确认后实施切入点（已实施）
 
-以下清单记录 Batch 1 已实现范围，不代表 Batch 2-6 可以提前改 schema、migration 或业务读写路径。
+以下清单记录 Batch 1 已实现范围；Batch 2 已在确认后完成，仍不代表 Batch 3-6 可以提前改 schema、migration 或业务读写路径。
 
 写路径需要覆盖：
 

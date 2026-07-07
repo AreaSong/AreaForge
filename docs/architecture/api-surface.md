@@ -54,7 +54,7 @@
 - `POST /api/tasks/:id/split`
 - `POST /api/tasks/:id/convert-review`
 
-当前补做、拆小和改复习任务复用 `StudyTask` 现有字段，只记录轻量备注，不代表完整任务债务事件账本已经落地。`GET /api/tasks/debt-reorder` 只读返回重排建议，`canAutoApply=false`、`requiresUserConfirmation=true`，不会自动改任务。完整父子关系、债务处理历史和重排采纳记录仍需 migration 后推进。
+Batch 2 后，`complete/defer/drop/recover/split/convert-review` 会继续写现有 `AuditEvent`，并在同一事务内写入 `TaskDebtEvent` 事件账本；`split` 创建的子任务会写入 `parentTaskId`，同时继续保留 `reviewText` 说明。旧任务没有债务事件时，页面和统计仍按 `StudyTask.status/debtStatus/plannedDate` fallback。`GET /api/tasks/debt-reorder` 只读返回重排建议，`canAutoApply=false`、`requiresUserConfirmation=true`，不会自动改任务，也不会写 `reorder_suggested/reorder_applied`；确认、驳回、应用记录仍需 Package D。
 
 ### Timer
 
@@ -70,7 +70,7 @@
 - 状态变化时写入。
 - 支持刷新页面后恢复 active session。
 - 同一用户第一版只允许一个 active session。
-- 计时结束会基于收口字段运行反假学习规则，并双写 `StudySession.isEffective`、结构化收口字段和文本化 `note`；历史 `note` 不解析、不回填，统计优先读 `isLowConversion`，缺失时 fallback 到旧 `isEffective === false`。
+- 计时结束会基于收口字段运行反假学习规则，并双写 `StudySession.isEffective`、结构化收口字段和文本化 `note`；历史 `note` 不解析、不回填，统计优先读 `isLowConversion`，缺失时 fallback 到旧 `isEffective === false`。若用户勾选完成任务且本次有效，关联任务会更新为 `DONE/NONE`，并同步写入 `TaskDebtEvent.action=complete` 和现有审计记录。
 
 ### Syllabus
 

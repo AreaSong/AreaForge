@@ -13,6 +13,7 @@ import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { daysUntil } from "./date";
 import { getMotivationVault, saveMotivationVault } from "./service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
+import { createTaskDebtEvent } from "./task-debt-event-service";
 import type { MotivationVaultDto, StudyTaskDto } from "./types";
 
 const simulationDate = new Date("2026-12-20T08:30:00+08:00");
@@ -139,8 +140,11 @@ export async function completeSimulationTask(
     select: {
       id: true,
       type: true,
+      status: true,
+      debtStatus: true,
       estimatedMinutes: true,
       plannedDate: true,
+      completedAt: true,
     },
   });
 
@@ -149,6 +153,8 @@ export async function completeSimulationTask(
   }
 
   const task = await prisma.$transaction(async (tx) => {
+    const completedAt = new Date();
+    const isFirstSynchronizedSimulation = isFirstSimulationTask(existing.plannedDate);
     const updatedTask = await tx.studyTask.update({
       where: { id },
       data: {
@@ -157,9 +163,9 @@ export async function completeSimulationTask(
         actualMinutes: input.durationMinutes,
         reviewText: composeSimulationReview(
           input,
-          maybeSummarizeSimulationResult(input, existing.estimatedMinutes, isFirstSimulationTask(existing.plannedDate)),
+          maybeSummarizeSimulationResult(input, existing.estimatedMinutes, isFirstSynchronizedSimulation),
         ),
-        completedAt: new Date(),
+        completedAt,
       },
       include: {
         subject: true,
@@ -168,6 +174,27 @@ export async function completeSimulationTask(
     });
 
     await audit(actorId, "SIMULATION_TASK_COMPLETED", "StudyTask", updatedTask.id, tx);
+    await createTaskDebtEvent({
+      taskId: updatedTask.id,
+      actorId,
+      action: "complete",
+      from: toTaskDebtEventState(existing),
+      to: toTaskDebtEventState(updatedTask),
+      reason: "完成模拟考试任务",
+      metadata: {
+        source: "simulation_task_complete_api",
+        targetScore: input.targetScore ?? null,
+        actualScore: input.actualScore ?? null,
+        durationMinutes: input.durationMinutes ?? null,
+        blankCount: input.blankCount ?? null,
+        hasLossReason: Boolean(input.lossReason?.trim()),
+        hasMindset: Boolean(input.mindset?.trim()),
+        summaryProvided: Boolean(input.summary.trim()),
+        isFirstSynchronizedSimulation,
+        previousCompletedAt: existing.completedAt?.toISOString() ?? null,
+        completedAt: completedAt.toISOString(),
+      },
+    }, tx);
     await refreshCheckInSnapshotsForDates([updatedTask.plannedDate], tx);
 
     return updatedTask;
@@ -425,6 +452,7 @@ function serializeTask(task: {
   id: string;
   subjectId: string;
   syllabusNodeId: string | null;
+  parentTaskId: string | null;
   title: string;
   type: string;
   status: DbTaskStatus;
@@ -446,6 +474,7 @@ function serializeTask(task: {
   return {
     id: task.id,
     subjectId: task.subjectId,
+    parentTaskId: task.parentTaskId,
     subjectName: task.subject.name,
     subjectColor: task.subject.color,
     syllabusNodeId: task.syllabusNodeId,
@@ -480,6 +509,16 @@ function fromDbTaskStatus(status: DbTaskStatus): StudyTaskDto["status"] {
     case "DEFERRED":
       return "deferred";
   }
+}
+
+function toTaskDebtEventState(task: {
+  status: DbTaskStatus;
+  debtStatus: string;
+}) {
+  return {
+    status: task.status,
+    debtStatus: task.debtStatus,
+  };
 }
 
 async function audit(

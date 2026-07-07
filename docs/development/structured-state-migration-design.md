@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1 已在明确确认后执行 `CheckIn` 日快照；Batch 2-6 仍未执行。任何后续 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
+本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1 已在明确确认后执行 `CheckIn` 日快照；Batch 2 已在明确确认后执行 `StudyTask.parentTaskId` 与 `TaskDebtEvent`；Batch 3-6 仍未执行。任何后续 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
 
 ## 目标
 
@@ -12,7 +12,7 @@
 
 - 新结束的 `StudySession` 已写入 Batch 0 结构化收口字段；历史 `StudySession.note` 仍可能混合保存理解程度、最小产出、下一步动作和反假学习原因，且不做不可靠解析。
 - 打卡连续性已有 `CheckIn` 日快照；新写路径会维护快照，历史无快照日期仍按 sessions/tasks/reviews fallback 派生。
-- 任务债务动作依赖 `StudyTask.status/debtStatus/reviewText` 和审计事件，没有债务事件账本和父子任务关系。
+- 任务债务动作已有 `TaskDebtEvent` 事件账本和拆小父子任务关系；旧任务没有事件时继续按 `StudyTask.status/debtStatus/plannedDate` fallback。
 - 恢复模式是实时规则裁剪，没有用户手动触发和退出记录。
 - 掌握证明依赖证据计数和 core 规则，没有条件勾选、证据引用和复测记录。
 - 模拟考试和阶段计划仍复用任务和文本结果，没有结构化模型。
@@ -31,7 +31,7 @@
 
 1. Batch 0：只新增 `StudySession` 结构化收口字段，保留 `note` 双写，不解析历史文本。
 2. Batch 1：新增 `CheckIn` 日快照，只在新写路径 upsert；首页和统计先保留旧派生 fallback。已完成。
-3. Batch 2：新增 `StudyTask.parentTaskId` 和 `TaskDebtEvent`，债务动作双写 `AuditEvent` 与事件账本。
+3. Batch 2：新增 `StudyTask.parentTaskId` 和 `TaskDebtEvent`，债务动作双写 `AuditEvent` 与事件账本。已完成。
 4. Batch 3：新增 `RecoveryState`，只记录恢复状态，不批量改历史欠账。
 5. Batch 4：新增掌握证明条件、证据和复测记录，缺显式证据时 fallback 现有 `_count`。
 6. Batch 5：新增结构化模拟考试和科目结果模型，旧任务型模拟只读兼容。
@@ -98,20 +98,20 @@ Batch 1 实现契约：
 
 ### `StudyTask` 父子关系
 
-建议新增：
+Batch 2 已新增：
 
 - `parentTaskId String?`
 - `parent StudyTask? @relation("TaskTree", fields: [parentTaskId], references: [id])`
 - `children StudyTask[] @relation("TaskTree")`
 
-兼容策略：
+实现与兼容策略：
 
 - 拆小任务时写入 `parentTaskId`，同时继续把说明写入 `reviewText`。
 - 旧拆小任务没有父子关系，不做猜测回填。
 
 ### 新增 `TaskDebtEvent`
 
-建议字段：
+Batch 2 已新增字段：
 
 - `id String @id @default(cuid())`
 - `taskId String`
@@ -126,11 +126,12 @@ Batch 1 实现契约：
 - `metadata Json?`
 - `createdAt DateTime @default(now())`
 
-兼容策略：
+实现与兼容策略：
 
 - 所有任务债务动作写 `TaskDebtEvent`，同时保留现有 `AuditEvent`。
 - 旧任务没有债务事件时，仍用 `StudyTask.status/debtStatus/plannedDate` 判断欠账。
-- 第二阶段重排建议只写 `reorder_suggested`，用户确认后才写 `reorder_applied` 和更新任务。
+- 当前 `complete/defer/drop/recover/split/convert_review` 和计时结束有效自动完成路径会写入事件账本；模拟考试任务完成也按 `complete` 写入。
+- `GET /api/tasks/debt-reorder` 仍只读，不写 `reorder_suggested`，用户确认应用和 `reorder_applied` 仍归 Package D。
 
 ### 新增 `RecoveryState`
 

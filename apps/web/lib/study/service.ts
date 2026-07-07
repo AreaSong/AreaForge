@@ -22,6 +22,7 @@ import {
   refreshCheckInSnapshotsForDates,
 } from "./check-in-service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
+import { createTaskDebtEvent } from "./task-debt-event-service";
 import type {
   DailyReviewDto,
   MotivationVaultDto,
@@ -474,13 +475,27 @@ export async function updateStudyTask(id: string, input: UpdateTaskInput, actorI
 
 export async function completeStudyTask(id: string, reviewText: string | undefined, actorId: string): Promise<StudyTaskDto> {
   const task = await prisma.$transaction(async (tx) => {
+    const existing = await tx.studyTask.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        debtStatus: true,
+        plannedDate: true,
+        type: true,
+      },
+    });
+    if (!existing) {
+      throw new ApiError("TASK_NOT_FOUND", 404);
+    }
+
+    const completedAt = new Date();
     const updatedTask = await tx.studyTask.update({
       where: { id },
       data: {
         status: "DONE",
         debtStatus: "NONE",
         reviewText,
-        completedAt: new Date(),
+        completedAt,
       },
       include: {
         subject: true,
@@ -489,6 +504,22 @@ export async function completeStudyTask(id: string, reviewText: string | undefin
     });
 
     await audit(actorId, "STUDY_TASK_COMPLETED", "StudyTask", updatedTask.id, tx);
+    await createTaskDebtEvent({
+      taskId: updatedTask.id,
+      actorId,
+      action: "complete",
+      from: toTaskDebtEventState(existing),
+      to: toTaskDebtEventState(updatedTask),
+      reason: normalizeTaskDebtReason(reviewText, "手动完成任务"),
+      metadata: {
+        source: "task_complete_api",
+        plannedDate: existing.plannedDate.toISOString(),
+        completedAt: completedAt.toISOString(),
+        reviewTextProvided: Boolean(reviewText?.trim()),
+        taskType: existing.type,
+        actualMinutes: updatedTask.actualMinutes,
+      },
+    }, tx);
     await refreshCheckInSnapshotsForDates([updatedTask.plannedDate], tx);
 
     return updatedTask;
@@ -501,18 +532,24 @@ export async function deferStudyTask(id: string, plannedDate: string | undefined
   const task = await prisma.$transaction(async (tx) => {
     const existing = await tx.studyTask.findUnique({
       where: { id },
-      select: { plannedDate: true },
+      select: {
+        status: true,
+        debtStatus: true,
+        plannedDate: true,
+        type: true,
+      },
     });
     if (!existing) {
       throw new ApiError("TASK_NOT_FOUND", 404);
     }
 
+    const targetPlannedDate = plannedDate ? new Date(plannedDate) : getNextStudyDayStart();
     const updatedTask = await tx.studyTask.update({
       where: { id },
       data: {
         status: "DEFERRED",
         debtStatus: "ACCEPTABLE",
-        plannedDate: plannedDate ? new Date(plannedDate) : getNextStudyDayStart(),
+        plannedDate: targetPlannedDate,
         reviewText,
       },
       include: {
@@ -522,6 +559,22 @@ export async function deferStudyTask(id: string, plannedDate: string | undefined
     });
 
     await audit(actorId, "STUDY_TASK_DEFERRED", "StudyTask", updatedTask.id, tx);
+    await createTaskDebtEvent({
+      taskId: updatedTask.id,
+      actorId,
+      action: "defer",
+      from: toTaskDebtEventState(existing),
+      to: toTaskDebtEventState(updatedTask),
+      reason: normalizeTaskDebtReason(reviewText, "延期到下一学习日"),
+      metadata: {
+        source: "task_defer_api",
+        fromPlannedDate: existing.plannedDate.toISOString(),
+        toPlannedDate: targetPlannedDate.toISOString(),
+        requestedPlannedDate: plannedDate ?? null,
+        defaultedToNextStudyDay: plannedDate === undefined,
+        taskType: existing.type,
+      },
+    }, tx);
     await refreshCheckInSnapshotsForDates([existing.plannedDate, updatedTask.plannedDate], tx);
 
     return updatedTask;
@@ -532,6 +585,20 @@ export async function deferStudyTask(id: string, plannedDate: string | undefined
 
 export async function dropStudyTask(id: string, actorId: string): Promise<StudyTaskDto> {
   const task = await prisma.$transaction(async (tx) => {
+    const existing = await tx.studyTask.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        debtStatus: true,
+        plannedDate: true,
+        type: true,
+        completedAt: true,
+      },
+    });
+    if (!existing) {
+      throw new ApiError("TASK_NOT_FOUND", 404);
+    }
+
     const updatedTask = await tx.studyTask.update({
       where: { id },
       data: {
@@ -545,6 +612,20 @@ export async function dropStudyTask(id: string, actorId: string): Promise<StudyT
     });
 
     await audit(actorId, "STUDY_TASK_DROPPED", "StudyTask", updatedTask.id, tx);
+    await createTaskDebtEvent({
+      taskId: updatedTask.id,
+      actorId,
+      action: "drop",
+      from: toTaskDebtEventState(existing),
+      to: toTaskDebtEventState(updatedTask),
+      reason: "放弃当前任务",
+      metadata: {
+        source: "task_drop_api",
+        plannedDate: existing.plannedDate.toISOString(),
+        taskType: existing.type,
+        previousCompletedAt: existing.completedAt?.toISOString() ?? null,
+      },
+    }, tx);
     await refreshCheckInSnapshotsForDates([updatedTask.plannedDate], tx);
 
     return updatedTask;
@@ -555,13 +636,14 @@ export async function dropStudyTask(id: string, actorId: string): Promise<StudyT
 
 export async function recoverStudyTask(id: string, input: RecoverTaskInput, actorId: string): Promise<StudyTaskDto> {
   const existing = await getTaskForLightweightDebtAction(id);
+  const targetPlannedDate = input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start;
   const task = await prisma.$transaction(async (tx) => {
     const updatedTask = await tx.studyTask.update({
       where: { id },
       data: {
         status: "TODO",
         debtStatus: "ACCEPTABLE",
-        plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
+        plannedDate: targetPlannedDate,
         reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "补做：拉回今天作为恢复任务"),
         completedAt: null,
       },
@@ -572,6 +654,22 @@ export async function recoverStudyTask(id: string, input: RecoverTaskInput, acto
     });
 
     await audit(actorId, "STUDY_TASK_RECOVERED", "StudyTask", updatedTask.id, tx);
+    await createTaskDebtEvent({
+      taskId: updatedTask.id,
+      actorId,
+      action: "recover",
+      from: toTaskDebtEventState(existing),
+      to: toTaskDebtEventState(updatedTask),
+      reason: normalizeTaskDebtReason(input.reviewText, "补做：拉回今天作为恢复任务"),
+      metadata: {
+        source: "task_recover_api",
+        fromPlannedDate: existing.plannedDate.toISOString(),
+        toPlannedDate: targetPlannedDate.toISOString(),
+        requestedPlannedDate: input.plannedDate ?? null,
+        previousCompletedAt: existing.completedAt?.toISOString() ?? null,
+        taskType: existing.type,
+      },
+    }, tx);
     await refreshCheckInSnapshotsForDates([existing.plannedDate, updatedTask.plannedDate], tx);
 
     return updatedTask;
@@ -592,6 +690,7 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
       data: {
         subjectId: existing.subjectId,
         syllabusNodeId: existing.syllabusNodeId,
+        parentTaskId: existing.id,
         title: input.title,
         type: existing.type === "simulation_exam" ? "review" : existing.type,
         status: "TODO",
@@ -621,6 +720,26 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
     });
 
     await audit(actorId, "STUDY_TASK_SPLIT_LIGHTWEIGHT", "StudyTask", createdTask.id, tx);
+    await createTaskDebtEvent({
+      taskId: updatedOriginal.id,
+      actorId,
+      action: "split",
+      from: toTaskDebtEventState(existing),
+      to: toTaskDebtEventState(updatedOriginal),
+      relatedTaskId: createdTask.id,
+      reason: normalizeTaskDebtReason(input.reviewText, `拆小：生成「${input.title}」作为最小推进任务`),
+      metadata: {
+        source: "task_split_api",
+        childTaskId: createdTask.id,
+        childTitle: createdTask.title,
+        childPlannedDate: createdTask.plannedDate.toISOString(),
+        childEstimatedMinutes: createdTask.estimatedMinutes,
+        childType: createdTask.type,
+        parentTaskId: existing.id,
+        originalEstimatedMinutes: existing.estimatedMinutes,
+        originalStatusWasTerminal: existing.status === "DONE" || existing.status === "SKIPPED",
+      },
+    }, tx);
     await refreshCheckInSnapshotsForDates([existing.plannedDate, createdTask.plannedDate], tx);
 
     return [updatedOriginal, createdTask];
@@ -657,6 +776,24 @@ export async function convertStudyTaskToReview(
     });
 
     await audit(actorId, "STUDY_TASK_CONVERTED_TO_REVIEW", "StudyTask", updatedTask.id, tx);
+    await createTaskDebtEvent({
+      taskId: updatedTask.id,
+      actorId,
+      action: "convert_review",
+      from: toTaskDebtEventState(existing),
+      to: toTaskDebtEventState(updatedTask),
+      reason: normalizeTaskDebtReason(input.reviewText, "改成复习任务：先复盘产出，再决定是否继续原任务"),
+      metadata: {
+        source: "task_convert_review_api",
+        fromType: existing.type,
+        toType: "review",
+        fromPlannedDate: existing.plannedDate.toISOString(),
+        toPlannedDate: updatedTask.plannedDate.toISOString(),
+        fromEstimatedMinutes: existing.estimatedMinutes,
+        toEstimatedMinutes: updatedTask.estimatedMinutes,
+        previousCompletedAt: existing.completedAt?.toISOString() ?? null,
+      },
+    }, tx);
     await refreshCheckInSnapshotsForDates([existing.plannedDate, updatedTask.plannedDate], tx);
 
     return updatedTask;
@@ -848,24 +985,53 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
       },
     });
 
-    const taskPlannedDate = existing.taskId
-      ? (await tx.studyTask.findUnique({
+    const linkedTask = existing.taskId
+      ? await tx.studyTask.findUnique({
           where: { id: existing.taskId },
-          select: { plannedDate: true },
-        }))?.plannedDate
+          select: {
+            id: true,
+            status: true,
+            debtStatus: true,
+            plannedDate: true,
+            type: true,
+          },
+        })
       : null;
 
-    if (existing.taskId) {
-      await tx.studyTask.update({
-        where: { id: existing.taskId },
+    if (linkedTask) {
+      const updatedTask = await tx.studyTask.update({
+        where: { id: linkedTask.id },
         data: {
           actualMinutes: {
             increment: effectiveMinutes,
           },
           status: input.completeTask && isEffective ? "DONE" : "IN_PROGRESS",
+          debtStatus: input.completeTask && isEffective ? "NONE" : undefined,
           completedAt: input.completeTask && isEffective ? now : undefined,
         },
       });
+      if (input.completeTask && isEffective) {
+        await createTaskDebtEvent({
+          taskId: updatedTask.id,
+          actorId,
+          action: "complete",
+          from: toTaskDebtEventState(linkedTask),
+          to: toTaskDebtEventState(updatedTask),
+          reason: "计时结束时勾选完成且本次有效",
+          metadata: {
+            source: "study_session_end",
+            studySessionId: updatedSession.id,
+            effectiveMinutes,
+            qualityScore: input.qualityScore,
+            startedAt: existing.startedAt.toISOString(),
+            endedAt: now.toISOString(),
+            isLowConversion: closeout.isLowConversion,
+            producedNote: input.producedNote,
+            producedMistake: input.producedMistake,
+            taskType: linkedTask.type,
+          },
+        }, tx);
+      }
     }
 
     if (existing.syllabusNodeId && effectiveMinutes > 0) {
@@ -880,7 +1046,7 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
     }
 
     await audit(actorId, "STUDY_SESSION_ENDED", "StudySession", updatedSession.id, tx);
-    await refreshCheckInSnapshotsForDates([existing.startedAt, taskPlannedDate], tx);
+    await refreshCheckInSnapshotsForDates([existing.startedAt, linkedTask?.plannedDate ?? null], tx);
 
     return updatedSession;
   });
@@ -1052,6 +1218,7 @@ function serializeTask(task: {
   id: string;
   subjectId: string;
   syllabusNodeId: string | null;
+  parentTaskId: string | null;
   title: string;
   type: string;
   status: DbTaskStatus;
@@ -1073,6 +1240,7 @@ function serializeTask(task: {
   return {
     id: task.id,
     subjectId: task.subjectId,
+    parentTaskId: task.parentTaskId,
     subjectName: task.subject.name,
     subjectColor: task.subject.color,
     syllabusNodeId: task.syllabusNodeId,
@@ -1469,6 +1637,21 @@ function mergeTaskReviewText(existing: string | null, note: string | undefined, 
   const addition = note?.trim() || fallback;
   const merged = existing?.trim() ? `${existing.trim()}\n${addition}` : addition;
   return merged.slice(0, 2000);
+}
+
+function normalizeTaskDebtReason(note: string | undefined, fallback: string): string {
+  const normalized = note?.trim() ?? "";
+  return normalized.length > 0 ? normalized.slice(0, 1000) : fallback;
+}
+
+function toTaskDebtEventState(task: {
+  status: DbTaskStatus;
+  debtStatus: string;
+}) {
+  return {
+    status: task.status,
+    debtStatus: task.debtStatus,
+  };
 }
 
 async function audit(

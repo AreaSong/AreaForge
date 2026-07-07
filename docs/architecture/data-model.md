@@ -6,15 +6,16 @@
 - `AuthSession`：登录会话，只保存 session token 哈希、过期时间和用户关联。
 - `Subject`：数学、英语、政治、408 各子科目。
 - `SyllabusNode`：考纲进度树节点，包含当前掌握状态和掌握等级；掌握证明基础版仍复用现有任务、计时、笔记和错题关联作为派生证据，不新增显式证据表。
-- `StudyTask`：每日任务。
+- `StudyTask`：每日任务；Batch 2 已追加 `parentTaskId` 自关联，用于记录拆小任务的父子关系。旧任务没有父子关系时保持 `null`，不做猜测回填。
 - `StudySession`：学习计时记录；Batch 0 已追加结构化收口字段，包括理解程度、最小产出、下一步动作、是否产生笔记/错题、低转化标记、反假学习原因、补产出要求和收口版本，同时保留旧 `note` 文本可读。
 - `DailyReview`：每日复盘。
 - `CheckIn`：每日打卡快照；Batch 1 已新增学习日唯一快照，记录最低动作、总/有效时长、有效 session 数、任务完成率、复盘状态、低效标记、低转化次数和来源版本。新写路径维护快照，历史无快照日期由读取侧 fallback 派生。
+- `TaskDebtEvent`：任务债务事件账本；Batch 2 已新增，用于记录补做、延期、放弃、拆小、改复习和完成动作的前后状态、债务状态、关联任务、原因、metadata 和操作者。旧任务没有事件时继续按 `StudyTask.status/debtStatus/plannedDate` fallback。
 - `Note`：文字笔记和自己的理解。
 - `Attachment`：图片、PDF、拍照笔记等文件 metadata。
 - `Mistake`：错题与错因。
 - `MotivationVault`：动机封存内容。
-- `AuditEvent`：关键写操作审计；掌握证明基础版成功时记录请求等级、已勾选条件和证据计数摘要，不保存完整复盘正文或附件内容。
+- `AuditEvent`：关键写操作审计；Batch 2 后债务任务动作继续保留 `AuditEvent`，并额外写入 `TaskDebtEvent`；掌握证明基础版成功时记录请求等级、已勾选条件和证据计数摘要，不保存完整复盘正文或附件内容。
 
 PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，数据库只保存 metadata、hash 和 URI。
 
