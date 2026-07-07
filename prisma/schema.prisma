@@ -222,6 +222,22 @@ model DailyReview {
   updatedAt       DateTime @updatedAt
 }
 
+model CheckIn {
+  id                     String   @id @default(cuid())
+  studyDate              DateTime @unique
+  completedMinimumAction Boolean  @default(false)
+  totalMinutes           Int      @default(0)
+  effectiveMinutes       Int      @default(0)
+  effectiveSessionCount  Int      @default(0)
+  taskCompletionRate     Float    @default(0)
+  reviewSubmitted        Boolean  @default(false)
+  lowEfficiency          Boolean  @default(false)
+  lowConversionCount     Int      @default(0)
+  sourceVersion          Int      @default(1)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
 model Note {
   id             String        @id @default(cuid())
   subjectId      String

@@ -7,6 +7,7 @@ import {
   type TaskStatus,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
+import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
 
 const shanghaiOffsetMs = 8 * 60 * 60 * 1000;
@@ -111,6 +112,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     dueNotes,
     debtTasks,
     weakNodes,
+    checkInSnapshots,
   ] = await Promise.all([
     prisma.subject.findMany({
       orderBy: { sortOrder: "asc" },
@@ -227,13 +229,14 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
       orderBy: [{ updatedAt: "desc" }],
       take: 10,
     }),
+    listCheckInSnapshotsInRange(range.start, range.end),
   ]);
 
-  const dailySnapshots = buildPeriodicDailySnapshots(range, sessions, tasks, reviews);
+  const dailySnapshots = buildPeriodicDailySnapshots(range, sessions, tasks, reviews, checkInSnapshots);
   const totalMinutes = dailySnapshots.reduce((total, snapshot) => total + snapshot.totalMinutes, 0);
   const effectiveMinutes = dailySnapshots.reduce((total, snapshot) => total + snapshot.effectiveMinutes, 0);
   const completedTaskCount = tasks.filter((task) => task.status === "DONE").length;
-  const taskCompletionRate = calculateTaskCompletion(tasks);
+  const taskCompletionRate = averageDailyTaskCompletion(dailySnapshots);
   const lowConversionCount = dailySnapshots.reduce((total, snapshot) => total + snapshot.lowConversionCount, 0);
   const reviewCompletionRate = dailySnapshots.filter((snapshot) => snapshot.reviewSubmitted).length / range.days;
   const mistakesCreatedCount = mistakes.filter((mistake) => isWithin(mistake.createdAt, range.start, range.end)).length;
@@ -344,11 +347,17 @@ function buildPeriodicDailySnapshots(
   reviews: Array<{
     reviewDate: Date;
   }>,
+  checkInSnapshots: Map<string, CheckInSnapshotSummary>,
 ): CheckInSnapshotSummary[] {
   const reviewKeys = new Set(reviews.map((review) => getStudyDayRange(review.reviewDate).key));
 
   return Array.from({ length: range.days }, (_, index) => {
     const day = getStudyDayRange(new Date(range.start.getTime() + index * dayMs));
+    const snapshot = checkInSnapshots.get(day.key);
+    if (snapshot) {
+      return snapshot;
+    }
+
     const daySessions = sessions.filter((session) => session.startedAt >= day.start && session.startedAt < day.end);
     const dayTasks = tasks.filter((task) => task.plannedDate >= day.start && task.plannedDate < day.end);
 
@@ -455,9 +464,9 @@ function createLocalReportDraft(strategy: PeriodicReportDto["strategy"]): Period
   };
 }
 
-function calculateTaskCompletion(tasks: Array<{ status: DbTaskStatus }>): number {
-  if (tasks.length === 0) return 0;
-  return tasks.filter((task) => task.status === "DONE").length / tasks.length;
+function averageDailyTaskCompletion(snapshots: Array<{ taskCompletionRate: number }>): number {
+  if (snapshots.length === 0) return 0;
+  return snapshots.reduce((total, snapshot) => total + snapshot.taskCompletionRate, 0) / snapshots.length;
 }
 
 function toCoreTaskStatus(status: DbTaskStatus): TaskStatus {

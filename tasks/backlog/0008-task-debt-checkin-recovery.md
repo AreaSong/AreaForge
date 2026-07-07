@@ -1,6 +1,6 @@
 # 0008 任务债务、打卡、反假学习与恢复模式
 
-状态：低风险规则层已收口到可继续推进 migration 前的基线。当前只使用已有任务、计时和复盘数据推导打卡、恢复建议、欠账预览和低转化信号；未新增 migration。
+状态：进行中。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径。任务债务事件账本和恢复状态仍待后续 migration 确认。
 
 ## 目标
 
@@ -44,13 +44,14 @@
 ## 当前进展
 
 - `packages/core` 已补充打卡判断和恢复计划纯函数。
-- `packages/core/src/study-integrity.ts` 已补充结构化计时收口归一、近窗打卡历史汇总和轻量任务债务动作总结纯函数，用于后续 `CheckIn`、结构化收口字段和债务事件账本 migration 前的规则基线。
+- `packages/core/src/study-integrity.ts` 已补充结构化计时收口归一、近窗打卡历史汇总和轻量任务债务动作总结纯函数，用于结构化收口、`CheckIn` 和后续债务事件账本 migration 的规则基线。
+- `CheckIn` 日快照已由 Package B Batch 1 落地：结束计时、保存复盘、任务创建、计划日变化和状态变化后会按学习日 upsert；dashboard、analytics、reports 优先读快照并保留缺失日期 fallback。
 - 首页已展示打卡连续性原因、恢复模式建议和欠账预览。
 - Dashboard API 已返回 `checkIn`、`recovery`、`debtTasks`、`visibleRecoveryTasks` 和低转化次数。
 - 恢复模式已对首页任务入口做低风险裁剪：只把最小可执行任务传给计时器和任务面板，不删除原任务。
 - 已新增任务轻量流转 API/UI：补做、拆小、改成复习任务；当前复用 `StudyTask` 现有字段和 `reviewText` 备注，不代表完整债务事件账本。
 - 计时结束已接入反假学习规则，结果写入现有 `StudySession.isEffective` 和文本化 `note`。
-- 后续仍需结构化反假问题、持久化 `CheckIn`、债务事件账本、恢复模式状态和必要 migration 方案。
+- 后续仍需债务事件账本、恢复模式状态和必要 migration 方案；历史无快照日期不做不可靠回填。
 
 ## 验证
 
@@ -63,5 +64,5 @@
 
 ## 风险
 
-- 若新增 `CheckIn`、债务事件或结构化收口字段，需要 migration，高风险确认后再执行。
+- 若新增债务事件或恢复状态，需要 migration，高风险确认后再执行。
 - 恢复模式规则会影响首页任务优先级，必须避免让用户丢失原任务记录。

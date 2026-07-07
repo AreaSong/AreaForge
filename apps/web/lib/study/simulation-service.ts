@@ -6,9 +6,10 @@ import {
   type SimulationReadinessSummary,
   type SimulationResultSummary,
 } from "@areaforge/core";
-import { prisma } from "@areaforge/db";
+import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getAnalyticsSummary } from "./analytics-service";
+import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { daysUntil } from "./date";
 import { getMotivationVault, saveMotivationVault } from "./service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
@@ -18,6 +19,7 @@ const simulationDate = new Date("2026-12-20T08:30:00+08:00");
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+type SimulationDbClient = PrismaClient | Prisma.TransactionClient;
 
 export interface CreateSimulationTaskInput {
   subjectId: string;
@@ -101,23 +103,29 @@ export async function createSimulationTask(
     await assertSyllabusNodeBelongsToSubject(input.syllabusNodeId, input.subjectId);
   }
 
-  const task = await prisma.studyTask.create({
-    data: {
-      subjectId: input.subjectId,
-      syllabusNodeId: input.syllabusNodeId ?? null,
-      title: input.title,
-      type: "simulation_exam",
-      priority: "CRITICAL",
-      plannedDate: input.plannedDate ? new Date(input.plannedDate) : simulationDate,
-      estimatedMinutes: input.estimatedMinutes,
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const createdTask = await tx.studyTask.create({
+      data: {
+        subjectId: input.subjectId,
+        syllabusNodeId: input.syllabusNodeId ?? null,
+        title: input.title,
+        type: "simulation_exam",
+        priority: "CRITICAL",
+        plannedDate: input.plannedDate ? new Date(input.plannedDate) : simulationDate,
+        estimatedMinutes: input.estimatedMinutes,
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "SIMULATION_TASK_CREATED", "StudyTask", createdTask.id, tx);
+    await refreshCheckInSnapshotsForDates([createdTask.plannedDate], tx);
+
+    return createdTask;
   });
 
-  await audit(actorId, "SIMULATION_TASK_CREATED", "StudyTask", task.id);
   return serializeTask(task);
 }
 
@@ -140,25 +148,31 @@ export async function completeSimulationTask(
     throw new ApiError("SIMULATION_TASK_NOT_FOUND", 404);
   }
 
-  const task = await prisma.studyTask.update({
-    where: { id },
-    data: {
-      status: "DONE",
-      debtStatus: "NONE",
-      actualMinutes: input.durationMinutes,
-      reviewText: composeSimulationReview(
-        input,
-        maybeSummarizeSimulationResult(input, existing.estimatedMinutes, isFirstSimulationTask(existing.plannedDate)),
-      ),
-      completedAt: new Date(),
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updatedTask = await tx.studyTask.update({
+      where: { id },
+      data: {
+        status: "DONE",
+        debtStatus: "NONE",
+        actualMinutes: input.durationMinutes,
+        reviewText: composeSimulationReview(
+          input,
+          maybeSummarizeSimulationResult(input, existing.estimatedMinutes, isFirstSimulationTask(existing.plannedDate)),
+        ),
+        completedAt: new Date(),
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "SIMULATION_TASK_COMPLETED", "StudyTask", updatedTask.id, tx);
+    await refreshCheckInSnapshotsForDates([updatedTask.plannedDate], tx);
+
+    return updatedTask;
   });
 
-  await audit(actorId, "SIMULATION_TASK_COMPLETED", "StudyTask", task.id);
   return serializeTask(task);
 }
 
@@ -468,8 +482,14 @@ function fromDbTaskStatus(status: DbTaskStatus): StudyTaskDto["status"] {
   }
 }
 
-async function audit(actorId: string, action: string, entityType: string, entityId: string): Promise<void> {
-  await prisma.auditEvent.create({
+async function audit(
+  actorId: string,
+  action: string,
+  entityType: string,
+  entityId: string,
+  client: SimulationDbClient = prisma,
+): Promise<void> {
+  await client.auditEvent.create({
     data: {
       actorId,
       action,

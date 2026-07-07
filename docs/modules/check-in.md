@@ -34,11 +34,11 @@
 
 ## 兼容策略
 
-- Package B Batch 1 才会新增 `CheckIn` 日快照；确认前只能保留当前派生逻辑。
+- Package B Batch 1 已新增 `CheckIn` 日快照；历史无快照日期继续保留当前派生逻辑。
 - 新写路径在结束计时、任务状态变化和保存每日复盘后 upsert 当日快照。
 - 首页、统计和报告优先读 `CheckIn`；某日没有快照时 fallback 到 session/task/review 派生逻辑。
 - analytics 和 reports 必须按学习日逐日混合：有快照的日期读 `CheckIn`，没有快照的日期继续按旧数据派生，不能把无快照历史日直接当作断签或 0 学习。
 - 周/月 `taskCompletionRate` 的默认口径是逐日快照平均值；如后续需要任务数加权完成率，必须继续读取任务明细或在新的确认批次中补充 `taskCount/completedTaskCount` 字段。
-- 正在运行的 active session 可以用于首页实时展示，但不能写入 `CheckIn`，只有结束计时后才固化到日快照。
+- 正在运行的 active session 可以用于首页实时展示，但未结束 session 不能写入 `CheckIn`，只有结束计时后才固化到日快照；若开始计时把关联任务从 `TODO` 改为 `IN_PROGRESS`，只刷新任务计划日快照中的任务状态口径。
 - 任务计划日变化时需要刷新旧计划日和新计划日；同一天重复刷新必须幂等。
 - 历史日期不推断用户没有实际记录过的打卡状态，也不做不可靠回填。

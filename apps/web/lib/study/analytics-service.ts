@@ -5,6 +5,7 @@ import {
   type TaskStatus,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
+import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayKey, getStudyDayRange } from "./date";
 import type { SyllabusNodeStatusDto } from "./types";
 
@@ -87,6 +88,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
     dueNotes,
     weakNodes,
     reviewRiskNodes,
+    checkInSnapshots,
   ] = await Promise.all([
     prisma.subject.findMany({
       orderBy: { sortOrder: "asc" },
@@ -188,9 +190,17 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
       orderBy: [{ updatedAt: "desc" }],
       take: 8,
     }),
+    listCheckInSnapshotsInRange(start, today.end),
   ]);
 
-  const daily = buildDailyPoints(start, sessions, tasks, reviews);
+  const dailySnapshots = buildDailySnapshots(start, sessions, tasks, reviews, checkInSnapshots);
+  const daily = dailySnapshots.map((snapshot) => ({
+    dayKey: snapshot.studyDate,
+    totalMinutes: snapshot.totalMinutes,
+    effectiveMinutes: snapshot.effectiveMinutes,
+    taskCompletionRate: snapshot.taskCompletionRate,
+    reviewSubmitted: snapshot.reviewSubmitted,
+  }));
   const todayPoint = daily[daily.length - 1] ?? {
     totalMinutes: 0,
     effectiveMinutes: 0,
@@ -198,11 +208,11 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
   };
   const weekMinutes = daily.reduce((total, point) => total + point.totalMinutes, 0);
   const weekEffectiveMinutes = daily.reduce((total, point) => total + point.effectiveMinutes, 0);
-  const weeklyTaskCompletionRate = calculateTaskCompletion(tasks);
-  const reviewCompletionRate = reviews.length / weekDays;
+  const weeklyTaskCompletionRate = averageDailyTaskCompletion(dailySnapshots);
+  const reviewCompletionRate = dailySnapshots.filter((snapshot) => snapshot.reviewSubmitted).length / weekDays;
   const streakDays = calculateStreak(daily);
   const missedDays = daily.filter((point) => point.effectiveMinutes === 0).length;
-  const lowConversionCount = sessions.filter(isLowConversionSession).length;
+  const lowConversionCount = dailySnapshots.reduce((total, snapshot) => total + snapshot.lowConversionCount, 0);
   const weakNodeMap = new Map(weakNodes.map((node) => [node.id, node]));
 
   for (const node of reviewRiskNodes) {
@@ -272,7 +282,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
   };
 }
 
-function buildDailyPoints(
+function buildDailySnapshots(
   start: Date,
   sessions: Array<{
     startedAt: Date;
@@ -287,14 +297,20 @@ function buildDailyPoints(
   reviews: Array<{
     reviewDate: Date;
   }>,
-): AnalyticsDailyPointDto[] {
+  checkInSnapshots: Map<string, ReturnType<typeof buildDailyCheckInSnapshot>>,
+): ReturnType<typeof buildDailyCheckInSnapshot>[] {
   const reviewKeys = new Set(reviews.map((review) => getStudyDayKey(review.reviewDate)));
 
   return Array.from({ length: weekDays }, (_, index) => {
     const day = getStudyDayRange(new Date(start.getTime() + index * dayMs));
+    const snapshot = checkInSnapshots.get(day.key);
+    if (snapshot) {
+      return snapshot;
+    }
+
     const daySessions = sessions.filter((session) => session.startedAt >= day.start && session.startedAt < day.end);
     const dayTasks = tasks.filter((task) => task.plannedDate >= day.start && task.plannedDate < day.end);
-    const snapshot = buildDailyCheckInSnapshot({
+    return buildDailyCheckInSnapshot({
       studyDate: day.key,
       sessions: daySessions.map((session) => ({
         effectiveMinutes: session.effectiveMinutes,
@@ -304,14 +320,6 @@ function buildDailyPoints(
       tasks: dayTasks.map((task) => ({ status: toCoreTaskStatus(task.status) })),
       reviewSubmitted: reviewKeys.has(day.key),
     });
-
-    return {
-      dayKey: day.key,
-      totalMinutes: snapshot.totalMinutes,
-      effectiveMinutes: snapshot.effectiveMinutes,
-      taskCompletionRate: snapshot.taskCompletionRate,
-      reviewSubmitted: snapshot.reviewSubmitted,
-    };
   });
 }
 
@@ -347,13 +355,9 @@ function buildSubjectShares(
   });
 }
 
-function isLowConversionSession(session: { isEffective: boolean | null; isLowConversion?: boolean | null }): boolean {
-  return session.isLowConversion ?? session.isEffective === false;
-}
-
-function calculateTaskCompletion(tasks: Array<{ status: DbTaskStatus }>): number {
-  if (tasks.length === 0) return 0;
-  return tasks.filter((task) => task.status === "DONE").length / tasks.length;
+function averageDailyTaskCompletion(snapshots: Array<{ taskCompletionRate: number }>): number {
+  if (snapshots.length === 0) return 0;
+  return snapshots.reduce((total, snapshot) => total + snapshot.taskCompletionRate, 0) / snapshots.length;
 }
 
 function toCoreTaskStatus(status: DbTaskStatus): TaskStatus {

@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1-6 仍未执行。任何后续 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
+本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1 已在明确确认后执行 `CheckIn` 日快照；Batch 2-6 仍未执行。任何后续 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
 
 ## 目标
 
@@ -11,7 +11,7 @@
 当前主要缺口：
 
 - 新结束的 `StudySession` 已写入 Batch 0 结构化收口字段；历史 `StudySession.note` 仍可能混合保存理解程度、最小产出、下一步动作和反假学习原因，且不做不可靠解析。
-- 打卡连续性由近窗 session 派生，没有 `CheckIn` 日快照。
+- 打卡连续性已有 `CheckIn` 日快照；新写路径会维护快照，历史无快照日期仍按 sessions/tasks/reviews fallback 派生。
 - 任务债务动作依赖 `StudyTask.status/debtStatus/reviewText` 和审计事件，没有债务事件账本和父子任务关系。
 - 恢复模式是实时规则裁剪，没有用户手动触发和退出记录。
 - 掌握证明依赖证据计数和 core 规则，没有条件勾选、证据引用和复测记录。
@@ -30,7 +30,7 @@
 下面批次用于真实实现和确认。每一批都应单独说明影响、风险、验证和回滚；通过验证后再进入下一批。
 
 1. Batch 0：只新增 `StudySession` 结构化收口字段，保留 `note` 双写，不解析历史文本。
-2. Batch 1：新增 `CheckIn` 日快照，只在新写路径 upsert；首页和统计先保留旧派生 fallback。
+2. Batch 1：新增 `CheckIn` 日快照，只在新写路径 upsert；首页和统计先保留旧派生 fallback。已完成。
 3. Batch 2：新增 `StudyTask.parentTaskId` 和 `TaskDebtEvent`，债务动作双写 `AuditEvent` 与事件账本。
 4. Batch 3：新增 `RecoveryState`，只记录恢复状态，不批量改历史欠账。
 5. Batch 4：新增掌握证明条件、证据和复测记录，缺显式证据时 fallback 现有 `_count`。
@@ -61,7 +61,7 @@ Batch 0 已新增：
 
 ### 新增 `CheckIn`
 
-建议字段：
+Batch 1 已新增字段：
 
 - `id String @id @default(cuid())`
 - `studyDate DateTime @unique`
@@ -81,7 +81,7 @@ Batch 0 已新增：
 
 - 每次结束计时、保存复盘、任务状态变化后 upsert 当日 `CheckIn`。
 - 首页、统计和报告优先读 `CheckIn`；若某日没有快照，fallback 到现有 session/task/review 派生逻辑。
-- 历史回填只按已有 session/task/review 生成快照，不推断用户没有填写过的收口字段。
+- 本批不做历史批量回填；历史无快照日期只在读取时按已有 session/task/review 派生，不推断用户没有填写过的收口字段。
 
 Batch 1 实现契约：
 
@@ -94,7 +94,7 @@ Batch 1 实现契约：
 - `reviewSubmitted` 只由当日 `DailyReview` 是否存在决定；保存复盘后必须刷新同日快照。
 - `lowConversionCount` 优先使用 Batch 0 的 `isLowConversion`，历史 session fallback 到 `isEffective=false`。
 - analytics 和 reports 必须以“逐日”为单位合并：某天有 `CheckIn` 就用快照；某天没有快照就走旧 session/task/review 派生。不能因为区间内部分日期有快照，就把无快照日期当作 0 或断签。
-- 本批不做历史批量回填；如后续需要回填，只能另开可重复、只追加、可审计的任务确认。
+- 本批未做历史批量回填；如后续需要回填，只能另开可重复、只追加、可审计的任务确认。
 
 ### `StudyTask` 父子关系
 

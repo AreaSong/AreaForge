@@ -14,9 +14,13 @@ import {
   type StudyTaskInput,
   type TaskDebtReorderPressure,
 } from "@areaforge/core";
-import { prisma } from "@areaforge/db";
+import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { daysUntil, getNextStudyDayStart, getStudyDayKey, getStudyDayRange } from "./date";
+import {
+  listCheckInSnapshotsInRange,
+  refreshCheckInSnapshotsForDates,
+} from "./check-in-service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import type {
   DailyReviewDto,
@@ -35,6 +39,7 @@ const simulationDate = new Date("2026-12-20T08:30:00+08:00");
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type DbStudySessionStatus = "RUNNING" | "PAUSED" | "COMPLETED" | "CANCELED";
+type StudyDbClient = PrismaClient | Prisma.TransactionClient;
 
 export interface CreateTaskInput {
   subjectId: string;
@@ -118,6 +123,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     debtTasks,
     debtReorderTasks,
     recentSessions,
+    checkInSnapshots,
     motivationVault,
   ] = await Promise.all([
     prisma.subject.findMany({
@@ -230,6 +236,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
         effectiveMinutes: true,
       },
     }),
+    listCheckInSnapshotsInRange(recentStart, day.end),
     prisma.motivationVault.findFirst({
       orderBy: { createdAt: "asc" },
     }),
@@ -240,22 +247,21 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
   const debtTaskDtos = debtTasks.map(serializeTask);
   const debtReorderTaskDtos = debtReorderTasks.map(serializeTask);
   const todayMinutes = sumTodayMinutes(sessionDtos, activeSession ? serializeSession(activeSession) : null, now);
-  const dailySnapshot = buildDailyCheckInSnapshot({
+  const derivedDailySnapshot = buildDailyCheckInSnapshot({
     studyDate: day.key,
     sessions: sessionDtos.map(toCheckInSnapshotSession),
     tasks: taskDtos.map((task) => ({ status: task.status })),
     reviewSubmitted: Boolean(review),
   });
+  const dailySnapshot = checkInSnapshots.get(day.key) ?? derivedDailySnapshot;
   const effectiveMinutes = dailySnapshot.effectiveMinutes;
   const effectiveSessionCount = dailySnapshot.effectiveSessionCount;
   const lowConversionCount = dailySnapshot.lowConversionCount;
   const latestCompletedSession = getLatestCompletedSession(sessionDtos);
   const taskCompletionRate = dailySnapshot.taskCompletionRate;
-  const streakDays = getEffectiveStudyStreak(recentSessions.map((session) => session.startedAt), now);
+  const streakDays = getEffectiveStudyStreak(recentSessions, checkInSnapshots, now);
   const missedDays = Math.max(0, Math.min(7, 7 - streakDays));
-  const recentEffectiveMinutes = recentSessions
-    .filter((session) => session.startedAt >= weeklyStart)
-    .reduce((total, session) => total + session.effectiveMinutes, 0);
+  const recentEffectiveMinutes = sumEffectiveMinutesByStudyDay(weeklyStart, 7, recentSessions, checkInSnapshots);
   const syllabusProgress = getOverallSyllabusProgress(subjects);
 
   const dashboardInput: DashboardInput = {
@@ -293,7 +299,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
   const checkIn = evaluateDailyCheckIn({
     effectiveMinutes,
     effectiveSessionCount,
-    reviewSubmitted: Boolean(review),
+    reviewSubmitted: dailySnapshot.reviewSubmitted,
     taskCompletionRate,
   });
   const recoveryTaskCandidates = getRecoveryTaskCandidates(taskDtos, debtTaskDtos);
@@ -355,7 +361,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
         ? `存在 ${lowConversionCount} 段低转化学习，今天还需要补一个可检查产出`
         : "结束计时后会检查本次学习是否留下产出",
       lowConversionCount,
-      review: review ? "今日复盘已提交" : "还未提交今日复盘",
+      review: dailySnapshot.reviewSubmitted ? "今日复盘已提交" : "还未提交今日复盘",
       ai: "AI disabled 时使用本地规则建议；真实外部 AI 调用仍需单独确认隐私边界",
     },
   };
@@ -373,23 +379,29 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
   }
 
   const day = input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start;
-  const task = await prisma.studyTask.create({
-    data: {
-      subjectId: input.subjectId,
-      syllabusNodeId: input.syllabusNodeId ?? null,
-      title: input.title,
-      type: input.type,
-      priority: toDbPriority(input.priority),
-      plannedDate: day,
-      estimatedMinutes: input.estimatedMinutes,
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const createdTask = await tx.studyTask.create({
+      data: {
+        subjectId: input.subjectId,
+        syllabusNodeId: input.syllabusNodeId ?? null,
+        title: input.title,
+        type: input.type,
+        priority: toDbPriority(input.priority),
+        plannedDate: day,
+        estimatedMinutes: input.estimatedMinutes,
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "STUDY_TASK_CREATED", "StudyTask", createdTask.id, tx);
+    await refreshCheckInSnapshotsForDates([createdTask.plannedDate], tx);
+
+    return createdTask;
   });
 
-  await audit(actorId, "STUDY_TASK_CREATED", "StudyTask", task.id);
   return serializeTask(task);
 }
 
@@ -412,6 +424,7 @@ export async function updateStudyTask(id: string, input: UpdateTaskInput, actorI
     select: {
       subjectId: true,
       syllabusNodeId: true,
+      plannedDate: true,
     },
   });
 
@@ -429,101 +442,141 @@ export async function updateStudyTask(id: string, input: UpdateTaskInput, actorI
     await assertSyllabusNodeBelongsToSubject(resolvedSyllabusNodeId, resolvedSubjectId);
   }
 
-  const task = await prisma.studyTask.update({
-    where: { id },
-    data: {
-      subjectId: input.subjectId,
-      syllabusNodeId: input.syllabusNodeId,
-      title: input.title,
-      type: input.type,
-      priority: input.priority ? toDbPriority(input.priority) : undefined,
-      plannedDate: input.plannedDate ? new Date(input.plannedDate) : undefined,
-      estimatedMinutes: input.estimatedMinutes,
-      reviewText: input.reviewText,
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updatedTask = await tx.studyTask.update({
+      where: { id },
+      data: {
+        subjectId: input.subjectId,
+        syllabusNodeId: input.syllabusNodeId,
+        title: input.title,
+        type: input.type,
+        priority: input.priority ? toDbPriority(input.priority) : undefined,
+        plannedDate: input.plannedDate ? new Date(input.plannedDate) : undefined,
+        estimatedMinutes: input.estimatedMinutes,
+        reviewText: input.reviewText,
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "STUDY_TASK_UPDATED", "StudyTask", updatedTask.id, tx);
+    if (input.plannedDate) {
+      await refreshCheckInSnapshotsForDates([existing.plannedDate, updatedTask.plannedDate], tx);
+    }
+
+    return updatedTask;
   });
 
-  await audit(actorId, "STUDY_TASK_UPDATED", "StudyTask", task.id);
   return serializeTask(task);
 }
 
 export async function completeStudyTask(id: string, reviewText: string | undefined, actorId: string): Promise<StudyTaskDto> {
-  const task = await prisma.studyTask.update({
-    where: { id },
-    data: {
-      status: "DONE",
-      debtStatus: "NONE",
-      reviewText,
-      completedAt: new Date(),
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updatedTask = await tx.studyTask.update({
+      where: { id },
+      data: {
+        status: "DONE",
+        debtStatus: "NONE",
+        reviewText,
+        completedAt: new Date(),
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "STUDY_TASK_COMPLETED", "StudyTask", updatedTask.id, tx);
+    await refreshCheckInSnapshotsForDates([updatedTask.plannedDate], tx);
+
+    return updatedTask;
   });
 
-  await audit(actorId, "STUDY_TASK_COMPLETED", "StudyTask", task.id);
   return serializeTask(task);
 }
 
 export async function deferStudyTask(id: string, plannedDate: string | undefined, reviewText: string | undefined, actorId: string): Promise<StudyTaskDto> {
-  const task = await prisma.studyTask.update({
-    where: { id },
-    data: {
-      status: "DEFERRED",
-      debtStatus: "ACCEPTABLE",
-      plannedDate: plannedDate ? new Date(plannedDate) : getNextStudyDayStart(),
-      reviewText,
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const existing = await tx.studyTask.findUnique({
+      where: { id },
+      select: { plannedDate: true },
+    });
+    if (!existing) {
+      throw new ApiError("TASK_NOT_FOUND", 404);
+    }
+
+    const updatedTask = await tx.studyTask.update({
+      where: { id },
+      data: {
+        status: "DEFERRED",
+        debtStatus: "ACCEPTABLE",
+        plannedDate: plannedDate ? new Date(plannedDate) : getNextStudyDayStart(),
+        reviewText,
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "STUDY_TASK_DEFERRED", "StudyTask", updatedTask.id, tx);
+    await refreshCheckInSnapshotsForDates([existing.plannedDate, updatedTask.plannedDate], tx);
+
+    return updatedTask;
   });
 
-  await audit(actorId, "STUDY_TASK_DEFERRED", "StudyTask", task.id);
   return serializeTask(task);
 }
 
 export async function dropStudyTask(id: string, actorId: string): Promise<StudyTaskDto> {
-  const task = await prisma.studyTask.update({
-    where: { id },
-    data: {
-      status: "SKIPPED",
-      debtStatus: "NONE",
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updatedTask = await tx.studyTask.update({
+      where: { id },
+      data: {
+        status: "SKIPPED",
+        debtStatus: "NONE",
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "STUDY_TASK_DROPPED", "StudyTask", updatedTask.id, tx);
+    await refreshCheckInSnapshotsForDates([updatedTask.plannedDate], tx);
+
+    return updatedTask;
   });
 
-  await audit(actorId, "STUDY_TASK_DROPPED", "StudyTask", task.id);
   return serializeTask(task);
 }
 
 export async function recoverStudyTask(id: string, input: RecoverTaskInput, actorId: string): Promise<StudyTaskDto> {
   const existing = await getTaskForLightweightDebtAction(id);
-  const task = await prisma.studyTask.update({
-    where: { id },
-    data: {
-      status: "TODO",
-      debtStatus: "ACCEPTABLE",
-      plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
-      reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "补做：拉回今天作为恢复任务"),
-      completedAt: null,
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updatedTask = await tx.studyTask.update({
+      where: { id },
+      data: {
+        status: "TODO",
+        debtStatus: "ACCEPTABLE",
+        plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
+        reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "补做：拉回今天作为恢复任务"),
+        completedAt: null,
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "STUDY_TASK_RECOVERED", "StudyTask", updatedTask.id, tx);
+    await refreshCheckInSnapshotsForDates([existing.plannedDate, updatedTask.plannedDate], tx);
+
+    return updatedTask;
   });
 
-  await audit(actorId, "STUDY_TASK_RECOVERED", "StudyTask", task.id);
   return serializeTask(task);
 }
 
@@ -567,10 +620,12 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
       },
     });
 
+    await audit(actorId, "STUDY_TASK_SPLIT_LIGHTWEIGHT", "StudyTask", createdTask.id, tx);
+    await refreshCheckInSnapshotsForDates([existing.plannedDate, createdTask.plannedDate], tx);
+
     return [updatedOriginal, createdTask];
   });
 
-  await audit(actorId, "STUDY_TASK_SPLIT_LIGHTWEIGHT", "StudyTask", task.id);
   return {
     originalTask: serializeTask(originalTask),
     task: serializeTask(task),
@@ -583,24 +638,30 @@ export async function convertStudyTaskToReview(
   actorId: string,
 ): Promise<StudyTaskDto> {
   const existing = await getTaskForLightweightDebtAction(id);
-  const task = await prisma.studyTask.update({
-    where: { id },
-    data: {
-      type: "review",
-      status: "TODO",
-      debtStatus: "ACCEPTABLE",
-      plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
-      estimatedMinutes: input.estimatedMinutes ?? Math.min(90, Math.max(25, existing.estimatedMinutes)),
-      reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "改成复习任务：先复盘产出，再决定是否继续原任务"),
-      completedAt: null,
-    },
-    include: {
-      subject: true,
-      syllabusNode: true,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updatedTask = await tx.studyTask.update({
+      where: { id },
+      data: {
+        type: "review",
+        status: "TODO",
+        debtStatus: "ACCEPTABLE",
+        plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
+        estimatedMinutes: input.estimatedMinutes ?? Math.min(90, Math.max(25, existing.estimatedMinutes)),
+        reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "改成复习任务：先复盘产出，再决定是否继续原任务"),
+        completedAt: null,
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+    });
+
+    await audit(actorId, "STUDY_TASK_CONVERTED_TO_REVIEW", "StudyTask", updatedTask.id, tx);
+    await refreshCheckInSnapshotsForDates([existing.plannedDate, updatedTask.plannedDate], tx);
+
+    return updatedTask;
   });
 
-  await audit(actorId, "STUDY_TASK_CONVERTED_TO_REVIEW", "StudyTask", task.id);
   return serializeTask(task);
 }
 
@@ -645,29 +706,35 @@ export async function startStudySession(input: { subjectId?: string; taskId?: st
     await assertSyllabusNodeBelongsToSubject(syllabusNodeId, subjectId);
   }
 
-  const session = await prisma.studySession.create({
-    data: {
-      subjectId,
-      taskId: task?.id,
-      syllabusNodeId,
-      status: "RUNNING",
-      startedAt: new Date(),
-    },
-    include: {
-      subject: true,
-      task: true,
-      syllabusNode: true,
-    },
+  const session = await prisma.$transaction(async (tx) => {
+    const createdSession = await tx.studySession.create({
+      data: {
+        subjectId,
+        taskId: task?.id,
+        syllabusNodeId,
+        status: "RUNNING",
+        startedAt: new Date(),
+      },
+      include: {
+        subject: true,
+        task: true,
+        syllabusNode: true,
+      },
+    });
+
+    if (task && task.status === "TODO") {
+      await tx.studyTask.update({
+        where: { id: task.id },
+        data: { status: "IN_PROGRESS" },
+      });
+      await refreshCheckInSnapshotsForDates([task.plannedDate], tx);
+    }
+
+    await audit(actorId, "STUDY_SESSION_STARTED", "StudySession", createdSession.id, tx);
+
+    return createdSession;
   });
 
-  if (task && task.status === "TODO") {
-    await prisma.studyTask.update({
-      where: { id: task.id },
-      data: { status: "IN_PROGRESS" },
-    });
-  }
-
-  await audit(actorId, "STUDY_SESSION_STARTED", "StudySession", session.id);
   return serializeSession(session);
 }
 
@@ -781,6 +848,13 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
       },
     });
 
+    const taskPlannedDate = existing.taskId
+      ? (await tx.studyTask.findUnique({
+          where: { id: existing.taskId },
+          select: { plannedDate: true },
+        }))?.plannedDate
+      : null;
+
     if (existing.taskId) {
       await tx.studyTask.update({
         where: { id: existing.taskId },
@@ -805,14 +879,8 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
       });
     }
 
-    await tx.auditEvent.create({
-      data: {
-        actorId,
-        action: "STUDY_SESSION_ENDED",
-        entityType: "StudySession",
-        entityId: updatedSession.id,
-      },
-    });
+    await audit(actorId, "STUDY_SESSION_ENDED", "StudySession", updatedSession.id, tx);
+    await refreshCheckInSnapshotsForDates([existing.startedAt, taskPlannedDate], tx);
 
     return updatedSession;
   });
@@ -831,31 +899,37 @@ export async function getTodayReview(): Promise<DailyReviewDto | null> {
 
 export async function saveTodayReview(input: SaveReviewInput, actorId: string): Promise<DailyReviewDto> {
   const day = getStudyDayRange();
-  const metrics = await getTodaySessionMetrics(day.start, day.end);
-  const review = await prisma.dailyReview.upsert({
-    where: { reviewDate: day.start },
-    create: {
-      reviewDate: day.start,
-      totalMinutes: metrics.totalMinutes,
-      effectiveMinutes: metrics.effectiveMinutes,
-      summary: input.summary,
-      lostControl: input.lostControl,
-      keepAction: input.keepAction,
-      tomorrowMinimum: input.tomorrowMinimum,
-      mood: input.mood,
-    },
-    update: {
-      totalMinutes: metrics.totalMinutes,
-      effectiveMinutes: metrics.effectiveMinutes,
-      summary: input.summary,
-      lostControl: input.lostControl,
-      keepAction: input.keepAction,
-      tomorrowMinimum: input.tomorrowMinimum,
-      mood: input.mood,
-    },
+  const review = await prisma.$transaction(async (tx) => {
+    const metrics = await getTodaySessionMetrics(day.start, day.end, tx);
+    const savedReview = await tx.dailyReview.upsert({
+      where: { reviewDate: day.start },
+      create: {
+        reviewDate: day.start,
+        totalMinutes: metrics.totalMinutes,
+        effectiveMinutes: metrics.effectiveMinutes,
+        summary: input.summary,
+        lostControl: input.lostControl,
+        keepAction: input.keepAction,
+        tomorrowMinimum: input.tomorrowMinimum,
+        mood: input.mood,
+      },
+      update: {
+        totalMinutes: metrics.totalMinutes,
+        effectiveMinutes: metrics.effectiveMinutes,
+        summary: input.summary,
+        lostControl: input.lostControl,
+        keepAction: input.keepAction,
+        tomorrowMinimum: input.tomorrowMinimum,
+        mood: input.mood,
+      },
+    });
+
+    await audit(actorId, "DAILY_REVIEW_SAVED", "DailyReview", savedReview.id, tx);
+    await refreshCheckInSnapshotsForDates([day.start], tx);
+
+    return savedReview;
   });
 
-  await audit(actorId, "DAILY_REVIEW_SAVED", "DailyReview", review.id);
   return serializeReview(review);
 }
 
@@ -931,8 +1005,12 @@ async function getTaskForLightweightDebtAction(id: string) {
   return task;
 }
 
-async function getTodaySessionMetrics(start: Date, end: Date): Promise<{ totalMinutes: number; effectiveMinutes: number }> {
-  const sessions = await prisma.studySession.findMany({
+async function getTodaySessionMetrics(
+  start: Date,
+  end: Date,
+  client: StudyDbClient = prisma,
+): Promise<{ totalMinutes: number; effectiveMinutes: number }> {
+  const sessions = await client.studySession.findMany({
     where: {
       startedAt: {
         gte: start,
@@ -1310,14 +1388,46 @@ function sumTodayMinutes(sessions: StudySessionDto[], activeSession: StudySessio
   return completedMinutes + Math.floor(activeSeconds / 60);
 }
 
-function getEffectiveStudyStreak(sessionDates: Date[], now: Date): number {
-  const studiedDays = new Set(sessionDates.map(getStudyDayKey));
+function sumEffectiveMinutesByStudyDay(
+  start: Date,
+  days: number,
+  sessions: Array<{
+    startedAt: Date;
+    effectiveMinutes: number;
+  }>,
+  checkInSnapshots: Map<string, { effectiveMinutes: number }>,
+): number {
+  let total = 0;
+
+  for (let index = 0; index < days; index += 1) {
+    const day = getStudyDayRange(new Date(start.getTime() + index * 24 * 60 * 60 * 1000));
+    const snapshot = checkInSnapshots.get(day.key);
+    total += snapshot
+      ? snapshot.effectiveMinutes
+      : sessions
+          .filter((session) => session.startedAt >= day.start && session.startedAt < day.end)
+          .reduce((sum, session) => sum + session.effectiveMinutes, 0);
+  }
+
+  return total;
+}
+
+function getEffectiveStudyStreak(
+  sessions: Array<{
+    startedAt: Date;
+  }>,
+  checkInSnapshots: Map<string, { effectiveMinutes: number }>,
+  now: Date,
+): number {
+  const studiedDays = new Set(sessions.map((session) => getStudyDayKey(session.startedAt)));
   let cursor = getStudyDayRange(now).start;
   let streak = 0;
 
   for (let index = 0; index < 60; index += 1) {
     const key = getStudyDayKey(cursor);
-    if (!studiedDays.has(key)) {
+    const snapshot = checkInSnapshots.get(key);
+    const studied = snapshot ? snapshot.effectiveMinutes > 0 : studiedDays.has(key);
+    if (!studied) {
       return streak;
     }
 
@@ -1361,8 +1471,14 @@ function mergeTaskReviewText(existing: string | null, note: string | undefined, 
   return merged.slice(0, 2000);
 }
 
-async function audit(actorId: string, action: string, entityType: string, entityId: string): Promise<void> {
-  await prisma.auditEvent.create({
+async function audit(
+  actorId: string,
+  action: string,
+  entityType: string,
+  entityId: string,
+  client: StudyDbClient = prisma,
+): Promise<void> {
+  await client.auditEvent.create({
     data: {
       actorId,
       action,
