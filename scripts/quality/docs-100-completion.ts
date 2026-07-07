@@ -120,7 +120,7 @@ function checkCompletionRecord(): CompletionIssue[] {
   }
 
   for (const item of requiredHighRiskPackages) {
-    const line = findLine(record, item);
+    const line = findLine(record, `| ${item} |`);
     if (!line) continue;
     const cells = parseMarkdownCells(line);
     const status = cells[1] ?? "";

@@ -135,11 +135,20 @@ Batch 4 后，`POST /api/syllabus/nodes/:id/mastery-evidence` 写入显式证据
 - `POST /api/simulation/tasks`
 - `POST /api/simulation/tasks/:id/complete`
 - `GET /api/simulation/stage`
+- `GET /api/simulation/stage-plans`
+- `POST /api/simulation/stage-plans`
+- `PATCH /api/simulation/stage-plans/:id`
+- `GET /api/simulation/stage-adjustment-drafts`
+- `POST /api/simulation/stage-adjustment-drafts`
+- `POST /api/simulation/stage-adjustment-drafts/:id/confirm`
+- `POST /api/simulation/stage-adjustment-drafts/:id/reject`
 - `POST /api/simulation/first-diary`
 
 Batch 5 后，新建模拟考试和保存模拟结果优先写入 `SimulationExam` / `SimulationSubjectResult`。`/simulation` 页面优先读取结构化模拟考试，并只读展示旧 `StudyTask.type = "simulation_exam"` 记录作为 fallback；旧任务型模拟不会被自动迁移、解析或删除。
 
-`GET /api/simulation/tasks` 保留为旧任务型模拟只读兼容面。旧 `POST /api/simulation/tasks` 和 `POST /api/simulation/tasks/:id/complete` 路由保留但返回 `LEGACY_SIMULATION_TASK_WRITE_DISABLED`，不再创建或完成旧任务型模拟。阶段计划应用记录和 AI 阶段调整建议仍需 Batch 6、Package C 和 Package D 继续确认后推进。
+`GET /api/simulation/tasks` 保留为旧任务型模拟只读兼容面。旧 `POST /api/simulation/tasks` 和 `POST /api/simulation/tasks/:id/complete` 路由保留但返回 `LEGACY_SIMULATION_TASK_WRITE_DISABLED`，不再创建或完成旧任务型模拟。
+
+Batch 6 后，阶段计划可通过 `stage-plans` API 创建和局部更新；阶段调整草稿通过本地规则持久化，固定 `canAutoApply=false`、`requiresUserConfirmation=true`。`confirm` 只在用户显式确认时更新关联 `StagePlan` 的模式、目标和必要状态，并写入 `AuditEvent`；`reject` 只更新草稿状态。两者都不自动重排任务、不批量修改任务、不外呼真实 AI、不删除历史阶段记录。长期 AI 阶段调整仍需 Package C，任务重排应用、报告决策和长期应用记录仍需 Package D。
 
 ### AI
 

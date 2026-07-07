@@ -87,7 +87,7 @@
 - API 烟测：complete、defer、drop、recover、split、convert-review、end-session 自动完成路径和模拟考试完成路径同时写入 `AuditEvent` 与 `TaskDebtEvent`；拆小任务写入 `parentTaskId`；旧任务仍按 `StudyTask.status/debtStatus/plannedDate` fallback。
 - 页面烟测：首页任务区、欠账预览和 `/reports` 对旧数据与新事件账本展示一致。
 
-注意：Batch 2 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `parentTaskId` 和 `model TaskDebtEvent` 在 schema 中出现；Batch 2 完成并更新台账后，门禁应要求 Batch 2 字段/模型存在。Batch 5 完成后，门禁继续阻止 Batch 6 未确认模型越界。
+注意：Batch 2 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `parentTaskId` 和 `model TaskDebtEvent` 在 schema 中出现；Batch 2 完成并更新台账后，门禁应要求 Batch 2 字段/模型存在。Batch 6 完成前，门禁继续阻止 Batch 6 未确认模型越界。
 
 ## Package B Batch 3 专项验证
 
@@ -109,7 +109,7 @@
 - API 烟测：无 active 状态时 dashboard fallback 实时规则；手动和规则触发创建 active `RecoveryState`；完成或取消只更新 `RecoveryState.status/endedAt/exitCondition`；`StudyTask` 不被批量改写。
 - 页面烟测：首页恢复模式刷新后持久，计时器聚焦恢复候选但任务面板保留完整任务列表；退出后恢复正常任务展示和实时 fallback。
 
-注意：Batch 3 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model RecoveryState` 在 schema 中出现；Batch 3 完成并更新台账后，门禁应要求 `RecoveryState` 存在。Batch 5 完成后，门禁继续阻止 Batch 6 未确认模型越界。
+注意：Batch 3 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model RecoveryState` 在 schema 中出现；Batch 3 完成并更新台账后，门禁应要求 `RecoveryState` 存在。Batch 6 完成前，门禁继续阻止 Batch 6 未确认模型越界。
 
 ## Package B Batch 4 专项验证
 
@@ -131,7 +131,7 @@
 - API 烟测：条件勾选、证据引用、复测 passed/failed/partial、标记 mastered 的 `evaluateMasteryProof` 拦截、无显式证据 fallback 到现有 `_count`。
 - 页面烟测：`/syllabus` 条件、证据、复测、刷新后节点状态和历史 fallback 展示一致。
 
-注意：Batch 4 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model MasteryConditionRecord`、`model MasteryEvidence` 和 `model MasteryRetest` 在 schema 中出现；Batch 5 完成并更新台账后，门禁应要求 Batch 4 和 Batch 5 模型存在，并继续阻止 Batch 6 未确认模型越界；复测失败或部分通过不能自动降低节点状态。
+注意：Batch 4 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model MasteryConditionRecord`、`model MasteryEvidence` 和 `model MasteryRetest` 在 schema 中出现；Batch 5 完成并更新台账后，门禁应要求 Batch 4 和 Batch 5 模型存在；Batch 6 完成前继续阻止 Batch 6 未确认模型越界；复测失败或部分通过不能自动降低节点状态。
 
 ## Package B Batch 5 专项验证
 
@@ -153,7 +153,7 @@
 - API 烟测：创建结构化模拟考试、保存科目结果、同一场同一科唯一性、旧 `StudyTask.type = "simulation_exam"` 只读兼容。
 - 页面烟测：`/simulation` 列表、结果保存、刷新和第一次同步自测标记保持一致。
 
-注意：Batch 5 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model SimulationExam` 和 `model SimulationSubjectResult` 在 schema 中出现；Batch 5 完成并更新台账后，门禁应要求这些模型存在，并继续阻止 Batch 6 未确认模型越界；本批不自动迁移旧任务型模拟，也不自动调整阶段计划。
+注意：Batch 5 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model SimulationExam` 和 `model SimulationSubjectResult` 在 schema 中出现；Batch 5 完成并更新台账后，门禁应要求这些模型存在，并在 Batch 6 完成前继续阻止 Batch 6 未确认模型越界；本批不自动迁移旧任务型模拟，也不自动调整阶段计划。
 
 ## Package B Batch 6 专项验证
 
@@ -175,7 +175,7 @@
 - API 烟测：阶段计划创建/更新、草稿生成、驳回、确认应用、重复提交、审计记录、`canAutoApply=false`、`requiresUserConfirmation=true`、Package C 未确认时长期 AI 外呼关闭。
 - 页面烟测：`/simulation` 和 `/reports` 中阶段计划、草稿边界和确认状态展示一致。
 
-注意：Batch 6 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model StagePlan` 和 `model StageAdjustmentDraft` 在 schema 中出现；Batch 6 完成并更新台账后，门禁应要求这些模型存在；任何自动任务重排、批量修改任务或真实 AI 长期外呼都不属于本批确认前边界。
+注意：Batch 6 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model StagePlan` 和 `model StageAdjustmentDraft` 在 schema 中出现；Batch 6 完成并更新台账后，门禁应要求这些模型、migration、service、API、DTO、UI 和确认边界证据存在。Batch 6 只狭窄允许阶段草稿 `confirm/reject` 写路由，用于用户显式确认后更新关联 `StagePlan` 和写审计；任何自动任务重排、批量修改任务、报告决策应用、长期 AI 外呼或生产 migration deploy 都不属于本批。
 
 ## Package A 专项验证
 
@@ -248,7 +248,7 @@
 - 页面烟测：首页、`/reports`、`/analytics`、`/syllabus`、`/simulation` 展示确认边界和应用结果。
 - 边界烟测：用户确认前不应用；Package C 未确认时长期 AI 外呼关闭；Package B 结构化模型缺失时仍有只读 fallback。
 
-注意：Package D 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `apply/confirm/reject` 写路由、报告快照/决策/应用模型、长期 AI 外呼和阶段计划应用路径越界。
+注意：Package D 获确认并完成前，`pnpm risk:preflight` 必须继续阻止任务重排、报告决策、报告快照、长期 AI 外呼和跨模块应用路径越界。Package B Batch 6 完成后，仅 `/api/simulation/stage-adjustment-drafts/:id/confirm|reject` 属于已确认的阶段草稿状态写入；其他 `apply/confirm/reject` 写路由仍必须拦截。
 
 ## Package E 专项验证
 
@@ -275,7 +275,7 @@
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。
-- `pnpm risk:preflight` 只证明 Package A-E 的护栏存在，不执行上传、后续 migration、AI 外呼、部署或备份恢复；其中 Package B 检查 Batch 0-5 字段/模型和运行时证据已存在、Batch 6 确认包和专项验证存在且未确认模型仍未越界；Package C 还检查真实 provider 未接线、Web 侧不读取 AI env/key、AI 上下文保持聚合最小化、首页只允许本地 fallback 成本边界；Package D 还检查只读重排 API、只读阶段调整草稿 API、confirm-only DTO、UI 标签和文档边界。
+- `pnpm risk:preflight` 只证明 Package A-E 的护栏存在，不执行上传、后续 migration、AI 外呼、部署或备份恢复；其中 Package B 检查 Batch 0-6 字段/模型和运行时证据已存在，并继续确认没有越过已确认范围；Package C 还检查真实 provider 未接线、Web 侧不读取 AI env/key、AI 上下文保持聚合最小化、首页只允许本地 fallback 成本边界；Package D 还检查只读重排 API、报告/任务应用禁区、Batch 6 阶段草稿确认边界、confirm-only DTO、UI 标签和文档边界。
 - `pnpm docs:completion` 用于最终完成验收；在 `feature-traceability` 仍有“基础版 / 待确认 / 未实现”、Package A-E 完成行缺少验证/烟测/文档同步/残余风险证据、Package B Batch 0-6 未全部完成，或缺少高风险完成记录时，预期应失败。
 - 日常文档同步不要求 `pnpm docs:completion` 通过；声称 AreaForge docs 100% 完成前必须通过。
 

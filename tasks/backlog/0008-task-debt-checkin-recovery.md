@@ -1,6 +1,6 @@
 # 0008 任务债务、打卡、反假学习与恢复模式
 
-状态：进行中。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径，Batch 2 已新增 `TaskDebtEvent` 债务事件账本和 `StudyTask.parentTaskId`，Batch 3 已新增 `RecoveryState` 恢复状态，Batch 4 已新增显式掌握证明记录，Batch 5 已新增结构化模拟考试记录。后续仍有 Batch 6 阶段计划结构化模型待确认。
+状态：进行中。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径，Batch 2 已新增 `TaskDebtEvent` 债务事件账本和 `StudyTask.parentTaskId`，Batch 3 已新增 `RecoveryState` 恢复状态，Batch 4 已新增显式掌握证明记录，Batch 5 已新增结构化模拟考试记录，Batch 6 已新增阶段计划和阶段调整草稿。后续任务重排应用、报告决策和长期 AI 仍需 Package C/D 确认。
 
 ## 目标
 
@@ -64,5 +64,5 @@
 
 ## 风险
 
-- 若新增阶段计划或任务重排应用，需要 migration 或写路径扩展，高风险确认后再执行。
+- 阶段计划模型已完成；若新增任务重排应用、报告决策、长期 AI 或批量任务调整，需要继续走高风险确认后再执行。
 - 恢复模式规则会影响首页任务优先级，必须避免让用户丢失原任务记录。

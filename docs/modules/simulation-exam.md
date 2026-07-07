@@ -13,7 +13,7 @@
 - 考后调用本地规则生成复盘文本，写入 `reviewText`，用于展示分差、达成率、时间压力、主要短板和下一步动作。
 - 旧 `StudyTask.type = "simulation_exam"` 记录只读展示，不自动迁移、不解析历史文本。
 - 旧任务型模拟写 API 保留路由但返回 `LEGACY_SIMULATION_TASK_WRITE_DISABLED`；只读列表用于历史兼容。
-- 根据模拟结果生成阶段调整本地草稿，但不自动应用阶段计划。
+- 根据模拟结果生成阶段调整本地草稿；Batch 6 后可持久化为 `StageAdjustmentDraft`，但仍必须用户显式确认后才会更新关联阶段计划。
 
 ## 字段
 
@@ -33,6 +33,8 @@
 - `SimulationSubjectResult.blankQuestionCount`：科目空题数量。
 - `SimulationSubjectResult.lossReasons`：科目失分原因。
 - `SimulationSubjectResult.summary`：科目总结。
+- `StagePlan`：阶段计划，保存阶段目标、时间边界、模式和状态。
+- `StageAdjustmentDraft`：阶段调整草稿，保存本地规则建议、风险结论、重点科目、任务强度、建议动作和确认状态。
 
 ## 关键场景
 
@@ -40,7 +42,10 @@
 
 ## 当前实现状态
 
-- Package B Batch 5 已完成结构化模型、API 和 `/simulation` 主写入路径。
+- Package B Batch 5 已完成结构化模拟考试模型、API 和 `/simulation` 主写入路径。
+- Package B Batch 6 已完成阶段计划、阶段调整草稿 additive migration、API 和 `/simulation` 持久草稿确认边界。
 - 新 API：`GET /api/simulation/exams`、`POST /api/simulation/exams`、`POST /api/simulation/exams/:id/results`。
+- 阶段计划 API：`GET/POST /api/simulation/stage-plans`、`PATCH /api/simulation/stage-plans/:id`。
+- 阶段草稿 API：`GET/POST /api/simulation/stage-adjustment-drafts`、`POST /api/simulation/stage-adjustment-drafts/:id/confirm`、`POST /api/simulation/stage-adjustment-drafts/:id/reject`。
 - 页面优先展示结构化考试，再展示旧任务型模拟只读 fallback。
-- 本批不包含 Batch 6 阶段计划、阶段调整应用、真实 AI、旧任务型模拟自动迁移、历史文本解析回填、删除旧字段或生产 migration deploy。
+- 当前仍不包含自动任务重排、批量修改任务、真实 AI 长期外呼、旧任务型模拟自动迁移、历史文本解析回填、删除旧字段或生产 migration deploy。任务重排应用、报告决策入口和长期 AI 阶段调整仍归 Package C/D。

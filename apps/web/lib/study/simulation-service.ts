@@ -12,9 +12,16 @@ import { getAnalyticsSummary } from "./analytics-service";
 import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { daysUntil } from "./date";
 import { getMotivationVault, saveMotivationVault } from "./service";
+import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
-import type { MotivationVaultDto, SimulationExamDto, StudyTaskDto } from "./types";
+import type {
+  MotivationVaultDto,
+  SimulationExamDto,
+  StageAdjustmentDraftRecordDto,
+  StagePlanDto,
+  StudyTaskDto,
+} from "./types";
 
 const simulationDate = new Date("2026-12-20T08:30:00+08:00");
 
@@ -97,18 +104,22 @@ export interface SimulationWorkspaceDto {
   exams: SimulationExamDto[];
   tasks: StudyTaskDto[];
   stage: SimulationStageDraftDto;
+  stagePlans: StagePlanDto[];
+  stageAdjustmentDrafts: StageAdjustmentDraftRecordDto[];
   motivationVault: MotivationVaultDto | null;
 }
 
 export async function getSimulationWorkspace(now = new Date()): Promise<SimulationWorkspaceDto> {
-  const [exams, tasks, stage, motivationVault] = await Promise.all([
+  const [exams, tasks, stage, stagePlans, stageAdjustmentDrafts, motivationVault] = await Promise.all([
     listSimulationExams(),
     listSimulationTasks(),
     getSimulationStageDraft(now),
+    listStagePlans(),
+    listStageAdjustmentDrafts(),
     getMotivationVault(),
   ]);
 
-  return { exams, tasks, stage, motivationVault };
+  return { exams, tasks, stage, stagePlans, stageAdjustmentDrafts, motivationVault };
 }
 
 export async function listSimulationExams(): Promise<SimulationExamDto[]> {

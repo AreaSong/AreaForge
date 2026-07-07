@@ -160,6 +160,22 @@ function ReportSection({ report }: { report: PeriodicReportDto }) {
             <p className="rounded-md border border-white/10 bg-[#151a20] px-4 py-3 text-sm leading-6 text-zinc-200">
               {report.strategy.calmConclusion}
             </p>
+            <div className="rounded-md border border-white/10 bg-[#151a20] px-4 py-3 text-sm leading-6 text-zinc-200">
+              <p className="text-xs text-zinc-500">持久阶段边界</p>
+              <p className="mt-1">
+                {report.stagePersistence.latestPlan
+                  ? `${report.stagePersistence.latestPlan.name} / ${labelPersistentStageMode(report.stagePersistence.latestPlan.mode)}`
+                  : "尚未保存阶段计划"}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                {report.stagePersistence.latestDraft
+                  ? `最近草稿：${labelPersistentDraftStatus(report.stagePersistence.latestDraft.status)}，${report.stagePersistence.latestDraft.requiresUserConfirmation ? "需确认" : "无需确认"}，${report.stagePersistence.latestDraft.canAutoApply ? "可自动应用" : "不自动应用"}`
+                  : "尚无持久阶段调整草稿"}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                API：{report.stagePersistence.planApiPath} / {report.stagePersistence.draftApiPath}
+              </p>
+            </div>
           </div>
           {report.debtPreview.length > 0 ? (
             <div className="mt-5 grid gap-2">
@@ -239,6 +255,30 @@ function labelTheme(theme: PeriodicReportDto["strategy"]["theme"]): string {
       return "冲刺主题";
     case "steady":
       return "稳态推进";
+  }
+}
+
+function labelPersistentStageMode(mode: NonNullable<PeriodicReportDto["stagePersistence"]["latestPlan"]>["mode"]): string {
+  switch (mode) {
+    case "recovery":
+      return "恢复";
+    case "strengthen":
+      return "强化";
+    case "sprint":
+      return "冲刺";
+    case "maintain":
+      return "维持";
+  }
+}
+
+function labelPersistentDraftStatus(status: NonNullable<PeriodicReportDto["stagePersistence"]["latestDraft"]>["status"]): string {
+  switch (status) {
+    case "draft":
+      return "待确认";
+    case "applied":
+      return "已应用";
+    case "rejected":
+      return "已驳回";
   }
 }
 

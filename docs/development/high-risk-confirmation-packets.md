@@ -681,7 +681,7 @@ Batch 6 只新增阶段计划和阶段调整草稿模型，用于把当前本地
 
 依赖关系：
 
-- 结构化 `SimulationExam`、`StagePlan` 和 `StageAdjustmentDraft` 模型仍属于 Package B 的 migration 批次。
+- 结构化 `SimulationExam`、`StagePlan` 和 `StageAdjustmentDraft` 模型已由 Package B 的 migration 批次提供；Package D 只负责在确认后组合长期决策、应用记录和审计流程。
 - 长期 AI 阶段调整外呼仍属于 Package C / `tasks/backlog/0017-ai-stage-privacy-cost.md` 的隐私与费用确认。
 - Package D 负责把这些基础能力组合成第二阶段长期闭环，并保证所有建议用户确认前不应用。
 
@@ -691,7 +691,7 @@ Batch 6 只新增阶段计划和阶段调整草稿模型，用于把当前本地
 - 用户确认前不自动改任务、阶段计划或复盘。
 - 风险可视化必须能追溯原因，不能只用压迫式文案。
 - 建议 DTO 必须保持 `canAutoApply=false` 和 `requiresUserConfirmation=true`。
-- Package B 未完成时，重排应用、阶段计划应用和结构化模拟考试写入必须禁用。
+- Package B 未完成时，重排应用、阶段计划应用和结构化模拟考试写入必须禁用；Package B 已完成后，Package D 仍不得绕过用户确认自动应用任务或阶段调整。
 - Package C 未完成时，长期阶段调整只能使用本地规则，不能外呼。
 - 确认、驳回或应用建议时必须写审计记录；部分应用失败时必须停止后续写入并返回失败摘要。
 

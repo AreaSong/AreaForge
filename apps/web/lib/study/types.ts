@@ -43,6 +43,19 @@ export type RecoveryTriggerTypeDto = "rule" | "manual";
 export type RecoverySourceDto = "state" | "realtime_rule";
 export type MasteryEvidenceTypeDto = "task" | "session" | "note" | "mistake" | "retest";
 export type MasteryRetestResultDto = "passed" | "failed" | "partial";
+export type StagePlanModeDto = "recovery" | "strengthen" | "sprint" | "maintain";
+export type StagePlanStatusDto = "draft" | "active" | "completed" | "archived";
+export type StageAdjustmentDraftSourceDto = "local_rule" | "ai";
+export type StageAdjustmentDraftStatusDto = "draft" | "applied" | "rejected";
+export type StageAdjustmentDraftRiskDto = "low" | "medium" | "high" | "critical";
+export type StageAdjustmentTaskIntensityDto = "reduce" | "keep" | "increase" | "sprint";
+export type StageAdjustmentTaskActionDto =
+  | "split"
+  | "defer"
+  | "drop"
+  | "convert_review"
+  | "simulate"
+  | "retest";
 
 export interface SubjectDto {
   id: string;
@@ -273,6 +286,37 @@ export interface SimulationExamDto {
   createdAt: string;
   updatedAt: string;
   subjectResults: SimulationSubjectResultDto[];
+}
+
+export interface StagePlanDto {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  goal: string;
+  mode: StagePlanModeDto;
+  status: StagePlanStatusDto;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StageAdjustmentDraftRecordDto {
+  id: string;
+  stagePlanId: string | null;
+  source: StageAdjustmentDraftSourceDto;
+  mode: StagePlanModeDto;
+  risk: StageAdjustmentDraftRiskDto;
+  riskConclusion: string;
+  focusSubjects: string[];
+  taskIntensity: StageAdjustmentTaskIntensityDto;
+  taskAdjustmentActions: StageAdjustmentTaskActionDto[];
+  nextStageEmphasis: string;
+  canAutoApply: false;
+  requiresUserConfirmation: true;
+  status: StageAdjustmentDraftStatusDto;
+  createdAt: string;
+  appliedAt: string | null;
+  actorId: string | null;
 }
 
 export interface SyllabusOverviewDto {

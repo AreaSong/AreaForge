@@ -176,6 +176,8 @@ export const saveFirstSimulationDiarySchema = z.object({
 });
 
 const simulationLossReasonsSchema = z.array(z.string().trim().min(1).max(120)).max(20).default([]);
+const stagePlanModeSchema = z.enum(["recovery", "strengthen", "sprint", "maintain"]);
+const stagePlanStatusSchema = z.enum(["draft", "active", "completed", "archived"]);
 
 const simulationSubjectResultSchema = z.object({
   subjectId: z.string().min(1),
@@ -222,6 +224,48 @@ export const saveSimulationExamResultsSchema = z
       seen.add(result.subjectId);
     });
   });
+
+const stagePlanBaseSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+  goal: z.string().trim().min(1).max(2000),
+});
+
+const createStagePlanSchema = stagePlanBaseSchema.extend({
+  mode: stagePlanModeSchema.default("maintain"),
+  status: stagePlanStatusSchema.default("draft"),
+});
+
+export const stagePlanSchema = createStagePlanSchema
+  .refine((value) => new Date(value.endDate).getTime() >= new Date(value.startDate).getTime(), {
+    message: "endDate must be after startDate",
+    path: ["endDate"],
+  });
+
+export const updateStagePlanSchema = stagePlanBaseSchema
+  .extend({
+    mode: stagePlanModeSchema,
+    status: stagePlanStatusSchema,
+  })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "at least one field is required",
+  })
+  .refine(
+    (value) => {
+      if (!value.startDate || !value.endDate) return true;
+      return new Date(value.endDate).getTime() >= new Date(value.startDate).getTime();
+    },
+    {
+      message: "endDate must be after startDate",
+      path: ["endDate"],
+    },
+  );
+
+export const stageAdjustmentDraftSchema = z.object({
+  stagePlanId: z.string().min(1).nullable().optional(),
+});
 
 export const createSimulationTaskSchema = z.object({
   subjectId: z.string().min(1),

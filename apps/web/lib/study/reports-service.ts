@@ -9,6 +9,8 @@ import {
 import { prisma } from "@areaforge/db";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
+import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
+import type { StageAdjustmentDraftRecordDto, StagePlanDto } from "./types";
 
 const shanghaiOffsetMs = 8 * 60 * 60 * 1000;
 const dayMs = 24 * 60 * 60 * 1000;
@@ -82,6 +84,14 @@ export interface PeriodicReportDto {
     canAutoApply: false;
     requiresUserConfirmation: true;
   };
+  stagePersistence: {
+    planApiPath: "/api/simulation/stage-plans";
+    draftApiPath: "/api/simulation/stage-adjustment-drafts";
+    latestPlan: StagePlanDto | null;
+    latestDraft: StageAdjustmentDraftRecordDto | null;
+    canAutoApply: false;
+    requiresUserConfirmation: true;
+  };
 }
 
 export interface PeriodicReportsDto {
@@ -113,6 +123,8 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     debtTasks,
     weakNodes,
     checkInSnapshots,
+    stagePlans,
+    stageAdjustmentDrafts,
   ] = await Promise.all([
     prisma.subject.findMany({
       orderBy: { sortOrder: "asc" },
@@ -230,6 +242,8 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
       take: 10,
     }),
     listCheckInSnapshotsInRange(range.start, range.end),
+    listStagePlans(),
+    listStageAdjustmentDrafts(),
   ]);
 
   const dailySnapshots = buildPeriodicDailySnapshots(range, sessions, tasks, reviews, checkInSnapshots);
@@ -307,6 +321,14 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     weakness,
     strategy,
     aiDraft: createLocalReportDraft(strategy),
+    stagePersistence: {
+      planApiPath: "/api/simulation/stage-plans",
+      draftApiPath: "/api/simulation/stage-adjustment-drafts",
+      latestPlan: stagePlans[0] ?? null,
+      latestDraft: stageAdjustmentDrafts[0] ?? null,
+      canAutoApply: false,
+      requiresUserConfirmation: true,
+    },
   };
 }
 

@@ -42,18 +42,17 @@
 - 模拟考试保存结果时已接入模拟结果复盘纯规则，并把分差、达成率、时间压力、主要短板、下一步动作、是否需要重校准计划和考后必填项写入结构化 `SimulationExam.reviewText`。
 - `/simulation` 阶段调整草稿已接入 `draftStageAdjustment`，展示风险等级、任务强度、重点科目、待确认动作和“只生成建议，不自动应用”边界。
 - 已新增第一次全真自测阶段日记保存入口：写入 `MotivationVault.firstSimulationDiary`。
-- 结构化模拟考试模型/API/UI 主路径已完成；阶段计划、阶段调整应用和真实 AI 仍未完成。
+- 结构化模拟考试模型/API/UI 主路径已完成；阶段计划和阶段调整草稿持久化已由 Package B Batch 6 完成；真实 AI、报告决策和任务重排应用仍未完成。
 
 ## 待高风险确认后推进
 
-- 新增阶段计划和阶段调整草稿模型与 migration。
-- 将结构化模拟结果接入后续阶段计划确认/应用闭环。
+- 将结构化模拟结果接入后续报告决策、任务重排应用和长期阶段调整闭环。
 - 接入 AI 长期阶段调整建议，并确认数据最小化、结构化校验、失败回退和用户确认后应用边界。
 - 长期 AI 阶段调整的隐私、费用、限流和可发送字段清单见 `tasks/backlog/0017-ai-stage-privacy-cost.md`，不能混入普通 AI 鞭策任务中默认实现。
 
 ## 高风险包映射
 
-- Package B：`SimulationExam`、`SimulationSubjectResult` 已由 Batch 5 完成；`StagePlan` 和 `StageAdjustmentDraft` 仍归 Batch 6。
+- Package B：`SimulationExam`、`SimulationSubjectResult` 已由 Batch 5 完成；`StagePlan` 和 `StageAdjustmentDraft` 已由 Batch 6 完成。
 - Package C：真实 AI provider 和长期阶段调整外呼的隐私、费用、限流、脱敏和 fallback。
 - Package D：2026 同步自测、结构化模拟考试、阶段日记、阶段调整草稿和第二阶段长期闭环的组合验收。
 
@@ -64,9 +63,9 @@
 - `pnpm --filter @areaforge/web typecheck`
 - `pnpm check`
 - API 烟测：创建模拟考试、保存结果、生成复盘。
-- 页面烟测：模拟考试列表、详情和阶段调整草稿。
+- 页面烟测：模拟考试列表、详情、阶段计划和阶段调整草稿。
 
 ## 风险
 
-- 当前没有阶段计划模型，需要 Batch 6 migration，高风险确认后再执行。
+- 阶段计划模型已存在，但自动任务重排、批量改任务、报告决策应用和真实 AI 长期外呼仍需 Package C/D 确认。
 - AI 阶段建议涉及长期数据，必须确认隐私和应用边界。

@@ -1,6 +1,6 @@
 # 0015 结构化学习状态 migration 确认包
 
-状态：进行中。Package B Batch 0、Batch 1、Batch 2、Batch 3、Batch 4 和 Batch 5 已确认、实施并验证完成；Batch 6 仍命中数据库 migration 高风险边界，开始实现前必须先确认影响、风险、验证和回滚。
+状态：已完成。Package B Batch 0、Batch 1、Batch 2、Batch 3、Batch 4、Batch 5 和 Batch 6 均已确认、实施并完成本地验证；后续生产 migration deploy、历史回填、删除旧字段、真实 AI 外呼、任务重排应用或长期报告决策仍需另行确认。
 
 ## 目标
 
@@ -35,11 +35,11 @@
 | Batch 3 | 已完成 | `RecoveryState`；规则触发和手动触发会创建或复用 active 状态；dashboard/homepage 优先读 active 状态并保留实时规则 fallback；完成/取消只更新恢复状态 |
 | Batch 4 | 已完成 | `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`；条件勾选、证据引用和复测记录写入；掌握证明显式记录优先并保留 `_count` fallback |
 | Batch 5 | 已完成 | `SimulationExam` 与 `SimulationSubjectResult`；结构化模拟考试主写入和旧任务型模拟只读兼容 |
-| Batch 6 | 待确认 | `StagePlan` 与 `StageAdjustmentDraft` |
+| Batch 6 | 已完成 | `StagePlan` 与 `StageAdjustmentDraft`；本地规则草稿持久化，用户确认后只更新关联阶段计划和审计 |
 
 ## 当前推荐下一步
 
-下一步再单独确认 Batch 6。Batch 6 的确认细节已补齐到 `docs/development/high-risk-confirmation-packets.md`，对应验证门禁见 `docs/development/validation-matrix.md`。未获得 Batch 6 确认前，只能继续做文档、护栏和只读检查，不能新增 `StagePlan` / `StageAdjustmentDraft` schema、migration 或业务写路径。
+Package B 分批 migration 主线已完成。后续若要进入生产 migration deploy、历史数据回填、删除旧字段、真实长期 AI、报告决策或任务/阶段应用记录，必须继续走对应 Package C/D/E 或单独高风险确认包。
 
 Batch 0 已完成，且只处理 `StudySession` 结束计时收口，不新增其它表：
 
@@ -56,7 +56,7 @@ Batch 1 已完成：
 - 已新增 `CheckIn` schema 和 `20260707010000_add_check_in_snapshots` additive migration。
 - 新写路径在结束计时、保存复盘、任务创建、任务计划日变化和任务状态变化后按学习日幂等 upsert 快照；`startStudySession` 只在关联任务 `TODO -> IN_PROGRESS` 时刷新任务计划日，不把 active session 时长写入快照。
 - `getTodayDashboard`、`getAnalyticsSummary` 和 `getPeriodicReport` 已改为优先读取 `CheckIn`，缺失日期继续复用 `buildDailyCheckInSnapshot` 从 sessions/tasks/reviews 派生。
-- `pnpm risk:preflight` 已按完成台账允许 Batch 5 结构化模拟考试运行时路径，并继续阻止 Batch 6 未确认结构提前出现。
+- `pnpm risk:preflight` 已按完成台账允许 Batch 5 结构化模拟考试运行时路径；Batch 6 完成后门禁改为要求阶段计划和阶段调整草稿的 migration、schema、service、API、DTO、UI 和确认边界证据存在，并继续阻止越过本批范围的长期应用路径。
 
 Batch 2 已完成：
 
@@ -93,11 +93,21 @@ Batch 5 已完成：
 - 结构化保存仍调用 `summarizeSimulationResult` 生成规则复盘文本，写入 `SimulationExam.reviewText`。
 - 本批不新增 `StagePlan` 或 `StageAdjustmentDraft`，不应用阶段计划，不接真实 AI，不执行生产 migration deploy。
 
+Batch 6 已完成：
+
+- 已新增 `StagePlan`、`StageAdjustmentDraft` schema 和 `20260707060000_add_stage_plan_records` additive migration。
+- `/api/simulation/stage-plans` 可读取和保存阶段计划，`/api/simulation/stage-plans/:id` 可局部更新阶段计划。
+- `/api/simulation/stage-adjustment-drafts` 会用本地规则生成持久草稿，固定 `canAutoApply=false`、`requiresUserConfirmation=true`。
+- `/api/simulation/stage-adjustment-drafts/:id/confirm` 只在用户显式确认时更新关联 `StagePlan.mode/goal/status`、草稿状态和审计记录；重复确认保持幂等。
+- `/api/simulation/stage-adjustment-drafts/:id/reject` 只更新草稿状态和审计记录。
+- `/simulation` 已展示阶段计划、持久草稿、确认/驳回状态和不自动应用边界；`/reports` 已展示最新阶段计划和最近持久草稿。
+- 本批不自动任务重排、不批量修改任务、不执行真实 AI 长期外呼、不删除历史阶段、不执行生产 migration deploy。
+
 Batch 0 确认细节见 `docs/development/high-risk-confirmation-packets.md` 的 “Batch 0 确认包：`StudySession` 结构化收口字段”。
 
 ## Batch 1 确认后实施切入点（已实施）
 
-以下清单记录 Batch 1 已实现范围；Batch 2、Batch 3、Batch 4 和 Batch 5 已在确认后完成，仍不代表 Batch 6 可以提前改 schema、migration 或业务读写路径。
+以下清单记录 Batch 1 已实现范围；Batch 2、Batch 3、Batch 4、Batch 5 和 Batch 6 已在确认后完成，但仍不代表可以执行生产 migration deploy、历史回填、删除旧字段、真实 AI 外呼或 Package D 应用写路径。
 
 写路径需要覆盖：
 
@@ -166,11 +176,11 @@ Batch 1 烟测至少覆盖：
 - 历史 `StudySession.note` 不解析、不回填，旧记录仍能展示。
 - 首页结束一次计时后刷新，仍能看到有效/低转化状态和收口文本。
 - `pnpm db:validate`、临时库显式 `DATABASE_URL=<临时库 URL> pnpm db:migrate:deploy`、`pnpm --filter @areaforge/core test`、Web typecheck/lint 和 `pnpm check` 通过。
-- 完成后只更新 Package B Batch 0 证据，Package B 主状态仍保持未完成。
+- Batch 0 完成时只更新 Package B Batch 0 证据；当前 Batch 0-6 已全部完成，Package B 主状态已在完成记录中标为完成。
 
 ## Batch 1-6 验收摘要
 
-每个批次都必须先获得用户明确确认，再进入 schema、migration 和代码实现。完成单批后只更新对应批次证据，不得把 Package B 主状态改为完成。
+每个批次都必须先获得用户明确确认，再进入 schema、migration 和代码实现。Batch 0-6 已全部完成后，Package B 主状态可以在完成记录中标为完成；生产 deploy 和后续长期应用仍另走确认。
 
 | 批次 | 验收重点 | 排除项 |
 |---|---|---|

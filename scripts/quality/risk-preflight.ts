@@ -792,7 +792,8 @@ function checkStructuredMigrationDesign(): void {
     "## 批次状态",
     "Batch 0 验收标准",
     "Package B 总体验收标准",
-    "完成后只更新 Package B Batch 0 证据",
+    "Batch 0 完成时只更新 Package B Batch 0 证据",
+    "Batch 0-6 已全部完成后，Package B 主状态可以在完成记录中标为完成",
   ];
   const missingBatchStatusTerms = requiredBatchStatusTerms.filter((term) => !task.includes(term));
   checks.push({
@@ -1563,13 +1564,13 @@ function checkPackageBBatchBoundaries(): void {
       ok: [
         "model StagePlan",
         "model StageAdjustmentDraft",
-        "canAutoApply Boolean @default(false)",
-        "requiresUserConfirmation Boolean @default(true)",
         "taskAdjustmentActions",
         "nextStageEmphasis",
         "appliedAt",
         "actorId",
-      ].every((token) => schema.includes(token)),
+      ].every((token) => schema.includes(token)) &&
+        /canAutoApply\s+Boolean\s+@default\(false\)/.test(schema) &&
+        /requiresUserConfirmation\s+Boolean\s+@default\(true\)/.test(schema),
     },
     {
       label: "stage service persists plans and confirm-only drafts",

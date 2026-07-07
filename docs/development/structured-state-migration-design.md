@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1 已在明确确认后执行 `CheckIn` 日快照；Batch 2 已在明确确认后执行 `StudyTask.parentTaskId` 与 `TaskDebtEvent`；Batch 3 已在明确确认后执行 `RecoveryState` 恢复状态；Batch 4 已在明确确认后执行掌握证明条件、证据和复测记录；Batch 5 已在明确确认后执行结构化模拟考试和科目结果；Batch 6 仍未执行。任何后续 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
+本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1 已在明确确认后执行 `CheckIn` 日快照；Batch 2 已在明确确认后执行 `StudyTask.parentTaskId` 与 `TaskDebtEvent`；Batch 3 已在明确确认后执行 `RecoveryState` 恢复状态；Batch 4 已在明确确认后执行掌握证明条件、证据和复测记录；Batch 5 已在明确确认后执行结构化模拟考试和科目结果；Batch 6 已在明确确认后执行阶段计划和阶段调整草稿。任何后续 `prisma/schema.prisma`、`prisma/migrations/**`、生产 migration deploy、数据回填、删除旧字段或长期应用记录改动，都必须另行确认后再做。
 
 ## 目标
 
@@ -16,7 +16,7 @@
 - 恢复模式已有 `RecoveryState` 持久状态；首页优先读取 active 状态，无 active 时仍保留实时规则 fallback。
 - 掌握证明已有 `MasteryConditionRecord`、`MasteryEvidence` 和 `MasteryRetest`；优先读取显式记录，没有显式证据时 fallback 到现有 `_count`。
 - 模拟考试已有 `SimulationExam` 和 `SimulationSubjectResult` 结构化模型；旧任务型模拟只读兼容，不自动迁移。
-- 阶段计划仍复用本地规则草稿，没有持久化阶段计划模型。
+- 阶段计划已有 `StagePlan` 持久模型；阶段调整草稿已有 `StageAdjustmentDraft`，默认不可自动应用，确认前不改任务或复盘。
 
 ## 分批原则
 
@@ -36,7 +36,7 @@
 4. Batch 3：新增 `RecoveryState`，只记录恢复状态，不批量改历史欠账。已完成。
 5. Batch 4：新增掌握证明条件、证据和复测记录，缺显式证据时 fallback 现有 `_count`。已完成。
 6. Batch 5：新增结构化模拟考试和科目结果模型，旧任务型模拟只读兼容。已完成。
-7. Batch 6：新增阶段计划和阶段调整草稿，草稿必须用户确认后才可应用。
+7. Batch 6：新增阶段计划和阶段调整草稿，草稿必须用户确认后才可应用。已完成。
 
 ## 设计域 A：计时收口、打卡、债务、恢复
 
@@ -258,7 +258,7 @@ Batch 5 已新增字段：
 
 ### 新增 `StagePlan`
 
-建议字段：
+Batch 6 已新增字段：
 
 - `id String @id @default(cuid())`
 - `name String`
@@ -272,7 +272,7 @@ Batch 5 已新增字段：
 
 ### 新增 `StageAdjustmentDraft`
 
-建议字段：
+Batch 6 已新增字段：
 
 - `id String @id @default(cuid())`
 - `stagePlanId String?`
@@ -286,7 +286,7 @@ Batch 5 已新增字段：
 - `nextStageEmphasis String`
 - `canAutoApply Boolean @default(false)`
 - `requiresUserConfirmation Boolean @default(true)`
-- `status String`：`draft/applied/dismissed`
+- `status String`：`draft/applied/rejected`
 - `createdAt DateTime @default(now())`
 - `appliedAt DateTime?`
 - `actorId String?`
@@ -297,7 +297,11 @@ Batch 5 已新增字段：
 - 新建模拟考试优先写 `SimulationExam`，旧任务型模拟只读展示，不自动迁移。
 - 保存模拟结果会更新考试汇总字段，并按 `@@unique([simulationExamId, subjectId])` upsert 科目结果。
 - `SimulationExam.reviewText` 继续保存本地规则复盘文本，保证页面刷新和旧展示习惯可读。
-- 阶段调整草稿永远 `canAutoApply=false`，应用前显示变更摘要并写审计。
+- 阶段计划可通过 `/api/simulation/stage-plans` 创建，并通过 `/api/simulation/stage-plans/:id` 局部更新。
+- 阶段调整草稿永远 `canAutoApply=false`、`requiresUserConfirmation=true`，生成时只写 `StageAdjustmentDraft` 和审计，不改任务、复盘或考纲节点。
+- 用户显式确认草稿时，只更新关联 `StagePlan.mode/goal/status` 和 `StageAdjustmentDraft.status/appliedAt/actorId`，并写入 `AuditEvent` 变更摘要；重复确认保持幂等。
+- 用户驳回草稿时，只更新 `StageAdjustmentDraft.status=rejected` 和审计，不删除草稿。
+- Package C 未确认前，阶段调整草稿只使用本地规则，不真实 AI 外呼。
 
 ## 代码切换顺序
 

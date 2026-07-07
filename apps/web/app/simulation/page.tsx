@@ -58,7 +58,12 @@ export default async function SimulationPage() {
             value={`${workspace.exams.length + workspace.tasks.length} 条`}
             sub={`${workspace.exams.length} 条结构化 / ${workspace.tasks.length} 条旧记录`}
           />
-          <Metric icon={BrainCircuit} label="草稿状态" value={labelDraftRisk(workspace.stage.draft.risk)} sub={workspace.stage.draft.canAutoApply ? "可直接应用" : "只生成建议，不自动应用"} />
+          <Metric
+            icon={BrainCircuit}
+            label="阶段计划"
+            value={`${workspace.stagePlans.length} / ${workspace.stageAdjustmentDrafts.length}`}
+            sub={`计划 / 持久草稿，${workspace.stage.draft.canAutoApply ? "可直接应用" : "需确认"}`}
+          />
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
@@ -110,6 +115,8 @@ export default async function SimulationPage() {
           exams={workspace.exams}
           tasks={workspace.tasks}
           stage={workspace.stage}
+          stagePlans={workspace.stagePlans}
+          stageAdjustmentDrafts={workspace.stageAdjustmentDrafts}
           motivationVault={workspace.motivationVault}
         />
       </div>
@@ -154,21 +161,6 @@ function labelReadiness(level: string): string {
       return "先恢复闭环";
     default:
       return "未知";
-  }
-}
-
-function labelDraftRisk(risk: string): string {
-  switch (risk) {
-    case "low":
-      return "低风险";
-    case "medium":
-      return "中风险";
-    case "high":
-      return "高风险";
-    case "critical":
-      return "严重风险";
-    default:
-      return "本地规则";
   }
 }
 

@@ -96,6 +96,7 @@ model User {
   masteryConditions MasteryConditionRecord[]
   masteryEvidence   MasteryEvidence[]
   masteryRetests    MasteryRetest[]
+  stageAdjustmentDrafts StageAdjustmentDraft[]
 }
 
 model AuthSession {
@@ -486,4 +487,47 @@ model SimulationSubjectResult {
   @@unique([simulationExamId, subjectId])
   @@index([simulationExamId])
   @@index([subjectId])
+}
+
+model StagePlan {
+  id               String                 @id @default(cuid())
+  name             String
+  startDate        DateTime
+  endDate          DateTime
+  goal             String
+  mode             String
+  status           String
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  adjustmentDrafts StageAdjustmentDraft[]
+
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model StageAdjustmentDraft {
+  id                       String     @id @default(cuid())
+  stagePlanId              String?
+  source                   String
+  mode                     String
+  risk                     String
+  riskConclusion           String
+  focusSubjects            Json
+  taskIntensity            String
+  taskAdjustmentActions    Json
+  nextStageEmphasis        String
+  canAutoApply             Boolean    @default(false)
+  requiresUserConfirmation Boolean    @default(true)
+  status                   String
+  createdAt                DateTime   @default(now())
+  appliedAt                DateTime?
+  actorId                  String?
+  stagePlan                StagePlan? @relation(fields: [stagePlanId], references: [id], onDelete: SetNull)
+  actor                    User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([stagePlanId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([actorId])
 }

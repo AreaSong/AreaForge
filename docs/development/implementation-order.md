@@ -25,15 +25,15 @@
 - 动机封存、情绪标签、阶段称号和动机唤醒基础版已完成，且默认不进入 AI 上下文。
 - 基础统计与作战地图完善已完成低风险闭环：统计页、只读统计 API、近 7 天派生指标、`summarizeAnalyticsRisks` 统计风险规则、风险提醒、作战地图状态筛选和行动类型筛选。
 - 周审判与月复盘报告已完成低风险闭环：只读周期报告 API、报告页、`choosePeriodicWeakness` 最大短板选择规则、`summarizePeriodicReportStrategy` 周期策略规则和本地规则复盘草稿。
-- 全真模拟考试已完成结构化主路径：Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、结构化模拟 API 和 `/simulation` 主写入；旧 `StudyTask.type = "simulation_exam"` 记录只读兼容；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并接入结构化结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用。阶段计划和 AI 阶段调整仍需后续高风险确认。
+- 全真模拟考试已完成结构化主路径：Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、结构化模拟 API 和 `/simulation` 主写入；旧 `StudyTask.type = "simulation_exam"` 记录只读兼容；Package B Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft`、阶段计划 API 和持久草稿确认边界；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并接入结构化结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用。真实 AI 阶段调整和 Package D 长期应用仍需后续高风险确认。
 - AI 建议已启动 disabled 基础入口：`packages/ai` 提供结构化 schema、本地规则 fallback、非外呼 provider 抽象、mock 测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页草稿展示；真实外部 AI 调用仍需高风险确认。
 
 ## 下一步主线
 
 1. `tasks/active/0004-mvp-syllabus-notes-upload.md`：确认附件风险方案后，实现附件上传与鉴权访问。
 2. `tasks/backlog/0005-mvp-ai-discipline.md`：确认 AI 隐私边界后接入真实外部 AI 适配器。
-3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState` 和显式掌握证明记录已分别由 Package B Batch 1-4 完成；结构化模拟考试已由 Batch 5 完成；后续阶段计划继续随 Batch 6 / Package D 增强。
-4. `tasks/backlog/0013-simulation-stage-adjustment.md`：继续完成阶段计划和 AI 阶段调整；结构化全真模拟考试主路径已由 Batch 5 完成。
+3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState`、显式掌握证明记录、结构化模拟考试和阶段计划/草稿已由 Package B Batch 1-6 完成；后续长期应用继续随 Package D 增强。
+4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径和阶段计划/草稿持久化已完成；继续等待 Package C/D 确认真实 AI 阶段调整和长期应用流。
 5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复和发布闭环。
 
 实现前确认设计：
@@ -71,13 +71,15 @@
 
 需要明确 migration 方案、验证和回滚后推进，按 additive migration（只新增字段/表，暂不删除旧字段）逐批确认：
 
-1. Batch 0：`StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、反假学习原因、是否产生笔记/错题。已完成，且 Package B 主状态仍未完成。
-2. Batch 1：`CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。已完成，且 Package B 主状态仍未完成。
-3. Batch 2：任务债务事件账本和父子任务关系：补做、延期、放弃、拆小、改复习和完成动作。已完成，且 Package B 主状态仍未完成；重排采纳记录仍归 Package D。
-4. Batch 3：`RecoveryState` 恢复状态：规则触发、手动触发、退出条件和恢复记录。已完成，且 Package B 主状态仍未完成。
-5. Batch 4：掌握证明：掌握条件、证据引用、复测记录。已完成，且 Package B 主状态仍未完成。
-6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。已完成，且 Package B 主状态仍未完成。
-7. Batch 6：阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的应用记录。
+1. Batch 0：`StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、反假学习原因、是否产生笔记/错题。已完成。
+2. Batch 1：`CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。已完成。
+3. Batch 2：任务债务事件账本和父子任务关系：补做、延期、放弃、拆小、改复习和完成动作。已完成；重排采纳记录仍归 Package D。
+4. Batch 3：`RecoveryState` 恢复状态：规则触发、手动触发、退出条件和恢复记录。已完成。
+5. Batch 4：掌握证明：掌握条件、证据引用、复测记录。已完成。
+6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。已完成。
+7. Batch 6：阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的阶段计划更新和审计记录。已完成，且不包含任务重排、批量改任务、真实 AI 或生产 migration deploy。
+
+Package B Batch 0-6 已全部完成；`docs 100%` 继续由 Package A 附件、Package C 真实 AI、Package D 长期闭环和 Package E 生产发布收口。
 
 ### 2. 第一版功能补全
 
