@@ -1,6 +1,6 @@
 # 0008 任务债务、打卡、反假学习与恢复模式
 
-状态：进行中。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径，Batch 2 已新增 `TaskDebtEvent` 债务事件账本和 `StudyTask.parentTaskId`。恢复状态仍待后续 migration 确认。
+状态：进行中。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径，Batch 2 已新增 `TaskDebtEvent` 债务事件账本和 `StudyTask.parentTaskId`，Batch 3 已新增 `RecoveryState` 恢复状态，Batch 4 已新增显式掌握证明记录，Batch 5 已新增结构化模拟考试记录。后续仍有 Batch 6 阶段计划结构化模型待确认。
 
 ## 目标
 
@@ -13,7 +13,7 @@
 - 打卡连续性按有效学习动作计算。
 - 计时结束完整收口：学习质量、是否有效学习、理解程度、最小产出、下一步动作、是否产生笔记或错题。
 - 计时结束和晚间复盘记录反假学习检查问题。
-- 恢复模式下首页只保留最小可执行任务和 30 到 90 分钟目标。
+- 恢复模式下计时器聚焦最小可执行任务和 30 到 90 分钟目标，完整任务列表仍可查看。
 - 第二阶段提供任务债务重排建议，但不自动覆盖用户计划。
 
 ## 不包含
@@ -46,12 +46,12 @@
 - `packages/core` 已补充打卡判断和恢复计划纯函数。
 - `packages/core/src/study-integrity.ts` 已补充结构化计时收口归一、近窗打卡历史汇总和轻量任务债务动作总结纯函数，用于结构化收口、`CheckIn` 和债务事件账本的规则基线。
 - `CheckIn` 日快照已由 Package B Batch 1 落地：结束计时、保存复盘、任务创建、计划日变化和状态变化后会按学习日 upsert；dashboard、analytics、reports 优先读快照并保留缺失日期 fallback。
-- 首页已展示打卡连续性原因、恢复模式建议和欠账预览。
-- Dashboard API 已返回 `checkIn`、`recovery`、`debtTasks`、`visibleRecoveryTasks` 和低转化次数。
-- 恢复模式已对首页任务入口做低风险裁剪：只把最小可执行任务传给计时器和任务面板，不删除原任务。
+- 首页已展示打卡连续性原因、恢复模式建议、手动恢复入口、完成/取消恢复入口和欠账预览。
+- Dashboard API 已返回 `checkIn`、`recovery`、`debtTasks`、`visibleRecoveryTasks` 和低转化次数；Batch 3 后 `recovery` 包含 `stateId/source/status/triggerType/startedAt/endedAt/exitCondition`。
+- 恢复模式已接入 `RecoveryState`：规则触发和手动触发会创建或复用 active 状态，完成/取消只更新恢复状态；首页计时器聚焦最小可执行任务，任务面板保留完整任务列表，不删除原任务。
 - 已新增任务轻量流转 API/UI：补做、拆小、改成复习任务；Package B Batch 2 后这些动作继续复用 `StudyTask` 现有字段和 `reviewText` 备注，并同步写入 `TaskDebtEvent`。
 - 计时结束已接入反假学习规则，结果写入现有 `StudySession.isEffective` 和文本化 `note`。
-- 后续仍需恢复模式状态和必要 migration 方案；历史无快照日期不做不可靠回填，旧任务债务事件不做猜测回填。
+- 历史无快照日期不做不可靠回填，旧任务债务事件不做猜测回填；恢复状态不批量修改历史欠账。
 
 ## 验证
 
@@ -64,5 +64,5 @@
 
 ## 风险
 
-- 若新增恢复状态或任务重排应用，需要 migration 或写路径扩展，高风险确认后再执行。
+- 若新增阶段计划或任务重排应用，需要 migration 或写路径扩展，高风险确认后再执行。
 - 恢复模式规则会影响首页任务优先级，必须避免让用户丢失原任务记录。

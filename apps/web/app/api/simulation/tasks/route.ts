@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiUser, readJson } from "@/lib/api/auth";
-import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
-import { createSimulationTaskSchema } from "@/lib/study/schemas";
-import { createSimulationTask, listSimulationTasks } from "@/lib/study/simulation-service";
+import { requireApiUser } from "@/lib/api/auth";
+import { ApiError, apiErrorResponse } from "@/lib/api/responses";
+import { listSimulationTasks } from "@/lib/study/simulation-service";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +16,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireApiUser(request);
-    const parsed = createSimulationTaskSchema.safeParse(await readJson(request));
-    if (!parsed.success) return zodErrorResponse(parsed.error);
-
-    return NextResponse.json({ task: await createSimulationTask(parsed.data, user.id) }, { status: 201 });
+    await requireApiUser(request);
+    throw new ApiError("LEGACY_SIMULATION_TASK_WRITE_DISABLED", 410);
   } catch (error) {
     return apiErrorResponse(error);
   }

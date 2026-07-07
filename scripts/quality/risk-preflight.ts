@@ -391,6 +391,8 @@ function checkSecondStageDesign(): void {
 }
 
 function checkSecondStageStillBeforePackageD(): void {
+  const completionRecord = readIfExists("docs/development/docs-100-completion-record.md");
+  const batch6Done = isPackageBBatchDone(completionRecord, 6);
   const debtReorderRoute = readIfExists("apps/web/app/api/tasks/debt-reorder/route.ts");
   const reportsPeriodicRoute = readIfExists("apps/web/app/api/reports/periodic/route.ts");
   const simulationStageRoute = readIfExists("apps/web/app/api/simulation/stage/route.ts");
@@ -419,13 +421,15 @@ function checkSecondStageStillBeforePackageD(): void {
     file.includes("/tasks/debt-reorder/") && packageDForbiddenRouteTerms.some((term) => file.includes(`/${term}/`)),
   );
   const forbiddenStageApplyRoutesByScan = allApiFiles.filter((file) =>
-    file.includes("/simulation/stage") && packageDForbiddenRouteTerms.some((term) => file.includes(`/${term}/`)),
+    file.includes("/simulation/stage") &&
+    packageDForbiddenRouteTerms.some((term) => file.includes(`/${term}/`)) &&
+    !isBatch6StageDraftDecisionRoute(file, batch6Done),
   );
   const forbiddenLongTermWriteRoutes = allApiFiles.filter((file) => {
     const normalized = file.replaceAll(path.sep, "/");
     const scoped = packageDWriteRouteScopes.some((scope) => normalized.includes(scope));
     const hasForbiddenAction = packageDForbiddenRouteTerms.some((term) => normalized.includes(`/${term}/`));
-    return scoped && hasForbiddenAction;
+    return scoped && hasForbiddenAction && !isBatch6StageDraftDecisionRoute(normalized, batch6Done);
   });
 
   const forbiddenDebtReorderMethods = ["POST", "PATCH", "PUT", "DELETE"].filter((method) =>
@@ -1263,6 +1267,360 @@ function checkPackageBBatchBoundaries(): void {
         ? "no Prisma CheckIn read/write path exists before Batch 1 confirmation"
         : `found CheckIn runtime path before Batch 1 confirmation: ${prematureCheckInRuntime.join(", ")}`,
   });
+
+  const batch3Done = isPackageBBatchDone(completionRecord, 3);
+  const recoveryRuntimeFiles = [
+    ...listFiles("apps/web/lib/study"),
+    ...listFiles("apps/web/app/api"),
+    ...listFiles("apps/web/app"),
+    ...listFiles("apps/web/components"),
+  ].filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"));
+  const prematureRecoveryRuntime = recoveryRuntimeFiles.filter((file) => {
+    const content = readIfExists(file);
+    return (
+      content.includes("prisma.recoveryState")
+      || content.includes("tx.recoveryState")
+      || content.includes("/api/recovery-states")
+      || content.includes("RecoveryStateControls")
+    );
+  });
+  const recoveryService = readIfExists("apps/web/lib/study/service.ts");
+  const recoveryTypes = readIfExists("apps/web/lib/study/types.ts");
+  const recoverySchemas = readIfExists("apps/web/lib/study/schemas.ts");
+  const dashboardRoute = readIfExists("apps/web/app/api/dashboard/today/route.ts");
+  const homePage = readIfExists("apps/web/app/page.tsx");
+  const batch3RuntimeSignals = [
+    {
+      label: "RecoveryState additive migration",
+      ok: migrations.some((migration) =>
+        migration.file.includes("add_recovery_state") && migration.content.includes('"RecoveryState"'),
+      ),
+    },
+    {
+      label: "service RecoveryState read/write helpers",
+      ok: [
+        "createRuleRecoveryState",
+        "startManualRecoveryState",
+        "completeRecoveryState",
+        "cancelRecoveryState",
+        "findActiveRecoveryState",
+      ].every((token) => recoveryService.includes(token)),
+    },
+    {
+      label: "dashboard records rule trigger explicitly",
+      ok: dashboardRoute.includes("recordRecoveryRule: true") && homePage.includes("recordRecoveryRule: true"),
+    },
+    {
+      label: "RecoveryState DTO exposes source and state fields",
+      ok: ["RecoverySourceDto", "RecoveryStateDto", "stateId", "triggerType"].every((token) =>
+        recoveryTypes.includes(token),
+      ),
+    },
+    {
+      label: "RecoveryState schemas and API routes",
+      ok: recoverySchemas.includes("startManualRecoveryStateSchema")
+        && recoverySchemas.includes("finishRecoveryStateSchema")
+        && fileExists("apps/web/app/api/recovery-states/manual/route.ts")
+        && fileExists("apps/web/app/api/recovery-states/[id]/complete/route.ts")
+        && fileExists("apps/web/app/api/recovery-states/[id]/cancel/route.ts"),
+    },
+    {
+      label: "homepage recovery controls preserve full task panel",
+      ok: fileExists("apps/web/components/recovery-state-controls.tsx")
+        && homePage.includes("tasks={dashboard.tasks}")
+        && homePage.includes("tasks={focusTasks}"),
+    },
+  ];
+  const missingBatch3Signals = batch3RuntimeSignals.filter((signal) => !signal.ok).map((signal) => signal.label);
+  checks.push({
+    name: "Package B Batch 3 RecoveryState runtime boundary",
+    ok: batch3Done ? missingBatch3Signals.length === 0 : prematureRecoveryRuntime.length === 0,
+    detail: batch3Done
+      ? missingBatch3Signals.length === 0
+        ? "Batch 3 RecoveryState migration, service, API, DTO, and homepage controls are present"
+        : `Batch 3 is marked done but missing ${missingBatch3Signals.join(", ")}`
+      : prematureRecoveryRuntime.length === 0
+        ? "no RecoveryState runtime path exists before Batch 3 completion"
+        : `found RecoveryState runtime path before Batch 3 completion: ${prematureRecoveryRuntime.join(", ")}`,
+  });
+
+  const batch4Done = isPackageBBatchDone(completionRecord, 4);
+  const masteryRuntimeFiles = [
+    ...listFiles("apps/web/lib/study"),
+    ...listFiles("apps/web/app/api"),
+    ...listFiles("apps/web/app"),
+    ...listFiles("apps/web/components"),
+  ].filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"));
+  const prematureMasteryRuntime = masteryRuntimeFiles.filter((file) => {
+    const content = readIfExists(file);
+    return [
+      "prisma.masteryConditionRecord",
+      "tx.masteryConditionRecord",
+      "prisma.masteryEvidence",
+      "tx.masteryEvidence",
+      "prisma.masteryRetest",
+      "tx.masteryRetest",
+      "/mastery-evidence",
+      "/mastery-retests",
+      "MasteryConditionRecordDto",
+      "MasteryEvidenceDto",
+      "MasteryRetestDto",
+    ].some((token) => content.includes(token));
+  });
+  const syllabusService = readIfExists("apps/web/lib/study/syllabus-service.ts");
+  const syllabusTypes = readIfExists("apps/web/lib/study/types.ts");
+  const syllabusSchemas = readIfExists("apps/web/lib/study/schemas.ts");
+  const syllabusManager = readIfExists("apps/web/components/syllabus-manager.tsx");
+  const batch4RuntimeSignals = [
+    {
+      label: "Mastery additive migration",
+      ok: migrations.some((migration) =>
+        migration.file.includes("add_mastery")
+        && migration.content.includes('"MasteryConditionRecord"')
+        && migration.content.includes('"MasteryEvidence"')
+        && migration.content.includes('"MasteryRetest"'),
+      ),
+    },
+    {
+      label: "Mastery schema fields and unique condition key",
+      ok: [
+        "@@unique([syllabusNodeId, condition])",
+        "evidenceType",
+        "testedAt",
+        "result",
+        "nextReviewAt",
+        "actorId",
+      ].every((token) => schema.includes(token)),
+    },
+    {
+      label: "service explicit mastery records and fallback",
+      ok: [
+        "masteryConditionRecord",
+        "masteryEvidence",
+        "masteryRetest",
+        "evaluateMasteryProof",
+        "_count",
+        "failed",
+        "partial",
+        "actorId",
+      ].every((token) => syllabusService.includes(token)),
+    },
+    {
+      label: "Mastery DTO exposes condition evidence and retest records",
+      ok: ["MasteryConditionRecordDto", "MasteryEvidenceDto", "MasteryRetestDto"].every((token) =>
+        syllabusTypes.includes(token),
+      ),
+    },
+    {
+      label: "Mastery schemas and API routes",
+      ok: syllabusSchemas.includes("masteryEvidence")
+        && syllabusSchemas.includes("masteryRetest")
+        && apiRouteContains("apps/web/app/api/syllabus/nodes/[id]/mastery-evidence/route.ts", ["requireApiUser"])
+        && apiRouteContains("apps/web/app/api/syllabus/nodes/[id]/mastery-retests/route.ts", ["requireApiUser"]),
+    },
+    {
+      label: "syllabus UI persists mastery records",
+      ok: ["masteryEvidence", "masteryRetests", "/mastery-evidence", "/mastery-retests"].every((token) =>
+        syllabusManager.includes(token),
+      ),
+    },
+  ];
+  const missingBatch4Signals = batch4RuntimeSignals.filter((signal) => !signal.ok).map((signal) => signal.label);
+  checks.push({
+    name: "Package B Batch 4 mastery records runtime boundary",
+    ok: batch4Done ? missingBatch4Signals.length === 0 : prematureMasteryRuntime.length === 0,
+    detail: batch4Done
+      ? missingBatch4Signals.length === 0
+        ? "Batch 4 mastery condition, evidence, retest migration, service, API, DTO, and UI evidence are present"
+        : `Batch 4 is marked done but missing ${missingBatch4Signals.join(", ")}`
+      : prematureMasteryRuntime.length === 0
+        ? "no explicit mastery record runtime path exists before Batch 4 completion"
+        : `found explicit mastery record runtime path before Batch 4 completion: ${prematureMasteryRuntime.join(", ")}`,
+  });
+
+  const batch5Done = isPackageBBatchDone(completionRecord, 5);
+  const simulationRuntimeFiles = [
+    ...listFiles("apps/web/lib/study"),
+    ...listFiles("apps/web/app/api"),
+    ...listFiles("apps/web/app"),
+    ...listFiles("apps/web/components"),
+  ].filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"));
+  const prematureSimulationRuntime = simulationRuntimeFiles.filter((file) => {
+    const content = readIfExists(file);
+    return [
+      "prisma.simulationExam",
+      "tx.simulationExam",
+      "prisma.simulationSubjectResult",
+      "tx.simulationSubjectResult",
+      "/api/simulation/exams",
+      "SimulationExamDto",
+      "SimulationSubjectResultDto",
+    ].some((token) => content.includes(token));
+  });
+  const studyRuntimeTextForBatchB = listFiles("apps/web/lib/study")
+    .filter((file) => file.endsWith(".ts"))
+    .map((file) => readIfExists(file))
+    .join("\n");
+  const simulationService = readIfExists("apps/web/lib/study/simulation-service.ts");
+  const studyTypes = readIfExists("apps/web/lib/study/types.ts");
+  const studySchemas = readIfExists("apps/web/lib/study/schemas.ts");
+  const simulationWorkbench = readIfExists("apps/web/components/simulation-workbench.tsx");
+  const simulationPage = readIfExists("apps/web/app/simulation/page.tsx");
+  const batch5RuntimeSignals = [
+    {
+      label: "SimulationExam additive migration",
+      ok: migrations.some((migration) =>
+        migration.content.includes('"SimulationExam"')
+        && migration.content.includes('"SimulationSubjectResult"'),
+      ),
+    },
+    {
+      label: "Simulation schema fields and subject uniqueness",
+      ok: [
+        "model SimulationExam",
+        "model SimulationSubjectResult",
+        "isFirstSynchronized",
+        "targetDurationMinutes",
+        "actualDurationMinutes",
+        "blankQuestionCount",
+        "lossReasons",
+        "@@unique([simulationExamId, subjectId])",
+      ].every((token) => schema.includes(token)),
+    },
+    {
+      label: "simulation service structured records and legacy fallback",
+      ok: [
+        "simulationExam",
+        "simulationSubjectResult",
+        "summarizeSimulationResult",
+        'type: "simulation_exam"',
+        "StudyTask",
+      ].every((token) => studyRuntimeTextForBatchB.includes(token)),
+    },
+    {
+      label: "Simulation DTO exposes exam and subject result records",
+      ok: ["SimulationExamDto", "SimulationSubjectResultDto"].every((token) =>
+        `${studyTypes}\n${studyRuntimeTextForBatchB}`.includes(token),
+      ),
+    },
+    {
+      label: "Simulation schemas and authenticated exam API routes",
+      ok: studySchemas.includes("simulationExam")
+        && studySchemas.includes("simulationSubjectResult")
+        && apiRouteContains("apps/web/app/api/simulation/exams/route.ts", ["requireApiUser"])
+        && apiRouteContains("apps/web/app/api/simulation/exams/[id]/results/route.ts", ["requireApiUser"]),
+    },
+    {
+      label: "simulation UI prefers structured exams while preserving page",
+      ok: `${simulationWorkbench}\n${simulationPage}`.includes("/api/simulation/exams"),
+    },
+  ];
+  const missingBatch5Signals = batch5RuntimeSignals.filter((signal) => !signal.ok).map((signal) => signal.label);
+  checks.push({
+    name: "Package B Batch 5 structured simulation runtime boundary",
+    ok: batch5Done ? missingBatch5Signals.length === 0 : prematureSimulationRuntime.length === 0,
+    detail: batch5Done
+      ? missingBatch5Signals.length === 0
+        ? "Batch 5 SimulationExam migration, service, API, DTO, UI, and legacy fallback evidence are present"
+        : `Batch 5 is marked done but missing ${missingBatch5Signals.join(", ")}`
+      : prematureSimulationRuntime.length === 0
+        ? "no structured simulation exam runtime path exists before Batch 5 completion"
+        : `found structured simulation runtime path before Batch 5 completion: ${prematureSimulationRuntime.join(", ")}`,
+  });
+
+  const batch6Done = isPackageBBatchDone(completionRecord, 6);
+  const stageRuntimeFiles = [
+    ...listFiles("apps/web/lib/study"),
+    ...listFiles("apps/web/app/api"),
+    ...listFiles("apps/web/app"),
+    ...listFiles("apps/web/components"),
+  ].filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"));
+  const prematureStageRuntime = stageRuntimeFiles.filter((file) => {
+    const content = readIfExists(file);
+    return [
+      "prisma.stagePlan",
+      "tx.stagePlan",
+      "prisma.stageAdjustmentDraft",
+      "tx.stageAdjustmentDraft",
+      "/api/simulation/stage-plans",
+      "/api/simulation/stage-adjustment-drafts",
+      "StagePlanDto",
+      "PersistentStageAdjustmentDraftDto",
+    ].some((token) => content.includes(token));
+  });
+  const reportsService = readIfExists("apps/web/lib/study/reports-service.ts");
+  const reportsPage = readIfExists("apps/web/app/reports/page.tsx");
+  const batch6RuntimeSignals = [
+    {
+      label: "StagePlan additive migration",
+      ok: migrations.some((migration) =>
+        migration.content.includes('"StagePlan"')
+        && migration.content.includes('"StageAdjustmentDraft"'),
+      ),
+    },
+    {
+      label: "Stage schema fields and confirmation defaults",
+      ok: [
+        "model StagePlan",
+        "model StageAdjustmentDraft",
+        "canAutoApply Boolean @default(false)",
+        "requiresUserConfirmation Boolean @default(true)",
+        "taskAdjustmentActions",
+        "nextStageEmphasis",
+        "appliedAt",
+        "actorId",
+      ].every((token) => schema.includes(token)),
+    },
+    {
+      label: "stage service persists plans and confirm-only drafts",
+      ok: [
+        "stagePlan",
+        "stageAdjustmentDraft",
+        "draftStageAdjustment",
+        "canAutoApply: false",
+        "requiresUserConfirmation: true",
+        "AuditEvent",
+      ].every((token) => studyRuntimeTextForBatchB.includes(token)),
+    },
+    {
+      label: "Stage DTO exposes persisted plan and draft records",
+      ok: ["StagePlanDto"].every((token) => `${studyTypes}\n${studyRuntimeTextForBatchB}`.includes(token)) &&
+        (
+          `${studyTypes}\n${studyRuntimeTextForBatchB}`.includes("PersistentStageAdjustmentDraftDto") ||
+          `${studyTypes}\n${studyRuntimeTextForBatchB}`.includes("StageAdjustmentDraftRecordDto")
+        ),
+    },
+    {
+      label: "Stage schemas and authenticated plan/draft routes",
+      ok: studySchemas.includes("stagePlan")
+        && studySchemas.includes("stageAdjustmentDraft")
+        && apiRouteContains("apps/web/app/api/simulation/stage-plans/route.ts", ["requireApiUser"])
+        && apiRouteContains("apps/web/app/api/simulation/stage-adjustment-drafts/route.ts", ["requireApiUser"])
+        && apiRouteContains("apps/web/app/api/simulation/stage-adjustment-drafts/[id]/confirm/route.ts", ["requireApiUser"])
+        && apiRouteContains("apps/web/app/api/simulation/stage-adjustment-drafts/[id]/reject/route.ts", ["requireApiUser"]),
+    },
+    {
+      label: "simulation and reports UI expose persisted stage boundaries",
+      ok: [
+        "/api/simulation/stage-plans",
+        "/api/simulation/stage-adjustment-drafts",
+        "requiresUserConfirmation",
+        "canAutoApply",
+      ].every((token) => `${simulationWorkbench}\n${simulationPage}\n${reportsService}\n${reportsPage}`.includes(token)),
+    },
+  ];
+  const missingBatch6Signals = batch6RuntimeSignals.filter((signal) => !signal.ok).map((signal) => signal.label);
+  checks.push({
+    name: "Package B Batch 6 stage plan runtime boundary",
+    ok: batch6Done ? missingBatch6Signals.length === 0 : prematureStageRuntime.length === 0,
+    detail: batch6Done
+      ? missingBatch6Signals.length === 0
+        ? "Batch 6 StagePlan migration, service, API, DTO, UI, and confirmation boundary evidence are present"
+        : `Batch 6 is marked done but missing ${missingBatch6Signals.join(", ")}`
+      : prematureStageRuntime.length === 0
+        ? "no persisted stage plan runtime path exists before Batch 6 completion"
+        : `found persisted stage plan runtime path before Batch 6 completion: ${prematureStageRuntime.join(", ")}`,
+  });
 }
 
 function checkAttachmentStillBeforePackageA(): void {
@@ -1603,6 +1961,21 @@ function escapeRegExp(value: string): string {
 function readIfExists(file: string): string {
   const filePath = resolve(file);
   return existsSync(filePath) ? readFileSync(filePath, "utf8") : "";
+}
+
+function fileExists(file: string): boolean {
+  return existsSync(resolve(file));
+}
+
+function apiRouteContains(file: string, tokens: string[]): boolean {
+  const content = readIfExists(file);
+  return content.length > 0 && tokens.every((token) => content.includes(token));
+}
+
+function isBatch6StageDraftDecisionRoute(file: string, batch6Done: boolean): boolean {
+  if (!batch6Done) return false;
+  const normalized = file.replaceAll(path.sep, "/");
+  return /\/simulation\/stage-adjustment-drafts\/\[[^\]]+\]\/(confirm|reject)\/route\.ts$/.test(normalized);
 }
 
 function listFiles(directory: string): string[] {

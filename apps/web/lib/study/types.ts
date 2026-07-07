@@ -38,6 +38,11 @@ export type MistakeCauseDto =
   | "careless"
   | "time_pressure"
   | "unfamiliar_pattern";
+export type RecoveryStateStatusDto = "active" | "completed" | "canceled";
+export type RecoveryTriggerTypeDto = "rule" | "manual";
+export type RecoverySourceDto = "state" | "realtime_rule";
+export type MasteryEvidenceTypeDto = "task" | "session" | "note" | "mistake" | "retest";
+export type MasteryRetestResultDto = "passed" | "failed" | "partial";
 
 export interface SubjectDto {
   id: string;
@@ -95,6 +100,42 @@ export interface StudySessionDto {
   note: string | null;
 }
 
+export interface MasteryConditionRecordDto {
+  condition: MasteryProofCondition;
+  checked: boolean;
+  checkedAt: string | null;
+  actorId: string | null;
+}
+
+export interface MasteryEvidenceDto {
+  id: string;
+  evidenceType: MasteryEvidenceTypeDto;
+  taskId: string | null;
+  sessionId: string | null;
+  noteId: string | null;
+  mistakeId: string | null;
+  retestId: string | null;
+  summary: string | null;
+  sourceLabel: string;
+  createdAt: string;
+  actorId: string | null;
+}
+
+export interface MasteryRetestDto {
+  id: string;
+  testedAt: string;
+  result: MasteryRetestResultDto;
+  score: string | null;
+  summary: string | null;
+  nextReviewAt: string | null;
+  actorId: string | null;
+}
+
+export interface MasteryEvidenceCandidateDto {
+  id: string;
+  label: string;
+}
+
 export interface DailyReviewDto {
   id: string;
   reviewDate: string;
@@ -128,8 +169,13 @@ export interface SyllabusNodeDto {
     mistakeCount: number;
     lastEvidenceAt: string | null;
     daysSinceLastEvidence: number | null;
+    source: "explicit" | "fallback_count";
   };
   masteryConditions: MasteryProofCondition[];
+  masteryConditionRecords: MasteryConditionRecordDto[];
+  masteryEvidence: MasteryEvidenceDto[];
+  masteryRetests: MasteryRetestDto[];
+  masteryEvidenceCandidates: Record<MasteryEvidenceTypeDto, MasteryEvidenceCandidateDto[]>;
   masteryProof: MasteryProofSummary;
   mapSignal: SyllabusMapSignal;
   children: SyllabusNodeDto[];
@@ -196,6 +242,39 @@ export interface MotivationVaultDto {
   updatedAt: string;
 }
 
+export interface SimulationSubjectResultDto {
+  id: string;
+  simulationExamId: string;
+  subjectId: string;
+  subjectName: string;
+  subjectColor: string;
+  targetScore: number | null;
+  actualScore: number | null;
+  durationMinutes: number | null;
+  blankQuestionCount: number;
+  lossReasons: string[];
+  summary: string | null;
+}
+
+export interface SimulationExamDto {
+  id: string;
+  name: string;
+  examDate: string;
+  isFirstSynchronized: boolean;
+  targetDurationMinutes: number | null;
+  actualDurationMinutes: number | null;
+  targetScore: number | null;
+  actualScore: number | null;
+  blankQuestionCount: number;
+  lossReasons: string[];
+  mindset: string | null;
+  summary: string | null;
+  reviewText: string | null;
+  createdAt: string;
+  updatedAt: string;
+  subjectResults: SimulationSubjectResultDto[];
+}
+
 export interface SyllabusOverviewDto {
   label: string;
   progress: number;
@@ -219,6 +298,19 @@ export interface TaskDebtReorderDto {
   canAutoApply: false;
   requiresUserConfirmation: true;
   suggestions: TaskDebtReorderSuggestionDto[];
+}
+
+export interface RecoveryStateDto {
+  id: string;
+  status: RecoveryStateStatusDto;
+  triggerType: RecoveryTriggerTypeDto;
+  startedAt: string;
+  endedAt: string | null;
+  targetMinutes: number;
+  visibleTaskLimit: number;
+  reason: string;
+  exitCondition: string | null;
+  actorId: string | null;
 }
 
 export interface TodayDashboardDto {
@@ -248,11 +340,19 @@ export interface TodayDashboardDto {
     reviewSubmitted: boolean;
   };
   recovery: {
+    stateId: string | null;
+    source: RecoverySourceDto;
     active: boolean;
+    status: RecoveryStateStatusDto | null;
+    triggerType: RecoveryTriggerTypeDto | null;
     minimumMinutes: number;
+    targetMinutes: number;
     visibleTaskLimit: number;
     reason: string;
     action: string;
+    startedAt: string | null;
+    endedAt: string | null;
+    exitCondition: string | null;
   };
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];

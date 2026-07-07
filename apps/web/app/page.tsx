@@ -18,6 +18,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FocusTimer } from "@/components/focus-timer";
 import { LogoutButton } from "@/components/logout-button";
+import { RecoveryStateControls } from "@/components/recovery-state-controls";
 import { ReviewForm } from "@/components/review-form";
 import { TaskPanel } from "@/components/task-panel";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -36,7 +37,7 @@ export default async function Home() {
   }
 
   const [dashboard, syllabusNodes, dailyReviewAdvice, tomorrowPlanAdvice] = await Promise.all([
-    getTodayDashboard(),
+    getTodayDashboard(new Date(), { actorId: user.id, recordRecoveryRule: true }),
     listSyllabusTree(),
     getDailyReviewAiAdvice(),
     getTomorrowPlanAiAdvice(),
@@ -45,7 +46,7 @@ export default async function Home() {
   const themeClass = getThemeShellClass(snapshot.themeState);
   const themeStatus = getThemeStatus(dashboard);
   const ThemeIcon = themeStatus.icon;
-  const visibleTasks = dashboard.recovery.active ? dashboard.visibleRecoveryTasks : dashboard.tasks;
+  const focusTasks = dashboard.recovery.active ? dashboard.visibleRecoveryTasks : dashboard.tasks;
 
   return (
     <main className={`min-h-screen text-zinc-100 ${themeClass}`}>
@@ -133,9 +134,9 @@ export default async function Home() {
 
         <section className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
           <FocusTimer
-            key={dashboard.activeSession?.id ?? "idle"}
+            key={`${dashboard.activeSession?.id ?? "idle"}-${dashboard.recovery.stateId ?? "normal"}`}
             subjects={dashboard.subjects}
-            tasks={visibleTasks}
+            tasks={focusTasks}
             syllabusNodes={syllabusNodes}
             activeSession={dashboard.activeSession}
             latestCompletedSession={dashboard.latestCompletedSession}
@@ -181,8 +182,18 @@ export default async function Home() {
                 <p className="text-sm text-amber-200">恢复模式</p>
                 <p className="mt-2 leading-7 text-amber-50">{dashboard.recovery.action}</p>
                 <p className="mt-2 text-xs text-amber-100/75">{dashboard.recovery.reason}</p>
+                <p className="mt-2 text-xs text-amber-100/60">
+                  {labelRecoveryTrigger(dashboard.recovery.triggerType)} / 目标 {dashboard.recovery.targetMinutes} 分
+                </p>
+                <RecoveryStateControls recovery={dashboard.recovery} />
               </div>
-            ) : null}
+            ) : (
+              <div className="mt-5 rounded-md border border-amber-300/20 bg-amber-300/10 p-4">
+                <p className="text-sm text-amber-200">恢复状态</p>
+                <p className="mt-2 text-sm leading-6 text-amber-50">需要收窄任务面时，可以手动进入恢复。</p>
+                <RecoveryStateControls recovery={dashboard.recovery} />
+              </div>
+            )}
             {dashboard.motivationWake.shouldWake ? (
               <div className="mt-5 rounded-md border border-rose-300/25 bg-rose-300/10 p-4">
                 <div className="flex items-center gap-2 text-rose-100">
@@ -205,7 +216,7 @@ export default async function Home() {
         <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
           <TaskPanel
             subjects={dashboard.subjects}
-            tasks={visibleTasks}
+            tasks={dashboard.tasks}
             syllabusNodes={syllabusNodes}
             debtReorder={dashboard.debtReorder}
           />
@@ -239,8 +250,8 @@ export default async function Home() {
               </div>
             ) : dashboard.debtTasks.length > 0 ? (
               <div className="mt-5 rounded-md border border-white/10 bg-black/20 p-4">
-                <p className="text-sm text-zinc-300">欠账已收起</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">恢复状态只保留最小任务，欠账重排建议仍在任务区可查看。</p>
+                <p className="text-sm text-zinc-300">恢复优先任务</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">计时器已聚焦最小恢复任务，完整任务列表仍在任务区可查看。</p>
               </div>
             ) : null}
           </div>
@@ -380,14 +391,14 @@ function getThemeStatus(dashboard: TodayDashboard): {
         label: "恢复状态",
         focus: dashboard.recovery.active
           ? dashboard.recovery.action
-          : "今天只保留最小闭环，先把有效学习重新启动。",
+          : "今天先聚焦最小闭环，把有效学习重新启动。",
         icon: ShieldAlert,
         badgeClass: "border-rose-300/30 bg-rose-300/10 text-rose-100",
         panelClass: "border-rose-300/25 bg-rose-300/10 text-rose-100",
         signals: [
           { label: "断签估计", value: `${metrics.missedDays} 天` },
           { label: "任务欠账", value: `${metrics.debtCount} 项` },
-          { label: "可见任务", value: `${dashboard.recovery.active ? dashboard.recovery.visibleTaskLimit : dashboard.visibleRecoveryTasks.length} 项` },
+          { label: "聚焦任务", value: `${dashboard.recovery.active ? dashboard.recovery.visibleTaskLimit : dashboard.visibleRecoveryTasks.length} 项` },
           { label: "恢复目标", value: `${dashboard.recovery.minimumMinutes} 分` },
         ],
       };
@@ -453,6 +464,17 @@ function labelRisk(riskState: string): string {
       return "冲刺期";
     default:
       return "正常";
+  }
+}
+
+function labelRecoveryTrigger(triggerType: TodayDashboard["recovery"]["triggerType"]): string {
+  switch (triggerType) {
+    case "manual":
+      return "手动触发";
+    case "rule":
+      return "规则触发";
+    default:
+      return "实时规则";
   }
 }
 

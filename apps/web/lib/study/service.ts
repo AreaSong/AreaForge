@@ -10,6 +10,7 @@ import {
   rankRecoveryTaskCandidates,
   suggestTaskDebtReorder,
   type DashboardInput,
+  type RecoveryPlan,
   type RiskState,
   type StudyTaskInput,
   type TaskDebtReorderPressure,
@@ -26,6 +27,7 @@ import { createTaskDebtEvent } from "./task-debt-event-service";
 import type {
   DailyReviewDto,
   MotivationVaultDto,
+  RecoveryStateDto,
   StudySessionDto,
   StudyTaskDto,
   SubjectDto,
@@ -36,11 +38,33 @@ import type {
 
 const finalExamDate = new Date("2027-12-20T08:30:00+08:00");
 const simulationDate = new Date("2026-12-20T08:30:00+08:00");
+const recoveryStateLockKey = 2026070703;
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type DbStudySessionStatus = "RUNNING" | "PAUSED" | "COMPLETED" | "CANCELED";
 type StudyDbClient = PrismaClient | Prisma.TransactionClient;
+
+type DbRecoveryStateStatus = "active" | "completed" | "canceled";
+type DbRecoveryTriggerType = "rule" | "manual";
+type RecoveryStateRecord = {
+  id: string;
+  status: string;
+  triggerType: string;
+  startedAt: Date;
+  endedAt: Date | null;
+  targetMinutes: number;
+  visibleTaskLimit: number;
+  reason: string;
+  exitCondition: string | null;
+  metadata: Prisma.JsonValue | null;
+  actorId: string | null;
+};
+
+export interface GetTodayDashboardOptions {
+  actorId?: string | null;
+  recordRecoveryRule?: boolean;
+}
 
 export interface CreateTaskInput {
   subjectId: string;
@@ -93,6 +117,16 @@ export interface ConvertTaskToReviewInput {
   reviewText?: string;
 }
 
+export interface StartManualRecoveryStateInput {
+  reason?: string;
+  targetMinutes?: number;
+  visibleTaskLimit?: number;
+}
+
+export interface FinishRecoveryStateInput {
+  exitCondition?: string;
+}
+
 export interface SaveReviewInput {
   summary: string;
   lostControl?: string;
@@ -109,7 +143,10 @@ export interface SaveMotivationVaultInput {
   firstSimulationDiary?: string;
 }
 
-export async function getTodayDashboard(now = new Date()): Promise<TodayDashboardDto> {
+export async function getTodayDashboard(
+  now = new Date(),
+  options: GetTodayDashboardOptions = {},
+): Promise<TodayDashboardDto> {
   const day = getStudyDayRange(now);
   const recentStart = new Date(day.start.getTime() - 60 * 24 * 60 * 60 * 1000);
   const weeklyStart = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
@@ -126,6 +163,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     recentSessions,
     checkInSnapshots,
     motivationVault,
+    activeRecoveryState,
   ] = await Promise.all([
     prisma.subject.findMany({
       orderBy: { sortOrder: "asc" },
@@ -241,6 +279,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     prisma.motivationVault.findFirst({
       orderBy: { createdAt: "asc" },
     }),
+    findActiveRecoveryState(),
   ]);
 
   const sessionDtos = todaySessions.map(serializeSession);
@@ -304,13 +343,31 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     taskCompletionRate,
   });
   const recoveryTaskCandidates = getRecoveryTaskCandidates(taskDtos, debtTaskDtos);
-  const recovery = createRecoveryPlan({
+  const topRecoveryTask = recoveryTaskCandidates[0] ?? null;
+  const realtimeRecovery = createRecoveryPlan({
     riskState: snapshot.riskState,
     debtCount,
     missedDays,
     effectiveMinutes,
-    topTask: recoveryTaskCandidates[0] ? toCoreTask(recoveryTaskCandidates[0]) : snapshot.topTasks[0],
+    topTask: topRecoveryTask ? toCoreTask(topRecoveryTask) : snapshot.topTasks[0],
   });
+  const recoveryState = activeRecoveryState ?? (
+    options.recordRecoveryRule && realtimeRecovery.active
+      ? await createRuleRecoveryState({
+        plan: realtimeRecovery,
+        actorId: options.actorId ?? null,
+        topTask: topRecoveryTask,
+        riskState: snapshot.riskState,
+        debtCount,
+        missedDays,
+        effectiveMinutes,
+        studyDayKey: day.key,
+      })
+      : null
+  );
+  const recovery = recoveryState
+    ? createDashboardRecoveryFromState(recoveryState, topRecoveryTask)
+    : createDashboardRecoveryFromRealtimePlan(realtimeRecovery);
   const visibleRecoveryTasks = recovery.active
     ? recoveryTaskCandidates.slice(0, recovery.visibleTaskLimit)
     : taskDtos;
@@ -371,6 +428,48 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
 export async function getTaskDebtReorderSuggestion(now = new Date()): Promise<TaskDebtReorderDto> {
   const dashboard = await getTodayDashboard(now);
   return dashboard.debtReorder;
+}
+
+export async function startManualRecoveryState(
+  input: StartManualRecoveryStateInput,
+  actorId: string,
+): Promise<RecoveryStateDto> {
+  const state = await prisma.$transaction(async (tx) => {
+    await lockRecoveryState(tx);
+    const activeState = await findActiveRecoveryState(tx);
+    if (activeState) return activeState;
+
+    return tx.recoveryState.create({
+      data: {
+        status: "active",
+        triggerType: "manual",
+        targetMinutes: normalizeRecoveryTargetMinutes(input.targetMinutes, 30),
+        visibleTaskLimit: normalizeRecoveryVisibleTaskLimit(input.visibleTaskLimit, 1),
+        reason: normalizeOptionalText(input.reason)
+          ?? "手动进入恢复：今天先把任务面缩到最小，恢复有效学习连续性。",
+        actorId,
+        metadata: {
+          source: "manual_recovery_api",
+        },
+      },
+    });
+  });
+
+  return serializeRecoveryState(state);
+}
+
+export async function completeRecoveryState(
+  id: string,
+  input: FinishRecoveryStateInput,
+): Promise<RecoveryStateDto> {
+  return finishRecoveryState(id, "completed", input.exitCondition, "用户标记恢复完成");
+}
+
+export async function cancelRecoveryState(
+  id: string,
+  input: FinishRecoveryStateInput,
+): Promise<RecoveryStateDto> {
+  return finishRecoveryState(id, "canceled", input.exitCondition, "用户取消恢复状态");
 }
 
 export async function createStudyTask(input: CreateTaskInput, actorId: string): Promise<StudyTaskDto> {
@@ -1256,6 +1355,182 @@ function serializeTask(task: {
     reviewText: task.reviewText,
     completedAt: task.completedAt?.toISOString() ?? null,
   };
+}
+
+async function createRuleRecoveryState(input: {
+  plan: RecoveryPlan;
+  actorId: string | null;
+  topTask: StudyTaskDto | null;
+  riskState: RiskState;
+  debtCount: number;
+  missedDays: number;
+  effectiveMinutes: number;
+  studyDayKey: string;
+}): Promise<RecoveryStateRecord> {
+  return prisma.$transaction(async (tx) => {
+    await lockRecoveryState(tx);
+    const activeState = await findActiveRecoveryState(tx);
+    if (activeState) return activeState;
+
+    return tx.recoveryState.create({
+      data: {
+        status: "active",
+        triggerType: "rule",
+        targetMinutes: normalizeRecoveryTargetMinutes(input.plan.minimumMinutes, 30),
+        visibleTaskLimit: normalizeRecoveryVisibleTaskLimit(input.plan.visibleTaskLimit, 1),
+        reason: input.plan.reason,
+        actorId: input.actorId,
+        metadata: {
+          source: "dashboard_rule",
+          action: input.plan.action,
+          riskState: input.riskState,
+          debtCount: input.debtCount,
+          missedDays: input.missedDays,
+          effectiveMinutes: input.effectiveMinutes,
+          studyDayKey: input.studyDayKey,
+          topTaskId: input.topTask?.id ?? null,
+          topTaskTitle: input.topTask?.title ?? null,
+        },
+      },
+    });
+  });
+}
+
+async function finishRecoveryState(
+  id: string,
+  status: Exclude<DbRecoveryStateStatus, "active">,
+  exitCondition: string | undefined,
+  fallbackExitCondition: string,
+): Promise<RecoveryStateDto> {
+  const state = await prisma.$transaction(async (tx) => {
+    await lockRecoveryState(tx);
+    const existing = await tx.recoveryState.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new ApiError("RECOVERY_STATE_NOT_FOUND", 404);
+    }
+    if (existing.status !== "active") return existing;
+
+    return tx.recoveryState.update({
+      where: { id },
+      data: {
+        status,
+        endedAt: new Date(),
+        exitCondition: normalizeOptionalText(exitCondition) ?? fallbackExitCondition,
+      },
+    });
+  });
+
+  return serializeRecoveryState(state);
+}
+
+async function findActiveRecoveryState(client: StudyDbClient = prisma): Promise<RecoveryStateRecord | null> {
+  return client.recoveryState.findFirst({
+    where: {
+      status: "active",
+    },
+    orderBy: {
+      startedAt: "desc",
+    },
+  });
+}
+
+async function lockRecoveryState(client: Prisma.TransactionClient): Promise<void> {
+  await client.$executeRaw`SELECT pg_advisory_xact_lock(${recoveryStateLockKey})`;
+}
+
+function createDashboardRecoveryFromRealtimePlan(plan: RecoveryPlan): TodayDashboardDto["recovery"] {
+  return {
+    stateId: null,
+    source: "realtime_rule",
+    active: plan.active,
+    status: null,
+    triggerType: null,
+    minimumMinutes: plan.minimumMinutes,
+    targetMinutes: plan.minimumMinutes,
+    visibleTaskLimit: plan.visibleTaskLimit,
+    reason: plan.reason,
+    action: plan.action,
+    startedAt: null,
+    endedAt: null,
+    exitCondition: null,
+  };
+}
+
+function createDashboardRecoveryFromState(
+  state: RecoveryStateRecord,
+  topTask: StudyTaskDto | null,
+): TodayDashboardDto["recovery"] {
+  const status = toRecoveryStateStatus(state.status);
+  const targetMinutes = normalizeRecoveryTargetMinutes(state.targetMinutes, 30);
+
+  return {
+    stateId: state.id,
+    source: "state",
+    active: status === "active",
+    status,
+    triggerType: toRecoveryTriggerType(state.triggerType),
+    minimumMinutes: targetMinutes,
+    targetMinutes,
+    visibleTaskLimit: normalizeRecoveryVisibleTaskLimit(state.visibleTaskLimit, 1),
+    reason: state.reason,
+    action: createRecoveryStateAction(targetMinutes, topTask),
+    startedAt: state.startedAt.toISOString(),
+    endedAt: state.endedAt?.toISOString() ?? null,
+    exitCondition: state.exitCondition,
+  };
+}
+
+function serializeRecoveryState(state: RecoveryStateRecord): RecoveryStateDto {
+  return {
+    id: state.id,
+    status: toRecoveryStateStatus(state.status),
+    triggerType: toRecoveryTriggerType(state.triggerType),
+    startedAt: state.startedAt.toISOString(),
+    endedAt: state.endedAt?.toISOString() ?? null,
+    targetMinutes: normalizeRecoveryTargetMinutes(state.targetMinutes, 30),
+    visibleTaskLimit: normalizeRecoveryVisibleTaskLimit(state.visibleTaskLimit, 1),
+    reason: state.reason,
+    exitCondition: state.exitCondition,
+    actorId: state.actorId,
+  };
+}
+
+function toRecoveryStateStatus(status: string): DbRecoveryStateStatus {
+  switch (status) {
+    case "completed":
+      return "completed";
+    case "canceled":
+      return "canceled";
+    default:
+      return "active";
+  }
+}
+
+function toRecoveryTriggerType(triggerType: string): DbRecoveryTriggerType {
+  return triggerType === "manual" ? "manual" : "rule";
+}
+
+function createRecoveryStateAction(targetMinutes: number, topTask: StudyTaskDto | null): string {
+  if (topTask) {
+    return `今天只压「${topTask.title}」这个最小任务，先完成 ${targetMinutes} 分钟。`;
+  }
+
+  return `今天不补过去，先完成 ${targetMinutes} 分钟有效学习。`;
+}
+
+function normalizeRecoveryTargetMinutes(value: number | undefined, fallback: number): number {
+  return normalizeBoundedInt(value, fallback, 5, 240);
+}
+
+function normalizeRecoveryVisibleTaskLimit(value: number | undefined, fallback: number): number {
+  return normalizeBoundedInt(value, fallback, 1, 8);
+}
+
+function normalizeBoundedInt(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(value)));
 }
 
 function createTaskDebtReorder(input: {

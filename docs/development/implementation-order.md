@@ -20,20 +20,20 @@
 - 学习计时开始、暂停、继续、结束持久化。
 - 每晚复盘保存。
 - 考纲树与笔记基础 API/UI 已启动，受限 Markdown 考纲导入已实现；考纲节点已读取已有任务、计时、笔记和错题更新时间派生证据新鲜度，结束计时会同步累加关联考纲节点实际时长；笔记库已支持科目、节点、掌握状态和复习提醒筛选；附件上传仍待高风险确认。
-- 任务债务、打卡检查、反假学习和恢复模式已有低风险闭环：本地规则、首页展示、恢复模式任务裁剪、补做/拆小/改复习任务轻量流转、只读债务重排建议和计时收口反假学习判断；`packages/core/src/study-integrity.ts` 已沉淀结构化收口、近窗打卡历史、轻量债务动作和债务重排建议规则；Package B Batch 0 已为 `StudySession` 追加结构化收口字段；Package B Batch 1 已新增 `CheckIn` 日快照并接入新写路径；Package B Batch 2 已新增 `TaskDebtEvent` 和 `StudyTask.parentTaskId`；恢复状态仍需后续 migration 确认。
-- 错题与掌握证明基础版已启动，考纲节点可看到任务、计时、笔记、错题证据计数和最近证据时间；`packages/core/src/mastery-proof.ts` 已沉淀掌握等级、缺失条件、缺失证据、证据过旧风险和下一步动作的纯规则；`packages/core/src/syllabus-map.ts` 已沉淀作战地图格子状态、标记、原因、下一步动作和聚合摘要纯规则；考纲 API、服务和页面已开始消费这些规则。
+- 任务债务、打卡检查、反假学习和恢复模式已有结构化闭环：本地规则、首页展示、恢复模式任务聚焦、补做/拆小/改复习任务轻量流转、只读债务重排建议和计时收口反假学习判断；`packages/core/src/study-integrity.ts` 已沉淀结构化收口、近窗打卡历史、轻量债务动作和债务重排建议规则；Package B Batch 0 已为 `StudySession` 追加结构化收口字段；Package B Batch 1 已新增 `CheckIn` 日快照并接入新写路径；Package B Batch 2 已新增 `TaskDebtEvent` 和 `StudyTask.parentTaskId`；Package B Batch 3 已新增 `RecoveryState`、手动恢复、规则触发记录和完成/取消恢复状态。
+- 错题与掌握证明已完成显式记录闭环，考纲节点可看到任务、计时、笔记、错题证据计数和最近证据时间；Package B Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence` 和 `MasteryRetest`，`/syllabus` 可保存条件、引用证据和写入复测，缺显式证据时保留 `_count` fallback；`packages/core/src/mastery-proof.ts` 已沉淀掌握等级、缺失条件、缺失证据、证据过旧风险和下一步动作的纯规则；`packages/core/src/syllabus-map.ts` 已沉淀作战地图格子状态、标记、原因、下一步动作和聚合摘要纯规则。
 - 动机封存、情绪标签、阶段称号和动机唤醒基础版已完成，且默认不进入 AI 上下文。
 - 基础统计与作战地图完善已完成低风险闭环：统计页、只读统计 API、近 7 天派生指标、`summarizeAnalyticsRisks` 统计风险规则、风险提醒、作战地图状态筛选和行动类型筛选。
 - 周审判与月复盘报告已完成低风险闭环：只读周期报告 API、报告页、`choosePeriodicWeakness` 最大短板选择规则、`summarizePeriodicReportStrategy` 周期策略规则和本地规则复盘草稿。
-- 全真模拟考试已启动低风险基础入口：复用 `StudyTask.type = "simulation_exam"` 保存模拟任务和文本化结果，提供 `/simulation` 页面、本地阶段准备度草稿和第一次全真自测阶段日记保存；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并已接入模拟结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用，并已接入 `/simulation` 阶段调整草稿；完整 `SimulationExam`、阶段计划和 AI 阶段调整仍需高风险确认后推进。
+- 全真模拟考试已完成结构化主路径：Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、结构化模拟 API 和 `/simulation` 主写入；旧 `StudyTask.type = "simulation_exam"` 记录只读兼容；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并接入结构化结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用。阶段计划和 AI 阶段调整仍需后续高风险确认。
 - AI 建议已启动 disabled 基础入口：`packages/ai` 提供结构化 schema、本地规则 fallback、非外呼 provider 抽象、mock 测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页草稿展示；真实外部 AI 调用仍需高风险确认。
 
 ## 下一步主线
 
 1. `tasks/active/0004-mvp-syllabus-notes-upload.md`：确认附件风险方案后，实现附件上传与鉴权访问。
 2. `tasks/backlog/0005-mvp-ai-discipline.md`：确认 AI 隐私边界后接入真实外部 AI 适配器。
-3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：确认 migration 方案后，基于已收口的 core 规则继续补恢复状态和更完整的连续性统计；`CheckIn` 日快照已由 Package B Batch 1 完成，债务事件账本已由 Package B Batch 2 完成。
-4. `tasks/backlog/0013-simulation-stage-adjustment.md`：继续完成结构化全真模拟考试、阶段计划和 AI 阶段调整。
+3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState` 和显式掌握证明记录已分别由 Package B Batch 1-4 完成；结构化模拟考试已由 Batch 5 完成；后续阶段计划继续随 Batch 6 / Package D 增强。
+4. `tasks/backlog/0013-simulation-stage-adjustment.md`：继续完成阶段计划和 AI 阶段调整；结构化全真模拟考试主路径已由 Batch 5 完成。
 5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复和发布闭环。
 
 实现前确认设计：
@@ -74,16 +74,16 @@
 1. Batch 0：`StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、反假学习原因、是否产生笔记/错题。已完成，且 Package B 主状态仍未完成。
 2. Batch 1：`CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。已完成，且 Package B 主状态仍未完成。
 3. Batch 2：任务债务事件账本和父子任务关系：补做、延期、放弃、拆小、改复习和完成动作。已完成，且 Package B 主状态仍未完成；重排采纳记录仍归 Package D。
-4. Batch 3：`RecoveryState` 恢复状态：规则触发、手动触发、退出条件和恢复记录。
-5. Batch 4：掌握证明：掌握条件、证据引用、复测记录。
-6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。
+4. Batch 3：`RecoveryState` 恢复状态：规则触发、手动触发、退出条件和恢复记录。已完成，且 Package B 主状态仍未完成。
+5. Batch 4：掌握证明：掌握条件、证据引用、复测记录。已完成，且 Package B 主状态仍未完成。
+6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。已完成，且 Package B 主状态仍未完成。
 7. Batch 6：阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的应用记录。
 
 ### 2. 第一版功能补全
 
-- 打卡与连续性已从派生统计升级为 `CheckIn` 结构化快照；后续继续补恢复状态和长期闭环。
+- 打卡与连续性已从派生统计升级为 `CheckIn` 结构化快照；恢复状态已由 `RecoveryState` 承接，后续继续补长期闭环。
 - 任务债务已从轻量流转升级为事件账本；可审计重排应用仍需 Package D 确认。
-- 恢复模式从规则裁剪升级为持久化状态、手动触发和退出条件。
+- 恢复模式已从规则裁剪升级为持久化状态、手动触发和退出条件；后续只随长期阶段计划继续增强。
 - 反假学习从文本化 note 升级为结构化收口和低转化统计。
 - 掌握证明从证据计数升级为条件、证据和复测闭环。
 - 笔记资料库补齐附件上传、鉴权访问和复习提醒。

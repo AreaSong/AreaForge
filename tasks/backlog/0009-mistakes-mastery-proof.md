@@ -1,6 +1,6 @@
 # 0009 错题与掌握证明基础版
 
-状态：基础版已完成。当前复用现有 `Mistake`、`SyllabusNode.masteryLevel`、`AuditEvent` 和节点关联，不新增 migration。
+状态：已完成。基础版复用现有 `Mistake`、`SyllabusNode.masteryLevel`、`AuditEvent` 和节点关联；Package B Batch 4 已补齐显式条件、证据引用和复测记录。
 
 ## 目标
 
@@ -44,13 +44,12 @@
 - `packages/core/src/syllabus-map.ts` 已提供作战地图纯规则：按节点状态、掌握等级、证据数、错题数、上次复习间隔、复测和重点标记，推导网格状态、打勾/打叉/星标/警告标记、原因和下一步动作。
 - 考纲服务已把掌握证明和作战地图规则写入 `SyllabusNodeDto`；`/syllabus` 页面已展示地图状态、标记、规则原因、掌握缺口和下一步动作。
 - `/syllabus` 节点卡片已支持选择目标掌握等级和勾选本次证明条件；`PATCH /api/syllabus/nodes/:id` 合并本次条件和派生条件后，用任务、计时、笔记、错题真实证据校验，失败返回 `MASTERY_PROOF_REQUIRED`，成功写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent` 证明摘要。
+- Package B Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`；`/syllabus` 可保存条件、引用证据、记录复测并展示历史；显式证据优先，旧节点无显式证据时继续按 `_count` fallback。
+- 复测 `failed/partial` 只记录历史和下一步风险，不自动降低节点状态或掌握等级。
 - 不提供删除错题入口，避免破坏性写操作。
 
 ## 延后到 migration 后
 
-- 持久化掌握条件勾选。
-- 持久化证据引用表。
-- 独立复测记录。
 - 笔记或附件直接关联错题。
 - 错题复盘次数、题目正文和答案过程等结构化字段。
 
@@ -66,4 +65,4 @@
 
 ## 风险
 
-- 当前 `Mistake` 模型已有基础字段；若新增掌握证明条件或证据表，需要 migration，高风险确认后再执行。
+- 当前 `Mistake` 模型仍只有基础字段；笔记或附件直接关联错题、错题复盘次数、题目正文和答案过程等结构化能力需要后续单独确认。

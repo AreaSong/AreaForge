@@ -238,7 +238,10 @@ function checkCompletionScriptGates(): void {
     "requiredPackageBBatches",
     "requiredPackageEvidenceKeywords",
     "checkPackageBBatches",
+    "missingBatchEvidenceDetails",
+    "Package B batch completion detail",
     "DONE / 已完成",
+    "用户已明确确认",
     "验证",
     "烟测",
     "文档",
@@ -250,7 +253,7 @@ function checkCompletionScriptGates(): void {
     name: "docs completion script gates",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "completion script enforces Package B batch rows and package evidence keywords"
+      ? "completion script enforces Package B batch rows, batch detail evidence, and package evidence keywords"
       : `missing ${missing.join(", ")}`,
   });
 }

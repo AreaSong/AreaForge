@@ -1,6 +1,6 @@
 # 0015 结构化学习状态 migration 确认包
 
-状态：进行中。Package B Batch 0、Batch 1 和 Batch 2 已确认、实施并验证完成；Batch 3-6 仍命中数据库 migration 高风险边界，开始实现前必须先确认影响、风险、验证和回滚。
+状态：进行中。Package B Batch 0、Batch 1、Batch 2、Batch 3、Batch 4 和 Batch 5 已确认、实施并验证完成；Batch 6 仍命中数据库 migration 高风险边界，开始实现前必须先确认影响、风险、验证和回滚。
 
 ## 目标
 
@@ -32,14 +32,14 @@
 | Batch 0 | 已完成 | `StudySession` 结构化收口字段；只新增字段并保留 `note` 双写；临时库 deploy、API 烟测和首页刷新烟测通过 |
 | Batch 1 | 已完成 | `CheckIn` 日快照；新增 additive migration；新写路径 upsert；dashboard/analytics/reports 快照优先并保留缺失日期 fallback |
 | Batch 2 | 已完成 | `StudyTask.parentTaskId` 与 `TaskDebtEvent`；债务动作双写 `AuditEvent` 与事件账本；拆小任务写入父子关系 |
-| Batch 3 | 待确认 | `RecoveryState` |
-| Batch 4 | 待确认 | 掌握证明条件、证据和复测记录 |
-| Batch 5 | 待确认 | `SimulationExam` 与 `SimulationSubjectResult` |
+| Batch 3 | 已完成 | `RecoveryState`；规则触发和手动触发会创建或复用 active 状态；dashboard/homepage 优先读 active 状态并保留实时规则 fallback；完成/取消只更新恢复状态 |
+| Batch 4 | 已完成 | `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`；条件勾选、证据引用和复测记录写入；掌握证明显式记录优先并保留 `_count` fallback |
+| Batch 5 | 已完成 | `SimulationExam` 与 `SimulationSubjectResult`；结构化模拟考试主写入和旧任务型模拟只读兼容 |
 | Batch 6 | 待确认 | `StagePlan` 与 `StageAdjustmentDraft` |
 
 ## 当前推荐下一步
 
-下一步再单独确认 Batch 3。Batch 3-6 的确认细节已全部补齐到 `docs/development/high-risk-confirmation-packets.md`，对应验证门禁见 `docs/development/validation-matrix.md`。未获得对应批次确认前，只能继续做文档、护栏和只读检查，不能改 `prisma/schema.prisma`、不能生成后续 migration。
+下一步再单独确认 Batch 6。Batch 6 的确认细节已补齐到 `docs/development/high-risk-confirmation-packets.md`，对应验证门禁见 `docs/development/validation-matrix.md`。未获得 Batch 6 确认前，只能继续做文档、护栏和只读检查，不能新增 `StagePlan` / `StageAdjustmentDraft` schema、migration 或业务写路径。
 
 Batch 0 已完成，且只处理 `StudySession` 结束计时收口，不新增其它表：
 
@@ -56,7 +56,7 @@ Batch 1 已完成：
 - 已新增 `CheckIn` schema 和 `20260707010000_add_check_in_snapshots` additive migration。
 - 新写路径在结束计时、保存复盘、任务创建、任务计划日变化和任务状态变化后按学习日幂等 upsert 快照；`startStudySession` 只在关联任务 `TODO -> IN_PROGRESS` 时刷新任务计划日，不把 active session 时长写入快照。
 - `getTodayDashboard`、`getAnalyticsSummary` 和 `getPeriodicReport` 已改为优先读取 `CheckIn`，缺失日期继续复用 `buildDailyCheckInSnapshot` 从 sessions/tasks/reviews 派生。
-- `pnpm risk:preflight` 已按完成台账允许 Batch 2 `TaskDebtEvent` 和 `parentTaskId`，并继续阻止 Batch 3-6 未确认结构提前出现。
+- `pnpm risk:preflight` 已按完成台账允许 Batch 5 结构化模拟考试运行时路径，并继续阻止 Batch 6 未确认结构提前出现。
 
 Batch 2 已完成：
 
@@ -66,11 +66,38 @@ Batch 2 已完成：
 - `GET /api/tasks/debt-reorder` 仍为只读建议，不写 `reorder_suggested` / `reorder_applied`，不自动应用任务重排。
 - 旧任务和旧拆小记录不回填，读取侧继续按 `StudyTask.status/debtStatus/plannedDate` fallback。
 
+Batch 3 已完成：
+
+- 已新增 `RecoveryState` schema 和 `20260707030000_add_recovery_state` additive migration。
+- `getTodayDashboard` 会优先读取 active `RecoveryState`；无 active 状态时继续使用 `createRecoveryPlan` 实时规则 fallback。
+- 首页和 dashboard API 规则触发恢复时会幂等创建 `triggerType=rule` 的 active 状态；AI 建议等复用 dashboard 数据的路径默认不记录规则触发。
+- `POST /api/recovery-states/manual` 创建或复用 `triggerType=manual` 的 active 状态，不复用任务补做 API。
+- `POST /api/recovery-states/:id/complete` 和 `POST /api/recovery-states/:id/cancel` 只更新 `RecoveryState.status/endedAt/exitCondition`。
+- 首页计时器聚焦恢复候选，任务面板保留完整任务列表；不批量修改历史欠账，不删除、不隐藏、不延期原任务。
+
+Batch 4 已完成：
+
+- 已新增 `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest` schema 和 `20260707040000_add_mastery_records` additive migration。
+- `PATCH /api/syllabus/nodes/:id` 会持久化掌握条件记录，并在标记掌握时优先读取显式记录；没有显式证据时保留现有 `_count` fallback。
+- `POST /api/syllabus/nodes/:id/mastery-evidence` 写入任务、计时、笔记、错题或复测证据引用，并拒绝跨节点引用。
+- `POST /api/syllabus/nodes/:id/mastery-retests` 写入 `passed/failed/partial` 复测记录；只有 `passed` 会追加复测证据并计入复测通过证明。
+- `/syllabus` 节点卡片已支持保存条件、写入证据引用、写入复测记录，并展示显式证据和复测历史。
+- 本批不解析历史文本生成证据，不删除旧字段，不自动回填旧记录，复测失败或部分通过不自动降低节点状态或掌握等级，不执行生产 migration deploy。
+
+Batch 5 已完成：
+
+- 已新增 `SimulationExam`、`SimulationSubjectResult` schema 和 `20260707050000_add_simulation_exam_records` additive migration。
+- `POST /api/simulation/exams` 创建结构化模拟考试，不再通过页面主路径创建旧 `StudyTask.type="simulation_exam"`。
+- `POST /api/simulation/exams/:id/results` 保存考试汇总字段，并按 `simulationExamId + subjectId` upsert 科目结果。
+- `/simulation` 优先读取结构化考试，旧任务型模拟只读展示，不自动迁移、不删除、不解析历史文本。
+- 结构化保存仍调用 `summarizeSimulationResult` 生成规则复盘文本，写入 `SimulationExam.reviewText`。
+- 本批不新增 `StagePlan` 或 `StageAdjustmentDraft`，不应用阶段计划，不接真实 AI，不执行生产 migration deploy。
+
 Batch 0 确认细节见 `docs/development/high-risk-confirmation-packets.md` 的 “Batch 0 确认包：`StudySession` 结构化收口字段”。
 
 ## Batch 1 确认后实施切入点（已实施）
 
-以下清单记录 Batch 1 已实现范围；Batch 2 已在确认后完成，仍不代表 Batch 3-6 可以提前改 schema、migration 或业务读写路径。
+以下清单记录 Batch 1 已实现范围；Batch 2、Batch 3、Batch 4 和 Batch 5 已在确认后完成，仍不代表 Batch 6 可以提前改 schema、migration 或业务读写路径。
 
 写路径需要覆盖：
 

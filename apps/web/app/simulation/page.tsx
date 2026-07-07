@@ -12,7 +12,6 @@ import { SimulationWorkbench } from "@/components/simulation-workbench";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSimulationWorkspace } from "@/lib/study/simulation-service";
 import { listSubjects } from "@/lib/study/service";
-import { listSyllabusTree } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +21,8 @@ export default async function SimulationPage() {
     redirect("/login");
   }
 
-  const [subjects, nodes, workspace] = await Promise.all([
+  const [subjects, workspace] = await Promise.all([
     listSubjects(),
-    listSyllabusTree(),
     getSimulationWorkspace(),
   ]);
 
@@ -54,7 +52,12 @@ export default async function SimulationPage() {
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric icon={CalendarClock} label="阶段节点" value={`${workspace.stage.simulationNode.daysToSimulation} 天`} sub={formatDate(workspace.stage.simulationNode.date)} />
           <Metric icon={Target} label="准备度" value={`${workspace.stage.readiness.score} 分`} sub={labelReadiness(workspace.stage.readiness.level)} />
-          <Metric icon={ListChecks} label="模拟记录" value={`${workspace.tasks.length} 条`} sub={`${workspace.tasks.filter((task) => task.status === "done").length} 条已完成`} />
+          <Metric
+            icon={ListChecks}
+            label="模拟记录"
+            value={`${workspace.exams.length + workspace.tasks.length} 条`}
+            sub={`${workspace.exams.length} 条结构化 / ${workspace.tasks.length} 条旧记录`}
+          />
           <Metric icon={BrainCircuit} label="草稿状态" value={labelDraftRisk(workspace.stage.draft.risk)} sub={workspace.stage.draft.canAutoApply ? "可直接应用" : "只生成建议，不自动应用"} />
         </section>
 
@@ -104,7 +107,7 @@ export default async function SimulationPage() {
 
         <SimulationWorkbench
           subjects={subjects}
-          nodes={nodes}
+          exams={workspace.exams}
           tasks={workspace.tasks}
           stage={workspace.stage}
           motivationVault={workspace.motivationVault}

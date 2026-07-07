@@ -149,22 +149,65 @@ function checkCompletionRecord(): CompletionIssue[] {
 }
 
 function checkPackageBBatches(record: string): CompletionIssue[] {
-  const missingOrIncomplete = requiredPackageBBatches.flatMap((batch) => {
+  const missingOrIncomplete: string[] = [];
+  const missingDetails: string[] = [];
+
+  for (const batch of requiredPackageBBatches) {
     const line = findLine(record, `| ${batch}：`);
-    if (!line) return [`${batch}=missing`];
+    if (!line) {
+      missingOrIncomplete.push(`${batch}=missing`);
+      continue;
+    }
 
-    const status = parseMarkdownCells(line)[1] ?? "";
-    return status.includes("DONE / 已完成") ? [] : [`${batch}=${status || "missing status"}`];
-  });
+    const cells = parseMarkdownCells(line);
+    const status = cells[1] ?? "";
+    if (!status.includes("DONE / 已完成")) {
+      missingOrIncomplete.push(`${batch}=${status || "missing status"}`);
+      continue;
+    }
 
-  if (missingOrIncomplete.length === 0) return [];
+    const detailIssues = missingBatchEvidenceDetails(cells);
+    if (detailIssues.length > 0) {
+      missingDetails.push(`${batch}: ${detailIssues.join(", ")}`);
+    }
+  }
 
-  return [
-    {
+  const issues: CompletionIssue[] = [];
+
+  if (missingOrIncomplete.length > 0) {
+    issues.push({
       name: "Package B batch completion evidence",
       detail: `expected Batch 0-6 rows to be DONE / 已完成; ${missingOrIncomplete.join("; ")}`,
-    },
-  ];
+    });
+  }
+
+  if (missingDetails.length > 0) {
+    issues.push({
+      name: "Package B batch completion detail",
+      detail: `completed Batch rows must include confirmation, validation commands, smoke evidence, docs sync, and residual risk; ${missingDetails.join("; ")}`,
+    });
+  }
+
+  return issues;
+}
+
+function missingBatchEvidenceDetails(cells: string[]): string[] {
+  const confirmation = cells[2] ?? "";
+  const validation = cells[3] ?? "";
+  const smoke = cells[4] ?? "";
+  const docsSync = cells[5] ?? "";
+  const residualRisk = cells[6] ?? "";
+  const missing: string[] = [];
+
+  if (!confirmation.includes("用户已明确确认")) missing.push("confirmation");
+  if (!validation.includes("pnpm")) missing.push("validation commands");
+  if (!/(烟测|smoke|Playwright)/i.test(smoke)) missing.push("smoke evidence");
+  if (!docsSync.includes("已同步")) missing.push("docs sync");
+  if (residualRisk.length < 20 || ["待同步", "未运行", "缺"].some((token) => residualRisk.includes(token))) {
+    missing.push("residual risk");
+  }
+
+  return missing;
 }
 
 function parseTraceabilityRows(content: string): FeatureRow[] {

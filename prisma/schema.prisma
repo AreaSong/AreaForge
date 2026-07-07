@@ -92,6 +92,10 @@ model User {
   auditEvents    AuditEvent[]
   sessions       AuthSession[]
   taskDebtEvents TaskDebtEvent[]
+  recoveryStates RecoveryState[]
+  masteryConditions MasteryConditionRecord[]
+  masteryEvidence   MasteryEvidence[]
+  masteryRetests    MasteryRetest[]
 }
 
 model AuthSession {
@@ -121,6 +125,7 @@ model Subject {
   syllabusNodes SyllabusNode[]
   notes         Note[]
   mistakes      Mistake[]
+  simulationSubjectResults SimulationSubjectResult[]
 }
 
 model SyllabusNode {
@@ -143,6 +148,9 @@ model SyllabusNode {
   sessions      StudySession[]
   notes         Note[]
   mistakes      Mistake[]
+  masteryConditions MasteryConditionRecord[]
+  masteryEvidence   MasteryEvidence[]
+  masteryRetests    MasteryRetest[]
 
   @@index([subjectId])
   @@index([parentId])
@@ -173,6 +181,7 @@ model StudyTask {
   notes             Note[]
   taskDebtEvents    TaskDebtEvent[] @relation("TaskDebtEventTask")
   relatedDebtEvents TaskDebtEvent[] @relation("RelatedTaskDebtEvent")
+  masteryEvidence   MasteryEvidence[]
 
   @@index([plannedDate])
   @@index([subjectId])
@@ -208,6 +217,7 @@ model StudySession {
   subject                 Subject            @relation(fields: [subjectId], references: [id])
   task                    StudyTask?         @relation(fields: [taskId], references: [id])
   syllabusNode            SyllabusNode?      @relation(fields: [syllabusNodeId], references: [id])
+  masteryEvidence         MasteryEvidence[]
 
   @@index([status])
   @@index([startedAt])
@@ -267,6 +277,26 @@ model TaskDebtEvent {
   @@index([createdAt])
 }
 
+model RecoveryState {
+  id               String    @id @default(cuid())
+  status           String
+  triggerType      String
+  startedAt        DateTime  @default(now())
+  endedAt          DateTime?
+  targetMinutes    Int
+  visibleTaskLimit Int
+  reason           String
+  exitCondition    String?
+  metadata         Json?
+  actorId          String?
+  actor            User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([startedAt])
+  @@index([endedAt])
+  @@index([actorId])
+}
+
 model Note {
   id             String        @id @default(cuid())
   subjectId      String
@@ -282,6 +312,7 @@ model Note {
   syllabusNode   SyllabusNode? @relation(fields: [syllabusNodeId], references: [id])
   task           StudyTask?    @relation(fields: [taskId], references: [id])
   attachments    Attachment[]
+  masteryEvidence MasteryEvidence[]
 
   @@index([subjectId])
   @@index([syllabusNodeId])
@@ -316,6 +347,7 @@ model Mistake {
   updatedAt      DateTime      @updatedAt
   subject        Subject       @relation(fields: [subjectId], references: [id])
   syllabusNode   SyllabusNode? @relation(fields: [syllabusNodeId], references: [id])
+  masteryEvidence MasteryEvidence[]
 
   @@index([subjectId])
   @@index([syllabusNodeId])
@@ -345,4 +377,113 @@ model AuditEvent {
 
   @@index([actorId])
   @@index([entityType, entityId])
+}
+
+model MasteryConditionRecord {
+  id             String       @id @default(cuid())
+  syllabusNodeId String
+  condition      String
+  checked        Boolean      @default(false)
+  checkedAt      DateTime?
+  actorId        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  syllabusNode   SyllabusNode @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([syllabusNodeId, condition])
+  @@index([syllabusNodeId])
+  @@index([actorId])
+}
+
+model MasteryEvidence {
+  id             String         @id @default(cuid())
+  syllabusNodeId String
+  evidenceType   String
+  taskId         String?
+  sessionId      String?
+  noteId         String?
+  mistakeId      String?
+  retestId       String?
+  summary        String?
+  createdAt      DateTime       @default(now())
+  actorId        String?
+  syllabusNode   SyllabusNode   @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
+  task           StudyTask?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  session        StudySession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  note           Note?          @relation(fields: [noteId], references: [id], onDelete: SetNull)
+  mistake        Mistake?       @relation(fields: [mistakeId], references: [id], onDelete: SetNull)
+  retest         MasteryRetest? @relation(fields: [retestId], references: [id], onDelete: SetNull)
+  actor          User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([syllabusNodeId])
+  @@index([evidenceType])
+  @@index([taskId])
+  @@index([sessionId])
+  @@index([noteId])
+  @@index([mistakeId])
+  @@index([retestId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model MasteryRetest {
+  id             String            @id @default(cuid())
+  syllabusNodeId String
+  testedAt       DateTime
+  result         String
+  score          String?
+  summary        String?
+  nextReviewAt   DateTime?
+  actorId        String?
+  createdAt      DateTime          @default(now())
+  syllabusNode   SyllabusNode      @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
+  evidence       MasteryEvidence[]
+  actor          User?             @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([syllabusNodeId])
+  @@index([testedAt])
+  @@index([result])
+  @@index([nextReviewAt])
+  @@index([actorId])
+}
+
+model SimulationExam {
+  id                    String                    @id @default(cuid())
+  name                  String
+  examDate              DateTime
+  isFirstSynchronized   Boolean                   @default(false)
+  targetDurationMinutes Int?
+  actualDurationMinutes Int?
+  targetScore           Float?
+  actualScore           Float?
+  blankQuestionCount    Int                       @default(0)
+  lossReasons           Json?
+  mindset               String?
+  summary               String?
+  reviewText            String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  subjectResults        SimulationSubjectResult[]
+
+  @@index([examDate])
+  @@index([isFirstSynchronized])
+}
+
+model SimulationSubjectResult {
+  id                 String         @id @default(cuid())
+  simulationExamId   String
+  subjectId          String
+  targetScore        Float?
+  actualScore        Float?
+  durationMinutes    Int?
+  blankQuestionCount Int            @default(0)
+  lossReasons        Json?
+  summary            String?
+  simulationExam     SimulationExam @relation(fields: [simulationExamId], references: [id], onDelete: Cascade)
+  subject            Subject        @relation(fields: [subjectId], references: [id])
+
+  @@unique([simulationExamId, subjectId])
+  @@index([simulationExamId])
+  @@index([subjectId])
 }

@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1 已在明确确认后执行 `CheckIn` 日快照；Batch 2 已在明确确认后执行 `StudyTask.parentTaskId` 与 `TaskDebtEvent`；Batch 3-6 仍未执行。任何后续 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
+本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1 已在明确确认后执行 `CheckIn` 日快照；Batch 2 已在明确确认后执行 `StudyTask.parentTaskId` 与 `TaskDebtEvent`；Batch 3 已在明确确认后执行 `RecoveryState` 恢复状态；Batch 4 已在明确确认后执行掌握证明条件、证据和复测记录；Batch 5 已在明确确认后执行结构化模拟考试和科目结果；Batch 6 仍未执行。任何后续 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
 
 ## 目标
 
@@ -13,9 +13,10 @@
 - 新结束的 `StudySession` 已写入 Batch 0 结构化收口字段；历史 `StudySession.note` 仍可能混合保存理解程度、最小产出、下一步动作和反假学习原因，且不做不可靠解析。
 - 打卡连续性已有 `CheckIn` 日快照；新写路径会维护快照，历史无快照日期仍按 sessions/tasks/reviews fallback 派生。
 - 任务债务动作已有 `TaskDebtEvent` 事件账本和拆小父子任务关系；旧任务没有事件时继续按 `StudyTask.status/debtStatus/plannedDate` fallback。
-- 恢复模式是实时规则裁剪，没有用户手动触发和退出记录。
-- 掌握证明依赖证据计数和 core 规则，没有条件勾选、证据引用和复测记录。
-- 模拟考试和阶段计划仍复用任务和文本结果，没有结构化模型。
+- 恢复模式已有 `RecoveryState` 持久状态；首页优先读取 active 状态，无 active 时仍保留实时规则 fallback。
+- 掌握证明已有 `MasteryConditionRecord`、`MasteryEvidence` 和 `MasteryRetest`；优先读取显式记录，没有显式证据时 fallback 到现有 `_count`。
+- 模拟考试已有 `SimulationExam` 和 `SimulationSubjectResult` 结构化模型；旧任务型模拟只读兼容，不自动迁移。
+- 阶段计划仍复用本地规则草稿，没有持久化阶段计划模型。
 
 ## 分批原则
 
@@ -32,9 +33,9 @@
 1. Batch 0：只新增 `StudySession` 结构化收口字段，保留 `note` 双写，不解析历史文本。
 2. Batch 1：新增 `CheckIn` 日快照，只在新写路径 upsert；首页和统计先保留旧派生 fallback。已完成。
 3. Batch 2：新增 `StudyTask.parentTaskId` 和 `TaskDebtEvent`，债务动作双写 `AuditEvent` 与事件账本。已完成。
-4. Batch 3：新增 `RecoveryState`，只记录恢复状态，不批量改历史欠账。
-5. Batch 4：新增掌握证明条件、证据和复测记录，缺显式证据时 fallback 现有 `_count`。
-6. Batch 5：新增结构化模拟考试和科目结果模型，旧任务型模拟只读兼容。
+4. Batch 3：新增 `RecoveryState`，只记录恢复状态，不批量改历史欠账。已完成。
+5. Batch 4：新增掌握证明条件、证据和复测记录，缺显式证据时 fallback 现有 `_count`。已完成。
+6. Batch 5：新增结构化模拟考试和科目结果模型，旧任务型模拟只读兼容。已完成。
 7. Batch 6：新增阶段计划和阶段调整草稿，草稿必须用户确认后才可应用。
 
 ## 设计域 A：计时收口、打卡、债务、恢复
@@ -135,7 +136,7 @@ Batch 2 已新增字段：
 
 ### 新增 `RecoveryState`
 
-建议字段：
+已实施字段：
 
 - `id String @id @default(cuid())`
 - `status String`：`active/completed/canceled`
@@ -152,14 +153,16 @@ Batch 2 已新增字段：
 兼容策略：
 
 - 首页优先读取 active `RecoveryState`；没有 active 状态时使用 `createRecoveryPlan` 实时规则。
-- 用户主动“我需要恢复”只创建 active 状态，不删除、不隐藏原任务。
-- 完成退出只更新 `RecoveryState.status`，不自动批量改历史欠账。
+- 规则触发恢复时幂等创建 `triggerType=rule` 的 active 状态。
+- 用户主动“我需要恢复”只创建或复用 `triggerType=manual` 的 active 状态，不删除、不隐藏原任务。
+- 完成或取消退出只更新 `RecoveryState.status/endedAt/exitCondition`，不自动批量改历史欠账。
+- 首页计时器聚焦 `visibleRecoveryTasks`，任务面板保留完整 `StudyTask` 列表。
 
 ## 设计域 B：掌握证明、证据引用和复测
 
 ### 新增 `MasteryConditionRecord`
 
-建议字段：
+Batch 4 已新增字段：
 
 - `id String @id @default(cuid())`
 - `syllabusNodeId String`
@@ -167,14 +170,18 @@ Batch 2 已新增字段：
 - `checked Boolean @default(false)`
 - `checkedAt DateTime?`
 - `actorId String?`
+- `createdAt DateTime @default(now())`
+- `updatedAt DateTime @updatedAt`
 
 索引：
 
 - `@@unique([syllabusNodeId, condition])`
+- `@@index([syllabusNodeId])`
+- `@@index([actorId])`
 
 ### 新增 `MasteryEvidence`
 
-建议字段：
+Batch 4 已新增字段：
 
 - `id String @id @default(cuid())`
 - `syllabusNodeId String`
@@ -191,11 +198,12 @@ Batch 2 已新增字段：
 兼容策略：
 
 - 考纲页面优先读取显式证据引用；没有引用时 fallback 到现有 `_count` 证据计数。
+- 新增证据时校验被引用任务、计时、笔记、错题或复测必须属于同一个 `SyllabusNode`。
 - 标记 `mastered` 时必须满足 core `evaluateMasteryProof`。
 
 ### 新增 `MasteryRetest`
 
-建议字段：
+Batch 4 已新增字段：
 
 - `id String @id @default(cuid())`
 - `syllabusNodeId String`
@@ -210,12 +218,13 @@ Batch 2 已新增字段：
 
 - 复测通过后可作为 `delayed_retest` 证据。
 - 失败或部分通过不能自动降低节点状态，只给下一步动作建议。
+- 只有 `result=passed` 的复测会追加一条 `MasteryEvidence.evidenceType=retest` 引用并计入 `retestPassedCount`；`failed/partial` 只保留复测历史。
 
 ## 设计域 C：模拟考试、阶段计划、阶段调整
 
 ### 新增 `SimulationExam`
 
-建议字段：
+Batch 5 已新增字段：
 
 - `id String @id @default(cuid())`
 - `name String`
@@ -235,7 +244,7 @@ Batch 2 已新增字段：
 
 ### 新增 `SimulationSubjectResult`
 
-建议字段：
+Batch 5 已新增字段：
 
 - `id String @id @default(cuid())`
 - `simulationExamId String`
@@ -286,6 +295,8 @@ Batch 2 已新增字段：
 
 - 现有 `/simulation` 可继续展示 `StudyTask.type = "simulation_exam"` 历史数据。
 - 新建模拟考试优先写 `SimulationExam`，旧任务型模拟只读展示，不自动迁移。
+- 保存模拟结果会更新考试汇总字段，并按 `@@unique([simulationExamId, subjectId])` upsert 科目结果。
+- `SimulationExam.reviewText` 继续保存本地规则复盘文本，保证页面刷新和旧展示习惯可读。
 - 阶段调整草稿永远 `canAutoApply=false`，应用前显示变更摘要并写审计。
 
 ## 代码切换顺序

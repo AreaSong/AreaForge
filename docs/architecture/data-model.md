@@ -5,17 +5,23 @@
 - `User`：单管理员账号。
 - `AuthSession`：登录会话，只保存 session token 哈希、过期时间和用户关联。
 - `Subject`：数学、英语、政治、408 各子科目。
-- `SyllabusNode`：考纲进度树节点，包含当前掌握状态和掌握等级；掌握证明基础版仍复用现有任务、计时、笔记和错题关联作为派生证据，不新增显式证据表。
+- `SyllabusNode`：考纲进度树节点，包含当前掌握状态和掌握等级；Batch 4 后掌握证明优先读取显式条件、证据引用和复测记录，缺失显式证据时继续 fallback 到现有任务、计时、笔记和错题 `_count`。
 - `StudyTask`：每日任务；Batch 2 已追加 `parentTaskId` 自关联，用于记录拆小任务的父子关系。旧任务没有父子关系时保持 `null`，不做猜测回填。
 - `StudySession`：学习计时记录；Batch 0 已追加结构化收口字段，包括理解程度、最小产出、下一步动作、是否产生笔记/错题、低转化标记、反假学习原因、补产出要求和收口版本，同时保留旧 `note` 文本可读。
 - `DailyReview`：每日复盘。
 - `CheckIn`：每日打卡快照；Batch 1 已新增学习日唯一快照，记录最低动作、总/有效时长、有效 session 数、任务完成率、复盘状态、低效标记、低转化次数和来源版本。新写路径维护快照，历史无快照日期由读取侧 fallback 派生。
 - `TaskDebtEvent`：任务债务事件账本；Batch 2 已新增，用于记录补做、延期、放弃、拆小、改复习和完成动作的前后状态、债务状态、关联任务、原因、metadata 和操作者。旧任务没有事件时继续按 `StudyTask.status/debtStatus/plannedDate` fallback。
+- `RecoveryState`：恢复模式状态；Batch 3 已新增，用于记录 `active/completed/canceled` 状态、`rule/manual` 触发类型、开始/结束时间、目标分钟、聚焦任务数量、原因、退出条件、metadata 和操作者。规则触发和手动触发只写恢复状态，不批量修改历史欠账，不隐藏或删除任务。
+- `MasteryConditionRecord`：Batch 4 已新增的掌握条件记录；按 `syllabusNodeId + condition` 唯一，保存条件是否勾选、勾选时间和操作者。
+- `MasteryEvidence`：Batch 4 已新增的掌握证据引用；可引用同一考纲节点下的任务、计时、笔记、错题或已通过复测记录，并记录证据类型、摘要和操作者。
+- `MasteryRetest`：Batch 4 已新增的复测记录；保存复测时间、`passed/failed/partial` 结果、分数、摘要和下次复习时间。只有 `passed` 计入复测通过证明，失败或部分通过不会自动降低 `SyllabusNode.status/masteryLevel`。
+- `SimulationExam`：Batch 5 已新增的结构化模拟考试记录；保存考试名称、日期、是否 2026 同步自测、目标/实际用时、目标/实际总分、空题数量、失分原因、心态、总结和规则复盘文本。新建模拟考试优先写入该模型。
+- `SimulationSubjectResult`：Batch 5 已新增的模拟考试科目结果；按 `simulationExamId + subjectId` 唯一，保存科目目标分、实际分、用时、空题数量、失分原因和总结。同一场同一科再次保存会更新，不新增重复结果。
 - `Note`：文字笔记和自己的理解。
 - `Attachment`：图片、PDF、拍照笔记等文件 metadata。
 - `Mistake`：错题与错因。
 - `MotivationVault`：动机封存内容。
-- `AuditEvent`：关键写操作审计；Batch 2 后债务任务动作继续保留 `AuditEvent`，并额外写入 `TaskDebtEvent`；掌握证明基础版成功时记录请求等级、已勾选条件和证据计数摘要，不保存完整复盘正文或附件内容。
+- `AuditEvent`：关键写操作审计；Batch 2 后债务任务动作继续保留 `AuditEvent`，并额外写入 `TaskDebtEvent`；Batch 4 后掌握证明、证据引用和复测记录写入均保留审计摘要；Batch 5 后结构化模拟考试创建和结果保存也写入审计，不保存完整 prompt、附件内容或生产运维信息。
 
 PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，数据库只保存 metadata、hash 和 URI。
 

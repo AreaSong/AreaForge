@@ -58,6 +58,45 @@ export const updateSyllabusNodeSchema = z.object({
   targetMinutes: z.number().int().min(0).max(100000).optional(),
 });
 
+const masteryEvidenceTypeSchema = z.enum(["task", "session", "note", "mistake", "retest"]);
+const masteryRetestResultSchema = z.enum(["passed", "failed", "partial"]);
+
+export const createMasteryEvidenceSchema = z
+  .object({
+    evidenceType: masteryEvidenceTypeSchema,
+    taskId: z.string().min(1).optional(),
+    sessionId: z.string().min(1).optional(),
+    noteId: z.string().min(1).optional(),
+    mistakeId: z.string().min(1).optional(),
+    retestId: z.string().min(1).optional(),
+    summary: z.string().trim().max(1000).optional(),
+  })
+  .superRefine((value, context) => {
+    const requiredKey = `${value.evidenceType}Id` as "taskId" | "sessionId" | "noteId" | "mistakeId" | "retestId";
+    const evidenceIds = [value.taskId, value.sessionId, value.noteId, value.mistakeId, value.retestId].filter(Boolean);
+    if (!value[requiredKey]) {
+      context.addIssue({
+        code: "custom",
+        message: `${requiredKey} is required for ${value.evidenceType} evidence`,
+        path: [requiredKey],
+      });
+    }
+    if (evidenceIds.length !== 1) {
+      context.addIssue({
+        code: "custom",
+        message: "exactly one evidence reference is required",
+      });
+    }
+  });
+
+export const createMasteryRetestSchema = z.object({
+  testedAt: z.string().datetime().optional(),
+  result: masteryRetestResultSchema,
+  score: z.string().trim().max(80).optional(),
+  summary: z.string().trim().max(2000).optional(),
+  nextReviewAt: z.string().datetime().nullable().optional(),
+});
+
 export const createNoteSchema = z.object({
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),
@@ -136,6 +175,54 @@ export const saveFirstSimulationDiarySchema = z.object({
   firstSimulationDiary: z.string().trim().min(1).max(5000),
 });
 
+const simulationLossReasonsSchema = z.array(z.string().trim().min(1).max(120)).max(20).default([]);
+
+const simulationSubjectResultSchema = z.object({
+  subjectId: z.string().min(1),
+  targetScore: z.number().min(0).max(1000).optional(),
+  actualScore: z.number().min(0).max(1000).optional(),
+  durationMinutes: z.number().int().min(0).max(720).optional(),
+  blankQuestionCount: z.number().int().min(0).max(300).default(0),
+  lossReasons: simulationLossReasonsSchema,
+  summary: z.string().trim().max(2000).optional(),
+});
+
+const simulationExamSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  examDate: z.string().datetime().optional(),
+  isFirstSynchronized: z.boolean().optional(),
+  targetDurationMinutes: z.number().int().min(30).max(720).optional(),
+  targetScore: z.number().min(0).max(1000).optional(),
+});
+
+export const createSimulationExamSchema = simulationExamSchema;
+
+export const saveSimulationExamResultsSchema = z
+  .object({
+    targetDurationMinutes: z.number().int().min(30).max(720).optional(),
+    actualDurationMinutes: z.number().int().min(0).max(720).optional(),
+    targetScore: z.number().min(0).max(1000).optional(),
+    actualScore: z.number().min(0).max(1000).optional(),
+    blankQuestionCount: z.number().int().min(0).max(300).optional(),
+    lossReasons: simulationLossReasonsSchema,
+    mindset: z.string().trim().max(2000).optional(),
+    summary: z.string().trim().min(1).max(4000),
+    subjectResults: z.array(simulationSubjectResultSchema).min(1).max(8),
+  })
+  .superRefine((value, context) => {
+    const seen = new Set<string>();
+    value.subjectResults.forEach((result, index) => {
+      if (seen.has(result.subjectId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["subjectResults", index, "subjectId"],
+          message: "subjectId must be unique per simulation exam",
+        });
+      }
+      seen.add(result.subjectId);
+    });
+  });
+
 export const createSimulationTaskSchema = z.object({
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),
@@ -177,6 +264,16 @@ export const deferTaskSchema = z.object({
 export const recoverTaskSchema = z.object({
   plannedDate: z.string().datetime().optional(),
   reviewText: z.string().trim().max(2000).optional(),
+});
+
+export const startManualRecoveryStateSchema = z.object({
+  reason: z.string().trim().min(1).max(1000).optional(),
+  targetMinutes: z.number().int().min(5).max(240).optional(),
+  visibleTaskLimit: z.number().int().min(1).max(8).optional(),
+});
+
+export const finishRecoveryStateSchema = z.object({
+  exitCondition: z.string().trim().max(1000).optional(),
 });
 
 export const splitTaskSchema = z.object({

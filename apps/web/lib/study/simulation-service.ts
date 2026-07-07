@@ -14,7 +14,7 @@ import { daysUntil } from "./date";
 import { getMotivationVault, saveMotivationVault } from "./service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
-import type { MotivationVaultDto, StudyTaskDto } from "./types";
+import type { MotivationVaultDto, SimulationExamDto, StudyTaskDto } from "./types";
 
 const simulationDate = new Date("2026-12-20T08:30:00+08:00");
 
@@ -38,6 +38,36 @@ export interface CompleteSimulationTaskInput {
   lossReason?: string;
   mindset?: string;
   summary: string;
+}
+
+export interface CreateSimulationExamInput {
+  name: string;
+  examDate?: string;
+  isFirstSynchronized?: boolean;
+  targetDurationMinutes?: number;
+  targetScore?: number;
+}
+
+export interface SimulationSubjectResultInput {
+  subjectId: string;
+  targetScore?: number;
+  actualScore?: number;
+  durationMinutes?: number;
+  blankQuestionCount: number;
+  lossReasons: string[];
+  summary?: string;
+}
+
+export interface SaveSimulationExamResultsInput {
+  targetDurationMinutes?: number;
+  actualDurationMinutes?: number;
+  targetScore?: number;
+  actualScore?: number;
+  blankQuestionCount?: number;
+  lossReasons: string[];
+  mindset?: string;
+  summary: string;
+  subjectResults: SimulationSubjectResultInput[];
 }
 
 export interface SimulationStageDraftDto {
@@ -64,19 +94,181 @@ export interface SimulationStageDraftDto {
 }
 
 export interface SimulationWorkspaceDto {
+  exams: SimulationExamDto[];
   tasks: StudyTaskDto[];
   stage: SimulationStageDraftDto;
   motivationVault: MotivationVaultDto | null;
 }
 
 export async function getSimulationWorkspace(now = new Date()): Promise<SimulationWorkspaceDto> {
-  const [tasks, stage, motivationVault] = await Promise.all([
+  const [exams, tasks, stage, motivationVault] = await Promise.all([
+    listSimulationExams(),
     listSimulationTasks(),
     getSimulationStageDraft(now),
     getMotivationVault(),
   ]);
 
-  return { tasks, stage, motivationVault };
+  return { exams, tasks, stage, motivationVault };
+}
+
+export async function listSimulationExams(): Promise<SimulationExamDto[]> {
+  const exams = await prisma.simulationExam.findMany({
+    include: {
+      subjectResults: {
+        include: { subject: true },
+        orderBy: { subjectId: "asc" },
+      },
+    },
+    orderBy: [{ examDate: "desc" }, { createdAt: "desc" }],
+    take: 100,
+  });
+
+  return exams.map(serializeSimulationExam);
+}
+
+export async function createSimulationExam(
+  input: CreateSimulationExamInput,
+  actorId: string,
+): Promise<SimulationExamDto> {
+  const examDate = input.examDate ? new Date(input.examDate) : simulationDate;
+  const exam = await prisma.$transaction(async (tx) => {
+    const created = await tx.simulationExam.create({
+      data: {
+        name: input.name,
+        examDate,
+        isFirstSynchronized: input.isFirstSynchronized ?? isFirstSimulationTask(examDate),
+        targetDurationMinutes: input.targetDurationMinutes,
+        targetScore: input.targetScore,
+      },
+      include: {
+        subjectResults: {
+          include: { subject: true },
+          orderBy: { subjectId: "asc" },
+        },
+      },
+    });
+
+    await audit(actorId, "SIMULATION_EXAM_CREATED", "SimulationExam", created.id, tx);
+    return created;
+  });
+
+  return serializeSimulationExam(exam);
+}
+
+export async function saveSimulationExamResults(
+  id: string,
+  input: SaveSimulationExamResultsInput,
+  actorId: string,
+): Promise<SimulationExamDto> {
+  const exam = await prisma.$transaction(async (tx) => {
+    const existing = await tx.simulationExam.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        isFirstSynchronized: true,
+        targetDurationMinutes: true,
+        targetScore: true,
+      },
+    });
+    if (!existing) {
+      throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
+    }
+
+    assertUniqueSubjectResults(input.subjectResults);
+    await assertSubjectsExist(input.subjectResults.map((result) => result.subjectId), tx);
+
+    const targetDurationMinutes = input.targetDurationMinutes ?? existing.targetDurationMinutes;
+    const actualDurationMinutes = input.actualDurationMinutes ?? sumDefined(input.subjectResults, "durationMinutes");
+    const targetScore = input.targetScore ?? sumDefined(input.subjectResults, "targetScore") ?? existing.targetScore;
+    const actualScore = input.actualScore ?? sumDefined(input.subjectResults, "actualScore");
+    const blankQuestionCount =
+      input.blankQuestionCount ?? input.subjectResults.reduce((total, result) => total + result.blankQuestionCount, 0);
+    const lossReasons = normalizeLossReasons([
+      ...input.lossReasons,
+      ...input.subjectResults.flatMap((result) => result.lossReasons),
+    ]);
+    const resultSummary = summarizeStructuredSimulationResult({
+      targetScore,
+      actualScore,
+      targetDurationMinutes,
+      actualDurationMinutes,
+      blankQuestionCount,
+      lossReasons,
+      mindset: input.mindset,
+      isFirstSynchronizedSimulation: existing.isFirstSynchronized,
+    });
+
+    await tx.simulationExam.update({
+      where: { id },
+      data: {
+        targetDurationMinutes,
+        actualDurationMinutes,
+        targetScore,
+        actualScore,
+        blankQuestionCount,
+        lossReasons,
+        mindset: normalizeOptionalText(input.mindset),
+        summary: input.summary,
+        reviewText: composeStructuredSimulationReview(input, resultSummary, {
+          targetScore,
+          actualScore,
+          targetDurationMinutes,
+          actualDurationMinutes,
+          blankQuestionCount,
+          lossReasons,
+        }),
+      },
+      include: {
+        subjectResults: {
+          include: { subject: true },
+          orderBy: { subjectId: "asc" },
+        },
+      },
+    });
+
+    for (const result of input.subjectResults) {
+      await tx.simulationSubjectResult.upsert({
+        where: {
+          simulationExamId_subjectId: {
+            simulationExamId: id,
+            subjectId: result.subjectId,
+          },
+        },
+        create: {
+          simulationExamId: id,
+          subjectId: result.subjectId,
+          targetScore: result.targetScore,
+          actualScore: result.actualScore,
+          durationMinutes: result.durationMinutes,
+          blankQuestionCount: result.blankQuestionCount,
+          lossReasons: result.lossReasons,
+          summary: normalizeOptionalText(result.summary),
+        },
+        update: {
+          targetScore: result.targetScore,
+          actualScore: result.actualScore,
+          durationMinutes: result.durationMinutes,
+          blankQuestionCount: result.blankQuestionCount,
+          lossReasons: result.lossReasons,
+          summary: normalizeOptionalText(result.summary),
+        },
+      });
+    }
+
+    await audit(actorId, "SIMULATION_EXAM_RESULTS_SAVED", "SimulationExam", id, tx);
+
+    return tx.simulationExam.findUniqueOrThrow({
+      where: { id },
+      include: {
+        subjectResults: {
+          include: { subject: true },
+          orderBy: { subjectId: "asc" },
+        },
+      },
+    });
+  });
+
+  return serializeSimulationExam(exam);
 }
 
 export async function listSimulationTasks(): Promise<StudyTaskDto[]> {
@@ -298,6 +490,36 @@ function composeSimulationReview(
     .join("\n");
 }
 
+function composeStructuredSimulationReview(
+  input: SaveSimulationExamResultsInput,
+  resultSummary: SimulationResultSummary | null,
+  aggregate: {
+    targetScore?: number | null;
+    actualScore?: number | null;
+    targetDurationMinutes?: number | null;
+    actualDurationMinutes?: number | null;
+    blankQuestionCount: number;
+    lossReasons: string[];
+  },
+): string {
+  const lines = [
+    ["目标分", formatMaybeNumber(aggregate.targetScore)],
+    ["实际分", formatMaybeNumber(aggregate.actualScore)],
+    ["目标用时", aggregate.targetDurationMinutes ? `${aggregate.targetDurationMinutes} 分钟` : undefined],
+    ["实际用时", aggregate.actualDurationMinutes ? `${aggregate.actualDurationMinutes} 分钟` : undefined],
+    ["空题数量", `${aggregate.blankQuestionCount}`],
+    ["失分原因", aggregate.lossReasons.join("、")],
+    ["心态记录", input.mindset],
+    ["规则复盘", resultSummary ? formatSimulationResultSummary(resultSummary) : undefined],
+    ["考后总结", input.summary],
+  ];
+
+  return lines
+    .filter(([, value]) => value !== undefined && `${value}`.trim().length > 0)
+    .map(([label, value]) => `${label}：${value}`)
+    .join("\n");
+}
+
 function maybeSummarizeSimulationResult(
   input: CompleteSimulationTaskInput,
   targetDurationMinutes: number,
@@ -316,6 +538,30 @@ function maybeSummarizeSimulationResult(
     lossReasons: splitLossReasons(input.lossReason),
     mood: input.mindset,
     isFirstSynchronizedSimulation,
+  });
+}
+
+function summarizeStructuredSimulationResult(input: {
+  targetScore?: number | null;
+  actualScore?: number | null;
+  targetDurationMinutes?: number | null;
+  actualDurationMinutes?: number | null;
+  blankQuestionCount: number;
+  lossReasons: string[];
+  mindset?: string;
+  isFirstSynchronizedSimulation: boolean;
+}): SimulationResultSummary | null {
+  if (input.targetScore == null || input.actualScore == null) return null;
+
+  return summarizeSimulationResult({
+    targetScore: input.targetScore,
+    actualScore: input.actualScore,
+    targetDurationMinutes: input.targetDurationMinutes ?? input.actualDurationMinutes ?? 180,
+    actualDurationMinutes: input.actualDurationMinutes ?? input.targetDurationMinutes ?? 180,
+    blankQuestionCount: input.blankQuestionCount,
+    lossReasons: input.lossReasons,
+    mood: input.mindset,
+    isFirstSynchronizedSimulation: input.isFirstSynchronizedSimulation,
   });
 }
 
@@ -384,6 +630,29 @@ async function assertSubjectExists(subjectId: string): Promise<void> {
   }
 }
 
+async function assertSubjectsExist(subjectIds: string[], client: SimulationDbClient): Promise<void> {
+  const uniqueSubjectIds = Array.from(new Set(subjectIds));
+  const count = await client.subject.count({
+    where: {
+      id: { in: uniqueSubjectIds },
+    },
+  });
+
+  if (count !== uniqueSubjectIds.length) {
+    throw new ApiError("SUBJECT_NOT_FOUND", 404);
+  }
+}
+
+function assertUniqueSubjectResults(results: SimulationSubjectResultInput[]): void {
+  const seen = new Set<string>();
+  for (const result of results) {
+    if (seen.has(result.subjectId)) {
+      throw new ApiError("SIMULATION_SUBJECT_DUPLICATE", 400);
+    }
+    seen.add(result.subjectId);
+  }
+}
+
 function chooseFocusSubjects(
   subjects: Array<{
     subjectName: string;
@@ -446,6 +715,95 @@ function labelStageTaskAction(action: StageAdjustmentDraft["taskAdjustmentAction
     case "retest":
       return "对薄弱节点安排复测，补掌握证明。";
   }
+}
+
+function serializeSimulationExam(exam: {
+  id: string;
+  name: string;
+  examDate: Date;
+  isFirstSynchronized: boolean;
+  targetDurationMinutes: number | null;
+  actualDurationMinutes: number | null;
+  targetScore: number | null;
+  actualScore: number | null;
+  blankQuestionCount: number;
+  lossReasons: unknown;
+  mindset: string | null;
+  summary: string | null;
+  reviewText: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  subjectResults: Array<{
+    id: string;
+    simulationExamId: string;
+    subjectId: string;
+    targetScore: number | null;
+    actualScore: number | null;
+    durationMinutes: number | null;
+    blankQuestionCount: number;
+    lossReasons: unknown;
+    summary: string | null;
+    subject: {
+      name: string;
+      color: string;
+    };
+  }>;
+}): SimulationExamDto {
+  return {
+    id: exam.id,
+    name: exam.name,
+    examDate: exam.examDate.toISOString(),
+    isFirstSynchronized: exam.isFirstSynchronized,
+    targetDurationMinutes: exam.targetDurationMinutes,
+    actualDurationMinutes: exam.actualDurationMinutes,
+    targetScore: exam.targetScore,
+    actualScore: exam.actualScore,
+    blankQuestionCount: exam.blankQuestionCount,
+    lossReasons: parseLossReasons(exam.lossReasons),
+    mindset: exam.mindset,
+    summary: exam.summary,
+    reviewText: exam.reviewText,
+    createdAt: exam.createdAt.toISOString(),
+    updatedAt: exam.updatedAt.toISOString(),
+    subjectResults: exam.subjectResults.map((result) => ({
+      id: result.id,
+      simulationExamId: result.simulationExamId,
+      subjectId: result.subjectId,
+      subjectName: result.subject.name,
+      subjectColor: result.subject.color,
+      targetScore: result.targetScore,
+      actualScore: result.actualScore,
+      durationMinutes: result.durationMinutes,
+      blankQuestionCount: result.blankQuestionCount,
+      lossReasons: parseLossReasons(result.lossReasons),
+      summary: result.summary,
+    })),
+  };
+}
+
+function sumDefined(items: SimulationSubjectResultInput[], key: keyof SimulationSubjectResultInput): number | undefined {
+  const values = items.map((item) => item[key]).filter((value): value is number => typeof value === "number");
+  if (values.length === 0) return undefined;
+  return values.reduce((total, value) => total + value, 0);
+}
+
+function normalizeLossReasons(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).slice(0, 20);
+}
+
+function parseLossReasons(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function normalizeOptionalText(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function formatMaybeNumber(value: number | null | undefined): string | undefined {
+  if (value == null) return undefined;
+  return Number.isInteger(value) ? `${value}` : `${Math.round(value * 10) / 10}`;
 }
 
 function serializeTask(task: {

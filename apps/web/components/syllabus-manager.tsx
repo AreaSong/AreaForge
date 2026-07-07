@@ -1,10 +1,12 @@
 "use client";
 
-import { ChevronRight, Plus, Save } from "lucide-react";
+import { ChevronRight, ClipboardCheck, Plus, RotateCcw, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import type {
+  MasteryEvidenceTypeDto,
   MasteryLevelDto,
+  MasteryRetestResultDto,
   SubjectDto,
   SyllabusMapOverviewDto,
   SyllabusNodeDto,
@@ -30,12 +32,30 @@ type StatusFilter = "all" | SyllabusNodeStatusDto;
 type MapStatusFilter = "all" | SyllabusNodeDto["mapSignal"]["cellStatus"];
 type ActionFilter = "all" | "risk" | "evidence" | "review" | "start" | "deferred";
 type MasteryCondition = SyllabusNodeDto["masteryConditions"][number];
+type MasteryEvidenceType = MasteryEvidenceTypeDto;
+type MasteryRetestResult = MasteryRetestResultDto;
 type UpdateNodeBody = Partial<{
   status: SyllabusNodeStatusDto;
   masteryLevel: MasteryLevelDto | null;
   masteryConditions: MasteryCondition[];
   targetMinutes: number;
 }>;
+type AddMasteryEvidenceBody = {
+  evidenceType: MasteryEvidenceType;
+  taskId?: string;
+  sessionId?: string;
+  noteId?: string;
+  mistakeId?: string;
+  retestId?: string;
+  summary?: string;
+};
+type AddMasteryRetestBody = {
+  testedAt?: string;
+  result: MasteryRetestResult;
+  score?: string;
+  summary?: string;
+  nextReviewAt?: string | null;
+};
 
 export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: SyllabusManagerProps) {
   const router = useRouter();
@@ -142,6 +162,40 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
     if (!response.ok) {
       const data = (await response.json().catch(() => null)) as { error?: string } | null;
       setError(data?.error ?? "更新考纲节点失败");
+      return;
+    }
+
+    startTransition(() => router.refresh());
+  }
+
+  async function addMasteryEvidence(id: string, body: AddMasteryEvidenceBody) {
+    setError(null);
+    const response = await fetch(`/api/syllabus/nodes/${id}/mastery-evidence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(data?.error ?? "新增掌握证据失败");
+      return;
+    }
+
+    startTransition(() => router.refresh());
+  }
+
+  async function addMasteryRetest(id: string, body: AddMasteryRetestBody) {
+    setError(null);
+    const response = await fetch(`/api/syllabus/nodes/${id}/mastery-retests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(data?.error ?? "新增复测记录失败");
       return;
     }
 
@@ -405,6 +459,8 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
               key={`${node.id}:${node.masteryLevel ?? "none"}:${node.masteryConditions.join("|")}`}
               node={node}
               onUpdate={updateNode}
+              onAddMasteryEvidence={addMasteryEvidence}
+              onAddMasteryRetest={addMasteryRetest}
             />
           ))}
         </div>
@@ -458,6 +514,20 @@ const masteryConditionOptions: MasteryCondition[] = [
   "comprehensive_exercise",
   "mistake_reviewed",
   "delayed_retest",
+];
+
+const masteryEvidenceTypeOptions: Array<{ value: MasteryEvidenceType; label: string }> = [
+  { value: "task", label: "任务" },
+  { value: "session", label: "计时" },
+  { value: "note", label: "笔记" },
+  { value: "mistake", label: "错题" },
+  { value: "retest", label: "复测" },
+];
+
+const masteryRetestResultOptions: Array<{ value: MasteryRetestResult; label: string }> = [
+  { value: "passed", label: "通过" },
+  { value: "partial", label: "部分通过" },
+  { value: "failed", label: "未通过" },
 ];
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
@@ -553,16 +623,33 @@ function ActionFilterButton({
 function SyllabusTreeNode({
   node,
   onUpdate,
+  onAddMasteryEvidence,
+  onAddMasteryRetest,
 }: {
   node: SyllabusNodeDto;
   onUpdate: (id: string, body: UpdateNodeBody) => Promise<void>;
+  onAddMasteryEvidence: (id: string, body: AddMasteryEvidenceBody) => Promise<void>;
+  onAddMasteryRetest: (id: string, body: AddMasteryRetestBody) => Promise<void>;
 }) {
   const progress = node.targetMinutes === 0 ? 0 : Math.min(100, Math.round((node.actualMinutes / node.targetMinutes) * 100));
   const evidenceCount = node.masteryProof.evidenceCount;
   const canSubmitProof = evidenceCount > 0;
   const [targetMasteryLevel, setTargetMasteryLevel] = useState<MasteryLevelDto>(node.masteryLevel ?? "learned");
   const [selectedConditions, setSelectedConditions] = useState<MasteryCondition[]>(node.masteryConditions);
+  const [evidenceType, setEvidenceType] = useState<MasteryEvidenceType>("task");
+  const [evidenceReferenceId, setEvidenceReferenceId] = useState(node.masteryEvidenceCandidates.task[0]?.id ?? "");
+  const [evidenceSummary, setEvidenceSummary] = useState("");
+  const [retestResult, setRetestResult] = useState<MasteryRetestResult>("passed");
+  const [retestTestedAt, setRetestTestedAt] = useState("");
+  const [retestScore, setRetestScore] = useState("");
+  const [retestSummary, setRetestSummary] = useState("");
+  const [retestNextReviewDate, setRetestNextReviewDate] = useState("");
   const selectedConditionSet = new Set(selectedConditions);
+  const evidenceCandidates = node.masteryEvidenceCandidates[evidenceType];
+  const selectedEvidenceReferenceId = evidenceCandidates.some((candidate) => candidate.id === evidenceReferenceId)
+    ? evidenceReferenceId
+    : evidenceCandidates[0]?.id ?? "";
+  const explicitConditionCount = node.masteryConditionRecords.filter((record) => record.checked).length;
 
   function toggleCondition(condition: MasteryCondition) {
     setSelectedConditions((current) =>
@@ -572,12 +659,51 @@ function SyllabusTreeNode({
     );
   }
 
+  function saveConditions() {
+    void onUpdate(node.id, { masteryConditions: selectedConditions });
+  }
+
   function proveMastery() {
     void onUpdate(node.id, {
       status: "mastered",
       masteryLevel: targetMasteryLevel,
       masteryConditions: selectedConditions,
     });
+  }
+
+  function changeEvidenceType(nextType: MasteryEvidenceType) {
+    setEvidenceType(nextType);
+    setEvidenceReferenceId(node.masteryEvidenceCandidates[nextType][0]?.id ?? "");
+  }
+
+  function submitEvidence(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedEvidenceReferenceId) return;
+
+    const body: AddMasteryEvidenceBody = {
+      evidenceType,
+      summary: evidenceSummary.trim() || undefined,
+    };
+    body[getMasteryEvidenceReferenceKey(evidenceType)] = selectedEvidenceReferenceId;
+
+    setEvidenceSummary("");
+    void onAddMasteryEvidence(node.id, body);
+  }
+
+  function submitRetest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const testedAt = retestTestedAt ? localDateTimeToIso(retestTestedAt) : undefined;
+    const nextReviewAt = retestNextReviewDate ? dateInputToIso(retestNextReviewDate) : null;
+
+    void onAddMasteryRetest(node.id, {
+      testedAt,
+      result: retestResult,
+      score: retestScore.trim() || undefined,
+      summary: retestSummary.trim() || undefined,
+      nextReviewAt,
+    });
+    setRetestScore("");
+    setRetestSummary("");
   }
 
   return (
@@ -593,6 +719,8 @@ function SyllabusTreeNode({
           </p>
           <p className="mt-1 text-xs text-zinc-500">
             证据：任务 {node.evidence.taskCount} / 计时 {node.evidence.sessionCount} / 笔记 {node.evidence.noteCount} / 错题 {node.evidence.mistakeCount}
+            {" / "}
+            {labelEvidenceSource(node.evidence.source)}
           </p>
           <p className="mt-1 text-xs text-zinc-500">
             最近证据：{labelEvidenceFreshness(node.evidence.daysSinceLastEvidence)}
@@ -603,6 +731,9 @@ function SyllabusTreeNode({
           </p>
           <p className="mt-2 text-xs text-zinc-400">{node.mapSignal.nextAction}</p>
           <p className="mt-1 text-xs text-zinc-500">{node.masteryProof.nextAction}</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            显式条件 {explicitConditionCount} / {masteryConditionOptions.length}，显式证据 {node.masteryEvidence.length}，复测 {node.masteryRetests.length}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <select
@@ -661,17 +792,140 @@ function SyllabusTreeNode({
             </div>
           </div>
         </div>
-        <button
-          className="mt-3 inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10 disabled:cursor-not-allowed disabled:opacity-50"
-          type="button"
-          onClick={proveMastery}
-          disabled={!canSubmitProof}
-          title={canSubmitProof ? node.masteryProof.nextAction : "还没有任务、计时、笔记或错题证据"}
-        >
-          <Save className="h-4 w-4" aria-hidden="true" />
-          保存证明
-        </button>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200 hover:bg-white/10"
+            type="button"
+            onClick={saveConditions}
+          >
+            <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
+            保存条件
+          </button>
+          <button
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            onClick={proveMastery}
+            disabled={!canSubmitProof}
+            title={canSubmitProof ? node.masteryProof.nextAction : "还没有任务、计时、笔记、错题或复测证据"}
+          >
+            <Save className="h-4 w-4" aria-hidden="true" />
+            保存证明
+          </button>
+        </div>
       </div>
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <form className="rounded-md border border-white/10 bg-[#0d1117] p-3" onSubmit={submitEvidence}>
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4 text-teal-300" aria-hidden="true" />
+            <p className="text-sm font-medium text-zinc-100">证据引用</p>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-[0.62fr_1.38fr]">
+            <select
+              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              value={evidenceType}
+              onChange={(event) => changeEvidenceType(event.target.value as MasteryEvidenceType)}
+            >
+              {masteryEvidenceTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              value={selectedEvidenceReferenceId}
+              onChange={(event) => setEvidenceReferenceId(event.target.value)}
+              disabled={evidenceCandidates.length === 0}
+            >
+              {evidenceCandidates.length === 0 ? (
+                <option value="">暂无可引用记录</option>
+              ) : (
+                evidenceCandidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.label}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+          <input
+            className="mt-2 h-9 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+            value={evidenceSummary}
+            onChange={(event) => setEvidenceSummary(event.target.value)}
+            placeholder="证据备注"
+            maxLength={1000}
+          />
+          <button
+            className="mt-3 inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+            type="submit"
+            disabled={!selectedEvidenceReferenceId}
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            写入证据
+          </button>
+        </form>
+
+        <form className="rounded-md border border-white/10 bg-[#0d1117] p-3" onSubmit={submitRetest}>
+          <div className="flex items-center gap-2">
+            <RotateCcw className="h-4 w-4 text-sky-300" aria-hidden="true" />
+            <p className="text-sm font-medium text-zinc-100">复测记录</p>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <select
+              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              value={retestResult}
+              onChange={(event) => setRetestResult(event.target.value as MasteryRetestResult)}
+            >
+              {masteryRetestResultOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <input
+              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              type="datetime-local"
+              value={retestTestedAt}
+              onChange={(event) => setRetestTestedAt(event.target.value)}
+              aria-label="复测时间"
+            />
+            <input
+              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              value={retestScore}
+              onChange={(event) => setRetestScore(event.target.value)}
+              placeholder="分数或结果"
+              maxLength={80}
+            />
+            <input
+              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              type="date"
+              value={retestNextReviewDate}
+              onChange={(event) => setRetestNextReviewDate(event.target.value)}
+              aria-label="下次复习日期"
+            />
+          </div>
+          <input
+            className="mt-2 h-9 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+            value={retestSummary}
+            onChange={(event) => setRetestSummary(event.target.value)}
+            placeholder="复测摘要"
+            maxLength={2000}
+          />
+          <button
+            className="mt-3 inline-flex h-9 items-center gap-2 rounded-md border border-sky-300/25 px-3 text-sm text-sky-100 hover:bg-sky-400/10"
+            type="submit"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            写入复测
+          </button>
+        </form>
+      </div>
+      {node.masteryEvidence.length > 0 || node.masteryRetests.length > 0 ? (
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          <MasteryEvidenceList items={node.masteryEvidence} />
+          <MasteryRetestList items={node.masteryRetests} />
+        </div>
+      ) : null}
       {evidenceCount === 0 ? (
         <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
           还没有掌握证据，不能直接标记掌握。
@@ -700,11 +954,72 @@ function SyllabusTreeNode({
               key={`${child.id}:${child.masteryLevel ?? "none"}:${child.masteryConditions.join("|")}`}
               node={child}
               onUpdate={onUpdate}
+              onAddMasteryEvidence={onAddMasteryEvidence}
+              onAddMasteryRetest={onAddMasteryRetest}
             />
           ))}
         </div>
       ) : null}
     </article>
+  );
+}
+
+function MasteryEvidenceList({ items }: { items: SyllabusNodeDto["masteryEvidence"] }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-md border border-white/10 bg-[#0d1117] p-3">
+        <p className="text-sm font-medium text-zinc-100">显式证据</p>
+        <p className="mt-2 text-xs text-zinc-500">暂无</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-white/10 bg-[#0d1117] p-3">
+      <p className="text-sm font-medium text-zinc-100">显式证据</p>
+      <div className="mt-2 grid gap-2">
+        {items.slice(0, 5).map((item) => (
+          <div key={item.id} className="rounded-md border border-white/10 bg-[#151a20] px-2 py-2">
+            <p className="text-xs text-zinc-100">
+              {labelMasteryEvidenceType(item.evidenceType)} / {item.sourceLabel}
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">{formatIsoDateLabel(item.createdAt)}</p>
+            {item.summary ? <p className="mt-1 text-xs text-zinc-400">{item.summary}</p> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MasteryRetestList({ items }: { items: SyllabusNodeDto["masteryRetests"] }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-md border border-white/10 bg-[#0d1117] p-3">
+        <p className="text-sm font-medium text-zinc-100">复测历史</p>
+        <p className="mt-2 text-xs text-zinc-500">暂无</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-white/10 bg-[#0d1117] p-3">
+      <p className="text-sm font-medium text-zinc-100">复测历史</p>
+      <div className="mt-2 grid gap-2">
+        {items.slice(0, 5).map((item) => (
+          <div key={item.id} className="rounded-md border border-white/10 bg-[#151a20] px-2 py-2">
+            <p className="text-xs text-zinc-100">
+              {labelMasteryRetestResult(item.result)} / {formatIsoDateLabel(item.testedAt)}
+              {item.score ? ` / ${item.score}` : ""}
+            </p>
+            {item.nextReviewAt ? (
+              <p className="mt-1 text-xs text-zinc-500">下次：{formatIsoDateLabel(item.nextReviewAt)}</p>
+            ) : null}
+            {item.summary ? <p className="mt-1 text-xs text-zinc-400">{item.summary}</p> : null}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -781,6 +1096,44 @@ function labelEvidenceFreshness(days: number | null): string {
   if (days == null) return "暂无";
   if (days === 0) return "今天";
   return `${days} 天前`;
+}
+
+function labelEvidenceSource(source: SyllabusNodeDto["evidence"]["source"]): string {
+  switch (source) {
+    case "explicit":
+      return "显式记录";
+    case "fallback_count":
+      return "_count fallback";
+  }
+}
+
+function getMasteryEvidenceReferenceKey(
+  evidenceType: MasteryEvidenceType,
+): Exclude<keyof AddMasteryEvidenceBody, "evidenceType" | "summary"> {
+  switch (evidenceType) {
+    case "task":
+      return "taskId";
+    case "session":
+      return "sessionId";
+    case "note":
+      return "noteId";
+    case "mistake":
+      return "mistakeId";
+    case "retest":
+      return "retestId";
+  }
+}
+
+function localDateTimeToIso(value: string): string {
+  return new Date(value).toISOString();
+}
+
+function dateInputToIso(value: string): string {
+  return new Date(`${value}T00:00:00`).toISOString();
+}
+
+function formatIsoDateLabel(value: string): string {
+  return value.slice(0, 10);
 }
 
 function filterNodesByStatusMapAndAction(
@@ -954,5 +1307,31 @@ function labelMasteryCondition(condition: SyllabusNodeDto["masteryProof"]["missi
       return "错题复盘";
     case "delayed_retest":
       return "7 天后复测";
+  }
+}
+
+function labelMasteryEvidenceType(type: MasteryEvidenceType): string {
+  switch (type) {
+    case "task":
+      return "任务";
+    case "session":
+      return "计时";
+    case "note":
+      return "笔记";
+    case "mistake":
+      return "错题";
+    case "retest":
+      return "复测";
+  }
+}
+
+function labelMasteryRetestResult(result: MasteryRetestResult): string {
+  switch (result) {
+    case "passed":
+      return "通过";
+    case "partial":
+      return "部分通过";
+    case "failed":
+      return "未通过";
   }
 }

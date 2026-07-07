@@ -13,7 +13,7 @@
 
 ## 规则
 
-- 今日只保留最小可执行任务。
+- 计时器优先聚焦最小可执行任务；完整任务列表仍可查看。
 - 默认目标为 30 到 90 分钟学习。
 - 不强制补完所有欠账。
 - 优先恢复行动感和连续性。
@@ -24,4 +24,13 @@
 - 可以严肃，但不羞辱。
 - 重点不是补偿过去，而是今天重新开始。
 
-当前 `packages/core` 已提供 `rankRecoveryTaskCandidates` 和 `selectRecoveryTaskCandidate` 纯规则，用于恢复模式下排除已完成/跳过任务、优先可见欠账、去重，并在同等优先级下选择预计时长更小的任务。持久化恢复状态、用户手动触发和退出记录仍需结构化 migration 确认后实现。
+当前 `packages/core` 已提供 `rankRecoveryTaskCandidates` 和 `selectRecoveryTaskCandidate` 纯规则，用于恢复模式下排除已完成/跳过任务、优先可见欠账、去重，并在同等优先级下选择预计时长更小的任务。
+
+Package B Batch 3 已新增 `RecoveryState` 持久状态：
+
+- dashboard 和首页优先读取 active `RecoveryState`。
+- 无 active 状态时继续使用 `createRecoveryPlan` 实时规则 fallback。
+- 规则触发恢复时幂等创建 `triggerType=rule` 的 active 状态。
+- 用户点击“我需要恢复”时创建或复用 `triggerType=manual` 的 active 状态。
+- 完成或取消恢复只更新 `RecoveryState.status/endedAt/exitCondition`。
+- 恢复状态不会批量修改历史欠账，不隐藏、删除或延期原任务；首页计时器聚焦恢复候选，任务区保留完整任务列表。

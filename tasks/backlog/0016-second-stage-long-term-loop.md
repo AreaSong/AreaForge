@@ -73,8 +73,9 @@
 - `pnpm risk:preflight` 已覆盖 Package D 确认前边界：债务重排 API 和阶段调整草稿 API 只能只读 `GET`，报告策略、本地复盘草稿和阶段调整草稿必须透传 `canAutoApply=false` / `requiresUserConfirmation=true`，报告页、模拟页和首页任务区必须展示确认边界。
 - 考纲服务已使用已有任务、计时、笔记和错题更新时间派生证据新鲜度，用于作战地图遗忘风险和掌握证明证据过旧风险；结束计时会同步累加关联考纲节点 `actualMinutes`。
 - `/notes` 已支持按科目、考纲节点、掌握状态和复习提醒状态筛选；今日任务表单已支持写入已有 `StudyTask.type` 字段。
-- 状态主题深度联动已低风险完成：`createDashboardSnapshot` 五态规则已覆盖正常、锻造、警报、恢复和冲刺；恢复态只保留最小任务，冲刺态前置 `simulation_exam`、`mistake`、`review` 任务；首页展示状态主题面板、触发信号和行动焦点，并在恢复态收起欠账预览。
-- 该进展不代表第二阶段长期闭环完成；Package B Batch 2 已提供债务事件账本，但用户确认后应用、报告决策入口、结构化复习历史、结构化长期风险和阶段计划主题信号仍待 Package B/D 确认后推进。
+- 状态主题深度联动已完成：`createDashboardSnapshot` 五态规则已覆盖正常、锻造、警报、恢复和冲刺；恢复态计时器聚焦最小任务且任务区保留完整列表，冲刺态前置 `simulation_exam`、`mistake`、`review` 任务；首页展示状态主题面板、触发信号和行动焦点，并在恢复态弱化欠账预览。
+- 结构化模拟考试主路径已由 Package B Batch 5 完成，旧任务型模拟只读兼容。
+- 该进展不代表第二阶段长期闭环完成；Package B Batch 2 已提供债务事件账本、Batch 5 已提供结构化模拟考试，但用户确认后应用、报告决策入口、结构化复习历史、结构化长期风险和阶段计划主题信号仍待 Package B Batch 6 / Package D 确认后推进。
 
 ## 确认后实施切入点
 
@@ -83,7 +84,7 @@
 - 报告决策入口：`/reports` 在周/月报告基础上提供“确认本周期策略”“驳回策略”“生成下一周期草稿”等动作，但用户确认前不改任务、阶段计划或复盘。
 - 任务债务重排：在 `GET /api/tasks/debt-reorder` 只读建议之后，新增确认/驳回/应用写路径时必须依赖 Package B 的 `TaskDebtEvent` 和审计记录；重复提交、部分失败和应用摘要都要可追溯。
 - 阶段调整：依赖 Package B Batch 6 的 `StagePlan` 和 `StageAdjustmentDraft`；应用草稿时只修改用户确认的阶段计划，不批量改任务，不自动覆盖当前 active 计划。
-- 模拟考试：依赖 Package B Batch 5 的 `SimulationExam` 和 `SimulationSubjectResult`；第二阶段页面优先读结构化考试，旧 `StudyTask.type = "simulation_exam"` 只读兼容。
+- 模拟考试：已可依赖 Package B Batch 5 的 `SimulationExam` 和 `SimulationSubjectResult`；第二阶段页面优先读结构化考试，旧 `StudyTask.type = "simulation_exam"` 只读兼容。
 - 遗忘风险：优先消费 Package B Batch 4 的掌握条件、证据和复测记录；没有显式记录时保留现有任务、计时、笔记、错题派生 fallback。
 - 状态主题深度联动：主题只能由真实信号驱动，包括风险状态、恢复状态、阶段计划、模拟考试窗口、断签、低转化和长期压强；主题不得影响可读性，也不得替代明确行动建议。
 - 长期 AI 阶段调整：只有 Package C 已确认真实 provider 且 Package B Batch 6 已具备草稿模型后才能外呼；未确认时保持本地规则草稿。
