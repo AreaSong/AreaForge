@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0015-structured-state-migration.md` 的实现前确认设计，不是已执行 migration。任何 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
+本文件是 `tasks/backlog/0015-structured-state-migration.md` 的分批确认设计。Package B Batch 0 已在明确确认后执行 `StudySession` 结构化收口字段；Batch 1-6 仍未执行。任何后续 `prisma/schema.prisma`、`prisma/migrations/**` 或数据回填改动，都必须等用户明确确认后再做。
 
 ## 目标
 
@@ -10,7 +10,7 @@
 
 当前主要缺口：
 
-- `StudySession.note` 中混合保存理解程度、最小产出、下一步动作和反假学习原因。
+- 新结束的 `StudySession` 已写入 Batch 0 结构化收口字段；历史 `StudySession.note` 仍可能混合保存理解程度、最小产出、下一步动作和反假学习原因，且不做不可靠解析。
 - 打卡连续性由近窗 session 派生，没有 `CheckIn` 日快照。
 - 任务债务动作依赖 `StudyTask.status/debtStatus/reviewText` 和审计事件，没有债务事件账本和父子任务关系。
 - 恢复模式是实时规则裁剪，没有用户手动触发和退出记录。
@@ -41,7 +41,7 @@
 
 ### `StudySession` 追加字段
 
-建议新增：
+Batch 0 已新增：
 
 - `understandingLevel String?`
 - `minimalOutput String?`
@@ -82,6 +82,19 @@
 - 每次结束计时、保存复盘、任务状态变化后 upsert 当日 `CheckIn`。
 - 首页、统计和报告优先读 `CheckIn`；若某日没有快照，fallback 到现有 session/task/review 派生逻辑。
 - 历史回填只按已有 session/task/review 生成快照，不推断用户没有填写过的收口字段。
+
+Batch 1 实现契约：
+
+- `packages/core` 的 `buildDailyCheckInSnapshot` 是快照字段来源的纯规则；服务层实现时应复用该函数，不在 Prisma 写路径中重新散落同一套计算口径。
+- `studyDate` 必须使用 `getStudyDayRange(targetDate).start`，不要用自然日零点或直接截断 `createdAt`。
+- `completedMinimumAction` 来源于当日 `evaluateDailyCheckIn` 的结果；`lowEfficiency` 来源于同一规则的低效判断，不把“打开应用”算作完成。
+- `totalMinutes` 统计当日已完成 session 的 `effectiveMinutes` 总和；若首页存在 active session，首页展示可额外叠加实时计时，但不得把未结束 session 写入快照。
+- `effectiveMinutes` 和 `effectiveSessionCount` 只统计 `isEffective=true` 的已完成 session。
+- `taskCompletionRate` 只按当日 `plannedDate` 落在学习日内的任务计算；任务计划日变化时必须刷新旧学习日和新学习日。
+- `reviewSubmitted` 只由当日 `DailyReview` 是否存在决定；保存复盘后必须刷新同日快照。
+- `lowConversionCount` 优先使用 Batch 0 的 `isLowConversion`，历史 session fallback 到 `isEffective=false`。
+- analytics 和 reports 必须以“逐日”为单位合并：某天有 `CheckIn` 就用快照；某天没有快照就走旧 session/task/review 派生。不能因为区间内部分日期有快照，就把无快照日期当作 0 或断签。
+- 本批不做历史批量回填；如后续需要回填，只能另开可重复、只追加、可审计的任务确认。
 
 ### `StudyTask` 父子关系
 

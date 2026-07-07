@@ -27,6 +27,15 @@ const requiredHighRiskPackages = [
   "Package D",
   "Package E",
 ] as const;
+const requiredPackageBBatches = [
+  "Batch 0",
+  "Batch 1",
+  "Batch 2",
+  "Batch 3",
+  "Batch 4",
+  "Batch 5",
+  "Batch 6",
+] as const;
 const incompleteEvidenceKeywords = [
   "待确认",
   "未完成",
@@ -34,6 +43,12 @@ const incompleteEvidenceKeywords = [
   "缺失",
   "阻塞",
   "NOT_READY",
+] as const;
+const requiredPackageEvidenceKeywords = [
+  "验证",
+  "烟测",
+  "文档",
+  "残余风险",
 ] as const;
 
 function main(): void {
@@ -107,16 +122,49 @@ function checkCompletionRecord(): CompletionIssue[] {
   for (const item of requiredHighRiskPackages) {
     const line = findLine(record, item);
     if (!line) continue;
-    const isComplete = line.includes("完成") && !incompleteEvidenceKeywords.some((keyword) => line.includes(keyword));
+    const cells = parseMarkdownCells(line);
+    const status = cells[1] ?? "";
+    const evidence = cells[2] ?? "";
+    const isComplete = status.includes("完成") && !incompleteEvidenceKeywords.some((keyword) => line.includes(keyword));
     if (!isComplete) {
       issues.push({
         name: `${item} completion evidence`,
         detail: `expected a completed evidence line in ${completionRecordPath}`,
       });
+      continue;
+    }
+
+    const missingEvidenceKeywords = requiredPackageEvidenceKeywords.filter((keyword) => !evidence.includes(keyword));
+    if (missingEvidenceKeywords.length > 0) {
+      issues.push({
+        name: `${item} completion evidence detail`,
+        detail: `completed package row must include evidence for ${missingEvidenceKeywords.join(", ")}`,
+      });
     }
   }
 
+  issues.push(...checkPackageBBatches(record));
+
   return issues;
+}
+
+function checkPackageBBatches(record: string): CompletionIssue[] {
+  const missingOrIncomplete = requiredPackageBBatches.flatMap((batch) => {
+    const line = findLine(record, `| ${batch}：`);
+    if (!line) return [`${batch}=missing`];
+
+    const status = parseMarkdownCells(line)[1] ?? "";
+    return status.includes("DONE / 已完成") ? [] : [`${batch}=${status || "missing status"}`];
+  });
+
+  if (missingOrIncomplete.length === 0) return [];
+
+  return [
+    {
+      name: "Package B batch completion evidence",
+      detail: `expected Batch 0-6 rows to be DONE / 已完成; ${missingOrIncomplete.join("; ")}`,
+    },
+  ];
 }
 
 function parseTraceabilityRows(content: string): FeatureRow[] {
@@ -150,6 +198,13 @@ function parseTraceabilityRows(content: string): FeatureRow[] {
 
 function findLine(content: string, needle: string): string | undefined {
   return content.split(/\r?\n/).find((line) => line.includes(needle));
+}
+
+function parseMarkdownCells(line: string): string[] {
+  return line
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
 }
 
 function read(file: string): string {

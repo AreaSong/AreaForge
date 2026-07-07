@@ -1,5 +1,6 @@
 import type {
   DashboardSnapshot,
+  MasteryProofCondition,
   MasteryProofSummary,
   MotivationWakeSignal,
   StageLevelSummary,
@@ -81,6 +82,15 @@ export interface StudySessionDto {
   effectiveMinutes: number;
   qualityScore: number | null;
   isEffective: boolean | null;
+  understandingLevel: string | null;
+  minimalOutput: string | null;
+  nextAction: string | null;
+  producedNote: boolean;
+  producedMistake: boolean;
+  isLowConversion: boolean | null;
+  antiFakeReason: string | null;
+  requiredOutput: string | null;
+  closeoutVersion: number;
   note: string | null;
 }
 
@@ -118,6 +128,7 @@ export interface SyllabusNodeDto {
     lastEvidenceAt: string | null;
     daysSinceLastEvidence: number | null;
   };
+  masteryConditions: MasteryProofCondition[];
   masteryProof: MasteryProofSummary;
   mapSignal: SyllabusMapSignal;
   children: SyllabusNodeDto[];
@@ -135,7 +146,7 @@ export interface AttachmentDto {
   mimeType: string;
   sizeBytes: number;
   hash: string;
-  uri: string;
+  downloadApiPath: string;
   createdAt: string;
 }
 
@@ -248,6 +259,7 @@ export interface TodayDashboardDto {
   debtReorder: TaskDebtReorderDto;
   visibleRecoveryTasks: StudyTaskDto[];
   activeSession: StudySessionDto | null;
+  latestCompletedSession: StudySessionDto | null;
   review: DailyReviewDto | null;
   syllabusOverview: SyllabusOverviewDto[];
   signals: {

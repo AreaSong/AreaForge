@@ -16,7 +16,7 @@
 | AI 规则 | `pnpm --filter @areaforge/ai test` 通过 |
 | 上传规则 | `pnpm --filter @areaforge/storage test` 通过 |
 | 数据模型 | `pnpm db:validate` 通过；涉及 migration 时临时库 deploy 通过 |
-| Compose | `docker compose config` 和 `docker compose -f docker-compose.prod.yml config` 通过 |
+| Compose | `docker compose config` 和 `docker compose --env-file .env.example -f docker-compose.prod.yml config` 通过；生产执行时必须使用真实生产 env |
 | 页面烟测 | 首页、`/syllabus`、`/notes`、`/mistakes`、`/analytics`、`/reports`、`/simulation` 可打开 |
 | 安全边界 | 未登录写 API 返回 `401`，客户端 bundle 不含密钥 |
 | 文档同步 | 新 API、新模型、上传、AI、部署变化均同步对应 docs/tasks/workflow |
@@ -93,8 +93,20 @@
 | 第二阶段长期闭环 | `Package D` 已确认；建议不自动应用；报告、地图、债务、遗忘风险验收通过 |
 | 生产发布 | `Package E` 已确认；备份、恢复演练、发布后烟测和回滚记录存在 |
 
-最终完成时还必须维护并更新 `docs/development/docs-100-completion-record.md`，逐项记录 Package A-E 的完成状态、验证命令、证据路径和残余风险。该记录是当前证据，不是目标清单。
+## 高风险确认前验收矩阵
+
+本矩阵只用于确认前准备，不能替代完成证据。任何一项从“准备”进入“实现”前，都必须先获得对应确认包的明确确认。
+
+| 包 | 确认前可安全推进 | 确认前禁止越界 | 确认后完成证据 |
+|---|---|---|---|
+| Package A | 上传/下载 API 烟测清单；对账清单格式；补偿失败用例；storage 纯规则测试复核 | 新增上传/下载 route；写入 `UPLOAD_DIR`；新增附件 UI；清理孤儿文件 | 未登录 401；允许类型成功；超大、伪造 MIME、路径穿越、软链接逃逸失败；metadata hash 与文件 hash 一致 |
+| Package B | 分批确认包；migration 字段清单；临时库验证步骤；旧数据 fallback 口径 | 未确认批次的 schema/migration；批量删除、压缩历史或不可靠解析 | 每批临时库 deploy；核心/API/UI 烟测；completion record 只更新对应批次；Package B 主状态等 Batch 0-6 全部完成后再改 |
+| Package C | 可发送/禁止字段清单；费用保护默认值；客户端密钥扫描步骤；mock/fallback 测试 | 真实 provider 外呼；Web 读取 `AI_API_KEY`；保存完整 prompt/响应；长期阶段调整外呼 | `AI_ENABLED=false` fallback；配置缺失 fallback；mock 成功；失败/非法输出 fallback；客户端 bundle 搜不到密钥 |
+| Package D | 只读规则、只读 UI 标签、依赖矩阵、confirm-only DTO 检查 | 重排应用写 API；阶段计划应用；报告快照写入；结构化模拟考试写入；长期 AI 外呼 | 建议用户确认前不应用；确认/驳回/重复提交/部分失败可追溯；报告、地图、债务、遗忘风险页面/API 烟测通过 |
+| Package E | compose config；变量清单；发布/回滚 checklist；临时库恢复步骤文档 | 生产部署；生产 migration deploy；真实备份恢复；服务器命令；发布后真实烟测 | 发布前备份；临时库恢复演练；生产发布记录；发布后烟测；失败回滚记录 |
+
+最终完成时还必须维护并更新 `docs/development/docs-100-completion-record.md`，逐项记录 Package A-E 的完成状态、验证命令、烟测证据、文档同步结果和残余风险。该记录是当前证据，不是目标清单。
 
 ## 最终完成判定
 
-只有当本文件所有非暂缓项均有当前证据，`docs/development/feature-traceability.md` 不再存在“基础版 / 待确认 / 未实现”状态，并且 `pnpm docs:completion` 通过时，才可以宣称 AreaForge docs 100% 完成。
+只有当本文件所有非暂缓项均有当前证据，`docs/development/feature-traceability.md` 不再存在“基础版 / 待确认 / 未实现”状态，Package B Batch 0-6 批次行全部为 `DONE / 已完成`，并且 `pnpm docs:completion` 通过时，才可以宣称 AreaForge docs 100% 完成。

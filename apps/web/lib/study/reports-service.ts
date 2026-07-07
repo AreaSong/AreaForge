@@ -1,7 +1,10 @@
 import {
+  buildDailyCheckInSnapshot,
   choosePeriodicWeakness,
   summarizePeriodicReportStrategy,
+  type CheckInSnapshotSummary,
   type PeriodicWeaknessNodeStatus,
+  type TaskStatus,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { getStudyDayRange } from "./date";
@@ -226,13 +229,13 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     }),
   ]);
 
-  const totalMinutes = sessions.reduce((total, session) => total + session.effectiveMinutes, 0);
-  const effectiveMinutes = sessions
-    .filter((session) => session.isEffective)
-    .reduce((total, session) => total + session.effectiveMinutes, 0);
+  const dailySnapshots = buildPeriodicDailySnapshots(range, sessions, tasks, reviews);
+  const totalMinutes = dailySnapshots.reduce((total, snapshot) => total + snapshot.totalMinutes, 0);
+  const effectiveMinutes = dailySnapshots.reduce((total, snapshot) => total + snapshot.effectiveMinutes, 0);
   const completedTaskCount = tasks.filter((task) => task.status === "DONE").length;
   const taskCompletionRate = calculateTaskCompletion(tasks);
-  const lowConversionCount = sessions.filter((session) => session.isEffective === false).length;
+  const lowConversionCount = dailySnapshots.reduce((total, snapshot) => total + snapshot.lowConversionCount, 0);
+  const reviewCompletionRate = dailySnapshots.filter((snapshot) => snapshot.reviewSubmitted).length / range.days;
   const mistakesCreatedCount = mistakes.filter((mistake) => isWithin(mistake.createdAt, range.start, range.end)).length;
   const mistakeReviewUpdateCount = mistakes.filter((mistake) => isReviewUpdate(mistake, range.start, range.end)).length;
   const subjectShares = buildSubjectShares(subjects, sessions, debtTasks, mistakes);
@@ -262,7 +265,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     lowConversionCount,
     mistakesCreatedCount,
     mistakeReviewUpdateCount,
-    reviewCompletionRate: reviews.length / range.days,
+    reviewCompletionRate,
     weakNodeCount: weakNodes.length,
     dueNoteCount: dueNotes.length,
     weakness,
@@ -284,7 +287,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
       completedTaskCount,
       debtCount: debtTasks.length,
       lowConversionCount,
-      reviewCompletionRate: reviews.length / range.days,
+      reviewCompletionRate,
       reviewCount: reviews.length,
       mistakesCreatedCount,
       mistakeReviewUpdateCount,
@@ -326,6 +329,42 @@ function getMonthRange(now: Date): { start: Date; end: Date; days: number } {
   };
 }
 
+function buildPeriodicDailySnapshots(
+  range: { start: Date; days: number },
+  sessions: Array<{
+    startedAt: Date;
+    effectiveMinutes: number;
+    isEffective: boolean | null;
+    isLowConversion?: boolean | null;
+  }>,
+  tasks: Array<{
+    plannedDate: Date;
+    status: DbTaskStatus;
+  }>,
+  reviews: Array<{
+    reviewDate: Date;
+  }>,
+): CheckInSnapshotSummary[] {
+  const reviewKeys = new Set(reviews.map((review) => getStudyDayRange(review.reviewDate).key));
+
+  return Array.from({ length: range.days }, (_, index) => {
+    const day = getStudyDayRange(new Date(range.start.getTime() + index * dayMs));
+    const daySessions = sessions.filter((session) => session.startedAt >= day.start && session.startedAt < day.end);
+    const dayTasks = tasks.filter((task) => task.plannedDate >= day.start && task.plannedDate < day.end);
+
+    return buildDailyCheckInSnapshot({
+      studyDate: day.key,
+      sessions: daySessions.map((session) => ({
+        effectiveMinutes: session.effectiveMinutes,
+        isEffective: session.isEffective,
+        isLowConversion: session.isLowConversion,
+      })),
+      tasks: dayTasks.map((task) => ({ status: toCoreTaskStatus(task.status) })),
+      reviewSubmitted: reviewKeys.has(day.key),
+    });
+  });
+}
+
 function buildSubjectShares(
   subjects: Array<{
     id: string;
@@ -336,6 +375,7 @@ function buildSubjectShares(
     subjectId: string;
     effectiveMinutes: number;
     isEffective: boolean | null;
+    isLowConversion?: boolean | null;
   }>,
   debtTasks: Array<{
     subjectId: string;
@@ -418,6 +458,21 @@ function createLocalReportDraft(strategy: PeriodicReportDto["strategy"]): Period
 function calculateTaskCompletion(tasks: Array<{ status: DbTaskStatus }>): number {
   if (tasks.length === 0) return 0;
   return tasks.filter((task) => task.status === "DONE").length / tasks.length;
+}
+
+function toCoreTaskStatus(status: DbTaskStatus): TaskStatus {
+  switch (status) {
+    case "TODO":
+      return "todo";
+    case "IN_PROGRESS":
+      return "in_progress";
+    case "DONE":
+      return "done";
+    case "SKIPPED":
+      return "skipped";
+    case "DEFERRED":
+      return "deferred";
+  }
 }
 
 function toCoreWeaknessNodeStatus(status: DbSyllabusNodeStatus): PeriodicWeaknessNodeStatus {

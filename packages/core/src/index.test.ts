@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  createDashboardSnapshot,
   createRecoveryPlan,
+  buildDailyCheckInSnapshot,
   determineDebtLevel,
   evaluateAntiFakeStudy,
   evaluateDailyCheckIn,
@@ -25,6 +27,35 @@ import {
   summarizeAnalyticsRisks,
 } from "./index";
 
+type DashboardInputForTest = Parameters<typeof createDashboardSnapshot>[0];
+
+function makeDashboardInput(overrides: Partial<DashboardInputForTest> = {}): DashboardInputForTest {
+  return {
+    targetExamDate: new Date("2027-12-20T08:30:00+08:00"),
+    simulationDate: new Date("2026-12-20T08:30:00+08:00"),
+    todayMinutes: 120,
+    effectiveMinutes: 90,
+    taskCompletionRate: 0.75,
+    streakDays: 3,
+    missedDays: 0,
+    debtCount: 0,
+    daysToFinal: 300,
+    daysToSimulation: 150,
+    tasks: [
+      {
+        id: "task-main",
+        title: "数学基础题",
+        subject: "数学",
+        status: "todo",
+        estimatedMinutes: 60,
+        actualMinutes: 0,
+        priority: "high",
+      },
+    ],
+    ...overrides,
+  };
+}
+
 test("evaluateDailyCheckIn requires an effective study action", () => {
   const summary = evaluateDailyCheckIn({
     effectiveMinutes: 10,
@@ -35,6 +66,146 @@ test("evaluateDailyCheckIn requires an effective study action", () => {
 
   assert.equal(summary.completedMinimumAction, false);
   assert.equal(summary.lowEfficiency, true);
+});
+
+test("buildDailyCheckInSnapshot derives Batch 1 fields from day inputs", () => {
+  const snapshot = buildDailyCheckInSnapshot({
+    studyDate: "2026-07-07",
+    sessions: [
+      { effectiveMinutes: 40, isEffective: true, isLowConversion: false },
+      { effectiveMinutes: 20, isEffective: false, isLowConversion: true },
+      { effectiveMinutes: 15, isEffective: null },
+    ],
+    tasks: [
+      { status: "done" },
+      { status: "todo" },
+      { status: "deferred" },
+    ],
+    reviewSubmitted: true,
+  });
+
+  assert.equal(snapshot.studyDate, "2026-07-07");
+  assert.equal(snapshot.completedMinimumAction, true);
+  assert.equal(snapshot.totalMinutes, 75);
+  assert.equal(snapshot.effectiveMinutes, 40);
+  assert.equal(snapshot.effectiveSessionCount, 1);
+  assert.equal(snapshot.taskCompletionRate, 1 / 3);
+  assert.equal(snapshot.reviewSubmitted, true);
+  assert.equal(snapshot.lowEfficiency, false);
+  assert.equal(snapshot.lowConversionCount, 1);
+  assert.equal(snapshot.sourceVersion, 1);
+});
+
+test("buildDailyCheckInSnapshot keeps historical low conversion fallback", () => {
+  const snapshot = buildDailyCheckInSnapshot({
+    studyDate: "2026-07-08",
+    sessions: [
+      { effectiveMinutes: 55, isEffective: false },
+      { effectiveMinutes: 30, isEffective: true, isLowConversion: true },
+    ],
+    tasks: [],
+    reviewSubmitted: false,
+  });
+
+  assert.equal(snapshot.totalMinutes, 85);
+  assert.equal(snapshot.effectiveMinutes, 30);
+  assert.equal(snapshot.effectiveSessionCount, 1);
+  assert.equal(snapshot.taskCompletionRate, 0);
+  assert.equal(snapshot.lowEfficiency, true);
+  assert.equal(snapshot.lowConversionCount, 2);
+});
+
+test("buildDailyCheckInSnapshot lets explicit low conversion override historical fallback", () => {
+  const snapshot = buildDailyCheckInSnapshot({
+    studyDate: "2026-07-09",
+    sessions: [
+      { effectiveMinutes: 45, isEffective: false, isLowConversion: false },
+      { effectiveMinutes: 25, isEffective: false },
+    ],
+    tasks: [],
+    reviewSubmitted: false,
+  });
+
+  assert.equal(snapshot.lowConversionCount, 1);
+});
+
+test("createDashboardSnapshot maps theme states from real execution signals", () => {
+  assert.equal(createDashboardSnapshot(makeDashboardInput()).themeState, "normal");
+  assert.equal(createDashboardSnapshot(makeDashboardInput({
+    streakDays: 9,
+    taskCompletionRate: 0.86,
+  })).themeState, "forge");
+  assert.equal(createDashboardSnapshot(makeDashboardInput({
+    streakDays: 9,
+    taskCompletionRate: 0.7,
+  })).themeState, "normal");
+  assert.equal(createDashboardSnapshot(makeDashboardInput({
+    debtCount: 6,
+  })).themeState, "alert");
+  assert.equal(createDashboardSnapshot(makeDashboardInput({
+    missedDays: 5,
+  })).themeState, "recovery");
+  assert.equal(createDashboardSnapshot(makeDashboardInput({
+    daysToFinal: 90,
+  })).themeState, "sprint");
+});
+
+test("createDashboardSnapshot changes task priority by theme", () => {
+  const tasks = [
+    {
+      id: "generic-critical",
+      title: "普通高优先任务",
+      subject: "数学",
+      status: "todo" as const,
+      estimatedMinutes: 90,
+      actualMinutes: 0,
+      priority: "critical" as const,
+    },
+    {
+      id: "review",
+      title: "英语错题复习",
+      type: "review",
+      subject: "英语",
+      status: "todo" as const,
+      estimatedMinutes: 45,
+      actualMinutes: 0,
+      priority: "medium" as const,
+    },
+    {
+      id: "mistake",
+      title: "408 错题订正",
+      type: "mistake",
+      subject: "408",
+      status: "todo" as const,
+      estimatedMinutes: 40,
+      actualMinutes: 0,
+      priority: "low" as const,
+    },
+    {
+      id: "simulation",
+      title: "全真模拟",
+      type: "simulation_exam",
+      subject: "综合",
+      status: "todo" as const,
+      estimatedMinutes: 180,
+      actualMinutes: 0,
+      priority: "low" as const,
+    },
+  ];
+
+  const sprint = createDashboardSnapshot(makeDashboardInput({
+    daysToFinal: 90,
+    tasks,
+  }));
+  const recovery = createDashboardSnapshot(makeDashboardInput({
+    missedDays: 5,
+    tasks,
+  }));
+
+  assert.deepEqual(sprint.topTasks.map((task) => task.id), ["simulation", "mistake", "review", "generic-critical"]);
+  assert.equal(sprint.nextAction.includes("全真模拟"), true);
+  assert.equal(recovery.topTasks.length, 1);
+  assert.equal(recovery.nextAction.includes("30 分钟恢复任务"), true);
 });
 
 test("createRecoveryPlan narrows the day during danger state", () => {
@@ -588,6 +759,45 @@ test("evaluateMasteryProof blocks mastered levels without real evidence", () => 
   assert.equal(proof.allowedLevel, null);
   assert.equal(proof.risk, "no_evidence");
   assert.match(proof.nextAction, /掌握条件/);
+});
+
+test("evaluateMasteryProof allows basic level with manual conditions and real evidence", () => {
+  const proof = evaluateMasteryProof({
+    requestedLevel: "basic_exercises",
+    completedConditions: ["course_or_textbook", "own_explanation", "basic_exercise"],
+    evidence: {
+      taskCount: 1,
+      sessionCount: 1,
+      noteCount: 1,
+      mistakeCount: 0,
+      daysSinceLastEvidence: 0,
+    },
+  });
+
+  assert.equal(proof.canMarkRequestedLevel, true);
+  assert.equal(proof.allowedLevel, "can_explain");
+  assert.equal(proof.risk, "ready");
+  assert.deepEqual(proof.missingConditions, []);
+  assert.deepEqual(proof.missingEvidence, []);
+});
+
+test("evaluateMasteryProof keeps manual conditions gated by evidence", () => {
+  const proof = evaluateMasteryProof({
+    requestedLevel: "basic_exercises",
+    completedConditions: ["course_or_textbook", "own_explanation", "basic_exercise"],
+    evidence: {
+      taskCount: 0,
+      sessionCount: 0,
+      noteCount: 1,
+      mistakeCount: 0,
+      daysSinceLastEvidence: 0,
+    },
+  });
+
+  assert.equal(proof.canMarkRequestedLevel, false);
+  assert.equal(proof.allowedLevel, "learned");
+  assert.deepEqual(proof.missingConditions, []);
+  assert.deepEqual(proof.missingEvidence, ["做题或专项练习记录"]);
 });
 
 test("evaluateMasteryProof allows retest level after delayed evidence", () => {

@@ -38,6 +38,7 @@ export interface StudyTaskInput {
   id: string;
   title: string;
   subject: string;
+  type?: string;
   status: TaskStatus;
   estimatedMinutes: number;
   actualMinutes: number;
@@ -78,6 +79,36 @@ export interface DailyCheckInSummary {
   completedMinimumAction: boolean;
   lowEfficiency: boolean;
   reason: string;
+}
+
+export interface CheckInSnapshotSessionInput {
+  effectiveMinutes: number;
+  isEffective: boolean | null;
+  isLowConversion?: boolean | null;
+}
+
+export interface CheckInSnapshotTaskInput {
+  status: TaskStatus;
+}
+
+export interface CheckInSnapshotBuildInput {
+  studyDate: string;
+  sessions: CheckInSnapshotSessionInput[];
+  tasks: CheckInSnapshotTaskInput[];
+  reviewSubmitted: boolean;
+}
+
+export interface CheckInSnapshotSummary {
+  studyDate: string;
+  completedMinimumAction: boolean;
+  totalMinutes: number;
+  effectiveMinutes: number;
+  effectiveSessionCount: number;
+  taskCompletionRate: number;
+  reviewSubmitted: boolean;
+  lowEfficiency: boolean;
+  lowConversionCount: number;
+  sourceVersion: 1;
 }
 
 export interface RecoveryPlanInput {
@@ -176,6 +207,7 @@ export function determineRiskState(input: DashboardInput): RiskState {
   if (input.daysToFinal <= 120) return "sprint";
   if (input.missedDays >= 5 || input.taskCompletionRate < 0.25) return "danger";
   if (input.missedDays >= 3 || input.debtCount >= 10) return "lost";
+  if (input.debtCount >= 6) return "volatile";
   if (input.taskCompletionRate < 0.55 || input.effectiveMinutes < 60) return "volatile";
   if (input.streakDays >= 7 && input.taskCompletionRate >= 0.8) return "rising";
   return "stable";
@@ -193,7 +225,7 @@ export function determineThemeState(riskState: RiskState, streakDays: number): T
   if (riskState === "sprint") return "sprint";
   if (riskState === "danger" || riskState === "lost") return "recovery";
   if (riskState === "volatile") return "alert";
-  if (streakDays >= 7 || riskState === "rising") return "forge";
+  if (riskState === "rising") return "forge";
   return "normal";
 }
 
@@ -227,6 +259,36 @@ export function evaluateDailyCheckIn(input: DailyCheckInInput): DailyCheckInSumm
     completedMinimumAction: true,
     lowEfficiency: false,
     reason: "今天已经完成最小有效学习动作。",
+  };
+}
+
+export function buildDailyCheckInSnapshot(input: CheckInSnapshotBuildInput): CheckInSnapshotSummary {
+  const totalMinutes = input.sessions.reduce((total, session) => total + session.effectiveMinutes, 0);
+  const effectiveSessions = input.sessions.filter((session) => session.isEffective);
+  const effectiveMinutes = effectiveSessions.reduce((total, session) => total + session.effectiveMinutes, 0);
+  const effectiveSessionCount = effectiveSessions.length;
+  const taskCompletionRate = input.tasks.length === 0
+    ? 0
+    : input.tasks.filter((task) => task.status === "done").length / input.tasks.length;
+  const lowConversionCount = input.sessions.filter((session) => session.isLowConversion ?? session.isEffective === false).length;
+  const checkIn = evaluateDailyCheckIn({
+    effectiveMinutes,
+    effectiveSessionCount,
+    reviewSubmitted: input.reviewSubmitted,
+    taskCompletionRate,
+  });
+
+  return {
+    studyDate: input.studyDate,
+    completedMinimumAction: checkIn.completedMinimumAction,
+    totalMinutes,
+    effectiveMinutes,
+    effectiveSessionCount,
+    taskCompletionRate,
+    reviewSubmitted: input.reviewSubmitted,
+    lowEfficiency: checkIn.lowEfficiency,
+    lowConversionCount,
+    sourceVersion: 1,
   };
 }
 
@@ -369,7 +431,7 @@ export function createDashboardSnapshot(input: DashboardInput): DashboardSnapsho
   const debtLevel = determineDebtLevel(input.debtCount);
   const topTasks = input.tasks
     .filter((task) => task.status !== "done")
-    .sort((left, right) => priorityWeight(right.priority) - priorityWeight(left.priority))
+    .sort((left, right) => compareDashboardTasks(themeState, left, right))
     .slice(0, themeState === "recovery" ? 1 : 4);
 
   return {
@@ -634,6 +696,24 @@ function priorityWeight(priority: StudyTaskInput["priority"]): number {
     case "low":
       return 1;
   }
+}
+
+function compareDashboardTasks(themeState: ThemeState, left: StudyTaskInput, right: StudyTaskInput): number {
+  const themeDelta = taskThemeWeight(themeState, right) - taskThemeWeight(themeState, left);
+  if (themeDelta !== 0) return themeDelta;
+
+  const priorityDelta = priorityWeight(right.priority) - priorityWeight(left.priority);
+  if (priorityDelta !== 0) return priorityDelta;
+
+  return left.estimatedMinutes - right.estimatedMinutes;
+}
+
+function taskThemeWeight(themeState: ThemeState, task: StudyTaskInput): number {
+  if (themeState !== "sprint") return 0;
+  if (task.type === "simulation_exam") return 4;
+  if (task.type === "mistake") return 3;
+  if (task.type === "review") return 2;
+  return 0;
 }
 
 function createNextAction(themeState: ThemeState, task?: StudyTaskInput): string {

@@ -4,10 +4,12 @@ import {
   parseSyllabusMarkdown,
   summarizeSyllabusMap,
   type MasteryProofCondition,
+  type MasteryEvidenceInput,
   type MasteryProofLevel,
+  type MasteryProofSummary,
   type SyllabusMapNodeStatus,
 } from "@areaforge/core";
-import { prisma } from "@areaforge/db";
+import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import type {
   MasteryLevelDto,
@@ -79,6 +81,7 @@ export interface UpdateSyllabusNodeInput {
   kind?: SyllabusNodeKindDto;
   status?: SyllabusNodeStatusDto;
   masteryLevel?: MasteryLevelDto | null;
+  masteryConditions?: MasteryProofCondition[];
   sortOrder?: number;
   targetMinutes?: number;
 }
@@ -300,9 +303,16 @@ export async function updateSyllabusNode(
     await assertParentIsSafe(id, existing.subjectId, input.parentId);
   }
 
-  if (input.status === "mastered") {
-    assertNodeCanMarkMastery(existing, input.masteryLevel ?? "learned");
-  }
+  const masteryProofRequest = resolveMasteryProofRequest(input);
+  const masteryProof = masteryProofRequest
+    ? assertNodeCanMarkMastery(existing, masteryProofRequest.level, input.masteryConditions ?? [])
+    : null;
+  const nextMasteryLevel =
+    input.status === "mastered"
+      ? input.masteryLevel ?? "learned"
+      : input.masteryLevel === undefined
+        ? undefined
+      : input.masteryLevel;
 
   const node = await prisma.syllabusNode.update({
     where: { id },
@@ -311,7 +321,7 @@ export async function updateSyllabusNode(
       title: input.title,
       kind: input.kind ? toDbKind(input.kind) : undefined,
       status: input.status ? toDbStatus(input.status) : undefined,
-      masteryLevel: input.masteryLevel === undefined ? undefined : input.masteryLevel ? toDbMastery(input.masteryLevel) : null,
+      masteryLevel: nextMasteryLevel === undefined ? undefined : nextMasteryLevel ? toDbMastery(nextMasteryLevel) : null,
       sortOrder: input.sortOrder,
       targetMinutes: input.targetMinutes,
     },
@@ -321,7 +331,15 @@ export async function updateSyllabusNode(
     },
   });
 
-  await audit(actorId, "SYLLABUS_NODE_UPDATED", "SyllabusNode", node.id);
+  await audit(
+    actorId,
+    masteryProof ? "SYLLABUS_NODE_MASTERY_PROVED" : "SYLLABUS_NODE_UPDATED",
+    "SyllabusNode",
+    node.id,
+    masteryProof && masteryProofRequest
+      ? createMasteryAuditMetadata(masteryProofRequest.level, masteryProof)
+      : undefined,
+  );
   return serializeNode({ ...node, subject: node.subject }, []);
 }
 
@@ -364,11 +382,23 @@ function resolveImportedParentId(
   return fallbackParentId;
 }
 
-function assertNodeCanMarkMastery(node: FlatSyllabusNode, requestedLevel: MasteryLevelDto): void {
-  const proof = createMasteryProof(node, requestedLevel);
-  if (!proof.canMarkRequestedLevel) {
+function resolveMasteryProofRequest(input: UpdateSyllabusNodeInput): { level: MasteryLevelDto } | null {
+  if (input.masteryLevel) return { level: input.masteryLevel };
+  if (input.status === "mastered") return { level: "learned" };
+  return null;
+}
+
+function assertNodeCanMarkMastery(
+  node: FlatSyllabusNode,
+  requestedLevel: MasteryLevelDto,
+  manualConditions: MasteryProofCondition[],
+): MasteryProofPayload {
+  const proof = createMasteryProof(node, requestedLevel, manualConditions);
+  if (!proof.summary.canMarkRequestedLevel) {
     throw new ApiError("MASTERY_PROOF_REQUIRED", 400);
   }
+
+  return proof;
 }
 
 async function assertParentIsSafe(nodeId: string, subjectId: string, parentId: string | null): Promise<void> {
@@ -435,6 +465,7 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
   const masteryLevel = node.masteryLevel ? fromDbMastery(node.masteryLevel) : null;
   const status = fromDbStatus(node.status);
   const freshness = getSyllabusEvidenceFreshness(node);
+  const masteryConditions = inferMasteryConditions(node, masteryLevel);
   const evidence = {
     taskCount: node._count?.tasks ?? 0,
     sessionCount: node._count?.sessions ?? 0,
@@ -458,7 +489,8 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
     targetMinutes: node.targetMinutes,
     actualMinutes: node.actualMinutes,
     evidence,
-    masteryProof: createMasteryProof(node, masteryLevel ?? "learned"),
+    masteryConditions,
+    masteryProof: createMasteryProof(node, masteryLevel ?? "learned", masteryConditions).summary,
     mapSignal: evaluateSyllabusMapSignal({
       nodeStatus: status as SyllabusMapNodeStatus,
       masteryLevel,
@@ -473,24 +505,67 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
   };
 }
 
-function createMasteryProof(node: FlatSyllabusNode, requestedLevel: MasteryLevelDto) {
+interface MasteryProofPayload {
+  summary: MasteryProofSummary;
+  completedConditions: MasteryProofCondition[];
+  evidence: MasteryEvidenceInput;
+}
+
+function createMasteryProof(
+  node: FlatSyllabusNode,
+  requestedLevel: MasteryLevelDto,
+  manualConditions: MasteryProofCondition[] = [],
+): MasteryProofPayload {
   const masteryLevel = node.masteryLevel ? fromDbMastery(node.masteryLevel) : null;
   const freshness = getSyllabusEvidenceFreshness(node);
+  const completedConditions = mergeMasteryConditions(inferMasteryConditions(node, masteryLevel), manualConditions);
+  const mistakeCount = node._count?.mistakes ?? 0;
   const evidence = {
     taskCount: node._count?.tasks ?? 0,
     sessionCount: node._count?.sessions ?? 0,
     noteCount: node._count?.notes ?? 0,
-    mistakeCount: node._count?.mistakes ?? 0,
-    reviewedMistakeCount: masteryLevel === "exam_stable" ? node._count?.mistakes ?? 0 : 0,
-    retestPassedCount: masteryLevel === "retest_passed" || masteryLevel === "exam_stable" ? 1 : 0,
+    mistakeCount,
+    reviewedMistakeCount: completedConditions.includes("mistake_reviewed") ? mistakeCount : 0,
+    retestPassedCount: completedConditions.includes("delayed_retest") ? 1 : 0,
     daysSinceLastEvidence: freshness.daysSinceLastEvidence,
   };
 
-  return evaluateMasteryProof({
-    requestedLevel: requestedLevel as MasteryProofLevel,
-    completedConditions: inferMasteryConditions(node, masteryLevel),
+  return {
+    summary: evaluateMasteryProof({
+      requestedLevel: requestedLevel as MasteryProofLevel,
+      completedConditions,
+      evidence,
+    }),
+    completedConditions,
     evidence,
-  });
+  };
+}
+
+function mergeMasteryConditions(
+  inferredConditions: MasteryProofCondition[],
+  manualConditions: MasteryProofCondition[],
+): MasteryProofCondition[] {
+  return Array.from(new Set([...inferredConditions, ...manualConditions]));
+}
+
+function createMasteryAuditMetadata(
+  requestedLevel: MasteryLevelDto,
+  proof: MasteryProofPayload,
+): Prisma.InputJsonObject {
+  return {
+    requestedLevel,
+    completedConditions: proof.completedConditions,
+    evidence: {
+      taskCount: proof.evidence.taskCount,
+      sessionCount: proof.evidence.sessionCount,
+      noteCount: proof.evidence.noteCount,
+      mistakeCount: proof.evidence.mistakeCount,
+      reviewedMistakeCount: proof.evidence.reviewedMistakeCount ?? 0,
+      retestPassedCount: proof.evidence.retestPassedCount ?? 0,
+      daysSinceLastEvidence: proof.evidence.daysSinceLastEvidence ?? null,
+    },
+    allowedLevel: proof.summary.allowedLevel,
+  };
 }
 
 function getSyllabusEvidenceFreshness(node: FlatSyllabusNode): {
@@ -577,13 +652,20 @@ function fromDbMastery(level: DbMasteryLevel): MasteryLevelDto {
   return level.toLowerCase() as MasteryLevelDto;
 }
 
-async function audit(actorId: string, action: string, entityType: string, entityId: string): Promise<void> {
+async function audit(
+  actorId: string,
+  action: string,
+  entityType: string,
+  entityId: string,
+  metadata?: Prisma.InputJsonObject,
+): Promise<void> {
   await prisma.auditEvent.create({
     data: {
       actorId,
       action,
       entityType,
       entityId,
+      metadata,
     },
   });
 }

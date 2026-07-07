@@ -47,11 +47,23 @@
 
 - `pnpm check`
 - `docker compose config`
-- `docker compose -f docker-compose.prod.yml config`
+- `docker compose --env-file .env.example -f docker-compose.prod.yml config`
 - 临时库恢复演练。
 - 上传目录 metadata 对账。
 - 生产变量检查，不把密钥、数据库 URL 或 AI Key 写入日志。
 - 发布后登录、首页、任务、计时、附件访问和 AI fallback 烟测。
+
+## 确认后实施切入点
+
+以下清单只用于获得 Package E 明确确认后的生产发布，不代表确认前可以执行生产部署、生产 migration deploy、备份恢复或服务器命令。
+
+- 发布记录：记录发布时间、操作者、git commit、`AREAFORGE_IMAGE`、镜像 digest、compose 文件 hash、生产 `.env` 备份位置和发布前版本 tag。
+- 发布前备份：生成 PostgreSQL dump、上传目录归档、生产 `.env` 权限收紧备份、Nginx 配置副本和当前 compose 文件副本；备份路径和 hash 只写入本地/运维记录，不提交密钥。
+- Migration deploy：执行前确认备份点存在；仅在已确认的 additive migration 范围内运行；生产 deploy 失败时优先回滚应用镜像并保留新增字段。
+- 恢复演练：先在临时库和临时上传目录恢复，验证登录、首页、任务、计时、复盘、附件 metadata/文件 hash 一致，再清理临时环境。
+- 发布后烟测：`GET /api/health`、登录、首页、任务创建、计时开始/结束、复盘保存、`/syllabus`、`/notes`、`/analytics`、`/reports`；附件或真实 AI 若已启用，只使用小测试文件和最小测试数据。
+- 回滚记录：失败时记录原因、回滚镜像 tag、是否恢复数据库和上传目录、恢复耗时、残余风险和后续修复任务。
+- 自动化禁区：仍不允许网页内一键更新，不允许网页触发服务器命令、部署、备份、恢复或 migration。
 
 ## 风险
 

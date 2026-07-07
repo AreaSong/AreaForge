@@ -1,4 +1,9 @@
-import { summarizeAnalyticsRisks, type AnalyticsRiskSummaryItem } from "@areaforge/core";
+import {
+  buildDailyCheckInSnapshot,
+  summarizeAnalyticsRisks,
+  type AnalyticsRiskSummaryItem,
+  type TaskStatus,
+} from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { getStudyDayKey, getStudyDayRange } from "./date";
 import type { SyllabusNodeStatusDto } from "./types";
@@ -197,7 +202,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
   const reviewCompletionRate = reviews.length / weekDays;
   const streakDays = calculateStreak(daily);
   const missedDays = daily.filter((point) => point.effectiveMinutes === 0).length;
-  const lowConversionCount = sessions.filter((session) => session.isEffective === false).length;
+  const lowConversionCount = sessions.filter(isLowConversionSession).length;
   const weakNodeMap = new Map(weakNodes.map((node) => [node.id, node]));
 
   for (const node of reviewRiskNodes) {
@@ -273,6 +278,7 @@ function buildDailyPoints(
     startedAt: Date;
     effectiveMinutes: number;
     isEffective: boolean | null;
+    isLowConversion?: boolean | null;
   }>,
   tasks: Array<{
     plannedDate: Date;
@@ -288,15 +294,23 @@ function buildDailyPoints(
     const day = getStudyDayRange(new Date(start.getTime() + index * dayMs));
     const daySessions = sessions.filter((session) => session.startedAt >= day.start && session.startedAt < day.end);
     const dayTasks = tasks.filter((task) => task.plannedDate >= day.start && task.plannedDate < day.end);
+    const snapshot = buildDailyCheckInSnapshot({
+      studyDate: day.key,
+      sessions: daySessions.map((session) => ({
+        effectiveMinutes: session.effectiveMinutes,
+        isEffective: session.isEffective,
+        isLowConversion: session.isLowConversion,
+      })),
+      tasks: dayTasks.map((task) => ({ status: toCoreTaskStatus(task.status) })),
+      reviewSubmitted: reviewKeys.has(day.key),
+    });
 
     return {
       dayKey: day.key,
-      totalMinutes: daySessions.reduce((total, session) => total + session.effectiveMinutes, 0),
-      effectiveMinutes: daySessions
-        .filter((session) => session.isEffective)
-        .reduce((total, session) => total + session.effectiveMinutes, 0),
-      taskCompletionRate: calculateTaskCompletion(dayTasks),
-      reviewSubmitted: reviewKeys.has(day.key),
+      totalMinutes: snapshot.totalMinutes,
+      effectiveMinutes: snapshot.effectiveMinutes,
+      taskCompletionRate: snapshot.taskCompletionRate,
+      reviewSubmitted: snapshot.reviewSubmitted,
     };
   });
 }
@@ -311,6 +325,7 @@ function buildSubjectShares(
     subjectId: string;
     effectiveMinutes: number;
     isEffective: boolean | null;
+    isLowConversion?: boolean | null;
   }>,
 ): AnalyticsSubjectShareDto[] {
   const totalMinutes = sessions.reduce((total, session) => total + session.effectiveMinutes, 0);
@@ -332,9 +347,28 @@ function buildSubjectShares(
   });
 }
 
+function isLowConversionSession(session: { isEffective: boolean | null; isLowConversion?: boolean | null }): boolean {
+  return session.isLowConversion ?? session.isEffective === false;
+}
+
 function calculateTaskCompletion(tasks: Array<{ status: DbTaskStatus }>): number {
   if (tasks.length === 0) return 0;
   return tasks.filter((task) => task.status === "DONE").length / tasks.length;
+}
+
+function toCoreTaskStatus(status: DbTaskStatus): TaskStatus {
+  switch (status) {
+    case "TODO":
+      return "todo";
+    case "IN_PROGRESS":
+      return "in_progress";
+    case "DONE":
+      return "done";
+    case "SKIPPED":
+      return "skipped";
+    case "DEFERRED":
+      return "deferred";
+  }
 }
 
 function calculateStreak(daily: AnalyticsDailyPointDto[]): number {

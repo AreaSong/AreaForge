@@ -41,6 +41,19 @@ export const updateSyllabusNodeSchema = z.object({
     .enum(["seen", "learned", "basic_exercises", "can_explain", "retest_passed", "exam_stable"])
     .nullable()
     .optional(),
+  masteryConditions: z
+    .array(
+      z.enum([
+        "course_or_textbook",
+        "own_explanation",
+        "basic_exercise",
+        "comprehensive_exercise",
+        "mistake_reviewed",
+        "delayed_retest",
+      ]),
+    )
+    .max(6)
+    .optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
   targetMinutes: z.number().int().min(0).max(100000).optional(),
 });
@@ -195,6 +208,8 @@ export const endSessionSchema = z.object({
   understandingLevel: z.string().trim().min(1).max(80),
   minimalOutput: z.string().trim().min(1).max(1000),
   nextAction: z.string().trim().min(1).max(500),
+  producedNote: z.boolean().default(false),
+  producedMistake: z.boolean().default(false),
   note: z.string().trim().max(2000).optional(),
   completeTask: z.boolean().default(false),
 });

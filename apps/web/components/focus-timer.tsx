@@ -11,6 +11,7 @@ interface FocusTimerProps {
   tasks: StudyTaskDto[];
   syllabusNodes: SyllabusNodeDto[];
   activeSession: StudySessionDto | null;
+  latestCompletedSession: StudySessionDto | null;
 }
 
 interface FlatNode {
@@ -20,9 +21,10 @@ interface FlatNode {
   depth: number;
 }
 
-export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession }: FocusTimerProps) {
+export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, latestCompletedSession }: FocusTimerProps) {
   const router = useRouter();
   const [session, setSession] = useState(activeSession);
+  const [localCompletedSession, setLocalCompletedSession] = useState<StudySessionDto | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState(tasks.find((task) => task.status !== "done")?.id ?? "");
   const [selectedSubjectId, setSelectedSubjectId] = useState(subjects[0]?.id ?? "");
   const [selectedSyllabusNodeId, setSelectedSyllabusNodeId] = useState("");
@@ -66,8 +68,12 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession }: Fo
   const selectedNodeTitle = flatNodes.find((node) => node.id === selectedSyllabusNodeId)?.title;
   const syllabusNode = session?.syllabusNodeTitle ?? activeTask?.syllabusNodeTitle ?? selectedNodeTitle ?? "未关联考纲节点";
   const isFocused = timerStatus === "running" || timerStatus === "paused" || timerStatus === "ending";
+  const lastCompletedSession = chooseLatestSession(localCompletedSession, latestCompletedSession);
+  const closeoutSession = session ? (session.status === "completed" ? session : null) : lastCompletedSession;
+  const closeoutActionLabel = closeoutSession?.isLowConversion ? "补产出要求" : "保留动作";
+  const closeoutSyllabusNode = closeoutSession?.syllabusNodeTitle ?? syllabusNode;
 
-  async function mutate(path: string, body?: unknown) {
+  async function mutate(path: string, body?: unknown): Promise<StudySessionDto | null> {
     setError(null);
     const response = await fetch(path, {
       method: "POST",
@@ -78,6 +84,7 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession }: Fo
     if (!response.ok) throw new Error(data?.error ?? "请求失败");
     if (data?.session) setSession(data.session);
     startTransition(() => router.refresh());
+    return data?.session ?? null;
   }
 
   async function start() {
@@ -114,15 +121,18 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession }: Fo
   async function end(formData: FormData) {
     if (!session) return;
     try {
-      await mutate(`/api/study-sessions/${session.id}/end`, {
+      const completedSession = await mutate(`/api/study-sessions/${session.id}/end`, {
         qualityScore: Number(formData.get("qualityScore")),
         isEffective: formData.get("isEffective") === "true",
         understandingLevel: String(formData.get("understandingLevel") ?? ""),
         minimalOutput: String(formData.get("minimalOutput") ?? ""),
         nextAction: String(formData.get("nextAction") ?? ""),
+        producedNote: formData.get("producedNote") === "on",
+        producedMistake: formData.get("producedMistake") === "on",
         note: String(formData.get("note") ?? ""),
         completeTask: formData.get("completeTask") === "on",
       });
+      if (completedSession) setLocalCompletedSession(completedSession);
       setSession(null);
       setIsEnding(false);
     } catch (currentError) {
@@ -304,6 +314,16 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession }: Fo
                 name="note"
                 placeholder="补充记录"
               />
+              <div className="grid gap-2 rounded-md border border-white/10 bg-[#0d1117] p-3 text-sm text-zinc-300">
+                <label className="flex items-center gap-2">
+                  <input name="producedNote" type="checkbox" className="h-4 w-4" />
+                  本次产生了笔记
+                </label>
+                <label className="flex items-center gap-2">
+                  <input name="producedMistake" type="checkbox" className="h-4 w-4" />
+                  本次产生了错题或错因订正
+                </label>
+              </div>
               <label className="flex items-center gap-2 text-sm text-zinc-300">
                 <input name="completeTask" type="checkbox" className="h-4 w-4" />
                 同时完成关联任务
@@ -314,10 +334,19 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession }: Fo
             </form>
           ) : (
             <div className="mt-4 grid gap-3 text-sm text-zinc-300">
-              <p>质量评分：{session?.qualityScore ?? "未填写"}</p>
-              <p>是否有效：{session?.isEffective == null ? "未标记" : session.isEffective ? "有效" : "低转化"}</p>
-              <p>最小产出：{session?.note ? "已提交" : "未提交"}</p>
-              <p>关联进度：{syllabusNode}</p>
+              <p>质量评分：{closeoutSession?.qualityScore ?? "未填写"}</p>
+              <p>是否有效：{closeoutSession?.isEffective == null ? "未标记" : closeoutSession.isEffective ? "有效" : "低转化"}</p>
+              <p>理解程度：{closeoutSession?.understandingLevel ?? "未填写"}</p>
+              <p>最小产出：{closeoutSession?.minimalOutput ?? (closeoutSession?.note ? "已提交" : "未提交")}</p>
+              <p>下一步：{closeoutSession?.nextAction ?? "未填写"}</p>
+              {closeoutSession?.antiFakeReason ? <p>规则原因：{closeoutSession.antiFakeReason}</p> : null}
+              {closeoutSession?.requiredOutput ? <p>{closeoutActionLabel}：{closeoutSession.requiredOutput}</p> : null}
+              {closeoutSession ? (
+                <p>
+                  产出记录：{closeoutSession.producedNote ? "笔记" : "无笔记"} / {closeoutSession.producedMistake ? "错题或订正" : "无错题订正"}
+                </p>
+              ) : null}
+              <p>关联进度：{closeoutSyllabusNode}</p>
             </div>
           )}
         </div>
@@ -346,6 +375,16 @@ function formatElapsed(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
   return [hours, minutes, remainingSeconds].map((part) => String(part).padStart(2, "0")).join(":");
+}
+
+function chooseLatestSession(first: StudySessionDto | null, second: StudySessionDto | null): StudySessionDto | null {
+  if (!first) return second;
+  if (!second) return first;
+  return getSessionTime(first) >= getSessionTime(second) ? first : second;
+}
+
+function getSessionTime(session: StudySessionDto): number {
+  return Date.parse(session.endedAt ?? session.startedAt);
 }
 
 function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {

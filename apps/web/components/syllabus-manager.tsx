@@ -29,6 +29,13 @@ interface FlatNode {
 type StatusFilter = "all" | SyllabusNodeStatusDto;
 type MapStatusFilter = "all" | SyllabusNodeDto["mapSignal"]["cellStatus"];
 type ActionFilter = "all" | "risk" | "evidence" | "review" | "start" | "deferred";
+type MasteryCondition = SyllabusNodeDto["masteryConditions"][number];
+type UpdateNodeBody = Partial<{
+  status: SyllabusNodeStatusDto;
+  masteryLevel: MasteryLevelDto | null;
+  masteryConditions: MasteryCondition[];
+  targetMinutes: number;
+}>;
 
 export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: SyllabusManagerProps) {
   const router = useRouter();
@@ -124,7 +131,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
     startTransition(() => router.refresh());
   }
 
-  async function updateNode(id: string, body: Partial<{ status: SyllabusNodeStatusDto; masteryLevel: MasteryLevelDto | null; targetMinutes: number }>) {
+  async function updateNode(id: string, body: UpdateNodeBody) {
     setError(null);
     const response = await fetch(`/api/syllabus/nodes/${id}`, {
       method: "PATCH",
@@ -394,7 +401,11 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
             </p>
           ) : null}
           {filteredSubjectNodes.map((node) => (
-            <SyllabusTreeNode key={node.id} node={node} onUpdate={updateNode} />
+            <SyllabusTreeNode
+              key={`${node.id}:${node.masteryLevel ?? "none"}:${node.masteryConditions.join("|")}`}
+              node={node}
+              onUpdate={updateNode}
+            />
           ))}
         </div>
       </section>
@@ -429,6 +440,24 @@ const actionFilterOptions: Array<{ value: Exclude<ActionFilter, "all">; label: s
   { value: "review", label: "复习复测" },
   { value: "start", label: "启动推进" },
   { value: "deferred", label: "暂缓确认" },
+];
+
+const masteryLevelOptions: MasteryLevelDto[] = [
+  "seen",
+  "learned",
+  "basic_exercises",
+  "can_explain",
+  "retest_passed",
+  "exam_stable",
+];
+
+const masteryConditionOptions: MasteryCondition[] = [
+  "course_or_textbook",
+  "own_explanation",
+  "basic_exercise",
+  "comprehensive_exercise",
+  "mistake_reviewed",
+  "delayed_retest",
 ];
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
@@ -526,11 +555,30 @@ function SyllabusTreeNode({
   onUpdate,
 }: {
   node: SyllabusNodeDto;
-  onUpdate: (id: string, body: Partial<{ status: SyllabusNodeStatusDto; masteryLevel: MasteryLevelDto | null; targetMinutes: number }>) => Promise<void>;
+  onUpdate: (id: string, body: UpdateNodeBody) => Promise<void>;
 }) {
   const progress = node.targetMinutes === 0 ? 0 : Math.min(100, Math.round((node.actualMinutes / node.targetMinutes) * 100));
   const evidenceCount = node.masteryProof.evidenceCount;
-  const canMarkLearned = node.masteryProof.canMarkRequestedLevel;
+  const canSubmitProof = evidenceCount > 0;
+  const [targetMasteryLevel, setTargetMasteryLevel] = useState<MasteryLevelDto>(node.masteryLevel ?? "learned");
+  const [selectedConditions, setSelectedConditions] = useState<MasteryCondition[]>(node.masteryConditions);
+  const selectedConditionSet = new Set(selectedConditions);
+
+  function toggleCondition(condition: MasteryCondition) {
+    setSelectedConditions((current) =>
+      current.includes(condition)
+        ? current.filter((item) => item !== condition)
+        : [...current, condition],
+    );
+  }
+
+  function proveMastery() {
+    void onUpdate(node.id, {
+      status: "mastered",
+      masteryLevel: targetMasteryLevel,
+      masteryConditions: selectedConditions,
+    });
+  }
 
   return (
     <article className="rounded-md border border-white/10 bg-[#151a20] p-4">
@@ -560,30 +608,78 @@ function SyllabusTreeNode({
           <select
             className="h-9 rounded-md border border-white/10 bg-[#0d1117] px-2 text-sm text-zinc-100"
             value={node.status}
-            onChange={(event) => onUpdate(node.id, { status: event.target.value as SyllabusNodeStatusDto })}
+            onChange={(event) => {
+              const nextStatus = event.target.value as SyllabusNodeStatusDto;
+              if (nextStatus === "mastered") {
+                void onUpdate(node.id, {
+                  status: nextStatus,
+                  masteryLevel: targetMasteryLevel,
+                  masteryConditions: selectedConditions,
+                });
+                return;
+              }
+              void onUpdate(node.id, { status: nextStatus });
+            }}
           >
             <StatusOptions />
           </select>
-          <button
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10"
-            type="button"
-            onClick={() => onUpdate(node.id, { status: "mastered", masteryLevel: "learned" })}
-            disabled={!canMarkLearned}
-            title={canMarkLearned ? "标记为掌握" : node.masteryProof.nextAction}
-          >
-            <Save className="h-4 w-4" aria-hidden="true" />
-            掌握
-          </button>
         </div>
+      </div>
+      <div className="mt-3 rounded-md border border-white/10 bg-[#0d1117] p-3">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
+          <label className="grid gap-2 text-xs text-zinc-400">
+            目标等级
+            <select
+              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              value={targetMasteryLevel}
+              onChange={(event) => setTargetMasteryLevel(event.target.value as MasteryLevelDto)}
+            >
+              {masteryLevelOptions.map((level) => (
+                <option key={level} value={level}>
+                  {labelMastery(level)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid gap-2">
+            <p className="text-xs text-zinc-400">本次证明条件</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {masteryConditionOptions.map((condition) => (
+                <label
+                  key={condition}
+                  className="flex min-h-9 items-center gap-2 rounded-md border border-white/10 px-2 py-1.5 text-xs text-zinc-300"
+                >
+                  <input
+                    className="h-4 w-4 accent-teal-400"
+                    type="checkbox"
+                    checked={selectedConditionSet.has(condition)}
+                    onChange={() => toggleCondition(condition)}
+                  />
+                  <span>{labelMasteryCondition(condition)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <button
+          className="mt-3 inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+          type="button"
+          onClick={proveMastery}
+          disabled={!canSubmitProof}
+          title={canSubmitProof ? node.masteryProof.nextAction : "还没有任务、计时、笔记或错题证据"}
+        >
+          <Save className="h-4 w-4" aria-hidden="true" />
+          保存证明
+        </button>
       </div>
       {evidenceCount === 0 ? (
         <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
           还没有掌握证据，不能直接标记掌握。
         </p>
       ) : null}
-      {evidenceCount > 0 && !canMarkLearned ? (
+      {evidenceCount > 0 && !node.masteryProof.canMarkRequestedLevel ? (
         <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
-          掌握证明还缺：{[
+          当前已记录证明还缺：{[
             ...node.masteryProof.missingConditions.map(labelMasteryCondition),
             ...node.masteryProof.missingEvidence,
           ].join("、")}
@@ -600,7 +696,11 @@ function SyllabusTreeNode({
       {node.children.length > 0 ? (
         <div className="mt-3 grid gap-3 border-l border-white/10 pl-3">
           {node.children.map((child) => (
-            <SyllabusTreeNode key={child.id} node={child} onUpdate={onUpdate} />
+            <SyllabusTreeNode
+              key={`${child.id}:${child.masteryLevel ?? "none"}:${child.masteryConditions.join("|")}`}
+              node={child}
+              onUpdate={onUpdate}
+            />
           ))}
         </div>
       ) : null}

@@ -116,7 +116,6 @@ function serializeNote(note: {
     mimeType: string;
     sizeBytes: number;
     hash: string;
-    uri: string;
     createdAt: Date;
   }>;
 }): NoteDto {
@@ -145,7 +144,6 @@ function serializeAttachment(attachment: {
   mimeType: string;
   sizeBytes: number;
   hash: string;
-  uri: string;
   createdAt: Date;
 }): AttachmentDto {
   return {
@@ -154,7 +152,7 @@ function serializeAttachment(attachment: {
     mimeType: attachment.mimeType,
     sizeBytes: attachment.sizeBytes,
     hash: attachment.hash,
-    uri: attachment.uri,
+    downloadApiPath: `/api/attachments/${attachment.id}`,
     createdAt: attachment.createdAt.toISOString(),
   };
 }

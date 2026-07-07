@@ -32,3 +32,4 @@ export const prisma = new Proxy({} as PrismaClient, {
 });
 
 export type { PrismaClient };
+export type { Prisma } from "../generated/prisma/client";

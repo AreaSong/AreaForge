@@ -1,6 +1,6 @@
 # 0009 错题与掌握证明基础版
 
-状态：基础版已启动，纯规则基线已补强。当前复用现有 `Mistake`、`SyllabusNode.masteryLevel` 和节点关联，不新增 migration。
+状态：基础版已完成。当前复用现有 `Mistake`、`SyllabusNode.masteryLevel`、`AuditEvent` 和节点关联，不新增 migration。
 
 ## 目标
 
@@ -11,7 +11,7 @@
 - 错题 CRUD。
 - 错题关联科目和考纲节点。
 - 错因、正确思路、下次复习时间。
-- 考纲节点掌握证明基础版：手动条件勾选或证据引用。
+- 考纲节点掌握证明基础版：手动条件勾选、真实证据校验和审计摘要。
 - 作战地图能反映薄弱、需要复习和掌握状态。
 
 ## 不包含
@@ -42,7 +42,8 @@
 - 服务端限制无证据节点不能直接标记 `mastered`。
 - `packages/core/src/mastery-proof.ts` 已提供掌握证明纯规则：按课程/教材、自己的理解、基础题、综合题、错题复盘和 7 天后复测条件，判断允许掌握等级、缺失条件、缺失证据和下一步动作。
 - `packages/core/src/syllabus-map.ts` 已提供作战地图纯规则：按节点状态、掌握等级、证据数、错题数、上次复习间隔、复测和重点标记，推导网格状态、打勾/打叉/星标/警告标记、原因和下一步动作。
-- 考纲服务已把掌握证明和作战地图规则写入 `SyllabusNodeDto`；`/syllabus` 页面已展示地图状态、标记、规则原因、掌握缺口和下一步动作，并用规则判断“掌握”按钮是否可用。
+- 考纲服务已把掌握证明和作战地图规则写入 `SyllabusNodeDto`；`/syllabus` 页面已展示地图状态、标记、规则原因、掌握缺口和下一步动作。
+- `/syllabus` 节点卡片已支持选择目标掌握等级和勾选本次证明条件；`PATCH /api/syllabus/nodes/:id` 合并本次条件和派生条件后，用任务、计时、笔记、错题真实证据校验，失败返回 `MASTERY_PROOF_REQUIRED`，成功写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent` 证明摘要。
 - 不提供删除错题入口，避免破坏性写操作。
 
 ## 延后到 migration 后
@@ -58,9 +59,10 @@
 - `pnpm --filter @areaforge/core test`
 - `pnpm --filter @areaforge/core typecheck`
 - `pnpm --filter @areaforge/web typecheck`
+- `pnpm --filter @areaforge/web lint`
 - `pnpm check`
-- API 烟测：创建错题、更新错因、设置复习时间。
-- 页面烟测：错题列表、考纲节点证据展示。
+- API 烟测：创建错题、更新错因、设置复习时间；无证据掌握证明返回 `MASTERY_PROOF_REQUIRED`，有真实证据和条件后允许写入掌握等级。
+- 页面烟测：错题列表、考纲节点证据展示、掌握证明等级选择和条件勾选。
 
 ## 风险
 

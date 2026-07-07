@@ -30,3 +30,14 @@
 - 真正掌握需要证据。
 - 证据来自计时、任务、笔记、错题、复测记录。
 
+## 当前基础版实现
+
+- `/syllabus` 节点卡片展示任务、计时、笔记、错题证据计数和最近证据时间。
+- 用户可以在节点上选择目标掌握等级，并勾选本次已完成的掌握条件。
+- `PATCH /api/syllabus/nodes/:id` 会把本次勾选条件和现有派生条件合并，再调用 `packages/core/src/mastery-proof.ts` 校验。
+- 无真实关联证据、缺少理解笔记、缺少练习记录、缺少错题复盘或缺少复测信号时，服务端返回 `MASTERY_PROOF_REQUIRED`，不会把节点写成掌握。
+- 通过校验后，服务端写入 `SyllabusNode.status/masteryLevel`，并用 `AuditEvent` 记录请求等级、勾选条件、证据计数和允许等级摘要。
+
+## 后续结构化增强
+
+当前基础版不新增数据库表，不持久化每一次条件勾选明细，也不建立独立证据引用表或复测记录。Package B Batch 4 确认后，再新增 `MasteryConditionRecord`、`MasteryEvidence` 和 `MasteryRetest`，并让掌握证明优先读取显式记录，缺失时保留现有派生 fallback。

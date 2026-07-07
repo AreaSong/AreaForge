@@ -1,4 +1,5 @@
 import {
+  buildDailyCheckInSnapshot,
   createDashboardSnapshot,
   createRecoveryPlan,
   evaluateMotivationWake,
@@ -62,6 +63,8 @@ export interface EndSessionInput {
   understandingLevel: string;
   minimalOutput: string;
   nextAction: string;
+  producedNote: boolean;
+  producedMistake: boolean;
   note?: string;
   completeTask: boolean;
 }
@@ -237,13 +240,17 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
   const debtTaskDtos = debtTasks.map(serializeTask);
   const debtReorderTaskDtos = debtReorderTasks.map(serializeTask);
   const todayMinutes = sumTodayMinutes(sessionDtos, activeSession ? serializeSession(activeSession) : null, now);
-  const effectiveMinutes = sessionDtos
-    .filter((session) => session.isEffective)
-    .reduce((total, session) => total + session.effectiveMinutes, 0);
-  const effectiveSessionCount = sessionDtos.filter((session) => session.isEffective).length;
-  const lowConversionCount = sessionDtos.filter((session) => session.isEffective === false).length;
-  const completedTasks = taskDtos.filter((task) => task.status === "done").length;
-  const taskCompletionRate = taskDtos.length === 0 ? 0 : completedTasks / taskDtos.length;
+  const dailySnapshot = buildDailyCheckInSnapshot({
+    studyDate: day.key,
+    sessions: sessionDtos.map(toCheckInSnapshotSession),
+    tasks: taskDtos.map((task) => ({ status: task.status })),
+    reviewSubmitted: Boolean(review),
+  });
+  const effectiveMinutes = dailySnapshot.effectiveMinutes;
+  const effectiveSessionCount = dailySnapshot.effectiveSessionCount;
+  const lowConversionCount = dailySnapshot.lowConversionCount;
+  const latestCompletedSession = getLatestCompletedSession(sessionDtos);
+  const taskCompletionRate = dailySnapshot.taskCompletionRate;
   const streakDays = getEffectiveStudyStreak(recentSessions.map((session) => session.startedAt), now);
   const missedDays = Math.max(0, Math.min(7, 7 - streakDays));
   const recentEffectiveMinutes = recentSessions
@@ -327,9 +334,11 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     stage,
     motivationWake,
     checkIn: {
-      ...checkIn,
+      completedMinimumAction: dailySnapshot.completedMinimumAction,
+      lowEfficiency: dailySnapshot.lowEfficiency,
+      reason: checkIn.reason,
       effectiveSessionCount,
-      reviewSubmitted: Boolean(review),
+      reviewSubmitted: dailySnapshot.reviewSubmitted,
     },
     recovery,
     subjects: subjects.map(serializeSubject),
@@ -338,6 +347,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     debtReorder,
     visibleRecoveryTasks,
     activeSession: activeSession ? serializeSession(activeSession) : null,
+    latestCompletedSession,
     review: review ? serializeReview(review) : null,
     syllabusOverview: subjects.map((subject) => serializeSyllabusOverview(subject)),
     signals: {
@@ -735,6 +745,8 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
     understandingLevel: input.understandingLevel,
     minimalOutput: input.minimalOutput,
     nextAction: input.nextAction,
+    producedNote: input.producedNote,
+    producedMistake: input.producedMistake,
     note: input.note,
   });
   const isEffective = closeout.isEffective;
@@ -751,6 +763,15 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
         effectiveMinutes,
         qualityScore: input.qualityScore,
         isEffective,
+        understandingLevel: input.understandingLevel,
+        minimalOutput: input.minimalOutput,
+        nextAction: input.nextAction,
+        producedNote: input.producedNote,
+        producedMistake: input.producedMistake,
+        isLowConversion: closeout.isLowConversion,
+        antiFakeReason: closeout.antiFakeReason,
+        requiredOutput: closeout.requiredOutput,
+        closeoutVersion: 1,
         note,
       },
       include: {
@@ -1077,6 +1098,15 @@ function serializeSession(session: {
   effectiveMinutes: number;
   qualityScore: number | null;
   isEffective: boolean | null;
+  understandingLevel: string | null;
+  minimalOutput: string | null;
+  nextAction: string | null;
+  producedNote: boolean;
+  producedMistake: boolean;
+  isLowConversion: boolean | null;
+  antiFakeReason: string | null;
+  requiredOutput: string | null;
+  closeoutVersion: number;
   note: string | null;
   subject: {
     name: string;
@@ -1104,8 +1134,37 @@ function serializeSession(session: {
     effectiveMinutes: session.effectiveMinutes,
     qualityScore: session.qualityScore,
     isEffective: session.isEffective,
+    understandingLevel: session.understandingLevel,
+    minimalOutput: session.minimalOutput,
+    nextAction: session.nextAction,
+    producedNote: session.producedNote,
+    producedMistake: session.producedMistake,
+    isLowConversion: session.isLowConversion,
+    antiFakeReason: session.antiFakeReason,
+    requiredOutput: session.requiredOutput,
+    closeoutVersion: session.closeoutVersion,
     note: session.note,
   };
+}
+
+function toCheckInSnapshotSession(session: StudySessionDto) {
+  return {
+    effectiveMinutes: session.effectiveMinutes,
+    isEffective: session.isEffective,
+    isLowConversion: session.isLowConversion,
+  };
+}
+
+function getLatestCompletedSession(sessions: StudySessionDto[]): StudySessionDto | null {
+  return sessions.reduce<StudySessionDto | null>((latest, session) => {
+    if (session.status !== "completed") return latest;
+    if (!latest) return session;
+    return getSessionEndTime(session) > getSessionEndTime(latest) ? session : latest;
+  }, null);
+}
+
+function getSessionEndTime(session: StudySessionDto): number {
+  return Date.parse(session.endedAt ?? session.startedAt);
 }
 
 function serializeReview(review: {
@@ -1190,6 +1249,7 @@ function toCoreTask(task: StudyTaskDto): StudyTaskInput {
     id: task.id,
     title: task.title,
     subject: task.subjectName,
+    type: task.type,
     status: task.status,
     estimatedMinutes: task.estimatedMinutes,
     actualMinutes: task.actualMinutes,

@@ -27,6 +27,8 @@ import { listSyllabusTree } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
+type TodayDashboard = Awaited<ReturnType<typeof getTodayDashboard>>;
+
 export default async function Home() {
   const user = await getCurrentUser();
   if (!user) {
@@ -41,6 +43,8 @@ export default async function Home() {
   ]);
   const { metrics, snapshot } = dashboard;
   const themeClass = getThemeShellClass(snapshot.themeState);
+  const themeStatus = getThemeStatus(dashboard);
+  const ThemeIcon = themeStatus.icon;
   const visibleTasks = dashboard.recovery.active ? dashboard.visibleRecoveryTasks : dashboard.tasks;
 
   return (
@@ -54,14 +58,17 @@ export default async function Home() {
               <span className="rounded-md border border-teal-400/30 px-2 py-1 text-xs text-teal-100">
                 {labelRisk(snapshot.riskState)}
               </span>
+              <span className={`rounded-md border px-2 py-1 text-xs ${themeStatus.badgeClass}`}>
+                {themeStatus.label}
+              </span>
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-normal text-white sm:text-4xl">
               今日作战台
             </h1>
-            <p className="mt-2 text-sm text-zinc-500">{dashboard.studyDay.key} / Asia Shanghai</p>
+            <p className="mt-2 text-sm text-zinc-400">{dashboard.studyDay.key} / Asia Shanghai</p>
           </div>
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
               <Link
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
                 href="/syllabus"
@@ -111,7 +118,7 @@ export default async function Home() {
                 <CalendarClock className="h-4 w-4" aria-hidden="true" />
                 模拟
               </Link>
-              <span className="text-sm text-zinc-400">{user.email}</span>
+              <span className="max-w-48 truncate text-sm text-zinc-400">{user.email}</span>
               <LogoutButton />
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -131,6 +138,7 @@ export default async function Home() {
             tasks={visibleTasks}
             syllabusNodes={syllabusNodes}
             activeSession={dashboard.activeSession}
+            latestCompletedSession={dashboard.latestCompletedSession}
           />
 
           <aside className="rounded-lg border border-white/10 bg-[#101419] p-5">
@@ -152,6 +160,21 @@ export default async function Home() {
               </div>
               <p className="mt-2 text-sm leading-6 text-sky-50">{dashboard.stage.reason}</p>
               <p className="mt-2 text-xs text-sky-100/70">阶段分 {dashboard.stage.score} / 压强 {labelPressure(dashboard.stage.pressure)}</p>
+            </div>
+            <div className={`mt-5 rounded-md border p-4 ${themeStatus.panelClass}`}>
+              <div className="flex items-center gap-2">
+                <ThemeIcon className="h-4 w-4" aria-hidden="true" />
+                <p className="text-sm">{themeStatus.label}</p>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-white">{themeStatus.focus}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {themeStatus.signals.map((signal) => (
+                  <div key={signal.label} className="rounded-md border border-white/10 bg-black/20 px-3 py-2">
+                    <p className="text-xs opacity-70">{signal.label}</p>
+                    <p className="mt-1 text-sm text-white">{signal.value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
             {dashboard.recovery.active ? (
               <div className="mt-5 rounded-md border border-amber-300/25 bg-amber-300/10 p-4">
@@ -202,7 +225,7 @@ export default async function Home() {
                 </div>
               ))}
             </div>
-            {dashboard.debtTasks.length > 0 ? (
+            {dashboard.debtTasks.length > 0 && !dashboard.recovery.active ? (
               <div className="mt-5 rounded-md border border-amber-300/20 bg-amber-300/10 p-4">
                 <p className="text-sm text-amber-200">欠账预览</p>
                 <div className="mt-3 grid gap-2">
@@ -213,6 +236,11 @@ export default async function Home() {
                     </div>
                   ))}
                 </div>
+              </div>
+            ) : dashboard.debtTasks.length > 0 ? (
+              <div className="mt-5 rounded-md border border-white/10 bg-black/20 p-4">
+                <p className="text-sm text-zinc-300">欠账已收起</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">恢复状态只保留最小任务，欠账重排建议仍在任务区可查看。</p>
               </div>
             ) : null}
           </div>
@@ -306,6 +334,94 @@ function SignalPanel({
   );
 }
 
+function getThemeStatus(dashboard: TodayDashboard): {
+  label: string;
+  focus: string;
+  icon: LucideIcon;
+  badgeClass: string;
+  panelClass: string;
+  signals: Array<{ label: string; value: string }>;
+} {
+  const { metrics, snapshot } = dashboard;
+  const completionRate = formatPercent(metrics.taskCompletionRate);
+  const reviewState = dashboard.checkIn.reviewSubmitted ? "复盘已提交" : "复盘未提交";
+
+  switch (snapshot.themeState) {
+    case "forge":
+      return {
+        label: "锻造状态",
+        focus: "连续执行已经形成惯性，今天继续压推荐任务和收口产出。",
+        icon: Flame,
+        badgeClass: "border-emerald-300/30 bg-emerald-300/10 text-emerald-100",
+        panelClass: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+        signals: [
+          { label: "连续打卡", value: `${metrics.streakDays} 天` },
+          { label: "任务完成率", value: completionRate },
+          { label: "阶段压强", value: labelPressure(dashboard.stage.pressure) },
+          { label: "今日复盘", value: reviewState },
+        ],
+      };
+    case "alert":
+      return {
+        label: "警报状态",
+        focus: "执行质量正在波动，先缩小任务，把一个可检查产出做完。",
+        icon: AlertTriangle,
+        badgeClass: "border-amber-300/30 bg-amber-300/10 text-amber-100",
+        panelClass: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+        signals: [
+          { label: "风险等级", value: labelRisk(snapshot.riskState) },
+          { label: "任务欠账", value: `${metrics.debtCount} 项` },
+          { label: "低转化", value: `${dashboard.signals.lowConversionCount} 段` },
+          { label: "任务完成率", value: completionRate },
+        ],
+      };
+    case "recovery":
+      return {
+        label: "恢复状态",
+        focus: dashboard.recovery.active
+          ? dashboard.recovery.action
+          : "今天只保留最小闭环，先把有效学习重新启动。",
+        icon: ShieldAlert,
+        badgeClass: "border-rose-300/30 bg-rose-300/10 text-rose-100",
+        panelClass: "border-rose-300/25 bg-rose-300/10 text-rose-100",
+        signals: [
+          { label: "断签估计", value: `${metrics.missedDays} 天` },
+          { label: "任务欠账", value: `${metrics.debtCount} 项` },
+          { label: "可见任务", value: `${dashboard.recovery.active ? dashboard.recovery.visibleTaskLimit : dashboard.visibleRecoveryTasks.length} 项` },
+          { label: "恢复目标", value: `${dashboard.recovery.minimumMinutes} 分` },
+        ],
+      };
+    case "sprint":
+      return {
+        label: "冲刺状态",
+        focus: "真题、模拟和错题复盘前置，今天所有投入都要留下结果。",
+        icon: CalendarClock,
+        badgeClass: "border-violet-300/30 bg-violet-300/10 text-violet-100",
+        panelClass: "border-violet-300/25 bg-violet-300/10 text-violet-100",
+        signals: [
+          { label: "终局考试", value: `${metrics.daysToFinal} 天` },
+          { label: "全真自测", value: `${metrics.daysToSimulation} 天` },
+          { label: "阶段压强", value: labelPressure(dashboard.stage.pressure) },
+          { label: "今日有效", value: `${metrics.effectiveMinutes} 分` },
+        ],
+      };
+    default:
+      return {
+        label: "正常推进",
+        focus: "完整作战台保持展开，先完成今日最高优先任务。",
+        icon: CheckCircle2,
+        badgeClass: "border-sky-300/30 bg-sky-300/10 text-sky-100",
+        panelClass: "border-sky-300/25 bg-sky-300/10 text-sky-100",
+        signals: [
+          { label: "风险等级", value: labelRisk(snapshot.riskState) },
+          { label: "今日有效", value: `${metrics.effectiveMinutes} 分` },
+          { label: "任务完成率", value: completionRate },
+          { label: "今日复盘", value: reviewState },
+        ],
+      };
+  }
+}
+
 function labelPressure(pressure: string): string {
   switch (pressure) {
     case "low":
@@ -353,6 +469,10 @@ function labelPriority(priority: string): string {
     default:
       return "未知";
   }
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }
 
 function getThemeShellClass(themeState: string): string {

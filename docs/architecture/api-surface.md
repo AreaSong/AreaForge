@@ -27,6 +27,8 @@
 
 - `GET /api/dashboard/today`
 
+今日作战台返回真实数据库聚合，并包含最近一次已完成计时 `latestCompletedSession`，用于刷新后继续展示结构化收口、低转化原因和补产出要求。
+
 ### Analytics
 
 - `GET /api/analytics/summary`
@@ -68,7 +70,7 @@
 - 状态变化时写入。
 - 支持刷新页面后恢复 active session。
 - 同一用户第一版只允许一个 active session。
-- 计时结束会基于现有收口字段运行反假学习规则，当前结果写入 `StudySession.isEffective` 和文本化 `note`；结构化收口字段仍需 migration。
+- 计时结束会基于收口字段运行反假学习规则，并双写 `StudySession.isEffective`、结构化收口字段和文本化 `note`；历史 `note` 不解析、不回填，统计优先读 `isLowConversion`，缺失时 fallback 到旧 `isEffective === false`。
 
 ### Syllabus
 
@@ -79,12 +81,16 @@
 
 Markdown 导入只解析标题和列表，创建新的 `SyllabusNode`，不删除、不覆盖、不调用 AI，也不解析 PDF。当前限制行数、层级和标题长度，失败时不写入任何节点。
 
+掌握证明基础版复用 `PATCH /api/syllabus/nodes/:id`：请求可携带 `masteryLevel` 和一次性的 `masteryConditions`，服务端只在现有任务、计时、笔记或错题证据满足规则时允许写入 `status=mastered` / `masteryLevel`，否则返回 `MASTERY_PROOF_REQUIRED`。成功证明会写入 `AuditEvent` 摘要；显式条件表、证据引用表和复测记录仍属于 Package B Batch 4。
+
 ### Notes / Attachments
 
 - `GET /api/notes`
 - `POST /api/notes`
 - `POST /api/notes/:noteId/attachments`
 - `GET /api/attachments/:id`
+
+上述附件接口是 Package A 的目标 API，当前仍待确认/未实现。Package A 确认前不得新增上传/下载 route，不得写入 `UPLOAD_DIR`，也不得把 `Attachment.uri` 当作公开 href；`uri` 只是内部 metadata，确认后的下载入口才是鉴权 `GET /api/attachments/:id`。
 
 附件不通过 public 直接暴露，必须走鉴权接口。
 

@@ -76,6 +76,9 @@ function main(): void {
   checkWorkflowReadme();
   checkHighRiskPackets();
   checkAcceptanceEvidence();
+  checkCompletionGateTerms();
+  checkCompletionScriptGates();
+  checkMasteryProofBasicTraceability();
   checkApiSurface();
   checkOldReferences();
   reportTraceabilityStatus();
@@ -188,6 +191,7 @@ function checkAcceptanceEvidence(): void {
     "## 第二阶段增强验收",
     "## 暂缓项验收",
     "## 高风险完成证据",
+    "## 高风险确认前验收矩阵",
     "## 最终完成判定",
   ];
   const missingSections = requiredSections.filter((section) => !evidence.includes(section));
@@ -200,6 +204,103 @@ function checkAcceptanceEvidence(): void {
       missingSections.length === 0 && missingPackages.length === 0
         ? "sections and package evidence present"
         : `missing sections ${missingSections.join(", ") || "none"}; missing packages ${missingPackages.join(", ") || "none"}`,
+  });
+}
+
+function checkCompletionGateTerms(): void {
+  const evidence = read("docs/development/docs-100-acceptance-evidence.md");
+  const completionRecord = read("docs/development/docs-100-completion-record.md");
+  const validationMatrix = read("docs/development/validation-matrix.md");
+  const gateText = `${evidence}\n${completionRecord}\n${validationMatrix}`;
+  const requiredTerms = [
+    "Package B Batch 0-6",
+    "DONE / 已完成",
+    "验证命令",
+    "烟测证据",
+    "文档同步",
+    "残余风险",
+    "pnpm docs:completion",
+  ];
+  const missing = requiredTerms.filter((term) => !gateText.includes(term));
+
+  checks.push({
+    name: "docs completion gate terms",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "final gate documents package evidence, Package B batches, validation, smoke, docs sync, and residual risk"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkCompletionScriptGates(): void {
+  const completionScript = read("scripts/quality/docs-100-completion.ts");
+  const requiredTokens = [
+    "requiredPackageBBatches",
+    "requiredPackageEvidenceKeywords",
+    "checkPackageBBatches",
+    "DONE / 已完成",
+    "验证",
+    "烟测",
+    "文档",
+    "残余风险",
+  ];
+  const missing = requiredTokens.filter((token) => !completionScript.includes(token));
+
+  checks.push({
+    name: "docs completion script gates",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "completion script enforces Package B batch rows and package evidence keywords"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkMasteryProofBasicTraceability(): void {
+  const traceability = read("docs/development/feature-traceability.md");
+  const completionRecord = read("docs/development/docs-100-completion-record.md");
+  const masteryDoc = read("docs/modules/mastery-proof.md");
+  const rows = parseTraceabilityRows(traceability);
+  const row = rows.find((item) => item.feature === "知识点掌握证明基础版");
+  const rowLine = traceability
+    .split(/\r?\n/)
+    .find((line) => line.startsWith("| 知识点掌握证明基础版 |")) ?? "";
+  const requiredRowTerms = [
+    "/syllabus",
+    "PATCH /api/syllabus/nodes/:id",
+    "MASTERY_PROOF_REQUIRED",
+    "AuditEvent",
+    "Package B Batch 4",
+  ];
+  const requiredRecordTerms = [
+    "知识点掌握证明基础版",
+    "/syllabus",
+    "PATCH /api/syllabus/nodes/:id",
+    "AuditEvent",
+    "Package B Batch 4",
+  ];
+  const requiredDocTerms = [
+    "目标掌握等级",
+    "掌握条件",
+    "PATCH /api/syllabus/nodes/:id",
+    "MASTERY_PROOF_REQUIRED",
+    "AuditEvent",
+    "Package B Batch 4",
+  ];
+  const missingRowTerms = requiredRowTerms.filter((term) => !rowLine.includes(term));
+  const missingRecordTerms = requiredRecordTerms.filter((term) => !completionRecord.includes(term));
+  const missingDocTerms = requiredDocTerms.filter((term) => !masteryDoc.includes(term));
+  const ok =
+    row?.status === "已完成" &&
+    missingRowTerms.length === 0 &&
+    missingRecordTerms.length === 0 &&
+    missingDocTerms.length === 0;
+
+  checks.push({
+    name: "mastery proof basic traceability",
+    ok,
+    detail: ok
+      ? "basic mastery proof is tracked as complete with proof gate, audit, UI/API, and Batch 4 boundary"
+      : `status=${row?.status ?? "missing"}; row missing ${missingRowTerms.join(", ") || "none"}; record missing ${missingRecordTerms.join(", ") || "none"}; doc missing ${missingDocTerms.join(", ") || "none"}`,
   });
 }
 

@@ -20,7 +20,7 @@ Nginx HTTPS -> 127.0.0.1:WEB_PORT -> web container -> postgres
 
 - `pnpm check` 通过。
 - `docker compose config` 通过。
-- `docker compose -f docker-compose.prod.yml config` 通过。
+- `docker compose --env-file .env.example -f docker-compose.prod.yml config` 通过，用占位值验证生产 compose 结构。裸跑 `docker compose -f docker-compose.prod.yml config` 若没有生产 env，预期会因 `AUTH_SESSION_SECRET is required` 等 required production env 缺失而失败。
 - 所有需要的 migration 已审查；高风险 migration 已有备份和回滚说明。
 - 生产 `.env` 已准备，权限收紧，不提交到 Git。
 - `APP_URL`、`AUTH_SESSION_SECRET`、`POSTGRES_PASSWORD`、`AI_API_KEY` 使用强随机或真实密钥。
@@ -57,7 +57,7 @@ Nginx HTTPS -> 127.0.0.1:WEB_PORT -> web container -> postgres
    - 上传目录归档。
    - `.env` 加密或权限收紧备份。
 4. 拉取或加载新镜像。
-5. 执行 `docker compose -f docker-compose.prod.yml config`。
+5. 本地或确认前结构校验执行 `docker compose --env-file .env.example -f docker-compose.prod.yml config`；生产服务器执行时必须使用真实生产 `.env`，不得复用 `.env.example` 的占位密钥。
 6. 如有 migration：
    - 确认备份点存在。
    - 在一次性任务或 web 镜像环境中执行 Prisma migrate deploy。
@@ -71,6 +71,64 @@ Nginx HTTPS -> 127.0.0.1:WEB_PORT -> web container -> postgres
 - 不通过网页按钮触发部署、migration、备份或恢复。
 - PostgreSQL 不暴露公网端口。
 - 上传目录不由 Nginx 静态暴露。
+
+## 发布记录模板
+
+Package E 完成时必须留下发布记录。记录可以放在运维私有目录或受控 issue/comment 中，不得提交生产 `.env`、密钥、数据库 URL 或备份文件本体。
+
+```text
+releaseId:
+releasedAt:
+operator:
+gitCommit:
+releaseTag:
+AREAFORGE_IMAGE:
+imageDigest:
+composeHash:
+nginxConfigHash:
+previousImage:
+previousAppVersion:
+databaseBackupPath:
+databaseBackupSha256:
+uploadsBackupPath:
+uploadsBackupSha256:
+envBackupPath:
+migrationVersion:
+migrationApplied: yes/no
+preflight:
+  pnpmCheck:
+  composeConfig:
+  prodComposeConfig:
+restoreDrill:
+  databaseImported: yes/no
+  uploadsRestored: yes/no
+  attachmentHashMatched: yes/no/not-applicable
+postReleaseSmoke:
+  health:
+  login:
+  dashboard:
+  taskTimerReview:
+  syllabusNotesAnalyticsReports:
+  attachmentSmoke:
+  aiFallbackOrProvider:
+rollbackDecision:
+residualRisk:
+followUpTasks:
+expectedFailureOrStopConditions:
+  migrationFailed:
+  smokeFailed:
+  logLeakDetected:
+  attachmentHashMismatch:
+  backupMissing:
+```
+
+中止条件：
+
+- migration 失败或 Prisma Client 与 schema 不匹配。
+- 登录、首页、任务计时复盘任一发布后烟测失败。
+- 日志中出现密钥、完整 prompt、完整复盘正文、附件路径或数据库 URL。
+- 附件 metadata/hash 与文件不一致。
+- 发布前数据库备份、上传目录备份或上一版本镜像信息缺失。
 
 ## Migration deploy 边界
 
@@ -106,6 +164,51 @@ Nginx HTTPS -> 127.0.0.1:WEB_PORT -> web container -> postgres
 6. 验证完成后删除临时库和临时上传目录。
 
 不得在未验证前直接覆盖生产库。
+
+恢复演练验收判定表：
+
+| 项目 | 判定 |
+|---|---|
+| 数据库 dump 可导入临时库 | PASS / FAIL |
+| 上传目录或 volume 可恢复到临时目录 | PASS / FAIL |
+| metadata 指向文件存在 | PASS / FAIL |
+| metadata/hash/size 与文件一致 | PASS / FAIL |
+| 登录、首页、任务、计时、复盘可读 | PASS / FAIL |
+| 附件下载鉴权和响应头可用 | PASS / FAIL / not-applicable |
+| AI fallback 或 provider 策略与生产配置一致 | PASS / FAIL |
+
+## 备份与恢复命令模板
+
+以下命令只作为确认后执行参考。确认前不得在生产服务器运行。
+
+```bash
+# 记录 compose hash 和镜像 digest
+sha256sum docker-compose.prod.yml
+docker image inspect "$AREAFORGE_IMAGE" --format '{{index .RepoDigests 0}}'
+
+# 发布前数据库备份
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl \
+  > "$BACKUP_DIR/areaforge-$APP_VERSION-$(date +%Y%m%d%H%M%S).dump"
+
+# 上传目录归档
+tar -C "$(dirname "$UPLOAD_DIR")" -czf "$BACKUP_DIR/uploads-$APP_VERSION-$(date +%Y%m%d%H%M%S).tar.gz" "$(basename "$UPLOAD_DIR")"
+
+# 恢复演练：导入临时库
+createdb "$POSTGRES_DB"_restore_check
+pg_restore --clean --if-exists --no-owner --dbname "$POSTGRES_DB"_restore_check "$DATABASE_BACKUP_PATH"
+
+# 恢复演练：准备临时上传目录
+mkdir -p "$UPLOAD_DIR.restore-check"
+tar -xzf "$UPLOADS_BACKUP_PATH" -C "$UPLOAD_DIR.restore-check"
+```
+
+附件对账只输出报告，不自动删除或修复：
+
+```text
+attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action
+...,report_only
+```
 
 ## 回滚流程
 
@@ -176,7 +279,7 @@ AI 若启用还必须存在：
 
 - `pnpm check`
 - `docker compose config`
-- `docker compose -f docker-compose.prod.yml config`
+- `docker compose --env-file .env.example -f docker-compose.prod.yml config`
 
 服务器：
 
@@ -185,4 +288,3 @@ AI 若启用还必须存在：
 - `docker compose -f docker-compose.prod.yml logs --tail=100 postgres`
 
 日志检查不得输出密钥、数据库 URL、AI Key、完整 prompt 或隐私正文。
-

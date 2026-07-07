@@ -25,9 +25,50 @@
 - 首页能读取数据。
 - 登录仍可用。
 
+## 命令模板
+
+以下命令只作为 Package E 确认后的执行参考；确认前不得在生产环境运行。
+
+数据库备份：
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl \
+  > "$BACKUP_DIR/areaforge-$(date +%Y%m%d%H%M%S).dump"
+```
+
+上传目录归档：
+
+```bash
+tar -C "$(dirname "$UPLOAD_DIR")" -czf "$BACKUP_DIR/uploads-$(date +%Y%m%d%H%M%S).tar.gz" "$(basename "$UPLOAD_DIR")"
+```
+
+临时库恢复演练：
+
+```bash
+createdb "$POSTGRES_DB"_restore_check
+pg_restore --clean --if-exists --no-owner --dbname "$POSTGRES_DB"_restore_check "$DATABASE_BACKUP_PATH"
+```
+
+临时上传目录恢复演练：
+
+```bash
+mkdir -p "$UPLOAD_DIR.restore-check"
+tar -xzf "$UPLOADS_BACKUP_PATH" -C "$UPLOAD_DIR.restore-check"
+```
+
+## 对账报告格式
+
+附件 metadata 与文件本体对账只生成报告，不自动修复：
+
+```text
+attachmentId,noteId,uri,storedName,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action
+```
+
+`action` 第一版固定为 `report_only`。孤儿文件清理、metadata 修复或批量删除必须另行确认。
+
 ## 回滚
 
 - 保留上一个 Docker 镜像 tag。
 - migration 涉及破坏性字段时先写回滚说明。
 - 第一版避免不可逆 migration。
-

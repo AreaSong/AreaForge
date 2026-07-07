@@ -119,7 +119,7 @@ Provider config：
 - 当前 top task 标题。
 - 一个薄弱科目名称。
 
-注意：任务标题可能含私密内容；若后续用户把敏感内容写进标题，需要增加标题脱敏或改为只发任务类型/科目。
+注意：任务标题可能含私密内容；真实 provider 接入前必须完成 `topTaskTitle redaction` 决策。真实 provider 第一版默认不发送原始任务标题，只发送任务类型、科目、风险类别或脱敏占位标签；若必须发送标题，需先做脱敏并在烟测中证明 `task title may contain private content` 不会进入外呼。
 
 ## 敏感字段拦截
 
@@ -148,6 +148,7 @@ Provider config：
 - 第一版不自动后台刷新 AI。
 - 只由用户打开页面或点击建议入口触发。
 - 当前首页会在服务端渲染时调用每日复盘建议和明日任务建议；若直接把这条路径接入真实 provider，打开首页就会产生外呼成本。第一版真实外呼前必须改为明确触发、缓存/限流保护，或保持首页只展示本地规则建议。
+- Package C 确认后的首页策略必须在实现前选定：`homepage local fallback only`、`explicit trigger only` 或 `cache or rate limit required`。未选定前，首页 SSR 不得创建 provider。
 - 每个 API 可加基础内存限流或依赖现有登录态限速，后续如保存调用历史需另行确认 migration。
 - 不保存 token 使用量前，不宣称已有精确费用统计。
 
@@ -215,6 +216,9 @@ Provider config：
 - mock/测试 provider 成功时返回 `ai_generated`。
 - provider 失败时核心页面和 API 仍可用。
 - 客户端 bundle 搜索不到 `AI_API_KEY`。
+- client bundle key scan command：`rg "AI_API_KEY|AI_BASE_URL|AI_MODEL|NEXT_PUBLIC_" apps/web/.next apps/web/public`，其中 `NEXT_PUBLIC_` 只能作为扫描项出现，不能新增 `NEXT_PUBLIC_AI_*`。
+- `AI_LOG_PROMPTS=false`、`AI_ALLOW_SENSITIVE_CONTEXT=false` 是第一版默认安全姿态；Package C 未确认前不得通过 Web 接入绕过，`allowSensitiveContext disabled before Package C`。
+- 不新增 AI 调用历史 migration：不得出现 `model AiCall`、`model AiUsage`、`tokenUsage` 或 `promptHash`。若后续需要费用统计或调用历史，必须另开高风险确认。
 
 真实 provider 烟测：
 

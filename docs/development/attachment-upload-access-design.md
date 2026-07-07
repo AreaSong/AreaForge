@@ -40,16 +40,36 @@
 9. 如果数据库写入失败，删除本次已写入文件。
 10. 返回 `201 { attachment }`。
 
+响应 DTO：
+
+- `attachment.id`
+- `attachment.noteId`
+- `attachment.originalName`
+- `attachment.mimeType`
+- `attachment.sizeBytes`
+- `attachment.hash`
+- `attachment.downloadApiPath`
+
+响应不得包含内部 `uri`、绝对路径、上传根目录、`storedName` 或补偿删除路径。UI 只能使用 `downloadApiPath = /api/attachments/:id` 访问附件，不能把 `Attachment.uri` 或 `upload://attachment/...` 当作 href。
+
 错误码建议：
 
-- `NOTE_NOT_FOUND`
-- `ATTACHMENT_FILE_REQUIRED`
-- `ATTACHMENT_INVALID_FILE`
-- `ATTACHMENT_TOO_LARGE`
-- `ATTACHMENT_UNSUPPORTED_TYPE`
-- `ATTACHMENT_MIME_MISMATCH`
-- `UPLOAD_DIR_UNSAFE`
-- `ATTACHMENT_WRITE_FAILED`
+- `UNAUTHORIZED`：`401`
+- `NOTE_NOT_FOUND`：`404`
+- `ATTACHMENT_FILE_REQUIRED`：`400`
+- `ATTACHMENT_INVALID_FILE`：`400`
+- `ATTACHMENT_TOO_LARGE`：`413`
+- `ATTACHMENT_UNSUPPORTED_TYPE`：`400`
+- `ATTACHMENT_MIME_MISMATCH`：`400`
+- `ATTACHMENT_MULTIPLE_FILES`：`400`
+- `ATTACHMENT_EMPTY_FILE`：`400`
+- `ATTACHMENT_BAD_MULTIPART`：`400`
+- `ATTACHMENT_INVALID_DISPOSITION`：`400`
+- `UPLOAD_DIR_UNSAFE`：`500`
+- `ATTACHMENT_WRITE_FAILED`：`500`
+- `ATTACHMENT_METADATA_WRITE_FAILED`：`500`，响应不得包含补偿删除路径。
+- `ATTACHMENT_FILE_MISSING`：`404`
+- `ATTACHMENT_FILE_MISMATCH`：`409`
 
 ### `GET /api/attachments/:id`
 
@@ -74,6 +94,10 @@
    - `Cache-Control: private, no-store`
    - `X-Content-Type-Options: nosniff`
    - `Content-Length`
+
+`Content-Disposition` 的文件名必须做响应头安全转义：去除 CR/LF，转义引号，必要时同时提供 ASCII fallback 和 RFC 5987 `filename*`。原始文件名不得直接拼接进响应头。
+
+`disposition=inline` 只允许 PDF、PNG、JPEG、WebP；不支持的值返回 `ATTACHMENT_INVALID_DISPOSITION`。
 
 第一版不提供删除接口，避免破坏性操作。
 
@@ -145,18 +169,40 @@ API 烟测：
 
 - 未登录上传返回 `401`。
 - 未登录下载返回 `401`。
+- 多个 `file` 字段返回 `ATTACHMENT_MULTIPLE_FILES`。
+- 空 `file` 字段或 0 字节文件返回 `ATTACHMENT_FILE_REQUIRED` / `ATTACHMENT_EMPTY_FILE`。
+- 畸形 multipart 返回 `ATTACHMENT_BAD_MULTIPART`。
 - 登录后上传 PDF、PNG、JPEG、WebP 成功。
 - 超过 `MAX_UPLOAD_MB` 返回失败。
 - 声明 MIME 与 magic bytes 不一致返回失败。
 - `../evil.pdf` 原始文件名不会影响磁盘路径。
 - `noteId` 不存在返回 `NOTE_NOT_FOUND`。
+- 非法 `disposition` 返回 `ATTACHMENT_INVALID_DISPOSITION`。
 - 上传目录软链接逃逸被拒绝。
 - DB 写入模拟失败时，本次写入文件被补偿删除。
 - 文件写入模拟失败时，不创建 `Attachment` metadata。
 - 下载返回 `nosniff` 和 `private, no-store`。
+- 下载响应不泄露内部 `uri`、`storedName`、上传根目录或绝对路径。
 - 上传文件不出现在 `apps/web/public`。
 - metadata hash 和磁盘文件 hash 一致。
 - 只读对账可遍历 `Attachment.uri` 并确认文件存在、hash 一致，但不自动删除文件。
+
+只读对账清单建议字段：
+
+- `attachmentId`
+- `noteId`
+- `uri`
+- `storedName`
+- `metadataHash`
+- `fileHash`
+- `metadataSizeBytes`
+- `fileSizeBytes`
+- `exists`
+- `sizeMatches`
+- `hashMatches`
+- `action=report_only`
+
+对账只输出清单，不删除、不移动、不修复文件；任何孤儿文件清理或 metadata 修复都必须另行确认。
 
 页面烟测：
 

@@ -70,6 +70,17 @@
 - metadata、hash、URI 和文件本体需要可对账；对账只读报告不自动删除文件。
 - 上传响应不得回显上传目录绝对路径。
 
+### 确认后实施切入点
+
+以下清单只用于获得 Package A 明确确认后的实现，不代表确认前可以新增上传/下载 route、写入 `UPLOAD_DIR` 或生成附件 UI。
+
+- 新增 `apps/web/lib/study/attachments-service.ts`，集中处理 `noteId` 归属校验、附件 metadata 草稿、上传根目录解析、安全文件写入、DB 写入和 best-effort 补偿删除。
+- 新增 `POST /api/notes/[noteId]/attachments`，只接受单个 `file`，先鉴权再校验 note 存在，成功返回附件 DTO；失败时不回显上传目录绝对路径。
+- 新增 `GET /api/attachments/[id]`，先鉴权再按 `Attachment.uri` 定位私有文件，校验真实路径、size/hash 和响应头；第一版只支持下载或受控 inline，不提供公开 URL。
+- `/notes` 单条笔记区域增加文件选择、上传按钮、上传中/成功/失败状态、附件列表和下载按钮；按钮指向鉴权 API，不暴露 `upload://` URI 为可访问链接。
+- 上传失败路径需要覆盖：空文件、超大文件、未知 magic bytes、声明 MIME 不一致、`noteId` 不存在、上传目录不安全、软链接逃逸、文件写入失败和 DB 写入失败。
+- 补偿失败只能记录脱敏服务端日志，不自动删除既有文件或 metadata；孤儿清理必须另走只读对账和单独确认。
+
 ## 附件高风险说明
 
 ### 影响
