@@ -26,6 +26,7 @@
 - `docs/modules/notes.md`
 - `docs/architecture/file-storage.md`
 - `docs/security/threat-model.md`
+- `docs/development/attachment-upload-access-design.md`
 
 ## 验收标准
 
@@ -61,6 +62,14 @@
 - 附件鉴权下载或预览 API。
 - 上传目录创建、权限、路径解析和软链接防逃逸。
 
+### 附件实现验收补充
+
+- 第一版附件优先关联 `noteId`，后续再扩展到错题、模拟考试或阶段材料。
+- 数据库写入失败时必须补偿已写入的孤儿文件；文件写入失败时不得创建 metadata。
+- 下载和预览必须通过鉴权 API，不能暴露真实磁盘路径或 public URL。
+- metadata、hash、URI 和文件本体需要可对账；对账只读报告不自动删除文件。
+- 上传响应不得回显上传目录绝对路径。
+
 ## 附件高风险说明
 
 ### 影响
@@ -88,6 +97,8 @@
 - 软链接逃逸被拒绝。
 - 文件不出现在 `apps/web/public` 或任何 public 静态目录。
 - 下载响应包含 `X-Content-Type-Options: nosniff` 和私有缓存策略。
+- 数据库写入失败会清理本次写入的文件；文件写入失败不会创建 `Attachment` metadata。
+- 临时对账能确认 `Attachment.uri` 指向的文件存在，hash 与 metadata 一致。
 - `pnpm check` 通过。
 
 ### 回滚

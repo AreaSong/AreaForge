@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import type {
   MasteryLevelDto,
   SubjectDto,
+  SyllabusMapOverviewDto,
   SyllabusNodeDto,
   SyllabusNodeKindDto,
   SyllabusNodeStatusDto,
@@ -14,6 +15,8 @@ import type {
 interface SyllabusManagerProps {
   subjects: SubjectDto[];
   nodes: SyllabusNodeDto[];
+  summary: SyllabusMapOverviewDto["summary"];
+  summaryBySubject: SyllabusMapOverviewDto["summaryBySubject"];
 }
 
 interface FlatNode {
@@ -24,8 +27,10 @@ interface FlatNode {
 }
 
 type StatusFilter = "all" | SyllabusNodeStatusDto;
+type MapStatusFilter = "all" | SyllabusNodeDto["mapSignal"]["cellStatus"];
+type ActionFilter = "all" | "risk" | "evidence" | "review" | "start" | "deferred";
 
-export function SyllabusManager({ subjects, nodes }: SyllabusManagerProps) {
+export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: SyllabusManagerProps) {
   const router = useRouter();
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [parentId, setParentId] = useState("");
@@ -33,21 +38,33 @@ export function SyllabusManager({ subjects, nodes }: SyllabusManagerProps) {
   const [kind, setKind] = useState<SyllabusNodeKindDto>("topic");
   const [status, setStatus] = useState<SyllabusNodeStatusDto>("not_started");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [mapStatusFilter, setMapStatusFilter] = useState<MapStatusFilter>("all");
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
   const [targetMinutes, setTargetMinutes] = useState(45);
   const [importMarkdown, setImportMarkdown] = useState("");
   const [importNotice, setImportNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const subjectNodes = nodes.filter((node) => node.subjectId === subjectId);
+  const subjectNodes = useMemo(() => nodes.filter((node) => node.subjectId === subjectId), [nodes, subjectId]);
+  const subjectFlatNodeCount = useMemo(() => flattenTree(subjectNodes).length, [subjectNodes]);
   const flatNodes = useMemo(() => flattenNodes(nodes), [nodes]);
   const parentOptions = flatNodes.filter((node) => node.subjectId === subjectId);
   const statusCounts = useMemo(() => countStatuses(subjectNodes), [subjectNodes]);
-  const filteredSubjectNodes = useMemo(
-    () => filterNodesByStatus(subjectNodes, statusFilter),
-    [subjectNodes, statusFilter],
+  const mapStatusCounts = useMemo(() => countMapStatuses(subjectNodes), [subjectNodes]);
+  const actionCounts = useMemo(() => countActions(subjectNodes), [subjectNodes]);
+  const selectedSummary = summaryBySubject[subjectId] ?? summary;
+  const focusNodes = useMemo(
+    () => selectedSummary.focusNodeIds
+      .map((id) => findNodeById(subjectNodes, id))
+      .filter((node): node is SyllabusNodeDto => Boolean(node)),
+    [selectedSummary.focusNodeIds, subjectNodes],
   );
-  const filteredNodeCount = statusFilter === "all" ? parentOptions.length : statusCounts[statusFilter];
+  const filteredSubjectNodes = useMemo(
+    () => filterNodesByStatusMapAndAction(subjectNodes, statusFilter, mapStatusFilter, actionFilter),
+    [subjectNodes, statusFilter, mapStatusFilter, actionFilter],
+  );
+  const filteredNodeCount = useMemo(() => flattenTree(filteredSubjectNodes).length, [filteredSubjectNodes]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -250,14 +267,107 @@ export function SyllabusManager({ subjects, nodes }: SyllabusManagerProps) {
             </h2>
           </div>
           <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
-            {filteredNodeCount} / {parentOptions.length} 个节点
+            {filteredNodeCount} / {subjectFlatNodeCount} 个节点
           </span>
+        </div>
+
+        <div className="mt-5 border-y border-white/10 py-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SummaryMetric label="覆盖率" value={`${selectedSummary.coverageRate}%`} />
+            <SummaryMetric label="验证率" value={`${selectedSummary.verificationRate}%`} />
+            <SummaryMetric label="风险等级" value={labelMapRisk(selectedSummary.riskLevel)} />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {selectedSummary.recommendedFilters.length > 0 ? (
+              selectedSummary.recommendedFilters.map((filter) => (
+                <button
+                  key={filter}
+                  className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                    mapStatusFilter === filter
+                      ? "border-teal-300/50 bg-teal-300/15 text-teal-50"
+                      : "border-teal-300/20 text-teal-100 hover:bg-teal-400/10"
+                  }`}
+                  type="button"
+                  onClick={() => setMapStatusFilter(mapStatusFilter === filter ? "all" : filter)}
+                >
+                  {labelMapCell(filter)} {mapStatusCounts[filter] ?? 0}
+                </button>
+              ))
+            ) : (
+              <span className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-zinc-400">
+                暂无推荐筛选
+              </span>
+            )}
+            {mapStatusFilter !== "all" ? (
+              <button
+                className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/10"
+                type="button"
+                onClick={() => setMapStatusFilter("all")}
+              >
+                清除地图筛选
+              </button>
+            ) : null}
+          </div>
+          <div className="mt-4 grid gap-2 text-sm text-zinc-300">
+            {selectedSummary.nextActions.slice(0, 3).map((action) => (
+              <p key={action}>{action}</p>
+            ))}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {mapStatusOptions.map((option) => (
+              <MapStatusButton
+                key={option}
+                active={mapStatusFilter === option}
+                count={mapStatusCounts[option]}
+                label={labelMapCell(option)}
+                onClick={() => setMapStatusFilter(mapStatusFilter === option ? "all" : option)}
+              />
+            ))}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {actionFilterOptions.map((option) => (
+              <ActionFilterButton
+                key={option.value}
+                active={actionFilter === option.value}
+                count={actionCounts[option.value]}
+                label={option.label}
+                onClick={() => setActionFilter(actionFilter === option.value ? "all" : option.value)}
+              />
+            ))}
+          </div>
+          {actionFilter !== "all" ? (
+            <button
+              className="mt-3 rounded-md border border-white/10 px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/10"
+              type="button"
+              onClick={() => setActionFilter("all")}
+            >
+              清除行动筛选
+            </button>
+          ) : null}
+          {focusNodes.length > 0 ? (
+            <div className="mt-4 grid gap-2">
+              <p className="text-xs text-zinc-500">优先处理节点</p>
+              {focusNodes.slice(0, 3).map((node) => (
+                <button
+                  key={node.id}
+                  className="rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-left hover:bg-white/10"
+                  type="button"
+                  onClick={() => setMapStatusFilter(node.mapSignal.cellStatus)}
+                >
+                  <span className="block text-sm text-zinc-100">{node.title}</span>
+                  <span className="mt-1 block text-xs leading-5 text-zinc-400">
+                    {labelMapCell(node.mapSignal.cellStatus)} / {node.mapSignal.nextAction}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <StatusFilterButton
             active={statusFilter === "all"}
-            count={subjectNodes.length}
+            count={subjectFlatNodeCount}
             label="全部"
             onClick={() => setStatusFilter("all")}
           />
@@ -302,6 +412,61 @@ const statusFilterOptions: SyllabusNodeStatusDto[] = [
   "deferred",
 ];
 
+const mapStatusOptions: SyllabusNodeDto["mapSignal"]["cellStatus"][] = [
+  "mistake_hotspot",
+  "weak",
+  "forgetting_risk",
+  "covered",
+  "verified",
+  "learning",
+  "not_started",
+  "deferred",
+];
+
+const actionFilterOptions: Array<{ value: Exclude<ActionFilter, "all">; label: string }> = [
+  { value: "risk", label: "风险压制" },
+  { value: "evidence", label: "补证据" },
+  { value: "review", label: "复习复测" },
+  { value: "start", label: "启动推进" },
+  { value: "deferred", label: "暂缓确认" },
+];
+
+function SummaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-zinc-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+function MapStatusButton({
+  active,
+  count,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  count: number;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+        active
+          ? "border-amber-300/45 bg-amber-300/15 text-amber-50"
+          : "border-white/10 bg-[#151a20] text-zinc-300 hover:bg-white/10"
+      }`}
+      type="button"
+      onClick={onClick}
+    >
+      <span className="block text-xs opacity-70">{label}</span>
+      <span className="mt-1 block text-lg font-semibold">{count}</span>
+    </button>
+  );
+}
+
 function StatusFilterButton({
   active,
   count,
@@ -318,6 +483,33 @@ function StatusFilterButton({
       className={`rounded-md border px-3 py-2 text-left text-sm transition ${
         active
           ? "border-teal-300/40 bg-teal-300/15 text-teal-50"
+          : "border-white/10 bg-[#151a20] text-zinc-300 hover:bg-white/10"
+      }`}
+      type="button"
+      onClick={onClick}
+    >
+      <span className="block text-xs opacity-70">{label}</span>
+      <span className="mt-1 block text-lg font-semibold">{count}</span>
+    </button>
+  );
+}
+
+function ActionFilterButton({
+  active,
+  count,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  count: number;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+        active
+          ? "border-sky-300/45 bg-sky-300/15 text-sky-50"
           : "border-white/10 bg-[#151a20] text-zinc-300 hover:bg-white/10"
       }`}
       type="button"
@@ -353,6 +545,9 @@ function SyllabusTreeNode({
           </p>
           <p className="mt-1 text-xs text-zinc-500">
             证据：任务 {node.evidence.taskCount} / 计时 {node.evidence.sessionCount} / 笔记 {node.evidence.noteCount} / 错题 {node.evidence.mistakeCount}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            最近证据：{labelEvidenceFreshness(node.evidence.daysSinceLastEvidence)}
           </p>
           {node.masteryLevel ? <p className="mt-1 text-xs text-teal-200">掌握等级：{labelMastery(node.masteryLevel)}</p> : null}
           <p className="mt-1 text-xs text-zinc-400">
@@ -445,17 +640,82 @@ function countStatuses(nodes: SyllabusNodeDto[]): Record<SyllabusNodeStatusDto, 
   return counts;
 }
 
-function filterNodesByStatus(nodes: SyllabusNodeDto[], statusFilter: StatusFilter): SyllabusNodeDto[] {
-  if (statusFilter === "all") return nodes;
+function countMapStatuses(nodes: SyllabusNodeDto[]): Record<SyllabusNodeDto["mapSignal"]["cellStatus"], number> {
+  const counts: Record<SyllabusNodeDto["mapSignal"]["cellStatus"], number> = {
+    not_started: 0,
+    learning: 0,
+    covered: 0,
+    verified: 0,
+    weak: 0,
+    forgetting_risk: 0,
+    mistake_hotspot: 0,
+    deferred: 0,
+  };
 
+  for (const node of flattenTree(nodes)) {
+    counts[node.mapSignal.cellStatus] += 1;
+  }
+
+  return counts;
+}
+
+function countActions(nodes: SyllabusNodeDto[]): Record<Exclude<ActionFilter, "all">, number> {
+  const counts: Record<Exclude<ActionFilter, "all">, number> = {
+    risk: 0,
+    evidence: 0,
+    review: 0,
+    start: 0,
+    deferred: 0,
+  };
+
+  for (const node of flattenTree(nodes)) {
+    for (const option of actionFilterOptions) {
+      if (nodeMatchesAction(node, option.value)) counts[option.value] += 1;
+    }
+  }
+
+  return counts;
+}
+
+function labelEvidenceFreshness(days: number | null): string {
+  if (days == null) return "暂无";
+  if (days === 0) return "今天";
+  return `${days} 天前`;
+}
+
+function filterNodesByStatusMapAndAction(
+  nodes: SyllabusNodeDto[],
+  statusFilter: StatusFilter,
+  mapStatusFilter: MapStatusFilter,
+  actionFilter: ActionFilter,
+): SyllabusNodeDto[] {
   return nodes.flatMap((node) => {
-    const children = filterNodesByStatus(node.children, statusFilter);
-    if (node.status === statusFilter || children.length > 0) {
+    const children = filterNodesByStatusMapAndAction(node.children, statusFilter, mapStatusFilter, actionFilter);
+    const statusMatches = statusFilter === "all" || node.status === statusFilter;
+    const mapStatusMatches = mapStatusFilter === "all" || node.mapSignal.cellStatus === mapStatusFilter;
+    const actionMatches = actionFilter === "all" || nodeMatchesAction(node, actionFilter);
+
+    if ((statusMatches && mapStatusMatches && actionMatches) || children.length > 0) {
       return [{ ...node, children }];
     }
 
     return [];
   });
+}
+
+function nodeMatchesAction(node: SyllabusNodeDto, actionFilter: Exclude<ActionFilter, "all">): boolean {
+  switch (actionFilter) {
+    case "risk":
+      return node.mapSignal.markers.includes("warning");
+    case "evidence":
+      return node.masteryProof.evidenceCount === 0 || node.masteryProof.risk === "thin_evidence";
+    case "review":
+      return node.mapSignal.cellStatus === "forgetting_risk" || node.masteryProof.risk === "stale_evidence";
+    case "start":
+      return node.mapSignal.cellStatus === "not_started" || node.mapSignal.cellStatus === "learning";
+    case "deferred":
+      return node.mapSignal.cellStatus === "deferred";
+  }
 }
 
 function flattenTree(nodes: SyllabusNodeDto[]): SyllabusNodeDto[] {
@@ -472,6 +732,16 @@ function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {
     },
     ...flattenNodes(node.children, depth + 1),
   ]);
+}
+
+function findNodeById(nodes: SyllabusNodeDto[], id: string): SyllabusNodeDto | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    const child = findNodeById(node.children, id);
+    if (child) return child;
+  }
+
+  return null;
 }
 
 function labelKind(kind: SyllabusNodeKindDto): string {
@@ -541,6 +811,19 @@ function labelMapCell(status: SyllabusNodeDto["mapSignal"]["cellStatus"]): strin
       return "错题高发";
     case "deferred":
       return "暂缓";
+  }
+}
+
+function labelMapRisk(risk: SyllabusMapOverviewDto["summary"]["riskLevel"]): string {
+  switch (risk) {
+    case "clear":
+      return "清晰";
+    case "attention":
+      return "需关注";
+    case "high":
+      return "高风险";
+    case "critical":
+      return "紧急";
   }
 }
 

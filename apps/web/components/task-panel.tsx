@@ -3,12 +3,13 @@
 import { Check, FastForward, Plus, RotateCcw, Scissors, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import type { StudyTaskDto, SubjectDto, SyllabusNodeDto } from "@/lib/study/types";
+import type { StudyTaskDto, SubjectDto, SyllabusNodeDto, TaskDebtReorderDto } from "@/lib/study/types";
 
 interface TaskPanelProps {
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];
   syllabusNodes: SyllabusNodeDto[];
+  debtReorder: TaskDebtReorderDto;
 }
 
 interface FlatNode {
@@ -18,11 +19,12 @@ interface FlatNode {
   depth: number;
 }
 
-export function TaskPanel({ subjects, tasks, syllabusNodes }: TaskPanelProps) {
+export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskPanelProps) {
   const router = useRouter();
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [syllabusNodeId, setSyllabusNodeId] = useState("");
   const [title, setTitle] = useState("");
+  const [taskType, setTaskType] = useState("study");
   const [estimatedMinutes, setEstimatedMinutes] = useState(45);
   const [priority, setPriority] = useState("medium");
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes }: TaskPanelProps) {
         subjectId,
         syllabusNodeId: syllabusNodeId || null,
         title,
-        type: "study",
+        type: taskType,
         priority,
         estimatedMinutes,
       }),
@@ -119,7 +121,18 @@ export function TaskPanel({ subjects, tasks, syllabusNodes }: TaskPanelProps) {
             </option>
           ))}
         </select>
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+          <select
+            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            value={taskType}
+            onChange={(event) => setTaskType(event.target.value)}
+          >
+            <option value="study">学习</option>
+            <option value="review">复习</option>
+            <option value="practice">刷题</option>
+            <option value="mistake">错题</option>
+            <option value="simulation_exam">模拟</option>
+          </select>
           <select
             className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={priority}
@@ -151,6 +164,40 @@ export function TaskPanel({ subjects, tasks, syllabusNodes }: TaskPanelProps) {
 
       {error ? <p className="mt-3 text-sm text-red-200">{error}</p> : null}
 
+      {debtReorder.suggestions.length > 0 ? (
+        <div className="mt-4 border-b border-white/10 pb-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-amber-100">债务重排建议</p>
+                <span className="rounded-md border border-amber-300/20 px-2 py-1 text-xs text-amber-100">
+                  {debtReorder.canAutoApply ? "可自动应用" : "只读建议"}
+                </span>
+                <span className="rounded-md border border-amber-300/20 px-2 py-1 text-xs text-amber-100">
+                  {debtReorder.requiresUserConfirmation ? "需确认" : "无需确认"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-zinc-500">{debtReorder.summary}</p>
+            </div>
+            <span className="rounded-md border border-amber-300/20 px-2 py-1 text-xs text-amber-100">
+              {debtReorder.availableMinutes} 分钟
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {debtReorder.suggestions.slice(0, 4).map((suggestion) => (
+              <div key={suggestion.taskId} className="border-l border-amber-300/30 pl-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-amber-100">{labelDebtAction(suggestion.action)}</span>
+                  <span className="text-zinc-100">{suggestion.taskTitle}</span>
+                  <span className="text-xs text-zinc-500">{suggestion.subjectName}</span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-zinc-400">{suggestion.reason}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-4 grid gap-3">
         {tasks.length === 0 ? (
           <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
@@ -164,7 +211,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes }: TaskPanelProps) {
                 <p className="text-sm text-zinc-400">{task.subjectName}</p>
                 <h3 className="mt-1 font-medium text-white">{task.title}</h3>
                 <p className="mt-1 text-xs text-zinc-500">
-                  {labelStatus(task.status)} / {task.estimatedMinutes} 分钟
+                  {labelTaskType(task.type)} / {labelStatus(task.status)} / {task.estimatedMinutes} 分钟
                 </p>
                 {task.syllabusNodeTitle ? (
                   <p className="mt-1 text-xs text-teal-200">考纲：{task.syllabusNodeTitle}</p>
@@ -258,6 +305,23 @@ function labelStatus(status: StudyTaskDto["status"]): string {
   }
 }
 
+function labelDebtAction(action: TaskDebtReorderDto["suggestions"][number]["action"]): string {
+  switch (action) {
+    case "keep":
+      return "保留";
+    case "recover":
+      return "补做";
+    case "defer":
+      return "延期";
+    case "split":
+      return "拆小";
+    case "drop":
+      return "放弃";
+    case "convert_review":
+      return "改复习";
+  }
+}
+
 function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {
   return nodes.flatMap((node) => [
     {
@@ -280,5 +344,22 @@ function labelPriority(priority: StudyTaskDto["priority"]): string {
       return "中";
     case "low":
       return "低";
+  }
+}
+
+function labelTaskType(type: string): string {
+  switch (type) {
+    case "study":
+      return "学习";
+    case "review":
+      return "复习";
+    case "practice":
+      return "刷题";
+    case "mistake":
+      return "错题";
+    case "simulation_exam":
+      return "模拟";
+    default:
+      return type;
   }
 }

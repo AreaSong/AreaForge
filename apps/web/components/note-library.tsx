@@ -28,12 +28,29 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
   const [content, setContent] = useState("");
   const [masteryStatus, setMasteryStatus] = useState<NoteMasteryStatusDto>("partial");
   const [nextReviewAt, setNextReviewAt] = useState("");
+  const [noteSubjectFilter, setNoteSubjectFilter] = useState("all");
+  const [noteNodeFilter, setNoteNodeFilter] = useState("all");
+  const [noteMasteryFilter, setNoteMasteryFilter] = useState<"all" | NoteMasteryStatusDto>("all");
+  const [noteReviewFilter, setNoteReviewFilter] = useState<"all" | "due" | "scheduled" | "none">("all");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const flatNodes = useMemo(() => flattenNodes(nodes), [nodes]);
   const nodeOptions = flatNodes.filter((node) => node.subjectId === subjectId);
   const taskOptions = tasks.filter((task) => task.subjectId === subjectId);
+  const filterNodeOptions = useMemo(
+    () => flatNodes.filter((node) => noteSubjectFilter === "all" || node.subjectId === noteSubjectFilter),
+    [flatNodes, noteSubjectFilter],
+  );
+  const filteredNotes = useMemo(
+    () => notes.filter((note) =>
+      matchesSubject(note, noteSubjectFilter) &&
+      matchesNode(note, noteNodeFilter) &&
+      matchesMastery(note, noteMasteryFilter) &&
+      matchesReview(note, noteReviewFilter),
+    ),
+    [notes, noteSubjectFilter, noteNodeFilter, noteMasteryFilter, noteReviewFilter],
+  );
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -173,7 +190,63 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
             <p className="text-sm text-zinc-400">资料库</p>
             <h2 className="mt-1 text-xl font-semibold text-white">笔记与最小产出</h2>
           </div>
-          <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">{notes.length} 条</span>
+          <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
+            {filteredNotes.length} / {notes.length} 条
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <select
+            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            value={noteSubjectFilter}
+            onChange={(event) => {
+              setNoteSubjectFilter(event.target.value);
+              setNoteNodeFilter("all");
+            }}
+          >
+            <option value="all">全部科目</option>
+            {subjects.map((subject) => (
+              <option key={subject.id} value={subject.id}>
+                {subject.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            value={noteNodeFilter}
+            onChange={(event) => setNoteNodeFilter(event.target.value)}
+          >
+            <option value="all">全部节点</option>
+            <option value="none">未关联节点</option>
+            {filterNodeOptions.map((node) => (
+              <option key={node.id} value={node.id}>
+                {"  ".repeat(node.depth)}
+                {node.title}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            value={noteMasteryFilter}
+            onChange={(event) => setNoteMasteryFilter(event.target.value as "all" | NoteMasteryStatusDto)}
+          >
+            <option value="all">全部掌握状态</option>
+            <option value="understood">理解了</option>
+            <option value="partial">似懂非懂</option>
+            <option value="unknown">不会</option>
+            <option value="relearn">需要重学</option>
+            <option value="before_exam">考前再看</option>
+          </select>
+          <select
+            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            value={noteReviewFilter}
+            onChange={(event) => setNoteReviewFilter(event.target.value as "all" | "due" | "scheduled" | "none")}
+          >
+            <option value="all">全部复习提醒</option>
+            <option value="due">已到期</option>
+            <option value="scheduled">已设置</option>
+            <option value="none">未设置</option>
+          </select>
         </div>
 
         <div className="mt-5 grid gap-3">
@@ -182,7 +255,12 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
               还没有笔记。计时结束后的最小产出可以在这里沉淀下来。
             </p>
           ) : null}
-          {notes.map((note) => (
+          {notes.length > 0 && filteredNotes.length === 0 ? (
+            <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
+              当前筛选下没有笔记。
+            </p>
+          ) : null}
+          {filteredNotes.map((note) => (
             <article key={note.id} className="rounded-md border border-white/10 bg-[#151a20] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -244,4 +322,26 @@ function labelMastery(status: NoteMasteryStatusDto | null): string {
     default:
       return "未标记掌握状态";
   }
+}
+
+function matchesSubject(note: NoteDto, subjectFilter: string): boolean {
+  return subjectFilter === "all" || note.subjectId === subjectFilter;
+}
+
+function matchesNode(note: NoteDto, nodeFilter: string): boolean {
+  if (nodeFilter === "all") return true;
+  if (nodeFilter === "none") return note.syllabusNodeId === null;
+  return note.syllabusNodeId === nodeFilter;
+}
+
+function matchesMastery(note: NoteDto, masteryFilter: "all" | NoteMasteryStatusDto): boolean {
+  return masteryFilter === "all" || note.masteryStatus === masteryFilter;
+}
+
+function matchesReview(note: NoteDto, reviewFilter: "all" | "due" | "scheduled" | "none"): boolean {
+  if (reviewFilter === "all") return true;
+  if (reviewFilter === "none") return note.nextReviewAt === null;
+  if (!note.nextReviewAt) return false;
+  if (reviewFilter === "scheduled") return true;
+  return new Date(note.nextReviewAt).getTime() <= Date.now();
 }

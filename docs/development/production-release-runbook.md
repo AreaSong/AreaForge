@@ -1,0 +1,188 @@
+# 生产发布、备份与恢复 Runbook
+
+## 状态
+
+本文件是 `tasks/backlog/0014-deployment-backup-release.md` 和 `workflow/versions/v1.0-prod-release.md` 的实现前确认设计，不是已执行部署。任何生产发布、备份恢复、migration deploy 或服务器命令，都必须等用户明确确认后再做。
+
+## 目标
+
+把 AreaForge 部署为可运行、可备份、可恢复、可回滚的私有 Web 应用。
+
+目标架构：
+
+```text
+Nginx HTTPS -> 127.0.0.1:WEB_PORT -> web container -> postgres
+                                              |
+                                              -> uploads volume
+```
+
+## 发布前门禁
+
+- `pnpm check` 通过。
+- `docker compose config` 通过。
+- `docker compose -f docker-compose.prod.yml config` 通过。
+- 所有需要的 migration 已审查；高风险 migration 已有备份和回滚说明。
+- 生产 `.env` 已准备，权限收紧，不提交到 Git。
+- `APP_URL`、`AUTH_SESSION_SECRET`、`POSTGRES_PASSWORD`、`AI_API_KEY` 使用强随机或真实密钥。
+- `AREAFORGE_IMAGE` 使用固定版本 tag，不使用 `latest`。
+- 上传目录和数据库卷位置明确。
+
+## 备份对象
+
+发布前必须备份：
+
+- PostgreSQL 数据库。
+- 上传目录或 Docker volume。
+- 生产 `.env`。
+- 当前部署版本 tag / 镜像 digest。
+- 当前 `docker-compose.prod.yml` 和 Nginx 配置副本。
+
+每日备份：
+
+- `pg_dump`。
+- 上传目录同周期归档。
+- 至少保留 14 天。
+
+## 发布流程
+
+建议流程：
+
+1. 进入服务器部署目录。
+2. 记录当前版本：
+   - 当前 `AREAFORGE_IMAGE`。
+   - 当前 compose 文件 hash。
+   - 当前 git commit 或 release tag。
+3. 执行发布前备份：
+   - 数据库 dump。
+   - 上传目录归档。
+   - `.env` 加密或权限收紧备份。
+4. 拉取或加载新镜像。
+5. 执行 `docker compose -f docker-compose.prod.yml config`。
+6. 如有 migration：
+   - 确认备份点存在。
+   - 在一次性任务或 web 镜像环境中执行 Prisma migrate deploy。
+7. 启动新版本：
+   - `docker compose -f docker-compose.prod.yml up -d`
+8. 发布后烟测。
+9. 记录发布结果和残余风险。
+
+注意：
+
+- 不通过网页按钮触发部署、migration、备份或恢复。
+- PostgreSQL 不暴露公网端口。
+- 上传目录不由 Nginx 静态暴露。
+
+## Migration deploy 边界
+
+必须确认：
+
+- migration 是否 additive。
+- 是否包含不可逆字段删除或数据压缩。
+- 是否需要旧数据回填。
+- 失败时能否回滚应用镜像并保留新增字段。
+
+生产执行前：
+
+- 数据库备份必须存在。
+- 上传目录备份必须存在。
+- 当前版本 tag 必须记录。
+
+## 恢复演练
+
+恢复不直接覆盖生产，先在临时库和临时上传目录验证。
+
+步骤：
+
+1. 创建临时 PostgreSQL 数据库。
+2. 导入最近一次 `pg_dump`。
+3. 准备临时上传目录或临时 volume。
+4. 启动应用连接临时库和临时上传目录。
+5. 验证：
+   - 登录可用。
+   - 首页可读取数据。
+   - 任务、计时、复盘可读取。
+   - 附件 metadata 指向的文件存在。
+   - 文件 hash 与 metadata 一致。
+6. 验证完成后删除临时库和临时上传目录。
+
+不得在未验证前直接覆盖生产库。
+
+## 回滚流程
+
+如果发布后失败：
+
+1. 停止新版本 web。
+2. 将 `AREAFORGE_IMAGE` 改回上一版本 tag。
+3. `docker compose -f docker-compose.prod.yml up -d web`。
+4. 如果 migration 未改变数据结构或仅 additive，优先只回滚应用镜像。
+5. 如果需要恢复数据库：
+   - 再次确认影响。
+   - 停止 web。
+   - 使用发布前数据库备份恢复。
+   - 同步恢复上传目录备份，保证 metadata 与文件本体一致。
+6. 记录失败原因、恢复时间和残余风险。
+
+## 生产变量检查
+
+必须存在：
+
+- `APP_URL`
+- `APP_VERSION`
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `AUTH_SESSION_SECRET`
+- `AREAFORGE_IMAGE`
+- `UPLOAD_DIR`
+
+AI 若启用还必须存在：
+
+- `AI_ENABLED=true`
+- `AI_BASE_URL`
+- `AI_API_KEY`
+- `AI_MODEL`
+
+禁止：
+
+- 使用本地开发 `AUTH_SESSION_SECRET`。
+- 使用弱 `POSTGRES_PASSWORD`。
+- 把生产 `.env` 提交到 Git。
+- 在日志中打印数据库 URL、AI Key、session token。
+
+## Nginx 检查
+
+- `server_name` 指向真实域名。
+- HTTPS 证书有效。
+- `client_max_body_size` 大于 `MAX_UPLOAD_MB`，当前示例为 `25m`。
+- 只反代到 `127.0.0.1:WEB_PORT`。
+- 不直接暴露 `/app/uploads` 或 Docker volume。
+- 安全响应头保留。
+
+## 发布后烟测
+
+- `GET /api/health` 成功。
+- 未登录访问首页跳转登录。
+- 登录成功，Cookie 为 `HttpOnly`。
+- 首页加载今日作战台。
+- 创建任务、开始计时、结束计时、保存复盘。
+- `/syllabus`、`/notes`、`/analytics`、`/reports` 可打开。
+- 若附件功能已启用：上传和下载一个小测试文件，再删除测试数据需单独确认。
+- `AI_ENABLED=false` 时 AI API 返回本地 fallback。
+- `AI_ENABLED=true` 时只用最小测试数据做真实 provider 烟测。
+
+## 验收命令
+
+本地或 CI：
+
+- `pnpm check`
+- `docker compose config`
+- `docker compose -f docker-compose.prod.yml config`
+
+服务器：
+
+- `docker compose -f docker-compose.prod.yml ps`
+- `docker compose -f docker-compose.prod.yml logs --tail=100 web`
+- `docker compose -f docker-compose.prod.yml logs --tail=100 postgres`
+
+日志检查不得输出密钥、数据库 URL、AI Key、完整 prompt 或隐私正文。
+

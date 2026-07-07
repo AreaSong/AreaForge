@@ -10,8 +10,8 @@
 
 | 改动范围 | 最小验证 |
 |---|---|
-| `docs/**`、`README.md`、`AGENTS.md` | `rg` 检查旧引用和入口路径，`git diff --check` |
-| `tasks/**`、`workflow/**` | 检查对应 `docs/**` 源事实是否存在，`git diff --check` |
+| `docs/**`、`README.md`、`AGENTS.md` | `rg` 检查旧引用和入口路径，`pnpm docs:readiness`，`git diff --check` |
+| `tasks/**`、`workflow/**` | 检查对应 `docs/**` 源事实是否存在，`pnpm docs:readiness`，`git diff --check` |
 | `package.json`、`pnpm-workspace.yaml` | `pnpm install --frozen-lockfile` 或说明无法运行原因，`pnpm check` |
 | `prisma/schema.prisma`、`prisma/migrations/**` | `pnpm db:validate`，涉及 migration 时补充迁移和回滚说明 |
 | `packages/core/**` | 相关单元测试，至少 `pnpm typecheck` |
@@ -21,6 +21,35 @@
 | `apps/web/**` UI | `pnpm check`，可启动时用浏览器或截图检查主要页面 |
 | `infra/**`、`docker-compose*.yml` | `docker compose config`，部署文档同步检查 |
 | `.env.example`、配置解析 | 配置 schema 覆盖检查，敏感字段不入库检查 |
+| 高风险包确认前准备 | `pnpm risk:preflight`，确认只读护栏、配置键、文档引用和危险默认值 |
+
+## Package B Batch 0 专项验证
+
+确认前只允许做文档和护栏准备：
+
+- `pnpm docs:readiness`
+- `pnpm risk:preflight`
+- `git diff --check`
+
+用户明确确认 Batch 0 后，才允许修改 `prisma/schema.prisma` 和生成 migration。实现后至少运行：
+
+- `pnpm db:validate`
+- 临时库显式 `DATABASE_URL=<临时库 URL> pnpm db:migrate:deploy`，不要裸跑 deploy。
+- `pnpm --filter @areaforge/core test`
+- `pnpm --filter @areaforge/web typecheck`
+- `pnpm --filter @areaforge/web lint`
+- `pnpm check`
+- API 烟测：开始计时、结束计时、active session、dashboard、analytics、reports。
+- 页面烟测：首页结束一次计时后刷新，仍能看到有效/低转化状态和收口文本。
+
+注意：`pnpm risk:preflight` 当前的 Package B implementation boundary 是确认前护栏。Batch 0 获确认并完成后，应同步调整脚本为“允许 Batch 0 字段存在，继续阻止 Batch 1-6 未确认模型越界”。
+
+## docs 100% 最终门禁
+
+- `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。
+- `pnpm risk:preflight` 只证明 Package A-E 的确认前护栏存在，不执行上传、migration、AI 外呼、部署或备份恢复；其中 Package C 还检查真实 provider 未接线、Web 侧不读取 AI env/key、AI 上下文保持聚合最小化、首页只允许本地 fallback 成本边界；Package D 还检查只读重排 API、只读阶段调整草稿 API、confirm-only DTO、UI 标签和文档边界。
+- `pnpm docs:completion` 用于最终完成验收；在 `feature-traceability` 仍有“基础版 / 待确认 / 未实现”或缺少高风险完成记录时，预期应失败。
+- 日常文档同步不要求 `pnpm docs:completion` 通过；声称 AreaForge docs 100% 完成前必须通过。
 
 ## 风险升级
 

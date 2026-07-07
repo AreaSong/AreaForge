@@ -1,0 +1,163 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+interface FeatureRow {
+  section: string;
+  feature: string;
+  status: string;
+}
+
+interface CompletionIssue {
+  name: string;
+  detail: string;
+}
+
+const root = process.cwd();
+const traceabilityPath = "docs/development/feature-traceability.md";
+const completionRecordPath = "docs/development/docs-100-completion-record.md";
+const blockingStatusKeywords = [
+  "基础版",
+  "待确认",
+  "未实现",
+] as const;
+const requiredHighRiskPackages = [
+  "Package A",
+  "Package B",
+  "Package C",
+  "Package D",
+  "Package E",
+] as const;
+const incompleteEvidenceKeywords = [
+  "待确认",
+  "未完成",
+  "未验证",
+  "缺失",
+  "阻塞",
+  "NOT_READY",
+] as const;
+
+function main(): void {
+  const issues: CompletionIssue[] = [];
+
+  if (!existsSync(resolve(traceabilityPath))) {
+    issues.push({
+      name: "traceability file",
+      detail: `${traceabilityPath} is missing`,
+    });
+  } else {
+    issues.push(...checkTraceabilityCompletion());
+  }
+
+  issues.push(...checkCompletionRecord());
+
+  if (issues.length === 0) {
+    console.log("docs 100 completion passed: all non-deferred scope has completion evidence.");
+    return;
+  }
+
+  for (const issue of issues) {
+    console.log(`NOT_READY ${issue.name}: ${issue.detail}`);
+  }
+  console.error(`docs 100 completion not ready: ${issues.length} blocker(s).`);
+  process.exit(1);
+}
+
+function checkTraceabilityCompletion(): CompletionIssue[] {
+  const rows = parseTraceabilityRows(read(traceabilityPath));
+  const blockingRows = rows.filter((row) => {
+    if (row.section === "暂缓项") return false;
+    return blockingStatusKeywords.some((status) => row.status.includes(status));
+  });
+
+  if (blockingRows.length === 0) return [];
+
+  const bySection = new Map<string, string[]>();
+  for (const row of blockingRows) {
+    const items = bySection.get(row.section) ?? [];
+    items.push(`${row.feature}=${row.status}`);
+    bySection.set(row.section, items);
+  }
+
+  return Array.from(bySection.entries()).map(([section, items]) => ({
+    name: `feature traceability ${section}`,
+    detail: items.join("; "),
+  }));
+}
+
+function checkCompletionRecord(): CompletionIssue[] {
+  if (!existsSync(resolve(completionRecordPath))) {
+    return [
+      {
+        name: "completion record",
+        detail: `${completionRecordPath} is missing; final docs 100 needs current evidence, not only target criteria`,
+      },
+    ];
+  }
+
+  const record = read(completionRecordPath);
+  const issues: CompletionIssue[] = [];
+  const missingPackages = requiredHighRiskPackages.filter((item) => !record.includes(item));
+  if (missingPackages.length > 0) {
+    issues.push({
+      name: "high-risk completion evidence",
+      detail: `missing ${missingPackages.join(", ")} in ${completionRecordPath}`,
+    });
+  }
+
+  for (const item of requiredHighRiskPackages) {
+    const line = findLine(record, item);
+    if (!line) continue;
+    const isComplete = line.includes("完成") && !incompleteEvidenceKeywords.some((keyword) => line.includes(keyword));
+    if (!isComplete) {
+      issues.push({
+        name: `${item} completion evidence`,
+        detail: `expected a completed evidence line in ${completionRecordPath}`,
+      });
+    }
+  }
+
+  return issues;
+}
+
+function parseTraceabilityRows(content: string): FeatureRow[] {
+  const rows: FeatureRow[] = [];
+  let section = "";
+
+  for (const line of content.split(/\r?\n/)) {
+    if (line.startsWith("## ")) {
+      section = line.replace(/^##\s+/, "").trim();
+      continue;
+    }
+    if (!line.startsWith("| ")) continue;
+    if (line.includes("---")) continue;
+
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    if (cells.length < 2) continue;
+    if (cells[0] === "功能项" || cells[0] === "功能") continue;
+
+    rows.push({
+      section,
+      feature: cells[0],
+      status: cells[1],
+    });
+  }
+
+  return rows;
+}
+
+function findLine(content: string, needle: string): string | undefined {
+  return content.split(/\r?\n/).find((line) => line.includes(needle));
+}
+
+function read(file: string): string {
+  return readFileSync(resolve(file), "utf8");
+}
+
+function resolve(file: string): string {
+  return path.join(root, file);
+}
+
+main();

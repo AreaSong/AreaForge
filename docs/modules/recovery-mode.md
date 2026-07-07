@@ -24,3 +24,4 @@
 - 可以严肃，但不羞辱。
 - 重点不是补偿过去，而是今天重新开始。
 
+当前 `packages/core` 已提供 `rankRecoveryTaskCandidates` 和 `selectRecoveryTaskCandidate` 纯规则，用于恢复模式下排除已完成/跳过任务、优先可见欠账、去重，并在同等优先级下选择预计时长更小的任务。持久化恢复状态、用户手动触发和退出记录仍需结构化 migration 确认后实现。

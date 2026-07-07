@@ -63,6 +63,52 @@ export interface LightweightDebtActionSummary {
   reason: string;
 }
 
+export type TaskDebtReorderAction =
+  | "keep"
+  | "recover"
+  | "defer"
+  | "split"
+  | "drop"
+  | "convert_review";
+
+export type TaskDebtReorderPressure = "normal" | "recovery" | "stage_impact" | "sprint";
+
+export interface TaskDebtReorderTaskInput {
+  id: string;
+  title: string;
+  subject: string;
+  priority: "low" | "medium" | "high" | "critical";
+  estimatedMinutes: number;
+  daysOverdue: number;
+  hasRecentEvidence?: boolean;
+  blocksStageGoal?: boolean;
+  isReviewable?: boolean;
+}
+
+export interface TaskDebtReorderInput {
+  tasks: TaskDebtReorderTaskInput[];
+  pressure: TaskDebtReorderPressure;
+  availableMinutes: number;
+}
+
+export interface TaskDebtReorderSuggestion {
+  taskId: string;
+  action: TaskDebtReorderAction;
+  reason: string;
+  estimatedMinutes: number;
+  rank: number;
+}
+
+export interface TaskDebtReorderPlan {
+  suggestions: TaskDebtReorderSuggestion[];
+  keepTaskIds: string[];
+  deferredTaskIds: string[];
+  droppedTaskIds: string[];
+  canAutoApply: false;
+  requiresUserConfirmation: true;
+  summary: string;
+}
+
 export function normalizeStudyCloseout(input: StudyCloseoutInput): StudyCloseoutSummary {
   const hasOutput = Boolean(input.producedNote || input.producedMistake || input.minimalOutput.trim().length >= 4);
   const canExplain = canExplainFromText(input.understandingLevel, input.note);
@@ -159,6 +205,49 @@ export function summarizeLightweightDebtAction(
     shouldKeepDebtVisible,
     auditAction: auditActionForDebtAction(input.action),
     reason: input.reason?.trim() || defaultDebtActionReason(input.action, input.fromStatus, input.toStatus),
+  };
+}
+
+export function suggestTaskDebtReorder(input: TaskDebtReorderInput): TaskDebtReorderPlan {
+  const taskBudget = budgetForPressure(input.pressure, input.availableMinutes);
+  const ranked = [...input.tasks]
+    .map((task) => ({
+      task,
+      score: scoreDebtTask(task, input.pressure),
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  let usedMinutes = 0;
+  const suggestions = ranked.map(({ task }, index) => {
+    const action = chooseDebtReorderAction({
+      task,
+      pressure: input.pressure,
+      remainingMinutes: Math.max(0, taskBudget - usedMinutes),
+    });
+    const estimatedMinutes = minutesForDebtAction(task, action);
+    if (action === "recover" || action === "split" || action === "convert_review" || action === "keep") {
+      usedMinutes += estimatedMinutes;
+    }
+
+    return {
+      taskId: task.id,
+      action,
+      reason: reasonForDebtSuggestion(task, action, input.pressure),
+      estimatedMinutes,
+      rank: index + 1,
+    };
+  });
+
+  return {
+    suggestions,
+    keepTaskIds: suggestions
+      .filter((item) => item.action === "keep" || item.action === "recover" || item.action === "split" || item.action === "convert_review")
+      .map((item) => item.taskId),
+    deferredTaskIds: suggestions.filter((item) => item.action === "defer").map((item) => item.taskId),
+    droppedTaskIds: suggestions.filter((item) => item.action === "drop").map((item) => item.taskId),
+    canAutoApply: false,
+    requiresUserConfirmation: true,
+    summary: createDebtReorderSummary(suggestions, input.pressure),
   };
 }
 
@@ -322,4 +411,134 @@ function defaultDebtActionReason(
   toStatus: LightweightDebtTaskStatus,
 ): string {
   return `${labelDebtAction(action)}：任务从 ${fromStatus} 流转到 ${toStatus}。`;
+}
+
+function budgetForPressure(pressure: TaskDebtReorderPressure, availableMinutes: number): number {
+  const safeMinutes = Math.max(0, availableMinutes);
+  switch (pressure) {
+    case "recovery":
+      return Math.min(safeMinutes, 90);
+    case "stage_impact":
+      return Math.min(safeMinutes, 180);
+    case "sprint":
+      return Math.min(safeMinutes, 240);
+    case "normal":
+      return Math.min(safeMinutes, 120);
+  }
+}
+
+function scoreDebtTask(task: TaskDebtReorderTaskInput, pressure: TaskDebtReorderPressure): number {
+  return (
+    priorityScore(task.priority) +
+    Math.min(24, task.daysOverdue * 3) +
+    (task.blocksStageGoal ? 28 : 0) +
+    (task.isReviewable ? reviewableScore(pressure) : 0) +
+    (task.hasRecentEvidence ? -10 : 0) -
+    Math.max(0, task.estimatedMinutes - 90) / 6
+  );
+}
+
+function chooseDebtReorderAction(input: {
+  task: TaskDebtReorderTaskInput;
+  pressure: TaskDebtReorderPressure;
+  remainingMinutes: number;
+}): TaskDebtReorderAction {
+  const { task, pressure, remainingMinutes } = input;
+
+  if (pressure === "recovery") {
+    if (task.blocksStageGoal || task.priority === "critical") {
+      return task.estimatedMinutes > remainingMinutes ? "split" : "recover";
+    }
+    if (task.isReviewable) return "convert_review";
+    return "defer";
+  }
+
+  if (pressure === "sprint") {
+    if (task.blocksStageGoal || task.priority === "critical") {
+      return task.estimatedMinutes > remainingMinutes ? "split" : "recover";
+    }
+    if (task.isReviewable) return "convert_review";
+    return task.daysOverdue >= 14 ? "drop" : "defer";
+  }
+
+  if (task.blocksStageGoal) {
+    return task.estimatedMinutes > remainingMinutes ? "split" : "recover";
+  }
+
+  if (task.priority === "critical" || task.priority === "high") {
+    return task.estimatedMinutes > remainingMinutes ? "split" : "recover";
+  }
+
+  if (task.isReviewable && task.daysOverdue >= 3) return "convert_review";
+  if (task.daysOverdue >= 10 && !task.hasRecentEvidence) return "drop";
+  if (task.estimatedMinutes > remainingMinutes) return "defer";
+  return "keep";
+}
+
+function minutesForDebtAction(task: TaskDebtReorderTaskInput, action: TaskDebtReorderAction): number {
+  switch (action) {
+    case "split":
+      return Math.min(45, Math.max(25, Math.ceil(task.estimatedMinutes / 2)));
+    case "convert_review":
+      return Math.min(30, Math.max(20, Math.ceil(task.estimatedMinutes / 3)));
+    case "recover":
+    case "keep":
+      return task.estimatedMinutes;
+    case "defer":
+    case "drop":
+      return 0;
+  }
+}
+
+function reasonForDebtSuggestion(
+  task: TaskDebtReorderTaskInput,
+  action: TaskDebtReorderAction,
+  pressure: TaskDebtReorderPressure,
+): string {
+  switch (action) {
+    case "recover":
+      return task.blocksStageGoal
+        ? "该任务阻塞阶段目标，建议优先补做。"
+        : "优先级和欠账时间较高，建议补做。";
+    case "split":
+      return pressure === "recovery"
+        ? "恢复期不适合硬补大任务，建议拆成一个最小任务。"
+        : "任务体量超过当前可用时间，建议拆小后推进。";
+    case "convert_review":
+      return "该任务可转化为复习动作，先压住遗忘和错题风险。";
+    case "defer":
+      return "当前压强下不应一次补完，建议延期并保留可见。";
+    case "drop":
+      return "该欠账过旧且不阻塞阶段目标，建议放弃，避免继续污染计划。";
+    case "keep":
+      return "该任务仍可保留在当前计划中，暂不需要重排。";
+  }
+}
+
+function createDebtReorderSummary(
+  suggestions: TaskDebtReorderSuggestion[],
+  pressure: TaskDebtReorderPressure,
+): string {
+  const recoverCount = suggestions.filter((item) => item.action === "recover").length;
+  const splitCount = suggestions.filter((item) => item.action === "split").length;
+  const deferCount = suggestions.filter((item) => item.action === "defer").length;
+  const dropCount = suggestions.filter((item) => item.action === "drop").length;
+  return `压强 ${pressure}：建议补做 ${recoverCount} 项，拆小 ${splitCount} 项，延期 ${deferCount} 项，放弃 ${dropCount} 项；所有建议需用户确认后才可应用。`;
+}
+
+function priorityScore(priority: TaskDebtReorderTaskInput["priority"]): number {
+  switch (priority) {
+    case "critical":
+      return 40;
+    case "high":
+      return 28;
+    case "medium":
+      return 16;
+    case "low":
+      return 6;
+  }
+}
+
+function reviewableScore(pressure: TaskDebtReorderPressure): number {
+  return pressure === "sprint" ? 14 : 8;
 }

@@ -19,12 +19,12 @@
 - 每日任务 CRUD。
 - 学习计时开始、暂停、继续、结束持久化。
 - 每晚复盘保存。
-- 考纲树与笔记基础 API/UI 已启动，受限 Markdown 考纲导入已实现；附件上传仍待高风险确认。
-- 任务债务、打卡检查、反假学习和恢复模式已有低风险闭环：本地规则、首页展示、恢复模式任务裁剪、补做/拆小/改复习任务轻量流转和计时收口反假学习判断；`packages/core/src/study-integrity.ts` 已沉淀结构化收口、近窗打卡历史和轻量债务动作规则；完整 `CheckIn`、债务事件账本、结构化收口字段和恢复状态仍需 migration 确认。
-- 错题与掌握证明基础版已启动，考纲节点可看到任务、计时、笔记、错题证据计数；`packages/core/src/mastery-proof.ts` 已沉淀掌握等级、缺失条件、缺失证据和下一步动作的纯规则；`packages/core/src/syllabus-map.ts` 已沉淀作战地图格子状态、标记、原因和下一步动作纯规则；考纲服务和页面已开始消费这些规则。
+- 考纲树与笔记基础 API/UI 已启动，受限 Markdown 考纲导入已实现；考纲节点已读取已有任务、计时、笔记和错题更新时间派生证据新鲜度，结束计时会同步累加关联考纲节点实际时长；笔记库已支持科目、节点、掌握状态和复习提醒筛选；附件上传仍待高风险确认。
+- 任务债务、打卡检查、反假学习和恢复模式已有低风险闭环：本地规则、首页展示、恢复模式任务裁剪、补做/拆小/改复习任务轻量流转、只读债务重排建议和计时收口反假学习判断；`packages/core/src/study-integrity.ts` 已沉淀结构化收口、近窗打卡历史、轻量债务动作和债务重排建议规则；完整 `CheckIn`、债务事件账本、结构化收口字段和恢复状态仍需 migration 确认。
+- 错题与掌握证明基础版已启动，考纲节点可看到任务、计时、笔记、错题证据计数和最近证据时间；`packages/core/src/mastery-proof.ts` 已沉淀掌握等级、缺失条件、缺失证据、证据过旧风险和下一步动作的纯规则；`packages/core/src/syllabus-map.ts` 已沉淀作战地图格子状态、标记、原因、下一步动作和聚合摘要纯规则；考纲 API、服务和页面已开始消费这些规则。
 - 动机封存、情绪标签、阶段称号和动机唤醒基础版已完成，且默认不进入 AI 上下文。
-- 基础统计与作战地图完善已完成低风险闭环：统计页、只读统计 API、近 7 天派生指标、风险提醒、作战地图状态筛选。
-- 周审判与月复盘报告已完成低风险闭环：只读周期报告 API、报告页、规则策略和本地规则复盘草稿。
+- 基础统计与作战地图完善已完成低风险闭环：统计页、只读统计 API、近 7 天派生指标、`summarizeAnalyticsRisks` 统计风险规则、风险提醒、作战地图状态筛选和行动类型筛选。
+- 周审判与月复盘报告已完成低风险闭环：只读周期报告 API、报告页、`choosePeriodicWeakness` 最大短板选择规则、`summarizePeriodicReportStrategy` 周期策略规则和本地规则复盘草稿。
 - 全真模拟考试已启动低风险基础入口：复用 `StudyTask.type = "simulation_exam"` 保存模拟任务和文本化结果，提供 `/simulation` 页面、本地阶段准备度草稿和第一次全真自测阶段日记保存；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并已接入模拟结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用，并已接入 `/simulation` 阶段调整草稿；完整 `SimulationExam`、阶段计划和 AI 阶段调整仍需高风险确认后推进。
 - AI 建议已启动 disabled 基础入口：`packages/ai` 提供结构化 schema、本地规则 fallback、非外呼 provider 抽象、mock 测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页草稿展示；真实外部 AI 调用仍需高风险确认。
 
@@ -35,6 +35,15 @@
 3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：确认 migration 方案后，基于已收口的 core 规则补结构化 `CheckIn`、债务事件账本、恢复状态和更完整的连续性统计。
 4. `tasks/backlog/0013-simulation-stage-adjustment.md`：继续完成结构化全真模拟考试、阶段计划和 AI 阶段调整。
 5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复和发布闭环。
+
+实现前确认设计：
+
+- 附件上传与鉴权访问：`docs/development/attachment-upload-access-design.md`。
+- 结构化学习状态 migration：`docs/development/structured-state-migration-design.md`。
+- 真实 AI provider 接入：`docs/development/ai-provider-integration-design.md`。
+- 生产发布、备份与恢复：`docs/development/production-release-runbook.md`。
+- 高风险确认总表：`docs/development/high-risk-confirmation-packets.md`。
+- docs 100% 验收证据：`docs/development/docs-100-acceptance-evidence.md`。
 
 ## 下一批高风险确认包
 
@@ -56,17 +65,19 @@
 - 保持当前低风险基线可验证：登录、任务、计时、复盘、考纲、笔记、错题、动机、统计、报告、模拟基础入口、AI fallback、storage 纯规则，以及 core 中的收口、打卡、债务、掌握证明、作战地图、模拟结果和阶段调整规则。
 - 每次进入高风险阶段前先跑与改动范围匹配的验证，至少包括相关包测试、`pnpm check` 和 `git diff --check`。
 - 文档同步到 `docs/**`、`tasks/**`、`workflow/**`，避免后续按过时状态判断进度。
+- 用 `docs/development/feature-traceability.md` 逐项追踪第一版、第二阶段和暂缓项，不能只用单个 MVP 的完成度代替 docs 100%。
 
 ### 1. 结构化数据模型批次
 
-需要明确 migration 方案、验证和回滚后推进，建议按 additive migration（只新增字段/表，暂不删除旧字段）拆批：
+需要明确 migration 方案、验证和回滚后推进，按 additive migration（只新增字段/表，暂不删除旧字段）逐批确认：
 
-1. `StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、反假学习原因、是否产生笔记/错题。
-2. `CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。
-3. 任务债务事件账本：补做、延期、放弃、拆小、合并、改复习、父子关系、重排采纳记录。
-4. 掌握证明：掌握条件、证据引用、复测记录。
-5. 结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。
-6. 阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的应用记录。
+1. Batch 0：`StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、反假学习原因、是否产生笔记/错题。
+2. Batch 1：`CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。
+3. Batch 2：任务债务事件账本和父子任务关系：补做、延期、放弃、拆小、合并、改复习、重排采纳记录。
+4. Batch 3：`RecoveryState` 恢复状态：规则触发、手动触发、退出条件和恢复记录。
+5. Batch 4：掌握证明：掌握条件、证据引用、复测记录。
+6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。
+7. Batch 6：阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的应用记录。
 
 ### 2. 第一版功能补全
 
@@ -82,7 +93,7 @@
 
 需要附件高风险确认后推进：
 
-- `POST /api/attachments`：单文件上传，第一版优先关联 `noteId`。
+- `POST /api/notes/:noteId/attachments`：单文件上传，第一版只关联笔记。
 - `GET /api/attachments/:id`：鉴权下载或受控预览。
 - 服务端写入 `UPLOAD_DIR`，随机 storedName，数据库只保存 metadata、hash、URI。
 - 校验大小、允许 MIME、magic bytes、路径穿越、真实路径和软链接逃逸。

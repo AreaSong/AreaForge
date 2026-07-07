@@ -106,11 +106,26 @@ function ReportSection({ report }: { report: PeriodicReportDto }) {
             <h3 className="text-lg font-semibold text-white">最大短板</h3>
           </div>
           <div className="mt-5 rounded-md border border-amber-300/20 bg-amber-300/10 p-4">
+            <div className="mb-3 flex flex-wrap gap-2">
+              <span className="rounded-md border border-amber-200/20 px-2 py-1 text-xs text-amber-50">
+                {labelWeaknessSource(report.weakness.source)}
+              </span>
+              <span className="rounded-md border border-amber-200/20 px-2 py-1 text-xs text-amber-50">
+                {labelWeaknessSeverity(report.weakness.severity)}
+              </span>
+            </div>
             <h4 className="font-medium text-white">{report.weakness.title}</h4>
             <p className="mt-2 text-sm leading-6 text-amber-50">{report.weakness.detail}</p>
             {report.weakness.syllabusNodeTitle ? (
               <p className="mt-2 text-xs text-amber-100/70">节点：{report.weakness.syllabusNodeTitle}</p>
             ) : null}
+            <div className="mt-3 grid gap-2">
+              {report.weakness.reasons.map((reason) => (
+                <p key={reason} className="rounded-md border border-amber-200/10 bg-black/10 px-3 py-2 text-xs leading-5 text-amber-50/90">
+                  {reason}
+                </p>
+              ))}
+            </div>
           </div>
 
           <div className="mt-5 grid gap-3">
@@ -129,7 +144,15 @@ function ReportSection({ report }: { report: PeriodicReportDto }) {
 
       <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-lg border border-white/10 bg-[#101419] p-5">
-          <h3 className="text-lg font-semibold text-white">阶段策略</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold text-white">阶段策略</h3>
+            <span className="rounded-md border border-sky-200/20 px-2 py-1 text-xs text-sky-100">
+              {report.strategy.canAutoApply ? "可自动应用" : "只读建议"}
+            </span>
+            <span className="rounded-md border border-sky-200/20 px-2 py-1 text-xs text-sky-100">
+              {report.strategy.requiresUserConfirmation ? "需确认" : "无需确认"}
+            </span>
+          </div>
           <div className="mt-5 grid gap-3">
             <p className="rounded-md border border-sky-300/20 bg-sky-300/10 px-4 py-3 text-sm leading-6 text-sky-50">
               {labelTheme(report.strategy.theme)}：{report.strategy.stageAdjustment}
@@ -152,9 +175,15 @@ function ReportSection({ report }: { report: PeriodicReportDto }) {
         </div>
 
         <div className="rounded-lg border border-white/10 bg-[#101419] p-5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <BrainCircuit className="h-5 w-5 text-violet-300" aria-hidden="true" />
             <h3 className="text-lg font-semibold text-white">复盘建议草稿</h3>
+            <span className="rounded-md border border-violet-200/20 px-2 py-1 text-xs text-violet-100">
+              {report.aiDraft.canAutoApply ? "可自动应用" : "只读建议"}
+            </span>
+            <span className="rounded-md border border-violet-200/20 px-2 py-1 text-xs text-violet-100">
+              {report.aiDraft.requiresUserConfirmation ? "需确认" : "无需确认"}
+            </span>
           </div>
           <div className="mt-5 rounded-md border border-violet-300/20 bg-violet-300/10 p-4">
             <p className="text-sm text-violet-100">{report.aiDraft.title}</p>
@@ -210,5 +239,35 @@ function labelTheme(theme: PeriodicReportDto["strategy"]["theme"]): string {
       return "冲刺主题";
     case "steady":
       return "稳态推进";
+  }
+}
+
+function labelWeaknessSource(source: PeriodicReportDto["weakness"]["source"]): string {
+  switch (source) {
+    case "syllabus_node":
+      return "来源：考纲节点";
+    case "debt_subject":
+      return "来源：欠账科目";
+    case "zero_effective_subject":
+      return "来源：投入缺口";
+    case "low_conversion":
+      return "来源：低转化";
+    case "none":
+      return "来源：稳态";
+  }
+}
+
+function labelWeaknessSeverity(severity: PeriodicReportDto["weakness"]["severity"]): string {
+  switch (severity) {
+    case "critical":
+      return "级别：严重";
+    case "high":
+      return "级别：偏高";
+    case "medium":
+      return "级别：中等";
+    case "low":
+      return "级别：轻微";
+    case "clear":
+      return "级别：清晰";
   }
 }

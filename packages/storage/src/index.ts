@@ -53,6 +53,10 @@ export interface SafeAttachmentPath {
   filePath: string;
 }
 
+export interface SafeAttachmentPathOptions {
+  forbiddenDirectories?: readonly string[];
+}
+
 export interface AttachmentResponseHeaderInput {
   mimeType: string;
   originalName: string;
@@ -203,14 +207,32 @@ export function normalizeOriginalFileName(name: string): string {
   return normalized.slice(0, 180) || "attachment";
 }
 
-export function createSafeAttachmentFilePath(uploadDir: string, storedName: string): SafeAttachmentPath {
+export function createSafeAttachmentFilePath(
+  uploadDir: string,
+  storedName: string,
+  options: SafeAttachmentPathOptions = {},
+): SafeAttachmentPath {
   if (!isSafeStoredAttachmentName(storedName)) {
     throw new Error("UNSAFE_STORED_NAME");
   }
 
-  const uploadRoot = path.resolve(uploadDir);
-  if (!path.isAbsolute(uploadRoot) || uploadRoot === path.parse(uploadRoot).root) {
+  if (!path.isAbsolute(uploadDir)) {
     throw new Error("UNSAFE_UPLOAD_DIR");
+  }
+
+  const uploadRoot = path.resolve(uploadDir);
+  if (uploadRoot === path.parse(uploadRoot).root) {
+    throw new Error("UNSAFE_UPLOAD_DIR");
+  }
+
+  for (const forbiddenDirectory of options.forbiddenDirectories ?? []) {
+    if (!path.isAbsolute(forbiddenDirectory)) {
+      throw new Error("UNSAFE_FORBIDDEN_DIR");
+    }
+
+    if (isPathInsideDirectory(forbiddenDirectory, uploadRoot)) {
+      throw new Error("UPLOAD_DIR_PUBLIC");
+    }
   }
 
   const filePath = path.resolve(uploadRoot, storedName);

@@ -1,3 +1,8 @@
+import {
+  choosePeriodicWeakness,
+  summarizePeriodicReportStrategy,
+  type PeriodicWeaknessNodeStatus,
+} from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { getStudyDayRange } from "./date";
 
@@ -50,6 +55,9 @@ export interface PeriodicReportDto {
   weakness: {
     title: string;
     detail: string;
+    source: "syllabus_node" | "debt_subject" | "zero_effective_subject" | "low_conversion" | "none";
+    severity: "critical" | "high" | "medium" | "low" | "clear";
+    reasons: string[];
     subjectName?: string;
     syllabusNodeTitle?: string;
   };
@@ -59,12 +67,16 @@ export interface PeriodicReportDto {
     stageAdjustment: string;
     theme: "recovery" | "strengthening" | "sprint" | "steady";
     calmConclusion: string;
+    canAutoApply: false;
+    requiresUserConfirmation: true;
   };
   aiDraft: {
     status: "local_rule_fallback";
     title: string;
     content: string;
     reason: string;
+    canAutoApply: false;
+    requiresUserConfirmation: true;
   };
 }
 
@@ -224,7 +236,24 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
   const mistakesCreatedCount = mistakes.filter((mistake) => isWithin(mistake.createdAt, range.start, range.end)).length;
   const mistakeReviewUpdateCount = mistakes.filter((mistake) => isReviewUpdate(mistake, range.start, range.end)).length;
   const subjectShares = buildSubjectShares(subjects, sessions, debtTasks, mistakes);
-  const weakness = chooseWeakness({ subjectShares, debtTasks, weakNodes, lowConversionCount });
+  const weakness = choosePeriodicWeakness({
+    subjectShares: subjectShares.map((subject) => ({
+      subjectName: subject.subjectName,
+      effectiveMinutes: subject.effectiveMinutes,
+    })),
+    debtTasks: debtTasks.map((task) => ({
+      subjectName: task.subject.name,
+    })),
+    weakNodes: weakNodes.map((node) => ({
+      title: node.title,
+      status: toCoreWeaknessNodeStatus(node.status),
+      subjectName: node.subject.name,
+      mistakeCount: node._count.mistakes,
+      noteCount: node._count.notes,
+      sessionCount: node._count.sessions,
+    })),
+    lowConversionCount,
+  });
   const strategy = createStrategy({
     kind,
     effectiveMinutes,
@@ -234,6 +263,8 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     mistakesCreatedCount,
     mistakeReviewUpdateCount,
     reviewCompletionRate: reviews.length / range.days,
+    weakNodeCount: weakNodes.length,
+    dueNoteCount: dueNotes.length,
     weakness,
   });
 
@@ -335,69 +366,6 @@ function buildSubjectShares(
   });
 }
 
-function chooseWeakness(input: {
-  subjectShares: PeriodicSubjectShareDto[];
-  debtTasks: Array<{
-    subject: { name: string };
-  }>;
-  weakNodes: Array<{
-    title: string;
-    status: DbSyllabusNodeStatus;
-    subject: { name: string };
-    _count: {
-      mistakes: number;
-      notes: number;
-      sessions: number;
-    };
-  }>;
-  lowConversionCount: number;
-}): PeriodicReportDto["weakness"] {
-  const strongestNode = [...input.weakNodes].sort((left, right) => {
-    const leftWeight = weaknessWeight(left.status, left._count.mistakes);
-    const rightWeight = weaknessWeight(right.status, right._count.mistakes);
-    return rightWeight - leftWeight;
-  })[0];
-
-  if (strongestNode) {
-    return {
-      title: strongestNode.status === "WEAK" ? "最大短板：薄弱节点" : "最大短板：错题集中节点",
-      detail: `${strongestNode.subject.name} / ${strongestNode.title}：错题 ${strongestNode._count.mistakes}，计时证据 ${strongestNode._count.sessions}，笔记 ${strongestNode._count.notes}。`,
-      subjectName: strongestNode.subject.name,
-      syllabusNodeTitle: strongestNode.title,
-    };
-  }
-
-  const debtSubject = mostFrequent(input.debtTasks.map((task) => task.subject.name));
-  if (debtSubject) {
-    return {
-      title: "最大短板：任务欠账集中",
-      detail: `${debtSubject} 的欠账最多，下周期先压这个科目。`,
-      subjectName: debtSubject,
-    };
-  }
-
-  const lowShareSubject = input.subjectShares.find((subject) => subject.effectiveMinutes === 0);
-  if (lowShareSubject) {
-    return {
-      title: "最大短板：投入缺口",
-      detail: `${lowShareSubject.subjectName} 本周期没有有效学习记录。`,
-      subjectName: lowShareSubject.subjectName,
-    };
-  }
-
-  if (input.lowConversionCount > 0) {
-    return {
-      title: "最大短板：低转化学习",
-      detail: `本周期有 ${input.lowConversionCount} 次学习被标记为低转化。`,
-    };
-  }
-
-  return {
-    title: "最大短板：暂无明确集中风险",
-    detail: "当前数据没有显示单一短板，继续保持任务、计时、笔记和错题的关联。",
-  };
-}
-
 function createStrategy(input: {
   kind: PeriodicReportKind;
   effectiveMinutes: number;
@@ -407,45 +375,32 @@ function createStrategy(input: {
   mistakesCreatedCount: number;
   mistakeReviewUpdateCount: number;
   reviewCompletionRate: number;
+  weakNodeCount: number;
+  dueNoteCount: number;
   weakness: PeriodicReportDto["weakness"];
 }): PeriodicReportDto["strategy"] {
-  const nextActions: string[] = [];
-  const minimumMinutes = input.kind === "week" ? 180 : 900;
-
-  if (input.effectiveMinutes < minimumMinutes) {
-    nextActions.push(input.kind === "week" ? "下周先保证 3 次有效学习闭环。" : "下月先保证每周至少 3 次有效学习闭环。");
-  }
-
-  if (input.taskCompletionRate < 0.5) {
-    nextActions.push("把下一周期任务量降到能完成，优先最高优先级任务。");
-  }
-
-  if (input.debtCount > 0) {
-    nextActions.push("欠账不全补，只挑最影响阶段推进的 1 到 2 项。");
-  }
-
-  if (input.lowConversionCount > 0) {
-    nextActions.push("每次计时结束必须留下一个可检查产出。");
-  }
-
-  if (input.mistakesCreatedCount > input.mistakeReviewUpdateCount) {
-    nextActions.push("新增错题必须配套复盘更新，别只收集不会。");
-  }
-
-  if (input.reviewCompletionRate < 0.5) {
-    nextActions.push("复盘缺口先补，至少写清失控点和下个最小动作。");
-  }
-
-  const theme = chooseTheme(input);
-  const mustPressIssue = chooseMustPressIssue(input);
-  const stageAdjustment = createStageAdjustment(theme, input.kind);
+  const strategy = summarizePeriodicReportStrategy({
+    kind: input.kind,
+    effectiveMinutes: input.effectiveMinutes,
+    taskCompletionRate: input.taskCompletionRate,
+    debtCount: input.debtCount,
+    lowConversionCount: input.lowConversionCount,
+    mistakesCreatedCount: input.mistakesCreatedCount,
+    mistakeReviewCount: input.mistakeReviewUpdateCount,
+    reviewCompletionRate: input.reviewCompletionRate,
+    weakNodeCount: input.weakNodeCount,
+    dueNoteCount: input.dueNoteCount,
+    maxWeakness: input.weakness.detail,
+  });
 
   return {
-    mustPressIssue,
-    nextActions: nextActions.length > 0 ? [...new Set(nextActions)].slice(0, 5) : ["保持当前节奏，并把产出继续关联到考纲节点。"],
-    stageAdjustment,
-    theme,
-    calmConclusion: createCalmConclusion(theme, mustPressIssue),
+    mustPressIssue: strategy.mustPressIssue,
+    nextActions: strategy.nextActions,
+    stageAdjustment: strategy.stageAdjustment,
+    theme: strategy.theme,
+    calmConclusion: strategy.calmConclusion,
+    canAutoApply: strategy.canAutoApply,
+    requiresUserConfirmation: strategy.requiresUserConfirmation,
   };
 }
 
@@ -455,64 +410,9 @@ function createLocalReportDraft(strategy: PeriodicReportDto["strategy"]): Period
     title: "本地规则复盘草稿",
     content: `${strategy.calmConclusion} 下一周期只压一件事：${strategy.mustPressIssue}`,
     reason: "本次报告没有调用外部 AI，避免默认发送长期学习记录、情绪记录或动机档案。",
+    canAutoApply: false,
+    requiresUserConfirmation: true,
   };
-}
-
-function chooseTheme(input: {
-  effectiveMinutes: number;
-  taskCompletionRate: number;
-  debtCount: number;
-  lowConversionCount: number;
-}): PeriodicReportDto["strategy"]["theme"] {
-  if (input.effectiveMinutes < 120 || input.taskCompletionRate < 0.3 || input.debtCount >= 8) return "recovery";
-  if (input.lowConversionCount >= 3 || input.taskCompletionRate < 0.6) return "strengthening";
-  if (input.effectiveMinutes >= 1800 && input.taskCompletionRate >= 0.75) return "sprint";
-  return "steady";
-}
-
-function chooseMustPressIssue(input: {
-  effectiveMinutes: number;
-  taskCompletionRate: number;
-  debtCount: number;
-  lowConversionCount: number;
-  mistakesCreatedCount: number;
-  mistakeReviewUpdateCount: number;
-  weakness: PeriodicReportDto["weakness"];
-}): string {
-  if (input.effectiveMinutes < 120) return "先恢复有效学习时长，不扩任务。";
-  if (input.taskCompletionRate < 0.5) return "先压任务完成率，减少明面任务数量。";
-  if (input.debtCount > 0) return "先处理最影响阶段推进的欠账。";
-  if (input.lowConversionCount > 0) return "先提高学习转化率，每次必须留产出。";
-  if (input.mistakesCreatedCount > input.mistakeReviewUpdateCount) return "先把新增错题变成复盘证据。";
-  return input.weakness.detail;
-}
-
-function createStageAdjustment(theme: PeriodicReportDto["strategy"]["theme"], kind: PeriodicReportKind): string {
-  const target = kind === "week" ? "下周" : "下月";
-
-  switch (theme) {
-    case "recovery":
-      return `${target} 减少任务量，先恢复有效学习和复盘闭环。`;
-    case "strengthening":
-      return `${target} 任务不求多，重点压低转化和薄弱节点。`;
-    case "sprint":
-      return `${target} 可以提高压强：增加真题、错题和模拟复盘比重。`;
-    case "steady":
-      return `${target} 保持稳态推进：延续当前节奏，同时给最大短板固定时间块。`;
-  }
-}
-
-function createCalmConclusion(theme: PeriodicReportDto["strategy"]["theme"], mustPressIssue: string): string {
-  switch (theme) {
-    case "recovery":
-      return "这不是总结失败，是把系统拉回可执行状态。";
-    case "strengthening":
-      return "问题已经出现形状了，接下来不要扩张，先把短板打穿。";
-    case "sprint":
-      return "节奏已经起来了，接下来要把投入压到真题、错题和复盘上。";
-    case "steady":
-      return `当前可以稳态推进，但不能无视这个问题：${mustPressIssue}`;
-  }
 }
 
 function calculateTaskCompletion(tasks: Array<{ status: DbTaskStatus }>): number {
@@ -520,18 +420,23 @@ function calculateTaskCompletion(tasks: Array<{ status: DbTaskStatus }>): number
   return tasks.filter((task) => task.status === "DONE").length / tasks.length;
 }
 
-function weaknessWeight(status: DbSyllabusNodeStatus, mistakeCount: number): number {
-  const statusWeight = status === "WEAK" ? 4 : status === "NEEDS_REVIEW" ? 3 : 1;
-  return statusWeight + mistakeCount;
-}
-
-function mostFrequent(values: string[]): string | null {
-  const counts = new Map<string, number>();
-  for (const value of values) {
-    counts.set(value, (counts.get(value) ?? 0) + 1);
+function toCoreWeaknessNodeStatus(status: DbSyllabusNodeStatus): PeriodicWeaknessNodeStatus {
+  switch (status) {
+    case "NOT_STARTED":
+      return "not_started";
+    case "LEARNING":
+      return "learning";
+    case "COVERED":
+      return "covered";
+    case "NEEDS_REVIEW":
+      return "needs_review";
+    case "MASTERED":
+      return "mastered";
+    case "WEAK":
+      return "weak";
+    case "DEFERRED":
+      return "deferred";
   }
-
-  return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? null;
 }
 
 function isWithin(value: Date, start: Date, end: Date): boolean {

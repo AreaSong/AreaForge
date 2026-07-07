@@ -118,7 +118,25 @@ test("createSafeAttachmentFilePath keeps files inside upload root", () => {
   assert.equal(isPathInsideDirectory("/app/uploads", "/app/uploads/abcDEF1234567890.png"), true);
   assert.equal(isPathInsideDirectory("/app/uploads", "/app/uploads-next/abcDEF1234567890.png"), false);
   assert.throws(() => createSafeAttachmentFilePath("/", "abcDEF1234567890.png"), /UNSAFE_UPLOAD_DIR/);
+  assert.throws(() => createSafeAttachmentFilePath("uploads", "abcDEF1234567890.png"), /UNSAFE_UPLOAD_DIR/);
   assert.throws(() => createSafeAttachmentFilePath("/app/uploads", "../abcDEF1234567890.png"), /UNSAFE_STORED_NAME/);
+});
+
+test("createSafeAttachmentFilePath rejects public upload roots", () => {
+  assert.throws(
+    () =>
+      createSafeAttachmentFilePath("/app/apps/web/public/uploads", "abcDEF1234567890.png", {
+        forbiddenDirectories: ["/app/apps/web/public"],
+      }),
+    /UPLOAD_DIR_PUBLIC/,
+  );
+  assert.throws(
+    () =>
+      createSafeAttachmentFilePath("/app/uploads", "abcDEF1234567890.png", {
+        forbiddenDirectories: ["apps/web/public"],
+      }),
+    /UNSAFE_FORBIDDEN_DIR/,
+  );
 });
 
 test("createAttachmentResponseHeaders emits private nosniff download headers", () => {

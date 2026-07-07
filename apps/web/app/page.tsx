@@ -180,7 +180,12 @@ export default async function Home() {
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-          <TaskPanel subjects={dashboard.subjects} tasks={visibleTasks} syllabusNodes={syllabusNodes} />
+          <TaskPanel
+            subjects={dashboard.subjects}
+            tasks={visibleTasks}
+            syllabusNodes={syllabusNodes}
+            debtReorder={dashboard.debtReorder}
+          />
 
           <div className="rounded-lg border border-white/10 bg-[#101419] p-5">
             <SectionTitle icon={BookOpen} title="考纲作战地图" />

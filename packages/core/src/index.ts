@@ -4,6 +4,9 @@ export * from "./stage-adjustment";
 export * from "./syllabus-map";
 export * from "./simulation-result";
 export * from "./syllabus-import";
+export * from "./periodic-report";
+export * from "./recovery-task";
+export * from "./analytics-summary";
 
 export type RiskState =
   | "rising"

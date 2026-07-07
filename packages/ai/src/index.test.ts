@@ -180,3 +180,42 @@ test("sensitive context finder detects nested private fields", () => {
     ["context.nested.firstSimulationDiary", "context.tasks[0].reviewText"],
   );
 });
+
+test("sensitive context finder detects key naming variants", () => {
+  assert.deepEqual(
+    findSensitiveContextKeys({
+      api_key: "secret",
+      "session-token": "secret",
+      uploadDir: "/private/uploads",
+      dailyReviewSummary: "完整复盘摘要",
+      moodText: "完整情绪正文",
+      pdfContent: "PDF 原文",
+      attachmentFilePath: "/private/uploads/a.pdf",
+    }),
+    [
+      "context.api_key",
+      "context.attachmentFilePath",
+      "context.dailyReviewSummary",
+      "context.moodText",
+      "context.pdfContent",
+      "context.session-token",
+      "context.uploadDir",
+    ],
+  );
+});
+
+test("safe minimized AI contexts are not marked sensitive", () => {
+  assert.deepEqual(
+    findSensitiveContextKeys({
+      phase: "基础唤醒期",
+      riskState: "stable",
+      streakDays: 3,
+      taskCompletionRate: 0.6,
+      effectiveMinutes: 80,
+      moodTag: "焦虑",
+      weakSubject: "数学",
+      debtCount: 2,
+    }),
+    [],
+  );
+});

@@ -12,7 +12,8 @@
 - 周审判报告：近 7 个学习日口径，展示学习时长、有效时长、科目投入占比、任务完成率、欠账、低转化、错题新增与错题记录更新。
 - 月复盘报告：本月学习日口径，展示同类指标、最大短板、阶段主题和下周期策略。
 - 最大短板来自薄弱/需复习/错题集中节点、欠账集中科目、投入缺口或低转化学习。
-- 下周期必须压住的问题和动作建议由本地规则生成，不自动改计划。
+- 最大短板选择已下沉到 `packages/core` 的 `choosePeriodicWeakness` 纯规则，Web 报告服务只负责把数据库结果映射成平台无关输入；报告页已只读展示短板来源、严重度和选择依据。
+- 下周期必须压住的问题、动作建议和本地复盘草稿由本地规则生成，策略 DTO 和 AI 草稿 DTO 均透传 `canAutoApply=false` 和 `requiresUserConfirmation=true`，不自动改计划。
 - AI 区域当前明确显示为“本地规则复盘草稿”，默认不调用外部 AI，不发送长期记录、情绪记录或动机档案。
 - 首页新增“报告”入口。
 
@@ -36,6 +37,7 @@
 - `pnpm --filter @areaforge/web typecheck` 通过。
 - `pnpm --filter @areaforge/web lint` 通过。
 - `pnpm --filter @areaforge/core test` 通过。
+- 追加验证：`pnpm --filter @areaforge/core test` 覆盖最大短板选择的薄弱节点、欠账集中科目、零有效投入科目、低转化回退分支，以及短板来源、严重度和选择依据字段。
 - `pnpm check` 通过。
 - `git diff --check` 通过。
 - API 烟测通过：

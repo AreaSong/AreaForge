@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { SyllabusManager } from "@/components/syllabus-manager";
 import { getCurrentUser } from "@/lib/auth/session";
 import { listSubjects } from "@/lib/study/service";
-import { listSyllabusTree } from "@/lib/study/syllabus-service";
+import { getSyllabusMapOverview } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export default async function SyllabusPage() {
     redirect("/login");
   }
 
-  const [subjects, nodes] = await Promise.all([listSubjects(), listSyllabusTree()]);
+  const [subjects, overview] = await Promise.all([listSubjects(), getSyllabusMapOverview()]);
 
   return (
     <main className="min-h-screen bg-[#080b0f] text-zinc-100">
@@ -39,7 +39,12 @@ export default async function SyllabusPage() {
           </Link>
         </header>
 
-        <SyllabusManager subjects={subjects} nodes={nodes} />
+        <SyllabusManager
+          subjects={subjects}
+          nodes={overview.nodes}
+          summary={overview.summary}
+          summaryBySubject={overview.summaryBySubject}
+        />
       </div>
     </main>
   );

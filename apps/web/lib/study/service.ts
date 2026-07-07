@@ -6,8 +6,12 @@ import {
   evaluateDailyCheckIn,
   getTimerElapsedSeconds,
   normalizeStudyCloseout,
+  rankRecoveryTaskCandidates,
+  suggestTaskDebtReorder,
   type DashboardInput,
+  type RiskState,
   type StudyTaskInput,
+  type TaskDebtReorderPressure,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
@@ -19,6 +23,7 @@ import type {
   StudySessionDto,
   StudyTaskDto,
   SubjectDto,
+  TaskDebtReorderDto,
   SyllabusOverviewDto,
   TodayDashboardDto,
 } from "./types";
@@ -100,7 +105,18 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
   const recentStart = new Date(day.start.getTime() - 60 * 24 * 60 * 60 * 1000);
   const weeklyStart = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-  const [subjects, tasks, todaySessions, activeSession, review, debtCount, debtTasks, recentSessions, motivationVault] = await Promise.all([
+  const [
+    subjects,
+    tasks,
+    todaySessions,
+    activeSession,
+    review,
+    debtCount,
+    debtTasks,
+    debtReorderTasks,
+    recentSessions,
+    motivationVault,
+  ] = await Promise.all([
     prisma.subject.findMany({
       orderBy: { sortOrder: "asc" },
       include: {
@@ -181,6 +197,22 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
       orderBy: [{ priority: "desc" }, { plannedDate: "asc" }],
       take: 5,
     }),
+    prisma.studyTask.findMany({
+      where: {
+        plannedDate: {
+          lt: day.start,
+        },
+        status: {
+          notIn: ["DONE", "SKIPPED"],
+        },
+      },
+      include: {
+        subject: true,
+        syllabusNode: true,
+      },
+      orderBy: [{ priority: "desc" }, { plannedDate: "asc" }],
+      take: 12,
+    }),
     prisma.studySession.findMany({
       where: {
         startedAt: {
@@ -203,6 +235,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
   const sessionDtos = todaySessions.map(serializeSession);
   const taskDtos = tasks.map(serializeTask);
   const debtTaskDtos = debtTasks.map(serializeTask);
+  const debtReorderTaskDtos = debtReorderTasks.map(serializeTask);
   const todayMinutes = sumTodayMinutes(sessionDtos, activeSession ? serializeSession(activeSession) : null, now);
   const effectiveMinutes = sessionDtos
     .filter((session) => session.isEffective)
@@ -267,6 +300,12 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
   const visibleRecoveryTasks = recovery.active
     ? recoveryTaskCandidates.slice(0, recovery.visibleTaskLimit)
     : taskDtos;
+  const debtReorder = createTaskDebtReorder({
+    tasks: debtReorderTaskDtos,
+    dayStart: day.start,
+    pressure: determineDebtReorderPressure(snapshot.riskState, stage.pressure, recovery.active),
+    availableMinutes: determineDebtReorderAvailableMinutes(stage.pressure, recovery.active, recovery.minimumMinutes),
+  });
 
   return {
     studyDay: {
@@ -296,6 +335,7 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
     subjects: subjects.map(serializeSubject),
     tasks: taskDtos,
     debtTasks: debtTaskDtos,
+    debtReorder,
     visibleRecoveryTasks,
     activeSession: activeSession ? serializeSession(activeSession) : null,
     review: review ? serializeReview(review) : null,
@@ -309,6 +349,11 @@ export async function getTodayDashboard(now = new Date()): Promise<TodayDashboar
       ai: "AI disabled 时使用本地规则建议；真实外部 AI 调用仍需单独确认隐私边界",
     },
   };
+}
+
+export async function getTaskDebtReorderSuggestion(now = new Date()): Promise<TaskDebtReorderDto> {
+  const dashboard = await getTodayDashboard(now);
+  return dashboard.debtReorder;
 }
 
 export async function createStudyTask(input: CreateTaskInput, actorId: string): Promise<StudyTaskDto> {
@@ -695,39 +740,62 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
   const isEffective = closeout.isEffective;
   const note = closeout.closeoutText;
 
-  const session = await prisma.studySession.update({
-    where: { id },
-    data: {
-      status: "COMPLETED",
-      endedAt: now,
-      pausedAt: null,
-      accumulatedPauseSeconds: pauseSeconds,
-      effectiveMinutes,
-      qualityScore: input.qualityScore,
-      isEffective,
-      note,
-    },
-    include: {
-      subject: true,
-      task: true,
-      syllabusNode: true,
-    },
-  });
-
-  if (existing.taskId) {
-    await prisma.studyTask.update({
-      where: { id: existing.taskId },
+  const session = await prisma.$transaction(async (tx) => {
+    const updatedSession = await tx.studySession.update({
+      where: { id },
       data: {
-        actualMinutes: {
-          increment: effectiveMinutes,
-        },
-        status: input.completeTask && isEffective ? "DONE" : "IN_PROGRESS",
-        completedAt: input.completeTask && isEffective ? now : undefined,
+        status: "COMPLETED",
+        endedAt: now,
+        pausedAt: null,
+        accumulatedPauseSeconds: pauseSeconds,
+        effectiveMinutes,
+        qualityScore: input.qualityScore,
+        isEffective,
+        note,
+      },
+      include: {
+        subject: true,
+        task: true,
+        syllabusNode: true,
       },
     });
-  }
 
-  await audit(actorId, "STUDY_SESSION_ENDED", "StudySession", session.id);
+    if (existing.taskId) {
+      await tx.studyTask.update({
+        where: { id: existing.taskId },
+        data: {
+          actualMinutes: {
+            increment: effectiveMinutes,
+          },
+          status: input.completeTask && isEffective ? "DONE" : "IN_PROGRESS",
+          completedAt: input.completeTask && isEffective ? now : undefined,
+        },
+      });
+    }
+
+    if (existing.syllabusNodeId && effectiveMinutes > 0) {
+      await tx.syllabusNode.update({
+        where: { id: existing.syllabusNodeId },
+        data: {
+          actualMinutes: {
+            increment: effectiveMinutes,
+          },
+        },
+      });
+    }
+
+    await tx.auditEvent.create({
+      data: {
+        actorId,
+        action: "STUDY_SESSION_ENDED",
+        entityType: "StudySession",
+        entityId: updatedSession.id,
+      },
+    });
+
+    return updatedSession;
+  });
+
   return serializeSession(session);
 }
 
@@ -923,6 +991,79 @@ function serializeTask(task: {
   };
 }
 
+function createTaskDebtReorder(input: {
+  tasks: StudyTaskDto[];
+  dayStart: Date;
+  pressure: TaskDebtReorderPressure;
+  availableMinutes: number;
+}): TaskDebtReorderDto {
+  const plan = suggestTaskDebtReorder({
+    pressure: input.pressure,
+    availableMinutes: input.availableMinutes,
+    tasks: input.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      subject: task.subjectName,
+      priority: task.priority,
+      estimatedMinutes: task.estimatedMinutes,
+      daysOverdue: getDaysOverdue(task.plannedDate, input.dayStart),
+      hasRecentEvidence: task.actualMinutes > 0,
+      blocksStageGoal: task.priority === "critical" || task.priority === "high",
+      isReviewable: task.type === "review" || task.actualMinutes > 0 || Boolean(task.syllabusNodeId),
+    })),
+  });
+  const taskById = new Map(input.tasks.map((task) => [task.id, task]));
+
+  return {
+    pressure: input.pressure,
+    availableMinutes: input.availableMinutes,
+    summary: plan.summary,
+    canAutoApply: plan.canAutoApply,
+    requiresUserConfirmation: plan.requiresUserConfirmation,
+    suggestions: plan.suggestions.flatMap((suggestion) => {
+      const task = taskById.get(suggestion.taskId);
+      if (!task) return [];
+
+      return [{
+        taskId: suggestion.taskId,
+        taskTitle: task.title,
+        subjectName: task.subjectName,
+        action: suggestion.action,
+        reason: suggestion.reason,
+        estimatedMinutes: suggestion.estimatedMinutes,
+        rank: suggestion.rank,
+      }];
+    }),
+  };
+}
+
+function determineDebtReorderPressure(
+  riskState: RiskState,
+  stagePressure: "low" | "medium" | "high" | "sprint",
+  recoveryActive: boolean,
+): TaskDebtReorderPressure {
+  if (stagePressure === "sprint" || riskState === "sprint") return "sprint";
+  if (recoveryActive || riskState === "danger" || riskState === "lost") return "recovery";
+  if (stagePressure === "high") return "stage_impact";
+  return "normal";
+}
+
+function determineDebtReorderAvailableMinutes(
+  stagePressure: "low" | "medium" | "high" | "sprint",
+  recoveryActive: boolean,
+  recoveryMinimumMinutes: number,
+): number {
+  if (recoveryActive) return recoveryMinimumMinutes;
+  if (stagePressure === "sprint") return 240;
+  if (stagePressure === "high") return 180;
+  return 120;
+}
+
+function getDaysOverdue(plannedDate: string, dayStart: Date): number {
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.floor((dayStart.getTime() - new Date(plannedDate).getTime()) / dayMs));
+}
+
 function serializeSession(session: {
   id: string;
   subjectId: string;
@@ -1057,28 +1198,25 @@ function toCoreTask(task: StudyTaskDto): StudyTaskInput {
 }
 
 function getRecoveryTaskCandidates(todayTasks: StudyTaskDto[], debtTasks: StudyTaskDto[]): StudyTaskDto[] {
-  const seen = new Set<string>();
-  return [...debtTasks, ...todayTasks]
-    .filter((task) => task.status !== "done" && task.status !== "skipped")
-    .filter((task) => {
-      if (seen.has(task.id)) return false;
-      seen.add(task.id);
-      return true;
-    })
-    .sort((left, right) => priorityRank(right.priority) - priorityRank(left.priority));
+  const byId = new Map([...debtTasks, ...todayTasks].map((task) => [task.id, task]));
+  return rankRecoveryTaskCandidates({
+    todayTasks: todayTasks.map(toRecoveryTaskCandidate),
+    debtTasks: debtTasks.map(toRecoveryTaskCandidate),
+  })
+    .map((candidate) => byId.get(candidate.id))
+    .filter((task): task is StudyTaskDto => Boolean(task));
 }
 
-function priorityRank(priority: StudyTaskDto["priority"]): number {
-  switch (priority) {
-    case "critical":
-      return 4;
-    case "high":
-      return 3;
-    case "medium":
-      return 2;
-    case "low":
-      return 1;
-  }
+function toRecoveryTaskCandidate(task: StudyTaskDto) {
+  return {
+    id: task.id,
+    title: task.title,
+    subject: task.subjectName,
+    status: task.status,
+    priority: task.priority,
+    estimatedMinutes: task.estimatedMinutes,
+    actualMinutes: task.actualMinutes,
+  };
 }
 
 function normalizeOptionalText(value: string | undefined): string | null {

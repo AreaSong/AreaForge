@@ -345,27 +345,51 @@ function findSensitiveContextKeysInternal(value: unknown, path = "context"): str
 }
 
 function isSensitiveContextKey(key: string): boolean {
-  const normalized = key.toLowerCase();
-  return [
+  const normalized = normalizeContextKey(key);
+  const exactSensitiveKeys = [
     "whystarted",
     "neverreturnto",
     "futureself",
     "messagetofuture",
     "firstsimulationdiary",
-    "summary",
     "lostcontrol",
     "keepaction",
     "tomorrowminimum",
     "reviews",
-    "reviewtext",
     "sessionnote",
     "note",
     "content",
-    "attachment",
-    "attachments",
     "file",
     "files",
     "prompt",
     "apikey",
-  ].includes(normalized);
+    "authorization",
+    "databaseurl",
+    "sessiontoken",
+    "uploaddir",
+    "uploadpath",
+  ];
+  if (exactSensitiveKeys.includes(normalized)) {
+    return true;
+  }
+
+  return [
+    "summary",
+    "reviewtext",
+    "reviewbody",
+    "reviewcontent",
+    "emotiontext",
+    "emotionrecord",
+    "moodtext",
+    "moodrecord",
+    "motivationvault",
+    "attachment",
+    "pdfcontent",
+    "imagecontent",
+    "filepath",
+  ].some((needle) => normalized.includes(needle));
+}
+
+function normalizeContextKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
 }

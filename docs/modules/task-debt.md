@@ -29,7 +29,11 @@
 
 ## 第二阶段增强
 
-- 根据阶段目标自动判断哪些欠账必须补。
-- 根据剩余时间自动建议延期、拆分或放弃。
-- 自动生成任务债务重排建议。
+- 根据阶段目标生成哪些欠账必须补的建议。
+- 根据剩余时间生成延期、拆分或放弃建议。
+- 生成任务债务重排建议，但不自动应用。
 - 周审判和月复盘中统计欠账变化。
+
+当前 `packages/core` 已提供 `suggestTaskDebtReorder` 纯规则，可根据欠账任务、阶段压强和可用时间生成补做、延期、拆小、放弃或改复习建议，并明确 `canAutoApply=false`、`requiresUserConfirmation=true`。首页任务区和 `GET /api/tasks/debt-reorder` 已接入只读建议展示。真正写入债务事件、应用重排或批量修改任务仍需结构化 migration 和用户确认。
+
+恢复模式的候选选择已由 `rankRecoveryTaskCandidates` / `selectRecoveryTaskCandidate` 提供纯规则：欠账优先、排除已完成或跳过任务、去重，并优先选择更小的可执行任务。

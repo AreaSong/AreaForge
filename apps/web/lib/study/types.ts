@@ -4,6 +4,9 @@ import type {
   MotivationWakeSignal,
   StageLevelSummary,
   SyllabusMapSignal,
+  SyllabusMapSummary,
+  TaskDebtReorderAction,
+  TaskDebtReorderPressure,
 } from "@areaforge/core";
 
 export type TaskStatusDto = "todo" | "in_progress" | "done" | "skipped" | "deferred";
@@ -112,10 +115,18 @@ export interface SyllabusNodeDto {
     sessionCount: number;
     noteCount: number;
     mistakeCount: number;
+    lastEvidenceAt: string | null;
+    daysSinceLastEvidence: number | null;
   };
   masteryProof: MasteryProofSummary;
   mapSignal: SyllabusMapSignal;
   children: SyllabusNodeDto[];
+}
+
+export interface SyllabusMapOverviewDto {
+  nodes: SyllabusNodeDto[];
+  summary: SyllabusMapSummary;
+  summaryBySubject: Record<string, SyllabusMapSummary>;
 }
 
 export interface AttachmentDto {
@@ -179,6 +190,25 @@ export interface SyllabusOverviewDto {
   color: string;
 }
 
+export interface TaskDebtReorderSuggestionDto {
+  taskId: string;
+  taskTitle: string;
+  subjectName: string;
+  action: TaskDebtReorderAction;
+  reason: string;
+  estimatedMinutes: number;
+  rank: number;
+}
+
+export interface TaskDebtReorderDto {
+  pressure: TaskDebtReorderPressure;
+  availableMinutes: number;
+  summary: string;
+  canAutoApply: false;
+  requiresUserConfirmation: true;
+  suggestions: TaskDebtReorderSuggestionDto[];
+}
+
 export interface TodayDashboardDto {
   studyDay: {
     key: string;
@@ -215,6 +245,7 @@ export interface TodayDashboardDto {
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];
   debtTasks: StudyTaskDto[];
+  debtReorder: TaskDebtReorderDto;
   visibleRecoveryTasks: StudyTaskDto[];
   activeSession: StudySessionDto | null;
   review: DailyReviewDto | null;

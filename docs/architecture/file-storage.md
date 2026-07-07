@@ -36,4 +36,4 @@ AreaForge 需要支持：
 
 ## 当前安全底座
 
-`packages/storage` 当前只提供上传前纯规则能力，包括 MIME 策略、magic bytes 校验、metadata 草稿、随机存储名与 `upload://attachment/` URI、上传目录内路径解析和下载响应头生成。真正创建上传目录、写入文件、读取文件和返回文件流仍属于高风险实现，需要确认后在 Web 服务层接入。
+`packages/storage` 当前只提供上传前纯规则能力，包括 MIME 策略、magic bytes 校验、metadata 草稿、随机存储名与 `upload://attachment/` URI、上传目录内路径解析、相对上传目录拒绝、公开目录拒绝钩子和下载响应头生成。真正创建上传目录、写入文件、读取文件、软链接真实路径校验和返回文件流仍属于高风险实现，需要确认后在 Web 服务层接入。

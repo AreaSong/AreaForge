@@ -68,7 +68,17 @@
 - `development/pre-code-closure.md`：开发前闭环清单。
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
 - `development/validation-matrix.md`：按改动范围选择验证。
+- `development/validation-matrix.md` 中的 `pnpm risk:preflight`：高风险包确认前的只读护栏预检。
 - `development/doc-sync-checklist.md`：文档同步和漂移检查。
+- `development/feature-traceability.md`：功能项到代码、任务和版本的追踪矩阵。
+- `development/structured-state-migration-design.md`：结构化学习状态 migration 确认设计。
+- `development/attachment-upload-access-design.md`：附件上传与鉴权访问确认设计。
+- `development/ai-provider-integration-design.md`：真实 AI provider 接入确认设计。
+- `development/second-stage-long-term-loop-design.md`：第二阶段长期闭环确认设计。
+- `development/production-release-runbook.md`：生产发布、备份与恢复确认 runbook。
+- `development/high-risk-confirmation-packets.md`：推进到 100% 前必须确认的高风险执行包。
+- `development/docs-100-acceptance-evidence.md`：docs 100% 的最终验收证据矩阵。
+- `development/docs-100-completion-record.md`：docs 100% 的当前完成证据台账。
 
 ## 部署
 

@@ -2,6 +2,7 @@ import {
   evaluateMasteryProof,
   evaluateSyllabusMapSignal,
   parseSyllabusMarkdown,
+  summarizeSyllabusMap,
   type MasteryProofCondition,
   type MasteryProofLevel,
   type SyllabusMapNodeStatus,
@@ -10,6 +11,7 @@ import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import type {
   MasteryLevelDto,
+  SyllabusMapOverviewDto,
   SyllabusNodeDto,
   SyllabusNodeKindDto,
   SyllabusNodeStatusDto,
@@ -18,6 +20,47 @@ import type {
 type DbSyllabusNodeKind = "SUBJECT" | "CHAPTER" | "TOPIC" | "PROBLEM_TYPE";
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
 type DbMasteryLevel = "SEEN" | "LEARNED" | "BASIC_EXERCISES" | "CAN_EXPLAIN" | "RETEST_PASSED" | "EXAM_STABLE";
+
+const syllabusNodeEvidenceInclude = {
+  _count: {
+    select: {
+      tasks: true,
+      sessions: true,
+      notes: true,
+      mistakes: true,
+    },
+  },
+  tasks: {
+    orderBy: { updatedAt: "desc" as const },
+    take: 1,
+    select: {
+      completedAt: true,
+      updatedAt: true,
+    },
+  },
+  sessions: {
+    orderBy: { updatedAt: "desc" as const },
+    take: 1,
+    select: {
+      endedAt: true,
+      updatedAt: true,
+    },
+  },
+  notes: {
+    orderBy: { updatedAt: "desc" as const },
+    take: 1,
+    select: {
+      updatedAt: true,
+    },
+  },
+  mistakes: {
+    orderBy: { updatedAt: "desc" as const },
+    take: 1,
+    select: {
+      updatedAt: true,
+    },
+  },
+};
 
 export interface CreateSyllabusNodeInput {
   subjectId: string;
@@ -69,6 +112,20 @@ interface FlatSyllabusNode {
     notes: number;
     mistakes: number;
   };
+  tasks?: Array<{
+    completedAt: Date | null;
+    updatedAt: Date;
+  }>;
+  sessions?: Array<{
+    endedAt: Date | null;
+    updatedAt: Date;
+  }>;
+  notes?: Array<{
+    updatedAt: Date;
+  }>;
+  mistakes?: Array<{
+    updatedAt: Date;
+  }>;
   subject: {
     name: string;
     color: string;
@@ -82,14 +139,7 @@ export async function listSyllabusTree(): Promise<SyllabusNodeDto[]> {
       syllabusNodes: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         include: {
-          _count: {
-            select: {
-              tasks: true,
-              sessions: true,
-              notes: true,
-              mistakes: true,
-            },
-          },
+          ...syllabusNodeEvidenceInclude,
         },
       },
     },
@@ -103,6 +153,28 @@ export async function listSyllabusTree(): Promise<SyllabusNodeDto[]> {
       })),
     ),
   );
+}
+
+export async function getSyllabusMapOverview(): Promise<SyllabusMapOverviewDto> {
+  const nodes = await listSyllabusTree();
+  const flatNodes = flattenSyllabusNodes(nodes);
+  const summaryInputs = flatNodes.map(toSyllabusMapSummaryInput);
+  const subjectIds = Array.from(new Set(flatNodes.map((node) => node.subjectId)));
+
+  return {
+    nodes,
+    summary: summarizeSyllabusMap(summaryInputs),
+    summaryBySubject: Object.fromEntries(
+      subjectIds.map((subjectId) => [
+        subjectId,
+        summarizeSyllabusMap(
+          flatNodes
+            .filter((node) => node.subjectId === subjectId)
+            .map(toSyllabusMapSummaryInput),
+        ),
+      ]),
+    ),
+  };
 }
 
 export async function createSyllabusNode(
@@ -127,14 +199,7 @@ export async function createSyllabusNode(
     },
     include: {
       subject: true,
-      _count: {
-        select: {
-          tasks: true,
-          sessions: true,
-          notes: true,
-          mistakes: true,
-        },
-      },
+      ...syllabusNodeEvidenceInclude,
     },
   });
 
@@ -180,14 +245,7 @@ export async function importSyllabusMarkdown(
         },
         include: {
           subject: true,
-          _count: {
-            select: {
-              tasks: true,
-              sessions: true,
-              notes: true,
-              mistakes: true,
-            },
-          },
+          ...syllabusNodeEvidenceInclude,
         },
       });
 
@@ -230,14 +288,7 @@ export async function updateSyllabusNode(
     where: { id },
     include: {
       subject: true,
-      _count: {
-        select: {
-          tasks: true,
-          sessions: true,
-          notes: true,
-          mistakes: true,
-        },
-      },
+      ...syllabusNodeEvidenceInclude,
     },
   });
 
@@ -264,7 +315,10 @@ export async function updateSyllabusNode(
       sortOrder: input.sortOrder,
       targetMinutes: input.targetMinutes,
     },
-    include: { subject: true },
+    include: {
+      subject: true,
+      ...syllabusNodeEvidenceInclude,
+    },
   });
 
   await audit(actorId, "SYLLABUS_NODE_UPDATED", "SyllabusNode", node.id);
@@ -362,14 +416,32 @@ function buildTree(nodes: FlatSyllabusNode[]): SyllabusNodeDto[] {
   return roots;
 }
 
+function flattenSyllabusNodes(nodes: SyllabusNodeDto[]): SyllabusNodeDto[] {
+  return nodes.flatMap((node) => [node, ...flattenSyllabusNodes(node.children)]);
+}
+
+function toSyllabusMapSummaryInput(node: SyllabusNodeDto) {
+  return {
+    id: node.id,
+    title: node.title,
+    subject: node.subjectName,
+    cellStatus: node.mapSignal.cellStatus,
+    isHighFrequency: node.kind === "problem_type",
+    isPersonalFocus: node.status === "weak" || node.status === "needs_review",
+  };
+}
+
 function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): SyllabusNodeDto {
   const masteryLevel = node.masteryLevel ? fromDbMastery(node.masteryLevel) : null;
   const status = fromDbStatus(node.status);
+  const freshness = getSyllabusEvidenceFreshness(node);
   const evidence = {
     taskCount: node._count?.tasks ?? 0,
     sessionCount: node._count?.sessions ?? 0,
     noteCount: node._count?.notes ?? 0,
     mistakeCount: node._count?.mistakes ?? 0,
+    lastEvidenceAt: freshness.lastEvidenceAt?.toISOString() ?? null,
+    daysSinceLastEvidence: freshness.daysSinceLastEvidence,
   };
 
   return {
@@ -392,6 +464,7 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
       masteryLevel,
       evidenceCount: evidence.taskCount + evidence.sessionCount + evidence.noteCount + evidence.mistakeCount,
       mistakeCount: evidence.mistakeCount,
+      daysSinceLastReview: freshness.daysSinceLastEvidence,
       retestPassed: masteryLevel === "retest_passed" || masteryLevel === "exam_stable",
       isHighFrequency: node.kind === "PROBLEM_TYPE",
       isPersonalFocus: status === "weak" || status === "needs_review",
@@ -402,6 +475,7 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
 
 function createMasteryProof(node: FlatSyllabusNode, requestedLevel: MasteryLevelDto) {
   const masteryLevel = node.masteryLevel ? fromDbMastery(node.masteryLevel) : null;
+  const freshness = getSyllabusEvidenceFreshness(node);
   const evidence = {
     taskCount: node._count?.tasks ?? 0,
     sessionCount: node._count?.sessions ?? 0,
@@ -409,6 +483,7 @@ function createMasteryProof(node: FlatSyllabusNode, requestedLevel: MasteryLevel
     mistakeCount: node._count?.mistakes ?? 0,
     reviewedMistakeCount: masteryLevel === "exam_stable" ? node._count?.mistakes ?? 0 : 0,
     retestPassedCount: masteryLevel === "retest_passed" || masteryLevel === "exam_stable" ? 1 : 0,
+    daysSinceLastEvidence: freshness.daysSinceLastEvidence,
   };
 
   return evaluateMasteryProof({
@@ -416,6 +491,32 @@ function createMasteryProof(node: FlatSyllabusNode, requestedLevel: MasteryLevel
     completedConditions: inferMasteryConditions(node, masteryLevel),
     evidence,
   });
+}
+
+function getSyllabusEvidenceFreshness(node: FlatSyllabusNode): {
+  lastEvidenceAt: Date | null;
+  daysSinceLastEvidence: number | null;
+} {
+  const candidates = [
+    node.tasks?.[0]?.completedAt ?? node.tasks?.[0]?.updatedAt,
+    node.sessions?.[0]?.endedAt ?? node.sessions?.[0]?.updatedAt,
+    node.notes?.[0]?.updatedAt,
+    node.mistakes?.[0]?.updatedAt,
+  ].filter((date): date is Date => Boolean(date));
+  const lastEvidenceAt = candidates.reduce<Date | null>((latest, date) => {
+    if (!latest || date.getTime() > latest.getTime()) return date;
+    return latest;
+  }, null);
+
+  return {
+    lastEvidenceAt,
+    daysSinceLastEvidence: lastEvidenceAt ? daysBetween(lastEvidenceAt, new Date()) : null,
+  };
+}
+
+function daysBetween(from: Date, to: Date): number {
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.floor((to.getTime() - from.getTime()) / dayMs));
 }
 
 function inferMasteryConditions(

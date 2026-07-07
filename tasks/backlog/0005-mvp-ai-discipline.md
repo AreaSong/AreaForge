@@ -24,6 +24,7 @@
 - `docs/modules/review.md`
 - `docs/security/file-ai-safety.md`
 - `docs/security/threat-model.md`
+- `docs/development/ai-provider-integration-design.md`
 
 ## 验收标准
 
@@ -40,6 +41,8 @@
 - 已新增 `POST /api/ai/discipline`、`POST /api/ai/daily-review`、`POST /api/ai/tomorrow-plan`，当前全部返回 `local_rule_fallback`，不调用外部 AI。
 - 首页已展示本地规则 AI 建议草稿；这些建议不自动覆盖任务、复盘或用户记录。
 - 当前实现不读取动机档案，不发送完整情绪记录或完整复盘正文。
+- Web AI 服务当前不读取 `AI_API_KEY`、`AI_BASE_URL` 或 `AI_MODEL`，也不创建真实 provider；首页服务端渲染只能展示本地规则 fallback，不会因为打开首页产生真实外呼成本。
+- `pnpm risk:preflight` 已把上述边界纳入确认前检查：真实 provider 未接线、Web 侧不读取 AI env/key、上下文保持聚合最小化、首页成本边界仍为本地 fallback。
 
 ## 仍待高风险确认后推进
 
@@ -47,6 +50,7 @@
 - 实现真实外呼 provider 的超时、重试、日志脱敏、限流与 provider 错误映射；当前只有非外呼 mock provider 和本地回退执行器。
 - 将 `AI_ENABLED=true` 接入真实 provider 分支前，必须再次确认隐私、密钥、费用和外部调用边界。
 - 若要保存 AI 建议审计历史，需要单独评估是否新增模型与 migration。
+- 第一版 AI 只覆盖鞭策、每日复盘建议和明日任务建议；长期阶段调整另见 `tasks/backlog/0017-ai-stage-privacy-cost.md`。
 
 ## 高风险确认
 
@@ -58,6 +62,7 @@ AI 调用属于高风险边界。开始实现前必须确认：
 - AI 只返回建议或草稿，不直接覆盖用户记录。
 - 失败时必须回退本地规则文案。
 - 日志不记录 API Key、完整 prompt 或敏感正文。
+- 需要明确超时、重试、限流和费用保护默认值。
 
 ## 验证
 

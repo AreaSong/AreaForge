@@ -45,6 +45,28 @@ export interface SyllabusMapSignal {
   nextAction: string;
 }
 
+export type SyllabusMapRiskLevel = "clear" | "attention" | "high" | "critical";
+
+export interface SyllabusMapSummaryNodeInput {
+  id: string;
+  title: string;
+  subject?: string;
+  cellStatus: SyllabusMapCellStatus;
+  isHighFrequency?: boolean;
+  isPersonalFocus?: boolean;
+}
+
+export interface SyllabusMapSummary {
+  totalNodes: number;
+  coverageRate: number;
+  verificationRate: number;
+  counts: Record<SyllabusMapCellStatus, number>;
+  riskLevel: SyllabusMapRiskLevel;
+  recommendedFilters: SyllabusMapCellStatus[];
+  focusNodeIds: string[];
+  nextActions: string[];
+}
+
 export function evaluateSyllabusMapSignal(input: SyllabusMapSignalInput): SyllabusMapSignal {
   const cellStatus = determineSyllabusMapCellStatus(input);
   const markers = determineSyllabusMapMarkers(input, cellStatus);
@@ -55,6 +77,31 @@ export function evaluateSyllabusMapSignal(input: SyllabusMapSignalInput): Syllab
     markers,
     reasons,
     nextAction: createSyllabusMapNextAction(cellStatus, input),
+  };
+}
+
+export function summarizeSyllabusMap(nodes: SyllabusMapSummaryNodeInput[]): SyllabusMapSummary {
+  const counts = createEmptySyllabusMapCounts();
+
+  for (const node of nodes) {
+    counts[node.cellStatus] += 1;
+  }
+
+  const coveredCount = counts.covered + counts.verified + counts.weak + counts.forgetting_risk + counts.mistake_hotspot;
+  const verificationCount = counts.verified;
+  const riskCount = counts.weak + counts.forgetting_risk + counts.mistake_hotspot;
+  const totalNodes = nodes.length;
+  const recommendedFilters = createRecommendedFilters(counts);
+
+  return {
+    totalNodes,
+    coverageRate: ratioPercent(coveredCount, totalNodes),
+    verificationRate: ratioPercent(verificationCount, totalNodes),
+    counts,
+    riskLevel: determineSummaryRiskLevel(counts, totalNodes),
+    recommendedFilters,
+    focusNodeIds: chooseFocusNodes(nodes).map((node) => node.id),
+    nextActions: createSummaryNextActions(counts, totalNodes, riskCount),
   };
 }
 
@@ -157,4 +204,111 @@ function defaultReasonForCell(cellStatus: SyllabusMapCellStatus): string {
 
 function isCoveredLike(status: SyllabusMapNodeStatus): boolean {
   return status === "covered" || status === "needs_review" || status === "mastered";
+}
+
+function createEmptySyllabusMapCounts(): Record<SyllabusMapCellStatus, number> {
+  return {
+    not_started: 0,
+    learning: 0,
+    covered: 0,
+    verified: 0,
+    weak: 0,
+    forgetting_risk: 0,
+    mistake_hotspot: 0,
+    deferred: 0,
+  };
+}
+
+function ratioPercent(value: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.round((value / total) * 100);
+}
+
+function determineSummaryRiskLevel(
+  counts: Record<SyllabusMapCellStatus, number>,
+  totalNodes: number,
+): SyllabusMapRiskLevel {
+  const riskCount = counts.weak + counts.forgetting_risk + counts.mistake_hotspot;
+  if (counts.mistake_hotspot >= 3 || counts.weak >= 5 || ratioPercent(riskCount, totalNodes) >= 35) {
+    return "critical";
+  }
+  if (riskCount >= 3 || counts.forgetting_risk >= 2 || ratioPercent(counts.not_started, totalNodes) >= 45) {
+    return "high";
+  }
+  if (riskCount > 0 || counts.not_started > 0 || counts.learning > 0) {
+    return "attention";
+  }
+  return "clear";
+}
+
+function createRecommendedFilters(counts: Record<SyllabusMapCellStatus, number>): SyllabusMapCellStatus[] {
+  const filters: SyllabusMapCellStatus[] = [];
+  if (counts.mistake_hotspot > 0) filters.push("mistake_hotspot");
+  if (counts.weak > 0) filters.push("weak");
+  if (counts.forgetting_risk > 0) filters.push("forgetting_risk");
+  if (counts.not_started > 0) filters.push("not_started");
+  if (counts.learning > 0) filters.push("learning");
+  return filters;
+}
+
+function chooseFocusNodes(nodes: SyllabusMapSummaryNodeInput[]): SyllabusMapSummaryNodeInput[] {
+  return [...nodes]
+    .filter((node) => node.cellStatus !== "verified" && node.cellStatus !== "deferred")
+    .sort((left, right) => scoreSummaryNode(right) - scoreSummaryNode(left))
+    .slice(0, 5);
+}
+
+function scoreSummaryNode(node: SyllabusMapSummaryNodeInput): number {
+  return (
+    cellStatusFocusScore(node.cellStatus) +
+    (node.isHighFrequency ? 12 : 0) +
+    (node.isPersonalFocus ? 10 : 0)
+  );
+}
+
+function cellStatusFocusScore(status: SyllabusMapCellStatus): number {
+  switch (status) {
+    case "mistake_hotspot":
+      return 100;
+    case "weak":
+      return 88;
+    case "forgetting_risk":
+      return 76;
+    case "not_started":
+      return 44;
+    case "learning":
+      return 36;
+    case "covered":
+      return 28;
+    case "verified":
+      return 0;
+    case "deferred":
+      return -10;
+  }
+}
+
+function createSummaryNextActions(
+  counts: Record<SyllabusMapCellStatus, number>,
+  totalNodes: number,
+  riskCount: number,
+): string[] {
+  const actions: string[] = [];
+
+  if (counts.mistake_hotspot > 0) {
+    actions.push("先筛选错题高发节点，停止扩展新内容，优先复盘同类题。");
+  }
+  if (counts.weak > 0) {
+    actions.push("给薄弱节点安排回炉任务，并补一条可检查证据。");
+  }
+  if (counts.forgetting_risk > 0) {
+    actions.push("对遗忘风险节点安排短复习或复测，避免考前重学。");
+  }
+  if (ratioPercent(counts.not_started, totalNodes) >= 30) {
+    actions.push("未开始节点占比较高，先给高频章节排最小学习任务。");
+  }
+  if (riskCount === 0 && counts.covered > counts.verified) {
+    actions.push("已覆盖节点需要复测，把覆盖推进到验证。");
+  }
+
+  return actions.length > 0 ? actions.slice(0, 5) : ["当前地图风险较低，保持复测节奏并继续补证据。"];
 }

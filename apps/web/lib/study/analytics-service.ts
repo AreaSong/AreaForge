@@ -1,3 +1,4 @@
+import { summarizeAnalyticsRisks, type AnalyticsRiskSummaryItem } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { getStudyDayKey, getStudyDayRange } from "./date";
 import type { SyllabusNodeStatusDto } from "./types";
@@ -205,21 +206,37 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
     }
   }
 
-  const risks = buildRiskItems({
-    daily,
-    dueMistakes,
-    dueNotes,
-    weakNodes: [...weakNodeMap.values()],
-    weeklyTaskCompletionRate,
-    weekEffectiveMinutes,
-    reviewCompletionRate,
-  });
-  const actions = buildActions({
+  const riskSummary = summarizeAnalyticsRisks({
     weekEffectiveMinutes,
     weeklyTaskCompletionRate,
     reviewCompletionRate,
-    risks,
+    dueMistakes: dueMistakes.map((mistake) => ({
+      id: mistake.id,
+      title: mistake.title,
+      subjectName: mistake.subject.name,
+      dueAt: mistake.nextReviewAt,
+      syllabusNodeId: mistake.syllabusNode?.id ?? null,
+      syllabusNodeTitle: mistake.syllabusNode?.title ?? null,
+    })),
+    dueNotes: dueNotes.map((note) => ({
+      id: note.id,
+      title: note.title,
+      subjectName: note.subject.name,
+      dueAt: note.nextReviewAt,
+      syllabusNodeId: note.syllabusNode?.id ?? null,
+      syllabusNodeTitle: note.syllabusNode?.title ?? null,
+    })),
+    weakNodes: [...weakNodeMap.values()].map((node) => ({
+      id: node.id,
+      title: node.title,
+      status: fromDbSyllabusNodeStatus(node.status),
+      subjectName: node.subject.name,
+      mistakeCount: node._count.mistakes,
+      noteCount: node._count.notes,
+    })),
+    now,
   });
+  const risks = riskSummary.risks.map(serializeAnalyticsRisk);
 
   return {
     range: {
@@ -246,7 +263,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
     daily,
     subjects: buildSubjectShares(subjects, sessions),
     risks,
-    actions,
+    actions: riskSummary.actions,
   };
 }
 
@@ -315,153 +332,6 @@ function buildSubjectShares(
   });
 }
 
-function buildRiskItems(input: {
-  daily: AnalyticsDailyPointDto[];
-  dueMistakes: Array<{
-    id: string;
-    title: string;
-    nextReviewAt: Date | null;
-    subject: { name: string };
-    syllabusNode?: { id: string; title: string } | null;
-  }>;
-  dueNotes: Array<{
-    id: string;
-    title: string;
-    nextReviewAt: Date | null;
-    subject: { name: string };
-    syllabusNode?: { id: string; title: string } | null;
-  }>;
-  weakNodes: Array<{
-    id: string;
-    title: string;
-    status: DbSyllabusNodeStatus;
-    subject: { name: string };
-    _count: {
-      tasks: number;
-      sessions: number;
-      notes: number;
-      mistakes: number;
-    };
-  }>;
-  weeklyTaskCompletionRate: number;
-  weekEffectiveMinutes: number;
-  reviewCompletionRate: number;
-}): AnalyticsRiskItemDto[] {
-  const risks: AnalyticsRiskItemDto[] = [];
-
-  if (input.weekEffectiveMinutes < 120) {
-    risks.push({
-      id: "low-effective-week",
-      type: "low_effective",
-      severity: "danger",
-      title: "本周有效学习不足",
-      detail: `近 7 天只有 ${input.weekEffectiveMinutes} 分钟有效学习。`,
-      action: "先完成一次 30 到 90 分钟的有效学习，再扩展任务量。",
-    });
-  }
-
-  if (input.weeklyTaskCompletionRate < 0.4) {
-    risks.push({
-      id: "low-task-completion",
-      type: "low_completion",
-      severity: "warning",
-      title: "任务完成率偏低",
-      detail: `近 7 天任务完成率为 ${formatPercent(input.weeklyTaskCompletionRate)}。`,
-      action: "减少明天任务数量，把最关键的一项压到完成。",
-    });
-  }
-
-  if (input.reviewCompletionRate < 0.5) {
-    risks.push({
-      id: "review-gap",
-      type: "review_gap",
-      severity: "warning",
-      title: "复盘覆盖不足",
-      detail: `近 7 天复盘完成率为 ${formatPercent(input.reviewCompletionRate)}。`,
-      action: "今晚先补一条复盘，把明天最小任务写下来。",
-    });
-  }
-
-  for (const node of input.weakNodes) {
-    risks.push({
-      id: `weak-node-${node.id}`,
-      type: "weak_node",
-      severity: node.status === "WEAK" || node._count.mistakes >= 2 ? "danger" : "warning",
-      title: node.status === "WEAK" ? "薄弱节点" : "错题集中节点",
-      detail: `${node.subject.name} / ${node.title}：错题 ${node._count.mistakes}，笔记 ${node._count.notes}。`,
-      action: "从这个节点挑一道错题复盘，并补一条可解释笔记。",
-      subjectName: node.subject.name,
-      syllabusNodeId: node.id,
-      syllabusNodeTitle: node.title,
-    });
-  }
-
-  for (const mistake of input.dueMistakes) {
-    risks.push({
-      id: `mistake-${mistake.id}`,
-      type: "mistake_review",
-      severity: isOverdue(mistake.nextReviewAt) ? "danger" : "warning",
-      title: "错题复习到期",
-      detail: `${mistake.subject.name} / ${mistake.title}`,
-      action: "今天复做这道错题，更新正确思路和下次复习时间。",
-      subjectName: mistake.subject.name,
-      syllabusNodeId: mistake.syllabusNode?.id ?? null,
-      syllabusNodeTitle: mistake.syllabusNode?.title ?? null,
-      dueAt: mistake.nextReviewAt?.toISOString() ?? null,
-    });
-  }
-
-  for (const note of input.dueNotes) {
-    risks.push({
-      id: `note-${note.id}`,
-      type: "note_review",
-      severity: isOverdue(note.nextReviewAt) ? "danger" : "info",
-      title: "笔记复习提醒",
-      detail: `${note.subject.name} / ${note.title}`,
-      action: "回看这条笔记，用自己的话复述一遍核心结论。",
-      subjectName: note.subject.name,
-      syllabusNodeId: note.syllabusNode?.id ?? null,
-      syllabusNodeTitle: note.syllabusNode?.title ?? null,
-      dueAt: note.nextReviewAt?.toISOString() ?? null,
-    });
-  }
-
-  return risks.slice(0, 12);
-}
-
-function buildActions(input: {
-  weekEffectiveMinutes: number;
-  weeklyTaskCompletionRate: number;
-  reviewCompletionRate: number;
-  risks: AnalyticsRiskItemDto[];
-}): string[] {
-  const actions: string[] = [];
-  const firstReviewRisk = input.risks.find((risk) => risk.type === "mistake_review" || risk.type === "note_review");
-  const firstWeakNode = input.risks.find((risk) => risk.type === "weak_node");
-
-  if (input.weekEffectiveMinutes < 120) {
-    actions.push("今天只追求一次有效学习闭环，不补过去的总账。");
-  }
-
-  if (input.weeklyTaskCompletionRate < 0.4) {
-    actions.push("明天任务缩到 1 到 2 项，优先完成最高优先级任务。");
-  }
-
-  if (input.reviewCompletionRate < 0.5) {
-    actions.push("今晚提交复盘，至少写清失控点和明天最小动作。");
-  }
-
-  if (firstReviewRisk) {
-    actions.push(firstReviewRisk.action);
-  }
-
-  if (firstWeakNode) {
-    actions.push(firstWeakNode.action);
-  }
-
-  return actions.length > 0 ? [...new Set(actions)].slice(0, 5) : ["继续保持当前节奏，把新增产出关联到任务或考纲节点。"];
-}
-
 function calculateTaskCompletion(tasks: Array<{ status: DbTaskStatus }>): number {
   if (tasks.length === 0) return 0;
   return tasks.filter((task) => task.status === "DONE").length / tasks.length;
@@ -476,10 +346,6 @@ function calculateStreak(daily: AnalyticsDailyPointDto[]): number {
   }
 
   return streak;
-}
-
-function isOverdue(value: Date | null): boolean {
-  return Boolean(value && value.getTime() < Date.now());
 }
 
 export function fromDbSyllabusNodeStatus(status: DbSyllabusNodeStatus): SyllabusNodeStatusDto {
@@ -501,6 +367,9 @@ export function fromDbSyllabusNodeStatus(status: DbSyllabusNodeStatus): Syllabus
   }
 }
 
-function formatPercent(value: number): string {
-  return `${Math.round(value * 100)}%`;
+function serializeAnalyticsRisk(risk: AnalyticsRiskSummaryItem): AnalyticsRiskItemDto {
+  return {
+    ...risk,
+    dueAt: risk.dueAt?.toISOString() ?? null,
+  };
 }
