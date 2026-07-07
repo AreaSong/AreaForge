@@ -7,6 +7,7 @@ export * from "./syllabus-import";
 export * from "./periodic-report";
 export * from "./recovery-task";
 export * from "./analytics-summary";
+export * from "./long-term-risk";
 
 export type RiskState =
   | "rising"

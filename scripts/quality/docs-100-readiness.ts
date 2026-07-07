@@ -25,6 +25,8 @@ const requiredFiles = [
   "docs/development/ai-provider-integration-design.md",
   "docs/development/second-stage-long-term-loop-design.md",
   "docs/development/production-release-runbook.md",
+  "scripts/quality/package-d-preflight.ts",
+  "scripts/quality/package-e-preflight.ts",
   "tasks/backlog/0015-structured-state-migration.md",
   "tasks/backlog/0016-second-stage-long-term-loop.md",
   "tasks/backlog/0017-ai-stage-privacy-cost.md",
@@ -48,6 +50,29 @@ const packageReferences = [
   "docs/development/ai-provider-integration-design.md",
   "docs/development/second-stage-long-term-loop-design.md",
   "docs/development/production-release-runbook.md",
+] as const;
+
+const highRiskConfirmationPhrases = [
+  "确认执行 Package A：附件上传与鉴权访问",
+  "确认执行 Package B Batch 0",
+  "确认执行 Package B Batch 1：CheckIn 日快照",
+  "确认执行 Package B Batch 2：新增 `StudyTask.parentTaskId` 与 `TaskDebtEvent` additive migration",
+  "确认执行 Package B Batch 3：新增 `RecoveryState` additive migration",
+  "确认执行 Package B Batch 4：掌握证明条件、证据和复测记录",
+  "确认执行 Package B Batch 5：结构化模拟考试和科目结果",
+  "确认执行 Package B Batch 6：阶段计划和阶段调整草稿",
+  "确认执行 Package C：真实 AI Provider 第一版",
+  "确认执行 Package D：第二阶段长期闭环",
+  "确认执行 Package D Batch D1：报告决策入口",
+  "确认执行 Package D Batch D2：任务债务重排确认流",
+  "确认执行 Package D Batch D3：长期阶段 AI 草稿",
+  "确认执行 Package D Batch D4：长期风险和主题闭环补强",
+  "确认执行 Package D Batch D5：Package D 收口",
+  "确认执行 Package E：生产部署、备份与恢复",
+  "确认执行 Package E Batch E1：生产配置与发布工件预检",
+  "确认执行 Package E Batch E2：发布前备份与恢复演练",
+  "确认执行 Package E Batch E3：生产发布与 migration deploy",
+  "确认执行 Package E Batch E4：回滚演练与 Package E 收口",
 ] as const;
 
 const versionFiles = [
@@ -78,6 +103,9 @@ function main(): void {
   checkAcceptanceEvidence();
   checkCompletionGateTerms();
   checkCompletionScriptGates();
+  checkRiskPreflightBatchGuardTerms();
+  checkPackageDPreflightTerms();
+  checkPackageEPreflightTerms();
   checkMasteryProofBasicTraceability();
   checkApiSurface();
   checkOldReferences();
@@ -172,14 +200,15 @@ function checkHighRiskPackets(): void {
   const packets = read("docs/development/high-risk-confirmation-packets.md");
   const missingPackages = highRiskPackages.filter((item) => !packets.includes(item));
   const missingRefs = packageReferences.filter((item) => !packets.includes(item));
+  const missingPhrases = highRiskConfirmationPhrases.filter((item) => !packets.includes(item));
 
   checks.push({
     name: "high-risk packets",
-    ok: missingPackages.length === 0 && missingRefs.length === 0,
+    ok: missingPackages.length === 0 && missingRefs.length === 0 && missingPhrases.length === 0,
     detail:
-      missingPackages.length === 0 && missingRefs.length === 0
-        ? "packages A-E and design references present"
-        : `missing packages ${missingPackages.join(", ") || "none"}; missing refs ${missingRefs.join(", ") || "none"}`,
+      missingPackages.length === 0 && missingRefs.length === 0 && missingPhrases.length === 0
+        ? "packages A-E, design references, and exact confirmation phrases present"
+        : `missing packages ${missingPackages.join(", ") || "none"}; missing refs ${missingRefs.join(", ") || "none"}; missing phrases ${missingPhrases.join("; ") || "none"}`,
   });
 }
 
@@ -214,6 +243,8 @@ function checkCompletionGateTerms(): void {
   const gateText = `${evidence}\n${completionRecord}\n${validationMatrix}`;
   const requiredTerms = [
     "Package B Batch 0-6",
+    "Package D D1-D5",
+    "Package E E1-E4",
     "DONE / 已完成",
     "验证命令",
     "烟测证据",
@@ -236,10 +267,13 @@ function checkCompletionScriptGates(): void {
   const completionScript = read("scripts/quality/docs-100-completion.ts");
   const requiredTokens = [
     "requiredPackageBBatches",
+    "requiredPackageDBatches",
+    "requiredPackageEBatches",
     "requiredPackageEvidenceKeywords",
     "checkPackageBBatches",
+    "checkCompletionBatches",
     "missingBatchEvidenceDetails",
-    "Package B batch completion detail",
+    "batch completion detail",
     "DONE / 已完成",
     "用户已明确确认",
     "验证",
@@ -253,7 +287,129 @@ function checkCompletionScriptGates(): void {
     name: "docs completion script gates",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "completion script enforces Package B batch rows, batch detail evidence, and package evidence keywords"
+      ? "completion script enforces Package B/D/E batch rows, batch detail evidence, and package evidence keywords"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkRiskPreflightBatchGuardTerms(): void {
+  const riskPreflight = read("scripts/quality/risk-preflight.ts");
+  const requiredTokens = [
+    "getPackageDBatchStatus",
+    "isPackageDBatchDone",
+    "confirmation.includes(\"用户已明确确认\")",
+    "validation.includes(\"pnpm\")",
+    "smoke",
+    "docsSync.includes(\"已同步\")",
+    "residualRisk.length",
+    "hasWriteRouteMethod",
+    "export\\s+const\\s+",
+    "isReportDecisionScopeRoute",
+    "/periodic-reports/",
+    "stage-adjustment-drafts/ai",
+    "longTermAiSpecificTerms",
+    "isPackageDReportDecisionRoute",
+    "isPackageDDebtReorderDecisionRoute",
+    "isPackageDStageAiDraftRoute",
+    "isAllowedPackageDPersistenceTerm",
+    "previewTaskDebtReorderApplication",
+    "summarizeLongTermRisks",
+    "小批量上限",
+    "跳过摘要",
+  ];
+  const missing = requiredTokens.filter((token) => !riskPreflight.includes(token));
+
+  checks.push({
+    name: "risk preflight Package D batch guards",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "risk preflight keeps D1-D3 unlocks evidence-gated and route/token scans narrow"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkPackageDPreflightTerms(): void {
+  const packageJson = read("package.json");
+  const packageDPreflight = read("scripts/quality/package-d-preflight.ts");
+  const validationMatrix = read("docs/development/validation-matrix.md");
+  const completionRecord = read("docs/development/docs-100-completion-record.md");
+  const task = read("tasks/backlog/0016-second-stage-long-term-loop.md");
+  const requiredPackageTokens = [
+    "\"package-d:preflight\": \"tsx scripts/quality/package-d-preflight.ts\"",
+  ];
+  const requiredScriptTokens = [
+    "checkCompletionRecordState",
+    "checkReadOnlyRoutes",
+    "checkNoUnconfirmedWriteRoutes",
+    "checkNoUnconfirmedPersistence",
+    "checkLongTermAiBoundary",
+    "previewTaskDebtReorderApplication",
+    "summarizeLongTermRisks",
+    "source: \\\"local_rule\\\"",
+  ];
+  const documentationText = `${validationMatrix}\n${completionRecord}\n${task}`;
+  const requiredDocTokens = [
+    "pnpm package-d:preflight",
+    "D1-D5",
+    "不写库",
+    "不新增 API",
+    "长期 AI 禁区",
+  ];
+  const missing = [
+    ...requiredPackageTokens.filter((token) => !packageJson.includes(token)).map((token) => `package.json:${token}`),
+    ...requiredScriptTokens.filter((token) => !packageDPreflight.includes(token)).map((token) => `package-d-preflight:${token}`),
+    ...requiredDocTokens.filter((token) => !documentationText.includes(token)).map((token) => `docs:${token}`),
+  ];
+
+  checks.push({
+    name: "Package D preflight script",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "Package D has a dedicated read-only preflight script and docs references before D1-D5 confirmation"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkPackageEPreflightTerms(): void {
+  const packageJson = read("package.json");
+  const packageEPreflight = read("scripts/quality/package-e-preflight.ts");
+  const validationMatrix = read("docs/development/validation-matrix.md");
+  const completionRecord = read("docs/development/docs-100-completion-record.md");
+  const runbook = read("docs/development/production-release-runbook.md");
+  const requiredPackageTokens = [
+    "\"package-e:preflight\": \"tsx scripts/quality/package-e-preflight.ts\"",
+  ];
+  const requiredScriptTokens = [
+    "checkComposeConfig",
+    "checkComposeBoundaries",
+    "checkDockerfileBoundaries",
+    "checkNginxBoundaries",
+    "checkWebRuntimeOpsBoundary",
+    "docker compose config",
+    "web binds localhost",
+    "does not pretend to be a migration runner",
+    "no production deploy, backup, restore, or migration was executed",
+  ];
+  const documentationText = `${validationMatrix}\n${completionRecord}\n${runbook}`;
+  const requiredDocTokens = [
+    "pnpm package-e:preflight",
+    "不执行生产部署",
+    "不运行生产 migration",
+    "不触碰生产数据库或上传目录",
+    "Web runtime",
+    "migration deploy 执行载体",
+  ];
+  const missing = [
+    ...requiredPackageTokens.filter((token) => !packageJson.includes(token)).map((token) => `package.json:${token}`),
+    ...requiredScriptTokens.filter((token) => !packageEPreflight.includes(token)).map((token) => `package-e-preflight:${token}`),
+    ...requiredDocTokens.filter((token) => !documentationText.includes(token)).map((token) => `docs:${token}`),
+  ];
+
+  checks.push({
+    name: "Package E preflight script",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "Package E has a dedicated read-only preflight script and docs references before E1-E4 confirmation"
       : `missing ${missing.join(", ")}`,
   });
 }

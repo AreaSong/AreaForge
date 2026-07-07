@@ -2,7 +2,9 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0005-mvp-ai-discipline.md` 和 `tasks/backlog/0017-ai-stage-privacy-cost.md` 的实现前确认设计，不是已启用真实 AI 外呼。任何 `AI_ENABLED=true` 的真实 provider 接入、真实 key 烟测或长期阶段调整外呼，都必须等用户明确确认后再做。
+本文件最初用于 `tasks/done/0005-mvp-ai-discipline.md` 和 `tasks/backlog/0017-ai-stage-privacy-cost.md` 的实现前确认。当前 `tasks/done/0005-mvp-ai-discipline.md` 已完成 Package C 真实 AI Provider 第一版；本文继续作为第一版 provider 的边界说明和长期阶段调整 AI 的确认前设计。
+
+Package C 已允许在 `AI_ENABLED=true` 且服务端配置完整时，由三条鉴权 AI POST route 显式触发真实 provider。真实 key 生产烟测、长期阶段调整外呼、保存调用历史、费用统计或发送更完整私密上下文，仍必须等用户后续明确确认后再做。
 
 ## 当前基线
 
@@ -10,19 +12,19 @@
 
 - `packages/ai` 定义了鞭策、每日复盘建议、明日任务建议的结构化 schema。
 - `generateAdviceWithProvider` 支持 provider 抽象、schema 校验、失败 fallback 和敏感字段拦截。
+- `packages/ai` 已实现 OpenAI-compatible JSON provider、`chat/completions` 请求、JSON 提取、超时、429/5xx 重试、401/403 不重试和错误码归一。
 - 敏感字段拦截已覆盖常见 camelCase、snake_case 和 kebab-case 变体，例如 `apiKey`、`api_key`、`session-token`、`reviewText`、`dailyReviewSummary`、`moodText`、`pdfContent`、`attachmentFilePath`。
 - Web AI API 已有：
   - `POST /api/ai/discipline`
   - `POST /api/ai/daily-review`
   - `POST /api/ai/tomorrow-plan`
-- 当前 Web 服务不传 provider，所以始终走 `local_rule_fallback`，不会外呼。
+- Web 服务已接入 env 驱动 provider 创建；只有上述三条鉴权 POST route 传入 `allowExternalProvider: true` 时才允许外呼。
+- 首页普通 SSR 不传 `allowExternalProvider`，仍展示 `local_rule_fallback`，不会因为普通打开首页产生真实外呼成本。
 
-待接入：
+仍待单独确认：
 
-- Sub2API / OpenAI 兼容 provider。
-- env 驱动的 provider 创建。
-- 超时、重试、限流、错误映射、日志脱敏。
 - 长期阶段调整 provider 仍需单独确认。
+- 真实生产 key 烟测、AI 调用历史、费用统计、完整 prompt/响应保存和更完整私密上下文外呼仍需单独确认。
 
 ## 接入范围
 
@@ -43,7 +45,7 @@
 
 ## Provider 设计
 
-建议在 `packages/ai` 增加：
+已在 `packages/ai` 增加：
 
 - `createOpenAiCompatibleJsonProvider(config)`
 - `AiProviderError`
@@ -70,10 +72,10 @@ Provider config：
 
 ## Web 接入点
 
-建议在 `apps/web/lib/study/ai-service.ts` 中增加：
+已在 `apps/web/lib/study/ai-service.ts` 中增加：
 
 - `createConfiguredAiProvider()`
-- `getSafeAiEnv()`
+- 基于 `getAuthEnv()` 的服务端 env 读取和脱敏配置检查。
 
 规则：
 
@@ -81,6 +83,8 @@ Provider config：
 - `AI_ENABLED=true`：必须同时存在 `AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`。
 - 缺少必要变量时，不外呼，返回本地 fallback，并在服务端记录脱敏配置错误。
 - 不把 `AI_API_KEY` 暴露给客户端；客户端只接收 `meta.status/externalCall/reason`。
+- 普通首页 SSR 不传 `allowExternalProvider`；真实 provider 第一版只由鉴权 AI POST route 显式触发。
+- 三条 AI POST route 传入 `userId`，Web 服务按用户和建议类型做轻量内存限流；超限时回退本地规则，不调用 provider。
 
 ## 数据最小化
 
@@ -116,10 +120,10 @@ Provider config：
 - 风险状态。
 - 是否恢复模式。
 - 欠账数量。
-- 当前 top task 标题。
+- 当前 top task 脱敏标签。
 - 一个薄弱科目名称。
 
-注意：任务标题可能含私密内容；真实 provider 接入前必须完成 `topTaskTitle redaction` 决策。真实 provider 第一版默认不发送原始任务标题，只发送任务类型、科目、风险类别或脱敏占位标签；若必须发送标题，需先做脱敏并在烟测中证明 `task title may contain private content` 不会进入外呼。
+注意：任务标题可能含私密内容；Package C 已完成 `topTaskTitle redaction` 决策。真实 provider 第一版默认不发送原始任务标题，只发送脱敏占位标签；若未来必须发送标题，需先做脱敏并在烟测中证明 `task title may contain private content` 不会进入外呼。
 
 ## 敏感字段拦截
 
@@ -131,7 +135,7 @@ Provider config：
 - 笔记和附件：`note`、`content`、`attachment`、`file`、`pdfContent`、`imageContent`、`filePath`
 - prompt/key/path：`prompt`、`apiKey`、`api_key`、`authorization`、`sessionToken`、`uploadDir`、`uploadPath`
 
-`AI_ALLOW_SENSITIVE_CONTEXT=true` 不应在第一版启用。若未来要启用，必须另开高风险确认。
+`AI_ALLOW_SENSITIVE_CONTEXT=true` 不应在第一版启用。当前实现会禁用 provider 并 fallback；`allowSensitiveContext remains disabled after Package C first version`。若未来要启用，必须另开高风险确认。
 
 ## 超时、重试和限流
 
@@ -146,10 +150,10 @@ Provider config：
 费用保护建议：
 
 - 第一版不自动后台刷新 AI。
-- 只由用户打开页面或点击建议入口触发。
-- 当前首页会在服务端渲染时调用每日复盘建议和明日任务建议；若直接把这条路径接入真实 provider，打开首页就会产生外呼成本。第一版真实外呼前必须改为明确触发、缓存/限流保护，或保持首页只展示本地规则建议。
-- Package C 确认后的首页策略必须在实现前选定：`homepage local fallback only`、`explicit trigger only` 或 `cache or rate limit required`。未选定前，首页 SSR 不得创建 provider。
-- 每个 API 可加基础内存限流或依赖现有登录态限速，后续如保存调用历史需另行确认 migration。
+- 只由用户显式触发的 AI API 调用真实 provider。
+- 当前首页会在服务端渲染时调用每日复盘建议和明日任务建议，但不传 `allowExternalProvider`，因此只展示本地 fallback，不会外呼。
+- Package C 已选定首页策略：`homepage local fallback only`；真实外呼策略为 `explicit trigger only`。若未来要改为后台刷新或缓存策略，必须满足 `cache or rate limit required` 并另走确认。
+- 三条 AI API 已加基础内存限流；后续如保存调用历史或做分布式限流，必须另行确认 migration 或基础设施方案。
 - 不保存 token 使用量前，不宣称已有精确费用统计。
 
 ## 错误映射
@@ -214,10 +218,11 @@ Provider config：
 - `AI_ENABLED=false` 时三个 AI API 均返回 `local_rule_fallback`。
 - `AI_ENABLED=true` 且配置缺失时不外呼并 fallback。
 - mock/测试 provider 成功时返回 `ai_generated`。
+- 轻量限流触发时不调用 provider 并 fallback。
 - provider 失败时核心页面和 API 仍可用。
 - 客户端 bundle 搜索不到 `AI_API_KEY`。
-- client bundle key scan command：`rg "AI_API_KEY|AI_BASE_URL|AI_MODEL|NEXT_PUBLIC_" apps/web/.next apps/web/public`，其中 `NEXT_PUBLIC_` 只能作为扫描项出现，不能新增 `NEXT_PUBLIC_AI_*`。
-- `AI_LOG_PROMPTS=false`、`AI_ALLOW_SENSITIVE_CONTEXT=false` 是第一版默认安全姿态；Package C 未确认前不得通过 Web 接入绕过，`allowSensitiveContext disabled before Package C`。
+- client bundle key scan command：`rg "AI_API_KEY|AI_BASE_URL|AI_MODEL|NEXT_PUBLIC_AI|NEXT_PUBLIC_OPENAI|NEXT_PUBLIC_SUB2API" apps/web/.next/static apps/web/public`，其中 `NEXT_PUBLIC_` 只能作为扫描项出现，不能新增 `NEXT_PUBLIC_AI_*`。
+- `AI_LOG_PROMPTS=false`、`AI_ALLOW_SENSITIVE_CONTEXT=false` 是第一版默认安全姿态；Package C 完成后仍不得通过 Web 接入绕过，`allowSensitiveContext remains disabled after Package C first version`。
 - 不新增 AI 调用历史 migration：不得出现 `model AiCall`、`model AiUsage`、`tokenUsage` 或 `promptHash`。若后续需要费用统计或调用历史，必须另开高风险确认。
 
 真实 provider 烟测：

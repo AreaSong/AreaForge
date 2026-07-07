@@ -79,6 +79,60 @@ export interface PeriodicReportStrategy {
   requiresUserConfirmation: true;
 }
 
+export interface PeriodicNextCycleDraftInput {
+  kind: PeriodicReportKind;
+  strategy: PeriodicReportStrategy;
+  weakness?: Pick<PeriodicWeakness, "title" | "detail" | "source" | "severity">;
+}
+
+export interface PeriodicNextCycleDraft {
+  title: string;
+  focus: string;
+  actions: string[];
+  stageAdjustment: string;
+  theme: PeriodicReportTheme;
+  source: "local_rule";
+  canAutoApply: false;
+  requiresUserConfirmation: true;
+  reason: string;
+}
+
+export interface PeriodicReportDecisionSnapshotInput {
+  kind: PeriodicReportKind;
+  range: {
+    start: string;
+    end: string;
+    days: number;
+  };
+  metrics: {
+    totalMinutes: number;
+    effectiveMinutes: number;
+    taskCompletionRate: number;
+    debtCount: number;
+    lowConversionCount: number;
+    reviewCompletionRate: number;
+    weakNodeCount: number;
+    dueNoteCount: number;
+    mistakesCreatedCount: number;
+    mistakeReviewCount: number;
+  };
+  weakness: PeriodicWeakness;
+  strategy: PeriodicReportStrategy;
+  nextCycleDraft: PeriodicNextCycleDraft;
+}
+
+export interface PeriodicReportDecisionSnapshot {
+  sourceVersion: 1;
+  kind: PeriodicReportKind;
+  range: PeriodicReportDecisionSnapshotInput["range"];
+  metrics: PeriodicReportDecisionSnapshotInput["metrics"];
+  weakness: PeriodicWeakness;
+  strategy: PeriodicReportStrategy;
+  nextCycleDraft: PeriodicNextCycleDraft;
+  canAutoApply: false;
+  requiresUserConfirmation: true;
+}
+
 export function choosePeriodicWeakness(input: PeriodicWeaknessInput): PeriodicWeakness {
   const strongestNode = [...input.weakNodes].sort((left, right) => {
     const leftWeight = periodicWeaknessWeight(left.status, left.mistakeCount);
@@ -165,6 +219,54 @@ export function summarizePeriodicReportStrategy(input: PeriodicReportStrategyInp
     nextActions: nextActions.length > 0 ? nextActions : ["保持当前节奏，并把产出继续关联到考纲节点。"],
     stageAdjustment: createPeriodicStageAdjustment(input.kind, theme),
     calmConclusion: createPeriodicCalmConclusion(theme, mustPressIssue),
+    canAutoApply: false,
+    requiresUserConfirmation: true,
+  };
+}
+
+export function createPeriodicNextCycleDraft(input: PeriodicNextCycleDraftInput): PeriodicNextCycleDraft {
+  const target = input.kind === "week" ? "下周" : "下月";
+  const weaknessSummary = input.weakness && input.weakness.source !== "none"
+    ? `${input.weakness.title}：${input.weakness.detail}`
+    : input.strategy.mustPressIssue;
+
+  return {
+    title: `${target}策略草稿`,
+    focus: weaknessSummary,
+    actions: [...new Set(input.strategy.nextActions)].slice(0, 5),
+    stageAdjustment: input.strategy.stageAdjustment,
+    theme: input.strategy.theme,
+    source: "local_rule",
+    canAutoApply: false,
+    requiresUserConfirmation: true,
+    reason: `由已确认的${input.kind === "week" ? "周审判" : "月复盘"}报告策略生成，只作为下一周期草稿，不自动修改任务或阶段计划。`,
+  };
+}
+
+export function createPeriodicReportDecisionSnapshot(
+  input: PeriodicReportDecisionSnapshotInput,
+): PeriodicReportDecisionSnapshot {
+  return {
+    sourceVersion: 1,
+    kind: input.kind,
+    range: { ...input.range },
+    metrics: { ...input.metrics },
+    weakness: {
+      ...input.weakness,
+      reasons: [...input.weakness.reasons],
+    },
+    strategy: {
+      ...input.strategy,
+      nextActions: [...input.strategy.nextActions],
+      canAutoApply: false,
+      requiresUserConfirmation: true,
+    },
+    nextCycleDraft: {
+      ...input.nextCycleDraft,
+      actions: [...input.nextCycleDraft.actions],
+      canAutoApply: false,
+      requiresUserConfirmation: true,
+    },
     canAutoApply: false,
     requiresUserConfirmation: true,
   };

@@ -131,7 +131,16 @@ function checkExplicitConfirmationPhrases(): void {
     "确认执行 Package B Batch 6：阶段计划和阶段调整草稿",
     "确认执行 Package C：真实 AI Provider 第一版",
     "确认执行 Package D：第二阶段长期闭环",
+    "确认执行 Package D Batch D1：报告决策入口",
+    "确认执行 Package D Batch D2：任务债务重排确认流",
+    "确认执行 Package D Batch D3：长期阶段 AI 草稿",
+    "确认执行 Package D Batch D4：长期风险和主题闭环补强",
+    "确认执行 Package D Batch D5：Package D 收口",
     "确认执行 Package E：生产部署、备份与恢复",
+    "确认执行 Package E Batch E1：生产配置与发布工件预检",
+    "确认执行 Package E Batch E2：发布前备份与恢复演练",
+    "确认执行 Package E Batch E3：生产发布与 migration deploy",
+    "确认执行 Package E Batch E4：回滚演练与 Package E 收口",
   ];
   const missingPhrases = requiredPhrases.filter((phrase) => !packets.includes(phrase));
 
@@ -139,7 +148,7 @@ function checkExplicitConfirmationPhrases(): void {
     name: "explicit high-risk confirmation phrases",
     ok: missingPhrases.length === 0,
     detail: missingPhrases.length === 0
-      ? "Package A-E and Package B Batch 1-6 have exact confirmation phrases"
+      ? "Package A-E and Package B Batch 0-6 have exact confirmation phrases"
       : `missing ${missingPhrases.join("; ")}`,
   });
 }
@@ -251,7 +260,7 @@ function checkAttachmentDesign(): void {
 function checkAiDesign(): void {
   const design = readIfExists("docs/development/ai-provider-integration-design.md");
   const ai = readIfExists("packages/ai/src/index.ts");
-  const task = readIfExists("tasks/backlog/0005-mvp-ai-discipline.md");
+  const task = readIfExists("tasks/done/0005-mvp-ai-discipline.md");
   const requiredTerms = [
     "AI_ENABLED=false",
     "动机档案",
@@ -353,6 +362,11 @@ function checkSecondStageDesign(): void {
     "canAutoApply=false",
     "requiresUserConfirmation=true",
     "部分应用失败",
+    "Batch D1",
+    "Batch D2",
+    "Batch D3",
+    "Batch D4",
+    "Batch D5",
   ];
   const missingPacketTerms = requiredPacketTerms.filter((term) => !packets.includes(term));
   checks.push({
@@ -368,9 +382,15 @@ function checkSecondStageDesign(): void {
     "报告决策入口",
     "确认本周期策略",
     "驳回策略",
+    "createPeriodicNextCycleDraft",
+    "createPeriodicReportDecisionSnapshot",
+    "previewTaskDebtReorderApplication",
+    "summarizeLongTermRisks",
     "任务债务重排",
+    "应用预览",
     "重复提交",
     "部分失败",
+    "小批量上限",
     "StagePlan",
     "StageAdjustmentDraft",
     "SimulationExam",
@@ -379,6 +399,15 @@ function checkSecondStageDesign(): void {
     "长期 AI 阶段调整",
     "未确认时保持本地规则草稿",
     "长期 AI 关闭",
+    "Batch D1 报告决策入口",
+    "Batch D2 任务债务重排确认流",
+    "Batch D3 长期阶段 AI 草稿",
+    "Batch D4 长期风险和主题闭环",
+    "统一长期风险 DTO",
+    "Batch D5 收口",
+    "长期 AI 最小字段清单",
+    "只处理所选项",
+    "跳过摘要",
   ];
   const missingTaskPrepTerms = requiredTaskPrepTerms.filter((term) => !task.includes(term));
   checks.push({
@@ -393,11 +422,17 @@ function checkSecondStageDesign(): void {
 function checkSecondStageStillBeforePackageD(): void {
   const completionRecord = readIfExists("docs/development/docs-100-completion-record.md");
   const batch6Done = isPackageBBatchDone(completionRecord, 6);
+  const packageDStatus = getPackageDBatchStatus(completionRecord);
   const debtReorderRoute = readIfExists("apps/web/app/api/tasks/debt-reorder/route.ts");
   const reportsPeriodicRoute = readIfExists("apps/web/app/api/reports/periodic/route.ts");
   const simulationStageRoute = readIfExists("apps/web/app/api/simulation/stage/route.ts");
+  const aiPackage = readIfExists("packages/ai/src/index.ts");
+  const aiService = readIfExists("apps/web/lib/study/ai-service.ts");
   const stageAdjustmentCore = readIfExists("packages/core/src/stage-adjustment.ts");
+  const longTermRiskCore = readIfExists("packages/core/src/long-term-risk.ts");
+  const periodicReportCore = readIfExists("packages/core/src/periodic-report.ts");
   const simulationService = readIfExists("apps/web/lib/study/simulation-service.ts");
+  const stageService = readIfExists("apps/web/lib/study/stage-service.ts");
   const simulationPage = readIfExists("apps/web/app/simulation/page.tsx");
   const reportsService = readIfExists("apps/web/lib/study/reports-service.ts");
   const reportsPage = readIfExists("apps/web/app/reports/page.tsx");
@@ -418,18 +453,38 @@ function checkSecondStageStillBeforePackageD(): void {
     "/simulation/exams/",
   ];
   const forbiddenDebtApplyRoutes = allApiFiles.filter((file) =>
-    file.includes("/tasks/debt-reorder/") && packageDForbiddenRouteTerms.some((term) => file.includes(`/${term}/`)),
+    file.includes("/tasks/debt-reorder/") &&
+    packageDForbiddenRouteTerms.some((term) => file.includes(`/${term}/`)) &&
+    !isPackageDDebtReorderDecisionRoute(file, packageDStatus.d2),
+  );
+  const forbiddenDebtWriteRoutes = allApiFiles.filter((file) =>
+    file.replaceAll(path.sep, "/").includes("/tasks/debt-reorder") &&
+    hasWriteRouteMethod(readIfExists(file)) &&
+    !isPackageDDebtReorderDecisionRoute(file, packageDStatus.d2),
+  );
+  const forbiddenReportWriteRoutes = allApiFiles.filter((file) =>
+    isReportDecisionScopeRoute(file) &&
+    hasWriteRouteMethod(readIfExists(file)) &&
+    !isPackageDReportDecisionRoute(file, packageDStatus.d1),
+  );
+  const forbiddenStageAiDraftRoutes = allApiFiles.filter((file) =>
+    file.replaceAll(path.sep, "/").includes("/simulation/stage-adjustment-drafts/ai") &&
+    !isPackageDStageAiDraftRoute(file, packageDStatus.d3),
   );
   const forbiddenStageApplyRoutesByScan = allApiFiles.filter((file) =>
     file.includes("/simulation/stage") &&
     packageDForbiddenRouteTerms.some((term) => file.includes(`/${term}/`)) &&
-    !isBatch6StageDraftDecisionRoute(file, batch6Done),
+    !isBatch6StageDraftDecisionRoute(file, batch6Done) &&
+    !isPackageDStageAiDraftRoute(file, packageDStatus.d3),
   );
   const forbiddenLongTermWriteRoutes = allApiFiles.filter((file) => {
     const normalized = file.replaceAll(path.sep, "/");
     const scoped = packageDWriteRouteScopes.some((scope) => normalized.includes(scope));
     const hasForbiddenAction = packageDForbiddenRouteTerms.some((term) => normalized.includes(`/${term}/`));
-    return scoped && hasForbiddenAction && !isBatch6StageDraftDecisionRoute(normalized, batch6Done);
+    return scoped &&
+      hasForbiddenAction &&
+      !isBatch6StageDraftDecisionRoute(normalized, batch6Done) &&
+      !isAllowedPackageDWriteRoute(normalized, packageDStatus);
   });
 
   const forbiddenDebtReorderMethods = ["POST", "PATCH", "PUT", "DELETE"].filter((method) =>
@@ -439,10 +494,17 @@ function checkSecondStageStillBeforePackageD(): void {
     name: "Package D debt reorder API boundary",
     ok: debtReorderRoute.includes("export async function GET") &&
       forbiddenDebtReorderMethods.length === 0 &&
-      forbiddenDebtApplyRoutes.length === 0,
-    detail: forbiddenDebtReorderMethods.length === 0 && forbiddenDebtApplyRoutes.length === 0
+      forbiddenDebtApplyRoutes.length === 0 &&
+      forbiddenDebtWriteRoutes.length === 0,
+    detail: forbiddenDebtReorderMethods.length === 0 &&
+        forbiddenDebtApplyRoutes.length === 0 &&
+        forbiddenDebtWriteRoutes.length === 0
       ? "debt reorder remains read-only GET without apply write handlers"
-      : `found debt reorder write surface before confirmation: ${[...forbiddenDebtReorderMethods, ...forbiddenDebtApplyRoutes].join(", ")}`,
+      : `found debt reorder write surface before confirmation: ${[
+        ...forbiddenDebtReorderMethods,
+        ...forbiddenDebtApplyRoutes,
+        ...forbiddenDebtWriteRoutes,
+      ].join(", ")}`,
   });
 
   const forbiddenReportsPeriodicMethods = ["POST", "PATCH", "PUT", "DELETE"].filter((method) =>
@@ -450,10 +512,15 @@ function checkSecondStageStillBeforePackageD(): void {
   );
   checks.push({
     name: "Package D periodic reports API boundary",
-    ok: reportsPeriodicRoute.includes("export async function GET") && forbiddenReportsPeriodicMethods.length === 0,
-    detail: forbiddenReportsPeriodicMethods.length === 0
+    ok: reportsPeriodicRoute.includes("export async function GET") &&
+      forbiddenReportsPeriodicMethods.length === 0 &&
+      forbiddenReportWriteRoutes.length === 0,
+    detail: forbiddenReportsPeriodicMethods.length === 0 && forbiddenReportWriteRoutes.length === 0
       ? "periodic reports remain read-only GET without decision write handlers"
-      : `found periodic report write methods before confirmation: ${forbiddenReportsPeriodicMethods.join(", ")}`,
+      : `found periodic report write surface before confirmation: ${[
+        ...forbiddenReportsPeriodicMethods,
+        ...forbiddenReportWriteRoutes,
+      ].join(", ")}`,
   });
 
   const forbiddenStageMethods = ["POST", "PATCH", "PUT", "DELETE"].filter((method) =>
@@ -470,10 +537,17 @@ function checkSecondStageStillBeforePackageD(): void {
     name: "Package D stage adjustment API boundary",
     ok: simulationStageRoute.includes("export async function GET") &&
       forbiddenStageMethods.length === 0 &&
-      allForbiddenStageRoutes.length === 0,
-    detail: forbiddenStageMethods.length === 0 && allForbiddenStageRoutes.length === 0
+      allForbiddenStageRoutes.length === 0 &&
+      forbiddenStageAiDraftRoutes.length === 0,
+    detail: forbiddenStageMethods.length === 0 &&
+        allForbiddenStageRoutes.length === 0 &&
+        forbiddenStageAiDraftRoutes.length === 0
       ? "stage adjustment remains read-only draft without apply write handlers"
-      : `found stage adjustment write surface before confirmation: ${[...forbiddenStageMethods, ...allForbiddenStageRoutes].join(", ")}`,
+      : `found stage adjustment write surface before confirmation: ${[
+        ...forbiddenStageMethods,
+        ...allForbiddenStageRoutes,
+        ...forbiddenStageAiDraftRoutes,
+      ].join(", ")}`,
   });
 
   checks.push({
@@ -504,6 +578,22 @@ function checkSecondStageStillBeforePackageD(): void {
       : `missing ${missingStageConfirmTerms.join(", ")}`,
   });
 
+  const stageDraftSourceMatches = [
+    ...(stageService.includes("source: \"ai\"") ? ["stage-service:source: \"ai\""] : []),
+    ...(stageService.includes("source: 'ai'") ? ["stage-service:source: 'ai'"] : []),
+  ];
+  const missingStageDraftSourceTerms = [
+    "source: \"local_rule\"",
+    "STAGE_ADJUSTMENT_DRAFT_CREATED",
+  ].filter((term) => !stageService.includes(term));
+  checks.push({
+    name: "Package D stage draft source boundary",
+    ok: missingStageDraftSourceTerms.length === 0 && stageDraftSourceMatches.length === 0,
+    detail: missingStageDraftSourceTerms.length === 0 && stageDraftSourceMatches.length === 0
+      ? "stage draft creation stays local_rule before long-term AI confirmation"
+      : `missing ${missingStageDraftSourceTerms.join(", ") || "none"}; found ${stageDraftSourceMatches.join(", ") || "none"}`,
+  });
+
   const reportConfirmFields = [
     "canAutoApply: false;",
     "requiresUserConfirmation: true;",
@@ -521,11 +611,63 @@ function checkSecondStageStillBeforePackageD(): void {
       : `missing ${missingReportConfirmFields.join(", ")}`,
   });
 
+  const nextCycleDraftTerms = [
+    "createPeriodicNextCycleDraft",
+    "source: \"local_rule\"",
+    "canAutoApply: false",
+    "requiresUserConfirmation: true",
+    "不自动修改任务或阶段计划",
+  ];
+  const missingNextCycleDraftTerms = nextCycleDraftTerms.filter((term) => !periodicReportCore.includes(term));
+  checks.push({
+    name: "Package D next-cycle draft pure rule",
+    ok: missingNextCycleDraftTerms.length === 0,
+    detail: missingNextCycleDraftTerms.length === 0
+      ? "core next-cycle draft remains local-rule and confirm-only before D1 write paths"
+      : `missing ${missingNextCycleDraftTerms.join(", ")}`,
+  });
+
+  const reportSnapshotPureTerms = [
+    "createPeriodicReportDecisionSnapshot",
+    "sourceVersion: 1",
+    "metrics: { ...input.metrics }",
+    "canAutoApply: false",
+    "requiresUserConfirmation: true",
+  ];
+  const missingReportSnapshotPureTerms = reportSnapshotPureTerms.filter((term) => !periodicReportCore.includes(term));
+  checks.push({
+    name: "Package D report snapshot pure rule",
+    ok: missingReportSnapshotPureTerms.length === 0,
+    detail: missingReportSnapshotPureTerms.length === 0
+      ? "core report decision snapshot freezes replay data without enabling D1 write paths"
+      : `missing ${missingReportSnapshotPureTerms.join(", ")}`,
+  });
+
+  const longTermRiskPureTerms = [
+    "summarizeLongTermRisks",
+    "LongTermRiskSource",
+    "evidenceFreshness",
+    "nextAction",
+    "sourceVersion: 1",
+    "canAutoApply: false",
+    "requiresUserConfirmation: true",
+  ];
+  const missingLongTermRiskPureTerms = longTermRiskPureTerms.filter((term) => !longTermRiskCore.includes(term));
+  checks.push({
+    name: "Package D long-term risk pure rule",
+    ok: missingLongTermRiskPureTerms.length === 0,
+    detail: missingLongTermRiskPureTerms.length === 0
+      ? "core long-term risk DTO stays pure, source-aware, and confirm-only before D4 write paths"
+      : `missing ${missingLongTermRiskPureTerms.join(", ")}`,
+  });
+
   const requiredUiTerms = [
     "report.strategy.canAutoApply",
     "report.strategy.requiresUserConfirmation",
     "report.aiDraft.canAutoApply",
     "report.aiDraft.requiresUserConfirmation",
+    "report.decisionPreview.canAutoApply",
+    "report.decisionPreview.requiresUserConfirmation",
     "debtReorder.canAutoApply",
     "debtReorder.requiresUserConfirmation",
   ];
@@ -554,14 +696,47 @@ function checkSecondStageStillBeforePackageD(): void {
       : `missing ${missingDocsTerms.join(", ")}`,
   });
 
-  const forbiddenLongTermAiTerms = ["@areaforge/ai", "generateAdviceWithProvider", "createConfiguredAiProvider"];
-  const longTermServiceText = `${reportsService}\n${simulationService}\n${simulationStageRoute}`;
-  const longTermAiMatches = forbiddenLongTermAiTerms.filter((term) => longTermServiceText.includes(term));
+  const genericAiProviderTerms = [
+    "@areaforge/ai",
+    "generateAdviceWithProvider",
+    "createConfiguredAiProvider",
+  ];
+  const longTermAiSpecificTerms = [
+    "stage_adjustment",
+    "long_term",
+    "LongTerm",
+    "AiStageAdjustment",
+  ];
+  const longTermAiMatches = genericAiProviderTerms.flatMap((term) => {
+    const matches: string[] = [];
+    if (reportsService.includes(term)) matches.push(`reports-service:${term}`);
+    if (simulationService.includes(term)) matches.push(`simulation-service:${term}`);
+    if (simulationStageRoute.includes(term)) matches.push(`simulation-stage-route:${term}`);
+    if (!packageDStatus.d3 && stageService.includes(term)) matches.push(`stage-service:${term}`);
+    return matches;
+  });
+  if (!packageDStatus.d3) {
+    for (const term of longTermAiSpecificTerms) {
+      if (aiService.includes(term)) longTermAiMatches.push(`ai-service:${term}`);
+      if (aiPackage.includes(term)) longTermAiMatches.push(`ai-package:${term}`);
+      if (stageService.includes(term)) longTermAiMatches.push(`stage-service:${term}`);
+    }
+    for (const file of allApiFiles) {
+      const normalized = file.replaceAll(path.sep, "/");
+      const content = readIfExists(file);
+      if (normalized.includes("/simulation/stage-adjustment-drafts/ai")) {
+        longTermAiMatches.push(`api-route:${normalized}`);
+      }
+      for (const term of longTermAiSpecificTerms) {
+        if (content.includes(term)) longTermAiMatches.push(`api-route:${normalized}:${term}`);
+      }
+    }
+  }
   checks.push({
     name: "Package D long-term AI boundary",
     ok: longTermAiMatches.length === 0,
     detail: longTermAiMatches.length === 0
-      ? "reports and stage services do not call AI before Package C/D confirmation"
+      ? "reports and stage services do not call long-term AI before Package D / 0017 confirmation"
       : `found long-term AI call surface before confirmation: ${longTermAiMatches.join(", ")}`,
   });
 
@@ -588,8 +763,8 @@ function checkSecondStageStillBeforePackageD(): void {
     "longTermAiAdvice",
   ];
   const reportSnapshotMatches = forbiddenReportSnapshotTerms.filter((term) =>
-    schema.includes(term) ||
-    studyRuntimeText.includes(term),
+    !isAllowedPackageDPersistenceTerm(term, packageDStatus) &&
+    (schema.includes(term) || studyRuntimeText.includes(term)),
   );
   checks.push({
     name: "Package D report and decision persistence boundary",
@@ -777,7 +952,7 @@ function checkStructuredMigrationDesign(): void {
     "用户显式确认前只保存草稿",
     "不自动重排任务",
     "不批量修改任务",
-    "Package C 未确认前，长期阶段调整只能使用本地规则，不能真实 AI 外呼",
+    "长期阶段 AI 未单独确认前，阶段调整只能使用本地规则，不能真实 AI 外呼",
   ];
   const missingBatch6Terms = requiredBatch6Terms.filter((term) => !packets.includes(term));
   checks.push({
@@ -1039,6 +1214,7 @@ function checkProductionCompose(): void {
   const task = readIfExists("tasks/backlog/0014-deployment-backup-release.md");
   const runbook = readIfExists("docs/development/production-release-runbook.md");
   const backupRestore = readIfExists("docs/deployment/backup-restore.md");
+  const setup = readIfExists("docs/development/setup.md");
   const webBlock = getComposeServiceBlock(compose, "web");
   const postgresBlock = getComposeServiceBlock(compose, "postgres");
   const webImageLine = findYamlKeyLine(webBlock, "image");
@@ -1064,6 +1240,7 @@ function checkProductionCompose(): void {
     "镜像 digest",
     "compose 文件 hash",
     "docker compose --env-file .env.example -f docker-compose.prod.yml config",
+    "pnpm package-e:preflight",
     "发布前备份",
     "PostgreSQL dump",
     "上传目录归档",
@@ -1073,6 +1250,14 @@ function checkProductionCompose(): void {
     "发布后烟测",
     "回滚记录",
     "网页内一键更新",
+    "migration deploy 有明确执行载体",
+    "一次性 migration job",
+    "report_only",
+    "Batch E1 生产配置与发布工件预检",
+    "Batch E2 发布前备份与恢复演练",
+    "Batch E3 生产发布与 migration deploy",
+    "Batch E4 回滚演练与 Package E 收口",
+    "受控 release 工作目录",
   ];
   const missingTaskPrepTerms = requiredTaskPrepTerms.filter((term) => !task.includes(term));
   checks.push({
@@ -1088,6 +1273,7 @@ function checkProductionCompose(): void {
     "中止条件",
     "expectedFailureOrStopConditions",
     "docker compose --env-file .env.example -f docker-compose.prod.yml config",
+    "pnpm package-e:preflight",
     "AUTH_SESSION_SECRET is required",
     "required production env",
     "pg_dump",
@@ -1100,6 +1286,17 @@ function checkProductionCompose(): void {
     "databaseBackupSha256",
     "uploadsBackupSha256",
     "恢复演练验收判定表",
+    "migration deploy 的执行载体",
+    "一次性 migration 镜像或 job",
+    "不能默认视为可执行 `pnpm db:migrate:deploy` 的环境",
+    "report_only",
+    "不自动修复 metadata",
+    "不移动上传文件",
+    "Batch E1-E4 交付物",
+    "不执行生产部署",
+    "不覆盖生产库",
+    "不执行无备份 migration",
+    "不新增网页内一键更新",
   ];
   const releaseDocs = `${runbook}\n${backupRestore}`;
   const missingRunbookTerms = requiredRunbookTerms.filter((term) => !releaseDocs.includes(term));
@@ -1107,8 +1304,28 @@ function checkProductionCompose(): void {
     name: "Package E runbook commands",
     ok: missingRunbookTerms.length === 0,
     detail: missingRunbookTerms.length === 0
-      ? "release, backup, restore, smoke, and rollback command templates are documented"
+      ? "release, migration runner, backup, restore, smoke, rollback, and read-only reconciliation templates are documented"
       : `missing ${missingRunbookTerms.join(", ")}`,
+  });
+
+  const requiredSetupTerms = [
+    "Package E",
+    "备份点",
+    "migration deploy 执行载体",
+    "standalone Web runtime",
+    "不能默认视为可执行 Prisma migrate deploy 的环境",
+    "受控 release 工作目录",
+    "一次性 migration job",
+    "确认前不要对生产数据库运行该命令",
+    "显式指定 `DATABASE_URL`",
+  ];
+  const missingSetupTerms = requiredSetupTerms.filter((term) => !setup.includes(term));
+  checks.push({
+    name: "Package E setup migration boundary",
+    ok: missingSetupTerms.length === 0,
+    detail: missingSetupTerms.length === 0
+      ? "setup docs keep production migration behind Package E confirmation, backup point, and explicit runner"
+      : `missing ${missingSetupTerms.join(", ")}`,
   });
 
   const apiFiles = listFiles("apps/web/app/api").filter((file) => file.endsWith("/route.ts"));
@@ -1796,7 +2013,10 @@ function hasPackageAImplementationEvidence(): boolean {
 }
 
 function checkAiStillBeforePackageC(): void {
+  const completionRecord = readIfExists("docs/development/docs-100-completion-record.md");
+  const packageCConfirmed = isPackageConfirmedOrDone(completionRecord, "Package C");
   const ai = readIfExists("packages/ai/src/index.ts");
+  const aiTests = readIfExists("packages/ai/src/index.test.ts");
   const webAiService = readIfExists("apps/web/lib/study/ai-service.ts");
   const homePage = readIfExists("apps/web/app/page.tsx");
   const schema = readIfExists("prisma/schema.prisma");
@@ -1830,10 +2050,14 @@ function checkAiStillBeforePackageC(): void {
   const matches = [...aiMatches.map((token) => `packages/ai:${token}`), ...webMatches.map((token) => `web-ai-service:${token}`)];
   checks.push({
     name: "Package C implementation boundary",
-    ok: matches.length === 0,
-    detail: matches.length === 0
-      ? "real AI provider wiring remains gated behind confirmation"
-      : `found real provider tokens before confirmation: ${matches.join(", ")}`,
+    ok: packageCConfirmed ? hasPackageCImplementationEvidence(ai, aiTests, webAiService, aiRouteFiles) : matches.length === 0,
+    detail: packageCConfirmed
+      ? hasPackageCImplementationEvidence(ai, aiTests, webAiService, aiRouteFiles)
+        ? "confirmed Package C provider, env wiring, route trigger, fallback, and privacy evidence are present"
+        : "Package C is confirmed or done but provider implementation evidence is incomplete"
+      : matches.length === 0
+        ? "real AI provider wiring remains gated behind confirmation"
+        : `found real provider tokens before confirmation: ${matches.join(", ")}`,
   });
 
   const webProviderTerms = [
@@ -1848,10 +2072,14 @@ function checkAiStillBeforePackageC(): void {
   const providerTerms = webProviderTerms.filter((term) => webAiService.includes(term));
   checks.push({
     name: "Package C web provider boundary",
-    ok: providerTerms.length === 0,
-    detail: providerTerms.length === 0
-      ? "web AI service still omits provider wiring and env key reads"
-      : `found provider wiring before confirmation: ${providerTerms.join(", ")}`,
+    ok: packageCConfirmed ? providerTerms.length === webProviderTerms.length : providerTerms.length === 0,
+    detail: packageCConfirmed
+      ? providerTerms.length === webProviderTerms.length
+        ? "confirmed Package C web AI service reads server env and creates provider only for explicit route calls"
+        : `Package C is done but web provider wiring is incomplete: missing ${webProviderTerms.filter((term) => !providerTerms.includes(term)).join(", ")}`
+      : providerTerms.length === 0
+        ? "web AI service still omits provider wiring and env key reads"
+        : `found provider wiring before confirmation: ${providerTerms.join(", ")}`,
   });
 
   const forbiddenContextTerms = [
@@ -1885,12 +2113,18 @@ function checkAiStillBeforePackageC(): void {
 
   const homepageCallsAi = homePage.includes("getDailyReviewAiAdvice") || homePage.includes("getTomorrowPlanAiAdvice");
   const homepageExternalRisk = homepageCallsAi && providerTerms.length > 0;
+  const homepageExternalDisabled = !homepageCallsAi ||
+    (!homePage.includes("allowExternalProvider") && webAiService.includes("allowExternalProvider"));
   checks.push({
     name: "Package C homepage cost boundary",
-    ok: !homepageExternalRisk,
-    detail: homepageCallsAi
-      ? "homepage may render local AI fallback, but provider wiring remains disabled"
-      : "homepage does not request AI advice during render",
+    ok: packageCConfirmed ? homepageExternalDisabled : !homepageExternalRisk,
+    detail: packageCConfirmed
+      ? homepageExternalDisabled
+        ? "homepage may render AI advice, but does not pass allowExternalProvider and remains local fallback only"
+        : "Package C is done but homepage can trigger external provider during SSR"
+      : homepageCallsAi
+        ? "homepage may render local AI fallback, but provider wiring remains disabled"
+        : "homepage does not request AI advice during render",
   });
 
   const requiredCostAndPrivacyTerms = [
@@ -1904,7 +2138,7 @@ function checkAiStillBeforePackageC(): void {
     "真实 provider 第一版默认不发送原始任务标题",
     "AI_LOG_PROMPTS=false",
     "AI_ALLOW_SENSITIVE_CONTEXT=false",
-    "allowSensitiveContext disabled before Package C",
+    "allowSensitiveContext remains disabled after Package C first version",
     "model AiCall",
     "model AiUsage",
     "tokenUsage",
@@ -1926,8 +2160,8 @@ function checkAiStillBeforePackageC(): void {
     name: "Package C public client env boundary",
     ok: forbiddenPublicAiEnv.length === 0,
     detail: forbiddenPublicAiEnv.length === 0
-      ? "no NEXT_PUBLIC AI key/base/model env surface exists before confirmation"
-      : `found public AI env surface before confirmation: ${forbiddenPublicAiEnv.join(", ")}`,
+      ? "no NEXT_PUBLIC AI key/base/model env surface exists after Package C first version"
+      : `found public AI env surface after Package C first version: ${forbiddenPublicAiEnv.join(", ")}`,
   });
 
   const unsafeAiConfig = ["AI_LOG_PROMPTS=true", "AI_ALLOW_SENSITIVE_CONTEXT=true"].filter((term) => envExample.includes(term));
@@ -1941,7 +2175,7 @@ function checkAiStillBeforePackageC(): void {
     name: "Package C sensitive logging defaults",
     ok: aiConfigProblems.length === 0,
     detail: aiConfigProblems.length === 0
-      ? "AI_LOG_PROMPTS and AI_ALLOW_SENSITIVE_CONTEXT stay false by default before confirmation"
+      ? "AI_LOG_PROMPTS and AI_ALLOW_SENSITIVE_CONTEXT stay false by default after Package C first version"
       : `AI sensitive logging config issue: ${aiConfigProblems.join(", ")}`,
   });
 
@@ -1983,9 +2217,55 @@ function checkAiStillBeforePackageC(): void {
     name: "Package C prompt persistence boundary",
     ok: persistenceMatches.length === 0,
     detail: persistenceMatches.length === 0
-      ? "schema and AI services do not persist full prompts or raw model responses before confirmation"
+      ? "schema and AI services do not persist full prompts or raw model responses after Package C first version"
       : `found prompt/response persistence surface: ${persistenceMatches.join(", ")}`,
   });
+}
+
+function hasPackageCImplementationEvidence(
+  ai: string,
+  aiTests: string,
+  webAiService: string,
+  aiRouteFiles: string[],
+): boolean {
+  const aiImplementationTerms = [
+    "createOpenAiCompatibleJsonProvider",
+    "createAiPrompt",
+    "chat/completions",
+    "fetchWithTimeout",
+    "rate_limited",
+    "auth_failed",
+    "invalid_json",
+    "topTaskTitleRedacted",
+  ];
+  const aiTestTerms = [
+    "openai compatible provider",
+    "retries rate limits",
+    "does not retry auth failures",
+    "invalid JSON",
+    "schema invalid",
+    "task title may contain private content",
+  ];
+  const webTerms = [
+    "createConfiguredAiProvider",
+    "createOpenAiCompatibleJsonProvider",
+    "AI_ENABLED",
+    "AI_BASE_URL",
+    "AI_API_KEY",
+    "AI_MODEL",
+    "allowExternalProvider",
+    "checkAiProviderRateLimit",
+    "aiProviderRateLimitMaxCalls",
+    "首页普通打开仅展示本地规则建议",
+  ];
+  const routeTermsPresent = aiRouteFiles.every((file) =>
+    apiRouteContains(file, ["requireApiUser(request)", "allowExternalProvider: true"]),
+  );
+
+  return aiImplementationTerms.every((term) => ai.includes(term)) &&
+    aiTestTerms.every((term) => aiTests.includes(term)) &&
+    webTerms.every((term) => webAiService.includes(term)) &&
+    routeTermsPresent;
 }
 
 function stripYamlCommentLines(value: string): string {
@@ -2029,6 +2309,95 @@ function isBatch6StageDraftDecisionRoute(file: string, batch6Done: boolean): boo
   return /\/simulation\/stage-adjustment-drafts\/\[[^\]]+\]\/(confirm|reject)\/route\.ts$/.test(normalized);
 }
 
+function getPackageDBatchStatus(completionRecord: string): { d1: boolean; d2: boolean; d3: boolean; d4: boolean; d5: boolean } {
+  return {
+    d1: isPackageDBatchDone(completionRecord, "D1"),
+    d2: isPackageDBatchDone(completionRecord, "D2"),
+    d3: isPackageDBatchDone(completionRecord, "D3"),
+    d4: isPackageDBatchDone(completionRecord, "D4"),
+    d5: isPackageDBatchDone(completionRecord, "D5"),
+  };
+}
+
+function isPackageDBatchDone(completionRecord: string, batch: "D1" | "D2" | "D3" | "D4" | "D5"): boolean {
+  const line = completionRecord
+    .split(/\r?\n/)
+    .find((item) => item.startsWith(`| Batch ${batch}：`)) ?? "";
+  if (!line.includes("DONE / 已完成")) return false;
+
+  const cells = parseMarkdownCells(line);
+  const confirmation = cells[2] ?? "";
+  const validation = cells[3] ?? "";
+  const smoke = cells[4] ?? "";
+  const docsSync = cells[5] ?? "";
+  const residualRisk = cells[6] ?? "";
+
+  return confirmation.includes("用户已明确确认") &&
+    validation.includes("pnpm") &&
+    /(烟测|smoke|Playwright)/i.test(smoke) &&
+    docsSync.includes("已同步") &&
+    residualRisk.length >= 20 &&
+    !["待同步", "未运行", "缺"].some((token) => residualRisk.includes(token));
+}
+
+function hasWriteRouteMethod(routeContent: string): boolean {
+  return /\bexport\s+async\s+function\s+(POST|PATCH|PUT|DELETE)\b/.test(routeContent) ||
+    /\bexport\s+const\s+(POST|PATCH|PUT|DELETE)\b/.test(routeContent) ||
+    /\bexport\s*\{\s*(POST|PATCH|PUT|DELETE)(\s+as\s+(POST|PATCH|PUT|DELETE))?\s*\}/.test(routeContent);
+}
+
+function isAllowedPackageDWriteRoute(
+  file: string,
+  status: { d1: boolean; d2: boolean; d3: boolean },
+): boolean {
+  return isPackageDReportDecisionRoute(file, status.d1) ||
+    isPackageDDebtReorderDecisionRoute(file, status.d2) ||
+    isPackageDStageAiDraftRoute(file, status.d3);
+}
+
+function isReportDecisionScopeRoute(file: string): boolean {
+  const normalized = file.replaceAll(path.sep, "/");
+  return normalized.includes("/reports/") || normalized.includes("/periodic-reports/");
+}
+
+function isPackageDReportDecisionRoute(file: string, d1Done: boolean): boolean {
+  if (!d1Done) return false;
+  const normalized = file.replaceAll(path.sep, "/");
+  return /\/reports\/periodic\/decisions(\/\[[^\]]+\])?\/route\.ts$/.test(normalized) ||
+    /\/periodic-reports\/decisions(\/\[[^\]]+\])?\/route\.ts$/.test(normalized);
+}
+
+function isPackageDDebtReorderDecisionRoute(file: string, d2Done: boolean): boolean {
+  if (!d2Done) return false;
+  const normalized = file.replaceAll(path.sep, "/");
+  return /\/tasks\/debt-reorder\/(decisions|applications)(\/\[[^\]]+\])?\/route\.ts$/.test(normalized);
+}
+
+function isPackageDStageAiDraftRoute(file: string, d3Done: boolean): boolean {
+  if (!d3Done) return false;
+  const normalized = file.replaceAll(path.sep, "/");
+  return /\/simulation\/stage-adjustment-drafts\/ai\/route\.ts$/.test(normalized);
+}
+
+function isAllowedPackageDPersistenceTerm(
+  term: string,
+  status: { d1: boolean; d2: boolean; d3: boolean },
+): boolean {
+  const d1AllowedTerms = [
+    "model PeriodicReportDecision",
+    "reportSnapshot",
+    "periodicReportDecision",
+    "reportDecision",
+  ];
+  const d2AllowedTerms = [
+    "debtReorderApplication",
+    "taskReorderApplication",
+  ];
+  if (status.d1 && d1AllowedTerms.includes(term)) return true;
+  if (status.d2 && d2AllowedTerms.includes(term)) return true;
+  return false;
+}
+
 function listFiles(directory: string): string[] {
   const directoryPath = resolve(directory);
   if (!existsSync(directoryPath)) return [];
@@ -2045,6 +2414,13 @@ function isPackageBBatchDone(completionRecord: string, batch: number): boolean {
   return completionRecord
     .split(/\r?\n/)
     .some((line) => line.startsWith(`| Batch ${batch}：`) && line.includes("DONE / 已完成"));
+}
+
+function parseMarkdownCells(line: string): string[] {
+  return line
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
 }
 
 function isPackageConfirmedOrDone(completionRecord: string, packageName: string): boolean {

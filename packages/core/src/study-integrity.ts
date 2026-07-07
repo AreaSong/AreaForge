@@ -109,6 +109,65 @@ export interface TaskDebtReorderPlan {
   summary: string;
 }
 
+export type TaskDebtReorderApplicationTaskStatus =
+  | "todo"
+  | "in_progress"
+  | "done"
+  | "skipped"
+  | "deferred"
+  | "TODO"
+  | "IN_PROGRESS"
+  | "DONE"
+  | "SKIPPED"
+  | "DEFERRED";
+
+export type TaskDebtReorderApplicationMutation = Exclude<TaskDebtReorderAction, "keep"> | "none";
+
+export type TaskDebtReorderApplicationSkipReason =
+  | "missing_suggestion"
+  | "missing_task"
+  | "already_resolved"
+  | "not_in_debt"
+  | "batch_limit";
+
+export interface TaskDebtReorderApplicationTaskState {
+  id: string;
+  status: TaskDebtReorderApplicationTaskStatus;
+  debtStatus?: string | null;
+}
+
+export interface TaskDebtReorderApplicationPreviewInput {
+  suggestions: TaskDebtReorderSuggestion[];
+  selectedTaskIds: string[];
+  currentTasks: TaskDebtReorderApplicationTaskState[];
+  maxApplyCount?: number;
+}
+
+export interface TaskDebtReorderApplicationPreviewItem {
+  taskId: string;
+  action: TaskDebtReorderAction;
+  mutation: TaskDebtReorderApplicationMutation;
+  reason: string;
+  estimatedMinutes: number;
+  rank: number;
+}
+
+export interface TaskDebtReorderApplicationSkippedItem {
+  taskId: string;
+  reason: TaskDebtReorderApplicationSkipReason;
+  detail: string;
+}
+
+export interface TaskDebtReorderApplicationPreview {
+  items: TaskDebtReorderApplicationPreviewItem[];
+  skipped: TaskDebtReorderApplicationSkippedItem[];
+  canAutoApply: false;
+  requiresUserConfirmation: true;
+  shouldStopOnFirstFailure: true;
+  maxApplyCount: number;
+  summary: string;
+}
+
 export function normalizeStudyCloseout(input: StudyCloseoutInput): StudyCloseoutSummary {
   const hasOutput = Boolean(input.producedNote || input.producedMistake || input.minimalOutput.trim().length >= 4);
   const canExplain = canExplainFromText(input.understandingLevel, input.note);
@@ -248,6 +307,50 @@ export function suggestTaskDebtReorder(input: TaskDebtReorderInput): TaskDebtReo
     canAutoApply: false,
     requiresUserConfirmation: true,
     summary: createDebtReorderSummary(suggestions, input.pressure),
+  };
+}
+
+export function previewTaskDebtReorderApplication(
+  input: TaskDebtReorderApplicationPreviewInput,
+): TaskDebtReorderApplicationPreview {
+  const suggestions = new Map(input.suggestions.map((suggestion) => [suggestion.taskId, suggestion]));
+  const currentTasks = new Map(input.currentTasks.map((task) => [task.id, task]));
+  const selectedTaskIds = Array.from(new Set(input.selectedTaskIds));
+  const maxApplyCount = Math.max(0, input.maxApplyCount ?? 5);
+  const items: TaskDebtReorderApplicationPreviewItem[] = [];
+  const skipped: TaskDebtReorderApplicationSkippedItem[] = [];
+  let mutationCount = 0;
+
+  for (const taskId of selectedTaskIds) {
+    const suggestion = suggestions.get(taskId);
+    const currentTask = currentTasks.get(taskId);
+    const skippedItem = getDebtReorderApplicationSkip(taskId, suggestion, currentTask, mutationCount, maxApplyCount);
+    if (skippedItem) {
+      skipped.push(skippedItem);
+      continue;
+    }
+    if (!suggestion) continue;
+
+    const mutation = mutationForDebtReorderAction(suggestion.action);
+    if (mutation !== "none") mutationCount += 1;
+    items.push({
+      taskId,
+      action: suggestion.action,
+      mutation,
+      reason: suggestion.reason,
+      estimatedMinutes: suggestion.estimatedMinutes,
+      rank: suggestion.rank,
+    });
+  }
+
+  return {
+    items,
+    skipped,
+    canAutoApply: false,
+    requiresUserConfirmation: true,
+    shouldStopOnFirstFailure: true,
+    maxApplyCount,
+    summary: createDebtReorderApplicationSummary(items, skipped),
   };
 }
 
@@ -513,6 +616,53 @@ function reasonForDebtSuggestion(
     case "keep":
       return "该任务仍可保留在当前计划中，暂不需要重排。";
   }
+}
+
+function getDebtReorderApplicationSkip(
+  taskId: string,
+  suggestion: TaskDebtReorderSuggestion | undefined,
+  currentTask: TaskDebtReorderApplicationTaskState | undefined,
+  mutationCount: number,
+  maxApplyCount: number,
+): TaskDebtReorderApplicationSkippedItem | null {
+  if (!suggestion) {
+    return { taskId, reason: "missing_suggestion", detail: "用户选择的任务不在当前重排建议中。" };
+  }
+  if (!currentTask) {
+    return { taskId, reason: "missing_task", detail: "任务已不存在或当前用户不可见。" };
+  }
+  if (isResolvedDebtTask(currentTask)) {
+    return { taskId, reason: "already_resolved", detail: "任务已经完成或跳过，不能再次应用重排。" };
+  }
+  if (currentTask.debtStatus === "NONE") {
+    return { taskId, reason: "not_in_debt", detail: "任务当前不再处于欠账状态，需要重新获取建议。" };
+  }
+  if (mutationForDebtReorderAction(suggestion.action) !== "none" && mutationCount >= maxApplyCount) {
+    return { taskId, reason: "batch_limit", detail: "已达到本次小批量应用上限，剩余任务需要另行确认。" };
+  }
+  return null;
+}
+
+function mutationForDebtReorderAction(action: TaskDebtReorderAction): TaskDebtReorderApplicationMutation {
+  return action === "keep" ? "none" : action;
+}
+
+function isResolvedDebtTask(task: TaskDebtReorderApplicationTaskState): boolean {
+  const status = task.status.toLowerCase();
+  return status === "done" || status === "skipped";
+}
+
+function createDebtReorderApplicationSummary(
+  items: TaskDebtReorderApplicationPreviewItem[],
+  skipped: TaskDebtReorderApplicationSkippedItem[],
+): string {
+  const mutationCount = items.filter((item) => item.mutation !== "none").length;
+  if (items.length === 0) {
+    return skipped.length > 0
+      ? `本次没有可应用项，${skipped.length} 项需要重新确认。`
+      : "本次没有选择任何可应用的债务重排建议。";
+  }
+  return `本次仅预览 ${items.length} 个用户所选建议，其中 ${mutationCount} 个会修改任务；${skipped.length} 个已跳过，执行时遇到失败应停止后续写入。`;
 }
 
 function createDebtReorderSummary(

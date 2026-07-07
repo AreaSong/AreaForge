@@ -36,11 +36,23 @@ const requiredPackageBBatches = [
   "Batch 5",
   "Batch 6",
 ] as const;
+const requiredPackageDBatches = [
+  "Batch D1",
+  "Batch D2",
+  "Batch D3",
+  "Batch D4",
+  "Batch D5",
+] as const;
+const requiredPackageEBatches = [
+  "Batch E1",
+  "Batch E2",
+  "Batch E3",
+  "Batch E4",
+] as const;
 const incompleteEvidenceKeywords = [
   "待确认",
   "未完成",
   "未验证",
-  "缺失",
   "阻塞",
   "NOT_READY",
 ] as const;
@@ -125,7 +137,10 @@ function checkCompletionRecord(): CompletionIssue[] {
     const cells = parseMarkdownCells(line);
     const status = cells[1] ?? "";
     const evidence = cells[2] ?? "";
-    const isComplete = status.includes("完成") && !incompleteEvidenceKeywords.some((keyword) => line.includes(keyword));
+    const gap = cells[3] ?? "";
+    const isComplete =
+      status.includes("DONE / 已完成") &&
+      !incompleteEvidenceKeywords.some((keyword) => `${status}\n${evidence}\n${gap}`.includes(keyword));
     if (!isComplete) {
       issues.push({
         name: `${item} completion evidence`,
@@ -145,9 +160,14 @@ function checkCompletionRecord(): CompletionIssue[] {
     if (item === "Package A") {
       issues.push(...checkPackageACompletionDetail(line));
     }
+    if (item === "Package C") {
+      issues.push(...checkPackageCCompletionDetail(line));
+    }
   }
 
   issues.push(...checkPackageBBatches(record));
+  issues.push(...checkCompletionBatches(record, "Package D", requiredPackageDBatches));
+  issues.push(...checkCompletionBatches(record, "Package E", requiredPackageEBatches));
 
   return issues;
 }
@@ -178,11 +198,55 @@ function checkPackageACompletionDetail(line: string): CompletionIssue[] {
   ];
 }
 
+function checkPackageCCompletionDetail(line: string): CompletionIssue[] {
+  const requiredTerms = [
+    "确认执行 Package C：真实 AI Provider 第一版",
+    "OpenAI-compatible JSON provider",
+    "chat/completions",
+    "AI_ENABLED=false",
+    "AI_ENABLED=true",
+    "配置缺失 fallback",
+    "mock provider 成功",
+    "ai_generated",
+    "轻量限流",
+    "超时",
+    "429",
+    "401",
+    "5xx",
+    "invalid JSON",
+    "schema invalid",
+    "敏感字段拦截 provider 不被调用",
+    "客户端 bundle 搜不到 AI_API_KEY",
+    "task title may contain private content",
+    "首页普通 SSR 不触发真实 provider",
+    "日志脱敏",
+    "不保存完整 prompt/raw response",
+    "不发送动机档案/完整情绪记录/完整复盘正文/附件内容",
+  ];
+  const missingTerms = requiredTerms.filter((term) => !line.includes(term));
+  if (missingTerms.length === 0) return [];
+
+  return [
+    {
+      name: "Package C AI provider evidence detail",
+      detail: `completed Package C row must include AI provider smoke evidence for ${missingTerms.join(", ")}`,
+    },
+  ];
+}
+
 function checkPackageBBatches(record: string): CompletionIssue[] {
+  return checkCompletionBatches(record, "Package B", requiredPackageBBatches);
+}
+
+function checkCompletionBatches(
+  record: string,
+  packageName: string,
+  requiredBatches: readonly string[],
+): CompletionIssue[] {
   const missingOrIncomplete: string[] = [];
   const missingDetails: string[] = [];
 
-  for (const batch of requiredPackageBBatches) {
+  for (const batch of requiredBatches) {
     const line = findLine(record, `| ${batch}：`);
     if (!line) {
       missingOrIncomplete.push(`${batch}=missing`);
@@ -206,14 +270,14 @@ function checkPackageBBatches(record: string): CompletionIssue[] {
 
   if (missingOrIncomplete.length > 0) {
     issues.push({
-      name: "Package B batch completion evidence",
-      detail: `expected Batch 0-6 rows to be DONE / 已完成; ${missingOrIncomplete.join("; ")}`,
+      name: `${packageName} batch completion evidence`,
+      detail: `expected ${requiredBatches[0]}-${requiredBatches[requiredBatches.length - 1]} rows to be DONE / 已完成; ${missingOrIncomplete.join("; ")}`,
     });
   }
 
   if (missingDetails.length > 0) {
     issues.push({
-      name: "Package B batch completion detail",
+      name: `${packageName} batch completion detail`,
       detail: `completed Batch rows must include confirmation, validation commands, smoke evidence, docs sync, and residual risk; ${missingDetails.join("; ")}`,
     });
   }

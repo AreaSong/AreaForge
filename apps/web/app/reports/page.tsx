@@ -206,6 +206,28 @@ function ReportSection({ report }: { report: PeriodicReportDto }) {
             <p className="mt-2 text-sm leading-6 text-violet-50">{report.aiDraft.content}</p>
             <p className="mt-3 text-xs leading-5 text-violet-100/70">{report.aiDraft.reason}</p>
           </div>
+          <div className="mt-4 rounded-md border border-white/10 bg-[#151a20] p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-zinc-100">{report.decisionPreview.nextCycleDraft.title}</p>
+              <span className="rounded-md border border-white/10 px-2 py-1 text-xs text-zinc-300">
+                {report.decisionPreview.canAutoApply ? "可自动应用" : "只读预览"}
+              </span>
+              <span className="rounded-md border border-white/10 px-2 py-1 text-xs text-zinc-300">
+                {report.decisionPreview.requiresUserConfirmation ? "需确认" : "无需确认"}
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-zinc-200">{report.decisionPreview.nextCycleDraft.focus}</p>
+            <div className="mt-3 grid gap-2">
+              {report.decisionPreview.nextCycleDraft.actions.map((action) => (
+                <p key={action} className="text-xs leading-5 text-zinc-400">
+                  {action}
+                </p>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-5 text-zinc-500">
+              {report.decisionPreview.nextCycleDraft.reason}
+            </p>
+          </div>
         </div>
       </div>
     </section>

@@ -18,4 +18,4 @@ AI 不可以做：
 
 所有 AI 输出必须做结构化校验；失败时回退本地规则文案。
 
-当前 `packages/ai` 已提供本地 fallback、结构化 schema、provider 抽象和敏感字段拦截。敏感字段拦截会识别常见 camelCase、snake_case 和 kebab-case 变体；真实 provider、密钥配置、限流、日志脱敏和费用控制仍需高风险确认后实现。
+当前 `packages/ai` 已提供本地 fallback、结构化 schema、敏感字段拦截和 Package C 的 OpenAI-compatible JSON provider。敏感字段拦截会识别常见 camelCase、snake_case 和 kebab-case 变体；Web 层只在三条鉴权 POST AI route 中允许显式外呼，首页普通 SSR 保持本地 fallback。长期阶段调整 AI、调用历史、费用统计或保存完整 prompt/响应仍需后续单独确认。

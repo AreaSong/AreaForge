@@ -1,6 +1,8 @@
 import {
   buildDailyCheckInSnapshot,
   choosePeriodicWeakness,
+  createPeriodicNextCycleDraft,
+  createPeriodicReportDecisionSnapshot,
   summarizePeriodicReportStrategy,
   type CheckInSnapshotSummary,
   type PeriodicWeaknessNodeStatus,
@@ -27,6 +29,9 @@ export interface PeriodicSubjectShareDto {
   debtCount: number;
   mistakeCount: number;
 }
+
+type PeriodicNextCycleDraftDto = ReturnType<typeof createPeriodicNextCycleDraft>;
+type PeriodicDecisionSnapshotDto = ReturnType<typeof createPeriodicReportDecisionSnapshot>;
 
 export interface PeriodicReportDto {
   kind: PeriodicReportKind;
@@ -89,6 +94,13 @@ export interface PeriodicReportDto {
     draftApiPath: "/api/simulation/stage-adjustment-drafts";
     latestPlan: StagePlanDto | null;
     latestDraft: StageAdjustmentDraftRecordDto | null;
+    canAutoApply: false;
+    requiresUserConfirmation: true;
+  };
+  decisionPreview: {
+    status: "read_only_preview";
+    snapshot: PeriodicDecisionSnapshotDto;
+    nextCycleDraft: PeriodicNextCycleDraftDto;
     canAutoApply: false;
     requiresUserConfirmation: true;
   };
@@ -287,30 +299,62 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     dueNoteCount: dueNotes.length,
     weakness,
   });
+  const rangeDto = {
+    start: range.start.toISOString(),
+    end: range.end.toISOString(),
+    days: range.days,
+  };
+  const metrics = {
+    totalMinutes,
+    effectiveMinutes,
+    taskCompletionRate,
+    taskCount: tasks.length,
+    completedTaskCount,
+    debtCount: debtTasks.length,
+    lowConversionCount,
+    reviewCompletionRate,
+    reviewCount: reviews.length,
+    mistakesCreatedCount,
+    mistakeReviewUpdateCount,
+    dueNoteCount: dueNotes.length,
+    weakNodeCount: weakNodes.length,
+  };
+  const nextCycleDraft = createPeriodicNextCycleDraft({
+    kind,
+    strategy,
+    weakness,
+  });
+  const decisionPreview = {
+    status: "read_only_preview" as const,
+    snapshot: createPeriodicReportDecisionSnapshot({
+      kind,
+      range: rangeDto,
+      metrics: {
+        totalMinutes: metrics.totalMinutes,
+        effectiveMinutes: metrics.effectiveMinutes,
+        taskCompletionRate: metrics.taskCompletionRate,
+        debtCount: metrics.debtCount,
+        lowConversionCount: metrics.lowConversionCount,
+        reviewCompletionRate: metrics.reviewCompletionRate,
+        weakNodeCount: metrics.weakNodeCount,
+        dueNoteCount: metrics.dueNoteCount,
+        mistakesCreatedCount: metrics.mistakesCreatedCount,
+        mistakeReviewCount: metrics.mistakeReviewUpdateCount,
+      },
+      weakness,
+      strategy,
+      nextCycleDraft,
+    }),
+    nextCycleDraft,
+    canAutoApply: false as const,
+    requiresUserConfirmation: true as const,
+  };
 
   return {
     kind,
     title: kind === "week" ? "周审判报告" : "月复盘报告",
-    range: {
-      start: range.start.toISOString(),
-      end: range.end.toISOString(),
-      days: range.days,
-    },
-    metrics: {
-      totalMinutes,
-      effectiveMinutes,
-      taskCompletionRate,
-      taskCount: tasks.length,
-      completedTaskCount,
-      debtCount: debtTasks.length,
-      lowConversionCount,
-      reviewCompletionRate,
-      reviewCount: reviews.length,
-      mistakesCreatedCount,
-      mistakeReviewUpdateCount,
-      dueNoteCount: dueNotes.length,
-      weakNodeCount: weakNodes.length,
-    },
+    range: rangeDto,
+    metrics,
     subjectShares,
     debtPreview: debtTasks.map((task) => ({
       id: task.id,
@@ -329,6 +373,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
       canAutoApply: false,
       requiresUserConfirmation: true,
     },
+    decisionPreview,
   };
 }
 

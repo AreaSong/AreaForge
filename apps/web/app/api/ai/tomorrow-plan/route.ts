@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    await requireApiUser(request);
-    return NextResponse.json(await getTomorrowPlanAiAdvice());
+    const user = await requireApiUser(request);
+    return NextResponse.json(await getTomorrowPlanAiAdvice({ allowExternalProvider: true, userId: user.id }));
   } catch (error) {
     return apiErrorResponse(error);
   }

@@ -60,11 +60,10 @@ packages/ai -> Sub2API / OpenAI compatible API
 - 任务债务、打卡检查、反假学习和恢复模式结构化闭环：规则推导、首页展示、恢复任务聚焦、补做/拆小/改复习轻量流转、`CheckIn` 日快照、`TaskDebtEvent` 事件账本、`RecoveryState` 恢复状态和计时收口判断。
 - `packages/core` 已沉淀结构化收口、近窗打卡历史、轻量任务债务动作、掌握证明、作战地图状态、阶段称号、动机唤醒、模拟准备度、模拟结果复盘和阶段调整草稿等平台无关规则。
 - 错题、掌握证明显式记录、动机封存、情绪标签、阶段称号、基础统计、作战地图筛选、周/月报告和结构化模拟考试主路径。
-- `packages/ai` 已提供本地规则 fallback、结构化 schema、非外呼 provider 抽象、mock 测试和敏感上下文拦截。
+- `packages/ai` 已提供本地规则 fallback、结构化 schema、OpenAI-compatible JSON provider、mock/外呼测试和敏感上下文拦截。
 - `packages/storage` 已提供附件上传纯规则安全底座，Web 层已完成 noteId 绑定附件上传、私有落盘和鉴权下载。
 
 尚未完成：
 
-- AI 真实外部 provider 调用。
-- AI 阶段调整、报告决策应用和任务重排应用。
+- 长期阶段 AI 调整、报告决策应用和任务重排应用。
 - 生产部署、备份、恢复和发布闭环。

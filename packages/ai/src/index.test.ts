@@ -4,9 +4,11 @@ import {
   aiErrorFallbackStatus,
   aiGeneratedStatus,
   aiInvalidFallbackStatus,
+  createAiPrompt,
   createFallbackDailyReviewAdvice,
   createFallbackDisciplineAdvice,
   createFallbackTomorrowPlanAdvice,
+  createOpenAiCompatibleJsonProvider,
   createStaticJsonProvider,
   createThrowingJsonProvider,
   findSensitiveContextKeys,
@@ -125,7 +127,7 @@ test("provider errors fall back to local rules", async () => {
     validate: validateDailyReviewAdvice,
   });
 
-  assert.equal(result.meta.status, aiInvalidFallbackStatus);
+  assert.equal(result.meta.status, aiErrorFallbackStatus);
   assert.equal(result.meta.externalCall, false);
   assert.match(result.advice.nextReviewPrompt, /3 句话/);
 });
@@ -219,3 +221,304 @@ test("safe minimized AI contexts are not marked sensitive", () => {
     [],
   );
 });
+
+test("openai compatible provider returns generated JSON from chat completions", async () => {
+  const requests: string[] = [];
+  const provider = createOpenAiCompatibleJsonProvider({
+    baseUrl: "https://ai.example.test/v1",
+    apiKey: "test-key",
+    model: "test-model",
+    timeoutMs: 1000,
+    maxRetries: 0,
+    fetchImpl: async (input, init) => {
+      requests.push(String(input));
+      assert.equal(init?.method, "POST");
+      assert.equal((init?.headers as Record<string, string>).Authorization, "Bearer test-key");
+      return jsonResponse(200, {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                line: "稳住节奏。",
+                nextAction: "完成一段 45 分钟计时。",
+                reason: "mock generated",
+              }),
+            },
+          },
+        ],
+      });
+    },
+  });
+
+  const result = await generateAdviceWithProvider({
+    kind: "discipline",
+    context: {
+      phase: "基础唤醒期",
+      riskState: "stable",
+      streakDays: 3,
+      taskCompletionRate: 0.6,
+      effectiveMinutes: 80,
+    },
+    provider,
+    fallback: createFallbackDisciplineAdvice,
+    validate: validateDisciplineAdvice,
+  });
+
+  assert.equal(requests[0], "https://ai.example.test/v1/chat/completions");
+  assert.equal(result.meta.status, aiGeneratedStatus);
+  assert.equal(result.meta.externalCall, true);
+  assert.equal(result.advice.line, "稳住节奏。");
+});
+
+test("openai compatible provider retries rate limits and server errors", async () => {
+  let calls = 0;
+  const provider = createOpenAiCompatibleJsonProvider({
+    baseUrl: "https://ai.example.test/v1",
+    apiKey: "test-key",
+    model: "test-model",
+    timeoutMs: 1000,
+    maxRetries: 2,
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) return jsonResponse(429, { error: "rate limited" });
+      if (calls === 2) return jsonResponse(500, { error: "server" });
+      return jsonResponse(200, {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                title: "明日稳态推进",
+                minimumTaskTitle: "固定 45 分钟推进一个核心任务",
+                estimatedMinutes: 45,
+                priority: "medium",
+                reason: "mock generated after retry",
+                cautions: ["不要扩任务。"],
+              }),
+            },
+          },
+        ],
+      });
+    },
+  });
+
+  const result = await generateAdviceWithProvider({
+    kind: "tomorrow_plan",
+    context: {
+      riskState: "stable",
+      recoveryActive: false,
+      debtCount: 0,
+      weakSubject: "英语",
+    },
+    provider,
+    fallback: createFallbackTomorrowPlanAdvice,
+    validate: validateTomorrowPlanAdvice,
+  });
+
+  assert.equal(calls, 3);
+  assert.equal(result.meta.status, aiGeneratedStatus);
+});
+
+test("openai compatible provider times out and falls back", async () => {
+  let calls = 0;
+  const provider = createOpenAiCompatibleJsonProvider({
+    baseUrl: "https://ai.example.test/v1",
+    apiKey: "test-key",
+    model: "test-model",
+    timeoutMs: 5,
+    maxRetries: 0,
+    fetchImpl: async (_input, init) => {
+      calls += 1;
+      const signal = init?.signal;
+      assert.ok(signal);
+      return await new Promise<Response>((_resolve, reject) => {
+        signal.addEventListener(
+          "abort",
+          () => reject(new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    },
+  });
+
+  const result = await generateAdviceWithProvider({
+    kind: "discipline",
+    context: {
+      phase: "基础唤醒期",
+      riskState: "stable",
+      streakDays: 3,
+      taskCompletionRate: 0.6,
+      effectiveMinutes: 80,
+    },
+    provider,
+    fallback: createFallbackDisciplineAdvice,
+    validate: validateDisciplineAdvice,
+  });
+
+  assert.equal(calls, 1);
+  assert.equal(result.meta.status, aiErrorFallbackStatus);
+  assert.match(result.meta.reason, /请求超时/);
+});
+
+test("openai compatible provider does not retry auth failures", async () => {
+  let calls = 0;
+  const provider = createOpenAiCompatibleJsonProvider({
+    baseUrl: "https://ai.example.test/v1",
+    apiKey: "bad-key",
+    model: "test-model",
+    timeoutMs: 1000,
+    maxRetries: 2,
+    fetchImpl: async () => {
+      calls += 1;
+      return jsonResponse(401, { error: "auth" });
+    },
+  });
+
+  const result = await generateAdviceWithProvider({
+    kind: "daily_review",
+    context: {
+      totalMinutes: 60,
+      effectiveMinutes: 30,
+      taskCompletionRate: 0.5,
+      lowConversionCount: 0,
+      reviewSubmitted: false,
+    },
+    provider,
+    fallback: createFallbackDailyReviewAdvice,
+    validate: validateDailyReviewAdvice,
+  });
+
+  assert.equal(calls, 1);
+  assert.equal(result.meta.status, aiErrorFallbackStatus);
+  assert.match(result.meta.reason, /鉴权失败/);
+});
+
+test("openai compatible provider invalid JSON falls back as provider error", async () => {
+  const provider = createOpenAiCompatibleJsonProvider({
+    baseUrl: "https://ai.example.test/v1",
+    apiKey: "test-key",
+    model: "test-model",
+    timeoutMs: 1000,
+    maxRetries: 0,
+    fetchImpl: async () => jsonResponse(200, {
+      choices: [{ message: { content: "not json" } }],
+    }),
+  });
+
+  const result = await generateAdviceWithProvider({
+    kind: "daily_review",
+    context: {
+      totalMinutes: 60,
+      effectiveMinutes: 30,
+      taskCompletionRate: 0.5,
+      lowConversionCount: 0,
+      reviewSubmitted: false,
+    },
+    provider,
+    fallback: createFallbackDailyReviewAdvice,
+    validate: validateDailyReviewAdvice,
+  });
+
+  assert.equal(result.meta.status, aiErrorFallbackStatus);
+  assert.match(result.meta.reason, /非 JSON/);
+});
+
+test("openai compatible provider schema invalid JSON falls back as invalid output", async () => {
+  const provider = createOpenAiCompatibleJsonProvider({
+    baseUrl: "https://ai.example.test/v1",
+    apiKey: "test-key",
+    model: "test-model",
+    timeoutMs: 1000,
+    maxRetries: 0,
+    fetchImpl: async () => jsonResponse(200, {
+      choices: [{ message: { content: JSON.stringify({ title: "", observations: [], nextReviewPrompt: "", reason: "" }) } }],
+    }),
+  });
+
+  const result = await generateAdviceWithProvider({
+    kind: "daily_review",
+    context: {
+      totalMinutes: 60,
+      effectiveMinutes: 30,
+      taskCompletionRate: 0.5,
+      lowConversionCount: 0,
+      reviewSubmitted: false,
+    },
+    provider,
+    fallback: createFallbackDailyReviewAdvice,
+    validate: validateDailyReviewAdvice,
+  });
+
+  assert.equal(result.meta.status, aiInvalidFallbackStatus);
+  assert.match(result.meta.reason, /输出无效/);
+});
+
+test("provider prompt redacts private task title before external request", async () => {
+  let body = "";
+  const provider = createOpenAiCompatibleJsonProvider({
+    baseUrl: "https://ai.example.test/v1",
+    apiKey: "test-key",
+    model: "test-model",
+    timeoutMs: 1000,
+    maxRetries: 0,
+    fetchImpl: async (_input, init) => {
+      body = String(init?.body ?? "");
+      return jsonResponse(200, {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                title: "明日恢复任务",
+                minimumTaskTitle: "恢复推进：30 分钟有效学习",
+                estimatedMinutes: 30,
+                priority: "critical",
+                reason: "mock generated",
+                cautions: [],
+              }),
+            },
+          },
+        ],
+      });
+    },
+  });
+
+  const privateTitle = "task title may contain private content";
+  await generateAdviceWithProvider({
+    kind: "tomorrow_plan",
+    context: {
+      riskState: "danger",
+      recoveryActive: true,
+      debtCount: 3,
+      topTaskTitle: privateTitle,
+      weakSubject: "数学",
+    },
+    provider,
+    fallback: createFallbackTomorrowPlanAdvice,
+    validate: validateTomorrowPlanAdvice,
+  });
+
+  assert.ok(!body.includes(privateTitle));
+  assert.match(body, /topTaskTitleRedacted/);
+});
+
+test("createAiPrompt keeps only allowed context fields", () => {
+  const prompt = createAiPrompt("daily_review", {
+    totalMinutes: 90,
+    effectiveMinutes: 45,
+    taskCompletionRate: 0.5,
+    lowConversionCount: 1,
+    reviewSubmitted: false,
+    moodTag: "焦虑",
+    summary: "完整复盘正文不能进入 prompt",
+  });
+
+  assert.equal(prompt.sanitizedContext.summary, undefined);
+  assert.ok(!prompt.user.includes("完整复盘正文"));
+  assert.equal(prompt.sanitizedContext.moodTag, "焦虑");
+});
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}

@@ -38,9 +38,12 @@
 - AI 复盘建议。
 - 下周任务策略。
 - 一句冷静结论。
+- 下周期决策预览。
 
 ## 第二阶段定位
 
 周审判和月复盘属于第二阶段增强功能。第一版只保留数据基础和入口。
 
-当前 `packages/core` 已提供 `choosePeriodicWeakness` 和 `summarizePeriodicReportStrategy` 纯规则，可根据薄弱节点、欠账集中科目、零有效投入科目、低转化次数、有效学习时长、任务完成率、错题复盘、复盘完成率和到期笔记生成最大短板、周期策略、必须压住的问题、下一步动作和冷静结论。最大短板会返回来源、严重度和选择依据，报告页只读展示这些追溯信息。周期策略和本地复盘草稿都透传 `canAutoApply=false` 和 `requiresUserConfirmation=true`，这些规则只生成只读建议，明确需要用户确认后才能应用；报告 API/UI 的长期决策入口仍需 Package D 推进。
+当前 `packages/core` 已提供 `choosePeriodicWeakness`、`summarizePeriodicReportStrategy`、`createPeriodicNextCycleDraft` 和 `createPeriodicReportDecisionSnapshot` 纯规则，可根据薄弱节点、欠账集中科目、零有效投入科目、低转化次数、有效学习时长、任务完成率、错题复盘、复盘完成率和到期笔记生成最大短板、周期策略、必须压住的问题、下一步动作、冷静结论、下周期草稿和只读回放快照。最大短板会返回来源、严重度和选择依据，报告页只读展示这些追溯信息。
+
+周期策略、本地复盘草稿和下周期决策预览都透传 `canAutoApply=false` 和 `requiresUserConfirmation=true`，这些规则只生成只读建议，不落库、不写审计、不修改任务或阶段计划。报告确认、驳回、冻结持久快照和审计写入仍需 Package D Batch D1 明确确认后推进。

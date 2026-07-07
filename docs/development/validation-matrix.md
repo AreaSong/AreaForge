@@ -131,7 +131,7 @@
 - API 烟测：条件勾选、证据引用、复测 passed/failed/partial、标记 mastered 的 `evaluateMasteryProof` 拦截、无显式证据 fallback 到现有 `_count`。
 - 页面烟测：`/syllabus` 条件、证据、复测、刷新后节点状态和历史 fallback 展示一致。
 
-注意：Batch 4 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model MasteryConditionRecord`、`model MasteryEvidence` 和 `model MasteryRetest` 在 schema 中出现；Batch 5 完成并更新台账后，门禁应要求 Batch 4 和 Batch 5 模型存在；Batch 6 完成前继续阻止 Batch 6 未确认模型越界；复测失败或部分通过不能自动降低节点状态。
+注意：Batch 4 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model MasteryConditionRecord`、`model MasteryEvidence` 和 `model MasteryRetest` 在 schema 中出现；Batch 4 完成并更新台账后，门禁应要求 Batch 4 模型存在。Batch 5 和 Batch 6 分别由各自批次台账解锁对应模型；复测失败或部分通过不能自动降低节点状态。
 
 ## Package B Batch 5 专项验证
 
@@ -172,7 +172,7 @@
 - `pnpm --filter @areaforge/web typecheck`
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
-- API 烟测：阶段计划创建/更新、草稿生成、驳回、确认应用、重复提交、审计记录、`canAutoApply=false`、`requiresUserConfirmation=true`、Package C 未确认时长期 AI 外呼关闭。
+- API 烟测：阶段计划创建/更新、草稿生成、驳回、确认应用、重复提交、审计记录、`canAutoApply=false`、`requiresUserConfirmation=true`、长期阶段 AI 未确认时外呼关闭。
 - 页面烟测：`/simulation` 和 `/reports` 中阶段计划、草稿边界和确认状态展示一致。
 
 注意：Batch 6 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model StagePlan` 和 `model StageAdjustmentDraft` 在 schema 中出现；Batch 6 完成并更新台账后，门禁应要求这些模型、migration、service、API、DTO、UI 和确认边界证据存在。Batch 6 只狭窄允许阶段草稿 `confirm/reject` 写路由，用于用户显式确认后更新关联 `StagePlan` 和写审计；任何自动任务重排、批量修改任务、报告决策应用、长期 AI 外呼或生产 migration deploy 都不属于本批。
@@ -224,7 +224,7 @@
 - 标题隐私烟测：构造任务标题为 `task title may contain private content`，确认 mock provider 请求体不包含该原文；真实 provider 第一版只允许发送任务类型、科目、风险类别或脱敏占位标签。
 - 成本边界烟测：首页普通 SSR 不触发真实 provider；真实外呼只能来自明确允许的 AI API 或用户显式触发入口。
 
-注意：Package C 获确认并完成前，`pnpm risk:preflight` 必须继续阻止真实 provider token、Web AI env/key 读取和首页真实外呼成本边界越界。
+注意：Package C 完成后，`pnpm risk:preflight` 必须改为要求 provider、Web 服务端 env、显式 route 触发、fallback、标题脱敏和专项测试证据存在，同时继续阻止客户端公开 AI env、首页普通 SSR 外呼、敏感上下文发送、完整 prompt/raw response 持久化、长期阶段 AI 外呼和自动覆盖记录。
 
 ## Package D 专项验证
 
@@ -232,6 +232,7 @@
 
 - `pnpm --filter @areaforge/core test`
 - `pnpm --filter @areaforge/web typecheck`
+- `pnpm package-d:preflight`
 - `pnpm risk:preflight`
 - `git diff --check`
 - 人工扫描：`rg --files apps/web/app/api | rg 'debt-reorder|reports|simulation/stage|simulation/exams' | rg 'apply|confirm|reject'` 不应出现长期闭环写路由。
@@ -246,7 +247,17 @@
 - `pnpm check`
 - API 烟测：债务重排确认/驳回/应用、重复提交、部分失败摘要和审计记录；阶段草稿确认/驳回/应用；报告策略确认/驳回。
 - 页面烟测：首页、`/reports`、`/analytics`、`/syllabus`、`/simulation` 展示确认边界和应用结果。
-- 边界烟测：用户确认前不应用；Package C 未确认时长期 AI 外呼关闭；Package B 结构化模型缺失时仍有只读 fallback。
+- 边界烟测：用户确认前不应用；长期阶段 AI 未确认时外呼关闭；Package B 结构化模型缺失时仍有只读 fallback。
+
+推荐批次验证：
+
+| 批次 | 验证重点 |
+|---|---|
+| Batch D1 报告决策入口 | `pnpm db:generate`、`pnpm db:validate`、临时库 `pnpm db:migrate:deploy`；周/月报告确认、驳回、重复提交、审计摘要、冻结 `reportSnapshot`、下一周期草稿和只读回放；确认/驳回前后 `StudyTask`、`TaskDebtEvent`、`StagePlan`、`StageAdjustmentDraft` 不变 |
+| Batch D2 债务重排确认流 | 建议确认/驳回/应用、只处理所选项、`TaskDebtEvent` 和 `AuditEvent` 双证据、部分失败停止或返回跳过摘要、重复提交幂等、不自动延期/删除全部欠账 |
+| Batch D3 长期阶段 AI 草稿 | 长期 AI 最小字段清单、禁止字段扫描、`AI_ENABLED=false` 本地规则、配置缺失 fallback、mock provider 成功、schema invalid fallback、敏感字段拦截、客户端密钥扫描、草稿不自动应用 |
+| Batch D4 长期风险和主题闭环 | `/reports`、`/analytics`、`/syllabus`、`/notes`、`/simulation`、首页状态主题、笔记复习提醒和遗忘风险证据链一致；正常/恢复/警报/冲刺/稳态页面烟测 |
+| Batch D5 收口 | `pnpm check`、`pnpm risk:preflight`、`pnpm docs:readiness`、`pnpm docs:completion` 不再列 Package D 或长期阶段 AI blocker |
 
 注意：Package D 获确认并完成前，`pnpm risk:preflight` 必须继续阻止任务重排、报告决策、报告快照、长期 AI 外呼和跨模块应用路径越界。Package B Batch 6 完成后，仅 `/api/simulation/stage-adjustment-drafts/:id/confirm|reject` 属于已确认的阶段草稿状态写入；其他 `apply/confirm/reject` 写路由仍必须拦截。
 
@@ -256,6 +267,7 @@
 
 - `docker compose config`
 - `docker compose --env-file .env.example -f docker-compose.prod.yml config`
+- `pnpm package-e:preflight`
 - `pnpm docs:readiness`
 - `pnpm risk:preflight`
 - `git diff --check`
@@ -270,13 +282,22 @@
 - 发布后烟测：`GET /api/health`、登录、首页、任务、计时、复盘、`/syllabus`、`/notes`、`/analytics`、`/reports`；附件和真实 AI 若启用，只用小测试文件和最小测试数据。
 - 回滚记录：上一镜像 tag、是否恢复数据库/上传目录、恢复耗时、失败原因、残余风险和后续修复任务。
 
+推荐批次验证：
+
+| 批次 | 验证重点 |
+|---|---|
+| Batch E1 生产配置与发布工件预检 | `pnpm check`、`pnpm package-e:preflight`、compose config、生产 env 清单、镜像 tag、Nginx 配置、migration deploy 执行载体、发布记录草案和中止条件 |
+| Batch E2 发布前备份与恢复演练 | PostgreSQL dump、上传目录归档、生产 `.env` 权限收紧备份、临时库导入、临时上传目录恢复、附件 metadata/hash 对账只读 `report_only` |
+| Batch E3 生产发布与 migration deploy | 备份点存在、必要 additive migration deploy、明确的 release 工作目录或一次性 migration job、compose/Nginx 切换、`GET /api/health`、登录、首页、任务、计时、复盘、附件和 AI fallback/provider 烟测 |
+| Batch E4 回滚演练与 Package E 收口 | 上一镜像 tag、回滚步骤、是否恢复数据库/上传目录、失败原因、残余风险、文档同步和 `docs:completion` 最终证据 |
+
 注意：Package E 完成前，`pnpm docs:completion` 必须继续因生产发布、备份、恢复演练、发布后烟测和回滚证据缺失而失败。
 
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。
-- `pnpm risk:preflight` 只证明 Package A-E 的护栏存在，不执行上传、后续 migration、AI 外呼、部署或备份恢复；其中 Package B 检查 Batch 0-6 字段/模型和运行时证据已存在，并继续确认没有越过已确认范围；Package C 还检查真实 provider 未接线、Web 侧不读取 AI env/key、AI 上下文保持聚合最小化、首页只允许本地 fallback 成本边界；Package D 还检查只读重排 API、报告/任务应用禁区、Batch 6 阶段草稿确认边界、confirm-only DTO、UI 标签和文档边界。
-- `pnpm docs:completion` 用于最终完成验收；在 `feature-traceability` 仍有“基础版 / 待确认 / 未实现”、Package A-E 完成行缺少验证/烟测/文档同步/残余风险证据、Package B Batch 0-6 未全部完成，或缺少高风险完成记录时，预期应失败。
+- `pnpm risk:preflight` 只证明 Package A-E 的护栏存在，不执行上传、后续 migration、AI 外呼、部署或备份恢复；其中 Package B 检查 Batch 0-6 字段/模型和运行时证据已存在，并继续确认没有越过已确认范围；Package C 完成后检查真实 provider、Web 服务端 env 和显式 route 触发证据已存在，同时继续检查客户端密钥禁区、AI 上下文最小化、首页普通 SSR 成本边界和 prompt/raw response 持久化禁区；Package D 还检查只读重排 API、报告/任务应用禁区、Batch 6 阶段草稿确认边界、confirm-only DTO、UI 标签和文档边界。
+- `pnpm docs:completion` 用于最终完成验收；在 `feature-traceability` 仍有“基础版 / 待确认 / 未实现”、Package A-E 完成行缺少验证/烟测/文档同步/残余风险证据、Package B Batch 0-6 / Package D D1-D5 / Package E E1-E4 未全部完成，或缺少高风险完成记录时，预期应失败。
 - 日常文档同步不要求 `pnpm docs:completion` 通过；声称 AreaForge docs 100% 完成前必须通过。
 
 ## 风险升级

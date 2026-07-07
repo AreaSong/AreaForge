@@ -420,7 +420,7 @@ export async function getTodayDashboard(
         : "结束计时后会检查本次学习是否留下产出",
       lowConversionCount,
       review: dailySnapshot.reviewSubmitted ? "今日复盘已提交" : "还未提交今日复盘",
-      ai: "AI disabled 时使用本地规则建议；真实外部 AI 调用仍需单独确认隐私边界",
+      ai: "首页仅展示本地规则 AI 建议；真实 provider 只由鉴权 AI API 显式触发",
     },
   };
 }

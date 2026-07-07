@@ -39,7 +39,7 @@
 
 ## 当前推荐下一步
 
-Package B 分批 migration 主线已完成。后续若要进入生产 migration deploy、历史数据回填、删除旧字段、真实长期 AI、报告决策或任务/阶段应用记录，必须继续走对应 Package C/D/E 或单独高风险确认包。
+Package B 分批 migration 主线已完成。后续若要进入生产 migration deploy、历史数据回填、删除旧字段、真实长期 AI、报告决策或任务/阶段应用记录，必须继续走对应 Package D / `0017` / Package E 或单独高风险确认包。
 
 Batch 0 已完成，且只处理 `StudySession` 结束计时收口，不新增其它表：
 
@@ -189,7 +189,7 @@ Batch 1 烟测至少覆盖：
 | Batch 3 | `RecoveryState` 记录规则触发和手动触发；首页优先读 active 状态，无 active 时 fallback 实时规则 | 不批量修改历史欠账；不删除、隐藏或延期原任务 |
 | Batch 4 | `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`；掌握证明优先显式证据并保留 `_count` fallback | 不解析历史文本生成证据；复测失败不自动降低节点状态 |
 | Batch 5 | `SimulationExam` 和 `SimulationSubjectResult`；`/simulation` 优先结构化记录并只读兼容旧任务型模拟 | 不自动迁移旧模拟任务；不自动调整阶段计划；不外呼 AI |
-| Batch 6 | `StagePlan` 和 `StageAdjustmentDraft`；草稿保持 `canAutoApply=false`、`requiresUserConfirmation=true`，用户确认后才可应用 | 不自动任务重排；不批量修改任务；Package C 未确认前不真实 AI 外呼 |
+| Batch 6 | `StagePlan` 和 `StageAdjustmentDraft`；草稿保持 `canAutoApply=false`、`requiresUserConfirmation=true`，用户确认后才可应用 | 不自动任务重排；不批量修改任务；不真实 AI 长期外呼 |
 
 ## Package B 总体验收标准
 

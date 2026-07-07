@@ -20,11 +20,15 @@ import {
   summarizeCheckInHistory,
   summarizeLightweightDebtAction,
   choosePeriodicWeakness,
+  createPeriodicNextCycleDraft,
+  createPeriodicReportDecisionSnapshot,
+  previewTaskDebtReorderApplication,
   suggestTaskDebtReorder,
   summarizePeriodicReportStrategy,
   rankRecoveryTaskCandidates,
   selectRecoveryTaskCandidate,
   summarizeAnalyticsRisks,
+  summarizeLongTermRisks,
 } from "./index";
 
 type DashboardInputForTest = Parameters<typeof createDashboardSnapshot>[0];
@@ -469,6 +473,66 @@ test("suggestTaskDebtReorder drops stale non-blocking sprint debt", () => {
   assert.deepEqual(plan.keepTaskIds, ["task-stage"]);
 });
 
+test("previewTaskDebtReorderApplication keeps D2 application confirm-only", () => {
+  const preview = previewTaskDebtReorderApplication({
+    selectedTaskIds: ["task-critical", "task-done", "task-missing"],
+    maxApplyCount: 2,
+    suggestions: [
+      {
+        taskId: "task-critical",
+        action: "split",
+        reason: "任务太大，先拆成最小推进。",
+        estimatedMinutes: 35,
+        rank: 1,
+      },
+      {
+        taskId: "task-done",
+        action: "convert_review",
+        reason: "改成复习任务。",
+        estimatedMinutes: 25,
+        rank: 2,
+      },
+    ],
+    currentTasks: [
+      { id: "task-critical", status: "TODO", debtStatus: "PLAN_BREAKING" },
+      { id: "task-done", status: "DONE", debtStatus: "NONE" },
+    ],
+  });
+
+  assert.equal(preview.canAutoApply, false);
+  assert.equal(preview.requiresUserConfirmation, true);
+  assert.equal(preview.shouldStopOnFirstFailure, true);
+  assert.deepEqual(preview.items.map((item) => [item.taskId, item.mutation]), [["task-critical", "split"]]);
+  assert.deepEqual(preview.skipped.map((item) => [item.taskId, item.reason]), [
+    ["task-done", "already_resolved"],
+    ["task-missing", "missing_suggestion"],
+  ]);
+});
+
+test("previewTaskDebtReorderApplication limits mutations but keeps no-op confirmations", () => {
+  const preview = previewTaskDebtReorderApplication({
+    selectedTaskIds: ["task-keep", "task-recover", "task-defer"],
+    maxApplyCount: 1,
+    suggestions: [
+      { taskId: "task-keep", action: "keep", reason: "保留。", estimatedMinutes: 30, rank: 1 },
+      { taskId: "task-recover", action: "recover", reason: "补做。", estimatedMinutes: 40, rank: 2 },
+      { taskId: "task-defer", action: "defer", reason: "延期。", estimatedMinutes: 0, rank: 3 },
+    ],
+    currentTasks: [
+      { id: "task-keep", status: "TODO", debtStatus: "ACCEPTABLE" },
+      { id: "task-recover", status: "TODO", debtStatus: "NEEDS_RECOVERY" },
+      { id: "task-defer", status: "DEFERRED", debtStatus: "ACCEPTABLE" },
+    ],
+  });
+
+  assert.deepEqual(preview.items.map((item) => [item.taskId, item.mutation]), [
+    ["task-keep", "none"],
+    ["task-recover", "recover"],
+  ]);
+  assert.deepEqual(preview.skipped.map((item) => [item.taskId, item.reason]), [["task-defer", "batch_limit"]]);
+  assert.match(preview.summary, /用户所选建议/);
+});
+
 test("summarizePeriodicReportStrategy enters recovery when effective time is too low", () => {
   const strategy = summarizePeriodicReportStrategy({
     kind: "week",
@@ -488,6 +552,141 @@ test("summarizePeriodicReportStrategy enters recovery when effective time is too
   assert.equal(strategy.requiresUserConfirmation, true);
   assert.match(strategy.mustPressIssue, /有效学习时长/);
   assert.ok(strategy.nextActions.some((item) => item.includes("有效学习闭环")));
+});
+
+test("createPeriodicNextCycleDraft keeps report decisions confirm-only", () => {
+  const strategy = summarizePeriodicReportStrategy({
+    kind: "week",
+    effectiveMinutes: 60,
+    taskCompletionRate: 0.25,
+    debtCount: 9,
+    lowConversionCount: 1,
+    mistakesCreatedCount: 3,
+    mistakeReviewCount: 0,
+    reviewCompletionRate: 0.2,
+    weakNodeCount: 2,
+    dueNoteCount: 3,
+  });
+  const draft = createPeriodicNextCycleDraft({
+    kind: "week",
+    strategy,
+    weakness: {
+      title: "最大短板：任务欠账集中",
+      detail: "数学 的欠账最多，下周期先压这个科目。",
+      source: "debt_subject",
+      severity: "high",
+    },
+  });
+
+  assert.equal(draft.title, "下周策略草稿");
+  assert.equal(draft.theme, "recovery");
+  assert.equal(draft.source, "local_rule");
+  assert.equal(draft.canAutoApply, false);
+  assert.equal(draft.requiresUserConfirmation, true);
+  assert.match(draft.focus, /任务欠账集中/);
+  assert.match(draft.reason, /不自动修改任务或阶段计划/);
+  assert.deepEqual(draft.actions, [...new Set(strategy.nextActions)].slice(0, 5));
+});
+
+test("createPeriodicNextCycleDraft falls back to must press issue without a concrete weakness", () => {
+  const strategy = summarizePeriodicReportStrategy({
+    kind: "month",
+    effectiveMinutes: 2600,
+    taskCompletionRate: 0.82,
+    debtCount: 0,
+    lowConversionCount: 0,
+    mistakesCreatedCount: 5,
+    mistakeReviewCount: 5,
+    reviewCompletionRate: 0.8,
+    weakNodeCount: 0,
+    dueNoteCount: 0,
+    maxWeakness: "英语阅读稳定提速",
+  });
+  const draft = createPeriodicNextCycleDraft({
+    kind: "month",
+    strategy,
+    weakness: {
+      title: "最大短板：暂无明确集中风险",
+      detail: "当前数据没有显示单一短板。",
+      source: "none",
+      severity: "clear",
+    },
+  });
+
+  assert.equal(draft.title, "下月策略草稿");
+  assert.equal(draft.focus, strategy.mustPressIssue);
+  assert.equal(draft.stageAdjustment, strategy.stageAdjustment);
+  assert.equal(draft.canAutoApply, false);
+  assert.equal(draft.requiresUserConfirmation, true);
+});
+
+test("createPeriodicReportDecisionSnapshot freezes replay data without private task lists", () => {
+  const strategy = summarizePeriodicReportStrategy({
+    kind: "week",
+    effectiveMinutes: 420,
+    taskCompletionRate: 0.7,
+    debtCount: 2,
+    lowConversionCount: 1,
+    mistakesCreatedCount: 8,
+    mistakeReviewCount: 2,
+    reviewCompletionRate: 0.8,
+    weakNodeCount: 1,
+    dueNoteCount: 0,
+    maxWeakness: "数学 / 极限错题集中",
+  });
+  const weakness = choosePeriodicWeakness({
+    subjectShares: [{ subjectName: "数学", effectiveMinutes: 420 }],
+    debtTasks: [],
+    lowConversionCount: 0,
+    weakNodes: [
+      {
+        title: "极限定义",
+        status: "needs_review",
+        subjectName: "数学",
+        mistakeCount: 3,
+        noteCount: 1,
+        sessionCount: 2,
+      },
+    ],
+  });
+  const nextCycleDraft = createPeriodicNextCycleDraft({ kind: "week", strategy, weakness });
+  const snapshot = createPeriodicReportDecisionSnapshot({
+    kind: "week",
+    range: {
+      start: "2026-07-01T00:00:00.000Z",
+      end: "2026-07-08T00:00:00.000Z",
+      days: 7,
+    },
+    metrics: {
+      totalMinutes: 600,
+      effectiveMinutes: 420,
+      taskCompletionRate: 0.7,
+      debtCount: 2,
+      lowConversionCount: 1,
+      reviewCompletionRate: 0.8,
+      weakNodeCount: 1,
+      dueNoteCount: 0,
+      mistakesCreatedCount: 8,
+      mistakeReviewCount: 2,
+    },
+    weakness,
+    strategy,
+    nextCycleDraft,
+  });
+
+  strategy.nextActions.push("后续输入变动不应污染历史快照。");
+  weakness.reasons.push("后续输入变动不应污染历史快照。");
+  nextCycleDraft.actions.push("后续输入变动不应污染历史快照。");
+
+  assert.equal(snapshot.sourceVersion, 1);
+  assert.equal(snapshot.canAutoApply, false);
+  assert.equal(snapshot.requiresUserConfirmation, true);
+  assert.equal(snapshot.strategy.canAutoApply, false);
+  assert.equal(snapshot.nextCycleDraft.requiresUserConfirmation, true);
+  assert.equal(snapshot.strategy.nextActions.includes("后续输入变动不应污染历史快照。"), false);
+  assert.equal(snapshot.weakness.reasons.includes("后续输入变动不应污染历史快照。"), false);
+  assert.equal(snapshot.nextCycleDraft.actions.includes("后续输入变动不应污染历史快照。"), false);
+  assert.equal(JSON.stringify(snapshot).includes("private task title"), false);
 });
 
 test("choosePeriodicWeakness prioritizes weak syllabus nodes over debt and low share", () => {
@@ -627,6 +826,94 @@ test("summarizeAnalyticsRisks gives steady fallback action when risk is clear", 
 
   assert.deepEqual(summary.risks, []);
   assert.deepEqual(summary.actions, ["继续保持当前节奏，把新增产出关联到任务或考纲节点。"]);
+});
+
+test("summarizeLongTermRisks combines long-term evidence without auto application", () => {
+  const summary = summarizeLongTermRisks({
+    window: {
+      start: "2026-07-01T00:00:00.000Z",
+      end: "2026-07-08T00:00:00.000Z",
+      label: "近 7 天",
+    },
+    effectiveMinutes: 90,
+    taskCompletionRate: 0.22,
+    debtCount: 11,
+    lowConversionCount: 5,
+    reviewCompletionRate: 0.3,
+    dueMistakeCount: 4,
+    dueNoteCount: 2,
+    weakNodes: [
+      {
+        id: "node-limit",
+        title: "极限定义",
+        subjectName: "数学",
+        status: "mistake_hotspot",
+        mistakeCount: 4,
+        evidenceFreshness: "stale",
+      },
+    ],
+    simulation: {
+      latestScoreRate: 0.42,
+      daysToNextSimulation: 10,
+      weakSubjectNames: ["数学", "英语"],
+      isFirstSynchronized: true,
+    },
+    stage: {
+      mode: "recovery",
+      goal: "恢复数学和英语基础稳定性",
+      daysToFinal: 110,
+      activeDraftCount: 1,
+    },
+    themeState: "recovery",
+  });
+
+  assert.equal(summary.canAutoApply, false);
+  assert.equal(summary.requiresUserConfirmation, true);
+  assert.equal(summary.sourceVersion, 1);
+  assert.equal(summary.topRiskLevel, "critical");
+  assert.deepEqual(summary.focusSubjects, ["数学", "英语"]);
+  assert.equal(summary.risks[0]?.source, "periodic_report");
+  assert.ok(summary.risks.some((risk) => risk.source === "task_debt" && risk.actionType === "reduce_debt"));
+  assert.ok(summary.risks.some((risk) => risk.source === "syllabus_map" && risk.evidenceFreshness === "stale"));
+  assert.ok(summary.risks.some((risk) => risk.source === "simulation" && risk.actionType === "simulate"));
+  assert.ok(summary.risks.some((risk) => risk.source === "stage_plan" && risk.actionType === "adjust_stage"));
+  assert.ok(summary.nextActions.some((action) => action.includes("最小闭环")));
+});
+
+test("summarizeLongTermRisks keeps clear periods as confirm-only guidance", () => {
+  const summary = summarizeLongTermRisks({
+    window: {
+      start: "2026-07-01T00:00:00.000Z",
+      end: "2026-07-08T00:00:00.000Z",
+      label: "近 7 天",
+    },
+    effectiveMinutes: 640,
+    taskCompletionRate: 0.82,
+    debtCount: 0,
+    lowConversionCount: 0,
+    reviewCompletionRate: 0.85,
+    dueMistakeCount: 0,
+    dueNoteCount: 0,
+    weakNodes: [],
+    simulation: {
+      latestScoreRate: 0.72,
+      daysToNextSimulation: 45,
+      weakSubjectNames: [],
+    },
+    stage: {
+      mode: "maintain",
+      goal: "维持稳定节奏",
+      daysToFinal: 260,
+    },
+    themeState: "normal",
+  });
+
+  assert.deepEqual(summary.risks, []);
+  assert.equal(summary.topRiskLevel, "info");
+  assert.deepEqual(summary.focusSubjects, []);
+  assert.deepEqual(summary.nextActions, ["保持当前节奏，继续把学习产出关联到任务、错题、笔记或考纲节点。"]);
+  assert.equal(summary.canAutoApply, false);
+  assert.equal(summary.requiresUserConfirmation, true);
 });
 
 test("summarizePeriodicReportStrategy strengthens when mistakes outpace review", () => {

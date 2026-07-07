@@ -24,6 +24,7 @@
 - 附件 metadata 和文件本体能对应。
 - 首页能读取数据。
 - 登录仍可用。
+- 附件对账只生成报告，不自动修复 metadata、不删除孤儿文件、不移动上传目录文件。
 
 ## 命令模板
 
@@ -66,6 +67,8 @@ attachmentId,noteId,uri,storedName,metadataHash,fileHash,metadataSizeBytes,fileS
 ```
 
 `action` 第一版固定为 `report_only`。孤儿文件清理、metadata 修复或批量删除必须另行确认。
+
+若恢复演练使用临时脚本或 SQL 生成对账报告，脚本必须只读数据库和文件系统；不得在同一次演练中执行删除、移动、重命名、补写 metadata 或重新计算后覆盖数据库 hash。
 
 ## 回滚
 

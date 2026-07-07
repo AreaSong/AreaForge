@@ -24,16 +24,16 @@
 - 错题与掌握证明已完成显式记录闭环，考纲节点可看到任务、计时、笔记、错题证据计数和最近证据时间；Package B Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence` 和 `MasteryRetest`，`/syllabus` 可保存条件、引用证据和写入复测，缺显式证据时保留 `_count` fallback；`packages/core/src/mastery-proof.ts` 已沉淀掌握等级、缺失条件、缺失证据、证据过旧风险和下一步动作的纯规则；`packages/core/src/syllabus-map.ts` 已沉淀作战地图格子状态、标记、原因、下一步动作和聚合摘要纯规则。
 - 动机封存、情绪标签、阶段称号和动机唤醒基础版已完成，且默认不进入 AI 上下文。
 - 基础统计与作战地图完善已完成低风险闭环：统计页、只读统计 API、近 7 天派生指标、`summarizeAnalyticsRisks` 统计风险规则、风险提醒、作战地图状态筛选和行动类型筛选。
-- 周审判与月复盘报告已完成低风险闭环：只读周期报告 API、报告页、`choosePeriodicWeakness` 最大短板选择规则、`summarizePeriodicReportStrategy` 周期策略规则和本地规则复盘草稿。
+- 周审判与月复盘报告已完成低风险闭环：只读周期报告 API、报告页、`choosePeriodicWeakness` 最大短板选择规则、`summarizePeriodicReportStrategy` 周期策略规则、本地规则复盘草稿、`createPeriodicNextCycleDraft` 下周期草稿和 `createPeriodicReportDecisionSnapshot` 只读回放快照；`decisionPreview` 固定 `canAutoApply=false` / `requiresUserConfirmation=true`，不落库、不写审计、不应用阶段计划。
 - 全真模拟考试已完成结构化主路径：Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、结构化模拟 API 和 `/simulation` 主写入；旧 `StudyTask.type = "simulation_exam"` 记录只读兼容；Package B Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft`、阶段计划 API 和持久草稿确认边界；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并接入结构化结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用。真实 AI 阶段调整和 Package D 长期应用仍需后续高风险确认。
-- AI 建议已启动 disabled 基础入口：`packages/ai` 提供结构化 schema、本地规则 fallback、非外呼 provider 抽象、mock 测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页草稿展示；真实外部 AI 调用仍需高风险确认。
+- AI 建议已完成 Package C 第一版：`packages/ai` 提供结构化 schema、本地规则 fallback、OpenAI-compatible JSON provider、mock/外呼错误测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页本地草稿展示；长期阶段 AI 仍需 Package D/0017 确认。
 
 ## 下一步主线
 
 1. `tasks/done/0004-mvp-syllabus-notes-upload.md`：附件上传与鉴权访问已由 Package A 完成。
-2. `tasks/backlog/0005-mvp-ai-discipline.md`：确认 AI 隐私边界后接入真实外部 AI 适配器。
+2. `tasks/done/0005-mvp-ai-discipline.md`：真实 AI Provider 第一版已由 Package C 完成。
 3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState`、显式掌握证明记录、结构化模拟考试和阶段计划/草稿已由 Package B Batch 1-6 完成；后续长期应用继续随 Package D 增强。
-4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径和阶段计划/草稿持久化已完成；继续等待 Package C/D 确认真实 AI 阶段调整和长期应用流。
+4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径和阶段计划/草稿持久化已完成；继续等待 Package D / `0017` 确认长期阶段 AI 和长期应用流。
 5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复和发布闭环。
 
 实现前确认设计：
@@ -47,7 +47,7 @@
 
 ## 高风险确认包状态
 
-这些包命中仓库高风险边界。Package A 和 Package B 已完成；后续进入 Package C/D/E 前仍必须先确认对应影响、风险、验证和回滚。
+这些包命中仓库高风险边界。Package A、Package B 和 Package C 已完成；后续进入 Package D/E 前仍必须先确认对应影响、风险、验证和回滚。
 
 | 确认包 | 影响 | 主要风险 | 验证 | 回滚 |
 |---|---|---|---|---|
@@ -79,7 +79,7 @@
 6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。已完成。
 7. Batch 6：阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的阶段计划更新和审计记录。已完成，且不包含任务重排、批量改任务、真实 AI 或生产 migration deploy。
 
-Package A 附件和 Package B Batch 0-6 已全部完成；`docs 100%` 继续由 Package C 真实 AI、Package D 长期闭环和 Package E 生产发布收口。
+Package A 附件、Package B Batch 0-6 和 Package C 真实 AI 第一版已全部完成；`docs 100%` 继续由 Package D 长期闭环和 Package E 生产发布收口。
 
 ### 2. 第一版功能补全
 
@@ -104,13 +104,14 @@ Package A 已完成：
 
 ### 4. AI 闭环
 
-需要 AI 高风险确认后推进：
+Package C 真实 AI Provider 第一版已完成：
 
-- 接入 Sub2API / OpenAI 兼容 provider，只在 `AI_ENABLED=true` 时外呼。
+- 已接入 Sub2API / OpenAI 兼容 provider，只在 `AI_ENABLED=true` 且三条鉴权 AI POST route 显式触发时外呼。
 - 请求前做数据最小化，默认不发送动机档案、完整情绪记录和完整复盘正文。
 - 输出必须结构化校验，失败回退本地规则。
-- 超时、重试、限流、错误映射和日志脱敏必须先落地。
-- AI 只返回鞭策、复盘建议、明日任务建议和阶段调整草稿，不直接覆盖用户记录。
+- 超时、重试、轻量限流、错误映射和日志脱敏已落地。
+- AI 第一版只返回鞭策、复盘建议和明日任务建议，不直接覆盖用户记录。
+- 长期阶段 AI 和阶段调整草稿外呼仍归 Package D / `0017` 单独确认。
 - 若保存 AI 建议历史，必须单独确认模型和 migration。
 
 ### 5. 第二阶段长期能力

@@ -36,9 +36,9 @@
 | 考研作战地图概览版 | 已完成 | `tasks/done/0011-analytics-map.md`、`packages/core/src/syllabus-map.ts` | 高级可视化见 `0016` |
 | 动机封存 | 已完成 | `tasks/done/0010-motivation-emotion-stage.md` | AI 默认仍不读取动机档案 |
 | 阶段称号基础版 | 已完成 | `packages/core` 阶段规则、首页展示 | 与模拟成绩联动待第二阶段 |
-| 鞭策文案 | 基础版 / 待确认 | 本地规则 fallback、首页草稿展示 | 真实 AI provider 待确认 |
-| AI 复盘建议 | 基础版 / 待确认 | `/api/ai/daily-review` 当前返回本地规则 | `tasks/backlog/0005-mvp-ai-discipline.md` |
-| AI 明日任务建议 | 基础版 / 待确认 | `/api/ai/tomorrow-plan` 当前返回本地规则 | `tasks/backlog/0005-mvp-ai-discipline.md` |
+| 鞭策文案 | 已完成 | Package C 已接入 OpenAI-compatible provider；`/api/ai/discipline` 在 `AI_ENABLED=true` 且配置完整时可显式外呼，失败回退本地规则；首页仍展示本地规则以避免普通 SSR 成本 | 长期阶段 AI 另走 Package D/0017 |
+| AI 复盘建议 | 已完成 | Package C 已接入 `/api/ai/daily-review` 真实 provider 第一版；只发送聚合字段，不发送完整复盘正文、动机档案、完整情绪记录或附件内容；输出 schema 校验失败回退 | `tasks/done/0005-mvp-ai-discipline.md` |
+| AI 明日任务建议 | 已完成 | Package C 已接入 `/api/ai/tomorrow-plan` 真实 provider 第一版；任务标题默认脱敏，`task title may contain private content` 不进入外呼；失败回退本地规则 | `tasks/done/0005-mvp-ai-discipline.md` |
 | 基础统计 | 已完成 | `tasks/done/0011-analytics-map.md`、`/analytics` | 结构化快照和长期趋势待后续 |
 | 数据持久化 | 已完成 | PostgreSQL + Prisma + migration | 生产备份恢复见 `0014` |
 
@@ -46,17 +46,17 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 全真模拟考试模式完整实现 | 已完成 | Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、`/api/simulation/exams`、`/api/simulation/exams/:id/results` 和 `/simulation` 结构化主写入路径；旧 `StudyTask.type = "simulation_exam"` 只读兼容；Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft` 和持久草稿确认边界 | 长期报告决策、任务重排应用和真实 AI 阶段调整仍由 Package C/D 承接 |
+| 全真模拟考试模式完整实现 | 已完成 | Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、`/api/simulation/exams`、`/api/simulation/exams/:id/results` 和 `/simulation` 结构化主写入路径；旧 `StudyTask.type = "simulation_exam"` 只读兼容；Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft` 和持久草稿确认边界 | 长期报告决策、任务重排应用和真实 AI 阶段调整仍由 Package D / `0017` 承接 |
 | 2026 年 12 月同步自测专题流程 | 已完成 | `/simulation` 固定 2026 同步全真自测节点、第一次自测阶段日记、结构化模拟考试 `isFirstSynchronized` 标记、考后本地重校准草稿；Batch 6 后可把本地重校准草稿持久化为需确认的 `StageAdjustmentDraft` | 更完整的报告决策和长期应用流仍由 Package D 承接 |
-| 周审判报告 | 已完成 | `/reports` 周报返回时长、有效时长、科目占比、完成率、欠账、低转化、错题复盘、最大短板、下周期问题和确认边界 | 报告快照持久化和应用流仍由 Package D 承接 |
-| 月复盘报告 | 已完成 | `/reports` 月报返回阶段策略、长期短板、科目投入、低转化、是否调整阶段计划的只读建议；Batch 6 后展示最新持久阶段计划和持久草稿边界；`canAutoApply=false` / `requiresUserConfirmation=true` | 报告确认、驳回和应用写入仍由 Package D 承接 |
+| 周审判报告 | 已完成 | `/reports` 周报返回时长、有效时长、科目占比、完成率、欠账、低转化、错题复盘、最大短板、下周期问题、`decisionPreview` 下周期草稿和确认边界 | 报告快照持久化、确认/驳回和应用流仍由 Package D 承接 |
+| 月复盘报告 | 已完成 | `/reports` 月报返回阶段策略、长期短板、科目投入、低转化、是否调整阶段计划的只读建议；Batch 6 后展示最新持久阶段计划和持久草稿边界；`decisionPreview` 固定 `canAutoApply=false` / `requiresUserConfirmation=true` | 报告确认、驳回和应用写入仍由 Package D 承接 |
 | 任务债务自动重排建议 | 已完成 | `GET /api/tasks/debt-reorder` 和首页任务区已展示保留、补做、延期、拆小、放弃、改复习建议；建议透传 `canAutoApply=false` / `requiresUserConfirmation=true`，不可自动应用 | 确认、驳回、应用记录仍由 Package D 承接 |
 | 知识点遗忘风险提醒 | 已完成 | `/analytics`、`/reports` 和 `/syllabus` 基于错题集中、最近证据时间、错题记录更新趋势、笔记到期、节点状态和 Batch 4 显式复测记录派生遗忘/复习风险 | 长期复习历史和阶段计划联动仍由 Package D 承接 |
 | 笔记复习提醒 | 已完成 | `Note.nextReviewAt`、`/notes` 复习提醒筛选、`/analytics` 到期笔记风险和 `/reports` 到期笔记计数；附件上传已由 Package A 完成 | 后续可继续做更细复习策略 |
 | 作战地图高级可视化 | 已完成 | `/syllabus` 已展示分科摘要、地图状态分布、优先节点、推荐筛选、地图状态筛选、行动类型筛选和 Batch 4 显式掌握证明记录 | 结构化复习历史仍由 Package D 增强 |
 | 状态主题深度联动 | 已完成 | `determineThemeState` 基于冲刺窗口、风险状态和连续性生成主题；首页根据 `themeState` 切换外壳，并展示正常推进、锻造、警报、恢复、冲刺的状态主题面板、触发信号和行动焦点；恢复主题联动最小任务裁剪，冲刺主题前置倒计时与阶段压强；Batch 6 已提供持久阶段计划基础 | 深层主题应用和长期阶段压强调节仍随 Package D 增强 |
 | 动机唤醒机制 | 已完成 | `evaluateMotivationWake` 覆盖未封存、断签、危险期、自测窗口、重大复盘和重情绪；首页只展示唤醒信号，不进入 AI 默认上下文 | 更细粒度历史策略可后续增强 |
-| AI 根据长期数据生成阶段调整建议 | 基础版 / 待确认 | `draftStageAdjustment` 本地规则草稿；Batch 6 已可把本地规则建议持久化为 `StageAdjustmentDraft`，并要求用户确认后才更新 `StagePlan` | 真实长期 AI 外呼、隐私/费用验证和更完整应用流仍由 `tasks/backlog/0017-ai-stage-privacy-cost.md` 与 Package C/D 承接 |
+| AI 根据长期数据生成阶段调整建议 | 基础版 / 待确认 | `draftStageAdjustment` 本地规则草稿；Batch 6 已可把本地规则建议持久化为 `StageAdjustmentDraft`，并要求用户确认后才更新 `StagePlan` | 真实长期 AI 外呼、隐私/费用验证和更完整应用流仍由 `tasks/backlog/0017-ai-stage-privacy-cost.md` 与 Package D 承接 |
 
 ## 暂缓项
 
