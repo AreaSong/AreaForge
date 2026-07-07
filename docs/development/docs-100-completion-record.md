@@ -10,7 +10,7 @@
 
 | 包 | 当前状态 | 当前证据 | 缺口 | 下一步 |
 |---|---|---|---|---|
-| Package A | NOT_READY / 未完成 | `Attachment` schema 和 `packages/storage` 纯规则已有，已覆盖 MIME、magic bytes、随机存储名、安全 URI、相对上传目录拒绝和公开目录拒绝钩子；确认设计见 `docs/development/attachment-upload-access-design.md`；确认前验收矩阵已写入 `docs/development/docs-100-acceptance-evidence.md` 并由 `pnpm risk:preflight` 检查 | 缺上传/下载 API、UI、文件写入补偿、鉴权烟测和对账证据 | 等用户明确确认后实现附件上传与鉴权访问 |
+| Package A | DONE / 已完成 | 用户已明确确认“确认执行 Package A：附件上传与鉴权访问”；已实现 noteId 绑定附件上传、鉴权下载、metadata/hash/URI 写入、`UPLOAD_DIR` 私有落盘、DB/文件补偿和 `/notes` UI；验证：`pnpm --filter @areaforge/web typecheck`、`pnpm --filter @areaforge/web lint`、`pnpm --filter @areaforge/storage test`、临时库 `pnpm db:migrate:deploy`、`pnpm --filter @areaforge/web build`、`pnpm risk:preflight`、`pnpm docs:readiness` 和 `git diff --check`；烟测：未登录上传/下载 401，PDF/PNG/JPEG/WebP 成功，多个 file、空文件、unknown magic、MIME_MISMATCH、BAD_MULTIPART、413、INVALID_DISPOSITION、文件不存在 404、hash/size 对账失败 409、软链接逃逸、补偿删除、private, no-store、nosniff、不泄露 uri/storedName/绝对路径均覆盖；页面烟测：`/notes` 上传按钮、附件列表和下载入口刷新后可见；文档同步：feature-traceability、api-surface、data-model、file-storage、notes、validation-matrix、task 和 workflow 已同步；残余风险：本批不含附件删除、错题/模拟/阶段附件、AI 解析、生产部署或孤儿文件清理 | 无 | 后续转入 Package C/D/E |
 | Package B | DONE / 已完成 | 验证、烟测、文档同步和残余风险证据见下方 Batch 0-6 明细；用户已确认并完成 Batch 0 `StudySession` 结构化收口字段、Batch 1 `CheckIn` 日快照、Batch 2 债务事件与父子任务、Batch 3 `RecoveryState` 恢复状态、Batch 4 掌握证明条件/证据/复测记录、Batch 5 结构化模拟考试和科目结果、Batch 6 阶段计划和阶段调整草稿；临时库 migration deploy、服务级 smoke、页面 smoke、`pnpm check`、`pnpm risk:preflight` 和文档同步均纳入记录 | 无 | 后续 Package C/D/E 继续推进真实 AI、长期应用和生产发布 |
 | Package C | NOT_READY / 未完成 | `packages/ai` 本地 fallback、provider 抽象、schema 校验和敏感字段拦截已有；拦截已覆盖常见 key 命名变体；Web AI 服务当前不读取 AI provider env、不传真实 provider，只构造聚合上下文并返回本地规则 fallback；`pnpm risk:preflight` 已覆盖 Web provider 禁用边界、上下文最小化和首页本地 fallback 成本边界；确认设计见 `docs/development/ai-provider-integration-design.md`；确认前验收矩阵已写入 `docs/development/docs-100-acceptance-evidence.md` 并由 `pnpm risk:preflight` 检查 | 缺真实 provider、费用/隐私/限流验证、客户端密钥扫描和真实失败回退证据 | 等用户明确确认后接入真实 AI provider |
 | Package D | NOT_READY / 未完成 | 模拟考试、报告、阶段调整已有基础版；`packages/core` 已提供任务债务重排建议、周期报告最大短板选择、短板来源/严重度/选择依据、周期报告策略、统计风险摘要、恢复候选选择和作战地图聚合摘要纯规则；只读报告服务、统计服务、首页恢复候选、首页债务重排建议、`GET /api/tasks/debt-reorder`、`/reports` 短板追溯信息、周期策略和本地复盘草稿 `canAutoApply=false` / `requiresUserConfirmation=true`、首页债务重排建议只读确认标签和 `/syllabus` 分科作战地图摘要、状态分布、推荐筛选、行动类型筛选及优先节点展示已消费部分 core 规则；Package B Batch 2 已提供 `TaskDebtEvent` 事件账本供后续确认/驳回/应用记录复用；`pnpm risk:preflight` 已覆盖债务重排只读 API、阶段调整只读草稿 API、阶段调整 confirm-only DTO/UI、报告 confirm-only DTO、报告/任务 UI 标签和文档边界；考纲服务已用已有任务、计时、笔记、错题更新时间派生证据新鲜度；`/notes` 已支持科目、节点、掌握状态和复习提醒筛选；今日任务表单已支持写入已有 `StudyTask.type`；确认范围见 `docs/development/high-risk-confirmation-packets.md`；确认前验收矩阵已写入 `docs/development/docs-100-acceptance-evidence.md` 并由 `pnpm risk:preflight` 检查 | 缺完整模拟考试、长期报告决策入口、重排确认后应用、结构化复习历史、结构化遗忘风险和长期阶段调整闭环 | Package B/C 对应基础完成后推进第二阶段长期闭环 |
@@ -32,7 +32,7 @@
 
 ## 最近确认前护栏补强
 
-- Package A：`pnpm risk:preflight` 已扩展为扫描提前出现的附件/上传 route、附件 service、Web 层上传 IO、`public/` 上传路径、附件上传 UI、提前下载 href、UI 对 `Attachment.uri` / `upload://attachment` / `downloadApiPath` 的直链；`AttachmentDto` 现在只暴露未来鉴权 API 路径 `downloadApiPath`，不再把内部 `uri` 传给 UI；附件设计补充响应 DTO、状态码矩阵、`Content-Disposition` 文件名转义和附件内容默认不进入 AI 上下文。
+- Package A：已从确认前护栏切换为完成后证据门禁；`pnpm risk:preflight` 继续阻止 `public/` 上传目录和 UI 泄露 `Attachment.uri` / `upload://attachment`，同时要求已确认完成后存在上传/下载 route、附件 service、Web 上传 IO、`/notes` 文件选择和鉴权 `downloadApiPath`；`AttachmentDto` 只暴露鉴权 API 路径，不把内部 `uri`、`storedName` 或上传绝对路径传给 UI；附件内容默认不进入 AI 上下文。
 - Package B：Batch 6 已在确认后完成阶段计划和阶段调整草稿；`StagePlan`、`StageAdjustmentDraft` additive migration、服务/API/DTO/UI 主写入路径和确认边界 smoke 均已落地；`pnpm risk:preflight` 已补充 Batch 6 运行时边界，要求对应 migration、schema 字段、service、API、DTO、UI 和确认边界证据，并仅狭窄放行 `stage-adjustment-drafts/:id/confirm|reject`，避免与 Package D 未确认写路由禁区冲突；`pnpm docs:completion` 已增强为要求每个 DONE 批次具备确认、验证命令、烟测、文档同步和残余风险证据；`GET /api/tasks/debt-reorder` 仍保持只读，不写 `reorder_suggested/reorder_applied`，后续应用记录仍归 Package D。
 - Package C：`pnpm risk:preflight` 已覆盖客户端公开 AI env 禁区、`AI_LOG_PROMPTS=false` / `AI_ALLOW_SENSITIVE_CONTEXT=false` 默认值、首页 SSR 成本边界、任务标题脱敏决策、客户端 bundle key scan command，以及 `AiCall` / `AiUsage` / `tokenUsage` / `promptHash` 等调用历史或费用统计持久化禁区；真实 provider 第一版默认不发送原始任务标题，验证矩阵要求用 `task title may contain private content` 做标题隐私烟测。
 - Package D：`pnpm risk:preflight` 已显式检查 `GET /api/reports/periodic` 只读、`GET /api/tasks/debt-reorder` 只读、`GET /api/simulation/stage` 只读，继续阻止报告、债务、阶段和模拟考试的 `apply/confirm/reject` 写路由，并把报告快照、报告决策、报告应用、任务重排应用、阶段调整应用、阶段计划应用和长期 AI 建议等持久化 token 扫描扩展到 `apps/web/lib/study/**`；长期闭环设计补充依赖-允许能力矩阵和只读回归要求。
@@ -42,22 +42,25 @@
 
 以 `docs/development/feature-traceability.md` 为准，当前仍存在：
 
-- 第一版必须项：`知识点掌握证明基础版` 已用现有任务、计时、笔记、错题证据和显式条件/证据/复测记录闭环；`/syllabus` 可选择目标掌握等级、保存条件、写入证据引用和复测记录，`PATCH /api/syllabus/nodes/:id` 校验证据后写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent` 摘要；没有显式证据时仍保留 `_count` fallback。`笔记与资料上传` 已有文本笔记和 storage 纯规则，但附件上传/下载落盘与鉴权需 Package A；`鞭策文案`、`AI 复盘建议`、`AI 明日任务建议` 只有本地 fallback，真实 provider 需 Package C。
+- 第一版必须项：`知识点掌握证明基础版` 已用现有任务、计时、笔记、错题证据和显式条件/证据/复测记录闭环；`/syllabus` 可选择目标掌握等级、保存条件、写入证据引用和复测记录，`PATCH /api/syllabus/nodes/:id` 校验证据后写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent` 摘要；没有显式证据时仍保留 `_count` fallback。`笔记与资料上传` 已由 Package A 完成 noteId 附件上传、私有落盘、鉴权下载和 `/notes` UI；`鞭策文案`、`AI 复盘建议`、`AI 明日任务建议` 只有本地 fallback，真实 provider 需 Package C。
 - 第二阶段增强：`全真模拟考试模式完整实现` 已由 Package B Batch 5 完成结构化模型/API/UI 主路径，并由 Batch 6 补齐阶段计划和持久草稿确认边界；`AI 根据长期数据生成阶段调整建议` 仍只有本地规则草稿，真实长期 AI 与更完整应用闭环需 Package C 和 Package D。`状态主题深度联动` 已由 core 五态规则、首页状态主题面板、恢复态任务聚焦、冲刺任务前置和页面可读性烟测覆盖，深层阶段计划主题信号后续随 Package D 增强。
-- Package B 已达到完成证据要求；Package A、Package C、Package D 和 Package E 仍未达到完成证据要求。
+- Package A 和 Package B 已达到完成证据要求；Package C、Package D 和 Package E 仍未达到完成证据要求。
 
-因此当前准确进度是：治理、确认包、Package B Batch 0-6 和大量低风险基础能力已完成；docs 100% 尚未完成，下一条高风险实现主线应从 Package A 附件、Package C 真实 AI、Package D 长期闭环或 Package E 生产发布中按确认顺序推进。
+因此当前准确进度是：治理、确认包、Package A 附件、Package B Batch 0-6 和大量基础能力已完成；docs 100% 尚未完成，下一条高风险实现主线应从 Package C 真实 AI、Package D 长期闭环或 Package E 生产发布中按确认顺序推进。
 
 ## 最近验证
 
 - `pnpm docs:readiness`：通过，说明治理结构和追踪入口存在；脚本已检查 `docs:completion` 具备 Package B 批次明细证据门禁。
-- `pnpm docs:completion`：预期失败，当前 blocker 为第一版的附件上传、真实 AI 建议，第二阶段的长期 AI 阶段调整，以及 Package A/C/D/E 完成证据。
+- `pnpm docs:completion`：预期失败，当前 blocker 为第一版的真实 AI 建议、第二阶段的长期 AI 阶段调整，以及 Package C/D/E 完成证据。
 - `pnpm check`：通过，说明当前工程基线可构建；本次覆盖 Batch 4 新增 Prisma 客户端生成、全 workspace typecheck、Web lint、Prisma validate 和 Next build。
 - `DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54330/areaforge_batch4_verify pnpm db:migrate:deploy`：通过，7 条 migration 已在本地临时库成功应用。
 - Batch 4 服务级 smoke：通过，旧 `_count` fallback、跨节点证据拒绝、显式证据优先、`failed/partial` 复测不降级、不计入通过、不创建显式证据且不压掉 fallback、`passed` 复测证明 `retest_passed` 和审计摘要写入均已覆盖。
 - `pnpm --filter @areaforge/core test`：通过，当前 46 条 core 规则测试覆盖 Batch 1 `buildDailyCheckInSnapshot` 快照字段来源、低转化 fallback 和显式 `isLowConversion=false` 覆盖优先级、状态主题五态映射、恢复态任务裁剪、冲刺任务前置、周期报告最大短板选择、短板来源/严重度/选择依据、周期策略、任务债务重排、恢复候选、统计风险、掌握证明条件与证据门禁、作战地图和模拟/阶段规则。
 - `pnpm --filter @areaforge/ai test`：通过，当前 10 条 AI 测试覆盖本地 fallback、mock provider 成功/失败、非法输出 fallback、敏感字段拦截和安全最小化上下文。
 - `pnpm --filter @areaforge/storage test`：通过，当前 11 条 storage 测试覆盖 MIME/magic bytes、大小限制、随机 storedName/URI、路径穿越、公有目录拒绝和私有下载响应头。
+- Package A route-level smoke：通过，覆盖未登录上传/下载 401、创建 note、缺 file 400、多 file 400、空文件 400、unknown magic 400、MIME_MISMATCH 400、超大 413、PDF/PNG/JPEG/WebP 上传成功、响应不泄露 uri/storedName/上传绝对路径、原始名 `../evil.pdf` 归一化、下载 200、`private, no-store`、`nosniff`、`Content-Disposition`、`Content-Length`、inline 成功、INVALID_DISPOSITION 400、`GET /api/notes` 刷新后附件可见、文件缺失 404、文件篡改后 hash/size 对账失败 409。
+- Package A 软链接/public 上传根烟测：通过，`UPLOAD_DIR` 指向 `apps/web/public` 的软链接时上传返回 `UPLOAD_DIR_UNSAFE`，metadata 数不变。
+- Package A `/notes` 页面烟测：通过，生产 build 后 `next start` 临时端口登录打开 `/notes`，页面展示上传按钮、4 个附件和下载入口，截图为 `output/playwright/package-a-notes.png`；同一临时库首页曾出现连接数打满的 `P2037`，目标页流程通过，残余风险记录为临时烟测环境连接残留。
 - `pnpm test`：通过，说明当前所有 workspace 包内测试通过。
 - `pnpm --filter @areaforge/web typecheck`：通过。
 - `pnpm --filter @areaforge/web lint`：通过。
@@ -65,8 +68,8 @@
 - Batch 5 服务级 smoke：通过，结构化模拟创建不新增旧任务、旧任务型模拟只读可查、两科结果保存和同科 upsert 唯一性、规则复盘文本、审计事件、Batch 6 表未出现均已覆盖。
 - Batch 5 Playwright 页面烟测：通过，`/simulation` 可创建结构化考试、保存科目结果并刷新展示总分、科目结果和规则复盘；截图为 `output/playwright/batch5-simulation.png`。烟测期间首页曾因临时库连接数打满返回 `P2037`，目标页面流程重试后通过。
 - Batch 6 服务级 smoke：通过，阶段计划创建和局部更新、非法日期拒绝、持久草稿生成、驳回后确认冲突、确认应用、重复确认幂等、审计记录和任务不变边界均已覆盖；临时库结果为 1 个阶段计划、2 个草稿、6 条相关审计、0 条债务事件。
-- `pnpm risk:preflight`：通过，说明 Package A/C/D/E 的确认前边界仍被拦住，Package B Batch 0-6 的完成证据存在；确认前验收矩阵已被检查；Package A 额外覆盖上传/下载实现未提前出现、`public/` 下无上传目录、附件 DTO 不泄露内部 `uri`、UI 不直链 `attachment.uri` / `downloadApiPath` 且没有提前上传控件；Package B 额外覆盖 Batch 0-6 确认包、批次状态、批次完成记录和专项验证门禁；Batch 6 标 DONE 后要求 `StagePlan` / `StageAdjustmentDraft` 的 migration、schema 字段、service、API、DTO、UI 和确认边界证据，并仅对 Batch 6 确认范围内的阶段草稿确认/驳回路由做 Package D 冲突豁免；Package C 额外覆盖真实 provider 未接线、Web 侧不读取 AI env/key、AI 上下文保持聚合最小化、首页只允许本地 fallback 成本边界、AI route 保持鉴权 POST-only、schema 和 AI 服务不持久化完整 prompt/raw response；Package D 额外覆盖债务重排只读 API、报告/任务应用禁区、Batch 6 阶段草稿确认边界、报告 confirm-only DTO、报告/任务 UI 标签、报告/决策/应用/长期 AI 持久化禁区和文档边界；Package E 额外覆盖发布、备份、恢复、烟测、回滚命令模板和网页运维 route 禁区。
-- `pnpm docs:completion`：预期失败；当前 blocker 为第一版附件上传和真实 AI 建议、第二阶段长期 AI 阶段调整、Package A/C/D/E 完成证据；脚本已增强为 DONE 批次必须同时具备确认、验证命令、烟测、文档同步和残余风险证据。
+- `pnpm risk:preflight`：通过后说明 Package A 已确认完成且具备上传/下载实现证据，`public/` 下无上传目录、附件 DTO 不泄露内部 `uri`、UI 只暴露鉴权 `downloadApiPath`；Package B Batch 0-6 的完成证据存在；Package C/D/E 的确认前边界仍被拦住；Package B 额外覆盖 Batch 0-6 确认包、批次状态、批次完成记录和专项验证门禁；Batch 6 标 DONE 后要求 `StagePlan` / `StageAdjustmentDraft` 的 migration、schema 字段、service、API、DTO、UI 和确认边界证据，并仅对 Batch 6 确认范围内的阶段草稿确认/驳回路由做 Package D 冲突豁免；Package C 额外覆盖真实 provider 未接线、Web 侧不读取 AI env/key、AI 上下文保持聚合最小化、首页只允许本地 fallback 成本边界、AI route 保持鉴权 POST-only、schema 和 AI 服务不持久化完整 prompt/raw response；Package D 额外覆盖债务重排只读 API、报告/任务应用禁区、Batch 6 阶段草稿确认边界、报告 confirm-only DTO、报告/任务 UI 标签、报告/决策/应用/长期 AI 持久化禁区和文档边界；Package E 额外覆盖发布、备份、恢复、烟测、回滚命令模板和网页运维 route 禁区。
+- `pnpm docs:completion`：预期失败；当前 blocker 为第一版真实 AI 建议、第二阶段长期 AI 阶段调整、Package C/D/E 完成证据；脚本已增强为 DONE 批次必须同时具备确认、验证命令、烟测、文档同步和残余风险证据，Package A 完成行必须具备附件专项证据。
 - `docker compose config`：通过；`docker compose --env-file .env.example -f docker-compose.prod.yml config`：通过。确认前只用于本地结构校验，不执行生产部署。
 - `git diff --check`：通过。
 

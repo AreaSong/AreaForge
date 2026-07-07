@@ -202,6 +202,7 @@ export interface SyllabusMapOverviewDto {
 
 export interface AttachmentDto {
   id: string;
+  noteId: string | null;
   originalName: string;
   mimeType: string;
   sizeBytes: number;

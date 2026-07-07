@@ -29,7 +29,7 @@
 | 考纲进度树 | 已完成 | `/syllabus`、`/api/syllabus/*`、Markdown 导入 | 附件和自动状态更新后增强 |
 | 知识点掌握状态 | 已完成 | `SyllabusNode.status`、`masteryLevel`、`/syllabus` 状态筛选、节点卡片和最近证据时间；Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`，显式证据优先并保留 `_count` fallback | 结构化复习历史和长期计划联动仍由 Package D 增强 |
 | 知识点掌握证明基础版 | 已完成 | `packages/core/src/mastery-proof.ts`；`/syllabus` 节点可选择目标掌握等级、勾选并保存掌握条件；`PATCH /api/syllabus/nodes/:id` 用显式证据或 `_count` fallback 校验，失败返回 `MASTERY_PROOF_REQUIRED`，成功写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent`；`POST /api/syllabus/nodes/:id/mastery-evidence` 写入证据引用；`POST /api/syllabus/nodes/:id/mastery-retests` 写入复测记录，`failed/partial` 不自动降级；Package B Batch 4 已完成 | 更复杂证据图谱和复习历史分析后续增强 |
-| 笔记与资料上传 | 基础版 / 待确认 | 笔记 API/UI 已有；按科目、节点、掌握状态和复习提醒筛选已有；storage 纯规则已有 | `tasks/active/0004-mvp-syllabus-notes-upload.md` |
+| 笔记与资料上传 | 已完成 | 笔记 API/UI 已有；按科目、节点、掌握状态和复习提醒筛选已有；Package A 已完成 noteId 绑定 PDF/PNG/JPEG/WebP 上传、`UPLOAD_DIR` 私有落盘、metadata/hash/URI 写入、鉴权下载、`/notes` 附件 UI 和补偿/对账烟测 | `tasks/done/0004-mvp-syllabus-notes-upload.md` |
 | 情绪与状态记录基础版 | 已完成 | `tasks/done/0010-motivation-emotion-stage.md` | 完整情绪历史表暂不做 |
 | 恢复模式基础版 | 已完成 | `createRecoveryPlan`、`rankRecoveryTaskCandidates`、首页 `visibleRecoveryTasks` 和恢复原因；Package B Batch 3 已新增 `RecoveryState`、`POST /api/recovery-states/manual`、完成/取消恢复 API、dashboard active 状态优先和规则触发幂等记录；首页计时器聚焦恢复候选，任务面板保留完整任务列表 | 长期阶段计划主题信号仍随 Package D 增强 |
 | 反假学习检查基础版 | 已完成 | 计时结束写 `isEffective`、`isLowConversion`、反假学习原因、补产出要求、最小产出、下一步动作和文本 note；Batch 0 已结构化收口字段；Batch 1 已把低转化次数写入 `CheckIn` 日快照；Batch 2 已把有效自动完成任务写入债务事件账本 | 历史 note 不解析；长期闭环继续由 Package D 承接 |
@@ -52,7 +52,7 @@
 | 月复盘报告 | 已完成 | `/reports` 月报返回阶段策略、长期短板、科目投入、低转化、是否调整阶段计划的只读建议；Batch 6 后展示最新持久阶段计划和持久草稿边界；`canAutoApply=false` / `requiresUserConfirmation=true` | 报告确认、驳回和应用写入仍由 Package D 承接 |
 | 任务债务自动重排建议 | 已完成 | `GET /api/tasks/debt-reorder` 和首页任务区已展示保留、补做、延期、拆小、放弃、改复习建议；建议透传 `canAutoApply=false` / `requiresUserConfirmation=true`，不可自动应用 | 确认、驳回、应用记录仍由 Package D 承接 |
 | 知识点遗忘风险提醒 | 已完成 | `/analytics`、`/reports` 和 `/syllabus` 基于错题集中、最近证据时间、错题记录更新趋势、笔记到期、节点状态和 Batch 4 显式复测记录派生遗忘/复习风险 | 长期复习历史和阶段计划联动仍由 Package D 承接 |
-| 笔记复习提醒 | 已完成 | `Note.nextReviewAt`、`/notes` 复习提醒筛选、`/analytics` 到期笔记风险和 `/reports` 到期笔记计数 | 附件上传仍由 Package A 承接 |
+| 笔记复习提醒 | 已完成 | `Note.nextReviewAt`、`/notes` 复习提醒筛选、`/analytics` 到期笔记风险和 `/reports` 到期笔记计数；附件上传已由 Package A 完成 | 后续可继续做更细复习策略 |
 | 作战地图高级可视化 | 已完成 | `/syllabus` 已展示分科摘要、地图状态分布、优先节点、推荐筛选、地图状态筛选、行动类型筛选和 Batch 4 显式掌握证明记录 | 结构化复习历史仍由 Package D 增强 |
 | 状态主题深度联动 | 已完成 | `determineThemeState` 基于冲刺窗口、风险状态和连续性生成主题；首页根据 `themeState` 切换外壳，并展示正常推进、锻造、警报、恢复、冲刺的状态主题面板、触发信号和行动焦点；恢复主题联动最小任务裁剪，冲刺主题前置倒计时与阶段压强；Batch 6 已提供持久阶段计划基础 | 深层主题应用和长期阶段压强调节仍随 Package D 增强 |
 | 动机唤醒机制 | 已完成 | `evaluateMotivationWake` 覆盖未封存、断签、危险期、自测窗口、重大复盘和重情绪；首页只展示唤醒信号，不进入 AI 默认上下文 | 更细粒度历史策略可后续增强 |

@@ -19,7 +19,7 @@
 - 每日任务 CRUD。
 - 学习计时开始、暂停、继续、结束持久化。
 - 每晚复盘保存。
-- 考纲树与笔记基础 API/UI 已启动，受限 Markdown 考纲导入已实现；考纲节点已读取已有任务、计时、笔记和错题更新时间派生证据新鲜度，结束计时会同步累加关联考纲节点实际时长；笔记库已支持科目、节点、掌握状态和复习提醒筛选；附件上传仍待高风险确认。
+- 考纲树与笔记基础 API/UI 已启动，受限 Markdown 考纲导入已实现；考纲节点已读取已有任务、计时、笔记和错题更新时间派生证据新鲜度，结束计时会同步累加关联考纲节点实际时长；笔记库已支持科目、节点、掌握状态和复习提醒筛选；Package A 已完成 noteId 绑定附件上传、私有落盘和鉴权下载。
 - 任务债务、打卡检查、反假学习和恢复模式已有结构化闭环：本地规则、首页展示、恢复模式任务聚焦、补做/拆小/改复习任务轻量流转、只读债务重排建议和计时收口反假学习判断；`packages/core/src/study-integrity.ts` 已沉淀结构化收口、近窗打卡历史、轻量债务动作和债务重排建议规则；Package B Batch 0 已为 `StudySession` 追加结构化收口字段；Package B Batch 1 已新增 `CheckIn` 日快照并接入新写路径；Package B Batch 2 已新增 `TaskDebtEvent` 和 `StudyTask.parentTaskId`；Package B Batch 3 已新增 `RecoveryState`、手动恢复、规则触发记录和完成/取消恢复状态。
 - 错题与掌握证明已完成显式记录闭环，考纲节点可看到任务、计时、笔记、错题证据计数和最近证据时间；Package B Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence` 和 `MasteryRetest`，`/syllabus` 可保存条件、引用证据和写入复测，缺显式证据时保留 `_count` fallback；`packages/core/src/mastery-proof.ts` 已沉淀掌握等级、缺失条件、缺失证据、证据过旧风险和下一步动作的纯规则；`packages/core/src/syllabus-map.ts` 已沉淀作战地图格子状态、标记、原因、下一步动作和聚合摘要纯规则。
 - 动机封存、情绪标签、阶段称号和动机唤醒基础版已完成，且默认不进入 AI 上下文。
@@ -30,7 +30,7 @@
 
 ## 下一步主线
 
-1. `tasks/active/0004-mvp-syllabus-notes-upload.md`：确认附件风险方案后，实现附件上传与鉴权访问。
+1. `tasks/done/0004-mvp-syllabus-notes-upload.md`：附件上传与鉴权访问已由 Package A 完成。
 2. `tasks/backlog/0005-mvp-ai-discipline.md`：确认 AI 隐私边界后接入真实外部 AI 适配器。
 3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState`、显式掌握证明记录、结构化模拟考试和阶段计划/草稿已由 Package B Batch 1-6 完成；后续长期应用继续随 Package D 增强。
 4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径和阶段计划/草稿持久化已完成；继续等待 Package C/D 确认真实 AI 阶段调整和长期应用流。
@@ -45,9 +45,9 @@
 - 高风险确认总表：`docs/development/high-risk-confirmation-packets.md`。
 - docs 100% 验收证据：`docs/development/docs-100-acceptance-evidence.md`。
 
-## 下一批高风险确认包
+## 高风险确认包状态
 
-这些包命中仓库高风险边界。进入实现前必须先确认对应影响、风险、验证和回滚。
+这些包命中仓库高风险边界。Package A 和 Package B 已完成；后续进入 Package C/D/E 前仍必须先确认对应影响、风险、验证和回滚。
 
 | 确认包 | 影响 | 主要风险 | 验证 | 回滚 |
 |---|---|---|---|---|
@@ -79,7 +79,7 @@
 6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。已完成。
 7. Batch 6：阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的阶段计划更新和审计记录。已完成，且不包含任务重排、批量改任务、真实 AI 或生产 migration deploy。
 
-Package B Batch 0-6 已全部完成；`docs 100%` 继续由 Package A 附件、Package C 真实 AI、Package D 长期闭环和 Package E 生产发布收口。
+Package A 附件和 Package B Batch 0-6 已全部完成；`docs 100%` 继续由 Package C 真实 AI、Package D 长期闭环和 Package E 生产发布收口。
 
 ### 2. 第一版功能补全
 
@@ -88,12 +88,12 @@ Package B Batch 0-6 已全部完成；`docs 100%` 继续由 Package A 附件、P
 - 恢复模式已从规则裁剪升级为持久化状态、手动触发和退出条件；后续只随长期阶段计划继续增强。
 - 反假学习从文本化 note 升级为结构化收口和低转化统计。
 - 掌握证明从证据计数升级为条件、证据和复测闭环。
-- 笔记资料库补齐附件上传、鉴权访问和复习提醒。
+- 笔记资料库已补齐附件上传、鉴权访问和复习提醒。
 - 首页、统计、报告、作战地图统一读取结构化数据，而不是重复散落推导。
 
 ### 3. 附件与资料库闭环
 
-需要附件高风险确认后推进：
+Package A 已完成：
 
 - `POST /api/notes/:noteId/attachments`：单文件上传，第一版只关联笔记。
 - `GET /api/attachments/:id`：鉴权下载或受控预览。

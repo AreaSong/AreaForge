@@ -34,6 +34,8 @@ AreaForge 需要支持：
 - 返回文件时设置 `X-Content-Type-Options: nosniff`。
 - PDF 默认下载或受控预览。
 
-## 当前安全底座
+## 当前实现状态
 
-`packages/storage` 当前只提供上传前纯规则能力，包括 MIME 策略、magic bytes 校验、metadata 草稿、随机存储名与 `upload://attachment/` URI、上传目录内路径解析、相对上传目录拒绝、公开目录拒绝钩子和下载响应头生成。真正创建上传目录、写入文件、读取文件、软链接真实路径校验和返回文件流仍属于高风险实现，需要确认后在 Web 服务层接入。
+`packages/storage` 提供 MIME 策略、magic bytes 校验、metadata 草稿、随机存储名与 `upload://attachment/` URI、上传目录内路径解析、相对上传目录拒绝、公开目录拒绝钩子和下载响应头生成。Package A 后，Web 服务层已接入 noteId 绑定附件上传和鉴权下载：创建上传目录、私有落盘、软链接真实路径校验、DB/文件补偿、hash/size 对账和 `private, no-store` / `nosniff` 响应头均已覆盖。
+
+第一版仍不提供附件删除、错题/模拟/阶段附件、AI 解析或孤儿文件自动清理。

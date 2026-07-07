@@ -1,7 +1,8 @@
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
-import type { AttachmentDto, NoteDto, NoteMasteryStatusDto } from "./types";
+import { serializeAttachment } from "./attachments-service";
+import type { NoteDto, NoteMasteryStatusDto } from "./types";
 
 export interface CreateNoteInput {
   subjectId: string;
@@ -112,6 +113,7 @@ function serializeNote(note: {
   } | null;
   attachments: Array<{
     id: string;
+    noteId: string | null;
     originalName: string;
     mimeType: string;
     sizeBytes: number;
@@ -135,25 +137,6 @@ function serializeNote(note: {
     createdAt: note.createdAt.toISOString(),
     updatedAt: note.updatedAt.toISOString(),
     attachments: note.attachments.map(serializeAttachment),
-  };
-}
-
-function serializeAttachment(attachment: {
-  id: string;
-  originalName: string;
-  mimeType: string;
-  sizeBytes: number;
-  hash: string;
-  createdAt: Date;
-}): AttachmentDto {
-  return {
-    id: attachment.id,
-    originalName: attachment.originalName,
-    mimeType: attachment.mimeType,
-    sizeBytes: attachment.sizeBytes,
-    hash: attachment.hash,
-    downloadApiPath: `/api/attachments/${attachment.id}`,
-    createdAt: attachment.createdAt.toISOString(),
   };
 }
 

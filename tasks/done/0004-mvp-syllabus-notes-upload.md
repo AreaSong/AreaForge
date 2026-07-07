@@ -1,6 +1,6 @@
 # 0004 考纲、笔记与附件基础版
 
-状态：进行中。考纲树与笔记基础能力已开始实现；附件上传、鉴权访问和上传目录属于高风险边界，落盘实现前必须等待明确确认。
+状态：已完成。考纲树、笔记基础能力、noteId 绑定附件上传、鉴权下载和私有上传目录落盘已完成；附件删除、错题/模拟/阶段附件、AI 解析、生产部署和孤儿文件清理不属于本任务。
 
 ## 目标
 
@@ -37,13 +37,14 @@
 
 ## 当前实施切分
 
-### 当前低风险进展
+### 已完成进展
 
 - 考纲树、笔记基础 API/UI 已实现。
 - `POST /api/syllabus/import-markdown` 和 `/syllabus` Markdown 导入表单已实现：只新增节点，不删除、不覆盖、不做 AI/PDF 解析；解析规则位于 `packages/core/src/syllabus-import.ts`，限制行数、层级和标题长度。
 - `packages/storage` 已补充纯校验能力：允许 MIME、大小限制、magic bytes 识别、声明 MIME 不一致拦截、安全 storedName/URI 规则和原始文件名元数据清理。
 - `packages/storage` 已补充附件落盘前安全底座纯函数：metadata 草稿、sha256、允许 MIME 解析、安全上传目录路径拼接、目录逃逸判断和私有 `nosniff` 下载响应头生成。
-- 这些能力尚未启用附件上传或文件落盘，只作为后续高风险实现的安全地基。
+- Package A 后已新增 `apps/web/lib/study/attachments-service.ts`、`POST /api/notes/[noteId]/attachments`、`GET /api/attachments/[id]` 和 `/notes` 附件 UI，上传响应只返回 DTO，不泄露内部 `uri`、`storedName` 或上传绝对路径。
+- 附件写入私有 `UPLOAD_DIR`，数据库保存 metadata、hash 和 URI；下载前校验真实路径、size/hash，并返回 `private, no-store` 与 `nosniff` 响应头。
 
 ### 已允许直接推进
 
@@ -55,7 +56,7 @@
 - 首页任务创建和专注计时支持关联考纲节点。
 - 新增 `/syllabus` 和 `/notes` 工作页。
 
-### 必须确认后再推进
+### 已确认并完成
 
 - 文件本体写入 `UPLOAD_DIR`。
 - 附件上传 API。
@@ -72,7 +73,7 @@
 
 ### 确认后实施切入点
 
-以下清单只用于获得 Package A 明确确认后的实现，不代表确认前可以新增上传/下载 route、写入 `UPLOAD_DIR` 或生成附件 UI。
+以下清单已在用户明确确认 Package A 后实现，保留为回溯依据。
 
 - 新增 `apps/web/lib/study/attachments-service.ts`，集中处理 `noteId` 归属校验、附件 metadata 草稿、上传根目录解析、安全文件写入、DB 写入和 best-effort 补偿删除。
 - 新增 `POST /api/notes/[noteId]/attachments`，只接受单个 `file`，先鉴权再校验 note 存在，成功返回附件 DTO；失败时不回显上传目录绝对路径。
@@ -111,6 +112,17 @@
 - 数据库写入失败会清理本次写入的文件；文件写入失败不会创建 `Attachment` metadata。
 - 临时对账能确认 `Attachment.uri` 指向的文件存在，hash 与 metadata 一致。
 - `pnpm check` 通过。
+
+本次完成验证记录：
+
+- `pnpm --filter @areaforge/web typecheck`
+- `pnpm --filter @areaforge/web lint`
+- `pnpm --filter @areaforge/storage test`
+- `DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54330/areaforge_package_a_verify_0707 pnpm db:migrate:deploy`
+- `pnpm --filter @areaforge/web build`
+- Package A route-level smoke：未登录上传/下载 401、缺 file、多 file、空文件、unknown magic、MIME_MISMATCH、413、PDF/PNG/JPEG/WebP 成功、BAD_MULTIPART、INVALID_DISPOSITION、文件缺失 404、文件篡改 hash/size 对账 409、响应不泄露 uri/storedName/绝对路径。
+- Package A 软链接/public 上传根 smoke：`UPLOAD_DIR` 指向 `apps/web/public` 的软链接时返回 `UPLOAD_DIR_UNSAFE`，metadata 数不变。
+- Package A `/notes` 页面 smoke：上传按钮、附件列表和鉴权下载入口刷新后可见。
 
 ### 回滚
 

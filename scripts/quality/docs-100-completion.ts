@@ -141,11 +141,41 @@ function checkCompletionRecord(): CompletionIssue[] {
         detail: `completed package row must include evidence for ${missingEvidenceKeywords.join(", ")}`,
       });
     }
+
+    if (item === "Package A") {
+      issues.push(...checkPackageACompletionDetail(line));
+    }
   }
 
   issues.push(...checkPackageBBatches(record));
 
   return issues;
+}
+
+function checkPackageACompletionDetail(line: string): CompletionIssue[] {
+  const requiredTerms = [
+    "401",
+    "PDF/PNG/JPEG/WebP",
+    "413",
+    "MIME_MISMATCH",
+    "BAD_MULTIPART",
+    "INVALID_DISPOSITION",
+    "软链接逃逸",
+    "补偿删除",
+    "hash/size 对账",
+    "private, no-store",
+    "nosniff",
+    "不泄露 uri/storedName/绝对路径",
+  ];
+  const missingTerms = requiredTerms.filter((term) => !line.includes(term));
+  if (missingTerms.length === 0) return [];
+
+  return [
+    {
+      name: "Package A attachment evidence detail",
+      detail: `completed Package A row must include attachment smoke evidence for ${missingTerms.join(", ")}`,
+    },
+  ];
 }
 
 function checkPackageBBatches(record: string): CompletionIssue[] {

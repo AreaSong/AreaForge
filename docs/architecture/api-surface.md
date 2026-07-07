@@ -102,9 +102,9 @@ Batch 4 后，`POST /api/syllabus/nodes/:id/mastery-evidence` 写入显式证据
 - `POST /api/notes/:noteId/attachments`
 - `GET /api/attachments/:id`
 
-上述附件接口是 Package A 的目标 API，当前仍待确认/未实现。Package A 确认前不得新增上传/下载 route，不得写入 `UPLOAD_DIR`，也不得把 `Attachment.uri` 当作公开 href；`uri` 只是内部 metadata，确认后的下载入口才是鉴权 `GET /api/attachments/:id`。
+Package A 后，附件接口已实现第一版 noteId 绑定能力：上传只走 `POST /api/notes/:noteId/attachments`，下载只走鉴权 `GET /api/attachments/:id`，UI 使用 `downloadApiPath`，不得把 `Attachment.uri`、`storedName` 或上传绝对路径作为公开 href 或响应字段。文件本体写入私有 `UPLOAD_DIR`，数据库保存 metadata、hash 和 URI；下载前会校验真实路径、size/hash 和响应头。
 
-附件不通过 public 直接暴露，必须走鉴权接口。
+附件不通过 public 直接暴露，必须走鉴权接口。第一版不包含附件删除、错题/模拟/阶段附件、AI 解析、生产部署或孤儿文件清理。
 
 ### Mistakes
 

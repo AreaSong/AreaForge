@@ -20,7 +20,7 @@
 - `StagePlan`：Batch 6 已新增的阶段计划记录；保存阶段名称、开始/结束时间、阶段目标、模式和状态。阶段计划可被模拟考试和周期报告读取，用作长期调整草稿的目标边界。
 - `StageAdjustmentDraft`：Batch 6 已新增的阶段调整草稿；保存来源、本地规则模式、风险结论、重点科目、任务强度、建议动作、下一阶段重点和确认状态。草稿固定 `canAutoApply=false`、`requiresUserConfirmation=true`，只有用户显式确认后才会更新关联 `StagePlan` 并写入审计。
 - `Note`：文字笔记和自己的理解。
-- `Attachment`：图片、PDF、拍照笔记等文件 metadata。
+- `Attachment`：图片、PDF、拍照笔记等文件 metadata；Package A 后第一版已支持 `noteId` 绑定附件，文件本体写入私有 `UPLOAD_DIR`，数据库只保存原始名、随机存储名、MIME、size、hash 和内部 URI，UI/API 不暴露 `uri`、`storedName` 或上传绝对路径。
 - `Mistake`：错题与错因。
 - `MotivationVault`：动机封存内容。
 - `AuditEvent`：关键写操作审计；Batch 2 后债务任务动作继续保留 `AuditEvent`，并额外写入 `TaskDebtEvent`；Batch 4 后掌握证明、证据引用和复测记录写入均保留审计摘要；Batch 5 后结构化模拟考试创建和结果保存也写入审计；Batch 6 后阶段计划创建、更新、阶段调整草稿创建、驳回和确认应用也写入审计。不保存完整 prompt、附件内容或生产运维信息。

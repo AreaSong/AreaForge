@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenCheck, FileText, Plus } from "lucide-react";
+import { BookOpenCheck, Download, FileText, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import type { NoteDto, NoteMasteryStatusDto, StudyTaskDto, SubjectDto, SyllabusNodeDto } from "@/lib/study/types";
@@ -32,6 +32,7 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
   const [noteNodeFilter, setNoteNodeFilter] = useState("all");
   const [noteMasteryFilter, setNoteMasteryFilter] = useState<"all" | NoteMasteryStatusDto>("all");
   const [noteReviewFilter, setNoteReviewFilter] = useState<"all" | "due" | "scheduled" | "none">("all");
+  const [uploadingNoteId, setUploadingNoteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -81,6 +82,28 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
     setSyllabusNodeId("");
     setTaskId("");
     setNextReviewAt("");
+    startTransition(() => router.refresh());
+  }
+
+  async function uploadAttachment(noteId: string, file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setUploadingNoteId(noteId);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch(`/api/notes/${noteId}/attachments`, {
+      method: "POST",
+      body: formData,
+    });
+
+    setUploadingNoteId(null);
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(labelAttachmentError(body?.error));
+      return;
+    }
+
     startTransition(() => router.refresh());
   }
 
@@ -287,12 +310,85 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
                   </span>
                 ) : null}
               </div>
+              <div className="mt-4 rounded-md border border-white/10 bg-[#0d1117] p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-100">附件</p>
+                    <p className="mt-1 text-xs text-zinc-500">PDF、PNG、JPEG、WebP</p>
+                  </div>
+                  <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-100 hover:bg-teal-300/10">
+                    <Upload className="h-4 w-4" aria-hidden="true" />
+                    {uploadingNoteId === note.id ? "上传中" : "上传"}
+                    <input
+                      className="sr-only"
+                      type="file"
+                      accept="application/pdf,image/png,image/jpeg,image/webp"
+                      disabled={uploadingNoteId === note.id}
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        event.currentTarget.value = "";
+                        void uploadAttachment(note.id, file);
+                      }}
+                    />
+                  </label>
+                </div>
+                {note.attachments.length > 0 ? (
+                  <div className="mt-3 grid gap-2">
+                    {note.attachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="flex flex-col gap-2 rounded-md border border-white/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm text-zinc-100">{attachment.originalName}</p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {attachment.mimeType} / {formatBytes(attachment.sizeBytes)}
+                          </p>
+                        </div>
+                        <a
+                          className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-xs text-zinc-100 hover:bg-white/10"
+                          href={attachment.downloadApiPath}
+                        >
+                          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                          下载
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-zinc-500">还没有附件。</p>
+                )}
+              </div>
             </article>
           ))}
         </div>
       </section>
     </div>
   );
+}
+
+function formatBytes(sizeBytes: number): string {
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function labelAttachmentError(error?: string): string {
+  switch (error) {
+    case "ATTACHMENT_TOO_LARGE":
+      return "附件超过大小限制";
+    case "ATTACHMENT_UNSUPPORTED_TYPE":
+      return "只支持 PDF、PNG、JPEG、WebP";
+    case "ATTACHMENT_MIME_MISMATCH":
+      return "文件类型与内容不一致";
+    case "ATTACHMENT_EMPTY_FILE":
+    case "ATTACHMENT_FILE_REQUIRED":
+      return "请选择一个有效文件";
+    case "NOTE_NOT_FOUND":
+      return "笔记不存在";
+    default:
+      return "附件上传失败";
+  }
 }
 
 function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {

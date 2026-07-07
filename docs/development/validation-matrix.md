@@ -201,7 +201,7 @@
 - 页面烟测：`/notes` 上传、刷新后附件列表、鉴权下载和响应头。
 - 对账烟测：metadata hash/size 与文件 hash/size 一致；只读对账报告 `action=report_only`。
 
-注意：Package A 获确认并完成前，`pnpm risk:preflight` 必须继续阻止上传/下载 route 和 `attachments-service.ts` 出现。
+注意：Package A 完成后，`pnpm risk:preflight` 必须改为要求上传/下载 route、`attachments-service.ts`、`/notes` 上传 UI、鉴权 `downloadApiPath` 和附件专项证据存在，同时继续阻止 public 暴露、内部 `uri` / `storedName` / 上传绝对路径泄露，以及 Package A 范围外的删除、跨对象附件、AI 解析和生产发布。
 
 ## Package C 专项验证
 

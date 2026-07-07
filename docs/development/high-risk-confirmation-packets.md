@@ -15,7 +15,7 @@
 
 对应：
 
-- `tasks/active/0004-mvp-syllabus-notes-upload.md`
+- `tasks/done/0004-mvp-syllabus-notes-upload.md`
 - `docs/development/attachment-upload-access-design.md`
 
 影响：

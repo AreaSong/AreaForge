@@ -177,7 +177,7 @@ function checkAttachmentDesign(): void {
   const design = readIfExists("docs/development/attachment-upload-access-design.md");
   const storage = readIfExists("packages/storage/src/index.ts");
   const apiSurface = readIfExists("docs/architecture/api-surface.md");
-  const task = readIfExists("tasks/active/0004-mvp-syllabus-notes-upload.md");
+  const task = readIfExists("tasks/done/0004-mvp-syllabus-notes-upload.md");
   const requiredDesignTerms = [
     "POST /api/notes/[noteId]/attachments",
     "GET /api/attachments/:id",
@@ -1625,6 +1625,8 @@ function checkPackageBBatchBoundaries(): void {
 }
 
 function checkAttachmentStillBeforePackageA(): void {
+  const completionRecord = readIfExists("docs/development/docs-100-completion-record.md");
+  const packageAConfirmed = isPackageConfirmedOrDone(completionRecord, "Package A");
   const apiRouteFiles = listFiles("apps/web/app/api").filter((file) => file.endsWith("/route.ts"));
   const attachmentRouteFiles = apiRouteFiles.filter((file) => {
     const normalized = file.replaceAll(path.sep, "/").toLowerCase();
@@ -1664,10 +1666,14 @@ function checkAttachmentStillBeforePackageA(): void {
   const present = [...attachmentRouteFiles, ...attachmentServiceFiles, ...webAttachmentIoFiles];
   checks.push({
     name: "Package A implementation boundary",
-    ok: present.length === 0,
-    detail: present.length === 0
-      ? "upload/download route handlers, attachment services, and web upload IO remain gated behind confirmation"
-      : `found upload/download implementation before confirmation: ${Array.from(new Set(present)).join(", ")}`,
+    ok: packageAConfirmed ? hasPackageAImplementationEvidence() : present.length === 0,
+    detail: packageAConfirmed
+      ? hasPackageAImplementationEvidence()
+        ? "confirmed Package A upload/download route handlers, service, UI, and web upload IO are present"
+        : "Package A is confirmed or done but upload/download implementation evidence is incomplete"
+      : present.length === 0
+        ? "upload/download route handlers, attachment services, and web upload IO remain gated behind confirmation"
+        : `found upload/download implementation before confirmation: ${Array.from(new Set(present)).join(", ")}`,
   });
 
   const forbiddenPublicUploadDirs = [
@@ -1686,26 +1692,36 @@ function checkAttachmentStillBeforePackageA(): void {
     name: "Package A public exposure boundary",
     ok: publicExposure.length === 0,
     detail: publicExposure.length === 0
-      ? "no public upload or attachment directories/files exist before Package A confirmation"
+      ? packageAConfirmed
+        ? "no public upload or attachment directories/files exist after Package A implementation"
+        : "no public upload or attachment directories/files exist before Package A confirmation"
       : `found publicly exposable upload paths: ${Array.from(new Set(publicExposure)).join(", ")}`,
   });
 
   const uiFiles = [...listFiles("apps/web/app"), ...listFiles("apps/web/components")].filter((file) =>
     file.endsWith(".ts") || file.endsWith(".tsx"),
   );
-  const directUriLinks = uiFiles.filter((file) => {
+  const internalUriLinks = uiFiles.filter((file) => {
     const content = readIfExists(file);
     return content.includes("attachment.uri") ||
       content.includes("upload://attachment") ||
-      /href=\{[^}]*\.uri[^}]*\}/.test(content) ||
-      /downloadUrl/.test(content) ||
-      /href=\{[^}]*downloadApiPath[^}]*\}/.test(content);
+      /href=\{[^}]*\.uri[^}]*\}/.test(content);
   });
+  const prematureDownloadLinks = packageAConfirmed
+    ? []
+    : uiFiles.filter((file) => {
+      const content = readIfExists(file);
+      return /href=\{[^}]*downloadApiPath[^}]*\}/.test(content) ||
+        content.includes("/api/attachments/");
+    });
+  const directUriLinks = [...internalUriLinks, ...prematureDownloadLinks];
   checks.push({
     name: "Package A attachment direct-link boundary",
     ok: directUriLinks.length === 0,
     detail: directUriLinks.length === 0
-      ? "UI does not expose attachment.uri, upload://attachment, or premature download URLs before confirmation"
+      ? packageAConfirmed
+        ? "UI only exposes authenticated downloadApiPath and no internal attachment uri metadata"
+        : "UI does not expose attachment.uri, upload://attachment, or premature download URLs"
       : `found attachment direct link risk: ${directUriLinks.join(", ")}`,
   });
 
@@ -1724,10 +1740,14 @@ function checkAttachmentStillBeforePackageA(): void {
   });
   checks.push({
     name: "Package A premature upload UI boundary",
-    ok: prematureUploadUiFiles.length === 0,
-    detail: prematureUploadUiFiles.length === 0
-      ? "UI has no attachment file inputs, multipart upload calls, or premature attachment API hrefs before confirmation"
-      : `found premature attachment upload UI/API surface: ${prematureUploadUiFiles.join(", ")}`,
+    ok: packageAConfirmed ? prematureUploadUiFiles.length > 0 : prematureUploadUiFiles.length === 0,
+    detail: packageAConfirmed
+      ? prematureUploadUiFiles.length > 0
+        ? "confirmed Package A UI exposes file input and multipart upload flow"
+        : "Package A is confirmed or done but attachment upload UI is missing"
+      : prematureUploadUiFiles.length === 0
+        ? "UI has no attachment file inputs, multipart upload calls, or premature attachment API hrefs before confirmation"
+        : `found premature attachment upload UI/API surface: ${prematureUploadUiFiles.join(", ")}`,
   });
 
   const dtoText = [
@@ -1743,6 +1763,36 @@ function checkAttachmentStillBeforePackageA(): void {
       ? "attachment DTO exposes a future API path and does not leak internal uri metadata"
       : "attachment DTO should expose downloadApiPath and omit internal uri metadata",
   });
+}
+
+function hasPackageAImplementationEvidence(): boolean {
+  const uploadRoute = readIfExists("apps/web/app/api/notes/[noteId]/attachments/route.ts");
+  const downloadRoute = readIfExists("apps/web/app/api/attachments/[id]/route.ts");
+  const service = readIfExists("apps/web/lib/study/attachments-service.ts");
+  const ui = readIfExists("apps/web/components/note-library.tsx");
+
+  return [
+    "requireApiUser",
+    "formData",
+    "ATTACHMENT_MULTIPLE_FILES",
+    "createNoteAttachment",
+  ].every((token) => uploadRoute.includes(token)) &&
+    ["requireApiUser", "getAttachmentDownload", "ATTACHMENT_INVALID_DISPOSITION"].every((token) =>
+      downloadRoute.includes(token),
+    ) &&
+    [
+      "UPLOAD_DIR",
+      "writeFile",
+      "readFile",
+      "createAttachmentMetadataDraft",
+      "createAttachmentResponseHeaders",
+      "ATTACHMENT_METADATA_WRITE_FAILED",
+      "ATTACHMENT_FILE_MISMATCH",
+      "removeBestEffort",
+    ].every((token) => service.includes(token)) &&
+    ["type=\"file\"", "new FormData", "downloadApiPath", "/api/notes/"].every((token) =>
+      ui.includes(token),
+    );
 }
 
 function checkAiStillBeforePackageC(): void {
@@ -1995,6 +2045,15 @@ function isPackageBBatchDone(completionRecord: string, batch: number): boolean {
   return completionRecord
     .split(/\r?\n/)
     .some((line) => line.startsWith(`| Batch ${batch}：`) && line.includes("DONE / 已完成"));
+}
+
+function isPackageConfirmedOrDone(completionRecord: string, packageName: string): boolean {
+  return completionRecord
+    .split(/\r?\n/)
+    .some((line) =>
+      line.startsWith(`| ${packageName} |`) &&
+      (line.includes("DONE / 已完成") || line.includes("用户已明确确认")),
+    );
 }
 
 function resolve(file: string): string {
