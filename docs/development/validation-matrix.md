@@ -257,7 +257,7 @@
 | Batch D2 债务重排确认流 | 不新增 migration；建议确认/驳回/应用、只处理所选项、`TaskDebtEvent` 和 `AuditEvent` 双证据、部分失败停止或返回跳过摘要、重复提交幂等、不自动延期/删除全部欠账 |
 | Batch D3 长期阶段 AI 草稿 | 已完成：鉴权 POST-only `/api/simulation/stage-adjustment-drafts/ai`；长期 AI 最小字段清单和阶段目标摘要；禁止字段扫描；`AI_ENABLED=false` 本地规则；配置缺失 fallback；mock provider 成功写 `source="ai"`；schema invalid fallback；敏感字段拦截；客户端密钥扫描；草稿不自动应用；前后 `StudyTask`、`TaskDebtEvent` 和 `StagePlan` 不变 |
 | Batch D4 长期风险和主题闭环 | 已完成：`GET /api/analytics/long-term-risks` 鉴权 GET-only；`long-term-risk-service` 调用 `summarizeLongTermRisks` 并保留 `evidenceFreshness`、`nextAction`、`canAutoApply=false`、`requiresUserConfirmation=true`；`/reports`、`/analytics`、`/syllabus`、`/notes`、`/simulation` 和首页状态主题共用同一长期风险 DTO；service/route smoke 证明业务表不变 |
-| Batch D5 收口 | 已完成：`pnpm check`、`pnpm package-d:preflight`、`pnpm risk:preflight`、`pnpm docs:readiness` 通过；`pnpm docs:completion` 不再列 Package D 或长期阶段 AI blocker，仅保留 Package E blocker |
+| Batch D5 收口 | 已完成：`pnpm check`、`pnpm package-d:preflight`、`pnpm risk:preflight`、`pnpm docs:readiness` 通过；`pnpm docs:completion` 在 Package E E1-E4 收口后一并通过 |
 
 注意：Package D 全部完成前，`pnpm risk:preflight` 必须继续阻止未确认批次的长期 AI 外呼和跨模块应用路径越界。Package B Batch 6 完成后，仅 `/api/simulation/stage-adjustment-drafts/:id/confirm|reject` 属于已确认的阶段草稿状态写入；Package D Batch D1 完成后，仅 `/api/reports/periodic/decisions` 属于已确认报告决策入口；Package D Batch D2 完成后，仅 `/api/tasks/debt-reorder/decisions` 和 `/api/tasks/debt-reorder/applications` 属于已确认债务重排所选项写入口；Package D Batch D3 完成后，仅 `/api/simulation/stage-adjustment-drafts/ai` 属于已确认长期 AI 草稿显式触发入口。其他 `apply/confirm/reject` 写路由、自动阶段应用、长期 AI 历史持久化和费用账本仍必须拦截。
 
@@ -292,13 +292,13 @@
 | 批次 | 验证重点 |
 |---|---|
 | Batch E1 生产配置与发布工件预检 | 已完成：`pnpm check`、`pnpm package-e:preflight`、compose config、生产 env 清单、镜像 tag、Nginx 配置、migration deploy 执行载体草案、发布记录草案和中止条件；不执行生产部署、不运行生产 migration、不触碰生产数据库或上传目录 |
-| Batch E2 发布前备份与恢复演练 | PostgreSQL dump、上传目录归档、生产 `.env` 权限收紧备份、临时库导入、临时上传目录恢复、附件 metadata/hash 对账只读 `report_only` |
-| Batch E3 生产发布与 migration deploy | 备份点存在、必要 additive migration deploy、明确的 release 工作目录或一次性 migration job、compose/Nginx 切换、`GET /api/health`、登录、首页、任务、计时、复盘、附件和 AI fallback/provider 烟测 |
-| Batch E4 回滚演练与 Package E 收口 | 上一镜像 tag、回滚步骤、是否恢复数据库/上传目录、失败原因、残余风险、`pnpm release:evidence:validate`、文档同步和 `docs:completion` 最终证据 |
+| Batch E2 发布前备份与恢复演练 | 已完成：PostgreSQL dump、上传目录归档、生产 `.env` 本地替代备份权限收紧、compose/Nginx 副本、临时库导入、临时上传目录恢复、附件 metadata/hash 对账只读 `report_only`；记录见 `docs/development/package-e-e2-restore-drill-record.md`，当前无附件记录所以 `attachmentHashMatched=not-applicable` |
+| Batch E3 生产发布与 migration deploy | 已完成本机单机生产目标发布：备份点、生产 env 私有备份、一次性 migration job、10 条 migration deploy、compose 启动、`GET /api/health`、登录、首页、任务、计时、复盘、附件和 AI fallback/provider 烟测，记录见 `docs/development/package-e-e3-prod-local-release-record.md`；本地 production-mode 演练记录仍保留在 `docs/development/package-e-e3-local-release-record.md`；远端域名 HTTPS / Nginx 真实切换不包含在本批完成口径内 |
+| Batch E4 回滚演练与 Package E 收口 | 已完成本机生产目标回滚收口：上一镜像 tag、回滚步骤、回滚后 health/登录/页面/API smoke、任务/计时/复盘、附件 `report_only` 对账、是否恢复数据库/上传目录、失败原因、恢复耗时、roll-forward 和 `pnpm release:evidence:validate`，记录见 `docs/development/package-e-e4-prod-local-rollback-record.md`；早期本地机制演练记录保留在 `docs/development/package-e-e4-local-rollback-record.md` |
 
-注意：Package E 完成前，`pnpm docs:completion` 必须继续因生产发布、备份、恢复演练、发布后烟测和回滚证据缺失而失败。
+注意：Package E 已按本机单机生产目标完成；远端服务器、域名 HTTPS 和真实 Nginx 流量切换若引入，需要另列外部部署验收。
 
-`pnpm package-e:preflight`、`pnpm risk:preflight` 和 `pnpm docs:completion` 均采用 Package E 批次感知门禁：E1-E4 未完成时 Package E 主状态必须保持 `NOT_READY / 未完成`；若未来任一批次标为完成，对应行必须包含明确确认、`pnpm` 验证、烟测/备份/恢复/发布/回滚证据、文档同步和残余风险。Package E 最终完成行还必须包含发布、备份、恢复、回滚、`release:evidence:validate`、`report_only`、migration deploy 执行载体、镜像 digest 和 Nginx 证据。根 `package.json` 不允许新增生产 deploy、backup、restore、`docker compose up/down` 或服务器命令脚本；现有 `db:migrate:deploy` 只能作为 Package E 确认后的受控执行参考。
+`pnpm package-e:preflight`、`pnpm risk:preflight` 和 `pnpm docs:completion` 均采用 Package E 批次感知门禁：E1-E4 收口前 Package E 主状态必须保持锁定；每个完成批次都必须包含明确确认、`pnpm` 验证、烟测/备份/恢复/发布/回滚证据、文档同步和残余风险。Package E 最终完成行还必须包含发布、备份、恢复、回滚、`release:evidence:validate`、`report_only`、migration deploy 执行载体、镜像 digest 和 Nginx 证据。根 `package.json` 不允许新增生产 deploy、backup、restore、`docker compose up/down` 或服务器命令脚本；现有 `db:migrate:deploy` 只能作为 Package E 确认后的受控执行参考。
 
 ## docs 100% 最终门禁
 

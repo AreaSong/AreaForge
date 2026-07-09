@@ -156,7 +156,7 @@ D5 必须完成：
 - `docs/development/docs-100-completion-record.md` 的 Package D 行写入 D1-D4 的验证命令、API/页面烟测、文档同步和残余风险。
 - `docs/development/validation-matrix.md`、`tasks/backlog/0016-second-stage-long-term-loop.md` 和 `workflow/versions/v0.4-second-stage-long-term-loop.md` 同步真实状态。
 - `pnpm package-d:preflight` 和 `pnpm risk:preflight` 必须同时证明 D1-D4 的完成证据存在，且 D5 没有夹带 Package E 生产部署动作。
-- `pnpm check`、`pnpm risk:preflight`、`pnpm docs:readiness` 通过；`pnpm docs:completion` 不再列 Package D 或长期阶段 AI blocker，但仍可因 Package E 未完成而失败。
+- `pnpm check`、`pnpm risk:preflight`、`pnpm docs:readiness` 通过；Package E 收口后 `pnpm docs:completion` 也应通过。
 
 当前状态：Package D Batch D5 已按上述契约落地。`docs/development/docs-100-completion-record.md` 已把 Package D 主行标为 DONE 并保留 D1-D4 验证、API/页面 smoke、文档同步和残余风险证据；`pnpm package-d:preflight` 和 `pnpm risk:preflight` 已证明 D1-D5 完成证据存在，且没有夹带 Package E 生产部署动作；`pnpm docs:completion` 不再列 Package D blocker。
 

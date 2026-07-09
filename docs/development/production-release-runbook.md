@@ -263,6 +263,17 @@ attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,ex
 ...,report_only
 ```
 
+推荐使用仓库内只读脚本生成对账报告：
+
+```bash
+DATABASE_URL="$RESTORE_DATABASE_URL" \
+  pnpm exec tsx scripts/quality/attachment-reconciliation.ts \
+  "$RESTORED_UPLOAD_DIR" \
+  "$BACKUP_DIR/attachment-reconciliation.csv"
+```
+
+`scripts/quality/attachment-reconciliation.ts` 只读取恢复后的数据库和上传目录，写出 CSV 报告；`action` 固定为 `report_only`。若当前没有附件记录，可以生成 header-only 报告，并在发布记录中把 `restoreDrill.attachmentHashMatched` 标为 `not-applicable`。
+
 ## 回滚流程
 
 如果发布后失败：

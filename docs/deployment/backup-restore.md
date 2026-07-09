@@ -72,6 +72,17 @@ attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,ex
 
 若恢复演练使用临时脚本或 SQL 生成对账报告，脚本必须只读数据库和文件系统；不得在同一次演练中执行删除、移动、重命名、补写 metadata 或重新计算后覆盖数据库 hash。
 
+推荐命令：
+
+```bash
+DATABASE_URL="$RESTORE_DATABASE_URL" \
+  pnpm exec tsx scripts/quality/attachment-reconciliation.ts \
+  "$RESTORED_UPLOAD_DIR" \
+  "$BACKUP_DIR/attachment-reconciliation.csv"
+```
+
+`scripts/quality/attachment-reconciliation.ts` 只读取 `Attachment` metadata 和恢复后的上传目录，输出 `report_only` CSV；没有附件记录时可以输出仅表头报告。
+
 ## 发布证据校验
 
 Package E 收口前，发布记录必须通过只读校验：

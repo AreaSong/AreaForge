@@ -71,7 +71,7 @@ E1 选择的推荐执行载体：`controlled_release_workdir`。
 
 ## 最终发布记录草案字段
 
-以下字段保留给 E2-E4 填写；E1 只确认字段完整性和敏感信息边界。
+以下字段是 E1 阶段的发布记录草案模板；E2 本地受控恢复演练证据见 `docs/development/package-e-e2-restore-drill-record.md`，E3 本机生产发布证据见 `docs/development/package-e-e3-prod-local-release-record.md`，E4 本机生产回滚收口证据见 `docs/development/package-e-e4-prod-local-rollback-record.md`。E1 只确认字段完整性和敏感信息边界。
 
 ```text
 releaseId: TBD_E3

@@ -76,6 +76,12 @@
 - `development/ai-provider-integration-design.md`：真实 AI provider 接入确认设计。
 - `development/second-stage-long-term-loop-design.md`：第二阶段长期闭环确认设计。
 - `development/production-release-runbook.md`：生产发布、备份与恢复确认 runbook。
+- `development/package-e-e1-release-record-draft.md`：Package E Batch E1 发布记录草案。
+- `development/package-e-e2-restore-drill-record.md`：Package E Batch E2 发布前备份与恢复演练记录。
+- `development/package-e-e3-prod-local-release-record.md`：Package E Batch E3 本机单机生产发布记录。
+- `development/package-e-e3-local-release-record.md`：Package E Batch E3 本地生产模式发布演练记录。
+- `development/package-e-e4-prod-local-rollback-record.md`：Package E Batch E4 本机生产回滚收口记录。
+- `development/package-e-e4-local-rollback-record.md`：Package E Batch E4 本地回滚演练记录。
 - `development/high-risk-confirmation-packets.md`：推进到 100% 前必须确认的高风险执行包。
 - `development/docs-100-acceptance-evidence.md`：docs 100% 的最终验收证据矩阵。
 - `development/docs-100-completion-record.md`：docs 100% 的当前完成证据台账。

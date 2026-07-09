@@ -1468,6 +1468,7 @@ function checkProductionCompose(): void {
     "uploadsRestoreRequired",
     "恢复演练验收判定表",
     "pnpm release:evidence:validate",
+    "scripts/quality/attachment-reconciliation.ts",
     "attachment-reconciliation.csv",
     "attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action",
     "只读取发布记录",

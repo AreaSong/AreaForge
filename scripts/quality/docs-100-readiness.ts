@@ -404,6 +404,7 @@ function checkPackageEPreflightTerms(): void {
     "checkWebRuntimeOpsBoundary",
     "release-evidence-validate.ts",
     "release-evidence-validate.selftest.ts",
+    "attachment-reconciliation.ts",
     "docker compose config",
     "web binds localhost",
     "does not pretend to be a migration runner",
