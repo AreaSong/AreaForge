@@ -14,7 +14,7 @@ export const aiAdviceStatusSchema = z.enum([
 
 export type AiAdviceStatus = z.infer<typeof aiAdviceStatusSchema>;
 
-export type AiAdviceKind = "discipline" | "daily_review" | "tomorrow_plan";
+export type AiAdviceKind = "discipline" | "daily_review" | "tomorrow_plan" | "stage_adjustment";
 
 export type AiProviderErrorCode =
   | "missing_config"
@@ -67,6 +67,26 @@ export const tomorrowPlanAdviceSchema = z.object({
 
 export type TomorrowPlanAdvice = z.infer<typeof tomorrowPlanAdviceSchema>;
 
+const stageAdjustmentModeSchema = z.enum(["recovery", "strengthen", "sprint", "maintain"]);
+const stageAdjustmentRiskSchema = z.enum(["low", "medium", "high", "critical"]);
+const stageAdjustmentTaskIntensitySchema = z.enum(["reduce", "keep", "increase", "sprint"]);
+const stageAdjustmentTaskActionSchema = z.enum(["split", "defer", "drop", "convert_review", "simulate", "retest"]);
+
+export const stageAdjustmentAdviceSchema = z.object({
+  status: aiAdviceStatusSchema.default(localFallbackStatus),
+  mode: stageAdjustmentModeSchema,
+  risk: stageAdjustmentRiskSchema,
+  riskConclusion: z.string().min(1).max(800),
+  focusSubjects: z.array(z.string().min(1).max(80)).min(1).max(3),
+  taskIntensity: stageAdjustmentTaskIntensitySchema,
+  taskAdjustmentActions: z.array(stageAdjustmentTaskActionSchema).max(6),
+  nextStageEmphasis: z.string().min(1).max(1000),
+  canAutoApply: z.literal(false).default(false),
+  requiresUserConfirmation: z.literal(true).default(true),
+});
+
+export type StageAdjustmentAdvice = z.infer<typeof stageAdjustmentAdviceSchema>;
+
 export interface DisciplineContext {
   phase: string;
   riskState: string;
@@ -91,6 +111,40 @@ export interface TomorrowPlanContext {
   debtCount: number;
   topTaskTitle?: string;
   weakSubject?: string;
+}
+
+export interface StageAdjustmentContext {
+  rangeKind: "week" | "month" | "stage";
+  rangeStart: string;
+  rangeEnd: string;
+  rangeDays: number;
+  stageGoalSummary: string;
+  effectiveMinutes: number;
+  taskCompletionRate: number;
+  reviewCompletionRate: number;
+  lowConversionCount: number;
+  subjectShares: Array<{
+    subjectName: string;
+    effectiveMinutes: number;
+    share: number;
+  }>;
+  weakNodeSummary: Array<{
+    subjectName: string;
+    weakCount: number;
+    reviewCount: number;
+    staleEvidenceCount: number;
+  }>;
+  simulationSummary?: {
+    examDate: string;
+    scoreRate: number | null;
+    durationRate: number | null;
+    blankQuestionCount: number;
+    subjectCount: number;
+  } | null;
+  stagePlanMode?: "recovery" | "strengthen" | "sprint" | "maintain";
+  stagePlanStatus?: "draft" | "active" | "completed" | "archived";
+  daysToStageEnd?: number | null;
+  riskTags: string[];
 }
 
 export interface AiJsonProviderRequest<TContext> {
@@ -237,6 +291,73 @@ export function createFallbackTomorrowPlanAdvice(context: TomorrowPlanContext): 
   };
 }
 
+export function createFallbackStageAdjustmentAdvice(context: StageAdjustmentContext): StageAdjustmentAdvice {
+  const focusSubjects = chooseStageFocusSubjects(context);
+  const scoreRate = context.simulationSummary?.scoreRate ?? null;
+
+  if (
+    context.taskCompletionRate < 0.35 ||
+    context.lowConversionCount >= 4 ||
+    (scoreRate != null && scoreRate < 0.45)
+  ) {
+    return {
+      status: localFallbackStatus,
+      mode: "recovery",
+      risk: context.taskCompletionRate < 0.2 ? "critical" : "high",
+      riskConclusion: "长期阶段执行信号偏弱，先缩小任务面，恢复有效学习和复盘连续性。",
+      focusSubjects,
+      taskIntensity: "reduce",
+      taskAdjustmentActions: ["split", "defer", "convert_review"],
+      nextStageEmphasis: `下一阶段先保 ${focusSubjects.join("、")} 的最小闭环，每天只保留能产出证据的任务。`,
+      canAutoApply: false,
+      requiresUserConfirmation: true,
+    };
+  }
+
+  if (context.riskTags.includes("sprint") || (context.daysToStageEnd != null && context.daysToStageEnd <= 45)) {
+    return {
+      status: localFallbackStatus,
+      mode: "sprint",
+      risk: "high",
+      riskConclusion: "阶段窗口已经收紧，计划应转向模拟、复测和错题证据。",
+      focusSubjects,
+      taskIntensity: "sprint",
+      taskAdjustmentActions: ["simulate", "retest", "convert_review"],
+      nextStageEmphasis: `下一阶段围绕 ${focusSubjects.join("、")} 做模拟、复测和错题闭环，不扩展低价值新任务。`,
+      canAutoApply: false,
+      requiresUserConfirmation: true,
+    };
+  }
+
+  if (context.taskCompletionRate >= 0.72 && context.reviewCompletionRate >= 0.6 && context.lowConversionCount === 0) {
+    return {
+      status: localFallbackStatus,
+      mode: "strengthen",
+      risk: "low",
+      riskConclusion: "长期执行稳定，可以把压力加到薄弱科目和综合题上。",
+      focusSubjects,
+      taskIntensity: "increase",
+      taskAdjustmentActions: ["retest", "simulate"],
+      nextStageEmphasis: `下一阶段提高 ${focusSubjects.join("、")} 的题目强度，并用复测记录证明掌握。`,
+      canAutoApply: false,
+      requiresUserConfirmation: true,
+    };
+  }
+
+  return {
+    status: localFallbackStatus,
+    mode: context.stagePlanMode ?? "maintain",
+    risk: context.lowConversionCount > 0 ? "medium" : "low",
+    riskConclusion: `阶段目标「${context.stageGoalSummary}」可以维持，但需要把薄弱证据补得更厚。`,
+    focusSubjects,
+    taskIntensity: "keep",
+    taskAdjustmentActions: context.reviewCompletionRate < 0.5 ? ["convert_review", "retest"] : ["retest"],
+    nextStageEmphasis: `下一阶段维持当前目标，把 ${focusSubjects.join("、")} 的复习、错题和模拟证据串起来。`,
+    canAutoApply: false,
+    requiresUserConfirmation: true,
+  };
+}
+
 export function validateDisciplineAdvice(value: unknown): DisciplineAdvice {
   return disciplineAdviceSchema.parse(value);
 }
@@ -247,6 +368,10 @@ export function validateDailyReviewAdvice(value: unknown): DailyReviewAdvice {
 
 export function validateTomorrowPlanAdvice(value: unknown): TomorrowPlanAdvice {
   return tomorrowPlanAdviceSchema.parse(value);
+}
+
+export function validateStageAdjustmentAdvice(value: unknown): StageAdjustmentAdvice {
+  return stageAdjustmentAdviceSchema.parse(value);
 }
 
 export async function generateAdviceWithProvider<TContext, TAdvice extends { status: AiAdviceStatus }>(
@@ -610,6 +735,25 @@ function sanitizeProviderContext<TContext>(kind: AiAdviceKind, context: TContext
       }
       return safe;
     }
+    case "stage_adjustment":
+      return pickDefined(source, [
+        "rangeKind",
+        "rangeStart",
+        "rangeEnd",
+        "rangeDays",
+        "stageGoalSummary",
+        "effectiveMinutes",
+        "taskCompletionRate",
+        "reviewCompletionRate",
+        "lowConversionCount",
+        "subjectShares",
+        "weakNodeSummary",
+        "simulationSummary",
+        "stagePlanMode",
+        "stagePlanStatus",
+        "daysToStageEnd",
+        "riskTags",
+      ]);
   }
 }
 
@@ -629,6 +773,8 @@ function adviceInstruction(kind: AiAdviceKind): string {
       return "生成每日复盘建议，只基于聚合指标指出观察和下一条复盘提示。";
     case "tomorrow_plan":
       return "生成明日最小任务建议，禁止使用原始任务标题。";
+    case "stage_adjustment":
+      return "生成长期阶段调整草稿，只能基于聚合长期字段，输出仍需用户确认后才能应用。";
   }
 }
 
@@ -656,7 +802,38 @@ function adviceOutputContract(kind: AiAdviceKind): Record<string, unknown> {
         reason: "string, 1-800 chars",
         cautions: "array of at most 5 strings, each 1-240 chars",
       };
+    case "stage_adjustment":
+      return {
+        mode: "recovery | strengthen | sprint | maintain",
+        risk: "low | medium | high | critical",
+        riskConclusion: "string, 1-800 chars",
+        focusSubjects: "array of 1-3 strings, each 1-80 chars",
+        taskIntensity: "reduce | keep | increase | sprint",
+        taskAdjustmentActions: "array of split | defer | drop | convert_review | simulate | retest",
+        nextStageEmphasis: "string, 1-1000 chars",
+        canAutoApply: false,
+        requiresUserConfirmation: true,
+      };
   }
+}
+
+function chooseStageFocusSubjects(context: StageAdjustmentContext): string[] {
+  const weakSubjects = context.weakNodeSummary
+    .filter((subject) => subject.weakCount + subject.reviewCount + subject.staleEvidenceCount > 0)
+    .sort((left, right) =>
+      (right.weakCount + right.reviewCount + right.staleEvidenceCount) -
+      (left.weakCount + left.reviewCount + left.staleEvidenceCount),
+    )
+    .map((subject) => subject.subjectName);
+  const lowShareSubjects = [...context.subjectShares]
+    .sort((left, right) => {
+      if (left.effectiveMinutes === right.effectiveMinutes) return left.share - right.share;
+      return left.effectiveMinutes - right.effectiveMinutes;
+    })
+    .map((subject) => subject.subjectName);
+
+  const focusSubjects = Array.from(new Set([...weakSubjects, ...lowShareSubjects])).filter(Boolean).slice(0, 3);
+  return focusSubjects.length > 0 ? focusSubjects : ["当前阶段最薄弱科目"];
 }
 
 function createProviderErrorReason(error: unknown): string {
@@ -680,7 +857,7 @@ function createProviderErrorReason(error: unknown): string {
     case "invalid_json":
       return "AI provider 返回非 JSON 内容，已回退本地规则建议。";
     case "schema_invalid":
-      return "AI provider 输出结构不符合要求，已回退本地规则建议。";
+      return "AI provider 输出结构不符合要求（schema invalid），已回退本地规则建议。";
     case "network_error":
       return "AI provider 网络错误，已回退本地规则建议。";
   }
@@ -704,6 +881,15 @@ function findSensitiveContextKeysInternal(value: unknown, path = "context"): str
 
 function isSensitiveContextKey(key: string): boolean {
   const normalized = normalizeContextKey(key);
+  const safeAggregateKeys = [
+    "stagegoalsummary",
+    "weaknodesummary",
+    "simulationsummary",
+  ];
+  if (safeAggregateKeys.includes(normalized)) {
+    return false;
+  }
+
   const exactSensitiveKeys = [
     "whystarted",
     "neverreturnto",

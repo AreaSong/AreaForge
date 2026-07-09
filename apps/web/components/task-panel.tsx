@@ -141,6 +141,9 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
         <Plus className="h-5 w-5 text-teal-300" aria-hidden="true" />
         <h2 className="text-lg font-semibold text-white">今日任务</h2>
       </div>
+      <p className="mt-2 text-xs leading-5 text-zinc-500">
+        状态主题只改变任务优先提示，完整任务列表仍保留在这里，不自动修改任务或阶段计划。
+      </p>
 
       <form className="mt-4 grid gap-3 border-b border-white/10 pb-4" onSubmit={submit}>
         <div className="grid gap-3 sm:grid-cols-[1fr_1.7fr]">

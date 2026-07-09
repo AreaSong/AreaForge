@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { SimulationWorkbench } from "@/components/simulation-workbench";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { getSimulationWorkspace } from "@/lib/study/simulation-service";
 import { listSubjects } from "@/lib/study/service";
 
@@ -21,9 +23,10 @@ export default async function SimulationPage() {
     redirect("/login");
   }
 
-  const [subjects, workspace] = await Promise.all([
+  const [subjects, workspace, longTermRisks] = await Promise.all([
     listSubjects(),
     getSimulationWorkspace(),
+    getLongTermRiskSummary(),
   ]);
 
   return (
@@ -38,7 +41,7 @@ export default async function SimulationPage() {
             <h1 className="mt-3 text-3xl font-semibold tracking-normal text-white sm:text-4xl">
               全真模拟考试
             </h1>
-            <p className="mt-2 text-sm text-zinc-500">2026 同步自测阶段节点，本地规则草稿，不默认调用 AI。</p>
+            <p className="mt-2 text-sm text-zinc-500">2026 同步自测阶段节点；普通打开保持本地规则，显式触发后生成长期 AI 草稿。</p>
           </div>
           <Link
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
@@ -65,6 +68,12 @@ export default async function SimulationPage() {
             sub={`计划 / 持久草稿，${workspace.stage.draft.canAutoApply ? "可直接应用" : "需确认"}`}
           />
         </section>
+
+        <LongTermRiskPanel
+          summary={longTermRisks}
+          title="阶段计划长期风险"
+          description="模拟考试和阶段计划读取同一长期风险 DTO；这里只展示原因和建议，不自动应用阶段计划。"
+        />
 
         <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-lg border border-white/10 bg-[#101419] p-5">

@@ -39,7 +39,7 @@
 
 ## 当前推荐下一步
 
-Package B 分批 migration 主线已完成，Package D Batch D1 报告决策入口也已完成。后续若要进入生产 migration deploy、历史数据回填、删除旧字段、真实长期 AI、任务重排应用或报告驱动的任务/阶段应用记录，必须继续走对应 Package D 后续批次 / `0017` / Package E 或单独高风险确认包。
+Package B 分批 migration 主线已完成，Package D Batch D1 报告决策入口、D2 任务债务重排确认流、D3 长期阶段 AI 草稿和 D4 长期风险主题只读闭环也已完成。后续若要进入生产 migration deploy、历史数据回填、删除旧字段、D3 范围外真实长期 AI、报告驱动的任务/阶段应用记录或长期风险写入状态，必须继续走对应 Package D 后续批次 / `0017` / Package E 或单独高风险确认包。
 
 Batch 0 已完成，且只处理 `StudySession` 结束计时收口，不新增其它表：
 

@@ -40,7 +40,7 @@ AI 第一版只允许生成：
 - 复盘建议。
 - 明日任务建议。
 
-阶段调整草稿属于第二阶段长期闭环。Package C 第一版已完成，但不包含长期阶段调整 AI；长期阶段 AI 未经 Package D / `tasks/backlog/0017-ai-stage-privacy-cost.md` 单独确认前，只能保留本地规则草稿，不得真实外呼。
+阶段调整草稿属于第二阶段长期闭环。Package D Batch D3 已完成长期阶段 AI 草稿显式触发路径：只允许用户主动调用鉴权 `POST /api/simulation/stage-adjustment-drafts/ai`，只发送最小聚合字段和阶段目标摘要，成功只写 `StageAdjustmentDraft.source="ai"` 草稿和审计摘要，失败回退本地规则。D3 仍不得发送动机档案、完整情绪记录、完整复盘正文、附件内容、文件路径或完整任务标题，不得保存完整 prompt/raw response，也不得自动应用阶段计划或批量修改任务。
 
 AI 不允许：
 

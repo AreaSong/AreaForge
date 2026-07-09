@@ -51,12 +51,12 @@
 | 周审判报告 | 已完成 | `/reports` 周报返回时长、有效时长、科目占比、完成率、欠账、低转化、错题复盘、最大短板、下周期问题、`decisionPreview` 下周期草稿和确认边界；Package D Batch D1 已新增 `PeriodicReportDecision`、报告确认/驳回、冻结 `reportSnapshot`、确认时的 `nextCycleDraft`、审计和只读回放 | 报告驱动的任务或阶段应用仍由 Package D 后续批次承接 |
 | 月复盘报告 | 已完成 | `/reports` 月报返回阶段策略、长期短板、科目投入、低转化、是否调整阶段计划的只读建议；Batch 6 后展示最新持久阶段计划和持久草稿边界；Package D Batch D1 已让确认/驳回写入报告决策，固定 `canAutoApply=false` / `requiresUserConfirmation=true` | 月报驱动的任务重排、阶段应用和长期 AI 仍由 Package D 后续批次承接 |
 | 任务债务自动重排建议 | 已完成 | `GET /api/tasks/debt-reorder` 和首页任务区已展示保留、补做、延期、拆小、放弃、改复习建议；建议透传 `canAutoApply=false` / `requiresUserConfirmation=true`；Package D Batch D2 后支持对所选建议确认、驳回和显式应用所选，复用 `TaskDebtEvent` 与 `AuditEvent`，不自动应用全部建议 | 更长期的任务/阶段联动仍由 Package D 后续批次承接 |
-| 知识点遗忘风险提醒 | 已完成 | `/analytics`、`/reports` 和 `/syllabus` 基于错题集中、最近证据时间、错题记录更新趋势、笔记到期、节点状态和 Batch 4 显式复测记录派生遗忘/复习风险 | 长期复习历史和阶段计划联动仍由 Package D 承接 |
-| 笔记复习提醒 | 已完成 | `Note.nextReviewAt`、`/notes` 复习提醒筛选、`/analytics` 到期笔记风险和 `/reports` 到期笔记计数；附件上传已由 Package A 完成 | 后续可继续做更细复习策略 |
-| 作战地图高级可视化 | 已完成 | `/syllabus` 已展示分科摘要、地图状态分布、优先节点、推荐筛选、地图状态筛选、行动类型筛选和 Batch 4 显式掌握证明记录 | 结构化复习历史仍由 Package D 增强 |
-| 状态主题深度联动 | 已完成 | `determineThemeState` 基于冲刺窗口、风险状态和连续性生成主题；首页根据 `themeState` 切换外壳，并展示正常推进、锻造、警报、恢复、冲刺的状态主题面板、触发信号和行动焦点；恢复主题联动最小任务裁剪，冲刺主题前置倒计时与阶段压强；Batch 6 已提供持久阶段计划基础 | 深层主题应用和长期阶段压强调节仍随 Package D 增强 |
+| 知识点遗忘风险提醒 | 已完成 | `/analytics`、`/reports` 和 `/syllabus` 基于错题集中、最近证据时间、错题记录更新趋势、笔记到期、节点状态和 Batch 4 显式复测记录派生遗忘/复习风险；Package D Batch D4 已把遗忘风险纳入 `GET /api/analytics/long-term-risks` 和同源 `LongTermRiskPanel`，展示来源、窗口、证据新鲜度和下一步动作 | 更细结构化复习历史如未来需要，另走单独确认 |
+| 笔记复习提醒 | 已完成 | `Note.nextReviewAt`、`/notes` 复习提醒筛选、`/analytics` 到期笔记风险和 `/reports` 到期笔记计数；Package D Batch D4 已把笔记复习提醒接入长期风险 DTO；附件上传已由 Package A 完成 | 后续可继续做更细复习策略 |
+| 作战地图高级可视化 | 已完成 | `/syllabus` 已展示分科摘要、地图状态分布、优先节点、推荐筛选、地图状态筛选、行动类型筛选和 Batch 4 显式掌握证明记录；Package D Batch D4 后，作战地图风险与报告、统计、笔记、模拟和首页状态主题读取同一长期风险 DTO | 更细结构化复习历史如未来需要，另走单独确认 |
+| 状态主题深度联动 | 已完成 | `determineThemeState` 基于冲刺窗口、风险状态和连续性生成主题；首页根据 `themeState` 切换外壳，并展示正常推进、锻造、警报、恢复、冲刺的状态主题面板、触发信号和行动焦点；恢复主题联动最小任务裁剪，冲刺主题前置倒计时与阶段压强；Batch 6 已提供持久阶段计划基础；Package D Batch D4 已把首页状态主题接入长期风险 DTO，任务面板明确状态主题不隐藏完整任务列表、不自动修改任务或阶段计划 | Package D D5 只做证据收口 |
 | 动机唤醒机制 | 已完成 | `evaluateMotivationWake` 覆盖未封存、断签、危险期、自测窗口、重大复盘和重情绪；首页只展示唤醒信号，不进入 AI 默认上下文 | 更细粒度历史策略可后续增强 |
-| AI 根据长期数据生成阶段调整建议 | 基础版 / 待确认 | `draftStageAdjustment` 本地规则草稿；Batch 6 已可把本地规则建议持久化为 `StageAdjustmentDraft`，并要求用户确认后才更新 `StagePlan` | 真实长期 AI 外呼、隐私/费用验证和更完整应用流仍由 `tasks/backlog/0017-ai-stage-privacy-cost.md` 与 Package D 承接 |
+| AI 根据长期数据生成阶段调整建议 | 已完成 | Package D Batch D3 已新增显式鉴权 `POST /api/simulation/stage-adjustment-drafts/ai` 和 `/simulation` 的“生成 AI 草稿”入口；长期 AI 上下文只发送周期范围、阶段目标摘要、有效时长、完成率、复盘完成率、低转化次数、科目占比、薄弱节点摘要、模拟考试汇总、阶段计划模式/状态、距阶段结束天数和风险标签；成功只写 `StageAdjustmentDraft.source="ai"` 结构化草稿和 `AI_STAGE_ADJUSTMENT_DRAFT_CREATED` 审计摘要，失败回退本地规则；不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不保存完整 prompt/raw response，不自动应用阶段计划；Package D Batch D4 后，长期风险 DTO 为阶段草稿提供一致风险原因但不触发 AI 外呼 | Package D D5 只做证据收口；报告驱动的自动阶段应用不进入当前范围 |
 
 ## 暂缓项
 

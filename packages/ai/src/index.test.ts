@@ -7,6 +7,7 @@ import {
   createAiPrompt,
   createFallbackDailyReviewAdvice,
   createFallbackDisciplineAdvice,
+  createFallbackStageAdjustmentAdvice,
   createFallbackTomorrowPlanAdvice,
   createOpenAiCompatibleJsonProvider,
   createStaticJsonProvider,
@@ -15,7 +16,9 @@ import {
   generateAdviceWithProvider,
   validateDailyReviewAdvice,
   validateDisciplineAdvice,
+  validateStageAdjustmentAdvice,
   validateTomorrowPlanAdvice,
+  type StageAdjustmentContext,
 } from "./index";
 
 test("fallback discipline advice validates as structured output", () => {
@@ -59,6 +62,20 @@ test("fallback tomorrow plan narrows recovery days", () => {
   assert.match(advice.minimumTaskTitle, /数学错题复盘/);
 });
 
+test("fallback stage adjustment advice validates as confirm-only draft", () => {
+  const advice = createFallbackStageAdjustmentAdvice({
+    ...stageAdjustmentContext(),
+    taskCompletionRate: 0.2,
+    lowConversionCount: 5,
+  });
+
+  assert.equal(validateStageAdjustmentAdvice(advice).status, "local_rule_fallback");
+  assert.equal(advice.mode, "recovery");
+  assert.equal(advice.canAutoApply, false);
+  assert.equal(advice.requiresUserConfirmation, true);
+  assert.ok(advice.focusSubjects.length > 0);
+});
+
 test("mock provider success is validated as ai generated output", async () => {
   const result = await generateAdviceWithProvider({
     kind: "discipline",
@@ -82,6 +99,31 @@ test("mock provider success is validated as ai generated output", async () => {
   assert.equal(result.meta.externalCall, false);
   assert.equal(result.advice.status, aiGeneratedStatus);
   assert.equal(result.advice.line, "保持推进，但别扩任务。");
+});
+
+test("mock stage adjustment provider success is validated as ai generated draft", async () => {
+  const result = await generateAdviceWithProvider({
+    kind: "stage_adjustment",
+    context: stageAdjustmentContext(),
+    provider: createStaticJsonProvider({
+      mode: "strengthen",
+      risk: "medium",
+      riskConclusion: "长期执行稳定，但薄弱科目还需要加压。",
+      focusSubjects: ["数学", "英语"],
+      taskIntensity: "increase",
+      taskAdjustmentActions: ["retest", "simulate"],
+      nextStageEmphasis: "下一阶段提高数学和英语的题目强度，保留用户确认边界。",
+      canAutoApply: false,
+      requiresUserConfirmation: true,
+    }),
+    fallback: createFallbackStageAdjustmentAdvice,
+    validate: validateStageAdjustmentAdvice,
+  });
+
+  assert.equal(result.meta.status, aiGeneratedStatus);
+  assert.equal(result.advice.status, aiGeneratedStatus);
+  assert.equal(result.advice.mode, "strengthen");
+  assert.equal(result.advice.canAutoApply, false);
 });
 
 test("mock provider invalid output falls back without breaking advice shape", async () => {
@@ -109,6 +151,31 @@ test("mock provider invalid output falls back without breaking advice shape", as
   assert.equal(result.advice.status, aiInvalidFallbackStatus);
   assert.equal(result.advice.priority, "medium");
   assert.match(result.meta.reason, /回退/);
+});
+
+test("mock stage adjustment invalid output falls back without applying", async () => {
+  const result = await generateAdviceWithProvider({
+    kind: "stage_adjustment",
+    context: stageAdjustmentContext(),
+    provider: createStaticJsonProvider({
+      mode: "auto",
+      risk: "urgent",
+      riskConclusion: "",
+      focusSubjects: [],
+      taskIntensity: "max",
+      taskAdjustmentActions: ["rewrite_everything"],
+      nextStageEmphasis: "",
+      canAutoApply: true,
+      requiresUserConfirmation: false,
+    }),
+    fallback: createFallbackStageAdjustmentAdvice,
+    validate: validateStageAdjustmentAdvice,
+  });
+
+  assert.equal(result.meta.status, aiInvalidFallbackStatus);
+  assert.equal(result.advice.status, aiInvalidFallbackStatus);
+  assert.equal(result.advice.canAutoApply, false);
+  assert.equal(result.advice.requiresUserConfirmation, true);
 });
 
 test("provider errors fall back to local rules", async () => {
@@ -516,9 +583,62 @@ test("createAiPrompt keeps only allowed context fields", () => {
   assert.equal(prompt.sanitizedContext.moodTag, "焦虑");
 });
 
+test("createAiPrompt keeps only allowed stage adjustment context fields", () => {
+  const longPrivateStageGoal = "阶段目标原文可能包含不该外发的长备注".repeat(10);
+  const prompt = createAiPrompt("stage_adjustment", {
+    ...stageAdjustmentContext(),
+    stageGoal: longPrivateStageGoal,
+    reviewText: "完整复盘正文不能进入长期阶段 prompt",
+    topTaskTitle: "原始任务标题不能进入长期阶段 prompt",
+  });
+
+  assert.equal(prompt.sanitizedContext.stageGoal, undefined);
+  assert.equal(prompt.sanitizedContext.stageGoalSummary, "2026 年 12 月同步全真自测");
+  assert.equal(prompt.sanitizedContext.reviewText, undefined);
+  assert.equal(prompt.sanitizedContext.topTaskTitle, undefined);
+  assert.ok(!prompt.user.includes(longPrivateStageGoal));
+  assert.ok(!prompt.user.includes("完整复盘正文"));
+  assert.ok(!prompt.user.includes("原始任务标题"));
+  assert.deepEqual(prompt.sanitizedContext.riskTags, ["steady"]);
+});
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function stageAdjustmentContext(): StageAdjustmentContext {
+  return {
+    rangeKind: "week",
+    rangeStart: "2026-07-01T00:00:00.000Z",
+    rangeEnd: "2026-07-08T00:00:00.000Z",
+    rangeDays: 7,
+    stageGoalSummary: "2026 年 12 月同步全真自测",
+    effectiveMinutes: 420,
+    taskCompletionRate: 0.68,
+    reviewCompletionRate: 0.57,
+    lowConversionCount: 1,
+    subjectShares: [
+      { subjectName: "数学", effectiveMinutes: 120, share: 0.29 },
+      { subjectName: "英语", effectiveMinutes: 90, share: 0.21 },
+      { subjectName: "408", effectiveMinutes: 210, share: 0.5 },
+    ],
+    weakNodeSummary: [
+      { subjectName: "数学", weakCount: 2, reviewCount: 1, staleEvidenceCount: 1 },
+      { subjectName: "英语", weakCount: 1, reviewCount: 0, staleEvidenceCount: 0 },
+    ],
+    simulationSummary: {
+      examDate: "2026-06-30T00:00:00.000Z",
+      scoreRate: 0.62,
+      durationRate: 0.94,
+      blankQuestionCount: 3,
+      subjectCount: 3,
+    },
+    stagePlanMode: "maintain",
+    stagePlanStatus: "active",
+    daysToStageEnd: 120,
+    riskTags: ["steady"],
+  };
 }

@@ -23,9 +23,19 @@ const requiredScalarFields = [
   "uploadsBackupPath",
   "uploadsBackupSha256",
   "envBackupPath",
+  "envBackupSha256",
+  "composeConfigBackupPath",
+  "nginxConfigBackupPath",
   "migrationVersion",
   "migrationApplied",
+  "migrationRunner",
   "rollbackDecision",
+  "rollbackPlan",
+  "rollbackDrillResult",
+  "rollbackDurationMinutes",
+  "databaseRestoreRequired",
+  "uploadsRestoreRequired",
+  "rollbackFailureReason",
   "residualRisk",
   "followUpTasks",
 ] as const;
@@ -53,6 +63,8 @@ const requiredNestedFields = [
 
 const yesNoFields = [
   "migrationApplied",
+  "databaseRestoreRequired",
+  "uploadsRestoreRequired",
   "restoreDrill.databaseImported",
   "restoreDrill.uploadsRestored",
 ] as const;
@@ -135,7 +147,27 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     issues.push({ field: "restoreDrill.attachmentHashMatched", message: "must be yes, no, or not-applicable" });
   }
 
-  for (const field of ["databaseBackupSha256", "uploadsBackupSha256", "composeHash", "nginxConfigHash"] as const) {
+  const migrationRunner = fields.get("migrationRunner");
+  if (migrationRunner && !["controlled_release_workdir", "one_off_migration_job", "not-applicable"].includes(migrationRunner)) {
+    issues.push({
+      field: "migrationRunner",
+      message: "must be controlled_release_workdir, one_off_migration_job, or not-applicable",
+    });
+  }
+  const migrationApplied = fields.get("migrationApplied")?.toLowerCase();
+  if (migrationApplied === "yes" && migrationRunner === "not-applicable") {
+    issues.push({ field: "migrationRunner", message: "must name the migration deploy runner when migrationApplied is yes" });
+  }
+  if (migrationApplied === "no" && migrationRunner && migrationRunner !== "not-applicable") {
+    issues.push({ field: "migrationRunner", message: "must be not-applicable when migrationApplied is no" });
+  }
+
+  const rollbackDurationMinutes = fields.get("rollbackDurationMinutes");
+  if (rollbackDurationMinutes && !/^\d+$/.test(rollbackDurationMinutes)) {
+    issues.push({ field: "rollbackDurationMinutes", message: "must be a non-negative integer minute count" });
+  }
+
+  for (const field of ["databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256", "composeHash", "nginxConfigHash"] as const) {
     const value = fields.get(field);
     if (value && !/^[a-f0-9]{64}$/i.test(value)) {
       issues.push({ field, message: "must be a 64-character sha256 hex digest" });

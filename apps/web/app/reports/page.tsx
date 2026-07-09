@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { ReportDecisionActions } from "@/components/report-decision-actions";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { getPeriodicReports, type PeriodicReportDto } from "@/lib/study/reports-service";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +25,10 @@ export default async function ReportsPage() {
     redirect("/login");
   }
 
-  const reports = await getPeriodicReports();
+  const [reports, longTermRisks] = await Promise.all([
+    getPeriodicReports(),
+    getLongTermRiskSummary(),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#080b0f] text-zinc-100">
@@ -48,6 +53,11 @@ export default async function ReportsPage() {
           </Link>
         </header>
 
+        <LongTermRiskPanel
+          summary={longTermRisks}
+          title="长期风险"
+          description="报告、任务债务、作战地图、复习队列、模拟和阶段计划共用这一组风险原因。"
+        />
         <ReportSection report={reports.week} />
         <ReportSection report={reports.month} />
       </div>

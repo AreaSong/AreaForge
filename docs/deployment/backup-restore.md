@@ -6,6 +6,7 @@
 - 上传文件目录。
 - 生产 `.env`。
 - 当前部署版本 tag。
+- 当前 `docker-compose.prod.yml` 和 Nginx 配置副本。
 
 ## 策略
 
@@ -25,6 +26,7 @@
 - 首页能读取数据。
 - 登录仍可用。
 - 附件对账只生成报告，不自动修复 metadata、不删除孤儿文件、不移动上传目录文件。
+- 发布证据记录能通过 `pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]`，并包含数据库/上传目录/生产 `.env` 备份 hash、compose/Nginx 副本路径、migration runner 和回滚演练字段。
 
 ## 命令模板
 
@@ -69,6 +71,16 @@ attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,ex
 `action` 第一版固定为 `report_only`。孤儿文件清理、metadata 修复或批量删除必须另行确认。
 
 若恢复演练使用临时脚本或 SQL 生成对账报告，脚本必须只读数据库和文件系统；不得在同一次演练中执行删除、移动、重命名、补写 metadata 或重新计算后覆盖数据库 hash。
+
+## 发布证据校验
+
+Package E 收口前，发布记录必须通过只读校验：
+
+```bash
+pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]
+```
+
+校验记录中必须包含 `envBackupSha256`、`composeConfigBackupPath`、`nginxConfigBackupPath`、`migrationRunner`、`rollbackPlan`、`rollbackDrillResult`、`rollbackDurationMinutes`、`databaseRestoreRequired`、`uploadsRestoreRequired` 和 `rollbackFailureReason`。该命令只读取发布记录和可选对账 CSV，不执行备份、恢复、migration、文件移动或 metadata 修复。
 
 ## 回滚
 

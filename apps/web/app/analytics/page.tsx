@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getAnalyticsSummary, type AnalyticsRiskItemDto } from "@/lib/study/analytics-service";
+import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,10 @@ export default async function AnalyticsPage() {
     redirect("/login");
   }
 
-  const analytics = await getAnalyticsSummary();
+  const [analytics, longTermRisks] = await Promise.all([
+    getAnalyticsSummary(),
+    getLongTermRiskSummary(),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#080b0f] text-zinc-100">
@@ -52,6 +57,12 @@ export default async function AnalyticsPage() {
           <StatTile icon={RotateCcw} label="连续性" value={`${analytics.totals.streakDays} 天`} sub={`近 7 天断签 ${analytics.totals.missedDays} 天`} />
           <StatTile icon={NotebookText} label="复盘完成率" value={formatPercent(analytics.totals.reviewCompletionRate)} sub={`错题 ${analytics.totals.totalMistakes} 条`} />
         </section>
+
+        <LongTermRiskPanel
+          summary={longTermRisks}
+          title="长期风险"
+          description="统计页读取同一长期风险 DTO，证据新鲜度和下一步动作与报告、考纲、笔记、模拟保持一致。"
+        />
 
         <section className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-lg border border-white/10 bg-[#101419] p-5">

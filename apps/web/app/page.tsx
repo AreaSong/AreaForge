@@ -17,12 +17,14 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FocusTimer } from "@/components/focus-timer";
+import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { LogoutButton } from "@/components/logout-button";
 import { RecoveryStateControls } from "@/components/recovery-state-controls";
 import { ReviewForm } from "@/components/review-form";
 import { TaskPanel } from "@/components/task-panel";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDailyReviewAiAdvice, getTomorrowPlanAiAdvice } from "@/lib/study/ai-service";
+import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { getTodayDashboard } from "@/lib/study/service";
 import { listSyllabusTree } from "@/lib/study/syllabus-service";
 
@@ -36,11 +38,12 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const [dashboard, syllabusNodes, dailyReviewAdvice, tomorrowPlanAdvice] = await Promise.all([
+  const [dashboard, syllabusNodes, dailyReviewAdvice, tomorrowPlanAdvice, longTermRisks] = await Promise.all([
     getTodayDashboard(new Date(), { actorId: user.id, recordRecoveryRule: true }),
     listSyllabusTree(),
     getDailyReviewAiAdvice(),
     getTomorrowPlanAiAdvice(),
+    getLongTermRiskSummary(),
   ]);
   const { metrics, snapshot } = dashboard;
   const themeClass = getThemeShellClass(snapshot.themeState);
@@ -212,6 +215,13 @@ export default async function Home() {
             </div>
           </aside>
         </section>
+
+        <LongTermRiskPanel
+          summary={longTermRisks}
+          title="状态主题长期风险"
+          description="首页状态主题读取同一长期风险原因，只调整提示焦点，不隐藏完整任务列表。"
+          maxItems={3}
+        />
 
         <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
           <TaskPanel

@@ -150,7 +150,7 @@ export function createConfiguredAiProvider(): AiJsonProvider | undefined {
   });
 }
 
-function resolveConfiguredAiProvider(kind: AiAdviceKind, options: AiAdviceRequestOptions): {
+export function resolveConfiguredAiProvider(kind: AiAdviceKind, options: AiAdviceRequestOptions): {
   provider?: AiJsonProvider;
   unavailableReason?: string;
 } {

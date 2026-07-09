@@ -103,7 +103,7 @@
 | Package B | 分批确认包；migration 字段清单；临时库验证步骤；旧数据 fallback 口径 | 未确认批次的 schema/migration；批量删除、压缩历史或不可靠解析 | 每批临时库 deploy；核心/API/UI 烟测；completion record 只更新对应批次；Package B 主状态等 Batch 0-6 全部完成后再改 |
 | Package C | 可发送/禁止字段清单；费用保护默认值；客户端密钥扫描步骤；mock/fallback 测试 | 真实 provider 外呼；Web 读取 `AI_API_KEY`；保存完整 prompt/响应；长期阶段调整外呼 | `AI_ENABLED=false` fallback；配置缺失 fallback；mock 成功；失败/非法输出 fallback；客户端 bundle 搜不到密钥 |
 | Package D | 只读规则、只读 UI 标签、依赖矩阵、confirm-only DTO 检查；可先拆分 Batch D1-D5 的确认句、验证矩阵和烟测脚本草案 | 重排应用写 API；阶段计划应用；报告快照写入；长期 AI 外呼；自动覆盖任务或阶段计划 | Batch D1 报告决策、Batch D2 债务重排确认流、Batch D3 长期阶段 AI 草稿、Batch D4 长期风险/主题闭环、Batch D5 收口证据均完成；建议用户确认前不应用；确认/驳回/重复提交/部分失败可追溯；报告、地图、债务、遗忘风险页面/API 烟测通过 |
-| Package E | compose config；变量清单；发布/回滚 checklist；临时库恢复步骤文档；可先拆分 Batch E1-E4 的确认句、验证矩阵和发布记录模板 | 生产部署；生产 migration deploy；真实备份恢复；服务器命令；发布后真实烟测 | Batch E1 预检、Batch E2 备份/恢复演练、Batch E3 生产发布、Batch E4 回滚/收口证据均完成；发布前备份；临时库恢复演练；生产发布记录；发布后烟测；失败回滚记录 |
+| Package E | compose config；变量清单；发布/回滚 checklist；临时库恢复步骤文档；可先拆分 Batch E1-E4 的确认句、验证矩阵和发布记录模板 | 生产部署；生产 migration deploy；真实备份恢复；服务器命令；发布后真实烟测 | Batch E1 预检、Batch E2 备份/恢复演练、Batch E3 生产发布、Batch E4 回滚/收口证据均完成；发布前备份；临时库恢复演练；生产发布记录；migration runner 选择；`release:evidence:validate` 通过；附件对账 `report_only`；发布后烟测；失败回滚记录 |
 
 最终完成时还必须维护并更新 `docs/development/docs-100-completion-record.md`，逐项记录 Package A-E 的完成状态、验证命令、烟测证据、文档同步结果和残余风险。该记录是当前证据，不是目标清单。
 

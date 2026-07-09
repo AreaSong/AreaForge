@@ -251,6 +251,11 @@ function checkCompletionGateTerms(): void {
     "文档同步",
     "残余风险",
     "pnpm docs:completion",
+    "release:evidence:validate",
+    "report_only",
+    "migration deploy 执行载体",
+    "镜像 digest",
+    "Nginx",
   ];
   const missing = requiredTerms.filter((term) => !gateText.includes(term));
 
@@ -273,6 +278,8 @@ function checkCompletionScriptGates(): void {
     "checkPackageBBatches",
     "checkCompletionBatches",
     "missingBatchEvidenceDetails",
+    "checkPackageECompletionDetail",
+    "missingPackageEBatchEvidenceDetails",
     "batch completion detail",
     "DONE / 已完成",
     "用户已明确确认",
@@ -280,6 +287,9 @@ function checkCompletionScriptGates(): void {
     "烟测",
     "文档",
     "残余风险",
+    "release:evidence:validate",
+    "report_only",
+    "migration deploy 执行载体",
   ];
   const missing = requiredTokens.filter((token) => !completionScript.includes(token));
 
@@ -398,6 +408,10 @@ function checkPackageEPreflightTerms(): void {
     "web binds localhost",
     "does not pretend to be a migration runner",
     "no production deploy, backup, restore, or migration was executed",
+    "envBackupSha256",
+    "migrationRunner",
+    "rollbackPlan",
+    "rollbackDrillResult",
   ];
   const documentationText = `${validationMatrix}\n${completionRecord}\n${runbook}`;
   const requiredDocTokens = [
@@ -409,6 +423,12 @@ function checkPackageEPreflightTerms(): void {
     "migration deploy 执行载体",
     "pnpm release:evidence:validate",
     "report_only",
+    "envBackupSha256",
+    "composeConfigBackupPath",
+    "nginxConfigBackupPath",
+    "migrationRunner",
+    "rollbackPlan",
+    "rollbackDrillResult",
   ];
   const missing = [
     ...requiredPackageTokens.filter((token) => !packageJson.includes(token)).map((token) => `package.json:${token}`),

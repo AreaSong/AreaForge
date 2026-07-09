@@ -163,6 +163,9 @@ function checkCompletionRecord(): CompletionIssue[] {
     if (item === "Package C") {
       issues.push(...checkPackageCCompletionDetail(line));
     }
+    if (item === "Package E") {
+      issues.push(...checkPackageECompletionDetail(line));
+    }
   }
 
   issues.push(...checkPackageBBatches(record));
@@ -234,6 +237,29 @@ function checkPackageCCompletionDetail(line: string): CompletionIssue[] {
   ];
 }
 
+function checkPackageECompletionDetail(line: string): CompletionIssue[] {
+  const requiredTerms = [
+    "发布",
+    "备份",
+    "恢复",
+    "回滚",
+    "release:evidence:validate",
+    "report_only",
+    "migration deploy 执行载体",
+    "镜像 digest",
+    "Nginx",
+  ];
+  const missingTerms = requiredTerms.filter((term) => !line.includes(term));
+  if (missingTerms.length === 0) return [];
+
+  return [
+    {
+      name: "Package E release evidence detail",
+      detail: `completed Package E row must include production release evidence for ${missingTerms.join(", ")}`,
+    },
+  ];
+}
+
 function checkPackageBBatches(record: string): CompletionIssue[] {
   return checkCompletionBatches(record, "Package B", requiredPackageBBatches);
 }
@@ -261,6 +287,9 @@ function checkCompletionBatches(
     }
 
     const detailIssues = missingBatchEvidenceDetails(cells);
+    if (packageName === "Package E") {
+      detailIssues.push(...missingPackageEBatchEvidenceDetails(batch, line));
+    }
     if (detailIssues.length > 0) {
       missingDetails.push(`${batch}: ${detailIssues.join(", ")}`);
     }
@@ -302,6 +331,64 @@ function missingBatchEvidenceDetails(cells: string[]): string[] {
   }
 
   return missing;
+}
+
+function missingPackageEBatchEvidenceDetails(batch: string, line: string): string[] {
+  const checks: Record<string, Array<string | string[]>> = {
+    "Batch E1": [
+      "pnpm check",
+      "pnpm package-e:preflight",
+      "compose config",
+      ["生产 env 清单", "生产 `.env`", "production env"],
+      "AREAFORGE_IMAGE",
+      "镜像 digest",
+      "Nginx",
+      "migration deploy 执行载体",
+      "发布记录草案",
+      "中止条件",
+    ],
+    "Batch E2": [
+      "PostgreSQL dump",
+      "上传目录归档",
+      ["生产 `.env`", "envBackupSha256", "生产 env"],
+      "compose/Nginx 副本",
+      "临时库导入",
+      "临时上传目录恢复",
+      "metadata/hash",
+      "report_only",
+    ],
+    "Batch E3": [
+      "备份点",
+      "migration deploy",
+      ["受控 release 工作目录", "一次性 migration job", "migrationRunner"],
+      "compose/Nginx",
+      "GET /api/health",
+      "登录",
+      "首页",
+      "任务",
+      "计时",
+      "复盘",
+      "日志脱敏",
+    ],
+    "Batch E4": [
+      "上一镜像",
+      "回滚步骤",
+      "数据库/上传目录",
+      "失败原因",
+      "恢复耗时",
+      "release:evidence:validate",
+      "docs:completion",
+      "残余风险",
+    ],
+  };
+  const required = checks[batch];
+  if (!required) return [];
+
+  return required
+    .filter((term) => Array.isArray(term)
+      ? !term.some((item) => line.includes(item))
+      : !line.includes(term))
+    .map((term) => Array.isArray(term) ? term.join(" or ") : term);
 }
 
 function parseTraceabilityRows(content: string): FeatureRow[] {

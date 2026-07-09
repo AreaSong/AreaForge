@@ -1,8 +1,10 @@
 import { ArrowLeft, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { SyllabusManager } from "@/components/syllabus-manager";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { listSubjects } from "@/lib/study/service";
 import { getSyllabusMapOverview } from "@/lib/study/syllabus-service";
 
@@ -14,7 +16,11 @@ export default async function SyllabusPage() {
     redirect("/login");
   }
 
-  const [subjects, overview] = await Promise.all([listSubjects(), getSyllabusMapOverview()]);
+  const [subjects, overview, longTermRisks] = await Promise.all([
+    listSubjects(),
+    getSyllabusMapOverview(),
+    getLongTermRiskSummary(),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#080b0f] text-zinc-100">
@@ -38,6 +44,12 @@ export default async function SyllabusPage() {
             返回作战台
           </Link>
         </header>
+
+        <LongTermRiskPanel
+          summary={longTermRisks}
+          title="作战地图遗忘风险"
+          description="考纲作战地图使用同一长期风险来源，遗忘风险会带出证据新鲜度和下一步动作。"
+        />
 
         <SyllabusManager
           subjects={subjects}

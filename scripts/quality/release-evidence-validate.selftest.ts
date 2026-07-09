@@ -11,17 +11,20 @@ try {
   const validCsv = path.join(tempDir, "attachment-reconciliation.csv");
   const invalidSecretRecord = path.join(tempDir, "release-record-secret.txt");
   const invalidEnumRecord = path.join(tempDir, "release-record-enum.txt");
+  const invalidRunnerRecord = path.join(tempDir, "release-record-runner.txt");
   const invalidCsv = path.join(tempDir, "attachment-reconciliation-invalid.csv");
 
   writeFileSync(validRecord, createRecord());
   writeFileSync(validCsv, createCsv("report_only"));
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: DATABASE_URL=postgresql://user:pass@db:5432/prod\n`);
   writeFileSync(invalidEnumRecord, createRecord().replace("migrationApplied: yes", "migrationApplied: maybe"));
+  writeFileSync(invalidRunnerRecord, createRecord().replace("migrationRunner: controlled_release_workdir", "migrationRunner: not-applicable"));
   writeFileSync(invalidCsv, createCsv("delete"));
 
   expectExit("valid record and report_only CSV pass", [validRecord, validCsv], 0);
   expectExit("secret-like values fail", [invalidSecretRecord, validCsv], 1);
   expectExit("invalid enum values fail", [invalidEnumRecord, validCsv], 1);
+  expectExit("missing migration runner fails when migration applied", [invalidRunnerRecord, validCsv], 1);
   expectExit("non-report_only reconciliation fails", [validRecord, invalidCsv], 1);
 
   console.log("release evidence validator selftest passed.");
@@ -68,8 +71,12 @@ function createRecord(): string {
     "uploadsBackupPath: /backups/uploads.tar.gz",
     "uploadsBackupSha256: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
     "envBackupPath: /backups/env.age",
+    "envBackupSha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "composeConfigBackupPath: /backups/docker-compose.prod.yml",
+    "nginxConfigBackupPath: /backups/forge.areasong.top.conf",
     "migrationVersion: 20260708010000",
     "migrationApplied: yes",
+    "migrationRunner: controlled_release_workdir",
     "preflight:",
     "  pnpmCheck: PASS",
     "  composeConfig: PASS",
@@ -87,6 +94,12 @@ function createRecord(): string {
     "  attachmentSmoke: PASS",
     "  aiFallbackOrProvider: PASS",
     "rollbackDecision: not needed",
+    "rollbackPlan: switch AREAFORGE_IMAGE back to previousImage and restart web",
+    "rollbackDrillResult: command path rehearsed without touching production data",
+    "rollbackDurationMinutes: 0",
+    "databaseRestoreRequired: no",
+    "uploadsRestoreRequired: no",
+    "rollbackFailureReason: none",
     "residualRisk: none for this rehearsal",
     "followUpTasks: none",
     "expectedFailureOrStopConditions:",

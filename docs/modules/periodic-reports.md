@@ -48,4 +48,4 @@
 
 Package D Batch D1 后，周/月报告已具备确认和驳回入口：`PeriodicReportDecision` 会冻结当时的 `reportSnapshot`，确认时保存 `nextCycleDraft`，并写入 `AuditEvent`。`GET /api/reports/periodic` 仍实时派生当前报告，但会优先带回当前周期已存在的决策用于只读回放；历史决策通过报告决策列表只读查询。
 
-周期策略、本地复盘草稿、下周期决策预览和已保存决策都透传 `canAutoApply=false` 和 `requiresUserConfirmation=true`。D1 只记录报告态度、快照、草稿和审计，不修改任务、不应用阶段计划、不批量改复盘或考纲节点；任务重排应用、长期阶段 AI、长期风险主题收口仍属于 Package D 后续批次。
+周期策略、本地复盘草稿、下周期决策预览和已保存决策都透传 `canAutoApply=false` 和 `requiresUserConfirmation=true`。D1 只记录报告态度、快照、草稿和审计，不修改任务、不应用阶段计划、不批量改复盘或考纲节点；D2 已补齐任务债务重排所选项确认/驳回/应用记录；D3 已补齐长期阶段 AI 草稿显式触发路径；D4 已让报告页展示同源长期风险 DTO；D5 已完成 Package D 证据收口。报告驱动的自动阶段应用不进入当前范围。

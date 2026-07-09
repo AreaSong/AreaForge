@@ -51,6 +51,7 @@ function checkRequiredFiles(): void {
     "docker-compose.prod.yml",
     "infra/docker/web.Dockerfile",
     "infra/nginx/forge.areasong.top.conf.example",
+    "docs/development/package-e-e1-release-record-draft.md",
     "docs/development/production-release-runbook.md",
     "docs/deployment/backup-restore.md",
     "scripts/quality/release-evidence-validate.ts",
@@ -93,7 +94,21 @@ function checkCompletionRecordState(): void {
     return batchStates[batchKey];
   });
   const packageDoneWithEvidence = packageStatus.includes("DONE / 已完成") &&
-    ["验证", "烟测", "文档同步", "残余风险", "发布", "备份", "恢复", "回滚"].every((term) => packageEvidence.includes(term));
+    [
+      "验证",
+      "烟测",
+      "文档同步",
+      "残余风险",
+      "发布",
+      "备份",
+      "恢复",
+      "回滚",
+      "release:evidence:validate",
+      "report_only",
+      "migration deploy 执行载体",
+      "镜像 digest",
+      "Nginx",
+    ].every((term) => packageEvidence.includes(term));
   const incompleteBatches = packageEBatches.flatMap((batch) => {
     const line = findLine(record, `| ${batch}：`);
     if (!line) return [`${batch}=missing`];
@@ -132,6 +147,14 @@ function checkRunbookBatchContracts(): void {
     "report_only",
     "受控 release 工作目录",
     "一次性 migration 镜像或 job",
+    "envBackupSha256",
+    "composeConfigBackupPath",
+    "nginxConfigBackupPath",
+    "migrationRunner",
+    "rollbackPlan",
+    "rollbackDrillResult",
+    "databaseRestoreRequired",
+    "uploadsRestoreRequired",
     "不通过网页按钮触发部署、migration、备份或恢复",
     "中止条件",
     "pnpm release:evidence:validate",
@@ -382,7 +405,64 @@ function isPackageEBatchDone(record: string, batch: "E1" | "E2" | "E3" | "E4"): 
     /(烟测|smoke|演练|发布|备份|恢复|回滚)/i.test(smoke) &&
     docsSync.includes("已同步") &&
     residualRisk.length >= 20 &&
-    !["待同步", "未运行", "缺"].some((token) => residualRisk.includes(token));
+    !["待同步", "未运行", "缺"].some((token) => residualRisk.includes(token)) &&
+    missingPackageEBatchEvidenceDetails(batch, line).length === 0;
+}
+
+function missingPackageEBatchEvidenceDetails(batch: "E1" | "E2" | "E3" | "E4", line: string): string[] {
+  const checks: Record<"E1" | "E2" | "E3" | "E4", Array<string | string[]>> = {
+    E1: [
+      "pnpm check",
+      "pnpm package-e:preflight",
+      "compose config",
+      ["生产 env 清单", "生产 `.env`", "production env"],
+      "AREAFORGE_IMAGE",
+      "镜像 digest",
+      "Nginx",
+      "migration deploy 执行载体",
+      "发布记录草案",
+      "中止条件",
+    ],
+    E2: [
+      "PostgreSQL dump",
+      "上传目录归档",
+      ["生产 `.env`", "envBackupSha256", "生产 env"],
+      "compose/Nginx 副本",
+      "临时库导入",
+      "临时上传目录恢复",
+      "metadata/hash",
+      "report_only",
+    ],
+    E3: [
+      "备份点",
+      "migration deploy",
+      ["受控 release 工作目录", "一次性 migration job", "migrationRunner"],
+      "compose/Nginx",
+      "GET /api/health",
+      "登录",
+      "首页",
+      "任务",
+      "计时",
+      "复盘",
+      "日志脱敏",
+    ],
+    E4: [
+      "上一镜像",
+      "回滚步骤",
+      "数据库/上传目录",
+      "失败原因",
+      "恢复耗时",
+      "release:evidence:validate",
+      "docs:completion",
+      "残余风险",
+    ],
+  };
+
+  return checks[batch]
+    .filter((term) => Array.isArray(term)
+      ? !term.some((item) => line.includes(item))
+      : !line.includes(term))
+    .map((term) => Array.isArray(term) ? term.join(" or ") : term);
 }
 
 main();

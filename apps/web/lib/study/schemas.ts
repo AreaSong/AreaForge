@@ -267,6 +267,8 @@ export const stageAdjustmentDraftSchema = z.object({
   stagePlanId: z.string().min(1).nullable().optional(),
 });
 
+export const aiStageAdjustmentDraftSchema = stageAdjustmentDraftSchema;
+
 export const periodicReportDecisionSchema = z.object({
   kind: z.enum(["week", "month"]),
   action: z.enum(["confirm", "reject"]),

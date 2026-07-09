@@ -57,7 +57,9 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("Package D preflight passed: long-term-loop prep is present, completed batches are evidence-gated, D2 is narrowly unlocked, and D3-D5 write/AI paths remain locked until explicit confirmation.");
+  const { d1, d2, d3, d4, d5 } = getPackageDBatchStates(read("docs/development/docs-100-completion-record.md"));
+  const completed = [d1 && "D1", d2 && "D2", d3 && "D3", d4 && "D4", d5 && "D5"].filter(Boolean).join("/");
+  console.log(`Package D preflight passed: long-term-loop prep is present, completed batches are evidence-gated (${completed || "none"}), and unfinished Package D paths remain locked until explicit confirmation.`);
 }
 
 function checkRequiredFiles(): void {
@@ -470,12 +472,9 @@ function checkNoUnconfirmedWriteRoutes(): void {
 }
 
 function checkNoUnconfirmedPersistence(): void {
-  const { d1 } = getPackageDBatchStates(read("docs/development/docs-100-completion-record.md"));
+  const { d1, d3 } = getPackageDBatchStates(read("docs/development/docs-100-completion-record.md"));
   const schema = read("prisma/schema.prisma");
-  const webStudyText = listFiles("apps/web/lib/study")
-    .filter((file) => /\.(ts|tsx)$/.test(file))
-    .map((file) => read(file))
-    .join("\n");
+  const webStudyFiles = listFiles("apps/web/lib/study").filter((file) => /\.(ts|tsx)$/.test(file));
   const forbiddenSchemaTerms = [
     "model PeriodicReportDecision",
     "model ReportSnapshot",
@@ -491,8 +490,13 @@ function checkNoUnconfirmedPersistence(): void {
     "aiStageAdjustment",
   ];
   const matches = [
-    ...forbiddenSchemaTerms.filter((term) => !isAllowedD1PersistenceTerm(term, d1) && schema.includes(term)).map((term) => `schema:${term}`),
-    ...forbiddenRuntimeTerms.filter((term) => !isAllowedD1PersistenceTerm(term, d1) && webStudyText.includes(term)).map((term) => `web:${term}`),
+    ...forbiddenSchemaTerms.filter((term) => !isAllowedPackageDPersistenceTerm(term, { d1, d3 }) && schema.includes(term)).map((term) => `schema:${term}`),
+    ...webStudyFiles.flatMap((file) => {
+      const content = read(file);
+      return forbiddenRuntimeTerms
+        .filter((term) => content.includes(term) && !isAllowedPackageDRuntimeTerm(term, file, content, { d1, d3 }))
+        .map((term) => `web:${file}:${term}`);
+    }),
   ];
 
   checks.push({
@@ -563,11 +567,36 @@ function isD3StageAiDraftRoute(file: string): boolean {
   return /\/simulation\/stage-adjustment-drafts\/ai\/route\.ts$/.test(file);
 }
 
-function isAllowedD1PersistenceTerm(term: string, d1Done: boolean): boolean {
-  return d1Done && [
+function isAllowedPackageDPersistenceTerm(term: string, status: { d1: boolean; d3: boolean }): boolean {
+  if (status.d1 && [
     "model PeriodicReportDecision",
-    "periodicReportDecision",
-  ].includes(term);
+  ].includes(term)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isAllowedPackageDRuntimeTerm(
+  term: string,
+  file: string,
+  content: string,
+  status: { d1: boolean; d3: boolean },
+): boolean {
+  if (status.d1 && term === "periodicReportDecision") {
+    return true;
+  }
+
+  if (
+    status.d3 &&
+    term === "aiStageAdjustment" &&
+    file.replaceAll(path.sep, "/").endsWith("apps/web/lib/study/schemas.ts") &&
+    content.includes("aiStageAdjustmentDraftSchema")
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function getPackageDBatchStates(record: string): { d1: boolean; d2: boolean; d3: boolean; d4: boolean; d5: boolean } {

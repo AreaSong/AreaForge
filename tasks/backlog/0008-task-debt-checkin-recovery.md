@@ -1,6 +1,6 @@
 # 0008 任务债务、打卡、反假学习与恢复模式
 
-状态：基础闭环已完成；保留在 backlog 作为 Package D/0017 的路径稳定入口。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径，Batch 2 已新增 `TaskDebtEvent` 债务事件账本和 `StudyTask.parentTaskId`，Batch 3 已新增 `RecoveryState` 恢复状态，Batch 4 已新增显式掌握证明记录，Batch 5 已新增结构化模拟考试记录，Batch 6 已新增阶段计划和阶段调整草稿。Package D Batch D1 已完成报告确认/驳回和只读回放；Batch D2 已完成任务债务重排确认/驳回/所选项应用。长期 AI 和更深阶段联动仍需 Package D / `0017` 确认。
+状态：基础闭环已完成；保留在 backlog 作为 Package E 前的路径稳定入口。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径，Batch 2 已新增 `TaskDebtEvent` 债务事件账本和 `StudyTask.parentTaskId`，Batch 3 已新增 `RecoveryState` 恢复状态，Batch 4 已新增显式掌握证明记录，Batch 5 已新增结构化模拟考试记录，Batch 6 已新增阶段计划和阶段调整草稿。Package D Batch D1 已完成报告确认/驳回和只读回放；Batch D2 已完成任务债务重排确认/驳回/所选项应用；Batch D3 已完成长期阶段 AI 草稿显式触发；Batch D4 已完成长期风险和状态主题只读闭环；Batch D5 已完成 Package D 收口。更深阶段应用仍需另行确认。
 
 ## 目标
 
@@ -65,5 +65,5 @@
 
 ## 风险
 
-- 阶段计划模型已完成；若新增任务重排应用、报告决策、长期 AI 或批量任务调整，需要继续走高风险确认后再执行。
+- 阶段计划模型已完成，D3 已允许显式长期 AI 草稿，D4 已允许长期风险只读主题闭环；若新增报告驱动阶段应用、D3 范围外长期 AI、长期风险主题写入或批量任务调整，需要继续走高风险确认后再执行。
 - 恢复模式规则会影响首页任务优先级，必须避免让用户丢失原任务记录。

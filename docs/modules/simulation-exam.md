@@ -46,6 +46,6 @@
 - Package B Batch 6 已完成阶段计划、阶段调整草稿 additive migration、API 和 `/simulation` 持久草稿确认边界。
 - 新 API：`GET /api/simulation/exams`、`POST /api/simulation/exams`、`POST /api/simulation/exams/:id/results`。
 - 阶段计划 API：`GET/POST /api/simulation/stage-plans`、`PATCH /api/simulation/stage-plans/:id`。
-- 阶段草稿 API：`GET/POST /api/simulation/stage-adjustment-drafts`、`POST /api/simulation/stage-adjustment-drafts/:id/confirm`、`POST /api/simulation/stage-adjustment-drafts/:id/reject`。
+- 阶段草稿 API：`GET/POST /api/simulation/stage-adjustment-drafts`、`POST /api/simulation/stage-adjustment-drafts/ai`、`POST /api/simulation/stage-adjustment-drafts/:id/confirm`、`POST /api/simulation/stage-adjustment-drafts/:id/reject`。
 - 页面优先展示结构化考试，再展示旧任务型模拟只读 fallback。
-- 当前仍不包含自动任务重排、批量修改任务、真实 AI 长期外呼、旧任务型模拟自动迁移、历史文本解析回填、删除旧字段或生产 migration deploy。报告决策入口已由 Package D Batch D1 完成；任务重排应用、报告驱动的任务/阶段应用和长期 AI 阶段调整仍归 Package D 后续批次 / `0017`。
+- Package D Batch D3 已完成长期 AI 阶段草稿显式触发，成功只写 `StageAdjustmentDraft.source="ai"`，失败回退本地规则。Package D Batch D4 已把模拟考试、阶段计划和首页状态主题接入统一长期风险 DTO，Batch D5 已完成 Package D 收口。当前仍不包含自动任务重排、批量修改任务、旧任务型模拟自动迁移、历史文本解析回填、删除旧字段或生产 migration deploy。报告决策入口已由 Package D Batch D1 完成；任务重排所选项应用记录已由 Batch D2 完成；报告驱动的自动任务/阶段应用不进入当前范围。

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Plus, Save, XCircle } from "lucide-react";
+import { BrainCircuit, CheckCircle2, Plus, Save, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { SimulationStageDraftDto } from "@/lib/study/simulation-service";
@@ -185,6 +185,22 @@ export function SimulationWorkbench({
 
     if (!response.ok) {
       await showError(response, "生成阶段调整草稿失败");
+      return;
+    }
+
+    startTransition(() => router.refresh());
+  }
+
+  async function generateAiPersistentDraft() {
+    setError(null);
+    const response = await fetch("/api/simulation/stage-adjustment-drafts/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stagePlanId: selectedStagePlanId || null }),
+    });
+
+    if (!response.ok) {
+      await showError(response, "生成 AI 阶段草稿失败");
       return;
     }
 
@@ -423,6 +439,15 @@ export function SimulationWorkbench({
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 生成持久草稿
               </button>
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-amber-200/25 px-3 text-sm text-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                onClick={generateAiPersistentDraft}
+                disabled={isPending}
+              >
+                <BrainCircuit className="h-4 w-4" aria-hidden="true" />
+                生成 AI 草稿
+              </button>
             </div>
             {stagePlans.length === 0 ? (
               <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
@@ -472,6 +497,9 @@ export function SimulationWorkbench({
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-md border border-violet-200/20 px-2 py-1 text-xs text-violet-100">
                     {labelStageDraftStatus(draft.status)}
+                  </span>
+                  <span className="rounded-md border border-violet-200/20 px-2 py-1 text-xs text-violet-100">
+                    {labelStageDraftSource(draft.source)}
                   </span>
                   <span className="rounded-md border border-violet-200/20 px-2 py-1 text-xs text-violet-100">
                     {draft.canAutoApply ? "可自动应用" : "不自动应用"}
@@ -743,6 +771,15 @@ function labelStageDraftStatus(status: StageAdjustmentDraftRecordDto["status"]):
       return "已应用";
     case "rejected":
       return "已驳回";
+  }
+}
+
+function labelStageDraftSource(source: StageAdjustmentDraftRecordDto["source"]): string {
+  switch (source) {
+    case "ai":
+      return "AI 草稿";
+    case "local_rule":
+      return "本地规则";
   }
 }
 

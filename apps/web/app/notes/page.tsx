@@ -1,8 +1,10 @@
 import { ArrowLeft, NotebookPen } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { NoteLibrary } from "@/components/note-library";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { listNotes } from "@/lib/study/notes-service";
 import { listStudyTasks, listSubjects } from "@/lib/study/service";
 import { listSyllabusTree } from "@/lib/study/syllabus-service";
@@ -15,11 +17,12 @@ export default async function NotesPage() {
     redirect("/login");
   }
 
-  const [subjects, tasks, nodes, notes] = await Promise.all([
+  const [subjects, tasks, nodes, notes, longTermRisks] = await Promise.all([
     listSubjects(),
     listStudyTasks(),
     listSyllabusTree(),
     listNotes(),
+    getLongTermRiskSummary(),
   ]);
 
   return (
@@ -44,6 +47,12 @@ export default async function NotesPage() {
             返回作战台
           </Link>
         </header>
+
+        <LongTermRiskPanel
+          summary={longTermRisks}
+          title="复习提醒长期风险"
+          description="笔记复习提醒与报告、考纲、模拟共用同一组长期风险原因，不单独生成冲突结论。"
+        />
 
         <NoteLibrary subjects={subjects} tasks={tasks} nodes={nodes} notes={notes} />
       </div>

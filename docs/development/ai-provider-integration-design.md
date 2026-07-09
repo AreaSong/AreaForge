@@ -2,9 +2,9 @@
 
 ## 状态
 
-本文件最初用于 `tasks/done/0005-mvp-ai-discipline.md` 和 `tasks/backlog/0017-ai-stage-privacy-cost.md` 的实现前确认。当前 `tasks/done/0005-mvp-ai-discipline.md` 已完成 Package C 真实 AI Provider 第一版；本文继续作为第一版 provider 的边界说明和长期阶段调整 AI 的确认前设计。
+本文件最初用于 `tasks/done/0005-mvp-ai-discipline.md` 和 `tasks/backlog/0017-ai-stage-privacy-cost.md` 的实现前确认。当前 `tasks/done/0005-mvp-ai-discipline.md` 已完成 Package C 真实 AI Provider 第一版，Package D Batch D3 已完成长期阶段 AI 草稿显式触发路径；本文继续作为 provider 边界和后续长期 AI 扩展的约束说明。
 
-Package C 已允许在 `AI_ENABLED=true` 且服务端配置完整时，由三条鉴权 AI POST route 显式触发真实 provider。真实 key 生产烟测、长期阶段调整外呼、保存调用历史、费用统计或发送更完整私密上下文，仍必须等用户后续明确确认后再做。
+Package C 已允许在 `AI_ENABLED=true` 且服务端配置完整时，由三条鉴权 AI POST route 显式触发真实 provider。Package D Batch D3 额外允许 `POST /api/simulation/stage-adjustment-drafts/ai` 显式生成长期阶段 AI 草稿。真实 key 生产烟测、保存调用历史、费用统计、自动应用阶段计划或发送更完整私密上下文，仍必须等用户后续明确确认后再做。
 
 ## 当前基线
 
@@ -18,21 +18,24 @@ Package C 已允许在 `AI_ENABLED=true` 且服务端配置完整时，由三条
   - `POST /api/ai/discipline`
   - `POST /api/ai/daily-review`
   - `POST /api/ai/tomorrow-plan`
-- Web 服务已接入 env 驱动 provider 创建；只有上述三条鉴权 POST route 传入 `allowExternalProvider: true` 时才允许外呼。
+- D3 后长期阶段 AI 草稿 API 已有：
+  - `POST /api/simulation/stage-adjustment-drafts/ai`
+- Web 服务已接入 env 驱动 provider 创建；只有上述鉴权 POST route 传入 `allowExternalProvider: true` 时才允许外呼。
 - 首页普通 SSR 不传 `allowExternalProvider`，仍展示 `local_rule_fallback`，不会因为普通打开首页产生真实外呼成本。
 
 仍待单独确认：
 
-- 长期阶段调整 provider 仍需单独确认。
-- 真实生产 key 烟测、AI 调用历史、费用统计、完整 prompt/响应保存和更完整私密上下文外呼仍需单独确认。
+- D3 范围外长期阶段应用、自动计划覆盖、AI 调用历史、费用统计、完整 prompt/响应保存和更完整私密上下文外呼仍需单独确认。
+- 真实生产 key 烟测仍需单独确认并使用最小测试数据。
 
 ## 接入范围
 
-第一版真实 AI 只允许：
+第一版真实 AI 和 D3 草稿只允许：
 
 - 鞭策文案。
 - 每日复盘建议。
 - 明日最小任务建议。
+- 用户显式触发的长期阶段调整草稿。
 
 不允许：
 
@@ -41,7 +44,7 @@ Package C 已允许在 `AI_ENABLED=true` 且服务端配置完整时，由三条
 - 保存完整 prompt 或完整模型响应。
 - 触发部署、备份、恢复、migration 或服务器命令。
 
-长期阶段调整属于第二阶段，必须按 `tasks/backlog/0017-ai-stage-privacy-cost.md` 再确认字段清单和费用边界。
+长期阶段调整属于第二阶段；D3 已按 `tasks/backlog/0017-ai-stage-privacy-cost.md` 完成最小草稿字段清单和显式触发入口，后续扩展仍需继续沿用该确认包。
 
 ## Provider 设计
 
@@ -124,6 +127,20 @@ Provider config：
 - 一个薄弱科目名称。
 
 注意：任务标题可能含私密内容；Package C 已完成 `topTaskTitle redaction` 决策。真实 provider 第一版默认不发送原始任务标题，只发送脱敏占位标签；若未来必须发送标题，需先做脱敏并在烟测中证明 `task title may contain private content` 不会进入外呼。
+
+### 长期阶段调整草稿
+
+- 周期范围。
+- 阶段目标摘要，不发送长目标原文。
+- 有效学习分钟数。
+- 任务完成率、复盘完成率、低转化次数。
+- 科目投入占比。
+- 薄弱节点摘要。
+- 模拟考试汇总。
+- 阶段计划模式、状态、距阶段结束天数。
+- 风险标签。
+
+不得发送完整任务标题、完整复盘正文、完整情绪记录、动机档案、附件内容、文件路径、完整 prompt 或 raw response。
 
 ## 敏感字段拦截
 
