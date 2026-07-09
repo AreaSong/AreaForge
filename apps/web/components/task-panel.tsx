@@ -28,13 +28,23 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
   const [estimatedMinutes, setEstimatedMinutes] = useState(45);
   const [priority, setPriority] = useState("medium");
   const [error, setError] = useState<string | null>(null);
+  const [debtNotice, setDebtNotice] = useState<string | null>(null);
+  const [selectedDebtTaskIds, setSelectedDebtTaskIds] = useState<string[]>([]);
+  const [isDebtActionPending, setDebtActionPending] = useState(false);
   const [isPending, startTransition] = useTransition();
   const flatNodes = useMemo(() => flattenNodes(syllabusNodes), [syllabusNodes]);
   const nodeOptions = flatNodes.filter((node) => node.subjectId === subjectId);
+  const visibleDebtSuggestions = useMemo(() => debtReorder.suggestions.slice(0, 4), [debtReorder.suggestions]);
+  const visibleDebtTaskIds = useMemo(
+    () => new Set(visibleDebtSuggestions.map((suggestion) => suggestion.taskId)),
+    [visibleDebtSuggestions],
+  );
+  const selectedVisibleDebtTaskIds = selectedDebtTaskIds.filter((taskId) => visibleDebtTaskIds.has(taskId));
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setDebtNotice(null);
     const response = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -61,6 +71,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
 
   async function act(path: string, body?: unknown) {
     setError(null);
+    setDebtNotice(null);
     const response = await fetch(path, {
       method: "POST",
       headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -74,6 +85,54 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
     }
 
     startTransition(() => router.refresh());
+  }
+
+  function toggleDebtSuggestion(taskId: string) {
+    setSelectedDebtTaskIds((current) =>
+      current.includes(taskId)
+        ? current.filter((item) => item !== taskId)
+        : [...current, taskId],
+    );
+  }
+
+  async function actOnDebtReorder(kind: "confirm" | "reject" | "apply") {
+    const selectedTaskIds = selectedVisibleDebtTaskIds;
+    if (selectedTaskIds.length === 0) return;
+
+    setError(null);
+    setDebtNotice(null);
+    setDebtActionPending(true);
+    const path = kind === "apply"
+      ? "/api/tasks/debt-reorder/applications"
+      : "/api/tasks/debt-reorder/decisions";
+    const body = kind === "apply"
+      ? { selectedTaskIds }
+      : { action: kind, selectedTaskIds };
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        decision?: { summary?: string };
+        application?: { summary?: string };
+      } | null;
+
+      if (!response.ok) {
+        setError(data?.error ?? "债务重排操作失败");
+        return;
+      }
+
+      setSelectedDebtTaskIds([]);
+      setDebtNotice(data?.decision?.summary ?? data?.application?.summary ?? "债务重排操作已记录");
+      startTransition(() => router.refresh());
+    } catch {
+      setError("债务重排操作失败");
+    } finally {
+      setDebtActionPending(false);
+    }
   }
 
   return (
@@ -163,6 +222,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
       </form>
 
       {error ? <p className="mt-3 text-sm text-red-200">{error}</p> : null}
+      {debtNotice ? <p className="mt-3 text-sm text-teal-200">{debtNotice}</p> : null}
 
       {debtReorder.suggestions.length > 0 ? (
         <div className="mt-4 border-b border-white/10 pb-4">
@@ -184,16 +244,61 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
             </span>
           </div>
           <div className="mt-3 grid gap-2">
-            {debtReorder.suggestions.slice(0, 4).map((suggestion) => (
-              <div key={suggestion.taskId} className="border-l border-amber-300/30 pl-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-amber-100">{labelDebtAction(suggestion.action)}</span>
-                  <span className="text-zinc-100">{suggestion.taskTitle}</span>
-                  <span className="text-xs text-zinc-500">{suggestion.subjectName}</span>
+            {visibleDebtSuggestions.map((suggestion) => (
+              <label
+                key={suggestion.taskId}
+                className="grid cursor-pointer grid-cols-[auto_1fr] gap-3 border-l border-amber-300/30 pl-3 text-sm"
+              >
+                <input
+                  className="mt-1 h-4 w-4 accent-amber-300"
+                  type="checkbox"
+                  checked={selectedDebtTaskIds.includes(suggestion.taskId)}
+                  onChange={() => toggleDebtSuggestion(suggestion.taskId)}
+                />
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-amber-100">{labelDebtAction(suggestion.action)}</span>
+                    <span className="text-zinc-100">{suggestion.taskTitle}</span>
+                    <span className="text-xs text-zinc-500">{suggestion.subjectName}</span>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">{suggestion.reason}</p>
                 </div>
-                <p className="mt-1 text-xs leading-5 text-zinc-400">{suggestion.reason}</p>
-              </div>
+              </label>
             ))}
+          </div>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-zinc-500">
+              只处理所选项：已选 {selectedVisibleDebtTaskIds.length} / {visibleDebtSuggestions.length}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                disabled={isDebtActionPending || selectedVisibleDebtTaskIds.length === 0}
+                onClick={() => actOnDebtReorder("confirm")}
+              >
+                <Check className="h-4 w-4" aria-hidden="true" />
+                确认所选
+              </button>
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-red-300/25 px-3 text-sm text-red-100 hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                disabled={isDebtActionPending || selectedVisibleDebtTaskIds.length === 0}
+                onClick={() => actOnDebtReorder("reject")}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+                驳回所选
+              </button>
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-amber-300/25 px-3 text-sm text-amber-100 hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                disabled={isDebtActionPending || selectedVisibleDebtTaskIds.length === 0}
+                onClick={() => actOnDebtReorder("apply")}
+              >
+                <FastForward className="h-4 w-4" aria-hidden="true" />
+                应用所选
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

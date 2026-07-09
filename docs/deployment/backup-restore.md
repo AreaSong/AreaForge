@@ -63,7 +63,7 @@ tar -xzf "$UPLOADS_BACKUP_PATH" -C "$UPLOAD_DIR.restore-check"
 附件 metadata 与文件本体对账只生成报告，不自动修复：
 
 ```text
-attachmentId,noteId,uri,storedName,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action
+attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action
 ```
 
 `action` 第一版固定为 `report_only`。孤儿文件清理、metadata 修复或批量删除必须另行确认。

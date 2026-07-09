@@ -686,7 +686,7 @@ Batch 6 只新增阶段计划和阶段调整草稿模型，用于把当前本地
 建议分批确认：
 
 - Batch D1：报告决策入口。范围仅限周/月报告确认、驳回、生成下一周期草稿、报告决策审计和只读回放；不批量改任务、不自动改阶段计划、不外呼长期 AI。
-- Batch D2：任务债务重排确认流。范围仅限对 `GET /api/tasks/debt-reorder` 的建议做确认、驳回和用户确认后的单项/小批量应用记录，复用 `TaskDebtEvent` 和 `AuditEvent`；不静默延期/删除任务，不自动应用全部建议。
+- Batch D2：任务债务重排确认流。范围仅限对 `GET /api/tasks/debt-reorder` 的建议做确认、驳回和用户确认后的单项/小批量应用记录，复用 `TaskDebtEvent` 和 `AuditEvent`；不静默延期/删除任务，不自动应用全部建议，不新增 migration。
 - Batch D3：长期阶段 AI 草稿。范围仅限使用最小化长期聚合字段生成 `StageAdjustmentDraft.source="ai"` 草稿，结构化校验失败回退本地规则；不发送动机档案、完整情绪记录、完整复盘正文、附件内容，不保存完整 prompt/响应，不自动应用阶段计划。
 - Batch D4：长期风险和主题闭环补强。范围仅限把报告、遗忘风险、笔记复习提醒、作战地图筛选、阶段计划和首页状态主题的证据串联到页面/API；不新增生产部署，不引入多人排名或复杂 BI。
 - Batch D5：Package D 收口。范围仅限 smoke、文档同步、completion record 和 feature-traceability 收口；不把 Package E 生产发布并入本包。
@@ -744,7 +744,7 @@ D1 最小实施契约：
 
 > 确认执行 Package D Batch D1：报告决策入口。范围仅限周/月报告确认、驳回、生成下一周期草稿、报告决策审计和只读回放；不批量改任务、不自动改阶段计划、不外呼长期 AI、不执行生产部署。
 
-> 确认执行 Package D Batch D2：任务债务重排确认流。范围仅限对 `GET /api/tasks/debt-reorder` 的建议做确认、驳回和用户确认后的单项/小批量应用记录，复用 `TaskDebtEvent` 和 `AuditEvent`；不静默延期或删除任务，不自动应用全部建议，不执行生产部署。
+> 确认执行 Package D Batch D2：任务债务重排确认流。范围仅限对 `GET /api/tasks/debt-reorder` 的建议做确认、驳回和用户确认后的单项/小批量应用记录，复用 `TaskDebtEvent` 和 `AuditEvent`；不静默延期或删除任务，不自动应用全部建议，不新增 migration，不修改 `StagePlan` / `StageAdjustmentDraft`，不外呼长期 AI，不执行生产部署。
 
 > 确认执行 Package D Batch D3：长期阶段 AI 草稿。范围仅限使用最小化长期聚合字段生成 `StageAdjustmentDraft.source="ai"` 草稿，结构化校验失败回退本地规则；不发送动机档案、完整情绪记录、完整复盘正文或附件内容，不保存完整 prompt/响应，不自动应用阶段计划，不执行生产部署。
 

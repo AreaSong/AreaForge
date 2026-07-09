@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ReportDecisionActions } from "@/components/report-decision-actions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPeriodicReports, type PeriodicReportDto } from "@/lib/study/reports-service";
 
@@ -36,7 +37,7 @@ export default async function ReportsPage() {
             <h1 className="mt-3 text-3xl font-semibold tracking-normal text-white sm:text-4xl">
               周审判与月复盘
             </h1>
-            <p className="mt-2 text-sm text-zinc-500">即时派生报告，不落库，不默认调用 AI。</p>
+            <p className="mt-2 text-sm text-zinc-500">实时派生报告，确认后冻结快照并保留只读回放。</p>
           </div>
           <Link
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
@@ -228,6 +229,7 @@ function ReportSection({ report }: { report: PeriodicReportDto }) {
               {report.decisionPreview.nextCycleDraft.reason}
             </p>
           </div>
+          <ReportDecisionActions report={report} />
         </div>
       </div>
     </section>

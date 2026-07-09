@@ -124,6 +124,14 @@ expectedFailureOrStopConditions:
   backupMissing:
 ```
 
+发布记录写完后，可以用只读校验脚本检查字段完整性、hash 形态、枚举值、敏感值泄露和附件对账边界：
+
+```bash
+pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]
+```
+
+该脚本只读取发布记录和可选附件对账 CSV，不连接生产服务，不执行 `docker compose`、`pg_dump`、`pg_restore`、migration deploy、文件删除、文件移动或 metadata 修复。附件对账 CSV 的 `action` 必须全部为 `report_only`。
+
 中止条件：
 
 - migration 失败或 Prisma Client 与 schema 不匹配。

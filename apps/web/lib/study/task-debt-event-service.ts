@@ -10,7 +10,9 @@ export type TaskDebtEventAction =
   | "drop"
   | "recover"
   | "split"
-  | "convert_review";
+  | "convert_review"
+  | "reorder_suggested"
+  | "reorder_applied";
 
 export interface TaskDebtEventTaskState {
   status: TaskDebtEventStatus;

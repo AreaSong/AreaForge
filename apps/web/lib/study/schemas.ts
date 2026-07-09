@@ -267,6 +267,41 @@ export const stageAdjustmentDraftSchema = z.object({
   stagePlanId: z.string().min(1).nullable().optional(),
 });
 
+export const periodicReportDecisionSchema = z.object({
+  kind: z.enum(["week", "month"]),
+  action: z.enum(["confirm", "reject"]),
+  rangeStart: z.string().datetime(),
+  rangeEnd: z.string().datetime(),
+});
+
+const taskDebtReorderSelectedTaskIdsSchema = z.array(z.string().min(1)).min(1).max(5);
+
+const taskDebtReorderSelectionSchema = z
+  .object({
+    selectedTaskIds: taskDebtReorderSelectedTaskIdsSchema.optional(),
+    suggestionIds: taskDebtReorderSelectedTaskIdsSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.selectedTaskIds && !value.suggestionIds) {
+      context.addIssue({
+        code: "custom",
+        message: "selectedTaskIds is required",
+        path: ["selectedTaskIds"],
+      });
+    }
+  })
+  .transform((value) => ({
+    selectedTaskIds: value.selectedTaskIds ?? value.suggestionIds ?? [],
+  }));
+
+export const taskDebtReorderDecisionSchema = z
+  .object({
+    action: z.enum(["confirm", "reject"]),
+  })
+  .and(taskDebtReorderSelectionSchema);
+
+export const taskDebtReorderApplicationSchema = taskDebtReorderSelectionSchema;
+
 export const createSimulationTaskSchema = z.object({
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),

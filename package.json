@@ -17,6 +17,8 @@
     "risk:preflight": "tsx scripts/quality/risk-preflight.ts",
     "package-d:preflight": "tsx scripts/quality/package-d-preflight.ts",
     "package-e:preflight": "tsx scripts/quality/package-e-preflight.ts",
+    "release:evidence:validate": "tsx scripts/quality/release-evidence-validate.ts",
+    "release:evidence:selftest": "tsx scripts/quality/release-evidence-validate.selftest.ts",
     "auth:hash": "tsx scripts/auth/hash-password.ts",
     "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma generate",
     "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma validate",

@@ -467,6 +467,16 @@ function checkSecondStageStillBeforePackageD(): void {
     hasWriteRouteMethod(readIfExists(file)) &&
     !isPackageDReportDecisionRoute(file, packageDStatus.d1),
   );
+  const d1ReportDecisionRoute = "apps/web/app/api/reports/periodic/decisions/route.ts";
+  const unexpectedD1ReportDecisionRoutes = packageDStatus.d1
+    ? allApiFiles.filter((file) =>
+      isPackageDReportDecisionRouteFamily(file) &&
+      !isPackageDReportDecisionRoute(file, true),
+    )
+    : [];
+  const invalidD1ReportDecisionMethods = packageDStatus.d1
+    ? getExportedRouteMethods(readIfExists(d1ReportDecisionRoute)).filter((method) => !["GET", "POST"].includes(method))
+    : [];
   const forbiddenStageAiDraftRoutes = allApiFiles.filter((file) =>
     file.replaceAll(path.sep, "/").includes("/simulation/stage-adjustment-drafts/ai") &&
     !isPackageDStageAiDraftRoute(file, packageDStatus.d3),
@@ -514,12 +524,19 @@ function checkSecondStageStillBeforePackageD(): void {
     name: "Package D periodic reports API boundary",
     ok: reportsPeriodicRoute.includes("export async function GET") &&
       forbiddenReportsPeriodicMethods.length === 0 &&
-      forbiddenReportWriteRoutes.length === 0,
-    detail: forbiddenReportsPeriodicMethods.length === 0 && forbiddenReportWriteRoutes.length === 0
-      ? "periodic reports remain read-only GET without decision write handlers"
+      forbiddenReportWriteRoutes.length === 0 &&
+      unexpectedD1ReportDecisionRoutes.length === 0 &&
+      invalidD1ReportDecisionMethods.length === 0,
+    detail: forbiddenReportsPeriodicMethods.length === 0 &&
+        forbiddenReportWriteRoutes.length === 0 &&
+        unexpectedD1ReportDecisionRoutes.length === 0 &&
+        invalidD1ReportDecisionMethods.length === 0
+      ? "base periodic reports remain read-only GET; D1 decision route is allowed only with complete evidence"
       : `found periodic report write surface before confirmation: ${[
         ...forbiddenReportsPeriodicMethods,
         ...forbiddenReportWriteRoutes,
+        ...unexpectedD1ReportDecisionRoutes,
+        ...invalidD1ReportDecisionMethods.map((method) => `${d1ReportDecisionRoute}:${method}`),
       ].join(", ")}`,
   });
 
@@ -751,9 +768,9 @@ function checkSecondStageStillBeforePackageD(): void {
     "model StageAdjustmentApplication",
     "model StagePlanApplication",
     "model LongTermAiAdvice",
-    "reportSnapshot",
+    "reportSnapshot.create",
     "periodicReportSnapshot",
-    "reportDecision",
+    "reportDecision.create",
     "periodicReportDecision",
     "reportApplication",
     "taskReorderApplication",
@@ -770,8 +787,160 @@ function checkSecondStageStillBeforePackageD(): void {
     name: "Package D report and decision persistence boundary",
     ok: reportSnapshotMatches.length === 0,
     detail: reportSnapshotMatches.length === 0
-      ? "periodic reports, debt reorder, and stage drafts remain read-only with no decision/snapshot/application persistence"
+      ? "only evidence-gated Package D persistence is allowed; debt reorder, stage application, and long-term AI persistence stay locked"
       : `found report/decision/application persistence surface before confirmation: ${reportSnapshotMatches.join(", ")}`,
+  });
+
+  checkPackageDCompletedBatchEvidence(packageDStatus, {
+    allApiFiles,
+    aiPackage,
+    reportsPage,
+    schema,
+    stageService,
+    studyRuntimeText,
+    taskPanel,
+  });
+}
+
+function checkPackageDCompletedBatchEvidence(
+  packageDStatus: { d1: boolean; d2: boolean; d3: boolean; d4: boolean; d5: boolean },
+  context: {
+    allApiFiles: string[];
+    aiPackage: string;
+    reportsPage: string;
+    schema: string;
+    stageService: string;
+    studyRuntimeText: string;
+    taskPanel: string;
+  },
+): void {
+  if (!packageDStatus.d3) {
+    checks.push({
+      name: "Package D D3 completed-batch evidence",
+      ok: true,
+      detail: "D3 is not marked done, so long-term AI draft implementation evidence remains locked",
+    });
+  } else {
+    const routePath = "apps/web/app/api/simulation/stage-adjustment-drafts/ai/route.ts";
+    const route = readIfExists(routePath);
+    const service = readIfExists("apps/web/lib/study/long-term-stage-ai-service.ts");
+    const routeMethods = getExportedRouteMethods(route);
+    const unexpectedRouteMethods = routeMethods.filter((method) => method !== "POST").map((method) => `${routePath}:${method}`);
+    const requiredTerms = [
+      ["route", route, "export async function POST"],
+      ["route", route, "requireApiUser(request)"],
+      ["route", route, "allowExternalProvider: true"],
+      ["service", service, "createAiStageAdjustmentDraft"],
+      ["service", service, "minimizedLongTermStageContext"],
+      ["service", service, "source: \"ai\""],
+      ["service", service, "canAutoApply: false"],
+      ["service", service, "requiresUserConfirmation: true"],
+      ["service", service, "AI_STAGE_ADJUSTMENT_DRAFT_CREATED"],
+      ["ai-package", context.aiPackage, "schema invalid"],
+    ];
+    const forbiddenPrivacyTerms = [
+      "motivationVault",
+      "motivationProfile",
+      "fullMoodRecord",
+      "fullReviewText",
+      "attachmentContent",
+      "attachmentPath",
+      "rawResponse",
+      "promptHash",
+      "tokenUsage",
+      "AiCall",
+      "AiUsage",
+    ];
+    const missing = requiredTerms
+      .filter(([, content, term]) => !content.includes(term))
+      .map(([file, , term]) => `${file}:${term}`);
+    const privacyMatches = forbiddenPrivacyTerms
+      .filter((term) => `${service}\n${context.studyRuntimeText}\n${context.aiPackage}`.includes(term));
+
+    checks.push({
+      name: "Package D D3 completed-batch evidence",
+      ok: missing.length === 0 && unexpectedRouteMethods.length === 0 && privacyMatches.length === 0,
+      detail: missing.length === 0 && unexpectedRouteMethods.length === 0 && privacyMatches.length === 0
+        ? "D3 completion evidence includes POST-only auth route, minimized AI service, source=ai draft write, audit, fallback/schema evidence, and privacy bans"
+        : `missing ${[...missing, ...unexpectedRouteMethods].join(", ") || "none"}; privacy ${privacyMatches.join(", ") || "none"}`,
+    });
+  }
+
+  if (!packageDStatus.d4) {
+    checks.push({
+      name: "Package D D4 completed-batch evidence",
+      ok: true,
+      detail: "D4 is not marked done, so long-term risk/theme page/API evidence remains locked",
+    });
+  } else {
+    const riskService = readIfExists("apps/web/lib/study/long-term-risk-service.ts");
+    const riskRoutePath = "apps/web/app/api/analytics/long-term-risks/route.ts";
+    const riskRoute = readIfExists(riskRoutePath);
+    const syllabusSurface = readIfExists("apps/web/app/syllabus/page.tsx") + readIfExists("apps/web/components/syllabus-panel.tsx");
+    const notesSurface = readIfExists("apps/web/app/notes/page.tsx") + readIfExists("apps/web/components/notes-panel.tsx");
+    const simulationSurface = readIfExists("apps/web/app/simulation/page.tsx");
+    const riskRouteMethods = getExportedRouteMethods(riskRoute);
+    const unexpectedRiskRouteMethods = riskRouteMethods.filter((method) => method !== "GET").map((method) => `${riskRoutePath}:${method}`);
+    const requiredTerms = [
+      ["risk-service", riskService, "summarizeLongTermRisks"],
+      ["risk-service", riskService, "evidenceFreshness"],
+      ["risk-service", riskService, "nextAction"],
+      ["risk-route", riskRoute, "export async function GET"],
+      ["risk-route", riskRoute, "requireApiUser(request)"],
+      ["reports-page", context.reportsPage, "长期风险"],
+      ["syllabus", syllabusSurface, "遗忘风险"],
+      ["notes", notesSurface, "复习提醒"],
+      ["simulation", simulationSurface, "阶段计划"],
+      ["task-panel", context.taskPanel, "状态主题"],
+    ];
+    const missing = requiredTerms
+      .filter(([, content, term]) => !content.includes(term))
+      .map(([file, , term]) => `${file}:${term}`);
+
+    checks.push({
+      name: "Package D D4 completed-batch evidence",
+      ok: missing.length === 0 && unexpectedRiskRouteMethods.length === 0,
+      detail: missing.length === 0 && unexpectedRiskRouteMethods.length === 0
+        ? "D4 completion evidence connects long-term risk DTO to reports, analytics route, syllabus, notes, simulation, and theme surfaces"
+        : `missing ${[...missing, ...unexpectedRiskRouteMethods].join(", ")}`,
+    });
+  }
+
+  if (!packageDStatus.d5) {
+    checks.push({
+      name: "Package D D5 completed-batch evidence",
+      ok: true,
+      detail: "D5 is not marked done, so Package D cannot be closed",
+    });
+    return;
+  }
+
+  const completionRecord = readIfExists("docs/development/docs-100-completion-record.md");
+  const packageDLine = completionRecord.split(/\r?\n/).find((line) => line.startsWith("| Package D |")) ?? "";
+  const packageDCells = parseMarkdownCells(packageDLine);
+  const packageDStatusCell = packageDCells[1] ?? "";
+  const packageDEvidence = packageDCells[2] ?? "";
+  const featureTraceability = readIfExists("docs/development/feature-traceability.md");
+  const missingEarlierBatches = [
+    ["D1", packageDStatus.d1],
+    ["D2", packageDStatus.d2],
+    ["D3", packageDStatus.d3],
+    ["D4", packageDStatus.d4],
+  ].filter(([, done]) => !done).map(([batch]) => String(batch));
+  const packageDoneWithEvidence = packageDStatusCell.includes("DONE / 已完成") &&
+    ["验证", "烟测", "文档同步", "残余风险"].every((term) => packageDEvidence.includes(term));
+  const longTermAiStatus = findFeatureTraceabilityStatus(featureTraceability, "AI 根据长期数据生成阶段调整建议");
+  const lingeringPackageDGap = !longTermAiStatus ||
+    ["基础版", "待确认", "未实现"].some((status) => longTermAiStatus.includes(status));
+  const d5Line = completionRecord.split(/\r?\n/).find((line) => line.startsWith("| Batch D5：")) ?? "";
+  const d5NoProductionDeploy = d5Line.includes("不执行生产部署") || d5Line.includes("不把 Package E");
+
+  checks.push({
+    name: "Package D D5 completed-batch evidence",
+    ok: missingEarlierBatches.length === 0 && packageDoneWithEvidence && !lingeringPackageDGap && d5NoProductionDeploy,
+    detail: missingEarlierBatches.length === 0 && packageDoneWithEvidence && !lingeringPackageDGap && d5NoProductionDeploy
+      ? "D5 closes only Package D after D1-D4, package evidence, feature traceability, and no Package E deploy mixing"
+      : `missingEarlierBatches=${missingEarlierBatches.join(", ") || "none"}; packageDone=${packageDoneWithEvidence}; longTermAiStatus=${longTermAiStatus ?? "missing"}; lingeringPackageDGap=${lingeringPackageDGap}; d5NoProductionDeploy=${d5NoProductionDeploy}`,
   });
 }
 
@@ -1215,6 +1384,8 @@ function checkProductionCompose(): void {
   const runbook = readIfExists("docs/development/production-release-runbook.md");
   const backupRestore = readIfExists("docs/deployment/backup-restore.md");
   const setup = readIfExists("docs/development/setup.md");
+  const completionRecord = readIfExists("docs/development/docs-100-completion-record.md");
+  const packageJson = JSON.parse(readIfExists("package.json")) as { scripts?: Record<string, string> };
   const webBlock = getComposeServiceBlock(compose, "web");
   const postgresBlock = getComposeServiceBlock(compose, "postgres");
   const webImageLine = findYamlKeyLine(webBlock, "image");
@@ -1286,6 +1457,10 @@ function checkProductionCompose(): void {
     "databaseBackupSha256",
     "uploadsBackupSha256",
     "恢复演练验收判定表",
+    "pnpm release:evidence:validate",
+    "attachment-reconciliation.csv",
+    "attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action",
+    "只读取发布记录",
     "migration deploy 的执行载体",
     "一次性 migration 镜像或 job",
     "不能默认视为可执行 `pnpm db:migrate:deploy` 的环境",
@@ -1326,6 +1501,69 @@ function checkProductionCompose(): void {
     detail: missingSetupTerms.length === 0
       ? "setup docs keep production migration behind Package E confirmation, backup point, and explicit runner"
       : `missing ${missingSetupTerms.join(", ")}`,
+  });
+
+  const eBatchStates = getPackageEBatchStatus(completionRecord);
+  const eBatchKeys = ["E1", "E2", "E3", "E4"] as const;
+  const allEBatchesDone = eBatchKeys.every((batch) => eBatchStates[batch.toLowerCase() as keyof typeof eBatchStates]);
+  const packageELine = completionRecord.split(/\r?\n/).find((line) => line.startsWith("| Package E |")) ?? "";
+  const packageECells = parseMarkdownCells(packageELine);
+  const packageEStatus = packageECells[1] ?? "";
+  const packageEEvidence = packageECells[2] ?? "";
+  const packageEDoneWithEvidence = packageEStatus.includes("DONE / 已完成") &&
+    ["验证", "烟测", "文档同步", "残余风险", "发布", "备份", "恢复", "回滚"].every((term) => packageEEvidence.includes(term));
+  const invalidEBatchRows = eBatchKeys.flatMap((batch) => {
+    const batchDone = eBatchStates[batch.toLowerCase() as keyof typeof eBatchStates];
+    if (batchDone) return [];
+    const line = completionRecord.split(/\r?\n/).find((item) => item.startsWith(`| Batch ${batch}：`)) ?? "";
+    const cells = parseMarkdownCells(line);
+    const status = cells[1] ?? "";
+    const confirmation = cells[2] ?? "";
+    return status.includes("NOT_READY / 未完成") && confirmation.includes("待用户明确确认")
+      ? []
+      : [`${batch}=${status || "missing"}`];
+  });
+  const packageELedgerOk = allEBatchesDone
+    ? packageEDoneWithEvidence
+    : packageEStatus.includes("NOT_READY / 未完成") && invalidEBatchRows.length === 0;
+  checks.push({
+    name: "Package E batch completion ledger",
+    ok: packageELedgerOk,
+    detail: packageELedgerOk
+      ? allEBatchesDone
+        ? "Package E completion requires E1-E4 plus release/backup/restore/rollback evidence"
+        : "Package E remains NOT_READY until E1-E4 completion evidence exists"
+      : `Package E status=${packageEStatus || "missing"}; invalid batches ${invalidEBatchRows.join(", ") || "none"}; packageDone=${packageEDoneWithEvidence}`,
+  });
+
+  const scriptForbiddenPatterns = [
+    { label: "prod deploy script", pattern: /\b(prod|production)[\w:-]*(deploy|release)\b/i },
+    { label: "backup script", pattern: /\b(pg_dump|backup|dump)\b/i },
+    { label: "restore script", pattern: /\b(pg_restore|restore)\b/i },
+    { label: "compose up script", pattern: /\bdocker\s+compose\b.*\bup\b/i },
+    { label: "compose down script", pattern: /\bdocker\s+compose\b.*\bdown\b/i },
+    { label: "server command script", pattern: /\b(ssh|rsync|scp)\b/i },
+  ];
+  const forbiddenScripts = Object.entries(packageJson.scripts ?? {}).flatMap(([name, command]) =>
+    scriptForbiddenPatterns
+      .filter((item) => item.pattern.test(`${name} ${command}`))
+      .map((item) => `${name}:${item.label}`),
+  );
+  const migrateDeployDocumented = (packageJson.scripts?.["db:migrate:deploy"] ?? "").includes("prisma migrate deploy") &&
+    runbook.includes("Package E") &&
+    runbook.includes("受控 release 工作目录");
+  const releaseEvidenceValidate = packageJson.scripts?.["release:evidence:validate"] ?? "";
+  const releaseEvidenceSelftest = packageJson.scripts?.["release:evidence:selftest"] ?? "";
+  const releaseEvidenceValidatorDocumented = releaseEvidenceValidate.includes("scripts/quality/release-evidence-validate.ts") &&
+    releaseEvidenceSelftest.includes("scripts/quality/release-evidence-validate.selftest.ts") &&
+    runbook.includes("pnpm release:evidence:validate") &&
+    runbook.includes("只读取发布记录");
+  checks.push({
+    name: "Package E package scripts boundary",
+    ok: forbiddenScripts.length === 0 && migrateDeployDocumented && releaseEvidenceValidatorDocumented,
+    detail: forbiddenScripts.length === 0 && migrateDeployDocumented && releaseEvidenceValidatorDocumented
+      ? "root scripts do not expose deploy/backup/restore/compose ops; migrate deploy is documented behind Package E; release evidence validation is read-only"
+      : `forbiddenScripts=${forbiddenScripts.join(", ") || "none"}; migrateDeployDocumented=${migrateDeployDocumented}; releaseEvidenceValidatorDocumented=${releaseEvidenceValidatorDocumented}`,
   });
 
   const apiFiles = listFiles("apps/web/app/api").filter((file) => file.endsWith("/route.ts"));
@@ -2340,6 +2578,36 @@ function isPackageDBatchDone(completionRecord: string, batch: "D1" | "D2" | "D3"
     !["待同步", "未运行", "缺"].some((token) => residualRisk.includes(token));
 }
 
+function getPackageEBatchStatus(completionRecord: string): { e1: boolean; e2: boolean; e3: boolean; e4: boolean } {
+  return {
+    e1: isPackageEBatchDone(completionRecord, "E1"),
+    e2: isPackageEBatchDone(completionRecord, "E2"),
+    e3: isPackageEBatchDone(completionRecord, "E3"),
+    e4: isPackageEBatchDone(completionRecord, "E4"),
+  };
+}
+
+function isPackageEBatchDone(completionRecord: string, batch: "E1" | "E2" | "E3" | "E4"): boolean {
+  const line = completionRecord
+    .split(/\r?\n/)
+    .find((item) => item.startsWith(`| Batch ${batch}：`)) ?? "";
+  if (!line.includes("DONE / 已完成")) return false;
+
+  const cells = parseMarkdownCells(line);
+  const confirmation = cells[2] ?? "";
+  const validation = cells[3] ?? "";
+  const smoke = cells[4] ?? "";
+  const docsSync = cells[5] ?? "";
+  const residualRisk = cells[6] ?? "";
+
+  return confirmation.includes("用户已明确确认") &&
+    validation.includes("pnpm") &&
+    /(烟测|smoke|演练|发布|备份|恢复|回滚)/i.test(smoke) &&
+    docsSync.includes("已同步") &&
+    residualRisk.length >= 20 &&
+    !["待同步", "未运行", "缺"].some((token) => residualRisk.includes(token));
+}
+
 function hasWriteRouteMethod(routeContent: string): boolean {
   return /\bexport\s+async\s+function\s+(POST|PATCH|PUT|DELETE)\b/.test(routeContent) ||
     /\bexport\s+const\s+(POST|PATCH|PUT|DELETE)\b/.test(routeContent) ||
@@ -2363,8 +2631,12 @@ function isReportDecisionScopeRoute(file: string): boolean {
 function isPackageDReportDecisionRoute(file: string, d1Done: boolean): boolean {
   if (!d1Done) return false;
   const normalized = file.replaceAll(path.sep, "/");
-  return /\/reports\/periodic\/decisions(\/\[[^\]]+\])?\/route\.ts$/.test(normalized) ||
-    /\/periodic-reports\/decisions(\/\[[^\]]+\])?\/route\.ts$/.test(normalized);
+  return /\/reports\/periodic\/decisions\/route\.ts$/.test(normalized);
+}
+
+function isPackageDReportDecisionRouteFamily(file: string): boolean {
+  const normalized = file.replaceAll(path.sep, "/");
+  return normalized.includes("/reports/periodic/decisions/");
 }
 
 function isPackageDDebtReorderDecisionRoute(file: string, d2Done: boolean): boolean {
@@ -2385,9 +2657,7 @@ function isAllowedPackageDPersistenceTerm(
 ): boolean {
   const d1AllowedTerms = [
     "model PeriodicReportDecision",
-    "reportSnapshot",
     "periodicReportDecision",
-    "reportDecision",
   ];
   const d2AllowedTerms = [
     "debtReorderApplication",
@@ -2410,6 +2680,14 @@ function listFiles(directory: string): string[] {
   });
 }
 
+function getExportedRouteMethods(routeContent: string): string[] {
+  return ["GET", "POST", "PUT", "PATCH", "DELETE"].filter((method) =>
+    new RegExp(`\\bexport\\s+async\\s+function\\s+${method}\\b`).test(routeContent) ||
+    new RegExp(`\\bexport\\s+const\\s+${method}\\b`).test(routeContent) ||
+    new RegExp(`\\bexport\\s*\\{\\s*${method}(\\s+as\\s+${method})?\\s*\\}`).test(routeContent),
+  );
+}
+
 function isPackageBBatchDone(completionRecord: string, batch: number): boolean {
   return completionRecord
     .split(/\r?\n/)
@@ -2421,6 +2699,13 @@ function parseMarkdownCells(line: string): string[] {
     .split("|")
     .slice(1, -1)
     .map((cell) => cell.trim());
+}
+
+function findFeatureTraceabilityStatus(content: string, feature: string): string | null {
+  const line = content.split(/\r?\n/).find((item) => item.startsWith(`| ${feature} |`));
+  if (!line) return null;
+  const cells = parseMarkdownCells(line);
+  return cells[1] ?? null;
 }
 
 function isPackageConfirmedOrDone(completionRecord: string, packageName: string): boolean {

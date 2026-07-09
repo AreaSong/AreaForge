@@ -44,6 +44,8 @@
 
 周审判和月复盘属于第二阶段增强功能。第一版只保留数据基础和入口。
 
-当前 `packages/core` 已提供 `choosePeriodicWeakness`、`summarizePeriodicReportStrategy`、`createPeriodicNextCycleDraft` 和 `createPeriodicReportDecisionSnapshot` 纯规则，可根据薄弱节点、欠账集中科目、零有效投入科目、低转化次数、有效学习时长、任务完成率、错题复盘、复盘完成率和到期笔记生成最大短板、周期策略、必须压住的问题、下一步动作、冷静结论、下周期草稿和只读回放快照。最大短板会返回来源、严重度和选择依据，报告页只读展示这些追溯信息。
+当前 `packages/core` 已提供 `choosePeriodicWeakness`、`summarizePeriodicReportStrategy`、`createPeriodicNextCycleDraft` 和 `createPeriodicReportDecisionSnapshot` 纯规则，可根据薄弱节点、欠账集中科目、零有效投入科目、低转化次数、有效学习时长、任务完成率、错题复盘、复盘完成率和到期笔记生成最大短板、周期策略、必须压住的问题、下一步动作、冷静结论、下周期草稿和只读回放快照。最大短板会返回来源、严重度和选择依据，报告页展示这些追溯信息。
 
-周期策略、本地复盘草稿和下周期决策预览都透传 `canAutoApply=false` 和 `requiresUserConfirmation=true`，这些规则只生成只读建议，不落库、不写审计、不修改任务或阶段计划。报告确认、驳回、冻结持久快照和审计写入仍需 Package D Batch D1 明确确认后推进。
+Package D Batch D1 后，周/月报告已具备确认和驳回入口：`PeriodicReportDecision` 会冻结当时的 `reportSnapshot`，确认时保存 `nextCycleDraft`，并写入 `AuditEvent`。`GET /api/reports/periodic` 仍实时派生当前报告，但会优先带回当前周期已存在的决策用于只读回放；历史决策通过报告决策列表只读查询。
+
+周期策略、本地复盘草稿、下周期决策预览和已保存决策都透传 `canAutoApply=false` 和 `requiresUserConfirmation=true`。D1 只记录报告态度、快照、草稿和审计，不修改任务、不应用阶段计划、不批量改复盘或考纲节点；任务重排应用、长期阶段 AI、长期风险主题收口仍属于 Package D 后续批次。

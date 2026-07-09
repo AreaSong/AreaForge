@@ -1,6 +1,6 @@
 # 0015 结构化学习状态 migration 确认包
 
-状态：已完成。Package B Batch 0、Batch 1、Batch 2、Batch 3、Batch 4、Batch 5 和 Batch 6 均已确认、实施并完成本地验证；后续生产 migration deploy、历史回填、删除旧字段、真实 AI 外呼、任务重排应用或长期报告决策仍需另行确认。
+状态：已完成。Package B Batch 0、Batch 1、Batch 2、Batch 3、Batch 4、Batch 5 和 Batch 6 均已确认、实施并完成本地验证；Package D Batch D1 已完成报告决策入口；后续生产 migration deploy、历史回填、删除旧字段、真实 AI 外呼、任务重排应用或报告驱动的任务/阶段应用仍需另行确认。
 
 ## 目标
 
@@ -39,7 +39,7 @@
 
 ## 当前推荐下一步
 
-Package B 分批 migration 主线已完成。后续若要进入生产 migration deploy、历史数据回填、删除旧字段、真实长期 AI、报告决策或任务/阶段应用记录，必须继续走对应 Package D / `0017` / Package E 或单独高风险确认包。
+Package B 分批 migration 主线已完成，Package D Batch D1 报告决策入口也已完成。后续若要进入生产 migration deploy、历史数据回填、删除旧字段、真实长期 AI、任务重排应用或报告驱动的任务/阶段应用记录，必须继续走对应 Package D 后续批次 / `0017` / Package E 或单独高风险确认包。
 
 Batch 0 已完成，且只处理 `StudySession` 结束计时收口，不新增其它表：
 

@@ -312,6 +312,11 @@ function checkRiskPreflightBatchGuardTerms(): void {
     "isPackageDDebtReorderDecisionRoute",
     "isPackageDStageAiDraftRoute",
     "isAllowedPackageDPersistenceTerm",
+    "checkPackageDCompletedBatchEvidence",
+    "Package D D3 completed-batch evidence",
+    "Package D D4 completed-batch evidence",
+    "Package D D5 completed-batch evidence",
+    "long-term-risk-service",
     "previewTaskDebtReorderApplication",
     "summarizeLongTermRisks",
     "小批量上限",
@@ -323,7 +328,7 @@ function checkRiskPreflightBatchGuardTerms(): void {
     name: "risk preflight Package D batch guards",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "risk preflight keeps D1-D3 unlocks evidence-gated and route/token scans narrow"
+      ? "risk preflight keeps D1-D5 unlocks evidence-gated and route/token scans narrow"
       : `missing ${missing.join(", ")}`,
   });
 }
@@ -378,6 +383,8 @@ function checkPackageEPreflightTerms(): void {
   const runbook = read("docs/development/production-release-runbook.md");
   const requiredPackageTokens = [
     "\"package-e:preflight\": \"tsx scripts/quality/package-e-preflight.ts\"",
+    "\"release:evidence:validate\": \"tsx scripts/quality/release-evidence-validate.ts\"",
+    "\"release:evidence:selftest\": \"tsx scripts/quality/release-evidence-validate.selftest.ts\"",
   ];
   const requiredScriptTokens = [
     "checkComposeConfig",
@@ -385,6 +392,8 @@ function checkPackageEPreflightTerms(): void {
     "checkDockerfileBoundaries",
     "checkNginxBoundaries",
     "checkWebRuntimeOpsBoundary",
+    "release-evidence-validate.ts",
+    "release-evidence-validate.selftest.ts",
     "docker compose config",
     "web binds localhost",
     "does not pretend to be a migration runner",
@@ -398,6 +407,8 @@ function checkPackageEPreflightTerms(): void {
     "不触碰生产数据库或上传目录",
     "Web runtime",
     "migration deploy 执行载体",
+    "pnpm release:evidence:validate",
+    "report_only",
   ];
   const missing = [
     ...requiredPackageTokens.filter((token) => !packageJson.includes(token)).map((token) => `package.json:${token}`),

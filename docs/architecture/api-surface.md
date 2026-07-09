@@ -46,13 +46,19 @@
 ### Reports
 
 - `GET /api/reports/periodic`
+- `GET /api/reports/periodic/decisions`
+- `POST /api/reports/periodic/decisions`
 
-周期报告 API 只读派生，不写报告快照表。第一版返回周审判和月复盘数据报告、规则策略、本地规则复盘草稿和 `decisionPreview` 下周期决策预览；`decisionPreview` 只包含聚合指标、最大短板摘要、策略、下一周期草稿和确认边界，不包含任务标题列表、完整复盘正文、附件内容或阶段计划应用结果。默认不把长期记录、情绪记录或动机档案发送给 AI。报告确认、驳回、持久快照和审计写入仍需 Package D Batch D1 确认。
+`GET /api/reports/periodic` 实时派生周审判和月复盘数据报告、规则策略、本地规则复盘草稿和 `decisionPreview` 下周期决策预览；`decisionPreview` 只包含聚合指标、最大短板摘要、策略、下一周期草稿和确认边界，不包含任务标题列表、完整复盘正文、附件内容或阶段计划应用结果。默认不把长期记录、情绪记录或动机档案发送给 AI。
+
+Package D Batch D1 后，`POST /api/reports/periodic/decisions` 允许对当前周/月报告做确认或驳回。服务端会重新计算当前报告范围，拒绝过期页面提交；同向重复提交返回已处理，反向提交返回冲突。确认会保存冻结 `reportSnapshot` 和 `nextCycleDraft`，驳回只保存冻结快照；两者都写入 `AuditEvent`，且只记录报告决策，不批量修改任务、不应用阶段计划、不外呼长期 AI。`GET /api/reports/periodic/decisions` 返回最近报告决策用于只读回放。
 
 ### Tasks
 
 - `GET /api/tasks`
 - `GET /api/tasks/debt-reorder`
+- `POST /api/tasks/debt-reorder/decisions`
+- `POST /api/tasks/debt-reorder/applications`
 - `POST /api/tasks`
 - `PATCH /api/tasks/:id`
 - `POST /api/tasks/:id/complete`
@@ -62,7 +68,7 @@
 - `POST /api/tasks/:id/split`
 - `POST /api/tasks/:id/convert-review`
 
-Batch 2 后，`complete/defer/drop/recover/split/convert-review` 会继续写现有 `AuditEvent`，并在同一事务内写入 `TaskDebtEvent` 事件账本；`split` 创建的子任务会写入 `parentTaskId`，同时继续保留 `reviewText` 说明。旧任务没有债务事件时，页面和统计仍按 `StudyTask.status/debtStatus/plannedDate` fallback。`GET /api/tasks/debt-reorder` 只读返回重排建议，`canAutoApply=false`、`requiresUserConfirmation=true`，不会自动改任务，也不会写 `reorder_suggested/reorder_applied`；确认、驳回、应用记录仍需 Package D。
+Batch 2 后，`complete/defer/drop/recover/split/convert-review` 会继续写现有 `AuditEvent`，并在同一事务内写入 `TaskDebtEvent` 事件账本；`split` 创建的子任务会写入 `parentTaskId`，同时继续保留 `reviewText` 说明。旧任务没有债务事件时，页面和统计仍按 `StudyTask.status/debtStatus/plannedDate` fallback。`GET /api/tasks/debt-reorder` 仍只读返回重排建议，`canAutoApply=false`、`requiresUserConfirmation=true`，不会自动改任务。Package D Batch D2 后，`POST /api/tasks/debt-reorder/decisions` 只记录用户对所选建议的确认或驳回，写 `TaskDebtEvent.action=reorder_suggested` 和 `AuditEvent`；`POST /api/tasks/debt-reorder/applications` 会重新计算当前建议、复用 `previewTaskDebtReorderApplication` 校验所选项和小批量上限，仅在用户显式提交所选项且无跳过项时应用，并写 `TaskDebtEvent.action=reorder_applied` 和 `AuditEvent`。D2 不提供自动应用全部建议入口，不新增 migration，不修改 `StagePlan` / `StageAdjustmentDraft`，也不外呼长期 AI。
 
 ### Timer
 
@@ -148,7 +154,7 @@ Batch 5 后，新建模拟考试和保存模拟结果优先写入 `SimulationExa
 
 `GET /api/simulation/tasks` 保留为旧任务型模拟只读兼容面。旧 `POST /api/simulation/tasks` 和 `POST /api/simulation/tasks/:id/complete` 路由保留但返回 `LEGACY_SIMULATION_TASK_WRITE_DISABLED`，不再创建或完成旧任务型模拟。
 
-Batch 6 后，阶段计划可通过 `stage-plans` API 创建和局部更新；阶段调整草稿通过本地规则持久化，固定 `canAutoApply=false`、`requiresUserConfirmation=true`。`confirm` 只在用户显式确认时更新关联 `StagePlan` 的模式、目标和必要状态，并写入 `AuditEvent`；`reject` 只更新草稿状态。两者都不自动重排任务、不批量修改任务、不外呼真实 AI、不删除历史阶段记录。长期 AI 阶段调整仍需 Package D / `0017`，任务重排应用、报告决策和长期应用记录仍需 Package D。
+Batch 6 后，阶段计划可通过 `stage-plans` API 创建和局部更新；阶段调整草稿通过本地规则持久化，固定 `canAutoApply=false`、`requiresUserConfirmation=true`。`confirm` 只在用户显式确认时更新关联 `StagePlan` 的模式、目标和必要状态，并写入 `AuditEvent`；`reject` 只更新草稿状态。两者都不自动重排任务、不批量修改任务、不外呼真实 AI、不删除历史阶段记录。Package D Batch D1 已完成报告决策入口；长期 AI 阶段调整仍需 Package D / `0017`，任务重排应用、报告驱动的任务/阶段应用和长期应用记录仍需 Package D 后续批次。
 
 ### AI
 

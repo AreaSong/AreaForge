@@ -97,6 +97,7 @@ model User {
   masteryEvidence   MasteryEvidence[]
   masteryRetests    MasteryRetest[]
   stageAdjustmentDrafts StageAdjustmentDraft[]
+  periodicReportDecisions PeriodicReportDecision[]
 }
 
 model AuthSession {
@@ -378,6 +379,29 @@ model AuditEvent {
 
   @@index([actorId])
   @@index([entityType, entityId])
+}
+
+model PeriodicReportDecision {
+  id                       String   @id @default(cuid())
+  kind                     String
+  rangeStart               DateTime
+  rangeEnd                 DateTime
+  status                   String
+  reportSnapshot           Json
+  nextCycleDraft           Json?
+  canAutoApply             Boolean  @default(false)
+  requiresUserConfirmation Boolean  @default(true)
+  actorId                  String?
+  decidedAt                DateTime @default(now())
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  actor                    User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([kind, rangeStart, rangeEnd])
+  @@index([kind])
+  @@index([status])
+  @@index([decidedAt])
+  @@index([actorId])
 }
 
 model MasteryConditionRecord {

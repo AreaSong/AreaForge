@@ -235,11 +235,11 @@
 - `pnpm package-d:preflight`
 - `pnpm risk:preflight`
 - `git diff --check`
-- 人工扫描：`rg --files apps/web/app/api | rg 'debt-reorder|reports|simulation/stage|simulation/exams' | rg 'apply|confirm|reject'` 不应出现长期闭环写路由。
-- 人工扫描：`rg 'ReportSnapshot|ReportDecision|TaskReorderApplication|StagePlanApplication|AiStageAdjustment' prisma apps/web/lib/study` 不应出现报告快照、决策、应用或长期 AI 持久化面。
-- 只读回归：`GET /api/tasks/debt-reorder`、`GET /api/reports/periodic`、`GET /api/simulation/stage` 只能暴露只读建议或草稿，返回体里的建议必须保留 `canAutoApply=false` / `requiresUserConfirmation=true`；对应路径不得出现 `POST`、`PATCH`、`PUT` 或 `DELETE` 应用语义。
+- 人工扫描：`rg --files apps/web/app/api | rg 'debt-reorder|reports|simulation/stage|simulation/exams' | rg 'apply|confirm|reject'` 不应出现未确认的长期闭环写路由；Package D Batch D1 完成后，仅 `/api/reports/periodic/decisions` 属于已确认报告决策入口；Package D Batch D2 完成后，仅 `/api/tasks/debt-reorder/decisions` 和 `/api/tasks/debt-reorder/applications` 属于已确认债务重排所选项写入口。
+- 人工扫描：`rg 'ReportSnapshot|ReportDecision|TaskReorderApplication|StagePlanApplication|AiStageAdjustment' prisma apps/web/lib/study` 不应出现未确认的应用或长期 AI 持久化面；Package D Batch D1 完成后，仅 `PeriodicReportDecision` 与 `periodicReportDecision` 属于已确认报告决策账本。
+- 只读回归：`GET /api/tasks/debt-reorder`、`GET /api/reports/periodic`、`GET /api/simulation/stage` 只能暴露只读建议或草稿，返回体里的建议必须保留 `canAutoApply=false` / `requiresUserConfirmation=true`；对应 GET 路径不得出现 `POST`、`PATCH`、`PUT` 或 `DELETE` 应用语义。D2 的债务重排写入只允许在 `decisions` 和 `applications` 子路由中处理用户所选项。
 
-用户明确确认 Package D 后，才允许新增任务重排应用、阶段计划应用、报告决策写入、报告快照持久化或长期 AI 阶段调整外呼。实现后至少运行：
+用户明确确认对应 Package D 批次后，才允许新增该批次范围内的任务重排应用、阶段计划应用、报告决策写入、报告快照持久化或长期 AI 阶段调整外呼。实现后至少运行：
 
 - `pnpm --filter @areaforge/core test`
 - `pnpm --filter @areaforge/web typecheck`
@@ -254,12 +254,14 @@
 | 批次 | 验证重点 |
 |---|---|
 | Batch D1 报告决策入口 | `pnpm db:generate`、`pnpm db:validate`、临时库 `pnpm db:migrate:deploy`；周/月报告确认、驳回、重复提交、审计摘要、冻结 `reportSnapshot`、下一周期草稿和只读回放；确认/驳回前后 `StudyTask`、`TaskDebtEvent`、`StagePlan`、`StageAdjustmentDraft` 不变 |
-| Batch D2 债务重排确认流 | 建议确认/驳回/应用、只处理所选项、`TaskDebtEvent` 和 `AuditEvent` 双证据、部分失败停止或返回跳过摘要、重复提交幂等、不自动延期/删除全部欠账 |
+| Batch D2 债务重排确认流 | 不新增 migration；建议确认/驳回/应用、只处理所选项、`TaskDebtEvent` 和 `AuditEvent` 双证据、部分失败停止或返回跳过摘要、重复提交幂等、不自动延期/删除全部欠账 |
 | Batch D3 长期阶段 AI 草稿 | 长期 AI 最小字段清单、禁止字段扫描、`AI_ENABLED=false` 本地规则、配置缺失 fallback、mock provider 成功、schema invalid fallback、敏感字段拦截、客户端密钥扫描、草稿不自动应用 |
 | Batch D4 长期风险和主题闭环 | `/reports`、`/analytics`、`/syllabus`、`/notes`、`/simulation`、首页状态主题、笔记复习提醒和遗忘风险证据链一致；正常/恢复/警报/冲刺/稳态页面烟测 |
 | Batch D5 收口 | `pnpm check`、`pnpm risk:preflight`、`pnpm docs:readiness`、`pnpm docs:completion` 不再列 Package D 或长期阶段 AI blocker |
 
-注意：Package D 获确认并完成前，`pnpm risk:preflight` 必须继续阻止任务重排、报告决策、报告快照、长期 AI 外呼和跨模块应用路径越界。Package B Batch 6 完成后，仅 `/api/simulation/stage-adjustment-drafts/:id/confirm|reject` 属于已确认的阶段草稿状态写入；其他 `apply/confirm/reject` 写路由仍必须拦截。
+注意：Package D 全部完成前，`pnpm risk:preflight` 必须继续阻止未确认批次的长期 AI 外呼和跨模块应用路径越界。Package B Batch 6 完成后，仅 `/api/simulation/stage-adjustment-drafts/:id/confirm|reject` 属于已确认的阶段草稿状态写入；Package D Batch D1 完成后，仅 `/api/reports/periodic/decisions` 属于已确认报告决策入口；Package D Batch D2 完成后，仅 `/api/tasks/debt-reorder/decisions` 和 `/api/tasks/debt-reorder/applications` 属于已确认债务重排所选项写入口。其他 `apply/confirm/reject` 写路由仍必须拦截。
+
+`pnpm package-d:preflight` 采用批次感知门禁：D3-D5 未完成时只允许确认前准备和已确认窄面；D2 已完成后只狭窄放行债务重排所选项确认/驳回/应用入口。若未来把 D3-D5 标为完成，脚本会反向要求 D3 长期 AI 草稿 route/service、D4 长期风险与状态主题接入、D5 Package D 主状态和 `feature-traceability` 收口证据同时存在。
 
 ## Package E 专项验证
 
@@ -268,6 +270,7 @@
 - `docker compose config`
 - `docker compose --env-file .env.example -f docker-compose.prod.yml config`
 - `pnpm package-e:preflight`
+- `pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]`
 - `pnpm docs:readiness`
 - `pnpm risk:preflight`
 - `git diff --check`
@@ -281,6 +284,7 @@
 - 恢复演练：临时库导入、临时上传目录恢复、登录、首页、任务、计时、复盘、附件 metadata/hash 对账。
 - 发布后烟测：`GET /api/health`、登录、首页、任务、计时、复盘、`/syllabus`、`/notes`、`/analytics`、`/reports`；附件和真实 AI 若启用，只用小测试文件和最小测试数据。
 - 回滚记录：上一镜像 tag、是否恢复数据库/上传目录、恢复耗时、失败原因、残余风险和后续修复任务。
+- 发布证据记录校验：`pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]` 通过；该命令只读发布记录和可选附件对账 CSV，附件对账 `action` 必须全部为 `report_only`。
 
 推荐批次验证：
 
@@ -289,14 +293,16 @@
 | Batch E1 生产配置与发布工件预检 | `pnpm check`、`pnpm package-e:preflight`、compose config、生产 env 清单、镜像 tag、Nginx 配置、migration deploy 执行载体、发布记录草案和中止条件 |
 | Batch E2 发布前备份与恢复演练 | PostgreSQL dump、上传目录归档、生产 `.env` 权限收紧备份、临时库导入、临时上传目录恢复、附件 metadata/hash 对账只读 `report_only` |
 | Batch E3 生产发布与 migration deploy | 备份点存在、必要 additive migration deploy、明确的 release 工作目录或一次性 migration job、compose/Nginx 切换、`GET /api/health`、登录、首页、任务、计时、复盘、附件和 AI fallback/provider 烟测 |
-| Batch E4 回滚演练与 Package E 收口 | 上一镜像 tag、回滚步骤、是否恢复数据库/上传目录、失败原因、残余风险、文档同步和 `docs:completion` 最终证据 |
+| Batch E4 回滚演练与 Package E 收口 | 上一镜像 tag、回滚步骤、是否恢复数据库/上传目录、失败原因、残余风险、`pnpm release:evidence:validate`、文档同步和 `docs:completion` 最终证据 |
 
 注意：Package E 完成前，`pnpm docs:completion` 必须继续因生产发布、备份、恢复演练、发布后烟测和回滚证据缺失而失败。
+
+`pnpm package-e:preflight` 和 `pnpm risk:preflight` 均采用 Package E 批次感知门禁：E1-E4 未完成时 Package E 主状态必须保持 `NOT_READY / 未完成`；若未来任一批次标为完成，对应行必须包含明确确认、`pnpm` 验证、烟测/备份/恢复/发布/回滚证据、文档同步和残余风险。根 `package.json` 不允许新增生产 deploy、backup、restore、`docker compose up/down` 或服务器命令脚本；现有 `db:migrate:deploy` 只能作为 Package E 确认后的受控执行参考。
 
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。
-- `pnpm risk:preflight` 只证明 Package A-E 的护栏存在，不执行上传、后续 migration、AI 外呼、部署或备份恢复；其中 Package B 检查 Batch 0-6 字段/模型和运行时证据已存在，并继续确认没有越过已确认范围；Package C 完成后检查真实 provider、Web 服务端 env 和显式 route 触发证据已存在，同时继续检查客户端密钥禁区、AI 上下文最小化、首页普通 SSR 成本边界和 prompt/raw response 持久化禁区；Package D 还检查只读重排 API、报告/任务应用禁区、Batch 6 阶段草稿确认边界、confirm-only DTO、UI 标签和文档边界。
+- `pnpm risk:preflight` 只证明 Package A-E 的护栏存在，不执行上传、后续 migration、AI 外呼、部署或备份恢复；其中 Package B 检查 Batch 0-6 字段/模型和运行时证据已存在，并继续确认没有越过已确认范围；Package C 完成后检查真实 provider、Web 服务端 env 和显式 route 触发证据已存在，同时继续检查客户端密钥禁区、AI 上下文最小化、首页普通 SSR 成本边界和 prompt/raw response 持久化禁区；Package D 还检查只读重排 API、D1 报告决策证据门禁、D2-D5 批次解锁门禁、报告/任务应用禁区、Batch 6 阶段草稿确认边界、confirm-only DTO、UI 标签和文档边界；Package E 还检查 E1-E4 批次 ledger、root scripts 运维禁区、Web ops route 禁区和生产发布 runbook 边界。
 - `pnpm docs:completion` 用于最终完成验收；在 `feature-traceability` 仍有“基础版 / 待确认 / 未实现”、Package A-E 完成行缺少验证/烟测/文档同步/残余风险证据、Package B Batch 0-6 / Package D D1-D5 / Package E E1-E4 未全部完成，或缺少高风险完成记录时，预期应失败。
 - 日常文档同步不要求 `pnpm docs:completion` 通过；声称 AreaForge docs 100% 完成前必须通过。
 

@@ -33,6 +33,23 @@ export interface PeriodicSubjectShareDto {
 type PeriodicNextCycleDraftDto = ReturnType<typeof createPeriodicNextCycleDraft>;
 type PeriodicDecisionSnapshotDto = ReturnType<typeof createPeriodicReportDecisionSnapshot>;
 
+export interface PeriodicReportDecisionDto {
+  id: string;
+  kind: PeriodicReportKind;
+  range: {
+    start: string;
+    end: string;
+  };
+  status: "confirmed" | "rejected";
+  reportSnapshot: PeriodicDecisionSnapshotDto;
+  nextCycleDraft: PeriodicNextCycleDraftDto | null;
+  canAutoApply: false;
+  requiresUserConfirmation: true;
+  decidedAt: string;
+  actorId: string | null;
+  alreadyDecided?: boolean;
+}
+
 export interface PeriodicReportDto {
   kind: PeriodicReportKind;
   title: string;
@@ -104,6 +121,7 @@ export interface PeriodicReportDto {
     canAutoApply: false;
     requiresUserConfirmation: true;
   };
+  decision: PeriodicReportDecisionDto | null;
 }
 
 export interface PeriodicReportsDto {
@@ -137,6 +155,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     checkInSnapshots,
     stagePlans,
     stageAdjustmentDrafts,
+    existingDecision,
   ] = await Promise.all([
     prisma.subject.findMany({
       orderBy: { sortOrder: "asc" },
@@ -256,6 +275,15 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     listCheckInSnapshotsInRange(range.start, range.end),
     listStagePlans(),
     listStageAdjustmentDrafts(),
+    prisma.periodicReportDecision.findUnique({
+      where: {
+        kind_rangeStart_rangeEnd: {
+          kind,
+          rangeStart: range.start,
+          rangeEnd: range.end,
+        },
+      },
+    }),
   ]);
 
   const dailySnapshots = buildPeriodicDailySnapshots(range, sessions, tasks, reviews, checkInSnapshots);
@@ -374,6 +402,37 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
       requiresUserConfirmation: true,
     },
     decisionPreview,
+    decision: existingDecision ? serializePeriodicReportDecision(existingDecision) : null,
+  };
+}
+
+export function serializePeriodicReportDecision(decision: {
+  id: string;
+  kind: string;
+  rangeStart: Date;
+  rangeEnd: Date;
+  status: string;
+  reportSnapshot: unknown;
+  nextCycleDraft: unknown;
+  canAutoApply: boolean;
+  requiresUserConfirmation: boolean;
+  decidedAt: Date;
+  actorId: string | null;
+}): PeriodicReportDecisionDto {
+  return {
+    id: decision.id,
+    kind: decision.kind === "month" ? "month" : "week",
+    range: {
+      start: decision.rangeStart.toISOString(),
+      end: decision.rangeEnd.toISOString(),
+    },
+    status: decision.status === "rejected" ? "rejected" : "confirmed",
+    reportSnapshot: decision.reportSnapshot as PeriodicDecisionSnapshotDto,
+    nextCycleDraft: decision.nextCycleDraft ? decision.nextCycleDraft as PeriodicNextCycleDraftDto : null,
+    canAutoApply: false,
+    requiresUserConfirmation: true,
+    decidedAt: decision.decidedAt.toISOString(),
+    actorId: decision.actorId,
   };
 }
 

@@ -48,4 +48,4 @@
 - 阶段计划 API：`GET/POST /api/simulation/stage-plans`、`PATCH /api/simulation/stage-plans/:id`。
 - 阶段草稿 API：`GET/POST /api/simulation/stage-adjustment-drafts`、`POST /api/simulation/stage-adjustment-drafts/:id/confirm`、`POST /api/simulation/stage-adjustment-drafts/:id/reject`。
 - 页面优先展示结构化考试，再展示旧任务型模拟只读 fallback。
-- 当前仍不包含自动任务重排、批量修改任务、真实 AI 长期外呼、旧任务型模拟自动迁移、历史文本解析回填、删除旧字段或生产 migration deploy。任务重排应用、报告决策入口和长期 AI 阶段调整仍归 Package D / `0017`。
+- 当前仍不包含自动任务重排、批量修改任务、真实 AI 长期外呼、旧任务型模拟自动迁移、历史文本解析回填、删除旧字段或生产 migration deploy。报告决策入口已由 Package D Batch D1 完成；任务重排应用、报告驱动的任务/阶段应用和长期 AI 阶段调整仍归 Package D 后续批次 / `0017`。

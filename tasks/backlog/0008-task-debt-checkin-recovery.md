@@ -1,6 +1,6 @@
 # 0008 任务债务、打卡、反假学习与恢复模式
 
-状态：基础闭环已完成；保留在 backlog 作为 Package D/0017 的路径稳定入口。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径，Batch 2 已新增 `TaskDebtEvent` 债务事件账本和 `StudyTask.parentTaskId`，Batch 3 已新增 `RecoveryState` 恢复状态，Batch 4 已新增显式掌握证明记录，Batch 5 已新增结构化模拟考试记录，Batch 6 已新增阶段计划和阶段调整草稿。后续任务重排应用、报告决策和长期 AI 仍需 Package D / `0017` 确认。
+状态：基础闭环已完成；保留在 backlog 作为 Package D/0017 的路径稳定入口。低风险规则层已收口；Package B Batch 0 已结构化计时收口，Batch 1 已新增 `CheckIn` 日快照并接入新写路径，Batch 2 已新增 `TaskDebtEvent` 债务事件账本和 `StudyTask.parentTaskId`，Batch 3 已新增 `RecoveryState` 恢复状态，Batch 4 已新增显式掌握证明记录，Batch 5 已新增结构化模拟考试记录，Batch 6 已新增阶段计划和阶段调整草稿。Package D Batch D1 已完成报告确认/驳回和只读回放；Batch D2 已完成任务债务重排确认/驳回/所选项应用。长期 AI 和更深阶段联动仍需 Package D / `0017` 确认。
 
 ## 目标
 
@@ -50,6 +50,7 @@
 - Dashboard API 已返回 `checkIn`、`recovery`、`debtTasks`、`visibleRecoveryTasks` 和低转化次数；Batch 3 后 `recovery` 包含 `stateId/source/status/triggerType/startedAt/endedAt/exitCondition`。
 - 恢复模式已接入 `RecoveryState`：规则触发和手动触发会创建或复用 active 状态，完成/取消只更新恢复状态；首页计时器聚焦最小可执行任务，任务面板保留完整任务列表，不删除原任务。
 - 已新增任务轻量流转 API/UI：补做、拆小、改成复习任务；Package B Batch 2 后这些动作继续复用 `StudyTask` 现有字段和 `reviewText` 备注，并同步写入 `TaskDebtEvent`。
+- Package D Batch D2 后，债务重排建议可在首页勾选后确认、驳回或应用所选；确认/驳回不修改任务，只写 `TaskDebtEvent.action=reorder_suggested` 和 `AuditEvent`；应用所选会重新校验当前建议和任务状态，只处理所选小批量，并写 `TaskDebtEvent.action=reorder_applied` 和 `AuditEvent`。
 - 计时结束已接入反假学习规则，结果写入现有 `StudySession.isEffective` 和文本化 `note`。
 - 历史无快照日期不做不可靠回填，旧任务债务事件不做猜测回填；恢复状态不批量修改历史欠账。
 
