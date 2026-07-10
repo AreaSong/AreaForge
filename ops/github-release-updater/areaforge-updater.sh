@@ -173,14 +173,17 @@ github_api() {
   curl -fsSL "${args[@]}" "$url"
 }
 
-download_url() {
-  local url="$1"
-  local output="$2"
-  local args=(-fsSL)
+download_asset() {
+  local release_json="$1"
+  local asset_name="$2"
+  local output="$3"
+  local asset_api_url args
+  asset_api_url="$(asset_api_url "$release_json" "$asset_name")"
+  args=(-fsSL -H "Accept: application/octet-stream")
   if [[ -n "${AREAFORGE_GITHUB_TOKEN:-}" ]]; then
     args+=(-H "Authorization: Bearer ${AREAFORGE_GITHUB_TOKEN}")
   fi
-  curl "${args[@]}" -o "$output" "$url"
+  curl "${args[@]}" -o "$output" "$asset_api_url"
 }
 
 fetch_release_json() {
@@ -193,10 +196,16 @@ fetch_release_json() {
   fi
 }
 
-asset_url() {
+asset_api_url() {
   local release_json="$1"
   local asset_name="$2"
-  jq -er --arg name "$asset_name" '.assets[] | select(.name == $name) | .browser_download_url' "$release_json"
+  jq -er --arg name "$asset_name" '.assets[] | select(.name == $name) | .url' "$release_json"
+}
+
+asset_exists() {
+  local release_json="$1"
+  local asset_name="$2"
+  jq -er --arg name "$asset_name" '.assets[] | select(.name == $name) | .id' "$release_json" >/dev/null
 }
 
 verify_release_state() {
@@ -293,10 +302,10 @@ download_and_verify_release() {
   fetch_release_json "$RELEASE_JSON"
   verify_release_state "$RELEASE_JSON"
 
-  download_url "$(asset_url "$RELEASE_JSON" "$AREAFORGE_RELEASE_MANIFEST_ASSET")" "$MANIFEST_PATH"
-  download_url "$(asset_url "$RELEASE_JSON" "$AREAFORGE_RELEASE_CHECKSUM_ASSET")" "$SUMS_PATH"
-  if asset_url "$RELEASE_JSON" "$AREAFORGE_RELEASE_SIGNATURE_ASSET" >/dev/null 2>&1; then
-    download_url "$(asset_url "$RELEASE_JSON" "$AREAFORGE_RELEASE_SIGNATURE_ASSET")" "$SIGNATURE_PATH"
+  download_asset "$RELEASE_JSON" "$AREAFORGE_RELEASE_MANIFEST_ASSET" "$MANIFEST_PATH"
+  download_asset "$RELEASE_JSON" "$AREAFORGE_RELEASE_CHECKSUM_ASSET" "$SUMS_PATH"
+  if asset_exists "$RELEASE_JSON" "$AREAFORGE_RELEASE_SIGNATURE_ASSET"; then
+    download_asset "$RELEASE_JSON" "$AREAFORGE_RELEASE_SIGNATURE_ASSET" "$SIGNATURE_PATH"
   fi
 
   verify_signature "$SUMS_PATH" "$SIGNATURE_PATH"
@@ -307,7 +316,7 @@ download_and_verify_release() {
 
   if [[ -n "${COMPOSE_ASSET:-}" ]]; then
     COMPOSE_ASSET_PATH="$WORK_DIR/$COMPOSE_ASSET"
-    download_url "$(asset_url "$RELEASE_JSON" "$COMPOSE_ASSET")" "$COMPOSE_ASSET_PATH"
+    download_asset "$RELEASE_JSON" "$COMPOSE_ASSET" "$COMPOSE_ASSET_PATH"
     (cd "$WORK_DIR" && verify_sha256_asset "$SUMS_PATH" "$COMPOSE_ASSET")
   fi
 }
@@ -374,6 +383,23 @@ prepare_record_dir() {
   fi
 }
 
+wait_for_postgres() {
+  log "waiting for postgres health"
+  if [[ "$DRY_RUN" != "1" ]]; then
+    local ok=0
+    for _ in $(seq 1 30); do
+      if compose exec -T postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
+        ok=1
+        break
+      fi
+      sleep 2
+    done
+    [[ "$ok" == "1" ]] || die "postgres did not become ready"
+  else
+    log "dry-run: would wait for postgres health"
+  fi
+}
+
 sha256_file() {
   local file="$1"
   if [[ -f "$file" ]]; then
@@ -386,6 +412,7 @@ sha256_file() {
 backup_before_update() {
   prepare_record_dir
   run_cmd compose up -d postgres
+  wait_for_postgres
 
   if [[ "$DRY_RUN" != "1" ]]; then
     compose exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl > "$RECORD_DIR/db/areaforge-before-update.dump"
