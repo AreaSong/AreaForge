@@ -126,7 +126,7 @@ AREAFORGE_AUTO_APPLY=patch
 
 ## 应用内版本中心
 
-AreaForge 的 `/settings` 页面可以展示当前版本、最新 Release、自动更新策略、阻塞原因、最近操作和回退状态。页面不会直接执行服务器命令，而是把请求写入受控状态目录：
+AreaForge 首页品牌旁的版本徽标会展开轻量版本弹层，展示当前版本、最新 Release、阻塞原因、最近操作、检查更新、应用更新、查看发布和版本回退入口。`/settings` 页面提供完整版本中心，可以额外保存自动更新策略。两个入口都不会直接执行服务器命令，而是把请求写入受控状态目录：
 
 ```text
 $AREAFORGE_OPS_STATE_DIR/requests/*.json

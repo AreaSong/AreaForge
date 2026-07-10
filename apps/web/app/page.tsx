@@ -23,11 +23,13 @@ import { LogoutButton } from "@/components/logout-button";
 import { RecoveryStateControls } from "@/components/recovery-state-controls";
 import { ReviewForm } from "@/components/review-form";
 import { TaskPanel } from "@/components/task-panel";
+import { UpdateVersionPopover } from "@/components/update-version-popover";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDailyReviewAiAdvice, getTomorrowPlanAiAdvice } from "@/lib/study/ai-service";
 import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { getTodayDashboard } from "@/lib/study/service";
 import { listSyllabusTree } from "@/lib/study/syllabus-service";
+import { getUpdateCenterStatus } from "@/lib/system/update-center";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +41,13 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const [dashboard, syllabusNodes, dailyReviewAdvice, tomorrowPlanAdvice, longTermRisks] = await Promise.all([
+  const [dashboard, syllabusNodes, dailyReviewAdvice, tomorrowPlanAdvice, longTermRisks, updateStatus] = await Promise.all([
     getTodayDashboard(new Date(), { actorId: user.id, recordRecoveryRule: true }),
     listSyllabusTree(),
     getDailyReviewAiAdvice(),
     getTomorrowPlanAiAdvice(),
     getLongTermRiskSummary(),
+    getUpdateCenterStatus(),
   ]);
   const { metrics, snapshot } = dashboard;
   const themeClass = getThemeShellClass(snapshot.themeState);
@@ -60,6 +63,7 @@ export default async function Home() {
             <div className="flex items-center gap-3 text-sm text-teal-300">
               <Flame className="h-4 w-4" aria-hidden="true" />
               <span>AreaForge</span>
+              <UpdateVersionPopover initialStatus={updateStatus} />
               <span className="rounded-md border border-teal-400/30 px-2 py-1 text-xs text-teal-100">
                 {labelRisk(snapshot.riskState)}
               </span>

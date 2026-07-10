@@ -42,7 +42,7 @@ health smoke / extra smoke
 应用内版本中心走另一条受控请求流：
 
 ```text
-/settings UI
+首页版本徽标弹层 / /settings UI
         |
         v
 /api/system/update-requests 写入 ops-state/requests
@@ -66,7 +66,7 @@ root agent 调用 updater / 修改自动策略 / 回写 status.json
 - `ops/github-release-updater/areaforge-updater.service` 与 `.timer`：systemd 定时检查入口。
 - `ops/update-agent/areaforge-update-agent.sh`：处理 UI 写入的受控更新请求。
 - `ops/update-agent/areaforge-update-agent.service` 与 `.timer`：systemd 请求处理入口。
-- `apps/web/app/settings/page.tsx` 与 `apps/web/app/api/system/**`：版本中心 UI 和只读/写请求 API，不执行服务器命令。
+- `apps/web/components/update-version-popover.tsx`、`apps/web/app/settings/page.tsx` 与 `apps/web/app/api/system/**`：首页轻量版本弹层、完整版本中心 UI 和只读/写请求 API，不执行服务器命令。
 - `ops/github-release-updater/manifest.schema.json` 与 `manifest.example.json`：Release manifest 合约。
 - `scripts/quality/github-release-updater-preflight.ts`：只读门禁，检查 updater 文件、shell 语法、manifest、workflow、migration image 和 Web 无运维入口边界。
 - `.github/workflows/ci.yml`：常规 CI 门禁，运行 `shellcheck`、updater preflight、Package E / 风险 / docs 门禁和 `pnpm check`。

@@ -65,8 +65,8 @@ export function SettingsWorkbench({ userEmail, initialStatus }: SettingsWorkbenc
 
   function confirmApply() {
     const tag = status.latestVersion ? normalizedTag(status.latestVersion) : undefined;
-    if (!tag) {
-      setNotice({ tone: "danger", text: "还没有可应用的 Release 信息。" });
+    if (!tag || !status.updateAvailable) {
+      setNotice({ tone: "danger", text: "当前没有可应用的新版本。" });
       return;
     }
     if (!window.confirm(`确认提交更新请求：${tag}？`)) return;
@@ -187,7 +187,7 @@ export function SettingsWorkbench({ userEmail, initialStatus }: SettingsWorkbenc
           </button>
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isPending || !status.latestVersion}
+            disabled={isPending || !status.latestVersion || !status.updateAvailable}
             onClick={confirmApply}
             type="button"
           >
