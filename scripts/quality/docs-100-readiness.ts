@@ -26,6 +26,7 @@ const requiredFiles = [
   "docs/development/second-stage-long-term-loop-design.md",
   "docs/development/production-release-runbook.md",
   "docs/development/release-record-template.md",
+  "docs/development/release-train.md",
   "docs/development/dependency-policy.md",
   "docs/development/external-capability-admission.md",
   "docs/development/operational-readiness.md",

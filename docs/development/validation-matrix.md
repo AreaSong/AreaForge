@@ -25,6 +25,7 @@
 | `apps/web/**` UI | `pnpm check`，可启动时用浏览器或截图检查主要页面；涉及核心学习闭环、附件、模拟、阶段或版本中心体验时，在本地临时库上补跑 `pnpm smoke:local-ux` |
 | `infra/**`、`docker-compose*.yml` | `docker compose config`，部署文档同步检查 |
 | `.github/workflows/**`、`ops/github-release-updater/**`、`ops/update-agent/**`、`scripts/ops/production-readonly-smoke.ts`、`scripts/ops/generate-release-supply-chain.ts`、`scripts/quality/release-supply-chain-validate.ts`、`scripts/quality/release-supply-chain-validate.selftest.ts`、`infra/docker/migration.Dockerfile` | `pnpm audit:prod`、`pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`、`pnpm governance:preflight`、`pnpm ops:readiness`，涉及供应链记录校验时运行 `pnpm release:supply-chain:selftest`，涉及镜像时补充 Docker build；变更 smoke 脚本时用临时 HTTP mock 或受控环境验证 `pnpm smoke:prod-readonly` |
+| `docs/development/release-train.md`、`scripts/quality/release-train-preflight.ts`、Release train 入口 | `pnpm release:train:preflight`，`pnpm github-release-updater:preflight`，`pnpm release:supply-chain:selftest`，`pnpm governance:preflight`，`pnpm ops:readiness`，`pnpm docs:readiness`，`pnpm skills:validate`，`git diff --check` |
 | `.env.example`、配置解析 | 配置 schema 覆盖检查，敏感字段不入库检查 |
 | 高风险包确认前准备 | `pnpm risk:preflight`，确认只读护栏、配置键、文档引用和危险默认值 |
 

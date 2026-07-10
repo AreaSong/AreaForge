@@ -135,6 +135,8 @@ pnpm github-release-updater:preflight
 
 ### 标准发版路径
 
+后续功能进入线上时，先按 `release-train.md` 固定发布范围、验证、签名资产、updater 证据、发布记录、供应链记录和 residual risk IDs。
+
 后续功能完成后，推荐按以下路径发布：
 
 1. 同步相关 docs/tasks/workflow，确认没有源事实漂移。

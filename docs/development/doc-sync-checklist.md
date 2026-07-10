@@ -22,6 +22,7 @@
 - 新表或字段是否同步 `docs/architecture/data-model.md`。
 - 上传、附件、AI、认证、部署变化是否同步安全文档。
 - 功能更新若进入线上，是否按 `docs/development/release-record-template.md` 同步 release tag、GitHub Release、GHCR digest、线上 health、update-agent 状态、回滚目标、`pnpm ops:evidence:bundle` 的 `bundleHash`、`pnpm ops:alert:preview` 的告警预览结论和残余风险。
+- 功能更新若准备进入线上，是否先按 `docs/development/release-train.md` 固定版本、验证、Release 资产、供应链记录、updater 证据、smoke、回滚目标和停止条件。
 - 新签名 Release 若用于关闭或复核供应链残余项，是否按 `docs/development/release-supply-chain-record-template.md` 记录 SBOM/provenance、checksum/signature、Actions pinning 和 `pnpm audit:prod`，并通过 `pnpm release:supply-chain:validate`。
 - 生产运维、发布、自动更新或长期运营状态变化，是否同步 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 和对应 ops/release 文档。
 - 自托管上手、公开分发或首次操作者路径变化，是否同步 `docs/deployment/operator-onboarding.md`、`README.md`、`docs/README.md`、`apps/web/README.md`、验证矩阵和相关 SRE/release skill。

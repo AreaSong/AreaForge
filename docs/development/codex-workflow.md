@@ -92,7 +92,7 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 
 当一次功能更新准备进入线上时，默认走 GitHub Release 路径，而不是只在服务器上手动改代码：
 
-1. 先同步 `docs/**`、`tasks/**` 和 `workflow/**`，确认源事实没有漂移。
+1. 先按 `docs/development/release-train.md` 判断发布范围，再同步 `docs/**`、`tasks/**` 和 `workflow/**`，确认源事实没有漂移。
 2. 按 `docs/development/validation-matrix.md` 跑对应验证，至少覆盖 `pnpm check`、`pnpm docs:readiness`、`pnpm risk:preflight`、`pnpm ops:readiness` 和 `git diff --check`；涉及更新器时补跑 `pnpm github-release-updater:preflight` 与 `pnpm shellcheck:updater`。
 3. bump 版本并提交干净 commit。
 4. 创建并推送 `vX.Y.Z` tag，让 `.github/workflows/release.yml` 先执行 validate job，再生成 GitHub Release、GHCR Web/migration 镜像、manifest、`SHA256SUMS` 和 cosign bundle；stable release 缺签名密钥必须失败。

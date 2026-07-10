@@ -42,6 +42,7 @@ Do not use an exception to bypass signing, hash verification, immutable image di
 ## Default Commands
 
 ```bash
+pnpm release:train:preflight
 pnpm docs:readiness
 pnpm docs:completion
 pnpm risk:preflight

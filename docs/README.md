@@ -67,6 +67,7 @@
 - `development/implementation-order.md`：实现顺序。
 - `development/pre-code-closure.md`：开发前闭环清单。
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
+- `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
 - `development/dependency-policy.md`：依赖、GitHub Actions、Docker base image 和供应链治理策略。
 - `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
 - `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、只读运营摘要和证据包入口。

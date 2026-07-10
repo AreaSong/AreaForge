@@ -13,10 +13,11 @@ Use this skill to keep release artifacts, dependencies, and updater inputs trust
 2. [README.md](../../../README.md)
 3. [.github/workflows/ci.yml](../../../.github/workflows/ci.yml)
 4. [.github/workflows/release.yml](../../../.github/workflows/release.yml)
-5. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
-6. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
-7. [docs/development/setup.md](../../../docs/development/setup.md)
-8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+5. [docs/development/release-train.md](../../../docs/development/release-train.md)
+6. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
+7. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
+8. [docs/development/setup.md](../../../docs/development/setup.md)
+9. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
 ## References
 

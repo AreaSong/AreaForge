@@ -9,6 +9,7 @@
 - `areaforge-enterprise-governance`：CI、发布治理、依赖准入、仓库策略、PR/安全治理和整体企业级门禁。
 - `areaforge-operating-loop`：按 Quick/Change/Mission-Critical/Review/Ops/Release/Incident 路由 owner skill、验证、文档同步和残余风险收口。
 - `areaforge-release-operator`：功能完成后的版本、GitHub Release、GHCR digest、updater、回滚和证据闭环。
+- Release train 入口为 `docs/development/release-train.md`，对应只读检查为 `pnpm release:train:preflight`。
 - `areaforge-qa-smoke`：真实用户旅程、API/browser smoke、截图和体验证据。
 - `areaforge-doc-sync`：README、docs、tasks、workflow、ops、skills 状态防漂移。
 - `areaforge-sre-ops`：生产健康、备份、恢复、update-agent、Nginx、容器和受控生产操作。
