@@ -35,3 +35,4 @@ residual risk:
 - Use a dedicated smoke note/task only when the user authorizes writes through `docs/development/production-smoke-alerting-strategy.md`.
 - Do not upload private real files; use a tiny synthetic file.
 - Do not call real AI with sensitive context.
+- For production read-only smoke records, use `docs/development/production-readonly-smoke-record-template.md` and validate the redacted record with `pnpm smoke:prod-readonly:validate <record>`.

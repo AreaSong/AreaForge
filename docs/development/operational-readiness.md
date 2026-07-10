@@ -109,6 +109,14 @@ pnpm ops:readiness:summary
 发布或更新完成后，建议把 redacted `pnpm ops:readiness:summary` 输出保存到运维目录，并在版本化 release record 中摘要
 `checkedAt`、health、update-agent、smoke、backup、rollback、disk/cert 和 residual risk IDs。没有新鲜 smoke、备份或基础设施证据时，release readiness 只能保持 `warn` 或 `unknown`，不能宣称完整生产健康。
 
+生产只读 smoke 记录使用 `docs/development/production-readonly-smoke-record-template.md`，完成后运行：
+
+```bash
+pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.md|txt>
+```
+
+该校验只读取 redacted smoke 记录，检查 `pnpm smoke:prod-readonly` 通过证据、必需只读检查项、版本/tag/digest/hash 形态、密码文件来源、update-status 覆盖、`AF-RISK-OPS-001` 残余 ID 和敏感值泄露；它不连接生产、不读取密码、不执行服务器命令、不写生产。`pnpm smoke:prod-readonly:selftest` 用于本地回归校验规则。
+
 需要把运行信号、残余风险和缺失证据组装成可交接证据包时，使用：
 
 ```bash

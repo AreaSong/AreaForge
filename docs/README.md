@@ -71,6 +71,7 @@
 - `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
 - `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、只读运营摘要和证据包入口。
 - `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段、告警阈值和只读告警预览策略。
+- `development/production-readonly-smoke-record-template.md`：生产只读 smoke 记录模板和 `pnpm smoke:prod-readonly:validate` 校验入口。
 - `development/alert-drill-record-template.md`：告警/恢复演练记录模板和 `pnpm alert:drill:validate` 校验入口。
 - `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。
 - `development/residual-risk-ledger.json`：残余风险 ID 台账的机器可读索引。

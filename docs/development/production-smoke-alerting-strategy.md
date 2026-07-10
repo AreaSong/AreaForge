@@ -20,6 +20,7 @@
 - smoke 账号来源和密码文件路径的 redacted 摘要。
 - health、登录、dashboard、update status 结果。
 - 可选附件 ID 的鉴权下载结果；只读下载不得改 metadata。
+- `docs/development/production-readonly-smoke-record-template.md` 格式记录，并通过 `pnpm smoke:prod-readonly:validate <record>`。
 - `pnpm ops:readiness:summary` 输出，包含 `safetyFacts` 和 residual risk IDs。
 
 ## 写入型生产 Smoke

@@ -25,6 +25,8 @@
     "ops:alert:preview": "tsx scripts/ops/operational-alert-preview.ts",
     "alert:drill:validate": "tsx scripts/quality/alert-drill-validate.ts",
     "alert:drill:selftest": "tsx scripts/quality/alert-drill-validate.selftest.ts",
+    "smoke:prod-readonly:validate": "tsx scripts/quality/prod-readonly-smoke-validate.ts",
+    "smoke:prod-readonly:selftest": "tsx scripts/quality/prod-readonly-smoke-validate.selftest.ts",
     "residuals:validate": "tsx scripts/quality/residual-ledger-validate.ts",
     "skills:validate": "tsx scripts/quality/skills-validate.ts",
     "shellcheck:updater": "shellcheck ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh",

@@ -6,10 +6,10 @@
       "id": "AF-RISK-OPS-001",
       "type": "monitoring-gap",
       "reviewAt": "2026-07-17",
-      "currentImpact": "生产 extra smoke 仍依赖服务器配置；没有新鲜 smoke 记录时，发布体验验证只能到 warn",
+      "currentImpact": "生产 extra smoke 仍依赖服务器配置；没有新鲜 smoke 记录时，发布体验验证只能到 warn；pnpm smoke:prod-readonly:validate 可校验 redacted 记录形态",
       "executableNow": true,
       "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 密码文件和最近一次通过记录",
-      "requiredEvidence": "redacted updater env 摘要、pnpm smoke:prod-readonly 通过时间、update-record 摘要",
+      "requiredEvidence": "redacted updater env 摘要、pnpm smoke:prod-readonly 通过时间、pnpm smoke:prod-readonly:validate 通过、update-record 摘要",
       "ownerSkills": ["areaforge-sre-ops", "areaforge-qa-smoke"]
     },
     {
