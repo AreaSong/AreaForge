@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 type JsonRecord = Record<string, unknown>;
@@ -26,6 +27,7 @@ function main(): void {
   const workflowRunConclusion = stringOrNull(run.conclusion) ?? stringOrNull(process.env.AREAFORGE_CI_WORKFLOW_RUN_CONCLUSION);
   const gitCommit = stringOrNull(run.head_sha) ?? stringOrNull(process.env.AREAFORGE_CI_GIT_COMMIT);
   const headBranch = stringOrNull(run.head_branch) ?? stringOrNull(process.env.AREAFORGE_CI_HEAD_BRANCH) ?? "unknown";
+  const expectedGitCommit = stringOrNull(process.env.AREAFORGE_CI_EXPECTED_GIT_COMMIT) ?? localGitHead() ?? gitCommit;
 
   const missingRun = [
     workflowRunUrl ? null : "workflow run URL",
@@ -46,6 +48,8 @@ function main(): void {
     `workflowRunUrl: ${workflowRunUrl}`,
     `workflowRunConclusion: ${workflowRunConclusion}`,
     `gitCommit: ${gitCommit}`,
+    `expectedGitCommit: ${expectedGitCommit}`,
+    `commitMatchStatus: ${expectedGitCommit?.toLowerCase() === gitCommit?.toLowerCase() ? "pass" : "fail"}`,
     `headBranch: ${headBranch}`,
     `packageVersion: ${packageVersion}`,
     `ciWorkflowStatus: ${required.values.ciWorkflowStatus}`,
@@ -136,6 +140,14 @@ function envNameFor(key: string): string {
 function packageJsonVersion(): string {
   const packageJson = parseJson(readRequiredFile(path.resolve("package.json")), "package.json");
   return stringOrNull(packageJson.version) ?? "unknown";
+}
+
+function localGitHead(): string | null {
+  const result = spawnSync("git", ["rev-parse", "HEAD"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+  return result.status === 0 ? stringOrNull(result.stdout) : null;
 }
 
 function parseJson(raw: string, label: string): JsonRecord {

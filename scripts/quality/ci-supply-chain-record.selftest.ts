@@ -43,6 +43,17 @@ try {
   });
   expectStatus("invalid CI supply-chain record fails", invalidValidation, 1);
 
+  const staleRecord = path.join(tempDir, "ci-supply-chain-stale.txt");
+  writeFileSync(staleRecord, generated.stdout.replace(
+    "expectedGitCommit: 0123456789abcdef0123456789abcdef01234567",
+    "expectedGitCommit: 89abcdef0123456789abcdef0123456789abcdef",
+  ));
+  const staleValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/ci-supply-chain-record-validate.ts", staleRecord], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  expectStatus("stale CI supply-chain record fails", staleValidation, 1);
+
   const missingRequired = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-ci-supply-chain-record.ts", runJson], {
     cwd: root,
     encoding: "utf8",
@@ -64,6 +75,7 @@ function validEnv(): NodeJS.ProcessEnv {
     ...process.env,
     AREAFORGE_CI_WORKFLOW_STATUS: "pass",
     AREAFORGE_CI_REPOSITORY: "AreaSong/AreaForge",
+    AREAFORGE_CI_EXPECTED_GIT_COMMIT: "0123456789abcdef0123456789abcdef01234567",
     AREAFORGE_AUDIT_PROD_STATUS: "pass",
     AREAFORGE_GOVERNANCE_PREFLIGHT_STATUS: "pass",
     AREAFORGE_ACTIONS_PINNING_STATUS: "pass",

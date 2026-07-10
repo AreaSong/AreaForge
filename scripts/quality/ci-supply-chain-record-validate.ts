@@ -20,6 +20,8 @@ const requiredScalarFields = [
   "workflowRunUrl",
   "workflowRunConclusion",
   "gitCommit",
+  "expectedGitCommit",
+  "commitMatchStatus",
   "headBranch",
   "packageVersion",
   "ciWorkflowStatus",
@@ -51,6 +53,7 @@ const passFields = [
   "actionsPinningStatus",
   "skillsValidateStatus",
   "releaseSupplyChainSelftestStatus",
+  "commitMatchStatus",
 ] as const;
 
 function main(): void {
@@ -112,6 +115,13 @@ export function validateCiSupplyChainRecord(raw: string): ValidationIssue[] {
   const gitCommit = fields.get("gitCommit");
   if (gitCommit && !/^[a-f0-9]{40}$/i.test(gitCommit)) {
     issues.push({ field: "gitCommit", message: "must be a 40-character commit SHA" });
+  }
+  const expectedGitCommit = fields.get("expectedGitCommit");
+  if (expectedGitCommit && !/^[a-f0-9]{40}$/i.test(expectedGitCommit)) {
+    issues.push({ field: "expectedGitCommit", message: "must be a 40-character commit SHA" });
+  }
+  if (gitCommit && expectedGitCommit && gitCommit.toLowerCase() !== expectedGitCommit.toLowerCase()) {
+    issues.push({ field: "expectedGitCommit", message: "must match gitCommit so stale CI evidence cannot be reused for another checkout" });
   }
 
   const packageVersion = fields.get("packageVersion");

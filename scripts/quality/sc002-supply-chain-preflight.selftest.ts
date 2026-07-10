@@ -97,6 +97,8 @@ function createCiRecord(): string {
     "workflowRunUrl: https://github.com/AreaSong/AreaForge/actions/runs/123456789",
     "workflowRunConclusion: success",
     "gitCommit: 0123456789abcdef0123456789abcdef01234567",
+    "expectedGitCommit: 0123456789abcdef0123456789abcdef01234567",
+    "commitMatchStatus: pass",
     "headBranch: main",
     "packageVersion: 0.1.6",
     "ciWorkflowStatus: pass",
