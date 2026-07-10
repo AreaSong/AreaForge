@@ -26,6 +26,7 @@ const requiredFiles = [
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/support-bundle-preview.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
+  "scripts/ops/ops004-alert-evidence-preflight.ts",
   "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
@@ -39,6 +40,7 @@ const requiredFiles = [
   "scripts/quality/support-bundle-preview-validate.ts",
   "scripts/quality/support-bundle-preview.selftest.ts",
   "scripts/quality/ops001-evidence-preflight.selftest.ts",
+  "scripts/quality/ops004-alert-evidence-preflight.selftest.ts",
   "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
 ];
 
@@ -54,6 +56,8 @@ const requiredScripts = [
   "ops:support:bundle-preview:selftest",
   "ops:ops-001:preflight",
   "ops:ops-001:preflight:selftest",
+  "ops:ops-004:preflight",
+  "ops:ops-004:preflight:selftest",
   "sc:sc-002:preflight",
   "sc:sc-002:preflight:selftest",
   "ops:alert:preview",
