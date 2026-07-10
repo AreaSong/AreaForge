@@ -15,6 +15,7 @@ Treat production as a managed system with health, backup, restore, update, rollb
 4. [docs/deployment/backup-restore.md](../../../docs/deployment/backup-restore.md)
 5. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
 6. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
+7. [docs/development/production-smoke-alerting-strategy.md](../../../docs/development/production-smoke-alerting-strategy.md)
 
 ## References
 

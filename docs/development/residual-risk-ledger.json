@@ -16,10 +16,10 @@
       "id": "AF-RISK-OPS-002",
       "type": "deferred-work",
       "reviewAt": "2026-08-10",
-      "currentImpact": "写入型生产 smoke 策略未定义；默认不污染生产业务数据",
+      "currentImpact": "写入型生产 smoke 策略已有非执行草案；仍缺专用账号、用户确认、清理策略和受控记录",
       "executableNow": false,
-      "closeCondition": "明确 smoke 账号、数据清理策略、允许写入范围、失败回滚方式并获确认",
-      "requiredEvidence": "策略文档、测试账号、写入和清理 smoke 记录",
+      "closeCondition": "明确 smoke 账号、允许写入范围、清理策略、失败处理方式并获确认后，完成至少一次受控记录",
+      "requiredEvidence": "确认记录、测试账号、写入对象 ID、清理或保留说明、smoke 结果",
       "ownerSkills": ["areaforge-qa-smoke", "areaforge-security-governance"]
     },
     {
@@ -76,10 +76,10 @@
       "id": "AF-RISK-OPS-004",
       "type": "monitoring-gap",
       "reviewAt": "2026-08-10",
-      "currentImpact": "结构化 metrics dashboard 和告警路由不是当前产品功能；健康判断依赖 runbook 和只读证据",
+      "currentImpact": "告警阈值已有非执行策略；metrics dashboard、外部告警接收人和演练记录仍未产品化",
       "executableNow": false,
-      "closeCondition": "建立外部告警接收人、阈值、演练记录，或明确接受人工巡检窗口",
-      "requiredEvidence": "告警配置摘要、演练记录、阈值文档",
+      "closeCondition": "配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录",
+      "requiredEvidence": "告警配置摘要、演练记录、值班窗口或外部接收人说明",
       "ownerSkills": ["areaforge-observability"]
     }
   ]

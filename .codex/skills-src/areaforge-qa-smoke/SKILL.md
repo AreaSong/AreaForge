@@ -13,7 +13,8 @@ Validate the product as a student would use it, then attach enough evidence for 
 2. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
 3. [docs/ux/dashboard-states.md](../../../docs/ux/dashboard-states.md)
 4. [docs/product/feature-scope.md](../../../docs/product/feature-scope.md)
-5. [apps/web/README.md](../../../apps/web/README.md)
+5. [docs/development/production-smoke-alerting-strategy.md](../../../docs/development/production-smoke-alerting-strategy.md)
+6. [apps/web/README.md](../../../apps/web/README.md)
 
 ## References
 

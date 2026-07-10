@@ -32,6 +32,6 @@ residual risk:
 ## Production Limits
 
 - Prefer read-only checks in production.
-- Use a dedicated smoke note/task only when the user authorizes writes.
+- Use a dedicated smoke note/task only when the user authorizes writes through `docs/development/production-smoke-alerting-strategy.md`.
 - Do not upload private real files; use a tiny synthetic file.
 - Do not call real AI with sensitive context.

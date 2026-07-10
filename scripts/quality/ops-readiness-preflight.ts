@@ -13,6 +13,7 @@ const checks: CheckResult[] = [];
 function main(): void {
   checkRequiredFiles();
   checkOperationalReadinessDoc();
+  checkProductionSmokeAlertingStrategy();
   checkResidualLedger();
   checkOperatingLoopSkill();
   checkReleaseWorkflowHardGates();
@@ -37,6 +38,7 @@ function main(): void {
 function checkRequiredFiles(): void {
   const requiredFiles = [
     "docs/development/operational-readiness.md",
+    "docs/development/production-smoke-alerting-strategy.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
     ".codex/skills-src/areaforge-operating-loop/SKILL.md",
@@ -55,6 +57,7 @@ function checkRequiredFiles(): void {
 
 function checkOperationalReadinessDoc(): void {
   const doc = read("docs/development/operational-readiness.md");
+  const strategy = read("docs/development/production-smoke-alerting-strategy.md");
   const requiredTerms = [
     "只读运营证据聚合入口",
     "AREAFORGE_AUTO_APPLY=none",
@@ -68,15 +71,47 @@ function checkOperationalReadinessDoc(): void {
     "Rollback target",
     "pnpm ops:readiness",
     "pnpm smoke:local-ux",
+    "production-smoke-alerting-strategy.md",
+    "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
+    "AF-RISK-OPS-004",
     "residual-risk-ledger.md",
+    "safetyFacts",
   ];
-  const missing = requiredTerms.filter((term) => !doc.includes(term));
+  const combined = `${doc}\n${strategy}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
   checks.push({
     name: "operational readiness doc",
     ok: missing.length === 0,
     detail: missing.length === 0
       ? "readiness doc defines signals, freshness, no-web-ops boundary, and residual linkage"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkProductionSmokeAlertingStrategy(): void {
+  const strategy = read("docs/development/production-smoke-alerting-strategy.md");
+  const requiredTerms = [
+    "非执行草案",
+    "不授权任何生产写入",
+    "AREAFORGE_EXTRA_SMOKE_COMMAND",
+    "safetyFacts",
+    "[AF_SMOKE]",
+    "允许写入范围",
+    "禁止范围",
+    "清理策略",
+    "失败处理",
+    "告警阈值",
+    "AF-RISK-OPS-001",
+    "AF-RISK-OPS-002",
+    "AF-RISK-OPS-004",
+  ];
+  const missing = requiredTerms.filter((term) => !strategy.includes(term));
+  checks.push({
+    name: "production smoke and alerting strategy",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "strategy defines read-only smoke, confirmed write smoke boundaries, cleanup/failure handling, and alert thresholds without authorizing production writes"
       : `missing ${missing.join(", ")}`,
   });
 }

@@ -29,6 +29,7 @@ const requiredFiles = [
   "docs/development/dependency-policy.md",
   "docs/development/external-capability-admission.md",
   "docs/development/operational-readiness.md",
+  "docs/development/production-smoke-alerting-strategy.md",
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "SECURITY.md",
