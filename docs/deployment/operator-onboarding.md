@@ -153,12 +153,18 @@ AREAFORGE_SMOKE_EMAIL=<smoke-account-email> \
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password \
 AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5 \
 AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none \
-pnpm smoke:prod-readonly
+pnpm smoke:prod-readonly | tee /tmp/areaforge-prod-readonly-smoke.log
 ```
 
 形成运维记录后，使用模板和校验：
 
 ```bash
+AREAFORGE_READINESS_EXPECTED_VERSION=0.1.5 \
+AREAFORGE_READINESS_RELEASE_TAG=v0.1.5 \
+AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge \
+AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password \
+AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly' \
+pnpm smoke:prod-readonly:record /tmp/areaforge-prod-readonly-smoke.log > /tmp/areaforge-prod-readonly-smoke-record.txt
 pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.md|txt>
 ```
 

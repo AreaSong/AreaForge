@@ -22,6 +22,7 @@
 - health、登录、dashboard、update status 结果。
 - 可选附件 ID 的鉴权下载结果；只读下载不得改 metadata。
 - `docs/development/production-readonly-smoke-record-template.md` 格式记录，并通过 `pnpm smoke:prod-readonly:validate <record>`。
+- 可用 `pnpm smoke:prod-readonly:record <smoke-output.log>` 从 smoke 输出和 release manifest/digest 环境变量生成 redacted 记录草稿；生成器不读取密码文件内容、不执行服务器命令、不写生产。
 - `pnpm ops:readiness:summary` 输出，包含 `safetyFacts` 和 residual risk IDs。
 
 ## 写入型生产 Smoke

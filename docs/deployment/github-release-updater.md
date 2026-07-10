@@ -190,6 +190,18 @@ AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 AREAFORGE_SMOKE_ATTACHMENT_ID=<optional-known-attachment-id>
 ```
 
+生成 redacted 记录时，先保存 smoke 输出，再用 release manifest 或显式 digest 环境变量补齐记录：
+
+```bash
+pnpm smoke:prod-readonly | tee /tmp/areaforge-prod-readonly-smoke.log
+AREAFORGE_READINESS_RELEASE_TAG=v0.1.5 \
+AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge \
+AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password \
+AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly' \
+pnpm smoke:prod-readonly:record /tmp/areaforge-prod-readonly-smoke.log > /tmp/areaforge-prod-readonly-smoke-record.txt
+pnpm smoke:prod-readonly:validate /tmp/areaforge-prod-readonly-smoke-record.txt
+```
+
 优先使用 `AREAFORGE_SMOKE_PASSWORD_FILE`，不要把 smoke 密码写入 Git、Release 记录、updater 日志或 shell history。若要做创建任务、计时、附件上传或 AI 外呼等写入型 smoke，应使用专门 smoke 账号和单独确认的写入策略；默认 `smoke:prod-readonly` 不污染生产业务数据。
 
 ## 定时检查

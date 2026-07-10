@@ -9,6 +9,15 @@
 pnpm smoke:prod-readonly:validate docs/development/prod-readonly-smoke-vX.Y.Z-or-date.md
 ```
 
+如果已有 `pnpm smoke:prod-readonly` 的输出日志，可先生成 redacted 记录草稿：
+
+```bash
+pnpm smoke:prod-readonly:record /path/to/prod-readonly-smoke-output.log > /path/to/prod-readonly-smoke-record.txt
+pnpm smoke:prod-readonly:validate /path/to/prod-readonly-smoke-record.txt
+```
+
+记录生成器只读取 smoke 输出、release manifest/digest 环境变量和 redacted 环境摘要；它不读取 smoke 密码文件内容，不执行服务器命令，不备份、不恢复、不运行 migration，也不写生产。
+
 ## 模板
 
 ```text
