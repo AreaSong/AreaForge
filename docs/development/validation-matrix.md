@@ -274,7 +274,7 @@
 - `docker compose config`
 - `docker compose --env-file .env.example -f docker-compose.prod.yml config`
 - `pnpm package-e:preflight`
-- `pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]`
+- `pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]`
 - `pnpm docs:readiness`
 - `pnpm risk:preflight`
 - `git diff --check`
@@ -288,7 +288,7 @@
 - 恢复演练：临时库导入、临时上传目录恢复、登录、首页、任务、计时、复盘、附件 metadata/hash 对账。
 - 发布后烟测：`GET /api/health`、登录、首页、任务、计时、复盘、`/syllabus`、`/notes`、`/analytics`、`/reports`；附件和真实 AI 若启用，只用小测试文件和最小测试数据。
 - 回滚记录：上一镜像 tag、是否恢复数据库/上传目录、恢复耗时、失败原因、残余风险和后续修复任务。
-- 发布证据记录校验：`pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]` 通过；该命令只读发布记录和可选附件对账 CSV，附件对账 `action` 必须全部为 `report_only`。
+- 发布证据记录校验：`pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]` 通过；该命令只读发布记录和可选附件对账 CSV，附件对账 `action` 必须全部为 `report_only`。
 - 发布证据硬门禁：发布记录必须包含 `migrationRunner`、`envBackupSha256`、compose/Nginx 副本路径、回滚计划、回滚演练结果、恢复耗时、是否需要数据库/上传目录恢复和失败原因；`migrationApplied=yes` 时 `migrationRunner` 只能是 `controlled_release_workdir` 或 `one_off_migration_job`，`migrationApplied=no` 时只能是 `not-applicable`。
 
 推荐批次验证：

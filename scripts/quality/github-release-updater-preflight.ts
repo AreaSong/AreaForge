@@ -21,6 +21,7 @@ function main(): void {
   checkReleaseWorkflow();
   checkDocs();
   checkExtraSmokeCommand();
+  checkUpdateAgentRequestBoundary();
   checkWebRuntimeBoundary();
 
   for (const check of checks) {
@@ -198,6 +199,30 @@ function checkUpdaterBoundaries(): void {
     detail: missing.length === 0 && forbidden.length === 0
       ? "updater verifies release assets, locks, backs up, migrates via one-off job, smokes, rolls back app image, and redacts database URL"
       : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}`,
+  });
+}
+
+function checkUpdateAgentRequestBoundary(): void {
+  const agent = read("ops/update-agent/areaforge-update-agent.sh");
+  const docs = read("docs/deployment/github-release-updater.md");
+  const requiredTerms = [
+    "validate_request_schema",
+    "archive_invalid_request",
+    "invalid update request schema",
+    "update_[0-9]+_",
+    "set_auto_apply",
+    "autoApply",
+    "actorEmailHash",
+    "归档为 failed",
+  ];
+  const combined = `${agent}\n${docs}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  checks.push({
+    name: "update-agent request boundary",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "root update-agent validates request schema before executing updater, rollback, or config changes"
+      : `missing ${missing.join(", ")}`,
   });
 }
 

@@ -15,11 +15,12 @@ Use this skill when a change affects how the project is governed rather than a s
 4. [.github/workflows/release.yml](../../../.github/workflows/release.yml)
 5. [SECURITY.md](../../../SECURITY.md)
 6. [docs/development/dependency-policy.md](../../../docs/development/dependency-policy.md)
-7. [docs/development/codex-workflow.md](../../../docs/development/codex-workflow.md)
-8. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
-9. [docs/development/doc-sync-checklist.md](../../../docs/development/doc-sync-checklist.md)
-10. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
-11. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+7. [docs/development/external-capability-admission.md](../../../docs/development/external-capability-admission.md)
+8. [docs/development/codex-workflow.md](../../../docs/development/codex-workflow.md)
+9. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
+10. [docs/development/doc-sync-checklist.md](../../../docs/development/doc-sync-checklist.md)
+11. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
+12. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
 ## References
 

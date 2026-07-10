@@ -48,6 +48,9 @@ jobs:
       - name: Ops readiness preflight
         run: pnpm ops:readiness
 
+      - name: Skills validate
+        run: pnpm skills:validate
+
       - name: Package E preflight
         run: pnpm package-e:preflight
 

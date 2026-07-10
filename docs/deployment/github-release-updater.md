@@ -230,6 +230,7 @@ volumes:
 
 - Web 容器只写 `requests/` 并读取 `status.json`。
 - root agent 读取请求、执行更新动作、移动历史请求并回写 `status.json`。
+- root agent 会再次校验请求 JSON 的 `id`、`action`、`tag`、`autoApply` 和 actor hash 形态；无效请求会被归档为 failed，不执行 updater、回滚或配置修改。
 - 不挂载 `docker.sock` 到 Web 容器。
 - 不在 Web API 中执行 `docker compose`、`pg_dump`、`prisma migrate deploy` 或恢复命令。
 

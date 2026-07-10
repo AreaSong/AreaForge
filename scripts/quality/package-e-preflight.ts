@@ -56,6 +56,7 @@ function checkRequiredFiles(): void {
     "docs/development/package-e-e3-prod-local-release-record.md",
     "docs/development/package-e-e4-prod-local-rollback-record.md",
     "docs/development/production-release-runbook.md",
+    "docs/development/release-record-template.md",
     "docs/deployment/backup-restore.md",
     "scripts/quality/attachment-reconciliation.ts",
     "scripts/quality/release-evidence-validate.ts",
@@ -162,6 +163,7 @@ function checkRunbookBatchContracts(): void {
     "不通过网页按钮触发部署、migration、备份或恢复",
     "中止条件",
     "pnpm release:evidence:validate",
+    "docs/development/release-record-template.md",
     "scripts/quality/attachment-reconciliation.ts",
     "attachment-reconciliation.csv",
   ];

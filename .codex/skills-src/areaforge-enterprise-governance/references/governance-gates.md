@@ -8,6 +8,7 @@ Ask which governance surface changed:
 - release workflow
 - branch, tag, or repository policy
 - dependency or build approval
+- external capability admission: subagents, MCP, automations, Browser/Computer Use, deployment plugins, or remote ops tools
 - security and privacy policy
 - PR, issue, CODEOWNERS, or review template
 - Codex workflow, skill, validation, or docs gate
@@ -33,6 +34,7 @@ CI should keep at least:
 
 - High-risk actions still need explicit confirmation packets.
 - Web runtime must not get production command capability.
+- External capabilities must not bypass Web runtime command boundaries, release signing, backup/restore, migration, or production confirmation gates.
 - Skills are execution guidance, not product source facts.
 - Public repository/package visibility does not weaken signing, digest, or rollback requirements.
 

@@ -21,7 +21,7 @@ try {
   writeFileSync(invalidRunnerRecord, createRecord().replace("migrationRunner: controlled_release_workdir", "migrationRunner: not-applicable"));
   writeFileSync(invalidCsv, createCsv("delete"));
 
-  expectExit("valid record and report_only CSV pass", [validRecord, validCsv], 0);
+  expectExit("valid record and report_only CSV pass", [validRecord, validCsv], 0, "releaseEvidenceBundleHash: sha256:");
   expectExit("secret-like values fail", [invalidSecretRecord, validCsv], 1);
   expectExit("invalid enum values fail", [invalidEnumRecord, validCsv], 1);
   expectExit("missing migration runner fails when migration applied", [invalidRunnerRecord, validCsv], 1);
@@ -32,13 +32,19 @@ try {
   rmSync(tempDir, { force: true, recursive: true });
 }
 
-function expectExit(label: string, args: string[], expectedStatus: number): void {
+function expectExit(label: string, args: string[], expectedStatus: number, expectedStdout?: string): void {
   const result = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-evidence-validate.ts", ...args], {
     cwd: root,
     encoding: "utf8",
   });
   if (result.status !== expectedStatus) {
     console.error(`FAIL ${label}: expected exit ${expectedStatus}, got ${result.status}`);
+    console.error(result.stdout.trim());
+    console.error(result.stderr.trim());
+    process.exit(1);
+  }
+  if (expectedStdout && !result.stdout.includes(expectedStdout)) {
+    console.error(`FAIL ${label}: expected stdout to include ${expectedStdout}`);
     console.error(result.stdout.trim());
     console.error(result.stderr.trim());
     process.exit(1);

@@ -16,6 +16,7 @@ function main(): void {
   checkDependabot();
   checkPullRequestTemplate();
   checkDependencyPolicy();
+  checkExternalCapabilityAdmission();
   checkCiRunsGovernance();
   checkReleaseWorkflowGovernance();
 
@@ -38,6 +39,7 @@ function checkRequiredFiles(): void {
     ".github/dependabot.yml",
     ".github/pull_request_template.md",
     "docs/development/dependency-policy.md",
+    "docs/development/external-capability-admission.md",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -136,14 +138,58 @@ function checkDependencyPolicy(): void {
   });
 }
 
+function checkExternalCapabilityAdmission(): void {
+  const doc = read("docs/development/external-capability-admission.md");
+  const agents = read("AGENTS.md");
+  const docsReadme = read("docs/README.md");
+  const ci = read(".github/workflows/ci.yml");
+  const requiredTerms = [
+    "Subagent",
+    "Browser / Computer Use",
+    "MCP",
+    "Web runtime",
+    "Docker",
+    "备份",
+    "migration",
+    "服务器命令",
+    "高风险确认",
+    "preview_only",
+    "fixture_only",
+    "confirmed_apply",
+    "production_scoped",
+    "suspended",
+    "pnpm governance:preflight",
+    "pnpm skills:validate",
+  ];
+  const missing = requiredTerms.filter((term) => !doc.includes(term));
+  const linked = [
+    [agents, "docs/development/external-capability-admission.md", "AGENTS.md"],
+    [docsReadme, "development/external-capability-admission.md", "docs/README.md"],
+    [ci, "pnpm skills:validate", ".github/workflows/ci.yml"],
+  ].filter(([content, token]) => !content.includes(token)).map(([, token, source]) => `${source}:${token}`);
+
+  checks.push({
+    name: "external capability admission",
+    ok: missing.length === 0 && linked.length === 0,
+    detail: missing.length === 0 && linked.length === 0
+      ? "external tool/subagent/automation boundary is documented and CI validates repo-local skills"
+      : `missing terms ${missing.join(", ") || "none"}; missing links ${linked.join(", ") || "none"}`,
+  });
+}
+
 function checkCiRunsGovernance(): void {
   const ci = read(".github/workflows/ci.yml");
+  const requiredTerms = [
+    "pnpm governance:preflight",
+    "pnpm skills:validate",
+  ];
+  const missing = requiredTerms.filter((term) => !ci.includes(term));
   checks.push({
     name: "CI governance gate",
-    ok: ci.includes("pnpm governance:preflight"),
-    detail: ci.includes("pnpm governance:preflight")
-      ? "CI runs governance preflight"
-      : "CI must run pnpm governance:preflight",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "CI runs governance preflight and skills validation"
+      : `CI must run ${missing.join(", ")}`,
   });
 }
 

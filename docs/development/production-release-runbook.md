@@ -150,6 +150,8 @@ pnpm github-release-updater:preflight
 
 Package E 完成时必须留下发布记录。每个进入线上并需要仓库可追溯证据的版本，应在 `docs/development/` 新建版本化发布记录，例如 `release-vX.Y.Z-record.md`。服务器私有备份、updater 记录和 smoke 日志可以保留在运维目录，但需在仓库记录中摘要 tag、digest、health、update-agent 状态和残余风险。记录不得提交生产 `.env`、密钥、数据库 URL 或备份文件本体。
 
+标准模板见 `docs/development/release-record-template.md`。下方字段与模板和只读校验脚本保持一致；后续新版本优先复制模板，再填入真实 Release、备份、smoke、回滚和残余风险证据。
+
 ```text
 releaseId:
 releasedAt:
@@ -198,6 +200,7 @@ uploadsRestoreRequired: yes/no
 rollbackFailureReason:
 residualRisk:
 residualRiskIds:
+releaseEvidenceBundleHash:
 followUpTasks:
 expectedFailureOrStopConditions:
   migrationFailed:
@@ -210,7 +213,7 @@ expectedFailureOrStopConditions:
 发布记录写完后，可以用只读校验脚本检查字段完整性、hash 形态、枚举值、migration runner 选择、回滚演练字段、敏感值泄露和附件对账边界：
 
 ```bash
-pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]
+pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]
 ```
 
 该脚本只读取发布记录和可选附件对账 CSV，不连接生产服务，不执行 `docker compose`、`pg_dump`、`pg_restore`、migration deploy、文件删除、文件移动或 metadata 修复。附件对账 CSV 的 `action` 必须全部为 `report_only`。若 `migrationApplied=yes`，`migrationRunner` 必须是 `controlled_release_workdir` 或 `one_off_migration_job`；若 `migrationApplied=no`，`migrationRunner` 必须是 `not-applicable`。

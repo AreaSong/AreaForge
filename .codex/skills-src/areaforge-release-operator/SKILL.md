@@ -12,11 +12,12 @@ Operate AreaForge releases as evidence-backed production changes, not as ad-hoc 
 1. [AGENTS.md](../../../AGENTS.md)
 2. [README.md](../../../README.md)
 3. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
-4. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
-5. [docs/development/docs-100-completion-record.md](../../../docs/development/docs-100-completion-record.md)
-6. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
-7. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
-8. [tasks/done/0018-github-release-updater.md](../../../tasks/done/0018-github-release-updater.md)
+4. [docs/development/release-record-template.md](../../../docs/development/release-record-template.md)
+5. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
+6. [docs/development/docs-100-completion-record.md](../../../docs/development/docs-100-completion-record.md)
+7. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
+8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+9. [tasks/done/0018-github-release-updater.md](../../../tasks/done/0018-github-release-updater.md)
 
 ## References
 

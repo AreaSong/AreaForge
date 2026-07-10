@@ -47,7 +47,7 @@
 - 每日 `pg_dump` 与上传目录同周期备份，至少保留 14 天。
 - 失败时能回滚到上一镜像 tag，并用发布前数据库和上传目录备份恢复。
 - `pnpm check` 与 Compose config 校验通过。
-- `pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]` 通过，且不含密钥、数据库 URL、完整 prompt/响应或附件内容。
+- `pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]` 通过，且不含密钥、数据库 URL、完整 prompt/响应或附件内容。
 
 ## 验证
 
@@ -80,7 +80,7 @@
 - 恢复演练：先在临时库和临时上传目录恢复，验证登录、首页、任务、计时、复盘、附件 metadata/文件 hash 一致；附件对账只输出 `report_only` 报告，不自动修复或删除；再清理临时环境。
 - 发布后烟测：`GET /api/health`、登录、首页、任务创建、计时开始/结束、复盘保存、`/syllabus`、`/notes`、`/analytics`、`/reports`；附件或真实 AI 若已启用，只使用小测试文件和最小测试数据。
 - 回滚记录：失败时记录原因、回滚镜像 tag、回滚步骤、是否恢复数据库和上传目录、恢复耗时、残余风险和后续修复任务。
-- 证据校验：发布、回滚或 Release 更新记录必须运行 `pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]`；附件对账 CSV 只允许 `report_only`，不得把密钥、数据库 URL、完整 prompt/raw response 或附件内容写入记录。
+- 证据校验：发布、回滚或 Release 更新记录必须运行 `pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]`；附件对账 CSV 只允许 `report_only`，不得把密钥、数据库 URL、完整 prompt/raw response 或附件内容写入记录。
 - 自动化禁区：仍不允许 Web runtime 直接执行服务器命令的一键更新，不允许网页直接执行部署、备份、恢复或 migration；允许版本中心提交受控请求，由服务器 root agent 执行签名校验更新。
 
 ## 风险

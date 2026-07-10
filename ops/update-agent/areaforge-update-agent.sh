@@ -214,6 +214,43 @@ operation_json() {
     '.status=$status | .finishedAt=$finishedAt | .message=$message' "$request"
 }
 
+validate_request_schema() {
+  local request="$1"
+  jq -e '
+    type == "object" and
+    (.id | type == "string" and test("^update_[0-9]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) and
+    (.status == "queued") and
+    (.action as $action | ["check", "apply", "rollback", "set_auto_apply"] | index($action) != null) and
+    (.tag == null or (.tag | type == "string" and test("^v?[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$"))) and
+    (.autoApply == null or (.autoApply as $policy | ["none", "patch", "minor", "all"] | index($policy) != null)) and
+    (if .action == "apply" then (.tag | type == "string") else true end) and
+    (if .action == "set_auto_apply" then (.autoApply | type == "string") else true end) and
+    (.actorEmailHash == null or (.actorEmailHash | type == "string" and test("^[a-fA-F0-9]{64}$")))
+  ' "$request" >/dev/null
+}
+
+archive_invalid_request() {
+  local request="$1"
+  local archive_id archive_path failed_json
+  archive_id="invalid_$(date -u +%Y%m%dT%H%M%SZ)_$$"
+  archive_path="$HISTORY_DIR/${archive_id}.json"
+  mv "$request" "$archive_path"
+  failed_json="$(jq -n \
+    --arg id "$archive_id" \
+    --arg finishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{
+      id:$id,
+      action:"invalid",
+      status:"failed",
+      requestedAt:null,
+      finishedAt:$finishedAt,
+      message:"invalid update request schema"
+    }')"
+  printf '%s\n' "$failed_json" | write_json "$HISTORY_DIR/${archive_id}.failed.json"
+  rm -f "$archive_path"
+  merge_status "$failed_json"
+}
+
 run_updater_check() {
   "$UPDATER" check --config "$CONFIG_FILE" 2>&1
 }
@@ -247,6 +284,10 @@ run_rollback() {
 process_request() {
   local request="$1"
   local id action tag auto_apply operation running_json output status message destination
+  if ! validate_request_schema "$request"; then
+    archive_invalid_request "$request"
+    return
+  fi
   id="$(jq -r '.id' "$request")"
   action="$(jq -r '.action' "$request")"
   tag="$(jq -r '.tag // empty' "$request")"

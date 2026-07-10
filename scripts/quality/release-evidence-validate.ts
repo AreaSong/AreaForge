@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -93,7 +94,7 @@ const secretPatterns = [
 function main(): void {
   const recordPath = process.argv[2];
   if (!recordPath) {
-    console.error("Usage: pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]");
+    console.error("Usage: pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]");
     process.exit(2);
   }
 
@@ -116,6 +117,8 @@ function main(): void {
   }
 
   console.log("release evidence validation passed: required fields are present, enums are valid, secrets are absent, and reconciliation is report_only when provided.");
+  console.log(`releaseEvidenceBundleHash: ${buildReleaseEvidenceBundleHash(fields)}`);
+  console.log("safetyFacts: dockerCommandAttempted=false backupAttempted=false restoreAttempted=false migrationAttempted=false serverCommandAttempted=false");
 }
 
 function validateRecord(record: string, fields: Map<string, string>): ValidationIssue[] {
@@ -258,6 +261,27 @@ function parseIndentedKeyValueRecord(record: string): Map<string, string> {
   }
 
   return fields;
+}
+
+function buildReleaseEvidenceBundleHash(fields: Map<string, string>): string {
+  const optionalFields = [
+    "releaseUrl",
+    "webImageDigest",
+    "migrationImageDigest",
+    "signatureVerification",
+    "updateAgentStatus",
+    "rollbackTargetVersion",
+    "rollbackTargetImage",
+    "residualRiskIds",
+  ];
+  const keys = [
+    ...requiredScalarFields,
+    ...requiredNestedFields,
+    ...optionalFields,
+  ].filter((key, index, array) => array.indexOf(key) === index).sort();
+  const bundle = keys.map((key) => [key, fields.get(key) ?? ""]);
+  const hash = createHash("sha256").update(JSON.stringify(bundle)).digest("hex");
+  return `sha256:${hash}`;
 }
 
 function readRequiredFile(filePath: string): string {

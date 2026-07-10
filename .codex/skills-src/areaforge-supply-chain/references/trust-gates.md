@@ -44,4 +44,4 @@ Strong auto-update requires:
 
 ## Residuals
 
-Track missing SBOM, provenance attestations, vulnerability scanner output, pinned action SHAs, or dependency ownership as residuals, not as invisible assumptions. Current SBOM/provenance residual is `AF-RISK-SC-001`.
+Track missing SBOM, provenance attestations, vulnerability scanner output, pinned action SHAs, or dependency ownership as residuals, not as invisible assumptions. Current SBOM/provenance residual is `AF-RISK-SC-001`; GitHub Actions SHA pinning / vulnerability scan residual is `AF-RISK-SC-002`.

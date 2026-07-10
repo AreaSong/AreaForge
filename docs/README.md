@@ -68,6 +68,7 @@
 - `development/pre-code-closure.md`：开发前闭环清单。
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
 - `development/dependency-policy.md`：依赖、GitHub Actions、Docker base image 和供应链治理策略。
+- `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
 - `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级和只读运营证据入口。
 - `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。
 - `development/validation-matrix.md`：按改动范围选择验证。
@@ -79,6 +80,7 @@
 - `development/ai-provider-integration-design.md`：真实 AI provider 接入确认设计。
 - `development/second-stage-long-term-loop-design.md`：第二阶段长期闭环确认设计。
 - `development/production-release-runbook.md`：生产发布、备份与恢复确认 runbook。
+- `development/release-record-template.md`：后续每个线上版本使用的标准 Release 证据记录模板。
 - `development/github-release-updater-design.md`：GitHub Release 自动更新器设计。
 - `development/package-e-e1-release-record-draft.md`：Package E Batch E1 发布记录草案。
 - `development/package-e-e2-restore-drill-record.md`：Package E Batch E2 发布前备份与恢复演练记录。

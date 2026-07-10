@@ -26,7 +26,7 @@
 - 首页能读取数据。
 - 登录仍可用。
 - 附件对账只生成报告，不自动修复 metadata、不删除孤儿文件、不移动上传目录文件。
-- 发布证据记录能通过 `pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]`，并包含数据库/上传目录/生产 `.env` 备份 hash、compose/Nginx 副本路径、migration runner 和回滚演练字段。
+- 发布证据记录能通过 `pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]`，并包含数据库/上传目录/生产 `.env` 备份 hash、compose/Nginx 副本路径、migration runner 和回滚演练字段。
 
 ## 命令模板
 
@@ -88,7 +88,7 @@ DATABASE_URL="$RESTORE_DATABASE_URL" \
 每次正式发布记录都必须通过只读校验。Package E 和远端 `v0.1.5` 已完成当前证据收口；后续 release 仍继续要求：
 
 ```bash
-pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]
+pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]
 ```
 
 校验记录中必须包含 `envBackupSha256`、`composeConfigBackupPath`、`nginxConfigBackupPath`、`migrationRunner`、`rollbackPlan`、`rollbackDrillResult`、`rollbackDurationMinutes`、`databaseRestoreRequired`、`uploadsRestoreRequired` 和 `rollbackFailureReason`。该命令只读取发布记录和可选对账 CSV，不执行备份、恢复、migration、文件移动或 metadata 修复。
