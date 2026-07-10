@@ -18,6 +18,6 @@
 | AF-RISK-REL-001 | `AREAFORGE_AUTO_APPLY=none` 是安全默认，不等于自动应用已启用 | `areaforge-release-operator` / `areaforge-sre-ops` | 调整自动更新策略前 |
 | AF-RISK-SC-001 | 下一次签名 Release 需产生并校验 SBOM/provenance；`pnpm release:supply-chain:validate` 可校验证据记录 | `areaforge-supply-chain` | 创建新 GitHub Release 时 |
 | AF-RISK-SC-002 | Actions SHA pinning 和 `pnpm audit:prod` 已本地落地，仍需 GitHub run 证据；`pnpm release:supply-chain:validate` 可校验证据记录 | `areaforge-supply-chain` / `areaforge-enterprise-governance` | 下一次 CI 或 Release 运行后 |
-| AF-RISK-SC-003 | 已关闭为证据项；后续升级 `pg` / Prisma adapter 前重跑 `pnpm pg:trace-deprecation` | `areaforge-supply-chain` / `areaforge-sre-ops` | 升级 `pg` / Prisma adapter 前 |
+| AF-RISK-SC-003 | 已关闭为证据项；`packages/db` 已串行化 Prisma pg adapter transaction query，后续升级 `pg` / Prisma adapter 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke | `areaforge-supply-chain` / `areaforge-sre-ops` | 升级 `pg` / Prisma adapter 前 |
 | AF-RISK-OPS-003 | 服务器、域名、Nginx 或端口迁移需单独 runbook 和证据 | `areaforge-sre-ops` | 基础设施迁移前 |
 | AF-RISK-OPS-004 | 告警阈值、`pnpm ops:alert:preview` 和 `pnpm alert:drill:validate` 已有，但外部接收人、metrics dashboard 和演练记录仍缺 | `areaforge-observability` | 建立告警或声称完整生产健康前 |

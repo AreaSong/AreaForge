@@ -77,4 +77,4 @@ pnpm ops:readiness
 
 `AF-RISK-SC-002` 已完成本地治理补强：CI/Release 外部 Actions 已 pin 到 40 位 commit SHA，且 `pnpm audit:prod` 已进入 CI/Release validate gate。该残余项仍保持打开，直到 GitHub CI 或下一次签名 Release 留下对应运行证据和漏洞审计输出后关闭。
 
-`AF-RISK-SC-003` 已关闭为证据项：当前 lockfile 只有 `pg@8.22.0`，`@prisma/adapter-pg@7.8.0` 也解析到同一 `pg@8.22.0`；临时 PostgreSQL 16 库上执行 `pnpm db:migrate:deploy` 和 `pnpm pg:trace-deprecation` 未出现历史 `client.query()` deprecation warning。后续升级 `pg` 或 Prisma adapter 时需重跑该命令。
+`AF-RISK-SC-003` 已关闭为证据项：本地 UX smoke 曾复现 `pg` transaction client query queue deprecation；当前 `packages/db` 对 Prisma pg adapter transaction query 做串行化，避免同一 transaction client 并发排队触发 `pg@9` 风险。当前 lockfile 只有 `pg@8.22.0`，`@prisma/adapter-pg@7.8.0` 也解析到同一 `pg@8.22.0`；临时 PostgreSQL 16 库上执行 `pnpm db:migrate:deploy`、增强后的 `NODE_OPTIONS=--trace-deprecation pnpm pg:trace-deprecation` 和本地 `NODE_OPTIONS=--trace-deprecation pnpm smoke:local-ux` 均未再出现 deprecation warning。后续升级 `pg` 或 Prisma adapter 时需重跑这些检查。

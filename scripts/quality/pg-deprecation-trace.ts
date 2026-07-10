@@ -28,6 +28,9 @@ async function main(): Promise<void> {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is required for pg deprecation trace.");
   }
+  if (!isLocalDatabaseUrl(databaseUrl) && process.env.AREAFORGE_PG_TRACE_ALLOW_NON_LOCAL !== "true") {
+    throw new Error("pg deprecation trace may issue rollback-protected writes and only runs against local database URLs by default.");
+  }
 
   const prisma = createPrismaClient(databaseUrl);
   try {
@@ -45,6 +48,50 @@ async function main(): Promise<void> {
       tasks: await tx.studyTask.count(),
       sessions: await tx.studySession.count(),
     }));
+    const representativeInclude = await prisma.$transaction(async (tx) => {
+      const subject = await tx.subject.findFirstOrThrow({
+        orderBy: { sortOrder: "asc" },
+        select: { id: true },
+      });
+      const node = await tx.syllabusNode.create({
+        data: {
+          subjectId: subject.id,
+          title: `pg trace representative ${Date.now()}`,
+          kind: "TOPIC",
+          status: "LEARNING",
+          targetMinutes: 1,
+        },
+        include: {
+          _count: {
+            select: {
+              tasks: true,
+              sessions: true,
+              notes: true,
+              mistakes: true,
+            },
+          },
+          tasks: {
+            take: 1,
+            select: { id: true },
+          },
+          sessions: {
+            take: 1,
+            select: { id: true },
+          },
+          notes: {
+            take: 1,
+            select: { id: true },
+          },
+          mistakes: {
+            take: 1,
+            select: { id: true },
+          },
+        },
+      });
+
+      await tx.syllabusNode.delete({ where: { id: node.id } });
+      return { id: node.id, relationCount: node._count.tasks + node._count.sessions + node._count.notes + node._count.mistakes };
+    });
     await prisma.$queryRaw`SELECT 1`;
 
     const matchedWarnings = warnings.filter((warning) =>
@@ -58,6 +105,7 @@ async function main(): Promise<void> {
       subjectCount,
       concurrentCounts,
       transactionCounts,
+      representativeInclude,
       warningCount: warnings.length,
       matchedWarningCount: matchedWarnings.length,
     };
@@ -69,6 +117,15 @@ async function main(): Promise<void> {
     }
   } finally {
     await prisma.$disconnect();
+  }
+}
+
+function isLocalDatabaseUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  } catch {
+    return false;
   }
 }
 
