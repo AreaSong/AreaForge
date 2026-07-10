@@ -100,7 +100,9 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 6. 更新成功后，把 Release tag、线上 health、镜像 digest、update-agent 状态、`pnpm ops:evidence:bundle` 的 `bundleHash` 和残余风险同步回发布记录或对应文档。
 7. 若本次 Release 用于关闭或复核 `AF-RISK-SC-001` / `AF-RISK-SC-002`，按 `docs/development/release-supply-chain-record-template.md` 记录供应链证据并运行 `pnpm release:supply-chain:validate <record>`。
 
-当前仓库已提供 repo-local Codex skills，源目录为 `.codex/skills-src/`，自动发现入口为 `.agents/skills/`。跨多个治理面时先触发 `areaforge-operating-loop` 做分级和 owner 路由；涉及企业治理、发布、真实体验、文档同步、生产运维、观测、事故响应、安全、供应链、残余风险、AI 或验证选择时，再触发对应 `areaforge-*` skill；变更 skill 后运行 `pnpm skills:validate`。
+当前仓库已提供 repo-local Codex skills，源目录为 `.codex/skills-src/`，自动发现入口为 `.agents/skills/`。跨多个治理面时先触发 `areaforge-operating-loop` 做分级和 owner 路由；涉及企业治理、发布、真实体验、文档同步、生产运维、观测、事故响应、安全、上传/附件存储、供应链、残余风险、AI 或验证选择时，再触发对应 `areaforge-*` skill；变更 skill 后运行 `pnpm skills:validate`。
+
+完成声明默认遵循 `docs/development/completion-evidence-checklist.md`：说明证据等级、新鲜验证、未验证项、阻断项、是否需要 Release 和 residual risk IDs。写动作能力默认按 `docs/development/runtime-write-boundary.md` 的 R0-R4 矩阵判断，不能把 preview、本地 smoke、Web update request 或草稿说成生产 apply。
 
 ## 收尾报告
 

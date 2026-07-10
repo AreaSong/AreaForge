@@ -21,4 +21,4 @@
 | AF-RISK-SC-003 | 已关闭为证据项；`packages/db` 已串行化 Prisma pg adapter transaction query，后续升级 `pg` / Prisma adapter 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke | `areaforge-supply-chain` / `areaforge-sre-ops` | 升级 `pg` / Prisma adapter 前 |
 | AF-RISK-OPS-003 | 服务器、域名、Nginx 或端口迁移需单独 runbook 和证据 | `areaforge-sre-ops` | 基础设施迁移前 |
 | AF-RISK-OPS-004 | 告警阈值、`pnpm ops:alert:preview` 和 `pnpm alert:drill:validate` 已有，但外部接收人、metrics dashboard 和演练记录仍缺 | `areaforge-observability` | 建立告警或声称完整生产健康前 |
-| AF-RISK-UX-001 | 没有新鲜真实体验复核记录时，不能宣称桌面/移动体验完整健康；`pnpm experience:review:validate` 可校验记录形态 | `areaforge-product-experience` / `areaforge-qa-smoke` | 每次体验优化、release/update 后或声称体验健康前 |
+| AF-RISK-UX-001 | 已关闭为证据项；2026-07-10 本地 desktop/mobile 体验复核记录已通过，后续体验优化、release/update 或 14 天维护窗口前必须重跑 `pnpm experience:review:validate` | `areaforge-product-experience` / `areaforge-qa-smoke` | 每次体验优化、release/update 后或声称体验健康前 |

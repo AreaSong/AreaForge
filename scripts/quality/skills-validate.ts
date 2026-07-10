@@ -22,6 +22,7 @@ const requiredSkills = [
   "areaforge-observability",
   "areaforge-incident-response",
   "areaforge-security-governance",
+  "areaforge-file-storage-safety",
   "areaforge-supply-chain",
   "areaforge-residual-ledger",
   "areaforge-product-experience",

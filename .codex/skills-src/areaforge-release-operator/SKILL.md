@@ -17,8 +17,10 @@ Operate AreaForge releases as evidence-backed production changes, not as ad-hoc 
 6. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
 7. [docs/development/docs-100-completion-record.md](../../../docs/development/docs-100-completion-record.md)
 8. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
-9. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
-10. [tasks/done/0018-github-release-updater.md](../../../tasks/done/0018-github-release-updater.md)
+9. [docs/development/completion-evidence-checklist.md](../../../docs/development/completion-evidence-checklist.md)
+10. [docs/development/runtime-write-boundary.md](../../../docs/development/runtime-write-boundary.md)
+11. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+12. [tasks/done/0018-github-release-updater.md](../../../tasks/done/0018-github-release-updater.md)
 
 ## References
 
@@ -30,6 +32,7 @@ Operate AreaForge releases as evidence-backed production changes, not as ad-hoc 
 - [../areaforge-doc-sync/SKILL.md](../areaforge-doc-sync/SKILL.md): sync README/docs/tasks/workflow/ops after release changes.
 - [../areaforge-sre-ops/SKILL.md](../areaforge-sre-ops/SKILL.md): inspect production updater, health, backups, and rollback readiness.
 - [../areaforge-security-governance/SKILL.md](../areaforge-security-governance/SKILL.md): review signing, GHCR, secrets, and Web runtime command boundaries.
+- [../areaforge-file-storage-safety/SKILL.md](../areaforge-file-storage-safety/SKILL.md): review upload archive, attachment reconciliation, restore, and file rollback evidence when releases touch file storage.
 
 ## Workflow
 
@@ -37,7 +40,7 @@ Operate AreaForge releases as evidence-backed production changes, not as ad-hoc 
 2. Confirm high-risk boundaries before touching migration, upload storage, AI provider behavior, deployment, backup, restore, update policy, or rollback.
 3. Load the release gates before proposing or creating a tag.
 4. Verify local gates after the final change, not before the last edit; release workflow must validate before build and stable signing must fail closed.
-5. Ensure release notes and docs mention version, tag, image digest, health, update-agent status, validation, and residual risk.
+5. Ensure release notes and docs mention version, tag, image digest, health, update-agent status, validation, evidence class, write boundary, and residual risk.
 6. For production release, require signed GitHub Release assets, immutable GHCR digests, updater check/apply evidence, backup point, migration result, smoke result, and rollback target.
 7. Keep `AREAFORGE_AUTO_APPLY=none` unless the user explicitly confirms a different policy.
 

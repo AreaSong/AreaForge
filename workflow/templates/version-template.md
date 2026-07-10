@@ -8,6 +8,19 @@
 
 ## 目标
 
+## Planning Gate
+
+- 目标：
+- 非目标：
+- Exact docs：
+- Open questions：
+- Decisions：
+- Owner skill：
+- Residual risk IDs：
+- Release trigger：
+- 验证：
+- 回滚：
+
 ## 范围
 
 ## 不包含

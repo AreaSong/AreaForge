@@ -15,9 +15,10 @@
 ## 使用规则
 
 - 一个任务只描述一个清晰目标。
+- 新任务默认从 `tasks/templates/task-template.md` 复制，并保留轻量 YAML frontmatter：`status`、`risk`、`ownerSkill`、`validation`、`residualRiskIds` 和 `releaseRequired`。
 - 涉及高风险边界时，先在任务中写清影响、风险、验证和回滚。
 - 完成任务后移动到 `done/`，并保留验证结果。
 - 历史高风险确认包或跨批次承接任务可保留在 `backlog/` 作为稳定入口，但文件内必须写清真实状态、已完成范围和后续承接包。
 - 若任务与 `docs/` 冲突，先更新 `docs/`，再执行任务。
 - 后续功能更新若进入线上，任务记录必须同步 GitHub Release tag、线上 health、镜像 digest、update-agent 状态和残余风险。
-- 影响长期运营的任务必须写明 owner skill、只读验收、证据新鲜度、关闭条件和残余风险 ID。
+- 影响长期运营的任务必须写明 owner skill、只读验收、证据新鲜度、关闭条件、完成证据等级和残余风险 ID。

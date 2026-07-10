@@ -37,7 +37,7 @@
 3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState`、显式掌握证明记录、结构化模拟考试和阶段计划/草稿已由 Package B Batch 1-6 完成；Package D D1-D5 已完成长期闭环主线，未来自动应用或批量调整另行确认。
 4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径、阶段计划/草稿持久化、报告决策入口、债务重排所选项应用记录、长期 AI 草稿显式触发、长期风险/主题闭环和 Package D 收口已完成。
 5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复、GitHub Release 签名更新和版本中心受控请求流已完成；后续功能更新按 release runbook 逐次发布。
-6. 长期运营优化：当前不引入 AreaMatrix/AreaFlow 的重型任务队列或 command API；后续只围绕 ops readiness、生产 extra smoke、残余风险关闭和真实体验优化逐项推进。
+6. 长期运营优化：当前不引入 AreaMatrix/AreaFlow 的重型任务队列或 command API；后续只围绕 ops readiness、生产 extra smoke、残余风险关闭、完成证据纪律、运行时写边界和真实体验优化逐项推进。
 
 实现前确认设计：
 

@@ -20,6 +20,7 @@
 - `areaforge-observability`：health、日志、release identity、update-agent、备份新鲜度、AI fallback 和生产信号证据。
 - `areaforge-incident-response`：故障分级、证据冻结、止血、回滚决策、恢复验证和复盘收口。
 - `areaforge-security-governance`：鉴权、上传、AI、密钥、日志、签名 release 和服务器命令边界。
+- `areaforge-file-storage-safety`：附件上传/下载、私有 `UPLOAD_DIR`、metadata/hash、对账、删除、备份恢复和上传目录迁移安全门禁。
 - `areaforge-supply-chain`：GitHub Actions、Release assets、GHCR digest、签名、hash、依赖和 updater 信任门禁。
 - `areaforge-residual-ledger`：阻塞、延期、接受例外、发布 follow-up、监控缺口和关闭条件分类。
 - `areaforge-product-experience`：学习闭环的真实体验、可用性、移动视口和产品打磨。
@@ -40,6 +41,7 @@
 | `areaforge-observability` | health、日志、updater、备份、release identity、AI fallback 和运行信号 | 生产动作交给 `areaforge-sre-ops`；用户旅程交给 `areaforge-qa-smoke`；事故交给 `areaforge-incident-response` |
 | `areaforge-incident-response` | 故障分级、证据冻结、止血、回滚决策、恢复验证和复盘 | 生产执行交给 `areaforge-sre-ops`；安全事件交给 `areaforge-security-governance`；残余项交给 `areaforge-residual-ledger` |
 | `areaforge-security-governance` | 鉴权、上传、AI、密钥、日志、签名与命令边界 | 供应链细节交给 `areaforge-supply-chain`；AI 细节交给 `areaforge-ai-governance`；生产操作交给 `areaforge-sre-ops` |
+| `areaforge-file-storage-safety` | 附件上传/下载、私有上传目录、文件 metadata/hash、对账、删除、备份恢复和迁移安全 | 鉴权和高风险边界交给 `areaforge-security-governance`；生产备份/恢复交给 `areaforge-sre-ops`；验证选择交给 `areaforge-validation-driver` |
 | `areaforge-supply-chain` | GitHub Actions、Release assets、GHCR digest、签名、hash、依赖和 updater 信任 | 发布执行交给 `areaforge-release-operator`；仓库规则交给 `areaforge-enterprise-governance` |
 | `areaforge-residual-ledger` | blockers、deferred work、accepted exceptions、monitoring gaps、release follow-ups 和关闭条件 | 源事实同步交给 `areaforge-doc-sync`；事故 follow-up 交给 `areaforge-incident-response` |
 | `areaforge-product-experience` | 真实体验、信息架构、文案、可用性、移动视口 | 验证交给 `areaforge-qa-smoke`；源事实同步交给 `areaforge-doc-sync` |

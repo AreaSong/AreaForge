@@ -43,6 +43,8 @@ residualRiskId:
 
 - 说明为什么现有脚本、skill 或手动流程不足。
 - 明确是否能写文件、写数据库、触发网络请求、读取密钥、连接生产、调用 AI、创建 Release 或执行服务器命令。
+- 按 `docs/development/runtime-write-boundary.md` 标明 R0-R4 能力等级；R3 update request 不等于 R4 updater apply。
+- 按 `docs/development/completion-evidence-checklist.md` 说明证据等级、新鲜验证、未验证项和 residual risk IDs。
 - 明确禁止读取或输出生产 `.env`、数据库 URL、API key、cosign 私钥、上传文件内容、完整 prompt/raw response、
   动机档案、完整情绪记录或完整复盘正文。
 - 涉及生产、备份、恢复、migration、updater apply、rollback、签名策略、自动应用策略或 Web 运维能力扩大时，

@@ -21,6 +21,7 @@
 ## 使用规则
 
 - 一个版本计划必须说明目标、范围、不包含、验收标准和退出条件。
+- 新版本计划默认从 `workflow/templates/version-template.md` 复制，并先填 Planning Gate：目标、非目标、Exact docs、open questions、decisions、owner skill、residual IDs、release trigger、验证和回滚。
 - 版本计划只描述阶段，不承载具体实现细节。
 - 具体执行事项拆到 `tasks/**`。
 - 每次功能发布后必须同步对应 release tag、验证结果、线上 health、update-agent 状态和残余风险。

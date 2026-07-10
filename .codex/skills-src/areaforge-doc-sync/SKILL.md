@@ -14,8 +14,10 @@ Keep AreaForge source facts aligned across product docs, engineering docs, task 
 3. [docs/README.md](../../../docs/README.md)
 4. [docs/development/doc-sync-checklist.md](../../../docs/development/doc-sync-checklist.md)
 5. [docs/development/feature-traceability.md](../../../docs/development/feature-traceability.md)
-6. [tasks/README.md](../../../tasks/README.md)
-7. [workflow/README.md](../../../workflow/README.md)
+6. [docs/development/completion-evidence-checklist.md](../../../docs/development/completion-evidence-checklist.md)
+7. [docs/development/runtime-write-boundary.md](../../../docs/development/runtime-write-boundary.md)
+8. [tasks/README.md](../../../tasks/README.md)
+9. [workflow/README.md](../../../workflow/README.md)
 
 ## References
 
@@ -29,7 +31,7 @@ Keep AreaForge source facts aligned across product docs, engineering docs, task 
 1. Determine the authoritative source: code, production state, release record, completion record, product docs, or high-risk confirmation.
 2. Update source facts before adapters, summaries, templates, or skill text.
 3. Sync entry points first: `README.md`, `AGENTS.md`, `docs/README.md`, `tasks/README.md`, `workflow/README.md`, and relevant ops README. Include `apps/web/README.md` and `apps/web/AGENTS.md` when Web runtime, version center, release, or deployment facts change.
-4. Sync module and development docs next: API, data model, validation matrix, feature traceability, completion records, runbooks, residual risk, and task ledgers.
+4. Sync module and development docs next: API, data model, validation matrix, feature traceability, completion records, completion evidence checklist, runtime write boundary, runbooks, residual risk, and task ledgers.
 5. Scan for stale wording that implies completed Package A-E work is still pending.
 6. Run `pnpm docs:readiness`, `pnpm docs:completion`, `pnpm risk:preflight`, and `git diff --check` after final doc edits. If `.codex/skills-src/**` or `.agents/skills/**` changed, also run `pnpm skills:validate`.
 

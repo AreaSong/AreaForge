@@ -1,5 +1,15 @@
 # 任务标题
 
+```yaml
+status: todo
+risk: low|medium|high
+ownerSkill: areaforge-...
+validation:
+  - pnpm docs:readiness
+residualRiskIds: []
+releaseRequired: false
+```
+
 状态：
 
 ## 目标

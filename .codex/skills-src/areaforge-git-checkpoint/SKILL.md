@@ -13,8 +13,9 @@ Use this skill when work is ready to become a Git checkpoint or when a dirty wor
 2. [README.md](../../../README.md)
 3. [docs/development/codex-workflow.md](../../../docs/development/codex-workflow.md)
 4. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
-5. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
-6. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+5. [docs/development/completion-evidence-checklist.md](../../../docs/development/completion-evidence-checklist.md)
+6. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
+7. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
 ## References
 
@@ -29,7 +30,7 @@ Use this skill when work is ready to become a Git checkpoint or when a dirty wor
 
 1. Inspect `git status --short --branch` and identify unrelated pre-existing changes before staging.
 2. Review `git diff --stat` and the relevant hunks; do not stage generated noise, private env, backups, release assets, or unrelated edits.
-3. Confirm validation evidence is fresh and matches the changed scope. Use `areaforge-validation-driver` when the command set is unclear.
+3. Confirm validation evidence is fresh and matches the changed scope. Use `completion-evidence-checklist.md` and `areaforge-validation-driver` when the command set or completion claim is unclear.
 4. If the checkpoint is release-bound, load `areaforge-release-operator` and ensure version, tag, Release assets, rollback target, and residual risk evidence are ready.
 5. Stage only the intended files, then re-check `git diff --cached --stat` and any high-risk hunks.
 6. Commit with a concise Chinese message only after validation has passed or the remaining unverified items are explicitly documented.

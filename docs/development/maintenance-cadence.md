@@ -60,7 +60,7 @@ pnpm ops:alert:preview
 - Dependabot/依赖更新是否需要进入 dependency policy。
 - `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`。
 - `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录。
-- `AF-RISK-UX-001` 是否已有 14 天内 desktop/mobile 体验复核记录；没有时，体验健康只能保持 `warn`。
+- `AF-RISK-UX-001` 是否仍有 14 天内 desktop/mobile 体验复核记录；当前 2026-07-10 本地记录已关闭该项，过期、release/update 或体验改动后必须重跑，否则体验健康重新降级为 `warn`。
 
 ## 每月或每个维护窗口
 
@@ -72,7 +72,7 @@ pnpm ops:alert:preview
 - 在非生产或临时环境演练恢复；附件对账必须保持 `report_only`。
 - 验证 `docs/deployment/operator-onboarding.md` 是否仍能指导新操作者。
 - 复核 `docs/development/support-intake.md` 和 issue 模板是否仍能阻止公开敏感信息。
-- 完成一次 desktop/mobile 产品体验复核，或记录为什么本维护窗口不关闭 `AF-RISK-UX-001`。
+- 完成一次 desktop/mobile 产品体验复核，或记录为什么本维护窗口沿用/重新打开 `AF-RISK-UX-001`。
 - 若有告警接收人或人工值班窗口，完成一次告警/恢复演练并运行 `pnpm alert:drill:validate <record>`。
 
 月度检查不自动执行生产 restore，不删除备份，不移动上传目录，不修复 metadata。

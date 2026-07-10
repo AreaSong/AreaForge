@@ -19,6 +19,7 @@ Review security as a system: data boundary, command boundary, dependency boundar
 ## References
 
 - [references/security-gates.md](references/security-gates.md): security review checklist and high-risk boundaries.
+- [../areaforge-file-storage-safety/SKILL.md](../areaforge-file-storage-safety/SKILL.md): upload, attachment, reconciliation, backup, restore, and storage migration safety.
 - [../areaforge-supply-chain/SKILL.md](../areaforge-supply-chain/SKILL.md): release artifact, dependency, image, and updater trust gates.
 - [../areaforge-ai-governance/SKILL.md](../areaforge-ai-governance/SKILL.md): AI-specific privacy and cost checks.
 - [../areaforge-sre-ops/SKILL.md](../areaforge-sre-ops/SKILL.md): production command, backup, and update boundaries.
