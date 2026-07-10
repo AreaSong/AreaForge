@@ -13,6 +13,8 @@ const checks: CheckResult[] = [];
 function main(): void {
   checkRequiredFiles();
   checkSecurityPolicy();
+  checkSupportPolicy();
+  checkIssueTemplates();
   checkDependabot();
   checkPullRequestTemplate();
   checkCodeReviewPolicy();
@@ -38,11 +40,17 @@ function main(): void {
 function checkRequiredFiles(): void {
   const requiredFiles = [
     "SECURITY.md",
+    "SUPPORT.md",
     "CODE_REVIEW.md",
+    ".github/ISSUE_TEMPLATE/bug_report.md",
+    ".github/ISSUE_TEMPLATE/feature_request.md",
+    ".github/ISSUE_TEMPLATE/ops_support.md",
+    ".github/ISSUE_TEMPLATE/config.yml",
     ".github/dependabot.yml",
     ".github/pull_request_template.md",
     "docs/development/dependency-policy.md",
     "docs/development/external-capability-admission.md",
+    "docs/development/support-intake.md",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -71,6 +79,68 @@ function checkSecurityPolicy(): void {
     ok: missing.length === 0,
     detail: missing.length === 0
       ? "SECURITY.md documents private reporting, sensitive surfaces, and no-web-ops boundary"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkSupportPolicy(): void {
+  const support = read("SUPPORT.md");
+  const intake = read("docs/development/support-intake.md");
+  const requiredTerms = [
+    "best-effort",
+    "Bug Report",
+    "Feature Request",
+    "Ops Support",
+    "Security",
+    "Do Not Post Publicly",
+    "production `.env`",
+    "database URLs",
+    "API keys",
+    "cosign private",
+    "smoke passwords",
+    "docs/development/support-intake.md",
+    "公开 issue 不构成执行确认",
+    "operator-onboarding.md",
+    "release-train.md",
+  ];
+  const combined = `${support}\n${intake}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  checks.push({
+    name: "support policy",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "SUPPORT and support intake docs route public issues without leaking secrets or authorizing production ops"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkIssueTemplates(): void {
+  const bug = read(".github/ISSUE_TEMPLATE/bug_report.md");
+  const feature = read(".github/ISSUE_TEMPLATE/feature_request.md");
+  const ops = read(".github/ISSUE_TEMPLATE/ops_support.md");
+  const config = read(".github/ISSUE_TEMPLATE/config.yml");
+  const packageJson = read("package.json");
+  const requiredTerms = [
+    "needs-triage",
+    "SUPPORT.md",
+    "Security",
+    "AUTH_SESSION_SECRET",
+    "AI_API_KEY",
+    "GitHub token",
+    "operator:onboarding:preflight",
+    "release:train:preflight",
+    "AF-RISK-OPS-001",
+    "blank_issues_enabled: false",
+    "security/advisories/new",
+    "support:intake:preflight",
+  ];
+  const combined = `${bug}\n${feature}\n${ops}\n${config}\n${packageJson}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  checks.push({
+    name: "issue templates",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "Issue templates collect redacted bug/feature/ops evidence and route security privately"
       : `missing ${missing.join(", ")}`,
   });
 }

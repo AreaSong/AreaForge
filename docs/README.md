@@ -69,6 +69,7 @@
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
 - `development/dependency-policy.md`：依赖、GitHub Actions、Docker base image 和供应链治理策略。
+- `development/support-intake.md`：公开 issue、支持入口、ops support、敏感信息边界和 triage 规则。
 - `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
 - `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、只读运营摘要和证据包入口。
 - `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段、告警阈值和只读告警预览策略。
@@ -111,6 +112,7 @@
 - `security/threat-model.md`：第一版威胁模型。
 - `security/file-ai-safety.md`：文件上传、附件访问和 AI 调用安全边界。
 - 根目录 `SECURITY.md`：安全漏洞私密报告和公开披露边界。
+- 根目录 `SUPPORT.md`：公开支持入口、反馈路径和敏感信息禁止清单。
 - 根目录 `CODE_REVIEW.md`：代码评审门禁、阻断项和 evidence-first 输出格式。
 
 ## 执行与版本

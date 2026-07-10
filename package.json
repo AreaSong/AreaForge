@@ -24,6 +24,7 @@
     "ops:evidence:bundle": "tsx scripts/ops/operational-evidence-bundle.ts",
     "ops:alert:preview": "tsx scripts/ops/operational-alert-preview.ts",
     "operator:onboarding:preflight": "tsx scripts/quality/operator-onboarding-preflight.ts",
+    "support:intake:preflight": "tsx scripts/quality/support-intake-preflight.ts",
     "alert:drill:validate": "tsx scripts/quality/alert-drill-validate.ts",
     "alert:drill:selftest": "tsx scripts/quality/alert-drill-validate.selftest.ts",
     "smoke:prod-readonly:validate": "tsx scripts/quality/prod-readonly-smoke-validate.ts",

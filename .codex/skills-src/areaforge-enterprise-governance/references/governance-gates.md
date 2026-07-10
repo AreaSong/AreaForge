@@ -11,6 +11,7 @@ Ask which governance surface changed:
 - external capability admission: subagents, MCP, automations, Browser/Computer Use, deployment plugins, or remote ops tools
 - security and privacy policy
 - PR, issue, CODEOWNERS, or review template
+- support, issue intake, public/private vulnerability routing, or triage policy
 - Codex workflow, skill, validation, or docs gate
 
 ## Review Gate
@@ -41,4 +42,4 @@ CI should keep at least:
 
 ## Missing Enterprise Artifacts
 
-Current public-project artifacts include `SECURITY.md`, `.github/dependabot.yml`, `.github/pull_request_template.md`, and `docs/development/dependency-policy.md`. If the project later needs broader collaboration, consider CODEOWNERS, issue templates, CODE_OF_CONDUCT.md, SUPPORT.md, or branch protection docs. Do not add them only for ceremony; add them when they change real review behavior.
+Current public-project artifacts include `SECURITY.md`, `SUPPORT.md`, `.github/ISSUE_TEMPLATE/**`, `.github/dependabot.yml`, `.github/pull_request_template.md`, `docs/development/support-intake.md`, and `docs/development/dependency-policy.md`. If the project later needs broader collaboration, consider CODEOWNERS, CODE_OF_CONDUCT.md, or branch protection docs. Do not add them only for ceremony; add them when they change real review behavior.
