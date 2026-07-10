@@ -208,6 +208,8 @@ function checkCiWorkflow(): void {
     "pull_request:",
     "push:",
     "actions/checkout",
+    "pnpm/action-setup",
+    "version: 11.7.0",
     "actions/setup-node",
     "node-version: 24",
     "sudo apt-get install -y shellcheck",
