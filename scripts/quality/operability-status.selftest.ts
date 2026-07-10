@@ -8,6 +8,7 @@ const requiredFiles = [
   "docs/README.md",
   "docs/development/long-term-operability-control-plane.md",
   "docs/development/maintenance-cadence.md",
+  "docs/development/maintenance-window-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -28,9 +29,13 @@ const requiredFiles = [
   "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
+  "scripts/ops/generate-maintenance-window-record.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/operational-handoff.selftest.ts",
+  "scripts/quality/maintenance-window-record.selftest.ts",
+  "scripts/quality/maintenance-window-record-validate.ts",
+  "scripts/quality/maintenance-window-record-validate.selftest.ts",
   "scripts/quality/support-bundle-preview-validate.ts",
   "scripts/quality/support-bundle-preview.selftest.ts",
   "scripts/quality/ops001-evidence-preflight.selftest.ts",
@@ -54,6 +59,10 @@ const requiredScripts = [
   "ops:alert:preview",
   "enterprise:operability:preflight",
   "maintenance:cadence:preflight",
+  "maintenance:window:record",
+  "maintenance:window:record:selftest",
+  "maintenance:window:validate",
+  "maintenance:window:selftest",
   "residuals:validate",
   "residuals:review-due",
   "release:train:preflight",
@@ -81,11 +90,15 @@ function main(): void {
     assert(projection.packageScripts.present.includes("ops:support:bundle-preview"), "projection should require support bundle preview script");
     assert(projection.packageScripts.present.includes("ops:ops-001:preflight"), "projection should require OPS-001 evidence preflight script");
     assert(projection.packageScripts.present.includes("sc:sc-002:preflight"), "projection should require SC-002 supply-chain preflight script");
+    assert(projection.packageScripts.present.includes("maintenance:window:record"), "projection should require maintenance window record generator");
+    assert(projection.packageScripts.present.includes("maintenance:window:validate"), "projection should require maintenance window validator");
     assert(projection.commands.daily.includes("pnpm ops:support:bundle-preview"), "daily commands should include support bundle preview");
     assert(projection.commands.daily.includes("pnpm ops:ops-001:preflight"), "daily commands should include OPS-001 evidence preflight");
+    assert(projection.commands.daily.includes("pnpm maintenance:window:record"), "daily commands should include maintenance window record generation");
     assert(projection.commands.weekly.includes("pnpm ops:support:bundle-preview:selftest"), "weekly commands should include support bundle preview selftest");
     assert(projection.commands.weekly.includes("pnpm ops:ops-001:preflight:selftest"), "weekly commands should include OPS-001 evidence preflight selftest");
     assert(projection.commands.weekly.includes("pnpm sc:sc-002:preflight:selftest"), "weekly commands should include SC-002 supply-chain preflight selftest");
+    assert(projection.commands.weekly.includes("pnpm maintenance:window:record:selftest"), "weekly commands should include maintenance window record selftest");
     assert(projection.commands.release.includes("pnpm sc:sc-002:preflight"), "release commands should include SC-002 supply-chain preflight");
     assert(projection.nextActions.some((action) => action.residualRiskId === "AF-RISK-OPS-001"), "next actions should include executable residual");
 

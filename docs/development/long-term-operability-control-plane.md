@@ -80,6 +80,8 @@ pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
+pnpm maintenance:window:record
+pnpm maintenance:window:validate <maintenance-window-record.md|txt>
 pnpm ops:ops-001:preflight
 pnpm ops:alert:preview
 ```

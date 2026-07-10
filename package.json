@@ -39,6 +39,8 @@
     "ops:alert:preview": "tsx scripts/ops/operational-alert-preview.ts",
     "enterprise:operability:preflight": "tsx scripts/quality/enterprise-operability-preflight.ts",
     "maintenance:cadence:preflight": "tsx scripts/quality/maintenance-cadence-preflight.ts",
+    "maintenance:window:record": "tsx scripts/ops/generate-maintenance-window-record.ts",
+    "maintenance:window:record:selftest": "tsx scripts/quality/maintenance-window-record.selftest.ts",
     "maintenance:window:validate": "tsx scripts/quality/maintenance-window-record-validate.ts",
     "maintenance:window:selftest": "tsx scripts/quality/maintenance-window-record-validate.selftest.ts",
     "operator:onboarding:preflight": "tsx scripts/quality/operator-onboarding-preflight.ts",

@@ -228,6 +228,8 @@ function checkPackageScript(): void {
     "ops:ops-001:closure": "tsx scripts/ops/generate-ops001-closure-packet.ts",
     "ops:ops-001:closure:validate": "tsx scripts/quality/ops001-closure-packet-validate.ts",
     "ops:ops-001:closure:selftest": "tsx scripts/quality/ops001-closure-packet.selftest.ts",
+    "maintenance:window:record": "tsx scripts/ops/generate-maintenance-window-record.ts",
+    "maintenance:window:record:selftest": "tsx scripts/quality/maintenance-window-record.selftest.ts",
     "maintenance:window:validate": "tsx scripts/quality/maintenance-window-record-validate.ts",
     "maintenance:window:selftest": "tsx scripts/quality/maintenance-window-record-validate.selftest.ts",
     "incident:record": "tsx scripts/ops/generate-incident-record.ts",

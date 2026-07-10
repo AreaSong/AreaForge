@@ -8,6 +8,7 @@ const requiredFiles = [
   "docs/README.md",
   "docs/development/long-term-operability-control-plane.md",
   "docs/development/maintenance-cadence.md",
+  "docs/development/maintenance-window-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -28,9 +29,13 @@ const requiredFiles = [
   "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
+  "scripts/ops/generate-maintenance-window-record.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/operational-handoff.selftest.ts",
+  "scripts/quality/maintenance-window-record.selftest.ts",
+  "scripts/quality/maintenance-window-record-validate.ts",
+  "scripts/quality/maintenance-window-record-validate.selftest.ts",
   "scripts/quality/support-bundle-preview-validate.ts",
   "scripts/quality/support-bundle-preview.selftest.ts",
   "scripts/quality/ops001-evidence-preflight.selftest.ts",
@@ -54,6 +59,10 @@ const requiredScripts = [
   "ops:alert:preview",
   "enterprise:operability:preflight",
   "maintenance:cadence:preflight",
+  "maintenance:window:record",
+  "maintenance:window:record:selftest",
+  "maintenance:window:validate",
+  "maintenance:window:selftest",
   "residuals:validate",
   "residuals:review-due",
   "release:train:preflight",
@@ -80,6 +89,7 @@ function main(): void {
     assert(handoff.claimBoundary.cannotClaim.some((claim) => claim.includes("current production health")), "handoff should forbid production health overclaim");
     assert(handoff.nextCommands.handoff.includes("pnpm ops:support:bundle-preview"), "handoff should include support bundle preview command");
     assert(handoff.nextCommands.handoff.includes("pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>"), "handoff should include support bundle preview validation command");
+    assert(handoff.nextCommands.liveEvidence.includes("pnpm maintenance:window:record"), "handoff should include maintenance window record generation command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:ops-001:preflight"), "handoff should include OPS-001 evidence preflight command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:evidence:bundle"), "handoff should include evidence bundle command");
     assert(handoff.nextCommands.release.includes("pnpm sc:sc-002:preflight"), "handoff should include SC-002 supply-chain preflight command");

@@ -170,6 +170,8 @@ function buildNextCommands(projection: OperabilityStatusProjection): Operational
       "pnpm ops:evidence:bundle",
       "pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>",
       "pnpm ops:alert:preview",
+      "pnpm maintenance:window:record",
+      "pnpm maintenance:window:validate <maintenance-window-record.md|txt>",
       "pnpm smoke:prod-readonly:config",
       "pnpm smoke:prod-readonly",
     ],

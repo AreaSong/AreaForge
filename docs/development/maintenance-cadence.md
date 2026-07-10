@@ -39,6 +39,8 @@ pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
+pnpm maintenance:window:record
+pnpm maintenance:window:validate <maintenance-window-record.md|txt>
 pnpm ops:ops-001:preflight
 pnpm ops:ops-001:closure:validate <ops-001-closure-packet.txt>
 pnpm ops:alert:preview
@@ -66,7 +68,7 @@ pnpm ops:alert:preview
 - `pnpm audit:prod`
 - `pnpm shellcheck:updater`
 - `pnpm sc:sc-002:preflight`
-- 如需留存交接记录，按 `docs/development/maintenance-window-record-template.md` 填写并运行 `pnpm maintenance:window:validate <record>`。
+- 如需留存交接记录，先保存 `pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview` 的 redacted 输出，可用 `pnpm maintenance:window:record` 生成草稿，再运行 `pnpm maintenance:window:validate <record>`。
 
 每周还应复核：
 
