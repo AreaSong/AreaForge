@@ -129,6 +129,7 @@ function checkUpdaterBoundaries(): void {
     "unsupported manifest schemaVersion",
     "minimumAppVersion",
     "cosign verify-blob",
+    "--bundle",
     "gpg --verify",
     "flock -n",
     "AREAFORGE_AUTO_APPLY",
@@ -200,6 +201,7 @@ function checkReleaseWorkflow(): void {
     "migrationImageDigest",
     "sha256sum areaforge-release-manifest.json docker-compose.prod.yml > SHA256SUMS",
     "cosign sign-blob",
+    "--bundle SHA256SUMS.sig",
     "softprops/action-gh-release",
   ];
   const missing = requiredTerms.filter((term) => !workflow.includes(term));

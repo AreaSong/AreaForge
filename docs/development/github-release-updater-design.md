@@ -121,7 +121,7 @@ updater 有三种命令：
 - 不把 `docker.sock` 挂入 Web 容器。
 - 不让 Web runtime 镜像承担 migration runner。
 - 不使用 `latest`。
-- 默认要求 `SHA256SUMS.sig`；可用 `cosign verify-blob` 或 `gpg --verify`。
+- 默认要求 `SHA256SUMS.sig`；cosign 模式下该文件是 bundle，通过 `cosign verify-blob --bundle` 校验，也保留 `gpg --verify` 可选路径。
 - updater 记录只写路径、hash、版本、镜像 digest 和失败原因，不写生产 `.env` 内容、数据库 URL、密码、AI key 或附件内容。
 - migration 通过一次性 migration image 执行；命令日志只显示 `DATABASE_URL=<redacted>`。
 - 回滚默认只回滚应用镜像和 `APP_VERSION`。数据库恢复属于额外高风险动作，不在失败处理里默认执行。

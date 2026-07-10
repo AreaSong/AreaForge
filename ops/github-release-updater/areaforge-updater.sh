@@ -230,7 +230,7 @@ verify_signature() {
   [[ -f "$sig" ]] || die "signature asset is required but missing"
   if [[ -n "${AREAFORGE_COSIGN_PUBLIC_KEY:-}" ]]; then
     require_cmd cosign
-    run_cmd cosign verify-blob --key "$AREAFORGE_COSIGN_PUBLIC_KEY" --signature "$sig" "$sums"
+    run_cmd cosign verify-blob --key "$AREAFORGE_COSIGN_PUBLIC_KEY" --bundle "$sig" "$sums"
     return 0
   fi
 

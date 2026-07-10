@@ -130,7 +130,7 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
           if [ -n "${COSIGN_PRIVATE_KEY:-}" ]; then
-            cosign sign-blob --key env://COSIGN_PRIVATE_KEY --output-signature SHA256SUMS.sig SHA256SUMS
+            cosign sign-blob --key env://COSIGN_PRIVATE_KEY --bundle SHA256SUMS.sig SHA256SUMS
           else
             cat > SHA256SUMS.sig <<'EOF_SIG'
           unsigned: configure COSIGN_PRIVATE_KEY and COSIGN_PASSWORD repository secrets before enabling AREAFORGE_REQUIRE_SIGNATURE=true

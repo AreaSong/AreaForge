@@ -29,7 +29,7 @@ git push origin v1.0.3
 
 - `areaforge-release-manifest.json`
 - `SHA256SUMS`
-- `SHA256SUMS.sig`
+- `SHA256SUMS.sig`（cosign bundle，供 `cosign verify-blob --bundle` 校验）
 - `docker-compose.prod.yml`
 
 ## 服务器配置
@@ -94,7 +94,7 @@ sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes 
 
 1. 加锁，避免并发更新。
 2. 下载 GitHub Release manifest、`SHA256SUMS` 和 `SHA256SUMS.sig`。
-3. 校验签名和 hash。
+3. 使用官方公钥校验 cosign bundle 签名，并校验 hash。
 4. 校验 channel、版本、镜像 digest 和 migration image。
 5. 启动或确认 PostgreSQL healthy。
 6. 备份数据库、上传 volume、生产 env、compose、Nginx 和 release assets。

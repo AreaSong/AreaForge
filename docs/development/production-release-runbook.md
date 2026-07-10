@@ -90,14 +90,14 @@ GitHub Release 必须发布以下 assets：
 
 - `areaforge-release-manifest.json`
 - `SHA256SUMS`
-- `SHA256SUMS.sig`
+- `SHA256SUMS.sig`（cosign bundle）
 - `docker-compose.prod.yml`
 
 服务器侧 updater 必须：
 
 1. 校验 Release 非 draft，非 prerelease 时才按 stable 策略处理。
 2. 校验 manifest channel、`minimumAppVersion`、非 `latest` 镜像、`webImageDigest` 和 `migrationImageDigest`。
-3. 校验 `SHA256SUMS` 和 `SHA256SUMS.sig`；生产默认 `AREAFORGE_REQUIRE_SIGNATURE=true`。
+3. 校验 `SHA256SUMS` 和 `SHA256SUMS.sig`；生产默认 `AREAFORGE_REQUIRE_SIGNATURE=true`，cosign 模式使用 `verify-blob --bundle`。
 4. 先备份 PostgreSQL、上传 volume、生产 env、compose、Nginx 和 release assets。
 5. 使用一次性 migration image 执行 `pnpm db:migrate:deploy`，日志中只能显示 `DATABASE_URL=<redacted>`。
 6. 写入 `AREAFORGE_IMAGE=<image@sha256>` 和 `APP_VERSION=<version>` 后启动 web。
