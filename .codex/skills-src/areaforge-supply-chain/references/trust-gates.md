@@ -24,7 +24,8 @@ For new or upgraded dependencies:
 
 ## GitHub Actions Gate
 
-- Prefer pinned major versions at minimum; record residual risk for unpinned SHAs.
+- External GitHub Actions `uses:` entries must pin to 40-character commit SHAs and keep an inline version comment for upgrade review.
+- Record residual risk for any temporary unpinned action SHA exception before merging.
 - Keep workflow permissions least-privilege.
 - Do not add secret-bearing workflow steps without review.
 - Release workflow must keep artifact signing and digest publication.

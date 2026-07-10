@@ -9,6 +9,7 @@ type SkillMeta = {
 const root = process.cwd();
 const skillsRoot = path.join(root, ".codex", "skills-src");
 const agentSkillsRoot = path.join(root, ".agents", "skills");
+const skillsReadme = path.join(skillsRoot, "README.md");
 
 const requiredSkills = [
   "areaforge-enterprise-governance",
@@ -77,6 +78,11 @@ function referencedReferenceFiles(markdown: string): string[] {
 if (!fs.existsSync(skillsRoot)) {
   fail(".codex/skills-src missing");
 }
+if (!fs.existsSync(skillsReadme)) {
+  fail(".codex/skills-src/README.md missing");
+}
+
+const skillsReadmeContent = read(skillsReadme);
 
 for (const skill of requiredSkills) {
   const skillDir = path.join(skillsRoot, skill);
@@ -113,6 +119,18 @@ for (const skill of requiredSkills) {
   const openaiYaml = read(openaiFile);
   if (!openaiYaml.includes(`Use $${skill}`)) {
     fail(`${skill} openai.yaml default_prompt must mention $${skill}`);
+  }
+  for (const token of ["interface:", "display_name:", "short_description:", "default_prompt:"]) {
+    if (!openaiYaml.includes(token)) {
+      fail(`${skill} openai.yaml missing ${token}`);
+    }
+  }
+
+  if (!skillsReadmeContent.includes(`- \`${skill}\``)) {
+    fail(`${skill} missing from .codex/skills-src/README.md current skills list`);
+  }
+  if (!skillsReadmeContent.includes(`| \`${skill}\` |`)) {
+    fail(`${skill} missing from .codex/skills-src/README.md owner table`);
   }
 
   if (!fs.existsSync(agentEntry)) {

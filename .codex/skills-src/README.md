@@ -13,6 +13,7 @@
 - Release train 入口为 `docs/development/release-train.md`，对应只读检查为 `pnpm release:train:preflight`。
 - `areaforge-qa-smoke`：真实用户旅程、API/browser smoke、截图和体验证据。
 - `areaforge-doc-sync`：README、docs、tasks、workflow、ops、skills 状态防漂移。
+- `areaforge-git-checkpoint`：本地 staging、commit、push、release tag 前的范围隔离、验证证据和残余风险检查。
 - `areaforge-sre-ops`：生产健康、备份、恢复、update-agent、Nginx、容器和受控生产操作。
 - 自托管操作者上手入口为 `docs/deployment/operator-onboarding.md`，对应只读检查为 `pnpm operator:onboarding:preflight`。
 - 维护节奏入口为 `docs/development/maintenance-cadence.md`，对应只读检查为 `pnpm maintenance:cadence:preflight`。
@@ -34,6 +35,7 @@
 | `areaforge-release-operator` | Release、tag、GitHub Release、镜像 digest、server updater、回滚证据 | 验证交给 `areaforge-validation-driver`；生产状态交给 `areaforge-sre-ops`；文档同步交给 `areaforge-doc-sync` |
 | `areaforge-qa-smoke` | 用户旅程、浏览器/API smoke、截图和体验证据 | 产品判断交给 `areaforge-product-experience`；release smoke 交给 `areaforge-release-operator` |
 | `areaforge-doc-sync` | README/docs/tasks/workflow/ops/skills 状态一致性 | 运行门禁交给 `areaforge-validation-driver`；release 字段交给 `areaforge-release-operator` |
+| `areaforge-git-checkpoint` | staging、commit、push、release tag 前的范围隔离、验证证据和残余风险检查 | 验证选择交给 `areaforge-validation-driver`；release/tag 交给 `areaforge-release-operator`；文档同步交给 `areaforge-doc-sync` |
 | `areaforge-sre-ops` | 线上健康、备份、恢复、update-agent、Nginx、容器、受控生产操作 | 观测证据交给 `areaforge-observability`；事故流程交给 `areaforge-incident-response`；安全边界交给 `areaforge-security-governance` |
 | `areaforge-observability` | health、日志、updater、备份、release identity、AI fallback 和运行信号 | 生产动作交给 `areaforge-sre-ops`；用户旅程交给 `areaforge-qa-smoke`；事故交给 `areaforge-incident-response` |
 | `areaforge-incident-response` | 故障分级、证据冻结、止血、回滚决策、恢复验证和复盘 | 生产执行交给 `areaforge-sre-ops`；安全事件交给 `areaforge-security-governance`；残余项交给 `areaforge-residual-ledger` |

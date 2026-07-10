@@ -1,1 +1,4 @@
-default_prompt: "Use $areaforge-git-checkpoint to review AreaForge Git checkpoint readiness, stage only intended files, preserve unrelated dirty work, and keep release/tag/push actions behind explicit user intent and fresh validation."
+interface:
+  display_name: "AreaForge Git Checkpoint"
+  short_description: "Stage commit push and tag guardrails"
+  default_prompt: "Use $areaforge-git-checkpoint to review AreaForge Git checkpoint readiness, stage only intended files, preserve unrelated dirty work, and keep release/tag/push actions behind explicit user intent and fresh validation."
