@@ -37,6 +37,8 @@
     "ops:ops-001:closure:validate": "tsx scripts/quality/ops001-closure-packet-validate.ts",
     "ops:ops-001:closure:selftest": "tsx scripts/quality/ops001-closure-packet.selftest.ts",
     "ops:alert:preview": "tsx scripts/ops/operational-alert-preview.ts",
+    "ops:ops-004:preflight": "tsx scripts/ops/ops004-alert-evidence-preflight.ts",
+    "ops:ops-004:preflight:selftest": "tsx scripts/quality/ops004-alert-evidence-preflight.selftest.ts",
     "enterprise:operability:preflight": "tsx scripts/quality/enterprise-operability-preflight.ts",
     "maintenance:cadence:preflight": "tsx scripts/quality/maintenance-cadence-preflight.ts",
     "maintenance:window:record": "tsx scripts/ops/generate-maintenance-window-record.ts",

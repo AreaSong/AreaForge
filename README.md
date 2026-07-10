@@ -68,6 +68,7 @@ pnpm ops:ops-001:preflight
 pnpm ops:ops-001:closure
 pnpm ops:ops-001:closure:validate
 pnpm ops:alert:preview
+pnpm ops:ops-004:preflight
 pnpm enterprise:operability:preflight
 pnpm maintenance:cadence:preflight
 pnpm maintenance:window:record

@@ -79,7 +79,7 @@
 - `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、离线状态投影、只读运营交接摘要、只读运营摘要、证据包和证据包校验入口。
 - `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段、告警阈值和只读告警预览策略。
 - `development/production-readonly-smoke-record-template.md`：生产只读 smoke 记录模板和 `pnpm smoke:prod-readonly:validate` 校验入口。
-- `development/alert-drill-record-template.md`：告警/恢复演练记录模板和 `pnpm alert:drill:validate` 校验入口。
+- `development/alert-drill-record-template.md`：告警/恢复演练记录模板、`pnpm alert:drill:validate` 校验入口和 `pnpm ops:ops-004:preflight` 证据预检入口。
 - `development/incident-record-template.md`：事故记录模板和 `pnpm incident:record:validate` 校验入口。
 - `development/restore-drill-record-template.md`：例行恢复演练记录模板和 `pnpm restore:drill:validate` 校验入口。
 - `development/maintenance-window-record-template.md`：维护窗口记录模板，配套 `pnpm maintenance:window:record` 生成入口和 `pnpm maintenance:window:validate` 校验入口。

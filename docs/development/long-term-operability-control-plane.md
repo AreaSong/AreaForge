@@ -84,6 +84,7 @@ pnpm maintenance:window:record
 pnpm maintenance:window:validate <maintenance-window-record.md|txt>
 pnpm ops:ops-001:preflight
 pnpm ops:alert:preview
+pnpm ops:ops-004:preflight
 ```
 
 当 `pnpm residuals:review-due` 出现 `overdue` 或 `due_today`：
@@ -109,6 +110,7 @@ pnpm ops:alert:preview
 | Update-agent status | `docs/development/update-agent-status-record-template.md` | `pnpm update-agent:status:validate <record.json>` | updater check/apply、策略变更 |
 | OPS-001 证据预检 | `docs/development/ops-001-closure-packet-template.md` | `pnpm ops:ops-001:preflight` | 生产 smoke 执行、收口包生成、自动关闭 residual |
 | OPS-001 收口包 | `docs/development/ops-001-closure-packet-template.md` | `pnpm ops:ops-001:closure:validate <record>` | 自动关闭 residual、备份/告警/供应链健康 |
+| OPS-004 告警证据预检 | `docs/development/alert-drill-record-template.md` | `pnpm ops:ops-004:preflight` | 发送通知、调用外部接收人、自动关闭 residual |
 
 ## Skill 增减规则
 
@@ -149,7 +151,7 @@ pnpm ops:alert:preview
 - `AF-RISK-SC-002`：下一次 GitHub CI/Release run 的 Actions pinning 和 `pnpm audit:prod` 证据；先跑 `pnpm sc:sc-002:preflight`，CI-only 证据不关闭 `AF-RISK-SC-001`。
 - `AF-RISK-SC-003`：后续升级 `pg` / `@prisma/adapter-pg` 前重跑 deprecation trace 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 runbook 和证据。
-- `AF-RISK-OPS-004`：外部告警接收人或人工值班窗口以及告警/恢复演练记录。
+- `AF-RISK-OPS-004`：外部告警接收人或人工值班窗口、告警/恢复演练记录和 `pnpm ops:ops-004:preflight` 通过证据。
 - `AF-RISK-UX-001`：每次 release/update、体验改动或 14 天维护窗口前重跑真实体验复核。
 
 ## 本地预检

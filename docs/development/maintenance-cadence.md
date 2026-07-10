@@ -44,6 +44,7 @@ pnpm maintenance:window:validate <maintenance-window-record.md|txt>
 pnpm ops:ops-001:preflight
 pnpm ops:ops-001:closure:validate <ops-001-closure-packet.txt>
 pnpm ops:alert:preview
+pnpm ops:ops-004:preflight
 ```
 
 ## 每周检查
@@ -79,6 +80,7 @@ pnpm ops:alert:preview
 - `pnpm ops:handoff` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚。
 - `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录；OPS-001 需要生产只读 smoke、update-agent status、evidence bundle 和 `pnpm ops:ops-001:closure:validate` 通过后再人工复核关闭；SC-002 先跑 `pnpm sc:sc-002:preflight`，再用 CI-only `pnpm ci:supply-chain:validate` 或签名 Release `pnpm release:supply-chain:validate` 复核。
 - 生成 OPS-001 收口包前先运行 `pnpm ops:ops-001:preflight`；它只读本地 redacted 证据文件并返回 `needs_evidence`、`ready_to_generate_packet`、`ready_for_human_close` 或 `invalid`，不执行生产 smoke、不生成收口包、不改 residual 台账。
+- 关闭 `AF-RISK-OPS-004` 前先运行 `pnpm ops:ops-004:preflight`；它只读已保存的 alert preview 和告警演练记录，校验两者 hash 对齐并返回 `needs_evidence`、`ready_to_generate_record`、`ready_for_human_close` 或 `invalid`，不发送通知、不调用外部接收人、不改 residual 台账。
 - `AF-RISK-UX-001` 是否仍有 14 天内 desktop/mobile 体验复核记录；当前 2026-07-10 本地记录已关闭该项，过期、release/update 或体验改动后必须重跑，否则体验健康重新降级为 `warn`。
 
 ## 每月或每个维护窗口
@@ -92,7 +94,7 @@ pnpm ops:alert:preview
 - 验证 `docs/deployment/operator-onboarding.md` 是否仍能指导新操作者。
 - 复核 `docs/development/support-intake.md` 和 issue 模板是否仍能阻止公开敏感信息。
 - 完成一次 desktop/mobile 产品体验复核，或记录为什么本维护窗口沿用/重新打开 `AF-RISK-UX-001`。
-- 若有告警接收人或人工值班窗口，完成一次告警/恢复演练并运行 `pnpm alert:drill:validate <record>`。
+- 若有告警接收人或人工值班窗口，完成一次告警/恢复演练并运行 `pnpm alert:drill:validate <record>`；关闭 OPS-004 前再用 `pnpm ops:ops-004:preflight` 核对 alert preview 和演练记录是否匹配。
 - 完成一次非生产或临时环境恢复演练记录，并运行 `pnpm restore:drill:validate <record>`；该记录不授权生产 restore。
 
 月度检查不自动执行生产 restore，不删除备份，不移动上传目录，不修复 metadata。

@@ -22,9 +22,13 @@ AREAFORGE_ALERT_DRILL_RECOVERY_RESULT=PASS \
 AREAFORGE_ALERT_DRILL_RECOVERY_ACTION="<what was checked or restored>" \
 pnpm alert:drill:record /path/to/ops-alert-preview.json > /path/to/alert-drill-record.txt
 pnpm alert:drill:validate /path/to/alert-drill-record.txt
+AREAFORGE_OPS004_ALERT_PREVIEW=/path/to/ops-alert-preview.json \
+AREAFORGE_OPS004_ALERT_DRILL_RECORD=/path/to/alert-drill-record.txt \
+pnpm ops:ops-004:preflight
 ```
 
 记录生成器只读取 alert preview 输出和上述显式演练字段；它不发送通知、不调用外部接收人、不执行服务器命令、不写生产。缺少接收人配置、确认 ACK、检测 PASS、恢复 PASS 或恢复动作说明时，生成器会失败，而不是生成可误用的关闭记录。
+OPS-004 预检只读取已保存的 alert preview 与演练记录，调用演练记录校验器，并核对 `alertPreviewEvidenceHash` 是否等于 preview 文件内容 hash；它不发送通知、不调用外部接收人、不修改 residual 台账。
 
 ## 模板
 

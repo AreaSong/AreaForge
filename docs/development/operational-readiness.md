@@ -212,9 +212,12 @@ pnpm ops:alert:preview
 ```bash
 pnpm alert:drill:record /path/to/ops-alert-preview.json > /path/to/alert-drill-record.txt
 pnpm alert:drill:validate <alert-drill-record.md|txt>
+AREAFORGE_OPS004_ALERT_PREVIEW=/path/to/ops-alert-preview.json \
+AREAFORGE_OPS004_ALERT_DRILL_RECORD=/path/to/alert-drill-record.txt \
+pnpm ops:ops-004:preflight
 ```
 
-记录生成器需要显式提供操作者、接收人类型、`receiverConfigured=yes`、`receiverAck=yes`、检测/恢复 PASS 和恢复动作说明；它只读取 alert preview 输出，不发送通知、不调用外部接收人、不执行服务器命令、不写生产。该校验只读取演练记录，检查字段、枚举、`AF-RISK-OPS-004` 残余 ID、hash 形态和敏感值泄露；它不发送通知、不连接外部接收人、不执行服务器命令、不写生产。`pnpm alert:drill:selftest` 和 `pnpm alert:drill:record:selftest` 用于本地回归校验规则。
+记录生成器需要显式提供操作者、接收人类型、`receiverConfigured=yes`、`receiverAck=yes`、检测/恢复 PASS 和恢复动作说明；它只读取 alert preview 输出，不发送通知、不调用外部接收人、不执行服务器命令、不写生产。该校验只读取演练记录，检查字段、枚举、`AF-RISK-OPS-004` 残余 ID、hash 形态和敏感值泄露；它不发送通知、不连接外部接收人、不执行服务器命令、不写生产。OPS-004 预检会额外读取同一次 alert preview 和演练记录，确认 `alertPreviewEvidenceHash` 与 preview 文件内容匹配；缺少演练记录时返回 `ready_to_generate_record`，两者通过时返回 `ready_for_human_close`。`pnpm alert:drill:selftest`、`pnpm alert:drill:record:selftest` 和 `pnpm ops:ops-004:preflight:selftest` 用于本地回归校验规则。
 
 本地真实体验验证可使用 `pnpm smoke:local-ux`。该脚本会写入合成任务、计时、复盘、笔记附件、错题、模拟考试、阶段草稿和更新请求，因此默认要求 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，且只允许 `localhost` / `127.0.0.1`，除非显式设置 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true`。它只能证明当前本地验证环境的核心闭环可用，不能关闭生产写入型 smoke 残余项 `AF-RISK-OPS-002`。
 
@@ -270,5 +273,5 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 - `AF-RISK-SC-002`：Actions SHA pinning 和 `pnpm audit:prod` 已在本地 workflow / governance gate 落地，仍需下一次 GitHub CI 或签名 Release 运行证据关闭。
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
-- `AF-RISK-OPS-004`：告警阈值已有非执行策略，`pnpm ops:alert:preview` 可预览 would-alert 决策；metrics dashboard、外部告警接收人和演练记录仍未产品化。
+- `AF-RISK-OPS-004`：告警阈值已有非执行策略，`pnpm ops:alert:preview` 可预览 would-alert 决策，`pnpm ops:ops-004:preflight` 可核对 alert preview 与演练记录；metrics dashboard、外部告警接收人和演练记录仍未产品化。
 - `AF-RISK-UX-001`：已关闭为证据项；2026-07-10 本地 desktop/mobile 体验复核记录通过，后续 release/update、体验改动或超过 14 天维护窗口前必须重跑 `pnpm experience:review:validate`，否则体验健康重新降级为 `warn`。

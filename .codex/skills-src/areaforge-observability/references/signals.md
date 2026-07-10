@@ -38,6 +38,8 @@ Use `pnpm ops:alert:preview` to map readiness signals into severity, would-notif
 
 Use `pnpm alert:drill:validate <record>` to validate a completed alert/recovery drill record against the `AF-RISK-OPS-004` close-condition evidence shape. The validator is read-only and checks fields, enums, hash shape, residual ID, and secret-like leaks.
 
+Use `pnpm ops:ops-004:preflight` when saved alert preview and alert drill record paths are available. It reports `read_only_ops004_alert_evidence_preflight`, validates the drill record, checks that `alertPreviewEvidenceHash` matches the supplied preview file, and returns `needs_evidence`, `ready_to_generate_record`, `ready_for_human_close`, or `invalid`. It does not send notifications, call external receivers, execute server commands, or update the residual ledger.
+
 Use `pnpm update-agent:status:record <status.json> > <record.json>` to normalize a copied server `status.json` or saved `/api/system/update-status` response into a redacted update-agent status record. Then run `pnpm update-agent:status:validate <record.json>` before feeding it to readiness. The validator checks version, `autoApply=none`, `signatureRequired=true`, timer, `blocker=null`, rollback summary, safety facts, and secret-like leaks.
 
 Use `pnpm ops:ops-001:preflight` before generating an OPS-001 closure packet when redacted evidence paths are available. It reports `read_only_ops001_evidence_preflight`, `requiredPreflight`, `forbiddenActions`, and `safetyFacts`; it does not execute production smoke, generate a packet, or update the residual ledger.
