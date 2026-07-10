@@ -9,9 +9,10 @@ AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单
 ## 发布端配置
 
 1. 在 GitHub 仓库启用 GHCR packages。
-2. 配置可选签名密钥：
+2. 配置 Release 签名密钥：
    - `COSIGN_PRIVATE_KEY`
    - `COSIGN_PASSWORD`
+   AreaForge 官方发布使用 `docs/deployment/keys/areaforge-cosign.pub` 对应的私钥签名。私钥只应保存在 GitHub Actions Secrets 或受控离线发布环境，不能提交到 Git。
 3. 打 tag：
 
 ```bash
@@ -53,6 +54,15 @@ AREAFORGE_BACKUP_DIR=/opt/areaforge/backups
 AREAFORGE_AUTO_APPLY=none
 AREAFORGE_REQUIRE_SIGNATURE=true
 AREAFORGE_COSIGN_PUBLIC_KEY=/etc/areaforge/cosign.pub
+```
+
+安装 AreaForge 官方 Release 公钥：
+
+```bash
+sudo mkdir -p /etc/areaforge
+curl -fsSL https://raw.githubusercontent.com/AreaSong/AreaForge/main/docs/deployment/keys/areaforge-cosign.pub \
+  | sudo tee /etc/areaforge/cosign.pub >/dev/null
+sudo chmod 644 /etc/areaforge/cosign.pub
 ```
 
 如果仓库或 package 是私有的，配置：
