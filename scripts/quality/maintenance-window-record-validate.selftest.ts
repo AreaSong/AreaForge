@@ -58,6 +58,7 @@ function createRecord(): string {
     "readinessSummaryHash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "evidenceBundleHash: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "alertPreviewHash: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "residualReviewHash: sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "residualReviewStatus: warn",
     "dueResidualRiskIds: AF-RISK-OPS-001,AF-RISK-SC-002,AF-RISK-UX-001",
     "decisions: no production write; keep residuals under review",

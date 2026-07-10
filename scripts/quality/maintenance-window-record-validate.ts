@@ -23,6 +23,7 @@ const requiredScalarFields = [
   "readinessSummaryHash",
   "evidenceBundleHash",
   "alertPreviewHash",
+  "residualReviewHash",
   "residualReviewStatus",
   "dueResidualRiskIds",
   "decisions",
@@ -86,7 +87,7 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     requireNo(fields, field, issues);
   }
 
-  for (const field of ["readinessSummaryHash", "evidenceBundleHash", "alertPreviewHash"] as const) {
+  for (const field of ["readinessSummaryHash", "evidenceBundleHash", "alertPreviewHash", "residualReviewHash"] as const) {
     const value = fields.get(field)?.toLowerCase();
     if (value && value !== "not-applicable") {
       requireSha256(fields, field, issues);

@@ -10,11 +10,13 @@ try {
   const readinessFile = path.join(tempDir, "readiness.json");
   const evidenceBundleFile = path.join(tempDir, "evidence-bundle.json");
   const alertPreviewFile = path.join(tempDir, "alert-preview.json");
+  const residualReviewFile = path.join(tempDir, "residual-review.log");
   const recordFile = path.join(tempDir, "maintenance-window.txt");
 
   writeFileSync(readinessFile, JSON.stringify(createReadiness(), null, 2));
   writeFileSync(evidenceBundleFile, JSON.stringify(createEvidenceBundle(), null, 2));
   writeFileSync(alertPreviewFile, JSON.stringify(createAlertPreview(), null, 2));
+  writeFileSync(residualReviewFile, createResidualReviewOutput());
 
   const generated = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-maintenance-window-record.ts"], {
     cwd: root,
@@ -27,6 +29,7 @@ try {
       AREAFORGE_MAINTENANCE_READINESS_FILE: readinessFile,
       AREAFORGE_MAINTENANCE_EVIDENCE_BUNDLE_FILE: evidenceBundleFile,
       AREAFORGE_MAINTENANCE_ALERT_PREVIEW_FILE: alertPreviewFile,
+      AREAFORGE_MAINTENANCE_RESIDUAL_REVIEW_FILE: residualReviewFile,
     },
   });
   expectStatus("generate maintenance window record", generated, 0);
@@ -36,6 +39,7 @@ try {
   assertIncludes(generated.stdout, "readinessSummaryHash: sha256:");
   assertIncludes(generated.stdout, "evidenceBundleHash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   assertIncludes(generated.stdout, "alertPreviewHash: sha256:");
+  assertIncludes(generated.stdout, "residualReviewHash: sha256:");
   assertIncludes(generated.stdout, "dueResidualRiskIds: AF-RISK-OPS-001,AF-RISK-SC-002");
   assertIncludes(generated.stdout, "result: warn");
   assertIncludes(generated.stdout, "productionWriteAttempted: no");
@@ -109,6 +113,27 @@ function createAlertPreview(): unknown {
       },
     ],
   };
+}
+
+function createResidualReviewOutput(): string {
+  return [
+    "SOON AF-RISK-OPS-001: reviewAt=2026-07-17",
+    "SOON AF-RISK-SC-002: reviewAt=2026-07-24",
+    JSON.stringify({
+      ok: true,
+      counts: {
+        total: 2,
+        overdue: 0,
+        dueToday: 0,
+        dueSoon: 2,
+        future: 0,
+      },
+      dueItems: [
+        { id: "AF-RISK-OPS-001" },
+        { id: "AF-RISK-SC-002" },
+      ],
+    }, null, 2),
+  ].join("\n");
 }
 
 function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expectedStatus: number): void {

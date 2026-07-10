@@ -197,7 +197,7 @@ pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
 
 该命令复用同一套只读 readiness 采集，输出 `read_only_operational_evidence_bundle`、逐项 signal evidence、`requiredEvidence`、`forbiddenActions`、`safetyFacts` 和 `bundleHash`。证据包 validator 只读取本地 JSON，检查 canonical `bundleHash`、必需信号、禁止动作、只读 safety facts 和敏感值泄露；它不连接生产、不执行服务器命令、不写生产。证据包适合作为 release record、运维交接或事故前证据冻结的索引；它不创建 GitHub Release，不推送 tag，不执行 updater apply，不运行 migration，不备份、不恢复、不回滚、不写生产数据，也不读取或打印密钥文件内容。若 `status` 为 `needs_attention` 或 `blocked`，必须保留对应 residual risk IDs，不能把证据包 hash 当作健康证明。
 
-需要把已保存的 readiness summary、evidence bundle 和 alert preview 组装成维护窗口交接记录草稿时，使用 `pnpm maintenance:window:record`，再运行 `pnpm maintenance:window:validate <maintenance-window-record.md|txt>`。生成器只读取本地 redacted 输出和显式环境字段；它不连接生产、不读取密钥、不执行服务器命令、不写生产，也不能替代 authenticated smoke、update-agent status、备份、rollback 或 OPS-001 收口证据。
+需要把已保存的 residual review、readiness summary、evidence bundle 和 alert preview 组装成维护窗口交接记录草稿时，使用 `pnpm maintenance:window:record`，再运行 `pnpm maintenance:window:validate <maintenance-window-record.md|txt>`。生成器只读取本地 redacted 输出和显式环境字段；`dueResidualRiskIds` 只从 `AREAFORGE_MAINTENANCE_RESIDUAL_REVIEW_FILE` 或显式 `AREAFORGE_MAINTENANCE_DUE_RESIDUAL_IDS` 推导，不把普通告警 residual 当作到期复核项。它不连接生产、不读取密钥、不执行服务器命令、不写生产，也不能替代 authenticated smoke、update-agent status、备份、rollback 或 OPS-001 收口证据。
 
 需要预览当前信号会触发哪些告警动作时，使用：
 

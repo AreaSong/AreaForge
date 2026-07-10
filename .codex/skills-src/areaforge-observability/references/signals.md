@@ -46,7 +46,7 @@ Use `pnpm ops:ops-001:closure <smoke-record> <update-status-record> <evidence-bu
 
 Use `pnpm maintenance:window:validate <record>`, `pnpm incident:record:validate <record>`, and `pnpm restore:drill:validate <record>` when maintenance windows, incidents, or restore drills need repository-visible redacted evidence. These records do not execute checks, do not authorize production writes, and cannot replace live production evidence.
 
-Use `pnpm maintenance:window:record` when redacted `pnpm ops:readiness:summary`, `pnpm ops:evidence:bundle`, and `pnpm ops:alert:preview` outputs are already saved locally and a maintenance-window draft is needed. The generator reads local files only, does not connect to production, and the generated record still must pass `pnpm maintenance:window:validate <record>`.
+Use `pnpm maintenance:window:record` when redacted `pnpm residuals:review-due`, `pnpm ops:readiness:summary`, `pnpm ops:evidence:bundle`, and `pnpm ops:alert:preview` outputs are already saved locally and a maintenance-window draft is needed. The generator reads local files only, derives `dueResidualRiskIds` from the residual review output or explicit env override, does not connect to production, and the generated record still must pass `pnpm maintenance:window:validate <record>`.
 
 The summary output includes `safetyFacts` such as `serverCommandAttempted=false`, `backupRestoreAttempted=false`, `migrationAttempted=false`, `productionWriteAttempted=false`, `secretValuePrinted=false`, `smokePasswordReadFromFile`, and `networkRequested`.
 

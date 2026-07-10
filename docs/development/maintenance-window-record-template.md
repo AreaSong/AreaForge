@@ -8,7 +8,7 @@
 pnpm maintenance:window:validate docs/development/maintenance-window-<date-or-id>.md
 ```
 
-如果已经保存 `pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`
+如果已经保存 `pnpm residuals:review-due`、`pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`
 的 redacted 输出，可先生成记录草稿：
 
 ```bash
@@ -18,11 +18,12 @@ AREAFORGE_MAINTENANCE_ENVIRONMENT=production \
 AREAFORGE_MAINTENANCE_READINESS_FILE=/path/to/readiness-summary.json \
 AREAFORGE_MAINTENANCE_EVIDENCE_BUNDLE_FILE=/path/to/operational-evidence-bundle.json \
 AREAFORGE_MAINTENANCE_ALERT_PREVIEW_FILE=/path/to/alert-preview.json \
+AREAFORGE_MAINTENANCE_RESIDUAL_REVIEW_FILE=/path/to/residual-review-due.log \
 pnpm maintenance:window:record > /path/to/maintenance-window-record.txt
 pnpm maintenance:window:validate /path/to/maintenance-window-record.txt
 ```
 
-生成器只读取本地 redacted 证据文件和显式环境字段；它不连接生产、不读取密钥、不执行服务器命令、不写生产、不执行 backup/restore/migration/updater/rollback。
+生成器只读取本地 redacted 证据文件和显式环境字段；`dueResidualRiskIds` 只从 residual review 文件或显式 `AREAFORGE_MAINTENANCE_DUE_RESIDUAL_IDS` 推导，不把普通告警 residual 当作到期复核项。它不连接生产、不读取密钥、不执行服务器命令、不写生产、不执行 backup/restore/migration/updater/rollback。
 
 ## 模板
 
@@ -37,6 +38,7 @@ commandsRun: pnpm enterprise:operability:preflight, pnpm maintenance:cadence:pre
 readinessSummaryHash: <sha256-or-not-applicable>
 evidenceBundleHash: <sha256-or-not-applicable>
 alertPreviewHash: <sha256-or-not-applicable>
+residualReviewHash: <sha256-or-not-applicable>
 residualReviewStatus: pass/warn/fail
 dueResidualRiskIds: <AF-RISK-* IDs or none>
 decisions: <decisions made, or none>

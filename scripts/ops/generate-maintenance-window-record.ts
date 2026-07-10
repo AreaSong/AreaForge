@@ -7,6 +7,7 @@ type JsonObject = Record<string, unknown>;
 const readinessPath = process.env.AREAFORGE_MAINTENANCE_READINESS_FILE ?? null;
 const evidenceBundlePath = process.env.AREAFORGE_MAINTENANCE_EVIDENCE_BUNDLE_FILE ?? null;
 const alertPreviewPath = process.env.AREAFORGE_MAINTENANCE_ALERT_PREVIEW_FILE ?? null;
+const residualReviewPath = process.env.AREAFORGE_MAINTENANCE_RESIDUAL_REVIEW_FILE ?? null;
 
 function main(): void {
   const required = requiredEnv();
@@ -18,16 +19,18 @@ function main(): void {
   const readinessText = readinessPath ? readRequiredFile(path.resolve(readinessPath)) : "";
   const evidenceBundleText = evidenceBundlePath ? readRequiredFile(path.resolve(evidenceBundlePath)) : "";
   const alertPreviewText = alertPreviewPath ? readRequiredFile(path.resolve(alertPreviewPath)) : "";
+  const residualReviewText = residualReviewPath ? readRequiredFile(path.resolve(residualReviewPath)) : "";
   const readinessJson = readinessText ? parseLastJson(readinessText) : {};
   const evidenceBundleJson = evidenceBundleText ? parseLastJson(evidenceBundleText) : {};
   const alertPreviewJson = alertPreviewText ? parseLastJson(alertPreviewText) : {};
+  const residualReviewJson = residualReviewText ? parseLastJson(residualReviewText) : {};
 
   const startedAt = process.env.AREAFORGE_MAINTENANCE_STARTED_AT ?? stringOrNull(readinessJson.checkedAt) ?? new Date().toISOString();
   const finishedAt = process.env.AREAFORGE_MAINTENANCE_FINISHED_AT ?? stringOrNull(evidenceBundleJson.generatedAt) ?? stringOrNull(alertPreviewJson.generatedAt) ?? new Date().toISOString();
-  const dueResidualRiskIds = normalizeRiskIds(process.env.AREAFORGE_MAINTENANCE_DUE_RESIDUAL_IDS ?? inferDueResidualIds(readinessJson, evidenceBundleJson, alertPreviewJson));
-  const residualRiskIds = normalizeRiskIds(process.env.AREAFORGE_MAINTENANCE_RESIDUAL_RISK_IDS ?? inferResidualRiskIds(readinessJson, evidenceBundleJson, alertPreviewJson, dueResidualRiskIds));
+  const dueResidualRiskIds = normalizeRiskIds(process.env.AREAFORGE_MAINTENANCE_DUE_RESIDUAL_IDS ?? inferDueResidualIds(residualReviewJson));
+  const residualRiskIds = normalizeRiskIds(process.env.AREAFORGE_MAINTENANCE_RESIDUAL_RISK_IDS ?? inferResidualRiskIds(readinessJson, evidenceBundleJson, alertPreviewJson, residualReviewJson, dueResidualRiskIds));
   const result = normalizeResult(process.env.AREAFORGE_MAINTENANCE_RESULT ?? inferResult(readinessJson, evidenceBundleJson, alertPreviewJson, dueResidualRiskIds));
-  const residualReviewStatus = normalizeResidualReviewStatus(process.env.AREAFORGE_MAINTENANCE_RESIDUAL_REVIEW_STATUS ?? inferResidualReviewStatus(dueResidualRiskIds));
+  const residualReviewStatus = normalizeResidualReviewStatus(process.env.AREAFORGE_MAINTENANCE_RESIDUAL_REVIEW_STATUS ?? inferResidualReviewStatus(dueResidualRiskIds, residualReviewJson));
 
   const record = [
     `windowId: ${process.env.AREAFORGE_MAINTENANCE_WINDOW_ID ?? `maintenance-window-${compactTimestamp(startedAt)}`}`,
@@ -40,6 +43,7 @@ function main(): void {
     `readinessSummaryHash: ${readinessText ? `sha256:${sha256(readinessText)}` : "not-applicable"}`,
     `evidenceBundleHash: ${evidenceBundleHash(evidenceBundleJson, evidenceBundleText)}`,
     `alertPreviewHash: ${alertPreviewText ? `sha256:${sha256(alertPreviewText)}` : "not-applicable"}`,
+    `residualReviewHash: ${residualReviewText ? `sha256:${sha256(residualReviewText)}` : "not-applicable"}`,
     `residualReviewStatus: ${residualReviewStatus}`,
     `dueResidualRiskIds: ${dueResidualRiskIds}`,
     `decisions: ${stringOrNull(process.env.AREAFORGE_MAINTENANCE_DECISIONS) ?? defaultDecisions(result)}`,
@@ -91,7 +95,7 @@ function commandsRun(): string {
 function inferDueResidualIds(...sources: JsonObject[]): string {
   const ids = new Set<string>();
   for (const source of sources) {
-    for (const id of collectRiskIds(source, ["dueResidualRiskIds", "dueItems", "nextActions"])) {
+    for (const id of collectRiskIds(source, ["dueResidualRiskIds", "dueItems"])) {
       ids.add(id);
     }
   }
@@ -132,8 +136,25 @@ function collectRiskIds(value: unknown, keys: string[]): string[] {
   }
   if (!value || typeof value !== "object") return ids;
   for (const [key, item] of Object.entries(value as JsonObject)) {
-    if (keys.includes(key)) ids.push(...collectRiskIds(item, keys));
+    if (keys.includes(key)) ids.push(...collectAnyRiskIds(item));
     if (typeof item === "object" && item) ids.push(...collectRiskIds(item, keys));
+  }
+  return [...new Set(ids)];
+}
+
+function collectAnyRiskIds(value: unknown): string[] {
+  const ids: string[] = [];
+  if (typeof value === "string") {
+    ids.push(...(value.match(/AF-RISK-[A-Z]+-\d+/g) ?? []));
+    return ids;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) ids.push(...collectAnyRiskIds(item));
+    return [...new Set(ids)];
+  }
+  if (!value || typeof value !== "object") return ids;
+  for (const item of Object.values(value as JsonObject)) {
+    ids.push(...collectAnyRiskIds(item));
   }
   return [...new Set(ids)];
 }
@@ -150,7 +171,11 @@ function inferResult(readiness: JsonObject, evidenceBundle: JsonObject, alertPre
   return dueResidualRiskIds === "none" ? "pass" : "warn";
 }
 
-function inferResidualReviewStatus(dueResidualRiskIds: string): "pass" | "warn" | "fail" {
+function inferResidualReviewStatus(dueResidualRiskIds: string, residualReview: JsonObject): "pass" | "warn" | "fail" {
+  const counts = typeof residualReview.counts === "object" && residualReview.counts
+    ? residualReview.counts as JsonObject
+    : {};
+  if (Number(counts.overdue ?? 0) > 0 || Number(counts.dueToday ?? 0) > 0) return "fail";
   return dueResidualRiskIds === "none" ? "pass" : "warn";
 }
 
@@ -198,8 +223,9 @@ function defaultDecisions(result: string): string {
 function parseLastJson(text: string): JsonObject {
   const trimmed = text.trim();
   if (trimmed.startsWith("{")) return JSON.parse(trimmed) as JsonObject;
-  const line = [...text.split(/\r?\n/)].reverse().map((item) => item.trim()).find((item) => item.startsWith("{") && item.endsWith("}"));
-  return line ? JSON.parse(line) as JsonObject : {};
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  return start >= 0 && end > start ? JSON.parse(trimmed.slice(start, end + 1)) as JsonObject : {};
 }
 
 function oneOf(value: string | undefined, allowed: string[]): string | null {

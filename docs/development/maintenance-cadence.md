@@ -68,7 +68,7 @@ pnpm ops:alert:preview
 - `pnpm audit:prod`
 - `pnpm shellcheck:updater`
 - `pnpm sc:sc-002:preflight`
-- 如需留存交接记录，先保存 `pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview` 的 redacted 输出，可用 `pnpm maintenance:window:record` 生成草稿，再运行 `pnpm maintenance:window:validate <record>`。
+- 如需留存交接记录，先保存 `pnpm residuals:review-due`、`pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview` 的 redacted 输出，可用 `pnpm maintenance:window:record` 生成草稿，再运行 `pnpm maintenance:window:validate <record>`。
 
 每周还应复核：
 
