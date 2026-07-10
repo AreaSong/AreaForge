@@ -25,7 +25,7 @@
 - Authenticated read-only smoke：确认是否有 24 小时内通过记录；没有时保留 `AF-RISK-OPS-001`。
 - Update-agent：确认 blocker、timer、signature required、current/latest version 和 auto apply policy。
 - Backup freshness：确认数据库、uploads、env/config 备份 hash 新鲜；缺失时 release/update/migration/rollback 进入 blocked。
-- Disk/certificate：确认磁盘容量和 TLS 证书剩余天数。
+- Disk/certificate：确认磁盘容量和 TLS 证书剩余天数；`pnpm ops:readiness:summary` 会对 HTTPS base URL 自动采集证书到期时间，磁盘仍需服务器侧或 redacted 证据。
 - Alert preview：`pnpm ops:alert:preview`，记录 wouldNotify、owner 和 recommendedAction；它不替代真实告警。
 
 推荐命令：

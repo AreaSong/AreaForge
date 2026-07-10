@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import * as tls from "node:tls";
 import { pathToFileURL } from "node:url";
 
 export type Status = "pass" | "warn" | "fail" | "blocked" | "unknown";
@@ -85,7 +86,7 @@ export async function collectOperationalReadinessSummary(): Promise<OperationalR
   const authenticatedSmoke = collectAuthenticatedSmoke();
   const backup = collectBackup();
   const rollback = collectRollback(updateStatus);
-  const infrastructure = collectInfrastructure();
+  const infrastructure = await collectInfrastructure();
   const signals = {
     health,
     releaseIdentity,
@@ -313,19 +314,98 @@ function collectRollback(status: UpdateStatus | null): Signal {
   return { status: "unknown", evidence: "rollback target not supplied", data };
 }
 
-function collectInfrastructure(): Signal {
+async function collectInfrastructure(): Promise<Signal> {
   const disk = process.env.AREAFORGE_READINESS_DISK_STATUS ?? null;
   const certDaysRaw = process.env.AREAFORGE_READINESS_CERT_DAYS;
-  const certDays = certDaysRaw ? Number(certDaysRaw) : null;
-  const data = { disk, certificateDaysRemaining: certDays };
+  const manualCertDays = certDaysRaw ? Number(certDaysRaw) : null;
+  const certificate = typeof manualCertDays === "number" && Number.isFinite(manualCertDays)
+    ? { source: "env", daysRemaining: manualCertDays }
+    : await collectTlsCertificate();
+  const data = {
+    disk,
+    certificateDaysRemaining: certificate?.daysRemaining ?? null,
+    certificateValidTo: certificate?.validTo ?? null,
+    certificateHost: certificate?.host ?? null,
+    certificateSource: certificate?.source ?? null,
+    certificateAuthorized: certificate?.authorized ?? null,
+    certificateAuthorizationError: certificate?.authorizationError ?? null,
+  };
   if (disk === "fail") return { status: "fail", evidence: "disk status is fail", data };
+  if (certificate?.authorized === false) {
+    return {
+      status: "fail",
+      evidence: `TLS certificate authorization failed for ${certificate.host ?? "baseUrl"}: ${certificate.authorizationError ?? "unknown"}`,
+      data,
+    };
+  }
   if (disk === "warn") return { status: "warn", evidence: "disk status is warn", data, residualRiskIds: ["AF-RISK-OPS-004"] };
-  if (typeof certDays === "number" && Number.isFinite(certDays)) {
-    if (certDays <= 7) return { status: "blocked", evidence: `certificate expires in ${certDays} day(s)`, data };
-    if (certDays <= 14) return { status: "warn", evidence: `certificate expires in ${certDays} day(s)`, data, residualRiskIds: ["AF-RISK-OPS-004"] };
-    return { status: "pass", evidence: `certificate expires in ${certDays} day(s)`, data };
+  if (typeof certificate?.daysRemaining === "number") {
+    if (certificate.daysRemaining <= 7) return { status: "blocked", evidence: `certificate expires in ${certificate.daysRemaining} day(s)`, data };
+    if (certificate.daysRemaining <= 14) return { status: "warn", evidence: `certificate expires in ${certificate.daysRemaining} day(s)`, data, residualRiskIds: ["AF-RISK-OPS-004"] };
+    return { status: "pass", evidence: `certificate expires in ${certificate.daysRemaining} day(s)`, data };
   }
   return { status: "unknown", evidence: "disk/certificate evidence not supplied", residualRiskIds: ["AF-RISK-OPS-004"], data };
+}
+
+type CertificateEvidence = {
+  source: "env" | "tls";
+  daysRemaining: number;
+  validTo?: string;
+  host?: string;
+  authorized?: boolean;
+  authorizationError?: string | null;
+};
+
+async function collectTlsCertificate(): Promise<CertificateEvidence | null> {
+  if (!baseUrl) return null;
+
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:") return null;
+
+  return new Promise((resolve) => {
+    const host = url.hostname;
+    const port = url.port ? Number(url.port) : 443;
+    const socket = tls.connect({
+      host,
+      port,
+      servername: host,
+      rejectUnauthorized: false,
+    });
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      resolve(null);
+    }, timeoutMs);
+
+    socket.once("secureConnect", () => {
+      clearTimeout(timeout);
+      const certificate = socket.getPeerCertificate();
+      const validTo = typeof certificate.valid_to === "string" ? certificate.valid_to : undefined;
+      const validToMs = validTo ? Date.parse(validTo) : Number.NaN;
+      socket.end();
+      if (!Number.isFinite(validToMs)) {
+        resolve(null);
+        return;
+      }
+      resolve({
+        source: "tls",
+        host,
+        validTo,
+        daysRemaining: Math.ceil((validToMs - Date.now()) / 86_400_000),
+        authorized: socket.authorized,
+        authorizationError: socket.authorizationError ? String(socket.authorizationError) : null,
+      });
+    });
+
+    socket.once("error", () => {
+      clearTimeout(timeout);
+      resolve(null);
+    });
+  });
 }
 
 async function requestJson(path: string, cookie?: string): Promise<unknown> {

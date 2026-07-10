@@ -94,7 +94,7 @@ const signalDefinitions: Array<{
   {
     key: "infrastructure",
     category: "infrastructure",
-    source: "redacted disk and certificate freshness evidence",
+    source: "redacted disk evidence and automatic HTTPS certificate freshness evidence",
     description: "disk and TLS certificate readiness",
     requiredEvidence: ["disk status", "certificate days remaining", "alert receiver or manual review window"],
   },
