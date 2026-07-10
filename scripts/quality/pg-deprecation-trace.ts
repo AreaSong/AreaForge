@@ -1,0 +1,123 @@
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { createPrismaClient } from "../../packages/db/src/index";
+
+const warningPatterns = [
+  /client\.query/i,
+  /already executing a query/i,
+  /deprecated/i,
+] as const;
+
+const require = createRequire(import.meta.url);
+const dbRequire = createRequire(new URL("../../packages/db/src/index.ts", import.meta.url));
+const warnings: string[] = [];
+const originalWarn = console.warn.bind(console);
+
+console.warn = (...args: unknown[]) => {
+  warnings.push(args.map(String).join(" "));
+  originalWarn(...args);
+};
+
+process.on("warning", (warning) => {
+  warnings.push(`${warning.name}: ${warning.message}\n${warning.stack ?? ""}`);
+});
+
+async function main(): Promise<void> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required for pg deprecation trace.");
+  }
+
+  const prisma = createPrismaClient(databaseUrl);
+  try {
+    const subjectCount = await prisma.subject.count();
+    const concurrentCounts = await Promise.all([
+      prisma.user.count(),
+      prisma.studyTask.count(),
+      prisma.studySession.count(),
+      prisma.note.count(),
+      prisma.simulationExam.count(),
+      prisma.stagePlan.count(),
+    ]);
+    const transactionCounts = await prisma.$transaction(async (tx) => ({
+      users: await tx.user.count(),
+      tasks: await tx.studyTask.count(),
+      sessions: await tx.studySession.count(),
+    }));
+    await prisma.$queryRaw`SELECT 1`;
+
+    const matchedWarnings = warnings.filter((warning) =>
+      warningPatterns.some((pattern) => pattern.test(warning)),
+    );
+    const facts = {
+      ok: matchedWarnings.length === 0,
+      node: process.version,
+      pgVersion: packageVersion("pg"),
+      prismaAdapterPgVersion: packageVersion("@prisma/adapter-pg"),
+      subjectCount,
+      concurrentCounts,
+      transactionCounts,
+      warningCount: warnings.length,
+      matchedWarningCount: matchedWarnings.length,
+    };
+    console.log(JSON.stringify(facts, null, 2));
+
+    if (matchedWarnings.length > 0) {
+      console.error(matchedWarnings.join("\n---\n"));
+      process.exitCode = 1;
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+function packageVersion(name: string): string {
+  for (const packageRequire of [require, dbRequire]) {
+    const version = packageVersionFromRequire(packageRequire, name);
+    if (version !== "unknown") {
+      return version;
+    }
+  }
+
+  return "unknown";
+}
+
+function packageVersionFromRequire(
+  packageRequire: NodeJS.Require,
+  name: string,
+): string {
+  try {
+    return packageRequire(`${name}/package.json`).version as string;
+  } catch {
+    return packageVersionFromEntry(packageRequire, name);
+  }
+}
+
+function packageVersionFromEntry(
+  packageRequire: NodeJS.Require,
+  name: string,
+): string {
+  try {
+    let currentDirectory = dirname(packageRequire.resolve(name));
+    while (currentDirectory !== dirname(currentDirectory)) {
+      const packageJsonPath = join(currentDirectory, "package.json");
+      if (existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+          version?: unknown;
+        };
+        return typeof packageJson.version === "string" ? packageJson.version : "unknown";
+      }
+      currentDirectory = dirname(currentDirectory);
+    }
+  } catch {
+    return "unknown";
+  }
+
+  return "unknown";
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : "pg deprecation trace failed");
+  process.exit(1);
+});

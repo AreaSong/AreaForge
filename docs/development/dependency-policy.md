@@ -55,6 +55,14 @@ pnpm check
 git diff --check
 ```
 
+涉及 `pg`、`@prisma/adapter-pg` 或 Prisma 数据库 adapter 的变更，还要在临时库或受控数据库上运行：
+
+```bash
+DATABASE_URL=postgresql://... pnpm pg:trace-deprecation
+```
+
+该命令在 `NODE_OPTIONS=--trace-deprecation` 下执行 Prisma 查询矩阵，并把 `client.query()` / `already executing a query` / `deprecated` 匹配项作为失败条件。
+
 Release/updater、Docker 或 GitHub Actions 相关依赖还要运行：
 
 ```bash
@@ -68,3 +76,5 @@ pnpm ops:readiness
 当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。残余项 `AF-RISK-SC-001` 仍保持打开：它需要下一次真实签名 Release 产生 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据后才能关闭。
 
 `AF-RISK-SC-002` 已完成本地治理补强：CI/Release 外部 Actions 已 pin 到 40 位 commit SHA，且 `pnpm audit:prod` 已进入 CI/Release validate gate。该残余项仍保持打开，直到 GitHub CI 或下一次签名 Release 留下对应运行证据和漏洞审计输出后关闭。
+
+`AF-RISK-SC-003` 已关闭为证据项：当前 lockfile 只有 `pg@8.22.0`，`@prisma/adapter-pg@7.8.0` 也解析到同一 `pg@8.22.0`；临时 PostgreSQL 16 库上执行 `pnpm db:migrate:deploy` 和 `pnpm pg:trace-deprecation` 未出现历史 `client.query()` deprecation warning。后续升级 `pg` 或 Prisma adapter 时需重跑该命令。

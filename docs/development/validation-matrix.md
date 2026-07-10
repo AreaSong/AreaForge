@@ -13,7 +13,7 @@
 | `docs/**`、`README.md`、`AGENTS.md` | `rg` 检查旧引用和入口路径，`pnpm docs:readiness`，`git diff --check` |
 | `tasks/**`、`workflow/**` | 检查对应 `docs/**` 源事实是否存在，`pnpm docs:readiness`，`git diff --check` |
 | `.codex/skills-src/**`、`.agents/skills/**` | `pnpm skills:validate`，`git diff --check`；若 skill 改变企业治理、发布、运维、观测、事故、安全、供应链、残余风险、AI 或文档同步口径，补跑 `pnpm docs:readiness` 和 `pnpm risk:preflight` |
-| `package.json`、`pnpm-workspace.yaml` | `pnpm install --frozen-lockfile` 或说明无法运行原因，`pnpm check` |
+| `package.json`、`pnpm-workspace.yaml` | `pnpm install --frozen-lockfile` 或说明无法运行原因，`pnpm check`；涉及 `pg` / Prisma adapter 时补跑 `pnpm pg:trace-deprecation` |
 | `SECURITY.md`、`.github/dependabot.yml`、`.github/pull_request_template.md`、`docs/development/dependency-policy.md`、`scripts/quality/governance-preflight.ts` | `pnpm governance:preflight`，`pnpm docs:readiness`，`git diff --check` |
 | `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md`、`docs/development/residual-risk-ledger.json`、`scripts/quality/ops-readiness-preflight.ts`、`scripts/quality/residual-ledger-validate.ts`、`scripts/ops/operational-readiness-summary.ts` | `pnpm ops:readiness`，`pnpm residuals:validate`，`pnpm ops:readiness:summary`，`pnpm docs:readiness`，`git diff --check` |
 | `prisma/schema.prisma`、`prisma/migrations/**` | `pnpm db:validate`，涉及 migration 时补充迁移和回滚说明 |

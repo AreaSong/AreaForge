@@ -54,12 +54,12 @@
     },
     {
       "id": "AF-RISK-SC-003",
-      "type": "deferred-work",
-      "reviewAt": "2026-08-10",
-      "currentImpact": "本地和历史 smoke 仍出现 pg@9 未来弃用 warning；当前 pg@8 通过，但升级前需要定位 Prisma adapter 或并发查询来源",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-10",
+      "currentImpact": "历史 client.query() deprecation warning 已定位为旧 smoke 观察项；当前 lockfile 只有 pg@8.22.0，Prisma adapter 同源解析且 trace 查询无 warning",
       "executableNow": false,
-      "closeCondition": "pg / @prisma/adapter-pg 升级前用 --trace-deprecation 或等价测试定位来源，并证明核心 smoke 无该 warning 或有明确上游风险接受记录",
-      "requiredEvidence": "trace 日志、依赖升级验证、pnpm smoke:local-ux 或等价 smoke 输出、关闭或接受记录",
+      "closeCondition": "后续升级 pg / @prisma/adapter-pg 前重跑 pnpm pg:trace-deprecation，若 warning 复现则重新打开",
+      "requiredEvidence": "pnpm why pg --recursive 只有 pg@8.22.0；临时 PostgreSQL 16 库 pnpm db:migrate:deploy 通过；pnpm pg:trace-deprecation matchedWarningCount=0",
       "ownerSkills": ["areaforge-supply-chain", "areaforge-sre-ops"]
     },
     {

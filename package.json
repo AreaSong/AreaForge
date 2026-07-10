@@ -25,6 +25,7 @@
     "skills:validate": "tsx scripts/quality/skills-validate.ts",
     "shellcheck:updater": "shellcheck ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh",
     "audit:prod": "pnpm audit --prod --audit-level high",
+    "pg:trace-deprecation": "NODE_OPTIONS=--trace-deprecation tsx scripts/quality/pg-deprecation-trace.ts",
     "smoke:local-ux": "tsx scripts/ops/local-ux-smoke.ts",
     "smoke:prod-readonly": "tsx scripts/ops/production-readonly-smoke.ts",
     "release:evidence:validate": "tsx scripts/quality/release-evidence-validate.ts",
