@@ -64,6 +64,33 @@ type UpdateStatus = {
   statusUpdatedAt?: string | null;
 };
 
+type ReleaseManifest = {
+  schemaVersion?: unknown;
+  app?: unknown;
+  version?: string;
+  channel?: string;
+  gitCommit?: string;
+  webImage?: string;
+  webImageDigest?: string;
+  migrationImage?: string;
+  migrationImageDigest?: string;
+  requiresMigration?: boolean;
+  sha256SumsAsset?: string;
+  signatureAsset?: string;
+  sbomAsset?: string;
+  provenanceAsset?: string;
+  releaseNotesUrl?: string;
+  autoApply?: {
+    patch?: boolean;
+    minor?: boolean;
+    major?: boolean;
+  };
+};
+
+type ReleaseManifestEvidence =
+  | { source: string; manifest: ReleaseManifest }
+  | { source: string; error: string };
+
 const timeoutMs = Number(process.env.AREAFORGE_READINESS_TIMEOUT_MS ?? "10000");
 const scope = normalizeScope(process.env.AREAFORGE_READINESS_SCOPE);
 const environment = process.env.AREAFORGE_READINESS_ENVIRONMENT ?? process.env.APP_ENV ?? "unknown";
@@ -78,11 +105,15 @@ const expectedReleaseTag = process.env.AREAFORGE_READINESS_RELEASE_TAG ?? (expec
 const expectedAutoApply = process.env.AREAFORGE_READINESS_EXPECTED_AUTO_APPLY ?? process.env.AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY ?? null;
 const expectedWebDigest = process.env.AREAFORGE_READINESS_WEB_IMAGE_DIGEST ?? null;
 const expectedMigrationDigest = process.env.AREAFORGE_READINESS_MIGRATION_IMAGE_DIGEST ?? null;
+const releaseManifestFile = process.env.AREAFORGE_READINESS_RELEASE_MANIFEST_FILE ?? null;
+const releaseManifestUrl = process.env.AREAFORGE_READINESS_RELEASE_MANIFEST_URL ??
+  githubReleaseManifestUrl(process.env.AREAFORGE_READINESS_GITHUB_REPO, expectedReleaseTag);
 
 export async function collectOperationalReadinessSummary(): Promise<OperationalReadinessSummary> {
   const health = await collectHealth();
   const updateStatus = await collectUpdateStatus();
-  const releaseIdentity = collectReleaseIdentity(health, updateStatus);
+  const releaseManifest = await collectReleaseManifest();
+  const releaseIdentity = collectReleaseIdentity(health, updateStatus, releaseManifest);
   const authenticatedSmoke = collectAuthenticatedSmoke();
   const backup = collectBackup();
   const rollback = collectRollback(updateStatus);
@@ -133,7 +164,7 @@ function buildSafetyFacts(): OperationalReadinessSummary["safetyFacts"] {
     productionWriteAttempted: false,
     secretValuePrinted: false,
     smokePasswordReadFromFile: Boolean(process.env.AREAFORGE_SMOKE_PASSWORD_FILE),
-    networkRequested: Boolean(baseUrl),
+    networkRequested: Boolean(baseUrl || releaseManifestUrl),
   };
 }
 
@@ -196,25 +227,98 @@ async function collectUpdateStatus(): Promise<UpdateStatus | null> {
   }
 }
 
-function collectReleaseIdentity(health: Signal, status: UpdateStatus | null): Signal {
+async function collectReleaseManifest(): Promise<ReleaseManifestEvidence | null> {
+  if (releaseManifestFile) {
+    try {
+      return {
+        source: `file:${releaseManifestFile}`,
+        manifest: normalizeReleaseManifest(JSON.parse(readFileSync(releaseManifestFile, "utf8"))),
+      };
+    } catch (error) {
+      return {
+        source: `file:${releaseManifestFile}`,
+        error: redact(error instanceof Error ? error.message : "cannot read release manifest file"),
+      };
+    }
+  }
+
+  if (releaseManifestUrl) {
+    try {
+      return {
+        source: releaseManifestUrl,
+        manifest: normalizeReleaseManifest(await requestAbsoluteJson(releaseManifestUrl)),
+      };
+    } catch (error) {
+      return {
+        source: releaseManifestUrl,
+        error: redact(error instanceof Error ? error.message : "cannot fetch release manifest URL"),
+      };
+    }
+  }
+
+  return null;
+}
+
+function collectReleaseIdentity(
+  health: Signal,
+  status: UpdateStatus | null,
+  releaseManifest: ReleaseManifestEvidence | null,
+): Signal {
+  const manifest = releaseManifest && "manifest" in releaseManifest ? releaseManifest.manifest : null;
+  const manifestError = releaseManifest && "error" in releaseManifest ? releaseManifest.error : null;
+  const releaseTag = expectedReleaseTag ?? (manifest?.version ? versionTag(manifest.version) : null);
+  const webImageDigest = expectedWebDigest ?? manifest?.webImageDigest ?? digestOrNull(status?.currentImage);
+  const migrationImageDigest = expectedMigrationDigest ?? manifest?.migrationImageDigest ?? null;
   const data: Record<string, unknown> = {
-    releaseTag: expectedReleaseTag,
-    webImageDigest: expectedWebDigest,
-    migrationImageDigest: expectedMigrationDigest,
+    releaseTag,
+    webImageDigest,
+    migrationImageDigest,
     currentVersion: status?.currentVersion ?? null,
     currentImage: status?.currentImage ?? null,
-    releaseUrl: status?.releaseUrl ?? null,
+    releaseUrl: status?.releaseUrl ?? manifest?.releaseNotesUrl ?? null,
+    manifestSource: releaseManifest?.source ?? null,
+    manifestVersion: manifest?.version ?? null,
+    manifestChannel: manifest?.channel ?? null,
+    manifestGitCommit: manifest?.gitCommit ?? null,
+    manifestAssets: manifest
+      ? {
+          sha256SumsAsset: manifest.sha256SumsAsset ?? null,
+          signatureAsset: manifest.signatureAsset ?? null,
+          sbomAsset: manifest.sbomAsset ?? null,
+          provenanceAsset: manifest.provenanceAsset ?? null,
+        }
+      : null,
+    manifestError,
   };
   const missing: string[] = [];
-  if (!expectedReleaseTag) missing.push("release tag");
-  if (!expectedWebDigest) missing.push("web image digest");
-  if (!expectedMigrationDigest) missing.push("migration image digest");
+  if (!releaseTag) missing.push("release tag");
+  if (!webImageDigest) missing.push("web image digest");
+  if (!migrationImageDigest) missing.push("migration image digest");
 
   const digestIssues = [
-    expectedWebDigest && !isDigest(expectedWebDigest) ? "web image digest is not immutable image@sha256" : null,
-    expectedMigrationDigest && !isDigest(expectedMigrationDigest) ? "migration image digest is not immutable image@sha256" : null,
+    webImageDigest && !isDigest(webImageDigest) ? "web image digest is not immutable image@sha256" : null,
+    migrationImageDigest && !isDigest(migrationImageDigest) ? "migration image digest is not immutable image@sha256" : null,
   ].filter(Boolean);
 
+  const manifestIssues = [
+    manifest && manifest.schemaVersion !== 1 ? `manifest schemaVersion is ${String(manifest.schemaVersion)}` : null,
+    manifest && manifest.app !== "AreaForge" ? `manifest app is ${String(manifest.app)}` : null,
+    manifest && expectedReleaseTag && versionTag(manifest.version ?? "") !== expectedReleaseTag
+      ? `manifest version ${manifest.version ?? "missing"} does not match ${expectedReleaseTag}`
+      : null,
+  ].filter(Boolean);
+
+  if (manifestError) {
+    return {
+      status: scope === "daily" ? "warn" : "fail",
+      evidence: `release manifest could not be collected from ${releaseManifest?.source}: ${manifestError}`,
+      residualRiskIds: ["AF-RISK-SC-001"],
+      data,
+    };
+  }
+  if (manifestIssues.length > 0) {
+    return { status: "fail", evidence: manifestIssues.join("; "), data };
+  }
   if (digestIssues.length > 0) {
     return { status: "fail", evidence: digestIssues.join("; "), data };
   }
@@ -229,7 +333,13 @@ function collectReleaseIdentity(health: Signal, status: UpdateStatus | null): Si
       data,
     };
   }
-  return { status: "pass", evidence: "release tag and immutable image digests are present", data };
+  return {
+    status: "pass",
+    evidence: manifest
+      ? "release manifest provides release tag and immutable image digests"
+      : "release tag and immutable image digests are present",
+    data,
+  };
 }
 
 function updateStatusToSignal(status: UpdateStatus | null): Signal {
@@ -435,6 +545,21 @@ async function requestRaw(path: string, options: { method?: "GET" | "POST"; body
   }
 }
 
+async function requestAbsoluteJson(url: string): Promise<unknown> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status} for release manifest`);
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function readSmokePassword(): string | undefined {
   const passwordFile = process.env.AREAFORGE_SMOKE_PASSWORD_FILE;
   if (passwordFile) {
@@ -459,6 +584,10 @@ function cookieFrom(response: Response): string {
 function normalizeStatusJson(value: unknown): UpdateStatus {
   const record = asRecord(value);
   return asRecord(record.status ?? value) as UpdateStatus;
+}
+
+function normalizeReleaseManifest(value: unknown): ReleaseManifest {
+  return asRecord(value) as ReleaseManifest;
 }
 
 function safeUpdateData(status: UpdateStatus): Record<string, unknown> {
@@ -516,12 +645,21 @@ function baseUrlFromHealthUrl(value: string | undefined): string | undefined {
   return value.replace(/\/api\/health\/?$/, "");
 }
 
+function githubReleaseManifestUrl(repo: string | undefined, tag: string | null): string | null {
+  if (!repo || !tag || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return null;
+  return `https://github.com/${repo}/releases/download/${encodeURIComponent(tag)}/areaforge-release-manifest.json`;
+}
+
 function versionTag(value: string): string {
   return value.startsWith("v") ? value : `v${value}`;
 }
 
 function isDigest(value: string): boolean {
   return /@sha256:[a-f0-9]{64}$/i.test(value);
+}
+
+function digestOrNull(value: string | null | undefined): string | null {
+  return value && isDigest(value) ? value : null;
 }
 
 function normalizeScope(value: string | undefined): ReadinessScope {

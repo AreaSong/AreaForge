@@ -97,6 +97,9 @@ pnpm ops:readiness:summary
 AREAFORGE_READINESS_BASE_URL=https://forge.areasong.top
 AREAFORGE_READINESS_EXPECTED_VERSION=0.1.5
 AREAFORGE_READINESS_RELEASE_TAG=v0.1.5
+AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge
+AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=/path/to/areaforge-release-manifest.json
+AREAFORGE_READINESS_RELEASE_MANIFEST_URL=https://github.com/AreaSong/AreaForge/releases/download/v0.1.5/areaforge-release-manifest.json
 AREAFORGE_READINESS_WEB_IMAGE_DIGEST=ghcr.io/areasong/areaforge-web:v0.1.5@sha256:...
 AREAFORGE_READINESS_MIGRATION_IMAGE_DIGEST=ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:...
 AREAFORGE_READINESS_EXPECTED_AUTO_APPLY=none
@@ -107,6 +110,8 @@ AREAFORGE_READINESS_CERT_DAYS=71
 AREAFORGE_READINESS_FAIL_ON=fail
 pnpm ops:readiness:summary
 ```
+
+Release identity 采集优先级为：显式 `AREAFORGE_READINESS_WEB_IMAGE_DIGEST` / `AREAFORGE_READINESS_MIGRATION_IMAGE_DIGEST`，其次是 `AREAFORGE_READINESS_RELEASE_MANIFEST_FILE`，再次是 `AREAFORGE_READINESS_RELEASE_MANIFEST_URL`，最后可由 `AREAFORGE_READINESS_GITHUB_REPO` + `AREAFORGE_READINESS_RELEASE_TAG` 推导 GitHub Release manifest URL。manifest 只用于只读补齐 release tag、镜像 digest 和资产摘要；它不执行 `SHA256SUMS.sig` / cosign 校验，不替代 updater 签名门禁、SBOM/provenance 证据或下一次 Release 的 `AF-RISK-SC-001` / `AF-RISK-SC-002` 关闭条件。
 
 该摘要脚本只做 HTTP health、HTTPS base URL 的 TLS peer certificate 只读检查、可选登录读取 `/api/system/update-status`、可选本地 JSON 文件读取和环境变量解析；不得执行 Docker、备份、恢复、migration、回滚、shell 或服务器命令。输出中的 `safetyFacts` 会显式记录 `serverCommandAttempted=false`、`backupRestoreAttempted=false`、`migrationAttempted=false`、`productionWriteAttempted=false`、`secretValuePrinted=false`、`smokePasswordReadFromFile` 和 `networkRequested`。若提供 `AREAFORGE_READINESS_CERT_DAYS`，则优先使用该手动证据；否则 HTTPS `baseUrl` 会自动采集证书到期时间。若提供 `AREAFORGE_SMOKE_EMAIL` 和 `AREAFORGE_SMOKE_PASSWORD_FILE`，它会登录后只读获取 update status；若不提供凭据，则 update-agent 证据为 `unknown` 并关联 `AF-RISK-OPS-001`。
 
