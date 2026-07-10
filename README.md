@@ -60,6 +60,7 @@ pnpm ops:readiness
 pnpm ops:status
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
+pnpm ops:evidence:bundle:validate
 pnpm ops:alert:preview
 pnpm enterprise:operability:preflight
 pnpm maintenance:cadence:preflight

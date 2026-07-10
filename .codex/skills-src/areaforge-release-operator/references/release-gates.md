@@ -53,6 +53,7 @@ pnpm release:supply-chain:selftest
 pnpm release:supply-chain:record:selftest
 pnpm ops:readiness
 pnpm ops:status
+pnpm ops:evidence:bundle:selftest
 git diff --check
 pnpm check
 ```

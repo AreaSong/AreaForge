@@ -30,7 +30,7 @@ Use `pnpm smoke:prod-readonly:config` before production read-only smoke to verif
 
 Use `pnpm ops:readiness:summary` when a machine-readable read-only snapshot is useful for a release record, handoff, or operator audit. The command may read `/api/health`, optional authenticated update status, optional smoke output, and optional backup evidence strings; it must not execute Docker, backup, restore, migration, rollback, shell, or server commands.
 
-Use `pnpm ops:evidence:bundle` after release/update checks or before operator handoff when the snapshot should be indexed with required evidence, forbidden actions, residual risk IDs, and a `bundleHash`. A bundle hash is evidence indexing, not proof that missing signals are healthy.
+Use `pnpm ops:evidence:bundle` after release/update checks or before operator handoff when the snapshot should be indexed with required evidence, forbidden actions, residual risk IDs, and a `bundleHash`. Validate saved bundles with `pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>`. A bundle hash is evidence indexing, not proof that missing signals are healthy.
 
 Use `pnpm ops:alert:preview` to map readiness signals into severity, would-notify decisions, owner, recommended action, and residual risk IDs. It is a read-only preview; it does not call external alert receivers or close `AF-RISK-OPS-004` by itself.
 

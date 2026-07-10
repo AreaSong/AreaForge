@@ -35,6 +35,7 @@ pnpm enterprise:operability:preflight
 pnpm ops:status
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
+pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
 pnpm ops:alert:preview
 ```
 

@@ -73,6 +73,7 @@ pnpm ops:status
 pnpm residuals:review-due
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
+pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
 pnpm ops:alert:preview
 ```
 

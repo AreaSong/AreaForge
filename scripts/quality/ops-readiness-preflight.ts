@@ -20,6 +20,7 @@ function main(): void {
   checkPackageScripts();
   checkSummaryScript();
   checkLocalUxSmokeScript();
+  checkBuildNetworkDependencyBoundary();
   checkDocsIndex();
 
   for (const check of checks) {
@@ -51,6 +52,8 @@ function checkRequiredFiles(): void {
     "docs/development/update-agent-status-record-template.md",
     "docs/development/product-experience-review-record-template.md",
     "docs/deployment/operator-onboarding.md",
+    "apps/web/app/layout.tsx",
+    "apps/web/app/globals.css",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
     ".codex/skills-src/areaforge-operating-loop/SKILL.md",
@@ -58,6 +61,8 @@ function checkRequiredFiles(): void {
     "scripts/ops/operability-status.ts",
     "scripts/ops/operational-readiness-summary.ts",
     "scripts/ops/operational-evidence-bundle.ts",
+    "scripts/quality/operational-evidence-bundle-validate.ts",
+    "scripts/quality/operational-evidence-bundle-validate.selftest.ts",
     "scripts/ops/operational-alert-preview.ts",
     "scripts/ops/generate-alert-drill-record.ts",
     "scripts/ops/generate-incident-record.ts",
@@ -266,6 +271,8 @@ function checkPackageScripts(): void {
   const statusSelftestScript = packageJson.scripts?.["ops:status:selftest"] ?? "";
   const summaryScript = packageJson.scripts?.["ops:readiness:summary"] ?? "";
   const bundleScript = packageJson.scripts?.["ops:evidence:bundle"] ?? "";
+  const bundleValidateScript = packageJson.scripts?.["ops:evidence:bundle:validate"] ?? "";
+  const bundleSelftestScript = packageJson.scripts?.["ops:evidence:bundle:selftest"] ?? "";
   const alertPreviewScript = packageJson.scripts?.["ops:alert:preview"] ?? "";
   const alertDrillValidateScript = packageJson.scripts?.["alert:drill:validate"] ?? "";
   const alertDrillSelftestScript = packageJson.scripts?.["alert:drill:selftest"] ?? "";
@@ -296,6 +303,8 @@ function checkPackageScripts(): void {
       statusSelftestScript === "tsx scripts/quality/operability-status.selftest.ts" &&
       summaryScript === "tsx scripts/ops/operational-readiness-summary.ts" &&
       bundleScript === "tsx scripts/ops/operational-evidence-bundle.ts" &&
+      bundleValidateScript === "tsx scripts/quality/operational-evidence-bundle-validate.ts" &&
+      bundleSelftestScript === "tsx scripts/quality/operational-evidence-bundle-validate.selftest.ts" &&
       alertPreviewScript === "tsx scripts/ops/operational-alert-preview.ts" &&
       alertDrillValidateScript === "tsx scripts/quality/alert-drill-validate.ts" &&
       alertDrillSelftestScript === "tsx scripts/quality/alert-drill-validate.selftest.ts" &&
@@ -320,7 +329,7 @@ function checkPackageScripts(): void {
       incidentRecordValidateScript === "tsx scripts/quality/incident-record-validate.ts" &&
       restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&
       updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:status=${statusScript || "missing"}; ops:status:selftest=${statusSelftestScript || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; alert:drill:record=${alertDrillRecordScript || "missing"}; alert:drill:record:selftest=${alertDrillRecordSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; smoke:prod-readonly:config=${prodReadonlySmokeConfigScript || "missing"}; smoke:prod-readonly:config:selftest=${prodReadonlySmokeConfigSelftestScript || "missing"}; smoke:prod-readonly:record=${prodReadonlySmokeRecordScript || "missing"}; smoke:prod-readonly:record:selftest=${prodReadonlySmokeRecordSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
+    detail: `ops:readiness=${script || "missing"}; ops:status=${statusScript || "missing"}; ops:status:selftest=${statusSelftestScript || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:evidence:bundle:validate=${bundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${bundleSelftestScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; alert:drill:record=${alertDrillRecordScript || "missing"}; alert:drill:record:selftest=${alertDrillRecordSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; smoke:prod-readonly:config=${prodReadonlySmokeConfigScript || "missing"}; smoke:prod-readonly:config:selftest=${prodReadonlySmokeConfigSelftestScript || "missing"}; smoke:prod-readonly:record=${prodReadonlySmokeRecordScript || "missing"}; smoke:prod-readonly:record:selftest=${prodReadonlySmokeRecordSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
   });
 }
 
@@ -395,6 +404,7 @@ function checkSummaryScript(): void {
     "production readonly smoke validator selftest passed",
     "production readonly smoke record validation passed",
     "pnpm ops:evidence:bundle",
+    "pnpm ops:evidence:bundle:validate",
     "read_only_operational_evidence_bundle",
     "bundleHash",
     "automatic HTTPS certificate",
@@ -445,6 +455,33 @@ function checkDocsIndex(): void {
     detail: missing.length === 0
       ? "README, AGENTS, and docs index expose operating loop, readiness, and residual ledger"
       : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkBuildNetworkDependencyBoundary(): void {
+  const layout = read("apps/web/app/layout.tsx");
+  const globals = read("apps/web/app/globals.css");
+  const forbidden = [
+    "next/font/google",
+    "font-geist",
+    "fonts.gstatic.com",
+    "fonts.googleapis.com",
+  ];
+  const combined = `${layout}\n${globals}`;
+  const found = forbidden.filter((term) => combined.includes(term));
+  const required = [
+    "--font-area-sans",
+    "--font-area-mono",
+    "--font-sans: var(--font-area-sans)",
+    "--font-mono: var(--font-area-mono)",
+  ];
+  const missing = required.filter((term) => !globals.includes(term));
+  checks.push({
+    name: "build network dependency boundary",
+    ok: found.length === 0 && missing.length === 0,
+    detail: found.length === 0 && missing.length === 0
+      ? "web layout uses local system font variables and avoids build-time Google Font network dependency"
+      : `forbidden ${found.join(", ") || "none"}; missing ${missing.join(", ") || "none"}`,
   });
 }
 

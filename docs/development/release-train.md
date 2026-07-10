@@ -49,6 +49,7 @@ pnpm github-release-updater:preflight
 pnpm shellcheck:updater
 pnpm ops:readiness
 pnpm ops:status
+pnpm ops:evidence:bundle:selftest
 pnpm skills:validate
 pnpm audit:prod
 pnpm check
