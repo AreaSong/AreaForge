@@ -66,6 +66,7 @@ pnpm support:intake:preflight
 pnpm alert:drill:validate
 pnpm alert:drill:record
 pnpm smoke:prod-readonly:validate
+pnpm smoke:prod-readonly:config
 pnpm smoke:prod-readonly:record
 pnpm experience:review:validate
 pnpm residuals:review-due

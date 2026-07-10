@@ -4,7 +4,7 @@
 
 - First operator path: `docs/deployment/operator-onboarding.md`, then `pnpm operator:onboarding:preflight`.
 - Public health: `curl -fsS https://forge.areasong.top/api/health`.
-- Production read-only smoke: run or attach redacted `pnpm smoke:prod-readonly` output, then validate the record with `pnpm smoke:prod-readonly:validate <record>`.
+- Production read-only smoke: run `pnpm smoke:prod-readonly:config`, then run or attach redacted `pnpm smoke:prod-readonly` output, then validate the record with `pnpm smoke:prod-readonly:validate <record>`.
 - Updater status JSON: current/latest version, blocker, signature required, rollback target.
 - Systemd: `areaforge-update-agent.timer` and recent `areaforge-update-agent.service` logs.
 - Containers: Web image digest, migration image digest when applicable, PostgreSQL internal-only exposure.

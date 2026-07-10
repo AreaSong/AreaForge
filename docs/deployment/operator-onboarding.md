@@ -148,11 +148,13 @@ pnpm ops:alert:preview
 生产只读 smoke 推荐通过密码文件读取账号密码：
 
 ```bash
-AREAFORGE_SMOKE_BASE_URL=https://your-domain.example \
-AREAFORGE_SMOKE_EMAIL=<smoke-account-email> \
-AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password \
-AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5 \
-AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none \
+export AREAFORGE_SMOKE_BASE_URL=https://your-domain.example
+export AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
+export AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
+export AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5
+export AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
+export AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
+pnpm smoke:prod-readonly:config
 pnpm smoke:prod-readonly | tee /tmp/areaforge-prod-readonly-smoke.log
 ```
 

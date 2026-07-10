@@ -32,6 +32,8 @@
     "alert:drill:record:selftest": "tsx scripts/quality/alert-drill-record.selftest.ts",
     "smoke:prod-readonly:validate": "tsx scripts/quality/prod-readonly-smoke-validate.ts",
     "smoke:prod-readonly:selftest": "tsx scripts/quality/prod-readonly-smoke-validate.selftest.ts",
+    "smoke:prod-readonly:config": "tsx scripts/quality/prod-readonly-smoke-config-preflight.ts",
+    "smoke:prod-readonly:config:selftest": "tsx scripts/quality/prod-readonly-smoke-config-preflight.selftest.ts",
     "smoke:prod-readonly:record": "tsx scripts/ops/generate-prod-readonly-smoke-record.ts",
     "smoke:prod-readonly:record:selftest": "tsx scripts/quality/prod-readonly-smoke-record.selftest.ts",
     "experience:review:validate": "tsx scripts/quality/product-experience-review-validate.ts",

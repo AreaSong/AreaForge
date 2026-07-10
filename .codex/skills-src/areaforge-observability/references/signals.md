@@ -26,6 +26,8 @@ Record:
 - residual risk ID when tracked in `docs/development/residual-risk-ledger.md`
 - safety facts for read-only operators: whether server commands, backup/restore, migration, production writes, secret printing, password-file reads, or network requests occurred
 
+Use `pnpm smoke:prod-readonly:config` before production read-only smoke to verify redacted smoke configuration shape without reading password contents, connecting to production, executing server commands, or writing production data.
+
 Use `pnpm ops:readiness:summary` when a machine-readable read-only snapshot is useful for a release record, handoff, or operator audit. The command may read `/api/health`, optional authenticated update status, optional smoke output, and optional backup evidence strings; it must not execute Docker, backup, restore, migration, rollback, shell, or server commands.
 
 Use `pnpm ops:evidence:bundle` after release/update checks or before operator handoff when the snapshot should be indexed with required evidence, forbidden actions, residual risk IDs, and a `bundleHash`. A bundle hash is evidence indexing, not proof that missing signals are healthy.

@@ -12,11 +12,12 @@ pnpm smoke:prod-readonly:validate docs/development/prod-readonly-smoke-vX.Y.Z-or
 如果已有 `pnpm smoke:prod-readonly` 的输出日志，可先生成 redacted 记录草稿：
 
 ```bash
+pnpm smoke:prod-readonly:config
 pnpm smoke:prod-readonly:record /path/to/prod-readonly-smoke-output.log > /path/to/prod-readonly-smoke-record.txt
 pnpm smoke:prod-readonly:validate /path/to/prod-readonly-smoke-record.txt
 ```
 
-记录生成器只读取 smoke 输出、release manifest/digest 环境变量和 redacted 环境摘要；它不读取 smoke 密码文件内容，不执行服务器命令，不备份、不恢复、不运行 migration，也不写生产。
+配置预检只读取环境变量和密码文件 metadata，验证 smoke 配置形态，不读取密码内容、不连接生产、不执行服务器命令、不写生产。记录生成器只读取 smoke 输出、release manifest/digest 环境变量和 redacted 环境摘要；它不读取 smoke 密码文件内容，不执行服务器命令，不备份、不恢复、不运行 migration，也不写生产。
 
 ## 模板
 
@@ -53,6 +54,7 @@ safetyFacts:
 ## 关闭条件
 
 - `smokeStatus` 必须是 `pass`。
+- 运行记录前应先通过 `pnpm smoke:prod-readonly:config`，确认 extra smoke 命令、HTTPS base URL、smoke 账号、密码文件权限、期望版本和自动更新策略。
 - `smokeCommand` 必须引用 `pnpm smoke:prod-readonly`。
 - `checks` 必须覆盖 health、login、auth/me、dashboard、notes、syllabus、analytics、reports、long-term-risks 和 update-status。
 - `smokePasswordReadFromFile` 必须是 `yes`，记录中只能出现 redacted 路径摘要，不得出现密码值。

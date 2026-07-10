@@ -31,7 +31,7 @@ Validate the product as a student would use it, then attach enough evidence for 
 3. Start a local server only when needed; use the existing server if the user already has one running.
 4. Verify critical paths with authenticated and unauthenticated states when the route has auth.
 5. Capture evidence: URL, viewport, account mode, action path, expected result, actual result, screenshot path when useful, and any residual risk.
-6. For production smoke, use `https://forge.areasong.top/` and avoid destructive writes unless the user explicitly confirms a safe smoke dataset.
+6. For production smoke, use `https://forge.areasong.top/`, run `pnpm smoke:prod-readonly:config` before authenticated read-only smoke, and avoid destructive writes unless the user explicitly confirms a safe smoke dataset.
 7. For desktop/mobile experience closeout, keep a redacted review record and run `pnpm experience:review:validate <record>`.
 
 ## Guardrails

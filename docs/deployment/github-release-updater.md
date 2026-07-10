@@ -209,6 +209,13 @@ AREAFORGE_SMOKE_ATTACHMENT_ID=<optional-known-attachment-id>
 生成 redacted 记录时，先保存 smoke 输出，再用 release manifest 或显式 digest 环境变量补齐记录：
 
 ```bash
+export AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
+export AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
+export AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
+export AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
+export AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5
+export AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
+pnpm smoke:prod-readonly:config
 pnpm smoke:prod-readonly | tee /tmp/areaforge-prod-readonly-smoke.log
 AREAFORGE_READINESS_RELEASE_TAG=v0.1.5 \
 AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge \
