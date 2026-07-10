@@ -10,6 +10,25 @@
 pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md
 ```
 
+如果已下载 GitHub Release 资产目录，可先生成 redacted 记录草稿：
+
+```bash
+AREAFORGE_RELEASE_WORKFLOW_RUN_URL=https://github.com/AreaSong/AreaForge/actions/runs/<run-id> \
+AREAFORGE_RELEASE_WORKFLOW_RUN_CONCLUSION=success \
+AREAFORGE_VALIDATE_JOB_STATUS=pass \
+AREAFORGE_AUDIT_PROD_STATUS=pass \
+AREAFORGE_GOVERNANCE_PREFLIGHT_STATUS=pass \
+AREAFORGE_ACTIONS_PINNING_STATUS=pass \
+AREAFORGE_RELEASE_WORKFLOW_STATUS=pass \
+AREAFORGE_CHECKSUM_VERIFICATION=pass \
+AREAFORGE_SIGNATURE_VERIFICATION=pass \
+AREAFORGE_UNSIGNED_PLACEHOLDER_PRESENT=no \
+pnpm release:supply-chain:record /path/to/release-assets > /path/to/release-supply-chain-record.txt
+pnpm release:supply-chain:validate /path/to/release-supply-chain-record.txt
+```
+
+记录生成器只读取本地 Release 资产目录和上述显式 CI/Release 状态字段；它不连接 GitHub、不创建 Release、不下载资产、不执行 Docker、不备份、不恢复、不运行 migration、不更新生产。缺少 CI run URL、`pnpm audit:prod`、Actions pinning、checksum 或签名校验等字段时，生成器会失败，而不是生成可误用的关闭记录。
+
 ## 模板
 
 ```text

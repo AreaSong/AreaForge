@@ -57,6 +57,7 @@ git diff --check
 
 ```bash
 pnpm release:supply-chain:selftest
+pnpm release:supply-chain:record:selftest
 pnpm release:supply-chain:validate <release-supply-chain-record.md|txt>
 ```
 
@@ -125,6 +126,8 @@ docs/development/release-supply-chain-vX.Y.Z.md
 ```bash
 pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md
 ```
+
+如果 Release 资产已下载到本地目录，可先用 `pnpm release:supply-chain:record <release-assets-dir>` 生成记录草稿；生成器仍要求显式填写 GitHub workflow run URL、validate job、`pnpm audit:prod`、governance、Actions pinning、checksum 和签名校验结果，不会连接 GitHub 或创建 Release。
 
 ## 更新与回滚
 

@@ -72,12 +72,16 @@ function checkRequiredFiles(): void {
 
 function checkReleaseSupplyChainScript(): void {
   const script = read("scripts/ops/generate-release-supply-chain.ts");
+  const recordScript = read("scripts/ops/generate-release-supply-chain-record.ts");
   const validator = read("scripts/quality/release-supply-chain-validate.ts");
   const selftest = read("scripts/quality/release-supply-chain-validate.selftest.ts");
+  const recordSelftest = read("scripts/quality/release-supply-chain-record.selftest.ts");
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const releaseScript = packageJson.scripts?.["release:supply-chain"] ?? "";
   const validateScript = packageJson.scripts?.["release:supply-chain:validate"] ?? "";
   const selftestScript = packageJson.scripts?.["release:supply-chain:selftest"] ?? "";
+  const recordPackageScript = packageJson.scripts?.["release:supply-chain:record"] ?? "";
+  const recordSelftestPackageScript = packageJson.scripts?.["release:supply-chain:record:selftest"] ?? "";
   const requiredTerms = [
     "SPDX-2.3",
     "pnpm",
@@ -92,23 +96,29 @@ function checkReleaseSupplyChainScript(): void {
     "promptOrRawAiResponseIncluded: false",
     "attachmentContentIncluded: false",
     "release:supply-chain:validate",
+    "release:supply-chain:record",
     "release supply-chain record validation passed",
     "release supply-chain validator selftest passed",
+    "release supply-chain record generator selftest passed",
+    "AREAFORGE_AUDIT_PROD_STATUS",
+    "AREAFORGE_ACTIONS_PINNING_STATUS",
     "AF-RISK-SC-001",
     "AF-RISK-SC-002",
   ];
-  const combined = `${script}\n${validator}\n${selftest}`;
+  const combined = `${script}\n${recordScript}\n${validator}\n${selftest}\n${recordSelftest}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   const ok = missing.length === 0 &&
     releaseScript === "tsx scripts/ops/generate-release-supply-chain.ts" &&
     validateScript === "tsx scripts/quality/release-supply-chain-validate.ts" &&
-    selftestScript === "tsx scripts/quality/release-supply-chain-validate.selftest.ts";
+    selftestScript === "tsx scripts/quality/release-supply-chain-validate.selftest.ts" &&
+    recordPackageScript === "tsx scripts/ops/generate-release-supply-chain-record.ts" &&
+    recordSelftestPackageScript === "tsx scripts/quality/release-supply-chain-record.selftest.ts";
   checks.push({
     name: "release supply-chain generator",
     ok,
     detail: ok
-      ? "package scripts generate SPDX SBOM/provenance and validate release supply-chain evidence records without new dependencies"
-      : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}; validate script=${validateScript || "missing"}; selftest=${selftestScript || "missing"}`,
+      ? "package scripts generate SPDX SBOM/provenance, supply-chain evidence records, and validation selftests without new dependencies"
+      : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}; validate script=${validateScript || "missing"}; selftest=${selftestScript || "missing"}; record script=${recordPackageScript || "missing"}; record selftest=${recordSelftestPackageScript || "missing"}`,
   });
 }
 
