@@ -70,7 +70,7 @@
 - `development/dependency-policy.md`：依赖、GitHub Actions、Docker base image 和供应链治理策略。
 - `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
 - `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、只读运营摘要和证据包入口。
-- `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段和告警阈值策略。
+- `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段、告警阈值和只读告警预览策略。
 - `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。
 - `development/residual-risk-ledger.json`：残余风险 ID 台账的机器可读索引。
 - `development/validation-matrix.md`：按改动范围选择验证。

@@ -37,7 +37,7 @@
 - 验证选择遵循 `docs/development/validation-matrix.md`。
 - 依赖、GitHub Actions、Docker base image、PR 模板、安全政策或公开仓库治理变更，遵循 `docs/development/dependency-policy.md` 并运行 `pnpm governance:preflight`。
 - 外部能力、自动化、MCP、subagent、浏览器控制、部署插件或远程运维工具的准入与扩大，遵循 `docs/development/external-capability-admission.md`；它们不得绕过 Web runtime 服务器命令禁区或生产高风险确认。
-- 发布、生产运维或长期运营状态变化，更新 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 的相关入口，并运行 `pnpm ops:readiness`；进入 release/update/交接证据时补跑 `pnpm ops:evidence:bundle`。
+- 发布、生产运维或长期运营状态变化，更新 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 的相关入口，并运行 `pnpm ops:readiness`；进入 release/update/交接证据时补跑 `pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`。
 - 第一版围绕“计划任务 -> 专注计时 -> 关联大纲 -> 产出笔记/错题 -> 晚间复盘 -> AI 鞭策 -> 明日调整”闭环。
 - `packages/core` 放平台无关业务规则，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量。
 - `packages/db` 集中数据库访问；页面和组件不直接调用 Prisma。

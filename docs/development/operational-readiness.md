@@ -117,6 +117,14 @@ pnpm ops:evidence:bundle
 
 该命令复用同一套只读 readiness 采集，输出 `read_only_operational_evidence_bundle`、逐项 signal evidence、`requiredEvidence`、`forbiddenActions`、`safetyFacts` 和 `bundleHash`。它适合作为 release record、运维交接或事故前证据冻结的索引；它不创建 GitHub Release，不推送 tag，不执行 updater apply，不运行 migration，不备份、不恢复、不回滚、不写生产数据，也不读取或打印密钥文件内容。若 `status` 为 `needs_attention` 或 `blocked`，必须保留对应 residual risk IDs，不能把证据包 hash 当作健康证明。
 
+需要预览当前信号会触发哪些告警动作时，使用：
+
+```bash
+pnpm ops:alert:preview
+```
+
+该命令复用 readiness 信号，输出 `read_only_alert_preview`、`wouldNotify`、severity、owner、recommendedAction、residual risk IDs 和 `safetyFacts`。它只做本地判断，不调用外部告警接收人，不发送通知，不执行服务器命令，不执行 updater apply，不写生产数据。配置 `AREAFORGE_ALERT_RECEIVER` 只会让输出显示 `<redacted>` receiver hint，不会发送请求。该命令能作为告警演练输入，但不能替代真实外部接收人、metrics dashboard 或人工值班窗口，因此不能单独关闭 `AF-RISK-OPS-004`。
+
 本地真实体验验证可使用 `pnpm smoke:local-ux`。该脚本会写入合成任务、计时、复盘、笔记附件、错题、模拟考试、阶段草稿和更新请求，因此默认要求 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，且只允许 `localhost` / `127.0.0.1`，除非显式设置 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true`。它只能证明当前本地验证环境的核心闭环可用，不能关闭生产写入型 smoke 残余项 `AF-RISK-OPS-002`。
 
 生产 smoke 与告警策略见 `docs/development/production-smoke-alerting-strategy.md`。该文档只定义写入型 smoke 的确认字段、合成数据命名空间、清理/失败处理和告警阈值；没有用户确认、专用账号、清理策略和实际记录前，不得执行生产写入型 smoke，也不得关闭 `AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。
@@ -136,4 +144,4 @@ pnpm ops:evidence:bundle
 - `AF-RISK-SC-002`：Actions SHA pinning 和 `pnpm audit:prod` 已在本地 workflow / governance gate 落地，仍需下一次 GitHub CI 或签名 Release 运行证据关闭。
 - `AF-RISK-SC-003`：已关闭为证据项；当前 `pg@8.22.0` / `@prisma/adapter-pg@7.8.0` trace 查询无 warning，后续升级前重跑 `pnpm pg:trace-deprecation`。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
-- `AF-RISK-OPS-004`：告警阈值已有非执行策略，metrics dashboard、外部告警接收人和演练记录仍未产品化。
+- `AF-RISK-OPS-004`：告警阈值已有非执行策略，`pnpm ops:alert:preview` 可预览 would-alert 决策；metrics dashboard、外部告警接收人和演练记录仍未产品化。

@@ -170,6 +170,16 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     issues.push({ field: "rollbackDurationMinutes", message: "must be a non-negative integer minute count" });
   }
 
+  const operationalEvidenceBundleHash = fields.get("operationalEvidenceBundleHash");
+  if (operationalEvidenceBundleHash && !/^(sha256:)?[a-f0-9]{64}$/i.test(operationalEvidenceBundleHash)) {
+    issues.push({ field: "operationalEvidenceBundleHash", message: "must be a 64-character sha256 hex digest with optional sha256: prefix" });
+  }
+
+  const alertPreviewStatus = fields.get("alertPreviewStatus");
+  if (alertPreviewStatus && !["ok", "watch", "warning", "critical"].includes(alertPreviewStatus.toLowerCase())) {
+    issues.push({ field: "alertPreviewStatus", message: "must be ok, watch, warning, or critical" });
+  }
+
   for (const field of ["databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256", "composeHash", "nginxConfigHash"] as const) {
     const value = fields.get(field);
     if (value && !/^[a-f0-9]{64}$/i.test(value)) {
@@ -285,6 +295,8 @@ function buildReleaseEvidenceBundleHash(fields: Map<string, string>): string {
     "rollbackTargetVersion",
     "rollbackTargetImage",
     "residualRiskIds",
+    "operationalEvidenceBundleHash",
+    "alertPreviewStatus",
   ];
   const keys = [
     ...requiredScalarFields,

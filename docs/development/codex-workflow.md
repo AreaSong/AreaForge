@@ -68,7 +68,7 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 
 - 优先读取 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md`。
 - 默认只读检查；写入生产动作必须走高风险确认。
-- 发布前本地和 CI 至少运行 `pnpm ops:readiness`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater`、`pnpm docs:readiness`、`pnpm risk:preflight` 和 `pnpm check`；发布或更新后用 `pnpm ops:evidence:bundle` 生成运行态证据包 hash。
+- 发布前本地和 CI 至少运行 `pnpm ops:readiness`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater`、`pnpm docs:readiness`、`pnpm risk:preflight` 和 `pnpm check`；发布或更新后用 `pnpm ops:evidence:bundle` 生成运行态证据包 hash，并用 `pnpm ops:alert:preview` 预览告警动作。
 - 残余项使用稳定 ID，不把监控缺口或接受例外混成当前功能未完成。
 
 ## 子代理使用规则

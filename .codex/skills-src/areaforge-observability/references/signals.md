@@ -30,6 +30,8 @@ Use `pnpm ops:readiness:summary` when a machine-readable read-only snapshot is u
 
 Use `pnpm ops:evidence:bundle` after release/update checks or before operator handoff when the snapshot should be indexed with required evidence, forbidden actions, residual risk IDs, and a `bundleHash`. A bundle hash is evidence indexing, not proof that missing signals are healthy.
 
+Use `pnpm ops:alert:preview` to map readiness signals into severity, would-notify decisions, owner, recommended action, and residual risk IDs. It is a read-only preview; it does not call external alert receivers or close `AF-RISK-OPS-004` by itself.
+
 The summary output includes `safetyFacts` such as `serverCommandAttempted=false`, `backupRestoreAttempted=false`, `migrationAttempted=false`, `productionWriteAttempted=false`, `secretValuePrinted=false`, `smokePasswordReadFromFile`, and `networkRequested`.
 
 ## Threshold Defaults

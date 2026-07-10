@@ -76,10 +76,10 @@
       "id": "AF-RISK-OPS-004",
       "type": "monitoring-gap",
       "reviewAt": "2026-08-10",
-      "currentImpact": "告警阈值已有非执行策略；metrics dashboard、外部告警接收人和演练记录仍未产品化",
+      "currentImpact": "告警阈值已有非执行策略，pnpm ops:alert:preview 可预览 would-alert 决策；metrics dashboard、外部告警接收人和演练记录仍未产品化",
       "executableNow": false,
       "closeCondition": "配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录",
-      "requiredEvidence": "告警配置摘要、演练记录、值班窗口或外部接收人说明",
+      "requiredEvidence": "告警配置摘要、pnpm ops:alert:preview 演练输出、值班窗口或外部接收人说明、恢复记录",
       "ownerSkills": ["areaforge-observability"]
     }
   ]

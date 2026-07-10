@@ -38,6 +38,14 @@
 
 ## 告警阈值
 
+阈值预览可以通过只读命令生成：
+
+```bash
+pnpm ops:alert:preview
+```
+
+该命令只读取 readiness 信号并输出 `read_only_alert_preview`、severity、`wouldNotify`、owner 和 recommendedAction；它不调用外部告警接收人，不发送通知，不执行服务器命令，不写生产数据。预览通过只能证明规则映射可执行，不能替代真实接收人配置、metrics dashboard 或演练记录。
+
 | 信号 | warn | blocked/fail | Owner |
 |---|---|---|---|
 | Public health | 单次失败后 5 分钟内未复测 | 连续失败或版本不符 | `areaforge-sre-ops` |
@@ -54,4 +62,4 @@
 
 - `AF-RISK-OPS-001`：服务器配置只读 extra smoke、smoke 密码文件和最近一次通过记录。
 - `AF-RISK-OPS-002`：确认写入型 smoke 账号、允许写入范围、清理策略、失败处理和至少一次受控记录。
-- `AF-RISK-OPS-004`：配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录。
+- `AF-RISK-OPS-004`：配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录；`pnpm ops:alert:preview` 只能作为演练输入，不单独关闭该残余项。

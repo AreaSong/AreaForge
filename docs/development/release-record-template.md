@@ -17,6 +17,7 @@ pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
 
 ```bash
 pnpm ops:evidence:bundle
+pnpm ops:alert:preview
 ```
 
 如附带附件对账 CSV：
@@ -67,6 +68,7 @@ rollbackTargetVersion: <version-or-not-applicable>
 rollbackTargetImage: <image@sha256-or-not-applicable>
 releaseEvidenceBundleHash: <sha256 emitted by pnpm release:evidence:validate>
 operationalEvidenceBundleHash: <bundleHash emitted by pnpm ops:evidence:bundle>
+alertPreviewStatus: <ok|watch|warning|critical from pnpm ops:alert:preview>
 preflight:
   pnpmCheck: PASS/FAIL
   composeConfig: PASS/FAIL
@@ -114,3 +116,4 @@ expectedFailureOrStopConditions:
 - 残余风险使用 `docs/development/residual-risk-ledger.md` 中的稳定 ID。
 - `pnpm release:evidence:validate` 输出的 `releaseEvidenceBundleHash` 已写入发布记录或运维交接摘要。
 - `pnpm ops:evidence:bundle` 输出的 `operationalEvidenceBundleHash` 已写入发布记录或运维交接摘要；若证据包状态不是 `ready`，必须保留对应 residual risk IDs。
+- `pnpm ops:alert:preview` 输出的 `alertPreviewStatus` 已写入发布记录或运维交接摘要；若 `wouldNotify=true` 或状态不是 `ok`，必须记录 owner、recommendedAction 和 residual risk IDs。
