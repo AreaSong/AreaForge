@@ -18,7 +18,7 @@
     "package-d:preflight": "tsx scripts/quality/package-d-preflight.ts",
     "package-e:preflight": "tsx scripts/quality/package-e-preflight.ts",
     "github-release-updater:preflight": "tsx scripts/quality/github-release-updater-preflight.ts",
-    "shellcheck:updater": "shellcheck ops/github-release-updater/areaforge-updater.sh",
+    "shellcheck:updater": "shellcheck ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh",
     "release:evidence:validate": "tsx scripts/quality/release-evidence-validate.ts",
     "release:evidence:selftest": "tsx scripts/quality/release-evidence-validate.selftest.ts",
     "auth:hash": "tsx scripts/auth/hash-password.ts",

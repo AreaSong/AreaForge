@@ -10,6 +10,7 @@ import {
   Flame,
   NotebookPen,
   NotebookText,
+  Settings,
   ShieldAlert,
   Trophy,
   type LucideIcon,
@@ -121,6 +122,13 @@ export default async function Home() {
               >
                 <CalendarClock className="h-4 w-4" aria-hidden="true" />
                 模拟
+              </Link>
+              <Link
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
+                href="/settings"
+              >
+                <Settings className="h-4 w-4" aria-hidden="true" />
+                设置
               </Link>
               <span className="max-w-48 truncate text-sm text-zinc-400">{user.email}</span>
               <LogoutButton />

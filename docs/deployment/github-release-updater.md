@@ -4,7 +4,7 @@
 
 AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单机 Docker Compose 部署：GitHub Release 发布固定镜像 digest 和 manifest，服务器上的 updater 定时检查，按策略决定是否更新。
 
-它不是网页内“一键更新”。Web 应用只负责业务功能和健康接口，不执行 Docker、备份、恢复、migration 或服务器命令。
+它不是让 Web runtime 直接执行 Docker 的“一键更新”。Web 应用可以提供版本中心 UI，用于展示版本状态、提交检查/更新/回退请求和调整自动策略；真正的 Docker、备份、恢复、migration 和回滚命令必须由服务器侧 root agent 执行。
 
 ## 发布端配置
 
@@ -124,6 +124,37 @@ AREAFORGE_AUTO_APPLY=patch
 }
 ```
 
+## 应用内版本中心
+
+AreaForge 的 `/settings` 页面可以展示当前版本、最新 Release、自动更新策略、阻塞原因、最近操作和回退状态。页面不会直接执行服务器命令，而是把请求写入受控状态目录：
+
+```text
+$AREAFORGE_OPS_STATE_DIR/requests/*.json
+```
+
+服务器上的 `areaforge-update-agent.service` 由 `areaforge-update-agent.timer` 定时运行，读取请求后再调用服务器侧 updater 或修改 `AREAFORGE_AUTO_APPLY`。生产 compose 需要把状态目录挂入 Web 容器：
+
+```yaml
+volumes:
+  - ${AREAFORGE_OPS_STATE_HOST_DIR:-/opt/areaforge/ops-state}:/app/ops-state
+```
+
+默认权限模型：
+
+- Web 容器只写 `requests/` 并读取 `status.json`。
+- root agent 读取请求、执行更新动作、移动历史请求并回写 `status.json`。
+- 不挂载 `docker.sock` 到 Web 容器。
+- 不在 Web API 中执行 `docker compose`、`pg_dump`、`prisma migrate deploy` 或恢复命令。
+
+安装 agent：
+
+```bash
+sudo cp /opt/areaforge/ops/update-agent/areaforge-update-agent.service /etc/systemd/system/
+sudo cp /opt/areaforge/ops/update-agent/areaforge-update-agent.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now areaforge-update-agent.timer
+```
+
 ## 备份与记录
 
 每次实际应用更新会在：
@@ -170,7 +201,9 @@ pnpm check
 
 ```bash
 sudo systemctl status areaforge-updater.timer
+sudo systemctl status areaforge-update-agent.timer
 sudo journalctl -u areaforge-updater.service -n 100 --no-pager
+sudo journalctl -u areaforge-update-agent.service -n 100 --no-pager
 curl -fsS http://127.0.0.1:3000/api/health
 ```
 

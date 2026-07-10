@@ -41,6 +41,9 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/areaforge-updater.env.example",
     "ops/github-release-updater/areaforge-updater.service",
     "ops/github-release-updater/areaforge-updater.timer",
+    "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-update-agent.service",
+    "ops/update-agent/areaforge-update-agent.timer",
     "ops/github-release-updater/manifest.example.json",
     "ops/github-release-updater/manifest.schema.json",
     "ops/github-release-updater/README.md",
@@ -59,14 +62,21 @@ function checkRequiredFiles(): void {
 }
 
 function checkShellSyntax(): void {
-  const result = spawnSync("bash", ["-n", "ops/github-release-updater/areaforge-updater.sh"], {
-    cwd: root,
-    encoding: "utf8",
+  const scripts = [
+    "ops/github-release-updater/areaforge-updater.sh",
+    "ops/update-agent/areaforge-update-agent.sh",
+  ];
+  const failed = scripts.flatMap((script) => {
+    const result = spawnSync("bash", ["-n", script], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    return result.status === 0 ? [] : [`${script}: ${compactOutput(result.stderr || result.stdout)}`];
   });
   checks.push({
     name: "updater shell syntax",
-    ok: result.status === 0,
-    detail: result.status === 0 ? "bash -n passed" : compactOutput(result.stderr || result.stdout),
+    ok: failed.length === 0,
+    detail: failed.length === 0 ? "bash -n passed" : failed.join("; "),
   });
 }
 

@@ -4,7 +4,7 @@
 
 已实现服务器侧受控更新器第一版。它以 GitHub Release 为版本源，读取 release asset 中的 `areaforge-release-manifest.json`、`SHA256SUMS`、`SHA256SUMS.sig`，拉取不可变镜像 digest，执行发布前备份、必要 migration、Web 切换、健康烟测和应用镜像回滚。
 
-本设计不新增网页内“一键更新”，不新增 Web API 执行服务器命令，不把生产密钥、数据库 URL、AI key、完整 prompt 或附件路径写入公开记录。
+本设计不让 Web runtime 直接执行服务器命令。版本中心 UI 可以提交检查、更新、回退和自动策略请求；执行 Docker、备份、migration、回滚和状态回写的能力只属于服务器侧 root agent。不把生产密钥、数据库 URL、AI key、完整 prompt 或附件路径写入公开记录。
 
 ## 目标形态
 
@@ -39,6 +39,24 @@ health smoke / extra smoke
 成功记录；失败回滚应用镜像并记录原因
 ```
 
+应用内版本中心走另一条受控请求流：
+
+```text
+/settings UI
+        |
+        v
+/api/system/update-requests 写入 ops-state/requests
+        |
+        v
+areaforge-update-agent.timer
+        |
+        v
+root agent 调用 updater / 修改自动策略 / 回写 status.json
+        |
+        v
+/api/system/update-status 只读展示
+```
+
 ## 产物
 
 - `.github/workflows/release.yml`：tag 或手动 workflow 触发，构建并推送 GHCR 镜像，发布 GitHub Release assets。
@@ -46,6 +64,9 @@ health smoke / extra smoke
 - `ops/github-release-updater/areaforge-updater.sh`：服务器侧 updater CLI。
 - `ops/github-release-updater/areaforge-updater.env.example`：私有 updater 配置模板。
 - `ops/github-release-updater/areaforge-updater.service` 与 `.timer`：systemd 定时检查入口。
+- `ops/update-agent/areaforge-update-agent.sh`：处理 UI 写入的受控更新请求。
+- `ops/update-agent/areaforge-update-agent.service` 与 `.timer`：systemd 请求处理入口。
+- `apps/web/app/settings/page.tsx` 与 `apps/web/app/api/system/**`：版本中心 UI 和只读/写请求 API，不执行服务器命令。
 - `ops/github-release-updater/manifest.schema.json` 与 `manifest.example.json`：Release manifest 合约。
 - `scripts/quality/github-release-updater-preflight.ts`：只读门禁，检查 updater 文件、shell 语法、manifest、workflow、migration image 和 Web 无运维入口边界。
 - `.github/workflows/ci.yml`：常规 CI 门禁，运行 `shellcheck`、updater preflight、Package E / 风险 / docs 门禁和 `pnpm check`。
@@ -96,7 +117,7 @@ updater 有三种命令：
 
 ## 安全边界
 
-- 不通过网页、Web API、管理后台按钮触发更新。
+- 网页、Web API、管理后台按钮只能提交受控请求和读取状态；不能直接执行服务器命令。
 - 不把 `docker.sock` 挂入 Web 容器。
 - 不让 Web runtime 镜像承担 migration runner。
 - 不使用 `latest`。
@@ -127,6 +148,7 @@ docker build -f infra/docker/migration.Dockerfile .
 ```bash
 sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh check --config /etc/areaforge/updater.env
 sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes --tag v1.0.3 --config /etc/areaforge/updater.env
+sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 ```
 
 ## 残余风险

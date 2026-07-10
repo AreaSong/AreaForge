@@ -199,8 +199,10 @@ function checkComposeBoundaries(): void {
     "127.0.0.1:${WEB_PORT:-3000}:3000",
     "areaforge-postgres-data:/var/lib/postgresql/data",
     "areaforge-uploads:/app/uploads",
+    "${AREAFORGE_OPS_STATE_HOST_DIR:-/opt/areaforge/ops-state}:/app/ops-state",
     "condition: service_healthy",
     "UPLOAD_DIR: /app/uploads",
+    "AREAFORGE_OPS_STATE_DIR: ${AREAFORGE_OPS_STATE_DIR:-/app/ops-state}",
   ].filter((term) => !compose.includes(term));
   const forbiddenMatches = forbiddenTerms.filter((term) => compose.includes(term));
   const postgresPublicPort = /^\s*-\s*["']?\d+:\s*5432\b/m.test(compose);

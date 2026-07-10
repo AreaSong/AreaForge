@@ -1,0 +1,10 @@
+[Unit]
+Description=Process AreaForge UI update requests
+
+[Timer]
+OnBootSec=45
+OnUnitActiveSec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

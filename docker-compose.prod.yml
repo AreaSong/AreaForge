@@ -20,6 +20,8 @@ services:
       AI_LOG_PROMPTS: ${AI_LOG_PROMPTS:-false}
       AI_ALLOW_SENSITIVE_CONTEXT: ${AI_ALLOW_SENSITIVE_CONTEXT:-false}
       UPLOAD_DIR: /app/uploads
+      AREAFORGE_OPS_STATE_DIR: ${AREAFORGE_OPS_STATE_DIR:-/app/ops-state}
+      AREAFORGE_IMAGE: ${AREAFORGE_IMAGE:-areaforge-web:0.1.0}
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,6 +29,7 @@ services:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     volumes:
       - areaforge-uploads:/app/uploads
+      - ${AREAFORGE_OPS_STATE_HOST_DIR:-/opt/areaforge/ops-state}:/app/ops-state
 
   postgres:
     image: postgres:16-alpine
