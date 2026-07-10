@@ -11,6 +11,7 @@
 - `.github/ISSUE_TEMPLATE/feature_request.md`：产品或工程改进。
 - `.github/ISSUE_TEMPLATE/ops_support.md`：自托管、Release updater、备份恢复、smoke、告警、回滚或供应链证据问题。
 - `SECURITY.md`：安全漏洞私密报告。
+- `.codex/skills-src/areaforge-public-maintenance`：维护者处理公开 issue、贡献者 PR、敏感信息边界和 owner skill 路由时的 Codex 工作流入口。
 
 ## Triage 分类
 
@@ -55,9 +56,10 @@
 2. 检查是否包含敏感内容；如包含，要求删除或重新提交 redacted 版本。
 3. 分类为 bug、feature、ops support、release/supply-chain、AI 或 docs。
 4. 关联源事实：`docs/README.md`、相关模块文档、`operator-onboarding.md`、`release-train.md`、`residual-risk-ledger.md`。
-5. 要求最小可复现证据，避免让用户执行生产写入或高风险命令。
-6. 若涉及生产 deploy、backup、restore、migration、updater apply、rollback 或 auto-apply policy，回复中必须说明公开 issue 不构成执行确认。
-7. 若 issue 对应已知残余项，引用稳定 ID 和关闭条件。
+5. 使用 `areaforge-public-maintenance` 作为公开维护协调入口，再把高风险面交给对应 owner skill。
+6. 要求最小可复现证据，避免让用户执行生产写入或高风险命令。
+7. 若涉及生产 deploy、backup、restore、migration、updater apply、rollback 或 auto-apply policy，回复中必须说明公开 issue 不构成执行确认。
+8. 若 issue 对应已知残余项，引用稳定 ID 和关闭条件。
 
 ## 只读检查
 

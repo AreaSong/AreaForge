@@ -51,6 +51,7 @@ function checkRequiredFiles(): void {
     "docs/development/dependency-policy.md",
     "docs/development/external-capability-admission.md",
     "docs/development/support-intake.md",
+    ".codex/skills-src/areaforge-public-maintenance/SKILL.md",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -99,6 +100,7 @@ function checkSupportPolicy(): void {
     "cosign private",
     "smoke passwords",
     "docs/development/support-intake.md",
+    "areaforge-public-maintenance",
     "公开 issue 不构成执行确认",
     "operator-onboarding.md",
     "release-train.md",

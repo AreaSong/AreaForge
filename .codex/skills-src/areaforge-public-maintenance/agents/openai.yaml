@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge Public Maintenance"
+  short_description: "Public issues support and contributor triage"
+  default_prompt: "Use $areaforge-public-maintenance to triage AreaForge public issues, support requests, contributor PRs, and disclosure boundaries."

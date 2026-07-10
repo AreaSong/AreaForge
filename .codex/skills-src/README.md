@@ -7,6 +7,7 @@
 ## 当前 Skills
 
 - `areaforge-enterprise-governance`：CI、发布治理、依赖准入、仓库策略、PR/安全治理和整体企业级门禁。
+- `areaforge-public-maintenance`：公开 issue、支持入口、贡献者 PR、敏感信息边界和维护者 triage。
 - 公开支持入口为 `SUPPORT.md` 和 `docs/development/support-intake.md`，对应只读检查为 `pnpm support:intake:preflight`。
 - `areaforge-operating-loop`：按 Quick/Change/Mission-Critical/Review/Ops/Release/Incident 路由 owner skill、验证、文档同步和残余风险收口。
 - `areaforge-release-operator`：功能完成后的版本、GitHub Release、GHCR digest、updater、回滚和证据闭环。
@@ -32,6 +33,7 @@
 | Skill | Owner | 常见交接 |
 |---|---|---|
 | `areaforge-enterprise-governance` | CI、发布治理、依赖准入、仓库规则、review/ownership/安全政策 | 供应链细节交给 `areaforge-supply-chain`；安全细节交给 `areaforge-security-governance`；验证交给 `areaforge-validation-driver` |
+| `areaforge-public-maintenance` | 公开 issue、support intake、贡献者 PR、敏感信息边界、维护者 triage | 仓库政策交给 `areaforge-enterprise-governance`；安全披露交给 `areaforge-security-governance`；ops 支持交给 `areaforge-sre-ops`；release/update 交给 `areaforge-release-operator` |
 | `areaforge-operating-loop` | 任务分级、owner skill 路由、验证选择、文档同步和残余风险收口编排 | 具体语义交给对应 owner skill；生产动作交给 `areaforge-sre-ops`；发布交给 `areaforge-release-operator` |
 | `areaforge-release-operator` | Release、tag、GitHub Release、镜像 digest、server updater、回滚证据 | 验证交给 `areaforge-validation-driver`；生产状态交给 `areaforge-sre-ops`；文档同步交给 `areaforge-doc-sync` |
 | `areaforge-qa-smoke` | 用户旅程、浏览器/API smoke、截图和体验证据 | 产品判断交给 `areaforge-product-experience`；release smoke 交给 `areaforge-release-operator` |

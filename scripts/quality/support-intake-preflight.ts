@@ -39,6 +39,8 @@ function checkRequiredFiles(): void {
     "SECURITY.md",
     "CODE_REVIEW.md",
     "docs/development/support-intake.md",
+    ".codex/skills-src/areaforge-public-maintenance/SKILL.md",
+    ".codex/skills-src/areaforge-public-maintenance/references/public-triage.md",
     ".github/ISSUE_TEMPLATE/bug_report.md",
     ".github/ISSUE_TEMPLATE/feature_request.md",
     ".github/ISSUE_TEMPLATE/ops_support.md",
@@ -122,6 +124,7 @@ function checkSupportIntakeDoc(): void {
     "areaforge-release-operator",
     "areaforge-supply-chain",
     "areaforge-security-governance",
+    "areaforge-public-maintenance",
     "敏感信息边界",
     "operator-onboarding.md",
     "release-train.md",
@@ -155,7 +158,9 @@ function checkEntryPoints(): void {
     [rootReadme, "SUPPORT.md", "README.md"],
     [rootReadme, "docs/development/support-intake.md", "README.md"],
     [docsReadme, "development/support-intake.md", "docs/README.md"],
+    [docsReadme, ".codex/skills-src/areaforge-public-maintenance", "docs/README.md"],
     [docSync, "docs/development/support-intake.md", "docs/development/doc-sync-checklist.md"],
+    [docSync, ".codex/skills-src/areaforge-public-maintenance", "docs/development/doc-sync-checklist.md"],
   ];
   const missing = requiredLinks
     .filter(([content, token]) => !content.includes(token))
@@ -172,11 +177,13 @@ function checkValidationMatrix(): void {
   const requiredTerms = [
     "SUPPORT.md",
     ".github/ISSUE_TEMPLATE/**",
+    ".codex/skills-src/areaforge-public-maintenance/**",
     "docs/development/support-intake.md",
     "scripts/quality/support-intake-preflight.ts",
     "pnpm support:intake:preflight",
     "pnpm governance:preflight",
     "pnpm docs:readiness",
+    "pnpm skills:validate",
   ];
   const missing = requiredTerms.filter((term) => !matrix.includes(term));
   checks.push({
@@ -193,6 +200,7 @@ function checkGovernancePreflight(): void {
     "support-intake.md",
     "ISSUE_TEMPLATE",
     "support:intake:preflight",
+    "areaforge-public-maintenance",
   ];
   const missing = requiredTerms.filter((term) => !preflight.includes(term));
   checks.push({

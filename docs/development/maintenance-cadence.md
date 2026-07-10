@@ -57,6 +57,7 @@ pnpm ops:alert:preview
 每周还应复核：
 
 - GitHub issues 是否有 P0/P1、安全、ops support 或 release/supply-chain 阻塞。
+- 公开 issue 和贡献者 PR 是否已按 `areaforge-public-maintenance` 路由到 support、security、SRE、release、supply-chain、AI、UX 或 docs owner。
 - Dependabot/依赖更新是否需要进入 dependency policy。
 - `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`。
 - `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录。

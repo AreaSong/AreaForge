@@ -13,6 +13,7 @@ const skillsReadme = path.join(skillsRoot, "README.md");
 
 const requiredSkills = [
   "areaforge-enterprise-governance",
+  "areaforge-public-maintenance",
   "areaforge-operating-loop",
   "areaforge-release-operator",
   "areaforge-qa-smoke",
