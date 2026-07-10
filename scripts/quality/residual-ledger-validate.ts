@@ -33,6 +33,7 @@ interface Issue {
 const root = process.cwd();
 const markdownPath = "docs/development/residual-risk-ledger.md";
 const jsonPath = "docs/development/residual-risk-ledger.json";
+const taskIndexPath = "tasks/indexes/residuals.md";
 const allowedTypes = new Set([
   "current-blocker",
   "deferred-work",
@@ -49,17 +50,20 @@ function main(): void {
   const issues: Issue[] = [];
   if (!existsSync(resolve(markdownPath))) issues.push({ field: markdownPath, message: "missing markdown ledger" });
   if (!existsSync(resolve(jsonPath))) issues.push({ field: jsonPath, message: "missing machine-readable ledger" });
+  if (!existsSync(resolve(taskIndexPath))) issues.push({ field: taskIndexPath, message: "missing task-facing residual index" });
   if (issues.length > 0) fail(issues);
 
   const markdown = read(markdownPath);
+  const taskIndex = read(taskIndexPath);
   const ledger = readLedger(jsonPath, issues);
   const markdownItems = parseMarkdownResiduals(markdown);
   validateLedgerShape(ledger, issues);
   validateMarkdownSync(ledger, markdownItems, issues);
+  validateTaskIndexSync(ledger, taskIndex, issues);
   validateReferences(ledger, issues);
 
   if (issues.length > 0) fail(issues);
-  console.log(`residual ledger validation passed: ${ledger.items.length} residual IDs are machine-readable and synced with markdown.`);
+  console.log(`residual ledger validation passed: ${ledger.items.length} residual IDs are machine-readable and synced with markdown/task index.`);
 }
 
 function readLedger(file: string, issues: Issue[]): ResidualLedger {
@@ -146,6 +150,38 @@ function validateReferences(ledger: ResidualLedger, issues: Issue[]): void {
   for (const item of ledger.items) {
     if (!combined.includes(item.id) && item.type !== "deferred-work") {
       issues.push({ field: item.id, message: "non-deferred residual should be referenced by operational/completion/validation docs" });
+    }
+  }
+}
+
+function validateTaskIndexSync(ledger: ResidualLedger, taskIndex: string, issues: Issue[]): void {
+  for (const item of ledger.items) {
+    if (!taskIndex.includes(item.id)) {
+      issues.push({ field: `${taskIndexPath}:${item.id}`, message: "missing from task-facing residual index" });
+    }
+  }
+
+  const requiredTermsById: Record<string, string[]> = {
+    "AF-RISK-OPS-001": [
+      "pnpm ops:ops-001:closure:validate",
+      "redacted update-agent status",
+      "operational evidence bundle",
+    ],
+    "AF-RISK-SC-002": [
+      "pnpm ci:supply-chain:validate",
+      "pnpm release:supply-chain:validate",
+    ],
+    "AF-RISK-UX-001": [
+      "pnpm experience:review:validate",
+    ],
+  };
+
+  for (const [id, terms] of Object.entries(requiredTermsById)) {
+    if (!taskIndex.includes(id)) continue;
+    for (const term of terms) {
+      if (!taskIndex.includes(term)) {
+        issues.push({ field: `${taskIndexPath}:${id}`, message: `missing task-facing term: ${term}` });
+      }
     }
   }
 }
