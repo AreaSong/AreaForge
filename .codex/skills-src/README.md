@@ -10,7 +10,7 @@
 - `areaforge-public-maintenance`：公开 issue、支持入口、贡献者 PR、敏感信息边界和维护者 triage。
 - 公开支持入口为 `SUPPORT.md` 和 `docs/development/support-intake.md`，对应只读检查为 `pnpm support:intake:preflight`。
 - `areaforge-operating-loop`：按 Quick/Change/Mission-Critical/Review/Ops/Release/Incident 路由 owner skill、验证、文档同步和残余风险收口。
-- 长期运营控制面入口为 `docs/development/long-term-operability-control-plane.md`，对应只读检查为 `pnpm enterprise:operability:preflight`；离线状态投影为 `pnpm ops:status`。默认不新增第 18 个 skill，除非出现新的稳定 owner 边界。
+- 长期运营控制面入口为 `docs/development/long-term-operability-control-plane.md`，对应只读检查为 `pnpm enterprise:operability:preflight`；离线状态投影为 `pnpm ops:status`；完成声明前的严格 live evidence gate 为 `pnpm ops:long-term:gate`。默认不新增第 18 个 skill，除非出现新的稳定 owner 边界。
 - `areaforge-release-operator`：功能完成后的版本、GitHub Release、GHCR digest、updater、回滚和证据闭环。
 - Release train 入口为 `docs/development/release-train.md`，对应只读检查为 `pnpm release:train:preflight`。
 - `areaforge-qa-smoke`：真实用户旅程、API/browser smoke、截图和体验证据。
@@ -20,6 +20,7 @@
 - 自托管操作者上手入口为 `docs/deployment/operator-onboarding.md`，对应只读检查为 `pnpm operator:onboarding:preflight`。
 - 维护节奏入口为 `docs/development/maintenance-cadence.md`，对应只读检查为 `pnpm maintenance:cadence:preflight`。
 - 运营证据包使用 `pnpm ops:evidence:bundle` 生成，保存后用 `pnpm ops:evidence:bundle:validate` 校验 hash、信号、禁止动作和只读 safety facts。
+- `pnpm ops:long-term:gate` 只读聚合 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 证据；缺证据时失败，但不收集证据、不执行服务器命令、不修改 residual 台账。
 - 维护窗口、事故、恢复演练、update-agent redacted status、OPS-001 收口包和 OPS-004 告警证据分别使用 `pnpm maintenance:window:validate`、`pnpm incident:record:validate`、`pnpm restore:drill:validate`、`pnpm update-agent:status:validate`、`pnpm ops:ops-001:preflight` / `pnpm ops:ops-001:closure:validate` 和 `pnpm ops:ops-004:preflight`。
 - `areaforge-observability`：health、日志、release identity、update-agent、备份新鲜度、AI fallback 和生产信号证据。
 - `areaforge-incident-response`：故障分级、证据冻结、止血、回滚决策、恢复验证和复盘收口。

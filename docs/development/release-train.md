@@ -50,6 +50,7 @@ pnpm shellcheck:updater
 pnpm ops:readiness
 pnpm ops:status
 pnpm ops:evidence:bundle:selftest
+pnpm ops:long-term:gate:selftest
 pnpm skills:validate
 pnpm audit:prod
 pnpm check
@@ -64,6 +65,14 @@ pnpm release:supply-chain:record:selftest
 pnpm release:supply-chain:validate <release-supply-chain-record.md|txt>
 pnpm sc:sc-002:preflight
 ```
+
+若本次 release/update 之后要声明“产品可长期运营”，在 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 证据都已保存后运行：
+
+```bash
+pnpm ops:long-term:gate
+```
+
+该 gate 缺证据时必须失败；它不创建 Release、不调用 GitHub API、不执行 updater、不备份、不恢复、不运行 migration、不写生产，也不自动关闭 residual。
 
 涉及发布记录时补跑：
 
@@ -192,6 +201,7 @@ minor/major 自动应用不进入当前默认策略。
 - `AF-RISK-SC-001`：下一次签名 Release 需以 SBOM/provenance 资产和校验记录关闭或复核。
 - `AF-RISK-SC-002`：下一次 GitHub CI/Release 运行需以 Actions pinning 和 `pnpm audit:prod` 证据关闭或复核；先跑 `pnpm sc:sc-002:preflight`，CI-only 走 `pnpm ci:supply-chain:validate`，签名 Release 走 `pnpm release:supply-chain:validate`。
 - `AF-RISK-OPS-004`：告警预览不等于真实外部告警，演练记录另行校验。
+- 长期运营完成声明：必须让 `pnpm ops:long-term:gate` 通过；它只证明证据达到人工复核门槛，不自动关闭上述 residual。
 
 ## 本地预检
 

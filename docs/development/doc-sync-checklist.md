@@ -29,6 +29,7 @@
 - 写动作或运行时能力变化是否按 `docs/development/runtime-write-boundary.md` 标明 R0-R4 等级，避免把 preview、local smoke、update request 或草稿说成生产 apply。
 - 功能更新若准备进入线上，是否先按 `docs/development/release-train.md` 固定版本、验证、Release 资产、供应链记录、updater 证据、smoke、回滚目标和停止条件。
 - 功能更新、维护节奏、release 决策、skill owner 边界或 residual 复核口径变化，是否同步 `docs/development/long-term-operability-control-plane.md`，并运行 `pnpm enterprise:operability:preflight` 和 `pnpm ops:status` 检查离线状态投影。
+- 若要声明“产品可长期运营”，是否运行 `pnpm ops:long-term:gate`，并确认 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 证据均达到可人工复核关闭状态；该 gate 不自动收集证据、不执行生产动作、不修改 residual 台账。
 - 新签名 Release 若用于关闭或复核供应链残余项，是否按 `docs/development/release-supply-chain-record-template.md` 记录 SBOM/provenance、checksum/signature、Actions pinning 和 `pnpm audit:prod`，并通过 `pnpm release:supply-chain:validate`。
 - 生产运维、发布、自动更新或长期运营状态变化，是否同步 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 和对应 ops/release 文档。
 - 日常维护节奏、证据新鲜度或 residual 复核规则变化，是否同步 `docs/development/maintenance-cadence.md`、`docs/development/operational-readiness.md`、验证矩阵和相关 observability/residual skill。

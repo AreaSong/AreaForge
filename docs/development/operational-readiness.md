@@ -99,6 +99,14 @@ pnpm ops:handoff
 
 该命令复用 `pnpm ops:status` 的离线投影，输出 `read_only_operational_handoff` JSON，把当前版本、控制面状态、release train 状态、可声称/不可声称内容、due residual、release-relevant residual、下一步命令和 `safetyFacts` 集中到一个交接入口。它不访问网络、不读取密钥、不执行服务器命令、不写文件、不备份、不恢复、不运行 migration、不创建 GitHub Release、不执行 updater apply，也不能替代 `pnpm ops:evidence:bundle`、生产只读 smoke、update-agent status、备份或 rollback 证据。`pnpm ops:handoff:selftest` 只在临时 fixture 中校验交接摘要结构。
 
+在声称“产品可长期运营”前，使用严格 live evidence gate：
+
+```bash
+pnpm ops:long-term:gate
+```
+
+该命令只读本地 redacted 证据和体验记录，复用 OPS-001、OPS-004、SC-002 和 UX validator；它要求 OPS-001 和 OPS-004 都达到 `ready_for_human_close`，签名 Release 供应链达到 `ready_for_sc001_sc002_review`，且产品体验记录在默认 14 天窗口内并通过 `pnpm experience:review:validate`。缺少任何一类证据时它会退出失败，输出 `read_only_long_term_operability_live_gate` JSON；这只是防止完成声明过度扩张，不执行生产命令、不联网、不创建 Release、不读取密钥、不写 residual 台账。
+
 公开支持、自托管排障或维护交接需要一份可贴到 issue/thread 的 metadata-only 预览时，使用：
 
 ```bash

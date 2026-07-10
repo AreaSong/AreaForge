@@ -45,6 +45,7 @@ AreaForge 只借鉴能直接增强长期运营的机制，不搬运完整 task-l
 | 运营 readiness | `pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` | health、update-agent、backup、cert、smoke 等证据摘要 | 缺失信号健康 |
 | 支持包预览 | `pnpm ops:support:bundle-preview` | 公开支持和维护交接所需的 metadata-only 版本、文档、residual 和 redaction 边界 | support export、生产健康、用户数据内容 |
 | 运营交接 | `pnpm ops:handoff` | 当前版本、离线控制面、due residual、release follow-up、下一步只读命令和 claim boundary | 真实生产健康、updater apply 或 residual 自动关闭 |
+| 长期运营 live gate | `pnpm ops:long-term:gate` | OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 证据是否全部达到可人工复核关闭状态 | 自动收集生产证据、自动关闭 residual、创建 Release、执行服务器命令 |
 | 真实体验 | `pnpm smoke:local-ux`、`pnpm experience:review:validate` | 桌面/移动核心旅程是否可理解、可完成 | 生产写入 smoke 或所有真实数据 |
 | 残余风险 | `pnpm residuals:validate`、`pnpm residuals:review-due` | 哪些结论会被降级、何时复核、如何关闭 | 自动关闭风险 |
 | Skills | `.codex/skills-src/**`、`pnpm skills:validate` | Codex 执行时该读谁、怎么验证、何时停下确认 | 产品源事实 |
@@ -74,6 +75,7 @@ pnpm enterprise:operability:preflight
 pnpm maintenance:cadence:preflight
 pnpm ops:handoff
 pnpm ops:status
+pnpm ops:long-term:gate
 pnpm residuals:review-due
 pnpm ops:support:bundle-preview
 pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
@@ -98,6 +100,8 @@ pnpm ops:ops-004:preflight
 
 `pnpm ops:handoff` 输出只读运营交接摘要，把 `ops:status` 中的可执行 residual、due residual、release-relevant residual、可声称/不可声称内容和下一步命令整理到 `read_only_operational_handoff` JSON。它不访问网络、不写交接文件、不执行生产动作；维护窗口、release 前后或 Codex 线程交接时优先先看它，再决定是否需要 live readiness、evidence bundle、smoke 或高风险确认。
 
+`pnpm ops:long-term:gate` 是完成声明前的严格 live evidence gate。它复用 OPS-001、OPS-004、SC-002 和体验复核校验器，只读取本地 redacted 证据文件和体验记录；默认要求 `AF-RISK-OPS-001` 返回 `ready_for_human_close`、`AF-RISK-OPS-004` 返回 `ready_for_human_close`、签名 Release 供应链返回 `ready_for_sc001_sc002_review`，并且 `AF-RISK-UX-001` 体验记录在 14 天内且通过 `pnpm experience:review:validate`。该命令缺证据时会退出失败，用于阻止“长期运营已完成”的过度声明；它不联网、不 SSH、不读取密钥、不创建 Release、不执行 updater、不备份、不恢复、不运行 migration、不写生产，也不修改 residual 台账。
+
 `pnpm ops:support:bundle-preview` 输出 metadata-only 支持包预览，把公开支持可用的版本、文档、命令名、residual ID、关闭条件、claim boundary 和 redaction/safety facts 聚合为可校验 JSON。它不导出支持包、不包含用户内容、不联网、不写生产；公开 issue 或自托管排障优先使用该预览，release/incident 证据冻结仍使用 `pnpm ops:evidence:bundle`。
 
 可交接记录使用以下模板和只读校验：
@@ -111,6 +115,7 @@ pnpm ops:ops-004:preflight
 | OPS-001 证据预检 | `docs/development/ops-001-closure-packet-template.md` | `pnpm ops:ops-001:preflight` | 生产 smoke 执行、收口包生成、自动关闭 residual |
 | OPS-001 收口包 | `docs/development/ops-001-closure-packet-template.md` | `pnpm ops:ops-001:closure:validate <record>` | 自动关闭 residual、备份/告警/供应链健康 |
 | OPS-004 告警证据预检 | `docs/development/alert-drill-record-template.md` | `pnpm ops:ops-004:preflight` | 发送通知、调用外部接收人、自动关闭 residual |
+| 长期运营 live gate | 本文件和各 residual 证据记录 | `pnpm ops:long-term:gate` | 自动收集证据、自动执行生产动作、自动关闭 residual |
 
 ## Skill 增减规则
 
