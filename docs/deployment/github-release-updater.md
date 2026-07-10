@@ -10,8 +10,9 @@ AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单
 
 1. 在 GitHub 仓库启用 GHCR packages。
 2. 配置 Release 签名密钥：
-   - `COSIGN_PRIVATE_KEY`
+   - `COSIGN_PRIVATE_KEY_B64`（推荐，一行 base64 编码的 `cosign.key`）
    - `COSIGN_PASSWORD`
+   - `COSIGN_PRIVATE_KEY`（兼容多行 PEM 形式）
    AreaForge 官方发布使用 `docs/deployment/keys/areaforge-cosign.pub` 对应的私钥签名。私钥只应保存在 GitHub Actions Secrets 或受控离线发布环境，不能提交到 Git。
 3. 打 tag：
 

@@ -154,5 +154,5 @@ sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 ## 残余风险
 
 - 首次远端服务器部署、域名 HTTPS 和真实 Nginx 切换仍需要服务器环境。
-- GitHub Release 签名需要配置 `COSIGN_PRIVATE_KEY` / `COSIGN_PASSWORD` 或 GPG 签名流程；未配置签名时 workflow 会发布占位 `SHA256SUMS.sig`，生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。
+- GitHub Release 签名需要配置 `COSIGN_PRIVATE_KEY_B64` / `COSIGN_PASSWORD`（或兼容的 `COSIGN_PRIVATE_KEY` 多行 PEM、GPG 签名流程）；未配置签名时 workflow 会发布占位 `SHA256SUMS.sig`，生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。
 - 完整登录、任务计时、附件上传下载等 smoke 依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`；updater 内置默认 smoke 只检查 `/api/health`。

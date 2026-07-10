@@ -126,14 +126,31 @@ jobs:
       - name: Sign checksums or create placeholder
         shell: bash
         env:
+          COSIGN_PRIVATE_KEY_B64: ${{ secrets.COSIGN_PRIVATE_KEY_B64 }}
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
-          if [ -n "${COSIGN_PRIVATE_KEY:-}" ]; then
-            cosign sign-blob --key env://COSIGN_PRIVATE_KEY --bundle SHA256SUMS.sig SHA256SUMS
+          signing_key=""
+          if [ -n "${COSIGN_PRIVATE_KEY_B64:-}" ]; then
+            printf '%s' "${COSIGN_PRIVATE_KEY_B64}" | base64 -d > cosign.key
+            signing_key="cosign.key"
+          elif [ -n "${COSIGN_PRIVATE_KEY:-}" ]; then
+            printf '%s' "${COSIGN_PRIVATE_KEY}" > cosign.key
+            signing_key="cosign.key"
+          fi
+
+          if [ -n "${signing_key}" ]; then
+            chmod 600 "${signing_key}"
+            if ! cosign sign-blob --key "${signing_key}" --bundle SHA256SUMS.sig SHA256SUMS 2>cosign-sign.err; then
+              while IFS= read -r line; do
+                safe_line="$(printf '%s' "${line}" | sed -E 's/(COSIGN_PRIVATE_KEY|COSIGN_PRIVATE_KEY_B64|COSIGN_PASSWORD)=[^[:space:]]+/\1=<redacted>/g')"
+                echo "::error::cosign signing failed: ${safe_line}"
+              done < cosign-sign.err
+              exit 1
+            fi
           else
             cat > SHA256SUMS.sig <<'EOF_SIG'
-          unsigned: configure COSIGN_PRIVATE_KEY and COSIGN_PASSWORD repository secrets before enabling AREAFORGE_REQUIRE_SIGNATURE=true
+          unsigned: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD repository secrets before enabling AREAFORGE_REQUIRE_SIGNATURE=true
           EOF_SIG
           fi
 

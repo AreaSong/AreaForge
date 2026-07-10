@@ -200,6 +200,7 @@ function checkReleaseWorkflow(): void {
     "webImageDigest",
     "migrationImageDigest",
     "sha256sum areaforge-release-manifest.json docker-compose.prod.yml > SHA256SUMS",
+    "COSIGN_PRIVATE_KEY_B64",
     "cosign sign-blob",
     "--bundle SHA256SUMS.sig",
     "softprops/action-gh-release",
