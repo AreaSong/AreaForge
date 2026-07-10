@@ -40,6 +40,8 @@
     "incident:record:selftest": "tsx scripts/quality/incident-record-validate.selftest.ts",
     "restore:drill:validate": "tsx scripts/quality/restore-drill-validate.ts",
     "restore:drill:selftest": "tsx scripts/quality/restore-drill-validate.selftest.ts",
+    "update-agent:status:record": "tsx scripts/ops/generate-update-agent-status-record.ts",
+    "update-agent:status:record:selftest": "tsx scripts/quality/update-agent-status-record.selftest.ts",
     "update-agent:status:validate": "tsx scripts/quality/update-agent-status-validate.ts",
     "update-agent:status:selftest": "tsx scripts/quality/update-agent-status-validate.selftest.ts",
     "alert:drill:validate": "tsx scripts/quality/alert-drill-validate.ts",

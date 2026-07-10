@@ -6,7 +6,7 @@
 - Offline operability projection: `pnpm ops:status`; this reads local source facts only and cannot prove production health.
 - Public health: `curl -fsS https://forge.areasong.top/api/health`.
 - Production read-only smoke: run `pnpm smoke:prod-readonly:config`, then run or attach redacted `pnpm smoke:prod-readonly` output, then validate the record with `pnpm smoke:prod-readonly:validate <record>`.
-- Updater status JSON: current/latest version, blocker, signature required, rollback target; validate redacted records with `pnpm update-agent:status:validate <record.json>`.
+- Updater status JSON: current/latest version, blocker, signature required, rollback target; generate redacted records with `pnpm update-agent:status:record <status.json> > <record.json>` and validate them with `pnpm update-agent:status:validate <record.json>`.
 - Systemd: `areaforge-update-agent.timer` and recent `areaforge-update-agent.service` logs.
 - Containers: Web image digest, migration image digest when applicable, PostgreSQL internal-only exposure.
 - Nginx: `forge.areasong.top` routes to AreaForge Web on server localhost port, not Grafana.

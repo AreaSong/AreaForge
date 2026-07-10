@@ -87,6 +87,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/restore-drill-validate.selftest.ts",
     "scripts/quality/maintenance-window-record-validate.ts",
     "scripts/quality/maintenance-window-record-validate.selftest.ts",
+    "scripts/ops/generate-update-agent-status-record.ts",
+    "scripts/quality/update-agent-status-record.selftest.ts",
     "scripts/quality/update-agent-status-validate.ts",
     "scripts/quality/update-agent-status-validate.selftest.ts",
     "scripts/quality/product-experience-review-validate.ts",
@@ -299,6 +301,8 @@ function checkPackageScripts(): void {
   const maintenanceWindowValidateScript = packageJson.scripts?.["maintenance:window:validate"] ?? "";
   const incidentRecordValidateScript = packageJson.scripts?.["incident:record:validate"] ?? "";
   const restoreDrillValidateScript = packageJson.scripts?.["restore:drill:validate"] ?? "";
+  const updateAgentStatusRecordScript = packageJson.scripts?.["update-agent:status:record"] ?? "";
+  const updateAgentStatusRecordSelftestScript = packageJson.scripts?.["update-agent:status:record:selftest"] ?? "";
   const updateAgentStatusValidateScript = packageJson.scripts?.["update-agent:status:validate"] ?? "";
   checks.push({
     name: "ops readiness package script",
@@ -334,8 +338,10 @@ function checkPackageScripts(): void {
       maintenanceWindowValidateScript === "tsx scripts/quality/maintenance-window-record-validate.ts" &&
       incidentRecordValidateScript === "tsx scripts/quality/incident-record-validate.ts" &&
       restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&
+      updateAgentStatusRecordScript === "tsx scripts/ops/generate-update-agent-status-record.ts" &&
+      updateAgentStatusRecordSelftestScript === "tsx scripts/quality/update-agent-status-record.selftest.ts" &&
       updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:status=${statusScript || "missing"}; ops:status:selftest=${statusSelftestScript || "missing"}; ops:handoff=${handoffScript || "missing"}; ops:handoff:selftest=${handoffSelftestScript || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:evidence:bundle:validate=${bundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${bundleSelftestScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; alert:drill:record=${alertDrillRecordScript || "missing"}; alert:drill:record:selftest=${alertDrillRecordSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; smoke:prod-readonly:config=${prodReadonlySmokeConfigScript || "missing"}; smoke:prod-readonly:config:selftest=${prodReadonlySmokeConfigSelftestScript || "missing"}; smoke:prod-readonly:record=${prodReadonlySmokeRecordScript || "missing"}; smoke:prod-readonly:record:selftest=${prodReadonlySmokeRecordSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
+    detail: `ops:readiness=${script || "missing"}; ops:status=${statusScript || "missing"}; ops:status:selftest=${statusSelftestScript || "missing"}; ops:handoff=${handoffScript || "missing"}; ops:handoff:selftest=${handoffSelftestScript || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:evidence:bundle:validate=${bundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${bundleSelftestScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; alert:drill:record=${alertDrillRecordScript || "missing"}; alert:drill:record:selftest=${alertDrillRecordSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; smoke:prod-readonly:config=${prodReadonlySmokeConfigScript || "missing"}; smoke:prod-readonly:config:selftest=${prodReadonlySmokeConfigSelftestScript || "missing"}; smoke:prod-readonly:record=${prodReadonlySmokeRecordScript || "missing"}; smoke:prod-readonly:record:selftest=${prodReadonlySmokeRecordSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
   });
 }
 
@@ -380,6 +386,8 @@ function checkSummaryScript(): void {
   const prodReadonlySmokeRecordSelftest = read("scripts/quality/prod-readonly-smoke-record.selftest.ts");
   const alertDrill = read("scripts/quality/alert-drill-validate.ts");
   const alertDrillSelftest = read("scripts/quality/alert-drill-validate.selftest.ts");
+  const updateAgentStatusRecord = read("scripts/ops/generate-update-agent-status-record.ts");
+  const updateAgentStatusRecordSelftest = read("scripts/quality/update-agent-status-record.selftest.ts");
   const productExperience = read("scripts/quality/product-experience-review-validate.ts");
   const productExperienceSelftest = read("scripts/quality/product-experience-review-validate.selftest.ts");
   const docs = read("docs/development/operational-readiness.md");
@@ -408,6 +416,8 @@ function checkSummaryScript(): void {
     "smoke:prod-readonly:validate",
     "smoke:prod-readonly:config",
     "smoke:prod-readonly:record",
+    "update-agent:status:record",
+    "update-agent status record generator selftest passed",
     "production readonly smoke config preflight passed",
     "production readonly smoke config preflight selftest passed",
     "passwordFileContentRead",
@@ -434,7 +444,7 @@ function checkSummaryScript(): void {
     "product experience review validation passed",
     "product experience review validator selftest passed",
   ];
-  const combined = `${handoff}\n${handoffSelftest}\n${script}\n${bundle}\n${alertPreview}\n${alertDrillRecord}\n${alertDrillRecordSelftest}\n${prodReadonlySmokeValidate}\n${prodReadonlySmokeSelftest}\n${prodReadonlySmokeConfig}\n${prodReadonlySmokeConfigSelftest}\n${prodReadonlySmokeRecord}\n${prodReadonlySmokeRecordSelftest}\n${alertDrill}\n${alertDrillSelftest}\n${productExperience}\n${productExperienceSelftest}\n${docs}`;
+  const combined = `${handoff}\n${handoffSelftest}\n${script}\n${bundle}\n${alertPreview}\n${alertDrillRecord}\n${alertDrillRecordSelftest}\n${prodReadonlySmokeValidate}\n${prodReadonlySmokeSelftest}\n${prodReadonlySmokeConfig}\n${prodReadonlySmokeConfigSelftest}\n${prodReadonlySmokeRecord}\n${prodReadonlySmokeRecordSelftest}\n${alertDrill}\n${alertDrillSelftest}\n${updateAgentStatusRecord}\n${updateAgentStatusRecordSelftest}\n${productExperience}\n${productExperienceSelftest}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   checks.push({
     name: "ops readiness summary, bundle, and alert preview scripts",

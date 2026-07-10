@@ -85,6 +85,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/incident-record-validate.selftest.ts",
     "scripts/quality/restore-drill-validate.ts",
     "scripts/quality/restore-drill-validate.selftest.ts",
+    "scripts/ops/generate-update-agent-status-record.ts",
+    "scripts/quality/update-agent-status-record.selftest.ts",
     "scripts/quality/maintenance-window-record-validate.ts",
     "scripts/quality/maintenance-window-record-validate.selftest.ts",
     "scripts/quality/update-agent-status-validate.ts",
@@ -207,6 +209,8 @@ function checkPackageScript(): void {
     "incident:record:selftest": "tsx scripts/quality/incident-record-validate.selftest.ts",
     "restore:drill:validate": "tsx scripts/quality/restore-drill-validate.ts",
     "restore:drill:selftest": "tsx scripts/quality/restore-drill-validate.selftest.ts",
+    "update-agent:status:record": "tsx scripts/ops/generate-update-agent-status-record.ts",
+    "update-agent:status:record:selftest": "tsx scripts/quality/update-agent-status-record.selftest.ts",
     "update-agent:status:validate": "tsx scripts/quality/update-agent-status-validate.ts",
     "update-agent:status:selftest": "tsx scripts/quality/update-agent-status-validate.selftest.ts",
   };
@@ -245,6 +249,7 @@ function checkEntryPoints(): void {
     [maintenance, "pnpm restore:drill:validate", "docs/development/maintenance-cadence.md"],
     [releaseTrain, "pnpm enterprise:operability:preflight", "docs/development/release-train.md"],
     [releaseTrain, "pnpm update-agent:status:validate", "docs/development/release-train.md"],
+    [rootReadme, "pnpm update-agent:status:record", "README.md"],
   ];
   const missing = requiredLinks
     .filter(([content, token]) => !content.includes(token))

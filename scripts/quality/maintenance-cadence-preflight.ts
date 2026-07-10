@@ -72,6 +72,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/incident-record-validate.selftest.ts",
     "scripts/quality/restore-drill-validate.ts",
     "scripts/quality/restore-drill-validate.selftest.ts",
+    "scripts/ops/generate-update-agent-status-record.ts",
+    "scripts/quality/update-agent-status-record.selftest.ts",
     "scripts/quality/maintenance-window-record-validate.ts",
     "scripts/quality/maintenance-window-record-validate.selftest.ts",
     "scripts/quality/update-agent-status-validate.ts",
@@ -190,6 +192,8 @@ function checkPackageScript(): void {
   const maintenanceWindowValidateScript = packageJson.scripts?.["maintenance:window:validate"] ?? "";
   const incidentRecordValidateScript = packageJson.scripts?.["incident:record:validate"] ?? "";
   const restoreDrillValidateScript = packageJson.scripts?.["restore:drill:validate"] ?? "";
+  const updateAgentStatusRecordScript = packageJson.scripts?.["update-agent:status:record"] ?? "";
+  const updateAgentStatusRecordSelftestScript = packageJson.scripts?.["update-agent:status:record:selftest"] ?? "";
   const updateAgentStatusValidateScript = packageJson.scripts?.["update-agent:status:validate"] ?? "";
   checks.push({
     name: "maintenance cadence package script",
@@ -206,8 +210,10 @@ function checkPackageScript(): void {
       maintenanceWindowValidateScript === "tsx scripts/quality/maintenance-window-record-validate.ts" &&
       incidentRecordValidateScript === "tsx scripts/quality/incident-record-validate.ts" &&
       restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&
+      updateAgentStatusRecordScript === "tsx scripts/ops/generate-update-agent-status-record.ts" &&
+      updateAgentStatusRecordSelftestScript === "tsx scripts/quality/update-agent-status-record.selftest.ts" &&
       updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
-    detail: `maintenance:cadence:preflight=${script || "missing"}; ops:status=${opsStatusScript || "missing"}; ops:status:selftest=${opsStatusSelftestScript || "missing"}; ops:handoff=${opsHandoffScript || "missing"}; ops:handoff:selftest=${opsHandoffSelftestScript || "missing"}; ops:evidence:bundle:validate=${evidenceBundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${evidenceBundleSelftestScript || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
+    detail: `maintenance:cadence:preflight=${script || "missing"}; ops:status=${opsStatusScript || "missing"}; ops:status:selftest=${opsStatusSelftestScript || "missing"}; ops:handoff=${opsHandoffScript || "missing"}; ops:handoff:selftest=${opsHandoffSelftestScript || "missing"}; ops:evidence:bundle:validate=${evidenceBundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${evidenceBundleSelftestScript || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
   });
 }
 
@@ -222,6 +228,7 @@ function checkEntryPoints(): void {
     [rootReadme, "pnpm ops:handoff", "README.md"],
     [rootReadme, "pnpm residuals:review-due", "README.md"],
     [rootReadme, "pnpm experience:review:validate", "README.md"],
+    [rootReadme, "pnpm update-agent:status:record", "README.md"],
     [docsReadme, "development/maintenance-cadence.md", "docs/README.md"],
     [docsReadme, "development/product-experience-review-record-template.md", "docs/README.md"],
     [workflowReadme, "docs/development/maintenance-cadence.md", "workflow/README.md"],

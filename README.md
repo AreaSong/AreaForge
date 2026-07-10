@@ -71,6 +71,7 @@ pnpm support:intake:preflight
 pnpm incident:record
 pnpm incident:record:validate
 pnpm restore:drill:validate
+pnpm update-agent:status:record
 pnpm update-agent:status:validate
 pnpm alert:drill:validate
 pnpm alert:drill:record

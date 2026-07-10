@@ -134,10 +134,11 @@ Release identity 采集优先级为：显式 `AREAFORGE_READINESS_WEB_IMAGE_DIGE
 如果使用服务器侧导出的 redacted update-agent status JSON 作为 `AREAFORGE_READINESS_UPDATE_STATUS_FILE`，先按 `docs/development/update-agent-status-record-template.md` 校验：
 
 ```bash
+pnpm update-agent:status:record /path/to/status.json > /path/to/redacted-update-status.json
 pnpm update-agent:status:validate /path/to/redacted-update-status.json
 ```
 
-该校验只读取本地 JSON，检查 `currentVersion`、`autoApply=none`、`signatureRequired=true`、timer、`blocker=null`、rollback 摘要、时间戳和 `safetyFacts`，并扫描敏感值；它不执行 updater、服务器命令、备份、恢复、migration、回滚或生产写入。
+记录生成器只读取本地 JSON 文件并输出 redacted record；校验器只读取本地 JSON，检查 `currentVersion`、`autoApply=none`、`signatureRequired=true`、timer、`blocker=null`、rollback 摘要、时间戳和 `safetyFacts`，并扫描敏感值；它们都不执行 updater、服务器命令、备份、恢复、migration、回滚或生产写入。
 
 发布或更新完成后，建议把 redacted `pnpm ops:readiness:summary` 输出保存到运维目录，并在版本化 release record 中摘要
 `checkedAt`、health、update-agent、smoke、backup、rollback、disk/cert 和 residual risk IDs。公网 TLS 证书自动检查只能证明证书到期状态，不能替代服务器磁盘、备份、update-agent 或 authenticated smoke 证据。没有新鲜 smoke、备份或基础设施证据时，release readiness 只能保持 `warn` 或 `unknown`，不能宣称完整生产健康。

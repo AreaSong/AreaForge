@@ -284,6 +284,7 @@ volumes:
 若把 `$AREAFORGE_OPS_STATE_DIR/status.json` 或服务器侧等价摘要作为运维交接证据，先复制成 redacted JSON，并按 `docs/development/update-agent-status-record-template.md` 运行：
 
 ```bash
+pnpm update-agent:status:record /path/to/status.json > /path/to/redacted-update-status.json
 pnpm update-agent:status:validate /path/to/redacted-update-status.json
 ```
 
