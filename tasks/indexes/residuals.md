@@ -17,7 +17,7 @@
 | AF-RISK-OPS-002 | 写入型生产 smoke 策略已有非执行草案，但仍缺账号、确认、清理和受控记录 | `areaforge-qa-smoke` / `areaforge-security-governance` | 执行生产写入 smoke 前 |
 | AF-RISK-REL-001 | `AREAFORGE_AUTO_APPLY=none` 是安全默认，不等于自动应用已启用 | `areaforge-release-operator` / `areaforge-sre-ops` | 调整自动更新策略前 |
 | AF-RISK-SC-001 | 下一次签名 Release 需产生并校验 SBOM/provenance；`pnpm release:supply-chain:validate` 可校验证据记录 | `areaforge-supply-chain` | 创建新 GitHub Release 时 |
-| AF-RISK-SC-002 | Actions SHA pinning 和 `pnpm audit:prod` 已本地落地，仍需 GitHub run 证据；先跑 `pnpm sc:sc-002:preflight`，CI-only 必须通过 `expectedGitCommit` / `gitCommit` match 并用 `pnpm ci:supply-chain:validate`，签名 Release 用 `pnpm release:supply-chain:validate` | `areaforge-supply-chain` / `areaforge-enterprise-governance` | 下一次 CI 或 Release 运行后 |
+| AF-RISK-SC-002 | 已关闭为 CI-only 证据项；当前 HEAD 的 GitHub CI、Actions SHA pinning、`pnpm audit:prod` high 阈值、governance/skills/release supply-chain selftest 和 `expectedGitCommit` / `gitCommit` match 仍需在每次相关 workflow、依赖或 release 变更后用 `pnpm sc:sc-002:preflight` 和 `pnpm ci:supply-chain:validate` 重新复核；签名 Release 证据继续归 `AF-RISK-SC-001` | `areaforge-supply-chain` / `areaforge-enterprise-governance` | 修改 GitHub Actions、依赖审计、release workflow、供应链记录工具或创建新 Release 前 |
 | AF-RISK-SC-003 | 已关闭为证据项；`packages/db` 已串行化 Prisma pg adapter transaction query，后续升级 `pg` / Prisma adapter 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke | `areaforge-supply-chain` / `areaforge-sre-ops` | 升级 `pg` / Prisma adapter 前 |
 | AF-RISK-OPS-003 | 服务器、域名、Nginx 或端口迁移需单独 runbook 和证据 | `areaforge-sre-ops` | 基础设施迁移前 |
 | AF-RISK-OPS-004 | 告警阈值、`pnpm ops:alert:preview`、`pnpm alert:drill:validate` 和 `pnpm ops:ops-004:preflight` 已有，但外部接收人、metrics dashboard 和演练记录仍缺 | `areaforge-observability` | 建立告警或声称完整生产健康前 |
