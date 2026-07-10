@@ -10,6 +10,7 @@ Required for production-ready release evidence:
 - Server updater verifies signature and hash before applying.
 - Release record captures digest, health, updater state, smoke, rollback target, and residual risk.
 - For SC-001/SC-002 closure evidence, record the GitHub Release/CI supply-chain facts with `docs/development/release-supply-chain-record-template.md` and validate with `pnpm release:supply-chain:validate <record>`.
+- If the GitHub Release assets have already been downloaded, `pnpm release:supply-chain:record <release-assets-dir>` may generate a redacted draft, but it must still require explicit workflow run URL, `pnpm audit:prod`, Actions pinning, checksum verification, signature verification, and unsigned-placeholder status before validation can pass.
 
 ## Dependency Gate
 

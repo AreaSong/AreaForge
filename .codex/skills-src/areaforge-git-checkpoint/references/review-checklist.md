@@ -13,12 +13,13 @@ Use this checklist before staging, committing, pushing, or preparing a release t
 
 - Validation commands match `docs/development/validation-matrix.md`.
 - `git diff --check` passes.
-- Release/updater changes include updater preflight, shellcheck, governance, ops readiness, and relevant supply-chain checks.
+- Release/updater changes include updater preflight, shellcheck, governance, ops readiness, and relevant supply-chain checks, including `pnpm release:supply-chain:record:selftest` when record generation or SC residual evidence changed.
 - Docs/source-fact changes include docs readiness and residual validation when residual IDs changed.
 
 ## Release Evidence
 
 - Release-bound commits have version/tag intent, Release asset expectations, rollback target, and residual risks documented.
+- Supply-chain residual closure commits have a validated record or an explicit note that the next GitHub Release/CI run is still required.
 - Stable release assets must be signed; preview unsigned placeholders are not production evidence.
 - `AREAFORGE_AUTO_APPLY=none` remains the default unless an explicit policy change is confirmed.
 

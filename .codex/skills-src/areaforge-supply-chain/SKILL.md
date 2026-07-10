@@ -34,7 +34,8 @@ Use this skill to keep release artifacts, dependencies, and updater inputs trust
 3. Verify artifacts by immutable identity: tag, digest, SHA256, signature bundle or GPG signature, workflow run, and manifest contents.
 4. For dependency changes, check purpose, license/security risk, build scripts, lockfile impact, transitive risk, and runtime exposure.
 5. Treat public package visibility as distribution convenience, not trust. Trust still comes from signatures, hashes, pinned digests, and rollback evidence.
-6. Record residual gaps such as missing SBOM, missing provenance attestation, unpinned action versions, or unavailable vulnerability scan.
+6. When reviewing or closing `AF-RISK-SC-001` / `AF-RISK-SC-002`, use the release supply-chain record template. If Release assets are already downloaded, first generate a redacted draft with `pnpm release:supply-chain:record <release-assets-dir>`, then validate it with `pnpm release:supply-chain:validate <record>`.
+7. Record residual gaps such as missing SBOM, missing provenance attestation, missing GitHub Actions run evidence, unpinned action versions, or unavailable vulnerability scan.
 
 ## Guardrails
 
@@ -44,3 +45,4 @@ Use this skill to keep release artifacts, dependencies, and updater inputs trust
 - Do not commit secrets, signing private material, package tokens, production env, or backup files.
 - Do not treat local build success as release artifact trust.
 - Do not allow stable release assets to be unsigned; preview placeholders are not production trust evidence.
+- Do not let a generated supply-chain record close SC residuals unless the explicit workflow run, audit, Actions pinning, checksum, signature, and stable release fields pass validation.

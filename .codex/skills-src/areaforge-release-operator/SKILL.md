@@ -42,7 +42,8 @@ Operate AreaForge releases as evidence-backed production changes, not as ad-hoc 
 4. Verify local gates after the final change, not before the last edit; release workflow must validate before build and stable signing must fail closed.
 5. Ensure release notes and docs mention version, tag, image digest, health, update-agent status, validation, evidence class, write boundary, and residual risk.
 6. For production release, require signed GitHub Release assets, immutable GHCR digests, updater check/apply evidence, backup point, migration result, smoke result, and rollback target.
-7. Keep `AREAFORGE_AUTO_APPLY=none` unless the user explicitly confirms a different policy.
+7. For a release that closes or reviews supply-chain residuals, require a validated supply-chain record; when local Release assets exist, prefer `pnpm release:supply-chain:record <release-assets-dir>` followed by `pnpm release:supply-chain:validate <record>`.
+8. Keep `AREAFORGE_AUTO_APPLY=none` unless the user explicitly confirms a different policy.
 
 ## Guardrails
 
