@@ -22,6 +22,8 @@
     "ops:readiness": "tsx scripts/quality/ops-readiness-preflight.ts",
     "ops:status": "tsx scripts/ops/operability-status.ts",
     "ops:status:selftest": "tsx scripts/quality/operability-status.selftest.ts",
+    "ops:handoff": "tsx scripts/ops/operational-handoff.ts",
+    "ops:handoff:selftest": "tsx scripts/quality/operational-handoff.selftest.ts",
     "ops:readiness:summary": "tsx scripts/ops/operational-readiness-summary.ts",
     "ops:evidence:bundle": "tsx scripts/ops/operational-evidence-bundle.ts",
     "ops:evidence:bundle:validate": "tsx scripts/quality/operational-evidence-bundle-validate.ts",

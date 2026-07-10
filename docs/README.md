@@ -76,7 +76,7 @@
 - `.codex/skills-src/areaforge-public-maintenance`：公开 issue、贡献者 PR、支持 triage 和敏感信息边界的 Codex 工作流入口。
 - `development/maintenance-cadence.md`：日常、每周、每月、Release 和 incident 后的只读维护节奏、证据新鲜度和 residual 复核规则。
 - `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
-- `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、离线状态投影、只读运营摘要、证据包和证据包校验入口。
+- `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、离线状态投影、只读运营交接摘要、只读运营摘要、证据包和证据包校验入口。
 - `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段、告警阈值和只读告警预览策略。
 - `development/production-readonly-smoke-record-template.md`：生产只读 smoke 记录模板和 `pnpm smoke:prod-readonly:validate` 校验入口。
 - `development/alert-drill-record-template.md`：告警/恢复演练记录模板和 `pnpm alert:drill:validate` 校验入口。

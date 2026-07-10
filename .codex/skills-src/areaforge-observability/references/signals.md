@@ -28,6 +28,8 @@ Record:
 
 Use `pnpm smoke:prod-readonly:config` before production read-only smoke to verify redacted smoke configuration shape without reading password contents, connecting to production, executing server commands, or writing production data.
 
+Use `pnpm ops:handoff` at the start of a maintenance window, release check, or Codex thread handoff when a read-only operator needs one machine-readable view of offline control-plane status, due residuals, release-relevant residuals, claim boundaries, next commands, and safety facts. It reuses `pnpm ops:status`, does not request network, does not write a handoff file, and cannot prove production health.
+
 Use `pnpm ops:readiness:summary` when a machine-readable read-only snapshot is useful for a release record, handoff, or operator audit. The command may read `/api/health`, optional authenticated update status, optional smoke output, and optional backup evidence strings; it must not execute Docker, backup, restore, migration, rollback, shell, or server commands.
 
 Use `pnpm ops:evidence:bundle` after release/update checks or before operator handoff when the snapshot should be indexed with required evidence, forbidden actions, residual risk IDs, and a `bundleHash`. Validate saved bundles with `pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>`. A bundle hash is evidence indexing, not proof that missing signals are healthy.

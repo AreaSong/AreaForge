@@ -32,6 +32,7 @@
 
 ```bash
 pnpm enterprise:operability:preflight
+pnpm ops:handoff
 pnpm ops:status
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
@@ -46,6 +47,7 @@ pnpm ops:alert:preview
 建议项：
 
 - `pnpm maintenance:cadence:preflight`
+- `pnpm ops:handoff`
 - `pnpm ops:status`
 - `pnpm enterprise:operability:preflight`
 - `pnpm support:intake:preflight`
@@ -66,6 +68,7 @@ pnpm ops:alert:preview
 - 公开 issue 和贡献者 PR 是否已按 `areaforge-public-maintenance` 路由到 support、security、SRE、release、supply-chain、AI、UX 或 docs owner。
 - Dependabot/依赖更新是否需要进入 dependency policy。
 - `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`。
+- `pnpm ops:handoff` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚。
 - `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录。
 - `AF-RISK-UX-001` 是否仍有 14 天内 desktop/mobile 体验复核记录；当前 2026-07-10 本地记录已关闭该项，过期、release/update 或体验改动后必须重跑，否则体验健康重新降级为 `warn`。
 

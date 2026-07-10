@@ -58,6 +58,7 @@ function checkRequiredFiles(): void {
     "docs/development/support-intake.md",
     "docs/deployment/operator-onboarding.md",
     "scripts/ops/operability-status.ts",
+    "scripts/ops/operational-handoff.ts",
     "scripts/ops/operational-readiness-summary.ts",
     "scripts/ops/operational-evidence-bundle.ts",
     "scripts/quality/operational-evidence-bundle-validate.ts",
@@ -77,6 +78,7 @@ function checkRequiredFiles(): void {
     "scripts/quality/update-agent-status-validate.selftest.ts",
     "scripts/quality/residual-ledger-validate.ts",
     "scripts/quality/operability-status.selftest.ts",
+    "scripts/quality/operational-handoff.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -100,6 +102,7 @@ function checkMaintenanceDoc(): void {
     "Incident 后",
     "Residual Review",
     "pnpm ops:readiness:summary",
+    "pnpm ops:handoff",
     "pnpm ops:status",
     "pnpm ops:evidence:bundle",
     "pnpm ops:evidence:bundle:validate",
@@ -177,6 +180,8 @@ function checkPackageScript(): void {
   const script = packageJson.scripts?.["maintenance:cadence:preflight"] ?? "";
   const opsStatusScript = packageJson.scripts?.["ops:status"] ?? "";
   const opsStatusSelftestScript = packageJson.scripts?.["ops:status:selftest"] ?? "";
+  const opsHandoffScript = packageJson.scripts?.["ops:handoff"] ?? "";
+  const opsHandoffSelftestScript = packageJson.scripts?.["ops:handoff:selftest"] ?? "";
   const evidenceBundleValidateScript = packageJson.scripts?.["ops:evidence:bundle:validate"] ?? "";
   const evidenceBundleSelftestScript = packageJson.scripts?.["ops:evidence:bundle:selftest"] ?? "";
   const reviewDueScript = packageJson.scripts?.["residuals:review-due"] ?? "";
@@ -191,6 +196,8 @@ function checkPackageScript(): void {
     ok: script === "tsx scripts/quality/maintenance-cadence-preflight.ts" &&
       opsStatusScript === "tsx scripts/ops/operability-status.ts" &&
       opsStatusSelftestScript === "tsx scripts/quality/operability-status.selftest.ts" &&
+      opsHandoffScript === "tsx scripts/ops/operational-handoff.ts" &&
+      opsHandoffSelftestScript === "tsx scripts/quality/operational-handoff.selftest.ts" &&
       evidenceBundleValidateScript === "tsx scripts/quality/operational-evidence-bundle-validate.ts" &&
       evidenceBundleSelftestScript === "tsx scripts/quality/operational-evidence-bundle-validate.selftest.ts" &&
       reviewDueScript === "tsx scripts/ops/residual-review-due.ts" &&
@@ -200,7 +207,7 @@ function checkPackageScript(): void {
       incidentRecordValidateScript === "tsx scripts/quality/incident-record-validate.ts" &&
       restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&
       updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
-    detail: `maintenance:cadence:preflight=${script || "missing"}; ops:status=${opsStatusScript || "missing"}; ops:status:selftest=${opsStatusSelftestScript || "missing"}; ops:evidence:bundle:validate=${evidenceBundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${evidenceBundleSelftestScript || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
+    detail: `maintenance:cadence:preflight=${script || "missing"}; ops:status=${opsStatusScript || "missing"}; ops:status:selftest=${opsStatusSelftestScript || "missing"}; ops:handoff=${opsHandoffScript || "missing"}; ops:handoff:selftest=${opsHandoffSelftestScript || "missing"}; ops:evidence:bundle:validate=${evidenceBundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${evidenceBundleSelftestScript || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
   });
 }
 
@@ -212,6 +219,7 @@ function checkEntryPoints(): void {
   const requiredLinks = [
     [rootReadme, "docs/development/maintenance-cadence.md", "README.md"],
     [rootReadme, "pnpm ops:status", "README.md"],
+    [rootReadme, "pnpm ops:handoff", "README.md"],
     [rootReadme, "pnpm residuals:review-due", "README.md"],
     [rootReadme, "pnpm experience:review:validate", "README.md"],
     [docsReadme, "development/maintenance-cadence.md", "docs/README.md"],
@@ -235,8 +243,10 @@ function checkOpsReadinessCoverage(): void {
   const requiredTerms = [
     "docs/development/maintenance-cadence.md",
     "scripts/quality/maintenance-cadence-preflight.ts",
+    "scripts/ops/operational-handoff.ts",
     "maintenance:cadence:preflight",
     "pnpm maintenance:cadence:preflight",
+    "pnpm ops:handoff",
     "scripts/ops/residual-review-due.ts",
     "residuals:review-due",
     "pnpm residuals:review-due",

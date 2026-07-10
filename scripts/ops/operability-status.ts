@@ -156,16 +156,20 @@ const requiredFiles = [
   ".codex/skills-src/areaforge-observability/SKILL.md",
   ".codex/skills-src/areaforge-residual-ledger/SKILL.md",
   "scripts/ops/operability-status.ts",
+  "scripts/ops/operational-handoff.ts",
   "scripts/ops/operational-readiness-summary.ts",
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
+  "scripts/quality/operational-handoff.selftest.ts",
 ];
 const requiredPackageScripts = [
   "ops:status",
   "ops:status:selftest",
+  "ops:handoff",
+  "ops:handoff:selftest",
   "ops:readiness:summary",
   "ops:evidence:bundle",
   "ops:alert:preview",
@@ -296,12 +300,14 @@ function buildResidualSummary(facts: ProjectionFacts): OperabilityStatusProjecti
 function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
   return {
     daily: [
+      "pnpm ops:handoff",
       "pnpm ops:status",
       "pnpm ops:readiness:summary",
       "pnpm ops:evidence:bundle",
       "pnpm ops:alert:preview",
     ],
     weekly: [
+      "pnpm ops:handoff",
       "pnpm ops:status",
       "pnpm enterprise:operability:preflight",
       "pnpm maintenance:cadence:preflight",
@@ -310,6 +316,7 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm docs:readiness",
     ],
     release: [
+      "pnpm ops:handoff",
       "pnpm ops:status",
       "pnpm release:train:preflight",
       "pnpm github-release-updater:preflight",

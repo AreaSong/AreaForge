@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildOperabilityStatusProjection } from "../ops/operability-status";
+import { buildOperationalHandoff } from "../ops/operational-handoff";
 
 const requiredFiles = [
   "README.md",
@@ -45,35 +45,39 @@ const requiredScripts = [
 ];
 
 function main(): void {
-  const root = mkdtempSync(path.join(os.tmpdir(), "areaforge-operability-status-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "areaforge-operational-handoff-"));
   try {
     writeFixture(root);
-    const projection = buildOperabilityStatusProjection({
+    const handoff = buildOperationalHandoff({
       root,
       asOf: "2026-07-11",
       generatedAt: "2026-07-11T00:00:00.000Z",
     });
-    assert(projection.schemaVersion === 1, "schemaVersion should be 1");
-    assert(projection.status.controlPlane === "pass", "fixture control plane should pass");
-    assert(projection.status.overall === "needs_live_evidence", "monitoring gap should require live evidence");
-    assert(projection.status.releaseTrain === "needs_release_evidence", "release relevant residual should gate release evidence");
-    assert(projection.safetyFacts.readOnly === true, "projection should be read-only");
-    assert(projection.safetyFacts.networkRequested === false, "projection should not request network");
-    assert(projection.safetyFacts.statusProjectionWritten === false, "projection should not write a status file");
-    assert(projection.residuals.countsByType["monitoring-gap"] === 1, "monitoring gap count should be 1");
-    assert(projection.residuals.countsByReviewStatus.due_soon === 1, "due soon count should be 1");
-    assert(projection.nextActions.some((action) => action.residualRiskId === "AF-RISK-OPS-001"), "next actions should include executable residual");
 
-    rmSync(path.join(root, "docs/development/operational-readiness.md"));
-    const blockedProjection = buildOperabilityStatusProjection({
+    assert(handoff.schemaVersion === 1, "schemaVersion should be 1");
+    assert(handoff.mode === "read_only_operational_handoff", "mode should identify handoff");
+    assert(handoff.status.controlPlane === "pass", "fixture control plane should pass");
+    assert(handoff.status.offlineOverall === "needs_live_evidence", "monitoring gap should require live evidence");
+    assert(handoff.status.releaseTrain === "needs_release_evidence", "release train should need release evidence");
+    assert(handoff.evidenceFocus.immediate.some((item) => item.residualRiskId === "AF-RISK-OPS-001"), "handoff should prioritize executable residual");
+    assert(handoff.evidenceFocus.dueOrSoon.some((item) => item.residualRiskId === "AF-RISK-SC-002"), "handoff should include due release residual");
+    assert(handoff.evidenceFocus.releaseRelevantIds.includes("AF-RISK-SC-002"), "handoff should preserve release relevant IDs");
+    assert(handoff.claimBoundary.cannotClaim.some((claim) => claim.includes("current production health")), "handoff should forbid production health overclaim");
+    assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:evidence:bundle"), "handoff should include evidence bundle command");
+    assert(handoff.safetyFacts.readOnly === true, "handoff should be read-only");
+    assert(handoff.safetyFacts.networkRequested === false, "handoff should not request network");
+    assert(handoff.safetyFacts.handoffWritten === false, "handoff should not write files");
+
+    rmSync(path.join(root, "scripts/ops/operational-handoff.ts"));
+    const blocked = buildOperationalHandoff({
       root,
       asOf: "2026-07-11",
       generatedAt: "2026-07-11T00:00:00.000Z",
     });
-    assert(blockedProjection.status.controlPlane === "fail", "missing required file should fail control plane");
-    assert(blockedProjection.status.overall === "blocked", "missing control plane file should block overall status");
+    assert(blocked.status.controlPlane === "fail", "missing handoff script should fail control plane");
+    assert(blocked.status.offlineOverall === "blocked", "missing control-plane file should block handoff status");
 
-    console.log("PASS operability status selftest");
+    console.log("PASS operational handoff selftest");
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
@@ -100,11 +104,21 @@ function fixtureLedgerJson(): string {
         id: "AF-RISK-OPS-001",
         type: "monitoring-gap",
         reviewAt: "2026-07-17",
-        currentImpact: "生产 extra smoke 仍依赖服务器配置",
+        currentImpact: "production extra smoke needs server configuration",
         executableNow: true,
-        closeCondition: "最近一次通过记录",
+        closeCondition: "recent read-only smoke record",
         requiredEvidence: "redacted smoke record",
         ownerSkills: ["areaforge-sre-ops", "areaforge-qa-smoke"],
+      },
+      {
+        id: "AF-RISK-SC-002",
+        type: "release-follow-up",
+        reviewAt: "2026-07-24",
+        currentImpact: "next GitHub CI or Release run evidence is missing",
+        executableNow: false,
+        closeCondition: "next run records actions pinning and audit evidence",
+        requiredEvidence: "GitHub Actions run record",
+        ownerSkills: ["areaforge-supply-chain", "areaforge-enterprise-governance"],
       },
       {
         id: "AF-RISK-REL-001",

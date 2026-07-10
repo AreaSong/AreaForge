@@ -58,6 +58,7 @@ pnpm github-release-updater:preflight
 pnpm governance:preflight
 pnpm ops:readiness
 pnpm ops:status
+pnpm ops:handoff
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate
