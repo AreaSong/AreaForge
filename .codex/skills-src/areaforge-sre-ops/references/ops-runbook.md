@@ -2,6 +2,7 @@
 
 ## Read-Only Checks
 
+- First operator path: `docs/deployment/operator-onboarding.md`, then `pnpm operator:onboarding:preflight`.
 - Public health: `curl -fsS https://forge.areasong.top/api/health`.
 - Production read-only smoke: run or attach redacted `pnpm smoke:prod-readonly` output, then validate the record with `pnpm smoke:prod-readonly:validate <record>`.
 - Updater status JSON: current/latest version, blocker, signature required, rollback target.

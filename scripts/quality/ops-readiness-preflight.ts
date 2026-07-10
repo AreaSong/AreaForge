@@ -41,6 +41,7 @@ function checkRequiredFiles(): void {
     "docs/development/production-smoke-alerting-strategy.md",
     "docs/development/production-readonly-smoke-record-template.md",
     "docs/development/alert-drill-record-template.md",
+    "docs/deployment/operator-onboarding.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
     ".codex/skills-src/areaforge-operating-loop/SKILL.md",
@@ -49,6 +50,7 @@ function checkRequiredFiles(): void {
     "scripts/ops/operational-evidence-bundle.ts",
     "scripts/ops/operational-alert-preview.ts",
     "scripts/ops/local-ux-smoke.ts",
+    "scripts/quality/operator-onboarding-preflight.ts",
     "scripts/quality/prod-readonly-smoke-validate.ts",
     "scripts/quality/prod-readonly-smoke-validate.selftest.ts",
     "scripts/quality/alert-drill-validate.ts",
@@ -227,6 +229,7 @@ function checkPackageScripts(): void {
   const prodReadonlySmokeValidateScript = packageJson.scripts?.["smoke:prod-readonly:validate"] ?? "";
   const prodReadonlySmokeSelftestScript = packageJson.scripts?.["smoke:prod-readonly:selftest"] ?? "";
   const localUxSmokeScript = packageJson.scripts?.["smoke:local-ux"] ?? "";
+  const operatorOnboardingPreflightScript = packageJson.scripts?.["operator:onboarding:preflight"] ?? "";
   checks.push({
     name: "ops readiness package script",
     ok: script === "tsx scripts/quality/ops-readiness-preflight.ts" &&
@@ -238,8 +241,9 @@ function checkPackageScripts(): void {
       prodReadonlySmokeValidateScript === "tsx scripts/quality/prod-readonly-smoke-validate.ts" &&
       prodReadonlySmokeSelftestScript === "tsx scripts/quality/prod-readonly-smoke-validate.selftest.ts" &&
       packageJson.scripts?.["residuals:validate"] === "tsx scripts/quality/residual-ledger-validate.ts" &&
-      localUxSmokeScript === "tsx scripts/ops/local-ux-smoke.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}`,
+      localUxSmokeScript === "tsx scripts/ops/local-ux-smoke.ts" &&
+      operatorOnboardingPreflightScript === "tsx scripts/quality/operator-onboarding-preflight.ts",
+    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}`,
   });
 }
 
@@ -323,6 +327,7 @@ function checkDocsIndex(): void {
   const requiredTerms = [
     "development/operational-readiness.md",
     "development/residual-risk-ledger.md",
+    "deployment/operator-onboarding.md",
     "areaforge-operating-loop",
   ];
   const combined = `${docsReadme}\n${rootReadme}\n${agents}`;

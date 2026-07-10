@@ -50,6 +50,8 @@ docker compose up -d --build
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+第一次自托管建议先按 `operator-onboarding.md` 完成生产 env、管理员密码、私有上传目录、Nginx HTTPS、GitHub Release updater、备份恢复、smoke 和残余风险检查。
+
 生产环境要求：
 
 - `postgres` 不映射公网端口。

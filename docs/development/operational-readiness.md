@@ -147,6 +147,14 @@ pnpm alert:drill:validate <alert-drill-record.md|txt>
 
 生产 evidence 采集仍需要按 `docs/deployment/github-release-updater.md`、`docs/development/production-release-runbook.md` 和 `ops/github-release-updater/README.md` 执行。任何写入动作都必须先通过高风险确认。
 
+首次自托管或交给新操作者接手时，先走 `docs/deployment/operator-onboarding.md`，并运行：
+
+```bash
+pnpm operator:onboarding:preflight
+```
+
+该预检只检查上手文档、环境变量示例、部署/更新/备份/smoke/告警入口、README 链接和相关 skill 引用；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration、不修改自动更新策略。
+
 ## 残余边界
 
 长期运营未完成项不应散落在自然语言里。影响发布或运维判断的项目必须进入 `docs/development/residual-risk-ledger.md`，使用稳定 ID、类型、影响、关闭条件和所需证据。

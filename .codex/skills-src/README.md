@@ -12,6 +12,7 @@
 - `areaforge-qa-smoke`：真实用户旅程、API/browser smoke、截图和体验证据。
 - `areaforge-doc-sync`：README、docs、tasks、workflow、ops、skills 状态防漂移。
 - `areaforge-sre-ops`：生产健康、备份、恢复、update-agent、Nginx、容器和受控生产操作。
+- 自托管操作者上手入口为 `docs/deployment/operator-onboarding.md`，对应只读检查为 `pnpm operator:onboarding:preflight`。
 - `areaforge-observability`：health、日志、release identity、update-agent、备份新鲜度、AI fallback 和生产信号证据。
 - `areaforge-incident-response`：故障分级、证据冻结、止血、回滚决策、恢复验证和复盘收口。
 - `areaforge-security-governance`：鉴权、上传、AI、密钥、日志、签名 release 和服务器命令边界。

@@ -100,6 +100,7 @@
 
 ## 部署
 
+- `deployment/operator-onboarding.md`：自托管操作者从 0 部署、生产 env、管理员密码、私有上传、Release 更新器、备份恢复、smoke、告警和残余风险的上手路径。
 - `deployment/docker-compose.md`：Docker Compose 策略。
 - `deployment/backup-restore.md`：备份与恢复。
 - `deployment/github-release-updater.md`：GitHub Release 驱动的服务器侧受控自动更新。
