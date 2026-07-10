@@ -109,6 +109,8 @@ pnpm ops:readiness:summary
 发布或更新完成后，建议把 redacted `pnpm ops:readiness:summary` 输出保存到运维目录，并在版本化 release record 中摘要
 `checkedAt`、health、update-agent、smoke、backup、rollback、disk/cert 和 residual risk IDs。没有新鲜 smoke、备份或基础设施证据时，release readiness 只能保持 `warn` 或 `unknown`，不能宣称完整生产健康。
 
+本地真实体验验证可使用 `pnpm smoke:local-ux`。该脚本会写入合成任务、计时、复盘、笔记附件、错题、模拟考试、阶段草稿和更新请求，因此默认要求 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，且只允许 `localhost` / `127.0.0.1`，除非显式设置 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true`。它只能证明当前本地验证环境的核心闭环可用，不能关闭生产写入型 smoke 残余项 `AF-RISK-OPS-002`。
+
 生产 evidence 采集仍需要按 `docs/deployment/github-release-updater.md`、`docs/development/production-release-runbook.md` 和 `ops/github-release-updater/README.md` 执行。任何写入动作都必须先通过高风险确认。
 
 ## 残余边界
@@ -122,5 +124,6 @@ pnpm ops:readiness:summary
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受的安全默认，不等于自动应用能力已启用。
 - `AF-RISK-SC-001`：SBOM/provenance attestation 尚未生成。
 - `AF-RISK-SC-002`：GitHub Actions SHA pinning / vulnerability scan 仍是供应链残余。
+- `AF-RISK-SC-003`：`pg@9` 未来弃用 warning 需要在 `pg` / Prisma adapter 升级前定位或接受。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
 - `AF-RISK-OPS-004`：metrics dashboard 和外部告警路由未产品化，生产健康仍依赖 runbook 和只读证据。

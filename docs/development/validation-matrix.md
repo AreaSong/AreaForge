@@ -21,7 +21,7 @@
 | `packages/db/**` | `pnpm db:generate`、`pnpm typecheck`，涉及查询行为时补测试或手动验证 |
 | `packages/ai/**` | AI 输出 schema 校验测试，本地回退路径验证 |
 | `packages/storage/**` | 上传策略测试，大小、MIME、路径穿越边界验证 |
-| `apps/web/**` UI | `pnpm check`，可启动时用浏览器或截图检查主要页面 |
+| `apps/web/**` UI | `pnpm check`，可启动时用浏览器或截图检查主要页面；涉及核心学习闭环、附件、模拟、阶段或版本中心体验时，在本地临时库上补跑 `pnpm smoke:local-ux` |
 | `infra/**`、`docker-compose*.yml` | `docker compose config`，部署文档同步检查 |
 | `.github/workflows/**`、`ops/github-release-updater/**`、`ops/update-agent/**`、`scripts/ops/production-readonly-smoke.ts`、`infra/docker/migration.Dockerfile` | `pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`、`pnpm governance:preflight`、`pnpm ops:readiness`，涉及镜像时补充 Docker build；变更 smoke 脚本时用临时 HTTP mock 或受控环境验证 `pnpm smoke:prod-readonly` |
 | `.env.example`、配置解析 | 配置 schema 覆盖检查，敏感字段不入库检查 |

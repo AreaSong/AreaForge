@@ -18,6 +18,7 @@ function main(): void {
   checkReleaseWorkflowHardGates();
   checkPackageScripts();
   checkSummaryScript();
+  checkLocalUxSmokeScript();
   checkDocsIndex();
 
   for (const check of checks) {
@@ -41,6 +42,7 @@ function checkRequiredFiles(): void {
     ".codex/skills-src/areaforge-operating-loop/SKILL.md",
     ".codex/skills-src/areaforge-operating-loop/references/loop-map.md",
     "scripts/ops/operational-readiness-summary.ts",
+    "scripts/ops/local-ux-smoke.ts",
     "scripts/quality/residual-ledger-validate.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
@@ -65,6 +67,8 @@ function checkOperationalReadinessDoc(): void {
     "Backup freshness",
     "Rollback target",
     "pnpm ops:readiness",
+    "pnpm smoke:local-ux",
+    "AF-RISK-OPS-002",
     "residual-risk-ledger.md",
   ];
   const missing = requiredTerms.filter((term) => !doc.includes(term));
@@ -86,6 +90,7 @@ function checkResidualLedger(): void {
     "AF-RISK-REL-001",
     "AF-RISK-SC-001",
     "AF-RISK-SC-002",
+    "AF-RISK-SC-003",
     "AF-RISK-OPS-003",
     "AF-RISK-OPS-004",
   ];
@@ -165,12 +170,37 @@ function checkPackageScripts(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const script = packageJson.scripts?.["ops:readiness"] ?? "";
   const summaryScript = packageJson.scripts?.["ops:readiness:summary"] ?? "";
+  const localUxSmokeScript = packageJson.scripts?.["smoke:local-ux"] ?? "";
   checks.push({
     name: "ops readiness package script",
     ok: script === "tsx scripts/quality/ops-readiness-preflight.ts" &&
       summaryScript === "tsx scripts/ops/operational-readiness-summary.ts" &&
-      packageJson.scripts?.["residuals:validate"] === "tsx scripts/quality/residual-ledger-validate.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}`,
+      packageJson.scripts?.["residuals:validate"] === "tsx scripts/quality/residual-ledger-validate.ts" &&
+      localUxSmokeScript === "tsx scripts/ops/local-ux-smoke.ts",
+    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}`,
+  });
+}
+
+function checkLocalUxSmokeScript(): void {
+  const script = read("scripts/ops/local-ux-smoke.ts");
+  const docs = read("docs/development/operational-readiness.md");
+  const requiredTerms = [
+    "AREAFORGE_SMOKE_ALLOW_WRITES",
+    "AREAFORGE_SMOKE_ALLOW_NON_LOCAL",
+    "isLocalBaseUrl",
+    "upload note attachment",
+    "update center request queued",
+    "AF-RISK-OPS-002",
+    "不能关闭生产写入型 smoke",
+  ];
+  const combined = `${script}\n${docs}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  checks.push({
+    name: "local UX smoke guardrails",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "local UX smoke is present, write-gated, local-by-default, and separated from production write smoke"
+      : `missing ${missing.join(", ")}`,
   });
 }
 

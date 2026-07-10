@@ -38,6 +38,7 @@ const requiredFiles = [
   "scripts/quality/ops-readiness-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/ops/operational-readiness-summary.ts",
+  "scripts/ops/local-ux-smoke.ts",
   "scripts/quality/package-d-preflight.ts",
   "scripts/quality/package-e-preflight.ts",
   "tasks/backlog/0015-structured-state-migration.md",
@@ -407,6 +408,7 @@ function checkOpsReadinessTerms(): void {
     "AF-RISK-SC-001",
     "pnpm ops:readiness",
     "pnpm ops:readiness:summary",
+    "pnpm smoke:local-ux",
     "areaforge-operating-loop",
     "release workflow validates before build",
   ];

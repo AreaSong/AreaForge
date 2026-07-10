@@ -27,6 +27,22 @@ pnpm --filter @areaforge/web build
 pnpm check
 ```
 
+## 本地真实体验 Smoke
+
+仓库提供写入型本地 UX smoke，用于验证登录、任务、计时收口、每日复盘、笔记附件、错题、大纲、模拟考试、阶段草稿、版本中心请求和主要页面 SSR。它默认只允许打到 `localhost` / `127.0.0.1`，并且必须显式设置 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，避免误跑到生产。
+
+示例：
+
+```bash
+AREAFORGE_SMOKE_BASE_URL=http://127.0.0.1:3102 \
+AREAFORGE_SMOKE_EMAIL=smoke@areasong.local \
+AREAFORGE_SMOKE_PASSWORD_FILE=/private/tmp/areaforge-smoke-password \
+AREAFORGE_SMOKE_ALLOW_WRITES=true \
+pnpm smoke:local-ux
+```
+
+macOS 上 `/tmp` 通常是指向 `/private/tmp` 的符号链接；附件安全检查会拒绝符号链接上传根。做本地附件 smoke 时，`UPLOAD_DIR` 使用真实路径，例如 `/private/tmp/areaforge-ux-smoke-uploads`。
+
 涉及 Prisma schema、上传、AI、部署、备份恢复或自动更新时，还需要按根目录文档选择专项验证。
 
 ## 运行边界

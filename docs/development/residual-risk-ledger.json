@@ -48,6 +48,15 @@
       "ownerSkills": ["areaforge-supply-chain", "areaforge-enterprise-governance"]
     },
     {
+      "id": "AF-RISK-SC-003",
+      "type": "deferred-work",
+      "currentImpact": "本地和历史 smoke 仍出现 pg@9 未来弃用 warning；当前 pg@8 通过，但升级前需要定位 Prisma adapter 或并发查询来源",
+      "executableNow": false,
+      "closeCondition": "pg / @prisma/adapter-pg 升级前用 --trace-deprecation 或等价测试定位来源，并证明核心 smoke 无该 warning 或有明确上游风险接受记录",
+      "requiredEvidence": "trace 日志、依赖升级验证、pnpm smoke:local-ux 或等价 smoke 输出、关闭或接受记录",
+      "ownerSkills": ["areaforge-supply-chain", "areaforge-sre-ops"]
+    },
+    {
       "id": "AF-RISK-OPS-003",
       "type": "deferred-work",
       "currentImpact": "未来服务器、域名、Nginx 或端口迁移会影响公网 health 和 updater 状态",

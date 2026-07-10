@@ -24,6 +24,7 @@
     "residuals:validate": "tsx scripts/quality/residual-ledger-validate.ts",
     "skills:validate": "tsx scripts/quality/skills-validate.ts",
     "shellcheck:updater": "shellcheck ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh",
+    "smoke:local-ux": "tsx scripts/ops/local-ux-smoke.ts",
     "smoke:prod-readonly": "tsx scripts/ops/production-readonly-smoke.ts",
     "release:evidence:validate": "tsx scripts/quality/release-evidence-validate.ts",
     "release:evidence:selftest": "tsx scripts/quality/release-evidence-validate.selftest.ts",
