@@ -281,8 +281,8 @@ jobs:
               exit 1
             fi
             cat > SHA256SUMS.sig <<'EOF_SIG'
-unsigned preview: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD before publishing a stable release
-EOF_SIG
+            unsigned preview: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD before publishing a stable release
+            EOF_SIG
             exit 0
           fi
 

@@ -294,11 +294,18 @@ function checkPackageScriptsBoundary(): void {
     { label: "compose down script", pattern: /\bdocker\s+compose\b.*\bdown\b/i },
     { label: "server command script", pattern: /\b(ssh|rsync|scp)\b/i },
   ];
-  const matches = scripts.flatMap(([name, command]) =>
-    forbiddenPatterns
+  const allowedReadOnlyOpsRecordScripts = new Set([
+    "restore:drill:validate",
+    "restore:drill:selftest",
+  ]);
+  const matches = scripts.flatMap(([name, command]) => {
+    if (allowedReadOnlyOpsRecordScripts.has(name) && command.includes("scripts/quality/restore-drill-validate")) {
+      return [];
+    }
+    return forbiddenPatterns
       .filter((item) => item.pattern.test(`${name} ${command}`))
-      .map((item) => `${name}:${item.label}`),
-  );
+      .map((item) => `${name}:${item.label}`);
+  });
   const migrateDeploy = packageJson.scripts?.["db:migrate:deploy"] ?? "";
   const releaseEvidenceValidate = packageJson.scripts?.["release:evidence:validate"] ?? "";
   const releaseEvidenceSelftest = packageJson.scripts?.["release:evidence:selftest"] ?? "";

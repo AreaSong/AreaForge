@@ -18,6 +18,7 @@ function main(): void {
   checkManifestExample();
   checkUpdaterBoundaries();
   checkMigrationDockerfile();
+  checkWorkflowTopLevelSyntax();
   checkCiWorkflow();
   checkReleaseWorkflow();
   checkDocs();
@@ -138,6 +139,27 @@ function checkReleaseSupplyChainScript(): void {
     detail: ok
       ? "package scripts generate SPDX SBOM/provenance, supply-chain evidence records, and validation selftests without new dependencies"
       : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}; validate script=${validateScript || "missing"}; selftest=${selftestScript || "missing"}; record script=${recordPackageScript || "missing"}; record selftest=${recordSelftestPackageScript || "missing"}; ci record=${ciRecordPackageScript || "missing"}; ci validate=${ciValidatePackageScript || "missing"}; ci selftest=${ciSelftestPackageScript || "missing"}`,
+  });
+}
+
+function checkWorkflowTopLevelSyntax(): void {
+  const allowedTopLevelKeys = new Set(["name", "on", "permissions", "env", "jobs"]);
+  const workflowFiles = [".github/workflows/ci.yml", ".github/workflows/release.yml"];
+  const issues = workflowFiles.flatMap((file) => {
+    const lines = read(file).split(/\r?\n/);
+    return lines.flatMap((line, index) => {
+      if (!line.trim() || line.trimStart().startsWith("#") || /^\s/.test(line)) return [];
+      const match = /^([A-Za-z_][\w-]*):/.exec(line);
+      if (match && allowedTopLevelKeys.has(match[1])) return [];
+      return `${file}:${index + 1}:${line.slice(0, 80)}`;
+    });
+  });
+  checks.push({
+    name: "GitHub workflow top-level syntax",
+    ok: issues.length === 0,
+    detail: issues.length === 0
+      ? "CI and Release workflow files have no accidental unindented script/heredoc lines"
+      : `unexpected top-level lines ${issues.join(", ")}`,
   });
 }
 
