@@ -28,7 +28,7 @@ Report each item as:
 - owner skill or owner document
 
 Use stable IDs from `docs/development/residual-risk-ledger.md` for items that affect future release, production ops, security, supply chain, AI, or user-experience decisions.
-Keep `docs/development/residual-risk-ledger.json` and `tasks/indexes/residuals.md` synchronized with the Markdown table and run `pnpm residuals:validate` after residual status changes.
+Keep `docs/development/residual-risk-ledger.json` and `tasks/indexes/residuals.md` synchronized with the Markdown table and run `pnpm residuals:validate` after residual status changes. Use `pnpm residuals:review-due` during maintenance windows to list overdue or due-soon `reviewAt` items without modifying the ledger.
 
 ## Close Conditions
 

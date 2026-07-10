@@ -34,9 +34,10 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 1. Classify the item as current blocker, deferred work, accepted exception, monitoring gap, release follow-up, historical reference, template marker, or closed evidence.
 2. Start from tasks, workflow, completion records, release records, and feature traceability before creating or changing a residual entry.
 3. Report each item with stable ID, source file, type, review date, current impact, owner, close condition, evidence required, and whether it is executable now.
-4. If an item is executable and in current scope, promote it through tasks or workflow instead of leaving it only as residual text.
-5. If an item is accepted or deferred, keep the rationale and revisit trigger explicit.
-6. Sync docs after status changes and run the validation selected by the validation driver.
+4. For maintenance windows or status questions, run `pnpm residuals:review-due` to list overdue, due-today, and due-soon `reviewAt` items before changing the ledger.
+5. If an item is executable and in current scope, promote it through tasks or workflow instead of leaving it only as residual text.
+6. If an item is accepted or deferred, keep the rationale and revisit trigger explicit.
+7. Sync docs after status changes and run the validation selected by the validation driver.
 
 ## Guardrails
 

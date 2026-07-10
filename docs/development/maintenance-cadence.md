@@ -49,6 +49,7 @@ pnpm ops:alert:preview
 - `pnpm governance:preflight`
 - `pnpm ops:readiness`
 - `pnpm residuals:validate`
+- `pnpm residuals:review-due`
 - `pnpm docs:readiness`
 - `pnpm audit:prod`
 - `pnpm shellcheck:updater`
@@ -57,7 +58,7 @@ pnpm ops:alert:preview
 
 - GitHub issues 是否有 P0/P1、安全、ops support 或 release/supply-chain 阻塞。
 - Dependabot/依赖更新是否需要进入 dependency policy。
-- `docs/development/residual-risk-ledger.md` 中是否存在到期或即将到期的 `reviewAt`。
+- `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`。
 - `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录。
 
 ## 每月或每个维护窗口
@@ -128,3 +129,11 @@ pnpm maintenance:cadence:preflight
 ```
 
 该预检只检查文档、package scripts、residual reviewAt、入口链接和 skill 引用；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration、不创建 Release、不写生产。
+
+需要单独检查 residual 到期状态时运行：
+
+```bash
+pnpm residuals:review-due
+```
+
+该命令只读取 `docs/development/residual-risk-ledger.json` 并输出 `overdue`、`due_today`、`due_soon` 和 `future` 计数；默认不失败、不改台账。维护窗口若需要硬门禁，可追加 `--fail-on-overdue`、`--fail-on-due` 或 `--fail-on-due-soon`。
