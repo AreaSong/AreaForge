@@ -140,10 +140,20 @@ pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliatio
 
 ```bash
 curl -fsS https://your-domain.example/api/health
+pnpm ops:support:bundle-preview
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:alert:preview
 ```
+
+如果要向公开 issue 或维护者提供上下文，优先生成 metadata-only 支持包预览，而不是贴生产日志或环境文件：
+
+```bash
+pnpm ops:support:bundle-preview > /tmp/areaforge-support-bundle-preview.json
+pnpm ops:support:bundle-preview:validate /tmp/areaforge-support-bundle-preview.json
+```
+
+该预览只包含版本、文档入口、命令名、residual ID 和 redaction/safety facts；不导出附件、日志、数据库、备份或用户学习内容。
 
 生产只读 smoke 推荐通过密码文件读取账号密码：
 

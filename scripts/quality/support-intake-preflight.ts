@@ -39,12 +39,16 @@ function checkRequiredFiles(): void {
     "SECURITY.md",
     "CODE_REVIEW.md",
     "docs/development/support-intake.md",
+    "docs/development/support-bundle-preview.md",
     ".codex/skills-src/areaforge-public-maintenance/SKILL.md",
     ".codex/skills-src/areaforge-public-maintenance/references/public-triage.md",
     ".github/ISSUE_TEMPLATE/bug_report.md",
     ".github/ISSUE_TEMPLATE/feature_request.md",
     ".github/ISSUE_TEMPLATE/ops_support.md",
     ".github/ISSUE_TEMPLATE/config.yml",
+    "scripts/ops/support-bundle-preview.ts",
+    "scripts/quality/support-bundle-preview-validate.ts",
+    "scripts/quality/support-bundle-preview.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -96,6 +100,8 @@ function checkIssueTemplates(): void {
     "smoke 密码",
     "SUPPORT.md",
     "operator:onboarding:preflight",
+    "ops:support:bundle-preview",
+    "ops:support:bundle-preview:validate",
     "release:train:preflight",
     "AF-RISK-OPS-001",
     "AF-RISK-SC-001",
@@ -131,6 +137,8 @@ function checkSupportIntakeDoc(): void {
     "residual-risk-ledger.md",
     "公开 issue 不构成执行确认",
     "best-effort support",
+    "metadata-only",
+    "pnpm ops:support:bundle-preview",
   ];
   const missing = requiredTerms.filter((term) => !doc.includes(term));
   checks.push({
@@ -143,10 +151,16 @@ function checkSupportIntakeDoc(): void {
 function checkPackageScript(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const script = packageJson.scripts?.["support:intake:preflight"] ?? "";
+  const supportBundlePreviewScript = packageJson.scripts?.["ops:support:bundle-preview"] ?? "";
+  const supportBundlePreviewValidateScript = packageJson.scripts?.["ops:support:bundle-preview:validate"] ?? "";
+  const supportBundlePreviewSelftestScript = packageJson.scripts?.["ops:support:bundle-preview:selftest"] ?? "";
   checks.push({
     name: "support intake package script",
-    ok: script === "tsx scripts/quality/support-intake-preflight.ts",
-    detail: script ? `support:intake:preflight=${script}` : "support:intake:preflight missing",
+    ok: script === "tsx scripts/quality/support-intake-preflight.ts" &&
+      supportBundlePreviewScript === "tsx scripts/ops/support-bundle-preview.ts" &&
+      supportBundlePreviewValidateScript === "tsx scripts/quality/support-bundle-preview-validate.ts" &&
+      supportBundlePreviewSelftestScript === "tsx scripts/quality/support-bundle-preview.selftest.ts",
+    detail: `support:intake:preflight=${script || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}`,
   });
 }
 
@@ -157,8 +171,11 @@ function checkEntryPoints(): void {
   const requiredLinks = [
     [rootReadme, "SUPPORT.md", "README.md"],
     [rootReadme, "docs/development/support-intake.md", "README.md"],
+    [rootReadme, "docs/development/support-bundle-preview.md", "README.md"],
     [docsReadme, "development/support-intake.md", "docs/README.md"],
+    [docsReadme, "development/support-bundle-preview.md", "docs/README.md"],
     [docsReadme, ".codex/skills-src/areaforge-public-maintenance", "docs/README.md"],
+    [docSync, "docs/development/support-bundle-preview.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/support-intake.md", "docs/development/doc-sync-checklist.md"],
     [docSync, ".codex/skills-src/areaforge-public-maintenance", "docs/development/doc-sync-checklist.md"],
   ];
@@ -179,7 +196,11 @@ function checkValidationMatrix(): void {
     ".github/ISSUE_TEMPLATE/**",
     ".codex/skills-src/areaforge-public-maintenance/**",
     "docs/development/support-intake.md",
+    "docs/development/support-bundle-preview.md",
     "scripts/quality/support-intake-preflight.ts",
+    "scripts/ops/support-bundle-preview.ts",
+    "scripts/quality/support-bundle-preview-validate.ts",
+    "pnpm ops:support:bundle-preview:selftest",
     "pnpm support:intake:preflight",
     "pnpm governance:preflight",
     "pnpm docs:readiness",

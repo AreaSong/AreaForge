@@ -43,6 +43,8 @@ assignees: []
 - [ ] `pnpm release:train:preflight`
 - [ ] `pnpm github-release-updater:preflight`
 - [ ] `pnpm ops:readiness`
+- [ ] `pnpm ops:support:bundle-preview`
+- [ ] `pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>`
 - [ ] `pnpm ops:readiness:summary`
 - [ ] `pnpm ops:evidence:bundle`
 - [ ] `pnpm ops:alert:preview`

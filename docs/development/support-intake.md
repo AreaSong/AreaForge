@@ -69,12 +69,14 @@
 pnpm operator:onboarding:preflight
 pnpm release:train:preflight
 pnpm ops:readiness
+pnpm ops:support:bundle-preview
+pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:alert:preview
 ```
 
-这些命令不应执行 Docker、备份、恢复、migration、updater apply、rollback 或生产写入。生产只读 smoke 需用户自行配置 smoke 账号和密码文件：
+`pnpm ops:support:bundle-preview` 是优先推荐的公开支持摘要：它是 metadata-only 预览，只包含 metadata、residual、文档入口、命令名和 redaction/safety facts，不导出日志、附件、数据库、备份或用户学习内容。上述命令不应执行 Docker、备份、恢复、migration、updater apply、rollback 或生产写入。生产只读 smoke 需用户自行配置 smoke 账号和密码文件：
 
 ```bash
 pnpm smoke:prod-readonly

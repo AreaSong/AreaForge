@@ -15,16 +15,17 @@ Use this skill to keep the public project usable without weakening AreaForge's s
 4. [SECURITY.md](../../../SECURITY.md)
 5. [CODE_REVIEW.md](../../../CODE_REVIEW.md)
 6. [docs/development/support-intake.md](../../../docs/development/support-intake.md)
-7. [docs/development/dependency-policy.md](../../../docs/development/dependency-policy.md)
-8. [docs/development/external-capability-admission.md](../../../docs/development/external-capability-admission.md)
-9. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
-10. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
-11. [docs/deployment/operator-onboarding.md](../../../docs/deployment/operator-onboarding.md)
-12. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
-13. [.github/ISSUE_TEMPLATE/bug_report.md](../../../.github/ISSUE_TEMPLATE/bug_report.md)
-14. [.github/ISSUE_TEMPLATE/feature_request.md](../../../.github/ISSUE_TEMPLATE/feature_request.md)
-15. [.github/ISSUE_TEMPLATE/ops_support.md](../../../.github/ISSUE_TEMPLATE/ops_support.md)
-16. [.github/pull_request_template.md](../../../.github/pull_request_template.md)
+7. [docs/development/support-bundle-preview.md](../../../docs/development/support-bundle-preview.md)
+8. [docs/development/dependency-policy.md](../../../docs/development/dependency-policy.md)
+9. [docs/development/external-capability-admission.md](../../../docs/development/external-capability-admission.md)
+10. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
+11. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+12. [docs/deployment/operator-onboarding.md](../../../docs/deployment/operator-onboarding.md)
+13. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
+14. [.github/ISSUE_TEMPLATE/bug_report.md](../../../.github/ISSUE_TEMPLATE/bug_report.md)
+15. [.github/ISSUE_TEMPLATE/feature_request.md](../../../.github/ISSUE_TEMPLATE/feature_request.md)
+16. [.github/ISSUE_TEMPLATE/ops_support.md](../../../.github/ISSUE_TEMPLATE/ops_support.md)
+17. [.github/pull_request_template.md](../../../.github/pull_request_template.md)
 
 ## References
 
@@ -42,9 +43,9 @@ Use this skill to keep the public project usable without weakening AreaForge's s
 2. Check for sensitive data before solving the issue. If public content contains secrets, private study data, attachment content, exploit details, database URLs, tokens, server paths, or unredacted logs, route to redaction or `SECURITY.md` first.
 3. Map the request to the source fact: product docs, module docs, support intake, operator onboarding, release train, residual ledger, or code review policy.
 4. Assign the owner skill for the risky surface. Keep this skill as the coordinator; hand security, SRE, release, supply-chain, AI, upload/storage, UX, and validation details to their owner skills.
-5. Ask only for redacted, minimal reproduction evidence. Do not request production `.env`, database dumps, backup archives, attachment contents, full review text, motivation data, session secrets, API keys, cosign material, or smoke passwords.
+5. Ask first for `pnpm ops:support:bundle-preview` output validated by `pnpm ops:support:bundle-preview:validate` when a public support or self-hosting issue needs context. Ask only for redacted, minimal reproduction evidence. Do not request production `.env`, database dumps, backup archives, attachment contents, full review text, motivation data, session secrets, API keys, cosign material, or smoke passwords.
 6. If the request implies production deploy, backup, restore, migration, updater apply, rollback, auto-apply policy change, or server command execution, state that a public issue or PR is not execution confirmation and require the appropriate high-risk confirmation path.
-7. After public-template, support, or governance changes, sync docs and run `pnpm support:intake:preflight`, `pnpm governance:preflight`, `pnpm docs:readiness`, and `git diff --check`. If skills changed, also run `pnpm skills:validate`.
+7. After public-template, support, or governance changes, sync docs and run `pnpm support:intake:preflight`, `pnpm ops:support:bundle-preview:selftest`, `pnpm governance:preflight`, `pnpm docs:readiness`, and `git diff --check`. If skills changed, also run `pnpm skills:validate`.
 
 ## Guardrails
 

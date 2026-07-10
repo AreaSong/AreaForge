@@ -29,6 +29,7 @@ Prefer redacted evidence that is enough to reproduce or route:
 - AreaForge version, release tag, install mode, browser, OS
 - exact command names and pass/fail status
 - redacted health, update-agent status, readiness summary, evidence bundle, or alert preview
+- metadata-only support bundle preview validated by `pnpm ops:support:bundle-preview:validate`
 - screenshots with private study content covered
 - minimal local reproduction before production write actions
 - residual risk ID when known, such as `AF-RISK-OPS-001`
@@ -50,6 +51,7 @@ Prefer redacted evidence that is enough to reproduce or route:
 Public responses should:
 
 - give the next safe diagnostic step first
+- prefer `pnpm ops:support:bundle-preview` for public support context before requesting larger evidence bundles
 - avoid asking for secrets or production data
 - state when an action is read-only, local-only, or high-risk production work
 - reference the relevant doc path or residual ID

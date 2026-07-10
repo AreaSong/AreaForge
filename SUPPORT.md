@@ -22,6 +22,7 @@ AreaForge is a self-hosted study operations system. Public support is best-effor
 - install mode: local dev, Docker Compose, self-host production, updater-managed production
 - browser and OS for UI bugs
 - relevant command names and pass/fail result
+- `pnpm ops:support:bundle-preview` output after `pnpm ops:support:bundle-preview:validate`
 - redacted health or update-agent status
 - residual risk ID if the issue relates to known operations gaps, such as `AF-RISK-OPS-001`
 - whether the issue affects auth, uploads, AI, release/update, backup/restore, migration, or data integrity

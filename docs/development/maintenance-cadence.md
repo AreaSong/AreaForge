@@ -4,15 +4,15 @@
 
 本文件定义 AreaForge 长期运营的维护节奏：每天、每周、每月、每次 release、incident 后应检查哪些只读信号，哪些证据可以用于交接，哪些 residual risk 到期必须复核。
 
-它不是自动运维授权，不执行生产 deploy、backup、restore、migration、updater apply、rollback、server command 或生产写入。Readiness、preview、evidence bundle 和 preflight 只能解释当前证据，不等于 apply，也不能单独关闭 residual risk。
+它不是自动运维授权，不执行生产 deploy、backup、restore、migration、updater apply、rollback、server command 或生产写入。Readiness、support bundle preview、alert preview、evidence bundle 和 preflight 只能解释当前证据，不等于 apply，也不能单独关闭 residual risk。
 
 ## 维护原则
 
 - 证据优先：所有健康、发布、回滚和企业级就绪结论都要有时间戳、来源、命令或记录。
-- 只读优先：日常维护默认只运行 read-only preflight、readiness summary、evidence bundle、alert preview 和 redacted record validator。
+- 只读优先：日常维护默认只运行 read-only preflight、support bundle preview、readiness summary、evidence bundle、alert preview 和 redacted record validator。
 - 残余风险可见：缺失证据必须落到 `AF-RISK-*`，不要散落在自然语言里。
 - 到期复核：每个 residual 的 `reviewAt` 到期后，要更新影响、关闭条件、所需证据或风险接受理由。
-- 不把预览当执行：`ops:alert:preview` 不发送通知，`ops:evidence:bundle` 不证明缺失信号健康，`release:train:preflight` 不创建 Release。
+- 不把预览当执行：`ops:support:bundle-preview` 不导出支持包，`ops:alert:preview` 不发送通知，`ops:evidence:bundle` 不证明缺失信号健康，`release:train:preflight` 不创建 Release。
 - 不把本地当生产：本地 smoke、CI、dry-run 和历史记录不能替代远端生产证据。
 
 ## 每日检查
@@ -34,6 +34,8 @@
 pnpm enterprise:operability:preflight
 pnpm ops:handoff
 pnpm ops:status
+pnpm ops:support:bundle-preview
+pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
@@ -52,6 +54,7 @@ pnpm ops:alert:preview
 - `pnpm ops:status`
 - `pnpm enterprise:operability:preflight`
 - `pnpm support:intake:preflight`
+- `pnpm ops:support:bundle-preview:selftest`
 - `pnpm operator:onboarding:preflight`
 - `pnpm release:train:preflight`
 - `pnpm governance:preflight`

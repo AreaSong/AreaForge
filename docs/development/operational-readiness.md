@@ -99,6 +99,15 @@ pnpm ops:handoff
 
 该命令复用 `pnpm ops:status` 的离线投影，输出 `read_only_operational_handoff` JSON，把当前版本、控制面状态、release train 状态、可声称/不可声称内容、due residual、release-relevant residual、下一步命令和 `safetyFacts` 集中到一个交接入口。它不访问网络、不读取密钥、不执行服务器命令、不写文件、不备份、不恢复、不运行 migration、不创建 GitHub Release、不执行 updater apply，也不能替代 `pnpm ops:evidence:bundle`、生产只读 smoke、update-agent status、备份或 rollback 证据。`pnpm ops:handoff:selftest` 只在临时 fixture 中校验交接摘要结构。
 
+公开支持、自托管排障或维护交接需要一份可贴到 issue/thread 的 metadata-only 预览时，使用：
+
+```bash
+pnpm ops:support:bundle-preview > /path/to/support-bundle-preview.json
+pnpm ops:support:bundle-preview:validate /path/to/support-bundle-preview.json
+```
+
+该命令输出 `metadata_only_support_bundle_preview`，只包含版本、文档入口、命令名、residual ID、关闭条件、claim boundary、forbidden actions 和 `safetyFacts`。它不联网、不读取密钥、不导出支持包、不复制附件或日志、不读取数据库 dump、不创建 Release、不推 tag、不执行 updater、不写生产。它适合公开 support intake 和维护交接；不能替代 `pnpm ops:evidence:bundle`、生产只读 smoke、update-agent status、备份或 rollback 证据。详细边界见 `docs/development/support-bundle-preview.md`。
+
 完成声明证据纪律见 `docs/development/completion-evidence-checklist.md`：ops、release、体验和安全结论必须说明证据等级、新鲜验证、未验证项、阻断项和 residual risk IDs。运行时写动作边界见 `docs/development/runtime-write-boundary.md`：R0 只读、R1 本地写、R2 用户显式 Web 写、R3 update request 和 R4 高风险生产操作不能互相冒充。
 
 本仓库还提供只读运营摘要生成：

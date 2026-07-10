@@ -24,6 +24,7 @@ AreaForge 只借鉴能直接增强长期运营的机制，不搬运完整 task-l
 | AreaMatrix release | tag、分发证据、外部条件和阻断项分开 | `docs/development/production-release-runbook.md`、`docs/development/release-record-template.md` |
 | AreaFlow completion audit | 完成声明必须绑定证据、hash、review 和安全事实 | `docs/development/completion-evidence-checklist.md` |
 | AreaFlow ops readiness | 只读 readiness 不执行 smoke、迁移、备份、服务控制或生产写入 | `docs/development/operational-readiness.md` |
+| AreaFlow support bundle preview | 先 metadata-only preview，默认排除 secret、日志、附件、用户内容和远程上传 | `docs/development/support-bundle-preview.md`、`pnpm ops:support:bundle-preview` |
 | AreaFlow web write gate | Web 默认只显示受控状态和请求，不获得服务器命令能力 | `docs/development/runtime-write-boundary.md`、`docs/deployment/github-release-updater.md` |
 | AreaFlow security boundary | 关闭的能力要明确列成 forbidden actions | `docs/security/file-ai-safety.md`、`docs/development/high-risk-confirmation-packets.md` |
 
@@ -31,7 +32,7 @@ AreaForge 只借鉴能直接增强长期运营的机制，不搬运完整 task-l
 
 - AreaMatrix 的完整 version-local execution queue 和 task-loop 运行机制。AreaForge 当前用轻量 `tasks/**`、`workflow/**` 和 owner skills 足够。
 - AreaFlow 的完成审计数据库证明模型。AreaForge 当前以 Markdown 记录、机器校验脚本、Release asset、GHCR digest 和 production record 作为证据链。
-- 桌面端服务控制、远程 worker、support bundle export、远程 telemetry 等能力。AreaForge 当前 Web runtime 必须继续保持 no-web-ops 边界。
+- 桌面端服务控制、远程 worker、support bundle export、远程 telemetry 等能力。AreaForge 当前只允许 metadata-only support bundle preview，Web runtime 必须继续保持 no-web-ops 边界。
 
 ## 控制面分层
 
@@ -42,6 +43,7 @@ AreaForge 只借鉴能直接增强长期运营的机制，不搬运完整 task-l
 | Release train | `docs/development/release-train.md`、`pnpm release:train:preflight` | 功能进入线上前的版本、资产、签名、digest、记录要求 | 自动完成 tag、GitHub Release 或部署 |
 | 供应链 | `pnpm ci:supply-chain:validate`、`pnpm release:supply-chain:validate`、GitHub Release assets | CI Actions pinning、`pnpm audit:prod`、SBOM、provenance、checksum、signature 证据 | 业务功能体验 |
 | 运营 readiness | `pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` | health、update-agent、backup、cert、smoke 等证据摘要 | 缺失信号健康 |
+| 支持包预览 | `pnpm ops:support:bundle-preview` | 公开支持和维护交接所需的 metadata-only 版本、文档、residual 和 redaction 边界 | support export、生产健康、用户数据内容 |
 | 运营交接 | `pnpm ops:handoff` | 当前版本、离线控制面、due residual、release follow-up、下一步只读命令和 claim boundary | 真实生产健康、updater apply 或 residual 自动关闭 |
 | 真实体验 | `pnpm smoke:local-ux`、`pnpm experience:review:validate` | 桌面/移动核心旅程是否可理解、可完成 | 生产写入 smoke 或所有真实数据 |
 | 残余风险 | `pnpm residuals:validate`、`pnpm residuals:review-due` | 哪些结论会被降级、何时复核、如何关闭 | 自动关闭风险 |
@@ -73,6 +75,8 @@ pnpm maintenance:cadence:preflight
 pnpm ops:handoff
 pnpm ops:status
 pnpm residuals:review-due
+pnpm ops:support:bundle-preview
+pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
@@ -89,6 +93,8 @@ pnpm ops:alert:preview
 `pnpm ops:status` 输出 AreaFlow-style 离线长期运营状态投影：控制面文件、package scripts、residual 分类、due-soon 项、下一步证据和安全事实。它不连接生产、不读取密钥、不执行服务器命令、不写 `.areaforge/status.json` 或任何生产状态；生产健康仍必须靠 `pnpm ops:readiness:summary`、smoke、update-agent、备份和 release evidence 证明。
 
 `pnpm ops:handoff` 输出只读运营交接摘要，把 `ops:status` 中的可执行 residual、due residual、release-relevant residual、可声称/不可声称内容和下一步命令整理到 `read_only_operational_handoff` JSON。它不访问网络、不写交接文件、不执行生产动作；维护窗口、release 前后或 Codex 线程交接时优先先看它，再决定是否需要 live readiness、evidence bundle、smoke 或高风险确认。
+
+`pnpm ops:support:bundle-preview` 输出 metadata-only 支持包预览，把公开支持可用的版本、文档、命令名、residual ID、关闭条件、claim boundary 和 redaction/safety facts 聚合为可校验 JSON。它不导出支持包、不包含用户内容、不联网、不写生产；公开 issue 或自托管排障优先使用该预览，release/incident 证据冻结仍使用 `pnpm ops:evidence:bundle`。
 
 可交接记录使用以下模板和只读校验：
 
