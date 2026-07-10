@@ -5,6 +5,7 @@
     {
       "id": "AF-RISK-OPS-001",
       "type": "monitoring-gap",
+      "reviewAt": "2026-07-17",
       "currentImpact": "生产 extra smoke 仍依赖服务器配置；没有新鲜 smoke 记录时，发布体验验证只能到 warn",
       "executableNow": true,
       "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 密码文件和最近一次通过记录",
@@ -14,6 +15,7 @@
     {
       "id": "AF-RISK-OPS-002",
       "type": "deferred-work",
+      "reviewAt": "2026-08-10",
       "currentImpact": "写入型生产 smoke 策略未定义；默认不污染生产业务数据",
       "executableNow": false,
       "closeCondition": "明确 smoke 账号、数据清理策略、允许写入范围、失败回滚方式并获确认",
@@ -23,6 +25,7 @@
     {
       "id": "AF-RISK-REL-001",
       "type": "accepted-exception",
+      "reviewAt": "2026-08-10",
       "currentImpact": "AREAFORGE_AUTO_APPLY=none 是当前安全默认；patch 自动应用尚未启用",
       "executableNow": false,
       "closeCondition": "用户明确确认 patch 自动应用，且签名、备份、extra smoke、rollback target 和 manifest policy 同时满足",
@@ -32,6 +35,7 @@
     {
       "id": "AF-RISK-SC-001",
       "type": "deferred-work",
+      "reviewAt": "2026-08-10",
       "currentImpact": "当前 Release workflow 已接入 SBOM/provenance 生成路径；线上 v0.1.5 仍是无 SBOM/provenance 的历史签名发布",
       "executableNow": false,
       "closeCondition": "下一次签名 Release 生成并发布 SBOM/provenance，updater 或验证脚本校验 checksum/signature，并在发布记录中留下证据",
@@ -41,6 +45,7 @@
     {
       "id": "AF-RISK-SC-002",
       "type": "release-follow-up",
+      "reviewAt": "2026-07-24",
       "currentImpact": "CI/Release 外部 GitHub Actions 已在本地 pin 到 40 位 commit SHA，pnpm audit:prod 已进入 workflow；仍缺 GitHub CI/Release 运行证据",
       "executableNow": false,
       "closeCondition": "下一次 GitHub CI 或签名 Release 记录 Actions SHA pinning gate 和 pnpm audit:prod 输出，且无 high/critical 生产依赖漏洞",
@@ -50,6 +55,7 @@
     {
       "id": "AF-RISK-SC-003",
       "type": "deferred-work",
+      "reviewAt": "2026-08-10",
       "currentImpact": "本地和历史 smoke 仍出现 pg@9 未来弃用 warning；当前 pg@8 通过，但升级前需要定位 Prisma adapter 或并发查询来源",
       "executableNow": false,
       "closeCondition": "pg / @prisma/adapter-pg 升级前用 --trace-deprecation 或等价测试定位来源，并证明核心 smoke 无该 warning 或有明确上游风险接受记录",
@@ -59,6 +65,7 @@
     {
       "id": "AF-RISK-OPS-003",
       "type": "deferred-work",
+      "reviewAt": "2026-09-10",
       "currentImpact": "未来服务器、域名、Nginx 或端口迁移会影响公网 health 和 updater 状态",
       "executableNow": false,
       "closeCondition": "新迁移 runbook、备份、Nginx/compose hash、health、rollback 记录齐全",
@@ -68,6 +75,7 @@
     {
       "id": "AF-RISK-OPS-004",
       "type": "monitoring-gap",
+      "reviewAt": "2026-08-10",
       "currentImpact": "结构化 metrics dashboard 和告警路由不是当前产品功能；健康判断依赖 runbook 和只读证据",
       "executableNow": false,
       "closeCondition": "建立外部告警接收人、阈值、演练记录，或明确接受人工巡检窗口",

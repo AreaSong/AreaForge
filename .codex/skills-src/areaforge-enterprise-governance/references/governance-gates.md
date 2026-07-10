@@ -17,6 +17,7 @@ Ask which governance surface changed:
 
 - Findings before summary for reviews.
 - File and line evidence for concrete issues.
+- Use `CODE_REVIEW.md` as the lightweight review policy for source-fact alignment, high-risk blockers, evidence freshness, and residual-risk reporting.
 - Separate blockers, warnings, and residual risks.
 - Do not let green local checks replace review of security, release, and data boundaries.
 

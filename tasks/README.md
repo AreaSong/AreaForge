@@ -7,9 +7,10 @@
 - `active/`：当前正在推进或下一步马上要做的任务。
 - `backlog/`：已确认但暂不执行的任务。
 - `done/`：已完成任务归档。
+- `indexes/`：执行索引，如长期运营残余项的 task-facing 视图。
 - `templates/`：任务模板。
 
-当前进度：Package A-E 和 docs 100% 当前证据已完成；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。`done/` 中记录已完成的单点任务和 GitHub Release updater。远端 `v0.1.5` 发布与 update-agent 状态见 `tasks/done/0018-github-release-updater.md` 和 `tasks/backlog/0014-deployment-backup-release.md`；长期运营残余项以 `docs/development/residual-risk-ledger.md` 的 ID 为准。
+当前进度：Package A-E 和 docs 100% 当前证据已完成；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。`done/` 中记录已完成的单点任务和 GitHub Release updater。远端 `v0.1.5` 发布与 update-agent 状态见 `tasks/done/0018-github-release-updater.md` 和 `tasks/backlog/0014-deployment-backup-release.md`；长期运营残余项以 `docs/development/residual-risk-ledger.md` 的 ID 为准，执行视图见 `tasks/indexes/residuals.md`。
 
 ## 使用规则
 

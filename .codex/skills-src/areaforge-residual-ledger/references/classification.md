@@ -22,18 +22,19 @@ Report each item as:
 - source file and line when available
 - impact
 - executable now: yes/no
+- reviewAt / 复核时间
 - close condition
 - required evidence
 - owner skill or owner document
 
 Use stable IDs from `docs/development/residual-risk-ledger.md` for items that affect future release, production ops, security, supply chain, AI, or user-experience decisions.
-Keep `docs/development/residual-risk-ledger.json` synchronized with the Markdown table and run `pnpm residuals:validate` after residual status changes.
+Keep `docs/development/residual-risk-ledger.json` and `tasks/indexes/residuals.md` synchronized with the Markdown table and run `pnpm residuals:validate` after residual status changes.
 
 ## Close Conditions
 
 - Current blockers require direct evidence from tests, runtime behavior, release record, or source docs.
-- Deferred work requires a revisit trigger, not just a vague "later".
-- Accepted exceptions require rationale, scope, and a condition that would reopen the item.
+- Deferred work requires a review date and revisit trigger, not just a vague "later".
+- Accepted exceptions require rationale, scope, review date, and a condition that would reopen the item.
 - Historical and template markers should remain indexed but not counted as live blockers.
 
 ## AreaForge Sources
@@ -45,6 +46,8 @@ Primary places where residuals currently appear:
 - `docs/development/production-release-runbook.md`
 - `docs/development/operational-readiness.md`
 - `docs/development/residual-risk-ledger.md`
+- `docs/development/residual-risk-ledger.json`
+- `tasks/indexes/residuals.md`
 - `tasks/**`
 - `workflow/**`
 - release records under `docs/development/**`

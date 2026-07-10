@@ -12,6 +12,17 @@
 - Release updater verifies hash/signature and uses immutable digests.
 - Web runtime has no server command surface.
 
+## File, Attachment, And Backup Acceptance
+
+For upload, attachment, backup, restore, or storage migration work, require evidence for:
+
+- Files are not moved, overwritten, deleted, or re-linked unless the confirmed scope explicitly permits it.
+- Database metadata, stored hash, byte size, MIME, and authenticated download response agree with the file body.
+- `UPLOAD_DIR` stays private, is not under `public/`, and symlink traversal is rejected.
+- Reconciliation tools default to `report_only` and do not repair, delete, or rewrite metadata without a separate confirmation.
+- Backup/restore records include DB dump hash, uploads archive hash, env/config backup hash, restore target, and whether production data was touched.
+- Rollback or recovery evidence states whether database and uploads were restored, skipped, or not applicable.
+
 ## High-Risk Confirmation Required
 
 - Auth/session model changes.

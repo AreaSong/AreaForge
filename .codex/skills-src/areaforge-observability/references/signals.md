@@ -24,8 +24,11 @@ Record:
 - result: pass, warn, fail, blocked, or unknown
 - residual risk and next owner
 - residual risk ID when tracked in `docs/development/residual-risk-ledger.md`
+- safety facts for read-only operators: whether server commands, backup/restore, migration, production writes, secret printing, password-file reads, or network requests occurred
 
 Use `pnpm ops:readiness:summary` when a machine-readable read-only snapshot is useful for a release record, handoff, or operator audit. The command may read `/api/health`, optional authenticated update status, optional smoke output, and optional backup evidence strings; it must not execute Docker, backup, restore, migration, rollback, shell, or server commands.
+
+The summary output includes `safetyFacts` such as `serverCommandAttempted=false`, `backupRestoreAttempted=false`, `migrationAttempted=false`, `productionWriteAttempted=false`, `secretValuePrinted=false`, `smokePasswordReadFromFile`, and `networkRequested`.
 
 ## Threshold Defaults
 

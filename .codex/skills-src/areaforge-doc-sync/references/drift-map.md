@@ -27,6 +27,15 @@ Package D 后续|Package E 前|仍需 Package D|仍归 Package D
 
 Treat historical evidence files differently: preserve history, but label it as historical if it can be misread as current state.
 
+## Long-Term Wording Audit
+
+When syncing README, docs, workflow, tasks, skills, or release records, check that durable source facts do not inherit temporary delivery wording:
+
+- Current-state docs should not describe Package A-E, Batch 0-6, D1-D5, or E1-E4 as pending unless the text is explicitly historical.
+- Completion records may preserve old blockers, but current summaries must name the date/version or mark the entry as historical evidence.
+- Avoid vague terms such as "basic only", "later", "not done", or "temporary" in current-state docs without a residual risk ID, owner, and close condition.
+- If a stale phrase is intentionally kept for audit history, add nearby wording that prevents it from being read as the current product state.
+
 ## Current-State Facts
 
 - Current app version: `0.1.5`.

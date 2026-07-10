@@ -15,6 +15,15 @@ type Summary = {
   environment: string;
   scope: ReadinessScope;
   baseUrl: string | null;
+  safetyFacts: {
+    serverCommandAttempted: false;
+    backupRestoreAttempted: false;
+    migrationAttempted: false;
+    productionWriteAttempted: false;
+    secretValuePrinted: false;
+    smokePasswordReadFromFile: boolean;
+    networkRequested: boolean;
+  };
   expected: {
     version: string | null;
     releaseTag: string | null;
@@ -91,6 +100,7 @@ async function main(): Promise<void> {
     environment,
     scope,
     baseUrl,
+    safetyFacts: buildSafetyFacts(),
     expected: {
       version: expectedVersion,
       releaseTag: expectedReleaseTag,
@@ -107,6 +117,18 @@ async function main(): Promise<void> {
   if (failOn && shouldFail(summary.overall, failOn)) {
     process.exit(1);
   }
+}
+
+function buildSafetyFacts(): Summary["safetyFacts"] {
+  return {
+    serverCommandAttempted: false,
+    backupRestoreAttempted: false,
+    migrationAttempted: false,
+    productionWriteAttempted: false,
+    secretValuePrinted: false,
+    smokePasswordReadFromFile: Boolean(process.env.AREAFORGE_SMOKE_PASSWORD_FILE),
+    networkRequested: Boolean(baseUrl),
+  };
 }
 
 async function collectHealth(): Promise<Signal> {

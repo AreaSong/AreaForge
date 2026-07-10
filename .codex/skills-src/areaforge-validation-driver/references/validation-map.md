@@ -24,6 +24,13 @@ Commands run:
 PASS:
 FAIL/BLOCKED:
 Coverage:
+Evidence freshness:
+Skipped checks and reason:
+Engineering quality blockers:
+Security/privacy blockers:
+Dependency/supply-chain blockers:
+CI/release blockers:
+Git checkpoint blockers:
 Unverified residual risk:
 ```
 

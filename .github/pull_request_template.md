@@ -30,6 +30,12 @@ High-risk areas include auth/session, uploads, AI context, migrations, backups/r
 - [ ] `pnpm check`
 - [ ] Other:
 
+## Review Evidence
+
+- [ ] Reviewed against `CODE_REVIEW.md`
+- [ ] Source facts and validation evidence are linked or summarized
+- [ ] Findings, open questions, and residual risk IDs are recorded
+
 ## Release / Ops Evidence
 
 - [ ] Not release-bound

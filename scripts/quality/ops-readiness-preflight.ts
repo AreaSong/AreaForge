@@ -216,6 +216,11 @@ function checkSummaryScript(): void {
     "AF-RISK-SC-001",
     "pnpm ops:readiness:summary",
     "不得执行 Docker",
+    "safetyFacts",
+    "serverCommandAttempted",
+    "backupRestoreAttempted",
+    "productionWriteAttempted",
+    "secretValuePrinted",
   ];
   const combined = `${script}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));

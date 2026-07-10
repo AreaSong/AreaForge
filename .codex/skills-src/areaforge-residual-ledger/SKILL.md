@@ -11,13 +11,14 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 
 1. [AGENTS.md](../../../AGENTS.md)
 2. [tasks/README.md](../../../tasks/README.md)
-3. [workflow/README.md](../../../workflow/README.md)
-4. [docs/development/docs-100-completion-record.md](../../../docs/development/docs-100-completion-record.md)
-5. [docs/development/feature-traceability.md](../../../docs/development/feature-traceability.md)
-6. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
-7. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
-8. [docs/development/residual-risk-ledger.json](../../../docs/development/residual-risk-ledger.json)
-9. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
+3. [tasks/indexes/residuals.md](../../../tasks/indexes/residuals.md)
+4. [workflow/README.md](../../../workflow/README.md)
+5. [docs/development/docs-100-completion-record.md](../../../docs/development/docs-100-completion-record.md)
+6. [docs/development/feature-traceability.md](../../../docs/development/feature-traceability.md)
+7. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
+8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+9. [docs/development/residual-risk-ledger.json](../../../docs/development/residual-risk-ledger.json)
+10. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
 
 ## References
 
@@ -31,7 +32,7 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 
 1. Classify the item as current blocker, deferred work, accepted exception, monitoring gap, release follow-up, historical reference, template marker, or closed evidence.
 2. Start from tasks, workflow, completion records, release records, and feature traceability before creating or changing a residual entry.
-3. Report each item with stable ID, source file, current impact, owner, close condition, evidence required, and whether it is executable now.
+3. Report each item with stable ID, source file, type, review date, current impact, owner, close condition, evidence required, and whether it is executable now.
 4. If an item is executable and in current scope, promote it through tasks or workflow instead of leaving it only as residual text.
 5. If an item is accepted or deferred, keep the rationale and revisit trigger explicit.
 6. Sync docs after status changes and run the validation selected by the validation driver.

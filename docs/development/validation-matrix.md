@@ -361,6 +361,16 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 未运行:
 - <command>: <reason>
 
+证据新鲜度:
+- 本次运行 / CI 运行 / 历史 release 记录 / 未提供
+
+阻断状态:
+- 工程质量:
+- 安全/隐私:
+- 依赖/供应链:
+- CI/release:
+- Git checkpoint:
+
 结果:
 - PASS / FAIL / BLOCKED / NOT-READY
 

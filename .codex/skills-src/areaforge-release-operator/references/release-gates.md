@@ -25,6 +25,19 @@
 - Residual risk and rollback plan.
 - Residual risk IDs when unresolved items remain.
 
+## Release Exceptions
+
+Final gates explain readiness; they are not production actions. If a release proceeds with an accepted exception, the release record must include:
+
+- exception owner
+- reason and affected scope
+- residual risk ID
+- required evidence still missing
+- review or expiry date
+- rollback or revocation condition
+
+Do not use an exception to bypass signing, hash verification, immutable image digests, backup readiness, or rollback evidence for a stable production update.
+
 ## Default Commands
 
 ```bash

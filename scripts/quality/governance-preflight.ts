@@ -15,6 +15,7 @@ function main(): void {
   checkSecurityPolicy();
   checkDependabot();
   checkPullRequestTemplate();
+  checkCodeReviewPolicy();
   checkDependencyPolicy();
   checkExternalCapabilityAdmission();
   checkCiRunsGovernance();
@@ -37,6 +38,7 @@ function main(): void {
 function checkRequiredFiles(): void {
   const requiredFiles = [
     "SECURITY.md",
+    "CODE_REVIEW.md",
     ".github/dependabot.yml",
     ".github/pull_request_template.md",
     "docs/development/dependency-policy.md",
@@ -98,6 +100,7 @@ function checkPullRequestTemplate(): void {
   const template = read(".github/pull_request_template.md");
   const requiredTerms = [
     "High-Risk Boundary",
+    "CODE_REVIEW.md",
     "pnpm governance:preflight",
     "pnpm skills:validate",
     "pnpm docs:readiness",
@@ -113,6 +116,30 @@ function checkPullRequestTemplate(): void {
     ok: missing.length === 0,
     detail: missing.length === 0
       ? "PR template requires high-risk, validation, release, and residual risk evidence"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkCodeReviewPolicy(): void {
+  const policy = read("CODE_REVIEW.md");
+  const requiredTerms = [
+    "评审目标",
+    "阻断项",
+    "评审顺序",
+    "输出格式",
+    "findings first",
+    "Web runtime",
+    "Attachment.uri",
+    "SHA256SUMS",
+    "residual-risk-ledger.md",
+    "AF-RISK-*",
+  ];
+  const missing = requiredTerms.filter((term) => !policy.includes(term));
+  checks.push({
+    name: "code review policy",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "CODE_REVIEW.md defines AreaForge source-fact, high-risk, evidence, and residual-risk review gates"
       : `missing ${missing.join(", ")}`,
   });
 }

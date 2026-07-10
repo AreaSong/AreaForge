@@ -105,6 +105,7 @@
 - `security/threat-model.md`：第一版威胁模型。
 - `security/file-ai-safety.md`：文件上传、附件访问和 AI 调用安全边界。
 - 根目录 `SECURITY.md`：安全漏洞私密报告和公开披露边界。
+- 根目录 `CODE_REVIEW.md`：代码评审门禁、阻断项和 evidence-first 输出格式。
 
 ## 执行与版本
 

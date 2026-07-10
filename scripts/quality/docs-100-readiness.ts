@@ -32,6 +32,7 @@ const requiredFiles = [
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "SECURITY.md",
+  "CODE_REVIEW.md",
   ".github/dependabot.yml",
   ".github/pull_request_template.md",
   "scripts/quality/governance-preflight.ts",
@@ -44,6 +45,7 @@ const requiredFiles = [
   "tasks/backlog/0015-structured-state-migration.md",
   "tasks/backlog/0016-second-stage-long-term-loop.md",
   "tasks/backlog/0017-ai-stage-privacy-cost.md",
+  "tasks/indexes/residuals.md",
   "workflow/versions/v0.2-first-version-risk-closures.md",
   "workflow/versions/v0.3-structured-learning-state.md",
   "workflow/versions/v0.4-second-stage-long-term-loop.md",
@@ -364,6 +366,7 @@ function checkGovernancePreflightTerms(): void {
   const ci = read(".github/workflows/ci.yml");
   const readme = read("README.md");
   const agents = read("AGENTS.md");
+  const codeReview = read("CODE_REVIEW.md");
   const validationMatrix = read("docs/development/validation-matrix.md");
   const docsReadme = read("docs/README.md");
   const governancePreflight = read("scripts/quality/governance-preflight.ts");
@@ -376,7 +379,12 @@ function checkGovernancePreflightTerms(): void {
     [validationMatrix, "pnpm governance:preflight", "validation-matrix"],
     [docsReadme, "development/dependency-policy.md", "docs/README.md"],
     [docsReadme, "development/external-capability-admission.md", "docs/README.md"],
+    [readme, "CODE_REVIEW.md", "README.md"],
+    [docsReadme, "CODE_REVIEW.md", "docs/README.md"],
+    [codeReview, "findings first", "CODE_REVIEW.md"],
+    [codeReview, "AF-RISK-*", "CODE_REVIEW.md"],
     [governancePreflight, "SECURITY.md", "governance-preflight"],
+    [governancePreflight, "CODE_REVIEW.md", "governance-preflight"],
     [governancePreflight, ".github/dependabot.yml", "governance-preflight"],
     [governancePreflight, ".github/pull_request_template.md", "governance-preflight"],
     [governancePreflight, "external-capability-admission.md", "governance-preflight"],

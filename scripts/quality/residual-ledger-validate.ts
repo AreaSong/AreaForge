@@ -10,6 +10,7 @@ interface ResidualLedger {
 interface ResidualItem {
   id: string;
   type: string;
+  reviewAt: string;
   currentImpact: string;
   executableNow: boolean;
   closeCondition: string;
@@ -20,6 +21,7 @@ interface ResidualItem {
 interface MarkdownResidual {
   id: string;
   type: string;
+  reviewAt: string;
   executableNow: boolean;
 }
 
@@ -94,6 +96,9 @@ function validateLedgerShape(ledger: ResidualLedger, issues: Issue[]): void {
     if (!allowedTypes.has(item.type)) {
       issues.push({ field: `${item.id}.type`, message: `invalid type ${item.type}` });
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(item.reviewAt)) {
+      issues.push({ field: `${item.id}.reviewAt`, message: "must be YYYY-MM-DD" });
+    }
     for (const field of ["currentImpact", "closeCondition", "requiredEvidence"] as const) {
       if (!item[field] || item[field].trim().length === 0) {
         issues.push({ field: `${item.id}.${field}`, message: "must be non-empty" });
@@ -117,6 +122,9 @@ function validateMarkdownSync(ledger: ResidualLedger, markdownItems: MarkdownRes
     }
     if (markdown.type !== item.type) {
       issues.push({ field: item.id, message: `type mismatch: json=${item.type}, markdown=${markdown.type}` });
+    }
+    if (markdown.reviewAt !== item.reviewAt) {
+      issues.push({ field: item.id, message: `reviewAt mismatch: json=${item.reviewAt}, markdown=${markdown.reviewAt}` });
     }
     if (markdown.executableNow !== item.executableNow) {
       issues.push({ field: item.id, message: `executableNow mismatch: json=${item.executableNow}, markdown=${markdown.executableNow}` });
@@ -150,7 +158,8 @@ function parseMarkdownResiduals(markdown: string): MarkdownResidual[] {
     .map((cells) => ({
       id: cells[0] ?? "",
       type: cells[1] ?? "",
-      executableNow: (cells[3] ?? "") === "是",
+      reviewAt: cells[2] ?? "",
+      executableNow: (cells[4] ?? "") === "是",
     }));
 }
 
