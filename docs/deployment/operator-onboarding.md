@@ -181,6 +181,15 @@ pnpm ops:alert:preview
 真实告警接收人、人工值班窗口和演练记录仍属于 `AF-RISK-OPS-004`。完成演练后用：
 
 ```bash
+pnpm ops:alert:preview > /tmp/areaforge-alert-preview.json
+AREAFORGE_ALERT_DRILL_OPERATOR=<operator> \
+AREAFORGE_ALERT_RECEIVER_TYPE=manual-window \
+AREAFORGE_ALERT_RECEIVER_CONFIGURED=yes \
+AREAFORGE_ALERT_RECEIVER_ACK=yes \
+AREAFORGE_ALERT_DRILL_DETECTION_RESULT=PASS \
+AREAFORGE_ALERT_DRILL_RECOVERY_RESULT=PASS \
+AREAFORGE_ALERT_DRILL_RECOVERY_ACTION="<what was checked or restored>" \
+pnpm alert:drill:record /tmp/areaforge-alert-preview.json > /tmp/areaforge-alert-drill-record.txt
 pnpm alert:drill:validate <alert-drill-record.md|txt>
 ```
 

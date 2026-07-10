@@ -49,7 +49,7 @@ pnpm ops:alert:preview
 
 该命令只读取 readiness 信号并输出 `read_only_alert_preview`、severity、`wouldNotify`、owner 和 recommendedAction；它不调用外部告警接收人，不发送通知，不执行服务器命令，不写生产数据。预览通过只能证明规则映射可执行，不能替代真实接收人配置、metrics dashboard 或演练记录。
 
-演练记录模板见 `docs/development/alert-drill-record-template.md`。记录完成后运行 `pnpm alert:drill:validate <alert-drill-record.md|txt>`，该命令只读记录并校验字段、枚举、hash、`AF-RISK-OPS-004` 和敏感值泄露，不发送通知。
+演练记录模板见 `docs/development/alert-drill-record-template.md`。已有 `pnpm ops:alert:preview` 输出时，可用 `pnpm alert:drill:record <ops-alert-preview.json>` 生成记录草稿；生成器要求操作者显式填写接收人配置、ACK、检测结果、恢复结果和恢复动作说明，不发送通知、不调用外部告警接收人、不写生产。记录完成后运行 `pnpm alert:drill:validate <alert-drill-record.md|txt>`，该命令只读记录并校验字段、枚举、hash、`AF-RISK-OPS-004` 和敏感值泄露，不发送通知。
 
 | 信号 | warn | blocked/fail | Owner |
 |---|---|---|---|

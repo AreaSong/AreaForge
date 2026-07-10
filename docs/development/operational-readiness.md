@@ -146,10 +146,11 @@ pnpm ops:alert:preview
 告警演练记录使用 `docs/development/alert-drill-record-template.md`，完成后运行：
 
 ```bash
+pnpm alert:drill:record /path/to/ops-alert-preview.json > /path/to/alert-drill-record.txt
 pnpm alert:drill:validate <alert-drill-record.md|txt>
 ```
 
-该校验只读取演练记录，检查字段、枚举、`AF-RISK-OPS-004` 残余 ID、hash 形态和敏感值泄露；它不发送通知、不连接外部接收人、不执行服务器命令、不写生产。`pnpm alert:drill:selftest` 用于本地回归校验规则。
+记录生成器需要显式提供操作者、接收人类型、`receiverConfigured=yes`、`receiverAck=yes`、检测/恢复 PASS 和恢复动作说明；它只读取 alert preview 输出，不发送通知、不调用外部接收人、不执行服务器命令、不写生产。该校验只读取演练记录，检查字段、枚举、`AF-RISK-OPS-004` 残余 ID、hash 形态和敏感值泄露；它不发送通知、不连接外部接收人、不执行服务器命令、不写生产。`pnpm alert:drill:selftest` 和 `pnpm alert:drill:record:selftest` 用于本地回归校验规则。
 
 本地真实体验验证可使用 `pnpm smoke:local-ux`。该脚本会写入合成任务、计时、复盘、笔记附件、错题、模拟考试、阶段草稿和更新请求，因此默认要求 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，且只允许 `localhost` / `127.0.0.1`，除非显式设置 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true`。它只能证明当前本地验证环境的核心闭环可用，不能关闭生产写入型 smoke 残余项 `AF-RISK-OPS-002`。
 

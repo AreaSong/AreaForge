@@ -28,6 +28,8 @@
     "support:intake:preflight": "tsx scripts/quality/support-intake-preflight.ts",
     "alert:drill:validate": "tsx scripts/quality/alert-drill-validate.ts",
     "alert:drill:selftest": "tsx scripts/quality/alert-drill-validate.selftest.ts",
+    "alert:drill:record": "tsx scripts/ops/generate-alert-drill-record.ts",
+    "alert:drill:record:selftest": "tsx scripts/quality/alert-drill-record.selftest.ts",
     "smoke:prod-readonly:validate": "tsx scripts/quality/prod-readonly-smoke-validate.ts",
     "smoke:prod-readonly:selftest": "tsx scripts/quality/prod-readonly-smoke-validate.selftest.ts",
     "smoke:prod-readonly:record": "tsx scripts/ops/generate-prod-readonly-smoke-record.ts",

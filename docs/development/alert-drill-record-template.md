@@ -10,6 +10,22 @@
 pnpm alert:drill:validate docs/development/alert-drill-vX.Y.Z-or-date.md
 ```
 
+如果已有 `pnpm ops:alert:preview` 的 redacted 输出，可先生成演练记录草稿：
+
+```bash
+AREAFORGE_ALERT_DRILL_OPERATOR=<operator> \
+AREAFORGE_ALERT_RECEIVER_TYPE=manual-window \
+AREAFORGE_ALERT_RECEIVER_CONFIGURED=yes \
+AREAFORGE_ALERT_RECEIVER_ACK=yes \
+AREAFORGE_ALERT_DRILL_DETECTION_RESULT=PASS \
+AREAFORGE_ALERT_DRILL_RECOVERY_RESULT=PASS \
+AREAFORGE_ALERT_DRILL_RECOVERY_ACTION="<what was checked or restored>" \
+pnpm alert:drill:record /path/to/ops-alert-preview.json > /path/to/alert-drill-record.txt
+pnpm alert:drill:validate /path/to/alert-drill-record.txt
+```
+
+记录生成器只读取 alert preview 输出和上述显式演练字段；它不发送通知、不调用外部接收人、不执行服务器命令、不写生产。缺少接收人配置、确认 ACK、检测 PASS、恢复 PASS 或恢复动作说明时，生成器会失败，而不是生成可误用的关闭记录。
+
 ## 模板
 
 ```text
