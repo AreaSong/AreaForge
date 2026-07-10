@@ -163,9 +163,25 @@ pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.md|txt>
 
 配置预检只读取环境变量和密码文件 metadata，不读取密码内容、不连接生产、不执行服务器命令、不写生产；它要求 HTTPS base URL、`AREAFORGE_EXTRA_SMOKE_COMMAND` 指向 `pnpm smoke:prod-readonly`、smoke 账号、权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`、期望版本和自动更新策略。记录生成器只读取 smoke 输出日志、release manifest/digest 环境变量和 redacted 环境摘要，用于减少人工拼接字段；它不读取 smoke 密码文件内容、不执行服务器命令、不写生产。该校验只读取 redacted smoke 记录，检查 `pnpm smoke:prod-readonly` 通过证据、必需只读检查项、版本/tag/digest/hash 形态、密码文件来源、update-status 覆盖、`AF-RISK-OPS-001` 残余 ID 和敏感值泄露；它不连接生产、不读取密码、不执行服务器命令、不写生产。`pnpm smoke:prod-readonly:selftest`、`pnpm smoke:prod-readonly:config:selftest` 和 `pnpm smoke:prod-readonly:record:selftest` 用于本地回归校验规则。
 
+在生成 OPS-001 收口包前，可先用只读预检确认 redacted 证据链缺口：
+
+```bash
+AREAFORGE_OPS001_SMOKE_RECORD=/path/to/prod-readonly-smoke-record.txt \
+AREAFORGE_OPS001_UPDATE_STATUS_RECORD=/path/to/redacted-update-status.json \
+AREAFORGE_OPS001_EVIDENCE_BUNDLE=/path/to/operational-evidence-bundle.json \
+AREAFORGE_OPS001_CLOSURE_PACKET=/path/to/ops-001-closure-packet.txt \
+pnpm ops:ops-001:preflight
+```
+
+`pnpm ops:ops-001:preflight` 输出 `read_only_ops001_evidence_preflight`，包含 `requiredPreflight`、证据文件 validator 结果、`forbiddenActions` 和 `safetyFacts`。它只读取本地 redacted 证据文件路径并调用现有校验器；未提供路径时返回 `needs_evidence` 且退出 0，三份基础证据通过时返回 `ready_to_generate_packet`，收口包也通过时返回 `ready_for_human_close`。它不执行生产 smoke、不联网、不读取密码文件内容、不执行服务器命令、不生成收口包、不修改 residual 台账。
+
 当生产只读 smoke、redacted update-agent status 和 operational evidence bundle 都已保存并分别通过校验时，可生成 `AF-RISK-OPS-001` 收口证据包：
 
 ```bash
+AREAFORGE_OPS001_SMOKE_RECORD=/path/to/prod-readonly-smoke-record.txt \
+AREAFORGE_OPS001_UPDATE_STATUS_RECORD=/path/to/redacted-update-status.json \
+AREAFORGE_OPS001_EVIDENCE_BUNDLE=/path/to/operational-evidence-bundle.json \
+pnpm ops:ops-001:preflight
 pnpm ops:ops-001:closure /path/to/prod-readonly-smoke-record.txt /path/to/redacted-update-status.json /path/to/operational-evidence-bundle.json > /path/to/ops-001-closure-packet.txt
 pnpm ops:ops-001:closure:validate /path/to/ops-001-closure-packet.txt
 ```

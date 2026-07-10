@@ -64,6 +64,7 @@ pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate
 pnpm ops:support:bundle-preview
 pnpm ops:support:bundle-preview:validate
+pnpm ops:ops-001:preflight
 pnpm ops:ops-001:closure
 pnpm ops:ops-001:closure:validate
 pnpm ops:alert:preview

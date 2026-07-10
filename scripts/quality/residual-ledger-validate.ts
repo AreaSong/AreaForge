@@ -152,6 +152,20 @@ function validateReferences(ledger: ResidualLedger, issues: Issue[]): void {
       issues.push({ field: item.id, message: "non-deferred residual should be referenced by operational/completion/validation docs" });
     }
   }
+
+  const ops001 = ledger.items.find((item) => item.id === "AF-RISK-OPS-001");
+  if (ops001) {
+    const combinedOps001Text = [
+      ops001.currentImpact,
+      ops001.closeCondition,
+      ops001.requiredEvidence,
+    ].join("\n");
+    for (const term of ["pnpm ops:ops-001:preflight", "ready_for_human_close", "pnpm ops:ops-001:closure:validate"]) {
+      if (!combinedOps001Text.includes(term)) {
+        issues.push({ field: "AF-RISK-OPS-001", message: `missing OPS-001 source term: ${term}` });
+      }
+    }
+  }
 }
 
 function validateTaskIndexSync(ledger: ResidualLedger, taskIndex: string, issues: Issue[]): void {
@@ -163,6 +177,7 @@ function validateTaskIndexSync(ledger: ResidualLedger, taskIndex: string, issues
 
   const requiredTermsById: Record<string, string[]> = {
     "AF-RISK-OPS-001": [
+      "pnpm ops:ops-001:preflight",
       "pnpm ops:ops-001:closure:validate",
       "redacted update-agent status",
       "operational evidence bundle",

@@ -40,6 +40,8 @@ Use `pnpm alert:drill:validate <record>` to validate a completed alert/recovery 
 
 Use `pnpm update-agent:status:record <status.json> > <record.json>` to normalize a copied server `status.json` or saved `/api/system/update-status` response into a redacted update-agent status record. Then run `pnpm update-agent:status:validate <record.json>` before feeding it to readiness. The validator checks version, `autoApply=none`, `signatureRequired=true`, timer, `blocker=null`, rollback summary, safety facts, and secret-like leaks.
 
+Use `pnpm ops:ops-001:preflight` before generating an OPS-001 closure packet when redacted evidence paths are available. It reports `read_only_ops001_evidence_preflight`, `requiredPreflight`, `forbiddenActions`, and `safetyFacts`; it does not execute production smoke, generate a packet, or update the residual ledger.
+
 Use `pnpm ops:ops-001:closure <smoke-record> <update-status-record> <evidence-bundle> > <packet>` only after the smoke record, update-agent status record, and operational evidence bundle validators pass. Then run `pnpm ops:ops-001:closure:validate <packet>` to prove `AF-RISK-OPS-001` has a reviewable closure packet. This does not close backup, alerting, supply-chain, or other residual risks and does not update the ledger automatically.
 
 Use `pnpm maintenance:window:validate <record>`, `pnpm incident:record:validate <record>`, and `pnpm restore:drill:validate <record>` when maintenance windows, incidents, or restore drills need repository-visible redacted evidence. These records do not execute checks, do not authorize production writes, and cannot replace live production evidence.

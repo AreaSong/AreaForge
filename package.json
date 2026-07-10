@@ -31,6 +31,8 @@
     "ops:support:bundle-preview": "tsx scripts/ops/support-bundle-preview.ts",
     "ops:support:bundle-preview:validate": "tsx scripts/quality/support-bundle-preview-validate.ts",
     "ops:support:bundle-preview:selftest": "tsx scripts/quality/support-bundle-preview.selftest.ts",
+    "ops:ops-001:preflight": "tsx scripts/ops/ops001-evidence-preflight.ts",
+    "ops:ops-001:preflight:selftest": "tsx scripts/quality/ops001-evidence-preflight.selftest.ts",
     "ops:ops-001:closure": "tsx scripts/ops/generate-ops001-closure-packet.ts",
     "ops:ops-001:closure:validate": "tsx scripts/quality/ops001-closure-packet-validate.ts",
     "ops:ops-001:closure:selftest": "tsx scripts/quality/ops001-closure-packet.selftest.ts",

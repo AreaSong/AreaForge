@@ -13,7 +13,7 @@
 
 | ID | 执行影响 | 下一 owner | 触发时机 |
 |---|---|---|---|
-| AF-RISK-OPS-001 | 生产 extra smoke 未配置时，发布体验验证只能到 `warn`；关闭前需生产只读 smoke、redacted update-agent status、operational evidence bundle 和 `pnpm ops:ops-001:closure:validate` 收口包 | `areaforge-sre-ops` / `areaforge-qa-smoke` | 每次 release/update 后或维护窗口复核 |
+| AF-RISK-OPS-001 | 生产 extra smoke 未配置时，发布体验验证只能到 `warn`；关闭前先跑 `pnpm ops:ops-001:preflight`，再用生产只读 smoke、redacted update-agent status、operational evidence bundle 和 `pnpm ops:ops-001:closure:validate` 收口包复核 | `areaforge-sre-ops` / `areaforge-qa-smoke` | 每次 release/update 后或维护窗口复核 |
 | AF-RISK-OPS-002 | 写入型生产 smoke 策略已有非执行草案，但仍缺账号、确认、清理和受控记录 | `areaforge-qa-smoke` / `areaforge-security-governance` | 执行生产写入 smoke 前 |
 | AF-RISK-REL-001 | `AREAFORGE_AUTO_APPLY=none` 是安全默认，不等于自动应用已启用 | `areaforge-release-operator` / `areaforge-sre-ops` | 调整自动更新策略前 |
 | AF-RISK-SC-001 | 下一次签名 Release 需产生并校验 SBOM/provenance；`pnpm release:supply-chain:validate` 可校验证据记录 | `areaforge-supply-chain` | 创建新 GitHub Release 时 |

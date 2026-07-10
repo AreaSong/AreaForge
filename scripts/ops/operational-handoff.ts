@@ -165,6 +165,7 @@ function buildNextCommands(projection: OperabilityStatusProjection): Operational
       "pnpm residuals:review-due",
     ],
     liveEvidence: [
+      "pnpm ops:ops-001:preflight",
       "pnpm ops:readiness:summary",
       "pnpm ops:evidence:bundle",
       "pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>",

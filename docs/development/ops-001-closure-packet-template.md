@@ -12,11 +12,20 @@
 pnpm smoke:prod-readonly:validate /path/to/prod-readonly-smoke-record.txt
 pnpm update-agent:status:validate /path/to/redacted-update-status.json
 pnpm ops:evidence:bundle:validate /path/to/operational-evidence-bundle.json
+AREAFORGE_OPS001_SMOKE_RECORD=/path/to/prod-readonly-smoke-record.txt \
+  AREAFORGE_OPS001_UPDATE_STATUS_RECORD=/path/to/redacted-update-status.json \
+  AREAFORGE_OPS001_EVIDENCE_BUNDLE=/path/to/operational-evidence-bundle.json \
+  pnpm ops:ops-001:preflight
 pnpm ops:ops-001:closure /path/to/prod-readonly-smoke-record.txt /path/to/redacted-update-status.json /path/to/operational-evidence-bundle.json > /path/to/ops-001-closure-packet.txt
+AREAFORGE_OPS001_SMOKE_RECORD=/path/to/prod-readonly-smoke-record.txt \
+  AREAFORGE_OPS001_UPDATE_STATUS_RECORD=/path/to/redacted-update-status.json \
+  AREAFORGE_OPS001_EVIDENCE_BUNDLE=/path/to/operational-evidence-bundle.json \
+  AREAFORGE_OPS001_CLOSURE_PACKET=/path/to/ops-001-closure-packet.txt \
+  pnpm ops:ops-001:preflight
 pnpm ops:ops-001:closure:validate /path/to/ops-001-closure-packet.txt
 ```
 
-`pnpm ops:ops-001:closure` 会先调用三个子校验器；任一子证据失败时不会生成收口包。
+`pnpm ops:ops-001:preflight` 只读取本地 redacted 证据路径，基础三份证据通过时返回 `ready_to_generate_packet`，收口包也通过时返回 `ready_for_human_close`。`pnpm ops:ops-001:closure` 会先调用三个子校验器；任一子证据失败时不会生成收口包。
 
 ## 文本模板
 

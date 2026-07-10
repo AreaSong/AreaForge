@@ -84,7 +84,7 @@
 - `development/restore-drill-record-template.md`：例行恢复演练记录模板和 `pnpm restore:drill:validate` 校验入口。
 - `development/maintenance-window-record-template.md`：维护窗口记录模板和 `pnpm maintenance:window:validate` 校验入口。
 - `development/update-agent-status-record-template.md`：redacted update-agent status JSON 模板、`pnpm update-agent:status:record` 生成入口和 `pnpm update-agent:status:validate` 校验入口。
-- `development/ops-001-closure-packet-template.md`：`AF-RISK-OPS-001` 生产只读 smoke、update-agent status 和 evidence bundle 收口包模板，配套 `pnpm ops:ops-001:closure` / `pnpm ops:ops-001:closure:validate`。
+- `development/ops-001-closure-packet-template.md`：`AF-RISK-OPS-001` 生产只读 smoke、update-agent status 和 evidence bundle 收口包模板，配套 `pnpm ops:ops-001:preflight`、`pnpm ops:ops-001:closure` / `pnpm ops:ops-001:closure:validate`。
 - `development/support-bundle-preview.md`：metadata-only 支持包预览，配套 `pnpm ops:support:bundle-preview` / `pnpm ops:support:bundle-preview:validate`。
 - `development/product-experience-review-record-template.md`：真实产品体验复核记录模板和 `pnpm experience:review:validate` 校验入口。
 - `development/product-experience-review-20260710-local.md`：2026-07-10 本地 desktop/mobile 真实体验复核记录。
