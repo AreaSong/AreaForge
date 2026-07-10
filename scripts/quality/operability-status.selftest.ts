@@ -9,6 +9,7 @@ const requiredFiles = [
   "docs/development/long-term-operability-control-plane.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/operational-readiness.md",
+  "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "docs/development/validation-matrix.md",
@@ -22,11 +23,14 @@ const requiredFiles = [
   "scripts/ops/operational-handoff.ts",
   "scripts/ops/operational-readiness-summary.ts",
   "scripts/ops/operational-evidence-bundle.ts",
+  "scripts/ops/support-bundle-preview.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/operational-handoff.selftest.ts",
+  "scripts/quality/support-bundle-preview-validate.ts",
+  "scripts/quality/support-bundle-preview.selftest.ts",
 ];
 
 const requiredScripts = [
@@ -36,6 +40,9 @@ const requiredScripts = [
   "ops:handoff:selftest",
   "ops:readiness:summary",
   "ops:evidence:bundle",
+  "ops:support:bundle-preview",
+  "ops:support:bundle-preview:validate",
+  "ops:support:bundle-preview:selftest",
   "ops:alert:preview",
   "enterprise:operability:preflight",
   "maintenance:cadence:preflight",
@@ -62,6 +69,10 @@ function main(): void {
     assert(projection.safetyFacts.statusProjectionWritten === false, "projection should not write a status file");
     assert(projection.residuals.countsByType["monitoring-gap"] === 1, "monitoring gap count should be 1");
     assert(projection.residuals.countsByReviewStatus.due_soon === 1, "due soon count should be 1");
+    assert(projection.requiredFiles.present.includes("docs/development/support-bundle-preview.md"), "projection should require support bundle preview docs");
+    assert(projection.packageScripts.present.includes("ops:support:bundle-preview"), "projection should require support bundle preview script");
+    assert(projection.commands.daily.includes("pnpm ops:support:bundle-preview"), "daily commands should include support bundle preview");
+    assert(projection.commands.weekly.includes("pnpm ops:support:bundle-preview:selftest"), "weekly commands should include support bundle preview selftest");
     assert(projection.nextActions.some((action) => action.residualRiskId === "AF-RISK-OPS-001"), "next actions should include executable residual");
 
     rmSync(path.join(root, "docs/development/operational-readiness.md"));

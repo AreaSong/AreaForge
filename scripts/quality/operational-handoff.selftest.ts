@@ -9,6 +9,7 @@ const requiredFiles = [
   "docs/development/long-term-operability-control-plane.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/operational-readiness.md",
+  "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "docs/development/validation-matrix.md",
@@ -22,11 +23,14 @@ const requiredFiles = [
   "scripts/ops/operational-handoff.ts",
   "scripts/ops/operational-readiness-summary.ts",
   "scripts/ops/operational-evidence-bundle.ts",
+  "scripts/ops/support-bundle-preview.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/operational-handoff.selftest.ts",
+  "scripts/quality/support-bundle-preview-validate.ts",
+  "scripts/quality/support-bundle-preview.selftest.ts",
 ];
 
 const requiredScripts = [
@@ -36,6 +40,9 @@ const requiredScripts = [
   "ops:handoff:selftest",
   "ops:readiness:summary",
   "ops:evidence:bundle",
+  "ops:support:bundle-preview",
+  "ops:support:bundle-preview:validate",
+  "ops:support:bundle-preview:selftest",
   "ops:alert:preview",
   "enterprise:operability:preflight",
   "maintenance:cadence:preflight",
@@ -63,6 +70,8 @@ function main(): void {
     assert(handoff.evidenceFocus.dueOrSoon.some((item) => item.residualRiskId === "AF-RISK-SC-002"), "handoff should include due release residual");
     assert(handoff.evidenceFocus.releaseRelevantIds.includes("AF-RISK-SC-002"), "handoff should preserve release relevant IDs");
     assert(handoff.claimBoundary.cannotClaim.some((claim) => claim.includes("current production health")), "handoff should forbid production health overclaim");
+    assert(handoff.nextCommands.handoff.includes("pnpm ops:support:bundle-preview"), "handoff should include support bundle preview command");
+    assert(handoff.nextCommands.handoff.includes("pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>"), "handoff should include support bundle preview validation command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:evidence:bundle"), "handoff should include evidence bundle command");
     assert(handoff.safetyFacts.readOnly === true, "handoff should be read-only");
     assert(handoff.safetyFacts.networkRequested === false, "handoff should not request network");

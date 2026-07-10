@@ -160,6 +160,8 @@ function buildNextCommands(projection: OperabilityStatusProjection): Operational
     handoff: [
       "pnpm ops:handoff",
       "pnpm ops:status",
+      "pnpm ops:support:bundle-preview",
+      "pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>",
       "pnpm residuals:review-due",
     ],
     liveEvidence: [
