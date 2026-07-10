@@ -228,6 +228,33 @@ pnpm smoke:prod-readonly:validate /tmp/areaforge-prod-readonly-smoke-record.txt
 
 优先使用 `AREAFORGE_SMOKE_PASSWORD_FILE`，不要把 smoke 密码写入 Git、Release 记录、updater 日志或 shell history。若要做创建任务、计时、附件上传或 AI 外呼等写入型 smoke，应使用专门 smoke 账号和单独确认的写入策略；默认 `smoke:prod-readonly` 不污染生产业务数据。
 
+### OPS-001 只读证据导出
+
+当需要关闭或复核 `AF-RISK-OPS-001`，且生产 `status.json`、smoke 密码文件和 `/opt/areaforge` 均为 root-only 时，管理员可在服务器上运行只读导出 helper：
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
+  --config /etc/areaforge/updater.env \
+  --state-dir /opt/areaforge/ops-state \
+  --output-dir /tmp/areaforge-ops001-$(date -u +%Y%m%d%H%M%S)
+```
+
+该 helper 只读取 updater 配置、`ops-state/status.json` 和 smoke 密码文件，通过 `pnpm smoke:prod-readonly` 执行只读 HTTP smoke，并生成 redacted update-agent status、生产只读 smoke record、operational evidence bundle 和 OPS-001 closure packet。它不会执行 updater `check/apply`、不会处理 Web 更新请求、不会运行 migration、不会备份/恢复、不会回滚、不会写数据库或上传目录，也不会修改 residual 台账。
+
+导出后只把生成目录里的 redacted 文件复制回本地或运维记录；不要复制 `/etc/areaforge/updater.env`、smoke 密码文件、生产 `.env`、数据库 dump、原始日志或附件内容。维护者复核时仍需运行：
+
+```bash
+pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.txt>
+pnpm update-agent:status:validate <redacted-update-status.json>
+pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
+AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record.txt> \
+AREAFORGE_OPS001_UPDATE_STATUS_RECORD=<redacted-update-status.json> \
+AREAFORGE_OPS001_EVIDENCE_BUNDLE=<operational-evidence-bundle.json> \
+AREAFORGE_OPS001_CLOSURE_PACKET=<ops001-closure-packet.txt> \
+pnpm ops:ops-001:preflight
+pnpm ops:ops-001:closure:validate <ops001-closure-packet.txt>
+```
+
 ## 定时检查
 
 安装 systemd timer：

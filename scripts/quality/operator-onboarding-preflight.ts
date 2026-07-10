@@ -51,6 +51,7 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/areaforge-updater.sh",
     "ops/github-release-updater/areaforge-updater.timer",
     "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-update-agent.timer",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
@@ -86,6 +87,7 @@ function checkOnboardingDoc(): void {
     "pnpm smoke:prod-readonly",
     "AREAFORGE_SMOKE_PASSWORD_FILE",
     "pnpm smoke:prod-readonly:validate",
+    "areaforge-ops001-evidence-export.sh",
     "pnpm ops:readiness:summary",
     "pnpm ops:evidence:bundle",
     "pnpm ops:alert:preview",

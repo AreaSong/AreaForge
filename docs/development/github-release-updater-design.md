@@ -67,6 +67,7 @@ root agent 调用 updater / 修改自动策略 / 回写 status.json
 - `ops/github-release-updater/areaforge-updater.env.example`：私有 updater 配置模板。
 - `ops/github-release-updater/areaforge-updater.service` 与 `.timer`：systemd 定时检查入口。
 - `ops/update-agent/areaforge-update-agent.sh`：处理 UI 写入的受控更新请求。
+- `ops/update-agent/areaforge-ops001-evidence-export.sh`：管理员显式运行的 OPS-001 只读证据导出 helper，只生成 redacted status、smoke、evidence bundle 和 closure packet，不执行 updater apply、migration、备份、恢复、回滚或生产写入。
 - `ops/update-agent/areaforge-update-agent.service` 与 `.timer`：systemd 请求处理入口。
 - `apps/web/components/update-version-popover.tsx`、`apps/web/app/settings/page.tsx` 与 `apps/web/app/api/system/**`：首页轻量版本弹层、完整版本中心 UI 和只读/写请求 API，不执行服务器命令。
 - `ops/github-release-updater/manifest.schema.json` 与 `manifest.example.json`：Release manifest 合约。

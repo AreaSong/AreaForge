@@ -46,6 +46,7 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/areaforge-updater.service",
     "ops/github-release-updater/areaforge-updater.timer",
     "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-update-agent.service",
     "ops/update-agent/areaforge-update-agent.timer",
     "ops/github-release-updater/manifest.example.json",
@@ -205,6 +206,7 @@ function checkShellSyntax(): void {
   const scripts = [
     "ops/github-release-updater/areaforge-updater.sh",
     "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-ops001-evidence-export.sh",
   ];
   const failed = scripts.flatMap((script) => {
     const result = spawnSync("bash", ["-n", script], {

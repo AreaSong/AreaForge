@@ -104,3 +104,18 @@ The Web version center may submit controlled check/apply/rollback/policy
 requests into the ops-state directory. The server-side update agent consumes
 those requests and invokes this updater; the Web runtime still does not execute
 server commands directly.
+
+For an OPS-001 review, a root operator can export redacted evidence without
+running updater apply, migrations, backups, restores, rollbacks, or production
+writes:
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
+  --config /etc/areaforge/updater.env \
+  --state-dir /opt/areaforge/ops-state \
+  --output-dir /tmp/areaforge-ops001-$(date -u +%Y%m%d%H%M%S)
+```
+
+Only copy the generated redacted records and closure packet out of the server;
+do not copy updater env files, smoke password files, production `.env`, database
+dumps, attachment content, or raw sensitive logs.

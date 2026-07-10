@@ -182,6 +182,17 @@ pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.md|txt>
 
 创建任务、计时、附件上传、AI 外呼等写入型生产 smoke 不在默认路径内。执行前必须先明确专用账号、允许写入范围、清理策略、失败处理方式和确认记录。
 
+如果生产目录和 `status.json` 是 root-only，管理员可用只读 helper 一次性导出 `AF-RISK-OPS-001` 所需 redacted 证据：
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
+  --config /etc/areaforge/updater.env \
+  --state-dir /opt/areaforge/ops-state \
+  --output-dir /tmp/areaforge-ops001-$(date -u +%Y%m%d%H%M%S)
+```
+
+该命令只生成 redacted status、生产只读 smoke record、operational evidence bundle 和 OPS-001 closure packet；不执行 update apply、migration、备份、恢复、回滚或生产写入，不修改 residual 台账。导出目录可以交给维护者校验，配置文件、smoke 密码文件、生产 `.env` 和原始敏感日志不要外传。
+
 ## 告警与演练
 
 仓库当前提供只读告警预览，不发送外部通知：

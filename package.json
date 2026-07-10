@@ -71,7 +71,7 @@
     "residuals:validate": "tsx scripts/quality/residual-ledger-validate.ts",
     "residuals:review-due": "tsx scripts/ops/residual-review-due.ts",
     "skills:validate": "tsx scripts/quality/skills-validate.ts",
-    "shellcheck:updater": "shellcheck ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh",
+    "shellcheck:updater": "shellcheck ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh ops/update-agent/areaforge-ops001-evidence-export.sh",
     "audit:prod": "pnpm audit --prod --audit-level high",
     "pg:trace-deprecation": "NODE_OPTIONS=--trace-deprecation tsx scripts/quality/pg-deprecation-trace.ts",
     "smoke:local-ux": "tsx scripts/ops/local-ux-smoke.ts",
