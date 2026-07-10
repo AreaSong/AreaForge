@@ -102,6 +102,8 @@ GitHub Release 自动更新不改变上述高风险边界。AreaForge Web 页面
 GitHub Release 必须发布以下 assets：
 
 - `areaforge-release-manifest.json`
+- `areaforge-sbom.spdx.json`
+- `areaforge-provenance.json`
 - `SHA256SUMS`
 - `SHA256SUMS.sig`（cosign bundle）
 - `docker-compose.prod.yml`
@@ -110,7 +112,7 @@ GitHub Release 必须发布以下 assets：
 
 1. 校验 Release 非 draft，非 prerelease 时才按 stable 策略处理。
 2. 校验 manifest channel、`minimumAppVersion`、非 `latest` 镜像、`webImageDigest` 和 `migrationImageDigest`。
-3. 校验 `SHA256SUMS` 和 `SHA256SUMS.sig`；生产默认 `AREAFORGE_REQUIRE_SIGNATURE=true`，cosign 模式使用 `verify-blob --bundle`。
+3. 校验 `SHA256SUMS` 和 `SHA256SUMS.sig`，确认 SBOM/provenance 也在 checksum 文件中；生产默认 `AREAFORGE_REQUIRE_SIGNATURE=true`，cosign 模式使用 `verify-blob --bundle`。
 4. 先备份 PostgreSQL、上传 volume、生产 env、compose、Nginx 和 release assets。
 5. 使用一次性 migration image 执行 `pnpm db:migrate:deploy`，日志中只能显示 `DATABASE_URL=<redacted>`。
 6. 写入 `AREAFORGE_IMAGE=<image@sha256>` 和 `APP_VERSION=<version>` 后启动 web。
@@ -140,7 +142,7 @@ pnpm github-release-updater:preflight
 3. bump 所有 AreaForge workspace package version。
 4. 提交干净 commit。
 5. 创建并推送 `vX.Y.Z` tag；tag 版本必须和根 `package.json` 版本一致。
-6. 等待 GitHub Release workflow 成功，确认 Release assets 包含 `areaforge-release-manifest.json`、`docker-compose.prod.yml`、`SHA256SUMS`、`SHA256SUMS.sig`。
+6. 等待 GitHub Release workflow 成功，确认 Release assets 包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS`、`SHA256SUMS.sig`。
 7. 本地或 CI 验证 `sha256sum -c SHA256SUMS` 和 `cosign verify-blob --bundle SHA256SUMS.sig SHA256SUMS`。
 8. 在 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
 9. 服务器 update-agent/updater 校验签名、备份、执行 migration、切换镜像和 health smoke。
@@ -160,6 +162,13 @@ gitCommit:
 releaseTag:
 AREAFORGE_IMAGE:
 imageDigest:
+webImageDigest:
+migrationImageDigest:
+sbomAsset:
+sbomSha256:
+provenanceAsset:
+provenanceSha256:
+supplyChainEvidence:
 composeHash:
 nginxConfigHash:
 previousImage:

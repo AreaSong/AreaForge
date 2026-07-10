@@ -20,7 +20,12 @@ The detailed release evidence is tracked in
 Repository releases now run the `.github/workflows/release.yml` validate job
 before any image build/push. Stable releases fail closed if cosign signing key
 secrets are missing; unsigned placeholder assets are only allowed for preview
-channel experiments and are not production trust evidence.
+channel experiments and are not production trust evidence. New releases also
+publish `areaforge-sbom.spdx.json` and `areaforge-provenance.json`; the updater
+downloads both assets, verifies their `SHA256SUMS` entries, and stores them with
+the update record. The current `v0.1.5` production release predates these two
+assets, so `AF-RISK-SC-001` stays open until the next signed release records
+that evidence.
 
 The updater supports three modes:
 

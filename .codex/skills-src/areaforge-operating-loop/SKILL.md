@@ -36,6 +36,7 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 - [../areaforge-residual-ledger/SKILL.md](../areaforge-residual-ledger/SKILL.md): residual risk IDs, close conditions, and accepted exceptions.
 - [../areaforge-validation-driver/SKILL.md](../areaforge-validation-driver/SKILL.md): choose validation after the final edit.
 - [../areaforge-doc-sync/SKILL.md](../areaforge-doc-sync/SKILL.md): sync README, docs, tasks, workflow, ops, and skills.
+- [../areaforge-git-checkpoint/SKILL.md](../areaforge-git-checkpoint/SKILL.md): stage, commit, push, and release-tag readiness without mixing unrelated dirty work.
 
 ## Workflow
 

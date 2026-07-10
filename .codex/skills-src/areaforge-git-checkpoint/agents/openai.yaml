@@ -1,0 +1,1 @@
+default_prompt: "Use $areaforge-git-checkpoint to review AreaForge Git checkpoint readiness, stage only intended files, preserve unrelated dirty work, and keep release/tag/push actions behind explicit user intent and fresh validation."

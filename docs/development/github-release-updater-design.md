@@ -2,11 +2,11 @@
 
 ## 状态
 
-已实现服务器侧受控更新器第一版。它以 GitHub Release 为版本源，读取 release asset 中的 `areaforge-release-manifest.json`、`SHA256SUMS`、`SHA256SUMS.sig`，拉取不可变镜像 digest，执行发布前备份、必要 migration、Web 切换、健康烟测和应用镜像回滚。
+已实现服务器侧受控更新器第一版。它以 GitHub Release 为版本源，读取 release asset 中的 `areaforge-release-manifest.json`、SBOM、provenance、`SHA256SUMS`、`SHA256SUMS.sig`，拉取不可变镜像 digest，执行发布前备份、必要 migration、Web 切换、健康烟测和应用镜像回滚。
 
 本设计不让 Web runtime 直接执行服务器命令。版本中心 UI 可以提交检查、更新、回退和自动策略请求；执行 Docker、备份、migration、回滚和状态回写的能力只属于服务器侧 root agent。不把生产密钥、数据库 URL、AI key、完整 prompt 或附件路径写入公开记录。
 
-当前远端已按本设计上线：GitHub Release `v0.1.5` 成功生成 `SHA256SUMS.sig` cosign bundle，服务器安装 `cosign v3.1.1`，启用 `/etc/areaforge/cosign.pub` 校验并将 `https://forge.areasong.top/` 从 `0.1.1` 更新到 `0.1.5`。update-agent 状态为 `signatureRequired=true`、`blocker=null`、`timerEnabled=true`、`timerActive=true`。证据见 `docs/development/package-e-remote-github-release-record.md`。
+当前远端已按本设计上线：GitHub Release `v0.1.5` 成功生成 `SHA256SUMS.sig` cosign bundle，服务器安装 `cosign v3.1.1`，启用 `/etc/areaforge/cosign.pub` 校验并将 `https://forge.areasong.top/` 从 `0.1.1` 更新到 `0.1.5`。update-agent 状态为 `signatureRequired=true`、`blocker=null`、`timerEnabled=true`、`timerActive=true`。证据见 `docs/development/package-e-remote-github-release-record.md`。`v0.1.5` 是历史发布证据，不包含本次新增的 SBOM/provenance 资产。
 
 ## 目标形态
 
@@ -17,7 +17,7 @@ GitHub tag / Release
 GitHub Actions 构建 web image + migration image
         |
         v
-发布 release manifest + SHA256SUMS + SHA256SUMS.sig
+发布 release manifest + SBOM + provenance + SHA256SUMS + SHA256SUMS.sig
         |
         v
 服务器 systemd timer / 手动 apply
@@ -79,6 +79,8 @@ root agent 调用 updater / 修改自动策略 / 回写 status.json
 Release 必须包含：
 
 - `areaforge-release-manifest.json`
+- `areaforge-sbom.spdx.json`
+- `areaforge-provenance.json`
 - `SHA256SUMS`
 - `SHA256SUMS.sig`
 - `docker-compose.prod.yml`
@@ -96,10 +98,12 @@ manifest 必须包含：
 - `requiresMigration`
 - `sha256SumsAsset`
 - `signatureAsset`
+- `sbomAsset`
+- `provenanceAsset`
 - `autoApply.patch/minor/major`
 - `smoke.healthPath`
 
-`webImageDigest` 和 `migrationImageDigest` 必须是 `image@sha256:<digest>`，不允许 `latest`。updater 最终写入生产 `.env` 的 `AREAFORGE_IMAGE` 优先使用 `webImageDigest`，避免 tag 被重推后不可追溯。
+`webImageDigest` 和 `migrationImageDigest` 必须是 `image@sha256:<digest>`，不允许 `latest`。`sbomAsset`、`provenanceAsset` 和 `composeAsset` 必须是简单 Release asset 文件名；updater 会下载这些资产并验证它们在 `SHA256SUMS` 中的 hash。updater 最终写入生产 `.env` 的 `AREAFORGE_IMAGE` 优先使用 `webImageDigest`，避免 tag 被重推后不可追溯。
 
 ## 自动更新策略
 
@@ -158,5 +162,5 @@ sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 ## 残余风险
 
 - 首次远端服务器部署、域名 HTTPS 和真实 Nginx 切换已经通过 `v0.1.5` 远端签名 Release 验证；后续域名、Nginx、端口或服务器迁移仍需单独发布记录。
-- GitHub Release stable 签名需要配置 `COSIGN_PRIVATE_KEY_B64` / `COSIGN_PASSWORD`（或兼容的 `COSIGN_PRIVATE_KEY` 多行 PEM）；缺少签名密钥时 stable workflow 必须失败。preview channel 可以生成 `unsigned preview` 占位资产，但生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。供应链增强残余项见 `AF-RISK-SC-001`。
+- GitHub Release stable 签名需要配置 `COSIGN_PRIVATE_KEY_B64` / `COSIGN_PASSWORD`（或兼容的 `COSIGN_PRIVATE_KEY` 多行 PEM）；缺少签名密钥时 stable workflow 必须失败。preview channel 可以生成 `unsigned preview` 占位资产，但生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。基础 SBOM/provenance 生成路径已接入，供应链残余项 `AF-RISK-SC-001` 需要下一次签名 Release 产生并校验真实资产后关闭。
 - 完整登录、任务计时、附件上传下载等 smoke 依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`；updater 内置默认 smoke 只检查 `/api/health`。生产 extra smoke 残余项见 `AF-RISK-OPS-001`。

@@ -35,6 +35,11 @@ AREAFORGE_IMAGE: ghcr.io/areasong/areaforge-web:vX.Y.Z
 imageDigest: ghcr.io/areasong/areaforge-web:vX.Y.Z@sha256:<64-hex>
 webImageDigest: ghcr.io/areasong/areaforge-web:vX.Y.Z@sha256:<64-hex>
 migrationImageDigest: ghcr.io/areasong/areaforge-migration:vX.Y.Z@sha256:<64-hex>
+sbomAsset: areaforge-sbom.spdx.json
+sbomSha256: <64-hex-or-not-applicable>
+provenanceAsset: areaforge-provenance.json
+provenanceSha256: <64-hex-or-not-applicable>
+supplyChainEvidence: <SHA256SUMS includes manifest/SBOM/provenance/compose; signature verification result>
 composeHash: <64-hex>
 nginxConfigHash: <64-hex>
 previousImage: <previous-image-or-not-applicable>
@@ -93,6 +98,7 @@ expectedFailureOrStopConditions:
 
 - GitHub Release workflow 成功，stable release 没有 unsigned placeholder。
 - `SHA256SUMS` 与签名校验结果记录清楚。
+- 新发布若由当前 Release workflow 生成，记录 SBOM/provenance 资产名、hash 和校验摘要；历史 `v0.1.5` 这类发布没有对应资产时，不回填假证据，必须在残余风险中保留 `AF-RISK-SC-001`。
 - Web 和 migration image 使用不可变 digest。
 - 生产更新前备份路径与 hash 可追溯，且不提交备份本体或密钥。
 - migration runner 与结果明确；无 migration 时写 `migrationApplied: no` 和 `migrationRunner: not-applicable`。

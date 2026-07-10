@@ -177,6 +177,13 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     }
   }
 
+  for (const field of ["sbomSha256", "provenanceSha256"] as const) {
+    const value = fields.get(field);
+    if (value && value !== "not-applicable" && !/^[a-f0-9]{64}$/i.test(value)) {
+      issues.push({ field, message: "must be not-applicable or a 64-character sha256 hex digest" });
+    }
+  }
+
   const imageDigest = fields.get("imageDigest");
   if (imageDigest && !/^sha256:[a-f0-9]{64}$/i.test(imageDigest) && !/^[^@\s]+@sha256:[a-f0-9]{64}$/i.test(imageDigest)) {
     issues.push({ field: "imageDigest", message: "must be sha256:<64 hex> or image@sha256:<64 hex>" });
@@ -268,6 +275,11 @@ function buildReleaseEvidenceBundleHash(fields: Map<string, string>): string {
     "releaseUrl",
     "webImageDigest",
     "migrationImageDigest",
+    "sbomAsset",
+    "sbomSha256",
+    "provenanceAsset",
+    "provenanceSha256",
+    "supplyChainEvidence",
     "signatureVerification",
     "updateAgentStatus",
     "rollbackTargetVersion",

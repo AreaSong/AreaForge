@@ -122,7 +122,7 @@ pnpm ops:readiness:summary
 - `AF-RISK-OPS-001`：生产 extra smoke 证据缺失时，体验验证只能到 `warn`。
 - `AF-RISK-OPS-002`：写入型生产 smoke 仍是 deferred，不能默认污染生产数据。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受的安全默认，不等于自动应用能力已启用。
-- `AF-RISK-SC-001`：SBOM/provenance attestation 尚未生成。
+- `AF-RISK-SC-001`：SBOM/provenance 生成路径已接入 Release workflow；线上 `v0.1.5` 仍无对应资产，需下一次签名 Release 的校验和发布记录证据关闭。
 - `AF-RISK-SC-002`：GitHub Actions SHA pinning / vulnerability scan 仍是供应链残余。
 - `AF-RISK-SC-003`：`pg@9` 未来弃用 warning 需要在 `pg` / Prisma adapter 升级前定位或接受。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。

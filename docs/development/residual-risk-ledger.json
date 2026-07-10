@@ -32,10 +32,10 @@
     {
       "id": "AF-RISK-SC-001",
       "type": "deferred-work",
-      "currentImpact": "当前 release 依赖签名、hash 和 digest；尚未生成 SBOM/provenance attestation",
+      "currentImpact": "当前 Release workflow 已接入 SBOM/provenance 生成路径；线上 v0.1.5 仍是无 SBOM/provenance 的历史签名发布",
       "executableNow": false,
-      "closeCondition": "Release workflow 生成并发布 SBOM/provenance，updater 或验证脚本记录校验结果",
-      "requiredEvidence": "SBOM asset、provenance attestation、验证命令输出",
+      "closeCondition": "下一次签名 Release 生成并发布 SBOM/provenance，updater 或验证脚本校验 checksum/signature，并在发布记录中留下证据",
+      "requiredEvidence": "SBOM asset、provenance asset、SHA256SUMS 覆盖记录、签名校验输出、发布记录摘要",
       "ownerSkills": ["areaforge-supply-chain"]
     },
     {

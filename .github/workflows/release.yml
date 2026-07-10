@@ -53,6 +53,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Release supply-chain generator smoke
+        env:
+          AREAFORGE_RELEASE_TAG: v0.0.0-smoke
+          AREAFORGE_RELEASE_VERSION: 0.0.0
+          AREAFORGE_RELEASE_CHANNEL: preview
+          AREAFORGE_GIT_COMMIT: "0000000000000000000000000000000000000000"
+          AREAFORGE_WEB_IMAGE: ghcr.io/areasong/areaforge-web:v0.0.0-smoke
+          AREAFORGE_WEB_IMAGE_DIGEST: ghcr.io/areasong/areaforge-web:v0.0.0-smoke@sha256:1111111111111111111111111111111111111111111111111111111111111111
+          AREAFORGE_MIGRATION_IMAGE: ghcr.io/areasong/areaforge-migration:v0.0.0-smoke
+          AREAFORGE_MIGRATION_IMAGE_DIGEST: ghcr.io/areasong/areaforge-migration:v0.0.0-smoke@sha256:2222222222222222222222222222222222222222222222222222222222222222
+          AREAFORGE_SBOM_PATH: ${{ runner.temp }}/areaforge-sbom.spdx.json
+          AREAFORGE_PROVENANCE_PATH: ${{ runner.temp }}/areaforge-provenance.json
+        run: pnpm release:supply-chain
+
       - name: Shellcheck updater
         run: pnpm shellcheck:updater
 
@@ -95,6 +109,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Resolve release tag
         id: vars
@@ -183,6 +211,8 @@ jobs:
             "composeAsset": "docker-compose.prod.yml",
             "sha256SumsAsset": "SHA256SUMS",
             "signatureAsset": "SHA256SUMS.sig",
+            "sbomAsset": "areaforge-sbom.spdx.json",
+            "provenanceAsset": "areaforge-provenance.json",
             "autoApply": {
               "patch": true,
               "minor": false,
@@ -194,7 +224,28 @@ jobs:
             "releaseNotesUrl": "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.vars.outputs.tag }}"
           }
           JSON
-          sha256sum areaforge-release-manifest.json docker-compose.prod.yml > SHA256SUMS
+
+      - name: Generate release supply-chain metadata
+        shell: bash
+        env:
+          AREAFORGE_RELEASE_TAG: ${{ steps.vars.outputs.tag }}
+          AREAFORGE_RELEASE_VERSION: ${{ steps.vars.outputs.version }}
+          AREAFORGE_RELEASE_CHANNEL: ${{ env.CHANNEL }}
+          AREAFORGE_GIT_COMMIT: ${{ github.sha }}
+          AREAFORGE_WEB_IMAGE: ${{ steps.vars.outputs.web_image }}
+          AREAFORGE_WEB_IMAGE_DIGEST: ${{ steps.vars.outputs.web_image }}@${{ steps.web.outputs.digest }}
+          AREAFORGE_MIGRATION_IMAGE: ${{ steps.vars.outputs.migration_image }}
+          AREAFORGE_MIGRATION_IMAGE_DIGEST: ${{ steps.vars.outputs.migration_image }}@${{ steps.migration.outputs.digest }}
+        run: pnpm release:supply-chain
+
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          sha256sum \
+            areaforge-release-manifest.json \
+            areaforge-sbom.spdx.json \
+            areaforge-provenance.json \
+            docker-compose.prod.yml > SHA256SUMS
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
@@ -243,6 +294,8 @@ EOF_SIG
           generate_release_notes: true
           files: |
             areaforge-release-manifest.json
+            areaforge-sbom.spdx.json
+            areaforge-provenance.json
             SHA256SUMS
             SHA256SUMS.sig
             docker-compose.prod.yml

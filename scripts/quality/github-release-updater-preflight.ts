@@ -14,6 +14,7 @@ const checks: CheckResult[] = [];
 function main(): void {
   checkRequiredFiles();
   checkShellSyntax();
+  checkReleaseSupplyChainScript();
   checkManifestExample();
   checkUpdaterBoundaries();
   checkMigrationDockerfile();
@@ -49,6 +50,7 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/manifest.example.json",
     "ops/github-release-updater/manifest.schema.json",
     "ops/github-release-updater/README.md",
+    "scripts/ops/generate-release-supply-chain.ts",
     "scripts/ops/production-readonly-smoke.ts",
     "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
@@ -62,6 +64,35 @@ function checkRequiredFiles(): void {
     name: "required updater files",
     ok: missing.length === 0,
     detail: missing.length === 0 ? `${requiredFiles.length} files present` : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkReleaseSupplyChainScript(): void {
+  const script = read("scripts/ops/generate-release-supply-chain.ts");
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const releaseScript = packageJson.scripts?.["release:supply-chain"] ?? "";
+  const requiredTerms = [
+    "SPDX-2.3",
+    "pnpm",
+    "list",
+    "--recursive",
+    "--prod",
+    "areaforge-sbom.spdx.json",
+    "areaforge-provenance.json",
+    "AREAFORGE_WEB_IMAGE_DIGEST",
+    "AREAFORGE_MIGRATION_IMAGE_DIGEST",
+    "safetyFacts",
+    "promptOrRawAiResponseIncluded: false",
+    "attachmentContentIncluded: false",
+  ];
+  const missing = requiredTerms.filter((term) => !script.includes(term));
+  const ok = missing.length === 0 && releaseScript === "tsx scripts/ops/generate-release-supply-chain.ts";
+  checks.push({
+    name: "release supply-chain generator",
+    ok,
+    detail: ok
+      ? "package script and generator emit SPDX SBOM plus redacted release provenance without new dependencies"
+      : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}`,
   });
 }
 
@@ -138,6 +169,8 @@ function checkManifestExample(): void {
     "requiresMigration",
     "sha256SumsAsset",
     "signatureAsset",
+    "sbomAsset",
+    "provenanceAsset",
     "autoApply",
     "smoke",
   ];
@@ -155,7 +188,7 @@ function checkManifestExample(): void {
     name: "release manifest example",
     ok,
     detail: ok
-      ? "manifest documents version, channel, immutable image digests, migration image, checksums, signature, and auto-apply policy"
+      ? "manifest documents version, channel, immutable image digests, migration image, checksums, signature, SBOM/provenance assets, and auto-apply policy"
       : `missing ${missing.join(", ") || "none"}; webDigest=${webDigest}; migrationDigest=${migrationDigest}`,
   });
 }
@@ -168,6 +201,11 @@ function checkUpdaterBoundaries(): void {
     "AREAFORGE_RELEASE_MANIFEST_ASSET",
     "SHA256SUMS",
     "verify_signature",
+    "SBOM_ASSET",
+    "PROVENANCE_ASSET",
+    "validate_asset_name",
+    "verify_sha256_asset \"$SUMS_PATH\" \"$SBOM_ASSET\"",
+    "verify_sha256_asset \"$SUMS_PATH\" \"$PROVENANCE_ASSET\"",
     "unsupported manifest schemaVersion",
     "minimumAppVersion",
     "cosign verify-blob",
@@ -185,6 +223,8 @@ function checkUpdaterBoundaries(): void {
     "env_set APP_VERSION",
     "run_smoke",
     "rollback_application",
+    "sbomSha256",
+    "provenanceSha256",
     "write_record",
   ];
   const forbiddenTerms = [
@@ -264,12 +304,18 @@ function checkReleaseWorkflow(): void {
     "pnpm github-release-updater:preflight",
     "pnpm ops:readiness",
     "pnpm check",
+    "Release supply-chain generator smoke",
     "infra/docker/web.Dockerfile",
     "infra/docker/migration.Dockerfile",
     "areaforge-release-manifest.json",
     "webImageDigest",
     "migrationImageDigest",
-    "sha256sum areaforge-release-manifest.json docker-compose.prod.yml > SHA256SUMS",
+    "sbomAsset",
+    "provenanceAsset",
+    "pnpm release:supply-chain",
+    "areaforge-sbom.spdx.json",
+    "areaforge-provenance.json",
+    "sha256sum",
     "COSIGN_PRIVATE_KEY_B64",
     "cosign sign-blob",
     "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
@@ -283,7 +329,7 @@ function checkReleaseWorkflow(): void {
     name: "GitHub Release workflow",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "workflow validates release gates, builds web and migration images, emits manifest/checksums/signature asset, and publishes a GitHub Release"
+      ? "workflow validates release gates, builds web and migration images, emits manifest/SBOM/provenance/checksums/signature assets, and publishes a GitHub Release"
       : `missing ${missing.join(", ")}`,
   });
 }

@@ -28,6 +28,7 @@
     "smoke:prod-readonly": "tsx scripts/ops/production-readonly-smoke.ts",
     "release:evidence:validate": "tsx scripts/quality/release-evidence-validate.ts",
     "release:evidence:selftest": "tsx scripts/quality/release-evidence-validate.selftest.ts",
+    "release:supply-chain": "tsx scripts/ops/generate-release-supply-chain.ts",
     "auth:hash": "tsx scripts/auth/hash-password.ts",
     "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma generate",
     "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma validate",

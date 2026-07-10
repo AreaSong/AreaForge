@@ -16,6 +16,7 @@ const requiredSkills = [
   "areaforge-release-operator",
   "areaforge-qa-smoke",
   "areaforge-doc-sync",
+  "areaforge-git-checkpoint",
   "areaforge-sre-ops",
   "areaforge-observability",
   "areaforge-incident-response",

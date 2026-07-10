@@ -57,4 +57,4 @@ pnpm ops:readiness
 
 ## 残余风险
 
-当前仍未强制生成 SBOM 或 provenance attestation，残余项记录为 `AF-RISK-SC-001`。若后续启用强自动更新、多人协作或公开分发范围扩大，应把 SBOM/provenance 作为供应链增强项单独推进。
+当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。残余项 `AF-RISK-SC-001` 仍保持打开：它需要下一次真实签名 Release 产生 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据后才能关闭。

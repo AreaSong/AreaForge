@@ -63,9 +63,9 @@ packages/ai -> Sub2API / OpenAI compatible API
 - `packages/ai` 已提供本地规则 fallback、结构化 schema、OpenAI-compatible JSON provider、mock/外呼测试和敏感上下文拦截。
 - `packages/storage` 已提供附件上传纯规则安全底座，Web 层已完成 noteId 绑定附件上传、私有落盘和鉴权下载。
 - Package E 已完成生产发布、备份、恢复和发布闭环；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新上线，服务器启用 cosign bundle 校验，Web 版本中心只提交受控请求，root agent 执行更新。
-- 长期运营入口已补齐：release workflow 先验证再发布，stable 签名 fail closed；`operational-readiness.md` 记录只读运营证据模型；`residual-risk-ledger.md` 记录生产 extra smoke、自动策略、SBOM/provenance 等残余风险 ID。
+- 长期运营入口已补齐：release workflow 先验证再发布，stable 签名 fail closed，并已接入基础 SBOM/provenance 生成路径；`operational-readiness.md` 记录只读运营证据模型；`residual-risk-ledger.md` 记录生产 extra smoke、自动策略、SBOM/provenance 真实 release 证据等残余风险 ID。
 
 尚未完成：
 
 - 暂缓项：AI 自动完整学习计划、复杂 PDF 自动解析、小程序、原生 App、多用户、排名系统、复杂权限系统，以及 Web runtime 直接执行服务器命令的一键运维入口。
-- 可选增强：生产只读 extra smoke 的服务器配置（`AF-RISK-OPS-001`）、写入型任务/计时/附件上传/AI smoke 策略（`AF-RISK-OPS-002`）、SBOM/provenance（`AF-RISK-SC-001`）、长期 AI 调用费用账本和更细结构化复习历史。
+- 可选增强：生产只读 extra smoke 的服务器配置（`AF-RISK-OPS-001`）、写入型任务/计时/附件上传/AI smoke 策略（`AF-RISK-OPS-002`）、下一次签名 Release 的 SBOM/provenance 真实证据关闭（`AF-RISK-SC-001`）、长期 AI 调用费用账本和更细结构化复习历史。
