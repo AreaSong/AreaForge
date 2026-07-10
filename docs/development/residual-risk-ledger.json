@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "source": "docs/development/residual-risk-ledger.md",
+  "items": [
+    {
+      "id": "AF-RISK-OPS-001",
+      "type": "monitoring-gap",
+      "currentImpact": "生产 extra smoke 仍依赖服务器配置；没有新鲜 smoke 记录时，发布体验验证只能到 warn",
+      "executableNow": true,
+      "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 密码文件和最近一次通过记录",
+      "requiredEvidence": "redacted updater env 摘要、pnpm smoke:prod-readonly 通过时间、update-record 摘要",
+      "ownerSkills": ["areaforge-sre-ops", "areaforge-qa-smoke"]
+    },
+    {
+      "id": "AF-RISK-OPS-002",
+      "type": "deferred-work",
+      "currentImpact": "写入型生产 smoke 策略未定义；默认不污染生产业务数据",
+      "executableNow": false,
+      "closeCondition": "明确 smoke 账号、数据清理策略、允许写入范围、失败回滚方式并获确认",
+      "requiredEvidence": "策略文档、测试账号、写入和清理 smoke 记录",
+      "ownerSkills": ["areaforge-qa-smoke", "areaforge-security-governance"]
+    },
+    {
+      "id": "AF-RISK-REL-001",
+      "type": "accepted-exception",
+      "currentImpact": "AREAFORGE_AUTO_APPLY=none 是当前安全默认；patch 自动应用尚未启用",
+      "executableNow": false,
+      "closeCondition": "用户明确确认 patch 自动应用，且签名、备份、extra smoke、rollback target 和 manifest policy 同时满足",
+      "requiredEvidence": "确认记录、updater env 摘要、release manifest、smoke 和 rollback evidence",
+      "ownerSkills": ["areaforge-release-operator", "areaforge-sre-ops"]
+    },
+    {
+      "id": "AF-RISK-SC-001",
+      "type": "deferred-work",
+      "currentImpact": "当前 release 依赖签名、hash 和 digest；尚未生成 SBOM/provenance attestation",
+      "executableNow": false,
+      "closeCondition": "Release workflow 生成并发布 SBOM/provenance，updater 或验证脚本记录校验结果",
+      "requiredEvidence": "SBOM asset、provenance attestation、验证命令输出",
+      "ownerSkills": ["areaforge-supply-chain"]
+    },
+    {
+      "id": "AF-RISK-SC-002",
+      "type": "deferred-work",
+      "currentImpact": "GitHub Actions 当前至少 pin 到主版本；尚未 pin 到完整 commit SHA，也未接入独立 vulnerability scan",
+      "executableNow": false,
+      "closeCondition": "Actions 依赖完成 SHA pinning 或有等价供应链策略，且发布/CI 记录 vulnerability scan 结果",
+      "requiredEvidence": "workflow diff、Dependabot/renovate 策略、vulnerability scan 输出、风险接受或关闭记录",
+      "ownerSkills": ["areaforge-supply-chain", "areaforge-enterprise-governance"]
+    },
+    {
+      "id": "AF-RISK-OPS-003",
+      "type": "deferred-work",
+      "currentImpact": "未来服务器、域名、Nginx 或端口迁移会影响公网 health 和 updater 状态",
+      "executableNow": false,
+      "closeCondition": "新迁移 runbook、备份、Nginx/compose hash、health、rollback 记录齐全",
+      "requiredEvidence": "迁移记录、release/update evidence、DNS/TLS 检查",
+      "ownerSkills": ["areaforge-sre-ops"]
+    },
+    {
+      "id": "AF-RISK-OPS-004",
+      "type": "monitoring-gap",
+      "currentImpact": "结构化 metrics dashboard 和告警路由不是当前产品功能；健康判断依赖 runbook 和只读证据",
+      "executableNow": false,
+      "closeCondition": "建立外部告警接收人、阈值、演练记录，或明确接受人工巡检窗口",
+      "requiredEvidence": "告警配置摘要、演练记录、阈值文档",
+      "ownerSkills": ["areaforge-observability"]
+    }
+  ]
+}

@@ -4,6 +4,8 @@
 
 本文件只记录会影响后续发布、生产运维、安全、供应链或真实体验判断的残余项。它不是普通 backlog，也不表示当前 docs 100% 功能未完成。
 
+机器可读索引见 `docs/development/residual-risk-ledger.json`，并由 `pnpm residuals:validate` 校验与本文同步。
+
 状态类型遵循 `.codex/skills-src/areaforge-residual-ledger/references/classification.md`：
 
 - `current-blocker`

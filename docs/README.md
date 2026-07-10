@@ -71,6 +71,7 @@
 - `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
 - `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级和只读运营证据入口。
 - `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。
+- `development/residual-risk-ledger.json`：残余风险 ID 台账的机器可读索引。
 - `development/validation-matrix.md`：按改动范围选择验证。
 - `development/validation-matrix.md` 中的 `pnpm risk:preflight`：高风险包确认前的只读护栏预检。
 - `development/doc-sync-checklist.md`：文档同步和漂移检查。

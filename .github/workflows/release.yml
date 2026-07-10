@@ -65,6 +65,9 @@ jobs:
       - name: Ops readiness preflight
         run: pnpm ops:readiness
 
+      - name: Residual ledger validate
+        run: pnpm residuals:validate
+
       - name: Package E preflight
         run: pnpm package-e:preflight
 

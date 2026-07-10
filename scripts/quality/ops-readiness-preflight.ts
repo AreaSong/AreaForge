@@ -37,9 +37,11 @@ function checkRequiredFiles(): void {
   const requiredFiles = [
     "docs/development/operational-readiness.md",
     "docs/development/residual-risk-ledger.md",
+    "docs/development/residual-risk-ledger.json",
     ".codex/skills-src/areaforge-operating-loop/SKILL.md",
     ".codex/skills-src/areaforge-operating-loop/references/loop-map.md",
     "scripts/ops/operational-readiness-summary.ts",
+    "scripts/quality/residual-ledger-validate.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -77,11 +79,13 @@ function checkOperationalReadinessDoc(): void {
 
 function checkResidualLedger(): void {
   const ledger = read("docs/development/residual-risk-ledger.md");
+  const machineLedger = read("docs/development/residual-risk-ledger.json");
   const requiredIds = [
     "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
     "AF-RISK-REL-001",
     "AF-RISK-SC-001",
+    "AF-RISK-SC-002",
     "AF-RISK-OPS-003",
     "AF-RISK-OPS-004",
   ];
@@ -93,14 +97,16 @@ function checkResidualLedger(): void {
     "所需证据",
     "Owner",
   ];
-  const missingIds = requiredIds.filter((term) => !ledger.includes(term));
+  const combined = `${ledger}\n${machineLedger}`;
+  const missingIds = requiredIds.filter((term) => !combined.includes(term));
   const missingTerms = requiredTerms.filter((term) => !ledger.includes(term));
+  const hasValidationScript = read("package.json").includes("residuals:validate");
   checks.push({
     name: "residual risk ledger",
-    ok: missingIds.length === 0 && missingTerms.length === 0,
-    detail: missingIds.length === 0 && missingTerms.length === 0
-      ? "ledger indexes long-term ops, release, supply-chain, and observability residuals with close evidence"
-      : `missing IDs ${missingIds.join(", ") || "none"}; missing terms ${missingTerms.join(", ") || "none"}`,
+    ok: missingIds.length === 0 && missingTerms.length === 0 && hasValidationScript,
+    detail: missingIds.length === 0 && missingTerms.length === 0 && hasValidationScript
+      ? "ledger indexes long-term ops, release, supply-chain, and observability residuals with close evidence and machine validation"
+      : `missing IDs ${missingIds.join(", ") || "none"}; missing terms ${missingTerms.join(", ") || "none"}; residuals:validate=${hasValidationScript}`,
   });
 }
 
@@ -162,8 +168,9 @@ function checkPackageScripts(): void {
   checks.push({
     name: "ops readiness package script",
     ok: script === "tsx scripts/quality/ops-readiness-preflight.ts" &&
-      summaryScript === "tsx scripts/ops/operational-readiness-summary.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}`,
+      summaryScript === "tsx scripts/ops/operational-readiness-summary.ts" &&
+      packageJson.scripts?.["residuals:validate"] === "tsx scripts/quality/residual-ledger-validate.ts",
+    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}`,
   });
 }
 

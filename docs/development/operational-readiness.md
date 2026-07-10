@@ -80,7 +80,7 @@ overall:
 
 ## 只读检查
 
-本仓库提供的 `pnpm ops:readiness` 只检查运营文档、残余风险台账、release workflow 和 package scripts 是否保留长期运营入口；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration。
+本仓库提供的 `pnpm ops:readiness` 只检查运营文档、残余风险台账、release workflow 和 package scripts 是否保留长期运营入口；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration。残余风险 Markdown 与机器索引的同步由 `pnpm residuals:validate` 校验。
 
 本仓库还提供只读运营摘要生成：
 
@@ -114,3 +114,13 @@ pnpm ops:readiness:summary
 ## 残余边界
 
 长期运营未完成项不应散落在自然语言里。影响发布或运维判断的项目必须进入 `docs/development/residual-risk-ledger.md`，使用稳定 ID、类型、影响、关闭条件和所需证据。
+
+当前 release / ops 判断必须显式带入以下残余项：
+
+- `AF-RISK-OPS-001`：生产 extra smoke 证据缺失时，体验验证只能到 `warn`。
+- `AF-RISK-OPS-002`：写入型生产 smoke 仍是 deferred，不能默认污染生产数据。
+- `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受的安全默认，不等于自动应用能力已启用。
+- `AF-RISK-SC-001`：SBOM/provenance attestation 尚未生成。
+- `AF-RISK-SC-002`：GitHub Actions SHA pinning / vulnerability scan 仍是供应链残余。
+- `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
+- `AF-RISK-OPS-004`：metrics dashboard 和外部告警路由未产品化，生产健康仍依赖 runbook 和只读证据。

@@ -16,7 +16,8 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 5. [docs/development/feature-traceability.md](../../../docs/development/feature-traceability.md)
 6. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
 7. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
-8. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
+8. [docs/development/residual-risk-ledger.json](../../../docs/development/residual-risk-ledger.json)
+9. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
 
 ## References
 
