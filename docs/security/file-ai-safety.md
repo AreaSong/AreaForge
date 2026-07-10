@@ -71,6 +71,20 @@ AI 不允许：
 - 修改备份、恢复或保留策略。
 - 网页内触发部署或服务器命令。
 
+## GitHub Release 自动更新边界
+
+允许的自动更新形态是服务器侧受控 updater：`ops/github-release-updater/areaforge-updater.sh` 由管理员手动执行或 systemd timer 触发，读取 GitHub Release manifest、校验 `SHA256SUMS` / `SHA256SUMS.sig`，备份数据库和上传目录，使用一次性 migration image，再切换 Docker Compose Web 镜像。
+
+禁止：
+
+- 在 Web 页面、Web API、管理后台按钮或 AI 工具调用中执行 updater。
+- 将 Docker socket、生产 `.env`、GitHub token、签名私钥或备份目录挂入 Web runtime。
+- 跳过签名/hash 校验后自动应用 Release。
+- 静默应用 major 更新。
+- 在失败回滚时默认覆盖生产数据库或移动上传目录。
+
+数据库恢复、上传目录恢复、签名策略降级、major 自动应用和网页内运维入口都属于高风险变化，必须另行说明影响、验证和回滚后确认。
+
 ## 备份与恢复
 
 - 数据库和上传目录必须同周期备份。

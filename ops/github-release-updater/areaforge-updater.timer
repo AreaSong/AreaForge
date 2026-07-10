@@ -1,0 +1,10 @@
+[Unit]
+Description=Check AreaForge GitHub Releases for updates
+
+[Timer]
+OnCalendar=*-*-* 04:20:00
+RandomizedDelaySec=1800
+Persistent=true
+
+[Install]
+WantedBy=timers.target

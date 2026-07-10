@@ -74,6 +74,50 @@ Nginx HTTPS -> 127.0.0.1:WEB_PORT -> web container -> postgres
 - PostgreSQL 不暴露公网端口。
 - 上传目录不由 Nginx 静态暴露。
 
+## GitHub Release 受控自动更新
+
+GitHub Release 自动更新不改变上述高风险边界。它只能由服务器侧 updater 或 CI/CD 手动批准流水线触发，不能由 AreaForge Web 页面、Web API、AI 工具或浏览器按钮触发。
+
+第一版实现见：
+
+- `docs/development/github-release-updater-design.md`
+- `docs/deployment/github-release-updater.md`
+- `ops/github-release-updater/areaforge-updater.sh`
+- `.github/workflows/release.yml`
+- `infra/docker/migration.Dockerfile`
+
+GitHub Release 必须发布以下 assets：
+
+- `areaforge-release-manifest.json`
+- `SHA256SUMS`
+- `SHA256SUMS.sig`
+- `docker-compose.prod.yml`
+
+服务器侧 updater 必须：
+
+1. 校验 Release 非 draft，非 prerelease 时才按 stable 策略处理。
+2. 校验 manifest channel、`minimumAppVersion`、非 `latest` 镜像、`webImageDigest` 和 `migrationImageDigest`。
+3. 校验 `SHA256SUMS` 和 `SHA256SUMS.sig`；生产默认 `AREAFORGE_REQUIRE_SIGNATURE=true`。
+4. 先备份 PostgreSQL、上传 volume、生产 env、compose、Nginx 和 release assets。
+5. 使用一次性 migration image 执行 `pnpm db:migrate:deploy`，日志中只能显示 `DATABASE_URL=<redacted>`。
+6. 写入 `AREAFORGE_IMAGE=<image@sha256>` 和 `APP_VERSION=<version>` 后启动 web。
+7. 执行 `/api/health` 和可选 `AREAFORGE_EXTRA_SMOKE_COMMAND`。
+8. 失败时回滚应用镜像和 `APP_VERSION`，记录失败原因；默认不自动恢复生产数据库或移动上传目录。
+
+自动策略：
+
+- `AREAFORGE_AUTO_APPLY=none`：默认，只检查和记录。
+- `AREAFORGE_AUTO_APPLY=patch`：只允许 manifest `autoApply.patch=true` 的 patch 版本自动应用。
+- `minor` / `all` 只能在明确接受风险后启用。
+
+只读门禁：
+
+```bash
+pnpm github-release-updater:preflight
+```
+
+该命令只检查 updater 结构、shell 语法、manifest 示例、workflow、migration image、文档和 Web 无运维入口边界，不连接 GitHub、不执行 Docker、不备份、不恢复、不运行 migration。
+
 ## 发布记录模板
 
 Package E 完成时必须留下发布记录。记录可以放在运维私有目录或受控 issue/comment 中，不得提交生产 `.env`、密钥、数据库 URL 或备份文件本体。

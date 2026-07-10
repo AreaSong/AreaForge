@@ -1,0 +1,136 @@
+# GitHub Release 自动更新器设计
+
+## 状态
+
+已实现服务器侧受控更新器第一版。它以 GitHub Release 为版本源，读取 release asset 中的 `areaforge-release-manifest.json`、`SHA256SUMS`、`SHA256SUMS.sig`，拉取不可变镜像 digest，执行发布前备份、必要 migration、Web 切换、健康烟测和应用镜像回滚。
+
+本设计不新增网页内“一键更新”，不新增 Web API 执行服务器命令，不把生产密钥、数据库 URL、AI key、完整 prompt 或附件路径写入公开记录。
+
+## 目标形态
+
+```text
+GitHub tag / Release
+        |
+        v
+GitHub Actions 构建 web image + migration image
+        |
+        v
+发布 release manifest + SHA256SUMS + SHA256SUMS.sig
+        |
+        v
+服务器 systemd timer / 手动 apply
+        |
+        v
+校验签名、hash、版本策略和 digest
+        |
+        v
+备份数据库、上传 volume、env、compose、Nginx
+        |
+        v
+一次性 migration image
+        |
+        v
+切换 AREAFORGE_IMAGE / APP_VERSION 并 compose up web
+        |
+        v
+health smoke / extra smoke
+        |
+        v
+成功记录；失败回滚应用镜像并记录原因
+```
+
+## 产物
+
+- `.github/workflows/release.yml`：tag 或手动 workflow 触发，构建并推送 GHCR 镜像，发布 GitHub Release assets。
+- `infra/docker/migration.Dockerfile`：只用于一次性 `pnpm db:migrate:deploy`，和 Web runtime 镜像分离。
+- `ops/github-release-updater/areaforge-updater.sh`：服务器侧 updater CLI。
+- `ops/github-release-updater/areaforge-updater.env.example`：私有 updater 配置模板。
+- `ops/github-release-updater/areaforge-updater.service` 与 `.timer`：systemd 定时检查入口。
+- `ops/github-release-updater/manifest.schema.json` 与 `manifest.example.json`：Release manifest 合约。
+- `scripts/quality/github-release-updater-preflight.ts`：只读门禁，检查 updater 文件、shell 语法、manifest、workflow、migration image 和 Web 无运维入口边界。
+- `.github/workflows/ci.yml`：常规 CI 门禁，运行 `shellcheck`、updater preflight、Package E / 风险 / docs 门禁和 `pnpm check`。
+
+## Release Manifest 合约
+
+Release 必须包含：
+
+- `areaforge-release-manifest.json`
+- `SHA256SUMS`
+- `SHA256SUMS.sig`
+- `docker-compose.prod.yml`
+
+manifest 必须包含：
+
+- `version`
+- `channel`
+- `gitCommit`
+- `minimumAppVersion`
+- `webImage`
+- `webImageDigest`
+- `migrationImage`
+- `migrationImageDigest`
+- `requiresMigration`
+- `sha256SumsAsset`
+- `signatureAsset`
+- `autoApply.patch/minor/major`
+- `smoke.healthPath`
+
+`webImageDigest` 和 `migrationImageDigest` 必须是 `image@sha256:<digest>`，不允许 `latest`。updater 最终写入生产 `.env` 的 `AREAFORGE_IMAGE` 优先使用 `webImageDigest`，避免 tag 被重推后不可追溯。
+
+## 自动更新策略
+
+updater 有三种命令：
+
+- `check`：只检查，不应用。
+- `run`：按 `AREAFORGE_AUTO_APPLY` 和 manifest 的 `autoApply` 决定是否应用。
+- `apply --yes`：显式应用指定 tag 或 latest release。
+
+`AREAFORGE_AUTO_APPLY` 可选：
+
+- `none`：默认，只提示新版本。
+- `patch`：只自动应用 patch 版本，且 manifest `autoApply.patch=true`。
+- `minor`：允许 minor 和 patch，且 manifest 对应字段为 true。
+- `all`：允许 major、minor、patch，且 manifest 对应字段为 true。
+
+第一版生产建议使用 `none` 或 `patch`。major 更新必须由操作者显式执行 `apply --yes --tag <tag>`。
+
+## 安全边界
+
+- 不通过网页、Web API、管理后台按钮触发更新。
+- 不把 `docker.sock` 挂入 Web 容器。
+- 不让 Web runtime 镜像承担 migration runner。
+- 不使用 `latest`。
+- 默认要求 `SHA256SUMS.sig`；可用 `cosign verify-blob` 或 `gpg --verify`。
+- updater 记录只写路径、hash、版本、镜像 digest 和失败原因，不写生产 `.env` 内容、数据库 URL、密码、AI key 或附件内容。
+- migration 通过一次性 migration image 执行；命令日志只显示 `DATABASE_URL=<redacted>`。
+- 回滚默认只回滚应用镜像和 `APP_VERSION`。数据库恢复属于额外高风险动作，不在失败处理里默认执行。
+
+## 验证
+
+本地只读验证：
+
+```bash
+pnpm shellcheck:updater
+pnpm github-release-updater:preflight
+```
+
+发布端验证：
+
+```bash
+pnpm check
+docker build -f infra/docker/web.Dockerfile .
+docker build -f infra/docker/migration.Dockerfile .
+```
+
+服务器端验证：
+
+```bash
+sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh check --config /etc/areaforge/updater.env
+sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes --tag v1.0.3 --config /etc/areaforge/updater.env
+```
+
+## 残余风险
+
+- 首次远端服务器部署、域名 HTTPS 和真实 Nginx 切换仍需要服务器环境。
+- GitHub Release 签名需要配置 `COSIGN_PRIVATE_KEY` / `COSIGN_PASSWORD` 或 GPG 签名流程；未配置签名时 workflow 会发布占位 `SHA256SUMS.sig`，生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。
+- 完整登录、任务计时、附件上传下载等 smoke 依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`；updater 内置默认 smoke 只检查 `/api/health`。

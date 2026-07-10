@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "app": "AreaForge",
+  "version": "1.0.3",
+  "channel": "stable",
+  "releasedAt": "2026-07-09T00:00:00Z",
+  "gitCommit": "0000000000000000000000000000000000000000",
+  "minimumAppVersion": "1.0.0",
+  "webImage": "ghcr.io/owner/areaforge-web:v1.0.3",
+  "webImageDigest": "ghcr.io/owner/areaforge-web@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "migrationImage": "ghcr.io/owner/areaforge-migration:v1.0.3",
+  "migrationImageDigest": "ghcr.io/owner/areaforge-migration@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "requiresMigration": true,
+  "composeAsset": "docker-compose.prod.yml",
+  "sha256SumsAsset": "SHA256SUMS",
+  "signatureAsset": "SHA256SUMS.sig",
+  "autoApply": {
+    "patch": true,
+    "minor": false,
+    "major": false
+  },
+  "smoke": {
+    "healthPath": "/api/health"
+  },
+  "releaseNotesUrl": "https://github.com/owner/AreaForge/releases/tag/v1.0.3"
+}

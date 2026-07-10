@@ -13,6 +13,7 @@
 - 正式发布使用固定版本 tag，不直接依赖 `latest`。
 - 发布前备份数据库和上传目录。
 - migration 由部署流程执行，不提供网页按钮。
+- GitHub Release 自动更新由服务器侧 updater 执行，不把 `docker.sock`、备份、恢复或 migration 能力放进 Web runtime。
 
 ## 本地开发
 
@@ -58,3 +59,9 @@ docker compose -f docker-compose.prod.yml up -d
 - 上传目录和数据库卷必须备份。
 
 发布前必须先备份数据库和上传目录，再执行 Prisma migration deploy；失败时回滚镜像版本，并使用备份恢复数据库和上传目录。
+
+## GitHub Release 自动更新
+
+远端单机部署可以使用 `docs/deployment/github-release-updater.md` 中的服务器侧 updater。该 updater 从 GitHub Release 读取 `areaforge-release-manifest.json`、`SHA256SUMS` 和 `SHA256SUMS.sig`，拉取 `image@sha256`，备份数据库和上传 volume，通过 `infra/docker/migration.Dockerfile` 构建的一次性 migration image 执行 `pnpm db:migrate:deploy`，再切换 `AREAFORGE_IMAGE` 和 `APP_VERSION`。
+
+默认策略应为 `AREAFORGE_AUTO_APPLY=none`。若要定时自动应用 patch 版本，再改为 `patch`，并要求 release manifest 中 `autoApply.patch=true`。minor/major 更新建议人工执行 `apply --yes --tag <tag>`。

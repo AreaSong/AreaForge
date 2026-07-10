@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://areaforge.local/schemas/areaforge-release-manifest.schema.json",
+  "title": "AreaForge GitHub Release Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "app",
+    "version",
+    "channel",
+    "releasedAt",
+    "gitCommit",
+    "minimumAppVersion",
+    "webImage",
+    "webImageDigest",
+    "requiresMigration",
+    "sha256SumsAsset",
+    "signatureAsset",
+    "autoApply",
+    "smoke",
+    "releaseNotesUrl"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "app": { "const": "AreaForge" },
+    "version": { "type": "string", "pattern": "^v?\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$" },
+    "channel": { "enum": ["stable", "preview"] },
+    "releasedAt": { "type": "string", "format": "date-time" },
+    "gitCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "minimumAppVersion": { "type": "string", "pattern": "^v?\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$" },
+    "webImage": {
+      "type": "string",
+      "pattern": "^[^\\s@:]+(?:/[^\\s@:]+)*:[^\\s@:]+$",
+      "not": { "pattern": ":latest$" }
+    },
+    "webImageDigest": {
+      "type": "string",
+      "pattern": "^[^\\s@]+@sha256:[a-f0-9]{64}$"
+    },
+    "migrationImage": {
+      "type": "string",
+      "pattern": "^[^\\s@:]+(?:/[^\\s@:]+)*:[^\\s@:]+$",
+      "not": { "pattern": ":latest$" }
+    },
+    "migrationImageDigest": {
+      "type": "string",
+      "pattern": "^[^\\s@]+@sha256:[a-f0-9]{64}$"
+    },
+    "requiresMigration": { "type": "boolean" },
+    "composeAsset": { "type": "string" },
+    "sha256SumsAsset": { "type": "string" },
+    "signatureAsset": { "type": "string" },
+    "autoApply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["patch", "minor", "major"],
+      "properties": {
+        "patch": { "type": "boolean" },
+        "minor": { "type": "boolean" },
+        "major": { "type": "boolean" }
+      }
+    },
+    "smoke": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["healthPath"],
+      "properties": {
+        "healthPath": { "type": "string", "pattern": "^/" }
+      }
+    },
+    "releaseNotesUrl": { "type": "string", "format": "uri" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "requiresMigration": { "const": true } },
+        "required": ["requiresMigration"]
+      },
+      "then": {
+        "required": ["migrationImage", "migrationImageDigest"]
+      }
+    }
+  ]
+}

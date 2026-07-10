@@ -76,6 +76,7 @@
 - `development/ai-provider-integration-design.md`：真实 AI provider 接入确认设计。
 - `development/second-stage-long-term-loop-design.md`：第二阶段长期闭环确认设计。
 - `development/production-release-runbook.md`：生产发布、备份与恢复确认 runbook。
+- `development/github-release-updater-design.md`：GitHub Release 自动更新器设计。
 - `development/package-e-e1-release-record-draft.md`：Package E Batch E1 发布记录草案。
 - `development/package-e-e2-restore-drill-record.md`：Package E Batch E2 发布前备份与恢复演练记录。
 - `development/package-e-e3-prod-local-release-record.md`：Package E Batch E3 本机单机生产发布记录。
@@ -90,6 +91,7 @@
 
 - `deployment/docker-compose.md`：Docker Compose 策略。
 - `deployment/backup-restore.md`：备份与恢复。
+- `deployment/github-release-updater.md`：GitHub Release 驱动的服务器侧受控自动更新。
 
 ## 安全
 

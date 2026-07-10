@@ -20,6 +20,7 @@
 | `packages/storage/**` | 上传策略测试，大小、MIME、路径穿越边界验证 |
 | `apps/web/**` UI | `pnpm check`，可启动时用浏览器或截图检查主要页面 |
 | `infra/**`、`docker-compose*.yml` | `docker compose config`，部署文档同步检查 |
+| `.github/workflows/**`、`ops/github-release-updater/**`、`infra/docker/migration.Dockerfile` | `pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`，涉及镜像时补充 Docker build |
 | `.env.example`、配置解析 | 配置 schema 覆盖检查，敏感字段不入库检查 |
 | 高风险包确认前准备 | `pnpm risk:preflight`，确认只读护栏、配置键、文档引用和危险默认值 |
 
@@ -299,6 +300,23 @@
 注意：Package E 已按本机单机生产目标完成；远端服务器、域名 HTTPS 和真实 Nginx 流量切换若引入，需要另列外部部署验收。
 
 `pnpm package-e:preflight`、`pnpm risk:preflight` 和 `pnpm docs:completion` 均采用 Package E 批次感知门禁：E1-E4 收口前 Package E 主状态必须保持锁定；每个完成批次都必须包含明确确认、`pnpm` 验证、烟测/备份/恢复/发布/回滚证据、文档同步和残余风险。Package E 最终完成行还必须包含发布、备份、恢复、回滚、`release:evidence:validate`、`report_only`、migration deploy 执行载体、镜像 digest 和 Nginx 证据。根 `package.json` 不允许新增生产 deploy、backup、restore、`docker compose up/down` 或服务器命令脚本；现有 `db:migrate:deploy` 只能作为 Package E 确认后的受控执行参考。
+
+## GitHub Release 自动更新专项验证
+
+服务器侧 GitHub Release updater 改动至少运行：
+
+- `pnpm github-release-updater:preflight`
+- `pnpm shellcheck:updater`
+- `pnpm check`
+- 如改动 Dockerfile：`docker build -f infra/docker/migration.Dockerfile .`
+
+验证重点：
+
+- Release manifest 必须包含 `webImageDigest`、`migrationImageDigest`、`SHA256SUMS`、`SHA256SUMS.sig` 和 `autoApply` 策略。
+- updater 必须校验签名/hash、拒绝 `latest`、使用锁、发布前备份、一次性 migration image、健康 smoke 和应用镜像回滚。
+- updater 日志不得打印数据库 URL、生产 `.env` 内容、密码、AI key、完整 prompt、附件内容或上传绝对路径。
+- Web runtime 不得新增 updater route、Docker/backup/restore/migration 命令入口或 `docker.sock` 访问。
+- `AREAFORGE_AUTO_APPLY=none` 是默认策略；patch 自动应用必须同时满足服务器配置和 manifest `autoApply.patch=true`。
 
 ## docs 100% 最终门禁
 
