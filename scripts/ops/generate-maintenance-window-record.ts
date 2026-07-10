@@ -40,6 +40,14 @@ function main(): void {
     `cadence: ${required.values.cadence}`,
     `environment: ${required.values.environment}`,
     `commandsRun: ${commandsRun()}`,
+    `readinessOverall: ${summaryStatus(readinessJson.overall, ["pass", "warn", "fail", "blocked", "unknown"])}`,
+    `evidenceBundleStatus: ${summaryStatus(evidenceBundleJson.status, ["ready", "needs_attention", "blocked"])}`,
+    `alertPreviewStatus: ${summaryStatus(alertPreviewJson.status, ["ok", "watch", "warning", "critical"])}`,
+    `healthStatus: ${signalStatus(readinessJson, "health")}`,
+    `updateAgentStatus: ${signalStatus(readinessJson, "updateAgent")}`,
+    `authenticatedSmokeStatus: ${signalStatus(readinessJson, "authenticatedSmoke")}`,
+    `backupStatus: ${signalStatus(readinessJson, "backup")}`,
+    `infrastructureStatus: ${signalStatus(readinessJson, "infrastructure")}`,
     `readinessSummaryHash: ${readinessText ? `sha256:${sha256(readinessText)}` : "not-applicable"}`,
     `evidenceBundleHash: ${evidenceBundleHash(evidenceBundleJson, evidenceBundleText)}`,
     `alertPreviewHash: ${alertPreviewText ? `sha256:${sha256(alertPreviewText)}` : "not-applicable"}`,
@@ -90,6 +98,18 @@ function requiredEnv(): {
 function commandsRun(): string {
   return stringOrNull(process.env.AREAFORGE_MAINTENANCE_COMMANDS_RUN) ??
     "pnpm enterprise:operability:preflight, pnpm maintenance:cadence:preflight, pnpm residuals:review-due, pnpm ops:readiness:summary, pnpm ops:evidence:bundle, pnpm ops:alert:preview";
+}
+
+function summaryStatus(value: unknown, allowed: string[]): string {
+  return typeof value === "string" && allowed.includes(value) ? value : "not-applicable";
+}
+
+function signalStatus(source: JsonObject, signalName: string): string {
+  const signals = source.signals;
+  if (!signals || typeof signals !== "object") return "not-applicable";
+  const signal = (signals as JsonObject)[signalName];
+  if (!signal || typeof signal !== "object") return "not-applicable";
+  return summaryStatus((signal as JsonObject).status, ["pass", "warn", "fail", "blocked", "unknown"]);
 }
 
 function inferDueResidualIds(...sources: JsonObject[]): string {

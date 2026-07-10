@@ -37,6 +37,14 @@ try {
 
   assertIncludes(generated.stdout, "windowId: maintenance-window-20260710234500");
   assertIncludes(generated.stdout, "readinessSummaryHash: sha256:");
+  assertIncludes(generated.stdout, "readinessOverall: warn");
+  assertIncludes(generated.stdout, "evidenceBundleStatus: needs_attention");
+  assertIncludes(generated.stdout, "alertPreviewStatus: warning");
+  assertIncludes(generated.stdout, "healthStatus: pass");
+  assertIncludes(generated.stdout, "updateAgentStatus: unknown");
+  assertIncludes(generated.stdout, "authenticatedSmokeStatus: warn");
+  assertIncludes(generated.stdout, "backupStatus: unknown");
+  assertIncludes(generated.stdout, "infrastructureStatus: pass");
   assertIncludes(generated.stdout, "evidenceBundleHash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   assertIncludes(generated.stdout, "alertPreviewHash: sha256:");
   assertIncludes(generated.stdout, "residualReviewHash: sha256:");
@@ -72,6 +80,13 @@ function createReadiness(): unknown {
     checkedAt: "2026-07-10T23:45:00+08:00",
     overall: "warn",
     residualRiskIds: ["AF-RISK-OPS-001"],
+    signals: {
+      health: { status: "pass" },
+      updateAgent: { status: "unknown" },
+      authenticatedSmoke: { status: "warn" },
+      backup: { status: "unknown" },
+      infrastructure: { status: "pass" },
+    },
     safetyFacts: {
       serverCommandAttempted: false,
       backupRestoreAttempted: false,

@@ -35,6 +35,14 @@ operator: <operator>
 cadence: daily/weekly/monthly/release/incident
 environment: production/staging/local/ci
 commandsRun: pnpm enterprise:operability:preflight, pnpm maintenance:cadence:preflight, pnpm residuals:review-due, pnpm ops:readiness:summary, pnpm ops:evidence:bundle, pnpm ops:alert:preview
+readinessOverall: pass/warn/fail/blocked/unknown/not-applicable
+evidenceBundleStatus: ready/needs_attention/blocked/not-applicable
+alertPreviewStatus: ok/watch/warning/critical/not-applicable
+healthStatus: pass/warn/fail/blocked/unknown/not-applicable
+updateAgentStatus: pass/warn/fail/blocked/unknown/not-applicable
+authenticatedSmokeStatus: pass/warn/fail/blocked/unknown/not-applicable
+backupStatus: pass/warn/fail/blocked/unknown/not-applicable
+infrastructureStatus: pass/warn/fail/blocked/unknown/not-applicable
 readinessSummaryHash: <sha256-or-not-applicable>
 evidenceBundleHash: <sha256-or-not-applicable>
 alertPreviewHash: <sha256-or-not-applicable>

@@ -20,6 +20,14 @@ const requiredScalarFields = [
   "cadence",
   "environment",
   "commandsRun",
+  "readinessOverall",
+  "evidenceBundleStatus",
+  "alertPreviewStatus",
+  "healthStatus",
+  "updateAgentStatus",
+  "authenticatedSmokeStatus",
+  "backupStatus",
+  "infrastructureStatus",
   "readinessSummaryHash",
   "evidenceBundleHash",
   "alertPreviewHash",
@@ -80,6 +88,12 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   requireIsoTimestamp(fields, "finishedAt", issues);
   requireOneOf(fields, "cadence", ["daily", "weekly", "monthly", "release", "incident"], issues);
   requireOneOf(fields, "environment", ["production", "staging", "local", "ci"], issues);
+  requireOneOf(fields, "readinessOverall", ["pass", "warn", "fail", "blocked", "unknown", "not-applicable"], issues);
+  requireOneOf(fields, "evidenceBundleStatus", ["ready", "needs_attention", "blocked", "not-applicable"], issues);
+  requireOneOf(fields, "alertPreviewStatus", ["ok", "watch", "warning", "critical", "not-applicable"], issues);
+  for (const field of ["healthStatus", "updateAgentStatus", "authenticatedSmokeStatus", "backupStatus", "infrastructureStatus"] as const) {
+    requireOneOf(fields, field, ["pass", "warn", "fail", "blocked", "unknown", "not-applicable"], issues);
+  }
   requireOneOf(fields, "residualReviewStatus", ["pass", "warn", "fail"], issues);
   requireOneOf(fields, "result", ["pass", "warn", "fail", "blocked"], issues);
   for (const field of requiredNestedFields) {

@@ -10,16 +10,19 @@ try {
   const validRecord = path.join(tempDir, "maintenance-window-record.txt");
   const invalidCommandRecord = path.join(tempDir, "maintenance-window-command.txt");
   const invalidSafetyRecord = path.join(tempDir, "maintenance-window-safety.txt");
+  const invalidStatusRecord = path.join(tempDir, "maintenance-window-status.txt");
   const invalidSecretRecord = path.join(tempDir, "maintenance-window-secret.txt");
 
   writeFileSync(validRecord, createRecord());
   writeFileSync(invalidCommandRecord, createRecord().replace("pnpm residuals:review-due", "pnpm docs:readiness"));
   writeFileSync(invalidSafetyRecord, createRecord().replace("updaterApplyAttempted: no", "updaterApplyAttempted: yes"));
+  writeFileSync(invalidStatusRecord, createRecord().replace("readinessOverall: warn", "readinessOverall: maybe"));
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: AUTH_SESSION_SECRET=super-secret\n`);
 
   expectExit("valid maintenance window record passes", [validRecord], 0, "maintenanceWindowRecordEvidenceHash: sha256:");
   expectExit("missing residual command fails", [invalidCommandRecord], 1);
   expectExit("updater apply in maintenance window fails", [invalidSafetyRecord], 1);
+  expectExit("invalid status summary fails", [invalidStatusRecord], 1);
   expectExit("secret-like value fails", [invalidSecretRecord], 1);
 
   console.log("maintenance window validator selftest passed.");
@@ -55,6 +58,14 @@ function createRecord(): string {
     "cadence: weekly",
     "environment: production",
     "commandsRun: pnpm enterprise:operability:preflight, pnpm maintenance:cadence:preflight, pnpm residuals:review-due, pnpm ops:readiness:summary, pnpm ops:evidence:bundle, pnpm ops:alert:preview",
+    "readinessOverall: warn",
+    "evidenceBundleStatus: needs_attention",
+    "alertPreviewStatus: warning",
+    "healthStatus: pass",
+    "updateAgentStatus: unknown",
+    "authenticatedSmokeStatus: warn",
+    "backupStatus: unknown",
+    "infrastructureStatus: pass",
     "readinessSummaryHash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "evidenceBundleHash: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "alertPreviewHash: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
