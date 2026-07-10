@@ -16,7 +16,7 @@
 - `versions/v0.4-second-stage-long-term-loop.md`：第二阶段长期闭环。
 - `versions/v1.0-prod-release.md`：生产发布闭环。
 
-当前进度：v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环。Package A-E 均已完成，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新运行 `0.1.5`。后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移。
+当前进度：v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环。Package A-E 均已完成，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新运行 `0.1.5`。后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移；长期运营状态以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
 
 ## 使用规则
 
@@ -24,3 +24,4 @@
 - 版本计划只描述阶段，不承载具体实现细节。
 - 具体执行事项拆到 `tasks/**`。
 - 每次功能发布后必须同步对应 release tag、验证结果、线上 health、update-agent 状态和残余风险。
+- 发布或运维状态变化时必须同步 ops readiness、残余风险 ID 和 release workflow 证据。

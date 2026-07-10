@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge AI Governance"
+  short_description: "AI privacy, cost, and fallback gates"
+  default_prompt: "Use $areaforge-ai-governance to check AreaForge AI provider privacy, cost, and fallback boundaries."

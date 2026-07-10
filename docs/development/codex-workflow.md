@@ -2,7 +2,7 @@
 
 ## 定位
 
-AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验证、文件安全和版本规划思想，但不引入重型 task-loop、runtime registry、residual ledger 或自动 prompt 执行队列。
+AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验证、文件安全、残余风险分类和版本规划思想，也吸收 AreaFlow 的只读 operations readiness 思路，但不引入重型 task-loop、runtime registry、数据库化 residual ledger、command_requests 或自动 prompt 执行队列。
 
 ## 工作层次
 
@@ -60,6 +60,17 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 - 带文件路径和行号。
 - 区分 bug、风险、缺测试、缺文档和开放问题。
 
+### Ops / Release
+
+适合生产健康、备份、update-agent、GitHub Release、签名、自动更新策略、回滚目标和长期运营 readiness。
+
+要求：
+
+- 优先读取 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md`。
+- 默认只读检查；写入生产动作必须走高风险确认。
+- 发布前本地和 CI 至少运行 `pnpm ops:readiness`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater`、`pnpm docs:readiness`、`pnpm risk:preflight` 和 `pnpm check`。
+- 残余项使用稳定 ID，不把监控缺口或接受例外混成当前功能未完成。
+
 ## 子代理使用规则
 
 - 只有用户明确要求使用子代理、并行审查或分工时才使用。
@@ -82,13 +93,13 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 当一次功能更新准备进入线上时，默认走 GitHub Release 路径，而不是只在服务器上手动改代码：
 
 1. 先同步 `docs/**`、`tasks/**` 和 `workflow/**`，确认源事实没有漂移。
-2. 按 `docs/development/validation-matrix.md` 跑对应验证，至少覆盖 `pnpm check`、`pnpm docs:readiness`、`pnpm risk:preflight` 和 `git diff --check`；涉及更新器时补跑 `pnpm github-release-updater:preflight` 与 `pnpm shellcheck:updater`。
+2. 按 `docs/development/validation-matrix.md` 跑对应验证，至少覆盖 `pnpm check`、`pnpm docs:readiness`、`pnpm risk:preflight`、`pnpm ops:readiness` 和 `git diff --check`；涉及更新器时补跑 `pnpm github-release-updater:preflight` 与 `pnpm shellcheck:updater`。
 3. bump 版本并提交干净 commit。
-4. 创建并推送 `vX.Y.Z` tag，让 `.github/workflows/release.yml` 生成 GitHub Release、GHCR Web/migration 镜像、manifest、`SHA256SUMS` 和 cosign bundle。
+4. 创建并推送 `vX.Y.Z` tag，让 `.github/workflows/release.yml` 先执行 validate job，再生成 GitHub Release、GHCR Web/migration 镜像、manifest、`SHA256SUMS` 和 cosign bundle；stable release 缺签名密钥必须失败。
 5. 通过 Web 版本中心提交受控更新请求，或由管理员在服务器执行 updater；Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
 6. 更新成功后，把 Release tag、线上 health、镜像 digest、update-agent 状态和残余风险同步回发布记录或对应文档。
 
-是否需要额外 Codex skill：当前仓库内先不强制。若未来希望在 AreaForge、AreaMatrix、AreaFlow 或其他项目复用同一套“改功能 -> 同步 docs -> 发 Release -> 受控更新 -> 回写证据”的节奏，可以再用个人 skill 固化该流程。
+当前仓库已提供 repo-local Codex skills，源目录为 `.codex/skills-src/`，自动发现入口为 `.agents/skills/`。跨多个治理面时先触发 `areaforge-operating-loop` 做分级和 owner 路由；涉及企业治理、发布、真实体验、文档同步、生产运维、观测、事故响应、安全、供应链、残余风险、AI 或验证选择时，再触发对应 `areaforge-*` skill；变更 skill 后运行 `pnpm skills:validate`。
 
 ## 收尾报告
 

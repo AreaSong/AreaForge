@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge Incident Response"
+  short_description: "Triage rollback and postmortem workflow"
+  default_prompt: "Use $areaforge-incident-response to triage an AreaForge incident, choose containment, and record evidence."

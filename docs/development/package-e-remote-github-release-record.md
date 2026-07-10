@@ -170,6 +170,6 @@ Web runtime 不直接执行 `docker pull`、`docker compose`、`pg_dump`、migra
 ## 残余风险与后续规则
 
 - 当前 `AREAFORGE_AUTO_APPLY=none`，所以后续新版本不会静默自动应用；需要通过 Web 受控请求、手动 updater 或显式调整策略触发。
-- updater 内置 smoke 只检查 `/api/health`；完整登录、任务、计时、附件和 AI smoke 仍应通过 `AREAFORGE_EXTRA_SMOKE_COMMAND` 或人工发布检查补充。
+- updater 内置 smoke 只检查 `/api/health`；仓库现已提供 `pnpm smoke:prod-readonly` 作为 `AREAFORGE_EXTRA_SMOKE_COMMAND` 的默认只读补强，可覆盖登录、核心只读 API、update-status 和可选附件下载。创建任务、计时、附件上传和 AI 外呼等写入型 smoke 仍需专门 smoke 账号和单独确认的写入策略。
 - 数据库恢复和上传目录恢复仍不自动执行；失败时默认只回滚应用镜像和 `APP_VERSION`。
 - 后续每次功能发布应使用干净 commit、版本 bump、tag、GitHub Release，并验证 `SHA256SUMS` 与 `SHA256SUMS.sig` 后再让服务器更新。

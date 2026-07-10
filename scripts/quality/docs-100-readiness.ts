@@ -25,6 +25,15 @@ const requiredFiles = [
   "docs/development/ai-provider-integration-design.md",
   "docs/development/second-stage-long-term-loop-design.md",
   "docs/development/production-release-runbook.md",
+  "docs/development/dependency-policy.md",
+  "docs/development/operational-readiness.md",
+  "docs/development/residual-risk-ledger.md",
+  "SECURITY.md",
+  ".github/dependabot.yml",
+  ".github/pull_request_template.md",
+  "scripts/quality/governance-preflight.ts",
+  "scripts/quality/ops-readiness-preflight.ts",
+  "scripts/ops/operational-readiness-summary.ts",
   "scripts/quality/package-d-preflight.ts",
   "scripts/quality/package-e-preflight.ts",
   "tasks/backlog/0015-structured-state-migration.md",
@@ -104,6 +113,8 @@ function main(): void {
   checkCompletionGateTerms();
   checkCompletionScriptGates();
   checkRiskPreflightBatchGuardTerms();
+  checkGovernancePreflightTerms();
+  checkOpsReadinessTerms();
   checkPackageDPreflightTerms();
   checkPackageEPreflightTerms();
   checkMasteryProofBasicTraceability();
@@ -339,6 +350,67 @@ function checkRiskPreflightBatchGuardTerms(): void {
     ok: missing.length === 0,
     detail: missing.length === 0
       ? "risk preflight keeps D1-D5 unlocks evidence-gated and route/token scans narrow"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkGovernancePreflightTerms(): void {
+  const packageJson = read("package.json");
+  const ci = read(".github/workflows/ci.yml");
+  const readme = read("README.md");
+  const agents = read("AGENTS.md");
+  const validationMatrix = read("docs/development/validation-matrix.md");
+  const docsReadme = read("docs/README.md");
+  const governancePreflight = read("scripts/quality/governance-preflight.ts");
+  const dependencyPolicy = read("docs/development/dependency-policy.md");
+  const requiredTokens = [
+    [packageJson, "\"governance:preflight\": \"tsx scripts/quality/governance-preflight.ts\"", "package.json"],
+    [ci, "pnpm governance:preflight", ".github/workflows/ci.yml"],
+    [readme, "pnpm governance:preflight", "README.md"],
+    [agents, "docs/development/dependency-policy.md", "AGENTS.md"],
+    [validationMatrix, "pnpm governance:preflight", "validation-matrix"],
+    [docsReadme, "development/dependency-policy.md", "docs/README.md"],
+    [governancePreflight, "SECURITY.md", "governance-preflight"],
+    [governancePreflight, ".github/dependabot.yml", "governance-preflight"],
+    [governancePreflight, ".github/pull_request_template.md", "governance-preflight"],
+    [dependencyPolicy, "Dependabot", "dependency-policy"],
+    [dependencyPolicy, "SBOM", "dependency-policy"],
+  ] as const;
+  const missing = requiredTokens
+    .filter(([content, token]) => !content.includes(token))
+    .map(([, token, source]) => `${source}:${token}`);
+
+  checks.push({
+    name: "governance preflight terms",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "public governance entrypoints, dependency policy, CI gate, and docs references are present"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkOpsReadinessTerms(): void {
+  const readiness = read("docs/development/operational-readiness.md");
+  const residual = read("docs/development/residual-risk-ledger.md");
+  const script = read("scripts/quality/ops-readiness-preflight.ts");
+  const skillsReadme = read(".codex/skills-src/README.md");
+  const requiredTerms = [
+    "只读运营证据聚合入口",
+    "AF-RISK-OPS-001",
+    "AF-RISK-REL-001",
+    "AF-RISK-SC-001",
+    "pnpm ops:readiness",
+    "pnpm ops:readiness:summary",
+    "areaforge-operating-loop",
+    "release workflow validates before build",
+  ];
+  const combined = `${readiness}\n${residual}\n${script}\n${skillsReadme}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  checks.push({
+    name: "ops readiness terms",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "operating loop, ops readiness, residual IDs, and release hard-gate evidence are present"
       : `missing ${missing.join(", ")}`,
   });
 }

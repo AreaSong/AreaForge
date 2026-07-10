@@ -67,6 +67,9 @@
 - `development/implementation-order.md`：实现顺序。
 - `development/pre-code-closure.md`：开发前闭环清单。
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
+- `development/dependency-policy.md`：依赖、GitHub Actions、Docker base image 和供应链治理策略。
+- `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级和只读运营证据入口。
+- `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。
 - `development/validation-matrix.md`：按改动范围选择验证。
 - `development/validation-matrix.md` 中的 `pnpm risk:preflight`：高风险包确认前的只读护栏预检。
 - `development/doc-sync-checklist.md`：文档同步和漂移检查。
@@ -98,6 +101,7 @@
 
 - `security/threat-model.md`：第一版威胁模型。
 - `security/file-ai-safety.md`：文件上传、附件访问和 AI 调用安全边界。
+- 根目录 `SECURITY.md`：安全漏洞私密报告和公开披露边界。
 
 ## 执行与版本
 

@@ -53,7 +53,31 @@ pnpm docs:readiness
 pnpm docs:completion
 pnpm risk:preflight
 pnpm github-release-updater:preflight
+pnpm governance:preflight
+pnpm ops:readiness
+pnpm ops:readiness:summary
+pnpm skills:validate
+pnpm smoke:prod-readonly
 ```
+
+## 长期运营 Skills
+
+AreaForge 已新增 repo-local Codex skills，用于把项目从“能运行”推进到“可长期运营”。源目录为 `.codex/skills-src/`，自动发现入口为 `.agents/skills/`。
+
+- Release：`.codex/skills-src/areaforge-release-operator`
+- Operating Loop：`.codex/skills-src/areaforge-operating-loop`
+- QA Smoke：`.codex/skills-src/areaforge-qa-smoke`
+- Docs Sync：`.codex/skills-src/areaforge-doc-sync`
+- SRE Ops：`.codex/skills-src/areaforge-sre-ops`
+- Security Governance：`.codex/skills-src/areaforge-security-governance`
+- Product Experience：`.codex/skills-src/areaforge-product-experience`
+- AI Governance：`.codex/skills-src/areaforge-ai-governance`
+- Validation Driver：`.codex/skills-src/areaforge-validation-driver`
+- Enterprise Governance：`.codex/skills-src/areaforge-enterprise-governance`
+- Observability：`.codex/skills-src/areaforge-observability`
+- Incident Response：`.codex/skills-src/areaforge-incident-response`
+- Supply Chain：`.codex/skills-src/areaforge-supply-chain`
+- Residual Ledger：`.codex/skills-src/areaforge-residual-ledger`
 
 ## 文档入口
 
@@ -69,10 +93,14 @@ pnpm github-release-updater:preflight
 - 开发顺序：`docs/development/implementation-order.md`
 - 开发前闭环：`docs/development/pre-code-closure.md`
 - 协作工作流：`docs/development/codex-workflow.md`
+- 依赖治理：`docs/development/dependency-policy.md`
+- 长期运营 readiness：`docs/development/operational-readiness.md`
+- 残余风险台账：`docs/development/residual-risk-ledger.md`
 - 验证矩阵：`docs/development/validation-matrix.md`
 - 部署与备份：`docs/deployment/**`
 - 安全模型：`docs/security/threat-model.md`
 - 文件与 AI 安全：`docs/security/file-ai-safety.md`
+- 安全披露：`SECURITY.md`
 - 技术决策：`docs/adr/**`
 - 轻量任务：`tasks/**`
 - 版本规划：`workflow/**`
@@ -82,9 +110,9 @@ pnpm github-release-updater:preflight
 后续功能完成后默认走 GitHub Release 路径：
 
 1. 同步 `docs/**`、`tasks/**`、`workflow/**` 和相关入口 README。
-2. 运行 `pnpm check`、`pnpm docs:readiness`、`pnpm docs:completion`、`pnpm risk:preflight`，涉及更新器时补跑 `pnpm github-release-updater:preflight` 和 `pnpm shellcheck:updater`。
-3. bump 版本，提交干净 commit，创建并推送 `vX.Y.Z` tag。
-4. 等待 GitHub Release workflow 生成 Web/migration 镜像、manifest、`SHA256SUMS` 和 `SHA256SUMS.sig`。
+2. 运行 `pnpm check`、`pnpm docs:readiness`、`pnpm docs:completion`、`pnpm risk:preflight` 和 `pnpm ops:readiness`，涉及更新器时补跑 `pnpm github-release-updater:preflight` 和 `pnpm shellcheck:updater`。
+3. 统一 bump AreaForge workspace 版本，提交干净 commit，创建并推送 `vX.Y.Z` tag。
+4. 等待 GitHub Release workflow 先通过 validate job，再生成 Web/migration 镜像、manifest、`SHA256SUMS` 和 `SHA256SUMS.sig`；stable release 缺少 cosign 签名密钥时必须失败。
 5. 通过 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
 
 Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。

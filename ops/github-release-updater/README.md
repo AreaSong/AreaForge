@@ -17,6 +17,11 @@ Current remote production state:
 The detailed release evidence is tracked in
 `docs/development/package-e-remote-github-release-record.md`.
 
+Repository releases now run the `.github/workflows/release.yml` validate job
+before any image build/push. Stable releases fail closed if cosign signing key
+secrets are missing; unsigned placeholder assets are only allowed for preview
+channel experiments and are not production trust evidence.
+
 The updater supports three modes:
 
 - `check`: verify the latest release manifest and report whether an update is available.
@@ -48,9 +53,47 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now areaforge-updater.timer
 ```
 
-Production default should start with `AREAFORGE_AUTO_APPLY=none`. After the
-first successful manual update, use `patch` if patch versions may be applied
-without an operator.
+Production currently stays on `AREAFORGE_AUTO_APPLY=none`. Changing it to
+`patch` or any stronger auto-apply policy requires an explicit policy change,
+fresh signed-release evidence, backup readiness, rollback evidence, and smoke
+coverage.
+
+Long-term operations readiness and residual risk IDs are tracked in
+`docs/development/operational-readiness.md` and
+`docs/development/residual-risk-ledger.md`. Run the local read-only gate with:
+
+```bash
+pnpm ops:readiness
+```
+
+To generate a JSON readiness summary for a release record or operator handoff,
+run:
+
+```bash
+AREAFORGE_READINESS_BASE_URL=https://forge.areasong.top \
+AREAFORGE_READINESS_EXPECTED_VERSION=0.1.5 \
+pnpm ops:readiness:summary
+```
+
+The summary command is read-only. It may call `/api/health`, optionally log in
+with a smoke account to read `/api/system/update-status`, and optionally read a
+redacted status or smoke output file. It must not execute Docker, backup,
+restore, migration, rollback, shell, or server commands.
+
+Read-only extra smoke can be wired through `AREAFORGE_EXTRA_SMOKE_COMMAND`.
+The repo-provided command logs in with a smoke account, checks core read-only
+APIs, checks update status, and optionally downloads one known attachment:
+
+```bash
+AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
+AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
+AREAFORGE_SMOKE_EMAIL=admin@example.com
+AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
+AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5
+AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
+```
+
+Do not put the smoke password directly in Git or release records.
 
 The Web version center may submit controlled check/apply/rollback/policy
 requests into the ops-state directory. The server-side update agent consumes

@@ -28,7 +28,10 @@ Nginx HTTPS -> 127.0.0.1:WEB_PORT -> web container -> postgres
 
 ## 发布前门禁
 
+- GitHub Release workflow 必须先通过 `validate` job，再构建和发布镜像；stable release 缺少 `COSIGN_PRIVATE_KEY_B64` 或 `COSIGN_PRIVATE_KEY` 时必须失败。
 - `pnpm check` 通过。
+- `pnpm governance:preflight` 通过。
+- `pnpm ops:readiness` 通过；该命令只检查长期运营证据入口和 release hard gate，不连接生产。
 - `pnpm package-e:preflight` 通过；该命令只做本地 release artifact 结构检查和 compose config，不执行生产部署、备份、恢复或 migration。
 - `docker compose config` 通过。
 - `docker compose --env-file .env.example -f docker-compose.prod.yml config` 通过，用占位值验证生产 compose 结构。裸跑 `docker compose -f docker-compose.prod.yml config` 若没有生产 env，预期会因 `AUTH_SESSION_SECRET is required` 等 required production env 缺失而失败。
@@ -111,7 +114,7 @@ GitHub Release 必须发布以下 assets：
 4. 先备份 PostgreSQL、上传 volume、生产 env、compose、Nginx 和 release assets。
 5. 使用一次性 migration image 执行 `pnpm db:migrate:deploy`，日志中只能显示 `DATABASE_URL=<redacted>`。
 6. 写入 `AREAFORGE_IMAGE=<image@sha256>` 和 `APP_VERSION=<version>` 后启动 web。
-7. 执行 `/api/health` 和可选 `AREAFORGE_EXTRA_SMOKE_COMMAND`。
+7. 执行 `/api/health` 和可选 `AREAFORGE_EXTRA_SMOKE_COMMAND`；仓库提供的默认只读命令是 `pnpm smoke:prod-readonly`，应通过 `AREAFORGE_SMOKE_PASSWORD_FILE` 读取 smoke 密码。
 8. 失败时回滚应用镜像和 `APP_VERSION`，记录失败原因；默认不自动恢复生产数据库或移动上传目录。
 
 自动策略：
@@ -133,10 +136,10 @@ pnpm github-release-updater:preflight
 后续功能完成后，推荐按以下路径发布：
 
 1. 同步相关 docs/tasks/workflow，确认没有源事实漂移。
-2. 运行 `pnpm check`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater` 和必要的专项测试。
+2. 运行 `pnpm check`、`pnpm governance:preflight`、`pnpm ops:readiness`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater` 和必要的专项测试。
 3. bump 所有 AreaForge workspace package version。
 4. 提交干净 commit。
-5. 创建并推送 `vX.Y.Z` tag。
+5. 创建并推送 `vX.Y.Z` tag；tag 版本必须和根 `package.json` 版本一致。
 6. 等待 GitHub Release workflow 成功，确认 Release assets 包含 `areaforge-release-manifest.json`、`docker-compose.prod.yml`、`SHA256SUMS`、`SHA256SUMS.sig`。
 7. 本地或 CI 验证 `sha256sum -c SHA256SUMS` 和 `cosign verify-blob --bundle SHA256SUMS.sig SHA256SUMS`。
 8. 在 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
@@ -145,7 +148,7 @@ pnpm github-release-updater:preflight
 
 ## 发布记录模板
 
-Package E 完成时必须留下发布记录。记录可以放在运维私有目录或受控 issue/comment 中，不得提交生产 `.env`、密钥、数据库 URL 或备份文件本体。
+Package E 完成时必须留下发布记录。每个进入线上并需要仓库可追溯证据的版本，应在 `docs/development/` 新建版本化发布记录，例如 `release-vX.Y.Z-record.md`。服务器私有备份、updater 记录和 smoke 日志可以保留在运维目录，但需在仓库记录中摘要 tag、digest、health、update-agent 状态和残余风险。记录不得提交生产 `.env`、密钥、数据库 URL 或备份文件本体。
 
 ```text
 releaseId:
@@ -194,6 +197,7 @@ databaseRestoreRequired: yes/no
 uploadsRestoreRequired: yes/no
 rollbackFailureReason:
 residualRisk:
+residualRiskIds:
 followUpTasks:
 expectedFailureOrStopConditions:
   migrationFailed:
@@ -218,6 +222,7 @@ pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.c
 - 日志中出现密钥、完整 prompt、完整复盘正文、附件路径或数据库 URL。
 - 附件 metadata/hash 与文件不一致。
 - 发布前数据库备份、上传目录备份或上一版本镜像信息缺失。
+- `pnpm ops:readiness` 失败，或残余风险台账显示当前发布阻塞项。
 
 ## Batch E1-E4 交付物
 

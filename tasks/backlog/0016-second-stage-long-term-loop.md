@@ -99,7 +99,7 @@
 
 - 报告决策入口：`/reports` 在周/月报告基础上提供“确认本周期策略”、 “驳回策略”和已处理回放；确认时只保存下一周期草稿，不改任务、阶段计划或复盘。
 - 任务债务重排：在 `GET /api/tasks/debt-reorder` 只读建议之后，新增确认/驳回/应用写路径时必须依赖 Package B 的 `TaskDebtEvent` 和审计记录；重复提交、部分失败和应用摘要都要可追溯。
-- 阶段调整：复用 Package B Batch 6 的 `StagePlan` 和 `StageAdjustmentDraft`；后续 Package D 若扩展应用流，只能修改用户确认的阶段计划，不批量改任务，不自动覆盖当前 active 计划。
+- 阶段调整：复用 Package B Batch 6 的 `StagePlan` 和 `StageAdjustmentDraft`；当前 Package D 已完成显式草稿与确认边界。未来若扩展更深应用流，只能修改用户确认的阶段计划，不批量改任务，不自动覆盖当前 active 计划。
 - 模拟考试：已可依赖 Package B Batch 5 的 `SimulationExam` 和 `SimulationSubjectResult`；第二阶段页面优先读结构化考试，旧 `StudyTask.type = "simulation_exam"` 只读兼容。
 - 遗忘风险：优先消费 Package B Batch 4 的掌握条件、证据和复测记录；没有显式记录时保留现有任务、计时、笔记、错题派生 fallback。
 - 状态主题深度联动：主题只能由真实信号驱动，包括风险状态、恢复状态、阶段计划、模拟考试窗口、断签、低转化和长期压强；主题不得影响可读性，也不得替代明确行动建议。

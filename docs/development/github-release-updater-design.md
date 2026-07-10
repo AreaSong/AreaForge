@@ -61,7 +61,7 @@ root agent 调用 updater / 修改自动策略 / 回写 status.json
 
 ## 产物
 
-- `.github/workflows/release.yml`：tag 或手动 workflow 触发，构建并推送 GHCR 镜像，发布 GitHub Release assets。
+- `.github/workflows/release.yml`：tag 或手动 workflow 触发，先运行 validate job，再构建并推送 GHCR 镜像，发布 GitHub Release assets；stable release 缺少 cosign 签名密钥时 fail closed。
 - `infra/docker/migration.Dockerfile`：只用于一次性 `pnpm db:migrate:deploy`，和 Web runtime 镜像分离。
 - `ops/github-release-updater/areaforge-updater.sh`：服务器侧 updater CLI。
 - `ops/github-release-updater/areaforge-updater.env.example`：私有 updater 配置模板。
@@ -71,7 +71,8 @@ root agent 调用 updater / 修改自动策略 / 回写 status.json
 - `apps/web/components/update-version-popover.tsx`、`apps/web/app/settings/page.tsx` 与 `apps/web/app/api/system/**`：首页轻量版本弹层、完整版本中心 UI 和只读/写请求 API，不执行服务器命令。
 - `ops/github-release-updater/manifest.schema.json` 与 `manifest.example.json`：Release manifest 合约。
 - `scripts/quality/github-release-updater-preflight.ts`：只读门禁，检查 updater 文件、shell 语法、manifest、workflow、migration image 和 Web 无运维入口边界。
-- `.github/workflows/ci.yml`：常规 CI 门禁，运行 `shellcheck`、updater preflight、Package E / 风险 / docs 门禁和 `pnpm check`。
+- `scripts/quality/ops-readiness-preflight.ts`：只读门禁，检查长期运营 evidence 入口、残余风险 ID、release workflow hard gate 和文档索引。
+- `.github/workflows/ci.yml`：常规 CI 门禁，运行 `shellcheck`、updater preflight、治理 / ops readiness / Package E / 风险 / docs 门禁和 `pnpm check`。
 
 ## Release Manifest 合约
 
@@ -135,6 +136,7 @@ updater 有三种命令：
 ```bash
 pnpm shellcheck:updater
 pnpm github-release-updater:preflight
+pnpm ops:readiness
 ```
 
 发布端验证：
@@ -156,5 +158,5 @@ sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 ## 残余风险
 
 - 首次远端服务器部署、域名 HTTPS 和真实 Nginx 切换已经通过 `v0.1.5` 远端签名 Release 验证；后续域名、Nginx、端口或服务器迁移仍需单独发布记录。
-- GitHub Release 签名需要配置 `COSIGN_PRIVATE_KEY_B64` / `COSIGN_PASSWORD`（或兼容的 `COSIGN_PRIVATE_KEY` 多行 PEM、GPG 签名流程）；未配置签名时 workflow 会发布占位 `SHA256SUMS.sig`，生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。
-- 完整登录、任务计时、附件上传下载等 smoke 依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`；updater 内置默认 smoke 只检查 `/api/health`。
+- GitHub Release stable 签名需要配置 `COSIGN_PRIVATE_KEY_B64` / `COSIGN_PASSWORD`（或兼容的 `COSIGN_PRIVATE_KEY` 多行 PEM）；缺少签名密钥时 stable workflow 必须失败。preview channel 可以生成 `unsigned preview` 占位资产，但生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。供应链增强残余项见 `AF-RISK-SC-001`。
+- 完整登录、任务计时、附件上传下载等 smoke 依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`；updater 内置默认 smoke 只检查 `/api/health`。生产 extra smoke 残余项见 `AF-RISK-OPS-001`。

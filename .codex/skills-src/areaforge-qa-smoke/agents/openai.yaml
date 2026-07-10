@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge QA Smoke"
+  short_description: "End-to-end user smoke evidence"
+  default_prompt: "Use $areaforge-qa-smoke to verify the AreaForge user journey and smoke evidence."

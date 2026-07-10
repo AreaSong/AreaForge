@@ -20,8 +20,7 @@ on:
           - preview
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 env:
   REGISTRY: ghcr.io
@@ -29,8 +28,67 @@ env:
   CHANNEL: ${{ inputs.channel || 'stable' }}
 
 jobs:
-  build-release:
+  validate:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Shellcheck updater
+        run: pnpm shellcheck:updater
+
+      - name: Updater preflight
+        run: pnpm github-release-updater:preflight
+
+      - name: Governance preflight
+        run: pnpm governance:preflight
+
+      - name: Ops readiness preflight
+        run: pnpm ops:readiness
+
+      - name: Package E preflight
+        run: pnpm package-e:preflight
+
+      - name: Risk preflight
+        run: pnpm risk:preflight
+
+      - name: Docs readiness
+        run: pnpm docs:readiness
+
+      - name: Docs completion
+        run: pnpm docs:completion
+
+      - name: Skills validate
+        run: pnpm skills:validate
+
+      - name: Check
+        run: pnpm check
+
+  build-release:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -50,6 +108,21 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "web_image=${REGISTRY}/${image_repo}/areaforge-web:${tag}" >> "$GITHUB_OUTPUT"
           echo "migration_image=${REGISTRY}/${image_repo}/areaforge-migration:${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release tag
+        shell: bash
+        run: |
+          tag="${{ steps.vars.outputs.tag }}"
+          version="${{ steps.vars.outputs.version }}"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release tag must look like vX.Y.Z"
+            exit 1
+          fi
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "${version}" != "${package_version}" ]; then
+            echo "::error::release tag ${tag} does not match package.json version ${package_version}"
+            exit 1
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -123,7 +196,7 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Sign checksums or create placeholder
+      - name: Sign checksums
         shell: bash
         env:
           COSIGN_PRIVATE_KEY_B64: ${{ secrets.COSIGN_PRIVATE_KEY_B64 }}
@@ -139,19 +212,24 @@ jobs:
             signing_key="cosign.key"
           fi
 
-          if [ -n "${signing_key}" ]; then
-            chmod 600 "${signing_key}"
-            if ! cosign sign-blob --yes --key "${signing_key}" --bundle SHA256SUMS.sig SHA256SUMS 2>cosign-sign.err; then
-              while IFS= read -r line; do
-                safe_line="$(printf '%s' "${line}" | sed -E 's/(COSIGN_PRIVATE_KEY|COSIGN_PRIVATE_KEY_B64|COSIGN_PASSWORD)=[^[:space:]]+/\1=<redacted>/g')"
-                echo "::error::cosign signing failed: ${safe_line}"
-              done < cosign-sign.err
+          if [ -z "${signing_key}" ]; then
+            if [ "${CHANNEL}" = "stable" ]; then
+              echo "::error::stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY"
               exit 1
             fi
-          else
             cat > SHA256SUMS.sig <<'EOF_SIG'
-          unsigned: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD repository secrets before enabling AREAFORGE_REQUIRE_SIGNATURE=true
-          EOF_SIG
+unsigned preview: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD before publishing a stable release
+EOF_SIG
+            exit 0
+          fi
+
+          chmod 600 "${signing_key}"
+          if ! cosign sign-blob --yes --key "${signing_key}" --bundle SHA256SUMS.sig SHA256SUMS 2>cosign-sign.err; then
+            while IFS= read -r line; do
+              safe_line="$(printf '%s' "${line}" | sed -E 's/(COSIGN_PRIVATE_KEY|COSIGN_PRIVATE_KEY_B64|COSIGN_PASSWORD)=[^[:space:]]+/\1=<redacted>/g')"
+              echo "::error::cosign signing failed: ${safe_line}"
+            done < cosign-sign.err
+            exit 1
           fi
 
       - name: Publish GitHub Release

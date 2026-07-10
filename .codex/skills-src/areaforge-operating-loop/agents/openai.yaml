@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge Operating Loop"
+  short_description: "Route tasks through AreaForge skills"
+  default_prompt: "Use $areaforge-operating-loop to classify AreaForge work, choose owner skills, verify evidence, and close the loop."

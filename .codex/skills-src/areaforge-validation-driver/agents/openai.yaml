@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge Validation Driver"
+  short_description: "Choose and report sufficient checks"
+  default_prompt: "Use $areaforge-validation-driver to choose and report the right AreaForge validation gates."

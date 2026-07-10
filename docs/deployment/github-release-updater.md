@@ -38,7 +38,22 @@ git tag v1.0.3
 git push origin v1.0.3
 ```
 
-`.github/workflows/release.yml` 会构建：
+`.github/workflows/release.yml` 会先运行 validate job，再构建：
+
+- `pnpm shellcheck:updater`
+- `pnpm github-release-updater:preflight`
+- `pnpm governance:preflight`
+- `pnpm ops:readiness`
+- `pnpm package-e:preflight`
+- `pnpm risk:preflight`
+- `pnpm docs:readiness`
+- `pnpm docs:completion`
+- `pnpm skills:validate`
+- `pnpm check`
+
+stable channel 缺少 `COSIGN_PRIVATE_KEY_B64` 或 `COSIGN_PRIVATE_KEY` 时必须失败；preview channel 可生成 `unsigned preview` 占位资产，但不得作为生产签名更新依据。
+
+通过后 workflow 构建：
 
 - `ghcr.io/<owner>/areaforge-web:v1.0.3`
 - `ghcr.io/<owner>/areaforge-migration:v1.0.3`
@@ -130,6 +145,42 @@ sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 10. `docker compose up -d web`。
 11. 调用 `/api/health` 和可选 extra smoke。
 12. 失败时切回上一 `AREAFORGE_IMAGE` 和 `APP_VERSION`，并记录原因。
+
+### 可选只读 extra smoke
+
+仓库提供只读生产 HTTP smoke：
+
+```bash
+pnpm smoke:prod-readonly
+```
+
+该脚本不会执行 Docker、备份、恢复、migration 或服务器命令；默认只做 HTTP 检查：
+
+- `GET /api/health`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/dashboard/today`
+- `GET /api/notes`
+- `GET /api/syllabus`
+- `GET /api/analytics/summary`
+- `GET /api/reports/periodic`
+- `GET /api/analytics/long-term-risks`
+- `GET /api/system/update-status`
+- 可选 `GET /api/attachments/:id?disposition=inline`
+
+推荐配置：
+
+```bash
+AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
+AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
+AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
+AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
+AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5
+AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
+AREAFORGE_SMOKE_ATTACHMENT_ID=<optional-known-attachment-id>
+```
+
+优先使用 `AREAFORGE_SMOKE_PASSWORD_FILE`，不要把 smoke 密码写入 Git、Release 记录、updater 日志或 shell history。若要做创建任务、计时、附件上传或 AI 外呼等写入型 smoke，应使用专门 smoke 账号和单独确认的写入策略；默认 `smoke:prod-readonly` 不污染生产业务数据。
 
 ## 定时检查
 
@@ -230,6 +281,7 @@ docker compose up -d web
 ```bash
 pnpm shellcheck:updater
 pnpm github-release-updater:preflight
+pnpm ops:readiness
 pnpm check
 ```
 

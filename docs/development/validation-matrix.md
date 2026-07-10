@@ -12,7 +12,10 @@
 |---|---|
 | `docs/**`、`README.md`、`AGENTS.md` | `rg` 检查旧引用和入口路径，`pnpm docs:readiness`，`git diff --check` |
 | `tasks/**`、`workflow/**` | 检查对应 `docs/**` 源事实是否存在，`pnpm docs:readiness`，`git diff --check` |
+| `.codex/skills-src/**`、`.agents/skills/**` | `pnpm skills:validate`，`git diff --check`；若 skill 改变企业治理、发布、运维、观测、事故、安全、供应链、残余风险、AI 或文档同步口径，补跑 `pnpm docs:readiness` 和 `pnpm risk:preflight` |
 | `package.json`、`pnpm-workspace.yaml` | `pnpm install --frozen-lockfile` 或说明无法运行原因，`pnpm check` |
+| `SECURITY.md`、`.github/dependabot.yml`、`.github/pull_request_template.md`、`docs/development/dependency-policy.md`、`scripts/quality/governance-preflight.ts` | `pnpm governance:preflight`，`pnpm docs:readiness`，`git diff --check` |
+| `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md`、`scripts/quality/ops-readiness-preflight.ts`、`scripts/ops/operational-readiness-summary.ts` | `pnpm ops:readiness`，`pnpm ops:readiness:summary`，`pnpm docs:readiness`，`git diff --check` |
 | `prisma/schema.prisma`、`prisma/migrations/**` | `pnpm db:validate`，涉及 migration 时补充迁移和回滚说明 |
 | `packages/core/**` | 相关单元测试，至少 `pnpm typecheck` |
 | `packages/db/**` | `pnpm db:generate`、`pnpm typecheck`，涉及查询行为时补测试或手动验证 |
@@ -20,7 +23,7 @@
 | `packages/storage/**` | 上传策略测试，大小、MIME、路径穿越边界验证 |
 | `apps/web/**` UI | `pnpm check`，可启动时用浏览器或截图检查主要页面 |
 | `infra/**`、`docker-compose*.yml` | `docker compose config`，部署文档同步检查 |
-| `.github/workflows/**`、`ops/github-release-updater/**`、`infra/docker/migration.Dockerfile` | `pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`，涉及镜像时补充 Docker build |
+| `.github/workflows/**`、`ops/github-release-updater/**`、`ops/update-agent/**`、`scripts/ops/production-readonly-smoke.ts`、`infra/docker/migration.Dockerfile` | `pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`、`pnpm governance:preflight`、`pnpm ops:readiness`，涉及镜像时补充 Docker build；变更 smoke 脚本时用临时 HTTP mock 或受控环境验证 `pnpm smoke:prod-readonly` |
 | `.env.example`、配置解析 | 配置 schema 覆盖检查，敏感字段不入库检查 |
 | 高风险包确认前准备 | `pnpm risk:preflight`，确认只读护栏、配置键、文档引用和危险默认值 |
 
@@ -299,7 +302,7 @@
 
 注意：Package E 已按本机单机生产目标完成，并已补充真实远端 `https://forge.areasong.top/` 的 GitHub Release `v0.1.5` 签名更新证据。当前远端 AreaForge 运行在服务器 `127.0.0.1:3020`，`127.0.0.1:3000` 在该服务器上属于 Grafana；后续域名、Nginx、端口或服务器迁移仍需另列外部部署验收。
 
-`pnpm package-e:preflight`、`pnpm risk:preflight` 和 `pnpm docs:completion` 均采用 Package E 批次感知门禁：E1-E4 收口前 Package E 主状态必须保持锁定；每个完成批次都必须包含明确确认、`pnpm` 验证、烟测/备份/恢复/发布/回滚证据、文档同步和残余风险。Package E 最终完成行还必须包含发布、备份、恢复、回滚、`release:evidence:validate`、`report_only`、migration deploy 执行载体、镜像 digest 和 Nginx 证据。根 `package.json` 不允许新增生产 deploy、backup、restore、`docker compose up/down` 或服务器命令脚本；现有 `db:migrate:deploy` 只能作为 Package E 确认后的受控执行参考。
+`pnpm package-e:preflight`、`pnpm risk:preflight` 和 `pnpm docs:completion` 均采用 Package E 批次感知门禁：历史 E1-E4 收口时，Package E 主状态必须在所有批次证据齐全后才能标为完成；后续发布仍必须包含明确确认、`pnpm` 验证、烟测/备份/恢复/发布/回滚证据、文档同步和残余风险。Package E 最终完成行还必须包含发布、备份、恢复、回滚、`release:evidence:validate`、`report_only`、migration deploy 执行载体、镜像 digest 和 Nginx 证据。根 `package.json` 不允许新增生产 deploy、backup、restore、`docker compose up/down` 或服务器命令脚本；现有 `db:migrate:deploy` 只能作为高风险确认后的受控执行参考。
 
 ## GitHub Release 自动更新专项验证
 

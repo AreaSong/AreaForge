@@ -20,6 +20,7 @@ function main(): void {
   checkCiWorkflow();
   checkReleaseWorkflow();
   checkDocs();
+  checkExtraSmokeCommand();
   checkWebRuntimeBoundary();
 
   for (const check of checks) {
@@ -47,6 +48,8 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/manifest.example.json",
     "ops/github-release-updater/manifest.schema.json",
     "ops/github-release-updater/README.md",
+    "scripts/ops/production-readonly-smoke.ts",
+    "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
     ".github/workflows/ci.yml",
     ".github/workflows/release.yml",
@@ -58,6 +61,44 @@ function checkRequiredFiles(): void {
     name: "required updater files",
     ok: missing.length === 0,
     detail: missing.length === 0 ? `${requiredFiles.length} files present` : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkExtraSmokeCommand(): void {
+  const script = read("scripts/ops/production-readonly-smoke.ts");
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const envExample = read("ops/github-release-updater/areaforge-updater.env.example");
+  const docs = [
+    read("docs/deployment/github-release-updater.md"),
+    read("docs/development/production-release-runbook.md"),
+    read("ops/github-release-updater/README.md"),
+  ].join("\n");
+  const requiredScriptTerms = [
+    "AREAFORGE_SMOKE_BASE_URL",
+    "AREAFORGE_SMOKE_EMAIL",
+    "AREAFORGE_SMOKE_PASSWORD_FILE",
+    "AREAFORGE_SMOKE_ATTACHMENT_ID",
+    "/api/auth/login",
+    "/api/dashboard/today",
+    "/api/system/update-status",
+  ];
+  const requiredDocTerms = [
+    "smoke:prod-readonly",
+    "AREAFORGE_SMOKE_PASSWORD_FILE",
+    "AREAFORGE_EXTRA_SMOKE_COMMAND",
+  ];
+  const missingScriptTerms = requiredScriptTerms.filter((term) => !script.includes(term));
+  const missingDocTerms = requiredDocTerms.filter((term) => !docs.includes(term) && !envExample.includes(term));
+  const smokeScript = packageJson.scripts?.["smoke:prod-readonly"] ?? "";
+  const ok = missingScriptTerms.length === 0 &&
+    missingDocTerms.length === 0 &&
+    smokeScript === "tsx scripts/ops/production-readonly-smoke.ts";
+  checks.push({
+    name: "extra smoke command",
+    ok,
+    detail: ok
+      ? "read-only production smoke script, package entry, updater env hints, and docs are present"
+      : `missing script terms ${missingScriptTerms.join(", ") || "none"}; missing doc terms ${missingDocTerms.join(", ") || "none"}; smoke script=${smokeScript || "missing"}`,
   });
 }
 
@@ -194,6 +235,10 @@ function checkReleaseWorkflow(): void {
     "tags:",
     "v*.*.*",
     "docker/build-push-action",
+    "needs: validate",
+    "pnpm github-release-updater:preflight",
+    "pnpm ops:readiness",
+    "pnpm check",
     "infra/docker/web.Dockerfile",
     "infra/docker/migration.Dockerfile",
     "areaforge-release-manifest.json",
@@ -202,6 +247,8 @@ function checkReleaseWorkflow(): void {
     "sha256sum areaforge-release-manifest.json docker-compose.prod.yml > SHA256SUMS",
     "COSIGN_PRIVATE_KEY_B64",
     "cosign sign-blob",
+    "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
+    "unsigned preview",
     "--yes",
     "--bundle SHA256SUMS.sig",
     "softprops/action-gh-release",
@@ -211,7 +258,7 @@ function checkReleaseWorkflow(): void {
     name: "GitHub Release workflow",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "workflow builds web and migration images, emits manifest/checksums/signature asset, and publishes a GitHub Release"
+      ? "workflow validates release gates, builds web and migration images, emits manifest/checksums/signature asset, and publishes a GitHub Release"
       : `missing ${missing.join(", ")}`,
   });
 }
@@ -230,6 +277,7 @@ function checkCiWorkflow(): void {
     "pnpm install --frozen-lockfile",
     "pnpm shellcheck:updater",
     "pnpm github-release-updater:preflight",
+    "pnpm governance:preflight",
     "pnpm package-e:preflight",
     "pnpm risk:preflight",
     "pnpm docs:readiness",
@@ -248,7 +296,7 @@ function checkCiWorkflow(): void {
     name: "GitHub CI workflow",
     ok: missing.length === 0 && forbidden.length === 0,
     detail: missing.length === 0 && forbidden.length === 0
-      ? "CI runs shellcheck, updater preflight, Package E/risk/docs gates, and pnpm check without deploy privileges"
+      ? "CI runs shellcheck, updater preflight, governance, ops readiness, Package E/risk/docs gates, and pnpm check without deploy privileges"
       : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}`,
   });
 }

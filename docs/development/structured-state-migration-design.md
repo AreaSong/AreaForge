@@ -301,7 +301,7 @@ Batch 6 已新增字段：
 - 阶段调整草稿永远 `canAutoApply=false`、`requiresUserConfirmation=true`，生成时只写 `StageAdjustmentDraft` 和审计，不改任务、复盘或考纲节点。
 - 用户显式确认草稿时，只更新关联 `StagePlan.mode/goal/status` 和 `StageAdjustmentDraft.status/appliedAt/actorId`，并写入 `AuditEvent` 变更摘要；重复确认保持幂等。
 - 用户驳回草稿时，只更新 `StageAdjustmentDraft.status=rejected` 和审计，不删除草稿。
-- 长期阶段 AI 未单独确认前，阶段调整草稿只使用本地规则，不真实 AI 外呼。
+- Package D Batch D3 后，长期阶段 AI 只允许通过鉴权 POST 显式触发草稿生成；普通 GET、SSR、后台任务和报告生成仍不得真实 AI 外呼。
 
 ## 代码切换顺序
 
