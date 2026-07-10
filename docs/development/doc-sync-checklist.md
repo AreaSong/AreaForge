@@ -38,6 +38,7 @@
 - 例行恢复演练记录若进入仓库或运维交接摘要，是否使用 `docs/development/restore-drill-record-template.md` 并通过 `pnpm restore:drill:validate`，且不把演练记录当成生产 restore 授权。
 - 周/月维护窗口记录若进入仓库或运维交接摘要，是否使用 `docs/development/maintenance-window-record-template.md` 并通过 `pnpm maintenance:window:validate`。
 - Update-agent redacted status JSON 若作为 readiness 输入或交接证据，是否使用 `docs/development/update-agent-status-record-template.md` 并通过 `pnpm update-agent:status:validate`。
+- `AF-RISK-OPS-001` 关闭证据若进入仓库或运维交接摘要，是否使用 `docs/development/ops-001-closure-packet-template.md` 并通过 `pnpm ops:ops-001:closure:validate`；生成收口包不得自动修改 residual 台账。
 - 真实产品体验复核记录若进入仓库或 release/update 交接摘要，是否使用 `docs/development/product-experience-review-record-template.md` 并通过 `pnpm experience:review:validate`。
 - 若变更长期运营 workflow 或 skill，是否同步 `.codex/skills-src/**`、`.agents/skills/**`、`README.md`、`AGENTS.md` 和相关验证/残余风险入口，并运行 `pnpm skills:validate`。
 - 若变更公开项目治理、依赖、CI、PR 模板或安全披露入口，是否同步 `SECURITY.md`、`.github/**`、`docs/development/dependency-policy.md`、`README.md` 和验证矩阵，并运行 `pnpm governance:preflight`。

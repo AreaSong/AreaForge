@@ -20,7 +20,7 @@
 - 自托管操作者上手入口为 `docs/deployment/operator-onboarding.md`，对应只读检查为 `pnpm operator:onboarding:preflight`。
 - 维护节奏入口为 `docs/development/maintenance-cadence.md`，对应只读检查为 `pnpm maintenance:cadence:preflight`。
 - 运营证据包使用 `pnpm ops:evidence:bundle` 生成，保存后用 `pnpm ops:evidence:bundle:validate` 校验 hash、信号、禁止动作和只读 safety facts。
-- 维护窗口、事故、恢复演练和 update-agent redacted status 分别使用 `pnpm maintenance:window:validate`、`pnpm incident:record:validate`、`pnpm restore:drill:validate` 和 `pnpm update-agent:status:validate`。
+- 维护窗口、事故、恢复演练、update-agent redacted status 和 OPS-001 收口包分别使用 `pnpm maintenance:window:validate`、`pnpm incident:record:validate`、`pnpm restore:drill:validate`、`pnpm update-agent:status:validate` 和 `pnpm ops:ops-001:closure:validate`。
 - `areaforge-observability`：health、日志、release identity、update-agent、备份新鲜度、AI fallback 和生产信号证据。
 - `areaforge-incident-response`：故障分级、证据冻结、止血、回滚决策、恢复验证和复盘收口。
 - `areaforge-security-governance`：鉴权、上传、AI、密钥、日志、签名 release 和服务器命令边界。

@@ -98,6 +98,7 @@ pnpm ops:alert:preview
 | 事故 | `docs/development/incident-record-template.md` | `pnpm incident:record:validate <record>` | 高风险确认、生产修复动作本身 |
 | 恢复演练 | `docs/development/restore-drill-record-template.md` | `pnpm restore:drill:validate <record>` | 生产 restore 授权 |
 | Update-agent status | `docs/development/update-agent-status-record-template.md` | `pnpm update-agent:status:validate <record.json>` | updater check/apply、策略变更 |
+| OPS-001 收口包 | `docs/development/ops-001-closure-packet-template.md` | `pnpm ops:ops-001:closure:validate <record>` | 自动关闭 residual、备份/告警/供应链健康 |
 
 ## Skill 增减规则
 
@@ -131,7 +132,7 @@ pnpm ops:alert:preview
 
 ## 当前必须持续复核的证据
 
-- `AF-RISK-OPS-001`：生产只读 smoke 配置和最近一次通过记录。
+- `AF-RISK-OPS-001`：生产只读 smoke 配置、最近一次通过记录、redacted update-agent status、operational evidence bundle 和 `pnpm ops:ops-001:closure:validate` 收口包。
 - `AF-RISK-OPS-002`：写入型生产 smoke 仍需专用账号、确认、清理策略和受控记录。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受安全默认，启用 patch 自动应用需另行关闭证据。
 - `AF-RISK-SC-001`：下一次签名 Release 的 SBOM/provenance 资产与校验记录。

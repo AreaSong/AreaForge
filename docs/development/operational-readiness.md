@@ -154,6 +154,15 @@ pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.md|txt>
 
 配置预检只读取环境变量和密码文件 metadata，不读取密码内容、不连接生产、不执行服务器命令、不写生产；它要求 HTTPS base URL、`AREAFORGE_EXTRA_SMOKE_COMMAND` 指向 `pnpm smoke:prod-readonly`、smoke 账号、权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`、期望版本和自动更新策略。记录生成器只读取 smoke 输出日志、release manifest/digest 环境变量和 redacted 环境摘要，用于减少人工拼接字段；它不读取 smoke 密码文件内容、不执行服务器命令、不写生产。该校验只读取 redacted smoke 记录，检查 `pnpm smoke:prod-readonly` 通过证据、必需只读检查项、版本/tag/digest/hash 形态、密码文件来源、update-status 覆盖、`AF-RISK-OPS-001` 残余 ID 和敏感值泄露；它不连接生产、不读取密码、不执行服务器命令、不写生产。`pnpm smoke:prod-readonly:selftest`、`pnpm smoke:prod-readonly:config:selftest` 和 `pnpm smoke:prod-readonly:record:selftest` 用于本地回归校验规则。
 
+当生产只读 smoke、redacted update-agent status 和 operational evidence bundle 都已保存并分别通过校验时，可生成 `AF-RISK-OPS-001` 收口证据包：
+
+```bash
+pnpm ops:ops-001:closure /path/to/prod-readonly-smoke-record.txt /path/to/redacted-update-status.json /path/to/operational-evidence-bundle.json > /path/to/ops-001-closure-packet.txt
+pnpm ops:ops-001:closure:validate /path/to/ops-001-closure-packet.txt
+```
+
+该生成器会先调用 `pnpm smoke:prod-readonly:validate`、`pnpm update-agent:status:validate` 和 `pnpm ops:evidence:bundle:validate`；它只读取本地 redacted 证据，不连接生产、不执行 updater、不修改 residual 台账。收口包通过后表示证据形态可交给维护者复核关闭 `AF-RISK-OPS-001`，不代表备份、告警、供应链或其他 residual 已关闭。
+
 需要把运行信号、残余风险和缺失证据组装成可交接证据包时，使用：
 
 ```bash
