@@ -36,7 +36,7 @@
 | AF-RISK-SC-002 | release-follow-up | 2026-07-24 | CI/Release 外部 GitHub Actions 已在本地 pin 到 40 位 commit SHA，`pnpm audit:prod` 已进入 workflow；仍缺 GitHub CI/Release 运行证据 | 否 | 下一次 GitHub CI 或签名 Release 记录 Actions SHA pinning gate 和 `pnpm audit:prod` 输出，且无 high/critical 生产依赖漏洞 | workflow diff、`pnpm governance:preflight` 输出、`pnpm audit:prod` 输出、GitHub Actions run 记录或发布记录摘要 | `areaforge-supply-chain` / `areaforge-enterprise-governance` |
 | AF-RISK-SC-003 | closed-evidence | 2026-10-10 | 历史 `client.query()` deprecation warning 已定位为旧 smoke 观察项；当前 lockfile 只有 `pg@8.22.0`，Prisma adapter 同源解析且 trace 查询无 warning | 否 | 后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation`，若 warning 复现则重新打开 | `pnpm why pg --recursive` 只有 `pg@8.22.0`；临时 PostgreSQL 16 库 `pnpm db:migrate:deploy` 通过；`pnpm pg:trace-deprecation` matchedWarningCount=0 | `areaforge-supply-chain` / `areaforge-sre-ops` |
 | AF-RISK-OPS-003 | deferred-work | 2026-09-10 | 未来服务器、域名、Nginx 或端口迁移会影响公网 health 和 updater 状态 | 否 | 新迁移 runbook、备份、Nginx/compose hash、health、rollback 记录齐全 | 迁移记录、release/update evidence、DNS/TLS 检查 | `areaforge-sre-ops` |
-| AF-RISK-OPS-004 | monitoring-gap | 2026-08-10 | 告警阈值已有非执行策略，`pnpm ops:alert:preview` 可预览 would-alert 决策；metrics dashboard、外部告警接收人和演练记录仍未产品化 | 否 | 配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录 | 告警配置摘要、`pnpm ops:alert:preview` 演练输出、值班窗口或外部接收人说明、恢复记录 | `areaforge-observability` |
+| AF-RISK-OPS-004 | monitoring-gap | 2026-08-10 | 告警阈值已有非执行策略，`pnpm ops:alert:preview` 可预览 would-alert 决策，`pnpm alert:drill:validate` 可校验演练记录；metrics dashboard、外部告警接收人和演练记录仍未产品化 | 否 | 配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录 | 告警配置摘要、`pnpm ops:alert:preview` 演练输出、`pnpm alert:drill:validate` 通过、值班窗口或外部接收人说明、恢复记录 | `areaforge-observability` |
 
 ## 关闭规则
 

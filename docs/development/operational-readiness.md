@@ -125,6 +125,14 @@ pnpm ops:alert:preview
 
 该命令复用 readiness 信号，输出 `read_only_alert_preview`、`wouldNotify`、severity、owner、recommendedAction、residual risk IDs 和 `safetyFacts`。它只做本地判断，不调用外部告警接收人，不发送通知，不执行服务器命令，不执行 updater apply，不写生产数据。配置 `AREAFORGE_ALERT_RECEIVER` 只会让输出显示 `<redacted>` receiver hint，不会发送请求。该命令能作为告警演练输入，但不能替代真实外部接收人、metrics dashboard 或人工值班窗口，因此不能单独关闭 `AF-RISK-OPS-004`。
 
+告警演练记录使用 `docs/development/alert-drill-record-template.md`，完成后运行：
+
+```bash
+pnpm alert:drill:validate <alert-drill-record.md|txt>
+```
+
+该校验只读取演练记录，检查字段、枚举、`AF-RISK-OPS-004` 残余 ID、hash 形态和敏感值泄露；它不发送通知、不连接外部接收人、不执行服务器命令、不写生产。`pnpm alert:drill:selftest` 用于本地回归校验规则。
+
 本地真实体验验证可使用 `pnpm smoke:local-ux`。该脚本会写入合成任务、计时、复盘、笔记附件、错题、模拟考试、阶段草稿和更新请求，因此默认要求 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，且只允许 `localhost` / `127.0.0.1`，除非显式设置 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true`。它只能证明当前本地验证环境的核心闭环可用，不能关闭生产写入型 smoke 残余项 `AF-RISK-OPS-002`。
 
 生产 smoke 与告警策略见 `docs/development/production-smoke-alerting-strategy.md`。该文档只定义写入型 smoke 的确认字段、合成数据命名空间、清理/失败处理和告警阈值；没有用户确认、专用账号、清理策略和实际记录前，不得执行生产写入型 smoke，也不得关闭 `AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。

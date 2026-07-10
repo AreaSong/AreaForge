@@ -39,6 +39,7 @@ function checkRequiredFiles(): void {
   const requiredFiles = [
     "docs/development/operational-readiness.md",
     "docs/development/production-smoke-alerting-strategy.md",
+    "docs/development/alert-drill-record-template.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
     ".codex/skills-src/areaforge-operating-loop/SKILL.md",
@@ -47,6 +48,8 @@ function checkRequiredFiles(): void {
     "scripts/ops/operational-evidence-bundle.ts",
     "scripts/ops/operational-alert-preview.ts",
     "scripts/ops/local-ux-smoke.ts",
+    "scripts/quality/alert-drill-validate.ts",
+    "scripts/quality/alert-drill-validate.selftest.ts",
     "scripts/quality/residual-ledger-validate.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
@@ -105,6 +108,7 @@ function checkProductionSmokeAlertingStrategy(): void {
     "失败处理",
     "告警阈值",
     "pnpm ops:alert:preview",
+    "pnpm alert:drill:validate",
     "read_only_alert_preview",
     "不调用外部告警接收人",
     "AF-RISK-OPS-001",
@@ -212,6 +216,8 @@ function checkPackageScripts(): void {
   const summaryScript = packageJson.scripts?.["ops:readiness:summary"] ?? "";
   const bundleScript = packageJson.scripts?.["ops:evidence:bundle"] ?? "";
   const alertPreviewScript = packageJson.scripts?.["ops:alert:preview"] ?? "";
+  const alertDrillValidateScript = packageJson.scripts?.["alert:drill:validate"] ?? "";
+  const alertDrillSelftestScript = packageJson.scripts?.["alert:drill:selftest"] ?? "";
   const localUxSmokeScript = packageJson.scripts?.["smoke:local-ux"] ?? "";
   checks.push({
     name: "ops readiness package script",
@@ -219,9 +225,11 @@ function checkPackageScripts(): void {
       summaryScript === "tsx scripts/ops/operational-readiness-summary.ts" &&
       bundleScript === "tsx scripts/ops/operational-evidence-bundle.ts" &&
       alertPreviewScript === "tsx scripts/ops/operational-alert-preview.ts" &&
+      alertDrillValidateScript === "tsx scripts/quality/alert-drill-validate.ts" &&
+      alertDrillSelftestScript === "tsx scripts/quality/alert-drill-validate.selftest.ts" &&
       packageJson.scripts?.["residuals:validate"] === "tsx scripts/quality/residual-ledger-validate.ts" &&
       localUxSmokeScript === "tsx scripts/ops/local-ux-smoke.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}`,
+    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}`,
   });
 }
 
@@ -252,6 +260,8 @@ function checkSummaryScript(): void {
   const script = read("scripts/ops/operational-readiness-summary.ts");
   const bundle = read("scripts/ops/operational-evidence-bundle.ts");
   const alertPreview = read("scripts/ops/operational-alert-preview.ts");
+  const alertDrill = read("scripts/quality/alert-drill-validate.ts");
+  const alertDrillSelftest = read("scripts/quality/alert-drill-validate.selftest.ts");
   const docs = read("docs/development/operational-readiness.md");
   const requiredTerms = [
     "AREAFORGE_READINESS_BASE_URL",
@@ -275,8 +285,12 @@ function checkSummaryScript(): void {
     "read_only_alert_preview",
     "notificationSent",
     "externalAlertReceiverCalled",
+    "alert:drill:validate",
+    "alert drill validator selftest passed",
+    "alert drill validation passed",
+    "AF-RISK-OPS-004",
   ];
-  const combined = `${script}\n${bundle}\n${alertPreview}\n${docs}`;
+  const combined = `${script}\n${bundle}\n${alertPreview}\n${alertDrill}\n${alertDrillSelftest}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   checks.push({
     name: "ops readiness summary, bundle, and alert preview scripts",

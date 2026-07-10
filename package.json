@@ -23,6 +23,8 @@
     "ops:readiness:summary": "tsx scripts/ops/operational-readiness-summary.ts",
     "ops:evidence:bundle": "tsx scripts/ops/operational-evidence-bundle.ts",
     "ops:alert:preview": "tsx scripts/ops/operational-alert-preview.ts",
+    "alert:drill:validate": "tsx scripts/quality/alert-drill-validate.ts",
+    "alert:drill:selftest": "tsx scripts/quality/alert-drill-validate.selftest.ts",
     "residuals:validate": "tsx scripts/quality/residual-ledger-validate.ts",
     "skills:validate": "tsx scripts/quality/skills-validate.ts",
     "shellcheck:updater": "shellcheck ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh",

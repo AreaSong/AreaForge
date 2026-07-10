@@ -32,6 +32,8 @@ Use `pnpm ops:evidence:bundle` after release/update checks or before operator ha
 
 Use `pnpm ops:alert:preview` to map readiness signals into severity, would-notify decisions, owner, recommended action, and residual risk IDs. It is a read-only preview; it does not call external alert receivers or close `AF-RISK-OPS-004` by itself.
 
+Use `pnpm alert:drill:validate <record>` to validate a completed alert/recovery drill record against the `AF-RISK-OPS-004` close-condition evidence shape. The validator is read-only and checks fields, enums, hash shape, residual ID, and secret-like leaks.
+
 The summary output includes `safetyFacts` such as `serverCommandAttempted=false`, `backupRestoreAttempted=false`, `migrationAttempted=false`, `productionWriteAttempted=false`, `secretValuePrinted=false`, `smokePasswordReadFromFile`, and `networkRequested`.
 
 ## Threshold Defaults

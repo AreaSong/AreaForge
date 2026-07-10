@@ -20,4 +20,4 @@
 | AF-RISK-SC-002 | Actions SHA pinning 和 `pnpm audit:prod` 已本地落地，仍需 GitHub run 证据 | `areaforge-supply-chain` / `areaforge-enterprise-governance` | 下一次 CI 或 Release 运行后 |
 | AF-RISK-SC-003 | 已关闭为证据项；后续升级 `pg` / Prisma adapter 前重跑 `pnpm pg:trace-deprecation` | `areaforge-supply-chain` / `areaforge-sre-ops` | 升级 `pg` / Prisma adapter 前 |
 | AF-RISK-OPS-003 | 服务器、域名、Nginx 或端口迁移需单独 runbook 和证据 | `areaforge-sre-ops` | 基础设施迁移前 |
-| AF-RISK-OPS-004 | 告警阈值和 `pnpm ops:alert:preview` 已有，但外部接收人、metrics dashboard 和演练记录仍缺 | `areaforge-observability` | 建立告警或声称完整生产健康前 |
+| AF-RISK-OPS-004 | 告警阈值、`pnpm ops:alert:preview` 和 `pnpm alert:drill:validate` 已有，但外部接收人、metrics dashboard 和演练记录仍缺 | `areaforge-observability` | 建立告警或声称完整生产健康前 |

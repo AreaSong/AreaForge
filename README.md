@@ -59,6 +59,7 @@ pnpm ops:readiness
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:alert:preview
+pnpm alert:drill:validate
 pnpm skills:validate
 pnpm smoke:prod-readonly
 ```
