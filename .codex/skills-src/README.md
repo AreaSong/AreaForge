@@ -10,6 +10,7 @@
 - `areaforge-public-maintenance`：公开 issue、支持入口、贡献者 PR、敏感信息边界和维护者 triage。
 - 公开支持入口为 `SUPPORT.md` 和 `docs/development/support-intake.md`，对应只读检查为 `pnpm support:intake:preflight`。
 - `areaforge-operating-loop`：按 Quick/Change/Mission-Critical/Review/Ops/Release/Incident 路由 owner skill、验证、文档同步和残余风险收口。
+- 长期运营控制面入口为 `docs/development/long-term-operability-control-plane.md`，对应只读检查为 `pnpm enterprise:operability:preflight`；默认不新增第 18 个 skill，除非出现新的稳定 owner 边界。
 - `areaforge-release-operator`：功能完成后的版本、GitHub Release、GHCR digest、updater、回滚和证据闭环。
 - Release train 入口为 `docs/development/release-train.md`，对应只读检查为 `pnpm release:train:preflight`。
 - `areaforge-qa-smoke`：真实用户旅程、API/browser smoke、截图和体验证据。
@@ -18,6 +19,7 @@
 - `areaforge-sre-ops`：生产健康、备份、恢复、update-agent、Nginx、容器和受控生产操作。
 - 自托管操作者上手入口为 `docs/deployment/operator-onboarding.md`，对应只读检查为 `pnpm operator:onboarding:preflight`。
 - 维护节奏入口为 `docs/development/maintenance-cadence.md`，对应只读检查为 `pnpm maintenance:cadence:preflight`。
+- 维护窗口、事故、恢复演练和 update-agent redacted status 分别使用 `pnpm maintenance:window:validate`、`pnpm incident:record:validate`、`pnpm restore:drill:validate` 和 `pnpm update-agent:status:validate`。
 - `areaforge-observability`：health、日志、release identity、update-agent、备份新鲜度、AI fallback 和生产信号证据。
 - `areaforge-incident-response`：故障分级、证据冻结、止血、回滚决策、恢复验证和复盘收口。
 - `areaforge-security-governance`：鉴权、上传、AI、密钥、日志、签名 release 和服务器命令边界。
@@ -52,6 +54,7 @@
 
 ## 维护规则
 
+- `health`、`readiness`、`doctor`、`gate` 和 `smoke` 是不同证据词，不能互相替代；缺哪个证据就保留对应 residual 或降级结论。
 - 项目级 skill 以 `.codex/skills-src/<skill>/SKILL.md` 为源。
 - `.agents/skills/<skill>` 仅作为自动发现入口，默认指向 `.codex/skills-src/<skill>`。
 - 不在 skill 目录内添加 README、changelog 或低价值说明。

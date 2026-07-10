@@ -16,15 +16,16 @@
 - `versions/v0.4-second-stage-long-term-loop.md`：第二阶段长期闭环。
 - `versions/v1.0-prod-release.md`：生产发布闭环。
 
-当前进度：v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环。Package A-E 均已完成，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新运行 `0.1.5`。后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移；长期运营状态以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
+当前进度：v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环。Package A-E 均已完成，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新运行 `0.1.5`。后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移；长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口，运营状态以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为证据入口。
 
 ## 使用规则
 
 - 一个版本计划必须说明目标、范围、不包含、验收标准和退出条件。
-- 新版本计划默认从 `workflow/templates/version-template.md` 复制，并先填 Planning Gate：目标、非目标、Exact docs、open questions、decisions、owner skill、residual IDs、release trigger、验证和回滚。
+- 新版本计划默认从 `workflow/templates/version-template.md` 复制，并先填 Planning Gate：目标、非目标、Exact docs、open questions、decisions、owner skill、validation profile、source docs/source baseline、residual IDs、release trigger、apply boundary、验证和回滚。
 - 版本计划只描述阶段，不承载具体实现细节。
 - 具体执行事项拆到 `tasks/**`。
 - 每次功能发布后必须同步对应 release tag、验证结果、线上 health、update-agent 状态和残余风险。
 - 发布或运维状态变化时必须同步 ops readiness、残余风险 ID 和 release workflow 证据。
 - 功能进入线上前先按 `docs/development/release-train.md` 固定版本、Release 资产、验证、updater、smoke、回滚目标和发布记录证据。
 - 日常维护和 residual 到期复核按 `docs/development/maintenance-cadence.md` 执行；readiness/preview/evidence bundle 不等于 apply，也不能单独关闭 residual。
+- 周/月维护窗口、incident、恢复演练或 update-agent redacted status 进入仓库记录时，使用 `docs/development/maintenance-window-record-template.md`、`docs/development/incident-record-template.md`、`docs/development/restore-drill-record-template.md` 或 `docs/development/update-agent-status-record-template.md` 并运行对应 validator。

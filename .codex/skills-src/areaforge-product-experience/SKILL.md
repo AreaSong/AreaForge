@@ -17,6 +17,7 @@ Judge the app by whether a tired student can understand the next action and trus
 6. [docs/modules/periodic-reports.md](../../../docs/modules/periodic-reports.md)
 7. [docs/development/product-experience-review-record-template.md](../../../docs/development/product-experience-review-record-template.md)
 8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+9. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
 
 ## References
 
@@ -32,6 +33,7 @@ Judge the app by whether a tired student can understand the next action and trus
 4. Prefer improvements that make the next action obvious without adding explanatory walls of text.
 5. Verify changes with the QA smoke skill and update UX/module docs when behavior changes.
 6. For release/update handoff or claims that real experience is healthy, record desktop and mobile evidence with `docs/development/product-experience-review-record-template.md` and run `pnpm experience:review:validate <record>`.
+7. Treat `health`, `readiness`, API smoke, and old screenshots as insufficient for `AF-RISK-UX-001`; desktop/mobile product experience evidence must be fresh.
 
 ## Guardrails
 

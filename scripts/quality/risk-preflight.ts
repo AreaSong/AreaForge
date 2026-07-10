@@ -1569,11 +1569,18 @@ function checkProductionCompose(): void {
     { label: "compose down script", pattern: /\bdocker\s+compose\b.*\bdown\b/i },
     { label: "server command script", pattern: /\b(ssh|rsync|scp)\b/i },
   ];
-  const forbiddenScripts = Object.entries(packageJson.scripts ?? {}).flatMap(([name, command]) =>
-    scriptForbiddenPatterns
+  const allowedReadOnlyOpsRecordScripts = new Set([
+    "restore:drill:validate",
+    "restore:drill:selftest",
+  ]);
+  const forbiddenScripts = Object.entries(packageJson.scripts ?? {}).flatMap(([name, command]) => {
+    if (allowedReadOnlyOpsRecordScripts.has(name) && command.includes("scripts/quality/restore-drill-validate")) {
+      return [];
+    }
+    return scriptForbiddenPatterns
       .filter((item) => item.pattern.test(`${name} ${command}`))
-      .map((item) => `${name}:${item.label}`),
-  );
+      .map((item) => `${name}:${item.label}`);
+  });
   const migrateDeployDocumented = (packageJson.scripts?.["db:migrate:deploy"] ?? "").includes("prisma migrate deploy") &&
     runbook.includes("Package E") &&
     runbook.includes("受控 release 工作目录");

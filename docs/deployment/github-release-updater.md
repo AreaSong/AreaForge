@@ -281,6 +281,14 @@ volumes:
 - 不挂载 `docker.sock` 到 Web 容器。
 - 不在 Web API 中执行 `docker compose`、`pg_dump`、`prisma migrate deploy` 或恢复命令。
 
+若把 `$AREAFORGE_OPS_STATE_DIR/status.json` 或服务器侧等价摘要作为运维交接证据，先复制成 redacted JSON，并按 `docs/development/update-agent-status-record-template.md` 运行：
+
+```bash
+pnpm update-agent:status:validate /path/to/redacted-update-status.json
+```
+
+该校验只读取本地 JSON，检查版本、`autoApply=none`、`signatureRequired=true`、timer、`blocker=null`、rollback digest 和安全事实；它不执行 updater check/apply，不修改自动策略，不连接生产，不写生产。
+
 安装 agent：
 
 ```bash

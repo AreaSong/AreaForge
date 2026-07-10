@@ -28,6 +28,14 @@
 - 附件对账只生成报告，不自动修复 metadata、不删除孤儿文件、不移动上传目录文件。
 - 发布证据记录能通过 `pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]`，并包含数据库/上传目录/生产 `.env` 备份 hash、compose/Nginx 副本路径、migration runner 和回滚演练字段。
 
+例行月度或维护窗口恢复演练不复用发布记录作为唯一证据；使用 `docs/development/restore-drill-record-template.md` 记录非生产或临时环境恢复演练，并运行：
+
+```bash
+pnpm restore:drill:validate <restore-drill-record.md|txt>
+```
+
+该校验只读取 redacted 记录，不执行 restore、不删除备份、不移动上传目录、不连接生产、不写生产；它不能授权生产恢复。
+
 ## 命令模板
 
 以下命令只作为生产备份、恢复演练和发布记录的手动参考。Package E 已完成；后续任何真实生产备份恢复、破坏性恢复、备份策略变化或服务器命令执行，仍必须按高风险确认流程说明影响、风险、验证和回滚后再执行。

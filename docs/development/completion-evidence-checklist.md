@@ -13,6 +13,9 @@
 ```text
 scope:
 evidenceClass: source/runtime/release/production/docs-only/local-smoke/browser-review
+sourceBaseline:
+  sourceDocs:
+  sourceHashOrCommit:
 freshValidation:
   commands:
   browserOrRuntimeEvidence:
@@ -49,6 +52,7 @@ result: PASS/FAIL/BLOCKED/NOT-READY
 - AI 草稿不等于自动应用阶段计划或任务重排。
 - `report_only` 对账不等于修复、删除、恢复或清理。
 - 旧截图、旧 smoke 或历史 release 记录不能证明当前体验和当前生产健康。
+- 旧完成记录不能自动覆盖 source docs 漂移；长期运营、release、residual 关闭或重大体验声明应记录 source docs、commit 或 hash 摘要。
 
 ## 阻断项
 

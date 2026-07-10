@@ -10,11 +10,16 @@ Use this skill when signals indicate user impact or operational risk and the nex
 ## Read First
 
 1. [AGENTS.md](../../../AGENTS.md)
-2. [docs/development/high-risk-confirmation-packets.md](../../../docs/development/high-risk-confirmation-packets.md)
-3. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
-4. [docs/deployment/backup-restore.md](../../../docs/deployment/backup-restore.md)
-5. [docs/security/threat-model.md](../../../docs/security/threat-model.md)
-6. [docs/security/file-ai-safety.md](../../../docs/security/file-ai-safety.md)
+2. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
+3. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
+4. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
+5. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+6. [docs/development/incident-record-template.md](../../../docs/development/incident-record-template.md)
+7. [docs/development/high-risk-confirmation-packets.md](../../../docs/development/high-risk-confirmation-packets.md)
+8. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
+9. [docs/deployment/backup-restore.md](../../../docs/deployment/backup-restore.md)
+10. [docs/security/threat-model.md](../../../docs/security/threat-model.md)
+11. [docs/security/file-ai-safety.md](../../../docs/security/file-ai-safety.md)
 
 ## References
 
@@ -32,6 +37,7 @@ Use this skill when signals indicate user impact or operational risk and the nex
 4. For any write action, provide impact, rollback plan, validation, and explicit confirmation request before executing.
 5. After containment or rollback, verify health, authenticated smoke, data accessibility, upload access, AI fallback/provider behavior, and update-agent status.
 6. Close only after recording root cause or accepted unknown, user impact, actions taken, validation evidence, residual risk, and follow-up owner.
+7. If a redacted incident record is added, validate it with `pnpm incident:record:validate <record>`.
 
 ## Guardrails
 

@@ -16,8 +16,13 @@
 - Open questions：
 - Decisions：
 - Owner skill：
+- Validation profile：
+- Source docs：
+- Source baseline：
 - Residual risk IDs：
 - Release trigger：
+- Apply boundary：
+- Evidence freshness：
 - 验证：
 - 回滚：
 

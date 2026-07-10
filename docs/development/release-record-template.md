@@ -43,6 +43,9 @@ releaseId: <release-id>
 releasedAt: <ISO-8601 timestamp>
 operator: <operator>
 gitCommit: <commit-sha>
+sourceBaseline:
+  sourceDocs: <docs/tasks/workflow paths>
+  sourceHashOrCommit: <commit-or-sha256-summary>
 releaseTag: vX.Y.Z
 releaseUrl: https://github.com/AreaSong/AreaForge/releases/tag/vX.Y.Z
 AREAFORGE_IMAGE: ghcr.io/areasong/areaforge-web:vX.Y.Z

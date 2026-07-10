@@ -42,6 +42,7 @@ Do not use an exception to bypass signing, hash verification, immutable image di
 ## Default Commands
 
 ```bash
+pnpm enterprise:operability:preflight
 pnpm release:train:preflight
 pnpm docs:readiness
 pnpm docs:completion
@@ -54,6 +55,8 @@ pnpm ops:readiness
 git diff --check
 pnpm check
 ```
+
+Use `docs/development/long-term-operability-control-plane.md` before deciding that a feature update can skip GitHub Release. Docs-only changes may skip a release only when they do not change production, update, user delivery, or release evidence facts.
 
 ## Auto-Update Policy
 

@@ -48,6 +48,10 @@ function checkRequiredFiles(): void {
     "docs/development/operational-readiness.md",
     "docs/development/production-smoke-alerting-strategy.md",
     "docs/development/product-experience-review-record-template.md",
+    "docs/development/incident-record-template.md",
+    "docs/development/restore-drill-record-template.md",
+    "docs/development/maintenance-window-record-template.md",
+    "docs/development/update-agent-status-record-template.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
     "docs/development/release-train.md",
@@ -57,8 +61,17 @@ function checkRequiredFiles(): void {
     "scripts/ops/operational-evidence-bundle.ts",
     "scripts/ops/operational-alert-preview.ts",
     "scripts/ops/residual-review-due.ts",
+    "scripts/ops/generate-incident-record.ts",
     "scripts/quality/product-experience-review-validate.ts",
     "scripts/quality/product-experience-review-validate.selftest.ts",
+    "scripts/quality/incident-record-validate.ts",
+    "scripts/quality/incident-record-validate.selftest.ts",
+    "scripts/quality/restore-drill-validate.ts",
+    "scripts/quality/restore-drill-validate.selftest.ts",
+    "scripts/quality/maintenance-window-record-validate.ts",
+    "scripts/quality/maintenance-window-record-validate.selftest.ts",
+    "scripts/quality/update-agent-status-validate.ts",
+    "scripts/quality/update-agent-status-validate.selftest.ts",
     "scripts/quality/residual-ledger-validate.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
@@ -86,6 +99,10 @@ function checkMaintenanceDoc(): void {
     "pnpm ops:evidence:bundle",
     "pnpm ops:alert:preview",
     "pnpm maintenance:cadence:preflight",
+    "pnpm enterprise:operability:preflight",
+    "pnpm maintenance:window:validate",
+    "pnpm incident:record:validate",
+    "pnpm restore:drill:validate",
     "pnpm residuals:validate",
     "pnpm residuals:review-due",
     "--fail-on-due-soon",
@@ -154,12 +171,22 @@ function checkPackageScript(): void {
   const script = packageJson.scripts?.["maintenance:cadence:preflight"] ?? "";
   const reviewDueScript = packageJson.scripts?.["residuals:review-due"] ?? "";
   const experienceReviewSelftestScript = packageJson.scripts?.["experience:review:selftest"] ?? "";
+  const enterpriseOperabilityPreflightScript = packageJson.scripts?.["enterprise:operability:preflight"] ?? "";
+  const maintenanceWindowValidateScript = packageJson.scripts?.["maintenance:window:validate"] ?? "";
+  const incidentRecordValidateScript = packageJson.scripts?.["incident:record:validate"] ?? "";
+  const restoreDrillValidateScript = packageJson.scripts?.["restore:drill:validate"] ?? "";
+  const updateAgentStatusValidateScript = packageJson.scripts?.["update-agent:status:validate"] ?? "";
   checks.push({
     name: "maintenance cadence package script",
     ok: script === "tsx scripts/quality/maintenance-cadence-preflight.ts" &&
       reviewDueScript === "tsx scripts/ops/residual-review-due.ts" &&
-      experienceReviewSelftestScript === "tsx scripts/quality/product-experience-review-validate.selftest.ts",
-    detail: `maintenance:cadence:preflight=${script || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}`,
+      experienceReviewSelftestScript === "tsx scripts/quality/product-experience-review-validate.selftest.ts" &&
+      enterpriseOperabilityPreflightScript === "tsx scripts/quality/enterprise-operability-preflight.ts" &&
+      maintenanceWindowValidateScript === "tsx scripts/quality/maintenance-window-record-validate.ts" &&
+      incidentRecordValidateScript === "tsx scripts/quality/incident-record-validate.ts" &&
+      restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&
+      updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
+    detail: `maintenance:cadence:preflight=${script || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
   });
 }
 

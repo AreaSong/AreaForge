@@ -40,6 +40,7 @@ Close only when the record contains:
 - validation after containment or rollback
 - residual risks and follow-up owner
 - docs/tasks/workflow sync status
+- `pnpm incident:record:validate <record>` output if a redacted incident record is stored
 
 ## Never Do
 

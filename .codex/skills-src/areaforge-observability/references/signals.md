@@ -36,6 +36,10 @@ Use `pnpm ops:alert:preview` to map readiness signals into severity, would-notif
 
 Use `pnpm alert:drill:validate <record>` to validate a completed alert/recovery drill record against the `AF-RISK-OPS-004` close-condition evidence shape. The validator is read-only and checks fields, enums, hash shape, residual ID, and secret-like leaks.
 
+Use `pnpm update-agent:status:validate <record.json>` before feeding a redacted update-agent status JSON to readiness. It checks version, `autoApply=none`, `signatureRequired=true`, timer, `blocker=null`, rollback summary, safety facts, and secret-like leaks.
+
+Use `pnpm maintenance:window:validate <record>`, `pnpm incident:record:validate <record>`, and `pnpm restore:drill:validate <record>` when maintenance windows, incidents, or restore drills need repository-visible redacted evidence. These records do not execute checks, do not authorize production writes, and cannot replace live production evidence.
+
 The summary output includes `safetyFacts` such as `serverCommandAttempted=false`, `backupRestoreAttempted=false`, `migrationAttempted=false`, `productionWriteAttempted=false`, `secretValuePrinted=false`, `smokePasswordReadFromFile`, and `networkRequested`.
 
 ## Threshold Defaults

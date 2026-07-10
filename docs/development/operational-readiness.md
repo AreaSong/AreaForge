@@ -115,6 +115,14 @@ Release identity 采集优先级为：显式 `AREAFORGE_READINESS_WEB_IMAGE_DIGE
 
 该摘要脚本只做 HTTP health、HTTPS base URL 的 TLS peer certificate 只读检查、可选登录读取 `/api/system/update-status`、可选本地 JSON 文件读取和环境变量解析；不得执行 Docker、备份、恢复、migration、回滚、shell 或服务器命令。输出中的 `safetyFacts` 会显式记录 `serverCommandAttempted=false`、`backupRestoreAttempted=false`、`migrationAttempted=false`、`productionWriteAttempted=false`、`secretValuePrinted=false`、`smokePasswordReadFromFile` 和 `networkRequested`。若提供 `AREAFORGE_READINESS_CERT_DAYS`，则优先使用该手动证据；否则 HTTPS `baseUrl` 会自动采集证书到期时间。若提供 `AREAFORGE_SMOKE_EMAIL` 和 `AREAFORGE_SMOKE_PASSWORD_FILE`，它会登录后只读获取 update status；若不提供凭据，则 update-agent 证据为 `unknown` 并关联 `AF-RISK-OPS-001`。
 
+如果使用服务器侧导出的 redacted update-agent status JSON 作为 `AREAFORGE_READINESS_UPDATE_STATUS_FILE`，先按 `docs/development/update-agent-status-record-template.md` 校验：
+
+```bash
+pnpm update-agent:status:validate /path/to/redacted-update-status.json
+```
+
+该校验只读取本地 JSON，检查 `currentVersion`、`autoApply=none`、`signatureRequired=true`、timer、`blocker=null`、rollback 摘要、时间戳和 `safetyFacts`，并扫描敏感值；它不执行 updater、服务器命令、备份、恢复、migration、回滚或生产写入。
+
 发布或更新完成后，建议把 redacted `pnpm ops:readiness:summary` 输出保存到运维目录，并在版本化 release record 中摘要
 `checkedAt`、health、update-agent、smoke、backup、rollback、disk/cert 和 residual risk IDs。公网 TLS 证书自动检查只能证明证书到期状态，不能替代服务器磁盘、备份、update-agent 或 authenticated smoke 证据。没有新鲜 smoke、备份或基础设施证据时，release readiness 只能保持 `warn` 或 `unknown`，不能宣称完整生产健康。
 
@@ -184,6 +192,16 @@ pnpm residuals:review-due
 ```
 
 维护节奏预检只检查维护节奏文档、residual `reviewAt` metadata、package scripts、入口链接和相关 skill 引用；`pnpm residuals:review-due` 只读取机器台账并列出 overdue / due-soon 项。它们不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration、不创建 Release、不写生产。
+
+需要把维护窗口、事故或恢复演练留成可交接记录时，使用：
+
+```bash
+pnpm maintenance:window:validate <maintenance-window-record.md|txt>
+pnpm incident:record:validate <incident-record.md|txt>
+pnpm restore:drill:validate <restore-drill-record.md|txt>
+```
+
+这些校验都只读取 redacted 记录，不连接生产、不读取密钥、不执行服务器命令、不写生产。维护窗口记录不能替代 release record；事故记录不能替代高风险确认；恢复演练记录不能授权生产 restore。
 
 ## 残余边界
 

@@ -67,6 +67,7 @@
 - `development/implementation-order.md`：实现顺序。
 - `development/pre-code-closure.md`：开发前闭环清单。
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
+- `development/long-term-operability-control-plane.md`：长期运营控制面，统一 release 决策、维护窗口、真实体验、残余风险、供应链和 skill 增减规则。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
 - `development/completion-evidence-checklist.md`：完成声明证据清单，区分 docs、本地 smoke、浏览器复核、Release 和生产证据。
 - `development/runtime-write-boundary.md`：R0-R4 运行时写动作边界矩阵，区分只读、本地写、用户显式 Web 写、update request 和高风险生产操作。
@@ -79,6 +80,10 @@
 - `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段、告警阈值和只读告警预览策略。
 - `development/production-readonly-smoke-record-template.md`：生产只读 smoke 记录模板和 `pnpm smoke:prod-readonly:validate` 校验入口。
 - `development/alert-drill-record-template.md`：告警/恢复演练记录模板和 `pnpm alert:drill:validate` 校验入口。
+- `development/incident-record-template.md`：事故记录模板和 `pnpm incident:record:validate` 校验入口。
+- `development/restore-drill-record-template.md`：例行恢复演练记录模板和 `pnpm restore:drill:validate` 校验入口。
+- `development/maintenance-window-record-template.md`：维护窗口记录模板和 `pnpm maintenance:window:validate` 校验入口。
+- `development/update-agent-status-record-template.md`：redacted update-agent status JSON 模板和 `pnpm update-agent:status:validate` 校验入口。
 - `development/product-experience-review-record-template.md`：真实产品体验复核记录模板和 `pnpm experience:review:validate` 校验入口。
 - `development/product-experience-review-20260710-local.md`：2026-07-10 本地 desktop/mobile 真实体验复核记录。
 - `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。

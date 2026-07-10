@@ -26,12 +26,17 @@
 - 完成声明是否能按 `docs/development/completion-evidence-checklist.md` 说清证据等级、新鲜验证、未验证项、阻断项、Release 需求和 residual risk IDs。
 - 写动作或运行时能力变化是否按 `docs/development/runtime-write-boundary.md` 标明 R0-R4 等级，避免把 preview、local smoke、update request 或草稿说成生产 apply。
 - 功能更新若准备进入线上，是否先按 `docs/development/release-train.md` 固定版本、验证、Release 资产、供应链记录、updater 证据、smoke、回滚目标和停止条件。
+- 功能更新、维护节奏、release 决策、skill owner 边界或 residual 复核口径变化，是否同步 `docs/development/long-term-operability-control-plane.md` 并运行 `pnpm enterprise:operability:preflight`。
 - 新签名 Release 若用于关闭或复核供应链残余项，是否按 `docs/development/release-supply-chain-record-template.md` 记录 SBOM/provenance、checksum/signature、Actions pinning 和 `pnpm audit:prod`，并通过 `pnpm release:supply-chain:validate`。
 - 生产运维、发布、自动更新或长期运营状态变化，是否同步 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 和对应 ops/release 文档。
 - 日常维护节奏、证据新鲜度或 residual 复核规则变化，是否同步 `docs/development/maintenance-cadence.md`、`docs/development/operational-readiness.md`、验证矩阵和相关 observability/residual skill。
 - 自托管上手、公开分发或首次操作者路径变化，是否同步 `docs/deployment/operator-onboarding.md`、`README.md`、`docs/README.md`、`apps/web/README.md`、验证矩阵和相关 SRE/release skill。
 - 生产只读 smoke 记录若进入仓库或运维交接摘要，是否使用 `docs/development/production-readonly-smoke-record-template.md` 并通过 `pnpm smoke:prod-readonly:validate`。
 - 告警/恢复演练记录若进入仓库或运维交接摘要，是否使用 `docs/development/alert-drill-record-template.md` 并通过 `pnpm alert:drill:validate`。
+- 事故记录若进入仓库或运维交接摘要，是否使用 `docs/development/incident-record-template.md` 并通过 `pnpm incident:record:validate`。
+- 例行恢复演练记录若进入仓库或运维交接摘要，是否使用 `docs/development/restore-drill-record-template.md` 并通过 `pnpm restore:drill:validate`，且不把演练记录当成生产 restore 授权。
+- 周/月维护窗口记录若进入仓库或运维交接摘要，是否使用 `docs/development/maintenance-window-record-template.md` 并通过 `pnpm maintenance:window:validate`。
+- Update-agent redacted status JSON 若作为 readiness 输入或交接证据，是否使用 `docs/development/update-agent-status-record-template.md` 并通过 `pnpm update-agent:status:validate`。
 - 真实产品体验复核记录若进入仓库或 release/update 交接摘要，是否使用 `docs/development/product-experience-review-record-template.md` 并通过 `pnpm experience:review:validate`。
 - 若变更长期运营 workflow 或 skill，是否同步 `.codex/skills-src/**`、`.agents/skills/**`、`README.md`、`AGENTS.md` 和相关验证/残余风险入口，并运行 `pnpm skills:validate`。
 - 若变更公开项目治理、依赖、CI、PR 模板或安全披露入口，是否同步 `SECURITY.md`、`.github/**`、`docs/development/dependency-policy.md`、`README.md` 和验证矩阵，并运行 `pnpm governance:preflight`。

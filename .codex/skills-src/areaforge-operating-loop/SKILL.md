@@ -17,16 +17,17 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 4. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
 5. [docs/development/doc-sync-checklist.md](../../../docs/development/doc-sync-checklist.md)
 6. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
-7. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
-8. [docs/development/completion-evidence-checklist.md](../../../docs/development/completion-evidence-checklist.md)
-9. [docs/development/runtime-write-boundary.md](../../../docs/development/runtime-write-boundary.md)
-10. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
-11. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
-12. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
-13. [docs/development/high-risk-confirmation-packets.md](../../../docs/development/high-risk-confirmation-packets.md)
-14. [.github/workflows/release.yml](../../../.github/workflows/release.yml)
-15. [tasks/README.md](../../../tasks/README.md)
-16. [workflow/README.md](../../../workflow/README.md)
+7. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
+8. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
+9. [docs/development/completion-evidence-checklist.md](../../../docs/development/completion-evidence-checklist.md)
+10. [docs/development/runtime-write-boundary.md](../../../docs/development/runtime-write-boundary.md)
+11. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+12. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
+13. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
+14. [docs/development/high-risk-confirmation-packets.md](../../../docs/development/high-risk-confirmation-packets.md)
+15. [.github/workflows/release.yml](../../../.github/workflows/release.yml)
+16. [tasks/README.md](../../../tasks/README.md)
+17. [workflow/README.md](../../../workflow/README.md)
 
 ## References
 
@@ -53,6 +54,7 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 7. Sync source facts through `areaforge-doc-sync`.
 8. Record unresolved items through `areaforge-residual-ledger` when they affect release, ops, security, supply chain, or user experience.
 9. Close with evidence from `completion-evidence-checklist.md`: files changed, commands run, pass/fail, unverified items, blockers, residual risk IDs, release requirement, and whether production was touched.
+10. Keep evidence words distinct: `health`, `readiness`, `doctor`, `gate`, `smoke`, `record`, and `apply` 不能互相替代。
 
 ## Guardrails
 

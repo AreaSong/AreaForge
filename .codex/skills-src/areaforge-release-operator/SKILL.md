@@ -11,16 +11,17 @@ Operate AreaForge releases as evidence-backed production changes, not as ad-hoc 
 
 1. [AGENTS.md](../../../AGENTS.md)
 2. [README.md](../../../README.md)
-3. [docs/development/release-train.md](../../../docs/development/release-train.md)
-4. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
-5. [docs/development/release-record-template.md](../../../docs/development/release-record-template.md)
-6. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
-7. [docs/development/docs-100-completion-record.md](../../../docs/development/docs-100-completion-record.md)
-8. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
-9. [docs/development/completion-evidence-checklist.md](../../../docs/development/completion-evidence-checklist.md)
-10. [docs/development/runtime-write-boundary.md](../../../docs/development/runtime-write-boundary.md)
-11. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
-12. [tasks/done/0018-github-release-updater.md](../../../tasks/done/0018-github-release-updater.md)
+3. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
+4. [docs/development/release-train.md](../../../docs/development/release-train.md)
+5. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
+6. [docs/development/release-record-template.md](../../../docs/development/release-record-template.md)
+7. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
+8. [docs/development/docs-100-completion-record.md](../../../docs/development/docs-100-completion-record.md)
+9. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
+10. [docs/development/completion-evidence-checklist.md](../../../docs/development/completion-evidence-checklist.md)
+11. [docs/development/runtime-write-boundary.md](../../../docs/development/runtime-write-boundary.md)
+12. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+13. [tasks/done/0018-github-release-updater.md](../../../tasks/done/0018-github-release-updater.md)
 
 ## References
 
@@ -44,6 +45,7 @@ Operate AreaForge releases as evidence-backed production changes, not as ad-hoc 
 6. For production release, require signed GitHub Release assets, immutable GHCR digests, updater check/apply evidence, backup point, migration result, smoke result, and rollback target.
 7. For a release that closes or reviews supply-chain residuals, require a validated supply-chain record; when local Release assets exist, prefer `pnpm release:supply-chain:record <release-assets-dir>` followed by `pnpm release:supply-chain:validate <record>`.
 8. Keep `AREAFORGE_AUTO_APPLY=none` unless the user explicitly confirms a different policy.
+9. For feature updates, use `long-term-operability-control-plane.md` to decide whether the change requires a GitHub Release, docs-only sync, or residual-only follow-up.
 
 ## Guardrails
 

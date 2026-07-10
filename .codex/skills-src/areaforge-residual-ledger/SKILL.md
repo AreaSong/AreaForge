@@ -20,6 +20,7 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 9. [docs/development/residual-risk-ledger.json](../../../docs/development/residual-risk-ledger.json)
 10. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
 11. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
+12. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
 
 ## References
 
@@ -38,6 +39,7 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 5. If an item is executable and in current scope, promote it through tasks or workflow instead of leaving it only as residual text.
 6. If an item is accepted or deferred, keep the rationale and revisit trigger explicit.
 7. Sync docs after status changes and run the validation selected by the validation driver.
+8. For broad "what is left" questions, separate current blockers/executable items from indexed but non-current items such as accepted exceptions, deferred work, historical references, and closed evidence.
 
 ## Guardrails
 

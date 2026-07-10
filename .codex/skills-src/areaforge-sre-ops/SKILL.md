@@ -17,6 +17,12 @@ Treat production as a managed system with health, backup, restore, update, rollb
 6. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
 7. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
 8. [docs/development/production-smoke-alerting-strategy.md](../../../docs/development/production-smoke-alerting-strategy.md)
+9. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
+10. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
+11. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
+12. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+13. [docs/development/restore-drill-record-template.md](../../../docs/development/restore-drill-record-template.md)
+14. [docs/development/update-agent-status-record-template.md](../../../docs/development/update-agent-status-record-template.md)
 
 ## References
 

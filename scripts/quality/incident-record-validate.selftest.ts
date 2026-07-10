@@ -1,0 +1,87 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+const root = process.cwd();
+const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-incident-record-"));
+
+try {
+  const validRecord = path.join(tempDir, "incident-record.txt");
+  const invalidSecretRecord = path.join(tempDir, "incident-secret.txt");
+  const invalidConfirmationRecord = path.join(tempDir, "incident-confirmation.txt");
+  const invalidResidualRecord = path.join(tempDir, "incident-residual.txt");
+
+  writeFileSync(validRecord, createRecord());
+  writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: DATABASE_URL=postgresql://user:pass@example/db\n`);
+  writeFileSync(invalidConfirmationRecord, createRecord()
+    .replace("highRiskConfirmation: yes", "highRiskConfirmation: no"));
+  writeFileSync(invalidResidualRecord, createRecord()
+    .replace("status: mitigated", "status: open")
+    .replace("residualRiskIds: AF-RISK-OPS-004", "residualRiskIds: none"));
+
+  expectExit("valid incident record passes", [validRecord], 0, "incidentRecordEvidenceHash: sha256:");
+  expectExit("secret-like values fail", [invalidSecretRecord], 1);
+  expectExit("missing high-risk confirmation fails", [invalidConfirmationRecord], 1);
+  expectExit("unresolved incident without residual fails", [invalidResidualRecord], 1);
+
+  console.log("incident record validator selftest passed.");
+} finally {
+  rmSync(tempDir, { force: true, recursive: true });
+}
+
+function expectExit(label: string, args: string[], expectedStatus: number, expectedStdout?: string): void {
+  const result = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/incident-record-validate.ts", ...args], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (result.status !== expectedStatus) {
+    console.error(`FAIL ${label}: expected exit ${expectedStatus}, got ${result.status}`);
+    console.error(result.stdout.trim());
+    console.error(result.stderr.trim());
+    process.exit(1);
+  }
+  if (expectedStdout && !result.stdout.includes(expectedStdout)) {
+    console.error(`FAIL ${label}: expected stdout to include ${expectedStdout}`);
+    console.error(result.stdout.trim());
+    console.error(result.stderr.trim());
+    process.exit(1);
+  }
+}
+
+function createRecord(): string {
+  return [
+    "incidentId: incident-20260710-update-agent",
+    "detectedAt: 2026-07-10T21:30:00+08:00",
+    "recordedAt: 2026-07-10T22:10:00+08:00",
+    "operator: areasong",
+    "environment: production",
+    "severity: p2",
+    "status: mitigated",
+    "incidentType: update",
+    "source: pnpm ops:evidence:bundle plus operator observation",
+    "evidenceClass: production",
+    "publicHealthStatus: pass",
+    "userImpact: update request blocked while public app stayed healthy",
+    "containmentAction: held updater apply and preserved current release",
+    "recoveryAction: cleared stale request after confirmation and verified health",
+    "rollbackDecision: not-needed",
+    "readinessSummaryHash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evidenceBundleHash: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "alertPreviewHash: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "highRiskConfirmation: yes",
+    "residualRiskIds: AF-RISK-OPS-004",
+    "followUpTasks: tasks/indexes/residuals.md",
+    "postIncidentReview: no",
+    "safetyFacts:",
+    "  productionWriteAttempted: yes",
+    "  serverCommandAttempted: yes",
+    "  backupRestoreAttempted: no",
+    "  migrationAttempted: no",
+    "  updaterApplyAttempted: no",
+    "  rollbackAttempted: no",
+    "  secretValuePrinted: no",
+    "  realStudyContentIncluded: no",
+    "",
+  ].join("\n");
+}

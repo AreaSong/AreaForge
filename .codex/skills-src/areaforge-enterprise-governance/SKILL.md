@@ -27,6 +27,7 @@ Use this skill when a change affects how the project is governed rather than a s
 16. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
 17. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
 18. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+19. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
 
 ## References
 

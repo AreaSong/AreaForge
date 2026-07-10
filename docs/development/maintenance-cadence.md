@@ -31,6 +31,7 @@
 推荐命令：
 
 ```bash
+pnpm enterprise:operability:preflight
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:alert:preview
@@ -43,6 +44,7 @@ pnpm ops:alert:preview
 建议项：
 
 - `pnpm maintenance:cadence:preflight`
+- `pnpm enterprise:operability:preflight`
 - `pnpm support:intake:preflight`
 - `pnpm operator:onboarding:preflight`
 - `pnpm release:train:preflight`
@@ -53,6 +55,7 @@ pnpm ops:alert:preview
 - `pnpm docs:readiness`
 - `pnpm audit:prod`
 - `pnpm shellcheck:updater`
+- 如需留存交接记录，按 `docs/development/maintenance-window-record-template.md` 填写并运行 `pnpm maintenance:window:validate <record>`。
 
 每周还应复核：
 
@@ -75,6 +78,7 @@ pnpm ops:alert:preview
 - 复核 `docs/development/support-intake.md` 和 issue 模板是否仍能阻止公开敏感信息。
 - 完成一次 desktop/mobile 产品体验复核，或记录为什么本维护窗口沿用/重新打开 `AF-RISK-UX-001`。
 - 若有告警接收人或人工值班窗口，完成一次告警/恢复演练并运行 `pnpm alert:drill:validate <record>`。
+- 完成一次非生产或临时环境恢复演练记录，并运行 `pnpm restore:drill:validate <record>`；该记录不授权生产 restore。
 
 月度检查不自动执行生产 restore，不删除备份，不移动上传目录，不修复 metadata。
 
@@ -100,8 +104,9 @@ Incident 后目标是保留证据、恢复服务、避免同类问题重复。
 1. 冻结 redacted evidence：health、update-agent、logs、release identity、backup freshness、smoke、alert preview。
 2. 判断是否需要 rollback、roll-forward、restore 或 hold；生产写动作必须重新确认。
 3. 恢复后记录 post-incident readiness summary 和 evidence bundle。
-4. 若形成后续风险，写入 residual ledger 或对应任务，不只留在聊天记录。
-5. 若涉及安全，转 `SECURITY.md` 私密路径。
+4. 按 `docs/development/incident-record-template.md` 填写 redacted incident record，并运行 `pnpm incident:record:validate <record>`。
+5. 若形成后续风险，写入 residual ledger 或对应任务，不只留在聊天记录。
+6. 若涉及安全，转 `SECURITY.md` 私密路径。
 
 ## Residual Review
 
@@ -131,6 +136,7 @@ Incident 后目标是保留证据、恢复服务、避免同类问题重复。
 
 ```bash
 pnpm maintenance:cadence:preflight
+pnpm enterprise:operability:preflight
 ```
 
 该预检只检查文档、package scripts、residual reviewAt、入口链接和 skill 引用；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration、不创建 Release、不写生产。

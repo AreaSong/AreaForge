@@ -20,6 +20,8 @@
 - Validation selected from changed paths, not habit.
 - Release-bound changes mention whether a new GitHub Release is required.
 - Release-bound changes must read `docs/development/production-release-runbook.md`, `docs/deployment/github-release-updater.md`, `.github/workflows/release.yml`, and `docs/development/high-risk-confirmation-packets.md` before recommending tag, updater apply, rollback, or policy changes.
+- Long-term operability changes must read `docs/development/long-term-operability-control-plane.md` and run or preserve `pnpm enterprise:operability:preflight`.
+- `health`, `readiness`, `doctor`, `gate`, `smoke`, `record`, and `apply` are distinct evidence words; do not use one as proof for another without explicit source evidence.
 - Production release or update evidence must include post-release public health, authenticated smoke or explicit limitation, update-agent status, rollback target, `pnpm ops:evidence:bundle` hash, and relevant residual risk IDs.
 - Ops claims are backed by timestamped evidence or reported as `unknown`.
 - Residual risks use IDs from `docs/development/residual-risk-ledger.md` when they affect future release or operations decisions.
