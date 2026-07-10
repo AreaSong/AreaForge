@@ -100,6 +100,7 @@
 - `development/production-release-runbook.md`：生产发布、备份与恢复确认 runbook。
 - `development/release-record-template.md`：后续每个线上版本使用的标准 Release 证据记录模板。
 - `development/release-supply-chain-record-template.md`：下一次签名 Release / CI 的 SBOM、provenance、签名和 Actions pinning 证据记录模板。
+- `development/ci-supply-chain-record-template.md`：CI-only 的 `AF-RISK-SC-002` Actions pinning、`pnpm audit:prod` 和治理门禁证据记录模板。
 - `development/github-release-updater-design.md`：GitHub Release 自动更新器设计。
 - `development/package-e-e1-release-record-draft.md`：Package E Batch E1 发布记录草案。
 - `development/package-e-e2-restore-drill-record.md`：Package E Batch E2 发布前备份与恢复演练记录。

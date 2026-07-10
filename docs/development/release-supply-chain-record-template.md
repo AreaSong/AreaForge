@@ -1,8 +1,12 @@
 # Release Supply Chain Record Template
 
-本模板用于记录 AreaForge 下一次 GitHub Release / CI 运行后的供应链证据。它不创建 Release，
+本模板用于记录 AreaForge 下一次签名 GitHub Release 运行后的供应链证据。它不创建 Release，
 不连接 GitHub，不下载资产，不执行 Docker、备份、恢复、migration 或生产更新。它只定义一份
 可提交到仓库或运维交接摘要的 redacted 证据记录。
+
+如果只需要记录 GitHub CI run 来复核 `AF-RISK-SC-002`，使用
+`docs/development/ci-supply-chain-record-template.md` 和 `pnpm ci:supply-chain:validate`。CI-only 记录不关闭
+`AF-RISK-SC-001`。
 
 记录完成后运行：
 

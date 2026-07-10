@@ -15,7 +15,7 @@ The authoritative project matrix is `docs/development/validation-matrix.md`; use
 - AI: `pnpm --filter @areaforge/ai test`, Web typecheck/lint, key scan/risk preflight.
 - Prisma schema: `pnpm db:validate`, `pnpm db:generate`, temporary database migration deploy when migration changes.
 - Release/updater: `pnpm github-release-updater:preflight`, `pnpm shellcheck:updater`, release evidence validation, updater smoke.
-- Release supply-chain evidence: `pnpm release:supply-chain:selftest`, `pnpm release:supply-chain:record:selftest`, `pnpm github-release-updater:preflight`, `pnpm governance:preflight`, and `git diff --check`; if a real record is generated, also run `pnpm release:supply-chain:validate <record>`.
+- Release supply-chain evidence: `pnpm release:supply-chain:selftest`, `pnpm release:supply-chain:record:selftest`, `pnpm ci:supply-chain:selftest`, `pnpm github-release-updater:preflight`, `pnpm governance:preflight`, and `git diff --check`; if a real signed Release record is generated, also run `pnpm release:supply-chain:validate <record>`; if a real CI-only SC-002 record is generated, run `pnpm ci:supply-chain:validate <record>`.
 - Production ops: prefer read-only health/status checks unless user confirms write action.
 - Observability/incident/residual changes: pair structural validation with docs/risk gates; use live checks only when explicitly authorized and needed.
 

@@ -61,6 +61,12 @@ function checkRequiredFiles(): void {
     "docs/deployment/github-release-updater.md",
     "docs/development/github-release-updater-design.md",
     "docs/development/release-supply-chain-record-template.md",
+    "docs/development/ci-supply-chain-record-template.md",
+    "scripts/ops/generate-release-supply-chain-record.ts",
+    "scripts/quality/release-supply-chain-record.selftest.ts",
+    "scripts/ops/generate-ci-supply-chain-record.ts",
+    "scripts/quality/ci-supply-chain-record-validate.ts",
+    "scripts/quality/ci-supply-chain-record.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -73,15 +79,21 @@ function checkRequiredFiles(): void {
 function checkReleaseSupplyChainScript(): void {
   const script = read("scripts/ops/generate-release-supply-chain.ts");
   const recordScript = read("scripts/ops/generate-release-supply-chain-record.ts");
+  const ciRecordScript = read("scripts/ops/generate-ci-supply-chain-record.ts");
   const validator = read("scripts/quality/release-supply-chain-validate.ts");
   const selftest = read("scripts/quality/release-supply-chain-validate.selftest.ts");
   const recordSelftest = read("scripts/quality/release-supply-chain-record.selftest.ts");
+  const ciValidator = read("scripts/quality/ci-supply-chain-record-validate.ts");
+  const ciSelftest = read("scripts/quality/ci-supply-chain-record.selftest.ts");
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const releaseScript = packageJson.scripts?.["release:supply-chain"] ?? "";
   const validateScript = packageJson.scripts?.["release:supply-chain:validate"] ?? "";
   const selftestScript = packageJson.scripts?.["release:supply-chain:selftest"] ?? "";
   const recordPackageScript = packageJson.scripts?.["release:supply-chain:record"] ?? "";
   const recordSelftestPackageScript = packageJson.scripts?.["release:supply-chain:record:selftest"] ?? "";
+  const ciRecordPackageScript = packageJson.scripts?.["ci:supply-chain:record"] ?? "";
+  const ciValidatePackageScript = packageJson.scripts?.["ci:supply-chain:validate"] ?? "";
+  const ciSelftestPackageScript = packageJson.scripts?.["ci:supply-chain:selftest"] ?? "";
   const requiredTerms = [
     "SPDX-2.3",
     "pnpm",
@@ -97,28 +109,35 @@ function checkReleaseSupplyChainScript(): void {
     "attachmentContentIncluded: false",
     "release:supply-chain:validate",
     "release:supply-chain:record",
+    "ci:supply-chain:validate",
+    "ci:supply-chain:record",
     "release supply-chain record validation passed",
     "release supply-chain validator selftest passed",
     "release supply-chain record generator selftest passed",
+    "CI supply-chain record validation passed",
+    "CI supply-chain record selftest passed",
     "AREAFORGE_AUDIT_PROD_STATUS",
     "AREAFORGE_ACTIONS_PINNING_STATUS",
     "AF-RISK-SC-001",
     "AF-RISK-SC-002",
   ];
-  const combined = `${script}\n${recordScript}\n${validator}\n${selftest}\n${recordSelftest}`;
+  const combined = `${script}\n${recordScript}\n${ciRecordScript}\n${validator}\n${selftest}\n${recordSelftest}\n${ciValidator}\n${ciSelftest}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   const ok = missing.length === 0 &&
     releaseScript === "tsx scripts/ops/generate-release-supply-chain.ts" &&
     validateScript === "tsx scripts/quality/release-supply-chain-validate.ts" &&
     selftestScript === "tsx scripts/quality/release-supply-chain-validate.selftest.ts" &&
     recordPackageScript === "tsx scripts/ops/generate-release-supply-chain-record.ts" &&
-    recordSelftestPackageScript === "tsx scripts/quality/release-supply-chain-record.selftest.ts";
+    recordSelftestPackageScript === "tsx scripts/quality/release-supply-chain-record.selftest.ts" &&
+    ciRecordPackageScript === "tsx scripts/ops/generate-ci-supply-chain-record.ts" &&
+    ciValidatePackageScript === "tsx scripts/quality/ci-supply-chain-record-validate.ts" &&
+    ciSelftestPackageScript === "tsx scripts/quality/ci-supply-chain-record.selftest.ts";
   checks.push({
     name: "release supply-chain generator",
     ok,
     detail: ok
       ? "package scripts generate SPDX SBOM/provenance, supply-chain evidence records, and validation selftests without new dependencies"
-      : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}; validate script=${validateScript || "missing"}; selftest=${selftestScript || "missing"}; record script=${recordPackageScript || "missing"}; record selftest=${recordSelftestPackageScript || "missing"}`,
+      : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}; validate script=${validateScript || "missing"}; selftest=${selftestScript || "missing"}; record script=${recordPackageScript || "missing"}; record selftest=${recordSelftestPackageScript || "missing"}; ci record=${ciRecordPackageScript || "missing"}; ci validate=${ciValidatePackageScript || "missing"}; ci selftest=${ciSelftestPackageScript || "missing"}`,
   });
 }
 
@@ -343,6 +362,7 @@ function checkReleaseWorkflow(): void {
     "areaforge-sbom.spdx.json",
     "areaforge-provenance.json",
     "pnpm release:supply-chain:selftest",
+    "pnpm ci:supply-chain:selftest",
     "sha256sum",
     "COSIGN_PRIVATE_KEY_B64",
     "cosign sign-blob",
@@ -375,6 +395,7 @@ function checkCiWorkflow(): void {
     "sudo apt-get install -y shellcheck",
     "pnpm install --frozen-lockfile",
     "pnpm audit:prod",
+    "pnpm ci:supply-chain:selftest",
     "pnpm shellcheck:updater",
     "pnpm github-release-updater:preflight",
     "pnpm governance:preflight",

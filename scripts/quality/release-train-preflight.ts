@@ -38,12 +38,16 @@ function checkRequiredFiles(): void {
     "docs/development/production-release-runbook.md",
     "docs/development/release-record-template.md",
     "docs/development/release-supply-chain-record-template.md",
+    "docs/development/ci-supply-chain-record-template.md",
     "docs/development/operational-readiness.md",
     "docs/development/residual-risk-ledger.md",
     "docs/deployment/github-release-updater.md",
     ".github/workflows/release.yml",
     "ops/github-release-updater/areaforge-updater.sh",
     "ops/update-agent/areaforge-update-agent.sh",
+    "scripts/ops/generate-ci-supply-chain-record.ts",
+    "scripts/quality/ci-supply-chain-record-validate.ts",
+    "scripts/quality/ci-supply-chain-record.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -80,6 +84,7 @@ function checkReleaseTrainDoc(): void {
     "pnpm check",
     "pnpm release:evidence:validate",
     "pnpm release:supply-chain:validate",
+    "pnpm ci:supply-chain:validate",
     "pnpm ops:evidence:bundle",
     "pnpm ops:alert:preview",
     "不可变 digest",
@@ -116,6 +121,7 @@ function checkReleaseWorkflow(): void {
     "pnpm shellcheck:updater",
     "pnpm audit:prod",
     "pnpm release:supply-chain:selftest",
+    "pnpm ci:supply-chain:selftest",
     "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
     "release tag ${tag} does not match package.json version",
     "areaforge-sbom.spdx.json",
@@ -189,6 +195,7 @@ function checkValidationMatrix(): void {
     "pnpm release:train:preflight",
     "pnpm github-release-updater:preflight",
     "pnpm release:supply-chain:selftest",
+    "pnpm ci:supply-chain:selftest",
     "pnpm governance:preflight",
     "pnpm ops:readiness",
   ];

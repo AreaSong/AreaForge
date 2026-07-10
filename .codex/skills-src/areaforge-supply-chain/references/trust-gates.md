@@ -9,7 +9,8 @@ Required for production-ready release evidence:
 - GHCR images are referenced by fixed version tag and immutable digest.
 - Server updater verifies signature and hash before applying.
 - Release record captures digest, health, updater state, smoke, rollback target, and residual risk.
-- For SC-001/SC-002 closure evidence, record the GitHub Release/CI supply-chain facts with `docs/development/release-supply-chain-record-template.md` and validate with `pnpm release:supply-chain:validate <record>`.
+- For SC-002 CI-only closure or review evidence, record the GitHub CI run, `pnpm audit:prod`, governance, skills, and Actions pinning facts with `docs/development/ci-supply-chain-record-template.md` and validate with `pnpm ci:supply-chain:validate <record>`. This does not close SC-001.
+- For SC-001/SC-002 signed Release closure evidence, record the GitHub Release supply-chain facts with `docs/development/release-supply-chain-record-template.md` and validate with `pnpm release:supply-chain:validate <record>`.
 - If the GitHub Release assets have already been downloaded, `pnpm release:supply-chain:record <release-assets-dir>` may generate a redacted draft, but it must still require explicit workflow run URL, `pnpm audit:prod`, Actions pinning, checksum verification, signature verification, and unsigned-placeholder status before validation can pass.
 
 ## Dependency Gate

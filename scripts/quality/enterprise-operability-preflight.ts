@@ -58,6 +58,7 @@ function checkRequiredFiles(): void {
     "docs/development/release-train.md",
     "docs/development/release-record-template.md",
     "docs/development/release-supply-chain-record-template.md",
+    "docs/development/ci-supply-chain-record-template.md",
     "docs/development/incident-record-template.md",
     "docs/development/restore-drill-record-template.md",
     "docs/development/maintenance-window-record-template.md",
@@ -81,6 +82,9 @@ function checkRequiredFiles(): void {
     "scripts/quality/operational-handoff.selftest.ts",
     "scripts/quality/operational-evidence-bundle-validate.ts",
     "scripts/quality/operational-evidence-bundle-validate.selftest.ts",
+    "scripts/ops/generate-ci-supply-chain-record.ts",
+    "scripts/quality/ci-supply-chain-record-validate.ts",
+    "scripts/quality/ci-supply-chain-record.selftest.ts",
     "scripts/ops/generate-ops001-closure-packet.ts",
     "scripts/quality/ops001-closure-packet-validate.ts",
     "scripts/quality/ops001-closure-packet.selftest.ts",
@@ -156,6 +160,7 @@ function checkReleaseDecisionMatrix(): void {
     "pnpm smoke:local-ux",
     "pnpm governance:preflight",
     "pnpm release:supply-chain:selftest",
+    "pnpm ci:supply-chain:selftest",
   ];
   const missing = requiredTerms.filter((term) => !doc.includes(term));
   checks.push({
@@ -221,6 +226,9 @@ function checkPackageScript(): void {
     "update-agent:status:record:selftest": "tsx scripts/quality/update-agent-status-record.selftest.ts",
     "update-agent:status:validate": "tsx scripts/quality/update-agent-status-validate.ts",
     "update-agent:status:selftest": "tsx scripts/quality/update-agent-status-validate.selftest.ts",
+    "ci:supply-chain:record": "tsx scripts/ops/generate-ci-supply-chain-record.ts",
+    "ci:supply-chain:validate": "tsx scripts/quality/ci-supply-chain-record-validate.ts",
+    "ci:supply-chain:selftest": "tsx scripts/quality/ci-supply-chain-record.selftest.ts",
   };
   const mismatches = Object.entries(expectedScripts)
     .filter(([name, expected]) => packageJson.scripts?.[name] !== expected)
@@ -252,14 +260,18 @@ function checkEntryPoints(): void {
     [docSync, "docs/development/maintenance-window-record-template.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/update-agent-status-record-template.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/ops-001-closure-packet-template.md", "docs/development/doc-sync-checklist.md"],
+    [docSync, "docs/development/ci-supply-chain-record-template.md", "docs/development/doc-sync-checklist.md"],
     [maintenance, "pnpm enterprise:operability:preflight", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ops:ops-001:closure:validate", "docs/development/maintenance-cadence.md"],
+    [maintenance, "pnpm ci:supply-chain:validate", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm maintenance:window:validate", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm incident:record:validate", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm restore:drill:validate", "docs/development/maintenance-cadence.md"],
     [releaseTrain, "pnpm enterprise:operability:preflight", "docs/development/release-train.md"],
     [releaseTrain, "pnpm update-agent:status:validate", "docs/development/release-train.md"],
+    [releaseTrain, "pnpm ci:supply-chain:validate", "docs/development/release-train.md"],
     [rootReadme, "pnpm update-agent:status:record", "README.md"],
+    [rootReadme, "pnpm ci:supply-chain:record", "README.md"],
     [rootReadme, "pnpm ops:ops-001:closure", "README.md"],
   ];
   const missing = requiredLinks

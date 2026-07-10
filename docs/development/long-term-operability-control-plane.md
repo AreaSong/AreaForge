@@ -40,7 +40,7 @@ AreaForge 只借鉴能直接增强长期运营的机制，不搬运完整 task-l
 | 源事实 | `docs/**`、`tasks/**`、`workflow/**` | 产品、架构、范围、计划和关闭条件 | 真实生产健康 |
 | 本地验证 | `pnpm check`、`pnpm smoke:local-ux`、专项 selftest | 当前 checkout 的构建、类型、规则和本地旅程 | 远端生产状态 |
 | Release train | `docs/development/release-train.md`、`pnpm release:train:preflight` | 功能进入线上前的版本、资产、签名、digest、记录要求 | 自动完成 tag、GitHub Release 或部署 |
-| 供应链 | `pnpm release:supply-chain:validate`、GitHub Release assets | SBOM、provenance、checksum、signature、Actions pinning 证据 | 业务功能体验 |
+| 供应链 | `pnpm ci:supply-chain:validate`、`pnpm release:supply-chain:validate`、GitHub Release assets | CI Actions pinning、`pnpm audit:prod`、SBOM、provenance、checksum、signature 证据 | 业务功能体验 |
 | 运营 readiness | `pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` | health、update-agent、backup、cert、smoke 等证据摘要 | 缺失信号健康 |
 | 运营交接 | `pnpm ops:handoff` | 当前版本、离线控制面、due residual、release follow-up、下一步只读命令和 claim boundary | 真实生产健康、updater apply 或 residual 自动关闭 |
 | 真实体验 | `pnpm smoke:local-ux`、`pnpm experience:review:validate` | 桌面/移动核心旅程是否可理解、可完成 | 生产写入 smoke 或所有真实数据 |
@@ -58,7 +58,7 @@ AreaForge 只借鉴能直接增强长期运营的机制，不搬运完整 task-l
 | 上传、附件、`UPLOAD_DIR`、文件对账、备份/恢复 | 需要 | storage/upload 专项测试、`pnpm risk:preflight`、`pnpm check` | file storage safety 审查、备份/恢复证据 |
 | AI provider、prompt 最小化、fallback、限流、日志 | 需要 | AI 专项测试、`pnpm risk:preflight`、`pnpm check` | 隐私边界和日志脱敏证据 |
 | updater、Docker、Nginx、备份、恢复、回滚、自动应用策略 | 需要，且生产动作高风险确认 | `pnpm github-release-updater:preflight`、`pnpm shellcheck:updater`、`pnpm ops:readiness` | backup、rollback、smoke、update-agent 证据 |
-| 依赖、安全、GitHub Actions、签名、GHCR、Release workflow | 需要或至少进入 release/supply-chain review | `pnpm governance:preflight`、`pnpm audit:prod`、`pnpm release:supply-chain:selftest` | Actions run、SBOM/provenance、signature、digest |
+| 依赖、安全、GitHub Actions、签名、GHCR、Release workflow | 需要或至少进入 release/supply-chain review | `pnpm governance:preflight`、`pnpm audit:prod`、`pnpm release:supply-chain:selftest`、`pnpm ci:supply-chain:selftest` | Actions run、SBOM/provenance、signature、digest |
 | repo-local skill 或治理文档 | 不一定需要线上 Release；若改变执行/交付事实则进入 release train 判断 | `pnpm skills:validate`、`pnpm governance:preflight`、`pnpm docs:readiness` | doc sync 和 residual 更新 |
 
 Release 完成不等于生产更新完成。生产更新必须另有服务器侧 updater 或管理员执行证据。
@@ -136,7 +136,7 @@ pnpm ops:alert:preview
 - `AF-RISK-OPS-002`：写入型生产 smoke 仍需专用账号、确认、清理策略和受控记录。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受安全默认，启用 patch 自动应用需另行关闭证据。
 - `AF-RISK-SC-001`：下一次签名 Release 的 SBOM/provenance 资产与校验记录。
-- `AF-RISK-SC-002`：下一次 GitHub CI/Release run 的 Actions pinning 和 `pnpm audit:prod` 证据。
+- `AF-RISK-SC-002`：下一次 GitHub CI/Release run 的 Actions pinning 和 `pnpm audit:prod` 证据；CI-only 证据不关闭 `AF-RISK-SC-001`。
 - `AF-RISK-SC-003`：后续升级 `pg` / `@prisma/adapter-pg` 前重跑 deprecation trace 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 runbook 和证据。
 - `AF-RISK-OPS-004`：外部告警接收人或人工值班窗口以及告警/恢复演练记录。

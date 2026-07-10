@@ -285,6 +285,7 @@ function checkCiRunsGovernance(): void {
     "pnpm governance:preflight",
     "pnpm skills:validate",
     "pnpm audit:prod",
+    "pnpm ci:supply-chain:selftest",
   ];
   const missing = requiredTerms.filter((term) => !ci.includes(term));
   checks.push({
