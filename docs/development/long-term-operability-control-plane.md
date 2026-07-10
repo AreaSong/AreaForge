@@ -69,6 +69,7 @@ Release 完成不等于生产更新完成。生产更新必须另有服务器侧
 ```bash
 pnpm enterprise:operability:preflight
 pnpm maintenance:cadence:preflight
+pnpm ops:status
 pnpm residuals:review-due
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
@@ -81,6 +82,8 @@ pnpm ops:alert:preview
 2. 若可立即执行且不触碰生产写入，转成当前任务或本地证据补齐。
 3. 若需要生产写入、服务器命令、backup/restore、migration、updater apply、rollback 或发布动作，必须走高风险确认包。
 4. 若仍是外部条件或接受例外，更新 `reviewAt`、影响、关闭条件和所需证据，不把它隐藏在聊天记录里。
+
+`pnpm ops:status` 输出 AreaFlow-style 离线长期运营状态投影：控制面文件、package scripts、residual 分类、due-soon 项、下一步证据和安全事实。它不连接生产、不读取密钥、不执行服务器命令、不写 `.areaforge/status.json` 或任何生产状态；生产健康仍必须靠 `pnpm ops:readiness:summary`、smoke、update-agent、备份和 release evidence 证明。
 
 可交接记录使用以下模板和只读校验：
 

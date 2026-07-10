@@ -31,10 +31,11 @@ Use this skill to prove what the system is doing before diagnosing, releasing, r
 
 1. Classify the observation target: app health, user journey, database, uploads, AI provider, release updater, backup, infrastructure, or docs evidence.
 2. Load the signal inventory before deciding whether a status is healthy, degraded, blocked, or unknown.
-3. Prefer read-only evidence: health JSON, logs with secrets redacted, status files, smoke result, backup inventory, disk/cert age, release digest, and update-agent state.
-4. Separate live production evidence from local, CI, dry-run, or historical evidence.
-5. Record status with timestamp, source, command or endpoint, result, residual risk ID, and follow-up owner.
-6. If evidence shows user-visible failure, stale backups, signature failure, missing smoke, or unknown release digest, hand off to incident response or release operator.
+3. Use `pnpm ops:status` only as an offline control-plane/residual projection; use live readiness, smoke, update-agent, backup, release, and alert evidence for production claims.
+4. Prefer read-only evidence: health JSON, logs with secrets redacted, status files, smoke result, backup inventory, disk/cert age, release digest, and update-agent state.
+5. Separate live production evidence from local, CI, dry-run, or historical evidence.
+6. Record status with timestamp, source, command or endpoint, result, residual risk ID, and follow-up owner.
+7. If evidence shows user-visible failure, stale backups, signature failure, missing smoke, or unknown release digest, hand off to incident response or release operator.
 
 ## Guardrails
 

@@ -83,6 +83,14 @@ overall:
 
 本仓库提供的 `pnpm ops:readiness` 只检查运营文档、残余风险台账、release workflow 和 package scripts 是否保留长期运营入口；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration。残余风险 Markdown 与机器索引的同步由 `pnpm residuals:validate` 校验。
 
+AreaFlow 的 `.areaflow/status.json` 给了 AreaForge 一个轻量借鉴点：保留离线 status projection，但不引入执行队列或跨项目 apply。AreaForge 对应命令是：
+
+```bash
+pnpm ops:status
+```
+
+该命令只读本地 `package.json`、长期运营入口文件和 `docs/development/residual-risk-ledger.json`，输出 `offline_long_term_operability_status_projection` JSON，包含控制面是否完整、当前版本、residual 类型统计、`reviewAt` 到期状态、可立即执行的残余项、release 相关 residual IDs、每日/每周/release/incident 推荐命令和 `safetyFacts`。它默认不访问网络、不读取密钥、不执行服务器命令、不备份、不恢复、不运行 migration、不写生产，也不写 `.areaforge/status.json`。输出中的 `overall=needs_live_evidence` 表示离线控制面存在但仍缺真实生产 smoke、release 或告警证据；不能用它宣称生产健康。
+
 完成声明证据纪律见 `docs/development/completion-evidence-checklist.md`：ops、release、体验和安全结论必须说明证据等级、新鲜验证、未验证项、阻断项和 residual risk IDs。运行时写动作边界见 `docs/development/runtime-write-boundary.md`：R0 只读、R1 本地写、R2 用户显式 Web 写、R3 update request 和 R4 高风险生产操作不能互相冒充。
 
 本仓库还提供只读运营摘要生成：

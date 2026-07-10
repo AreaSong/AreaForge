@@ -57,6 +57,7 @@ pnpm audit:prod
 pnpm github-release-updater:preflight
 pnpm governance:preflight
 pnpm ops:readiness
+pnpm ops:status
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:alert:preview

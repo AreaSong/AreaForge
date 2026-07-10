@@ -3,6 +3,7 @@
 ## Read-Only Checks
 
 - First operator path: `docs/deployment/operator-onboarding.md`, then `pnpm operator:onboarding:preflight`.
+- Offline operability projection: `pnpm ops:status`; this reads local source facts only and cannot prove production health.
 - Public health: `curl -fsS https://forge.areasong.top/api/health`.
 - Production read-only smoke: run `pnpm smoke:prod-readonly:config`, then run or attach redacted `pnpm smoke:prod-readonly` output, then validate the record with `pnpm smoke:prod-readonly:validate <record>`.
 - Updater status JSON: current/latest version, blocker, signature required, rollback target; validate redacted records with `pnpm update-agent:status:validate <record.json>`.

@@ -74,6 +74,8 @@ function checkRequiredFiles(): void {
     ".codex/skills-src/areaforge-release-operator/SKILL.md",
     ".codex/skills-src/areaforge-residual-ledger/SKILL.md",
     ".codex/skills-src/areaforge-product-experience/SKILL.md",
+    "scripts/ops/operability-status.ts",
+    "scripts/quality/operability-status.selftest.ts",
     "scripts/ops/generate-incident-record.ts",
     "scripts/quality/incident-record-validate.ts",
     "scripts/quality/incident-record-validate.selftest.ts",
@@ -110,6 +112,7 @@ function checkControlPlaneDoc(): void {
     "默认不新增第 18 个 skill",
     "areaforge-data-governance",
     "pnpm enterprise:operability:preflight",
+    "pnpm ops:status",
     "不连接生产",
     "不创建 GitHub Release",
     "不写生产",
@@ -185,6 +188,8 @@ function checkPackageScript(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const expectedScripts: Record<string, string> = {
     "enterprise:operability:preflight": "tsx scripts/quality/enterprise-operability-preflight.ts",
+    "ops:status": "tsx scripts/ops/operability-status.ts",
+    "ops:status:selftest": "tsx scripts/quality/operability-status.selftest.ts",
     "maintenance:window:validate": "tsx scripts/quality/maintenance-window-record-validate.ts",
     "maintenance:window:selftest": "tsx scripts/quality/maintenance-window-record-validate.selftest.ts",
     "incident:record": "tsx scripts/ops/generate-incident-record.ts",
@@ -215,6 +220,7 @@ function checkEntryPoints(): void {
   const requiredLinks = [
     [rootReadme, "docs/development/long-term-operability-control-plane.md", "README.md"],
     [rootReadme, "pnpm enterprise:operability:preflight", "README.md"],
+    [rootReadme, "pnpm ops:status", "README.md"],
     [docsReadme, "development/long-term-operability-control-plane.md", "docs/README.md"],
     [workflowReadme, "long-term-operability-control-plane.md", "workflow/README.md"],
     [docSync, "docs/development/long-term-operability-control-plane.md", "docs/development/doc-sync-checklist.md"],

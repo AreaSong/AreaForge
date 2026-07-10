@@ -54,7 +54,8 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 7. Sync source facts through `areaforge-doc-sync`.
 8. Record unresolved items through `areaforge-residual-ledger` when they affect release, ops, security, supply chain, or user experience.
 9. Close with evidence from `completion-evidence-checklist.md`: files changed, commands run, pass/fail, unverified items, blockers, residual risk IDs, release requirement, and whether production was touched.
-10. Keep evidence words distinct: `health`, `readiness`, `doctor`, `gate`, `smoke`, `record`, and `apply` 不能互相替代。
+10. Use `pnpm ops:status` for an offline AreaFlow-style status projection when a maintainer needs the current control-plane/residual snapshot before live evidence collection.
+11. Keep evidence words distinct: `health`, `readiness`, `doctor`, `gate`, `smoke`, `record`, and `apply` 不能互相替代。
 
 ## Guardrails
 

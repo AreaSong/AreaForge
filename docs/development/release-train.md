@@ -48,6 +48,7 @@ pnpm governance:preflight
 pnpm github-release-updater:preflight
 pnpm shellcheck:updater
 pnpm ops:readiness
+pnpm ops:status
 pnpm skills:validate
 pnpm audit:prod
 pnpm check

@@ -32,6 +32,7 @@
 
 ```bash
 pnpm enterprise:operability:preflight
+pnpm ops:status
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:alert:preview
@@ -44,6 +45,7 @@ pnpm ops:alert:preview
 建议项：
 
 - `pnpm maintenance:cadence:preflight`
+- `pnpm ops:status`
 - `pnpm enterprise:operability:preflight`
 - `pnpm support:intake:preflight`
 - `pnpm operator:onboarding:preflight`
