@@ -26,3 +26,4 @@
 - 每次功能发布后必须同步对应 release tag、验证结果、线上 health、update-agent 状态和残余风险。
 - 发布或运维状态变化时必须同步 ops readiness、残余风险 ID 和 release workflow 证据。
 - 功能进入线上前先按 `docs/development/release-train.md` 固定版本、Release 资产、验证、updater、smoke、回滚目标和发布记录证据。
+- 日常维护和 residual 到期复核按 `docs/development/maintenance-cadence.md` 执行；readiness/preview/evidence bundle 不等于 apply，也不能单独关闭 residual。

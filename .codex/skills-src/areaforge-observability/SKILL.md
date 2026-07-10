@@ -15,8 +15,9 @@ Use this skill to prove what the system is doing before diagnosing, releasing, r
 4. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
 5. [docs/development/docs-100-completion-record.md](../../../docs/development/docs-100-completion-record.md)
 6. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
-7. [docs/development/production-smoke-alerting-strategy.md](../../../docs/development/production-smoke-alerting-strategy.md)
-8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+7. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
+8. [docs/development/production-smoke-alerting-strategy.md](../../../docs/development/production-smoke-alerting-strategy.md)
+9. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
 ## References
 

@@ -38,6 +38,7 @@ function main(): void {
 function checkRequiredFiles(): void {
   const requiredFiles = [
     "docs/development/operational-readiness.md",
+    "docs/development/maintenance-cadence.md",
     "docs/development/production-smoke-alerting-strategy.md",
     "docs/development/release-train.md",
     "docs/development/production-readonly-smoke-record-template.md",
@@ -51,6 +52,7 @@ function checkRequiredFiles(): void {
     "scripts/ops/operational-evidence-bundle.ts",
     "scripts/ops/operational-alert-preview.ts",
     "scripts/ops/local-ux-smoke.ts",
+    "scripts/quality/maintenance-cadence-preflight.ts",
     "scripts/quality/operator-onboarding-preflight.ts",
     "scripts/quality/release-train-preflight.ts",
     "scripts/quality/prod-readonly-smoke-validate.ts",
@@ -82,6 +84,8 @@ function checkOperationalReadinessDoc(): void {
     "Backup freshness",
     "Rollback target",
     "pnpm ops:readiness",
+    "pnpm maintenance:cadence:preflight",
+    "maintenance-cadence.md",
     "pnpm smoke:local-ux",
     "production-smoke-alerting-strategy.md",
     "AF-RISK-OPS-001",
@@ -233,6 +237,7 @@ function checkPackageScripts(): void {
   const localUxSmokeScript = packageJson.scripts?.["smoke:local-ux"] ?? "";
   const operatorOnboardingPreflightScript = packageJson.scripts?.["operator:onboarding:preflight"] ?? "";
   const releaseTrainPreflightScript = packageJson.scripts?.["release:train:preflight"] ?? "";
+  const maintenanceCadencePreflightScript = packageJson.scripts?.["maintenance:cadence:preflight"] ?? "";
   checks.push({
     name: "ops readiness package script",
     ok: script === "tsx scripts/quality/ops-readiness-preflight.ts" &&
@@ -246,8 +251,9 @@ function checkPackageScripts(): void {
       packageJson.scripts?.["residuals:validate"] === "tsx scripts/quality/residual-ledger-validate.ts" &&
       localUxSmokeScript === "tsx scripts/ops/local-ux-smoke.ts" &&
       operatorOnboardingPreflightScript === "tsx scripts/quality/operator-onboarding-preflight.ts" &&
-      releaseTrainPreflightScript === "tsx scripts/quality/release-train-preflight.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}`,
+      releaseTrainPreflightScript === "tsx scripts/quality/release-train-preflight.ts" &&
+      maintenanceCadencePreflightScript === "tsx scripts/quality/maintenance-cadence-preflight.ts",
+    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}`,
   });
 }
 
@@ -330,6 +336,7 @@ function checkDocsIndex(): void {
   const agents = read("AGENTS.md");
   const requiredTerms = [
     "development/operational-readiness.md",
+    "development/maintenance-cadence.md",
     "development/release-train.md",
     "development/residual-risk-ledger.md",
     "deployment/operator-onboarding.md",

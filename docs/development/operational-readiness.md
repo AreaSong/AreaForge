@@ -155,6 +155,14 @@ pnpm operator:onboarding:preflight
 
 该预检只检查上手文档、环境变量示例、部署/更新/备份/smoke/告警入口、README 链接和相关 skill 引用；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration、不修改自动更新策略。
 
+日常、每周、每月、Release 和 incident 后的维护节奏见 `docs/development/maintenance-cadence.md`，并可用只读预检确认入口仍完整：
+
+```bash
+pnpm maintenance:cadence:preflight
+```
+
+该预检只检查维护节奏文档、residual `reviewAt` metadata、package scripts、入口链接和相关 skill 引用；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration、不创建 Release、不写生产。
+
 ## 残余边界
 
 长期运营未完成项不应散落在自然语言里。影响发布或运维判断的项目必须进入 `docs/development/residual-risk-ledger.md`，使用稳定 ID、类型、影响、关闭条件和所需证据。

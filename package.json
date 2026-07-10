@@ -23,6 +23,7 @@
     "ops:readiness:summary": "tsx scripts/ops/operational-readiness-summary.ts",
     "ops:evidence:bundle": "tsx scripts/ops/operational-evidence-bundle.ts",
     "ops:alert:preview": "tsx scripts/ops/operational-alert-preview.ts",
+    "maintenance:cadence:preflight": "tsx scripts/quality/maintenance-cadence-preflight.ts",
     "operator:onboarding:preflight": "tsx scripts/quality/operator-onboarding-preflight.ts",
     "support:intake:preflight": "tsx scripts/quality/support-intake-preflight.ts",
     "alert:drill:validate": "tsx scripts/quality/alert-drill-validate.ts",

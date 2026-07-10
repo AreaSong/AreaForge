@@ -19,6 +19,7 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 9. [docs/development/residual-risk-ledger.json](../../../docs/development/residual-risk-ledger.json)
 10. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
+11. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
 
 ## References
 

@@ -17,13 +17,14 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 4. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
 5. [docs/development/doc-sync-checklist.md](../../../docs/development/doc-sync-checklist.md)
 6. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
-7. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
-8. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
-9. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
-10. [docs/development/high-risk-confirmation-packets.md](../../../docs/development/high-risk-confirmation-packets.md)
-11. [.github/workflows/release.yml](../../../.github/workflows/release.yml)
-12. [tasks/README.md](../../../tasks/README.md)
-13. [workflow/README.md](../../../workflow/README.md)
+7. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
+8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+9. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
+10. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
+11. [docs/development/high-risk-confirmation-packets.md](../../../docs/development/high-risk-confirmation-packets.md)
+12. [.github/workflows/release.yml](../../../.github/workflows/release.yml)
+13. [tasks/README.md](../../../tasks/README.md)
+14. [workflow/README.md](../../../workflow/README.md)
 
 ## References
 

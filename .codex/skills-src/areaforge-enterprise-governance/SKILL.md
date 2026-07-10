@@ -23,7 +23,8 @@ Use this skill when a change affects how the project is governed rather than a s
 12. [docs/development/validation-matrix.md](../../../docs/development/validation-matrix.md)
 13. [docs/development/doc-sync-checklist.md](../../../docs/development/doc-sync-checklist.md)
 14. [docs/development/operational-readiness.md](../../../docs/development/operational-readiness.md)
-15. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
+15. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
+16. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
 ## References
 
