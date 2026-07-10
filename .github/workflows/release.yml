@@ -141,7 +141,7 @@ jobs:
 
           if [ -n "${signing_key}" ]; then
             chmod 600 "${signing_key}"
-            if ! cosign sign-blob --key "${signing_key}" --bundle SHA256SUMS.sig SHA256SUMS 2>cosign-sign.err; then
+            if ! cosign sign-blob --yes --key "${signing_key}" --bundle SHA256SUMS.sig SHA256SUMS 2>cosign-sign.err; then
               while IFS= read -r line; do
                 safe_line="$(printf '%s' "${line}" | sed -E 's/(COSIGN_PRIVATE_KEY|COSIGN_PRIVATE_KEY_B64|COSIGN_PASSWORD)=[^[:space:]]+/\1=<redacted>/g')"
                 echo "::error::cosign signing failed: ${safe_line}"
