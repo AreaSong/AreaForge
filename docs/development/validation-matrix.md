@@ -23,7 +23,7 @@
 | `packages/storage/**` | 上传策略测试，大小、MIME、路径穿越边界验证 |
 | `apps/web/**` UI | `pnpm check`，可启动时用浏览器或截图检查主要页面；涉及核心学习闭环、附件、模拟、阶段或版本中心体验时，在本地临时库上补跑 `pnpm smoke:local-ux` |
 | `infra/**`、`docker-compose*.yml` | `docker compose config`，部署文档同步检查 |
-| `.github/workflows/**`、`ops/github-release-updater/**`、`ops/update-agent/**`、`scripts/ops/production-readonly-smoke.ts`、`infra/docker/migration.Dockerfile` | `pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`、`pnpm governance:preflight`、`pnpm ops:readiness`，涉及镜像时补充 Docker build；变更 smoke 脚本时用临时 HTTP mock 或受控环境验证 `pnpm smoke:prod-readonly` |
+| `.github/workflows/**`、`ops/github-release-updater/**`、`ops/update-agent/**`、`scripts/ops/production-readonly-smoke.ts`、`infra/docker/migration.Dockerfile` | `pnpm audit:prod`、`pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`、`pnpm governance:preflight`、`pnpm ops:readiness`，涉及镜像时补充 Docker build；变更 smoke 脚本时用临时 HTTP mock 或受控环境验证 `pnpm smoke:prod-readonly` |
 | `.env.example`、配置解析 | 配置 schema 覆盖检查，敏感字段不入库检查 |
 | 高风险包确认前准备 | `pnpm risk:preflight`，确认只读护栏、配置键、文档引用和危险默认值 |
 
@@ -308,10 +308,13 @@
 
 服务器侧 GitHub Release updater 改动至少运行：
 
+- `pnpm audit:prod`
 - `pnpm github-release-updater:preflight`
 - `pnpm shellcheck:updater`
 - `pnpm check`
 - 如改动 Dockerfile：`docker build -f infra/docker/migration.Dockerfile .`
+
+CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actions pinning 检查：所有外部 `uses:` 应 pin 到 40 位 commit SHA，并保留行内版本注释以便升级审查。
 
 验证重点：
 

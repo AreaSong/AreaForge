@@ -19,6 +19,7 @@ function main(): void {
   checkExternalCapabilityAdmission();
   checkCiRunsGovernance();
   checkReleaseWorkflowGovernance();
+  checkPinnedGitHubActions();
 
   for (const check of checks) {
     console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}: ${check.detail}`);
@@ -125,8 +126,10 @@ function checkDependencyPolicy(): void {
     "Dependabot",
     "pnpm governance:preflight",
     "pnpm github-release-updater:preflight",
+    "pnpm audit:prod",
     "SBOM",
     "provenance",
+    "40 位 commit SHA",
   ];
   const missing = requiredTerms.filter((term) => !policy.includes(term));
   checks.push({
@@ -182,6 +185,7 @@ function checkCiRunsGovernance(): void {
   const requiredTerms = [
     "pnpm governance:preflight",
     "pnpm skills:validate",
+    "pnpm audit:prod",
   ];
   const missing = requiredTerms.filter((term) => !ci.includes(term));
   checks.push({
@@ -201,6 +205,7 @@ function checkReleaseWorkflowGovernance(): void {
     "pnpm governance:preflight",
     "pnpm ops:readiness",
     "pnpm skills:validate",
+    "pnpm audit:prod",
     "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
     "release tag ${tag} does not match package.json version",
   ];
@@ -211,6 +216,45 @@ function checkReleaseWorkflowGovernance(): void {
     detail: missing.length === 0
       ? "release workflow validates before publishing and stable signing fails closed"
       : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkPinnedGitHubActions(): void {
+  const workflowFiles = [
+    ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
+  ];
+  const unpinned: string[] = [];
+  const entries: string[] = [];
+
+  for (const file of workflowFiles) {
+    const lines = read(file).split(/\r?\n/);
+    lines.forEach((line, index) => {
+      const match = line.match(/^\s*uses:\s*([^@\s#]+)@([^\s#]+)/);
+      if (!match) {
+        return;
+      }
+
+      const [, action, ref] = match;
+      if (action.startsWith("./")) {
+        return;
+      }
+
+      entries.push(`${file}:${index + 1}:${action}@${ref}`);
+      if (!/^[a-f0-9]{40}$/i.test(ref)) {
+        unpinned.push(`${file}:${index + 1}:${action}@${ref}`);
+      }
+    });
+  }
+
+  checks.push({
+    name: "pinned GitHub Actions",
+    ok: entries.length > 0 && unpinned.length === 0,
+    detail: entries.length === 0
+      ? "no external GitHub Actions uses entries found"
+      : unpinned.length === 0
+        ? `${entries.length} external GitHub Actions entries pinned to 40-character commit SHAs`
+        : `unpinned entries ${unpinned.join(", ")}`,
   });
 }
 

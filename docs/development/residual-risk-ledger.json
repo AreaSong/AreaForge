@@ -40,11 +40,11 @@
     },
     {
       "id": "AF-RISK-SC-002",
-      "type": "deferred-work",
-      "currentImpact": "GitHub Actions 当前至少 pin 到主版本；尚未 pin 到完整 commit SHA，也未接入独立 vulnerability scan",
+      "type": "release-follow-up",
+      "currentImpact": "CI/Release 外部 GitHub Actions 已在本地 pin 到 40 位 commit SHA，pnpm audit:prod 已进入 workflow；仍缺 GitHub CI/Release 运行证据",
       "executableNow": false,
-      "closeCondition": "Actions 依赖完成 SHA pinning 或有等价供应链策略，且发布/CI 记录 vulnerability scan 结果",
-      "requiredEvidence": "workflow diff、Dependabot/renovate 策略、vulnerability scan 输出、风险接受或关闭记录",
+      "closeCondition": "下一次 GitHub CI 或签名 Release 记录 Actions SHA pinning gate 和 pnpm audit:prod 输出，且无 high/critical 生产依赖漏洞",
+      "requiredEvidence": "workflow diff、pnpm governance:preflight 输出、pnpm audit:prod 输出、GitHub Actions run 记录或发布记录摘要",
       "ownerSkills": ["areaforge-supply-chain", "areaforge-enterprise-governance"]
     },
     {

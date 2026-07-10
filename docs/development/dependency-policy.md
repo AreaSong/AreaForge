@@ -29,6 +29,13 @@
 
 Dependabot PR 仍需要普通验证。不能因为来自 Dependabot 就跳过 review、docs 或 release 证据。
 
+## GitHub Actions
+
+- 外部 `uses:` 必须 pin 到 40 位 commit SHA，并用行内注释保留原始主版本，例如 `# v5`，方便 Dependabot 或人工升级时追溯来源。
+- CI 和 Release workflow 都必须运行 `pnpm audit:prod`。当前该命令执行 `pnpm audit --prod --audit-level high`，把生产依赖的 high/critical 漏洞作为阻断项；moderate 或 low 结果不阻断发布，但需要在依赖治理或残余风险里评估。
+- `pnpm governance:preflight` 会扫描 `.github/workflows/ci.yml` 和 `.github/workflows/release.yml` 的外部 `uses:`，发现非 SHA pinning 时失败。
+- GitHub Actions 升级应同时更新 SHA、行内版本注释、Dependabot/Release 证据和本文件需要的验证结果。
+
 ## 更新策略
 
 - patch/minor 依赖更新：优先跑 `pnpm governance:preflight` 和 `pnpm check`；涉及 release/updater 时补跑 `pnpm github-release-updater:preflight`。
@@ -42,6 +49,7 @@ Dependabot PR 仍需要普通验证。不能因为来自 Dependabot 就跳过 re
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm audit:prod
 pnpm governance:preflight
 pnpm check
 git diff --check
@@ -58,3 +66,5 @@ pnpm ops:readiness
 ## 残余风险
 
 当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。残余项 `AF-RISK-SC-001` 仍保持打开：它需要下一次真实签名 Release 产生 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据后才能关闭。
+
+`AF-RISK-SC-002` 已完成本地治理补强：CI/Release 外部 Actions 已 pin 到 40 位 commit SHA，且 `pnpm audit:prod` 已进入 CI/Release validate gate。该残余项仍保持打开，直到 GitHub CI 或下一次签名 Release 留下对应运行证据和漏洞审计输出后关闭。
