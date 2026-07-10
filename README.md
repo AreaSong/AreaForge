@@ -64,6 +64,7 @@ pnpm operator:onboarding:preflight
 pnpm support:intake:preflight
 pnpm alert:drill:validate
 pnpm smoke:prod-readonly:validate
+pnpm experience:review:validate
 pnpm residuals:review-due
 pnpm release:supply-chain:validate
 pnpm skills:validate

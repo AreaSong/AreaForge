@@ -1,6 +1,6 @@
 # Production Smoke And Alerting Strategy
 
-本文件是生产 smoke 和告警策略的非执行草案。它不授权任何生产写入，不替代 `docs/development/production-release-runbook.md`，也不关闭 `AF-RISK-OPS-001`、`AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。
+本文件是生产 smoke 和告警策略的非执行草案。它不授权任何生产写入，不替代 `docs/development/production-release-runbook.md`，也不关闭 `AF-RISK-OPS-001`、`AF-RISK-OPS-002`、`AF-RISK-OPS-004` 或 `AF-RISK-UX-001`。
 
 ## 默认边界
 
@@ -9,6 +9,7 @@
 - Web runtime 仍不得执行 Docker、备份、恢复、migration、updater apply、rollback、shell 或服务器命令。
 - smoke 记录不得包含密码、session cookie、数据库 URL、API key、上传绝对路径、完整 prompt/raw response 或真实学习内容。
 - AI smoke 默认只验证 fallback 或最小化 provider 路径，不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题。
+- 生产 smoke 只能证明目标路径可用；若要声明桌面/移动真实体验健康，必须另有 `pnpm experience:review:validate` 通过的体验复核记录。
 
 ## 只读生产 Smoke
 
@@ -60,9 +61,11 @@ pnpm ops:alert:preview
 | Release identity | digest 或 tag 缺失 | health、tag、digest 不一致 | `areaforge-release-operator` |
 | AI fallback/provider | fallback 证据缺失 | raw prompt/key 泄露或外呼风暴 | `areaforge-ai-governance` |
 | Upload access | 24 小时内无附件 smoke | 公共暴露、hash mismatch、owner 无法下载 | `areaforge-security-governance` |
+| Product experience review | 14 天内无 desktop/mobile 体验复核 | release/update 后声称体验健康但无复核记录 | `areaforge-product-experience` / `areaforge-qa-smoke` |
 
 ## 关闭残余项所需动作
 
 - `AF-RISK-OPS-001`：服务器配置只读 extra smoke、smoke 密码文件和最近一次通过记录。
 - `AF-RISK-OPS-002`：确认写入型 smoke 账号、允许写入范围、清理策略、失败处理和至少一次受控记录。
 - `AF-RISK-OPS-004`：配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录；`pnpm ops:alert:preview` 和 `pnpm alert:drill:validate` 只能作为演练输入与记录校验，不单独关闭该残余项。
+- `AF-RISK-UX-001`：完成覆盖 desktop/mobile 的真实体验复核记录，并通过 `pnpm experience:review:validate`；生产 smoke、API smoke 或旧截图不能单独关闭该残余项。

@@ -29,6 +29,8 @@ commands:
 residual risk:
 ```
 
+For product experience closeout, include desktop and mobile/narrow observations in `docs/development/product-experience-review-record-template.md` and validate the redacted record with `pnpm experience:review:validate <record>`.
+
 ## Production Limits
 
 - Prefer read-only checks in production.

@@ -39,6 +39,7 @@
 | Certificate expiry | 到期前 14 天内为 `warn`，7 天内为 `blocked` | `warn` | TLS certificate check |
 | AI fallback/provider | AI 变更或 provider incident 后必须记录 | `warn` | AI route smoke、redacted logs |
 | Upload access | 上传/附件变更或 release smoke 时记录 | `warn` | authenticated upload/download or read-only attachment smoke |
+| Product experience review | 体验改动或 release/update 后立即；日常 14 天内 | `warn` | `pnpm smoke:local-ux`、浏览器截图/观察记录、`pnpm experience:review:validate` |
 
 ## Readiness 摘要模板
 
@@ -143,6 +144,14 @@ pnpm alert:drill:validate <alert-drill-record.md|txt>
 
 本地真实体验验证可使用 `pnpm smoke:local-ux`。该脚本会写入合成任务、计时、复盘、笔记附件、错题、模拟考试、阶段草稿和更新请求，因此默认要求 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，且只允许 `localhost` / `127.0.0.1`，除非显式设置 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true`。它只能证明当前本地验证环境的核心闭环可用，不能关闭生产写入型 smoke 残余项 `AF-RISK-OPS-002`。
 
+产品体验复核记录使用 `docs/development/product-experience-review-record-template.md`，完成后运行：
+
+```bash
+pnpm experience:review:validate <product-experience-review-record.md|txt>
+```
+
+该校验只读取 redacted 体验记录，检查 desktop/mobile 视口、核心旅程、截图或浏览器观察、5 秒下一步、确认边界、恢复路径、移动端可读性、空/未授权/错误态、安全事实、`AF-RISK-UX-001` 和敏感值泄露；它不打开浏览器、不连接生产、不读取密钥、不写生产。`pnpm experience:review:selftest` 用于本地回归校验规则。没有新鲜体验复核记录时，功能 smoke 只能证明路径可用，不能宣称完整产品体验健康。
+
 生产 smoke 与告警策略见 `docs/development/production-smoke-alerting-strategy.md`。该文档只定义写入型 smoke 的确认字段、合成数据命名空间、清理/失败处理和告警阈值；没有用户确认、专用账号、清理策略和实际记录前，不得执行生产写入型 smoke，也不得关闭 `AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。
 
 生产 evidence 采集仍需要按 `docs/deployment/github-release-updater.md`、`docs/development/production-release-runbook.md` 和 `ops/github-release-updater/README.md` 执行。任何写入动作都必须先通过高风险确认。
@@ -178,3 +187,4 @@ pnpm residuals:review-due
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
 - `AF-RISK-OPS-004`：告警阈值已有非执行策略，`pnpm ops:alert:preview` 可预览 would-alert 决策；metrics dashboard、外部告警接收人和演练记录仍未产品化。
+- `AF-RISK-UX-001`：没有新鲜真实体验复核记录时，桌面/移动体验健康只能保持 `warn`，需 `pnpm experience:review:validate` 通过的 redacted 记录关闭。

@@ -26,3 +26,4 @@
 ## Evidence
 
 Use screenshots or browser observations for visual claims. Use API output for data claims. Use product docs for intent claims.
+For release/update handoff or `AF-RISK-UX-001` closure, use `docs/development/product-experience-review-record-template.md` and run `pnpm experience:review:validate <record>`.

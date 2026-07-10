@@ -15,6 +15,7 @@ Validate the product as a student would use it, then attach enough evidence for 
 4. [docs/product/feature-scope.md](../../../docs/product/feature-scope.md)
 5. [docs/development/production-smoke-alerting-strategy.md](../../../docs/development/production-smoke-alerting-strategy.md)
 6. [apps/web/README.md](../../../apps/web/README.md)
+7. [docs/development/product-experience-review-record-template.md](../../../docs/development/product-experience-review-record-template.md)
 
 ## References
 
@@ -31,6 +32,7 @@ Validate the product as a student would use it, then attach enough evidence for 
 4. Verify critical paths with authenticated and unauthenticated states when the route has auth.
 5. Capture evidence: URL, viewport, account mode, action path, expected result, actual result, screenshot path when useful, and any residual risk.
 6. For production smoke, use `https://forge.areasong.top/` and avoid destructive writes unless the user explicitly confirms a safe smoke dataset.
+7. For desktop/mobile experience closeout, keep a redacted review record and run `pnpm experience:review:validate <record>`.
 
 ## Guardrails
 
@@ -39,3 +41,4 @@ Validate the product as a student would use it, then attach enough evidence for 
 - Do not rely on one desktop viewport for UI changes; include at least one narrow viewport when layout changed.
 - Do not use mock AI/provider success as proof of production AI behavior.
 - Do not expose admin credentials, session cookies, attachment paths, API keys, or database URLs in smoke records.
+- Do not use a successful smoke command as full UX evidence unless viewport, screenshot/browser observation, and `AF-RISK-UX-001` close conditions are recorded.

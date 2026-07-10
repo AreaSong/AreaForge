@@ -47,6 +47,7 @@ function checkRequiredFiles(): void {
     "docs/development/maintenance-cadence.md",
     "docs/development/operational-readiness.md",
     "docs/development/production-smoke-alerting-strategy.md",
+    "docs/development/product-experience-review-record-template.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
     "docs/development/release-train.md",
@@ -56,6 +57,8 @@ function checkRequiredFiles(): void {
     "scripts/ops/operational-evidence-bundle.ts",
     "scripts/ops/operational-alert-preview.ts",
     "scripts/ops/residual-review-due.ts",
+    "scripts/quality/product-experience-review-validate.ts",
+    "scripts/quality/product-experience-review-validate.selftest.ts",
     "scripts/quality/residual-ledger-validate.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
@@ -87,6 +90,7 @@ function checkMaintenanceDoc(): void {
     "pnpm residuals:review-due",
     "--fail-on-due-soon",
     "pnpm alert:drill:validate",
+    "pnpm experience:review:validate",
     "pnpm release:supply-chain:validate",
     "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
@@ -96,6 +100,7 @@ function checkMaintenanceDoc(): void {
     "AF-RISK-SC-003",
     "AF-RISK-OPS-003",
     "AF-RISK-OPS-004",
+    "AF-RISK-UX-001",
     "不连接生产",
     "不执行 Docker",
     "不写生产",
@@ -132,6 +137,7 @@ function checkResidualReviewMetadata(): void {
     "AF-RISK-SC-003",
     "AF-RISK-OPS-003",
     "AF-RISK-OPS-004",
+    "AF-RISK-UX-001",
   ];
   const missingIds = requiredIds.filter((id) => !ids.has(id));
   checks.push({
@@ -147,11 +153,13 @@ function checkPackageScript(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const script = packageJson.scripts?.["maintenance:cadence:preflight"] ?? "";
   const reviewDueScript = packageJson.scripts?.["residuals:review-due"] ?? "";
+  const experienceReviewSelftestScript = packageJson.scripts?.["experience:review:selftest"] ?? "";
   checks.push({
     name: "maintenance cadence package script",
     ok: script === "tsx scripts/quality/maintenance-cadence-preflight.ts" &&
-      reviewDueScript === "tsx scripts/ops/residual-review-due.ts",
-    detail: `maintenance:cadence:preflight=${script || "missing"}; residuals:review-due=${reviewDueScript || "missing"}`,
+      reviewDueScript === "tsx scripts/ops/residual-review-due.ts" &&
+      experienceReviewSelftestScript === "tsx scripts/quality/product-experience-review-validate.selftest.ts",
+    detail: `maintenance:cadence:preflight=${script || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}`,
   });
 }
 
@@ -163,7 +171,9 @@ function checkEntryPoints(): void {
   const requiredLinks = [
     [rootReadme, "docs/development/maintenance-cadence.md", "README.md"],
     [rootReadme, "pnpm residuals:review-due", "README.md"],
+    [rootReadme, "pnpm experience:review:validate", "README.md"],
     [docsReadme, "development/maintenance-cadence.md", "docs/README.md"],
+    [docsReadme, "development/product-experience-review-record-template.md", "docs/README.md"],
     [workflowReadme, "docs/development/maintenance-cadence.md", "workflow/README.md"],
     [docSync, "docs/development/maintenance-cadence.md", "docs/development/doc-sync-checklist.md"],
   ];
@@ -188,6 +198,7 @@ function checkOpsReadinessCoverage(): void {
     "scripts/ops/residual-review-due.ts",
     "residuals:review-due",
     "pnpm residuals:review-due",
+    "pnpm experience:review:validate",
   ];
   const combined = `${opsReadiness}\n${operationalReadiness}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
@@ -203,13 +214,16 @@ function checkSkillReferences(): void {
   const residual = read(".codex/skills-src/areaforge-residual-ledger/SKILL.md");
   const residualReference = read(".codex/skills-src/areaforge-residual-ledger/references/classification.md");
   const enterprise = read(".codex/skills-src/areaforge-enterprise-governance/SKILL.md");
+  const productExperience = read(".codex/skills-src/areaforge-product-experience/SKILL.md");
+  const qaSmoke = read(".codex/skills-src/areaforge-qa-smoke/SKILL.md");
   const skillReadme = read(".codex/skills-src/README.md");
   const requiredTerms = [
     "docs/development/maintenance-cadence.md",
     "maintenance:cadence:preflight",
     "residuals:review-due",
+    "AF-RISK-UX-001",
   ];
-  const combined = `${observability}\n${residual}\n${residualReference}\n${enterprise}\n${skillReadme}`;
+  const combined = `${observability}\n${residual}\n${residualReference}\n${enterprise}\n${productExperience}\n${qaSmoke}\n${skillReadme}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   checks.push({
     name: "maintenance skill references",
@@ -224,8 +238,11 @@ function checkValidationMatrix(): void {
     "docs/development/maintenance-cadence.md",
     "scripts/quality/maintenance-cadence-preflight.ts",
     "scripts/ops/residual-review-due.ts",
+    "docs/development/product-experience-review-record-template.md",
+    "scripts/quality/product-experience-review-validate.ts",
     "pnpm maintenance:cadence:preflight",
     "pnpm residuals:review-due",
+    "pnpm experience:review:selftest",
     "pnpm ops:readiness",
     "pnpm residuals:validate",
     "pnpm docs:readiness",

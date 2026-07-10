@@ -29,6 +29,7 @@
 - 自托管上手、公开分发或首次操作者路径变化，是否同步 `docs/deployment/operator-onboarding.md`、`README.md`、`docs/README.md`、`apps/web/README.md`、验证矩阵和相关 SRE/release skill。
 - 生产只读 smoke 记录若进入仓库或运维交接摘要，是否使用 `docs/development/production-readonly-smoke-record-template.md` 并通过 `pnpm smoke:prod-readonly:validate`。
 - 告警/恢复演练记录若进入仓库或运维交接摘要，是否使用 `docs/development/alert-drill-record-template.md` 并通过 `pnpm alert:drill:validate`。
+- 真实产品体验复核记录若进入仓库或 release/update 交接摘要，是否使用 `docs/development/product-experience-review-record-template.md` 并通过 `pnpm experience:review:validate`。
 - 若变更长期运营 workflow 或 skill，是否同步 `.codex/skills-src/**`、`.agents/skills/**`、`README.md`、`AGENTS.md` 和相关验证/残余风险入口，并运行 `pnpm skills:validate`。
 - 若变更公开项目治理、依赖、CI、PR 模板或安全披露入口，是否同步 `SECURITY.md`、`.github/**`、`docs/development/dependency-policy.md`、`README.md` 和验证矩阵，并运行 `pnpm governance:preflight`。
 - 若变更公开支持、issue 模板、ops support 或 triage 规则，是否同步 `SUPPORT.md`、`.github/ISSUE_TEMPLATE/**`、`docs/development/support-intake.md`、`README.md`、`docs/README.md` 和验证矩阵，并运行 `pnpm support:intake:preflight`。

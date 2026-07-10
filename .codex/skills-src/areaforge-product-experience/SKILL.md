@@ -15,6 +15,8 @@ Judge the app by whether a tired student can understand the next action and trus
 4. [docs/modules/check-in.md](../../../docs/modules/check-in.md)
 5. [docs/modules/task-debt.md](../../../docs/modules/task-debt.md)
 6. [docs/modules/periodic-reports.md](../../../docs/modules/periodic-reports.md)
+7. [docs/development/product-experience-review-record-template.md](../../../docs/development/product-experience-review-record-template.md)
+8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
 ## References
 
@@ -29,6 +31,7 @@ Judge the app by whether a tired student can understand the next action and trus
 3. Evaluate clarity, trust, friction, feedback, recovery, accessibility, and mobile fit.
 4. Prefer improvements that make the next action obvious without adding explanatory walls of text.
 5. Verify changes with the QA smoke skill and update UX/module docs when behavior changes.
+6. For release/update handoff or claims that real experience is healthy, record desktop and mobile evidence with `docs/development/product-experience-review-record-template.md` and run `pnpm experience:review:validate <record>`.
 
 ## Guardrails
 
@@ -37,3 +40,4 @@ Judge the app by whether a tired student can understand the next action and trus
 - Do not make AI or reports appear authoritative when they are suggestions requiring confirmation.
 - Do not add visible instructional clutter when better controls, labels, or state affordances solve the issue.
 - Do not declare UX improved without checking at least the affected page state.
+- Do not close `AF-RISK-UX-001` from `pnpm check`, API smoke, or old screenshots alone.

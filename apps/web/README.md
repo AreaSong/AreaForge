@@ -43,6 +43,13 @@ pnpm smoke:local-ux
 
 macOS 上 `/tmp` 通常是指向 `/private/tmp` 的符号链接；附件安全检查会拒绝符号链接上传根。做本地附件 smoke 时，`UPLOAD_DIR` 使用真实路径，例如 `/private/tmp/areaforge-ux-smoke-uploads`。
 
+若这次验证用于关闭体验残余项或 release/update 交接，还需要按 `docs/development/product-experience-review-record-template.md`
+记录 desktop/mobile 浏览器观察或截图，并运行：
+
+```bash
+pnpm experience:review:validate <product-experience-review-record.md|txt>
+```
+
 涉及 Prisma schema、上传、AI、部署、备份恢复或自动更新时，还需要按根目录文档选择专项验证。
 
 ## 运行边界

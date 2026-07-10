@@ -30,6 +30,8 @@
     "alert:drill:selftest": "tsx scripts/quality/alert-drill-validate.selftest.ts",
     "smoke:prod-readonly:validate": "tsx scripts/quality/prod-readonly-smoke-validate.ts",
     "smoke:prod-readonly:selftest": "tsx scripts/quality/prod-readonly-smoke-validate.selftest.ts",
+    "experience:review:validate": "tsx scripts/quality/product-experience-review-validate.ts",
+    "experience:review:selftest": "tsx scripts/quality/product-experience-review-validate.selftest.ts",
     "residuals:validate": "tsx scripts/quality/residual-ledger-validate.ts",
     "residuals:review-due": "tsx scripts/ops/residual-review-due.ts",
     "skills:validate": "tsx scripts/quality/skills-validate.ts",

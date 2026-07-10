@@ -43,6 +43,7 @@ function checkRequiredFiles(): void {
     "docs/development/release-train.md",
     "docs/development/production-readonly-smoke-record-template.md",
     "docs/development/alert-drill-record-template.md",
+    "docs/development/product-experience-review-record-template.md",
     "docs/deployment/operator-onboarding.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
@@ -60,6 +61,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/prod-readonly-smoke-validate.selftest.ts",
     "scripts/quality/alert-drill-validate.ts",
     "scripts/quality/alert-drill-validate.selftest.ts",
+    "scripts/quality/product-experience-review-validate.ts",
+    "scripts/quality/product-experience-review-validate.selftest.ts",
     "scripts/quality/residual-ledger-validate.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
@@ -92,6 +95,9 @@ function checkOperationalReadinessDoc(): void {
     "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
     "AF-RISK-OPS-004",
+    "AF-RISK-UX-001",
+    "Product experience review",
+    "pnpm experience:review:validate",
     "residual-risk-ledger.md",
     "safetyFacts",
     "pnpm smoke:prod-readonly:validate",
@@ -129,6 +135,7 @@ function checkProductionSmokeAlertingStrategy(): void {
     "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
     "AF-RISK-OPS-004",
+    "AF-RISK-UX-001",
   ];
   const missing = requiredTerms.filter((term) => !strategy.includes(term));
   checks.push({
@@ -236,6 +243,8 @@ function checkPackageScripts(): void {
   const prodReadonlySmokeValidateScript = packageJson.scripts?.["smoke:prod-readonly:validate"] ?? "";
   const prodReadonlySmokeSelftestScript = packageJson.scripts?.["smoke:prod-readonly:selftest"] ?? "";
   const localUxSmokeScript = packageJson.scripts?.["smoke:local-ux"] ?? "";
+  const experienceReviewValidateScript = packageJson.scripts?.["experience:review:validate"] ?? "";
+  const experienceReviewSelftestScript = packageJson.scripts?.["experience:review:selftest"] ?? "";
   const residualReviewDueScript = packageJson.scripts?.["residuals:review-due"] ?? "";
   const operatorOnboardingPreflightScript = packageJson.scripts?.["operator:onboarding:preflight"] ?? "";
   const releaseTrainPreflightScript = packageJson.scripts?.["release:train:preflight"] ?? "";
@@ -253,10 +262,12 @@ function checkPackageScripts(): void {
       packageJson.scripts?.["residuals:validate"] === "tsx scripts/quality/residual-ledger-validate.ts" &&
       residualReviewDueScript === "tsx scripts/ops/residual-review-due.ts" &&
       localUxSmokeScript === "tsx scripts/ops/local-ux-smoke.ts" &&
+      experienceReviewValidateScript === "tsx scripts/quality/product-experience-review-validate.ts" &&
+      experienceReviewSelftestScript === "tsx scripts/quality/product-experience-review-validate.selftest.ts" &&
       operatorOnboardingPreflightScript === "tsx scripts/quality/operator-onboarding-preflight.ts" &&
       releaseTrainPreflightScript === "tsx scripts/quality/release-train-preflight.ts" &&
       maintenanceCadencePreflightScript === "tsx scripts/quality/maintenance-cadence-preflight.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}`,
+    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}`,
   });
 }
 
@@ -271,6 +282,8 @@ function checkLocalUxSmokeScript(): void {
     "update center request queued",
     "AF-RISK-OPS-002",
     "不能关闭生产写入型 smoke",
+    "product-experience-review-record-template.md",
+    "pnpm experience:review:validate",
   ];
   const combined = `${script}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
@@ -291,6 +304,8 @@ function checkSummaryScript(): void {
   const prodReadonlySmokeSelftest = read("scripts/quality/prod-readonly-smoke-validate.selftest.ts");
   const alertDrill = read("scripts/quality/alert-drill-validate.ts");
   const alertDrillSelftest = read("scripts/quality/alert-drill-validate.selftest.ts");
+  const productExperience = read("scripts/quality/product-experience-review-validate.ts");
+  const productExperienceSelftest = read("scripts/quality/product-experience-review-validate.selftest.ts");
   const docs = read("docs/development/operational-readiness.md");
   const requiredTerms = [
     "AREAFORGE_READINESS_BASE_URL",
@@ -321,8 +336,11 @@ function checkSummaryScript(): void {
     "alert drill validator selftest passed",
     "alert drill validation passed",
     "AF-RISK-OPS-004",
+    "AF-RISK-UX-001",
+    "product experience review validation passed",
+    "product experience review validator selftest passed",
   ];
-  const combined = `${script}\n${bundle}\n${alertPreview}\n${prodReadonlySmokeValidate}\n${prodReadonlySmokeSelftest}\n${alertDrill}\n${alertDrillSelftest}\n${docs}`;
+  const combined = `${script}\n${bundle}\n${alertPreview}\n${prodReadonlySmokeValidate}\n${prodReadonlySmokeSelftest}\n${alertDrill}\n${alertDrillSelftest}\n${productExperience}\n${productExperienceSelftest}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   checks.push({
     name: "ops readiness summary, bundle, and alert preview scripts",
@@ -342,6 +360,7 @@ function checkDocsIndex(): void {
     "development/maintenance-cadence.md",
     "development/release-train.md",
     "development/residual-risk-ledger.md",
+    "development/product-experience-review-record-template.md",
     "deployment/operator-onboarding.md",
     "areaforge-operating-loop",
   ];
