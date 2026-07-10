@@ -147,6 +147,7 @@ pnpm github-release-updater:preflight
 8. 在 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
 9. 服务器 update-agent/updater 校验签名、备份、执行 migration、切换镜像和 health smoke。
 10. 验证 `https://forge.areasong.top/api/health`、`/opt/areaforge/ops-state/status.json` 和 Release 更新记录。
+11. 运行 `pnpm ops:readiness:summary` 和 `pnpm ops:evidence:bundle` 生成 redacted 运行证据摘要，记录 `bundleHash`、`overall/status`、缺失证据和 residual risk IDs。
 
 ## 发布记录模板
 
@@ -210,6 +211,7 @@ rollbackFailureReason:
 residualRisk:
 residualRiskIds:
 releaseEvidenceBundleHash:
+operationalEvidenceBundleHash:
 followUpTasks:
 expectedFailureOrStopConditions:
   migrationFailed:
@@ -226,6 +228,8 @@ pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliatio
 ```
 
 该脚本只读取发布记录和可选附件对账 CSV，不连接生产服务，不执行 `docker compose`、`pg_dump`、`pg_restore`、migration deploy、文件删除、文件移动或 metadata 修复。附件对账 CSV 的 `action` 必须全部为 `report_only`。若 `migrationApplied=yes`，`migrationRunner` 必须是 `controlled_release_workdir` 或 `one_off_migration_job`；若 `migrationApplied=no`，`migrationRunner` 必须是 `not-applicable`。
+
+`pnpm ops:evidence:bundle` 生成的是运行态证据包 hash，用于交接 health、update-agent、smoke、backup、rollback、disk/cert 和 residual risk IDs。它不替代 `pnpm release:evidence:validate`，也不授权生产写入或 updater 执行。
 
 中止条件：
 

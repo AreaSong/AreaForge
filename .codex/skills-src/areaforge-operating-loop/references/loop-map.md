@@ -20,6 +20,6 @@
 - Validation selected from changed paths, not habit.
 - Release-bound changes mention whether a new GitHub Release is required.
 - Release-bound changes must read `docs/development/production-release-runbook.md`, `docs/deployment/github-release-updater.md`, `.github/workflows/release.yml`, and `docs/development/high-risk-confirmation-packets.md` before recommending tag, updater apply, rollback, or policy changes.
-- Production release or update evidence must include post-release public health, authenticated smoke or explicit limitation, update-agent status, rollback target, and relevant residual risk IDs.
+- Production release or update evidence must include post-release public health, authenticated smoke or explicit limitation, update-agent status, rollback target, `pnpm ops:evidence:bundle` hash, and relevant residual risk IDs.
 - Ops claims are backed by timestamped evidence or reported as `unknown`.
 - Residual risks use IDs from `docs/development/residual-risk-ledger.md` when they affect future release or operations decisions.

@@ -109,6 +109,14 @@ pnpm ops:readiness:summary
 发布或更新完成后，建议把 redacted `pnpm ops:readiness:summary` 输出保存到运维目录，并在版本化 release record 中摘要
 `checkedAt`、health、update-agent、smoke、backup、rollback、disk/cert 和 residual risk IDs。没有新鲜 smoke、备份或基础设施证据时，release readiness 只能保持 `warn` 或 `unknown`，不能宣称完整生产健康。
 
+需要把运行信号、残余风险和缺失证据组装成可交接证据包时，使用：
+
+```bash
+pnpm ops:evidence:bundle
+```
+
+该命令复用同一套只读 readiness 采集，输出 `read_only_operational_evidence_bundle`、逐项 signal evidence、`requiredEvidence`、`forbiddenActions`、`safetyFacts` 和 `bundleHash`。它适合作为 release record、运维交接或事故前证据冻结的索引；它不创建 GitHub Release，不推送 tag，不执行 updater apply，不运行 migration，不备份、不恢复、不回滚、不写生产数据，也不读取或打印密钥文件内容。若 `status` 为 `needs_attention` 或 `blocked`，必须保留对应 residual risk IDs，不能把证据包 hash 当作健康证明。
+
 本地真实体验验证可使用 `pnpm smoke:local-ux`。该脚本会写入合成任务、计时、复盘、笔记附件、错题、模拟考试、阶段草稿和更新请求，因此默认要求 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，且只允许 `localhost` / `127.0.0.1`，除非显式设置 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true`。它只能证明当前本地验证环境的核心闭环可用，不能关闭生产写入型 smoke 残余项 `AF-RISK-OPS-002`。
 
 生产 smoke 与告警策略见 `docs/development/production-smoke-alerting-strategy.md`。该文档只定义写入型 smoke 的确认字段、合成数据命名空间、清理/失败处理和告警阈值；没有用户确认、专用账号、清理策略和实际记录前，不得执行生产写入型 smoke，也不得关闭 `AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。

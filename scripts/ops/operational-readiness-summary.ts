@@ -1,16 +1,17 @@
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
-type Status = "pass" | "warn" | "fail" | "blocked" | "unknown";
-type ReadinessScope = "daily" | "release" | "update" | "migration" | "rollback";
+export type Status = "pass" | "warn" | "fail" | "blocked" | "unknown";
+export type ReadinessScope = "daily" | "release" | "update" | "migration" | "rollback";
 
-type Signal = {
+export type Signal = {
   status: Status;
   evidence: string;
   residualRiskIds?: string[];
   data?: Record<string, unknown>;
 };
 
-type Summary = {
+export type OperationalReadinessSummary = {
   checkedAt: string;
   environment: string;
   scope: ReadinessScope;
@@ -77,7 +78,7 @@ const expectedAutoApply = process.env.AREAFORGE_READINESS_EXPECTED_AUTO_APPLY ??
 const expectedWebDigest = process.env.AREAFORGE_READINESS_WEB_IMAGE_DIGEST ?? null;
 const expectedMigrationDigest = process.env.AREAFORGE_READINESS_MIGRATION_IMAGE_DIGEST ?? null;
 
-async function main(): Promise<void> {
+export async function collectOperationalReadinessSummary(): Promise<OperationalReadinessSummary> {
   const health = await collectHealth();
   const updateStatus = await collectUpdateStatus();
   const releaseIdentity = collectReleaseIdentity(health, updateStatus);
@@ -95,7 +96,7 @@ async function main(): Promise<void> {
     infrastructure,
   };
   const residualRiskIds = unique(Object.values(signals).flatMap((signal) => signal.residualRiskIds ?? []));
-  const summary: Summary = {
+  return {
     checkedAt: new Date().toISOString(),
     environment,
     scope,
@@ -110,6 +111,10 @@ async function main(): Promise<void> {
     residualRiskIds,
     overall: overallStatus(Object.values(signals)),
   };
+}
+
+async function main(): Promise<void> {
+  const summary = await collectOperationalReadinessSummary();
 
   console.log(JSON.stringify(summary, null, 2));
 
@@ -119,7 +124,7 @@ async function main(): Promise<void> {
   }
 }
 
-function buildSafetyFacts(): Summary["safetyFacts"] {
+function buildSafetyFacts(): OperationalReadinessSummary["safetyFacts"] {
   return {
     serverCommandAttempted: false,
     backupRestoreAttempted: false,
@@ -480,7 +485,13 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-main().catch((error) => {
-  console.error(`FAIL readiness summary: ${error instanceof Error ? redact(error.message) : "unknown error"}`);
-  process.exit(1);
-});
+if (isMainModule()) {
+  main().catch((error) => {
+    console.error(`FAIL readiness summary: ${error instanceof Error ? redact(error.message) : "unknown error"}`);
+    process.exit(1);
+  });
+}
+
+function isMainModule(): boolean {
+  return process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;
+}

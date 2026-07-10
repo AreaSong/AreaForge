@@ -44,6 +44,7 @@ function checkRequiredFiles(): void {
     ".codex/skills-src/areaforge-operating-loop/SKILL.md",
     ".codex/skills-src/areaforge-operating-loop/references/loop-map.md",
     "scripts/ops/operational-readiness-summary.ts",
+    "scripts/ops/operational-evidence-bundle.ts",
     "scripts/ops/local-ux-smoke.ts",
     "scripts/quality/residual-ledger-validate.ts",
   ];
@@ -205,14 +206,16 @@ function checkPackageScripts(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const script = packageJson.scripts?.["ops:readiness"] ?? "";
   const summaryScript = packageJson.scripts?.["ops:readiness:summary"] ?? "";
+  const bundleScript = packageJson.scripts?.["ops:evidence:bundle"] ?? "";
   const localUxSmokeScript = packageJson.scripts?.["smoke:local-ux"] ?? "";
   checks.push({
     name: "ops readiness package script",
     ok: script === "tsx scripts/quality/ops-readiness-preflight.ts" &&
       summaryScript === "tsx scripts/ops/operational-readiness-summary.ts" &&
+      bundleScript === "tsx scripts/ops/operational-evidence-bundle.ts" &&
       packageJson.scripts?.["residuals:validate"] === "tsx scripts/quality/residual-ledger-validate.ts" &&
       localUxSmokeScript === "tsx scripts/ops/local-ux-smoke.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}`,
+    detail: `ops:readiness=${script || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}`,
   });
 }
 
@@ -241,6 +244,7 @@ function checkLocalUxSmokeScript(): void {
 
 function checkSummaryScript(): void {
   const script = read("scripts/ops/operational-readiness-summary.ts");
+  const bundle = read("scripts/ops/operational-evidence-bundle.ts");
   const docs = read("docs/development/operational-readiness.md");
   const requiredTerms = [
     "AREAFORGE_READINESS_BASE_URL",
@@ -256,14 +260,18 @@ function checkSummaryScript(): void {
     "backupRestoreAttempted",
     "productionWriteAttempted",
     "secretValuePrinted",
+    "pnpm ops:evidence:bundle",
+    "read_only_operational_evidence_bundle",
+    "bundleHash",
+    "forbiddenActions",
   ];
-  const combined = `${script}\n${docs}`;
+  const combined = `${script}\n${bundle}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   checks.push({
-    name: "ops readiness summary script",
+    name: "ops readiness summary and bundle scripts",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "summary script and docs expose read-only operational evidence aggregation"
+      ? "summary and evidence bundle scripts expose read-only operational evidence aggregation"
       : `missing ${missing.join(", ")}`,
   });
 }

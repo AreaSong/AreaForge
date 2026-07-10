@@ -28,6 +28,8 @@ Record:
 
 Use `pnpm ops:readiness:summary` when a machine-readable read-only snapshot is useful for a release record, handoff, or operator audit. The command may read `/api/health`, optional authenticated update status, optional smoke output, and optional backup evidence strings; it must not execute Docker, backup, restore, migration, rollback, shell, or server commands.
 
+Use `pnpm ops:evidence:bundle` after release/update checks or before operator handoff when the snapshot should be indexed with required evidence, forbidden actions, residual risk IDs, and a `bundleHash`. A bundle hash is evidence indexing, not proof that missing signals are healthy.
+
 The summary output includes `safetyFacts` such as `serverCommandAttempted=false`, `backupRestoreAttempted=false`, `migrationAttempted=false`, `productionWriteAttempted=false`, `secretValuePrinted=false`, `smokePasswordReadFromFile`, and `networkRequested`.
 
 ## Threshold Defaults
