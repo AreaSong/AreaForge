@@ -2,7 +2,22 @@
 
 AreaForge 是一个面向个人长期备考的自我锻造与考研督战系统。
 
-第一版目标是私有 Web 应用：用任务、专注计时、考纲进度、笔记资料、复盘、统计和 AI 鞭策，形成每天可执行的学习闭环。
+当前目标形态是私有 Web 应用：用任务、专注计时、考纲进度、笔记资料、复盘、统计、AI 鞭策、阶段调整和发布运维闭环，形成每天可执行、长期可校准、生产可回滚的学习系统。
+
+## 当前状态
+
+- 当前版本：`0.1.5`。
+- 线上地址：`https://forge.areasong.top/`。
+- 线上健康检查：`GET https://forge.areasong.top/api/health` 返回 AreaForge `0.1.5`。
+- docs 100% 当前证据已闭环：Package A 附件、Package B Batch 0-6 结构化学习状态、Package C 真实 AI Provider 第一版、Package D Batch D1-D5 长期闭环、Package E Batch E1-E4 生产发布/备份/恢复/回滚均已完成。
+- GitHub Release `v0.1.5` 已完成签名发布，服务器通过 cosign bundle、hash、镜像 digest、一次性 migration image 和 health smoke 完成更新。
+- 自动更新采用受控请求流：Web 版本中心只提交检查、应用、回退或策略请求，服务器侧 `areaforge-update-agent.timer` / updater 以 root agent 身份执行签名校验、备份、migration、切换和回滚；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
+
+详细证据见：
+
+- `docs/development/docs-100-completion-record.md`
+- `docs/development/package-e-remote-github-release-record.md`
+- `docs/deployment/github-release-updater.md`
 
 ## 技术栈
 
@@ -34,6 +49,10 @@ pnpm lint
 pnpm db:validate
 pnpm build
 pnpm check
+pnpm docs:readiness
+pnpm docs:completion
+pnpm risk:preflight
+pnpm github-release-updater:preflight
 ```
 
 ## 文档入口
@@ -57,3 +76,15 @@ pnpm check
 - 技术决策：`docs/adr/**`
 - 轻量任务：`tasks/**`
 - 版本规划：`workflow/**`
+
+## 发布与更新
+
+后续功能完成后默认走 GitHub Release 路径：
+
+1. 同步 `docs/**`、`tasks/**`、`workflow/**` 和相关入口 README。
+2. 运行 `pnpm check`、`pnpm docs:readiness`、`pnpm docs:completion`、`pnpm risk:preflight`，涉及更新器时补跑 `pnpm github-release-updater:preflight` 和 `pnpm shellcheck:updater`。
+3. bump 版本，提交干净 commit，创建并推送 `vX.Y.Z` tag。
+4. 等待 GitHub Release workflow 生成 Web/migration 镜像、manifest、`SHA256SUMS` 和 `SHA256SUMS.sig`。
+5. 通过 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
+
+Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。

@@ -21,6 +21,7 @@
 - 新 API 是否同步 `docs/architecture/api-surface.md`。
 - 新表或字段是否同步 `docs/architecture/data-model.md`。
 - 上传、附件、AI、认证、部署变化是否同步安全文档。
+- 功能更新若进入线上，是否同步 release tag、GitHub Release、GHCR digest、线上 health、update-agent 状态和残余风险。
 - README 是否只导航，不承载更深规则。
 - AGENTS 是否只放协作规则和高风险边界，不替代详细设计。
 - `tasks/**` 是否引用对应源事实。
@@ -41,6 +42,8 @@
 rg -n "AreaForge产品""方案|AreaForge工程结构""方案|产品""方案\\.md|工程结构""方案\\.md" README.md AGENTS.md docs tasks workflow
 find docs tasks workflow -maxdepth 3 -type f | sort
 git diff --check
+pnpm docs:readiness
+pnpm docs:completion
 ```
 
 ## 完成标准

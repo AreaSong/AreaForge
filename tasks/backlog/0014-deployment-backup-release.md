@@ -1,6 +1,6 @@
 # 0014 部署、备份、恢复与发布闭环
 
-状态：Package E Batch E1-E4 已完成；归属 Package E。当前已完成生产配置与发布工件预检、本地受控发布前备份与恢复演练、只读附件对账、生产发布 runbook、compose/Nginx/Dockerfile 结构预检、发布记录草案、一次性 migration job、本机单机生产发布、发布后 smoke、本机生产回滚/roll-forward 演练和完成门禁；远端域名 HTTPS 与真实 Nginx 流量切换若引入，另列外部部署任务。
+状态：Package E Batch E1-E4 已完成；归属 Package E。当前已完成生产配置与发布工件预检、本地受控发布前备份与恢复演练、只读附件对账、生产发布 runbook、compose/Nginx/Dockerfile 结构预检、发布记录草案、一次性 migration job、本机单机生产发布、发布后 smoke、本机生产回滚/roll-forward 演练、完成门禁，以及远端 `https://forge.areasong.top/` 的 `v0.1.5` GitHub Release 签名发布和 update-agent 状态刷新。
 
 ## 目标
 
@@ -21,7 +21,7 @@
 
 ## 不包含
 
-- 网页内一键更新。
+- Web runtime 直接执行服务器命令的一键更新（旧称：网页内一键更新）。
 - 在网页内执行服务器命令。
 - 不经备份的破坏性 migration。
 
@@ -71,7 +71,7 @@
 |---|---|---|
 | Batch E1 生产配置与发布工件预检 | 已完成：生产 env 清单、固定 `AREAFORGE_IMAGE`、镜像 digest 获取方式、compose/Nginx hash、migration deploy 执行载体草案、发布记录草案和中止条件已形成 | `pnpm check`、`pnpm package-e:preflight`、`docker compose config`、`docker compose --env-file .env.example -f docker-compose.prod.yml config`、Nginx 检查、生产密钥不落库不提交；发布记录草案 `docs/development/package-e-e1-release-record-draft.md` 预留 `migrationRunner`、`envBackupSha256`、compose/Nginx 副本路径和回滚演练字段 |
 | Batch E2 发布前备份与恢复演练 | 已完成：PostgreSQL dump、上传目录归档、生产 `.env` 本地替代备份权限收紧、当前 compose/Nginx 副本、临时库导入、临时上传目录恢复、附件只读对账 | 记录见 `docs/development/package-e-e2-restore-drill-record.md`；backup path/hash、`envBackupSha256`、`composeConfigBackupPath`、`nginxConfigBackupPath` 均已记录；临时库导入后验证 `User=1, StudyTask=8, Note=1, Attachment=0`；附件 metadata/hash 对账 `action=report_only`，当前无附件记录所以 `attachmentHashMatched=not-applicable` |
-| Batch E3 生产发布与 migration deploy | 已完成本机单机生产目标发布：备份点校验、生产 env 私有备份、一次性 migration job、必要 additive migration deploy、compose 启动、发布后 smoke、日志脱敏检查；远端域名/Nginx 切换不属于本批完成口径 | 记录见 `docs/development/package-e-e3-prod-local-release-record.md`；本机生产记录已写 `migrationRunner=one_off_migration_job`，覆盖 `GET /api/health`、登录、首页、任务、计时、复盘、`/syllabus`、`/notes`、`/analytics`、`/reports`、附件和 AI 最小烟测；本地 production-mode 演练记录仍保留在 `docs/development/package-e-e3-local-release-record.md` |
+| Batch E3 生产发布与 migration deploy | 已完成本机单机生产目标发布：备份点校验、生产 env 私有备份、一次性 migration job、必要 additive migration deploy、compose 启动、发布后 smoke、日志脱敏检查；远端 `v0.1.5` GitHub Release 签名更新已由后续记录补齐 | 记录见 `docs/development/package-e-e3-prod-local-release-record.md`；本机生产记录已写 `migrationRunner=one_off_migration_job`，覆盖 `GET /api/health`、登录、首页、任务、计时、复盘、`/syllabus`、`/notes`、`/analytics`、`/reports`、附件和 AI 最小烟测；远端记录见 `docs/development/package-e-remote-github-release-record.md`；本地 production-mode 演练记录仍保留在 `docs/development/package-e-e3-local-release-record.md`，仅作历史回溯，不作为当前远端状态依据 |
 | Batch E4 回滚演练与 Package E 收口 | 已完成：本机生产目标上一镜像 tag、回滚步骤、是否恢复数据库/上传目录、失败原因、恢复耗时、残余风险、文档同步、release evidence 校验和 roll-forward 均已记录 | 记录见 `docs/development/package-e-e4-prod-local-rollback-record.md`；私有记录 `backups/package-e/prod-local-e4-20260709230645/reports/release-record-after-prod-local-rollback.txt` 已填写 `rollbackPlan`、`rollbackDrillResult`、`rollbackDurationMinutes`、`databaseRestoreRequired`、`uploadsRestoreRequired` 和 `rollbackFailureReason`，并通过 `pnpm release:evidence:validate`；最终 `pnpm docs:readiness`、`pnpm risk:preflight`、`pnpm docs:completion` 作为 Package E 证据更新 |
 
 - 发布记录：记录发布时间、操作者、git commit、`AREAFORGE_IMAGE`、镜像 digest、compose 文件 hash、生产 `.env` 备份位置和发布前版本 tag；同时记录 `migrationRunner`、回滚计划、回滚演练结果、恢复耗时、是否需要恢复数据库/上传目录和失败原因。
@@ -80,10 +80,10 @@
 - 恢复演练：先在临时库和临时上传目录恢复，验证登录、首页、任务、计时、复盘、附件 metadata/文件 hash 一致；附件对账只输出 `report_only` 报告，不自动修复或删除；再清理临时环境。
 - 发布后烟测：`GET /api/health`、登录、首页、任务创建、计时开始/结束、复盘保存、`/syllabus`、`/notes`、`/analytics`、`/reports`；附件或真实 AI 若已启用，只使用小测试文件和最小测试数据。
 - 回滚记录：失败时记录原因、回滚镜像 tag、回滚步骤、是否恢复数据库和上传目录、恢复耗时、残余风险和后续修复任务。
-- 证据校验：Package E 收口前必须运行 `pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]`；附件对账 CSV 只允许 `report_only`，不得把密钥、数据库 URL、完整 prompt/raw response 或附件内容写入记录。
-- 自动化禁区：仍不允许网页内一键更新，不允许网页触发服务器命令、部署、备份、恢复或 migration。
+- 证据校验：发布、回滚或 Release 更新记录必须运行 `pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]`；附件对账 CSV 只允许 `report_only`，不得把密钥、数据库 URL、完整 prompt/raw response 或附件内容写入记录。
+- 自动化禁区：仍不允许 Web runtime 直接执行服务器命令的一键更新，不允许网页直接执行部署、备份、恢复或 migration；允许版本中心提交受控请求，由服务器 root agent 执行签名校验更新。
 
 ## 风险
 
-- 部署、备份、恢复和 migration 都属于高风险边界，执行前必须确认影响、验证和回滚。
-- 不允许通过网页按钮触发部署、备份、恢复、migration 或服务器命令。
+- 后续部署、备份、恢复和 migration 变化都属于高风险边界，执行前必须确认影响、验证和回滚。
+- 不允许通过网页按钮直接执行部署、备份、恢复、migration 或服务器命令；版本中心只能写入受控请求队列。

@@ -17,7 +17,7 @@
   - health smoke、可选 extra smoke、失败应用镜像回滚。
   - 只读 preflight 门禁。
 - 不包含：
-  - 网页内一键更新。
+  - Web runtime 直接执行服务器命令的一键更新。
   - Web API 执行服务器命令。
   - 静默 major 更新。
   - 默认数据库恢复或上传目录移动。
@@ -46,9 +46,10 @@
 - `pnpm shellcheck:updater`
 - `pnpm check`
 - `git diff --check`
+- 远端 `v0.1.5`：GitHub Release workflow 成功；`SHA256SUMS` 和 `SHA256SUMS.sig` cosign bundle 校验通过；服务器 `check --tag v0.1.5` 和 `apply --yes --tag v0.1.5` 通过；`https://forge.areasong.top/api/health` 返回 `0.1.5`；update-agent 状态 `blocker=null`。
 
 ## 风险
 
-- 真实远端 GitHub Release、GHCR 权限、签名密钥和 systemd timer 仍需在服务器环境中验证。
+- 真实远端 GitHub Release、GHCR 权限、签名密钥和 systemd timer 已在 `v0.1.5` 服务器更新中验证；后续版本仍需逐次验证 Release workflow 和服务器更新记录。
 - 未配置签名密钥时 workflow 会生成占位 `SHA256SUMS.sig`；生产若保持 `AREAFORGE_REQUIRE_SIGNATURE=true`，updater 会拒绝应用，这是预期的安全失败。
 - 完整登录、任务计时、附件等烟测依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`。

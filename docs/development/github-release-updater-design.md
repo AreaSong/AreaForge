@@ -6,6 +6,8 @@
 
 本设计不让 Web runtime 直接执行服务器命令。版本中心 UI 可以提交检查、更新、回退和自动策略请求；执行 Docker、备份、migration、回滚和状态回写的能力只属于服务器侧 root agent。不把生产密钥、数据库 URL、AI key、完整 prompt 或附件路径写入公开记录。
 
+当前远端已按本设计上线：GitHub Release `v0.1.5` 成功生成 `SHA256SUMS.sig` cosign bundle，服务器安装 `cosign v3.1.1`，启用 `/etc/areaforge/cosign.pub` 校验并将 `https://forge.areasong.top/` 从 `0.1.1` 更新到 `0.1.5`。update-agent 状态为 `signatureRequired=true`、`blocker=null`、`timerEnabled=true`、`timerActive=true`。证据见 `docs/development/package-e-remote-github-release-record.md`。
+
 ## 目标形态
 
 ```text
@@ -153,6 +155,6 @@ sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 
 ## 残余风险
 
-- 首次远端服务器部署、域名 HTTPS 和真实 Nginx 切换仍需要服务器环境。
+- 首次远端服务器部署、域名 HTTPS 和真实 Nginx 切换已经通过 `v0.1.5` 远端签名 Release 验证；后续域名、Nginx、端口或服务器迁移仍需单独发布记录。
 - GitHub Release 签名需要配置 `COSIGN_PRIVATE_KEY_B64` / `COSIGN_PASSWORD`（或兼容的 `COSIGN_PRIVATE_KEY` 多行 PEM、GPG 签名流程）；未配置签名时 workflow 会发布占位 `SHA256SUMS.sig`，生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。
 - 完整登录、任务计时、附件上传下载等 smoke 依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`；updater 内置默认 smoke 只检查 `/api/health`。

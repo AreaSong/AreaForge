@@ -60,8 +60,12 @@ docker compose -f docker-compose.prod.yml up -d
 
 发布前必须先备份数据库和上传目录，再执行 Prisma migration deploy；失败时回滚镜像版本，并使用备份恢复数据库和上传目录。
 
+当前远端生产事实：`forge.areasong.top` 的 AreaForge Web 容器绑定 `127.0.0.1:3020->3000/tcp`，公网经 Nginx HTTPS 访问 `https://forge.areasong.top/`；该服务器上的 `127.0.0.1:3000` 是 Grafana，不是 AreaForge。生产健康检查为 `https://forge.areasong.top/api/health`，当前返回 `version=0.1.5`。
+
 ## GitHub Release 自动更新
 
 远端单机部署可以使用 `docs/deployment/github-release-updater.md` 中的服务器侧 updater。该 updater 从 GitHub Release 读取 `areaforge-release-manifest.json`、`SHA256SUMS` 和 `SHA256SUMS.sig`，拉取 `image@sha256`，备份数据库和上传 volume，通过 `infra/docker/migration.Dockerfile` 构建的一次性 migration image 执行 `pnpm db:migrate:deploy`，再切换 `AREAFORGE_IMAGE` 和 `APP_VERSION`。
 
 默认策略应为 `AREAFORGE_AUTO_APPLY=none`。若要定时自动应用 patch 版本，再改为 `patch`，并要求 release manifest 中 `autoApply.patch=true`。minor/major 更新建议人工执行 `apply --yes --tag <tag>`。
+
+当前远端服务器已安装 `cosign v3.1.1`，`AREAFORGE_REQUIRE_SIGNATURE=true`，`AREAFORGE_COSIGN_PUBLIC_KEY=/etc/areaforge/cosign.pub`，并通过 GitHub Release `v0.1.5` 完成一次签名校验更新。记录见 `docs/development/package-e-remote-github-release-record.md`。

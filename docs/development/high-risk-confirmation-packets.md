@@ -246,7 +246,7 @@ Batch 2 只新增任务父子关系和债务事件账本，用于把补做、延
 - 拆小任务时写 `parentTaskId`，同时继续保留现有 `reviewText` 说明。
 - 继续双写或保留现有 `AuditEvent`，不得用债务事件替代审计记录。
 - 旧任务没有债务事件时，仍按 `StudyTask.status/debtStatus/plannedDate` 判断欠账。
-- `GET /api/tasks/debt-reorder` 仍保持只读；`reorder_suggested`、`reorder_applied` 仅作为后续 Package D 的事件值预留，未确认前不新增重排应用写 API。
+- `GET /api/tasks/debt-reorder` 仍保持只读；Batch 2 当时仅预留 `reorder_suggested`、`reorder_applied` 事件值，Package D Batch D2 已在后续通过独立写入口完成确认、驳回和所选项应用记录。
 - 文档同步 `docs/architecture/data-model.md`、`docs/architecture/api-surface.md`、`docs/modules/task-debt.md`、`docs/development/docs-100-completion-record.md` 和本任务状态。
 
 影响：
@@ -584,7 +584,7 @@ Batch 6 只新增阶段计划和阶段调整草稿模型，用于把当前本地
 
 以下要求适用于 Package B 的 Batch 0-6。完成单个批次时，只能更新对应批次证据，不得把 Package B 整包标为完成。
 
-`pnpm risk:preflight` 当前已按 Batch 0 确认后的边界调整：允许 `StudySession` 结构化收口字段存在；Batch 1-6 则按 `docs/development/docs-100-completion-record.md` 的批次状态识别，未完成批次继续禁止对应 schema token，已完成批次要求对应 schema token 存在，并继续阻止后续未确认批次越界。
+`pnpm risk:preflight` 当前已按 Batch 0-6 完成后的边界调整：要求 `StudySession`、`CheckIn`、`TaskDebtEvent`、`RecoveryState`、掌握证明记录、`SimulationExam`、`StagePlan` 和 `StageAdjustmentDraft` 对应 schema/service/API/UI 证据存在，并继续阻止历史回填、删旧字段、批量改任务和未确认自动应用越界。
 
 必须确认：
 
@@ -638,7 +638,7 @@ Batch 6 只新增阶段计划和阶段调整草稿模型，用于把当前本地
 - 不发送附件内容、PDF、图片内容。
 - 不保存完整 prompt 或完整模型响应。
 - 首页当前会在服务端取建议，真实外呼前必须避免打开首页即产生无意识成本，或保留首页本地 fallback。
-- 长期阶段调整另行确认，不混入第一版 AI。
+- 长期阶段调整不混入第一版 AI；当前最小化长期阶段 AI 草稿显式入口已由 Package D Batch D3 单独确认并完成。
 
 验证：
 
@@ -694,7 +694,7 @@ Batch 6 只新增阶段计划和阶段调整草稿模型，用于把当前本地
 依赖关系：
 
 - 结构化 `SimulationExam`、`StagePlan` 和 `StageAdjustmentDraft` 模型已由 Package B 的 migration 批次提供；Package D 只负责在确认后组合长期决策、应用记录和审计流程。
-- 长期 AI 阶段调整外呼仍属于 Package D / `tasks/backlog/0017-ai-stage-privacy-cost.md` 的隐私与费用确认。
+- 长期 AI 阶段调整最小草稿外呼已由 Package D Batch D3 确认完成；`tasks/backlog/0017-ai-stage-privacy-cost.md` 继续承接 AI 历史保存、费用账本、更大上下文字段或自动应用等新增边界。
 - Package D 负责把这些基础能力组合成第二阶段长期闭环，并保证所有建议用户确认前不应用。
 
 必须确认：
@@ -704,7 +704,7 @@ Batch 6 只新增阶段计划和阶段调整草稿模型，用于把当前本地
 - 风险可视化必须能追溯原因，不能只用压迫式文案。
 - 建议 DTO 必须保持 `canAutoApply=false` 和 `requiresUserConfirmation=true`。
 - Package B 未完成时，重排应用、阶段计划应用和结构化模拟考试写入必须禁用；Package B 已完成后，Package D 仍不得绕过用户确认自动应用任务或阶段调整。
-- 长期阶段 AI 未单独确认时，阶段调整只能使用本地规则，不能外呼。
+- 除 Package D Batch D3 显式 AI 草稿入口外，阶段调整只能使用本地规则，不能在普通页面、报告 GET、SSR 或后台任务中自动外呼。
 - 确认、驳回或应用建议时必须写审计记录；部分应用失败时必须停止后续写入并返回失败摘要。
 
 D1 最小实施契约：
@@ -712,7 +712,7 @@ D1 最小实施契约：
 - 允许新增 additive `PeriodicReportDecision` 持久模型，用单表记录报告类型、周期范围、决策状态、冻结的 `reportSnapshot`、下一周期草稿、确认边界、操作者和决策时间。
 - 允许新增报告决策鉴权写入口和只读回放入口；确认和驳回只写 `PeriodicReportDecision` 与 `AuditEvent`，不改任务、阶段计划、复盘或考纲节点。
 - 重复确认同一报告周期必须幂等或返回已处理结果；已确认后反向驳回应返回冲突或明确的已处理状态，不能静默覆盖。
-- 完成 D1 时只登记 D1 证据，不能把 Package D 主状态标为完成，`pnpm docs:completion` 仍应等待 D2-D5 和 Package E 收口。
+- 逐批执行时只登记当前批次证据，不能提前把 Package D 主状态标为完成；当前 D1-D5 已全部完成，生产发布仍由 Package E 独立记录。
 
 验证：
 

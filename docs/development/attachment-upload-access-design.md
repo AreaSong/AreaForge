@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/done/0004-mvp-syllabus-notes-upload.md` 的附件实现确认设计和 Package A 落地回溯。服务端写入 `UPLOAD_DIR`、附件下载或预览路由已在用户明确确认 Package A 后实现；删除附件、跨对象附件、AI 解析、生产部署和孤儿文件清理仍需另行确认。
+本文件是 `tasks/done/0004-mvp-syllabus-notes-upload.md` 的附件实现确认设计和 Package A 落地回溯。服务端写入 `UPLOAD_DIR`、附件下载或预览路由已在用户明确确认 Package A 后实现；删除附件、跨对象附件、AI 解析、孤儿文件清理或生产部署策略变化仍需另行确认。
 
 ## 目标
 

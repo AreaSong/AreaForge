@@ -6,6 +6,13 @@
 - 当前阶段优先实现私有 Web 应用，后续预留 PWA、桌面端和移动端。
 - 对话、说明、提交说明、设计说明默认使用中文；代码标识符、类型名、文件名中的技术标识保持英文。
 
+## 当前状态
+
+- 当前版本为 `0.1.5`，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新运行。
+- Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。
+- 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
+- Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
+
 ## 源事实
 
 - 产品定位与功能边界：`docs/product/**`。
@@ -39,7 +46,7 @@
 - 数据库 migration、数据修复、批量删除、清空记录。
 - 删除附件、移动上传目录、修改备份/恢复策略。
 - 认证、会话、权限、密钥、AI 调用隐私边界。
-- 网页内触发部署、执行服务器命令、一键更新。
+- 网页内直接触发部署、执行服务器命令或一键更新；允许的版本中心只能提交受控请求，由服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 将动机档案、情绪记录、复盘正文发送给 AI 的默认策略变化。
 
 文件上传、附件访问、AI 调用和备份恢复的细化安全边界见 `docs/security/file-ai-safety.md`。

@@ -6,6 +6,23 @@ AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单
 
 它不是让 Web runtime 直接执行 Docker 的“一键更新”。Web 应用可以提供版本中心 UI，用于展示版本状态、提交检查/更新/回退请求和调整自动策略；真正的 Docker、备份、恢复、migration 和回滚命令必须由服务器侧 root agent 执行。
 
+## 当前远端状态
+
+截至 `2026-07-10`，远端生产已经完成一次签名 Release 更新：
+
+- 线上地址：`https://forge.areasong.top/`
+- 当前线上版本：`0.1.5`
+- 最新 GitHub Release：`v0.1.5`
+- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v0.1.5`
+- Web image：`ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9`
+- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:04aa20e92323c9f9b14c8bd096d8cfa9ea62d9baab23f94d4976d7882bfa2ae7`
+- 服务器健康检查：`AREAFORGE_HEALTH_URL=http://127.0.0.1:3020/api/health`
+- 签名校验：`AREAFORGE_REQUIRE_SIGNATURE=true`，`AREAFORGE_COSIGN_PUBLIC_KEY=/etc/areaforge/cosign.pub`
+- update-agent：`timerEnabled=true`、`timerActive=true`、`blocker=null`
+- 自动策略：`AREAFORGE_AUTO_APPLY=none`
+
+完整证据见 `docs/development/package-e-remote-github-release-record.md`。
+
 ## 发布端配置
 
 1. 在 GitHub 仓库启用 GHCR packages。
@@ -89,6 +106,14 @@ sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh check \
 sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes \
   --tag v1.0.3 \
   --config /etc/areaforge/updater.env
+```
+
+AreaForge 当前远端验证过的命令：
+
+```bash
+sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh check --tag v0.1.5 --config /etc/areaforge/updater.env
+sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes --tag v0.1.5 --config /etc/areaforge/updater.env
+sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 ```
 
 流程会自动：
@@ -215,7 +240,10 @@ sudo systemctl status areaforge-updater.timer
 sudo systemctl status areaforge-update-agent.timer
 sudo journalctl -u areaforge-updater.service -n 100 --no-pager
 sudo journalctl -u areaforge-update-agent.service -n 100 --no-pager
-curl -fsS http://127.0.0.1:3000/api/health
+curl -fsS http://127.0.0.1:${WEB_PORT:-3000}/api/health
+curl -fsS https://forge.areasong.top/api/health
 ```
+
+当前远端 AreaForge 使用 `WEB_PORT=3020`，因此服务器本机 health 是 `http://127.0.0.1:3020/api/health`；`127.0.0.1:3000` 在该服务器上属于 Grafana。
 
 日志中不得出现数据库 URL、`AUTH_SESSION_SECRET`、`AI_API_KEY`、完整 prompt、完整复盘正文、附件内容或上传绝对路径。

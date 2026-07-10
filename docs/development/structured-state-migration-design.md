@@ -132,7 +132,7 @@ Batch 2 已新增字段：
 - 所有任务债务动作写 `TaskDebtEvent`，同时保留现有 `AuditEvent`。
 - 旧任务没有债务事件时，仍用 `StudyTask.status/debtStatus/plannedDate` 判断欠账。
 - 当前 `complete/defer/drop/recover/split/convert_review` 和计时结束有效自动完成路径会写入事件账本；模拟考试任务完成也按 `complete` 写入。
-- `GET /api/tasks/debt-reorder` 仍只读，不写 `reorder_suggested`，用户确认应用和 `reorder_applied` 仍归 Package D。
+- `GET /api/tasks/debt-reorder` 仍只读，不写 `reorder_suggested`；Package D Batch D2 已通过独立写入口记录确认、驳回和用户所选项应用，并写入 `reorder_applied`。
 
 ### 新增 `RecoveryState`
 

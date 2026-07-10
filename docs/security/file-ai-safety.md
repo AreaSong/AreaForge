@@ -48,7 +48,7 @@ AI 不允许：
 - 删除任务、附件、错题或复盘。
 - 自动发送动机档案、完整情绪记录、完整复盘正文。
 - 自动发送附件文件内容、PDF 原文、图片内容、OCR 文本、上传路径或 `Attachment.uri`。
-- 执行服务器命令、部署命令或一键更新。
+- 执行服务器命令、部署命令或直接一键更新；Web 版本中心只能提交受控更新请求，不能在 Web runtime 内执行 Docker、备份、恢复或 migration。
 
 附件文件内容默认不进入 AI 上下文；AI 解析、OCR、摘要或把 PDF/图片内容发给 provider，都必须另走后续高风险确认包。
 
@@ -69,15 +69,17 @@ AI 不允许：
 - 默认把复盘正文发给 AI。
 - 删除附件或迁移上传目录。
 - 修改备份、恢复或保留策略。
-- 网页内触发部署或服务器命令。
+- 网页内直接触发部署或服务器命令。
 
 ## GitHub Release 自动更新边界
 
-允许的自动更新形态是服务器侧受控 updater：`ops/github-release-updater/areaforge-updater.sh` 由管理员手动执行或 systemd timer 触发，读取 GitHub Release manifest、校验 `SHA256SUMS` / `SHA256SUMS.sig`，备份数据库和上传目录，使用一次性 migration image，再切换 Docker Compose Web 镜像。
+允许的自动更新形态是服务器侧受控 updater：`ops/github-release-updater/areaforge-updater.sh` 由管理员手动执行、systemd timer 触发或由 `areaforge-update-agent.timer` 消费 Web 版本中心写入的受控请求后触发。它读取 GitHub Release manifest、校验 `SHA256SUMS` / `SHA256SUMS.sig`，备份数据库和上传目录，使用一次性 migration image，再切换 Docker Compose Web 镜像。
+
+当前远端生产已启用该形态：`https://forge.areasong.top/` 运行 `0.1.5`，服务器 `AREAFORGE_REQUIRE_SIGNATURE=true`，`/etc/areaforge/cosign.pub` 校验 cosign bundle，update-agent 状态为 `blocker=null`。记录见 `docs/development/package-e-remote-github-release-record.md`。
 
 禁止：
 
-- 在 Web 页面、Web API、管理后台按钮或 AI 工具调用中执行 updater。
+- 在 Web 页面、Web API、管理后台按钮或 AI 工具调用中直接执行 updater 或服务器命令。
 - 将 Docker socket、生产 `.env`、GitHub token、签名私钥或备份目录挂入 Web runtime。
 - 跳过签名/hash 校验后自动应用 Release。
 - 静默应用 major 更新。

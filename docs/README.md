@@ -83,6 +83,7 @@
 - `development/package-e-e3-local-release-record.md`：Package E Batch E3 本地生产模式发布演练记录。
 - `development/package-e-e4-prod-local-rollback-record.md`：Package E Batch E4 本机生产回滚收口记录。
 - `development/package-e-e4-local-rollback-record.md`：Package E Batch E4 本地回滚演练记录。
+- `development/package-e-remote-github-release-record.md`：Package E 远端 GitHub Release 签名发布记录。
 - `development/high-risk-confirmation-packets.md`：推进到 100% 前必须确认的高风险执行包。
 - `development/docs-100-acceptance-evidence.md`：docs 100% 的最终验收证据矩阵。
 - `development/docs-100-completion-record.md`：docs 100% 的当前完成证据台账。

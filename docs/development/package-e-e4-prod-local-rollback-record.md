@@ -2,7 +2,7 @@
 
 确认记录：用户已授权从当前准确进度推进到 docs 100%，并明确允许继续完成 Package E Batch E4。
 
-本记录对应当前本机 `areaforge` compose project 的单机私有生产目标：`http://127.0.0.1:3000`。它收口的是本机生产目标的应用镜像回滚与 roll-forward 机制，不声称已完成远端服务器、域名 HTTPS 或真实 Nginx 流量切换。
+本记录对应当前本机 `areaforge` compose project 的单机私有生产目标：`http://127.0.0.1:3000`。它收口的是本机生产目标的应用镜像回滚与 roll-forward 机制，不声称已完成远端服务器、域名 HTTPS 或真实 Nginx 流量切换；远端 `v0.1.5` GitHub Release 签名更新证据已在后续 `docs/development/package-e-remote-github-release-record.md` 补齐。
 
 ## 执行环境
 
@@ -68,7 +68,7 @@ pnpm release:evidence:validate backups/package-e/prod-local-e4-20260709230645/re
 
 ## 残余风险
 
-- 本次完成的是本机单机生产目标，不包含远端服务器、域名 HTTPS 或真实 Nginx 流量切换。
+- 本次完成的是本机单机生产目标，不包含远端服务器、域名 HTTPS 或真实 Nginx 流量切换；这些远端证据已在后续 `v0.1.5` GitHub Release 记录中补齐。
 - previous image 是当前机器上的上一可用 release image，不是远端历史生产镜像。
 - 当前 release image 仍来自 dirty worktree；后续外部发布前应创建干净 commit 和不可变 release tag。
 - 本次只在应用镜像层执行回滚；数据库和上传目录保留同周期备份，但未执行破坏性恢复。

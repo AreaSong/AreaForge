@@ -6,6 +6,7 @@
 - 容器：Docker。
 - 反向代理：Nginx。
 - 域名：`forge.areasong.top`。
+- 当前远端生产：`https://forge.areasong.top/` 已运行 AreaForge `0.1.5`，Nginx 反代到服务器本机 `127.0.0.1:3020`；该服务器上的 `127.0.0.1:3000` 是 Grafana，不是 AreaForge。
 
 ## 服务
 
@@ -52,10 +53,10 @@ Nginx -> web container -> PostgreSQL
 - GitHub Release 作为正式发布触发点。
 - 构建 Docker 镜像并使用版本 tag。
 - 部署前备份数据库和上传目录。
-- 执行 `pnpm db:migrate:deploy` 或等价的 Prisma migration deploy 流程。
-- 拉起新版本容器。
+- 通过一次性 migration image 执行 `pnpm db:migrate:deploy` 或等价的 Prisma migration deploy 流程。
+- 使用服务器侧 updater 校验 Release 签名、hash 和镜像 digest 后拉起新版本容器。
 
-第一版不做网页内一键更新。
+第一版不做 Web runtime 直接执行服务器命令的一键更新。当前已具备版本中心受控请求流：Web UI 写入 update request，`areaforge-update-agent.timer` 以 root agent 身份读取请求并调用服务器侧 updater。
 
 ## Compose 边界
 

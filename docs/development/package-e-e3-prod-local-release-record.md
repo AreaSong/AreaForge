@@ -2,7 +2,7 @@
 
 确认记录：用户已明确确认“确认执行 Package E Batch E3：生产发布与 migration deploy”。
 
-本记录对应本机 `docker-compose.prod.yml` 单机私有生产目标：`areaforge` compose project，Web 绑定 `127.0.0.1:3000`，PostgreSQL 仅在 compose network 内暴露 `5432/tcp`，上传目录使用私有 Docker volume。它不代表远端服务器、域名 HTTPS 或真实 Nginx 切换已经完成。
+本记录对应本机 `docker-compose.prod.yml` 单机私有生产目标：`areaforge` compose project，Web 绑定 `127.0.0.1:3000`，PostgreSQL 仅在 compose network 内暴露 `5432/tcp`，上传目录使用私有 Docker volume。它不代表远端服务器、域名 HTTPS 或真实 Nginx 切换已经完成；远端 `v0.1.5` GitHub Release 签名更新证据已在后续 `docs/development/package-e-remote-github-release-record.md` 补齐。
 
 ## 发布目标
 
@@ -67,7 +67,7 @@
 
 ## 残余风险
 
-- Batch E4 回滚演练与 Package E 收口尚未在本机生产目标执行，因此 Package E 主状态不能改为完成。
-- 本机生产目标未完成远端域名 HTTPS / Nginx 真实切换；当前仅验证 Nginx 示例配置备份和 hash。
+- 本记录生成时 Batch E4 回滚演练尚未在本机生产目标执行；后续已由 `docs/development/package-e-e4-prod-local-rollback-record.md` 补齐，Package E 主状态以 completion record 为准。
+- 本记录生成时未完成远端域名 HTTPS / Nginx 真实切换；后续已由 `docs/development/package-e-remote-github-release-record.md` 补齐，当前远端运行 `v0.1.5`。
 - 发布镜像基于当前 dirty worktree 构建，后续正式发布前应在干净 commit/tag 上重建固定 tag。
 - 生产 Web 已运行在 `http://127.0.0.1:3000`；若后续执行 E4，需要先确认上一镜像、回滚步骤、是否恢复数据库/上传目录和恢复耗时记录口径。

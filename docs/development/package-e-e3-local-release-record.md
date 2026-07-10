@@ -6,7 +6,7 @@
 
 确认记录：用户已明确确认“确认执行 Package E Batch E3：生产发布与 migration deploy”。
 
-结论：本地生产模式发布、一次性 migration job、发布后 smoke、附件只读对账和 release evidence 校验已通过；真实生产服务器发布仍未完成，因为当前环境没有真实生产 `.env`、生产域名/Nginx 切换、真实生产上传 volume、远程服务器备份点或上一生产镜像 tag。
+结论：本地生产模式发布、一次性 migration job、发布后 smoke、附件只读对账和 release evidence 校验已通过；本文件是早期本地演练记录，不作为当前远端生产状态依据。真实远端 `v0.1.5` GitHub Release 签名更新证据见 `docs/development/package-e-remote-github-release-record.md`。
 
 ## 执行环境
 
@@ -92,7 +92,7 @@ pnpm release:evidence:validate backups/package-e/e3-20260709214850/reports/relea
 
 结果：PASS，字段完整、hash/枚举合法、未包含敏感值，附件对账保持 `report_only`。
 
-## 未完成事项
+## 本地演练未覆盖事项
 
 - 未执行真实生产服务器发布。
 - 未使用真实生产 `.env`。
@@ -101,7 +101,7 @@ pnpm release:evidence:validate backups/package-e/e3-20260709214850/reports/relea
 - 未读取、写入、移动或删除真实生产上传目录。
 - 未记录上一真实生产镜像 tag。
 - 未执行真实回滚演练。
-- 未把 Package E 主状态标为完成。
+- 本文件不单独作为 Package E 主状态完成证据；后续完成证据见 prod-local、远端 release 记录和 completion record。
 
 ## 残余风险
 

@@ -20,6 +20,8 @@
 - AI prompt 泄露敏感内容。
 - 日志记录密钥或隐私正文。
 - migration 或部署操作造成数据丢失。
+- Release 资产或容器镜像被篡改后进入生产。
+- Web 运维入口越权执行服务器命令。
 
 ## 第一版防线
 
@@ -30,6 +32,8 @@
 - 默认不发送动机档案给 AI。
 - `.env` 不入库。
 - 数据库和上传目录定期备份。
+- GitHub Release 更新必须校验 `SHA256SUMS`、cosign bundle 和镜像 digest；生产默认 `AREAFORGE_REQUIRE_SIGNATURE=true`。
+- Web runtime 只能提交受控更新请求和读取状态，不能直接执行 Docker、备份、恢复、migration 或服务器命令。
 
 ## 细化规则
 

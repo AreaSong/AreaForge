@@ -62,8 +62,9 @@ packages/ai -> Sub2API / OpenAI compatible API
 - 错题、掌握证明显式记录、动机封存、情绪标签、阶段称号、基础统计、作战地图筛选、周/月报告和结构化模拟考试主路径。
 - `packages/ai` 已提供本地规则 fallback、结构化 schema、OpenAI-compatible JSON provider、mock/外呼测试和敏感上下文拦截。
 - `packages/storage` 已提供附件上传纯规则安全底座，Web 层已完成 noteId 绑定附件上传、私有落盘和鉴权下载。
+- Package E 已完成生产发布、备份、恢复和发布闭环；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新上线，服务器启用 cosign bundle 校验，Web 版本中心只提交受控请求，root agent 执行更新。
 
 尚未完成：
 
-- 长期阶段 AI 调整、报告决策应用和任务重排应用。
-- 生产部署、备份、恢复和发布闭环。
+- 暂缓项：AI 自动完整学习计划、复杂 PDF 自动解析、小程序、原生 App、多用户、排名系统、复杂权限系统，以及 Web runtime 直接执行服务器命令的一键运维入口。
+- 可选增强：完整登录/任务/附件/AI 的生产 extra smoke 自动化、长期 AI 调用费用账本和更细结构化复习历史。

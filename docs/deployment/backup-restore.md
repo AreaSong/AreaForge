@@ -30,7 +30,7 @@
 
 ## 命令模板
 
-以下命令只作为 Package E 确认后的执行参考；确认前不得在生产环境运行。
+以下命令只作为生产备份、恢复演练和发布记录的手动参考。Package E 已完成；后续任何真实生产备份恢复、破坏性恢复、备份策略变化或服务器命令执行，仍必须按高风险确认流程说明影响、风险、验证和回滚后再执行。
 
 数据库备份：
 
@@ -85,7 +85,7 @@ DATABASE_URL="$RESTORE_DATABASE_URL" \
 
 ## 发布证据校验
 
-Package E 收口前，发布记录必须通过只读校验：
+每次正式发布记录都必须通过只读校验。Package E 和远端 `v0.1.5` 已完成当前证据收口；后续 release 仍继续要求：
 
 ```bash
 pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]

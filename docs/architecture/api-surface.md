@@ -160,7 +160,7 @@ Batch 5 后，新建模拟考试和保存模拟结果优先写入 `SimulationExa
 
 Batch 6 后，阶段计划可通过 `stage-plans` API 创建和局部更新；阶段调整草稿通过本地规则持久化，固定 `canAutoApply=false`、`requiresUserConfirmation=true`。`confirm` 只在用户显式确认时更新关联 `StagePlan` 的模式、目标和必要状态，并写入 `AuditEvent`；`reject` 只更新草稿状态。两者都不自动重排任务、不批量修改任务、不删除历史阶段记录。Package D Batch D1 已完成报告决策入口，Batch D2 已完成任务债务重排所选项确认/驳回/应用记录。
 
-Package D Batch D3 后，`POST /api/simulation/stage-adjustment-drafts/ai` 作为唯一长期阶段 AI 草稿显式触发入口。该 route 必须鉴权且 POST-only，只发送最小化长期聚合字段和阶段目标摘要；成功只创建 `StageAdjustmentDraft.source="ai"` 草稿并写审计摘要，失败回退 `local_rule` 草稿。不保存完整 prompt/raw response，不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不自动确认草稿、不批量修改任务、不执行生产部署。报告驱动的阶段应用和长期应用记录仍需 Package D 后续批次。
+Package D Batch D3 后，`POST /api/simulation/stage-adjustment-drafts/ai` 作为唯一长期阶段 AI 草稿显式触发入口。该 route 必须鉴权且 POST-only，只发送最小化长期聚合字段和阶段目标摘要；成功只创建 `StageAdjustmentDraft.source="ai"` 草稿并写审计摘要，失败回退 `local_rule` 草稿。不保存完整 prompt/raw response，不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不自动确认草稿、不批量修改任务、不执行生产部署。Package D D5 已收口当前长期闭环；报告驱动的自动阶段应用、长期应用历史扩展或更大 AI 上下文字段清单属于后续增强，必须另行确认。
 
 ### AI
 

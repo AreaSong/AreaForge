@@ -77,6 +77,19 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 - 是否知道最小验证集合。
 - 是否可能影响部署、AI、上传、认证或数据库。
 
+## 功能完成后的发版规则
+
+当一次功能更新准备进入线上时，默认走 GitHub Release 路径，而不是只在服务器上手动改代码：
+
+1. 先同步 `docs/**`、`tasks/**` 和 `workflow/**`，确认源事实没有漂移。
+2. 按 `docs/development/validation-matrix.md` 跑对应验证，至少覆盖 `pnpm check`、`pnpm docs:readiness`、`pnpm risk:preflight` 和 `git diff --check`；涉及更新器时补跑 `pnpm github-release-updater:preflight` 与 `pnpm shellcheck:updater`。
+3. bump 版本并提交干净 commit。
+4. 创建并推送 `vX.Y.Z` tag，让 `.github/workflows/release.yml` 生成 GitHub Release、GHCR Web/migration 镜像、manifest、`SHA256SUMS` 和 cosign bundle。
+5. 通过 Web 版本中心提交受控更新请求，或由管理员在服务器执行 updater；Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
+6. 更新成功后，把 Release tag、线上 health、镜像 digest、update-agent 状态和残余风险同步回发布记录或对应文档。
+
+是否需要额外 Codex skill：当前仓库内先不强制。若未来希望在 AreaForge、AreaMatrix、AreaFlow 或其他项目复用同一套“改功能 -> 同步 docs -> 发 Release -> 受控更新 -> 回写证据”的节奏，可以再用个人 skill 固化该流程。
+
 ## 收尾报告
 
 每次完成后必须说明：
@@ -86,4 +99,3 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 - 跑了哪些验证。
 - 哪些没有验证。
 - 还有哪些风险或后续任务。
-

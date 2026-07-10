@@ -294,10 +294,10 @@
 |---|---|
 | Batch E1 生产配置与发布工件预检 | 已完成：`pnpm check`、`pnpm package-e:preflight`、compose config、生产 env 清单、镜像 tag、Nginx 配置、migration deploy 执行载体草案、发布记录草案和中止条件；不执行生产部署、不运行生产 migration、不触碰生产数据库或上传目录 |
 | Batch E2 发布前备份与恢复演练 | 已完成：PostgreSQL dump、上传目录归档、生产 `.env` 本地替代备份权限收紧、compose/Nginx 副本、临时库导入、临时上传目录恢复、附件 metadata/hash 对账只读 `report_only`；记录见 `docs/development/package-e-e2-restore-drill-record.md`，当前无附件记录所以 `attachmentHashMatched=not-applicable` |
-| Batch E3 生产发布与 migration deploy | 已完成本机单机生产目标发布：备份点、生产 env 私有备份、一次性 migration job、10 条 migration deploy、compose 启动、`GET /api/health`、登录、首页、任务、计时、复盘、附件和 AI fallback/provider 烟测，记录见 `docs/development/package-e-e3-prod-local-release-record.md`；本地 production-mode 演练记录仍保留在 `docs/development/package-e-e3-local-release-record.md`；远端域名 HTTPS / Nginx 真实切换不包含在本批完成口径内 |
+| Batch E3 生产发布与 migration deploy | 已完成本机单机生产目标发布：备份点、生产 env 私有备份、一次性 migration job、10 条 migration deploy、compose 启动、`GET /api/health`、登录、首页、任务、计时、复盘、附件和 AI fallback/provider 烟测，记录见 `docs/development/package-e-e3-prod-local-release-record.md`；本地 production-mode 演练记录仍保留在 `docs/development/package-e-e3-local-release-record.md`；E3 本机批次不单独代表远端切换，远端域名 HTTPS / Nginx / GHCR Release 已由后续 `v0.1.5` 记录补齐 |
 | Batch E4 回滚演练与 Package E 收口 | 已完成本机生产目标回滚收口：上一镜像 tag、回滚步骤、回滚后 health/登录/页面/API smoke、任务/计时/复盘、附件 `report_only` 对账、是否恢复数据库/上传目录、失败原因、恢复耗时、roll-forward 和 `pnpm release:evidence:validate`，记录见 `docs/development/package-e-e4-prod-local-rollback-record.md`；早期本地机制演练记录保留在 `docs/development/package-e-e4-local-rollback-record.md` |
 
-注意：Package E 已按本机单机生产目标完成；远端服务器、域名 HTTPS 和真实 Nginx 流量切换若引入，需要另列外部部署验收。
+注意：Package E 已按本机单机生产目标完成，并已补充真实远端 `https://forge.areasong.top/` 的 GitHub Release `v0.1.5` 签名更新证据。当前远端 AreaForge 运行在服务器 `127.0.0.1:3020`，`127.0.0.1:3000` 在该服务器上属于 Grafana；后续域名、Nginx、端口或服务器迁移仍需另列外部部署验收。
 
 `pnpm package-e:preflight`、`pnpm risk:preflight` 和 `pnpm docs:completion` 均采用 Package E 批次感知门禁：E1-E4 收口前 Package E 主状态必须保持锁定；每个完成批次都必须包含明确确认、`pnpm` 验证、烟测/备份/恢复/发布/回滚证据、文档同步和残余风险。Package E 最终完成行还必须包含发布、备份、恢复、回滚、`release:evidence:validate`、`report_only`、migration deploy 执行载体、镜像 digest 和 Nginx 证据。根 `package.json` 不允许新增生产 deploy、backup、restore、`docker compose up/down` 或服务器命令脚本；现有 `db:migrate:deploy` 只能作为 Package E 确认后的受控执行参考。
 
@@ -317,6 +317,8 @@
 - updater 日志不得打印数据库 URL、生产 `.env` 内容、密码、AI key、完整 prompt、附件内容或上传绝对路径。
 - Web runtime 不得新增 updater route、Docker/backup/restore/migration 命令入口或 `docker.sock` 访问。
 - `AREAFORGE_AUTO_APPLY=none` 是默认策略；patch 自动应用必须同时满足服务器配置和 manifest `autoApply.patch=true`。
+
+当前远端 `v0.1.5` 已验证：Release asset 包含 `areaforge-release-manifest.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`；服务器 `cosign verify-blob --bundle` 返回 `Verified OK`，`sha256sum -c` 通过；Web image digest 为 `ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9`；migration image digest 为 `ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:04aa20e92323c9f9b14c8bd096d8cfa9ea62d9baab23f94d4976d7882bfa2ae7`；`GET https://forge.areasong.top/api/health` 返回 `0.1.5`；update-agent 状态为 `signatureRequired=true`、`timerEnabled=true`、`timerActive=true`、`blocker=null`。
 
 ## docs 100% 最终门禁
 

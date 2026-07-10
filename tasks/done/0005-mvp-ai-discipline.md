@@ -75,7 +75,7 @@
 
 ## 残余风险
 
-- 本批不包含长期阶段调整 AI；该能力仍需 `tasks/backlog/0017-ai-stage-privacy-cost.md` 和 Package D 另行确认。
+- 本批不包含长期阶段调整 AI；该能力的最小化显式草稿入口已由 Package D Batch D3 单独确认并完成，`tasks/backlog/0017-ai-stage-privacy-cost.md` 继续承接 AI 历史保存、费用账本、更大上下文或自动应用等新增边界。
 - 本批不包含保存完整 prompt、完整响应、token 用量或 AI 调用历史。
 - 本批不包含把动机档案、完整情绪记录、完整复盘正文、附件内容、PDF、图片内容或 OCR 文本发送给 provider。
 - 本批不包含真实生产 key 烟测或生产部署。

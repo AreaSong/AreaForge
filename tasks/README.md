@@ -9,6 +9,8 @@
 - `done/`：已完成任务归档。
 - `templates/`：任务模板。
 
+当前进度：Package A-E 和 docs 100% 当前证据已完成；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。`done/` 中记录已完成的单点任务和 GitHub Release updater。远端 `v0.1.5` 发布与 update-agent 状态见 `tasks/done/0018-github-release-updater.md` 和 `tasks/backlog/0014-deployment-backup-release.md`。
+
 ## 使用规则
 
 - 一个任务只描述一个清晰目标。
@@ -16,3 +18,4 @@
 - 完成任务后移动到 `done/`，并保留验证结果。
 - 历史高风险确认包或跨批次承接任务可保留在 `backlog/` 作为稳定入口，但文件内必须写清真实状态、已完成范围和后续承接包。
 - 若任务与 `docs/` 冲突，先更新 `docs/`，再执行任务。
+- 后续功能更新若进入线上，任务记录必须同步 GitHub Release tag、线上 health、镜像 digest、update-agent 状态和残余风险。

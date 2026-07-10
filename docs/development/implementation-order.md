@@ -25,16 +25,17 @@
 - 动机封存、情绪标签、阶段称号和动机唤醒基础版已完成，且默认不进入 AI 上下文。
 - 基础统计与作战地图完善已完成低风险闭环：统计页、只读统计 API、近 7 天派生指标、`summarizeAnalyticsRisks` 统计风险规则、风险提醒、作战地图状态筛选和行动类型筛选。
 - 周审判与月复盘报告已完成报告闭环：周期报告 API、报告页、`choosePeriodicWeakness` 最大短板选择规则、`summarizePeriodicReportStrategy` 周期策略规则、本地规则复盘草稿、`createPeriodicNextCycleDraft` 下周期草稿和 `createPeriodicReportDecisionSnapshot` 回放快照；Package D Batch D1 已新增报告确认/驳回、冻结快照、确认草稿、审计和只读回放；`decisionPreview` 与已保存决策均固定 `canAutoApply=false` / `requiresUserConfirmation=true`，仍不应用阶段计划或任务重排。
-- 全真模拟考试已完成结构化主路径：Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、结构化模拟 API 和 `/simulation` 主写入；旧 `StudyTask.type = "simulation_exam"` 记录只读兼容；Package B Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft`、阶段计划 API 和持久草稿确认边界；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并接入结构化结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用。Package D Batch D1 报告决策入口、D2 债务重排确认流、D3 长期 AI 阶段草稿、D4 长期风险/主题闭环和 D5 收口已完成；后续进入 Package E。
+- 全真模拟考试已完成结构化主路径：Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、结构化模拟 API 和 `/simulation` 主写入；旧 `StudyTask.type = "simulation_exam"` 记录只读兼容；Package B Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft`、阶段计划 API 和持久草稿确认边界；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并接入结构化结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用。Package D Batch D1 报告决策入口、D2 债务重排确认流、D3 长期 AI 阶段草稿、D4 长期风险/主题闭环和 D5 收口已完成。
 - AI 建议已完成 Package C 第一版：`packages/ai` 提供结构化 schema、本地规则 fallback、OpenAI-compatible JSON provider、mock/外呼错误测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页本地草稿展示；Package D Batch D3 已在 `stage_adjustment` schema 下完成长期阶段 AI 草稿显式触发，D3 范围外长期 AI 应用仍需单独确认。
+- Package E 已完成生产配置预检、备份恢复演练、本机单机生产发布、回滚收口和远端 `v0.1.5` GitHub Release 签名更新；线上 `https://forge.areasong.top/api/health` 返回 `0.1.5`，自动更新链路默认 `AREAFORGE_AUTO_APPLY=none`，Web 版本中心只提交受控更新请求，由服务器侧 update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 
 ## 下一步主线
 
 1. `tasks/done/0004-mvp-syllabus-notes-upload.md`：附件上传与鉴权访问已由 Package A 完成。
 2. `tasks/done/0005-mvp-ai-discipline.md`：真实 AI Provider 第一版已由 Package C 完成。
 3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState`、显式掌握证明记录、结构化模拟考试和阶段计划/草稿已由 Package B Batch 1-6 完成；后续长期应用继续随 Package D 增强。
-4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径、阶段计划/草稿持久化、报告决策入口、债务重排所选项应用记录、长期 AI 草稿显式触发、长期风险/主题闭环和 Package D 收口已完成；继续进入 Package E。
-5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复和发布闭环。
+4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径、阶段计划/草稿持久化、报告决策入口、债务重排所选项应用记录、长期 AI 草稿显式触发、长期风险/主题闭环和 Package D 收口已完成。
+5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复、GitHub Release 签名更新和版本中心受控请求流已完成；后续功能更新按 release runbook 逐次发布。
 
 实现前确认设计：
 
@@ -48,7 +49,7 @@
 
 ## 高风险确认包状态
 
-这些包命中仓库高风险边界。Package A、Package B 和 Package C 已完成；后续进入 Package D/E 前仍必须先确认对应影响、风险、验证和回滚。
+这些包命中仓库高风险边界。Package A、Package B、Package C、Package D 和 Package E 已完成；后续若新增 migration、上传/删除、AI 外呼字段、部署、备份恢复、自动更新策略升级或服务器运维入口，仍必须先确认对应影响、风险、验证和回滚。
 
 | 确认包 | 影响 | 主要风险 | 验证 | 回滚 |
 |---|---|---|---|---|
@@ -74,18 +75,18 @@
 
 1. Batch 0：`StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、反假学习原因、是否产生笔记/错题。已完成。
 2. Batch 1：`CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。已完成。
-3. Batch 2：任务债务事件账本和父子任务关系：补做、延期、放弃、拆小、改复习和完成动作。已完成；重排采纳记录仍归 Package D。
+3. Batch 2：任务债务事件账本和父子任务关系：补做、延期、放弃、拆小、改复习和完成动作。已完成；重排确认、驳回和所选项应用记录已由 Package D Batch D2 完成。
 4. Batch 3：`RecoveryState` 恢复状态：规则触发、手动触发、退出条件和恢复记录。已完成。
 5. Batch 4：掌握证明：掌握条件、证据引用、复测记录。已完成。
 6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。已完成。
 7. Batch 6：阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的阶段计划更新和审计记录。已完成，且不包含任务重排、批量改任务、真实 AI 或生产 migration deploy。
 
-Package A 附件、Package B Batch 0-6 和 Package C 真实 AI 第一版已全部完成；`docs 100%` 继续由 Package D 长期闭环和 Package E 生产发布收口。
+Package A 附件、Package B Batch 0-6、Package C 真实 AI 第一版、Package D 长期闭环和 Package E 生产发布/远端签名更新已全部完成；后续 `docs 100%` 维护重点是每次功能变更同步源事实、验证记录和 release 证据。
 
 ### 2. 第一版功能补全
 
 - 打卡与连续性已从派生统计升级为 `CheckIn` 结构化快照；恢复状态已由 `RecoveryState` 承接，后续继续补长期闭环。
-- 任务债务已从轻量流转升级为事件账本；可审计重排应用仍需 Package D 确认。
+- 任务债务已从轻量流转升级为事件账本；可审计重排确认、驳回和所选项应用记录已由 Package D Batch D2 完成。
 - 恢复模式已从规则裁剪升级为持久化状态、手动触发和退出条件；后续只随长期阶段计划继续增强。
 - 反假学习从文本化 note 升级为结构化收口和低转化统计。
 - 掌握证明从证据计数升级为条件、证据和复测闭环。
@@ -113,7 +114,7 @@ Package C 真实 AI Provider 第一版已完成：
 - 超时、重试、轻量限流、错误映射和日志脱敏已落地。
 - AI 第一版只返回鞭策、复盘建议和明日任务建议，不直接覆盖用户记录。
 - 长期阶段 AI 草稿显式外呼已由 Package D Batch D3 单独确认并完成；若保存 AI 建议历史、费用账本、发送更大字段清单或自动应用阶段计划，必须再次确认模型、隐私边界和 migration。
-- 若保存 AI 建议历史，必须单独确认模型和 migration。
+- 若保存 AI 建议历史或费用账本，必须单独确认模型、数据字段和 migration。
 
 ### 5. 第二阶段长期能力
 
@@ -126,14 +127,15 @@ Package C 真实 AI Provider 第一版已完成：
 
 ### 6. 部署、备份、恢复和发布闭环
 
-需要部署高风险确认后推进：
+Package E 已按高风险确认推进并完成：
 
-- 生产 `docker-compose.prod.yml`、Next.js standalone 镜像、PostgreSQL 16、Nginx HTTPS 反代。
-- 生产 PostgreSQL 不暴露公网端口，Web 仅绑定本机端口供 Nginx。
-- 发布前备份数据库、上传目录、生产 `.env` 和当前版本 tag。
-- 执行 Prisma migration deploy 前有备份点和回滚说明。
-- 每日 `pg_dump`，上传目录同周期备份，至少保留 14 天。
-- 在临时库和临时上传目录做恢复演练，验证登录、首页和附件 metadata/文件本体一致。
+- 生产 `docker-compose.prod.yml`、Next.js standalone 镜像、PostgreSQL 16、Nginx HTTPS 反代已落地到 `https://forge.areasong.top/`。
+- 生产 PostgreSQL 不暴露公网端口，Web 在当前服务器绑定 `127.0.0.1:3020` 供 Nginx 反代。
+- 发布前备份数据库、上传目录、生产 `.env` 和当前版本 tag/digest。
+- 执行 Prisma migration deploy 前有备份点和回滚说明，远端 `v0.1.5` 使用一次性 migration image，结果为 `No pending migrations to apply`。
+- GitHub Release workflow 生成 manifest、compose、hash 和 cosign bundle；服务器 updater 校验签名和 digest 后更新。
+- 每日 `pg_dump`、上传目录同周期备份和至少 14 天保留仍按部署文档执行。
+- 已在本机生产目标做临时库/上传目录恢复演练与 E4 回滚演练；远端迁移、域名、Nginx 或备份策略变化仍需单独记录。
 
 ### 7. 全量验收
 
@@ -162,7 +164,7 @@ Package C 真实 AI Provider 第一版已完成：
 
 ## 完整第一版验收
 
-完整第一版还必须继续完成：
+完整第一版已完成项：
 
 - 打卡与连续性。
 - 任务债务。

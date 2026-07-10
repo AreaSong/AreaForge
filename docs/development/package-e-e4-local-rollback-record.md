@@ -4,7 +4,7 @@
 
 本文件记录 Package E Batch E4 在本机受控环境中的回滚演练。它不是最终真实生产回滚记录，不包含生产 `.env`、密钥、数据库 URL、生产备份文件本体或附件内容。
 
-结论：本地回滚机制、回滚后 smoke、附件只读对账、回滚后 roll-forward 和 release evidence 校验已通过；真实生产回滚演练仍未完成，因为当前环境没有真实生产服务器、真实上一镜像 tag、真实 Nginx 切换、生产备份恢复判定或真实生产故障场景。
+结论：本地回滚机制、回滚后 smoke、附件只读对账、回滚后 roll-forward 和 release evidence 校验已通过；本文件是早期本地机制演练记录，不作为当前远端生产状态依据。prod-local 回滚收口见 `docs/development/package-e-e4-prod-local-rollback-record.md`，真实远端 `v0.1.5` GitHub Release 签名更新证据见 `docs/development/package-e-remote-github-release-record.md`。
 
 ## 执行环境
 
@@ -63,7 +63,7 @@ pnpm release:evidence:validate backups/package-e/e4-local-20260709223000/reports
 
 结果：PASS，字段完整、hash/枚举合法、未包含敏感值，附件对账保持 `report_only`。
 
-## 未完成事项
+## 本地机制演练未覆盖事项
 
 - 未执行真实生产回滚。
 - 未验证真实上一生产镜像 tag。
@@ -76,4 +76,4 @@ pnpm release:evidence:validate backups/package-e/e4-local-20260709223000/reports
 
 - 本地 previous image 与 candidate image digest 相同，只证明回滚流程可执行，不证明旧版本兼容性。
 - prod-local 生产目标的 E4 收口已由 `docs/development/package-e-e4-prod-local-rollback-record.md` 记录。
-- 远端服务器、域名 HTTPS 或真实 Nginx 流量切换若引入，需要另列外部部署演练。
+- 远端服务器、域名 HTTPS 和真实 Nginx 流量切换已由后续 `v0.1.5` GitHub Release 记录补齐；未来服务器、域名、端口或 Nginx 迁移仍需另列外部部署演练。
