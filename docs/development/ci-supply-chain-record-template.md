@@ -21,10 +21,12 @@ AREAFORGE_PINNED_ACTIONS_COUNT=15 \
 AREAFORGE_UNPINNED_EXTERNAL_ACTIONS=none \
 AREAFORGE_HIGH_CRITICAL_VULNERABILITIES=none \
 pnpm ci:supply-chain:record /path/to/github-workflow-run.json > /path/to/ci-supply-chain-record.txt
+AREAFORGE_SC002_CI_RECORD=/path/to/ci-supply-chain-record.txt pnpm sc:sc-002:preflight
 pnpm ci:supply-chain:validate /path/to/ci-supply-chain-record.txt
 ```
 
 生成器只读取本地 JSON 文件和显式状态字段；缺少 CI run、audit、governance、Actions pinning、skills 或 vulnerability 证据时会失败。
+`pnpm sc:sc-002:preflight` 只读取本地 redacted CI-only 或签名 Release 供应链记录：CI-only 通过时返回 `ready_for_sc002_review`，签名 Release 供应链记录通过时返回 `ready_for_sc001_sc002_review`。它不连接 GitHub、不创建 Release、不推 tag、不下载资产、不修改 residual 台账。
 
 ## 模板
 

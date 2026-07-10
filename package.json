@@ -83,6 +83,8 @@
     "ci:supply-chain:record": "tsx scripts/ops/generate-ci-supply-chain-record.ts",
     "ci:supply-chain:validate": "tsx scripts/quality/ci-supply-chain-record-validate.ts",
     "ci:supply-chain:selftest": "tsx scripts/quality/ci-supply-chain-record.selftest.ts",
+    "sc:sc-002:preflight": "tsx scripts/ops/sc002-supply-chain-preflight.ts",
+    "sc:sc-002:preflight:selftest": "tsx scripts/quality/sc002-supply-chain-preflight.selftest.ts",
     "auth:hash": "tsx scripts/auth/hash-password.ts",
     "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma generate",
     "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma validate",

@@ -28,10 +28,12 @@ AREAFORGE_CHECKSUM_VERIFICATION=pass \
 AREAFORGE_SIGNATURE_VERIFICATION=pass \
 AREAFORGE_UNSIGNED_PLACEHOLDER_PRESENT=no \
 pnpm release:supply-chain:record /path/to/release-assets > /path/to/release-supply-chain-record.txt
+AREAFORGE_SC002_RELEASE_RECORD=/path/to/release-supply-chain-record.txt pnpm sc:sc-002:preflight
 pnpm release:supply-chain:validate /path/to/release-supply-chain-record.txt
 ```
 
 记录生成器只读取本地 Release 资产目录和上述显式 CI/Release 状态字段；它不连接 GitHub、不创建 Release、不下载资产、不执行 Docker、不备份、不恢复、不运行 migration、不更新生产。缺少 CI run URL、`pnpm audit:prod`、Actions pinning、checksum 或签名校验等字段时，生成器会失败，而不是生成可误用的关闭记录。
+`pnpm sc:sc-002:preflight` 只校验已经保存到本地的 redacted 供应链记录；签名 Release 记录通过时返回 `ready_for_sc001_sc002_review`，仍需维护者人工更新 residual 台账。
 
 ## 模板
 

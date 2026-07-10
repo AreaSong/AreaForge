@@ -145,7 +145,7 @@ pnpm github-release-updater:preflight
 4. 提交干净 commit。
 5. 创建并推送 `vX.Y.Z` tag；tag 版本必须和根 `package.json` 版本一致。
 6. 等待 GitHub Release workflow 成功，确认 Release assets 包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS`、`SHA256SUMS.sig`。
-7. 本地或 CI 验证 `sha256sum -c SHA256SUMS` 和 `cosign verify-blob --bundle SHA256SUMS.sig SHA256SUMS`；若用于关闭供应链残余项，按 `docs/development/release-supply-chain-record-template.md` 记录并运行 `pnpm release:supply-chain:validate <record>`。
+7. 本地或 CI 验证 `sha256sum -c SHA256SUMS` 和 `cosign verify-blob --bundle SHA256SUMS.sig SHA256SUMS`；若用于关闭供应链残余项，按 `docs/development/release-supply-chain-record-template.md` 记录，先运行 `pnpm sc:sc-002:preflight`，再运行 `pnpm release:supply-chain:validate <record>`。
 8. 在 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
 9. 服务器 update-agent/updater 校验签名、备份、执行 migration、切换镜像和 health smoke。
 10. 验证 `https://forge.areasong.top/api/health`、`/opt/areaforge/ops-state/status.json` 和 Release 更新记录。

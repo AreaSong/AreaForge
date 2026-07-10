@@ -26,6 +26,7 @@
 - `areaforge-security-governance`：鉴权、上传、AI、密钥、日志、签名 release 和服务器命令边界。
 - `areaforge-file-storage-safety`：附件上传/下载、私有 `UPLOAD_DIR`、metadata/hash、对账、删除、备份恢复和上传目录迁移安全门禁。
 - `areaforge-supply-chain`：GitHub Actions、Release assets、GHCR digest、签名、hash、依赖和 updater 信任门禁。
+- `AF-RISK-SC-002` 供应链证据预检使用 `pnpm sc:sc-002:preflight`，它只读本地 CI-only 或签名 Release redacted 记录，不创建 Release、不推 tag、不联网。
 - `areaforge-residual-ledger`：阻塞、延期、接受例外、发布 follow-up、监控缺口和关闭条件分类。
 - `areaforge-product-experience`：学习闭环的真实体验、可用性、移动视口和产品打磨。
 - `areaforge-ai-governance`：AI provider、最小上下文、fallback、限流、日志脱敏和费用边界。

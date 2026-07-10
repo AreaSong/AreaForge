@@ -25,6 +25,7 @@ const requiredFiles = [
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/support-bundle-preview.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
+  "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
@@ -33,6 +34,7 @@ const requiredFiles = [
   "scripts/quality/support-bundle-preview-validate.ts",
   "scripts/quality/support-bundle-preview.selftest.ts",
   "scripts/quality/ops001-evidence-preflight.selftest.ts",
+  "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
 ];
 
 const requiredScripts = [
@@ -47,6 +49,8 @@ const requiredScripts = [
   "ops:support:bundle-preview:selftest",
   "ops:ops-001:preflight",
   "ops:ops-001:preflight:selftest",
+  "sc:sc-002:preflight",
+  "sc:sc-002:preflight:selftest",
   "ops:alert:preview",
   "enterprise:operability:preflight",
   "maintenance:cadence:preflight",
@@ -78,6 +82,7 @@ function main(): void {
     assert(handoff.nextCommands.handoff.includes("pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>"), "handoff should include support bundle preview validation command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:ops-001:preflight"), "handoff should include OPS-001 evidence preflight command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:evidence:bundle"), "handoff should include evidence bundle command");
+    assert(handoff.nextCommands.release.includes("pnpm sc:sc-002:preflight"), "handoff should include SC-002 supply-chain preflight command");
     assert(handoff.safetyFacts.readOnly === true, "handoff should be read-only");
     assert(handoff.safetyFacts.networkRequested === false, "handoff should not request network");
     assert(handoff.safetyFacts.handoffWritten === false, "handoff should not write files");

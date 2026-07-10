@@ -215,7 +215,7 @@ pnpm alert:drill:validate <alert-drill-record.md|txt>
 4. 等待 GitHub Release workflow 生成 manifest、SBOM、provenance、`SHA256SUMS`、`SHA256SUMS.sig` 和 GHCR digest。
 5. 用 Web 版本中心提交受控更新请求，或由管理员在服务器执行 updater。
 6. 更新后记录 health、update-agent、smoke、rollback target、`pnpm ops:evidence:bundle` 的 `bundleHash` 和残余风险 ID。
-7. 若本次 Release 用于关闭供应链残余项，填写 `docs/development/release-supply-chain-record-template.md` 并运行 `pnpm release:supply-chain:validate`。
+7. 若本次 Release 用于关闭供应链残余项，填写 `docs/development/release-supply-chain-record-template.md`，先运行 `pnpm sc:sc-002:preflight`，再运行 `pnpm release:supply-chain:validate`。
    已下载 Release 资产时，可先用 `pnpm release:supply-chain:record <release-assets-dir>` 生成记录草稿；它仍要求显式填写 workflow run URL、`pnpm audit:prod`、Actions pinning、checksum 和签名校验结果。
 
 ## 禁止清单
@@ -236,7 +236,7 @@ pnpm alert:drill:validate <alert-drill-record.md|txt>
 - `AF-RISK-OPS-002`：生产写入型 smoke 需要单独确认、账号和清理策略。
 - `AF-RISK-REL-001`：默认 `AREAFORGE_AUTO_APPLY=none`，patch 自动应用需另行确认。
 - `AF-RISK-SC-001`：下一次签名 Release 需要 SBOM/provenance 证据。
-- `AF-RISK-SC-002`：下一次 GitHub CI/Release 需要 Actions pinning 和 `pnpm audit:prod` 运行证据。
+- `AF-RISK-SC-002`：下一次 GitHub CI/Release 需要 Actions pinning、`pnpm audit:prod` 和 `pnpm sc:sc-002:preflight` 运行证据。
 - `AF-RISK-OPS-003`：服务器、域名、Nginx 或端口迁移需单独 runbook 和证据。
 - `AF-RISK-OPS-004`：外部告警接收人、值班窗口和演练记录仍需落地。
 

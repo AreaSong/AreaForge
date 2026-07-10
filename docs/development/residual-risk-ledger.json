@@ -46,10 +46,10 @@
       "id": "AF-RISK-SC-002",
       "type": "release-follow-up",
       "reviewAt": "2026-07-24",
-      "currentImpact": "CI/Release 外部 GitHub Actions 已在本地 pin 到 40 位 commit SHA，pnpm audit:prod 已进入 workflow；仍缺 GitHub CI/Release 运行证据；pnpm ci:supply-chain:validate 可校验 CI-only 证据，pnpm release:supply-chain:validate 可校验签名 Release 证据",
+      "currentImpact": "CI/Release 外部 GitHub Actions 已在本地 pin 到 40 位 commit SHA，pnpm audit:prod 已进入 workflow；仍缺 GitHub CI/Release 运行证据；pnpm sc:sc-002:preflight 可预检 CI-only 或签名 Release 供应链记录",
       "executableNow": false,
       "closeCondition": "下一次 GitHub CI 或签名 Release 记录 Actions SHA pinning gate 和 pnpm audit:prod 输出，且无 high/critical 生产依赖漏洞",
-      "requiredEvidence": "workflow diff、pnpm governance:preflight 输出、pnpm audit:prod 输出、GitHub Actions run 记录或发布记录摘要、pnpm ci:supply-chain:validate 或 pnpm release:supply-chain:validate 通过",
+      "requiredEvidence": "workflow diff、pnpm governance:preflight 输出、pnpm audit:prod 输出、GitHub Actions run 记录或发布记录摘要、pnpm sc:sc-002:preflight 返回 ready_for_sc002_review 或 ready_for_sc001_sc002_review、pnpm ci:supply-chain:validate 或 pnpm release:supply-chain:validate 通过",
       "ownerSkills": ["areaforge-supply-chain", "areaforge-enterprise-governance"]
     },
     {

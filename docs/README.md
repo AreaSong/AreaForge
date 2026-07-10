@@ -89,6 +89,7 @@
 - `development/product-experience-review-record-template.md`：真实产品体验复核记录模板和 `pnpm experience:review:validate` 校验入口。
 - `development/product-experience-review-20260710-local.md`：2026-07-10 本地 desktop/mobile 真实体验复核记录。
 - `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。
+- `development/ci-supply-chain-record-template.md`：`AF-RISK-SC-002` CI-only 供应链记录模板，配套 `pnpm ci:supply-chain:record` / `pnpm ci:supply-chain:validate` 和只读 `pnpm sc:sc-002:preflight`。
 - `development/residual-risk-ledger.json`：残余风险 ID 台账的机器可读索引。
 - `development/validation-matrix.md`：按改动范围选择验证。
 - `development/validation-matrix.md` 中的 `pnpm risk:preflight`：高风险包确认前的只读护栏预检。
@@ -101,7 +102,6 @@
 - `development/production-release-runbook.md`：生产发布、备份与恢复确认 runbook。
 - `development/release-record-template.md`：后续每个线上版本使用的标准 Release 证据记录模板。
 - `development/release-supply-chain-record-template.md`：下一次签名 Release / CI 的 SBOM、provenance、签名和 Actions pinning 证据记录模板。
-- `development/ci-supply-chain-record-template.md`：CI-only 的 `AF-RISK-SC-002` Actions pinning、`pnpm audit:prod` 和治理门禁证据记录模板。
 - `development/github-release-updater-design.md`：GitHub Release 自动更新器设计。
 - `development/package-e-e1-release-record-draft.md`：Package E Batch E1 发布记录草案。
 - `development/package-e-e2-restore-drill-record.md`：Package E Batch E2 发布前备份与恢复演练记录。

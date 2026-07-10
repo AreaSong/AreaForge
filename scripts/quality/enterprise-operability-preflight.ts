@@ -89,6 +89,8 @@ function checkRequiredFiles(): void {
     "scripts/ops/generate-ci-supply-chain-record.ts",
     "scripts/quality/ci-supply-chain-record-validate.ts",
     "scripts/quality/ci-supply-chain-record.selftest.ts",
+    "scripts/ops/sc002-supply-chain-preflight.ts",
+    "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
     "scripts/ops/generate-ops001-closure-packet.ts",
     "scripts/quality/ops001-closure-packet-validate.ts",
     "scripts/quality/ops001-closure-packet.selftest.ts",
@@ -166,6 +168,7 @@ function checkReleaseDecisionMatrix(): void {
     "pnpm governance:preflight",
     "pnpm release:supply-chain:selftest",
     "pnpm ci:supply-chain:selftest",
+    "pnpm sc:sc-002:preflight:selftest",
   ];
   const missing = requiredTerms.filter((term) => !doc.includes(term));
   checks.push({
@@ -239,6 +242,8 @@ function checkPackageScript(): void {
     "ci:supply-chain:record": "tsx scripts/ops/generate-ci-supply-chain-record.ts",
     "ci:supply-chain:validate": "tsx scripts/quality/ci-supply-chain-record-validate.ts",
     "ci:supply-chain:selftest": "tsx scripts/quality/ci-supply-chain-record.selftest.ts",
+    "sc:sc-002:preflight": "tsx scripts/ops/sc002-supply-chain-preflight.ts",
+    "sc:sc-002:preflight:selftest": "tsx scripts/quality/sc002-supply-chain-preflight.selftest.ts",
   };
   const mismatches = Object.entries(expectedScripts)
     .filter(([name, expected]) => packageJson.scripts?.[name] !== expected)
@@ -277,16 +282,19 @@ function checkEntryPoints(): void {
     [maintenance, "pnpm ops:ops-001:preflight", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ops:ops-001:closure:validate", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ci:supply-chain:validate", "docs/development/maintenance-cadence.md"],
+    [maintenance, "pnpm sc:sc-002:preflight", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm maintenance:window:validate", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm incident:record:validate", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm restore:drill:validate", "docs/development/maintenance-cadence.md"],
     [releaseTrain, "pnpm enterprise:operability:preflight", "docs/development/release-train.md"],
     [releaseTrain, "pnpm update-agent:status:validate", "docs/development/release-train.md"],
     [releaseTrain, "pnpm ci:supply-chain:validate", "docs/development/release-train.md"],
+    [releaseTrain, "pnpm sc:sc-002:preflight", "docs/development/release-train.md"],
     [rootReadme, "pnpm update-agent:status:record", "README.md"],
     [rootReadme, "pnpm ops:support:bundle-preview", "README.md"],
     [rootReadme, "pnpm ops:ops-001:preflight", "README.md"],
     [rootReadme, "pnpm ci:supply-chain:record", "README.md"],
+    [rootReadme, "pnpm sc:sc-002:preflight", "README.md"],
     [rootReadme, "pnpm ops:ops-001:closure", "README.md"],
   ];
   const missing = requiredLinks

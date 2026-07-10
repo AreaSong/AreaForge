@@ -65,6 +65,7 @@ pnpm ops:alert:preview
 - `pnpm docs:readiness`
 - `pnpm audit:prod`
 - `pnpm shellcheck:updater`
+- `pnpm sc:sc-002:preflight`
 - 如需留存交接记录，按 `docs/development/maintenance-window-record-template.md` 填写并运行 `pnpm maintenance:window:validate <record>`。
 
 每周还应复核：
@@ -74,7 +75,7 @@ pnpm ops:alert:preview
 - Dependabot/依赖更新是否需要进入 dependency policy。
 - `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`。
 - `pnpm ops:handoff` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚。
-- `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录；OPS-001 需要生产只读 smoke、update-agent status、evidence bundle 和 `pnpm ops:ops-001:closure:validate` 通过后再人工复核关闭；SC-002 可用 CI-only `pnpm ci:supply-chain:validate` 或签名 Release `pnpm release:supply-chain:validate` 复核。
+- `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录；OPS-001 需要生产只读 smoke、update-agent status、evidence bundle 和 `pnpm ops:ops-001:closure:validate` 通过后再人工复核关闭；SC-002 先跑 `pnpm sc:sc-002:preflight`，再用 CI-only `pnpm ci:supply-chain:validate` 或签名 Release `pnpm release:supply-chain:validate` 复核。
 - 生成 OPS-001 收口包前先运行 `pnpm ops:ops-001:preflight`；它只读本地 redacted 证据文件并返回 `needs_evidence`、`ready_to_generate_packet`、`ready_for_human_close` 或 `invalid`，不执行生产 smoke、不生成收口包、不改 residual 台账。
 - `AF-RISK-UX-001` 是否仍有 14 天内 desktop/mobile 体验复核记录；当前 2026-07-10 本地记录已关闭该项，过期、release/update 或体验改动后必须重跑，否则体验健康重新降级为 `warn`。
 
@@ -104,7 +105,7 @@ Release 前后按 `docs/development/release-train.md` 执行。
 - Web/migration image 使用不可变 digest。
 - 生产更新完成后有 health、update-agent、authenticated smoke 或明确 `AF-RISK-OPS-001`。
 - release record 写入 `pnpm ops:evidence:bundle` 的 `bundleHash` 和 `pnpm ops:alert:preview` 的告警预览结论。
-- 若要关闭 `AF-RISK-SC-002`，可使用 `pnpm ci:supply-chain:validate` 通过的 CI-only 记录；若要同时关闭 `AF-RISK-SC-001`，必须有 `pnpm release:supply-chain:validate` 通过的签名 Release 记录。
+- 若要关闭 `AF-RISK-SC-002`，可使用 `pnpm sc:sc-002:preflight` 和 `pnpm ci:supply-chain:validate` 通过的 CI-only 记录；若要同时关闭 `AF-RISK-SC-001`，必须有 `pnpm sc:sc-002:preflight` 和 `pnpm release:supply-chain:validate` 通过的签名 Release 记录。
 - 若要声明本次 release/update 后真实体验健康，必须有 `pnpm experience:review:validate` 通过的 desktop/mobile 体验记录；否则保留 `AF-RISK-UX-001`。
 
 ## Incident 后

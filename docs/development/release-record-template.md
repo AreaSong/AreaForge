@@ -24,6 +24,7 @@ pnpm ops:alert:preview
 `docs/development/release-supply-chain-vX.Y.Z.md` 并运行：
 
 ```bash
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md pnpm sc:sc-002:preflight
 pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md
 ```
 

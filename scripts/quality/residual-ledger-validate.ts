@@ -183,6 +183,7 @@ function validateTaskIndexSync(ledger: ResidualLedger, taskIndex: string, issues
       "operational evidence bundle",
     ],
     "AF-RISK-SC-002": [
+      "pnpm sc:sc-002:preflight",
       "pnpm ci:supply-chain:validate",
       "pnpm release:supply-chain:validate",
     ],

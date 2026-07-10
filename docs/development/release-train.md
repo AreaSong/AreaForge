@@ -62,6 +62,7 @@ git diff --check
 pnpm release:supply-chain:selftest
 pnpm release:supply-chain:record:selftest
 pnpm release:supply-chain:validate <release-supply-chain-record.md|txt>
+pnpm sc:sc-002:preflight
 ```
 
 涉及发布记录时补跑：
@@ -133,7 +134,7 @@ pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.
 
 如果 Release 资产已下载到本地目录，可先用 `pnpm release:supply-chain:record <release-assets-dir>` 生成记录草稿；生成器仍要求显式填写 GitHub workflow run URL、validate job、`pnpm audit:prod`、governance、Actions pinning、checksum 和签名校验结果，不会连接 GitHub 或创建 Release。
 
-如果只是用 GitHub CI 运行复核 `AF-RISK-SC-002`，使用 `docs/development/ci-supply-chain-record-template.md` 和 `pnpm ci:supply-chain:validate <record>`；CI-only 记录不包含 Release SBOM/provenance、checksum 或 signature，因此不能关闭 `AF-RISK-SC-001`。
+如果只是用 GitHub CI 运行复核 `AF-RISK-SC-002`，使用 `docs/development/ci-supply-chain-record-template.md` 和 `pnpm ci:supply-chain:validate <record>`；CI-only 记录不包含 Release SBOM/provenance、checksum 或 signature，因此不能关闭 `AF-RISK-SC-001`。记录保存到本地后可运行 `pnpm sc:sc-002:preflight`，它只读取 `AREAFORGE_SC002_CI_RECORD` / `AREAFORGE_SC002_RELEASE_RECORD` 指向的 redacted 记录，不连接 GitHub、不创建 Release、不推 tag。
 
 ## 更新与回滚
 
@@ -189,7 +190,7 @@ minor/major 自动应用不进入当前默认策略。
 - `AF-RISK-OPS-002`：写入型生产 smoke 不属于默认 release train，需单独确认。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是当前安全默认，不是能力缺失。
 - `AF-RISK-SC-001`：下一次签名 Release 需以 SBOM/provenance 资产和校验记录关闭或复核。
-- `AF-RISK-SC-002`：下一次 GitHub CI/Release 运行需以 Actions pinning 和 `pnpm audit:prod` 证据关闭或复核；CI-only 走 `pnpm ci:supply-chain:validate`，签名 Release 走 `pnpm release:supply-chain:validate`。
+- `AF-RISK-SC-002`：下一次 GitHub CI/Release 运行需以 Actions pinning 和 `pnpm audit:prod` 证据关闭或复核；先跑 `pnpm sc:sc-002:preflight`，CI-only 走 `pnpm ci:supply-chain:validate`，签名 Release 走 `pnpm release:supply-chain:validate`。
 - `AF-RISK-OPS-004`：告警预览不等于真实外部告警，演练记录另行校验。
 
 ## 本地预检

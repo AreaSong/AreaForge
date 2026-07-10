@@ -48,6 +48,8 @@ function checkRequiredFiles(): void {
     "scripts/ops/generate-ci-supply-chain-record.ts",
     "scripts/quality/ci-supply-chain-record-validate.ts",
     "scripts/quality/ci-supply-chain-record.selftest.ts",
+    "scripts/ops/sc002-supply-chain-preflight.ts",
+    "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -85,6 +87,7 @@ function checkReleaseTrainDoc(): void {
     "pnpm release:evidence:validate",
     "pnpm release:supply-chain:validate",
     "pnpm ci:supply-chain:validate",
+    "pnpm sc:sc-002:preflight",
     "pnpm ops:evidence:bundle",
     "pnpm ops:alert:preview",
     "不可变 digest",
@@ -139,10 +142,14 @@ function checkReleaseWorkflow(): void {
 function checkPackageScript(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const script = packageJson.scripts?.["release:train:preflight"] ?? "";
+  const sc002PreflightScript = packageJson.scripts?.["sc:sc-002:preflight"] ?? "";
+  const sc002PreflightSelftestScript = packageJson.scripts?.["sc:sc-002:preflight:selftest"] ?? "";
   checks.push({
     name: "release train package script",
-    ok: script === "tsx scripts/quality/release-train-preflight.ts",
-    detail: script ? `release:train:preflight=${script}` : "release:train:preflight missing",
+    ok: script === "tsx scripts/quality/release-train-preflight.ts" &&
+      sc002PreflightScript === "tsx scripts/ops/sc002-supply-chain-preflight.ts" &&
+      sc002PreflightSelftestScript === "tsx scripts/quality/sc002-supply-chain-preflight.selftest.ts",
+    detail: `release:train:preflight=${script || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}`,
   });
 }
 
@@ -196,6 +203,7 @@ function checkValidationMatrix(): void {
     "pnpm github-release-updater:preflight",
     "pnpm release:supply-chain:selftest",
     "pnpm ci:supply-chain:selftest",
+    "pnpm sc:sc-002:preflight:selftest",
     "pnpm governance:preflight",
     "pnpm ops:readiness",
   ];
