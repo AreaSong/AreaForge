@@ -51,6 +51,8 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/manifest.schema.json",
     "ops/github-release-updater/README.md",
     "scripts/ops/generate-release-supply-chain.ts",
+    "scripts/quality/release-supply-chain-validate.ts",
+    "scripts/quality/release-supply-chain-validate.selftest.ts",
     "scripts/ops/production-readonly-smoke.ts",
     "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
@@ -58,6 +60,7 @@ function checkRequiredFiles(): void {
     ".github/workflows/release.yml",
     "docs/deployment/github-release-updater.md",
     "docs/development/github-release-updater-design.md",
+    "docs/development/release-supply-chain-record-template.md",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -69,8 +72,12 @@ function checkRequiredFiles(): void {
 
 function checkReleaseSupplyChainScript(): void {
   const script = read("scripts/ops/generate-release-supply-chain.ts");
+  const validator = read("scripts/quality/release-supply-chain-validate.ts");
+  const selftest = read("scripts/quality/release-supply-chain-validate.selftest.ts");
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const releaseScript = packageJson.scripts?.["release:supply-chain"] ?? "";
+  const validateScript = packageJson.scripts?.["release:supply-chain:validate"] ?? "";
+  const selftestScript = packageJson.scripts?.["release:supply-chain:selftest"] ?? "";
   const requiredTerms = [
     "SPDX-2.3",
     "pnpm",
@@ -84,15 +91,24 @@ function checkReleaseSupplyChainScript(): void {
     "safetyFacts",
     "promptOrRawAiResponseIncluded: false",
     "attachmentContentIncluded: false",
+    "release:supply-chain:validate",
+    "release supply-chain record validation passed",
+    "release supply-chain validator selftest passed",
+    "AF-RISK-SC-001",
+    "AF-RISK-SC-002",
   ];
-  const missing = requiredTerms.filter((term) => !script.includes(term));
-  const ok = missing.length === 0 && releaseScript === "tsx scripts/ops/generate-release-supply-chain.ts";
+  const combined = `${script}\n${validator}\n${selftest}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  const ok = missing.length === 0 &&
+    releaseScript === "tsx scripts/ops/generate-release-supply-chain.ts" &&
+    validateScript === "tsx scripts/quality/release-supply-chain-validate.ts" &&
+    selftestScript === "tsx scripts/quality/release-supply-chain-validate.selftest.ts";
   checks.push({
     name: "release supply-chain generator",
     ok,
     detail: ok
-      ? "package script and generator emit SPDX SBOM plus redacted release provenance without new dependencies"
-      : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}`,
+      ? "package scripts generate SPDX SBOM/provenance and validate release supply-chain evidence records without new dependencies"
+      : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}; validate script=${validateScript || "missing"}; selftest=${selftestScript || "missing"}`,
   });
 }
 
@@ -316,6 +332,7 @@ function checkReleaseWorkflow(): void {
     "pnpm release:supply-chain",
     "areaforge-sbom.spdx.json",
     "areaforge-provenance.json",
+    "pnpm release:supply-chain:selftest",
     "sha256sum",
     "COSIGN_PRIVATE_KEY_B64",
     "cosign sign-blob",

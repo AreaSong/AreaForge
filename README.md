@@ -61,6 +61,7 @@ pnpm ops:evidence:bundle
 pnpm ops:alert:preview
 pnpm alert:drill:validate
 pnpm smoke:prod-readonly:validate
+pnpm release:supply-chain:validate
 pnpm skills:validate
 pnpm smoke:prod-readonly
 ```

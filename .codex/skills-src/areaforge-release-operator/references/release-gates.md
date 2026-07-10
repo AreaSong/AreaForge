@@ -16,6 +16,7 @@
 - Validation commands and PASS/FAIL.
 - Release tag and GitHub Release URL.
 - Release evidence record. For repository-visible records, copy `docs/development/release-record-template.md` to a new versioned file under `docs/development/`, such as `release-vX.Y.Z-record.md`; private operator logs may stay under server backup or ops-state paths but must be summarized in the repo-visible record.
+- Supply-chain evidence record when closing or reviewing `AF-RISK-SC-001` / `AF-RISK-SC-002`: copy `docs/development/release-supply-chain-record-template.md` and run `pnpm release:supply-chain:validate <record>`.
 - Web and migration image digests.
 - `SHA256SUMS` and signature verification.
 - Backup path/hash when production update is applied.

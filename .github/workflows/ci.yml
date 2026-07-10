@@ -39,6 +39,9 @@ jobs:
       - name: Production dependency audit
         run: pnpm audit:prod
 
+      - name: Release supply-chain validator selftest
+        run: pnpm release:supply-chain:selftest
+
       - name: Shellcheck updater
         run: pnpm shellcheck:updater
 

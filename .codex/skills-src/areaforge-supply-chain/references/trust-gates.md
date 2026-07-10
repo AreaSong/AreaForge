@@ -9,6 +9,7 @@ Required for production-ready release evidence:
 - GHCR images are referenced by fixed version tag and immutable digest.
 - Server updater verifies signature and hash before applying.
 - Release record captures digest, health, updater state, smoke, rollback target, and residual risk.
+- For SC-001/SC-002 closure evidence, record the GitHub Release/CI supply-chain facts with `docs/development/release-supply-chain-record-template.md` and validate with `pnpm release:supply-chain:validate <record>`.
 
 ## Dependency Gate
 

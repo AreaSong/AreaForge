@@ -70,6 +70,9 @@ jobs:
           AREAFORGE_PROVENANCE_PATH: ${{ runner.temp }}/areaforge-provenance.json
         run: pnpm release:supply-chain
 
+      - name: Release supply-chain validator selftest
+        run: pnpm release:supply-chain:selftest
+
       - name: Shellcheck updater
         run: pnpm shellcheck:updater
 

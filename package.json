@@ -37,6 +37,8 @@
     "release:evidence:validate": "tsx scripts/quality/release-evidence-validate.ts",
     "release:evidence:selftest": "tsx scripts/quality/release-evidence-validate.selftest.ts",
     "release:supply-chain": "tsx scripts/ops/generate-release-supply-chain.ts",
+    "release:supply-chain:validate": "tsx scripts/quality/release-supply-chain-validate.ts",
+    "release:supply-chain:selftest": "tsx scripts/quality/release-supply-chain-validate.selftest.ts",
     "auth:hash": "tsx scripts/auth/hash-password.ts",
     "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma generate",
     "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma validate",

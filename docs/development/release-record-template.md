@@ -20,6 +20,13 @@ pnpm ops:evidence:bundle
 pnpm ops:alert:preview
 ```
 
+若本次 Release 用于关闭或复核 `AF-RISK-SC-001` / `AF-RISK-SC-002`，另建
+`docs/development/release-supply-chain-vX.Y.Z.md` 并运行：
+
+```bash
+pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md
+```
+
 如附带附件对账 CSV：
 
 ```bash
