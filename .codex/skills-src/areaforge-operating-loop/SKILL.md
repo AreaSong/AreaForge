@@ -53,7 +53,7 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 6. Select validation from `areaforge-validation-driver` after the final edit.
 7. Sync source facts through `areaforge-doc-sync`.
 8. Record unresolved items through `areaforge-residual-ledger` when they affect release, ops, security, supply chain, or user experience.
-9. Close with evidence from `completion-evidence-checklist.md`: files changed, commands run, pass/fail, unverified items, blockers, residual risk IDs, release requirement, and whether production was touched.
+9. Close with evidence from `completion-evidence-checklist.md`: files changed, commands run, pass/fail, unverified items, blockers, residual risk IDs, release requirement, runtime write boundary, and whether production was touched. If a completion evidence record is saved, validate it with `pnpm completion:evidence:validate <record>`; this validates the record shape only and does not replace runtime, release, production, smoke, or long-term live gates.
 10. Use `pnpm ops:status` for an offline AreaFlow-style status projection when a maintainer needs the current control-plane/residual snapshot before live evidence collection.
 11. Use `pnpm ops:handoff` at maintenance, release, or thread handoff boundaries when the maintainer needs a compact read-only summary of claim boundaries, due residuals, release-relevant residuals, and next evidence commands.
 12. Keep evidence words distinct: `health`, `readiness`, `doctor`, `gate`, `smoke`, `record`, and `apply` 不能互相替代。

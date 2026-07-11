@@ -25,7 +25,7 @@
 - 功能更新若进入线上，是否按 `docs/development/release-record-template.md` 同步 release tag、GitHub Release、GHCR digest、线上 health、update-agent 状态、回滚目标、`pnpm ops:evidence:bundle` 的 `bundleHash`、`pnpm ops:evidence:bundle:validate` 的校验结论、`pnpm ops:alert:preview` 的告警预览结论和残余风险。
 - 维护窗口、release/update 前后或 Codex 线程交接时，是否先用 `pnpm ops:handoff` 生成只读交接摘要，并明确它不替代 live readiness、smoke、update-agent、备份或 rollback 证据。
 - 公开支持、自托管排障或维护交接需要可贴出的诊断摘要时，是否优先使用 `docs/development/support-bundle-preview.md`、`pnpm ops:support:bundle-preview` 和 `pnpm ops:support:bundle-preview:validate`，并明确它是 metadata-only preview，不是 support export、生产健康或 residual 关闭证据。
-- 完成声明是否能按 `docs/development/completion-evidence-checklist.md` 说清证据等级、新鲜验证、未验证项、阻断项、Release 需求和 residual risk IDs。
+- 完成声明是否能按 `docs/development/completion-evidence-checklist.md` 说清证据等级、新鲜验证、未验证项、阻断项、Release 需求和 residual risk IDs；若完成声明记录进入仓库或交接摘要，是否通过 `pnpm completion:evidence:validate <record>`，并明确该校验不替代真实运行、Release、生产 smoke 或长期运营 live gate。
 - 写动作或运行时能力变化是否按 `docs/development/runtime-write-boundary.md` 标明 R0-R4 等级，避免把 preview、local smoke、update request 或草稿说成生产 apply。
 - 功能更新若准备进入线上，是否先按 `docs/development/release-train.md` 固定版本、验证、Release 资产、供应链记录、updater 证据、smoke、回滚目标和停止条件。
 - 功能更新、维护节奏、release 决策、skill owner 边界或 residual 复核口径变化，是否同步 `docs/development/long-term-operability-control-plane.md`，并运行 `pnpm enterprise:operability:preflight` 和 `pnpm ops:status` 检查离线状态投影。

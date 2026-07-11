@@ -11,6 +11,7 @@
 - 公开支持入口为 `SUPPORT.md` 和 `docs/development/support-intake.md`，对应只读检查为 `pnpm support:intake:preflight`。
 - `areaforge-operating-loop`：按 Quick/Change/Mission-Critical/Review/Ops/Release/Incident 路由 owner skill、验证、文档同步和残余风险收口。
 - 长期运营控制面入口为 `docs/development/long-term-operability-control-plane.md`，对应只读检查为 `pnpm enterprise:operability:preflight`；离线状态投影为 `pnpm ops:status`；完成声明前的严格 live evidence gate 为 `pnpm ops:long-term:gate`。默认不新增第 18 个 skill，除非出现新的稳定 owner 边界。
+- 完成声明记录入口为 `docs/development/completion-evidence-checklist.md`，对应记录形态校验为 `pnpm completion:evidence:validate <record>`，规则回归为 `pnpm completion:evidence:selftest`；它不替代 runtime、release、production、smoke 或 long-term live gate。
 - `areaforge-release-operator`：功能完成后的版本、GitHub Release、GHCR digest、updater、回滚和证据闭环。
 - Release train 入口为 `docs/development/release-train.md`，对应只读检查为 `pnpm release:train:preflight`。
 - `areaforge-qa-smoke`：真实用户旅程、API/browser smoke、截图和体验证据。
