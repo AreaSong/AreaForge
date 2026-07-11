@@ -96,9 +96,9 @@ pnpm ops:ops-004:preflight
 3. 若需要生产写入、服务器命令、backup/restore、migration、updater apply、rollback 或发布动作，必须走高风险确认包。
 4. 若仍是外部条件或接受例外，更新 `reviewAt`、影响、关闭条件和所需证据，不把它隐藏在聊天记录里。
 
-`pnpm ops:status` 输出 AreaFlow-style 离线长期运营状态投影：控制面文件、package scripts、residual 分类、due-soon 项、下一步证据和安全事实。它不连接生产、不读取密钥、不执行服务器命令、不写 `.areaforge/status.json` 或任何生产状态；生产健康仍必须靠 `pnpm ops:readiness:summary`、smoke、update-agent、备份和 release evidence 证明。
+`pnpm ops:status` 输出 AreaFlow-style 离线长期运营状态投影：控制面文件、package scripts、residual 分类、due-soon 项、下一步证据和安全事实。输出包含 `sourceSnapshot.controlPlaneSourceHash`，用于把状态投影绑定到当前控制面源文件集合；也包含 `doesNotProve`，机器可读地声明该投影不能证明生产健康、updater apply、Release 创建、backup/restore/migration/rollback 执行或 residual risk closure。它不连接生产、不读取密钥、不执行服务器命令、不写 `.areaforge/status.json` 或任何生产状态；生产健康仍必须靠 `pnpm ops:readiness:summary`、smoke、update-agent、备份和 release evidence 证明。
 
-`pnpm ops:handoff` 输出只读运营交接摘要，把 `ops:status` 中的可执行 residual、due residual、release-relevant residual、可声称/不可声称内容和下一步命令整理到 `read_only_operational_handoff` JSON。它不访问网络、不写交接文件、不执行生产动作；维护窗口、release 前后或 Codex 线程交接时优先先看它，再决定是否需要 live readiness、evidence bundle、smoke 或高风险确认。
+`pnpm ops:handoff` 输出只读运营交接摘要，把 `ops:status` 中的可执行 residual、due residual、release-relevant residual、可声称/不可声称内容和下一步命令整理到 `read_only_operational_handoff` JSON。输出会继承 `controlPlaneSourceHash` 和 `doesNotProve`，便于交接时复核它绑定到哪一组源事实，以及它不能替代哪些 live evidence 或高风险授权。它不访问网络、不写交接文件、不执行生产动作；维护窗口、release 前后或 Codex 线程交接时优先先看它，再决定是否需要 live readiness、evidence bundle、smoke 或高风险确认。
 
 `pnpm ops:long-term:gate` 是完成声明前的严格 live evidence gate。它复用 OPS-001、OPS-004、SC-002 和体验复核校验器，只读取本地 redacted 证据文件和体验记录；默认要求 `AF-RISK-OPS-001` 返回 `ready_for_human_close`、`AF-RISK-OPS-004` 返回 `ready_for_human_close`、签名 Release 供应链返回 `ready_for_sc001_sc002_review`，并且 `AF-RISK-UX-001` 体验记录在 14 天内且通过 `pnpm experience:review:validate`。当前仓库已保存的 `docs/development/ops-004-alert-preview-20260711.json` 和 `docs/development/ops-004-alert-drill-20260711-manual-window.txt` 会作为 OPS-004 默认 redacted 证据；如设置 `AREAFORGE_OPS004_ALERT_PREVIEW` / `AREAFORGE_OPS004_ALERT_DRILL_RECORD`，则优先使用显式路径。该命令缺证据时会退出失败，用于阻止“长期运营已完成”的过度声明；它不联网、不 SSH、不读取密钥、不创建 Release、不执行 updater、不备份、不恢复、不运行 migration、不写生产，也不修改 residual 台账。
 
@@ -116,6 +116,8 @@ pnpm ops:ops-004:preflight
 | OPS-001 收口包 | `docs/development/ops-001-closure-packet-template.md` | `pnpm ops:ops-001:closure:validate <record>` | 自动关闭 residual、备份/告警/供应链健康 |
 | OPS-004 告警证据预检 | `docs/development/alert-drill-record-template.md` | `pnpm ops:ops-004:preflight` | 发送通知、调用外部接收人、自动关闭 residual |
 | 长期运营 live gate | 本文件和各 residual 证据记录 | `pnpm ops:long-term:gate` | 自动收集证据、自动执行生产动作、自动关闭 residual |
+
+`pnpm ops:readiness:summary` 和 `pnpm ops:evidence:bundle` 会输出 `freshness` 字段，按默认 14 天窗口给每个可定位时间的信号标记 `fresh`、`stale` 或 `unknown`。`unknown` 不会被自动当成失败，但不能支持生产健康完成声明；release、update、migration 或 rollback 仍必须按对应 scope 要求补齐 live evidence。
 
 ## Skill 增减规则
 

@@ -26,8 +26,10 @@ type OperationalEvidenceBundle = {
   bundleHash: string;
   generatedAt: string;
   summary: OperationalReadinessSummary;
+  freshness: OperationalReadinessSummary["freshness"];
   items: EvidenceBundleItem[];
   capabilities: string[];
+  doesNotProve: string[];
   forbiddenActions: string[];
   safetyFacts: OperationalReadinessSummary["safetyFacts"] & {
     productionDeployAttempted: false;
@@ -111,12 +113,21 @@ async function main(): Promise<void> {
     bundleHash: "",
     generatedAt: new Date().toISOString(),
     summary,
+    freshness: summary.freshness,
     items,
     capabilities: [
       "collect_read_only_operational_readiness_summary",
       "assemble_signal_evidence_index",
       "map_residual_risk_ids_to_required_evidence",
       "compute_bundle_hash",
+    ],
+    doesNotProve: [
+      "current production health without all required live signals",
+      "updater apply completion",
+      "backup, restore, migration, or rollback execution",
+      "GitHub Release creation",
+      "residual risk closure",
+      "production write smoke safety",
     ],
     forbiddenActions: [
       "execute_server_command",

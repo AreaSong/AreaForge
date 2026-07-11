@@ -89,6 +89,8 @@ function main(): void {
     assert(projection.status.controlPlane === "pass", "fixture control plane should pass");
     assert(projection.status.overall === "needs_live_evidence", "monitoring gap should require live evidence");
     assert(projection.status.releaseTrain === "needs_release_evidence", "release relevant residual should gate release evidence");
+    assert(/^[a-f0-9]{64}$/.test(projection.sourceSnapshot.controlPlaneSourceHash), "projection should include control-plane source hash");
+    assert(projection.doesNotProve.includes("current production health"), "projection should include explicit non-proof boundary");
     assert(projection.safetyFacts.readOnly === true, "projection should be read-only");
     assert(projection.safetyFacts.networkRequested === false, "projection should not request network");
     assert(projection.safetyFacts.statusProjectionWritten === false, "projection should not write a status file");

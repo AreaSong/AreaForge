@@ -55,6 +55,7 @@ type SupportBundlePreview = {
     canClaim: string[];
     cannotClaim: string[];
   };
+  doesNotProve: string[];
   forbiddenActions: string[];
   safetyFacts: {
     readOnly: true;
@@ -210,6 +211,15 @@ function main(): void {
         "support bundle export",
       ],
     },
+    doesNotProve: [
+      "current production health",
+      "updater apply completion",
+      "backup, restore, migration, or rollback execution",
+      "GitHub Release creation",
+      "residual risk closure",
+      "support bundle export",
+      "operator approval for high-risk actions",
+    ],
     forbiddenActions: [
       "execute_server_command",
       "apply_update",

@@ -169,7 +169,7 @@ pnpm sc:sc-002:preflight
 | 协作与验证 | [Codex 工作流](docs/development/codex-workflow.md)、[文档同步清单](docs/development/doc-sync-checklist.md)、[验证矩阵](docs/development/validation-matrix.md) |
 | 发布与长期运营 | [长期运营控制面](docs/development/long-term-operability-control-plane.md)、[Release train](docs/development/release-train.md)、[运营 readiness](docs/development/operational-readiness.md)、[维护节奏](docs/development/maintenance-cadence.md) |
 | 自托管与恢复 | [操作者上手](docs/deployment/operator-onboarding.md)、[GitHub Release updater](docs/deployment/github-release-updater.md)、[备份恢复](docs/deployment/backup-restore.md) |
-| 安全、支持与评审 | [威胁模型](docs/security/threat-model.md)、[文件与 AI 安全](docs/security/file-ai-safety.md)、[安全披露](SECURITY.md)、[支持入口](SUPPORT.md)、[代码评审门禁](CODE_REVIEW.md) |
+| 安全、支持与评审 | [威胁模型](docs/security/threat-model.md)、[文件与 AI 安全](docs/security/file-ai-safety.md)、[安全披露](SECURITY.md)、[支持入口](SUPPORT.md)、[支持 intake](docs/development/support-intake.md)、[支持包预览](docs/development/support-bundle-preview.md)、[代码评审门禁](CODE_REVIEW.md) |
 | 任务与版本 | [轻量任务](tasks/README.md)、[版本规划](workflow/README.md)、[残余风险索引](tasks/indexes/residuals.md) |
 
 README 只负责突出重点和导航，产品规则、架构约束、验证门禁与生产证据仍以对应源文档为准。

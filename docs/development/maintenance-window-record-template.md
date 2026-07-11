@@ -49,6 +49,8 @@ alertPreviewHash: <sha256-or-not-applicable>
 residualReviewHash: <sha256-or-not-applicable>
 residualReviewStatus: pass/warn/fail
 dueResidualRiskIds: <AF-RISK-* IDs or none>
+claimBoundary:
+  doesNotProve: production health without live evidence, updater apply completion, backup/restore execution, migration execution, rollback execution, residual risk closure
 decisions: <decisions made, or none>
 followUpTasks: <task/docs/workflow links or none>
 result: pass/warn/fail/blocked
@@ -68,4 +70,5 @@ safetyFacts:
 - `commandsRun` 至少包含 `pnpm maintenance:cadence:preflight` 和 `pnpm residuals:review-due`。
 - 若存在 due 或 overdue residual，必须在 `dueResidualRiskIds` 中列出，并说明 follow-up。
 - `result: pass` 不能和 `residualReviewStatus: fail` 同时出现。
+- `claimBoundary.doesNotProve` 必须明确说明维护窗口记录不能替代 live evidence、updater apply、backup/restore、migration、rollback 或 residual risk closure 证据。
 - 记录不得包含生产 `.env`、密钥、数据库 URL、session cookie、附件内容、完整 prompt/raw response 或真实学习内容。

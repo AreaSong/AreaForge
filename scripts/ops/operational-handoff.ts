@@ -16,6 +16,7 @@ export type OperationalHandoff = {
   };
   source: {
     statusProjection: "pnpm ops:status";
+    controlPlaneSourceHash: string;
     residualLedger: string;
     authoritativeDocs: string[];
   };
@@ -34,6 +35,7 @@ export type OperationalHandoff = {
     release: string[];
     maintenance: string[];
   };
+  doesNotProve: string[];
   highRiskBoundaries: string[];
   safetyFacts: OperabilityStatusProjection["safetyFacts"] & {
     handoffWritten: false;
@@ -79,6 +81,7 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
     },
     source: {
       statusProjection: "pnpm ops:status",
+      controlPlaneSourceHash: projection.sourceSnapshot.controlPlaneSourceHash,
       residualLedger: projection.residuals.source,
       authoritativeDocs: [
         "docs/development/long-term-operability-control-plane.md",
@@ -89,6 +92,7 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
       ],
     },
     claimBoundary: buildClaimBoundary(projection),
+    doesNotProve: buildDoesNotProve(projection),
     evidenceFocus: {
       immediate: focusItems.filter((item) => item.kind === "execute_now"),
       dueOrSoon: focusItems.filter((item) => item.kind !== "execute_now"),
@@ -106,6 +110,14 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
       handoffWritten: false,
     },
   };
+}
+
+function buildDoesNotProve(projection: OperabilityStatusProjection): string[] {
+  return [
+    ...projection.doesNotProve,
+    "production update request completion",
+    "operator approval for high-risk actions",
+  ];
 }
 
 function toFocusItem(input: {

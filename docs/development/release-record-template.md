@@ -47,6 +47,8 @@ gitCommit: <commit-sha>
 sourceBaseline:
   sourceDocs: <docs/tasks/workflow paths>
   sourceHashOrCommit: <commit-or-sha256-summary>
+claimBoundary:
+  doesNotProve: production updater apply, backup/restore execution, migration execution, rollback execution, residual risk closure
 releaseTag: vX.Y.Z
 releaseUrl: https://github.com/AreaSong/AreaForge/releases/tag/vX.Y.Z
 AREAFORGE_IMAGE: ghcr.io/areasong/areaforge-web:vX.Y.Z
@@ -130,3 +132,4 @@ expectedFailureOrStopConditions:
 - `pnpm release:evidence:validate` 输出的 `releaseEvidenceBundleHash` 已写入发布记录或运维交接摘要。
 - `pnpm ops:evidence:bundle` 输出的 `operationalEvidenceBundleHash` 已写入发布记录或运维交接摘要；若证据包状态不是 `ready`，必须保留对应 residual risk IDs。
 - `pnpm ops:alert:preview` 输出的 `alertPreviewStatus` 已写入发布记录或运维交接摘要；若 `wouldNotify=true` 或状态不是 `ok`，必须记录 owner、recommendedAction 和 residual risk IDs。
+- `claimBoundary.doesNotProve` 必须明确说明该 Release 记录不能单独证明生产 updater apply、backup/restore、migration、rollback 或 residual risk closure。

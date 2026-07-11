@@ -22,6 +22,7 @@ const requiredFiles = [
   ".codex/skills-src/areaforge-residual-ledger/SKILL.md",
   "scripts/ops/operability-status.ts",
   "scripts/ops/operational-handoff.ts",
+  "scripts/ops/long-term-operability-live-gate.ts",
   "scripts/ops/operational-readiness-summary.ts",
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/support-bundle-preview.ts",
@@ -34,6 +35,7 @@ const requiredFiles = [
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/operational-handoff.selftest.ts",
+  "scripts/quality/long-term-operability-live-gate.selftest.ts",
   "scripts/quality/maintenance-window-record.selftest.ts",
   "scripts/quality/maintenance-window-record-validate.ts",
   "scripts/quality/maintenance-window-record-validate.selftest.ts",
@@ -49,6 +51,8 @@ const requiredScripts = [
   "ops:status:selftest",
   "ops:handoff",
   "ops:handoff:selftest",
+  "ops:long-term:gate",
+  "ops:long-term:gate:selftest",
   "ops:readiness:summary",
   "ops:evidence:bundle",
   "ops:support:bundle-preview",
@@ -87,6 +91,8 @@ function main(): void {
     assert(handoff.status.controlPlane === "pass", "fixture control plane should pass");
     assert(handoff.status.offlineOverall === "needs_live_evidence", "monitoring gap should require live evidence");
     assert(handoff.status.releaseTrain === "needs_release_evidence", "release train should need release evidence");
+    assert(/^[a-f0-9]{64}$/.test(handoff.source.controlPlaneSourceHash), "handoff should include control-plane source hash");
+    assert(handoff.doesNotProve.includes("updater apply completion"), "handoff should include explicit non-proof boundary");
     assert(handoff.evidenceFocus.immediate.some((item) => item.residualRiskId === "AF-RISK-OPS-001"), "handoff should prioritize executable residual");
     assert(handoff.evidenceFocus.dueOrSoon.some((item) => item.residualRiskId === "AF-RISK-SC-002"), "handoff should include due release residual");
     assert(handoff.evidenceFocus.releaseRelevantIds.includes("AF-RISK-SC-002"), "handoff should preserve release relevant IDs");

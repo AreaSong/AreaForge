@@ -67,3 +67,4 @@ assignees: []
 - [ ] 我已阅读 `docs/development/release-train.md`
 - [ ] 我没有公开粘贴生产 `.env`、数据库 URL、API key、GitHub token、cosign 私钥、smoke 密码、备份文件或附件内容
 - [ ] 我理解公开 issue 不授权维护者执行我的生产部署、备份、恢复、migration、updater apply 或 rollback
+- [ ] 我理解 support bundle preview、readiness summary、evidence bundle 或截图不等于生产健康、updater apply 完成或 residual risk 关闭

@@ -39,6 +39,15 @@ const requiredForbiddenActions = [
   "create_github_release",
   "push_git_tag",
 ];
+const requiredDoesNotProve = [
+  "current production health",
+  "updater apply completion",
+  "backup, restore, migration, or rollback execution",
+  "GitHub Release creation",
+  "residual risk closure",
+  "support bundle export",
+  "operator approval for high-risk actions",
+];
 
 const falseSafetyFacts = [
   "supportBundleExported",
@@ -79,7 +88,7 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("support bundle preview validation passed: metadata-only scope, hash, redaction, forbidden actions, and safety facts are present.");
+  console.log("support bundle preview validation passed: metadata-only scope, hash, doesNotProve, redaction, forbidden actions, and safety facts are present.");
   console.log(`supportBundlePreviewRecordHash: sha256:${sha256(extractJson(raw))}`);
   console.log("safetyFacts: readOnly=true metadataOnly=true supportBundleExported=false productionWriteAttempted=false secretValuePrinted=false");
 }
@@ -108,6 +117,7 @@ export function validateSupportBundlePreview(raw: string): ValidationIssue[] {
   validateResiduals(body.residuals, issues);
   validateRecommendedCommands(body.recommendedNextCommands, issues);
   validateClaimBoundary(body.claimBoundary, issues);
+  validateArray(body.doesNotProve, "doesNotProve", requiredDoesNotProve, issues);
   validateArray(body.forbiddenActions, "forbiddenActions", requiredForbiddenActions, issues);
   validateSafetyFacts(body.safetyFacts, issues);
 

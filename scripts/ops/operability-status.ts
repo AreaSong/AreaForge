@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -53,6 +54,11 @@ export type OperabilityStatusProjection = {
     borrowedMechanisms: string[];
     notBorrowed: string[];
   };
+  sourceSnapshot: {
+    controlPlaneSourceHash: string;
+    files: string[];
+    missingFiles: string[];
+  };
   status: {
     overall: OverallStatus;
     controlPlane: "pass" | "fail";
@@ -103,6 +109,7 @@ export type OperabilityStatusProjection = {
     requiresLiveEvidenceForProductionHealth: true;
     requiresExplicitConfirmationForProductionWrites: true;
   };
+  doesNotProve: string[];
 };
 
 type BuildOptions = {
@@ -126,6 +133,7 @@ type ProjectionFacts = {
   missingScripts: string[];
   releaseRelevantItems: ClassifiedResidual[];
   overall: OverallStatus;
+  controlPlaneSourceHash: string;
 };
 
 const residualTypes: ResidualType[] = [
@@ -211,6 +219,7 @@ const requiredPackageScripts = [
   "residuals:review-due",
   "release:train:preflight",
 ];
+const controlPlaneSourceFiles = ["package.json", ...requiredFiles];
 
 export function buildOperabilityStatusProjection(options: BuildOptions = {}): OperabilityStatusProjection {
   const facts = collectProjectionFacts(options);
@@ -222,6 +231,11 @@ export function buildOperabilityStatusProjection(options: BuildOptions = {}): Op
     asOf: facts.asOf,
     app: buildAppStatus(facts.packageJson),
     sourceBaseline: buildSourceBaseline(),
+    sourceSnapshot: {
+      controlPlaneSourceHash: facts.controlPlaneSourceHash,
+      files: controlPlaneSourceFiles,
+      missingFiles: facts.missingFiles,
+    },
     status: buildStatus(facts),
     safetyFacts: buildSafetyFacts(),
     requiredFiles: {
@@ -236,6 +250,7 @@ export function buildOperabilityStatusProjection(options: BuildOptions = {}): Op
     nextActions: nextActions(facts.residuals),
     commands: buildCommandMatrix(),
     claimDiscipline: buildClaimDiscipline(),
+    doesNotProve: buildDoesNotProve(),
   };
 }
 
@@ -248,6 +263,7 @@ function collectProjectionFacts(options: BuildOptions): ProjectionFacts {
   const missingFiles = requiredFiles.filter((file) => !existsSync(resolve(root, file)));
   const missingScripts = requiredPackageScripts.filter((script) => !(packageJson.scripts ?? {})[script]);
   const releaseRelevantItems = residuals.filter(isReleaseRelevant);
+  const controlPlaneSourceHash = hashControlPlaneSources(root);
   const overall = overallStatus({
     hasMissingControlPlane: missingFiles.length > 0 || missingScripts.length > 0,
     residuals,
@@ -264,6 +280,7 @@ function collectProjectionFacts(options: BuildOptions): ProjectionFacts {
     missingScripts,
     releaseRelevantItems,
     overall,
+    controlPlaneSourceHash,
   };
 }
 
@@ -386,6 +403,18 @@ function buildClaimDiscipline(): OperabilityStatusProjection["claimDiscipline"] 
   };
 }
 
+function buildDoesNotProve(): string[] {
+  return [
+    "current production health",
+    "production readiness without live evidence",
+    "updater apply completion",
+    "GitHub Release creation",
+    "backup, restore, migration, or rollback execution",
+    "residual risk closure",
+    "auto-apply enablement",
+  ];
+}
+
 function isReleaseRelevant(item: ClassifiedResidual): boolean {
   return item.type === "monitoring-gap" ||
     item.type === "release-follow-up" ||
@@ -481,6 +510,21 @@ function countBy<T, K extends string>(items: T[], keys: K[], getKey: (item: T) =
 
 function readJson<T>(root: string, file: string): T {
   return JSON.parse(readFileSync(resolve(root, file), "utf8")) as T;
+}
+
+function hashControlPlaneSources(root: string): string {
+  const entries = controlPlaneSourceFiles.map((file) => {
+    const fullPath = resolve(root, file);
+    if (!existsSync(fullPath)) {
+      return { file, status: "missing" };
+    }
+    return {
+      file,
+      status: "present",
+      sha256: createHash("sha256").update(readFileSync(fullPath)).digest("hex"),
+    };
+  });
+  return createHash("sha256").update(JSON.stringify(entries)).digest("hex");
 }
 
 function resolve(root: string, file: string): string {

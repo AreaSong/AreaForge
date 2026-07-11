@@ -25,6 +25,9 @@ try {
   }
 
   const parsed = JSON.parse(generated.stdout) as Record<string, unknown>;
+  if (!Array.isArray(parsed.doesNotProve) || !parsed.doesNotProve.includes("updater apply completion")) {
+    fail("support bundle preview non-proof boundary missing");
+  }
   const unsafePath = path.join(tempDir, "support-bundle-preview-unsafe.json");
   writeFileSync(unsafePath, JSON.stringify({
     ...parsed,

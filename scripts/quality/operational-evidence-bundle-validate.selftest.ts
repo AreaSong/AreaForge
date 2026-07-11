@@ -56,6 +56,19 @@ function buildBundle(): JsonRecord {
       autoApply: "none",
     },
     signals: {},
+    freshness: {
+      maxAgeSeconds: 1209600,
+      latestEvidenceFreshnessStatus: "unknown",
+      signals: {
+        health: { checkedAt: "2026-07-10T00:00:00.000Z", ageSeconds: 0, status: "fresh" },
+        releaseIdentity: { checkedAt: null, ageSeconds: null, status: "unknown" },
+        updateAgent: { checkedAt: null, ageSeconds: null, status: "unknown" },
+        authenticatedSmoke: { checkedAt: null, ageSeconds: null, status: "unknown" },
+        backup: { checkedAt: null, ageSeconds: null, status: "unknown" },
+        rollback: { checkedAt: null, ageSeconds: null, status: "unknown" },
+        infrastructure: { checkedAt: null, ageSeconds: null, status: "unknown" },
+      },
+    },
     residualRiskIds: ["AF-RISK-OPS-001"],
     overall: "warn",
   };
@@ -65,12 +78,21 @@ function buildBundle(): JsonRecord {
     bundleHash: "",
     generatedAt: "2026-07-10T00:00:00.000Z",
     summary,
+    freshness: summary.freshness,
     items: requiredSignalItems(),
     capabilities: [
       "collect_read_only_operational_readiness_summary",
       "assemble_signal_evidence_index",
       "map_residual_risk_ids_to_required_evidence",
       "compute_bundle_hash",
+    ],
+    doesNotProve: [
+      "current production health without all required live signals",
+      "updater apply completion",
+      "backup, restore, migration, or rollback execution",
+      "GitHub Release creation",
+      "residual risk closure",
+      "production write smoke safety",
     ],
     forbiddenActions: [
       "execute_server_command",

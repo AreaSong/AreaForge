@@ -41,6 +41,14 @@ const requiredCapabilities = [
   "map_residual_risk_ids_to_required_evidence",
   "compute_bundle_hash",
 ];
+const requiredDoesNotProve = [
+  "current production health without all required live signals",
+  "updater apply completion",
+  "backup, restore, migration, or rollback execution",
+  "GitHub Release creation",
+  "residual risk closure",
+  "production write smoke safety",
+];
 
 function main(): void {
   const bundlePath = process.argv[2];
@@ -59,7 +67,7 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("operational evidence bundle validation passed: hash, signal inventory, safety facts, forbidden actions, and redaction checks are present.");
+  console.log("operational evidence bundle validation passed: hash, signal inventory, freshness, doesNotProve, safety facts, forbidden actions, and redaction checks are present.");
   console.log(`operationalEvidenceBundleRecordHash: sha256:${sha256(extractJson(raw))}`);
   console.log("safetyFacts: readOnlyValidation=true serverCommandAttempted=false productionWriteAttempted=false secretValuePrinted=false");
 }
@@ -76,8 +84,10 @@ export function validateBundle(raw: string): ValidationIssue[] {
   requireSha256Value(body.bundleHash, "bundleHash", issues);
   validateHash(body, issues);
   validateSummary(body.summary, issues);
+  validateFreshness(body.freshness, "freshness", issues);
   validateItems(body.items, issues);
   validateStringArray(body.capabilities, "capabilities", requiredCapabilities, issues);
+  validateStringArray(body.doesNotProve, "doesNotProve", requiredDoesNotProve, issues);
   validateStringArray(body.forbiddenActions, "forbiddenActions", requiredForbiddenActions, issues);
   validateSafetyFacts(body.safetyFacts, issues);
 
@@ -124,8 +134,27 @@ function validateSummary(value: unknown, issues: ValidationIssue[]): void {
   if (!isRecord(value.signals)) {
     issues.push({ field: "summary.signals", message: "must be an object" });
   }
+  validateFreshness(value.freshness, "summary.freshness", issues);
   if (!Array.isArray(value.residualRiskIds)) {
     issues.push({ field: "summary.residualRiskIds", message: "must be an array" });
+  }
+}
+
+function validateFreshness(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ field, message: "must be an object" });
+    return;
+  }
+  if (typeof value.maxAgeSeconds !== "number" || value.maxAgeSeconds <= 0) {
+    issues.push({ field: `${field}.maxAgeSeconds`, message: "must be a positive number" });
+  }
+  requireOneOfValue(value.latestEvidenceFreshnessStatus, `${field}.latestEvidenceFreshnessStatus`, [
+    "fresh",
+    "stale",
+    "unknown",
+  ], issues);
+  if (!isRecord(value.signals)) {
+    issues.push({ field: `${field}.signals`, message: "must be an object" });
   }
 }
 

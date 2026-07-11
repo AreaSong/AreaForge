@@ -2,7 +2,7 @@
 
 ## 目标
 
-本文件定义 AreaForge 的 metadata-only 支持包预览。它借鉴 AreaFlow 的 support bundle preview 思路，但只保留适合 AreaForge 的公开支持和维护交接能力：列出版本、文档入口、残余风险、下一步只读命令、claim boundary 和 redaction/safety facts。
+本文件定义 AreaForge 的 metadata-only 支持包预览。它借鉴 AreaFlow 的 support bundle preview 思路，但只保留适合 AreaForge 的公开支持和维护交接能力：列出版本、文档入口、残余风险、下一步只读命令、claim boundary、`doesNotProve` 和 redaction/safety facts。
 
 它不是 support bundle export，不复制附件、日志、数据库、备份或用户学习内容；也不连接生产、不执行 Docker、不运行 migration、不触发 updater、不创建 Release、不推 tag、不写生产。
 
@@ -25,7 +25,7 @@ pnpm ops:support:bundle-preview:selftest
 - 支持、运维、release、residual 和 operator onboarding 文档入口。
 - 可安全公开的命令名，例如 `pnpm ops:handoff`、`pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle`、`pnpm residuals:review-due`。
 - `docs/development/residual-risk-ledger.json` 中的 residual ID、类型、复核时间、owner skill、关闭条件和所需证据。
-- 支持包不能证明什么：生产健康、updater apply、备份恢复成功、GitHub Release 创建、residual 关闭或真实支持包导出。
+- `doesNotProve`：生产健康、updater apply、备份/恢复/migration/rollback 执行、GitHub Release 创建、residual 关闭、真实支持包导出或高风险操作授权。
 - `safetyFacts`：read-only、metadata-only、未导出、未联网、未执行服务器命令、未写生产、未包含敏感内容。
 
 ## 默认排除
@@ -53,6 +53,7 @@ pnpm ops:support:bundle-preview:selftest
 - `exportOpen=false`
 - canonical `supportBundlePreviewHash`
 - 必需 excluded sensitive content 和 forbidden actions
+- 必需 `doesNotProve` 边界
 - `safetyFacts` 全部保持只读/未导出/未写入/未含敏感内容
 - 输出中没有常见 secret、token、数据库 URL、私钥或未脱敏凭据形态
 

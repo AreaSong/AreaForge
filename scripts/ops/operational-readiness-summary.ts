@@ -4,6 +4,15 @@ import { pathToFileURL } from "node:url";
 
 export type Status = "pass" | "warn" | "fail" | "blocked" | "unknown";
 export type ReadinessScope = "daily" | "release" | "update" | "migration" | "rollback";
+type FreshnessStatus = "fresh" | "stale" | "unknown";
+type SignalKey =
+  | "health"
+  | "releaseIdentity"
+  | "updateAgent"
+  | "authenticatedSmoke"
+  | "backup"
+  | "rollback"
+  | "infrastructure";
 
 export type Signal = {
   status: Status;
@@ -39,6 +48,15 @@ export type OperationalReadinessSummary = {
     backup: Signal;
     rollback: Signal;
     infrastructure: Signal;
+  };
+  freshness: {
+    maxAgeSeconds: number;
+    latestEvidenceFreshnessStatus: FreshnessStatus;
+    signals: Record<SignalKey, {
+      checkedAt: string | null;
+      ageSeconds: number | null;
+      status: FreshnessStatus;
+    }>;
   };
   residualRiskIds: string[];
   overall: Status;
@@ -92,6 +110,7 @@ type ReleaseManifestEvidence =
   | { source: string; error: string };
 
 const timeoutMs = Number(process.env.AREAFORGE_READINESS_TIMEOUT_MS ?? "10000");
+const freshnessMaxAgeSeconds = Number(process.env.AREAFORGE_READINESS_FRESHNESS_MAX_AGE_SECONDS ?? "1209600");
 const scope = normalizeScope(process.env.AREAFORGE_READINESS_SCOPE);
 const environment = process.env.AREAFORGE_READINESS_ENVIRONMENT ?? process.env.APP_ENV ?? "unknown";
 const baseUrl = maybeNormalizeBaseUrl(
@@ -110,6 +129,7 @@ const releaseManifestUrl = process.env.AREAFORGE_READINESS_RELEASE_MANIFEST_URL 
   githubReleaseManifestUrl(process.env.AREAFORGE_READINESS_GITHUB_REPO, expectedReleaseTag);
 
 export async function collectOperationalReadinessSummary(): Promise<OperationalReadinessSummary> {
+  const checkedAt = new Date().toISOString();
   const health = await collectHealth();
   const updateStatus = await collectUpdateStatus();
   const releaseManifest = await collectReleaseManifest();
@@ -129,7 +149,7 @@ export async function collectOperationalReadinessSummary(): Promise<OperationalR
   };
   const residualRiskIds = unique(Object.values(signals).flatMap((signal) => signal.residualRiskIds ?? []));
   return {
-    checkedAt: new Date().toISOString(),
+    checkedAt,
     environment,
     scope,
     baseUrl,
@@ -140,6 +160,7 @@ export async function collectOperationalReadinessSummary(): Promise<OperationalR
       autoApply: expectedAutoApply,
     },
     signals,
+    freshness: buildFreshness(signals, checkedAt),
     residualRiskIds,
     overall: overallStatus(Object.values(signals)),
   };
@@ -679,6 +700,89 @@ function overallStatus(signals: Signal[]): Status {
   const order: Status[] = ["pass", "unknown", "warn", "fail", "blocked"];
   return signals.reduce<Status>((worst, signal) =>
     order.indexOf(signal.status) > order.indexOf(worst) ? signal.status : worst, "pass");
+}
+
+function buildFreshness(
+  signals: OperationalReadinessSummary["signals"],
+  checkedAt: string,
+): OperationalReadinessSummary["freshness"] {
+  const freshnessBySignal = Object.fromEntries(signalKeys().map((key) => [
+    key,
+    buildSignalFreshness(key, signals[key], checkedAt),
+  ])) as OperationalReadinessSummary["freshness"]["signals"];
+  return {
+    maxAgeSeconds: freshnessMaxAgeSeconds,
+    latestEvidenceFreshnessStatus: aggregateFreshness(Object.values(freshnessBySignal).map((item) => item.status)),
+    signals: freshnessBySignal,
+  };
+}
+
+function buildSignalFreshness(key: SignalKey, signal: Signal, checkedAt: string): OperationalReadinessSummary["freshness"]["signals"][SignalKey] {
+  const timestamp = signalTimestamp(key, signal, checkedAt);
+  if (!timestamp) {
+    return {
+      checkedAt: null,
+      ageSeconds: null,
+      status: "unknown",
+    };
+  }
+  const ageSeconds = Math.max(0, Math.floor((Date.parse(checkedAt) - Date.parse(timestamp)) / 1000));
+  return {
+    checkedAt: timestamp,
+    ageSeconds,
+    status: ageSeconds <= freshnessMaxAgeSeconds ? "fresh" : "stale",
+  };
+}
+
+function signalTimestamp(key: SignalKey, signal: Signal, checkedAt: string): string | null {
+  const data = signal.data ?? {};
+  for (const field of ["checkedAt", "statusUpdatedAt", "lastCheckedAt"]) {
+    const value = data[field];
+    if (typeof value === "string" && !Number.isNaN(Date.parse(value))) {
+      return value;
+    }
+  }
+  if (key === "health" && baseUrl && signal.status !== "unknown") return checkedAt;
+  if (key === "releaseIdentity" && hasAnyValue(data, [
+    "releaseTag",
+    "webImageDigest",
+    "migrationImageDigest",
+    "currentVersion",
+    "currentImage",
+    "releaseUrl",
+    "manifestSource",
+  ])) {
+    return checkedAt;
+  }
+  if (key === "rollback" && hasAnyValue(data, ["available", "targetVersion", "targetImage"])) {
+    return checkedAt;
+  }
+  if (key === "infrastructure" && hasAnyValue(data, ["disk", "certificateSource", "certificateDaysRemaining"])) {
+    return checkedAt;
+  }
+  return null;
+}
+
+function hasAnyValue(data: Record<string, unknown>, fields: string[]): boolean {
+  return fields.some((field) => data[field] !== null && data[field] !== undefined && data[field] !== "");
+}
+
+function aggregateFreshness(statuses: FreshnessStatus[]): FreshnessStatus {
+  if (statuses.some((status) => status === "stale")) return "stale";
+  if (statuses.some((status) => status === "unknown")) return "unknown";
+  return "fresh";
+}
+
+function signalKeys(): SignalKey[] {
+  return [
+    "health",
+    "releaseIdentity",
+    "updateAgent",
+    "authenticatedSmoke",
+    "backup",
+    "rollback",
+    "infrastructure",
+  ];
 }
 
 function shouldFail(status: Status, failOn: string): boolean {
