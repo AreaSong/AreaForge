@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">AreaForge App Icon Light</title>
+  <desc id="desc">The light AreaForge app icon using the same evidence arcs, exam sheet, countdown axis, and quench action node.</desc>
+  <defs>
+    <linearGradient id="bg" x1="70" y1="54" x2="452" y2="462" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FAFFFB"/>
+      <stop offset="0.56" stop-color="#EFFAF5"/>
+      <stop offset="1" stop-color="#DFF2EC"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="158" y1="132" x2="318" y2="354" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#ECFAF5"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="116" y1="126" x2="274" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#35D7C5"/>
+      <stop offset="1" stop-color="#119D9A"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="299" y1="128" x2="397" y2="374" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD75F"/>
+      <stop offset="0.44" stop-color="#FFAA35"/>
+      <stop offset="1" stop-color="#E8583A"/>
+    </linearGradient>
+    <filter id="softShadow" x="-18%" y="-18%" width="136%" height="142%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#082E31" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <rect x="36" y="36" width="440" height="440" rx="104" fill="url(#bg)"/>
+
+  <g opacity="0.18" stroke="#0D3A40" stroke-width="3">
+    <path d="M166 170h180M166 238h180M166 306h180"/>
+    <path d="M188 145v220M256 145v220M324 145v220"/>
+  </g>
+
+  <path d="M176 154c-63 57-64 145 0 202" fill="none" stroke="url(#teal)" stroke-width="23" stroke-linecap="round"/>
+  <path d="M336 154c63 57 64 145 0 202" fill="none" stroke="url(#amber)" stroke-width="23" stroke-linecap="round"/>
+  <path d="M176 356c44 31 116 31 160 0" fill="none" stroke="url(#teal)" stroke-width="23" stroke-linecap="round"/>
+
+  <g filter="url(#softShadow)">
+    <path d="M155 166c0-17 14-31 31-31h78l46 46v132c0 17-14 31-31 31h-93c-17 0-31-14-31-31V166z" fill="url(#paper)" stroke="#BBDDD5" stroke-width="5"/>
+    <path d="M264 135v46h46" fill="#F4FFFB"/>
+    <path d="M187 189h58M187 229h70M187 269h48" stroke="#70AFA7" stroke-width="17" stroke-linecap="round"/>
+    <circle cx="190" cy="306" r="14" fill="#35D7C5"/>
+    <circle cx="233" cy="306" r="14" fill="#FFD75F"/>
+    <circle cx="276" cy="306" r="14" fill="#D8EEE8"/>
+  </g>
+
+  <path d="M166 358h180" stroke="#123B3F" stroke-width="28" stroke-linecap="round"/>
+  <path d="M256 154v146l80 58" fill="none" stroke="#09272D" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="154" r="35" fill="#FFD75F" stroke="#09272D" stroke-width="15"/>
+  <circle cx="176" cy="356" r="19" fill="#35D7C5" stroke="#09272D" stroke-width="10"/>
+  <circle cx="336" cy="356" r="22" fill="#E8583A" stroke="#09272D" stroke-width="11"/>
+</svg>
