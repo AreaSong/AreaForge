@@ -19,6 +19,8 @@ type CheckResult = {
 };
 
 const defaultUxRecord = "docs/development/product-experience-review-20260710-local.md";
+const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-20260711.json";
+const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-20260711-manual-window.txt";
 const defaultMaxUxAgeDays = 14;
 
 function main(): void {
@@ -40,6 +42,7 @@ function main(): void {
       key: "ops004",
       label: "OPS-004 alert and recovery drill evidence",
       command: ["pnpm", "exec", "tsx", "scripts/ops/ops004-alert-evidence-preflight.ts"],
+      env: defaultOps004EvidenceEnv(),
       expectedStatus: "ready_for_human_close",
       residualRiskIds: ["AF-RISK-OPS-004"],
     }),
@@ -133,16 +136,22 @@ function runJsonStatusCheck(input: {
   key: string;
   label: string;
   command: string[];
+  env?: Record<string, string>;
   expectedStatus: string;
   residualRiskIds: string[];
 }): CheckResult {
+  const { env: commandEnv, ...checkInput } = input;
   const result = spawnSync(input.command[0] ?? "pnpm", input.command.slice(1), {
     cwd: process.cwd(),
     encoding: "utf8",
+    env: {
+      ...process.env,
+      ...commandEnv,
+    },
   });
   if (result.status !== 0) {
     return {
-      ...input,
+      ...checkInput,
       status: "invalid",
       command: input.command.join(" "),
       detail: sanitizeOutput(result.stderr || result.stdout || "preflight command failed"),
@@ -154,7 +163,7 @@ function runJsonStatusCheck(input: {
     parsed = parseJsonFromLog(result.stdout) as JsonRecord;
   } catch (error) {
     return {
-      ...input,
+      ...checkInput,
       status: "invalid",
       command: input.command.join(" "),
       detail: error instanceof Error ? error.message : "preflight output is not JSON",
@@ -164,7 +173,7 @@ function runJsonStatusCheck(input: {
   const actualStatus = String(parsed.status ?? "missing");
   if (actualStatus === input.expectedStatus) {
     return {
-      ...input,
+      ...checkInput,
       status: "pass",
       command: input.command.join(" "),
       actualStatus,
@@ -173,12 +182,23 @@ function runJsonStatusCheck(input: {
   }
 
   return {
-    ...input,
+    ...checkInput,
     status: actualStatus === "invalid" ? "invalid" : "missing",
     command: input.command.join(" "),
     actualStatus,
     detail: `expected ${input.expectedStatus}, got ${actualStatus}`,
   };
+}
+
+function defaultOps004EvidenceEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (process.env.AREAFORGE_OPS004_ALERT_PREVIEW === undefined && existsSync(path.resolve(defaultOps004AlertPreview))) {
+    env.AREAFORGE_OPS004_ALERT_PREVIEW = defaultOps004AlertPreview;
+  }
+  if (process.env.AREAFORGE_OPS004_ALERT_DRILL_RECORD === undefined && existsSync(path.resolve(defaultOps004AlertDrillRecord))) {
+    env.AREAFORGE_OPS004_ALERT_DRILL_RECORD = defaultOps004AlertDrillRecord;
+  }
+  return env;
 }
 
 function validateFreshUxRecord(): CheckResult {

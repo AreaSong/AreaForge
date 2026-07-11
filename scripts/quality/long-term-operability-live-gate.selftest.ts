@@ -7,10 +7,22 @@ type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-long-term-gate-"));
+const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-20260711.json";
+const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-20260711-manual-window.txt";
 
 try {
   const uxRecord = path.join(tempDir, "product-experience-review.txt");
   writeFileSync(uxRecord, createUxRecord("2026-07-10T00:00:00.000Z"));
+
+  const defaultOps004 = runGate({
+    AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
+    AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
+  }, 1, {
+    clearOps004: false,
+  });
+  const defaultOps004Json = parseGateJson(defaultOps004.stdout);
+  assert(defaultOps004Json.status === "needs_live_evidence", "missing OPS-001 and supply-chain evidence should still block the gate");
+  assertCheckStatus(defaultOps004Json, "ops004", "pass");
 
   const missingEvidence = runGate({
     AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
@@ -44,23 +56,31 @@ try {
   rmSync(tempDir, { force: true, recursive: true });
 }
 
-function runGate(env: Record<string, string>, expectedStatus: number): ReturnType<typeof spawnSync> {
+function runGate(env: Record<string, string>, expectedStatus: number, options: { clearOps004?: boolean } = {}): ReturnType<typeof spawnSync> {
+  const clearOps004 = options.clearOps004 ?? true;
+  const childEnv: Record<string, string | undefined> = {
+    ...process.env,
+    AREAFORGE_OPS001_SMOKE_RECORD: "",
+    AREAFORGE_OPS001_UPDATE_STATUS_RECORD: "",
+    AREAFORGE_OPS001_EVIDENCE_BUNDLE: "",
+    AREAFORGE_OPS001_CLOSURE_PACKET: "",
+    AREAFORGE_SC002_CI_RECORD: "",
+    AREAFORGE_SC002_RELEASE_RECORD: "",
+    AREAFORGE_LONG_TERM_UX_RECORD: "",
+    ...env,
+  };
+  if (clearOps004) {
+    childEnv.AREAFORGE_OPS004_ALERT_PREVIEW = "";
+    childEnv.AREAFORGE_OPS004_ALERT_DRILL_RECORD = "";
+  } else {
+    childEnv.AREAFORGE_OPS004_ALERT_PREVIEW = process.env.AREAFORGE_OPS004_ALERT_PREVIEW ?? defaultOps004AlertPreview;
+    childEnv.AREAFORGE_OPS004_ALERT_DRILL_RECORD = process.env.AREAFORGE_OPS004_ALERT_DRILL_RECORD ?? defaultOps004AlertDrillRecord;
+  }
+
   const result = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/long-term-operability-live-gate.ts"], {
     cwd: root,
     encoding: "utf8",
-    env: {
-      ...process.env,
-      AREAFORGE_OPS001_SMOKE_RECORD: "",
-      AREAFORGE_OPS001_UPDATE_STATUS_RECORD: "",
-      AREAFORGE_OPS001_EVIDENCE_BUNDLE: "",
-      AREAFORGE_OPS001_CLOSURE_PACKET: "",
-      AREAFORGE_OPS004_ALERT_PREVIEW: "",
-      AREAFORGE_OPS004_ALERT_DRILL_RECORD: "",
-      AREAFORGE_SC002_CI_RECORD: "",
-      AREAFORGE_SC002_RELEASE_RECORD: "",
-      AREAFORGE_LONG_TERM_UX_RECORD: "",
-      ...env,
-    },
+    env: childEnv,
   });
   if (result.status !== expectedStatus) {
     console.error(result.stdout);
