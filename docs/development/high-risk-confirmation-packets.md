@@ -817,3 +817,93 @@ D1 最小实施契约：
 > 确认执行 Package E Batch E3：生产发布与 migration deploy。范围仅限在备份点存在后，通过明确的 release 工作目录或一次性 migration job 执行已确认的发布、必要 additive migration deploy、Nginx/compose 切换和发布后烟测；不执行无备份 migration，不公开暴露 PostgreSQL 或上传目录。
 
 > 确认执行 Package E Batch E4：回滚演练与 Package E 收口。范围仅限记录上一镜像 tag、失败回滚步骤、是否需要数据库/上传目录恢复、发布结果、残余风险、文档同步和 completion record；不新增网页内一键更新或服务器命令入口。
+
+## 后续签名 Release 证据闭环确认包：`AF-RISK-SC-001`
+
+本确认包用于后续某一次签名 GitHub Release 生成 SBOM/provenance、checksum、signature 和供应链记录，从而让 `AF-RISK-SC-001` 进入可人工复核关闭状态。它适合当前 `v0.1.5` 之后的第一个补丁发布；若只发布当前长期运营治理补强，默认建议版本为 `v0.1.6`。执行前仍必须由用户在确认句中写明具体版本号。
+
+源事实：
+
+- `docs/development/release-train.md`
+- `docs/development/release-supply-chain-record-template.md`
+- `docs/development/release-record-template.md`
+- `docs/development/residual-risk-ledger.md`
+- `.github/workflows/release.yml`
+
+影响：
+
+- 创建并推送新的 Git tag，会触发 GitHub Release workflow。
+- GitHub Release workflow 会构建并发布 GHCR Web/migration 镜像和 Release assets。
+- 该 Release 可作为后续服务器 updater 的候选版本。
+- 若后续继续执行生产更新，还会进入服务器侧备份、migration、切换、smoke 和 rollback 证据链；这些不包含在本确认包内。
+
+实施范围：
+
+- 将所有 AreaForge workspace package version bump 到确认版本 `X.Y.Z`，并确保 tag `vX.Y.Z` 与根 `package.json` 一致。
+- 在干净工作区完成发布前本地门禁。
+- 创建并推送 `vX.Y.Z` tag，tag 必须指向已验证 commit。
+- 等待 GitHub Release workflow 成功，并确认 stable signing 不是 unsigned placeholder。
+- 下载或准备 Release assets 目录，至少包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`。
+- 生成并校验 `docs/development/release-supply-chain-vX.Y.Z.md`。
+- 生成或更新 `docs/development/release-vX.Y.Z-record.md` 中的供应链摘要字段。
+
+不包含：
+
+- 不执行服务器 updater `apply`、Web 版本中心 apply/rollback 请求或生产切换。
+- 不执行生产 backup、restore、migration deploy、rollback、Nginx/compose 改动或上传目录操作。
+- 不启用 `AREAFORGE_AUTO_APPLY=patch` 或更强自动应用策略。
+- 不关闭 `AF-RISK-SC-001` / `AF-RISK-SC-002` residual 台账；只生成可人工复核证据。
+- 不读取、打印、提交 cosign 私钥、GitHub token、生产 `.env`、数据库 URL、smoke 密码、备份本体、附件内容或 AI prompt/raw response。
+- 不把 CI-only 记录当成 `AF-RISK-SC-001` 的签名 Release 证据。
+
+必须确认：
+
+- 版本号、tag 和 package version 完全一致。
+- Release workflow validate job 必须先通过；stable signing 缺 key 必须失败而不是发布 unsigned placeholder。
+- Release assets 必须包含 manifest、SBOM、provenance、compose、`SHA256SUMS` 和 `SHA256SUMS.sig`。
+- `SHA256SUMS` 必须覆盖 manifest/SBOM/provenance/compose。
+- Web/migration image 必须使用不可变 digest。
+- 任何生产更新、backup/restore、migration、rollback 或自动应用策略变化都另行确认。
+
+发布前验证：
+
+```bash
+pnpm enterprise:operability:preflight
+pnpm release:train:preflight
+pnpm docs:readiness
+pnpm docs:completion
+pnpm risk:preflight
+pnpm governance:preflight
+pnpm github-release-updater:preflight
+pnpm shellcheck:updater
+pnpm release:supply-chain:selftest
+pnpm release:supply-chain:record:selftest
+pnpm ci:supply-chain:selftest
+pnpm sc:sc-002:preflight:selftest
+pnpm audit:prod
+pnpm check
+git diff --check
+```
+
+Release 资产生成后验证：
+
+```bash
+sha256sum -c SHA256SUMS
+cosign verify-blob --key docs/deployment/keys/areaforge-cosign.pub --bundle SHA256SUMS.sig SHA256SUMS
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md /path/to/release-assets
+pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
+```
+
+中止条件：
+
+- 本地验证、CI validate job、Release workflow、`pnpm audit:prod`、Actions pinning、checksum 或 signature 任一失败。
+- tag 与 `package.json` version 不一致，或 tag 不指向 workflow commit。
+- Release asset 缺 manifest、SBOM、provenance、compose、`SHA256SUMS` 或 `SHA256SUMS.sig`。
+- stable Release 仍出现 unsigned placeholder。
+- 记录中出现密钥、生产 `.env`、数据库 URL、备份本体、附件内容、完整 prompt/raw response 或真实学习内容。
+- 无法生成可通过 `pnpm release:supply-chain:validate` 的签名 Release 供应链记录。
+
+明确确认句：
+
+> 确认执行下一次签名 Release 证据闭环 v0.1.6：范围仅限将当前已验证 commit 的所有 AreaForge workspace package version bump 到 0.1.6，创建并推送 `v0.1.6` tag，等待 GitHub Release workflow 生成签名 Release assets、GHCR digest、SBOM/provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`，并生成/校验 `release-supply-chain-v0.1.6` 与 `release-v0.1.6` 记录；不执行服务器 updater apply、Web apply/rollback 请求、生产 backup/restore、production migration、Nginx/compose 切换、自动应用策略变更、residual 台账关闭或任何密钥读取/打印/提交。
