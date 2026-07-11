@@ -818,6 +818,92 @@ D1 最小实施契约：
 
 > 确认执行 Package E Batch E4：回滚演练与 Package E 收口。范围仅限记录上一镜像 tag、失败回滚步骤、是否需要数据库/上传目录恢复、发布结果、残余风险、文档同步和 completion record；不新增网页内一键更新或服务器命令入口。
 
+## 生产只读证据导出确认包：`AF-RISK-OPS-001`
+
+本确认包用于在生产服务器上导出 `AF-RISK-OPS-001` 所需 redacted 证据，让生产只读 smoke、update-agent status、operational evidence bundle 和 OPS-001 closure packet 进入可人工复核关闭状态。它只授权一次只读证据导出，不授权生产更新、备份、恢复、migration、rollback、写入型 smoke 或 residual 台账关闭。
+
+源事实：
+
+- `docs/development/operational-readiness.md`
+- `docs/development/ops-001-closure-packet-template.md`
+- `docs/deployment/operator-onboarding.md`
+- `ops/github-release-updater/README.md`
+- `ops/update-agent/areaforge-ops001-evidence-export.sh`
+- `docs/development/residual-risk-ledger.md`
+
+影响：
+
+- 需要通过 SSH 登录生产服务器，并在服务器侧以具备读取 updater 配置、ops-state 和 smoke 密码文件权限的操作者执行 helper。
+- helper 会读取 updater config、`status.json`、smoke 密码文件 metadata/凭据、生产 Web 只读 API 和本地仓库脚本。
+- helper 会在指定输出目录生成 redacted 证据文件，供维护者带回本地校验。
+- sudo 密码只允许在终端 TTY 输入，不得发到聊天、commit、issue、release record 或日志中。
+
+实施范围：
+
+- 在确认的生产主机上执行 `areaforge-ops001-evidence-export.sh`。
+- 指定 updater config、ops-state 和输出目录。
+- 生成并校验：
+  - `redacted-update-status.json`
+  - `prod-readonly-smoke-record.txt`
+  - `operational-evidence-bundle.json`
+  - `ops001-closure-packet.txt`
+  - `ops001-preflight-before-closure.json`
+  - `ops001-preflight-after-closure.json`
+  - `summary.txt`
+- 将 redacted 证据带回本地后运行对应 validator 和 `pnpm ops:ops-001:preflight`。
+
+推荐服务器命令形态：
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
+  --config /etc/areaforge/updater.env \
+  --state-dir /opt/areaforge/ops-state \
+  --output-dir /tmp/areaforge-ops001-$(date -u +%Y%m%d%H%M%S)
+```
+
+若当前服务器临时 helper 位于 `/tmp/areaforge-ops001-evidence-export.sh`，执行前必须确认该文件内容与仓库 `ops/update-agent/areaforge-ops001-evidence-export.sh` 的只读边界一致。
+
+不包含：
+
+- 不执行 updater `check`、`apply`、rollback、Web apply/rollback 请求或自动应用策略变化。
+- 不执行生产 backup、restore、migration deploy、Docker/Nginx/compose 切换或上传目录操作。
+- 不执行写入型 smoke，不创建/修改/删除任务、计时、附件、AI 记录或数据库数据。
+- 不读取、打印、复制或提交生产 `.env`、数据库 URL、smoke 密码、cookie、session secret、备份本体、附件内容、上传目录、原始敏感日志或完整 status 私密字段。
+- 不关闭 `AF-RISK-OPS-001` residual 台账；只生成可人工复核证据。
+
+必须确认：
+
+- 目标主机、登录用户、helper 路径、config 路径、state-dir 路径和输出目录。
+- `AREAFORGE_EXTRA_SMOKE_COMMAND` 指向 `pnpm smoke:prod-readonly`，且 smoke 密码通过权限收紧的文件读取。
+- helper 输出目录只包含 redacted 证据和 summary，不包含生产 env、密码文件、数据库 dump、附件内容或原始日志。
+- `AREAFORGE_AUTO_APPLY` 仍为 `none`，除非另有独立确认包。
+- 若任何子校验失败，只保留失败摘要和 redacted 输出，不补做生产写入、不执行 updater apply、不关闭 residual。
+
+导出后本地验证：
+
+```bash
+pnpm smoke:prod-readonly:validate ./prod-readonly-smoke-record.txt
+pnpm update-agent:status:validate ./redacted-update-status.json
+pnpm ops:evidence:bundle:validate ./operational-evidence-bundle.json
+pnpm ops:ops-001:closure:validate ./ops001-closure-packet.txt
+AREAFORGE_OPS001_SMOKE_RECORD=./prod-readonly-smoke-record.txt \
+  AREAFORGE_OPS001_UPDATE_STATUS_RECORD=./redacted-update-status.json \
+  AREAFORGE_OPS001_EVIDENCE_BUNDLE=./operational-evidence-bundle.json \
+  AREAFORGE_OPS001_CLOSURE_PACKET=./ops001-closure-packet.txt \
+  pnpm ops:ops-001:preflight
+```
+
+中止条件：
+
+- SSH、sudo、helper 路径、config、state-dir、status 文件或 smoke 密码文件不可用。
+- `pnpm smoke:prod-readonly:config`、`pnpm smoke:prod-readonly`、update-agent status、evidence bundle、closure packet 或 OPS-001 preflight 任一失败。
+- 输出包含生产 `.env`、数据库 URL、密码、cookie、session secret、备份本体、附件内容、上传目录、原始敏感日志或用户学习正文。
+- helper 试图执行 updater apply、migration、backup、restore、rollback、生产写入或 residual 台账更新。
+
+明确确认句：
+
+> 确认执行 OPS-001 生产只读证据导出：范围仅限通过 SSH 在指定生产主机运行 `areaforge-ops001-evidence-export.sh` 的只读 redacted evidence export，收集 production read-only smoke record、redacted update-agent status、operational evidence bundle、OPS-001 closure packet 和 preflight 输出，并回本地运行对应 validate/preflight；不执行 updater apply、Web apply/rollback 请求、backup/restore、migration、rollback、Docker/Nginx/compose 切换、数据库写入、上传目录写入、写入型 smoke、读取/打印/复制/提交 secrets 或 residual 台账关闭。
+
 ## 后续签名 Release 证据闭环确认包：`AF-RISK-SC-001`
 
 本确认包用于后续某一次签名 GitHub Release 生成 SBOM/provenance、checksum、signature 和供应链记录，从而让 `AF-RISK-SC-001` 进入可人工复核关闭状态。它适合当前 `v0.1.5` 之后的第一个补丁发布；若只发布当前长期运营治理补强，默认建议版本为 `v0.1.6`。执行前仍必须由用户在确认句中写明具体版本号。

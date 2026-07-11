@@ -29,6 +29,7 @@
 - 写动作或运行时能力变化是否按 `docs/development/runtime-write-boundary.md` 标明 R0-R4 等级，避免把 preview、local smoke、update request 或草稿说成生产 apply。
 - 功能更新若准备进入线上，是否先按 `docs/development/release-train.md` 固定版本、验证、Release 资产、供应链记录、updater 证据、smoke、回滚目标和停止条件。
 - 下一次签名 Release 若用于补齐 `AF-RISK-SC-001`，是否先使用 `docs/development/high-risk-confirmation-packets.md` 的后续签名 Release 证据闭环确认包，并确认它不包含生产 updater apply、backup/restore、migration、rollback 或 residual 台账关闭。
+- 生产 SSH 只读导出若用于补齐 `AF-RISK-OPS-001`，是否先使用 `docs/development/high-risk-confirmation-packets.md` 的生产只读证据导出确认包，并确认它不包含 updater apply、backup/restore、migration、rollback、写入型 smoke、secrets 读取/打印/复制或 residual 台账关闭。
 - 功能更新、维护节奏、release 决策、skill owner 边界或 residual 复核口径变化，是否同步 `docs/development/long-term-operability-control-plane.md`，并运行 `pnpm enterprise:operability:preflight` 和 `pnpm ops:status` 检查离线状态投影。
 - 若要声明“产品可长期运营”，是否运行 `pnpm ops:long-term:gate`，并确认 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 证据均达到可人工复核关闭状态；该 gate 不自动收集证据、不执行生产动作、不修改 residual 台账。
 - 新签名 Release 若用于关闭或复核供应链残余项，是否按 `docs/development/release-supply-chain-record-template.md` 记录 SBOM/provenance、checksum/signature、Actions pinning 和 `pnpm audit:prod`，并通过 `pnpm release:supply-chain:validate`。
