@@ -1,12 +1,12 @@
-recordId: ci-supply-chain-20260711201559
-recordedAt: 2026-07-11T20:15:59.396Z
+recordId: ci-supply-chain-20260711203529
+recordedAt: 2026-07-11T20:35:29.361Z
 workflowKind: ci
 repository: AreaSong/AreaForge
 workflowName: ci
-workflowRunUrl: https://github.com/AreaSong/AreaForge/actions/runs/29166449222
+workflowRunUrl: https://github.com/AreaSong/AreaForge/actions/runs/29167042314
 workflowRunConclusion: success
-gitCommit: 7ae5e5c52e8045eede8189fec7484ba835f7095c
-expectedGitCommit: 7ae5e5c52e8045eede8189fec7484ba835f7095c
+gitCommit: b9bbfa2072a79318fc93f6e9497fe4f4b3da29b7
+expectedGitCommit: b9bbfa2072a79318fc93f6e9497fe4f4b3da29b7
 commitMatchStatus: pass
 headBranch: codex/long-term-operability
 packageVersion: 0.1.5
