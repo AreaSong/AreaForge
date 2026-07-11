@@ -301,7 +301,6 @@ write_prerequisites() {
   chmod 600 "$output_file"
 }
 
-# shellcheck disable=SC2329 # Invoked indirectly through run_check helpers.
 request_json() {
   local method="$1"
   local path="$2"
@@ -359,7 +358,6 @@ run_check() {
   fi
 }
 
-# shellcheck disable=SC2329 # Invoked indirectly through run_check.
 check_health() {
   local body
   body="$(request_json GET /api/health)" || return 1
@@ -371,7 +369,6 @@ check_health() {
     }
 }
 
-# shellcheck disable=SC2329 # Invoked by check_login, which is called indirectly.
 write_login_payload() {
   {
     printf '%s\n' "${AREAFORGE_SMOKE_EMAIL:-}"
@@ -379,7 +376,6 @@ write_login_payload() {
   } | jq -Rn 'input as $email | input as $password | {email:$email,password:$password}' > "$LOGIN_PAYLOAD"
 }
 
-# shellcheck disable=SC2329 # Invoked indirectly through run_check.
 check_login() {
   local body
   write_login_payload
@@ -390,7 +386,6 @@ check_login() {
   }
 }
 
-# shellcheck disable=SC2329 # Invoked indirectly through run_check.
 check_path() {
   local label="$1"
   local path="$2"
@@ -403,7 +398,6 @@ check_path() {
   }
 }
 
-# shellcheck disable=SC2329 # Invoked indirectly through run_check.
 check_update_status() {
   local body
   body="$(request_json GET /api/system/update-status)" || return 1
