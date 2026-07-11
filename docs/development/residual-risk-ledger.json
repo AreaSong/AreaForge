@@ -46,10 +46,10 @@
       "id": "AF-RISK-SC-002",
       "type": "closed-evidence",
       "reviewAt": "2026-10-10",
-      "currentImpact": "CI-only 供应链证据已可对代码 checkpoint 7a8edcaa375a4070ccfa93a4e21c74c7e32ee123 复核：GitHub CI run 29153196137 通过，记录见 docs/development/ci-supply-chain-20260711-7a8edca.txt；外部 Actions pin 到 40 位 commit SHA、pnpm audit:prod high 阈值通过、governance/skills/release supply-chain selftest 通过，且 CI-only 记录要求 expectedGitCommit 与 GitHub run gitCommit 一致；该项不关闭 AF-RISK-SC-001 的签名 Release / SBOM / provenance 证据",
+      "currentImpact": "CI-only 供应链证据已可对当前代码 checkpoint f18f159479e781f01fef5aedbe631b8cdcdaa8e9 复核：GitHub CI run 29153455542 通过，记录见 docs/development/ci-supply-chain-20260711-f18f159.txt；外部 Actions pin 到 40 位 commit SHA、pnpm audit:prod high 阈值通过、governance/skills/release supply-chain selftest 通过，且 CI-only 记录要求 expectedGitCommit 与 GitHub run gitCommit 一致；该项不关闭 AF-RISK-SC-001 的签名 Release / SBOM / provenance 证据",
       "executableNow": false,
       "closeCondition": "后续修改 GitHub Actions、依赖审计策略、release workflow、供应链记录生成/校验或创建新 Release 前，重新生成对应代码 checkpoint 的 CI-only 或签名 Release 供应链记录并通过校验；若 high/critical 漏洞、未 pin action 或 commit mismatch 出现则重新打开",
-      "requiredEvidence": "docs/development/ci-supply-chain-20260711-7a8edca.txt、GitHub Actions run 成功记录、pnpm governance:preflight 输出、pnpm audit:prod high 阈值通过、Actions pinning 计数、CI-only expectedGitCommit / gitCommit match、pnpm sc:sc-002:preflight 返回 ready_for_sc002_review、pnpm ci:supply-chain:validate 通过；签名 Release 仍另需 pnpm release:supply-chain:validate",
+      "requiredEvidence": "docs/development/ci-supply-chain-20260711-f18f159.txt、GitHub Actions run 成功记录、pnpm governance:preflight 输出、pnpm audit:prod high 阈值通过、Actions pinning 计数、CI-only expectedGitCommit / gitCommit match、pnpm sc:sc-002:preflight 返回 ready_for_sc002_review、pnpm ci:supply-chain:validate 通过；签名 Release 仍另需 pnpm release:supply-chain:validate",
       "ownerSkills": ["areaforge-supply-chain", "areaforge-enterprise-governance"]
     },
     {
