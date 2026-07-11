@@ -132,6 +132,7 @@ function createEvidenceBundle(): JsonRecord {
       autoApply: "none",
     },
     signals: {},
+    freshness: createFreshness(),
     residualRiskIds: ["AF-RISK-OPS-001"],
     overall: "warn",
   };
@@ -141,12 +142,21 @@ function createEvidenceBundle(): JsonRecord {
     bundleHash: "",
     generatedAt: "2026-07-10T14:20:00.000Z",
     summary,
+    freshness: summary.freshness,
     items: requiredSignalItems(),
     capabilities: [
       "collect_read_only_operational_readiness_summary",
       "assemble_signal_evidence_index",
       "map_residual_risk_ids_to_required_evidence",
       "compute_bundle_hash",
+    ],
+    doesNotProve: [
+      "current production health without all required live signals",
+      "updater apply completion",
+      "backup, restore, migration, or rollback execution",
+      "GitHub Release creation",
+      "residual risk closure",
+      "production write smoke safety",
     ],
     forbiddenActions: [
       "execute_server_command",
@@ -192,6 +202,22 @@ function requiredSignalItems(): JsonRecord[] {
     requiredEvidence: [`${key} required evidence`],
     metadata: {},
   }));
+}
+
+function createFreshness(): JsonRecord {
+  return {
+    maxAgeSeconds: 1209600,
+    latestEvidenceFreshnessStatus: "fresh",
+    signals: {
+      health: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
+      releaseIdentity: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
+      updateAgent: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
+      authenticatedSmoke: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
+      backup: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
+      rollback: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
+      infrastructure: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
+    },
+  };
 }
 
 function withBundleHash(bundle: JsonRecord): JsonRecord {
