@@ -175,6 +175,13 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     issues.push({ field: "operationalEvidenceBundleHash", message: "must be a 64-character sha256 hex digest with optional sha256: prefix" });
   }
 
+  const releaseSupplyChainEvidenceHash = fields.get("releaseSupplyChainEvidenceHash");
+  if (releaseSupplyChainEvidenceHash &&
+    releaseSupplyChainEvidenceHash !== "not-applicable" &&
+    !/^(sha256:)?[a-f0-9]{64}$/i.test(releaseSupplyChainEvidenceHash)) {
+    issues.push({ field: "releaseSupplyChainEvidenceHash", message: "must be not-applicable or a 64-character sha256 hex digest with optional sha256: prefix" });
+  }
+
   const alertPreviewStatus = fields.get("alertPreviewStatus");
   if (alertPreviewStatus && !["ok", "watch", "warning", "critical"].includes(alertPreviewStatus.toLowerCase())) {
     issues.push({ field: "alertPreviewStatus", message: "must be ok, watch, warning, or critical" });
@@ -290,6 +297,7 @@ function buildReleaseEvidenceBundleHash(fields: Map<string, string>): string {
     "provenanceAsset",
     "provenanceSha256",
     "supplyChainEvidence",
+    "releaseSupplyChainEvidenceHash",
     "signatureVerification",
     "updateAgentStatus",
     "rollbackTargetVersion",

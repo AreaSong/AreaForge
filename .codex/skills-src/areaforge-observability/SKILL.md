@@ -36,7 +36,8 @@ Use this skill to prove what the system is doing before diagnosing, releasing, r
 4. Prefer read-only evidence: health JSON, metadata-only support bundle preview, logs with secrets redacted, status files, smoke result, backup inventory, disk/cert age, release digest, and update-agent state.
 5. Separate live production evidence from local, CI, dry-run, or historical evidence.
 6. Record status with timestamp, source, command or endpoint, result, residual risk ID, and follow-up owner.
-7. If evidence shows user-visible failure, stale backups, signature failure, missing smoke, or unknown release digest, hand off to incident response or release operator.
+7. Treat observability as evidence ownership, not action ownership: hand production changes to SRE Ops, release identity or updater decisions to Release Operator, and artifact trust failures to Supply Chain.
+8. If evidence shows user-visible failure, stale backups, signature failure, missing smoke, or unknown release digest, hand off to incident response or release operator.
 
 ## Guardrails
 

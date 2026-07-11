@@ -33,9 +33,10 @@ Choose validation from risk and touched paths, then report evidence honestly.
 
 1. Start from changed paths and risk boundaries, not a fixed maximal command set.
 2. Load the validation map before selecting commands.
-3. Run checks after the final relevant edit.
-4. If a command fails, classify whether the failure is caused by the change, environment, stale generated files, or an unrelated dirty worktree.
-5. Report commands, result, evidence class, scope covered, skipped checks, blockers, release requirement, and residual unverified risk.
+3. For repo-local skill changes, treat `agents/openai.yaml` metadata drift as part of validation scope, not as cosmetic text.
+4. Run checks after the final relevant edit.
+5. If a command fails, classify whether the failure is caused by the change, environment, stale generated files, or an unrelated dirty worktree.
+6. Report commands, result, evidence class, scope covered, skipped checks, blockers, release requirement, and residual unverified risk.
 
 ## Guardrails
 

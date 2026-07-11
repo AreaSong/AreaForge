@@ -61,7 +61,7 @@ function main(): void {
       "pnpm ci:supply-chain:validate <ci-supply-chain-record.txt>",
       "pnpm release:supply-chain:record <release-assets-dir> > <release-supply-chain-record.txt>",
       "AREAFORGE_SC002_RELEASE_RECORD=<release-supply-chain-record.txt> pnpm sc:sc-002:preflight",
-      "pnpm release:supply-chain:validate <release-supply-chain-record.txt>",
+      "pnpm release:supply-chain:validate <release-supply-chain-record.txt> <release-assets-dir>",
     ],
     nextCommand: nextCommand(status),
     forbiddenActions: [

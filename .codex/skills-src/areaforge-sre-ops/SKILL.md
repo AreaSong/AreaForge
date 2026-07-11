@@ -40,7 +40,8 @@ Treat production as a managed system with health, backup, restore, update, rollb
 2. For observe/diagnose, prefer read-only checks and hand detailed signal inventory to the observability skill.
 3. For write actions, require explicit confirmation and a rollback plan before changing production, update policy, database, upload directory, or Nginx.
 4. Preserve evidence: command, host, timestamp, version, image digest, backup path/hash, status, residual risk.
-5. After release/update/rollback, sync docs and tasks through the doc sync skill and record residual items through the residual ledger when they remain.
+5. Keep ownership explicit: SRE Ops may execute confirmed production operations; Observability supplies read-only signals; Release Operator owns release identity/update evidence; Supply Chain owns artifact trust.
+6. After release/update/rollback, sync docs and tasks through the doc sync skill and record residual items through the residual ledger when they remain.
 
 ## Guardrails
 

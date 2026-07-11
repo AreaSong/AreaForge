@@ -236,6 +236,7 @@ function checkManifestExample(): void {
     "migrationImage",
     "migrationImageDigest",
     "requiresMigration",
+    "composeAsset",
     "sha256SumsAsset",
     "signatureAsset",
     "sbomAsset",

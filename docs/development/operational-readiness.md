@@ -281,5 +281,5 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 - `AF-RISK-SC-002`：Actions SHA pinning 和 `pnpm audit:prod` 已在本地 workflow / governance gate 落地，仍需下一次 GitHub CI 或签名 Release 运行证据关闭。
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
-- `AF-RISK-OPS-004`：告警阈值已有非执行策略，`pnpm ops:alert:preview` 可预览 would-alert 决策，`pnpm ops:ops-004:preflight` 可核对 alert preview 与演练记录；metrics dashboard、外部告警接收人和演练记录仍未产品化。
+- `AF-RISK-OPS-004`：告警阈值已有非执行策略；2026-07-11 manual-window alert preview 和告警/恢复演练记录已保存，`pnpm ops:ops-004:preflight` 可核对 alert preview 与演练记录并返回 `ready_for_human_close`；metrics dashboard 和外部告警接收人仍未产品化，关闭台账需维护者人工复核。
 - `AF-RISK-UX-001`：已关闭为证据项；2026-07-10 本地 desktop/mobile 体验复核记录通过，后续 release/update、体验改动或超过 14 天维护窗口前必须重跑 `pnpm experience:review:validate`，否则体验健康重新降级为 `warn`。

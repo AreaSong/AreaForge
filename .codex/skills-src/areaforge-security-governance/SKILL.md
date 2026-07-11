@@ -31,7 +31,8 @@ Review security as a system: data boundary, command boundary, dependency boundar
 2. Identify trust boundary changes: browser/server, Web/updater, DB/filesystem, AI provider, GitHub/GHCR, Nginx/container.
 3. Apply the security gates before editing code, docs, or release configuration.
 4. For reviews, lead with findings and file/line references; separate confirmed issues from residual risk.
-5. For fixes, verify auth, path traversal, secret exposure, logging, dependency, and rollback implications.
+5. Treat data export, retention, deletion rights, account/user migration, privacy lifecycle, or default data sharing changes as high-risk until a dedicated data-governance owner exists.
+6. For fixes, verify auth, path traversal, secret exposure, logging, dependency, and rollback implications.
 
 ## Guardrails
 
@@ -40,3 +41,4 @@ Review security as a system: data boundary, command boundary, dependency boundar
 - Do not expose `Attachment.uri`, `storedName`, upload absolute paths, `.env`, database URLs, API keys, or cosign private material.
 - Do not weaken signature verification, hash checks, backup requirements, or rollback evidence.
 - Do not treat a security scan as a substitute for product validation or release evidence.
+- Do not implement data export, retention, deletion, migration, or privacy lifecycle changes without explicit scope, rollback/revocation path, and residual close condition.

@@ -58,6 +58,7 @@ sbomSha256: <64-hex-or-not-applicable>
 provenanceAsset: areaforge-provenance.json
 provenanceSha256: <64-hex-or-not-applicable>
 supplyChainEvidence: <SHA256SUMS includes manifest/SBOM/provenance/compose; signature verification result>
+releaseSupplyChainEvidenceHash: <sha256 emitted by pnpm release:supply-chain:validate or not-applicable>
 composeHash: <64-hex>
 nginxConfigHash: <64-hex>
 previousImage: <previous-image-or-not-applicable>
@@ -119,6 +120,7 @@ expectedFailureOrStopConditions:
 - GitHub Release workflow 成功，stable release 没有 unsigned placeholder。
 - `SHA256SUMS` 与签名校验结果记录清楚。
 - 新发布若由当前 Release workflow 生成，记录 SBOM/provenance 资产名、hash 和校验摘要；历史 `v0.1.5` 这类发布没有对应资产时，不回填假证据，必须在残余风险中保留 `AF-RISK-SC-001`。
+- 若本次 Release 用于关闭或复核 `AF-RISK-SC-001` / `AF-RISK-SC-002`，`releaseSupplyChainEvidenceHash` 必须记录 `pnpm release:supply-chain:validate` 的输出 hash；未生成签名 Release 供应链记录时写 `not-applicable` 并保留对应 residual。
 - Web 和 migration image 使用不可变 digest。
 - 生产更新前备份路径与 hash 可追溯，且不提交备份本体或密钥。
 - migration runner 与结果明确；无 migration 时写 `migrationApplied: no` 和 `migrationRunner: not-applicable`。

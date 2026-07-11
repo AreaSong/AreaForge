@@ -145,6 +145,8 @@ pnpm ops:ops-004:preflight
 
 - 源事实先写入 `docs/**`、`tasks/**` 或 `workflow/**`，skill 只做执行导航。
 - 任何会改变发布、生产、AI、上传、安全或自动更新边界的 skill 文案，都要同步验证矩阵和对应 preflight。
+- 每次变更 skill 时同步核对 `agents/openai.yaml` 的 `display_name`、`short_description` 和 `default_prompt`，确保自动发现入口仍覆盖 `SKILL.md` 触发语义；`pnpm skills:validate` 会检查关键触发词。
+- 在 `areaforge-data-governance` 成为稳定 owner 前，数据导出、数据留存、删除权、用户迁移、隐私生命周期、AI 历史或费用记录留存变化都由 `security-governance`、`file-storage-safety`、`ai-governance`、`sre-ops` 和 `residual-ledger` 共同按高风险边界处理。
 - 不能用 skill 文案降低高风险确认、签名、备份、rollback、smoke 或 residual 关闭条件。
 
 ## 当前必须持续复核的证据

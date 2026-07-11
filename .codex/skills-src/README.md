@@ -61,4 +61,5 @@
 - 项目级 skill 以 `.codex/skills-src/<skill>/SKILL.md` 为源。
 - `.agents/skills/<skill>` 仅作为自动发现入口，默认指向 `.codex/skills-src/<skill>`。
 - 不在 skill 目录内添加 README、changelog 或低价值说明。
+- 变更 skill 时同时核对 `agents/openai.yaml` 的 `display_name`、`short_description` 和 `default_prompt` 是否仍覆盖 `SKILL.md` 的触发语义；`pnpm skills:validate` 会检查每个 skill 的关键触发词。
 - 变更 skill 后运行 quick validate、`git diff --check`，并按改动范围运行 docs/risk/check 门禁。

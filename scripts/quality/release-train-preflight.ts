@@ -127,6 +127,8 @@ function checkReleaseWorkflow(): void {
     "pnpm ci:supply-chain:selftest",
     "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
     "release tag ${tag} does not match package.json version",
+    "release tag ${tag} does not point to workflow commit",
+    "git rev-list -n 1",
     "areaforge-sbom.spdx.json",
     "areaforge-provenance.json",
     "SHA256SUMS.sig",

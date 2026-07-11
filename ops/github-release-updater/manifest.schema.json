@@ -15,6 +15,7 @@
     "webImage",
     "webImageDigest",
     "requiresMigration",
+    "composeAsset",
     "sha256SumsAsset",
     "signatureAsset",
     "sbomAsset",

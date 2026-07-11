@@ -87,7 +87,7 @@ const secretPatterns = [
 function main(): void {
   const recordPath = process.argv[2];
   if (!recordPath) {
-    console.error("Usage: pnpm release:supply-chain:validate <release-supply-chain-record.md|txt>");
+    console.error("Usage: pnpm release:supply-chain:validate <release-supply-chain-record.md|txt> [release-assets-dir]");
     process.exit(2);
   }
 
@@ -95,6 +95,10 @@ function main(): void {
   const record = readRequiredFile(absoluteRecordPath);
   const fields = parseIndentedKeyValueRecord(record);
   const issues = validateRecord(record, fields);
+  const assetDir = process.argv[3];
+  if (assetDir) {
+    issues.push(...validateAssetDirectory(fields, path.resolve(assetDir)));
+  }
 
   if (issues.length > 0) {
     for (const issue of issues) {
@@ -223,6 +227,76 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   }
 
   return issues;
+}
+
+function validateAssetDirectory(fields: Map<string, string>, assetDir: string): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const assetHashFields: Record<string, string> = {
+    manifestAsset: "manifestSha256",
+    sbomAsset: "sbomSha256",
+    provenanceAsset: "provenanceSha256",
+  };
+  const composeAsset = "docker-compose.prod.yml";
+  const sha256SumsAsset = fields.get("sha256SumsAsset") ?? "SHA256SUMS";
+  const signatureAsset = fields.get("signatureAsset") ?? "SHA256SUMS.sig";
+
+  const sumsPath = path.join(assetDir, sha256SumsAsset);
+  if (!existsSync(sumsPath)) {
+    issues.push({ field: "assetDir.SHA256SUMS", message: `${sha256SumsAsset} is missing` });
+    return issues;
+  }
+
+  const sums = parseSha256Sums(readRequiredFile(sumsPath));
+  for (const [assetField, hashField] of Object.entries(assetHashFields)) {
+    const assetName = fields.get(assetField);
+    if (!assetName) continue;
+    compareAssetHash(assetDir, assetName, hashField, fields.get(hashField), sums, issues);
+  }
+  compareAssetHash(assetDir, composeAsset, "composeSha256", fields.get("composeSha256"), sums, issues);
+
+  const signaturePath = path.join(assetDir, signatureAsset);
+  if (!existsSync(signaturePath)) {
+    issues.push({ field: "assetDir.signatureAsset", message: `${signatureAsset} is missing` });
+  }
+  return issues;
+}
+
+function compareAssetHash(
+  assetDir: string,
+  assetName: string,
+  hashField: string,
+  recordHash: string | undefined,
+  sums: Map<string, string>,
+  issues: ValidationIssue[],
+): void {
+  const assetPath = path.join(assetDir, assetName);
+  if (!existsSync(assetPath)) {
+    issues.push({ field: `assetDir.${assetName}`, message: "asset file is missing" });
+    return;
+  }
+  const actual = createHash("sha256").update(readFileSync(assetPath)).digest("hex");
+  const sumHash = sums.get(assetName.toLowerCase());
+  if (!sumHash) {
+    issues.push({ field: "sha256SumsAsset", message: `missing ${assetName}` });
+  } else if (sumHash.toLowerCase() !== actual.toLowerCase()) {
+    issues.push({ field: "sha256SumsAsset", message: `${assetName} hash does not match file content` });
+  }
+  if (recordHash && recordHash.toLowerCase() !== actual.toLowerCase()) {
+    issues.push({ field: hashField, message: `does not match ${assetName} file content` });
+  }
+}
+
+function parseSha256Sums(raw: string): Map<string, string> {
+  const sums = new Map<string, string>();
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const [hash, name] = trimmed.split(/\s+/, 2);
+    if (hash && name) {
+      sums.set(name.replace(/^\*/, "").toLowerCase(), hash);
+    }
+  }
+  return sums;
 }
 
 function parseList(value: string): string[] {

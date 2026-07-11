@@ -44,6 +44,8 @@
 - `AF-RISK-SC-002` CI-only 证据若进入仓库或运维交接摘要，是否先运行 `pnpm sc:sc-002:preflight`，再使用 `docs/development/ci-supply-chain-record-template.md` 并通过 `pnpm ci:supply-chain:validate`；不要把 CI-only 证据当成 `AF-RISK-SC-001` 的 SBOM/provenance Release 证据。
 - 真实产品体验复核记录若进入仓库或 release/update 交接摘要，是否使用 `docs/development/product-experience-review-record-template.md` 并通过 `pnpm experience:review:validate`。
 - 若变更长期运营 workflow 或 skill，是否同步 `.codex/skills-src/**`、`.agents/skills/**`、`README.md`、`AGENTS.md` 和相关验证/残余风险入口，并运行 `pnpm skills:validate`。
+- 若变更 repo-local skill，是否同步对应 `agents/openai.yaml`，确认 `display_name`、`short_description` 和 `default_prompt` 仍覆盖 `SKILL.md` 的触发语义。
+- 若涉及数据导出、数据留存、删除权、用户迁移、隐私生命周期、AI 历史或费用记录留存变化，是否按安全/文件/AI/SRE owner 共同高风险确认处理，而不是仅靠 skill 文案或普通 docs 更新。
 - 若变更公开项目治理、依赖、CI、PR 模板或安全披露入口，是否同步 `SECURITY.md`、`.github/**`、`docs/development/dependency-policy.md`、`README.md` 和验证矩阵，并运行 `pnpm governance:preflight`。
 - 若变更公开支持、issue 模板、ops support、贡献者 PR 或 triage 规则，是否同步 `SUPPORT.md`、`.github/ISSUE_TEMPLATE/**`、`docs/development/support-intake.md`、`.codex/skills-src/areaforge-public-maintenance`、`README.md`、`docs/README.md` 和验证矩阵，并运行 `pnpm support:intake:preflight`；若 skill 改动，补跑 `pnpm skills:validate`。
 - 若引入或扩大 subagent、MCP、Browser/Computer Use、自动化、部署插件或远程运维工具，是否同步 `docs/development/external-capability-admission.md`，并确认没有绕过 Web runtime 服务器命令禁区。

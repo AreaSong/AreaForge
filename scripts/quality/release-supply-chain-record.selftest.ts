@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -23,7 +24,7 @@ try {
   }
   writeFileSync(generatedRecord, generated.stdout);
 
-  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-supply-chain-validate.ts", generatedRecord], {
+  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-supply-chain-validate.ts", generatedRecord, tempDir], {
     cwd: root,
     encoding: "utf8",
   });
@@ -97,10 +98,14 @@ function writeReleaseAssets(dir: string): void {
     writeFileSync(path.join(dir, name), content);
   }
   writeFileSync(path.join(dir, "SHA256SUMS"), [
-    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  areaforge-release-manifest.json",
-    "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd  areaforge-sbom.spdx.json",
-    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee  areaforge-provenance.json",
-    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  docker-compose.prod.yml",
+    checksumLine(assets["areaforge-release-manifest.json"], "areaforge-release-manifest.json"),
+    checksumLine(assets["areaforge-sbom.spdx.json"], "areaforge-sbom.spdx.json"),
+    checksumLine(assets["areaforge-provenance.json"], "areaforge-provenance.json"),
+    checksumLine(assets["docker-compose.prod.yml"], "docker-compose.prod.yml"),
     "",
   ].join("\n"));
+}
+
+function checksumLine(content: string, name: string): string {
+  return `${createHash("sha256").update(content).digest("hex")}  ${name}`;
 }

@@ -139,9 +139,10 @@ docs/development/release-supply-chain-vX.Y.Z.md
 
 ```bash
 pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md
+pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md /path/to/release-assets
 ```
 
-如果 Release 资产已下载到本地目录，可先用 `pnpm release:supply-chain:record <release-assets-dir>` 生成记录草稿；生成器仍要求显式填写 GitHub workflow run URL、validate job、`pnpm audit:prod`、governance、Actions pinning、checksum 和签名校验结果，不会连接 GitHub 或创建 Release。
+如果 Release 资产已下载到本地目录，可先用 `pnpm release:supply-chain:record <release-assets-dir>` 生成记录草稿；生成器会核对 `SHA256SUMS` 与 manifest/SBOM/provenance/compose 实物 hash 是否一致，仍要求显式填写 GitHub workflow run URL、validate job、`pnpm audit:prod`、governance、Actions pinning、checksum 和签名校验结果，不会连接 GitHub 或创建 Release。带第二参数运行 `pnpm release:supply-chain:validate <record> <release-assets-dir>` 时，会再次交叉校验记录里的 asset/hash 与本地 Release assets。
 
 如果只是用 GitHub CI 运行复核 `AF-RISK-SC-002`，使用 `docs/development/ci-supply-chain-record-template.md` 和 `pnpm ci:supply-chain:validate <record>`；CI-only 记录必须证明 `expectedGitCommit` 和 GitHub run 的 `gitCommit` 一致，不包含 Release SBOM/provenance、checksum 或 signature，因此不能关闭 `AF-RISK-SC-001`。记录保存到本地后可运行 `pnpm sc:sc-002:preflight`，它只读取 `AREAFORGE_SC002_CI_RECORD` / `AREAFORGE_SC002_RELEASE_RECORD` 指向的 redacted 记录，不连接 GitHub、不创建 Release、不推 tag。
 

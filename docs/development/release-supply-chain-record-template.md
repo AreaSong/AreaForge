@@ -12,6 +12,7 @@
 
 ```bash
 pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md
+pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md /path/to/release-assets
 ```
 
 如果已下载 GitHub Release 资产目录，可先生成 redacted 记录草稿：
@@ -29,10 +30,11 @@ AREAFORGE_SIGNATURE_VERIFICATION=pass \
 AREAFORGE_UNSIGNED_PLACEHOLDER_PRESENT=no \
 pnpm release:supply-chain:record /path/to/release-assets > /path/to/release-supply-chain-record.txt
 AREAFORGE_SC002_RELEASE_RECORD=/path/to/release-supply-chain-record.txt pnpm sc:sc-002:preflight
-pnpm release:supply-chain:validate /path/to/release-supply-chain-record.txt
+pnpm release:supply-chain:validate /path/to/release-supply-chain-record.txt /path/to/release-assets
 ```
 
-记录生成器只读取本地 Release 资产目录和上述显式 CI/Release 状态字段；它不连接 GitHub、不创建 Release、不下载资产、不执行 Docker、不备份、不恢复、不运行 migration、不更新生产。缺少 CI run URL、`pnpm audit:prod`、Actions pinning、checksum 或签名校验等字段时，生成器会失败，而不是生成可误用的关闭记录。
+记录生成器只读取本地 Release 资产目录和上述显式 CI/Release 状态字段，并核对 `SHA256SUMS` 与 manifest/SBOM/provenance/compose 实物 hash 是否一致；它不连接 GitHub、不创建 Release、不下载资产、不执行 Docker、不备份、不恢复、不运行 migration、不更新生产。缺少 CI run URL、`pnpm audit:prod`、Actions pinning、checksum 或签名校验等字段时，生成器会失败，而不是生成可误用的关闭记录。
+带第二参数运行 validator 时，它会再次交叉检查记录里的 manifest/SBOM/provenance/compose hash、`SHA256SUMS` 和本地 Release assets 是否一致。
 `pnpm sc:sc-002:preflight` 只校验已经保存到本地的 redacted 供应链记录；签名 Release 记录通过时返回 `ready_for_sc001_sc002_review`，仍需维护者人工更新 residual 台账。
 
 ## 模板
@@ -85,6 +87,7 @@ safetyFacts:
 - validate job、`pnpm audit:prod`、`pnpm governance:preflight`、Actions SHA pinning 和 Release workflow 均必须为 `pass`。
 - Release assets 必须包含 manifest、SBOM、provenance、`SHA256SUMS`、`SHA256SUMS.sig` 和 `docker-compose.prod.yml`。
 - `SHA256SUMS` 必须覆盖 manifest、SBOM、provenance 和 compose。
+- 使用本地资产目录生成或校验记录时，记录中的 hash、`SHA256SUMS` 和实物文件内容必须三方一致。
 - checksum 和签名校验必须为 `pass`，且 stable release 不允许 unsigned placeholder。
 - Web 和 migration image 必须使用不可变 `image@sha256` digest。
 - 记录必须包含 `AF-RISK-SC-001` 和 `AF-RISK-SC-002`，直到对应台账在证据复核后关闭。

@@ -6,6 +6,12 @@ type SkillMeta = {
   description?: string;
 };
 
+type OpenAiMeta = {
+  displayName?: string;
+  shortDescription?: string;
+  defaultPrompt?: string;
+};
+
 const root = process.cwd();
 const skillsRoot = path.join(root, ".codex", "skills-src");
 const agentSkillsRoot = path.join(root, ".agents", "skills");
@@ -30,6 +36,26 @@ const requiredSkills = [
   "areaforge-ai-governance",
   "areaforge-validation-driver",
 ];
+
+const requiredOpenAiPromptTerms: Record<string, string[]> = {
+  "areaforge-ai-governance": ["ai", "privacy", "cost", "fallback"],
+  "areaforge-doc-sync": ["docs", "tasks", "workflow", "ops"],
+  "areaforge-enterprise-governance": ["ci", "release", "dependency", "repository"],
+  "areaforge-file-storage-safety": ["upload", "attachment", "backup"],
+  "areaforge-git-checkpoint": ["git", "checkpoint", "release"],
+  "areaforge-incident-response": ["incident", "evidence"],
+  "areaforge-observability": ["signals", "evidence"],
+  "areaforge-operating-loop": ["classify", "owner", "evidence"],
+  "areaforge-product-experience": ["user", "journeys", "product"],
+  "areaforge-public-maintenance": ["public", "support", "contributor"],
+  "areaforge-qa-smoke": ["user", "journey", "smoke"],
+  "areaforge-release-operator": ["signed", "release", "updater", "evidence"],
+  "areaforge-residual-ledger": ["blockers", "exceptions", "residual"],
+  "areaforge-security-governance": ["security", "privacy", "supply-chain"],
+  "areaforge-sre-ops": ["production", "backups", "updater", "rollback"],
+  "areaforge-supply-chain": ["release", "digests", "signatures", "dependencies", "updater"],
+  "areaforge-validation-driver": ["validation", "gates"],
+};
 
 function fail(message: string): never {
   console.error(`FAIL ${message}`);
@@ -75,6 +101,21 @@ function referencedReferenceFiles(markdown: string): string[] {
     refs.add(match[1]);
   }
   return [...refs];
+}
+
+function parseOpenAiYaml(yaml: string): OpenAiMeta {
+  return {
+    displayName: parseYamlScalar(yaml, "display_name"),
+    shortDescription: parseYamlScalar(yaml, "short_description"),
+    defaultPrompt: parseYamlScalar(yaml, "default_prompt"),
+  };
+}
+
+function parseYamlScalar(yaml: string, key: string): string | undefined {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = yaml.match(new RegExp(`^\\s*${escapedKey}:\\s*(.*)$`, "m"));
+  if (!match) return undefined;
+  return match[1]?.trim().replace(/^"|"$/g, "").replace(/^'|'$/g, "");
 }
 
 if (!fs.existsSync(skillsRoot)) {
@@ -125,6 +166,22 @@ for (const skill of requiredSkills) {
   for (const token of ["interface:", "display_name:", "short_description:", "default_prompt:"]) {
     if (!openaiYaml.includes(token)) {
       fail(`${skill} openai.yaml missing ${token}`);
+    }
+  }
+  const openAiMeta = parseOpenAiYaml(openaiYaml);
+  if (!openAiMeta.displayName?.startsWith("AreaForge ")) {
+    fail(`${skill} openai.yaml display_name must start with AreaForge`);
+  }
+  if (!openAiMeta.shortDescription || openAiMeta.shortDescription.length < 20 || openAiMeta.shortDescription.includes("TODO")) {
+    fail(`${skill} openai.yaml short_description is incomplete`);
+  }
+  if (!openAiMeta.defaultPrompt?.startsWith(`Use $${skill} to `)) {
+    fail(`${skill} openai.yaml default_prompt must start with "Use $${skill} to"`);
+  }
+  const promptCorpus = `${openAiMeta.shortDescription} ${openAiMeta.defaultPrompt}`.toLowerCase();
+  for (const term of requiredOpenAiPromptTerms[skill] ?? []) {
+    if (!promptCorpus.includes(term.toLowerCase())) {
+      fail(`${skill} openai.yaml metadata missing trigger term "${term}"`);
     }
   }
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -162,7 +163,12 @@ function assetSha256(name: string): string {
   if (!sum) {
     throw new Error(`SHA256SUMS does not cover ${name}`);
   }
-  return sum.split(/\s+/)[0] ?? "";
+  const expected = sum.split(/\s+/)[0] ?? "";
+  const actual = createHash("sha256").update(readAssetBuffer(name)).digest("hex");
+  if (expected.toLowerCase() !== actual.toLowerCase()) {
+    throw new Error(`SHA256SUMS hash for ${name} does not match file content`);
+  }
+  return expected;
 }
 
 function readAsset(name: string): string {
@@ -171,6 +177,14 @@ function readAsset(name: string): string {
     throw new Error(`release asset missing: ${filePath}`);
   }
   return readFileSync(filePath, "utf8");
+}
+
+function readAssetBuffer(name: string): Buffer {
+  const filePath = path.join(assetDir, name);
+  if (!existsSync(filePath)) {
+    throw new Error(`release asset missing: ${filePath}`);
+  }
+  return readFileSync(filePath);
 }
 
 function envNameFor(key: string): string {
