@@ -14,6 +14,8 @@
     "check": "pnpm typecheck && pnpm lint && pnpm db:validate && pnpm build",
     "docs:readiness": "tsx scripts/quality/docs-100-readiness.ts",
     "docs:completion": "tsx scripts/quality/docs-100-completion.ts",
+    "completion:evidence:validate": "tsx scripts/quality/completion-evidence-validate.ts",
+    "completion:evidence:selftest": "tsx scripts/quality/completion-evidence-validate.selftest.ts",
     "risk:preflight": "tsx scripts/quality/risk-preflight.ts",
     "package-d:preflight": "tsx scripts/quality/package-d-preflight.ts",
     "package-e:preflight": "tsx scripts/quality/package-e-preflight.ts",

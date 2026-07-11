@@ -52,6 +52,7 @@ pnpm build
 pnpm check
 pnpm docs:readiness
 pnpm docs:completion
+pnpm completion:evidence:validate
 pnpm risk:preflight
 pnpm audit:prod
 pnpm github-release-updater:preflight

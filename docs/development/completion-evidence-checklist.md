@@ -6,6 +6,16 @@
 
 它不是新流程系统，不创建任务队列，不替代 `docs/development/validation-matrix.md`、`docs/development/residual-risk-ledger.md` 或 Release runbook。它只要求每次完成声明带上新鲜证据和未验证边界。
 
+## 校验入口
+
+完成声明记录可保存为 Markdown 或纯文本，然后运行：
+
+```bash
+pnpm completion:evidence:validate <completion-evidence-record.md|txt>
+```
+
+该校验只检查记录形态、证据等级、source baseline、新鲜验证、未验证边界、阻断项、Release 需求、R0-R4 写边界、residual 和 safety facts。它不替代真实运行、浏览器、Release、生产 smoke、`pnpm ops:long-term:gate` 或人工复核。
+
 ## 完成声明字段
 
 每次声明完成前，至少检查并在汇报中能说清：
@@ -30,7 +40,19 @@ blockers:
   ciRelease:
   gitCheckpoint:
 residualRiskIds:
+releaseRequired: yes/no/not-applicable
+highestRuntimeWriteBoundary: R0/R1/R2/R3/R4
+highRiskConfirmation: yes/no/not-applicable
 result: PASS/FAIL/BLOCKED/NOT-READY
+safetyFacts:
+  productionTouched: yes/no
+  productionWriteAttempted: yes/no
+  serverCommandAttempted: yes/no
+  backupRestoreAttempted: yes/no
+  migrationAttempted: yes/no
+  updaterApplyAttempted: yes/no
+  releaseCreated: yes/no
+  secretValuePrinted: no
 ```
 
 ## 证据等级
@@ -64,6 +86,7 @@ result: PASS/FAIL/BLOCKED/NOT-READY
 - Release-bound 改动未说明是否需要新 GitHub Release。
 - 残余风险缺少 ID、owner、关闭条件或证据。
 - 工作区存在未解释的相关脏改动，或验证失败未归因。
+- 完成声明记录无法通过 `pnpm completion:evidence:validate <record>`，或把该校验误当成真实运行/生产证据。
 
 ## AreaForge 默认 closeout
 
