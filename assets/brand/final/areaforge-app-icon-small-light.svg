@@ -25,7 +25,7 @@
   <path d="M176 154c-63 57-64 145 0 202" fill="none" stroke="url(#teal)" stroke-width="30" stroke-linecap="round"/>
   <path d="M336 154c63 57 64 145 0 202" fill="none" stroke="url(#amber)" stroke-width="30" stroke-linecap="round"/>
   <path d="M176 356c44 31 116 31 160 0" fill="none" stroke="url(#teal)" stroke-width="30" stroke-linecap="round"/>
-  <path d="M155 166c0-17 14-31 31-31h78l46 46v132c0 17-14 31-31 31h-93c-17 0-31-14-31-31V166z" fill="url(#paper)" stroke="#BBDDD5" stroke-width="6"/>
+  <path d="M155 166c0-17 14-31 31-31h78l46 46v132c0 17-14 31-31 31h-93c-17 0-31-14-31-31V166z" fill="url(#paper)"/>
   <path d="M264 135v46h46" fill="#F4FFFB"/>
   <path d="M166 358h180" stroke="#123B3F" stroke-width="34" stroke-linecap="round"/>
   <path d="M256 154v146l80 58" fill="none" stroke="#09272D" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>

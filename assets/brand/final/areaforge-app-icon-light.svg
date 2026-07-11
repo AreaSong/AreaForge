@@ -37,7 +37,7 @@
   <path d="M176 356c44 31 116 31 160 0" fill="none" stroke="url(#teal)" stroke-width="23" stroke-linecap="round"/>
 
   <g filter="url(#softShadow)">
-    <path d="M155 166c0-17 14-31 31-31h78l46 46v132c0 17-14 31-31 31h-93c-17 0-31-14-31-31V166z" fill="url(#paper)" stroke="#BBDDD5" stroke-width="5"/>
+    <path d="M155 166c0-17 14-31 31-31h78l46 46v132c0 17-14 31-31 31h-93c-17 0-31-14-31-31V166z" fill="url(#paper)"/>
     <path d="M264 135v46h46" fill="#F4FFFB"/>
     <path d="M187 189h58M187 229h70M187 269h48" stroke="#70AFA7" stroke-width="17" stroke-linecap="round"/>
     <circle cx="190" cy="306" r="14" fill="#35D7C5"/>

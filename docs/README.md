@@ -52,6 +52,7 @@
 - `ux/focus-timer.md`：专注计时交互。
 - `ux/recovery-mode.md`：恢复模式体验。
 - `ux/dynamic-theme.md`：动态主题。
+- `ux/brand-assets.md`：品牌素材包、深浅色图标、横向 Logo 和接入边界。
 
 ## 决策
 

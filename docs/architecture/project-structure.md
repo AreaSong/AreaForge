@@ -66,6 +66,10 @@ AreaForge/
 
   assets/
     brand/
+      final/
+        app-icon/
+        lockup/
+        mark/
     prototypes/
 ```
 
@@ -95,6 +99,7 @@ AreaForge/
 - `docs/adr/**`：已确认的技术决策。
 - `tasks/**`：轻量任务拆分，不替代产品和架构源事实。
 - `workflow/**`：版本规划，不替代路线图。
+- `assets/brand/final/**`：当前品牌素材包，包含 App icon、Logo mark、横向 Logo、深浅色、单色和 PNG 导出；素材入库不代表 Web runtime、favicon、PWA manifest 或线上版本已经采用。
 
 ## 当前取舍
 

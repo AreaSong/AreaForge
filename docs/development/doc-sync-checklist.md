@@ -20,6 +20,7 @@
 - 新功能是否有 `docs/modules/**` 或 `docs/product/**` 落点。
 - 新 API 是否同步 `docs/architecture/api-surface.md`。
 - 新表或字段是否同步 `docs/architecture/data-model.md`。
+- 品牌素材、Logo、图标或静态资产入口变化是否同步 `docs/architecture/project-structure.md`、`docs/ux/brand-assets.md` 和必要的 README 导航，并避免暗示线上版本、favicon、PWA manifest 或运行时 UI 已采用。
 - 上传、附件、AI、认证、部署变化是否同步安全文档。
 - 上传、附件、`UPLOAD_DIR`、文件对账、备份/恢复或上传目录迁移变化是否同步 `docs/architecture/file-storage.md`、`docs/security/file-ai-safety.md`、`docs/deployment/backup-restore.md` 和 `areaforge-file-storage-safety`。
 - 功能更新若进入线上，是否按 `docs/development/release-record-template.md` 同步 release tag、GitHub Release、GHCR digest、线上 health、update-agent 状态、回滚目标、`pnpm ops:evidence:bundle` 的 `bundleHash`、`pnpm ops:evidence:bundle:validate` 的校验结论、`pnpm ops:alert:preview` 的告警预览结论和残余风险。

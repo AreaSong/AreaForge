@@ -142,7 +142,7 @@ pnpm dev
 |---|---|
 | 产品定位、范围与路线 | [产品 Charter](docs/product/charter.md)、[PRD](docs/product/prd.md)、[功能范围](docs/product/feature-scope.md)、[路线图](docs/product/roadmap.md) |
 | 架构与数据边界 | [架构总览](docs/architecture/overview.md)、[数据模型](docs/architecture/data-model.md)、[API 边界](docs/architecture/api-surface.md) |
-| 模块与页面行为 | [模块文档](docs/modules/)、[UX 文档](docs/ux/) |
+| 模块与页面行为 | [模块文档](docs/modules/)、[UX 文档](docs/ux/)、[品牌素材](docs/ux/brand-assets.md) |
 | 实现与完成证据 | [实现顺序](docs/development/implementation-order.md)、[功能追踪矩阵](docs/development/feature-traceability.md)、[完成记录](docs/development/docs-100-completion-record.md) |
 | 协作与验证 | [Codex 工作流](docs/development/codex-workflow.md)、[文档同步清单](docs/development/doc-sync-checklist.md)、[验证矩阵](docs/development/validation-matrix.md) |
 | 发布与长期运营 | [长期运营控制面](docs/development/long-term-operability-control-plane.md)、[Release train](docs/development/release-train.md)、[运营 readiness](docs/development/operational-readiness.md)、[维护节奏](docs/development/maintenance-cadence.md)、[残余风险台账](docs/development/residual-risk-ledger.md)、[体验复核模板](docs/development/product-experience-review-record-template.md) |
