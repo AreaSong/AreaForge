@@ -1,7 +1,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildOperabilityStatusProjection } from "../ops/operability-status";
+import {
+  buildOperabilityStatusProjection,
+  buildOperabilityStatusSummary,
+  formatOperabilityStatusSummary,
+} from "../ops/operability-status";
 
 const requiredFiles = [
   "README.md",
@@ -121,6 +125,16 @@ function main(): void {
     assert(projection.commands.release.includes("pnpm sc:sc-002:preflight"), "release commands should include SC-002 supply-chain preflight");
     assert(projection.commands.release.includes("pnpm ops:long-term:gate"), "release commands should include long-term live evidence gate");
     assert(projection.nextActions.some((action) => action.residualRiskId === "AF-RISK-OPS-001"), "next actions should include executable residual");
+    const summary = buildOperabilityStatusSummary(projection);
+    const formattedSummary = formatOperabilityStatusSummary(summary);
+    assert(summary.title === "AreaForge operability status", "summary should have a stable title");
+    assert(summary.offlineOverall === "needs_live_evidence", "summary should preserve overall status");
+    assert(summary.currentBlockers.length === 0, "summary should not invent current blockers");
+    assert(summary.dueResiduals.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include due residual IDs");
+    assert(summary.nextEvidenceCommands.includes("pnpm ops:handoff"), "summary should include next evidence commands");
+    assert(summary.cannotClaim.includes("current production health"), "summary should include non-proof boundary");
+    assert(formattedSummary.includes("AreaForge operability status"), "formatted summary should include title");
+    assert(formattedSummary.includes("safetyFacts: readOnly=true"), "formatted summary should include safety facts");
 
     rmSync(path.join(root, "docs/development/operational-readiness.md"));
     const blockedProjection = buildOperabilityStatusProjection({

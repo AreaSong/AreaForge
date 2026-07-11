@@ -6,6 +6,8 @@
 
 不能运行的验证必须说明原因。没有验证，不宣称完成。
 
+涉及 `pnpm ops:status` 或 `pnpm ops:handoff` 输出格式时，默认 JSON 和 `--summary` 人读摘要都要运行；JSON 是机器接口，摘要只用于维护窗口快速阅读，不能替代 validator、live evidence 或长期运营 gate。
+
 ## 路径到验证
 
 | 改动范围 | 最小验证 |

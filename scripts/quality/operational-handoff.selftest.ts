@@ -1,7 +1,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildOperationalHandoff } from "../ops/operational-handoff";
+import {
+  buildOperationalHandoff,
+  buildOperationalHandoffSummary,
+  formatOperationalHandoffSummary,
+} from "../ops/operational-handoff";
 
 const requiredFiles = [
   "README.md",
@@ -110,6 +114,16 @@ function main(): void {
     assert(handoff.safetyFacts.readOnly === true, "handoff should be read-only");
     assert(handoff.safetyFacts.networkRequested === false, "handoff should not request network");
     assert(handoff.safetyFacts.handoffWritten === false, "handoff should not write files");
+    const summary = buildOperationalHandoffSummary(handoff);
+    const formattedSummary = formatOperationalHandoffSummary(summary);
+    assert(summary.title === "AreaForge operational handoff", "summary should have a stable title");
+    assert(summary.immediateFocus.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include immediate focus");
+    assert(summary.dueOrSoonFocus.some((item) => item.includes("AF-RISK-SC-002")), "summary should include due release residual");
+    assert(summary.nextHandoffCommands.includes("pnpm ops:status"), "summary should include handoff commands");
+    assert(summary.nextLiveEvidenceCommands.includes("pnpm ops:ops-001:preflight"), "summary should include live evidence commands");
+    assert(summary.cannotClaim.some((claim) => claim.includes("current production health")), "summary should preserve claim boundary");
+    assert(formattedSummary.includes("AreaForge operational handoff"), "formatted summary should include title");
+    assert(formattedSummary.includes("safetyFacts: readOnly=true"), "formatted summary should include safety facts");
 
     rmSync(path.join(root, "scripts/ops/operational-handoff.ts"));
     const blocked = buildOperationalHandoff({

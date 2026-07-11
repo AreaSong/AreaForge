@@ -32,8 +32,8 @@
 
 ```bash
 pnpm enterprise:operability:preflight
-pnpm ops:handoff
-pnpm ops:status
+pnpm ops:handoff --summary
+pnpm ops:status --summary
 pnpm ops:long-term:gate
 pnpm ops:support:bundle-preview
 pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
@@ -55,8 +55,8 @@ pnpm ops:ops-004:preflight
 建议项：
 
 - `pnpm maintenance:cadence:preflight`
-- `pnpm ops:handoff`
-- `pnpm ops:status`
+- `pnpm ops:handoff --summary`
+- `pnpm ops:status --summary`
 - `pnpm enterprise:operability:preflight`
 - `pnpm support:intake:preflight`
 - `pnpm ops:support:bundle-preview:selftest`
@@ -78,7 +78,7 @@ pnpm ops:ops-004:preflight
 - 公开 issue 和贡献者 PR 是否已按 `areaforge-public-maintenance` 路由到 support、security、SRE、release、supply-chain、AI、UX 或 docs owner。
 - Dependabot/依赖更新是否需要进入 dependency policy。
 - `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`。
-- `pnpm ops:handoff` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚。
+- `pnpm ops:handoff --summary` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚；需要机器可校验输出时继续使用不带 `--summary` 的 JSON。
 - `pnpm ops:long-term:gate` 是否仍能明确阻止缺 OPS-001、OPS-004、签名 Release 供应链或新鲜 UX 证据的长期运营完成声明；当前仓库内 2026-07-11 OPS-004 manual-window 证据会作为默认 OPS-004 输入，该命令失败时不代表服务宕机，只代表证据不够。
 - `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录；OPS-001 需要生产只读 smoke、update-agent status、evidence bundle 和 `pnpm ops:ops-001:closure:validate` 通过后再人工复核关闭；SC-002 先跑 `pnpm sc:sc-002:preflight`，再用 CI-only `pnpm ci:supply-chain:validate` 或签名 Release `pnpm release:supply-chain:validate` 复核。
 - 生成 OPS-001 收口包前先运行 `pnpm ops:ops-001:preflight`；它只读本地 redacted 证据文件并返回 `needs_evidence`、`ready_to_generate_packet`、`ready_for_human_close` 或 `invalid`，不执行生产 smoke、不生成收口包、不改 residual 台账。

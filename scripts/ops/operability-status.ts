@@ -112,6 +112,24 @@ export type OperabilityStatusProjection = {
   doesNotProve: string[];
 };
 
+export type OperabilityStatusSummary = {
+  title: "AreaForge operability status";
+  app: string;
+  offlineOverall: OverallStatus;
+  controlPlane: OperabilityStatusProjection["status"]["controlPlane"];
+  releaseTrain: OperabilityStatusProjection["status"]["releaseTrain"];
+  productionHealthClaim: OperabilityStatusProjection["status"]["productionHealthClaim"];
+  currentBlockers: string[];
+  dueResiduals: string[];
+  releaseRelevantResiduals: string[];
+  nextEvidenceCommands: string[];
+  cannotClaim: string[];
+  safetyFacts: Pick<
+    OperabilityStatusProjection["safetyFacts"],
+    "readOnly" | "networkRequested" | "serverCommandAttempted" | "productionWriteAttempted" | "secretValuePrinted"
+  >;
+};
+
 type BuildOptions = {
   root?: string;
   asOf?: string;
@@ -256,6 +274,52 @@ export function buildOperabilityStatusProjection(options: BuildOptions = {}): Op
   };
 }
 
+export function buildOperabilityStatusSummary(projection: OperabilityStatusProjection): OperabilityStatusSummary {
+  return {
+    title: "AreaForge operability status",
+    app: `${projection.app.name} ${projection.app.version} (${projection.app.releaseTag})`,
+    offlineOverall: projection.status.overall,
+    controlPlane: projection.status.controlPlane,
+    releaseTrain: projection.status.releaseTrain,
+    productionHealthClaim: projection.status.productionHealthClaim,
+    currentBlockers: projection.residuals.executableNowItems
+      .filter((item) => item.type === "current-blocker")
+      .map((item) => `${item.id} reviewAt=${item.reviewAt} owners=${item.ownerSkills.join(",")}`),
+    dueResiduals: projection.residuals.dueItems
+      .map((item) => `${item.id} ${item.reviewStatus} reviewAt=${item.reviewAt} owners=${item.ownerSkills.join(",")}`),
+    releaseRelevantResiduals: projection.residuals.releaseRelevantIds,
+    nextEvidenceCommands: uniqueStrings([
+      ...projection.commands.daily.slice(0, 4),
+      ...projection.commands.release.slice(0, 4),
+    ]),
+    cannotClaim: projection.doesNotProve,
+    safetyFacts: {
+      readOnly: projection.safetyFacts.readOnly,
+      networkRequested: projection.safetyFacts.networkRequested,
+      serverCommandAttempted: projection.safetyFacts.serverCommandAttempted,
+      productionWriteAttempted: projection.safetyFacts.productionWriteAttempted,
+      secretValuePrinted: projection.safetyFacts.secretValuePrinted,
+    },
+  };
+}
+
+export function formatOperabilityStatusSummary(summary: OperabilityStatusSummary): string {
+  return [
+    summary.title,
+    `app: ${summary.app}`,
+    `offlineOverall: ${summary.offlineOverall}`,
+    `controlPlane: ${summary.controlPlane}`,
+    `releaseTrain: ${summary.releaseTrain}`,
+    `productionHealthClaim: ${summary.productionHealthClaim}`,
+    listBlock("currentBlockers", summary.currentBlockers),
+    listBlock("dueResiduals", summary.dueResiduals),
+    listBlock("releaseRelevantResiduals", summary.releaseRelevantResiduals),
+    listBlock("nextEvidenceCommands", summary.nextEvidenceCommands),
+    listBlock("cannotClaim", summary.cannotClaim),
+    `safetyFacts: readOnly=${summary.safetyFacts.readOnly} networkRequested=${summary.safetyFacts.networkRequested} serverCommandAttempted=${summary.safetyFacts.serverCommandAttempted} productionWriteAttempted=${summary.safetyFacts.productionWriteAttempted} secretValuePrinted=${summary.safetyFacts.secretValuePrinted}`,
+  ].join("\n");
+}
+
 function collectProjectionFacts(options: BuildOptions): ProjectionFacts {
   const root = options.root ?? process.cwd();
   const asOf = options.asOf ?? todayUtcDate();
@@ -294,6 +358,15 @@ function buildAppStatus(packageJson: ProjectionFacts["packageJson"]): Operabilit
     releaseTag: versionTag(packageJson.version ?? "unknown"),
     autoApplyDefault: "none",
   };
+}
+
+function listBlock(label: string, values: string[]): string {
+  if (values.length === 0) return `${label}: none`;
+  return [`${label}:`, ...values.map((value) => `- ${value}`)].join("\n");
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 function buildSourceBaseline(): OperabilityStatusProjection["sourceBaseline"] {
@@ -571,7 +644,11 @@ if (isMain()) {
     const projection = buildOperabilityStatusProjection({
       asOf: process.env.AREAFORGE_OPERABILITY_STATUS_AS_OF,
     });
-    console.log(JSON.stringify(projection, null, 2));
+    if (process.argv.includes("--summary")) {
+      console.log(formatOperabilityStatusSummary(buildOperabilityStatusSummary(projection)));
+    } else {
+      console.log(JSON.stringify(projection, null, 2));
+    }
     if (shouldFail(projection.status.overall, process.env.AREAFORGE_OPERABILITY_STATUS_FAIL_ON)) {
       process.exit(1);
     }

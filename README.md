@@ -127,7 +127,7 @@ pnpm dev
 | 常规代码改动 | `pnpm check`；需要全包测试时补 `pnpm test` |
 | 文档、治理、高风险边界 | `pnpm docs:readiness`、`pnpm docs:completion`、`pnpm risk:preflight`、`pnpm governance:preflight` |
 | 发布或更新准备 | `pnpm release:train:preflight`、`pnpm github-release-updater:preflight`，按 [Release train](docs/development/release-train.md) 固定版本、资产、回滚和停止条件 |
-| 日常只读运营 | `pnpm ops:handoff`、`pnpm ops:status`、`pnpm ops:readiness`、`pnpm residuals:review-due` |
+| 日常只读运营 | `pnpm ops:handoff --summary`、`pnpm ops:status --summary`、`pnpm ops:readiness`、`pnpm residuals:review-due` |
 | 维护与证据收口 | `pnpm maintenance:window:record`、`pnpm ops:evidence:bundle`、`pnpm ops:alert:preview`、`pnpm ops:support:bundle-preview` |
 | 长期运营控制面 | `pnpm enterprise:operability:preflight`、`pnpm update-agent:status:record <status.json>`、`pnpm ops:ops-001:preflight`、`pnpm ops:ops-001:blocked:validate <record>`、`pnpm ops:ops-001:closure <smoke> <status> <bundle>`、`pnpm ops:ops-004:preflight` |
 | 供应链与体验复核 | `pnpm release:supply-chain:validate <record>`、`pnpm ci:supply-chain:record`、`pnpm sc:sc-002:preflight`、`pnpm experience:review:validate <record>` |

@@ -42,6 +42,25 @@ export type OperationalHandoff = {
   };
 };
 
+export type OperationalHandoffSummary = {
+  title: "AreaForge operational handoff";
+  app: string;
+  offlineOverall: OperationalHandoff["status"]["offlineOverall"];
+  controlPlane: OperationalHandoff["status"]["controlPlane"];
+  releaseTrain: OperationalHandoff["status"]["releaseTrain"];
+  immediateFocus: string[];
+  dueOrSoonFocus: string[];
+  releaseRelevantResiduals: string[];
+  nextHandoffCommands: string[];
+  nextLiveEvidenceCommands: string[];
+  cannotClaim: string[];
+  highRiskBoundaries: string[];
+  safetyFacts: Pick<
+    OperationalHandoff["safetyFacts"],
+    "readOnly" | "networkRequested" | "serverCommandAttempted" | "productionWriteAttempted" | "secretValuePrinted" | "handoffWritten"
+  >;
+};
+
 type FocusItem = {
   residualRiskId: string;
   kind: FocusKind;
@@ -112,12 +131,68 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
   };
 }
 
+export function buildOperationalHandoffSummary(handoff: OperationalHandoff): OperationalHandoffSummary {
+  return {
+    title: "AreaForge operational handoff",
+    app: `${handoff.app.name} ${handoff.app.version} (${handoff.app.releaseTag})`,
+    offlineOverall: handoff.status.offlineOverall,
+    controlPlane: handoff.status.controlPlane,
+    releaseTrain: handoff.status.releaseTrain,
+    immediateFocus: handoff.evidenceFocus.immediate.map(toSummaryFocus),
+    dueOrSoonFocus: handoff.evidenceFocus.dueOrSoon.map(toSummaryFocus),
+    releaseRelevantResiduals: handoff.evidenceFocus.releaseRelevantIds,
+    nextHandoffCommands: uniqueStrings(handoff.nextCommands.handoff),
+    nextLiveEvidenceCommands: uniqueStrings(handoff.nextCommands.liveEvidence.slice(0, 6)),
+    cannotClaim: handoff.claimBoundary.cannotClaim,
+    highRiskBoundaries: handoff.highRiskBoundaries,
+    safetyFacts: {
+      readOnly: handoff.safetyFacts.readOnly,
+      networkRequested: handoff.safetyFacts.networkRequested,
+      serverCommandAttempted: handoff.safetyFacts.serverCommandAttempted,
+      productionWriteAttempted: handoff.safetyFacts.productionWriteAttempted,
+      secretValuePrinted: handoff.safetyFacts.secretValuePrinted,
+      handoffWritten: handoff.safetyFacts.handoffWritten,
+    },
+  };
+}
+
+export function formatOperationalHandoffSummary(summary: OperationalHandoffSummary): string {
+  return [
+    summary.title,
+    `app: ${summary.app}`,
+    `offlineOverall: ${summary.offlineOverall}`,
+    `controlPlane: ${summary.controlPlane}`,
+    `releaseTrain: ${summary.releaseTrain}`,
+    listBlock("immediateFocus", summary.immediateFocus),
+    listBlock("dueOrSoonFocus", summary.dueOrSoonFocus),
+    listBlock("releaseRelevantResiduals", summary.releaseRelevantResiduals),
+    listBlock("nextHandoffCommands", summary.nextHandoffCommands),
+    listBlock("nextLiveEvidenceCommands", summary.nextLiveEvidenceCommands),
+    listBlock("cannotClaim", summary.cannotClaim),
+    listBlock("highRiskBoundaries", summary.highRiskBoundaries),
+    `safetyFacts: readOnly=${summary.safetyFacts.readOnly} networkRequested=${summary.safetyFacts.networkRequested} serverCommandAttempted=${summary.safetyFacts.serverCommandAttempted} productionWriteAttempted=${summary.safetyFacts.productionWriteAttempted} secretValuePrinted=${summary.safetyFacts.secretValuePrinted} handoffWritten=${summary.safetyFacts.handoffWritten}`,
+  ].join("\n");
+}
+
 function buildDoesNotProve(projection: OperabilityStatusProjection): string[] {
   return [
     ...projection.doesNotProve,
     "production update request completion",
     "operator approval for high-risk actions",
   ];
+}
+
+function toSummaryFocus(item: FocusItem): string {
+  return `${item.residualRiskId} kind=${item.kind} owners=${item.ownerSkills.join(",")}`;
+}
+
+function listBlock(label: string, values: string[]): string {
+  if (values.length === 0) return `${label}: none`;
+  return [`${label}:`, ...values.map((value) => `- ${value}`)].join("\n");
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 function toFocusItem(input: {
@@ -216,7 +291,11 @@ if (isMain()) {
     const handoff = buildOperationalHandoff({
       asOf: process.env.AREAFORGE_OPERABILITY_STATUS_AS_OF,
     });
-    console.log(JSON.stringify(handoff, null, 2));
+    if (process.argv.includes("--summary")) {
+      console.log(formatOperationalHandoffSummary(buildOperationalHandoffSummary(handoff)));
+    } else {
+      console.log(JSON.stringify(handoff, null, 2));
+    }
     if (shouldFail(handoff.status.offlineOverall, process.env.AREAFORGE_OPERABILITY_HANDOFF_FAIL_ON)) {
       process.exit(1);
     }
