@@ -47,6 +47,7 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 
 1. Classify the work as Quick, Change, Mission-Critical, Review, Ops, Release, Incident, or Product Experience.
 2. Load the loop map and the owner skill for the highest-risk surface. Use more skills only when the work crosses their ownership boundary.
+   Until a dedicated data-governance owner exists, classify data export, retention, deletion rights, user migration, privacy lifecycle, AI history retention, token/cost ledgers, and provider traces as Mission-Critical security/privacy work led by `areaforge-security-governance`, with file, AI, SRE, residual, and doc-sync handoff as needed.
 3. Identify source facts before edits: docs, tasks, workflow, ops records, code, release evidence, or production read-only evidence.
 4. If high-risk boundaries are touched, stop for an explicit confirmation packet before write actions.
 5. Execute the smallest aligned implementation that moves the requested final state forward.
@@ -62,6 +63,7 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 
 - Do not make this skill a product source of truth.
 - Do not skip owner skills when a request touches release, production, security, AI, uploads, attachments, file storage, migrations, or user experience.
+- Do not route data lifecycle work as docs-only or ordinary feature work; require explicit scope, validation owner, rollback or revocation path, and residual-risk close condition.
 - Do not execute production deploy, updater apply, backup, restore, migration, rollback, or server commands from this skill.
 - Do not claim enterprise readiness without CI/release gates, ops readiness evidence, residual risk IDs, and validation output.
 - Do not copy AreaMatrix or AreaFlow platform mechanics unless AreaForge has a direct operational need.

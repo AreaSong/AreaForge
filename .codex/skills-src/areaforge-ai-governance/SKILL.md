@@ -27,8 +27,9 @@ Keep AI helpful, explicit, bounded, auditable, and cheap enough to survive produ
 2. Confirm whether the path is local fallback, explicit provider call, or forbidden automatic call.
 3. Inspect the outbound context fields before editing prompts or schemas.
 4. Keep output schema-validated and fallback-safe.
-5. Treat AI history, token/cost ledger retention, user export/delete, or provider data-sharing policy changes as high-risk privacy lifecycle work until a dedicated data-governance owner exists.
-6. Verify disabled mode, provider failure, invalid schema, rate limiting, secret redaction, client bundle key scan, and no prompt/raw response persistence.
+5. Treat AI history, token/cost ledger retention, user export/delete, provider traces, or provider data-sharing policy changes as high-risk privacy lifecycle work until a dedicated data-governance owner exists.
+6. Route AI privacy lifecycle work through `areaforge-security-governance`; use `areaforge-residual-ledger` for accepted retention gaps and `areaforge-doc-sync` when user-visible privacy, export, or deletion facts change.
+7. Verify disabled mode, provider failure, invalid schema, rate limiting, secret redaction, client bundle key scan, and no prompt/raw response persistence.
 
 ## Guardrails
 
@@ -37,4 +38,4 @@ Keep AI helpful, explicit, bounded, auditable, and cheap enough to survive produ
 - Do not save full prompt/raw response unless a new confirmed schema and privacy boundary exists.
 - Do not make AI output automatically overwrite tasks, reports, stage plans, or mastery state.
 - Do not hide provider errors as success; report fallback clearly.
-- Do not retain AI history, token usage, cost details, or provider traces beyond the confirmed schema without explicit retention and deletion rules.
+- Do not retain AI history, token usage, cost details, provider traces, or provider request metadata beyond the confirmed schema without explicit retention, export, and deletion rules.

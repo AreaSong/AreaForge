@@ -1,4 +1,4 @@
 interface:
   display_name: "AreaForge Doc Sync"
   short_description: "Docs tasks workflow ops drift control"
-  default_prompt: "Use $areaforge-doc-sync to keep AreaForge docs, tasks, workflow, and ops records aligned."
+  default_prompt: "Use $areaforge-doc-sync to keep AreaForge docs, tasks, workflow, ops records, skills, and data lifecycle facts aligned."

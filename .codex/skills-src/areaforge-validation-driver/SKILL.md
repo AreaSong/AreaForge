@@ -34,14 +34,16 @@ Choose validation from risk and touched paths, then report evidence honestly.
 1. Start from changed paths and risk boundaries, not a fixed maximal command set.
 2. Load the validation map before selecting commands.
 3. For repo-local skill changes, treat `agents/openai.yaml` metadata drift as part of validation scope, not as cosmetic text.
-4. Run checks after the final relevant edit.
-5. If a command fails, classify whether the failure is caused by the change, environment, stale generated files, or an unrelated dirty worktree.
-6. Report commands, result, evidence class, scope covered, skipped checks, blockers, release requirement, and residual unverified risk.
+4. For data lifecycle work, combine security, file-storage, AI, backup/restore, residual, and docs checks as applicable; do not let docs readiness or typecheck alone prove privacy, export, deletion, retention, or migration safety.
+5. Run checks after the final relevant edit.
+6. If a command fails, classify whether the failure is caused by the change, environment, stale generated files, or an unrelated dirty worktree.
+7. Report commands, result, evidence class, scope covered, skipped checks, blockers, release requirement, and residual unverified risk.
 
 ## Guardrails
 
 - Do not claim completion without executed validation or an explicit blocked reason.
 - Do not use `pnpm check` alone to prove release, production, AI privacy, upload safety, or UX.
 - Do not use docs gates to prove runtime behavior.
+- Do not use docs gates or static checks alone to prove data lifecycle safety when real export, deletion, retention, migration, provider trace, or backup behavior changed.
 - Do not report PASS when `git diff --check` fails.
 - Do not widen validation by habit; widen because the risk or path requires it.

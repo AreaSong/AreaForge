@@ -1,4 +1,4 @@
 interface:
   display_name: "AreaForge Residual Ledger"
-  short_description: "Track blockers exceptions and closure evidence"
-  default_prompt: "Use $areaforge-residual-ledger to classify AreaForge blockers, accepted exceptions, residual risks, and closure evidence."
+  short_description: "Track residual risks and closure evidence"
+  default_prompt: "Use $areaforge-residual-ledger to classify AreaForge blockers, data lifecycle candidates, accepted exceptions, residual risks, and closure evidence."

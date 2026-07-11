@@ -1,4 +1,4 @@
 interface:
   display_name: "AreaForge File Storage Safety"
-  short_description: "Upload, attachment, and backup safety gates"
-  default_prompt: "Use $areaforge-file-storage-safety to review AreaForge upload, attachment, and file backup safety boundaries."
+  short_description: "Upload attachment lifecycle and backup gates"
+  default_prompt: "Use $areaforge-file-storage-safety to review AreaForge upload, attachment, file lifecycle, and backup safety boundaries."

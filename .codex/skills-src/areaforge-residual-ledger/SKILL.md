@@ -38,8 +38,9 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 4. For maintenance windows or status questions, run `pnpm residuals:review-due` to list overdue, due-today, and due-soon `reviewAt` items before changing the ledger.
 5. If an item is executable and in current scope, promote it through tasks or workflow instead of leaving it only as residual text.
 6. If an item is accepted or deferred, keep the rationale and revisit trigger explicit.
-7. Sync docs after status changes and run the validation selected by the validation driver.
-8. For broad "what is left" questions, separate current blockers/executable items from indexed but non-current items such as accepted exceptions, deferred work, historical references, and closed evidence.
+7. For data export, retention, deletion rights, user migration, privacy lifecycle, AI history, token/cost ledger, or provider trace gaps, use existing security/file/AI/SRE owner skills first; introduce `AF-RISK-DATA-*` only when data lifecycle becomes a stable residual family rather than a one-off cross-owner issue.
+8. Sync docs after status changes and run the validation selected by the validation driver.
+9. For broad "what is left" questions, separate current blockers/executable items from indexed but non-current items such as accepted exceptions, deferred work, historical references, and closed evidence.
 
 ## Guardrails
 
@@ -48,3 +49,4 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 - Do not convert historical references, templates, or accepted exceptions into urgent tasks unless the source fact changed.
 - Do not hide residual risk from release, incident, or completion summaries.
 - Do not rewrite historical records just to centralize a residual ledger.
+- Do not create a new residual ID family only to make a current task look organized; require stable owner boundary, close condition, and review cadence.

@@ -33,8 +33,9 @@ Keep AreaForge source facts aligned across product docs, engineering docs, task 
 3. Sync entry points first: `README.md`, `AGENTS.md`, `docs/README.md`, `tasks/README.md`, `workflow/README.md`, and relevant ops README. Include `apps/web/README.md` and `apps/web/AGENTS.md` when Web runtime, version center, release, or deployment facts change.
 4. Sync module and development docs next: API, data model, validation matrix, feature traceability, completion records, completion evidence checklist, runtime write boundary, runbooks, residual risk, and task ledgers.
 5. Scan for stale wording that implies completed Package A-E work is still pending.
-6. When `.codex/skills-src/**` changes, sync the matching `agents/openai.yaml` trigger wording before validation.
-7. Run `pnpm docs:readiness`, `pnpm docs:completion`, `pnpm risk:preflight`, and `git diff --check` after final doc edits. If `.codex/skills-src/**` or `.agents/skills/**` changed, also run `pnpm skills:validate`.
+6. For data lifecycle changes, sync security, file storage, AI, backup/restore, residual, release, and user-facing docs together; docs gates alone do not prove privacy, export, deletion, retention, or migration safety.
+7. When `.codex/skills-src/**` changes, sync the matching `agents/openai.yaml` trigger wording before validation.
+8. Run `pnpm docs:readiness`, `pnpm docs:completion`, `pnpm risk:preflight`, and `git diff --check` after final doc edits. If `.codex/skills-src/**` or `.agents/skills/**` changed, also run `pnpm skills:validate`.
 
 ## Guardrails
 

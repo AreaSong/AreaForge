@@ -32,7 +32,8 @@ Review security as a system: data boundary, command boundary, dependency boundar
 3. Apply the security gates before editing code, docs, or release configuration.
 4. For reviews, lead with findings and file/line references; separate confirmed issues from residual risk.
 5. Treat data export, retention, deletion rights, account/user migration, privacy lifecycle, or default data sharing changes as high-risk until a dedicated data-governance owner exists.
-6. For fixes, verify auth, path traversal, secret exposure, logging, dependency, and rollback implications.
+6. Act as the temporary primary coordinator for data lifecycle work: hand attachment/file body rules to `areaforge-file-storage-safety`, AI history/provider trace rules to `areaforge-ai-governance`, backup/restore or production execution to `areaforge-sre-ops`, and unresolved close conditions to `areaforge-residual-ledger`.
+7. For fixes, verify auth, path traversal, secret exposure, logging, dependency, and rollback implications.
 
 ## Guardrails
 
@@ -41,4 +42,4 @@ Review security as a system: data boundary, command boundary, dependency boundar
 - Do not expose `Attachment.uri`, `storedName`, upload absolute paths, `.env`, database URLs, API keys, or cosign private material.
 - Do not weaken signature verification, hash checks, backup requirements, or rollback evidence.
 - Do not treat a security scan as a substitute for product validation or release evidence.
-- Do not implement data export, retention, deletion, migration, or privacy lifecycle changes without explicit scope, rollback/revocation path, and residual close condition.
+- Do not implement data export, retention, deletion, migration, or privacy lifecycle changes without explicit scope, rollback/revocation path, data-owner evidence, validation owner, and residual close condition.

@@ -34,7 +34,8 @@ Keep file handling boring, private, reversible, and auditable.
 5. Keep reconciliation read-only by default: report differences first, do not repair or delete files unless the confirmed scope says so.
 6. Verify path traversal, symlink escape, public directory exposure, DTO leakage, cache headers, and file/body hash agreement.
 7. Route file export, retention, deletion rights, user migration, and upload lifecycle changes through security governance until a dedicated data-governance owner exists.
-8. Sync architecture, security, deployment, runbook, residual, and task docs when file behavior or evidence requirements change.
+8. For file lifecycle work, record the database row/file body authority, backup/restore impact, revocation or rollback path, and whether residual evidence belongs in `AF-RISK-DATA-*` in the future or an existing OPS/security residual now.
+9. Sync architecture, security, deployment, runbook, residual, and task docs when file behavior or evidence requirements change.
 
 ## Guardrails
 
@@ -44,4 +45,4 @@ Keep file handling boring, private, reversible, and auditable.
 - Do not treat `report_only` reconciliation as cleanup.
 - Do not send attachment content, OCR output, upload paths, or private file metadata to AI by default.
 - Do not claim restore or rollback success unless database state and uploads archive handling are both recorded as restored, skipped, or not applicable.
-- Do not add attachment export, retention, deletion, or user migration behavior without explicit privacy scope and rollback/revocation evidence.
+- Do not add attachment export, retention, deletion, or user migration behavior without explicit privacy scope, owner confirmation, rollback/revocation evidence, and residual-risk handling.
