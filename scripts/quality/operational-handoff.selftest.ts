@@ -119,7 +119,7 @@ function main(): void {
     assert(summary.title === "AreaForge operational handoff", "summary should have a stable title");
     assert(summary.immediateFocus.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include immediate focus");
     assert(summary.dueOrSoonFocus.some((item) => item.includes("AF-RISK-SC-002")), "summary should include due release residual");
-    assert(summary.nextHandoffCommands.includes("pnpm ops:status"), "summary should include handoff commands");
+    assert(summary.nextHandoffCommands.includes("pnpm ops:status --summary"), "summary should include human-readable handoff commands");
     assert(summary.nextLiveEvidenceCommands.includes("pnpm ops:ops-001:preflight"), "summary should include live evidence commands");
     assert(summary.cannotClaim.some((claim) => claim.includes("current production health")), "summary should preserve claim boundary");
     assert(formattedSummary.includes("AreaForge operational handoff"), "formatted summary should include title");

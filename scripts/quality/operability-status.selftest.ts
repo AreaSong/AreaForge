@@ -131,7 +131,7 @@ function main(): void {
     assert(summary.offlineOverall === "needs_live_evidence", "summary should preserve overall status");
     assert(summary.currentBlockers.length === 0, "summary should not invent current blockers");
     assert(summary.dueResiduals.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include due residual IDs");
-    assert(summary.nextEvidenceCommands.includes("pnpm ops:handoff"), "summary should include next evidence commands");
+    assert(summary.nextEvidenceCommands.includes("pnpm ops:handoff --summary"), "summary should include human-readable next evidence commands");
     assert(summary.cannotClaim.includes("current production health"), "summary should include non-proof boundary");
     assert(formattedSummary.includes("AreaForge operability status"), "formatted summary should include title");
     assert(formattedSummary.includes("safetyFacts: readOnly=true"), "formatted summary should include safety facts");

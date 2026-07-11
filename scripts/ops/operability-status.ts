@@ -291,7 +291,7 @@ export function buildOperabilityStatusSummary(projection: OperabilityStatusProje
     nextEvidenceCommands: uniqueStrings([
       ...projection.commands.daily.slice(0, 4),
       ...projection.commands.release.slice(0, 4),
-    ]),
+    ].map(toSummaryCommand)),
     cannotClaim: projection.doesNotProve,
     safetyFacts: {
       readOnly: projection.safetyFacts.readOnly,
@@ -367,6 +367,12 @@ function listBlock(label: string, values: string[]): string {
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function toSummaryCommand(command: string): string {
+  if (command === "pnpm ops:handoff") return "pnpm ops:handoff --summary";
+  if (command === "pnpm ops:status") return "pnpm ops:status --summary";
+  return command;
 }
 
 function buildSourceBaseline(): OperabilityStatusProjection["sourceBaseline"] {
