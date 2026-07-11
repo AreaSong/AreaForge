@@ -75,11 +75,23 @@ jobs:
       - name: Release supply-chain validator selftest
         run: pnpm release:supply-chain:selftest
 
+      - name: Release supply-chain record selftest
+        run: pnpm release:supply-chain:record:selftest
+
       - name: CI supply-chain record selftest
         run: pnpm ci:supply-chain:selftest
 
+      - name: Supply-chain preflight selftest
+        run: pnpm sc:sc-002:preflight:selftest
+
       - name: Shellcheck updater
         run: pnpm shellcheck:updater
+
+      - name: OPS-001 fallback selftest
+        run: pnpm ops:ops-001:fallback:selftest
+
+      - name: OPS-001 fallback finalizer selftest
+        run: pnpm ops:ops-001:fallback:finalize:selftest
 
       - name: Updater preflight
         run: pnpm github-release-updater:preflight

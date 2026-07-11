@@ -63,6 +63,9 @@ async function main(): Promise<void> {
   const recordId = stringOrNull(process.env.AREAFORGE_PROD_READONLY_SMOKE_RECORD_ID) ??
     `prod-readonly-smoke-${compactTimestamp(checkedAt)}`;
   const passwordFromFile = Boolean(process.env.AREAFORGE_SMOKE_PASSWORD_FILE);
+  const smokeCommand = stringOrNull(process.env.AREAFORGE_PROD_READONLY_SMOKE_COMMAND) ??
+    stringOrNull(process.env.AREAFORGE_SMOKE_COMMAND_LABEL) ??
+    "pnpm smoke:prod-readonly";
 
   const record = [
     `recordId: ${recordId}`,
@@ -73,7 +76,7 @@ async function main(): Promise<void> {
     `releaseTag: ${releaseTag}`,
     `webImageDigest: ${webImageDigest}`,
     `migrationImageDigest: ${migrationImageDigest}`,
-    "smokeCommand: pnpm smoke:prod-readonly",
+    `smokeCommand: ${smokeCommand}`,
     `smokeStatus: ${smoke.ok === true ? "pass" : "fail"}`,
     `smokeResultHash: sha256:${sha256(smokeLog)}`,
     `checks: ${checks.join(",")}`,

@@ -47,6 +47,7 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/areaforge-updater.timer",
     "ops/update-agent/areaforge-update-agent.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
+    "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
     "ops/update-agent/areaforge-update-agent.service",
     "ops/update-agent/areaforge-update-agent.timer",
     "ops/github-release-updater/manifest.example.json",
@@ -56,6 +57,7 @@ function checkRequiredFiles(): void {
     "scripts/quality/release-supply-chain-validate.ts",
     "scripts/quality/release-supply-chain-validate.selftest.ts",
     "scripts/ops/production-readonly-smoke.ts",
+    "scripts/quality/ops001-readonly-fallback.selftest.ts",
     "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
     ".github/workflows/ci.yml",
@@ -207,6 +209,7 @@ function checkShellSyntax(): void {
     "ops/github-release-updater/areaforge-updater.sh",
     "ops/update-agent/areaforge-update-agent.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
+    "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
   ];
   const failed = scripts.flatMap((script) => {
     const result = spawnSync("bash", ["-n", script], {
@@ -388,6 +391,8 @@ function checkReleaseWorkflow(): void {
     "areaforge-provenance.json",
     "pnpm release:supply-chain:selftest",
     "pnpm ci:supply-chain:selftest",
+    "pnpm ops:ops-001:fallback:selftest",
+    "pnpm ops:ops-001:fallback:finalize:selftest",
     "sha256sum",
     "COSIGN_PRIVATE_KEY_B64",
     "cosign sign-blob",
@@ -422,6 +427,8 @@ function checkCiWorkflow(): void {
     "pnpm audit:prod",
     "pnpm ci:supply-chain:selftest",
     "pnpm shellcheck:updater",
+    "pnpm ops:ops-001:fallback:selftest",
+    "pnpm ops:ops-001:fallback:finalize:selftest",
     "pnpm github-release-updater:preflight",
     "pnpm governance:preflight",
     "pnpm package-e:preflight",

@@ -45,6 +45,11 @@ function checkRequiredFiles(): void {
     ".github/workflows/release.yml",
     "ops/github-release-updater/areaforge-updater.sh",
     "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "scripts/quality/ops001-readonly-fallback.selftest.ts",
+    "scripts/ops/generate-release-supply-chain-record.ts",
+    "scripts/quality/release-supply-chain-validate.ts",
+    "scripts/quality/release-supply-chain-record.selftest.ts",
     "scripts/ops/generate-ci-supply-chain-record.ts",
     "scripts/quality/ci-supply-chain-record-validate.ts",
     "scripts/quality/ci-supply-chain-record.selftest.ts",
@@ -80,6 +85,7 @@ function checkReleaseTrainDoc(): void {
     "pnpm governance:preflight",
     "pnpm github-release-updater:preflight",
     "pnpm shellcheck:updater",
+    "pnpm ops:ops-001:fallback:selftest",
     "pnpm ops:readiness",
     "pnpm skills:validate",
     "pnpm audit:prod",
@@ -122,9 +128,12 @@ function checkReleaseWorkflow(): void {
     "pnpm ops:readiness",
     "pnpm github-release-updater:preflight",
     "pnpm shellcheck:updater",
+    "pnpm ops:ops-001:fallback:selftest",
     "pnpm audit:prod",
     "pnpm release:supply-chain:selftest",
+    "pnpm release:supply-chain:record:selftest",
     "pnpm ci:supply-chain:selftest",
+    "pnpm sc:sc-002:preflight:selftest",
     "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
     "release tag ${tag} does not match package.json version",
     "release tag ${tag} does not point to workflow commit",
@@ -144,14 +153,16 @@ function checkReleaseWorkflow(): void {
 function checkPackageScript(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const script = packageJson.scripts?.["release:train:preflight"] ?? "";
+  const releaseSupplyChainRecordSelftestScript = packageJson.scripts?.["release:supply-chain:record:selftest"] ?? "";
   const sc002PreflightScript = packageJson.scripts?.["sc:sc-002:preflight"] ?? "";
   const sc002PreflightSelftestScript = packageJson.scripts?.["sc:sc-002:preflight:selftest"] ?? "";
   checks.push({
     name: "release train package script",
     ok: script === "tsx scripts/quality/release-train-preflight.ts" &&
+      releaseSupplyChainRecordSelftestScript === "tsx scripts/quality/release-supply-chain-record.selftest.ts" &&
       sc002PreflightScript === "tsx scripts/ops/sc002-supply-chain-preflight.ts" &&
       sc002PreflightSelftestScript === "tsx scripts/quality/sc002-supply-chain-preflight.selftest.ts",
-    detail: `release:train:preflight=${script || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}`,
+    detail: `release:train:preflight=${script || "missing"}; release:supply-chain:record:selftest=${releaseSupplyChainRecordSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}`,
   });
 }
 
@@ -203,6 +214,8 @@ function checkValidationMatrix(): void {
     "scripts/quality/release-train-preflight.ts",
     "pnpm release:train:preflight",
     "pnpm github-release-updater:preflight",
+    "pnpm ops:ops-001:fallback:selftest",
+    "pnpm ops:ops-001:fallback:finalize:selftest",
     "pnpm release:supply-chain:selftest",
     "pnpm ci:supply-chain:selftest",
     "pnpm sc:sc-002:preflight:selftest",

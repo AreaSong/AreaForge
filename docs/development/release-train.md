@@ -49,6 +49,7 @@ pnpm risk:preflight
 pnpm governance:preflight
 pnpm github-release-updater:preflight
 pnpm shellcheck:updater
+pnpm ops:ops-001:fallback:selftest
 pnpm ops:readiness
 pnpm ops:status
 pnpm ops:evidence:bundle:selftest

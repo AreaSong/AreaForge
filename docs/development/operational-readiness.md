@@ -183,6 +183,28 @@ pnpm ops:ops-001:preflight
 
 `pnpm ops:ops-001:preflight` 输出 `read_only_ops001_evidence_preflight`，包含 `requiredPreflight`、证据文件 validator 结果、`forbiddenActions` 和 `safetyFacts`。它只读取本地 redacted 证据文件路径并调用现有校验器；未提供路径时返回 `needs_evidence` 且退出 0，三份基础证据通过时返回 `ready_to_generate_packet`，收口包也通过时返回 `ready_for_human_close`。它不执行生产 smoke、不联网、不读取密码文件内容、不执行服务器命令、不生成收口包、不修改 residual 台账。
 
+如果生产尝试因前置条件失败而不能形成 smoke record，可保存 OPS-001 blocked record 并运行：
+
+```bash
+pnpm ops:ops-001:blocked:validate <ops001-blocked-record.txt>
+AREAFORGE_OPS001_BLOCKED_RECORD=<ops001-blocked-record.txt> pnpm ops:ops-001:preflight
+```
+
+blocked record 必须写明缺失的 smoke credential、host `pnpm` 运行时或其他 OPS-001 前置条件，包含 redacted update-agent status hash、`doesNotProve`、`forbiddenActions` 和只读 `safetyFacts`。它只证明当前阻塞原因可交接；`blocked_on_prerequisite` 不等于 `ready_for_human_close`，不能关闭 `AF-RISK-OPS-001`，也不能支持长期运营完成声明。2026-07-11 的生产只读尝试记录见 `docs/development/ops-001-production-readonly-attempt-20260711.md`。
+
+生产主机缺 Node.js/pnpm 时，可运行服务器侧只读 fallback helper：
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-ops001-readonly-fallback.sh \
+  --config /etc/areaforge/updater.env \
+  --state-dir /opt/areaforge/ops-state \
+  --output-dir /tmp/areaforge-ops001-fallback-$(date -u +%Y%m%d%H%M%S)
+```
+
+该 helper 只写 redacted evidence 目录，输出 `redacted-update-status.json`、`remote-prerequisites.json`、可选 `prod-readonly-smoke-output.log` 和 `remote-summary.txt`。它通过 curl 执行与 `pnpm smoke:prod-readonly` 等价的只读 HTTP 检查，但不生成最终 `prod-readonly-smoke-record.txt`、`operational-evidence-bundle.json` 或 `ops-001-closure-packet.txt`。这些文件仍必须在本地用仓库 `pnpm` 脚本生成和校验；优先运行 `pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> [output-dir]`，或手动设置 `AREAFORGE_PROD_READONLY_SMOKE_COMMAND=ops/update-agent/areaforge-ops001-readonly-fallback.sh`，并把 `AREAFORGE_UPDATE_RECORD_SUMMARY` 设为 redacted update record 或 redacted update-agent status 的 `sha256:<64 hex>` 摘要，使 `smokeCommand` 和 `updateRecordSummary` 准确标注证据来源；缺少 smoke 配置时 fallback 输出只能作为 blocked record 输入。finalizer 默认只读取本地 redacted 文件，不联网；只有显式 `AREAFORGE_OPS001_FINALIZE_INCLUDE_NETWORK=yes` 时才为 evidence bundle 补充当前 HTTPS health/TLS 只读信号。
+
+通过 SSH/tmux 运行 fallback 时，先让操作者在 TTY 中单独完成 `sudo -v`，再执行 helper。输出目录必须使用 `/tmp/areaforge-ops001-fallback-*`；helper 结束后会把该 redacted 目录安全移交给触发 sudo 的用户，并在 `remote-summary.txt` 写入 `redactedHandoffStatus`。只有该状态为 `granted` 时，才直接 `scp` 该目录回本地；若为 `skipped-*` 或 `failed`，不要串联多个 `sudo tar/chown` 命令，先修正输出目录或重新走交互 TTY。
+
 当生产只读 smoke、redacted update-agent status 和 operational evidence bundle 都已保存并分别通过校验时，可生成 `AF-RISK-OPS-001` 收口证据包：
 
 ```bash
@@ -194,7 +216,7 @@ pnpm ops:ops-001:closure /path/to/prod-readonly-smoke-record.txt /path/to/redact
 pnpm ops:ops-001:closure:validate /path/to/ops-001-closure-packet.txt
 ```
 
-该生成器会先调用 `pnpm smoke:prod-readonly:validate`、`pnpm update-agent:status:validate` 和 `pnpm ops:evidence:bundle:validate`；它只读取本地 redacted 证据，不连接生产、不执行 updater、不修改 residual 台账。收口包通过后表示证据形态可交给维护者复核关闭 `AF-RISK-OPS-001`，不代表备份、告警、供应链或其他 residual 已关闭。
+该生成器会先调用 `pnpm smoke:prod-readonly:validate`、`pnpm update-agent:status:validate` 和 `pnpm ops:evidence:bundle:validate`；它只读取本地 redacted 证据，不连接生产、不执行 updater、不修改 residual 台账。收口包通过后表示证据形态可交给维护者复核关闭 `AF-RISK-OPS-001`，不代表备份、告警、供应链或其他 residual 已关闭。若使用 fallback 输出，`remote-prerequisites.blockers` 必须为空、`remote-summary.txt` 的 `smokeStatus` 必须为 `pass` 且 `redactedHandoffStatus` 必须为 `granted`；否则只能形成 blocked record。
 
 需要把运行信号、残余风险和缺失证据组装成可交接证据包时，使用：
 

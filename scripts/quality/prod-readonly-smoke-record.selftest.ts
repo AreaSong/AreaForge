@@ -59,6 +59,40 @@ try {
     process.exit(1);
   }
 
+  const fallbackGenerated = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-prod-readonly-smoke-record.ts", smokeOutput], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_READINESS_ENVIRONMENT: "production",
+      AREAFORGE_READINESS_EXPECTED_VERSION: "0.1.5",
+      AREAFORGE_READINESS_RELEASE_TAG: "v0.1.5",
+      AREAFORGE_READINESS_RELEASE_MANIFEST_FILE: manifest,
+      AREAFORGE_SMOKE_PASSWORD_FILE: "/etc/areaforge/smoke-password",
+      AREAFORGE_EXTRA_SMOKE_COMMAND: "cd /opt/areaforge && pnpm smoke:prod-readonly",
+      AREAFORGE_PROD_READONLY_SMOKE_COMMAND: "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+      AREAFORGE_UPDATE_RECORD_SUMMARY: "update-record hash sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    },
+  });
+  if (fallbackGenerated.status !== 0 || !fallbackGenerated.stdout.includes("smokeCommand: ops/update-agent/areaforge-ops001-readonly-fallback.sh")) {
+    console.error("FAIL fallback-generated record command");
+    console.error(fallbackGenerated.stdout.trim());
+    console.error(fallbackGenerated.stderr.trim());
+    process.exit(1);
+  }
+
+  writeFileSync(generatedRecord, fallbackGenerated.stdout);
+  const fallbackValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/prod-readonly-smoke-validate.ts", generatedRecord], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (fallbackValidation.status !== 0) {
+    console.error("FAIL fallback-generated record validation");
+    console.error(fallbackValidation.stdout.trim());
+    console.error(fallbackValidation.stderr.trim());
+    process.exit(1);
+  }
+
   console.log("production readonly smoke record generator selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });

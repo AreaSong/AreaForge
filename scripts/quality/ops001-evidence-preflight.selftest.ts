@@ -17,10 +17,12 @@ try {
   const updateStatusRecord = path.join(tempDir, "redacted-update-status.json");
   const evidenceBundle = path.join(tempDir, "operational-evidence-bundle.json");
   const closurePacket = path.join(tempDir, "ops001-closure-packet.txt");
+  const blockedRecord = path.join(tempDir, "ops001-blocked-record.txt");
 
   writeFileSync(smokeRecord, createSmokeRecord());
   writeFileSync(updateStatusRecord, JSON.stringify(createUpdateStatusRecord(), null, 2));
   writeFileSync(evidenceBundle, JSON.stringify(withBundleHash(createEvidenceBundle()), null, 2));
+  writeFileSync(blockedRecord, createBlockedRecord());
 
   const readyToGenerate = runPreflight({
     AREAFORGE_OPS001_SMOKE_RECORD: smokeRecord,
@@ -43,6 +45,17 @@ try {
     AREAFORGE_OPS001_CLOSURE_PACKET: closurePacket,
   }, 0);
   assertJsonStatus(readyForClose.stdout, "ready_for_human_close");
+
+  const closureWithoutBaseEvidence = runPreflight({
+    AREAFORGE_OPS001_CLOSURE_PACKET: closurePacket,
+  }, 1);
+  assertJsonStatus(closureWithoutBaseEvidence.stdout, "invalid");
+
+  const blocked = runPreflight({
+    AREAFORGE_OPS001_UPDATE_STATUS_RECORD: updateStatusRecord,
+    AREAFORGE_OPS001_BLOCKED_RECORD: blockedRecord,
+  }, 0);
+  assertJsonStatus(blocked.stdout, "blocked_on_prerequisite");
 
   const invalidSmoke = path.join(tempDir, "invalid-smoke-record.txt");
   writeFileSync(invalidSmoke, createSmokeRecord().replace("smokeStatus: pass", "smokeStatus: fail"));
@@ -68,6 +81,7 @@ function runPreflight(env: Record<string, string>, expectedStatus: number): Retu
       AREAFORGE_OPS001_UPDATE_STATUS_RECORD: "",
       AREAFORGE_OPS001_EVIDENCE_BUNDLE: "",
       AREAFORGE_OPS001_CLOSURE_PACKET: "",
+      AREAFORGE_OPS001_BLOCKED_RECORD: "",
       ...env,
     },
   });
@@ -83,10 +97,46 @@ function assertJsonStatus(raw: string, expected: string): void {
   if (parsed.status !== expected) {
     fail(`expected preflight status ${expected}, got ${String(parsed.status)}`);
   }
+  const requiredPreflight = Array.isArray(parsed.requiredPreflight) ? parsed.requiredPreflight.join("\n") : "";
+  if (!requiredPreflight.includes("AREAFORGE_PROD_READONLY_SMOKE_COMMAND=ops/update-agent/areaforge-ops001-readonly-fallback.sh")) {
+    fail("preflight requiredPreflight should include fallback smoke record generation command");
+  }
   const safety = parsed.safetyFacts as JsonRecord | undefined;
   if (!safety || safety.serverCommandAttempted !== false || safety.productionWriteAttempted !== false || safety.secretValuePrinted !== false) {
     fail("preflight safety facts should prove no server command, production write, or secret printing");
   }
+}
+
+function createBlockedRecord(): string {
+  return [
+    "recordId: ops-001-blocked-20260711083436",
+    "generatedAt: 2026-07-11T08:34:36Z",
+    "mode: ops001-readonly-evidence-blocked",
+    "residualRiskId: AF-RISK-OPS-001",
+    "environment: production",
+    "baseUrl: https://forge.areasong.top",
+    "releaseTag: v0.1.5",
+    "redactedUpdateStatusRecordHash: sha256:82e94e332b015089061c7944984fff9857b92e1833d4bfef8d8ddf791f5b6a09",
+    "extraSmokeCommandConfigured: yes",
+    "smokeEmailConfigured: no",
+    "smokePasswordFileConfigured: no",
+    "hostPnpmAvailable: no",
+    "preflightStatus: blocked_on_prerequisite",
+    "blockers: host pnpm missing, smoke email missing, smoke password file missing",
+    "doesNotProve: authenticated smoke passed; operational evidence bundle ready; OPS-001 closure packet ready; AF-RISK-OPS-001 closure; long-term operability",
+    "residualLedgerAction: remains-open",
+    "forbiddenActions: updater apply, migration, backup, restore, rollback, production writes, secret export, residual ledger closure",
+    "safetyFacts:",
+    "  serverCommandAttempted: no",
+    "  backupRestoreAttempted: no",
+    "  migrationAttempted: no",
+    "  productionWriteAttempted: no",
+    "  updaterApplyAttempted: no",
+    "  rollbackAttempted: no",
+    "  secretValuePrinted: no",
+    "  residualLedgerUpdated: no",
+    "",
+  ].join("\n");
 }
 
 function createSmokeRecord(): string {

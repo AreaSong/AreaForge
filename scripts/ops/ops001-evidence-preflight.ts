@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 type EvidenceStatus = "missing" | "valid" | "invalid";
-type PreflightStatus = "needs_evidence" | "ready_to_generate_packet" | "ready_for_human_close" | "invalid";
+type PreflightStatus = "needs_evidence" | "blocked_on_prerequisite" | "ready_to_generate_packet" | "ready_for_human_close" | "invalid";
 
 type EvidenceInput = {
   key: string;
@@ -48,6 +48,13 @@ const evidenceInputs: EvidenceInput[] = [
     validatorCommand: ["pnpm", "exec", "tsx", "scripts/quality/ops001-closure-packet-validate.ts"],
     requiredForPacket: false,
   },
+  {
+    key: "ops001BlockedRecord",
+    label: "OPS-001 blocked prerequisite record",
+    envKey: "AREAFORGE_OPS001_BLOCKED_RECORD",
+    validatorCommand: ["pnpm", "exec", "tsx", "scripts/quality/ops001-blocked-record-validate.ts"],
+    requiredForPacket: false,
+  },
 ];
 
 function main(): void {
@@ -64,6 +71,7 @@ function main(): void {
       "pnpm smoke:prod-readonly:config",
       "pnpm smoke:prod-readonly",
       "pnpm smoke:prod-readonly:record <prod-readonly-smoke-output.log> > <prod-readonly-smoke-record.txt>",
+      "AREAFORGE_PROD_READONLY_SMOKE_COMMAND=ops/update-agent/areaforge-ops001-readonly-fallback.sh pnpm smoke:prod-readonly:record <fallback-prod-readonly-smoke-output.log> > <prod-readonly-smoke-record.txt>",
       "pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.txt>",
       "pnpm update-agent:status:record <status.json> > <redacted-update-status.json>",
       "pnpm update-agent:status:validate <redacted-update-status.json>",
@@ -71,6 +79,7 @@ function main(): void {
       "pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>",
       "pnpm ops:ops-001:closure <prod-readonly-smoke-record.txt> <redacted-update-status.json> <operational-evidence-bundle.json> > <ops-001-closure-packet.txt>",
       "pnpm ops:ops-001:closure:validate <ops-001-closure-packet.txt>",
+      "pnpm ops:ops-001:blocked:validate <ops-001-blocked-record.txt>",
     ],
     nextCommand: nextCommand(status),
     forbiddenActions: [
@@ -152,18 +161,26 @@ function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
 function preflightStatus(evidence: EvidenceResult[]): PreflightStatus {
   if (evidence.some((item) => item.status === "invalid")) return "invalid";
   const required = evidence.filter((item) => item.requiredForPacket);
+  const requiredEvidenceValid = required.every((item) => item.status === "valid");
   const closurePacket = evidence.find((item) => item.key === "ops001ClosurePacket");
-  if (closurePacket?.status === "valid") return "ready_for_human_close";
-  if (required.every((item) => item.status === "valid")) return "ready_to_generate_packet";
+  if (closurePacket?.status === "valid") {
+    return requiredEvidenceValid ? "ready_for_human_close" : "invalid";
+  }
+  const blockedRecord = evidence.find((item) => item.key === "ops001BlockedRecord");
+  if (blockedRecord?.status === "valid") return "blocked_on_prerequisite";
+  if (requiredEvidenceValid) return "ready_to_generate_packet";
   return "needs_evidence";
 }
 
 function nextCommand(status: PreflightStatus): string {
   if (status === "ready_for_human_close") return "review AF-RISK-OPS-001 close condition and update residual ledger only after human approval";
+  if (status === "blocked_on_prerequisite") {
+    return "fix OPS-001 production prerequisites with explicit confirmation, then rerun read-only evidence export";
+  }
   if (status === "ready_to_generate_packet") {
     return "pnpm ops:ops-001:closure <prod-readonly-smoke-record.txt> <redacted-update-status.json> <operational-evidence-bundle.json> > <ops-001-closure-packet.txt>";
   }
-  if (status === "invalid") return "fix invalid redacted evidence file and rerun pnpm ops:ops-001:preflight";
+  if (status === "invalid") return "fix invalid or incomplete redacted evidence set and rerun pnpm ops:ops-001:preflight";
   return "collect missing redacted evidence files, then rerun pnpm ops:ops-001:preflight";
 }
 
@@ -173,6 +190,7 @@ function shouldFail(status: PreflightStatus, failOn: string | undefined): boolea
     "ready_for_human_close",
     "ready_to_generate_packet",
     "needs_evidence",
+    "blocked_on_prerequisite",
     "invalid",
   ];
   const threshold = order.includes(failOn as PreflightStatus) ? failOn as PreflightStatus : "invalid";

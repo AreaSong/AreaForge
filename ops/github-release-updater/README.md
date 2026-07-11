@@ -116,6 +116,52 @@ sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
   --output-dir /tmp/areaforge-ops001-$(date -u +%Y%m%d%H%M%S)
 ```
 
+Before running the helper, make sure the host or controlled release workdir can
+run the repository `pnpm` scripts, and that updater config includes
+`AREAFORGE_EXTRA_SMOKE_COMMAND`, `AREAFORGE_SMOKE_BASE_URL`,
+`AREAFORGE_SMOKE_EMAIL`, a restricted `AREAFORGE_SMOKE_PASSWORD_FILE`, expected
+version, and `AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none`. Missing runtime or
+smoke credentials is an OPS-001 blocker, not a reason to fall back to admin
+credentials or write smoke.
+
+When the host cannot run Node.js/pnpm, use the curl fallback helper to export
+only redacted inputs for local record generation:
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-ops001-readonly-fallback.sh \
+  --config /etc/areaforge/updater.env \
+  --state-dir /opt/areaforge/ops-state \
+  --output-dir /tmp/areaforge-ops001-fallback-$(date -u +%Y%m%d%H%M%S)
+```
+
+The fallback helper writes `redacted-update-status.json`,
+`remote-prerequisites.json`, optional `prod-readonly-smoke-output.log`, and
+`remote-summary.txt`. It does not create the final OPS-001 closure packet and
+does not close the residual ledger. After copying the redacted directory back
+locally, prefer:
+
+```bash
+AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=/path/to/areaforge-release-manifest.json \
+pnpm ops:ops-001:fallback:finalize /path/to/areaforge-ops001-fallback-<timestamp> /tmp/areaforge-ops001-local-$(date -u +%Y%m%d%H%M%S)
+```
+
+When generating a local smoke record manually from fallback output, set
+`AREAFORGE_PROD_READONLY_SMOKE_COMMAND=ops/update-agent/areaforge-ops001-readonly-fallback.sh`
+so the record labels the evidence source accurately. Also set
+`AREAFORGE_UPDATE_RECORD_SUMMARY` to a redacted update record or redacted
+update-agent status `sha256:<64 hex>` summary before generating the local
+smoke record; the OPS-001 closure packet validator requires that hash summary
+and it must not include secrets.
+
+For interactive SSH or tmux runs, complete `sudo -v` in the TTY first, then run
+the helper once. Use an output directory under
+`/tmp/areaforge-ops001-fallback-*`; the helper hands that redacted directory
+back to the sudo-invoking user and records `redactedHandoffStatus` in
+`remote-summary.txt`. Copy the directory with `scp -r` only when the handoff
+status is `granted`; if it is `skipped-*` or `failed`, fix the output directory
+or rerun through the interactive TTY instead of chaining extra `sudo tar/chown`
+commands.
+
 Only copy the generated redacted records and closure packet out of the server;
 do not copy updater env files, smoke password files, production `.env`, database
 dumps, attachment content, or raw sensitive logs.

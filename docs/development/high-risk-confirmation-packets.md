@@ -829,6 +829,7 @@ D1 最小实施契约：
 - `docs/deployment/operator-onboarding.md`
 - `ops/github-release-updater/README.md`
 - `ops/update-agent/areaforge-ops001-evidence-export.sh`
+- `ops/update-agent/areaforge-ops001-readonly-fallback.sh`
 - `docs/development/residual-risk-ledger.md`
 
 影响：
@@ -840,7 +841,7 @@ D1 最小实施契约：
 
 实施范围：
 
-- 在确认的生产主机上执行 `areaforge-ops001-evidence-export.sh`。
+- 在确认的生产主机上执行 `areaforge-ops001-evidence-export.sh`；若生产主机缺 Node.js/pnpm，可执行 `areaforge-ops001-readonly-fallback.sh` 导出 redacted 输入后回本地生成记录。
 - 指定 updater config、ops-state 和输出目录。
 - 生成并校验：
   - `redacted-update-status.json`
@@ -861,7 +862,9 @@ sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
   --output-dir /tmp/areaforge-ops001-$(date -u +%Y%m%d%H%M%S)
 ```
 
-若当前服务器临时 helper 位于 `/tmp/areaforge-ops001-evidence-export.sh`，执行前必须确认该文件内容与仓库 `ops/update-agent/areaforge-ops001-evidence-export.sh` 的只读边界一致。
+若当前服务器临时 helper 位于 `/tmp/areaforge-ops001-evidence-export.sh`，执行前必须确认该文件内容与仓库 `ops/update-agent/areaforge-ops001-evidence-export.sh` 的只读边界一致。若使用 `areaforge-ops001-readonly-fallback.sh`，它只导出 `redacted-update-status.json`、`remote-prerequisites.json`、可选 `prod-readonly-smoke-output.log` 和 `remote-summary.txt`，不生成最终 closure packet，不关闭 residual 台账。
+
+SSH/tmux 执行 fallback 时，先由操作者在 TTY 中完成 `sudo -v`，再运行一次 helper。fallback 输出目录必须使用 `/tmp/areaforge-ops001-fallback-*`，helper 才会把 redacted 目录移交给触发 sudo 的用户并在 `remote-summary.txt` 写入 `redactedHandoffStatus=granted`；若 handoff 未成功，不得用链式 `sudo tar/chown` 规避交互边界，应修正输出目录或重新通过 TTY 导出。
 
 不包含：
 
@@ -903,6 +906,85 @@ AREAFORGE_OPS001_SMOKE_RECORD=./prod-readonly-smoke-record.txt \
 明确确认句：
 
 > 确认执行 OPS-001 生产只读证据导出：范围仅限通过 SSH 在指定生产主机运行 `areaforge-ops001-evidence-export.sh` 的只读 redacted evidence export，收集 production read-only smoke record、redacted update-agent status、operational evidence bundle、OPS-001 closure packet 和 preflight 输出，并回本地运行对应 validate/preflight；不执行 updater apply、Web apply/rollback 请求、backup/restore、migration、rollback、Docker/Nginx/compose 切换、数据库写入、上传目录写入、写入型 smoke、读取/打印/复制/提交 secrets 或 residual 台账关闭。
+
+> 确认执行 OPS-001 只读 fallback 导出：范围仅限在生产主机使用 sudo 读取 updater 配置、ops-state status 和 smoke 密码文件，通过 curl 执行生产只读 smoke，生成 redacted status 与 smoke output，并复制 redacted 文件回本地用仓库脚本生成/校验 smoke record、operational evidence bundle、OPS-001 closure packet 和 preflight；不安装 Node/pnpm，不执行 updater apply、backup/restore、migration、rollback、Docker/Nginx/compose 切换、数据库写入、上传目录写入、写入型 smoke、读取/打印/复制/提交 secrets 或 residual 台账关闭。
+
+## 生产 smoke 凭据配置确认包：`AF-RISK-OPS-001`
+
+本确认包用于补齐生产只读 smoke 的最小凭据配置，使 `AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'` 可以在 update-agent/updater 的 root 上下文中读取 smoke 账号、密码文件和 HTTPS base URL。它只授权配置既有 smoke 账号凭据和权限，不授权创建生产账号、写入型 smoke、updater apply、备份、恢复、migration、rollback 或 residual 台账关闭。
+
+源事实：
+
+- `docs/development/ops-001-production-readonly-attempt-20260711.md`
+- `docs/development/production-readonly-smoke-record-template.md`
+- `docs/deployment/github-release-updater.md`
+- `ops/github-release-updater/areaforge-updater.env.example`
+- `ops/update-agent/areaforge-ops001-evidence-export.sh`
+- `ops/update-agent/areaforge-ops001-readonly-fallback.sh`
+- `docs/development/residual-risk-ledger.md`
+
+影响：
+
+- 需要通过 SSH/sudo 修改 `/etc/areaforge/updater.env` 中的 non-secret smoke 配置项。
+- 需要在 root-only 或同等权限目录创建 smoke 密码文件，并设置为非 group/world readable。
+- smoke 密码只能在服务器 TTY 或受控 secret 输入路径中写入；不得发到聊天、commit、issue、release record 或日志中。
+- 配置后可以执行 `pnpm smoke:prod-readonly:config`、OPS-001 read-only export 或 curl fallback export，但仍不自动关闭 `AF-RISK-OPS-001`。
+
+实施范围：
+
+- 设置或确认：
+  - `AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'`
+  - `AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top`
+  - `AREAFORGE_SMOKE_EMAIL=<existing smoke account email>`
+  - `AREAFORGE_SMOKE_PASSWORD_FILE=<root-only password file path>`
+  - `AREAFORGE_SMOKE_EXPECTED_VERSION=<current production version>`
+  - `AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none`
+- 创建或更新 smoke 密码文件，权限必须为 `600` 或更严格。
+- 只输出 redacted 配置摘要，例如 `email configured`、`password file configured`、`mode 600`，不得输出真实邮箱以外的敏感值；密码值永不输出。
+- 配置后运行只读配置预检、OPS-001 只读证据导出或 fallback helper；若使用 fallback helper，仍需回本地生成并校验 smoke record、evidence bundle 和 closure packet。
+
+不包含：
+
+- 不创建、修改或删除生产用户；如果 smoke account 不存在，另走账号创建确认。
+- 不执行写入型 smoke，不创建/修改/删除任务、计时、附件、AI 记录或数据库数据。
+- 不执行 updater `check/apply`、Web apply/rollback 请求、自动应用策略变化、backup、restore、migration deploy、Docker/Nginx/compose 切换、rollback 或上传目录操作。
+- 不读取、打印、复制或提交生产 `.env`、数据库 URL、session secret、GitHub token、cosign 私钥、smoke 密码、cookie、备份本体、附件内容、上传目录、原始敏感日志或用户学习正文。
+- 不关闭 `AF-RISK-OPS-001` residual 台账；只允许补齐后续只读证据采集的凭据前置条件。
+
+必须确认：
+
+- smoke account 已存在，且只用于只读 smoke 或明确可接受只读登录检查。
+- `AREAFORGE_SMOKE_PASSWORD_FILE` 路径不在 Git 工作区、public 目录、上传目录或备份导出临时目录中。
+- 密码文件权限不允许 group/world read。
+- `AREAFORGE_AUTO_APPLY` 仍为 `none`，除非另有独立确认包。
+- 配置完成后只运行 `pnpm smoke:prod-readonly:config`、`pnpm smoke:prod-readonly` 或 OPS-001 read-only export；失败时不得补做生产写入。
+
+配置后验证：
+
+```bash
+pnpm smoke:prod-readonly:config
+pnpm smoke:prod-readonly
+pnpm smoke:prod-readonly:record <prod-readonly-smoke-output.log> > <prod-readonly-smoke-record.txt>
+pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.txt>
+pnpm update-agent:status:validate <redacted-update-status.json>
+pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
+AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record.txt> \
+  AREAFORGE_OPS001_UPDATE_STATUS_RECORD=<redacted-update-status.json> \
+  AREAFORGE_OPS001_EVIDENCE_BUNDLE=<operational-evidence-bundle.json> \
+  AREAFORGE_OPS001_CLOSURE_PACKET=<ops001-closure-packet.txt> \
+  pnpm ops:ops-001:preflight
+```
+
+中止条件：
+
+- smoke account 不存在或无法确认只读登录用途。
+- 密码文件路径、权限或写入方式不满足 secret 边界。
+- 任何命令输出包含 smoke 密码、cookie、session secret、数据库 URL、生产 `.env` 或用户学习内容。
+- 配置动作试图触发 updater apply、backup、restore、migration、rollback、Docker/Nginx/compose 切换、生产写入或 residual 台账更新。
+
+明确确认句：
+
+> 确认执行 OPS-001 生产 smoke 凭据配置：范围仅限在指定生产主机通过 SSH/sudo 为既有 smoke 账号配置 `AREAFORGE_EXTRA_SMOKE_COMMAND`、`AREAFORGE_SMOKE_BASE_URL`、`AREAFORGE_SMOKE_EMAIL`、权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`、期望版本和 `AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none`，随后只运行只读 config/smoke/OPS-001 evidence export 和本地 validate/preflight；不创建生产账号、不执行写入型 smoke、updater apply、Web apply/rollback、backup/restore、migration、rollback、Docker/Nginx/compose 切换、数据库写入、上传目录写入、读取/打印/复制/提交 secrets 或 residual 台账关闭。
 
 ## 后续签名 Release 证据闭环确认包：`AF-RISK-SC-001`
 

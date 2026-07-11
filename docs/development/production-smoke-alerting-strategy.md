@@ -25,6 +25,7 @@
 - 执行前先运行 `pnpm smoke:prod-readonly:config`，只读检查 HTTPS base URL、extra smoke 命令、smoke 账号、密码文件权限、期望版本和自动更新策略。
 - 可用 `pnpm smoke:prod-readonly:record <smoke-output.log>` 从 smoke 输出和 release manifest/digest 环境变量生成 redacted 记录草稿；生成器不读取密码文件内容、不执行服务器命令、不写生产。
 - `pnpm ops:readiness:summary` 输出，包含 `safetyFacts` 和 residual risk IDs。
+- 若生产主机缺 Node.js/pnpm，可用 `ops/update-agent/areaforge-ops001-readonly-fallback.sh` 在服务器侧生成 curl 只读 smoke 输出和 redacted update-agent status，再复制 redacted 输出回本地运行 `pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> [output-dir]`；从 fallback 输出手动生成记录时设置 `AREAFORGE_PROD_READONLY_SMOKE_COMMAND=ops/update-agent/areaforge-ops001-readonly-fallback.sh`；fallback helper 缺配置时只形成 blocker evidence，不关闭 `AF-RISK-OPS-001`。
 
 ## 写入型生产 Smoke
 
@@ -67,7 +68,7 @@ pnpm ops:alert:preview
 
 ## 关闭残余项所需动作
 
-- `AF-RISK-OPS-001`：服务器配置只读 extra smoke、smoke 密码文件和最近一次通过记录。
+- `AF-RISK-OPS-001`：服务器配置只读 extra smoke、smoke 密码文件和最近一次通过记录；host 缺 pnpm 时允许等价 curl fallback 输出，但最终仍需本地 record/evidence/closure 校验。
 - `AF-RISK-OPS-002`：确认写入型 smoke 账号、允许写入范围、清理策略、失败处理和至少一次受控记录。
 - `AF-RISK-OPS-004`：配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录；`pnpm ops:alert:preview`、`pnpm alert:drill:validate` 和 `pnpm ops:ops-004:preflight` 只能作为演练输入、记录校验与证据预检，不自动关闭该残余项。
 - `AF-RISK-UX-001`：已关闭为证据项；新的 release/update 或体验变更仍必须完成覆盖 desktop/mobile 的真实体验复核记录并通过 `pnpm experience:review:validate`，生产 smoke、API smoke 或旧截图不能替代。

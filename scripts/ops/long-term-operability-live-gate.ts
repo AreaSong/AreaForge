@@ -65,6 +65,7 @@ function main(): void {
     checks,
     requiredEvidence: [
       "AF-RISK-OPS-001 ready_for_human_close: production read-only smoke record, redacted update-agent status, operational evidence bundle, and OPS-001 closure packet",
+      "AF-RISK-OPS-001 blocked_on_prerequisite records are valid blocker evidence only; they do not satisfy long-term operability",
       "AF-RISK-OPS-004 ready_for_human_close: alert preview plus matching alert/recovery drill record",
       "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: signed Release supply-chain record with SBOM/provenance/checksum/signature and Actions pinning evidence",
       `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes and reviewedAt is within ${maxUxAgeDays()} days`,

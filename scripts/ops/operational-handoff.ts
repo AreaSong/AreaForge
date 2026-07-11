@@ -178,6 +178,7 @@ function buildNextCommands(projection: OperabilityStatusProjection): Operational
     ],
     liveEvidence: [
       "pnpm ops:ops-001:preflight",
+      "AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=<manifest> pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> <output-dir>",
       "pnpm ops:readiness:summary",
       "pnpm ops:evidence:bundle",
       "pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>",

@@ -12,6 +12,7 @@
 - 线上版本源事实为 `0.1.5` / `v0.1.5` / `https://forge.areasong.top/`，生产发布记录见 `docs/development/package-e-remote-github-release-record.md`。
 - 自动更新当前安全默认是 `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 updater 执行高风险动作。
 - 当前长期运营未完全关闭的不是“功能未完成”，而是生产证据和复核窗口：`AF-RISK-OPS-001` 仍需生产只读证据，`AF-RISK-SC-001` 仍需下一次签名 Release 的 SBOM/provenance 证据，`AF-RISK-UX-001` 仍需按 14 天窗口复核；`AF-RISK-SC-002` 已是当前 HEAD 的 CI-only `closed-evidence`，只有在 GitHub Actions、依赖审计策略、Release workflow、供应链记录校验或新 Release 前需要重跑复核。
+- 当前 `NOT-READY` 完成声明证据见 `docs/development/long-term-operability-not-ready-20260711.txt`；它通过 `pnpm completion:evidence:validate`，只证明完成声明边界和阻塞项记录完整，不替代 `pnpm ops:long-term:gate`、生产 smoke、签名 Release 证据或 residual 人工关闭。
 
 ## 从 AreaMatrix 和 AreaFlow 借鉴的轻量机制
 
@@ -113,6 +114,7 @@ pnpm ops:ops-004:preflight
 | 恢复演练 | `docs/development/restore-drill-record-template.md` | `pnpm restore:drill:validate <record>` | 生产 restore 授权 |
 | Update-agent status | `docs/development/update-agent-status-record-template.md` | `pnpm update-agent:status:validate <record.json>` | updater check/apply、策略变更 |
 | OPS-001 证据预检 | `docs/development/ops-001-closure-packet-template.md` | `pnpm ops:ops-001:preflight` | 生产 smoke 执行、收口包生成、自动关闭 residual |
+| OPS-001 阻塞记录 | `docs/development/ops-001-production-readonly-attempt-20260711.md` | `pnpm ops:ops-001:blocked:validate <record>` | 生产 smoke 通过、收口包生成、长期运营完成 |
 | OPS-001 收口包 | `docs/development/ops-001-closure-packet-template.md` | `pnpm ops:ops-001:closure:validate <record>` | 自动关闭 residual、备份/告警/供应链健康 |
 | OPS-004 告警证据预检 | `docs/development/alert-drill-record-template.md` | `pnpm ops:ops-004:preflight` | 发送通知、调用外部接收人、自动关闭 residual |
 | 长期运营 live gate | 本文件和各 residual 证据记录 | `pnpm ops:long-term:gate` | 自动收集证据、自动执行生产动作、自动关闭 residual |
@@ -153,7 +155,7 @@ pnpm ops:ops-004:preflight
 
 ## 当前必须持续复核的证据
 
-- `AF-RISK-OPS-001`：生产只读 smoke 配置、最近一次通过记录、redacted update-agent status、operational evidence bundle 和 `pnpm ops:ops-001:closure:validate` 收口包。
+- `AF-RISK-OPS-001`：当前是长期运营完成声明阻塞项。2026-07-11 只读 fallback 已留下 blocked record 和有效 redacted update-agent status，但仍缺生产 `AREAFORGE_EXTRA_SMOKE_COMMAND`、smoke email/password file 和 host `pnpm` 运行时；必须补齐生产只读 smoke 配置、最近一次通过记录、redacted update-agent status、operational evidence bundle 和 `pnpm ops:ops-001:closure:validate` 收口包。
 - `AF-RISK-OPS-002`：写入型生产 smoke 仍需专用账号、确认、清理策略和受控记录。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受安全默认，启用 patch 自动应用需另行关闭证据。
 - `AF-RISK-SC-001`：下一次签名 Release 的 SBOM/provenance 资产与校验记录。

@@ -85,8 +85,8 @@ normalize_base_url() {
 derive_smoke_env() {
   local status_file="$1"
   local app_url current_version
-  app_url="$(json_value "$status_file" '.appUrl')"
-  current_version="$(json_value "$status_file" '.currentVersion')"
+  app_url="$(json_value "$status_file" '(.status? // .).appUrl')"
+  current_version="$(json_value "$status_file" '(.status? // .).currentVersion')"
 
   if [[ -z "${AREAFORGE_SMOKE_BASE_URL:-}" && -n "$app_url" ]]; then
     export AREAFORGE_SMOKE_BASE_URL
@@ -101,6 +101,50 @@ derive_smoke_env() {
   fi
   if [[ -z "${AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY:-}" && -n "${AREAFORGE_AUTO_APPLY:-}" ]]; then
     export AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY="$AREAFORGE_AUTO_APPLY"
+  fi
+}
+
+check_smoke_prerequisites() {
+  local missing=()
+  local base_url="${AREAFORGE_SMOKE_BASE_URL:-}"
+
+  if [[ -z "${AREAFORGE_EXTRA_SMOKE_COMMAND:-}" ]]; then
+    missing+=("AREAFORGE_EXTRA_SMOKE_COMMAND is required")
+  elif [[ "${AREAFORGE_EXTRA_SMOKE_COMMAND}" != *"pnpm smoke:prod-readonly"* ]]; then
+    missing+=("AREAFORGE_EXTRA_SMOKE_COMMAND must reference pnpm smoke:prod-readonly")
+  fi
+
+  if [[ -z "${AREAFORGE_SMOKE_EMAIL:-}" ]]; then
+    missing+=("AREAFORGE_SMOKE_EMAIL is required")
+  fi
+
+  if [[ -z "${AREAFORGE_SMOKE_PASSWORD_FILE:-}" ]]; then
+    missing+=("AREAFORGE_SMOKE_PASSWORD_FILE is required")
+  elif [[ ! -f "${AREAFORGE_SMOKE_PASSWORD_FILE}" ]]; then
+    missing+=("AREAFORGE_SMOKE_PASSWORD_FILE must point to an existing file")
+  elif command -v stat >/dev/null 2>&1; then
+    local mode
+    mode="$(stat -c '%a' "${AREAFORGE_SMOKE_PASSWORD_FILE}" 2>/dev/null || true)"
+    if [[ "$mode" =~ ^[0-7]+$ ]] && (( 8#$mode & 8#077 )); then
+      missing+=("AREAFORGE_SMOKE_PASSWORD_FILE must not be group/world readable")
+    fi
+  fi
+
+  if [[ -n "${AREAFORGE_SMOKE_PASSWORD:-}" ]]; then
+    missing+=("AREAFORGE_SMOKE_PASSWORD env fallback must not be set for production evidence")
+  fi
+
+  if [[ -z "$base_url" ]]; then
+    missing+=("AREAFORGE_SMOKE_BASE_URL or AREAFORGE_HEALTH_URL is required")
+  elif [[ "$base_url" != https://* ]]; then
+    missing+=("AREAFORGE_SMOKE_BASE_URL must be an https URL")
+  fi
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    for issue in "${missing[@]}"; do
+      log "OPS-001 smoke prerequisite missing: $issue"
+    done
+    die "OPS-001 production read-only evidence export prerequisites are incomplete"
   fi
 }
 
@@ -126,7 +170,6 @@ run_step() {
 
 main() {
   require_cmd jq
-  require_cmd pnpm
   require_cmd sha256sum
 
   source_config
@@ -143,6 +186,8 @@ main() {
   chmod 700 "$OUTPUT_DIR"
 
   derive_smoke_env "$status_file"
+  check_smoke_prerequisites
+  require_cmd pnpm
 
   AREAFORGE_READINESS_EXPECTED_VERSION="${AREAFORGE_READINESS_EXPECTED_VERSION:-${AREAFORGE_SMOKE_EXPECTED_VERSION:-}}"
   export AREAFORGE_READINESS_EXPECTED_VERSION

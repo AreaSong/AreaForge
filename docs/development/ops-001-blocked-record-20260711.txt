@@ -1,0 +1,33 @@
+recordId: ops-001-blocked-20260711120111
+generatedAt: 2026-07-11T12:01:11Z
+mode: ops001-readonly-evidence-blocked
+residualRiskId: AF-RISK-OPS-001
+environment: production
+baseUrl: https://forge.areasong.top
+releaseTag: v0.1.5
+redactedUpdateStatusRecordHash: sha256:d81bc0472446bc64721dd8c758c4fe6df22102f7a9594039e195c56ae74b3e29
+remotePrerequisitesHash: sha256:ff37e0bbc572493583074b72906ff6e91cbfacb033ed05ebba70848491d28c48
+remoteFallbackSummaryHash: sha256:ba6065578836b60be15535229aa52170519e78396090d569f4fd5b29f3784f2b
+extraSmokeCommandConfigured: no
+smokeEmailConfigured: no
+smokePasswordFileConfigured: no
+hostPnpmAvailable: no
+preflightStatus: blocked_on_prerequisite
+blockers: extra smoke command missing, smoke email missing, smoke password file env missing, host pnpm missing
+doesNotProve: authenticated smoke passed; operational evidence bundle ready; OPS-001 closure packet ready; AF-RISK-OPS-001 closure; long-term operability
+residualLedgerAction: remains-open
+forbiddenActions: updater apply, migration, backup, restore, rollback, production writes, secret export, residual ledger closure
+productionEvidenceCollection:
+  serverCommandAttempted: yes
+  sudoReadConfigAttempted: yes
+  curlSmokeAttempted: no
+  reasonCurlSmokeSkipped: production smoke prerequisites incomplete
+safetyFacts:
+  serverCommandAttempted: yes
+  backupRestoreAttempted: no
+  migrationAttempted: no
+  productionWriteAttempted: no
+  updaterApplyAttempted: no
+  rollbackAttempted: no
+  secretValuePrinted: no
+  residualLedgerUpdated: no

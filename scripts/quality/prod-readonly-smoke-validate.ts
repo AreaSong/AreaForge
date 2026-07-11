@@ -134,8 +134,8 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   }
 
   const command = fields.get("smokeCommand");
-  if (command && !command.includes("pnpm smoke:prod-readonly")) {
-    issues.push({ field: "smokeCommand", message: "must reference pnpm smoke:prod-readonly" });
+  if (command && !isAllowedSmokeCommand(command)) {
+    issues.push({ field: "smokeCommand", message: "must reference pnpm smoke:prod-readonly or areaforge-ops001-readonly-fallback.sh" });
   }
 
   if (fields.get("smokeStatus")?.toLowerCase() !== "pass") {
@@ -177,6 +177,11 @@ function parseList(value: string): string[] {
     .split(",")
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function isAllowedSmokeCommand(command: string): boolean {
+  return command.includes("pnpm smoke:prod-readonly") ||
+    command.includes("areaforge-ops001-readonly-fallback.sh");
 }
 
 function requireField(fields: Map<string, string>, field: string, issues: ValidationIssue[]): void {

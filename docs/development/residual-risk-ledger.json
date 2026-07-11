@@ -4,12 +4,12 @@
   "items": [
     {
       "id": "AF-RISK-OPS-001",
-      "type": "monitoring-gap",
+      "type": "current-blocker",
       "reviewAt": "2026-07-17",
-      "currentImpact": "生产 extra smoke 仍依赖服务器配置；没有新鲜 smoke 记录时，发布体验验证只能到 warn；先用 pnpm ops:ops-001:preflight 检查 redacted 证据链，再用 pnpm ops:ops-001:closure:validate 校验收口包",
+      "currentImpact": "2026-07-11 生产只读 fallback 已证明 redacted update-agent status 有效，且 update-agent autoApply=none、signatureRequired=true、timer active、blocker=null；但宿主机缺 pnpm 运行时，/etc/areaforge/updater.env 缺 AREAFORGE_EXTRA_SMOKE_COMMAND / AREAFORGE_SMOKE_EMAIL / AREAFORGE_SMOKE_PASSWORD_FILE，所以未执行 authenticated smoke；pnpm ops:ops-001:preflight 只能到 blocked_on_prerequisite，不能声明长期运营完成",
       "executableNow": true,
-      "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 密码文件、最近一次通过记录、redacted update-agent status、operational evidence bundle 和 OPS-001 收口包",
-      "requiredEvidence": "redacted updater env 摘要、pnpm smoke:prod-readonly 通过时间、pnpm smoke:prod-readonly:validate 通过、update-record 摘要、pnpm ops:evidence:bundle:validate 通过、pnpm ops:ops-001:preflight 返回 ready_for_human_close、pnpm ops:ops-001:closure:validate 通过",
+      "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 账号和权限收紧的 smoke 密码文件；OPS-001 helper 具备可执行 pnpm smoke:prod-readonly 的运行时或有等价 curl fallback 记录；最近一次生产只读 smoke 通过、redacted update-agent status、operational evidence bundle 和 OPS-001 收口包齐全",
+      "requiredEvidence": "docs/development/ops-001-production-readonly-attempt-20260711.md、redacted updater env 摘要、pnpm smoke:prod-readonly 或等价 fallback 只读 smoke 通过时间、pnpm smoke:prod-readonly:validate 通过、update-record 摘要、pnpm ops:evidence:bundle:validate 通过、pnpm ops:ops-001:preflight 返回 ready_for_human_close、pnpm ops:ops-001:closure:validate 通过",
       "ownerSkills": ["areaforge-sre-ops", "areaforge-qa-smoke"]
     },
     {

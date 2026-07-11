@@ -27,6 +27,7 @@ const requiredFiles = [
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/support-bundle-preview.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
+  "scripts/ops/generate-ops001-fallback-closure.ts",
   "scripts/ops/ops004-alert-evidence-preflight.ts",
   "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
@@ -60,6 +61,8 @@ const requiredScripts = [
   "ops:support:bundle-preview:selftest",
   "ops:ops-001:preflight",
   "ops:ops-001:preflight:selftest",
+  "ops:ops-001:fallback:finalize",
+  "ops:ops-001:fallback:finalize:selftest",
   "ops:ops-004:preflight",
   "ops:ops-004:preflight:selftest",
   "sc:sc-002:preflight",
@@ -101,6 +104,7 @@ function main(): void {
     assert(handoff.nextCommands.handoff.includes("pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>"), "handoff should include support bundle preview validation command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm maintenance:window:record"), "handoff should include maintenance window record generation command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:ops-001:preflight"), "handoff should include OPS-001 evidence preflight command");
+    assert(handoff.nextCommands.liveEvidence.some((command: string) => command.includes("ops:ops-001:fallback:finalize")), "handoff should include OPS-001 fallback finalizer command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:evidence:bundle"), "handoff should include evidence bundle command");
     assert(handoff.nextCommands.release.includes("pnpm sc:sc-002:preflight"), "handoff should include SC-002 supply-chain preflight command");
     assert(handoff.safetyFacts.readOnly === true, "handoff should be read-only");

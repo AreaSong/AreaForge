@@ -241,6 +241,21 @@ sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
 
 该 helper 只读取 updater 配置、`ops-state/status.json` 和 smoke 密码文件，通过 `pnpm smoke:prod-readonly` 执行只读 HTTP smoke，并生成 redacted update-agent status、生产只读 smoke record、operational evidence bundle 和 OPS-001 closure packet。它不会执行 updater `check/apply`、不会处理 Web 更新请求、不会运行 migration、不会备份/恢复、不会回滚、不会写数据库或上传目录，也不会修改 residual 台账。
 
+helper 依赖生产主机或受控 release 工作目录能执行仓库 `pnpm` 脚本。运行前必须确认 `/etc/areaforge/updater.env` 已配置 `AREAFORGE_EXTRA_SMOKE_COMMAND`、`AREAFORGE_SMOKE_BASE_URL`、`AREAFORGE_SMOKE_EMAIL`、权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`、期望版本和 `AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none`。若缺少 host-level `pnpm`、extra smoke command、smoke email 或 smoke password file，只能形成 blocker 证据，不能生成 OPS-001 收口包；2026-07-11 的阻塞记录见 `docs/development/ops-001-production-readonly-attempt-20260711.md`。
+
+如果生产主机无法运行 Node.js/pnpm，可先使用只读 curl fallback helper 导出本地生成器可消费的 redacted 输入：
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-ops001-readonly-fallback.sh \
+  --config /etc/areaforge/updater.env \
+  --state-dir /opt/areaforge/ops-state \
+  --output-dir /tmp/areaforge-ops001-fallback-$(date -u +%Y%m%d%H%M%S)
+```
+
+fallback helper 只读取 updater 配置、`ops-state/status.json` 和 smoke 密码文件，通过 curl 执行与 `pnpm smoke:prod-readonly` 等价的只读 HTTP 检查，输出 `redacted-update-status.json`、`remote-prerequisites.json`、可选 `prod-readonly-smoke-output.log` 和 `remote-summary.txt`。它不生成最终 smoke record、operational evidence bundle 或 closure packet；这些仍需把 redacted 输出复制回本地后运行 `pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> [output-dir]`，或手动运行 `pnpm smoke:prod-readonly:record`、`pnpm ops:evidence:bundle` 和 `pnpm ops:ops-001:closure`。从 fallback 输出生成 smoke record 时设置 `AREAFORGE_PROD_READONLY_SMOKE_COMMAND=ops/update-agent/areaforge-ops001-readonly-fallback.sh`，并设置 `AREAFORGE_UPDATE_RECORD_SUMMARY="redacted update-agent status hash sha256:<64 hex>"` 或等价 redacted update record hash，使 `smokeCommand` 和 `updateRecordSummary` 准确标注证据来源。缺少 smoke 配置时，fallback helper 只形成 blocked evidence，不能关闭 `AF-RISK-OPS-001`。
+
+交互 SSH 场景下，先在 TTY 中运行 `sudo -v`，再执行 fallback helper。输出目录必须是 `/tmp/areaforge-ops001-fallback-*`，helper 会把 redacted 输出目录移交给触发 sudo 的用户，并在 `remote-summary.txt` 记录 `redactedHandoffStatus`。该状态为 `granted` 后，维护者可直接 `scp -r` 该 redacted 目录回本地；若状态为 `skipped-*` 或 `failed`，不要追加链式 `sudo tar/chown`，应修正输出目录或重新通过交互 TTY 采集。
+
 导出后只把生成目录里的 redacted 文件复制回本地或运维记录；不要复制 `/etc/areaforge/updater.env`、smoke 密码文件、生产 `.env`、数据库 dump、原始日志或附件内容。维护者复核时仍需运行：
 
 ```bash
