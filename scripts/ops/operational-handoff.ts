@@ -141,7 +141,7 @@ export function buildOperationalHandoffSummary(handoff: OperationalHandoff): Ope
     immediateFocus: handoff.evidenceFocus.immediate.map(toSummaryFocus),
     dueOrSoonFocus: handoff.evidenceFocus.dueOrSoon.map(toSummaryFocus),
     releaseRelevantResiduals: handoff.evidenceFocus.releaseRelevantIds,
-    nextHandoffCommands: uniqueStrings(handoff.nextCommands.handoff),
+    nextHandoffCommands: uniqueStrings(handoff.nextCommands.handoff.map(toSummaryCommand)),
     nextLiveEvidenceCommands: uniqueStrings(handoff.nextCommands.liveEvidence.slice(0, 6)),
     cannotClaim: handoff.claimBoundary.cannotClaim,
     highRiskBoundaries: handoff.highRiskBoundaries,
@@ -193,6 +193,12 @@ function listBlock(label: string, values: string[]): string {
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function toSummaryCommand(command: string): string {
+  if (command === "pnpm ops:handoff") return "pnpm ops:handoff --summary";
+  if (command === "pnpm ops:status") return "pnpm ops:status --summary";
+  return command;
 }
 
 function toFocusItem(input: {
