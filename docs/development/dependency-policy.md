@@ -75,6 +75,6 @@ pnpm ops:readiness
 
 当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。残余项 `AF-RISK-SC-001` 仍保持打开：它需要下一次真实签名 Release 产生 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据后才能关闭。
 
-`AF-RISK-SC-002` 已关闭为当前 HEAD 的 CI-only 证据项：CI/Release 外部 Actions 已 pin 到 40 位 commit SHA，`pnpm audit:prod` 已进入 CI/Release validate gate，且机器台账要求后续记录中的 `expectedGitCommit` 与 GitHub run `gitCommit` 一致。后续修改 GitHub Actions、依赖审计策略、Release workflow、供应链记录生成/校验或创建新 Release 前，必须重新生成 CI-only 或签名 Release 供应链记录并通过 `pnpm sc:sc-002:preflight` 与对应 validator。CI-only 证据不关闭 `AF-RISK-SC-001`；下一次签名 Release 仍需 SBOM/provenance、checksum/signature 和发布记录证据。
+`AF-RISK-SC-002` 已关闭为 CI-only 证据项：CI/Release 外部 Actions 已 pin 到 40 位 commit SHA，`pnpm audit:prod` 已进入 CI/Release validate gate，且机器台账要求后续记录中的 `expectedGitCommit` 与 GitHub run `gitCommit` 一致。后续修改 GitHub Actions、依赖审计策略、Release workflow、供应链记录生成/校验或创建新 Release 前，必须重新生成 CI-only 或签名 Release 供应链记录并通过 `pnpm sc:sc-002:preflight` 与对应 validator。CI-only 证据不关闭 `AF-RISK-SC-001`；下一次签名 Release 仍需 SBOM/provenance、checksum/signature 和发布记录证据。
 
 `AF-RISK-SC-003` 已关闭为证据项：本地 UX smoke 曾复现 `pg` transaction client query queue deprecation；当前 `packages/db` 对 Prisma pg adapter transaction query 做串行化，避免同一 transaction client 并发排队触发 `pg@9` 风险。当前 lockfile 只有 `pg@8.22.0`，`@prisma/adapter-pg@7.8.0` 也解析到同一 `pg@8.22.0`；临时 PostgreSQL 16 库上执行 `pnpm db:migrate:deploy`、增强后的 `NODE_OPTIONS=--trace-deprecation pnpm pg:trace-deprecation` 和本地 `NODE_OPTIONS=--trace-deprecation pnpm smoke:local-ux` 均未再出现 deprecation warning。后续升级 `pg` 或 Prisma adapter 时需重跑这些检查。
