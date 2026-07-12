@@ -305,9 +305,7 @@ jobs:
               echo "::error::stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY"
               exit 1
             fi
-            cat > SHA256SUMS.sig <<'EOF_SIG'
-            unsigned preview: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD before publishing a stable release
-            EOF_SIG
+            printf '%s\n' 'unsigned preview: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD before publishing a stable release' > SHA256SUMS.sig
             exit 0
           fi
 
