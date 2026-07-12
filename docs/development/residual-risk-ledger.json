@@ -36,10 +36,10 @@
       "id": "AF-RISK-SC-001",
       "type": "deferred-work",
       "reviewAt": "2026-08-10",
-      "currentImpact": "当前 Release workflow 已接入 SBOM/provenance 生成路径；线上 v0.1.5 仍是无 SBOM/provenance 的历史签名发布；pnpm release:supply-chain:validate 可校验下一次 Release 证据记录",
+      "currentImpact": "v0.1.7 签名 GitHub Release 已生成 SBOM/provenance、SHA256SUMS、SHA256SUMS.sig 和 GHCR digest 证据；pnpm release:supply-chain:validate 已通过并使 pnpm sc:sc-002:preflight 返回 ready_for_sc001_sc002_review；线上仍是 v0.1.5，台账尚未按维护者人工复核关闭",
       "executableNow": false,
-      "closeCondition": "下一次签名 Release 生成并发布 SBOM/provenance，updater 或验证脚本校验 checksum/signature，并在发布记录中留下证据",
-      "requiredEvidence": "SBOM asset、provenance asset、SHA256SUMS 覆盖记录、签名校验输出、pnpm release:supply-chain:validate 通过、发布记录摘要",
+      "closeCondition": "维护者人工复核 v0.1.7 签名 Release 供应链记录和发布记录后，明确关闭或继续保留该 residual；后续修改 Release workflow、签名策略、依赖审计或创建新 Release 前重新复核",
+      "requiredEvidence": "docs/development/release-supply-chain-v0.1.7.md、docs/development/release-v0.1.7-record.md、GitHub Release run 29179904808 成功、SBOM asset、provenance asset、SHA256SUMS 覆盖记录、cosign Verified OK、pnpm release:supply-chain:validate 通过、pnpm ops:long-term:gate 返回 ready_for_long_term_operability_review",
       "ownerSkills": ["areaforge-supply-chain"]
     },
     {

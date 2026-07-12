@@ -301,7 +301,7 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 - `AF-RISK-OPS-001`：2026-07-11/12 生产只读 smoke、redacted update-agent status、operational evidence bundle 和 closure packet 已达到 `ready_for_human_close`；台账关闭仍需维护者人工复核，release/update 后需要重新采集新鲜证据。
 - `AF-RISK-OPS-002`：写入型生产 smoke 策略已有非执行草案，但仍缺专用账号、用户确认、清理策略和受控记录。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受的安全默认，不等于自动应用能力已启用。
-- `AF-RISK-SC-001`：SBOM/provenance 生成路径已接入 Release workflow；线上 `v0.1.5` 仍无对应资产，需下一次签名 Release 的校验和发布记录证据关闭。
+- `AF-RISK-SC-001`：`v0.1.7` 已生成并校验 SBOM/provenance、checksum、cosign signature 和发布记录证据；线上仍是 `v0.1.5`，台账关闭仍需维护者人工复核，不代表生产已更新。
 - `AF-RISK-SC-002`：Actions SHA pinning 和 `pnpm audit:prod` 已在本地 workflow / governance gate 落地，仍需下一次 GitHub CI 或签名 Release 运行证据关闭。
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
