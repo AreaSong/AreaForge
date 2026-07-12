@@ -48,12 +48,14 @@ function main(): void {
   }
 
   const drilledAt = stringOrNull(preview.generatedAt) ?? new Date().toISOString();
+  const environment = resolveEnvironment(stringOrNull(preview.environment), process.env.AREAFORGE_ALERT_DRILL_ENVIRONMENT);
+  const scope = resolveScope(stringOrNull(preview.scope), process.env.AREAFORGE_ALERT_DRILL_SCOPE);
   const record = [
     `drillId: ${stringOrNull(process.env.AREAFORGE_ALERT_DRILL_ID) ?? `alert-drill-${compactTimestamp(drilledAt)}`}`,
     `drilledAt: ${drilledAt}`,
     `operator: ${required.values.operator}`,
-    `environment: ${normalizeEnvironment(stringOrNull(preview.environment) ?? process.env.AREAFORGE_ALERT_DRILL_ENVIRONMENT)}`,
-    `scope: ${normalizeScope(stringOrNull(preview.scope) ?? process.env.AREAFORGE_ALERT_DRILL_SCOPE)}`,
+    `environment: ${environment}`,
+    `scope: ${scope}`,
     `scenario: ${normalizeScenario(process.env.AREAFORGE_ALERT_DRILL_SCENARIO ?? inferScenario(preview))}`,
     "alertPreviewCommand: pnpm ops:alert:preview",
     `alertPreviewStatus: ${normalizePreviewStatus(stringOrNull(preview.status))}`,
@@ -133,7 +135,9 @@ function alertPreviewWouldNotify(preview: AlertPreview): boolean {
 
 function inferScenario(preview: AlertPreview): string {
   const alert = Array.isArray(preview.alerts)
-    ? preview.alerts.find((item) => item.wouldNotify === true) ?? preview.alerts[0]
+    ? preview.alerts.find((item) => Array.isArray(item.residualRiskIds) && item.residualRiskIds.includes("AF-RISK-OPS-004")) ??
+      preview.alerts.find((item) => item.wouldNotify === true) ??
+      preview.alerts[0]
     : null;
   const signal = stringOrNull(alert?.signal);
   if (signal === "health") return "health_failure";
@@ -162,14 +166,22 @@ function normalizeReceiverType(value: string | undefined): "external" | "manual-
   return value === "external" || value === "manual-window" ? value : null;
 }
 
-function normalizeEnvironment(value: string | null | undefined): "production" | "staging" | "local" | "ci" {
+function resolveEnvironment(previewValue: string | null, envValue: string | undefined): "production" | "staging" | "local" | "ci" {
+  const value = stringOrNull(envValue) ?? previewValue;
   const allowed = ["production", "staging", "local", "ci"];
-  return allowed.includes(value ?? "") ? value as "production" | "staging" | "local" | "ci" : "production";
+  if (allowed.includes(value ?? "")) {
+    return value as "production" | "staging" | "local" | "ci";
+  }
+  throw new Error("alert drill environment must be explicit: set AREAFORGE_ALERT_DRILL_ENVIRONMENT to production, staging, local, or ci when the preview environment is missing or unknown");
 }
 
-function normalizeScope(value: string | null | undefined): "daily" | "release" | "update" | "migration" | "rollback" {
+function resolveScope(previewValue: string | null, envValue: string | undefined): "daily" | "release" | "update" | "migration" | "rollback" {
+  const value = stringOrNull(envValue) ?? previewValue;
   const allowed = ["daily", "release", "update", "migration", "rollback"];
-  return allowed.includes(value ?? "") ? value as "daily" | "release" | "update" | "migration" | "rollback" : "daily";
+  if (allowed.includes(value ?? "")) {
+    return value as "daily" | "release" | "update" | "migration" | "rollback";
+  }
+  throw new Error("alert drill scope must be explicit: set AREAFORGE_ALERT_DRILL_SCOPE to daily, release, update, migration, or rollback when the preview scope is missing or unknown");
 }
 
 function normalizeScenario(value: string): string {

@@ -43,8 +43,8 @@ function main(): void {
     status,
     evidence,
     requiredPreflight: [
-      "pnpm ops:alert:preview > <ops-alert-preview.json>",
-      "AREAFORGE_ALERT_DRILL_OPERATOR=<operator> AREAFORGE_ALERT_RECEIVER_TYPE=manual-window AREAFORGE_ALERT_RECEIVER_CONFIGURED=yes AREAFORGE_ALERT_RECEIVER_ACK=yes AREAFORGE_ALERT_DRILL_DETECTION_RESULT=PASS AREAFORGE_ALERT_DRILL_RECOVERY_RESULT=PASS AREAFORGE_ALERT_DRILL_RECOVERY_ACTION='<checked action>' pnpm alert:drill:record <ops-alert-preview.json> > <alert-drill-record.txt>",
+      "AREAFORGE_READINESS_ENVIRONMENT=production pnpm ops:alert:preview > <ops-alert-preview.json>",
+      "AREAFORGE_ALERT_DRILL_ENVIRONMENT=production AREAFORGE_ALERT_DRILL_OPERATOR=<operator> AREAFORGE_ALERT_RECEIVER_TYPE=manual-window AREAFORGE_ALERT_RECEIVER_CONFIGURED=yes AREAFORGE_ALERT_RECEIVER_ACK=yes AREAFORGE_ALERT_DRILL_DETECTION_RESULT=PASS AREAFORGE_ALERT_DRILL_RECOVERY_RESULT=PASS AREAFORGE_ALERT_DRILL_RECOVERY_ACTION='<checked action>' pnpm alert:drill:record <ops-alert-preview.json> > <alert-drill-record.txt>",
       "pnpm alert:drill:validate <alert-drill-record.txt>",
       "AREAFORGE_OPS004_ALERT_PREVIEW=<ops-alert-preview.json> AREAFORGE_OPS004_ALERT_DRILL_RECORD=<alert-drill-record.txt> pnpm ops:ops-004:preflight",
     ],

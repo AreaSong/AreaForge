@@ -50,7 +50,7 @@ const passFailFields = ["detectionResult", "recoveryResult"] as const;
 
 const secretPatterns = [
   { label: "DATABASE_URL", pattern: /postgres(?:ql)?:\/\/[^ \n]+/i },
-  { label: "API key", pattern: /\b(?:sk-|rk-|sess-)[A-Za-z0-9_-]{16,}/ },
+  { label: "API key", pattern: /\b(?:sk-|rk-|sess-|ghp_|github_pat_)[A-Za-z0-9_-]{16,}/ },
   { label: "AUTH_SESSION_SECRET", pattern: /AUTH_SESSION_SECRET\s*=\s*\S+/i },
   { label: "AI_API_KEY", pattern: /AI_API_KEY\s*=\s*\S+/i },
   { label: "cookie", pattern: /\b(?:session|cookie)\s*[:=]\s*[A-Za-z0-9._=-]{16,}/i },

@@ -28,6 +28,7 @@ const requiredFiles = [
   "scripts/ops/operational-handoff.ts",
   "scripts/ops/long-term-operability-live-gate.ts",
   "scripts/ops/long-term-evidence-snapshot.ts",
+  "scripts/quality/ops-readonly-side-effect.selftest.ts",
   "scripts/ops/operational-readiness-summary.ts",
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/support-bundle-preview.ts",
@@ -58,6 +59,7 @@ const requiredScripts = [
   "ops:status:selftest",
   "ops:handoff",
   "ops:handoff:selftest",
+  "ops:readonly-side-effect:selftest",
   "ops:long-term:gate",
   "ops:long-term:gate:selftest",
   "ops:long-term:snapshot",
@@ -116,6 +118,7 @@ function main(): void {
     assert(projection.packageScripts.present.includes("sc:sc-002:preflight"), "projection should require SC-002 supply-chain preflight script");
     assert(projection.packageScripts.present.includes("ops:long-term:gate"), "projection should require long-term live evidence gate script");
     assert(projection.packageScripts.present.includes("ops:long-term:snapshot"), "projection should require long-term evidence snapshot script");
+    assert(projection.packageScripts.present.includes("ops:readonly-side-effect:selftest"), "projection should require read-only side-effect selftest script");
     assert(projection.packageScripts.present.includes("maintenance:window:record"), "projection should require maintenance window record generator");
     assert(projection.packageScripts.present.includes("maintenance:window:validate"), "projection should require maintenance window validator");
     assert(projection.commands.daily.includes("pnpm ops:support:bundle-preview"), "daily commands should include support bundle preview");
@@ -131,6 +134,7 @@ function main(): void {
     assert(projection.commands.weekly.includes("pnpm ops:ops-004:preflight:selftest"), "weekly commands should include OPS-004 alert evidence preflight selftest");
     assert(projection.commands.weekly.includes("pnpm sc:sc-002:preflight:selftest"), "weekly commands should include SC-002 supply-chain preflight selftest");
     assert(projection.commands.weekly.includes("pnpm ops:long-term:snapshot:selftest"), "weekly commands should include long-term evidence snapshot selftest");
+    assert(projection.commands.weekly.includes("pnpm ops:readonly-side-effect:selftest"), "weekly commands should include read-only side-effect selftest");
     assert(projection.commands.weekly.includes("pnpm maintenance:window:record:selftest"), "weekly commands should include maintenance window record selftest");
     assert(projection.commands.release.includes("pnpm sc:sc-002:preflight"), "release commands should include SC-002 supply-chain preflight");
     assert(projection.commands.release.includes("pnpm ops:long-term:gate"), "release commands should include long-term live evidence gate");

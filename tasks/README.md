@@ -10,7 +10,7 @@
 - `indexes/`：执行索引，如长期运营残余项的 task-facing 视图。
 - `templates/`：任务模板。
 
-当前进度：Package A-E 和 docs 100% 当前证据已完成；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。`done/` 中记录已完成的单点任务和 GitHub Release updater。当前远端 `v0.1.7` 发布与 update-agent/updater 状态见 `docs/development/release-v0.1.7-record.md`、`tasks/done/0018-github-release-updater.md` 和 `tasks/backlog/0014-deployment-backup-release.md`；长期运营残余项以 `docs/development/residual-risk-ledger.md` 的 ID 为准，执行视图见 `tasks/indexes/residuals.md`，维护或线程交接先用 `pnpm ops:handoff --summary` 查看只读摘要。
+当前进度：Package A-E 和 docs 100% 当前证据已完成；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。`done/` 中记录已完成的单点任务和 GitHub Release updater。当前远端 `v0.1.7` 发布与 update-agent/updater 状态见 `docs/development/release-v0.1.7-record.md`、`tasks/done/0018-github-release-updater.md` 和 `tasks/backlog/0014-deployment-backup-release.md`；长期运营残余项以 `docs/development/residual-risk-ledger.md` 的 ID 为准，执行视图见 `tasks/indexes/residuals.md`。当前 `v0.1.7` 长期证据快照仍为 `needs_live_evidence`，缺 post-update OPS-001 redacted smoke/status/evidence bundle/closure packet、OPS-004 matching alert drill/preflight 和 release evidence backup hash；维护或线程交接先用 `pnpm ops:handoff --summary` 查看只读摘要。
 
 ## 使用规则
 

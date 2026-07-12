@@ -14,6 +14,7 @@ pnpm alert:drill:validate docs/development/alert-drill-vX.Y.Z-or-date.md
 
 ```bash
 AREAFORGE_ALERT_DRILL_OPERATOR=<operator> \
+AREAFORGE_ALERT_DRILL_ENVIRONMENT=production \
 AREAFORGE_ALERT_RECEIVER_TYPE=manual-window \
 AREAFORGE_ALERT_RECEIVER_CONFIGURED=yes \
 AREAFORGE_ALERT_RECEIVER_ACK=yes \
@@ -27,7 +28,7 @@ AREAFORGE_OPS004_ALERT_DRILL_RECORD=/path/to/alert-drill-record.txt \
 pnpm ops:ops-004:preflight
 ```
 
-记录生成器只读取 alert preview 输出和上述显式演练字段；它不发送通知、不调用外部接收人、不执行服务器命令、不写生产。缺少接收人配置、确认 ACK、检测 PASS、恢复 PASS 或恢复动作说明时，生成器会失败，而不是生成可误用的关闭记录。
+记录生成器只读取 alert preview 输出和上述显式演练字段；它不发送通知、不调用外部接收人、不执行服务器命令、不写生产。缺少接收人配置、确认 ACK、检测 PASS、恢复 PASS 或恢复动作说明时，生成器会失败，而不是生成可误用的关闭记录。若 alert preview 的 `environment` 是 `unknown` 或缺失，必须显式设置 `AREAFORGE_ALERT_DRILL_ENVIRONMENT=production`（或 staging/local/ci），不能让生成器把未知环境静默当成生产证据。
 OPS-004 预检只读取已保存的 alert preview 与演练记录，调用演练记录校验器，并核对 `alertPreviewEvidenceHash` 是否等于 preview 文件内容 hash；它不发送通知、不调用外部接收人、不修改 residual 台账。
 
 ## 模板

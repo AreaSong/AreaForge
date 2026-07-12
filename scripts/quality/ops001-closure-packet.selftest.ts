@@ -13,7 +13,7 @@ try {
   const smokeRecord = path.join(tempDir, "prod-readonly-smoke-record.txt");
   const updateStatusRecord = path.join(tempDir, "redacted-update-status.json");
   const evidenceBundle = path.join(tempDir, "operational-evidence-bundle.json");
-  const closurePacket = path.join(tempDir, "ops001-closure-packet.txt");
+  const closurePacket = path.join(tempDir, "ops-001-closure-packet.txt");
 
   writeFileSync(smokeRecord, createSmokeRecord());
   writeFileSync(updateStatusRecord, JSON.stringify(createUpdateStatusRecord(), null, 2));
@@ -35,7 +35,7 @@ try {
     fail("closure packet validation hash missing");
   }
 
-  const invalidPacket = path.join(tempDir, "ops001-closure-packet-invalid.txt");
+  const invalidPacket = path.join(tempDir, "ops-001-closure-packet-invalid.txt");
   writeFileSync(invalidPacket, generate.stdout.replace("smokePasswordReadFromFile: yes", "smokePasswordReadFromFile: no"));
   const invalidValidate = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/ops001-closure-packet-validate.ts", invalidPacket], {
     cwd: root,
@@ -43,7 +43,7 @@ try {
   });
   expectStatus("invalid closure packet fails", invalidValidate, 1);
 
-  const historicalPacket = path.join(tempDir, "ops001-closure-packet-historical.txt");
+  const historicalPacket = path.join(tempDir, "ops-001-closure-packet-historical.txt");
   writeFileSync(
     historicalPacket,
     generate.stdout

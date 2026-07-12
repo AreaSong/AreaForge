@@ -16,7 +16,7 @@ try {
   const smokeRecord = path.join(tempDir, "prod-readonly-smoke-record.txt");
   const updateStatusRecord = path.join(tempDir, "redacted-update-status.json");
   const evidenceBundle = path.join(tempDir, "operational-evidence-bundle.json");
-  const closurePacket = path.join(tempDir, "ops001-closure-packet.txt");
+  const closurePacket = path.join(tempDir, "ops-001-closure-packet.txt");
   const blockedRecord = path.join(tempDir, "ops001-blocked-record.txt");
 
   writeFileSync(smokeRecord, createSmokeRecord());

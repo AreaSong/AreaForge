@@ -9,16 +9,19 @@ const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-alert-drill-"));
 try {
   const validRecord = path.join(tempDir, "alert-drill-record.txt");
   const invalidSecretRecord = path.join(tempDir, "alert-drill-secret.txt");
+  const invalidGithubTokenRecord = path.join(tempDir, "alert-drill-github-token.txt");
   const invalidReceiverRecord = path.join(tempDir, "alert-drill-receiver.txt");
   const invalidResidualRecord = path.join(tempDir, "alert-drill-residual.txt");
 
   writeFileSync(validRecord, createRecord());
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: AI_API_KEY=sk-testtesttesttesttest\n`);
+  writeFileSync(invalidGithubTokenRecord, `${createRecord()}\nleaked: github_pat_testtesttesttesttest\n`);
   writeFileSync(invalidReceiverRecord, createRecord().replace("receiverConfigured: yes", "receiverConfigured: no"));
   writeFileSync(invalidResidualRecord, createRecord().replace("residualRiskIds: AF-RISK-OPS-004", "residualRiskIds: none"));
 
   expectExit("valid alert drill record passes", [validRecord], 0, "alertDrillEvidenceHash: sha256:");
   expectExit("secret-like values fail", [invalidSecretRecord], 1);
+  expectExit("GitHub token-like values fail", [invalidGithubTokenRecord], 1);
   expectExit("unconfigured receiver fails", [invalidReceiverRecord], 1);
   expectExit("missing OPS-004 residual fails", [invalidResidualRecord], 1);
 

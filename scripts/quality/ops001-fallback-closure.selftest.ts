@@ -7,6 +7,7 @@ type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-ops001-fallback-finalizer-"));
+const currentVersion = "0.1.7";
 
 try {
   const fallbackDir = path.join(tempDir, "fallback");
@@ -72,7 +73,7 @@ function writeFixture(fallbackDir: string, blockers: string[]): void {
     generatedAt: "2026-07-11T10:00:00Z",
     mode: "ops001-readonly-fallback-prerequisites",
     baseUrl: "https://forge.areasong.top",
-    expectedVersion: "0.1.5",
+    expectedVersion: currentVersion,
     expectedAutoApply: "none",
     extraSmokeCommandConfigured: "yes",
     smokeEmailConfigured: "yes",
@@ -114,18 +115,18 @@ function createReleaseManifest(): JsonRecord {
   return {
     schemaVersion: 1,
     app: "AreaForge",
-    version: "0.1.5",
-    webImageDigest: "ghcr.io/areasong/areaforge-web:v0.1.5@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    migrationImageDigest: "ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    version: currentVersion,
+    webImageDigest: `ghcr.io/areasong/areaforge-web:v${currentVersion}@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`,
+    migrationImageDigest: `ghcr.io/areasong/areaforge-migration:v${currentVersion}@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`,
   };
 }
 
 function createUpdateStatusRecord(): JsonRecord {
   return {
-    currentVersion: "0.1.5",
-    currentImage: "ghcr.io/areasong/areaforge-web:v0.1.5@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    releaseUrl: "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.5",
-    latestVersion: "0.1.5",
+    currentVersion,
+    currentImage: `ghcr.io/areasong/areaforge-web:v${currentVersion}@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`,
+    releaseUrl: `https://github.com/AreaSong/AreaForge/releases/tag/v${currentVersion}`,
+    latestVersion: currentVersion,
     updateAvailable: false,
     autoApply: "none",
     signatureRequired: true,

@@ -70,6 +70,52 @@ try {
     process.exit(1);
   }
 
+  const unknownEnvironmentPreview = path.join(tempDir, "alert-preview-unknown-environment.json");
+  writeFileSync(unknownEnvironmentPreview, JSON.stringify({ ...createPreview(), environment: "unknown" }, null, 2));
+  const unknownEnvironment = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-alert-drill-record.ts", unknownEnvironmentPreview], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_ALERT_DRILL_OPERATOR: "areasong",
+      AREAFORGE_ALERT_RECEIVER_TYPE: "manual-window",
+      AREAFORGE_ALERT_RECEIVER_CONFIGURED: "yes",
+      AREAFORGE_ALERT_RECEIVER_ACK: "yes",
+      AREAFORGE_ALERT_DRILL_DETECTION_RESULT: "PASS",
+      AREAFORGE_ALERT_DRILL_RECOVERY_RESULT: "PASS",
+      AREAFORGE_ALERT_DRILL_RECOVERY_ACTION: "operator acknowledged backup freshness warning and recorded next backup check",
+    },
+  });
+  if (unknownEnvironment.status !== 1 || !unknownEnvironment.stderr.includes("environment must be explicit")) {
+    console.error("FAIL unknown preview environment should require explicit drill environment");
+    console.error(unknownEnvironment.stdout.trim());
+    console.error(unknownEnvironment.stderr.trim());
+    process.exit(1);
+  }
+
+  const mixedPreview = path.join(tempDir, "alert-preview-mixed.json");
+  writeFileSync(mixedPreview, JSON.stringify(createMixedPreview(), null, 2));
+  const mixedGenerated = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-alert-drill-record.ts", mixedPreview], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_ALERT_DRILL_OPERATOR: "areasong",
+      AREAFORGE_ALERT_RECEIVER_TYPE: "manual-window",
+      AREAFORGE_ALERT_RECEIVER_CONFIGURED: "yes",
+      AREAFORGE_ALERT_RECEIVER_ACK: "yes",
+      AREAFORGE_ALERT_DRILL_DETECTION_RESULT: "PASS",
+      AREAFORGE_ALERT_DRILL_RECOVERY_RESULT: "PASS",
+      AREAFORGE_ALERT_DRILL_RECOVERY_ACTION: "operator acknowledged backup freshness warning and recorded next backup check",
+    },
+  });
+  if (mixedGenerated.status !== 0 || !mixedGenerated.stdout.includes("scenario: backup_stale")) {
+    console.error("FAIL mixed alert preview should infer OPS-004 backup_stale scenario");
+    console.error(mixedGenerated.stdout.trim());
+    console.error(mixedGenerated.stderr.trim());
+    process.exit(1);
+  }
+
   console.log("alert drill record generator selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });
@@ -109,5 +155,28 @@ function createPreview(): unknown {
       notificationSent: false,
       externalAlertReceiverCalled: false,
     },
+  };
+}
+
+function createMixedPreview(): unknown {
+  const preview = createPreview() as {
+    alerts: Array<Record<string, unknown>>;
+  };
+  return {
+    ...preview,
+    alerts: [
+      {
+        key: "alert:updateAgent",
+        signal: "updateAgent",
+        severity: "warning",
+        wouldNotify: true,
+        owner: "areaforge-sre-ops",
+        summary: "updateAgent is unknown",
+        evidence: "update status not collected",
+        residualRiskIds: ["AF-RISK-OPS-001"],
+        recommendedAction: "collect redacted update-agent status",
+      },
+      ...preview.alerts,
+    ],
   };
 }

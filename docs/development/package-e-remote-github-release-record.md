@@ -2,11 +2,13 @@
 
 本记录补充 Package E 在真实远端服务器上的 GitHub Release 受控更新证据。它不替代 E1-E4 的本机生产发布、备份、恢复和回滚演练记录，而是记录外部服务器、域名 HTTPS、GHCR Release、cosign 签名校验和 update-agent 状态已经完成的事实。
 
-## 当前结论
+## 历史结论
+
+本记录是 `v0.1.5` 首次远端 GitHub Release 签名更新的历史证据。当前生产版本已更新到 `0.1.7`，当前记录见 `docs/development/release-v0.1.7-record.md`；本文件不得作为当前线上版本、最新 Release 或长期运营闭环证据使用。
 
 - 线上地址：`https://forge.areasong.top/`
 - 线上健康检查：`GET https://forge.areasong.top/api/health` 返回 `{"ok":true,"service":"AreaForge","version":"0.1.5"}`。
-- 最新 GitHub Release：`v0.1.5`，发布时间 `2026-07-10T07:15:36Z`。
+- 当时最新 GitHub Release：`v0.1.5`，发布时间 `2026-07-10T07:15:36Z`。
 - Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v0.1.5`
 - Release commit：`05bc4fe35db75d323d8391abcd1fb97bff575e2d`
 - 服务器更新方式：`areaforge-updater.sh apply --yes --tag v0.1.5 --config /etc/areaforge/updater.env`

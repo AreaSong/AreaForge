@@ -81,7 +81,7 @@ overall:
 
 ## 只读检查
 
-本仓库提供的 `pnpm ops:readiness` 只检查运营文档、残余风险台账、release workflow 和 package scripts 是否保留长期运营入口；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration。残余风险 Markdown 与机器索引的同步由 `pnpm residuals:validate` 校验。
+本仓库提供的 `pnpm ops:readiness` 只检查运营文档、残余风险台账、release workflow 和 package scripts 是否保留长期运营入口；它不连接生产、不读取密钥、不执行 Docker、不备份、不恢复、不运行 migration。`pnpm ops:readonly-side-effect:selftest` 会在本地运行 `ops:status`、`ops:handoff`、`ops:support:bundle-preview` 和 `ops:long-term:snapshot`，并对关键文件 hash 与 `git status --short` 做前后对比，用于证明这些只读入口没有改仓库；它不证明生产健康或 residual 关闭。残余风险 Markdown 与机器索引的同步由 `pnpm residuals:validate` 校验。
 
 AreaFlow 的 `.areaflow/status.json` 给了 AreaForge 一个轻量借鉴点：保留离线 status projection，但不引入执行队列或跨项目 apply。AreaForge 对应命令是：
 
@@ -258,7 +258,7 @@ AREAFORGE_OPS004_ALERT_DRILL_RECORD=/path/to/alert-drill-record.txt \
 pnpm ops:ops-004:preflight
 ```
 
-记录生成器需要显式提供操作者、接收人类型、`receiverConfigured=yes`、`receiverAck=yes`、检测/恢复 PASS 和恢复动作说明；它只读取 alert preview 输出，不发送通知、不调用外部接收人、不执行服务器命令、不写生产。该校验只读取演练记录，检查字段、枚举、`AF-RISK-OPS-004` 残余 ID、hash 形态和敏感值泄露；它不发送通知、不连接外部接收人、不执行服务器命令、不写生产。OPS-004 预检会额外读取同一次 alert preview 和演练记录，确认 `alertPreviewEvidenceHash` 与 preview 文件内容匹配；缺少演练记录时返回 `ready_to_generate_record`，两者通过时返回 `ready_for_human_close`。`pnpm alert:drill:selftest`、`pnpm alert:drill:record:selftest` 和 `pnpm ops:ops-004:preflight:selftest` 用于本地回归校验规则。
+记录生成器需要显式提供操作者、接收人类型、`receiverConfigured=yes`、`receiverAck=yes`、检测/恢复 PASS 和恢复动作说明；如果 alert preview 的环境是 `unknown`，还必须显式提供 `AREAFORGE_ALERT_DRILL_ENVIRONMENT=production`（或 staging/local/ci），不能把未知环境静默归为生产。它只读取 alert preview 输出，不发送通知、不调用外部接收人、不执行服务器命令、不写生产。该校验只读取演练记录，检查字段、枚举、`AF-RISK-OPS-004` 残余 ID、hash 形态和敏感值泄露；它不发送通知、不连接外部接收人、不执行服务器命令、不写生产。OPS-004 预检会额外读取同一次 alert preview 和演练记录，确认 `alertPreviewEvidenceHash` 与 preview 文件内容匹配；缺少演练记录时返回 `ready_to_generate_record`，两者通过时返回 `ready_for_human_close`。`pnpm alert:drill:selftest`、`pnpm alert:drill:record:selftest` 和 `pnpm ops:ops-004:preflight:selftest` 用于本地回归校验规则。
 
 本地真实体验验证可使用 `pnpm smoke:local-ux`。该脚本会写入合成任务、计时、复盘、笔记附件、错题、模拟考试、阶段草稿和更新请求，因此默认要求 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，且只允许 `localhost` / `127.0.0.1`，除非显式设置 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true`。它只能证明当前本地验证环境的核心闭环可用，不能关闭生产写入型 smoke 残余项 `AF-RISK-OPS-002`。
 

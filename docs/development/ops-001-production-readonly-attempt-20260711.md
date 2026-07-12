@@ -111,9 +111,9 @@ pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
 AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record.txt> \
 AREAFORGE_OPS001_UPDATE_STATUS_RECORD=<redacted-update-status.json> \
 AREAFORGE_OPS001_EVIDENCE_BUNDLE=<operational-evidence-bundle.json> \
-AREAFORGE_OPS001_CLOSURE_PACKET=<ops001-closure-packet.txt> \
+AREAFORGE_OPS001_CLOSURE_PACKET=<ops-001-closure-packet.txt> \
 pnpm ops:ops-001:preflight
-pnpm ops:ops-001:closure:validate <ops001-closure-packet.txt>
+pnpm ops:ops-001:closure:validate <ops-001-closure-packet.txt>
 ```
 
 ## Safety Facts

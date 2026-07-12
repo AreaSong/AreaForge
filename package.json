@@ -26,6 +26,7 @@
     "ops:status:selftest": "tsx scripts/quality/operability-status.selftest.ts",
     "ops:handoff": "tsx scripts/ops/operational-handoff.ts",
     "ops:handoff:selftest": "tsx scripts/quality/operational-handoff.selftest.ts",
+    "ops:readonly-side-effect:selftest": "tsx scripts/quality/ops-readonly-side-effect.selftest.ts",
     "ops:long-term:gate": "tsx scripts/ops/long-term-operability-live-gate.ts",
     "ops:long-term:gate:selftest": "tsx scripts/quality/long-term-operability-live-gate.selftest.ts",
     "ops:long-term:snapshot": "tsx scripts/ops/long-term-evidence-snapshot.ts",

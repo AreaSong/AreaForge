@@ -187,6 +187,7 @@ const requiredFiles = [
   "scripts/ops/operational-handoff.ts",
   "scripts/ops/long-term-operability-live-gate.ts",
   "scripts/ops/long-term-evidence-snapshot.ts",
+  "scripts/quality/ops-readonly-side-effect.selftest.ts",
   "scripts/ops/operational-readiness-summary.ts",
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/support-bundle-preview.ts",
@@ -216,6 +217,7 @@ const requiredPackageScripts = [
   "ops:status:selftest",
   "ops:handoff",
   "ops:handoff:selftest",
+  "ops:readonly-side-effect:selftest",
   "ops:long-term:gate",
   "ops:long-term:gate:selftest",
   "ops:long-term:snapshot",
@@ -454,6 +456,7 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
     weekly: [
       "pnpm ops:handoff",
       "pnpm ops:status",
+      "pnpm ops:readonly-side-effect:selftest",
       "pnpm enterprise:operability:preflight",
       "pnpm maintenance:cadence:preflight",
       "pnpm ops:support:bundle-preview:selftest",
