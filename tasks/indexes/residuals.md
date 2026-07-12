@@ -13,7 +13,7 @@
 
 | ID | 执行影响 | 下一 owner | 触发时机 |
 |---|---|---|---|
-| AF-RISK-OPS-001 | 当前阻塞长期运营完成声明：2026-07-11 生产只读 fallback 已得到有效 redacted update-agent status，但宿主机缺 `pnpm`，且 `/etc/areaforge/updater.env` 缺 `AREAFORGE_EXTRA_SMOKE_COMMAND`、smoke email 和 password file；关闭前先补齐生产 smoke credential 和 helper 运行时或等价 fallback 记录，再跑 `pnpm ops:ops-001:preflight`，并用生产只读 smoke、redacted update-agent status、operational evidence bundle 和 `pnpm ops:ops-001:closure:validate` 收口包复核 | `areaforge-sre-ops` / `areaforge-qa-smoke` | 每次 release/update 后或维护窗口复核；当前需要高风险确认后配置生产 smoke 凭据 |
+| AF-RISK-OPS-001 | 2026-07-11/12 生产只读 fallback 已补齐 smoke 凭据配置并通过等价 curl 只读 smoke；`docs/development/ops-001-production-readonly-20260711/` 已保存生产只读 smoke、redacted update-agent status、operational evidence bundle、OPS-001 closure packet 和 final preflight，`pnpm ops:ops-001:preflight` 已到 `ready_for_human_close`，`pnpm ops:ops-001:closure:validate` 已通过；台账仍待维护者人工复核关闭 | `areaforge-sre-ops` / `areaforge-qa-smoke` | 每次 release/update 后或维护窗口复核；关闭台账前复核 OPS-001 证据目录和 validator 输出 |
 | AF-RISK-OPS-002 | 写入型生产 smoke 策略已有非执行草案，但仍缺账号、确认、清理和受控记录 | `areaforge-qa-smoke` / `areaforge-security-governance` | 执行生产写入 smoke 前 |
 | AF-RISK-REL-001 | `AREAFORGE_AUTO_APPLY=none` 是安全默认，不等于自动应用已启用 | `areaforge-release-operator` / `areaforge-sre-ops` | 调整自动更新策略前 |
 | AF-RISK-SC-001 | 下一次签名 Release 需产生并校验 SBOM/provenance；`pnpm release:supply-chain:validate` 可校验证据记录 | `areaforge-supply-chain` | 创建新 GitHub Release 时 |

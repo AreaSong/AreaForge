@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-07-11T19:26:37Z",
+  "mode": "ops001-readonly-fallback-prerequisites",
+  "baseUrl": "https://forge.areasong.top",
+  "expectedVersion": "0.1.5",
+  "expectedAutoApply": "none",
+  "extraSmokeCommandConfigured": "yes",
+  "smokeEmailConfigured": "yes",
+  "smokePasswordFileConfigured": "yes",
+  "smokePasswordFileReadable": "yes",
+  "smokePasswordFileMode": "600",
+  "hostPnpmAvailable": "no",
+  "blockers": [],
+  "safetyFacts": {
+    "configValuesRedacted": true,
+    "passwordValuePrinted": false,
+    "cookieValuePrinted": false,
+    "updaterApplyAttempted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "productionWriteAttempted": false
+  }
+}

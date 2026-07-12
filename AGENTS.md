@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-- 当前版本为 `0.1.5`，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新运行。
+- 仓库候选版本为 `0.1.6`；远端 `https://forge.areasong.top/` 当前仍运行通过 GitHub Release `v0.1.5` 签名更新的 `0.1.5`，生产更新需另行确认。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。

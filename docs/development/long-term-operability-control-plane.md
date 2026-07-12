@@ -11,7 +11,7 @@
 - Package A-E 和 docs 100% 当前范围已完成，源事实见 `docs/development/docs-100-completion-record.md`。
 - 线上版本源事实为 `0.1.5` / `v0.1.5` / `https://forge.areasong.top/`，生产发布记录见 `docs/development/package-e-remote-github-release-record.md`。
 - 自动更新当前安全默认是 `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 updater 执行高风险动作。
-- 当前长期运营未完全关闭的不是“功能未完成”，而是生产证据和复核窗口：`AF-RISK-OPS-001` 仍需生产只读证据，`AF-RISK-SC-001` 仍需下一次签名 Release 的 SBOM/provenance 证据，`AF-RISK-UX-001` 仍需按 14 天窗口复核；`AF-RISK-SC-002` 已有 CI-only `closed-evidence`，只有在 GitHub Actions、依赖审计策略、Release workflow、供应链记录校验或新 Release 前需要重跑复核。
+- 当前长期运营未完全关闭的不是“功能未完成”，而是生产证据和复核窗口：`AF-RISK-OPS-001` 已有生产只读 smoke / update-agent / evidence bundle / closure packet 证据并达到 `ready_for_human_close`，但台账尚未人工关闭；`AF-RISK-SC-001` 仍需下一次签名 Release 的 SBOM/provenance 证据，`AF-RISK-UX-001` 仍需按 14 天窗口复核；`AF-RISK-SC-002` 已有 CI-only `closed-evidence`，只有在 GitHub Actions、依赖审计策略、Release workflow、供应链记录校验或新 Release 前需要重跑复核。
 - 当前 `NOT-READY` 完成声明证据见 `docs/development/long-term-operability-not-ready-20260711.txt`；它通过 `pnpm completion:evidence:validate`，只证明完成声明边界和阻塞项记录完整，不替代 `pnpm ops:long-term:gate`、生产 smoke、签名 Release 证据或 residual 人工关闭。
 
 ## 从 AreaMatrix 和 AreaFlow 借鉴的轻量机制
@@ -155,7 +155,7 @@ pnpm ops:ops-004:preflight
 
 ## 当前必须持续复核的证据
 
-- `AF-RISK-OPS-001`：当前是长期运营完成声明阻塞项。2026-07-11 只读 fallback 已留下 blocked record 和有效 redacted update-agent status，但仍缺生产 `AREAFORGE_EXTRA_SMOKE_COMMAND`、smoke email/password file 和 host `pnpm` 运行时；必须补齐生产只读 smoke 配置、最近一次通过记录、redacted update-agent status、operational evidence bundle 和 `pnpm ops:ops-001:closure:validate` 收口包。
+- `AF-RISK-OPS-001`：2026-07-11/12 生产只读 fallback 已形成可人工复核关闭证据，目录为 `docs/development/ops-001-production-readonly-20260711/`；生产只读 smoke、redacted update-agent status、operational evidence bundle、OPS-001 closure packet 和 final preflight 均已通过校验，台账尚未自动关闭。
 - `AF-RISK-OPS-002`：写入型生产 smoke 仍需专用账号、确认、清理策略和受控记录。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受安全默认，启用 patch 自动应用需另行关闭证据。
 - `AF-RISK-SC-001`：下一次签名 Release 的 SBOM/provenance 资产与校验记录。

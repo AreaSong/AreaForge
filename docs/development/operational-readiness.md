@@ -298,7 +298,7 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 
 当前 release / ops 判断必须显式带入以下残余项：
 
-- `AF-RISK-OPS-001`：生产 extra smoke 证据缺失时，体验验证只能到 `warn`。
+- `AF-RISK-OPS-001`：2026-07-11/12 生产只读 smoke、redacted update-agent status、operational evidence bundle 和 closure packet 已达到 `ready_for_human_close`；台账关闭仍需维护者人工复核，release/update 后需要重新采集新鲜证据。
 - `AF-RISK-OPS-002`：写入型生产 smoke 策略已有非执行草案，但仍缺专用账号、用户确认、清理策略和受控记录。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受的安全默认，不等于自动应用能力已启用。
 - `AF-RISK-SC-001`：SBOM/provenance 生成路径已接入 Release workflow；线上 `v0.1.5` 仍无对应资产，需下一次签名 Release 的校验和发布记录证据关闭。
