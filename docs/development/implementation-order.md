@@ -27,7 +27,7 @@
 - 周审判与月复盘报告已完成报告闭环：周期报告 API、报告页、`choosePeriodicWeakness` 最大短板选择规则、`summarizePeriodicReportStrategy` 周期策略规则、本地规则复盘草稿、`createPeriodicNextCycleDraft` 下周期草稿和 `createPeriodicReportDecisionSnapshot` 回放快照；Package D Batch D1 已新增报告确认/驳回、冻结快照、确认草稿、审计和只读回放；`decisionPreview` 与已保存决策均固定 `canAutoApply=false` / `requiresUserConfirmation=true`，仍不应用阶段计划或任务重排。
 - 全真模拟考试已完成结构化主路径：Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、结构化模拟 API 和 `/simulation` 主写入；旧 `StudyTask.type = "simulation_exam"` 记录只读兼容；Package B Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft`、阶段计划 API 和持久草稿确认边界；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并接入结构化结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用。Package D Batch D1 报告决策入口、D2 债务重排确认流、D3 长期 AI 阶段草稿、D4 长期风险/主题闭环和 D5 收口已完成。
 - AI 建议已完成 Package C 第一版：`packages/ai` 提供结构化 schema、本地规则 fallback、OpenAI-compatible JSON provider、mock/外呼错误测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页本地草稿展示；Package D Batch D3 已在 `stage_adjustment` schema 下完成长期阶段 AI 草稿显式触发，D3 范围外长期 AI 应用仍需单独确认。
-- Package E 已完成生产配置预检、备份恢复演练、本机单机生产发布、回滚收口和远端 `v0.1.5` GitHub Release 签名更新；线上 `https://forge.areasong.top/api/health` 返回 `0.1.5`，自动更新链路默认 `AREAFORGE_AUTO_APPLY=none`，Web 版本中心只提交受控更新请求，由服务器侧 update-agent/updater 执行签名校验、备份、migration、切换和回滚。
+- Package E 已完成生产配置预检、备份恢复演练、本机单机生产发布、回滚收口、远端 `v0.1.5` 历史 GitHub Release 签名更新和当前 `v0.1.7` 生产更新；线上 `https://forge.areasong.top/api/health` 返回 `0.1.7`，自动更新链路默认 `AREAFORGE_AUTO_APPLY=none`，Web 版本中心只提交受控更新请求，由服务器侧 update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 长期运营治理已补齐轻量入口：`areaforge-operating-loop` 负责跨 skill 编排，`operational-readiness.md` 聚合只读运营证据，`residual-risk-ledger.md` 维护影响发布/运维判断的稳定残余风险 ID，release workflow 在 build/push 前运行 validate job 且 stable 签名 fail closed。
 
 ## 下一步主线

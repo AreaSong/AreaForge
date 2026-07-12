@@ -27,6 +27,7 @@ const requiredFiles = [
   "scripts/ops/operability-status.ts",
   "scripts/ops/operational-handoff.ts",
   "scripts/ops/long-term-operability-live-gate.ts",
+  "scripts/ops/long-term-evidence-snapshot.ts",
   "scripts/ops/operational-readiness-summary.ts",
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/support-bundle-preview.ts",
@@ -41,6 +42,8 @@ const requiredFiles = [
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/operational-handoff.selftest.ts",
   "scripts/quality/long-term-operability-live-gate.selftest.ts",
+  "scripts/quality/long-term-evidence-snapshot-validate.ts",
+  "scripts/quality/long-term-evidence-snapshot.selftest.ts",
   "scripts/quality/maintenance-window-record.selftest.ts",
   "scripts/quality/maintenance-window-record-validate.ts",
   "scripts/quality/maintenance-window-record-validate.selftest.ts",
@@ -58,6 +61,9 @@ const requiredScripts = [
   "ops:handoff:selftest",
   "ops:long-term:gate",
   "ops:long-term:gate:selftest",
+  "ops:long-term:snapshot",
+  "ops:long-term:snapshot:validate",
+  "ops:long-term:snapshot:selftest",
   "ops:readiness:summary",
   "ops:evidence:bundle",
   "ops:support:bundle-preview",
@@ -110,6 +116,8 @@ function main(): void {
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:ops-001:preflight"), "handoff should include OPS-001 evidence preflight command");
     assert(handoff.nextCommands.liveEvidence.some((command: string) => command.includes("ops:ops-001:fallback:finalize")), "handoff should include OPS-001 fallback finalizer command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:evidence:bundle"), "handoff should include evidence bundle command");
+    assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:long-term:snapshot"), "handoff should include long-term evidence snapshot command");
+    assert(handoff.nextCommands.liveEvidence.includes("pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>"), "handoff should include long-term evidence snapshot validation command");
     assert(handoff.nextCommands.release.includes("pnpm sc:sc-002:preflight"), "handoff should include SC-002 supply-chain preflight command");
     assert(handoff.safetyFacts.readOnly === true, "handoff should be read-only");
     assert(handoff.safetyFacts.networkRequested === false, "handoff should not request network");

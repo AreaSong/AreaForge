@@ -9,8 +9,8 @@
 ## 当前基线
 
 - 线上地址：`https://forge.areasong.top/`
-- 当前版本：`0.1.5`
-- 当前 Release：`v0.1.5`
+- 当前版本：`0.1.7`
+- 当前 Release：`v0.1.7`
 - 更新模式：Web 版本中心提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚。
 - 默认自动策略：`AREAFORGE_AUTO_APPLY=none`
 - Web runtime 边界：不得执行 Docker、备份、恢复、migration、回滚、shell 或服务器命令。
@@ -107,7 +107,16 @@ pnpm ops:handoff --summary
 pnpm ops:long-term:gate
 ```
 
-该命令只读本地 redacted 证据和体验记录，复用 OPS-001、OPS-004、SC-002 和 UX validator；它要求 OPS-001 和 OPS-004 都达到 `ready_for_human_close`，签名 Release 供应链达到 `ready_for_sc001_sc002_review`，且产品体验记录在默认 14 天窗口内并通过 `pnpm experience:review:validate`。当前仓库内的 2026-07-11 OPS-004 manual-window 证据会作为默认 OPS-004 输入；显式设置 `AREAFORGE_OPS004_ALERT_PREVIEW` / `AREAFORGE_OPS004_ALERT_DRILL_RECORD` 时使用显式路径。缺少任何一类证据时它会退出失败，输出 `read_only_long_term_operability_live_gate` JSON；这只是防止完成声明过度扩张，不执行生产命令、不联网、不创建 Release、不读取密钥、不写 residual 台账。
+该命令只读本地 redacted 证据和体验记录，复用 OPS-001、OPS-004、SC-002 和 UX validator；它要求 OPS-001 和 OPS-004 都达到 `ready_for_human_close`，签名 Release 供应链达到 `ready_for_sc001_sc002_review`，且产品体验记录在默认 14 天窗口内并通过 `pnpm experience:review:validate`。当前默认绑定 `docs/development/release-supply-chain-v0.1.7.md`、`docs/development/ops-004-alert-preview-v0.1.7-20260712.json` 和 `docs/development/product-experience-review-v0.1.7-20260712-local.md`；不会把 2026-07-11 OPS-004 manual-window 历史证据当成当前默认输入。显式设置 `AREAFORGE_OPS004_ALERT_PREVIEW` / `AREAFORGE_OPS004_ALERT_DRILL_RECORD` 时使用显式路径。缺少任何一类证据时它会退出失败，输出 `read_only_long_term_operability_live_gate` JSON；这只是防止完成声明过度扩张，不执行生产命令、不联网、不创建 Release、不读取密钥、不写 residual 台账。
+
+维护交接或 release/update 后需要把“当前证据和缺口”固定成机器可读记录时，使用只读长期证据快照：
+
+```bash
+pnpm ops:long-term:snapshot > /path/to/long-term-evidence-snapshot.json
+pnpm ops:long-term:snapshot:validate /path/to/long-term-evidence-snapshot.json
+```
+
+该命令输出 `read_only_long_term_evidence_snapshot`，包含 `snapshotHash`、`controlPlaneSourceHash`、证据路径标签、输入 sha256、`controlPlane`、`ops001`、`ops004`、`releaseEvidenceRecord`、`supplyChain`、`uxReview` 和 `operationalEvidenceBundle` 七项 check。`releaseEvidenceRecord` 必须通过 `pnpm release:evidence:validate` 才能为 `pass`；若 backup hash 仍是 root-only 未入仓状态，快照只能保持 `needs_live_evidence`。`operationalEvidenceBundle` check 必须保留 health、release identity、update-agent、authenticated smoke、backup、rollback 和 infrastructure 七个信号；若 bundle 为 `needs_attention`、summary 为 `warn/unknown/fail/blocked` 或 freshness 为 `stale/unknown`，快照只能保持 `needs_live_evidence`。它不联网、不执行生产 smoke、不读取密钥、不执行服务器命令、不创建 Release、不下载 Release assets、不执行 updater、不备份、不恢复、不运行 migration、不写生产，也不修改 residual 台账。快照 validator 通过只证明记录形态、hash 和缺口绑定正确，不替代 `pnpm ops:long-term:gate`、生产只读 smoke、update-agent status、备份 hash 或人工 residual 关闭。
 
 公开支持、自托管排障或维护交接需要一份可贴到 issue/thread 的 metadata-only 预览时，使用：
 
@@ -130,13 +139,13 @@ pnpm ops:readiness:summary
 
 ```bash
 AREAFORGE_READINESS_BASE_URL=https://forge.areasong.top
-AREAFORGE_READINESS_EXPECTED_VERSION=0.1.5
-AREAFORGE_READINESS_RELEASE_TAG=v0.1.5
+AREAFORGE_READINESS_EXPECTED_VERSION=0.1.7
+AREAFORGE_READINESS_RELEASE_TAG=v0.1.7
 AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge
 AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=/path/to/areaforge-release-manifest.json
-AREAFORGE_READINESS_RELEASE_MANIFEST_URL=https://github.com/AreaSong/AreaForge/releases/download/v0.1.5/areaforge-release-manifest.json
-AREAFORGE_READINESS_WEB_IMAGE_DIGEST=ghcr.io/areasong/areaforge-web:v0.1.5@sha256:...
-AREAFORGE_READINESS_MIGRATION_IMAGE_DIGEST=ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:...
+AREAFORGE_READINESS_RELEASE_MANIFEST_URL=https://github.com/AreaSong/AreaForge/releases/download/v0.1.7/areaforge-release-manifest.json
+AREAFORGE_READINESS_WEB_IMAGE_DIGEST=ghcr.io/areasong/areaforge-web:v0.1.7@sha256:...
+AREAFORGE_READINESS_MIGRATION_IMAGE_DIGEST=ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:...
 AREAFORGE_READINESS_EXPECTED_AUTO_APPLY=none
 AREAFORGE_READINESS_UPDATE_STATUS_FILE=/path/to/redacted-status.json
 AREAFORGE_READINESS_SMOKE_RESULT_FILE=/path/to/smoke-output.txt
@@ -298,12 +307,12 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 
 当前 release / ops 判断必须显式带入以下残余项：
 
-- `AF-RISK-OPS-001`：2026-07-11/12 生产只读 smoke、redacted update-agent status、operational evidence bundle 和 closure packet 已达到 `ready_for_human_close`；台账关闭仍需维护者人工复核，release/update 后需要重新采集新鲜证据。
+- `AF-RISK-OPS-001`：2026-07-11/12 生产只读 smoke、redacted update-agent status、operational evidence bundle 和 closure packet 已达到 `ready_for_human_close`；`v0.1.7` 更新时服务器侧只读 extra smoke 通过，但更新后的 OPS-001 redacted 证据包仍需重新采集，台账关闭仍需维护者人工复核。
 - `AF-RISK-OPS-002`：写入型生产 smoke 策略已有非执行草案，但仍缺专用账号、用户确认、清理策略和受控记录。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受的安全默认，不等于自动应用能力已启用。
-- `AF-RISK-SC-001`：`v0.1.7` 已生成并校验 SBOM/provenance、checksum、cosign signature 和发布记录证据；线上仍是 `v0.1.5`，台账关闭仍需维护者人工复核，不代表生产已更新。
-- `AF-RISK-SC-002`：Actions SHA pinning 和 `pnpm audit:prod` 已在本地 workflow / governance gate 落地，仍需下一次 GitHub CI 或签名 Release 运行证据关闭。
+- `AF-RISK-SC-001`：`v0.1.7` 已生成并校验 SBOM/provenance、checksum、cosign signature 和发布记录证据，并已由服务器侧 updater 应用到生产；台账关闭仍需维护者人工复核，不由生产 apply 自动关闭。
+- `AF-RISK-SC-002`：已关闭为 CI-only 证据项；后续 GitHub Actions、依赖审计策略、Release workflow、供应链记录工具或新 Release 变更前重新复核。
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
-- `AF-RISK-OPS-004`：告警阈值已有非执行策略；2026-07-11 manual-window alert preview 和告警/恢复演练记录已保存，`pnpm ops:ops-004:preflight` 可核对 alert preview 与演练记录并返回 `ready_for_human_close`；metrics dashboard 和外部告警接收人仍未产品化，关闭台账需维护者人工复核。
-- `AF-RISK-UX-001`：已关闭为证据项；2026-07-10 本地 desktop/mobile 体验复核记录通过，后续 release/update、体验改动或超过 14 天维护窗口前必须重跑 `pnpm experience:review:validate`，否则体验健康重新降级为 `warn`。
+- `AF-RISK-OPS-004`：告警阈值已有非执行策略；2026-07-11 manual-window alert preview 和告警/恢复演练记录保留为历史输入；post-`v0.1.7` alert preview 已保存为 `docs/development/ops-004-alert-preview-v0.1.7-20260712.json` 且状态为 `warning`，若要关闭或声明完整生产健康，仍需新的 alert drill/preflight 匹配当前版本证据；metrics dashboard 和外部告警接收人仍未产品化。
+- `AF-RISK-UX-001`：已关闭为证据项；2026-07-10 本地 desktop/mobile 体验复核记录是历史证据，2026-07-12 本地 `0.1.7` desktop/mobile 复核记录已补充；后续 release/update、体验改动或超过 14 天维护窗口前必须重跑 `pnpm experience:review:validate`，否则体验健康重新降级为 `warn`。

@@ -23,10 +23,10 @@ pnpm update-agent:status:validate /path/to/redacted-update-status.json
 
 ```json
 {
-  "currentVersion": "0.1.5",
-  "currentImage": "ghcr.io/areasong/areaforge-web:v0.1.5@sha256:<64-hex>",
-  "releaseUrl": "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.5",
-  "latestVersion": "0.1.5",
+  "currentVersion": "<expectedVersion>",
+  "currentImage": "ghcr.io/areasong/areaforge-web:vX.Y.Z@sha256:<64-hex>",
+  "releaseUrl": "https://github.com/AreaSong/AreaForge/releases/tag/<releaseTag>",
+  "latestVersion": "<releaseTag-or-version>",
   "updateAvailable": false,
   "autoApply": "none",
   "signatureRequired": true,
@@ -36,8 +36,8 @@ pnpm update-agent:status:validate /path/to/redacted-update-status.json
   "blocker": null,
   "rollback": {
     "available": true,
-    "targetVersion": "0.1.4",
-    "targetImage": "ghcr.io/areasong/areaforge-web:v0.1.4@sha256:<64-hex>"
+    "targetVersion": "<rollbackVersion>",
+    "targetImage": "ghcr.io/areasong/areaforge-web:vX.Y.Z@sha256:<64-hex>"
   },
   "statusUpdatedAt": "<ISO-8601 timestamp>",
   "safetyFacts": {

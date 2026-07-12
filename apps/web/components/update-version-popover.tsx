@@ -51,15 +51,18 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
     };
   }, [open]);
 
-  async function refreshStatus() {
-    setNotice(null);
+  async function refreshStatus(options?: {
+    clearNotice?: boolean;
+    fallbackOperation?: UpdateCenterStatus["lastOperation"];
+  }) {
+    if (options?.clearNotice ?? true) setNotice(null);
     const response = await fetch("/api/system/update-status", { cache: "no-store" });
     const body = (await response.json().catch(() => null)) as { status?: UpdateCenterStatus; error?: string } | null;
     if (!response.ok || !body?.status) {
       setNotice({ tone: "danger", text: "状态刷新失败。" });
       return;
     }
-    setStatus(body.status);
+    setStatus(mergeFallbackOperation(body.status, options?.fallbackOperation ?? null));
   }
 
   function queue(action: UpdateAction, options?: { tag?: string }) {
@@ -70,13 +73,20 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...options }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as {
+        request?: NonNullable<UpdateCenterStatus["lastOperation"]>;
+        error?: string;
+      } | null;
       if (!response.ok) {
         setNotice({ tone: "danger", text: labelError(body?.error ?? "REQUEST_FAILED") });
         return;
       }
+      const queuedOperation = body?.request ?? null;
+      if (queuedOperation) {
+        setStatus((current) => mergeFallbackOperation(current, queuedOperation));
+      }
+      await refreshStatus({ clearNotice: false, fallbackOperation: queuedOperation });
       setNotice({ tone: "success", text: labelQueued(action) });
-      await refreshStatus();
     });
   }
 
@@ -228,6 +238,29 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="truncate text-right text-zinc-200">{value}</span>
     </div>
   );
+}
+
+function mergeFallbackOperation(
+  status: UpdateCenterStatus,
+  fallbackOperation: UpdateCenterStatus["lastOperation"],
+): UpdateCenterStatus {
+  if (!fallbackOperation || !shouldUseFallbackOperation(status.lastOperation, fallbackOperation)) return status;
+  return {
+    ...status,
+    lastOperation: fallbackOperation,
+    requestQueueLength: typeof status.requestQueueLength === "number"
+      ? Math.max(status.requestQueueLength, 1)
+      : status.requestQueueLength,
+  };
+}
+
+function shouldUseFallbackOperation(
+  currentOperation: UpdateCenterStatus["lastOperation"],
+  fallbackOperation: NonNullable<UpdateCenterStatus["lastOperation"]>,
+): boolean {
+  if (!currentOperation) return true;
+  if (currentOperation.id === fallbackOperation.id) return false;
+  return Date.parse(currentOperation.requestedAt) < Date.parse(fallbackOperation.requestedAt);
 }
 
 function getTone(status: UpdateCenterStatus) {

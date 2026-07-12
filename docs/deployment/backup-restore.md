@@ -93,7 +93,7 @@ DATABASE_URL="$RESTORE_DATABASE_URL" \
 
 ## 发布证据校验
 
-每次正式发布记录都必须通过只读校验。Package E 和远端 `v0.1.5` 已完成当前证据收口；后续 release 仍继续要求：
+每次正式发布记录都必须通过只读校验。Package E 本机发布/回滚记录和远端 `v0.1.5` 历史记录已完成对应证据收口；当前 `v0.1.7` 生产更新已有服务器侧 apply、公网 health、extra smoke 和供应链记录，但因 root-only 备份 hash 未复制入仓库，`docs/development/release-v0.1.7-record.md` 仍应保持 release evidence validator 失败，直到补齐 redacted backup hash 证据。后续 release 仍继续要求：
 
 ```bash
 pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]

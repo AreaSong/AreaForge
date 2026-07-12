@@ -988,7 +988,7 @@ AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record.txt> \
 
 ## 后续签名 Release 证据闭环确认包：`AF-RISK-SC-001`
 
-本确认包用于后续某一次签名 GitHub Release 生成 SBOM/provenance、checksum、signature 和供应链记录，从而让 `AF-RISK-SC-001` 进入可人工复核关闭状态。它适合当前 `v0.1.5` 之后的第一个补丁发布；若只发布当前长期运营治理补强，默认建议版本为 `v0.1.7`。执行前仍必须由用户在确认句中写明具体版本号。
+本确认包用于后续某一次签名 GitHub Release 生成 SBOM/provenance、checksum、signature 和供应链记录，从而让 `AF-RISK-SC-001` 进入可人工复核关闭状态。`v0.1.7` 已作为 `v0.1.5` 之后的第一个补丁发布完成并生产应用；下一次使用本包时必须选择新的具体版本号，并在确认句中写明。
 
 源事实：
 
@@ -1078,6 +1078,8 @@ pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
 
 ## 生产 updater apply 确认包：`v0.1.7`
 
+状态：已执行。2026-07-12 用户明确确认后，服务器侧 updater 将生产从 `0.1.5` 更新到 `v0.1.7`，公网 health 返回 `0.1.7`，内置 health smoke 和只读 extra smoke 通过；未执行 Web runtime 服务器命令、数据库/上传目录 restore、自动应用策略变更、写入型 smoke、secrets 读取/打印/复制/提交或 residual 台账关闭。本节保留为本次高风险确认审计记录，不作为下一次生产更新的可复用确认。
+
 本确认包用于把已经生成并校验签名 Release 证据的 `v0.1.7` 应用到生产 `https://forge.areasong.top/`。它是 R4 高风险生产操作；不能从“可以全部都来”或“长期运营目标继续推进”推定授权，必须由用户再次明确确认。
 
 源事实：
@@ -1091,7 +1093,7 @@ pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
 
 目标不可变身份：
 
-- 当前生产基线：`0.1.5` / `v0.1.5`
+- 执行前生产基线：`0.1.5` / `v0.1.5`
 - 目标 tag：`v0.1.7`
 - Web image：`ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
 - Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`
@@ -1132,7 +1134,7 @@ sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes 
 
 必须确认：
 
-- 当前生产 health 仍返回 `0.1.5`，且 rollback target 可定位。
+- 执行前生产 health 返回 `0.1.5`，且 rollback target 可定位。
 - `v0.1.7` Release assets 已通过 `sha256sum -c` 和 cosign `Verified OK`。
 - updater config 使用 `AREAFORGE_AUTO_APPLY=none`、`AREAFORGE_REQUIRE_SIGNATURE=true` 和官方 cosign public key。
 - 生产只读 extra smoke 已配置为 `pnpm smoke:prod-readonly` 或等价 fallback，并通过权限收紧的 password file 读取 smoke 密码。
@@ -1173,7 +1175,7 @@ pnpm ops:ops-001:preflight
 中止条件：
 
 - 用户没有给出本确认包的明确确认句。
-- 当前生产不是预期 `0.1.5`，或 rollback target 缺失。
+- 执行前生产不是预期 `0.1.5`，或 rollback target 缺失。
 - Release asset、image digest、checksum、cosign signature 任一失败。
 - 备份缺失、hash 不可记录或备份目录不可写。
 - migration image 执行失败。

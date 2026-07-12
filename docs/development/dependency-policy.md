@@ -73,7 +73,7 @@ pnpm ops:readiness
 
 ## 残余风险
 
-当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。`v0.1.7` 已产生真实签名 Release 的 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据；残余项 `AF-RISK-SC-001` 仍保持打开，是因为关闭台账需要维护者人工复核，且生产仍运行 `v0.1.5`。
+当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。`v0.1.7` 已产生真实签名 Release 的 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据，并已由服务器侧 updater 应用到生产；残余项 `AF-RISK-SC-001` 仍保持打开，是因为关闭台账需要维护者人工复核，生产 apply 不自动关闭 residual。
 
 `AF-RISK-SC-002` 已关闭为 CI-only 证据项：CI/Release 外部 Actions 已 pin 到 40 位 commit SHA，`pnpm audit:prod` 已进入 CI/Release validate gate，且机器台账要求后续记录中的 `expectedGitCommit` 与 GitHub run `gitCommit` 一致。后续修改 GitHub Actions、依赖审计策略、Release workflow、供应链记录生成/校验或创建新 Release 前，必须重新生成 CI-only 或签名 Release 供应链记录并通过 `pnpm sc:sc-002:preflight` 与对应 validator。CI-only 证据不关闭 `AF-RISK-SC-001`；签名 Release 路径仍需 SBOM/provenance、checksum/signature 和发布记录证据。
 

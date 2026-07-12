@@ -112,7 +112,8 @@ function checkMaintenanceDoc(): void {
   const requiredTerms = [
     "Maintenance Cadence",
     "不是自动运维授权",
-    "Readiness、support bundle preview、alert preview、evidence bundle 和 preflight",
+    "Readiness、support bundle preview、alert preview、evidence bundle、long-term evidence snapshot 和 preflight",
+    "ops:long-term:snapshot",
     "support bundle preview",
     "不等于 apply",
     "每天",

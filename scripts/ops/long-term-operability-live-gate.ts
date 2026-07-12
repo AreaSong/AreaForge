@@ -18,9 +18,10 @@ type CheckResult = {
   residualRiskIds: string[];
 };
 
-const defaultUxRecord = "docs/development/product-experience-review-20260710-local.md";
-const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-20260711.json";
-const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-20260711-manual-window.txt";
+const defaultUxRecord = "docs/development/product-experience-review-v0.1.7-20260712-local.md";
+const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
+const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
+const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
 const defaultMaxUxAgeDays = 14;
 
 function main(): void {
@@ -50,6 +51,7 @@ function main(): void {
       key: "supplyChain",
       label: "signed Release supply-chain evidence",
       command: ["pnpm", "exec", "tsx", "scripts/ops/sc002-supply-chain-preflight.ts"],
+      env: defaultSupplyChainEvidenceEnv(),
       expectedStatus: "ready_for_sc001_sc002_review",
       residualRiskIds: ["AF-RISK-SC-001", "AF-RISK-SC-002"],
     }),
@@ -68,7 +70,7 @@ function main(): void {
       "AF-RISK-OPS-001 blocked_on_prerequisite records are valid blocker evidence only; they do not satisfy long-term operability",
       "AF-RISK-OPS-004 ready_for_human_close: alert preview plus matching alert/recovery drill record",
       "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: signed Release supply-chain record with SBOM/provenance/checksum/signature and Actions pinning evidence",
-      `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes and reviewedAt is within ${maxUxAgeDays()} days`,
+      `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes, appVersion equals ${expectedVersion()}, and reviewedAt is within ${maxUxAgeDays()} days`,
     ],
     nextCommand: nextCommand(status),
     forbiddenActions: [
@@ -202,6 +204,14 @@ function defaultOps004EvidenceEnv(): Record<string, string> {
   return env;
 }
 
+function defaultSupplyChainEvidenceEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (process.env.AREAFORGE_SC002_RELEASE_RECORD === undefined && existsSync(path.resolve(defaultReleaseSupplyChainRecord))) {
+    env.AREAFORGE_SC002_RELEASE_RECORD = defaultReleaseSupplyChainRecord;
+  }
+  return env;
+}
+
 function validateFreshUxRecord(): CheckResult {
   const recordPath = path.resolve(process.env.AREAFORGE_LONG_TERM_UX_RECORD?.trim() || defaultUxRecord);
   const command = `pnpm exec tsx scripts/quality/product-experience-review-validate.ts ${redactedPathLabel(recordPath)}`;
@@ -232,6 +242,19 @@ function validateFreshUxRecord(): CheckResult {
   }
 
   const fields = parseIndentedKeyValueRecord(readFileSync(recordPath, "utf8"));
+  const appVersion = fields.get("appVersion");
+  const requiredVersion = expectedVersion();
+  if (appVersion !== requiredVersion) {
+    return {
+      key: "uxReview",
+      label: "fresh desktop/mobile product experience review",
+      status: "invalid",
+      detail: `appVersion must be ${requiredVersion}, got ${appVersion || "missing"}`,
+      command,
+      residualRiskIds: ["AF-RISK-UX-001"],
+    };
+  }
+
   const reviewedAt = fields.get("reviewedAt");
   if (!reviewedAt) {
     return {
@@ -270,7 +293,7 @@ function validateFreshUxRecord(): CheckResult {
     key: "uxReview",
     label: "fresh desktop/mobile product experience review",
     status: "pass",
-    detail: `validator passed; review is ${ageDays.toFixed(1)} days old`,
+    detail: `validator passed; appVersion=${requiredVersion}; review is ${ageDays.toFixed(1)} days old`,
     command,
     residualRiskIds: ["AF-RISK-UX-001"],
   };
@@ -343,6 +366,20 @@ function maxUxAgeDays(): number {
   if (!raw) return defaultMaxUxAgeDays;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultMaxUxAgeDays;
+}
+
+function expectedVersion(): string {
+  const raw = process.env.AREAFORGE_LONG_TERM_EXPECTED_VERSION?.trim();
+  if (raw) return raw;
+  try {
+    const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as { version?: unknown };
+    if (typeof packageJson.version === "string" && packageJson.version.trim()) {
+      return packageJson.version.trim();
+    }
+  } catch {
+    // Fall through to the current release baseline used by the bundled default records.
+  }
+  return "0.1.7";
 }
 
 function now(): Date {

@@ -6,7 +6,7 @@
 
 确认记录：用户已明确确认“确认执行 Package E Batch E3：生产发布与 migration deploy”。
 
-结论：本地生产模式发布、一次性 migration job、发布后 smoke、附件只读对账和 release evidence 校验已通过；本文件是早期本地演练记录，不作为当前远端生产状态依据。真实远端 `v0.1.5` GitHub Release 签名更新证据见 `docs/development/package-e-remote-github-release-record.md`。
+结论：本地生产模式发布、一次性 migration job、发布后 smoke、附件只读对账和 release evidence 校验已通过；本文件是早期本地演练记录，不作为当前远端生产状态依据。真实远端 `v0.1.5` 历史 GitHub Release 签名更新证据见 `docs/development/package-e-remote-github-release-record.md`，当前生产更新证据见 `docs/development/release-v0.1.7-record.md`。
 
 ## 执行环境
 

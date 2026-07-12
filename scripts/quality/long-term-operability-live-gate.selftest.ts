@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -7,22 +7,22 @@ type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-long-term-gate-"));
-const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-20260711.json";
-const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-20260711-manual-window.txt";
+const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
+const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
 
 try {
   const uxRecord = path.join(tempDir, "product-experience-review.txt");
   writeFileSync(uxRecord, createUxRecord("2026-07-10T00:00:00.000Z"));
 
-  const defaultOps004 = runGate({
+  const currentOps004PreviewOnly = runGate({
     AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
     AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
   }, 1, {
     clearOps004: false,
   });
-  const defaultOps004Json = parseGateJson(defaultOps004.stdout);
-  assert(defaultOps004Json.status === "needs_live_evidence", "missing OPS-001 and supply-chain evidence should still block the gate");
-  assertCheckStatus(defaultOps004Json, "ops004", "pass");
+  const currentOps004PreviewOnlyJson = parseGateJson(currentOps004PreviewOnly.stdout);
+  assert(currentOps004PreviewOnlyJson.status === "needs_live_evidence", "OPS-004 current preview without matching drill should block the gate");
+  assertCheckStatus(currentOps004PreviewOnlyJson, "ops004", "missing");
 
   const missingEvidence = runGate({
     AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
@@ -51,6 +51,16 @@ try {
   assert(invalidJson.status === "invalid", "invalid child preflight should make the live gate invalid");
   assertCheckStatus(invalidJson, "ops001", "invalid");
 
+  const oldVersionUxRecord = path.join(tempDir, "product-experience-review-old-version.txt");
+  writeFileSync(oldVersionUxRecord, createUxRecord("2026-07-10T00:00:00.000Z", "0.1.5"));
+  const oldVersionUx = runGate({
+    AREAFORGE_LONG_TERM_UX_RECORD: oldVersionUxRecord,
+    AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
+  }, 1);
+  const oldVersionUxJson = parseGateJson(oldVersionUx.stdout);
+  assert(oldVersionUxJson.status === "invalid", "old appVersion UX record should not satisfy the current-version gate");
+  assertCheckStatus(oldVersionUxJson, "uxReview", "invalid");
+
   console.log("long-term operability live gate selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });
@@ -74,7 +84,8 @@ function runGate(env: Record<string, string>, expectedStatus: number, options: {
     childEnv.AREAFORGE_OPS004_ALERT_DRILL_RECORD = "";
   } else {
     childEnv.AREAFORGE_OPS004_ALERT_PREVIEW = process.env.AREAFORGE_OPS004_ALERT_PREVIEW ?? defaultOps004AlertPreview;
-    childEnv.AREAFORGE_OPS004_ALERT_DRILL_RECORD = process.env.AREAFORGE_OPS004_ALERT_DRILL_RECORD ?? defaultOps004AlertDrillRecord;
+    childEnv.AREAFORGE_OPS004_ALERT_DRILL_RECORD = process.env.AREAFORGE_OPS004_ALERT_DRILL_RECORD ??
+      (existsSync(path.resolve(defaultOps004AlertDrillRecord)) ? defaultOps004AlertDrillRecord : "");
   }
 
   const result = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/long-term-operability-live-gate.ts"], {
@@ -90,14 +101,14 @@ function runGate(env: Record<string, string>, expectedStatus: number, options: {
   return result;
 }
 
-function createUxRecord(reviewedAt: string): string {
+function createUxRecord(reviewedAt: string, appVersion = "0.1.7"): string {
   return [
     "recordId: product-experience-review-selftest",
     `reviewedAt: ${reviewedAt}`,
     "reviewer: AreaForge selftest",
     "environment: local",
     "baseUrl: http://127.0.0.1:3102",
-    "appVersion: 0.1.5",
+    `appVersion: ${appVersion}`,
     "source: local UX smoke plus browser review",
     "reviewCommand: pnpm smoke:local-ux and playwright desktop/mobile browser review",
     "reviewStatus: pass",

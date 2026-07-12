@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0014-deployment-backup-release.md` 和 `workflow/versions/v1.0-prod-release.md` 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 完成签名校验更新并运行 `0.1.5`。
+本文件是 `tasks/backlog/0014-deployment-backup-release.md` 和 `workflow/versions/v1.0-prod-release.md` 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 完成签名校验更新并运行 `0.1.7`。
 
 后续任何新的生产发布、备份恢复、migration deploy、服务器命令、签名策略降级或 Web 运维能力扩大，仍必须等用户明确确认后再执行。
 
@@ -14,9 +14,9 @@
 
 - 公网入口：`https://forge.areasong.top/`
 - AreaForge 本机端口：`127.0.0.1:3020`
-- 当前线上版本：`0.1.5`
-- 最新 Release：`v0.1.5`
-- 更新记录：`docs/development/package-e-remote-github-release-record.md`
+- 当前线上版本：`0.1.7`
+- 最新 Release：`v0.1.7`
+- 更新记录：`docs/development/release-v0.1.7-record.md`
 
 目标架构：
 

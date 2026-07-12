@@ -510,7 +510,13 @@ run_smoke() {
     if [[ "$DRY_RUN" == "1" ]]; then
       log "dry-run: would run AREAFORGE_EXTRA_SMOKE_COMMAND"
     else
-      bash -lc "$AREAFORGE_EXTRA_SMOKE_COMMAND" > "$RECORD_DIR/logs/extra-smoke.log" 2>&1
+      if AREAFORGE_SMOKE_EXPECTED_VERSION="$TARGET_VERSION" \
+        bash -lc "$AREAFORGE_EXTRA_SMOKE_COMMAND" > "$RECORD_DIR/logs/extra-smoke.log" 2>&1; then
+        printf 'PASS\n' > "$RECORD_DIR/logs/extra-smoke.status"
+      else
+        printf 'FAIL\n' > "$RECORD_DIR/logs/extra-smoke.status"
+        return 1
+      fi
     fi
   fi
 }
@@ -520,6 +526,16 @@ rollback_application() {
   env_set AREAFORGE_IMAGE "$CURRENT_IMAGE"
   env_set APP_VERSION "$CURRENT_VERSION"
   run_cmd compose up -d web
+}
+
+extra_smoke_status() {
+  if [[ -z "${AREAFORGE_EXTRA_SMOKE_COMMAND:-}" ]]; then
+    printf 'not-configured'
+  elif [[ -f "$RECORD_DIR/logs/extra-smoke.status" ]]; then
+    tr -d '\n' < "$RECORD_DIR/logs/extra-smoke.status"
+  else
+    printf 'FAIL'
+  fi
 }
 
 write_record() {
@@ -558,6 +574,8 @@ composeHash: $(sha256_file "$RECORD_DIR/config/docker-compose.prod.yml")
 nginxConfigBackupPath: ${AREAFORGE_NGINX_CONFIG:-not-configured}
 healthUrl: $HEALTH_URL
 smokeHealth: $([[ -f "$RECORD_DIR/logs/health.json" ]] && printf PASS || printf FAIL)
+extraSmoke: $(extra_smoke_status)
+extraSmokeLogPath: $([[ -n "${AREAFORGE_EXTRA_SMOKE_COMMAND:-}" ]] && printf '%s' "$RECORD_DIR/logs/extra-smoke.log" || printf 'not-configured')
 rollbackAttempted: $([[ "$status" == "rolled_back" ]] && printf yes || printf no)
 databaseRestoreAttempted: no
 uploadsRestoreAttempted: no

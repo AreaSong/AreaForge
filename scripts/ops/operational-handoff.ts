@@ -263,6 +263,8 @@ function buildNextCommands(projection: OperabilityStatusProjection): Operational
       "pnpm ops:readiness:summary",
       "pnpm ops:evidence:bundle",
       "pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>",
+      "pnpm ops:long-term:snapshot",
+      "pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>",
       "pnpm ops:alert:preview",
       "pnpm maintenance:window:record",
       "pnpm maintenance:window:validate <maintenance-window-record.md|txt>",

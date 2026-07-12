@@ -1,6 +1,6 @@
 # 0015 结构化学习状态 migration 确认包
 
-状态：已完成。Package B Batch 0、Batch 1、Batch 2、Batch 3、Batch 4、Batch 5 和 Batch 6 均已确认、实施并完成本地验证；Package D Batch D1-D5 已完成报告决策、债务重排所选项应用、长期阶段 AI 草稿、长期风险主题和收口；Package E 已完成生产发布、备份、恢复和远端 `v0.1.5` 签名更新。后续历史回填、删除旧字段、D3 范围外真实长期 AI、报告驱动自动任务/阶段应用或长期风险写状态仍需另行确认。
+状态：已完成。Package B Batch 0、Batch 1、Batch 2、Batch 3、Batch 4、Batch 5 和 Batch 6 均已确认、实施并完成本地验证；Package D Batch D1-D5 已完成报告决策、债务重排所选项应用、长期阶段 AI 草稿、长期风险主题和收口；Package E 已完成生产发布、备份、恢复、远端 `v0.1.5` 历史签名更新和当前 `v0.1.7` 生产更新。后续历史回填、删除旧字段、D3 范围外真实长期 AI、报告驱动自动任务/阶段应用或长期风险写状态仍需另行确认。
 
 ## 目标
 

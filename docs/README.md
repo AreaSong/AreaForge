@@ -70,6 +70,8 @@
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
 - `development/long-term-operability-control-plane.md`：长期运营控制面，统一 release 决策、维护窗口、真实体验、残余风险、供应链和 skill 增减规则。
 - `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 记录。
+- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：只读长期运营证据快照，聚合当前版本的证据路径 hash、OPS-001/OPS-004/release evidence record/供应链/UX/运行信号状态和缺口，不替代 live gate、生产 smoke 或 residual 人工关闭。
+- `development/long-term-evidence-snapshot-v0.1.7-20260712.json`：当前 `v0.1.7` 只读长期证据快照，状态为 `needs_live_evidence`；它绑定当前缺口，不证明生产健康。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
 - `development/completion-evidence-checklist.md`：完成声明证据清单，区分 docs、本地 smoke、浏览器复核、Release 和生产证据；`pnpm completion:evidence:validate <record>` 只校验完成声明记录形态，不替代真实运行、Release、生产 smoke 或长期运营 live gate。
 - `development/runtime-write-boundary.md`：R0-R4 运行时写动作边界矩阵，区分只读、本地写、用户显式 Web 写、update request 和高风险生产操作。
@@ -89,7 +91,8 @@
 - `development/ops-001-closure-packet-template.md`：`AF-RISK-OPS-001` 生产只读 smoke、update-agent status 和 evidence bundle 收口包模板，配套 `pnpm ops:ops-001:preflight`、`pnpm ops:ops-001:closure` / `pnpm ops:ops-001:closure:validate`。
 - `development/support-bundle-preview.md`：metadata-only 支持包预览，配套 `pnpm ops:support:bundle-preview` / `pnpm ops:support:bundle-preview:validate`。
 - `development/product-experience-review-record-template.md`：真实产品体验复核记录模板和 `pnpm experience:review:validate` 校验入口。
-- `development/product-experience-review-20260710-local.md`：2026-07-10 本地 desktop/mobile 真实体验复核记录。
+- `development/product-experience-review-20260710-local.md`：2026-07-10 本地 desktop/mobile 真实体验复核历史记录。
+- `development/product-experience-review-v0.1.7-20260712-local.md`：2026-07-12 本地 `0.1.7` desktop/mobile 真实体验复核记录。
 - `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。
 - `development/ci-supply-chain-record-template.md`：`AF-RISK-SC-002` CI-only 供应链记录模板，配套 `pnpm ci:supply-chain:record` / `pnpm ci:supply-chain:validate` 和只读 `pnpm sc:sc-002:preflight`。
 - `development/residual-risk-ledger.json`：残余风险 ID 台账的机器可读索引。

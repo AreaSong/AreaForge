@@ -7,15 +7,16 @@ execute deployment, backup, restore, Docker, or migration commands.
 Current remote production state:
 
 - Public URL: `https://forge.areasong.top/`
-- Current app version: `0.1.5`
-- Verified release: `v0.1.5`
-- Web image digest: `ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9`
-- Migration image digest: `ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:04aa20e92323c9f9b14c8bd096d8cfa9ea62d9baab23f94d4976d7882bfa2ae7`
+- Current app version: `0.1.7`
+- Verified release: `v0.1.7`
+- Web image digest: `ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
+- Migration image digest: `ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`
 - Signature policy: `AREAFORGE_REQUIRE_SIGNATURE=true`
 - Auto-apply policy: `AREAFORGE_AUTO_APPLY=none`
 
 The detailed release evidence is tracked in
-`docs/development/package-e-remote-github-release-record.md`.
+`docs/development/release-v0.1.7-record.md`; the earlier `v0.1.5`
+evidence remains in `docs/development/package-e-remote-github-release-record.md`.
 
 Repository releases now run the `.github/workflows/release.yml` validate job
 before any image build/push. Stable releases fail closed if cosign signing key
@@ -23,9 +24,9 @@ secrets are missing; unsigned placeholder assets are only allowed for preview
 channel experiments and are not production trust evidence. New releases also
 publish `areaforge-sbom.spdx.json` and `areaforge-provenance.json`; the updater
 downloads both assets, verifies their `SHA256SUMS` entries, and stores them with
-the update record. The current `v0.1.5` production release predates these two
-assets, so `AF-RISK-SC-001` stays open until the next signed release records
-that evidence.
+the update record. The current `v0.1.7` production release includes those
+assets; `AF-RISK-SC-001` still stays open until the maintainer performs an
+explicit residual-ledger review.
 
 The updater supports three modes:
 
@@ -44,7 +45,7 @@ The current remote release was applied with:
 
 ```bash
 sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh \
-  apply --yes --tag v0.1.5 --config /etc/areaforge/updater.env
+  apply --yes --tag v0.1.7 --config /etc/areaforge/updater.env
 ```
 
 Typical timer setup:
@@ -76,7 +77,7 @@ run:
 
 ```bash
 AREAFORGE_READINESS_BASE_URL=https://forge.areasong.top \
-AREAFORGE_READINESS_EXPECTED_VERSION=0.1.5 \
+AREAFORGE_READINESS_EXPECTED_VERSION=0.1.7 \
 pnpm ops:readiness:summary
 ```
 
@@ -94,7 +95,7 @@ AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
 AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
 AREAFORGE_SMOKE_EMAIL=admin@example.com
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
-AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5
+AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.7
 AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 ```
 

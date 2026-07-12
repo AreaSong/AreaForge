@@ -27,6 +27,7 @@ const requiredFiles = [
   "scripts/ops/operability-status.ts",
   "scripts/ops/operational-handoff.ts",
   "scripts/ops/long-term-operability-live-gate.ts",
+  "scripts/ops/long-term-evidence-snapshot.ts",
   "scripts/ops/operational-readiness-summary.ts",
   "scripts/ops/operational-evidence-bundle.ts",
   "scripts/ops/support-bundle-preview.ts",
@@ -40,6 +41,8 @@ const requiredFiles = [
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/operational-handoff.selftest.ts",
   "scripts/quality/long-term-operability-live-gate.selftest.ts",
+  "scripts/quality/long-term-evidence-snapshot-validate.ts",
+  "scripts/quality/long-term-evidence-snapshot.selftest.ts",
   "scripts/quality/maintenance-window-record.selftest.ts",
   "scripts/quality/maintenance-window-record-validate.ts",
   "scripts/quality/maintenance-window-record-validate.selftest.ts",
@@ -57,6 +60,9 @@ const requiredScripts = [
   "ops:handoff:selftest",
   "ops:long-term:gate",
   "ops:long-term:gate:selftest",
+  "ops:long-term:snapshot",
+  "ops:long-term:snapshot:validate",
+  "ops:long-term:snapshot:selftest",
   "ops:readiness:summary",
   "ops:evidence:bundle",
   "ops:support:bundle-preview",
@@ -109,21 +115,26 @@ function main(): void {
     assert(projection.packageScripts.present.includes("ops:ops-004:preflight"), "projection should require OPS-004 alert evidence preflight script");
     assert(projection.packageScripts.present.includes("sc:sc-002:preflight"), "projection should require SC-002 supply-chain preflight script");
     assert(projection.packageScripts.present.includes("ops:long-term:gate"), "projection should require long-term live evidence gate script");
+    assert(projection.packageScripts.present.includes("ops:long-term:snapshot"), "projection should require long-term evidence snapshot script");
     assert(projection.packageScripts.present.includes("maintenance:window:record"), "projection should require maintenance window record generator");
     assert(projection.packageScripts.present.includes("maintenance:window:validate"), "projection should require maintenance window validator");
     assert(projection.commands.daily.includes("pnpm ops:support:bundle-preview"), "daily commands should include support bundle preview");
     assert(projection.commands.daily.includes("pnpm ops:ops-001:preflight"), "daily commands should include OPS-001 evidence preflight");
     assert(projection.commands.daily.some((command: string) => command.includes("ops:ops-001:fallback:finalize")), "daily commands should include OPS-001 fallback finalizer");
     assert(projection.commands.daily.includes("pnpm ops:ops-004:preflight"), "daily commands should include OPS-004 alert evidence preflight");
+    assert(projection.commands.daily.includes("pnpm ops:long-term:snapshot"), "daily commands should include long-term evidence snapshot");
+    assert(projection.commands.daily.includes("pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>"), "daily commands should include long-term evidence snapshot validation");
     assert(projection.commands.daily.includes("pnpm maintenance:window:record"), "daily commands should include maintenance window record generation");
     assert(projection.commands.weekly.includes("pnpm ops:support:bundle-preview:selftest"), "weekly commands should include support bundle preview selftest");
     assert(projection.commands.weekly.includes("pnpm ops:ops-001:preflight:selftest"), "weekly commands should include OPS-001 evidence preflight selftest");
     assert(projection.commands.weekly.includes("pnpm ops:ops-001:fallback:finalize:selftest"), "weekly commands should include OPS-001 fallback finalizer selftest");
     assert(projection.commands.weekly.includes("pnpm ops:ops-004:preflight:selftest"), "weekly commands should include OPS-004 alert evidence preflight selftest");
     assert(projection.commands.weekly.includes("pnpm sc:sc-002:preflight:selftest"), "weekly commands should include SC-002 supply-chain preflight selftest");
+    assert(projection.commands.weekly.includes("pnpm ops:long-term:snapshot:selftest"), "weekly commands should include long-term evidence snapshot selftest");
     assert(projection.commands.weekly.includes("pnpm maintenance:window:record:selftest"), "weekly commands should include maintenance window record selftest");
     assert(projection.commands.release.includes("pnpm sc:sc-002:preflight"), "release commands should include SC-002 supply-chain preflight");
     assert(projection.commands.release.includes("pnpm ops:long-term:gate"), "release commands should include long-term live evidence gate");
+    assert(projection.commands.release.includes("pnpm ops:long-term:snapshot"), "release commands should include long-term evidence snapshot");
     assert(projection.nextActions.some((action) => action.residualRiskId === "AF-RISK-OPS-001"), "next actions should include executable residual");
     const summary = buildOperabilityStatusSummary(projection);
     const formattedSummary = formatOperabilityStatusSummary(summary);

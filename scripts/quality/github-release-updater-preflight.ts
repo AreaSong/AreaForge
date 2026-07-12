@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 interface CheckResult {
@@ -14,6 +14,7 @@ const checks: CheckResult[] = [];
 function main(): void {
   checkRequiredFiles();
   checkShellSyntax();
+  checkExecutableModes();
   checkReleaseSupplyChainScript();
   checkManifestExample();
   checkUpdaterBoundaries();
@@ -48,6 +49,7 @@ function checkRequiredFiles(): void {
     "ops/update-agent/areaforge-update-agent.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-readonly-smoke.sh",
     "ops/update-agent/areaforge-update-agent.service",
     "ops/update-agent/areaforge-update-agent.timer",
     "ops/github-release-updater/manifest.example.json",
@@ -210,6 +212,7 @@ function checkShellSyntax(): void {
     "ops/update-agent/areaforge-update-agent.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-readonly-smoke.sh",
   ];
   const failed = scripts.flatMap((script) => {
     const result = spawnSync("bash", ["-n", script], {
@@ -222,6 +225,24 @@ function checkShellSyntax(): void {
     name: "updater shell syntax",
     ok: failed.length === 0,
     detail: failed.length === 0 ? "bash -n passed" : failed.join("; "),
+  });
+}
+
+function checkExecutableModes(): void {
+  const scripts = [
+    "ops/github-release-updater/areaforge-updater.sh",
+    "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-ops001-evidence-export.sh",
+    "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-readonly-smoke.sh",
+  ];
+  const nonExecutable = scripts.filter((script) => (statSync(resolve(script)).mode & 0o111) === 0);
+  checks.push({
+    name: "updater executable modes",
+    ok: nonExecutable.length === 0,
+    detail: nonExecutable.length === 0
+      ? "updater and update-agent shell entrypoints are executable for systemd ExecStart and operator use"
+      : `not executable: ${nonExecutable.join(", ")}`,
   });
 }
 
@@ -326,6 +347,7 @@ function checkUpdateAgentRequestBoundary(): void {
     "set_auto_apply",
     "autoApply",
     "actorEmailHash",
+    "status_message_from_output",
     "归档为 failed",
   ];
   const combined = `${agent}\n${docs}`;

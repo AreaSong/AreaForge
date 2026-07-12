@@ -16,7 +16,7 @@
 - `versions/v0.4-second-stage-long-term-loop.md`：第二阶段长期闭环。
 - `versions/v1.0-prod-release.md`：生产发布闭环。
 
-当前进度：v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环。Package A-E 均已完成，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新运行 `0.1.5`。后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移；长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口，离线运营状态投影用 `pnpm ops:status --summary` 快速查看或 `pnpm ops:status` 生成 JSON，维护或线程交接摘要用 `pnpm ops:handoff --summary` 快速查看或 `pnpm ops:handoff` 生成 JSON，生产运营证据以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
+当前进度：v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环。Package A-E 均已完成，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 签名更新运行 `0.1.7`。后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移；长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口，离线运营状态投影用 `pnpm ops:status --summary` 快速查看或 `pnpm ops:status` 生成 JSON，维护或线程交接摘要用 `pnpm ops:handoff --summary` 快速查看或 `pnpm ops:handoff` 生成 JSON，生产运营证据以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
 
 ## 使用规则
 

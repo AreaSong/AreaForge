@@ -75,7 +75,7 @@ AI 不允许：
 
 允许的自动更新形态是服务器侧受控 updater：`ops/github-release-updater/areaforge-updater.sh` 由管理员手动执行、systemd timer 触发或由 `areaforge-update-agent.timer` 消费 Web 版本中心写入的受控请求后触发。它读取 GitHub Release manifest、校验 `SHA256SUMS` / `SHA256SUMS.sig`，备份数据库和上传目录，使用一次性 migration image，再切换 Docker Compose Web 镜像。
 
-当前远端生产已启用该形态：`https://forge.areasong.top/` 运行 `0.1.5`，服务器 `AREAFORGE_REQUIRE_SIGNATURE=true`，`/etc/areaforge/cosign.pub` 校验 cosign bundle，update-agent 状态为 `blocker=null`。记录见 `docs/development/package-e-remote-github-release-record.md`。
+当前远端生产已启用该形态：`https://forge.areasong.top/` 运行 `0.1.7`，服务器 `AREAFORGE_REQUIRE_SIGNATURE=true`，`/etc/areaforge/cosign.pub` 校验 cosign bundle，自动应用策略保持 `AREAFORGE_AUTO_APPLY=none`。当前记录见 `docs/development/release-v0.1.7-record.md`；`docs/development/package-e-remote-github-release-record.md` 保留 `v0.1.5` 历史证据。
 
 禁止：
 

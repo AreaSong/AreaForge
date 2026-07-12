@@ -1,0 +1,17 @@
+recordId: browser-observations-v0.1.7-20260712
+baseUrl: http://127.0.0.1:3102
+environment: local
+appVersion: 0.1.7
+account: smoke@areasong.local
+viewports: desktop 1440x1000, mobile 390x844 dpr2
+observations:
+- desktop-dashboard:/:captured
+- desktop-notes:/notes:captured
+- desktop-syllabus:/syllabus:captured
+- desktop-reports:/reports:captured
+- desktop-simulation:/simulation:captured
+- desktop-settings:/settings:captured
+- mobile-dashboard:/:captured
+- mobile-settings:/settings:captured
+- mobile-unauth-notes:/notes:captured
+safetyFacts: productionWriteAttempted=false serverCommandAttempted=false secretValuePrinted=false realStudyContentIncluded=false

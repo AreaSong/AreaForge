@@ -33,6 +33,7 @@
 - 生产 SSH 只读导出若用于补齐 `AF-RISK-OPS-001`，是否先使用 `docs/development/high-risk-confirmation-packets.md` 的生产只读证据导出确认包，并确认它不包含 updater apply、backup/restore、migration、rollback、写入型 smoke、secrets 读取/打印/复制或 residual 台账关闭。
 - 功能更新、维护节奏、release 决策、skill owner 边界或 residual 复核口径变化，是否同步 `docs/development/long-term-operability-control-plane.md`，并运行 `pnpm enterprise:operability:preflight` 和 `pnpm ops:status` 检查离线状态投影。
 - 若要声明“产品可长期运营”，是否运行 `pnpm ops:long-term:gate`，并确认 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 证据均达到可人工复核关闭状态；该 gate 不自动收集证据、不执行生产动作、不修改 residual 台账。
+- Release/update 后若需要交接当前证据与缺口，是否保存 `pnpm ops:long-term:snapshot` 输出并通过 `pnpm ops:long-term:snapshot:validate <snapshot.json>`；快照只能证明证据路径、hash、状态和缺口绑定正确，不能替代 live gate、生产 smoke、update-agent、备份 hash、告警演练或 residual 关闭。
 - 新签名 Release 若用于关闭或复核供应链残余项，是否按 `docs/development/release-supply-chain-record-template.md` 记录 SBOM/provenance、checksum/signature、Actions pinning 和 `pnpm audit:prod`，并通过 `pnpm release:supply-chain:validate`。
 - 生产运维、发布、自动更新或长期运营状态变化，是否同步 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 和对应 ops/release 文档。
 - 日常维护节奏、证据新鲜度或 residual 复核规则变化，是否同步 `docs/development/maintenance-cadence.md`、`docs/development/operational-readiness.md`、验证矩阵和相关 observability/residual skill。

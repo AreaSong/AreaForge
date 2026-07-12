@@ -70,6 +70,20 @@ write_json() {
   mv "$tmp" "$output"
 }
 
+status_message_from_output() {
+  local raw="$1"
+  printf '%s' "$raw" |
+    tail -n 8 |
+    tr '\n' ' ' |
+    sed -E \
+      -e 's#postgres(ql)?://[^[:space:]]+#postgres://<redacted>#g' \
+      -e 's#(DATABASE_URL|AUTH_SESSION_SECRET|AUTH_ADMIN_PASSWORD_HASH|AI_API_KEY|OPENAI_API_KEY|AREAFORGE_GITHUB_TOKEN|COSIGN_PASSWORD|AREAFORGE_SMOKE_PASSWORD|PASSWORD|TOKEN|SECRET)=([^[:space:]]+)#\1=<redacted>#g' \
+      -e 's#"(password|token|secret|apiKey|databaseUrl)"[[:space:]]*:[[:space:]]*"[^"]*"#"\1":"<redacted>"#g' \
+      -e 's#(Bearer )[A-Za-z0-9._~+/-]+=*#\1<redacted>#g' \
+      -e 's#(sk-|rk-|sess-)[A-Za-z0-9_-]{12,}#<redacted-token>#g' |
+    cut -c 1-500
+}
+
 ensure_state_dirs() {
   local web_uid="${AREAFORGE_WEB_UID:-1001}"
   local web_gid="${AREAFORGE_WEB_GID:-1001}"
@@ -200,6 +214,9 @@ merge_status() {
   local operation_json="${1:-null}"
   local base
   base="$(status_from_state)"
+  if [[ "$operation_json" == "null" && -f "$STATUS_FILE" ]]; then
+    operation_json="$(jq -c '.lastOperation // null' "$STATUS_FILE" 2>/dev/null || printf 'null')"
+  fi
   jq -s '.[0] + {lastOperation: .[1]}' <(printf '%s\n' "$base") <(printf '%s\n' "$operation_json") | write_json "$STATUS_FILE"
 }
 
@@ -301,10 +318,10 @@ process_request() {
   case "$action" in
     check)
       if output="$(run_updater_check)"; then
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       else
         status="failed"
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       fi
       ;;
     apply)
@@ -312,18 +329,18 @@ process_request() {
         status="failed"
         message="missing release tag"
       elif output="$(run_updater_apply "$tag")"; then
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       else
         status="failed"
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       fi
       ;;
     rollback)
       if output="$(run_rollback)"; then
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       else
         status="failed"
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       fi
       ;;
     set_auto_apply)

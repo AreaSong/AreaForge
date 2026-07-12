@@ -63,6 +63,7 @@ function checkRequiredFiles(): void {
     "scripts/ops/operability-status.ts",
     "scripts/ops/operational-handoff.ts",
     "scripts/ops/long-term-operability-live-gate.ts",
+    "scripts/ops/long-term-evidence-snapshot.ts",
     "scripts/ops/operational-readiness-summary.ts",
     "scripts/ops/operational-evidence-bundle.ts",
     "scripts/quality/operational-evidence-bundle-validate.ts",
@@ -120,6 +121,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/operability-status.selftest.ts",
     "scripts/quality/operational-handoff.selftest.ts",
     "scripts/quality/long-term-operability-live-gate.selftest.ts",
+    "scripts/quality/long-term-evidence-snapshot-validate.ts",
+    "scripts/quality/long-term-evidence-snapshot.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -309,6 +312,9 @@ function checkPackageScripts(): void {
   const handoffSelftestScript = packageJson.scripts?.["ops:handoff:selftest"] ?? "";
   const longTermGateScript = packageJson.scripts?.["ops:long-term:gate"] ?? "";
   const longTermGateSelftestScript = packageJson.scripts?.["ops:long-term:gate:selftest"] ?? "";
+  const longTermSnapshotScript = packageJson.scripts?.["ops:long-term:snapshot"] ?? "";
+  const longTermSnapshotValidateScript = packageJson.scripts?.["ops:long-term:snapshot:validate"] ?? "";
+  const longTermSnapshotSelftestScript = packageJson.scripts?.["ops:long-term:snapshot:selftest"] ?? "";
   const summaryScript = packageJson.scripts?.["ops:readiness:summary"] ?? "";
   const bundleScript = packageJson.scripts?.["ops:evidence:bundle"] ?? "";
   const bundleValidateScript = packageJson.scripts?.["ops:evidence:bundle:validate"] ?? "";
@@ -366,6 +372,9 @@ function checkPackageScripts(): void {
       handoffSelftestScript === "tsx scripts/quality/operational-handoff.selftest.ts" &&
       longTermGateScript === "tsx scripts/ops/long-term-operability-live-gate.ts" &&
       longTermGateSelftestScript === "tsx scripts/quality/long-term-operability-live-gate.selftest.ts" &&
+      longTermSnapshotScript === "tsx scripts/ops/long-term-evidence-snapshot.ts" &&
+      longTermSnapshotValidateScript === "tsx scripts/quality/long-term-evidence-snapshot-validate.ts" &&
+      longTermSnapshotSelftestScript === "tsx scripts/quality/long-term-evidence-snapshot.selftest.ts" &&
       summaryScript === "tsx scripts/ops/operational-readiness-summary.ts" &&
       bundleScript === "tsx scripts/ops/operational-evidence-bundle.ts" &&
       bundleValidateScript === "tsx scripts/quality/operational-evidence-bundle-validate.ts" &&
@@ -415,7 +424,7 @@ function checkPackageScripts(): void {
       updateAgentStatusRecordScript === "tsx scripts/ops/generate-update-agent-status-record.ts" &&
       updateAgentStatusRecordSelftestScript === "tsx scripts/quality/update-agent-status-record.selftest.ts" &&
       updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:status=${statusScript || "missing"}; ops:status:selftest=${statusSelftestScript || "missing"}; ops:handoff=${handoffScript || "missing"}; ops:handoff:selftest=${handoffSelftestScript || "missing"}; ops:long-term:gate=${longTermGateScript || "missing"}; ops:long-term:gate:selftest=${longTermGateSelftestScript || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:evidence:bundle:validate=${bundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${bundleSelftestScript || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}; ops:ops-001:preflight=${ops001PreflightScript || "missing"}; ops:ops-001:preflight:selftest=${ops001PreflightSelftestScript || "missing"}; ops:ops-001:blocked:validate=${ops001BlockedValidateScript || "missing"}; ops:ops-001:blocked:selftest=${ops001BlockedSelftestScript || "missing"}; ops:ops-001:fallback:finalize=${ops001FallbackFinalizeScript || "missing"}; ops:ops-001:fallback:finalize:selftest=${ops001FallbackFinalizeSelftestScript || "missing"}; ops:ops-001:fallback:selftest=${ops001FallbackSelftestScript || "missing"}; ops:ops-004:preflight=${ops004PreflightScript || "missing"}; ops:ops-004:preflight:selftest=${ops004PreflightSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; ops:ops-001:closure=${ops001ClosureScript || "missing"}; ops:ops-001:closure:validate=${ops001ClosureValidateScript || "missing"}; ops:ops-001:closure:selftest=${ops001ClosureSelftestScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; alert:drill:record=${alertDrillRecordScript || "missing"}; alert:drill:record:selftest=${alertDrillRecordSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; smoke:prod-readonly:config=${prodReadonlySmokeConfigScript || "missing"}; smoke:prod-readonly:config:selftest=${prodReadonlySmokeConfigSelftestScript || "missing"}; smoke:prod-readonly:record=${prodReadonlySmokeRecordScript || "missing"}; smoke:prod-readonly:record:selftest=${prodReadonlySmokeRecordSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:record=${maintenanceWindowRecordScript || "missing"}; maintenance:window:record:selftest=${maintenanceWindowRecordSelftestScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
+    detail: `ops:readiness=${script || "missing"}; ops:status=${statusScript || "missing"}; ops:status:selftest=${statusSelftestScript || "missing"}; ops:handoff=${handoffScript || "missing"}; ops:handoff:selftest=${handoffSelftestScript || "missing"}; ops:long-term:gate=${longTermGateScript || "missing"}; ops:long-term:gate:selftest=${longTermGateSelftestScript || "missing"}; ops:long-term:snapshot=${longTermSnapshotScript || "missing"}; ops:long-term:snapshot:validate=${longTermSnapshotValidateScript || "missing"}; ops:long-term:snapshot:selftest=${longTermSnapshotSelftestScript || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:evidence:bundle:validate=${bundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${bundleSelftestScript || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}; ops:ops-001:preflight=${ops001PreflightScript || "missing"}; ops:ops-001:preflight:selftest=${ops001PreflightSelftestScript || "missing"}; ops:ops-001:blocked:validate=${ops001BlockedValidateScript || "missing"}; ops:ops-001:blocked:selftest=${ops001BlockedSelftestScript || "missing"}; ops:ops-001:fallback:finalize=${ops001FallbackFinalizeScript || "missing"}; ops:ops-001:fallback:finalize:selftest=${ops001FallbackFinalizeSelftestScript || "missing"}; ops:ops-001:fallback:selftest=${ops001FallbackSelftestScript || "missing"}; ops:ops-004:preflight=${ops004PreflightScript || "missing"}; ops:ops-004:preflight:selftest=${ops004PreflightSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; ops:ops-001:closure=${ops001ClosureScript || "missing"}; ops:ops-001:closure:validate=${ops001ClosureValidateScript || "missing"}; ops:ops-001:closure:selftest=${ops001ClosureSelftestScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; alert:drill:record=${alertDrillRecordScript || "missing"}; alert:drill:record:selftest=${alertDrillRecordSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; smoke:prod-readonly:config=${prodReadonlySmokeConfigScript || "missing"}; smoke:prod-readonly:config:selftest=${prodReadonlySmokeConfigSelftestScript || "missing"}; smoke:prod-readonly:record=${prodReadonlySmokeRecordScript || "missing"}; smoke:prod-readonly:record:selftest=${prodReadonlySmokeRecordSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:record=${maintenanceWindowRecordScript || "missing"}; maintenance:window:record:selftest=${maintenanceWindowRecordSelftestScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
   });
 }
 
@@ -449,6 +458,9 @@ function checkSummaryScript(): void {
   const handoffSelftest = read("scripts/quality/operational-handoff.selftest.ts");
   const longTermGate = read("scripts/ops/long-term-operability-live-gate.ts");
   const longTermGateSelftest = read("scripts/quality/long-term-operability-live-gate.selftest.ts");
+  const longTermSnapshot = read("scripts/ops/long-term-evidence-snapshot.ts");
+  const longTermSnapshotValidate = read("scripts/quality/long-term-evidence-snapshot-validate.ts");
+  const longTermSnapshotSelftest = read("scripts/quality/long-term-evidence-snapshot.selftest.ts");
   const script = read("scripts/ops/operational-readiness-summary.ts");
   const bundle = read("scripts/ops/operational-evidence-bundle.ts");
   const supportBundlePreview = read("scripts/ops/support-bundle-preview.ts");
@@ -495,6 +507,11 @@ function checkSummaryScript(): void {
     "operational handoff selftest",
     "read_only_long_term_operability_live_gate",
     "ops:long-term:gate",
+    "ops:long-term:snapshot",
+    "read_only_long_term_evidence_snapshot",
+    "long-term evidence snapshot validation passed",
+    "PASS long-term evidence snapshot validator selftest",
+    "snapshotHash",
     "ready_for_long_term_operability_review",
     "不得执行 Docker",
     "safetyFacts",
@@ -550,7 +567,7 @@ function checkSummaryScript(): void {
     "product experience review validation passed",
     "product experience review validator selftest passed",
   ];
-  const combined = `${handoff}\n${handoffSelftest}\n${longTermGate}\n${longTermGateSelftest}\n${script}\n${bundle}\n${supportBundlePreview}\n${supportBundlePreviewValidate}\n${supportBundlePreviewSelftest}\n${alertPreview}\n${alertDrillRecord}\n${alertDrillRecordSelftest}\n${prodReadonlySmokeValidate}\n${prodReadonlySmokeSelftest}\n${prodReadonlySmokeConfig}\n${prodReadonlySmokeConfigSelftest}\n${prodReadonlySmokeRecord}\n${prodReadonlySmokeRecordSelftest}\n${ops001Preflight}\n${ops001PreflightSelftest}\n${ops001FallbackHelper}\n${ops001FallbackSelftest}\n${ops001ClosurePacket}\n${ops001ClosurePacketValidate}\n${ops001ClosurePacketSelftest}\n${alertDrill}\n${alertDrillSelftest}\n${updateAgentStatusRecord}\n${updateAgentStatusRecordSelftest}\n${productExperience}\n${productExperienceSelftest}\n${docs}`;
+  const combined = `${handoff}\n${handoffSelftest}\n${longTermGate}\n${longTermGateSelftest}\n${longTermSnapshot}\n${longTermSnapshotValidate}\n${longTermSnapshotSelftest}\n${script}\n${bundle}\n${supportBundlePreview}\n${supportBundlePreviewValidate}\n${supportBundlePreviewSelftest}\n${alertPreview}\n${alertDrillRecord}\n${alertDrillRecordSelftest}\n${prodReadonlySmokeValidate}\n${prodReadonlySmokeSelftest}\n${prodReadonlySmokeConfig}\n${prodReadonlySmokeConfigSelftest}\n${prodReadonlySmokeRecord}\n${prodReadonlySmokeRecordSelftest}\n${ops001Preflight}\n${ops001PreflightSelftest}\n${ops001FallbackHelper}\n${ops001FallbackSelftest}\n${ops001ClosurePacket}\n${ops001ClosurePacketValidate}\n${ops001ClosurePacketSelftest}\n${alertDrill}\n${alertDrillSelftest}\n${updateAgentStatusRecord}\n${updateAgentStatusRecordSelftest}\n${productExperience}\n${productExperienceSelftest}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   checks.push({
     name: "ops readiness summary, bundle, and alert preview scripts",

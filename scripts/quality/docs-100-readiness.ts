@@ -37,6 +37,7 @@ const requiredFiles = [
   "docs/development/production-smoke-alerting-strategy.md",
   "docs/development/product-experience-review-record-template.md",
   "docs/development/product-experience-review-20260710-local.md",
+  "docs/development/product-experience-review-v0.1.7-20260712-local.md",
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "SECURITY.md",

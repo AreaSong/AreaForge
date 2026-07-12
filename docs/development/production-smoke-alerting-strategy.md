@@ -1,6 +1,6 @@
 # Production Smoke And Alerting Strategy
 
-本文件是生产 smoke 和告警策略的非执行草案。它不授权任何生产写入，不替代 `docs/development/production-release-runbook.md`，也不关闭 `AF-RISK-OPS-001`、`AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。`AF-RISK-UX-001` 已由 2026-07-10 本地 desktop/mobile 体验复核关闭为证据项，但后续 release/update、体验改动或超过 14 天维护窗口前仍需重跑。
+本文件是生产 smoke 和告警策略的非执行草案。它不授权任何生产写入，不替代 `docs/development/production-release-runbook.md`，也不关闭 `AF-RISK-OPS-001`、`AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。`AF-RISK-UX-001` 已由本地 desktop/mobile 体验复核关闭为证据项；2026-07-10 记录是历史证据，2026-07-12 已新增本地 `0.1.7` 复核记录，但后续 release/update、体验改动或超过 14 天维护窗口前仍需重跑。
 
 ## 默认边界
 

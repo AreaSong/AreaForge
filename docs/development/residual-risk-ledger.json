@@ -6,10 +6,10 @@
       "id": "AF-RISK-OPS-001",
       "type": "current-blocker",
       "reviewAt": "2026-07-17",
-      "currentImpact": "2026-07-11/12 生产只读 fallback 已补齐 smoke 账号和权限收紧的 smoke password file，等价 curl 只读 smoke 通过，redacted update-agent status 有效，且 update-agent autoApply=none、signatureRequired=true、timer active、blocker=null；本地收口证据在 docs/development/ops-001-production-readonly-20260711/，pnpm ops:ops-001:preflight 已返回 ready_for_human_close；台账尚未按维护者人工复核关闭",
+      "currentImpact": "2026-07-11/12 生产只读 fallback 已补齐 smoke 账号和权限收紧的 smoke password file，并形成可人工复核证据；v0.1.7 生产 updater apply 时 extra smoke 通过；post-v0.1.7 只读 evidence bundle 已保存但状态为 needs_attention，因为 redacted update-agent status 和 production readonly smoke record 尚未重新采集入仓库；台账尚未按维护者人工复核关闭",
       "executableNow": false,
-      "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 账号和权限收紧的 smoke 密码文件；OPS-001 helper 具备可执行 pnpm smoke:prod-readonly 的运行时或有等价 curl fallback 记录；最近一次生产只读 smoke 通过、redacted update-agent status、operational evidence bundle 和 OPS-001 收口包齐全",
-      "requiredEvidence": "docs/development/ops-001-production-readonly-attempt-20260711.md、docs/development/ops-001-production-readonly-20260711/prod-readonly-smoke-record.txt、docs/development/ops-001-production-readonly-20260711/redacted-update-status.json、docs/development/ops-001-production-readonly-20260711/operational-evidence-bundle.json、docs/development/ops-001-production-readonly-20260711/ops-001-closure-packet.txt、docs/development/ops-001-production-readonly-20260711/ops001-preflight-after-closure.json、pnpm smoke:prod-readonly:validate 通过、pnpm update-agent:status:validate 通过、pnpm ops:evidence:bundle:validate 通过、pnpm ops:ops-001:closure:validate 通过、pnpm ops:ops-001:preflight 返回 ready_for_human_close",
+      "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 账号和权限收紧的 smoke 密码文件；最近一次生产版本对应的只读 smoke 通过、redacted update-agent status、operational evidence bundle 和 OPS-001 收口包齐全；生产更新后必须重采或明确降级旧证据为历史",
+      "requiredEvidence": "docs/development/ops-001-production-readonly-attempt-20260711.md、docs/development/ops-001-production-readonly-20260711/prod-readonly-smoke-record.txt、docs/development/ops-001-production-readonly-20260711/redacted-update-status.json、docs/development/ops-001-production-readonly-20260711/operational-evidence-bundle.json、docs/development/ops-001-production-readonly-20260711/ops-001-closure-packet.txt、docs/development/release-v0.1.7-record.md、docs/development/operational-evidence-bundle-v0.1.7-20260712.json、后续 post-v0.1.7 redacted smoke/status/OPS-001 closure packet、pnpm smoke:prod-readonly:validate 通过、pnpm update-agent:status:validate 通过、pnpm ops:evidence:bundle:validate 通过、pnpm ops:ops-001:closure:validate 通过、pnpm ops:ops-001:preflight 返回 ready_for_human_close",
       "ownerSkills": ["areaforge-sre-ops", "areaforge-qa-smoke"]
     },
     {
@@ -36,10 +36,10 @@
       "id": "AF-RISK-SC-001",
       "type": "deferred-work",
       "reviewAt": "2026-08-10",
-      "currentImpact": "v0.1.7 签名 GitHub Release 已生成 SBOM/provenance、SHA256SUMS、SHA256SUMS.sig 和 GHCR digest 证据；pnpm release:supply-chain:validate 已通过并使 pnpm sc:sc-002:preflight 返回 ready_for_sc001_sc002_review；线上仍是 v0.1.5，台账尚未按维护者人工复核关闭",
+      "currentImpact": "v0.1.7 签名 GitHub Release 已生成 SBOM/provenance、SHA256SUMS、SHA256SUMS.sig 和 GHCR digest 证据，且已由服务器侧 updater 应用到生产；pnpm release:supply-chain:validate 已通过并使 pnpm sc:sc-002:preflight 返回 ready_for_sc001_sc002_review；台账尚未按维护者人工复核关闭",
       "executableNow": false,
-      "closeCondition": "维护者人工复核 v0.1.7 签名 Release 供应链记录和发布记录后，明确关闭或继续保留该 residual；后续修改 Release workflow、签名策略、依赖审计或创建新 Release 前重新复核",
-      "requiredEvidence": "docs/development/release-supply-chain-v0.1.7.md、docs/development/release-v0.1.7-record.md、GitHub Release run 29179904808 成功、SBOM asset、provenance asset、SHA256SUMS 覆盖记录、cosign Verified OK、pnpm release:supply-chain:validate 通过、pnpm ops:long-term:gate 返回 ready_for_long_term_operability_review",
+      "closeCondition": "维护者人工复核 v0.1.7 签名 Release 供应链记录和发布记录后，明确关闭或继续保留该 residual；生产 apply 不自动关闭该 residual，后续修改 Release workflow、签名策略、依赖审计或创建新 Release 前重新复核",
+      "requiredEvidence": "docs/development/release-supply-chain-v0.1.7.md、docs/development/release-v0.1.7-record.md、GitHub Release run 29179904808 成功、SBOM asset、provenance asset、SHA256SUMS 覆盖记录、cosign Verified OK、服务器 updater apply 记录、pnpm release:supply-chain:validate 通过、pnpm sc:sc-002:preflight 返回 ready_for_sc001_sc002_review；pnpm ops:long-term:gate 仅用于整体长期运营完成声明，不作为 SC-001 关闭条件",
       "ownerSkills": ["areaforge-supply-chain"]
     },
     {
@@ -76,20 +76,20 @@
       "id": "AF-RISK-OPS-004",
       "type": "monitoring-gap",
       "reviewAt": "2026-08-10",
-      "currentImpact": "告警阈值已有非执行策略；2026-07-11 已保存 manual-window alert preview 和告警/恢复演练记录，pnpm ops:ops-004:preflight 可返回 ready_for_human_close；metrics dashboard 和外部告警接收人仍未产品化，台账关闭仍待维护者人工复核",
+      "currentImpact": "告警阈值已有非执行策略；2026-07-11 manual-window alert preview 和告警/恢复演练记录保留为历史输入；post-v0.1.7 alert preview 已保存为 docs/development/ops-004-alert-preview-v0.1.7-20260712.json 且状态为 warning，仍缺 matching alert drill/preflight；metrics dashboard 和外部告警接收人仍未产品化，台账关闭仍待维护者人工复核",
       "executableNow": false,
-      "closeCondition": "配置外部告警接收人或人工值班窗口，完成一次告警/恢复演练记录，并通过 OPS-004 证据预检；当前 manual-window 证据可作为人工关闭复核输入",
-      "requiredEvidence": "docs/development/ops-004-alert-preview-20260711.json、docs/development/ops-004-alert-drill-20260711-manual-window.txt、pnpm alert:drill:validate 通过、pnpm ops:ops-004:preflight 返回 ready_for_human_close、值班窗口或外部接收人说明、恢复记录",
+      "closeCondition": "配置外部告警接收人或人工值班窗口，完成一次与当前版本 alert preview 匹配的告警/恢复演练记录，并通过 OPS-004 证据预检；历史 manual-window 证据只能作为参考输入",
+      "requiredEvidence": "docs/development/ops-004-alert-preview-20260711.json、docs/development/ops-004-alert-drill-20260711-manual-window.txt、docs/development/ops-004-alert-preview-v0.1.7-20260712.json、post-v0.1.7 alert drill record、pnpm alert:drill:validate 通过、pnpm ops:ops-004:preflight 返回 ready_for_human_close、值班窗口或外部接收人说明、恢复记录",
       "ownerSkills": ["areaforge-observability"]
     },
     {
       "id": "AF-RISK-UX-001",
       "type": "closed-evidence",
       "reviewAt": "2026-07-24",
-      "currentImpact": "2026-07-10 本地真实体验复核已覆盖 desktop/mobile、核心旅程、未授权状态和确认边界；记录见 docs/development/product-experience-review-20260710-local.md，截图见 output/playwright/experience-review/",
+      "currentImpact": "2026-07-10 本地真实体验复核已覆盖 desktop/mobile、核心旅程、未授权状态和确认边界；2026-07-12 已新增本地 0.1.7 desktop/mobile 复核记录 docs/development/product-experience-review-v0.1.7-20260712-local.md，证明当前 checkout 的本地体验路径可用；该证据不证明生产写入型 smoke、生产附件写入或真实用户数据体验",
       "executableNow": false,
       "closeCondition": "后续 release/update、体验改动或超过 14 天维护窗口前，重新完成 desktop/mobile 体验复核并通过 pnpm experience:review:validate；若复核失败则重新打开为 monitoring-gap",
-      "requiredEvidence": "pnpm smoke:local-ux 31/31 通过；desktop/mobile/unauth Playwright 截图；pnpm experience:review:validate docs/development/product-experience-review-20260710-local.md 通过",
+      "requiredEvidence": "pnpm smoke:local-ux 31/31 通过；desktop/mobile/unauth browser 截图；pnpm experience:review:validate docs/development/product-experience-review-20260710-local.md 通过；pnpm experience:review:validate docs/development/product-experience-review-v0.1.7-20260712-local.md 通过；后续 release/update 后需新增对应体验复核记录",
       "ownerSkills": ["areaforge-product-experience", "areaforge-qa-smoke"]
     }
   ]

@@ -1,12 +1,13 @@
 releaseId: release-v0.1.7
-releasedAt: 2026-07-12T04:39:00Z
-operator: Codex user-confirmed release evidence closure
+releasedAt: 2026-07-12T11:23:25Z
+operator: Codex user-confirmed production updater apply
 gitCommit: c1a25e4f897330fea493ad4c6dd889b62ef8f63a
 sourceBaseline:
   sourceDocs: AGENTS.md, README.md, docs/development/release-train.md, docs/development/high-risk-confirmation-packets.md, docs/development/residual-risk-ledger.md
   sourceHashOrCommit: c1a25e4f897330fea493ad4c6dd889b62ef8f63a
 claimBoundary:
-  doesNotProve: production updater apply, backup/restore execution, migration execution, rollback execution, residual risk closure
+  doesNotProve: database restore, uploads restore, auto-apply policy change, Web runtime server commands, production write smoke, residual risk closure, secret disclosure, full product UX verification
+  evidenceStatus: production apply and public health recorded; release evidence validation remains blocked by root-only backup hashes and missing post-update OPS evidence
 releaseTag: v0.1.7
 releaseUrl: https://github.com/AreaSong/AreaForge/releases/tag/v0.1.7
 AREAFORGE_IMAGE: ghcr.io/areasong/areaforge-web:v0.1.7
@@ -23,23 +24,27 @@ composeHash: a9dfcf2011b0b7826f8d4c288b5dfd46d4a7c2087ac680f0cc8913fd628df1cc
 nginxConfigHash: 34892685d1e5b7483eb6df565b8f329980db4e3a8c6c2bb21f3e4c6cac540b46
 previousImage: ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9
 previousAppVersion: 0.1.5
-databaseBackupPath: not-applicable-release-assets-only-no-production-apply
-databaseBackupSha256: 613ac16a8f367fca0ae989b3afa60c53b7c4bd4fc8e2ad90e52f7988dd92be62
-uploadsBackupPath: not-applicable-release-assets-only-no-production-apply
-uploadsBackupSha256: 613ac16a8f367fca0ae989b3afa60c53b7c4bd4fc8e2ad90e52f7988dd92be62
-envBackupPath: not-applicable-release-assets-only-no-production-apply
-envBackupSha256: eb2f9eb53b24476268b38ce1b13e60c0087f63704da68c228c071690bb01d5db
-composeConfigBackupPath: not-applicable-release-assets-only-no-production-apply
-nginxConfigBackupPath: not-applicable-release-assets-only-no-production-apply
-migrationVersion: not-applicable-release-assets-only-no-production-apply
-migrationApplied: no
-migrationRunner: not-applicable
+serverUpdateRecordPath: /opt/areaforge/backups/github-release-updates/github-0.1.7-20260712112325/update-record.txt
+databaseBackupPath: recorded-in-server-update-record-root-only-not-copied-to-repo
+databaseBackupSha256: not-copied-root-only-update-record
+uploadsBackupPath: recorded-in-server-update-record-root-only-not-copied-to-repo
+uploadsBackupSha256: not-copied-root-only-update-record
+envBackupPath: recorded-in-server-update-record-root-only-not-copied-to-repo
+envBackupSha256: not-copied-root-only-update-record
+composeConfigBackupPath: recorded-in-server-update-record-root-only-not-copied-to-repo
+nginxConfigBackupPath: recorded-in-server-update-record-root-only-not-copied-to-repo
+migrationVersion: prisma migrate deploy via v0.1.7 migration image; no pending migrations
+migrationApplied: yes
+migrationRunner: one_off_migration_job
 signatureVerification: SHA256SUMS passed and cosign verify-blob --key docs/deployment/keys/areaforge-cosign.pub --bundle SHA256SUMS.sig SHA256SUMS returned Verified OK
-updateAgentStatus: not-collected-for-v0.1.7; no updater apply requested; production remains 0.1.5 from v0.1.5 signed release
+updateAgentStatus: server verification summary reported APP_VERSION=0.1.7, releaseTag=v0.1.7, smokeHealth=PASS, extraSmoke=PASS, rollbackAttempted=no, databaseRestoreAttempted=no, uploadsRestoreAttempted=no, failureReason=none; root-only status/update-record not copied into repo
+publicHealthEvidence: GET https://forge.areasong.top/api/health returned {"ok":true,"service":"AreaForge","version":"0.1.7"}
+readinessSummaryEvidence: AREAFORGE_READINESS_EXPECTED_VERSION=0.1.7 pnpm ops:readiness:summary returned health=pass, releaseIdentity=pass, infrastructure=pass, updateAgent=unknown, authenticatedSmoke=warn, overall=warn
+operationalEvidenceBundlePath: docs/development/operational-evidence-bundle-v0.1.7-20260712.json
 rollbackTargetVersion: 0.1.5
 rollbackTargetImage: ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9
-releaseEvidenceBundleHash: sha256:9fee892a3d5ae838d439f14f46b9bec7307ff3fe1fadc37cbf33eb9374ca4aa4
-operationalEvidenceBundleHash: sha256:fa1f5872ce1d0f705a0887f517dab8f727c4e05f09da9922c22e0d4690aab9fe
+releaseEvidenceBundleHash: pending-redacted-root-only-backup-hash-copy
+operationalEvidenceBundleHash: sha256:58dc87bcfe7505a2ef3837aa85c24681ed8d4b52c2cf7881d5e89a39904b69c9
 alertPreviewStatus: warning
 preflight:
   pnpmCheck: PASS
@@ -50,22 +55,24 @@ restoreDrill:
   uploadsRestored: no
   attachmentHashMatched: not-applicable
 postReleaseSmoke:
-  health: FAIL
-  login: FAIL
-  dashboard: FAIL
+  scope: server-side updater health plus read-only extra smoke; write-path task/timer, attachment upload, and AI provider production smoke were intentionally not executed in this scope, so their FAIL values prevent full production-health claims
+  health: PASS
+  login: PASS
+  dashboard: PASS
   taskTimerReview: FAIL
-  syllabusNotesAnalyticsReports: FAIL
+  syllabusNotesAnalyticsReports: PASS
   attachmentSmoke: FAIL
   aiFallbackOrProvider: FAIL
-rollbackDecision: not-applicable
-rollbackPlan: No production update was applied. If a future v0.1.7 updater apply is confirmed and fails, rollback to the recorded v0.1.5 image through the server-side updater runbook.
-rollbackDrillResult: not-applicable-no-production-apply
+extraSmokeChecks: health, login, auth/me, dashboard, notes, syllabus, analytics, reports, long-term-risks, update-status
+rollbackDecision: no rollback needed for scoped updater apply; health and extra read-only smoke passed, while full production write smoke and backup-hash evidence remain residual
+rollbackPlan: If a future regression is confirmed, use the server-side updater rollback path to return the app image and APP_VERSION to 0.1.5; database/uploads restore requires separate high-risk confirmation and is not automatic.
+rollbackDrillResult: not-applicable-no-rollback-attempted
 rollbackDurationMinutes: 0
 databaseRestoreRequired: no
 uploadsRestoreRequired: no
 rollbackFailureReason: none-no-rollback-attempted
-residualRisk: GitHub Release assets and signed supply-chain evidence are ready for human review; production update, production backup, production migration, production smoke, rollback and residual ledger closure were not executed in this scope.
-residualRiskIds: AF-RISK-SC-001,AF-RISK-SC-002,AF-RISK-OPS-001,AF-RISK-OPS-004,AF-RISK-REL-001
+residualRisk: v0.1.7 is applied in production and public health passes. Auto-apply remains none. Backup hashes and full update-record fields are retained on the production host and were not copied into the repo because the current closure scope excludes secret/backups copying; post-update OPS-001 redacted status/smoke/evidence bundle and current-version OPS-004 drill still need fresh collection before any long-term-operability or residual-ledger closure claim. A local v0.1.7 desktop/mobile product experience review exists at docs/development/product-experience-review-v0.1.7-20260712-local.md, but it does not prove production write smoke or real user data experience.
+residualRiskIds: AF-RISK-OPS-001,AF-RISK-OPS-002,AF-RISK-REL-001,AF-RISK-SC-001,AF-RISK-OPS-004,AF-RISK-UX-001
 followUpTasks: docs/development/residual-risk-ledger.md,tasks/indexes/residuals.md
 expectedFailureOrStopConditions:
   migrationFailed: stop future production updater apply and keep production on prior version

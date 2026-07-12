@@ -6,7 +6,7 @@
 
 本设计不让 Web runtime 直接执行服务器命令。版本中心 UI 可以提交检查、更新、回退和自动策略请求；执行 Docker、备份、migration、回滚和状态回写的能力只属于服务器侧 root agent。不把生产密钥、数据库 URL、AI key、完整 prompt 或附件路径写入公开记录。
 
-当前远端已按本设计上线：GitHub Release `v0.1.5` 成功生成 `SHA256SUMS.sig` cosign bundle，服务器安装 `cosign v3.1.1`，启用 `/etc/areaforge/cosign.pub` 校验并将 `https://forge.areasong.top/` 从 `0.1.1` 更新到 `0.1.5`。update-agent 状态为 `signatureRequired=true`、`blocker=null`、`timerEnabled=true`、`timerActive=true`。证据见 `docs/development/package-e-remote-github-release-record.md`。`v0.1.7` 已生成包含 SBOM/provenance 的签名 Release 证据，但尚未执行生产 updater apply。
+当前远端已按本设计上线：GitHub Release `v0.1.5` 曾将 `https://forge.areasong.top/` 从 `0.1.1` 更新到 `0.1.5`，该历史证据见 `docs/development/package-e-remote-github-release-record.md`；当前 GitHub Release `v0.1.7` 已生成 SBOM/provenance、checksum、cosign signature 和 GHCR digest 证据，并由服务器侧 updater 应用到生产。公网 health 返回 `0.1.7`，自动策略保持 `AREAFORGE_AUTO_APPLY=none`，Web runtime 仍不能执行服务器命令。
 
 ## 目标形态
 
@@ -163,5 +163,5 @@ sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 ## 残余风险
 
 - 首次远端服务器部署、域名 HTTPS 和真实 Nginx 切换已经通过 `v0.1.5` 远端签名 Release 验证；后续域名、Nginx、端口或服务器迁移仍需单独发布记录。
-- GitHub Release stable 签名需要配置 `COSIGN_PRIVATE_KEY_B64` / `COSIGN_PASSWORD`（或兼容的 `COSIGN_PRIVATE_KEY` 多行 PEM）；缺少签名密钥时 stable workflow 必须失败。preview channel 可以生成 `unsigned preview` 占位资产，但生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。`v0.1.7` 已证明 SBOM/provenance、checksum 和 cosign bundle 资产链路可用；供应链残余项 `AF-RISK-SC-001` 仍需维护者人工复核关闭，且不代表生产已更新。
+- GitHub Release stable 签名需要配置 `COSIGN_PRIVATE_KEY_B64` / `COSIGN_PASSWORD`（或兼容的 `COSIGN_PRIVATE_KEY` 多行 PEM）；缺少签名密钥时 stable workflow 必须失败。preview channel 可以生成 `unsigned preview` 占位资产，但生产 updater 若保持 `AREAFORGE_REQUIRE_SIGNATURE=true` 会拒绝应用。`v0.1.7` 已证明 SBOM/provenance、checksum 和 cosign bundle 资产链路可用，并已生产应用；供应链残余项 `AF-RISK-SC-001` 仍需维护者人工复核关闭。
 - 完整登录、任务计时、附件上传下载等 smoke 依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`；updater 内置默认 smoke 只检查 `/api/health`。生产 extra smoke 残余项见 `AF-RISK-OPS-001`。

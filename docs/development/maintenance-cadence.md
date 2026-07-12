@@ -4,15 +4,15 @@
 
 本文件定义 AreaForge 长期运营的维护节奏：每天、每周、每月、每次 release、incident 后应检查哪些只读信号，哪些证据可以用于交接，哪些 residual risk 到期必须复核。
 
-它不是自动运维授权，不执行生产 deploy、backup、restore、migration、updater apply、rollback、server command 或生产写入。Readiness、support bundle preview、alert preview、evidence bundle 和 preflight 只能解释当前证据，不等于 apply，也不能单独关闭 residual risk。
+它不是自动运维授权，不执行生产 deploy、backup、restore、migration、updater apply、rollback、server command 或生产写入。Readiness、support bundle preview、alert preview、evidence bundle、long-term evidence snapshot 和 preflight 只能解释当前证据，不等于 apply，也不能单独关闭 residual risk。
 
 ## 维护原则
 
 - 证据优先：所有健康、发布、回滚和企业级就绪结论都要有时间戳、来源、命令或记录。
-- 只读优先：日常维护默认只运行 read-only preflight、support bundle preview、readiness summary、evidence bundle、alert preview 和 redacted record validator。
+- 只读优先：日常维护默认只运行 read-only preflight、support bundle preview、readiness summary、evidence bundle、long-term evidence snapshot、alert preview 和 redacted record validator。
 - 残余风险可见：缺失证据必须落到 `AF-RISK-*`，不要散落在自然语言里。
 - 到期复核：每个 residual 的 `reviewAt` 到期后，要更新影响、关闭条件、所需证据或风险接受理由。
-- 不把预览当执行：`ops:support:bundle-preview` 不导出支持包，`ops:alert:preview` 不发送通知，`ops:evidence:bundle` 不证明缺失信号健康，`release:train:preflight` 不创建 Release。
+- 不把预览或快照当执行：`ops:support:bundle-preview` 不导出支持包，`ops:alert:preview` 不发送通知，`ops:evidence:bundle` 不证明缺失信号健康，`ops:long-term:snapshot` 不证明 live gate 通过或 residual 已关闭，`release:train:preflight` 不创建 Release。
 - 不把本地当生产：本地 smoke、CI、dry-run 和历史记录不能替代远端生产证据。
 
 ## 每日检查
@@ -40,6 +40,8 @@ pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
+pnpm ops:long-term:snapshot
+pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>
 pnpm maintenance:window:record
 pnpm maintenance:window:validate <maintenance-window-record.md|txt>
 pnpm ops:ops-001:preflight
@@ -70,7 +72,7 @@ pnpm ops:ops-004:preflight
 - `pnpm audit:prod`
 - `pnpm shellcheck:updater`
 - `pnpm sc:sc-002:preflight`
-- 如需留存交接记录，先保存 `pnpm residuals:review-due`、`pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview` 的 redacted 输出，可用 `pnpm maintenance:window:record` 生成草稿，再运行 `pnpm maintenance:window:validate <record>`。
+- 如需留存交接记录，先保存 `pnpm residuals:review-due`、`pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle`、`pnpm ops:long-term:snapshot` 和 `pnpm ops:alert:preview` 的 redacted 输出，可用 `pnpm maintenance:window:record` 生成草稿，再运行 `pnpm maintenance:window:validate <record>`。
 
 每周还应复核：
 
@@ -79,11 +81,12 @@ pnpm ops:ops-004:preflight
 - Dependabot/依赖更新是否需要进入 dependency policy。
 - `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`。
 - `pnpm ops:handoff --summary` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚；需要机器可校验输出时继续使用不带 `--summary` 的 JSON。
-- `pnpm ops:long-term:gate` 是否仍能明确阻止缺 OPS-001、OPS-004、签名 Release 供应链或新鲜 UX 证据的长期运营完成声明；当前仓库内 2026-07-11 OPS-004 manual-window 证据会作为默认 OPS-004 输入，该命令失败时不代表服务宕机，只代表证据不够。
-- `AF-RISK-OPS-001`、`AF-RISK-SC-002` 这类可在下一次 release/update 后关闭的证据是否已有新记录；OPS-001 需要生产只读 smoke、update-agent status、evidence bundle 和 `pnpm ops:ops-001:closure:validate` 通过后再人工复核关闭；SC-002 先跑 `pnpm sc:sc-002:preflight`，再用 CI-only `pnpm ci:supply-chain:validate` 或签名 Release `pnpm release:supply-chain:validate` 复核。
+- `pnpm ops:long-term:gate` 是否仍能明确阻止缺 OPS-001、OPS-004、签名 Release 供应链或新鲜 UX 证据的长期运营完成声明；2026-07-11 OPS-004 manual-window 证据在 `v0.1.7` 更新后只能作为历史输入，当前版本需要新的 alert preview/drill/preflight 证据；该命令失败时不代表服务宕机，只代表证据不够。
+- `pnpm ops:long-term:snapshot` 是否能把当前 `v0.1.7` release evidence record、release supply-chain、UX、alert preview、operational evidence bundle 和缺失的 OPS-001/OPS-004 证据绑定为 `needs_live_evidence`，并通过 `pnpm ops:long-term:snapshot:validate`；该快照通过不代表生产健康或 residual 关闭。
+- `AF-RISK-OPS-001`、`AF-RISK-SC-001` 这类可在下一次 release/update 后进入人工复核的证据是否已有新记录；OPS-001 需要生产只读 smoke、update-agent status、evidence bundle 和 `pnpm ops:ops-001:closure:validate` 通过后再人工复核关闭；SC-001 先跑 `pnpm sc:sc-002:preflight`，再用签名 Release `pnpm release:supply-chain:validate` 复核。`AF-RISK-SC-002` 已关闭为 CI-only 证据项，后续相关 workflow、依赖或 release 变更前重跑对应复核。
 - 生成 OPS-001 收口包前先运行 `pnpm ops:ops-001:preflight`；它只读本地 redacted 证据文件并返回 `needs_evidence`、`ready_to_generate_packet`、`ready_for_human_close` 或 `invalid`，不执行生产 smoke、不生成收口包、不改 residual 台账。
 - 关闭 `AF-RISK-OPS-004` 前先运行 `pnpm ops:ops-004:preflight`；它只读已保存的 alert preview 和告警演练记录，校验两者 hash 对齐并返回 `needs_evidence`、`ready_to_generate_record`、`ready_for_human_close` 或 `invalid`，不发送通知、不调用外部接收人、不改 residual 台账。
-- `AF-RISK-UX-001` 是否仍有 14 天内 desktop/mobile 体验复核记录；当前 2026-07-10 本地记录已关闭该项，过期、release/update 或体验改动后必须重跑，否则体验健康重新降级为 `warn`。
+- `AF-RISK-UX-001` 是否仍有 14 天内 desktop/mobile 体验复核记录；当前 2026-07-10 本地记录是历史证据，2026-07-12 本地 `0.1.7` 记录已补充，过期、release/update 或体验改动后必须重跑，否则体验健康重新降级为 `warn`。
 
 ## 每月或每个维护窗口
 
@@ -111,7 +114,8 @@ Release 前后按 `docs/development/release-train.md` 执行。
 - Web/migration image 使用不可变 digest。
 - 生产更新完成后有 health、update-agent、authenticated smoke 或明确 `AF-RISK-OPS-001`。
 - release record 写入 `pnpm ops:evidence:bundle` 的 `bundleHash` 和 `pnpm ops:alert:preview` 的告警预览结论。
-- 若要关闭 `AF-RISK-SC-002`，可使用 `pnpm sc:sc-002:preflight` 和 `pnpm ci:supply-chain:validate` 通过的 CI-only 记录；若要同时关闭 `AF-RISK-SC-001`，必须有 `pnpm sc:sc-002:preflight` 和 `pnpm release:supply-chain:validate` 通过的签名 Release 记录。
+- release/update 后保存 `pnpm ops:long-term:snapshot` 输出，确认 OPS-001、OPS-004、release evidence record、供应链、UX 和运行信号的当前状态与缺口被 hash 绑定；若要声明长期运营完成，仍必须让 `pnpm ops:long-term:gate` 通过。
+- `AF-RISK-SC-002` 已关闭为 CI-only 证据项；若后续 workflow、依赖审计、release workflow 或供应链记录工具变更，使用 `pnpm sc:sc-002:preflight` 和 `pnpm ci:supply-chain:validate` 通过的 CI-only 记录重新复核。若要关闭 `AF-RISK-SC-001`，必须有 `pnpm sc:sc-002:preflight` 和 `pnpm release:supply-chain:validate` 通过的签名 Release 记录。
 - 若要声明本次 release/update 后真实体验健康，必须有 `pnpm experience:review:validate` 通过的 desktop/mobile 体验记录；否则保留 `AF-RISK-UX-001`。
 - 若要声明产品进入长期运营完成状态，必须运行 `pnpm ops:long-term:gate` 并通过；该 gate 不自动关闭 residual，只证明证据达到可人工复核门槛。
 

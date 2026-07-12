@@ -1,0 +1,514 @@
+{
+  "schemaVersion": 1,
+  "mode": "read_only_long_term_evidence_snapshot",
+  "generatedAt": "2026-07-12T13:14:59.812Z",
+  "snapshotHash": "e08716373ffec0817ab261b0c9d6b8247597d2ab56426a80a69875f46f2988f3",
+  "expectedVersion": "0.1.7",
+  "releaseTag": "v0.1.7",
+  "packageVersion": "0.1.7",
+  "scope": "long_term_operability_current_checkout",
+  "status": "needs_live_evidence",
+  "sourceSnapshot": {
+    "controlPlaneSourceHash": "4ff4c019982f98ecc6e52d5dcf3b53a4b80dc7978448e0116d27d1e06a123450",
+    "files": [
+      "package.json",
+      "README.md",
+      "docs/README.md",
+      "docs/development/long-term-operability-control-plane.md",
+      "docs/development/maintenance-cadence.md",
+      "docs/development/maintenance-window-record-template.md",
+      "docs/development/operational-readiness.md",
+      "docs/development/support-bundle-preview.md",
+      "docs/development/residual-risk-ledger.md",
+      "docs/development/residual-risk-ledger.json",
+      "docs/development/validation-matrix.md",
+      "workflow/README.md",
+      ".codex/skills-src/README.md",
+      ".codex/skills-src/areaforge-operating-loop/SKILL.md",
+      ".codex/skills-src/areaforge-sre-ops/SKILL.md",
+      ".codex/skills-src/areaforge-observability/SKILL.md",
+      ".codex/skills-src/areaforge-residual-ledger/SKILL.md",
+      "scripts/ops/operability-status.ts",
+      "scripts/ops/operational-handoff.ts",
+      "scripts/ops/long-term-operability-live-gate.ts",
+      "scripts/ops/long-term-evidence-snapshot.ts",
+      "scripts/ops/operational-readiness-summary.ts",
+      "scripts/ops/operational-evidence-bundle.ts",
+      "scripts/ops/support-bundle-preview.ts",
+      "scripts/ops/ops001-evidence-preflight.ts",
+      "scripts/ops/ops004-alert-evidence-preflight.ts",
+      "scripts/ops/sc002-supply-chain-preflight.ts",
+      "scripts/ops/operational-alert-preview.ts",
+      "scripts/ops/residual-review-due.ts",
+      "scripts/ops/generate-maintenance-window-record.ts",
+      "scripts/quality/enterprise-operability-preflight.ts",
+      "scripts/quality/residual-ledger-validate.ts",
+      "scripts/quality/operational-handoff.selftest.ts",
+      "scripts/quality/long-term-operability-live-gate.selftest.ts",
+      "scripts/quality/long-term-evidence-snapshot-validate.ts",
+      "scripts/quality/long-term-evidence-snapshot.selftest.ts",
+      "scripts/quality/maintenance-window-record.selftest.ts",
+      "scripts/quality/maintenance-window-record-validate.ts",
+      "scripts/quality/maintenance-window-record-validate.selftest.ts",
+      "scripts/quality/support-bundle-preview-validate.ts",
+      "scripts/quality/support-bundle-preview.selftest.ts",
+      "scripts/quality/ops001-evidence-preflight.selftest.ts",
+      "scripts/quality/ops004-alert-evidence-preflight.selftest.ts",
+      "scripts/quality/sc002-supply-chain-preflight.selftest.ts"
+    ],
+    "missingFiles": [],
+    "evidencePaths": [
+      {
+        "key": "ops001SmokeRecord",
+        "pathLabel": null,
+        "configured": false,
+        "exists": false,
+        "sha256": null
+      },
+      {
+        "key": "ops001UpdateStatusRecord",
+        "pathLabel": null,
+        "configured": false,
+        "exists": false,
+        "sha256": null
+      },
+      {
+        "key": "ops001EvidenceBundle",
+        "pathLabel": "docs/development/operational-evidence-bundle-v0.1.7-20260712.json",
+        "configured": true,
+        "exists": true,
+        "sha256": "sha256:746605d474e93c80a3960167458f3b43facd0a41e5c07d3a035b51b8fc279d5e"
+      },
+      {
+        "key": "ops001ClosurePacket",
+        "pathLabel": null,
+        "configured": false,
+        "exists": false,
+        "sha256": null
+      },
+      {
+        "key": "ops001BlockedRecord",
+        "pathLabel": null,
+        "configured": false,
+        "exists": false,
+        "sha256": null
+      },
+      {
+        "key": "ops004AlertPreview",
+        "pathLabel": "docs/development/ops-004-alert-preview-v0.1.7-20260712.json",
+        "configured": true,
+        "exists": true,
+        "sha256": "sha256:9b4cb9418b06d81269f8c02f5fbe4778b411e8e84ac41f6fb1abb3af8401d4d6"
+      },
+      {
+        "key": "ops004AlertDrillRecord",
+        "pathLabel": "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt",
+        "configured": true,
+        "exists": false,
+        "sha256": null
+      },
+      {
+        "key": "releaseEvidenceRecord",
+        "pathLabel": "docs/development/release-v0.1.7-record.md",
+        "configured": true,
+        "exists": true,
+        "sha256": "sha256:30da8b0f3ed58d51b0ff7de63e2ff15cdfdf8d4a7a67239d736b11d37d917efd"
+      },
+      {
+        "key": "releaseSupplyChainRecord",
+        "pathLabel": "docs/development/release-supply-chain-v0.1.7.md",
+        "configured": true,
+        "exists": true,
+        "sha256": "sha256:2b0b7626b5e7ad86a40ef4989a426ef684631ff26d88f06045d9b8d1fb3d82db"
+      },
+      {
+        "key": "uxReviewRecord",
+        "pathLabel": "docs/development/product-experience-review-v0.1.7-20260712-local.md",
+        "configured": true,
+        "exists": true,
+        "sha256": "sha256:c0df2b80db66eb52487d0fb5907b5f5abacac877fe659b887a496df814c6a894"
+      },
+      {
+        "key": "operationalEvidenceBundle",
+        "pathLabel": "docs/development/operational-evidence-bundle-v0.1.7-20260712.json",
+        "configured": true,
+        "exists": true,
+        "sha256": "sha256:746605d474e93c80a3960167458f3b43facd0a41e5c07d3a035b51b8fc279d5e"
+      }
+    ],
+    "inputHashes": [
+      {
+        "key": "ops001EvidenceBundle",
+        "pathLabel": "docs/development/operational-evidence-bundle-v0.1.7-20260712.json",
+        "sha256": "sha256:746605d474e93c80a3960167458f3b43facd0a41e5c07d3a035b51b8fc279d5e"
+      },
+      {
+        "key": "ops004AlertPreview",
+        "pathLabel": "docs/development/ops-004-alert-preview-v0.1.7-20260712.json",
+        "sha256": "sha256:9b4cb9418b06d81269f8c02f5fbe4778b411e8e84ac41f6fb1abb3af8401d4d6"
+      },
+      {
+        "key": "releaseEvidenceRecord",
+        "pathLabel": "docs/development/release-v0.1.7-record.md",
+        "sha256": "sha256:30da8b0f3ed58d51b0ff7de63e2ff15cdfdf8d4a7a67239d736b11d37d917efd"
+      },
+      {
+        "key": "releaseSupplyChainRecord",
+        "pathLabel": "docs/development/release-supply-chain-v0.1.7.md",
+        "sha256": "sha256:2b0b7626b5e7ad86a40ef4989a426ef684631ff26d88f06045d9b8d1fb3d82db"
+      },
+      {
+        "key": "uxReviewRecord",
+        "pathLabel": "docs/development/product-experience-review-v0.1.7-20260712-local.md",
+        "sha256": "sha256:c0df2b80db66eb52487d0fb5907b5f5abacac877fe659b887a496df814c6a894"
+      },
+      {
+        "key": "operationalEvidenceBundle",
+        "pathLabel": "docs/development/operational-evidence-bundle-v0.1.7-20260712.json",
+        "sha256": "sha256:746605d474e93c80a3960167458f3b43facd0a41e5c07d3a035b51b8fc279d5e"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "key": "controlPlane",
+      "label": "enterprise operability control plane",
+      "status": "pass",
+      "actualStatus": "pass",
+      "expectedStatus": "pass",
+      "validatorCommand": "pnpm exec tsx scripts/quality/enterprise-operability-preflight.ts",
+      "evidenceHash": "sha256:4ff4c019982f98ecc6e52d5dcf3b53a4b80dc7978448e0116d27d1e06a123450",
+      "residualRiskIds": [],
+      "freshness": {
+        "source": "current checkout"
+      },
+      "versionMatch": "not_applicable",
+      "doesNotProve": [
+        "production health",
+        "live smoke passed",
+        "release update completion",
+        "residual ledger closure"
+      ],
+      "metadata": {
+        "controlPlaneSourceHash": "4ff4c019982f98ecc6e52d5dcf3b53a4b80dc7978448e0116d27d1e06a123450"
+      }
+    },
+    {
+      "key": "ops001",
+      "label": "OPS-001 production read-only smoke and update-agent evidence",
+      "status": "missing",
+      "actualStatus": "needs_evidence",
+      "expectedStatus": "ready_for_human_close",
+      "validatorCommand": "pnpm exec tsx scripts/ops/ops001-evidence-preflight.ts",
+      "evidenceHash": "sha256:5826d5ab8b2a2f72dc901ed53d4fa388d794c6a956d474b7b5db304254156a35",
+      "residualRiskIds": [
+        "AF-RISK-OPS-001"
+      ],
+      "freshness": {
+        "source": "OPS-001 preflight output"
+      },
+      "versionMatch": "not_applicable",
+      "doesNotProve": [
+        "OPS-001 residual closure",
+        "post-version authenticated production smoke passed unless actualStatus is ready_for_human_close",
+        "backup or rollback evidence",
+        "production write smoke safety"
+      ],
+      "metadata": {
+        "preflightMode": "read_only_ops001_evidence_preflight",
+        "nextCommand": "collect missing redacted evidence files, then rerun pnpm ops:ops-001:preflight"
+      }
+    },
+    {
+      "key": "ops004",
+      "label": "OPS-004 alert and recovery drill evidence",
+      "status": "needs_live_evidence",
+      "actualStatus": "ready_to_generate_record",
+      "expectedStatus": "ready_for_human_close",
+      "validatorCommand": "pnpm exec tsx scripts/ops/ops004-alert-evidence-preflight.ts",
+      "evidenceHash": "sha256:0b3f3407060ccffe9a346d66b09d833cda754d17662e497005398c35d0f78c60",
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "freshness": {
+        "source": "OPS-004 preflight output"
+      },
+      "versionMatch": "not_applicable",
+      "doesNotProve": [
+        "alert notification sent",
+        "external alert receiver called",
+        "OPS-004 residual closure",
+        "production health"
+      ],
+      "metadata": {
+        "preflightMode": "read_only_ops004_alert_evidence_preflight",
+        "nextCommand": "pnpm alert:drill:record <ops-alert-preview.json> > <alert-drill-record.txt>"
+      }
+    },
+    {
+      "key": "releaseEvidenceRecord",
+      "label": "production release evidence record",
+      "status": "needs_live_evidence",
+      "actualStatus": "validation_failed",
+      "expectedStatus": "pass",
+      "validatorCommand": "pnpm exec tsx scripts/quality/release-evidence-validate.ts release-v0.1.7-record.md",
+      "evidenceHash": "sha256:30da8b0f3ed58d51b0ff7de63e2ff15cdfdf8d4a7a67239d736b11d37d917efd",
+      "residualRiskIds": [
+        "AF-RISK-OPS-001",
+        "AF-RISK-OPS-002",
+        "AF-RISK-REL-001",
+        "AF-RISK-SC-001",
+        "AF-RISK-OPS-004",
+        "AF-RISK-UX-001"
+      ],
+      "freshness": {
+        "releasedAt": "2026-07-12T11:23:25Z",
+        "source": "release evidence record"
+      },
+      "versionMatch": true,
+      "doesNotProve": [
+        "backup freshness when backup hash fields are root-only or unavailable",
+        "production restore execution",
+        "production write smoke safety",
+        "OPS-001 or OPS-004 residual closure",
+        "residual ledger closure"
+      ],
+      "metadata": {
+        "releaseTag": "v0.1.7",
+        "gitCommit": "c1a25e4f897330fea493ad4c6dd889b62ef8f63a",
+        "migrationApplied": "yes",
+        "migrationRunner": "one_off_migration_job",
+        "postReleaseHealth": "PASS",
+        "postReleaseTaskTimerReview": "FAIL",
+        "postReleaseAttachmentSmoke": "FAIL",
+        "postReleaseAiFallbackOrProvider": "FAIL",
+        "databaseBackupSha256Status": "not_copied_root_only",
+        "uploadsBackupSha256Status": "not_copied_root_only",
+        "envBackupSha256Status": "not_copied_root_only",
+        "validatorDetail": "FAIL databaseBackupSha256: must be a 64-character sha256 hex digest FAIL uploadsBackupSha256: must be a 64-character sha256 hex digest FAIL envBackupSha256: must be a 64-character sha256 hex digest release evidence validation failed: 3 issue(s)."
+      }
+    },
+    {
+      "key": "supplyChain",
+      "label": "signed Release supply-chain evidence",
+      "status": "pass",
+      "actualStatus": "ready_for_sc001_sc002_review",
+      "expectedStatus": "ready_for_sc001_sc002_review",
+      "validatorCommand": "pnpm exec tsx scripts/ops/sc002-supply-chain-preflight.ts",
+      "evidenceHash": "sha256:2b0b7626b5e7ad86a40ef4989a426ef684631ff26d88f06045d9b8d1fb3d82db",
+      "residualRiskIds": [
+        "AF-RISK-SC-001",
+        "AF-RISK-SC-002"
+      ],
+      "freshness": {
+        "recordedAt": "2026-07-12T04:41:39.623Z",
+        "source": "signed Release supply-chain record"
+      },
+      "versionMatch": true,
+      "doesNotProve": [
+        "production update completion by itself",
+        "SC residual ledger closure",
+        "future Release asset trust",
+        "OPS-001 or OPS-004 evidence"
+      ],
+      "metadata": {
+        "releaseTag": "v0.1.7",
+        "packageVersion": "0.1.7",
+        "workflowRunConclusion": "success",
+        "checksumVerification": "pass",
+        "signatureVerification": "pass",
+        "unsignedPlaceholderPresent": "no"
+      }
+    },
+    {
+      "key": "uxReview",
+      "label": "fresh desktop/mobile product experience review",
+      "status": "pass",
+      "actualStatus": "pass",
+      "expectedStatus": "pass",
+      "validatorCommand": "pnpm exec tsx scripts/quality/product-experience-review-validate.ts product-experience-review-v0.1.7-20260712-local.md",
+      "evidenceHash": "sha256:c0df2b80db66eb52487d0fb5907b5f5abacac877fe659b887a496df814c6a894",
+      "residualRiskIds": [
+        "AF-RISK-UX-001"
+      ],
+      "freshness": {
+        "reviewedAt": "2026-07-12T12:08:17Z",
+        "ageDays": 0.05,
+        "maxAgeDays": 14,
+        "status": "fresh"
+      },
+      "versionMatch": true,
+      "doesNotProve": [
+        "production write smoke safety",
+        "production attachment write safety",
+        "full real user data experience",
+        "OPS-001 or OPS-004 evidence"
+      ],
+      "metadata": {
+        "appVersion": "0.1.7",
+        "environment": "local",
+        "viewports": "desktop,mobile",
+        "journeys": "login,dashboard,timer-closeout,review,notes,syllabus,reports,simulation,update-center",
+        "validatorDetail": "validator passed"
+      }
+    },
+    {
+      "key": "operationalEvidenceBundle",
+      "label": "operational evidence bundle",
+      "status": "needs_live_evidence",
+      "actualStatus": "bundle.status=needs_attention; summary.overall=warn; freshness=unknown",
+      "expectedStatus": "bundle.status=ready; summary.overall=pass; freshness=fresh",
+      "validatorCommand": "pnpm exec tsx scripts/quality/operational-evidence-bundle-validate.ts operational-evidence-bundle-v0.1.7-20260712.json",
+      "evidenceHash": "sha256:746605d474e93c80a3960167458f3b43facd0a41e5c07d3a035b51b8fc279d5e",
+      "residualRiskIds": [
+        "AF-RISK-OPS-001",
+        "AF-RISK-OPS-004"
+      ],
+      "freshness": {
+        "latestEvidenceFreshnessStatus": "unknown",
+        "signals": {
+          "health": {
+            "checkedAt": "2026-07-12T11:48:06.791Z",
+            "ageSeconds": 0,
+            "status": "fresh"
+          },
+          "releaseIdentity": {
+            "checkedAt": "2026-07-12T11:48:06.791Z",
+            "ageSeconds": 0,
+            "status": "fresh"
+          },
+          "updateAgent": {
+            "checkedAt": null,
+            "ageSeconds": null,
+            "status": "unknown"
+          },
+          "authenticatedSmoke": {
+            "checkedAt": null,
+            "ageSeconds": null,
+            "status": "unknown"
+          },
+          "backup": {
+            "checkedAt": null,
+            "ageSeconds": null,
+            "status": "unknown"
+          },
+          "rollback": {
+            "checkedAt": null,
+            "ageSeconds": null,
+            "status": "unknown"
+          },
+          "infrastructure": {
+            "checkedAt": "2026-07-12T11:48:06.791Z",
+            "ageSeconds": 0,
+            "status": "fresh"
+          }
+        }
+      },
+      "versionMatch": true,
+      "doesNotProve": [
+        "missing signals are healthy",
+        "bundle hash proves production health",
+        "authenticated smoke passed when authenticatedSmoke is warn or unknown",
+        "backup freshness when backup signal is unknown",
+        "OPS-001 or OPS-004 residual closure"
+      ],
+      "metadata": {
+        "bundleHash": "19a8353d101561afbd8ab12a54e4f458c33e7863b1aa498c8175d38d10fbce1e",
+        "bundleStatus": "needs_attention",
+        "summaryOverall": "warn",
+        "latestEvidenceFreshnessStatus": "unknown",
+        "signals": {
+          "health": {
+            "status": "pass",
+            "freshnessStatus": "fresh",
+            "evidence": "GET https://forge.areasong.top/api/health returned AreaForge 0.1.7"
+          },
+          "releaseIdentity": {
+            "status": "pass",
+            "freshnessStatus": "fresh",
+            "evidence": "release manifest provides release tag and immutable image digests"
+          },
+          "updateAgent": {
+            "status": "unknown",
+            "freshnessStatus": "unknown",
+            "evidence": "update status not collected; provide AREAFORGE_READINESS_UPDATE_STATUS_FILE or smoke credentials"
+          },
+          "authenticatedSmoke": {
+            "status": "warn",
+            "freshnessStatus": "unknown",
+            "evidence": "no authenticated smoke result supplied; run pnpm smoke:prod-readonly or set AREAFORGE_READINESS_SMOKE_RESULT_FILE"
+          },
+          "backup": {
+            "status": "unknown",
+            "freshnessStatus": "unknown",
+            "evidence": "backup freshness evidence not supplied"
+          },
+          "rollback": {
+            "status": "unknown",
+            "freshnessStatus": "unknown",
+            "evidence": "rollback target not supplied"
+          },
+          "infrastructure": {
+            "status": "pass",
+            "freshnessStatus": "fresh",
+            "evidence": "certificate expires in 69 day(s)"
+          }
+        }
+      }
+    }
+  ],
+  "doesNotProve": [
+    "current production health without post-version live smoke and update-agent evidence",
+    "OPS-001 closure or residual ledger closure",
+    "OPS-004 alert recovery drill completion or residual ledger closure",
+    "release evidence record validation when backup hashes are root-only or missing",
+    "backup freshness, restore execution, migration execution, or rollback execution",
+    "server updater apply completion for a future release",
+    "GitHub Release creation or release asset download",
+    "production write smoke safety",
+    "full real user data experience",
+    "AI provider payload safety beyond existing release records"
+  ],
+  "forbiddenActions": [
+    "execute_server_command",
+    "apply_update",
+    "run_migration",
+    "perform_backup",
+    "perform_restore",
+    "rollback_release",
+    "write_database",
+    "write_upload_directory",
+    "trigger_production_write_smoke",
+    "read_or_print_secret_values",
+    "create_github_release",
+    "push_git_tag",
+    "download_release_assets",
+    "call_github_api",
+    "update_residual_ledger",
+    "send_notification",
+    "call_external_alert_receiver"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "networkRequested": false,
+    "githubApiCalled": false,
+    "serverCommandAttempted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "productionWriteAttempted": false,
+    "updaterApplyAttempted": false,
+    "residualLedgerUpdated": false,
+    "secretValuePrinted": false,
+    "destructiveActionAttempted": false,
+    "realStudyContentIncluded": false,
+    "passwordValuePrinted": false,
+    "writeSmokeAttempted": false,
+    "releaseCreated": false,
+    "tagPushed": false,
+    "releaseAssetsDownloaded": false,
+    "productionEnvIncluded": false,
+    "backupIncluded": false,
+    "notificationSent": false,
+    "externalAlertReceiverCalled": false
+  }
+}

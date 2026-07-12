@@ -49,7 +49,7 @@ pnpm update-agent:status:validate "$DIR/redacted-update-status.json"
 
 AREAFORGE_READINESS_ENVIRONMENT=production \
 AREAFORGE_READINESS_EXPECTED_VERSION="$(jq -r '.expectedVersion' "$DIR/remote-prerequisites.json")" \
-AREAFORGE_READINESS_RELEASE_TAG=v0.1.5 \
+AREAFORGE_READINESS_RELEASE_TAG=<releaseTag> \
 AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=/path/to/areaforge-release-manifest.json \
 AREAFORGE_SMOKE_PASSWORD_FILE=/redacted/smoke-password-file \
 AREAFORGE_PROD_READONLY_SMOKE_COMMAND=ops/update-agent/areaforge-ops001-readonly-fallback.sh \
@@ -63,7 +63,7 @@ AREAFORGE_READINESS_ENVIRONMENT=production \
 AREAFORGE_READINESS_SCOPE=daily \
 AREAFORGE_READINESS_BASE_URL="$(jq -r '.baseUrl' "$DIR/remote-prerequisites.json")" \
 AREAFORGE_READINESS_EXPECTED_VERSION="$(jq -r '.expectedVersion' "$DIR/remote-prerequisites.json")" \
-AREAFORGE_READINESS_RELEASE_TAG=v0.1.5 \
+AREAFORGE_READINESS_RELEASE_TAG=<releaseTag> \
 AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=/path/to/areaforge-release-manifest.json \
 AREAFORGE_READINESS_UPDATE_STATUS_FILE="$DIR/redacted-update-status.json" \
 AREAFORGE_READINESS_SMOKE_RESULT_FILE="$DIR/prod-readonly-smoke-output.log" \
@@ -92,8 +92,8 @@ generatedAt: <ISO-8601>
 residualRiskId: AF-RISK-OPS-001
 environment: production
 baseUrl: https://forge.areasong.top
-expectedVersion: 0.1.5
-releaseTag: v0.1.5
+expectedVersion: <expectedVersion>
+releaseTag: <releaseTag>
 smokeRecordHash: sha256:<64 hex>
 smokeValidation: pass
 smokeCheckedAt: <ISO-8601>
@@ -102,7 +102,7 @@ smokePasswordReadFromFile: yes
 smokeUpdateStatusIncluded: yes
 updateAgentStatusRecordHash: sha256:<64 hex>
 updateAgentValidation: pass
-updateAgentCurrentVersion: 0.1.5
+updateAgentCurrentVersion: <expectedVersion>
 updateAgentAutoApply: none
 updateAgentSignatureRequired: true
 updateAgentBlocker: null

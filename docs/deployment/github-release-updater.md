@@ -8,20 +8,22 @@ AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单
 
 ## 当前远端状态
 
-截至 `2026-07-10`，远端生产已经完成一次签名 Release 更新：
+截至 `2026-07-12`，远端生产已经完成 `v0.1.7` 签名 Release 更新：
 
 - 线上地址：`https://forge.areasong.top/`
-- 当前线上版本：`0.1.5`
-- 最新 GitHub Release：`v0.1.5`
-- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v0.1.5`
-- Web image：`ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9`
-- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:04aa20e92323c9f9b14c8bd096d8cfa9ea62d9baab23f94d4976d7882bfa2ae7`
+- 当前线上版本：`0.1.7`
+- 最新 GitHub Release：`v0.1.7`
+- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v0.1.7`
+- Web image：`ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
+- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`
 - 服务器健康检查：`AREAFORGE_HEALTH_URL=http://127.0.0.1:3020/api/health`
 - 签名校验：`AREAFORGE_REQUIRE_SIGNATURE=true`，`AREAFORGE_COSIGN_PUBLIC_KEY=/etc/areaforge/cosign.pub`
-- update-agent：`timerEnabled=true`、`timerActive=true`、`blocker=null`
+- update-agent：`timerEnabled=true`、`timerActive=true`、`blocker=null`（生产 root-only status 进入仓库前必须先 redacted）
 - 自动策略：`AREAFORGE_AUTO_APPLY=none`
+- 更新记录：`/opt/areaforge/backups/github-release-updates/github-0.1.7-20260712112325/update-record.txt`
+- 只读公网校验：`GET https://forge.areasong.top/api/health` 返回 `0.1.7`
 
-完整证据见 `docs/development/package-e-remote-github-release-record.md`。
+当前发布证据见 `docs/development/release-v0.1.7-record.md`；`docs/development/package-e-remote-github-release-record.md` 保留 `v0.1.5` 历史证据。
 
 ## 发布端配置
 
@@ -153,9 +155,15 @@ sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes 
 AreaForge 当前远端验证过的命令：
 
 ```bash
+sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes --tag v0.1.7 --config /etc/areaforge/updater.env
+sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
+```
+
+历史 `v0.1.5` 首次远端签名更新曾验证：
+
+```bash
 sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh check --tag v0.1.5 --config /etc/areaforge/updater.env
 sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes --tag v0.1.5 --config /etc/areaforge/updater.env
-sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 ```
 
 流程会自动：
@@ -202,10 +210,18 @@ AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
 AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
 AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
-AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5
+AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.7
 AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 AREAFORGE_SMOKE_ATTACHMENT_ID=<optional-known-attachment-id>
 ```
+
+若生产主机不安装 Node.js/pnpm，不要关闭 extra smoke；改用仓库提供的 shell/curl 等价只读 smoke：
+
+```bash
+AREAFORGE_EXTRA_SMOKE_COMMAND='/opt/areaforge/ops/update-agent/areaforge-release-readonly-smoke.sh --config /etc/areaforge/updater.env'
+```
+
+该脚本同样只执行 `/api/health`、登录和核心只读 API 检查，不执行 Docker、备份、恢复、migration、回滚、数据库写入或上传目录写入。它会读取权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`，只用于向 `/api/auth/login` 提交 smoke 账号登录请求；stdout、updater 记录和运维证据不得包含密码值。updater 在执行 extra smoke 时会把目标版本注入 `AREAFORGE_SMOKE_EXPECTED_VERSION`，避免发布后仍按旧版本校验。
 
 生成 redacted 记录时，先保存 smoke 输出，再用 release manifest 或显式 digest 环境变量补齐记录：
 
@@ -214,11 +230,11 @@ export AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-reado
 export AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
 export AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
 export AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
-export AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.5
+export AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.7
 export AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 pnpm smoke:prod-readonly:config
 pnpm smoke:prod-readonly | tee /tmp/areaforge-prod-readonly-smoke.log
-AREAFORGE_READINESS_RELEASE_TAG=v0.1.5 \
+AREAFORGE_READINESS_RELEASE_TAG=v0.1.7 \
 AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge \
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password \
 AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly' \
@@ -319,7 +335,7 @@ volumes:
 默认权限模型：
 
 - Web 容器只写 `requests/` 并读取 `status.json`。
-- root agent 读取请求、执行更新动作、移动历史请求并回写 `status.json`。
+- root agent 读取请求、执行更新动作、移动历史请求并回写 `status.json`；写入 `lastOperation.message` 前会对常见 URL、token、password、secret 和 bearer 片段做 best-effort 脱敏，但原始 updater 日志、配置文件、smoke 密码文件和备份目录仍不得复制到 Web runtime 或公开记录。
 - root agent 会再次校验请求 JSON 的 `id`、`action`、`tag`、`autoApply` 和 actor hash 形态；无效请求会被归档为 failed，不执行 updater、回滚或配置修改。
 - 不挂载 `docker.sock` 到 Web 容器。
 - 不在 Web API 中执行 `docker compose`、`pg_dump`、`prisma migrate deploy` 或恢复命令。
