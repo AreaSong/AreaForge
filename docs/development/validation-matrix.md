@@ -339,7 +339,7 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - Web runtime 不得新增 updater route、Docker/backup/restore/migration 命令入口或 `docker.sock` 访问。
 - `AREAFORGE_AUTO_APPLY=none` 是默认策略；patch 自动应用必须同时满足服务器配置和 manifest `autoApply.patch=true`。
 
-当前远端 `v0.1.5` 已验证：Release asset 包含 `areaforge-release-manifest.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`；服务器 `cosign verify-blob --bundle` 返回 `Verified OK`，`sha256sum -c` 通过；Web image digest 为 `ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9`；migration image digest 为 `ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:04aa20e92323c9f9b14c8bd096d8cfa9ea62d9baab23f94d4976d7882bfa2ae7`；`GET https://forge.areasong.top/api/health` 返回 `0.1.5`；update-agent 状态为 `signatureRequired=true`、`timerEnabled=true`、`timerActive=true`、`blocker=null`。`v0.1.5` 是历史发布证据，不包含本次新增的 SBOM/provenance 资产；`AF-RISK-SC-001` 必须等下一次签名 Release 生成并校验这些资产后关闭。
+当前远端 `v0.1.5` 已验证：Release asset 包含 `areaforge-release-manifest.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`；服务器 `cosign verify-blob --bundle` 返回 `Verified OK`，`sha256sum -c` 通过；Web image digest 为 `ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9`；migration image digest 为 `ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:04aa20e92323c9f9b14c8bd096d8cfa9ea62d9baab23f94d4976d7882bfa2ae7`；`GET https://forge.areasong.top/api/health` 返回 `0.1.5`；update-agent 状态为 `signatureRequired=true`、`timerEnabled=true`、`timerActive=true`、`blocker=null`。`v0.1.7` 已生成并校验 SBOM/provenance、checksum、cosign signature 和 GHCR digest 证据，可作为 `AF-RISK-SC-001` 人工复核输入；这些仓库 Release 证据不代表生产已经从 `0.1.5` 更新到 `0.1.7`。
 
 ## docs 100% 最终门禁
 

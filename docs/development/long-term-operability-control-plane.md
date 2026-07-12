@@ -51,6 +51,20 @@ AreaForge 只借鉴能直接增强长期运营的机制，不搬运完整 task-l
 | 残余风险 | `pnpm residuals:validate`、`pnpm residuals:review-due` | 哪些结论会被降级、何时复核、如何关闭 | 自动关闭风险 |
 | Skills | `.codex/skills-src/**`、`pnpm skills:validate` | Codex 执行时该读谁、怎么验证、何时停下确认 | 产品源事实 |
 
+## 证据词速查
+
+长期运营记录必须区分证据词，避免把弱证据说成强结论：
+
+| 证据词 | 能证明 | 不能证明 | 常用入口 |
+|---|---|---|---|
+| `status` | 某个本地投影、update-agent 摘要或服务响应的当前字段值 | 字段背后的生产动作已执行或所有信号健康 | `pnpm ops:status`、`pnpm update-agent:status:validate` |
+| `readiness` | 进入下一步前需要的入口、文档、脚本或 redacted 信号是否齐备 | 自动执行下一步，也不等于生产健康 | `pnpm ops:readiness`、`pnpm ops:readiness:summary` |
+| `handoff` | 当前 claim boundary、due residual、下一步只读命令和交接上下文 | live evidence、updater apply、backup、rollback 或 residual 关闭 | `pnpm ops:handoff` |
+| `evidence bundle` | 一组运行信号、缺失证据、禁止动作和 hash 索引 | 缺失信号为健康，或 bundle hash 本身证明健康 | `pnpm ops:evidence:bundle` |
+| `live gate` | 指定证据路径已达到可人工复核关闭门槛 | 自动采集证据、执行生产动作或修改台账 | `pnpm ops:long-term:gate` |
+| `smoke` | 某个用户旅程或 API 路径在指定环境通过 | 全量 UX、数据安全、备份恢复或供应链可信 | `pnpm smoke:prod-readonly`、`pnpm smoke:local-ux` |
+| `apply` | 服务器侧 updater 已实际执行更新动作并留下记录 | 仅从 Web 请求、Release 存在或离线状态推断 | `areaforge-updater.sh apply --yes --tag <tag>` 的 redacted 记录 |
+
 ## 功能更新后的 Release 决策矩阵
 
 | 变更类型 | 是否需要 GitHub Release | 必跑本地门禁 | 额外证据 |

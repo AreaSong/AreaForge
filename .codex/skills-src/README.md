@@ -64,3 +64,4 @@
 - 不在 skill 目录内添加 README、changelog 或低价值说明。
 - 变更 skill 时同时核对 `agents/openai.yaml` 的 `display_name`、`short_description` 和 `default_prompt` 是否仍覆盖 `SKILL.md` 的触发语义；`pnpm skills:validate` 会检查每个 skill 的关键触发词。
 - 变更 skill 后运行 quick validate、`git diff --check`，并按改动范围运行 docs/risk/check 门禁。
+- 每次 Release 前、季度维护或 owner 边界变化时，复核相关 skill 是否仍指向当前源事实：release/update 看 release、supply-chain、SRE、observability；生产 smoke 和体验看 QA/product；残余关闭看 residual/doc-sync；安全、AI、上传或数据生命周期变化看 security、AI 和 file-storage。复核后至少运行 `pnpm skills:validate`、`pnpm docs:readiness` 和对应 owner preflight。

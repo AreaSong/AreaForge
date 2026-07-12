@@ -122,7 +122,7 @@ docs/development/release-vX.Y.Z-record.md
 
 ## 供应链记录
 
-下一次签名 Release 若用于关闭或复核 `AF-RISK-SC-001` / `AF-RISK-SC-002`，复制 `docs/development/release-supply-chain-record-template.md` 为：
+签名 Release 若用于关闭或复核 `AF-RISK-SC-001` / `AF-RISK-SC-002`，复制 `docs/development/release-supply-chain-record-template.md` 为：
 
 ```text
 docs/development/release-supply-chain-vX.Y.Z.md
@@ -202,8 +202,8 @@ minor/major 自动应用不进入当前默认策略。
 - `AF-RISK-OPS-001`：没有新鲜生产只读 smoke 时，release 体验验证只能到 `warn`。
 - `AF-RISK-OPS-002`：写入型生产 smoke 不属于默认 release train，需单独确认。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是当前安全默认，不是能力缺失。
-- `AF-RISK-SC-001`：下一次签名 Release 需以 SBOM/provenance 资产和校验记录关闭或复核。
-- `AF-RISK-SC-002`：下一次 GitHub CI/Release 运行需以 Actions pinning 和 `pnpm audit:prod` 证据关闭或复核；先跑 `pnpm sc:sc-002:preflight`，CI-only 走 `pnpm ci:supply-chain:validate`，签名 Release 走 `pnpm release:supply-chain:validate`。
+- `AF-RISK-SC-001`：`v0.1.7` 签名 Release 已有 SBOM/provenance 资产和校验记录，可进入人工关闭复核；后续 Release workflow、签名策略或新 Release 变更前需重新复核。
+- `AF-RISK-SC-002`：已关闭为 CI-only 证据项；后续 GitHub CI/Release 运行仍需以 Actions pinning 和 `pnpm audit:prod` 证据复核。先跑 `pnpm sc:sc-002:preflight`，CI-only 走 `pnpm ci:supply-chain:validate`，签名 Release 走 `pnpm release:supply-chain:validate`。
 - `AF-RISK-OPS-004`：告警预览不等于真实外部告警，演练记录另行校验。
 - 长期运营完成声明：必须让 `pnpm ops:long-term:gate` 通过；它只证明证据达到人工复核门槛，不自动关闭上述 residual。
 

@@ -1075,3 +1075,113 @@ pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
 明确确认句：
 
 > 确认执行下一次签名 Release 证据闭环 v0.1.7：范围仅限将当前已验证 commit 的所有 AreaForge workspace package version bump 到 0.1.7，创建并推送 `v0.1.7` tag，等待 GitHub Release workflow 生成签名 Release assets、GHCR digest、SBOM/provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`，并生成/校验 `release-supply-chain-v0.1.7` 与 `release-v0.1.7` 记录；不执行服务器 updater apply、Web apply/rollback 请求、生产 backup/restore、production migration、Nginx/compose 切换、自动应用策略变更、residual 台账关闭或任何密钥读取/打印/提交。
+
+## 生产 updater apply 确认包：`v0.1.7`
+
+本确认包用于把已经生成并校验签名 Release 证据的 `v0.1.7` 应用到生产 `https://forge.areasong.top/`。它是 R4 高风险生产操作；不能从“可以全部都来”或“长期运营目标继续推进”推定授权，必须由用户再次明确确认。
+
+源事实：
+
+- `docs/development/release-v0.1.7-record.md`
+- `docs/development/release-supply-chain-v0.1.7.md`
+- `docs/development/production-release-runbook.md`
+- `docs/deployment/github-release-updater.md`
+- `docs/development/operational-readiness.md`
+- `docs/development/residual-risk-ledger.md`
+
+目标不可变身份：
+
+- 当前生产基线：`0.1.5` / `v0.1.5`
+- 目标 tag：`v0.1.7`
+- Web image：`ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
+- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`
+- 应用回滚目标：`0.1.5` Web digest `sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9`
+
+影响：
+
+- 服务器侧 updater 会下载 `v0.1.7` Release assets，并校验 manifest、SBOM、provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`。
+- updater 会备份 PostgreSQL、uploads、生产 env、compose、Nginx 和 release assets。
+- updater 会拉取 Web/migration 镜像，通过一次性 migration image 执行 `pnpm db:migrate:deploy`，再切换 Web 镜像和 `APP_VERSION=0.1.7`。
+- updater 会执行 `/api/health` 和已配置的只读 extra smoke，并写入 update record / update-agent status。
+
+实施范围：
+
+- 通过确认的生产主机和 `/etc/areaforge/updater.env` 执行：
+
+```bash
+sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes \
+  --tag v0.1.7 \
+  --config /etc/areaforge/updater.env
+```
+
+- 成功后采集并回本地校验 redacted 证据：
+  - 公网 `GET https://forge.areasong.top/api/health` 返回 `0.1.7`。
+  - redacted update-agent status：`currentVersion=0.1.7`、`autoApply=none`、`signatureRequired=true`、timer active、`blocker=null`。
+  - `v0.1.7` production readonly smoke record。
+  - `v0.1.7` operational evidence bundle。
+  - `release-v0.1.7-record.md` 更新为真实生产 apply、备份、migration、smoke、rollback target 和 evidence hash。
+
+不包含：
+
+- 不修改 `AREAFORGE_AUTO_APPLY`，不启用 `patch` / `minor` / `all` 自动应用。
+- 不通过 Web runtime 执行服务器命令，不挂载 Docker socket，不执行 Web apply/rollback 请求。
+- 不执行生产数据库 restore、uploads restore、备份删除、上传目录移动或历史数据修复。
+- 不执行写入型生产 smoke，不创建/修改/删除任务、计时、附件、AI 记录或生产业务数据。
+- 不读取、打印、复制或提交生产 `.env`、数据库 URL、smoke 密码、cookie、session secret、GitHub token、cosign 私钥、备份本体、附件内容、上传目录、原始敏感日志或完整 AI prompt/raw response。
+- 不关闭 `AF-RISK-OPS-001`、`AF-RISK-SC-001`、`AF-RISK-OPS-004` 或其他 residual 台账；只生成生产更新和可人工复核证据。
+
+必须确认：
+
+- 当前生产 health 仍返回 `0.1.5`，且 rollback target 可定位。
+- `v0.1.7` Release assets 已通过 `sha256sum -c` 和 cosign `Verified OK`。
+- updater config 使用 `AREAFORGE_AUTO_APPLY=none`、`AREAFORGE_REQUIRE_SIGNATURE=true` 和官方 cosign public key。
+- 生产只读 extra smoke 已配置为 `pnpm smoke:prod-readonly` 或等价 fallback，并通过权限收紧的 password file 读取 smoke 密码。
+- 失败时只自动回滚应用镜像和 `APP_VERSION`；任何数据库或上传目录 restore 必须暂停并另走恢复确认包。
+
+本地/只读前置验证：
+
+```bash
+pnpm release:evidence:validate docs/development/release-v0.1.7-record.md
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-v0.1.7.md pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-v0.1.7.md /tmp/areaforge-release-v0.1.7-assets
+pnpm github-release-updater:preflight
+pnpm shellcheck:updater
+pnpm ops:handoff --summary
+pnpm ops:status --summary
+git diff --check
+```
+
+成功后本地/redacted 证据验证：
+
+```bash
+pnpm update-agent:status:validate <redacted-update-agent-status-v0.1.7.json>
+pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record-v0.1.7.txt>
+pnpm ops:evidence:bundle:validate <operational-evidence-bundle-v0.1.7.json>
+pnpm release:evidence:validate docs/development/release-v0.1.7-record.md
+AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record-v0.1.7.txt> \
+AREAFORGE_OPS001_UPDATE_STATUS_RECORD=<redacted-update-agent-status-v0.1.7.json> \
+AREAFORGE_OPS001_EVIDENCE_BUNDLE=<operational-evidence-bundle-v0.1.7.json> \
+pnpm ops:ops-001:preflight
+```
+
+生产 update 后还必须重采或复核：
+
+- `AF-RISK-OPS-001`：生产只读 smoke、redacted update-agent status、operational evidence bundle 和 OPS-001 preflight。
+- `AF-RISK-UX-001`：desktop/mobile 真实体验复核；旧本地 UX 记录不能证明新生产版本体验健康。
+- `AF-RISK-OPS-004`：至少重跑 alert preview；若要关闭或声称完整生产健康，保留 matching alert drill/preflight。
+
+中止条件：
+
+- 用户没有给出本确认包的明确确认句。
+- 当前生产不是预期 `0.1.5`，或 rollback target 缺失。
+- Release asset、image digest、checksum、cosign signature 任一失败。
+- 备份缺失、hash 不可记录或备份目录不可写。
+- migration image 执行失败。
+- health 或只读 smoke 失败。
+- update-agent `blocker` 非空或 timer/signature 状态异常。
+- 日志或记录出现数据库 URL、密钥、cookie、完整 prompt、附件路径、上传目录或真实学习正文。
+- 附件 metadata/hash mismatch。
+
+明确确认句：
+
+> 确认在生产主机通过服务器侧 updater 将 AreaForge 从 `0.1.5` 更新到 `v0.1.7`，仅执行 `apply --yes --tag v0.1.7 --config /etc/areaforge/updater.env` 及其内置签名校验、备份、migration image、切换、只读 smoke 和记录；失败时仅回滚应用镜像和 `APP_VERSION` 到 `0.1.5`；不执行数据库/上传目录 restore、自动应用策略变更、写入型 smoke、Web runtime 服务器命令、读取/打印/复制/提交 secrets 或 residual 台账关闭。
