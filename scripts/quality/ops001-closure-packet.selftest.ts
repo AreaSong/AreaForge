@@ -43,6 +43,30 @@ try {
   });
   expectStatus("invalid closure packet fails", invalidValidate, 1);
 
+  const historicalPacket = path.join(tempDir, "ops001-closure-packet-historical.txt");
+  writeFileSync(
+    historicalPacket,
+    generate.stdout
+      .replace("expectedVersion: 0.1.7", "expectedVersion: 0.1.5")
+      .replace("releaseTag: v0.1.7", "releaseTag: v0.1.5")
+      .replace("updateAgentCurrentVersion: 0.1.7", "updateAgentCurrentVersion: 0.1.5"),
+  );
+  const historicalDefaultValidate = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/ops001-closure-packet-validate.ts", historicalPacket], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  expectStatus("historical closure packet fails by default", historicalDefaultValidate, 1);
+
+  const historicalOverrideValidate = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/ops001-closure-packet-validate.ts", historicalPacket], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_OPS001_EXPECTED_VERSION: "0.1.5",
+    },
+  });
+  expectStatus("historical closure packet passes with explicit version override", historicalOverrideValidate, 0);
+
   console.log("OPS-001 closure packet selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });
@@ -54,10 +78,10 @@ function createSmokeRecord(): string {
     "checkedAt: 2026-07-10T22:20:00+08:00",
     "environment: production",
     "baseUrl: https://forge.areasong.top",
-    "expectedVersion: 0.1.5",
-    "releaseTag: v0.1.5",
-    "webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.5@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.5@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "expectedVersion: 0.1.7",
+    "releaseTag: v0.1.7",
+    "webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.7@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "smokeCommand: pnpm smoke:prod-readonly",
     "smokeStatus: pass",
     "smokeResultHash: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -83,10 +107,10 @@ function createSmokeRecord(): string {
 
 function createUpdateStatusRecord(): JsonRecord {
   return {
-    currentVersion: "0.1.5",
-    currentImage: "ghcr.io/areasong/areaforge-web:v0.1.5@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    releaseUrl: "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.5",
-    latestVersion: "0.1.5",
+    currentVersion: "0.1.7",
+    currentImage: "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    releaseUrl: "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.7",
+    latestVersion: "0.1.7",
     updateAvailable: false,
     autoApply: "none",
     signatureRequired: true,
@@ -127,8 +151,8 @@ function createEvidenceBundle(): JsonRecord {
       networkRequested: true,
     },
     expected: {
-      version: "0.1.5",
-      releaseTag: "v0.1.5",
+      version: "0.1.7",
+      releaseTag: "v0.1.7",
       autoApply: "none",
     },
     signals: {},

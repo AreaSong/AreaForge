@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   buildEvidenceHash,
@@ -135,6 +136,20 @@ export function validateOps001ClosurePacket(raw: string): ValidationIssue[] {
     issues.push({ field: "updateAgentCurrentVersion", message: "must look like X.Y.Z" });
   }
 
+  const currentExpectedVersion = expectedOps001Version();
+  if (expectedVersion && expectedVersion !== currentExpectedVersion) {
+    issues.push({
+      field: "expectedVersion",
+      message: `must match current expected OPS-001 version ${currentExpectedVersion}; set AREAFORGE_OPS001_EXPECTED_VERSION only for historical evidence validation`,
+    });
+  }
+  if (releaseTag && releaseTag !== `v${currentExpectedVersion}`) {
+    issues.push({ field: "releaseTag", message: `must be v${currentExpectedVersion}` });
+  }
+  if (updateAgentCurrentVersion && updateAgentCurrentVersion !== currentExpectedVersion) {
+    issues.push({ field: "updateAgentCurrentVersion", message: `must be ${currentExpectedVersion}` });
+  }
+
   const updaterEnvSummary = fields.get("updaterEnvSummary") ?? "";
   if (!/AREAFORGE_EXTRA_SMOKE_COMMAND/i.test(updaterEnvSummary) || /not supplied|none|unknown/i.test(updaterEnvSummary)) {
     issues.push({ field: "updaterEnvSummary", message: "must prove AREAFORGE_EXTRA_SMOKE_COMMAND is configured without exposing secrets" });
@@ -158,6 +173,20 @@ export function validateOps001ClosurePacket(raw: string): ValidationIssue[] {
 
   scanForSecrets(raw, issues);
   return issues;
+}
+
+function expectedOps001Version(): string {
+  const envVersion = process.env.AREAFORGE_OPS001_EXPECTED_VERSION?.trim();
+  if (envVersion) return envVersion;
+  try {
+    const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as { version?: unknown };
+    if (typeof packageJson.version === "string" && packageJson.version.trim()) {
+      return packageJson.version.trim();
+    }
+  } catch {
+    // Fall through to the current repository baseline.
+  }
+  return "0.1.7";
 }
 
 main();
