@@ -988,7 +988,7 @@ AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record.txt> \
 
 ## 后续签名 Release 证据闭环确认包：`AF-RISK-SC-001`
 
-本确认包用于后续某一次签名 GitHub Release 生成 SBOM/provenance、checksum、signature 和供应链记录，从而让 `AF-RISK-SC-001` 进入可人工复核关闭状态。它适合当前 `v0.1.5` 之后的第一个补丁发布；若只发布当前长期运营治理补强，默认建议版本为 `v0.1.6`。执行前仍必须由用户在确认句中写明具体版本号。
+本确认包用于后续某一次签名 GitHub Release 生成 SBOM/provenance、checksum、signature 和供应链记录，从而让 `AF-RISK-SC-001` 进入可人工复核关闭状态。它适合当前 `v0.1.5` 之后的第一个补丁发布；若只发布当前长期运营治理补强，默认建议版本为 `v0.1.7`。执行前仍必须由用户在确认句中写明具体版本号。
 
 源事实：
 
@@ -1074,4 +1074,4 @@ pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
 
 明确确认句：
 
-> 确认执行下一次签名 Release 证据闭环 v0.1.6：范围仅限将当前已验证 commit 的所有 AreaForge workspace package version bump 到 0.1.6，创建并推送 `v0.1.6` tag，等待 GitHub Release workflow 生成签名 Release assets、GHCR digest、SBOM/provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`，并生成/校验 `release-supply-chain-v0.1.6` 与 `release-v0.1.6` 记录；不执行服务器 updater apply、Web apply/rollback 请求、生产 backup/restore、production migration、Nginx/compose 切换、自动应用策略变更、residual 台账关闭或任何密钥读取/打印/提交。
+> 确认执行下一次签名 Release 证据闭环 v0.1.7：范围仅限将当前已验证 commit 的所有 AreaForge workspace package version bump 到 0.1.7，创建并推送 `v0.1.7` tag，等待 GitHub Release workflow 生成签名 Release assets、GHCR digest、SBOM/provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`，并生成/校验 `release-supply-chain-v0.1.7` 与 `release-v0.1.7` 记录；不执行服务器 updater apply、Web apply/rollback 请求、生产 backup/restore、production migration、Nginx/compose 切换、自动应用策略变更、residual 台账关闭或任何密钥读取/打印/提交。
