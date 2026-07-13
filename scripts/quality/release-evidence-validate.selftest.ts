@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { buildReleaseEvidenceBundleHash } from "./release-evidence-validate";
+import { parseIndentedKeyValueRecord } from "./record-validator-common";
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-release-evidence-"));
@@ -12,19 +14,22 @@ try {
   const invalidSecretRecord = path.join(tempDir, "release-record-secret.txt");
   const invalidEnumRecord = path.join(tempDir, "release-record-enum.txt");
   const invalidRunnerRecord = path.join(tempDir, "release-record-runner.txt");
+  const invalidBundleHashRecord = path.join(tempDir, "release-record-bundle-hash.txt");
   const invalidCsv = path.join(tempDir, "attachment-reconciliation-invalid.csv");
 
   writeFileSync(validRecord, createRecord());
   writeFileSync(validCsv, createCsv("report_only"));
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: DATABASE_URL=postgresql://user:pass@db:5432/prod\n`);
-  writeFileSync(invalidEnumRecord, createRecord().replace("migrationApplied: yes", "migrationApplied: maybe"));
-  writeFileSync(invalidRunnerRecord, createRecord().replace("migrationRunner: controlled_release_workdir", "migrationRunner: not-applicable"));
+  writeFileSync(invalidEnumRecord, createRecordFromBody(createRecordBody().replace("migrationApplied: yes", "migrationApplied: maybe")));
+  writeFileSync(invalidRunnerRecord, createRecordFromBody(createRecordBody().replace("migrationRunner: controlled_release_workdir", "migrationRunner: not-applicable")));
+  writeFileSync(invalidBundleHashRecord, createRecord().replace(/releaseEvidenceBundleHash: sha256:[a-f0-9]{64}/i, `releaseEvidenceBundleHash: sha256:${"0".repeat(64)}`));
   writeFileSync(invalidCsv, createCsv("delete"));
 
   expectExit("valid record and report_only CSV pass", [validRecord, validCsv], 0, "releaseEvidenceBundleHash: sha256:");
   expectExit("secret-like values fail", [invalidSecretRecord, validCsv], 1);
   expectExit("invalid enum values fail", [invalidEnumRecord, validCsv], 1);
   expectExit("missing migration runner fails when migration applied", [invalidRunnerRecord, validCsv], 1);
+  expectExit("incorrect release evidence bundle hash fails", [invalidBundleHashRecord, validCsv], 1);
   expectExit("non-report_only reconciliation fails", [validRecord, invalidCsv], 1);
 
   console.log("release evidence validator selftest passed.");
@@ -60,6 +65,15 @@ function createCsv(action: string): string {
 }
 
 function createRecord(): string {
+  return createRecordFromBody(createRecordBody());
+}
+
+function createRecordFromBody(record: string): string {
+  const hash = buildReleaseEvidenceBundleHash(parseIndentedKeyValueRecord(record));
+  return record.replace("followUpTasks: none", `releaseEvidenceBundleHash: ${hash}\nfollowUpTasks: none`);
+}
+
+function createRecordBody(): string {
   return [
     "releaseId: rel-20260708-001",
     "releasedAt: 2026-07-08T10:00:00+08:00",

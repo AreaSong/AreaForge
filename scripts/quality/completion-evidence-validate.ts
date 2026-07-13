@@ -6,13 +6,17 @@ import {
   requireField,
   requireNo,
   requireOneOf,
+  parseList,
   scanForSecrets,
   type ValidationIssue,
 } from "./record-validator-common";
 
 const requiredScalarFields = [
   "scope",
+  "summary",
   "evidenceClass",
+  "claimScope",
+  "evidenceUri",
   "sourceBaseline.sourceDocs",
   "sourceBaseline.sourceHashOrCommit",
   "freshValidation.commands",
@@ -29,6 +33,7 @@ const requiredScalarFields = [
   "releaseRequired",
   "highestRuntimeWriteBoundary",
   "highRiskConfirmation",
+  "doesNotProve",
   "result",
 ] as const;
 
@@ -79,7 +84,7 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("completion evidence validation passed: evidence class, source baseline, validation, blockers, residuals, release need, write boundary, and safety facts are present.");
+  console.log("completion evidence validation passed: summary, claim scope, evidence URI, evidence class, source baseline, validation, blockers, residuals, release need, write boundary, does-not-prove boundary, and safety facts are present.");
   console.log(`completionEvidenceHash: ${buildEvidenceHash(fields, [...requiredScalarFields, ...requiredSafetyFields])}`);
   console.log("claimBoundary: this validates the completion record shape only; it does not replace runtime, release, production, smoke, or long-term live gates.");
 }
@@ -97,11 +102,13 @@ function validateRecord(raw: string, fields: Map<string, string>): ValidationIss
 
   requireStrictIsoTimestamp(fields, "freshValidation.checkedAt", issues);
   requireOneOf(fields, "evidenceClass", ["source", "runtime", "release", "production", "docs-only", "local-smoke", "browser-review"], issues);
+  requireOneOf(fields, "claimScope", ["source-only", "local-runtime", "release-artifact", "production-live", "long-term-operability", "mixed"], issues);
   requireOneOf(fields, "releaseRequired", ["yes", "no", "not-applicable"], issues);
   requireOneOf(fields, "highestRuntimeWriteBoundary", ["r0", "r1", "r2", "r3", "r4"], issues);
   requireOneOf(fields, "highRiskConfirmation", ["yes", "no", "not-applicable"], issues);
   requireOneOf(fields, "result", ["pass", "fail", "blocked", "not-ready"], issues);
   requireNo(fields, "safetyFacts.secretValuePrinted", issues);
+  requireMeaningfulClaimFields(fields, issues);
 
   const result = fields.get("result")?.toLowerCase();
   if (result === "pass") {
@@ -171,6 +178,85 @@ function validateRecord(raw: string, fields: Map<string, string>): ValidationIss
 function isClear(value: string | undefined): boolean {
   const normalized = value?.trim().toLowerCase();
   return normalized === "none" || normalized === "not-applicable";
+}
+
+function requireMeaningfulClaimFields(fields: Map<string, string>, issues: ValidationIssue[]): void {
+  const summary = fields.get("summary")?.trim() ?? "";
+  if (summary.length > 0 && summary.length < 16) {
+    issues.push({ field: "summary", message: "must be a meaningful completion or non-completion summary" });
+  }
+  if (isClear(summary)) {
+    issues.push({ field: "summary", message: "must not be none or not-applicable" });
+  }
+
+  validateClaimScope(fields, issues);
+  validateEvidenceUri(fields.get("evidenceUri"), issues);
+  validateDoesNotProve(fields, issues);
+}
+
+function validateClaimScope(fields: Map<string, string>, issues: ValidationIssue[]): void {
+  const claimScope = fields.get("claimScope")?.toLowerCase();
+  const evidenceClass = fields.get("evidenceClass")?.toLowerCase();
+  const result = fields.get("result")?.toLowerCase();
+
+  const allowedEvidenceByScope: Record<string, string[]> = {
+    "source-only": ["source", "docs-only"],
+    "local-runtime": ["runtime", "local-smoke", "browser-review"],
+    "release-artifact": ["release", "production"],
+    "production-live": ["production"],
+  };
+
+  if (claimScope && evidenceClass && allowedEvidenceByScope[claimScope] && !allowedEvidenceByScope[claimScope].includes(evidenceClass)) {
+    issues.push({ field: "claimScope", message: `does not match evidenceClass ${evidenceClass}` });
+  }
+  if (claimScope === "long-term-operability" && result === "pass" && evidenceClass !== "production") {
+    issues.push({ field: "claimScope", message: "long-term-operability PASS requires production evidenceClass" });
+  }
+}
+
+function validateEvidenceUri(value: string | undefined, issues: ValidationIssue[]): void {
+  if (!value) return;
+  if (isClear(value)) return;
+
+  const forbidden = /(?:secret|password|token|credential|private[-_ ]?key|id_ed25519|\.env|DATABASE_URL|AUTH_SESSION_SECRET|AI_API_KEY|COSIGN_PASSWORD)/i;
+  for (const item of parseList(value)) {
+    if (forbidden.test(item)) {
+      issues.push({ field: "evidenceUri", message: "must not reference secret-bearing paths or names" });
+    }
+    if (item.startsWith("/") || item.startsWith("~") || item.includes("..") || item.includes("\\")) {
+      issues.push({ field: "evidenceUri", message: "must use repo-relative paths, sha256 digests, or HTTPS URLs only" });
+    }
+    if (!/^(?:[A-Za-z0-9._/-]+|https:\/\/[^\s,]+|sha256:[a-f0-9]{64})$/i.test(item)) {
+      issues.push({ field: "evidenceUri", message: "must be a safe repo-relative path, sha256 digest, or HTTPS URL" });
+    }
+  }
+}
+
+function validateDoesNotProve(fields: Map<string, string>, issues: ValidationIssue[]): void {
+  const value = fields.get("doesNotProve")?.trim() ?? "";
+  const lower = value.toLowerCase();
+  if (isClear(value) || value.length < 16) {
+    issues.push({ field: "doesNotProve", message: "must list concrete claim boundaries" });
+    return;
+  }
+
+  const evidenceClass = fields.get("evidenceClass")?.toLowerCase();
+  const claimScope = fields.get("claimScope")?.toLowerCase();
+  const result = fields.get("result")?.toLowerCase();
+  const releaseRequired = fields.get("releaseRequired")?.toLowerCase();
+
+  if (evidenceClass !== "production" && !lower.includes("production health")) {
+    issues.push({ field: "doesNotProve", message: "must mention production health when evidence is not production live evidence" });
+  }
+  if (releaseRequired === "yes" && !lower.includes("release")) {
+    issues.push({ field: "doesNotProve", message: "must mention release when releaseRequired is yes" });
+  }
+  if (claimScope === "long-term-operability" && !lower.includes("long-term operability")) {
+    issues.push({ field: "doesNotProve", message: "must mention long-term operability for long-term-operability claims" });
+  }
+  if (result !== "pass" && !lower.includes("residual") && !lower.includes("blocker")) {
+    issues.push({ field: "doesNotProve", message: "must mention residual or blocker when result is not PASS" });
+  }
 }
 
 function requireStrictIsoTimestamp(fields: Map<string, string>, field: string, issues: ValidationIssue[]): void {

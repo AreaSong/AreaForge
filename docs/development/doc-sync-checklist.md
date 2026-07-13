@@ -23,16 +23,17 @@
 - 品牌素材、Logo、图标或静态资产入口变化是否同步 `docs/architecture/project-structure.md`、`docs/ux/brand-assets.md` 和必要的 README 导航，并避免暗示线上版本、favicon、PWA manifest 或运行时 UI 已采用。
 - 上传、附件、AI、认证、部署变化是否同步安全文档。
 - 上传、附件、`UPLOAD_DIR`、文件对账、备份/恢复或上传目录迁移变化是否同步 `docs/architecture/file-storage.md`、`docs/security/file-ai-safety.md`、`docs/deployment/backup-restore.md` 和 `areaforge-file-storage-safety`。
+- 备份/恢复证据预览、`blockingGaps`、root-only backup hash、恢复演练记录或 rollback target 交接口径变化时，是否同步 `docs/deployment/backup-restore.md`、`docs/development/operational-readiness.md`、`docs/development/maintenance-cadence.md`、README 和验证矩阵，并运行 `pnpm ops:backup-restore:preview:selftest`。
 - 功能更新若进入线上，是否按 `docs/development/release-record-template.md` 同步 release tag、GitHub Release、GHCR digest、线上 health、update-agent 状态、回滚目标、`pnpm ops:evidence:bundle` 的 `bundleHash`、`pnpm ops:evidence:bundle:validate` 的校验结论、`pnpm ops:alert:preview` 的告警预览结论和残余风险。
 - 维护窗口、release/update 前后或 Codex 线程交接时，是否先用 `pnpm ops:handoff` 生成只读交接摘要，并明确它不替代 live readiness、smoke、update-agent、备份或 rollback 证据。
 - 公开支持、自托管排障或维护交接需要可贴出的诊断摘要时，是否优先使用 `docs/development/support-bundle-preview.md`、`pnpm ops:support:bundle-preview` 和 `pnpm ops:support:bundle-preview:validate`，并明确它是 metadata-only preview，不是 support export、生产健康或 residual 关闭证据。
-- 完成声明是否能按 `docs/development/completion-evidence-checklist.md` 说清证据等级、新鲜验证、未验证项、阻断项、Release 需求和 residual risk IDs；若完成声明记录进入仓库或交接摘要，是否通过 `pnpm completion:evidence:validate <record>`，并明确该校验不替代真实运行、Release、生产 smoke 或长期运营 live gate。
+- 完成声明是否能按 `docs/development/completion-evidence-checklist.md` 说清 summary、claimScope、evidenceUri、证据等级、新鲜验证、未验证项、阻断项、Release 需求、doesNotProve 和 residual risk IDs；若完成声明记录进入仓库或交接摘要，是否通过 `pnpm completion:evidence:validate <record>`，并明确该校验不替代真实运行、Release、生产 smoke 或长期运营 live gate。
 - 写动作或运行时能力变化是否按 `docs/development/runtime-write-boundary.md` 标明 R0-R4 等级，避免把 preview、local smoke、update request 或草稿说成生产 apply。
 - 功能更新若准备进入线上，是否先按 `docs/development/release-train.md` 固定版本、验证、Release 资产、供应链记录、updater 证据、smoke、回滚目标和停止条件。
 - 签名 Release 若用于补齐或复核 `AF-RISK-SC-001`，是否先使用 `docs/development/high-risk-confirmation-packets.md` 的签名 Release 证据闭环确认包，并确认它不包含生产 updater apply、backup/restore、migration、rollback 或 residual 台账关闭；`v0.1.7` 证据已存在但台账仍需人工复核。
 - 生产 SSH 只读导出若用于补齐 `AF-RISK-OPS-001`，是否先使用 `docs/development/high-risk-confirmation-packets.md` 的生产只读证据导出确认包，并确认它不包含 updater apply、backup/restore、migration、rollback、写入型 smoke、secrets 读取/打印/复制或 residual 台账关闭。
 - 功能更新、维护节奏、release 决策、skill owner 边界或 residual 复核口径变化，是否同步 `docs/development/long-term-operability-control-plane.md`，并运行 `pnpm enterprise:operability:preflight` 和 `pnpm ops:status` 检查离线状态投影。
-- 若要声明“产品可长期运营”，是否运行 `pnpm ops:long-term:gate`，并确认 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 证据均达到可人工复核关闭状态；该 gate 不自动收集证据、不执行生产动作、不修改 residual 台账。
+- 若要声明“产品可长期运营”，是否运行 `pnpm ops:long-term:gate`，并确认 OPS-001、OPS-004、可校验 Release 发布记录、签名 Release 供应链和新鲜 UX 证据均达到可人工复核关闭状态；该 gate 不自动收集证据、不执行生产动作、不修改 residual 台账。
 - Release/update 后若需要交接当前证据与缺口，是否保存 `pnpm ops:long-term:snapshot` 输出并通过 `pnpm ops:long-term:snapshot:validate <snapshot.json>`；快照只能证明证据路径、hash、状态和缺口绑定正确，不能替代 live gate、生产 smoke、update-agent、备份 hash、告警演练或 residual 关闭。
 - 新签名 Release 若用于关闭或复核供应链残余项，是否按 `docs/development/release-supply-chain-record-template.md` 记录 SBOM/provenance、checksum/signature、Actions pinning 和 `pnpm audit:prod`，并通过 `pnpm release:supply-chain:validate`。
 - 生产运维、发布、自动更新或长期运营状态变化，是否同步 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 和对应 ops/release 文档。
@@ -46,11 +47,13 @@
 - Update-agent redacted status JSON 若作为 readiness 输入或交接证据，是否使用 `docs/development/update-agent-status-record-template.md` 并通过 `pnpm update-agent:status:validate`。
 - `AF-RISK-OPS-001` 关闭证据若进入仓库或运维交接摘要，是否先用 `pnpm ops:ops-001:preflight` 检查 redacted 证据链，再使用 `docs/development/ops-001-closure-packet-template.md` 并通过 `pnpm ops:ops-001:closure:validate`；预检和生成收口包都不得自动修改 residual 台账。
 - `AF-RISK-SC-002` CI-only 证据若进入仓库或运维交接摘要，是否先运行 `pnpm sc:sc-002:preflight`，再使用 `docs/development/ci-supply-chain-record-template.md` 并通过 `pnpm ci:supply-chain:validate`；不要把 CI-only 证据当成 `AF-RISK-SC-001` 的 SBOM/provenance Release 证据。
+- residual 人工复核结论若进入仓库或维护交接摘要，是否使用 `docs/development/residual-closure-review-template.md` 并通过 `pnpm residuals:closure:validate <record>`；该记录必须保持 `closesResidual=no`，不能替代台账更新或 `pnpm residuals:validate`。
 - 真实产品体验复核记录若进入仓库或 release/update 交接摘要，是否使用 `docs/development/product-experience-review-record-template.md` 并通过 `pnpm experience:review:validate`。
 - 若变更长期运营 workflow 或 skill，是否同步 `.codex/skills-src/**`、`.agents/skills/**`、`README.md`、`AGENTS.md` 和相关验证/残余风险入口，并运行 `pnpm skills:validate`。
 - 若变更 repo-local skill，是否同步对应 `agents/openai.yaml`，确认 `display_name`、`short_description` 和 `default_prompt` 仍覆盖 `SKILL.md` 的触发语义。
 - 若涉及数据导出、数据留存、删除权、用户迁移、隐私生命周期、AI 历史或费用记录留存变化，是否按安全/文件/AI/SRE owner 共同高风险确认处理，而不是仅靠 skill 文案或普通 docs 更新。
 - 若变更公开项目治理、依赖、CI、PR 模板或安全披露入口，是否同步 `SECURITY.md`、`.github/**`、`docs/development/dependency-policy.md`、`README.md` 和验证矩阵，并运行 `pnpm governance:preflight`。
+- 若变更目录责任、审阅分级、R0-R4 路由、protected path 集合或工作区审阅口径，是否同步 `docs/development/governance-boundary-matrix.md`、`docs/development/protected-path-review-record-template.md`、`scripts/quality/governance-preflight.ts` 和验证矩阵；路径报告运行 `pnpm governance:changed-paths --summary`，受保护路径人工审阅记录须通过 `pnpm governance:protected-path-review:validate`，两者都不能当成生产健康、完整仓库审阅或后续工作区干净的证明。
 - 若变更公开支持、issue 模板、ops support、贡献者 PR 或 triage 规则，是否同步 `SUPPORT.md`、`.github/ISSUE_TEMPLATE/**`、`docs/development/support-intake.md`、`.codex/skills-src/areaforge-public-maintenance`、`README.md`、`docs/README.md` 和验证矩阵，并运行 `pnpm support:intake:preflight`；若 skill 改动，补跑 `pnpm skills:validate`。
 - 若引入或扩大 subagent、MCP、Browser/Computer Use、自动化、部署插件或远程运维工具，是否同步 `docs/development/external-capability-admission.md`，并确认没有绕过 Web runtime 服务器命令禁区。
 - README 是否只导航，不承载更深规则。

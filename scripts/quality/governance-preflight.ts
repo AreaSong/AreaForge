@@ -20,6 +20,7 @@ function main(): void {
   checkCodeReviewPolicy();
   checkDependencyPolicy();
   checkExternalCapabilityAdmission();
+  checkGovernanceBoundaryMatrix();
   checkCiRunsGovernance();
   checkReleaseWorkflowGovernance();
   checkPinnedGitHubActions();
@@ -50,6 +51,8 @@ function checkRequiredFiles(): void {
     ".github/pull_request_template.md",
     "docs/development/dependency-policy.md",
     "docs/development/external-capability-admission.md",
+    "docs/development/governance-boundary-matrix.md",
+    "docs/development/protected-path-review-record-template.md",
     "docs/development/support-intake.md",
     ".codex/skills-src/areaforge-public-maintenance/SKILL.md",
   ];
@@ -279,10 +282,58 @@ function checkExternalCapabilityAdmission(): void {
   });
 }
 
+function checkGovernanceBoundaryMatrix(): void {
+  const matrix = read("docs/development/governance-boundary-matrix.md");
+  const template = read("docs/development/protected-path-review-record-template.md");
+  const packageJson = read("package.json");
+  const requiredMatrixTerms = [
+    "R0",
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "apps/web/**",
+    "packages/core/**",
+    "prisma/**",
+    "ops/**",
+    ".github/**",
+    "Web runtime 不执行服务器运维命令",
+    "pnpm governance:protected-path-review:validate",
+  ];
+  const requiredTemplateTerms = [
+    "worktreeStatusHash",
+    "protectedPathFingerprint",
+    "doesNotProve",
+    "residual ledger closure",
+    "pnpm governance:protected-path-review:validate",
+  ];
+  const requiredScripts = [
+    "governance:changed-paths",
+    "governance:changed-paths:selftest",
+    "governance:protected-path-review:validate",
+    "governance:protected-path-review:selftest",
+  ];
+  const missing = [
+    ...requiredMatrixTerms.filter((term) => !matrix.includes(term)).map((term) => `matrix:${term}`),
+    ...requiredTemplateTerms.filter((term) => !template.includes(term)).map((term) => `template:${term}`),
+    ...requiredScripts.filter((term) => !packageJson.includes(term)).map((term) => `package.json:${term}`),
+  ];
+  checks.push({
+    name: "governance boundary matrix",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "directory ownership, R0-R4 routing, changed-path classification, and protected-path review gate are present"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
 function checkCiRunsGovernance(): void {
   const ci = read(".github/workflows/ci.yml");
   const requiredTerms = [
     "pnpm governance:preflight",
+    "pnpm governance:changed-paths --base",
+    "pnpm governance:changed-paths:selftest",
+    "pnpm governance:protected-path-review:selftest",
     "pnpm skills:validate",
     "pnpm audit:prod",
     "pnpm ci:supply-chain:selftest",

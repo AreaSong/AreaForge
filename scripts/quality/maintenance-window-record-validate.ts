@@ -32,6 +32,9 @@ const requiredScalarFields = [
   "evidenceBundleHash",
   "alertPreviewHash",
   "residualReviewHash",
+  "evidenceFreshnessStatus",
+  "evidenceFreshnessMaxAgeSeconds",
+  "latestEvidenceCheckedAt",
   "residualReviewStatus",
   "dueResidualRiskIds",
   "decisions",
@@ -48,6 +51,20 @@ const requiredNestedFields = [
   "safetyFacts.updaterApplyAttempted",
   "safetyFacts.rollbackAttempted",
   "safetyFacts.secretValuePrinted",
+] as const;
+
+const requiredClaimBoundaryFields = [
+  "claimBoundary.doesNotProve",
+] as const;
+
+const requiredClaimBoundaryTerms = [
+  "production health",
+  "live evidence",
+  "updater apply",
+  "backup/restore",
+  "migration",
+  "rollback",
+  "residual risk closure",
 ] as const;
 
 function main(): void {
@@ -70,7 +87,7 @@ function main(): void {
   }
 
   console.log("maintenance window record validation passed: cadence commands, residual review, evidence hashes, result, and safety facts are present.");
-  console.log(`maintenanceWindowRecordEvidenceHash: ${buildEvidenceHash(fields, [...requiredScalarFields, ...requiredNestedFields])}`);
+  console.log(`maintenanceWindowRecordEvidenceHash: ${buildEvidenceHash(fields, [...requiredScalarFields, ...requiredNestedFields, ...requiredClaimBoundaryFields])}`);
   console.log("safetyFacts: productionWriteAttempted=false serverCommandAttempted=false backupRestoreAttempted=false migrationAttempted=false updaterApplyAttempted=false rollbackAttempted=false secretValuePrinted=false");
 }
 
@@ -81,6 +98,9 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     requireField(fields, field, issues);
   }
   for (const field of requiredNestedFields) {
+    requireField(fields, field, issues);
+  }
+  for (const field of requiredClaimBoundaryFields) {
     requireField(fields, field, issues);
   }
 
@@ -95,6 +115,7 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     requireOneOf(fields, field, ["pass", "warn", "fail", "blocked", "unknown", "not-applicable"], issues);
   }
   requireOneOf(fields, "residualReviewStatus", ["pass", "warn", "fail"], issues);
+  requireOneOf(fields, "evidenceFreshnessStatus", ["fresh", "stale", "unknown"], issues);
   requireOneOf(fields, "result", ["pass", "warn", "fail", "blocked"], issues);
   for (const field of requiredNestedFields) {
     requireOneOf(fields, field, ["yes", "no"], issues);
@@ -119,6 +140,19 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   if (result === "pass" && fields.get("residualReviewStatus")?.toLowerCase() === "fail") {
     issues.push({ field: "result", message: "cannot be pass when residualReviewStatus is fail" });
   }
+  if (result === "pass" && fields.get("evidenceFreshnessStatus")?.toLowerCase() !== "fresh") {
+    issues.push({ field: "result", message: "cannot be pass unless evidenceFreshnessStatus is fresh" });
+  }
+
+  const freshnessMaxAge = Number(fields.get("evidenceFreshnessMaxAgeSeconds"));
+  if (!Number.isInteger(freshnessMaxAge) || freshnessMaxAge <= 0) {
+    issues.push({ field: "evidenceFreshnessMaxAgeSeconds", message: "must be a positive integer" });
+  }
+
+  const latestEvidenceCheckedAt = fields.get("latestEvidenceCheckedAt")?.trim() ?? "";
+  if (latestEvidenceCheckedAt !== "unknown" && Number.isNaN(Date.parse(latestEvidenceCheckedAt))) {
+    issues.push({ field: "latestEvidenceCheckedAt", message: "must be an ISO-8601 timestamp or unknown" });
+  }
 
   const dueIds = fields.get("dueResidualRiskIds")?.trim().toLowerCase() ?? "";
   if (dueIds === "") {
@@ -126,6 +160,13 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   }
   if (dueIds !== "none" && !/AF-RISK-/i.test(dueIds)) {
     issues.push({ field: "dueResidualRiskIds", message: "must use AF-RISK-* IDs when not none" });
+  }
+
+  const claimBoundary = fields.get("claimBoundary.doesNotProve")?.toLowerCase() ?? "";
+  for (const term of requiredClaimBoundaryTerms) {
+    if (!claimBoundary.includes(term.toLowerCase())) {
+      issues.push({ field: "claimBoundary.doesNotProve", message: `must mention ${term}` });
+    }
   }
 
   scanForSecrets(record, issues);

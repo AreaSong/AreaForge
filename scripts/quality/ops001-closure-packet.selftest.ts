@@ -22,6 +22,10 @@ try {
   const generate = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-ops001-closure-packet.ts", smokeRecord, updateStatusRecord, evidenceBundle], {
     cwd: root,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
+    },
   });
   expectStatus("generate OPS-001 closure packet", generate, 0);
   writeFileSync(closurePacket, generate.stdout);
@@ -29,11 +33,28 @@ try {
   const validate = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/ops001-closure-packet-validate.ts", closurePacket], {
     cwd: root,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
+    },
   });
   expectStatus("validate generated OPS-001 closure packet", validate, 0);
   if (!validate.stdout.includes("ops001ClosurePacketEvidenceHash: sha256:")) {
     fail("closure packet validation hash missing");
   }
+  if (!validate.stdout.includes("smokeProofFreshnessStatus: fresh")) {
+    fail("closure packet validation freshness missing");
+  }
+
+  const staleValidate = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/ops001-closure-packet-validate.ts", closurePacket], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-12T14:20:01.000Z",
+    },
+  });
+  expectStatus("stale closure packet fails", staleValidate, 1);
 
   const invalidPacket = path.join(tempDir, "ops-001-closure-packet-invalid.txt");
   writeFileSync(invalidPacket, generate.stdout.replace("smokePasswordReadFromFile: yes", "smokePasswordReadFromFile: no"));
@@ -63,6 +84,7 @@ try {
     env: {
       ...process.env,
       AREAFORGE_OPS001_EXPECTED_VERSION: "0.1.5",
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
     },
   });
   expectStatus("historical closure packet passes with explicit version override", historicalOverrideValidate, 0);

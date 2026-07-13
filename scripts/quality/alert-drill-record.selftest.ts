@@ -16,6 +16,7 @@ try {
     encoding: "utf8",
     env: {
       ...process.env,
+      AREAFORGE_ALERT_DRILL_AT: "2026-07-10T22:35:00.000Z",
       AREAFORGE_ALERT_DRILL_OPERATOR: "areasong",
       AREAFORGE_ALERT_RECEIVER_TYPE: "manual-window",
       AREAFORGE_ALERT_RECEIVER_CONFIGURED: "yes",
@@ -46,6 +47,11 @@ try {
   if (!validation.stdout.includes("alertDrillEvidenceHash: sha256:")) {
     console.error("FAIL generated alert drill validation hash missing");
     console.error(validation.stdout.trim());
+    process.exit(1);
+  }
+  if (!generated.stdout.includes("drilledAt: 2026-07-10T22:35:00.000Z")) {
+    console.error("FAIL generated alert drill record should honor explicit drill time");
+    console.error(generated.stdout.trim());
     process.exit(1);
   }
 

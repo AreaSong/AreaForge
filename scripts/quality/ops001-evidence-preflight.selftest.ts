@@ -30,10 +30,15 @@ try {
     AREAFORGE_OPS001_EVIDENCE_BUNDLE: evidenceBundle,
   }, 0);
   assertJsonStatus(readyToGenerate.stdout, "ready_to_generate_packet");
+  assertSmokeFreshness(readyToGenerate.stdout, "fresh");
 
   const generate = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-ops001-closure-packet.ts", smokeRecord, updateStatusRecord, evidenceBundle], {
     cwd: root,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
+    },
   });
   expectStatus("generate OPS-001 closure packet", generate, 0);
   writeFileSync(closurePacket, generate.stdout);
@@ -58,7 +63,9 @@ try {
   assertJsonStatus(blocked.stdout, "blocked_on_prerequisite");
 
   const invalidSmoke = path.join(tempDir, "invalid-smoke-record.txt");
+  const staleSmoke = path.join(tempDir, "stale-smoke-record.txt");
   writeFileSync(invalidSmoke, createSmokeRecord().replace("smokeStatus: pass", "smokeStatus: fail"));
+  writeFileSync(staleSmoke, createSmokeRecord());
   const invalid = runPreflight({
     AREAFORGE_OPS001_SMOKE_RECORD: invalidSmoke,
     AREAFORGE_OPS001_UPDATE_STATUS_RECORD: updateStatusRecord,
@@ -66,9 +73,27 @@ try {
   }, 1);
   assertJsonStatus(invalid.stdout, "invalid");
 
+  const stale = runPreflight({
+    AREAFORGE_OPS001_SMOKE_RECORD: staleSmoke,
+    AREAFORGE_OPS001_UPDATE_STATUS_RECORD: updateStatusRecord,
+    AREAFORGE_OPS001_EVIDENCE_BUNDLE: evidenceBundle,
+    AREAFORGE_SMOKE_PROOF_NOW: "2026-07-12T14:20:01.000Z",
+  }, 1);
+  assertJsonStatus(stale.stdout, "invalid");
+
   console.log("OPS-001 evidence preflight selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });
+}
+
+function assertSmokeFreshness(raw: string, expected: string): void {
+  const parsed = JSON.parse(raw) as JsonRecord;
+  const evidence = Array.isArray(parsed.evidence) ? parsed.evidence : [];
+  const smoke = evidence.find((item) => isRecord(item) && item.key === "productionReadonlySmokeRecord") as JsonRecord | undefined;
+  const freshness = isRecord(smoke?.freshness) ? smoke.freshness : {};
+  if (freshness.status !== expected) {
+    fail(`expected smoke freshness ${expected}, got ${String(freshness.status)}`);
+  }
 }
 
 function runPreflight(env: Record<string, string>, expectedStatus: number): ReturnType<typeof spawnSync> {
@@ -82,6 +107,7 @@ function runPreflight(env: Record<string, string>, expectedStatus: number): Retu
       AREAFORGE_OPS001_EVIDENCE_BUNDLE: "",
       AREAFORGE_OPS001_CLOSURE_PACKET: "",
       AREAFORGE_OPS001_BLOCKED_RECORD: "",
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
       ...env,
     },
   });
@@ -342,6 +368,10 @@ function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expec
     console.error(result.stderr.trim());
     process.exit(1);
   }
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function fail(message: string): never {

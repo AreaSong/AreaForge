@@ -33,6 +33,7 @@ function main(): void {
   checkSkillBoundaries();
   checkValidationCoverage();
   checkNoWebOpsBoundary();
+  checkEvidenceWordDiscipline();
 
   for (const check of checks) {
     console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}: ${check.detail}`);
@@ -68,6 +69,7 @@ function checkRequiredFiles(): void {
     "docs/development/product-experience-review-record-template.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
+    "docs/development/residual-closure-review-template.md",
     "docs/development/validation-matrix.md",
     "docs/development/doc-sync-checklist.md",
     "workflow/templates/version-template.md",
@@ -78,8 +80,12 @@ function checkRequiredFiles(): void {
     ".codex/skills-src/areaforge-residual-ledger/SKILL.md",
     ".codex/skills-src/areaforge-product-experience/SKILL.md",
     "scripts/ops/operability-status.ts",
+    "scripts/quality/operability-status-validate.ts",
+    "scripts/quality/operability-status-validate.selftest.ts",
     "scripts/quality/operability-status.selftest.ts",
     "scripts/ops/operational-handoff.ts",
+    "scripts/quality/operational-handoff-validate.ts",
+    "scripts/quality/operational-handoff-validate.selftest.ts",
     "scripts/quality/operational-handoff.selftest.ts",
     "scripts/quality/ops-readonly-side-effect.selftest.ts",
     "scripts/quality/completion-evidence-validate.ts",
@@ -94,6 +100,13 @@ function checkRequiredFiles(): void {
     "scripts/ops/support-bundle-preview.ts",
     "scripts/quality/support-bundle-preview-validate.ts",
     "scripts/quality/support-bundle-preview.selftest.ts",
+    "scripts/ops/backup-restore-preview.ts",
+    "scripts/quality/backup-restore-preview-validate.ts",
+    "scripts/quality/backup-restore-preview.selftest.ts",
+    "scripts/quality/residual-evidence-preflight.ts",
+    "scripts/quality/residual-evidence-preflight.selftest.ts",
+    "scripts/quality/residual-closure-review-validate.ts",
+    "scripts/quality/residual-closure-review-validate.selftest.ts",
     "scripts/ops/generate-ci-supply-chain-record.ts",
     "scripts/quality/ci-supply-chain-record-validate.ts",
     "scripts/quality/ci-supply-chain-record.selftest.ts",
@@ -227,8 +240,12 @@ function checkPackageScript(): void {
   const expectedScripts: Record<string, string> = {
     "enterprise:operability:preflight": "tsx scripts/quality/enterprise-operability-preflight.ts",
     "ops:status": "tsx scripts/ops/operability-status.ts",
+    "ops:status:validate": "tsx scripts/quality/operability-status-validate.ts",
+    "ops:status:validate:selftest": "tsx scripts/quality/operability-status-validate.selftest.ts",
     "ops:status:selftest": "tsx scripts/quality/operability-status.selftest.ts",
     "ops:handoff": "tsx scripts/ops/operational-handoff.ts",
+    "ops:handoff:validate": "tsx scripts/quality/operational-handoff-validate.ts",
+    "ops:handoff:validate:selftest": "tsx scripts/quality/operational-handoff-validate.selftest.ts",
     "ops:handoff:selftest": "tsx scripts/quality/operational-handoff.selftest.ts",
     "ops:readonly-side-effect:selftest": "tsx scripts/quality/ops-readonly-side-effect.selftest.ts",
     "completion:evidence:validate": "tsx scripts/quality/completion-evidence-validate.ts",
@@ -243,6 +260,13 @@ function checkPackageScript(): void {
     "ops:support:bundle-preview": "tsx scripts/ops/support-bundle-preview.ts",
     "ops:support:bundle-preview:validate": "tsx scripts/quality/support-bundle-preview-validate.ts",
     "ops:support:bundle-preview:selftest": "tsx scripts/quality/support-bundle-preview.selftest.ts",
+    "ops:backup-restore:preview": "tsx scripts/ops/backup-restore-preview.ts",
+    "ops:backup-restore:preview:validate": "tsx scripts/quality/backup-restore-preview-validate.ts",
+    "ops:backup-restore:preview:selftest": "tsx scripts/quality/backup-restore-preview.selftest.ts",
+    "residuals:evidence:preflight": "tsx scripts/quality/residual-evidence-preflight.ts",
+    "residuals:evidence:preflight:selftest": "tsx scripts/quality/residual-evidence-preflight.selftest.ts",
+    "residuals:closure:validate": "tsx scripts/quality/residual-closure-review-validate.ts",
+    "residuals:closure:selftest": "tsx scripts/quality/residual-closure-review-validate.selftest.ts",
     "ops:ops-001:preflight": "tsx scripts/ops/ops001-evidence-preflight.ts",
     "ops:ops-001:preflight:selftest": "tsx scripts/quality/ops001-evidence-preflight.selftest.ts",
     "ops:ops-001:closure": "tsx scripts/ops/generate-ops001-closure-packet.ts",
@@ -410,6 +434,8 @@ function checkValidationCoverage(): void {
     "pnpm maintenance:cadence:preflight",
     "pnpm release:train:preflight",
     "pnpm residuals:review-due",
+    "pnpm residuals:closure:selftest",
+    "pnpm residuals:closure:validate",
     "pnpm skills:validate",
     "pnpm docs:readiness",
   ];
@@ -447,6 +473,54 @@ function checkNoWebOpsBoundary(): void {
     detail: missing.length === 0
       ? "control plane and runtime docs preserve Web runtime no-server-command boundary"
       : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkEvidenceWordDiscipline(): void {
+  const files = [
+    "README.md",
+    "docs/README.md",
+    "docs/development/completion-evidence-checklist.md",
+    "docs/development/long-term-operability-control-plane.md",
+    "docs/development/operational-readiness.md",
+    "docs/development/support-bundle-preview.md",
+    "docs/deployment/backup-restore.md",
+    "docs/deployment/github-release-updater.md",
+    "scripts/quality/completion-evidence-validate.ts",
+  ];
+  const combined = files.map((file) => `${file}\n${read(file)}`).join("\n\n");
+  const requiredTerms = [
+    "summary",
+    "claimScope",
+    "evidenceUri",
+    "doesNotProve",
+    "boundaryStops",
+    "closesResidual=false",
+    "不证明生产健康",
+    "不能替代",
+    "metadata-only",
+    "read_only",
+    "must not reference secret-bearing paths or names",
+  ];
+  const forbiddenPhrases = [
+    "preview 证明生产健康",
+    "preview 等于生产健康",
+    "status 证明生产健康",
+    "snapshot 证明生产健康",
+    "health 等于 readiness",
+    "health 证明 readiness",
+    "ready_for_human_close 自动关闭",
+    "ready_for_human_close 已关闭 residual",
+    "Web runtime 执行服务器命令",
+  ];
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  const forbidden = forbiddenPhrases.filter((phrase) => combined.includes(phrase));
+  checks.push({
+    name: "evidence word discipline",
+    ok: missing.length === 0 && forbidden.length === 0,
+    detail: missing.length === 0 && forbidden.length === 0
+      ? "docs preserve completion claim fields, doesNotProve, boundaryStops, metadata-only/read-only wording, and no overclaim phrases"
+      : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}`,
   });
 }
 

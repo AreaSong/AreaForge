@@ -1,5 +1,8 @@
 scope: AreaForge long-term operability completion audit
+summary: AreaForge long-term operability remains NOT-READY; local control-plane checks passed but fresh production smoke, release evidence, and residual review evidence remain missing.
 evidenceClass: runtime
+claimScope: long-term-operability
+evidenceUri: docs/development/long-term-evidence-snapshot-v0.1.7-20260712.json, docs/development/release-v0.1.7-record.md, docs/development/operational-readiness.md
 sourceBaseline:
   sourceDocs: README.md, docs/development/long-term-operability-control-plane.md, docs/development/operational-readiness.md, docs/development/residual-risk-ledger.md, docs/development/validation-matrix.md
   sourceHashOrCommit: b9bbfa2072a79318fc93f6e9497fe4f4b3da29b7 plus current SC-002 record working tree
@@ -20,6 +23,7 @@ residualRiskIds: AF-RISK-OPS-001,AF-RISK-SC-001
 releaseRequired: yes
 highestRuntimeWriteBoundary: R4
 highRiskConfirmation: yes
+doesNotProve: production health, signed Release evidence completeness, authenticated smoke freshness, updater apply completion, residual closure, long-term operability
 result: NOT-READY
 safetyFacts:
   productionTouched: yes

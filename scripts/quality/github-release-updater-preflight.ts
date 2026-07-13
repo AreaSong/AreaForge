@@ -49,6 +49,7 @@ function checkRequiredFiles(): void {
     "ops/update-agent/areaforge-update-agent.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
     "ops/update-agent/areaforge-release-readonly-smoke.sh",
     "ops/update-agent/areaforge-update-agent.service",
     "ops/update-agent/areaforge-update-agent.timer",
@@ -59,7 +60,12 @@ function checkRequiredFiles(): void {
     "scripts/quality/release-supply-chain-validate.ts",
     "scripts/quality/release-supply-chain-validate.selftest.ts",
     "scripts/ops/production-readonly-smoke.ts",
+    "scripts/ops/generate-release-evidence-record-from-redacted-export.ts",
+    "scripts/quality/release-evidence-redacted-export-validate.ts",
     "scripts/quality/ops001-readonly-fallback.selftest.ts",
+    "scripts/quality/release-evidence-redacted-export.selftest.ts",
+    "scripts/quality/release-evidence-redacted-export-record.selftest.ts",
+    "scripts/quality/update-center-request-guard.selftest.ts",
     "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
     ".github/workflows/ci.yml",
@@ -212,6 +218,7 @@ function checkShellSyntax(): void {
     "ops/update-agent/areaforge-update-agent.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
     "ops/update-agent/areaforge-release-readonly-smoke.sh",
   ];
   const failed = scripts.flatMap((script) => {
@@ -234,6 +241,7 @@ function checkExecutableModes(): void {
     "ops/update-agent/areaforge-update-agent.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
     "ops/update-agent/areaforge-release-readonly-smoke.sh",
   ];
   const nonExecutable = scripts.filter((script) => (statSync(resolve(script)).mode & 0o111) === 0);
@@ -339,6 +347,11 @@ function checkUpdaterBoundaries(): void {
 function checkUpdateAgentRequestBoundary(): void {
   const agent = read("ops/update-agent/areaforge-update-agent.sh");
   const docs = read("docs/deployment/github-release-updater.md");
+  const webUpdateCenter = read("apps/web/lib/system/update-center.ts");
+  const webUpdateRequestRoute = read("apps/web/app/api/system/update-requests/route.ts");
+  const selftest = read("scripts/quality/update-center-request-guard.selftest.ts");
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const requestGuardSelftestScript = packageJson.scripts?.["update-center:request-guard:selftest"] ?? "";
   const requiredTerms = [
     "validate_request_schema",
     "archive_invalid_request",
@@ -349,15 +362,21 @@ function checkUpdateAgentRequestBoundary(): void {
     "actorEmailHash",
     "status_message_from_output",
     "归档为 failed",
+    "validateUpdateRequestAgainstStatus",
+    "UPDATE_TARGET_NOT_NEWER",
+    "同版本或旧版本",
+    "update center request guard selftest passed",
   ];
-  const combined = `${agent}\n${docs}`;
+  const combined = `${agent}\n${docs}\n${webUpdateCenter}\n${webUpdateRequestRoute}\n${selftest}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
+  const ok = missing.length === 0 &&
+    requestGuardSelftestScript === "tsx scripts/quality/update-center-request-guard.selftest.ts";
   checks.push({
     name: "update-agent request boundary",
-    ok: missing.length === 0,
-    detail: missing.length === 0
-      ? "root update-agent validates request schema before executing updater, rollback, or config changes"
-      : `missing ${missing.join(", ")}`,
+    ok,
+    detail: ok
+      ? "web update center rejects no-op requests before queueing, and root update-agent validates request schema before executing updater, rollback, or config changes"
+      : `missing ${missing.join(", ") || "none"}; request guard selftest=${requestGuardSelftestScript || "missing"}`,
   });
 }
 
@@ -414,6 +433,8 @@ function checkReleaseWorkflow(): void {
     "pnpm release:supply-chain:selftest",
     "pnpm ci:supply-chain:selftest",
     "pnpm ops:ops-001:fallback:selftest",
+    "pnpm release:evidence:redacted-export:selftest",
+    "pnpm release:evidence:redacted-export:record:selftest",
     "pnpm ops:ops-001:fallback:finalize:selftest",
     "sha256sum",
     "COSIGN_PRIVATE_KEY_B64",
@@ -450,6 +471,8 @@ function checkCiWorkflow(): void {
     "pnpm ci:supply-chain:selftest",
     "pnpm shellcheck:updater",
     "pnpm ops:ops-001:fallback:selftest",
+    "pnpm release:evidence:redacted-export:selftest",
+    "pnpm release:evidence:redacted-export:record:selftest",
     "pnpm ops:ops-001:fallback:finalize:selftest",
     "pnpm github-release-updater:preflight",
     "pnpm governance:preflight",

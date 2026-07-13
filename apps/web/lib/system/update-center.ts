@@ -60,6 +60,13 @@ export interface CreateUpdateRequestInput {
   actorEmail: string;
 }
 
+export type UpdateRequestValidationCode =
+  | "UPDATE_TAG_REQUIRED"
+  | "UPDATE_TARGET_NOT_NEWER"
+  | "ROLLBACK_TARGET_UNAVAILABLE"
+  | "AUTO_APPLY_POLICY_REQUIRED"
+  | "AUTO_APPLY_POLICY_UNCHANGED";
+
 export async function getUpdateCenterStatus(): Promise<UpdateCenterStatus> {
   const status = await readJsonFile<Partial<UpdateCenterStatus>>(statusPath);
   const currentVersion = process.env.APP_VERSION ?? status?.currentVersion ?? "0.1.0";
@@ -117,6 +124,25 @@ export async function createUpdateRequest(input: CreateUpdateRequestInput): Prom
   return request;
 }
 
+export function validateUpdateRequestAgainstStatus(
+  input: Pick<CreateUpdateRequestInput, "action" | "tag" | "autoApply">,
+  status: UpdateCenterStatus,
+): UpdateRequestValidationCode | null {
+  if (input.action === "apply") {
+    if (!input.tag) return "UPDATE_TAG_REQUIRED";
+    if (!isTargetVersionNewer(input.tag, status.currentVersion)) return "UPDATE_TARGET_NOT_NEWER";
+  }
+
+  if (input.action === "rollback" && !status.rollback.available) return "ROLLBACK_TARGET_UNAVAILABLE";
+
+  if (input.action === "set_auto_apply") {
+    if (!input.autoApply) return "AUTO_APPLY_POLICY_REQUIRED";
+    if (input.autoApply === status.autoApply) return "AUTO_APPLY_POLICY_UNCHANGED";
+  }
+
+  return null;
+}
+
 export function isUpdateAction(value: unknown): value is UpdateAction {
   return typeof value === "string" && updateActions.includes(value as UpdateAction);
 }
@@ -148,6 +174,24 @@ function normalizeAutoApply(value: unknown): AutoApplyPolicy {
 function releaseUrlFor(version: string | null): string | null {
   if (!version) return null;
   return `https://github.com/AreaSong/AreaForge/releases/tag/${version.startsWith("v") ? version : `v${version}`}`;
+}
+
+function isTargetVersionNewer(targetVersion: string, currentVersion: string): boolean {
+  const target = parseVersionCore(targetVersion);
+  const current = parseVersionCore(currentVersion);
+  if (!target || !current) return false;
+
+  for (let index = 0; index < target.length; index += 1) {
+    if (target[index] > current[index]) return true;
+    if (target[index] < current[index]) return false;
+  }
+  return false;
+}
+
+function parseVersionCore(version: string): [number, number, number] | null {
+  const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
 }
 
 async function hashText(value: string): Promise<string> {

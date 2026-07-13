@@ -46,6 +46,10 @@ try {
   const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/prod-readonly-smoke-validate.ts", generatedRecord], {
     cwd: root,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
+    },
   });
   if (validation.status !== 0) {
     console.error("FAIL generated record validation");
@@ -85,6 +89,10 @@ try {
   const fallbackValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/prod-readonly-smoke-validate.ts", generatedRecord], {
     cwd: root,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
+    },
   });
   if (fallbackValidation.status !== 0) {
     console.error("FAIL fallback-generated record validation");

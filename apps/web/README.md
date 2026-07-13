@@ -58,6 +58,7 @@ pnpm experience:review:validate <product-experience-review-record.md|txt>
 - AI 只生成建议或草稿，不直接覆盖用户记录；普通首页 SSR 不触发真实 provider 外呼。
 - 附件不从 `public/` 暴露，下载必须走鉴权 API。
 - `/api/system/update-requests` 只写入受控请求；真正的更新由服务器侧 update-agent/updater 执行。
+- 更新请求入队前会做本地只读状态校验：同版本或旧版本 `apply`、无回退目标的 `rollback`、未变化的自动策略不会写入 request 文件。
 - 不挂载 `docker.sock`、生产 `.env`、备份目录或签名私钥到 Web runtime。
 
 ## 关键入口

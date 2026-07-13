@@ -40,6 +40,7 @@ const requiredFiles = [
   "docs/development/product-experience-review-v0.1.7-20260712-local.md",
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
+  "docs/development/residual-closure-review-template.md",
   "SECURITY.md",
   "SUPPORT.md",
   "CODE_REVIEW.md",
@@ -48,6 +49,8 @@ const requiredFiles = [
   "scripts/quality/governance-preflight.ts",
   "scripts/quality/ops-readiness-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
+  "scripts/quality/residual-closure-review-validate.ts",
+  "scripts/quality/residual-closure-review-validate.selftest.ts",
   "scripts/quality/product-experience-review-validate.ts",
   "scripts/quality/product-experience-review-validate.selftest.ts",
   "scripts/ops/operational-readiness-summary.ts",
@@ -130,10 +133,12 @@ function main(): void {
   checkHighRiskPackets();
   checkAcceptanceEvidence();
   checkCompletionGateTerms();
+  checkCompletionEvidenceBoundaryTerms();
   checkCompletionScriptGates();
   checkRiskPreflightBatchGuardTerms();
   checkGovernancePreflightTerms();
   checkOpsReadinessTerms();
+  checkCurrentProductionEvidenceBoundary();
   checkPackageDPreflightTerms();
   checkPackageEPreflightTerms();
   checkMasteryProofBasicTraceability();
@@ -298,6 +303,72 @@ function checkCompletionGateTerms(): void {
   });
 }
 
+function checkCompletionEvidenceBoundaryTerms(): void {
+  const checklist = read("docs/development/completion-evidence-checklist.md");
+  const validator = read("scripts/quality/completion-evidence-validate.ts");
+  const selftest = read("scripts/quality/completion-evidence-validate.selftest.ts");
+  const notReadyRecord = read("docs/development/long-term-operability-not-ready-20260711.txt");
+  const docsReadme = read("docs/README.md");
+  const docSync = read("docs/development/doc-sync-checklist.md");
+  const requiredChecklistTerms = [
+    "summary:",
+    "claimScope: source-only/local-runtime/release-artifact/production-live/long-term-operability/mixed",
+    "evidenceUri:",
+    "doesNotProve:",
+    "不能证明",
+    "production health",
+    "long-term operability",
+    "residual closure",
+  ];
+  const requiredValidatorTokens = [
+    "\"summary\"",
+    "\"claimScope\"",
+    "\"evidenceUri\"",
+    "\"doesNotProve\"",
+    "validateEvidenceUri",
+    "validateDoesNotProve",
+    "production health",
+    "long-term-operability PASS requires production evidenceClass",
+    "must not reference secret-bearing paths or names",
+  ];
+  const requiredSelftestTokens = [
+    "unsafe evidence URI fails",
+    "claim scope mismatch fails",
+    "empty does-not-prove boundary fails",
+  ];
+  const requiredRecordTerms = [
+    "summary:",
+    "claimScope: long-term-operability",
+    "evidenceUri:",
+    "doesNotProve:",
+    "result: NOT-READY",
+  ];
+  const requiredEntrypointTerms = [
+    "summary",
+    "claimScope",
+    "evidenceUri",
+    "doesNotProve",
+    "pnpm completion:evidence:validate <record>",
+  ];
+
+  const missing = [
+    ...requiredChecklistTerms.filter((term) => !checklist.includes(term)).map((term) => `checklist:${term}`),
+    ...requiredValidatorTokens.filter((term) => !validator.includes(term)).map((term) => `validator:${term}`),
+    ...requiredSelftestTokens.filter((term) => !selftest.includes(term)).map((term) => `selftest:${term}`),
+    ...requiredRecordTerms.filter((term) => !notReadyRecord.includes(term)).map((term) => `not-ready-record:${term}`),
+    ...requiredEntrypointTerms.filter((term) => !docsReadme.includes(term)).map((term) => `docs-readme:${term}`),
+    ...requiredEntrypointTerms.filter((term) => !docSync.includes(term)).map((term) => `doc-sync:${term}`),
+  ];
+
+  checks.push({
+    name: "completion evidence claim boundary terms",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "completion evidence records require summary, claim scope, evidence URI, does-not-prove boundary, and safe URI validation"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
 function checkCompletionScriptGates(): void {
   const completionScript = read("scripts/quality/docs-100-completion.ts");
   const requiredTokens = [
@@ -385,12 +456,19 @@ function checkGovernancePreflightTerms(): void {
   const dependencyPolicy = read("docs/development/dependency-policy.md");
   const requiredTokens = [
     [packageJson, "\"governance:preflight\": \"tsx scripts/quality/governance-preflight.ts\"", "package.json"],
+    [packageJson, "\"governance:changed-paths\": \"tsx scripts/quality/changed-path-review.ts\"", "package.json"],
+    [packageJson, "\"governance:protected-path-review:validate\": \"tsx scripts/quality/protected-path-review-record-validate.ts\"", "package.json"],
     [ci, "pnpm governance:preflight", ".github/workflows/ci.yml"],
+    [ci, "pnpm governance:changed-paths --base", ".github/workflows/ci.yml"],
+    [ci, "pnpm governance:changed-paths:selftest", ".github/workflows/ci.yml"],
+    [ci, "pnpm governance:protected-path-review:selftest", ".github/workflows/ci.yml"],
     [readme, "pnpm governance:preflight", "README.md"],
     [agents, "docs/development/dependency-policy.md", "AGENTS.md"],
     [validationMatrix, "pnpm governance:preflight", "validation-matrix"],
     [docsReadme, "development/dependency-policy.md", "docs/README.md"],
     [docsReadme, "development/external-capability-admission.md", "docs/README.md"],
+    [docsReadme, "development/governance-boundary-matrix.md", "docs/README.md"],
+    [docsReadme, "development/protected-path-review-record-template.md", "docs/README.md"],
     [readme, "CODE_REVIEW.md", "README.md"],
     [docsReadme, "CODE_REVIEW.md", "docs/README.md"],
     [codeReview, "findings first", "CODE_REVIEW.md"],
@@ -442,6 +520,45 @@ function checkOpsReadinessTerms(): void {
     detail: missing.length === 0
       ? "operating loop, ops readiness, residual IDs, and release hard-gate evidence are present"
       : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkCurrentProductionEvidenceBoundary(): void {
+  const readme = read("README.md");
+  const architectureOverview = read("docs/architecture/overview.md");
+  const workflowReadme = read("workflow/README.md");
+  const workflowV02 = read("workflow/versions/v0.2-first-version-risk-closures.md");
+  const workflowV10 = read("workflow/versions/v1.0-prod-release.md");
+  const completionRecord = read("docs/development/docs-100-completion-record.md");
+  const releaseRecord = read("docs/development/release-v0.1.7-record.md");
+  const controlPlane = read("docs/development/long-term-operability-control-plane.md");
+  const scannedDocs = `${readme}\n${architectureOverview}\n${workflowReadme}\n${workflowV02}\n${workflowV10}\n${completionRecord}\n${controlPlane}`;
+  const requiredBoundaryTerms = [
+    "needs_live_evidence",
+    "post-update OPS-001",
+    "OPS-004",
+    "release evidence backup hash",
+    "root-only backup hash",
+    "长期运营 live gate",
+  ];
+  const forbiddenOverclaims = [
+    "远端签名 Release 更新证据已闭环",
+    "长期运营已闭环",
+    "长期运营证据已闭环",
+  ];
+  const missing = requiredBoundaryTerms.filter((term) => !scannedDocs.includes(term));
+  const forbidden = forbiddenOverclaims.filter((term) => scannedDocs.includes(term));
+  const releaseHasRootOnlyBoundary =
+    releaseRecord.includes("not-copied-root-only-update-record") &&
+    releaseRecord.includes("release evidence validation remains blocked by root-only backup hashes");
+
+  checks.push({
+    name: "current production evidence boundary",
+    ok: missing.length === 0 && forbidden.length === 0 && releaseHasRootOnlyBoundary,
+    detail:
+      missing.length === 0 && forbidden.length === 0 && releaseHasRootOnlyBoundary
+        ? "v0.1.7 docs distinguish production apply/health from long-term live evidence and backup-hash gaps"
+        : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}; release root-only boundary ${releaseHasRootOnlyBoundary ? "present" : "missing"}`,
   });
 }
 

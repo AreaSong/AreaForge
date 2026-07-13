@@ -17,6 +17,11 @@ type EvidenceResult = EvidenceInput & {
   path: string | null;
   status: EvidenceStatus;
   detail: string;
+  freshness?: {
+    status: "fresh" | "stale" | "unknown" | "future";
+    ageSeconds: number | null;
+    maxAgeSeconds: number;
+  };
 };
 
 const evidenceInputs: EvidenceInput[] = [
@@ -142,11 +147,17 @@ function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
     encoding: "utf8",
   });
   if (validation.status === 0) {
+    const freshness = input.key === "productionReadonlySmokeRecord"
+      ? parseSmokeProofFreshness(validation.stdout)
+      : undefined;
     return {
       ...input,
       path: "<redacted path>",
       status: "valid",
-      detail: `${input.label} validator passed`,
+      detail: freshness
+        ? `${input.label} validator passed; smokeProofFreshnessStatus=${freshness.status}; ageSeconds=${freshness.ageSeconds ?? "unknown"}; maxAgeSeconds=${freshness.maxAgeSeconds}`
+        : `${input.label} validator passed`,
+      freshness,
     };
   }
 
@@ -155,6 +166,18 @@ function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
     path: "<redacted path>",
     status: "invalid",
     detail: sanitizeValidationOutput(validation.stderr || validation.stdout || `${input.label} validator failed`),
+  };
+}
+
+function parseSmokeProofFreshness(stdout: string): EvidenceResult["freshness"] {
+  const status = /smokeProofFreshnessStatus:\s*(fresh|stale|unknown|future)/i.exec(stdout)?.[1]?.toLowerCase();
+  const ageRaw = /smokeProofAgeSeconds:\s*(-?\d+|unknown)/i.exec(stdout)?.[1]?.toLowerCase();
+  const maxRaw = /smokeProofMaxAgeSeconds:\s*(\d+)/i.exec(stdout)?.[1];
+  if (!status || !maxRaw) return undefined;
+  return {
+    status: status as "fresh" | "stale" | "unknown" | "future",
+    ageSeconds: ageRaw && ageRaw !== "unknown" ? Number(ageRaw) : null,
+    maxAgeSeconds: Number(maxRaw),
   };
 }
 

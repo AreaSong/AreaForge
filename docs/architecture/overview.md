@@ -62,7 +62,7 @@ packages/ai -> Sub2API / OpenAI compatible API
 - 错题、掌握证明显式记录、动机封存、情绪标签、阶段称号、基础统计、作战地图筛选、周/月报告和结构化模拟考试主路径。
 - `packages/ai` 已提供本地规则 fallback、结构化 schema、OpenAI-compatible JSON provider、mock/外呼测试和敏感上下文拦截。
 - `packages/storage` 已提供附件上传纯规则安全底座，Web 层已完成 noteId 绑定附件上传、私有落盘和鉴权下载。
-- Package E 已完成生产发布、备份、恢复和发布闭环；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 签名更新运行，服务器启用 cosign bundle 校验，Web 版本中心只提交受控请求，root agent 执行更新。
+- Package E 的本机生产发布、备份、恢复和回滚演练已闭环；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 签名更新运行，服务器启用 cosign bundle 校验，Web 版本中心只提交受控请求，root agent 执行更新；当前远端记录证明 apply、health 和 extra-smoke，root-only backup hash、post-update OPS-001/OPS-004 和长期运营 live gate 仍按残余证据处理。
 - 长期运营入口已补齐：release workflow 先验证再发布，stable 签名 fail closed；`v0.1.7` 已生成并校验 SBOM/provenance、checksum、cosign signature 和 GHCR digest 证据，并已记录服务器侧 apply 与公网 health；`operational-readiness.md` 记录只读运营证据模型；`residual-risk-ledger.md` 记录 post-update OPS-001 证据、告警演练、自动策略、签名 Release 复核等残余风险 ID。
 
 尚未完成：

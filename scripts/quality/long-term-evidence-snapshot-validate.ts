@@ -1,5 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { protectedPathFiles } from "../ops/operability-status";
 import {
   readRequiredFile,
   scanForSecrets,
@@ -57,6 +58,12 @@ const requiredDoesNotProve = [
   "backup freshness, restore execution, migration execution, or rollback execution",
   "GitHub Release creation or release asset download",
   "production write smoke safety",
+];
+
+const requiredProtectedPathDoesNotProve = [
+  "production health",
+  "absence of changes outside protected paths",
+  "git worktree cleanliness",
 ];
 
 const falseSafetyFacts = [
@@ -172,6 +179,7 @@ function validateSourceSnapshot(value: unknown, issues: ValidationIssue[]): void
     return;
   }
   requireSha256Value(value.controlPlaneSourceHash, "sourceSnapshot.controlPlaneSourceHash", issues);
+  validateProtectedPathFingerprint(value.protectedPathFingerprint, issues);
   if (!Array.isArray(value.files) || value.files.length === 0) {
     issues.push({ field: "sourceSnapshot.files", message: "must be a non-empty array" });
   }
@@ -180,6 +188,19 @@ function validateSourceSnapshot(value: unknown, issues: ValidationIssue[]): void
   }
   validateEvidencePaths(value.evidencePaths, "sourceSnapshot.evidencePaths", issues);
   validateInputHashes(value.inputHashes, issues);
+}
+
+function validateProtectedPathFingerprint(value: unknown, issues: ValidationIssue[]): void {
+  const field = "sourceSnapshot.protectedPathFingerprint";
+  if (!isRecord(value)) {
+    issues.push({ field, message: "must be an object" });
+    return;
+  }
+  requireValue(value.algorithm, `${field}.algorithm`, "sha256", issues);
+  requireValue(value.scope, `${field}.scope`, "read_only_side_effect_guard_inputs", issues);
+  validateExactStringArray(value.paths, `${field}.paths`, [...protectedPathFiles], issues);
+  requireSha256Value(value.hash, `${field}.hash`, issues);
+  validateArray(value.doesNotProve, `${field}.doesNotProve`, requiredProtectedPathDoesNotProve, issues);
 }
 
 function validateEvidencePaths(value: unknown, field: string, issues: ValidationIssue[]): void {
@@ -254,6 +275,7 @@ function validateChecks(value: unknown, snapshotStatus: unknown, issues: Validat
   if (missing.length > 0) {
     issues.push({ field: "checks", message: `missing required checks: ${missing.join(", ")}` });
   }
+  validateReleaseEvidenceRecordCheck(byKey.get("releaseEvidenceRecord"), issues);
   validateOperationalEvidenceBundleCheck(byKey.get("operationalEvidenceBundle"), issues);
   validateNoGreenwash(byKey, snapshotStatus, issues);
 }
@@ -284,6 +306,19 @@ function validateCheck(check: JsonRecord, prefix: string, issues: ValidationIssu
   }
   if (!isRecord(check.metadata)) {
     issues.push({ field: `${prefix}.metadata`, message: "must be an object" });
+  }
+}
+
+function validateReleaseEvidenceRecordCheck(check: JsonRecord | undefined, issues: ValidationIssue[]): void {
+  if (!check) return;
+  const metadata = isRecord(check.metadata) ? check.metadata : {};
+  for (const key of [
+    "releaseEvidenceBundleHashStatus",
+    "databaseBackupSha256Status",
+    "uploadsBackupSha256Status",
+    "envBackupSha256Status",
+  ]) {
+    requireString(metadata[key], `checks.releaseEvidenceRecord.metadata.${key}`, issues);
   }
 }
 
@@ -367,6 +402,31 @@ function validateArray(value: unknown, field: string, required: string[], issues
   const missing = required.filter((item) => !actual.includes(item));
   if (missing.length > 0) {
     issues.push({ field, message: `missing ${missing.join(", ")}` });
+  }
+}
+
+function validateExactStringArray(value: unknown, field: string, expected: string[], issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) {
+    issues.push({ field, message: "must be an array" });
+    return;
+  }
+  const actual = value.filter((item): item is string => typeof item === "string");
+  if (actual.length !== value.length) {
+    issues.push({ field, message: "must be an array of strings" });
+    return;
+  }
+  const duplicate = actual.find((item, index) => actual.indexOf(item) !== index);
+  if (duplicate) {
+    issues.push({ field, message: `contains duplicate ${duplicate}` });
+    return;
+  }
+  const unexpected = actual.filter((item) => !expected.includes(item));
+  const missing = expected.filter((item) => !actual.includes(item));
+  if (unexpected.length > 0 || missing.length > 0 || actual.length !== expected.length) {
+    issues.push({
+      field,
+      message: `must exactly match protected path set; missing=${missing.join(", ") || "none"} unexpected=${unexpected.join(", ") || "none"}`,
+    });
   }
 }
 

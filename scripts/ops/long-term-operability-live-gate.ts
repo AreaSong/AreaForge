@@ -22,6 +22,7 @@ const defaultUxRecord = "docs/development/product-experience-review-v0.1.7-20260
 const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
 const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
 const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
+const defaultReleaseRecord = "docs/development/release-v0.1.7-record.md";
 const defaultMaxUxAgeDays = 14;
 
 function main(): void {
@@ -55,6 +56,7 @@ function main(): void {
       expectedStatus: "ready_for_sc001_sc002_review",
       residualRiskIds: ["AF-RISK-SC-001", "AF-RISK-SC-002"],
     }),
+    validateReleaseEvidenceRecord(),
     validateFreshUxRecord(),
   ];
 
@@ -70,9 +72,10 @@ function main(): void {
       "AF-RISK-OPS-001 blocked_on_prerequisite records are valid blocker evidence only; they do not satisfy long-term operability",
       "AF-RISK-OPS-004 ready_for_human_close: alert preview plus matching alert/recovery drill record",
       "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: signed Release supply-chain record with SBOM/provenance/checksum/signature and Actions pinning evidence",
+      "Production release evidence record: pnpm release:evidence:validate passes with database, uploads, env backup SHA256 evidence, rollback target, migration result, smoke result, and residual risk fields",
       `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes, appVersion equals ${expectedVersion()}, and reviewedAt is within ${maxUxAgeDays()} days`,
     ],
-    nextCommand: nextCommand(status),
+    nextCommand: nextCommand(status, checks),
     forbiddenActions: [
       "execute_server_command",
       "create_github_release",
@@ -212,6 +215,50 @@ function defaultSupplyChainEvidenceEnv(): Record<string, string> {
   return env;
 }
 
+function validateReleaseEvidenceRecord(): CheckResult {
+  const recordPath = path.resolve(process.env.AREAFORGE_LONG_TERM_RELEASE_RECORD?.trim() || defaultReleaseRecord);
+  const command = `pnpm exec tsx scripts/quality/release-evidence-validate.ts ${redactedPathLabel(recordPath)}`;
+  if (!existsSync(recordPath)) {
+    return {
+      key: "releaseEvidence",
+      label: "production release evidence record",
+      status: "missing",
+      detail: "release evidence record is missing",
+      command,
+      residualRiskIds: ["AF-RISK-REL-001", "AF-RISK-OPS-001"],
+    };
+  }
+
+  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-evidence-validate.ts", recordPath], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+  if (validation.status === 0) {
+    return {
+      key: "releaseEvidence",
+      label: "production release evidence record",
+      status: "pass",
+      detail: "release evidence validator passed",
+      command,
+      residualRiskIds: ["AF-RISK-REL-001", "AF-RISK-OPS-001"],
+    };
+  }
+
+  const detail = sanitizeOutput(validation.stderr || validation.stdout || "release evidence validator failed");
+  return {
+    key: "releaseEvidence",
+    label: "production release evidence record",
+    status: releaseEvidenceFailureIsPotentialSecret(detail) ? "invalid" : "missing",
+    detail,
+    command,
+    residualRiskIds: ["AF-RISK-REL-001", "AF-RISK-OPS-001"],
+  };
+}
+
+function releaseEvidenceFailureIsPotentialSecret(detail: string): boolean {
+  return /\b(secret|token|password|database url|bearer|api key|leak)\b/i.test(detail);
+}
+
 function validateFreshUxRecord(): CheckResult {
   const recordPath = path.resolve(process.env.AREAFORGE_LONG_TERM_UX_RECORD?.trim() || defaultUxRecord);
   const command = `pnpm exec tsx scripts/quality/product-experience-review-validate.ts ${redactedPathLabel(recordPath)}`;
@@ -305,14 +352,28 @@ function gateStatus(checks: CheckResult[]): GateStatus {
   return "ready_for_long_term_operability_review";
 }
 
-function nextCommand(status: GateStatus): string {
+function nextCommand(status: GateStatus, checks: CheckResult[]): string {
   if (status === "ready_for_long_term_operability_review") {
     return "review residual close conditions and update residual ledger only after human approval";
   }
   if (status === "invalid") {
     return "fix invalid evidence or validators, then rerun pnpm ops:long-term:gate";
   }
-  return "collect missing live evidence for OPS-001, OPS-004, signed Release supply chain, or UX freshness, then rerun pnpm ops:long-term:gate";
+  const missing = checks
+    .filter((check) => check.status !== "pass")
+    .map((check) => missingEvidenceLabel(check));
+  return `collect missing live evidence for ${missing.join(", ") || "the remaining checks"}, then rerun pnpm ops:long-term:gate`;
+}
+
+function missingEvidenceLabel(check: CheckResult): string {
+  if (check.key === "ops001") return "OPS-001 production read-only smoke/update-agent evidence";
+  if (check.key === "ops004") return "OPS-004 alert/recovery drill evidence";
+  if (check.key === "supplyChain") return "signed Release supply-chain evidence";
+  if (check.key === "releaseEvidence") {
+    return "production release evidence backup/hash record; under no-secret scope, validate a server-side release evidence redacted export with pnpm release:evidence:redacted-export:validate <redacted-export-dir>";
+  }
+  if (check.key === "uxReview") return "fresh product experience review";
+  return check.label;
 }
 
 function parseJsonFromLog(raw: string): unknown {

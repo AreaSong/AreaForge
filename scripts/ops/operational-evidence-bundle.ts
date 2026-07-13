@@ -108,7 +108,7 @@ async function main(): Promise<void> {
     signalToBundleItem(definition, summary.signals[definition.key]),
   );
   const bundleWithoutHash = {
-    status: bundleStatus(items),
+    status: bundleStatus(items, summary),
     mode: "read_only_operational_evidence_bundle" as const,
     bundleHash: "",
     generatedAt: new Date().toISOString(),
@@ -188,9 +188,11 @@ function itemStatus(status: Status): BundleStatus {
   return "ready";
 }
 
-function bundleStatus(items: EvidenceBundleItem[]): BundleStatus {
+function bundleStatus(items: EvidenceBundleItem[], summary: OperationalReadinessSummary): BundleStatus {
   if (items.some((item) => item.status === "blocked")) return "blocked";
   if (items.some((item) => item.status === "needs_attention")) return "needs_attention";
+  if (summary.overall !== "pass") return "needs_attention";
+  if (summary.freshness.latestEvidenceFreshnessStatus !== "fresh") return "needs_attention";
   return "ready";
 }
 

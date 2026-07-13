@@ -40,9 +40,12 @@ pnpm ops:support:bundle-preview:selftest
 | 入口 | 用途 | 不能证明 |
 |---|---|---|
 | `pnpm ops:support:bundle-preview` | 面向公开支持、自托管用户和维护交接的 metadata-only 预览 | 生产健康、运行信号新鲜、support export |
+| `pnpm ops:backup-restore:preview` | 面向维护交接的备份/恢复证据 metadata-only 清单，含 `blockingGaps` 机器可读缺口 | 备份归档存在、恢复执行、生产 restore 授权 |
 | `pnpm ops:evidence:bundle` | 面向 release/ops/incident 的运行信号证据索引 | 缺失信号健康、生产写入已执行 |
 
 公开 issue、PR 或 support thread 中优先要求用户提供 support bundle preview 的 redacted 校验结果；只有进入 release/update/incident 证据冻结时，才需要 operational evidence bundle。
+
+备份/恢复证据缺口不放进 support bundle preview 里做真假判断；需要讨论备份 hash、root-only 记录、恢复演练记录或 rollback target 时，单独生成 `pnpm ops:backup-restore:preview`，查看其 `blockingGaps`，再用 `pnpm ops:backup-restore:preview:validate` 校验。两个预览都只读、metadata-only，均不能替代真实备份、恢复演练、生产 smoke 或 residual 人工关闭。
 
 ## 校验边界
 

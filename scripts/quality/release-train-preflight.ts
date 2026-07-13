@@ -46,7 +46,12 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/areaforge-updater.sh",
     "ops/update-agent/areaforge-update-agent.sh",
     "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
+    "scripts/ops/generate-release-evidence-record-from-redacted-export.ts",
     "scripts/quality/ops001-readonly-fallback.selftest.ts",
+    "scripts/quality/release-evidence-redacted-export-validate.ts",
+    "scripts/quality/release-evidence-redacted-export.selftest.ts",
+    "scripts/quality/release-evidence-redacted-export-record.selftest.ts",
     "scripts/ops/generate-release-supply-chain-record.ts",
     "scripts/quality/release-supply-chain-validate.ts",
     "scripts/quality/release-supply-chain-record.selftest.ts",
@@ -86,6 +91,8 @@ function checkReleaseTrainDoc(): void {
     "pnpm github-release-updater:preflight",
     "pnpm shellcheck:updater",
     "pnpm ops:ops-001:fallback:selftest",
+    "pnpm release:evidence:redacted-export:selftest",
+    "pnpm release:evidence:redacted-export:record:selftest",
     "pnpm ops:readiness",
     "pnpm ops:long-term:snapshot",
     "pnpm ops:long-term:snapshot:validate",
@@ -132,6 +139,8 @@ function checkReleaseWorkflow(): void {
     "pnpm github-release-updater:preflight",
     "pnpm shellcheck:updater",
     "pnpm ops:ops-001:fallback:selftest",
+    "pnpm release:evidence:redacted-export:selftest",
+    "pnpm release:evidence:redacted-export:record:selftest",
     "pnpm audit:prod",
     "pnpm release:supply-chain:selftest",
     "pnpm release:supply-chain:record:selftest",
@@ -157,15 +166,23 @@ function checkPackageScript(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const script = packageJson.scripts?.["release:train:preflight"] ?? "";
   const releaseSupplyChainRecordSelftestScript = packageJson.scripts?.["release:supply-chain:record:selftest"] ?? "";
+  const redactedExportValidateScript = packageJson.scripts?.["release:evidence:redacted-export:validate"] ?? "";
+  const redactedExportRecordScript = packageJson.scripts?.["release:evidence:redacted-export:record"] ?? "";
+  const redactedExportSelftestScript = packageJson.scripts?.["release:evidence:redacted-export:selftest"] ?? "";
+  const redactedExportRecordSelftestScript = packageJson.scripts?.["release:evidence:redacted-export:record:selftest"] ?? "";
   const sc002PreflightScript = packageJson.scripts?.["sc:sc-002:preflight"] ?? "";
   const sc002PreflightSelftestScript = packageJson.scripts?.["sc:sc-002:preflight:selftest"] ?? "";
   checks.push({
     name: "release train package script",
     ok: script === "tsx scripts/quality/release-train-preflight.ts" &&
       releaseSupplyChainRecordSelftestScript === "tsx scripts/quality/release-supply-chain-record.selftest.ts" &&
+      redactedExportValidateScript === "tsx scripts/quality/release-evidence-redacted-export-validate.ts" &&
+      redactedExportRecordScript === "tsx scripts/ops/generate-release-evidence-record-from-redacted-export.ts" &&
+      redactedExportSelftestScript === "tsx scripts/quality/release-evidence-redacted-export.selftest.ts" &&
+      redactedExportRecordSelftestScript === "tsx scripts/quality/release-evidence-redacted-export-record.selftest.ts" &&
       sc002PreflightScript === "tsx scripts/ops/sc002-supply-chain-preflight.ts" &&
       sc002PreflightSelftestScript === "tsx scripts/quality/sc002-supply-chain-preflight.selftest.ts",
-    detail: `release:train:preflight=${script || "missing"}; release:supply-chain:record:selftest=${releaseSupplyChainRecordSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}`,
+    detail: `release:train:preflight=${script || "missing"}; release:supply-chain:record:selftest=${releaseSupplyChainRecordSelftestScript || "missing"}; release:evidence:redacted-export:validate=${redactedExportValidateScript || "missing"}; release:evidence:redacted-export:record=${redactedExportRecordScript || "missing"}; release:evidence:redacted-export:selftest=${redactedExportSelftestScript || "missing"}; release:evidence:redacted-export:record:selftest=${redactedExportRecordSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}`,
   });
 }
 
@@ -218,6 +235,8 @@ function checkValidationMatrix(): void {
     "pnpm release:train:preflight",
     "pnpm github-release-updater:preflight",
     "pnpm ops:ops-001:fallback:selftest",
+    "pnpm release:evidence:redacted-export:selftest",
+    "pnpm release:evidence:redacted-export:record:selftest",
     "pnpm ops:ops-001:fallback:finalize:selftest",
     "pnpm release:supply-chain:selftest",
     "pnpm ci:supply-chain:selftest",

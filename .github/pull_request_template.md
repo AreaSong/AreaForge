@@ -19,6 +19,13 @@
 
 High-risk areas include auth/session, uploads, AI context, migrations, backups/restores, deployment/update policy, and server command capability.
 
+## Review Tier
+
+- [ ] `routine` - path report and normal source-fact validation reviewed
+- [ ] `protected-path` - governance/release/ops control-plane review evidence linked
+- [ ] `high-risk` - confirmation packet and scoped validation evidence linked
+- [ ] `pnpm governance:changed-paths --summary` output is linked or summarized
+
 ## Validation
 
 - [ ] `pnpm governance:preflight`

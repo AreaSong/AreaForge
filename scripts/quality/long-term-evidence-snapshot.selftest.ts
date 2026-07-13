@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { protectedPathFiles } from "../ops/operability-status";
 import { validateLongTermEvidenceSnapshot } from "./long-term-evidence-snapshot-validate";
 
 type JsonRecord = Record<string, unknown>;
@@ -18,6 +19,24 @@ function main(): void {
   const tampered = { ...readySnapshot, snapshotHash: "0".repeat(64) };
   const tamperedIssues = validateLongTermEvidenceSnapshot(JSON.stringify(tampered, null, 2));
   assert(tamperedIssues.some((issue) => issue.field === "snapshotHash"), "expected tampered hash to fail");
+
+  const badProtectedHash = withHash(withPatch(readySnapshot, (body) => {
+    protectedFingerprint(body).hash = "not-a-hash";
+  }));
+  const badProtectedHashIssues = validateLongTermEvidenceSnapshot(JSON.stringify(badProtectedHash, null, 2));
+  assert(
+    badProtectedHashIssues.some((issue) => issue.field === "sourceSnapshot.protectedPathFingerprint.hash"),
+    "expected bad protected path fingerprint hash to fail",
+  );
+
+  const missingProtectedPath = withHash(withPatch(readySnapshot, (body) => {
+    protectedFingerprint(body).paths = ["README.md"];
+  }));
+  const missingProtectedPathIssues = validateLongTermEvidenceSnapshot(JSON.stringify(missingProtectedPath, null, 2));
+  assert(
+    missingProtectedPathIssues.some((issue) => issue.field === "sourceSnapshot.protectedPathFingerprint.paths"),
+    "expected missing protected path to fail",
+  );
 
   const greenwashed = withHash({
     ...buildSnapshot("ready_for_long_term_operability_review"),
@@ -59,6 +78,7 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
     status,
     sourceSnapshot: {
       controlPlaneSourceHash: "1".repeat(64),
+      protectedPathFingerprint: protectedPathFingerprint(),
       files: [
         "docs/development/long-term-operability-control-plane.md",
         "scripts/ops/long-term-evidence-snapshot.ts",
@@ -135,6 +155,31 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
   };
 }
 
+function protectedPathFingerprint(): JsonRecord {
+  return {
+    algorithm: "sha256",
+    scope: "read_only_side_effect_guard_inputs",
+    paths: [...protectedPathFiles],
+    hash: "9".repeat(64),
+    doesNotProve: [
+      "production health",
+      "absence of changes outside protected paths",
+      "git worktree cleanliness",
+    ],
+  };
+}
+
+function withPatch(snapshot: JsonRecord, patch: (body: JsonRecord) => void): JsonRecord {
+  const cloned = JSON.parse(JSON.stringify(snapshot)) as JsonRecord;
+  patch(cloned);
+  return cloned;
+}
+
+function protectedFingerprint(snapshot: JsonRecord): JsonRecord {
+  const sourceSnapshot = snapshot.sourceSnapshot as JsonRecord;
+  return sourceSnapshot.protectedPathFingerprint as JsonRecord;
+}
+
 function buildChecks(options: {
   ops001Status?: string;
   ops001Actual?: string;
@@ -159,6 +204,7 @@ function buildChecks(options: {
       versionMatch: true,
       metadata: {
         releaseTag: "v0.1.7",
+        releaseEvidenceBundleHashStatus: "valid_sha256",
         databaseBackupSha256Status: "valid_sha256",
         uploadsBackupSha256Status: "valid_sha256",
         envBackupSha256Status: "valid_sha256",

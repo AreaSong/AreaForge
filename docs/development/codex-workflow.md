@@ -60,6 +60,13 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 - 带文件路径和行号。
 - 区分 bug、风险、缺测试、缺文档和开放问题。
 
+### 路径审阅分级
+
+提交、PR 或 dirty worktree 的治理改动先运行 `pnpm governance:changed-paths --summary`。它按已见路径输出
+`routine`、`protected-path` 或 `high-risk`：前两类仍需对应源事实和验证，`high-risk` 只表示必须进入确认包与专项验证检查，
+不等于已经获得确认。涉及现有改动交接时，使用 `docs/development/protected-path-review-record-template.md`
+记录审阅范围、worktree hash、protected-path fingerprint、发现与 claim boundary。
+
 ### Ops / Release
 
 适合生产健康、备份、update-agent、GitHub Release、签名、自动更新策略、回滚目标和长期运营 readiness。
@@ -78,6 +85,22 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 - 主代理必须整合子代理结论，不能直接把子代理输出当最终验收。
 - 子代理不能替代本地验证，也不能替代高风险确认。
 
+子代理任务必须带明确边界：
+
+```text
+scope:
+readOnly:
+allowedPaths:
+forbiddenActions:
+forbiddenData:
+writeSet:
+expectedOutput:
+validationHints:
+mainAgentMustReview:
+```
+
+默认 `forbiddenActions` 至少包含 SSH/生产命令、updater apply、backup/restore、migration、rollback、Docker/Nginx/compose 切换、读取或打印 secrets、提交 secrets、关闭 residual 台账。只读 explorer 不得修改文件；worker 如需改文件，必须有互不重叠的 `writeSet`，且不得回滚他人改动。主代理收口时必须说明采纳了哪些结论、哪些只是建议、哪些仍需本地或 live evidence 验证。
+
 ## 开工前检查
 
 正式改代码前，先检查：
@@ -87,6 +110,26 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 - 是否命中高风险边界。
 - 是否知道最小验证集合。
 - 是否可能影响部署、AI、上传、认证或数据库。
+
+## 失败归因
+
+验证失败时先归因，再修复。不要把所有失败都当成当前补丁 bug，也不要因为某个 validator 通过就扩大完成声明。
+
+优先按以下层级定位：
+
+| 层级 | 常见信号 | 下一步 |
+|---|---|---|
+| 环境 / 依赖 | 缺 Node、pnpm、Docker、数据库、端口或网络 | 记录环境缺口；不要改业务代码掩盖环境问题 |
+| 源事实 / 文档漂移 | README、docs、tasks、workflow、skill 说法冲突 | 先更新源事实，再同步入口和验证矩阵 |
+| Schema / migration | Prisma validate、生成或临时库 migration 失败 | 不执行生产 deploy；先固定 migration 边界和回滚说明 |
+| API / 业务规则 | typecheck、单测、API smoke 失败 | 从最小复现和调用链修复，避免顺手重构 |
+| UI / 体验 | 页面 smoke、截图、移动端布局失败 | 用浏览器证据定位，区分真实体验问题和测试 fixture 问题 |
+| Release / 供应链 | tag、GHCR digest、checksum、signature、SBOM/provenance 失败 | 不创建稳定 Release；先补签名/哈希/不可变 digest 证据 |
+| Ops / live evidence | readiness、OPS-001、OPS-004、long-term gate 失败 | 区分 `needs_live_evidence` 与服务故障；缺证据不等于可本地伪造 |
+| Residual / 完成声明 | residual close、completion evidence、claim scope 失败 | 不关闭台账；补齐 close-condition 证据或保留 blocker |
+| Git / worktree | dirty worktree、diff check、无关文件改动 | 不回滚用户改动；只说明相关改动和验证范围 |
+
+若失败属于“预期失败”，例如 `pnpm ops:long-term:gate` 因缺 post-version OPS-001 或 release backup hash 而返回 `needs_live_evidence`，应在收尾报告中明确写成 blocker evidence，不能改到通过。
 
 ## 功能完成后的发版规则
 

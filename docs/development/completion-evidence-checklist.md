@@ -14,7 +14,7 @@
 pnpm completion:evidence:validate <completion-evidence-record.md|txt>
 ```
 
-该校验只检查记录形态、证据等级、source baseline、新鲜验证、未验证边界、阻断项、Release 需求、R0-R4 写边界、residual 和 safety facts。它不替代真实运行、浏览器、Release、生产 smoke、`pnpm ops:long-term:gate` 或人工复核。
+该校验只检查记录形态、摘要、声明范围、证据位置、证据等级、source baseline、新鲜验证、未验证边界、阻断项、Release 需求、R0-R4 写边界、不能证明项、residual 和 safety facts。它不替代真实运行、浏览器、Release、生产 smoke、`pnpm ops:long-term:gate` 或人工复核。
 
 ## 完成声明字段
 
@@ -22,7 +22,10 @@ pnpm completion:evidence:validate <completion-evidence-record.md|txt>
 
 ```text
 scope:
+summary:
 evidenceClass: source/runtime/release/production/docs-only/local-smoke/browser-review
+claimScope: source-only/local-runtime/release-artifact/production-live/long-term-operability/mixed
+evidenceUri:
 sourceBaseline:
   sourceDocs:
   sourceHashOrCommit:
@@ -43,6 +46,7 @@ residualRiskIds:
 releaseRequired: yes/no/not-applicable
 highestRuntimeWriteBoundary: R0/R1/R2/R3/R4
 highRiskConfirmation: yes/no/not-applicable
+doesNotProve:
 result: PASS/FAIL/BLOCKED/NOT-READY
 safetyFacts:
   productionTouched: yes/no
@@ -65,6 +69,19 @@ safetyFacts:
 | `runtime` | 当前环境实际行为 | Release 资产可信 |
 | `release` | tag、资产、签名、digest、记录 | 生产已经更新 |
 | `production` | 线上当前健康或更新证据 | 未覆盖路径自动健康 |
+
+## 声明范围
+
+| 范围 | 用途 |
+|---|---|
+| `source-only` | 只声明文档、脚本或源事实结构完成 |
+| `local-runtime` | 声明本地 runtime、fixture、浏览器或 smoke 结果 |
+| `release-artifact` | 声明 GitHub Release、签名、digest、SBOM 或 provenance 证据 |
+| `production-live` | 声明线上只读健康、updater status、smoke 或生产更新证据 |
+| `long-term-operability` | 声明长期运营完成或未完成边界 |
+| `mixed` | 多类证据组合，但仍必须逐项写清不能证明什么 |
+
+`evidenceUri` 只能写仓库相对路径、HTTPS URL 或 `sha256:<64 hex>` 摘要，不写服务器绝对路径、`.env`、密钥文件、密码文件、token、私钥或生产原始日志路径。`doesNotProve` 必须列出当前记录不能证明的边界；例如缺生产证据时写 `production health`，缺 Release 证据时写 `release`，长期运营未闭环时写 `long-term operability` 和 `residual closure`。
 
 ## 不可替代规则
 

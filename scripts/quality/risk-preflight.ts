@@ -1572,9 +1572,21 @@ function checkProductionCompose(): void {
   const allowedReadOnlyOpsRecordScripts = new Set([
     "restore:drill:validate",
     "restore:drill:selftest",
+    "ops:backup-restore:preview",
+    "ops:backup-restore:preview:validate",
+    "ops:backup-restore:preview:selftest",
   ]);
   const forbiddenScripts = Object.entries(packageJson.scripts ?? {}).flatMap(([name, command]) => {
     if (allowedReadOnlyOpsRecordScripts.has(name) && command.includes("scripts/quality/restore-drill-validate")) {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview" && command === "tsx scripts/ops/backup-restore-preview.ts") {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview:validate" && command === "tsx scripts/quality/backup-restore-preview-validate.ts") {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview:selftest" && command === "tsx scripts/quality/backup-restore-preview.selftest.ts") {
       return [];
     }
     return scriptForbiddenPatterns

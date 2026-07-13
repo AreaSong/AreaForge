@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { buildOperabilityStatusProjection, type OperabilityStatusProjection } from "./operability-status";
 
-type FocusKind = "execute_now" | "review_due" | "release_evidence" | "track";
+type FocusKind = "current_blocker" | "execute_now" | "review_due" | "release_evidence" | "track";
 
 export type OperationalHandoff = {
   schemaVersion: 1;
@@ -17,6 +17,7 @@ export type OperationalHandoff = {
   source: {
     statusProjection: "pnpm ops:status";
     controlPlaneSourceHash: string;
+    protectedPathFingerprint: OperabilityStatusProjection["sourceSnapshot"]["protectedPathFingerprint"];
     residualLedger: string;
     authoritativeDocs: string[];
   };
@@ -25,6 +26,9 @@ export type OperationalHandoff = {
     cannotClaim: string[];
   };
   evidenceFocus: {
+    currentBlockers: FocusItem[];
+    boundaryStops: OperabilityStatusProjection["boundaryStops"];
+    releaseEvidenceGaps: OperabilityStatusProjection["releaseEvidenceGaps"];
     immediate: FocusItem[];
     dueOrSoon: FocusItem[];
     releaseRelevantIds: string[];
@@ -48,6 +52,9 @@ export type OperationalHandoffSummary = {
   offlineOverall: OperationalHandoff["status"]["offlineOverall"];
   controlPlane: OperationalHandoff["status"]["controlPlane"];
   releaseTrain: OperationalHandoff["status"]["releaseTrain"];
+  currentBlockers: string[];
+  boundaryStops: string[];
+  releaseEvidenceGaps: string[];
   immediateFocus: string[];
   dueOrSoonFocus: string[];
   releaseRelevantResiduals: string[];
@@ -57,7 +64,13 @@ export type OperationalHandoffSummary = {
   highRiskBoundaries: string[];
   safetyFacts: Pick<
     OperationalHandoff["safetyFacts"],
-    "readOnly" | "networkRequested" | "serverCommandAttempted" | "productionWriteAttempted" | "secretValuePrinted" | "handoffWritten"
+    | "readOnly"
+    | "networkRequested"
+    | "serverCommandAttempted"
+    | "productionWriteAttempted"
+    | "protectedPathWriteAttempted"
+      | "secretValuePrinted"
+      | "handoffWritten"
   >;
 };
 
@@ -79,9 +92,13 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
   const projection = buildOperabilityStatusProjection(options);
   const executableIds = new Set(projection.residuals.executableNowItems.map((item) => item.id));
   const dueIds = new Set(projection.residuals.dueItems.map((item) => item.id));
+  const currentBlockerIds = new Set(projection.residuals.dueItems
+    .filter((item) => item.type === "current-blocker")
+    .map((item) => item.id));
   const releaseRelevantIds = new Set(projection.residuals.releaseRelevantIds);
   const focusItems = projection.nextActions.map((action) => toFocusItem({
     action,
+    currentBlockerIds,
     executableIds,
     dueIds,
     releaseRelevantIds,
@@ -101,6 +118,7 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
     source: {
       statusProjection: "pnpm ops:status",
       controlPlaneSourceHash: projection.sourceSnapshot.controlPlaneSourceHash,
+      protectedPathFingerprint: projection.sourceSnapshot.protectedPathFingerprint,
       residualLedger: projection.residuals.source,
       authoritativeDocs: [
         "docs/development/long-term-operability-control-plane.md",
@@ -113,8 +131,11 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
     claimBoundary: buildClaimBoundary(projection),
     doesNotProve: buildDoesNotProve(projection),
     evidenceFocus: {
+      currentBlockers: focusItems.filter((item) => item.kind === "current_blocker"),
+      boundaryStops: projection.boundaryStops,
+      releaseEvidenceGaps: projection.releaseEvidenceGaps,
       immediate: focusItems.filter((item) => item.kind === "execute_now"),
-      dueOrSoon: focusItems.filter((item) => item.kind !== "execute_now"),
+      dueOrSoon: focusItems.filter((item) => item.kind !== "execute_now" && item.kind !== "current_blocker"),
       releaseRelevantIds: projection.residuals.releaseRelevantIds,
     },
     nextCommands: buildNextCommands(projection),
@@ -123,6 +144,7 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
       "Web runtime update requests are not updater apply evidence.",
       "Release readiness still needs signed assets, immutable digests, smoke evidence, rollback target, and residual-risk review.",
       "Residual risks close only with their close-condition evidence.",
+      "Secrets must not be read, printed, copied, or committed unless a future confirmation explicitly authorizes that exact evidence path.",
     ],
     safetyFacts: {
       ...projection.safetyFacts,
@@ -138,6 +160,10 @@ export function buildOperationalHandoffSummary(handoff: OperationalHandoff): Ope
     offlineOverall: handoff.status.offlineOverall,
     controlPlane: handoff.status.controlPlane,
     releaseTrain: handoff.status.releaseTrain,
+    currentBlockers: handoff.evidenceFocus.currentBlockers.map(toSummaryFocus),
+    boundaryStops: handoff.evidenceFocus.boundaryStops.map(toSummaryBoundaryStop),
+    releaseEvidenceGaps: handoff.evidenceFocus.releaseEvidenceGaps.blockingGaps
+      .map((gap) => `${gap.key} ${gap.status} ${gap.gapType} blocks=${gap.blocks.join(",")}`),
     immediateFocus: handoff.evidenceFocus.immediate.map(toSummaryFocus),
     dueOrSoonFocus: handoff.evidenceFocus.dueOrSoon.map(toSummaryFocus),
     releaseRelevantResiduals: handoff.evidenceFocus.releaseRelevantIds,
@@ -150,6 +176,7 @@ export function buildOperationalHandoffSummary(handoff: OperationalHandoff): Ope
       networkRequested: handoff.safetyFacts.networkRequested,
       serverCommandAttempted: handoff.safetyFacts.serverCommandAttempted,
       productionWriteAttempted: handoff.safetyFacts.productionWriteAttempted,
+      protectedPathWriteAttempted: handoff.safetyFacts.protectedPathWriteAttempted,
       secretValuePrinted: handoff.safetyFacts.secretValuePrinted,
       handoffWritten: handoff.safetyFacts.handoffWritten,
     },
@@ -163,6 +190,9 @@ export function formatOperationalHandoffSummary(summary: OperationalHandoffSumma
     `offlineOverall: ${summary.offlineOverall}`,
     `controlPlane: ${summary.controlPlane}`,
     `releaseTrain: ${summary.releaseTrain}`,
+    listBlock("currentBlockers", summary.currentBlockers),
+    listBlock("boundaryStops", summary.boundaryStops),
+    listBlock("releaseEvidenceGaps", summary.releaseEvidenceGaps),
     listBlock("immediateFocus", summary.immediateFocus),
     listBlock("dueOrSoonFocus", summary.dueOrSoonFocus),
     listBlock("releaseRelevantResiduals", summary.releaseRelevantResiduals),
@@ -170,7 +200,7 @@ export function formatOperationalHandoffSummary(summary: OperationalHandoffSumma
     listBlock("nextLiveEvidenceCommands", summary.nextLiveEvidenceCommands),
     listBlock("cannotClaim", summary.cannotClaim),
     listBlock("highRiskBoundaries", summary.highRiskBoundaries),
-    `safetyFacts: readOnly=${summary.safetyFacts.readOnly} networkRequested=${summary.safetyFacts.networkRequested} serverCommandAttempted=${summary.safetyFacts.serverCommandAttempted} productionWriteAttempted=${summary.safetyFacts.productionWriteAttempted} secretValuePrinted=${summary.safetyFacts.secretValuePrinted} handoffWritten=${summary.safetyFacts.handoffWritten}`,
+    `safetyFacts: readOnly=${summary.safetyFacts.readOnly} networkRequested=${summary.safetyFacts.networkRequested} serverCommandAttempted=${summary.safetyFacts.serverCommandAttempted} productionWriteAttempted=${summary.safetyFacts.productionWriteAttempted} protectedPathWriteAttempted=${summary.safetyFacts.protectedPathWriteAttempted} secretValuePrinted=${summary.safetyFacts.secretValuePrinted} handoffWritten=${summary.safetyFacts.handoffWritten}`,
   ].join("\n");
 }
 
@@ -184,6 +214,10 @@ function buildDoesNotProve(projection: OperabilityStatusProjection): string[] {
 
 function toSummaryFocus(item: FocusItem): string {
   return `${item.residualRiskId} kind=${item.kind} owners=${item.ownerSkills.join(",")}`;
+}
+
+function toSummaryBoundaryStop(stop: OperabilityStatusProjection["boundaryStops"][number]): string {
+  return `${stop.key}: ${stop.evidence}; blockedBy=${stop.currentBoundary.join(",")}`;
 }
 
 function listBlock(label: string, values: string[]): string {
@@ -203,13 +237,20 @@ function toSummaryCommand(command: string): string {
 
 function toFocusItem(input: {
   action: OperabilityStatusProjection["nextActions"][number];
+  currentBlockerIds: Set<string>;
   executableIds: Set<string>;
   dueIds: Set<string>;
   releaseRelevantIds: Set<string>;
 }): FocusItem {
   return {
     residualRiskId: input.action.residualRiskId,
-    kind: focusKind(input.action.residualRiskId, input.executableIds, input.dueIds, input.releaseRelevantIds),
+    kind: focusKind(
+      input.action.residualRiskId,
+      input.currentBlockerIds,
+      input.executableIds,
+      input.dueIds,
+      input.releaseRelevantIds,
+    ),
     ownerSkills: input.action.ownerSkills,
     reason: input.action.reason,
     requiredEvidence: input.action.requiredEvidence,
@@ -218,10 +259,12 @@ function toFocusItem(input: {
 
 function focusKind(
   residualRiskId: string,
+  currentBlockerIds: Set<string>,
   executableIds: Set<string>,
   dueIds: Set<string>,
   releaseRelevantIds: Set<string>,
 ): FocusKind {
+  if (currentBlockerIds.has(residualRiskId)) return "current_blocker";
   if (executableIds.has(residualRiskId)) return "execute_now";
   if (dueIds.has(residualRiskId)) return "review_due";
   if (releaseRelevantIds.has(residualRiskId)) return "release_evidence";
@@ -239,6 +282,7 @@ function buildClaimBoundary(projection: OperabilityStatusProjection): Operationa
     "updater apply completion from Web update requests or offline projection",
     "auto-apply enablement while AREAFORGE_AUTO_APPLY remains none",
     "residual risk closure without close-condition evidence",
+    "post-update OPS-001 closure or release evidence bundle/backup hashes under a no-server/no-secret boundary",
   ];
 
   if (projection.status.controlPlane !== "pass") {
@@ -252,14 +296,23 @@ function buildNextCommands(projection: OperabilityStatusProjection): Operational
   return {
     handoff: [
       "pnpm ops:handoff",
+      "pnpm ops:handoff:validate <operational-handoff.json>",
       "pnpm ops:status",
+      "pnpm ops:status:validate <operability-status.json>",
       "pnpm ops:support:bundle-preview",
       "pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>",
+      "pnpm ops:backup-restore:preview",
+      "pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>",
       "pnpm residuals:review-due",
+      "pnpm residuals:evidence:preflight",
+      "pnpm residuals:closure:validate <residual-closure-review-record>",
     ],
     liveEvidence: [
       "pnpm ops:ops-001:preflight",
       "AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=<manifest> pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> <output-dir>",
+      "pnpm ops:backup-restore:preview",
+      "pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>",
+      "pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
       "pnpm ops:readiness:summary",
       "pnpm ops:evidence:bundle",
       "pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>",
@@ -268,6 +321,8 @@ function buildNextCommands(projection: OperabilityStatusProjection): Operational
       "pnpm ops:alert:preview",
       "pnpm maintenance:window:record",
       "pnpm maintenance:window:validate <maintenance-window-record.md|txt>",
+      "pnpm residuals:evidence:preflight",
+      "pnpm residuals:closure:validate <residual-closure-review-record>",
       "pnpm smoke:prod-readonly:config",
       "pnpm smoke:prod-readonly",
     ],

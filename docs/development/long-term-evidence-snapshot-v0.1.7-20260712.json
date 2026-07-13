@@ -1,15 +1,37 @@
 {
   "schemaVersion": 1,
   "mode": "read_only_long_term_evidence_snapshot",
-  "generatedAt": "2026-07-12T13:14:59.812Z",
-  "snapshotHash": "e08716373ffec0817ab261b0c9d6b8247597d2ab56426a80a69875f46f2988f3",
+  "generatedAt": "2026-07-13T04:39:29.948Z",
+  "snapshotHash": "464898eef936918012e40ccec8c55fab9b86f3a3c256631b2219d0ec7e981dc7",
   "expectedVersion": "0.1.7",
   "releaseTag": "v0.1.7",
   "packageVersion": "0.1.7",
   "scope": "long_term_operability_current_checkout",
   "status": "needs_live_evidence",
   "sourceSnapshot": {
-    "controlPlaneSourceHash": "4ff4c019982f98ecc6e52d5dcf3b53a4b80dc7978448e0116d27d1e06a123450",
+    "controlPlaneSourceHash": "548d2e50f008a5107aa49ad958228a164dc28439cda7a250abb5f5570a2fae97",
+    "protectedPathFingerprint": {
+      "algorithm": "sha256",
+      "scope": "read_only_side_effect_guard_inputs",
+      "paths": [
+        "README.md",
+        "package.json",
+        "docs/development/long-term-operability-control-plane.md",
+        "docs/development/operational-readiness.md",
+        "docs/development/release-v0.1.7-record.md",
+        "docs/development/residual-risk-ledger.md",
+        "docs/development/residual-risk-ledger.json",
+        "docs/development/validation-matrix.md",
+        "tasks/indexes/residuals.md",
+        "workflow/README.md"
+      ],
+      "hash": "55233fed55e5ca939b3ab2e0e1ffc24277d1a4480ce2bee51cb1a34733b21328",
+      "doesNotProve": [
+        "production health",
+        "absence of changes outside protected paths",
+        "git worktree cleanliness"
+      ]
+    },
     "files": [
       "package.json",
       "README.md",
@@ -18,6 +40,7 @@
       "docs/development/maintenance-cadence.md",
       "docs/development/maintenance-window-record-template.md",
       "docs/development/operational-readiness.md",
+      "docs/development/release-v0.1.7-record.md",
       "docs/development/support-bundle-preview.md",
       "docs/development/residual-risk-ledger.md",
       "docs/development/residual-risk-ledger.json",
@@ -29,12 +52,23 @@
       ".codex/skills-src/areaforge-observability/SKILL.md",
       ".codex/skills-src/areaforge-residual-ledger/SKILL.md",
       "scripts/ops/operability-status.ts",
+      "scripts/quality/operability-status-validate.ts",
+      "scripts/quality/operability-status-validate.selftest.ts",
       "scripts/ops/operational-handoff.ts",
+      "scripts/quality/operational-handoff-validate.ts",
+      "scripts/quality/operational-handoff-validate.selftest.ts",
       "scripts/ops/long-term-operability-live-gate.ts",
       "scripts/ops/long-term-evidence-snapshot.ts",
+      "scripts/quality/ops-readonly-side-effect.selftest.ts",
       "scripts/ops/operational-readiness-summary.ts",
       "scripts/ops/operational-evidence-bundle.ts",
       "scripts/ops/support-bundle-preview.ts",
+      "scripts/ops/backup-restore-preview.ts",
+      "scripts/quality/backup-restore-preview-validate.ts",
+      "scripts/quality/backup-restore-preview.selftest.ts",
+      "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
+      "scripts/quality/release-evidence-redacted-export-validate.ts",
+      "scripts/quality/release-evidence-redacted-export.selftest.ts",
       "scripts/ops/ops001-evidence-preflight.ts",
       "scripts/ops/ops004-alert-evidence-preflight.ts",
       "scripts/ops/sc002-supply-chain-preflight.ts",
@@ -43,6 +77,11 @@
       "scripts/ops/generate-maintenance-window-record.ts",
       "scripts/quality/enterprise-operability-preflight.ts",
       "scripts/quality/residual-ledger-validate.ts",
+      "scripts/quality/residual-evidence-preflight.ts",
+      "scripts/quality/residual-evidence-preflight.selftest.ts",
+      "docs/development/residual-closure-review-template.md",
+      "scripts/quality/residual-closure-review-validate.ts",
+      "scripts/quality/residual-closure-review-validate.selftest.ts",
       "scripts/quality/operational-handoff.selftest.ts",
       "scripts/quality/long-term-operability-live-gate.selftest.ts",
       "scripts/quality/long-term-evidence-snapshot-validate.ts",
@@ -104,15 +143,15 @@
         "key": "ops004AlertDrillRecord",
         "pathLabel": "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt",
         "configured": true,
-        "exists": false,
-        "sha256": null
+        "exists": true,
+        "sha256": "sha256:feb0427f152b6e5faf11b97a92348cfcb71c219838f1aba624bb5f98763db75a"
       },
       {
         "key": "releaseEvidenceRecord",
         "pathLabel": "docs/development/release-v0.1.7-record.md",
         "configured": true,
         "exists": true,
-        "sha256": "sha256:30da8b0f3ed58d51b0ff7de63e2ff15cdfdf8d4a7a67239d736b11d37d917efd"
+        "sha256": "sha256:4d87eb8e72922af8f0fb18c678b8c1292d99a793487ae0d58dffd51aeb8592ab"
       },
       {
         "key": "releaseSupplyChainRecord",
@@ -148,9 +187,14 @@
         "sha256": "sha256:9b4cb9418b06d81269f8c02f5fbe4778b411e8e84ac41f6fb1abb3af8401d4d6"
       },
       {
+        "key": "ops004AlertDrillRecord",
+        "pathLabel": "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt",
+        "sha256": "sha256:feb0427f152b6e5faf11b97a92348cfcb71c219838f1aba624bb5f98763db75a"
+      },
+      {
         "key": "releaseEvidenceRecord",
         "pathLabel": "docs/development/release-v0.1.7-record.md",
-        "sha256": "sha256:30da8b0f3ed58d51b0ff7de63e2ff15cdfdf8d4a7a67239d736b11d37d917efd"
+        "sha256": "sha256:4d87eb8e72922af8f0fb18c678b8c1292d99a793487ae0d58dffd51aeb8592ab"
       },
       {
         "key": "releaseSupplyChainRecord",
@@ -177,7 +221,7 @@
       "actualStatus": "pass",
       "expectedStatus": "pass",
       "validatorCommand": "pnpm exec tsx scripts/quality/enterprise-operability-preflight.ts",
-      "evidenceHash": "sha256:4ff4c019982f98ecc6e52d5dcf3b53a4b80dc7978448e0116d27d1e06a123450",
+      "evidenceHash": "sha256:548d2e50f008a5107aa49ad958228a164dc28439cda7a250abb5f5570a2fae97",
       "residualRiskIds": [],
       "freshness": {
         "source": "current checkout"
@@ -190,7 +234,7 @@
         "residual ledger closure"
       ],
       "metadata": {
-        "controlPlaneSourceHash": "4ff4c019982f98ecc6e52d5dcf3b53a4b80dc7978448e0116d27d1e06a123450"
+        "controlPlaneSourceHash": "548d2e50f008a5107aa49ad958228a164dc28439cda7a250abb5f5570a2fae97"
       }
     },
     {
@@ -200,7 +244,7 @@
       "actualStatus": "needs_evidence",
       "expectedStatus": "ready_for_human_close",
       "validatorCommand": "pnpm exec tsx scripts/ops/ops001-evidence-preflight.ts",
-      "evidenceHash": "sha256:5826d5ab8b2a2f72dc901ed53d4fa388d794c6a956d474b7b5db304254156a35",
+      "evidenceHash": "sha256:0bebb3b7837a633789ca9d5a0bd5c5a363167a174367b9a140b1a1ef6ab2a23c",
       "residualRiskIds": [
         "AF-RISK-OPS-001"
       ],
@@ -222,11 +266,11 @@
     {
       "key": "ops004",
       "label": "OPS-004 alert and recovery drill evidence",
-      "status": "needs_live_evidence",
-      "actualStatus": "ready_to_generate_record",
+      "status": "pass",
+      "actualStatus": "ready_for_human_close",
       "expectedStatus": "ready_for_human_close",
       "validatorCommand": "pnpm exec tsx scripts/ops/ops004-alert-evidence-preflight.ts",
-      "evidenceHash": "sha256:0b3f3407060ccffe9a346d66b09d833cda754d17662e497005398c35d0f78c60",
+      "evidenceHash": "sha256:31f07d9e48b66b3430dae709ee63de60daeb5b6c132b8d91316dcc9df081fc6b",
       "residualRiskIds": [
         "AF-RISK-OPS-004"
       ],
@@ -242,7 +286,7 @@
       ],
       "metadata": {
         "preflightMode": "read_only_ops004_alert_evidence_preflight",
-        "nextCommand": "pnpm alert:drill:record <ops-alert-preview.json> > <alert-drill-record.txt>"
+        "nextCommand": "review AF-RISK-OPS-004 close condition and update residual ledger only after human approval"
       }
     },
     {
@@ -252,7 +296,7 @@
       "actualStatus": "validation_failed",
       "expectedStatus": "pass",
       "validatorCommand": "pnpm exec tsx scripts/quality/release-evidence-validate.ts release-v0.1.7-record.md",
-      "evidenceHash": "sha256:30da8b0f3ed58d51b0ff7de63e2ff15cdfdf8d4a7a67239d736b11d37d917efd",
+      "evidenceHash": "sha256:4d87eb8e72922af8f0fb18c678b8c1292d99a793487ae0d58dffd51aeb8592ab",
       "residualRiskIds": [
         "AF-RISK-OPS-001",
         "AF-RISK-OPS-002",
@@ -282,10 +326,11 @@
         "postReleaseTaskTimerReview": "FAIL",
         "postReleaseAttachmentSmoke": "FAIL",
         "postReleaseAiFallbackOrProvider": "FAIL",
+        "releaseEvidenceBundleHashStatus": "not_copied_root_only",
         "databaseBackupSha256Status": "not_copied_root_only",
         "uploadsBackupSha256Status": "not_copied_root_only",
         "envBackupSha256Status": "not_copied_root_only",
-        "validatorDetail": "FAIL databaseBackupSha256: must be a 64-character sha256 hex digest FAIL uploadsBackupSha256: must be a 64-character sha256 hex digest FAIL envBackupSha256: must be a 64-character sha256 hex digest release evidence validation failed: 3 issue(s)."
+        "validatorDetail": "FAIL releaseEvidenceBundleHash: must be a 64-character sha256 hex digest with optional sha256: prefix FAIL databaseBackupSha256: must be a 64-character sha256 hex digest FAIL uploadsBackupSha256: must be a 64-character sha256 hex digest FAIL envBackupSha256: must be a 64-character sha256 hex digest release evidence validation failed: 4 issue(s)."
       }
     },
     {
@@ -333,7 +378,7 @@
       ],
       "freshness": {
         "reviewedAt": "2026-07-12T12:08:17Z",
-        "ageDays": 0.05,
+        "ageDays": 0.69,
         "maxAgeDays": 14,
         "status": "fresh"
       },

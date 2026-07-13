@@ -11,26 +11,42 @@ try {
   const invalidSecretRecord = path.join(tempDir, "prod-readonly-smoke-secret.txt");
   const invalidMissingCheckRecord = path.join(tempDir, "prod-readonly-smoke-missing-check.txt");
   const invalidWriteRecord = path.join(tempDir, "prod-readonly-smoke-write.txt");
+  const invalidStaleRecord = path.join(tempDir, "prod-readonly-smoke-stale.txt");
 
   writeFileSync(validRecord, createRecord());
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: AREAFORGE_SMOKE_PASSWORD=super-secret-value\n`);
   writeFileSync(invalidMissingCheckRecord, createRecord().replace(",update-status", ""));
   writeFileSync(invalidWriteRecord, createRecord().replace("productionWriteAttempted: no", "productionWriteAttempted: yes"));
+  writeFileSync(invalidStaleRecord, createRecord());
 
   expectExit("valid production readonly smoke record passes", [validRecord], 0, "prodReadonlySmokeEvidenceHash: sha256:");
   expectExit("secret-like values fail", [invalidSecretRecord], 1);
   expectExit("missing required smoke check fails", [invalidMissingCheckRecord], 1);
   expectExit("production write safety violation fails", [invalidWriteRecord], 1);
+  expectExit("stale smoke proof fails", [invalidStaleRecord], 1, undefined, {
+    AREAFORGE_SMOKE_PROOF_NOW: "2026-07-12T14:20:01.000Z",
+  });
 
   console.log("production readonly smoke validator selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });
 }
 
-function expectExit(label: string, args: string[], expectedStatus: number, expectedStdout?: string): void {
+function expectExit(
+  label: string,
+  args: string[],
+  expectedStatus: number,
+  expectedStdout?: string,
+  extraEnv: Record<string, string> = {},
+): void {
   const result = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/prod-readonly-smoke-validate.ts", ...args], {
     cwd: root,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
+      ...extraEnv,
+    },
   });
   if (result.status !== expectedStatus) {
     console.error(`FAIL ${label}: expected exit ${expectedStatus}, got ${result.status}`);

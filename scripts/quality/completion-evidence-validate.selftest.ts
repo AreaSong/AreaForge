@@ -17,6 +17,9 @@ try {
   const invalidHighRiskBoundaryRecord = path.join(tempDir, "completion-high-risk-boundary.txt");
   const invalidDocsOnlyReleaseRecord = path.join(tempDir, "completion-docs-only-release.txt");
   const invalidTimestampRecord = path.join(tempDir, "completion-timestamp.txt");
+  const invalidEvidenceUriRecord = path.join(tempDir, "completion-evidence-uri.txt");
+  const invalidClaimScopeRecord = path.join(tempDir, "completion-claim-scope.txt");
+  const invalidDoesNotProveRecord = path.join(tempDir, "completion-does-not-prove.txt");
 
   writeFileSync(validRecord, createRecord());
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: DATABASE_URL=postgresql://user:pass@example/db\n`);
@@ -38,6 +41,12 @@ try {
     .replace("highRiskConfirmation: not-applicable", "highRiskConfirmation: yes"));
   writeFileSync(invalidTimestampRecord, createRecord()
     .replace("  checkedAt: 2026-07-11T06:30:00+08:00", "  checkedAt: 2026-07-11"));
+  writeFileSync(invalidEvidenceUriRecord, createRecord()
+    .replace("evidenceUri: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md", "evidenceUri: /etc/areaforge/updater.env"));
+  writeFileSync(invalidClaimScopeRecord, createRecord()
+    .replace("claimScope: source-only", "claimScope: production-live"));
+  writeFileSync(invalidDoesNotProveRecord, createRecord()
+    .replace("doesNotProve: production health, runtime behavior, Release artifact trust, long-term live gates", "doesNotProve: none"));
 
   expectExit("valid completion evidence record passes", [validRecord], 0, "completionEvidenceHash: sha256:");
   expectExit("secret-like values fail", [invalidSecretRecord], 1);
@@ -49,6 +58,9 @@ try {
   expectExit("high-risk flag without R4 fails", [invalidHighRiskBoundaryRecord], 1);
   expectExit("docs-only with release action fails", [invalidDocsOnlyReleaseRecord], 1);
   expectExit("date-only checkedAt fails", [invalidTimestampRecord], 1);
+  expectExit("unsafe evidence URI fails", [invalidEvidenceUriRecord], 1);
+  expectExit("claim scope mismatch fails", [invalidClaimScopeRecord], 1);
+  expectExit("empty does-not-prove boundary fails", [invalidDoesNotProveRecord], 1);
 
   console.log("completion evidence validator selftest passed.");
 } finally {
@@ -77,7 +89,10 @@ function expectExit(label: string, args: string[], expectedStatus: number, expec
 function createRecord(): string {
   return [
     "scope: docs-only enterprise completion evidence validator",
+    "summary: Completion evidence validator docs-only fixture with explicit claim boundary",
     "evidenceClass: docs-only",
+    "claimScope: source-only",
+    "evidenceUri: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md",
     "sourceBaseline:",
     "  sourceDocs: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md",
     "  sourceHashOrCommit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -98,6 +113,7 @@ function createRecord(): string {
     "releaseRequired: no",
     "highestRuntimeWriteBoundary: R0",
     "highRiskConfirmation: not-applicable",
+    "doesNotProve: production health, runtime behavior, Release artifact trust, long-term live gates",
     "result: PASS",
     "safetyFacts:",
     "  productionTouched: no",

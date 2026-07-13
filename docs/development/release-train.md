@@ -50,6 +50,8 @@ pnpm governance:preflight
 pnpm github-release-updater:preflight
 pnpm shellcheck:updater
 pnpm ops:ops-001:fallback:selftest
+pnpm release:evidence:redacted-export:selftest
+pnpm release:evidence:redacted-export:record:selftest
 pnpm ops:readiness
 pnpm ops:status
 pnpm ops:evidence:bundle:selftest
@@ -92,6 +94,16 @@ pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>
 ```bash
 pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]
 ```
+
+如果生产主机只允许导出 redacted release evidence，先校验导出目录，再生成 release record 修订稿：
+
+```bash
+pnpm release:evidence:redacted-export:validate <redacted-export-dir>
+pnpm release:evidence:redacted-export:record <redacted-export-dir> <release-record.md> <draft-release-record.md>
+pnpm release:evidence:validate <draft-release-record.md>
+```
+
+该修订稿只消费 allowlisted safe fields 和 redacted status/smoke 摘要，不读取原始 update-record、备份本体、生产 `.env`、smoke 密码文件或附件内容；默认不覆盖原 release record，也不关闭 residual。
 
 ## GitHub Release 资产
 

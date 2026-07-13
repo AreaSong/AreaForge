@@ -18,6 +18,20 @@ try {
   writeFileSync(invalidSecretStatus, JSON.stringify({ ...createStatus(), leaked: "AI_API_KEY=sk-testtesttesttesttest" }, null, 2));
 
   expectExit("valid update-agent status passes", [validStatus], 0, "updateAgentStatusEvidenceHash: sha256:");
+  expectExit("expected update-agent version passes", [validStatus], 0, "updateAgentStatusEvidenceHash: sha256:", {
+    AREAFORGE_UPDATE_AGENT_EXPECTED_VERSION: "v0.1.5",
+  });
+  expectExit("fresh update-agent status passes", [validStatus], 0, "updateAgentStatusEvidenceHash: sha256:", {
+    AREAFORGE_UPDATE_AGENT_MAX_AGE_SECONDS: "3600",
+    AREAFORGE_UPDATE_AGENT_NOW: "2026-07-10T21:45:00+08:00",
+  });
+  expectExit("unexpected update-agent version fails", [validStatus], 1, undefined, {
+    AREAFORGE_UPDATE_AGENT_EXPECTED_VERSION: "0.1.7",
+  });
+  expectExit("stale update-agent status fails", [validStatus], 1, undefined, {
+    AREAFORGE_UPDATE_AGENT_MAX_AGE_SECONDS: "300",
+    AREAFORGE_UPDATE_AGENT_NOW: "2026-07-10T21:45:00+08:00",
+  });
   expectExit("signature disabled fails", [invalidSignatureStatus], 1);
   expectExit("autoApply patch fails without closure evidence", [invalidAutoApplyStatus], 1);
   expectExit("secret-like value fails", [invalidSecretStatus], 1);
@@ -27,10 +41,20 @@ try {
   rmSync(tempDir, { force: true, recursive: true });
 }
 
-function expectExit(label: string, args: string[], expectedStatus: number, expectedStdout?: string): void {
+function expectExit(
+  label: string,
+  args: string[],
+  expectedStatus: number,
+  expectedStdout?: string,
+  extraEnv: Record<string, string> = {},
+): void {
   const result = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/update-agent-status-validate.ts", ...args], {
     cwd: root,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      ...extraEnv,
+    },
   });
   if (result.status !== expectedStatus) {
     console.error(`FAIL ${label}: expected exit ${expectedStatus}, got ${result.status}`);

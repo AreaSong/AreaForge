@@ -149,6 +149,8 @@ function validateEvidencePointers(value: unknown, issues: ValidationIssue[]): vo
   validateArray(value.commands, "evidencePointers.commands", [
     "pnpm ops:support:bundle-preview",
     "pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>",
+    "pnpm ops:backup-restore:preview",
+    "pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>",
     "pnpm ops:handoff",
     "pnpm ops:evidence:bundle",
   ], issues);
@@ -186,6 +188,8 @@ function validateRecommendedCommands(value: unknown, issues: ValidationIssue[]):
   ], issues);
   validateArray(value.liveEvidence, "recommendedNextCommands.liveEvidence", [
     "pnpm ops:readiness:summary",
+    "pnpm ops:backup-restore:preview",
+    "pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>",
     "pnpm smoke:prod-readonly:config",
   ], issues);
   validateArray(value.release, "recommendedNextCommands.release", [

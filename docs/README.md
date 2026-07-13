@@ -69,18 +69,20 @@
 - `development/pre-code-closure.md`：开发前闭环清单。
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
 - `development/long-term-operability-control-plane.md`：长期运营控制面，统一 release 决策、维护窗口、真实体验、残余风险、供应链和 skill 增减规则。
-- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 记录。
+- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、可校验 Release 发布记录、签名 Release 供应链和新鲜 UX 记录。
 - `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：只读长期运营证据快照，聚合当前版本的证据路径 hash、OPS-001/OPS-004/release evidence record/供应链/UX/运行信号状态和缺口，不替代 live gate、生产 smoke 或 residual 人工关闭。
 - `development/long-term-evidence-snapshot-v0.1.7-20260712.json`：当前 `v0.1.7` 只读长期证据快照，状态为 `needs_live_evidence`；它绑定当前缺口，不证明生产健康。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
-- `development/completion-evidence-checklist.md`：完成声明证据清单，区分 docs、本地 smoke、浏览器复核、Release 和生产证据；`pnpm completion:evidence:validate <record>` 只校验完成声明记录形态，不替代真实运行、Release、生产 smoke 或长期运营 live gate。
+- `development/completion-evidence-checklist.md`：完成声明证据清单，区分 docs、本地 smoke、浏览器复核、Release 和生产证据，并要求写清 summary、claimScope、evidenceUri 与 doesNotProve；`pnpm completion:evidence:validate <record>` 只校验完成声明记录形态，不替代真实运行、Release、生产 smoke 或长期运营 live gate。
 - `development/runtime-write-boundary.md`：R0-R4 运行时写动作边界矩阵，区分只读、本地写、用户显式 Web 写、update request 和高风险生产操作。
+- `development/governance-boundary-matrix.md`：目录责任、R0-R4 路由、审阅分级与最小验证矩阵；它不授权生产动作。
+- `development/protected-path-review-record-template.md`：受保护路径人工审阅记录模板，配套 `pnpm governance:protected-path-review:validate`，用于记录工作区审阅边界而非宣称工作区干净。
 - `development/dependency-policy.md`：依赖、GitHub Actions、Docker base image 和供应链治理策略。
 - `development/support-intake.md`：公开 issue、支持入口、ops support、敏感信息边界和 triage 规则。
 - `.codex/skills-src/areaforge-public-maintenance`：公开 issue、贡献者 PR、支持 triage 和敏感信息边界的 Codex 工作流入口。
 - `development/maintenance-cadence.md`：日常、每周、每月、Release 和 incident 后的只读维护节奏、证据新鲜度和 residual 复核规则。
 - `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
-- `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、离线状态投影、只读运营交接摘要、只读运营摘要、证据包和证据包校验入口。
+- `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、离线状态投影、`boundaryStops` 授权边界停止线、只读运营交接摘要、只读运营摘要、证据包和证据包校验入口。
 - `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段、告警阈值和只读告警预览策略。
 - `development/production-readonly-smoke-record-template.md`：生产只读 smoke 记录模板和 `pnpm smoke:prod-readonly:validate` 校验入口。
 - `development/alert-drill-record-template.md`：告警/恢复演练记录模板、`pnpm alert:drill:validate` 校验入口和 `pnpm ops:ops-004:preflight` 证据预检入口。
@@ -90,10 +92,12 @@
 - `development/update-agent-status-record-template.md`：redacted update-agent status JSON 模板、`pnpm update-agent:status:record` 生成入口和 `pnpm update-agent:status:validate` 校验入口。
 - `development/ops-001-closure-packet-template.md`：`AF-RISK-OPS-001` 生产只读 smoke、update-agent status 和 evidence bundle 收口包模板，配套 `pnpm ops:ops-001:preflight`、`pnpm ops:ops-001:closure` / `pnpm ops:ops-001:closure:validate`。
 - `development/support-bundle-preview.md`：metadata-only 支持包预览，配套 `pnpm ops:support:bundle-preview` / `pnpm ops:support:bundle-preview:validate`。
+- `deployment/backup-restore.md` 中的 `pnpm ops:backup-restore:preview`：备份/恢复 metadata-only 证据预览，分类 root-only backup hash、恢复演练记录和 rollback target 缺口，并输出机器可读 `blockingGaps`；不证明备份存在或授权生产 restore。
 - `development/product-experience-review-record-template.md`：真实产品体验复核记录模板和 `pnpm experience:review:validate` 校验入口。
 - `development/product-experience-review-20260710-local.md`：2026-07-10 本地 desktop/mobile 真实体验复核历史记录。
 - `development/product-experience-review-v0.1.7-20260712-local.md`：2026-07-12 本地 `0.1.7` desktop/mobile 真实体验复核记录。
 - `development/residual-risk-ledger.md`：影响发布、运维、安全、供应链或体验判断的残余风险 ID 台账。
+- `development/residual-closure-review-template.md`：residual 人工复核记录模板，配套 `pnpm residuals:closure:validate`；记录本身保持 `closesResidual=no`，不自动修改 residual 台账。
 - `development/ci-supply-chain-record-template.md`：`AF-RISK-SC-002` CI-only 供应链记录模板，配套 `pnpm ci:supply-chain:record` / `pnpm ci:supply-chain:validate` 和只读 `pnpm sc:sc-002:preflight`。
 - `development/residual-risk-ledger.json`：残余风险 ID 台账的机器可读索引。
 - `development/validation-matrix.md`：按改动范围选择验证。
@@ -123,7 +127,7 @@
 
 - `deployment/operator-onboarding.md`：自托管操作者从 0 部署、生产 env、管理员密码、私有上传、Release 更新器、备份恢复、smoke、告警和残余风险的上手路径。
 - `deployment/docker-compose.md`：Docker Compose 策略。
-- `deployment/backup-restore.md`：备份与恢复。
+- `deployment/backup-restore.md`：备份与恢复，以及 `pnpm ops:backup-restore:preview` metadata-only 证据预览边界。
 - `deployment/github-release-updater.md`：GitHub Release 驱动的服务器侧受控自动更新。
 
 ## 安全

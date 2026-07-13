@@ -1,7 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { buildReleaseEvidenceBundleHash } from "./release-evidence-validate";
+import { parseIndentedKeyValueRecord } from "./record-validator-common";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -13,29 +15,56 @@ const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1
 try {
   const uxRecord = path.join(tempDir, "product-experience-review.txt");
   writeFileSync(uxRecord, createUxRecord("2026-07-10T00:00:00.000Z"));
-
-  const currentOps004PreviewOnly = runGate({
+  const releaseRecord = path.join(tempDir, "release-record.txt");
+  writeFileSync(releaseRecord, createReleaseRecord());
+  const baseEnv = {
     AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
     AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
+    AREAFORGE_LONG_TERM_RELEASE_RECORD: releaseRecord,
+  };
+
+  const noOps004Evidence = runGate(baseEnv, 1);
+  const noOps004EvidenceJson = parseGateJson(noOps004Evidence.stdout);
+  assert(noOps004EvidenceJson.status === "needs_live_evidence", "missing OPS-004 evidence should block the gate");
+  assertCheckStatus(noOps004EvidenceJson, "ops004", "missing");
+
+  const currentOps004Evidence = runGate(baseEnv, 1, {
+    clearOps004: false,
+  });
+  const currentOps004EvidenceJson = parseGateJson(currentOps004Evidence.stdout);
+  assert(currentOps004EvidenceJson.status === "needs_live_evidence", "OPS-001 should still block even when OPS-004 passes");
+  assertCheckStatus(currentOps004EvidenceJson, "ops004", "pass");
+  const nextCommand = typeof currentOps004EvidenceJson.nextCommand === "string" ? currentOps004EvidenceJson.nextCommand : "";
+  assert(nextCommand.includes("OPS-001"), "nextCommand should mention the remaining OPS-001 gap");
+  assert(!nextCommand.includes("OPS-004"), "nextCommand should not mention OPS-004 when it passes");
+
+  const missingReleaseEvidence = runGate({
+    ...baseEnv,
+    AREAFORGE_LONG_TERM_RELEASE_RECORD: path.join(tempDir, "missing-release-record.txt"),
   }, 1, {
     clearOps004: false,
   });
-  const currentOps004PreviewOnlyJson = parseGateJson(currentOps004PreviewOnly.stdout);
-  assert(currentOps004PreviewOnlyJson.status === "needs_live_evidence", "OPS-004 current preview without matching drill should block the gate");
-  assertCheckStatus(currentOps004PreviewOnlyJson, "ops004", "missing");
+  const missingReleaseEvidenceJson = parseGateJson(missingReleaseEvidence.stdout);
+  assert(missingReleaseEvidenceJson.status === "needs_live_evidence", "missing release evidence should block the gate");
+  assertCheckStatus(missingReleaseEvidenceJson, "releaseEvidence", "missing");
+  const missingReleaseNextCommand = typeof missingReleaseEvidenceJson.nextCommand === "string"
+    ? missingReleaseEvidenceJson.nextCommand
+    : "";
+  assert(
+    missingReleaseNextCommand.includes("release:evidence:redacted-export:validate"),
+    "missing release evidence nextCommand should mention the no-secret redacted export validator",
+  );
 
-  const missingEvidence = runGate({
-    AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
-    AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
-  }, 1);
+  const missingEvidence = runGate(baseEnv, 1);
   const missingJson = parseGateJson(missingEvidence.stdout);
   assert(missingJson.status === "needs_live_evidence", "missing evidence should keep the live gate at needs_live_evidence");
   assertCheckStatus(missingJson, "uxReview", "pass");
   assertCheckStatus(missingJson, "ops001", "missing");
+  assertCheckStatus(missingJson, "releaseEvidence", "pass");
   assertSafetyFacts(missingJson);
 
   const staleUx = runGate({
-    AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
+    ...baseEnv,
     AREAFORGE_LONG_TERM_GATE_NOW: "2026-08-10T00:00:00.000Z",
   }, 1);
   const staleJson = parseGateJson(staleUx.stdout);
@@ -43,8 +72,7 @@ try {
   assertCheckStatus(staleJson, "uxReview", "stale");
 
   const invalidEvidence = runGate({
-    AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
-    AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
+    ...baseEnv,
     AREAFORGE_OPS001_SMOKE_RECORD: path.join(tempDir, "missing-smoke-record.txt"),
   }, 1);
   const invalidJson = parseGateJson(invalidEvidence.stdout);
@@ -54,8 +82,8 @@ try {
   const oldVersionUxRecord = path.join(tempDir, "product-experience-review-old-version.txt");
   writeFileSync(oldVersionUxRecord, createUxRecord("2026-07-10T00:00:00.000Z", "0.1.5"));
   const oldVersionUx = runGate({
+    ...baseEnv,
     AREAFORGE_LONG_TERM_UX_RECORD: oldVersionUxRecord,
-    AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
   }, 1);
   const oldVersionUxJson = parseGateJson(oldVersionUx.stdout);
   assert(oldVersionUxJson.status === "invalid", "old appVersion UX record should not satisfy the current-version gate");
@@ -132,6 +160,15 @@ function createUxRecord(reviewedAt: string, appVersion = "0.1.7"): string {
     "  realStudyContentIncluded: no",
     "",
   ].join("\n");
+}
+
+function createReleaseRecord(): string {
+  const record = readFileSync(path.resolve("docs/development/release-v0.1.7-record.md"), "utf8")
+    .replace(/^databaseBackupSha256: .+$/m, `databaseBackupSha256: ${"b".repeat(64)}`)
+    .replace(/^uploadsBackupSha256: .+$/m, `uploadsBackupSha256: ${"c".repeat(64)}`)
+    .replace(/^envBackupSha256: .+$/m, `envBackupSha256: ${"d".repeat(64)}`);
+  const hash = buildReleaseEvidenceBundleHash(parseIndentedKeyValueRecord(record));
+  return record.replace(/^releaseEvidenceBundleHash: .+$/m, `releaseEvidenceBundleHash: ${hash}`);
 }
 
 function parseGateJson(raw: string): JsonRecord {

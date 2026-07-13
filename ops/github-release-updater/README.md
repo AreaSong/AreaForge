@@ -99,7 +99,10 @@ AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.7
 AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 ```
 
-Do not put the smoke password directly in Git or release records.
+Do not put the smoke password directly in Git or release records. The helper
+may read `AREAFORGE_SMOKE_PASSWORD_FILE` only to submit the smoke login request;
+stdout, update records, support summaries, and committed evidence must not
+contain the password value.
 
 The Web version center may submit controlled check/apply/rollback/policy
 requests into the ops-state directory. The server-side update agent consumes
@@ -162,6 +165,36 @@ back to the sudo-invoking user and records `redactedHandoffStatus` in
 status is `granted`; if it is `skipped-*` or `failed`, fix the output directory
 or rerun through the interactive TTY instead of chaining extra `sudo tar/chown`
 commands.
+
+When the confirmed scope forbids reading the smoke password file, use the
+no-secret release evidence exporter instead:
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-release-evidence-redacted-export.sh \
+  --update-record /opt/areaforge/backups/github-release-updates/github-0.1.7-20260712112325/update-record.txt \
+  --status /opt/areaforge/ops-state/status.json \
+  --output-dir /tmp/areaforge-release-evidence-redacted-$(date -u +%Y%m%d%H%M%S)
+```
+
+This exporter does not source updater.env, read smoke password files, login, or
+run smoke. It writes allowlisted update-record fields, redacted update status,
+existing smoke PASS/FAIL output when available, and a summary hash. Output
+directories must use `/tmp/areaforge-release-evidence-redacted-*`; root-only
+backup/config/smoke log paths are written only as redacted placeholders. It can
+support release-record backup hash completion and update-record summaries only
+after:
+
+```bash
+pnpm release:evidence:redacted-export:validate /path/to/areaforge-release-evidence-redacted-<timestamp>
+```
+
+The validator checks backup hashes, redacted update status, bounded smoke output,
+smoke `checkedAt >= update-record updatedAt`, summary safety facts, and
+secret-like leaks. It prints hash fields and redacted path presence, not
+root-only absolute paths. If the existing smoke log is missing, the helper can
+write a placeholder for diagnosis but validation must fail for release evidence
+completion. This path does not create an OPS-001 closure packet or prove
+authenticated smoke freshness.
 
 Only copy the generated redacted records and closure packet out of the server;
 do not copy updater env files, smoke password files, production `.env`, database

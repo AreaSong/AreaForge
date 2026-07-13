@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { buildOperabilityStatusProjection } from "./operability-status";
+import { buildOperabilityStatusProjection, type OperabilityStatusProjection } from "./operability-status";
 
 type SnapshotStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
 type CheckStatus = "pass" | "needs_live_evidence" | "missing" | "stale" | "invalid";
@@ -44,6 +44,7 @@ type LongTermEvidenceSnapshot = {
   status: SnapshotStatus;
   sourceSnapshot: {
     controlPlaneSourceHash: string;
+    protectedPathFingerprint: OperabilityStatusProjection["sourceSnapshot"]["protectedPathFingerprint"];
     files: string[];
     missingFiles: string[];
     evidencePaths: EvidencePath[];
@@ -122,6 +123,7 @@ function main(): void {
     status: snapshotStatus(checks),
     sourceSnapshot: {
       controlPlaneSourceHash: projection.sourceSnapshot.controlPlaneSourceHash,
+      protectedPathFingerprint: projection.sourceSnapshot.protectedPathFingerprint,
       files: projection.sourceSnapshot.files,
       missingFiles: projection.sourceSnapshot.missingFiles,
       evidencePaths: paths,
@@ -410,6 +412,7 @@ function checkReleaseEvidence(paths: EvidencePath[], packageVersion: string, rel
       postReleaseTaskTimerReview: fields.get("postReleaseSmoke.taskTimerReview") ?? null,
       postReleaseAttachmentSmoke: fields.get("postReleaseSmoke.attachmentSmoke") ?? null,
       postReleaseAiFallbackOrProvider: fields.get("postReleaseSmoke.aiFallbackOrProvider") ?? null,
+      releaseEvidenceBundleHashStatus: hashFieldStatus(fields.get("releaseEvidenceBundleHash"), true),
       databaseBackupSha256Status: hashFieldStatus(fields.get("databaseBackupSha256")),
       uploadsBackupSha256Status: hashFieldStatus(fields.get("uploadsBackupSha256")),
       envBackupSha256Status: hashFieldStatus(fields.get("envBackupSha256")),
@@ -809,9 +812,10 @@ function stringArrayFromCsv(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
-function hashFieldStatus(value: string | undefined): "valid_sha256" | "not_copied_root_only" | "missing_or_invalid" {
-  if (value && /^[a-f0-9]{64}$/i.test(value)) return "valid_sha256";
-  if (value === "not-copied-root-only-update-record") return "not_copied_root_only";
+function hashFieldStatus(value: string | undefined, allowSha256Prefix = false): "valid_sha256" | "not_copied_root_only" | "missing_or_invalid" {
+  const pattern = allowSha256Prefix ? /^(sha256:)?[a-f0-9]{64}$/i : /^[a-f0-9]{64}$/i;
+  if (value && pattern.test(value)) return "valid_sha256";
+  if (value && /root-only|not-copied/i.test(value)) return "not_copied_root_only";
   return "missing_or_invalid";
 }
 

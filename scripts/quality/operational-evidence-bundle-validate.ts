@@ -20,6 +20,16 @@ const requiredSignalKeys = [
   "signal:infrastructure",
 ];
 
+const requiredFreshnessSignalKeys = [
+  "health",
+  "releaseIdentity",
+  "updateAgent",
+  "authenticatedSmoke",
+  "backup",
+  "rollback",
+  "infrastructure",
+];
+
 const requiredForbiddenActions = [
   "execute_server_command",
   "apply_update",
@@ -85,6 +95,8 @@ export function validateBundle(raw: string): ValidationIssue[] {
   validateHash(body, issues);
   validateSummary(body.summary, issues);
   validateFreshness(body.freshness, "freshness", issues);
+  validateFreshnessConsistency(body, issues);
+  validateReadyGate(body, issues);
   validateItems(body.items, issues);
   validateStringArray(body.capabilities, "capabilities", requiredCapabilities, issues);
   validateStringArray(body.doesNotProve, "doesNotProve", requiredDoesNotProve, issues);
@@ -155,7 +167,72 @@ function validateFreshness(value: unknown, field: string, issues: ValidationIssu
   ], issues);
   if (!isRecord(value.signals)) {
     issues.push({ field: `${field}.signals`, message: "must be an object" });
+    return;
   }
+  const missing = requiredFreshnessSignalKeys.filter((key) => !isRecord((value.signals as JsonRecord)[key]));
+  if (missing.length > 0) {
+    issues.push({ field: `${field}.signals`, message: `missing ${missing.join(", ")}` });
+  }
+  for (const key of requiredFreshnessSignalKeys) {
+    validateFreshnessSignal((value.signals as JsonRecord)[key], `${field}.signals.${key}`, issues);
+  }
+  const statuses = requiredFreshnessSignalKeys
+    .map((key) => (value.signals as JsonRecord)[key])
+    .filter(isRecord)
+    .map((signal) => signal.status);
+  const expected = aggregateFreshness(statuses);
+  if (expected && value.latestEvidenceFreshnessStatus !== expected) {
+    issues.push({
+      field: `${field}.latestEvidenceFreshnessStatus`,
+      message: `must match signal freshness aggregate ${expected}`,
+    });
+  }
+}
+
+function validateFreshnessSignal(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) return;
+  requireOneOfValue(value.status, `${field}.status`, ["fresh", "stale", "unknown"], issues);
+  const status = typeof value.status === "string" ? value.status : "";
+  if (value.checkedAt !== null && (typeof value.checkedAt !== "string" || Number.isNaN(Date.parse(value.checkedAt)))) {
+    issues.push({ field: `${field}.checkedAt`, message: "must be null or an ISO-8601 timestamp" });
+  }
+  if (value.ageSeconds !== null && (typeof value.ageSeconds !== "number" || value.ageSeconds < 0)) {
+    issues.push({ field: `${field}.ageSeconds`, message: "must be null or a non-negative number" });
+  }
+  if ((status === "fresh" || status === "stale") && typeof value.checkedAt !== "string") {
+    issues.push({ field: `${field}.checkedAt`, message: `must be an ISO-8601 timestamp when status is ${status}` });
+  }
+  if ((status === "fresh" || status === "stale") && typeof value.ageSeconds !== "number") {
+    issues.push({ field: `${field}.ageSeconds`, message: `must be a non-negative number when status is ${status}` });
+  }
+}
+
+function validateFreshnessConsistency(body: JsonRecord, issues: ValidationIssue[]): void {
+  const summary = isRecord(body.summary) ? body.summary : null;
+  if (!summary || !isRecord(summary.freshness) || !isRecord(body.freshness)) return;
+  if (stableStringify(body.freshness) !== stableStringify(summary.freshness)) {
+    issues.push({ field: "freshness", message: "must match summary.freshness exactly" });
+  }
+}
+
+function validateReadyGate(body: JsonRecord, issues: ValidationIssue[]): void {
+  if (body.status !== "ready") return;
+  const summary = isRecord(body.summary) ? body.summary : {};
+  if (summary.overall !== "pass") {
+    issues.push({ field: "status", message: "ready bundle requires summary.overall=pass" });
+  }
+  const freshness = isRecord(body.freshness) ? body.freshness : {};
+  if (freshness.latestEvidenceFreshnessStatus !== "fresh") {
+    issues.push({ field: "status", message: "ready bundle requires freshness.latestEvidenceFreshnessStatus=fresh" });
+  }
+}
+
+function aggregateFreshness(values: unknown[]): "fresh" | "stale" | "unknown" | null {
+  if (values.length === 0) return null;
+  if (values.includes("stale")) return "stale";
+  if (values.includes("unknown")) return "unknown";
+  if (values.every((value) => value === "fresh")) return "fresh";
+  return null;
 }
 
 function validateItems(value: unknown, issues: ValidationIssue[]): void {

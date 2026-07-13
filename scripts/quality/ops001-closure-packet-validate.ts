@@ -76,6 +76,10 @@ function main(): void {
   const fields = parseIndentedKeyValueRecord(raw);
   console.log("OPS-001 closure packet validation passed: smoke, update-agent, evidence bundle, safety facts, and residual boundary are present.");
   console.log(`ops001ClosurePacketEvidenceHash: ${buildEvidenceHash(fields, [...requiredScalarFields, ...requiredNestedFields])}`);
+  const freshness = smokeProofFreshness(fields);
+  console.log(`smokeProofFreshnessStatus: ${freshness.status}`);
+  console.log(`smokeProofAgeSeconds: ${freshness.ageSeconds ?? "unknown"}`);
+  console.log(`smokeProofMaxAgeSeconds: ${freshness.maxAgeSeconds}`);
   console.log("safetyFacts: serverCommandAttempted=false backupRestoreAttempted=false migrationAttempted=false productionWriteAttempted=false secretValuePrinted=false updaterApplyAttempted=false residualLedgerUpdated=false");
 }
 
@@ -92,6 +96,7 @@ export function validateOps001ClosurePacket(raw: string): ValidationIssue[] {
 
   requireIsoTimestamp(fields, "generatedAt", issues);
   requireIsoTimestamp(fields, "smokeCheckedAt", issues);
+  validateSmokeProofFreshness(fields, issues);
   requireOneOf(fields, "environment", ["production"], issues);
   requireOneOf(fields, "smokeValidation", ["pass"], issues);
   requireOneOf(fields, "smokeStatus", ["pass"], issues);
@@ -173,6 +178,55 @@ export function validateOps001ClosurePacket(raw: string): ValidationIssue[] {
 
   scanForSecrets(raw, issues);
   return issues;
+}
+
+function validateSmokeProofFreshness(fields: Map<string, string>, issues: ValidationIssue[]): void {
+  const smokeCheckedAt = fields.get("smokeCheckedAt");
+  if (!smokeCheckedAt || Number.isNaN(Date.parse(smokeCheckedAt))) return;
+  const freshness = smokeProofFreshness(fields);
+  if (freshness.status === "future") {
+    issues.push({ field: "smokeCheckedAt", message: "must not be in the future by more than 300 seconds" });
+    return;
+  }
+  if (freshness.status !== "fresh") {
+    issues.push({
+      field: "smokeCheckedAt",
+      message: `must be within smoke proof freshness window ${freshness.maxAgeSeconds}s; ageSeconds=${freshness.ageSeconds ?? "unknown"}`,
+    });
+  }
+}
+
+function smokeProofFreshness(fields: Map<string, string>): {
+  status: "fresh" | "stale" | "unknown" | "future";
+  ageSeconds: number | null;
+  maxAgeSeconds: number;
+} {
+  const maxAgeSeconds = smokeProofMaxAgeSeconds();
+  const smokeCheckedAt = fields.get("smokeCheckedAt");
+  if (!smokeCheckedAt || Number.isNaN(Date.parse(smokeCheckedAt))) {
+    return { status: "unknown", ageSeconds: null, maxAgeSeconds };
+  }
+  const ageSeconds = Math.floor((smokeProofNowMs() - Date.parse(smokeCheckedAt)) / 1000);
+  if (ageSeconds < -300) return { status: "future", ageSeconds, maxAgeSeconds };
+  return {
+    status: ageSeconds <= maxAgeSeconds ? "fresh" : "stale",
+    ageSeconds,
+    maxAgeSeconds,
+  };
+}
+
+function smokeProofMaxAgeSeconds(): number {
+  const raw = process.env.AREAFORGE_SMOKE_PROOF_MAX_AGE_SECONDS ??
+    process.env.AREAFORGE_OPS001_SMOKE_PROOF_MAX_AGE_SECONDS ??
+    "86400";
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 86400;
+}
+
+function smokeProofNowMs(): number {
+  const raw = process.env.AREAFORGE_SMOKE_PROOF_NOW ?? process.env.AREAFORGE_OPS001_SMOKE_PROOF_NOW;
+  if (raw && !Number.isNaN(Date.parse(raw))) return Date.parse(raw);
+  return Date.now();
 }
 
 function expectedOps001Version(): string {

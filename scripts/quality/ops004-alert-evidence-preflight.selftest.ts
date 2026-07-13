@@ -19,6 +19,7 @@ try {
     AREAFORGE_OPS004_ALERT_PREVIEW: previewPath,
   }, 0);
   assertJsonStatus(readyToGenerate.stdout, "ready_to_generate_record");
+  assertPreviewAckBoundary(readyToGenerate.stdout);
 
   const drillPath = path.join(tempDir, "alert-drill-record.txt");
   const generate = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-alert-drill-record.ts", previewPath], {
@@ -95,6 +96,23 @@ function assertJsonStatus(raw: string, expected: string): void {
   const safety = parsed.safetyFacts as JsonRecord | undefined;
   if (!safety || safety.serverCommandAttempted !== false || safety.productionWriteAttempted !== false || safety.secretValuePrinted !== false) {
     fail("preflight safety facts should prove no server command, production write, or secret printing");
+  }
+}
+
+function assertPreviewAckBoundary(raw: string): void {
+  const parsed = JSON.parse(raw) as JsonRecord;
+  const evidence = parsed.evidence;
+  if (!Array.isArray(evidence)) {
+    fail("preflight evidence array missing");
+  }
+  const preview = evidence.find((item) =>
+    typeof item === "object" &&
+    item !== null &&
+    (item as JsonRecord).key === "alertPreview"
+  ) as JsonRecord | undefined;
+  const detail = typeof preview?.detail === "string" ? preview.detail : "";
+  if (!detail.includes("does not prove drill receiver ACK")) {
+    fail("preview detail must not imply receiver ACK from preview delivery settings");
   }
 }
 

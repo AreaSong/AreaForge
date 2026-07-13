@@ -1,6 +1,6 @@
 # 0014 部署、备份、恢复与发布闭环
 
-状态：Package E Batch E1-E4 已完成；归属 Package E。当前已完成生产配置与发布工件预检、本地受控发布前备份与恢复演练、只读附件对账、生产发布 runbook、compose/Nginx/Dockerfile 结构预检、发布记录草案、一次性 migration job、本机单机生产发布、发布后 smoke、本机生产回滚/roll-forward 演练、完成门禁，以及远端 `https://forge.areasong.top/` 的 `v0.1.5` 历史 GitHub Release 签名发布、当前 `v0.1.7` 生产更新和 update-agent/updater 状态刷新。
+状态：Package E Batch E1-E4 已完成；归属 Package E。当前已完成生产配置与发布工件预检、本地受控发布前备份与恢复演练、只读附件对账、生产发布 runbook、compose/Nginx/Dockerfile 结构预检、发布记录草案、一次性 migration job、本机单机生产发布、发布后 smoke、本机生产回滚/roll-forward 演练、完成门禁，以及远端 `https://forge.areasong.top/` 的 `v0.1.5` 历史 GitHub Release 签名发布、当前 `v0.1.7` 生产更新和 update-agent/updater 状态刷新。该完成态只表示 Package E 功能与本机/发布链路证据已闭环；当前远端 `v0.1.7` 的长期运营完成声明仍阻塞于 post-update `AF-RISK-OPS-001` 证据、`releaseEvidenceBundleHash` 与三类 release backup hash、以及 residual 人工复核，详见 `docs/development/residual-risk-ledger.md`。
 
 ## 目标
 

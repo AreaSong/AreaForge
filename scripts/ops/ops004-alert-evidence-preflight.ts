@@ -120,7 +120,7 @@ function validateAlertPreview(): EvidenceResult {
     envKey: previewEnvKey,
     path: "<redacted path>",
     status: "valid",
-    detail: "alert preview is read-only, tracks AF-RISK-OPS-004, and contains no secret-like values",
+    detail: `alert preview is read-only, tracks AF-RISK-OPS-004, and contains no secret-like values; preview delivery.receiverConfigured=${previewReceiverConfigured(preview)} does not prove drill receiver ACK`,
     evidenceHash: `sha256:${sha256(raw)}`,
   };
 }
@@ -206,6 +206,12 @@ function validatePreviewShape(preview: JsonRecord): string[] {
     issues.push("alerts must include AF-RISK-OPS-004");
   }
   return issues;
+}
+
+function previewReceiverConfigured(preview: JsonRecord): string {
+  const delivery = isRecord(preview.delivery) ? preview.delivery : {};
+  if (typeof delivery.receiverConfigured === "boolean") return String(delivery.receiverConfigured);
+  return "unknown";
 }
 
 function preflightStatus(preview: EvidenceResult, drill: EvidenceResult): PreflightStatus {

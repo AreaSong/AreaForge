@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 interface ValidationIssue {
   field: string;
@@ -130,6 +131,7 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   for (const field of requiredNestedFields) {
     requireField(fields, field, issues);
   }
+  requireField(fields, "releaseEvidenceBundleHash", issues);
 
   for (const field of yesNoFields) {
     const value = fields.get(field);
@@ -173,6 +175,19 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   const operationalEvidenceBundleHash = fields.get("operationalEvidenceBundleHash");
   if (operationalEvidenceBundleHash && !/^(sha256:)?[a-f0-9]{64}$/i.test(operationalEvidenceBundleHash)) {
     issues.push({ field: "operationalEvidenceBundleHash", message: "must be a 64-character sha256 hex digest with optional sha256: prefix" });
+  }
+
+  const releaseEvidenceBundleHash = fields.get("releaseEvidenceBundleHash");
+  const expectedReleaseEvidenceBundleHash = buildReleaseEvidenceBundleHash(fields);
+  if (releaseEvidenceBundleHash) {
+    if (!/^(sha256:)?[a-f0-9]{64}$/i.test(releaseEvidenceBundleHash)) {
+      issues.push({ field: "releaseEvidenceBundleHash", message: "must be a 64-character sha256 hex digest with optional sha256: prefix" });
+    } else if (normalizeSha256(releaseEvidenceBundleHash) !== expectedReleaseEvidenceBundleHash) {
+      issues.push({
+        field: "releaseEvidenceBundleHash",
+        message: `must match computed release evidence bundle hash ${expectedReleaseEvidenceBundleHash}`,
+      });
+    }
   }
 
   const releaseSupplyChainEvidenceHash = fields.get("releaseSupplyChainEvidenceHash");
@@ -287,7 +302,7 @@ function parseIndentedKeyValueRecord(record: string): Map<string, string> {
   return fields;
 }
 
-function buildReleaseEvidenceBundleHash(fields: Map<string, string>): string {
+export function buildReleaseEvidenceBundleHash(fields: Map<string, string>): string {
   const optionalFields = [
     "releaseUrl",
     "webImageDigest",
@@ -316,6 +331,11 @@ function buildReleaseEvidenceBundleHash(fields: Map<string, string>): string {
   return `sha256:${hash}`;
 }
 
+function normalizeSha256(value: string): string {
+  const lower = value.toLowerCase();
+  return lower.startsWith("sha256:") ? lower : `sha256:${lower}`;
+}
+
 function readRequiredFile(filePath: string): string {
   if (!existsSync(filePath)) {
     console.error(`File not found: ${filePath}`);
@@ -324,4 +344,6 @@ function readRequiredFile(filePath: string): string {
   return readFileSync(filePath, "utf8");
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

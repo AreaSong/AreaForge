@@ -30,14 +30,22 @@
 - Package E 已完成生产配置预检、备份恢复演练、本机单机生产发布、回滚收口、远端 `v0.1.5` 历史 GitHub Release 签名更新和当前 `v0.1.7` 生产更新；线上 `https://forge.areasong.top/api/health` 返回 `0.1.7`，自动更新链路默认 `AREAFORGE_AUTO_APPLY=none`，Web 版本中心只提交受控更新请求，由服务器侧 update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 长期运营治理已补齐轻量入口：`areaforge-operating-loop` 负责跨 skill 编排，`operational-readiness.md` 聚合只读运营证据，`residual-risk-ledger.md` 维护影响发布/运维判断的稳定残余风险 ID，release workflow 在 build/push 前运行 validate job 且 stable 签名 fail closed。
 
-## 下一步主线
+## 已完成主线及保留入口
 
 1. `tasks/done/0004-mvp-syllabus-notes-upload.md`：附件上传与鉴权访问已由 Package A 完成。
 2. `tasks/done/0005-mvp-ai-discipline.md`：真实 AI Provider 第一版已由 Package C 完成。
 3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState`、显式掌握证明记录、结构化模拟考试和阶段计划/草稿已由 Package B Batch 1-6 完成；Package D D1-D5 已完成长期闭环主线，未来自动应用或批量调整另行确认。
 4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径、阶段计划/草稿持久化、报告决策入口、债务重排所选项应用记录、长期 AI 草稿显式触发、长期风险/主题闭环和 Package D 收口已完成。
 5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复、GitHub Release 签名更新和版本中心受控请求流已完成；后续功能更新按 release runbook 逐次发布。
-6. 长期运营优化：当前不引入 AreaMatrix/AreaFlow 的重型任务队列或 command API；后续只围绕 ops readiness、生产 extra smoke、残余风险关闭、完成证据纪律、运行时写边界和真实体验优化逐项推进。
+
+以上是已完成主线的归档入口，不应作为当前功能 backlog 重新执行。
+
+## 当前后续
+
+1. `AF-RISK-OPS-001`：补齐 post-`v0.1.7` 的 redacted update-agent status、production readonly smoke、operational evidence bundle 和 closure packet；只读证据导出或生产动作都必须重新获得相应高风险确认。
+2. `release-v0.1.7-record.md`：补齐可校验的 `releaseEvidenceBundleHash`、`databaseBackupSha256`、`uploadsBackupSha256` 与 `envBackupSha256`；本地不能伪造或从 secret 文件提取这些值。
+3. `AF-RISK-OPS-004`、`AF-RISK-SC-001`、`AF-RISK-UX-001`：保持各自的人工复核和关闭条件，不能因 validator 通过而自动关闭 residual。
+4. 长期运营优化：不引入 AreaMatrix/AreaFlow 的重型任务队列或 command API；只围绕路径审阅、ops readiness、残余风险、完成证据纪律、运行时写边界和真实体验逐项推进。
 
 实现前确认设计：
 

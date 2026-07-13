@@ -134,6 +134,15 @@ sudo systemctl enable --now areaforge-update-agent.timer
 pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]
 ```
 
+维护交接时可先生成只读 metadata 预览，确认备份 hash、root-only 记录、恢复演练记录和 rollback target 的缺口，并查看 `blockingGaps` 中的机器可读阻塞范围：
+
+```bash
+pnpm ops:backup-restore:preview > /tmp/areaforge-backup-restore-preview.json
+pnpm ops:backup-restore:preview:validate /tmp/areaforge-backup-restore-preview.json
+```
+
+该预览不读取备份归档、数据库 dump、上传文件、生产 `.env` 或密钥，不执行服务器命令，不备份、不恢复、不运行 migration、不回滚，也不能授权生产 restore。
+
 ## 首次 smoke
 
 最小只读验证：
@@ -141,6 +150,7 @@ pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliatio
 ```bash
 curl -fsS https://your-domain.example/api/health
 pnpm ops:support:bundle-preview
+pnpm ops:backup-restore:preview
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:alert:preview
@@ -194,6 +204,17 @@ sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
 该命令只生成 redacted status、生产只读 smoke record、operational evidence bundle 和 OPS-001 closure packet；不执行 update apply、migration、备份、恢复、回滚或生产写入，不修改 residual 台账。导出目录可以交给维护者校验，配置文件、smoke 密码文件、生产 `.env` 和原始敏感日志不要外传。
 
 OPS-001 helper 需要生产主机或受控 release 工作目录能执行仓库 `pnpm` 脚本，并且 `/etc/areaforge/updater.env` 中必须配置 `AREAFORGE_EXTRA_SMOKE_COMMAND`、`AREAFORGE_SMOKE_BASE_URL`、`AREAFORGE_SMOKE_EMAIL` 和权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`。若生产主机无法运行 Node.js/pnpm，可用 `ops/update-agent/areaforge-ops001-readonly-fallback.sh` 导出 redacted update-agent status、前置条件摘要和可选 curl smoke 输出，再回本地运行 `pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> [output-dir]` 生成 smoke record、operational evidence bundle 和 OPS-001 closure packet。2026-07-11 的首次尝试记录在 `docs/development/ops-001-production-readonly-attempt-20260711.md`；2026-07-11/12 已用 fallback 补齐当时版本的只读 smoke、redacted update-agent status、operational evidence bundle 和 OPS-001 closure packet，证据目录为 `docs/development/ops-001-production-readonly-20260711/`。这些证据在 `v0.1.7` 更新后只能作为历史输入；当前版本仍需重新采集 post-`v0.1.7` redacted smoke/status/evidence bundle/OPS-001 closure packet，且 residual 台账关闭仍需维护者人工复核。
+
+若当前授权只允许补齐 release 记录中的 root-only backup hash、update-record 摘要和 redacted update-agent status，而不允许读取 smoke 密码文件，可改用 no-secret release evidence redacted export：
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-release-evidence-redacted-export.sh \
+  --update-record /opt/areaforge/backups/github-release-updates/<release-id>/update-record.txt \
+  --status /opt/areaforge/ops-state/status.json \
+  --output-dir /tmp/areaforge-release-evidence-redacted-$(date -u +%Y%m%d%H%M%S)
+```
+
+该 helper 不 source updater 配置、不读取 `AREAFORGE_SMOKE_PASSWORD_FILE`、不重新登录、不执行 updater apply、备份、恢复、migration、rollback、Docker/Nginx/compose 切换、生产写入或 residual 台账更新。输出目录必须是 `/tmp/areaforge-release-evidence-redacted-*`；复制回本地后先运行 `pnpm release:evidence:redacted-export:validate <redacted-export-dir>`。通过后只能用于补齐 release record 中的 backup hash、update-record hash 和 redacted status 输入；它不生成生产只读 smoke record、operational evidence bundle 或 OPS-001 closure packet，也不能关闭 `AF-RISK-OPS-001` 或支撑长期运营完成声明。
 
 通过 SSH/tmux 执行 fallback 时，操作者先在 TTY 中完成 `sudo -v`，再运行一次 helper。fallback 输出目录使用 `/tmp/areaforge-ops001-fallback-*` 时，helper 会把 redacted 目录移交给触发 sudo 的用户，并在 `remote-summary.txt` 写入 `redactedHandoffStatus`；状态为 `granted` 后可直接 `scp -r` 回本地。若状态为 `skipped-*` 或 `failed`，先修正输出目录或重新交互执行，不要追加链式 `sudo tar/chown` 命令。
 
@@ -253,7 +274,7 @@ pnpm alert:drill:validate <alert-drill-record.md|txt>
 - `AF-RISK-SC-001`：`v0.1.7` 签名 Release 已有 SBOM/provenance、checksum、cosign signature、GHCR digest 和生产 apply 证据；台账关闭仍需维护者人工复核，生产更新本身不自动关闭 residual。
 - `AF-RISK-SC-002`：已关闭为 CI-only 证据项；后续 GitHub Actions、依赖审计、Release workflow、供应链记录工具或新 Release 变更前需重新复核。
 - `AF-RISK-OPS-003`：服务器、域名、Nginx 或端口迁移需单独 runbook 和证据。
-- `AF-RISK-OPS-004`：2026-07-11 manual-window 告警/恢复演练仅作为历史输入；post-`v0.1.7` alert preview 已保存，但仍缺 matching alert drill/preflight，metrics dashboard 和外部接收人产品化仍是后续增强。
+- `AF-RISK-OPS-004`：2026-07-11 manual-window 告警/恢复演练仅作为历史输入；post-`v0.1.7` alert preview 与 matching drill 已保存并通过 preflight，达到 `ready_for_human_close`；metrics dashboard 和外部接收人产品化仍是后续增强，台账关闭仍需维护者人工复核。
 
 ## 本地预检
 

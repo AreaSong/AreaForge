@@ -90,6 +90,12 @@ jobs:
       - name: OPS-001 fallback selftest
         run: pnpm ops:ops-001:fallback:selftest
 
+      - name: Release evidence redacted export selftest
+        run: pnpm release:evidence:redacted-export:selftest
+
+      - name: Release evidence redacted export record selftest
+        run: pnpm release:evidence:redacted-export:record:selftest
+
       - name: OPS-001 fallback finalizer selftest
         run: pnpm ops:ops-001:fallback:finalize:selftest
 

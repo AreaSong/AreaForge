@@ -13,6 +13,8 @@
 pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
 ```
 
+校验器会强制 `releaseEvidenceBundleHash` 存在，并与当前记录字段计算出的 bundle hash 一致；草稿生成器应先写入该 hash，再交给维护者复核。
+
 发布或更新后的运行态证据另行生成：
 
 ```bash

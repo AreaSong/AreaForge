@@ -1,21 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { protectedPathFiles } from "../ops/operability-status";
 
 type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
-const protectedFiles = [
-  "README.md",
-  "package.json",
-  "docs/development/long-term-operability-control-plane.md",
-  "docs/development/operational-readiness.md",
-  "docs/development/residual-risk-ledger.md",
-  "docs/development/residual-risk-ledger.json",
-  "docs/development/validation-matrix.md",
-  "tasks/indexes/residuals.md",
-  "workflow/README.md",
-];
+const protectedFiles = [...protectedPathFiles];
 
 const readOnlyCommands = [
   {
@@ -44,9 +35,69 @@ const readOnlyCommands = [
     mode: "metadata_only_support_bundle_preview",
   },
   {
+    label: "backup/restore preview",
+    args: ["ops:backup-restore:preview"],
+    mode: "metadata_only_backup_restore_preview",
+  },
+  {
+    label: "residual evidence preflight",
+    args: ["residuals:evidence:preflight"],
+    mode: "residual_evidence_preflight",
+  },
+  {
+    label: "residual closure review validator selftest",
+    args: ["residuals:closure:selftest"],
+    summaryToken: "residual closure review validator selftest passed",
+  },
+  {
+    label: "OPS-001 evidence preflight",
+    args: ["ops:ops-001:preflight"],
+    mode: "read_only_ops001_evidence_preflight",
+  },
+  {
+    label: "OPS-004 alert evidence preflight",
+    args: ["ops:ops-004:preflight"],
+    mode: "read_only_ops004_alert_evidence_preflight",
+  },
+  {
     label: "long-term evidence snapshot",
     args: ["ops:long-term:snapshot"],
     mode: "read_only_long_term_evidence_snapshot",
+  },
+  {
+    label: "completion evidence validator selftest",
+    args: ["completion:evidence:selftest"],
+    summaryToken: "completion evidence validator selftest passed",
+  },
+  {
+    label: "release evidence validator selftest",
+    args: ["release:evidence:selftest"],
+    summaryToken: "release evidence validator selftest passed",
+  },
+  {
+    label: "release evidence redacted export validator selftest",
+    args: ["release:evidence:redacted-export:selftest"],
+    summaryToken: "Release evidence redacted export selftest passed",
+  },
+  {
+    label: "release evidence redacted export record selftest",
+    args: ["release:evidence:redacted-export:record:selftest"],
+    summaryToken: "release evidence redacted export record selftest passed",
+  },
+  {
+    label: "changed path review selftest",
+    args: ["governance:changed-paths:selftest"],
+    summaryToken: "changed path review selftest passed",
+  },
+  {
+    label: "protected path review record validator selftest",
+    args: ["governance:protected-path-review:selftest"],
+    summaryToken: "protected path review record validator selftest passed",
+  },
+  {
+    label: "update center request guard selftest",
+    args: ["update-center:request-guard:selftest"],
+    summaryToken: "update center request guard selftest passed",
   },
 ];
 
@@ -111,6 +162,15 @@ function sha256(file: string): string {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
 }
 
+function protectedPathFingerprintSha256(): string {
+  const entries = protectedFiles.map((file) => ({
+    file,
+    status: "present",
+    sha256: sha256(file),
+  }));
+  return createHash("sha256").update(JSON.stringify(entries)).digest("hex");
+}
+
 function assertJsonSafety(label: string, raw: string, expectedMode: string): void {
   const parsed = JSON.parse(raw) as JsonRecord;
   if (parsed.mode !== expectedMode) {
@@ -122,6 +182,9 @@ function assertJsonSafety(label: string, raw: string, expectedMode: string): voi
   assertFlag(label, safetyFacts, "serverCommandAttempted", false);
   assertFlag(label, safetyFacts, "productionWriteAttempted", false);
   assertFlag(label, safetyFacts, "secretValuePrinted", false);
+  if ("protectedPathWriteAttempted" in safetyFacts) {
+    assertFlag(label, safetyFacts, "protectedPathWriteAttempted", false);
+  }
   if ("residualLedgerUpdated" in safetyFacts) {
     assertFlag(label, safetyFacts, "residualLedgerUpdated", false);
   }
@@ -130,6 +193,50 @@ function assertJsonSafety(label: string, raw: string, expectedMode: string): voi
   }
   if ("supportBundleExported" in safetyFacts) {
     assertFlag(label, safetyFacts, "supportBundleExported", false);
+  }
+  if (expectedMode === "offline_long_term_operability_status_projection") {
+    assertStatusProtectedPathFingerprint(label, parsed);
+  }
+}
+
+function assertStatusProtectedPathFingerprint(label: string, parsed: JsonRecord): void {
+  const sourceSnapshot = recordValue(parsed.sourceSnapshot);
+  const fingerprint = recordValue(sourceSnapshot.protectedPathFingerprint);
+  if (fingerprint.algorithm !== "sha256") {
+    fail(`${label} protectedPathFingerprint.algorithm=${String(fingerprint.algorithm)} expected sha256`);
+  }
+  if (fingerprint.scope !== "read_only_side_effect_guard_inputs") {
+    fail(`${label} protectedPathFingerprint.scope=${String(fingerprint.scope)} expected read_only_side_effect_guard_inputs`);
+  }
+  if (typeof fingerprint.hash !== "string" || !/^[a-f0-9]{64}$/.test(fingerprint.hash)) {
+    fail(`${label} protectedPathFingerprint.hash must be a sha256 hex digest`);
+  }
+  if (fingerprint.hash !== protectedPathFingerprintSha256()) {
+    fail(`${label} protectedPathFingerprint.hash does not match local protected path fingerprint`);
+  }
+  if (!Array.isArray(fingerprint.paths) || fingerprint.paths.some((item) => typeof item !== "string")) {
+    fail(`${label} protectedPathFingerprint.paths must be an array of strings`);
+  }
+  const paths = fingerprint.paths as string[];
+  const missing = protectedFiles.filter((file) => !paths.includes(file));
+  const unexpected = paths.filter((file) => !protectedFiles.includes(file));
+  const duplicate = paths.find((file, index) => paths.indexOf(file) !== index);
+  if (missing.length > 0) {
+    fail(`${label} protectedPathFingerprint.paths missing ${missing.join(", ")}`);
+  }
+  if (unexpected.length > 0) {
+    fail(`${label} protectedPathFingerprint.paths includes unexpected ${unexpected.join(", ")}`);
+  }
+  if (duplicate) {
+    fail(`${label} protectedPathFingerprint.paths includes duplicate ${duplicate}`);
+  }
+  if (!Array.isArray(fingerprint.doesNotProve) || fingerprint.doesNotProve.some((item) => typeof item !== "string")) {
+    fail(`${label} protectedPathFingerprint.doesNotProve must be an array of strings`);
+  }
+  for (const boundary of ["production health", "absence of changes outside protected paths", "git worktree cleanliness"]) {
+    if (!(fingerprint.doesNotProve as string[]).includes(boundary)) {
+      fail(`${label} protectedPathFingerprint.doesNotProve missing ${boundary}`);
+    }
   }
 }
 

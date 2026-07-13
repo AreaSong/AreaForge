@@ -12,6 +12,32 @@ function main(): void {
   const tamperedIssues = validateBundle(JSON.stringify(tampered, null, 2));
   assert(tamperedIssues.some((issue) => issue.field === "bundleHash"), "expected tampered hash to fail");
 
+  const readyWithUnknownFreshness = withHash({
+    ...bundle,
+    status: "ready",
+  });
+  const readyWithUnknownFreshnessIssues = validateBundle(JSON.stringify(readyWithUnknownFreshness, null, 2));
+  assert(readyWithUnknownFreshnessIssues.some((issue) => issue.field === "status"), "expected ready bundle with unknown freshness to fail");
+
+  const mismatchedFreshness = withHash({
+    ...bundle,
+    freshness: {
+      ...(bundle.freshness as JsonRecord),
+      latestEvidenceFreshnessStatus: "fresh",
+    },
+  });
+  const mismatchedFreshnessIssues = validateBundle(JSON.stringify(mismatchedFreshness, null, 2));
+  assert(mismatchedFreshnessIssues.some((issue) => issue.field === "freshness"), "expected mismatched freshness to fail");
+
+  const missingFreshnessSignal = structuredClone(bundle);
+  delete (((missingFreshnessSignal.summary as JsonRecord).freshness as JsonRecord).signals as JsonRecord).rollback;
+  delete ((missingFreshnessSignal.freshness as JsonRecord).signals as JsonRecord).rollback;
+  const missingFreshnessSignalIssues = validateBundle(JSON.stringify(withHash(missingFreshnessSignal), null, 2));
+  assert(
+    missingFreshnessSignalIssues.some((issue) => issue.field === "summary.freshness.signals" || issue.field === "freshness.signals"),
+    "expected missing freshness signal to fail",
+  );
+
   const leaked = JSON.stringify({
     ...withHash(bundle),
     items: [

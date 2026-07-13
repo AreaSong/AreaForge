@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import * as tls from "node:tls";
 import { pathToFileURL } from "node:url";
+import { validateBackupRestorePreview } from "../quality/backup-restore-preview-validate";
 
 export type Status = "pass" | "warn" | "fail" | "blocked" | "unknown";
 export type ReadinessScope = "daily" | "release" | "update" | "migration" | "rollback";
@@ -127,6 +128,7 @@ const expectedMigrationDigest = process.env.AREAFORGE_READINESS_MIGRATION_IMAGE_
 const releaseManifestFile = process.env.AREAFORGE_READINESS_RELEASE_MANIFEST_FILE ?? null;
 const releaseManifestUrl = process.env.AREAFORGE_READINESS_RELEASE_MANIFEST_URL ??
   githubReleaseManifestUrl(process.env.AREAFORGE_READINESS_GITHUB_REPO, expectedReleaseTag);
+const backupRestorePreviewFile = process.env.AREAFORGE_READINESS_BACKUP_RESTORE_PREVIEW_FILE ?? null;
 
 export async function collectOperationalReadinessSummary(): Promise<OperationalReadinessSummary> {
   const checkedAt = new Date().toISOString();
@@ -417,6 +419,78 @@ function collectAuthenticatedSmoke(): Signal {
 }
 
 function collectBackup(): Signal {
+  if (backupRestorePreviewFile) {
+    try {
+      const raw = readFileSync(backupRestorePreviewFile, "utf8");
+      const validationIssues = validateBackupRestorePreview(raw);
+      if (validationIssues.length > 0) {
+        return {
+          status: criticalScope() ? "blocked" : "warn",
+          evidence: "backup/restore metadata preview is invalid",
+          residualRiskIds: ["AF-RISK-OPS-001", "AF-RISK-OPS-004"],
+          data: {
+            issueCount: validationIssues.length,
+            issueFields: validationIssues.map((issue) => issue.field).slice(0, 10),
+          },
+        };
+      }
+      const preview = asRecord(JSON.parse(extractJson(raw)));
+      const status = typeof preview.status === "string" ? preview.status : "unknown";
+      const inventory = Array.isArray(preview.evidenceInventory)
+        ? preview.evidenceInventory.map((item) => {
+            const record = asRecord(item);
+            return {
+              key: record.key ?? null,
+              status: record.status ?? null,
+              category: record.category ?? null,
+            };
+          })
+        : [];
+      const blockingGaps = Array.isArray(preview.blockingGaps)
+        ? preview.blockingGaps.map((item) => {
+            const record = asRecord(item);
+            return {
+              key: record.key ?? null,
+              status: record.status ?? null,
+              category: record.category ?? null,
+              gapType: record.gapType ?? null,
+              sourceInput: record.sourceInput ?? null,
+              sourceField: record.sourceField ?? null,
+              blocks: Array.isArray(record.blocks) ? record.blocks : [],
+            };
+          })
+        : [];
+      if (status === "ready") {
+        return {
+          status: criticalScope() ? "blocked" : "warn",
+          evidence: "backup/restore metadata preview is ready, but metadata-only preview does not prove live backup archive availability",
+          residualRiskIds: ["AF-RISK-OPS-001"],
+          data: { previewStatus: status, previewHash: preview.backupRestorePreviewHash ?? null, inventory, blockingGaps },
+        };
+      }
+      if (status === "blocked") {
+        return {
+          status: "blocked",
+          evidence: "backup/restore metadata preview is blocked",
+          residualRiskIds: ["AF-RISK-OPS-001", "AF-RISK-OPS-004"],
+          data: { previewStatus: status, previewHash: preview.backupRestorePreviewHash ?? null, inventory, blockingGaps },
+        };
+      }
+      return {
+        status: criticalScope() ? "blocked" : "warn",
+        evidence: `backup/restore metadata preview status is ${status}`,
+        residualRiskIds: ["AF-RISK-OPS-001", "AF-RISK-OPS-004"],
+        data: { previewStatus: status, previewHash: preview.backupRestorePreviewHash ?? null, inventory, blockingGaps },
+      };
+    } catch (error) {
+      return {
+        status: criticalScope() ? "blocked" : "warn",
+        evidence: redact(error instanceof Error ? `cannot read backup/restore preview: ${error.message}` : "cannot read backup/restore preview"),
+        residualRiskIds: ["AF-RISK-OPS-001"],
+      };
+    }
+  }
+
   const evidence = process.env.AREAFORGE_READINESS_BACKUP_EVIDENCE;
   if (!evidence) {
     return {
@@ -429,6 +503,12 @@ function collectBackup(): Signal {
     return { status: "warn", evidence: "backup evidence is present but does not include a sha256 marker" };
   }
   return { status: "pass", evidence: "backup evidence includes sha256 marker" };
+}
+
+function extractJson(raw: string): string {
+  const firstBrace = raw.indexOf("{");
+  if (firstBrace < 0) return raw;
+  return raw.slice(firstBrace).trim();
 }
 
 function collectRollback(status: UpdateStatus | null): Signal {

@@ -47,7 +47,9 @@ function main(): void {
     process.exit(1);
   }
 
-  const drilledAt = stringOrNull(preview.generatedAt) ?? new Date().toISOString();
+  const drilledAt = stringOrNull(process.env.AREAFORGE_ALERT_DRILL_AT) ??
+    stringOrNull(preview.generatedAt) ??
+    new Date().toISOString();
   const environment = resolveEnvironment(stringOrNull(preview.environment), process.env.AREAFORGE_ALERT_DRILL_ENVIRONMENT);
   const scope = resolveScope(stringOrNull(preview.scope), process.env.AREAFORGE_ALERT_DRILL_SCOPE);
   const record = [

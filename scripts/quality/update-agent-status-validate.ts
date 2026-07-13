@@ -59,6 +59,10 @@ function validateStatus(raw: string): ValidationIssue[] {
   if (typeof status.currentVersion === "string" && !/^\d+\.\d+\.\d+$/.test(status.currentVersion)) {
     issues.push({ field: "currentVersion", message: "must look like X.Y.Z" });
   }
+  const expectedVersion = normalizeVersion(process.env.AREAFORGE_UPDATE_AGENT_EXPECTED_VERSION);
+  if (expectedVersion && status.currentVersion !== expectedVersion) {
+    issues.push({ field: "currentVersion", message: `must be ${expectedVersion} when AREAFORGE_UPDATE_AGENT_EXPECTED_VERSION is set` });
+  }
   if (status.latestVersion != null && (typeof status.latestVersion !== "string" || !/^v?\d+\.\d+\.\d+$/.test(status.latestVersion))) {
     issues.push({ field: "latestVersion", message: "must look like X.Y.Z or vX.Y.Z when present" });
   }
@@ -78,6 +82,7 @@ function validateStatus(raw: string): ValidationIssue[] {
   if (typeof status.statusUpdatedAt === "string" && Number.isNaN(Date.parse(status.statusUpdatedAt))) {
     issues.push({ field: "statusUpdatedAt", message: "must be ISO-8601 when present" });
   }
+  validateFreshness(status, issues);
 
   if (isRecord(status.rollback)) {
     requireBoolean(status.rollback.available, "rollback.available", issues);
@@ -99,6 +104,41 @@ function validateStatus(raw: string): ValidationIssue[] {
   scanForSecrets(raw, issues);
 
   return issues;
+}
+
+function validateFreshness(status: JsonRecord, issues: ValidationIssue[]): void {
+  const maxAgeSeconds = parsePositiveNumber(process.env.AREAFORGE_UPDATE_AGENT_MAX_AGE_SECONDS);
+  if (maxAgeSeconds == null) return;
+  const timestamp = typeof status.statusUpdatedAt === "string" && status.statusUpdatedAt.trim()
+    ? status.statusUpdatedAt
+    : typeof status.lastCheckedAt === "string" && status.lastCheckedAt.trim() ? status.lastCheckedAt : "";
+  if (!timestamp) {
+    issues.push({ field: "statusUpdatedAt", message: "or lastCheckedAt is required when AREAFORGE_UPDATE_AGENT_MAX_AGE_SECONDS is set" });
+    return;
+  }
+  const parsed = Date.parse(timestamp);
+  if (Number.isNaN(parsed)) return;
+  const ageSeconds = Math.max(0, (validationNow().getTime() - parsed) / 1000);
+  if (ageSeconds > maxAgeSeconds) {
+    issues.push({ field: "statusUpdatedAt", message: `must be within ${maxAgeSeconds} seconds when AREAFORGE_UPDATE_AGENT_MAX_AGE_SECONDS is set` });
+  }
+}
+
+function parsePositiveNumber(value: string | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeVersion(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith("v") ? trimmed.slice(1) : trimmed;
+}
+
+function validationNow(): Date {
+  const raw = process.env.AREAFORGE_UPDATE_AGENT_NOW?.trim();
+  return raw ? new Date(raw) : new Date();
 }
 
 function requireString(record: JsonRecord, field: string, issues: ValidationIssue[]): void {

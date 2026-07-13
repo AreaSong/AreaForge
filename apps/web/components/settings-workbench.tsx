@@ -371,6 +371,11 @@ function labelQueued(action: UpdateAction): string {
 
 function labelError(error: string): string {
   if (error === "UNAUTHORIZED") return "请先登录。";
+  if (error === "UPDATE_TARGET_NOT_NEWER") return "当前已经是该版本或更新版本。";
+  if (error === "UPDATE_TAG_REQUIRED") return "缺少目标 Release tag。";
+  if (error === "ROLLBACK_TARGET_UNAVAILABLE") return "当前没有可回退版本。";
+  if (error === "AUTO_APPLY_POLICY_REQUIRED") return "请选择自动更新策略。";
+  if (error === "AUTO_APPLY_POLICY_UNCHANGED") return "自动更新策略没有变化。";
   return "操作提交失败。";
 }
 

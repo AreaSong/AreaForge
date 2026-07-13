@@ -92,6 +92,9 @@ function main(): void {
 
   console.log("production readonly smoke record validation passed: required fields are present, smoke evidence is pass, OPS-001 is tracked, and secrets are absent.");
   console.log(`prodReadonlySmokeEvidenceHash: ${buildEvidenceHash(fields)}`);
+  console.log(`smokeProofFreshnessStatus: ${smokeProofFreshness(fields).status}`);
+  console.log(`smokeProofAgeSeconds: ${smokeProofFreshness(fields).ageSeconds ?? "unknown"}`);
+  console.log(`smokeProofMaxAgeSeconds: ${smokeProofFreshness(fields).maxAgeSeconds}`);
   console.log("safetyFacts: serverCommandAttempted=false backupRestoreAttempted=false migrationAttempted=false productionWriteAttempted=false secretValuePrinted=false passwordValuePrinted=false writeSmokeAttempted=false");
 }
 
@@ -115,6 +118,8 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   if (baseUrl && !/^https:\/\/[^ \n]+$/i.test(baseUrl)) {
     issues.push({ field: "baseUrl", message: "must be an https URL" });
   }
+
+  validateSmokeProofFreshness(fields, issues);
 
   const releaseTag = fields.get("releaseTag");
   if (releaseTag && !/^v\d+\.\d+\.\d+$/.test(releaseTag)) {
@@ -170,6 +175,58 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   }
 
   return issues;
+}
+
+function validateSmokeProofFreshness(fields: Map<string, string>, issues: ValidationIssue[]): void {
+  const checkedAt = fields.get("checkedAt");
+  if (!checkedAt || Number.isNaN(Date.parse(checkedAt))) {
+    issues.push({ field: "checkedAt", message: "must be an ISO-8601 timestamp" });
+    return;
+  }
+  const freshness = smokeProofFreshness(fields);
+  if (freshness.status === "future") {
+    issues.push({ field: "checkedAt", message: "must not be in the future by more than 300 seconds" });
+    return;
+  }
+  if (freshness.status !== "fresh") {
+    issues.push({
+      field: "checkedAt",
+      message: `must be within smoke proof freshness window ${freshness.maxAgeSeconds}s; ageSeconds=${freshness.ageSeconds ?? "unknown"}`,
+    });
+  }
+}
+
+function smokeProofFreshness(fields: Map<string, string>): {
+  status: "fresh" | "stale" | "unknown" | "future";
+  ageSeconds: number | null;
+  maxAgeSeconds: number;
+} {
+  const maxAgeSeconds = smokeProofMaxAgeSeconds();
+  const checkedAt = fields.get("checkedAt");
+  if (!checkedAt || Number.isNaN(Date.parse(checkedAt))) {
+    return { status: "unknown", ageSeconds: null, maxAgeSeconds };
+  }
+  const ageSeconds = Math.floor((smokeProofNowMs() - Date.parse(checkedAt)) / 1000);
+  if (ageSeconds < -300) return { status: "future", ageSeconds, maxAgeSeconds };
+  return {
+    status: ageSeconds <= maxAgeSeconds ? "fresh" : "stale",
+    ageSeconds,
+    maxAgeSeconds,
+  };
+}
+
+function smokeProofMaxAgeSeconds(): number {
+  const raw = process.env.AREAFORGE_SMOKE_PROOF_MAX_AGE_SECONDS ??
+    process.env.AREAFORGE_OPS001_SMOKE_PROOF_MAX_AGE_SECONDS ??
+    "86400";
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 86400;
+}
+
+function smokeProofNowMs(): number {
+  const raw = process.env.AREAFORGE_SMOKE_PROOF_NOW ?? process.env.AREAFORGE_OPS001_SMOKE_PROOF_NOW;
+  if (raw && !Number.isNaN(Date.parse(raw))) return Date.parse(raw);
+  return Date.now();
 }
 
 function parseList(value: string): string[] {
