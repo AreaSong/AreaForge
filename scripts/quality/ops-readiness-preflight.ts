@@ -43,6 +43,7 @@ function checkForbiddenLegacyEvidenceNames(): void {
     "docs/deployment/github-release-updater.md",
     "docs/development/high-risk-confirmation-packets.md",
     "docs/development/ops-001-closure-packet-template.md",
+    "docs/development/ops-005-expected-before-production-evidence-template.md",
     "docs/development/ops-001-production-readonly-attempt-20260711.md",
     "docs/development/operational-readiness.md",
     "docs/development/validation-matrix.md",
@@ -73,8 +74,10 @@ function checkRequiredFiles(): void {
     "docs/development/ops-001-closure-packet-template.md",
     "docs/development/alert-drill-record-template.md",
     "docs/development/incident-record-template.md",
+    "docs/development/rollback-proof-record-template.md",
     "docs/development/restore-drill-record-template.md",
     "docs/development/maintenance-window-record-template.md",
+    "docs/development/maintenance-window-index.json",
     "docs/development/update-agent-status-record-template.md",
     "docs/development/product-experience-review-record-template.md",
     "docs/deployment/operator-onboarding.md",
@@ -107,12 +110,20 @@ function checkRequiredFiles(): void {
     "scripts/quality/ops001-evidence-preflight.selftest.ts",
     "scripts/ops/ops004-alert-evidence-preflight.ts",
     "scripts/quality/ops004-alert-evidence-preflight.selftest.ts",
+    "scripts/ops/ops005-evidence-preflight.ts",
+    "scripts/quality/ops005-evidence-preflight.selftest.ts",
+    "scripts/quality/ops005-production-evidence-validate.ts",
+    "scripts/quality/ops005-production-evidence-validate.selftest.ts",
     "scripts/ops/sc002-supply-chain-preflight.ts",
     "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
     "scripts/ops/operational-alert-preview.ts",
     "scripts/ops/generate-alert-drill-record.ts",
     "scripts/ops/generate-incident-record.ts",
     "scripts/ops/generate-maintenance-window-record.ts",
+    "scripts/ops/maintenance-window-index.ts",
+    "scripts/quality/maintenance-window-index-common.ts",
+    "scripts/quality/maintenance-window-index-validate.ts",
+    "scripts/quality/maintenance-window-index.selftest.ts",
     "scripts/ops/local-ux-smoke.ts",
     "scripts/ops/generate-prod-readonly-smoke-record.ts",
     "scripts/ops/generate-ops001-closure-packet.ts",
@@ -131,6 +142,14 @@ function checkRequiredFiles(): void {
     "scripts/quality/prod-readonly-smoke-record.selftest.ts",
     "scripts/quality/ops001-fallback-closure.selftest.ts",
     "scripts/quality/release-evidence-redacted-export.selftest.ts",
+    "scripts/ops/release-closeout-audit.ts",
+    "scripts/quality/release-closeout-audit-validate.ts",
+    "scripts/quality/release-closeout-audit.selftest.ts",
+    "scripts/quality/attachment-reconciliation.ts",
+    "scripts/quality/attachment-reconciliation-summary.ts",
+    "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+    "scripts/quality/release-evidence-validate.ts",
+    "scripts/quality/release-evidence-validate.selftest.ts",
     "scripts/quality/ops001-blocked-record-validate.ts",
     "scripts/quality/ops001-blocked-record.selftest.ts",
     "scripts/quality/ops001-readonly-fallback.selftest.ts",
@@ -142,6 +161,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/maintenance-window-record.selftest.ts",
     "scripts/quality/incident-record-validate.ts",
     "scripts/quality/incident-record-validate.selftest.ts",
+    "scripts/quality/rollback-proof-record-validate.ts",
+    "scripts/quality/rollback-proof-record-validate.selftest.ts",
     "scripts/quality/restore-drill-validate.ts",
     "scripts/quality/restore-drill-validate.selftest.ts",
     "scripts/quality/maintenance-window-record-validate.ts",
@@ -203,6 +224,7 @@ function checkOperationalReadinessDoc(): void {
     "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
     "AF-RISK-OPS-004",
+    "AF-RISK-OPS-005",
     "AF-RISK-UX-001",
     "Product experience review",
     "pnpm experience:review:validate",
@@ -215,6 +237,10 @@ function checkOperationalReadinessDoc(): void {
     "pnpm ops:ops-001:preflight",
     "pnpm ops:ops-001:closure:validate",
     "pnpm ops:ops-004:preflight",
+    "pnpm ops:ops-005:preflight",
+    "pnpm ops:ops-005:evidence:validate",
+    "bindingStatus: current",
+    "--shape-only",
   ];
   const combined = `${doc}\n${strategy}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
@@ -250,6 +276,7 @@ function checkProductionSmokeAlertingStrategy(): void {
     "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
     "AF-RISK-OPS-004",
+    "AF-RISK-OPS-005",
     "AF-RISK-UX-001",
   ];
   const missing = requiredTerms.filter((term) => !strategy.includes(term));
@@ -375,6 +402,14 @@ function checkPackageScripts(): void {
   const backupRestorePreviewValidateScript = packageJson.scripts?.["ops:backup-restore:preview:validate"] ?? "";
   const backupRestorePreviewSelftestScript = packageJson.scripts?.["ops:backup-restore:preview:selftest"] ?? "";
   const ops001PreflightScript = packageJson.scripts?.["ops:ops-001:preflight"] ?? "";
+  const releaseCloseoutAuditScript = packageJson.scripts?.["release:closeout:audit"] ?? "";
+  const releaseCloseoutAuditValidateScript = packageJson.scripts?.["release:closeout:audit:validate"] ?? "";
+  const releaseCloseoutAuditSelftestScript = packageJson.scripts?.["release:closeout:audit:selftest"] ?? "";
+  const attachmentReconciliationScript = packageJson.scripts?.["attachment:reconciliation"] ?? "";
+  const attachmentReconciliationSummaryScript = packageJson.scripts?.["attachment:reconciliation:summary"] ?? "";
+  const attachmentReconciliationSummarySelftestScript = packageJson.scripts?.["attachment:reconciliation:summary:selftest"] ?? "";
+  const releaseEvidenceValidateScript = packageJson.scripts?.["release:evidence:validate"] ?? "";
+  const releaseEvidenceSelftestScript = packageJson.scripts?.["release:evidence:selftest"] ?? "";
   const ops001PreflightSelftestScript = packageJson.scripts?.["ops:ops-001:preflight:selftest"] ?? "";
   const ops001BlockedValidateScript = packageJson.scripts?.["ops:ops-001:blocked:validate"] ?? "";
   const ops001BlockedSelftestScript = packageJson.scripts?.["ops:ops-001:blocked:selftest"] ?? "";
@@ -383,6 +418,10 @@ function checkPackageScripts(): void {
   const ops001FallbackSelftestScript = packageJson.scripts?.["ops:ops-001:fallback:selftest"] ?? "";
   const ops004PreflightScript = packageJson.scripts?.["ops:ops-004:preflight"] ?? "";
   const ops004PreflightSelftestScript = packageJson.scripts?.["ops:ops-004:preflight:selftest"] ?? "";
+  const ops005PreflightScript = packageJson.scripts?.["ops:ops-005:preflight"] ?? "";
+  const ops005PreflightSelftestScript = packageJson.scripts?.["ops:ops-005:preflight:selftest"] ?? "";
+  const ops005EvidenceValidateScript = packageJson.scripts?.["ops:ops-005:evidence:validate"] ?? "";
+  const ops005EvidenceSelftestScript = packageJson.scripts?.["ops:ops-005:evidence:selftest"] ?? "";
   const sc002PreflightScript = packageJson.scripts?.["sc:sc-002:preflight"] ?? "";
   const sc002PreflightSelftestScript = packageJson.scripts?.["sc:sc-002:preflight:selftest"] ?? "";
   const ops001ClosureScript = packageJson.scripts?.["ops:ops-001:closure"] ?? "";
@@ -414,7 +453,12 @@ function checkPackageScripts(): void {
   const maintenanceWindowRecordScript = packageJson.scripts?.["maintenance:window:record"] ?? "";
   const maintenanceWindowRecordSelftestScript = packageJson.scripts?.["maintenance:window:record:selftest"] ?? "";
   const maintenanceWindowValidateScript = packageJson.scripts?.["maintenance:window:validate"] ?? "";
+  const maintenanceWindowIndexScript = packageJson.scripts?.["maintenance:window:index"] ?? "";
+  const maintenanceWindowIndexValidateScript = packageJson.scripts?.["maintenance:window:index:validate"] ?? "";
+  const maintenanceWindowIndexSelftestScript = packageJson.scripts?.["maintenance:window:index:selftest"] ?? "";
   const incidentRecordValidateScript = packageJson.scripts?.["incident:record:validate"] ?? "";
+  const rollbackProofValidateScript = packageJson.scripts?.["rollback:proof:validate"] ?? "";
+  const rollbackProofSelftestScript = packageJson.scripts?.["rollback:proof:selftest"] ?? "";
   const restoreDrillValidateScript = packageJson.scripts?.["restore:drill:validate"] ?? "";
   const updateAgentStatusRecordScript = packageJson.scripts?.["update-agent:status:record"] ?? "";
   const updateAgentStatusRecordSelftestScript = packageJson.scripts?.["update-agent:status:record:selftest"] ?? "";
@@ -446,6 +490,14 @@ function checkPackageScripts(): void {
       backupRestorePreviewScript === "tsx scripts/ops/backup-restore-preview.ts" &&
       backupRestorePreviewValidateScript === "tsx scripts/quality/backup-restore-preview-validate.ts" &&
       backupRestorePreviewSelftestScript === "tsx scripts/quality/backup-restore-preview.selftest.ts" &&
+      releaseCloseoutAuditScript === "tsx scripts/ops/release-closeout-audit.ts" &&
+      releaseCloseoutAuditValidateScript === "tsx scripts/quality/release-closeout-audit-validate.ts" &&
+      releaseCloseoutAuditSelftestScript === "tsx scripts/quality/release-closeout-audit.selftest.ts" &&
+      attachmentReconciliationScript === "tsx scripts/quality/attachment-reconciliation.ts" &&
+      attachmentReconciliationSummaryScript === "tsx scripts/quality/attachment-reconciliation-summary.ts" &&
+      attachmentReconciliationSummarySelftestScript === "tsx scripts/quality/attachment-reconciliation-summary.selftest.ts" &&
+      releaseEvidenceValidateScript === "tsx scripts/quality/release-evidence-validate.ts" &&
+      releaseEvidenceSelftestScript === "tsx scripts/quality/release-evidence-validate.selftest.ts" &&
       ops001PreflightScript === "tsx scripts/ops/ops001-evidence-preflight.ts" &&
       ops001PreflightSelftestScript === "tsx scripts/quality/ops001-evidence-preflight.selftest.ts" &&
       ops001BlockedValidateScript === "tsx scripts/quality/ops001-blocked-record-validate.ts" &&
@@ -455,6 +507,10 @@ function checkPackageScripts(): void {
       ops001FallbackSelftestScript === "tsx scripts/quality/ops001-readonly-fallback.selftest.ts" &&
       ops004PreflightScript === "tsx scripts/ops/ops004-alert-evidence-preflight.ts" &&
       ops004PreflightSelftestScript === "tsx scripts/quality/ops004-alert-evidence-preflight.selftest.ts" &&
+      ops005PreflightScript === "tsx scripts/ops/ops005-evidence-preflight.ts" &&
+      ops005PreflightSelftestScript === "tsx scripts/quality/ops005-evidence-preflight.selftest.ts" &&
+      ops005EvidenceValidateScript === "tsx scripts/quality/ops005-production-evidence-validate.ts" &&
+      ops005EvidenceSelftestScript === "tsx scripts/quality/ops005-production-evidence-validate.selftest.ts" &&
       sc002PreflightScript === "tsx scripts/ops/sc002-supply-chain-preflight.ts" &&
       sc002PreflightSelftestScript === "tsx scripts/quality/sc002-supply-chain-preflight.selftest.ts" &&
       ops001ClosureScript === "tsx scripts/ops/generate-ops001-closure-packet.ts" &&
@@ -487,7 +543,12 @@ function checkPackageScripts(): void {
       maintenanceWindowRecordScript === "tsx scripts/ops/generate-maintenance-window-record.ts" &&
       maintenanceWindowRecordSelftestScript === "tsx scripts/quality/maintenance-window-record.selftest.ts" &&
       maintenanceWindowValidateScript === "tsx scripts/quality/maintenance-window-record-validate.ts" &&
+      maintenanceWindowIndexScript === "tsx scripts/ops/maintenance-window-index.ts" &&
+      maintenanceWindowIndexValidateScript === "tsx scripts/quality/maintenance-window-index-validate.ts" &&
+      maintenanceWindowIndexSelftestScript === "tsx scripts/quality/maintenance-window-index.selftest.ts" &&
       incidentRecordValidateScript === "tsx scripts/quality/incident-record-validate.ts" &&
+      rollbackProofValidateScript === "tsx scripts/quality/rollback-proof-record-validate.ts" &&
+      rollbackProofSelftestScript === "tsx scripts/quality/rollback-proof-record-validate.selftest.ts" &&
       restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&
       updateAgentStatusRecordScript === "tsx scripts/ops/generate-update-agent-status-record.ts" &&
       updateAgentStatusRecordSelftestScript === "tsx scripts/quality/update-agent-status-record.selftest.ts" &&

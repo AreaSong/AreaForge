@@ -14,7 +14,7 @@
 pnpm completion:evidence:validate <completion-evidence-record.md|txt>
 ```
 
-该校验只检查记录形态、摘要、声明范围、证据位置、证据等级、source baseline、新鲜验证、未验证边界、阻断项、Release 需求、R0-R4 写边界、不能证明项、residual 和 safety facts。它不替代真实运行、浏览器、Release、生产 smoke、`pnpm ops:long-term:gate` 或人工复核。
+该校验检查记录形态、摘要、声明范围、证据位置、证据等级、source baseline、新鲜验证、未验证边界、阻断项、Release 需求、R0-R4 写边界、不能证明项、residual 和 safety facts。仓库相对 `evidenceUri` 必须能解析为当前仓库中的普通文件；纯 40 位 `sourceHashOrCommit` 必须能解析为当前仓库 commit。HTTPS URL 和 `sha256:` 摘要只做格式检查，不联网、不读取远端内容。它不替代真实运行、浏览器、Release、生产 smoke、`pnpm ops:long-term:gate` 或人工复核。
 
 ## 完成声明字段
 
@@ -81,7 +81,7 @@ safetyFacts:
 | `long-term-operability` | 声明长期运营完成或未完成边界 |
 | `mixed` | 多类证据组合，但仍必须逐项写清不能证明什么 |
 
-`evidenceUri` 只能写仓库相对路径、HTTPS URL 或 `sha256:<64 hex>` 摘要，不写服务器绝对路径、`.env`、密钥文件、密码文件、token、私钥或生产原始日志路径。`doesNotProve` 必须列出当前记录不能证明的边界；例如缺生产证据时写 `production health`，缺 Release 证据时写 `release`，长期运营未闭环时写 `long-term operability` 和 `residual closure`。
+`evidenceUri` 只能写当前仓库内真实存在的普通文件相对路径、HTTPS URL 或 `sha256:<64 hex>` 摘要，不写服务器绝对路径、`.env`、密钥文件、密码文件、token、私钥或生产原始日志路径。纯 40 位 `sourceHashOrCommit` 会按 Git commit 校验；无法保留在当前 checkout 中的外部摘要应使用带类型说明的摘要文本或 `sha256:`。`doesNotProve` 必须列出当前记录不能证明的边界；例如缺生产证据时写 `production health`，缺 Release 证据时写 `release`，长期运营未闭环时写 `long-term operability` 和 `residual closure`。
 
 ## 不可替代规则
 
@@ -90,6 +90,7 @@ safetyFacts:
 - Web 版本中心写入 update request 不等于服务器 updater apply 完成。
 - AI 草稿不等于自动应用阶段计划或任务重排。
 - `report_only` 对账不等于修复、删除、恢复或清理。
+- 附件恢复或发布声明若没有同时绑定双向 reconciliation CSV/summary 的路径、status、CSV SHA256 和 summary canonical hash，不能声称附件一致性已证明；并发写入期间的扫描也不能冒充快照一致性。
 - 旧截图、旧 smoke 或历史 release 记录不能证明当前体验和当前生产健康。
 - 旧完成记录不能自动覆盖 source docs 漂移；长期运营、release、residual 关闭或重大体验声明应记录 source docs、commit 或 hash 摘要。
 

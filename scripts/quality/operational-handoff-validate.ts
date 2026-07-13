@@ -1,6 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { protectedPathFiles } from "../ops/operability-status";
+import { buildOperabilityStatusProjection, protectedPathFiles } from "../ops/operability-status";
 import {
   readRequiredFile,
   scanForSecrets,
@@ -9,6 +9,8 @@ import {
 } from "./record-validator-common";
 
 type JsonRecord = Record<string, unknown>;
+type BindingMode = "current" | "shape-only";
+type ValidationOptions = { root?: string; bindingMode?: BindingMode };
 
 const requiredHandoffCommands = [
   "pnpm ops:handoff",
@@ -42,6 +44,7 @@ const requiredDoesNotProve = [
 const requiredBoundaryStopKeys = [
   "post_update_ops001",
   "release_backup_hashes",
+  "update_request_expected_before",
   "residual_closure",
 ];
 
@@ -64,14 +67,19 @@ const falseSafetyFacts = [
 ] as const;
 
 function main(): void {
-  const handoffPath = process.argv[2];
+  const args = process.argv.slice(2);
+  const shapeOnly = args.includes("--shape-only");
+  const handoffPath = args.find((arg) => arg !== "--shape-only" && arg !== "--");
   if (!handoffPath) {
-    console.error("Usage: pnpm ops:handoff:validate <operational-handoff.json>");
+    console.error("Usage: pnpm ops:handoff:validate <operational-handoff.json> [--shape-only]");
     process.exit(2);
   }
 
   const raw = readRequiredFile(path.resolve(handoffPath));
-  const issues = validateOperationalHandoff(raw);
+  const options = { bindingMode: shapeOnly ? "shape-only" as const : "current" as const };
+  const bindingStatus = operationalHandoffBindingStatus(raw, options);
+  const issues = validateOperationalHandoff(raw, options);
+  console.log(`bindingStatus: ${bindingStatus}`);
   if (issues.length > 0) {
     for (const issue of issues) {
       console.error(`FAIL ${issue.field}: ${issue.message}`);
@@ -85,7 +93,7 @@ function main(): void {
   console.log("safetyFacts: readOnly=true networkRequested=false serverCommandAttempted=false productionWriteAttempted=false protectedPathWriteAttempted=false secretValuePrinted=false handoffWritten=false");
 }
 
-export function validateOperationalHandoff(raw: string): ValidationIssue[] {
+export function validateOperationalHandoff(raw: string, options: ValidationOptions = {}): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   scanForSecrets(raw, issues);
   const body = parseJson(raw, issues);
@@ -97,6 +105,7 @@ export function validateOperationalHandoff(raw: string): ValidationIssue[] {
   validateApp(body.app, issues);
   validateStatus(body.status, issues);
   validateSource(body.source, issues);
+  validateCurrentBinding(body.source, options, issues);
   validateClaimBoundary(body.claimBoundary, issues);
   validateEvidenceFocus(body.evidenceFocus, issues);
   validateNextCommands(body.nextCommands, issues);
@@ -109,6 +118,40 @@ export function validateOperationalHandoff(raw: string): ValidationIssue[] {
   validateSafetyFacts(body.safetyFacts, issues);
 
   return issues;
+}
+
+export function operationalHandoffBindingStatus(raw: string, options: ValidationOptions = {}): "current" | "stale" | "unavailable" {
+  if ((options.bindingMode ?? "current") === "shape-only") return "unavailable";
+  const issues: ValidationIssue[] = [];
+  const body = parseJson(raw, issues);
+  if (!body || !isRecord(body.source)) return "unavailable";
+  try {
+    const projection = buildOperabilityStatusProjection({ root: options.root ?? process.cwd() });
+    return body.source.controlPlaneSourceHash === projection.sourceSnapshot.controlPlaneSourceHash &&
+      isRecord(body.source.protectedPathFingerprint) &&
+      body.source.protectedPathFingerprint.hash === projection.sourceSnapshot.protectedPathFingerprint.hash
+      ? "current"
+      : "stale";
+  } catch {
+    return "unavailable";
+  }
+}
+
+function validateCurrentBinding(value: unknown, options: ValidationOptions, issues: ValidationIssue[]): void {
+  if ((options.bindingMode ?? "current") === "shape-only") return;
+  if (!isRecord(value)) return;
+  try {
+    const projection = buildOperabilityStatusProjection({ root: options.root ?? process.cwd() });
+    if (value.controlPlaneSourceHash !== projection.sourceSnapshot.controlPlaneSourceHash) {
+      issues.push({ field: "source.controlPlaneSourceHash.currentBinding", message: "does not match the current checkout" });
+    }
+    const fingerprint = isRecord(value.protectedPathFingerprint) ? value.protectedPathFingerprint : null;
+    if (!fingerprint || fingerprint.hash !== projection.sourceSnapshot.protectedPathFingerprint.hash) {
+      issues.push({ field: "source.protectedPathFingerprint.hash.currentBinding", message: "does not match the current checkout" });
+    }
+  } catch {
+    issues.push({ field: "source.currentBinding", message: "current checkout binding is unavailable; use --shape-only only for historical archives" });
+  }
 }
 
 function validateApp(value: unknown, issues: ValidationIssue[]): void {
@@ -219,9 +262,9 @@ function validateReleaseEvidenceGaps(value: unknown, field: string, issues: Vali
       issues.push({ field: prefix, message: "must be an object" });
       continue;
     }
-    requireOneOf(gap.key, `${prefix}.key`, ["releaseEvidenceBundleHash", "databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256"], issues);
+    requireOneOf(gap.key, `${prefix}.key`, ["releaseEvidenceBundleHash", "databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256", "attachmentReconciliationCsvPath", "attachmentReconciliationCsvSha256", "attachmentReconciliationSummaryPath", "attachmentReconciliationSummaryHash", "attachmentReconciliationStatus"], issues);
     if (typeof gap.key === "string") keys.add(gap.key);
-    requireOneOf(gap.gapType, `${prefix}.gapType`, ["release_evidence_bundle_hash", "release_evidence_backup_hash"], issues);
+    requireOneOf(gap.gapType, `${prefix}.gapType`, ["release_evidence_bundle_hash", "release_evidence_backup_hash", "attachment_reconciliation_binding"], issues);
     requireOneOf(gap.status, `${prefix}.status`, ["root_only", "missing", "invalid"], issues);
     requireString(gap.sourceRecord, `${prefix}.sourceRecord`, issues);
     requireString(gap.sourceField, `${prefix}.sourceField`, issues);
@@ -233,6 +276,9 @@ function validateReleaseEvidenceGaps(value: unknown, field: string, issues: Vali
       "long_term_live_gate",
       "maintenance_handoff",
     ], issues);
+    if (typeof gap.key === "string" && gap.key.startsWith("attachmentReconciliation") && gap.gapType !== "attachment_reconciliation_binding") {
+      issues.push({ field: `${prefix}.gapType`, message: "attachment reconciliation fields must use attachment_reconciliation_binding" });
+    }
   }
 
   if (value.status !== "ready" && !keys.has("releaseEvidenceBundleHash")) {
@@ -263,6 +309,16 @@ function validateBoundaryStops(value: unknown, issues: ValidationIssue[]): void 
     requireStringArray(item.currentBoundary, `evidenceFocus.boundaryStops[${index}].currentBoundary`, issues);
     requireStringArray(item.allowedNow, `evidenceFocus.boundaryStops[${index}].allowedNow`, issues);
     requireStringArray(item.requiresFreshConfirmation, `evidenceFocus.boundaryStops[${index}].requiresFreshConfirmation`, issues);
+    const boundaries = Array.isArray(item.currentBoundary)
+      ? item.currentBoundary.filter((entry): entry is string => typeof entry === "string")
+      : [];
+    if (
+      item.key === "update_request_expected_before" &&
+      (!boundaries.includes("no high-risk local implementation confirmation") ||
+        !boundaries.includes("no production deployment confirmation"))
+    ) {
+      issues.push({ field: `evidenceFocus.boundaryStops[${index}].currentBoundary`, message: "expected-before stop must separate local implementation and production deployment confirmation" });
+    }
   }
 }
 

@@ -50,6 +50,7 @@ const requiredDoesNotProve = [
 const requiredBoundaryStopKeys = [
   "post_update_ops001",
   "release_backup_hashes",
+  "update_request_expected_before",
   "residual_closure",
 ];
 
@@ -266,9 +267,9 @@ function validateReleaseEvidenceGaps(value: unknown, field: string, issues: Vali
       issues.push({ field: prefix, message: "must be an object" });
       continue;
     }
-    requireOneOf(gap.key, `${prefix}.key`, ["releaseEvidenceBundleHash", "databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256"], issues);
+    requireOneOf(gap.key, `${prefix}.key`, ["releaseEvidenceBundleHash", "databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256", "attachmentReconciliationCsvPath", "attachmentReconciliationCsvSha256", "attachmentReconciliationSummaryPath", "attachmentReconciliationSummaryHash", "attachmentReconciliationStatus"], issues);
     if (typeof gap.key === "string") keys.add(gap.key);
-    requireOneOf(gap.gapType, `${prefix}.gapType`, ["release_evidence_bundle_hash", "release_evidence_backup_hash"], issues);
+    requireOneOf(gap.gapType, `${prefix}.gapType`, ["release_evidence_bundle_hash", "release_evidence_backup_hash", "attachment_reconciliation_binding"], issues);
     requireOneOf(gap.status, `${prefix}.status`, ["root_only", "missing", "invalid"], issues);
     requireString(gap.sourceRecord, `${prefix}.sourceRecord`, issues);
     requireString(gap.sourceField, `${prefix}.sourceField`, issues);
@@ -282,6 +283,9 @@ function validateReleaseEvidenceGaps(value: unknown, field: string, issues: Vali
     ], issues);
     if (gap.key === "releaseEvidenceBundleHash" && gap.gapType !== "release_evidence_bundle_hash") {
       issues.push({ field: `${prefix}.gapType`, message: "releaseEvidenceBundleHash must use release_evidence_bundle_hash" });
+    }
+    if (typeof gap.key === "string" && gap.key.startsWith("attachmentReconciliation") && gap.gapType !== "attachment_reconciliation_binding") {
+      issues.push({ field: `${prefix}.gapType`, message: "attachment reconciliation fields must use attachment_reconciliation_binding" });
     }
   }
 
@@ -321,6 +325,13 @@ function validateBoundaryStops(value: unknown, issues: ValidationIssue[]): void 
       (!boundaries.includes("no server command") || !boundaries.includes("no secret read/print/copy/commit"))
     ) {
       issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "OPS-001 stop must include no-server and no-secret boundaries" });
+    }
+    if (
+      item.key === "update_request_expected_before" &&
+      (!boundaries.includes("no high-risk local implementation confirmation") ||
+        !boundaries.includes("no production deployment confirmation"))
+    ) {
+      issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "expected-before stop must separate local implementation and production deployment confirmation" });
     }
   }
 }

@@ -5,6 +5,7 @@ import path from "node:path";
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-completion-evidence-"));
+const headCommit = gitHead();
 
 try {
   const validRecord = path.join(tempDir, "completion-evidence.txt");
@@ -20,33 +21,38 @@ try {
   const invalidEvidenceUriRecord = path.join(tempDir, "completion-evidence-uri.txt");
   const invalidClaimScopeRecord = path.join(tempDir, "completion-claim-scope.txt");
   const invalidDoesNotProveRecord = path.join(tempDir, "completion-does-not-prove.txt");
+  const invalidMissingEvidenceRecord = path.join(tempDir, "completion-missing-evidence.txt");
+  const invalidSourceCommitRecord = path.join(tempDir, "completion-source-commit.txt");
 
-  writeFileSync(validRecord, createRecord());
-  writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: DATABASE_URL=postgresql://user:pass@example/db\n`);
-  writeFileSync(invalidPassBlockerRecord, createRecord().replace("product: none", "product: unresolved dashboard blocker"));
-  writeFileSync(invalidHighRiskRecord, createRecord()
+  writeFileSync(validRecord, createRecord(headCommit));
+  writeFileSync(invalidSecretRecord, `${createRecord(headCommit)}\nleaked: DATABASE_URL=postgresql://user:pass@example/db\n`);
+  writeFileSync(invalidPassBlockerRecord, createRecord(headCommit).replace("product: none", "product: unresolved dashboard blocker"));
+  writeFileSync(invalidHighRiskRecord, createRecord(headCommit)
     .replace("highestRuntimeWriteBoundary: R0", "highestRuntimeWriteBoundary: R4")
     .replace("highRiskConfirmation: not-applicable", "highRiskConfirmation: no"));
-  writeFileSync(invalidProductionRecord, createRecord()
+  writeFileSync(invalidProductionRecord, createRecord(headCommit)
     .replace("evidenceClass: docs-only", "evidenceClass: production"));
-  writeFileSync(invalidUnverifiedReasonRecord, createRecord()
+  writeFileSync(invalidUnverifiedReasonRecord, createRecord(headCommit)
     .replace("  reason: not-applicable", "  reason: skipped production smoke"));
-  writeFileSync(invalidResidualListRecord, createRecord()
+  writeFileSync(invalidResidualListRecord, createRecord(headCommit)
     .replace("residualRiskIds: none", "residualRiskIds: AF-RISK-OPS-001 plus more text"));
-  writeFileSync(invalidHighRiskBoundaryRecord, createRecord()
+  writeFileSync(invalidHighRiskBoundaryRecord, createRecord(headCommit)
     .replace("  migrationAttempted: no", "  migrationAttempted: yes")
     .replace("highRiskConfirmation: not-applicable", "highRiskConfirmation: yes"));
-  writeFileSync(invalidDocsOnlyReleaseRecord, createRecord()
+  writeFileSync(invalidDocsOnlyReleaseRecord, createRecord(headCommit)
     .replace("  releaseCreated: no", "  releaseCreated: yes")
     .replace("highRiskConfirmation: not-applicable", "highRiskConfirmation: yes"));
-  writeFileSync(invalidTimestampRecord, createRecord()
+  writeFileSync(invalidTimestampRecord, createRecord(headCommit)
     .replace("  checkedAt: 2026-07-11T06:30:00+08:00", "  checkedAt: 2026-07-11"));
-  writeFileSync(invalidEvidenceUriRecord, createRecord()
+  writeFileSync(invalidEvidenceUriRecord, createRecord(headCommit)
     .replace("evidenceUri: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md", "evidenceUri: /etc/areaforge/updater.env"));
-  writeFileSync(invalidClaimScopeRecord, createRecord()
+  writeFileSync(invalidClaimScopeRecord, createRecord(headCommit)
     .replace("claimScope: source-only", "claimScope: production-live"));
-  writeFileSync(invalidDoesNotProveRecord, createRecord()
+  writeFileSync(invalidDoesNotProveRecord, createRecord(headCommit)
     .replace("doesNotProve: production health, runtime behavior, Release artifact trust, long-term live gates", "doesNotProve: none"));
+  writeFileSync(invalidMissingEvidenceRecord, createRecord(headCommit)
+    .replace("docs/development/validation-matrix.md", "docs/development/does-not-exist.md"));
+  writeFileSync(invalidSourceCommitRecord, createRecord("ffffffffffffffffffffffffffffffffffffffff"));
 
   expectExit("valid completion evidence record passes", [validRecord], 0, "completionEvidenceHash: sha256:");
   expectExit("secret-like values fail", [invalidSecretRecord], 1);
@@ -61,6 +67,8 @@ try {
   expectExit("unsafe evidence URI fails", [invalidEvidenceUriRecord], 1);
   expectExit("claim scope mismatch fails", [invalidClaimScopeRecord], 1);
   expectExit("empty does-not-prove boundary fails", [invalidDoesNotProveRecord], 1);
+  expectExit("missing repository evidence fails", [invalidMissingEvidenceRecord], 1);
+  expectExit("unknown source commit fails", [invalidSourceCommitRecord], 1);
 
   console.log("completion evidence validator selftest passed.");
 } finally {
@@ -86,7 +94,7 @@ function expectExit(label: string, args: string[], expectedStatus: number, expec
   }
 }
 
-function createRecord(): string {
+function createRecord(sourceCommit: string): string {
   return [
     "scope: docs-only enterprise completion evidence validator",
     "summary: Completion evidence validator docs-only fixture with explicit claim boundary",
@@ -95,7 +103,7 @@ function createRecord(): string {
     "evidenceUri: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md",
     "sourceBaseline:",
     "  sourceDocs: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md",
-    "  sourceHashOrCommit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    `  sourceHashOrCommit: ${sourceCommit}`,
     "freshValidation:",
     "  commands: pnpm completion:evidence:selftest, pnpm docs:readiness",
     "  browserOrRuntimeEvidence: not-applicable",
@@ -126,4 +134,10 @@ function createRecord(): string {
     "  secretValuePrinted: no",
     "",
   ].join("\n");
+}
+
+function gitHead(): string {
+  const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) throw new Error("completion evidence selftest requires a Git checkout");
+  return result.stdout.trim();
 }

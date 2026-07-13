@@ -37,7 +37,8 @@ Use this skill when signals indicate user impact or operational risk and the nex
 4. For any write action, provide impact, rollback plan, validation, and explicit confirmation request before executing.
 5. After containment or rollback, verify health, authenticated smoke, data accessibility, upload access, AI fallback/provider behavior, and update-agent status.
 6. Close only after recording root cause or accepted unknown, user impact, actions taken, validation evidence, residual risk, and follow-up owner.
-7. If a redacted incident record is added, validate it with `pnpm incident:record:validate <record>`.
+7. If rollback was executed, save a redacted proof from `docs/development/rollback-proof-record-template.md` and run `pnpm rollback:proof:validate <record>`; `ready-for-human-review` does not reopen the update channel or close residuals.
+8. If a redacted incident record is added, validate it with `pnpm incident:record:validate <record>`.
 
 ## Guardrails
 

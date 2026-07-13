@@ -10,7 +10,7 @@
 发布记录完成后运行：
 
 ```bash
-pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
+pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md attachment-reconciliation.csv attachment-reconciliation-summary.json
 ```
 
 校验器会强制 `releaseEvidenceBundleHash` 存在，并与当前记录字段计算出的 bundle hash 一致；草稿生成器应先写入该 hash，再交给维护者复核。
@@ -30,14 +30,13 @@ AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md p
 pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md
 ```
 
-如附带附件对账 CSV：
+附件对账 CSV 和双向 summary 是发布记录必需输入：
 
 ```bash
-pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md attachment-reconciliation.csv
+pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md attachment-reconciliation.csv attachment-reconciliation-summary.json
 ```
 
-附件对账 CSV 只能是 `report_only`，不得把密钥、数据库 URL、完整 prompt/raw response、附件内容或生产
-`.env` 写入发布记录。
+附件对账 CSV 只能是 `report_only`；summary 只保存计数和 file-only/unsafe 文件名 SHA256。不得把密钥、数据库 URL、完整 prompt/raw response、附件内容、绝对上传路径或生产 `.env` 写入发布记录。
 
 ## 模板
 
@@ -93,6 +92,11 @@ restoreDrill:
   databaseImported: yes/no
   uploadsRestored: yes/no
   attachmentHashMatched: yes/no/not-applicable
+attachmentReconciliationCsvPath: reports/attachment-reconciliation.csv
+attachmentReconciliationCsvSha256: sha256:<64-hex>
+attachmentReconciliationSummaryPath: reports/attachment-reconciliation-summary.json
+attachmentReconciliationSummaryHash: sha256:<64-hex>
+attachmentReconciliationStatus: pass/mismatch
 postReleaseSmoke:
   health: PASS/FAIL
   login: PASS/FAIL
@@ -118,6 +122,8 @@ expectedFailureOrStopConditions:
   attachmentHashMismatch: <stop condition>
   backupMissing: <stop condition>
 ```
+
+附件对账字段必须进入 `releaseEvidenceBundleHash`。`yes` 只用于至少一条附件且 CSV 全匹配、summary=`pass`；`no` 必须绑定 `mismatch` summary；`not-applicable` 必须绑定仅表头 CSV 和数据库/上传目录双零计数 summary。summary 只报告 `fileOnlyCount`、`unsafeEntryCount` 等计数及文件名 SHA256，不保存绝对路径、文件内容，也不授权清理、移动或修复。
 
 ## 关闭条件
 

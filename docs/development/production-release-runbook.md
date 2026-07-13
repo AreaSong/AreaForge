@@ -196,6 +196,11 @@ restoreDrill:
   databaseImported: yes/no
   uploadsRestored: yes/no
   attachmentHashMatched: yes/no/not-applicable
+attachmentReconciliationCsvPath:
+attachmentReconciliationCsvSha256:
+attachmentReconciliationSummaryPath:
+attachmentReconciliationSummaryHash:
+attachmentReconciliationStatus: pass/mismatch
 postReleaseSmoke:
   health:
   login:
@@ -228,10 +233,17 @@ expectedFailureOrStopConditions:
 发布记录写完后，可以用只读校验脚本检查字段完整性、hash 形态、枚举值、migration runner 选择、回滚演练字段、敏感值泄露和附件对账边界：
 
 ```bash
-pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]
+pnpm release:evidence:validate <release-record.md|txt> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>
 ```
 
-该脚本只读取发布记录和可选附件对账 CSV，不连接生产服务，不执行 `docker compose`、`pg_dump`、`pg_restore`、migration deploy、文件删除、文件移动或 metadata 修复。附件对账 CSV 的 `action` 必须全部为 `report_only`。若 `migrationApplied=yes`，`migrationRunner` 必须是 `controlled_release_workdir` 或 `one_off_migration_job`；若 `migrationApplied=no`，`migrationRunner` 必须是 `not-applicable`。
+该脚本只读取发布记录、附件对账 CSV 和 `attachment-reconciliation-summary.json`，不连接生产服务，不执行 `docker compose`、`pg_dump`、`pg_restore`、migration deploy、文件删除、文件移动、孤儿清理或 metadata 修复。附件对账 CSV 的 `action` 必须全部为 `report_only`；summary 必须绑定 CSV hash，并只保存 file-only/unsafe entry 的文件名 SHA256，不包含绝对路径或文件内容。若 `migrationApplied=yes`，`migrationRunner` 必须是 `controlled_release_workdir` 或 `one_off_migration_job`；若 `migrationApplied=no`，`migrationRunner` 必须是 `not-applicable`。
+
+附件对账三态必须有对应证据，不能通过省略文件获得通过：
+
+- `attachmentHashMatched=yes`：CSV 至少一行且 `exists`、`sizeMatches`、`hashMatches` 全为 `true`，summary `status=pass`。
+- `attachmentHashMatched=no`：summary 必须为 `mismatch`，用于保存缺失、hash/size mismatch、file-only、unsafe entry、非法 URI 或重复引用事实。
+- `attachmentHashMatched=not-applicable`：CSV 必须仅表头，summary 必须为 `pass`，且 `databaseRecordCount=0`、`uploadFileCount=0`。
+- 发布记录中的 `attachmentReconciliationCsvSha256` 和 `attachmentReconciliationSummaryHash` 必须与传入文件一致，并连同路径和 `attachmentReconciliationStatus` 进入 `releaseEvidenceBundleHash`。
 
 `pnpm ops:evidence:bundle` 生成的是运行态证据包 hash，用于交接 health、update-agent、smoke、backup、rollback、disk/cert 和 residual risk IDs。它不替代 `pnpm release:evidence:validate`，也不授权生产写入或 updater 执行。
 
@@ -365,10 +377,11 @@ attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,ex
 DATABASE_URL="$RESTORE_DATABASE_URL" \
   pnpm exec tsx scripts/quality/attachment-reconciliation.ts \
   "$RESTORED_UPLOAD_DIR" \
-  "$BACKUP_DIR/attachment-reconciliation.csv"
+  "$BACKUP_DIR/attachment-reconciliation.csv" \
+  --summary-output "$BACKUP_DIR/attachment-reconciliation-summary.json"
 ```
 
-`scripts/quality/attachment-reconciliation.ts` 只读取恢复后的数据库和上传目录，写出 CSV 报告；`action` 固定为 `report_only`。若当前没有附件记录，可以生成 header-only 报告，并在发布记录中把 `restoreDrill.attachmentHashMatched` 标为 `not-applicable`。
+`scripts/quality/attachment-reconciliation.ts` 只读取恢复后的数据库和上传目录，写出 CSV 和双向 summary；即使没有传 `--summary-output` 也会执行目录反向扫描。独立 summary 逻辑位于 `scripts/quality/attachment-reconciliation-summary.ts`，输出 `fileOnlyCount`、`unsafeEntryCount`、DB-only、hash/size mismatch、非法 URI 和重复引用计数。报告输出必须位于 `UPLOAD_DIR` 外，路径不能相同或指向 symlink；`action` 固定为 `report_only`。若当前没有附件记录，只有上传目录也为空时才可生成 header-only CSV、zero-count summary，并在发布记录中把 `restoreDrill.attachmentHashMatched` 标为 `not-applicable`。对账应针对停止写入的恢复副本或快照执行；它不证明扫描期间不存在并发写入。
 
 ## 回滚流程
 
@@ -384,6 +397,14 @@ DATABASE_URL="$RESTORE_DATABASE_URL" \
    - 使用发布前数据库备份恢复。
    - 同步恢复上传目录备份，保证 metadata 与文件本体一致。
 6. 记录失败原因、恢复时间和残余风险。
+
+回滚完成不等于更新通道可以重新开放。使用 `docs/development/rollback-proof-record-template.md` 保存 redacted proof，并运行：
+
+```bash
+pnpm rollback:proof:validate <rollback-proof-record.md|txt>
+```
+
+proof 必须绑定回滚前后 update-record hash、不可变 source/target image、post-rollback health、authenticated smoke、数据库/uploads/附件可访问性、`AREAFORGE_AUTO_APPLY` 策略、历史记录保留和 reopen conditions。`ready-for-human-review` 仍需维护者人工决定，不能自动执行 updater apply、restore、策略变更或 residual 台账关闭。
 
 ## 生产变量检查
 

@@ -61,6 +61,16 @@ try {
       fail(`backup/restore preview blocking gap for ${key} does not name release evidence and long-term gate blockers`);
     }
   }
+  for (const key of ["attachmentReconciliationCsvPath", "attachmentReconciliationCsvSha256", "attachmentReconciliationSummaryPath", "attachmentReconciliationSummaryHash", "attachmentReconciliationStatus"]) {
+    const gap = blockingGaps.find((item) => item.key === key);
+    if (!gap || gap.gapType !== "attachment_integrity_result" || gap.sourceInput !== "release_record") {
+      fail(`backup/restore preview attachment binding gap is missing or invalid for ${key}`);
+    }
+    const blocks = gap.blocks as unknown[];
+    if (!blocks.includes("release_evidence_validator") || !blocks.includes("long_term_live_gate")) {
+      fail(`backup/restore preview attachment binding gap does not block release evidence and long-term gate for ${key}`);
+    }
+  }
   const safetyFacts = parsed.safetyFacts as Record<string, unknown>;
   if (safetyFacts.backupRestoreAttempted !== false || safetyFacts.productionWriteAttempted !== false) {
     fail("backup/restore preview safety facts are not read-only");
@@ -119,6 +129,11 @@ try {
   writeFileSync(validReleaseRecord, [
     "releaseTag: v0.1.7",
     `releaseEvidenceBundleHash: sha256:${"e".repeat(64)}`,
+    "attachmentReconciliationCsvPath: reports/attachment-reconciliation.csv",
+    `attachmentReconciliationCsvSha256: sha256:${"1".repeat(64)}`,
+    "attachmentReconciliationSummaryPath: reports/attachment-reconciliation-summary.json",
+    `attachmentReconciliationSummaryHash: sha256:${"2".repeat(64)}`,
+    "attachmentReconciliationStatus: pass",
     `databaseBackupSha256: ${"a".repeat(64)}`,
     `uploadsBackupSha256: ${"b".repeat(64)}`,
     `envBackupSha256: ${"c".repeat(64)}`,
@@ -156,6 +171,11 @@ try {
   writeFileSync(invalidReleaseRecord, [
     "releaseTag: v0.1.7",
     `releaseEvidenceBundleHash: sha256:${"e".repeat(64)}`,
+    "attachmentReconciliationCsvPath: reports/attachment-reconciliation.csv",
+    `attachmentReconciliationCsvSha256: sha256:${"1".repeat(64)}`,
+    "attachmentReconciliationSummaryPath: reports/attachment-reconciliation-summary.json",
+    `attachmentReconciliationSummaryHash: sha256:${"2".repeat(64)}`,
+    "attachmentReconciliationStatus: pass",
     "databaseBackupSha256: invalid-hash",
     `uploadsBackupSha256: ${"b".repeat(64)}`,
     `envBackupSha256: ${"c".repeat(64)}`,
@@ -188,6 +208,11 @@ try {
   writeFileSync(missingReleaseRecord, [
     "releaseTag: v0.1.7",
     `releaseEvidenceBundleHash: sha256:${"e".repeat(64)}`,
+    "attachmentReconciliationCsvPath: reports/attachment-reconciliation.csv",
+    `attachmentReconciliationCsvSha256: sha256:${"1".repeat(64)}`,
+    "attachmentReconciliationSummaryPath: reports/attachment-reconciliation-summary.json",
+    `attachmentReconciliationSummaryHash: sha256:${"2".repeat(64)}`,
+    "attachmentReconciliationStatus: pass",
     `uploadsBackupSha256: ${"b".repeat(64)}`,
     `envBackupSha256: ${"c".repeat(64)}`,
     "composeConfigBackupPath: redacted-compose-backup",

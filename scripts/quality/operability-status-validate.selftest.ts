@@ -59,6 +59,15 @@ function main(): void {
     body.boundaryStops = body.boundaryStops.filter((stop) => stop.key !== "post_update_ops001");
   }), "boundaryStops");
 
+  expectFail(withPatch(projection, (body) => {
+    body.boundaryStops = body.boundaryStops.filter((stop) => stop.key !== "update_request_expected_before");
+  }), "boundaryStops");
+
+  expectFail(withPatch(projection, (body) => {
+    const stop = body.boundaryStops.find((item) => item.key === "update_request_expected_before");
+    if (stop) stop.currentBoundary = ["no production deployment confirmation"];
+  }), "boundaryStops[2].currentBoundary");
+
   expectFail(JSON.stringify({
     ...projection,
     fakeSecret: "DATABASE_URL=postgresql://user:pass@localhost:5432/areaforge",

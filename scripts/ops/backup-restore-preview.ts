@@ -137,6 +137,7 @@ function main(): void {
       "inspect_release_backup_metadata",
       "classify_root_only_backup_hash_gaps",
       "classify_release_evidence_bundle_hash_gap",
+      "inspect_attachment_reconciliation_binding",
       "derive_machine_readable_blocking_gaps",
       "summarize_restore_dry_run_record_presence",
       "compute_preview_hash",
@@ -226,6 +227,11 @@ function buildInventory(
     backupHashItem("uploadsBackupSha256", "uploads backup sha256", releaseFields),
     backupHashItem("envBackupSha256", "production env backup sha256", releaseFields),
     releaseEvidenceBundleHashItem(releaseFields),
+    attachmentEvidencePathItem("attachmentReconciliationCsvPath", "attachment reconciliation CSV path", releaseFields),
+    attachmentEvidenceHashItem("attachmentReconciliationCsvSha256", "attachment reconciliation CSV sha256", releaseFields),
+    attachmentEvidencePathItem("attachmentReconciliationSummaryPath", "attachment reconciliation summary path", releaseFields),
+    attachmentEvidenceHashItem("attachmentReconciliationSummaryHash", "attachment reconciliation summary hash", releaseFields),
+    attachmentEvidenceStatusItem(releaseFields),
     configPathItem("composeConfigBackupPath", "compose config backup reference", releaseFields),
     configPathItem("nginxConfigBackupPath", "Nginx config backup reference", releaseFields),
     restoreResultItem("databaseRestoreResult", "database restore dry-run result", restoreFields, hasRestoreRecord),
@@ -233,6 +239,48 @@ function buildInventory(
     restoreResultItem("attachmentHashMatched", "attachment metadata/file integrity result", restoreFields, hasRestoreRecord),
     rollbackItem(releaseFields),
   ];
+}
+
+function attachmentEvidenceHashItem(field: string, label: string, fields: Map<string, string>): EvidenceItem {
+  const value = fields.get(field) ?? "";
+  const status = classifyHashEvidence(value);
+  return {
+    key: field,
+    category: "attachment_integrity",
+    status,
+    evidence: evidenceText(label, status),
+    requiredEvidence: [`${label} as sha256:<64 hex>`],
+    residualRiskIds: status === "present" ? [] : ["AF-RISK-OPS-001", "AF-RISK-REL-001"],
+    metadata: { hashPresent: status === "present", valueClass: classifyValue(value), source: "release_record" },
+  };
+}
+
+function attachmentEvidencePathItem(field: string, label: string, fields: Map<string, string>): EvidenceItem {
+  const value = fields.get(field) ?? "";
+  const status: EvidenceStatus = !value ? "missing" : isRootOnlyMarker(value) ? "root_only" : "present";
+  return {
+    key: field,
+    category: "attachment_integrity",
+    status,
+    evidence: evidenceText(label, status),
+    requiredEvidence: [`${label} as a redacted repository or evidence-bundle path`],
+    residualRiskIds: status === "present" ? [] : ["AF-RISK-OPS-001", "AF-RISK-REL-001"],
+    metadata: { pathPresent: status === "present", rawPathIncluded: false, source: "release_record" },
+  };
+}
+
+function attachmentEvidenceStatusItem(fields: Map<string, string>): EvidenceItem {
+  const value = fields.get("attachmentReconciliationStatus") ?? "";
+  const status: EvidenceStatus = ["pass", "mismatch"].includes(value) ? "present" : value ? "invalid" : "missing";
+  return {
+    key: "attachmentReconciliationStatus",
+    category: "attachment_integrity",
+    status,
+    evidence: status === "present" ? `attachment reconciliation status is ${value}` : `attachment reconciliation status is ${value || "missing"}`,
+    requiredEvidence: ["attachmentReconciliationStatus=pass or mismatch bound in releaseEvidenceBundleHash"],
+    residualRiskIds: status === "present" ? [] : ["AF-RISK-OPS-001", "AF-RISK-REL-001"],
+    metadata: { result: value || null, source: "release_record" },
+  };
 }
 
 function backupHashItem(field: string, label: string, fields: Map<string, string>): EvidenceItem {
@@ -338,7 +386,7 @@ function rollbackItem(fields: Map<string, string>): EvidenceItem {
 }
 
 function restoreDryRunSummary(inventory: EvidenceItem[]): BackupRestorePreview["restoreDryRun"] {
-  const restoreItems = inventory.filter((item) => item.category === "restore_dry_run" || item.category === "attachment_integrity");
+  const restoreItems = inventory.filter((item) => item.category === "restore_dry_run" || item.key === "attachmentHashMatched");
   const status = restoreItems.every((item) => item.status === "present") ? "present" : "missing";
   return {
     status,
@@ -386,7 +434,7 @@ function gapType(item: EvidenceItem): GapType {
 }
 
 function sourceInput(item: EvidenceItem): BlockingGap["sourceInput"] {
-  return item.category === "restore_dry_run" || item.category === "attachment_integrity"
+  return item.category === "restore_dry_run" || item.key === "attachmentHashMatched"
     ? "restore_drill_record"
     : "release_record";
 }
@@ -406,7 +454,15 @@ function blockedScopes(item: EvidenceItem): BlockingScope[] {
       "maintenance_handoff",
     ];
   }
-  if (item.category === "restore_dry_run" || item.category === "attachment_integrity") {
+  if (item.category === "attachment_integrity" && item.key !== "attachmentHashMatched") {
+    return [
+      "release_evidence_validator",
+      "long_term_live_gate",
+      "backup_restore_preview_ready",
+      "maintenance_handoff",
+    ];
+  }
+  if (item.category === "restore_dry_run" || item.key === "attachmentHashMatched") {
     return [
       "restore_dry_run_claim",
       "backup_restore_preview_ready",

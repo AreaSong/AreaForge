@@ -93,7 +93,7 @@ pnpm ops:status --summary
 
 默认命令只读本地 `package.json`、长期运营入口文件、`docs/development/release-v0.1.7-record.md` 和 `docs/development/residual-risk-ledger.json`，输出 `offline_long_term_operability_status_projection` JSON，包含控制面是否完整、当前版本、residual 类型统计、`reviewAt` 到期状态、可立即执行的残余项、release 相关 residual IDs、`releaseEvidenceGaps`、每日/每周/release/incident 推荐命令、`sourceSnapshot.controlPlaneSourceHash`、`sourceSnapshot.protectedPathFingerprint`、`doesNotProve` 和 `safetyFacts`。`protectedPathFingerprint` 绑定只读副作用 guard 的 protected path 集合和聚合 sha256；它不证明生产健康、仓库全路径无变更或 `git status` 干净。保存 JSON 后用 `pnpm ops:status:validate <operability-status.json>` 校验 shape contract、claim boundary、命令矩阵、protected path fingerprint、release evidence gap shape 和只读 `safetyFacts`；validator 通过不等于生产健康。`--summary` 输出人读摘要，便于维护窗口快速判断当前 blocker、due residual、release evidence gap 和下一步证据命令；不可本地执行但仍处于 `current-blocker` 类型的项也会显示在 `currentBlockers`。三种模式都不访问网络、不读取密钥、不执行服务器命令、不备份、不恢复、不运行 migration、不写生产，也不写 `.areaforge/status.json`。输出中的 `overall=needs_live_evidence` 表示离线控制面存在但仍缺真实生产 smoke、release 或告警证据；`overall=blocked` 表示存在当前阻断项，例如 post-version OPS-001 或 release backup hash 证据缺口；两者都不能用来宣称生产健康。
 
-`ops:status` 还会输出 `boundaryStops`，把当前 no-server/no-secret/no-residual-closure 边界下不能闭环的证据显式列出。当前稳定停止线包括 post-`v0.1.7` OPS-001 证据包、`release-v0.1.7-record.md` 的 `releaseEvidenceBundleHash` 和三个 backup SHA256、以及 residual 关闭决策。`releaseEvidenceGaps` 则把这些字段展开成机器可读 `gapType`、`status`、`sourceField` 和 `blocks`，用于确认它们会阻塞 `release:evidence:validate`、`ops:long-term:gate` 和维护交接。`boundaryStops` 只说明“当前授权边界内不能做什么、还能做哪些只读本地检查、未来需要哪类确认”，不等于 blocker 已关闭，也不授权读取、打印、复制或提交 secrets。
+`ops:status` 还会输出 `boundaryStops`，把当前 no-server/no-secret/no-residual-closure 边界下不能闭环的证据显式列出。当前稳定停止线包括 post-`v0.1.7` OPS-001 证据包、`release-v0.1.7-record.md` 的 `releaseEvidenceBundleHash` 和三个 backup SHA256、`AF-RISK-OPS-005` 本地实现与生产部署的两阶段确认，以及 residual 关闭决策。`releaseEvidenceGaps` 则把备份字段和附件 reconciliation 路径/status/hash 绑定展开成机器可读 `gapType`、`status`、`sourceField` 和 `blocks`，用于确认它们会阻塞 `release:evidence:validate`、`ops:long-term:gate` 和维护交接。`update_request_expected_before` stop 必须同时保留 `no high-risk local implementation confirmation` 和 `no production deployment confirmation`，防止将设计、代码、Release 和生产部署混成一次授权。`boundaryStops` 只说明“当前授权边界内不能做什么、还能做哪些只读本地检查、未来需要哪类确认”，不等于 blocker 已关闭，也不授权读取、打印、复制或提交 secrets。
 
 维护窗口、release 前检查或新线程接手时，使用只读运营交接摘要：
 
@@ -107,13 +107,17 @@ pnpm ops:handoff --summary
 
 `ops:handoff` 会继承 `ops:status` 的 `boundaryStops`，用于交接时直接看到哪些缺口在当前边界下不可执行。若确认范围继续禁止服务器命令、secrets 读取/打印/复制/提交或 residual 台账关闭，维护者只能运行其中列出的本地 validator、preview 和 preflight；不能把 `release:evidence:redacted-export:validate` 误读为“已经采集生产导出”，也不能把 `ops:ops-001:preflight` 的 `needs_evidence` 当成 OPS-001 已关闭。
 
+保存 handoff JSON 后，默认运行 `pnpm ops:handoff:validate <handoff.json>`。validator 会重建当前 checkout 的 control-plane source hash 和 protected path fingerprint，输出 `bindingStatus: current` 或在漂移时以 `stale` 失败。历史归档只能显式使用 `--shape-only`，此时输出 `bindingStatus: unavailable`，只证明结构合法，不证明它仍绑定当前源事实。
+
 在声称“产品可长期运营”前，使用严格 live evidence gate：
 
 ```bash
 pnpm ops:long-term:gate
 ```
 
-该命令只读本地 redacted 证据、Release 发布记录和体验记录，复用 OPS-001、OPS-004、Release evidence、SC-002 和 UX validator；它要求 OPS-001 和 OPS-004 都达到 `ready_for_human_close`，`pnpm release:evidence:validate` 通过且包含可校验的数据库、uploads、env 备份 SHA256，签名 Release 供应链达到 `ready_for_sc001_sc002_review`，且产品体验记录在默认 14 天窗口内并通过 `pnpm experience:review:validate`。当前默认绑定 `docs/development/release-v0.1.7-record.md`、`docs/development/release-supply-chain-v0.1.7.md`、`docs/development/ops-004-alert-preview-v0.1.7-20260712.json`、`docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt` 和 `docs/development/product-experience-review-v0.1.7-20260712-local.md`；不会把 2026-07-11 OPS-004 manual-window 历史证据当成当前默认输入。显式设置 `AREAFORGE_OPS004_ALERT_PREVIEW` / `AREAFORGE_OPS004_ALERT_DRILL_RECORD` / `AREAFORGE_LONG_TERM_RELEASE_RECORD` / `AREAFORGE_SC002_RELEASE_RECORD` / `AREAFORGE_LONG_TERM_UX_RECORD` 时使用显式路径。缺少任何一类证据时它会退出失败，输出 `read_only_long_term_operability_live_gate` JSON；这只是防止完成声明过度扩张，不执行生产命令、不联网、不创建 Release、不读取密钥、不写 residual 台账。
+Release evidence 进入 live gate 前必须同时提供发布记录、`attachment-reconciliation.csv` 和 `attachment-reconciliation-summary.json`。发布记录用 `attachmentReconciliationCsvSha256`、`attachmentReconciliationSummaryHash`、路径和状态绑定双向附件证据；`yes`、`no`、`not-applicable` 都不能通过省略文件获得通过。该证据只报告 DB-only、file-only、hash/size mismatch、非法 URI、重复引用和 unsafe entry，不清理或修复附件。
+
+该命令只读本地 redacted 证据、Release 发布记录和体验记录，复用 OPS-001、OPS-004、OPS-005、Release evidence、SC-002 和 UX validator；它要求 OPS-001 和 OPS-004 都达到 `ready_for_human_close`，OPS-005 达到 `ready_for_ops005_human_review`，`pnpm release:evidence:validate` 通过且包含可校验的数据库、uploads、env 备份 SHA256，签名 Release 供应链达到 `ready_for_sc001_sc002_review`，且产品体验记录在默认 14 天窗口内并通过 `pnpm experience:review:validate`。当前默认绑定 `docs/development/release-v0.1.7-record.md`、`docs/development/release-supply-chain-v0.1.7.md`、`docs/development/ops-004-alert-preview-v0.1.7-20260712.json`、`docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt` 和 `docs/development/product-experience-review-v0.1.7-20260712-local.md`；不会把 2026-07-11 OPS-004 manual-window 历史证据当成当前默认输入。显式设置 `AREAFORGE_OPS004_ALERT_PREVIEW` / `AREAFORGE_OPS004_ALERT_DRILL_RECORD` / `AREAFORGE_OPS005_PRODUCTION_EVIDENCE` / `AREAFORGE_LONG_TERM_RELEASE_RECORD` / `AREAFORGE_SC002_RELEASE_RECORD` / `AREAFORGE_LONG_TERM_UX_RECORD` 时使用显式路径。缺少任何一类证据时它会退出失败，输出 `read_only_long_term_operability_live_gate` JSON；这只是防止完成声明过度扩张，不执行生产命令、不联网、不创建 Release、不读取密钥、不写 residual 台账。
 
 维护交接或 release/update 后需要把“当前证据和缺口”固定成机器可读记录时，使用只读长期证据快照：
 
@@ -122,7 +126,11 @@ pnpm ops:long-term:snapshot > /path/to/long-term-evidence-snapshot.json
 pnpm ops:long-term:snapshot:validate /path/to/long-term-evidence-snapshot.json
 ```
 
-该命令输出 `read_only_long_term_evidence_snapshot`，包含 `snapshotHash`、`controlPlaneSourceHash`、`protectedPathFingerprint`、证据路径标签、输入 sha256、`controlPlane`、`ops001`、`ops004`、`releaseEvidenceRecord`、`supplyChain`、`uxReview` 和 `operationalEvidenceBundle` 七项 check。`releaseEvidenceRecord` 必须通过 `pnpm release:evidence:validate` 才能为 `pass`；若 backup hash 仍是 root-only 未入仓状态，快照只能保持 `needs_live_evidence`。`operationalEvidenceBundle` check 必须保留 health、release identity、update-agent、authenticated smoke、backup、rollback 和 infrastructure 七个信号；若 bundle 为 `needs_attention`、summary 为 `warn/unknown/fail/blocked` 或 freshness 为 `stale/unknown`，快照只能保持 `needs_live_evidence`。它不联网、不执行生产 smoke、不读取密钥、不执行服务器命令、不创建 Release、不下载 Release assets、不执行 updater、不备份、不恢复、不运行 migration、不写生产，也不修改 residual 台账。快照 validator 通过只证明记录形态、hash、protected path fingerprint 和缺口绑定正确，不替代 `pnpm ops:long-term:gate`、生产只读 smoke、update-agent status、备份 hash 或人工 residual 关闭。
+该命令输出 schema v2 `read_only_long_term_evidence_snapshot`，包含 `snapshotHash`、`controlPlaneSourceHash`、`protectedPathFingerprint`、证据路径标签、输入 sha256、`controlPlane`、`ops001`、`ops004`、`ops005`、`releaseEvidenceRecord`、`supplyChain`、`uxReview` 和 `operationalEvidenceBundle` 八项 check。schema v1 仅作为 OPS-005 接入前的历史非 ready 归档兼容，历史 protected paths 必须是当前受保护路径集合的安全子集，且永远不能证明 `ready_for_long_term_operability_review`。`releaseEvidenceRecord` 必须通过 `pnpm release:evidence:validate` 才能为 `pass`；若 backup hash 仍是 root-only 未入仓状态，快照只能保持 `needs_live_evidence`。`operationalEvidenceBundle` check 必须保留 health、release identity、update-agent、authenticated smoke、backup、rollback 和 infrastructure 七个信号；若 bundle 为 `needs_attention`、summary 为 `warn/unknown/fail/blocked` 或 freshness 为 `stale/unknown`，快照只能保持 `needs_live_evidence`。它不联网、不执行生产 smoke、不读取密钥、不执行服务器命令、不创建 Release、不下载 Release assets、不执行 updater、不备份、不恢复、不运行 migration、不写生产，也不修改 residual 台账。快照 validator 通过只证明记录形态、hash、protected path fingerprint 和缺口绑定正确，不替代 `pnpm ops:long-term:gate`、生产只读 smoke、update-agent status、备份 hash 或人工 residual 关闭。
+
+OPS-005 expected-before 证据使用独立只读入口：`pnpm ops:ops-005:preflight` 负责判断当前处于 `needs_local_implementation`、`needs_signed_release`、`needs_production_evidence` 或 `ready_for_ops005_human_review`；形成生产 redacted 记录后用 `pnpm ops:ops-005:evidence:validate <record>` 校验。两者都不实施 V2、不执行生产动作，也不关闭 residual。
+
+版本发布后的跨记录一致性使用 `pnpm release:closeout:audit -- --version <X.Y.Z>`。该命令调用现有 Release 与供应链 validator，并交叉检查 tag、commit、镜像 digest、operational evidence bundle 内部 hash、rollback target 和 residual 类型；输出保存后运行 `pnpm release:closeout:audit:validate <audit.json>`。它只读仓库证据，不连接生产，不修订历史记录，不创建 Release，也不关闭 residual。
 
 公开支持、自托管排障或维护交接需要一份可贴到 issue/thread 的 metadata-only 预览时，使用：
 
@@ -344,6 +352,10 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 
 这些校验都只读取 redacted 记录，不连接生产、不读取密钥、不执行服务器命令、不写生产。维护窗口记录不能替代 release record；事故记录不能替代高风险确认；恢复演练记录不能授权生产 restore。
 
+实际 rollback 后使用 `docs/development/rollback-proof-record-template.md` 和 `pnpm rollback:proof:validate <record>` 绑定不可变目标镜像、回滚前后 operation/update-record hash、post-rollback health、authenticated smoke、数据库/uploads/附件可访问性、auto-apply 策略、历史记录保留和 reopen conditions。validator 只给 `ready-for-human-review` 形态门槛，不执行 rollback、restore 或自动重新开放更新通道。
+
+维护窗口历史使用 `pnpm maintenance:window:index` 生成确定性只读投影，并用 `pnpm maintenance:window:index:validate docs/development/maintenance-window-index.json` 重新扫描当前记录集合。索引绑定原始记录文件 SHA256，不保存动态“当前健康”结论；它不能替代 readiness、smoke、update-agent、备份、rollback 或 residual 关闭证据。
+
 ## 残余边界
 
 长期运营未完成项不应散落在自然语言里。影响发布或运维判断的项目必须进入 `docs/development/residual-risk-ledger.md`，使用稳定 ID、类型、影响、关闭条件和所需证据。
@@ -358,6 +370,7 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
 - `AF-RISK-OPS-004`：告警阈值已有非执行策略；2026-07-11 manual-window alert preview 和告警/恢复演练记录保留为历史输入；post-`v0.1.7` alert preview 已保存为 `docs/development/ops-004-alert-preview-v0.1.7-20260712.json`，matching drill 已保存为 `docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt`，带当前 preview/drill 环境变量运行 `pnpm ops:ops-004:preflight` 返回 `ready_for_human_close`；metrics dashboard 和外部告警接收人仍未产品化，台账关闭仍需维护者人工复核。
+- `AF-RISK-OPS-005`：Web mutation request 当前缺 expected-before、目标 Release/manifest/digest、TTL、idempotency/hash、processing reconciliation 和共享 production-state lock。设计、active task 和高风险本地实施确认包已准备；在用户明确确认、本地 V2 实现与测试完成、签名 Release 和独立生产部署证据形成前，该项保持 current blocker，且不得从 Web runtime 或本地文档直接执行生产动作。
 - `AF-RISK-UX-001`：已关闭为证据项；2026-07-10 本地 desktop/mobile 体验复核记录是历史证据，2026-07-12 本地 `0.1.7` desktop/mobile 复核记录已补充；后续 release/update、体验改动或超过 14 天维护窗口前必须重跑 `pnpm experience:review:validate`，否则体验健康重新降级为 `warn`。
 
 当上述 `ready_for_human_close` 或 `ready_for_sc001_sc002_review` 进入维护者复核时，先保存一份 `docs/development/residual-closure-review-template.md` 格式记录并运行 `pnpm residuals:closure:validate <record>`。该记录用于证明复核结论、证据 URI、validator 摘要和重新打开条件完整；它保持 `closesResidual=no`，不等于台账已关闭。

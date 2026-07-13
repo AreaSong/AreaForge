@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import {
+  parseAttachmentReconciliationCsv,
+  validateAttachmentReconciliationSummary,
+} from "./attachment-reconciliation-summary";
 
 interface ValidationIssue {
   field: string;
@@ -95,7 +99,7 @@ const secretPatterns = [
 function main(): void {
   const recordPath = process.argv[2];
   if (!recordPath) {
-    console.error("Usage: pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]");
+    console.error("Usage: pnpm release:evidence:validate <release-record.md|txt> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>");
     process.exit(2);
   }
 
@@ -105,8 +109,26 @@ function main(): void {
   const issues = validateRecord(record, fields);
 
   const reconciliationPath = process.argv[3];
+  const attachmentHashMatched = fields.get("restoreDrill.attachmentHashMatched")?.toLowerCase();
   if (reconciliationPath) {
-    issues.push(...validateAttachmentReconciliation(path.resolve(reconciliationPath)));
+    issues.push(...validateAttachmentReconciliation(path.resolve(reconciliationPath), attachmentHashMatched, fields));
+  } else if (attachmentHashMatched) {
+    issues.push({ field: "attachmentReconciliation", message: `CSV is required when restoreDrill.attachmentHashMatched is ${attachmentHashMatched}` });
+  }
+  const reconciliationSummaryPath = process.argv[4];
+  if (reconciliationSummaryPath) {
+    if (!reconciliationPath) {
+      issues.push({ field: "attachmentReconciliationSummary", message: "requires attachment reconciliation CSV" });
+    } else {
+      issues.push(...validateReconciliationSummary(
+        path.resolve(reconciliationSummaryPath),
+        path.resolve(reconciliationPath),
+        attachmentHashMatched,
+        fields,
+      ));
+    }
+  } else if (attachmentHashMatched) {
+    issues.push({ field: "attachmentReconciliationSummary", message: `is required when restoreDrill.attachmentHashMatched is ${attachmentHashMatched}` });
   }
 
   if (issues.length > 0) {
@@ -117,7 +139,7 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("release evidence validation passed: required fields are present, enums are valid, secrets are absent, and reconciliation is report_only when provided.");
+  console.log("release evidence validation passed: required fields are present, enums are valid, secrets are absent, and bidirectional reconciliation evidence is bound and report_only.");
   console.log(`releaseEvidenceBundleHash: ${buildReleaseEvidenceBundleHash(fields)}`);
   console.log("safetyFacts: dockerCommandAttempted=false backupAttempted=false restoreAttempted=false migrationAttempted=false serverCommandAttempted=false");
 }
@@ -202,6 +224,11 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     issues.push({ field: "alertPreviewStatus", message: "must be ok, watch, warning, or critical" });
   }
 
+  const attachmentReconciliationStatus = fields.get("attachmentReconciliationStatus");
+  if (attachmentReconciliationStatus && !["pass", "mismatch"].includes(attachmentReconciliationStatus)) {
+    issues.push({ field: "attachmentReconciliationStatus", message: "must be pass or mismatch" });
+  }
+
   for (const field of ["databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256", "composeHash", "nginxConfigHash"] as const) {
     const value = fields.get(field);
     if (value && !/^[a-f0-9]{64}$/i.test(value)) {
@@ -235,37 +262,88 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   return issues;
 }
 
-function validateAttachmentReconciliation(filePath: string): ValidationIssue[] {
+function validateAttachmentReconciliation(
+  filePath: string,
+  attachmentHashMatched: string | undefined,
+  fields: Map<string, string>,
+): ValidationIssue[] {
   const csv = readRequiredFile(filePath);
-  const lines = csv.split(/\r?\n/).filter((line) => line.trim().length > 0);
   const issues: ValidationIssue[] = [];
-  const expectedHeader = [
-    "attachmentId",
-    "noteId",
-    "uri",
-    "metadataHash",
-    "fileHash",
-    "metadataSizeBytes",
-    "fileSizeBytes",
-    "exists",
-    "sizeMatches",
-    "hashMatches",
-    "action",
-  ].join(",");
-
-  if (lines[0] !== expectedHeader) {
-    issues.push({ field: "attachmentReconciliation.header", message: "must match the runbook report_only CSV header" });
+  for (const item of secretPatterns) {
+    if (item.pattern.test(csv)) issues.push({ field: "attachmentReconciliation", message: `must not contain ${item.label}` });
+  }
+  let rows: ReturnType<typeof parseAttachmentReconciliationCsv>;
+  try {
+    rows = parseAttachmentReconciliationCsv(csv);
+  } catch (error) {
+    issues.push({ field: "attachmentReconciliation", message: error instanceof Error ? error.message : "CSV is invalid" });
     return issues;
   }
 
-  for (const [index, line] of lines.slice(1).entries()) {
-    const columns = line.split(",");
-    const action = columns[10] ?? "";
-    if (action !== "report_only") {
-      issues.push({ field: `attachmentReconciliation.line${index + 2}`, message: "action must be report_only" });
+  if (attachmentHashMatched) {
+    const csvPath = fields.get("attachmentReconciliationCsvPath");
+    if (!csvPath) issues.push({ field: "attachmentReconciliationCsvPath", message: `is required when attachmentHashMatched is ${attachmentHashMatched}` });
+    const expectedHash = fields.get("attachmentReconciliationCsvSha256");
+    const actualHash = `sha256:${createHash("sha256").update(csv).digest("hex")}`;
+    if (!expectedHash) issues.push({ field: "attachmentReconciliationCsvSha256", message: `is required when attachmentHashMatched is ${attachmentHashMatched}` });
+    else if (normalizeSha256(expectedHash) !== actualHash) issues.push({ field: "attachmentReconciliationCsvSha256", message: "does not match the supplied CSV" });
+  }
+  if (attachmentHashMatched === "yes") {
+    if (rows.length === 0) issues.push({ field: "attachmentReconciliation", message: "must contain at least one attachment when attachmentHashMatched is yes" });
+    for (const [index, row] of rows.entries()) {
+      for (const label of ["exists", "sizeMatches", "hashMatches"] as const) {
+        if (row[label] !== "true") {
+          issues.push({ field: `attachmentReconciliation.line${index + 2}.${label}`, message: "must be true when restoreDrill.attachmentHashMatched is yes" });
+        }
+      }
     }
+  } else if (attachmentHashMatched === "not-applicable" && rows.length !== 0) {
+    issues.push({ field: "attachmentReconciliation", message: "must be header-only when attachmentHashMatched is not-applicable" });
   }
 
+  return issues;
+}
+
+function validateReconciliationSummary(
+  summaryPath: string,
+  csvPath: string,
+  attachmentHashMatched: string | undefined,
+  fields: Map<string, string>,
+): ValidationIssue[] {
+  const raw = readRequiredFile(summaryPath);
+  const csv = readRequiredFile(csvPath);
+  const issues = validateAttachmentReconciliationSummary(raw, csv)
+    .map((message) => ({ field: "attachmentReconciliationSummary", message }));
+  for (const item of secretPatterns) {
+    if (item.pattern.test(raw)) issues.push({ field: "attachmentReconciliationSummary", message: `must not contain ${item.label}` });
+  }
+  if (attachmentHashMatched) {
+    try {
+      const parsed = JSON.parse(raw) as { status?: string; summaryHash?: string; counts?: { databaseRecordCount?: number; uploadFileCount?: number } };
+      const expectedStatus = fields.get("attachmentReconciliationStatus");
+      const summaryPath = fields.get("attachmentReconciliationSummaryPath");
+      if (!summaryPath) issues.push({ field: "attachmentReconciliationSummaryPath", message: `is required when attachmentHashMatched is ${attachmentHashMatched}` });
+      if (!expectedStatus) issues.push({ field: "attachmentReconciliationStatus", message: `is required when attachmentHashMatched is ${attachmentHashMatched}` });
+      else if (expectedStatus !== parsed.status) issues.push({ field: "attachmentReconciliationStatus", message: "does not match the supplied summary" });
+      if (attachmentHashMatched === "yes" && parsed.status !== "pass") {
+        issues.push({ field: "attachmentReconciliationSummary.status", message: "must be pass when restoreDrill.attachmentHashMatched is yes" });
+      }
+      if (attachmentHashMatched === "yes" && !parsed.counts?.databaseRecordCount) {
+        issues.push({ field: "attachmentReconciliationSummary.counts.databaseRecordCount", message: "must be greater than zero when attachmentHashMatched is yes" });
+      }
+      if (attachmentHashMatched === "no" && parsed.status !== "mismatch") {
+        issues.push({ field: "attachmentReconciliationSummary.status", message: "must be mismatch when restoreDrill.attachmentHashMatched is no" });
+      }
+      if (attachmentHashMatched === "not-applicable" && (parsed.status !== "pass" || parsed.counts?.databaseRecordCount !== 0 || parsed.counts?.uploadFileCount !== 0)) {
+        issues.push({ field: "attachmentReconciliationSummary", message: "not-applicable requires pass with zero database records and zero upload files" });
+      }
+      const expectedHash = fields.get("attachmentReconciliationSummaryHash");
+      if (!expectedHash) issues.push({ field: "attachmentReconciliationSummaryHash", message: `is required when attachmentHashMatched is ${attachmentHashMatched}` });
+      else if (normalizeSha256(expectedHash) !== parsed.summaryHash?.toLowerCase()) issues.push({ field: "attachmentReconciliationSummaryHash", message: "does not match the supplied summary" });
+    } catch {
+      // Shape validation above reports malformed JSON.
+    }
+  }
   return issues;
 }
 
@@ -320,6 +398,11 @@ export function buildReleaseEvidenceBundleHash(fields: Map<string, string>): str
     "residualRiskIds",
     "operationalEvidenceBundleHash",
     "alertPreviewStatus",
+    "attachmentReconciliationCsvSha256",
+    "attachmentReconciliationSummaryHash",
+    "attachmentReconciliationCsvPath",
+    "attachmentReconciliationSummaryPath",
+    "attachmentReconciliationStatus",
   ];
   const keys = [
     ...requiredScalarFields,
@@ -342,6 +425,25 @@ function readRequiredFile(filePath: string): string {
     process.exit(2);
   }
   return readFileSync(filePath, "utf8");
+}
+
+export function resolveReleaseEvidenceValidationArgs(recordPath: string, root = process.cwd()): string[] {
+  const absoluteRecord = path.isAbsolute(recordPath) ? recordPath : path.resolve(root, recordPath);
+  if (!existsSync(absoluteRecord)) return [absoluteRecord];
+  const fields = parseIndentedKeyValueRecord(readFileSync(absoluteRecord, "utf8"));
+  const csv = resolveRecordedEvidencePath(fields.get("attachmentReconciliationCsvPath"), absoluteRecord, root);
+  const summary = resolveRecordedEvidencePath(fields.get("attachmentReconciliationSummaryPath"), absoluteRecord, root);
+  return [absoluteRecord, ...(csv ? [csv] : []), ...(summary ? [summary] : [])];
+}
+
+function resolveRecordedEvidencePath(value: string | undefined, recordPath: string, root: string): string | null {
+  if (!value || value.startsWith("<") || value.includes("not-copied") || value.includes("not-applicable")) return null;
+  if (path.isAbsolute(value)) return value;
+  const recordRelative = path.resolve(path.dirname(recordPath), value);
+  const rootRelative = path.resolve(root, value);
+  if (existsSync(recordRelative)) return recordRelative;
+  if (existsSync(rootRelative)) return rootRelative;
+  return recordRelative;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

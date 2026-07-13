@@ -1,9 +1,14 @@
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
-import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { open } from "node:fs/promises";
 import path from "node:path";
 import { createPrismaClient } from "../../packages/db/src/index";
-import { createSafeAttachmentFilePath, isPathInsideDirectory, parseAttachmentUri } from "../../packages/storage/src/index";
+import { createSafeAttachmentFilePath, parseAttachmentUri } from "../../packages/storage/src/index";
+import {
+  buildAttachmentReconciliationSummary,
+  resolveSafeUploadRoot,
+  writeReconciliationReport,
+} from "./attachment-reconciliation-summary";
 
 interface AttachmentRow {
   attachmentId: string;
@@ -34,21 +39,28 @@ const header = [
 ] as const;
 
 async function main(): Promise<void> {
-  const { uploadDir, outputPath, databaseUrl } = parseArgs(process.argv.slice(2));
+  const { uploadDir, outputPath, summaryOutputPath, databaseUrl } = parseArgs(process.argv.slice(2));
   const prisma = createPrismaClient(databaseUrl);
 
   try {
-    const rows = await buildRows(uploadDir, prisma);
+    const uploadRoot = await resolveSafeUploadRoot(uploadDir);
+    if (summaryOutputPath && summaryOutputPath === outputPath) {
+      throw new Error("CSV and summary output paths must be distinct");
+    }
+    const rows = await buildRows(uploadRoot, prisma);
     const csv = serializeCsv(rows);
-    await mkdir(path.dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, csv, { encoding: "utf8", flag: "w" });
+    const summary = await buildAttachmentReconciliationSummary(uploadRoot, csv);
+    await writeReconciliationReport(uploadRoot, outputPath, csv, summaryOutputPath ? [summaryOutputPath] : []);
+    if (summaryOutputPath) {
+      await writeReconciliationReport(uploadRoot, summaryOutputPath, `${JSON.stringify(summary, null, 2)}\n`, [outputPath]);
+    }
 
     const mismatches = rows.filter((row) =>
       row.exists !== "true" || row.sizeMatches !== "true" || row.hashMatches !== "true",
     );
-    console.log(`attachment reconciliation wrote ${rows.length} row(s) to ${outputPath}; mismatches=${mismatches.length}; action=report_only`);
+    console.log(`attachment reconciliation wrote ${rows.length} row(s) to ${outputPath}; mismatches=${mismatches.length}; fileOnly=${summary.counts.fileOnlyCount}; unsafeEntries=${summary.counts.unsafeEntryCount}; action=report_only`);
 
-    if (mismatches.length > 0) {
+    if (mismatches.length > 0 || summary.status === "mismatch") {
       process.exitCode = 1;
     }
   } finally {
@@ -101,19 +113,16 @@ async function readAttachmentFile(uploadDir: string, storedName: string): Promis
     return null;
   }
 
-  if (!existsSync(safePath.filePath)) return null;
-
+  let handle: Awaited<ReturnType<typeof open>> | null = null;
   try {
-    const root = await realpath(safePath.uploadRoot);
-    const fileStat = await lstat(safePath.filePath);
-    if (fileStat.isSymbolicLink() || !fileStat.isFile()) return null;
-
-    const resolvedFile = await realpath(safePath.filePath);
-    if (!isPathInsideDirectory(root, resolvedFile)) return null;
-
-    return await readFile(resolvedFile);
+    handle = await open(safePath.filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const fileStat = await handle.stat();
+    if (!fileStat.isFile()) return null;
+    return await handle.readFile();
   } catch {
     return null;
+  } finally {
+    await handle?.close().catch(() => undefined);
   }
 }
 
@@ -130,16 +139,19 @@ function csvCell(value: string): string {
   return `"${value.replaceAll("\"", "\"\"")}"`;
 }
 
-function parseArgs(args: string[]): { uploadDir: string; outputPath: string; databaseUrl: string | undefined } {
+function parseArgs(args: string[]): { uploadDir: string; outputPath: string; summaryOutputPath: string | null; databaseUrl: string | undefined } {
   const databaseUrlFlag = args.indexOf("--database-url");
   const databaseUrl = databaseUrlFlag >= 0 ? args[databaseUrlFlag + 1] : undefined;
+  const summaryOutputFlag = args.indexOf("--summary-output");
+  const summaryOutput = summaryOutputFlag >= 0 ? args[summaryOutputFlag + 1] : undefined;
   const positional = args.filter((_, index) =>
-    databaseUrlFlag >= 0 ? index !== databaseUrlFlag && index !== databaseUrlFlag + 1 : true,
+    (databaseUrlFlag < 0 || (index !== databaseUrlFlag && index !== databaseUrlFlag + 1)) &&
+    (summaryOutputFlag < 0 || (index !== summaryOutputFlag && index !== summaryOutputFlag + 1)),
   );
   const [uploadDir, outputPath] = positional;
 
-  if (!uploadDir || !outputPath || (databaseUrlFlag >= 0 && !databaseUrl)) {
-    console.error("Usage: pnpm exec tsx scripts/quality/attachment-reconciliation.ts <upload-dir> <output-csv> [--database-url <DATABASE_URL>]");
+  if (!uploadDir || !outputPath || (databaseUrlFlag >= 0 && !databaseUrl) || (summaryOutputFlag >= 0 && !summaryOutput)) {
+    console.error("Usage: pnpm exec tsx scripts/quality/attachment-reconciliation.ts <upload-dir> <output-csv> [--summary-output <summary.json>] [--database-url <DATABASE_URL>]");
     process.exit(2);
   }
 
@@ -151,8 +163,14 @@ function parseArgs(args: string[]): { uploadDir: string; outputPath: string; dat
   return {
     uploadDir: path.resolve(uploadDir),
     outputPath: path.resolve(outputPath),
+    summaryOutputPath: summaryOutput ? path.resolve(summaryOutput) : null,
     databaseUrl,
   };
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  console.error(`attachment reconciliation failed: ${error instanceof Error ? error.message : "unknown error"}`);
+  process.exitCode = 3;
+}

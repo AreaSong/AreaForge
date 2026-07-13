@@ -14,7 +14,13 @@ const requiredFiles = [
   "docs/development/long-term-operability-control-plane.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
+  "docs/development/maintenance-window-index.json",
+  "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
+  "docs/development/update-request-expected-before-design.md",
+  "docs/development/ops-005-expected-before-production-evidence-template.md",
+  "docs/development/high-risk-confirmation-packets.md",
+  "tasks/active/0019-update-request-expected-before-binding.md",
   "docs/development/release-v0.1.7-record.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -44,13 +50,29 @@ const requiredFiles = [
   "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
   "scripts/quality/release-evidence-redacted-export-validate.ts",
   "scripts/quality/release-evidence-redacted-export.selftest.ts",
+  "scripts/ops/release-closeout-audit.ts",
+  "scripts/quality/release-closeout-audit-validate.ts",
+  "scripts/quality/release-closeout-audit.selftest.ts",
+  "scripts/quality/attachment-reconciliation.ts",
+  "scripts/quality/attachment-reconciliation-summary.ts",
+  "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/quality/release-evidence-validate.ts",
+  "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
   "scripts/ops/generate-ops001-fallback-closure.ts",
   "scripts/ops/ops004-alert-evidence-preflight.ts",
+  "scripts/ops/ops005-evidence-preflight.ts",
+  "scripts/quality/ops005-production-evidence-validate.ts",
   "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
   "scripts/ops/generate-maintenance-window-record.ts",
+  "scripts/ops/maintenance-window-index.ts",
+  "scripts/quality/maintenance-window-index-common.ts",
+  "scripts/quality/maintenance-window-index-validate.ts",
+  "scripts/quality/maintenance-window-index.selftest.ts",
+  "scripts/quality/rollback-proof-record-validate.ts",
+  "scripts/quality/rollback-proof-record-validate.selftest.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/residual-evidence-preflight.ts",
@@ -69,6 +91,8 @@ const requiredFiles = [
   "scripts/quality/support-bundle-preview.selftest.ts",
   "scripts/quality/ops001-evidence-preflight.selftest.ts",
   "scripts/quality/ops004-alert-evidence-preflight.selftest.ts",
+  "scripts/quality/ops005-evidence-preflight.selftest.ts",
+  "scripts/quality/ops005-production-evidence-validate.selftest.ts",
   "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
 ];
 
@@ -97,12 +121,24 @@ const requiredScripts = [
   "ops:backup-restore:preview:selftest",
   "release:evidence:redacted-export:validate",
   "release:evidence:redacted-export:selftest",
+  "release:closeout:audit",
+  "release:closeout:audit:validate",
+  "release:closeout:audit:selftest",
+  "attachment:reconciliation",
+  "attachment:reconciliation:summary",
+  "attachment:reconciliation:summary:selftest",
+  "release:evidence:validate",
+  "release:evidence:selftest",
   "ops:ops-001:preflight",
   "ops:ops-001:preflight:selftest",
   "ops:ops-001:fallback:finalize",
   "ops:ops-001:fallback:finalize:selftest",
   "ops:ops-004:preflight",
   "ops:ops-004:preflight:selftest",
+  "ops:ops-005:preflight",
+  "ops:ops-005:preflight:selftest",
+  "ops:ops-005:evidence:validate",
+  "ops:ops-005:evidence:selftest",
   "sc:sc-002:preflight",
   "sc:sc-002:preflight:selftest",
   "ops:alert:preview",
@@ -112,6 +148,11 @@ const requiredScripts = [
   "maintenance:window:record:selftest",
   "maintenance:window:validate",
   "maintenance:window:selftest",
+  "maintenance:window:index",
+  "maintenance:window:index:validate",
+  "maintenance:window:index:selftest",
+  "rollback:proof:validate",
+  "rollback:proof:selftest",
   "residuals:validate",
   "residuals:evidence:preflight",
   "residuals:evidence:preflight:selftest",
@@ -176,7 +217,21 @@ function main(): void {
       ),
       "handoff should include release evidence bundle hash in release boundary stop",
     );
+    assert(
+      handoff.evidenceFocus.boundaryStops.some((item) =>
+        item.key === "update_request_expected_before" &&
+        item.currentBoundary.includes("no high-risk local implementation confirmation") &&
+        item.currentBoundary.includes("no production deployment confirmation")
+      ),
+      "handoff should separate expected-before implementation and deployment confirmations",
+    );
     assert(handoff.evidenceFocus.releaseEvidenceGaps.status === "needs_evidence", "handoff should include release evidence gap status");
+    assert(
+      handoff.evidenceFocus.releaseEvidenceGaps.blockingGaps.some((gap) =>
+        gap.key === "attachmentReconciliationSummaryHash" && gap.gapType === "attachment_reconciliation_binding"
+      ),
+      "handoff should include attachment reconciliation binding gaps",
+    );
     assert(
       handoff.evidenceFocus.releaseEvidenceGaps.blockingGaps.some((gap) =>
         gap.key === "releaseEvidenceBundleHash" && gap.gapType === "release_evidence_bundle_hash"
@@ -184,7 +239,8 @@ function main(): void {
       "handoff should include releaseEvidenceBundleHash gap",
     );
     assert(handoff.evidenceFocus.currentBlockers.every((item) => item.kind === "current_blocker"), "current blocker focus items should use current_blocker kind");
-    assert(handoff.evidenceFocus.immediate.some((item) => item.residualRiskId === "AF-RISK-OPS-005"), "handoff should still surface executable residuals separately");
+    assert(handoff.evidenceFocus.immediate.some((item) => item.residualRiskId === "AF-RISK-OPS-006"), "handoff should still surface executable residuals separately");
+    assert(handoff.evidenceFocus.currentBlockers.some((item) => item.residualRiskId === "AF-RISK-OPS-005"), "handoff should surface expected-before blocker");
     assert(handoff.evidenceFocus.dueOrSoon.some((item) => item.residualRiskId === "AF-RISK-SC-002"), "handoff should include due release residual");
     assert(handoff.evidenceFocus.releaseRelevantIds.includes("AF-RISK-SC-002"), "handoff should preserve release relevant IDs");
     assert(handoff.claimBoundary.cannotClaim.some((claim) => claim.includes("current production health")), "handoff should forbid production health overclaim");
@@ -217,8 +273,10 @@ function main(): void {
     assert(summary.title === "AreaForge operational handoff", "summary should have a stable title");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include non-executable current blockers");
     assert(summary.boundaryStops.some((item) => item.includes("post_update_ops001")), "summary should include boundary stops");
+    assert(summary.boundaryStops.some((item) => item.includes("update_request_expected_before")), "summary should include expected-before boundary stop");
     assert(summary.releaseEvidenceGaps.some((item) => item.includes("releaseEvidenceBundleHash")), "summary should include release evidence gaps");
-    assert(summary.immediateFocus.some((item) => item.includes("AF-RISK-OPS-005")), "summary should include immediate focus");
+    assert(summary.immediateFocus.some((item) => item.includes("AF-RISK-OPS-006")), "summary should include immediate focus");
+    assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-005")), "summary should include expected-before blocker");
     assert(summary.dueOrSoonFocus.some((item) => item.includes("AF-RISK-SC-002")), "summary should include due release residual");
     assert(summary.nextHandoffCommands.includes("pnpm ops:status --summary"), "summary should include human-readable handoff commands");
     assert(summary.nextLiveEvidenceCommands.includes("pnpm ops:ops-001:preflight"), "summary should include live evidence commands");
@@ -284,6 +342,16 @@ function fixtureLedgerJson(): string {
       },
       {
         id: "AF-RISK-OPS-005",
+        type: "current-blocker",
+        reviewAt: "2026-07-17",
+        currentImpact: "update requests are not bound to expected-before state",
+        executableNow: false,
+        closeCondition: "V2 contract, release, and production deployment evidence",
+        requiredEvidence: "expected-before design, local selftests, signed release, and redacted production evidence",
+        ownerSkills: ["areaforge-security-governance", "areaforge-release-operator", "areaforge-sre-ops"],
+      },
+      {
+        id: "AF-RISK-OPS-006",
         type: "monitoring-gap",
         reviewAt: "2026-07-17",
         currentImpact: "production extra smoke needs server configuration",

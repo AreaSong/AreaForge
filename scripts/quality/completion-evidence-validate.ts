@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
 import {
   buildEvidenceHash,
@@ -109,6 +111,7 @@ function validateRecord(raw: string, fields: Map<string, string>): ValidationIss
   requireOneOf(fields, "result", ["pass", "fail", "blocked", "not-ready"], issues);
   requireNo(fields, "safetyFacts.secretValuePrinted", issues);
   requireMeaningfulClaimFields(fields, issues);
+  validateSourceBaseline(fields.get("sourceBaseline.sourceHashOrCommit"), issues);
 
   const result = fields.get("result")?.toLowerCase();
   if (result === "pass") {
@@ -228,7 +231,39 @@ function validateEvidenceUri(value: string | undefined, issues: ValidationIssue[
     }
     if (!/^(?:[A-Za-z0-9._/-]+|https:\/\/[^\s,]+|sha256:[a-f0-9]{64})$/i.test(item)) {
       issues.push({ field: "evidenceUri", message: "must be a safe repo-relative path, sha256 digest, or HTTPS URL" });
+      continue;
     }
+    if (/^(?:https:\/\/|sha256:)/i.test(item)) continue;
+
+    const evidencePath = path.resolve(process.cwd(), item);
+    const repositoryRoot = `${path.resolve(process.cwd())}${path.sep}`;
+    if (!evidencePath.startsWith(repositoryRoot)) {
+      issues.push({ field: "evidenceUri", message: `${item} must resolve inside the repository` });
+      continue;
+    }
+    if (!existsSync(evidencePath)) {
+      issues.push({ field: "evidenceUri", message: `${item} does not exist` });
+      continue;
+    }
+    if (!lstatSync(evidencePath).isFile()) {
+      issues.push({ field: "evidenceUri", message: `${item} must be a regular file` });
+    }
+  }
+}
+
+function validateSourceBaseline(value: string | undefined, issues: ValidationIssue[]): void {
+  const normalized = value?.trim() ?? "";
+  if (!/^[a-f0-9]{40}$/i.test(normalized)) return;
+
+  const result = spawnSync("git", ["cat-file", "-e", `${normalized}^{commit}`], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    issues.push({
+      field: "sourceBaseline.sourceHashOrCommit",
+      message: "40-character commit baseline must resolve to a commit in the current repository",
+    });
   }
 }
 

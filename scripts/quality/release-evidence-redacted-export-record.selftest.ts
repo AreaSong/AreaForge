@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { computeAttachmentReconciliationSummaryHash } from "./attachment-reconciliation-summary";
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-release-evidence-redacted-record-"));
@@ -13,8 +14,11 @@ try {
   const outputRecord = path.join(tempDir, "release-v0.1.7-record.generated.md");
   const mismatchOutputRecord = path.join(tempDir, "release-v0.1.7-record.mismatch.md");
   const mismatchReleaseRecord = path.join(tempDir, "release-mismatch.md");
+  const reconciliationCsv = path.join(tempDir, "attachment-reconciliation.csv");
+  const reconciliationSummary = path.join(tempDir, "attachment-reconciliation-summary.json");
 
   writeFixtureExport(exportDir);
+  writeAttachmentEvidence(reconciliationCsv, reconciliationSummary);
   writeFileSync(releaseRecord, releaseRecordFixture("v0.1.7"));
   writeFileSync(mismatchReleaseRecord, releaseRecordFixture("v0.1.8"));
 
@@ -23,6 +27,8 @@ try {
     exportDir,
     releaseRecord,
     outputRecord,
+    reconciliationCsv,
+    reconciliationSummary,
   ], 0, "generatedReleaseEvidenceBundleHash: sha256:");
 
   assert(existsSync(outputRecord), "generated release record should exist");
@@ -40,12 +46,17 @@ try {
   assert(/releaseEvidenceBundleHash: sha256:[a-f0-9]{64}/i.test(generated), "release evidence bundle hash should be written");
   assert(!generated.includes("pending-run-pnpm-release-evidence-validate-on-this-record"), "release evidence bundle hash should not remain pending");
   assert(generated.includes("extraSmokeChecks: health, login, update-status"), "extra smoke check summary should be recorded");
+  assert(generated.includes("attachmentReconciliationStatus: pass"), "attachment reconciliation status should be bound");
+  assert(generated.includes("attachmentReconciliationCsvSha256: sha256:"), "attachment reconciliation CSV hash should be bound");
+  assert(generated.includes("attachmentReconciliationSummaryHash: sha256:"), "attachment reconciliation summary hash should be bound");
   assert(!generated.includes("/opt/areaforge/backups"), "generated record must not include root-only backup paths");
   assert(!generated.includes("DATABASE_URL"), "generated record must not include secret-like lines");
 
   expectExit("generated release record validates", [
     "release:evidence:validate",
     outputRecord,
+    reconciliationCsv,
+    reconciliationSummary,
   ], 0, "releaseEvidenceBundleHash: sha256:");
 
   expectExit("mismatched release tag fails", [
@@ -53,6 +64,8 @@ try {
     exportDir,
     mismatchReleaseRecord,
     mismatchOutputRecord,
+    reconciliationCsv,
+    reconciliationSummary,
   ], 1, "releaseTag");
   assert(!existsSync(mismatchOutputRecord), "mismatched release tag should not write output");
 
@@ -231,6 +244,58 @@ function releaseRecordFixture(releaseTag: string): string {
     "  backupMissing: stop",
     "",
   ].join("\n");
+}
+
+function writeAttachmentEvidence(csvPath: string, summaryPath: string): void {
+  const csv = "attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action\n";
+  const summaryWithoutHash = {
+    schemaVersion: 1 as const,
+    mode: "read_only_attachment_reconciliation_summary" as const,
+    generatedAt: "2026-07-12T11:25:00.000Z",
+    status: "pass" as const,
+    action: "report_only" as const,
+    source: {
+      reconciliationCsvSha256: `sha256:${hash(csv)}`,
+      uploadDirectory: "configured_private_upload_directory" as const,
+    },
+    counts: {
+      databaseRecordCount: 0,
+      uploadFileCount: 0,
+      dbOnlyCount: 0,
+      fileOnlyCount: 0,
+      hashMismatchCount: 0,
+      sizeMismatchCount: 0,
+      invalidUriCount: 0,
+      duplicateReferenceCount: 0,
+      unsafeEntryCount: 0,
+      unexpectedEntryCount: 0,
+    },
+    fileOnlyEntryHashes: [],
+    unsafeEntryHashes: [],
+    doesNotProve: [
+      "automatic orphan cleanup",
+      "attachment metadata repair",
+      "backup restore success outside the scanned directory",
+      "production health",
+    ],
+    safetyFacts: {
+      readOnly: true as const,
+      databaseWriteAttempted: false as const,
+      uploadWriteAttempted: false as const,
+      fileDeleted: false as const,
+      fileMoved: false as const,
+      metadataRepaired: false as const,
+      fileContentIncluded: false as const,
+      absolutePathIncluded: false as const,
+      secretValuePrinted: false as const,
+    },
+  };
+  const summary = {
+    ...summaryWithoutHash,
+    summaryHash: computeAttachmentReconciliationSummaryHash(summaryWithoutHash),
+  };
+  writeFileSync(csvPath, csv);
+  writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
 }
 
 function expectExit(label: string, args: string[], expectedStatus: number, expectedOutput?: string): void {

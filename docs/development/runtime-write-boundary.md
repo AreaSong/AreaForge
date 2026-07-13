@@ -19,6 +19,7 @@
 - R0 preview 不等于 R2/R4 写入。
 - R1 本地写入不等于生产写入。
 - R3 update request 不等于 R4 updater apply；被 Web 本地只读状态校验拒绝的无效请求不会写入 request 文件，也不构成 server agent 证据。
+- R3 mutation request 必须按 `update-request-expected-before-design.md` 绑定 expected-before、TTL 和 request hash；root agent 执行前必须从 live env/config/update record compare-and-reject。仅有入队时校验不能作为 R4 授权。
 - R4 必须在服务器侧或管理员确认路径执行，Web runtime 不直接持有 Docker、shell、备份、restore、migration 或 rollback 能力。
 - AI 建议、报告草稿、阶段调整草稿默认只是 confirm-only draft，不自动覆盖用户记录。
 

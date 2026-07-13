@@ -59,6 +59,8 @@ function checkRequiredFiles(): void {
     "docs/development/release-record-template.md",
     "docs/deployment/backup-restore.md",
     "scripts/quality/attachment-reconciliation.ts",
+    "scripts/quality/attachment-reconciliation-summary.ts",
+    "scripts/quality/attachment-reconciliation-summary.selftest.ts",
     "scripts/quality/release-evidence-validate.ts",
     "scripts/quality/release-evidence-validate.selftest.ts",
     "scripts/ops/backup-restore-preview.ts",
@@ -168,7 +170,13 @@ function checkRunbookBatchContracts(): void {
     "pnpm release:evidence:validate",
     "docs/development/release-record-template.md",
     "scripts/quality/attachment-reconciliation.ts",
+    "scripts/quality/attachment-reconciliation-summary.ts",
     "attachment-reconciliation.csv",
+    "attachment-reconciliation-summary.json",
+    "attachmentReconciliationCsvSha256",
+    "attachmentReconciliationSummaryHash",
+    "fileOnlyCount",
+    "unsafeEntryCount",
   ];
   const missing = [
     ...requiredTerms.filter((term) => !runbook.includes(term)),
@@ -324,6 +332,9 @@ function checkPackageScriptsBoundary(): void {
   const migrateDeploy = packageJson.scripts?.["db:migrate:deploy"] ?? "";
   const releaseEvidenceValidate = packageJson.scripts?.["release:evidence:validate"] ?? "";
   const releaseEvidenceSelftest = packageJson.scripts?.["release:evidence:selftest"] ?? "";
+  const reconciliationScript = packageJson.scripts?.["attachment:reconciliation"] ?? "";
+  const reconciliationSummaryScript = packageJson.scripts?.["attachment:reconciliation:summary"] ?? "";
+  const reconciliationSummarySelftest = packageJson.scripts?.["attachment:reconciliation:summary:selftest"] ?? "";
   const runbook = read("docs/development/production-release-runbook.md");
   const migrateDeployDocumented = migrateDeploy.includes("prisma migrate deploy") &&
     runbook.includes("生产 migration") &&
@@ -331,6 +342,9 @@ function checkPackageScriptsBoundary(): void {
     runbook.includes("受控 release 工作目录");
   const releaseEvidenceValidatorDocumented = releaseEvidenceValidate.includes("scripts/quality/release-evidence-validate.ts") &&
     releaseEvidenceSelftest.includes("scripts/quality/release-evidence-validate.selftest.ts") &&
+    reconciliationScript === "tsx scripts/quality/attachment-reconciliation.ts" &&
+    reconciliationSummaryScript === "tsx scripts/quality/attachment-reconciliation-summary.ts" &&
+    reconciliationSummarySelftest === "tsx scripts/quality/attachment-reconciliation-summary.selftest.ts" &&
     runbook.includes("pnpm release:evidence:validate") &&
     runbook.includes("只读取发布记录");
 

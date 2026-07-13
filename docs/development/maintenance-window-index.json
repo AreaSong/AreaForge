@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "mode": "read_only_maintenance_window_index",
+  "sourceRoot": "docs/development",
+  "sourcePattern": "maintenance-window-*/maintenance-window.txt",
+  "sourceSetSha256": "sha256:d54849bc35c39a3e5c462364424d788caff44a4cfe8165a3887a866ae73e0262",
+  "latestWindowId": "maintenance-window-20260713053233",
+  "windows": [
+    {
+      "windowId": "maintenance-window-20260713053233",
+      "recordPath": "docs/development/maintenance-window-20260713-weekly-production/maintenance-window.txt",
+      "recordSha256": "sha256:1f4496f453d45fa6324a33319fd240f88fcaa86647520f35cc6571715c0c81ba",
+      "startedAt": "2026-07-13T05:32:33.840Z",
+      "finishedAt": "2026-07-13T05:32:52.204Z",
+      "cadence": "weekly",
+      "environment": "production",
+      "result": "warn",
+      "evidenceFreshnessStatus": "unknown",
+      "evidenceFreshnessMaxAgeSeconds": 1209600,
+      "latestEvidenceCheckedAt": "2026-07-13T05:32:58.245Z",
+      "dueResidualRiskIds": [
+        "AF-RISK-OPS-001",
+        "AF-RISK-UX-001"
+      ],
+      "residualRiskIds": [
+        "AF-RISK-OPS-001",
+        "AF-RISK-OPS-004",
+        "AF-RISK-UX-001"
+      ]
+    }
+  ],
+  "doesNotProve": [
+    "production health",
+    "maintenance action execution",
+    "updater apply, backup, restore, migration, or rollback execution",
+    "residual risk closure",
+    "current evidence freshness beyond the recorded maintenance fields"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "networkRequested": false,
+    "serverCommandAttempted": false,
+    "productionWriteAttempted": false,
+    "secretValuePrinted": false,
+    "indexWritten": false,
+    "maintenanceActionExecuted": false,
+    "residualLedgerUpdated": false
+  }
+}

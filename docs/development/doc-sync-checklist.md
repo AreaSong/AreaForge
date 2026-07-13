@@ -23,20 +23,26 @@
 - 品牌素材、Logo、图标或静态资产入口变化是否同步 `docs/architecture/project-structure.md`、`docs/ux/brand-assets.md` 和必要的 README 导航，并避免暗示线上版本、favicon、PWA manifest 或运行时 UI 已采用。
 - 上传、附件、AI、认证、部署变化是否同步安全文档。
 - 上传、附件、`UPLOAD_DIR`、文件对账、备份/恢复或上传目录迁移变化是否同步 `docs/architecture/file-storage.md`、`docs/security/file-ai-safety.md`、`docs/deployment/backup-restore.md` 和 `areaforge-file-storage-safety`。
+- 附件对账证据变化是否同步生产 release runbook、release record template 和 validation matrix；CSV/summary 的路径、status、CSV SHA256、summary canonical hash、`fileOnlyCount`、`unsafeEntryCount` 与 `report_only` 边界是否一致。
 - 备份/恢复证据预览、`blockingGaps`、root-only backup hash、恢复演练记录或 rollback target 交接口径变化时，是否同步 `docs/deployment/backup-restore.md`、`docs/development/operational-readiness.md`、`docs/development/maintenance-cadence.md`、README 和验证矩阵，并运行 `pnpm ops:backup-restore:preview:selftest`。
 - 功能更新若进入线上，是否按 `docs/development/release-record-template.md` 同步 release tag、GitHub Release、GHCR digest、线上 health、update-agent 状态、回滚目标、`pnpm ops:evidence:bundle` 的 `bundleHash`、`pnpm ops:evidence:bundle:validate` 的校验结论、`pnpm ops:alert:preview` 的告警预览结论和残余风险。
 - 维护窗口、release/update 前后或 Codex 线程交接时，是否先用 `pnpm ops:handoff` 生成只读交接摘要，并明确它不替代 live readiness、smoke、update-agent、备份或 rollback 证据。
+- 新增、修改或移除维护窗口记录后，是否用 `pnpm maintenance:window:index` 完整重建 `docs/development/maintenance-window-index.json`，并通过 `pnpm maintenance:window:index:validate` 证明记录集合、原始文件 hash、排序和 `latestWindowId` 未漂移；索引是否仍明确不是源事实或执行队列。
+- 实际 rollback 后是否同时同步 incident/release/update 事实和 `rollback-proof-record`，并运行 `pnpm rollback:proof:validate`；是否明确 `ready-for-human-review` 不会自动重新开放更新通道、执行 restore 或关闭 residual。
 - 公开支持、自托管排障或维护交接需要可贴出的诊断摘要时，是否优先使用 `docs/development/support-bundle-preview.md`、`pnpm ops:support:bundle-preview` 和 `pnpm ops:support:bundle-preview:validate`，并明确它是 metadata-only preview，不是 support export、生产健康或 residual 关闭证据。
-- 完成声明是否能按 `docs/development/completion-evidence-checklist.md` 说清 summary、claimScope、evidenceUri、证据等级、新鲜验证、未验证项、阻断项、Release 需求、doesNotProve 和 residual risk IDs；若完成声明记录进入仓库或交接摘要，是否通过 `pnpm completion:evidence:validate <record>`，并明确该校验不替代真实运行、Release、生产 smoke 或长期运营 live gate。
+- 完成声明是否能按 `docs/development/completion-evidence-checklist.md` 说清 summary、claimScope、evidenceUri、证据等级、新鲜验证、未验证项、阻断项、Release 需求、doesNotProve 和 residual risk IDs；仓库相对 evidence URI 是否真实存在且为普通文件，纯 40 位 source baseline 是否能解析为当前仓库 commit；若完成声明记录进入仓库或交接摘要，是否通过 `pnpm completion:evidence:validate <record>`，并明确该校验不替代真实运行、Release、生产 smoke 或长期运营 live gate。
 - 写动作或运行时能力变化是否按 `docs/development/runtime-write-boundary.md` 标明 R0-R4 等级，避免把 preview、local smoke、update request 或草稿说成生产 apply。
 - 功能更新若准备进入线上，是否先按 `docs/development/release-train.md` 固定版本、验证、Release 资产、供应链记录、updater 证据、smoke、回滚目标和停止条件。
 - 签名 Release 若用于补齐或复核 `AF-RISK-SC-001`，是否先使用 `docs/development/high-risk-confirmation-packets.md` 的签名 Release 证据闭环确认包，并确认它不包含生产 updater apply、backup/restore、migration、rollback 或 residual 台账关闭；`v0.1.7` 证据已存在但台账仍需人工复核。
 - 生产 SSH 只读导出若用于补齐 `AF-RISK-OPS-001`，是否先使用 `docs/development/high-risk-confirmation-packets.md` 的生产只读证据导出确认包，并确认它不包含 updater apply、backup/restore、migration、rollback、写入型 smoke、secrets 读取/打印/复制或 residual 台账关闭。
 - 功能更新、维护节奏、release 决策、skill owner 边界或 residual 复核口径变化，是否同步 `docs/development/long-term-operability-control-plane.md`，并运行 `pnpm enterprise:operability:preflight` 和 `pnpm ops:status` 检查离线状态投影。
-- 若要声明“产品可长期运营”，是否运行 `pnpm ops:long-term:gate`，并确认 OPS-001、OPS-004、可校验 Release 发布记录、签名 Release 供应链和新鲜 UX 证据均达到可人工复核关闭状态；该 gate 不自动收集证据、不执行生产动作、不修改 residual 台账。
+- 若要声明“产品可长期运营”，是否运行 `pnpm ops:long-term:gate`，并确认 OPS-001、OPS-004、OPS-005、可校验 Release 发布记录、签名 Release 供应链和新鲜 UX 证据均达到可人工复核关闭状态；该 gate 不自动收集证据、不执行生产动作、不修改 residual 台账。
 - Release/update 后若需要交接当前证据与缺口，是否保存 `pnpm ops:long-term:snapshot` 输出并通过 `pnpm ops:long-term:snapshot:validate <snapshot.json>`；快照只能证明证据路径、hash、状态和缺口绑定正确，不能替代 live gate、生产 smoke、update-agent、备份 hash、告警演练或 residual 关闭。
 - 新签名 Release 若用于关闭或复核供应链残余项，是否按 `docs/development/release-supply-chain-record-template.md` 记录 SBOM/provenance、checksum/signature、Actions pinning 和 `pnpm audit:prod`，并通过 `pnpm release:supply-chain:validate`。
 - 生产运维、发布、自动更新或长期运营状态变化，是否同步 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 和对应 ops/release 文档。
+- Release record、供应链记录、operational evidence bundle、rollback target 或 release-relevant residual 变化后，是否运行 `pnpm release:closeout:audit -- --version <X.Y.Z>` 并用 `pnpm release:closeout:audit:validate <audit.json>` 校验，确认跨记录 hash/identity 不漂移。
+- 保存或复用 `ops:handoff` JSON 时，是否用默认 `pnpm ops:handoff:validate <handoff.json>` 校验 current binding；`--shape-only` 只允许历史归档形态检查，不得用于当前维护交接。
+- OPS-005 expected-before 契约、preflight、validator、Release 或生产证据变化，是否同步 `docs/development/ops-005-expected-before-production-evidence-template.md`、`docs/development/update-request-expected-before-design.md`、状态/交接投影和长期 gate/snapshot；validator 通过不得自动关闭 residual。
 - 日常维护节奏、证据新鲜度或 residual 复核规则变化，是否同步 `docs/development/maintenance-cadence.md`、`docs/development/operational-readiness.md`、验证矩阵和相关 observability/residual skill。
 - 自托管上手、公开分发或首次操作者路径变化，是否同步 `docs/deployment/operator-onboarding.md`、`README.md`、`docs/README.md`、`apps/web/README.md`、验证矩阵和相关 SRE/release skill。
 - 生产只读 smoke 记录若进入仓库或运维交接摘要，是否使用 `docs/development/production-readonly-smoke-record-template.md` 并通过 `pnpm smoke:prod-readonly:validate`。

@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
 
 type CheckStatus = "pass" | "missing" | "stale" | "invalid";
 type GateStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
@@ -49,6 +50,13 @@ function main(): void {
       residualRiskIds: ["AF-RISK-OPS-004"],
     }),
     runJsonStatusCheck({
+      key: "ops005",
+      label: "OPS-005 expected-before V2 release and production evidence",
+      command: ["pnpm", "exec", "tsx", "scripts/ops/ops005-evidence-preflight.ts"],
+      expectedStatus: "ready_for_ops005_human_review",
+      residualRiskIds: ["AF-RISK-OPS-005"],
+    }),
+    runJsonStatusCheck({
       key: "supplyChain",
       label: "signed Release supply-chain evidence",
       command: ["pnpm", "exec", "tsx", "scripts/ops/sc002-supply-chain-preflight.ts"],
@@ -62,7 +70,7 @@ function main(): void {
 
   const status = gateStatus(checks);
   const result = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: now().toISOString(),
     mode: "read_only_long_term_operability_live_gate",
     status,
@@ -71,6 +79,7 @@ function main(): void {
       "AF-RISK-OPS-001 ready_for_human_close: production read-only smoke record, redacted update-agent status, operational evidence bundle, and OPS-001 closure packet",
       "AF-RISK-OPS-001 blocked_on_prerequisite records are valid blocker evidence only; they do not satisfy long-term operability",
       "AF-RISK-OPS-004 ready_for_human_close: alert preview plus matching alert/recovery drill record",
+      "AF-RISK-OPS-005 ready_for_ops005_human_review: V2 local implementation, matching signed Release, fresh redacted production deployment evidence, V2 check, expected-before rejection executionAttempted=no, shared lock, processing reconciliation, and autoApply=none",
       "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: signed Release supply-chain record with SBOM/provenance/checksum/signature and Actions pinning evidence",
       "Production release evidence record: pnpm release:evidence:validate passes with database, uploads, env backup SHA256 evidence, rollback target, migration result, smoke result, and residual risk fields",
       `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes, appVersion equals ${expectedVersion()}, and reviewedAt is within ${maxUxAgeDays()} days`,
@@ -217,7 +226,7 @@ function defaultSupplyChainEvidenceEnv(): Record<string, string> {
 
 function validateReleaseEvidenceRecord(): CheckResult {
   const recordPath = path.resolve(process.env.AREAFORGE_LONG_TERM_RELEASE_RECORD?.trim() || defaultReleaseRecord);
-  const command = `pnpm exec tsx scripts/quality/release-evidence-validate.ts ${redactedPathLabel(recordPath)}`;
+  const command = `pnpm exec tsx scripts/quality/release-evidence-validate.ts ${redactedPathLabel(recordPath)} <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>`;
   if (!existsSync(recordPath)) {
     return {
       key: "releaseEvidence",
@@ -229,7 +238,8 @@ function validateReleaseEvidenceRecord(): CheckResult {
     };
   }
 
-  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-evidence-validate.ts", recordPath], {
+  const validationArgs = resolveReleaseEvidenceValidationArgs(recordPath);
+  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-evidence-validate.ts", ...validationArgs], {
     cwd: process.cwd(),
     encoding: "utf8",
   });
@@ -368,6 +378,7 @@ function nextCommand(status: GateStatus, checks: CheckResult[]): string {
 function missingEvidenceLabel(check: CheckResult): string {
   if (check.key === "ops001") return "OPS-001 production read-only smoke/update-agent evidence";
   if (check.key === "ops004") return "OPS-004 alert/recovery drill evidence";
+  if (check.key === "ops005") return `OPS-005 expected-before V2 staged evidence (${check.actualStatus ?? "missing"})`;
   if (check.key === "supplyChain") return "signed Release supply-chain evidence";
   if (check.key === "releaseEvidence") {
     return "production release evidence backup/hash record; under no-secret scope, validate a server-side release evidence redacted export with pnpm release:evidence:redacted-export:validate <redacted-export-dir>";

@@ -49,8 +49,10 @@ type BoundaryStop = {
 
 type ReleaseEvidenceGapStatus = "root_only" | "missing" | "invalid";
 type ReleaseEvidenceGap = {
-  key: "releaseEvidenceBundleHash" | "databaseBackupSha256" | "uploadsBackupSha256" | "envBackupSha256";
-  gapType: "release_evidence_bundle_hash" | "release_evidence_backup_hash";
+  key: "releaseEvidenceBundleHash" | "databaseBackupSha256" | "uploadsBackupSha256" | "envBackupSha256" |
+    "attachmentReconciliationCsvPath" | "attachmentReconciliationCsvSha256" |
+    "attachmentReconciliationSummaryPath" | "attachmentReconciliationSummaryHash" | "attachmentReconciliationStatus";
+  gapType: "release_evidence_bundle_hash" | "release_evidence_backup_hash" | "attachment_reconciliation_binding";
   status: ReleaseEvidenceGapStatus;
   sourceRecord: string;
   sourceField: string;
@@ -218,7 +220,13 @@ const requiredFiles = [
   "docs/development/long-term-operability-control-plane.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
+  "docs/development/maintenance-window-index.json",
+  "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
+  "docs/development/update-request-expected-before-design.md",
+  "docs/development/ops-005-expected-before-production-evidence-template.md",
+  "docs/development/high-risk-confirmation-packets.md",
+  "tasks/active/0019-update-request-expected-before-binding.md",
   releaseEvidenceRecordPath,
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -248,12 +256,28 @@ const requiredFiles = [
   "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
   "scripts/quality/release-evidence-redacted-export-validate.ts",
   "scripts/quality/release-evidence-redacted-export.selftest.ts",
+  "scripts/ops/release-closeout-audit.ts",
+  "scripts/quality/release-closeout-audit-validate.ts",
+  "scripts/quality/release-closeout-audit.selftest.ts",
+  "scripts/quality/attachment-reconciliation.ts",
+  "scripts/quality/attachment-reconciliation-summary.ts",
+  "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/quality/release-evidence-validate.ts",
+  "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
   "scripts/ops/ops004-alert-evidence-preflight.ts",
+  "scripts/ops/ops005-evidence-preflight.ts",
+  "scripts/quality/ops005-production-evidence-validate.ts",
   "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
   "scripts/ops/generate-maintenance-window-record.ts",
+  "scripts/ops/maintenance-window-index.ts",
+  "scripts/quality/maintenance-window-index-common.ts",
+  "scripts/quality/maintenance-window-index-validate.ts",
+  "scripts/quality/maintenance-window-index.selftest.ts",
+  "scripts/quality/rollback-proof-record-validate.ts",
+  "scripts/quality/rollback-proof-record-validate.selftest.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/residual-evidence-preflight.ts",
@@ -272,6 +296,8 @@ const requiredFiles = [
   "scripts/quality/support-bundle-preview.selftest.ts",
   "scripts/quality/ops001-evidence-preflight.selftest.ts",
   "scripts/quality/ops004-alert-evidence-preflight.selftest.ts",
+  "scripts/quality/ops005-evidence-preflight.selftest.ts",
+  "scripts/quality/ops005-production-evidence-validate.selftest.ts",
   "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
 ];
 const requiredPackageScripts = [
@@ -299,12 +325,24 @@ const requiredPackageScripts = [
   "ops:backup-restore:preview:selftest",
   "release:evidence:redacted-export:validate",
   "release:evidence:redacted-export:selftest",
+  "release:closeout:audit",
+  "release:closeout:audit:validate",
+  "release:closeout:audit:selftest",
+  "attachment:reconciliation",
+  "attachment:reconciliation:summary",
+  "attachment:reconciliation:summary:selftest",
+  "release:evidence:validate",
+  "release:evidence:selftest",
   "ops:ops-001:preflight",
   "ops:ops-001:preflight:selftest",
   "ops:ops-001:fallback:finalize",
   "ops:ops-001:fallback:finalize:selftest",
   "ops:ops-004:preflight",
   "ops:ops-004:preflight:selftest",
+  "ops:ops-005:preflight",
+  "ops:ops-005:preflight:selftest",
+  "ops:ops-005:evidence:validate",
+  "ops:ops-005:evidence:selftest",
   "sc:sc-002:preflight",
   "sc:sc-002:preflight:selftest",
   "ops:alert:preview",
@@ -314,6 +352,11 @@ const requiredPackageScripts = [
   "maintenance:window:record:selftest",
   "maintenance:window:validate",
   "maintenance:window:selftest",
+  "maintenance:window:index",
+  "maintenance:window:index:validate",
+  "maintenance:window:index:selftest",
+  "rollback:proof:validate",
+  "rollback:proof:selftest",
   "residuals:validate",
   "residuals:evidence:preflight",
   "residuals:evidence:preflight:selftest",
@@ -328,11 +371,27 @@ export const protectedPathFiles = [
   "package.json",
   "docs/development/long-term-operability-control-plane.md",
   "docs/development/operational-readiness.md",
+  "docs/development/maintenance-window-index.json",
+  "docs/development/rollback-proof-record-template.md",
+  "docs/development/update-request-expected-before-design.md",
+  "docs/development/ops-005-expected-before-production-evidence-template.md",
+  "docs/development/high-risk-confirmation-packets.md",
   releaseEvidenceRecordPath,
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "docs/development/validation-matrix.md",
+  "docs/deployment/backup-restore.md",
+  "docs/development/production-release-runbook.md",
+  "docs/development/release-record-template.md",
+  "docs/architecture/file-storage.md",
+  "docs/security/file-ai-safety.md",
+  "scripts/quality/attachment-reconciliation.ts",
+  "scripts/quality/attachment-reconciliation-summary.ts",
+  "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/quality/release-evidence-validate.ts",
+  "scripts/quality/release-evidence-validate.selftest.ts",
   "tasks/indexes/residuals.md",
+  "tasks/active/0019-update-request-expected-before-binding.md",
   "workflow/README.md",
 ] as const;
 
@@ -391,6 +450,8 @@ export function buildOperabilityStatusSummary(projection: OperabilityStatusProje
       ...projection.commands.daily.slice(0, 4),
       "pnpm ops:ops-001:preflight",
       "pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
+      "pnpm release:closeout:audit -- --version <X.Y.Z>",
+      "pnpm release:closeout:audit:validate <release-closeout-audit.json>",
       ...projection.commands.release.slice(0, 4),
     ].map(toSummaryCommand)),
     cannotClaim: projection.doesNotProve,
@@ -571,8 +632,12 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:evidence:bundle",
       "pnpm ops:alert:preview",
       "pnpm ops:ops-004:preflight",
+      "pnpm ops:ops-005:preflight",
+      "pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record>",
       "pnpm maintenance:window:record",
       "pnpm maintenance:window:validate <maintenance-window-record.md|txt>",
+      "pnpm maintenance:window:index",
+      "pnpm maintenance:window:index:validate docs/development/maintenance-window-index.json",
       "pnpm residuals:evidence:preflight",
       "pnpm residuals:closure:validate <residual-closure-review-record>",
     ],
@@ -587,13 +652,17 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:support:bundle-preview:selftest",
       "pnpm ops:backup-restore:preview:selftest",
       "pnpm release:evidence:redacted-export:selftest",
+      "pnpm release:closeout:audit:selftest",
       "pnpm ops:ops-001:preflight:selftest",
       "pnpm ops:ops-001:fallback:finalize:selftest",
       "pnpm ops:ops-004:preflight:selftest",
+      "pnpm ops:ops-005:preflight:selftest",
+      "pnpm ops:ops-005:evidence:selftest",
       "pnpm sc:sc-002:preflight:selftest",
       "pnpm ops:long-term:snapshot:selftest",
       "pnpm maintenance:window:record:selftest",
       "pnpm maintenance:window:selftest",
+      "pnpm maintenance:window:index:selftest",
       "pnpm residuals:validate",
       "pnpm residuals:evidence:preflight:selftest",
       "pnpm residuals:closure:selftest",
@@ -608,9 +677,13 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm release:train:preflight",
       "pnpm github-release-updater:preflight",
       "pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
+      "pnpm release:closeout:audit -- --version <X.Y.Z>",
+      "pnpm release:closeout:audit:validate <release-closeout-audit.json>",
       "pnpm release:evidence:redacted-export:selftest",
       "pnpm release:supply-chain:selftest",
       "pnpm sc:sc-002:preflight",
+      "pnpm ops:ops-005:preflight",
+      "pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record>",
       "pnpm ops:evidence:bundle",
       "pnpm experience:review:validate <record>",
     ],
@@ -618,6 +691,7 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:evidence:bundle",
       "pnpm ops:alert:preview",
       "pnpm incident:record:validate <record>",
+      "pnpm rollback:proof:validate <record>",
     ],
   };
 }
@@ -653,7 +727,7 @@ function buildBoundaryStops(): BoundaryStop[] {
     },
     {
       key: "release_backup_hashes",
-      evidence: "releaseEvidenceBundleHash, databaseBackupSha256, uploadsBackupSha256, and envBackupSha256 for docs/development/release-v0.1.7-record.md",
+      evidence: "releaseEvidenceBundleHash, backup SHA256 fields, and attachment reconciliation path/status/hash bindings for docs/development/release-v0.1.7-record.md",
       currentBoundary: [
         "no server command",
         "no root-only update-record or backup metadata read",
@@ -667,6 +741,25 @@ function buildBoundaryStops(): BoundaryStop[] {
       requiresFreshConfirmation: [
         "server-side no-secret redacted release evidence export",
         "local validation with pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
+      ],
+    },
+    {
+      key: "update_request_expected_before",
+      evidence: "AF-RISK-OPS-005 expected-before V2 local implementation, signed Release, and production deployment evidence",
+      currentBoundary: [
+        "no high-risk local implementation confirmation",
+        "no production deployment confirmation",
+        "no mutation request execution",
+      ],
+      allowedNow: [
+        "review docs/development/update-request-expected-before-design.md",
+        "pnpm ops:status --summary",
+        "pnpm docs:readiness",
+      ],
+      requiresFreshConfirmation: [
+        "explicit Update Request Expected-Before local implementation confirmation",
+        "separate signed Release confirmation after local validation",
+        "separate production timer, queue isolation, Web/agent deployment, and V2 check confirmation",
       ],
     },
     {
@@ -745,6 +838,31 @@ function releaseEvidenceFields(): Array<Pick<ReleaseEvidenceGap, "key" | "gapTyp
       gapType: "release_evidence_backup_hash",
       requiredEvidence: ["envBackupSha256 as 64 hex in the redacted release evidence record"],
     },
+    {
+      key: "attachmentReconciliationCsvPath",
+      gapType: "attachment_reconciliation_binding",
+      requiredEvidence: ["attachmentReconciliationCsvPath pointing to the redacted reconciliation CSV evidence"],
+    },
+    {
+      key: "attachmentReconciliationCsvSha256",
+      gapType: "attachment_reconciliation_binding",
+      requiredEvidence: ["attachmentReconciliationCsvSha256 as sha256:<64 hex>"],
+    },
+    {
+      key: "attachmentReconciliationSummaryPath",
+      gapType: "attachment_reconciliation_binding",
+      requiredEvidence: ["attachmentReconciliationSummaryPath pointing to the redacted reconciliation summary"],
+    },
+    {
+      key: "attachmentReconciliationSummaryHash",
+      gapType: "attachment_reconciliation_binding",
+      requiredEvidence: ["attachmentReconciliationSummaryHash as sha256:<64 hex>"],
+    },
+    {
+      key: "attachmentReconciliationStatus",
+      gapType: "attachment_reconciliation_binding",
+      requiredEvidence: ["attachmentReconciliationStatus as pass or mismatch"],
+    },
   ];
 }
 
@@ -772,7 +890,13 @@ function toReleaseEvidenceGap(
 
 function classifyReleaseEvidenceField(key: ReleaseEvidenceGap["key"], value: string): "present" | ReleaseEvidenceGapStatus {
   if (!value) return "missing";
-  const pattern = key === "releaseEvidenceBundleHash" ? /^(sha256:)?[a-f0-9]{64}$/i : /^[a-f0-9]{64}$/i;
+  if (key === "attachmentReconciliationStatus") return ["pass", "mismatch"].includes(value) ? "present" : "invalid";
+  if (key === "attachmentReconciliationCsvPath" || key === "attachmentReconciliationSummaryPath") {
+    return /root-only|not-copied|pending-redacted/i.test(value) ? "root_only" : "present";
+  }
+  const pattern = key === "releaseEvidenceBundleHash" || key === "attachmentReconciliationCsvSha256" || key === "attachmentReconciliationSummaryHash"
+    ? /^(sha256:)?[a-f0-9]{64}$/i
+    : /^[a-f0-9]{64}$/i;
   if (pattern.test(value)) return "present";
   if (/root-only|not-copied|pending-redacted/i.test(value)) return "root_only";
   return "invalid";
@@ -781,7 +905,7 @@ function classifyReleaseEvidenceField(key: ReleaseEvidenceGap["key"], value: str
 function releaseEvidenceText(key: ReleaseEvidenceGap["key"], status: ReleaseEvidenceGapStatus): string {
   if (status === "root_only") return `${key} is recorded as root-only or pending redacted export`;
   if (status === "missing") return `${key} is missing from the release evidence record`;
-  return `${key} is present but not a valid release evidence sha256 field`;
+  return `${key} is present but not valid release evidence metadata`;
 }
 
 function releaseEvidenceGapNonProofs(): string[] {
@@ -820,7 +944,8 @@ function buildDoesNotProve(): string[] {
 }
 
 function isReleaseRelevant(item: ClassifiedResidual): boolean {
-  return item.type === "monitoring-gap" ||
+  return item.type === "current-blocker" ||
+    item.type === "monitoring-gap" ||
     item.type === "release-follow-up" ||
     item.id.startsWith("AF-RISK-REL-") ||
     item.id.startsWith("AF-RISK-SC-");

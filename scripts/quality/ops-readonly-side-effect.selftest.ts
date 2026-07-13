@@ -60,6 +60,16 @@ const readOnlyCommands = [
     mode: "read_only_ops004_alert_evidence_preflight",
   },
   {
+    label: "OPS-005 expected-before evidence preflight",
+    args: ["ops:ops-005:preflight"],
+    mode: "read_only_ops005_expected_before_preflight",
+  },
+  {
+    label: "OPS-005 evidence validator selftest",
+    args: ["ops:ops-005:evidence:selftest"],
+    summaryToken: "OPS-005 production evidence validator selftest",
+  },
+  {
     label: "long-term evidence snapshot",
     args: ["ops:long-term:snapshot"],
     mode: "read_only_long_term_evidence_snapshot",
@@ -70,9 +80,44 @@ const readOnlyCommands = [
     summaryToken: "completion evidence validator selftest passed",
   },
   {
+    label: "maintenance window index",
+    args: ["maintenance:window:index"],
+    mode: "read_only_maintenance_window_index",
+  },
+  {
+    label: "maintenance window index selftest",
+    args: ["maintenance:window:index:selftest"],
+    summaryToken: "maintenance window index selftest passed",
+  },
+  {
+    label: "saved maintenance window index validator",
+    args: ["maintenance:window:index:validate", "docs/development/maintenance-window-index.json"],
+    summaryToken: "maintenance window index validation passed",
+  },
+  {
+    label: "rollback proof record validator selftest",
+    args: ["rollback:proof:selftest"],
+    summaryToken: "rollback proof record validator selftest passed",
+  },
+  {
+    label: "attachment reconciliation summary selftest",
+    args: ["attachment:reconciliation:summary:selftest"],
+    summaryToken: "attachment reconciliation summary selftest passed",
+  },
+  {
     label: "release evidence validator selftest",
     args: ["release:evidence:selftest"],
     summaryToken: "release evidence validator selftest passed",
+  },
+  {
+    label: "release closeout audit",
+    args: ["release:closeout:audit", "--", "--version=0.1.7"],
+    mode: "read_only_release_closeout_audit",
+  },
+  {
+    label: "release closeout audit selftest",
+    args: ["release:closeout:audit:selftest"],
+    summaryToken: "release closeout audit selftest passed",
   },
   {
     label: "release evidence redacted export validator selftest",

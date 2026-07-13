@@ -1,8 +1,10 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildReleaseEvidenceBundleHash } from "./release-evidence-validate";
+import { computeAttachmentReconciliationSummaryHash } from "./attachment-reconciliation-summary";
 import { parseIndentedKeyValueRecord } from "./record-validator-common";
 
 type JsonRecord = Record<string, unknown>;
@@ -16,7 +18,12 @@ try {
   const uxRecord = path.join(tempDir, "product-experience-review.txt");
   writeFileSync(uxRecord, createUxRecord("2026-07-10T00:00:00.000Z"));
   const releaseRecord = path.join(tempDir, "release-record.txt");
-  writeFileSync(releaseRecord, createReleaseRecord());
+  const reconciliationCsv = path.join(tempDir, "attachment-reconciliation.csv");
+  const reconciliationSummary = path.join(tempDir, "attachment-reconciliation-summary.json");
+  const attachmentEvidence = createAttachmentEvidence();
+  writeFileSync(reconciliationCsv, attachmentEvidence.csv);
+  writeFileSync(reconciliationSummary, `${JSON.stringify(attachmentEvidence.summary, null, 2)}\n`);
+  writeFileSync(releaseRecord, createReleaseRecord(attachmentEvidence.csv, attachmentEvidence.summary.summaryHash));
   const baseEnv = {
     AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
     AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
@@ -27,6 +34,7 @@ try {
   const noOps004EvidenceJson = parseGateJson(noOps004Evidence.stdout);
   assert(noOps004EvidenceJson.status === "needs_live_evidence", "missing OPS-004 evidence should block the gate");
   assertCheckStatus(noOps004EvidenceJson, "ops004", "missing");
+  assertCheckStatus(noOps004EvidenceJson, "ops005", "missing");
 
   const currentOps004Evidence = runGate(baseEnv, 1, {
     clearOps004: false,
@@ -36,6 +44,7 @@ try {
   assertCheckStatus(currentOps004EvidenceJson, "ops004", "pass");
   const nextCommand = typeof currentOps004EvidenceJson.nextCommand === "string" ? currentOps004EvidenceJson.nextCommand : "";
   assert(nextCommand.includes("OPS-001"), "nextCommand should mention the remaining OPS-001 gap");
+  assert(nextCommand.includes("OPS-005"), "nextCommand should mention the remaining OPS-005 gap");
   assert(!nextCommand.includes("OPS-004"), "nextCommand should not mention OPS-004 when it passes");
 
   const missingReleaseEvidence = runGate({
@@ -104,6 +113,9 @@ function runGate(env: Record<string, string>, expectedStatus: number, options: {
     AREAFORGE_OPS001_CLOSURE_PACKET: "",
     AREAFORGE_SC002_CI_RECORD: "",
     AREAFORGE_SC002_RELEASE_RECORD: "",
+    AREAFORGE_OPS005_RELEASE_RECORD: "",
+    AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD: "",
+    AREAFORGE_OPS005_GIT_COMMIT: "",
     AREAFORGE_LONG_TERM_UX_RECORD: "",
     ...env,
   };
@@ -162,18 +174,45 @@ function createUxRecord(reviewedAt: string, appVersion = "0.1.7"): string {
   ].join("\n");
 }
 
-function createReleaseRecord(): string {
-  const record = readFileSync(path.resolve("docs/development/release-v0.1.7-record.md"), "utf8")
+function createReleaseRecord(csv: string, summaryHash: string): string {
+  let record = readFileSync(path.resolve("docs/development/release-v0.1.7-record.md"), "utf8")
     .replace(/^databaseBackupSha256: .+$/m, `databaseBackupSha256: ${"b".repeat(64)}`)
     .replace(/^uploadsBackupSha256: .+$/m, `uploadsBackupSha256: ${"c".repeat(64)}`)
     .replace(/^envBackupSha256: .+$/m, `envBackupSha256: ${"d".repeat(64)}`);
+  const fields = [
+    "attachmentReconciliationCsvPath: attachment-reconciliation.csv",
+    `attachmentReconciliationCsvSha256: sha256:${createHash("sha256").update(csv).digest("hex")}`,
+    "attachmentReconciliationSummaryPath: attachment-reconciliation-summary.json",
+    `attachmentReconciliationSummaryHash: ${summaryHash}`,
+    "attachmentReconciliationStatus: pass",
+  ].join("\n");
+  record = record.replace(/^preflight:\s*$/m, `${fields}\npreflight:`);
   const hash = buildReleaseEvidenceBundleHash(parseIndentedKeyValueRecord(record));
   return record.replace(/^releaseEvidenceBundleHash: .+$/m, `releaseEvidenceBundleHash: ${hash}`);
+}
+
+function createAttachmentEvidence(): { csv: string; summary: Record<string, unknown> & { summaryHash: string } } {
+  const csv = "attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action\n";
+  const withoutHash = {
+    schemaVersion: 1,
+    mode: "read_only_attachment_reconciliation_summary",
+    generatedAt: "2026-07-11T00:00:00.000Z",
+    status: "pass",
+    action: "report_only",
+    source: { reconciliationCsvSha256: `sha256:${createHash("sha256").update(csv).digest("hex")}`, uploadDirectory: "configured_private_upload_directory" },
+    counts: { databaseRecordCount: 0, uploadFileCount: 0, dbOnlyCount: 0, fileOnlyCount: 0, hashMismatchCount: 0, sizeMismatchCount: 0, invalidUriCount: 0, duplicateReferenceCount: 0, unsafeEntryCount: 0, unexpectedEntryCount: 0 },
+    fileOnlyEntryHashes: [],
+    unsafeEntryHashes: [],
+    doesNotProve: ["automatic orphan cleanup", "attachment metadata repair", "backup restore success outside the scanned directory", "production health"],
+    safetyFacts: { readOnly: true, databaseWriteAttempted: false, uploadWriteAttempted: false, fileDeleted: false, fileMoved: false, metadataRepaired: false, fileContentIncluded: false, absolutePathIncluded: false, secretValuePrinted: false },
+  };
+  return { csv, summary: { ...withoutHash, summaryHash: computeAttachmentReconciliationSummaryHash(withoutHash) } };
 }
 
 function parseGateJson(raw: string): JsonRecord {
   const parsed = JSON.parse(raw) as JsonRecord;
   assert(parsed.mode === "read_only_long_term_operability_live_gate", "gate mode missing");
+  assert(parsed.schemaVersion === 2, "gate schemaVersion must be 2 after OPS-005 admission");
   return parsed;
 }
 

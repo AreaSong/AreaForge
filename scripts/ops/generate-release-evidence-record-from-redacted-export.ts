@@ -8,10 +8,13 @@ import {
   type ValidationIssue,
 } from "../quality/record-validator-common";
 import { buildReleaseEvidenceBundleHash } from "../quality/release-evidence-validate";
+import { validateAttachmentReconciliationSummary } from "../quality/attachment-reconciliation-summary";
 
 const exportDirArg = process.argv[2];
 const releaseRecordArg = process.argv[3];
 const outputRecordArg = process.argv[4];
+const reconciliationCsvArg = process.argv[5];
+const reconciliationSummaryArg = process.argv[6];
 
 const safeFieldFile = "release-update-safe-fields.txt";
 const summaryFile = "remote-summary.txt";
@@ -41,20 +44,26 @@ const redactedPathFields = new Set([
 ]);
 
 function main(): void {
-  if (!exportDirArg || !releaseRecordArg || !outputRecordArg) {
-    console.error("Usage: pnpm release:evidence:redacted-export:record <redacted-export-dir> <release-record> <output-record>");
+  if (!exportDirArg || !releaseRecordArg || !outputRecordArg || !reconciliationCsvArg || !reconciliationSummaryArg) {
+    console.error("Usage: pnpm release:evidence:redacted-export:record <redacted-export-dir> <release-record> <output-record> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>");
     process.exit(2);
   }
 
   const exportDir = path.resolve(exportDirArg);
   const releaseRecordPath = path.resolve(releaseRecordArg);
   const outputRecordPath = path.resolve(outputRecordArg);
+  const reconciliationCsvPath = path.resolve(reconciliationCsvArg);
+  const reconciliationSummaryPath = path.resolve(reconciliationSummaryArg);
   if (releaseRecordPath === outputRecordPath) {
     console.error("FAIL output-record must be different from release-record; generate a draft first, then review it.");
     process.exit(2);
   }
   if (!existsSync(releaseRecordPath)) {
     console.error(`FAIL release record not found: ${releaseRecordPath}`);
+    process.exit(2);
+  }
+  if (!existsSync(reconciliationCsvPath) || !existsSync(reconciliationSummaryPath)) {
+    console.error("FAIL attachment reconciliation CSV and summary are required; the redacted update export does not prove attachment state by itself.");
     process.exit(2);
   }
 
@@ -66,9 +75,13 @@ function main(): void {
   const summaryRaw = readFileSync(path.join(exportDir, summaryFile), "utf8");
   const statusRaw = readFileSync(path.join(exportDir, statusFile), "utf8");
   const smokeRaw = readFileSync(path.join(exportDir, smokeFile), "utf8");
+  const reconciliationCsvRaw = readFileSync(reconciliationCsvPath, "utf8");
+  const reconciliationSummaryRaw = readFileSync(reconciliationSummaryPath, "utf8");
   const safeFields = parseIndentedKeyValueRecord(safeFieldsRaw);
   const summary = parseIndentedKeyValueRecord(summaryRaw);
   const issues = validateInputs(originalFields, safeFields, summary);
+  issues.push(...validateAttachmentReconciliationSummary(reconciliationSummaryRaw, reconciliationCsvRaw)
+    .map((message) => ({ field: "attachmentReconciliationSummary", message })));
   if (issues.length > 0) {
     for (const issue of issues) {
       console.error(`FAIL ${issue.field}: ${issue.message}`);
@@ -102,6 +115,12 @@ function main(): void {
   next = upsertTopLevelField(next, "releaseEvidenceRedactedUpdateRecordHash", required(summary, "updateRecordSha256"));
   next = upsertTopLevelField(next, "updateAgentStatus", updateAgentStatusSummary(safeFields, summary, statusRaw));
   next = upsertTopLevelField(next, "extraSmokeChecks", smokeCheckSummary(smokeRaw));
+  const reconciliationSummary = parseJsonRecord(reconciliationSummaryRaw);
+  next = upsertTopLevelField(next, "attachmentReconciliationCsvPath", path.basename(reconciliationCsvPath));
+  next = upsertTopLevelField(next, "attachmentReconciliationCsvSha256", `sha256:${sha256(reconciliationCsvRaw)}`);
+  next = upsertTopLevelField(next, "attachmentReconciliationSummaryPath", path.basename(reconciliationSummaryPath));
+  next = upsertTopLevelField(next, "attachmentReconciliationSummaryHash", stringValue(reconciliationSummary.summaryHash, "missing"));
+  next = upsertTopLevelField(next, "attachmentReconciliationStatus", stringValue(reconciliationSummary.status, "missing"));
   next = upsertTopLevelField(next, "residualRisk", updatedResidualRisk(originalFields.get("residualRisk") ?? "", targetVersion));
   next = upsertTopLevelField(next, "releaseEvidenceBundleHash", buildReleaseEvidenceBundleHash(parseIndentedKeyValueRecord(next)));
 
@@ -122,6 +141,8 @@ function main(): void {
     "tsx",
     "scripts/quality/release-evidence-validate.ts",
     outputRecordPath,
+    reconciliationCsvPath,
+    reconciliationSummaryPath,
   ], {
     cwd: process.cwd(),
     encoding: "utf8",
@@ -140,7 +161,7 @@ function main(): void {
   console.log(`targetVersion: ${targetVersion}`);
   console.log(`releaseEvidenceRedactedExportHash: sha256:${buildExportHash(exportDir)}`);
   console.log(`generatedReleaseEvidenceBundleHash: ${releaseEvidenceBundleHash ?? "missing"}`);
-  console.log("nextCommand: review the draft, then rerun pnpm release:evidence:validate <draft-or-final-record>");
+  console.log("nextCommand: review the draft, then rerun pnpm release:evidence:validate <draft-or-final-record> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>");
   console.log("safetyFacts: readOnlyExportConsumed=true serverCommandAttempted=false productionWriteAttempted=false secretValuePrinted=false residualLedgerUpdated=false originalReleaseRecordOverwritten=false");
 }
 

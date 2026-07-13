@@ -1187,3 +1187,74 @@ pnpm ops:ops-001:preflight
 明确确认句：
 
 > 确认在生产主机通过服务器侧 updater 将 AreaForge 从 `0.1.5` 更新到 `v0.1.7`，仅执行 `apply --yes --tag v0.1.7 --config /etc/areaforge/updater.env` 及其内置签名校验、备份、migration image、切换、只读 smoke 和记录；失败时仅回滚应用镜像和 `APP_VERSION` 到 `0.1.5`；不执行数据库/上传目录 restore、自动应用策略变更、写入型 smoke、Web runtime 服务器命令、读取/打印/复制/提交 secrets 或 residual 台账关闭。
+
+## Update Request Expected-Before 本地实施确认包
+
+状态：等待确认。该包只授权本地代码和测试，不授权生产部署或请求执行。
+
+源事实：
+
+- `docs/development/update-request-expected-before-design.md`
+- `tasks/active/0019-update-request-expected-before-binding.md`
+- `docs/development/runtime-write-boundary.md`
+- `docs/development/residual-risk-ledger.md` 中的 `AF-RISK-OPS-005`
+
+影响：
+
+- Web update request 升级为 schema V2，绑定 expected-before、目标 Release/manifest/digest、TTL、
+  semantic/request 双 hash、idempotency key 和原子文件发布。
+- root update-agent 在调用 updater、Docker 或 config write 前，从 live env/config/update record 重建
+  observed-before，并在原子领取后与最终副作用边界前执行两次 compare-and-reject。
+- update-agent、updater 和 rollback mutation 共用 production-state lock；processing claim 崩溃后进入
+  needs_reconciliation，不自动重放。
+- V1 mutation request fail closed；V1 check 仅保留短期兼容。
+
+主要风险：
+
+- Web 和 agent canonical hash/schema 不一致导致合法请求被拒绝。
+- 旧 agent 忽略 V2 字段；若未按维护窗口顺序部署，会使 expected-before 失效。
+- legacy 队列处理不当会丢失或错误重放 mutation request。
+
+允许范围：
+
+- 修改设计列出的 Web route/library/UI、update-agent、updater shared-lock/target-identity 接口、
+  fixture/selftest、preflight 和文档。
+- 新增 V2 request/history reason code、TTL、双 hash、idempotency、expected/observed before hash、
+  target identity、processing reconciliation、shared lock 和 atomic write 测试。
+- 只使用本地临时目录、mock updater/Docker/config writer 验证拒绝路径零副作用。
+
+不包含：
+
+- 不执行 SSH、生产 timer stop/start、队列隔离或生产 agent/Web 部署。
+- 不提交 Web apply/rollback/policy 请求，不执行服务器 updater apply、rollback、backup/restore、migration、
+  Docker/Nginx/compose 切换或生产写入。
+- 不修改 `AREAFORGE_AUTO_APPLY=none`，不启用 patch/minor/all。
+- 不读取、打印、复制或提交 secrets、生产 env、smoke credential、token、私钥或 root-only 记录。
+- 不创建 Release/tag，不关闭 `AF-RISK-OPS-005` 或其他 residual。
+
+验证：
+
+- schema/hash/TTL/expected-before/target identity/idempotency/processing reconciliation/shared lock/
+  rollback-target/legacy/duplicate/atomic-write/zero-side-effect selftest。
+- `pnpm update-center:request-guard:selftest`
+- `pnpm shellcheck:updater`
+- `pnpm github-release-updater:preflight`
+- Web typecheck/lint、`pnpm check`
+- `pnpm governance:preflight`、`pnpm risk:preflight`、`pnpm docs:readiness`、`git diff --check`
+
+回滚：
+
+- 本地实现失败时只回退本次 V2 代码和测试，不改生产。
+- 未来生产部署失败时必须另行确认：暂停 timer、隔离 V2 请求、同时回滚 Web/agent；不得重放或
+  自动补写旧请求。
+
+中止条件：
+
+- 需要给 Web runtime 增加 root secret、Docker socket 或服务器命令能力。
+- 无法证明拒绝路径不调用 updater、Docker 或 config write。
+- canonical hash 不能由 Node 与 shell fixture 交叉验证。
+- 实施需要扩大到生产部署、策略变化、migration 或 secrets。
+
+明确确认句：
+
+> 确认执行 Update Request Expected-Before 本地实施：范围仅限 schema V2、expected-before、目标 Release/manifest/digest 绑定、TTL、semantic/request 双 canonical hash、idempotency key、原子请求发布、processing reconciliation、update-agent/updater/rollback 共享 production-state lock、root agent 原子领取后与最终副作用边界前的双重 compare-and-reject、legacy mutation fail-closed、不可变 decision history 和本地 fixture/selftest；不执行 SSH、生产 timer/队列/agent/Web 部署、updater apply、Web apply/rollback/policy 请求、backup/restore、migration、Docker/Nginx/compose 切换、自动应用策略变化、Release/tag、secrets 读取/打印/复制/提交或 residual 台账关闭。

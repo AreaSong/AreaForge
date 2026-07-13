@@ -131,8 +131,10 @@ sudo systemctl enable --now areaforge-update-agent.timer
 发布记录需通过：
 
 ```bash
-pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]
+pnpm release:evidence:validate <release-record.md|txt> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>
 ```
+
+三份输入必须由发布记录中的 `attachmentReconciliationCsvSha256`、`attachmentReconciliationSummaryHash`、路径和状态绑定。summary 是双向只读报告，发现孤儿或 unsafe entry 只阻断证据，不执行清理。
 
 维护交接时可先生成只读 metadata 预览，确认备份 hash、root-only 记录、恢复演练记录和 rollback target 的缺口，并查看 `blockingGaps` 中的机器可读阻塞范围：
 

@@ -14,7 +14,13 @@ const requiredFiles = [
   "docs/development/long-term-operability-control-plane.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
+  "docs/development/maintenance-window-index.json",
+  "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
+  "docs/development/update-request-expected-before-design.md",
+  "docs/development/ops-005-expected-before-production-evidence-template.md",
+  "docs/development/high-risk-confirmation-packets.md",
+  "tasks/active/0019-update-request-expected-before-binding.md",
   "docs/development/release-v0.1.7-record.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -44,12 +50,28 @@ const requiredFiles = [
   "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
   "scripts/quality/release-evidence-redacted-export-validate.ts",
   "scripts/quality/release-evidence-redacted-export.selftest.ts",
+  "scripts/ops/release-closeout-audit.ts",
+  "scripts/quality/release-closeout-audit-validate.ts",
+  "scripts/quality/release-closeout-audit.selftest.ts",
+  "scripts/quality/attachment-reconciliation.ts",
+  "scripts/quality/attachment-reconciliation-summary.ts",
+  "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/quality/release-evidence-validate.ts",
+  "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
   "scripts/ops/ops004-alert-evidence-preflight.ts",
+  "scripts/ops/ops005-evidence-preflight.ts",
+  "scripts/quality/ops005-production-evidence-validate.ts",
   "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
   "scripts/ops/generate-maintenance-window-record.ts",
+  "scripts/ops/maintenance-window-index.ts",
+  "scripts/quality/maintenance-window-index-common.ts",
+  "scripts/quality/maintenance-window-index-validate.ts",
+  "scripts/quality/maintenance-window-index.selftest.ts",
+  "scripts/quality/rollback-proof-record-validate.ts",
+  "scripts/quality/rollback-proof-record-validate.selftest.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
   "scripts/quality/residual-evidence-preflight.ts",
@@ -68,6 +90,8 @@ const requiredFiles = [
   "scripts/quality/support-bundle-preview.selftest.ts",
   "scripts/quality/ops001-evidence-preflight.selftest.ts",
   "scripts/quality/ops004-alert-evidence-preflight.selftest.ts",
+  "scripts/quality/ops005-evidence-preflight.selftest.ts",
+  "scripts/quality/ops005-production-evidence-validate.selftest.ts",
   "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
 ];
 
@@ -96,12 +120,24 @@ const requiredScripts = [
   "ops:backup-restore:preview:selftest",
   "release:evidence:redacted-export:validate",
   "release:evidence:redacted-export:selftest",
+  "release:closeout:audit",
+  "release:closeout:audit:validate",
+  "release:closeout:audit:selftest",
+  "attachment:reconciliation",
+  "attachment:reconciliation:summary",
+  "attachment:reconciliation:summary:selftest",
+  "release:evidence:validate",
+  "release:evidence:selftest",
   "ops:ops-001:preflight",
   "ops:ops-001:preflight:selftest",
   "ops:ops-001:fallback:finalize",
   "ops:ops-001:fallback:finalize:selftest",
   "ops:ops-004:preflight",
   "ops:ops-004:preflight:selftest",
+  "ops:ops-005:preflight",
+  "ops:ops-005:preflight:selftest",
+  "ops:ops-005:evidence:validate",
+  "ops:ops-005:evidence:selftest",
   "sc:sc-002:preflight",
   "sc:sc-002:preflight:selftest",
   "ops:alert:preview",
@@ -111,6 +147,11 @@ const requiredScripts = [
   "maintenance:window:record:selftest",
   "maintenance:window:validate",
   "maintenance:window:selftest",
+  "maintenance:window:index",
+  "maintenance:window:index:validate",
+  "maintenance:window:index:selftest",
+  "rollback:proof:validate",
+  "rollback:proof:selftest",
   "residuals:validate",
   "residuals:evidence:preflight",
   "residuals:evidence:preflight:selftest",
@@ -175,11 +216,19 @@ function main(): void {
       ),
       "projection should include release evidence bundle hash in release boundary stop",
     );
+    assert(
+      projection.boundaryStops.some((stop) =>
+        stop.key === "update_request_expected_before" &&
+        stop.currentBoundary.includes("no high-risk local implementation confirmation") &&
+        stop.currentBoundary.includes("no production deployment confirmation")
+      ),
+      "projection should separate expected-before implementation and deployment confirmations",
+    );
     assert(projection.safetyFacts.readOnly === true, "projection should be read-only");
     assert(projection.safetyFacts.networkRequested === false, "projection should not request network");
     assert(projection.safetyFacts.protectedPathWriteAttempted === false, "projection should not write protected paths");
     assert(projection.safetyFacts.statusProjectionWritten === false, "projection should not write a status file");
-    assert(projection.residuals.countsByType["current-blocker"] === 1, "current blocker count should be 1");
+    assert(projection.residuals.countsByType["current-blocker"] === 2, "current blocker count should be 2");
     assert(projection.releaseEvidenceGaps.status === "needs_evidence", "release evidence gaps should need evidence");
     assert(
       projection.releaseEvidenceGaps.blockingGaps.some((gap) =>
@@ -191,9 +240,17 @@ function main(): void {
       projection.releaseEvidenceGaps.blockingGaps.some((gap) => gap.key === "databaseBackupSha256"),
       "release evidence gaps should include database backup hash",
     );
-    assert(projection.residuals.countsByType["monitoring-gap"] === 1, "monitoring gap count should be 1");
+    assert(
+      projection.releaseEvidenceGaps.blockingGaps.some((gap) =>
+        gap.key === "attachmentReconciliationSummaryHash" && gap.gapType === "attachment_reconciliation_binding"
+      ),
+      "release evidence gaps should include attachment reconciliation binding",
+    );
+    assert(projection.residuals.countsByType["monitoring-gap"] === 0, "monitoring gap count should be 0");
     assert(projection.residuals.countsByReviewStatus.due_soon === 2, "due soon count should be 2");
     assert(projection.requiredFiles.present.includes("docs/development/support-bundle-preview.md"), "projection should require support bundle preview docs");
+    assert(projection.requiredFiles.present.includes("docs/development/update-request-expected-before-design.md"), "projection should require expected-before design docs");
+    assert(projection.requiredFiles.present.includes("tasks/active/0019-update-request-expected-before-binding.md"), "projection should require expected-before active task");
     assert(projection.requiredFiles.present.includes("scripts/quality/residual-evidence-preflight.ts"), "projection should require residual evidence preflight file");
     assert(projection.requiredFiles.present.includes("scripts/quality/residual-evidence-preflight.selftest.ts"), "projection should require residual evidence preflight selftest file");
     assert(projection.requiredFiles.present.includes("docs/development/residual-closure-review-template.md"), "projection should require residual closure review template");
@@ -223,15 +280,21 @@ function main(): void {
     assert(projection.packageScripts.present.includes("ops:backup-restore:preview:selftest"), "projection should require backup/restore preview selftest script");
     assert(projection.packageScripts.present.includes("release:evidence:redacted-export:validate"), "projection should require release evidence redacted export validator script");
     assert(projection.packageScripts.present.includes("release:evidence:redacted-export:selftest"), "projection should require release evidence redacted export selftest script");
+    assert(projection.packageScripts.present.includes("release:closeout:audit"), "projection should require release closeout audit script");
+    assert(projection.packageScripts.present.includes("release:closeout:audit:validate"), "projection should require release closeout audit validator script");
     assert(projection.packageScripts.present.includes("ops:ops-001:preflight"), "projection should require OPS-001 evidence preflight script");
     assert(projection.packageScripts.present.includes("ops:ops-001:fallback:finalize"), "projection should require OPS-001 fallback finalizer script");
     assert(projection.packageScripts.present.includes("ops:ops-004:preflight"), "projection should require OPS-004 alert evidence preflight script");
+    assert(projection.packageScripts.present.includes("ops:ops-005:preflight"), "projection should require OPS-005 expected-before evidence preflight script");
+    assert(projection.packageScripts.present.includes("ops:ops-005:evidence:validate"), "projection should require OPS-005 production evidence validator script");
     assert(projection.packageScripts.present.includes("sc:sc-002:preflight"), "projection should require SC-002 supply-chain preflight script");
     assert(projection.packageScripts.present.includes("ops:long-term:gate"), "projection should require long-term live evidence gate script");
     assert(projection.packageScripts.present.includes("ops:long-term:snapshot"), "projection should require long-term evidence snapshot script");
     assert(projection.packageScripts.present.includes("ops:readonly-side-effect:selftest"), "projection should require read-only side-effect selftest script");
     assert(projection.packageScripts.present.includes("maintenance:window:record"), "projection should require maintenance window record generator");
     assert(projection.packageScripts.present.includes("maintenance:window:validate"), "projection should require maintenance window validator");
+    assert(projection.packageScripts.present.includes("maintenance:window:index:validate"), "projection should require maintenance window index validator");
+    assert(projection.packageScripts.present.includes("rollback:proof:validate"), "projection should require rollback proof validator");
     assert(projection.commands.daily.includes("pnpm ops:support:bundle-preview"), "daily commands should include support bundle preview");
     assert(projection.commands.daily.includes("pnpm ops:status:validate <operability-status.json>"), "daily commands should include operability status validation");
     assert(projection.commands.daily.includes("pnpm ops:handoff:validate <operational-handoff.json>"), "daily commands should include operational handoff validation");
@@ -241,9 +304,12 @@ function main(): void {
     assert(projection.commands.daily.includes("pnpm ops:ops-001:preflight"), "daily commands should include OPS-001 evidence preflight");
     assert(projection.commands.daily.some((command: string) => command.includes("ops:ops-001:fallback:finalize")), "daily commands should include OPS-001 fallback finalizer");
     assert(projection.commands.daily.includes("pnpm ops:ops-004:preflight"), "daily commands should include OPS-004 alert evidence preflight");
+    assert(projection.commands.daily.includes("pnpm ops:ops-005:preflight"), "daily commands should include OPS-005 expected-before evidence preflight");
+    assert(projection.commands.daily.includes("pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record>"), "daily commands should include OPS-005 production evidence validation");
     assert(projection.commands.daily.includes("pnpm ops:long-term:snapshot"), "daily commands should include long-term evidence snapshot");
     assert(projection.commands.daily.includes("pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>"), "daily commands should include long-term evidence snapshot validation");
     assert(projection.commands.daily.includes("pnpm maintenance:window:record"), "daily commands should include maintenance window record generation");
+    assert(projection.commands.daily.includes("pnpm maintenance:window:index"), "daily commands should include maintenance window index generation");
     assert(projection.commands.daily.includes("pnpm residuals:evidence:preflight"), "daily commands should include residual evidence preflight");
     assert(projection.commands.daily.includes("pnpm residuals:closure:validate <residual-closure-review-record>"), "daily commands should include residual closure review validation");
     assert(projection.commands.weekly.includes("pnpm ops:support:bundle-preview:selftest"), "weekly commands should include support bundle preview selftest");
@@ -251,27 +317,38 @@ function main(): void {
     assert(projection.commands.weekly.includes("pnpm ops:handoff:validate:selftest"), "weekly commands should include operational handoff validator selftest");
     assert(projection.commands.weekly.includes("pnpm ops:backup-restore:preview:selftest"), "weekly commands should include backup/restore preview selftest");
     assert(projection.commands.weekly.includes("pnpm release:evidence:redacted-export:selftest"), "weekly commands should include release evidence redacted export selftest");
+    assert(projection.commands.weekly.includes("pnpm release:closeout:audit:selftest"), "weekly commands should include release closeout audit selftest");
     assert(projection.commands.weekly.includes("pnpm ops:ops-001:preflight:selftest"), "weekly commands should include OPS-001 evidence preflight selftest");
     assert(projection.commands.weekly.includes("pnpm ops:ops-001:fallback:finalize:selftest"), "weekly commands should include OPS-001 fallback finalizer selftest");
     assert(projection.commands.weekly.includes("pnpm ops:ops-004:preflight:selftest"), "weekly commands should include OPS-004 alert evidence preflight selftest");
+    assert(projection.commands.weekly.includes("pnpm ops:ops-005:preflight:selftest"), "weekly commands should include OPS-005 expected-before preflight selftest");
+    assert(projection.commands.weekly.includes("pnpm ops:ops-005:evidence:selftest"), "weekly commands should include OPS-005 production evidence validator selftest");
     assert(projection.commands.weekly.includes("pnpm sc:sc-002:preflight:selftest"), "weekly commands should include SC-002 supply-chain preflight selftest");
     assert(projection.commands.weekly.includes("pnpm ops:long-term:snapshot:selftest"), "weekly commands should include long-term evidence snapshot selftest");
     assert(projection.commands.weekly.includes("pnpm ops:readonly-side-effect:selftest"), "weekly commands should include read-only side-effect selftest");
     assert(projection.commands.weekly.includes("pnpm residuals:evidence:preflight:selftest"), "weekly commands should include residual evidence preflight selftest");
     assert(projection.commands.weekly.includes("pnpm residuals:closure:selftest"), "weekly commands should include residual closure review selftest");
     assert(projection.commands.weekly.includes("pnpm maintenance:window:record:selftest"), "weekly commands should include maintenance window record selftest");
+    assert(projection.commands.weekly.includes("pnpm maintenance:window:index:selftest"), "weekly commands should include maintenance window index selftest");
+    assert(projection.commands.incident.includes("pnpm rollback:proof:validate <record>"), "incident commands should include rollback proof validation");
     assert(projection.commands.release.includes("pnpm sc:sc-002:preflight"), "release commands should include SC-002 supply-chain preflight");
+    assert(projection.commands.release.includes("pnpm ops:ops-005:preflight"), "release commands should include OPS-005 expected-before preflight");
     assert(projection.commands.release.includes("pnpm ops:long-term:gate"), "release commands should include long-term live evidence gate");
     assert(projection.commands.release.includes("pnpm ops:long-term:snapshot"), "release commands should include long-term evidence snapshot");
     assert(projection.commands.release.includes("pnpm release:evidence:redacted-export:validate <redacted-export-dir>"), "release commands should include release evidence redacted export validation");
+    assert(projection.commands.release.includes("pnpm release:closeout:audit -- --version <X.Y.Z>"), "release commands should include release closeout audit");
     assert(projection.commands.release.includes("pnpm release:evidence:redacted-export:selftest"), "release commands should include release evidence redacted export selftest");
     assert(projection.nextActions.some((action) => action.residualRiskId === "AF-RISK-OPS-001"), "next actions should include current blockers even when they are not locally executable");
+    assert(projection.nextActions.some((action) => action.residualRiskId === "AF-RISK-OPS-005"), "next actions should include expected-before current blocker");
+    assert(projection.residuals.releaseRelevantIds.includes("AF-RISK-OPS-005"), "release-relevant residuals should include expected-before blocker");
     const summary = buildOperabilityStatusSummary(projection);
     const formattedSummary = formatOperabilityStatusSummary(summary);
     assert(summary.title === "AreaForge operability status", "summary should have a stable title");
     assert(summary.offlineOverall === "blocked", "summary should preserve overall status");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include non-executable current blockers");
+    assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-005")), "summary should include expected-before current blocker");
     assert(summary.boundaryStops.some((item) => item.includes("post_update_ops001")), "summary should include boundary stops");
+    assert(summary.boundaryStops.some((item) => item.includes("update_request_expected_before")), "summary should include expected-before boundary stop");
     assert(summary.releaseEvidenceGaps.some((item) => item.includes("releaseEvidenceBundleHash")), "summary should include release evidence gaps");
     assert(summary.dueResiduals.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include due residual IDs");
     assert(summary.nextEvidenceCommands.includes("pnpm ops:handoff --summary"), "summary should include human-readable next evidence commands");
@@ -360,13 +437,13 @@ function fixtureLedgerJson(): string {
       },
       {
         id: "AF-RISK-OPS-005",
-        type: "monitoring-gap",
+        type: "current-blocker",
         reviewAt: "2026-07-17",
-        currentImpact: "生产 extra smoke 仍依赖服务器配置",
-        executableNow: true,
-        closeCondition: "最近一次通过记录",
-        requiredEvidence: "redacted smoke record",
-        ownerSkills: ["areaforge-sre-ops", "areaforge-qa-smoke"],
+        currentImpact: "update requests are not bound to expected-before state",
+        executableNow: false,
+        closeCondition: "V2 contract, release, and production deployment evidence",
+        requiredEvidence: "expected-before design, local selftests, signed release, and redacted production evidence",
+        ownerSkills: ["areaforge-security-governance", "areaforge-release-operator", "areaforge-sre-ops"],
       },
       {
         id: "AF-RISK-REL-001",

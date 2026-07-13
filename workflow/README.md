@@ -16,7 +16,7 @@
 - `versions/v0.4-second-stage-long-term-loop.md`：第二阶段长期闭环。
 - `versions/v1.0-prod-release.md`：生产发布闭环。
 
-当前进度：v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环。Package A-E 均已完成，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 签名更新运行 `0.1.7`。当前 `v0.1.7` 长期证据快照仍为 `needs_live_evidence`，缺 post-update OPS-001 redacted smoke/status/evidence bundle/closure packet 和 `releaseEvidenceBundleHash` / release evidence backup hash；OPS-004 matching alert drill/preflight 已达到 `ready_for_human_close` 但未关闭 residual；后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移。长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口，离线运营状态投影用 `pnpm ops:status --summary` 快速查看或 `pnpm ops:status` 生成 JSON，维护或线程交接摘要用 `pnpm ops:handoff --summary` 快速查看或 `pnpm ops:handoff` 生成 JSON，生产运营证据以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
+当前进度：v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环。Package A-E 均已完成，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 签名更新运行 `0.1.7`。当前 `v0.1.7` 长期证据快照仍为 `needs_live_evidence`，缺 post-update OPS-001 redacted smoke/status/evidence bundle/closure packet 和 `releaseEvidenceBundleHash` / release evidence backup hash；OPS-004 matching alert drill/preflight 已达到 `ready_for_human_close` 但未关闭 residual。下一项 release 级控制面改进是 `tasks/active/0019-update-request-expected-before-binding.md`，它先完成本地 V2 请求契约，生产部署另行确认。后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移。长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口，离线运营状态投影用 `pnpm ops:status --summary` 快速查看或 `pnpm ops:status` 生成 JSON，维护或线程交接摘要用 `pnpm ops:handoff --summary` 快速查看或 `pnpm ops:handoff` 生成 JSON，生产运营证据以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
 
 ## 使用规则
 
@@ -28,4 +28,4 @@
 - 发布或运维状态变化时必须同步 ops readiness、残余风险 ID 和 release workflow 证据。
 - 功能进入线上前先按 `docs/development/release-train.md` 固定版本、Release 资产、验证、updater、smoke、回滚目标和发布记录证据。
 - 日常维护和 residual 到期复核按 `docs/development/maintenance-cadence.md` 执行；readiness/preview/evidence bundle 不等于 apply，也不能单独关闭 residual。维护者形成 close / keep-open / downgrade / reopen 结论时，先保存 `docs/development/residual-closure-review-template.md` 格式记录并运行 `pnpm residuals:closure:validate <record>`；该记录保持 `closesResidual=no`。
-- 周/月维护窗口、incident、恢复演练或 update-agent redacted status 进入仓库记录时，使用 `docs/development/maintenance-window-record-template.md`、`docs/development/incident-record-template.md`、`docs/development/restore-drill-record-template.md` 或 `docs/development/update-agent-status-record-template.md` 并运行对应 validator。
+- 周/月维护窗口、incident、恢复演练或 update-agent redacted status 进入仓库记录时，使用 `docs/development/maintenance-window-record-template.md`、`docs/development/incident-record-template.md`、`docs/development/restore-drill-record-template.md` 或 `docs/development/update-agent-status-record-template.md` 并运行对应 validator。新增维护窗口后完整重建并校验 `docs/development/maintenance-window-index.json`；该索引只用于浏览和完整性检查，不进入版本执行状态机。

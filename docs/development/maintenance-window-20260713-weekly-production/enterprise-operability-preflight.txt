@@ -1,0 +1,12 @@
+PASS required enterprise operability files: 78 files present
+PASS long-term control plane doc: control plane documents scope, borrowed mechanisms, non-goals, release decisions, maintenance order, and skill policy
+PASS release decision matrix: release decision matrix covers docs, UX/API, DB, upload, AI, updater, supply-chain, and skill changes
+PASS residual operability coverage: 9 residual IDs are covered with reviewAt, closeCondition, requiredEvidence, and ownerSkills
+PASS enterprise operability package scripts: 54 scripts configured
+PASS enterprise operability entrypoints: README, docs index, workflow, doc sync, maintenance, and release train link the control plane
+PASS workflow version binding fields: version template records owner skill, validation profile, source docs, residuals, release trigger, apply boundary, and source baseline
+PASS skill operability boundaries: skills reference control plane, state-word discipline, release/UX residuals, and skill-addition policy
+PASS validation coverage: validation matrix and skill map include enterprise operability control plane checks
+PASS no-web-ops boundary: control plane and runtime docs preserve Web runtime no-server-command boundary
+PASS evidence word discipline: docs preserve completion claim fields, doesNotProve, boundaryStops, metadata-only/read-only wording, and no overclaim phrases
+enterprise operability preflight passed: long-term control plane is documented, linked, and evidence-gated.

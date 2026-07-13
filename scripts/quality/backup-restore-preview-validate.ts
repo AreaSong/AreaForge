@@ -11,6 +11,11 @@ type JsonRecord = Record<string, unknown>;
 
 const requiredEvidenceKeys = [
   "releaseEvidenceBundleHash",
+  "attachmentReconciliationCsvPath",
+  "attachmentReconciliationCsvSha256",
+  "attachmentReconciliationSummaryPath",
+  "attachmentReconciliationSummaryHash",
+  "attachmentReconciliationStatus",
   "databaseBackupSha256",
   "uploadsBackupSha256",
   "envBackupSha256",
@@ -26,6 +31,7 @@ const requiredCapabilities = [
   "inspect_release_backup_metadata",
   "classify_root_only_backup_hash_gaps",
   "classify_release_evidence_bundle_hash_gap",
+  "inspect_attachment_reconciliation_binding",
   "derive_machine_readable_blocking_gaps",
   "summarize_restore_dry_run_record_presence",
   "compute_preview_hash",
@@ -327,7 +333,7 @@ function expectedGapType(item: JsonRecord): string {
 }
 
 function expectedSourceInput(item: JsonRecord): string {
-  return item.category === "restore_dry_run" || item.category === "attachment_integrity"
+  return item.category === "restore_dry_run" || item.key === "attachmentHashMatched"
     ? "restore_drill_record"
     : "release_record";
 }
@@ -372,7 +378,7 @@ function derivePreviewStatus(items: unknown[]): "ready" | "needs_evidence" | "bl
 function deriveRestoreDryRunStatus(items: unknown[]): "present" | "missing" | null {
   const restoreItems = items
     .filter(isRecord)
-    .filter((item) => item.category === "restore_dry_run" || item.category === "attachment_integrity");
+    .filter((item) => item.category === "restore_dry_run" || item.key === "attachmentHashMatched");
   if (restoreItems.length === 0) return null;
   return restoreItems.every((item) => item.status === "present") ? "present" : "missing";
 }

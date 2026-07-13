@@ -1469,7 +1469,13 @@ function checkProductionCompose(): void {
     "恢复演练验收判定表",
     "pnpm release:evidence:validate",
     "scripts/quality/attachment-reconciliation.ts",
+    "scripts/quality/attachment-reconciliation-summary.ts",
     "attachment-reconciliation.csv",
+    "attachment-reconciliation-summary.json",
+    "attachmentReconciliationCsvSha256",
+    "attachmentReconciliationSummaryHash",
+    "fileOnlyCount",
+    "unsafeEntryCount",
     "attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action",
     "只读取发布记录",
     "migration deploy 的执行载体",
@@ -1598,8 +1604,10 @@ function checkProductionCompose(): void {
     runbook.includes("受控 release 工作目录");
   const releaseEvidenceValidate = packageJson.scripts?.["release:evidence:validate"] ?? "";
   const releaseEvidenceSelftest = packageJson.scripts?.["release:evidence:selftest"] ?? "";
+  const reconciliationSummarySelftest = packageJson.scripts?.["attachment:reconciliation:summary:selftest"] ?? "";
   const releaseEvidenceValidatorDocumented = releaseEvidenceValidate.includes("scripts/quality/release-evidence-validate.ts") &&
     releaseEvidenceSelftest.includes("scripts/quality/release-evidence-validate.selftest.ts") &&
+    reconciliationSummarySelftest.includes("scripts/quality/attachment-reconciliation-summary.selftest.ts") &&
     runbook.includes("pnpm release:evidence:validate") &&
     runbook.includes("只读取发布记录");
   checks.push({

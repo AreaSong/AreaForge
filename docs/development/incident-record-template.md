@@ -31,6 +31,8 @@ pnpm incident:record:validate /path/to/incident-record.txt
 
 记录生成器只读取本地 redacted 证据文件和显式环境变量；它不连接生产、不执行命令、不写生产。
 
+若事故处理中实际执行了 rollback，除事故记录外还应按 `docs/development/rollback-proof-record-template.md` 保存回滚后证明，并运行 `pnpm rollback:proof:validate <record>`。该 proof 只验证 post-rollback 证据达到人工复核门槛，不自动重新开放更新通道。
+
 ## 模板
 
 ```text
@@ -71,5 +73,6 @@ safetyFacts:
 
 - 若任何高风险生产动作是 `yes`，`highRiskConfirmation` 必须是 `yes`，并在私有运维记录中保留确认包。
 - `resolved` 状态必须有 `postIncidentReview: yes`。
+- 实际 rollback 后必须另有通过 `pnpm rollback:proof:validate` 的回滚证明，或明确保持事故为 `follow-up` 并记录缺失证据。
 - 未完全解决的事故必须保留 `AF-RISK-*` residual ID 或转入任务/incident follow-up。
 - 记录不得包含密码、session cookie、数据库 URL、API key、生产 `.env`、cosign 私钥、完整 prompt/raw response、附件内容、上传绝对路径或真实学习内容。

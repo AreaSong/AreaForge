@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { buildOperabilityStatusProjection, type OperabilityStatusProjection } from "./operability-status";
+import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
 
 type SnapshotStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
 type CheckStatus = "pass" | "needs_live_evidence" | "missing" | "stale" | "invalid";
@@ -33,7 +34,7 @@ type EvidencePath = {
 };
 
 type LongTermEvidenceSnapshot = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   mode: "read_only_long_term_evidence_snapshot";
   generatedAt: string;
   snapshotHash: string;
@@ -105,6 +106,7 @@ function main(): void {
     checkControlPlane(projection.sourceSnapshot.controlPlaneSourceHash),
     checkOps001(paths),
     checkOps004(paths),
+    checkOps005(paths, packageVersion, releaseTag),
     checkReleaseEvidence(paths, packageVersion, releaseTag),
     checkSupplyChain(paths, packageVersion, releaseTag),
     checkUxReview(paths, packageVersion),
@@ -112,7 +114,7 @@ function main(): void {
   ];
 
   const snapshotWithoutHash = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: "read_only_long_term_evidence_snapshot" as const,
     generatedAt: new Date().toISOString(),
     snapshotHash: "",
@@ -136,6 +138,7 @@ function main(): void {
       "current production health without post-version live smoke and update-agent evidence",
       "OPS-001 closure or residual ledger closure",
       "OPS-004 alert recovery drill completion or residual ledger closure",
+      "OPS-005 expected-before V2 implementation, signed Release, production deployment, or residual ledger closure without ready_for_ops005_human_review evidence",
       "release evidence record validation when backup hashes are root-only or missing",
       "backup freshness, restore execution, migration execution, or rollback execution",
       "server updater apply completion for a future release",
@@ -315,6 +318,65 @@ function checkOps004(paths: EvidencePath[]): SnapshotCheck {
   };
 }
 
+function checkOps005(paths: EvidencePath[], packageVersion: string, releaseTag: string): SnapshotCheck {
+  const command = "pnpm exec tsx scripts/ops/ops005-evidence-preflight.ts";
+  const result = runJsonCommand(["pnpm", "exec", "tsx", "scripts/ops/ops005-evidence-preflight.ts"], {
+    AREAFORGE_OPS005_RELEASE_RECORD: process.env.AREAFORGE_OPS005_RELEASE_RECORD,
+    AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD: process.env.AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD,
+    AREAFORGE_OPS005_GIT_COMMIT: process.env.AREAFORGE_OPS005_GIT_COMMIT,
+    AREAFORGE_OPS005_NOW: process.env.AREAFORGE_OPS005_NOW,
+  });
+  const actualStatus = stringValue(result.body?.status, result.ok ? "missing" : "invalid");
+  const productionRecordPath = process.env.AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD?.trim() ?? "";
+  const productionFields = productionRecordPath ? parseFieldsIfExists(productionRecordPath) : new Map<string, string>();
+  const versionMatch = result.body?.packageVersion === packageVersion && result.body?.releaseTag === releaseTag;
+  const checkStatus = statusFromExpected(result, actualStatus, "ready_for_ops005_human_review");
+  const recordedAt = productionFields.get("recordedAt") ?? null;
+  const maxAgeHours = Number(productionFields.get("evidenceFreshnessMaxAgeHours") ?? "24");
+  const ageHours = recordedAt ? ageInHours(recordedAt) : Number.NaN;
+  const fresh = Number.isFinite(ageHours) && ageHours <= maxAgeHours;
+  const checks = isRecord(result.body?.checks) ? result.body.checks : {};
+  const local = isRecord(checks.localImplementation) ? checks.localImplementation : {};
+  const release = isRecord(checks.signedRelease) ? checks.signedRelease : {};
+  const production = isRecord(checks.productionEvidence) ? checks.productionEvidence : {};
+
+  return {
+    key: "ops005",
+    label: "OPS-005 expected-before V2 release and production evidence",
+    status: checkStatus === "pass" && versionMatch && fresh ? "pass" : checkStatus === "invalid" ? "invalid" : "needs_live_evidence",
+    actualStatus,
+    expectedStatus: "ready_for_ops005_human_review",
+    validatorCommand: command,
+    evidenceHash: evidencePathHash(paths, "ops005ProductionEvidence") ?? commandEvidenceHash(result.raw, paths, ["ops005ProductionEvidence"]),
+    residualRiskIds: ["AF-RISK-OPS-005"],
+    freshness: {
+      recordedAt,
+      ageHours: Number.isFinite(ageHours) ? Number(ageHours.toFixed(2)) : null,
+      maxAgeHours,
+      status: fresh ? "fresh" : recordedAt ? "stale" : "unknown",
+    },
+    versionMatch,
+    doesNotProve: [
+      "AF-RISK-OPS-005 residual closure",
+      "production deployment without matching release identity",
+      "mutation safety without fresh redacted V2 evidence",
+    ],
+    metadata: {
+      localImplementation: stringValue(local.status, "missing"),
+      signedRelease: stringValue(release.status, "missing"),
+      productionDeployment: stringValue(production.status, "missing"),
+      v2Check: productionFields.get("v2CheckStatus") ?? "missing",
+      expectedBeforeRejection: productionFields.get("expectedBeforeRejectionStatus") ?? "missing",
+      expectedBeforeRejectionExecutionAttempted: productionFields.get("expectedBeforeRejectionExecutionAttempted") ?? "missing",
+      sharedProductionStateLock: productionFields.get("sharedProductionStateLockStatus") ?? "missing",
+      processingReconciliation: productionFields.get("processingReconciliationStatus") ?? "missing",
+      autoApply: productionFields.get("autoApply") ?? "missing",
+      releaseTag: result.body?.releaseTag ?? null,
+      gitCommit: result.body?.gitCommit ?? null,
+    },
+  };
+}
+
 function checkSupplyChain(paths: EvidencePath[], packageVersion: string, releaseTag: string): SnapshotCheck {
   const command = "pnpm exec tsx scripts/ops/sc002-supply-chain-preflight.ts";
   const releaseRecordPath = envOrExisting("AREAFORGE_SC002_RELEASE_RECORD", defaultReleaseSupplyChainRecord);
@@ -358,7 +420,7 @@ function checkSupplyChain(paths: EvidencePath[], packageVersion: string, release
 
 function checkReleaseEvidence(paths: EvidencePath[], packageVersion: string, releaseTag: string): SnapshotCheck {
   const recordPath = envOrExisting("AREAFORGE_RELEASE_EVIDENCE_RECORD", defaultReleaseEvidenceRecord);
-  const command = `pnpm exec tsx scripts/quality/release-evidence-validate.ts ${recordPath ? path.basename(recordPath) : "<missing>"}`;
+  const command = `pnpm exec tsx scripts/quality/release-evidence-validate.ts ${recordPath ? path.basename(recordPath) : "<missing>"} <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>`;
   if (!recordPath) {
     return missingCheck("releaseEvidenceRecord", "production release evidence record", command, [
       "AF-RISK-OPS-001",
@@ -374,7 +436,8 @@ function checkReleaseEvidence(paths: EvidencePath[], packageVersion: string, rel
       "AF-RISK-REL-001",
     ]);
   }
-  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-evidence-validate.ts", absolutePath], {
+  const validationArgs = resolveReleaseEvidenceValidationArgs(absolutePath);
+  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-evidence-validate.ts", ...validationArgs], {
     cwd: process.cwd(),
     encoding: "utf8",
   });
@@ -389,7 +452,7 @@ function checkReleaseEvidence(paths: EvidencePath[], packageVersion: string, rel
     actualStatus: validationPassed ? "pass" : "validation_failed",
     expectedStatus: "pass",
     validatorCommand: command,
-    evidenceHash: evidencePathHash(paths, "releaseEvidenceRecord"),
+    evidenceHash: commandEvidenceHash("release evidence inputs", paths, ["releaseEvidenceRecord", "releaseAttachmentReconciliationCsv", "releaseAttachmentReconciliationSummary"]),
     residualRiskIds: stringArrayFromCsv(fields.get("residualRiskIds")).filter((id) => id.startsWith("AF-RISK-")),
     freshness: {
       releasedAt: fields.get("releasedAt") ?? null,
@@ -416,6 +479,9 @@ function checkReleaseEvidence(paths: EvidencePath[], packageVersion: string, rel
       databaseBackupSha256Status: hashFieldStatus(fields.get("databaseBackupSha256")),
       uploadsBackupSha256Status: hashFieldStatus(fields.get("uploadsBackupSha256")),
       envBackupSha256Status: hashFieldStatus(fields.get("envBackupSha256")),
+      attachmentReconciliationCsvSha256Status: hashFieldStatus(fields.get("attachmentReconciliationCsvSha256"), true),
+      attachmentReconciliationSummaryHashStatus: hashFieldStatus(fields.get("attachmentReconciliationSummaryHash"), true),
+      attachmentReconciliationStatus: fields.get("attachmentReconciliationStatus") ?? null,
       validatorDetail: validationPassed ? "validator passed" : failureDetail,
     },
   };
@@ -566,12 +632,13 @@ function collectEvidencePaths(): EvidencePath[] {
       defaultPath: defaultOps004AlertDrillRecord,
       includeMissingDefault: true,
     },
+    { key: "ops005ProductionEvidence", envKey: "AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD" },
     { key: "releaseEvidenceRecord", envKey: "AREAFORGE_RELEASE_EVIDENCE_RECORD", defaultPath: defaultReleaseEvidenceRecord },
     { key: "releaseSupplyChainRecord", envKey: "AREAFORGE_SC002_RELEASE_RECORD", defaultPath: defaultReleaseSupplyChainRecord },
     { key: "uxReviewRecord", envKey: "AREAFORGE_LONG_TERM_UX_RECORD", defaultPath: defaultUxRecord },
     { key: "operationalEvidenceBundle", envKey: "AREAFORGE_LONG_TERM_EVIDENCE_BUNDLE", defaultPath: defaultOperationalEvidenceBundle },
   ];
-  return inputs.map((input) => {
+  const paths = inputs.map((input) => {
     const configuredPath = process.env[input.envKey]?.trim() || input.defaultPath || "";
     if (!configuredPath) {
       return { key: input.key, pathLabel: null, configured: false, exists: false, sha256: null };
@@ -587,6 +654,20 @@ function collectEvidencePaths(): EvidencePath[] {
       sha256: exists ? `sha256:${sha256(readFileSync(absolutePath))}` : null,
     };
   });
+  const releaseRecord = process.env.AREAFORGE_RELEASE_EVIDENCE_RECORD?.trim() || defaultReleaseEvidenceRecord;
+  if (!existsSync(path.resolve(releaseRecord))) return paths;
+  const validationArgs = resolveReleaseEvidenceValidationArgs(path.resolve(releaseRecord));
+  for (const [index, evidencePath] of validationArgs.slice(1).entries()) {
+    const exists = existsSync(evidencePath);
+    paths.push({
+      key: index === 0 ? "releaseAttachmentReconciliationCsv" : "releaseAttachmentReconciliationSummary",
+      pathLabel: pathLabel(evidencePath),
+      configured: true,
+      exists,
+      sha256: exists ? `sha256:${sha256(readFileSync(evidencePath))}` : null,
+    });
+  }
+  return paths;
 }
 
 function runJsonCommand(command: string[], env: Record<string, string | undefined>): { ok: boolean; raw: string; body: JsonRecord | null } {
@@ -740,6 +821,12 @@ function ageInDays(value: string): number {
   const reviewedAt = new Date(value);
   if (Number.isNaN(reviewedAt.getTime())) return Number.NaN;
   return Math.max(0, (now().getTime() - reviewedAt.getTime()) / 86_400_000);
+}
+
+function ageInHours(value: string): number {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return Number.NaN;
+  return Math.max(0, (now().getTime() - date.getTime()) / 3_600_000);
 }
 
 function maxUxAgeDays(): number {

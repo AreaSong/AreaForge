@@ -92,18 +92,18 @@ pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>
 涉及发布记录时补跑：
 
 ```bash
-pnpm release:evidence:validate <release-record.md|txt> [attachment-reconciliation.csv]
+pnpm release:evidence:validate <release-record.md|txt> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>
 ```
 
 如果生产主机只允许导出 redacted release evidence，先校验导出目录，再生成 release record 修订稿：
 
 ```bash
 pnpm release:evidence:redacted-export:validate <redacted-export-dir>
-pnpm release:evidence:redacted-export:record <redacted-export-dir> <release-record.md> <draft-release-record.md>
-pnpm release:evidence:validate <draft-release-record.md>
+pnpm release:evidence:redacted-export:record <redacted-export-dir> <release-record.md> <draft-release-record.md> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>
+pnpm release:evidence:validate <draft-release-record.md> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>
 ```
 
-该修订稿只消费 allowlisted safe fields 和 redacted status/smoke 摘要，不读取原始 update-record、备份本体、生产 `.env`、smoke 密码文件或附件内容；默认不覆盖原 release record，也不关闭 residual。
+该修订稿只消费 allowlisted safe fields、redacted status/smoke 摘要和已独立生成的附件双向对账 CSV/summary；redacted update export 本身不证明附件状态，生成器不会伪造 zero-count 结论。它不读取原始 update-record、备份本体、生产 `.env`、smoke 密码文件或附件内容；默认不覆盖原 release record，也不关闭 residual。
 
 ## GitHub Release 资产
 

@@ -13,8 +13,11 @@ let outputCounter = 0;
 
 try {
   const helperSource = readText(path.join(root, "ops/update-agent/areaforge-release-evidence-redacted-export.sh"));
+  const summaryWriteIndex = helperSource.lastIndexOf('write_summary "$SUMMARY_FILE"');
+  const handoffIndex = helperSource.lastIndexOf("handoff_redacted_outputs\n  append_handoff_result");
+  const handoffSummaryIndex = helperSource.lastIndexOf('append_handoff_result "$SUMMARY_FILE"');
   assert(
-    helperSource.indexOf('write_summary "$SUMMARY_FILE"') < helperSource.indexOf("handoff_redacted_outputs\n\n  log"),
+    summaryWriteIndex >= 0 && summaryWriteIndex < handoffIndex && handoffIndex < handoffSummaryIndex,
     "redacted handoff must run after remote-summary.txt is written so every exported file is readable by the sudo user",
   );
 

@@ -6,6 +6,8 @@ UPDATE_RECORD=""
 STATUS_FILE="${AREAFORGE_OPS_STATE_DIR:-/opt/areaforge/ops-state}/status.json"
 SMOKE_LOG=""
 OUTPUT_DIR="${AREAFORGE_RELEASE_EVIDENCE_REDACTED_DIR:-}"
+REDACTED_HANDOFF_OWNER="none"
+REDACTED_HANDOFF_STATUS="skipped-no-sudo-user"
 
 usage() {
   cat <<'USAGE'
@@ -270,9 +272,6 @@ write_reduced_smoke_output() {
 }
 
 handoff_redacted_outputs() {
-  REDACTED_HANDOFF_OWNER="none"
-  REDACTED_HANDOFF_STATUS="skipped-no-sudo-user"
-
   local owner="${SUDO_USER:-}"
   if [[ -z "$owner" || "$owner" == "root" ]]; then
     return
@@ -301,6 +300,16 @@ handoff_redacted_outputs() {
   fi
 }
 
+append_handoff_result() {
+  local summary_file="$1"
+  {
+    printf 'redactedHandoffOwner: %s\n' "$REDACTED_HANDOFF_OWNER"
+    printf 'redactedHandoffStatus: %s\n' "$REDACTED_HANDOFF_STATUS"
+    printf 'redactedHandoffScope: /tmp/areaforge-release-evidence-redacted-* only\n'
+  } >> "$summary_file"
+  chmod 600 "$summary_file"
+}
+
 write_summary() {
   local summary_file="$1"
   {
@@ -326,9 +335,6 @@ write_summary() {
     printf '  secretValuePrinted: no\n'
     printf '  smokePasswordFileReadAttempted: no\n'
     printf '  residualLedgerUpdated: no\n'
-    printf 'redactedHandoffOwner: %s\n' "$REDACTED_HANDOFF_OWNER"
-    printf 'redactedHandoffStatus: %s\n' "$REDACTED_HANDOFF_STATUS"
-    printf 'redactedHandoffScope: /tmp/areaforge-release-evidence-redacted-* only\n'
   } > "$summary_file"
   chmod 600 "$summary_file"
 }
@@ -363,6 +369,7 @@ main() {
   write_reduced_smoke_output "$SMOKE_OUTPUT_FILE"
   write_summary "$SUMMARY_FILE"
   handoff_redacted_outputs
+  append_handoff_result "$SUMMARY_FILE"
 
   log "redacted release evidence written to <redacted-tmp-output-dir>"
   cat "$SUMMARY_FILE"

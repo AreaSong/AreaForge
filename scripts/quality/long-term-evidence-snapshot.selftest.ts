@@ -45,6 +45,20 @@ function main(): void {
   const greenwashIssues = validateLongTermEvidenceSnapshot(JSON.stringify(greenwashed, null, 2));
   assert(greenwashIssues.some((issue) => issue.field === "checks.ops001.status"), "expected OPS-001 greenwash to fail");
 
+  const missingOps005 = withHash({
+    ...buildSnapshot("ready_for_long_term_operability_review"),
+    checks: buildChecks({}).filter((check) => check.key !== "ops005"),
+  });
+  const missingOps005Issues = validateLongTermEvidenceSnapshot(JSON.stringify(missingOps005, null, 2));
+  assert(missingOps005Issues.some((issue) => issue.field === "checks"), "expected missing OPS-005 check to fail");
+
+  const greenwashedOps005 = withHash({
+    ...buildSnapshot("ready_for_long_term_operability_review"),
+    checks: buildChecks({ ops005Actual: "needs_production_evidence" }),
+  });
+  const greenwashedOps005Issues = validateLongTermEvidenceSnapshot(JSON.stringify(greenwashedOps005, null, 2));
+  assert(greenwashedOps005Issues.some((issue) => issue.field === "checks.ops005.status"), "expected OPS-005 greenwash to fail");
+
   const missingSignal = withHash({
     ...buildSnapshot("ready_for_long_term_operability_review"),
     checks: buildChecks({ omitSignal: "backup" }),
@@ -62,12 +76,19 @@ function main(): void {
   const leakedIssues = validateLongTermEvidenceSnapshot(leaked);
   assert(leakedIssues.some((issue) => issue.field === "record"), "expected secret-like value to fail");
 
+  const historicalV1 = historicalSnapshotV1();
+  const historicalIssues = validateLongTermEvidenceSnapshot(JSON.stringify(historicalV1, null, 2));
+  assert(historicalIssues.length === 0, `expected historical non-ready v1 snapshot to pass, got ${JSON.stringify(historicalIssues)}`);
+  const historicalReady = withHash({ ...historicalV1, status: "ready_for_long_term_operability_review" });
+  const historicalReadyIssues = validateLongTermEvidenceSnapshot(JSON.stringify(historicalReady, null, 2));
+  assert(historicalReadyIssues.some((issue) => issue.field === "status"), "expected ready v1 snapshot to fail");
+
   console.log("PASS long-term evidence snapshot validator selftest");
 }
 
 function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs_live_evidence"): JsonRecord {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: "read_only_long_term_evidence_snapshot",
     generatedAt: "2026-07-12T12:30:00.000Z",
     snapshotHash: "",
@@ -90,6 +111,7 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
         evidencePath("uxReviewRecord"),
         evidencePath("operationalEvidenceBundle"),
         evidencePath("ops004AlertPreview"),
+        evidencePath("ops005ProductionEvidence"),
       ],
       inputHashes: [
         inputHash("releaseEvidenceRecord"),
@@ -97,6 +119,7 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
         inputHash("uxReviewRecord"),
         inputHash("operationalEvidenceBundle"),
         inputHash("ops004AlertPreview"),
+        inputHash("ops005ProductionEvidence"),
       ],
     },
     checks: buildChecks({}),
@@ -104,6 +127,7 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
       "current production health without post-version live smoke and update-agent evidence",
       "OPS-001 closure or residual ledger closure",
       "OPS-004 alert recovery drill completion or residual ledger closure",
+      "OPS-005 expected-before V2 implementation, signed Release, production deployment, or residual ledger closure without ready_for_ops005_human_review evidence",
       "release evidence record validation when backup hashes are root-only or missing",
       "backup freshness, restore execution, migration execution, or rollback execution",
       "server updater apply completion for a future release",
@@ -183,6 +207,7 @@ function protectedFingerprint(snapshot: JsonRecord): JsonRecord {
 function buildChecks(options: {
   ops001Status?: string;
   ops001Actual?: string;
+  ops005Actual?: string;
   omitSignal?: string;
 }): JsonRecord[] {
   const ops001Status = options.ops001Status ?? "pass";
@@ -191,6 +216,32 @@ function buildChecks(options: {
     check("controlPlane", "enterprise operability control plane", "pass", "pass", "pass", [], "sha256:1010101010101010101010101010101010101010101010101010101010101010"),
     check("ops001", "OPS-001 production read-only smoke and update-agent evidence", ops001Status, ops001Actual, "ready_for_human_close", ["AF-RISK-OPS-001"], "sha256:2020202020202020202020202020202020202020202020202020202020202020"),
     check("ops004", "OPS-004 alert and recovery drill evidence", "pass", "ready_for_human_close", "ready_for_human_close", ["AF-RISK-OPS-004"], "sha256:3030303030303030303030303030303030303030303030303030303030303030"),
+    {
+      ...check(
+        "ops005",
+        "OPS-005 expected-before V2 release and production evidence",
+        "pass",
+        options.ops005Actual ?? "ready_for_ops005_human_review",
+        "ready_for_ops005_human_review",
+        ["AF-RISK-OPS-005"],
+        "sha256:9090909090909090909090909090909090909090909090909090909090909090",
+      ),
+      freshness: { recordedAt: "2026-07-12T12:00:00Z", ageHours: 0.5, maxAgeHours: 24, status: "fresh" },
+      versionMatch: true,
+      metadata: {
+        localImplementation: "pass",
+        signedRelease: "pass",
+        productionDeployment: "pass",
+        v2Check: "pass",
+        expectedBeforeRejection: "pass",
+        expectedBeforeRejectionExecutionAttempted: "no",
+        sharedProductionStateLock: "pass",
+        processingReconciliation: "pass",
+        autoApply: "none",
+        releaseTag: "v0.1.7",
+        gitCommit: "a".repeat(40),
+      },
+    },
     {
       ...check(
         "releaseEvidenceRecord",
@@ -240,6 +291,34 @@ function buildChecks(options: {
       },
     },
   ];
+}
+
+function historicalSnapshotV1(): JsonRecord {
+  const current = buildSnapshot("needs_live_evidence");
+  const source = current.sourceSnapshot as JsonRecord;
+  const protectedPathFingerprint = source.protectedPathFingerprint as JsonRecord;
+  const historicalProtectedPaths = (protectedPathFingerprint.paths as string[]).filter((item) => ![
+    "docs/development/update-request-expected-before-design.md",
+    "docs/development/ops-005-expected-before-production-evidence-template.md",
+    "docs/development/high-risk-confirmation-packets.md",
+    "tasks/active/0019-update-request-expected-before-binding.md",
+  ].includes(item));
+  const evidencePaths = (source.evidencePaths as JsonRecord[]).filter((item) => item.key !== "ops005ProductionEvidence");
+  const inputHashes = (source.inputHashes as JsonRecord[]).filter((item) => item.key !== "ops005ProductionEvidence");
+  const checks = (current.checks as JsonRecord[]).filter((item) => item.key !== "ops005");
+  const doesNotProve = (current.doesNotProve as string[]).filter((item) => !item.startsWith("OPS-005 "));
+  return withHash({
+    ...current,
+    schemaVersion: 1,
+    sourceSnapshot: {
+      ...source,
+      protectedPathFingerprint: { ...protectedPathFingerprint, paths: historicalProtectedPaths },
+      evidencePaths,
+      inputHashes,
+    },
+    checks,
+    doesNotProve,
+  });
 }
 
 function check(

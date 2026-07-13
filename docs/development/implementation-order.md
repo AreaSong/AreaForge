@@ -46,6 +46,7 @@
 2. `release-v0.1.7-record.md`：补齐可校验的 `releaseEvidenceBundleHash`、`databaseBackupSha256`、`uploadsBackupSha256` 与 `envBackupSha256`；本地不能伪造或从 secret 文件提取这些值。
 3. `AF-RISK-OPS-004`、`AF-RISK-SC-001`、`AF-RISK-UX-001`：保持各自的人工复核和关闭条件，不能因 validator 通过而自动关闭 residual。
 4. 长期运营优化：不引入 AreaMatrix/AreaFlow 的重型任务队列或 command API；只围绕路径审阅、ops readiness、残余风险、完成证据纪律、运行时写边界和真实体验逐项推进。
+5. `AF-RISK-OPS-005`：Web update request 当前只在入队时校验，root agent 未绑定 expected-before/TTL/hash；设计和确认包已准备，代码实施必须等待明确确认，生产部署再单独确认。
 
 实现前确认设计：
 
@@ -55,6 +56,7 @@
 - 第二阶段长期闭环：`docs/development/second-stage-long-term-loop-design.md`。
 - 生产发布、备份与恢复：`docs/development/production-release-runbook.md`。
 - 高风险确认总表：`docs/development/high-risk-confirmation-packets.md`。
+- Update request 前态绑定：`docs/development/update-request-expected-before-design.md`。
 - docs 100% 验收证据：`docs/development/docs-100-acceptance-evidence.md`。
 - 长期运营 readiness：`docs/development/operational-readiness.md`。
 - 残余风险台账：`docs/development/residual-risk-ledger.md`。
