@@ -1,0 +1,449 @@
+import { readFileSync } from "node:fs";
+
+type CheckResult = {
+  name: string;
+  ok: boolean;
+  detail: string;
+  durationMs: number;
+};
+
+type RequestOptions = {
+  method?: "GET" | "POST";
+  body?: unknown;
+  rawBody?: BodyInit;
+  cookie?: string;
+  headers?: HeadersInit;
+};
+
+const timeoutMs = Number(process.env.AREAFORGE_SMOKE_TIMEOUT_MS ?? "10000");
+const baseUrl = normalizeBaseUrl(process.env.AREAFORGE_SMOKE_BASE_URL ?? "http://127.0.0.1:3102");
+const smokeEmail = process.env.AREAFORGE_SMOKE_EMAIL;
+const smokePassword = readSmokePassword();
+const allowWrites = process.env.AREAFORGE_SMOKE_ALLOW_WRITES === "true";
+const allowNonLocal = process.env.AREAFORGE_SMOKE_ALLOW_NON_LOCAL === "true";
+const results: CheckResult[] = [];
+
+async function main(): Promise<void> {
+  validateConfig();
+
+  let cookie = "";
+  const tag = Date.now().toString(36);
+  const today = new Date().toISOString();
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  await check("health", async () => {
+    const body = await requestJson("/api/health");
+    const data = asRecord(body);
+    if (data.ok !== true || data.service !== "AreaForge") {
+      throw new Error("health payload is not AreaForge ok=true");
+    }
+  });
+
+  await check("login", async () => {
+    const response = await request("/api/auth/login", {
+      method: "POST",
+      body: { email: smokeEmail, password: smokePassword },
+    });
+    cookie = cookieFrom(response.response);
+    const user = asRecord(asRecord(response.body).user);
+    if (!cookie) throw new Error("login did not return a session cookie");
+    if (user.email !== smokeEmail) throw new Error("login response user email mismatch");
+  });
+
+  const subjectsBody = await checkedJson("subjects", "/api/subjects", cookie);
+  const subject = firstArrayItem(asRecord(subjectsBody).subjects);
+  const subjectId = stringField(subject, "id");
+  if (!subjectId) throw new Error("subjects response did not include a subject id");
+
+  const nodeBody = await checkedJson("create syllabus node", "/api/syllabus/nodes", cookie, {
+    method: "POST",
+    body: {
+      subjectId,
+      title: `UX smoke 知识点 ${tag}`,
+      kind: "topic",
+      status: "learning",
+      targetMinutes: 60,
+    },
+  });
+  const syllabusNodeId = stringField(asRecord(nodeBody).node, "id");
+  if (!syllabusNodeId) throw new Error("create syllabus node response missing node.id");
+
+  const taskBody = await checkedJson("create task", "/api/tasks", cookie, {
+    method: "POST",
+    body: {
+      subjectId,
+      syllabusNodeId,
+      title: `UX smoke 今日最小任务 ${tag}`,
+      priority: "high",
+      plannedDate: today,
+      estimatedMinutes: 35,
+    },
+  });
+  const taskId = stringField(asRecord(taskBody).task, "id");
+  if (!taskId) throw new Error("create task response missing task.id");
+
+  await checkedJson("active session before start", "/api/study-sessions/active", cookie);
+
+  const sessionBody = await checkedJson("start session", "/api/study-sessions/start", cookie, {
+    method: "POST",
+    body: { taskId },
+  });
+  const sessionId = stringField(asRecord(sessionBody).session, "id");
+  if (!sessionId) throw new Error("start session response missing session.id");
+
+  await checkedJson("active session after start", "/api/study-sessions/active", cookie);
+
+  await checkedJson("end session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
+    method: "POST",
+    body: {
+      qualityScore: 4,
+      isEffective: true,
+      understandingLevel: "能独立复述主链路",
+      minimalOutput: "完成一条 UX smoke 闭环记录",
+      nextAction: "复查首页和报告是否刷新",
+      producedNote: true,
+      producedMistake: true,
+      note: "本地 smoke 合成收口文本",
+      completeTask: true,
+    },
+  });
+
+  await checkedJson("save daily review", "/api/reviews/today", cookie, {
+    method: "POST",
+    body: {
+      summary: `今天完成本地 UX smoke 闭环 ${tag}。`,
+      keepAction: "继续保留最小任务优先。",
+      tomorrowMinimum: "明天至少复查一个薄弱知识点。",
+      mood: "steady",
+    },
+  });
+
+  const noteBody = await checkedJson("create note", "/api/notes", cookie, {
+    method: "POST",
+    body: {
+      subjectId,
+      syllabusNodeId,
+      taskId,
+      title: `UX smoke 笔记 ${tag}`,
+      content: "这是一条本地 smoke 笔记，用于验证附件和笔记列表。",
+      masteryStatus: "partial",
+      nextReviewAt: tomorrow,
+    },
+  });
+  const noteId = stringField(asRecord(noteBody).note, "id");
+  if (!noteId) throw new Error("create note response missing note.id");
+
+  const attachmentBody = await checkedAttachmentUpload(noteId, cookie);
+  const attachment = asRecord(attachmentBody.attachment);
+  if (attachment.uri || attachment.storedName) throw new Error("attachment response leaked internal storage fields");
+  const downloadApiPath = stringField(attachment, "downloadApiPath");
+  if (!downloadApiPath) throw new Error("attachment response missing downloadApiPath");
+
+  await check("download note attachment", async () => {
+    const response = await requestRaw(downloadApiPath, { cookie });
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength <= 0) throw new Error("attachment response was empty");
+    if (response.headers.get("cache-control") !== "private, no-store") {
+      throw new Error("attachment response missing private no-store cache header");
+    }
+    if (response.headers.get("x-content-type-options") !== "nosniff") {
+      throw new Error("attachment response missing nosniff");
+    }
+  });
+
+  await checkedJson("create mistake", "/api/mistakes", cookie, {
+    method: "POST",
+    body: {
+      subjectId,
+      syllabusNodeId,
+      title: `UX smoke 错题 ${tag}`,
+      source: "本地 smoke",
+      cause: "concept_confusion",
+      correctIdea: "把定义、例题和反例串起来。",
+      nextReviewAt: tomorrow,
+    },
+  });
+
+  await checkedJson("dashboard today", "/api/dashboard/today", cookie, undefined, (body) =>
+    asRecord(body).dashboard ? null : "dashboard payload missing");
+  await checkedJson("analytics summary", "/api/analytics/summary", cookie, undefined, (body) =>
+    asRecord(body).analytics ? null : "analytics payload missing");
+  await checkedJson("reports periodic", "/api/reports/periodic", cookie, undefined, (body) =>
+    asRecord(body).reports ? null : "reports payload missing");
+
+  const examBody = await checkedJson("create simulation exam", "/api/simulation/exams", cookie, {
+    method: "POST",
+    body: {
+      name: `UX smoke 模拟 ${tag}`,
+      examDate: today,
+      isFirstSynchronized: false,
+      targetDurationMinutes: 180,
+      targetScore: 300,
+    },
+  });
+  const examId = stringField(asRecord(examBody).exam, "id");
+  if (!examId) throw new Error("create simulation exam response missing exam.id");
+
+  await checkedJson("save simulation result", `/api/simulation/exams/${encodeURIComponent(examId)}/results`, cookie, {
+    method: "POST",
+    body: {
+      targetDurationMinutes: 180,
+      actualDurationMinutes: 170,
+      targetScore: 300,
+      actualScore: 250,
+      blankQuestionCount: 2,
+      lossReasons: ["概念不稳"],
+      mindset: "稳定",
+      summary: "本地 smoke 模拟结果。",
+      subjectResults: [
+        {
+          subjectId,
+          targetScore: 100,
+          actualScore: 82,
+          durationMinutes: 50,
+          blankQuestionCount: 1,
+          lossReasons: ["基础概念"],
+          summary: "需要复盘。",
+        },
+      ],
+    },
+  });
+
+  const stagePlanBody = await checkedJson("create stage plan", "/api/simulation/stage-plans", cookie, {
+    method: "POST",
+    body: {
+      name: `UX smoke 阶段 ${tag}`,
+      startDate: today,
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      goal: "验证阶段计划和调整草稿路径。",
+      mode: "maintain",
+      status: "active",
+    },
+  });
+  const stagePlanId = stringField(asRecord(stagePlanBody).plan, "id");
+  if (!stagePlanId) throw new Error("create stage plan response missing plan.id");
+
+  const draftBody = await checkedJson("create stage draft local rule", "/api/simulation/stage-adjustment-drafts", cookie, {
+    method: "POST",
+    body: { stagePlanId },
+  });
+  const draft = asRecord(asRecord(draftBody).draft);
+  if (draft.canAutoApply !== false || draft.requiresUserConfirmation !== true) {
+    throw new Error("stage adjustment draft must remain confirm-only");
+  }
+
+  await checkedJson("long-term risks readonly", "/api/analytics/long-term-risks", cookie, undefined, (body) =>
+    asRecord(body).longTermRisks ? null : "longTermRisks payload missing");
+  await checkedJson("update center status readonly", "/api/system/update-status", cookie, undefined, (body) => {
+    const status = asRecord(asRecord(body).status);
+    return typeof status.currentVersion === "string" ? null : "update status missing currentVersion";
+  });
+  await checkedJson("update center request queued", "/api/system/update-requests", cookie, {
+    method: "POST",
+    body: { action: "check" },
+  });
+
+  for (const page of ["/", "/notes", "/syllabus", "/analytics", "/reports", "/simulation", "/settings"]) {
+    await check(`page ${page}`, async () => {
+      const response = await requestRaw(page, { cookie });
+      const text = await response.text();
+      if (text.includes("NEXT_REDIRECT;replace;/login")) {
+        throw new Error("authenticated page redirected to login");
+      }
+      if (!text.includes("AreaForge")) {
+        throw new Error("page payload missing AreaForge marker");
+      }
+    });
+  }
+
+  report();
+}
+
+async function checkedAttachmentUpload(noteId: string, cookie: string): Promise<Record<string, unknown>> {
+  return await checkedJson("upload note attachment", `/api/notes/${encodeURIComponent(noteId)}/attachments`, cookie, {
+    method: "POST",
+    rawBody: attachmentFormData(),
+  });
+}
+
+function attachmentFormData(): FormData {
+  const png = Uint8Array.from([
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0,
+    1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99,
+    248, 15, 0, 1, 1, 1, 0, 24, 221, 141, 176, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66,
+    96, 130,
+  ]);
+  const form = new FormData();
+  form.append("file", new Blob([png], { type: "image/png" }), "ux-smoke.png");
+  return form;
+}
+
+async function checkedJson(
+  name: string,
+  path: string,
+  cookie: string,
+  options?: Omit<RequestOptions, "cookie">,
+  expect?: (body: unknown) => string | null,
+): Promise<Record<string, unknown>> {
+  let output: Record<string, unknown> = {};
+  await check(name, async () => {
+    const body = await requestJson(path, { ...options, cookie });
+    const issue = expect?.(body);
+    if (issue) throw new Error(issue);
+    output = asRecord(body);
+  });
+  if (results.at(-1)?.ok === false) {
+    throw new Error(`${name} failed`);
+  }
+  return output;
+}
+
+async function requestJson(path: string, options: RequestOptions = {}): Promise<unknown> {
+  const response = await request(path, options);
+  return response.body;
+}
+
+async function request(path: string, options: RequestOptions = {}): Promise<{ response: Response; body: unknown }> {
+  const response = await requestRaw(path, options);
+  const contentType = response.headers.get("content-type") ?? "";
+  const body = contentType.includes("application/json") ? await response.json() : await response.text();
+  return { response, body };
+}
+
+async function requestRaw(path: string, options: RequestOptions = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers = new Headers(options.headers);
+    if (options.cookie) headers.set("Cookie", options.cookie);
+    if (options.body) headers.set("Content-Type", "application/json");
+    const response = await fetch(new URL(path, baseUrl), {
+      method: options.method ?? "GET",
+      headers,
+      body: options.rawBody ?? (options.body ? JSON.stringify(options.body) : undefined),
+      signal: controller.signal,
+      redirect: "manual",
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`HTTP ${response.status} for ${path}: ${text.slice(0, 200)}`);
+    }
+    return response;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function check(name: string, fn: () => Promise<void>): Promise<void> {
+  const startedAt = Date.now();
+  try {
+    await fn();
+    results.push({ name, ok: true, detail: "ok", durationMs: Date.now() - startedAt });
+  } catch (error) {
+    results.push({
+      name,
+      ok: false,
+      detail: error instanceof Error ? redact(error.message) : "unknown error",
+      durationMs: Date.now() - startedAt,
+    });
+  }
+}
+
+function validateConfig(): void {
+  if (!allowWrites) failConfig("AREAFORGE_SMOKE_ALLOW_WRITES=true is required because local UX smoke writes synthetic data");
+  if (!isLocalBaseUrl(baseUrl) && !allowNonLocal) {
+    failConfig("non-local base URL is blocked unless AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true is explicitly set");
+  }
+  if (!smokeEmail) failConfig("AREAFORGE_SMOKE_EMAIL is required");
+  if (!smokePassword) failConfig("AREAFORGE_SMOKE_PASSWORD or AREAFORGE_SMOKE_PASSWORD_FILE is required");
+}
+
+function report(): void {
+  const failed = results.filter((result) => !result.ok);
+  for (const result of results) {
+    console.log(`${result.ok ? "PASS" : "FAIL"} ${result.name}: ${result.detail} (${result.durationMs}ms)`);
+  }
+  console.log(JSON.stringify({
+    ok: failed.length === 0,
+    baseUrl,
+    checkedAt: new Date().toISOString(),
+    writeScope: "synthetic-local-ux-smoke",
+    checks: results.map((result) => ({
+      name: result.name,
+      ok: result.ok,
+      durationMs: result.durationMs,
+    })),
+  }));
+  if (failed.length > 0) process.exit(1);
+}
+
+function cookieFrom(response: Response): string {
+  const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+  const setCookie = headers.getSetCookie?.() ?? [response.headers.get("set-cookie") ?? ""];
+  return setCookie
+    .map((cookie) => cookie.split(";")[0]?.trim())
+    .filter(Boolean)
+    .join("; ");
+}
+
+function readSmokePassword(): string | undefined {
+  const passwordFile = process.env.AREAFORGE_SMOKE_PASSWORD_FILE;
+  if (passwordFile) {
+    try {
+      return readFileSync(passwordFile, "utf8").trim();
+    } catch {
+      failConfig(`cannot read AREAFORGE_SMOKE_PASSWORD_FILE at ${passwordFile}`);
+    }
+  }
+  return process.env.AREAFORGE_SMOKE_PASSWORD;
+}
+
+function normalizeBaseUrl(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function isLocalBaseUrl(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function firstArrayItem(value: unknown): Record<string, unknown> {
+  return Array.isArray(value) && value.length > 0 ? asRecord(value[0]) : {};
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
+}
+
+function stringField(value: unknown, field: string): string | null {
+  const item = asRecord(value)[field];
+  return typeof item === "string" && item.length > 0 ? item : null;
+}
+
+function redact(value: string): string {
+  let output = value;
+  if (smokePassword) {
+    output = output.replace(new RegExp(escapeRegExp(smokePassword), "g"), "<redacted>");
+  }
+  return output
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer <redacted>")
+    .replace(/postgres(?:ql)?:\/\/\S+/gi, "postgresql://<redacted>");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function failConfig(message: string): never {
+  console.error(`FAIL config: ${message}`);
+  process.exit(2);
+}
+
+main().catch((error) => {
+  console.error(`FAIL smoke: ${error instanceof Error ? redact(error.message) : "unknown error"}`);
+  process.exit(1);
+});

@@ -1,0 +1,38 @@
+windowId: maintenance-window-20260713053233
+startedAt: 2026-07-13T05:32:33.840Z
+finishedAt: 2026-07-13T05:32:52.204Z
+operator: areasong
+cadence: weekly
+environment: production
+commandsRun: pnpm enterprise:operability:preflight, pnpm maintenance:cadence:preflight, pnpm residuals:review-due, pnpm ops:readiness:summary, pnpm ops:evidence:bundle, pnpm ops:alert:preview
+readinessOverall: warn
+evidenceBundleStatus: needs_attention
+alertPreviewStatus: warning
+healthStatus: pass
+updateAgentStatus: unknown
+authenticatedSmokeStatus: warn
+backupStatus: unknown
+infrastructureStatus: pass
+readinessSummaryHash: sha256:33a7188fff0daa0577c27b9bc7322f03491dc23b577208ed862fdfd107c3a9c9
+evidenceBundleHash: sha256:0010b5702b9faf418f94ec23f84758c3311b6a82aff13beb4a36c4fa3f117ef3
+alertPreviewHash: sha256:df8e8e219c4d0866e8bedbf6286a849d798d69afb4f801fc3c842f292602ea15
+residualReviewHash: sha256:b2b0f46c51aa59b82a49a0a55b2d8e3795b413abb658b805944c692d6d33b13c
+evidenceFreshnessStatus: unknown
+evidenceFreshnessMaxAgeSeconds: 1209600
+latestEvidenceCheckedAt: 2026-07-13T05:32:58.245Z
+residualReviewStatus: warn
+dueResidualRiskIds: AF-RISK-OPS-001,AF-RISK-UX-001
+claimBoundary:
+  doesNotProve: production health without live evidence, updater apply completion, backup/restore execution, migration execution, rollback execution, residual risk closure
+decisions: no production write; keep listed residuals open until required evidence is present
+followUpTasks: tasks/indexes/residuals.md
+result: warn
+residualRiskIds: AF-RISK-OPS-001,AF-RISK-OPS-004,AF-RISK-UX-001
+safetyFacts:
+  productionWriteAttempted: no
+  serverCommandAttempted: no
+  backupRestoreAttempted: no
+  migrationAttempted: no
+  updaterApplyAttempted: no
+  rollbackAttempted: no
+  secretValuePrinted: no

@@ -1,0 +1,24 @@
+drillId: alert-drill-20260712155242
+drilledAt: 2026-07-12T15:52:42Z
+operator: Codex local maintainer
+environment: production
+scope: daily
+scenario: backup_stale
+alertPreviewCommand: pnpm ops:alert:preview
+alertPreviewStatus: warning
+alertPreviewWouldNotify: yes
+alertPreviewEvidenceHash: sha256:9b4cb9418b06d81269f8c02f5fbe4778b411e8e84ac41f6fb1abb3af8401d4d6
+alertReceiverType: manual-window
+receiverConfigured: yes
+receiverAck: yes
+detectionResult: PASS
+recoveryResult: PASS
+recoveryAction: manual-window acknowledged post-v0.1.7 alert:backup; confirmed no release/update/migration/rollback proceeds without current backup hashes; routed backup evidence follow-up under AF-RISK-OPS-004 without production writes
+residualRiskIds: AF-RISK-OPS-004
+followUpTasks: AF-RISK-OPS-004 backup evidence follow-up; release evidence backup hashes remain required before long-term operability claim
+safetyFacts:
+  notificationSent: no
+  externalAlertReceiverCalled: no
+  serverCommandAttempted: no
+  productionWriteAttempted: no
+  secretValuePrinted: no

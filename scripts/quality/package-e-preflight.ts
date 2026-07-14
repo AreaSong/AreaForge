@@ -56,10 +56,16 @@ function checkRequiredFiles(): void {
     "docs/development/package-e-e3-prod-local-release-record.md",
     "docs/development/package-e-e4-prod-local-rollback-record.md",
     "docs/development/production-release-runbook.md",
+    "docs/development/release-record-template.md",
     "docs/deployment/backup-restore.md",
     "scripts/quality/attachment-reconciliation.ts",
+    "scripts/quality/attachment-reconciliation-summary.ts",
+    "scripts/quality/attachment-reconciliation-summary.selftest.ts",
     "scripts/quality/release-evidence-validate.ts",
     "scripts/quality/release-evidence-validate.selftest.ts",
+    "scripts/ops/backup-restore-preview.ts",
+    "scripts/quality/backup-restore-preview-validate.ts",
+    "scripts/quality/backup-restore-preview.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -162,8 +168,15 @@ function checkRunbookBatchContracts(): void {
     "不通过网页按钮触发部署、migration、备份或恢复",
     "中止条件",
     "pnpm release:evidence:validate",
+    "docs/development/release-record-template.md",
     "scripts/quality/attachment-reconciliation.ts",
+    "scripts/quality/attachment-reconciliation-summary.ts",
     "attachment-reconciliation.csv",
+    "attachment-reconciliation-summary.json",
+    "attachmentReconciliationCsvSha256",
+    "attachmentReconciliationSummaryHash",
+    "fileOnlyCount",
+    "unsafeEntryCount",
   ];
   const missing = [
     ...requiredTerms.filter((term) => !runbook.includes(term)),
@@ -292,14 +305,36 @@ function checkPackageScriptsBoundary(): void {
     { label: "compose down script", pattern: /\bdocker\s+compose\b.*\bdown\b/i },
     { label: "server command script", pattern: /\b(ssh|rsync|scp)\b/i },
   ];
-  const matches = scripts.flatMap(([name, command]) =>
-    forbiddenPatterns
+  const allowedReadOnlyOpsRecordScripts = new Set([
+    "restore:drill:validate",
+    "restore:drill:selftest",
+    "ops:backup-restore:preview",
+    "ops:backup-restore:preview:validate",
+    "ops:backup-restore:preview:selftest",
+  ]);
+  const matches = scripts.flatMap(([name, command]) => {
+    if (allowedReadOnlyOpsRecordScripts.has(name) && command.includes("scripts/quality/restore-drill-validate")) {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview" && command === "tsx scripts/ops/backup-restore-preview.ts") {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview:validate" && command === "tsx scripts/quality/backup-restore-preview-validate.ts") {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview:selftest" && command === "tsx scripts/quality/backup-restore-preview.selftest.ts") {
+      return [];
+    }
+    return forbiddenPatterns
       .filter((item) => item.pattern.test(`${name} ${command}`))
-      .map((item) => `${name}:${item.label}`),
-  );
+      .map((item) => `${name}:${item.label}`);
+  });
   const migrateDeploy = packageJson.scripts?.["db:migrate:deploy"] ?? "";
   const releaseEvidenceValidate = packageJson.scripts?.["release:evidence:validate"] ?? "";
   const releaseEvidenceSelftest = packageJson.scripts?.["release:evidence:selftest"] ?? "";
+  const reconciliationScript = packageJson.scripts?.["attachment:reconciliation"] ?? "";
+  const reconciliationSummaryScript = packageJson.scripts?.["attachment:reconciliation:summary"] ?? "";
+  const reconciliationSummarySelftest = packageJson.scripts?.["attachment:reconciliation:summary:selftest"] ?? "";
   const runbook = read("docs/development/production-release-runbook.md");
   const migrateDeployDocumented = migrateDeploy.includes("prisma migrate deploy") &&
     runbook.includes("生产 migration") &&
@@ -307,6 +342,9 @@ function checkPackageScriptsBoundary(): void {
     runbook.includes("受控 release 工作目录");
   const releaseEvidenceValidatorDocumented = releaseEvidenceValidate.includes("scripts/quality/release-evidence-validate.ts") &&
     releaseEvidenceSelftest.includes("scripts/quality/release-evidence-validate.selftest.ts") &&
+    reconciliationScript === "tsx scripts/quality/attachment-reconciliation.ts" &&
+    reconciliationSummaryScript === "tsx scripts/quality/attachment-reconciliation-summary.ts" &&
+    reconciliationSummarySelftest === "tsx scripts/quality/attachment-reconciliation-summary.selftest.ts" &&
     runbook.includes("pnpm release:evidence:validate") &&
     runbook.includes("只读取发布记录");
 

@@ -1,0 +1,27 @@
+{
+  "currentVersion": "0.1.5",
+  "currentImage": "ghcr.io/areasong/areaforge-web:v0.1.5@sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9",
+  "releaseUrl": "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.5",
+  "latestVersion": "v0.1.5",
+  "updateAvailable": false,
+  "autoApply": "none",
+  "signatureRequired": true,
+  "timerEnabled": true,
+  "timerActive": true,
+  "lastCheckedAt": "2026-07-11T19:25:31Z",
+  "blocker": null,
+  "rollback": {
+    "available": true,
+    "targetVersion": "0.1.1",
+    "targetImage": "ghcr.io/areasong/areaforge-web:v0.1.1@sha256:908b3ce28ab12df003b934690156a7e054e221eff8e44f827c012c711c373e6b"
+  },
+  "statusUpdatedAt": "2026-07-11T19:25:31Z",
+  "safetyFacts": {
+    "serverCommandAttempted": false,
+    "productionWriteAttempted": false,
+    "secretValuePrinted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "updaterApplyAttempted": false
+  }
+}

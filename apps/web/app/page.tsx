@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FocusTimer } from "@/components/focus-timer";
+import { BrandMark } from "@/components/brand-logo";
 import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { LogoutButton } from "@/components/logout-button";
 import { RecoveryStateControls } from "@/components/recovery-state-controls";
@@ -61,7 +62,7 @@ export default async function Home() {
         <header className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-3 text-sm text-teal-300">
-              <Flame className="h-4 w-4" aria-hidden="true" />
+              <BrandMark size={24} />
               <span>AreaForge</span>
               <UpdateVersionPopover initialStatus={updateStatus} />
               <span className="rounded-md border border-teal-400/30 px-2 py-1 text-xs text-teal-100">

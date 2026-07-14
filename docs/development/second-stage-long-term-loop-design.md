@@ -177,8 +177,8 @@ D5 必须完成：
 - `pnpm check`
 - API 烟测：周期报告、统计、任务建议、考纲风险、模拟考试、阶段草稿。
 - 页面烟测：首页、`/reports`、`/analytics`、`/syllabus`、`/simulation`。
-- 未确认批次边界烟测：除 D2 所选项应用和 D3 显式 AI 草稿入口外，不存在额外重排/阶段应用写 API；长期 AI 普通 GET/SSR/后台外呼关闭；建议 DTO 均为 `canAutoApply=false` 和 `requiresUserConfirmation=true`。
-- 未确认批次扫描：`apps/web/app/api` 下不得出现债务、阶段或模拟考试的 `apply/confirm/reject` 写路由；报告写路由仅允许 D1 的 `/api/reports/periodic/decisions`。`prisma/schema.prisma` 和 Web 服务不得出现 `ReportSnapshot`、`ReportDecision`、`TaskReorderApplication`、`StagePlanApplication` 或长期 AI 持久化模型；D1 已确认的 `PeriodicReportDecision` 除外。
+- 未确认范围外边界烟测：除 Batch 6 阶段草稿确认/驳回、D1 报告决策、D2 债务重排所选项确认/驳回/应用、D3 显式 AI 草稿入口和 D4 长期风险只读 API 外，不存在额外重排/阶段应用写 API；长期 AI 普通 GET/SSR/后台外呼关闭；建议 DTO 均为 `canAutoApply=false` 和 `requiresUserConfirmation=true`。
+- 未确认范围外扫描：`apps/web/app/api` 下新增债务、阶段、模拟考试、报告或长期 AI 写入口时，必须能对应到已确认的 Batch 6、D1、D2 或 D3 范围；不得出现报告驱动自动任务/阶段应用、批量任务修改、长期风险写状态、`StagePlanApplication` 或 D3 范围外长期 AI 持久化模型。D1 已确认的 `PeriodicReportDecision`、D2 的债务重排写入口和 D3 的 `StageAdjustmentDraft.source="ai"` 草稿入口除外。
 - 确认后应用烟测：确认、驳回、部分失败和重复提交都有可追溯结果。
 - Batch D1 验证：确认周报创建 1 条报告决策和 1 条审计；驳回月报创建 rejected 决策和审计；重复提交不重复创建；反向提交返回已处理或冲突结果；确认/驳回前后 `StudyTask`、`TaskDebtEvent`、`StagePlan` 和 `StageAdjustmentDraft` 不变；历史回放使用 `reportSnapshot`，不随实时报告重新派生而漂移。
 - Batch D3 验证：未登录 AI 草稿 route 返回 401；`AI_ENABLED=false` 回退本地规则；mock provider 成功只写 `StageAdjustmentDraft.source="ai"`；schema invalid 回退本地规则；前后 `StudyTask`、`TaskDebtEvent` 和 `StagePlan` 不变；审计摘要不含完整 prompt、response、API key、完整复盘、完整任务标题或附件内容。

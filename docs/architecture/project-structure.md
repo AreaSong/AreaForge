@@ -66,6 +66,15 @@ AreaForge/
 
   assets/
     brand/
+      final/
+        app-icon/
+        favicon/
+        lockup/
+        mark/
+        social/
+        stacked/
+        symbol/
+        wordmark/
     prototypes/
 ```
 
@@ -95,6 +104,9 @@ AreaForge/
 - `docs/adr/**`：已确认的技术决策。
 - `tasks/**`：轻量任务拆分，不替代产品和架构源事实。
 - `workflow/**`：版本规划，不替代路线图。
+- `assets/brand/brand-manifest.json`：品牌源文件、派生尺寸、Web runtime 副本与原生/印刷交付的机器可读矩阵。
+- `assets/brand/final/**`：当前品牌素材包，包含数字 Logo、Web/PWA 图标、macOS/iOS/Android/Windows 原生图标、社交预览和 SVG/PDF/CMYK 印刷交付；当前 checkout 已接入 Web runtime，但不代表线上版本已发布更新。
+- `scripts/brand/**`、`scripts/quality/brand-assets-validate.ts`：品牌导出、runtime 同步和完整性校验入口。
 
 ## 当前取舍
 

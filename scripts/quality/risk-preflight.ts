@@ -1469,7 +1469,13 @@ function checkProductionCompose(): void {
     "恢复演练验收判定表",
     "pnpm release:evidence:validate",
     "scripts/quality/attachment-reconciliation.ts",
+    "scripts/quality/attachment-reconciliation-summary.ts",
     "attachment-reconciliation.csv",
+    "attachment-reconciliation-summary.json",
+    "attachmentReconciliationCsvSha256",
+    "attachmentReconciliationSummaryHash",
+    "fileOnlyCount",
+    "unsafeEntryCount",
     "attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,exists,sizeMatches,hashMatches,action",
     "只读取发布记录",
     "migration deploy 的执行载体",
@@ -1569,18 +1575,39 @@ function checkProductionCompose(): void {
     { label: "compose down script", pattern: /\bdocker\s+compose\b.*\bdown\b/i },
     { label: "server command script", pattern: /\b(ssh|rsync|scp)\b/i },
   ];
-  const forbiddenScripts = Object.entries(packageJson.scripts ?? {}).flatMap(([name, command]) =>
-    scriptForbiddenPatterns
+  const allowedReadOnlyOpsRecordScripts = new Set([
+    "restore:drill:validate",
+    "restore:drill:selftest",
+    "ops:backup-restore:preview",
+    "ops:backup-restore:preview:validate",
+    "ops:backup-restore:preview:selftest",
+  ]);
+  const forbiddenScripts = Object.entries(packageJson.scripts ?? {}).flatMap(([name, command]) => {
+    if (allowedReadOnlyOpsRecordScripts.has(name) && command.includes("scripts/quality/restore-drill-validate")) {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview" && command === "tsx scripts/ops/backup-restore-preview.ts") {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview:validate" && command === "tsx scripts/quality/backup-restore-preview-validate.ts") {
+      return [];
+    }
+    if (name === "ops:backup-restore:preview:selftest" && command === "tsx scripts/quality/backup-restore-preview.selftest.ts") {
+      return [];
+    }
+    return scriptForbiddenPatterns
       .filter((item) => item.pattern.test(`${name} ${command}`))
-      .map((item) => `${name}:${item.label}`),
-  );
+      .map((item) => `${name}:${item.label}`);
+  });
   const migrateDeployDocumented = (packageJson.scripts?.["db:migrate:deploy"] ?? "").includes("prisma migrate deploy") &&
     runbook.includes("Package E") &&
     runbook.includes("受控 release 工作目录");
   const releaseEvidenceValidate = packageJson.scripts?.["release:evidence:validate"] ?? "";
   const releaseEvidenceSelftest = packageJson.scripts?.["release:evidence:selftest"] ?? "";
+  const reconciliationSummarySelftest = packageJson.scripts?.["attachment:reconciliation:summary:selftest"] ?? "";
   const releaseEvidenceValidatorDocumented = releaseEvidenceValidate.includes("scripts/quality/release-evidence-validate.ts") &&
     releaseEvidenceSelftest.includes("scripts/quality/release-evidence-validate.selftest.ts") &&
+    reconciliationSummarySelftest.includes("scripts/quality/attachment-reconciliation-summary.selftest.ts") &&
     runbook.includes("pnpm release:evidence:validate") &&
     runbook.includes("只读取发布记录");
   checks.push({

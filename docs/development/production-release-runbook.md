@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0014-deployment-backup-release.md` 和 `workflow/versions/v1.0-prod-release.md` 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 完成签名校验更新并运行 `0.1.5`。
+本文件是 `tasks/backlog/0014-deployment-backup-release.md` 和 `workflow/versions/v1.0-prod-release.md` 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 完成签名校验更新并运行 `0.1.7`。
 
 后续任何新的生产发布、备份恢复、migration deploy、服务器命令、签名策略降级或 Web 运维能力扩大，仍必须等用户明确确认后再执行。
 
@@ -14,9 +14,9 @@
 
 - 公网入口：`https://forge.areasong.top/`
 - AreaForge 本机端口：`127.0.0.1:3020`
-- 当前线上版本：`0.1.5`
-- 最新 Release：`v0.1.5`
-- 更新记录：`docs/development/package-e-remote-github-release-record.md`
+- 当前线上版本：`0.1.7`
+- 最新 Release：`v0.1.7`
+- 更新记录：`docs/development/release-v0.1.7-record.md`
 
 目标架构：
 
@@ -28,7 +28,10 @@ Nginx HTTPS -> 127.0.0.1:WEB_PORT -> web container -> postgres
 
 ## 发布前门禁
 
+- GitHub Release workflow 必须先通过 `validate` job，再构建和发布镜像；stable release 缺少 `COSIGN_PRIVATE_KEY_B64` 或 `COSIGN_PRIVATE_KEY` 时必须失败。
 - `pnpm check` 通过。
+- `pnpm governance:preflight` 通过。
+- `pnpm ops:readiness` 通过；该命令只检查长期运营证据入口和 release hard gate，不连接生产。
 - `pnpm package-e:preflight` 通过；该命令只做本地 release artifact 结构检查和 compose config，不执行生产部署、备份、恢复或 migration。
 - `docker compose config` 通过。
 - `docker compose --env-file .env.example -f docker-compose.prod.yml config` 通过，用占位值验证生产 compose 结构。裸跑 `docker compose -f docker-compose.prod.yml config` 若没有生产 env，预期会因 `AUTH_SESSION_SECRET is required` 等 required production env 缺失而失败。
@@ -99,6 +102,8 @@ GitHub Release 自动更新不改变上述高风险边界。AreaForge Web 页面
 GitHub Release 必须发布以下 assets：
 
 - `areaforge-release-manifest.json`
+- `areaforge-sbom.spdx.json`
+- `areaforge-provenance.json`
 - `SHA256SUMS`
 - `SHA256SUMS.sig`（cosign bundle）
 - `docker-compose.prod.yml`
@@ -107,11 +112,11 @@ GitHub Release 必须发布以下 assets：
 
 1. 校验 Release 非 draft，非 prerelease 时才按 stable 策略处理。
 2. 校验 manifest channel、`minimumAppVersion`、非 `latest` 镜像、`webImageDigest` 和 `migrationImageDigest`。
-3. 校验 `SHA256SUMS` 和 `SHA256SUMS.sig`；生产默认 `AREAFORGE_REQUIRE_SIGNATURE=true`，cosign 模式使用 `verify-blob --bundle`。
+3. 校验 `SHA256SUMS` 和 `SHA256SUMS.sig`，确认 SBOM/provenance 也在 checksum 文件中；生产默认 `AREAFORGE_REQUIRE_SIGNATURE=true`，cosign 模式使用 `verify-blob --bundle`。
 4. 先备份 PostgreSQL、上传 volume、生产 env、compose、Nginx 和 release assets。
 5. 使用一次性 migration image 执行 `pnpm db:migrate:deploy`，日志中只能显示 `DATABASE_URL=<redacted>`。
 6. 写入 `AREAFORGE_IMAGE=<image@sha256>` 和 `APP_VERSION=<version>` 后启动 web。
-7. 执行 `/api/health` 和可选 `AREAFORGE_EXTRA_SMOKE_COMMAND`。
+7. 执行 `/api/health` 和可选 `AREAFORGE_EXTRA_SMOKE_COMMAND`；仓库提供的默认只读命令是 `pnpm smoke:prod-readonly`，应通过 `AREAFORGE_SMOKE_PASSWORD_FILE` 读取 smoke 密码。
 8. 失败时回滚应用镜像和 `APP_VERSION`，记录失败原因；默认不自动恢复生产数据库或移动上传目录。
 
 自动策略：
@@ -130,22 +135,28 @@ pnpm github-release-updater:preflight
 
 ### 标准发版路径
 
+后续功能进入线上时，先按 `release-train.md` 固定发布范围、验证、签名资产、updater 证据、发布记录、供应链记录和 residual risk IDs。
+
 后续功能完成后，推荐按以下路径发布：
 
 1. 同步相关 docs/tasks/workflow，确认没有源事实漂移。
-2. 运行 `pnpm check`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater` 和必要的专项测试。
+2. 运行 `pnpm check`、`pnpm governance:preflight`、`pnpm ops:readiness`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater` 和必要的专项测试。
 3. bump 所有 AreaForge workspace package version。
 4. 提交干净 commit。
-5. 创建并推送 `vX.Y.Z` tag。
-6. 等待 GitHub Release workflow 成功，确认 Release assets 包含 `areaforge-release-manifest.json`、`docker-compose.prod.yml`、`SHA256SUMS`、`SHA256SUMS.sig`。
-7. 本地或 CI 验证 `sha256sum -c SHA256SUMS` 和 `cosign verify-blob --bundle SHA256SUMS.sig SHA256SUMS`。
-8. 在 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
-9. 服务器 update-agent/updater 校验签名、备份、执行 migration、切换镜像和 health smoke。
-10. 验证 `https://forge.areasong.top/api/health`、`/opt/areaforge/ops-state/status.json` 和 Release 更新记录。
+5. 创建并推送 `vX.Y.Z` tag；tag 版本必须和根 `package.json` 版本一致。
+6. 等待 GitHub Release workflow 成功，确认 Release assets 包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS`、`SHA256SUMS.sig`。
+7. 本地或 CI 验证 `sha256sum -c SHA256SUMS` 和 `cosign verify-blob --bundle SHA256SUMS.sig SHA256SUMS`；若用于关闭供应链残余项，按 `docs/development/release-supply-chain-record-template.md` 记录，先运行 `pnpm sc:sc-002:preflight`，再运行 `pnpm release:supply-chain:validate <record>`。
+8. 更新前先读取当前 health/status 证据；若生产已经运行目标版本，只记录 health/status，不重复执行 `apply --yes`。
+9. 在 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
+10. 服务器 update-agent/updater 校验签名、备份、执行 migration、切换镜像和 health smoke。
+11. 验证 `https://forge.areasong.top/api/health`、`/opt/areaforge/ops-state/status.json` 和 Release 更新记录。
+12. 运行 `pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview` 生成 redacted 运行证据摘要，记录 `bundleHash`、`overall/status`、告警预览结论、缺失证据和 residual risk IDs。
 
 ## 发布记录模板
 
-Package E 完成时必须留下发布记录。记录可以放在运维私有目录或受控 issue/comment 中，不得提交生产 `.env`、密钥、数据库 URL 或备份文件本体。
+Package E 完成时必须留下发布记录。每个进入线上并需要仓库可追溯证据的版本，应在 `docs/development/` 新建版本化发布记录，例如 `release-vX.Y.Z-record.md`。服务器私有备份、updater 记录和 smoke 日志可以保留在运维目录，但需在仓库记录中摘要 tag、digest、health、update-agent 状态和残余风险。记录不得提交生产 `.env`、密钥、数据库 URL 或备份文件本体。
+
+标准模板见 `docs/development/release-record-template.md`。下方字段与模板和只读校验脚本保持一致；后续新版本优先复制模板，再填入真实 Release、备份、smoke、回滚和残余风险证据。
 
 ```text
 releaseId:
@@ -155,6 +166,13 @@ gitCommit:
 releaseTag:
 AREAFORGE_IMAGE:
 imageDigest:
+webImageDigest:
+migrationImageDigest:
+sbomAsset:
+sbomSha256:
+provenanceAsset:
+provenanceSha256:
+supplyChainEvidence:
 composeHash:
 nginxConfigHash:
 previousImage:
@@ -178,6 +196,11 @@ restoreDrill:
   databaseImported: yes/no
   uploadsRestored: yes/no
   attachmentHashMatched: yes/no/not-applicable
+attachmentReconciliationCsvPath:
+attachmentReconciliationCsvSha256:
+attachmentReconciliationSummaryPath:
+attachmentReconciliationSummaryHash:
+attachmentReconciliationStatus: pass/mismatch
 postReleaseSmoke:
   health:
   login:
@@ -194,6 +217,10 @@ databaseRestoreRequired: yes/no
 uploadsRestoreRequired: yes/no
 rollbackFailureReason:
 residualRisk:
+residualRiskIds:
+releaseEvidenceBundleHash:
+operationalEvidenceBundleHash:
+alertPreviewStatus:
 followUpTasks:
 expectedFailureOrStopConditions:
   migrationFailed:
@@ -206,10 +233,21 @@ expectedFailureOrStopConditions:
 发布记录写完后，可以用只读校验脚本检查字段完整性、hash 形态、枚举值、migration runner 选择、回滚演练字段、敏感值泄露和附件对账边界：
 
 ```bash
-pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.csv]
+pnpm release:evidence:validate <release-record.md|txt> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>
 ```
 
-该脚本只读取发布记录和可选附件对账 CSV，不连接生产服务，不执行 `docker compose`、`pg_dump`、`pg_restore`、migration deploy、文件删除、文件移动或 metadata 修复。附件对账 CSV 的 `action` 必须全部为 `report_only`。若 `migrationApplied=yes`，`migrationRunner` 必须是 `controlled_release_workdir` 或 `one_off_migration_job`；若 `migrationApplied=no`，`migrationRunner` 必须是 `not-applicable`。
+该脚本只读取发布记录、附件对账 CSV 和 `attachment-reconciliation-summary.json`，不连接生产服务，不执行 `docker compose`、`pg_dump`、`pg_restore`、migration deploy、文件删除、文件移动、孤儿清理或 metadata 修复。附件对账 CSV 的 `action` 必须全部为 `report_only`；summary 必须绑定 CSV hash，并只保存 file-only/unsafe entry 的文件名 SHA256，不包含绝对路径或文件内容。若 `migrationApplied=yes`，`migrationRunner` 必须是 `controlled_release_workdir` 或 `one_off_migration_job`；若 `migrationApplied=no`，`migrationRunner` 必须是 `not-applicable`。
+
+附件对账三态必须有对应证据，不能通过省略文件获得通过：
+
+- `attachmentHashMatched=yes`：CSV 至少一行且 `exists`、`sizeMatches`、`hashMatches` 全为 `true`，summary `status=pass`。
+- `attachmentHashMatched=no`：summary 必须为 `mismatch`，用于保存缺失、hash/size mismatch、file-only、unsafe entry、非法 URI 或重复引用事实。
+- `attachmentHashMatched=not-applicable`：CSV 必须仅表头，summary 必须为 `pass`，且 `databaseRecordCount=0`、`uploadFileCount=0`。
+- 发布记录中的 `attachmentReconciliationCsvSha256` 和 `attachmentReconciliationSummaryHash` 必须与传入文件一致，并连同路径和 `attachmentReconciliationStatus` 进入 `releaseEvidenceBundleHash`。
+
+`pnpm ops:evidence:bundle` 生成的是运行态证据包 hash，用于交接 health、update-agent、smoke、backup、rollback、disk/cert 和 residual risk IDs。它不替代 `pnpm release:evidence:validate`，也不授权生产写入或 updater 执行。
+
+`pnpm ops:alert:preview` 生成的是只读告警动作预览，用于确认哪些信号会 `wouldNotify=true`、对应 owner 和 recommendedAction。它不发送通知、不调用外部接收人，也不单独关闭 `AF-RISK-OPS-004`。
 
 中止条件：
 
@@ -218,6 +256,7 @@ pnpm release:evidence:validate <release-record.txt> [attachment-reconciliation.c
 - 日志中出现密钥、完整 prompt、完整复盘正文、附件路径或数据库 URL。
 - 附件 metadata/hash 与文件不一致。
 - 发布前数据库备份、上传目录备份或上一版本镜像信息缺失。
+- `pnpm ops:readiness` 失败，或残余风险台账显示当前发布阻塞项。
 
 ## Batch E1-E4 交付物
 
@@ -338,10 +377,11 @@ attachmentId,noteId,uri,metadataHash,fileHash,metadataSizeBytes,fileSizeBytes,ex
 DATABASE_URL="$RESTORE_DATABASE_URL" \
   pnpm exec tsx scripts/quality/attachment-reconciliation.ts \
   "$RESTORED_UPLOAD_DIR" \
-  "$BACKUP_DIR/attachment-reconciliation.csv"
+  "$BACKUP_DIR/attachment-reconciliation.csv" \
+  --summary-output "$BACKUP_DIR/attachment-reconciliation-summary.json"
 ```
 
-`scripts/quality/attachment-reconciliation.ts` 只读取恢复后的数据库和上传目录，写出 CSV 报告；`action` 固定为 `report_only`。若当前没有附件记录，可以生成 header-only 报告，并在发布记录中把 `restoreDrill.attachmentHashMatched` 标为 `not-applicable`。
+`scripts/quality/attachment-reconciliation.ts` 只读取恢复后的数据库和上传目录，写出 CSV 和双向 summary；即使没有传 `--summary-output` 也会执行目录反向扫描。独立 summary 逻辑位于 `scripts/quality/attachment-reconciliation-summary.ts`，输出 `fileOnlyCount`、`unsafeEntryCount`、DB-only、hash/size mismatch、非法 URI 和重复引用计数。报告输出必须位于 `UPLOAD_DIR` 外，路径不能相同或指向 symlink；`action` 固定为 `report_only`。若当前没有附件记录，只有上传目录也为空时才可生成 header-only CSV、zero-count summary，并在发布记录中把 `restoreDrill.attachmentHashMatched` 标为 `not-applicable`。对账应针对停止写入的恢复副本或快照执行；它不证明扫描期间不存在并发写入。
 
 ## 回滚流程
 
@@ -357,6 +397,14 @@ DATABASE_URL="$RESTORE_DATABASE_URL" \
    - 使用发布前数据库备份恢复。
    - 同步恢复上传目录备份，保证 metadata 与文件本体一致。
 6. 记录失败原因、恢复时间和残余风险。
+
+回滚完成不等于更新通道可以重新开放。使用 `docs/development/rollback-proof-record-template.md` 保存 redacted proof，并运行：
+
+```bash
+pnpm rollback:proof:validate <rollback-proof-record.md|txt>
+```
+
+proof 必须绑定回滚前后 update-record hash、不可变 source/target image、post-rollback health、authenticated smoke、数据库/uploads/附件可访问性、`AREAFORGE_AUTO_APPLY` 策略、历史记录保留和 reopen conditions。`ready-for-human-review` 仍需维护者人工决定，不能自动执行 updater apply、restore、策略变更或 residual 台账关闭。
 
 ## 生产变量检查
 

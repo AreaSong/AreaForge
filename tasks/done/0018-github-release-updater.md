@@ -46,10 +46,10 @@
 - `pnpm shellcheck:updater`
 - `pnpm check`
 - `git diff --check`
-- 远端 `v0.1.5`：GitHub Release workflow 成功；`SHA256SUMS` 和 `SHA256SUMS.sig` cosign bundle 校验通过；服务器 `check --tag v0.1.5` 和 `apply --yes --tag v0.1.5` 通过；`https://forge.areasong.top/api/health` 返回 `0.1.5`；update-agent 状态 `blocker=null`。
+- 远端 `v0.1.7`：GitHub Release workflow 成功；`SHA256SUMS` 和 `SHA256SUMS.sig` cosign bundle 校验通过；服务器 `apply --yes --tag v0.1.7` 通过；`https://forge.areasong.top/api/health` 返回 `0.1.7`；updater 记录 `smokeHealth=PASS`、`extraSmoke=PASS`、`rollbackAttempted=no`。早期 `v0.1.5` 记录保留为首次远端签名更新历史证据。
 
 ## 风险
 
-- 真实远端 GitHub Release、GHCR 权限、签名密钥和 systemd timer 已在 `v0.1.5` 服务器更新中验证；后续版本仍需逐次验证 Release workflow 和服务器更新记录。
+- 真实远端 GitHub Release、GHCR 权限、签名密钥和 systemd timer 已在 `v0.1.5` 首次服务器更新和 `v0.1.7` 生产更新中验证；后续版本仍需逐次验证 Release workflow 和服务器更新记录。
 - 未配置签名密钥时 workflow 会生成占位 `SHA256SUMS.sig`；生产若保持 `AREAFORGE_REQUIRE_SIGNATURE=true`，updater 会拒绝应用，这是预期的安全失败。
 - 完整登录、任务计时、附件等烟测依赖生产专用 `AREAFORGE_EXTRA_SMOKE_COMMAND`。

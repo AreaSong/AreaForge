@@ -1,5 +1,15 @@
 # 任务标题
 
+```yaml
+status: todo
+risk: low|medium|high
+ownerSkill: areaforge-...
+validation:
+  - pnpm docs:readiness
+residualRiskIds: []
+releaseRequired: false
+```
+
 状态：
 
 ## 目标
@@ -15,9 +25,19 @@
 
 - `docs/...`
 
+## Owner Skill
+
+- `.codex/skills-src/areaforge-...`
+
 ## 验收标准
 
 -
+
+## 只读验收
+
+- 需要的只读证据：
+- 证据新鲜度：
+- 关闭条件：
 
 ## 验证
 
@@ -29,6 +49,7 @@
 - `tasks/...`
 - `workflow/...`
 - 若进入线上，记录 GitHub Release tag、线上 health、镜像 digest、update-agent 状态和残余风险。
+- 若影响长期运营，更新 `docs/development/operational-readiness.md` 或 `docs/development/residual-risk-ledger.md`。
 
 ## 高风险边界
 
@@ -40,6 +61,11 @@
 - 回滚：
 
 Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令；自动更新只能通过受控请求或服务器侧 updater 执行。
+
+## 允许/禁止路径
+
+- 允许：
+- 禁止：
 
 ## 残余风险
 

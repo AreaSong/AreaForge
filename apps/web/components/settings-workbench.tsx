@@ -33,15 +33,18 @@ export function SettingsWorkbench({ userEmail, initialStatus }: SettingsWorkbenc
   const StatusIcon = statusTone.icon;
   const releaseUrl = status.releaseUrl ?? "https://github.com/AreaSong/AreaForge/releases";
 
-  async function refreshStatus() {
-    setNotice(null);
+  async function refreshStatus(options?: {
+    clearNotice?: boolean;
+    fallbackOperation?: UpdateCenterStatus["lastOperation"];
+  }) {
+    if (options?.clearNotice ?? true) setNotice(null);
     const response = await fetch("/api/system/update-status", { cache: "no-store" });
     const body = (await response.json().catch(() => null)) as { status?: UpdateCenterStatus; error?: string } | null;
     if (!response.ok || !body?.status) {
       setNotice({ tone: "danger", text: labelError(body?.error ?? "STATUS_FAILED") });
       return;
     }
-    setStatus(body.status);
+    setStatus(mergeFallbackOperation(body.status, options?.fallbackOperation ?? null));
     setAutoApply(body.status.autoApply);
   }
 
@@ -53,13 +56,20 @@ export function SettingsWorkbench({ userEmail, initialStatus }: SettingsWorkbenc
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...options }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as {
+        request?: NonNullable<UpdateCenterStatus["lastOperation"]>;
+        error?: string;
+      } | null;
       if (!response.ok) {
         setNotice({ tone: "danger", text: labelError(body?.error ?? "REQUEST_FAILED") });
         return;
       }
+      const queuedOperation = body?.request ?? null;
+      if (queuedOperation) {
+        setStatus((current) => mergeFallbackOperation(current, queuedOperation));
+      }
+      await refreshStatus({ clearNotice: false, fallbackOperation: queuedOperation });
       setNotice({ tone: "success", text: labelQueued(action) });
-      await refreshStatus();
     });
   }
 
@@ -264,6 +274,29 @@ function KeyValue({ label, value }: { label: string; value: string }) {
   );
 }
 
+function mergeFallbackOperation(
+  status: UpdateCenterStatus,
+  fallbackOperation: UpdateCenterStatus["lastOperation"],
+): UpdateCenterStatus {
+  if (!fallbackOperation || !shouldUseFallbackOperation(status.lastOperation, fallbackOperation)) return status;
+  return {
+    ...status,
+    lastOperation: fallbackOperation,
+    requestQueueLength: typeof status.requestQueueLength === "number"
+      ? Math.max(status.requestQueueLength, 1)
+      : status.requestQueueLength,
+  };
+}
+
+function shouldUseFallbackOperation(
+  currentOperation: UpdateCenterStatus["lastOperation"],
+  fallbackOperation: NonNullable<UpdateCenterStatus["lastOperation"]>,
+): boolean {
+  if (!currentOperation) return true;
+  if (currentOperation.id === fallbackOperation.id) return false;
+  return Date.parse(currentOperation.requestedAt) < Date.parse(fallbackOperation.requestedAt);
+}
+
 function getStatusTone(status: UpdateCenterStatus) {
   if (status.blocker) {
     return {
@@ -338,6 +371,11 @@ function labelQueued(action: UpdateAction): string {
 
 function labelError(error: string): string {
   if (error === "UNAUTHORIZED") return "请先登录。";
+  if (error === "UPDATE_TARGET_NOT_NEWER") return "当前已经是该版本或更新版本。";
+  if (error === "UPDATE_TAG_REQUIRED") return "缺少目标 Release tag。";
+  if (error === "ROLLBACK_TARGET_UNAVAILABLE") return "当前没有可回退版本。";
+  if (error === "AUTO_APPLY_POLICY_REQUIRED") return "请选择自动更新策略。";
+  if (error === "AUTO_APPLY_POLICY_UNCHANGED") return "自动更新策略没有变化。";
   return "操作提交失败。";
 }
 

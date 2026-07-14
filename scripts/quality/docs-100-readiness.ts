@@ -25,11 +25,58 @@ const requiredFiles = [
   "docs/development/ai-provider-integration-design.md",
   "docs/development/second-stage-long-term-loop-design.md",
   "docs/development/production-release-runbook.md",
+  "docs/development/release-record-template.md",
+  "docs/development/release-train.md",
+  "docs/development/completion-evidence-checklist.md",
+  "docs/development/runtime-write-boundary.md",
+  "docs/development/dependency-policy.md",
+  "docs/development/external-capability-admission.md",
+  "docs/development/support-intake.md",
+  "docs/development/maintenance-cadence.md",
+  "docs/development/maintenance-window-index.json",
+  "docs/development/incident-index.json",
+  "docs/development/rollback-proof-record-template.md",
+  "docs/development/operational-readiness.md",
+  "docs/development/production-smoke-alerting-strategy.md",
+  "docs/development/product-experience-review-record-template.md",
+  "docs/development/product-experience-review-20260710-local.md",
+  "docs/development/product-experience-review-v0.1.7-20260712-local.md",
+  "docs/development/residual-risk-ledger.md",
+  "docs/development/residual-risk-ledger.json",
+  "docs/development/residual-closure-review-template.md",
+  "SECURITY.md",
+  "SUPPORT.md",
+  "CODE_REVIEW.md",
+  ".github/dependabot.yml",
+  ".github/pull_request_template.md",
+  "scripts/quality/governance-preflight.ts",
+  "scripts/quality/ops-readiness-preflight.ts",
+  "scripts/ops/maintenance-window-index.ts",
+  "scripts/quality/maintenance-window-index-common.ts",
+  "scripts/quality/maintenance-window-index-validate.ts",
+  "scripts/quality/maintenance-window-index.selftest.ts",
+  "scripts/ops/incident-index.ts",
+  "scripts/quality/incident-index-common.ts",
+  "scripts/quality/incident-index-validate.ts",
+  "scripts/quality/incident-index.selftest.ts",
+  "scripts/quality/rollback-proof-record-validate.ts",
+  "scripts/quality/rollback-proof-record-validate.selftest.ts",
+  "scripts/ops/release-closeout-audit.ts",
+  "scripts/quality/release-closeout-audit-validate.ts",
+  "scripts/quality/release-closeout-audit.selftest.ts",
+  "scripts/quality/residual-ledger-validate.ts",
+  "scripts/quality/residual-closure-review-validate.ts",
+  "scripts/quality/residual-closure-review-validate.selftest.ts",
+  "scripts/quality/product-experience-review-validate.ts",
+  "scripts/quality/product-experience-review-validate.selftest.ts",
+  "scripts/ops/operational-readiness-summary.ts",
+  "scripts/ops/local-ux-smoke.ts",
   "scripts/quality/package-d-preflight.ts",
   "scripts/quality/package-e-preflight.ts",
   "tasks/backlog/0015-structured-state-migration.md",
   "tasks/backlog/0016-second-stage-long-term-loop.md",
   "tasks/backlog/0017-ai-stage-privacy-cost.md",
+  "tasks/indexes/residuals.md",
   "workflow/versions/v0.2-first-version-risk-closures.md",
   "workflow/versions/v0.3-structured-learning-state.md",
   "workflow/versions/v0.4-second-stage-long-term-loop.md",
@@ -102,8 +149,12 @@ function main(): void {
   checkHighRiskPackets();
   checkAcceptanceEvidence();
   checkCompletionGateTerms();
+  checkCompletionEvidenceBoundaryTerms();
   checkCompletionScriptGates();
   checkRiskPreflightBatchGuardTerms();
+  checkGovernancePreflightTerms();
+  checkOpsReadinessTerms();
+  checkCurrentProductionEvidenceBoundary();
   checkPackageDPreflightTerms();
   checkPackageEPreflightTerms();
   checkMasteryProofBasicTraceability();
@@ -268,6 +319,72 @@ function checkCompletionGateTerms(): void {
   });
 }
 
+function checkCompletionEvidenceBoundaryTerms(): void {
+  const checklist = read("docs/development/completion-evidence-checklist.md");
+  const validator = read("scripts/quality/completion-evidence-validate.ts");
+  const selftest = read("scripts/quality/completion-evidence-validate.selftest.ts");
+  const notReadyRecord = read("docs/development/long-term-operability-not-ready-20260711.txt");
+  const docsReadme = read("docs/README.md");
+  const docSync = read("docs/development/doc-sync-checklist.md");
+  const requiredChecklistTerms = [
+    "summary:",
+    "claimScope: source-only/local-runtime/release-artifact/production-live/long-term-operability/mixed",
+    "evidenceUri:",
+    "doesNotProve:",
+    "不能证明",
+    "production health",
+    "long-term operability",
+    "residual closure",
+  ];
+  const requiredValidatorTokens = [
+    "\"summary\"",
+    "\"claimScope\"",
+    "\"evidenceUri\"",
+    "\"doesNotProve\"",
+    "validateEvidenceUri",
+    "validateDoesNotProve",
+    "production health",
+    "long-term-operability PASS requires production evidenceClass",
+    "must not reference secret-bearing paths or names",
+  ];
+  const requiredSelftestTokens = [
+    "unsafe evidence URI fails",
+    "claim scope mismatch fails",
+    "empty does-not-prove boundary fails",
+  ];
+  const requiredRecordTerms = [
+    "summary:",
+    "claimScope: long-term-operability",
+    "evidenceUri:",
+    "doesNotProve:",
+    "result: NOT-READY",
+  ];
+  const requiredEntrypointTerms = [
+    "summary",
+    "claimScope",
+    "evidenceUri",
+    "doesNotProve",
+    "pnpm completion:evidence:validate <record>",
+  ];
+
+  const missing = [
+    ...requiredChecklistTerms.filter((term) => !checklist.includes(term)).map((term) => `checklist:${term}`),
+    ...requiredValidatorTokens.filter((term) => !validator.includes(term)).map((term) => `validator:${term}`),
+    ...requiredSelftestTokens.filter((term) => !selftest.includes(term)).map((term) => `selftest:${term}`),
+    ...requiredRecordTerms.filter((term) => !notReadyRecord.includes(term)).map((term) => `not-ready-record:${term}`),
+    ...requiredEntrypointTerms.filter((term) => !docsReadme.includes(term)).map((term) => `docs-readme:${term}`),
+    ...requiredEntrypointTerms.filter((term) => !docSync.includes(term)).map((term) => `doc-sync:${term}`),
+  ];
+
+  checks.push({
+    name: "completion evidence claim boundary terms",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "completion evidence records require summary, claim scope, evidence URI, does-not-prove boundary, and safe URI validation"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
 function checkCompletionScriptGates(): void {
   const completionScript = read("scripts/quality/docs-100-completion.ts");
   const requiredTokens = [
@@ -343,6 +460,124 @@ function checkRiskPreflightBatchGuardTerms(): void {
   });
 }
 
+function checkGovernancePreflightTerms(): void {
+  const packageJson = read("package.json");
+  const ci = read(".github/workflows/ci.yml");
+  const readme = read("README.md");
+  const agents = read("AGENTS.md");
+  const codeReview = read("CODE_REVIEW.md");
+  const validationMatrix = read("docs/development/validation-matrix.md");
+  const docsReadme = read("docs/README.md");
+  const governancePreflight = read("scripts/quality/governance-preflight.ts");
+  const dependencyPolicy = read("docs/development/dependency-policy.md");
+  const requiredTokens = [
+    [packageJson, "\"governance:preflight\": \"tsx scripts/quality/governance-preflight.ts\"", "package.json"],
+    [packageJson, "\"governance:changed-paths\": \"tsx scripts/quality/changed-path-review.ts\"", "package.json"],
+    [packageJson, "\"governance:protected-path-review:validate\": \"tsx scripts/quality/protected-path-review-record-validate.ts\"", "package.json"],
+    [ci, "pnpm governance:preflight", ".github/workflows/ci.yml"],
+    [ci, "pnpm governance:changed-paths --base", ".github/workflows/ci.yml"],
+    [ci, "pnpm governance:changed-paths:selftest", ".github/workflows/ci.yml"],
+    [ci, "pnpm governance:protected-path-review:selftest", ".github/workflows/ci.yml"],
+    [readme, "pnpm governance:preflight", "README.md"],
+    [agents, "docs/development/dependency-policy.md", "AGENTS.md"],
+    [validationMatrix, "pnpm governance:preflight", "validation-matrix"],
+    [docsReadme, "development/dependency-policy.md", "docs/README.md"],
+    [docsReadme, "development/external-capability-admission.md", "docs/README.md"],
+    [docsReadme, "development/governance-boundary-matrix.md", "docs/README.md"],
+    [docsReadme, "development/protected-path-review-record-template.md", "docs/README.md"],
+    [readme, "CODE_REVIEW.md", "README.md"],
+    [docsReadme, "CODE_REVIEW.md", "docs/README.md"],
+    [codeReview, "findings first", "CODE_REVIEW.md"],
+    [codeReview, "AF-RISK-*", "CODE_REVIEW.md"],
+    [governancePreflight, "SECURITY.md", "governance-preflight"],
+    [governancePreflight, "CODE_REVIEW.md", "governance-preflight"],
+    [governancePreflight, ".github/dependabot.yml", "governance-preflight"],
+    [governancePreflight, ".github/pull_request_template.md", "governance-preflight"],
+    [governancePreflight, "external-capability-admission.md", "governance-preflight"],
+    [dependencyPolicy, "Dependabot", "dependency-policy"],
+    [dependencyPolicy, "SBOM", "dependency-policy"],
+  ] as const;
+  const missing = requiredTokens
+    .filter(([content, token]) => !content.includes(token))
+    .map(([, token, source]) => `${source}:${token}`);
+
+  checks.push({
+    name: "governance preflight terms",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "public governance entrypoints, dependency policy, CI gate, and docs references are present"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkOpsReadinessTerms(): void {
+  const readiness = read("docs/development/operational-readiness.md");
+  const residual = read("docs/development/residual-risk-ledger.md");
+  const script = read("scripts/quality/ops-readiness-preflight.ts");
+  const skillsReadme = read(".codex/skills-src/README.md");
+  const requiredTerms = [
+    "只读运营证据聚合入口",
+    "AF-RISK-OPS-001",
+    "AF-RISK-REL-001",
+    "AF-RISK-SC-001",
+    "AF-RISK-UX-001",
+    "pnpm ops:readiness",
+    "pnpm ops:readiness:summary",
+    "pnpm smoke:local-ux",
+    "pnpm experience:review:validate",
+    "areaforge-operating-loop",
+    "release workflow validates before build",
+  ];
+  const combined = `${readiness}\n${residual}\n${script}\n${skillsReadme}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  checks.push({
+    name: "ops readiness terms",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "operating loop, ops readiness, residual IDs, and release hard-gate evidence are present"
+      : `missing ${missing.join(", ")}`,
+  });
+}
+
+function checkCurrentProductionEvidenceBoundary(): void {
+  const readme = read("README.md");
+  const architectureOverview = read("docs/architecture/overview.md");
+  const workflowReadme = read("workflow/README.md");
+  const workflowV02 = read("workflow/versions/v0.2-first-version-risk-closures.md");
+  const workflowV10 = read("workflow/versions/v1.0-prod-release.md");
+  const completionRecord = read("docs/development/docs-100-completion-record.md");
+  const releaseRecord = read("docs/development/release-v0.1.7-record.md");
+  const controlPlane = read("docs/development/long-term-operability-control-plane.md");
+  const scannedDocs = `${readme}\n${architectureOverview}\n${workflowReadme}\n${workflowV02}\n${workflowV10}\n${completionRecord}\n${controlPlane}`;
+  const requiredBoundaryTerms = [
+    "needs_live_evidence",
+    "post-update OPS-001",
+    "OPS-004",
+    "release evidence backup hash",
+    "root-only backup hash",
+    "长期运营 live gate",
+  ];
+  const forbiddenOverclaims = [
+    "远端签名 Release 更新证据已闭环",
+    "长期运营已闭环",
+    "长期运营证据已闭环",
+  ];
+  const missing = requiredBoundaryTerms.filter((term) => !scannedDocs.includes(term));
+  const forbidden = forbiddenOverclaims.filter((term) => scannedDocs.includes(term));
+  const releaseHasRootOnlyBoundary =
+    releaseRecord.includes("not-copied-root-only-update-record") &&
+    releaseRecord.includes("release evidence validation remains blocked by root-only backup hashes");
+
+  checks.push({
+    name: "current production evidence boundary",
+    ok: missing.length === 0 && forbidden.length === 0 && releaseHasRootOnlyBoundary,
+    detail:
+      missing.length === 0 && forbidden.length === 0 && releaseHasRootOnlyBoundary
+        ? "v0.1.7 docs distinguish production apply/health from long-term live evidence and backup-hash gaps"
+        : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}; release root-only boundary ${releaseHasRootOnlyBoundary ? "present" : "missing"}`,
+  });
+}
+
 function checkPackageDPreflightTerms(): void {
   const packageJson = read("package.json");
   const packageDPreflight = read("scripts/quality/package-d-preflight.ts");
@@ -395,6 +630,9 @@ function checkPackageEPreflightTerms(): void {
     "\"package-e:preflight\": \"tsx scripts/quality/package-e-preflight.ts\"",
     "\"release:evidence:validate\": \"tsx scripts/quality/release-evidence-validate.ts\"",
     "\"release:evidence:selftest\": \"tsx scripts/quality/release-evidence-validate.selftest.ts\"",
+    "\"attachment:reconciliation\": \"tsx scripts/quality/attachment-reconciliation.ts\"",
+    "\"attachment:reconciliation:summary\": \"tsx scripts/quality/attachment-reconciliation-summary.ts\"",
+    "\"attachment:reconciliation:summary:selftest\": \"tsx scripts/quality/attachment-reconciliation-summary.selftest.ts\"",
   ];
   const requiredScriptTokens = [
     "checkComposeConfig",
@@ -405,6 +643,8 @@ function checkPackageEPreflightTerms(): void {
     "release-evidence-validate.ts",
     "release-evidence-validate.selftest.ts",
     "attachment-reconciliation.ts",
+    "attachment-reconciliation-summary.ts",
+    "attachment-reconciliation-summary.selftest.ts",
     "docker compose config",
     "web binds localhost",
     "does not pretend to be a migration runner",
@@ -424,6 +664,10 @@ function checkPackageEPreflightTerms(): void {
     "migration deploy 执行载体",
     "pnpm release:evidence:validate",
     "report_only",
+    "attachmentReconciliationCsvSha256",
+    "attachmentReconciliationSummaryHash",
+    "fileOnlyCount",
+    "unsafeEntryCount",
     "envBackupSha256",
     "composeConfigBackupPath",
     "nginxConfigBackupPath",

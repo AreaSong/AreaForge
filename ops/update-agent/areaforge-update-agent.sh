@@ -70,6 +70,20 @@ write_json() {
   mv "$tmp" "$output"
 }
 
+status_message_from_output() {
+  local raw="$1"
+  printf '%s' "$raw" |
+    tail -n 8 |
+    tr '\n' ' ' |
+    sed -E \
+      -e 's#postgres(ql)?://[^[:space:]]+#postgres://<redacted>#g' \
+      -e 's#(DATABASE_URL|AUTH_SESSION_SECRET|AUTH_ADMIN_PASSWORD_HASH|AI_API_KEY|OPENAI_API_KEY|AREAFORGE_GITHUB_TOKEN|COSIGN_PASSWORD|AREAFORGE_SMOKE_PASSWORD|PASSWORD|TOKEN|SECRET)=([^[:space:]]+)#\1=<redacted>#g' \
+      -e 's#"(password|token|secret|apiKey|databaseUrl)"[[:space:]]*:[[:space:]]*"[^"]*"#"\1":"<redacted>"#g' \
+      -e 's#(Bearer )[A-Za-z0-9._~+/-]+=*#\1<redacted>#g' \
+      -e 's#(sk-|rk-|sess-)[A-Za-z0-9_-]{12,}#<redacted-token>#g' |
+    cut -c 1-500
+}
+
 ensure_state_dirs() {
   local web_uid="${AREAFORGE_WEB_UID:-1001}"
   local web_gid="${AREAFORGE_WEB_GID:-1001}"
@@ -200,6 +214,9 @@ merge_status() {
   local operation_json="${1:-null}"
   local base
   base="$(status_from_state)"
+  if [[ "$operation_json" == "null" && -f "$STATUS_FILE" ]]; then
+    operation_json="$(jq -c '.lastOperation // null' "$STATUS_FILE" 2>/dev/null || printf 'null')"
+  fi
   jq -s '.[0] + {lastOperation: .[1]}' <(printf '%s\n' "$base") <(printf '%s\n' "$operation_json") | write_json "$STATUS_FILE"
 }
 
@@ -212,6 +229,43 @@ operation_json() {
     --arg finishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --arg message "$message" \
     '.status=$status | .finishedAt=$finishedAt | .message=$message' "$request"
+}
+
+validate_request_schema() {
+  local request="$1"
+  jq -e '
+    type == "object" and
+    (.id | type == "string" and test("^update_[0-9]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) and
+    (.status == "queued") and
+    (.action as $action | ["check", "apply", "rollback", "set_auto_apply"] | index($action) != null) and
+    (.tag == null or (.tag | type == "string" and test("^v?[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$"))) and
+    (.autoApply == null or (.autoApply as $policy | ["none", "patch", "minor", "all"] | index($policy) != null)) and
+    (if .action == "apply" then (.tag | type == "string") else true end) and
+    (if .action == "set_auto_apply" then (.autoApply | type == "string") else true end) and
+    (.actorEmailHash == null or (.actorEmailHash | type == "string" and test("^[a-fA-F0-9]{64}$")))
+  ' "$request" >/dev/null
+}
+
+archive_invalid_request() {
+  local request="$1"
+  local archive_id archive_path failed_json
+  archive_id="invalid_$(date -u +%Y%m%dT%H%M%SZ)_$$"
+  archive_path="$HISTORY_DIR/${archive_id}.json"
+  mv "$request" "$archive_path"
+  failed_json="$(jq -n \
+    --arg id "$archive_id" \
+    --arg finishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{
+      id:$id,
+      action:"invalid",
+      status:"failed",
+      requestedAt:null,
+      finishedAt:$finishedAt,
+      message:"invalid update request schema"
+    }')"
+  printf '%s\n' "$failed_json" | write_json "$HISTORY_DIR/${archive_id}.failed.json"
+  rm -f "$archive_path"
+  merge_status "$failed_json"
 }
 
 run_updater_check() {
@@ -247,6 +301,10 @@ run_rollback() {
 process_request() {
   local request="$1"
   local id action tag auto_apply operation running_json output status message destination
+  if ! validate_request_schema "$request"; then
+    archive_invalid_request "$request"
+    return
+  fi
   id="$(jq -r '.id' "$request")"
   action="$(jq -r '.action' "$request")"
   tag="$(jq -r '.tag // empty' "$request")"
@@ -260,10 +318,10 @@ process_request() {
   case "$action" in
     check)
       if output="$(run_updater_check)"; then
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       else
         status="failed"
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       fi
       ;;
     apply)
@@ -271,18 +329,18 @@ process_request() {
         status="failed"
         message="missing release tag"
       elif output="$(run_updater_apply "$tag")"; then
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       else
         status="failed"
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       fi
       ;;
     rollback)
       if output="$(run_rollback)"; then
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       else
         status="failed"
-        message="$(printf '%s' "$output" | tail -n 8 | tr '\n' ' ' | cut -c 1-500)"
+        message="$(status_message_from_output "$output")"
       fi
       ;;
     set_auto_apply)

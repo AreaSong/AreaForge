@@ -8,6 +8,24 @@
 
 ## 目标
 
+## Planning Gate
+
+- 目标：
+- 非目标：
+- Exact docs：
+- Open questions：
+- Decisions：
+- Owner skill：
+- Validation profile：
+- Source docs：
+- Source baseline：
+- Residual risk IDs：
+- Release trigger：
+- Apply boundary：
+- Evidence freshness：
+- 验证：
+- 回滚：
+
 ## 范围
 
 ## 不包含

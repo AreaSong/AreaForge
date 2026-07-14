@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 interface CheckResult {
@@ -14,12 +14,17 @@ const checks: CheckResult[] = [];
 function main(): void {
   checkRequiredFiles();
   checkShellSyntax();
+  checkExecutableModes();
+  checkReleaseSupplyChainScript();
   checkManifestExample();
   checkUpdaterBoundaries();
   checkMigrationDockerfile();
+  checkWorkflowTopLevelSyntax();
   checkCiWorkflow();
   checkReleaseWorkflow();
   checkDocs();
+  checkExtraSmokeCommand();
+  checkUpdateAgentRequestBoundary();
   checkWebRuntimeBoundary();
 
   for (const check of checks) {
@@ -42,16 +47,38 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/areaforge-updater.service",
     "ops/github-release-updater/areaforge-updater.timer",
     "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-ops001-evidence-export.sh",
+    "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
+    "ops/update-agent/areaforge-release-readonly-smoke.sh",
     "ops/update-agent/areaforge-update-agent.service",
     "ops/update-agent/areaforge-update-agent.timer",
     "ops/github-release-updater/manifest.example.json",
     "ops/github-release-updater/manifest.schema.json",
     "ops/github-release-updater/README.md",
+    "scripts/ops/generate-release-supply-chain.ts",
+    "scripts/quality/release-supply-chain-validate.ts",
+    "scripts/quality/release-supply-chain-validate.selftest.ts",
+    "scripts/ops/production-readonly-smoke.ts",
+    "scripts/ops/generate-release-evidence-record-from-redacted-export.ts",
+    "scripts/quality/release-evidence-redacted-export-validate.ts",
+    "scripts/quality/ops001-readonly-fallback.selftest.ts",
+    "scripts/quality/release-evidence-redacted-export.selftest.ts",
+    "scripts/quality/release-evidence-redacted-export-record.selftest.ts",
+    "scripts/quality/update-center-request-guard.selftest.ts",
+    "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
     ".github/workflows/ci.yml",
     ".github/workflows/release.yml",
     "docs/deployment/github-release-updater.md",
     "docs/development/github-release-updater-design.md",
+    "docs/development/release-supply-chain-record-template.md",
+    "docs/development/ci-supply-chain-record-template.md",
+    "scripts/ops/generate-release-supply-chain-record.ts",
+    "scripts/quality/release-supply-chain-record.selftest.ts",
+    "scripts/ops/generate-ci-supply-chain-record.ts",
+    "scripts/quality/ci-supply-chain-record-validate.ts",
+    "scripts/quality/ci-supply-chain-record.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -61,10 +88,138 @@ function checkRequiredFiles(): void {
   });
 }
 
+function checkReleaseSupplyChainScript(): void {
+  const script = read("scripts/ops/generate-release-supply-chain.ts");
+  const recordScript = read("scripts/ops/generate-release-supply-chain-record.ts");
+  const ciRecordScript = read("scripts/ops/generate-ci-supply-chain-record.ts");
+  const validator = read("scripts/quality/release-supply-chain-validate.ts");
+  const selftest = read("scripts/quality/release-supply-chain-validate.selftest.ts");
+  const recordSelftest = read("scripts/quality/release-supply-chain-record.selftest.ts");
+  const ciValidator = read("scripts/quality/ci-supply-chain-record-validate.ts");
+  const ciSelftest = read("scripts/quality/ci-supply-chain-record.selftest.ts");
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const releaseScript = packageJson.scripts?.["release:supply-chain"] ?? "";
+  const validateScript = packageJson.scripts?.["release:supply-chain:validate"] ?? "";
+  const selftestScript = packageJson.scripts?.["release:supply-chain:selftest"] ?? "";
+  const recordPackageScript = packageJson.scripts?.["release:supply-chain:record"] ?? "";
+  const recordSelftestPackageScript = packageJson.scripts?.["release:supply-chain:record:selftest"] ?? "";
+  const ciRecordPackageScript = packageJson.scripts?.["ci:supply-chain:record"] ?? "";
+  const ciValidatePackageScript = packageJson.scripts?.["ci:supply-chain:validate"] ?? "";
+  const ciSelftestPackageScript = packageJson.scripts?.["ci:supply-chain:selftest"] ?? "";
+  const requiredTerms = [
+    "SPDX-2.3",
+    "pnpm",
+    "list",
+    "--recursive",
+    "--prod",
+    "areaforge-sbom.spdx.json",
+    "areaforge-provenance.json",
+    "AREAFORGE_WEB_IMAGE_DIGEST",
+    "AREAFORGE_MIGRATION_IMAGE_DIGEST",
+    "safetyFacts",
+    "promptOrRawAiResponseIncluded: false",
+    "attachmentContentIncluded: false",
+    "release:supply-chain:validate",
+    "release:supply-chain:record",
+    "ci:supply-chain:validate",
+    "ci:supply-chain:record",
+    "release supply-chain record validation passed",
+    "release supply-chain validator selftest passed",
+    "release supply-chain record generator selftest passed",
+    "CI supply-chain record validation passed",
+    "CI supply-chain record selftest passed",
+    "AREAFORGE_AUDIT_PROD_STATUS",
+    "AREAFORGE_ACTIONS_PINNING_STATUS",
+    "AF-RISK-SC-001",
+    "AF-RISK-SC-002",
+  ];
+  const combined = `${script}\n${recordScript}\n${ciRecordScript}\n${validator}\n${selftest}\n${recordSelftest}\n${ciValidator}\n${ciSelftest}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  const ok = missing.length === 0 &&
+    releaseScript === "tsx scripts/ops/generate-release-supply-chain.ts" &&
+    validateScript === "tsx scripts/quality/release-supply-chain-validate.ts" &&
+    selftestScript === "tsx scripts/quality/release-supply-chain-validate.selftest.ts" &&
+    recordPackageScript === "tsx scripts/ops/generate-release-supply-chain-record.ts" &&
+    recordSelftestPackageScript === "tsx scripts/quality/release-supply-chain-record.selftest.ts" &&
+    ciRecordPackageScript === "tsx scripts/ops/generate-ci-supply-chain-record.ts" &&
+    ciValidatePackageScript === "tsx scripts/quality/ci-supply-chain-record-validate.ts" &&
+    ciSelftestPackageScript === "tsx scripts/quality/ci-supply-chain-record.selftest.ts";
+  checks.push({
+    name: "release supply-chain generator",
+    ok,
+    detail: ok
+      ? "package scripts generate SPDX SBOM/provenance, supply-chain evidence records, and validation selftests without new dependencies"
+      : `missing terms ${missing.join(", ") || "none"}; package script=${releaseScript || "missing"}; validate script=${validateScript || "missing"}; selftest=${selftestScript || "missing"}; record script=${recordPackageScript || "missing"}; record selftest=${recordSelftestPackageScript || "missing"}; ci record=${ciRecordPackageScript || "missing"}; ci validate=${ciValidatePackageScript || "missing"}; ci selftest=${ciSelftestPackageScript || "missing"}`,
+  });
+}
+
+function checkWorkflowTopLevelSyntax(): void {
+  const allowedTopLevelKeys = new Set(["name", "on", "permissions", "env", "jobs"]);
+  const workflowFiles = [".github/workflows/ci.yml", ".github/workflows/release.yml"];
+  const issues = workflowFiles.flatMap((file) => {
+    const lines = read(file).split(/\r?\n/);
+    return lines.flatMap((line, index) => {
+      if (!line.trim() || line.trimStart().startsWith("#") || /^\s/.test(line)) return [];
+      const match = /^([A-Za-z_][\w-]*):/.exec(line);
+      if (match && allowedTopLevelKeys.has(match[1])) return [];
+      return `${file}:${index + 1}:${line.slice(0, 80)}`;
+    });
+  });
+  checks.push({
+    name: "GitHub workflow top-level syntax",
+    ok: issues.length === 0,
+    detail: issues.length === 0
+      ? "CI and Release workflow files have no accidental unindented script/heredoc lines"
+      : `unexpected top-level lines ${issues.join(", ")}`,
+  });
+}
+
+function checkExtraSmokeCommand(): void {
+  const script = read("scripts/ops/production-readonly-smoke.ts");
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const envExample = read("ops/github-release-updater/areaforge-updater.env.example");
+  const docs = [
+    read("docs/deployment/github-release-updater.md"),
+    read("docs/development/production-release-runbook.md"),
+    read("ops/github-release-updater/README.md"),
+  ].join("\n");
+  const requiredScriptTerms = [
+    "AREAFORGE_SMOKE_BASE_URL",
+    "AREAFORGE_SMOKE_EMAIL",
+    "AREAFORGE_SMOKE_PASSWORD_FILE",
+    "AREAFORGE_SMOKE_ATTACHMENT_ID",
+    "/api/auth/login",
+    "/api/dashboard/today",
+    "/api/system/update-status",
+  ];
+  const requiredDocTerms = [
+    "smoke:prod-readonly",
+    "AREAFORGE_SMOKE_PASSWORD_FILE",
+    "AREAFORGE_EXTRA_SMOKE_COMMAND",
+  ];
+  const missingScriptTerms = requiredScriptTerms.filter((term) => !script.includes(term));
+  const missingDocTerms = requiredDocTerms.filter((term) => !docs.includes(term) && !envExample.includes(term));
+  const smokeScript = packageJson.scripts?.["smoke:prod-readonly"] ?? "";
+  const ok = missingScriptTerms.length === 0 &&
+    missingDocTerms.length === 0 &&
+    smokeScript === "tsx scripts/ops/production-readonly-smoke.ts";
+  checks.push({
+    name: "extra smoke command",
+    ok,
+    detail: ok
+      ? "read-only production smoke script, package entry, updater env hints, and docs are present"
+      : `missing script terms ${missingScriptTerms.join(", ") || "none"}; missing doc terms ${missingDocTerms.join(", ") || "none"}; smoke script=${smokeScript || "missing"}`,
+  });
+}
+
 function checkShellSyntax(): void {
   const scripts = [
     "ops/github-release-updater/areaforge-updater.sh",
     "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-ops001-evidence-export.sh",
+    "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
+    "ops/update-agent/areaforge-release-readonly-smoke.sh",
   ];
   const failed = scripts.flatMap((script) => {
     const result = spawnSync("bash", ["-n", script], {
@@ -77,6 +232,25 @@ function checkShellSyntax(): void {
     name: "updater shell syntax",
     ok: failed.length === 0,
     detail: failed.length === 0 ? "bash -n passed" : failed.join("; "),
+  });
+}
+
+function checkExecutableModes(): void {
+  const scripts = [
+    "ops/github-release-updater/areaforge-updater.sh",
+    "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/areaforge-ops001-evidence-export.sh",
+    "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
+    "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
+    "ops/update-agent/areaforge-release-readonly-smoke.sh",
+  ];
+  const nonExecutable = scripts.filter((script) => (statSync(resolve(script)).mode & 0o111) === 0);
+  checks.push({
+    name: "updater executable modes",
+    ok: nonExecutable.length === 0,
+    detail: nonExecutable.length === 0
+      ? "updater and update-agent shell entrypoints are executable for systemd ExecStart and operator use"
+      : `not executable: ${nonExecutable.join(", ")}`,
   });
 }
 
@@ -94,8 +268,11 @@ function checkManifestExample(): void {
     "migrationImage",
     "migrationImageDigest",
     "requiresMigration",
+    "composeAsset",
     "sha256SumsAsset",
     "signatureAsset",
+    "sbomAsset",
+    "provenanceAsset",
     "autoApply",
     "smoke",
   ];
@@ -113,7 +290,7 @@ function checkManifestExample(): void {
     name: "release manifest example",
     ok,
     detail: ok
-      ? "manifest documents version, channel, immutable image digests, migration image, checksums, signature, and auto-apply policy"
+      ? "manifest documents version, channel, immutable image digests, migration image, checksums, signature, SBOM/provenance assets, and auto-apply policy"
       : `missing ${missing.join(", ") || "none"}; webDigest=${webDigest}; migrationDigest=${migrationDigest}`,
   });
 }
@@ -126,6 +303,11 @@ function checkUpdaterBoundaries(): void {
     "AREAFORGE_RELEASE_MANIFEST_ASSET",
     "SHA256SUMS",
     "verify_signature",
+    "SBOM_ASSET",
+    "PROVENANCE_ASSET",
+    "validate_asset_name",
+    "verify_sha256_asset \"$SUMS_PATH\" \"$SBOM_ASSET\"",
+    "verify_sha256_asset \"$SUMS_PATH\" \"$PROVENANCE_ASSET\"",
     "unsupported manifest schemaVersion",
     "minimumAppVersion",
     "cosign verify-blob",
@@ -143,6 +325,8 @@ function checkUpdaterBoundaries(): void {
     "env_set APP_VERSION",
     "run_smoke",
     "rollback_application",
+    "sbomSha256",
+    "provenanceSha256",
     "write_record",
   ];
   const forbiddenTerms = [
@@ -157,6 +341,42 @@ function checkUpdaterBoundaries(): void {
     detail: missing.length === 0 && forbidden.length === 0
       ? "updater verifies release assets, locks, backs up, migrates via one-off job, smokes, rolls back app image, and redacts database URL"
       : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}`,
+  });
+}
+
+function checkUpdateAgentRequestBoundary(): void {
+  const agent = read("ops/update-agent/areaforge-update-agent.sh");
+  const docs = read("docs/deployment/github-release-updater.md");
+  const webUpdateCenter = read("apps/web/lib/system/update-center.ts");
+  const webUpdateRequestRoute = read("apps/web/app/api/system/update-requests/route.ts");
+  const selftest = read("scripts/quality/update-center-request-guard.selftest.ts");
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const requestGuardSelftestScript = packageJson.scripts?.["update-center:request-guard:selftest"] ?? "";
+  const requiredTerms = [
+    "validate_request_schema",
+    "archive_invalid_request",
+    "invalid update request schema",
+    "update_[0-9]+_",
+    "set_auto_apply",
+    "autoApply",
+    "actorEmailHash",
+    "status_message_from_output",
+    "归档为 failed",
+    "validateUpdateRequestAgainstStatus",
+    "UPDATE_TARGET_NOT_NEWER",
+    "同版本或旧版本",
+    "update center request guard selftest passed",
+  ];
+  const combined = `${agent}\n${docs}\n${webUpdateCenter}\n${webUpdateRequestRoute}\n${selftest}`;
+  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  const ok = missing.length === 0 &&
+    requestGuardSelftestScript === "tsx scripts/quality/update-center-request-guard.selftest.ts";
+  checks.push({
+    name: "update-agent request boundary",
+    ok,
+    detail: ok
+      ? "web update center rejects no-op requests before queueing, and root update-agent validates request schema before executing updater, rollback, or config changes"
+      : `missing ${missing.join(", ") || "none"}; request guard selftest=${requestGuardSelftestScript || "missing"}`,
   });
 }
 
@@ -194,14 +414,33 @@ function checkReleaseWorkflow(): void {
     "tags:",
     "v*.*.*",
     "docker/build-push-action",
+    "needs: validate",
+    "pnpm github-release-updater:preflight",
+    "pnpm ops:readiness",
+    "pnpm audit:prod",
+    "pnpm check",
+    "Release supply-chain generator smoke",
     "infra/docker/web.Dockerfile",
     "infra/docker/migration.Dockerfile",
     "areaforge-release-manifest.json",
     "webImageDigest",
     "migrationImageDigest",
-    "sha256sum areaforge-release-manifest.json docker-compose.prod.yml > SHA256SUMS",
+    "sbomAsset",
+    "provenanceAsset",
+    "pnpm release:supply-chain",
+    "areaforge-sbom.spdx.json",
+    "areaforge-provenance.json",
+    "pnpm release:supply-chain:selftest",
+    "pnpm ci:supply-chain:selftest",
+    "pnpm ops:ops-001:fallback:selftest",
+    "pnpm release:evidence:redacted-export:selftest",
+    "pnpm release:evidence:redacted-export:record:selftest",
+    "pnpm ops:ops-001:fallback:finalize:selftest",
+    "sha256sum",
     "COSIGN_PRIVATE_KEY_B64",
     "cosign sign-blob",
+    "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
+    "unsigned preview",
     "--yes",
     "--bundle SHA256SUMS.sig",
     "softprops/action-gh-release",
@@ -211,7 +450,7 @@ function checkReleaseWorkflow(): void {
     name: "GitHub Release workflow",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "workflow builds web and migration images, emits manifest/checksums/signature asset, and publishes a GitHub Release"
+      ? "workflow validates release gates, builds web and migration images, emits manifest/SBOM/provenance/checksums/signature assets, and publishes a GitHub Release"
       : `missing ${missing.join(", ")}`,
   });
 }
@@ -228,8 +467,15 @@ function checkCiWorkflow(): void {
     "node-version: 24",
     "sudo apt-get install -y shellcheck",
     "pnpm install --frozen-lockfile",
+    "pnpm audit:prod",
+    "pnpm ci:supply-chain:selftest",
     "pnpm shellcheck:updater",
+    "pnpm ops:ops-001:fallback:selftest",
+    "pnpm release:evidence:redacted-export:selftest",
+    "pnpm release:evidence:redacted-export:record:selftest",
+    "pnpm ops:ops-001:fallback:finalize:selftest",
     "pnpm github-release-updater:preflight",
+    "pnpm governance:preflight",
     "pnpm package-e:preflight",
     "pnpm risk:preflight",
     "pnpm docs:readiness",
@@ -248,7 +494,7 @@ function checkCiWorkflow(): void {
     name: "GitHub CI workflow",
     ok: missing.length === 0 && forbidden.length === 0,
     detail: missing.length === 0 && forbidden.length === 0
-      ? "CI runs shellcheck, updater preflight, Package E/risk/docs gates, and pnpm check without deploy privileges"
+      ? "CI runs shellcheck, updater preflight, governance, ops readiness, Package E/risk/docs gates, and pnpm check without deploy privileges"
       : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}`,
   });
 }

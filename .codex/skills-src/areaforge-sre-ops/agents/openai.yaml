@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge SRE Ops"
+  short_description: "Production health backup updater ops"
+  default_prompt: "Use $areaforge-sre-ops to inspect AreaForge production health, backups, updater, and rollback readiness."

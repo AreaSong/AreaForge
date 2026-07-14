@@ -1,0 +1,39 @@
+recordId: release-supply-chain-v0.1.7
+recordedAt: 2026-07-12T04:41:39.623Z
+releaseTag: v0.1.7
+releaseUrl: https://github.com/AreaSong/AreaForge/releases/tag/v0.1.7
+workflowRunUrl: https://github.com/AreaSong/AreaForge/actions/runs/29179904808
+workflowRunConclusion: success
+gitCommit: c1a25e4f897330fea493ad4c6dd889b62ef8f63a
+channel: stable
+packageVersion: 0.1.7
+validateJobStatus: pass
+auditProdStatus: pass
+governancePreflightStatus: pass
+actionsPinningStatus: pass
+releaseWorkflowStatus: pass
+webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd
+migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654
+manifestAsset: areaforge-release-manifest.json
+sbomAsset: areaforge-sbom.spdx.json
+provenanceAsset: areaforge-provenance.json
+sha256SumsAsset: SHA256SUMS
+signatureAsset: SHA256SUMS.sig
+sha256SumsCovers: areaforge-release-manifest.json,areaforge-sbom.spdx.json,areaforge-provenance.json,docker-compose.prod.yml
+checksumVerification: pass
+signatureVerification: pass
+manifestSha256: 6cbaaf05e7cd7c6fadff912e7905842e7c2556ea4852f1ea502ced7cf6c69dea
+sbomSha256: 4dd56f6c72db5e32528df4d2d443fe8e2510df9fe7be20a3d8c8c4d3cff24303
+provenanceSha256: 69f93bd9e4b7f6b8b9390ae2f0e3fa80650796ce3ac2451858e2ca8bd57c692f
+composeSha256: a9dfcf2011b0b7826f8d4c288b5dfd46d4a7c2087ac680f0cc8913fd628df1cc
+stableSigningRequired: yes
+unsignedPlaceholderPresent: no
+residualRiskIds: AF-RISK-SC-001,AF-RISK-SC-002
+followUpTasks: tasks/indexes/residuals.md
+safetyFacts:
+  secretsPrinted: no
+  productionEnvIncluded: no
+  backupIncluded: no
+  promptOrRawAiResponseIncluded: no
+  attachmentContentIncluded: no
+  productionWriteAttempted: no

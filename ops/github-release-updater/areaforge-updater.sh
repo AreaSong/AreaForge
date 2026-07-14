@@ -251,6 +251,13 @@ verify_sha256_asset() {
   grep -E "(^|[[:space:]])${asset_name}$" "$sums" | sha256sum -c -
 }
 
+validate_asset_name() {
+  local asset="$1"
+  local field="$2"
+  [[ -n "$asset" ]] || die "manifest $field is required"
+  [[ "$asset" =~ ^[A-Za-z0-9._-]+$ ]] || die "manifest $field must be a simple release asset name"
+}
+
 normalize_version() {
   printf '%s' "$1" | sed -E 's/^v//; s/-.*$//'
 }
@@ -314,6 +321,13 @@ download_and_verify_release() {
   parse_manifest "$MANIFEST_PATH"
   validate_manifest
 
+  SBOM_ASSET_PATH="$WORK_DIR/$SBOM_ASSET"
+  PROVENANCE_ASSET_PATH="$WORK_DIR/$PROVENANCE_ASSET"
+  download_asset "$RELEASE_JSON" "$SBOM_ASSET" "$SBOM_ASSET_PATH"
+  download_asset "$RELEASE_JSON" "$PROVENANCE_ASSET" "$PROVENANCE_ASSET_PATH"
+  (cd "$WORK_DIR" && verify_sha256_asset "$SUMS_PATH" "$SBOM_ASSET")
+  (cd "$WORK_DIR" && verify_sha256_asset "$SUMS_PATH" "$PROVENANCE_ASSET")
+
   if [[ -n "${COMPOSE_ASSET:-}" ]]; then
     COMPOSE_ASSET_PATH="$WORK_DIR/$COMPOSE_ASSET"
     download_asset "$RELEASE_JSON" "$COMPOSE_ASSET" "$COMPOSE_ASSET_PATH"
@@ -335,6 +349,8 @@ parse_manifest() {
   MIGRATION_IMAGE="$(jq -r '.migrationImage // empty' "$manifest")"
   MIGRATION_IMAGE_DIGEST="$(jq -r '.migrationImageDigest // empty' "$manifest")"
   COMPOSE_ASSET="$(jq -r '.composeAsset // empty' "$manifest")"
+  SBOM_ASSET="$(jq -r '.sbomAsset // empty' "$manifest")"
+  PROVENANCE_ASSET="$(jq -r '.provenanceAsset // empty' "$manifest")"
   MANIFEST_PATCH_ALLOWED="$(jq -r '.autoApply.patch' "$manifest")"
   MANIFEST_MINOR_ALLOWED="$(jq -r '.autoApply.minor' "$manifest")"
   MANIFEST_MAJOR_ALLOWED="$(jq -r '.autoApply.major' "$manifest")"
@@ -351,6 +367,11 @@ validate_manifest() {
   [[ "$WEB_IMAGE" != *":latest" ]] || die "webImage must not use latest"
   [[ "$WEB_IMAGE_DIGEST" =~ @sha256:[a-f0-9]{64}$ ]] || die "webImageDigest must be image@sha256:<64 hex>"
   [[ "$TARGET_GIT_COMMIT" =~ ^[a-f0-9]{40}$ ]] || die "gitCommit must be a 40-character SHA"
+  validate_asset_name "$SBOM_ASSET" "sbomAsset"
+  validate_asset_name "$PROVENANCE_ASSET" "provenanceAsset"
+  if [[ -n "$COMPOSE_ASSET" ]]; then
+    validate_asset_name "$COMPOSE_ASSET" "composeAsset"
+  fi
   if [[ "$REQUIRES_MIGRATION" == "true" ]]; then
     [[ -n "$MIGRATION_IMAGE_DIGEST" ]] || die "requiresMigration=true needs migrationImageDigest"
     [[ "$MIGRATION_IMAGE" != *":latest" ]] || die "migrationImage must not use latest"
@@ -428,6 +449,8 @@ backup_before_update() {
     cp "$MANIFEST_PATH" "$RECORD_DIR/release/$AREAFORGE_RELEASE_MANIFEST_ASSET"
     cp "$SUMS_PATH" "$RECORD_DIR/release/$AREAFORGE_RELEASE_CHECKSUM_ASSET"
     [[ -f "$SIGNATURE_PATH" ]] && cp "$SIGNATURE_PATH" "$RECORD_DIR/release/$AREAFORGE_RELEASE_SIGNATURE_ASSET"
+    cp "$SBOM_ASSET_PATH" "$RECORD_DIR/release/$SBOM_ASSET"
+    cp "$PROVENANCE_ASSET_PATH" "$RECORD_DIR/release/$PROVENANCE_ASSET"
   else
     log "dry-run: would backup database, uploads volume, env, compose, nginx, and release assets"
   fi
@@ -487,7 +510,13 @@ run_smoke() {
     if [[ "$DRY_RUN" == "1" ]]; then
       log "dry-run: would run AREAFORGE_EXTRA_SMOKE_COMMAND"
     else
-      bash -lc "$AREAFORGE_EXTRA_SMOKE_COMMAND" > "$RECORD_DIR/logs/extra-smoke.log" 2>&1
+      if AREAFORGE_SMOKE_EXPECTED_VERSION="$TARGET_VERSION" \
+        bash -lc "$AREAFORGE_EXTRA_SMOKE_COMMAND" > "$RECORD_DIR/logs/extra-smoke.log" 2>&1; then
+        printf 'PASS\n' > "$RECORD_DIR/logs/extra-smoke.status"
+      else
+        printf 'FAIL\n' > "$RECORD_DIR/logs/extra-smoke.status"
+        return 1
+      fi
     fi
   fi
 }
@@ -497,6 +526,16 @@ rollback_application() {
   env_set AREAFORGE_IMAGE "$CURRENT_IMAGE"
   env_set APP_VERSION "$CURRENT_VERSION"
   run_cmd compose up -d web
+}
+
+extra_smoke_status() {
+  if [[ -z "${AREAFORGE_EXTRA_SMOKE_COMMAND:-}" ]]; then
+    printf 'not-configured'
+  elif [[ -f "$RECORD_DIR/logs/extra-smoke.status" ]]; then
+    tr -d '\n' < "$RECORD_DIR/logs/extra-smoke.status"
+  else
+    printf 'FAIL'
+  fi
 }
 
 write_record() {
@@ -519,6 +558,10 @@ targetWebImage: $WEB_IMAGE
 targetWebImageDigest: $WEB_IMAGE_DIGEST
 migrationApplied: $REQUIRES_MIGRATION
 migrationImageDigest: ${MIGRATION_IMAGE_DIGEST:-not-applicable}
+sbomAsset: $SBOM_ASSET
+sbomSha256: $(sha256_file "$SBOM_ASSET_PATH")
+provenanceAsset: $PROVENANCE_ASSET
+provenanceSha256: $(sha256_file "$PROVENANCE_ASSET_PATH")
 composeUpdated: $AREAFORGE_ALLOW_COMPOSE_UPDATE
 databaseBackupPath: $RECORD_DIR/db/areaforge-before-update.dump
 databaseBackupSha256: $(sha256_file "$RECORD_DIR/db/areaforge-before-update.dump")
@@ -531,6 +574,8 @@ composeHash: $(sha256_file "$RECORD_DIR/config/docker-compose.prod.yml")
 nginxConfigBackupPath: ${AREAFORGE_NGINX_CONFIG:-not-configured}
 healthUrl: $HEALTH_URL
 smokeHealth: $([[ -f "$RECORD_DIR/logs/health.json" ]] && printf PASS || printf FAIL)
+extraSmoke: $(extra_smoke_status)
+extraSmokeLogPath: $([[ -n "${AREAFORGE_EXTRA_SMOKE_COMMAND:-}" ]] && printf '%s' "$RECORD_DIR/logs/extra-smoke.log" || printf 'not-configured')
 rollbackAttempted: $([[ "$status" == "rolled_back" ]] && printf yes || printf no)
 databaseRestoreAttempted: no
 uploadsRestoreAttempted: no

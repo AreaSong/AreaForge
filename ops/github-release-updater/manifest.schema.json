@@ -15,8 +15,11 @@
     "webImage",
     "webImageDigest",
     "requiresMigration",
+    "composeAsset",
     "sha256SumsAsset",
     "signatureAsset",
+    "sbomAsset",
+    "provenanceAsset",
     "autoApply",
     "smoke",
     "releaseNotesUrl"
@@ -51,6 +54,8 @@
     "composeAsset": { "type": "string" },
     "sha256SumsAsset": { "type": "string" },
     "signatureAsset": { "type": "string" },
+    "sbomAsset": { "type": "string" },
+    "provenanceAsset": { "type": "string" },
     "autoApply": {
       "type": "object",
       "additionalProperties": false,

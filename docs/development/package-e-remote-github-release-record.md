@@ -2,11 +2,13 @@
 
 本记录补充 Package E 在真实远端服务器上的 GitHub Release 受控更新证据。它不替代 E1-E4 的本机生产发布、备份、恢复和回滚演练记录，而是记录外部服务器、域名 HTTPS、GHCR Release、cosign 签名校验和 update-agent 状态已经完成的事实。
 
-## 当前结论
+## 历史结论
+
+本记录是 `v0.1.5` 首次远端 GitHub Release 签名更新的历史证据。当前生产版本已更新到 `0.1.7`，当前记录见 `docs/development/release-v0.1.7-record.md`；本文件不得作为当前线上版本、最新 Release 或长期运营闭环证据使用。
 
 - 线上地址：`https://forge.areasong.top/`
 - 线上健康检查：`GET https://forge.areasong.top/api/health` 返回 `{"ok":true,"service":"AreaForge","version":"0.1.5"}`。
-- 最新 GitHub Release：`v0.1.5`，发布时间 `2026-07-10T07:15:36Z`。
+- 当时最新 GitHub Release：`v0.1.5`，发布时间 `2026-07-10T07:15:36Z`。
 - Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v0.1.5`
 - Release commit：`05bc4fe35db75d323d8391abcd1fb97bff575e2d`
 - 服务器更新方式：`areaforge-updater.sh apply --yes --tag v0.1.5 --config /etc/areaforge/updater.env`
@@ -170,6 +172,6 @@ Web runtime 不直接执行 `docker pull`、`docker compose`、`pg_dump`、migra
 ## 残余风险与后续规则
 
 - 当前 `AREAFORGE_AUTO_APPLY=none`，所以后续新版本不会静默自动应用；需要通过 Web 受控请求、手动 updater 或显式调整策略触发。
-- updater 内置 smoke 只检查 `/api/health`；完整登录、任务、计时、附件和 AI smoke 仍应通过 `AREAFORGE_EXTRA_SMOKE_COMMAND` 或人工发布检查补充。
+- updater 内置 smoke 只检查 `/api/health`；仓库现已提供 `pnpm smoke:prod-readonly` 作为 `AREAFORGE_EXTRA_SMOKE_COMMAND` 的默认只读补强，可覆盖登录、核心只读 API、update-status 和可选附件下载。创建任务、计时、附件上传和 AI 外呼等写入型 smoke 仍需专门 smoke 账号和单独确认的写入策略。
 - 数据库恢复和上传目录恢复仍不自动执行；失败时默认只回滚应用镜像和 `APP_VERSION`。
 - 后续每次功能发布应使用干净 commit、版本 bump、tag、GitHub Release，并验证 `SHA256SUMS` 与 `SHA256SUMS.sig` 后再让服务器更新。

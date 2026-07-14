@@ -4,7 +4,7 @@
 
 本文件记录 Package E Batch E4 在本机受控环境中的回滚演练。它不是最终真实生产回滚记录，不包含生产 `.env`、密钥、数据库 URL、生产备份文件本体或附件内容。
 
-结论：本地回滚机制、回滚后 smoke、附件只读对账、回滚后 roll-forward 和 release evidence 校验已通过；本文件是早期本地机制演练记录，不作为当前远端生产状态依据。prod-local 回滚收口见 `docs/development/package-e-e4-prod-local-rollback-record.md`，真实远端 `v0.1.5` GitHub Release 签名更新证据见 `docs/development/package-e-remote-github-release-record.md`。
+结论：本地回滚机制、回滚后 smoke、附件只读对账、回滚后 roll-forward 和 release evidence 校验已通过；本文件是早期本地机制演练记录，不作为当前远端生产状态依据。prod-local 回滚收口见 `docs/development/package-e-e4-prod-local-rollback-record.md`，真实远端 `v0.1.5` 历史 GitHub Release 签名更新证据见 `docs/development/package-e-remote-github-release-record.md`，当前生产更新证据见 `docs/development/release-v0.1.7-record.md`。
 
 ## 执行环境
 

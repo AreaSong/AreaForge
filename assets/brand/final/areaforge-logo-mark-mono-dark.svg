@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">AreaForge Logo Mark Mono Dark</title>
+  <desc id="desc">A single-color dark AreaForge mark for light backgrounds.</desc>
+  <g fill="none" stroke="#09272D" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="72" y="72" width="368" height="368" rx="88" stroke-width="24"/>
+    <path d="M176 154c-63 57-64 145 0 202" stroke-width="28"/>
+    <path d="M336 154c63 57 64 145 0 202" stroke-width="28" opacity="0.74"/>
+    <path d="M176 356c44 31 116 31 160 0" stroke-width="28"/>
+    <path d="M155 166c0-17 14-31 31-31h78l46 46v132c0 17-14 31-31 31h-93c-17 0-31-14-31-31V166z" stroke-width="20"/>
+    <path d="M256 154v146l80 58" stroke-width="24"/>
+    <path d="M166 358h180" stroke-width="30"/>
+  </g>
+  <g fill="#09272D">
+    <circle cx="256" cy="154" r="34"/>
+    <circle cx="176" cy="356" r="22"/>
+    <circle cx="336" cy="356" r="24"/>
+  </g>
+</svg>

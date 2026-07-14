@@ -39,3 +39,11 @@ AreaForge 需要支持：
 `packages/storage` 提供 MIME 策略、magic bytes 校验、metadata 草稿、随机存储名与 `upload://attachment/` URI、上传目录内路径解析、相对上传目录拒绝、公开目录拒绝钩子和下载响应头生成。Package A 后，Web 服务层已接入 noteId 绑定附件上传和鉴权下载：创建上传目录、私有落盘、软链接真实路径校验、DB/文件补偿、hash/size 对账和 `private, no-store` / `nosniff` 响应头均已覆盖。
 
 第一版仍不提供附件删除、错题/模拟/阶段附件、AI 解析或孤儿文件自动清理。
+
+## 双向只读对账
+
+附件恢复和发布证据不能只检查“数据库记录指向的文件是否存在”，还必须扫描私有上传目录中的反向状态。`pnpm attachment:reconciliation` 始终生成数据库到文件系统的 `report_only` CSV，并执行目录到数据库的双向扫描；`--summary-output` 只控制是否保存 JSON，不控制是否扫描。summary 统计 `dbOnlyCount`、`fileOnlyCount`、hash/size mismatch、非法 URI、重复文件引用、symlink/非文件等 unsafe entry，任一异常都返回 `mismatch`。
+
+CSV 和 summary 必须写在 `UPLOAD_DIR` 外，输出路径不能相同、不能是 symlink，写入使用权限 `0600` 的临时文件原子替换。附件读取使用 `O_NOFOLLOW` 文件描述符，上传根本身不能是 symlink 或文件系统根目录。summary 不包含绝对路径、文件内容或明文存储名；孤儿和不安全目录项只保存文件名 SHA256。
+
+该对账只报告，不删除、不移动、不修复 metadata，也不证明扫描期间不存在并发写入。发布或恢复证明应针对停止写入的临时恢复副本、快照或维护窗口中的静止数据集运行。

@@ -68,6 +68,6 @@
 ## 残余风险
 
 - 本记录生成时 Batch E4 回滚演练尚未在本机生产目标执行；后续已由 `docs/development/package-e-e4-prod-local-rollback-record.md` 补齐，Package E 主状态以 completion record 为准。
-- 本记录生成时未完成远端域名 HTTPS / Nginx 真实切换；后续已由 `docs/development/package-e-remote-github-release-record.md` 补齐，当前远端运行 `v0.1.5`。
+- 本记录生成时未完成远端域名 HTTPS / Nginx 真实切换；后续先由 `docs/development/package-e-remote-github-release-record.md` 补齐 `v0.1.5` 历史远端记录，再由 `docs/development/release-v0.1.7-record.md` 补齐当前 `v0.1.7` 生产更新记录。
 - 发布镜像基于当前 dirty worktree 构建，后续正式发布前应在干净 commit/tag 上重建固定 tag。
 - 生产 Web 已运行在 `http://127.0.0.1:3000`；若后续执行 E4，需要先确认上一镜像、回滚步骤、是否恢复数据库/上传目录和恢复耗时记录口径。

@@ -27,6 +27,15 @@ E2 范围：PostgreSQL dump、上传目录归档、生产 `.env` 权限收紧备
 
 ## 恢复演练结果
 
+结构化摘要，仅供 `pnpm ops:backup-restore:preview` 识别本地 E2 恢复演练结果；本记录仍不替代生产 release 备份 hash、生产 OPS-001 证据或完整 restore drill record。
+
+```text
+databaseRestoreResult: PASS
+uploadsRestoreResult: PASS
+attachmentHashMatched: not-applicable
+appHealthAfterRestore: not-applicable
+```
+
 | 验收项 | 结果 |
 |---|---|
 | 数据库 dump 可导入临时库 | PASS |

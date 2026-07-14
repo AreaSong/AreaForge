@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge Release Operator"
+  short_description: "Release and updater evidence workflow"
+  default_prompt: "Use $areaforge-release-operator to prepare a signed AreaForge release and updater evidence."

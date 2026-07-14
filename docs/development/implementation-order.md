@@ -27,15 +27,26 @@
 - 周审判与月复盘报告已完成报告闭环：周期报告 API、报告页、`choosePeriodicWeakness` 最大短板选择规则、`summarizePeriodicReportStrategy` 周期策略规则、本地规则复盘草稿、`createPeriodicNextCycleDraft` 下周期草稿和 `createPeriodicReportDecisionSnapshot` 回放快照；Package D Batch D1 已新增报告确认/驳回、冻结快照、确认草稿、审计和只读回放；`decisionPreview` 与已保存决策均固定 `canAutoApply=false` / `requiresUserConfirmation=true`，仍不应用阶段计划或任务重排。
 - 全真模拟考试已完成结构化主路径：Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、结构化模拟 API 和 `/simulation` 主写入；旧 `StudyTask.type = "simulation_exam"` 记录只读兼容；Package B Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft`、阶段计划 API 和持久草稿确认边界；`packages/core/src/simulation-result.ts` 已沉淀模拟考试结果复盘纯规则，并接入结构化结果保存；`packages/core/src/stage-adjustment.ts` 已沉淀阶段调整草稿纯规则且明确不能自动应用。Package D Batch D1 报告决策入口、D2 债务重排确认流、D3 长期 AI 阶段草稿、D4 长期风险/主题闭环和 D5 收口已完成。
 - AI 建议已完成 Package C 第一版：`packages/ai` 提供结构化 schema、本地规则 fallback、OpenAI-compatible JSON provider、mock/外呼错误测试和敏感上下文拦截，Web 提供 AI 建议 API 与首页本地草稿展示；Package D Batch D3 已在 `stage_adjustment` schema 下完成长期阶段 AI 草稿显式触发，D3 范围外长期 AI 应用仍需单独确认。
-- Package E 已完成生产配置预检、备份恢复演练、本机单机生产发布、回滚收口和远端 `v0.1.5` GitHub Release 签名更新；线上 `https://forge.areasong.top/api/health` 返回 `0.1.5`，自动更新链路默认 `AREAFORGE_AUTO_APPLY=none`，Web 版本中心只提交受控更新请求，由服务器侧 update-agent/updater 执行签名校验、备份、migration、切换和回滚。
+- Package E 已完成生产配置预检、备份恢复演练、本机单机生产发布、回滚收口、远端 `v0.1.5` 历史 GitHub Release 签名更新和当前 `v0.1.7` 生产更新；线上 `https://forge.areasong.top/api/health` 返回 `0.1.7`，自动更新链路默认 `AREAFORGE_AUTO_APPLY=none`，Web 版本中心只提交受控更新请求，由服务器侧 update-agent/updater 执行签名校验、备份、migration、切换和回滚。
+- 长期运营治理已补齐轻量入口：`areaforge-operating-loop` 负责跨 skill 编排，`operational-readiness.md` 聚合只读运营证据，`residual-risk-ledger.md` 维护影响发布/运维判断的稳定残余风险 ID，release workflow 在 build/push 前运行 validate job 且 stable 签名 fail closed。
 
-## 下一步主线
+## 已完成主线及保留入口
 
 1. `tasks/done/0004-mvp-syllabus-notes-upload.md`：附件上传与鉴权访问已由 Package A 完成。
 2. `tasks/done/0005-mvp-ai-discipline.md`：真实 AI Provider 第一版已由 Package C 完成。
-3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState`、显式掌握证明记录、结构化模拟考试和阶段计划/草稿已由 Package B Batch 1-6 完成；后续长期应用继续随 Package D 增强。
+3. `tasks/backlog/0008-task-debt-checkin-recovery.md`：`CheckIn` 日快照、债务事件账本、`RecoveryState`、显式掌握证明记录、结构化模拟考试和阶段计划/草稿已由 Package B Batch 1-6 完成；Package D D1-D5 已完成长期闭环主线，未来自动应用或批量调整另行确认。
 4. `tasks/backlog/0013-simulation-stage-adjustment.md`：结构化全真模拟考试主路径、阶段计划/草稿持久化、报告决策入口、债务重排所选项应用记录、长期 AI 草稿显式触发、长期风险/主题闭环和 Package D 收口已完成。
 5. `tasks/backlog/0014-deployment-backup-release.md`：生产部署、备份恢复、GitHub Release 签名更新和版本中心受控请求流已完成；后续功能更新按 release runbook 逐次发布。
+
+以上是已完成主线的归档入口，不应作为当前功能 backlog 重新执行。
+
+## 当前后续
+
+1. `AF-RISK-OPS-001`：补齐 post-`v0.1.7` 的 redacted update-agent status、production readonly smoke、operational evidence bundle 和 closure packet；只读证据导出或生产动作都必须重新获得相应高风险确认。
+2. `release-v0.1.7-record.md`：补齐可校验的 `releaseEvidenceBundleHash`、`databaseBackupSha256`、`uploadsBackupSha256` 与 `envBackupSha256`；本地不能伪造或从 secret 文件提取这些值。
+3. `AF-RISK-OPS-004`、`AF-RISK-SC-001`、`AF-RISK-UX-001`：保持各自的人工复核和关闭条件，不能因 validator 通过而自动关闭 residual。
+4. 长期运营优化：不引入 AreaMatrix/AreaFlow 的重型任务队列或 command API；只围绕路径审阅、ops readiness、残余风险、完成证据纪律、运行时写边界和真实体验逐项推进。
+5. `AF-RISK-OPS-005`：Web update request 当前只在入队时校验，root agent 未绑定 expected-before/TTL/hash；设计和确认包已准备，代码实施必须等待明确确认，生产部署再单独确认。
 
 实现前确认设计：
 
@@ -45,7 +56,10 @@
 - 第二阶段长期闭环：`docs/development/second-stage-long-term-loop-design.md`。
 - 生产发布、备份与恢复：`docs/development/production-release-runbook.md`。
 - 高风险确认总表：`docs/development/high-risk-confirmation-packets.md`。
+- Update request 前态绑定：`docs/development/update-request-expected-before-design.md`。
 - docs 100% 验收证据：`docs/development/docs-100-acceptance-evidence.md`。
+- 长期运营 readiness：`docs/development/operational-readiness.md`。
+- 残余风险台账：`docs/development/residual-risk-ledger.md`。
 
 ## 高风险确认包状态
 
@@ -133,7 +147,7 @@ Package E 已按高风险确认推进并完成：
 - 生产 PostgreSQL 不暴露公网端口，Web 在当前服务器绑定 `127.0.0.1:3020` 供 Nginx 反代。
 - 发布前备份数据库、上传目录、生产 `.env` 和当前版本 tag/digest。
 - 执行 Prisma migration deploy 前有备份点和回滚说明，远端 `v0.1.5` 使用一次性 migration image，结果为 `No pending migrations to apply`。
-- GitHub Release workflow 生成 manifest、compose、hash 和 cosign bundle；服务器 updater 校验签名和 digest 后更新。
+- GitHub Release workflow 先执行 validate job，再生成 manifest、compose、hash 和 cosign bundle；stable release 缺签名密钥时 fail closed；服务器 updater 校验签名和 digest 后更新。
 - 每日 `pg_dump`、上传目录同周期备份和至少 14 天保留仍按部署文档执行。
 - 已在本机生产目标做临时库/上传目录恢复演练与 E4 回滚演练；远端迁移、域名、Nginx 或备份策略变化仍需单独记录。
 

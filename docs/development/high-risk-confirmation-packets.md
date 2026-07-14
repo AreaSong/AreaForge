@@ -817,3 +817,444 @@ D1 最小实施契约：
 > 确认执行 Package E Batch E3：生产发布与 migration deploy。范围仅限在备份点存在后，通过明确的 release 工作目录或一次性 migration job 执行已确认的发布、必要 additive migration deploy、Nginx/compose 切换和发布后烟测；不执行无备份 migration，不公开暴露 PostgreSQL 或上传目录。
 
 > 确认执行 Package E Batch E4：回滚演练与 Package E 收口。范围仅限记录上一镜像 tag、失败回滚步骤、是否需要数据库/上传目录恢复、发布结果、残余风险、文档同步和 completion record；不新增网页内一键更新或服务器命令入口。
+
+## 生产只读证据导出确认包：`AF-RISK-OPS-001`
+
+本确认包用于在生产服务器上导出 `AF-RISK-OPS-001` 所需 redacted 证据，让生产只读 smoke、update-agent status、operational evidence bundle 和 OPS-001 closure packet 进入可人工复核关闭状态。它只授权一次只读证据导出，不授权生产更新、备份、恢复、migration、rollback、写入型 smoke 或 residual 台账关闭。
+
+源事实：
+
+- `docs/development/operational-readiness.md`
+- `docs/development/ops-001-closure-packet-template.md`
+- `docs/deployment/operator-onboarding.md`
+- `ops/github-release-updater/README.md`
+- `ops/update-agent/areaforge-ops001-evidence-export.sh`
+- `ops/update-agent/areaforge-ops001-readonly-fallback.sh`
+- `docs/development/residual-risk-ledger.md`
+
+影响：
+
+- 需要通过 SSH 登录生产服务器，并在服务器侧以具备读取 updater 配置、ops-state 和 smoke 密码文件权限的操作者执行 helper。
+- helper 会读取 updater config、`status.json`、smoke 密码文件 metadata/凭据、生产 Web 只读 API 和本地仓库脚本。
+- helper 会在指定输出目录生成 redacted 证据文件，供维护者带回本地校验。
+- sudo 密码只允许在终端 TTY 输入，不得发到聊天、commit、issue、release record 或日志中。
+
+实施范围：
+
+- 在确认的生产主机上执行 `areaforge-ops001-evidence-export.sh`；若生产主机缺 Node.js/pnpm，可执行 `areaforge-ops001-readonly-fallback.sh` 导出 redacted 输入后回本地生成记录。
+- 指定 updater config、ops-state 和输出目录。
+- 生成并校验：
+  - `redacted-update-status.json`
+  - `prod-readonly-smoke-record.txt`
+  - `operational-evidence-bundle.json`
+  - `ops-001-closure-packet.txt`
+  - `ops001-preflight-before-closure.json`
+  - `ops001-preflight-after-closure.json`
+  - `summary.txt`
+- 将 redacted 证据带回本地后运行对应 validator 和 `pnpm ops:ops-001:preflight`。
+
+推荐服务器命令形态：
+
+```bash
+sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
+  --config /etc/areaforge/updater.env \
+  --state-dir /opt/areaforge/ops-state \
+  --output-dir /tmp/areaforge-ops001-$(date -u +%Y%m%d%H%M%S)
+```
+
+若当前服务器临时 helper 位于 `/tmp/areaforge-ops001-evidence-export.sh`，执行前必须确认该文件内容与仓库 `ops/update-agent/areaforge-ops001-evidence-export.sh` 的只读边界一致。若使用 `areaforge-ops001-readonly-fallback.sh`，它只导出 `redacted-update-status.json`、`remote-prerequisites.json`、可选 `prod-readonly-smoke-output.log` 和 `remote-summary.txt`，不生成最终 closure packet，不关闭 residual 台账。
+
+SSH/tmux 执行 fallback 时，先由操作者在 TTY 中完成 `sudo -v`，再运行一次 helper。fallback 输出目录必须使用 `/tmp/areaforge-ops001-fallback-*`，helper 才会把 redacted 目录移交给触发 sudo 的用户并在 `remote-summary.txt` 写入 `redactedHandoffStatus=granted`；若 handoff 未成功，不得用链式 `sudo tar/chown` 规避交互边界，应修正输出目录或重新通过 TTY 导出。
+
+不包含：
+
+- 不执行 updater `check`、`apply`、rollback、Web apply/rollback 请求或自动应用策略变化。
+- 不执行生产 backup、restore、migration deploy、Docker/Nginx/compose 切换或上传目录操作。
+- 不执行写入型 smoke，不创建/修改/删除任务、计时、附件、AI 记录或数据库数据。
+- 不读取、打印、复制或提交生产 `.env`、数据库 URL、smoke 密码、cookie、session secret、备份本体、附件内容、上传目录、原始敏感日志或完整 status 私密字段。
+- 不关闭 `AF-RISK-OPS-001` residual 台账；只生成可人工复核证据。
+
+必须确认：
+
+- 目标主机、登录用户、helper 路径、config 路径、state-dir 路径和输出目录。
+- `AREAFORGE_EXTRA_SMOKE_COMMAND` 指向 `pnpm smoke:prod-readonly`，且 smoke 密码通过权限收紧的文件读取。
+- helper 输出目录只包含 redacted 证据和 summary，不包含生产 env、密码文件、数据库 dump、附件内容或原始日志。
+- `AREAFORGE_AUTO_APPLY` 仍为 `none`，除非另有独立确认包。
+- 若任何子校验失败，只保留失败摘要和 redacted 输出，不补做生产写入、不执行 updater apply、不关闭 residual。
+
+导出后本地验证：
+
+```bash
+pnpm smoke:prod-readonly:validate ./prod-readonly-smoke-record.txt
+pnpm update-agent:status:validate ./redacted-update-status.json
+pnpm ops:evidence:bundle:validate ./operational-evidence-bundle.json
+pnpm ops:ops-001:closure:validate ./ops-001-closure-packet.txt
+AREAFORGE_OPS001_SMOKE_RECORD=./prod-readonly-smoke-record.txt \
+  AREAFORGE_OPS001_UPDATE_STATUS_RECORD=./redacted-update-status.json \
+  AREAFORGE_OPS001_EVIDENCE_BUNDLE=./operational-evidence-bundle.json \
+  AREAFORGE_OPS001_CLOSURE_PACKET=./ops-001-closure-packet.txt \
+  pnpm ops:ops-001:preflight
+```
+
+中止条件：
+
+- SSH、sudo、helper 路径、config、state-dir、status 文件或 smoke 密码文件不可用。
+- `pnpm smoke:prod-readonly:config`、`pnpm smoke:prod-readonly`、update-agent status、evidence bundle、closure packet 或 OPS-001 preflight 任一失败。
+- 输出包含生产 `.env`、数据库 URL、密码、cookie、session secret、备份本体、附件内容、上传目录、原始敏感日志或用户学习正文。
+- helper 试图执行 updater apply、migration、backup、restore、rollback、生产写入或 residual 台账更新。
+
+明确确认句：
+
+> 确认执行 OPS-001 生产只读证据导出：范围仅限通过 SSH 在指定生产主机运行 `areaforge-ops001-evidence-export.sh` 的只读 redacted evidence export，收集 production read-only smoke record、redacted update-agent status、operational evidence bundle、OPS-001 closure packet 和 preflight 输出，并回本地运行对应 validate/preflight；不执行 updater apply、Web apply/rollback 请求、backup/restore、migration、rollback、Docker/Nginx/compose 切换、数据库写入、上传目录写入、写入型 smoke、读取/打印/复制/提交 secrets 或 residual 台账关闭。
+
+> 确认执行 OPS-001 只读 fallback 导出：范围仅限在生产主机使用 sudo 读取 updater 配置、ops-state status 和 smoke 密码文件，通过 curl 执行生产只读 smoke，生成 redacted status 与 smoke output，并复制 redacted 文件回本地用仓库脚本生成/校验 smoke record、operational evidence bundle、OPS-001 closure packet 和 preflight；不安装 Node/pnpm，不执行 updater apply、backup/restore、migration、rollback、Docker/Nginx/compose 切换、数据库写入、上传目录写入、写入型 smoke、读取/打印/复制/提交 secrets 或 residual 台账关闭。
+
+## 生产 smoke 凭据配置确认包：`AF-RISK-OPS-001`
+
+本确认包用于补齐生产只读 smoke 的最小凭据配置，使 `AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'` 可以在 update-agent/updater 的 root 上下文中读取 smoke 账号、密码文件和 HTTPS base URL。它只授权配置既有 smoke 账号凭据和权限，不授权创建生产账号、写入型 smoke、updater apply、备份、恢复、migration、rollback 或 residual 台账关闭。
+
+源事实：
+
+- `docs/development/ops-001-production-readonly-attempt-20260711.md`
+- `docs/development/production-readonly-smoke-record-template.md`
+- `docs/deployment/github-release-updater.md`
+- `ops/github-release-updater/areaforge-updater.env.example`
+- `ops/update-agent/areaforge-ops001-evidence-export.sh`
+- `ops/update-agent/areaforge-ops001-readonly-fallback.sh`
+- `docs/development/residual-risk-ledger.md`
+
+影响：
+
+- 需要通过 SSH/sudo 修改 `/etc/areaforge/updater.env` 中的 non-secret smoke 配置项。
+- 需要在 root-only 或同等权限目录创建 smoke 密码文件，并设置为非 group/world readable。
+- smoke 密码只能在服务器 TTY 或受控 secret 输入路径中写入；不得发到聊天、commit、issue、release record 或日志中。
+- 配置后可以执行 `pnpm smoke:prod-readonly:config`、OPS-001 read-only export 或 curl fallback export，但仍不自动关闭 `AF-RISK-OPS-001`。
+
+实施范围：
+
+- 设置或确认：
+  - `AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'`
+  - `AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top`
+  - `AREAFORGE_SMOKE_EMAIL=<existing smoke account email>`
+  - `AREAFORGE_SMOKE_PASSWORD_FILE=<root-only password file path>`
+  - `AREAFORGE_SMOKE_EXPECTED_VERSION=<current production version>`
+  - `AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none`
+- 创建或更新 smoke 密码文件，权限必须为 `600` 或更严格。
+- 只输出 redacted 配置摘要，例如 `email configured`、`password file configured`、`mode 600`，不得输出真实邮箱以外的敏感值；密码值永不输出。
+- 配置后运行只读配置预检、OPS-001 只读证据导出或 fallback helper；若使用 fallback helper，仍需回本地生成并校验 smoke record、evidence bundle 和 closure packet。
+
+不包含：
+
+- 不创建、修改或删除生产用户；如果 smoke account 不存在，另走账号创建确认。
+- 不执行写入型 smoke，不创建/修改/删除任务、计时、附件、AI 记录或数据库数据。
+- 不执行 updater `check/apply`、Web apply/rollback 请求、自动应用策略变化、backup、restore、migration deploy、Docker/Nginx/compose 切换、rollback 或上传目录操作。
+- 不读取、打印、复制或提交生产 `.env`、数据库 URL、session secret、GitHub token、cosign 私钥、smoke 密码、cookie、备份本体、附件内容、上传目录、原始敏感日志或用户学习正文。
+- 不关闭 `AF-RISK-OPS-001` residual 台账；只允许补齐后续只读证据采集的凭据前置条件。
+
+必须确认：
+
+- smoke account 已存在，且只用于只读 smoke 或明确可接受只读登录检查。
+- `AREAFORGE_SMOKE_PASSWORD_FILE` 路径不在 Git 工作区、public 目录、上传目录或备份导出临时目录中。
+- 密码文件权限不允许 group/world read。
+- `AREAFORGE_AUTO_APPLY` 仍为 `none`，除非另有独立确认包。
+- 配置完成后只运行 `pnpm smoke:prod-readonly:config`、`pnpm smoke:prod-readonly` 或 OPS-001 read-only export；失败时不得补做生产写入。
+
+配置后验证：
+
+```bash
+pnpm smoke:prod-readonly:config
+pnpm smoke:prod-readonly
+pnpm smoke:prod-readonly:record <prod-readonly-smoke-output.log> > <prod-readonly-smoke-record.txt>
+pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record.txt>
+pnpm update-agent:status:validate <redacted-update-status.json>
+pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
+AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record.txt> \
+  AREAFORGE_OPS001_UPDATE_STATUS_RECORD=<redacted-update-status.json> \
+  AREAFORGE_OPS001_EVIDENCE_BUNDLE=<operational-evidence-bundle.json> \
+  AREAFORGE_OPS001_CLOSURE_PACKET=<ops-001-closure-packet.txt> \
+  pnpm ops:ops-001:preflight
+```
+
+中止条件：
+
+- smoke account 不存在或无法确认只读登录用途。
+- 密码文件路径、权限或写入方式不满足 secret 边界。
+- 任何命令输出包含 smoke 密码、cookie、session secret、数据库 URL、生产 `.env` 或用户学习内容。
+- 配置动作试图触发 updater apply、backup、restore、migration、rollback、Docker/Nginx/compose 切换、生产写入或 residual 台账更新。
+
+明确确认句：
+
+> 确认执行 OPS-001 生产 smoke 凭据配置：范围仅限在指定生产主机通过 SSH/sudo 为既有 smoke 账号配置 `AREAFORGE_EXTRA_SMOKE_COMMAND`、`AREAFORGE_SMOKE_BASE_URL`、`AREAFORGE_SMOKE_EMAIL`、权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`、期望版本和 `AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none`，随后只运行只读 config/smoke/OPS-001 evidence export 和本地 validate/preflight；不创建生产账号、不执行写入型 smoke、updater apply、Web apply/rollback、backup/restore、migration、rollback、Docker/Nginx/compose 切换、数据库写入、上传目录写入、读取/打印/复制/提交 secrets 或 residual 台账关闭。
+
+## 后续签名 Release 证据闭环确认包：`AF-RISK-SC-001`
+
+本确认包用于后续某一次签名 GitHub Release 生成 SBOM/provenance、checksum、signature 和供应链记录，从而让 `AF-RISK-SC-001` 进入可人工复核关闭状态。`v0.1.7` 已作为 `v0.1.5` 之后的第一个补丁发布完成并生产应用；下一次使用本包时必须选择新的具体版本号，并在确认句中写明。
+
+源事实：
+
+- `docs/development/release-train.md`
+- `docs/development/release-supply-chain-record-template.md`
+- `docs/development/release-record-template.md`
+- `docs/development/residual-risk-ledger.md`
+- `.github/workflows/release.yml`
+
+影响：
+
+- 创建并推送新的 Git tag，会触发 GitHub Release workflow。
+- GitHub Release workflow 会构建并发布 GHCR Web/migration 镜像和 Release assets。
+- 该 Release 可作为后续服务器 updater 的候选版本。
+- 若后续继续执行生产更新，还会进入服务器侧备份、migration、切换、smoke 和 rollback 证据链；这些不包含在本确认包内。
+
+实施范围：
+
+- 将所有 AreaForge workspace package version bump 到确认版本 `X.Y.Z`，并确保 tag `vX.Y.Z` 与根 `package.json` 一致。
+- 在干净工作区完成发布前本地门禁。
+- 创建并推送 `vX.Y.Z` tag，tag 必须指向已验证 commit。
+- 等待 GitHub Release workflow 成功，并确认 stable signing 不是 unsigned placeholder。
+- 下载或准备 Release assets 目录，至少包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`。
+- 生成并校验 `docs/development/release-supply-chain-vX.Y.Z.md`。
+- 生成或更新 `docs/development/release-vX.Y.Z-record.md` 中的供应链摘要字段。
+
+不包含：
+
+- 不执行服务器 updater `apply`、Web 版本中心 apply/rollback 请求或生产切换。
+- 不执行生产 backup、restore、migration deploy、rollback、Nginx/compose 改动或上传目录操作。
+- 不启用 `AREAFORGE_AUTO_APPLY=patch` 或更强自动应用策略。
+- 不关闭 `AF-RISK-SC-001` / `AF-RISK-SC-002` residual 台账；只生成可人工复核证据。
+- 不读取、打印、提交 cosign 私钥、GitHub token、生产 `.env`、数据库 URL、smoke 密码、备份本体、附件内容或 AI prompt/raw response。
+- 不把 CI-only 记录当成 `AF-RISK-SC-001` 的签名 Release 证据。
+
+必须确认：
+
+- 版本号、tag 和 package version 完全一致。
+- Release workflow validate job 必须先通过；stable signing 缺 key 必须失败而不是发布 unsigned placeholder。
+- Release assets 必须包含 manifest、SBOM、provenance、compose、`SHA256SUMS` 和 `SHA256SUMS.sig`。
+- `SHA256SUMS` 必须覆盖 manifest/SBOM/provenance/compose。
+- Web/migration image 必须使用不可变 digest。
+- 任何生产更新、backup/restore、migration、rollback 或自动应用策略变化都另行确认。
+
+发布前验证：
+
+```bash
+pnpm enterprise:operability:preflight
+pnpm release:train:preflight
+pnpm docs:readiness
+pnpm docs:completion
+pnpm risk:preflight
+pnpm governance:preflight
+pnpm github-release-updater:preflight
+pnpm shellcheck:updater
+pnpm release:supply-chain:selftest
+pnpm release:supply-chain:record:selftest
+pnpm ci:supply-chain:selftest
+pnpm sc:sc-002:preflight:selftest
+pnpm audit:prod
+pnpm check
+git diff --check
+```
+
+Release 资产生成后验证：
+
+```bash
+sha256sum -c SHA256SUMS
+cosign verify-blob --key docs/deployment/keys/areaforge-cosign.pub --bundle SHA256SUMS.sig SHA256SUMS
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md /path/to/release-assets
+pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
+```
+
+中止条件：
+
+- 本地验证、CI validate job、Release workflow、`pnpm audit:prod`、Actions pinning、checksum 或 signature 任一失败。
+- tag 与 `package.json` version 不一致，或 tag 不指向 workflow commit。
+- Release asset 缺 manifest、SBOM、provenance、compose、`SHA256SUMS` 或 `SHA256SUMS.sig`。
+- stable Release 仍出现 unsigned placeholder。
+- 记录中出现密钥、生产 `.env`、数据库 URL、备份本体、附件内容、完整 prompt/raw response 或真实学习内容。
+- 无法生成可通过 `pnpm release:supply-chain:validate` 的签名 Release 供应链记录。
+
+明确确认句：
+
+> 确认执行下一次签名 Release 证据闭环 v0.1.7：范围仅限将当前已验证 commit 的所有 AreaForge workspace package version bump 到 0.1.7，创建并推送 `v0.1.7` tag，等待 GitHub Release workflow 生成签名 Release assets、GHCR digest、SBOM/provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`，并生成/校验 `release-supply-chain-v0.1.7` 与 `release-v0.1.7` 记录；不执行服务器 updater apply、Web apply/rollback 请求、生产 backup/restore、production migration、Nginx/compose 切换、自动应用策略变更、residual 台账关闭或任何密钥读取/打印/提交。
+
+## 生产 updater apply 确认包：`v0.1.7`
+
+状态：已执行。2026-07-12 用户明确确认后，服务器侧 updater 将生产从 `0.1.5` 更新到 `v0.1.7`，公网 health 返回 `0.1.7`，内置 health smoke 和只读 extra smoke 通过；未执行 Web runtime 服务器命令、数据库/上传目录 restore、自动应用策略变更、写入型 smoke、secrets 读取/打印/复制/提交或 residual 台账关闭。本节保留为本次高风险确认审计记录，不作为下一次生产更新的可复用确认。
+
+本确认包用于把已经生成并校验签名 Release 证据的 `v0.1.7` 应用到生产 `https://forge.areasong.top/`。它是 R4 高风险生产操作；不能从“可以全部都来”或“长期运营目标继续推进”推定授权，必须由用户再次明确确认。
+
+源事实：
+
+- `docs/development/release-v0.1.7-record.md`
+- `docs/development/release-supply-chain-v0.1.7.md`
+- `docs/development/production-release-runbook.md`
+- `docs/deployment/github-release-updater.md`
+- `docs/development/operational-readiness.md`
+- `docs/development/residual-risk-ledger.md`
+
+目标不可变身份：
+
+- 执行前生产基线：`0.1.5` / `v0.1.5`
+- 目标 tag：`v0.1.7`
+- Web image：`ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
+- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`
+- 应用回滚目标：`0.1.5` Web digest `sha256:613dc91e54eaf4d730dcac3aa48b2c92acb8ddfdb8d50c3227d50cd1456f5fa9`
+
+影响：
+
+- 服务器侧 updater 会下载 `v0.1.7` Release assets，并校验 manifest、SBOM、provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`。
+- updater 会备份 PostgreSQL、uploads、生产 env、compose、Nginx 和 release assets。
+- updater 会拉取 Web/migration 镜像，通过一次性 migration image 执行 `pnpm db:migrate:deploy`，再切换 Web 镜像和 `APP_VERSION=0.1.7`。
+- updater 会执行 `/api/health` 和已配置的只读 extra smoke，并写入 update record / update-agent status。
+
+实施范围：
+
+- 通过确认的生产主机和 `/etc/areaforge/updater.env` 执行：
+
+```bash
+sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes \
+  --tag v0.1.7 \
+  --config /etc/areaforge/updater.env
+```
+
+- 成功后采集并回本地校验 redacted 证据：
+  - 公网 `GET https://forge.areasong.top/api/health` 返回 `0.1.7`。
+  - redacted update-agent status：`currentVersion=0.1.7`、`autoApply=none`、`signatureRequired=true`、timer active、`blocker=null`。
+  - `v0.1.7` production readonly smoke record。
+  - `v0.1.7` operational evidence bundle。
+  - `release-v0.1.7-record.md` 更新为真实生产 apply、备份、migration、smoke、rollback target 和 evidence hash。
+
+不包含：
+
+- 不修改 `AREAFORGE_AUTO_APPLY`，不启用 `patch` / `minor` / `all` 自动应用。
+- 不通过 Web runtime 执行服务器命令，不挂载 Docker socket，不执行 Web apply/rollback 请求。
+- 不执行生产数据库 restore、uploads restore、备份删除、上传目录移动或历史数据修复。
+- 不执行写入型生产 smoke，不创建/修改/删除任务、计时、附件、AI 记录或生产业务数据。
+- 不读取、打印、复制或提交生产 `.env`、数据库 URL、smoke 密码、cookie、session secret、GitHub token、cosign 私钥、备份本体、附件内容、上传目录、原始敏感日志或完整 AI prompt/raw response。
+- 不关闭 `AF-RISK-OPS-001`、`AF-RISK-SC-001`、`AF-RISK-OPS-004` 或其他 residual 台账；只生成生产更新和可人工复核证据。
+
+必须确认：
+
+- 执行前生产 health 返回 `0.1.5`，且 rollback target 可定位。
+- `v0.1.7` Release assets 已通过 `sha256sum -c` 和 cosign `Verified OK`。
+- updater config 使用 `AREAFORGE_AUTO_APPLY=none`、`AREAFORGE_REQUIRE_SIGNATURE=true` 和官方 cosign public key。
+- 生产只读 extra smoke 已配置为 `pnpm smoke:prod-readonly` 或等价 fallback，并通过权限收紧的 password file 读取 smoke 密码。
+- 失败时只自动回滚应用镜像和 `APP_VERSION`；任何数据库或上传目录 restore 必须暂停并另走恢复确认包。
+
+本地/只读前置验证：
+
+```bash
+pnpm release:evidence:validate docs/development/release-v0.1.7-record.md
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-v0.1.7.md pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-v0.1.7.md /tmp/areaforge-release-v0.1.7-assets
+pnpm github-release-updater:preflight
+pnpm shellcheck:updater
+pnpm ops:handoff --summary
+pnpm ops:status --summary
+git diff --check
+```
+
+成功后本地/redacted 证据验证：
+
+```bash
+pnpm update-agent:status:validate <redacted-update-agent-status-v0.1.7.json>
+pnpm smoke:prod-readonly:validate <prod-readonly-smoke-record-v0.1.7.txt>
+pnpm ops:evidence:bundle:validate <operational-evidence-bundle-v0.1.7.json>
+pnpm release:evidence:validate docs/development/release-v0.1.7-record.md
+AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record-v0.1.7.txt> \
+AREAFORGE_OPS001_UPDATE_STATUS_RECORD=<redacted-update-agent-status-v0.1.7.json> \
+AREAFORGE_OPS001_EVIDENCE_BUNDLE=<operational-evidence-bundle-v0.1.7.json> \
+pnpm ops:ops-001:preflight
+```
+
+生产 update 后还必须重采或复核：
+
+- `AF-RISK-OPS-001`：生产只读 smoke、redacted update-agent status、operational evidence bundle 和 OPS-001 preflight。
+- `AF-RISK-UX-001`：desktop/mobile 真实体验复核；旧本地 UX 记录不能证明新生产版本体验健康。
+- `AF-RISK-OPS-004`：至少重跑 alert preview；若要关闭或声称完整生产健康，保留 matching alert drill/preflight。
+
+中止条件：
+
+- 用户没有给出本确认包的明确确认句。
+- 执行前生产不是预期 `0.1.5`，或 rollback target 缺失。
+- Release asset、image digest、checksum、cosign signature 任一失败。
+- 备份缺失、hash 不可记录或备份目录不可写。
+- migration image 执行失败。
+- health 或只读 smoke 失败。
+- update-agent `blocker` 非空或 timer/signature 状态异常。
+- 日志或记录出现数据库 URL、密钥、cookie、完整 prompt、附件路径、上传目录或真实学习正文。
+- 附件 metadata/hash mismatch。
+
+明确确认句：
+
+> 确认在生产主机通过服务器侧 updater 将 AreaForge 从 `0.1.5` 更新到 `v0.1.7`，仅执行 `apply --yes --tag v0.1.7 --config /etc/areaforge/updater.env` 及其内置签名校验、备份、migration image、切换、只读 smoke 和记录；失败时仅回滚应用镜像和 `APP_VERSION` 到 `0.1.5`；不执行数据库/上传目录 restore、自动应用策略变更、写入型 smoke、Web runtime 服务器命令、读取/打印/复制/提交 secrets 或 residual 台账关闭。
+
+## Update Request Expected-Before 本地实施确认包
+
+状态：等待确认。该包只授权本地代码和测试，不授权生产部署或请求执行。
+
+源事实：
+
+- `docs/development/update-request-expected-before-design.md`
+- `tasks/active/0019-update-request-expected-before-binding.md`
+- `docs/development/runtime-write-boundary.md`
+- `docs/development/residual-risk-ledger.md` 中的 `AF-RISK-OPS-005`
+
+影响：
+
+- Web update request 升级为 schema V2，绑定 expected-before、目标 Release/manifest/digest、TTL、
+  semantic/request 双 hash、idempotency key 和原子文件发布。
+- root update-agent 在调用 updater、Docker 或 config write 前，从 live env/config/update record 重建
+  observed-before，并在原子领取后与最终副作用边界前执行两次 compare-and-reject。
+- update-agent、updater 和 rollback mutation 共用 production-state lock；processing claim 崩溃后进入
+  needs_reconciliation，不自动重放。
+- V1 mutation request fail closed；V1 check 仅保留短期兼容。
+
+主要风险：
+
+- Web 和 agent canonical hash/schema 不一致导致合法请求被拒绝。
+- 旧 agent 忽略 V2 字段；若未按维护窗口顺序部署，会使 expected-before 失效。
+- legacy 队列处理不当会丢失或错误重放 mutation request。
+
+允许范围：
+
+- 修改设计列出的 Web route/library/UI、update-agent、updater shared-lock/target-identity 接口、
+  fixture/selftest、preflight 和文档。
+- 新增 V2 request/history reason code、TTL、双 hash、idempotency、expected/observed before hash、
+  target identity、processing reconciliation、shared lock 和 atomic write 测试。
+- 只使用本地临时目录、mock updater/Docker/config writer 验证拒绝路径零副作用。
+
+不包含：
+
+- 不执行 SSH、生产 timer stop/start、队列隔离或生产 agent/Web 部署。
+- 不提交 Web apply/rollback/policy 请求，不执行服务器 updater apply、rollback、backup/restore、migration、
+  Docker/Nginx/compose 切换或生产写入。
+- 不修改 `AREAFORGE_AUTO_APPLY=none`，不启用 patch/minor/all。
+- 不读取、打印、复制或提交 secrets、生产 env、smoke credential、token、私钥或 root-only 记录。
+- 不创建 Release/tag，不关闭 `AF-RISK-OPS-005` 或其他 residual。
+
+验证：
+
+- schema/hash/TTL/expected-before/target identity/idempotency/processing reconciliation/shared lock/
+  rollback-target/legacy/duplicate/atomic-write/zero-side-effect selftest。
+- `pnpm update-center:request-guard:selftest`
+- `pnpm shellcheck:updater`
+- `pnpm github-release-updater:preflight`
+- Web typecheck/lint、`pnpm check`
+- `pnpm governance:preflight`、`pnpm risk:preflight`、`pnpm docs:readiness`、`git diff --check`
+
+回滚：
+
+- 本地实现失败时只回退本次 V2 代码和测试，不改生产。
+- 未来生产部署失败时必须另行确认：暂停 timer、隔离 V2 请求、同时回滚 Web/agent；不得重放或
+  自动补写旧请求。
+
+中止条件：
+
+- 需要给 Web runtime 增加 root secret、Docker socket 或服务器命令能力。
+- 无法证明拒绝路径不调用 updater、Docker 或 config write。
+- canonical hash 不能由 Node 与 shell fixture 交叉验证。
+- 实施需要扩大到生产部署、策略变化、migration 或 secrets。
+
+明确确认句：
+
+> 确认执行 Update Request Expected-Before 本地实施：范围仅限 schema V2、expected-before、目标 Release/manifest/digest 绑定、TTL、semantic/request 双 canonical hash、idempotency key、原子请求发布、processing reconciliation、update-agent/updater/rollback 共享 production-state lock、root agent 原子领取后与最终副作用边界前的双重 compare-and-reject、legacy mutation fail-closed、不可变 decision history 和本地 fixture/selftest；不执行 SSH、生产 timer/队列/agent/Web 部署、updater apply、Web apply/rollback/policy 请求、backup/restore、migration、Docker/Nginx/compose 切换、自动应用策略变化、Release/tag、secrets 读取/打印/复制/提交或 residual 台账关闭。

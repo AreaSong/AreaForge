@@ -6,7 +6,7 @@
 - 容器：Docker。
 - 反向代理：Nginx。
 - 域名：`forge.areasong.top`。
-- 当前远端生产：`https://forge.areasong.top/` 已运行 AreaForge `0.1.5`，Nginx 反代到服务器本机 `127.0.0.1:3020`；该服务器上的 `127.0.0.1:3000` 是 Grafana，不是 AreaForge。
+- 当前远端生产：`https://forge.areasong.top/` 已运行 AreaForge `0.1.7`，Nginx 反代到服务器本机 `127.0.0.1:3020`；该服务器上的 `127.0.0.1:3000` 是 Grafana，不是 AreaForge。
 
 ## 服务
 

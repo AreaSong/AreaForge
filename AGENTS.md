@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-- 当前版本为 `0.1.5`，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.5` 签名更新运行。
+- 当前版本为 `0.1.7`，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 签名更新运行。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
@@ -29,9 +29,16 @@
 ## 工作原则
 
 - 先读方案、上下文和最近的局部 `AGENTS.md`，再改代码。
+- 涉及企业治理、发布、真实体验、文档同步、生产运维、观测、事故响应、安全、供应链、残余风险、AI 或验证选择时，优先使用 `.codex/skills-src/` 中对应的 AreaForge repo-local skill。
+- 涉及公开 issue、支持入口、贡献者 PR、公开安全披露或维护者 triage 时，优先使用 `.codex/skills-src/areaforge-public-maintenance`，再按风险面交给安全、SRE、Release、供应链或体验 owner skill。
+- 跨多个治理面推进时，先用 `.codex/skills-src/areaforge-operating-loop` 做任务分级、owner skill 路由、验证选择和收尾证据整理。
+- `.codex/skills-src/**` 是 Codex 工作流说明，不是产品源事实；产品和工程事实仍以 `docs/**`、`tasks/**`、`workflow/**`、`ops/**`、`README.md` 和本文件为准。
 - 开发前协作流程遵循 `docs/development/codex-workflow.md`。
 - 文档或入口变更后，按 `docs/development/doc-sync-checklist.md` 检查漂移。
 - 验证选择遵循 `docs/development/validation-matrix.md`。
+- 依赖、GitHub Actions、Docker base image、PR 模板、安全政策或公开仓库治理变更，遵循 `docs/development/dependency-policy.md` 并运行 `pnpm governance:preflight`。
+- 外部能力、自动化、MCP、subagent、浏览器控制、部署插件或远程运维工具的准入与扩大，遵循 `docs/development/external-capability-admission.md`；它们不得绕过 Web runtime 服务器命令禁区或生产高风险确认。
+- 发布、生产运维或长期运营状态变化，更新 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 的相关入口，并运行 `pnpm ops:readiness`；进入 release/update/交接证据时先看 `pnpm ops:handoff`，再补跑 `pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`。
 - 第一版围绕“计划任务 -> 专注计时 -> 关联大纲 -> 产出笔记/错题 -> 晚间复盘 -> AI 鞭策 -> 明日调整”闭环。
 - `packages/core` 放平台无关业务规则，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量。
 - `packages/db` 集中数据库访问；页面和组件不直接调用 Prisma。

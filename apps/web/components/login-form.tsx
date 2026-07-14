@@ -1,8 +1,9 @@
 "use client";
 
-import { Flame, Loader2, LockKeyhole } from "lucide-react";
+import { Loader2, LockKeyhole } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function LoginForm() {
   const router = useRouter();
@@ -39,10 +40,7 @@ export function LoginForm() {
 
   return (
     <form className="w-full max-w-sm rounded-lg border border-white/10 bg-[#101419] p-6" onSubmit={submit}>
-      <div className="flex items-center gap-3 text-teal-300">
-        <Flame className="h-5 w-5" aria-hidden="true" />
-        <span className="text-sm">AreaForge</span>
-      </div>
+      <BrandLogo priority />
       <h1 className="mt-5 text-2xl font-semibold text-white">进入作战台</h1>
 
       <label className="mt-6 block text-sm text-zinc-300" htmlFor="email">

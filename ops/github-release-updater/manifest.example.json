@@ -14,6 +14,8 @@
   "composeAsset": "docker-compose.prod.yml",
   "sha256SumsAsset": "SHA256SUMS",
   "signatureAsset": "SHA256SUMS.sig",
+  "sbomAsset": "areaforge-sbom.spdx.json",
+  "provenanceAsset": "areaforge-provenance.json",
   "autoApply": {
     "patch": true,
     "minor": false,

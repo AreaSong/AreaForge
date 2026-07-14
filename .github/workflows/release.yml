@@ -20,8 +20,7 @@ on:
           - preview
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 env:
   REGISTRY: ghcr.io
@@ -29,11 +28,132 @@ env:
   CHANNEL: ${{ inputs.channel || 'stable' }}
 
 jobs:
-  build-release:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.7.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Production dependency audit
+        run: pnpm audit:prod
+
+      - name: Release supply-chain generator smoke
+        env:
+          AREAFORGE_RELEASE_TAG: v0.0.0-smoke
+          AREAFORGE_RELEASE_VERSION: 0.0.0
+          AREAFORGE_RELEASE_CHANNEL: preview
+          AREAFORGE_GIT_COMMIT: "0000000000000000000000000000000000000000"
+          AREAFORGE_WEB_IMAGE: ghcr.io/areasong/areaforge-web:v0.0.0-smoke
+          AREAFORGE_WEB_IMAGE_DIGEST: ghcr.io/areasong/areaforge-web:v0.0.0-smoke@sha256:1111111111111111111111111111111111111111111111111111111111111111
+          AREAFORGE_MIGRATION_IMAGE: ghcr.io/areasong/areaforge-migration:v0.0.0-smoke
+          AREAFORGE_MIGRATION_IMAGE_DIGEST: ghcr.io/areasong/areaforge-migration:v0.0.0-smoke@sha256:2222222222222222222222222222222222222222222222222222222222222222
+          AREAFORGE_SBOM_PATH: ${{ runner.temp }}/areaforge-sbom.spdx.json
+          AREAFORGE_PROVENANCE_PATH: ${{ runner.temp }}/areaforge-provenance.json
+        run: pnpm release:supply-chain
+
+      - name: Release supply-chain validator selftest
+        run: pnpm release:supply-chain:selftest
+
+      - name: Release supply-chain record selftest
+        run: pnpm release:supply-chain:record:selftest
+
+      - name: CI supply-chain record selftest
+        run: pnpm ci:supply-chain:selftest
+
+      - name: Supply-chain preflight selftest
+        run: pnpm sc:sc-002:preflight:selftest
+
+      - name: Shellcheck updater
+        run: pnpm shellcheck:updater
+
+      - name: OPS-001 fallback selftest
+        run: pnpm ops:ops-001:fallback:selftest
+
+      - name: Release evidence redacted export selftest
+        run: pnpm release:evidence:redacted-export:selftest
+
+      - name: Release evidence redacted export record selftest
+        run: pnpm release:evidence:redacted-export:record:selftest
+
+      - name: OPS-001 fallback finalizer selftest
+        run: pnpm ops:ops-001:fallback:finalize:selftest
+
+      - name: Updater preflight
+        run: pnpm github-release-updater:preflight
+
+      - name: Governance preflight
+        run: pnpm governance:preflight
+
+      - name: Ops readiness preflight
+        run: pnpm ops:readiness
+
+      - name: Residual ledger validate
+        run: pnpm residuals:validate
+
+      - name: Package E preflight
+        run: pnpm package-e:preflight
+
+      - name: Risk preflight
+        run: pnpm risk:preflight
+
+      - name: Docs readiness
+        run: pnpm docs:readiness
+
+      - name: Docs completion
+        run: pnpm docs:completion
+
+      - name: Skills validate
+        run: pnpm skills:validate
+
+      - name: Check
+        run: pnpm check
+
+  build-release:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.7.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Resolve release tag
         id: vars
@@ -51,11 +171,35 @@ jobs:
           echo "web_image=${REGISTRY}/${image_repo}/areaforge-web:${tag}" >> "$GITHUB_OUTPUT"
           echo "migration_image=${REGISTRY}/${image_repo}/areaforge-migration:${tag}" >> "$GITHUB_OUTPUT"
 
+      - name: Validate release tag
+        shell: bash
+        run: |
+          tag="${{ steps.vars.outputs.tag }}"
+          version="${{ steps.vars.outputs.version }}"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release tag must look like vX.Y.Z"
+            exit 1
+          fi
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "${version}" != "${package_version}" ]; then
+            echo "::error::release tag ${tag} does not match package.json version ${package_version}"
+            exit 1
+          fi
+          if ! git rev-parse -q --verify "refs/tags/${tag}^{commit}" >/dev/null; then
+            echo "::error::release tag ${tag} does not exist in fetched refs"
+            exit 1
+          fi
+          tag_commit="$(git rev-list -n 1 "${tag}")"
+          if [ "${tag_commit}" != "${GITHUB_SHA}" ]; then
+            echo "::error::release tag ${tag} does not point to workflow commit ${GITHUB_SHA}"
+            exit 1
+          fi
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -63,7 +207,7 @@ jobs:
 
       - name: Build and push web image
         id: web
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: infra/docker/web.Dockerfile
@@ -74,7 +218,7 @@ jobs:
 
       - name: Build and push migration image
         id: migration
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: infra/docker/migration.Dockerfile
@@ -107,6 +251,8 @@ jobs:
             "composeAsset": "docker-compose.prod.yml",
             "sha256SumsAsset": "SHA256SUMS",
             "signatureAsset": "SHA256SUMS.sig",
+            "sbomAsset": "areaforge-sbom.spdx.json",
+            "provenanceAsset": "areaforge-provenance.json",
             "autoApply": {
               "patch": true,
               "minor": false,
@@ -118,12 +264,33 @@ jobs:
             "releaseNotesUrl": "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.vars.outputs.tag }}"
           }
           JSON
-          sha256sum areaforge-release-manifest.json docker-compose.prod.yml > SHA256SUMS
+
+      - name: Generate release supply-chain metadata
+        shell: bash
+        env:
+          AREAFORGE_RELEASE_TAG: ${{ steps.vars.outputs.tag }}
+          AREAFORGE_RELEASE_VERSION: ${{ steps.vars.outputs.version }}
+          AREAFORGE_RELEASE_CHANNEL: ${{ env.CHANNEL }}
+          AREAFORGE_GIT_COMMIT: ${{ github.sha }}
+          AREAFORGE_WEB_IMAGE: ${{ steps.vars.outputs.web_image }}
+          AREAFORGE_WEB_IMAGE_DIGEST: ${{ steps.vars.outputs.web_image }}@${{ steps.web.outputs.digest }}
+          AREAFORGE_MIGRATION_IMAGE: ${{ steps.vars.outputs.migration_image }}
+          AREAFORGE_MIGRATION_IMAGE_DIGEST: ${{ steps.vars.outputs.migration_image }}@${{ steps.migration.outputs.digest }}
+        run: pnpm release:supply-chain
+
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          sha256sum \
+            areaforge-release-manifest.json \
+            areaforge-sbom.spdx.json \
+            areaforge-provenance.json \
+            docker-compose.prod.yml > SHA256SUMS
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
-      - name: Sign checksums or create placeholder
+      - name: Sign checksums
         shell: bash
         env:
           COSIGN_PRIVATE_KEY_B64: ${{ secrets.COSIGN_PRIVATE_KEY_B64 }}
@@ -139,29 +306,34 @@ jobs:
             signing_key="cosign.key"
           fi
 
-          if [ -n "${signing_key}" ]; then
-            chmod 600 "${signing_key}"
-            if ! cosign sign-blob --yes --key "${signing_key}" --bundle SHA256SUMS.sig SHA256SUMS 2>cosign-sign.err; then
-              while IFS= read -r line; do
-                safe_line="$(printf '%s' "${line}" | sed -E 's/(COSIGN_PRIVATE_KEY|COSIGN_PRIVATE_KEY_B64|COSIGN_PASSWORD)=[^[:space:]]+/\1=<redacted>/g')"
-                echo "::error::cosign signing failed: ${safe_line}"
-              done < cosign-sign.err
+          if [ -z "${signing_key}" ]; then
+            if [ "${CHANNEL}" = "stable" ]; then
+              echo "::error::stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY"
               exit 1
             fi
-          else
-            cat > SHA256SUMS.sig <<'EOF_SIG'
-          unsigned: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD repository secrets before enabling AREAFORGE_REQUIRE_SIGNATURE=true
-          EOF_SIG
+            printf '%s\n' 'unsigned preview: configure COSIGN_PRIVATE_KEY_B64 and COSIGN_PASSWORD before publishing a stable release' > SHA256SUMS.sig
+            exit 0
+          fi
+
+          chmod 600 "${signing_key}"
+          if ! cosign sign-blob --yes --key "${signing_key}" --bundle SHA256SUMS.sig SHA256SUMS 2>cosign-sign.err; then
+            while IFS= read -r line; do
+              safe_line="$(printf '%s' "${line}" | sed -E 's/(COSIGN_PRIVATE_KEY|COSIGN_PRIVATE_KEY_B64|COSIGN_PASSWORD)=[^[:space:]]+/\1=<redacted>/g')"
+              echo "::error::cosign signing failed: ${safe_line}"
+            done < cosign-sign.err
+            exit 1
           fi
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
           prerelease: ${{ env.CHANNEL != 'stable' }}
           generate_release_notes: true
           files: |
             areaforge-release-manifest.json
+            areaforge-sbom.spdx.json
+            areaforge-provenance.json
             SHA256SUMS
             SHA256SUMS.sig
             docker-compose.prod.yml

@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "brand": "AreaForge",
+  "packageRoot": "assets/brand/final",
+  "themes": ["dark", "light"],
+  "themedSquareFamilies": [
+    {
+      "id": "app-icon",
+      "source": "areaforge-app-icon-{theme}.svg",
+      "smallSource": "areaforge-app-icon-small-{theme}.svg",
+      "smallSizes": [16, 32, 48],
+      "sizes": [16, 32, 48, 64, 128, 180, 192, 256, 512, 1024],
+      "output": "app-icon/areaforge-app-icon-{theme}-{size}.png",
+      "alpha": true
+    },
+    {
+      "id": "opaque-app-icon",
+      "source": "areaforge-app-icon-opaque-{theme}.svg",
+      "sizes": [180, 1024],
+      "output": "app-icon/areaforge-app-icon-opaque-{theme}-{size}.png",
+      "alpha": false
+    },
+    {
+      "id": "maskable-app-icon",
+      "source": "areaforge-app-icon-maskable-{theme}.svg",
+      "sizes": [192, 512],
+      "output": "app-icon/areaforge-app-icon-maskable-{theme}-{size}.png",
+      "alpha": false
+    },
+    {
+      "id": "logo-mark",
+      "source": "areaforge-logo-mark-{theme}.svg",
+      "sizes": [256, 512, 1024],
+      "output": "mark/areaforge-logo-mark-{theme}-{size}.png",
+      "alpha": true
+    },
+    {
+      "id": "mono-logo-mark",
+      "source": "areaforge-logo-mark-mono-{theme}.svg",
+      "sizes": [256, 512, 1024],
+      "output": "mark/areaforge-logo-mark-mono-{theme}-{size}.png",
+      "alpha": true
+    },
+    {
+      "id": "logo-symbol",
+      "source": "areaforge-logo-symbol-{theme}.svg",
+      "sizes": [256, 512, 1024],
+      "output": "symbol/areaforge-logo-symbol-{theme}-{size}.png",
+      "alpha": true
+    }
+  ],
+  "fixedRasterExports": [
+    { "source": "areaforge-logo-lockup-outlined.svg", "output": "lockup/areaforge-logo-lockup-1600x520.png", "width": 1600, "height": 520, "alpha": true },
+    { "source": "areaforge-logo-lockup-outlined-dark.svg", "output": "lockup/areaforge-logo-lockup-dark-1600x520.png", "width": 1600, "height": 520, "alpha": true },
+    { "source": "areaforge-logo-lockup-outlined-light.svg", "output": "lockup/areaforge-logo-lockup-light-1600x520.png", "width": 1600, "height": 520, "alpha": true },
+    { "source": "areaforge-logo-lockup-mono-dark.svg", "output": "lockup/areaforge-logo-lockup-mono-dark-1600x520.png", "width": 1600, "height": 520, "alpha": true },
+    { "source": "areaforge-logo-lockup-mono-light.svg", "output": "lockup/areaforge-logo-lockup-mono-light-1600x520.png", "width": 1600, "height": 520, "alpha": true },
+    { "source": "areaforge-logo-lockup-outlined.svg", "output": "lockup/areaforge-logo-lockup-outlined-1600x520.png", "width": 1600, "height": 520, "alpha": true },
+    { "source": "areaforge-logo-lockup-outlined-dark.svg", "output": "lockup/areaforge-logo-lockup-outlined-dark-1600x520.png", "width": 1600, "height": 520, "alpha": true },
+    { "source": "areaforge-logo-lockup-outlined-light.svg", "output": "lockup/areaforge-logo-lockup-outlined-light-1600x520.png", "width": 1600, "height": 520, "alpha": true },
+    { "source": "areaforge-wordmark-dark.svg", "output": "wordmark/areaforge-wordmark-dark-1200x336.png", "width": 1200, "height": 336, "alpha": true },
+    { "source": "areaforge-wordmark-light.svg", "output": "wordmark/areaforge-wordmark-light-1200x336.png", "width": 1200, "height": 336, "alpha": true },
+    { "source": "areaforge-logo-stacked-dark.svg", "output": "stacked/areaforge-logo-stacked-dark-1024.png", "width": 1024, "height": 1024, "alpha": true },
+    { "source": "areaforge-logo-stacked-light.svg", "output": "stacked/areaforge-logo-stacked-light-1024.png", "width": 1024, "height": 1024, "alpha": true },
+    { "source": "social/areaforge-social-preview-dark.svg", "output": "social/areaforge-social-preview-dark.png", "width": 1200, "height": 630, "alpha": true },
+    { "source": "social/areaforge-social-preview-light.svg", "output": "social/areaforge-social-preview-light.png", "width": 1200, "height": 630, "alpha": true },
+    { "source": "social/areaforge-social-preview.svg", "output": "social/areaforge-social-preview.png", "width": 1200, "height": 630, "alpha": true }
+  ],
+  "favicon": {
+    "source": "areaforge-app-icon-small-dark.svg",
+    "sizes": [16, 32, 48],
+    "output": "favicon/areaforge-favicon-{size}.png",
+    "ico": "favicon/areaforge-favicon.ico"
+  },
+  "overview": {
+    "output": "areaforge-brand-overview.png",
+    "width": 1600,
+    "height": 1200
+  },
+  "runtimeCopies": [
+    { "source": "favicon/areaforge-favicon.ico", "output": "apps/web/app/favicon.ico" },
+    { "source": "app-icon/areaforge-app-icon-dark-512.png", "output": "apps/web/app/icon.png" },
+    { "source": "app-icon/areaforge-app-icon-opaque-dark-180.png", "output": "apps/web/app/apple-icon.png" },
+    { "source": "social/areaforge-social-preview-dark.png", "output": "apps/web/app/opengraph-image.png" },
+    { "source": "social/areaforge-social-preview-dark.png", "output": "apps/web/app/twitter-image.png" },
+    { "source": "app-icon/areaforge-app-icon-dark-192.png", "output": "apps/web/public/brand/areaforge-app-icon-192.png" },
+    { "source": "app-icon/areaforge-app-icon-dark-512.png", "output": "apps/web/public/brand/areaforge-app-icon-512.png" },
+    { "source": "app-icon/areaforge-app-icon-maskable-dark-192.png", "output": "apps/web/public/brand/areaforge-app-icon-maskable-192.png" },
+    { "source": "app-icon/areaforge-app-icon-maskable-dark-512.png", "output": "apps/web/public/brand/areaforge-app-icon-maskable-512.png" },
+    { "source": "areaforge-logo-lockup-outlined-dark.svg", "output": "apps/web/public/brand/areaforge-logo-lockup.svg" },
+    { "source": "areaforge-logo-symbol-light.svg", "output": "apps/web/public/brand/areaforge-logo-symbol.svg" },
+    { "source": "areaforge-logo-mark-dark.svg", "output": "apps/web/public/brand/areaforge-logo-mark.svg" }
+  ],
+  "native": {
+    "macosSource": "app-icon/areaforge-app-icon-opaque-dark-1024.png",
+    "iosSource": "app-icon/areaforge-app-icon-opaque-dark-1024.png",
+    "androidForegroundSource": "symbol/areaforge-logo-symbol-light-1024.png",
+    "androidBackground": "#06191F",
+    "windowsSource": "app-icon/areaforge-app-icon-opaque-dark-1024.png",
+    "printLightSource": "areaforge-logo-lockup-outlined-light.svg",
+    "printDarkSource": "areaforge-logo-lockup-outlined-dark.svg",
+    "printDpi": 300
+  }
+}

@@ -2,7 +2,7 @@
 
 确认记录：用户已授权从当前准确进度推进到 docs 100%，并明确允许继续完成 Package E Batch E4。
 
-本记录对应当前本机 `areaforge` compose project 的单机私有生产目标：`http://127.0.0.1:3000`。它收口的是本机生产目标的应用镜像回滚与 roll-forward 机制，不声称已完成远端服务器、域名 HTTPS 或真实 Nginx 流量切换；远端 `v0.1.5` GitHub Release 签名更新证据已在后续 `docs/development/package-e-remote-github-release-record.md` 补齐。
+本记录对应当时本机 `areaforge` compose project 的单机私有生产目标：`http://127.0.0.1:3000`。它收口的是本机生产目标的应用镜像回滚与 roll-forward 机制，不声称已完成远端服务器、域名 HTTPS 或真实 Nginx 流量切换；远端 `v0.1.5` GitHub Release 签名更新证据已在后续 `docs/development/package-e-remote-github-release-record.md` 补齐，当前生产更新证据见 `docs/development/release-v0.1.7-record.md`。
 
 ## 执行环境
 

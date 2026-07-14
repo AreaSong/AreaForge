@@ -1,90 +1,185 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/final/areaforge-logo-lockup-outlined-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/brand/final/areaforge-logo-lockup-outlined-light.svg">
+  <img alt="AreaForge" src="assets/brand/final/areaforge-logo-lockup-outlined-light.svg" width="520">
+</picture>
+
 # AreaForge
 
-AreaForge 是一个面向个人长期备考的自我锻造与考研督战系统。
+**面向个人长期备考的自我锻造与考研督战系统。**
 
-当前目标形态是私有 Web 应用：用任务、专注计时、考纲进度、笔记资料、复盘、统计、AI 鞭策、阶段调整和发布运维闭环，形成每天可执行、长期可校准、生产可回滚的学习系统。
+AreaForge 不是普通打卡软件，也不是单纯的待办清单。它把每天的任务、专注投入、知识证据、复盘和阶段调整串成一条长期学习闭环，让数据持续回答两个问题：今天最该做什么，以及接下来应该如何调整。
+
+[线上版本](https://forge.areasong.top/) · [产品定位](docs/product/charter.md) · [完整文档](docs/README.md) · [自托管指南](docs/deployment/operator-onboarding.md) · [安全披露](SECURITY.md)
+
+![AreaForge 今日作战台](output/playwright/experience-review/desktop-dashboard.png)
+
+## 当前重点
+
+- 产品重点：服务一个人的长期备考闭环，不做通用团队项目管理。
+- 功能状态：任务、计时、考纲、笔记附件、错题、复盘、AI 建议、模拟考试、周期报告、阶段草稿和发布/备份/恢复/回滚链路都有实现与验证记录。
+- 当前版本：`0.1.7`；线上已通过签名 GitHub Release `v0.1.7` 更新到 [forge.areasong.top](https://forge.areasong.top/)。
+- 当前边界：单管理员私有 Web 应用；AI 只生成建议或草稿，附件走私有鉴权访问，Web runtime 不直接执行服务器命令。
+- README 只突出内容重点、当前状态和常用入口；功能追踪、发布证据、验证矩阵和残余风险以 `docs/**` 为准。
+
+## 核心闭环
+
+```text
+计划任务 -> 专注计时 -> 关联考纲 -> 留下笔记/错题 -> 晚间复盘 -> AI/规则建议 -> 明日调整 -> 周期报告
+```
+
+AreaForge 的重点不是记录得更多，而是让每次学习都留下可复核的结果，并把结果转成下一步行动。AI 只生成建议或草稿，不直接覆盖用户记录，也不自动修改任务或阶段计划。
+
+## 产品内容重点
+
+| 内容重点 | 当前能力 |
+|---|---|
+| 今日作战 | 双节点倒计时、今日任务、风险等级、连续打卡、任务欠账、阶段称号、恢复模式和行动型鞭策 |
+| 执行闭环 | 每日任务与债务流转、专注计时暂停/继续/恢复、结构化结束收口、有效学习判断、晚间复盘 |
+| 知识证据 | 考纲进度树、作战地图、掌握条件与证据、复测记录、笔记、私有附件、错题与复习提醒 |
+| 长期校准 | 近 7 天统计、长期风险、周审判、月复盘、全真模拟、阶段计划和需确认的调整草稿 |
+| AI 协助 | OpenAI-compatible Provider、结构化输出校验、本地规则回退、最小化上下文和显式触发 |
+| 私有交付 | 单管理员登录、PostgreSQL 持久化、备份恢复、签名 Release、服务器侧受控更新与回滚 |
+
+第一版与第二阶段文档范围的当前实现状态，统一以 [功能追踪矩阵](docs/development/feature-traceability.md) 为准。
 
 ## 当前状态
 
-- 当前版本：`0.1.5`。
-- 线上地址：`https://forge.areasong.top/`。
-- 线上健康检查：`GET https://forge.areasong.top/api/health` 返回 AreaForge `0.1.5`。
-- docs 100% 当前证据已闭环：Package A 附件、Package B Batch 0-6 结构化学习状态、Package C 真实 AI Provider 第一版、Package D Batch D1-D5 长期闭环、Package E Batch E1-E4 生产发布/备份/恢复/回滚均已完成。
-- GitHub Release `v0.1.5` 已完成签名发布，服务器通过 cosign bundle、hash、镜像 digest、一次性 migration image 和 health smoke 完成更新。
-- 自动更新采用受控请求流：Web 版本中心只提交检查、应用、回退或策略请求，服务器侧 `areaforge-update-agent.timer` / updater 以 root agent 身份执行签名校验、备份、migration、切换和回滚；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
+| 层级 | 当前事实 |
+|---|---|
+| 线上基线 | `0.1.7`，已通过签名 GitHub Release `v0.1.7` 更新到 [forge.areasong.top](https://forge.areasong.top/)；只读 health 返回 `0.1.7` |
+| 功能完成度 | 文档定义的第一版必需项与第二阶段增强项当前均有实现和验证证据；附件、结构化学习状态、真实 AI、长期校准和 Package E 本机发布/备份/恢复/回滚演练已闭环；远端 `v0.1.7` 已完成服务器侧 apply、health 和 extra-smoke 记录，但长期 live gate 与 `releaseEvidenceBundleHash` / release evidence backup hash 仍未闭环 |
+| 仓库当前重点 | `v0.1.7` 签名 GitHub Release 已生成并校验 SBOM/provenance、checksum、cosign signature 和 GHCR digest 证据，并已由服务器侧 updater 应用到生产；自动应用策略仍保持 `none` |
+| 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
+| 残余证据 | 当前 `v0.1.7` 长期证据快照仍为 `needs_live_evidence`：post-update OPS-001 bundle 已保存但仍是 `needs_attention`，仍缺当前 redacted smoke/status/closure packet 和 `releaseEvidenceBundleHash` / release evidence backup hash；OPS-004 matching alert drill/preflight 已达到 `ready_for_human_close` 但未关闭 residual；这些不是主功能缺失 |
 
-详细证据见：
+状态证据与剩余边界：
 
-- `docs/development/docs-100-completion-record.md`
-- `docs/development/package-e-remote-github-release-record.md`
-- `docs/deployment/github-release-updater.md`
+- [docs 100% 完成记录](docs/development/docs-100-completion-record.md)
+- [`v0.1.5` 远端签名发布历史记录](docs/development/package-e-remote-github-release-record.md)
+- [`v0.1.7` 签名 Release 供应链记录](docs/development/release-supply-chain-v0.1.7.md)
+- [`v0.1.7` Release 记录](docs/development/release-v0.1.7-record.md)
+- [`v0.1.7` 长期证据快照](docs/development/long-term-evidence-snapshot-v0.1.7-20260712.json)
+- [长期运营控制面](docs/development/long-term-operability-control-plane.md)
+- [运营 readiness](docs/development/operational-readiness.md)
+- [残余风险台账](docs/development/residual-risk-ledger.md)
+- [Update request expected-before 设计](docs/development/update-request-expected-before-design.md)
 
-## 技术栈
+## 产品边界
 
-- Next.js
-- TypeScript
-- PostgreSQL
-- Prisma
-- Docker Compose
-- Sub2API / OpenAI 兼容 AI 接口
+- 当前是单管理员、电脑优先、移动端响应式适配的私有 Web 应用。
+- PostgreSQL 是结构化状态的源事实；附件本体保存在私有上传目录，并通过鉴权 API 访问。
+- AI 默认不读取动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题。
+- 报告、债务重排和阶段调整都保留用户确认边界，不静默自动应用。
+- Web runtime 不执行 Docker、备份、恢复、migration、回滚或服务器命令。
+- 多用户、排名、小程序、原生 App、复杂权限、AI 自动完整计划和复杂 PDF 自动解析仍不在当前范围。
+
+## 技术架构
+
+| 层 | 实现 |
+|---|---|
+| Web | Next.js、React、TypeScript |
+| 业务规则 | `packages/core`，保持平台无关，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量 |
+| 数据 | PostgreSQL、Prisma、`packages/db` |
+| AI 与文件 | `packages/ai`、`packages/storage` |
+| 部署 | Docker Compose、Nginx、GitHub Release、GHCR、服务器侧 updater |
+
+```text
+apps/web          私有 Web 应用与 API
+packages/core     平台无关业务规则
+packages/db       Prisma 与数据库访问
+packages/ai       AI 适配、校验与回退
+packages/storage  附件安全规则
+prisma            数据模型与 migrations
+docs              产品、架构、开发、部署和安全源事实
+ops / scripts     发布、更新、验证与只读运营工具
+```
+
+详细调用方向见 [架构总览](docs/architecture/overview.md) 和 [工程结构](docs/architecture/project-structure.md)。
 
 ## 本地开发
+
+建议使用 Node.js 24（当前 CI/Release 基线）、pnpm `11.7.0` 和 Docker Compose。
 
 ```bash
 pnpm install
 docker compose up -d postgres
 pnpm db:generate
+pnpm db:migrate:dev
+```
+
+首次启动前，从 `.env.example` 准备本地 `.env`，并至少完成以下配置：
+
+- 将 `AUTH_SESSION_SECRET` 替换为不少于 32 个字符的本地随机值。
+- 设置 `AUTH_ADMIN_EMAIL`，并将密码哈希写入 `AUTH_ADMIN_PASSWORD_HASH`。
+- 将 `UPLOAD_DIR` 改为本机可写、位于 `apps/web/public` 之外的绝对路径。
+- 将 `APP_VERSION` 与根 `package.json` 的当前版本保持一致。
+
+密码哈希可通过以下命令生成：
+
+```bash
+pnpm auth:hash '<local-password>'
+```
+
+把输出写回 `.env` 后，再初始化管理员和基础科目并启动应用：
+
+```bash
+pnpm db:seed
 pnpm dev
 ```
 
-Web 应用默认位于 `apps/web`。
+默认访问地址是 `http://localhost:3000`，默认开发数据库是 `postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge`。完整说明见 [开发设置](docs/development/setup.md)。
 
-默认开发数据库连接为 `postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge`，与 `.env.example`、根脚本和本地 `docker-compose.yml` 保持一致。
+## 常用验证入口
 
-## 常用命令
+| 场景 | 入口 |
+|---|---|
+| 常规代码改动 | `pnpm check`；需要全包测试时补 `pnpm test` |
+| 文档、治理、高风险边界 | `pnpm docs:readiness`、`pnpm docs:completion`、`pnpm risk:preflight`、`pnpm governance:preflight` |
+| 发布或更新准备 | `pnpm release:train:preflight`、`pnpm github-release-updater:preflight`、`pnpm release:closeout:audit -- --version <X.Y.Z>`，按 [Release train](docs/development/release-train.md) 固定版本、资产、回滚、跨记录一致性和停止条件 |
+| 日常只读运营 | `pnpm ops:handoff --summary`、`pnpm ops:handoff:validate <handoff.json>`、`pnpm ops:status --summary`、`pnpm ops:readiness`、`pnpm ops:readonly-side-effect:selftest`、`pnpm residuals:review-due`、`pnpm residuals:closure:validate <record>` |
+| 维护与证据收口 | `pnpm maintenance:window:record`、`pnpm maintenance:window:index`、`pnpm maintenance:window:index:validate docs/development/maintenance-window-index.json`、`pnpm incident:index`、`pnpm incident:index:validate docs/development/incident-index.json`、`pnpm attachment:reconciliation:summary:selftest`、`pnpm ops:evidence:bundle`、`pnpm ops:long-term:snapshot`、`pnpm ops:alert:preview`、`pnpm ops:support:bundle-preview`、`pnpm ops:backup-restore:preview` |
+| 长期运营控制面 | `pnpm enterprise:operability:preflight`、`pnpm update-agent:status:record <status.json>`、`pnpm ops:ops-001:preflight`、`pnpm ops:ops-001:blocked:validate <record>`、`pnpm ops:ops-001:closure <smoke> <status> <bundle>`、`pnpm ops:ops-004:preflight`、`pnpm ops:ops-005:preflight`、`pnpm ops:ops-005:evidence:validate <record>`、`pnpm ops:long-term:snapshot:validate <snapshot.json>` |
+| 供应链与体验复核 | `pnpm release:supply-chain:validate <record>`、`pnpm ci:supply-chain:record`、`pnpm sc:sc-002:preflight`、`pnpm experience:review:validate <record>` |
 
-```bash
-pnpm typecheck
-pnpm lint
-pnpm db:validate
-pnpm build
-pnpm check
-pnpm docs:readiness
-pnpm docs:completion
-pnpm risk:preflight
-pnpm github-release-updater:preflight
-```
+`pnpm ops:long-term:snapshot` 会把当前 checkout 的长期运营证据、输入 hash、OPS-001/OPS-004/OPS-005/release evidence record/供应链/体验/运行信号状态和缺口固定成只读 JSON；它不联网、不执行生产动作、不关闭 residual。`pnpm ops:status` / `pnpm ops:handoff` 会额外输出 `boundaryStops`，明确当前 no-server/no-secret/no-residual-closure 边界下不能闭环的 post-update OPS-001、OPS-005 expected-before、`releaseEvidenceBundleHash` / release backup hash 和 residual 关闭证据。`pnpm ops:long-term:gate` 是“产品可长期运营”完成声明前的严格 live evidence gate。缺少生产 smoke、OPS-004 当前版本演练证据、OPS-005 V2 本地实现/签名 Release/生产证据、可校验 Release 发布记录、签名 Release 供应链或新鲜体验证据时，它应当失败；当前 OPS-004 已有 matching drill/preflight，但 OPS-001 和 OPS-005 仍是 current blocker，`release-v0.1.7-record.md` 仍缺 root-only backup hash 和可校验 `releaseEvidenceBundleHash`。它不是常规本地检查，也不会执行任何生产动作。
 
-## 文档入口
+`pnpm release:closeout:audit -- --version <X.Y.Z>` 会把指定版本的 Release 记录、签名供应链记录、operational evidence bundle、rollback target 和 residual 台账做只读交叉审计。当前 `0.1.7` 审计会阻断 backup/release bundle hash 缺口、OPS-001 current blocker，以及 Release 记录中的 `operationalEvidenceBundleHash` 与引用 bundle 内部 `bundleHash` 不一致；它不修改历史记录、不执行生产动作，也不自动关闭 residual。
 
-- 文档总览与源事实入口：`docs/README.md`
-- 产品入口：`docs/product/charter.md`
-- PRD：`docs/product/prd.md`
-- 功能范围：`docs/product/feature-scope.md`
-- 路线图：`docs/product/roadmap.md`
-- 架构总览：`docs/architecture/overview.md`
-- 工程结构：`docs/architecture/project-structure.md`
-- 模块设计：`docs/modules/**`
-- UX 状态：`docs/ux/**`
-- 开发顺序：`docs/development/implementation-order.md`
-- 开发前闭环：`docs/development/pre-code-closure.md`
-- 协作工作流：`docs/development/codex-workflow.md`
-- 验证矩阵：`docs/development/validation-matrix.md`
-- 部署与备份：`docs/deployment/**`
-- 安全模型：`docs/security/threat-model.md`
-- 文件与 AI 安全：`docs/security/file-ai-safety.md`
-- 技术决策：`docs/adr/**`
-- 轻量任务：`tasks/**`
-- 版本规划：`workflow/**`
+`pnpm ops:handoff:validate <handoff.json>` 默认重建当前 checkout 的 `controlPlaneSourceHash` 和 `protectedPathFingerprint`，旧交接若已漂移会以 `bindingStatus: stale` 失败。只有历史归档形态检查可显式使用 `--shape-only`；此时 `bindingStatus: unavailable`，不能证明交接仍适用于当前代码和文档。
+
+附件恢复/发布证据使用 `pnpm attachment:reconciliation -- <UPLOAD_DIR> <report.csv> --summary-output <summary.json>`。它始终执行数据库到文件和文件到数据库的双向只读扫描，报告必须写在 `UPLOAD_DIR` 外；孤儿/unsafe entry 只记录文件名 SHA256，不删除、不移动、不修复。`pnpm release:evidence:validate` 必须同时读取发布记录、CSV 和 summary，并校验记录中的路径、status、CSV SHA256 与 summary canonical hash 绑定。
+
+不要从 README 猜测专项命令。按改动范围查阅 [验证矩阵](docs/development/validation-matrix.md)，长期运营节奏查阅 [维护节奏](docs/development/maintenance-cadence.md) 和 [长期运营控制面](docs/development/long-term-operability-control-plane.md)。
+
+## 文档地图
+
+| 主题 | 入口 |
+|---|---|
+| 产品定位、范围与路线 | [产品 Charter](docs/product/charter.md)、[PRD](docs/product/prd.md)、[功能范围](docs/product/feature-scope.md)、[路线图](docs/product/roadmap.md) |
+| 架构与数据边界 | [架构总览](docs/architecture/overview.md)、[数据模型](docs/architecture/data-model.md)、[API 边界](docs/architecture/api-surface.md) |
+| 模块与页面行为 | [模块文档](docs/modules/)、[UX 文档](docs/ux/)、[品牌素材](docs/ux/brand-assets.md) |
+| 实现与完成证据 | [实现顺序](docs/development/implementation-order.md)、[功能追踪矩阵](docs/development/feature-traceability.md)、[完成记录](docs/development/docs-100-completion-record.md) |
+| 协作与验证 | [Codex 工作流](docs/development/codex-workflow.md)、[文档同步清单](docs/development/doc-sync-checklist.md)、[验证矩阵](docs/development/validation-matrix.md) |
+| 发布与长期运营 | [长期运营控制面](docs/development/long-term-operability-control-plane.md)、[Release train](docs/development/release-train.md)、[运营 readiness](docs/development/operational-readiness.md)、[维护节奏](docs/development/maintenance-cadence.md)、[残余风险台账](docs/development/residual-risk-ledger.md)、[体验复核模板](docs/development/product-experience-review-record-template.md) |
+| 自托管与恢复 | [操作者上手](docs/deployment/operator-onboarding.md)、[GitHub Release updater](docs/deployment/github-release-updater.md)、[备份恢复](docs/deployment/backup-restore.md) |
+| 安全、支持与评审 | [威胁模型](docs/security/threat-model.md)、[文件与 AI 安全](docs/security/file-ai-safety.md)、[安全披露](SECURITY.md)、[支持入口](SUPPORT.md)、[支持 intake](docs/development/support-intake.md)、[支持包预览](docs/development/support-bundle-preview.md)、[代码评审门禁](CODE_REVIEW.md) |
+| 任务与版本 | [轻量任务](tasks/README.md)、[版本规划](workflow/README.md)、[残余风险索引](tasks/indexes/residuals.md) |
+
+README 只负责突出重点和导航，产品规则、架构约束、验证门禁与生产证据仍以对应源文档为准。
+
+## Codex 协作能力
+
+仓库提供 repo-local Codex skills，用于发布、安全、文件存储、AI 治理、体验复核、SRE、供应链、文档同步和残余风险管理。跨多个治理面时由 `areaforge-operating-loop` 编排 owner skill、验证选择和收尾证据。源目录是 `.codex/skills-src/`，自动发现入口是 `.agents/skills/`；完整 owner 边界见 [.codex/skills-src/README.md](.codex/skills-src/README.md)。
 
 ## 发布与更新
 
-后续功能完成后默认走 GitHub Release 路径：
+AreaForge 的生产路径是 Docker Compose + PostgreSQL + Nginx HTTPS + GitHub Release updater，不使用 Web runtime 直接运维服务器。
 
-1. 同步 `docs/**`、`tasks/**`、`workflow/**` 和相关入口 README。
-2. 运行 `pnpm check`、`pnpm docs:readiness`、`pnpm docs:completion`、`pnpm risk:preflight`，涉及更新器时补跑 `pnpm github-release-updater:preflight` 和 `pnpm shellcheck:updater`。
-3. bump 版本，提交干净 commit，创建并推送 `vX.Y.Z` tag。
-4. 等待 GitHub Release workflow 生成 Web/migration 镜像、manifest、`SHA256SUMS` 和 `SHA256SUMS.sig`。
-5. 通过 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
+一次正式更新必须区分三个阶段：
 
-Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
+1. 本地与 CI 验证当前 checkout，并按 Release train 固定版本、范围、残余风险和回滚目标。
+2. GitHub Release workflow 生成 Web/migration 镜像、manifest、SBOM、provenance、checksum 和签名资产；stable Release 缺少签名条件时必须失败。
+3. Web 版本中心提交受控请求，或管理员在服务器执行 updater；服务器侧完成签名校验、备份、migration、切换、smoke 和必要时回滚。
+
+发布完成不等于生产更新完成，生产更新完成也不等于长期运营证据全部关闭。具体流程见 [生产发布 runbook](docs/development/production-release-runbook.md) 和 [GitHub Release updater](docs/deployment/github-release-updater.md)。
