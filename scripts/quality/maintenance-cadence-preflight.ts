@@ -54,6 +54,7 @@ function checkRequiredFiles(): void {
     "docs/development/restore-drill-record-template.md",
     "docs/development/maintenance-window-record-template.md",
     "docs/development/maintenance-window-index.json",
+    "docs/development/incident-index.json",
     "docs/development/update-agent-status-record-template.md",
     "docs/development/ops-001-closure-packet-template.md",
     "docs/development/ops-005-expected-before-production-evidence-template.md",
@@ -124,6 +125,10 @@ function checkRequiredFiles(): void {
     "scripts/quality/maintenance-window-index-common.ts",
     "scripts/quality/maintenance-window-index-validate.ts",
     "scripts/quality/maintenance-window-index.selftest.ts",
+    "scripts/ops/incident-index.ts",
+    "scripts/quality/incident-index-common.ts",
+    "scripts/quality/incident-index-validate.ts",
+    "scripts/quality/incident-index.selftest.ts",
     "scripts/quality/update-agent-status-validate.ts",
     "scripts/quality/update-agent-status-validate.selftest.ts",
     "scripts/quality/residual-ledger-validate.ts",
@@ -192,6 +197,8 @@ function checkMaintenanceDoc(): void {
     "pnpm maintenance:window:index",
     "pnpm maintenance:window:index:validate",
     "pnpm incident:record:validate",
+    "pnpm incident:index",
+    "pnpm incident:index:validate",
     "pnpm rollback:proof:validate",
     "pnpm restore:drill:validate",
     "pnpm residuals:validate",
@@ -315,6 +322,9 @@ function checkPackageScript(): void {
   const maintenanceWindowIndexValidateScript = packageJson.scripts?.["maintenance:window:index:validate"] ?? "";
   const maintenanceWindowIndexSelftestScript = packageJson.scripts?.["maintenance:window:index:selftest"] ?? "";
   const incidentRecordValidateScript = packageJson.scripts?.["incident:record:validate"] ?? "";
+  const incidentIndexScript = packageJson.scripts?.["incident:index"] ?? "";
+  const incidentIndexValidateScript = packageJson.scripts?.["incident:index:validate"] ?? "";
+  const incidentIndexSelftestScript = packageJson.scripts?.["incident:index:selftest"] ?? "";
   const rollbackProofValidateScript = packageJson.scripts?.["rollback:proof:validate"] ?? "";
   const rollbackProofSelftestScript = packageJson.scripts?.["rollback:proof:selftest"] ?? "";
   const restoreDrillValidateScript = packageJson.scripts?.["restore:drill:validate"] ?? "";
@@ -376,13 +386,16 @@ function checkPackageScript(): void {
       maintenanceWindowIndexValidateScript === "tsx scripts/quality/maintenance-window-index-validate.ts" &&
       maintenanceWindowIndexSelftestScript === "tsx scripts/quality/maintenance-window-index.selftest.ts" &&
       incidentRecordValidateScript === "tsx scripts/quality/incident-record-validate.ts" &&
+      incidentIndexScript === "tsx scripts/ops/incident-index.ts" &&
+      incidentIndexValidateScript === "tsx scripts/quality/incident-index-validate.ts" &&
+      incidentIndexSelftestScript === "tsx scripts/quality/incident-index.selftest.ts" &&
       rollbackProofValidateScript === "tsx scripts/quality/rollback-proof-record-validate.ts" &&
       rollbackProofSelftestScript === "tsx scripts/quality/rollback-proof-record-validate.selftest.ts" &&
       restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&
       updateAgentStatusRecordScript === "tsx scripts/ops/generate-update-agent-status-record.ts" &&
       updateAgentStatusRecordSelftestScript === "tsx scripts/quality/update-agent-status-record.selftest.ts" &&
       updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
-    detail: `maintenance:cadence:preflight=${script || "missing"}; ops:status=${opsStatusScript || "missing"}; ops:status:validate=${opsStatusValidateScript || "missing"}; ops:status:validate:selftest=${opsStatusValidateSelftestScript || "missing"}; ops:status:selftest=${opsStatusSelftestScript || "missing"}; ops:handoff=${opsHandoffScript || "missing"}; ops:handoff:validate=${opsHandoffValidateScript || "missing"}; ops:handoff:validate:selftest=${opsHandoffValidateSelftestScript || "missing"}; ops:handoff:selftest=${opsHandoffSelftestScript || "missing"}; ops:evidence:bundle:validate=${evidenceBundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${evidenceBundleSelftestScript || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}; ops:backup-restore:preview=${backupRestorePreviewScript || "missing"}; ops:backup-restore:preview:validate=${backupRestorePreviewValidateScript || "missing"}; ops:backup-restore:preview:selftest=${backupRestorePreviewSelftestScript || "missing"}; ops:ops-001:preflight=${ops001PreflightScript || "missing"}; ops:ops-001:preflight:selftest=${ops001PreflightSelftestScript || "missing"}; ops:ops-004:preflight=${ops004PreflightScript || "missing"}; ops:ops-004:preflight:selftest=${ops004PreflightSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; ops:ops-001:closure=${ops001ClosureScript || "missing"}; ops:ops-001:closure:validate=${ops001ClosureValidateScript || "missing"}; ops:ops-001:closure:selftest=${ops001ClosureSelftestScript || "missing"}; residuals:evidence:preflight=${residualEvidencePreflightScript || "missing"}; residuals:evidence:preflight:selftest=${residualEvidencePreflightSelftestScript || "missing"}; residuals:closure:validate=${residualClosureValidateScript || "missing"}; residuals:closure:selftest=${residualClosureSelftestScript || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:record=${maintenanceWindowRecordScript || "missing"}; maintenance:window:record:selftest=${maintenanceWindowRecordSelftestScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; maintenance:window:selftest=${maintenanceWindowSelftestScript || "missing"}; maintenance:window:index=${maintenanceWindowIndexScript || "missing"}; maintenance:window:index:validate=${maintenanceWindowIndexValidateScript || "missing"}; maintenance:window:index:selftest=${maintenanceWindowIndexSelftestScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
+    detail: `maintenance:cadence:preflight=${script || "missing"}; ops:status=${opsStatusScript || "missing"}; ops:status:validate=${opsStatusValidateScript || "missing"}; ops:status:validate:selftest=${opsStatusValidateSelftestScript || "missing"}; ops:status:selftest=${opsStatusSelftestScript || "missing"}; ops:handoff=${opsHandoffScript || "missing"}; ops:handoff:validate=${opsHandoffValidateScript || "missing"}; ops:handoff:validate:selftest=${opsHandoffValidateSelftestScript || "missing"}; ops:handoff:selftest=${opsHandoffSelftestScript || "missing"}; ops:evidence:bundle:validate=${evidenceBundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${evidenceBundleSelftestScript || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}; ops:backup-restore:preview=${backupRestorePreviewScript || "missing"}; ops:backup-restore:preview:validate=${backupRestorePreviewValidateScript || "missing"}; ops:backup-restore:preview:selftest=${backupRestorePreviewSelftestScript || "missing"}; ops:ops-001:preflight=${ops001PreflightScript || "missing"}; ops:ops-001:preflight:selftest=${ops001PreflightSelftestScript || "missing"}; ops:ops-004:preflight=${ops004PreflightScript || "missing"}; ops:ops-004:preflight:selftest=${ops004PreflightSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; ops:ops-001:closure=${ops001ClosureScript || "missing"}; ops:ops-001:closure:validate=${ops001ClosureValidateScript || "missing"}; ops:ops-001:closure:selftest=${ops001ClosureSelftestScript || "missing"}; residuals:evidence:preflight=${residualEvidencePreflightScript || "missing"}; residuals:evidence:preflight:selftest=${residualEvidencePreflightSelftestScript || "missing"}; residuals:closure:validate=${residualClosureValidateScript || "missing"}; residuals:closure:selftest=${residualClosureSelftestScript || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:record=${maintenanceWindowRecordScript || "missing"}; maintenance:window:record:selftest=${maintenanceWindowRecordSelftestScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; maintenance:window:selftest=${maintenanceWindowSelftestScript || "missing"}; maintenance:window:index=${maintenanceWindowIndexScript || "missing"}; maintenance:window:index:validate=${maintenanceWindowIndexValidateScript || "missing"}; maintenance:window:index:selftest=${maintenanceWindowIndexSelftestScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; incident:index=${incidentIndexScript || "missing"}; incident:index:validate=${incidentIndexValidateScript || "missing"}; incident:index:selftest=${incidentIndexSelftestScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
   });
 }
 
@@ -406,6 +419,7 @@ function checkEntryPoints(): void {
     [rootReadme, "pnpm ci:supply-chain:record", "README.md"],
     [rootReadme, "pnpm sc:sc-002:preflight", "README.md"],
     [rootReadme, "pnpm maintenance:window:record", "README.md"],
+    [rootReadme, "pnpm incident:index", "README.md"],
     [docsReadme, "development/maintenance-cadence.md", "docs/README.md"],
     [docsReadme, "development/support-bundle-preview.md", "docs/README.md"],
     [docsReadme, "deployment/backup-restore.md", "docs/README.md"],
@@ -413,6 +427,7 @@ function checkEntryPoints(): void {
     [docsReadme, "development/ops-005-expected-before-production-evidence-template.md", "docs/README.md"],
     [docsReadme, "development/ci-supply-chain-record-template.md", "docs/README.md"],
     [docsReadme, "development/product-experience-review-record-template.md", "docs/README.md"],
+    [docsReadme, "development/incident-index.json", "docs/README.md"],
     [workflowReadme, "docs/development/maintenance-cadence.md", "workflow/README.md"],
     [docSync, "docs/development/maintenance-cadence.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/ops-005-expected-before-production-evidence-template.md", "docs/development/doc-sync-checklist.md"],
@@ -444,6 +459,7 @@ function checkOpsReadinessCoverage(): void {
     "pnpm ops:ops-005:preflight",
     "pnpm experience:review:validate",
     "pnpm maintenance:window:record",
+    "pnpm incident:index",
   ];
   const combined = `${opsReadiness}\n${operationalReadiness}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));

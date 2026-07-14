@@ -164,9 +164,10 @@ Incident 后目标是保留证据、恢复服务、避免同类问题重复。
 2. 判断是否需要 rollback、roll-forward、restore 或 hold；生产写动作必须重新确认。
 3. 恢复后记录 post-incident readiness summary 和 evidence bundle。
 4. 按 `docs/development/incident-record-template.md` 填写 redacted incident record，并运行 `pnpm incident:record:validate <record>`。
-5. 若实际执行 rollback，按 `docs/development/rollback-proof-record-template.md` 保存回滚后证明并运行 `pnpm rollback:proof:validate <record>`；信号不足时保持 `keep-closed`，不得自动重新开放更新通道。
-6. 若形成后续风险，写入 residual ledger 或对应任务，不只留在聊天记录。
-7. 若涉及安全，转 `SECURITY.md` 私密路径。
+5. 只有 `status=resolved` 且 `postIncidentReview=yes` 的记录才进入 `incident-*/incident-record.txt` 历史集合；完整重建 `pnpm incident:index` 并运行 `pnpm incident:index:validate docs/development/incident-index.json`。该索引只用于历史浏览和完整性检查，不表示当前没有 active incident。
+6. 若实际执行 rollback，按 `docs/development/rollback-proof-record-template.md` 保存回滚后证明并运行 `pnpm rollback:proof:validate <record>`；信号不足时保持 `keep-closed`，不得自动重新开放更新通道。
+7. 若形成后续风险，写入 residual ledger 或对应任务，不只留在聊天记录。
+8. 若涉及安全，转 `SECURITY.md` 私密路径。
 
 ## Residual Review
 

@@ -15,6 +15,7 @@ const requiredFiles = [
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
   "docs/development/maintenance-window-index.json",
+  "docs/development/incident-index.json",
   "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/update-request-expected-before-design.md",
@@ -70,6 +71,10 @@ const requiredFiles = [
   "scripts/quality/maintenance-window-index-common.ts",
   "scripts/quality/maintenance-window-index-validate.ts",
   "scripts/quality/maintenance-window-index.selftest.ts",
+  "scripts/ops/incident-index.ts",
+  "scripts/quality/incident-index-common.ts",
+  "scripts/quality/incident-index-validate.ts",
+  "scripts/quality/incident-index.selftest.ts",
   "scripts/quality/rollback-proof-record-validate.ts",
   "scripts/quality/rollback-proof-record-validate.selftest.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
@@ -150,6 +155,9 @@ const requiredScripts = [
   "maintenance:window:index",
   "maintenance:window:index:validate",
   "maintenance:window:index:selftest",
+  "incident:index",
+  "incident:index:validate",
+  "incident:index:selftest",
   "rollback:proof:validate",
   "rollback:proof:selftest",
   "residuals:validate",
@@ -294,6 +302,7 @@ function main(): void {
     assert(projection.packageScripts.present.includes("maintenance:window:record"), "projection should require maintenance window record generator");
     assert(projection.packageScripts.present.includes("maintenance:window:validate"), "projection should require maintenance window validator");
     assert(projection.packageScripts.present.includes("maintenance:window:index:validate"), "projection should require maintenance window index validator");
+    assert(projection.packageScripts.present.includes("incident:index:validate"), "projection should require incident index validator");
     assert(projection.packageScripts.present.includes("rollback:proof:validate"), "projection should require rollback proof validator");
     assert(projection.commands.daily.includes("pnpm ops:support:bundle-preview"), "daily commands should include support bundle preview");
     assert(projection.commands.daily.includes("pnpm ops:status:validate <operability-status.json>"), "daily commands should include operability status validation");
@@ -310,6 +319,7 @@ function main(): void {
     assert(projection.commands.daily.includes("pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>"), "daily commands should include long-term evidence snapshot validation");
     assert(projection.commands.daily.includes("pnpm maintenance:window:record"), "daily commands should include maintenance window record generation");
     assert(projection.commands.daily.includes("pnpm maintenance:window:index"), "daily commands should include maintenance window index generation");
+    assert(projection.commands.daily.includes("pnpm incident:index"), "daily commands should include incident index generation");
     assert(projection.commands.daily.includes("pnpm residuals:evidence:preflight"), "daily commands should include residual evidence preflight");
     assert(projection.commands.daily.includes("pnpm residuals:closure:validate <residual-closure-review-record>"), "daily commands should include residual closure review validation");
     assert(projection.commands.weekly.includes("pnpm ops:support:bundle-preview:selftest"), "weekly commands should include support bundle preview selftest");
@@ -330,6 +340,8 @@ function main(): void {
     assert(projection.commands.weekly.includes("pnpm residuals:closure:selftest"), "weekly commands should include residual closure review selftest");
     assert(projection.commands.weekly.includes("pnpm maintenance:window:record:selftest"), "weekly commands should include maintenance window record selftest");
     assert(projection.commands.weekly.includes("pnpm maintenance:window:index:selftest"), "weekly commands should include maintenance window index selftest");
+    assert(projection.commands.weekly.includes("pnpm incident:index:selftest"), "weekly commands should include incident index selftest");
+    assert(projection.commands.incident.includes("pnpm incident:index:validate docs/development/incident-index.json"), "incident commands should include saved incident index validation");
     assert(projection.commands.incident.includes("pnpm rollback:proof:validate <record>"), "incident commands should include rollback proof validation");
     assert(projection.commands.release.includes("pnpm sc:sc-002:preflight"), "release commands should include SC-002 supply-chain preflight");
     assert(projection.commands.release.includes("pnpm ops:ops-005:preflight"), "release commands should include OPS-005 expected-before preflight");

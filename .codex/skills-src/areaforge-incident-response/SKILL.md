@@ -39,6 +39,7 @@ Use this skill when signals indicate user impact or operational risk and the nex
 6. Close only after recording root cause or accepted unknown, user impact, actions taken, validation evidence, residual risk, and follow-up owner.
 7. If rollback was executed, save a redacted proof from `docs/development/rollback-proof-record-template.md` and run `pnpm rollback:proof:validate <record>`; `ready-for-human-review` does not reopen the update channel or close residuals.
 8. If a redacted incident record is added, validate it with `pnpm incident:record:validate <record>`.
+9. Only after `status=resolved` and `postIncidentReview=yes`, place the record at `docs/development/incident-*/incident-record.txt`, rebuild `pnpm incident:index`, and validate `docs/development/incident-index.json`. Treat the index as resolved-history completeness only, never as active incident state or residual closure.
 
 ## Guardrails
 

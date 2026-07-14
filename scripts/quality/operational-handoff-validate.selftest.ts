@@ -52,6 +52,10 @@ function main(): void {
   }), "nextCommands.liveEvidence");
 
   expectFail(withPatch(handoff, (body) => {
+    body.nextCommands.handoff = body.nextCommands.handoff.filter((command) => command !== "pnpm incident:index");
+  }), "nextCommands.handoff");
+
+  expectFail(withPatch(handoff, (body) => {
     body.evidenceFocus.boundaryStops = body.evidenceFocus.boundaryStops.filter((stop) => stop.key !== "post_update_ops001");
   }), "evidenceFocus.boundaryStops");
 

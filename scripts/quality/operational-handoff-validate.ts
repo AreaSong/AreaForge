@@ -17,6 +17,8 @@ const requiredHandoffCommands = [
   "pnpm ops:status",
   "pnpm ops:support:bundle-preview",
   "pnpm ops:backup-restore:preview",
+  "pnpm incident:index",
+  "pnpm incident:index:validate docs/development/incident-index.json",
   "pnpm residuals:review-due",
   "pnpm residuals:evidence:preflight",
 ];

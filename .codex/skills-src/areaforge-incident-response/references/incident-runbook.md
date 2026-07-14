@@ -41,6 +41,7 @@ Close only when the record contains:
 - residual risks and follow-up owner
 - docs/tasks/workflow sync status
 - `pnpm incident:record:validate <record>` output if a redacted incident record is stored
+- for resolved incidents with `postIncidentReview=yes`, a deterministic `pnpm incident:index` rebuild and `pnpm incident:index:validate docs/development/incident-index.json` result; this is historical completeness only
 
 ## Never Do
 

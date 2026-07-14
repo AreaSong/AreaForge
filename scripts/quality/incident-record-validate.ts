@@ -93,6 +93,10 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
 
   for (const field of ["detectedAt", "recordedAt"] as const) {
     requireIsoTimestamp(fields, field, issues);
+    const value = fields.get(field);
+    if (value && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+      issues.push({ field, message: "must include Z or an explicit UTC offset" });
+    }
   }
 
   requireOneOf(fields, "environment", ["production", "staging", "local", "ci"], issues);
@@ -128,6 +132,8 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
 
   const status = fields.get("status")?.toLowerCase();
   const residuals = fields.get("residualRiskIds")?.toLowerCase() ?? "";
+  validateResidualRiskIds(fields.get("residualRiskIds") ?? "", issues);
+  validateFollowUpTasks(fields.get("followUpTasks") ?? "", issues);
   if (status !== "resolved" && residuals === "none") {
     issues.push({ field: "residualRiskIds", message: "must include a residual ID when incident is not fully resolved" });
   }
@@ -137,6 +143,22 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
 
   scanForSecrets(record, issues);
   return issues;
+}
+
+function validateResidualRiskIds(value: string, issues: ValidationIssue[]): void {
+  if (!value || value.toLowerCase() === "none") return;
+  const items = value.split(",").map((item) => item.trim()).filter(Boolean);
+  if (items.length === 0 || items.some((item) => !/^AF-RISK-[A-Z]+-\d{3}$/.test(item))) {
+    issues.push({ field: "residualRiskIds", message: "must be none or a comma-separated list of complete AF-RISK-* IDs" });
+  }
+}
+
+function validateFollowUpTasks(value: string, issues: ValidationIssue[]): void {
+  if (!value || value.toLowerCase() === "none") return;
+  const items = value.split(",").map((item) => item.trim()).filter(Boolean);
+  if (items.length === 0 || items.some((item) => !/^(?:docs|tasks|workflow)\/[A-Za-z0-9._/-]+$/.test(item) || item.split("/").includes(".."))) {
+    issues.push({ field: "followUpTasks", message: "must be none or repository-relative docs/tasks/workflow references" });
+  }
 }
 
 main();

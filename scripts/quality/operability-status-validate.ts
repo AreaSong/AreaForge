@@ -38,6 +38,13 @@ const requiredReleaseCommands = [
   "pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
 ];
 
+const requiredIncidentCommands = [
+  "pnpm incident:record:validate <record>",
+  "pnpm incident:index",
+  "pnpm incident:index:validate docs/development/incident-index.json",
+  "pnpm rollback:proof:validate <record>",
+];
+
 const requiredDoesNotProve = [
   "current production health",
   "production readiness without live evidence",
@@ -344,7 +351,7 @@ function validateCommands(value: unknown, issues: ValidationIssue[]): void {
   validateStringArray(value.daily, "commands.daily", requiredDailyCommands, issues);
   validateStringArray(value.weekly, "commands.weekly", requiredWeeklyCommands, issues);
   validateStringArray(value.release, "commands.release", requiredReleaseCommands, issues);
-  requireStringArray(value.incident, "commands.incident", issues);
+  validateStringArray(value.incident, "commands.incident", requiredIncidentCommands, issues);
 }
 
 function validateNextActions(value: unknown, issues: ValidationIssue[]): void {

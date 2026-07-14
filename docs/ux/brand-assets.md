@@ -10,11 +10,21 @@ AreaForge 的当前品牌素材包位于 `assets/brand/final/`。它保存可编
 
 | 类型 | 源文件 | PNG 导出 |
 |---|---|---|
-| App icon | `areaforge-app-icon-dark.svg`、`areaforge-app-icon-light.svg` | `app-icon/` 下深浅两套 `16/32/64/128/256/512/1024` |
-| 小尺寸 icon | `areaforge-app-icon-small-dark.svg`、`areaforge-app-icon-small-light.svg` | `app-icon/` 下 `16/32` 使用小尺寸同源简化版导出 |
+| App icon | `areaforge-app-icon-dark.svg`、`areaforge-app-icon-light.svg` | `app-icon/` 下深浅两套 `16/32/48/64/128/180/192/256/512/1024` |
+| 小尺寸 icon | `areaforge-app-icon-small-dark.svg`、`areaforge-app-icon-small-light.svg` | `app-icon/` 下 `16/32/48` 使用小尺寸同源简化版导出 |
+| Opaque icon | `areaforge-app-icon-opaque-dark.svg`、`areaforge-app-icon-opaque-light.svg` | `app-icon/` 下不透明 `180/1024` 深浅两套 |
+| Maskable icon | `areaforge-app-icon-maskable-dark.svg`、`areaforge-app-icon-maskable-light.svg` | `app-icon/` 下全出血 `192/512` 深浅两套 |
 | Logo mark | `areaforge-logo-mark-dark.svg`、`areaforge-logo-mark-light.svg` | `mark/` 下深浅两套 `256/512/1024` |
 | 单色 mark | `areaforge-logo-mark-mono-dark.svg`、`areaforge-logo-mark-mono-light.svg` | `mark/` 下单色深浅两套 `256/512/1024` |
+| 彩色透明 Symbol | `areaforge-logo-symbol-dark.svg`、`areaforge-logo-symbol-light.svg` | `symbol/` 下 `256/512/1024` 深浅墨线两套 |
 | 横向 Logo | `areaforge-logo-lockup.svg`、`areaforge-logo-lockup-dark.svg`、`areaforge-logo-lockup-light.svg` | `lockup/` 下默认、深色和浅色背景 `1600x520` |
+| 轮廓化横向 Logo | `areaforge-logo-lockup-outlined*.svg` | `lockup/` 下对应 `1600x520` PNG |
+| 单色横向 Logo | `areaforge-logo-lockup-mono-dark.svg`、`areaforge-logo-lockup-mono-light.svg` | `lockup/` 下单色深浅两套 `1600x520` |
+| 纯字标 | `areaforge-wordmark-dark.svg`、`areaforge-wordmark-light.svg` | `wordmark/` 下深浅背景 `1200x336` |
+| 竖向堆叠 Logo | `areaforge-logo-stacked-dark.svg`、`areaforge-logo-stacked-light.svg` | `stacked/` 下深浅背景 `1024x1024` |
+| Favicon | 小尺寸 App icon 同源 | `favicon/` 下 `16/32/48` PNG 与多尺寸 ICO |
+| 社交预览图 | `social/areaforge-social-preview-light.svg`、`social/areaforge-social-preview-dark.svg` | `social/` 下浅色和深色 `1200x630` PNG；无后缀文件为浅色兼容入口 |
+| 品牌总览 | 由当前最终素材合成 | `areaforge-brand-overview.png`，尺寸为 `1600x1200` |
 
 ## 设计约束
 
@@ -23,6 +33,10 @@ AreaForge 的当前品牌素材包位于 `assets/brand/final/`。它保存可编
 - 横向 Logo 使用完整 `AreaForge` 字标；`Area` 用深色或深色背景反白，`Forge` 用青绿到琥珀/橙强调。
 - 小尺寸 icon 可以简化细节，但必须保持同源大轮廓。
 - 单色 mark 用于无法使用品牌色的场景，不替代主品牌图标。
+- 常规图标用于透明圆角场景；Apple/App Store 使用 opaque 版本；PWA `purpose=maskable` 使用 maskable 版本。
+- 轮廓化横向 Logo 不包含 `<text>` 或外部字体依赖，是跨环境分发的优先版本。
+- `lockup/wordmark/stacked` 文件名中的 `dark/light` 表示目标背景，`mono/symbol` 中的 `dark/light` 表示墨线明暗。
+- 社交预览图的深浅版本保持同一构图和文案，仅调整背景、前景和 Logo 对比。
 
 ## 接入规则
 

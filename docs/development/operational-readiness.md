@@ -347,6 +347,7 @@ pnpm residuals:review-due
 ```bash
 pnpm maintenance:window:validate <maintenance-window-record.md|txt>
 pnpm incident:record:validate <incident-record.md|txt>
+pnpm incident:index:validate docs/development/incident-index.json
 pnpm restore:drill:validate <restore-drill-record.md|txt>
 ```
 
@@ -355,6 +356,8 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 实际 rollback 后使用 `docs/development/rollback-proof-record-template.md` 和 `pnpm rollback:proof:validate <record>` 绑定不可变目标镜像、回滚前后 operation/update-record hash、post-rollback health、authenticated smoke、数据库/uploads/附件可访问性、auto-apply 策略、历史记录保留和 reopen conditions。validator 只给 `ready-for-human-review` 形态门槛，不执行 rollback、restore 或自动重新开放更新通道。
 
 维护窗口历史使用 `pnpm maintenance:window:index` 生成确定性只读投影，并用 `pnpm maintenance:window:index:validate docs/development/maintenance-window-index.json` 重新扫描当前记录集合。索引绑定原始记录文件 SHA256，不保存动态“当前健康”结论；它不能替代 readiness、smoke、update-agent、备份、rollback 或 residual 关闭证据。
+
+已解决事故历史使用 `pnpm incident:index` 扫描 `docs/development/incident-*/incident-record.txt`，只接受已经通过事故记录校验、`status=resolved` 且 `postIncidentReview=yes` 的记录；时间戳必须带时区，residual 必须是完整 `AF-RISK-*` ID，follow-up 只允许仓库相对 docs/tasks/workflow 引用。`pnpm incident:index:validate docs/development/incident-index.json` 会确认记录集合、原始文件 SHA256、跨时区稳定排序和 `latestIncidentId` 未漂移，并拒绝仓库内祖先 symlink 把相对 source root 导向仓库外。该索引是历史投影，不是 active incident 状态机，也不能证明当前生产健康、事故已处置或 residual 已关闭。
 
 ## 残余边界
 

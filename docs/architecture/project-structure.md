@@ -68,8 +68,13 @@ AreaForge/
     brand/
       final/
         app-icon/
+        favicon/
         lockup/
         mark/
+        social/
+        stacked/
+        symbol/
+        wordmark/
     prototypes/
 ```
 
@@ -99,7 +104,7 @@ AreaForge/
 - `docs/adr/**`：已确认的技术决策。
 - `tasks/**`：轻量任务拆分，不替代产品和架构源事实。
 - `workflow/**`：版本规划，不替代路线图。
-- `assets/brand/final/**`：当前品牌素材包，包含 App icon、Logo mark、横向 Logo、深浅色、单色和 PNG 导出；素材入库不代表 Web runtime、favicon、PWA manifest 或线上版本已经采用。
+- `assets/brand/final/**`：当前数字品牌素材包，包含常规/opaque/maskable App icon、favicon、Logo mark、透明 Symbol、彩色/轮廓化/单色横向 Logo、纯字标、堆叠 Logo、社交预览图、品牌总览和 PNG 导出；素材入库不代表 Web runtime、favicon、PWA manifest、社交元数据或线上版本已经采用。
 
 ## 当前取舍
 

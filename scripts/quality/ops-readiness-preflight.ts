@@ -78,6 +78,7 @@ function checkRequiredFiles(): void {
     "docs/development/restore-drill-record-template.md",
     "docs/development/maintenance-window-record-template.md",
     "docs/development/maintenance-window-index.json",
+    "docs/development/incident-index.json",
     "docs/development/update-agent-status-record-template.md",
     "docs/development/product-experience-review-record-template.md",
     "docs/deployment/operator-onboarding.md",
@@ -124,6 +125,10 @@ function checkRequiredFiles(): void {
     "scripts/quality/maintenance-window-index-common.ts",
     "scripts/quality/maintenance-window-index-validate.ts",
     "scripts/quality/maintenance-window-index.selftest.ts",
+    "scripts/ops/incident-index.ts",
+    "scripts/quality/incident-index-common.ts",
+    "scripts/quality/incident-index-validate.ts",
+    "scripts/quality/incident-index.selftest.ts",
     "scripts/ops/local-ux-smoke.ts",
     "scripts/ops/generate-prod-readonly-smoke-record.ts",
     "scripts/ops/generate-ops001-closure-packet.ts",
@@ -457,6 +462,9 @@ function checkPackageScripts(): void {
   const maintenanceWindowIndexValidateScript = packageJson.scripts?.["maintenance:window:index:validate"] ?? "";
   const maintenanceWindowIndexSelftestScript = packageJson.scripts?.["maintenance:window:index:selftest"] ?? "";
   const incidentRecordValidateScript = packageJson.scripts?.["incident:record:validate"] ?? "";
+  const incidentIndexScript = packageJson.scripts?.["incident:index"] ?? "";
+  const incidentIndexValidateScript = packageJson.scripts?.["incident:index:validate"] ?? "";
+  const incidentIndexSelftestScript = packageJson.scripts?.["incident:index:selftest"] ?? "";
   const rollbackProofValidateScript = packageJson.scripts?.["rollback:proof:validate"] ?? "";
   const rollbackProofSelftestScript = packageJson.scripts?.["rollback:proof:selftest"] ?? "";
   const restoreDrillValidateScript = packageJson.scripts?.["restore:drill:validate"] ?? "";
@@ -547,6 +555,9 @@ function checkPackageScripts(): void {
       maintenanceWindowIndexValidateScript === "tsx scripts/quality/maintenance-window-index-validate.ts" &&
       maintenanceWindowIndexSelftestScript === "tsx scripts/quality/maintenance-window-index.selftest.ts" &&
       incidentRecordValidateScript === "tsx scripts/quality/incident-record-validate.ts" &&
+      incidentIndexScript === "tsx scripts/ops/incident-index.ts" &&
+      incidentIndexValidateScript === "tsx scripts/quality/incident-index-validate.ts" &&
+      incidentIndexSelftestScript === "tsx scripts/quality/incident-index.selftest.ts" &&
       rollbackProofValidateScript === "tsx scripts/quality/rollback-proof-record-validate.ts" &&
       rollbackProofSelftestScript === "tsx scripts/quality/rollback-proof-record-validate.selftest.ts" &&
       restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&

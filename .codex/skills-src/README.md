@@ -22,7 +22,7 @@
 - 维护节奏入口为 `docs/development/maintenance-cadence.md`，对应只读检查为 `pnpm maintenance:cadence:preflight`。
 - 运营证据包使用 `pnpm ops:evidence:bundle` 生成，保存后用 `pnpm ops:evidence:bundle:validate` 校验 hash、信号、禁止动作和只读 safety facts。
 - `pnpm ops:long-term:gate` 只读聚合 OPS-001、OPS-004、签名 Release 供应链和新鲜 UX 证据；缺证据时失败，但不收集证据、不执行服务器命令、不修改 residual 台账。
-- 维护窗口、事故、恢复演练、update-agent redacted status、OPS-001 收口包和 OPS-004 告警证据分别使用 `pnpm maintenance:window:validate`、`pnpm incident:record:validate`、`pnpm restore:drill:validate`、`pnpm update-agent:status:validate`、`pnpm ops:ops-001:preflight` / `pnpm ops:ops-001:closure:validate` 和 `pnpm ops:ops-004:preflight`。
+- 维护窗口、事故、恢复演练、update-agent redacted status、OPS-001 收口包和 OPS-004 告警证据分别使用 `pnpm maintenance:window:validate`、`pnpm incident:record:validate`、`pnpm restore:drill:validate`、`pnpm update-agent:status:validate`、`pnpm ops:ops-001:preflight` / `pnpm ops:ops-001:closure:validate` 和 `pnpm ops:ops-004:preflight`；已解决且完成复盘的事故历史用 `pnpm incident:index` / `pnpm incident:index:validate` 确定性重建，不表示 active incident 状态。
 - `areaforge-observability`：health、日志、release identity、update-agent、备份新鲜度、AI fallback 和生产信号证据。
 - `areaforge-incident-response`：故障分级、证据冻结、止血、回滚决策、恢复验证和复盘收口。
 - `areaforge-security-governance`：鉴权、上传、AI、密钥、日志、签名 release、服务器命令边界，以及 `areaforge-data-governance` 成熟前的数据生命周期临时主协调。

@@ -303,6 +303,8 @@ function buildNextCommands(projection: OperabilityStatusProjection): Operational
       "pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>",
       "pnpm ops:backup-restore:preview",
       "pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>",
+      "pnpm incident:index",
+      "pnpm incident:index:validate docs/development/incident-index.json",
       "pnpm residuals:review-due",
       "pnpm residuals:evidence:preflight",
       "pnpm residuals:closure:validate <residual-closure-review-record>",

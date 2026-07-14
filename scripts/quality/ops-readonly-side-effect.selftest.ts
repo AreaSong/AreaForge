@@ -95,6 +95,21 @@ const readOnlyCommands = [
     summaryToken: "maintenance window index validation passed",
   },
   {
+    label: "resolved incident index",
+    args: ["incident:index"],
+    mode: "read_only_resolved_incident_index",
+  },
+  {
+    label: "resolved incident index selftest",
+    args: ["incident:index:selftest"],
+    summaryToken: "incident index selftest passed",
+  },
+  {
+    label: "saved resolved incident index validator",
+    args: ["incident:index:validate", "docs/development/incident-index.json"],
+    summaryToken: "incident index validation passed",
+  },
+  {
     label: "rollback proof record validator selftest",
     args: ["rollback:proof:selftest"],
     summaryToken: "rollback proof record validator selftest passed",

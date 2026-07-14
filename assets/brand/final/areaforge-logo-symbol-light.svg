@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">AreaForge Logo Symbol Light</title>
+  <desc id="desc">Full-color transparent AreaForge symbol for dark backgrounds.</desc>
+  <defs>
+    <linearGradient id="bg" x1="70" y1="54" x2="452" y2="462" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#103936"/>
+      <stop offset="0.55" stop-color="#08262C"/>
+      <stop offset="1" stop-color="#061319"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="158" y1="132" x2="318" y2="354" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F8FFF9"/>
+      <stop offset="1" stop-color="#C7F3E8"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="116" y1="126" x2="274" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#73F0D5"/>
+      <stop offset="1" stop-color="#18AAA6"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="299" y1="128" x2="397" y2="374" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD75F"/>
+      <stop offset="0.44" stop-color="#FFAA35"/>
+      <stop offset="1" stop-color="#F05F3D"/>
+    </linearGradient>
+    <filter id="softShadow" x="-18%" y="-18%" width="136%" height="142%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#020A0D" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <path d="M176 154c-63 57-64 145 0 202" fill="none" stroke="url(#teal)" stroke-width="23" stroke-linecap="round"/>
+  <path d="M336 154c63 57 64 145 0 202" fill="none" stroke="url(#amber)" stroke-width="23" stroke-linecap="round"/>
+  <path d="M176 356c44 31 116 31 160 0" fill="none" stroke="url(#teal)" stroke-width="23" stroke-linecap="round"/>
+
+  <g filter="url(#softShadow)">
+    <path d="M155 166c0-17 14-31 31-31h78l46 46v132c0 17-14 31-31 31h-93c-17 0-31-14-31-31V166z" fill="url(#paper)"/>
+    <path d="M264 135v46h46" fill="#D9FFF6"/>
+    <path d="M187 189h58M187 229h70M187 269h48" stroke="#79BEB3" stroke-width="17" stroke-linecap="round"/>
+    <circle cx="190" cy="306" r="14" fill="#62E7D0"/>
+    <circle cx="233" cy="306" r="14" fill="#FFD75F"/>
+    <circle cx="276" cy="306" r="14" fill="#E8F5F0"/>
+  </g>
+
+  <path d="M166 358h180" stroke="#F4FBF8" stroke-width="28" stroke-linecap="round"/>
+  <path d="M256 154v146l80 58" fill="none" stroke="#DDF8F1" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="154" r="35" fill="#FFD75F" stroke="#DDF8F1" stroke-width="15"/>
+  <circle cx="176" cy="356" r="19" fill="#5FEAD2" stroke="#DDF8F1" stroke-width="10"/>
+  <circle cx="336" cy="356" r="22" fill="#F05F3D" stroke="#DDF8F1" stroke-width="11"/>
+</svg>

@@ -85,13 +85,14 @@
 - `development/maintenance-cadence.md`：日常、每周、每月、Release 和 incident 后的只读维护节奏、证据新鲜度和 residual 复核规则。
 - `development/maintenance-window-20260713-weekly-production/maintenance-window.txt`：首个实际周维护窗口记录及其 redacted readiness、evidence bundle、alert preview、residual review 和 preflight 输入；当前结果为 `warn`，不替代 OPS-001、备份或 residual 关闭证据。
 - `development/maintenance-window-index.json`：由全部已验证维护窗口记录确定性重建的只读历史投影；每条记录绑定原始文件 SHA256，新增、损坏、重复或 hash 漂移时 validator 失败。
+- `development/incident-index.json`：由全部已解决且完成复盘的事故记录确定性重建的只读历史投影；它不表示当前存在或不存在 active incident，也不替代实时信号、事故处置或 residual 关闭。
 - `development/external-capability-admission.md`：subagent、MCP、自动化、浏览器控制、部署插件和远程运维工具的准入边界。
 - `development/operational-readiness.md`：长期运营 readiness、信号新鲜度、状态降级、离线状态投影、`boundaryStops` 授权边界停止线、只读运营交接摘要、只读运营摘要、证据包和证据包校验入口。
 - `development/production-smoke-alerting-strategy.md`：生产 smoke、写入型 smoke 确认字段、告警阈值和只读告警预览策略。
 - `development/production-readonly-smoke-record-template.md`：生产只读 smoke 记录模板和 `pnpm smoke:prod-readonly:validate` 校验入口。
 - `development/alert-drill-record-template.md`：告警/恢复演练记录模板、`pnpm alert:drill:validate` 校验入口和 `pnpm ops:ops-004:preflight` 证据预检入口。
 - `development/ops-005-expected-before-production-evidence-template.md`：OPS-005 expected-before V2 生产证据模板，以及 `pnpm ops:ops-005:preflight` / `pnpm ops:ops-005:evidence:validate` 只读校验入口。
-- `development/incident-record-template.md`：事故记录模板和 `pnpm incident:record:validate` 校验入口。
+- `development/incident-record-template.md`：事故记录模板和 `pnpm incident:record:validate` 校验入口；已解决记录进入 `incident-*/incident-record.txt` 后，使用 `pnpm incident:index` / `pnpm incident:index:validate` 重建和校验历史索引。
 - `development/rollback-proof-record-template.md`：回滚后证明模板和 `pnpm rollback:proof:validate` 校验入口；只达到人工重新开放评审，不自动开放更新通道或关闭 residual。
 - `development/restore-drill-record-template.md`：例行恢复演练记录模板和 `pnpm restore:drill:validate` 校验入口。
 - `development/maintenance-window-record-template.md`：维护窗口记录模板，配套 `pnpm maintenance:window:record` 生成入口和 `pnpm maintenance:window:validate` 校验入口。

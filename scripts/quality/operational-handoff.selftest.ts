@@ -15,6 +15,7 @@ const requiredFiles = [
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
   "docs/development/maintenance-window-index.json",
+  "docs/development/incident-index.json",
   "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/update-request-expected-before-design.md",
@@ -71,6 +72,10 @@ const requiredFiles = [
   "scripts/quality/maintenance-window-index-common.ts",
   "scripts/quality/maintenance-window-index-validate.ts",
   "scripts/quality/maintenance-window-index.selftest.ts",
+  "scripts/ops/incident-index.ts",
+  "scripts/quality/incident-index-common.ts",
+  "scripts/quality/incident-index-validate.ts",
+  "scripts/quality/incident-index.selftest.ts",
   "scripts/quality/rollback-proof-record-validate.ts",
   "scripts/quality/rollback-proof-record-validate.selftest.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
@@ -151,6 +156,9 @@ const requiredScripts = [
   "maintenance:window:index",
   "maintenance:window:index:validate",
   "maintenance:window:index:selftest",
+  "incident:index",
+  "incident:index:validate",
+  "incident:index:selftest",
   "rollback:proof:validate",
   "rollback:proof:selftest",
   "residuals:validate",
@@ -250,6 +258,8 @@ function main(): void {
     assert(handoff.nextCommands.handoff.includes("pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>"), "handoff should include support bundle preview validation command");
     assert(handoff.nextCommands.handoff.includes("pnpm ops:backup-restore:preview"), "handoff should include backup/restore preview command");
     assert(handoff.nextCommands.handoff.includes("pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>"), "handoff should include backup/restore preview validation command");
+    assert(handoff.nextCommands.handoff.includes("pnpm incident:index"), "handoff should include resolved incident index generation command");
+    assert(handoff.nextCommands.handoff.includes("pnpm incident:index:validate docs/development/incident-index.json"), "handoff should include resolved incident index validation command");
     assert(handoff.nextCommands.handoff.includes("pnpm residuals:evidence:preflight"), "handoff should include residual evidence preflight command");
     assert(handoff.nextCommands.handoff.includes("pnpm residuals:closure:validate <residual-closure-review-record>"), "handoff should include residual closure review validation command");
     assert(handoff.nextCommands.liveEvidence.includes("pnpm maintenance:window:record"), "handoff should include maintenance window record generation command");

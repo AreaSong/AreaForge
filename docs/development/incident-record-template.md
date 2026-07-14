@@ -31,6 +31,15 @@ pnpm incident:record:validate /path/to/incident-record.txt
 
 记录生成器只读取本地 redacted 证据文件和显式环境变量；它不连接生产、不执行命令、不写生产。
 
+事故仍处于 `open`、`mitigated` 或 `follow-up` 时只保留源记录，不进入历史索引。只有 `status: resolved` 且 `postIncidentReview: yes` 的记录，才放入 `docs/development/incident-<date-or-id>/incident-record.txt`，随后完整重建并校验：
+
+```bash
+pnpm incident:index > docs/development/incident-index.json
+pnpm incident:index:validate docs/development/incident-index.json
+```
+
+`incident-index.json` 只投影已解决事故历史，不是 active incident 状态机，不执行事故处置，也不能证明当前生产健康或 residual 已关闭。
+
 若事故处理中实际执行了 rollback，除事故记录外还应按 `docs/development/rollback-proof-record-template.md` 保存回滚后证明，并运行 `pnpm rollback:proof:validate <record>`。该 proof 只验证 post-rollback 证据达到人工复核门槛，不自动重新开放更新通道。
 
 ## 模板
@@ -72,6 +81,9 @@ safetyFacts:
 ## 关闭条件
 
 - 若任何高风险生产动作是 `yes`，`highRiskConfirmation` 必须是 `yes`，并在私有运维记录中保留确认包。
+- `detectedAt` 和 `recordedAt` 必须包含 `Z` 或显式 UTC offset，避免跨时区重建时排序漂移。
+- `residualRiskIds` 只能是 `none` 或完整 `AF-RISK-*` ID 的逗号列表；不得混入自由文本或无法识别的 ID。
+- `followUpTasks` 只能是 `docs/`、`tasks/` 或 `workflow/` 下的仓库相对引用，确保历史索引保持 metadata-only。
 - `resolved` 状态必须有 `postIncidentReview: yes`。
 - 实际 rollback 后必须另有通过 `pnpm rollback:proof:validate` 的回滚证明，或明确保持事故为 `follow-up` 并记录缺失证据。
 - 未完全解决的事故必须保留 `AF-RISK-*` residual ID 或转入任务/incident follow-up。
