@@ -16,7 +16,7 @@ AreaForge 的当前品牌素材包位于 `assets/brand/final/`。它保存可编
 | Maskable icon | `areaforge-app-icon-maskable-dark.svg`、`areaforge-app-icon-maskable-light.svg` | `app-icon/` 下全出血 `192/512` 深浅两套 |
 | Logo mark | `areaforge-logo-mark-dark.svg`、`areaforge-logo-mark-light.svg` | `mark/` 下深浅两套 `256/512/1024` |
 | 单色 mark | `areaforge-logo-mark-mono-dark.svg`、`areaforge-logo-mark-mono-light.svg` | `mark/` 下单色深浅两套 `256/512/1024` |
-| 彩色透明 Symbol | `areaforge-logo-symbol-dark.svg`、`areaforge-logo-symbol-light.svg` | `symbol/` 下 `256/512/1024` 深浅墨线两套 |
+| 彩色透明 Symbol | `areaforge-logo-symbol-dark.svg`、`areaforge-logo-symbol-light.svg` | `symbol/` 下 `256/512/1024` 浅色/深色背景适配两套，中心骨架均为深色 |
 | 横向 Logo | `areaforge-logo-lockup.svg`、`areaforge-logo-lockup-dark.svg`、`areaforge-logo-lockup-light.svg` | `lockup/` 下默认、深色和浅色背景 `1600x520` |
 | 轮廓化横向 Logo | `areaforge-logo-lockup-outlined*.svg` | `lockup/` 下对应 `1600x520` PNG |
 | 单色横向 Logo | `areaforge-logo-lockup-mono-dark.svg`、`areaforge-logo-lockup-mono-light.svg` | `lockup/` 下单色深浅两套 `1600x520` |
@@ -35,7 +35,7 @@ AreaForge 的当前品牌素材包位于 `assets/brand/final/`。它保存可编
 - 单色 mark 用于无法使用品牌色的场景，不替代主品牌图标。
 - 常规图标用于透明圆角场景；Apple/App Store 使用 opaque 版本；PWA `purpose=maskable` 使用 maskable 版本。
 - 轮廓化横向 Logo 不包含 `<text>` 或外部字体依赖，是跨环境分发的优先版本。
-- `lockup/wordmark/stacked` 文件名中的 `dark/light` 表示目标背景，`mono/symbol` 中的 `dark/light` 表示墨线明暗。
+- `lockup/wordmark/stacked/symbol` 文件名中的 `dark/light` 表示目标背景或对比调色；彩色 Symbol 的中心骨架始终保持深色，只有 `mono` 中的 `dark/light` 表示墨线明暗。
 - 社交预览图的深浅版本保持同一构图和文案，仅调整背景、前景和 Logo 对比。
 
 ## 接入规则

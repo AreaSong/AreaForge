@@ -10,7 +10,7 @@
 - `areaforge-app-icon-maskable-dark.svg` / `areaforge-app-icon-maskable-light.svg`：PWA maskable 全出血图标源，核心图形位于安全区内。
 - `areaforge-logo-mark-dark.svg` / `areaforge-logo-mark-light.svg`：独立标志源。
 - `areaforge-logo-mark-mono-dark.svg` / `areaforge-logo-mark-mono-light.svg`：透明底单色标志源。
-- `areaforge-logo-symbol-dark.svg` / `areaforge-logo-symbol-light.svg`：无底板彩色核心 Symbol，分别使用深色墨线和浅色墨线。
+- `areaforge-logo-symbol-dark.svg` / `areaforge-logo-symbol-light.svg`：无底板彩色核心 Symbol，分别针对浅色和深色背景调色，中心骨架均保持深色。
 - `areaforge-logo-lockup.svg`：默认横向 Logo 源。
 - `areaforge-logo-lockup-dark.svg` / `areaforge-logo-lockup-light.svg`：深色和浅色背景横向 Logo 源。
 - `areaforge-logo-lockup-outlined*.svg`：横向 Logo 文字转路径版本，不依赖客户端字体。
@@ -33,7 +33,7 @@
 - `AreaForge` 横向字标中，`Area` 使用深色或深色背景反白，`Forge` 使用青绿到琥珀/橙的强调色。
 - 16px、32px 和 48px 使用 small 源文件，避免完整图标细节在 favicon 尺寸糊成一团。
 - 常规 App icon 保留透明圆角；opaque 和 maskable 图标必须保持全画布不透明，不能替换成常规透明版。
-- `lockup/wordmark/stacked` 的 `dark/light` 表示目标背景；`mono/symbol` 的 `dark/light` 表示墨线明暗。
+- `lockup/wordmark/stacked/symbol` 的 `dark/light` 表示目标背景或对比调色；彩色 Symbol 的中心骨架始终保持深色，只有 `mono` 的 `dark/light` 表示墨线明暗。
 - 对外分发或跨环境直接使用 SVG 时优先选 `outlined` 横向 Logo，避免字体替换导致字标变化。
 - 社交预览图的深浅版本保持相同尺寸、排版、文案和轨迹，仅适配背景与前景对比。
 - 若后续接入 Web favicon、PWA manifest、登录页、README 封面或产品 UI，需要作为运行时/UI 变更单独验证，并按 `docs/development/validation-matrix.md` 选择检查。
