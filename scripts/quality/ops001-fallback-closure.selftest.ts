@@ -8,6 +8,7 @@ type JsonRecord = Record<string, unknown>;
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-ops001-fallback-finalizer-"));
 const currentVersion = "0.1.7";
+const fixtureTimestamp = "2026-07-11T10:00:00Z";
 
 try {
   const fallbackDir = path.join(tempDir, "fallback");
@@ -24,6 +25,7 @@ try {
       AREAFORGE_READINESS_RELEASE_MANIFEST_FILE: manifest,
       AREAFORGE_READINESS_BASE_URL: "",
       AREAFORGE_SMOKE_PASSWORD: "",
+      AREAFORGE_OPS001_SMOKE_PROOF_NOW: fixtureTimestamp,
     },
   });
   expectStatus("finalize valid fallback directory", finalize, 0);
@@ -58,6 +60,7 @@ try {
       AREAFORGE_READINESS_RELEASE_MANIFEST_FILE: manifest,
       AREAFORGE_READINESS_BASE_URL: "",
       AREAFORGE_SMOKE_PASSWORD: "",
+      AREAFORGE_OPS001_SMOKE_PROOF_NOW: fixtureTimestamp,
     },
   });
   expectStatus("blocked fallback directory fails closed", blocked, 10);
@@ -70,7 +73,7 @@ try {
 function writeFixture(fallbackDir: string, blockers: string[]): void {
   mkdirSync(fallbackDir, { recursive: true });
   writeFileSync(path.join(fallbackDir, "remote-prerequisites.json"), JSON.stringify({
-    generatedAt: "2026-07-11T10:00:00Z",
+    generatedAt: fixtureTimestamp,
     mode: "ops001-readonly-fallback-prerequisites",
     baseUrl: "https://forge.areasong.top",
     expectedVersion: currentVersion,
@@ -93,7 +96,7 @@ function writeFixture(fallbackDir: string, blockers: string[]): void {
     },
   }, null, 2));
   writeFileSync(path.join(fallbackDir, "remote-summary.txt"), [
-    "generatedAt: 2026-07-11T10:00:00Z",
+    `generatedAt: ${fixtureTimestamp}`,
     "mode: ops001-readonly-fallback-export",
     `outputDir: ${fallbackDir}`,
     "redactedUpdateStatusRecord: redacted-update-status.json sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -132,14 +135,14 @@ function createUpdateStatusRecord(): JsonRecord {
     signatureRequired: true,
     timerEnabled: true,
     timerActive: true,
-    lastCheckedAt: "2026-07-11T10:00:00Z",
+    lastCheckedAt: fixtureTimestamp,
     blocker: null,
     rollback: {
       available: true,
       targetVersion: "0.1.4",
       targetImage: "ghcr.io/areasong/areaforge-web:v0.1.4@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     },
-    statusUpdatedAt: "2026-07-11T10:00:00Z",
+    statusUpdatedAt: fixtureTimestamp,
     safetyFacts: {
       serverCommandAttempted: false,
       productionWriteAttempted: false,
@@ -158,7 +161,7 @@ function createSmokeOutput(): string {
     JSON.stringify({
       ok: true,
       baseUrl: "https://forge.areasong.top",
-      checkedAt: "2026-07-11T10:00:00Z",
+      checkedAt: fixtureTimestamp,
       checks: [
         { name: "health", ok: true, durationMs: 12 },
         { name: "login", ok: true, durationMs: 34 },
