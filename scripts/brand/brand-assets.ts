@@ -47,6 +47,7 @@ export type BrandManifest = {
     windowsSource: string;
     printLightSource: string;
     printDarkSource: string;
+    printDpi: number;
   };
 };
 

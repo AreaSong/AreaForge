@@ -10,6 +10,13 @@ async function main() {
   const packageRoot = rootArgument ? path.resolve(repoRoot, rootArgument) : path.join(repoRoot, manifest.packageRoot);
   const errors: string[] = [];
 
+  if (manifest.schemaVersion !== 1 || manifest.brand !== "AreaForge") {
+    errors.push("brand manifest identity or schema version is invalid");
+  }
+  if (manifest.native.printDpi !== 300) {
+    errors.push(`brand manifest printDpi must be 300, got ${manifest.native.printDpi}`);
+  }
+
   for (const job of expandRasterJobs(manifest)) {
     await validateRaster(path.join(packageRoot, job.output), job.width, job.height, job.alpha, errors);
     await requireFile(path.join(packageRoot, job.source), errors);
@@ -37,7 +44,7 @@ async function main() {
     }
   }
 
-  await validateNative(packageRoot, errors);
+  await validateNative(packageRoot, manifest.native.printDpi, errors);
   await validateNoMetadataFiles(packageRoot, errors);
 
   if (errors.length > 0) {
@@ -64,7 +71,7 @@ async function validateRaster(file: string, width: number, height: number, alpha
   }
 }
 
-async function validateNative(packageRoot: string, errors: string[]) {
+async function validateNative(packageRoot: string, printDpi: number, errors: string[]) {
   const required = [
     "native/README.md",
     "native/macos/AreaForge.icns",
@@ -96,8 +103,8 @@ async function validateNative(packageRoot: string, errors: string[]) {
   await validateIco(path.join(packageRoot, "native/windows/AreaForge.ico"), [16, 24, 32, 48, 64, 128, 256], errors);
   await validateMagic(path.join(packageRoot, "print/areaforge-logo-light-background.pdf"), "%PDF", errors);
   await validateMagic(path.join(packageRoot, "print/areaforge-logo-dark-background.pdf"), "%PDF", errors);
-  await validatePrintTiff(path.join(packageRoot, "print/areaforge-logo-light-background-cmyk.tiff"), errors);
-  await validatePrintTiff(path.join(packageRoot, "print/areaforge-logo-dark-background-cmyk.tiff"), errors);
+  await validatePrintTiff(path.join(packageRoot, "print/areaforge-logo-light-background-cmyk.tiff"), printDpi, errors);
+  await validatePrintTiff(path.join(packageRoot, "print/areaforge-logo-dark-background-cmyk.tiff"), printDpi, errors);
 }
 
 async function validateIosAppIconSet(directory: string, errors: string[]) {
@@ -147,11 +154,16 @@ async function validateMagic(file: string, magic: string, errors: string[]) {
   }
 }
 
-async function validatePrintTiff(file: string, errors: string[]) {
+async function validatePrintTiff(file: string, expectedDpi: number, errors: string[]) {
   if (!await exists(file)) return;
   const metadata = await sharp(file).metadata();
   if (metadata.width !== 3600 || metadata.height !== 1170 || metadata.space !== "cmyk") {
     errors.push(`invalid print TIFF: ${path.relative(repoRoot, file)} expected 3600x1170 CMYK, got ${metadata.width}x${metadata.height} ${metadata.space}`);
+  }
+  if (metadata.density !== expectedDpi || metadata.resolutionUnit !== "inch") {
+    errors.push(
+      `wrong print TIFF density: ${path.relative(repoRoot, file)} expected ${expectedDpi} DPI/inch, got ${metadata.density} ${metadata.resolutionUnit}`,
+    );
   }
 }
 

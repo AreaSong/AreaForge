@@ -98,6 +98,7 @@
     "androidBackground": "#06191F",
     "windowsSource": "app-icon/areaforge-app-icon-opaque-dark-1024.png",
     "printLightSource": "areaforge-logo-lockup-outlined-light.svg",
-    "printDarkSource": "areaforge-logo-lockup-outlined-dark.svg"
+    "printDarkSource": "areaforge-logo-lockup-outlined-dark.svg",
+    "printDpi": 300
   }
 }

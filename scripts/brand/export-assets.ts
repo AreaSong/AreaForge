@@ -42,7 +42,14 @@ async function main() {
   await exportIos(packageRoot, manifest.native.iosSource, refresh);
   await exportAndroid(packageRoot, manifest.native.androidForegroundSource, manifest.native.androidBackground, refresh);
   await exportWindows(packageRoot, manifest.native.windowsSource, refresh);
-  await exportPrint(packageRoot, manifest.native.printLightSource, manifest.native.printDarkSource, refresh);
+  await exportPrint(
+    packageRoot,
+    manifest.native.printLightSource,
+    manifest.native.printDarkSource,
+    manifest.native.androidBackground,
+    manifest.native.printDpi,
+    refresh,
+  );
   console.log(`brand export complete (refresh=${refresh}, output=${path.relative(repoRoot, packageRoot)})`);
 }
 
@@ -180,7 +187,14 @@ async function exportWindows(packageRoot: string, source: string, refresh: boole
   await writeFile(output, buildIco(sizes, images));
 }
 
-async function exportPrint(packageRoot: string, lightSource: string, darkSource: string, refresh: boolean) {
+async function exportPrint(
+  packageRoot: string,
+  lightSource: string,
+  darkSource: string,
+  darkBackground: string,
+  printDpi: number,
+  refresh: boolean,
+) {
   const outputDirectory = path.join(packageRoot, "print");
   const lightPdf = path.join(outputDirectory, "areaforge-logo-light-background.pdf");
   await mkdir(outputDirectory, { recursive: true });
@@ -188,20 +202,20 @@ async function exportPrint(packageRoot: string, lightSource: string, darkSource:
   await copyFile(path.join(packageRoot, darkSource), path.join(outputDirectory, "areaforge-logo-dark-background.svg"));
 
   if (refresh || !await exists(path.join(outputDirectory, "areaforge-logo-light-background-cmyk.tiff"))) {
-    await sharp(path.join(packageRoot, lightSource), { density: 300 })
-      .resize(3600, 1170)
-      .flatten({ background: "#FFFFFF" })
-      .toColourspace("cmyk")
-      .tiff({ compression: "lzw", resolutionUnit: "inch", xres: 300, yres: 300 })
-      .toFile(path.join(outputDirectory, "areaforge-logo-light-background-cmyk.tiff"));
+    await exportPrintTiff(
+      path.join(packageRoot, lightSource),
+      path.join(outputDirectory, "areaforge-logo-light-background-cmyk.tiff"),
+      "#FFFFFF",
+      printDpi,
+    );
   }
   if (refresh || !await exists(path.join(outputDirectory, "areaforge-logo-dark-background-cmyk.tiff"))) {
-    await sharp(path.join(packageRoot, darkSource), { density: 300 })
-      .resize(3600, 1170)
-      .flatten({ background: "#06191F" })
-      .toColourspace("cmyk")
-      .tiff({ compression: "lzw", resolutionUnit: "inch", xres: 300, yres: 300 })
-      .toFile(path.join(outputDirectory, "areaforge-logo-dark-background-cmyk.tiff"));
+    await exportPrintTiff(
+      path.join(packageRoot, darkSource),
+      path.join(outputDirectory, "areaforge-logo-dark-background-cmyk.tiff"),
+      darkBackground,
+      printDpi,
+    );
   }
 
   if (process.platform === "darwin" && (refresh || !await exists(lightPdf))) {
@@ -209,10 +223,25 @@ async function exportPrint(packageRoot: string, lightSource: string, darkSource:
     const darkComposite = path.join(outputDirectory, ".areaforge-logo-dark-background.svg");
     const darkSvg = await readFile(path.join(packageRoot, darkSource), "utf8");
     const innerSvg = darkSvg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
-    await writeFile(darkComposite, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520"><rect width="1600" height="520" fill="#06191F"/>${innerSvg}</svg>\n`);
+    await writeFile(darkComposite, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520"><rect width="1600" height="520" fill="${darkBackground}"/>${innerSvg}</svg>\n`);
     await execFileAsync("sips", ["-s", "format", "pdf", darkComposite, "--out", path.join(outputDirectory, "areaforge-logo-dark-background.pdf")]);
     await rm(darkComposite, { force: true });
   }
+}
+
+async function exportPrintTiff(source: string, output: string, background: string, printDpi: number) {
+  const printDpiPerMillimetre = printDpi / 25.4;
+  await sharp(source, { density: printDpi })
+    .resize(3600, 1170)
+    .flatten({ background })
+    .toColourspace("cmyk")
+    .tiff({
+      compression: "lzw",
+      resolutionUnit: "inch",
+      xres: printDpiPerMillimetre,
+      yres: printDpiPerMillimetre,
+    })
+    .toFile(output);
 }
 
 async function renderSquare(source: string, output: string, size: number, alpha: boolean) {
