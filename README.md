@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/final/areaforge-logo-lockup-outlined-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/brand/final/areaforge-logo-lockup-outlined-light.svg">
+  <img alt="AreaForge" src="assets/brand/final/areaforge-logo-lockup-outlined-light.svg" width="520">
+</picture>
+
 # AreaForge
 
 **面向个人长期备考的自我锻造与考研督战系统。**

@@ -1,6 +1,6 @@
 # AreaForge Brand Assets
 
-本目录保存 AreaForge 当前品牌素材包。它是仓库内设计素材，不是 Web runtime 资源入口；文件存在不代表线上版本、favicon、PWA manifest、登录页或首页已经使用这些素材。
+本目录保存 AreaForge 当前品牌素材源文件与交付包。Web runtime 使用由 `assets/brand/brand-manifest.json` 同步到 `apps/web/` 的受控副本；当前 checkout 已接入不代表线上版本已经发布更新。
 
 ## 目录
 
@@ -25,7 +25,14 @@
 - `stacked/`：竖向堆叠 Logo 深浅背景 PNG，尺寸为 `1024x1024`。
 - `favicon/`：`16/32/48` PNG 与多尺寸 `areaforge-favicon.ico`。
 - `social/`：社交分享预览图，包含显式 `light/dark` SVG 和 `1200x630` PNG；无后缀文件保留为浅色兼容入口。
+- `native/macos/`：可直接用于 macOS 工程的 `AreaForge.icns` 与完整 `.iconset`。
+- `native/ios/`：包含 iPhone、iPad 和 App Store marketing 尺寸的 `AreaForgeAppIcon.appiconset`。
+- `native/android/res/`：Android adaptive icon 的前景、背景色与 `mipmap-anydpi-v26` XML。
+- `native/windows/AreaForge.ico`：包含 `16/24/32/48/64/128/256` 的 Windows 应用图标。
+- `print/`：浅色/深色背景的轮廓化 SVG、矢量 PDF 与 300 DPI CMYK TIFF。
 - `areaforge-brand-overview.png`：完整数字品牌素材总览图。
+
+机器可读资产矩阵位于上一级 `assets/brand/brand-manifest.json`。运行 `pnpm brand:export` 只补缺失资产并同步 Web runtime；需要从当前 SVG 全量重建时使用 `pnpm brand:export -- --refresh`。运行 `pnpm brand:validate` 检查尺寸、透明度、runtime 漂移、原生包和印刷包。
 
 ## 使用边界
 
@@ -36,4 +43,5 @@
 - `lockup/wordmark/stacked/symbol` 的 `dark/light` 表示目标背景或对比调色；彩色 Symbol 的中心骨架始终保持深色，只有 `mono` 的 `dark/light` 表示墨线明暗。
 - 对外分发或跨环境直接使用 SVG 时优先选 `outlined` 横向 Logo，避免字体替换导致字标变化。
 - 社交预览图的深浅版本保持相同尺寸、排版、文案和轨迹，仅适配背景与前景对比。
-- 若后续接入 Web favicon、PWA manifest、登录页、README 封面或产品 UI，需要作为运行时/UI 变更单独验证，并按 `docs/development/validation-matrix.md` 选择检查。
+- 当前 checkout 已接入 Web favicon、PWA manifest、登录页、README 封面和产品页眉；后续修改这些 runtime 副本时仍需按 `docs/development/validation-matrix.md` 运行 UI 验证。
+- 对外使用必须保留图形比例、品牌色和安全留白；不得暗示已注册商标。外部再分发、联名或商业授权需由 AreaForge 维护者确认。

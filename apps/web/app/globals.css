@@ -3,7 +3,15 @@
 :root {
   --background: #080b0f;
   --foreground: #f4f4f5;
-  --font-area-sans: Arial, Helvetica, sans-serif;
+  --brand-ink-950: #06191f;
+  --brand-ink-900: #09272d;
+  --brand-teal-600: #18aaa6;
+  --brand-teal-400: #35d7c5;
+  --brand-amber-300: #ffd75f;
+  --brand-quench-500: #f05f3d;
+  --brand-mist-50: #f4fbf8;
+  --brand-mist-100: #dff2ec;
+  --font-area-sans: Inter, "SF Pro Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-area-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 

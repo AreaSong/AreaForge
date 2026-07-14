@@ -19,7 +19,7 @@
 | 改动范围 | 最小验证 |
 |---|---|
 | `docs/**`、`README.md`、`AGENTS.md` | `rg` 检查旧引用和入口路径，`pnpm docs:readiness`，`git diff --check`；若涉及完成声明、运行时写边界、release/ops/UX 残余项，补跑对应专项预检或记录校验；若新增完成声明记录，运行 `pnpm completion:evidence:validate <record>` |
-| `assets/brand/**`、`docs/ux/brand-assets.md` | SVG 运行 `xmllint --noout`；PNG 用 `file` 或图片库检查尺寸和可打开；检查没有 `.DS_Store` 等元数据文件；涉及文档入口时运行 `pnpm docs:readiness` 和 `git diff --check`；若接入 Web favicon、PWA manifest 或 UI，再按 `apps/web/**` UI 验证 |
+| `assets/brand/**`、`scripts/brand/**`、`scripts/quality/brand-assets-validate.ts`、`docs/ux/brand-assets.md` | 运行 `pnpm brand:validate`；SVG 运行 `xmllint --noout`；PDF 用 `pdfinfo` 并渲染抽查；检查没有 `.DS_Store` 等元数据文件；运行 `pnpm docs:readiness` 和 `git diff --check`；若接入 Web favicon、PWA manifest 或 UI，再按 `apps/web/**` 运行 typecheck、lint、build 和桌面/移动截图验证 |
 | `docs/deployment/operator-onboarding.md`、`scripts/quality/operator-onboarding-preflight.ts`、自托管上手入口 | `pnpm operator:onboarding:preflight`，`pnpm docs:readiness`，`pnpm ops:readiness`，`pnpm skills:validate`，`git diff --check` |
 | `tasks/**`、`workflow/**` | 检查对应 `docs/**` 源事实是否存在，`pnpm docs:readiness`，`git diff --check` |
 | `.codex/skills-src/**`、`.agents/skills/**` | `pnpm skills:validate`，`git diff --check`；若 skill 改变企业治理、发布、运维、观测、事故、安全、上传/附件存储、供应链、残余风险、AI 或文档同步口径，补跑 `pnpm docs:readiness` 和 `pnpm risk:preflight` |

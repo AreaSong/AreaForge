@@ -11,7 +11,9 @@
     "lint": "pnpm --filter @areaforge/web lint",
     "typecheck": "pnpm db:generate && pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
-    "check": "pnpm typecheck && pnpm lint && pnpm db:validate && pnpm build",
+    "check": "pnpm brand:validate && pnpm typecheck && pnpm lint && pnpm db:validate && pnpm build",
+    "brand:export": "tsx scripts/brand/export-assets.ts",
+    "brand:validate": "tsx scripts/quality/brand-assets-validate.ts",
     "docs:readiness": "tsx scripts/quality/docs-100-readiness.ts",
     "docs:completion": "tsx scripts/quality/docs-100-completion.ts",
     "completion:evidence:validate": "tsx scripts/quality/completion-evidence-validate.ts",
@@ -152,6 +154,7 @@
     "@types/node": "^20.19.43",
     "dotenv": "^17.2.3",
     "prisma": "^7.6.0",
+    "sharp": "0.34.5",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

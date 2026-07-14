@@ -20,7 +20,7 @@
 - 新功能是否有 `docs/modules/**` 或 `docs/product/**` 落点。
 - 新 API 是否同步 `docs/architecture/api-surface.md`。
 - 新表或字段是否同步 `docs/architecture/data-model.md`。
-- 品牌素材、Logo、图标或静态资产入口变化是否同步 `docs/architecture/project-structure.md`、`docs/ux/brand-assets.md` 和必要的 README 导航，并避免暗示线上版本、favicon、PWA manifest 或运行时 UI 已采用。
+- 品牌素材、Logo、图标或静态资产入口变化是否同步 `assets/brand/brand-manifest.json`、`docs/architecture/project-structure.md`、`docs/ux/brand-assets.md` 和必要的 README 导航，并准确区分当前 checkout 已接入、线上版本已发布与生产已更新三种状态。
 - 上传、附件、AI、认证、部署变化是否同步安全文档。
 - 上传、附件、`UPLOAD_DIR`、文件对账、备份/恢复或上传目录迁移变化是否同步 `docs/architecture/file-storage.md`、`docs/security/file-ai-safety.md`、`docs/deployment/backup-restore.md` 和 `areaforge-file-storage-safety`。
 - 附件对账证据变化是否同步生产 release runbook、release record template 和 validation matrix；CSV/summary 的路径、status、CSV SHA256、summary canonical hash、`fileOnlyCount`、`unsafeEntryCount` 与 `report_only` 边界是否一致。
