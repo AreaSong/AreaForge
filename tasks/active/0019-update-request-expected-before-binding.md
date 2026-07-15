@@ -67,9 +67,10 @@ releaseRequired: true
 ## 本地实施结果
 
 - Web 绑定用户实际确认的 agent-authored `snapshotHash`，状态漂移返回 `STATUS_SNAPSHOT_CHANGED`。
-- V2 请求包含严格 schema、TTL、target identity、expected-before、三个 domain-separated canonical hash 和 idempotency key，并使用 file fsync、atomic rename、directory fsync 发布。
+- V2 请求包含严格 schema、TTL、target identity、expected-before、三个 domain-separated canonical hash 和 idempotency key，并使用 file fsync、no-clobber atomic hard-link publish、directory fsync 发布；同名 final 不覆盖，directory fsync 失败返回 durability uncertain 并提示不要立即重试。
 - root agent 使用 root-only `processing/` claim、不可变 decision history、legacy mutation fail-closed 和 stale/missing-claim reconciliation；reconciliation 不自动重放 mutation。
 - updater、rollback 和 policy mutation 使用共享 production-state lock；apply guard 在首个生产副作用前完成第二次 compare-and-reject。
+- fixture 已覆盖恶意 request/claim ID 路径净化、未过期 claim 阻断、`executionAttempted=true` 边界后强杀与重启 reconciliation，以及系统 `flock` 下 rollback/policy 真实竞争。
 - 本地证据入口：`pnpm ops:ops-005:local:selftest`、`pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`。
 - 该结果只证明当前 checkout 的本地实现；`AF-RISK-OPS-005` 在签名 Release、独立生产部署和 fresh redacted evidence 前保持 open。
 
