@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, open, rename, unlink } from "node:fs/promises";
+import { link, mkdir, open, unlink } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 
@@ -11,6 +11,15 @@ export const UPDATE_REQUEST_CLOCK_SKEW_MS = 30_000;
 export const UPDATE_REQUEST_MUTATION_TTL_MS = 5 * 60_000;
 export const UPDATE_REQUEST_MUTATION_TTL_HARD_MAX_MS = 10 * 60_000;
 export const UPDATE_REQUEST_CHECK_TTL_MS = 15 * 60_000;
+
+export interface UpdateRequestPublishResult {
+  path: string;
+  directorySync: "synced" | "uncertain";
+}
+
+export interface UpdateRequestPublishOptions {
+  syncDirectory?: (requestsDir: string) => Promise<void>;
+}
 
 const tagPattern = /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const hashSchema = z.string().regex(SHA256_PATTERN);
@@ -276,7 +285,11 @@ export function verifyUpdateRequestHashes(request: UpdateRequestV2): boolean {
     && request.requestHash === requestHash;
 }
 
-export async function atomicPublishUpdateRequest(requestsDir: string, request: UpdateRequestV2): Promise<string> {
+export async function atomicPublishUpdateRequest(
+  requestsDir: string,
+  request: UpdateRequestV2,
+  options: UpdateRequestPublishOptions = {},
+): Promise<UpdateRequestPublishResult> {
   await mkdir(requestsDir, { recursive: true, mode: 0o700 });
   const finalPath = path.join(requestsDir, `${request.id}.json`);
   const temporaryPath = path.join(requestsDir, `.${request.id}.${randomUUID()}.tmp`);
@@ -292,17 +305,27 @@ export async function atomicPublishUpdateRequest(requestsDir: string, request: U
       await file.close();
     }
 
-    await rename(temporaryPath, finalPath);
-    temporaryExists = false;
-    const directory = await open(requestsDir, "r");
+    await link(temporaryPath, finalPath);
+    await unlink(temporaryPath).then(() => {
+      temporaryExists = false;
+    }).catch(() => undefined);
     try {
-      await directory.sync();
-    } finally {
-      await directory.close();
+      await (options.syncDirectory ?? syncDirectory)(requestsDir);
+      return { path: finalPath, directorySync: "synced" };
+    } catch {
+      return { path: finalPath, directorySync: "uncertain" };
     }
-    return finalPath;
   } finally {
     if (temporaryExists) await unlink(temporaryPath).catch(() => undefined);
+  }
+}
+
+async function syncDirectory(requestsDir: string): Promise<void> {
+  const directory = await open(requestsDir, "r");
+  try {
+    await directory.sync();
+  } finally {
+    await directory.close();
   }
 }
 

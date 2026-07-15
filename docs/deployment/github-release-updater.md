@@ -149,7 +149,8 @@ V2 链路如下：
 3. 浏览器只提交它实际展示并由用户确认的 `snapshotHash` 和一次性 idempotency key；API 不接受客户端
    自行提供 expected-before 或 target identity。
 4. Web 使用严格 schema V2、TTL、expected-before/semantic/request 三个 domain-separated hash，并通过
-   file fsync、atomic rename、directory fsync 发布请求。
+   file fsync、no-clobber atomic hard-link publish、directory fsync 发布请求；同名 final 不可覆盖，
+   final 已发布但 directory fsync 失败时返回 durability uncertain，不得把它解释为可立即重试。
 5. root agent 原子领取到 root-only `processing/`；V1 mutation、过期、篡改、重复、幂等冲突和状态漂移
    均 fail closed。stale 或缺 claim metadata 的 mutation 进入 `needs_reconciliation`，不自动重放。
 6. updater apply、agent rollback 和 policy mutation 共用 `AREAFORGE_PRODUCTION_STATE_LOCK_FILE`；第一次

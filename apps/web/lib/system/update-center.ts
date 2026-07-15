@@ -123,8 +123,8 @@ export async function createUpdateRequest(input: CreateUpdateRequestInput): Prom
     actorEmail: input.actorEmail,
     snapshot,
   });
-  await atomicPublishUpdateRequest(requestsDir, request);
-  return publicOperation(request);
+  const publish = await atomicPublishUpdateRequest(requestsDir, request);
+  return publicOperation(request, publish.directorySync);
 }
 
 export function validateUpdateRequestAgainstStatus(
@@ -174,14 +174,17 @@ function statusSnapshot(status: UpdateCenterStatus, action: UpdateAction): Updat
   };
 }
 
-function publicOperation(request: ReturnType<typeof buildUpdateRequestV2>): UpdateOperation {
+function publicOperation(
+  request: ReturnType<typeof buildUpdateRequestV2>,
+  directorySync: "synced" | "uncertain",
+): UpdateOperation {
   return {
     id: request.id,
     action: request.action,
     status: request.status,
     requestedAt: request.requestedAt,
     finishedAt: null,
-    message: null,
+    message: directorySync === "uncertain" ? "请求已入队，但目录持久化状态未确认；请先刷新状态，不要重复提交。" : null,
     ...(request.params.tag ? { tag: request.params.tag } : {}),
   };
 }

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const agent = path.join(root, "ops/update-agent/areaforge-update-agent.sh");
@@ -10,6 +10,7 @@ const nowEpoch = 1_800_000_000;
 const currentVersion = "0.1.7";
 const currentImage = `ghcr.io/areasong/areaforge-web:v0.1.7@sha256:${"a".repeat(64)}`;
 const targetImage = `ghcr.io/areasong/areaforge-web:v0.1.8@sha256:${"b".repeat(64)}`;
+const systemFlock = spawnSync("sh", ["-c", "command -v flock"], { encoding: "utf8" }).stdout.trim();
 
 type Action = "check" | "apply" | "rollback" | "set_auto_apply";
 
@@ -26,7 +27,10 @@ function main(): void {
   testFirstComparisonMismatchHasNoSideEffects();
   testSecondComparisonDriftHasNoSideEffects();
   testInvalidRequestIdCannotEscapeHistory();
+  testInvalidClaimIdCannotEscapeHistory();
   testActiveProcessingClaimBlocksQueue();
+  testCrashAfterExecutionBoundaryNeedsReconciliation();
+  testRealProductionLockContention();
   testStaleProcessingNeedsReconciliation();
   testMissingClaimMetadataNeedsReconciliation();
   console.log("update-agent request V2 selftest passed.");
@@ -65,7 +69,7 @@ function fixture(): Fixture {
   writeFileSync(docker, `#!/usr/bin/env bash\n[[ -f "${productionLockMarker}" ]] || { printf '%s\\n' 'LOCK_NOT_HELD' >> "${dockerLog}"; exit 88; }\nprintf '%s\\n' "$*" >> "${dockerLog}"\n`);
   chmodSync(docker, 0o755);
   const flock = path.join(bin, "flock");
-  writeFileSync(flock, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${flockLog}"\nif [[ "$1" == "-n" && "\${2:-}" == "8" ]]; then touch "${productionLockMarker}"; fi\nif [[ "$1" == "-u" && "\${2:-}" == "8" ]]; then rm -f "${productionLockMarker}"; fi\nexit 0\n`);
+  writeFileSync(flock, `#!/usr/bin/env bash\nif [[ "\${TEST_USE_SYSTEM_FLOCK:-0}" == "1" ]]; then exec "${systemFlock || "/usr/bin/false"}" "$@"; fi\nprintf '%s\\n' "$*" >> "${flockLog}"\nif [[ "$1" == "-n" && "\${2:-}" == "8" ]]; then touch "${productionLockMarker}"; fi\nif [[ "$1" == "-u" && "\${2:-}" == "8" ]]; then rm -f "${productionLockMarker}"; fi\nexit 0\n`);
   chmodSync(flock, 0o755);
   return { dir, state, records, bin, envFile, configFile, updater, updaterLog, updaterMode, dockerLog, flockLog, productionLockMarker };
 }
@@ -78,6 +82,32 @@ function runWithSecondComparisonDrift(f: Fixture): void {
   runAgent(f, ["-c", `. "$1"\nbefore_second_comparison() { config_set AREAFORGE_AUTO_APPLY minor; }\nmain`, "selftest", agent], {
     AREAFORGE_UPDATE_AGENT_LIB_ONLY: "1",
   });
+}
+
+function crashAfterExecutionBoundary(f: Fixture): void {
+  const result = spawnSync("bash", ["-c", `. "$1"
+run_updater_apply() {
+  printf '%s\\n' simulated-side-effect >> "$AREAFORGE_TEST_UPDATER_LOG"
+  printf '%s\\n' 'AREAFORGE_REQUEST_GUARD phase=second result=pass reasonCode=EXPECTED_BEFORE_MATCH observedBeforeHash=sha256:${"2".repeat(64)} executionAttempted=true'
+  kill -KILL "$$"
+}
+main`, "selftest", agent], {
+    cwd: root,
+    env: {
+      ...process.env,
+      PATH: `${f.bin}:${process.env.PATH ?? ""}`,
+      AREAFORGE_UPDATE_AGENT_LIB_ONLY: "1",
+      AREAFORGE_UPDATE_AGENT_TEST_MODE: "1",
+      AREAFORGE_UPDATE_AGENT_CONFIG: f.configFile,
+      AREAFORGE_OPS_STATE_DIR: f.state,
+      AREAFORGE_UPDATER_PATH: f.updater,
+      AREAFORGE_UPDATE_AGENT_NOW_EPOCH: String(nowEpoch),
+      AREAFORGE_UPDATE_AGENT_CLAIM_TTL_SECONDS: "60",
+      AREAFORGE_TEST_UPDATER_LOG: f.updaterLog,
+    },
+    encoding: "utf8",
+  });
+  assert(result.signal === "SIGKILL", `crash fixture must kill the agent after the execution boundary, got ${result.signal ?? result.status}`);
 }
 
 function runAgent(f: Fixture, args: string[], extraEnv: Record<string, string> = {}): void {
@@ -259,6 +289,25 @@ function testInvalidRequestIdCannotEscapeHistory(): void {
   assert(decisions(f).some((item) => item.reasonCode === "INVALID_REQUEST_SCHEMA"), "invalid request must still produce immutable rejection history");
 }
 
+function testInvalidClaimIdCannotEscapeHistory(): void {
+  const f = fixture();
+  const value = request("apply");
+  const claimDir = path.join(f.state, "processing", "c".repeat(32));
+  mkdirSync(claimDir, { recursive: true });
+  writeFileSync(path.join(claimDir, `${value.id}.json`), JSON.stringify(value));
+  writeFileSync(path.join(claimDir, "claim.json"), JSON.stringify({
+    claimId: "../../requests/claim-escaped",
+    claimedAt: iso(nowEpoch - 120),
+    claimExpiresAt: iso(nowEpoch - 60),
+    originalFileName: `${value.id}.json`,
+  }));
+  run(f);
+  assert(readdirSync(path.join(f.state, "requests")).length === 0, "invalid claim id must not create a file outside history");
+  const historyFiles = readdirSync(path.join(f.state, "history"));
+  assert(historyFiles.length === 1 && historyFiles[0]?.includes(".claim_"), "invalid claim id must use a derived safe history component");
+  assert(decisions(f).some((item) => item.reasonCode === "STALE_PROCESSING_CLAIM"), "invalid stale claim must still require reconciliation");
+}
+
 function testActiveProcessingClaimBlocksQueue(): void {
   const f = fixture();
   const inFlight = request("apply");
@@ -278,6 +327,46 @@ function testActiveProcessingClaimBlocksQueue(): void {
   assert(existsSync(claimDir), "active processing claim must remain available for later reconciliation");
   assert(decisions(f).length === 0, "active processing claim must not synthesize a terminal decision before TTL expiry");
   assert(!existsSync(f.updaterLog) && !existsSync(f.dockerLog), "active processing claim must block duplicate external side effects");
+}
+
+function testCrashAfterExecutionBoundaryNeedsReconciliation(): void {
+  const f = fixture();
+  const inFlight = request("apply");
+  enqueue(f, inFlight);
+  crashAfterExecutionBoundary(f);
+  assert(lines(f.updaterLog) === 1, "crash fixture must cross the simulated execution boundary exactly once");
+  assert(decisions(f).length === 0, "a killed agent must leave the claimed request without a fabricated terminal decision");
+
+  const duplicate = request("apply", inFlight.idempotencyKey);
+  enqueue(f, duplicate);
+  run(f);
+  assert(lines(f.updaterLog) === 1, "restart before claim expiry must not replay the mutation");
+  assert(existsSync(path.join(f.state, "requests", `${duplicate.id}.json`)), "restart before claim expiry must leave the duplicate queued");
+
+  runAgent(f, [agent], { AREAFORGE_UPDATE_AGENT_NOW_EPOCH: String(nowEpoch + 61) });
+  assert(lines(f.updaterLog) === 1, "stale reconciliation and idempotent replay must not execute the updater again");
+  assert(decisions(f).some((item) => item.reasonCode === "STALE_PROCESSING_CLAIM" && item.executionAttempted === null), "post-crash stale claim must record unknown execution state");
+}
+
+function testRealProductionLockContention(): void {
+  if (!systemFlock) return;
+  for (const action of ["rollback", "set_auto_apply"] as const) {
+    const f = fixture();
+    const lockFile = path.join(f.dir, ".areaforge-production-state.lock");
+    const readyFile = path.join(f.dir, `lock-ready-${action}`);
+    const holder = spawn(systemFlock, [lockFile, "bash", "-c", `printf ready > '${readyFile}'; sleep 5`], { stdio: "ignore" });
+    try {
+      waitForFile(readyFile);
+      enqueue(f, request(action));
+      runAgent(f, [agent], { TEST_USE_SYSTEM_FLOCK: "1" });
+      const decision = decisions(f).find((item) => item.reasonCode === "PRODUCTION_STATE_LOCK_BUSY");
+      assert(decision?.executionAttempted === false, `${action} must fail closed under real production-state lock contention`);
+      assert(configValue(f, "AREAFORGE_AUTO_APPLY") === "none", `${action} lock contention must not change updater policy`);
+      assert(!existsSync(f.updaterLog) && !existsSync(f.dockerLog), `${action} lock contention must not reach external side effects`);
+    } finally {
+      holder.kill("SIGTERM");
+    }
+  }
 }
 
 function testStaleProcessingNeedsReconciliation(): void {
@@ -403,6 +492,15 @@ function stable(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
   const object = value as Record<string, unknown>;
   return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${stable(object[key])}`).join(",")}}`;
+}
+
+function waitForFile(file: string): void {
+  const sleeper = new Int32Array(new SharedArrayBuffer(4));
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (existsSync(file)) return;
+    Atomics.wait(sleeper, 0, 0, 25);
+  }
+  throw new Error(`FAIL: timed out waiting for ${file}`);
 }
 
 function assert(condition: unknown, message: string): asserts condition {

@@ -38,6 +38,8 @@ async function main(): Promise<void> {
   testStrictApiSchema(snapshot.snapshotHash);
   testRequestHashesAndActions(snapshot);
   await testAtomicPublish(snapshot);
+  await testAtomicPublishDoesNotOverwrite(snapshot);
+  await testAtomicPublishDirectorySyncUncertain(snapshot);
   await testStatusBindingAndPublicProjection(snapshot);
   console.log("update center request V2 selftest passed.");
 }
@@ -161,11 +163,50 @@ async function testAtomicPublish(snapshot: UpdateStatusSnapshotV2): Promise<void
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "areaforge-update-v2-atomic-"));
   try {
     const request = requestFor(command("check", snapshot.snapshotHash), snapshot);
-    const finalPath = await atomicPublishUpdateRequest(tempDir, request);
+    const publish = await atomicPublishUpdateRequest(tempDir, request);
+    const finalPath = publish.path;
     const files = await readdir(tempDir);
     assert(files.join(",") === `${request.id}.json`, "atomic publish must leave only the final request file");
     assert(finalPath === path.join(tempDir, `${request.id}.json`), "published filename must match request id");
+    assert(publish.directorySync === "synced", "successful directory fsync must be reported");
     assert((JSON.parse(await readFile(finalPath, "utf8")) as UpdateRequestV2).requestHash === request.requestHash, "published request must be complete");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testAtomicPublishDirectorySyncUncertain(snapshot: UpdateStatusSnapshotV2): Promise<void> {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "areaforge-update-v2-fsync-"));
+  try {
+    const request = requestFor(command("check", snapshot.snapshotHash), snapshot);
+    const publish = await atomicPublishUpdateRequest(tempDir, request, {
+      syncDirectory: async () => {
+        throw new Error("injected directory fsync failure");
+      },
+    });
+    assert(publish.directorySync === "uncertain", "post-publish directory fsync failure must be explicit without reporting enqueue failure");
+    assert((JSON.parse(await readFile(publish.path, "utf8")) as UpdateRequestV2).requestHash === request.requestHash, "uncertain durability result must still point to the published complete request");
+    assert((await readdir(tempDir)).join(",") === `${request.id}.json`, "directory fsync failure must not leave a temporary request");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testAtomicPublishDoesNotOverwrite(snapshot: UpdateStatusSnapshotV2): Promise<void> {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "areaforge-update-v2-conflict-"));
+  try {
+    const request = requestFor(command("check", snapshot.snapshotHash), snapshot);
+    const finalPath = path.join(tempDir, `${request.id}.json`);
+    await writeFile(finalPath, "existing immutable request\n");
+    let rejected = false;
+    try {
+      await atomicPublishUpdateRequest(tempDir, request);
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, "atomic publish must reject an existing request id");
+    assert(await readFile(finalPath, "utf8") === "existing immutable request\n", "atomic publish must not overwrite an existing request");
+    assert((await readdir(tempDir)).join(",") === `${request.id}.json`, "failed atomic publish must remove its temporary file");
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

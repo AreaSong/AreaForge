@@ -140,8 +140,11 @@ credential 或 root-only 路径。
 
 ## 原子发布与兼容
 
-- Web 在 request 目录内写入随机临时文件，`fsync` 文件后用原子 `rename` 发布最终 `.json`，
-  再 `fsync` 目录；agent 只消费最终 `.json`。
+- Web 在 request 目录内写入随机临时文件并 `fsync` 文件，再以同目录硬链接原子发布最终 `.json`；
+  已存在的同名请求必须 `EEXIST` fail-closed，不能覆盖不可变队列项。发布后删除临时链接并 `fsync`
+  目录；agent 只消费最终 `.json`。
+- 最终链接成功但 directory `fsync` 失败时，API 按 at-most-once 边界返回“已发布、目录耐久性未确认”，
+  提示先刷新状态而不是重复提交；这不等于请求已执行，也不替代 agent decision history。
 - agent 领取后写 `claimedAt` / `claimExpiresAt`。崩溃遗留的 processing request 进入
   `needs_reconciliation`，不得自动重放 apply/rollback；恢复前先核对 updater record、当前镜像和
   副作用证据。
@@ -181,7 +184,8 @@ credential 或 root-only 路径。
 - tag、Release ID、manifest hash/version、image digest 或 rollback source record hash 漂移时拒绝。
 - V1 check 兼容，V1 写动作拒绝。
 - 拒绝路径断言 updater、Docker 和 config write 均未调用。
-- 原子发布 selftest 证明 agent 不消费临时或未完成文件。
+- 原子发布 selftest 证明临时或未完成文件不会被消费、已存在请求不会被覆盖，并覆盖 directory
+  `fsync` 失败后的显式 uncertain 状态。
 - apply/rollback/manual updater 并发 selftest 证明 production-state lock 不允许写阶段交错。
 - processing claim 超期进入 needs_reconciliation，mutation 不自动重放。
 - 第一次比较通过、目标预检或备份准备期间状态变化时，第二次比较拒绝且不进入副作用。
