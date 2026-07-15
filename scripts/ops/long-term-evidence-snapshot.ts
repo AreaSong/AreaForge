@@ -2,7 +2,9 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { buildOperabilityStatusProjection, type OperabilityStatusProjection } from "./operability-status";
+import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
 import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
 
 type SnapshotStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
@@ -10,7 +12,7 @@ type CheckStatus = "pass" | "needs_live_evidence" | "missing" | "stale" | "inval
 
 type JsonRecord = Record<string, unknown>;
 
-type SnapshotCheck = {
+export type SnapshotCheck = {
   key: string;
   label: string;
   status: CheckStatus;
@@ -34,7 +36,7 @@ type EvidencePath = {
 };
 
 type LongTermEvidenceSnapshot = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   mode: "read_only_long_term_evidence_snapshot";
   generatedAt: string;
   snapshotHash: string;
@@ -43,6 +45,7 @@ type LongTermEvidenceSnapshot = {
   packageVersion: string;
   scope: "long_term_operability_current_checkout";
   status: SnapshotStatus;
+  nextCommand: string;
   sourceSnapshot: {
     controlPlaneSourceHash: string;
     protectedPathFingerprint: OperabilityStatusProjection["sourceSnapshot"]["protectedPathFingerprint"];
@@ -86,6 +89,7 @@ const defaultReleaseEvidenceRecord = "docs/development/release-v0.1.7-record.md"
 const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
 const defaultUxRecord = "docs/development/product-experience-review-v0.1.7-20260712-local.md";
 const defaultMaxUxAgeDays = 14;
+const defaultMaxDataIntegrityAgeHours = 24;
 
 const requiredSignalKeys = [
   "health",
@@ -107,14 +111,16 @@ function main(): void {
     checkOps001(paths),
     checkOps004(paths),
     checkOps005(paths, packageVersion, releaseTag),
+    buildDataIntegritySnapshotCheck(paths),
     checkReleaseEvidence(paths, packageVersion, releaseTag),
     checkSupplyChain(paths, packageVersion, releaseTag),
     checkUxReview(paths, packageVersion),
     checkOperationalEvidenceBundle(paths, packageVersion, releaseTag),
   ];
 
+  const status = snapshotStatus(checks);
   const snapshotWithoutHash = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     mode: "read_only_long_term_evidence_snapshot" as const,
     generatedAt: new Date().toISOString(),
     snapshotHash: "",
@@ -122,7 +128,8 @@ function main(): void {
     releaseTag,
     packageVersion,
     scope: "long_term_operability_current_checkout" as const,
-    status: snapshotStatus(checks),
+    status,
+    nextCommand: snapshotNextCommand(status, checks),
     sourceSnapshot: {
       controlPlaneSourceHash: projection.sourceSnapshot.controlPlaneSourceHash,
       protectedPathFingerprint: projection.sourceSnapshot.protectedPathFingerprint,
@@ -139,6 +146,7 @@ function main(): void {
       "OPS-001 closure or residual ledger closure",
       "OPS-004 alert recovery drill completion or residual ledger closure",
       "OPS-005 expected-before V2 implementation, signed Release, production deployment, or residual ledger closure without ready_for_ops005_human_review evidence",
+      "OPS-006 concurrency safety or residual closure from a passing data-integrity doctor record",
       "release evidence record validation when backup hashes are root-only or missing",
       "backup freshness, restore execution, migration execution, or rollback execution",
       "server updater apply completion for a future release",
@@ -373,6 +381,113 @@ function checkOps005(paths: EvidencePath[], packageVersion: string, releaseTag: 
       autoApply: productionFields.get("autoApply") ?? "missing",
       releaseTag: result.body?.releaseTag ?? null,
       gitCommit: result.body?.gitCommit ?? null,
+    },
+  };
+}
+
+export function buildDataIntegritySnapshotCheck(paths: EvidencePath[]): SnapshotCheck {
+  const command = "pnpm ops:data-integrity:validate <data-integrity-doctor.json>";
+  const configuredPath = process.env.AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD?.trim();
+  if (!configuredPath) {
+    return unavailableDataIntegrityCheck(paths, "missing", "record_not_configured", command);
+  }
+  const absolutePath = path.resolve(configuredPath);
+  if (!existsSync(absolutePath)) {
+    return unavailableDataIntegrityCheck(paths, "missing", "record_missing", command);
+  }
+  const raw = readFileSync(absolutePath, "utf8");
+  const issues = validateDataIntegrityDoctor(raw);
+  if (issues.length > 0) {
+    return unavailableDataIntegrityCheck(paths, "invalid", "record_invalid", command, sanitizeOutput(issues.join("; ")));
+  }
+  const body = JSON.parse(raw) as JsonRecord;
+  const status = isRecord(body.status) ? body.status : {};
+  const source = isRecord(body.source) ? body.source : {};
+  const safety = isRecord(body.safetyFacts) ? body.safetyFacts : {};
+  const checks = Array.isArray(body.checks) ? body.checks.filter(isRecord) : [];
+  const attachment = checks.find((item) => item.id === "attachments.reconciliation") ?? {};
+  const generatedAt = stringValue(body.generatedAt, "");
+  const ageHours = signedAgeInHours(generatedAt);
+  const maxAgeHours = maxDataIntegrityAgeHours();
+  const timestampValid = Number.isFinite(ageHours) && ageHours >= -5 / 60;
+  const fresh = timestampValid && ageHours <= maxAgeHours;
+  const recordPasses = status.overall === "pass" &&
+    source.database === "configured_read_only_query" &&
+    safety.databaseReadAttempted === true &&
+    attachment.status === "pass";
+  const checkStatus = !timestampValid
+    ? "invalid"
+    : !recordPasses ? "needs_live_evidence" : !fresh ? "stale" : "pass";
+  return {
+    key: "dataIntegrity",
+    label: "fresh business data integrity doctor",
+    status: checkStatus,
+    actualStatus: stringValue(status.overall, "missing"),
+    expectedStatus: "pass",
+    validatorCommand: command,
+    evidenceHash: evidencePathHash(paths, "dataIntegrityRecord"),
+    residualRiskIds: ["AF-RISK-OPS-006"],
+    freshness: {
+      generatedAt: generatedAt || null,
+      ageHours: Number.isFinite(ageHours) ? Number(Math.max(0, ageHours).toFixed(2)) : null,
+      maxAgeHours,
+      status: fresh ? "fresh" : "stale",
+    },
+    versionMatch: "not_applicable",
+    doesNotProve: [
+      "database account permissions or query origin attestation",
+      "future concurrency safety after the recorded snapshot",
+      "automatic data repair, migration, or residual ledger closure",
+    ],
+    metadata: {
+      doctorMode: stringValue(body.mode, "missing"),
+      overall: stringValue(status.overall, "missing"),
+      native: stringValue(status.native, "missing"),
+      databaseSource: stringValue(source.database, "missing"),
+      databaseReadAttempted: safety.databaseReadAttempted === true,
+      attachmentStatus: stringValue(attachment.status, "missing"),
+      doctorHash: stringValue(body.doctorHash, "missing"),
+    },
+  };
+}
+
+function unavailableDataIntegrityCheck(
+  paths: EvidencePath[],
+  status: "missing" | "invalid",
+  actualStatus: string,
+  command: string,
+  detail?: string,
+): SnapshotCheck {
+  return {
+    key: "dataIntegrity",
+    label: "fresh business data integrity doctor",
+    status,
+    actualStatus,
+    expectedStatus: "pass",
+    validatorCommand: command,
+    evidenceHash: evidencePathHash(paths, "dataIntegrityRecord"),
+    residualRiskIds: ["AF-RISK-OPS-006"],
+    freshness: {
+      generatedAt: null,
+      ageHours: null,
+      maxAgeHours: maxDataIntegrityAgeHours(),
+      status: "unknown",
+    },
+    versionMatch: "not_applicable",
+    doesNotProve: [
+      "database account permissions or query origin attestation",
+      "future concurrency safety after the recorded snapshot",
+      "automatic data repair, migration, or residual ledger closure",
+    ],
+    metadata: {
+      doctorMode: "missing",
+      overall: "missing",
+      native: "missing",
+      databaseSource: "missing",
+      databaseReadAttempted: false,
+      attachmentStatus: "missing",
+      doctorHash: "missing",
+      ...(detail ? { detail } : {}),
     },
   };
 }
@@ -618,7 +733,7 @@ function checkOperationalEvidenceBundle(paths: EvidencePath[], packageVersion: s
   };
 }
 
-function collectEvidencePaths(): EvidencePath[] {
+export function collectEvidencePaths(): EvidencePath[] {
   const inputs: Array<{ key: string; envKey: string; defaultPath?: string; includeMissingDefault?: boolean }> = [
     { key: "ops001SmokeRecord", envKey: "AREAFORGE_OPS001_SMOKE_RECORD" },
     { key: "ops001UpdateStatusRecord", envKey: "AREAFORGE_OPS001_UPDATE_STATUS_RECORD" },
@@ -633,6 +748,7 @@ function collectEvidencePaths(): EvidencePath[] {
       includeMissingDefault: true,
     },
     { key: "ops005ProductionEvidence", envKey: "AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD" },
+    { key: "dataIntegrityRecord", envKey: "AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD" },
     { key: "releaseEvidenceRecord", envKey: "AREAFORGE_RELEASE_EVIDENCE_RECORD", defaultPath: defaultReleaseEvidenceRecord },
     { key: "releaseSupplyChainRecord", envKey: "AREAFORGE_SC002_RELEASE_RECORD", defaultPath: defaultReleaseSupplyChainRecord },
     { key: "uxReviewRecord", envKey: "AREAFORGE_LONG_TERM_UX_RECORD", defaultPath: defaultUxRecord },
@@ -747,6 +863,15 @@ function snapshotStatus(checks: SnapshotCheck[]): SnapshotStatus {
   return "needs_live_evidence";
 }
 
+function snapshotNextCommand(status: SnapshotStatus, checks: SnapshotCheck[]): string {
+  if (status === "ready_for_long_term_operability_review") {
+    return "review residual close conditions without automatic closure";
+  }
+  const keys = checks.filter((check) => check.status !== "pass").map((check) => check.key);
+  if (status === "invalid") return `fix invalid checks and rerun snapshot: ${keys.join(",")}`;
+  return `collect or refresh evidence and rerun snapshot: ${keys.join(",")}`;
+}
+
 function extractBundleSignals(bundle: JsonRecord): Record<string, { status: string; freshnessStatus: string; evidence: string }> {
   const summary = isRecord(bundle.summary) ? bundle.summary : {};
   const summarySignals = isRecord(summary.signals) ? summary.signals : {};
@@ -829,11 +954,24 @@ function ageInHours(value: string): number {
   return Math.max(0, (now().getTime() - date.getTime()) / 3_600_000);
 }
 
+function signedAgeInHours(value: string): number {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return Number.NaN;
+  return (now().getTime() - date.getTime()) / 3_600_000;
+}
+
 function maxUxAgeDays(): number {
   const raw = process.env.AREAFORGE_LONG_TERM_UX_MAX_AGE_DAYS;
   if (!raw) return defaultMaxUxAgeDays;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultMaxUxAgeDays;
+}
+
+function maxDataIntegrityAgeHours(): number {
+  const raw = process.env.AREAFORGE_LONG_TERM_DATA_INTEGRITY_MAX_AGE_HOURS;
+  if (!raw) return defaultMaxDataIntegrityAgeHours;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultMaxDataIntegrityAgeHours;
 }
 
 function expectedVersion(): string {
@@ -922,4 +1060,4 @@ function sanitizeOutput(value: string): string {
     .slice(0, 500);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

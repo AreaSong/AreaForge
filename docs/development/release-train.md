@@ -87,6 +87,9 @@ pnpm ops:long-term:snapshot > <long-term-evidence-snapshot.json>
 pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>
 ```
 
+当前快照为 schema v3，release/update 交接时应显式提供 fresh data-integrity doctor，并确认 validator 输出
+`bindingStatus: current`。历史 v1/v2 只允许 `--shape-only` 查看归档形态，不能作为当前 release 证据。
+
 快照状态为 `needs_live_evidence` 是有效交接结果，表示当前仍缺 live evidence；它不替代 `pnpm ops:long-term:gate`、生产只读 smoke、update-agent status、备份 hash、告警演练或 residual 人工关闭。
 
 涉及发布记录时补跑：

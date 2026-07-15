@@ -142,7 +142,7 @@ pnpm dev
 | 长期运营控制面 | `pnpm enterprise:operability:preflight`、`pnpm update-agent:status:record <status.json>`、`pnpm ops:ops-001:preflight`、`pnpm ops:ops-001:blocked:validate <record>`、`pnpm ops:ops-001:closure <smoke> <status> <bundle>`、`pnpm ops:ops-004:preflight`、`pnpm ops:ops-005:local:selftest`、`pnpm ops:ops-005:preflight`、`pnpm ops:data-integrity:doctor`、`pnpm ops:data-integrity:validate <record>`、`pnpm ops:long-term:snapshot:validate <snapshot.json>` |
 | 供应链与体验复核 | `pnpm release:supply-chain:validate <record>`、`pnpm ci:supply-chain:record`、`pnpm sc:sc-002:preflight`、`pnpm experience:review:validate <record>` |
 
-`pnpm ops:long-term:snapshot` 会把当前 checkout 的长期运营证据和缺口固定成只读 JSON；它不联网、不执行生产动作、不关闭 residual。`pnpm ops:long-term:gate` 还要求通过 fresh data-integrity doctor，且附件 reconciliation 必须包含并通过。当前 OPS-001、OPS-005 和业务并发一致性 `AF-RISK-OPS-006` 都是 current blocker；doctor 已能发现问题，但数据库唯一约束和 task/session CAS 尚未实施，因此不能宣称产品已达到长期运营完成状态。
+`pnpm ops:long-term:snapshot` 会把当前 checkout 的长期运营证据和缺口固定成 schema v3 只读 JSON，并把 fresh data-integrity doctor 的文件 hash、内部 doctor hash、freshness 和 OPS-006 状态一起绑定；默认 validator 会重新核对当前 checkout 与当前证据输入，历史 v1/v2 归档只能显式使用 `--shape-only`。它不联网、不执行生产动作、不关闭 residual；长期运营完成声明仍必须通过 `pnpm ops:long-term:gate`。当前 OPS-001、OPS-005 和业务并发一致性 `AF-RISK-OPS-006` 都是 current blocker；doctor 已能发现问题，但数据库唯一约束和 task/session CAS 尚未实施，因此不能宣称产品已达到长期运营完成状态。
 
 `pnpm release:closeout:audit -- --version <X.Y.Z>` 会把指定版本的 Release 记录、签名供应链记录、operational evidence bundle、rollback target 和 residual 台账做只读交叉审计。当前 `0.1.7` 审计会阻断 backup/release bundle hash 缺口、OPS-001 current blocker，以及 Release 记录中的 `operationalEvidenceBundleHash` 与引用 bundle 内部 `bundleHash` 不一致；它不修改历史记录、不执行生产动作，也不自动关闭 residual。
 

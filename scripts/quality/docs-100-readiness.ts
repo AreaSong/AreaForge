@@ -525,6 +525,8 @@ function checkOpsReadinessTerms(): void {
     "pnpm ops:readiness",
     "pnpm ops:readiness:summary",
     "pnpm ops:data-integrity:doctor",
+    "schema v3",
+    "bindingStatus: current",
     "pnpm smoke:local-ux",
     "pnpm experience:review:validate",
     "areaforge-operating-loop",

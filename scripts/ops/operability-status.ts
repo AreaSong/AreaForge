@@ -227,6 +227,7 @@ const requiredFiles = [
   "docs/development/operational-readiness.md",
   "docs/development/update-request-expected-before-design.md",
   "docs/development/data-integrity-doctor.md",
+  "docs/development/data-integrity-doctor.md",
   "docs/development/ops-005-expected-before-production-evidence-template.md",
   "docs/development/high-risk-confirmation-packets.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
@@ -423,6 +424,10 @@ export const protectedPathFiles = [
   "scripts/quality/release-evidence-validate.selftest.ts",
   "tasks/indexes/residuals.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
+  "tasks/active/0020-business-state-concurrency.md",
+  "scripts/ops/data-integrity-doctor.ts",
+  "scripts/quality/data-integrity-doctor-validate.ts",
+  "scripts/quality/data-integrity-doctor.selftest.ts",
   "workflow/README.md",
 ] as const;
 

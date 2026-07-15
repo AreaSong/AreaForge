@@ -23,6 +23,9 @@ DATABASE_URL=<read-only-url> pnpm ops:data-integrity:doctor > data-integrity-doc
 DATABASE_URL=<read-only-url> pnpm ops:data-integrity:doctor -- \
   --attachment-summary <attachment-reconciliation-summary.json> > data-integrity-doctor.json
 pnpm ops:data-integrity:validate data-integrity-doctor.json
+AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD=<data-integrity-doctor.json> \
+  pnpm ops:long-term:snapshot > long-term-evidence-snapshot.json
+pnpm ops:long-term:snapshot:validate long-term-evidence-snapshot.json
 ```
 
 数据库地址只通过环境变量提供，不写入参数、输出或证据文件。附件完整对账仍由
@@ -33,6 +36,8 @@ pnpm ops:data-integrity:validate data-integrity-doctor.json
 无效，`3` 表示数据库或运行时错误。失败输出只使用静态脱敏类别，不回显 Prisma/runtime 原始错误。
 validator 会固定检查项、message、detail keys、source/safety/status/counts 一致性、hash 和敏感 marker；通过只证明
 记录契约与自声明一致，不是数据库读取的加密证明，也不证明当前生产健康。
+长期快照默认要求记录不超过 24 小时；可通过 `AREAFORGE_LONG_TERM_DATA_INTEGRITY_MAX_AGE_HOURS`
+收紧或放宽本地证据窗口。快照同时绑定原始文件 sha256 和内部 `doctorHash`，但仍不把 JSON 自声明升级为来源证明。
 
 ## 当前边界
 

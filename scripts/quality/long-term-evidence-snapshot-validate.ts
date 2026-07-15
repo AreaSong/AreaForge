@@ -1,6 +1,11 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { protectedPathFiles } from "../ops/operability-status";
+import {
+  buildDataIntegritySnapshotCheck,
+  collectEvidencePaths,
+  type SnapshotCheck,
+} from "../ops/long-term-evidence-snapshot";
+import { buildOperabilityStatusProjection, protectedPathFiles } from "../ops/operability-status";
 import {
   readRequiredFile,
   scanForSecrets,
@@ -9,6 +14,11 @@ import {
 } from "./record-validator-common";
 
 type JsonRecord = Record<string, unknown>;
+type BindingMode = "current" | "shape-only";
+type ValidationOptions = {
+  bindingMode?: BindingMode;
+  allowCurrentSchemaShapeOnlyForSelftest?: boolean;
+};
 
 const requiredCheckKeysV1 = [
   "controlPlane",
@@ -24,6 +34,17 @@ const requiredCheckKeysV2 = [
   "ops001",
   "ops004",
   "ops005",
+  "releaseEvidenceRecord",
+  "supplyChain",
+  "uxReview",
+  "operationalEvidenceBundle",
+];
+const requiredCheckKeysV3 = [
+  "controlPlane",
+  "ops001",
+  "ops004",
+  "ops005",
+  "dataIntegrity",
   "releaseEvidenceRecord",
   "supplyChain",
   "uxReview",
@@ -73,6 +94,10 @@ const requiredDoesNotProveV2 = [
   ...requiredDoesNotProve,
   "OPS-005 expected-before V2 implementation, signed Release, production deployment, or residual ledger closure without ready_for_ops005_human_review evidence",
 ];
+const requiredDoesNotProveV3 = [
+  ...requiredDoesNotProveV2,
+  "OPS-006 concurrency safety or residual closure from a passing data-integrity doctor record",
+];
 
 const requiredProtectedPathDoesNotProve = [
   "production health",
@@ -104,14 +129,19 @@ const falseSafetyFacts = [
 ] as const;
 
 function main(): void {
-  const snapshotPath = process.argv[2];
+  const args = process.argv.slice(2);
+  const shapeOnly = args.includes("--shape-only");
+  const snapshotPath = args.find((arg) => arg !== "--shape-only" && arg !== "--");
   if (!snapshotPath) {
-    console.error("Usage: pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>");
+    console.error("Usage: pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json> [--shape-only]");
     process.exit(2);
   }
 
   const raw = readRequiredFile(path.resolve(snapshotPath));
-  const issues = validateLongTermEvidenceSnapshot(raw);
+  const options = { bindingMode: shapeOnly ? "shape-only" as const : "current" as const };
+  const bindingStatus = longTermEvidenceSnapshotBindingStatus(raw, options);
+  const issues = validateLongTermEvidenceSnapshot(raw, options);
+  console.log(`bindingStatus: ${bindingStatus}`);
   if (issues.length > 0) {
     for (const issue of issues) {
       console.error(`FAIL ${issue.field}: ${issue.message}`);
@@ -125,15 +155,15 @@ function main(): void {
   console.log("safetyFacts: readOnly=true networkRequested=false serverCommandAttempted=false productionWriteAttempted=false residualLedgerUpdated=false secretValuePrinted=false");
 }
 
-export function validateLongTermEvidenceSnapshot(raw: string): ValidationIssue[] {
+export function validateLongTermEvidenceSnapshot(raw: string, options: ValidationOptions = {}): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   scanForSecrets(raw, issues);
   const body = parseSnapshot(raw, issues);
   if (!body) return issues;
 
   const schemaVersion = body.schemaVersion;
-  if (schemaVersion !== 1 && schemaVersion !== 2) {
-    issues.push({ field: "schemaVersion", message: "must be 1 for historical non-ready snapshots or 2 for current snapshots" });
+  if (schemaVersion !== 1 && schemaVersion !== 2 && schemaVersion !== 3) {
+    issues.push({ field: "schemaVersion", message: "must be 1/2 for historical non-ready snapshots or 3 for current snapshots" });
   }
   requireValue(body.mode, "mode", "read_only_long_term_evidence_snapshot", issues);
   requireIso(body.generatedAt, "generatedAt", issues);
@@ -153,16 +183,123 @@ export function validateLongTermEvidenceSnapshot(raw: string): ValidationIssue[]
     "needs_live_evidence",
     "invalid",
   ], issues);
+  if (schemaVersion === 3) requireString(body.nextCommand, "nextCommand", issues);
   if (schemaVersion === 1 && body.status === "ready_for_long_term_operability_review") {
     issues.push({ field: "status", message: "schemaVersion 1 cannot prove current long-term operability because it predates OPS-005" });
   }
+  if (schemaVersion === 2 && body.status === "ready_for_long_term_operability_review") {
+    issues.push({ field: "status", message: "schemaVersion 2 cannot prove current long-term operability because it predates the OPS-006 data-integrity binding" });
+  }
   validateSourceSnapshot(body.sourceSnapshot, schemaVersion, issues);
+  validateCurrentBinding(body, options, issues);
   validateChecks(body.checks, body.status, schemaVersion, issues);
-  validateArray(body.doesNotProve, "doesNotProve", schemaVersion === 2 ? requiredDoesNotProveV2 : requiredDoesNotProve, issues);
+  validateEvidenceBindings(body.sourceSnapshot, body.checks, schemaVersion, issues);
+  if (schemaVersion === 3) validateNextCommand(body.nextCommand, body.status, body.checks, issues);
+  const requiredNonProofs = schemaVersion === 3
+    ? requiredDoesNotProveV3
+    : schemaVersion === 2 ? requiredDoesNotProveV2 : requiredDoesNotProve;
+  validateArray(body.doesNotProve, "doesNotProve", requiredNonProofs, issues);
   validateArray(body.forbiddenActions, "forbiddenActions", requiredForbiddenActions, issues);
   validateSafetyFacts(body.safetyFacts, issues);
 
   return issues;
+}
+
+export function longTermEvidenceSnapshotBindingStatus(
+  raw: string,
+  options: ValidationOptions = {},
+): "current" | "stale" | "unavailable" {
+  if ((options.bindingMode ?? "current") === "shape-only") return "unavailable";
+  const issues: ValidationIssue[] = [];
+  const body = parseSnapshot(raw, issues);
+  if (!body || body.schemaVersion !== 3 || !isRecord(body.sourceSnapshot)) return "unavailable";
+  try {
+    return currentBindingIssues(body).length === 0 ? "current" : "stale";
+  } catch {
+    return "unavailable";
+  }
+}
+
+function validateCurrentBinding(body: JsonRecord, options: ValidationOptions, issues: ValidationIssue[]): void {
+  if ((options.bindingMode ?? "current") === "shape-only") {
+    if (body.schemaVersion === 3 && options.allowCurrentSchemaShapeOnlyForSelftest !== true) {
+      issues.push({ field: "sourceSnapshot.currentBinding", message: "schema v3 requires current binding; --shape-only is only for historical v1/v2 archives" });
+    }
+    return;
+  }
+  if (body.schemaVersion !== 3) {
+    issues.push({ field: "sourceSnapshot.currentBinding", message: "historical schema requires --shape-only validation" });
+    return;
+  }
+  try {
+    for (const issue of currentBindingIssues(body)) {
+      issues.push({ field: issue.field, message: issue.message });
+    }
+  } catch {
+    issues.push({ field: "sourceSnapshot.currentBinding", message: "current binding is unavailable; use --shape-only only for historical archives" });
+  }
+}
+
+function currentBindingIssues(body: JsonRecord): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  if (!isRecord(body.sourceSnapshot)) return [{ field: "sourceSnapshot.currentBinding", message: "source snapshot is unavailable" }];
+  const sourceSnapshot = body.sourceSnapshot;
+  const projection = buildOperabilityStatusProjection();
+  if (body.packageVersion !== projection.app.version || body.expectedVersion !== projection.app.version || body.releaseTag !== projection.app.releaseTag) {
+    issues.push({ field: "packageVersion.currentBinding", message: "does not match the current package version and release tag" });
+  }
+  if (sourceSnapshot.controlPlaneSourceHash !== projection.sourceSnapshot.controlPlaneSourceHash) {
+    issues.push({ field: "sourceSnapshot.controlPlaneSourceHash.currentBinding", message: "does not match the current checkout" });
+  }
+  if (!isRecord(sourceSnapshot.protectedPathFingerprint) ||
+    sourceSnapshot.protectedPathFingerprint.hash !== projection.sourceSnapshot.protectedPathFingerprint.hash) {
+    issues.push({ field: "sourceSnapshot.protectedPathFingerprint.hash.currentBinding", message: "does not match the current checkout" });
+  }
+  if (!Array.isArray(sourceSnapshot.evidencePaths)) {
+    issues.push({ field: "sourceSnapshot.evidencePaths.currentBinding", message: "current evidence paths are unavailable" });
+    return issues;
+  }
+  const currentPaths = collectEvidencePaths();
+  const recorded = new Map<string, JsonRecord>();
+  for (const item of sourceSnapshot.evidencePaths) {
+    if (isRecord(item) && typeof item.key === "string") recorded.set(item.key, item);
+  }
+  const pathMismatch = recorded.size !== currentPaths.length || !currentPaths.every((current) => {
+    const saved = recorded.get(current.key);
+    return Boolean(saved) &&
+      saved?.pathLabel === current.pathLabel &&
+      saved?.configured === current.configured &&
+      saved?.exists === current.exists &&
+      saved?.sha256 === current.sha256;
+  });
+  if (pathMismatch) {
+    issues.push({ field: "sourceSnapshot.evidencePaths.currentBinding", message: "does not match the currently configured evidence inputs" });
+  }
+  const savedDataCheck = Array.isArray(body.checks)
+    ? body.checks.find((item) => isRecord(item) && item.key === "dataIntegrity")
+    : undefined;
+  const currentDataCheck = buildDataIntegritySnapshotCheck(currentPaths);
+  if (!isRecord(savedDataCheck) || stableStringify(dataIntegrityBindingShape(savedDataCheck)) !== stableStringify(dataIntegrityBindingShape(currentDataCheck))) {
+    issues.push({ field: "checks.dataIntegrity.currentBinding", message: "does not match the current doctor record semantics or freshness" });
+  }
+  return issues;
+}
+
+function dataIntegrityBindingShape(check: JsonRecord | SnapshotCheck): JsonRecord {
+  const freshness = isRecord(check.freshness) ? check.freshness : {};
+  return {
+    status: check.status,
+    actualStatus: check.actualStatus,
+    expectedStatus: check.expectedStatus,
+    evidenceHash: check.evidenceHash,
+    residualRiskIds: check.residualRiskIds,
+    freshness: {
+      generatedAt: freshness.generatedAt ?? null,
+      maxAgeHours: freshness.maxAgeHours ?? null,
+      status: freshness.status ?? "unknown",
+    },
+    metadata: check.metadata,
+  };
 }
 
 function parseSnapshot(raw: string, issues: ValidationIssue[]): JsonRecord | null {
@@ -182,7 +319,8 @@ function parseSnapshot(raw: string, issues: ValidationIssue[]): JsonRecord | nul
 function extractJson(raw: string): string {
   const firstBrace = raw.indexOf("{");
   if (firstBrace < 0) return raw;
-  return raw.slice(firstBrace).trim();
+  const lastBrace = raw.lastIndexOf("}");
+  return lastBrace >= firstBrace ? raw.slice(firstBrace, lastBrace + 1).trim() : raw.slice(firstBrace).trim();
 }
 
 function validateHash(body: JsonRecord, issues: ValidationIssue[]): void {
@@ -218,7 +356,7 @@ function validateProtectedPathFingerprint(value: unknown, schemaVersion: unknown
   }
   requireValue(value.algorithm, `${field}.algorithm`, "sha256", issues);
   requireValue(value.scope, `${field}.scope`, "read_only_side_effect_guard_inputs", issues);
-  if (schemaVersion === 1) {
+  if (schemaVersion === 1 || schemaVersion === 2) {
     validateHistoricalProtectedPaths(value.paths, `${field}.paths`, issues);
   } else {
     validateExactStringArray(value.paths, `${field}.paths`, [...protectedPathFiles], issues);
@@ -281,7 +419,8 @@ function validateEvidencePaths(value: unknown, field: string, schemaVersion: unk
     }
   }
   const requiredPaths = ["releaseEvidenceRecord", "releaseSupplyChainRecord", "uxReviewRecord", "operationalEvidenceBundle", "ops004AlertPreview"];
-  if (schemaVersion === 2) requiredPaths.push("ops005ProductionEvidence");
+  if (schemaVersion === 2 || schemaVersion === 3) requiredPaths.push("ops005ProductionEvidence");
+  if (schemaVersion === 3) requiredPaths.push("dataIntegrityRecord");
   for (const key of requiredPaths) {
     if (!byKey.has(key)) {
       issues.push({ field, message: `missing evidence path ${key}` });
@@ -307,6 +446,65 @@ function validateInputHashes(value: unknown, issues: ValidationIssue[]): void {
   }
 }
 
+function validateEvidenceBindings(
+  sourceValue: unknown,
+  checksValue: unknown,
+  schemaVersion: unknown,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(sourceValue) || !Array.isArray(sourceValue.evidencePaths) || !Array.isArray(sourceValue.inputHashes)) return;
+  const paths = new Map<string, JsonRecord>();
+  for (const item of sourceValue.evidencePaths) {
+    if (!isRecord(item) || typeof item.key !== "string") continue;
+    if (paths.has(item.key)) issues.push({ field: "sourceSnapshot.evidencePaths", message: `duplicate key ${item.key}` });
+    paths.set(item.key, item);
+  }
+  const hashes = new Map<string, JsonRecord>();
+  for (const item of sourceValue.inputHashes) {
+    if (!isRecord(item) || typeof item.key !== "string") continue;
+    if (hashes.has(item.key)) issues.push({ field: "sourceSnapshot.inputHashes", message: `duplicate key ${item.key}` });
+    hashes.set(item.key, item);
+  }
+  for (const [key, evidencePath] of paths) {
+    const inputHash = hashes.get(key);
+    if (typeof evidencePath.sha256 === "string") {
+      if (!inputHash || inputHash.sha256 !== evidencePath.sha256 || inputHash.pathLabel !== evidencePath.pathLabel) {
+        issues.push({ field: "sourceSnapshot.inputHashes", message: `must bind evidence path ${key}` });
+      }
+    } else if (inputHash) {
+      issues.push({ field: "sourceSnapshot.inputHashes", message: `must not contain unhashed evidence path ${key}` });
+    }
+  }
+  for (const key of hashes.keys()) {
+    if (!paths.has(key)) issues.push({ field: "sourceSnapshot.inputHashes", message: `unknown evidence path ${key}` });
+  }
+  if (schemaVersion !== 3 || !Array.isArray(checksValue)) return;
+  const dataCheck = checksValue.find((item) => isRecord(item) && item.key === "dataIntegrity");
+  const dataPath = paths.get("dataIntegrityRecord");
+  if (!isRecord(dataCheck) || !dataPath) return;
+  if (dataCheck.evidenceHash !== dataPath.sha256) {
+    issues.push({ field: "checks.dataIntegrity.evidenceHash", message: "must match dataIntegrityRecord file sha256" });
+  }
+  if (dataCheck.status === "pass" && (dataPath.configured !== true || dataPath.exists !== true || typeof dataPath.sha256 !== "string")) {
+    issues.push({ field: "sourceSnapshot.evidencePaths.dataIntegrityRecord", message: "must be configured, present, and hashed when data integrity passes" });
+  }
+}
+
+function validateNextCommand(value: unknown, status: unknown, checksValue: unknown, issues: ValidationIssue[]): void {
+  if (typeof value !== "string" || !Array.isArray(checksValue)) return;
+  const nonPassKeys = checksValue
+    .filter((item): item is JsonRecord => isRecord(item) && item.status !== "pass" && typeof item.key === "string")
+    .map((item) => String(item.key));
+  const expected = status === "ready_for_long_term_operability_review"
+    ? "review residual close conditions without automatic closure"
+    : status === "invalid"
+      ? `fix invalid checks and rerun snapshot: ${nonPassKeys.join(",")}`
+      : `collect or refresh evidence and rerun snapshot: ${nonPassKeys.join(",")}`;
+  if (value !== expected) {
+    issues.push({ field: "nextCommand", message: `must equal canonical command for ${String(status)}` });
+  }
+}
+
 function validateChecks(value: unknown, snapshotStatus: unknown, schemaVersion: unknown, issues: ValidationIssue[]): void {
   if (!Array.isArray(value)) {
     issues.push({ field: "checks", message: "must be an array" });
@@ -322,13 +520,16 @@ function validateChecks(value: unknown, snapshotStatus: unknown, schemaVersion: 
     validateCheck(check, prefix, issues);
     if (typeof check.key === "string") byKey.set(check.key, check);
   }
-  const requiredCheckKeys = schemaVersion === 2 ? requiredCheckKeysV2 : requiredCheckKeysV1;
+  const requiredCheckKeys = schemaVersion === 3
+    ? requiredCheckKeysV3
+    : schemaVersion === 2 ? requiredCheckKeysV2 : requiredCheckKeysV1;
   const missing = requiredCheckKeys.filter((key) => !byKey.has(key));
   if (missing.length > 0) {
     issues.push({ field: "checks", message: `missing required checks: ${missing.join(", ")}` });
   }
   validateReleaseEvidenceRecordCheck(byKey.get("releaseEvidenceRecord"), issues);
-  if (schemaVersion === 2) validateOps005Check(byKey.get("ops005"), issues);
+  if (schemaVersion === 2 || schemaVersion === 3) validateOps005Check(byKey.get("ops005"), issues);
+  if (schemaVersion === 3) validateDataIntegrityCheck(byKey.get("dataIntegrity"), issues);
   validateOperationalEvidenceBundleCheck(byKey.get("operationalEvidenceBundle"), issues);
   validateNoGreenwash(byKey, snapshotStatus, requiredCheckKeys, issues);
 }
@@ -443,6 +644,45 @@ function validateOps005Check(check: JsonRecord | undefined, issues: ValidationIs
   }
 }
 
+function validateDataIntegrityCheck(check: JsonRecord | undefined, issues: ValidationIssue[]): void {
+  if (!check) return;
+  const metadata = isRecord(check.metadata) ? check.metadata : {};
+  for (const key of [
+    "doctorMode",
+    "overall",
+    "native",
+    "databaseSource",
+    "attachmentStatus",
+    "doctorHash",
+  ]) {
+    requireString(metadata[key], `checks.dataIntegrity.metadata.${key}`, issues);
+  }
+  requireBoolean(metadata.databaseReadAttempted, "checks.dataIntegrity.metadata.databaseReadAttempted", issues);
+  const freshness = isRecord(check.freshness) ? check.freshness : {};
+  requireString(freshness.status, "checks.dataIntegrity.freshness.status", issues);
+  if (check.status !== "pass") return;
+  if (check.actualStatus !== "pass") {
+    issues.push({ field: "checks.dataIntegrity.status", message: "can pass only when doctor overall is pass" });
+  }
+  if (freshness.status !== "fresh") {
+    issues.push({ field: "checks.dataIntegrity.freshness.status", message: "must be fresh when data integrity passes" });
+  }
+  const expected: Record<string, string | boolean> = {
+    doctorMode: "read_only_data_integrity_doctor",
+    overall: "pass",
+    native: "integrity_clean",
+    databaseSource: "configured_read_only_query",
+    databaseReadAttempted: true,
+    attachmentStatus: "pass",
+  };
+  for (const [key, value] of Object.entries(expected)) {
+    if (metadata[key] !== value) {
+      issues.push({ field: `checks.dataIntegrity.metadata.${key}`, message: `must be ${String(value)} when data integrity passes` });
+    }
+  }
+  requirePrefixedSha256(metadata.doctorHash, "checks.dataIntegrity.metadata.doctorHash", issues);
+}
+
 function validateNoGreenwash(
   byKey: Map<string, JsonRecord>,
   snapshotStatus: unknown,
@@ -460,6 +700,10 @@ function validateNoGreenwash(
   const ops005 = byKey.get("ops005");
   if (ops005?.status === "pass" && ops005.actualStatus !== "ready_for_ops005_human_review") {
     issues.push({ field: "checks.ops005.status", message: "OPS-005 can pass only at ready_for_ops005_human_review" });
+  }
+  const dataIntegrity = byKey.get("dataIntegrity");
+  if (dataIntegrity?.status === "pass" && dataIntegrity.actualStatus !== "pass") {
+    issues.push({ field: "checks.dataIntegrity.status", message: "data integrity can pass only when doctor overall is pass" });
   }
   const supplyChain = byKey.get("supplyChain");
   if (supplyChain?.status === "pass" && supplyChain.actualStatus !== "ready_for_sc001_sc002_review") {

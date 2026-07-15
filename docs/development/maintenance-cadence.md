@@ -112,7 +112,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - `pnpm ops:handoff --summary` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚；需要机器可校验输出时继续使用不带 `--summary` 的 JSON。
 - 保存的 handoff 是否通过默认 `pnpm ops:handoff:validate <handoff.json>` 并返回 `bindingStatus: current`；历史 `--shape-only` 结果不得进入当前维护窗口交接。
 - `pnpm ops:long-term:gate` 是否仍能明确阻止缺 OPS-001、OPS-004、OPS-005、fresh data-integrity doctor、可校验 Release 发布记录、签名 Release 供应链或新鲜 UX 证据的长期运营完成声明；doctor 必须 `overall=pass`、真实执行数据库只读聚合并包含通过的附件 reconciliation。当前 `AF-RISK-OPS-006` 的数据库唯一约束和 CAS 尚未实施，因此即使本地 doctor selftest 通过也不能关闭该 blocker。
-- `pnpm ops:long-term:snapshot` 是否能把当前 `v0.1.7` release evidence record、release supply-chain、UX、alert preview、operational evidence bundle 和缺失的 OPS-001/OPS-004/OPS-005 证据绑定为 `needs_live_evidence`，并通过 `pnpm ops:long-term:snapshot:validate`；当前输出为 schema v2，历史 schema v1 非 ready 快照只保留兼容读取，不能升级为 ready。该快照通过不代表生产健康或 residual 关闭。
+- `pnpm ops:long-term:snapshot` 是否能把当前 release evidence、供应链、UX、alert、operational bundle、OPS-001/004/005 和 fresh data-integrity doctor 绑定为 schema v3 快照，并通过默认 current-binding validator；v1/v2 仅能用 `--shape-only` 校验历史非 ready 形态，不能升级为 ready。缺 doctor 时必须显式列出 `dataIntegrity` 和 `AF-RISK-OPS-006`，该快照通过也不代表并发根因修复、生产健康或 residual 关闭。
 - `pnpm ops:backup-restore:preview` 是否仍能把 release record 中的 `releaseEvidenceBundleHash`、root-only backup hash、可选恢复演练记录和 rollback target 分类为可交接 metadata，并通过 `blockingGaps` 机器可读列出会阻塞 release evidence、long-term gate、restore drill 或 rollback readiness 的缺口；该预览通过不代表备份归档存在、恢复已执行或生产 restore 已授权。
 - `AF-RISK-OPS-001`、`AF-RISK-SC-001` 这类可在下一次 release/update 后进入人工复核的证据是否已有新记录；OPS-001 需要生产只读 smoke、update-agent status、evidence bundle 和 `pnpm ops:ops-001:closure:validate` 通过后再人工复核关闭；SC-001 先带当前 release 供应链记录路径跑 `pnpm sc:sc-002:preflight`，再用签名 Release `pnpm release:supply-chain:validate` 复核。`AF-RISK-SC-002` 已关闭为 CI-only 证据项，后续相关 workflow、依赖或 release 变更前重跑对应复核。
 - 若维护者形成 close / keep-open / downgrade / reopen 结论，是否保存 `docs/development/residual-closure-review-template.md` 格式记录并运行 `pnpm residuals:closure:validate <record>`；该记录保持 `closesResidual=no`，不能替代后续台账更新和 `pnpm residuals:validate`。
@@ -151,7 +151,7 @@ Release 前后按 `docs/development/release-train.md` 执行。
 - 生产更新完成后有 health、update-agent、authenticated smoke 或明确 `AF-RISK-OPS-001`。
 - release record 写入 `pnpm ops:evidence:bundle` 的 `bundleHash` 和 `pnpm ops:alert:preview` 的告警预览结论。
 - release record 同时绑定附件 reconciliation CSV/summary 的路径、status、CSV SHA256 和 summary canonical hash；`yes`、`no`、`not-applicable` 都必须有对应双向证据。
-- release/update 后保存 `pnpm ops:long-term:snapshot` 输出，确认 OPS-001、OPS-004、OPS-005、release evidence record、供应链、UX 和运行信号的当前状态与缺口被 hash 绑定；若要声明长期运营完成，仍必须让 `pnpm ops:long-term:gate` 通过。
+- release/update 后保存 `pnpm ops:long-term:snapshot` 输出，确认 OPS-001、OPS-004、OPS-005、fresh data-integrity doctor、release evidence record、供应链、UX 和运行信号的当前状态与缺口被 hash 绑定，并确认 validator 输出 `bindingStatus: current`；若要声明长期运营完成，仍必须让 live gate 通过。
 - release/update 后运行版本级 `pnpm release:closeout:audit -- --version <X.Y.Z>`，确认 Release record、供应链 record、operational evidence bundle、rollback target 和 residual ID/type 一致；audit 的 `blocked` 或 `needs_attention` 必须保留，不能通过改写历史证据绕过。
 - `AF-RISK-SC-002` 已关闭为 CI-only 证据项；若后续 workflow、依赖审计、release workflow 或供应链记录工具变更，使用 `pnpm sc:sc-002:preflight` 和 `pnpm ci:supply-chain:validate` 通过的 CI-only 记录重新复核。若要关闭 `AF-RISK-SC-001`，必须有 `pnpm sc:sc-002:preflight` 和 `pnpm release:supply-chain:validate` 通过的签名 Release 记录。
 - 若要声明本次 release/update 后真实体验健康，必须有 `pnpm experience:review:validate` 通过的 desktop/mobile 体验记录；否则保留 `AF-RISK-UX-001`。

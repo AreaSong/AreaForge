@@ -188,6 +188,8 @@ function checkControlPlaneDoc(): void {
     "pnpm ops:handoff",
     "pnpm ops:long-term:gate",
     "pnpm ops:long-term:snapshot",
+    "schema v3",
+    "dataIntegrityRecord",
     "pnpm ops:support:bundle-preview",
     "pnpm ops:evidence:bundle:validate",
     "pnpm ops:ops-001:closure:validate",

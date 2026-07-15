@@ -70,8 +70,8 @@
 - `development/codex-workflow.md`：轻量 Codex 协作工作流。
 - `development/long-term-operability-control-plane.md`：长期运营控制面，统一 release 决策、维护窗口、真实体验、残余风险、供应链和 skill 增减规则。
 - `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、OPS-005、可校验 Release 发布记录、签名 Release 供应链和新鲜 UX 记录。
-- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：只读长期运营证据快照，聚合当前版本的证据路径 hash、OPS-001/OPS-004/OPS-005/release evidence record/供应链/UX/运行信号状态和缺口，不替代 live gate、生产 smoke 或 residual 人工关闭。
-- `development/long-term-evidence-snapshot-v0.1.7-20260712.json`：`schemaVersion=1` 的历史非 ready 快照，状态为 `needs_live_evidence`；当前新快照使用 schema v2 并强制包含 OPS-005，该历史记录不能用于证明当前生产健康。
+- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：schema v3 只读长期运营证据快照，聚合当前版本的证据路径 hash、OPS-001/OPS-004/OPS-005、fresh data-integrity doctor、release evidence record、供应链、UX 和运行信号状态与缺口；默认 validator 重新绑定当前 checkout，历史归档使用 `--shape-only`，不替代 live gate、生产 smoke 或 residual 人工关闭。
+- `development/long-term-evidence-snapshot-v0.1.7-20260712.json`：`schemaVersion=1` 的历史非 ready 快照，状态为 `needs_live_evidence`；schema v2 也只保留为 OPS-006 doctor 接入前的历史非 ready 格式，当前格式为 schema v3。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
 - `pnpm release:closeout:audit -- --version <X.Y.Z>`：版本级只读 closeout 交叉审计，校验 Release、供应链、运行证据、rollback target 与 residual 台账的一致性；输出需再用 `pnpm release:closeout:audit:validate <audit.json>` 校验。
 - `development/completion-evidence-checklist.md`：完成声明证据清单，区分 docs、本地 smoke、浏览器复核、Release 和生产证据，并要求写清 summary、claimScope、evidenceUri 与 doesNotProve；`pnpm completion:evidence:validate <record>` 只校验完成声明记录形态，不替代真实运行、Release、生产 smoke 或长期运营 live gate。
