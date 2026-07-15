@@ -118,7 +118,8 @@ function checkLocalImplementation(root: string): StageCheck {
   const updater = readOptional(root, "ops/github-release-updater/areaforge-updater.sh");
   const missing = [
     typeof requiredScript === "string" && requiredScript.trim() ? null : "update-center:request-v2:selftest",
-    typeof localSelftest === "string" && localSelftest.includes("update-agent-request-v2.selftest.ts") &&
+    typeof localSelftest === "string" && localSelftest.includes("update-center:request-v2:selftest") &&
+      localSelftest.includes("update-agent-request-v2.selftest.ts") &&
       localSelftest.includes("update-production-state-lock.selftest.ts") ? null : "ops:ops-005:local:selftest",
     ...["schemaVersion", "expectedBefore", "semanticHash", "idempotencyKey", "expiresAt"]
       .filter((token) => !web.includes(token))

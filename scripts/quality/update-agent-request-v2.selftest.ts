@@ -25,6 +25,8 @@ function main(): void {
   testPolicySuccessUnderLock();
   testFirstComparisonMismatchHasNoSideEffects();
   testSecondComparisonDriftHasNoSideEffects();
+  testInvalidRequestIdCannotEscapeHistory();
+  testActiveProcessingClaimBlocksQueue();
   testStaleProcessingNeedsReconciliation();
   testMissingClaimMetadataNeedsReconciliation();
   console.log("update-agent request V2 selftest passed.");
@@ -241,6 +243,41 @@ function testSecondComparisonDriftHasNoSideEffects(): void {
   assert(decision?.observedBeforeHashFirst && decision.observedBeforeHashSecond, "second comparison drift must retain both observed hashes");
   assert(configValue(f, "AREAFORGE_AUTO_APPLY") === "minor", "drift fixture must not be overwritten by the requested patch policy");
   assert(!existsSync(f.updaterLog) && !existsSync(f.dockerLog), "second comparison drift must have zero external side effects");
+}
+
+function testInvalidRequestIdCannotEscapeHistory(): void {
+  const f = fixture();
+  enqueueRaw(f, "invalid-request", {
+    schemaVersion: 2,
+    id: "../requests/escaped",
+    action: "apply",
+  });
+  run(f);
+  assert(readdirSync(path.join(f.state, "requests")).length === 0, "invalid request id must not create a queue file outside history");
+  const historyFiles = readdirSync(path.join(f.state, "history"));
+  assert(historyFiles.length === 1 && historyFiles[0]?.startsWith("invalid_"), "invalid request history must use a derived safe path component");
+  assert(decisions(f).some((item) => item.reasonCode === "INVALID_REQUEST_SCHEMA"), "invalid request must still produce immutable rejection history");
+}
+
+function testActiveProcessingClaimBlocksQueue(): void {
+  const f = fixture();
+  const inFlight = request("apply");
+  const queued = request("apply", inFlight.idempotencyKey);
+  const claimDir = path.join(f.state, "processing", "b".repeat(32));
+  mkdirSync(claimDir, { recursive: true });
+  writeFileSync(path.join(claimDir, `${inFlight.id}.json`), JSON.stringify(inFlight));
+  writeFileSync(path.join(claimDir, "claim.json"), JSON.stringify({
+    claimId: "b".repeat(32),
+    claimedAt: iso(nowEpoch - 30),
+    claimExpiresAt: iso(nowEpoch + 30),
+    originalFileName: `${inFlight.id}.json`,
+  }));
+  enqueue(f, queued);
+  run(f);
+  assert(existsSync(path.join(f.state, "requests", `${queued.id}.json`)), "active processing claim must leave later queued mutations untouched");
+  assert(existsSync(claimDir), "active processing claim must remain available for later reconciliation");
+  assert(decisions(f).length === 0, "active processing claim must not synthesize a terminal decision before TTL expiry");
+  assert(!existsSync(f.updaterLog) && !existsSync(f.dockerLog), "active processing claim must block duplicate external side effects");
 }
 
 function testStaleProcessingNeedsReconciliation(): void {

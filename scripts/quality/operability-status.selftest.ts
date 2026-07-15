@@ -28,6 +28,16 @@ const requiredFiles = [
   "docs/development/residual-risk-ledger.json",
   "docs/development/validation-matrix.md",
   "workflow/README.md",
+  "apps/web/lib/system/update-center.ts",
+  "apps/web/app/api/system/update-requests/route.ts",
+  "apps/web/lib/system/update-request-v2.ts",
+  "ops/update-agent/areaforge-update-agent.sh",
+  "ops/update-agent/lib/update-request-v2.sh",
+  "ops/update-agent/lib/update-request-state.sh",
+  "ops/github-release-updater/areaforge-updater.sh",
+  "scripts/quality/update-center-request-v2.selftest.ts",
+  "scripts/quality/update-agent-request-v2.selftest.ts",
+  "scripts/quality/update-production-state-lock.selftest.ts",
   ".codex/skills-src/README.md",
   ".codex/skills-src/areaforge-operating-loop/SKILL.md",
   ".codex/skills-src/areaforge-sre-ops/SKILL.md",
@@ -141,6 +151,7 @@ const requiredScripts = [
   "ops:ops-004:preflight:selftest",
   "ops:ops-005:preflight",
   "ops:ops-005:preflight:selftest",
+  "ops:ops-005:local:selftest",
   "ops:ops-005:evidence:validate",
   "ops:ops-005:evidence:selftest",
   "sc:sc-002:preflight",
@@ -227,10 +238,10 @@ function main(): void {
     assert(
       projection.boundaryStops.some((stop) =>
         stop.key === "update_request_expected_before" &&
-        stop.currentBoundary.includes("no high-risk local implementation confirmation") &&
+        stop.currentBoundary.includes("no matching signed Release for the verified V2 checkout") &&
         stop.currentBoundary.includes("no production deployment confirmation")
       ),
-      "projection should separate expected-before implementation and deployment confirmations",
+      "projection should separate verified expected-before implementation from signed Release and deployment confirmations",
     );
     assert(projection.safetyFacts.readOnly === true, "projection should be read-only");
     assert(projection.safetyFacts.networkRequested === false, "projection should not request network");

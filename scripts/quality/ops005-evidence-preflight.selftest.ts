@@ -46,7 +46,10 @@ function expectStatus(status: string, productionEvidencePath = ""): void {
 function writeBase(implemented: boolean): void {
   writeText("package.json", JSON.stringify({
     version: "0.1.8",
-    scripts: implemented ? { "update-center:request-v2:selftest": "tsx scripts/quality/request-v2.selftest.ts" } : {},
+    scripts: implemented ? {
+      "update-center:request-v2:selftest": "tsx scripts/quality/request-v2.selftest.ts",
+      "ops:ops-005:local:selftest": "pnpm update-center:request-v2:selftest && tsx scripts/quality/update-agent-request-v2.selftest.ts && tsx scripts/quality/update-production-state-lock.selftest.ts",
+    } : {},
   }, null, 2));
   writeText("docs/development/update-request-expected-before-design.md", "fixture design\n");
   writeText("tasks/active/0019-update-request-expected-before-binding.md", "fixture task\n");
@@ -126,4 +129,3 @@ function writeText(file: string, content: string): void {
   mkdirSync(path.dirname(fullPath), { recursive: true });
   writeFileSync(fullPath, content);
 }
-

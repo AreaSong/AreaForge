@@ -335,10 +335,10 @@ function validateBoundaryStops(value: unknown, issues: ValidationIssue[]): void 
     }
     if (
       item.key === "update_request_expected_before" &&
-      (!boundaries.includes("no high-risk local implementation confirmation") ||
+      (!boundaries.includes("no matching signed Release for the verified V2 checkout") ||
         !boundaries.includes("no production deployment confirmation"))
     ) {
-      issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "expected-before stop must separate local implementation and production deployment confirmation" });
+      issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "expected-before stop must separate verified local implementation from signed Release and production deployment confirmation" });
     }
   }
 }

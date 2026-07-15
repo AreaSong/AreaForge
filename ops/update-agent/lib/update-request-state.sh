@@ -126,15 +126,25 @@ write_decision() {
   local observed_second="${8:-null}"
   local observed_after="${9:-null}"
   local source_decision="${10:-null}"
-  local evaluated epoch requested age status id safe_id claim output
+  local evaluated epoch requested age status id safe_id claim claim_id_value safe_claim_id output
   evaluated="$(now_epoch)"
   requested="$(jq -r '.requestedAt // empty' "$request" 2>/dev/null || true)"
   if [[ -n "$requested" ]] && epoch="$(timestamp_epoch "$requested")"; then age="$((evaluated - epoch))"; else age=0; fi
   status="$(decision_status "$decision")"
   id="$(jq -r '.id // empty' "$request" 2>/dev/null || true)"
-  safe_id="${id:-invalid_$(basename "$(dirname "$request")")}"
   claim="$(cat "$claim_file")"
-  output="$HISTORY_DIR/${safe_id}.$(jq -r '.claimId' <<< "$claim").decision.json"
+  claim_id_value="$(jq -r '.claimId // empty' <<< "$claim" 2>/dev/null || true)"
+  if [[ "$id" =~ ^update_[0-9]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+    safe_id="$id"
+  else
+    safe_id="invalid_$(sha256sum "$request" | awk '{print substr($1,1,24)}')"
+  fi
+  if [[ "$claim_id_value" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$ ]]; then
+    safe_claim_id="$claim_id_value"
+  else
+    safe_claim_id="claim_$(sha256sum "$claim_file" | awk '{print substr($1,1,24)}')"
+  fi
+  output="$HISTORY_DIR/${safe_id}.${safe_claim_id}.decision.json"
   jq -n \
     --argjson request "$(jq -c . "$request" 2>/dev/null || printf 'null')" \
     --argjson claim "$claim" \
@@ -323,7 +333,10 @@ reconcile_stale_claims() {
     fi
     expires="$(jq -r '.claimExpiresAt // empty' "$claim_file" 2>/dev/null || true)"
     expires_epoch="$(timestamp_epoch "$expires" 2>/dev/null || printf 0)"
-    (( now > expires_epoch )) || continue
+    if (( now <= expires_epoch )); then
+      ACTIVE_PROCESSING_CLAIM=1
+      continue
+    fi
     decision_file="$(write_decision "$request" "$claim_file" NEEDS_RECONCILIATION STALE_PROCESSING_CLAIM null "stale processing claim requires manual reconciliation and was not replayed")"
     operation="$(operation_from_decision "$decision_file")"
     cleanup_claim "$claim_dir"

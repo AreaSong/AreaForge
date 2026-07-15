@@ -14,6 +14,7 @@ UPDATER="${AREAFORGE_UPDATER_PATH:-/opt/areaforge/ops/github-release-updater/are
 CLAIM_TTL_SECONDS="${AREAFORGE_UPDATE_AGENT_CLAIM_TTL_SECONDS:-600}"
 CLOCK_SKEW_SECONDS=30
 RECONCILED_STALE=0
+ACTIVE_PROCESSING_CLAIM=0
 
 # shellcheck source=lib/update-request-v2.sh
 source "$SCRIPT_DIR/lib/update-request-v2.sh"
@@ -481,6 +482,10 @@ main() {
     exit 0
   }
   reconcile_stale_claims
+  if [[ "$ACTIVE_PROCESSING_CLAIM" == "1" ]]; then
+    merge_status null false
+    return
+  fi
   local request claim_dir
   request="$(find "$REQUEST_DIR" -maxdepth 1 -name '*.json' -type f ! -name '.*' | sort | head -n 1 || true)"
   if [[ -n "$request" ]]; then
