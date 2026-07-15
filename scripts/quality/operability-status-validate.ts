@@ -240,6 +240,7 @@ function validateResiduals(value: unknown, issues: ValidationIssue[]): void {
   }
   if (!isRecord(value.countsByType)) issues.push({ field: "residuals.countsByType", message: "must be an object" });
   if (!isRecord(value.countsByReviewStatus)) issues.push({ field: "residuals.countsByReviewStatus", message: "must be an object" });
+  requireStringArray(value.currentBlockerIds, "residuals.currentBlockerIds", issues);
   if (!Array.isArray(value.dueItems)) issues.push({ field: "residuals.dueItems", message: "must be an array" });
   if (!Array.isArray(value.executableNowItems)) issues.push({ field: "residuals.executableNowItems", message: "must be an array" });
   if (!Array.isArray(value.releaseRelevantIds)) issues.push({ field: "residuals.releaseRelevantIds", message: "must be an array" });

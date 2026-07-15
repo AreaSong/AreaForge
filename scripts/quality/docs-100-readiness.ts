@@ -518,11 +518,13 @@ function checkOpsReadinessTerms(): void {
   const requiredTerms = [
     "只读运营证据聚合入口",
     "AF-RISK-OPS-001",
+    "AF-RISK-OPS-006",
     "AF-RISK-REL-001",
     "AF-RISK-SC-001",
     "AF-RISK-UX-001",
     "pnpm ops:readiness",
     "pnpm ops:readiness:summary",
+    "pnpm ops:data-integrity:doctor",
     "pnpm smoke:local-ux",
     "pnpm experience:review:validate",
     "areaforge-operating-loop",

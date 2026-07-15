@@ -120,6 +120,11 @@ const readOnlyCommands = [
     summaryToken: "attachment reconciliation summary selftest passed",
   },
   {
+    label: "data integrity doctor selftest",
+    args: ["ops:data-integrity:selftest"],
+    summaryToken: "data integrity doctor selftest passed",
+  },
+  {
     label: "release evidence validator selftest",
     args: ["release:evidence:selftest"],
     summaryToken: "release evidence validator selftest passed",

@@ -93,6 +93,36 @@
       "ownerSkills": ["areaforge-security-governance", "areaforge-release-operator", "areaforge-sre-ops"]
     },
     {
+      "id": "AF-RISK-OPS-006",
+      "type": "current-blocker",
+      "reviewAt": "2026-07-22",
+      "currentImpact": "当前单管理员模型没有数据库级“最多一个活跃 StudySession”约束；startStudySession 的检查与创建分离，endStudySession 和部分 task mutation 也未统一使用 expected-status CAS，并发请求可能产生重复活跃计时、重复分钟累加或状态 last-write-wins。只读 data-integrity doctor 已提供发现入口，但不修复根因",
+      "executableNow": false,
+      "closeCondition": "经独立高风险确认完成 additive active-session uniqueness migration、task/session expected-status CAS、事务内单次副作用和 409 冲突映射；临时 PostgreSQL 并发测试、doctor before/after、自测和 pnpm check 通过；随后创建匹配签名 Release，生产 migration/deploy 另行确认并取得 fresh doctor 证据",
+      "requiredEvidence": "docs/development/data-integrity-doctor.md、tasks/active/0020-business-state-concurrency.md、pnpm ops:data-integrity:selftest、临时 PostgreSQL 并发 start/end/task mutation 记录、additive migration 校验、pnpm db:validate、pnpm check、匹配签名 Release、独立生产 migration/deploy 记录和不含对象内容/密钥的 fresh data-integrity doctor JSON",
+      "ownerSkills": ["areaforge-security-governance", "areaforge-sre-ops", "areaforge-validation-driver"]
+    },
+    {
+      "id": "AF-RISK-OPS-007",
+      "type": "deferred-work",
+      "reviewAt": "2026-08-15",
+      "currentImpact": "附件服务先写最终文件再提交 Attachment metadata；进程在两者之间崩溃仍可能留下 file-only orphan，现有补偿和只读 reconciliation 只能事后发现",
+      "executableNow": false,
+      "closeCondition": "经独立确认完成 staging file/fsync、PENDING -> READY 写入意图或等价原子协议、崩溃注入测试、旧附件兼容和备份/恢复说明；不自动清理历史孤儿",
+      "requiredEvidence": "tasks/backlog/0021-attachment-staging-intent.md、附件 crash-window fixture、additive migration 或无 migration 方案证据、attachment reconciliation summary、backup/restore 与 rollback 边界、pnpm risk:preflight 和 pnpm check",
+      "ownerSkills": ["areaforge-file-storage-safety", "areaforge-security-governance"]
+    },
+    {
+      "id": "AF-RISK-OPS-008",
+      "type": "deferred-work",
+      "reviewAt": "2026-08-15",
+      "currentImpact": "updater 最终记录完整，但在 backup、migration、switch、smoke 中途被强杀时缺少 append-only 阶段日志；维护窗口也没有 root-only hold/drain 状态，暂停 timer 和停止领取新请求仍依赖人工步骤",
+      "executableNow": false,
+      "closeCondition": "经独立确认完成 root-only atomic phase journal、启动时只读 reconciliation、hold/drain 状态投影和崩溃/竞争 selftest；Web runtime 不获得控制权，生产 timer/队列变更另行确认",
+      "requiredEvidence": "tasks/backlog/0022-updater-phase-journal-hold.md、阶段状态机设计、kill-point fixture、hold/drain claim selftest、shellcheck、updater preflight、匹配签名 Release 和独立生产部署证据",
+      "ownerSkills": ["areaforge-sre-ops", "areaforge-observability", "areaforge-security-governance"]
+    },
+    {
       "id": "AF-RISK-UX-001",
       "type": "closed-evidence",
       "reviewAt": "2026-07-24",

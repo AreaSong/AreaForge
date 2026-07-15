@@ -19,9 +19,13 @@ const requiredFiles = [
   "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/update-request-expected-before-design.md",
+  "docs/development/data-integrity-doctor.md",
   "docs/development/ops-005-expected-before-production-evidence-template.md",
   "docs/development/high-risk-confirmation-packets.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
+  "tasks/active/0020-business-state-concurrency.md",
+  "tasks/backlog/0021-attachment-staging-intent.md",
+  "tasks/backlog/0022-updater-phase-journal-hold.md",
   "docs/development/release-v0.1.7-record.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -67,6 +71,9 @@ const requiredFiles = [
   "scripts/quality/attachment-reconciliation.ts",
   "scripts/quality/attachment-reconciliation-summary.ts",
   "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/ops/data-integrity-doctor.ts",
+  "scripts/quality/data-integrity-doctor-validate.ts",
+  "scripts/quality/data-integrity-doctor.selftest.ts",
   "scripts/quality/release-evidence-validate.ts",
   "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
@@ -142,6 +149,9 @@ const requiredScripts = [
   "attachment:reconciliation",
   "attachment:reconciliation:summary",
   "attachment:reconciliation:summary:selftest",
+  "ops:data-integrity:doctor",
+  "ops:data-integrity:validate",
+  "ops:data-integrity:selftest",
   "release:evidence:validate",
   "release:evidence:selftest",
   "ops:ops-001:preflight",
@@ -258,8 +268,9 @@ function main(): void {
       "handoff should include releaseEvidenceBundleHash gap",
     );
     assert(handoff.evidenceFocus.currentBlockers.every((item) => item.kind === "current_blocker"), "current blocker focus items should use current_blocker kind");
-    assert(handoff.evidenceFocus.immediate.some((item) => item.residualRiskId === "AF-RISK-OPS-006"), "handoff should still surface executable residuals separately");
+    assert(handoff.evidenceFocus.immediate.some((item) => item.residualRiskId === "AF-RISK-OPS-009"), "handoff should still surface executable residuals separately");
     assert(handoff.evidenceFocus.currentBlockers.some((item) => item.residualRiskId === "AF-RISK-OPS-005"), "handoff should surface expected-before blocker");
+    assert(handoff.evidenceFocus.currentBlockers.some((item) => item.residualRiskId === "AF-RISK-OPS-006"), "handoff should surface future current blockers");
     assert(handoff.evidenceFocus.dueOrSoon.some((item) => item.residualRiskId === "AF-RISK-SC-002"), "handoff should include due release residual");
     assert(handoff.evidenceFocus.releaseRelevantIds.includes("AF-RISK-SC-002"), "handoff should preserve release relevant IDs");
     assert(handoff.claimBoundary.cannotClaim.some((claim) => claim.includes("current production health")), "handoff should forbid production health overclaim");
@@ -296,8 +307,9 @@ function main(): void {
     assert(summary.boundaryStops.some((item) => item.includes("post_update_ops001")), "summary should include boundary stops");
     assert(summary.boundaryStops.some((item) => item.includes("update_request_expected_before")), "summary should include expected-before boundary stop");
     assert(summary.releaseEvidenceGaps.some((item) => item.includes("releaseEvidenceBundleHash")), "summary should include release evidence gaps");
-    assert(summary.immediateFocus.some((item) => item.includes("AF-RISK-OPS-006")), "summary should include immediate focus");
+    assert(summary.immediateFocus.some((item) => item.includes("AF-RISK-OPS-009")), "summary should include immediate focus");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-005")), "summary should include expected-before blocker");
+    assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-006")), "summary should include future current blockers");
     assert(summary.dueOrSoonFocus.some((item) => item.includes("AF-RISK-SC-002")), "summary should include due release residual");
     assert(summary.nextHandoffCommands.includes("pnpm ops:status --summary"), "summary should include human-readable handoff commands");
     assert(summary.nextLiveEvidenceCommands.includes("pnpm ops:ops-001:preflight"), "summary should include live evidence commands");
@@ -373,6 +385,16 @@ function fixtureLedgerJson(): string {
       },
       {
         id: "AF-RISK-OPS-006",
+        type: "current-blocker",
+        reviewAt: "2026-08-17",
+        currentImpact: "business state concurrency controls are not implemented",
+        executableNow: false,
+        closeCondition: "additive uniqueness and expected-status CAS pass concurrency validation",
+        requiredEvidence: "migration, concurrency fixtures, doctor before/after, and signed release",
+        ownerSkills: ["areaforge-security-governance", "areaforge-sre-ops"],
+      },
+      {
+        id: "AF-RISK-OPS-009",
         type: "monitoring-gap",
         reviewAt: "2026-07-17",
         currentImpact: "production extra smoke needs server configuration",

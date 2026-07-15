@@ -56,6 +56,8 @@ pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
 pnpm ops:long-term:snapshot
 pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>
+DATABASE_URL=<read-only-url> pnpm ops:data-integrity:doctor -- --attachment-summary <attachment-reconciliation-summary.json>
+pnpm ops:data-integrity:validate <data-integrity-doctor.json>
 pnpm maintenance:window:record
 pnpm maintenance:window:validate <maintenance-window-record.md|txt>
 pnpm maintenance:window:index
@@ -109,7 +111,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - `pnpm residuals:evidence:preflight` 是否仍只做 metadata-only 路径预检，并把命令、人工确认、GitHub run、后续版本证据等归类为 `nonPathRequirements`；该命令输出 `ready_for_human_review` 也不代表 residual 关闭。
 - `pnpm ops:handoff --summary` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚；需要机器可校验输出时继续使用不带 `--summary` 的 JSON。
 - 保存的 handoff 是否通过默认 `pnpm ops:handoff:validate <handoff.json>` 并返回 `bindingStatus: current`；历史 `--shape-only` 结果不得进入当前维护窗口交接。
-- `pnpm ops:long-term:gate` 是否仍能明确阻止缺 OPS-001、OPS-004、OPS-005、可校验 Release 发布记录、签名 Release 供应链或新鲜 UX 证据的长期运营完成声明；2026-07-11 OPS-004 manual-window 证据在 `v0.1.7` 更新后只能作为历史输入，当前版本的 alert preview/drill 在带显式证据路径运行 `pnpm ops:ops-004:preflight` 时已达到 `ready_for_human_close`，但不自动关闭 residual；OPS-005 本地 V2 已实现，但在匹配签名 Release 和生产证据齐备前必须保持阻断；当前 `release-v0.1.7-record.md` 仍缺 root-only backup hash 和可校验 `releaseEvidenceBundleHash`，因此 gate 必须继续失败；该命令失败时不代表服务宕机，只代表证据不够。
+- `pnpm ops:long-term:gate` 是否仍能明确阻止缺 OPS-001、OPS-004、OPS-005、fresh data-integrity doctor、可校验 Release 发布记录、签名 Release 供应链或新鲜 UX 证据的长期运营完成声明；doctor 必须 `overall=pass`、真实执行数据库只读聚合并包含通过的附件 reconciliation。当前 `AF-RISK-OPS-006` 的数据库唯一约束和 CAS 尚未实施，因此即使本地 doctor selftest 通过也不能关闭该 blocker。
 - `pnpm ops:long-term:snapshot` 是否能把当前 `v0.1.7` release evidence record、release supply-chain、UX、alert preview、operational evidence bundle 和缺失的 OPS-001/OPS-004/OPS-005 证据绑定为 `needs_live_evidence`，并通过 `pnpm ops:long-term:snapshot:validate`；当前输出为 schema v2，历史 schema v1 非 ready 快照只保留兼容读取，不能升级为 ready。该快照通过不代表生产健康或 residual 关闭。
 - `pnpm ops:backup-restore:preview` 是否仍能把 release record 中的 `releaseEvidenceBundleHash`、root-only backup hash、可选恢复演练记录和 rollback target 分类为可交接 metadata，并通过 `blockingGaps` 机器可读列出会阻塞 release evidence、long-term gate、restore drill 或 rollback readiness 的缺口；该预览通过不代表备份归档存在、恢复已执行或生产 restore 已授权。
 - `AF-RISK-OPS-001`、`AF-RISK-SC-001` 这类可在下一次 release/update 后进入人工复核的证据是否已有新记录；OPS-001 需要生产只读 smoke、update-agent status、evidence bundle 和 `pnpm ops:ops-001:closure:validate` 通过后再人工复核关闭；SC-001 先带当前 release 供应链记录路径跑 `pnpm sc:sc-002:preflight`，再用签名 Release `pnpm release:supply-chain:validate` 复核。`AF-RISK-SC-002` 已关闭为 CI-only 证据项，后续相关 workflow、依赖或 release 变更前重跑对应复核。
@@ -117,6 +119,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - 生成 OPS-001 收口包前先运行 `pnpm ops:ops-001:preflight`；它只读本地 redacted 证据文件并返回 `needs_evidence`、`ready_to_generate_packet`、`ready_for_human_close` 或 `invalid`，不执行生产 smoke、不生成收口包、不改 residual 台账。
 - 关闭 `AF-RISK-OPS-004` 前先运行 `pnpm ops:ops-004:preflight`；它只读已保存的 alert preview 和告警演练记录，校验两者 hash 对齐并返回 `needs_evidence`、`ready_to_generate_record`、`ready_for_human_close` 或 `invalid`，不发送通知、不调用外部接收人、不改 residual 台账。
 - 复核 `AF-RISK-OPS-005` 前先运行 `pnpm ops:ops-005:local:selftest` 和 `pnpm ops:ops-005:preflight`；当前本地实现通过后应推进到 `needs_signed_release`。只有匹配签名 Release 和通过 `pnpm ops:ops-005:evidence:validate` 的生产证据齐备后，才允许进入 `ready_for_ops005_human_review`，仍不自动关闭 residual。
+- 复核 `AF-RISK-OPS-006` 前先生成并校验 fresh data-integrity doctor；doctor 只负责发现，业务写路径修复仍必须按 `tasks/active/0020-business-state-concurrency.md` 独立确认。
 - `AF-RISK-UX-001` 是否仍有 14 天内 desktop/mobile 体验复核记录；当前 2026-07-10 本地记录是历史证据，2026-07-12 本地 `0.1.7` 记录已补充，过期、release/update 或体验改动后必须重跑，否则体验健康重新降级为 `warn`。
 
 ## 每月或每个维护窗口
@@ -189,6 +192,10 @@ Incident 后目标是保留证据、恢复服务、避免同类问题重复。
 - `AF-RISK-SC-003`
 - `AF-RISK-OPS-003`
 - `AF-RISK-OPS-004`
+- `AF-RISK-OPS-005`
+- `AF-RISK-OPS-006`
+- `AF-RISK-OPS-007`
+- `AF-RISK-OPS-008`
 - `AF-RISK-UX-001`
 
 ## 本地预检

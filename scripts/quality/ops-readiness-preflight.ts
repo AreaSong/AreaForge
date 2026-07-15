@@ -153,6 +153,9 @@ function checkRequiredFiles(): void {
     "scripts/quality/attachment-reconciliation.ts",
     "scripts/quality/attachment-reconciliation-summary.ts",
     "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+    "scripts/ops/data-integrity-doctor.ts",
+    "scripts/quality/data-integrity-doctor-validate.ts",
+    "scripts/quality/data-integrity-doctor.selftest.ts",
     "scripts/quality/release-evidence-validate.ts",
     "scripts/quality/release-evidence-validate.selftest.ts",
     "scripts/quality/ops001-blocked-record-validate.ts",
@@ -230,6 +233,9 @@ function checkOperationalReadinessDoc(): void {
     "AF-RISK-OPS-002",
     "AF-RISK-OPS-004",
     "AF-RISK-OPS-005",
+    "AF-RISK-OPS-006",
+    "AF-RISK-OPS-007",
+    "AF-RISK-OPS-008",
     "AF-RISK-UX-001",
     "Product experience review",
     "pnpm experience:review:validate",
@@ -306,6 +312,10 @@ function checkResidualLedger(): void {
     "AF-RISK-SC-003",
     "AF-RISK-OPS-003",
     "AF-RISK-OPS-004",
+    "AF-RISK-OPS-005",
+    "AF-RISK-OPS-006",
+    "AF-RISK-OPS-007",
+    "AF-RISK-OPS-008",
   ];
   const requiredTerms = [
     "monitoring-gap",
@@ -413,6 +423,9 @@ function checkPackageScripts(): void {
   const attachmentReconciliationScript = packageJson.scripts?.["attachment:reconciliation"] ?? "";
   const attachmentReconciliationSummaryScript = packageJson.scripts?.["attachment:reconciliation:summary"] ?? "";
   const attachmentReconciliationSummarySelftestScript = packageJson.scripts?.["attachment:reconciliation:summary:selftest"] ?? "";
+  const dataIntegrityDoctorScript = packageJson.scripts?.["ops:data-integrity:doctor"] ?? "";
+  const dataIntegrityValidateScript = packageJson.scripts?.["ops:data-integrity:validate"] ?? "";
+  const dataIntegritySelftestScript = packageJson.scripts?.["ops:data-integrity:selftest"] ?? "";
   const releaseEvidenceValidateScript = packageJson.scripts?.["release:evidence:validate"] ?? "";
   const releaseEvidenceSelftestScript = packageJson.scripts?.["release:evidence:selftest"] ?? "";
   const ops001PreflightSelftestScript = packageJson.scripts?.["ops:ops-001:preflight:selftest"] ?? "";
@@ -504,6 +517,9 @@ function checkPackageScripts(): void {
       attachmentReconciliationScript === "tsx scripts/quality/attachment-reconciliation.ts" &&
       attachmentReconciliationSummaryScript === "tsx scripts/quality/attachment-reconciliation-summary.ts" &&
       attachmentReconciliationSummarySelftestScript === "tsx scripts/quality/attachment-reconciliation-summary.selftest.ts" &&
+      dataIntegrityDoctorScript === "tsx scripts/ops/data-integrity-doctor.ts" &&
+      dataIntegrityValidateScript === "tsx scripts/quality/data-integrity-doctor-validate.ts" &&
+      dataIntegritySelftestScript === "tsx scripts/quality/data-integrity-doctor.selftest.ts" &&
       releaseEvidenceValidateScript === "tsx scripts/quality/release-evidence-validate.ts" &&
       releaseEvidenceSelftestScript === "tsx scripts/quality/release-evidence-validate.selftest.ts" &&
       ops001PreflightScript === "tsx scripts/ops/ops001-evidence-preflight.ts" &&

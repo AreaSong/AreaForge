@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
+import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
 
 type CheckStatus = "pass" | "missing" | "stale" | "invalid";
 type GateStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
@@ -25,6 +26,7 @@ const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1
 const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
 const defaultReleaseRecord = "docs/development/release-v0.1.7-record.md";
 const defaultMaxUxAgeDays = 14;
+const defaultMaxDataIntegrityAgeHours = 24;
 
 function main(): void {
   const checks: CheckResult[] = [
@@ -56,6 +58,7 @@ function main(): void {
       expectedStatus: "ready_for_ops005_human_review",
       residualRiskIds: ["AF-RISK-OPS-005"],
     }),
+    validateFreshDataIntegrityRecord(),
     runJsonStatusCheck({
       key: "supplyChain",
       label: "signed Release supply-chain evidence",
@@ -80,6 +83,7 @@ function main(): void {
       "AF-RISK-OPS-001 blocked_on_prerequisite records are valid blocker evidence only; they do not satisfy long-term operability",
       "AF-RISK-OPS-004 ready_for_human_close: alert preview plus matching alert/recovery drill record",
       "AF-RISK-OPS-005 ready_for_ops005_human_review: V2 local implementation, matching signed Release, fresh redacted production deployment evidence, V2 check, expected-before rejection executionAttempted=no, shared lock, processing reconciliation, and autoApply=none",
+      "AF-RISK-OPS-006 fresh data integrity doctor: strict redacted record validation, declared read-only database aggregation, attachment reconciliation included, and overall=pass",
       "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: signed Release supply-chain record with SBOM/provenance/checksum/signature and Actions pinning evidence",
       "Production release evidence record: pnpm release:evidence:validate passes with database, uploads, env backup SHA256 evidence, rollback target, migration result, smoke result, and residual risk fields",
       `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes, appVersion equals ${expectedVersion()}, and reviewedAt is within ${maxUxAgeDays()} days`,
@@ -356,6 +360,95 @@ function validateFreshUxRecord(): CheckResult {
   };
 }
 
+function validateFreshDataIntegrityRecord(): CheckResult {
+  const configured = process.env.AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD?.trim();
+  const command = "pnpm ops:data-integrity:validate <data-integrity-doctor.json>";
+  if (!configured) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "missing",
+      detail: "AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD is not configured",
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  const recordPath = path.resolve(configured);
+  if (!existsSync(recordPath)) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "missing",
+      detail: "data integrity doctor record is missing",
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  const raw = readFileSync(recordPath, "utf8");
+  const issues = validateDataIntegrityDoctor(raw);
+  if (issues.length > 0) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "invalid",
+      detail: sanitizeOutput(issues.join("; ")),
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  const body = JSON.parse(raw) as JsonRecord;
+  const status = body.status as JsonRecord;
+  const safety = body.safetyFacts as JsonRecord;
+  const source = body.source as JsonRecord;
+  const checks = body.checks as JsonRecord[];
+  const attachment = checks.find((item) => item.id === "attachments.reconciliation");
+  if (
+    status.overall !== "pass" ||
+    source.database !== "configured_read_only_query" ||
+    safety.databaseReadAttempted !== true ||
+    attachment?.status !== "pass"
+  ) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "missing",
+      detail: "doctor record must declare configured_read_only_query, databaseReadAttempted=true, overall=pass, and attachment reconciliation pass",
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  const generatedAt = new Date(String(body.generatedAt ?? ""));
+  const ageHours = (now().getTime() - generatedAt.getTime()) / 3_600_000;
+  if (!Number.isFinite(ageHours) || ageHours < -5 / 60) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "invalid",
+      detail: "doctor generatedAt is invalid or in the future",
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  if (ageHours > maxDataIntegrityAgeHours()) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "stale",
+      detail: `doctor is ${ageHours.toFixed(1)} hours old; max allowed is ${maxDataIntegrityAgeHours()} hours`,
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  return {
+    key: "dataIntegrity",
+    label: "fresh business data integrity doctor",
+    status: "pass",
+    detail: `strict validator passed; record declares a read-only database query and is ${Math.max(0, ageHours).toFixed(1)} hours old`,
+    command,
+    residualRiskIds: ["AF-RISK-OPS-006"],
+  };
+}
+
 function gateStatus(checks: CheckResult[]): GateStatus {
   if (checks.some((check) => check.status === "invalid")) return "invalid";
   if (checks.some((check) => check.status !== "pass")) return "needs_live_evidence";
@@ -379,6 +472,7 @@ function missingEvidenceLabel(check: CheckResult): string {
   if (check.key === "ops001") return "OPS-001 production read-only smoke/update-agent evidence";
   if (check.key === "ops004") return "OPS-004 alert/recovery drill evidence";
   if (check.key === "ops005") return `OPS-005 expected-before V2 staged evidence (${check.actualStatus ?? "missing"})`;
+  if (check.key === "dataIntegrity") return "fresh validated business data integrity doctor with attachment reconciliation";
   if (check.key === "supplyChain") return "signed Release supply-chain evidence";
   if (check.key === "releaseEvidence") {
     return "production release evidence backup/hash record; under no-secret scope, validate a server-side release evidence redacted export with pnpm release:evidence:redacted-export:validate <redacted-export-dir>";
@@ -438,6 +532,13 @@ function maxUxAgeDays(): number {
   if (!raw) return defaultMaxUxAgeDays;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultMaxUxAgeDays;
+}
+
+function maxDataIntegrityAgeHours(): number {
+  const raw = process.env.AREAFORGE_LONG_TERM_DATA_INTEGRITY_MAX_AGE_HOURS;
+  if (!raw) return defaultMaxDataIntegrityAgeHours;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultMaxDataIntegrityAgeHours;
 }
 
 function expectedVersion(): string {

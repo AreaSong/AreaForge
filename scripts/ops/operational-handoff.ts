@@ -92,9 +92,7 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
   const projection = buildOperabilityStatusProjection(options);
   const executableIds = new Set(projection.residuals.executableNowItems.map((item) => item.id));
   const dueIds = new Set(projection.residuals.dueItems.map((item) => item.id));
-  const currentBlockerIds = new Set(projection.residuals.dueItems
-    .filter((item) => item.type === "current-blocker")
-    .map((item) => item.id));
+  const currentBlockerIds = new Set(projection.residuals.currentBlockerIds);
   const releaseRelevantIds = new Set(projection.residuals.releaseRelevantIds);
   const focusItems = projection.nextActions.map((action) => toFocusItem({
     action,

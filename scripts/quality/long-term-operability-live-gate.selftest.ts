@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildReleaseEvidenceBundleHash } from "./release-evidence-validate";
 import { computeAttachmentReconciliationSummaryHash } from "./attachment-reconciliation-summary";
+import type { AttachmentReconciliationSummary } from "./attachment-reconciliation-summary";
+import { buildDataIntegrityDoctor } from "../ops/data-integrity-doctor";
 import { parseIndentedKeyValueRecord } from "./record-validator-common";
 
 type JsonRecord = Record<string, unknown>;
@@ -24,10 +26,13 @@ try {
   writeFileSync(reconciliationCsv, attachmentEvidence.csv);
   writeFileSync(reconciliationSummary, `${JSON.stringify(attachmentEvidence.summary, null, 2)}\n`);
   writeFileSync(releaseRecord, createReleaseRecord(attachmentEvidence.csv, attachmentEvidence.summary.summaryHash));
+  const dataIntegrityRecord = path.join(tempDir, "data-integrity-doctor.json");
+  writeFileSync(dataIntegrityRecord, `${JSON.stringify(createDataIntegrityRecord(attachmentEvidence.summary), null, 2)}\n`);
   const baseEnv = {
     AREAFORGE_LONG_TERM_UX_RECORD: uxRecord,
     AREAFORGE_LONG_TERM_GATE_NOW: "2026-07-11T00:00:00.000Z",
     AREAFORGE_LONG_TERM_RELEASE_RECORD: releaseRecord,
+    AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: dataIntegrityRecord,
   };
 
   const noOps004Evidence = runGate(baseEnv, 1);
@@ -35,6 +40,11 @@ try {
   assert(noOps004EvidenceJson.status === "needs_live_evidence", "missing OPS-004 evidence should block the gate");
   assertCheckStatus(noOps004EvidenceJson, "ops004", "missing");
   assertCheckStatus(noOps004EvidenceJson, "ops005", "missing");
+  assertCheckStatus(noOps004EvidenceJson, "dataIntegrity", "pass");
+
+  const missingDataIntegrity = runGate({ ...baseEnv, AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: "" }, 1);
+  const missingDataIntegrityJson = parseGateJson(missingDataIntegrity.stdout);
+  assertCheckStatus(missingDataIntegrityJson, "dataIntegrity", "missing");
 
   const currentOps004Evidence = runGate(baseEnv, 1, {
     clearOps004: false,
@@ -117,6 +127,7 @@ function runGate(env: Record<string, string>, expectedStatus: number, options: {
     AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD: "",
     AREAFORGE_OPS005_GIT_COMMIT: "",
     AREAFORGE_LONG_TERM_UX_RECORD: "",
+    AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: "",
     ...env,
   };
   if (clearOps004) {
@@ -207,6 +218,28 @@ function createAttachmentEvidence(): { csv: string; summary: Record<string, unkn
     safetyFacts: { readOnly: true, databaseWriteAttempted: false, uploadWriteAttempted: false, fileDeleted: false, fileMoved: false, metadataRepaired: false, fileContentIncluded: false, absolutePathIncluded: false, secretValuePrinted: false },
   };
   return { csv, summary: { ...withoutHash, summaryHash: computeAttachmentReconciliationSummaryHash(withoutHash) } };
+}
+
+function createDataIntegrityRecord(summary: Record<string, unknown>): Record<string, unknown> {
+  return buildDataIntegrityDoctor({
+    snapshot: {
+      activeSessionCount: 1,
+      staleActiveSessionCount: 0,
+      runningWithPausedAtCount: 0,
+      pausedWithoutPausedAtCount: 0,
+      activeWithEndedAtCount: 0,
+      terminalWithoutEndedAtCount: 0,
+      terminalWithPausedAtCount: 0,
+      negativeSessionMetricsCount: 0,
+      doneWithoutCompletedAtCount: 0,
+      nonDoneWithCompletedAtCount: 0,
+      doneWithDebtCount: 0,
+      negativeTaskMinutesCount: 0,
+    },
+    attachmentSummary: summary as unknown as AttachmentReconciliationSummary,
+    generatedAt: "2026-07-10T12:00:00.000Z",
+    databaseReadAttempted: true,
+  });
 }
 
 function parseGateJson(raw: string): JsonRecord {

@@ -128,6 +128,7 @@ export type OperabilityStatusProjection = {
     total: number;
     countsByType: Record<ResidualType, number>;
     countsByReviewStatus: Record<ReviewStatus, number>;
+    currentBlockerIds: string[];
     dueItems: Array<Pick<ClassifiedResidual, "id" | "type" | "reviewAt" | "reviewStatus" | "daysUntilReview" | "executableNow" | "ownerSkills">>;
     executableNowItems: Array<Pick<ClassifiedResidual, "id" | "type" | "reviewAt" | "reviewStatus" | "currentImpact" | "closeCondition" | "requiredEvidence" | "ownerSkills">>;
     releaseRelevantIds: string[];
@@ -225,9 +226,13 @@ const requiredFiles = [
   "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/update-request-expected-before-design.md",
+  "docs/development/data-integrity-doctor.md",
   "docs/development/ops-005-expected-before-production-evidence-template.md",
   "docs/development/high-risk-confirmation-packets.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
+  "tasks/active/0020-business-state-concurrency.md",
+  "tasks/backlog/0021-attachment-staging-intent.md",
+  "tasks/backlog/0022-updater-phase-journal-hold.md",
   releaseEvidenceRecordPath,
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -265,6 +270,9 @@ const requiredFiles = [
   "scripts/quality/attachment-reconciliation.ts",
   "scripts/quality/attachment-reconciliation-summary.ts",
   "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/ops/data-integrity-doctor.ts",
+  "scripts/quality/data-integrity-doctor-validate.ts",
+  "scripts/quality/data-integrity-doctor.selftest.ts",
   "scripts/quality/release-evidence-validate.ts",
   "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
@@ -346,6 +354,9 @@ const requiredPackageScripts = [
   "attachment:reconciliation",
   "attachment:reconciliation:summary",
   "attachment:reconciliation:summary:selftest",
+  "ops:data-integrity:doctor",
+  "ops:data-integrity:validate",
+  "ops:data-integrity:selftest",
   "release:evidence:validate",
   "release:evidence:selftest",
   "ops:ops-001:preflight",
@@ -487,14 +498,10 @@ export function buildOperabilityStatusSummary(projection: OperabilityStatusProje
 }
 
 function currentBlockerSummary(projection: OperabilityStatusProjection): string[] {
-  return uniqueStrings([
-    ...projection.residuals.dueItems
-      .filter((item) => item.type === "current-blocker")
-      .map((item) => `${item.id} reviewAt=${item.reviewAt} owners=${item.ownerSkills.join(",")}`),
-    ...projection.residuals.executableNowItems
-      .filter((item) => item.type === "current-blocker")
-      .map((item) => `${item.id} reviewAt=${item.reviewAt} owners=${item.ownerSkills.join(",")}`),
-  ]);
+  const ids = new Set(projection.residuals.currentBlockerIds);
+  return projection.nextActions
+    .filter((item) => ids.has(item.residualRiskId))
+    .map((item) => `${item.residualRiskId} owners=${item.ownerSkills.join(",")}`);
 }
 
 export function formatOperabilityStatusSummary(summary: OperabilityStatusSummary): string {
@@ -626,6 +633,7 @@ function buildResidualSummary(facts: ProjectionFacts): OperabilityStatusProjecti
     total: facts.residuals.length,
     countsByType: countBy(facts.residuals, residualTypes, (item) => item.type),
     countsByReviewStatus: countBy(facts.residuals, reviewStatuses, (item) => item.reviewStatus),
+    currentBlockerIds: facts.residuals.filter((item) => item.type === "current-blocker").map((item) => item.id),
     dueItems: dueItems.map(toDueItem),
     executableNowItems: executableNowItems.map(toExecutableNowItem),
     releaseRelevantIds: facts.releaseRelevantItems.map((item) => item.id),
@@ -670,6 +678,7 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:handoff:validate:selftest",
       "pnpm ops:status:validate:selftest",
       "pnpm ops:readonly-side-effect:selftest",
+      "pnpm ops:data-integrity:selftest",
       "pnpm enterprise:operability:preflight",
       "pnpm maintenance:cadence:preflight",
       "pnpm ops:support:bundle-preview:selftest",
@@ -699,6 +708,8 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:status",
       "pnpm ops:long-term:gate",
       "pnpm ops:long-term:snapshot",
+      "DATABASE_URL=<read-only-url> pnpm ops:data-integrity:doctor -- --attachment-summary <attachment-reconciliation-summary.json>",
+      "pnpm ops:data-integrity:validate <data-integrity-doctor.json>",
       "pnpm release:train:preflight",
       "pnpm github-release-updater:preflight",
       "pnpm release:evidence:redacted-export:validate <redacted-export-dir>",

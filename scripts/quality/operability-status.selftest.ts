@@ -19,9 +19,13 @@ const requiredFiles = [
   "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/update-request-expected-before-design.md",
+  "docs/development/data-integrity-doctor.md",
   "docs/development/ops-005-expected-before-production-evidence-template.md",
   "docs/development/high-risk-confirmation-packets.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
+  "tasks/active/0020-business-state-concurrency.md",
+  "tasks/backlog/0021-attachment-staging-intent.md",
+  "tasks/backlog/0022-updater-phase-journal-hold.md",
   "docs/development/release-v0.1.7-record.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -67,6 +71,9 @@ const requiredFiles = [
   "scripts/quality/attachment-reconciliation.ts",
   "scripts/quality/attachment-reconciliation-summary.ts",
   "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/ops/data-integrity-doctor.ts",
+  "scripts/quality/data-integrity-doctor-validate.ts",
+  "scripts/quality/data-integrity-doctor.selftest.ts",
   "scripts/quality/release-evidence-validate.ts",
   "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
@@ -141,6 +148,9 @@ const requiredScripts = [
   "attachment:reconciliation",
   "attachment:reconciliation:summary",
   "attachment:reconciliation:summary:selftest",
+  "ops:data-integrity:doctor",
+  "ops:data-integrity:validate",
+  "ops:data-integrity:selftest",
   "release:evidence:validate",
   "release:evidence:selftest",
   "ops:ops-001:preflight",
@@ -247,7 +257,8 @@ function main(): void {
     assert(projection.safetyFacts.networkRequested === false, "projection should not request network");
     assert(projection.safetyFacts.protectedPathWriteAttempted === false, "projection should not write protected paths");
     assert(projection.safetyFacts.statusProjectionWritten === false, "projection should not write a status file");
-    assert(projection.residuals.countsByType["current-blocker"] === 2, "current blocker count should be 2");
+    assert(projection.residuals.countsByType["current-blocker"] === 3, "current blocker count should be 3");
+    assert(projection.residuals.currentBlockerIds.includes("AF-RISK-OPS-006"), "future current blockers must remain explicit");
     assert(projection.releaseEvidenceGaps.status === "needs_evidence", "release evidence gaps should need evidence");
     assert(
       projection.releaseEvidenceGaps.blockingGaps.some((gap) =>
@@ -282,6 +293,8 @@ function main(): void {
     assert(projection.requiredFiles.present.includes("scripts/ops/backup-restore-preview.ts"), "projection should require backup/restore preview script file");
     assert(projection.requiredFiles.present.includes("scripts/quality/backup-restore-preview-validate.ts"), "projection should require backup/restore preview validator file");
     assert(projection.requiredFiles.present.includes("scripts/quality/backup-restore-preview.selftest.ts"), "projection should require backup/restore preview selftest file");
+    assert(projection.requiredFiles.present.includes("scripts/ops/data-integrity-doctor.ts"), "projection should require data integrity doctor file");
+    assert(projection.requiredFiles.present.includes("scripts/quality/data-integrity-doctor-validate.ts"), "projection should require data integrity doctor validator file");
     assert(projection.requiredFiles.present.includes("ops/update-agent/areaforge-release-evidence-redacted-export.sh"), "projection should require release evidence redacted export helper file");
     assert(projection.requiredFiles.present.includes("scripts/quality/release-evidence-redacted-export-validate.ts"), "projection should require release evidence redacted export validator file");
     assert(projection.requiredFiles.present.includes("scripts/quality/release-evidence-redacted-export.selftest.ts"), "projection should require release evidence redacted export selftest file");
@@ -310,6 +323,8 @@ function main(): void {
     assert(projection.packageScripts.present.includes("ops:long-term:gate"), "projection should require long-term live evidence gate script");
     assert(projection.packageScripts.present.includes("ops:long-term:snapshot"), "projection should require long-term evidence snapshot script");
     assert(projection.packageScripts.present.includes("ops:readonly-side-effect:selftest"), "projection should require read-only side-effect selftest script");
+    assert(projection.packageScripts.present.includes("ops:data-integrity:doctor"), "projection should require data integrity doctor script");
+    assert(projection.packageScripts.present.includes("ops:data-integrity:validate"), "projection should require data integrity doctor validator script");
     assert(projection.packageScripts.present.includes("maintenance:window:record"), "projection should require maintenance window record generator");
     assert(projection.packageScripts.present.includes("maintenance:window:validate"), "projection should require maintenance window validator");
     assert(projection.packageScripts.present.includes("maintenance:window:index:validate"), "projection should require maintenance window index validator");
@@ -347,6 +362,7 @@ function main(): void {
     assert(projection.commands.weekly.includes("pnpm sc:sc-002:preflight:selftest"), "weekly commands should include SC-002 supply-chain preflight selftest");
     assert(projection.commands.weekly.includes("pnpm ops:long-term:snapshot:selftest"), "weekly commands should include long-term evidence snapshot selftest");
     assert(projection.commands.weekly.includes("pnpm ops:readonly-side-effect:selftest"), "weekly commands should include read-only side-effect selftest");
+    assert(projection.commands.weekly.includes("pnpm ops:data-integrity:selftest"), "weekly commands should include data integrity doctor selftest");
     assert(projection.commands.weekly.includes("pnpm residuals:evidence:preflight:selftest"), "weekly commands should include residual evidence preflight selftest");
     assert(projection.commands.weekly.includes("pnpm residuals:closure:selftest"), "weekly commands should include residual closure review selftest");
     assert(projection.commands.weekly.includes("pnpm maintenance:window:record:selftest"), "weekly commands should include maintenance window record selftest");
@@ -358,6 +374,7 @@ function main(): void {
     assert(projection.commands.release.includes("pnpm ops:ops-005:preflight"), "release commands should include OPS-005 expected-before preflight");
     assert(projection.commands.release.includes("pnpm ops:long-term:gate"), "release commands should include long-term live evidence gate");
     assert(projection.commands.release.includes("pnpm ops:long-term:snapshot"), "release commands should include long-term evidence snapshot");
+    assert(projection.commands.release.some((command) => command.includes("ops:data-integrity:doctor")), "release commands should include data integrity doctor");
     assert(projection.commands.release.includes("pnpm release:evidence:redacted-export:validate <redacted-export-dir>"), "release commands should include release evidence redacted export validation");
     assert(projection.commands.release.includes("pnpm release:closeout:audit -- --version <X.Y.Z>"), "release commands should include release closeout audit");
     assert(projection.commands.release.includes("pnpm release:evidence:redacted-export:selftest"), "release commands should include release evidence redacted export selftest");
@@ -370,6 +387,7 @@ function main(): void {
     assert(summary.offlineOverall === "blocked", "summary should preserve overall status");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include non-executable current blockers");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-005")), "summary should include expected-before current blocker");
+    assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-006")), "summary should include future current blockers");
     assert(summary.boundaryStops.some((item) => item.includes("post_update_ops001")), "summary should include boundary stops");
     assert(summary.boundaryStops.some((item) => item.includes("update_request_expected_before")), "summary should include expected-before boundary stop");
     assert(summary.releaseEvidenceGaps.some((item) => item.includes("releaseEvidenceBundleHash")), "summary should include release evidence gaps");
@@ -467,6 +485,16 @@ function fixtureLedgerJson(): string {
         closeCondition: "V2 contract, release, and production deployment evidence",
         requiredEvidence: "expected-before design, local selftests, signed release, and redacted production evidence",
         ownerSkills: ["areaforge-security-governance", "areaforge-release-operator", "areaforge-sre-ops"],
+      },
+      {
+        id: "AF-RISK-OPS-006",
+        type: "current-blocker",
+        reviewAt: "2026-08-17",
+        currentImpact: "business state concurrency controls are not implemented",
+        executableNow: false,
+        closeCondition: "additive uniqueness and expected-status CAS pass concurrency validation",
+        requiredEvidence: "migration, concurrency fixtures, doctor before/after, and signed release",
+        ownerSkills: ["areaforge-security-governance", "areaforge-sre-ops"],
       },
       {
         id: "AF-RISK-REL-001",
