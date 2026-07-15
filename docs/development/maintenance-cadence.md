@@ -107,7 +107,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - GitHub issues 是否有 P0/P1、安全、ops support 或 release/supply-chain 阻塞。
 - 公开 issue 和贡献者 PR 是否已按 `areaforge-public-maintenance` 路由到 support、security、SRE、release、supply-chain、AI、UX 或 docs owner。
 - Dependabot/依赖更新是否需要进入 dependency policy。
-- `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`。
+- `pnpm residuals:review-due` 是否显示存在到期或即将到期的 `reviewAt`；`overdue` / `due_today` 也必须让 `pnpm ops:status` 至少降级为 `needs_live_evidence`，不能继续用旧 `closed-evidence` 支撑 ready。
 - `pnpm residuals:evidence:preflight` 是否仍只做 metadata-only 路径预检，并把命令、人工确认、GitHub run、后续版本证据等归类为 `nonPathRequirements`；该命令输出 `ready_for_human_review` 也不代表 residual 关闭。
 - `pnpm ops:handoff --summary` 是否仍把可立即执行项、release follow-up 和不可声称的生产健康边界说清楚；需要机器可校验输出时继续使用不带 `--summary` 的 JSON。
 - 保存的 handoff 是否通过默认 `pnpm ops:handoff:validate <handoff.json>` 并返回 `bindingStatus: current`；历史 `--shape-only` 结果不得进入当前维护窗口交接。

@@ -1045,6 +1045,9 @@ function reviewStatus(daysUntilReview: number): ReviewStatus {
 function overallStatus(input: { hasMissingControlPlane: boolean; residuals: ClassifiedResidual[] }): OverallStatus {
   if (input.hasMissingControlPlane) return "blocked";
   if (input.residuals.some((item) => item.type === "current-blocker")) return "blocked";
+  if (input.residuals.some((item) => item.reviewStatus === "overdue" || item.reviewStatus === "due_today")) {
+    return "needs_live_evidence";
+  }
   if (input.residuals.some((item) => item.type === "monitoring-gap" || item.type === "release-follow-up")) {
     return "needs_live_evidence";
   }
@@ -1056,6 +1059,7 @@ function overallStatus(input: { hasMissingControlPlane: boolean; residuals: Clas
 
 function releaseTrainStatus(overall: OverallStatus, items: ClassifiedResidual[]): OperabilityStatusProjection["status"]["releaseTrain"] {
   if (overall === "blocked") return "blocked";
+  if (overall === "needs_live_evidence") return "needs_release_evidence";
   if (items.some((item) => item.type !== "closed-evidence" && item.type !== "historical-reference")) {
     return "needs_release_evidence";
   }

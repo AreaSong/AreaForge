@@ -399,6 +399,32 @@ function main(): void {
     assert(formattedSummary.includes("AreaForge operability status"), "formatted summary should include title");
     assert(formattedSummary.includes("safetyFacts: readOnly=true"), "formatted summary should include safety facts");
 
+    writeJson(root, "docs/development/residual-risk-ledger.json", {
+      schemaVersion: 1,
+      source: "docs/development/residual-risk-ledger.md",
+      items: [
+        {
+          id: "AF-RISK-UX-001",
+          type: "closed-evidence",
+          reviewAt: "2026-07-10",
+          currentImpact: "historical UX evidence requires periodic review",
+          executableNow: false,
+          closeCondition: "fresh desktop and mobile review",
+          requiredEvidence: "validated product experience record",
+          ownerSkills: ["areaforge-product-experience", "areaforge-qa-smoke"],
+        },
+      ],
+    });
+    const overdueClosedEvidence = buildOperabilityStatusProjection({
+      root,
+      asOf: "2026-07-11",
+      generatedAt: "2026-07-11T00:00:00.000Z",
+    });
+    assert(overdueClosedEvidence.status.overall === "needs_live_evidence", "overdue closed evidence must downgrade offline overall status");
+    assert(overdueClosedEvidence.status.releaseTrain === "needs_release_evidence", "overdue closed evidence must downgrade release train status");
+    assert(overdueClosedEvidence.residuals.dueItems.some((item) => item.id === "AF-RISK-UX-001" && item.reviewStatus === "overdue"), "overdue evidence must remain visible in due items");
+    writeText(root, "docs/development/residual-risk-ledger.json", fixtureLedgerJson());
+
     const initialProtectedPathHash = projection.sourceSnapshot.protectedPathFingerprint.hash;
     writeText(root, "docs/development/not-protected.txt", "fixture unprotected file\n");
     const unprotectedProjection = buildOperabilityStatusProjection({
