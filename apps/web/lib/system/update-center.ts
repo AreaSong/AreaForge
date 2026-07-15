@@ -1,6 +1,14 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  atomicPublishUpdateRequest,
+  buildUpdateRequestV2,
+  parseVerifiedStatusSnapshot,
+  UpdateRequestV2Error,
+  type UpdateRequestCommand,
+  type UpdateStatusSnapshotV2,
+  type VerifiedUpdateTarget,
+} from "./update-request-v2";
 
 const defaultStateDir = process.env.APP_ENV === "production"
   ? "/app/ops-state"
@@ -35,6 +43,9 @@ export interface UpdateCenterStatus {
   blocker: string | null;
   requestQueueLength: number | null;
   statusUpdatedAt: string | null;
+  snapshotSchemaVersion?: 2 | null;
+  snapshotHash?: string | null;
+  verifiedTarget?: VerifiedUpdateTarget | null;
 }
 
 export interface UpdateOperation {
@@ -51,12 +62,11 @@ export interface RollbackStatus {
   available: boolean;
   targetVersion: string | null;
   targetImage: string | null;
+  sourceRecordSha256?: string | null;
 }
 
 export interface CreateUpdateRequestInput {
-  action: UpdateAction;
-  tag?: string;
-  autoApply?: AutoApplyPolicy;
+  command: UpdateRequestCommand;
   actorEmail: string;
 }
 
@@ -68,78 +78,68 @@ export type UpdateRequestValidationCode =
   | "AUTO_APPLY_POLICY_UNCHANGED";
 
 export async function getUpdateCenterStatus(): Promise<UpdateCenterStatus> {
-  const status = await readJsonFile<Partial<UpdateCenterStatus>>(statusPath);
-  const currentVersion = process.env.APP_VERSION ?? status?.currentVersion ?? "0.1.0";
-  const currentImage = process.env.AREAFORGE_IMAGE ?? status?.currentImage ?? null;
-  const latestVersion = status?.latestVersion ?? null;
+  const rawStatus = await readJsonFile(statusPath);
+  const source = asRecord(rawStatus);
+  const snapshot = parseVerifiedStatusSnapshot(rawStatus);
+  const currentVersion = snapshot?.currentVersion ?? process.env.APP_VERSION ?? stringValue(source.currentVersion) ?? "0.1.0";
+  const currentImage = snapshot?.currentImage ?? process.env.AREAFORGE_IMAGE ?? nullableString(source.currentImage);
+  const latestVersion = nullableString(source.latestVersion);
 
   return {
     currentVersion,
     currentImage,
-    appUrl: process.env.APP_URL ?? status?.appUrl ?? null,
+    appUrl: process.env.APP_URL ?? nullableString(source.appUrl),
     deployMode: detectDeployMode(currentImage),
-    releaseUrl: status?.releaseUrl ?? releaseUrlFor(latestVersion ?? currentVersion),
+    releaseUrl: nullableString(source.releaseUrl) ?? releaseUrlFor(latestVersion ?? currentVersion),
     latestVersion,
-    latestPublishedAt: status?.latestPublishedAt ?? null,
-    updateAvailable: Boolean(status?.updateAvailable),
-    autoApply: normalizeAutoApply(status?.autoApply),
-    signatureRequired: Boolean(status?.signatureRequired),
-    timerEnabled: typeof status?.timerEnabled === "boolean" ? status.timerEnabled : null,
-    timerActive: typeof status?.timerActive === "boolean" ? status.timerActive : null,
-    lastCheckedAt: status?.lastCheckedAt ?? null,
-    lastOperation: status?.lastOperation ?? null,
+    latestPublishedAt: nullableString(source.latestPublishedAt),
+    updateAvailable: source.updateAvailable === true,
+    autoApply: snapshot?.autoApply ?? normalizeAutoApply(source.autoApply),
+    signatureRequired: snapshot?.signatureRequired ?? source.signatureRequired === true,
+    timerEnabled: nullableBoolean(source.timerEnabled),
+    timerActive: nullableBoolean(source.timerActive),
+    lastCheckedAt: nullableString(source.lastCheckedAt),
+    lastOperation: normalizeOperation(source.lastOperation),
     rollback: {
-      available: Boolean(status?.rollback?.available),
-      targetVersion: status?.rollback?.targetVersion ?? null,
-      targetImage: status?.rollback?.targetImage ?? null,
+      available: snapshot?.rollback.available ?? rollbackField(source, "available") === true,
+      targetVersion: snapshot?.rollback.targetVersion ?? rollbackString(source, "targetVersion"),
+      targetImage: snapshot?.rollback.targetImage ?? rollbackString(source, "targetImage"),
+      sourceRecordSha256: snapshot?.rollback.sourceRecordSha256 ?? null,
     },
-    blocker: status?.blocker ?? null,
-    requestQueueLength: typeof status?.requestQueueLength === "number" ? status.requestQueueLength : null,
-    statusUpdatedAt: status?.statusUpdatedAt ?? null,
+    blocker: nullableString(source.blocker),
+    requestQueueLength: nullableNumber(source.requestQueueLength),
+    statusUpdatedAt: nullableString(source.statusUpdatedAt),
+    snapshotSchemaVersion: source.snapshotSchemaVersion === 2 ? 2 : null,
+    snapshotHash: snapshot?.snapshotHash ?? null,
+    verifiedTarget: snapshot?.verifiedTarget ?? null,
   };
 }
 
 export async function createUpdateRequest(input: CreateUpdateRequestInput): Promise<UpdateOperation> {
-  await mkdir(requestsDir, { recursive: true });
-
-  const now = new Date().toISOString();
-  const request: UpdateOperation & {
-    actorEmailHash: string;
-    autoApply?: AutoApplyPolicy;
-  } = {
-    id: `update_${Date.now()}_${randomUUID()}`,
-    action: input.action,
-    status: "queued",
-    requestedAt: now,
-    finishedAt: null,
-    message: null,
-    actorEmailHash: await hashText(input.actorEmail),
-  };
-
-  if (input.tag) request.tag = input.tag;
-  if (input.autoApply) request.autoApply = input.autoApply;
-
-  const requestPath = path.join(requestsDir, `${request.id}.json`);
-  await writeFile(requestPath, `${JSON.stringify(request, null, 2)}\n`, { mode: 0o600 });
-  return request;
+  const status = await getUpdateCenterStatus();
+  const snapshot = statusSnapshot(status, input.command.action);
+  const request = buildUpdateRequestV2({
+    command: input.command,
+    actorEmail: input.actorEmail,
+    snapshot,
+  });
+  await atomicPublishUpdateRequest(requestsDir, request);
+  return publicOperation(request);
 }
 
 export function validateUpdateRequestAgainstStatus(
-  input: Pick<CreateUpdateRequestInput, "action" | "tag" | "autoApply">,
+  input: { action: UpdateAction; tag?: string; autoApply?: AutoApplyPolicy },
   status: UpdateCenterStatus,
 ): UpdateRequestValidationCode | null {
   if (input.action === "apply") {
     if (!input.tag) return "UPDATE_TAG_REQUIRED";
     if (!isTargetVersionNewer(input.tag, status.currentVersion)) return "UPDATE_TARGET_NOT_NEWER";
   }
-
   if (input.action === "rollback" && !status.rollback.available) return "ROLLBACK_TARGET_UNAVAILABLE";
-
   if (input.action === "set_auto_apply") {
     if (!input.autoApply) return "AUTO_APPLY_POLICY_REQUIRED";
     if (input.autoApply === status.autoApply) return "AUTO_APPLY_POLICY_UNCHANGED";
   }
-
   return null;
 }
 
@@ -151,14 +151,93 @@ export function isAutoApplyPolicy(value: unknown): value is AutoApplyPolicy {
   return typeof value === "string" && autoApplyPolicies.includes(value as AutoApplyPolicy);
 }
 
-async function readJsonFile<T>(file: string): Promise<T | null> {
+function statusSnapshot(status: UpdateCenterStatus, action: UpdateAction): UpdateStatusSnapshotV2 {
+  if (status.snapshotSchemaVersion !== 2) {
+    if (action !== "check") throw new UpdateRequestV2Error("LEGACY_MUTATION_UNBOUND");
+    throw new UpdateRequestV2Error("STATUS_SNAPSHOT_INVALID");
+  }
+  if (!status.snapshotHash) throw new UpdateRequestV2Error("STATUS_SNAPSHOT_INVALID");
+  return {
+    snapshotSchemaVersion: 2,
+    snapshotHash: status.snapshotHash,
+    currentVersion: status.currentVersion,
+    currentImage: status.currentImage,
+    autoApply: status.autoApply,
+    signatureRequired: status.signatureRequired,
+    verifiedTarget: status.verifiedTarget ?? null,
+    rollback: {
+      available: status.rollback.available,
+      targetVersion: status.rollback.targetVersion,
+      targetImage: status.rollback.targetImage,
+      sourceRecordSha256: status.rollback.sourceRecordSha256 ?? null,
+    },
+  };
+}
+
+function publicOperation(request: ReturnType<typeof buildUpdateRequestV2>): UpdateOperation {
+  return {
+    id: request.id,
+    action: request.action,
+    status: request.status,
+    requestedAt: request.requestedAt,
+    finishedAt: null,
+    message: null,
+    ...(request.params.tag ? { tag: request.params.tag } : {}),
+  };
+}
+
+async function readJsonFile(file: string): Promise<unknown> {
   try {
-    return JSON.parse(await readFile(file, "utf8")) as T;
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") return null;
+    return JSON.parse(await readFile(file, "utf8")) as unknown;
+  } catch {
     return null;
   }
 }
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function nullableString(value: unknown): string | null {
+  return value === null ? null : stringValue(value);
+}
+
+function nullableBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function nullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function rollbackField(source: Record<string, unknown>, field: string): unknown {
+  return asRecord(source.rollback)[field];
+}
+
+function rollbackString(source: Record<string, unknown>, field: string): string | null {
+  return nullableString(rollbackField(source, field));
+}
+
+function normalizeOperation(value: unknown): UpdateOperation | null {
+  const operation = asRecord(value);
+  if (!stringValue(operation.id) || !isUpdateAction(operation.action) || !stringValue(operation.requestedAt)) return null;
+  if (!operationStatuses.includes(operation.status as UpdateOperation["status"])) return null;
+  return {
+    id: operation.id as string,
+    action: operation.action,
+    status: operation.status as UpdateOperation["status"],
+    requestedAt: operation.requestedAt as string,
+    finishedAt: nullableString(operation.finishedAt),
+    message: nullableString(operation.message),
+    ...(stringValue(operation.tag) ? { tag: operation.tag as string } : {}),
+  };
+}
+
+const operationStatuses: UpdateOperation["status"][] = ["queued", "running", "succeeded", "failed"];
 
 function detectDeployMode(image: string | null): UpdateCenterStatus["deployMode"] {
   if (!image) return "unknown";
@@ -180,7 +259,6 @@ function isTargetVersionNewer(targetVersion: string, currentVersion: string): bo
   const target = parseVersionCore(targetVersion);
   const current = parseVersionCore(currentVersion);
   if (!target || !current) return false;
-
   for (let index = 0; index < target.length; index += 1) {
     if (target[index] > current[index]) return true;
     if (target[index] < current[index]) return false;
@@ -192,13 +270,4 @@ function parseVersionCore(version: string): [number, number, number] | null {
   const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
   if (!match) return null;
   return [Number(match[1]), Number(match[2]), Number(match[3])];
-}
-
-async function hashText(value: string): Promise<string> {
-  const { createHash } = await import("node:crypto");
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
 }

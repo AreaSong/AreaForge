@@ -62,6 +62,9 @@ jobs:
       - name: OPS-001 fallback finalizer selftest
         run: pnpm ops:ops-001:fallback:finalize:selftest
 
+      - name: OPS-005 expected-before V2 selftest
+        run: pnpm ops:ops-005:local:selftest
+
       - name: Updater preflight
         run: pnpm github-release-updater:preflight
 

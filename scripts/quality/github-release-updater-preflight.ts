@@ -47,6 +47,8 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/areaforge-updater.service",
     "ops/github-release-updater/areaforge-updater.timer",
     "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/lib/update-request-v2.sh",
+    "ops/update-agent/lib/update-request-state.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
     "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
@@ -66,6 +68,11 @@ function checkRequiredFiles(): void {
     "scripts/quality/release-evidence-redacted-export.selftest.ts",
     "scripts/quality/release-evidence-redacted-export-record.selftest.ts",
     "scripts/quality/update-center-request-guard.selftest.ts",
+    "scripts/quality/update-center-request-v2.selftest.ts",
+    "scripts/quality/update-agent-request-v2.selftest.ts",
+    "scripts/quality/update-production-state-lock.selftest.ts",
+    "scripts/quality/fixtures/update-request-v2/canonical-request.json",
+    "scripts/quality/fixtures/update-request-v2/canonical-request.expected.json",
     "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
     ".github/workflows/ci.yml",
@@ -345,38 +352,63 @@ function checkUpdaterBoundaries(): void {
 }
 
 function checkUpdateAgentRequestBoundary(): void {
+  const updater = read("ops/github-release-updater/areaforge-updater.sh");
   const agent = read("ops/update-agent/areaforge-update-agent.sh");
+  const agentContract = read("ops/update-agent/lib/update-request-v2.sh");
+  const agentState = read("ops/update-agent/lib/update-request-state.sh");
   const docs = read("docs/deployment/github-release-updater.md");
   const webUpdateCenter = read("apps/web/lib/system/update-center.ts");
   const webUpdateRequestRoute = read("apps/web/app/api/system/update-requests/route.ts");
-  const selftest = read("scripts/quality/update-center-request-guard.selftest.ts");
+  const webSelftest = read("scripts/quality/update-center-request-v2.selftest.ts");
+  const agentSelftest = read("scripts/quality/update-agent-request-v2.selftest.ts");
+  const lockSelftest = read("scripts/quality/update-production-state-lock.selftest.ts");
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
-  const requestGuardSelftestScript = packageJson.scripts?.["update-center:request-guard:selftest"] ?? "";
+  const requestV2SelftestScript = packageJson.scripts?.["update-center:request-v2:selftest"] ?? "";
+  const ops005LocalSelftestScript = packageJson.scripts?.["ops:ops-005:local:selftest"] ?? "";
   const requiredTerms = [
+    "schemaVersion",
+    "expectedBefore",
+    "expectedBeforeHash",
+    "semanticHash",
+    "requestHash",
+    "idempotencyKey",
+    "expiresAt",
+    "snapshotHash",
     "validate_request_schema",
     "archive_invalid_request",
-    "invalid update request schema",
-    "update_[0-9]+_",
-    "set_auto_apply",
-    "autoApply",
-    "actorEmailHash",
-    "status_message_from_output",
-    "归档为 failed",
-    "validateUpdateRequestAgainstStatus",
-    "UPDATE_TARGET_NOT_NEWER",
-    "同版本或旧版本",
-    "update center request guard selftest passed",
+    "EXPECTED_BEFORE_MISMATCH",
+    "LEGACY_MUTATION_UNBOUND",
+    "needs_reconciliation",
+    "executionAttempted",
+    "AREAFORGE_PRODUCTION_STATE_LOCK_FILE",
+    "--request-guard",
+    "--identity-json",
+    "confirmedSnapshotHash",
+    "STATUS_SNAPSHOT_CHANGED",
   ];
-  const combined = `${agent}\n${docs}\n${webUpdateCenter}\n${webUpdateRequestRoute}\n${selftest}`;
+  const combined = [
+    updater,
+    agent,
+    agentContract,
+    agentState,
+    docs,
+    webUpdateCenter,
+    webUpdateRequestRoute,
+    webSelftest,
+    agentSelftest,
+    lockSelftest,
+  ].join("\n");
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   const ok = missing.length === 0 &&
-    requestGuardSelftestScript === "tsx scripts/quality/update-center-request-guard.selftest.ts";
+    requestV2SelftestScript === "tsx scripts/quality/update-center-request-v2.selftest.ts" &&
+    ops005LocalSelftestScript.includes("update-agent-request-v2.selftest.ts") &&
+    ops005LocalSelftestScript.includes("update-production-state-lock.selftest.ts");
   checks.push({
     name: "update-agent request boundary",
     ok,
     detail: ok
-      ? "web update center rejects no-op requests before queueing, and root update-agent validates request schema before executing updater, rollback, or config changes"
-      : `missing ${missing.join(", ") || "none"}; request guard selftest=${requestGuardSelftestScript || "missing"}`,
+      ? "Web and root update paths bind V2 requests to a confirmed snapshot, strict hashes, TTL, idempotency, processing reconciliation, shared production-state lock, and dual compare-and-reject"
+      : `missing ${missing.join(", ") || "none"}; request-v2=${requestV2SelftestScript || "missing"}; ops005-local=${ops005LocalSelftestScript || "missing"}`,
   });
 }
 

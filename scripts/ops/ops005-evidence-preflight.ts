@@ -104,11 +104,22 @@ function checkLocalImplementation(root: string): StageCheck {
   const packageJson = readJson(root, "package.json");
   const scripts = isRecord(packageJson.scripts) ? packageJson.scripts : {};
   const requiredScript = scripts["update-center:request-v2:selftest"];
-  const web = readOptional(root, "apps/web/lib/system/update-center.ts");
-  const agent = readOptional(root, "ops/update-agent/areaforge-update-agent.sh");
+  const localSelftest = scripts["ops:ops-005:local:selftest"];
+  const web = [
+    readOptional(root, "apps/web/lib/system/update-center.ts"),
+    readOptional(root, "apps/web/lib/system/update-request-v2.ts"),
+    readOptional(root, "apps/web/app/api/system/update-requests/route.ts"),
+  ].join("\n");
+  const agent = [
+    readOptional(root, "ops/update-agent/areaforge-update-agent.sh"),
+    readOptional(root, "ops/update-agent/lib/update-request-v2.sh"),
+    readOptional(root, "ops/update-agent/lib/update-request-state.sh"),
+  ].join("\n");
   const updater = readOptional(root, "ops/github-release-updater/areaforge-updater.sh");
   const missing = [
     typeof requiredScript === "string" && requiredScript.trim() ? null : "update-center:request-v2:selftest",
+    typeof localSelftest === "string" && localSelftest.includes("update-agent-request-v2.selftest.ts") &&
+      localSelftest.includes("update-production-state-lock.selftest.ts") ? null : "ops:ops-005:local:selftest",
     ...["schemaVersion", "expectedBefore", "semanticHash", "idempotencyKey", "expiresAt"]
       .filter((token) => !web.includes(token))
       .map((token) => `web:${token}`),
@@ -118,7 +129,7 @@ function checkLocalImplementation(root: string): StageCheck {
     updater.includes("production-state.lock") ? null : "updater:production-state.lock",
   ].filter((value): value is string => Boolean(value));
   return missing.length === 0
-    ? { status: "pass", detail: "V2 source tokens and request-v2 selftest entry are present" }
+    ? { status: "pass", detail: "V2 Web/agent/updater source tokens and complete local selftest entries are present" }
     : { status: "missing", detail: `missing ${missing.join(", ")}` };
 }
 
@@ -243,4 +254,3 @@ function main(): void {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
-

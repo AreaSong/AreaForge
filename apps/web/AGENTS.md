@@ -14,6 +14,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Package A-E 和 docs 100% 当前证据已闭环。
 - Web 版本中心只能提交受控检查、应用、回退或策略请求；服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
+- 当前 checkout 已实现 Update Request V2 的 confirmed snapshot、TTL/hash/idempotency 和 atomic publish；生产 `v0.1.7` 尚未部署该实现，不能把本地代码状态写成线上事实。
 
 Web 层边界：
 

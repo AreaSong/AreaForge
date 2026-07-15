@@ -8,6 +8,11 @@ TAG_OVERRIDE=""
 DRY_RUN=0
 FORCE=0
 YES=0
+IDENTITY_JSON_PATH=""
+REQUEST_GUARD_PATH=""
+REQUEST_GUARD_FILE_SHA256=""
+PRODUCTION_STATE_LOCK_HELD=0
+WORK_DIR=""
 
 usage() {
   cat <<'USAGE'
@@ -24,6 +29,10 @@ Options:
   --dry-run       Print planned write operations without changing services.
   --force         Allow applying the current or older version.
   --yes           Required for apply mode.
+  --identity-json PATH
+                  Atomically write the verified, redacted target identity.
+  --request-guard PATH
+                  Bind a V2 apply to exact expected-before and target identity.
   -h, --help      Show this help.
 USAGE
 }
@@ -53,6 +62,14 @@ while [[ $# -gt 0 ]]; do
     --yes)
       YES=1
       shift
+      ;;
+    --identity-json)
+      IDENTITY_JSON_PATH="${2:?missing --identity-json value}"
+      shift 2
+      ;;
+    --request-guard)
+      REQUEST_GUARD_PATH="${2:?missing --request-guard value}"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -115,13 +132,39 @@ load_config() {
   AREAFORGE_BACKUP_DIR="${AREAFORGE_BACKUP_DIR:-/opt/areaforge/backups}"
   AREAFORGE_UPDATE_RECORD_DIR="${AREAFORGE_UPDATE_RECORD_DIR:-$AREAFORGE_BACKUP_DIR/github-release-updates}"
   AREAFORGE_UPLOADS_VOLUME="${AREAFORGE_UPLOADS_VOLUME:-${AREAFORGE_COMPOSE_PROJECT}_areaforge-uploads}"
-  AREAFORGE_LOCK_FILE="${AREAFORGE_LOCK_FILE:-$AREAFORGE_DEPLOY_DIR/.areaforge-updater.lock}"
+  AREAFORGE_PRODUCTION_STATE_LOCK_FILE="${AREAFORGE_PRODUCTION_STATE_LOCK_FILE:-$AREAFORGE_DEPLOY_DIR/.areaforge-production-state.lock}"
   AREAFORGE_AUTO_APPLY="${AREAFORGE_AUTO_APPLY:-none}"
   AREAFORGE_ALLOW_PRERELEASE="${AREAFORGE_ALLOW_PRERELEASE:-false}"
   AREAFORGE_ALLOW_COMPOSE_UPDATE="${AREAFORGE_ALLOW_COMPOSE_UPDATE:-false}"
   AREAFORGE_REQUIRE_SIGNATURE="${AREAFORGE_REQUIRE_SIGNATURE:-true}"
   AREAFORGE_GPG_VERIFY="${AREAFORGE_GPG_VERIFY:-false}"
   AREAFORGE_AUTO_RESTORE_DB_ON_ROLLBACK="${AREAFORGE_AUTO_RESTORE_DB_ON_ROLLBACK:-false}"
+}
+
+config_get() {
+  local key="$1"
+  grep -E "^${key}=" "$CONFIG_FILE" | tail -n 1 | cut -d= -f2- | sed -E "s/^['\"]//; s/['\"]$//" || true
+}
+
+acquire_production_state_lock() {
+  local inherited_lock=""
+  mkdir -p "$(dirname "$AREAFORGE_PRODUCTION_STATE_LOCK_FILE")"
+  if [[ -e "/proc/$$/fd/8" ]]; then
+    inherited_lock="$(readlink "/proc/$$/fd/8" 2>/dev/null || true)"
+  fi
+  if [[ "$inherited_lock" == "$AREAFORGE_PRODUCTION_STATE_LOCK_FILE" ]]; then
+    flock -n 8 || die "inherited production-state lock is not held"
+    PRODUCTION_STATE_LOCK_HELD=1
+    return
+  fi
+  exec 8>"$AREAFORGE_PRODUCTION_STATE_LOCK_FILE"
+  chmod 600 "$AREAFORGE_PRODUCTION_STATE_LOCK_FILE"
+  flock -n 8 || die "another production-state mutation is running"
+  PRODUCTION_STATE_LOCK_HELD=1
+}
+
+require_production_state_lock() {
+  [[ "$PRODUCTION_STATE_LOCK_HELD" == "1" ]] || die "production-state lock is required for mutation"
 }
 
 compose() {
@@ -230,13 +273,15 @@ verify_signature() {
   [[ -f "$sig" ]] || die "signature asset is required but missing"
   if [[ -n "${AREAFORGE_COSIGN_PUBLIC_KEY:-}" ]]; then
     require_cmd cosign
-    run_cmd cosign verify-blob --key "$AREAFORGE_COSIGN_PUBLIC_KEY" --bundle "$sig" "$sums"
+    log "+ cosign verify-blob --key $AREAFORGE_COSIGN_PUBLIC_KEY --bundle $sig $sums"
+    cosign verify-blob --key "$AREAFORGE_COSIGN_PUBLIC_KEY" --bundle "$sig" "$sums"
     return 0
   fi
 
   if [[ "$AREAFORGE_GPG_VERIFY" == "true" ]]; then
     require_cmd gpg
-    run_cmd gpg --verify "$sig" "$sums"
+    log "+ gpg --verify $sig $sums"
+    gpg --verify "$sig" "$sums"
     return 0
   fi
 
@@ -430,6 +475,197 @@ sha256_file() {
   fi
 }
 
+sha256_text() {
+  printf '%s' "$1" | sha256sum | awk '{ print "sha256:" $1 }'
+}
+
+atomic_write_json() {
+  local output="$1"
+  local output_dir tmp
+  output_dir="$(dirname "$output")"
+  [[ -d "$output_dir" ]] || die "identity output directory not found: $output_dir"
+  tmp="$(mktemp "$output_dir/.areaforge-identity.XXXXXX")"
+  jq -cS . > "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$output"
+}
+
+verified_target_identity_json() {
+  local release_id manifest_sha256
+  release_id="$(jq -er '.id | select(type == "number" and . > 0 and . == floor)' "$RELEASE_JSON")" || die "GitHub release id must be a positive integer"
+  manifest_sha256="sha256:$(sha256_file "$MANIFEST_PATH")"
+  [[ "$manifest_sha256" =~ ^sha256:[a-f0-9]{64}$ ]] || die "verified manifest sha256 is invalid"
+  [[ -n "$TARGET_VERSION" && "$TARGET_VERSION" != "null" ]] || die "verified manifest version is invalid"
+  [[ "$WEB_IMAGE_DIGEST" =~ @sha256:[a-f0-9]{64}$ ]] || die "verified web image digest is invalid"
+  jq -cnS \
+    --argjson releaseId "$release_id" \
+    --arg manifestSha256 "$manifest_sha256" \
+    --arg manifestVersion "$TARGET_VERSION" \
+    --arg webImageDigest "$WEB_IMAGE_DIGEST" \
+    '{releaseId:$releaseId,manifestSha256:$manifestSha256,manifestVersion:$manifestVersion,webImageDigest:$webImageDigest}'
+}
+
+emit_verified_target_identity() {
+  [[ -n "$IDENTITY_JSON_PATH" ]] || return 0
+  verified_target_identity_json | atomic_write_json "$IDENTITY_JSON_PATH"
+  log "wrote verified target identity: $IDENTITY_JSON_PATH"
+}
+
+rollback_snapshot_json() {
+  local latest_record previous_version previous_image source_sha256
+  latest_record="$(find "$AREAFORGE_UPDATE_RECORD_DIR" -name update-record.txt -type f 2>/dev/null | sort | tail -n 1 || true)"
+  if [[ -z "$latest_record" ]]; then
+    jq -cnS '{targetVersion:null,targetImage:null,sourceRecordSha256:null}'
+    return
+  fi
+
+  previous_version="$(awk -F': ' '$1=="previousAppVersion"{print $2; exit}' "$latest_record")"
+  previous_image="$(awk -F': ' '$1=="previousImage"{print $2; exit}' "$latest_record")"
+  if [[ -z "$previous_version" || -z "$previous_image" || "$previous_image" == "not-applicable" ]]; then
+    jq -cnS '{targetVersion:null,targetImage:null,sourceRecordSha256:null}'
+    return
+  fi
+
+  source_sha256="sha256:$(sha256_file "$latest_record")"
+  jq -cnS \
+    --arg targetVersion "$previous_version" \
+    --arg targetImage "$previous_image" \
+    --arg sourceRecordSha256 "$source_sha256" \
+    '{targetVersion:$targetVersion,targetImage:$targetImage,sourceRecordSha256:$sourceRecordSha256}'
+}
+
+observed_before_json() {
+  local auto_apply signature_required rollback
+  load_runtime_env
+  auto_apply="$(config_get AREAFORGE_AUTO_APPLY)"
+  auto_apply="${auto_apply:-none}"
+  signature_required="$(config_get AREAFORGE_REQUIRE_SIGNATURE)"
+  signature_required="${signature_required:-true}"
+  [[ "$auto_apply" =~ ^(none|patch|minor|all)$ ]] || die "invalid live AREAFORGE_AUTO_APPLY=$auto_apply"
+  [[ "$signature_required" == "true" || "$signature_required" == "false" ]] || die "invalid live AREAFORGE_REQUIRE_SIGNATURE=$signature_required"
+  rollback="$(rollback_snapshot_json)"
+  jq -cnS \
+    --arg currentVersion "$CURRENT_VERSION" \
+    --arg currentImage "$CURRENT_IMAGE" \
+    --arg autoApply "$auto_apply" \
+    --argjson signatureRequired "$signature_required" \
+    --argjson rollback "$rollback" \
+    '{
+      currentVersion:$currentVersion,
+      currentImage:($currentImage | select(length > 0) // null),
+      autoApply:$autoApply,
+      signatureRequired:$signatureRequired,
+      rollbackTargetVersion:$rollback.targetVersion,
+      rollbackTargetImage:$rollback.targetImage,
+      rollbackSourceRecordSha256:$rollback.sourceRecordSha256
+    }'
+}
+
+validate_request_guard_schema() {
+  jq -e '
+    type == "object" and
+    (keys == ["action","actorEmailHash","expectedBefore","expectedBeforeHash","expiresAt","id","idempotencyKey","params","requestHash","requestedAt","schemaVersion","semanticHash","status","target"]) and
+    .schemaVersion == 2 and
+    (.id | type == "string" and test("^update_[0-9]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) and
+    .action == "apply" and .status == "queued" and
+    (.requestedAt | type == "string") and (.expiresAt | type == "string") and
+    (.actorEmailHash | type == "string" and test("^[a-f0-9]{64}$")) and
+    (.idempotencyKey | type == "string" and test("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$")) and
+    (.params | type == "object" and keys == ["autoApply","tag"]) and
+    (.params.tag | type == "string" and test("^v?[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$")) and
+    .params.autoApply == null and
+    (.target | type == "object" and keys == ["manifestSha256","manifestVersion","releaseId","webImageDigest"]) and
+    (.target.releaseId | type == "number" and . > 0 and . == floor) and
+    (.target.manifestSha256 | type == "string" and test("^sha256:[a-f0-9]{64}$")) and
+    (.target.manifestVersion | type == "string" and length > 0) and
+    (.target.webImageDigest | type == "string" and test("@sha256:[a-f0-9]{64}$")) and
+    (.expectedBefore | type == "object" and keys == ["autoApply","currentImage","currentVersion","rollbackSourceRecordSha256","rollbackTargetImage","rollbackTargetVersion","signatureRequired"]) and
+    (.expectedBefore.currentVersion | type == "string" and length > 0) and
+    (.expectedBefore.currentImage == null or (.expectedBefore.currentImage | type == "string" and length > 0)) and
+    (.expectedBefore.autoApply as $policy | ["none","patch","minor","all"] | index($policy) != null) and
+    (.expectedBefore.signatureRequired | type == "boolean") and
+    (.expectedBefore.rollbackTargetVersion == null or (.expectedBefore.rollbackTargetVersion | type == "string" and length > 0)) and
+    (.expectedBefore.rollbackTargetImage == null or (.expectedBefore.rollbackTargetImage | type == "string" and length > 0)) and
+    (.expectedBefore.rollbackSourceRecordSha256 == null or (.expectedBefore.rollbackSourceRecordSha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))) and
+    (([.expectedBefore.rollbackTargetVersion,.expectedBefore.rollbackTargetImage,.expectedBefore.rollbackSourceRecordSha256] | map(. == null) | all) or
+     ([.expectedBefore.rollbackTargetVersion,.expectedBefore.rollbackTargetImage,.expectedBefore.rollbackSourceRecordSha256] | map(. != null) | all)) and
+    (.expectedBeforeHash | type == "string" and test("^sha256:[a-f0-9]{64}$")) and
+    (.semanticHash | type == "string" and test("^sha256:[a-f0-9]{64}$")) and
+    (.requestHash | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+  ' "$REQUEST_GUARD_PATH" >/dev/null || die "INVALID_REQUEST_SCHEMA: request guard is not strict V2 apply"
+}
+
+validate_request_guard_ttl() {
+  jq -e '
+    def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+    (.requestedAt | epoch) as $requested |
+    (.expiresAt | epoch) as $expires |
+    (now) as $now |
+    $expires >= $requested and
+    ($expires - $requested) <= 600 and
+    $requested <= ($now + 30) and
+    ($expires + 30) >= $now
+  ' "$REQUEST_GUARD_PATH" >/dev/null 2>&1 || die "REQUEST_EXPIRED: invalid or expired V2 mutation TTL"
+}
+
+validate_request_guard_hashes() {
+  local expected_before_projection semantic_projection request_projection actual
+  expected_before_projection="$(jq -cS '{domain:"areaforge.update-request.expected-before.v2",expectedBefore:.expectedBefore}' "$REQUEST_GUARD_PATH")"
+  actual="$(sha256_text "$expected_before_projection")"
+  [[ "$actual" == "$(jq -r '.expectedBeforeHash' "$REQUEST_GUARD_PATH")" ]] || die "REQUEST_HASH_MISMATCH: expectedBeforeHash"
+
+  semantic_projection="$(jq -cS '{domain:"areaforge.update-request.semantic.v2",action,params,target,expectedBefore}' "$REQUEST_GUARD_PATH")"
+  actual="$(sha256_text "$semantic_projection")"
+  [[ "$actual" == "$(jq -r '.semanticHash' "$REQUEST_GUARD_PATH")" ]] || die "REQUEST_HASH_MISMATCH: semanticHash"
+
+  request_projection="$(jq -cS '{domain:"areaforge.update-request.v2",schemaVersion,id,idempotencyKey,action,requestedAt,expiresAt,actorEmailHash,params,target,expectedBefore,expectedBeforeHash,semanticHash}' "$REQUEST_GUARD_PATH")"
+  actual="$(sha256_text "$request_projection")"
+  [[ "$actual" == "$(jq -r '.requestHash' "$REQUEST_GUARD_PATH")" ]] || die "REQUEST_HASH_MISMATCH: requestHash"
+}
+
+validate_request_guard() {
+  local phase="$1" guard_sha256 expected observed observed_hash target verified release_tag
+  [[ -n "$REQUEST_GUARD_PATH" ]] || return 0
+  require_production_state_lock
+  [[ -f "$REQUEST_GUARD_PATH" && ! -L "$REQUEST_GUARD_PATH" ]] || die "INVALID_REQUEST_SCHEMA: request guard must be a regular file"
+
+  if [[ "$(jq -r '.schemaVersion // 1' "$REQUEST_GUARD_PATH" 2>/dev/null || printf 1)" != "2" ]]; then
+    die "LEGACY_MUTATION_UNBOUND: V1 apply cannot bind production state"
+  fi
+  validate_request_guard_schema
+  validate_request_guard_ttl
+  validate_request_guard_hashes
+
+  guard_sha256="$(sha256_file "$REQUEST_GUARD_PATH")"
+  if [[ -z "$REQUEST_GUARD_FILE_SHA256" ]]; then
+    REQUEST_GUARD_FILE_SHA256="$guard_sha256"
+  elif [[ "$guard_sha256" != "$REQUEST_GUARD_FILE_SHA256" ]]; then
+    die "REQUEST_HASH_MISMATCH: request guard changed between comparisons"
+  fi
+
+  release_tag="$(jq -er '.tag_name | select(type == "string" and length > 0)' "$RELEASE_JSON")" || die "TARGET_IDENTITY_CHANGED: release tag is invalid"
+  [[ "$(jq -r '.params.tag' "$REQUEST_GUARD_PATH")" == "$release_tag" ]] || die "TARGET_IDENTITY_CHANGED: release tag mismatch"
+  if [[ -n "$TAG_OVERRIDE" ]]; then
+    [[ "$TAG_OVERRIDE" == "$release_tag" ]] || die "TARGET_IDENTITY_CHANGED: selected tag mismatch"
+  fi
+
+  expected="$(jq -cS '.expectedBefore' "$REQUEST_GUARD_PATH")"
+  observed="$(observed_before_json | jq -cS .)"
+  observed_hash="$(sha256_text "$observed")"
+  if [[ "$expected" != "$observed" ]]; then
+    printf 'AREAFORGE_REQUEST_GUARD phase=%s result=reject reasonCode=EXPECTED_BEFORE_MISMATCH observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
+    die "EXPECTED_BEFORE_MISMATCH: $phase comparison"
+  fi
+
+  target="$(jq -cS '.target' "$REQUEST_GUARD_PATH")"
+  verified="$(verified_target_identity_json | jq -cS .)"
+  if [[ "$target" != "$verified" ]]; then
+    printf 'AREAFORGE_REQUEST_GUARD phase=%s result=reject reasonCode=TARGET_IDENTITY_CHANGED observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
+    die "TARGET_IDENTITY_CHANGED: $phase comparison"
+  fi
+  printf 'AREAFORGE_REQUEST_GUARD phase=%s result=pass reasonCode=NONE observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
+}
+
 backup_before_update() {
   prepare_record_dir
   run_cmd compose up -d postgres
@@ -587,6 +823,7 @@ EOF_RECORD
 }
 
 apply_update() {
+  require_production_state_lock
   [[ "$COMMAND" != "apply" || "$YES" == "1" || "$DRY_RUN" == "1" ]] || die "apply requires --yes"
   [[ -n "$CURRENT_IMAGE" ]] || die "current AREAFORGE_IMAGE is missing"
   [[ -n "$CURRENT_VERSION" ]] || die "current APP_VERSION is missing"
@@ -595,6 +832,8 @@ apply_update() {
     die "target version $TARGET_VERSION is not newer than current $CURRENT_VERSION; use --force to override"
   fi
 
+  validate_request_guard "second"
+  printf 'AREAFORGE_REQUEST_EXECUTION action=apply executionAttempted=true\n' >&2
   backup_before_update
   local failure="none"
   if ! pull_images; then failure="docker image pull failed"; fi
@@ -638,19 +877,23 @@ report_status() {
 main() {
   require_cmd curl
   require_cmd jq
-  require_cmd docker
   require_cmd sha256sum
   require_cmd sort
   require_cmd awk
-  require_cmd flock
   load_config
+
+  [[ -z "$REQUEST_GUARD_PATH" || "$COMMAND" == "apply" ]] || die "--request-guard is only valid with apply"
+  if [[ "$COMMAND" == "run" || "$COMMAND" == "apply" ]]; then
+    require_cmd docker
+    require_cmd flock
+    acquire_production_state_lock
+  fi
+
   load_runtime_env
 
-  mkdir -p "$(dirname "$AREAFORGE_LOCK_FILE")"
-  exec 9>"$AREAFORGE_LOCK_FILE"
-  flock -n 9 || die "another updater process is running"
-
   download_and_verify_release
+  validate_request_guard "first"
+  emit_verified_target_identity
 
   case "$COMMAND" in
     check)
@@ -669,4 +912,11 @@ main() {
   esac
 }
 
-main "$@"
+cleanup() {
+  [[ -z "$WORK_DIR" || ! -d "$WORK_DIR" ]] || rm -rf "$WORK_DIR"
+}
+
+if [[ "${AREAFORGE_UPDATER_NO_MAIN:-0}" != "1" ]]; then
+  trap cleanup EXIT
+  main "$@"
+fi

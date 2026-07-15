@@ -1,11 +1,12 @@
 # Update Request Expected-Before Binding
 
 ```yaml
-status: blocked-awaiting-confirmation
+status: local-implemented-awaiting-signed-release
 risk: high
 ownerSkill: areaforge-security-governance
 validation:
   - pnpm update-center:request-guard:selftest
+  - pnpm ops:ops-005:local:selftest
   - pnpm shellcheck:updater
   - pnpm github-release-updater:preflight
   - pnpm governance:preflight
@@ -16,7 +17,7 @@ residualRiskIds:
 releaseRequired: true
 ```
 
-状态：设计和确认包已准备，等待用户明确确认本地实现；未授权生产部署或请求处理。
+状态：本地 V2 实现和 fixture/selftest 已完成；仍需从当前验证提交创建签名 Release，并另行确认生产 timer/队列/Web/agent 部署和证据采集。未授权生产部署或请求处理。
 
 ## 目标
 
@@ -62,6 +63,15 @@ releaseRequired: true
 - 需要的只读证据：本地 fixture/selftest、shellcheck、typecheck、lint、preflight 和 diff。
 - 证据新鲜度：必须来自最终代码变更后的同一 checkout。
 - 关闭条件：本地实现验证通过后仍只进入 release-ready；生产 residual 需另行 Release/部署证据。
+
+## 本地实施结果
+
+- Web 绑定用户实际确认的 agent-authored `snapshotHash`，状态漂移返回 `STATUS_SNAPSHOT_CHANGED`。
+- V2 请求包含严格 schema、TTL、target identity、expected-before、三个 domain-separated canonical hash 和 idempotency key，并使用 file fsync、atomic rename、directory fsync 发布。
+- root agent 使用 root-only `processing/` claim、不可变 decision history、legacy mutation fail-closed 和 stale/missing-claim reconciliation；reconciliation 不自动重放 mutation。
+- updater、rollback 和 policy mutation 使用共享 production-state lock；apply guard 在首个生产副作用前完成第二次 compare-and-reject。
+- 本地证据入口：`pnpm ops:ops-005:local:selftest`、`pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`。
+- 该结果只证明当前 checkout 的本地实现；`AF-RISK-OPS-005` 在签名 Release、独立生产部署和 fresh redacted evidence 前保持 open。
 
 ## 高风险边界
 

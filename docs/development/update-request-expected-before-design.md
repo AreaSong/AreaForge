@@ -8,6 +8,12 @@
 本设计只定义本地代码实施契约和验证方式，不授权生产部署、队列处理、updater apply、
 rollback、策略变化或服务器命令。
 
+本地实施状态：schema V2、agent-authored snapshot binding、target identity、三个 canonical hash、TTL、
+idempotency、原子发布、processing reconciliation、共享 production-state lock、双 compare-and-reject、
+legacy mutation fail-closed 和不可变 decision history 已在当前 checkout 实现。使用
+`pnpm ops:ops-005:local:selftest`、`pnpm shellcheck:updater` 和
+`pnpm github-release-updater:preflight` 验证；该状态不证明签名 Release 或生产部署完成。
+
 ## 当前风险
 
 当前 Web 在请求入队前读取 `status.json` 并做一次提示性校验，但请求只保存 action、tag、

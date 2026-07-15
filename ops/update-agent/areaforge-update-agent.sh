@@ -2,13 +2,23 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${AREAFORGE_UPDATE_AGENT_CONFIG:-/etc/areaforge/updater.env}"
 STATE_DIR="${AREAFORGE_OPS_STATE_DIR:-/opt/areaforge/ops-state}"
 REQUEST_DIR="$STATE_DIR/requests"
+PROCESSING_DIR="$STATE_DIR/processing"
 HISTORY_DIR="$STATE_DIR/history"
 STATUS_FILE="$STATE_DIR/status.json"
 LOCK_FILE="$STATE_DIR/.update-agent.lock"
-UPDATER="/opt/areaforge/ops/github-release-updater/areaforge-updater.sh"
+UPDATER="${AREAFORGE_UPDATER_PATH:-/opt/areaforge/ops/github-release-updater/areaforge-updater.sh}"
+CLAIM_TTL_SECONDS="${AREAFORGE_UPDATE_AGENT_CLAIM_TTL_SECONDS:-600}"
+CLOCK_SKEW_SECONDS=30
+RECONCILED_STALE=0
+
+# shellcheck source=lib/update-request-v2.sh
+source "$SCRIPT_DIR/lib/update-request-v2.sh"
+# shellcheck source=lib/update-request-state.sh
+source "$SCRIPT_DIR/lib/update-request-state.sh"
 
 log() {
   printf '[areaforge-update-agent] %s\n' "$*" >&2
@@ -19,6 +29,13 @@ require_cmd() {
     log "missing command: $1"
     exit 1
   }
+}
+
+require_root() {
+  if [[ "${EUID:-$(id -u)}" != "0" && "${AREAFORGE_UPDATE_AGENT_TEST_MODE:-0}" != "1" ]]; then
+    log "update agent must run as root"
+    exit 1
+  fi
 }
 
 load_config() {
@@ -34,6 +51,24 @@ load_config() {
   : "${AREAFORGE_ENV_FILE:?AREAFORGE_ENV_FILE is required}"
   : "${AREAFORGE_COMPOSE_FILE:?AREAFORGE_COMPOSE_FILE is required}"
   AREAFORGE_COMPOSE_PROJECT="${AREAFORGE_COMPOSE_PROJECT:-areaforge}"
+  AREAFORGE_UPDATE_RECORD_DIR="${AREAFORGE_UPDATE_RECORD_DIR:-${AREAFORGE_BACKUP_DIR:-/opt/areaforge/backups}/github-release-updates}"
+  AREAFORGE_PRODUCTION_STATE_LOCK_FILE="${AREAFORGE_PRODUCTION_STATE_LOCK_FILE:-${AREAFORGE_DEPLOY_DIR:-/opt/areaforge}/.areaforge-production-state.lock}"
+}
+
+now_epoch() {
+  printf '%s' "${AREAFORGE_UPDATE_AGENT_NOW_EPOCH:-$(date +%s)}"
+}
+
+epoch_to_iso() {
+  jq -nr --argjson value "$1" '$value | todateiso8601'
+}
+
+sha256_text() {
+  printf '%s' "$1" | sha256sum | awk '{print "sha256:" $1}'
+}
+
+sha256_file() {
+  sha256sum "$1" | awk '{print "sha256:" $1}'
 }
 
 env_get() {
@@ -63,11 +98,25 @@ config_set() {
 
 write_json() {
   local output="$1"
+  local mode="${2:-644}"
   local tmp
   tmp="$(mktemp "${output}.XXXXXX")"
   cat > "$tmp"
-  chmod 644 "$tmp"
+  chmod "$mode" "$tmp"
   mv "$tmp" "$output"
+}
+
+write_json_immutable() {
+  local output="$1"
+  local tmp
+  tmp="$(mktemp "$HISTORY_DIR/.decision.XXXXXX")"
+  cat > "$tmp"
+  chmod 600 "$tmp"
+  if ! ln "$tmp" "$output" 2>/dev/null; then
+    rm -f "$tmp"
+    return 1
+  fi
+  rm -f "$tmp"
 }
 
 status_message_from_output() {
@@ -87,75 +136,76 @@ status_message_from_output() {
 ensure_state_dirs() {
   local web_uid="${AREAFORGE_WEB_UID:-1001}"
   local web_gid="${AREAFORGE_WEB_GID:-1001}"
-  mkdir -p "$STATE_DIR" "$REQUEST_DIR" "$HISTORY_DIR"
+  mkdir -p "$STATE_DIR" "$REQUEST_DIR" "$PROCESSING_DIR" "$HISTORY_DIR"
   chmod 755 "$STATE_DIR"
-  chmod 750 "$HISTORY_DIR"
+  chmod 700 "$PROCESSING_DIR" "$HISTORY_DIR"
   chown "${web_uid}:${web_gid}" "$REQUEST_DIR" 2>/dev/null || true
   chmod 730 "$REQUEST_DIR"
-}
-
-github_headers() {
-  printf '%s\n' "-H" "Accept: application/vnd.github+json"
-  if [[ -n "${AREAFORGE_GITHUB_TOKEN:-}" ]]; then
-    printf '%s\n' "-H" "Authorization: Bearer ${AREAFORGE_GITHUB_TOKEN}"
-  fi
-}
-
-github_api() {
-  local url="$1"
-  local args=()
-  while IFS= read -r header_arg; do
-    args+=("$header_arg")
-  done < <(github_headers)
-  curl -fsSL "${args[@]}" "$url"
-}
-
-latest_release_json() {
-  local repo="${AREAFORGE_GITHUB_REPO:-AreaSong/AreaForge}"
-  github_api "https://api.github.com/repos/${repo}/releases/latest"
 }
 
 systemctl_bool() {
   local command="$1"
   local unit="$2"
-  if systemctl "$command" "$unit" >/dev/null 2>&1; then
+  if command -v systemctl >/dev/null 2>&1 && systemctl "$command" "$unit" >/dev/null 2>&1; then
     printf 'true'
   else
     printf 'false'
   fi
 }
 
-detect_rollback() {
-  local latest_record
-  latest_record="$(find "${AREAFORGE_UPDATE_RECORD_DIR:-/opt/areaforge/backups/github-release-updates}" -name update-record.txt -type f 2>/dev/null | sort | tail -n 1 || true)"
-  if [[ -z "$latest_record" ]]; then
-    jq -n '{available:false,targetVersion:null,targetImage:null}'
-    return
-  fi
-  local previous_version previous_image
-  previous_version="$(awk -F': ' '$1=="previousAppVersion"{print $2; exit}' "$latest_record")"
-  previous_image="$(awk -F': ' '$1=="previousImage"{print $2; exit}' "$latest_record")"
-  if [[ -z "$previous_image" || "$previous_image" == "not-applicable" ]]; then
-    jq -n '{available:false,targetVersion:null,targetImage:null}'
-    return
-  fi
-  jq -n \
-    --arg version "$previous_version" \
-    --arg image "$previous_image" \
-    '{available:true,targetVersion:$version,targetImage:$image}'
-}
-
 queue_length() {
   find "$REQUEST_DIR" -maxdepth 1 -name '*.json' -type f 2>/dev/null | wc -l | awk '{print $1}'
 }
 
+valid_verified_target() {
+  jq -e '
+    type == "object" and
+    (keys | sort == ["manifestSha256","manifestVersion","releaseId","webImageDigest"]) and
+    (.releaseId | type == "number" and floor == . and . >= 1) and
+    (.manifestSha256 | type == "string" and test("^sha256:[a-f0-9]{64}$")) and
+    (.manifestVersion | type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$")) and
+    (.webImageDigest | type == "string" and test("^ghcr\\.io/[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+@sha256:[a-f0-9]{64}$"))
+  ' >/dev/null 2>&1
+}
+
+extract_verified_target() {
+  local raw="$1"
+  local candidate
+  candidate="$(printf '%s\n' "$raw" | sed -n 's/^AREAFORGE_UPDATER_IDENTITY_JSON=//p' | tail -n 1)"
+  if [[ -z "$candidate" ]]; then
+    candidate="$(printf '%s\n' "$raw" | while IFS= read -r line; do
+      jq -ce 'if has("verifiedTarget") then .verifiedTarget elif has("identity") then .identity else . end' <<< "$line" 2>/dev/null || true
+    done | tail -n 1)"
+  fi
+  if [[ -n "$candidate" ]] && valid_verified_target <<< "$candidate"; then
+    jq -cS . <<< "$candidate"
+  else
+    printf 'null'
+  fi
+}
+
+run_updater_check() {
+  local identity_path="$1"
+  "$UPDATER" check --config "$CONFIG_FILE" --identity-json "$identity_path" 2>&1
+}
+
+refresh_verified_target() {
+  local output identity_path identity
+  identity_path="$(mktemp "$STATE_DIR/.verified-target.XXXXXX")"
+  rm -f "$identity_path"
+  output="$(run_updater_check "$identity_path" || true)"
+  if [[ -f "$identity_path" ]] && valid_verified_target < "$identity_path"; then
+    identity="$(jq -cS . "$identity_path")"
+  else
+    identity="$(extract_verified_target "$output")"
+  fi
+  rm -f "$identity_path"
+  printf '%s' "$identity"
+}
+
 status_from_state() {
-  local latest_json latest_version latest_published release_url blocker update_available
-  latest_json="$(latest_release_json 2>/dev/null || true)"
-  latest_version="$(jq -r '.tag_name // empty' <<< "$latest_json" 2>/dev/null || true)"
-  latest_published="$(jq -r '.published_at // empty' <<< "$latest_json" 2>/dev/null || true)"
-  release_url="$(jq -r '.html_url // empty' <<< "$latest_json" 2>/dev/null || true)"
-  local current_version current_image auto_apply signature_required app_url timer_enabled timer_active rollback
+  local verified_target="${1:-null}"
+  local current_version current_image auto_apply signature_required app_url timer_enabled timer_active rollback blocker latest_version update_available github_repo
   current_version="$(env_get APP_VERSION)"
   current_image="$(env_get AREAFORGE_IMAGE)"
   app_url="$(env_get APP_URL)"
@@ -164,6 +214,8 @@ status_from_state() {
   timer_enabled="$(systemctl_bool is-enabled areaforge-update-agent.timer)"
   timer_active="$(systemctl_bool is-active areaforge-update-agent.timer)"
   rollback="$(detect_rollback)"
+  latest_version="$(jq -r '.manifestVersion // empty' <<< "$verified_target")"
+  github_repo="${AREAFORGE_GITHUB_REPO:-AreaSong/AreaForge}"
   blocker=""
   if [[ "$current_image" != ghcr.io/* ]]; then
     blocker="当前运行镜像不是 GHCR Release digest；Release 自动更新需要先修复 GHCR read:packages 权限或公开 package。"
@@ -171,17 +223,16 @@ status_from_state() {
     blocker="Release 签名校验未开启；补齐 COSIGN/GPG 后再开启强自动更新。"
   fi
   if [[ -n "$latest_version" && "$latest_version" != "v$current_version" && "$latest_version" != "$current_version" ]]; then
-    update_available="true"
+    update_available=true
   else
-    update_available="false"
+    update_available=false
   fi
   jq -n \
     --arg currentVersion "${current_version:-0.1.0}" \
     --arg currentImage "$current_image" \
     --arg appUrl "$app_url" \
     --arg latestVersion "$latest_version" \
-    --arg latestPublishedAt "$latest_published" \
-    --arg releaseUrl "$release_url" \
+    --arg githubRepo "$github_repo" \
     --arg autoApply "${auto_apply:-none}" \
     --arg blocker "$blocker" \
     --argjson updateAvailable "$update_available" \
@@ -189,104 +240,84 @@ status_from_state() {
     --argjson timerEnabled "$timer_enabled" \
     --argjson timerActive "$timer_active" \
     --argjson rollback "$rollback" \
+    --argjson verifiedTarget "$verified_target" \
     --argjson requestQueueLength "$(queue_length)" \
     '{
+      snapshotSchemaVersion:2,
       currentVersion:$currentVersion,
       currentImage:($currentImage | select(length > 0) // null),
       appUrl:($appUrl | select(length > 0) // null),
-      releaseUrl:($releaseUrl | select(length > 0) // null),
+      releaseUrl:($latestVersion | select(length > 0) | "https://github.com/" + $githubRepo + "/releases/tag/v" + ltrimstr("v") // null),
       latestVersion:($latestVersion | select(length > 0) // null),
-      latestPublishedAt:($latestPublishedAt | select(length > 0) // null),
+      latestPublishedAt:null,
       updateAvailable:$updateAvailable,
       autoApply:$autoApply,
       signatureRequired:$signatureRequired,
+      verifiedTarget:$verifiedTarget,
       timerEnabled:$timerEnabled,
       timerActive:$timerActive,
-      lastCheckedAt:(now | todate),
+      lastCheckedAt:(now | todateiso8601),
       rollback:$rollback,
       blocker:($blocker | select(length > 0) // null),
       requestQueueLength:$requestQueueLength,
-      statusUpdatedAt:(now | todate)
+      statusUpdatedAt:(now | todateiso8601)
     }'
+}
+
+snapshot_hash() {
+  local status_json="$1"
+  local projection
+  projection="$(jq -cS '{currentVersion,currentImage,autoApply,signatureRequired,verifiedTarget,rollback:{available:.rollback.available,targetVersion:.rollback.targetVersion,targetImage:.rollback.targetImage,sourceRecordSha256:.rollback.sourceRecordSha256}}' <<< "$status_json")"
+  sha256_text "$projection"
 }
 
 merge_status() {
   local operation_json="${1:-null}"
-  local base
-  base="$(status_from_state)"
-  if [[ "$operation_json" == "null" && -f "$STATUS_FILE" ]]; then
+  local refresh_identity="${2:-true}"
+  local supplied_identity="${3:-}"
+  local verified_target base hash
+  if [[ -n "$supplied_identity" && "$supplied_identity" != "null" ]]; then
+    verified_target="$supplied_identity"
+  elif [[ "$refresh_identity" == "true" ]]; then
+    verified_target="$(refresh_verified_target)"
+  elif [[ -f "$STATUS_FILE" ]]; then
+    verified_target="$(jq -c '.verifiedTarget // null' "$STATUS_FILE" 2>/dev/null || printf 'null')"
+  else
+    verified_target="null"
+  fi
+  base="$(status_from_state "$verified_target")"
+  hash="$(snapshot_hash "$base")"
+  if [[ "$operation_json" == "null" && -s "$STATUS_FILE" ]]; then
     operation_json="$(jq -c '.lastOperation // null' "$STATUS_FILE" 2>/dev/null || printf 'null')"
   fi
-  jq -s '.[0] + {lastOperation: .[1]}' <(printf '%s\n' "$base") <(printf '%s\n' "$operation_json") | write_json "$STATUS_FILE"
-}
-
-operation_json() {
-  local request="$1"
-  local status="$2"
-  local message="$3"
-  jq \
-    --arg status "$status" \
-    --arg finishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    --arg message "$message" \
-    '.status=$status | .finishedAt=$finishedAt | .message=$message' "$request"
-}
-
-validate_request_schema() {
-  local request="$1"
-  jq -e '
-    type == "object" and
-    (.id | type == "string" and test("^update_[0-9]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) and
-    (.status == "queued") and
-    (.action as $action | ["check", "apply", "rollback", "set_auto_apply"] | index($action) != null) and
-    (.tag == null or (.tag | type == "string" and test("^v?[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$"))) and
-    (.autoApply == null or (.autoApply as $policy | ["none", "patch", "minor", "all"] | index($policy) != null)) and
-    (if .action == "apply" then (.tag | type == "string") else true end) and
-    (if .action == "set_auto_apply" then (.autoApply | type == "string") else true end) and
-    (.actorEmailHash == null or (.actorEmailHash | type == "string" and test("^[a-fA-F0-9]{64}$")))
-  ' "$request" >/dev/null
-}
-
-archive_invalid_request() {
-  local request="$1"
-  local archive_id archive_path failed_json
-  archive_id="invalid_$(date -u +%Y%m%dT%H%M%SZ)_$$"
-  archive_path="$HISTORY_DIR/${archive_id}.json"
-  mv "$request" "$archive_path"
-  failed_json="$(jq -n \
-    --arg id "$archive_id" \
-    --arg finishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{
-      id:$id,
-      action:"invalid",
-      status:"failed",
-      requestedAt:null,
-      finishedAt:$finishedAt,
-      message:"invalid update request schema"
-    }')"
-  printf '%s\n' "$failed_json" | write_json "$HISTORY_DIR/${archive_id}.failed.json"
-  rm -f "$archive_path"
-  merge_status "$failed_json"
-}
-
-run_updater_check() {
-  "$UPDATER" check --config "$CONFIG_FILE" 2>&1
+  jq -s --arg snapshotHash "$hash" '.[0] + {snapshotHash:$snapshotHash,lastOperation:.[1]}' \
+    <(printf '%s\n' "$base") <(printf '%s\n' "$operation_json") | write_json "$STATUS_FILE" 644
 }
 
 run_updater_apply() {
-  local tag="$1"
-  "$UPDATER" apply --yes --tag "$tag" --config "$CONFIG_FILE" 2>&1
+  local request="$1"
+  local identity_path="$2"
+  local tag
+  tag="$(jq -r '.params.tag' "$request")"
+  "$UPDATER" apply --yes --tag "$tag" --config "$CONFIG_FILE" --request-guard "$request" --identity-json "$identity_path" 2>&1
 }
 
-run_rollback() {
-  local rollback_json target_image target_version
-  rollback_json="$(detect_rollback)"
-  target_image="$(jq -r '.targetImage // empty' <<< "$rollback_json")"
-  target_version="$(jq -r '.targetVersion // empty' <<< "$rollback_json")"
-  [[ -n "$target_image" ]] || {
-    printf 'no rollback target available\n'
+run_exact_rollback() {
+  local request="$1"
+  local expected_source record rollback target_image target_version tmp
+  expected_source="$(jq -r '.expectedBefore.rollbackSourceRecordSha256' "$request")"
+  record="$(find_rollback_record_by_hash "$expected_source")" || {
+    printf 'rollback source record not found\n'
     return 1
   }
-  local tmp
+  rollback="$(rollback_from_record "$record")"
+  target_image="$(jq -r '.targetImage // empty' <<< "$rollback")"
+  target_version="$(jq -r '.targetVersion // empty' <<< "$rollback")"
+  [[ -n "$target_image" && -n "$target_version" ]] || {
+    printf 'rollback source record has no usable target\n'
+    return 1
+  }
+  require_cmd docker
   tmp="$(mktemp "${AREAFORGE_ENV_FILE}.XXXXXX")"
   awk -v image="$target_image" -v version="$target_version" '
     /^AREAFORGE_IMAGE=/ { print "AREAFORGE_IMAGE=" image; next }
@@ -298,96 +329,170 @@ run_rollback() {
   docker compose -p "$AREAFORGE_COMPOSE_PROJECT" --env-file "$AREAFORGE_ENV_FILE" -f "$AREAFORGE_COMPOSE_FILE" up -d web
 }
 
-process_request() {
-  local request="$1"
-  local id action tag auto_apply operation running_json output status message destination
-  if ! validate_request_schema "$request"; then
-    archive_invalid_request "$request"
+process_check() {
+  local claim_dir="$1"
+  local request="$2"
+  local output decision reason message decision_file operation identity identity_path
+  decision=SUCCEEDED
+  reason=CHECK_COMPLETED
+  identity_path="$(mktemp "$STATE_DIR/.verified-target.XXXXXX")"
+  rm -f "$identity_path"
+  if output="$(run_updater_check "$identity_path")"; then
+    message="$(status_message_from_output "$output")"
+  else
+    decision=REJECTED
+    reason=UPDATER_CHECK_FAILED
+    message="$(status_message_from_output "$output")"
+  fi
+  if [[ -f "$identity_path" ]] && valid_verified_target < "$identity_path"; then
+    identity="$(jq -cS . "$identity_path")"
+  else
+    identity="$(extract_verified_target "$output")"
+  fi
+  rm -f "$identity_path"
+  decision_file="$(write_decision "$request" "$claim_dir/claim.json" "$decision" "$reason" true "$message")"
+  operation="$(operation_from_decision "$decision_file")"
+  cleanup_claim "$claim_dir"
+  merge_status "$operation" false "$identity"
+}
+
+process_apply() {
+  local claim_dir="$1"
+  local request="$2"
+  local output decision reason execution_attempted message decision_file operation identity observed_after identity_path
+  local first_marker second_marker rejection_marker first_hash second_hash
+  identity_path="$(mktemp "$STATE_DIR/.verified-target.XXXXXX")"
+  rm -f "$identity_path"
+  execution_attempted=false
+  if output="$(run_updater_apply "$request" "$identity_path")"; then
+    decision=SUCCEEDED
+    reason=APPLY_COMPLETED
+  else
+    decision=REJECTED
+    reason=UPDATER_APPLY_FAILED
+  fi
+  execution_attempted="$(request_execution_attempted "$output")"
+  first_marker="$(request_guard_marker "$output" first)"
+  second_marker="$(request_guard_marker "$output" second)"
+  first_hash="$(jq -r '.observedBeforeHash // "null"' <<< "${first_marker:-null}")"
+  second_hash="$(jq -r '.observedBeforeHash // "null"' <<< "${second_marker:-null}")"
+  rejection_marker="$second_marker"
+  if [[ -z "$rejection_marker" || "$(jq -r '.result' <<< "$rejection_marker")" != "reject" ]]; then
+    rejection_marker="$first_marker"
+  fi
+  if [[ -n "$rejection_marker" ]] &&
+     [[ "$(jq -r '.result' <<< "$rejection_marker")" == "reject" ]] &&
+     [[ "$(jq -r '.executionAttempted' <<< "$rejection_marker")" == "false" ]]; then
+    reason="$(jq -r '.reasonCode' <<< "$rejection_marker")"
+    execution_attempted=false
+  fi
+  message="$(status_message_from_output "$output")"
+  if [[ -f "$identity_path" ]] && valid_verified_target < "$identity_path"; then
+    identity="$(jq -cS . "$identity_path")"
+  else
+    identity="$(extract_verified_target "$output")"
+  fi
+  rm -f "$identity_path"
+  observed_after="$(observed_before_hash "$(observed_before)")"
+  decision_file="$(write_decision "$request" "$claim_dir/claim.json" "$decision" "$reason" "$execution_attempted" "$message" "$first_hash" "$second_hash" "$observed_after")"
+  operation="$(operation_from_decision "$decision_file")"
+  cleanup_claim "$claim_dir"
+  merge_status "$operation" false "$identity"
+}
+
+before_second_comparison() {
+  :
+}
+
+process_locked_mutation() {
+  local claim_dir="$1"
+  local request="$2"
+  local action auto_apply observed_first observed_second observed_after first_hash second_hash output decision reason message decision_file operation
+  action="$(jq -r '.action' "$request")"
+  auto_apply="$(jq -r '.params.autoApply // empty' "$request")"
+  mkdir -p "$(dirname "$AREAFORGE_PRODUCTION_STATE_LOCK_FILE")"
+  exec 8>"$AREAFORGE_PRODUCTION_STATE_LOCK_FILE"
+  if ! flock -n 8; then
+    reject_claim "$claim_dir" PRODUCTION_STATE_LOCK_BUSY "production state lock is busy"
     return
   fi
-  id="$(jq -r '.id' "$request")"
-  action="$(jq -r '.action' "$request")"
-  tag="$(jq -r '.tag // empty' "$request")"
-  auto_apply="$(jq -r '.autoApply // empty' "$request")"
-  operation="$HISTORY_DIR/${id}.json"
-  mv "$request" "$operation"
-  running_json="$(operation_json "$operation" running "agent is executing request")"
-  merge_status "$running_json"
-
-  status="succeeded"
-  case "$action" in
-    check)
-      if output="$(run_updater_check)"; then
-        message="$(status_message_from_output "$output")"
-      else
-        status="failed"
-        message="$(status_message_from_output "$output")"
-      fi
-      ;;
-    apply)
-      if [[ -z "$tag" ]]; then
-        status="failed"
-        message="missing release tag"
-      elif output="$(run_updater_apply "$tag")"; then
-        message="$(status_message_from_output "$output")"
-      else
-        status="failed"
-        message="$(status_message_from_output "$output")"
-      fi
-      ;;
-    rollback)
-      if output="$(run_rollback)"; then
-        message="$(status_message_from_output "$output")"
-      else
-        status="failed"
-        message="$(status_message_from_output "$output")"
-      fi
-      ;;
-    set_auto_apply)
-      case "$auto_apply" in
-        none|patch|minor|all)
-          config_set AREAFORGE_AUTO_APPLY "$auto_apply"
-          message="auto apply policy set to $auto_apply"
-          ;;
-        *)
-          status="failed"
-          message="invalid auto apply policy"
-          ;;
-      esac
-      ;;
-    *)
-      status="failed"
-      message="unknown action"
-      ;;
-  esac
-
-  destination="$HISTORY_DIR/${id}.${status}.json"
-  operation_json "$operation" "$status" "$message" | write_json "$destination"
-  rm -f "$operation"
-  merge_status "$(cat "$destination")"
+  observed_first="$(observed_before)"
+  first_hash="$(observed_before_hash "$observed_first")"
+  if ! expected_matches "$request" "$observed_first"; then
+    decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED EXPECTED_BEFORE_MISMATCH false "live production state changed before execution" "$first_hash")"
+    operation="$(operation_from_decision "$decision_file")"
+    flock -u 8
+    cleanup_claim "$claim_dir"
+    merge_status "$operation" false
+    return
+  fi
+  if [[ "$action" == "rollback" ]]; then
+    local expected_source
+    expected_source="$(jq -r '.expectedBefore.rollbackSourceRecordSha256' "$request")"
+    if ! find_rollback_record_by_hash "$expected_source" >/dev/null; then
+      decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED ROLLBACK_TARGET_CHANGED false "bound rollback source record is unavailable" "$first_hash")"
+      operation="$(operation_from_decision "$decision_file")"
+      flock -u 8
+      cleanup_claim "$claim_dir"
+      merge_status "$operation" false
+      return
+    fi
+  fi
+  before_second_comparison
+  observed_second="$(observed_before)"
+  second_hash="$(observed_before_hash "$observed_second")"
+  if ! expected_matches "$request" "$observed_second"; then
+    decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED EXPECTED_BEFORE_MISMATCH false "live production state changed at final execution boundary" "$first_hash" "$second_hash")"
+    operation="$(operation_from_decision "$decision_file")"
+    flock -u 8
+    cleanup_claim "$claim_dir"
+    merge_status "$operation" false
+    return
+  fi
+  decision=SUCCEEDED
+  reason=MUTATION_COMPLETED
+  if [[ "$action" == "rollback" ]]; then
+    if output="$(run_exact_rollback "$request" 2>&1)"; then :; else decision=REJECTED; reason=ROLLBACK_FAILED; fi
+  else
+    config_set AREAFORGE_AUTO_APPLY "$auto_apply"
+    output="auto apply policy set to $auto_apply"
+  fi
+  message="$(status_message_from_output "$output")"
+  observed_after="$(observed_before_hash "$(observed_before)")"
+  decision_file="$(write_decision "$request" "$claim_dir/claim.json" "$decision" "$reason" true "$message" "$first_hash" "$second_hash" "$observed_after")"
+  operation="$(operation_from_decision "$decision_file")"
+  flock -u 8
+  cleanup_claim "$claim_dir"
+  merge_status "$operation" false
 }
 
 main() {
-  require_cmd curl
+  require_root
   require_cmd jq
-  require_cmd docker
-  require_cmd systemctl
+  require_cmd sha256sum
+  require_cmd flock
+  require_cmd find
+  require_cmd awk
   load_config
   ensure_state_dirs
-  touch "$STATUS_FILE"
   exec 9>"$LOCK_FILE"
   flock -n 9 || {
     log "another update agent process is running"
     exit 0
   }
-
-  local request
-  request="$(find "$REQUEST_DIR" -maxdepth 1 -name '*.json' -type f | sort | head -n 1 || true)"
+  reconcile_stale_claims
+  local request claim_dir
+  request="$(find "$REQUEST_DIR" -maxdepth 1 -name '*.json' -type f ! -name '.*' | sort | head -n 1 || true)"
   if [[ -n "$request" ]]; then
-    process_request "$request"
+    claim_dir="$(claim_request "$request")"
+    process_claim "$claim_dir"
+  elif [[ "$RECONCILED_STALE" == "1" ]]; then
+    :
   else
-    merge_status null
+    merge_status null true
   fi
 }
 
-main "$@"
+if [[ "${AREAFORGE_UPDATE_AGENT_LIB_ONLY:-0}" != "1" ]]; then
+  main "$@"
+fi

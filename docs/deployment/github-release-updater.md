@@ -113,6 +113,7 @@ AREAFORGE_ENV_FILE=/opt/areaforge/.env.production
 AREAFORGE_COMPOSE_FILE=/opt/areaforge/docker-compose.prod.yml
 AREAFORGE_COMPOSE_PROJECT=areaforge
 AREAFORGE_BACKUP_DIR=/opt/areaforge/backups
+AREAFORGE_PRODUCTION_STATE_LOCK_FILE=/opt/areaforge/.areaforge-production-state.lock
 AREAFORGE_AUTO_APPLY=none
 AREAFORGE_REQUIRE_SIGNATURE=true
 AREAFORGE_COSIGN_PUBLIC_KEY=/etc/areaforge/cosign.pub
@@ -134,6 +135,41 @@ AREAFORGE_GITHUB_TOKEN=<只读 release/package token>
 ```
 
 不要把 `/etc/areaforge/updater.env` 提交到 Git。
+
+## Update Request V2 安全契约
+
+当前 checkout 已完成 OPS-005 本地实现，但尚未通过新的签名 Release 部署到生产。生产 `v0.1.7`
+不能据此宣称已经运行 V2。
+
+V2 链路如下：
+
+1. updater 完成 Release 签名、manifest 和 digest 校验后，通过 `--identity-json` 输出脱敏 target identity。
+2. root update-agent 把 current version/image、policy、signature、verified target 和精确 rollback source
+   record hash 组成 agent-authored status snapshot，并写入 canonical `snapshotHash`。
+3. 浏览器只提交它实际展示并由用户确认的 `snapshotHash` 和一次性 idempotency key；API 不接受客户端
+   自行提供 expected-before 或 target identity。
+4. Web 使用严格 schema V2、TTL、expected-before/semantic/request 三个 domain-separated hash，并通过
+   file fsync、atomic rename、directory fsync 发布请求。
+5. root agent 原子领取到 root-only `processing/`；V1 mutation、过期、篡改、重复、幂等冲突和状态漂移
+   均 fail closed。stale 或缺 claim metadata 的 mutation 进入 `needs_reconciliation`，不自动重放。
+6. updater apply、agent rollback 和 policy mutation 共用 `AREAFORGE_PRODUCTION_STATE_LOCK_FILE`；第一次
+   compare 通过后，在备份、env/config write 或 Docker 副作用前再次 compare。
+7. immutable decision history 记录 reason code、hash、claim、两次 observed-before hash 和
+   `executionAttempted`；updater 只有跨过备份边界时才发出 `executionAttempted=true` 机器标记。
+
+本地验证：
+
+```bash
+pnpm ops:ops-005:local:selftest
+pnpm shellcheck:updater
+pnpm github-release-updater:preflight
+pnpm ops:ops-005:preflight
+```
+
+本地实现通过后，`pnpm ops:ops-005:preflight` 应进入 `needs_signed_release`，而不是
+`ready_for_ops005_human_review`。生产部署仍需单独确认，并按维护窗口暂停 timer、记录并隔离旧请求、
+同时部署匹配 Web/agent/updater、先执行 V2 check、再恢复 timer。失败时同时回滚 Web 与 agent，并隔离
+所有 V2 请求；不得让旧 agent 读取 V2 mutation。
 
 ## 手动更新
 

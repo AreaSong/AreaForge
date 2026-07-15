@@ -86,10 +86,10 @@
       "id": "AF-RISK-OPS-005",
       "type": "current-blocker",
       "reviewAt": "2026-07-20",
-      "currentImpact": "Web update request 只在入队时校验；root agent 执行 mutation request 时未绑定用户确认时的 current version/image、目标 Release/manifest/digest、rollback source record/target、policy、TTL、idempotency 或 request hash，且 rollback 与 updater 未共享 production-state lock，存在 stale apply、回滚目标漂移、并发写交错和旧策略覆盖风险",
+      "currentImpact": "当前 checkout 已实现 update request schema V2、用户确认 snapshot binding、目标 Release/manifest/digest、rollback source record/target、TTL、idempotency/hash、processing reconciliation、不可变 decision history、legacy mutation fail-closed 和共享 production-state lock，并通过本地 fixture/selftest；该实现尚未进入匹配签名 Release 或生产部署，线上 v0.1.7 仍不能据此宣称具备 V2 stale-request 防护",
       "executableNow": false,
       "closeCondition": "schema V2 本地实现、竞态/target identity/TTL/hash/idempotency/shared-lock/legacy/零副作用测试通过；随后通过独立生产部署确认暂停 timer、隔离旧队列、部署匹配 Web/agent、V2 check 验证并恢复 timer；取得 24 小时内 fresh redacted decision history 后人工复核",
-      "requiredEvidence": "docs/development/update-request-expected-before-design.md、docs/development/ops-005-expected-before-production-evidence-template.md、tasks/active/0019-update-request-expected-before-binding.md、本地 V2 selftest 和 updater preflight、后续签名 Release、生产部署记录、V2 check、至少一条 executionAttempted=no 的 expected-before rejection fixture 或受控 redacted evidence、shared-lock/processing reconciliation 证据、AREAFORGE_AUTO_APPLY=none 证明、pnpm ops:ops-005:evidence:validate 通过、pnpm ops:ops-005:preflight 返回 ready_for_ops005_human_review",
+      "requiredEvidence": "docs/development/update-request-expected-before-design.md、docs/development/ops-005-expected-before-production-evidence-template.md、tasks/active/0019-update-request-expected-before-binding.md、pnpm ops:ops-005:local:selftest 通过、pnpm shellcheck:updater 通过、pnpm github-release-updater:preflight 通过、后续匹配提交的签名 Release、生产部署记录、V2 check、至少一条 executionAttempted=no 的 expected-before rejection fixture 或受控 redacted evidence、shared-lock/processing reconciliation 证据、AREAFORGE_AUTO_APPLY=none 证明、pnpm ops:ops-005:evidence:validate 通过、pnpm ops:ops-005:preflight 返回 ready_for_ops005_human_review",
       "ownerSkills": ["areaforge-security-governance", "areaforge-release-operator", "areaforge-sre-ops"]
     },
     {

@@ -66,12 +66,21 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
   }
 
   function queue(action: UpdateAction, options?: { tag?: string }) {
+    const confirmedSnapshotHash = status.snapshotHash;
+    if (!confirmedSnapshotHash) {
+      setNotice({ tone: "danger", text: "当前状态快照未通过校验，请先刷新版本状态。" });
+      return;
+    }
+    const idempotencyKey = crypto.randomUUID();
     setNotice(null);
     startTransition(async () => {
+      const payload = action === "apply"
+        ? { action, tag: options?.tag, confirmedSnapshotHash, idempotencyKey }
+        : { action, confirmedSnapshotHash, idempotencyKey };
       const response = await fetch("/api/system/update-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...options }),
+        body: JSON.stringify(payload),
       });
       const body = (await response.json().catch(() => null)) as {
         request?: NonNullable<UpdateCenterStatus["lastOperation"]>;
@@ -150,6 +159,7 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
             <InfoRow label="上次检查" value={formatDateTime(status.lastCheckedAt)} />
             <InfoRow label="更新策略" value={labelAutoApply(status.autoApply)} />
             <InfoRow label="回退状态" value={status.rollback.available ? (status.rollback.targetVersion ?? "可回退") : "不可用"} />
+            <InfoRow label="状态快照" value={shortHash(status.snapshotHash)} />
           </div>
 
           {status.blocker ? (
@@ -326,6 +336,11 @@ function labelQueued(action: UpdateAction): string {
 
 function labelError(error: string): string {
   if (error === "UNAUTHORIZED") return "请先登录。";
+  if (error === "STATUS_SNAPSHOT_CHANGED") return "版本状态已变化，请刷新后重新核对并确认。";
+  if (error === "STATUS_SNAPSHOT_INVALID") return "状态快照未通过校验，请刷新后重试。";
+  if (error === "LEGACY_MUTATION_UNBOUND") return "当前 agent 状态版本过旧，不能提交变更请求。";
+  if (error === "UPDATE_TARGET_UNVERIFIED") return "目标 Release 尚未通过 agent 身份校验。";
+  if (error === "ROLLBACK_TARGET_UNVERIFIED") return "回退目标证据不完整，请先刷新检查。";
   if (error === "UPDATE_TARGET_NOT_NEWER") return "当前已经是该版本或更新版本。";
   if (error === "UPDATE_TAG_REQUIRED") return "缺少目标 Release tag。";
   if (error === "ROLLBACK_TARGET_UNAVAILABLE") return "当前没有可回退版本。";
@@ -341,4 +356,9 @@ function normalizedTag(version: string): string {
 function formatDateTime(value: string | null): string {
   if (!value) return "未知";
   return new Date(value).toLocaleString("zh-CN");
+}
+
+function shortHash(value: string | null | undefined): string {
+  if (!value) return "未验证";
+  return `${value.slice(0, 15)}...${value.slice(-8)}`;
 }
