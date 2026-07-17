@@ -91,6 +91,7 @@ function checkRequiredFiles(): void {
     "scripts/quality/long-term-evidence-snapshot-validate.ts",
     "scripts/quality/long-term-evidence-snapshot.selftest.ts",
     "scripts/quality/operational-evidence-bundle-validate.ts",
+    "scripts/quality/operational-evidence-source.ts",
     "scripts/quality/operational-evidence-bundle-validate.selftest.ts",
     "scripts/ops/support-bundle-preview.ts",
     "scripts/quality/support-bundle-preview-validate.ts",

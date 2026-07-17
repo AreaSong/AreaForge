@@ -671,17 +671,17 @@ function checkOperationalEvidenceBundle(paths: EvidencePath[], packageVersion: s
     cwd: process.cwd(),
     encoding: "utf8",
   });
-  if (validation.status !== 0) {
-    return invalidCheck(
-      "operationalEvidenceBundle",
-      "operational evidence bundle",
-      command,
-      sanitizeOutput(validation.stderr || validation.stdout || "operational evidence bundle validator failed"),
-      ["AF-RISK-OPS-001", "AF-RISK-OPS-004"],
-    );
+  let bundle: JsonRecord = {};
+  let parseDetail = "";
+  try {
+    const parsed = JSON.parse(readFileSync(absolutePath, "utf8")) as unknown;
+    if (isRecord(parsed)) bundle = parsed;
+    else parseDetail = "operational evidence bundle must be a JSON object";
+  } catch (error) {
+    parseDetail = error instanceof Error ? error.message : "operational evidence bundle JSON is invalid";
   }
-
-  const bundle = JSON.parse(readFileSync(absolutePath, "utf8")) as JsonRecord;
+  const validatorPassed = validation.status === 0 && !parseDetail;
+  const validatorDetail = parseDetail || sanitizeOutput(validation.stderr || validation.stdout || "validator passed");
   const summary = isRecord(bundle.summary) ? bundle.summary : {};
   const expected = isRecord(summary.expected) ? summary.expected : {};
   const freshness = isRecord(bundle.freshness) ? bundle.freshness : {};
@@ -700,8 +700,10 @@ function checkOperationalEvidenceBundle(paths: EvidencePath[], packageVersion: s
   return {
     key: "operationalEvidenceBundle",
     label: "operational evidence bundle",
-    status: ready ? "pass" : "needs_live_evidence",
-    actualStatus: `bundle.status=${bundleStatus}; summary.overall=${summaryOverall}; freshness=${latestFreshness}`,
+    status: validatorPassed ? (ready ? "pass" : "needs_live_evidence") : "invalid",
+    actualStatus: validatorPassed
+      ? `bundle.status=${bundleStatus}; summary.overall=${summaryOverall}; freshness=${latestFreshness}`
+      : "invalid",
     expectedStatus: "bundle.status=ready; summary.overall=pass; freshness=fresh",
     validatorCommand: command,
     evidenceHash: evidencePathHash(paths, "operationalEvidenceBundle"),
@@ -724,6 +726,7 @@ function checkOperationalEvidenceBundle(paths: EvidencePath[], packageVersion: s
       summaryOverall,
       latestEvidenceFreshnessStatus: latestFreshness,
       signals,
+      validatorDetail,
     },
   };
 }

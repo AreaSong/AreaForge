@@ -95,7 +95,7 @@ function main(): void {
     "tsx",
     "scripts/quality/operational-evidence-bundle-validate.ts",
     evidenceBundle,
-  ]);
+  ], bundleEnv);
 
   const closurePacket = path.join(outputDir, "ops-001-closure-packet.txt");
   const closureResult = run("generate OPS-001 closure packet", [
@@ -106,7 +106,7 @@ function main(): void {
     smokeRecord,
     inputs.updateStatus,
     evidenceBundle,
-  ]);
+  ], bundleEnv);
   writeFileSync(closurePacket, closureResult.stdout);
 
   run("validate OPS-001 closure packet", [
@@ -123,6 +123,7 @@ function main(): void {
     "tsx",
     "scripts/ops/ops001-evidence-preflight.ts",
   ], {
+    ...bundleEnv,
     AREAFORGE_OPS001_SMOKE_RECORD: smokeRecord,
     AREAFORGE_OPS001_UPDATE_STATUS_RECORD: inputs.updateStatus,
     AREAFORGE_OPS001_EVIDENCE_BUNDLE: evidenceBundle,

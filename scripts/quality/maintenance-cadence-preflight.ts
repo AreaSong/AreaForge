@@ -86,6 +86,7 @@ function checkRequiredFiles(): void {
     "scripts/quality/residual-evidence-preflight.selftest.ts",
     "scripts/ops/operational-readiness-summary.ts",
     "scripts/ops/operational-evidence-bundle.ts",
+    "scripts/quality/operational-evidence-source.ts",
     "scripts/quality/operational-evidence-bundle-validate.ts",
     "scripts/quality/operational-evidence-bundle-validate.selftest.ts",
     "scripts/ops/ops001-evidence-preflight.ts",

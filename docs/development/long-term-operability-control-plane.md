@@ -143,6 +143,7 @@ pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>
 pnpm ops:readiness:summary
 pnpm ops:evidence:bundle
 pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>
+pnpm ops:evidence:bundle:validate <historical-operational-evidence-bundle.json> --shape-only
 pnpm ops:long-term:snapshot
 pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>
 pnpm maintenance:window:record
@@ -202,7 +203,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 | 长期运营证据快照 | 本文件和当前证据路径 | `pnpm ops:long-term:snapshot:validate <snapshot>` | live gate 通过、生产健康、自动关闭 residual |
 | 长期运营 live gate | 本文件、Release 发布记录和各 residual 证据记录 | `pnpm ops:long-term:gate` | 自动收集证据、自动执行生产动作、自动关闭 residual |
 
-`pnpm ops:readiness:summary` 和 `pnpm ops:evidence:bundle` 会输出 `freshness` 字段，按默认 14 天窗口给每个可定位时间的信号标记 `fresh`、`stale` 或 `unknown`。`unknown` 不会被自动当成失败，但不能支持生产健康完成声明；release、update、migration 或 rollback 仍必须按对应 scope 要求补齐 live evidence。OPS-001 authenticated read-only smoke 另有更严格的 24 小时 smoke proof freshness gate：`pnpm smoke:prod-readonly:validate` 会拒绝超期记录，因此旧 smoke record 只能作为历史证据，不能支撑 `ready_for_human_close`。
+`pnpm ops:readiness:summary` 和 schema v2 `pnpm ops:evidence:bundle` 会输出 `freshness` 字段，按默认 14 天窗口给每个可定位时间的信号标记 `fresh`、`stale` 或 `unknown`。bundle 同时写入 `sourceSnapshot`，绑定当前 package、生成/校验实现、readiness 配置和显式 update-status、manifest、smoke、backup-preview 文件的 basename/hash；生成期间输入变化会失败，默认 validator 会重建当前 snapshot，并在文件修改、删除、symlink 替换、配置或实现漂移时返回 stale。历史 schema v1 或不再当前绑定的 v2 记录只能显式 `--shape-only` 做归档结构验证，不能重新升级为当前证据。`unknown` 不会被自动当成失败，但不能支持生产健康完成声明；release、update、migration 或 rollback 仍必须按对应 scope 要求补齐 live evidence。OPS-001 authenticated read-only smoke 另有更严格的 24 小时 smoke proof freshness gate：`pnpm smoke:prod-readonly:validate` 会拒绝超期记录，因此旧 smoke record 只能作为历史证据，不能支撑 `ready_for_human_close`。
 
 ## Skill 增减规则
 

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { buildOperationalEvidenceSourceSnapshot } from "./operational-evidence-source";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -254,10 +255,12 @@ function createEvidenceBundle(): JsonRecord {
     overall: "warn",
   };
   return {
+    schemaVersion: 2,
     status: "needs_attention",
     mode: "read_only_operational_evidence_bundle",
     bundleHash: "",
     generatedAt: "2026-07-10T14:20:00.000Z",
+    sourceSnapshot: buildOperationalEvidenceSourceSnapshot(),
     summary,
     freshness: summary.freshness,
     items: requiredSignalItems(),
@@ -265,6 +268,7 @@ function createEvidenceBundle(): JsonRecord {
       "collect_read_only_operational_readiness_summary",
       "assemble_signal_evidence_index",
       "map_residual_risk_ids_to_required_evidence",
+      "bind_current_source_inputs",
       "compute_bundle_hash",
     ],
     doesNotProve: [
