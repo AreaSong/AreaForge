@@ -796,10 +796,19 @@ validate_request_guard() {
     die "REQUEST_EXPIRED: invalid or expired V2 mutation TTL"
   fi
 
-  release_tag="$(jq -er '.tag_name | select(type == "string" and length > 0)' "$RELEASE_JSON")" || die "TARGET_IDENTITY_CHANGED: release tag is invalid"
-  [[ "$(jq -r '.params.tag' "$REQUEST_GUARD_PATH")" == "$release_tag" ]] || die "TARGET_IDENTITY_CHANGED: release tag mismatch"
+  if ! release_tag="$(jq -er '.tag_name | select(type == "string" and length > 0)' "$RELEASE_JSON")"; then
+    printf 'AREAFORGE_REQUEST_GUARD phase=%s result=reject reasonCode=TARGET_IDENTITY_CHANGED observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
+    die "TARGET_IDENTITY_CHANGED: release tag is invalid"
+  fi
+  if [[ "$(jq -r '.params.tag' "$REQUEST_GUARD_PATH")" != "$release_tag" ]]; then
+    printf 'AREAFORGE_REQUEST_GUARD phase=%s result=reject reasonCode=TARGET_IDENTITY_CHANGED observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
+    die "TARGET_IDENTITY_CHANGED: release tag mismatch"
+  fi
   if [[ -n "$TAG_OVERRIDE" ]]; then
-    [[ "$TAG_OVERRIDE" == "$release_tag" ]] || die "TARGET_IDENTITY_CHANGED: selected tag mismatch"
+    if [[ "$TAG_OVERRIDE" != "$release_tag" ]]; then
+      printf 'AREAFORGE_REQUEST_GUARD phase=%s result=reject reasonCode=TARGET_IDENTITY_CHANGED observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
+      die "TARGET_IDENTITY_CHANGED: selected tag mismatch"
+    fi
   fi
 
   if [[ "$expected" != "$observed" ]]; then

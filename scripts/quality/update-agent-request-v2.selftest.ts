@@ -33,6 +33,8 @@ function main(): void {
   testApplyDuplicateGuardEvidenceNeedsReconciliation();
   testApplyInvalidFirstPassNeedsReconciliation();
   testApplyReconciliationMarkerOverridesTerminal();
+  testApplyBareReconciliationMarkerNeedsGuardEvidence();
+  testApplyDuplicateReconciliationMarkerNeedsGuardEvidence();
   testApplyPostExecutionFailureNeedsReconciliation();
   testApplyKnownRolledBackTerminalIsRejected();
   testApplyRollbackRecoveryUncertainNeedsReconciliation();
@@ -40,6 +42,7 @@ function main(): void {
   testApplyRecordPersistenceUncertainNeedsReconciliation();
   testRollbackRecordPersistenceUncertainNeedsReconciliation();
   testApplyGuardRejectionHasNoExecution();
+  testApplyTargetIdentityGuardRejectionHasNoExecution();
   testApplyFirstGuardExpiryHasNoExecution();
   testApplyGuardExpiryHasNoExecution();
   testApplyZeroExitGuardRejectionHasNoExecution();
@@ -60,6 +63,8 @@ function main(): void {
   testRollbackRecoveryFailureNeedsReconciliation();
   testPolicySuccessUnderLock();
   testStatusPublishStaysWithinProductionLock();
+  testPolicyTemporaryWriteFailureIsRejected();
+  testPolicyDirectorySyncFailureNeedsReconciliation();
   testPolicyUsesDefaultNoneWhenConfigMissing();
   testPolicyDisableSuccessUnderLock();
   testPolicyLockPathDriftFailsClosed();
@@ -187,6 +192,46 @@ main`, "selftest", agent], {
   });
 }
 
+function runWithBareReconciliationMarker(f: Fixture): void {
+  runAgent(f, ["-c", `. "$1"
+run_updater_apply() {
+  printf '%s\\n' 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=MIGRATION_STATE_UNCERTAIN executionAttempted=true'
+  return 2
+}
+main`, "selftest", agent], {
+    AREAFORGE_UPDATE_AGENT_LIB_ONLY: "1",
+  });
+}
+
+function runWithTargetIdentityGuardRejection(f: Fixture): void {
+  runAgent(f, ["-c", `. "$1"
+run_updater_apply() {
+  printf '%s\\n' 'AREAFORGE_REQUEST_GUARD phase=first result=reject reasonCode=TARGET_IDENTITY_CHANGED observedBeforeHash=sha256:${"1".repeat(64)} executionAttempted=false'
+  return 21
+}
+main`, "selftest", agent], {
+    AREAFORGE_UPDATE_AGENT_LIB_ONLY: "1",
+  });
+}
+
+function runWithPolicySyncFailure(f: Fixture, mode: "temporary" | "directory"): void {
+  runAgent(f, ["-c", `. "$1"
+fsync_path() {
+  if [[ "$AREAFORGE_TEST_POLICY_SYNC_FAILURE" == "temporary" && "$1" == *updater.env.* ]]; then
+    return 44
+  fi
+  if [[ "$AREAFORGE_TEST_POLICY_SYNC_FAILURE" == "directory" && "$1" == "$AREAFORGE_TEST_CONFIG_DIR" ]] && grep -q '^AREAFORGE_AUTO_APPLY=patch$' "$CONFIG_FILE"; then
+    return 45
+  fi
+  sync -f "$1"
+}
+main`, "selftest", agent], {
+    AREAFORGE_UPDATE_AGENT_LIB_ONLY: "1",
+    AREAFORGE_TEST_POLICY_SYNC_FAILURE: mode,
+    AREAFORGE_TEST_CONFIG_DIR: path.dirname(f.configFile),
+  });
+}
+
 function runWithFirstGuardExpiry(f: Fixture): void {
   runAgent(f, ["-c", `. "$1"
 run_updater_apply() {
@@ -266,6 +311,22 @@ run_updater_apply() {
   printf '%s\\n' 'AREAFORGE_REQUEST_GUARD phase=first result=pass reasonCode=NONE observedBeforeHash=sha256:${"1".repeat(64)} executionAttempted=false'
   printf '%s\\n' 'AREAFORGE_REQUEST_GUARD phase=second result=pass reasonCode=NONE observedBeforeHash=sha256:${"2".repeat(64)} executionAttempted=false'
   printf '%s\\n' 'AREAFORGE_REQUEST_EXECUTION action=apply executionAttempted=true'
+  printf '%s\\n' 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=MIGRATION_STATE_UNCERTAIN executionAttempted=true'
+  printf '%s\\n' 'AREAFORGE_UPDATER_TERMINAL status=applied executionAttempted=true'
+  return 0
+}
+main`, "selftest", agent], {
+    AREAFORGE_UPDATE_AGENT_LIB_ONLY: "1",
+  });
+}
+
+function runWithDuplicateReconciliationAndTerminal(f: Fixture): void {
+  runAgent(f, ["-c", `. "$1"
+run_updater_apply() {
+  printf '%s\\n' 'AREAFORGE_REQUEST_GUARD phase=first result=pass reasonCode=NONE observedBeforeHash=sha256:${"1".repeat(64)} executionAttempted=false'
+  printf '%s\\n' 'AREAFORGE_REQUEST_GUARD phase=second result=pass reasonCode=NONE observedBeforeHash=sha256:${"2".repeat(64)} executionAttempted=false'
+  printf '%s\\n' 'AREAFORGE_REQUEST_EXECUTION action=apply executionAttempted=true'
+  printf '%s\\n' 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=MIGRATION_STATE_UNCERTAIN executionAttempted=true'
   printf '%s\\n' 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=MIGRATION_STATE_UNCERTAIN executionAttempted=true'
   printf '%s\\n' 'AREAFORGE_UPDATER_TERMINAL status=applied executionAttempted=true'
   return 0
@@ -651,6 +712,28 @@ function testApplyReconciliationMarkerOverridesTerminal(): void {
   assert(typeof decision?.claimId === "string" && existsSync(path.join(f.state, "processing", decision.claimId)), "reconciliation evidence must retain the processing claim");
 }
 
+function testApplyBareReconciliationMarkerNeedsGuardEvidence(): void {
+  const f = fixture();
+  const value = request("apply");
+  enqueue(f, value);
+  runWithBareReconciliationMarker(f);
+  const decision = decisions(f).find((item) => item.id === value.id);
+  assert(decision?.decision === "NEEDS_RECONCILIATION" && decision.reasonCode === "UPDATER_GUARD_EVIDENCE_INVALID", "a reconciliation marker without dual guards and an execution marker must not prove a specific side effect");
+  assert(decision?.executionAttempted === null, "bare reconciliation evidence must preserve an unknown execution state");
+  assert(typeof decision?.claimId === "string" && existsSync(path.join(f.state, "processing", decision.claimId)), "bare reconciliation evidence must retain the processing claim");
+}
+
+function testApplyDuplicateReconciliationMarkerNeedsGuardEvidence(): void {
+  const f = fixture();
+  const value = request("apply");
+  enqueue(f, value);
+  runWithDuplicateReconciliationAndTerminal(f);
+  const decision = decisions(f).find((item) => item.id === value.id);
+  assert(decision?.decision === "NEEDS_RECONCILIATION" && decision.reasonCode === "UPDATER_GUARD_EVIDENCE_INVALID", "duplicate reconciliation markers must not be accepted even with otherwise complete execution evidence");
+  assert(decision?.executionAttempted === null, "duplicate reconciliation markers must keep the execution state conservative");
+  assert(typeof decision?.claimId === "string" && existsSync(path.join(f.state, "processing", decision.claimId)), "duplicate reconciliation markers must retain the processing claim");
+}
+
 function testApplyPostExecutionFailureNeedsReconciliation(): void {
   const f = fixture();
   writeFileSync(f.updaterMode, "post-execution-failure\n");
@@ -730,6 +813,17 @@ function testApplyGuardRejectionHasNoExecution(): void {
   assert(decision?.observedBeforeHashFirst === `sha256:${"1".repeat(64)}`, "first guard hash must come from the explicit marker");
   assert(decision?.observedBeforeHashSecond === `sha256:${"2".repeat(64)}`, "second guard hash must come from the explicit marker");
   assert(!existsSync(f.dockerLog), "apply guard rejection must have zero docker side effects");
+}
+
+function testApplyTargetIdentityGuardRejectionHasNoExecution(): void {
+  const f = fixture();
+  const value = request("apply");
+  enqueue(f, value);
+  runWithTargetIdentityGuardRejection(f);
+  const decision = decisions(f).find((item) => item.id === value.id);
+  assert(decision?.decision === "REJECTED" && decision.reasonCode === "TARGET_IDENTITY_CHANGED", "a structured target identity rejection must close as a zero-side-effect rejection");
+  assert(decision?.executionAttempted === false, "target identity rejection must record executionAttempted=false");
+  assert(typeof decision?.claimId === "string" && !existsSync(path.join(f.state, "processing", decision.claimId)), "target identity rejection must clean the processing claim");
 }
 
 function testApplyGuardExpiryHasNoExecution(): void {
@@ -1044,6 +1138,33 @@ function testStatusPublishStaysWithinProductionLock(): void {
   run(f);
   const status = json(path.join(f.state, "status.json"));
   assert(status.lastOperation?.reasonCode === "MUTATION_COMPLETED", "mutation status must publish before releasing the production-state lock");
+}
+
+function testPolicyTemporaryWriteFailureIsRejected(): void {
+  const f = fixture();
+  const value = request("set_auto_apply");
+  enqueue(f, value);
+  runWithPolicySyncFailure(f, "temporary");
+  const decision = decisions(f).find((item) => item.id === value.id);
+  assert(decision?.decision === "REJECTED" && decision.reasonCode === "AUTO_APPLY_WRITE_FAILED", "a pre-rename policy write failure must produce an immediate terminal rejection");
+  assert(decision?.executionAttempted === false, "a pre-rename policy write failure must record executionAttempted=false");
+  assert(configValue(f, "AREAFORGE_AUTO_APPLY") === "none", "a pre-rename policy write failure must preserve the configured policy");
+  assert(typeof decision?.claimId === "string" && !existsSync(path.join(f.state, "processing", decision.claimId)), "confirmed no-change policy failure must clean the claim");
+}
+
+function testPolicyDirectorySyncFailureNeedsReconciliation(): void {
+  const f = fixture();
+  const value = request("set_auto_apply");
+  enqueue(f, value);
+  runWithPolicySyncFailure(f, "directory");
+  const decision = decisions(f).find((item) => item.id === value.id);
+  assert(
+    decision?.decision === "NEEDS_RECONCILIATION" && decision.reasonCode === "AUTO_APPLY_PERSISTENCE_UNCERTAIN",
+    `a post-rename directory sync failure must require reconciliation, got ${JSON.stringify(decision)}`,
+  );
+  assert(decision?.executionAttempted === true, "a visible post-rename policy change must record executionAttempted=true");
+  assert(configValue(f, "AREAFORGE_AUTO_APPLY") === "patch", "a post-rename directory sync failure must report the observed changed policy");
+  assert(typeof decision?.claimId === "string" && existsSync(path.join(f.state, "processing", decision.claimId)), "uncertain policy durability must retain the processing claim");
 }
 
 function testPolicyUsesDefaultNoneWhenConfigMissing(): void {

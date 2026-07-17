@@ -210,6 +210,17 @@ request_reconciliation_reason() {
   done <<< "$raw" | tail -n 1
 }
 
+request_reconciliation_marker_count() {
+  local raw="$1"
+  local line count=0
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^AREAFORGE_UPDATER_RECONCILIATION\ reasonCode=(ROLLBACK_RECOVERY_UNCERTAIN|ROLLBACK_RECORD_PERSISTENCE_UNCERTAIN|APPLIED_RECORD_PERSISTENCE_UNCERTAIN|MIGRATION_STATE_UNCERTAIN)\ executionAttempted=true$ ]]; then
+      count=$((count + 1))
+    fi
+  done <<< "$raw"
+  printf '%s' "$count"
+}
+
 request_terminal_marker() {
   local raw="$1"
   local line

@@ -35,6 +35,7 @@ function main(): void {
     testLegacyMutationRejected(fixture);
     testExpectedBeforeMismatchHasNoMutation(fixture);
     testTargetMismatchHasNoMutation(fixture);
+    testRequestTagMismatchEmitsStructuredRejection(fixture);
     testFloatingRollbackTargetRejected(fixture);
     testNonAsciiCurrentImageRejected(fixture);
     testCurrentImageVersionMismatchRejected(fixture);
@@ -381,6 +382,18 @@ function testTargetMismatchHasNoMutation(fixture: Fixture): void {
     expect(result.status !== 0 && result.stderr.includes("TARGET_IDENTITY_CHANGED"), `target mismatch was not rejected: ${JSON.stringify(mismatch)}`);
     expectNoMutation(fixture, before);
   }
+}
+
+function testRequestTagMismatchEmitsStructuredRejection(fixture: Fixture): void {
+  reset(fixture);
+  const guard = writeGuard(fixture, {}, {}, {}, { tag: "v0.1.9" });
+  const before = readFileSync(fixture.envFile, "utf8");
+  const result = updaterRun(fixture, ["apply", "--yes", "--tag", "v0.1.8", "--config", fixture.config, "--request-guard", guard]);
+  expect(result.status !== 0, "request tag mismatch unexpectedly succeeded");
+  expect(result.stderr.includes("phase=first result=reject reasonCode=TARGET_IDENTITY_CHANGED"), "request tag mismatch did not emit a structured zero-side-effect rejection");
+  expect(result.stderr.includes("executionAttempted=false"), "request tag mismatch did not declare executionAttempted=false");
+  expect(!result.stderr.includes("AREAFORGE_REQUEST_EXECUTION"), "request tag mismatch crossed the execution boundary");
+  expectNoMutation(fixture, before);
 }
 
 function testFloatingRollbackTargetRejected(fixture: Fixture): void {
@@ -740,6 +753,7 @@ function writeGuard(
   expectedOverride: Record<string, unknown> = {},
   targetOverride: Record<string, unknown> = {},
   timingOverride: { requestedAt?: string; expiresAt?: string } = {},
+  paramsOverride: { tag?: string } = {},
 ): string {
   const requestedAt = timingOverride.requestedAt ?? new Date(Date.now() - 5_000).toISOString();
   const expiresAt = timingOverride.expiresAt ?? new Date(Date.now() + 295_000).toISOString();
@@ -766,7 +780,7 @@ function writeGuard(
     webImageDigest: webDigest,
     ...targetOverride,
   };
-  const params = { tag: "v0.1.8", autoApply: null };
+  const params = { tag: paramsOverride.tag ?? "v0.1.8", autoApply: null };
   const expectedBeforeHash = hashCanonical({ domain: "areaforge.update-request.expected-before.v2", expectedBefore });
   const semanticHash = hashCanonical({ domain: "areaforge.update-request.semantic.v2", action: "apply", params, target, expectedBefore });
   const immutable = {

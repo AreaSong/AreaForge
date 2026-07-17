@@ -125,6 +125,10 @@ releaseRequired: true
   `flock` 或内核测试适配器下 apply/rollback/policy 真实竞争、agent→updater fd 继承和锁路径不匹配拒绝，以及
   apply 第一/第二 guard 过期的结构化零副作用终态。reconciliation marker 与 terminal marker 同时出现时，
   reconciliation 必须优先并保留 claim，不能被错误收敛为成功。
+- updater reconciliation marker 必须同时具备唯一 first/second pass 和唯一 execution marker 才能证明具体
+  不确定副作用；Release tag/target 变化输出结构化 `TARGET_IDENTITY_CHANGED` 零副作用拒绝。policy config 在
+  rename 前失败时即时记录 `AUTO_APPLY_WRITE_FAILED`，rename 后目录 fsync 不确定时记录
+  `AUTO_APPLY_PERSISTENCE_UNCERTAIN` 并保留 processing claim，避免只等 TTL 才发现可能已经改变的策略。
 - apply 副作用开始后只有完整双 guard、execution marker 和与退出码一致的 `applied` / 非 migration `rolled_back` 终态 marker 才能清理 claim；子进程异常、marker 缺失和 migration 已启动后的失败均保留为 reconciliation。root 在两次策略比较点都强制 `signatureRequired=true` 与 tagged GHCR digest。
 - root agent 只接受 `none/patch` 策略；rollback 只暴露带不可变 digest 的目标，并按 record `updatedAt`
   而非路径字典序选择快照候选。rollback 目标切换失败会恢复原 env/web；updater health smoke 失败会回到自动

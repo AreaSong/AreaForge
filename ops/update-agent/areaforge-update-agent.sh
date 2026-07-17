@@ -585,7 +585,7 @@ process_apply() {
   local request="$2"
   local output decision reason execution_attempted message decision_file operation identity observed_after identity_path updater_status
   local first_marker second_marker rejection_marker reconciliation_reason terminal_marker first_hash second_hash
-  local first_marker_count second_marker_count execution_marker_count terminal_marker_count
+  local first_marker_count second_marker_count execution_marker_count reconciliation_marker_count terminal_marker_count
   if ! acquire_agent_production_state_lock; then
     if [[ "$PRODUCTION_STATE_LOCK_ERROR" == "busy" ]]; then
       reject_claim "$claim_dir" PRODUCTION_STATE_LOCK_BUSY "production state lock is busy"
@@ -613,6 +613,7 @@ process_apply() {
   first_marker_count="$(request_guard_marker_count "$output" first)"
   second_marker_count="$(request_guard_marker_count "$output" second)"
   execution_marker_count="$(request_execution_marker_count "$output")"
+  reconciliation_marker_count="$(request_reconciliation_marker_count "$output")"
   terminal_marker_count="$(request_terminal_marker_count "$output")"
   reconciliation_reason="$(request_reconciliation_reason "$output")"
   first_hash="$(jq -r '.observedBeforeHash // "null"' <<< "${first_marker:-null}")"
@@ -628,10 +629,19 @@ process_apply() {
           "$execution_marker_count" == "0" && "$execution_attempted" == "null" ]]; then
     rejection_marker="$second_marker"
   fi
-  if [[ -n "$reconciliation_reason" ]]; then
+  if [[ -n "$reconciliation_reason" && "$reconciliation_marker_count" == "1" &&
+        "$first_marker_count" == "1" && -n "$first_marker" && "$(jq -r '.result' <<< "$first_marker")" == "pass" &&
+        "$(jq -r '.reasonCode' <<< "$first_marker")" == "NONE" && "$(jq -r '.executionAttempted' <<< "$first_marker")" == "false" &&
+        "$second_marker_count" == "1" && -n "$second_marker" && "$(jq -r '.result' <<< "$second_marker")" == "pass" &&
+        "$(jq -r '.reasonCode' <<< "$second_marker")" == "NONE" && "$(jq -r '.executionAttempted' <<< "$second_marker")" == "false" &&
+        "$execution_marker_count" == "1" && "$execution_attempted" == "true" ]]; then
     decision=NEEDS_RECONCILIATION
     reason="$reconciliation_reason"
     execution_attempted=true
+  elif [[ -n "$reconciliation_reason" ]]; then
+    decision=NEEDS_RECONCILIATION
+    reason=UPDATER_GUARD_EVIDENCE_INVALID
+    execution_attempted=null
   elif [[ -n "$rejection_marker" && "$updater_status" != "0" && "$terminal_marker_count" == "0" ]] &&
      [[ "$(jq -r '.executionAttempted' <<< "$rejection_marker")" == "false" ]] &&
      [[ "$(jq -r '.reasonCode' <<< "$rejection_marker")" =~ ^(CURRENT_IMAGE_IDENTITY_INVALID|EXPECTED_BEFORE_MISMATCH|TARGET_IDENTITY_CHANGED|REQUEST_EXPIRED)$ ]]; then
@@ -687,6 +697,7 @@ process_locked_mutation() {
   local claim_dir="$1"
   local request="$2"
   local action auto_apply observed_first observed_second observed_after first_hash second_hash output decision reason execution_attempted message decision_file operation rollback_status
+  local expected_policy observed_policy
   local second_marker second_marker_count second_guard_pass second_guard_reject_reason
   action="$(jq -r '.action' "$request")"
   auto_apply="$(jq -r '.params.autoApply // empty' "$request")"
@@ -872,9 +883,30 @@ process_locked_mutation() {
         ;;
     esac
   else
-    execution_attempted=true
-    config_set AREAFORGE_AUTO_APPLY "$auto_apply"
-    output="auto apply policy set to $auto_apply"
+    expected_policy="$(jq -r '.expectedBefore.autoApply' "$request")"
+    if config_set AREAFORGE_AUTO_APPLY "$auto_apply"; then
+      execution_attempted=true
+      output="auto apply policy set to $auto_apply"
+    else
+      observed_policy="$(config_get AREAFORGE_AUTO_APPLY)"
+      observed_policy="${observed_policy:-none}"
+      if [[ "$observed_policy" == "$auto_apply" && "$observed_policy" != "$expected_policy" ]]; then
+        decision=NEEDS_RECONCILIATION
+        reason=AUTO_APPLY_PERSISTENCE_UNCERTAIN
+        execution_attempted=true
+        output="auto apply policy changed, but directory durability could not be confirmed"
+      elif [[ "$observed_policy" == "$expected_policy" ]]; then
+        decision=REJECTED
+        reason=AUTO_APPLY_WRITE_FAILED
+        execution_attempted=false
+        output="auto apply policy write failed before the configured value changed"
+      else
+        decision=NEEDS_RECONCILIATION
+        reason=AUTO_APPLY_STATE_UNCERTAIN
+        execution_attempted=null
+        output="auto apply policy state is uncertain after a failed write"
+      fi
+    fi
   fi
   message="$(status_message_from_output "$output")"
   observed_after="$(observed_before_hash "$(observed_before)")"
