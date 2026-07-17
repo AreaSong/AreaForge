@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "mode": "areaForge_error_recovery_matrix",
+  "sourcePrinciples": [
+    "AreaMatrix error-to-UX recovery evidence",
+    "AreaFlow capability-gated transitions and audit-bound recovery"
+  ],
+  "doesNotProve": [
+    "production health",
+    "production action execution",
+    "backup or restore success",
+    "residual risk closure"
+  ],
+  "rows": [
+    {
+      "id": "ER-AUTH-001",
+      "domain": "auth/session",
+      "severity": "P1",
+      "failureSignal": "login request fails, session expires, or logout request cannot complete",
+      "userMessage": "登录失败或会话已失效；退出失败时允许重试。",
+      "userRecoveryAction": "retry_login_or_logout_then_return_to_login",
+      "operatorDiagnosticEntry": "docs/development/support-intake.md; redacted auth API status",
+      "sideEffectExpectation": "no_partial_session_or_private_value_exposure",
+      "reopenResidual": "AF-RISK-OPS-001",
+      "evidenceCommand": "pnpm --filter @areaforge/web typecheck && pnpm --filter @areaforge/web lint"
+    },
+    {
+      "id": "ER-DASH-001",
+      "domain": "dashboard/core-read",
+      "severity": "P1",
+      "failureSignal": "dashboard or syllabus read fails while auxiliary services are unavailable",
+      "userMessage": "核心作战台暂时不可用；AI、风险或版本状态异常不应隐藏任务和计时。",
+      "userRecoveryAction": "retry_core_read_and_continue_with_local_fallbacks",
+      "operatorDiagnosticEntry": "docs/development/operational-readiness.md; redacted readiness summary",
+      "sideEffectExpectation": "no_write_is_started_by_read_failure",
+      "reopenResidual": "AF-RISK-UX-001",
+      "evidenceCommand": "pnpm check"
+    },
+    {
+      "id": "ER-TIMER-001",
+      "domain": "study-session/concurrency",
+      "severity": "P0",
+      "failureSignal": "start, pause, resume, or end observes a stale session state or duplicate active session",
+      "userMessage": "计时状态已变化，请刷新后确认；不要重复提交结束动作。",
+      "userRecoveryAction": "refresh_then_reconcile_active_session_before_retry",
+      "operatorDiagnosticEntry": "pnpm ops:data-integrity:doctor; docs/development/data-integrity-doctor.md",
+      "sideEffectExpectation": "reject_stale_write_without_duplicate_minutes_or_session",
+      "reopenResidual": "AF-RISK-OPS-006",
+      "evidenceCommand": "pnpm ops:ops-006:preflight:selftest"
+    },
+    {
+      "id": "ER-RECOVERY-001",
+      "domain": "recovery-state/terminal-transition",
+      "severity": "P1",
+      "failureSignal": "complete or cancel request loses network, repeats, or races with the opposite terminal action",
+      "userMessage": "恢复状态已经变化；同一终态可重复确认，相反终态需要刷新后确认。",
+      "userRecoveryAction": "retry_same_terminal_action_or_refresh_before_opposite_action",
+      "operatorDiagnosticEntry": "recovery state API response code and redacted audit event",
+      "sideEffectExpectation": "same_terminal_action_is_idempotent_and_opposite_action_is_rejected",
+      "reopenResidual": "AF-RISK-UX-001",
+      "evidenceCommand": "pnpm --filter @areaforge/web typecheck && pnpm --filter @areaforge/web lint"
+    },
+    {
+      "id": "ER-ATTACH-001",
+      "domain": "attachment/upload-download",
+      "severity": "P0",
+      "failureSignal": "file write and Attachment metadata commit disagree, or authorized download fails",
+      "userMessage": "附件没有完成保存；请重试上传。下载失败时不会公开文件路径或文件内容。",
+      "userRecoveryAction": "retry_upload_or_authorized_download_without_manual_file_cleanup",
+      "operatorDiagnosticEntry": "pnpm attachment:reconciliation:summary; docs/security/file-ai-safety.md",
+      "sideEffectExpectation": "staging_or_compensation_must_prevent_public_orphan_promotion",
+      "reopenResidual": "AF-RISK-OPS-007",
+      "evidenceCommand": "pnpm attachment:crash-window:selftest"
+    },
+    {
+      "id": "ER-AI-001",
+      "domain": "ai/provider",
+      "severity": "P1",
+      "failureSignal": "provider timeout, invalid JSON, rate limit, or disallowed sensitive context",
+      "userMessage": "AI 建议暂时不可用，已回退到本地规则；不会覆盖用户记录。",
+      "userRecoveryAction": "continue_with_local_advice_and_retry_explicit_route_later",
+      "operatorDiagnosticEntry": "docs/security/file-ai-safety.md; areaforge-ai-governance; redacted provider status",
+      "sideEffectExpectation": "no_sensitive_prompt_or_raw_response_persistence_and_no_record_overwrite",
+      "reopenResidual": "AF-RISK-AI-001",
+      "evidenceCommand": "pnpm risk:preflight && pnpm check"
+    },
+    {
+      "id": "ER-UPDATE-001",
+      "domain": "update-center/status",
+      "severity": "P1",
+      "failureSignal": "snapshot missing, stale, future-dated, or status blocker is present",
+      "userMessage": "版本状态未验证或已过期；只允许检查状态，更新、回退和策略变更保持禁用。",
+      "userRecoveryAction": "submit_read_only_check_or_wait_for_agent_refresh_then_reconfirm",
+      "operatorDiagnosticEntry": "pnpm ops:ops-005:preflight; redacted update-agent status",
+      "sideEffectExpectation": "no_mutation_request_is_published_for_unverified_state",
+      "reopenResidual": "AF-RISK-OPS-005",
+      "evidenceCommand": "pnpm ops:ops-005:local:selftest"
+    },
+    {
+      "id": "ER-UPDATE-002",
+      "domain": "update-center/reconciliation",
+      "severity": "P0",
+      "failureSignal": "agent decision is needs_reconciliation or executionAttempted is unknown",
+      "userMessage": "更新执行边界不确定，后续变更已阻塞，需要人工协调。",
+      "userRecoveryAction": "do_not_retry_mutation_and_route_redacted_decision_history_to_operator",
+      "operatorDiagnosticEntry": "update-agent decision history; docs/deployment/github-release-updater.md",
+      "sideEffectExpectation": "never_auto_replay_apply_rollback_or_policy_mutation",
+      "reopenResidual": "AF-RISK-OPS-005",
+      "evidenceCommand": "pnpm ops:ops-005:local:selftest"
+    },
+    {
+      "id": "ER-BACKUP-001",
+      "domain": "backup/restore",
+      "severity": "P0",
+      "failureSignal": "backup identity, restore drill, database, uploads, or evidence bundle hash is missing",
+      "userMessage": "当前不能证明可恢复；不在 Web 页面内执行备份或恢复。",
+      "userRecoveryAction": "keep_service_boundary_and_request_redacted_operator_evidence",
+      "operatorDiagnosticEntry": "pnpm ops:backup-restore:preview; docs/deployment/backup-restore.md",
+      "sideEffectExpectation": "preview_is_metadata_only_and_never_restores_or_deletes_data",
+      "reopenResidual": "AF-RISK-REL-001",
+      "evidenceCommand": "pnpm restore:drill:selftest"
+    },
+    {
+      "id": "ER-SUPPORT-001",
+      "domain": "public-support/incident",
+      "severity": "P1",
+      "failureSignal": "public issue contains private values, private study data, or production action request",
+      "userMessage": "公开入口不能接收敏感信息、私密学习内容或生产操作授权；安全问题请走私密披露。",
+      "userRecoveryAction": "remove_sensitive_content_and_route_to_support_or_security_path",
+      "operatorDiagnosticEntry": "SUPPORT.md; docs/development/support-intake.md; SECURITY.md",
+      "sideEffectExpectation": "public_triage_never_authorizes_server_command_or_residual_closure",
+      "reopenResidual": "none",
+      "evidenceCommand": "pnpm support:intake:preflight"
+    }
+  ]
+}

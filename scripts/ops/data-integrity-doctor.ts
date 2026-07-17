@@ -107,8 +107,8 @@ export function buildDataIntegrityDoctor(input: {
       : check("attachments.reconciliation", "skipped", "attachment reconciliation summary was not supplied", {}),
   ];
   const counts = countChecks(checks);
-  const overall = counts.fail > 0 ? "fail" : counts.warn > 0 || counts.skipped > 0 ? "warn" : "pass";
-  const native = counts.fail > 0 || counts.warn > 0
+  const overall: DataIntegrityDoctorResult["status"]["overall"] = counts.fail > 0 ? "fail" : counts.warn > 0 || counts.skipped > 0 ? "warn" : "pass";
+  const native: DataIntegrityDoctorResult["status"]["native"] = counts.fail > 0 || counts.warn > 0
     ? "integrity_attention"
     : counts.skipped > 0 ? "partial" : "integrity_clean";
   const resultWithoutHash = {
@@ -250,7 +250,7 @@ function countChecks(checks: DataIntegrityCheck[]): Record<CheckStatus | "total"
 
 function attachmentMismatchCount(summary: AttachmentReconciliationSummary): number {
   const { databaseRecordCount: _databaseRecordCount, uploadFileCount: _uploadFileCount, ...mismatchCounts } = summary.counts;
-  return Object.values(mismatchCounts).reduce((total, value) => total + value, 0);
+  return Object.values(mismatchCounts).reduce<number>((total, value) => total + (typeof value === "number" ? value : 0), 0);
 }
 
 function canonicalJson(value: unknown): string {

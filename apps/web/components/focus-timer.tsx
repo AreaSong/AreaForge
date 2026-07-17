@@ -1,6 +1,6 @@
 "use client";
 
-import { Pause, Play, Square } from "lucide-react";
+import { Pause, Play, Square, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getTimerElapsedSeconds, type TimerStatus } from "@areaforge/core";
@@ -142,15 +142,15 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
 
   return (
     <section
-      className={`rounded-lg border bg-[#101419] p-5 transition-all duration-300 ${
+      className={`min-w-0 rounded-lg border bg-[#101419] p-5 transition-all duration-300 ${
         isFocused ? "border-teal-300/50 shadow-[0_0_0_1px_rgba(45,212,191,0.28)]" : "border-white/10"
       }`}
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-teal-300">{subject}</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{title}</h2>
-          <p className="mt-2 text-sm text-zinc-400">{syllabusNode}</p>
+          <h2 className="mt-2 break-words text-2xl font-semibold text-white sm:text-3xl">{title}</h2>
+          <p className="mt-2 break-words text-sm text-zinc-400">{syllabusNode}</p>
         </div>
         <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
           {labelStatus(timerStatus)}
@@ -158,7 +158,7 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
       </div>
 
       <div className={`mt-7 grid gap-5 ${isFocused ? "lg:grid-cols-[1fr_0.82fr]" : ""}`}>
-        <div className="rounded-lg border border-white/10 bg-[#151a20] p-5">
+        <div className="min-w-0 rounded-lg border border-white/10 bg-[#151a20] p-5">
           <p className="text-sm text-zinc-500">本次专注</p>
           <p className={`${isFocused ? "text-6xl" : "text-5xl"} mt-3 font-semibold tabular-nums text-white`}>
             {formatElapsed(elapsedSeconds)}
@@ -169,7 +169,7 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
               <label className="grid gap-2 text-sm text-zinc-300">
                 任务
                 <select
-                  className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
+                  className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
                   value={selectedTaskId}
                   onChange={(event) => {
                     setSelectedTaskId(event.target.value);
@@ -183,44 +183,62 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
                       <option key={task.id} value={task.id}>
                         {task.subjectName} / {task.title}
                       </option>
-                    ))}
-                </select>
-              </label>
-              <label className="grid gap-2 text-sm text-zinc-300">
-                科目
-                <select
-                  className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
-                  value={selectedSubjectId}
-                  onChange={(event) => {
-                    setSelectedSubjectId(event.target.value);
-                    setSelectedSyllabusNodeId("");
-                  }}
-                  disabled={Boolean(selectedTaskId)}
-                >
-                  {subjects.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
                   ))}
                 </select>
               </label>
-              <label className="grid gap-2 text-sm text-zinc-300">
-                考纲节点
-                <select
-                  className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
-                  value={selectedSyllabusNodeId}
-                  onChange={(event) => setSelectedSyllabusNodeId(event.target.value)}
-                  disabled={Boolean(selectedTaskId)}
-                >
-                  <option value="">{activeTask?.syllabusNodeTitle ?? "不关联考纲节点"}</option>
-                  {nodeOptions.map((node) => (
-                    <option key={node.id} value={node.id}>
-                      {"  ".repeat(node.depth)}
-                      {node.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {activeTask ? (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-teal-300/20 bg-teal-300/10 px-3 py-3 text-sm text-teal-50">
+                  <span className="min-w-0 truncate">已选：{activeTask.title}</span>
+                  <button
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-teal-200/20 text-teal-100 transition hover:bg-teal-200/10"
+                    type="button"
+                    aria-label="清除已选任务"
+                    title="清除已选任务"
+                    onClick={() => {
+                      setSelectedTaskId("");
+                      setSelectedSyllabusNodeId("");
+                    }}
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <label className="grid gap-2 text-sm text-zinc-300">
+                    科目
+                    <select
+                      className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
+                      value={selectedSubjectId}
+                      onChange={(event) => {
+                        setSelectedSubjectId(event.target.value);
+                        setSelectedSyllabusNodeId("");
+                      }}
+                    >
+                      {subjects.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm text-zinc-300">
+                    考纲节点
+                    <select
+                      className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
+                      value={selectedSyllabusNodeId}
+                      onChange={(event) => setSelectedSyllabusNodeId(event.target.value)}
+                    >
+                      <option value="">不关联考纲节点</option>
+                      {nodeOptions.map((node) => (
+                        <option key={node.id} value={node.id}>
+                          {"  ".repeat(node.depth)}
+                          {node.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
             </div>
           ) : null}
 

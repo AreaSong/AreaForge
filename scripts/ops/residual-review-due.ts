@@ -1,27 +1,22 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  effectiveExceptionStatus,
+  effectiveExecutableNow,
+  isAcceptedExceptionEffective,
+  readResidualLedgerV2,
+  type EffectiveExceptionStatus,
+  type ResidualItemV2,
+} from "../quality/residual-ledger-common";
 
-type ResidualLedger = {
-  items?: ResidualItem[];
-};
-
-type ResidualItem = {
-  id: string;
-  type: string;
-  reviewAt: string;
-  currentImpact: string;
+type ClassifiedResidual = Omit<ResidualItemV2, "executableNow"> & {
   executableNow: boolean;
-  closeCondition: string;
-  requiredEvidence: string;
-  ownerSkills: string[];
-};
-
-type ClassifiedResidual = ResidualItem & {
+  effectiveExceptionStatus: EffectiveExceptionStatus;
+  acceptedExceptionEffective: boolean;
   daysUntilReview: number;
   reviewStatus: "overdue" | "due_today" | "due_soon" | "future";
 };
 
-type Options = {
+export type Options = {
   asOf: Date;
   warnDays: number;
   failOnOverdue: boolean;
@@ -29,13 +24,34 @@ type Options = {
   failOnDueSoon: boolean;
 };
 
-const root = process.cwd();
 const ledgerPath = "docs/development/residual-risk-ledger.json";
 
 function main(): void {
   const options = parseOptions(process.argv.slice(2));
-  const ledger = JSON.parse(read(ledgerPath)) as ResidualLedger;
-  const items = (ledger.items ?? []).map((item) => classifyResidual(item, options));
+  const output = buildResidualReviewDue(options);
+  const overdue = output.dueItems.filter((item) => item.reviewStatus === "overdue");
+  const dueToday = output.dueItems.filter((item) => item.reviewStatus === "due_today");
+  const dueSoon = output.dueItems.filter((item) => item.reviewStatus === "due_soon");
+
+  for (const item of output.dueItems) {
+    console.log(`${label(item.reviewStatus)} ${item.id}: reviewAt=${item.reviewAt}; daysUntil=${item.daysUntilReview}; owner=${item.ownerSkills.join(", ")}`);
+  }
+  for (const item of output.nonEffectiveAcceptedExceptionItems) {
+    console.log(`ATTENTION ${item.id}: acceptedException=${item.effectiveExceptionStatus}; reviewAt=${item.reviewAt}; owner=${item.ownerSkills.join(", ")}`);
+  }
+  console.log(JSON.stringify(output, null, 2));
+
+  if (output.gate.failed) {
+    console.error(
+      `residual review due failed: overdue=${overdue.length}; dueToday=${dueToday.length}; dueSoon=${dueSoon.length}.`,
+    );
+    process.exit(1);
+  }
+}
+
+export function buildResidualReviewDue(options: Options, root = process.cwd()) {
+  const ledger = readResidualLedgerV2({ root, file: ledgerPath, now: options.asOf });
+  const items = ledger.items.map((item) => classifyResidual(item, options, root));
   const overdue = items.filter((item) => item.reviewStatus === "overdue");
   const dueToday = items.filter((item) => item.reviewStatus === "due_today");
   const dueSoon = items.filter((item) => item.reviewStatus === "due_soon");
@@ -44,11 +60,7 @@ function main(): void {
     (options.failOnDue && (overdue.length > 0 || dueToday.length > 0)) ||
     (options.failOnDueSoon && (overdue.length > 0 || dueToday.length > 0 || dueSoon.length > 0));
 
-  for (const item of [...overdue, ...dueToday, ...dueSoon]) {
-    console.log(`${label(item.reviewStatus)} ${item.id}: reviewAt=${item.reviewAt}; daysUntil=${item.daysUntilReview}; owner=${item.ownerSkills.join(", ")}`);
-  }
-
-  const output = {
+  return {
     ok: !shouldFail,
     checkedAt: new Date().toISOString(),
     asOf: dateKey(options.asOf),
@@ -74,6 +86,16 @@ function main(): void {
       failOnDueSoon: options.failOnDueSoon,
       failed: shouldFail,
     },
+    nonEffectiveAcceptedExceptionItems: items
+      .filter(isNonEffectiveAcceptedException)
+      .map((item) => ({
+        id: item.id,
+        reviewAt: item.reviewAt,
+        effectiveExceptionStatus: item.effectiveExceptionStatus,
+        ownerSkills: item.ownerSkills,
+        closeCondition: item.closeCondition,
+        requiredEvidence: item.requiredEvidence,
+      })),
     dueItems: [...overdue, ...dueToday, ...dueSoon].map((item) => ({
       id: item.id,
       type: item.type,
@@ -86,24 +108,23 @@ function main(): void {
       requiredEvidence: item.requiredEvidence,
     })),
   };
-  console.log(JSON.stringify(output, null, 2));
-
-  if (shouldFail) {
-    console.error(
-      `residual review due failed: overdue=${overdue.length}; dueToday=${dueToday.length}; dueSoon=${dueSoon.length}.`,
-    );
-    process.exit(1);
-  }
 }
 
-function classifyResidual(item: ResidualItem, options: Options): ClassifiedResidual {
+function classifyResidual(item: ResidualItemV2, options: Options, root: string): ClassifiedResidual {
   const reviewDate = parseDate(item.reviewAt);
   const daysUntilReview = Math.round((reviewDate.getTime() - options.asOf.getTime()) / 86_400_000);
   return {
     ...item,
+    executableNow: effectiveExecutableNow(item, { root, now: options.asOf }),
+    effectiveExceptionStatus: effectiveExceptionStatus(item, options.asOf),
+    acceptedExceptionEffective: isAcceptedExceptionEffective(item, options.asOf),
     daysUntilReview,
     reviewStatus: reviewStatus(daysUntilReview, options.warnDays),
   };
+}
+
+function isNonEffectiveAcceptedException(item: ClassifiedResidual): boolean {
+  return item.type === "accepted-exception" && !item.acceptedExceptionEffective;
 }
 
 function reviewStatus(daysUntilReview: number, warnDays: number): ClassifiedResidual["reviewStatus"] {
@@ -183,8 +204,11 @@ function label(status: ClassifiedResidual["reviewStatus"]): string {
   }
 }
 
-function read(file: string): string {
-  return readFileSync(path.join(root, file), "utf8");
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`FAIL residual review due: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 }
-
-main();

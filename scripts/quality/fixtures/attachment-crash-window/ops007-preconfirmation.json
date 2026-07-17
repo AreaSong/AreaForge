@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "mode": "fixture_only_attachment_crash_window",
+  "status": "pass",
+  "action": "report_only",
+  "cases": [
+    { "name": "intent-before-file", "phase": "intent_created", "expectedOutcome": "resume-staging-or-mark-failed", "fileState": "absent", "expectedFileStateAfterCompensation": "absent", "metadataState": "pending", "compensationAttempted": false, "compensationResult": "not_attempted", "fileDeleted": false },
+    { "name": "staging-write-crash", "phase": "staging_written", "expectedOutcome": "reconcile-staging-file", "fileState": "staged", "expectedFileStateAfterCompensation": "staged", "metadataState": "pending", "compensationAttempted": false, "compensationResult": "not_attempted", "fileDeleted": false },
+    { "name": "final-before-ready", "phase": "finalized", "expectedOutcome": "verify-final-then-mark-ready", "fileState": "final", "expectedFileStateAfterCompensation": "final", "metadataState": "pending", "compensationAttempted": false, "compensationResult": "not_attempted", "fileDeleted": false },
+    { "name": "compensation-success", "phase": "compensation", "expectedOutcome": "remove-new-file-and-mark-failed", "fileState": "final", "expectedFileStateAfterCompensation": "absent", "metadataState": "pending", "compensationAttempted": true, "compensationResult": "success", "fileDeleted": false },
+    { "name": "compensation-failure", "phase": "compensation", "expectedOutcome": "retain-pending-for-manual-reconciliation", "fileState": "final", "expectedFileStateAfterCompensation": "final", "metadataState": "pending", "compensationAttempted": true, "compensationResult": "failed", "fileDeleted": false },
+    { "name": "restart-reconciliation", "phase": "reconciliation", "expectedOutcome": "hash-verify-before-ready-or-failed", "fileState": "final", "expectedFileStateAfterCompensation": "final", "metadataState": "pending", "compensationAttempted": false, "compensationResult": "not_attempted", "fileDeleted": false },
+    { "name": "legacy-ready-read", "phase": "ready", "expectedOutcome": "read-compatible", "fileState": "final", "expectedFileStateAfterCompensation": "final", "metadataState": "ready", "compensationAttempted": false, "compensationResult": "not_attempted", "fileDeleted": false },
+    { "name": "duplicate-storage-identity", "phase": "intent_created", "expectedOutcome": "reject-without-file-write", "fileState": "absent", "expectedFileStateAfterCompensation": "absent", "metadataState": "conflict", "compensationAttempted": false, "compensationResult": "not_attempted", "fileDeleted": false },
+    { "name": "backup-in-flight-cut", "phase": "backup_snapshot", "expectedOutcome": "restore-as-pending-and-reconcile", "fileState": "staged", "expectedFileStateAfterCompensation": "staged", "metadataState": "pending", "compensationAttempted": false, "compensationResult": "not_attempted", "fileDeleted": false }
+  ],
+  "doesNotProve": [
+    "production attachment write safety",
+    "historical orphan cleanup",
+    "backup or restore success",
+    "database migration applied",
+    "runtime compensation execution"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "databaseWriteAttempted": false,
+    "fileDeleted": false,
+    "fileMoved": false,
+    "metadataRepaired": false,
+    "productionWriteAttempted": false,
+    "fileContentIncluded": false,
+    "absolutePathIncluded": false,
+    "secretValuePrinted": false
+  },
+  "fixtureHash": "sha256:7952d383b52ae110b7f589bd96138c34785fa7aefb20f4023a0781697873cee3"
+}

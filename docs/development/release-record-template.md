@@ -22,6 +22,25 @@ pnpm ops:evidence:bundle
 pnpm ops:alert:preview
 ```
 
+发布记录落定后，还应从其中的 `releasedAt` 精确计算 D14/D30，按
+`docs/development/post-release-observation-template.json` 建立独立的
+`docs/development/post-release-observation-vX.Y.Z.json`。`release` 必须包含 `version`、`releaseTag`、
+`releasedAt`、`gitCommit` 和 release record 的 `{path, sha256}`。`checkpoints.d14` 固定包含 YYYY-MM-DD
+`dueDate`、`observedAt`、`technicalObservation`、`incident`、`errorBudget` 和派生 `gate`；
+`checkpoints.d30` 固定包含 `dueDate`、`observedAt`、`productReview` 和派生 `gate`。未执行的观察项保持
+`status: pending_observation`、非空待观察摘要和 `evidence: []`，不得伪造结果或自动关闭 residual。
+
+记录完成后运行：
+
+```bash
+pnpm release:post-observation:validate docs/development/post-release-observation-vX.Y.Z.json
+pnpm release:post-observation:status docs/development/post-release-observation-vX.Y.Z.json
+```
+
+状态投影统一为：未到期 pending gate 是 `pending_observation`；到期后仍 pending 是 `needs_attention`；
+真实失败 gate 是 `blocked`；D14/D30 与总 gate 均通过后是 `ready_for_human_review`。status 命令只读，
+不会执行观测、生产动作或 residual 更新。
+
 若本次 Release 用于关闭或复核 `AF-RISK-SC-001` / `AF-RISK-SC-002`，另建
 `docs/development/release-supply-chain-vX.Y.Z.md` 并运行：
 
@@ -141,3 +160,4 @@ expectedFailureOrStopConditions:
 - `pnpm ops:evidence:bundle` 输出的 `operationalEvidenceBundleHash` 已写入发布记录或运维交接摘要；若证据包状态不是 `ready`，必须保留对应 residual risk IDs。
 - `pnpm ops:alert:preview` 输出的 `alertPreviewStatus` 已写入发布记录或运维交接摘要；若 `wouldNotify=true` 或状态不是 `ok`，必须记录 owner、recommendedAction 和 residual risk IDs。
 - `claimBoundary.doesNotProve` 必须明确说明该 Release 记录不能单独证明生产 updater apply、backup/restore、migration、rollback 或 residual risk closure。
+- 已按 `releasedAt` 建立独立 D14/D30 observation 记录并绑定 release record `{path, sha256}`；该记录的状态和证据不回填到历史 release record，`pending_observation` / `needs_attention` 也不表示生产健康或 residual 关闭。

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import {
   buildEvidenceHash,
   parseIndentedKeyValueRecord,
@@ -133,6 +134,7 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   const status = fields.get("status")?.toLowerCase();
   const residuals = fields.get("residualRiskIds")?.toLowerCase() ?? "";
   validateResidualRiskIds(fields.get("residualRiskIds") ?? "", issues);
+  validateResidualLedgerBinding(fields.get("residualRiskIds") ?? "", status, issues);
   validateFollowUpTasks(fields.get("followUpTasks") ?? "", issues);
   if (status !== "resolved" && residuals === "none") {
     issues.push({ field: "residualRiskIds", message: "must include a residual ID when incident is not fully resolved" });
@@ -143,6 +145,33 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
 
   scanForSecrets(record, issues);
   return issues;
+}
+
+function validateResidualLedgerBinding(value: string, status: string | undefined, issues: ValidationIssue[]): void {
+  if (!value || value.toLowerCase() === "none") return;
+  const ledgerPath = path.resolve(process.env.AREAFORGE_INCIDENT_RESIDUAL_LEDGER ?? "docs/development/residual-risk-ledger.json");
+  if (!existsSync(ledgerPath)) {
+    issues.push({ field: "residualRiskIds", message: "residual ledger is required to validate incident bindings" });
+    return;
+  }
+  let items: Array<{ id?: unknown; type?: unknown }>;
+  try {
+    const ledger = JSON.parse(readFileSync(ledgerPath, "utf8")) as { items?: unknown };
+    items = Array.isArray(ledger.items) ? ledger.items as Array<{ id?: unknown; type?: unknown }> : [];
+  } catch {
+    issues.push({ field: "residualRiskIds", message: "residual ledger must be valid JSON" });
+    return;
+  }
+  const byId = new Map(items.flatMap((item) => typeof item.id === "string" && typeof item.type === "string" ? [[item.id, item.type]] : []));
+  const ids = value.split(",").map((item) => item.trim()).filter(Boolean);
+  const missing = ids.filter((id) => !byId.has(id));
+  if (missing.length > 0) {
+    issues.push({ field: "residualRiskIds", message: `unknown residual IDs: ${missing.join(", ")}` });
+    return;
+  }
+  if (status !== "resolved" && ids.every((id) => byId.get(id) === "closed-evidence")) {
+    issues.push({ field: "residualRiskIds", message: "an unresolved incident cannot be backed only by closed-evidence residuals" });
+  }
 }
 
 function validateResidualRiskIds(value: string, issues: ValidationIssue[]): void {

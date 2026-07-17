@@ -1410,7 +1410,10 @@ async function finishRecoveryState(
     if (!existing) {
       throw new ApiError("RECOVERY_STATE_NOT_FOUND", 404);
     }
-    if (existing.status !== "active") return existing;
+    if (existing.status !== "active") {
+      if (existing.status === status) return existing;
+      throw new ApiError("RECOVERY_STATE_ALREADY_FINISHED", 409);
+    }
 
     return tx.recoveryState.update({
       where: { id },

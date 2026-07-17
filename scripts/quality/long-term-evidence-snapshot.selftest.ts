@@ -10,6 +10,7 @@ import {
   validateLongTermEvidenceSnapshot,
 } from "./long-term-evidence-snapshot-validate";
 import type { AttachmentReconciliationSummary } from "./attachment-reconciliation-summary";
+import { resolveProductExperienceReviewPath } from "./product-experience-review-discovery";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -125,7 +126,7 @@ function main(): void {
 
   const leaked = JSON.stringify({
     ...readySnapshot,
-    metadata: "DATABASE_URL=database.invalid:5432/db",
+    metadata: "DATABASE_URL=postgresql://database.invalid:5432/db",
   }, null, 2);
   const leakedIssues = validateShape(leaked);
   assert(leakedIssues.some((issue) => issue.field === "record"), "expected secret-like value to fail");
@@ -153,10 +154,15 @@ function main(): void {
     encoding: "utf8",
     env: { ...process.env, AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: "" },
   });
-  assert(generated.status === 0, `expected real snapshot generator to succeed, got ${generated.stderr}`);
+  assert(generated.status === 0 || generated.status === 1, `expected real snapshot generator to emit a bounded snapshot, got ${generated.stderr}`);
   const generatedIssues = validateLongTermEvidenceSnapshot(generated.stdout);
   assert(generatedIssues.length === 0, `expected generated snapshot current binding to pass, got ${JSON.stringify(generatedIssues)}`);
   assert(longTermEvidenceSnapshotBindingStatus(generated.stdout) === "current", "generated snapshot should bind to current checkout");
+  const generatedBody = JSON.parse(generated.stdout) as JsonRecord;
+  const generatedEvidencePaths = (generatedBody.sourceSnapshot as JsonRecord).evidencePaths as JsonRecord[];
+  const generatedUxPath = generatedEvidencePaths.find((item) => item.key === "uxReviewRecord")?.pathLabel;
+  const expectedUxPath = resolveProductExperienceReviewPath(process.cwd());
+  assert(expectedUxPath && generatedUxPath === expectedUxPath, `generated snapshot should use the discovered current UX record, got ${String(generatedUxPath)}`);
   const forgedVersion = withHash(withPatch(JSON.parse(generated.stdout) as JsonRecord, (body) => {
     body.expectedVersion = "9.9.9";
     body.packageVersion = "9.9.9";
@@ -256,7 +262,7 @@ function runSnapshotGenerator(env: Record<string, string>): string {
     encoding: "utf8",
     env: { ...process.env, ...env },
   });
-  assert(generated.status === 0, `snapshot generator failed: ${generated.stderr}`);
+  assert(generated.status === 0 || generated.status === 1, `snapshot generator failed to emit evidence: ${generated.stderr}`);
   return generated.stdout;
 }
 

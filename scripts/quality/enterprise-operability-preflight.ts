@@ -1,22 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { readResidualLedgerV2 } from "./residual-ledger-common";
 
 interface CheckResult {
   name: string;
   ok: boolean;
   detail: string;
-}
-
-interface ResidualLedger {
-  items?: Array<{
-    id?: string;
-    type?: string;
-    reviewAt?: string;
-    executableNow?: boolean;
-    ownerSkills?: string[];
-    closeCondition?: string;
-    requiredEvidence?: string;
-  }>;
 }
 
 const root = process.cwd();
@@ -66,6 +55,8 @@ function checkRequiredFiles(): void {
     "docs/development/maintenance-window-record-template.md",
     "docs/development/maintenance-window-index.json",
     "docs/development/incident-index.json",
+    "docs/development/operations-lifecycle.json",
+    "docs/development/operations-lifecycle.md",
     "docs/development/rollback-proof-record-template.md",
     "docs/development/update-agent-status-record-template.md",
     "docs/development/ops-001-closure-packet-template.md",
@@ -153,6 +144,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/incident-index-common.ts",
     "scripts/quality/incident-index-validate.ts",
     "scripts/quality/incident-index.selftest.ts",
+    "scripts/quality/operations-lifecycle-validate.ts",
+    "scripts/quality/operations-lifecycle-validate.selftest.ts",
     "scripts/quality/rollback-proof-record-validate.ts",
     "scripts/quality/rollback-proof-record-validate.selftest.ts",
     "scripts/quality/update-agent-status-validate.ts",
@@ -188,6 +181,10 @@ function checkControlPlaneDoc(): void {
     "pnpm ops:handoff",
     "pnpm ops:long-term:gate",
     "pnpm ops:long-term:snapshot",
+    "pnpm ops:lifecycle:validate",
+    "pnpm ops:lifecycle:selftest",
+    "pnpm ops:lifecycle:typecheck",
+    "AF-SLO-HEALTH-001",
     "schema v3",
     "dataIntegrityRecord",
     "pnpm ops:support:bundle-preview",
@@ -242,8 +239,18 @@ function checkReleaseDecisionMatrix(): void {
 
 function checkResidualCoverage(): void {
   const doc = read("docs/development/long-term-operability-control-plane.md");
-  const ledger = JSON.parse(read("docs/development/residual-risk-ledger.json")) as ResidualLedger;
-  const ledgerIds = new Set((ledger.items ?? []).map((item) => item.id).filter((id): id is string => Boolean(id)));
+  let ledger;
+  try {
+    ledger = readResidualLedgerV2({ root });
+  } catch (error) {
+    checks.push({
+      name: "residual operability coverage",
+      ok: false,
+      detail: `invalid V2 ledger: ${error instanceof Error ? error.message : String(error)}`,
+    });
+    return;
+  }
+  const ledgerIds = new Set(ledger.items.map((item) => item.id));
   const requiredIds = [
     "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
@@ -261,10 +268,10 @@ function checkResidualCoverage(): void {
   ];
   const missingFromLedger = requiredIds.filter((id) => !ledgerIds.has(id));
   const missingFromDoc = requiredIds.filter((id) => !doc.includes(id));
-  const incomplete = (ledger.items ?? [])
-    .filter((item) => requiredIds.includes(item.id ?? ""))
+  const incomplete = ledger.items
+    .filter((item) => requiredIds.includes(item.id))
     .filter((item) => !item.reviewAt || !item.closeCondition || !item.requiredEvidence || !item.ownerSkills?.length)
-    .map((item) => item.id ?? "<missing-id>");
+    .map((item) => item.id);
   checks.push({
     name: "residual operability coverage",
     ok: missingFromLedger.length === 0 && missingFromDoc.length === 0 && incomplete.length === 0,
@@ -287,6 +294,9 @@ function checkPackageScript(): void {
     "ops:handoff:validate:selftest": "tsx scripts/quality/operational-handoff-validate.selftest.ts",
     "ops:handoff:selftest": "tsx scripts/quality/operational-handoff.selftest.ts",
     "ops:readonly-side-effect:selftest": "tsx scripts/quality/ops-readonly-side-effect.selftest.ts",
+    "ops:lifecycle:validate": "tsx scripts/quality/operations-lifecycle-validate.ts",
+    "ops:lifecycle:selftest": "tsx scripts/quality/operations-lifecycle-validate.selftest.ts",
+    "ops:lifecycle:typecheck": "tsc --noEmit --target ES2022 --lib ES2022,DOM --module ESNext --moduleResolution Bundler --strict --skipLibCheck --esModuleInterop --types node scripts/quality/operations-lifecycle-validate.ts scripts/quality/operations-lifecycle-validate.selftest.ts",
     "completion:evidence:validate": "tsx scripts/quality/completion-evidence-validate.ts",
     "completion:evidence:selftest": "tsx scripts/quality/completion-evidence-validate.selftest.ts",
     "ops:long-term:gate": "tsx scripts/ops/long-term-operability-live-gate.ts",
@@ -374,6 +384,8 @@ function checkEntryPoints(): void {
   const releaseTrain = read("docs/development/release-train.md");
   const requiredLinks = [
     [rootReadme, "docs/development/long-term-operability-control-plane.md", "README.md"],
+    [rootReadme, "docs/development/operations-lifecycle.md", "README.md"],
+    [rootReadme, "pnpm ops:lifecycle:typecheck", "README.md"],
     [rootReadme, "pnpm enterprise:operability:preflight", "README.md"],
     [rootReadme, "pnpm ops:status", "README.md"],
     [rootReadme, "pnpm ops:handoff", "README.md"],
@@ -381,8 +393,10 @@ function checkEntryPoints(): void {
     [rootReadme, "pnpm ops:long-term:snapshot", "README.md"],
     [rootReadme, "pnpm release:closeout:audit", "README.md"],
     [docsReadme, "development/long-term-operability-control-plane.md", "docs/README.md"],
+    [docsReadme, "development/operations-lifecycle.md", "docs/README.md"],
     [workflowReadme, "long-term-operability-control-plane.md", "workflow/README.md"],
     [docSync, "docs/development/long-term-operability-control-plane.md", "docs/development/doc-sync-checklist.md"],
+    [docSync, "docs/development/operations-lifecycle.json", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/incident-record-template.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/restore-drill-record-template.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/maintenance-window-record-template.md", "docs/development/doc-sync-checklist.md"],
@@ -392,6 +406,7 @@ function checkEntryPoints(): void {
     [docSync, "docs/development/ci-supply-chain-record-template.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/support-bundle-preview.md", "docs/development/doc-sync-checklist.md"],
     [maintenance, "pnpm enterprise:operability:preflight", "docs/development/maintenance-cadence.md"],
+    [maintenance, "pnpm ops:lifecycle:typecheck", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ops:long-term:gate", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ops:long-term:snapshot", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ops:support:bundle-preview", "docs/development/maintenance-cadence.md"],

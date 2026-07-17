@@ -34,7 +34,7 @@
 pnpm restore:drill:validate <restore-drill-record.md|txt>
 ```
 
-该校验只读取 redacted 记录，不执行 restore、不删除备份、不移动上传目录、不连接生产、不写生产；它不能授权生产恢复。
+该校验只读取 redacted 记录，不执行 restore、不删除备份、不移动上传目录、不连接生产、不写生产；它会重算排除 `drillEvidenceHash` 自身后的规范化记录 hash，并要求数据库、上传目录、附件对账、首页读取、登录和应用健康全部通过。它只能证明记录内容绑定和声明完整，不能证明备份归档真实存在、hash 对应真实文件或恢复动作真实执行，也不能授权生产恢复。
 
 ## Metadata-only 预览
 

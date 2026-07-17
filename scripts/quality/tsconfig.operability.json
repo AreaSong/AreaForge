@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": true
+  },
+  "include": [
+    "../ops/operability-status.ts",
+    "../ops/sc002-supply-chain-preflight.ts",
+    "../ops/long-term-operability-live-gate.ts",
+    "../ops/data-integrity-doctor.ts",
+    "../ops/residual-promotion-preview.ts",
+    "operability-status.selftest.ts",
+    "sc002-supply-chain-preflight.selftest.ts",
+    "long-term-operability-live-gate.selftest.ts",
+    "ops006-concurrency-preflight.ts",
+    "ops006-concurrency-preflight.selftest.ts",
+    "ops007-attachment-preflight.ts",
+    "ops007-attachment-preflight.selftest.ts",
+    "ops008-updater-preflight.ts",
+    "ops008-updater-preflight.selftest.ts",
+    "attachment-crash-window-validate.ts",
+    "attachment-crash-window-validate.selftest.ts",
+    "updater-phase-journal-validate.ts",
+    "updater-phase-journal-validate.selftest.ts",
+    "updater-maintenance-control-validate.ts",
+    "updater-maintenance-control-validate.selftest.ts",
+    "residual-promotion-preview.selftest.ts"
+  ]
+}

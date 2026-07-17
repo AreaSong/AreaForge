@@ -243,7 +243,35 @@ function validateResiduals(value: unknown, issues: ValidationIssue[]): void {
   requireStringArray(value.currentBlockerIds, "residuals.currentBlockerIds", issues);
   if (!Array.isArray(value.dueItems)) issues.push({ field: "residuals.dueItems", message: "must be an array" });
   if (!Array.isArray(value.executableNowItems)) issues.push({ field: "residuals.executableNowItems", message: "must be an array" });
+  validateNonEffectiveAcceptedExceptions(value.nonEffectiveAcceptedExceptionItems, issues);
   if (!Array.isArray(value.releaseRelevantIds)) issues.push({ field: "residuals.releaseRelevantIds", message: "must be an array" });
+}
+
+function validateNonEffectiveAcceptedExceptions(value: unknown, issues: ValidationIssue[]): void {
+  const field = "residuals.nonEffectiveAcceptedExceptionItems";
+  if (!Array.isArray(value)) {
+    issues.push({ field, message: "must be an array" });
+    return;
+  }
+  const seen = new Set<string>();
+  for (const [index, item] of value.entries()) {
+    const prefix = `${field}[${index}]`;
+    if (!isRecord(item)) {
+      issues.push({ field: prefix, message: "must be an object" });
+      continue;
+    }
+    requireString(item.id, `${prefix}.id`, issues);
+    requireDateOnly(item.reviewAt, `${prefix}.reviewAt`, issues);
+    requireOneOf(item.reviewStatus, `${prefix}.reviewStatus`, ["overdue", "due_today", "due_soon", "future"], issues);
+    requireOneOf(item.effectiveExceptionStatus, `${prefix}.effectiveExceptionStatus`, ["revoked", "expired", "superseded"], issues);
+    requireStringArray(item.ownerSkills, `${prefix}.ownerSkills`, issues);
+    requireString(item.closeCondition, `${prefix}.closeCondition`, issues);
+    requireString(item.requiredEvidence, `${prefix}.requiredEvidence`, issues);
+    if (typeof item.id === "string") {
+      if (seen.has(item.id)) issues.push({ field: `${prefix}.id`, message: "must not be duplicated" });
+      seen.add(item.id);
+    }
+  }
 }
 
 function validateReleaseEvidenceGaps(value: unknown, field: string, issues: ValidationIssue[]): void {
@@ -391,6 +419,26 @@ function validateConsistency(body: JsonRecord, issues: ValidationIssue[]): void 
   }
   if (body.status.controlPlane === "fail" && body.status.overall !== "blocked") {
     issues.push({ field: "status.overall", message: "must be blocked when controlPlane is fail" });
+  }
+  validateResidualProjectionConsistency(body, issues);
+}
+
+function validateResidualProjectionConsistency(body: JsonRecord, issues: ValidationIssue[]): void {
+  if (!isRecord(body.residuals) || !Array.isArray(body.nextActions)) return;
+  const exceptionItems = Array.isArray(body.residuals.nonEffectiveAcceptedExceptionItems)
+    ? body.residuals.nonEffectiveAcceptedExceptionItems.filter(isRecord)
+    : [];
+  const nextActionIds = new Set(body.nextActions
+    .filter(isRecord)
+    .map((item) => item.residualRiskId)
+    .filter((id): id is string => typeof id === "string"));
+  for (const [index, item] of exceptionItems.entries()) {
+    if (typeof item.id === "string" && !nextActionIds.has(item.id)) {
+      issues.push({
+        field: `residuals.nonEffectiveAcceptedExceptionItems[${index}].id`,
+        message: "must be projected into nextActions",
+      });
+    }
   }
 }
 

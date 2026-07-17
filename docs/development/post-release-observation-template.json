@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "mode": "post_release_observation",
+  "release": {
+    "version": "X.Y.Z",
+    "releaseTag": "vX.Y.Z",
+    "releasedAt": "<ISO-8601 UTC timestamp copied from the release record>",
+    "gitCommit": "<40-character lowercase git commit copied from the release record>",
+    "releaseRecord": {
+      "path": "docs/development/release-vX.Y.Z-record.md",
+      "sha256": "sha256:<64 lowercase hex of the release record bytes>"
+    }
+  },
+  "checkpoints": {
+    "d14": {
+      "dueDate": "<releasedAt UTC calendar date plus 14 days as YYYY-MM-DD>",
+      "observedAt": null,
+      "technicalObservation": {
+        "status": "pending_observation",
+        "summary": "Awaiting scheduled D14 technical observation.",
+        "evidence": []
+      },
+      "incident": {
+        "status": "pending_observation",
+        "summary": "Awaiting scheduled D14 incident observation.",
+        "evidence": []
+      },
+      "errorBudget": {
+        "status": "pending_observation",
+        "summary": "Awaiting scheduled D14 error-budget observation.",
+        "evidence": []
+      },
+      "gate": {
+        "status": "pending_observation",
+        "reasons": [
+          "technical_observation_pending",
+          "incident_observation_pending",
+          "error_budget_observation_pending"
+        ]
+      }
+    },
+    "d30": {
+      "dueDate": "<releasedAt UTC calendar date plus 30 days as YYYY-MM-DD>",
+      "observedAt": null,
+      "productReview": {
+        "status": "pending_observation",
+        "summary": "Awaiting scheduled D30 product review.",
+        "evidence": []
+      },
+      "gate": {
+        "status": "pending_observation",
+        "reasons": [
+          "product_review_pending"
+        ]
+      }
+    }
+  },
+  "gate": {
+    "status": "pending_observation",
+    "reasons": [
+      "d14_pending_observation",
+      "d30_pending_observation"
+    ]
+  },
+  "safetyFacts": {
+    "readOnlyEvidence": true,
+    "networkRequested": false,
+    "productionWriteAttempted": false,
+    "residualLedgerUpdated": false,
+    "fileWriteAttempted": false
+  }
+}

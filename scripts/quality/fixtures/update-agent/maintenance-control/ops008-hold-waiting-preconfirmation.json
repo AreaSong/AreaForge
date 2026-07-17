@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "mode": "fixture_only_updater_maintenance_control",
+  "status": "waiting_for_active_claim",
+  "hold": {
+    "enabled": true,
+    "source": "root_only_fixture",
+    "reasonCode": "FIXTURE_ACTIVE_CLAIM_DRAIN_WAIT",
+    "webCanWriteHold": false
+  },
+  "queue": {
+    "newClaimsAllowed": false,
+    "automaticUpdaterRunAllowed": false,
+    "queuedRequestsPreserved": true
+  },
+  "claims": {
+    "activeClaimState": "active",
+    "productionStateLockState": "busy",
+    "drainResult": "waiting",
+    "claimDeleted": false
+  },
+  "doesNotProve": [
+    "production maintenance hold installed",
+    "systemd timers stopped",
+    "active updater process terminated",
+    "queue mutation prevented in production",
+    "hold and claim queue-control lock ordering or concurrent exclusion",
+    "production drain observation"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "serverCommandAttempted": false,
+    "timerChanged": false,
+    "queueWriteAttempted": false,
+    "claimDeleted": false,
+    "productionWriteAttempted": false,
+    "secretValuePrinted": false,
+    "residualLedgerUpdated": false
+  },
+  "recordHash": "sha256:1ec4c48d1d34dfcd7c99163271e93a8cb941f9e5175023b796f74481acb244bb"
+}

@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { buildOperabilityStatusProjection, type OperabilityStatusProjection } from "./operability-status";
 import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
 import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
+import { resolveProductExperienceReviewPath } from "../quality/product-experience-review-discovery";
 
 type SnapshotStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
 type CheckStatus = "pass" | "needs_live_evidence" | "missing" | "stale" | "invalid";
@@ -87,7 +88,6 @@ const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7
 const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
 const defaultReleaseEvidenceRecord = "docs/development/release-v0.1.7-record.md";
 const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
-const defaultUxRecord = "docs/development/product-experience-review-v0.1.7-20260712-local.md";
 const defaultMaxUxAgeDays = 14;
 const defaultMaxDataIntegrityAgeHours = 24;
 
@@ -330,6 +330,7 @@ function checkOps005(paths: EvidencePath[], packageVersion: string, releaseTag: 
   const command = "pnpm exec tsx scripts/ops/ops005-evidence-preflight.ts";
   const result = runJsonCommand(["pnpm", "exec", "tsx", "scripts/ops/ops005-evidence-preflight.ts"], {
     AREAFORGE_OPS005_RELEASE_RECORD: process.env.AREAFORGE_OPS005_RELEASE_RECORD,
+    AREAFORGE_OPS005_RELEASE_ASSETS_DIR: process.env.AREAFORGE_OPS005_RELEASE_ASSETS_DIR,
     AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD: process.env.AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD,
     AREAFORGE_OPS005_GIT_COMMIT: process.env.AREAFORGE_OPS005_GIT_COMMIT,
     AREAFORGE_OPS005_NOW: process.env.AREAFORGE_OPS005_NOW,
@@ -603,7 +604,7 @@ function checkReleaseEvidence(paths: EvidencePath[], packageVersion: string, rel
 }
 
 function checkUxReview(paths: EvidencePath[], packageVersion: string): SnapshotCheck {
-  const recordPath = envOrExisting("AREAFORGE_LONG_TERM_UX_RECORD", defaultUxRecord);
+  const recordPath = resolveProductExperienceReviewPath(process.cwd(), process.env.AREAFORGE_LONG_TERM_UX_RECORD);
   const command = `pnpm exec tsx scripts/quality/product-experience-review-validate.ts ${recordPath ? path.basename(recordPath) : "<missing>"}`;
   if (!recordPath) {
     return missingCheck("uxReview", "fresh desktop/mobile product experience review", command, ["AF-RISK-UX-001"]);
@@ -751,11 +752,13 @@ export function collectEvidencePaths(): EvidencePath[] {
     { key: "dataIntegrityRecord", envKey: "AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD" },
     { key: "releaseEvidenceRecord", envKey: "AREAFORGE_RELEASE_EVIDENCE_RECORD", defaultPath: defaultReleaseEvidenceRecord },
     { key: "releaseSupplyChainRecord", envKey: "AREAFORGE_SC002_RELEASE_RECORD", defaultPath: defaultReleaseSupplyChainRecord },
-    { key: "uxReviewRecord", envKey: "AREAFORGE_LONG_TERM_UX_RECORD", defaultPath: defaultUxRecord },
+    { key: "uxReviewRecord", envKey: "AREAFORGE_LONG_TERM_UX_RECORD" },
     { key: "operationalEvidenceBundle", envKey: "AREAFORGE_LONG_TERM_EVIDENCE_BUNDLE", defaultPath: defaultOperationalEvidenceBundle },
   ];
   const paths = inputs.map((input) => {
-    const configuredPath = process.env[input.envKey]?.trim() || input.defaultPath || "";
+    const configuredPath = input.key === "uxReviewRecord"
+      ? resolveProductExperienceReviewPath(process.cwd(), process.env[input.envKey]) ?? ""
+      : process.env[input.envKey]?.trim() || input.defaultPath || "";
     if (!configuredPath) {
       return { key: input.key, pathLabel: null, configured: false, exists: false, sha256: null };
     }

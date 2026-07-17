@@ -78,6 +78,8 @@ pnpm ops:alert:preview
 
 `pnpm ops:support:bundle-preview` 是优先推荐的公开支持摘要：它是 metadata-only 预览，只包含 metadata、residual、文档入口、命令名和 redaction/safety facts，不导出日志、附件、数据库、备份或用户学习内容。上述命令不应执行 Docker、备份、恢复、migration、updater apply、rollback 或生产写入。生产只读 smoke 需用户自行配置 smoke 账号和密码文件：
 
+preview 还会列出数据类别、存储类型、备份覆盖、retention 来源，以及 export/delete/account migration 的 `metadata_only` / `not_supported` / `not_configured` 状态。该视图不读取数据库行、附件内容、备份归档、私有环境值或 session 值；它不能替代真实数据导出、删除权、保留策略或账号迁移实现。
+
 ```bash
 pnpm smoke:prod-readonly
 ```

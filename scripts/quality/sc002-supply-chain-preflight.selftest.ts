@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -27,6 +27,18 @@ try {
   }, 0);
   assertJsonStatus(readyForSc001Sc002.stdout, "ready_for_sc001_sc002_review");
 
+  const staleCommit = runPreflight({
+    AREAFORGE_SC002_CI_RECORD: ciRecord,
+    AREAFORGE_SC002_EXPECTED_GIT_COMMIT: "a".repeat(40),
+  }, 0);
+  assertJsonStatus(staleCommit.stdout, "needs_evidence");
+
+  const dirtyCheckout = runPreflight({
+    AREAFORGE_SC002_RELEASE_RECORD: releaseRecord,
+    AREAFORGE_SC002_EXPECTED_WORKTREE_CLEAN: "false",
+  }, 0);
+  assertJsonStatus(dirtyCheckout.stdout, "needs_evidence");
+
   const invalidCi = path.join(tempDir, "ci-supply-chain-invalid.txt");
   writeFileSync(invalidCi, createCiRecord().replace("highCriticalVulnerabilities: none", "highCriticalVulnerabilities: high"));
   const invalid = runPreflight({
@@ -39,7 +51,7 @@ try {
   rmSync(tempDir, { force: true, recursive: true });
 }
 
-function runPreflight(env: Record<string, string>, expectedStatus: number): ReturnType<typeof spawnSync> {
+function runPreflight(env: Record<string, string>, expectedStatus: number): SpawnSyncReturns<string> {
   const result = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/sc002-supply-chain-preflight.ts"], {
     cwd: root,
     encoding: "utf8",
@@ -47,6 +59,9 @@ function runPreflight(env: Record<string, string>, expectedStatus: number): Retu
       ...process.env,
       AREAFORGE_SC002_CI_RECORD: "",
       AREAFORGE_SC002_RELEASE_RECORD: "",
+      AREAFORGE_SC002_TEST_MODE: "1",
+      AREAFORGE_SC002_EXPECTED_GIT_COMMIT: "0123456789abcdef0123456789abcdef01234567",
+      AREAFORGE_SC002_EXPECTED_WORKTREE_CLEAN: "true",
       ...env,
     },
   });
@@ -61,6 +76,10 @@ function assertJsonStatus(raw: string, expected: string): void {
   }
   if (parsed.status !== expected) {
     fail(`expected preflight status ${expected}, got ${String(parsed.status)}`);
+  }
+  const checkoutBinding = parsed.checkoutBinding as JsonRecord | undefined;
+  if (!checkoutBinding || typeof checkoutBinding.gitCommit !== "string" || typeof checkoutBinding.worktreeClean !== "boolean") {
+    fail("preflight should expose the current checkout binding");
   }
   const safety = parsed.safetyFacts as JsonRecord | undefined;
   if (!safety || safety.githubApiCalled !== false || safety.releaseCreated !== false || safety.tagPushed !== false || safety.secretValuePrinted !== false) {
@@ -168,7 +187,7 @@ function createReleaseRecord(): string {
   ].join("\n");
 }
 
-function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expected: number): void {
+function expectStatus(label: string, result: SpawnSyncReturns<string>, expected: number): void {
   if (result.status !== expected) {
     console.error(`FAIL ${label}: expected exit ${expected}, got ${result.status}`);
     console.error(result.stdout.trim());

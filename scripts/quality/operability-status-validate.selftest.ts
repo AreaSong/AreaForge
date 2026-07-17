@@ -68,6 +68,30 @@ function main(): void {
     if (stop) stop.currentBoundary = ["no production deployment confirmation"];
   }), "boundaryStops[2].currentBoundary");
 
+  expectFail(withPatch(projection, (body) => {
+    body.residuals.nonEffectiveAcceptedExceptionItems = [{
+      id: "AF-RISK-AI-001",
+      reviewAt: "2026-08-01",
+      reviewStatus: "future",
+      effectiveExceptionStatus: "approved" as "expired",
+      ownerSkills: ["areaforge-ai-governance"],
+      closeCondition: "fixture close condition",
+      requiredEvidence: "fixture evidence",
+    }];
+  }), "residuals.nonEffectiveAcceptedExceptionItems[0].effectiveExceptionStatus");
+
+  expectFail(withPatch(projection, (body) => {
+    body.residuals.nonEffectiveAcceptedExceptionItems = [{
+      id: "AF-RISK-AI-001",
+      reviewAt: "2026-08-01",
+      reviewStatus: "future",
+      effectiveExceptionStatus: "expired",
+      ownerSkills: ["areaforge-ai-governance"],
+      closeCondition: "fixture close condition",
+      requiredEvidence: "fixture evidence",
+    }];
+  }), "residuals.nonEffectiveAcceptedExceptionItems[0].id");
+
   expectFail(JSON.stringify({
     ...projection,
     fakeSecret: "DATABASE_URL=postgresql://user:pass@localhost:5432/areaforge",
@@ -99,9 +123,9 @@ function expectFail(raw: string, field: string): void {
   }
 }
 
-type MutableProjection = OperabilityStatusProjection & {
+type MutableProjection = Omit<OperabilityStatusProjection, "mode" | "safetyFacts"> & {
   mode: string;
-  safetyFacts: OperabilityStatusProjection["safetyFacts"] & {
+  safetyFacts: Omit<OperabilityStatusProjection["safetyFacts"], "productionWriteAttempted" | "protectedPathWriteAttempted"> & {
     productionWriteAttempted: boolean;
     protectedPathWriteAttempted: boolean;
   };
@@ -109,6 +133,7 @@ type MutableProjection = OperabilityStatusProjection & {
   status: OperabilityStatusProjection["status"];
   sourceSnapshot: OperabilityStatusProjection["sourceSnapshot"];
   boundaryStops: OperabilityStatusProjection["boundaryStops"];
+  residuals: OperabilityStatusProjection["residuals"];
 };
 
 main();

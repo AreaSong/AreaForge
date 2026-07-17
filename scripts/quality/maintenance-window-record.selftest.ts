@@ -105,6 +105,25 @@ try {
   });
   expectStatus("validate fresh passing maintenance window record", passValidation, 0);
 
+  const crossFieldCases = [
+    ["readinessOverall", "blocked"],
+    ["evidenceBundleStatus", "blocked"],
+    ["alertPreviewStatus", "critical"],
+    ["healthStatus", "fail"],
+    ["evidenceFreshnessStatus", "stale"],
+    ["residualReviewStatus", "fail"],
+  ] as const;
+  for (const [field, value] of crossFieldCases) {
+    const invalidFile = path.join(tempDir, `invalid-${field}.txt`);
+    const invalidRecord = passGenerated.stdout.replace(new RegExp(`^${field}: .*\\n`, "m"), `${field}: ${value}\n`);
+    writeFileSync(invalidFile, invalidRecord);
+    const invalidValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/maintenance-window-record-validate.ts", invalidFile], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    expectStatus(`reject inconsistent ${field}`, invalidValidation, 1);
+  }
+
   const unknownDowngrade = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/generate-maintenance-window-record.ts"], {
     cwd: root,
     encoding: "utf8",

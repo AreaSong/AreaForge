@@ -113,6 +113,7 @@ export function validateSupportBundlePreview(raw: string): ValidationIssue[] {
     "residual risk IDs and close conditions",
   ], issues);
   validateArray(body.excludedSensitiveContent, "excludedSensitiveContent", requiredExcludedContent, issues);
+  validateDataLifecycle(body.dataLifecycle, issues);
   validateEvidencePointers(body.evidencePointers, issues);
   validateResiduals(body.residuals, issues);
   validateRecommendedCommands(body.recommendedNextCommands, issues);
@@ -122,6 +123,44 @@ export function validateSupportBundlePreview(raw: string): ValidationIssue[] {
   validateSafetyFacts(body.safetyFacts, issues);
 
   return issues;
+}
+
+function validateDataLifecycle(value: unknown, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ field: "dataLifecycle", message: "must be an object" });
+    return;
+  }
+  const categories = Array.isArray(value.categories) ? value.categories : [];
+  const requiredCategories = [
+    "relational_study_records",
+    "attachment_binaries",
+    "auth_session_state",
+    "ai_provider_transient_context",
+    "operational_evidence_and_backups",
+  ];
+  const categoryNames = categories.filter(isRecord).map((item) => item.category);
+  for (const category of requiredCategories) {
+    if (!categoryNames.includes(category)) issues.push({ field: "dataLifecycle.categories", message: `must include ${category}` });
+  }
+  for (const [index, category] of categories.entries()) {
+    if (!isRecord(category)) {
+      issues.push({ field: `dataLifecycle.categories[${index}]`, message: "must be an object" });
+      continue;
+    }
+    requireString(category.category, `dataLifecycle.categories[${index}].category`, issues);
+    requireString(category.storageClass, `dataLifecycle.categories[${index}].storageClass`, issues);
+    if (!(["documented", "not_applicable"] as unknown[]).includes(category.backupCoverage)) issues.push({ field: `dataLifecycle.categories[${index}].backupCoverage`, message: "invalid status" });
+    if (!(["configured", "not_configured", "not_applicable"] as unknown[]).includes(category.retentionSource)) issues.push({ field: `dataLifecycle.categories[${index}].retentionSource`, message: "invalid status" });
+    if (!(["metadata_only", "not_supported"] as unknown[]).includes(category.exportSupport)) issues.push({ field: `dataLifecycle.categories[${index}].exportSupport`, message: "invalid status" });
+    requireValue(category.deletionSupport, `dataLifecycle.categories[${index}].deletionSupport`, "not_supported", issues);
+    requireValue(category.migrationSupport, `dataLifecycle.categories[${index}].migrationSupport`, "not_supported", issues);
+  }
+  validateArray(value.doesNotInspect, "dataLifecycle.doesNotInspect", [
+    "database rows",
+    "attachment contents",
+    "backup archives",
+    "private environment values",
+  ], issues);
 }
 
 function validateApp(value: unknown, issues: ValidationIssue[]): void {
@@ -174,6 +213,52 @@ function validateResiduals(value: unknown, issues: ValidationIssue[]): void {
   }
   if (!Array.isArray(value.dueSoonOrExecutable)) {
     issues.push({ field: "residuals.dueSoonOrExecutable", message: "must be an array" });
+  }
+  validateNonEffectiveAcceptedExceptions(value.nonEffectiveAcceptedExceptionItems, issues);
+  validateResidualProjectionConsistency(value, issues);
+}
+
+function validateNonEffectiveAcceptedExceptions(value: unknown, issues: ValidationIssue[]): void {
+  const field = "residuals.nonEffectiveAcceptedExceptionItems";
+  if (!Array.isArray(value)) {
+    issues.push({ field, message: "must be an array" });
+    return;
+  }
+  const seen = new Set<string>();
+  for (const [index, item] of value.entries()) {
+    const prefix = `${field}[${index}]`;
+    if (!isRecord(item)) {
+      issues.push({ field: prefix, message: "must be an object" });
+      continue;
+    }
+    requireString(item.id, `${prefix}.id`, issues);
+    requireIsoDate(item.reviewAt, `${prefix}.reviewAt`, issues);
+    if (!(["revoked", "expired", "superseded"] as unknown[]).includes(item.effectiveExceptionStatus)) {
+      issues.push({ field: `${prefix}.effectiveExceptionStatus`, message: "must be revoked, expired, or superseded" });
+    }
+    validateNonEmptyStringArray(item.ownerSkills, `${prefix}.ownerSkills`, issues);
+    requireString(item.closeCondition, `${prefix}.closeCondition`, issues);
+    requireString(item.requiredEvidence, `${prefix}.requiredEvidence`, issues);
+    if (typeof item.id === "string") {
+      if (seen.has(item.id)) issues.push({ field: `${prefix}.id`, message: "must not be duplicated" });
+      seen.add(item.id);
+    }
+  }
+}
+
+function validateResidualProjectionConsistency(value: JsonRecord, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value.nonEffectiveAcceptedExceptionItems) || !Array.isArray(value.dueSoonOrExecutable)) return;
+  const dueIds = new Set(value.dueSoonOrExecutable
+    .filter(isRecord)
+    .map((item) => item.id)
+    .filter((id): id is string => typeof id === "string"));
+  for (const [index, item] of value.nonEffectiveAcceptedExceptionItems.entries()) {
+    if (isRecord(item) && typeof item.id === "string" && !dueIds.has(item.id)) {
+      issues.push({
+        field: `residuals.nonEffectiveAcceptedExceptionItems[${index}].id`,
+        message: "must be included in dueSoonOrExecutable",
+      });
+    }
   }
 }
 
@@ -278,6 +363,18 @@ function requireValue(value: unknown, field: string, expected: string | number |
 function requireIso(value: unknown, field: string, issues: ValidationIssue[]): void {
   if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
     issues.push({ field, message: "must be an ISO-8601 timestamp" });
+  }
+}
+
+function requireIsoDate(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+    issues.push({ field, message: "must be YYYY-MM-DD" });
+  }
+}
+
+function validateNonEmptyStringArray(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value) || value.length === 0 || !value.every((item) => typeof item === "string" && item.trim() !== "")) {
+    issues.push({ field, message: "must be a non-empty string array" });
   }
 }
 

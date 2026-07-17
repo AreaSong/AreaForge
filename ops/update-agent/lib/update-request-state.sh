@@ -1,7 +1,27 @@
 # shellcheck shell=bash
 
 latest_rollback_record() {
-  find "$AREAFORGE_UPDATE_RECORD_DIR" -name update-record.txt -type f 2>/dev/null | sort | tail -n 1 || true
+  local record updated best_record="" best_updated=""
+  while IFS= read -r record; do
+    [[ -n "$record" ]] || continue
+    updated="$(awk -F': ' '$1=="updatedAt"{print $2; exit}' "$record")"
+    [[ "$updated" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || continue
+    if [[ -z "$best_record" || "$updated" > "$best_updated" || ( "$updated" == "$best_updated" && "$record" > "$best_record" ) ]]; then
+      best_record="$record"
+      best_updated="$updated"
+    fi
+  done < <(find "$AREAFORGE_UPDATE_RECORD_DIR" -name update-record.txt -type f 2>/dev/null | sort)
+  printf '%s\n' "$best_record"
+}
+
+image_tag_matches_version() {
+  local image="$1"
+  local version="$2"
+  local reference tag
+  [[ "$image" =~ ^ghcr\.io/[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+@sha256:[a-f0-9]{64}$ ]] || return 1
+  reference="${image%@sha256:*}"
+  tag="${reference##*:}"
+  [[ "$tag" == "$version" || "$tag" == "v$version" ]]
 }
 
 rollback_from_record() {
@@ -13,11 +33,12 @@ rollback_from_record() {
   local previous_version previous_image source_hash
   previous_version="$(awk -F': ' '$1=="previousAppVersion"{print $2; exit}' "$record")"
   previous_image="$(awk -F': ' '$1=="previousImage"{print $2; exit}' "$record")"
-  source_hash="$(sha256_file "$record")"
-  if [[ -z "$previous_version" || -z "$previous_image" || "$previous_image" == "not-applicable" ]]; then
-    jq -n --arg source "$source_hash" '{available:false,targetVersion:null,targetImage:null,sourceRecordSha256:$source}'
+  if [[ ! "$previous_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+     ! image_tag_matches_version "$previous_image" "$previous_version"; then
+    jq -n '{available:false,targetVersion:null,targetImage:null,sourceRecordSha256:null}'
     return
   fi
+  source_hash="$(sha256_file "$record")"
   jq -n \
     --arg version "$previous_version" \
     --arg image "$previous_image" \
@@ -43,14 +64,16 @@ find_rollback_record_by_hash() {
 }
 
 observed_before() {
-  local rollback current_image signature
+  local rollback current_image auto_apply signature
   rollback="$(detect_rollback)"
   current_image="$(env_get AREAFORGE_IMAGE)"
+  auto_apply="$(config_get AREAFORGE_AUTO_APPLY)"
+  auto_apply="${auto_apply:-none}"
   signature="$(config_get AREAFORGE_REQUIRE_SIGNATURE)"
   jq -n \
     --arg currentVersion "$(env_get APP_VERSION)" \
     --arg currentImage "$current_image" \
-    --arg autoApply "$(config_get AREAFORGE_AUTO_APPLY)" \
+    --arg autoApply "$auto_apply" \
     --argjson signatureRequired "$([[ "$signature" == "true" ]] && printf true || printf false)" \
     --argjson rollback "$rollback" \
     '{
@@ -58,6 +81,7 @@ observed_before() {
       currentImage:($currentImage | select(length > 0) // null),
       autoApply:$autoApply,
       signatureRequired:$signatureRequired,
+      rollbackAvailable:$rollback.available,
       rollbackTargetVersion:$rollback.targetVersion,
       rollbackTargetImage:$rollback.targetImage,
       rollbackSourceRecordSha256:$rollback.sourceRecordSha256
@@ -70,17 +94,22 @@ claim_id() {
 
 claim_request() {
   local source="$1"
-  local original_name claim_id_value claim_dir claimed_at claim_expires
+  local original_name claim_id_value claim_dir claimed_request claimed_at claim_expires
   original_name="$(basename "$source")"
   claim_id_value="$(claim_id)"
   claim_dir="$PROCESSING_DIR/$claim_id_value"
   mkdir "$claim_dir"
   chmod 700 "$claim_dir"
+  fsync_path "$PROCESSING_DIR" || return 1
   if ! mv "$source" "$claim_dir/$original_name"; then
     rmdir "$claim_dir" 2>/dev/null || true
     return 1
   fi
-  chmod 400 "$claim_dir/$original_name"
+  claimed_request="$claim_dir/$original_name"
+  materialize_claimed_request "$claimed_request" || return 1
+  fsync_path "$REQUEST_DIR" || return 1
+  fsync_path "$claim_dir" || return 1
+  fsync_path "$PROCESSING_DIR" || return 1
   claimed_at="$(now_epoch)"
   claim_expires="$((claimed_at + CLAIM_TTL_SECONDS))"
   jq -n \
@@ -89,8 +118,27 @@ claim_request() {
     --arg claimExpiresAt "$(epoch_to_iso "$claim_expires")" \
     --arg originalFileName "$original_name" \
     '{claimId:$claimId,claimedAt:$claimedAt,claimExpiresAt:$claimExpiresAt,originalFileName:$originalFileName}' |
-    write_json "$claim_dir/claim.json" 600
+    write_json "$claim_dir/claim.json" 600 || return 1
   printf '%s\n' "$claim_dir"
+}
+
+materialize_claimed_request() {
+  local claimed_request="$1"
+  local temporary
+  temporary="$(mktemp "$(dirname "$claimed_request")/.claimed-request.XXXXXX")" || return 1
+  if [[ -f "$claimed_request" && ! -L "$claimed_request" ]]; then
+    if ! cat -- "$claimed_request" > "$temporary"; then
+      rm -f "$temporary"
+      return 1
+    fi
+  else
+    printf '{"schemaVersion":2}\n' > "$temporary"
+  fi
+  chmod 400 "$temporary" || { rm -f "$temporary"; return 1; }
+  fsync_path "$temporary" || { rm -f "$temporary"; return 1; }
+  mv -f "$temporary" "$claimed_request" || { rm -f "$temporary"; return 1; }
+  fsync_path "$claimed_request" || return 1
+  fsync_path "$(dirname "$claimed_request")" || return 1
 }
 
 history_match() {
@@ -100,6 +148,72 @@ history_match() {
   while IFS= read -r file; do
     [[ -n "$file" ]] || continue
     if jq -e --arg field "$field" --arg value "$value" '.[$field] == $value' "$file" >/dev/null 2>&1; then
+      printf '%s\n' "$file"
+      return 0
+    fi
+  done < <(find "$HISTORY_DIR" -maxdepth 1 -name '*.decision.json' -type f 2>/dev/null | sort)
+  return 1
+}
+
+history_idempotency_source() {
+  local value="$1"
+  local file
+  while IFS= read -r file; do
+    [[ -n "$file" ]] || continue
+    if jq -e --arg value "$value" '
+      .idempotencyKey == $value and
+      (.reasonCode as $reason | ["DUPLICATE_REQUEST","IDEMPOTENCY_CONFLICT","IDEMPOTENT_REPLAY"] | index($reason) == null)
+    ' "$file" >/dev/null 2>&1; then
+      printf '%s\n' "$file"
+      return 0
+    fi
+  done < <(find "$HISTORY_DIR" -maxdepth 1 -name '*.decision.json' -type f 2>/dev/null | sort)
+  return 1
+}
+
+history_for_claim() {
+  local request="$1"
+  local claim_file="$2"
+  local id claim_id_value request_hash_value file
+  id="$(jq -r '.id // empty' "$request" 2>/dev/null || true)"
+  claim_id_value="$(jq -r '.claimId // empty' "$claim_file" 2>/dev/null || true)"
+  request_hash_value="$(jq -r '.requestHash // empty' "$request" 2>/dev/null || true)"
+  while IFS= read -r file; do
+    [[ -n "$file" ]] || continue
+    if jq -e \
+      --arg id "$id" \
+      --arg claimId "$claim_id_value" \
+      --arg requestHash "$request_hash_value" \
+      '.id == $id and
+       .claimId == $claimId and
+       ((.requestHash // "") == $requestHash) and
+       (.decision as $decision | ["SUCCEEDED","REJECTED","NEEDS_RECONCILIATION"] | index($decision) != null) and
+       (.status as $status | ["succeeded","failed","needs_reconciliation"] | index($status) != null) and
+       (.evaluatedAt | type == "string" and length > 0)' \
+      "$file" >/dev/null 2>&1; then
+      printf '%s\n' "$file"
+      return 0
+    fi
+  done < <(find "$HISTORY_DIR" -maxdepth 1 -name '*.decision.json' -type f 2>/dev/null | sort)
+  return 1
+}
+
+history_for_request() {
+  local request="$1"
+  local id request_hash_value file
+  id="$(jq -r '.id // empty' "$request" 2>/dev/null || true)"
+  request_hash_value="$(jq -r '.requestHash // empty' "$request" 2>/dev/null || true)"
+  [[ -n "$id" && -n "$request_hash_value" ]] || return 1
+  while IFS= read -r file; do
+    [[ -n "$file" ]] || continue
+    if jq -e \
+      --arg id "$id" \
+      --arg requestHash "$request_hash_value" \
+      '.id == $id and
+       .requestHash == $requestHash and
+       (.decision as $decision | ["SUCCEEDED","REJECTED","NEEDS_RECONCILIATION"] | index($decision) != null) and
+       (.status as $status | ["succeeded","failed","needs_reconciliation"] | index($status) != null)' \
+      "$file" >/dev/null 2>&1; then
       printf '%s\n' "$file"
       return 0
     fi
@@ -175,7 +289,7 @@ write_decision() {
       observedBeforeHashSecond:($observedBeforeHashSecond | select(. != "null") // null),
       observedAfterHash:($observedAfterHash | select(. != "null") // null),
       sourceDecision:($sourceDecision | select(. != "null") // null)
-    }' | write_json_immutable "$output"
+    }' | write_json_immutable "$output" || return 1
   printf '%s\n' "$output"
 }
 
@@ -184,6 +298,7 @@ cleanup_claim() {
   chmod 600 "$claim_dir"/*.json 2>/dev/null || true
   rm -f "$claim_dir"/*.json
   rmdir "$claim_dir" 2>/dev/null || true
+  fsync_path "$PROCESSING_DIR" || return 1
 }
 
 operation_from_decision() {
@@ -221,7 +336,7 @@ check_duplicate_or_idempotency() {
     reject_claim "$claim_dir" DUPLICATE_REQUEST "request id already has immutable history"
     return 0
   fi
-  if existing="$(history_match idempotencyKey "$key")"; then
+  if existing="$(history_idempotency_source "$key")"; then
     if [[ "$(jq -r '.semanticHash // empty' "$existing")" == "$semantic" ]]; then
       source="$(basename "$existing")"
       local source_decision
@@ -278,11 +393,11 @@ process_claim() {
     reject_claim "$claim_dir" REQUEST_HASH_MISMATCH "request canonical hash validation failed"
     return
   fi
-  if ! validate_ttl "$request"; then
-    reject_claim "$claim_dir" REQUEST_EXPIRED "request TTL is invalid or expired"
+  if check_duplicate_or_idempotency "$claim_dir" "$request"; then
     return
   fi
-  if check_duplicate_or_idempotency "$claim_dir" "$request"; then
+  if ! validate_ttl "$request"; then
+    reject_claim "$claim_dir" REQUEST_EXPIRED "request TTL is invalid or expired"
     return
   fi
   case "$(jq -r '.action' "$request")" in
@@ -312,23 +427,83 @@ reconcile_missing_claim() {
     --arg claimId "$(synthetic_claim_id "$claim_dir")" \
     --arg originalFileName "$(basename "$request")" \
     '{claimId:$claimId,claimedAt:null,claimExpiresAt:null,originalFileName:$originalFileName,synthetic:true}' |
-    write_json "$claim_file" 600
+    write_json "$claim_file" 600 || return 1
   decision_file="$(write_decision "$request" "$claim_file" NEEDS_RECONCILIATION MISSING_CLAIM_METADATA null "processing request has no claim metadata and was not replayed")"
   operation="$(operation_from_decision "$decision_file")"
-  cleanup_claim "$claim_dir"
   merge_status "$operation" false
   RECONCILED_STALE=1
+  ACTIVE_PROCESSING_CLAIM=1
+}
+
+reconcile_missing_request() {
+  local claim_dir="$1"
+  local claim_file synthetic_request decision_file operation claim_id_value original_name
+  claim_file="$claim_dir/claim.json"
+  claim_id_value="$(jq -r '.claimId // empty' "$claim_file" 2>/dev/null || true)"
+  original_name="$(jq -r '.originalFileName // "missing-request.json"' "$claim_file" 2>/dev/null || printf 'missing-request.json')"
+  if [[ ! "$claim_id_value" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$ ]]; then
+    claim_id_value="$(synthetic_claim_id "$claim_dir")"
+    jq -n \
+      --arg claimId "$claim_id_value" \
+      --arg originalFileName "$original_name" \
+      '{claimId:$claimId,claimedAt:null,claimExpiresAt:null,originalFileName:$originalFileName,synthetic:true}' |
+      write_json "$claim_file" 600 || return 1
+  fi
+  synthetic_request="$claim_dir/missing-request.json"
+  jq -n \
+    --arg id "missing_request_$claim_id_value" \
+    '{schemaVersion:2,id:$id,action:"invalid",status:"processing",requestHash:null}' |
+    write_json "$synthetic_request" 400 || return 1
+  decision_file="$(write_decision "$synthetic_request" "$claim_file" NEEDS_RECONCILIATION MISSING_PROCESSING_REQUEST null "processing claim has no request file and was not replayed")"
+  operation="$(operation_from_decision "$decision_file")"
+  merge_status "$operation" false
+  RECONCILED_STALE=1
+  ACTIVE_PROCESSING_CLAIM=1
 }
 
 reconcile_stale_claims() {
-  local claim_dir claim_file expires expires_epoch now request decision_file operation
+  local claim_dir claim_file expires expires_epoch now request decision_file operation existing
   now="$(now_epoch)"
   while IFS= read -r claim_dir; do
     request="$(find "$claim_dir" -maxdepth 1 -name '*.json' ! -name claim.json -type f | head -n 1)"
-    [[ -n "$request" ]] || continue
     claim_file="$claim_dir/claim.json"
+    if [[ -z "$request" ]]; then
+      if [[ ! -e "$claim_file" ]] && rmdir "$claim_dir" 2>/dev/null; then
+        fsync_path "$PROCESSING_DIR" || return 1
+        RECONCILED_STALE=1
+        continue
+      fi
+      reconcile_missing_request "$claim_dir"
+      continue
+    fi
     if [[ ! -f "$claim_file" ]]; then
+      if existing="$(history_for_request "$request")"; then
+        operation="$(operation_from_decision "$existing")"
+        if [[ "$(jq -r '.decision' "$existing")" == "NEEDS_RECONCILIATION" ]]; then
+          merge_status "$operation" false
+          RECONCILED_STALE=1
+          ACTIVE_PROCESSING_CLAIM=1
+          continue
+        fi
+        cleanup_claim "$claim_dir"
+        merge_status "$operation" false
+        RECONCILED_STALE=1
+        continue
+      fi
       reconcile_missing_claim "$claim_dir" "$request"
+      continue
+    fi
+    if existing="$(history_for_claim "$request" "$claim_file")"; then
+      operation="$(operation_from_decision "$existing")"
+      if [[ "$(jq -r '.decision' "$existing")" == "NEEDS_RECONCILIATION" ]]; then
+        merge_status "$operation" false
+        RECONCILED_STALE=1
+        ACTIVE_PROCESSING_CLAIM=1
+        continue
+      fi
+      cleanup_claim "$claim_dir"
+      merge_status "$operation" false
+      RECONCILED_STALE=1
       continue
     fi
     expires="$(jq -r '.claimExpiresAt // empty' "$claim_file" 2>/dev/null || true)"
@@ -339,8 +514,8 @@ reconcile_stale_claims() {
     fi
     decision_file="$(write_decision "$request" "$claim_file" NEEDS_RECONCILIATION STALE_PROCESSING_CLAIM null "stale processing claim requires manual reconciliation and was not replayed")"
     operation="$(operation_from_decision "$decision_file")"
-    cleanup_claim "$claim_dir"
     merge_status "$operation" false
     RECONCILED_STALE=1
+    ACTIVE_PROCESSING_CLAIM=1
   done < <(find "$PROCESSING_DIR" -mindepth 1 -maxdepth 1 -type d | sort)
 }

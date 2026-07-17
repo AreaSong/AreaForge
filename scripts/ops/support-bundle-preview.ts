@@ -1,17 +1,22 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  effectiveExceptionStatus,
+  effectiveExecutableNow,
+  isAcceptedExceptionEffective,
+  readResidualLedgerV2,
+  type EffectiveExceptionStatus,
+  type ResidualItemV2,
+} from "../quality/residual-ledger-common";
 
 type JsonRecord = Record<string, unknown>;
 
-type ResidualItem = {
-  id: string;
-  type: string;
-  reviewAt: string;
+type ProjectedResidualItem = Omit<ResidualItemV2, "executableNow"> & {
   executableNow: boolean;
-  currentImpact: string;
-  closeCondition: string;
-  requiredEvidence: string;
-  ownerSkills: string[];
+  effectiveExceptionStatus: EffectiveExceptionStatus;
+  acceptedExceptionEffective: boolean;
 };
 
 type SupportBundlePreview = {
@@ -35,6 +40,18 @@ type SupportBundlePreview = {
   };
   includedMetadata: string[];
   excludedSensitiveContent: string[];
+  dataLifecycle: {
+    categories: Array<{
+      category: string;
+      storageClass: string;
+      backupCoverage: "documented" | "not_applicable";
+      retentionSource: "configured" | "not_configured" | "not_applicable";
+      exportSupport: "metadata_only" | "not_supported";
+      deletionSupport: "not_supported";
+      migrationSupport: "not_supported";
+    }>;
+    doesNotInspect: string[];
+  };
   evidencePointers: {
     docs: string[];
     commands: string[];
@@ -44,7 +61,8 @@ type SupportBundlePreview = {
     source: string;
     total: number;
     countsByType: Record<string, number>;
-    dueSoonOrExecutable: Array<Pick<ResidualItem, "id" | "type" | "reviewAt" | "executableNow" | "ownerSkills" | "closeCondition" | "requiredEvidence">>;
+    dueSoonOrExecutable: Array<Pick<ProjectedResidualItem, "id" | "type" | "reviewAt" | "executableNow" | "ownerSkills" | "closeCondition" | "requiredEvidence">>;
+    nonEffectiveAcceptedExceptionItems: Array<Pick<ProjectedResidualItem, "id" | "reviewAt" | "effectiveExceptionStatus" | "ownerSkills" | "closeCondition" | "requiredEvidence">>;
   };
   recommendedNextCommands: {
     support: string[];
@@ -84,13 +102,26 @@ type SupportBundlePreview = {
 
 const residualSource = "docs/development/residual-risk-ledger.json";
 
+type BuildOptions = {
+  root?: string;
+  now?: Date;
+  generatedAt?: string;
+};
+
 function main(): void {
-  const packageJson = readJson("package.json");
-  const residuals = readResiduals();
+  console.log(JSON.stringify(buildSupportBundlePreview(), null, 2));
+}
+
+export function buildSupportBundlePreview(options: BuildOptions = {}): SupportBundlePreview {
+  const root = options.root ?? process.cwd();
+  const now = options.now ?? new Date();
+  const packageJson = readJson(root, "package.json");
+  const ledger = readResidualLedgerV2({ root, file: residualSource, now });
+  const residuals = ledger.items.map((item) => projectResidual(item, root, now));
   const version = stringValue(packageJson.version, "0.0.0");
   const previewWithoutHash = {
     schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
+    generatedAt: options.generatedAt ?? now.toISOString(),
     mode: "metadata_only_support_bundle_preview",
     supportBundlePreviewHash: "",
     app: {
@@ -126,6 +157,7 @@ function main(): void {
       "backup/restore preview command names",
       "support and release claim boundaries",
       "redaction and safety facts",
+      "data lifecycle capability status",
     ],
     excludedSensitiveContent: [
       "secret_values",
@@ -140,6 +172,63 @@ function main(): void {
       "raw_logs",
       "session_tokens",
     ],
+    dataLifecycle: {
+      categories: [
+        {
+          category: "relational_study_records",
+          storageClass: "postgresql",
+          backupCoverage: "documented",
+          retentionSource: "not_configured",
+          exportSupport: "not_supported",
+          deletionSupport: "not_supported",
+          migrationSupport: "not_supported",
+        },
+        {
+          category: "attachment_binaries",
+          storageClass: "private_upload_directory",
+          backupCoverage: "documented",
+          retentionSource: "not_configured",
+          exportSupport: "not_supported",
+          deletionSupport: "not_supported",
+          migrationSupport: "not_supported",
+        },
+        {
+          category: "auth_session_state",
+          storageClass: "postgresql_and_http_only_cookie",
+          backupCoverage: "documented",
+          retentionSource: "configured",
+          exportSupport: "not_supported",
+          deletionSupport: "not_supported",
+          migrationSupport: "not_supported",
+        },
+        {
+          category: "ai_provider_transient_context",
+          storageClass: "request_memory_only",
+          backupCoverage: "not_applicable",
+          retentionSource: "not_applicable",
+          exportSupport: "metadata_only",
+          deletionSupport: "not_supported",
+          migrationSupport: "not_supported",
+        },
+        {
+          category: "operational_evidence_and_backups",
+          storageClass: "operator_managed_files",
+          backupCoverage: "documented",
+          retentionSource: "configured",
+          exportSupport: "metadata_only",
+          deletionSupport: "not_supported",
+          migrationSupport: "not_supported",
+        }
+      ],
+      doesNotInspect: [
+        "database rows",
+        "attachment contents",
+        "backup archives",
+        "private environment values",
+        "session values",
+        "AI transient context text"
+      ]
+    },
     evidencePointers: {
       docs: [
         "SUPPORT.md",
@@ -162,19 +251,29 @@ function main(): void {
         "pnpm ops:alert:preview",
         "pnpm residuals:review-due",
       ],
-      residualRiskIds: residuals.items.map((item) => item.id),
+      residualRiskIds: residuals.map((item) => item.id),
     },
     residuals: {
       source: residualSource,
-      total: residuals.items.length,
-      countsByType: countBy(residuals.items, "type"),
-      dueSoonOrExecutable: residuals.items
-        .filter((item) => item.executableNow || isDueSoon(item.reviewAt))
+      total: residuals.length,
+      countsByType: countBy(residuals, "type"),
+      dueSoonOrExecutable: residuals
+        .filter((item) => item.executableNow || isDueSoon(item.reviewAt, now) || isNonEffectiveAcceptedException(item))
         .map((item) => ({
           id: item.id,
           type: item.type,
           reviewAt: item.reviewAt,
           executableNow: item.executableNow,
+          ownerSkills: item.ownerSkills,
+          closeCondition: item.closeCondition,
+          requiredEvidence: item.requiredEvidence,
+        })),
+      nonEffectiveAcceptedExceptionItems: residuals
+        .filter(isNonEffectiveAcceptedException)
+        .map((item) => ({
+          id: item.id,
+          reviewAt: item.reviewAt,
+          effectiveExceptionStatus: item.effectiveExceptionStatus,
           ownerSkills: item.ownerSkills,
           closeCondition: item.closeCondition,
           requiredEvidence: item.requiredEvidence,
@@ -276,40 +375,31 @@ function main(): void {
     supportBundlePreviewHash: hashPreview(previewWithoutHash),
   };
 
-  console.log(JSON.stringify(preview, null, 2));
+  return preview;
 }
 
-function readResiduals(): { items: ResidualItem[] } {
-  const parsed = readJson(residualSource);
-  const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+function projectResidual(item: ResidualItemV2, root: string, now: Date): ProjectedResidualItem {
   return {
-    items: rawItems.filter(isResidualItem),
+    ...item,
+    executableNow: effectiveExecutableNow(item, { root, now }),
+    effectiveExceptionStatus: effectiveExceptionStatus(item, now),
+    acceptedExceptionEffective: isAcceptedExceptionEffective(item, now),
   };
 }
 
-function isResidualItem(value: unknown): value is ResidualItem {
-  if (!isRecord(value)) return false;
-  return typeof value.id === "string" &&
-    typeof value.type === "string" &&
-    typeof value.reviewAt === "string" &&
-    typeof value.executableNow === "boolean" &&
-    typeof value.currentImpact === "string" &&
-    typeof value.closeCondition === "string" &&
-    typeof value.requiredEvidence === "string" &&
-    Array.isArray(value.ownerSkills) &&
-    value.ownerSkills.every((item) => typeof item === "string");
+function isNonEffectiveAcceptedException(item: ProjectedResidualItem): boolean {
+  return item.type === "accepted-exception" && !item.acceptedExceptionEffective;
 }
 
-function isDueSoon(reviewAt: string): boolean {
+function isDueSoon(reviewAt: string, now: Date): boolean {
   const timestamp = Date.parse(`${reviewAt}T00:00:00Z`);
   if (Number.isNaN(timestamp)) return false;
-  const today = new Date();
-  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const days = Math.floor((timestamp - todayUtc) / 86_400_000);
   return days >= 0 && days <= 14;
 }
 
-function countBy(items: ResidualItem[], key: keyof ResidualItem): Record<string, number> {
+function countBy(items: ProjectedResidualItem[], key: keyof ProjectedResidualItem): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const item of items) {
     const value = String(item[key]);
@@ -318,11 +408,12 @@ function countBy(items: ResidualItem[], key: keyof ResidualItem): Record<string,
   return counts;
 }
 
-function readJson(filePath: string): JsonRecord {
-  if (!existsSync(filePath)) {
+function readJson(root: string, filePath: string): JsonRecord {
+  const absolutePath = path.resolve(root, filePath);
+  if (!existsSync(absolutePath)) {
     throw new Error(`file not found: ${filePath}`);
   }
-  const parsed = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
+  const parsed = JSON.parse(readFileSync(absolutePath, "utf8")) as unknown;
   if (!isRecord(parsed)) {
     throw new Error(`${filePath} must contain a JSON object`);
   }
@@ -356,9 +447,11 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`FAIL support bundle preview: ${error instanceof Error ? error.message : "unknown error"}`);
-  process.exit(1);
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`FAIL support bundle preview: ${error instanceof Error ? error.message : "unknown error"}`);
+    process.exit(1);
+  }
 }

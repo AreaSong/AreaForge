@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readRestrictedSmokePassword } from "./smoke-password";
 
 type CheckResult = {
   name: string;
@@ -18,13 +18,18 @@ type RequestOptions = {
 const timeoutMs = Number(process.env.AREAFORGE_SMOKE_TIMEOUT_MS ?? "10000");
 const baseUrl = normalizeBaseUrl(process.env.AREAFORGE_SMOKE_BASE_URL ?? "http://127.0.0.1:3102");
 const smokeEmail = process.env.AREAFORGE_SMOKE_EMAIL;
-const smokePassword = readSmokePassword();
 const allowWrites = process.env.AREAFORGE_SMOKE_ALLOW_WRITES === "true";
-const allowNonLocal = process.env.AREAFORGE_SMOKE_ALLOW_NON_LOCAL === "true";
+let smokePassword: string | undefined;
 const results: CheckResult[] = [];
 
 async function main(): Promise<void> {
-  validateConfig();
+  try {
+    validateConfig();
+  } catch (error) {
+    recordFailure("config", error);
+    report();
+    return;
+  }
 
   let cookie = "";
   const tag = Date.now().toString(36);
@@ -50,10 +55,14 @@ async function main(): Promise<void> {
     if (user.email !== smokeEmail) throw new Error("login response user email mismatch");
   });
 
+  await assertNoActiveSession("active session preflight", cookie);
+
   const subjectsBody = await checkedJson("subjects", "/api/subjects", cookie);
   const subject = firstArrayItem(asRecord(subjectsBody).subjects);
   const subjectId = stringField(subject, "id");
   if (!subjectId) throw new Error("subjects response did not include a subject id");
+
+  await assertNoActiveSession("active session before synthetic writes", cookie);
 
   const nodeBody = await checkedJson("create syllabus node", "/api/syllabus/nodes", cookie, {
     method: "POST",
@@ -82,7 +91,7 @@ async function main(): Promise<void> {
   const taskId = stringField(asRecord(taskBody).task, "id");
   if (!taskId) throw new Error("create task response missing task.id");
 
-  await checkedJson("active session before start", "/api/study-sessions/active", cookie);
+  await assertNoActiveSession("active session before start", cookie);
 
   const sessionBody = await checkedJson("start session", "/api/study-sessions/start", cookie, {
     method: "POST",
@@ -91,7 +100,7 @@ async function main(): Promise<void> {
   const sessionId = stringField(asRecord(sessionBody).session, "id");
   if (!sessionId) throw new Error("start session response missing session.id");
 
-  await checkedJson("active session after start", "/api/study-sessions/active", cookie);
+  await assertActiveSession("active session after start", cookie);
 
   await checkedJson("end session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
     method: "POST",
@@ -234,13 +243,29 @@ async function main(): Promise<void> {
 
   await checkedJson("long-term risks readonly", "/api/analytics/long-term-risks", cookie, undefined, (body) =>
     asRecord(body).longTermRisks ? null : "longTermRisks payload missing");
-  await checkedJson("update center status readonly", "/api/system/update-status", cookie, undefined, (body) => {
+  const updateStatusBody = await checkedJson("update center status readonly", "/api/system/update-status", cookie, undefined, (body) => {
     const status = asRecord(asRecord(body).status);
     return typeof status.currentVersion === "string" ? null : "update status missing currentVersion";
   });
-  await checkedJson("update center request queued", "/api/system/update-requests", cookie, {
-    method: "POST",
-    body: { action: "check" },
+  await check("update center request boundary", async () => {
+    const status = asRecord(updateStatusBody.status);
+    const snapshotHash = stringField(status, "snapshotHash");
+    if (!snapshotHash) {
+      if (status.snapshotSchemaVersion !== null && status.snapshotSchemaVersion !== undefined) {
+        throw new Error("missing V2 snapshot hash without an explicit unknown state");
+      }
+      return;
+    }
+    const response = await request("/api/system/update-requests", {
+      method: "POST",
+      cookie,
+      body: {
+        action: "check",
+        confirmedSnapshotHash: snapshotHash,
+        idempotencyKey: crypto.randomUUID(),
+      },
+    });
+    if (!response.response.ok) throw new Error("V2 check request was not accepted");
   });
 
   for (const page of ["/", "/notes", "/syllabus", "/analytics", "/reports", "/simulation", "/settings"]) {
@@ -264,6 +289,27 @@ async function checkedAttachmentUpload(noteId: string, cookie: string): Promise<
     method: "POST",
     rawBody: attachmentFormData(),
   });
+}
+
+async function assertNoActiveSession(name: string, cookie: string): Promise<void> {
+  await check(name, async () => {
+    const body = await requestJson("/api/study-sessions/active", { cookie });
+    const session = asRecord(body).session;
+    if (session !== null && session !== undefined) {
+      throw new Error("an active study session already exists; local UX smoke stopped before synthetic writes");
+    }
+  });
+  if (results.at(-1)?.ok === false) throw new Error(`${name} failed`);
+}
+
+async function assertActiveSession(name: string, cookie: string): Promise<void> {
+  await check(name, async () => {
+    const body = await requestJson("/api/study-sessions/active", { cookie });
+    if (asRecord(body).session === null || asRecord(body).session === undefined) {
+      throw new Error("active study session was not returned after start");
+    }
+  });
+  if (results.at(-1)?.ok === false) throw new Error(`${name} failed`);
 }
 
 function attachmentFormData(): FormData {
@@ -350,12 +396,16 @@ async function check(name: string, fn: () => Promise<void>): Promise<void> {
 }
 
 function validateConfig(): void {
-  if (!allowWrites) failConfig("AREAFORGE_SMOKE_ALLOW_WRITES=true is required because local UX smoke writes synthetic data");
-  if (!isLocalBaseUrl(baseUrl) && !allowNonLocal) {
-    failConfig("non-local base URL is blocked unless AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true is explicitly set");
+  if (!allowWrites) throw new Error("AREAFORGE_SMOKE_ALLOW_WRITES=true is required because local UX smoke writes synthetic data");
+  if (process.env.AREAFORGE_SMOKE_ALLOW_NON_LOCAL !== undefined) {
+    throw new Error("AREAFORGE_SMOKE_ALLOW_NON_LOCAL is unsupported; local UX smoke always requires a local URL");
   }
-  if (!smokeEmail) failConfig("AREAFORGE_SMOKE_EMAIL is required");
-  if (!smokePassword) failConfig("AREAFORGE_SMOKE_PASSWORD or AREAFORGE_SMOKE_PASSWORD_FILE is required");
+  if (!isLocalBaseUrl(baseUrl)) throw new Error("local UX smoke requires a localhost, 127.0.0.1, or ::1 HTTP(S) URL");
+  if (!smokeEmail) throw new Error("AREAFORGE_SMOKE_EMAIL is required");
+  if (process.env.AREAFORGE_SMOKE_PASSWORD !== undefined) {
+    throw new Error("AREAFORGE_SMOKE_PASSWORD is unsupported; use AREAFORGE_SMOKE_PASSWORD_FILE");
+  }
+  smokePassword = readRestrictedSmokePassword();
 }
 
 function report(): void {
@@ -365,16 +415,17 @@ function report(): void {
   }
   console.log(JSON.stringify({
     ok: failed.length === 0,
-    baseUrl,
+    baseUrl: redactedBaseUrl(),
     checkedAt: new Date().toISOString(),
     writeScope: "synthetic-local-ux-smoke",
     checks: results.map((result) => ({
       name: result.name,
       ok: result.ok,
+      detail: result.detail,
       durationMs: result.durationMs,
     })),
   }));
-  if (failed.length > 0) process.exit(1);
+  if (failed.length > 0) process.exitCode = 1;
 }
 
 function cookieFrom(response: Response): string {
@@ -386,26 +437,17 @@ function cookieFrom(response: Response): string {
     .join("; ");
 }
 
-function readSmokePassword(): string | undefined {
-  const passwordFile = process.env.AREAFORGE_SMOKE_PASSWORD_FILE;
-  if (passwordFile) {
-    try {
-      return readFileSync(passwordFile, "utf8").trim();
-    } catch {
-      failConfig(`cannot read AREAFORGE_SMOKE_PASSWORD_FILE at ${passwordFile}`);
-    }
-  }
-  return process.env.AREAFORGE_SMOKE_PASSWORD;
-}
-
 function normalizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
 function isLocalBaseUrl(value: string): boolean {
   try {
-    const hostname = new URL(value).hostname;
-    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:")
+      && !url.username
+      && !url.password
+      && (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1");
   } catch {
     return false;
   }
@@ -431,19 +473,33 @@ function redact(value: string): string {
   }
   return output
     .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer <redacted>")
-    .replace(/postgres(?:ql)?:\/\/\S+/gi, "postgresql://<redacted>");
+    .replace(/postgres(?:ql)?:\/\/\S+/gi, "postgresql://<redacted>")
+    .replace(/\/(?:Users|private|tmp|app|srv|mnt|var)\/[^\s"'<>)]*/g, "<redacted-path>");
 }
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function failConfig(message: string): never {
-  console.error(`FAIL config: ${message}`);
-  process.exit(2);
+function recordFailure(name: string, error: unknown): void {
+  results.push({
+    name,
+    ok: false,
+    detail: error instanceof Error ? redact(error.message) : "unknown error",
+    durationMs: 0,
+  });
+}
+
+function redactedBaseUrl(): string {
+  try {
+    const url = new URL(baseUrl);
+    return `${url.protocol}//${url.hostname}${url.port ? `:${url.port}` : ""}`;
+  } catch {
+    return "<invalid>";
+  }
 }
 
 main().catch((error) => {
-  console.error(`FAIL smoke: ${error instanceof Error ? redact(error.message) : "unknown error"}`);
-  process.exit(1);
+  recordFailure("fatal", error);
+  report();
 });

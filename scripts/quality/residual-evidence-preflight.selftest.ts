@@ -13,6 +13,20 @@ function main(): void {
       evidenceContent: "redacted evidence record\n",
     });
     expectStatus(root, "needs_attention");
+    writeFileSync(path.join(root, "docs/development/residual-risk-ledger.json"), JSON.stringify({
+      schemaVersion: 1,
+      source: "docs/development/residual-risk-ledger.md",
+      items: [],
+    }));
+    expectStatus(root, "blocked");
+    writeFileSync(path.join(root, "docs/development/residual-risk-ledger.json"), JSON.stringify({
+      schemaVersion: 2,
+      source: "docs/development/residual-risk-ledger.md",
+      items: [],
+    }));
+    expectStatus(root, "blocked");
+    rmSync(path.join(root, "docs/development/residual-risk-ledger.json"));
+    expectStatus(root, "blocked");
 
     writeFixture(root, {
       requiredEvidence: "docs/development/missing.txt",
@@ -77,7 +91,7 @@ function writeFixture(root: string, input: {
     writeFileSync(path.join(root, "docs/development/evidence.txt"), input.evidenceContent);
   }
   writeFileSync(path.join(root, "docs/development/residual-risk-ledger.json"), JSON.stringify({
-    schemaVersion: 1,
+    schemaVersion: 2,
     source: "docs/development/residual-risk-ledger.md",
     items: [
       {
@@ -89,6 +103,9 @@ function writeFixture(root: string, input: {
         closeCondition: input.closeCondition,
         requiredEvidence: input.requiredEvidence,
         ownerSkills: ["areaforge-sre-ops"],
+        taskRefs: [],
+        taskPromotionWaiver: null,
+        acceptedException: null,
       },
     ],
   }, null, 2));

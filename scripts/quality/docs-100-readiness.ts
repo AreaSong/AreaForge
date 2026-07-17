@@ -530,7 +530,7 @@ function checkOpsReadinessTerms(): void {
     "pnpm smoke:local-ux",
     "pnpm experience:review:validate",
     "areaforge-operating-loop",
-    "release workflow validates before build",
+    "release workflow validates structured admission and immutable identities before build",
   ];
   const combined = `${readiness}\n${residual}\n${script}\n${skillsReadme}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));

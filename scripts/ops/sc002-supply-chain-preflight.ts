@@ -1,8 +1,8 @@
-import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-type EvidenceStatus = "missing" | "valid" | "invalid";
+type EvidenceStatus = "missing" | "valid" | "stale" | "invalid";
 type PreflightStatus = "needs_evidence" | "ready_for_sc002_review" | "ready_for_sc001_sc002_review" | "invalid";
 
 type EvidenceInput = {
@@ -17,6 +17,12 @@ type EvidenceResult = EvidenceInput & {
   path: string | null;
   status: EvidenceStatus;
   detail: string;
+  recordGitCommit: string | null;
+};
+
+type CheckoutBinding = {
+  gitCommit: string;
+  worktreeClean: boolean;
 };
 
 const evidenceInputs: EvidenceInput[] = [
@@ -37,8 +43,9 @@ const evidenceInputs: EvidenceInput[] = [
 ];
 
 function main(): void {
-  const evidence = evidenceInputs.map(validateEvidenceInput);
-  const status = preflightStatus(evidence);
+  const checkoutBinding = currentCheckoutBinding();
+  const evidence = evidenceInputs.map((input) => validateEvidenceInput(input, checkoutBinding));
+  const status = preflightStatus(evidence, checkoutBinding);
   const result = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -46,6 +53,7 @@ function main(): void {
     residualRiskId: "AF-RISK-SC-002",
     relatedResidualRiskIds: ["AF-RISK-SC-001"],
     status,
+    checkoutBinding,
     evidence,
     requiredPreflight: [
       "pnpm governance:preflight",
@@ -56,6 +64,7 @@ function main(): void {
       "pnpm ci:supply-chain:selftest",
       "pnpm sc:sc-002:preflight:selftest",
       "pnpm github-release-updater:preflight",
+      "current checkout must be clean and evidence gitCommit must equal git rev-parse HEAD",
       "pnpm ci:supply-chain:record <github-workflow-run.json> > <ci-supply-chain-record.txt>",
       "AREAFORGE_SC002_CI_RECORD=<ci-supply-chain-record.txt> pnpm sc:sc-002:preflight",
       "pnpm ci:supply-chain:validate <ci-supply-chain-record.txt>",
@@ -104,7 +113,7 @@ function main(): void {
   }
 }
 
-function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
+function validateEvidenceInput(input: EvidenceInput, checkoutBinding: CheckoutBinding): EvidenceResult {
   const rawPath = process.env[input.envKey]?.trim();
   if (!rawPath) {
     return {
@@ -112,6 +121,7 @@ function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
       path: null,
       status: "missing",
       detail: `${input.envKey} is not set`,
+      recordGitCommit: null,
     };
   }
 
@@ -122,6 +132,7 @@ function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
       path: "<redacted path>",
       status: "invalid",
       detail: "configured evidence path does not exist",
+      recordGitCommit: null,
     };
   }
 
@@ -131,11 +142,31 @@ function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
     encoding: "utf8",
   });
   if (validation.status === 0) {
+    const recordGitCommit = readRecordField(absolutePath, "gitCommit");
+    if (!checkoutBinding.worktreeClean) {
+      return {
+        ...input,
+        path: "<redacted path>",
+        status: "stale",
+        detail: `${input.label} validator passed, but a dirty worktree cannot be bound to remote CI or Release evidence`,
+        recordGitCommit,
+      };
+    }
+    if (recordGitCommit !== checkoutBinding.gitCommit) {
+      return {
+        ...input,
+        path: "<redacted path>",
+        status: "stale",
+        detail: `${input.label} validator passed, but gitCommit does not match the current checkout`,
+        recordGitCommit,
+      };
+    }
     return {
       ...input,
       path: "<redacted path>",
       status: "valid",
-      detail: `${input.label} validator passed`,
+      detail: `${input.label} validator passed and is bound to the clean current checkout`,
+      recordGitCommit,
     };
   }
 
@@ -144,11 +175,13 @@ function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
     path: "<redacted path>",
     status: "invalid",
     detail: sanitizeValidationOutput(validation.stderr || validation.stdout || `${input.label} validator failed`),
+    recordGitCommit: null,
   };
 }
 
-function preflightStatus(evidence: EvidenceResult[]): PreflightStatus {
+function preflightStatus(evidence: EvidenceResult[], checkoutBinding: CheckoutBinding): PreflightStatus {
   if (evidence.some((item) => item.status === "invalid")) return "invalid";
+  if (!checkoutBinding.worktreeClean) return "needs_evidence";
   if (evidence.find((item) => item.key === "releaseSupplyChainRecord")?.status === "valid") {
     return "ready_for_sc001_sc002_review";
   }
@@ -156,6 +189,25 @@ function preflightStatus(evidence: EvidenceResult[]): PreflightStatus {
     return "ready_for_sc002_review";
   }
   return "needs_evidence";
+}
+
+function currentCheckoutBinding(): CheckoutBinding {
+  const testMode = process.env.AREAFORGE_SC002_TEST_MODE === "1";
+  const gitCommit = testMode && process.env.AREAFORGE_SC002_EXPECTED_GIT_COMMIT
+    ? process.env.AREAFORGE_SC002_EXPECTED_GIT_COMMIT
+    : execFileSync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), encoding: "utf8" }).trim();
+  const worktreeClean = testMode && process.env.AREAFORGE_SC002_EXPECTED_WORKTREE_CLEAN
+    ? process.env.AREAFORGE_SC002_EXPECTED_WORKTREE_CLEAN === "true"
+    : execFileSync("git", ["status", "--porcelain=v1"], { cwd: process.cwd(), encoding: "utf8" }).trim().length === 0;
+  return { gitCommit, worktreeClean };
+}
+
+function readRecordField(recordPath: string, field: string): string | null {
+  const prefix = `${field}:`;
+  const line = readFileSync(recordPath, "utf8")
+    .split(/\r?\n/)
+    .find((candidate) => candidate.startsWith(prefix));
+  return line?.slice(prefix.length).trim() || null;
 }
 
 function nextCommand(status: PreflightStatus): string {

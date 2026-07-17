@@ -1,8 +1,15 @@
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import {
+  PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA,
+  canonicalSha256,
+  computeProductExperienceSourceHash,
+  currentGitCommit,
+} from "../../apps/web/lib/system/product-experience-source";
+import { createDevelopmentRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity-development";
+import { getRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity";
 import { buildReleaseEvidenceBundleHash } from "./release-evidence-validate";
 import { computeAttachmentReconciliationSummaryHash } from "./attachment-reconciliation-summary";
 import type { AttachmentReconciliationSummary } from "./attachment-reconciliation-summary";
@@ -12,13 +19,21 @@ import { parseIndentedKeyValueRecord } from "./record-validator-common";
 type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
-const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-long-term-gate-"));
+const developmentRuntimeIdentity = createDevelopmentRuntimeIdentity(root);
+mkdirSync(path.join(root, "output"), { recursive: true });
+const tempDir = mkdtempSync(path.join(root, "output/.tmp-long-term-gate-"));
 const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
 const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
 
 try {
+  const desktopScreenshot = path.join(tempDir, "desktop-dashboard.png");
+  const mobileScreenshot = path.join(tempDir, "mobile-dashboard.png");
+  writeFileSync(desktopScreenshot, "synthetic desktop screenshot evidence");
+  writeFileSync(mobileScreenshot, "synthetic mobile screenshot evidence");
+  const runtimeIdentityEvidence = path.join(tempDir, "runtime-identity.json");
+  writeRuntimeIdentityEvidence(runtimeIdentityEvidence, "2026-07-10T00:00:00.000Z");
   const uxRecord = path.join(tempDir, "product-experience-review.txt");
-  writeFileSync(uxRecord, createUxRecord("2026-07-10T00:00:00.000Z"));
+  writeUxRecord(uxRecord, createUxRecord("2026-07-10T00:00:00.000Z", "0.1.7", desktopScreenshot, mobileScreenshot, runtimeIdentityEvidence));
   const releaseRecord = path.join(tempDir, "release-record.txt");
   const reconciliationCsv = path.join(tempDir, "attachment-reconciliation.csv");
   const reconciliationSummary = path.join(tempDir, "attachment-reconciliation-summary.json");
@@ -37,7 +52,12 @@ try {
 
   const noOps004Evidence = runGate(baseEnv, 1);
   const noOps004EvidenceJson = parseGateJson(noOps004Evidence.stdout);
-  assert(noOps004EvidenceJson.status === "needs_live_evidence", "missing OPS-004 evidence should block the gate");
+  assert(
+    noOps004EvidenceJson.status === "needs_live_evidence",
+    `missing OPS-004 evidence should block the gate, got ${String(noOps004EvidenceJson.status)}: ${JSON.stringify(
+      (noOps004EvidenceJson.checks as JsonRecord[] | undefined)?.filter((check) => check.status === "invalid"),
+    )}`,
+  );
   assertCheckStatus(noOps004EvidenceJson, "ops004", "missing");
   assertCheckStatus(noOps004EvidenceJson, "ops005", "missing");
   assertCheckStatus(noOps004EvidenceJson, "dataIntegrity", "pass");
@@ -99,7 +119,7 @@ try {
   assertCheckStatus(invalidJson, "ops001", "invalid");
 
   const oldVersionUxRecord = path.join(tempDir, "product-experience-review-old-version.txt");
-  writeFileSync(oldVersionUxRecord, createUxRecord("2026-07-10T00:00:00.000Z", "0.1.5"));
+  writeUxRecord(oldVersionUxRecord, createUxRecord("2026-07-10T00:00:00.000Z", "0.1.5", desktopScreenshot, mobileScreenshot, runtimeIdentityEvidence));
   const oldVersionUx = runGate({
     ...baseEnv,
     AREAFORGE_LONG_TERM_UX_RECORD: oldVersionUxRecord,
@@ -113,7 +133,7 @@ try {
   rmSync(tempDir, { force: true, recursive: true });
 }
 
-function runGate(env: Record<string, string>, expectedStatus: number, options: { clearOps004?: boolean } = {}): ReturnType<typeof spawnSync> {
+function runGate(env: Record<string, string>, expectedStatus: number, options: { clearOps004?: boolean } = {}): SpawnSyncReturns<string> {
   const clearOps004 = options.clearOps004 ?? true;
   const childEnv: Record<string, string | undefined> = {
     ...process.env,
@@ -124,6 +144,7 @@ function runGate(env: Record<string, string>, expectedStatus: number, options: {
     AREAFORGE_SC002_CI_RECORD: "",
     AREAFORGE_SC002_RELEASE_RECORD: "",
     AREAFORGE_OPS005_RELEASE_RECORD: "",
+    AREAFORGE_OPS005_RELEASE_ASSETS_DIR: "",
     AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD: "",
     AREAFORGE_OPS005_GIT_COMMIT: "",
     AREAFORGE_LONG_TERM_UX_RECORD: "",
@@ -152,7 +173,13 @@ function runGate(env: Record<string, string>, expectedStatus: number, options: {
   return result;
 }
 
-function createUxRecord(reviewedAt: string, appVersion = "0.1.7"): string {
+function createUxRecord(
+  reviewedAt: string,
+  appVersion: string,
+  desktopScreenshot: string,
+  mobileScreenshot: string,
+  runtimeIdentityEvidence: string,
+): string {
   return [
     "recordId: product-experience-review-selftest",
     `reviewedAt: ${reviewedAt}`,
@@ -160,13 +187,20 @@ function createUxRecord(reviewedAt: string, appVersion = "0.1.7"): string {
     "environment: local",
     "baseUrl: http://127.0.0.1:3102",
     `appVersion: ${appVersion}`,
+    `gitCommit: ${currentGitCommit(root)}`,
+    `sourceFingerprintSchema: ${PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA}`,
+    `productExperienceSourceHash: ${computeProductExperienceSourceHash(root)}`,
+    `runtimeIdentityEvidence: ${path.relative(root, runtimeIdentityEvidence)}`,
+    `runtimeIdentityEvidenceHash: sha256:${"0".repeat(64)}`,
+    `runtimeIdentityHash: sha256:${"0".repeat(64)}`,
     "source: local UX smoke plus browser review",
     "reviewCommand: pnpm smoke:local-ux and playwright desktop/mobile browser review",
     "reviewStatus: pass",
-    `reviewResultHash: sha256:${"a".repeat(64)}`,
+    `reviewResultHash: sha256:${"0".repeat(64)}`,
     "viewports: desktop,mobile",
     "journeys: login,dashboard,timer-closeout,review,notes,syllabus,reports,simulation,update-center",
-    "screenshotEvidence: desktop=output/desktop-dashboard.png; mobile=output/mobile-dashboard.png",
+    `screenshotEvidence: desktop=${path.relative(root, desktopScreenshot)}; mobile=${path.relative(root, mobileScreenshot)}`,
+    `screenshotEvidenceHash: sha256:${"0".repeat(64)}`,
     "nextActionWithin5s: yes",
     "recommendationsExplainWhy: yes",
     "confirmOnlyBoundariesVisible: yes",
@@ -183,6 +217,58 @@ function createUxRecord(reviewedAt: string, appVersion = "0.1.7"): string {
     "  realStudyContentIncluded: no",
     "",
   ].join("\n");
+}
+
+function writeUxRecord(recordPath: string, draft: string): void {
+  writeFileSync(recordPath, draft);
+  const hashes = spawnSync(
+    "pnpm",
+    ["exec", "tsx", "scripts/quality/product-experience-review-validate.ts", recordPath, "--print-record-hashes"],
+    {
+      cwd: root,
+      encoding: "utf8",
+      env: process.env,
+    },
+  );
+  if (hashes.status !== 0) {
+    throw new Error(`failed to generate UX record hashes: ${hashes.stderr || hashes.stdout}`);
+  }
+  const screenshotHash = hashes.stdout.match(/^screenshotEvidenceHash:\s*(sha256:[a-f0-9]{64})$/m)?.[1];
+  const runtimeEvidenceHash = hashes.stdout.match(/^runtimeIdentityEvidenceHash:\s*(sha256:[a-f0-9]{64})$/m)?.[1];
+  const runtimeIdentityHash = hashes.stdout.match(/^runtimeIdentityHash:\s*(sha256:[a-f0-9]{64})$/m)?.[1];
+  const reviewHash = hashes.stdout.match(/^reviewResultHash:\s*(sha256:[a-f0-9]{64})$/m)?.[1];
+  if (!runtimeEvidenceHash || !runtimeIdentityHash || !screenshotHash || !reviewHash) throw new Error("UX record hash output is incomplete");
+  writeFileSync(
+    recordPath,
+    draft
+      .replace(`runtimeIdentityEvidenceHash: sha256:${"0".repeat(64)}`, `runtimeIdentityEvidenceHash: ${runtimeEvidenceHash}`)
+      .replace(`runtimeIdentityHash: sha256:${"0".repeat(64)}`, `runtimeIdentityHash: ${runtimeIdentityHash}`)
+      .replace(`screenshotEvidenceHash: sha256:${"0".repeat(64)}`, `screenshotEvidenceHash: ${screenshotHash}`)
+      .replace(`reviewResultHash: sha256:${"0".repeat(64)}`, `reviewResultHash: ${reviewHash}`),
+  );
+}
+
+function writeRuntimeIdentityEvidence(file: string, observedAt: string): void {
+  const runtimeIdentity = getRuntimeIdentity(new Date(observedAt), developmentRuntimeIdentity);
+  const body = {
+    schemaVersion: 1,
+    baseUrl: "http://127.0.0.1:3102",
+    observedAt,
+    responseHash: canonicalSha256({
+      ok: true,
+      service: "AreaForge",
+      version: runtimeIdentity.appVersion,
+      runtimeIdentity,
+    }),
+    runtimeIdentity,
+    safetyFacts: {
+      requestMethod: "GET",
+      productionWriteAttempted: false,
+      serverCommandAttempted: false,
+      secretValueIncluded: false,
+    },
+  };
+  writeFileSync(file, `${JSON.stringify(body, null, 2)}\n`);
 }
 
 function createReleaseRecord(csv: string, summaryHash: string): string {
@@ -239,7 +325,7 @@ function createDataIntegrityRecord(summary: Record<string, unknown>): Record<str
     attachmentSummary: summary as unknown as AttachmentReconciliationSummary,
     generatedAt: "2026-07-10T12:00:00.000Z",
     databaseReadAttempted: true,
-  });
+  }) as unknown as Record<string, unknown>;
 }
 
 function parseGateJson(raw: string): JsonRecord {

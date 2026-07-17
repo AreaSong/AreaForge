@@ -25,6 +25,8 @@ restoreCommandSummary: <redacted command summary, no secrets>
 databaseRestoreResult: PASS/FAIL/not-applicable
 uploadsRestoreResult: PASS/FAIL/not-applicable
 attachmentHashMatched: PASS/FAIL/not-applicable
+homeReadResult: PASS/FAIL/not-applicable
+loginResult: PASS/FAIL/not-applicable
 appHealthAfterRestore: PASS/FAIL/not-applicable
 rollbackDecision: not-needed/repeat-drill/open-incident/defer
 drillEvidenceHash: <sha256>
@@ -43,6 +45,7 @@ safetyFacts:
 
 ## 关闭条件
 
-- `databaseRestoreResult` 和 `appHealthAfterRestore` 必须是 `PASS` 才能作为一次成功恢复演练。
+- 数据库、上传目录、附件对账、首页读取、登录和应用健康六项结果必须全部是 `PASS`，才能作为一次成功恢复演练。
+- `drillEvidenceHash` 必须等于排除自身后的规范化记录 evidence hash；修改任一记录字段后旧 hash 必须失效。validator 只证明记录内容绑定，不证明备份归档真实存在或恢复动作真实执行。
 - 失败项必须关联 residual ID、任务或 incident follow-up。
 - 记录不得包含数据库 URL、备份私有路径中的敏感段、生产 `.env`、密码、API key、附件内容或真实学习内容。

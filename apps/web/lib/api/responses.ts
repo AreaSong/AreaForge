@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
@@ -27,6 +28,10 @@ export function apiErrorResponse(error: unknown): NextResponse {
     return NextResponse.json({ error: error.code }, { status: error.status });
   }
 
-  console.error(error);
-  return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+  const errorId = randomUUID();
+  console.error("API internal error", {
+    errorId,
+    errorType: error instanceof Error ? error.constructor.name : typeof error,
+  });
+  return NextResponse.json({ error: "INTERNAL_ERROR", errorId }, { status: 500 });
 }

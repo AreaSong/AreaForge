@@ -1,0 +1,356 @@
+{
+  "schemaVersion": 1,
+  "mode": "areaforge_operations_lifecycle",
+  "effectiveAt": "2026-07-15",
+  "reviewAt": "2026-10-15",
+  "sourcePrinciples": [
+    "AreaFlow SLO and incident evidence without importing a runtime control plane",
+    "AreaMatrix capability lifecycle with lifecycle status separated from execution state",
+    "AreaForge existing read-only health, smoke, incident, security, and residual evidence"
+  ],
+  "doesNotProve": [
+    "current production health without fresh live evidence",
+    "availability or latency objective attainment without metrics",
+    "backup restore success or achieved RTO and RPO",
+    "incident runtime transition execution",
+    "production action authorization or execution",
+    "residual risk closure"
+  ],
+  "slos": [
+    {
+      "id": "AF-SLO-HEALTH-001",
+      "name": "Public health observation freshness",
+      "category": "health_observation",
+      "status": "active",
+      "target": {
+        "operator": "lte",
+        "value": 1209600,
+        "unit": "seconds"
+      },
+      "windowSeconds": 1209600,
+      "measurementSource": {
+        "kind": "record",
+        "paths": [
+          "docs/development/operational-evidence-bundle-*.json"
+        ],
+        "commands": [
+          "pnpm ops:evidence:bundle:validate <record>"
+        ],
+        "fields": [
+          "generatedAt",
+          "signalInventory[signal:health].status",
+          "freshness.signals.health"
+        ],
+        "metrics": []
+      },
+      "residualRiskIds": [
+        "AF-RISK-OPS-001",
+        "AF-RISK-OPS-004"
+      ],
+      "notes": "Active means the repository has a bounded evidence format and freshness calculation; it does not assert that the latest production observation is currently fresh."
+    },
+    {
+      "id": "AF-SLO-SMOKE-001",
+      "name": "Authenticated read-only smoke freshness",
+      "category": "authenticated_readonly_smoke_freshness",
+      "status": "active",
+      "target": {
+        "operator": "lte",
+        "value": 86400,
+        "unit": "seconds"
+      },
+      "windowSeconds": 86400,
+      "measurementSource": {
+        "kind": "record",
+        "paths": [
+          "docs/development/**/prod-readonly-smoke-record.txt"
+        ],
+        "commands": [
+          "pnpm smoke:prod-readonly:validate <record>"
+        ],
+        "fields": [
+          "checkedAt",
+          "ok",
+          "checks.health",
+          "checks.login",
+          "checks.dashboard",
+          "checks.updateStatus"
+        ],
+        "metrics": []
+      },
+      "residualRiskIds": [
+        "AF-RISK-OPS-001"
+      ],
+      "notes": "The 24 hour threshold follows the existing production smoke alerting strategy and requires an authenticated read-only record."
+    },
+    {
+      "id": "AF-SLO-SEC-001",
+      "name": "Known security invariant violation tolerance",
+      "category": "security_zero_tolerance",
+      "status": "active",
+      "target": {
+        "operator": "eq",
+        "value": 0,
+        "unit": "count"
+      },
+      "windowSeconds": 2592000,
+      "measurementSource": {
+        "kind": "command",
+        "paths": [
+          "docs/development/incident-index.json",
+          "docs/development/residual-risk-ledger.json"
+        ],
+        "commands": [
+          "pnpm secrets:scan",
+          "pnpm incident:index:validate",
+          "pnpm residuals:validate"
+        ],
+        "fields": [
+          "command exit code and reported finding count",
+          "incident index active records with status and incidentType",
+          "residual ledger item id and type"
+        ],
+        "metrics": []
+      },
+      "residualRiskIds": [
+        "AF-RISK-SC-002",
+        "AF-RISK-SC-004"
+      ],
+      "notes": "Zero tolerance applies to known secret exposure, unauthorized access, or destructive security invariant violations; missing evidence remains unknown rather than pass."
+    },
+    {
+      "id": "AF-SLO-AVAIL-001",
+      "name": "Monthly user-visible availability",
+      "category": "availability",
+      "status": "draft",
+      "target": {
+        "operator": "gte",
+        "value": 99.9,
+        "unit": "percent"
+      },
+      "windowSeconds": 2592000,
+      "measurementSource": null,
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "notes": "Draft until request metrics cover the user-visible service boundary and an error-budget policy is approved."
+    },
+    {
+      "id": "AF-SLO-LATENCY-001",
+      "name": "Read request p95 latency",
+      "category": "latency",
+      "status": "draft",
+      "target": {
+        "operator": "lte",
+        "value": 0.5,
+        "unit": "seconds"
+      },
+      "windowSeconds": 2592000,
+      "measurementSource": null,
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "notes": "Draft until route-scoped request duration metrics exist; local timings and single smoke runs are not a latency SLO."
+    },
+    {
+      "id": "AF-SLO-RTO-001",
+      "name": "Service recovery time objective",
+      "category": "rto",
+      "status": "draft",
+      "target": {
+        "operator": "lte",
+        "value": 14400,
+        "unit": "seconds"
+      },
+      "windowSeconds": 31536000,
+      "measurementSource": null,
+      "residualRiskIds": [
+        "AF-RISK-OPS-001"
+      ],
+      "notes": "Four hours is a draft planning target and is not achieved evidence until a representative restore and recovery drill proves it."
+    },
+    {
+      "id": "AF-SLO-RPO-001",
+      "name": "Data recovery point objective",
+      "category": "rpo",
+      "status": "draft",
+      "target": {
+        "operator": "lte",
+        "value": 3600,
+        "unit": "seconds"
+      },
+      "windowSeconds": 31536000,
+      "measurementSource": null,
+      "residualRiskIds": [
+        "AF-RISK-OPS-001"
+      ],
+      "notes": "One hour is a draft planning target and does not replace backup freshness, upload backup, or restore evidence."
+    }
+  ],
+  "incidentLifecycle": {
+    "statuses": [
+      "open",
+      "mitigated",
+      "follow-up",
+      "resolved"
+    ],
+    "activeStatuses": [
+      "open",
+      "mitigated",
+      "follow-up"
+    ],
+    "resolvedStatus": "resolved",
+    "allowedTransitions": [
+      {
+        "from": "open",
+        "to": "mitigated",
+        "requires": [
+          "containment evidence"
+        ]
+      },
+      {
+        "from": "open",
+        "to": "follow-up",
+        "requires": [
+          "user impact bounded",
+          "residual risk IDs"
+        ]
+      },
+      {
+        "from": "open",
+        "to": "resolved",
+        "requires": [
+          "recovery evidence",
+          "post-incident review"
+        ]
+      },
+      {
+        "from": "mitigated",
+        "to": "open",
+        "requires": [
+          "regression evidence"
+        ]
+      },
+      {
+        "from": "mitigated",
+        "to": "follow-up",
+        "requires": [
+          "service stabilized",
+          "residual risk IDs"
+        ]
+      },
+      {
+        "from": "mitigated",
+        "to": "resolved",
+        "requires": [
+          "recovery evidence",
+          "post-incident review"
+        ]
+      },
+      {
+        "from": "follow-up",
+        "to": "open",
+        "requires": [
+          "renewed user impact"
+        ]
+      },
+      {
+        "from": "follow-up",
+        "to": "mitigated",
+        "requires": [
+          "containment reopened"
+        ]
+      },
+      {
+        "from": "follow-up",
+        "to": "resolved",
+        "requires": [
+          "follow-up evidence",
+          "post-incident review"
+        ]
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "id": "AF-CAP-OPS-EVIDENCE",
+      "name": "Operations evidence observation",
+      "lifecycleStatus": "active",
+      "executionState": "preview_only",
+      "owner": "areaforge-observability",
+      "entrypoint": "pnpm ops:status",
+      "closeCondition": null,
+      "residualRiskIds": [
+        "AF-RISK-OPS-001",
+        "AF-RISK-OPS-004"
+      ],
+      "notes": "Projects existing evidence and does not execute production actions."
+    },
+    {
+      "id": "AF-CAP-INCIDENT-EVIDENCE",
+      "name": "Incident record and index evidence",
+      "lifecycleStatus": "active",
+      "executionState": "preview_only",
+      "owner": "areaforge-incident-response",
+      "entrypoint": "pnpm incident:index:validate",
+      "closeCondition": null,
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "notes": "Validates records and allowed lifecycle states without changing incident runtime state."
+    },
+    {
+      "id": "AF-CAP-POST-RELEASE-OBSERVATION",
+      "name": "Post-release D14 and D30 observation records",
+      "lifecycleStatus": "active",
+      "executionState": "preview_only",
+      "owner": "areaforge-observability",
+      "entrypoint": "pnpm release:post-observation:status <record>",
+      "closeCondition": null,
+      "residualRiskIds": [
+        "AF-RISK-OPS-001",
+        "AF-RISK-UX-001"
+      ],
+      "notes": "Defines D14 technical, incident, error-budget and D30 product-review gates. Per-release observation status and path/sha256 evidence remain only in the observation record and are not copied into this lifecycle contract."
+    },
+    {
+      "id": "AF-CAP-UPDATE-APPLY",
+      "name": "Server-side update apply",
+      "lifecycleStatus": "active",
+      "executionState": "confirmed_apply",
+      "owner": "areaforge-release-operator",
+      "entrypoint": "server-side root update-agent/updater",
+      "closeCondition": null,
+      "residualRiskIds": [
+        "AF-RISK-REL-001",
+        "AF-RISK-OPS-005"
+      ],
+      "notes": "The capability exists, while automatic execution remains disabled by AREAFORGE_AUTO_APPLY=none and outside Web runtime."
+    },
+    {
+      "id": "AF-CAP-WRITE-SMOKE",
+      "name": "Production write smoke",
+      "lifecycleStatus": "planned",
+      "executionState": "closed",
+      "owner": "areaforge-qa-smoke",
+      "entrypoint": "none",
+      "closeCondition": null,
+      "residualRiskIds": [
+        "AF-RISK-OPS-002"
+      ],
+      "notes": "No execution entrypoint is admitted until account, scope, cleanup, failure handling, and confirmation are defined."
+    }
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "networkRequested": false,
+    "productionAccessed": false,
+    "serverCommandAttempted": false,
+    "productionWriteAttempted": false,
+    "databaseWriteAttempted": false,
+    "secretFileReadAttempted": false,
+    "secretValuePrinted": false,
+    "residualLedgerUpdated": false,
+    "incidentRuntimeChanged": false
+  }
+}

@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
 import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
+import { resolveProductExperienceReviewPath } from "../quality/product-experience-review-discovery";
 
 type CheckStatus = "pass" | "missing" | "stale" | "invalid";
 type GateStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
@@ -20,7 +21,6 @@ type CheckResult = {
   residualRiskIds: string[];
 };
 
-const defaultUxRecord = "docs/development/product-experience-review-v0.1.7-20260712-local.md";
 const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
 const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
 const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
@@ -84,7 +84,7 @@ function main(): void {
       "AF-RISK-OPS-004 ready_for_human_close: alert preview plus matching alert/recovery drill record",
       "AF-RISK-OPS-005 ready_for_ops005_human_review: V2 local implementation, matching signed Release, fresh redacted production deployment evidence, V2 check, expected-before rejection executionAttempted=no, shared lock, processing reconciliation, and autoApply=none",
       "AF-RISK-OPS-006 fresh data integrity doctor: strict redacted record validation, declared read-only database aggregation, attachment reconciliation included, and overall=pass",
-      "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: signed Release supply-chain record with SBOM/provenance/checksum/signature and Actions pinning evidence",
+      "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: clean current checkout bound to the signed Release gitCommit, with SBOM/provenance/checksum/signature and Actions pinning evidence",
       "Production release evidence record: pnpm release:evidence:validate passes with database, uploads, env backup SHA256 evidence, rollback target, migration result, smoke result, and residual risk fields",
       `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes, appVersion equals ${expectedVersion()}, and reviewedAt is within ${maxUxAgeDays()} days`,
     ],
@@ -274,9 +274,10 @@ function releaseEvidenceFailureIsPotentialSecret(detail: string): boolean {
 }
 
 function validateFreshUxRecord(): CheckResult {
-  const recordPath = path.resolve(process.env.AREAFORGE_LONG_TERM_UX_RECORD?.trim() || defaultUxRecord);
-  const command = `pnpm exec tsx scripts/quality/product-experience-review-validate.ts ${redactedPathLabel(recordPath)}`;
-  if (!existsSync(recordPath)) {
+  const resolvedPath = resolveProductExperienceReviewPath(process.cwd(), process.env.AREAFORGE_LONG_TERM_UX_RECORD);
+  const recordPath = resolvedPath ? path.resolve(resolvedPath) : undefined;
+  const command = `pnpm exec tsx scripts/quality/product-experience-review-validate.ts ${recordPath ? redactedPathLabel(recordPath) : "<latest UX record>"}`;
+  if (!recordPath || !existsSync(recordPath)) {
     return {
       key: "uxReview",
       label: "fresh desktop/mobile product experience review",
@@ -473,7 +474,7 @@ function missingEvidenceLabel(check: CheckResult): string {
   if (check.key === "ops004") return "OPS-004 alert/recovery drill evidence";
   if (check.key === "ops005") return `OPS-005 expected-before V2 staged evidence (${check.actualStatus ?? "missing"})`;
   if (check.key === "dataIntegrity") return "fresh validated business data integrity doctor with attachment reconciliation";
-  if (check.key === "supplyChain") return "signed Release supply-chain evidence";
+  if (check.key === "supplyChain") return "clean current-checkout CI or signed Release supply-chain evidence";
   if (check.key === "releaseEvidence") {
     return "production release evidence backup/hash record; under no-secret scope, validate a server-side release evidence redacted export with pnpm release:evidence:redacted-export:validate <redacted-export-dir>";
   }

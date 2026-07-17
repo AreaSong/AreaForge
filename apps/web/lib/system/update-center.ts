@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   atomicPublishUpdateRequest,
+  buildLegacyCheckRequest,
   buildUpdateRequestV2,
   parseVerifiedStatusSnapshot,
   UpdateRequestV2Error,
@@ -9,6 +10,7 @@ import {
   type UpdateStatusSnapshotV2,
   type VerifiedUpdateTarget,
 } from "./update-request-v2";
+import { getUpdateCenterHealth } from "./update-center-health";
 
 const defaultStateDir = process.env.APP_ENV === "production"
   ? "/app/ops-state"
@@ -51,10 +53,13 @@ export interface UpdateCenterStatus {
 export interface UpdateOperation {
   id: string;
   action: UpdateAction;
-  status: "queued" | "running" | "succeeded" | "failed";
+  status: "queued" | "running" | "succeeded" | "failed" | "needs_reconciliation";
   requestedAt: string;
   finishedAt: string | null;
   message: string | null;
+  reasonCode?: string | null;
+  executionAttempted?: boolean | null;
+  publishDurability?: "synced" | "uncertain";
   tag?: string;
 }
 
@@ -71,18 +76,22 @@ export interface CreateUpdateRequestInput {
 }
 
 export type UpdateRequestValidationCode =
+  | "UPDATE_BLOCKED"
   | "UPDATE_TAG_REQUIRED"
   | "UPDATE_TARGET_NOT_NEWER"
   | "ROLLBACK_TARGET_UNAVAILABLE"
   | "AUTO_APPLY_POLICY_REQUIRED"
-  | "AUTO_APPLY_POLICY_UNCHANGED";
+  | "AUTO_APPLY_POLICY_UNCHANGED"
+  | "AUTO_APPLY_POLICY_UNSUPPORTED";
 
 export async function getUpdateCenterStatus(): Promise<UpdateCenterStatus> {
   const rawStatus = await readJsonFile(statusPath);
   const source = asRecord(rawStatus);
   const snapshot = parseVerifiedStatusSnapshot(rawStatus);
   const currentVersion = snapshot?.currentVersion ?? process.env.APP_VERSION ?? stringValue(source.currentVersion) ?? "0.1.0";
-  const currentImage = snapshot?.currentImage ?? process.env.AREAFORGE_IMAGE ?? nullableString(source.currentImage);
+  const currentImage = snapshot
+    ? snapshot.currentImage
+    : process.env.AREAFORGE_IMAGE ?? nullableString(source.currentImage);
   const latestVersion = nullableString(source.latestVersion);
 
   return {
@@ -102,8 +111,8 @@ export async function getUpdateCenterStatus(): Promise<UpdateCenterStatus> {
     lastOperation: normalizeOperation(source.lastOperation),
     rollback: {
       available: snapshot?.rollback.available ?? rollbackField(source, "available") === true,
-      targetVersion: snapshot?.rollback.targetVersion ?? rollbackString(source, "targetVersion"),
-      targetImage: snapshot?.rollback.targetImage ?? rollbackString(source, "targetImage"),
+      targetVersion: snapshot ? snapshot.rollback.targetVersion : rollbackString(source, "targetVersion"),
+      targetImage: snapshot ? snapshot.rollback.targetImage : rollbackString(source, "targetImage"),
       sourceRecordSha256: snapshot?.rollback.sourceRecordSha256 ?? null,
     },
     blocker: nullableString(source.blocker),
@@ -117,6 +126,21 @@ export async function getUpdateCenterStatus(): Promise<UpdateCenterStatus> {
 
 export async function createUpdateRequest(input: CreateUpdateRequestInput): Promise<UpdateOperation> {
   const status = await getUpdateCenterStatus();
+  if (input.command.action !== "check") {
+    const health = getUpdateCenterHealth(status);
+    if (health === "blocked") throw new UpdateRequestV2Error("UPDATE_BLOCKED");
+    if (status.snapshotSchemaVersion !== 2 || !status.snapshotHash) {
+      throw new UpdateRequestV2Error("LEGACY_MUTATION_UNBOUND");
+    }
+    if (health === "unknown" || health === "stale") {
+      throw new UpdateRequestV2Error("STATUS_SNAPSHOT_INVALID");
+    }
+  }
+  if (input.command.action === "check" && !status.snapshotHash) {
+    const request = buildLegacyCheckRequest({ actorEmail: input.actorEmail });
+    const publish = await atomicPublishUpdateRequest(requestsDir, request);
+    return publicOperation(request, publish.directorySync);
+  }
   const snapshot = statusSnapshot(status, input.command.action);
   const request = buildUpdateRequestV2({
     command: input.command,
@@ -131,6 +155,7 @@ export function validateUpdateRequestAgainstStatus(
   input: { action: UpdateAction; tag?: string; autoApply?: AutoApplyPolicy },
   status: UpdateCenterStatus,
 ): UpdateRequestValidationCode | null {
+  if (input.action !== "check" && getUpdateCenterHealth(status) === "blocked") return "UPDATE_BLOCKED";
   if (input.action === "apply") {
     if (!input.tag) return "UPDATE_TAG_REQUIRED";
     if (!isTargetVersionNewer(input.tag, status.currentVersion)) return "UPDATE_TARGET_NOT_NEWER";
@@ -138,6 +163,7 @@ export function validateUpdateRequestAgainstStatus(
   if (input.action === "rollback" && !status.rollback.available) return "ROLLBACK_TARGET_UNAVAILABLE";
   if (input.action === "set_auto_apply") {
     if (!input.autoApply) return "AUTO_APPLY_POLICY_REQUIRED";
+    if (input.autoApply === "minor" || input.autoApply === "all") return "AUTO_APPLY_POLICY_UNSUPPORTED";
     if (input.autoApply === status.autoApply) return "AUTO_APPLY_POLICY_UNCHANGED";
   }
   return null;
@@ -175,7 +201,7 @@ function statusSnapshot(status: UpdateCenterStatus, action: UpdateAction): Updat
 }
 
 function publicOperation(
-  request: ReturnType<typeof buildUpdateRequestV2>,
+  request: ReturnType<typeof buildUpdateRequestV2> | ReturnType<typeof buildLegacyCheckRequest>,
   directorySync: "synced" | "uncertain",
 ): UpdateOperation {
   return {
@@ -185,8 +211,15 @@ function publicOperation(
     requestedAt: request.requestedAt,
     finishedAt: null,
     message: directorySync === "uncertain" ? "请求已入队，但目录持久化状态未确认；请先刷新状态，不要重复提交。" : null,
-    ...(request.params.tag ? { tag: request.params.tag } : {}),
+    publishDurability: directorySync,
+    ...(isV2Request(request) && request.params.tag ? { tag: request.params.tag } : {}),
   };
+}
+
+function isV2Request(
+  request: ReturnType<typeof buildUpdateRequestV2> | ReturnType<typeof buildLegacyCheckRequest>,
+): request is ReturnType<typeof buildUpdateRequestV2> {
+  return request.schemaVersion === 2;
 }
 
 async function readJsonFile(file: string): Promise<unknown> {
@@ -236,11 +269,13 @@ function normalizeOperation(value: unknown): UpdateOperation | null {
     requestedAt: operation.requestedAt as string,
     finishedAt: nullableString(operation.finishedAt),
     message: nullableString(operation.message),
+    reasonCode: nullableString(operation.reasonCode),
+    executionAttempted: nullableBoolean(operation.executionAttempted),
     ...(stringValue(operation.tag) ? { tag: operation.tag as string } : {}),
   };
 }
 
-const operationStatuses: UpdateOperation["status"][] = ["queued", "running", "succeeded", "failed"];
+const operationStatuses: UpdateOperation["status"][] = ["queued", "running", "succeeded", "failed", "needs_reconciliation"];
 
 function detectDeployMode(image: string | null): UpdateCenterStatus["deployMode"] {
   if (!image) return "unknown";
@@ -270,7 +305,7 @@ function isTargetVersionNewer(targetVersion: string, currentVersion: string): bo
 }
 
 function parseVersionCore(version: string): [number, number, number] | null {
-  const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/);
   if (!match) return null;
   return [Number(match[1]), Number(match[2]), Number(match[3])];
 }

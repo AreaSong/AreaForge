@@ -20,6 +20,7 @@
   "expectedBeforeHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "expectedBefore": {
     "signatureRequired": true,
+    "rollbackAvailable": true,
     "rollbackTargetVersion": "0.1.6",
     "rollbackTargetImage": "ghcr.io/areasong/areaforge-web:v0.1.6@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "rollbackSourceRecordSha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
