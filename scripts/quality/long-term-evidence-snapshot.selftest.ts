@@ -10,6 +10,7 @@ import {
   validateLongTermEvidenceSnapshot,
 } from "./long-term-evidence-snapshot-validate";
 import type { AttachmentReconciliationSummary } from "./attachment-reconciliation-summary";
+import { evaluateProductExperienceEvidence } from "./product-experience-review-validate";
 import { resolveProductExperienceReviewPath } from "./product-experience-review-discovery";
 
 type JsonRecord = Record<string, unknown>;
@@ -162,7 +163,18 @@ function main(): void {
   const generatedEvidencePaths = (generatedBody.sourceSnapshot as JsonRecord).evidencePaths as JsonRecord[];
   const generatedUxPath = generatedEvidencePaths.find((item) => item.key === "uxReviewRecord")?.pathLabel;
   const expectedUxPath = resolveProductExperienceReviewPath(process.cwd());
-  assert(expectedUxPath && generatedUxPath === expectedUxPath, `generated snapshot should use the discovered current UX record, got ${String(generatedUxPath)}`);
+  assert(expectedUxPath && generatedUxPath === path.basename(expectedUxPath), `generated snapshot should use the redacted discovered UX record label, got ${String(generatedUxPath)}`);
+  const generatedChecks = generatedBody.checks as JsonRecord[];
+  const generatedUxCheck = generatedChecks.find((item) => item.key === "uxReview");
+  const expectedUxEvaluation = evaluateProductExperienceEvidence({
+    now: new Date(String(generatedBody.generatedAt)),
+    expectedVersion: String(generatedBody.expectedVersion),
+  });
+  const expectedUxStatus = expectedUxEvaluation.status === "fresh" ? "pass" : expectedUxEvaluation.status;
+  assert(
+    generatedUxCheck?.status === expectedUxStatus && generatedUxCheck?.actualStatus === expectedUxEvaluation.status,
+    "generated snapshot must inherit the shared UX evaluator result",
+  );
   const forgedVersion = withHash(withPatch(JSON.parse(generated.stdout) as JsonRecord, (body) => {
     body.expectedVersion = "9.9.9";
     body.packageVersion = "9.9.9";
@@ -178,8 +190,36 @@ function main(): void {
   assert(validateShape(JSON.stringify(staleGenerated)).length === 0, "shape-only should preserve historical archive validation");
 
   testCurrentDoctorSemanticBinding();
+  testExternalUxPathFailsClosed();
 
   console.log("PASS long-term evidence snapshot validator selftest");
+}
+
+function testExternalUxPathFailsClosed(): void {
+  const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-snapshot-external-ux-"));
+  const externalUxPath = path.join(tempDir, "external-ux-record.md");
+  try {
+    writeFileSync(externalUxPath, "externalSentinel: must-not-be-read.invalid\n");
+    const generated = runSnapshotGenerator({
+      AREAFORGE_LONG_TERM_UX_RECORD: externalUxPath,
+      AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: "",
+    });
+    assert(!generated.includes("must-not-be-read.invalid"), "snapshot must not read workspace-external UX evidence");
+    const body = JSON.parse(generated) as JsonRecord;
+    const source = body.sourceSnapshot as JsonRecord;
+    const evidencePaths = source.evidencePaths as JsonRecord[];
+    const uxPath = evidencePaths.find((item) => item.key === "uxReviewRecord");
+    assert(uxPath?.sha256 === null && uxPath?.exists === false, "external UX evidence must not receive a file hash");
+    const checks = body.checks as JsonRecord[];
+    const uxCheck = checks.find((item) => item.key === "uxReview");
+    const metadata = uxCheck?.metadata as JsonRecord | undefined;
+    assert(
+      uxCheck?.status === "invalid" && Array.isArray(metadata?.issueFields) && metadata.issueFields.includes("recordPath"),
+      "external UX evidence must fail closed with recordPath issue",
+    );
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 }
 
 const cleanSnapshot: DataIntegritySnapshot = {

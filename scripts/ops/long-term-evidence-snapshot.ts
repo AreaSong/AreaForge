@@ -6,7 +6,10 @@ import { pathToFileURL } from "node:url";
 import { buildOperabilityStatusProjection, type OperabilityStatusProjection } from "./operability-status";
 import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
 import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
-import { resolveProductExperienceReviewPath } from "../quality/product-experience-review-discovery";
+import {
+  evaluateProductExperienceEvidence,
+  type ProductExperienceEvidenceEvaluation,
+} from "../quality/product-experience-review-validate";
 
 type SnapshotStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
 type CheckStatus = "pass" | "needs_live_evidence" | "missing" | "stale" | "invalid";
@@ -104,8 +107,16 @@ const requiredSignalKeys = [
 function main(): void {
   const packageVersion = expectedVersion();
   const releaseTag = `v${packageVersion}`;
-  const projection = buildOperabilityStatusProjection();
-  const paths = collectEvidencePaths();
+  const snapshotNow = now();
+  const generatedAt = snapshotNow.toISOString();
+  const uxReview = evaluateProductExperienceEvidence({
+    configuredPath: process.env.AREAFORGE_LONG_TERM_UX_RECORD,
+    now: snapshotNow,
+    maxAgeSeconds: maxUxAgeDays() * 24 * 60 * 60,
+    expectedVersion: packageVersion,
+  });
+  const projection = buildOperabilityStatusProjection({ generatedAt, uxReviewEvaluation: uxReview });
+  const paths = collectEvidencePaths(uxReview);
   const checks = [
     checkControlPlane(projection.sourceSnapshot.controlPlaneSourceHash),
     checkOps001(paths),
@@ -114,7 +125,7 @@ function main(): void {
     buildDataIntegritySnapshotCheck(paths),
     checkReleaseEvidence(paths, packageVersion, releaseTag),
     checkSupplyChain(paths, packageVersion, releaseTag),
-    checkUxReview(paths, packageVersion),
+    checkUxReview(paths, packageVersion, uxReview),
     checkOperationalEvidenceBundle(paths, packageVersion, releaseTag),
   ];
 
@@ -122,7 +133,7 @@ function main(): void {
   const snapshotWithoutHash = {
     schemaVersion: 3,
     mode: "read_only_long_term_evidence_snapshot" as const,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     snapshotHash: "",
     expectedVersion: packageVersion,
     releaseTag,
@@ -603,43 +614,27 @@ function checkReleaseEvidence(paths: EvidencePath[], packageVersion: string, rel
   };
 }
 
-function checkUxReview(paths: EvidencePath[], packageVersion: string): SnapshotCheck {
-  const recordPath = resolveProductExperienceReviewPath(process.cwd(), process.env.AREAFORGE_LONG_TERM_UX_RECORD);
-  const command = `pnpm exec tsx scripts/quality/product-experience-review-validate.ts ${recordPath ? path.basename(recordPath) : "<missing>"}`;
-  if (!recordPath) {
-    return missingCheck("uxReview", "fresh desktop/mobile product experience review", command, ["AF-RISK-UX-001"]);
-  }
-  const absolutePath = path.resolve(recordPath);
-  if (!existsSync(absolutePath)) {
-    return invalidCheck("uxReview", "fresh desktop/mobile product experience review", command, "UX review record does not exist", ["AF-RISK-UX-001"]);
-  }
-  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/product-experience-review-validate.ts", absolutePath], {
-    cwd: process.cwd(),
-    encoding: "utf8",
-  });
-  const fields = parseIndentedKeyValueRecord(readFileSync(absolutePath, "utf8"));
-  const ageDays = ageInDays(fields.get("reviewedAt") ?? "");
-  const versionMatch = fields.get("appVersion") === packageVersion;
-  const fresh = Number.isFinite(ageDays) && ageDays <= maxUxAgeDays();
-  const actualStatus = validation.status === 0 ? fields.get("reviewStatus") ?? "pass" : "invalid";
-  let status: CheckStatus = "pass";
-  if (validation.status !== 0) status = "invalid";
-  else if (!versionMatch) status = "needs_live_evidence";
-  else if (!fresh) status = "stale";
+function checkUxReview(
+  paths: EvidencePath[],
+  packageVersion: string,
+  evaluation: ProductExperienceEvidenceEvaluation,
+): SnapshotCheck {
+  const status: CheckStatus = evaluation.status === "fresh" ? "pass" : evaluation.status;
+  const versionMatch = evaluation.appVersion === packageVersion;
   return {
     key: "uxReview",
     label: "fresh desktop/mobile product experience review",
     status,
-    actualStatus,
+    actualStatus: evaluation.status,
     expectedStatus: "pass",
-    validatorCommand: command,
+    validatorCommand: evaluation.command,
     evidenceHash: evidencePathHash(paths, "uxReviewRecord"),
     residualRiskIds: ["AF-RISK-UX-001"],
     freshness: {
-      reviewedAt: fields.get("reviewedAt") ?? null,
-      ageDays: Number.isFinite(ageDays) ? Number(ageDays.toFixed(2)) : null,
-      maxAgeDays: maxUxAgeDays(),
-      status: fresh ? "fresh" : "stale",
+      reviewedAt: evaluation.reviewedAt,
+      ageDays: evaluation.ageSeconds === null ? null : Number((evaluation.ageSeconds / 86_400).toFixed(2)),
+      maxAgeDays: Number((evaluation.maxAgeSeconds / 86_400).toFixed(2)),
+      status: evaluation.status,
     },
     versionMatch,
     doesNotProve: [
@@ -649,13 +644,12 @@ function checkUxReview(paths: EvidencePath[], packageVersion: string): SnapshotC
       "OPS-001 or OPS-004 evidence",
     ],
     metadata: {
-      appVersion: fields.get("appVersion") ?? null,
-      environment: fields.get("environment") ?? null,
-      viewports: fields.get("viewports") ?? null,
-      journeys: fields.get("journeys") ?? null,
-      validatorDetail: validation.status === 0
-        ? "validator passed"
-        : sanitizeOutput(validation.stderr || validation.stdout || "UX validator failed"),
+      appVersion: evaluation.appVersion,
+      expectedVersion: evaluation.expectedVersion,
+      recordPathLabel: evaluation.recordPathLabel,
+      recordSha256: evaluation.recordSha256,
+      issueFields: evaluation.issueFields,
+      validatorDetail: evaluation.detail,
     },
   };
 }
@@ -734,7 +728,14 @@ function checkOperationalEvidenceBundle(paths: EvidencePath[], packageVersion: s
   };
 }
 
-export function collectEvidencePaths(): EvidencePath[] {
+export function collectEvidencePaths(
+  uxReview: ProductExperienceEvidenceEvaluation = evaluateProductExperienceEvidence({
+    configuredPath: process.env.AREAFORGE_LONG_TERM_UX_RECORD,
+    now: now(),
+    maxAgeSeconds: maxUxAgeDays() * 24 * 60 * 60,
+    expectedVersion: expectedVersion(),
+  }),
+): EvidencePath[] {
   const inputs: Array<{ key: string; envKey: string; defaultPath?: string; includeMissingDefault?: boolean }> = [
     { key: "ops001SmokeRecord", envKey: "AREAFORGE_OPS001_SMOKE_RECORD" },
     { key: "ops001UpdateStatusRecord", envKey: "AREAFORGE_OPS001_UPDATE_STATUS_RECORD" },
@@ -756,9 +757,16 @@ export function collectEvidencePaths(): EvidencePath[] {
     { key: "operationalEvidenceBundle", envKey: "AREAFORGE_LONG_TERM_EVIDENCE_BUNDLE", defaultPath: defaultOperationalEvidenceBundle },
   ];
   const paths = inputs.map((input) => {
-    const configuredPath = input.key === "uxReviewRecord"
-      ? resolveProductExperienceReviewPath(process.cwd(), process.env[input.envKey]) ?? ""
-      : process.env[input.envKey]?.trim() || input.defaultPath || "";
+    if (input.key === "uxReviewRecord") {
+      return {
+        key: input.key,
+        pathLabel: uxReview.recordPathLabel,
+        configured: Boolean(process.env[input.envKey]?.trim()) || uxReview.recordPathLabel !== null,
+        exists: uxReview.recordSha256 !== null,
+        sha256: uxReview.recordSha256,
+      };
+    }
+    const configuredPath = process.env[input.envKey]?.trim() || input.defaultPath || "";
     if (!configuredPath) {
       return { key: input.key, pathLabel: null, configured: false, exists: false, sha256: null };
     }
@@ -943,12 +951,6 @@ function parseJsonFromLog(raw: string): unknown {
     .find((line) => line.startsWith("{") && line.endsWith("}"));
   if (!jsonLine) throw new Error("output does not contain JSON");
   return JSON.parse(jsonLine);
-}
-
-function ageInDays(value: string): number {
-  const reviewedAt = new Date(value);
-  if (Number.isNaN(reviewedAt.getTime())) return Number.NaN;
-  return Math.max(0, (now().getTime() - reviewedAt.getTime()) / 86_400_000);
 }
 
 function ageInHours(value: string): number {
