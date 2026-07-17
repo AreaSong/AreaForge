@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
 import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
-import { resolveProductExperienceReviewPath } from "../quality/product-experience-review-discovery";
+import { evaluateProductExperienceEvidence } from "../quality/product-experience-review-validate";
 
 type CheckStatus = "pass" | "missing" | "stale" | "invalid";
 type GateStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
@@ -274,89 +274,19 @@ function releaseEvidenceFailureIsPotentialSecret(detail: string): boolean {
 }
 
 function validateFreshUxRecord(): CheckResult {
-  const resolvedPath = resolveProductExperienceReviewPath(process.cwd(), process.env.AREAFORGE_LONG_TERM_UX_RECORD);
-  const recordPath = resolvedPath ? path.resolve(resolvedPath) : undefined;
-  const command = `pnpm exec tsx scripts/quality/product-experience-review-validate.ts ${recordPath ? redactedPathLabel(recordPath) : "<latest UX record>"}`;
-  if (!recordPath || !existsSync(recordPath)) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "missing",
-      detail: "product experience review record is missing",
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-
-  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/product-experience-review-validate.ts", recordPath], {
-    cwd: process.cwd(),
-    encoding: "utf8",
+  const evaluation = evaluateProductExperienceEvidence({
+    configuredPath: process.env.AREAFORGE_LONG_TERM_UX_RECORD,
+    now: now(),
+    maxAgeSeconds: maxUxAgeDays() * 24 * 60 * 60,
+    expectedVersion: expectedVersion(),
   });
-  if (validation.status !== 0) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "invalid",
-      detail: sanitizeOutput(validation.stderr || validation.stdout || "product experience review validator failed"),
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-
-  const fields = parseIndentedKeyValueRecord(readFileSync(recordPath, "utf8"));
-  const appVersion = fields.get("appVersion");
-  const requiredVersion = expectedVersion();
-  if (appVersion !== requiredVersion) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "invalid",
-      detail: `appVersion must be ${requiredVersion}, got ${appVersion || "missing"}`,
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-
-  const reviewedAt = fields.get("reviewedAt");
-  if (!reviewedAt) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "invalid",
-      detail: "reviewedAt is missing",
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-
-  const ageDays = ageInDays(reviewedAt);
-  if (!Number.isFinite(ageDays)) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "invalid",
-      detail: "reviewedAt is not a valid date",
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-  if (ageDays > maxUxAgeDays()) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "stale",
-      detail: `review is ${ageDays.toFixed(1)} days old; max allowed is ${maxUxAgeDays()} days`,
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
 
   return {
     key: "uxReview",
     label: "fresh desktop/mobile product experience review",
-    status: "pass",
-    detail: `validator passed; appVersion=${requiredVersion}; review is ${ageDays.toFixed(1)} days old`,
-    command,
+    status: evaluation.status === "fresh" ? "pass" : evaluation.status,
+    detail: evaluation.detail,
+    command: evaluation.command,
     residualRiskIds: ["AF-RISK-UX-001"],
   };
 }
@@ -493,39 +423,6 @@ function parseJsonFromLog(raw: string): unknown {
     throw new Error("output does not contain JSON");
   }
   return JSON.parse(jsonLine);
-}
-
-function parseIndentedKeyValueRecord(record: string): Map<string, string> {
-  const fields = new Map<string, string>();
-  let currentSection = "";
-
-  for (const rawLine of record.split(/\r?\n/)) {
-    if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) continue;
-    const match = rawLine.match(/^(\s*)([A-Za-z0-9_]+):\s*(.*)$/);
-    if (!match) continue;
-
-    const indent = match[1]?.length ?? 0;
-    const key = match[2] ?? "";
-    const value = match[3]?.trim() ?? "";
-    if (indent === 0) {
-      currentSection = value ? "" : key;
-      fields.set(key, value);
-      continue;
-    }
-
-    if (currentSection) {
-      fields.set(`${currentSection}.${key}`, value);
-    }
-  }
-
-  return fields;
-}
-
-function ageInDays(value: string): number {
-  const reviewedAt = new Date(value);
-  if (Number.isNaN(reviewedAt.getTime())) return Number.NaN;
-  const ageMs = now().getTime() - reviewedAt.getTime();
-  return Math.max(0, ageMs / 86_400_000);
 }
 
 function maxUxAgeDays(): number {

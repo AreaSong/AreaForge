@@ -12,6 +12,7 @@ import {
   type AcceptedExceptionStatus,
   type ResidualItemV2,
 } from "./residual-ledger-common";
+import type { ProductExperienceEvidenceEvaluation } from "./product-experience-review-validate";
 
 const requiredFiles = [
   "README.md",
@@ -23,6 +24,7 @@ const requiredFiles = [
   "docs/development/operations-lifecycle.json",
   "docs/development/post-release-observation-template.json",
   "docs/development/post-release-observation-v0.1.7.json",
+  "docs/development/product-experience-review-record-template.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
   "docs/development/maintenance-window-index.json",
@@ -82,6 +84,8 @@ const requiredFiles = [
   "scripts/ops/post-release-observation-status.ts",
   "scripts/quality/post-release-observation-status.selftest.ts",
   "scripts/quality/post-release-observation-validate.ts",
+  "scripts/quality/product-experience-review-discovery.ts",
+  "scripts/quality/product-experience-review-validate.ts",
   "scripts/quality/post-release-observation-validate.selftest.ts",
   "scripts/quality/attachment-reconciliation.ts",
   "scripts/quality/attachment-reconciliation-summary.ts",
@@ -240,7 +244,8 @@ function main(): void {
       asOf: "2026-07-11",
       generatedAt: "2026-07-11T00:00:00.000Z",
     });
-    assert(projection.schemaVersion === 1, "schemaVersion should be 1");
+    assert(projection.schemaVersion === 2, "schemaVersion should be 2");
+    assert(projection.uxReview.status === "missing", "fixture without UX evidence must project missing instead of reusing ledger prose");
     assert(projection.status.controlPlane === "pass", "fixture control plane should pass");
     assert(projection.status.overall === "blocked", "current blocker should block offline overall status");
     assert(projection.status.releaseTrain === "blocked", "current blocker should block release train status");
@@ -462,6 +467,7 @@ function main(): void {
     assert(summary.boundaryStops.some((item) => item.includes("post_update_ops001")), "summary should include boundary stops");
     assert(summary.boundaryStops.some((item) => item.includes("update_request_expected_before")), "summary should include expected-before boundary stop");
     assert(summary.releaseEvidenceGaps.some((item) => item.includes("releaseEvidenceBundleHash")), "summary should include release evidence gaps");
+    assert(summary.uxReview.startsWith("missing:"), "summary should include machine-derived UX evidence status");
     assert(summary.dueResiduals.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include due residual IDs");
     assert(summary.executableNowItems.some((item) => item.includes("AF-RISK-OPS-006")), "summary should include immediately executable residuals");
     assert(summary.nextEvidenceCommands.includes("pnpm ops:handoff --summary"), "summary should include human-readable next evidence commands");
@@ -498,10 +504,18 @@ function main(): void {
       root,
       asOf: "2026-07-11",
       generatedAt: "2026-07-11T00:00:00.000Z",
+      uxReviewEvaluation: uxEvaluation("stale"),
     });
     assert(overdueClosedEvidence.status.overall === "needs_live_evidence", "overdue closed evidence must downgrade offline overall status");
     assert(overdueClosedEvidence.status.releaseTrain === "needs_release_evidence", "overdue closed evidence must downgrade release train status");
     assert(overdueClosedEvidence.residuals.dueItems.some((item) => item.id === "AF-RISK-UX-001" && item.reviewStatus === "overdue"), "overdue evidence must remain visible in due items");
+    assert(overdueClosedEvidence.uxReview.status === "stale", "status projection must preserve stale UX evaluator output");
+    assert(
+      overdueClosedEvidence.nextActions.some((item) =>
+        item.residualRiskId === "AF-RISK-UX-001" && item.reason.startsWith("ux_review_stale:") && !item.reason.includes("historical UX evidence")
+      ),
+      "UX next action must come from the evaluator rather than static currentImpact prose",
+    );
     writeText(root, "docs/development/residual-risk-ledger.json", fixtureLedgerJson());
 
     const initialProtectedPathHash = projection.sourceSnapshot.protectedPathFingerprint.hash;
@@ -640,6 +654,24 @@ function residualItem(overrides: Partial<ResidualItemV2> & Pick<ResidualItemV2, 
     taskPromotionWaiver: null,
     acceptedException: null,
     ...overrides,
+  };
+}
+
+function uxEvaluation(status: ProductExperienceEvidenceEvaluation["status"]): ProductExperienceEvidenceEvaluation {
+  const stale = status === "stale";
+  const missing = status === "missing";
+  return {
+    status,
+    recordPathLabel: missing ? null : "product-experience-review-fixture.md",
+    recordSha256: missing ? null : `sha256:${"a".repeat(64)}`,
+    reviewedAt: missing ? null : "2026-06-20T00:00:00.000Z",
+    ageSeconds: missing ? null : stale ? 15 * 24 * 60 * 60 : 60,
+    maxAgeSeconds: 14 * 24 * 60 * 60,
+    appVersion: missing ? null : "0.1.7",
+    expectedVersion: "0.1.7",
+    detail: status === "fresh" ? "validator passed" : status === "stale" ? "review is older than the allowed window" : `${status} UX evidence`,
+    issueFields: status === "fresh" ? [] : status === "stale" ? ["reviewedAt"] : ["record"],
+    command: "pnpm experience:review:validate product-experience-review-fixture.md",
   };
 }
 

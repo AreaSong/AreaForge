@@ -30,7 +30,7 @@
 | AF-RISK-OPS-006 | 只读 doctor 已能发现重复活跃计时和状态矛盾，但数据库级唯一约束、task/session CAS 和结束计时单次副作用尚未实施 | `areaforge-security-governance` / `areaforge-sre-ops` / `areaforge-validation-driver` | 执行 `tasks/active/0020-business-state-concurrency.md` 前先确认 additive migration、并发测试和回滚边界 |
 | AF-RISK-OPS-007 | 附件写文件与 metadata 提交之间仍有崩溃窗口，当前只靠补偿和只读 reconciliation 发现孤儿 | `areaforge-file-storage-safety` / `areaforge-security-governance` | 实施 staging/write-intent 前单独确认 migration、旧附件兼容和不自动清理边界 |
 | AF-RISK-OPS-008 | updater 缺阶段日志和 root-only maintenance hold/drain，强杀后的精确阶段与维护停止领取仍依赖人工判断 | `areaforge-sre-ops` / `areaforge-observability` / `areaforge-security-governance` | 实施 phase journal/hold/drain 前单独确认 updater、timer、队列和生产边界 |
-| AF-RISK-UX-001 | 当前 checkout 已完成 local UX smoke guardrail selftest；`product-experience-review-20260716-ops-control-plane.md` 已绑定当前 source hash、runtime identity 和既有 desktop/mobile 证据，并通过 `pnpm experience:review:validate`。残余仍 open，因为生产体验未被本地证据证明，且窄屏任务选择器仍有 polish follow-up | `areaforge-product-experience` / `areaforge-qa-smoke` | 维护者复核并 reaffirm `keep-open` 或另行授权 residual 台账更新；生产体验声明仍需独立生产证据 |
+| AF-RISK-UX-001 | local UX smoke guardrail selftest 已通过；共享 evaluator 当前将最新记录判为 `invalid`，因为 git commit、source hash 和 runtime identity 不匹配当前 checkout。残余仍 open，且生产体验未被本地证据证明，窄屏任务选择器仍有 polish follow-up | `areaforge-product-experience` / `areaforge-qa-smoke` | 启动当前 checkout runtime，重新采集 current-bound desktop/mobile review 与 runtime probe，运行 `pnpm experience:review:validate`；随后由维护者 reaffirm `keep-open` 或另行授权 residual 台账更新 |
 
 ## Task Bindings
 

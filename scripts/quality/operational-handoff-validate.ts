@@ -101,13 +101,13 @@ export function validateOperationalHandoff(raw: string, options: ValidationOptio
   const body = parseJson(raw, issues);
   if (!body) return issues;
 
-  requireValue(body.schemaVersion, "schemaVersion", 1, issues);
+  requireValue(body.schemaVersion, "schemaVersion", 2, issues);
   requireValue(body.mode, "mode", "read_only_operational_handoff", issues);
   requireIso(body.generatedAt, "generatedAt", issues);
   validateApp(body.app, issues);
   validateStatus(body.status, issues);
   validateSource(body.source, issues);
-  validateCurrentBinding(body.source, options, issues);
+  validateCurrentBinding(body, options, issues);
   validateClaimBoundary(body.claimBoundary, issues);
   validateEvidenceFocus(body.evidenceFocus, issues);
   validateNextCommands(body.nextCommands, issues);
@@ -118,6 +118,7 @@ export function validateOperationalHandoff(raw: string, options: ValidationOptio
     "Secrets must not be read, printed, copied, or committed unless a future confirmation explicitly authorizes that exact evidence path.",
   ], issues);
   validateSafetyFacts(body.safetyFacts, issues);
+  validateConsistency(body, issues);
 
   return issues;
 }
@@ -128,10 +129,15 @@ export function operationalHandoffBindingStatus(raw: string, options: Validation
   const body = parseJson(raw, issues);
   if (!body || !isRecord(body.source)) return "unavailable";
   try {
-    const projection = buildOperabilityStatusProjection({ root: options.root ?? process.cwd() });
+    const projection = buildOperabilityStatusProjection({
+      root: options.root ?? process.cwd(),
+      generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : undefined,
+    });
+    const uxReview = isRecord(body.evidenceFocus) ? body.evidenceFocus.uxReview : null;
     return body.source.controlPlaneSourceHash === projection.sourceSnapshot.controlPlaneSourceHash &&
       isRecord(body.source.protectedPathFingerprint) &&
-      body.source.protectedPathFingerprint.hash === projection.sourceSnapshot.protectedPathFingerprint.hash
+      body.source.protectedPathFingerprint.hash === projection.sourceSnapshot.protectedPathFingerprint.hash &&
+      uxReviewMatchesProjection(uxReview, projection.uxReview)
       ? "current"
       : "stale";
   } catch {
@@ -139,21 +145,47 @@ export function operationalHandoffBindingStatus(raw: string, options: Validation
   }
 }
 
-function validateCurrentBinding(value: unknown, options: ValidationOptions, issues: ValidationIssue[]): void {
+function validateCurrentBinding(body: JsonRecord, options: ValidationOptions, issues: ValidationIssue[]): void {
   if ((options.bindingMode ?? "current") === "shape-only") return;
-  if (!isRecord(value)) return;
+  if (!isRecord(body.source)) return;
   try {
-    const projection = buildOperabilityStatusProjection({ root: options.root ?? process.cwd() });
-    if (value.controlPlaneSourceHash !== projection.sourceSnapshot.controlPlaneSourceHash) {
+    const projection = buildOperabilityStatusProjection({
+      root: options.root ?? process.cwd(),
+      generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : undefined,
+    });
+    if (body.source.controlPlaneSourceHash !== projection.sourceSnapshot.controlPlaneSourceHash) {
       issues.push({ field: "source.controlPlaneSourceHash.currentBinding", message: "does not match the current checkout" });
     }
-    const fingerprint = isRecord(value.protectedPathFingerprint) ? value.protectedPathFingerprint : null;
+    const fingerprint = isRecord(body.source.protectedPathFingerprint) ? body.source.protectedPathFingerprint : null;
     if (!fingerprint || fingerprint.hash !== projection.sourceSnapshot.protectedPathFingerprint.hash) {
       issues.push({ field: "source.protectedPathFingerprint.hash.currentBinding", message: "does not match the current checkout" });
+    }
+    const uxReview = isRecord(body.evidenceFocus) ? body.evidenceFocus.uxReview : null;
+    if (!uxReviewMatchesProjection(uxReview, projection.uxReview)) {
+      issues.push({ field: "evidenceFocus.uxReview.currentBinding", message: "does not match the UX evaluator result inherited from the current status projection" });
     }
   } catch {
     issues.push({ field: "source.currentBinding", message: "current checkout binding is unavailable; use --shape-only only for historical archives" });
   }
+}
+
+function uxReviewMatchesProjection(value: unknown, expected: ReturnType<typeof buildOperabilityStatusProjection>["uxReview"]): boolean {
+  if (!isRecord(value)) return false;
+  const scalarKeys = [
+    "status",
+    "recordPathLabel",
+    "recordSha256",
+    "reviewedAt",
+    "ageSeconds",
+    "maxAgeSeconds",
+    "appVersion",
+    "expectedVersion",
+    "detail",
+    "command",
+  ] as const;
+  return scalarKeys.every((key) => value[key] === expected[key]) &&
+    Array.isArray(value.issueFields) &&
+    JSON.stringify(value.issueFields) === JSON.stringify(expected.issueFields);
 }
 
 function validateApp(value: unknown, issues: ValidationIssue[]): void {
@@ -232,7 +264,84 @@ function validateEvidenceFocus(value: unknown, issues: ValidationIssue[]): void 
   validateFocusArray(value.currentBlockers, "evidenceFocus.currentBlockers", issues);
   validateBoundaryStops(value.boundaryStops, issues);
   validateReleaseEvidenceGaps(value.releaseEvidenceGaps, "evidenceFocus.releaseEvidenceGaps", issues);
+  validateUxReview(value.uxReview, issues);
   requireStringArray(value.releaseRelevantIds, "evidenceFocus.releaseRelevantIds", issues);
+}
+
+function validateUxReview(value: unknown, issues: ValidationIssue[]): void {
+  const field = "evidenceFocus.uxReview";
+  if (!isRecord(value)) {
+    issues.push({ field, message: "must be an object" });
+    return;
+  }
+  requireOneOf(value.status, `${field}.status`, ["fresh", "stale", "invalid", "missing"], issues);
+  requireNullableString(value.recordPathLabel, `${field}.recordPathLabel`, issues);
+  requireNullableSha256(value.recordSha256, `${field}.recordSha256`, issues);
+  requireNullableIso(value.reviewedAt, `${field}.reviewedAt`, issues);
+  requireNullableNonNegativeInteger(value.ageSeconds, `${field}.ageSeconds`, issues);
+  requirePositiveInteger(value.maxAgeSeconds, `${field}.maxAgeSeconds`, issues);
+  requireNullableString(value.appVersion, `${field}.appVersion`, issues);
+  requireString(value.expectedVersion, `${field}.expectedVersion`, issues);
+  requireString(value.detail, `${field}.detail`, issues);
+  requireStringArray(value.issueFields, `${field}.issueFields`, issues);
+  requireString(value.command, `${field}.command`, issues);
+  if (value.status === "missing") {
+    if (value.recordSha256 !== null || value.reviewedAt !== null || value.ageSeconds !== null || value.appVersion !== null) {
+      issues.push({ field, message: "missing evidence must not claim record hash, timestamp, age, or app version" });
+    }
+  }
+  if (value.status === "fresh") {
+    if (typeof value.ageSeconds !== "number" || typeof value.maxAgeSeconds !== "number" || value.ageSeconds > value.maxAgeSeconds) {
+      issues.push({ field, message: "fresh evidence age must be within maxAgeSeconds" });
+    }
+    if (value.recordSha256 === null || value.reviewedAt === null || value.appVersion === null) {
+      issues.push({ field, message: "fresh evidence must include record hash, timestamp, and app version" });
+    }
+    if (Array.isArray(value.issueFields) && value.issueFields.length > 0) {
+      issues.push({ field: `${field}.issueFields`, message: "fresh evidence must not include issue fields" });
+    }
+  }
+  if (value.status === "stale") {
+    if (!(typeof value.ageSeconds === "number" && typeof value.maxAgeSeconds === "number") || value.ageSeconds <= value.maxAgeSeconds) {
+      issues.push({ field, message: "stale evidence age must exceed maxAgeSeconds" });
+    }
+    if (!Array.isArray(value.issueFields) || !value.issueFields.includes("reviewedAt")) {
+      issues.push({ field: `${field}.issueFields`, message: "stale evidence must identify reviewedAt" });
+    }
+    if (value.recordSha256 === null || value.reviewedAt === null || value.appVersion === null) {
+      issues.push({ field, message: "stale evidence must include record hash, timestamp, and app version" });
+    }
+  }
+  if (value.status === "invalid" && (!Array.isArray(value.issueFields) || value.issueFields.length === 0)) {
+    issues.push({ field: `${field}.issueFields`, message: "invalid evidence must identify at least one issue field" });
+  }
+}
+
+function validateConsistency(body: JsonRecord, issues: ValidationIssue[]): void {
+  if (!isRecord(body.status) || !isRecord(body.evidenceFocus) || !isRecord(body.evidenceFocus.uxReview)) return;
+  const uxStatus = body.evidenceFocus.uxReview.status;
+  if (uxStatus === "invalid" && body.status.offlineOverall !== "blocked") {
+    issues.push({ field: "status.offlineOverall", message: "must be blocked when UX evidence is invalid" });
+  }
+  if (
+    (uxStatus === "missing" || uxStatus === "stale") &&
+    (body.status.offlineOverall === "ready" || body.status.offlineOverall === "operable_with_residuals")
+  ) {
+    issues.push({ field: "status.offlineOverall", message: "must require live evidence when UX evidence is missing or stale" });
+  }
+  if (
+    Array.isArray(body.evidenceFocus.currentBlockers) &&
+    body.evidenceFocus.currentBlockers.length > 0 &&
+    body.status.offlineOverall !== "blocked"
+  ) {
+    issues.push({ field: "status.offlineOverall", message: "must be blocked when current blocker residuals are present" });
+  }
+  if (body.status.offlineOverall === "blocked" && body.status.releaseTrain !== "blocked") {
+    issues.push({ field: "status.releaseTrain", message: "must be blocked when offline overall status is blocked" });
+  }
+  if (body.status.offlineOverall === "needs_live_evidence" && body.status.releaseTrain === "ready_to_decide") {
+    issues.push({ field: "status.releaseTrain", message: "must require release evidence when offline overall status needs live evidence" });
+  }
 }
 
 function validateReleaseEvidenceGaps(value: unknown, field: string, issues: ValidationIssue[]): void {
@@ -432,6 +541,36 @@ function requireStringArray(value: unknown, field: string, issues: ValidationIss
 function requireString(value: unknown, field: string, issues: ValidationIssue[]): void {
   if (typeof value !== "string" || value.trim() === "") {
     issues.push({ field, message: "must be a non-empty string" });
+  }
+}
+
+function requireNullableString(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!(value === null || (typeof value === "string" && value.trim() !== ""))) {
+    issues.push({ field, message: "must be a non-empty string or null" });
+  }
+}
+
+function requireNullableSha256(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!(value === null || (typeof value === "string" && /^sha256:[a-f0-9]{64}$/i.test(value)))) {
+    issues.push({ field, message: "must be sha256:<64 hex> or null" });
+  }
+}
+
+function requireNullableIso(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!(value === null || (typeof value === "string" && !Number.isNaN(Date.parse(value))))) {
+    issues.push({ field, message: "must be an ISO-8601 timestamp or null" });
+  }
+}
+
+function requireNullableNonNegativeInteger(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!(value === null || (typeof value === "number" && Number.isInteger(value) && value >= 0))) {
+    issues.push({ field, message: "must be a non-negative integer or null" });
+  }
+}
+
+function requirePositiveInteger(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!(typeof value === "number" && Number.isInteger(value) && value > 0)) {
+    issues.push({ field, message: "must be a positive integer" });
   }
 }
 

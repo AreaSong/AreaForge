@@ -12,6 +12,10 @@ import {
   type ResidualLedgerV2,
   type ResidualType,
 } from "../quality/residual-ledger-common";
+import {
+  evaluateProductExperienceEvidence,
+  type ProductExperienceEvidenceEvaluation,
+} from "../quality/product-experience-review-validate";
 
 type ReviewStatus = "overdue" | "due_today" | "due_soon" | "future";
 type OverallStatus = "ready" | "operable_with_residuals" | "needs_live_evidence" | "blocked";
@@ -61,7 +65,7 @@ type ReleaseEvidenceGapSummary = {
 };
 
 export type OperabilityStatusProjection = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   generatedAt: string;
   mode: "offline_long_term_operability_status_projection";
   asOf: string;
@@ -124,6 +128,7 @@ export type OperabilityStatusProjection = {
     nonEffectiveAcceptedExceptionItems: Array<Pick<ClassifiedResidual, "id" | "reviewAt" | "reviewStatus" | "effectiveExceptionStatus" | "ownerSkills" | "closeCondition" | "requiredEvidence">>;
     releaseRelevantIds: string[];
   };
+  uxReview: ProductExperienceEvidenceEvaluation;
   releaseEvidenceGaps: ReleaseEvidenceGapSummary;
   nextActions: Array<{
     residualRiskId: string;
@@ -159,6 +164,7 @@ export type OperabilityStatusSummary = {
   executableNowItems: string[];
   releaseRelevantResiduals: string[];
   releaseEvidenceGaps: string[];
+  uxReview: string;
   nextEvidenceCommands: string[];
   cannotClaim: string[];
   safetyFacts: Pick<
@@ -172,6 +178,7 @@ type BuildOptions = {
   root?: string;
   asOf?: string;
   generatedAt?: string;
+  uxReviewEvaluation?: ProductExperienceEvidenceEvaluation;
 };
 
 type ProjectionFacts = {
@@ -192,6 +199,7 @@ type ProjectionFacts = {
   controlPlaneSourceHash: string;
   protectedPathFingerprint: OperabilityStatusProjection["sourceSnapshot"]["protectedPathFingerprint"];
   releaseEvidenceGaps: ReleaseEvidenceGapSummary;
+  uxReview: ProductExperienceEvidenceEvaluation;
 };
 
 const residualTypes: ResidualType[] = [
@@ -217,6 +225,7 @@ const requiredFiles = [
   "docs/development/operations-lifecycle.json",
   "docs/development/post-release-observation-template.json",
   "docs/development/post-release-observation-v0.1.7.json",
+  "docs/development/product-experience-review-record-template.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
   "docs/development/maintenance-window-index.json",
@@ -268,6 +277,8 @@ const requiredFiles = [
   "scripts/ops/post-release-observation-status.ts",
   "scripts/quality/post-release-observation-status.selftest.ts",
   "scripts/quality/post-release-observation-validate.ts",
+  "scripts/quality/product-experience-review-discovery.ts",
+  "scripts/quality/product-experience-review-validate.ts",
   "scripts/quality/post-release-observation-validate.selftest.ts",
   "scripts/quality/attachment-reconciliation.ts",
   "scripts/quality/attachment-reconciliation-summary.ts",
@@ -453,6 +464,8 @@ export const protectedPathFiles = [
   "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/post-release-observation-status.ts",
   "scripts/quality/post-release-observation-validate.ts",
+  "scripts/quality/product-experience-review-discovery.ts",
+  "scripts/quality/product-experience-review-validate.ts",
   "tasks/indexes/residuals.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
   "tasks/active/0020-business-state-concurrency.md",
@@ -466,7 +479,7 @@ export function buildOperabilityStatusProjection(options: BuildOptions = {}): Op
   const facts = collectProjectionFacts(options);
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     mode: "offline_long_term_operability_status_projection",
     asOf: facts.asOf,
@@ -489,8 +502,9 @@ export function buildOperabilityStatusProjection(options: BuildOptions = {}): Op
       missing: facts.missingScripts,
     },
     residuals: buildResidualSummary(facts),
+    uxReview: facts.uxReview,
     releaseEvidenceGaps: facts.releaseEvidenceGaps,
-    nextActions: nextActions(facts.residuals),
+    nextActions: nextActions(facts.residuals, facts.uxReview),
     boundaryStops: buildBoundaryStops(),
     commands: buildCommandMatrix(),
     claimDiscipline: buildClaimDiscipline(),
@@ -515,6 +529,7 @@ export function buildOperabilityStatusSummary(projection: OperabilityStatusProje
     releaseRelevantResiduals: projection.residuals.releaseRelevantIds,
     releaseEvidenceGaps: projection.releaseEvidenceGaps.blockingGaps
       .map((gap) => `${gap.key} ${gap.status} ${gap.gapType} blocks=${gap.blocks.join(",")}`),
+    uxReview: `${projection.uxReview.status}: ${projection.uxReview.detail}`,
     nextEvidenceCommands: uniqueStrings([
       ...projection.commands.daily.slice(0, 4),
       "pnpm ops:ops-006:preflight:strict",
@@ -569,6 +584,7 @@ export function formatOperabilityStatusSummary(summary: OperabilityStatusSummary
     listBlock("executableNowItems", summary.executableNowItems),
     listBlock("releaseRelevantResiduals", summary.releaseRelevantResiduals),
     listBlock("releaseEvidenceGaps", summary.releaseEvidenceGaps),
+    `uxReview: ${summary.uxReview}`,
     listBlock("nextEvidenceCommands", summary.nextEvidenceCommands),
     listBlock("cannotClaim", summary.cannotClaim),
     `safetyFacts: readOnly=${summary.safetyFacts.readOnly} networkRequested=${summary.safetyFacts.networkRequested} serverCommandAttempted=${summary.safetyFacts.serverCommandAttempted} productionWriteAttempted=${summary.safetyFacts.productionWriteAttempted} protectedPathWriteAttempted=${summary.safetyFacts.protectedPathWriteAttempted} secretValuePrinted=${summary.safetyFacts.secretValuePrinted}`,
@@ -588,9 +604,16 @@ function collectProjectionFacts(options: BuildOptions): ProjectionFacts {
   const controlPlaneSourceHash = hashControlPlaneSources(root);
   const protectedPathFingerprint = buildProtectedPathFingerprint(root);
   const releaseEvidenceGaps = buildReleaseEvidenceGaps(root);
+  const evidenceNow = options.generatedAt
+    ? new Date(options.generatedAt)
+    : options.asOf
+      ? new Date(`${asOf}T23:59:59.999Z`)
+      : new Date();
+  const uxReview = options.uxReviewEvaluation ?? evaluateProductExperienceEvidence({ root, now: evidenceNow });
   const overall = overallStatus({
     hasMissingControlPlane: missingFiles.length > 0 || missingScripts.length > 0,
     residuals,
+    uxReview,
   });
 
   return {
@@ -607,6 +630,7 @@ function collectProjectionFacts(options: BuildOptions): ProjectionFacts {
     controlPlaneSourceHash,
     protectedPathFingerprint,
     releaseEvidenceGaps,
+    uxReview,
   };
 }
 
@@ -1118,9 +1142,15 @@ function reviewStatus(daysUntilReview: number): ReviewStatus {
   return "future";
 }
 
-function overallStatus(input: { hasMissingControlPlane: boolean; residuals: ClassifiedResidual[] }): OverallStatus {
+function overallStatus(input: {
+  hasMissingControlPlane: boolean;
+  residuals: ClassifiedResidual[];
+  uxReview: ProductExperienceEvidenceEvaluation;
+}): OverallStatus {
   if (input.hasMissingControlPlane) return "blocked";
   if (input.residuals.some((item) => item.type === "current-blocker")) return "blocked";
+  if (input.uxReview.status === "invalid") return "blocked";
+  if (input.uxReview.status === "missing" || input.uxReview.status === "stale") return "needs_live_evidence";
   if (input.residuals.some(isNonEffectiveAcceptedException)) return "needs_live_evidence";
   if (input.residuals.some((item) => item.reviewStatus === "overdue" || item.reviewStatus === "due_today")) {
     return "needs_live_evidence";
@@ -1143,21 +1173,27 @@ function releaseTrainStatus(overall: OverallStatus, items: ClassifiedResidual[])
   return "ready_to_decide";
 }
 
-function nextActions(residuals: ClassifiedResidual[]): OperabilityStatusProjection["nextActions"] {
+function nextActions(
+  residuals: ClassifiedResidual[],
+  uxReview: ProductExperienceEvidenceEvaluation,
+): OperabilityStatusProjection["nextActions"] {
   return residuals
     .filter((item) =>
       item.type === "current-blocker" || item.executableNow || item.reviewStatus !== "future" ||
-      isNonEffectiveAcceptedException(item)
+      isNonEffectiveAcceptedException(item) || (item.id === "AF-RISK-UX-001" && uxReview.status !== "fresh")
     )
     .map((item) => ({
       residualRiskId: item.id,
-      reason: nextActionReason(item),
+      reason: nextActionReason(item, uxReview),
       requiredEvidence: item.requiredEvidence,
       ownerSkills: item.ownerSkills,
     }));
 }
 
-function nextActionReason(item: ClassifiedResidual): string {
+function nextActionReason(item: ClassifiedResidual, uxReview: ProductExperienceEvidenceEvaluation): string {
+  if (item.id === "AF-RISK-UX-001") {
+    return `ux_review_${uxReview.status}: ${uxReview.detail}`;
+  }
   if (isNonEffectiveAcceptedException(item)) {
     return `accepted_exception_${item.effectiveExceptionStatus ?? "invalid"}: ${item.currentImpact}`;
   }

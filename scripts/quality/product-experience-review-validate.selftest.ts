@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA,
@@ -9,6 +10,7 @@ import {
 } from "../../apps/web/lib/system/product-experience-source";
 import { createDevelopmentRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity-development";
 import { getRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity";
+import { evaluateProductExperienceEvidence } from "./product-experience-review-validate";
 
 const root = process.cwd();
 const developmentRuntimeIdentity = createDevelopmentRuntimeIdentity(root);
@@ -88,6 +90,62 @@ try {
   expectExit("current binding can be printed for record creation", ["--print-current-binding"], 0, "productExperienceSourceHash: sha256:");
   expectFailureContains("parent symlink screenshot path fails", [unsafeParentRecord, "--print-record-hashes"], "unsafe evidence path");
 
+  const freshEvaluation = evaluateProductExperienceEvidence({
+    root,
+    configuredPath: validRecord,
+    now: new Date(Date.parse(reviewedAt) + 60_000),
+  });
+  assert(freshEvaluation.status === "fresh" && freshEvaluation.ageSeconds === 60, "shared evaluator must classify current bound evidence as fresh");
+  assert(
+    freshEvaluation.command.includes("output/.tmp-product-experience-review-") && !freshEvaluation.command.includes(root),
+    "shared evaluator command must use a safe workspace-relative path",
+  );
+
+  const wrongExpectedVersion = evaluateProductExperienceEvidence({
+    root,
+    configuredPath: validRecord,
+    now: new Date(Date.parse(reviewedAt) + 60_000),
+    expectedVersion: "9.9.9",
+  });
+  assert(
+    wrongExpectedVersion.status === "invalid" && wrongExpectedVersion.issueFields.includes("appVersion"),
+    "shared evaluator must enforce an explicit expected version",
+  );
+
+  const staleEvaluation = evaluateProductExperienceEvidence({
+    root,
+    configuredPath: validRecord,
+    now: new Date(Date.parse(reviewedAt) + 15 * 24 * 60 * 60 * 1000),
+  });
+  assert(staleEvaluation.status === "stale" && staleEvaluation.issueFields.includes("reviewedAt"), "shared evaluator must distinguish structurally valid stale evidence");
+
+  const invalidEvaluation = evaluateProductExperienceEvidence({
+    root,
+    configuredPath: invalidCommitRecord,
+    now: new Date(Date.parse(reviewedAt) + 60_000),
+  });
+  assert(invalidEvaluation.status === "invalid" && invalidEvaluation.issueFields.includes("gitCommit"), "shared evaluator must prioritize current-binding invalidity over freshness");
+
+  const missingEvaluation = evaluateProductExperienceEvidence({
+    root,
+    configuredPath: path.join(tempDir, "missing-review.txt"),
+    now: new Date(reviewedAt),
+  });
+  assert(missingEvaluation.status === "missing" && missingEvaluation.recordSha256 === null, "shared evaluator must classify absent evidence as missing");
+
+  const externalDir = mkdtempSync(path.join(os.tmpdir(), "areaforge-external-product-experience-review-"));
+  const externalRecord = path.join(externalDir, "review.txt");
+  writeFileSync(externalRecord, valid);
+  try {
+    const externalEvaluation = evaluateProductExperienceEvidence({ root, configuredPath: externalRecord, now: new Date(reviewedAt) });
+    assert(
+      externalEvaluation.status === "invalid" && externalEvaluation.recordSha256 === null && externalEvaluation.issueFields.includes("recordPath"),
+      "shared evaluator must reject workspace-external records without reading or hashing them",
+    );
+  } finally {
+    rmSync(externalDir, { force: true, recursive: true });
+  }
+
   console.log("product experience review validator selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });
@@ -122,6 +180,10 @@ function expectFailureContains(label: string, args: string[], expectedStderr: st
   if (result.status !== 1 || !result.stderr.includes(expectedStderr)) {
     throw new Error(`${label}: ${result.stdout}\n${result.stderr}`);
   }
+}
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(`FAIL: ${message}`);
 }
 
 function printRecordHashes(recordPath: string): RecordHashes {

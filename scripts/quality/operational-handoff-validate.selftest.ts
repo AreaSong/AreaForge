@@ -32,6 +32,47 @@ function main(): void {
   }), "mode");
 
   expectFail(withPatch(handoff, (body) => {
+    body.schemaVersion = 1 as 2;
+  }), "schemaVersion");
+
+  expectFail(withPatch(handoff, (body) => {
+    delete (body.evidenceFocus as Partial<OperationalHandoff["evidenceFocus"]>).uxReview;
+  }), "evidenceFocus.uxReview");
+
+  expectFail(withPatch(handoff, (body) => {
+    body.evidenceFocus.uxReview.status = "unknown" as "fresh";
+  }), "evidenceFocus.uxReview.status");
+
+  expectFail(withPatch(handoff, (body) => {
+    body.evidenceFocus.uxReview.detail = "forged current UX result";
+  }), "evidenceFocus.uxReview.currentBinding");
+  const forgedUxBinding = withPatch(handoff, (body) => {
+    body.evidenceFocus.uxReview.detail = "forged current UX result";
+  });
+  if (operationalHandoffBindingStatus(forgedUxBinding) !== "stale") {
+    throw new Error("forged UX evaluator result should make handoff binding stale");
+  }
+
+  expectFail(withPatch(handoff, (body) => {
+    body.evidenceFocus.uxReview.status = "missing";
+    body.evidenceFocus.uxReview.recordSha256 = "sha256:" + "a".repeat(64);
+    body.evidenceFocus.uxReview.reviewedAt = null;
+    body.evidenceFocus.uxReview.ageSeconds = null;
+    body.evidenceFocus.uxReview.appVersion = null;
+    body.evidenceFocus.uxReview.issueFields = ["record"];
+  }), "evidenceFocus.uxReview");
+
+  expectFail(withPatch(handoff, (body) => {
+    body.evidenceFocus.uxReview.status = "invalid";
+    body.evidenceFocus.uxReview.issueFields = ["gitCommit"];
+    body.status.offlineOverall = "needs_live_evidence";
+  }), "status.offlineOverall");
+
+  expectFail(withPatch(handoff, (body) => {
+    body.status.releaseTrain = "ready_to_decide";
+  }), "status.releaseTrain");
+
+  expectFail(withPatch(handoff, (body) => {
     body.safetyFacts.handoffWritten = true;
   }), "safetyFacts.handoffWritten");
 

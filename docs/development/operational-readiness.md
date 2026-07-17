@@ -106,7 +106,7 @@ pnpm ops:status:validate <operability-status.json>
 pnpm ops:status --summary
 ```
 
-默认命令只读本地 `package.json`、长期运营入口文件、`docs/development/release-v0.1.7-record.md` 和 `docs/development/residual-risk-ledger.json`，输出 `offline_long_term_operability_status_projection` JSON，包含控制面是否完整、当前版本、residual 类型统计、`reviewAt` 到期状态、可立即执行的残余项、release 相关 residual IDs、`releaseEvidenceGaps`、每日/每周/release/incident 推荐命令、`sourceSnapshot.controlPlaneSourceHash`、`sourceSnapshot.protectedPathFingerprint`、`doesNotProve` 和 `safetyFacts`。任一 residual 已 `overdue` 或 `due_today` 时，即使它当前分类为 `closed-evidence`，离线 overall 也至少降级为 `needs_live_evidence`，release train 降级为 `needs_release_evidence`，直到维护者形成新鲜复核证据；该降级不自动重新打开或关闭 residual。保存 JSON 后用 validator 校验 shape 和只读边界；`--summary` 用于快速判断 blocker、due residual 和下一步证据命令。三种模式都不访问网络、不读取密钥、不执行服务器命令或生产写入。
+默认命令只读本地 `package.json`、长期运营入口文件、`docs/development/release-v0.1.7-record.md`、UX review 候选和 `docs/development/residual-risk-ledger.json`，输出 schema V2 `offline_long_term_operability_status_projection` JSON。除控制面、版本、residual、`releaseEvidenceGaps`、命令矩阵、source hash、protected-path fingerprint 和安全事实外，V2 强制包含机器可读 `uxReview.status=fresh|stale|invalid|missing`、记录 basename/hash、reviewedAt、age/max-age、当前版本和 issue fields。UX invalid 会使离线 overall 为 `blocked`，missing/stale 至少降为 `needs_live_evidence`；台账 `currentImpact` 不再充当 UX 实时证据。任一 residual 已 `overdue` 或 `due_today` 时，即使它当前分类为 `closed-evidence`，离线 overall 也至少降级为 `needs_live_evidence`。这些降级不自动重新打开或关闭 residual。保存 JSON 后用 validator 校验 shape 和只读边界；`--summary` 用于快速判断 blocker、UX evidence、due residual 和下一步证据命令。三种模式都不访问网络、不读取密钥、不执行服务器命令或生产写入。
 
 `ops:status` 还会输出 `boundaryStops`，把当前 no-server/no-secret/no-residual-closure 边界下不能闭环的证据显式列出。当前稳定停止线包括 post-`v0.1.7` OPS-001 证据包、`release-v0.1.7-record.md` 的 `releaseEvidenceBundleHash` 和三个 backup SHA256、`AF-RISK-OPS-005` 的签名 Release 与生产部署确认，以及 residual 关闭决策。`releaseEvidenceGaps` 则把备份字段和附件 reconciliation 路径/status/hash 绑定展开成机器可读 `gapType`、`status`、`sourceField` 和 `blocks`，用于确认它们会阻塞 `release:evidence:validate`、`ops:long-term:gate` 和维护交接。`update_request_expected_before` stop 必须区分已完成的本地代码实施、尚缺的签名 Release 和生产 timer/队列/Web/agent 部署确认，防止将设计、代码、Release 和生产部署混成一次授权。`boundaryStops` 只说明“当前授权边界内不能做什么、还能跑哪些本地 validator、未来需要哪类确认”，不等于 blocker 已关闭，也不授权读取、打印、复制或提交 secrets。
 
@@ -118,7 +118,7 @@ pnpm ops:handoff:validate <operational-handoff.json>
 pnpm ops:handoff --summary
 ```
 
-默认命令复用 `pnpm ops:status` 的离线投影，输出 `read_only_operational_handoff` JSON，把当前版本、控制面状态、release train 状态、可声称/不可声称内容、current blocker、可立即执行项、due residual、release-relevant residual、release evidence gap、下一步命令、`controlPlaneSourceHash`、`protectedPathFingerprint`、`doesNotProve` 和 `safetyFacts` 集中到一个交接入口；保存 JSON 后用 `pnpm ops:handoff:validate <operational-handoff.json>` 校验 handoff shape、claim boundary、下一步命令、高风险边界、protected path fingerprint、release evidence gap 和只读 `safetyFacts`；`--summary` 输出更短的人读摘要。`currentBlockers` 表示当前阻断项，不等于可立即执行项；`immediateFocus` 只表示当前边界内可直接处理的项。它不访问网络、不读取密钥、不执行服务器命令、不写文件、不备份、不恢复、不运行 migration、不创建 GitHub Release、不执行 updater apply，也不能替代 `pnpm ops:evidence:bundle`、生产只读 smoke、update-agent status、备份或 rollback 证据。`pnpm ops:handoff:selftest` 和 `pnpm ops:handoff:validate:selftest` 只在本地 fixture 或当前 checkout 中校验结构和契约。
+默认命令复用 `pnpm ops:status` 的离线投影，输出 schema V2 `read_only_operational_handoff` JSON，把当前版本、控制面状态、release train、claim boundary、current blocker、可立即执行项、due residual、release-relevant residual、release evidence gap、共享 `uxReview` evaluator 结果、下一步命令、source hash、protected-path fingerprint、`doesNotProve` 和安全事实集中到一个交接入口。handoff 不重新读取或重新计算 UX 证据，只继承 status 的同一结果，避免两套时钟或静态文案分叉。保存 JSON 后用 validator 校验 handoff shape、UX 四态、claim boundary、命令、高风险边界、fingerprint、release gaps 和只读安全事实；`--summary` 输出更短的人读摘要。`currentBlockers` 表示当前阻断项，不等于可立即执行项；`immediateFocus` 只表示当前边界内可直接处理的项。它不访问网络、不读取密钥、不执行服务器命令、不写文件、不备份、不恢复、不运行 migration、不创建 GitHub Release、不执行 updater apply，也不能替代 live evidence。
 
 `ops:handoff` 会继承 `ops:status` 的 `boundaryStops`，用于交接时直接看到哪些缺口在当前边界下不可执行。若确认范围继续禁止服务器命令、secrets 读取/打印/复制/提交或 residual 台账关闭，维护者只能运行其中列出的本地 validator、preview 和 preflight；不能把 `release:evidence:redacted-export:validate` 误读为“已经采集生产导出”，也不能把 `ops:ops-001:preflight` 的 `needs_evidence` 当成 OPS-001 已关闭。
 
@@ -338,7 +338,7 @@ pnpm ops:ops-004:preflight
 pnpm experience:review:validate <product-experience-review-record.md|txt>
 ```
 
-该校验只读取 redacted 体验记录，检查 desktop/mobile 视口、核心旅程、截图或浏览器观察、5 秒下一步、确认边界、恢复路径、移动端可读性、空/未授权/错误态、安全事实、`AF-RISK-UX-001` 和敏感值泄露，并把 `appVersion`、`gitCommit`、`sourceFingerprintSchema=ux-source-v2`、扩展后的 `productExperienceSourceHash` 与当前 checkout 重算比较，同时要求记录默认不超过 14 天且未来时钟偏差不超过 300 秒。历史记录只能显式使用 `--shape-only`，且不能进入当前体验健康或 residual 关闭证据。它不打开浏览器、不连接生产、不读取密钥、不写生产。`pnpm experience:review:selftest` 用于本地回归校验规则。没有新鲜体验复核记录时，功能 smoke 只能证明路径可用，不能宣称完整产品体验健康。
+该校验只读取 redacted 体验记录，检查 desktop/mobile 视口、核心旅程、截图或浏览器观察、5 秒下一步、确认边界、恢复路径、移动端可读性、空/未授权/错误态、安全事实、`AF-RISK-UX-001` 和敏感值泄露，并把 `appVersion`、`gitCommit`、`sourceFingerprintSchema=ux-source-v2`、扩展后的 `productExperienceSourceHash` 与当前 checkout 重算比较，同时要求记录默认不超过 14 天且未来时钟偏差不超过 300 秒。共享 evaluator 复用同一完整 validator，但把“结构/绑定无效”和“结构有效但过期”分开投影为 `invalid` 与 `stale`，并允许 status、handoff 和 live gate 注入同一时钟。历史记录只能显式使用 `--shape-only`，且不能进入当前体验健康或 residual 关闭证据。它不打开浏览器、不连接生产、不读取密钥、不写生产。`pnpm experience:review:selftest` 覆盖 fresh/stale/invalid/missing。
 
 生产 smoke 与告警策略见 `docs/development/production-smoke-alerting-strategy.md`。该文档只定义写入型 smoke 的确认字段、合成数据命名空间、清理/失败处理和告警阈值；没有用户确认、专用账号、清理策略和实际记录前，不得执行生产写入型 smoke，也不得关闭 `AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。
 
@@ -398,6 +398,6 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 - `AF-RISK-OPS-006`：只读 doctor 已实现并进入 gate，但数据库级 active-session uniqueness、task/session CAS 和结束计时单次副作用尚未实施；修复需独立确认 additive migration 和并发写路径。
 - `AF-RISK-OPS-007`：附件最终文件与 metadata 提交之间仍有崩溃窗口，staging/write-intent 需独立确认。
 - `AF-RISK-OPS-008`：updater phase journal 和 root-only maintenance hold/drain 尚未实现，不能从 Web 获得控制权。
-- `AF-RISK-UX-001`：当前仍为 monitoring gap；2026-07-10、2026-07-12 和 2026-07-15 记录均不能证明当前 checkout，后者因 `ux-source-v2` 指纹漂移而 stale。当前仅重新验证 390px 未认证登录页、错误凭据反馈和无水平滚动；authenticated desktop/mobile dashboard、timer closeout、Update Center 和运行实例身份绑定仍需重新采集。该边界不证明生产写入体验。
+- `AF-RISK-UX-001`：当前仍为 monitoring gap；共享 evaluator 将最新 `product-experience-review-20260716-ops-control-plane.md` 判为 `invalid`，因为 git commit、product experience source hash 和 runtime identity 已不匹配当前 checkout。`ops:status` / `ops:handoff` 已投影该真实状态。authenticated desktop/mobile dashboard、timer closeout、Update Center 和当前运行实例身份绑定仍需重新采集；该边界不证明生产写入体验。
 
 当上述 `ready_for_human_close` 或 `ready_for_sc001_sc002_review` 进入维护者复核时，先保存一份 `docs/development/residual-closure-review-template.md` 格式记录并运行 `pnpm residuals:closure:validate <record>`。该记录用于证明复核结论、证据 URI、validator 摘要和重新打开条件完整；它保持 `closesResidual=no`，不等于台账已关闭。

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA,
   canonicalSha256,
@@ -9,11 +10,43 @@ import {
   findWorkspaceRoot,
 } from "../../apps/web/lib/system/product-experience-source";
 import { validateRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity-core";
+import { resolveProductExperienceReviewPath } from "./product-experience-review-discovery";
 
-interface ValidationIssue {
+export interface ValidationIssue {
   field: string;
   message: string;
 }
+
+export type ProductExperienceEvidenceStatus = "fresh" | "stale" | "invalid" | "missing";
+
+export type ProductExperienceEvidenceEvaluation = {
+  status: ProductExperienceEvidenceStatus;
+  recordPathLabel: string | null;
+  recordSha256: string | null;
+  reviewedAt: string | null;
+  ageSeconds: number | null;
+  maxAgeSeconds: number;
+  appVersion: string | null;
+  expectedVersion: string;
+  detail: string;
+  issueFields: string[];
+  command: string;
+};
+
+type ValidateRecordOptions = {
+  shapeOnly: boolean;
+  root: string;
+  now: Date;
+  checkFreshness: boolean;
+};
+
+type EvaluateOptions = {
+  root?: string;
+  configuredPath?: string;
+  now?: Date;
+  maxAgeSeconds?: number;
+  expectedVersion?: string;
+};
 
 const requiredScalarFields = [
   "recordId",
@@ -49,7 +82,7 @@ const requiredBindingFields = [
   "screenshotEvidenceHash",
 ] as const;
 
-const defaultReviewMaxAgeSeconds = 14 * 24 * 60 * 60;
+export const defaultReviewMaxAgeSeconds = 14 * 24 * 60 * 60;
 const reviewFutureSkewSeconds = 300;
 const runtimeEvidenceMaxLeadSeconds = 30 * 60;
 
@@ -98,8 +131,9 @@ const secretPatterns = [
 ];
 
 function main(): void {
+  const root = findWorkspaceRoot();
   if (process.argv.includes("--print-current-binding")) {
-    const binding = currentBinding();
+    const binding = currentBinding(root);
     console.log(`appVersion: ${binding.appVersion}`);
     console.log(`gitCommit: ${binding.gitCommit}`);
     console.log(`sourceFingerprintSchema: ${PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA}`);
@@ -119,8 +153,8 @@ function main(): void {
   const fields = parseIndentedKeyValueRecord(record);
   if (printRecordHashes) {
     const issues: ValidationIssue[] = [];
-    const runtimeBinding = buildRuntimeEvidenceBinding(fields, issues, false);
-    const screenshotHash = buildScreenshotEvidenceHash(fields, issues);
+    const runtimeBinding = buildRuntimeEvidenceBinding(fields, issues, false, root);
+    const screenshotHash = buildScreenshotEvidenceHash(fields, issues, root);
     if (!runtimeBinding || !screenshotHash || issues.length > 0) {
       for (const issue of issues) console.error(`FAIL ${issue.field}: ${issue.message}`);
       process.exit(1);
@@ -134,7 +168,12 @@ function main(): void {
     console.log(`reviewResultHash: ${buildEvidenceHash(fields)}`);
     return;
   }
-  const issues = validateRecord(record, fields, shapeOnly);
+  const issues = validateProductExperienceReviewRecord(record, fields, {
+    shapeOnly,
+    root,
+    now: new Date(),
+    checkFreshness: true,
+  });
 
   if (issues.length > 0) {
     for (const issue of issues) {
@@ -153,8 +192,13 @@ function main(): void {
   console.log("safetyFacts: productionWriteAttempted=false serverCommandAttempted=false destructiveActionAttempted=false secretValuePrinted=false realStudyContentIncluded=false");
 }
 
-function validateRecord(record: string, fields: Map<string, string>, shapeOnly: boolean): ValidationIssue[] {
+export function validateProductExperienceReviewRecord(
+  record: string,
+  fields: Map<string, string>,
+  options: ValidateRecordOptions,
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  const { shapeOnly, root, now, checkFreshness } = options;
 
   for (const field of requiredScalarFields) {
     requireField(fields, field, issues);
@@ -168,7 +212,7 @@ function validateRecord(record: string, fields: Map<string, string>, shapeOnly: 
 
   requireOneOf(fields, "environment", ["local", "staging", "production"], issues);
   requireOneOf(fields, "reviewStatus", ["pass", "fail"], issues);
-  validateReviewTimestamp(fields, issues, shapeOnly);
+  validateReviewTimestamp(fields, issues, { shapeOnly, now, checkFreshness });
   for (const field of yesNoFields) {
     requireOneOf(fields, field, ["yes", "no"], issues);
   }
@@ -184,8 +228,8 @@ function validateRecord(record: string, fields: Map<string, string>, shapeOnly: 
   }
 
   if (!shapeOnly) {
-    validateCurrentBinding(fields, issues);
-    buildRuntimeEvidenceBinding(fields, issues, true);
+    validateCurrentBinding(fields, issues, root);
+    buildRuntimeEvidenceBinding(fields, issues, true, root);
   }
 
   const command = fields.get("reviewCommand") ?? "";
@@ -217,7 +261,7 @@ function validateRecord(record: string, fields: Map<string, string>, shapeOnly: 
     issues.push({ field: "screenshotEvidence", message: "must not be none, missing, or not-captured" });
   }
   if (!shapeOnly) {
-    const screenshotHash = buildScreenshotEvidenceHash(fields, issues);
+    const screenshotHash = buildScreenshotEvidenceHash(fields, issues, root);
     if (screenshotHash && fields.get("screenshotEvidenceHash") !== screenshotHash) {
       issues.push({ field: "screenshotEvidenceHash", message: "must bind the current screenshot evidence files and paths" });
     }
@@ -259,8 +303,8 @@ function validateRecord(record: string, fields: Map<string, string>, shapeOnly: 
   return issues;
 }
 
-function validateCurrentBinding(fields: Map<string, string>, issues: ValidationIssue[]): void {
-  const binding = currentBinding();
+function validateCurrentBinding(fields: Map<string, string>, issues: ValidationIssue[], root: string): void {
+  const binding = currentBinding(root);
   if (fields.get("appVersion") !== binding.appVersion) {
     issues.push({ field: "appVersion", message: `must match current package version ${binding.appVersion}` });
   }
@@ -275,7 +319,11 @@ function validateCurrentBinding(fields: Map<string, string>, issues: ValidationI
   }
 }
 
-function validateReviewTimestamp(fields: Map<string, string>, issues: ValidationIssue[], shapeOnly: boolean): void {
+function validateReviewTimestamp(
+  fields: Map<string, string>,
+  issues: ValidationIssue[],
+  options: { shapeOnly: boolean; now: Date; checkFreshness: boolean },
+): void {
   const value = fields.get("reviewedAt");
   if (!value) return;
   const reviewedAt = Date.parse(value);
@@ -283,13 +331,12 @@ function validateReviewTimestamp(fields: Map<string, string>, issues: Validation
     issues.push({ field: "reviewedAt", message: "must be an ISO-8601 timestamp" });
     return;
   }
-  if (shapeOnly) return;
-  const now = Date.now();
-  const ageSeconds = Math.floor((now - reviewedAt) / 1000);
+  if (options.shapeOnly) return;
+  const ageSeconds = Math.floor((options.now.getTime() - reviewedAt) / 1000);
   if (ageSeconds < -reviewFutureSkewSeconds) {
     issues.push({ field: "reviewedAt", message: `must not be more than ${reviewFutureSkewSeconds} seconds in the future` });
   }
-  if (ageSeconds > reviewMaxAgeSeconds()) {
+  if (options.checkFreshness && ageSeconds > reviewMaxAgeSeconds()) {
     issues.push({ field: "reviewedAt", message: `is stale; maximum age is ${reviewMaxAgeSeconds()} seconds` });
   }
 }
@@ -298,8 +345,7 @@ function reviewMaxAgeSeconds(): number {
   return defaultReviewMaxAgeSeconds;
 }
 
-function currentBinding(): { appVersion: string; gitCommit: string; sourceHash: string } {
-  const root = findWorkspaceRoot();
+function currentBinding(root: string): { appVersion: string; gitCommit: string; sourceHash: string } {
   const packageJson = JSON.parse(readFileSync(path.resolve(root, "package.json"), "utf8")) as { version?: string };
   return {
     appVersion: packageJson.version ?? "unknown",
@@ -312,10 +358,11 @@ function buildRuntimeEvidenceBinding(
   fields: Map<string, string>,
   issues: ValidationIssue[],
   compareCurrent: boolean,
+  root: string,
 ): { evidenceHash: string; identityHash: string } | null {
   const evidencePath = fields.get("runtimeIdentityEvidence");
   if (!evidencePath) return null;
-  const absolutePath = resolveRepoEvidencePath(evidencePath, ".json");
+  const absolutePath = resolveRepoEvidencePath(root, evidencePath, ".json");
   if (!absolutePath) {
     issues.push({ field: "runtimeIdentityEvidence", message: "must be a repo-relative regular non-symlink JSON file" });
     return null;
@@ -349,7 +396,7 @@ function buildRuntimeEvidenceBinding(
   if (value.responseHash !== expectedResponseHash) issues.push({ field: "runtimeIdentityEvidence", message: "responseHash does not match runtime identity" });
   validateRuntimeEvidenceTime(fields.get("reviewedAt"), value.observedAt, identity.observedAt, issues);
   if (compareCurrent) {
-    const binding = currentBinding();
+    const binding = currentBinding(root);
     if (identity.appVersion !== binding.appVersion || identity.appVersion !== fields.get("appVersion")) issues.push({ field: "runtimeIdentityHash", message: "runtime appVersion must match record and checkout" });
     if (identity.gitCommit !== binding.gitCommit || identity.gitCommit !== fields.get("gitCommit")) issues.push({ field: "runtimeIdentityHash", message: "runtime gitCommit must match record and checkout" });
     if (identity.sourceFingerprintSchema !== PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA || identity.sourceFingerprintSchema !== fields.get("sourceFingerprintSchema")) issues.push({ field: "runtimeIdentityHash", message: "runtime source schema must match record and checkout" });
@@ -463,7 +510,7 @@ function buildEvidenceHash(fields: Map<string, string>): string {
   return `sha256:${hash}`;
 }
 
-function buildScreenshotEvidenceHash(fields: Map<string, string>, issues: ValidationIssue[]): string | null {
+function buildScreenshotEvidenceHash(fields: Map<string, string>, issues: ValidationIssue[], root: string): string | null {
   const raw = fields.get("screenshotEvidence") ?? "";
   const entries: Array<{ viewport: string; evidencePath: string; sha256: string }> = [];
   const seenViewports = new Set<string>();
@@ -487,7 +534,7 @@ function buildScreenshotEvidenceHash(fields: Map<string, string>, issues: Valida
       continue;
     }
     for (const evidencePath of evidencePaths) {
-      const absolutePath = resolveScreenshotPath(evidencePath);
+      const absolutePath = resolveScreenshotPath(root, evidencePath);
       if (!absolutePath) {
         issues.push({ field: "screenshotEvidence", message: `unsafe evidence path ${evidencePath}` });
         continue;
@@ -527,13 +574,12 @@ function buildScreenshotEvidenceHash(fields: Map<string, string>, issues: Valida
   return `sha256:${createHash("sha256").update(JSON.stringify(entries)).digest("hex")}`;
 }
 
-function resolveScreenshotPath(evidencePath: string): string | null {
-  const absolutePath = resolveRepoEvidencePath(evidencePath);
+function resolveScreenshotPath(root: string, evidencePath: string): string | null {
+  const absolutePath = resolveRepoEvidencePath(root, evidencePath);
   return absolutePath && /\.(?:png|jpe?g|webp)$/i.test(absolutePath) ? absolutePath : null;
 }
 
-function resolveRepoEvidencePath(evidencePath: string, extension?: string): string | null {
-  const root = findWorkspaceRoot();
+function resolveRepoEvidencePath(root: string, evidencePath: string, extension?: string): string | null {
   if (path.isAbsolute(evidencePath)) return null;
   const absolutePath = path.resolve(root, evidencePath);
   if (!isWithin(root, absolutePath) || (extension && path.extname(absolutePath) !== extension)) return null;
@@ -562,4 +608,174 @@ function readRequiredFile(filePath: string): string {
   return readFileSync(filePath, "utf8");
 }
 
-main();
+export function evaluateProductExperienceEvidence(options: EvaluateOptions = {}): ProductExperienceEvidenceEvaluation {
+  const root = path.resolve(options.root ?? findWorkspaceRoot());
+  const now = options.now ?? new Date();
+  const maxAgeSeconds = validMaxAge(options.maxAgeSeconds);
+  const resolved = resolveProductExperienceReviewPath(root, options.configuredPath);
+  const recordPath = resolved ? (path.isAbsolute(resolved) ? resolved : path.resolve(root, resolved)) : null;
+  const recordPathLabel = recordPath ? path.basename(recordPath) : null;
+  const repoRelativeRecordPath = recordPath && isWithin(root, recordPath)
+    ? path.relative(root, recordPath).split(path.sep).join("/")
+    : null;
+  const command = repoRelativeRecordPath
+    ? `pnpm experience:review:validate ${JSON.stringify(repoRelativeRecordPath)}`
+    : "pnpm experience:review:validate <current-product-experience-review.md|txt>";
+  const expectedVersion = options.expectedVersion?.trim() || expectedVersionFromRoot(root);
+  const base = {
+    recordPathLabel,
+    maxAgeSeconds,
+    expectedVersion,
+    command,
+  };
+
+  if (recordPath && !isWithin(root, recordPath)) {
+    return {
+      ...base,
+      status: "invalid",
+      recordSha256: null,
+      reviewedAt: null,
+      ageSeconds: null,
+      appVersion: null,
+      detail: "product experience review record must remain inside the workspace",
+      issueFields: ["recordPath"],
+    };
+  }
+
+  if (!recordPath || !existsSync(recordPath)) {
+    return {
+      ...base,
+      status: "missing",
+      recordSha256: null,
+      reviewedAt: null,
+      ageSeconds: null,
+      appVersion: null,
+      detail: "product experience review record is missing",
+      issueFields: ["record"],
+    };
+  }
+
+  let record: string;
+  try {
+    const safeRecordPath = resolveRepoEvidencePath(root, path.relative(root, recordPath));
+    if (!safeRecordPath) throw new Error("record must be a regular workspace file without symlink traversal");
+    record = readFileSync(safeRecordPath, "utf8");
+  } catch (error) {
+    return {
+      ...base,
+      status: "invalid",
+      recordSha256: null,
+      reviewedAt: null,
+      ageSeconds: null,
+      appVersion: null,
+      detail: error instanceof Error ? error.message : "product experience review record is unreadable",
+      issueFields: ["record"],
+    };
+  }
+
+  const fields = parseIndentedKeyValueRecord(record);
+  const reviewedAt = fields.get("reviewedAt") ?? null;
+  const appVersion = fields.get("appVersion") ?? null;
+  const recordSha256 = `sha256:${createHash("sha256").update(record).digest("hex")}`;
+  const reviewedAtMs = reviewedAt ? Date.parse(reviewedAt) : Number.NaN;
+  const ageSeconds = Number.isFinite(reviewedAtMs)
+    ? Math.max(0, Math.floor((now.getTime() - reviewedAtMs) / 1000))
+    : null;
+  let issues: ValidationIssue[];
+  try {
+    issues = validateProductExperienceReviewRecord(record, fields, {
+      shapeOnly: false,
+      root,
+      now,
+      checkFreshness: false,
+    });
+    if (appVersion !== expectedVersion) {
+      issues.push({ field: "appVersion", message: `must match expected gate version ${expectedVersion}` });
+    }
+  } catch (error) {
+    return {
+      ...base,
+      status: "invalid",
+      recordSha256,
+      reviewedAt,
+      ageSeconds,
+      appVersion,
+      detail: error instanceof Error ? error.message.replaceAll(root, "<workspace>") : "current UX binding is unavailable",
+      issueFields: ["currentBinding"],
+    };
+  }
+
+  if (issues.length > 0) {
+    return {
+      ...base,
+      status: "invalid",
+      recordSha256,
+      reviewedAt,
+      ageSeconds,
+      appVersion,
+      detail: summarizeIssues(issues, root),
+      issueFields: [...new Set(issues.map((issue) => issue.field))].sort(),
+    };
+  }
+
+  if (ageSeconds === null) {
+    return {
+      ...base,
+      status: "invalid",
+      recordSha256,
+      reviewedAt,
+      ageSeconds: null,
+      appVersion,
+      detail: "reviewedAt is not a valid ISO-8601 timestamp",
+      issueFields: ["reviewedAt"],
+    };
+  }
+
+  if (ageSeconds > maxAgeSeconds) {
+    return {
+      ...base,
+      status: "stale",
+      recordSha256,
+      reviewedAt,
+      ageSeconds,
+      appVersion,
+      detail: `review is ${ageSeconds} seconds old; max allowed is ${maxAgeSeconds} seconds`,
+      issueFields: ["reviewedAt"],
+    };
+  }
+
+  return {
+    ...base,
+    status: "fresh",
+    recordSha256,
+    reviewedAt,
+    ageSeconds,
+    appVersion,
+    detail: `validator passed; appVersion=${expectedVersion}; ageSeconds=${ageSeconds}`,
+    issueFields: [],
+  };
+}
+
+function expectedVersionFromRoot(root: string): string {
+  try {
+    const packageJson = JSON.parse(readFileSync(path.resolve(root, "package.json"), "utf8")) as { version?: unknown };
+    return typeof packageJson.version === "string" && packageJson.version.trim() ? packageJson.version.trim() : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+function validMaxAge(value: number | undefined): number {
+  return Number.isFinite(value) && (value ?? 0) > 0 ? Math.floor(value as number) : defaultReviewMaxAgeSeconds;
+}
+
+function summarizeIssues(issues: ValidationIssue[], root: string): string {
+  return issues.slice(0, 4).map((issue) => `${issue.field}: ${issue.message}`)
+    .join("; ")
+    .replaceAll(root, "<workspace>")
+    .replace(/\b(?:sk-|rk-|sess-|ghp_|github_pat_)[A-Za-z0-9_-]{16,}/g, "<redacted-token>");
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

@@ -22,6 +22,7 @@ const requiredFiles = [
   "docs/development/operations-lifecycle.json",
   "docs/development/post-release-observation-template.json",
   "docs/development/post-release-observation-v0.1.7.json",
+  "docs/development/product-experience-review-record-template.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
   "docs/development/maintenance-window-index.json",
@@ -81,6 +82,8 @@ const requiredFiles = [
   "scripts/ops/post-release-observation-status.ts",
   "scripts/quality/post-release-observation-status.selftest.ts",
   "scripts/quality/post-release-observation-validate.ts",
+  "scripts/quality/product-experience-review-discovery.ts",
+  "scripts/quality/product-experience-review-validate.ts",
   "scripts/quality/post-release-observation-validate.selftest.ts",
   "scripts/quality/attachment-reconciliation.ts",
   "scripts/quality/attachment-reconciliation-summary.ts",
@@ -241,7 +244,7 @@ function main(): void {
       generatedAt: "2026-07-11T00:00:00.000Z",
     });
 
-    assert(handoff.schemaVersion === 1, "schemaVersion should be 1");
+    assert(handoff.schemaVersion === 2, "schemaVersion should be 2");
     assert(handoff.mode === "read_only_operational_handoff", "mode should identify handoff");
     assert(handoff.status.controlPlane === "pass", "fixture control plane should pass");
     assert(handoff.status.offlineOverall === "blocked", "current blocker should block handoff status");
@@ -295,6 +298,7 @@ function main(): void {
       "handoff should separate verified expected-before implementation from signed Release and deployment confirmations",
     );
     assert(handoff.evidenceFocus.releaseEvidenceGaps.status === "needs_evidence", "handoff should include release evidence gap status");
+    assert(handoff.evidenceFocus.uxReview.status === "missing", "handoff must inherit the status projection UX evaluator result");
     assert(
       handoff.evidenceFocus.releaseEvidenceGaps.blockingGaps.some((gap) =>
         gap.key === "attachmentReconciliationSummaryHash" && gap.gapType === "attachment_reconciliation_binding"
@@ -350,6 +354,7 @@ function main(): void {
     assert(handoff.safetyFacts.handoffWritten === false, "handoff should not write files");
     const summary = buildOperationalHandoffSummary(handoff);
     const formattedSummary = formatOperationalHandoffSummary(summary);
+    assert(summary.uxReview.startsWith("missing:"), "handoff summary must expose the inherited UX evidence status");
     assert(summary.title === "AreaForge operational handoff", "summary should have a stable title");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include non-executable current blockers");
     assert(summary.boundaryStops.some((item) => item.includes("post_update_ops001")), "summary should include boundary stops");

@@ -128,6 +128,13 @@ try {
   assert(oldVersionUxJson.status === "invalid", "old appVersion UX record should not satisfy the current-version gate");
   assertCheckStatus(oldVersionUxJson, "uxReview", "invalid");
 
+  const mismatchedExpectedVersion = runGate({
+    ...baseEnv,
+    AREAFORGE_LONG_TERM_EXPECTED_VERSION: "9.9.9",
+  }, 1);
+  const mismatchedExpectedVersionJson = parseGateJson(mismatchedExpectedVersion.stdout);
+  assertCheckStatus(mismatchedExpectedVersionJson, "uxReview", "invalid");
+
   console.log("long-term operability live gate selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });

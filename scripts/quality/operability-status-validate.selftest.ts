@@ -16,6 +16,46 @@ function main(): void {
   }), "mode");
 
   expectFail(withPatch(projection, (body) => {
+    body.schemaVersion = 1 as 2;
+  }), "schemaVersion");
+
+  expectFail(withPatch(projection, (body) => {
+    delete (body as Partial<MutableProjection>).uxReview;
+  }), "uxReview");
+
+  expectFail(withPatch(projection, (body) => {
+    body.uxReview.status = "unknown" as "fresh";
+  }), "uxReview.status");
+
+  expectFail(withPatch(projection, (body) => {
+    body.uxReview.status = "stale";
+    body.uxReview.ageSeconds = 1;
+    body.uxReview.maxAgeSeconds = 100;
+    body.uxReview.issueFields = ["reviewedAt"];
+  }), "uxReview");
+
+  expectFail(withPatch(projection, (body) => {
+    body.uxReview.status = "invalid";
+    body.uxReview.issueFields = ["gitCommit"];
+    body.status.overall = "needs_live_evidence";
+  }), "status.overall");
+
+  expectFail(withPatch(projection, (body) => {
+    body.status.releaseTrain = "ready_to_decide";
+  }), "status.releaseTrain");
+
+  expectFail(withPatch(projection, (body) => {
+    body.uxReview.status = "missing";
+    body.uxReview.recordPathLabel = null;
+    body.uxReview.recordSha256 = null;
+    body.uxReview.reviewedAt = null;
+    body.uxReview.ageSeconds = null;
+    body.uxReview.appVersion = null;
+    body.uxReview.issueFields = ["record"];
+    body.status.overall = "operable_with_residuals";
+  }), "status.overall");
+
+  expectFail(withPatch(projection, (body) => {
     body.safetyFacts.productionWriteAttempted = true;
   }), "safetyFacts.productionWriteAttempted");
 
@@ -134,6 +174,7 @@ type MutableProjection = Omit<OperabilityStatusProjection, "mode" | "safetyFacts
   sourceSnapshot: OperabilityStatusProjection["sourceSnapshot"];
   boundaryStops: OperabilityStatusProjection["boundaryStops"];
   residuals: OperabilityStatusProjection["residuals"];
+  uxReview: OperabilityStatusProjection["uxReview"];
 };
 
 main();

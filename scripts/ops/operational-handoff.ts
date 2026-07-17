@@ -1,10 +1,11 @@
 import { pathToFileURL } from "node:url";
 import { buildOperabilityStatusProjection, type OperabilityStatusProjection } from "./operability-status";
+import type { ProductExperienceEvidenceEvaluation } from "../quality/product-experience-review-validate";
 
 type FocusKind = "current_blocker" | "execute_now" | "review_due" | "release_evidence" | "track";
 
 export type OperationalHandoff = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   generatedAt: string;
   mode: "read_only_operational_handoff";
   app: OperabilityStatusProjection["app"];
@@ -29,6 +30,7 @@ export type OperationalHandoff = {
     currentBlockers: FocusItem[];
     boundaryStops: OperabilityStatusProjection["boundaryStops"];
     releaseEvidenceGaps: OperabilityStatusProjection["releaseEvidenceGaps"];
+    uxReview: OperabilityStatusProjection["uxReview"];
     immediate: FocusItem[];
     dueOrSoon: FocusItem[];
     releaseRelevantIds: string[];
@@ -55,6 +57,7 @@ export type OperationalHandoffSummary = {
   currentBlockers: string[];
   boundaryStops: string[];
   releaseEvidenceGaps: string[];
+  uxReview: string;
   immediateFocus: string[];
   dueOrSoonFocus: string[];
   releaseRelevantResiduals: string[];
@@ -86,6 +89,7 @@ type BuildOptions = {
   root?: string;
   asOf?: string;
   generatedAt?: string;
+  uxReviewEvaluation?: ProductExperienceEvidenceEvaluation;
 };
 
 export function buildOperationalHandoff(options: BuildOptions = {}): OperationalHandoff {
@@ -103,7 +107,7 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
   }));
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: options.generatedAt ?? projection.generatedAt,
     mode: "read_only_operational_handoff",
     app: projection.app,
@@ -132,6 +136,7 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
       currentBlockers: focusItems.filter((item) => item.kind === "current_blocker"),
       boundaryStops: projection.boundaryStops,
       releaseEvidenceGaps: projection.releaseEvidenceGaps,
+      uxReview: projection.uxReview,
       immediate: focusItems.filter((item) => item.kind === "execute_now"),
       dueOrSoon: focusItems.filter((item) => item.kind !== "execute_now" && item.kind !== "current_blocker"),
       releaseRelevantIds: projection.residuals.releaseRelevantIds,
@@ -162,6 +167,7 @@ export function buildOperationalHandoffSummary(handoff: OperationalHandoff): Ope
     boundaryStops: handoff.evidenceFocus.boundaryStops.map(toSummaryBoundaryStop),
     releaseEvidenceGaps: handoff.evidenceFocus.releaseEvidenceGaps.blockingGaps
       .map((gap) => `${gap.key} ${gap.status} ${gap.gapType} blocks=${gap.blocks.join(",")}`),
+    uxReview: `${handoff.evidenceFocus.uxReview.status}: ${handoff.evidenceFocus.uxReview.detail}`,
     immediateFocus: handoff.evidenceFocus.immediate.map(toSummaryFocus),
     dueOrSoonFocus: handoff.evidenceFocus.dueOrSoon.map(toSummaryFocus),
     releaseRelevantResiduals: handoff.evidenceFocus.releaseRelevantIds,
@@ -191,6 +197,7 @@ export function formatOperationalHandoffSummary(summary: OperationalHandoffSumma
     listBlock("currentBlockers", summary.currentBlockers),
     listBlock("boundaryStops", summary.boundaryStops),
     listBlock("releaseEvidenceGaps", summary.releaseEvidenceGaps),
+    `uxReview: ${summary.uxReview}`,
     listBlock("immediateFocus", summary.immediateFocus),
     listBlock("dueOrSoonFocus", summary.dueOrSoonFocus),
     listBlock("releaseRelevantResiduals", summary.releaseRelevantResiduals),
