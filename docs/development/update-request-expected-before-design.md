@@ -155,7 +155,9 @@ agent 在把请求标记为 running 前必须：
 7. 任一次不匹配都写入不可变 history 结果并停止；若 updater 缺失、矛盾地输出双比较 marker，或同时输出
    reconciliation 与 terminal marker，必须
    进入 `NEEDS_RECONCILIATION`，不得把退出码当成成功，也不得调用后续 updater、Docker 或 `config_set`。
-8. 两次通过后才进入现有 migration、切换、smoke 或 config 更新路径。
+8. mutation 的不可变 decision、claim 清理和 redacted `status.json` 终态发布必须在释放 shared lock 前完成，
+   避免 direct updater 在终态投影期间插入另一轮生产状态变化。
+9. 两次通过后才进入现有 migration、切换、smoke 或 config 更新路径。
 
 `apply` 只有在 updater 同时给出完整双 guard、`executionAttempted=true` 和与退出码一致的
 `applied` / 非 migration `rolled_back` 终态 marker 时才能清理 claim。副作用开始后被杀、普通异常、终态

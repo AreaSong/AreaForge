@@ -59,6 +59,7 @@ function main(): void {
   testRollbackFailureRestoresOriginalState();
   testRollbackRecoveryFailureNeedsReconciliation();
   testPolicySuccessUnderLock();
+  testStatusPublishStaysWithinProductionLock();
   testPolicyUsesDefaultNoneWhenConfigMissing();
   testPolicyDisableSuccessUnderLock();
   testPolicyLockPathDriftFailsClosed();
@@ -131,7 +132,7 @@ function fixture(): Fixture {
   writeFileSync(flock, `#!/usr/bin/env bash\nif [[ "\${TEST_USE_SYSTEM_FLOCK:-0}" == "1" ]]; then exec "\${AREAFORGE_TEST_REAL_FLOCK:?}" "$@"; fi\nprintf '%s\\n' "$*" >> "${flockLog}"\nif [[ "$1" == "-n" && "\${2:-}" == "8" ]]; then touch "${productionLockMarker}"; fi\nif [[ "$1" == "-u" && "\${2:-}" == "8" ]]; then rm -f "${productionLockMarker}"; fi\nexit 0\n`);
   chmodSync(flock, 0o755);
   const sync = path.join(bin, "sync");
-  writeFileSync(sync, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${syncLog}"\nif [[ -f "${syncMode}" && "$(<"${syncMode}")" == "fail-history-once" && "$*" == */history && ! -f "${syncFailedMarker}" ]]; then\n  touch "${syncFailedMarker}"\n  exit 42\nfi\nexit 0\n`);
+  writeFileSync(sync, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${syncLog}"\nmode=""\n[[ -f "${syncMode}" ]] && mode="$(<"${syncMode}")"\nif [[ "$mode" == "fail-history-once" && "$*" == */history && ! -f "${syncFailedMarker}" ]]; then\n  touch "${syncFailedMarker}"\n  exit 42\nfi\nif [[ "$mode" == "require-lock-for-status" && "$*" == */status.json.* && ! -f "${productionLockMarker}" ]]; then\n  exit 43\nfi\nexit 0\n`);
   chmodSync(sync, 0o755);
   return { dir, state, records, bin, envFile, configFile, updater, updaterLog, updaterMode, dockerLog, dockerMode, flockLog, syncLog, syncMode, productionLockMarker };
 }
@@ -1034,6 +1035,15 @@ function testPolicySuccessUnderLock(): void {
   assert(configValue(f, "AREAFORGE_AUTO_APPLY") === "patch", "policy mutation must persist the requested value");
   assert(readFileSync(f.flockLog, "utf8").includes("-n 8\n-u 8"), "policy dual compare and mutation must be enclosed by the shared lock");
   assert(!existsSync(f.updaterLog) && !existsSync(f.dockerLog), "policy mutation must not call updater or docker");
+}
+
+function testStatusPublishStaysWithinProductionLock(): void {
+  const f = fixture();
+  writeFileSync(f.syncMode, "require-lock-for-status\n");
+  enqueue(f, request("set_auto_apply"));
+  run(f);
+  const status = json(path.join(f.state, "status.json"));
+  assert(status.lastOperation?.reasonCode === "MUTATION_COMPLETED", "mutation status must publish before releasing the production-state lock");
 }
 
 function testPolicyUsesDefaultNoneWhenConfigMissing(): void {

@@ -670,13 +670,13 @@ process_apply() {
   observed_after="$(observed_before_hash "$(observed_before)")"
   decision_file="$(write_decision "$request" "$claim_dir/claim.json" "$decision" "$reason" "$execution_attempted" "$message" "$first_hash" "$second_hash" "$observed_after")"
   operation="$(operation_from_decision "$decision_file")"
-  flock -u 8
   if [[ "$decision" == "NEEDS_RECONCILIATION" ]]; then
     ACTIVE_PROCESSING_CLAIM=1
   else
     cleanup_claim "$claim_dir"
   fi
   merge_status "$operation" false "$identity"
+  flock -u 8
 }
 
 before_second_comparison() {
@@ -700,6 +700,7 @@ process_locked_mutation() {
   fi
   if ! production_state_lock_binding_is_current; then
     reject_claim "$claim_dir" PRODUCTION_STATE_LOCK_CHANGED "production state lock binding changed before comparison"
+    flock -u 8
     return
   fi
   observed_first="$(observed_before)"
@@ -707,17 +708,17 @@ process_locked_mutation() {
   if ! expected_matches "$request" "$observed_first"; then
     decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED EXPECTED_BEFORE_MISMATCH false "live production state changed before execution" "$first_hash")"
     operation="$(operation_from_decision "$decision_file")"
-    flock -u 8
     cleanup_claim "$claim_dir"
     merge_status "$operation" false
+    flock -u 8
     return
   fi
   if ! auto_apply_prerequisites_met "$observed_first" "$auto_apply"; then
     decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED AUTO_APPLY_PREREQUISITES_UNMET false "patch auto apply requires signature verification and a tagged GHCR digest" "$first_hash")"
     operation="$(operation_from_decision "$decision_file")"
-    flock -u 8
     cleanup_claim "$claim_dir"
     merge_status "$operation" false
+    flock -u 8
     return
   fi
   if [[ "$action" == "rollback" ]]; then
@@ -726,9 +727,9 @@ process_locked_mutation() {
     if ! find_rollback_record_by_hash "$expected_source" >/dev/null; then
       decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED ROLLBACK_TARGET_CHANGED false "bound rollback source record is unavailable" "$first_hash")"
       operation="$(operation_from_decision "$decision_file")"
-      flock -u 8
       cleanup_claim "$claim_dir"
       merge_status "$operation" false
+      flock -u 8
       return
     fi
   fi
@@ -740,33 +741,33 @@ process_locked_mutation() {
     if ! production_state_lock_binding_is_current; then
       decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED PRODUCTION_STATE_LOCK_CHANGED false "production state lock binding changed at final execution boundary" "$first_hash" "$second_hash")"
       operation="$(operation_from_decision "$decision_file")"
-      flock -u 8
       cleanup_claim "$claim_dir"
       merge_status "$operation" false
+      flock -u 8
       return
     fi
     if ! expected_matches "$request" "$observed_second"; then
       decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED EXPECTED_BEFORE_MISMATCH false "live production state changed at final execution boundary" "$first_hash" "$second_hash")"
       operation="$(operation_from_decision "$decision_file")"
-      flock -u 8
       cleanup_claim "$claim_dir"
       merge_status "$operation" false
+      flock -u 8
       return
     fi
     if ! auto_apply_prerequisites_met "$observed_second" "$auto_apply"; then
       decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED AUTO_APPLY_PREREQUISITES_UNMET false "patch auto apply requires signature verification and a tagged GHCR digest" "$first_hash" "$second_hash")"
       operation="$(operation_from_decision "$decision_file")"
-      flock -u 8
       cleanup_claim "$claim_dir"
       merge_status "$operation" false
+      flock -u 8
       return
     fi
     if ! validate_ttl "$request"; then
       decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED REQUEST_EXPIRED false "request expired before the final execution boundary" "$first_hash" "$second_hash")"
       operation="$(operation_from_decision "$decision_file")"
-      flock -u 8
       cleanup_claim "$claim_dir"
       merge_status "$operation" false
+      flock -u 8
       return
     fi
   fi
@@ -879,13 +880,13 @@ process_locked_mutation() {
   observed_after="$(observed_before_hash "$(observed_before)")"
   decision_file="$(write_decision "$request" "$claim_dir/claim.json" "$decision" "$reason" "$execution_attempted" "$message" "$first_hash" "$second_hash" "$observed_after")"
   operation="$(operation_from_decision "$decision_file")"
-  flock -u 8
   if [[ "$decision" == "NEEDS_RECONCILIATION" ]]; then
     ACTIVE_PROCESSING_CLAIM=1
   else
     cleanup_claim "$claim_dir"
   fi
   merge_status "$operation" false
+  flock -u 8
 }
 
 next_queued_request() {

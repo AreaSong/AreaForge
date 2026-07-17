@@ -114,6 +114,8 @@ releaseRequired: true
   准备完成后、原子替换 production env 前完成第二次 compare-and-reject 和 TTL 校验；policy 也在最终边界重验。
   rollback/policy 在领取后和最终边界都重新解析配置锁路径并验证同一 fd inode；同路径 lock file 被替换时以
   `PRODUCTION_STATE_LOCK_CHANGED` 零副作用拒绝。
+- mutation 的不可变 decision、claim 清理和 redacted `status.json` 终态发布在释放 shared lock 前完成，避免
+  direct updater 在终态投影过程中插入另一轮生产状态变化；fixture 会在 status 发布发生于锁外时直接失败。
 - agent live compare 将缺失的 `AREAFORGE_AUTO_APPLY` 与状态页/updater 一致解释为安全默认 `none`，允许受控策略路径补回配置而不会产生虚假的 expected-before drift。
 - updater 缺失、重复、与退出码矛盾的双比较 marker 时进入 `NEEDS_RECONCILIATION`，只读 check 记录
   `executionAttempted=false`，root-only status 路径被脱敏；observed-before marker 与 expected-before 使用同一
