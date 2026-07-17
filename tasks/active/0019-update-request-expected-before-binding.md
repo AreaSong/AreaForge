@@ -114,8 +114,9 @@ releaseRequired: true
   准备完成后、原子替换 production env 前完成第二次 compare-and-reject 和 TTL 校验；policy 也在最终边界重验。
   rollback/policy 在领取后和最终边界都重新解析配置锁路径并验证同一 fd inode；同路径 lock file 被替换时以
   `PRODUCTION_STATE_LOCK_CHANGED` 零副作用拒绝。
-- mutation 的不可变 decision、claim 清理和 redacted `status.json` 终态发布在释放 shared lock 前完成，避免
-  direct updater 在终态投影过程中插入另一轮生产状态变化；fixture 会在 status 发布发生于锁外时直接失败。
+- mutation 的不可变 decision、redacted `status.json` 终态发布和 claim 清理按该顺序在释放 shared lock 前
+  完成；status fsync 失败保留 claim，重启复用既有 history 重发 status 后再清理且不重放副作用；fixture 会在
+  status 发布发生于锁外或 claim 被提前删除时直接失败。
 - agent live compare 将缺失的 `AREAFORGE_AUTO_APPLY` 与状态页/updater 一致解释为安全默认 `none`，允许受控策略路径补回配置而不会产生虚假的 expected-before drift。
 - updater 缺失、重复、与退出码矛盾的双比较 marker 时进入 `NEEDS_RECONCILIATION`，只读 check 记录
   `executionAttempted=false`，root-only status 路径被脱敏；observed-before marker 与 expected-before 使用同一
@@ -126,7 +127,8 @@ releaseRequired: true
   apply 第一/第二 guard 过期的结构化零副作用终态。reconciliation marker 与 terminal marker 同时出现时，
   reconciliation 必须优先并保留 claim，不能被错误收敛为成功。
 - updater reconciliation marker 必须同时具备唯一 first/second pass 和唯一 execution marker 才能证明具体
-  不确定副作用；Release tag/target 变化输出结构化 `TARGET_IDENTITY_CHANGED` 零副作用拒绝。policy config 在
+  不确定副作用；Release tag/target 变化输出 `TARGET_IDENTITY_CHANGED`，target version 不比 current version
+  新时输出 `TARGET_VERSION_NOT_NEWER`，两者都是结构化零副作用拒绝。policy config 在
   rename 前失败时即时记录 `AUTO_APPLY_WRITE_FAILED`，rename 后目录 fsync 不确定时记录
   `AUTO_APPLY_PERSISTENCE_UNCERTAIN` 并保留 processing claim，避免只等 TTL 才发现可能已经改变的策略。
 - apply 副作用开始后只有完整双 guard、execution marker 和与退出码一致的 `applied` / 非 migration `rolled_back` 终态 marker 才能清理 claim；子进程异常、marker 缺失和 migration 已启动后的失败均保留为 reconciliation。root 在两次策略比较点都强制 `signatureRequired=true` 与 tagged GHCR digest。
@@ -135,6 +137,9 @@ releaseRequired: true
   回滚，启用 compose 更新时同时恢复备份 compose；恢复不确定时记录 `ROLLBACK_RECOVERY_UNCERTAIN`；env、
   update record 和 decision history 写入带显式 file/directory fsync 失败检查。最终 env rename 非零时不假定
   零副作用，而是记录 `ROLLBACK_ENV_SWITCH_UNCERTAIN`、`executionAttempted=null` 并保留 processing claim。
+- processing claim 内出现多个 request JSON 时记录并稳定复用 `PROCESSING_CLAIM_AMBIGUOUS`，保留全部文件、
+  阻塞后续 mutation 且不选择第一份执行；Web verified target 的 Release ID 与 agent/updater 一致限制为正的
+  JavaScript-safe integer，异常 snapshot 直接按 invalid fail closed。
 - 本地证据入口：`pnpm ops:ops-005:local:selftest`、`pnpm ops:ops-005:preflight:selftest`、`pnpm ops:ops-005:evidence:selftest`、`pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`；生产证据 validator 必须记录完整 aggregate local selftest，并同时输入 record 与签名 Release record 做身份交叉绑定。脏工作树只能形成本地 worktree 证据，不能把 `HEAD` 冒充已验证 Release commit。
 - signed Release preflight 的 commit override 必须与真实 `HEAD` 一致；preflight 和独立 production evidence validator 都必须提供实际 Release assets 目录并运行 strict supply-chain validator；生产
   rejection、decision history 与 operational evidence 使用记录同目录的 redacted JSON path+hash 绑定，不再接受任意格式正确的

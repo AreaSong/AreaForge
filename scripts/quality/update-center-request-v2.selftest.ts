@@ -294,6 +294,12 @@ function testSnapshotHashValidation(): UpdateStatusSnapshotV2 {
   assert(parseVerifiedStatusSnapshot(resignSnapshot(snapshot, {
     verifiedTarget: snapshot.verifiedTarget ? { ...snapshot.verifiedTarget, manifestVersion: "release-0.1.8" } : null,
   })) === null, "malformed manifest version must fail before enqueue");
+  for (const releaseId of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert(parseVerifiedStatusSnapshot({
+      ...snapshot,
+      verifiedTarget: snapshot.verifiedTarget ? { ...snapshot.verifiedTarget, releaseId } : null,
+    }) === null, `unsafe release id ${releaseId} must fail closed before snapshot hashing`);
+  }
   assert(parseVerifiedStatusSnapshot(resignSnapshot(snapshot, {
     verifiedTarget: snapshot.verifiedTarget ? { ...snapshot.verifiedTarget, webImageDigest: `registry.example/areaforge:v0.1.8@sha256:${"b".repeat(64)}` } : null,
   })) === null, "non-GHCR target image must fail before enqueue");

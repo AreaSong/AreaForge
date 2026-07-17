@@ -170,7 +170,10 @@ V2 链路如下：
    `ROLLBACK_ENV_SWITCH_UNCERTAIN` 保留 processing claim，不假定 rename 一定未发生。
 7. immutable decision history 记录 reason code、hash、claim、两次 observed-before hash 和
    `executionAttempted`；updater 只有跨过备份边界时才发出 `executionAttempted=true` 机器标记。任何
-   reconciliation marker 都优先于矛盾的 terminal marker，并立即在顶层 status 投影 blocker。
+   reconciliation marker 都优先于矛盾的 terminal marker，并立即在顶层 status 投影 blocker。终态按
+   decision -> status -> claim cleanup 发布，status 持久化失败时保留 claim 并在重启后只重发投影；同一
+   processing claim 出现多个 request JSON 时固定进入 `PROCESSING_CLAIM_AMBIGUOUS`，不得选一份执行。
+   target version 不比 current version 新时以 `TARGET_VERSION_NOT_NEWER` 零副作用拒绝。
 
 本地验证：
 

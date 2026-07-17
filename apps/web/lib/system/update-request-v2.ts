@@ -145,7 +145,7 @@ export class UpdateRequestV2Error extends Error {
 }
 
 const verifiedTargetSchema = z.object({
-  releaseId: z.number().int().positive(),
+  releaseId: z.number().int().positive().safe(),
   manifestSha256: hashSchema,
   manifestVersion: z.string().regex(versionPattern),
   webImageDigest: ghcrImageDigestSchema,
@@ -212,7 +212,11 @@ export function parseVerifiedStatusSnapshot(raw: unknown): UpdateStatusSnapshotV
     },
   };
 
-  return computeStatusSnapshotHash(snapshot) === snapshot.snapshotHash ? snapshot : null;
+  try {
+    return computeStatusSnapshotHash(snapshot) === snapshot.snapshotHash ? snapshot : null;
+  } catch {
+    return null;
+  }
 }
 
 export function computeStatusSnapshotHash(snapshot: Omit<UpdateStatusSnapshotV2, "snapshotHash" | "snapshotSchemaVersion">): string {

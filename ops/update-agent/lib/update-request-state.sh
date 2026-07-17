@@ -221,6 +221,26 @@ history_for_request() {
   return 1
 }
 
+history_for_claim_reason() {
+  local claim_file="$1"
+  local reason="$2"
+  local claim_id_value file
+  claim_id_value="$(jq -r '.claimId // empty' "$claim_file" 2>/dev/null || true)"
+  [[ -n "$claim_id_value" ]] || return 1
+  while IFS= read -r file; do
+    [[ -n "$file" ]] || continue
+    if jq -e \
+      --arg claimId "$claim_id_value" \
+      --arg reasonCode "$reason" \
+      '.claimId == $claimId and .reasonCode == $reasonCode and .decision == "NEEDS_RECONCILIATION"' \
+      "$file" >/dev/null 2>&1; then
+      printf '%s\n' "$file"
+      return 0
+    fi
+  done < <(find "$HISTORY_DIR" -maxdepth 1 -name '*.decision.json' -type f 2>/dev/null | sort)
+  return 1
+}
+
 decision_status() {
   case "$1" in
     SUCCEEDED|IDEMPOTENT_REPLAY) printf 'succeeded' ;;
@@ -314,8 +334,7 @@ reject_claim() {
   request="$(find "$claim_dir" -maxdepth 1 -name '*.json' ! -name claim.json -type f | head -n 1)"
   decision_file="$(write_decision "$request" "$claim_dir/claim.json" REJECTED "$reason" false "$message")"
   operation="$(operation_from_decision "$decision_file")"
-  cleanup_claim "$claim_dir"
-  merge_status "$operation" false
+  publish_terminal_decision "$claim_dir" "$operation" false
 }
 
 archive_invalid_request() {
@@ -343,8 +362,7 @@ check_duplicate_or_idempotency() {
       source_decision="$(jq -r '.decision // "REJECTED"' "$existing")"
       decision_file="$(write_decision "$request" "$claim_dir/claim.json" "$source_decision" IDEMPOTENT_REPLAY false "existing terminal decision returned without replay" null null null "$source")"
       operation="$(operation_from_decision "$decision_file")"
-      cleanup_claim "$claim_dir"
-      merge_status "$operation" false
+      publish_terminal_decision "$claim_dir" "$operation" false
     else
       reject_claim "$claim_dir" IDEMPOTENCY_CONFLICT "idempotency key is already bound to a different semantic hash"
     fi
@@ -461,12 +479,48 @@ reconcile_missing_request() {
   ACTIVE_PROCESSING_CLAIM=1
 }
 
+reconcile_ambiguous_processing_claim() {
+  local claim_dir="$1"
+  local request="$2"
+  local request_count="$3"
+  local claim_file decision_file operation existing
+  claim_file="$claim_dir/claim.json"
+  if [[ ! -f "$claim_file" ]]; then
+    jq -n \
+      --arg claimId "$(synthetic_claim_id "$claim_dir")" \
+      --arg originalFileName "$(basename "$request")" \
+      '{claimId:$claimId,claimedAt:null,claimExpiresAt:null,originalFileName:$originalFileName,synthetic:true}' |
+      write_json "$claim_file" 600 || return 1
+  fi
+  if existing="$(history_for_claim_reason "$claim_file" PROCESSING_CLAIM_AMBIGUOUS)"; then
+    operation="$(operation_from_decision "$existing")"
+  else
+    decision_file="$(write_decision "$request" "$claim_file" NEEDS_RECONCILIATION PROCESSING_CLAIM_AMBIGUOUS null "processing claim contains $request_count request files and was not replayed")"
+    operation="$(operation_from_decision "$decision_file")"
+  fi
+  merge_status "$operation" false
+  RECONCILED_STALE=1
+  ACTIVE_PROCESSING_CLAIM=1
+}
+
 reconcile_stale_claims() {
-  local claim_dir claim_file expires expires_epoch now request decision_file operation existing
+  local claim_dir claim_file expires expires_epoch now request request_count decision_file operation existing
   now="$(now_epoch)"
   while IFS= read -r claim_dir; do
-    request="$(find "$claim_dir" -maxdepth 1 -name '*.json' ! -name claim.json -type f | head -n 1)"
+    request_count="$(find "$claim_dir" -maxdepth 1 -name '*.json' ! -name claim.json | wc -l | awk '{print $1}')"
+    request="$(find "$claim_dir" -maxdepth 1 -name '*.json' ! -name claim.json -type f | sort | head -n 1)"
     claim_file="$claim_dir/claim.json"
+    if (( request_count > 1 )); then
+      if [[ -z "$request" ]]; then
+        request="$claim_dir/.ambiguous-request"
+        jq -n \
+          --arg id "ambiguous_processing_$(synthetic_claim_id "$claim_dir")" \
+          '{schemaVersion:2,id:$id,action:"invalid",status:"processing",requestHash:null}' |
+          write_json "$request" 400 || return 1
+      fi
+      reconcile_ambiguous_processing_claim "$claim_dir" "$request" "$request_count"
+      continue
+    fi
     if [[ -z "$request" ]]; then
       if [[ ! -e "$claim_file" ]] && rmdir "$claim_dir" 2>/dev/null; then
         fsync_path "$PROCESSING_DIR" || return 1
@@ -485,8 +539,7 @@ reconcile_stale_claims() {
           ACTIVE_PROCESSING_CLAIM=1
           continue
         fi
-        cleanup_claim "$claim_dir"
-        merge_status "$operation" false
+        publish_terminal_decision "$claim_dir" "$operation" false
         RECONCILED_STALE=1
         continue
       fi
@@ -501,8 +554,7 @@ reconcile_stale_claims() {
         ACTIVE_PROCESSING_CLAIM=1
         continue
       fi
-      cleanup_claim "$claim_dir"
-      merge_status "$operation" false
+      publish_terminal_decision "$claim_dir" "$operation" false
       RECONCILED_STALE=1
       continue
     fi

@@ -408,18 +408,18 @@ function checkUpdateAgentRequestBoundary(): void {
     "update-production-state-lock.selftest.ts",
   ]);
   const ownerTerms: Array<[string, string, string[]]> = [
-    ["web-request", webRequestContract, ["schemaVersion", "expectedBefore", "expectedBeforeHash", "semanticHash", "requestHash", "idempotencyKey", "expiresAt", "snapshotHash", "confirmedSnapshotHash", "STATUS_SNAPSHOT_CHANGED", "max(500)", "directorySyncChain", "unlinkTemporary"]],
+    ["web-request", webRequestContract, ["schemaVersion", "expectedBefore", "expectedBeforeHash", "semanticHash", "requestHash", "idempotencyKey", "expiresAt", "snapshotHash", "confirmedSnapshotHash", "STATUS_SNAPSHOT_CHANGED", "positive().safe()", "max(500)", "directorySyncChain", "unlinkTemporary"]],
     ["web-idempotency", webIdempotency, ["isValidUpdateRequestResponseBody", "responseBody", "responseStatus !== 202"]],
     ["web-center", webUpdateCenter, ["LEGACY_MUTATION_UNBOUND", "atomicPublishUpdateRequest"]],
     ["web-route", webUpdateRequestRoute, ["updateRequestCommandSchema", "createUpdateRequest"]],
     ["agent-contract", agentContract, ["validate_request_schema", "expected_before_hash", "semantic_hash", "request_hash"]],
-    ["agent-state", agentState, ["archive_invalid_request", "LEGACY_MUTATION_UNBOUND", "needs_reconciliation", "executionAttempted", "image_tag_matches_version"]],
-    ["agent-runtime", agent, ["EXPECTED_BEFORE_MISMATCH", "REQUEST_EXPIRED", "ROLLBACK_ENV_SWITCH_UNCERTAIN", "PRODUCTION_STATE_LOCK_CHANGED", "production_state_lock_binding_is_current", "next_queued_check", "AREAFORGE_PRODUCTION_STATE_LOCK_INHERITED", "--request-guard", "--identity-json"]],
-    ["updater-runtime", updater, ["EXPECTED_BEFORE_MISMATCH", "REQUEST_EXPIRED", "CURRENT_IMAGE_IDENTITY_INVALID", "configured_production_state_lock_path", "production-state lock inode changed while held", "image_tag_matches_version", "INHERITED_PRODUCTION_STATE_LOCK_FILE", "--request-guard"]],
-    ["docs", docs, ["expected-before", "processing", "production-state", "fd inode", "REQUEST_EXPIRED", "ROLLBACK_ENV_SWITCH_UNCERTAIN"]],
-    ["web-selftest", webSelftest, ["expectedBeforeHash", "semanticHash", "requestHash", "atomic publish", "testAtomicPublishTemporaryCleanupUncertain", "invalid conflict response"]],
-    ["agent-selftest", agentSelftest, ["EXPECTED_BEFORE_MISMATCH", "REQUEST_EXPIRED", "ROLLBACK_ENV_SWITCH_UNCERTAIN", "LEGACY_MUTATION_UNBOUND", "NEEDS_RECONCILIATION", "inheritedLock=true", "  testApplyReconciliationMarkerOverridesTerminal(", "  testPolicyLockPathDriftFailsClosed(", "  testRollbackLockInodeReplacementFailsClosed("]],
-    ["lock-selftest", lockSelftest, ["production-state lock", "EXPECTED_BEFORE_MISMATCH", "  testInheritedLockBinding(", "  testGuardExpiryAtSecondComparison(", "  testLockInodeReplacementFailsClosed(", "  testMismatchedRollbackRecordIsUnavailable("]],
+    ["agent-state", agentState, ["archive_invalid_request", "LEGACY_MUTATION_UNBOUND", "needs_reconciliation", "executionAttempted", "image_tag_matches_version", "PROCESSING_CLAIM_AMBIGUOUS"]],
+    ["agent-runtime", agent, ["EXPECTED_BEFORE_MISMATCH", "TARGET_VERSION_NOT_NEWER", "REQUEST_EXPIRED", "ROLLBACK_ENV_SWITCH_UNCERTAIN", "PRODUCTION_STATE_LOCK_CHANGED", "publish_terminal_decision", "production_state_lock_binding_is_current", "next_queued_check", "AREAFORGE_PRODUCTION_STATE_LOCK_INHERITED", "--request-guard", "--identity-json"]],
+    ["updater-runtime", updater, ["EXPECTED_BEFORE_MISMATCH", "TARGET_VERSION_NOT_NEWER", "REQUEST_EXPIRED", "CURRENT_IMAGE_IDENTITY_INVALID", "configured_production_state_lock_path", "production-state lock inode changed while held", "image_tag_matches_version", "INHERITED_PRODUCTION_STATE_LOCK_FILE", "--request-guard"]],
+    ["docs", docs, ["expected-before", "processing", "production-state", "fd inode", "REQUEST_EXPIRED", "TARGET_VERSION_NOT_NEWER", "PROCESSING_CLAIM_AMBIGUOUS", "decision -> status -> claim cleanup", "ROLLBACK_ENV_SWITCH_UNCERTAIN"]],
+    ["web-selftest", webSelftest, ["expectedBeforeHash", "semanticHash", "requestHash", "atomic publish", "Number.MAX_SAFE_INTEGER + 1", "testAtomicPublishTemporaryCleanupUncertain", "invalid conflict response"]],
+    ["agent-selftest", agentSelftest, ["EXPECTED_BEFORE_MISMATCH", "TARGET_VERSION_NOT_NEWER", "PROCESSING_CLAIM_AMBIGUOUS", "REQUEST_EXPIRED", "ROLLBACK_ENV_SWITCH_UNCERTAIN", "LEGACY_MUTATION_UNBOUND", "NEEDS_RECONCILIATION", "inheritedLock=true", "  testStatusPublishFailureRetainsClaimWithoutReplay(", "  testApplyReconciliationMarkerOverridesTerminal(", "  testPolicyLockPathDriftFailsClosed(", "  testRollbackLockInodeReplacementFailsClosed("]],
+    ["lock-selftest", lockSelftest, ["production-state lock", "EXPECTED_BEFORE_MISMATCH", "TARGET_VERSION_NOT_NEWER", "  testTargetVersionNotNewerHasNoMutation(", "  testInheritedLockBinding(", "  testGuardExpiryAtSecondComparison(", "  testLockInodeReplacementFailsClosed(", "  testMismatchedRollbackRecordIsUnavailable("]],
   ];
   const missing = findMissingOwnedTerms(ownerTerms);
   const ok = missing.length === 0 &&

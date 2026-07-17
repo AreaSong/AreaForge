@@ -43,6 +43,7 @@ function main(): void {
   testRollbackRecordPersistenceUncertainNeedsReconciliation();
   testApplyGuardRejectionHasNoExecution();
   testApplyTargetIdentityGuardRejectionHasNoExecution();
+  testApplyTargetVersionNotNewerHasNoExecution();
   testApplyFirstGuardExpiryHasNoExecution();
   testApplyGuardExpiryHasNoExecution();
   testApplyZeroExitGuardRejectionHasNoExecution();
@@ -81,12 +82,14 @@ function main(): void {
   testActiveProcessingClaimAllowsReadonlyCheckAndBlocksMutation();
   testCrashAfterExecutionBoundaryNeedsReconciliation();
   testCrashAfterDecisionPublishRecoversClaim();
+  testStatusPublishFailureRetainsClaimWithoutReplay();
   testMissingClaimAfterTerminalDecisionRecovers();
   testHistorySyncFailureDoesNotReplay();
   testRealProductionLockContention();
   testStaleProcessingNeedsReconciliation();
   testMissingClaimMetadataNeedsReconciliation();
   testMissingProcessingRequestNeedsReconciliation();
+  testAmbiguousProcessingClaimNeedsReconciliation();
   testClaimMaterializationDoesNotFollowSymlink();
   testClaimMaterializationBreaksHardlinks();
   testClaimMaterializationRenameFailurePreservesRequest();
@@ -137,7 +140,7 @@ function fixture(): Fixture {
   writeFileSync(flock, `#!/usr/bin/env bash\nif [[ "\${TEST_USE_SYSTEM_FLOCK:-0}" == "1" ]]; then exec "\${AREAFORGE_TEST_REAL_FLOCK:?}" "$@"; fi\nprintf '%s\\n' "$*" >> "${flockLog}"\nif [[ "$1" == "-n" && "\${2:-}" == "8" ]]; then touch "${productionLockMarker}"; fi\nif [[ "$1" == "-u" && "\${2:-}" == "8" ]]; then rm -f "${productionLockMarker}"; fi\nexit 0\n`);
   chmodSync(flock, 0o755);
   const sync = path.join(bin, "sync");
-  writeFileSync(sync, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${syncLog}"\nmode=""\n[[ -f "${syncMode}" ]] && mode="$(<"${syncMode}")"\nif [[ "$mode" == "fail-history-once" && "$*" == */history && ! -f "${syncFailedMarker}" ]]; then\n  touch "${syncFailedMarker}"\n  exit 42\nfi\nif [[ "$mode" == "require-lock-for-status" && "$*" == */status.json.* && ! -f "${productionLockMarker}" ]]; then\n  exit 43\nfi\nexit 0\n`);
+  writeFileSync(sync, `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${syncLog}"\nmode=""\n[[ -f "${syncMode}" ]] && mode="$(<"${syncMode}")"\nif [[ "$mode" == "fail-history-once" && "$*" == */history && ! -f "${syncFailedMarker}" ]]; then\n  touch "${syncFailedMarker}"\n  exit 42\nfi\nif [[ "$mode" == "fail-status-once" && "$*" == */status.json.* && ! -f "${syncFailedMarker}" ]]; then\n  touch "${syncFailedMarker}"\n  exit 42\nfi\nif [[ "$mode" == "require-lock-for-status" && "$*" == */status.json.* && ! -f "${productionLockMarker}" ]]; then\n  exit 43\nfi\nexit 0\n`);
   chmodSync(sync, 0o755);
   return { dir, state, records, bin, envFile, configFile, updater, updaterLog, updaterMode, dockerLog, dockerMode, flockLog, syncLog, syncMode, productionLockMarker };
 }
@@ -208,6 +211,17 @@ function runWithTargetIdentityGuardRejection(f: Fixture): void {
 run_updater_apply() {
   printf '%s\\n' 'AREAFORGE_REQUEST_GUARD phase=first result=reject reasonCode=TARGET_IDENTITY_CHANGED observedBeforeHash=sha256:${"1".repeat(64)} executionAttempted=false'
   return 21
+}
+main`, "selftest", agent], {
+    AREAFORGE_UPDATE_AGENT_LIB_ONLY: "1",
+  });
+}
+
+function runWithTargetVersionNotNewerRejection(f: Fixture): void {
+  runAgent(f, ["-c", `. "$1"
+run_updater_apply() {
+  printf '%s\\n' 'AREAFORGE_REQUEST_GUARD phase=first result=reject reasonCode=TARGET_VERSION_NOT_NEWER observedBeforeHash=sha256:${"1".repeat(64)} executionAttempted=false'
+  return 22
 }
 main`, "selftest", agent], {
     AREAFORGE_UPDATE_AGENT_LIB_ONLY: "1",
@@ -826,6 +840,18 @@ function testApplyTargetIdentityGuardRejectionHasNoExecution(): void {
   assert(typeof decision?.claimId === "string" && !existsSync(path.join(f.state, "processing", decision.claimId)), "target identity rejection must clean the processing claim");
 }
 
+function testApplyTargetVersionNotNewerHasNoExecution(): void {
+  const f = fixture();
+  const value = request("apply");
+  enqueue(f, value);
+  runWithTargetVersionNotNewerRejection(f);
+  const decision = decisions(f).find((item) => item.id === value.id);
+  assert(decision?.decision === "REJECTED" && decision.reasonCode === "TARGET_VERSION_NOT_NEWER", "a non-newer target must close as a structured zero-side-effect rejection");
+  assert(decision?.executionAttempted === false && decision.observedBeforeHashSecond === null, "a non-newer target must stop at the first guard");
+  assert(typeof decision?.claimId === "string" && !existsSync(path.join(f.state, "processing", decision.claimId)), "a non-newer target rejection must clean the processing claim");
+  assert(!existsSync(f.dockerLog), "a non-newer target must not reach Docker");
+}
+
 function testApplyGuardExpiryHasNoExecution(): void {
   const f = fixture();
   writeFileSync(f.updaterMode, "guard-expired\n");
@@ -1430,6 +1456,28 @@ function testCrashAfterDecisionPublishRecoversClaim(): void {
   assert(readdirSync(path.join(f.state, "processing")).length === 0, "existing decision recovery must clean the completed claim");
 }
 
+function testStatusPublishFailureRetainsClaimWithoutReplay(): void {
+  const f = fixture();
+  writeFileSync(f.syncMode, "fail-status-once\n");
+  enqueue(f, request("apply"));
+  let failed = false;
+  try {
+    run(f);
+  } catch {
+    failed = true;
+  }
+  assert(failed, "injected status fsync failure must stop terminal publication");
+  const updaterCount = lines(f.updaterLog);
+  assert(updaterCount === 1 && decisions(f).length === 1, "status publication failure must retain one immutable terminal decision");
+  assert(readdirSync(path.join(f.state, "processing")).length === 1, "status publication failure must retain the claim for recovery");
+
+  run(f);
+  assert(lines(f.updaterLog) === updaterCount, "status publication recovery must not replay updater execution");
+  assert(decisions(f).length === 1, "status publication recovery must reuse the immutable decision");
+  assert(readdirSync(path.join(f.state, "processing")).length === 0, "status publication recovery must clean the claim after status succeeds");
+  assert(json(path.join(f.state, "status.json")).lastOperation?.reasonCode === "APPLY_COMPLETED", "recovery must republish the terminal operation before claim cleanup");
+}
+
 function testHistorySyncFailureDoesNotReplay(): void {
   const f = fixture();
   writeFileSync(f.syncMode, "fail-history-once\n");
@@ -1526,6 +1574,36 @@ function testMissingProcessingRequestNeedsReconciliation(): void {
   assert(existsSync(path.join(f.state, "requests", `${queued.id}.json`)), "claim-only processing state must block later queued mutations");
   assert(typeof json(path.join(f.state, "status.json")).blocker === "string", "claim-only reconciliation must expose a top-level blocker for Web/API admission");
   assert(!existsSync(f.updaterLog) && !existsSync(f.dockerLog), "claim-only reconciliation must not execute external side effects");
+}
+
+function testAmbiguousProcessingClaimNeedsReconciliation(): void {
+  const f = fixture();
+  const claimDir = path.join(f.state, "processing", "f".repeat(32));
+  mkdirSync(claimDir, { recursive: true });
+  const first = request("apply");
+  const second = request("rollback");
+  writeFileSync(path.join(claimDir, `${first.id}.json`), JSON.stringify(first));
+  writeFileSync(path.join(claimDir, `${second.id}.json`), JSON.stringify(second));
+  writeFileSync(path.join(claimDir, "claim.json"), JSON.stringify({
+    claimId: "f".repeat(32),
+    claimedAt: iso(nowEpoch - 120),
+    claimExpiresAt: iso(nowEpoch - 60),
+    originalFileName: `${first.id}.json`,
+  }));
+  const queued = request("set_auto_apply");
+  enqueue(f, queued);
+
+  run(f);
+  const firstPass = decisions(f).filter((item) => item.reasonCode === "PROCESSING_CLAIM_AMBIGUOUS");
+  assert(firstPass.length === 1 && firstPass[0]?.executionAttempted === null, "multiple processing requests must create one immutable ambiguous-claim decision");
+  assert(existsSync(path.join(claimDir, `${first.id}.json`)) && existsSync(path.join(claimDir, `${second.id}.json`)), "ambiguous processing evidence must remain intact");
+  assert(existsSync(path.join(f.state, "requests", `${queued.id}.json`)), "ambiguous processing must block later mutations");
+  assert(typeof json(path.join(f.state, "status.json")).blocker === "string", "ambiguous processing must project a top-level blocker");
+  assert(!existsSync(f.updaterLog) && !existsSync(f.dockerLog), "ambiguous processing must not execute external side effects");
+
+  run(f);
+  assert(decisions(f).filter((item) => item.reasonCode === "PROCESSING_CLAIM_AMBIGUOUS").length === 1, "ambiguous processing reconciliation must reuse immutable history without duplication");
+  assert(existsSync(claimDir), "ambiguous processing claim must remain available for manual reconciliation");
 }
 
 function testClaimMaterializationDoesNotFollowSymlink(): void {

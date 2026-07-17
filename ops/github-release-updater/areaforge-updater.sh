@@ -822,6 +822,10 @@ validate_request_guard() {
     printf 'AREAFORGE_REQUEST_GUARD phase=%s result=reject reasonCode=TARGET_IDENTITY_CHANGED observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
     die "TARGET_IDENTITY_CHANGED: $phase comparison"
   fi
+  if [[ "$FORCE" != "1" ]] && ! version_gt "$TARGET_VERSION" "$CURRENT_VERSION"; then
+    printf 'AREAFORGE_REQUEST_GUARD phase=%s result=reject reasonCode=TARGET_VERSION_NOT_NEWER observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
+    die "TARGET_VERSION_NOT_NEWER: target $TARGET_VERSION is not newer than current $CURRENT_VERSION"
+  fi
   printf 'AREAFORGE_REQUEST_GUARD phase=%s result=pass reasonCode=NONE observedBeforeHash=%s executionAttempted=false\n' "$phase" "$observed_hash" >&2
 }
 

@@ -35,6 +35,7 @@ function main(): void {
     testLegacyMutationRejected(fixture);
     testExpectedBeforeMismatchHasNoMutation(fixture);
     testTargetMismatchHasNoMutation(fixture);
+    testTargetVersionNotNewerHasNoMutation(fixture);
     testRequestTagMismatchEmitsStructuredRejection(fixture);
     testFloatingRollbackTargetRejected(fixture);
     testNonAsciiCurrentImageRejected(fixture);
@@ -382,6 +383,20 @@ function testTargetMismatchHasNoMutation(fixture: Fixture): void {
     expect(result.status !== 0 && result.stderr.includes("TARGET_IDENTITY_CHANGED"), `target mismatch was not rejected: ${JSON.stringify(mismatch)}`);
     expectNoMutation(fixture, before);
   }
+}
+
+function testTargetVersionNotNewerHasNoMutation(fixture: Fixture): void {
+  reset(fixture);
+  writeFileSync(fixture.envFile, readFileSync(fixture.envFile, "utf8")
+    .replace(/^APP_VERSION=.*$/m, "APP_VERSION=0.1.8")
+    .replace(/^AREAFORGE_IMAGE=.*$/m, `AREAFORGE_IMAGE=${webDigest}`));
+  const guard = writeGuard(fixture, { currentVersion: "0.1.8", currentImage: webDigest });
+  const before = readFileSync(fixture.envFile, "utf8");
+  const result = updaterRun(fixture, ["apply", "--yes", "--dry-run", "--tag", "v0.1.8", "--config", fixture.config, "--request-guard", guard]);
+  expect(result.status !== 0, "a target equal to the current version unexpectedly succeeded");
+  expect(result.stderr.includes("phase=first result=reject reasonCode=TARGET_VERSION_NOT_NEWER"), "a non-newer target did not emit a structured zero-side-effect rejection");
+  expect(!result.stderr.includes("AREAFORGE_REQUEST_EXECUTION"), "a non-newer target crossed the execution boundary");
+  expectNoMutation(fixture, before);
 }
 
 function testRequestTagMismatchEmitsStructuredRejection(fixture: Fixture): void {
