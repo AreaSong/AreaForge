@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { productExperienceSourcePaths } from "./product-experience-contract";
+import { productExperienceSourcePaths } from "../../apps/web/lib/system/product-experience-contract";
 
 export {
   PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA,
   canonicalSha256,
   productExperienceSourcePaths,
-} from "./product-experience-contract";
+} from "../../apps/web/lib/system/product-experience-contract";
 
 export function findWorkspaceRoot(start = process.cwd()): string {
   let current = path.resolve(start);

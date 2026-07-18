@@ -8,7 +8,7 @@ import {
   computeProductExperienceSourceHash,
   currentGitCommit,
   findWorkspaceRoot,
-} from "../../apps/web/lib/system/product-experience-source";
+} from "./product-experience-source";
 import { validateRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity-core";
 import { resolveProductExperienceReviewPath } from "./product-experience-review-discovery";
 

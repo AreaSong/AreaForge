@@ -7,7 +7,7 @@ import {
   canonicalSha256,
   computeProductExperienceSourceHash,
   currentGitCommit,
-} from "../../apps/web/lib/system/product-experience-source";
+} from "./product-experience-source";
 import { createDevelopmentRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity-development";
 import { getRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity";
 import { buildReleaseEvidenceBundleHash } from "./release-evidence-validate";

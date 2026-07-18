@@ -8,7 +8,7 @@ import {
   computeProductExperienceSourceHash,
   currentGitCommit,
   findWorkspaceRoot,
-} from "./product-experience-source";
+} from "../../../../scripts/quality/product-experience-source";
 import {
   createStoredRuntimeIdentity,
   type StoredRuntimeIdentity,

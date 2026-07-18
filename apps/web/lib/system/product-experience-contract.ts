@@ -33,6 +33,7 @@ export const productExperienceSourcePaths = [
   "scripts/ops/local-ux-smoke.ts",
   "scripts/ops/smoke-password.ts",
   "scripts/ops/product-experience-runtime-probe.ts",
+  "scripts/quality/product-experience-source.ts",
   "scripts/quality/product-experience-review-validate.ts",
   "scripts/quality/product-experience-review-validate.selftest.ts",
   "scripts/quality/product-experience-runtime-probe.selftest.ts",

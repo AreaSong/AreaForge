@@ -107,7 +107,7 @@ function checkRequiredFiles(): void {
     "scripts/quality/release-workflow-policy.ts",
     "scripts/quality/release-workflow-policy.selftest.ts",
     "apps/web/lib/system/product-experience-contract.ts",
-    "apps/web/lib/system/product-experience-source.ts",
+    "scripts/quality/product-experience-source.ts",
     "apps/web/lib/system/runtime-identity-core.ts",
     "apps/web/lib/system/runtime-identity-development.ts",
     "apps/web/lib/system/runtime-identity.ts",
@@ -439,7 +439,7 @@ function checkRuntimeIdentityBoundary(): void {
   const core = read("apps/web/lib/system/runtime-identity-core.ts");
   const development = read("apps/web/lib/system/runtime-identity-development.ts");
   const runtime = read("apps/web/lib/system/runtime-identity.ts");
-  const source = read("apps/web/lib/system/product-experience-source.ts");
+  const source = read("scripts/quality/product-experience-source.ts");
   const health = read("apps/web/app/api/health/route.ts");
   const generator = read("scripts/ops/generate-runtime-identity.ts");
   const probe = read("scripts/ops/product-experience-runtime-probe.ts");

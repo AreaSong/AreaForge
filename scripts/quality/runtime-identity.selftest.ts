@@ -6,7 +6,7 @@ import {
   PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA,
   computeProductExperienceSourceHash,
   currentGitCommit,
-} from "../../apps/web/lib/system/product-experience-source";
+} from "./product-experience-source";
 import {
   createStoredRuntimeIdentity,
   validateStoredRuntimeIdentity,

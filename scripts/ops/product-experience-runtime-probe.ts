@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { link, mkdir, open, rm, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { canonicalSha256, findWorkspaceRoot } from "../../apps/web/lib/system/product-experience-source";
+import { canonicalSha256, findWorkspaceRoot } from "../quality/product-experience-source";
 import { validateRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity-core";
 
 const timeoutMs = Number(process.env.AREAFORGE_EXPERIENCE_RUNTIME_TIMEOUT_MS ?? "5000");
