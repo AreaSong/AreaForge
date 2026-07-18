@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "mode": "isolated_postgresql_ops006_concurrency_selftest",
+  "generatedAt": "2026-07-18T09:11:51.690Z",
+  "status": "pass",
+  "source": {
+    "database": "isolated_local_postgresql",
+    "migration": "prisma/migrations/20260718010000_add_active_session_unique_index/migration.sql",
+    "migrationSha256": "sha256:928b5e3e60b2ce2f4e1292393ac8d2ff1bde2a4ee5c860170f422cb1fbf2b953",
+    "implementationSha256": "sha256:2edc9f5786b3da11000ca5534bedbc847d5c595f1710860795be07f9265ae5f6"
+  },
+  "checks": [
+    {
+      "id": "migration.apply_verify_negative_fixtures",
+      "status": "pass",
+      "details": {
+        "publicIndexPresent": true,
+        "sandboxApplyPassed": true,
+        "repeatedApplyRejected": true,
+        "dirtyPreimageRejected": true
+      }
+    },
+    {
+      "id": "checkin.lock_key_contract",
+      "status": "pass",
+      "details": {
+        "orderedDayCount": 2,
+        "duplicateDayRemoved": true,
+        "recoveryKeyIsolated": true
+      }
+    },
+    {
+      "id": "session.concurrent_start",
+      "status": "pass",
+      "details": {
+        "successCount": 1,
+        "conflictCount": 1,
+        "activeSessionCount": 1,
+        "claimedTaskCount": 1
+      }
+    },
+    {
+      "id": "session.pause_resume_end_cas",
+      "status": "pass",
+      "details": {
+        "pauseWinnerCount": 1,
+        "resumeWinnerCount": 1,
+        "endWinnerCount": 1,
+        "effectiveMinutes": 31,
+        "auditCount": 1,
+        "debtEventCount": 1,
+        "checkInSessionCount": 1
+      }
+    },
+    {
+      "id": "task.command_cas",
+      "status": "pass",
+      "details": {
+        "commandCount": 7,
+        "winnerCount": 7,
+        "conflictCount": 7,
+        "splitChildCount": 1
+      }
+    },
+    {
+      "id": "task.simulation_complete_cas",
+      "status": "pass",
+      "details": {
+        "successCount": 1,
+        "conflictCount": 1,
+        "debtEventCount": 1
+      }
+    },
+    {
+      "id": "task.debt_reorder_cas",
+      "status": "pass",
+      "details": {
+        "successCount": 1,
+        "conflictCount": 1,
+        "appliedAuditCount": 1
+      }
+    },
+    {
+      "id": "checkin.concurrent_refresh",
+      "status": "pass",
+      "details": {
+        "committedTaskCount": 2,
+        "doneTaskCount": 2,
+        "taskCompletionRate": 1
+      }
+    }
+  ],
+  "doesNotProve": [
+    "production migration safety",
+    "production data integrity",
+    "signed Release readiness",
+    "AF-RISK-OPS-006 residual closure"
+  ],
+  "safetyFacts": {
+    "isolatedDatabaseRequired": true,
+    "isolatedDatabaseWriteAttempted": true,
+    "productionWriteAttempted": false,
+    "historicalRepairAttempted": false,
+    "serverCommandAttempted": false,
+    "secretValuePrinted": false,
+    "businessTextIncluded": false,
+    "objectIdentifiersIncluded": false
+  },
+  "recordHash": "sha256:71787ea850119cb00d1f4be1eed0f0c5a6c3edf019a0ea956db6faaa92a88f6d"
+}

@@ -1,20 +1,26 @@
 # 业务状态并发一致性
 
 ```yaml
-status: blocked
-phase: awaiting-high-risk-confirmation
-evidenceClass: migration_preimage_candidate
-preflightContract: OPS-006-PREFLIGHT-CONTRACT-V1
+status: in-progress
+phase: local-verified
+evidenceClass: local_concurrency_verified
+preflightContract: OPS-006-PREFLIGHT-CONTRACT-V2
 blockers:
-  - explicit OPS-006 local implementation confirmation
+  - matching signed Release
+  - independent production migration/deploy confirmation
+  - fresh production doctor and rollout evidence
 risk: high
 ownerSkill: areaforge-security-governance
 validation:
   - pnpm ops:ops-006:preflight:selftest
   - pnpm ops:ops-006:preflight:strict
+  - pnpm ops:ops-006:runtime:validate:selftest
+  - pnpm ops:ops-006:runtime:validate output/ops006/concurrency-runtime-20260718.json
   - pnpm ops:data-integrity:selftest
+  - pnpm ops:data-integrity:validate output/ops006/data-integrity-before-20260718.json
+  - pnpm ops:data-integrity:validate output/ops006/data-integrity-after-20260718.json
   - pnpm db:validate
-  - temporary PostgreSQL migration and concurrency selftest
+  - isolated PostgreSQL migration and concurrency selftest
   - pnpm check
 residualRiskIds:
   - AF-RISK-OPS-006
@@ -27,20 +33,21 @@ releaseRequired: true
 
 详细事务顺序、CAS 谓词、CheckIn 锁顺序和 PostgreSQL fixture 契约见 `docs/development/ops-006-business-state-concurrency-design.md`。
 
-当前离线 preflight 只绑定当前 schema preimage、候选 migration、只读 doctor、本文、设计文档和高风险确认包的 source hash。它不证明 migration 已获批或应用，不证明业务 CAS 已实现，也不构成本任务的高风险实施确认；因此 `pnpm ops:ops-006:preflight:strict` 在 phase 仍为 `awaiting-high-risk-confirmation` 时必须非零退出。
+当前 V2 preflight 绑定 canonical migration、只读 doctor、隔离 PostgreSQL runtime record、当前实现文件以及本文、设计文档和高风险确认包 source hash。带当前 after-doctor 和 runtime record 运行 strict 可达到 `local_verified`；这只证明同一 checkout 的本地实现与隔离数据库验证，不证明签名 Release 或生产迁移。
 
 确认后也不得从 candidate evidence 直接跳到 release/production。生命周期固定为
 `implementation_authorized -> local_validation -> local_verified -> release_ready ->
 production_confirmation_required`；scope/source hash 漂移时回到 blocked。
 
-## 拟实施范围
+## 本地实施结果
 
-- additive migration：PostgreSQL 部分唯一索引保证当前单用户模型全局最多一个 RUNNING/PAUSED session。
-- start/pause/resume/end 和 complete/defer/drop/recover/convert 等写路径使用 expected status CAS；冲突返回 409。
-- 结束 session 的状态更新、任务/考纲分钟累加和 AuditEvent 在同一事务内只成功一次。
-- task action 使用设计文档中的精确来源状态矩阵；CheckIn 使用固定
+- additive migration 已在隔离 PostgreSQL 应用，部分唯一索引保证当前单用户模型全局最多一个 RUNNING/PAUSED session。
+- start/pause/resume/end、metadata patch、complete/defer/drop/recover/split/convert、simulation complete 和 debt reorder application 已使用 expected-state CAS；冲突稳定返回 `ACTIVE_SESSION_EXISTS`、`SESSION_STATE_CONFLICT` 或 `TASK_STATE_CONFLICT` / 409。
+- 结束 session 的状态更新、任务/考纲分钟、债务事件、AuditEvent 和 CheckIn 在同一事务内只由 CAS 胜者写一次。
+- CheckIn 使用固定
   `pg_advisory_xact_lock(1095123785, YYYYMMDD)` key 并在聚合读取前取锁。
-- 增加真实 PostgreSQL 并发 selftest、doctor before/after fixture 和兼容旧数据的 preflight。
+- `output/ops006/concurrency-runtime-20260718.json` 已覆盖 migration 正负 fixture、start/pause/resume/end、7 类 task 命令、simulation、debt reorder 和同日 CheckIn 并发聚合；before/after doctor 的 session/task 检查均通过，附件未提供所以 doctor overall 保持 `warn/partial`。
+- 本地阶段进入 `local_verified`；下一状态固定为签名 Release 后的 `production_confirmation_required`，不得从本地 pass 直接执行生产 migration。
 
 ## 禁止范围
 

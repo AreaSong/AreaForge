@@ -148,10 +148,10 @@ function checkConfirmationBeforeContracts(): void {
   const workflowMismatches = [".github/workflows/ci.yml", ".github/workflows/release.yml"]
     .flatMap((file) => workflowTerms.filter((term) => !read(file).includes(term)).map((term) => `${file}:${term}`));
   checks.push({
-    name: "confirmation-before operational contracts",
+    name: "confirmation-scoped operational contracts",
     ok: missingScripts.length === 0 && missingFiles.length === 0 && forbidden.length === 0 && confirmationMismatches.length === 0 && fixtureIssues.length === 0 && workflowMismatches.length === 0,
     detail: missingScripts.length === 0 && missingFiles.length === 0 && forbidden.length === 0 && confirmationMismatches.length === 0 && fixtureIssues.length === 0 && workflowMismatches.length === 0
-      ? "OPS-006/007/008 preconfirmation fixtures, validators, task bindings, and no-production boundaries are present"
+      ? "OPS-006 local-verified and OPS-007/008 preconfirmation validators, task bindings, and no-production boundaries are present"
       : `missing scripts ${missingScripts.join(", ") || "none"}; missing files ${missingFiles.join(", ") || "none"}; missing boundary terms ${forbidden.join(", ") || "none"}; confirmation mismatches ${confirmationMismatches.join(", ") || "none"}; fixture issues ${fixtureIssues.map((issue) => issue.field).join(", ") || "none"}; workflow mismatches ${workflowMismatches.join(", ") || "none"}`,
   });
 }

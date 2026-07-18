@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "mode": "read_only_data_integrity_doctor",
+  "generatedAt": "2026-07-18T09:17:36.451Z",
+  "status": {
+    "overall": "warn",
+    "native": "partial"
+  },
+  "counts": {
+    "total": 5,
+    "pass": 4,
+    "warn": 0,
+    "fail": 0,
+    "skipped": 1
+  },
+  "thresholds": {
+    "staleActiveSessionHours": 24
+  },
+  "checks": [
+    {
+      "id": "study_sessions.active_cardinality",
+      "status": "pass",
+      "message": "active session cardinality is valid",
+      "details": {
+        "activeSessionCount": 0,
+        "allowedMaximum": 1
+      }
+    },
+    {
+      "id": "study_sessions.state_consistency",
+      "status": "pass",
+      "message": "study session state fields are consistent",
+      "details": {
+        "runningWithPausedAtCount": 0,
+        "pausedWithoutPausedAtCount": 0,
+        "activeWithEndedAtCount": 0,
+        "terminalWithoutEndedAtCount": 0,
+        "terminalWithPausedAtCount": 0,
+        "negativeSessionMetricsCount": 0
+      }
+    },
+    {
+      "id": "study_sessions.stale_active",
+      "status": "pass",
+      "message": "no stale active sessions detected",
+      "details": {
+        "staleActiveSessionCount": 0
+      }
+    },
+    {
+      "id": "study_tasks.state_consistency",
+      "status": "pass",
+      "message": "study task state fields are consistent",
+      "details": {
+        "doneWithoutCompletedAtCount": 0,
+        "nonDoneWithCompletedAtCount": 0,
+        "doneWithDebtCount": 0,
+        "negativeTaskMinutesCount": 0
+      }
+    },
+    {
+      "id": "attachments.reconciliation",
+      "status": "skipped",
+      "message": "attachment reconciliation summary was not supplied",
+      "details": {}
+    }
+  ],
+  "source": {
+    "database": "configured_read_only_query",
+    "attachmentSummarySha256": null
+  },
+  "doesNotProve": [
+    "automatic data repair or deletion",
+    "future concurrency safety after this snapshot",
+    "attachment integrity unless a validated reconciliation summary is supplied",
+    "production health, backup freshness, updater apply, migration, or rollback execution"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "networkRequested": true,
+    "databaseReadAttempted": true,
+    "databaseWriteAttempted": false,
+    "uploadDirectoryReadAttempted": false,
+    "fileWriteAttempted": false,
+    "attachmentContentIncluded": false,
+    "objectIdentifiersIncluded": false,
+    "absolutePathIncluded": false,
+    "secretValuePrinted": false
+  },
+  "doctorHash": "sha256:7fdce547465154624cf9cf4bbb1c76eee0c6ddac96188843a61903cc0778ade5"
+}

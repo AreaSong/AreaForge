@@ -1,10 +1,10 @@
 # OPS-006 业务状态并发一致性设计
 
-当前状态：`blocked / awaiting-high-risk-confirmation`。
+当前状态：`local_verified / production_confirmation_required`。
 
-本文定义本地实施契约，不授权创建 migration、连接数据库、执行 migration deploy、修复历史数据、发布 Release 或修改生产。
+本文定义的本地实施已按 2026-07-18 明确确认完成；它不授权生产 migration deploy、历史数据修复、发布 Release 或修改服务器。
 
-离线 preflight 契约：`OPS-006-PREFLIGHT-CONTRACT-V1`，`evidenceClass: migration_preimage_candidate`。该证据类只证明当前 schema preimage、规范候选 migration、只读 doctor 与本文/task/确认包来源契约已绑定；它不证明 CAS 已实现，不证明 migration 已获批或应用，也不表示已取得下文高风险实施确认。确认前 strict 必须保持非零退出。
+当前 preflight 契约：`OPS-006-PREFLIGHT-CONTRACT-V2`，`evidenceClass: local_concurrency_verified`。V2 同时绑定 canonical migration、24 小时内只读 doctor、隔离 PostgreSQL runtime record、当前实现文件和本文/task/确认包 source hash；strict 只在 `local_verified` 时返回零。该证据不证明签名 Release、生产 migration、生产并发安全或 residual 关闭。
 
 确认与证据生命周期固定为：
 
@@ -15,8 +15,7 @@
 5. `release_ready`：干净 commit 和签名 Release 门禁通过；仍不得执行生产 migration。
 6. `production_confirmation_required`：等待独立生产 migration/deploy 确认与 fresh doctor/evidence。
 
-任何确认过期、撤销、scope/source hash 漂移或扩大到生产/历史修复时都回到 fail-closed 状态。当前 V1 preflight
-只允许投影第 1 阶段；确认后必须升级实施 gate，不能把 `candidateEvidenceStatus=complete` 当作授权。
+任何确认过期、撤销、scope/source hash 漂移或扩大到生产/历史修复时都回到 fail-closed 状态。V1 `migration_preimage_candidate` 只保留为确认前历史语义，不能被解释为当前实现或生产授权。
 
 ## 目标不变量
 
@@ -27,13 +26,22 @@
 5. 同一学习日的 CheckIn 重算必须串行化，避免并发事务用较旧聚合覆盖较新快照。
 6. 所有并发拒绝保持可重试、无副作用，不自动修复或重写历史记录。
 
-## 当前风险
+## 实施前风险
 
 - `startStudySession` 在事务外检查 active session，再在事务内创建，两个请求可同时成功。
 - `resumeStudySession` 读取 `PAUSED` 后按 id 无条件更新，可能把已结束 session 重新写成 `RUNNING`。
 - `endStudySession` 在事务外读取 active 状态，重复请求可分别累加任务和考纲分钟并重复写事件。
 - complete/defer/drop/recover/split/convert、模拟任务完成和债务重排应用缺少统一 CAS，存在 last-write-wins。
 - CheckIn 的唯一学习日约束只防重复行，不防并发旧聚合覆盖。
+
+## 本地验证结果
+
+- canonical migration hash：`sha256:928b5e3e60b2ce2f4e1292393ac8d2ff1bde2a4ee5c860170f422cb1fbf2b953`。
+- runtime record：`output/ops006/concurrency-runtime-20260718.json`；记录内部 `recordHash` 以文件和 validator 输出为准。
+- doctor before：`output/ops006/data-integrity-before-20260718.json`；session/task 四项检查通过。
+- doctor after：`output/ops006/data-integrity-after-20260718.json`；session/task 四项检查通过；未提供 attachment summary，所以只报告 `warn/partial`，不把附件缺证据混作 OPS-006 失败。
+- 隔离 PostgreSQL 验证覆盖 canonical apply、重复 apply 拒绝、dirty preimage 拒绝、单 active session、session/task CAS、结束计时单次副作用、simulation/debt reorder 和 CheckIn 锁后聚合。
+- 本地实现没有执行生产 migration、历史修复、Release/tag、服务器命令或 residual 关闭。
 
 源路径：
 

@@ -8,6 +8,10 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@/*": ["apps/web/*"]
+    },
     "noEmit": true
   },
   "include": [
@@ -21,6 +25,9 @@
     "long-term-operability-live-gate.selftest.ts",
     "ops006-concurrency-preflight.ts",
     "ops006-concurrency-preflight.selftest.ts",
+    "ops006-concurrency-runtime.selftest.ts",
+    "ops006-concurrency-runtime-validate.ts",
+    "ops006-concurrency-runtime-validate.selftest.ts",
     "ops007-attachment-preflight.ts",
     "ops007-attachment-preflight.selftest.ts",
     "ops008-updater-preflight.ts",

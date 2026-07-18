@@ -86,8 +86,9 @@ Batch 2 后，`complete/defer/drop/recover/split/convert-review` 会继续写现
 - 不每秒写数据库。
 - 状态变化时写入。
 - 支持刷新页面后恢复 active session。
-- 同一用户第一版只允许一个 active session。
-- 计时结束会基于收口字段运行反假学习规则，并双写 `StudySession.isEffective`、结构化收口字段和文本化 `note`；历史 `note` 不解析、不回填，统计优先读 `isLowConversion`，缺失时 fallback 到旧 `isEffective === false`。若用户勾选完成任务且本次有效，关联任务会更新为 `DONE/NONE`，并同步写入 `TaskDebtEvent.action=complete` 和现有审计记录。
+- 当前单管理员第一版全局只允许一个 active session；数据库 partial unique index 是最终约束，并发 start 冲突稳定返回 `ACTIVE_SESSION_EXISTS` / 409。
+- pause/resume/end 使用 `id + status + updatedAt` CAS；过期或重复状态返回 `SESSION_STATE_CONFLICT` / 409。任务 metadata/action、simulation complete 和 debt reorder application 使用包含 `status/debtStatus/type/plannedDate/updatedAt` 的 CAS，冲突返回 `TASK_STATE_CONFLICT` / 409，失败事务不保留审计、债务事件、子任务或 CheckIn 部分副作用。
+- 计时结束会基于收口字段运行反假学习规则，并双写 `StudySession.isEffective`、结构化收口字段和文本化 `note`；历史 `note` 不解析、不回填，统计优先读 `isLowConversion`，缺失时 fallback 到旧 `isEffective === false`。只有 session CAS 胜者可以累加关联任务/考纲分钟、写 `TaskDebtEvent.action=complete`、审计和 CheckIn。
 
 ### Syllabus
 

@@ -11,7 +11,7 @@ validation:
 residualRiskIds: []
 releaseRequired: false
 # 可选：高风险离线证据契约，例如 evidenceClass: migration_preimage_candidate
-# 可选：与 preflight/fixture 绑定的版本化契约，例如 preflightContract: OPS-006-PREFLIGHT-CONTRACT-V1
+# 可选：与 preflight/fixture 绑定的版本化契约，例如 preflightContract: OWNER-PREFLIGHT-CONTRACT-V1
 ```
 
 状态：

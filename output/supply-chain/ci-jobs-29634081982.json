@@ -1,0 +1,449 @@
+{
+  "total_count": 1,
+  "jobs": [
+    {
+      "id": 88053131042,
+      "run_id": 29634081982,
+      "workflow_name": "ci",
+      "head_branch": "codex/long-term-operability",
+      "run_url": "https://api.github.com/repos/AreaSong/AreaForge/actions/runs/29634081982",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTOXFWM8AAAAUgGAnIg",
+      "head_sha": "5bec62608d929a796b4ca00a91aa95bdf256b27c",
+      "url": "https://api.github.com/repos/AreaSong/AreaForge/actions/jobs/88053131042",
+      "html_url": "https://github.com/AreaSong/AreaForge/actions/runs/29634081982/job/88053131042",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-07-18T06:29:35Z",
+      "started_at": "2026-07-18T06:29:38Z",
+      "completed_at": "2026-07-18T06:35:07Z",
+      "name": "verify",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-07-18T06:29:39Z",
+          "completed_at": "2026-07-18T06:29:41Z"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-07-18T06:29:41Z",
+          "completed_at": "2026-07-18T06:29:43Z"
+        },
+        {
+          "name": "Set up pnpm",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-07-18T06:29:43Z",
+          "completed_at": "2026-07-18T06:29:44Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-07-18T06:29:44Z",
+          "completed_at": "2026-07-18T06:29:46Z"
+        },
+        {
+          "name": "Install shellcheck",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-07-18T06:29:46Z",
+          "completed_at": "2026-07-18T06:29:54Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-07-18T06:29:54Z",
+          "completed_at": "2026-07-18T06:30:04Z"
+        },
+        {
+          "name": "Generate Prisma client",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-07-18T06:30:04Z",
+          "completed_at": "2026-07-18T06:30:06Z"
+        },
+        {
+          "name": "Install gitleaks",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-07-18T06:30:06Z",
+          "completed_at": "2026-07-18T06:30:06Z"
+        },
+        {
+          "name": "Commit secret scan",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-07-18T06:30:06Z",
+          "completed_at": "2026-07-18T06:30:08Z"
+        },
+        {
+          "name": "Full dependency audit",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-07-18T06:30:08Z",
+          "completed_at": "2026-07-18T06:30:09Z"
+        },
+        {
+          "name": "Production dependency audit",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-07-18T06:30:09Z",
+          "completed_at": "2026-07-18T06:30:11Z"
+        },
+        {
+          "name": "Release supply-chain validator selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-07-18T06:30:11Z",
+          "completed_at": "2026-07-18T06:30:14Z"
+        },
+        {
+          "name": "CI supply-chain record selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-07-18T06:30:14Z",
+          "completed_at": "2026-07-18T06:30:17Z"
+        },
+        {
+          "name": "Release admission selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-07-18T06:30:17Z",
+          "completed_at": "2026-07-18T06:30:25Z"
+        },
+        {
+          "name": "Release identity probe selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-07-18T06:30:25Z",
+          "completed_at": "2026-07-18T06:30:30Z"
+        },
+        {
+          "name": "Release workflow policy selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-07-18T06:30:30Z",
+          "completed_at": "2026-07-18T06:30:50Z"
+        },
+        {
+          "name": "SC-004 main protection evidence selftests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-07-18T06:30:50Z",
+          "completed_at": "2026-07-18T06:30:51Z"
+        },
+        {
+          "name": "Shellcheck updater",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-07-18T06:30:51Z",
+          "completed_at": "2026-07-18T06:30:56Z"
+        },
+        {
+          "name": "OPS-001 fallback selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-07-18T06:30:56Z",
+          "completed_at": "2026-07-18T06:30:59Z"
+        },
+        {
+          "name": "Release evidence redacted export selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-07-18T06:30:59Z",
+          "completed_at": "2026-07-18T06:31:06Z"
+        },
+        {
+          "name": "Release evidence redacted export record selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21,
+          "started_at": "2026-07-18T06:31:06Z",
+          "completed_at": "2026-07-18T06:31:12Z"
+        },
+        {
+          "name": "OPS-001 fallback finalizer selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22,
+          "started_at": "2026-07-18T06:31:12Z",
+          "completed_at": "2026-07-18T06:31:23Z"
+        },
+        {
+          "name": "OPS-005 expected-before V2 selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23,
+          "started_at": "2026-07-18T06:31:23Z",
+          "completed_at": "2026-07-18T06:32:14Z"
+        },
+        {
+          "name": "OPS-006/007/008 confirmation-before selftests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 24,
+          "started_at": "2026-07-18T06:32:14Z",
+          "completed_at": "2026-07-18T06:32:24Z"
+        },
+        {
+          "name": "Operability quality scripts typecheck",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 25,
+          "started_at": "2026-07-18T06:32:24Z",
+          "completed_at": "2026-07-18T06:32:26Z"
+        },
+        {
+          "name": "Operations lifecycle policy",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 26,
+          "started_at": "2026-07-18T06:32:26Z",
+          "completed_at": "2026-07-18T06:32:31Z"
+        },
+        {
+          "name": "Updater preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27,
+          "started_at": "2026-07-18T06:32:31Z",
+          "completed_at": "2026-07-18T06:32:32Z"
+        },
+        {
+          "name": "Governance preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28,
+          "started_at": "2026-07-18T06:32:32Z",
+          "completed_at": "2026-07-18T06:32:33Z"
+        },
+        {
+          "name": "Tasks workflow doctor",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 29,
+          "started_at": "2026-07-18T06:32:33Z",
+          "completed_at": "2026-07-18T06:32:34Z"
+        },
+        {
+          "name": "Tasks workflow doctor selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 30,
+          "started_at": "2026-07-18T06:32:34Z",
+          "completed_at": "2026-07-18T06:32:41Z"
+        },
+        {
+          "name": "Changed path review",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 31,
+          "started_at": "2026-07-18T06:32:41Z",
+          "completed_at": "2026-07-18T06:32:41Z"
+        },
+        {
+          "name": "Changed path review selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 32,
+          "started_at": "2026-07-18T06:32:41Z",
+          "completed_at": "2026-07-18T06:32:43Z"
+        },
+        {
+          "name": "Protected path review selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 33,
+          "started_at": "2026-07-18T06:32:43Z",
+          "completed_at": "2026-07-18T06:32:48Z"
+        },
+        {
+          "name": "Ops readiness preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 34,
+          "started_at": "2026-07-18T06:32:48Z",
+          "completed_at": "2026-07-18T06:32:49Z"
+        },
+        {
+          "name": "Maintenance window validator selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 35,
+          "started_at": "2026-07-18T06:32:49Z",
+          "completed_at": "2026-07-18T06:32:57Z"
+        },
+        {
+          "name": "Maintenance window index selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 36,
+          "started_at": "2026-07-18T06:32:57Z",
+          "completed_at": "2026-07-18T06:33:09Z"
+        },
+        {
+          "name": "Incident index selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 37,
+          "started_at": "2026-07-18T06:33:09Z",
+          "completed_at": "2026-07-18T06:33:50Z"
+        },
+        {
+          "name": "Support bundle preview selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 38,
+          "started_at": "2026-07-18T06:33:50Z",
+          "completed_at": "2026-07-18T06:33:54Z"
+        },
+        {
+          "name": "Support intake preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 39,
+          "started_at": "2026-07-18T06:33:54Z",
+          "completed_at": "2026-07-18T06:33:54Z"
+        },
+        {
+          "name": "Error recovery matrix",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 40,
+          "started_at": "2026-07-18T06:33:54Z",
+          "completed_at": "2026-07-18T06:33:57Z"
+        },
+        {
+          "name": "Product experience binding selftest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 41,
+          "started_at": "2026-07-18T06:33:57Z",
+          "completed_at": "2026-07-18T06:34:12Z"
+        },
+        {
+          "name": "Residual ledger validate",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 42,
+          "started_at": "2026-07-18T06:34:12Z",
+          "completed_at": "2026-07-18T06:34:13Z"
+        },
+        {
+          "name": "Skills validate",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 43,
+          "started_at": "2026-07-18T06:34:13Z",
+          "completed_at": "2026-07-18T06:34:13Z"
+        },
+        {
+          "name": "Package E preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 44,
+          "started_at": "2026-07-18T06:34:13Z",
+          "completed_at": "2026-07-18T06:34:17Z"
+        },
+        {
+          "name": "Risk preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 45,
+          "started_at": "2026-07-18T06:34:17Z",
+          "completed_at": "2026-07-18T06:34:18Z"
+        },
+        {
+          "name": "Docs readiness",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 46,
+          "started_at": "2026-07-18T06:34:18Z",
+          "completed_at": "2026-07-18T06:34:19Z"
+        },
+        {
+          "name": "Docs completion",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 47,
+          "started_at": "2026-07-18T06:34:19Z",
+          "completed_at": "2026-07-18T06:34:19Z"
+        },
+        {
+          "name": "Check",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 48,
+          "started_at": "2026-07-18T06:34:19Z",
+          "completed_at": "2026-07-18T06:34:59Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 94,
+          "started_at": "2026-07-18T06:34:59Z",
+          "completed_at": "2026-07-18T06:35:04Z"
+        },
+        {
+          "name": "Post Set up pnpm",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 95,
+          "started_at": "2026-07-18T06:35:04Z",
+          "completed_at": "2026-07-18T06:35:04Z"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 96,
+          "started_at": "2026-07-18T06:35:04Z",
+          "completed_at": "2026-07-18T06:35:04Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 97,
+          "started_at": "2026-07-18T06:35:04Z",
+          "completed_at": "2026-07-18T06:35:04Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/AreaSong/AreaForge/check-runs/88053131042",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000001340,
+      "runner_name": "GitHub Actions 1000001340",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}

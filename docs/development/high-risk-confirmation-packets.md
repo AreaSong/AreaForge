@@ -1261,9 +1261,9 @@ pnpm ops:ops-001:preflight
 
 ## OPS-006 业务状态并发一致性本地实施确认包
 
-状态：等待确认。该包只授权本地 additive migration、业务写路径和隔离 PostgreSQL fixture，不授权生产 migration 或数据修复。
+状态：已确认（2026-07-18）并完成本地验证。该包只授权本地 additive migration、业务写路径和隔离 PostgreSQL fixture，不授权生产 migration、数据修复、Release 或服务器操作。
 
-离线 preflight 契约：`OPS-006-PREFLIGHT-CONTRACT-V1`，`evidenceClass: migration_preimage_candidate`。preflight 只绑定 migration/preimage candidate 与本文、设计、task 的 source hash，不证明 CAS 已实现或 migration 已获批/应用，也不能代替本确认包的明确确认；状态仍为等待确认时 strict 必须非零退出。
+当前 preflight 契约：`OPS-006-PREFLIGHT-CONTRACT-V2`，`evidenceClass: local_concurrency_verified`。preflight 绑定 canonical migration、fresh doctor、隔离 PostgreSQL runtime record、当前实现与本文、设计、task 的 source hash；strict 只证明 `local_verified`，不授权签名 Release、生产 migration/deploy 或 residual 关闭。
 
 源事实：
 
@@ -1308,7 +1308,8 @@ pnpm ops:ops-001:preflight
 验证：
 
 - `pnpm ops:ops-006:preflight:selftest`
-- 带候选 migration 和 24 小时内真实只读 doctor 记录运行普通 preflight，可保存 schema/migration/doctor/task/design/确认包 hash 并投影 candidate evidence complete；未经本确认包明确确认，`pnpm ops:ops-006:preflight:strict` 必须非零退出。fixture、缺失证据或来源契约漂移也必须非零退出。
+- 带 canonical migration、24 小时内真实只读 doctor 和通过 validator 的隔离 PostgreSQL runtime record 运行 strict preflight；只有同一 checkout 的 task/design/确认包/实现 source hash 均匹配时才投影 `local_verified`。缺失证据、fixture 过期或来源漂移必须非零退出。
+- `pnpm ops:ops-006:runtime:validate:selftest` 与 `pnpm ops:ops-006:runtime:validate output/ops006/concurrency-runtime-20260718.json`。
 - `pnpm ops:data-integrity:selftest`
 - `pnpm db:generate`、`pnpm db:validate`
 - 隔离 PostgreSQL migration apply/verify 和 start/pause/resume/end/task/CheckIn 并发 fixture。

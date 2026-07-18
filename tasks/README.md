@@ -10,7 +10,7 @@
 - `indexes/`：执行索引，如长期运营残余项的 task-facing 视图。
 - `templates/`：任务模板。
 
-当前进度：Package A-E 和 docs 100% 当前证据已完成；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。`tasks/active/0019-update-request-expected-before-binding.md` 已完成本地 V2 韧性实现，等待签名 Release 与独立生产部署；`tasks/active/0020-business-state-concurrency.md` 跟踪新识别的 active-session uniqueness、task/session CAS 和结束计时单次副作用，尚待高风险确认；`tasks/active/0024-ux-residual-closure-review.md` 仅承接 UX-001 的维护者 close/keep-open 复核，不自动修改台账。只读 `ops:data-integrity:doctor` 已实现并进入长期 live gate，但它不修复数据。长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准；当前 current blocker 为 OPS-001、SC-002、SC-004、OPS-005、OPS-006，UX-001 已取得当前本地体验证据并等待维护者人工复核；OPS-007/008 分别承接附件崩溃窗口和 updater phase journal/hold-drain。
+当前进度：Package A-E 和 docs 100% 当前证据已完成；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。`tasks/active/0019-update-request-expected-before-binding.md` 已完成本地 V2 韧性实现，等待签名 Release 与独立生产部署；`tasks/active/0020-business-state-concurrency.md` 已完成 active-session uniqueness、task/session CAS、结束计时单次副作用和 CheckIn 锁的隔离 PostgreSQL `local_verified`，等待签名 Release 与独立生产 migration/deploy；`tasks/active/0024-ux-residual-closure-review.md` 仅承接 UX-001 的维护者 close/keep-open 复核，不自动修改台账。SC-004 远端 main ruleset/readback/受控 PR 已验证，仍等待人工 residual 决策。长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准；SC-002 已按 exact commit `5bec626` 的成功 CI-only 证据关闭，SC-001 保持开启；当前 current blocker 为 OPS-001、SC-004、OPS-005、OPS-006，UX-001 已取得当前本地体验证据并等待维护者人工复核；OPS-007/008 分别承接附件崩溃窗口和 updater phase journal/hold-drain。
 
 ## 使用规则
 

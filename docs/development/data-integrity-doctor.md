@@ -42,11 +42,9 @@ validator 会固定检查项、message、detail keys、source/safety/status/coun
 ## 当前边界
 
 - doctor 是发现和交接工具，不是数据库约束。
-- 当前单管理员模型仍缺“最多一个活跃 session”的数据库级约束；`startStudySession` 检查与创建之间
-  存在并发窗口。
-- task/session mutation 尚未全部使用 expected status CAS；并发结束 session 可能重复累加任务和考纲分钟。
-- 修复上述写路径需要独立高风险确认，见 `tasks/active/0020-business-state-concurrency.md` 和
-  `AF-RISK-OPS-006`。
+- 当前 checkout 已通过 canonical partial unique index、task/session CAS、结束计时事务内单次副作用和 CheckIn advisory lock 修复上述写路径，并在隔离 PostgreSQL 达到 `local_verified`。
+- doctor before/after 只证明对应隔离库快照的 session/task 聚合；未提供 attachment summary 时仍保持 `warn/partial`，不会把附件缺证据误算为 OPS-006 失败。
+- 线上 `v0.1.7` 尚未包含该 migration/应用实现；匹配签名 Release、生产 migration/deploy、fresh production doctor 和 rollout evidence 仍需独立确认，见 `tasks/active/0020-business-state-concurrency.md` 和 `AF-RISK-OPS-006`。
 
 ## 不证明
 

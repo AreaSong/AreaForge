@@ -2,16 +2,17 @@
 
 ```yaml
 status: blocked
-phase: awaiting-high-risk-confirmation
+phase: remote-verified-awaiting-residual-review
 blockers:
-  - explicit confirmation for GitHub repository settings write
-  - current required status check name readback
+  - maintainer close-or-keep-open decision for AF-RISK-SC-004
 risk: high
 ownerSkill: areaforge-enterprise-governance
 validation:
   - pnpm governance:preflight
   - pnpm residuals:validate
   - pnpm release:train:preflight
+  - pnpm sc:sc-004:validate output/supply-chain/github-main-protection-readback-20260718.json output/supply-chain/github-main-protection-controlled-pr-20260718.json
+  - pnpm sc:sc-004:preflight
 residualRiskIds:
   - AF-RISK-SC-004
 releaseRequired: false
@@ -52,6 +53,16 @@ releaseRequired: false
 - 证据新鲜度：来自设置变更后的同一维护窗口。
 - 关闭条件：远端设置和受控 PR 均验证通过，且 `AF-RISK-SC-004` 仍需单独人工复核后才能关闭。
 
+## 远端实施结果
+
+- GitHub ruleset `19138434`（`Protect main`）已 Active，作用于默认分支 `main`，bypass list 为空。
+- required PR 已启用，required approvals 为 1；branch deletion 与 non-fast-forward/force push 已禁止。
+- GitHub UI 规范化检查名为 `ci / verify`；底层 API context 为 `verify`，绑定 GitHub Actions integration `15368`。未保留字面但未绑定的 `ci / verify` context，避免永久 expected。
+- 受控 PR `#13` 先以失败 run `29637518206` 证明检查失败，再以成功 run `29637622080` 证明 `All checks have passed`；PR 已关闭且 `merged=false`，未改变 `main`。
+- readback 证据：`output/supply-chain/github-main-protection-readback-20260718.json`，`sha256:2338e2393f53411129edb30d0e66d80dcad2e563fd4c7776f677b19fcf1cd711`。
+- controlled PR 证据：`output/supply-chain/github-main-protection-controlled-pr-20260718.json`，`sha256:dcdaa2b644a9506a4566920b71eea02ae57683a34a0f1da5c142613855248ed7`。
+- 本任务的远端实施和证据验证已完成；按确认边界，`AF-RISK-SC-004` 不自动关闭，继续等待维护者人工 close/keep-open 决策。
+
 ## 高风险边界
 
 - 影响：改变 `main` 合并权限和发布提交来源。
@@ -66,4 +77,4 @@ releaseRequired: false
 
 ## 残余风险
 
-- `AF-RISK-SC-004` 在远端设置读回和受控 PR 验证前保持 current-blocker。
+- `AF-RISK-SC-004` 在维护者人工复核并明确 close/keep-open 前保持 current-blocker；远端实施通过不自动修改 residual 类型。

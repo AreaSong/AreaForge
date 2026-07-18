@@ -30,6 +30,7 @@ const allowedEvidenceClasses = new Set([
   "docs-only",
   "local-smoke",
   "browser-review",
+  "local_concurrency_verified",
   "migration_preimage_candidate",
   "protocol_preimage_candidate",
   "runtime_preimage_candidate",
@@ -46,7 +47,9 @@ const allowedPhases = new Set([
   "implementation",
   "awaiting-high-risk-confirmation",
   "awaiting-signed-release",
+  "local-verified",
   "production-evidence",
+  "remote-verified-awaiting-residual-review",
   "complete",
 ]);
 

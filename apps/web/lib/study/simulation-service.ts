@@ -10,6 +10,7 @@ import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getAnalyticsSummary } from "./analytics-service";
 import { refreshCheckInSnapshotsForDates } from "./check-in-service";
+import { applyTaskCas } from "./concurrency";
 import { daysUntil } from "./date";
 import { getMotivationVault, saveMotivationVault } from "./service";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
@@ -338,43 +339,47 @@ export async function completeSimulationTask(
   input: CompleteSimulationTaskInput,
   actorId: string,
 ): Promise<StudyTaskDto> {
-  const existing = await prisma.studyTask.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      type: true,
-      status: true,
-      debtStatus: true,
-      estimatedMinutes: true,
-      plannedDate: true,
-      completedAt: true,
-    },
-  });
-
-  if (!existing || existing.type !== "simulation_exam") {
-    throw new ApiError("SIMULATION_TASK_NOT_FOUND", 404);
-  }
-
   const task = await prisma.$transaction(async (tx) => {
+    const existing = await tx.studyTask.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        debtStatus: true,
+        estimatedMinutes: true,
+        plannedDate: true,
+        completedAt: true,
+        updatedAt: true,
+      },
+    });
+    if (!existing || existing.type !== "simulation_exam") {
+      throw new ApiError("SIMULATION_TASK_NOT_FOUND", 404);
+    }
+    if (!["TODO", "IN_PROGRESS", "DEFERRED"].includes(existing.status)) {
+      throw new ApiError("TASK_STATE_CONFLICT", 409);
+    }
+
     const completedAt = new Date();
     const isFirstSynchronizedSimulation = isFirstSimulationTask(existing.plannedDate);
-    const updatedTask = await tx.studyTask.update({
+    await applyTaskCas(tx, existing, {
+      status: "DONE",
+      debtStatus: "NONE",
+      actualMinutes: input.durationMinutes,
+      reviewText: composeSimulationReview(
+        input,
+        maybeSummarizeSimulationResult(input, existing.estimatedMinutes, isFirstSynchronizedSimulation),
+      ),
+      completedAt,
+    });
+    const updatedTask = await tx.studyTask.findUnique({
       where: { id },
-      data: {
-        status: "DONE",
-        debtStatus: "NONE",
-        actualMinutes: input.durationMinutes,
-        reviewText: composeSimulationReview(
-          input,
-          maybeSummarizeSimulationResult(input, existing.estimatedMinutes, isFirstSynchronizedSimulation),
-        ),
-        completedAt,
-      },
       include: {
         subject: true,
         syllabusNode: true,
       },
     });
+    if (!updatedTask) throw new ApiError("TASK_STATE_CONFLICT", 409);
 
     await audit(actorId, "SIMULATION_TASK_COMPLETED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
