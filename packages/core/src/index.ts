@@ -753,3 +753,5 @@ function createRecoveryReason(input: RecoveryPlanInput): string {
   if (input.debtCount >= 6) return `当前有 ${input.debtCount} 项欠账，必须缩小战线。`;
   return "今日有效学习不足 30 分钟，先完成恢复任务。";
 }
+
+export const sc004ControlledPrFailureProbe = ;
