@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { buildBackupRestorePreview } from "../ops/backup-restore-preview";
+import { validateBackupRestorePreview } from "./backup-restore-preview-validate";
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(root, ".tmp-areaforge-backup-restore-preview-"));
@@ -23,8 +26,26 @@ try {
   if (!validation.stdout.includes("backupRestorePreviewRecordHash: sha256:")) {
     fail("backup/restore preview validation hash missing");
   }
+  if (!validation.stdout.includes("bindingStatus: current")) {
+    fail("backup/restore preview current binding status missing");
+  }
+  const shapeOnlyValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/backup-restore-preview-validate.ts", previewPath, "--shape-only"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  expectStatus("shape-only backup/restore preview validation", shapeOnlyValidation, 0);
+  if (!shapeOnlyValidation.stdout.includes("bindingStatus: unavailable")) {
+    fail("backup/restore preview shape-only binding status must be unavailable");
+  }
 
   const parsed = JSON.parse(generated.stdout) as Record<string, unknown>;
+  if (parsed.schemaVersion !== 2) {
+    fail("backup/restore preview must generate schema v2");
+  }
+  const sourceInputs = parsed.sourceInputs as Record<string, unknown>;
+  for (const field of ["packageVersion", "packageJsonHash", "implementationHash", "sourceSetHash"]) {
+    if (typeof sourceInputs[field] !== "string") fail(`backup/restore preview source binding missing ${field}`);
+  }
   const doesNotProve = parsed.doesNotProve as unknown[];
   if (!doesNotProve.includes("restore apply execution")) {
     fail("backup/restore preview restore non-proof boundary missing");
@@ -126,7 +147,7 @@ try {
 
   const validReleaseRecord = path.join(tempDir, "release-valid.txt");
   const validRestoreRecord = path.join(tempDir, "restore-valid.txt");
-  writeFileSync(validReleaseRecord, [
+  const validReleaseContent = [
     "releaseTag: v0.1.7",
     `releaseEvidenceBundleHash: sha256:${"e".repeat(64)}`,
     "attachmentReconciliationCsvPath: reports/attachment-reconciliation.csv",
@@ -142,13 +163,15 @@ try {
     "rollbackTargetVersion: 0.1.6",
     `rollbackTargetImage: ghcr.io/areasong/areaforge-web:v0.1.6@sha256:${"d".repeat(64)}`,
     "",
-  ].join("\n"));
-  writeFileSync(validRestoreRecord, [
+  ].join("\n");
+  const validRestoreContent = [
     "databaseRestoreResult: pass",
     "uploadsRestoreResult: pass",
     "attachmentHashMatched: not-applicable",
     "",
-  ].join("\n"));
+  ].join("\n");
+  writeFileSync(validReleaseRecord, validReleaseContent);
+  writeFileSync(validRestoreRecord, validRestoreContent);
   const allPresentGeneration = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/backup-restore-preview.ts"], {
     cwd: root,
     encoding: "utf8",
@@ -273,6 +296,9 @@ try {
   });
   expectStatus("missing explicit restore drill record fails", missingRestoreGeneration, 1);
 
+  testCurrentBindingFailureMatrix(tempDir);
+  testGenerationInputRace(tempDir);
+
   console.log("backup/restore preview selftest passed.");
 } finally {
   rmSync(tempDir, { force: true, recursive: true });
@@ -290,6 +316,142 @@ function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expec
 function fail(message: string): never {
   console.error(`FAIL ${message}`);
   process.exit(1);
+}
+
+function testCurrentBindingFailureMatrix(parent: string): void {
+  const fixture = createBindingFixture(parent);
+  const generated = buildBackupRestorePreview({ cwd: fixture.root, env: fixture.env });
+  const raw = JSON.stringify(generated);
+  expectNoIssues("current fixture preview", validateBackupRestorePreview(raw, fixture.validationOptions));
+
+  const tampered = structuredClone(generated) as unknown as Record<string, unknown>;
+  tampered.app = { ...(tampered.app as Record<string, unknown>), version: "9.9.9" };
+  tampered.backupRestorePreviewHash = hashPreview(tampered);
+  expectBindingFailure("source-derived preview tampering", validateBackupRestorePreview(JSON.stringify(tampered), fixture.validationOptions));
+
+  writeFileSync(fixture.releaseRecord, `${fixture.releaseContent}databaseBackupSha256: ${"a".repeat(64)}\n`);
+  expectBindingFailure("release record modification", validateBackupRestorePreview(raw, fixture.validationOptions));
+  expectNoIssues("historical shape-only after release drift", validateBackupRestorePreview(raw, { ...fixture.validationOptions, shapeOnly: true }));
+  writeFileSync(fixture.releaseRecord, fixture.releaseContent);
+
+  rmSync(fixture.releaseRecord);
+  expectBindingFailure("release record deletion", validateBackupRestorePreview(raw, fixture.validationOptions));
+  writeFileSync(fixture.releaseRecord, fixture.releaseContent);
+
+  writeFileSync(fixture.releaseTarget, fixture.releaseContent);
+  rmSync(fixture.releaseRecord);
+  symlinkSync(fixture.releaseTarget, fixture.releaseRecord);
+  expectBindingFailure("release record symlink replacement", validateBackupRestorePreview(raw, fixture.validationOptions));
+  expectThrow("symlink source generation", () => buildBackupRestorePreview({ cwd: fixture.root, env: fixture.env }), "must not be a symlink");
+  rmSync(fixture.releaseRecord);
+  writeFileSync(fixture.releaseRecord, fixture.releaseContent);
+
+  writeFileSync(fixture.restoreRecord, `${fixture.restoreContent}databaseRestoreResult: fail\n`);
+  expectBindingFailure("restore record modification", validateBackupRestorePreview(raw, fixture.validationOptions));
+  writeFileSync(fixture.restoreRecord, fixture.restoreContent);
+
+  writeFileSync(fixture.packageJson, JSON.stringify({ name: "fixture", version: "0.1.8" }, null, 2));
+  expectBindingFailure("package version drift", validateBackupRestorePreview(raw, fixture.validationOptions));
+  writeFileSync(fixture.packageJson, fixture.packageContent);
+
+  writeFileSync(fixture.implementationFile, "fixture implementation drift\n");
+  expectBindingFailure("implementation drift", validateBackupRestorePreview(raw, fixture.validationOptions));
+  writeFileSync(fixture.implementationFile, fixture.implementationContent);
+
+  expectNoIssues("restored current fixture preview", validateBackupRestorePreview(raw, fixture.validationOptions));
+}
+
+function testGenerationInputRace(parent: string): void {
+  const fixture = createBindingFixture(path.join(parent, "generation-race"));
+  expectThrow(
+    "generation input race",
+    () => buildBackupRestorePreview({
+      cwd: fixture.root,
+      env: fixture.env,
+      beforeFinalize: () => writeFileSync(fixture.releaseRecord, `${fixture.releaseContent}databaseBackupSha256: ${"b".repeat(64)}\n`),
+    }),
+    "source inputs changed during generation",
+  );
+}
+
+function createBindingFixture(parent: string): {
+  root: string;
+  env: NodeJS.ProcessEnv;
+  validationOptions: { cwd: string; env: NodeJS.ProcessEnv };
+  packageJson: string;
+  packageContent: string;
+  releaseRecord: string;
+  releaseTarget: string;
+  releaseContent: string;
+  restoreRecord: string;
+  restoreContent: string;
+  implementationFile: string;
+  implementationContent: string;
+} {
+  const fixtureRoot = path.join(parent, "binding-fixture");
+  mkdirSync(path.join(fixtureRoot, "docs/development"), { recursive: true });
+  mkdirSync(path.join(fixtureRoot, "scripts/ops"), { recursive: true });
+  mkdirSync(path.join(fixtureRoot, "scripts/quality"), { recursive: true });
+  const packageJson = path.join(fixtureRoot, "package.json");
+  const packageContent = `${JSON.stringify({ name: "fixture", version: "0.1.7" }, null, 2)}\n`;
+  const releaseRecord = path.join(fixtureRoot, "docs/development/release-v0.1.7-record.md");
+  const releaseTarget = path.join(fixtureRoot, "docs/development/release-target.md");
+  const releaseContent = "releaseTag: v0.1.7\n";
+  const restoreRecord = path.join(fixtureRoot, "docs/development/restore-record.txt");
+  const restoreContent = "databaseRestoreResult: pass\nuploadsRestoreResult: pass\nattachmentHashMatched: not-applicable\n";
+  const implementationPaths = [
+    "scripts/ops/backup-restore-preview.ts",
+    "scripts/quality/backup-restore-preview-source.ts",
+    "scripts/quality/backup-restore-preview-validate.ts",
+  ];
+  const implementationContent = "fixture implementation\n";
+  writeFileSync(packageJson, packageContent);
+  writeFileSync(releaseRecord, releaseContent);
+  writeFileSync(restoreRecord, restoreContent);
+  for (const relativePath of implementationPaths) {
+    writeFileSync(path.join(fixtureRoot, relativePath), implementationContent);
+  }
+  const env = {
+    ...process.env,
+    AREAFORGE_BACKUP_PREVIEW_RELEASE_RECORD: releaseRecord,
+    AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD: restoreRecord,
+  };
+  return {
+    root: fixtureRoot,
+    env,
+    validationOptions: { cwd: fixtureRoot, env },
+    packageJson,
+    packageContent,
+    releaseRecord,
+    releaseTarget,
+    releaseContent,
+    restoreRecord,
+    restoreContent,
+    implementationFile: path.join(fixtureRoot, implementationPaths[0]),
+    implementationContent,
+  };
+}
+
+function expectNoIssues(label: string, issues: Array<{ field: string; message: string }>): void {
+  if (issues.length > 0) {
+    fail(`${label} unexpectedly failed: ${issues.map((issue) => `${issue.field}: ${issue.message}`).join("; ")}`);
+  }
+}
+
+function expectBindingFailure(label: string, issues: Array<{ field: string }>): void {
+  if (!issues.some((issue) => issue.field === "bindingStatus")) {
+    fail(`${label} did not fail current source binding`);
+  }
+}
+
+function expectThrow(label: string, action: () => unknown, expectedMessage: string): void {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes(expectedMessage)) return;
+    fail(`${label} failed with an unexpected error`);
+  }
+  fail(`${label} did not fail`);
 }
 
 function hashPreview(preview: Record<string, unknown>): string {

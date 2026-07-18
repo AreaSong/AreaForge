@@ -106,7 +106,7 @@
 - `development/update-agent-status-record-template.md`：redacted update-agent status JSON 模板、`pnpm update-agent:status:record` 生成入口和 `pnpm update-agent:status:validate` 校验入口。
 - `development/ops-001-closure-packet-template.md`：`AF-RISK-OPS-001` 生产只读 smoke、update-agent status 和 evidence bundle 收口包模板，配套 `pnpm ops:ops-001:preflight`、`pnpm ops:ops-001:closure` / `pnpm ops:ops-001:closure:validate`。
 - `development/support-bundle-preview.md`：metadata-only 支持包预览，包含数据生命周期能力状态，配套 `pnpm ops:support:bundle-preview` / `pnpm ops:support:bundle-preview:validate`；不提供真实 export/delete/migration。
-- `deployment/backup-restore.md` 中的 `pnpm ops:backup-restore:preview`：备份/恢复 metadata-only 证据预览，分类 root-only backup hash、恢复演练记录和 rollback target 缺口，并输出机器可读 `blockingGaps`；不证明备份存在或授权生产 restore。
+- `deployment/backup-restore.md` 中的 `pnpm ops:backup-restore:preview`：schema v2 备份/恢复 metadata-only 证据预览，分类 root-only backup hash、恢复演练记录和 rollback target 缺口，输出机器可读 `blockingGaps`，并 current-bind package、实现和显式记录输入；默认 validator 返回 `bindingStatus: current`，历史归档只能 `--shape-only`；不证明备份存在或授权生产 restore。
 - `deployment/backup-restore.md` 中的 `pnpm attachment:reconciliation` / `pnpm attachment:reconciliation:summary:selftest`：附件数据库与私有上传目录双向只读对账，绑定 CSV、summary、file-only/unsafe 计数和 hash；只报告，不清理或修复。
 - `development/product-experience-review-record-template.md`：真实产品体验复核记录模板和 `pnpm experience:review:validate` 校验入口。
 - `development/product-experience-review-20260710-local.md`：2026-07-10 本地 desktop/mobile 真实体验复核历史记录。

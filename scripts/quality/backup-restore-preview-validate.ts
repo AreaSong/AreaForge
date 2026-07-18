@@ -6,6 +6,11 @@ import {
   sha256,
   type ValidationIssue,
 } from "./record-validator-common";
+import {
+  collectBackupRestorePreviewSources,
+  type BackupRestorePreviewSourceInputs,
+} from "./backup-restore-preview-source";
+import { buildBackupRestorePreview } from "../ops/backup-restore-preview";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -34,8 +39,15 @@ const requiredCapabilities = [
   "inspect_attachment_reconciliation_binding",
   "derive_machine_readable_blocking_gaps",
   "summarize_restore_dry_run_record_presence",
+  "bind_current_source_set",
   "compute_preview_hash",
 ];
+
+export type BackupRestorePreviewValidationOptions = {
+  shapeOnly?: boolean;
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+};
 
 const requiredDoesNotProve = [
   "backup archive exists",
@@ -84,14 +96,16 @@ const falseSafetyFacts = [
 ] as const;
 
 function main(): void {
-  const previewPath = process.argv[2];
+  const args = process.argv.slice(2);
+  const shapeOnly = args.includes("--shape-only");
+  const previewPath = args.find((arg) => arg !== "--shape-only");
   if (!previewPath) {
-    console.error("Usage: pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>");
+    console.error("Usage: pnpm ops:backup-restore:preview:validate <backup-restore-preview.json> [--shape-only]");
     process.exit(2);
   }
 
   const raw = readRequiredFile(path.resolve(previewPath));
-  const issues = validateBackupRestorePreview(raw);
+  const issues = validateBackupRestorePreview(raw, { shapeOnly, cwd: process.cwd(), env: process.env });
   if (issues.length > 0) {
     for (const issue of issues) {
       console.error(`FAIL ${issue.field}: ${issue.message}`);
@@ -101,25 +115,39 @@ function main(): void {
   }
 
   console.log("backup/restore preview validation passed: metadata-only scope, hash, evidence inventory, forbidden actions, and safety facts are present.");
+  console.log(`bindingStatus: ${shapeOnly ? "unavailable" : "current"}`);
   console.log(`backupRestorePreviewRecordHash: sha256:${sha256(extractJson(raw))}`);
   console.log("safetyFacts: readOnly=true metadataOnly=true backupRestoreAttempted=false productionWriteAttempted=false secretValuePrinted=false");
 }
 
-export function validateBackupRestorePreview(raw: string): ValidationIssue[] {
+export function validateBackupRestorePreview(
+  raw: string,
+  options: BackupRestorePreviewValidationOptions = {},
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   scanForSecrets(raw, issues);
   const body = parsePreview(raw, issues);
   if (!body) return issues;
 
-  requireValue(body.schemaVersion, "schemaVersion", 1, issues);
+  const schemaVersion = body.schemaVersion;
+  if (schemaVersion !== 1 && schemaVersion !== 2) {
+    issues.push({ field: "schemaVersion", message: "must be 1 or 2" });
+  } else if (schemaVersion === 1 && !options.shapeOnly) {
+    issues.push({ field: "schemaVersion", message: "historical schema v1 requires --shape-only" });
+  }
   requireIso(body.generatedAt, "generatedAt", issues);
   requireValue(body.mode, "mode", "metadata_only_backup_restore_preview", issues);
   requireOneOfValue(body.status, "status", ["ready", "needs_evidence", "blocked"], issues);
   requireSha256Value(body.backupRestorePreviewHash, "backupRestorePreviewHash", issues);
   validateHash(body, issues);
   validateApp(body.app, issues);
-  validateSourceInputs(body.sourceInputs, issues);
-  validateStringArray(body.capabilities, "capabilities", requiredCapabilities, issues);
+  if (schemaVersion === 2) {
+    validateSourceInputsV2(body.sourceInputs, issues);
+    validateStringArray(body.capabilities, "capabilities", requiredCapabilities, issues);
+  } else {
+    validateSourceInputsV1(body.sourceInputs, issues);
+    validateStringArray(body.capabilities, "capabilities", requiredCapabilities.filter((item) => item !== "bind_current_source_set"), issues);
+  }
   validateEvidenceInventory(body.evidenceInventory, issues);
   validateBlockingGaps(body.blockingGaps, body.evidenceInventory, issues);
   validateRestoreDryRun(body.restoreDryRun, issues);
@@ -128,6 +156,9 @@ export function validateBackupRestorePreview(raw: string): ValidationIssue[] {
   validateStringArray(body.doesNotProve, "doesNotProve", requiredDoesNotProve, issues);
   validateStringArray(body.forbiddenActions, "forbiddenActions", requiredForbiddenActions, issues);
   validateSafetyFacts(body.safetyFacts, issues);
+  if (schemaVersion === 2 && !options.shapeOnly) {
+    validateCurrentSourceBinding(body, options, issues);
+  }
 
   return issues;
 }
@@ -142,7 +173,7 @@ function validateApp(value: unknown, issues: ValidationIssue[]): void {
   requireString(value.releaseTag, "app.releaseTag", issues);
 }
 
-function validateSourceInputs(value: unknown, issues: ValidationIssue[]): void {
+function validateSourceInputsV1(value: unknown, issues: ValidationIssue[]): void {
   if (!isRecord(value)) {
     issues.push({ field: "sourceInputs", message: "must be an object" });
     return;
@@ -151,6 +182,71 @@ function validateSourceInputs(value: unknown, issues: ValidationIssue[]): void {
   requirePrefixedSha256(value.releaseRecordHash, "sourceInputs.releaseRecordHash", issues);
   if (value.restoreDrillRecordPath !== null) requireString(value.restoreDrillRecordPath, "sourceInputs.restoreDrillRecordPath", issues);
   if (value.restoreDrillRecordHash !== null) requirePrefixedSha256(value.restoreDrillRecordHash, "sourceInputs.restoreDrillRecordHash", issues);
+}
+
+function validateSourceInputsV2(value: unknown, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ field: "sourceInputs", message: "must be an object" });
+    return;
+  }
+  requireExactKeys(value, [
+    "schemaVersion",
+    "packageVersion",
+    "packageJsonHash",
+    "implementationHash",
+    "releaseRecordPath",
+    "releaseRecordHash",
+    "restoreDrillRecordPath",
+    "restoreDrillRecordHash",
+    "sourceSetHash",
+  ], "sourceInputs", issues);
+  requireValue(value.schemaVersion, "sourceInputs.schemaVersion", 1, issues);
+  if (typeof value.packageVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(value.packageVersion)) {
+    issues.push({ field: "sourceInputs.packageVersion", message: "must be semver" });
+  }
+  requirePrefixedSha256(value.packageJsonHash, "sourceInputs.packageJsonHash", issues);
+  requirePrefixedSha256(value.implementationHash, "sourceInputs.implementationHash", issues);
+  validateDisplayPath(value.releaseRecordPath, "sourceInputs.releaseRecordPath", issues);
+  requirePrefixedSha256(value.releaseRecordHash, "sourceInputs.releaseRecordHash", issues);
+  if (value.restoreDrillRecordPath !== null) validateDisplayPath(value.restoreDrillRecordPath, "sourceInputs.restoreDrillRecordPath", issues);
+  if (value.restoreDrillRecordHash !== null) requirePrefixedSha256(value.restoreDrillRecordHash, "sourceInputs.restoreDrillRecordHash", issues);
+  if ((value.restoreDrillRecordPath === null) !== (value.restoreDrillRecordHash === null)) {
+    issues.push({ field: "sourceInputs.restoreDrillRecordPath", message: "restore path and hash must both be null or both be present" });
+  }
+  requirePrefixedSha256(value.sourceSetHash, "sourceInputs.sourceSetHash", issues);
+  if (isBackupRestorePreviewSourceInputs(value)) {
+    const expected = computeSourceSetHash(value);
+    if (value.sourceSetHash !== expected) {
+      issues.push({ field: "sourceInputs.sourceSetHash", message: "does not match canonical source inputs" });
+    }
+  }
+}
+
+function validateCurrentSourceBinding(
+  body: JsonRecord,
+  options: BackupRestorePreviewValidationOptions,
+  issues: ValidationIssue[],
+): void {
+  const value = body.sourceInputs;
+  if (!isBackupRestorePreviewSourceInputs(value)) return;
+  try {
+    const env = sourceBindingEnv(value, options.env ?? process.env);
+    const current = collectBackupRestorePreviewSources({ cwd: options.cwd ?? process.cwd(), env });
+    if (stableStringify(current.sourceInputs) !== stableStringify(value)) {
+      issues.push({ field: "bindingStatus", message: "source inputs do not match the current package, implementation, or records" });
+      return;
+    }
+    const expected = buildBackupRestorePreview({
+      cwd: options.cwd ?? process.cwd(),
+      env,
+      generatedAt: new Date(String(body.generatedAt)),
+    });
+    if (stableStringify(expected) !== stableStringify(body)) {
+      issues.push({ field: "bindingStatus", message: "preview content does not match the current source-derived preview" });
+    }
+  } catch (error) {
+    issues.push({ field: "bindingStatus", message: error instanceof Error ? error.message : "current source binding failed" });
+  }
 }
 
 function validateEvidenceInventory(value: unknown, issues: ValidationIssue[]): void {
@@ -450,6 +546,74 @@ function validateStringArray(value: unknown, field: string, required: string[], 
   if (missing.length > 0) {
     issues.push({ field, message: `missing ${missing.join(", ")}` });
   }
+}
+
+function requireExactKeys(value: JsonRecord, expected: string[], field: string, issues: ValidationIssue[]): void {
+  const actual = Object.keys(value).sort();
+  const normalized = [...expected].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(normalized)) {
+    issues.push({ field, message: `must contain exact keys ${normalized.join(", ")}` });
+  }
+}
+
+function validateDisplayPath(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (typeof value !== "string" || value.trim() === "") {
+    issues.push({ field, message: "must be a non-empty redacted path" });
+    return;
+  }
+  const normalized = value.replaceAll("\\", "/");
+  const relative = normalized.startsWith("<tmp>/") ? normalized.slice("<tmp>/".length) : normalized;
+  if (path.isAbsolute(value) || relative === "" || relative === ".." || relative.startsWith("../") || relative.includes("/../")) {
+    issues.push({ field, message: "must be a workspace-relative path or <tmp> redacted path without traversal" });
+  }
+}
+
+function isBackupRestorePreviewSourceInputs(value: unknown): value is BackupRestorePreviewSourceInputs {
+  if (!isRecord(value)) return false;
+  return value.schemaVersion === 1
+    && typeof value.packageVersion === "string"
+    && typeof value.packageJsonHash === "string"
+    && typeof value.implementationHash === "string"
+    && typeof value.releaseRecordPath === "string"
+    && typeof value.releaseRecordHash === "string"
+    && (value.restoreDrillRecordPath === null || typeof value.restoreDrillRecordPath === "string")
+    && (value.restoreDrillRecordHash === null || typeof value.restoreDrillRecordHash === "string")
+    && typeof value.sourceSetHash === "string";
+}
+
+function computeSourceSetHash(value: BackupRestorePreviewSourceInputs): string {
+  const { sourceSetHash: _sourceSetHash, ...base } = value;
+  return `sha256:${sha256(stableStringify({ domain: "areaforge.backup-restore-preview.sources.v1", ...base }))}`;
+}
+
+function sourceBindingEnv(
+  value: BackupRestorePreviewSourceInputs,
+  baseEnv: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
+  const env = { ...baseEnv };
+  env.AREAFORGE_BACKUP_PREVIEW_RELEASE_RECORD = bindSourcePath(
+    value.releaseRecordPath,
+    baseEnv.AREAFORGE_BACKUP_PREVIEW_RELEASE_RECORD,
+    "AREAFORGE_BACKUP_PREVIEW_RELEASE_RECORD",
+  );
+  if (value.restoreDrillRecordPath === null) {
+    delete env.AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD;
+  } else {
+    env.AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD = bindSourcePath(
+      value.restoreDrillRecordPath,
+      baseEnv.AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD,
+      "AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD",
+    );
+  }
+  return env;
+}
+
+function bindSourcePath(displayPath: string, configuredPath: string | undefined, key: string): string {
+  if (!displayPath.startsWith("<tmp>/")) return displayPath;
+  if (!configuredPath?.trim()) {
+    throw new Error(`${key} is required to validate a <tmp> source binding`);
+  }
+  return configuredPath;
 }
 
 function requireString(value: unknown, field: string, issues: ValidationIssue[]): void {
