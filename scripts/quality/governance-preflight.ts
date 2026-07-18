@@ -433,6 +433,7 @@ function checkGovernanceBoundaryMatrix(): void {
 function checkCiRunsGovernance(): void {
   const ci = read(".github/workflows/ci.yml");
   const requiredTerms = [
+    "pnpm db:generate",
     "pnpm governance:preflight",
     "pnpm governance:changed-paths --base",
     "pnpm governance:changed-paths:selftest",
@@ -442,12 +443,18 @@ function checkCiRunsGovernance(): void {
     "pnpm ci:supply-chain:selftest",
   ];
   const missing = requiredTerms.filter((term) => !ci.includes(term));
+  const installDependenciesIndex = ci.indexOf("run: pnpm install --frozen-lockfile");
+  const generatePrismaIndex = ci.indexOf("run: pnpm db:generate");
+  const opsConfirmationSelftestsIndex = ci.indexOf("- name: OPS-006/007/008 confirmation-before selftests");
+  const prismaGenerationOrderValid = installDependenciesIndex >= 0 &&
+    generatePrismaIndex > installDependenciesIndex &&
+    opsConfirmationSelftestsIndex > generatePrismaIndex;
   checks.push({
     name: "CI governance gate",
-    ok: missing.length === 0,
-    detail: missing.length === 0
-      ? "CI runs governance preflight and skills validation"
-      : `CI must run ${missing.join(", ")}`,
+    ok: missing.length === 0 && prismaGenerationOrderValid,
+    detail: missing.length === 0 && prismaGenerationOrderValid
+      ? "CI generates the Prisma client before database-importing ops selftests and runs governance and skills validation"
+      : `CI must run ${missing.join(", ") || "all required commands"}; Prisma generation order valid=${prismaGenerationOrderValid}`,
   });
 }
 
