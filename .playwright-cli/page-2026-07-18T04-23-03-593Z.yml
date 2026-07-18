@@ -1,0 +1,155 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e20] [cursor=pointer]
+  - alert [ref=e24]
+  - main [ref=e444]:
+    - generic [ref=e445]:
+      - generic [ref=e446]:
+        - generic [ref=e447]:
+          - generic [ref=e448]: AreaForge / Notes
+          - heading "笔记与资料库" [level=1] [ref=e451]
+          - paragraph [ref=e452]: 沉淀自己的理解、题解和下次复习线索。
+        - link "返回作战台" [ref=e453] [cursor=pointer]:
+          - /url: /
+      - generic [ref=e456]:
+        - generic [ref=e457]:
+          - generic [ref=e458]:
+            - heading "复习提醒长期风险" [level=2] [ref=e462]
+            - paragraph [ref=e463]: 笔记复习提醒与报告、考纲、模拟共用同一组长期风险原因，不单独生成冲突结论。
+          - generic [ref=e464]:
+            - generic [ref=e465]: 极高风险
+            - generic [ref=e466]: 只读风险
+            - generic [ref=e467]: 需确认
+        - generic [ref=e468]:
+          - article [ref=e469]:
+            - generic [ref=e470]:
+              - generic [ref=e471]:
+                - generic [ref=e472]:
+                  - heading "长期有效学习不足" [level=3] [ref=e473]
+                  - generic [ref=e474]: 报告
+                  - generic [ref=e475]: 证据新鲜度：新
+                - paragraph [ref=e476]: 近 7 天 有效学习 0 分钟，长期策略必须先恢复执行闭环。
+              - generic [ref=e477]: 极高风险
+            - paragraph [ref=e481]: 把下一天任务缩到 1 个最小闭环，先恢复一次有效学习。
+          - article [ref=e482]:
+            - generic [ref=e483]:
+              - generic [ref=e484]:
+                - generic [ref=e485]:
+                  - heading "长期任务完成率偏低" [level=3] [ref=e486]
+                  - generic [ref=e487]: 报告
+                  - generic [ref=e488]: 证据新鲜度：新
+                - paragraph [ref=e489]: 近 7 天 任务完成率为 0%。
+              - generic [ref=e490]: 高风险
+            - paragraph [ref=e494]: 降低任务数量，把最高优先级任务拆成当天可完成的最小动作。
+          - article [ref=e495]:
+            - generic [ref=e496]:
+              - generic [ref=e497]:
+                - generic [ref=e498]:
+                  - heading "首页状态处于恢复态" [level=3] [ref=e499]
+                  - generic [ref=e500]: 状态主题
+                  - generic [ref=e501]: 证据新鲜度：新
+                - paragraph [ref=e502]: 首页状态主题已提示当前节奏需要收窄。
+              - generic [ref=e503]: 高风险
+            - paragraph [ref=e507]: 保持完整任务列表可见，但把行动焦点收敛到最小可执行任务。
+          - article [ref=e508]:
+            - generic [ref=e509]:
+              - generic [ref=e510]:
+                - generic [ref=e511]:
+                  - heading "阶段计划需要确认调整" [level=3] [ref=e512]
+                  - generic [ref=e513]: 阶段计划
+                  - generic [ref=e514]: 证据新鲜度：新
+                - paragraph [ref=e515]: 当前阶段目标为「验证阶段计划和调整草稿路径。」，仍有 1 个待确认草稿。
+              - generic [ref=e516]: 需注意
+            - paragraph [ref=e520]: 先阅读阶段草稿，确认或驳回后再让页面使用新的阶段目标。
+        - generic [ref=e521]:
+          - generic [ref=e522]: 下一步动作
+          - paragraph [ref=e527]: 把下一天任务缩到 1 个最小闭环，先恢复一次有效学习。
+          - paragraph [ref=e528]: 降低任务数量，把最高优先级任务拆成当天可完成的最小动作。
+          - paragraph [ref=e529]: 保持完整任务列表可见，但把行动焦点收敛到最小可执行任务。
+          - generic [ref=e530]: 所有长期建议保持确认边界，不自动修改任务或阶段计划。
+      - generic [ref=e535]:
+        - generic [ref=e536]:
+          - heading "新增笔记" [level=2] [ref=e539]
+          - generic [ref=e540]:
+            - generic [ref=e541]:
+              - combobox [ref=e542]:
+                - option "数学" [selected]
+                - option "英语"
+                - option "政治"
+                - option "408 数据结构"
+                - option "408 计算机组成原理"
+                - option "408 操作系统"
+                - option "408 计算机网络"
+              - combobox [ref=e543]:
+                - option "理解了"
+                - option "似懂非懂" [selected]
+                - option "不会"
+                - option "需要重学"
+                - option "考前再看"
+            - combobox [ref=e544]:
+              - option "不关联考纲节点" [selected]
+              - option "UX smoke 知识点 mrpuurkh"
+            - combobox [ref=e545]:
+              - option "不关联任务" [selected]
+              - option "UX smoke 今日最小任务 mrpuurkh"
+            - textbox "笔记标题" [ref=e546]
+            - textbox "写下自己的理解、题解或复盘产出" [ref=e547]
+            - textbox "下次复习时间" [ref=e548]
+            - button "保存笔记" [ref=e549]
+        - generic [ref=e553]:
+          - generic [ref=e554]:
+            - generic [ref=e555]:
+              - paragraph [ref=e556]: 资料库
+              - heading "笔记与最小产出" [level=2] [ref=e557]
+            - generic [ref=e558]: 1 / 1 条
+          - generic [ref=e559]:
+            - combobox [ref=e560]:
+              - option "全部科目" [selected]
+              - option "数学"
+              - option "英语"
+              - option "政治"
+              - option "408 数据结构"
+              - option "408 计算机组成原理"
+              - option "408 操作系统"
+              - option "408 计算机网络"
+            - combobox [ref=e561]:
+              - option "全部节点" [selected]
+              - option "未关联节点"
+              - option "UX smoke 知识点 mrpuurkh"
+            - combobox [ref=e562]:
+              - option "全部掌握状态" [selected]
+              - option "理解了"
+              - option "似懂非懂"
+              - option "不会"
+              - option "需要重学"
+              - option "考前再看"
+            - combobox [ref=e563]:
+              - option "全部复习提醒" [selected]
+              - option "已到期"
+              - option "已设置"
+              - option "未设置"
+          - article [ref=e565]:
+            - generic [ref=e566]:
+              - generic [ref=e567]:
+                - paragraph [ref=e568]: 数学
+                - heading "UX smoke 笔记 mrpuurkh" [level=3] [ref=e569]
+                - paragraph [ref=e570]: UX smoke 知识点 mrpuurkh / 似懂非懂
+              - generic [ref=e571]: 2026/7/19
+            - paragraph [ref=e572]: 这是一条本地 smoke 笔记，用于验证附件和笔记列表。
+            - generic [ref=e573]:
+              - generic [ref=e574]: 任务：UX smoke 今日最小任务 mrpuurkh
+              - generic [ref=e575]: 更新：2026/7/18 12:16:52
+              - generic [ref=e576]: 1 个附件
+            - generic [ref=e580]:
+              - generic [ref=e581]:
+                - generic [ref=e582]:
+                  - paragraph [ref=e583]: 附件
+                  - paragraph [ref=e584]: PDF、PNG、JPEG、WebP
+                - generic [ref=e585] [cursor=pointer]:
+                  - text: 上传
+                  - button "上传" [ref=e589]
+              - generic [ref=e591]:
+                - generic [ref=e592]:
+                  - paragraph [ref=e593]: ux-smoke.png
+                  - paragraph [ref=e594]: image/png / 67 B
+                - link "下载" [ref=e595] [cursor=pointer]:
+                  - /url: /api/attachments/cmrpuuszt000hllrt8kz0pvz3

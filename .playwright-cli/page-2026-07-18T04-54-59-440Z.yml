@@ -1,0 +1,12 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e34] [cursor=pointer]
+  - alert [ref=e38]
+  - main [ref=e39]:
+    - generic [ref=e40]:
+      - img "AreaForge" [ref=e41]
+      - heading "进入作战台" [level=1] [ref=e42]
+      - generic [ref=e43]: 邮箱
+      - textbox "邮箱" [ref=e44]
+      - generic [ref=e45]: 密码
+      - textbox "密码" [ref=e46]
+      - button "登录" [ref=e47]

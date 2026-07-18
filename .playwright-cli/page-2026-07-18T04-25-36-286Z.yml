@@ -1,0 +1,15 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e11]:
+        - paragraph [ref=e12]: "404"
+        - heading "找不到这个页面" [level=1] [ref=e13]
+        - paragraph [ref=e14]: 地址可能已经变更，或者你访问的内容并不存在。回到首页即可继续查看今日作战台。
+      - paragraph [ref=e15]: GitHub 支持入口公开可见，请勿提交账号、学习正文、附件内容、服务器路径、日志或密钥。
+      - generic [ref=e16]:
+        - link "返回首页" [ref=e17] [cursor=pointer]:
+          - /url: /
+        - link "支持入口" [ref=e21] [cursor=pointer]:
+          - /url: https://github.com/AreaSong/AreaForge/issues/new/choose
+  - button "Open Next.js Dev Tools" [ref=e34] [cursor=pointer]
+  - alert [ref=e38]
