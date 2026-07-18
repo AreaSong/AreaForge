@@ -203,18 +203,18 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[0.82fr_1.18fr]">
-      <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
         <div className="flex items-center gap-2">
           <Plus className="h-5 w-5 text-teal-300" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-white">新增考纲节点</h2>
         </div>
 
-        <form className="mt-5 grid gap-3" onSubmit={submit}>
-          <label className="grid gap-2 text-sm text-zinc-300">
+        <form className="mt-5 grid min-w-0 gap-3" onSubmit={submit}>
+          <label className="grid min-w-0 gap-2 text-sm text-zinc-300">
             科目
             <select
-              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
+              className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
               value={subjectId}
               onChange={(event) => {
                 setSubjectId(event.target.value);
@@ -230,10 +230,10 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
             </select>
           </label>
 
-          <label className="grid gap-2 text-sm text-zinc-300">
+          <label className="grid min-w-0 gap-2 text-sm text-zinc-300">
             父节点
             <select
-              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
+              className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
               value={parentId}
               onChange={(event) => setParentId(event.target.value)}
             >
@@ -248,16 +248,16 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
           </label>
 
           <input
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="章节、知识点或题型名称"
             required
           />
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-3">
             <select
-              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+              className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
               value={kind}
               onChange={(event) => setKind(event.target.value as SyllabusNodeKindDto)}
             >
@@ -267,14 +267,14 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
               <option value="problem_type">题型专题</option>
             </select>
             <select
-              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+              className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
               value={status}
               onChange={(event) => setStatus(event.target.value as SyllabusNodeStatusDto)}
             >
               <StatusOptions />
             </select>
             <input
-              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+              className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
               type="number"
               min={0}
               max={100000}
@@ -298,9 +298,9 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
 
         <div className="mt-6 border-t border-white/10 pt-5">
           <h3 className="text-sm font-medium text-zinc-100">Markdown 导入</h3>
-          <form className="mt-3 grid gap-3" onSubmit={submitImport}>
+          <form className="mt-3 grid min-w-0 gap-3" onSubmit={submitImport}>
             <textarea
-              className="min-h-36 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
+              className="min-h-36 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
               value={importMarkdown}
               onChange={(event) => setImportMarkdown(event.target.value)}
               placeholder={"# 第一章\n## 极限\n- 极限定义\n  - 夹逼准则"}
@@ -319,7 +319,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
         </div>
       </section>
 
-      <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
+      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-zinc-400">作战地图</p>
@@ -707,12 +707,12 @@ function SyllabusTreeNode({
   }
 
   return (
-    <article className="rounded-md border border-white/10 bg-[#151a20] p-4">
+    <article className="min-w-0 rounded-md border border-white/10 bg-[#151a20] p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <ChevronRight className="h-4 w-4 text-teal-300" aria-hidden="true" />
-            <h3 className="font-medium text-white">{node.title}</h3>
+            <h3 className="min-w-0 break-words font-medium text-white">{node.title}</h3>
           </div>
           <p className="mt-1 text-xs text-zinc-500">
             {labelKind(node.kind)} / {node.actualMinutes} of {node.targetMinutes} 分钟
@@ -737,7 +737,7 @@ function SyllabusTreeNode({
         </div>
         <div className="flex flex-wrap gap-2">
           <select
-            className="h-9 rounded-md border border-white/10 bg-[#0d1117] px-2 text-sm text-zinc-100"
+            className="h-9 max-w-full rounded-md border border-white/10 bg-[#0d1117] px-2 text-sm text-zinc-100"
             value={node.status}
             onChange={(event) => {
               const nextStatus = event.target.value as SyllabusNodeStatusDto;
@@ -758,10 +758,10 @@ function SyllabusTreeNode({
       </div>
       <div className="mt-3 rounded-md border border-white/10 bg-[#0d1117] p-3">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
-          <label className="grid gap-2 text-xs text-zinc-400">
+          <label className="grid min-w-0 gap-2 text-xs text-zinc-400">
             目标等级
             <select
-              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={targetMasteryLevel}
               onChange={(event) => setTargetMasteryLevel(event.target.value as MasteryLevelDto)}
             >
@@ -772,7 +772,7 @@ function SyllabusTreeNode({
               ))}
             </select>
           </label>
-          <div className="grid gap-2">
+          <div className="grid min-w-0 gap-2">
             <p className="text-xs text-zinc-400">本次证明条件</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {masteryConditionOptions.map((condition) => (
@@ -813,15 +813,15 @@ function SyllabusTreeNode({
           </button>
         </div>
       </div>
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <form className="rounded-md border border-white/10 bg-[#0d1117] p-3" onSubmit={submitEvidence}>
+      <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
+        <form className="min-w-0 rounded-md border border-white/10 bg-[#0d1117] p-3" onSubmit={submitEvidence}>
           <div className="flex items-center gap-2">
             <ClipboardCheck className="h-4 w-4 text-teal-300" aria-hidden="true" />
             <p className="text-sm font-medium text-zinc-100">证据引用</p>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-[0.62fr_1.38fr]">
+          <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,0.62fr)_minmax(0,1.38fr)]">
             <select
-              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={evidenceType}
               onChange={(event) => changeEvidenceType(event.target.value as MasteryEvidenceType)}
             >
@@ -832,7 +832,7 @@ function SyllabusTreeNode({
               ))}
             </select>
             <select
-              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={selectedEvidenceReferenceId}
               onChange={(event) => setEvidenceReferenceId(event.target.value)}
               disabled={evidenceCandidates.length === 0}
@@ -865,14 +865,14 @@ function SyllabusTreeNode({
           </button>
         </form>
 
-        <form className="rounded-md border border-white/10 bg-[#0d1117] p-3" onSubmit={submitRetest}>
+        <form className="min-w-0 rounded-md border border-white/10 bg-[#0d1117] p-3" onSubmit={submitRetest}>
           <div className="flex items-center gap-2">
             <RotateCcw className="h-4 w-4 text-sky-300" aria-hidden="true" />
             <p className="text-sm font-medium text-zinc-100">复测记录</p>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2">
             <select
-              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={retestResult}
               onChange={(event) => setRetestResult(event.target.value as MasteryRetestResult)}
             >
@@ -883,21 +883,21 @@ function SyllabusTreeNode({
               ))}
             </select>
             <input
-              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               type="datetime-local"
               value={retestTestedAt}
               onChange={(event) => setRetestTestedAt(event.target.value)}
               aria-label="复测时间"
             />
             <input
-              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={retestScore}
               onChange={(event) => setRetestScore(event.target.value)}
               placeholder="分数或结果"
               maxLength={80}
             />
             <input
-              className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
+              className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               type="date"
               value={retestNextReviewDate}
               onChange={(event) => setRetestNextReviewDate(event.target.value)}
