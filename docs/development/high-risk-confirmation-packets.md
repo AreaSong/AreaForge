@@ -1422,15 +1422,15 @@ pnpm ops:ops-001:preflight
 
 ## OPS-007 附件 Staging/Write-Intent 本地实施确认包
 
-状态：等待确认。该包只授权 additive attachment lifecycle migration、上传/下载协议和隔离 crash fixture，不授权生产 migration、历史 orphan 清理或文件删除。
+状态：已确认（2026-07-21，G1）并完成本地验证。该包只授权 additive attachment lifecycle migration、上传/下载协议和隔离 crash fixture，不授权生产 migration、历史 orphan 清理或文件删除；生产阶段固定为 `production_confirmation_required`。
 
-确认前 preflight source contract：
+当前 preflight source contract：
 
-- `OPS-007-PREFLIGHT-CONTRACT-V1`
-- `evidenceClass: protocol_preimage_candidate`
-- 只读 preflight 绑定 task、design、本确认包、当前 schema 和 crash-window fixture 的 SHA-256。
-- 在 `awaiting-high-risk-confirmation` 时 strict 必须非零退出。
-- 该证据不证明 migration、runtime、filesystem、backup/restore 或 production。
+- `OPS-007-PREFLIGHT-CONTRACT-V2`
+- `evidenceClass: local_attachment_protocol_verified`（确认前候选等级 `protocol_preimage_candidate` 保留为历史语义）
+- 只读 preflight 绑定 task、design、本确认包、当前 schema、canonical additive migration 和 crash-window fixture 的 SHA-256。
+- 提供 fresh 隔离 PostgreSQL/临时上传目录 runtime record（`AREAFORGE_OPS007_RUNTIME_RECORD`）时 strict 可达 `local_verified`；证据缺失或过期时 strict 必须非零退出。
+- 该证据只证明当前 checkout 的本地实现，不证明签名 Release、生产 migration、生产 filesystem、backup/restore 或 residual 关闭。
 
 源事实：
 
@@ -1438,7 +1438,7 @@ pnpm ops:ops-001:preflight
 - `docs/architecture/file-storage.md`
 - `docs/security/file-ai-safety.md`
 - `docs/deployment/backup-restore.md`
-- `tasks/backlog/0021-attachment-staging-intent.md`
+- `tasks/active/0021-attachment-staging-intent.md`
 - `docs/development/residual-risk-ledger.md` 中的 `AF-RISK-OPS-007`
 
 影响：

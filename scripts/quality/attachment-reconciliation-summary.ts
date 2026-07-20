@@ -121,6 +121,10 @@ export async function buildAttachmentReconciliationSummary(
       unsafeEntryHashes.push(entryHash);
       continue;
     }
+    // OPS-007 staging 目录是协议保留目录：备份期间不得清理，也不算 unsafe/unexpected。
+    if (entry.name === ".staging" && stat.isDirectory()) {
+      continue;
+    }
     if (!stat.isFile()) {
       unexpectedEntryCount += 1;
       unsafeEntryHashes.push(entryHash);

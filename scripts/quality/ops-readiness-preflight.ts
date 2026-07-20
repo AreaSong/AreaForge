@@ -69,7 +69,7 @@ function checkConfirmationBeforeContracts(): void {
     "tasks/active/0020-business-state-concurrency.md",
     "docs/development/ops-006-business-state-concurrency-design.md",
     "docs/development/high-risk-confirmation-packets.md",
-    "tasks/backlog/0021-attachment-staging-intent.md",
+    "tasks/active/0021-attachment-staging-intent.md",
     "docs/development/ops-007-attachment-crash-window-design.md",
     "tasks/backlog/0022-updater-phase-journal-hold.md",
     "docs/development/ops-008-updater-phase-journal-design.md",
@@ -113,7 +113,7 @@ function checkConfirmationBeforeContracts(): void {
     {
       prefix: "确认执行 OPS-007 附件 staging/write-intent 本地实施",
       expected: "确认执行 OPS-007 附件 staging/write-intent 本地实施：范围仅限新增 AttachmentStatus PENDING/READY/FAILED、protocolVersion、staging/finalized/failure、reconciliation lease 字段和 stagingName/storedName/uri 唯一约束的 additive migration，note 附件上传改为有界流式读取、显式 PENDING intent、exclusive staging write/fsync、atomic rename/fsync、READY CAS，下载仅允许 READY 并使用 O_NOFOLLOW 同句柄校验，补偿失败保留可审计状态，新协议记录的有界 claim/lease reconciliation，以及本地临时 PostgreSQL/上传目录 crash fixture；不删除或自动修复历史 orphan，不删除 READY 附件，不执行生产 migration/deploy、backup/restore、上传目录迁移、服务器命令、secrets 操作、多用户迁移、Release/tag 或 residual 台账关闭。",
-      files: ["docs/development/high-risk-confirmation-packets.md", "docs/development/ops-007-attachment-crash-window-design.md", "tasks/backlog/0021-attachment-staging-intent.md"],
+      files: ["docs/development/high-risk-confirmation-packets.md", "docs/development/ops-007-attachment-crash-window-design.md", "tasks/active/0021-attachment-staging-intent.md"],
     },
     {
       prefix: "确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施",

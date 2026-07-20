@@ -3,11 +3,16 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateAttachmentCrashWindow } from "./attachment-crash-window-validate";
+import { validateOps007RuntimeRecord } from "./ops007-attachment-runtime-validate";
 
-export type Ops007PreflightStatus = "awaiting_high_risk_confirmation" | "invalid";
+export type Ops007PreflightStatus =
+  | "awaiting_high_risk_confirmation"
+  | "local_validation"
+  | "local_verified"
+  | "invalid";
 
 export function ops007PreflightExitCode(status: Ops007PreflightStatus, strict: boolean): 0 | 1 {
-  return status === "invalid" || strict ? 1 : 0;
+  return status === "invalid" || (strict && status !== "local_verified") ? 1 : 0;
 }
 
 type PreflightOptions = {
@@ -17,21 +22,29 @@ type PreflightOptions = {
   confirmationPacketPath?: string;
   schemaPath?: string;
   fixturePath?: string;
+  migrationPath?: string;
+  runtimePath?: string;
+  now?: Date;
+  maxEvidenceAgeHours?: number;
 };
 
 type Check = {
-  status: "pass" | "invalid";
+  status: "pass" | "missing" | "invalid";
   detail: string;
 };
 
-const evidenceClass = "protocol_preimage_candidate";
-const sourceContractId = "OPS-007-PREFLIGHT-CONTRACT-V1";
+const candidateEvidenceClass = "protocol_preimage_candidate";
+const localEvidenceClass = "local_attachment_protocol_verified";
+const sourceContractId = "OPS-007-PREFLIGHT-CONTRACT-V2";
 const implementationConfirmationPhrase =
   "确认执行 OPS-007 附件 staging/write-intent 本地实施";
+const defaultMigrationPath = "prisma/migrations/20260721010000_attachment_staging_write_intent/migration.sql";
 
 export function buildOps007AttachmentPreflight(options: PreflightOptions = {}) {
   const root = options.root ?? process.cwd();
-  const taskPath = options.taskPath ?? path.join(root, "tasks/backlog/0021-attachment-staging-intent.md");
+  const now = options.now ?? new Date();
+  const maxEvidenceAgeHours = options.maxEvidenceAgeHours ?? 24;
+  const taskPath = options.taskPath ?? path.join(root, "tasks/active/0021-attachment-staging-intent.md");
   const designPath =
     options.designPath ?? path.join(root, "docs/development/ops-007-attachment-crash-window-design.md");
   const confirmationPacketPath =
@@ -40,35 +53,46 @@ export function buildOps007AttachmentPreflight(options: PreflightOptions = {}) {
   const fixturePath =
     options.fixturePath ??
     path.join(root, "scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json");
+  const migrationPath = options.migrationPath
+    ?? process.env.AREAFORGE_OPS007_CANDIDATE_MIGRATION?.trim()
+    ?? defaultMigrationPath;
+  const runtimePath = options.runtimePath ?? process.env.AREAFORGE_OPS007_RUNTIME_RECORD?.trim() ?? "";
+  const taskPhase = readTaskPhase(taskPath);
 
   const checks = {
     task: checkTask(taskPath),
     designContract: checkDesignContract(designPath),
     confirmationPacket: checkConfirmationPacket(confirmationPacketPath),
     currentSchema: checkCurrentSchema(schemaPath),
+    candidateMigration: checkCandidateMigration(root, migrationPath),
     fixture: checkFixture(fixturePath),
+    runtime: checkRuntime(root, runtimePath, now, maxEvidenceAgeHours),
   };
-  const status: Ops007PreflightStatus = Object.values(checks).some((check) => check.status === "invalid")
-    ? "invalid"
-    : "awaiting_high_risk_confirmation";
+  const invalid = Object.values(checks).some((check) => check.status === "invalid");
+  const localEvidenceComplete = checks.candidateMigration.status === "pass" && checks.runtime.status === "pass";
+  const status = determineStatus(taskPhase, invalid, localEvidenceComplete);
   const sourceHashes = {
     taskSha256: fileSha256(taskPath),
     designSha256: fileSha256(designPath),
     confirmationPacketSha256: fileSha256(confirmationPacketPath),
     schemaSha256: fileSha256(schemaPath),
+    migrationSha256: migrationPath ? fileSha256(path.resolve(root, migrationPath)) : null,
     fixtureFileSha256: fileSha256(fixturePath),
     fixtureHash: readFixtureHash(fixturePath),
+    runtimeFileSha256: runtimePath ? fileSha256(path.resolve(root, runtimePath)) : null,
+    runtimeRecordHash: runtimePath ? readRuntimeHash(path.resolve(root, runtimePath)) : null,
   };
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: "read_only_ops007_attachment_preflight",
-    evidenceClass,
+    evidenceClass: taskPhase === "local-verified" ? localEvidenceClass : candidateEvidenceClass,
     status,
-    strictGate: {
-      status: "blocked",
-      reason: "awaiting explicit OPS-007 high-risk implementation confirmation",
-    },
+    taskPhase,
+    localEvidenceStatus: invalid ? "invalid" : localEvidenceComplete ? "complete" : "incomplete",
+    strictGate: status === "local_verified"
+      ? { status: "ready", reason: "current checkout, canonical additive migration, crash-window fixture, and fresh isolated PostgreSQL/upload-directory runtime evidence are hash-bound" }
+      : { status: "blocked", reason: "OPS-007 local_verified evidence is incomplete or source-bound phase is not local-verified" },
     checks,
     expectedContract: {
       sourceContractId,
@@ -77,36 +101,43 @@ export function buildOps007AttachmentPreflight(options: PreflightOptions = {}) {
       legacyPolicy: "legacy rows are READY/protocolVersion=0 compatibility only; new schema default and explicit intent are PENDING/protocolVersion=1",
       downloadPolicy: "READY plus same-handle O_NOFOLLOW + fstat + hash/size verification; browser DTO omits raw hash and internal storage fields",
       reconciliationPolicy: "bounded claim/lease reconciliation with DB/staging/final decision table; historical orphan remains report-only",
+      migrationPolicy: "additive-only; no DROP, DELETE, TRUNCATE, UPDATE, backfill, or historical repair",
       evidencePolicy:
-        "protocol preimage candidate only; never migration, runtime, filesystem, backup/restore, production, or confirmation evidence",
+        "local_verified proves only the current local checkout with isolated PostgreSQL and temporary upload-directory fixtures; release and production remain separately blocked",
     },
     evidence: {
       task: relativePath(root, taskPath),
       design: relativePath(root, designPath),
       confirmationPacket: relativePath(root, confirmationPacketPath),
       schema: relativePath(root, schemaPath),
+      candidateMigration: migrationPath ? relativePath(root, path.resolve(root, migrationPath)) : null,
       fixture: relativePath(root, fixturePath),
+      runtime: runtimePath ? relativePath(root, path.resolve(root, runtimePath)) : null,
       sourceContractId,
       implementationConfirmationPhraseSha256: textSha256(implementationConfirmationPhrase),
       ...sourceHashes,
       sourceBindingHash: hashSourceBinding(sourceHashes),
     },
-    requiredNextSteps: [
-      "obtain explicit OPS-007 high-risk implementation confirmation",
-      "implement and review the additive migration without historical repair",
-      "run isolated PostgreSQL and temporary upload-directory crash-window tests",
-      "validate runtime O_NOFOLLOW, fsync, READY CAS, and bounded reconciliation behavior",
-      "run pnpm db:validate, pnpm check, risk gates, and release-bound validation",
-    ],
+    requiredNextSteps: status === "local_verified"
+      ? [
+          "review the local implementation and exact commit",
+          "create a separately admitted signed Release before any deployment",
+          "obtain independent production migration/deploy confirmation with duplicate storage-identity doctor evidence",
+        ]
+      : [
+          "retain explicit OPS-007 high-risk implementation confirmation",
+          "complete the additive migration and write-intent protocol implementation",
+          "run isolated PostgreSQL and temporary upload-directory crash-window selftests",
+          "validate runtime O_NOFOLLOW, fsync, READY CAS, and bounded reconciliation behavior",
+          "run pnpm db:validate, pnpm check, risk gates, and release-bound validation",
+        ],
     doesNotProve: [
-      "OPS-007 high-risk implementation confirmation",
-      "candidate or applied database migration",
-      "attachment runtime protocol implementation",
-      "filesystem durability, atomic rename, fsync, or O_NOFOLLOW behavior",
-      "runtime compensation or reconciliation execution",
-      "backup or restore success",
+      "candidate or applied production database migration",
       "production attachment safety or production state",
+      "filesystem durability guarantees outside the isolated fixture",
+      "backup or restore success",
       "historical orphan cleanup or residual ledger closure",
+      "signed Release readiness",
     ],
     forbiddenActions: [
       "run_migration",
@@ -132,21 +163,36 @@ export function buildOps007AttachmentPreflight(options: PreflightOptions = {}) {
   };
 }
 
+function determineStatus(taskPhase: string | null, invalid: boolean, localEvidenceComplete: boolean): Ops007PreflightStatus {
+  if (invalid) return "invalid";
+  if (taskPhase === "awaiting-high-risk-confirmation") return "awaiting_high_risk_confirmation";
+  if (taskPhase === "local-verified" && localEvidenceComplete) return "local_verified";
+  return "local_validation";
+}
+
 function checkTask(taskPath: string): Check {
   if (!existsSync(taskPath)) return { status: "invalid", detail: "OPS-007 task file is missing" };
   const raw = readFileSync(taskPath, "utf8");
-  if (!/^status:\s+blocked\s*$/m.test(raw) || !/^phase:\s+awaiting-high-risk-confirmation\s*$/m.test(raw)) {
-    return { status: "invalid", detail: "OPS-007 task must remain blocked while awaiting high-risk confirmation" };
+  const phase = readTaskPhase(taskPath);
+  const awaiting = /^status:\s+blocked\s*$/m.test(raw)
+    && phase === "awaiting-high-risk-confirmation"
+    && raw.includes(`evidenceClass: ${candidateEvidenceClass}`);
+  const locallyVerified = /^status:\s+in-progress\s*$/m.test(raw)
+    && phase === "local-verified"
+    && raw.includes(`evidenceClass: ${localEvidenceClass}`)
+    && raw.includes("production_confirmation_required");
+  if (!awaiting && !locallyVerified) {
+    return { status: "invalid", detail: "OPS-007 task status, phase, and evidence class are inconsistent" };
   }
-  const required = [
-    sourceContractId,
-    `evidenceClass: ${evidenceClass}`,
-    implementationConfirmationPhrase,
-  ];
-  const missing = required.filter((value) => !raw.includes(value));
-  return missing.length === 0
-    ? { status: "pass", detail: "task remains blocked and declares the OPS-007 preflight source contract" }
-    : { status: "invalid", detail: `OPS-007 task source contract is incomplete: ${missing.join(", ")}` };
+  if (!raw.includes(implementationConfirmationPhrase) || !raw.includes(sourceContractId)) {
+    return { status: "invalid", detail: "OPS-007 task source contract or exact confirmation phrase is missing" };
+  }
+  return {
+    status: "pass",
+    detail: locallyVerified
+      ? "task records local_verified with production still blocked"
+      : "task remains blocked behind confirmation",
+  };
 }
 
 function checkDesignContract(designPath: string): Check {
@@ -154,20 +200,20 @@ function checkDesignContract(designPath: string): Check {
   const raw = readFileSync(designPath, "utf8");
   const required = [
     sourceContractId,
-    `evidenceClass: ${evidenceClass}`,
+    localEvidenceClass,
     "sourceBindingHash",
     "strict 必须非零退出",
-    "不证明 migration、runtime、filesystem、backup/restore 或 production",
     "Attachment.status AttachmentStatus @default(PENDING)",
     "有界上传读取",
     "reconciliationLeaseExpiresAt",
     "浏览器 DTO",
+    "local_verified",
     "production_confirmation_required",
     implementationConfirmationPhrase,
   ];
   const missing = required.filter((value) => !raw.includes(value));
   return missing.length === 0
-    ? { status: "pass", detail: "design declares source-hash-bound protocol preimage semantics" }
+    ? { status: "pass", detail: "design contract separates local verification from release and production" }
     : { status: "invalid", detail: `OPS-007 design source contract is incomplete: ${missing.join(", ")}` };
 }
 
@@ -178,19 +224,20 @@ function checkConfirmationPacket(packetPath: string): Check {
   const raw = readFileSync(packetPath, "utf8");
   const section = extractSection(raw, "## OPS-007 附件 Staging/Write-Intent 本地实施确认包");
   const required = [
-    "状态：等待确认",
+    "状态：已确认",
     sourceContractId,
-    `evidenceClass: ${evidenceClass}`,
+    localEvidenceClass,
     "strict 必须非零退出",
     "不执行生产 migration deploy",
     "不读取、打印、复制或提交 secrets",
     "有界流式读取",
     "reconciliation lease",
+    "production_confirmation_required",
     implementationConfirmationPhrase,
   ];
   const missing = required.filter((value) => !section.includes(value));
   return missing.length === 0
-    ? { status: "pass", detail: "confirmation packet remains awaiting confirmation with production and secret boundaries" }
+    ? { status: "pass", detail: "confirmation packet records local implementation authorization without production authority" }
     : { status: "invalid", detail: `OPS-007 confirmation packet is incomplete: ${missing.join(", ")}` };
 }
 
@@ -199,15 +246,11 @@ function checkCurrentSchema(schemaPath: string): Check {
   const raw = readFileSync(schemaPath, "utf8");
   const model = raw.match(/model\s+Attachment\s*\{([\s\S]*?)\n\}/m)?.[1] ?? "";
   if (!model) return { status: "invalid", detail: "Attachment model is missing" };
-  const requiredCurrentFields = ["storedName   String", "uri          String", "createdAt    DateTime"];
-  if (requiredCurrentFields.some((value) => !model.includes(value))) {
-    return { status: "invalid", detail: "Attachment schema preimage no longer matches the reviewed current model" };
-  }
   const implementationMarkers = [
     /enum\s+AttachmentStatus\s*\{/m,
-    /\bstatus\s+AttachmentStatus\b/m,
-    /\bstagingName\s+String\?/m,
-    /\bprotocolVersion\s+Int\b/m,
+    /\bstatus\s+AttachmentStatus\s+@default\(PENDING\)/m,
+    /\bprotocolVersion\s+Int\s+@default\(1\)/m,
+    /\bstagingName\s+String\?\s+@unique/m,
     /\bfinalizedAt\s+DateTime\?/m,
     /\bfailureCode\s+String\?/m,
     /\breconciliationClaimId\s+String\?/m,
@@ -215,10 +258,37 @@ function checkCurrentSchema(schemaPath: string): Check {
     /\bstoredName\s+String\s+@unique/m,
     /\buri\s+String\s+@unique/m,
   ];
-  if (implementationMarkers.some((pattern) => pattern.test(raw))) {
-    return { status: "invalid", detail: "current schema already contains an unreviewed OPS-007 implementation marker" };
+  const missing = implementationMarkers.filter((pattern) => !pattern.test(raw));
+  if (missing.length > 0) {
+    return { status: "invalid", detail: "Attachment schema does not contain the reviewed OPS-007 protocol model" };
   }
-  return { status: "pass", detail: "current Attachment schema remains the pre-OPS-007 preimage" };
+  return { status: "pass", detail: "Attachment schema matches the reviewed staging/write-intent protocol model" };
+}
+
+function checkCandidateMigration(root: string, migrationPath: string): Check {
+  if (!migrationPath) return { status: "missing", detail: "no candidate migration supplied" };
+  const resolved = path.resolve(root, migrationPath);
+  if (!existsSync(resolved)) return { status: "invalid", detail: "candidate migration path does not exist" };
+  const raw = readFileSync(resolved, "utf8");
+  const withoutComments = raw.replaceAll(/--[^\n]*/g, "");
+  const forbidden = [/\bDROP\b/i, /\bDELETE\b/i, /\bTRUNCATE\b/i, /\bUPDATE\b/i];
+  if (forbidden.some((pattern) => pattern.test(withoutComments))) {
+    return { status: "invalid", detail: "candidate migration must stay additive without DROP/DELETE/TRUNCATE/UPDATE" };
+  }
+  const required = [
+    `CREATE TYPE "AttachmentStatus" AS ENUM ('PENDING', 'READY', 'FAILED')`,
+    `ADD COLUMN "status" "AttachmentStatus" NOT NULL DEFAULT 'READY'`,
+    `ADD COLUMN "protocolVersion" INTEGER NOT NULL DEFAULT 0`,
+    `ALTER COLUMN "status" SET DEFAULT 'PENDING'`,
+    `ALTER COLUMN "protocolVersion" SET DEFAULT 1`,
+    `CREATE UNIQUE INDEX "Attachment_storedName_key"`,
+    `CREATE UNIQUE INDEX "Attachment_uri_key"`,
+    `CREATE UNIQUE INDEX "Attachment_stagingName_key"`,
+  ];
+  const missing = required.filter((value) => !raw.includes(value));
+  return missing.length === 0
+    ? { status: "pass", detail: "candidate migration is additive and applies legacy READY/protocolVersion=0 semantics without data UPDATE" }
+    : { status: "invalid", detail: `candidate migration does not match the reviewed contract: ${missing[0]}` };
 }
 
 function checkFixture(fixturePath: string): Check {
@@ -227,6 +297,21 @@ function checkFixture(fixturePath: string): Check {
   return issues.length === 0
     ? { status: "pass", detail: "checked-in report-only crash-window fixture is valid and hash-bound" }
     : { status: "invalid", detail: `OPS-007 fixture validation failed: ${issues[0]?.field}: ${issues[0]?.message}` };
+}
+
+function checkRuntime(root: string, runtimePath: string, now: Date, maxAgeHours: number): Check {
+  if (!runtimePath) return { status: "missing", detail: "no isolated PostgreSQL/upload-directory runtime record supplied" };
+  const resolved = path.resolve(root, runtimePath);
+  if (!existsSync(resolved)) return { status: "invalid", detail: "runtime record path does not exist" };
+  const issues = validateOps007RuntimeRecord(readFileSync(resolved, "utf8"), { root, now, maxAgeHours });
+  return issues.length === 0
+    ? { status: "pass", detail: "fresh isolated migration, kill-point, compensation, reconciliation, and O_NOFOLLOW evidence passed" }
+    : { status: "invalid", detail: `runtime record failed validation: ${issues.join(", ")}` };
+}
+
+function readTaskPhase(taskPath: string): string | null {
+  if (!existsSync(taskPath)) return null;
+  return readFileSync(taskPath, "utf8").match(/^phase:\s+([^\s]+)\s*$/m)?.[1] ?? null;
 }
 
 function extractSection(raw: string, heading: string): string {
@@ -251,12 +336,19 @@ function textSha256(value: string): string {
 }
 
 function readFixtureHash(fixturePath: string): string | null {
-  if (!existsSync(fixturePath)) return null;
+  return readJsonHash(fixturePath, "fixtureHash");
+}
+
+function readRuntimeHash(filePath: string): string | null {
+  return readJsonHash(filePath, "recordHash");
+}
+
+function readJsonHash(filePath: string, field: string): string | null {
+  if (!existsSync(filePath)) return null;
   try {
-    const body = JSON.parse(readFileSync(fixturePath, "utf8")) as { fixtureHash?: unknown };
-    return typeof body.fixtureHash === "string" && /^sha256:[a-f0-9]{64}$/.test(body.fixtureHash)
-      ? body.fixtureHash
-      : null;
+    const body = JSON.parse(readFileSync(filePath, "utf8")) as Record<string, unknown>;
+    const hash = body[field];
+    return typeof hash === "string" && /^sha256:[a-f0-9]{64}$/.test(hash) ? hash : null;
   } catch {
     return null;
   }

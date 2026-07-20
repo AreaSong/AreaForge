@@ -320,20 +320,38 @@ model Note {
   @@index([syllabusNodeId])
 }
 
+enum AttachmentStatus {
+  PENDING
+  READY
+  FAILED
+}
+
 model Attachment {
-  id           String   @id @default(cuid())
-  noteId       String?
-  originalName String
-  storedName   String
-  mimeType     String
-  sizeBytes    Int
-  hash         String
-  uri          String
-  createdAt    DateTime @default(now())
-  note         Note?    @relation(fields: [noteId], references: [id])
+  id                           String           @id @default(cuid())
+  noteId                       String?
+  originalName                 String
+  storedName                   String           @unique
+  mimeType                     String
+  sizeBytes                    Int
+  hash                         String
+  uri                          String           @unique
+  status                       AttachmentStatus @default(PENDING)
+  protocolVersion              Int              @default(1)
+  stagingName                  String?          @unique
+  finalizedAt                  DateTime?
+  failureCode                  String?
+  failurePhase                 String?
+  reconciliationClaimId        String?
+  reconciliationClaimedAt      DateTime?
+  reconciliationLeaseExpiresAt DateTime?
+  reconciliationAttempt        Int              @default(0)
+  createdAt                    DateTime         @default(now())
+  updatedAt                    DateTime         @updatedAt
+  note                         Note?            @relation(fields: [noteId], references: [id])
 
   @@index([hash])
   @@index([noteId])
+  @@index([status, createdAt])
 }
 
 model Mistake {

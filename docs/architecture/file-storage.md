@@ -36,9 +36,11 @@ AreaForge 需要支持：
 
 ## 当前行为
 
-`packages/storage` 提供 MIME 策略、magic bytes 校验、metadata 草稿、随机存储名与 `upload://attachment/` URI、上传目录内路径解析、相对上传目录拒绝、公开目录拒绝钩子和下载响应头生成。Web 服务层接入 noteId 绑定附件上传和鉴权下载：创建上传目录、私有落盘、软链接真实路径校验、DB/文件补偿、hash/size 对账和 `private, no-store` / `nosniff` 响应头均已覆盖。
+`packages/storage` 提供 MIME 策略、magic bytes 校验、metadata 草稿、随机存储名与 `upload://attachment/` URI、上传目录内路径解析、相对上传目录拒绝、公开目录拒绝钩子、下载响应头生成，以及有界流式 multipart parser（固定小 buffer 增量校验 size/MIME/magic bytes/SHA-256，超限即中止，不整包缓冲）。
 
-附件删除、错题/模拟/阶段附件、AI 解析和孤儿文件自动清理不在当前范围。
+Web 服务层按 OPS-007 staging/write-intent 协议接入 noteId 绑定附件上传（`local-verified`，生产部署另行确认）：先在数据库创建 `PENDING` intent，再在私有 `.staging/` 目录 exclusive 写入并 fsync，atomic rename 到最终路径并 fsync 目录，重开句柄校验 hash/size 后以 CAS 更新为 `READY`；失败路径保留 `FAILED`/`PENDING` 记录与稳定 failure code。下载仅允许 `READY` 附件，使用 `O_NOFOLLOW` 同句柄 fstat/hash/size 校验，响应带 `private, no-store` / `nosniff`。legacy 行以 `READY/protocolVersion=0` 兼容。
+
+新协议 `PENDING` 记录的恢复由显式维护命令 `pnpm attachment:reconcile:new-protocol`（有界 claim/lease）处理；历史 orphan 保持 report-only。附件删除、错题/模拟/阶段附件、AI 解析和孤儿文件自动清理不在当前范围。
 
 ## 双向只读对账
 

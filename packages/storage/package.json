@@ -8,7 +8,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/index.test.ts"
+    "test": "tsx --test src/index.test.ts src/bounded-multipart.test.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

@@ -164,6 +164,57 @@ export function createAttachmentMetadataDraft(input: {
   };
 }
 
+export interface BoundedUploadScanInput {
+  sizeBytes: number;
+  sha256Hex: string;
+  detectedMimeType: AllowedUploadMimeType | null;
+  declaredMimeType?: string | null;
+  originalName: string;
+  randomId: string;
+  policy: UploadPolicy;
+}
+
+/** 基于有界流式扫描结果构建 metadata draft，不重复缓冲或重复哈希文件内容。 */
+export function createAttachmentMetadataDraftFromScan(input: BoundedUploadScanInput): AttachmentMetadataDraftResult {
+  const validation = validateScannedUpload(input);
+  if (!validation.allowed || !validation.detectedMimeType) {
+    return { ok: false, draft: null, validation };
+  }
+
+  const storedName = createStoredAttachmentName(input.randomId, validation.detectedMimeType);
+  return {
+    ok: true,
+    draft: {
+      originalName: normalizeOriginalFileName(input.originalName),
+      storedName,
+      mimeType: validation.detectedMimeType,
+      sizeBytes: input.sizeBytes,
+      hash: input.sha256Hex,
+      uri: createAttachmentUri(storedName),
+    },
+    validation,
+  };
+}
+
+function validateScannedUpload(input: BoundedUploadScanInput): UploadValidationResult {
+  if (input.sizeBytes <= 0) {
+    return { allowed: false, detectedMimeType: null, reason: "empty_file" };
+  }
+  if (input.sizeBytes > input.policy.maxBytes) {
+    return { allowed: false, detectedMimeType: null, reason: "too_large" };
+  }
+  if (!input.detectedMimeType) {
+    return { allowed: false, detectedMimeType: null, reason: "unknown_magic_bytes" };
+  }
+  if (!input.policy.allowedMimeTypes.includes(input.detectedMimeType)) {
+    return { allowed: false, detectedMimeType: input.detectedMimeType, reason: "mime_not_allowed" };
+  }
+  if (input.declaredMimeType && input.declaredMimeType !== input.detectedMimeType) {
+    return { allowed: false, detectedMimeType: input.detectedMimeType, reason: "declared_mime_mismatch" };
+  }
+  return { allowed: true, detectedMimeType: input.detectedMimeType, reason: "ok" };
+}
+
 export function parseAllowedUploadMimeTypes(value: string | null | undefined): readonly string[] {
   if (!value) return defaultAllowedUploadMimeTypes;
 
@@ -272,6 +323,35 @@ export function isSafeStoredAttachmentName(storedName: string): boolean {
   return /^[a-zA-Z0-9_-]{16,}\.(png|jpg|webp|pdf)$/.test(storedName);
 }
 
+export const stagingDirectoryName = ".staging";
+
+export function createStagingAttachmentName(storedName: string): string {
+  if (!isSafeStoredAttachmentName(storedName)) {
+    throw new Error("UNSAFE_STORED_NAME");
+  }
+  return `${storedName}.staging`;
+}
+
+export function isSafeStagingAttachmentName(stagingName: string): boolean {
+  return /^[a-zA-Z0-9_-]{16,}\.(png|jpg|webp|pdf)\.staging$/.test(stagingName);
+}
+
+export function createSafeStagingFilePath(
+  uploadDir: string,
+  stagingName: string,
+  options: SafeAttachmentPathOptions = {},
+): SafeAttachmentPath {
+  if (!isSafeStagingAttachmentName(stagingName)) {
+    throw new Error("UNSAFE_STAGING_NAME");
+  }
+  const root = createSafeAttachmentFilePath(uploadDir, stagingName.slice(0, -".staging".length), options);
+  const stagingRoot = path.join(root.uploadRoot, stagingDirectoryName);
+  return {
+    uploadRoot: root.uploadRoot,
+    filePath: path.join(stagingRoot, stagingName),
+  };
+}
+
 function createSha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
@@ -305,3 +385,13 @@ function startsWith(bytes: Uint8Array, signature: number[]): boolean {
 function asciiAt(bytes: Uint8Array, start: number, end: number): string {
   return String.fromCharCode(...bytes.slice(start, end));
 }
+
+export {
+  BoundedMultipartError,
+  multipartFramingOverheadBytes,
+  multipartHeaderLimitBytes,
+  multipartReadChunkBytes,
+  parseMultipartBoundary,
+  parseSingleFileMultipart,
+} from "./bounded-multipart";
+export type { BoundedFileScan, BoundedMultipartFailure } from "./bounded-multipart";

@@ -2278,9 +2278,10 @@ function hasPackageAImplementationEvidence(): boolean {
   const service = readIfExists("apps/web/lib/study/attachments-service.ts");
   const ui = readIfExists("apps/web/components/note-library.tsx");
 
+  // OPS-007 确认后上传改为有界流式 multipart + PENDING intent + staging/rename + READY CAS。
   return [
     "requireApiUser",
-    "formData",
+    "parseSingleFileMultipart",
     "ATTACHMENT_MULTIPLE_FILES",
     "createNoteAttachment",
   ].every((token) => uploadRoute.includes(token)) &&
@@ -2295,7 +2296,8 @@ function hasPackageAImplementationEvidence(): boolean {
       "createAttachmentResponseHeaders",
       "ATTACHMENT_METADATA_WRITE_FAILED",
       "ATTACHMENT_FILE_MISMATCH",
-      "removeBestEffort",
+      "failIntentWithCompensation",
+      "O_NOFOLLOW",
     ].every((token) => service.includes(token)) &&
     ["type=\"file\"", "new FormData", "downloadApiPath", "/api/notes/"].every((token) =>
       ui.includes(token),

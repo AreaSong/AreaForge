@@ -205,16 +205,16 @@
       "id": "AF-RISK-OPS-007",
       "type": "deferred-work",
       "reviewAt": "2026-08-15",
-      "currentImpact": "附件服务先写最终文件再提交 Attachment metadata，崩溃窗口仍可能留下 file-only orphan；现有补偿和只读 reconciliation 只能事后发现",
+      "currentImpact": "staging/write-intent 协议已在当前 checkout 本地实施并通过隔离 PostgreSQL/临时上传目录 runtime selftest（local_attachment_protocol_verified）；生产仍运行 0.1.7 旧协议，崩溃窗口 file-only orphan 风险在生产尚未消除",
       "executableNow": false,
-      "closeCondition": "独立确认后完成 staging file/fsync、PENDING -> READY 写入意图或等价原子协议、崩溃注入测试、旧附件兼容和备份/恢复说明；不自动清理历史孤儿",
-      "requiredEvidence": "tasks/backlog/0021-attachment-staging-intent.md、附件 crash-window fixture、migration/无 migration 方案、attachment reconciliation summary、backup/restore 与 rollback 边界、pnpm risk:preflight、pnpm check",
+      "closeCondition": "本地实施已完成（G1 确认，2026-07-21）；关闭还需匹配签名 Release、独立确认的生产 additive migration/deploy（先跑重复 storage identity doctor 预检）、生产 fresh 证据与维护者人工复核；不自动清理历史孤儿",
+      "requiredEvidence": "tasks/active/0021-attachment-staging-intent.md、附件 crash-window fixture、additive migration 20260721010000_attachment_staging_write_intent、隔离 runtime record（pnpm ops:ops-007:runtime:selftest + validate）、pnpm ops:ops-007:preflight:strict、attachment reconciliation summary、backup/restore 与 rollback 边界、pnpm risk:preflight、pnpm check",
       "ownerSkills": [
         "areaforge-file-storage-safety",
         "areaforge-security-governance"
       ],
       "taskRefs": [
-        "tasks/backlog/0021-attachment-staging-intent.md"
+        "tasks/active/0021-attachment-staging-intent.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null

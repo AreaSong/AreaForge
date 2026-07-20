@@ -214,7 +214,6 @@ export interface AttachmentDto {
   originalName: string;
   mimeType: string;
   sizeBytes: number;
-  hash: string;
   downloadApiPath: string;
   createdAt: string;
 }

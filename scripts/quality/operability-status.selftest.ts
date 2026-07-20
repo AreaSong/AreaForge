@@ -37,7 +37,7 @@ const requiredFiles = [
   "docs/development/high-risk-confirmation-packets.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
   "tasks/active/0020-business-state-concurrency.md",
-  "tasks/backlog/0021-attachment-staging-intent.md",
+  "tasks/active/0021-attachment-staging-intent.md",
   "tasks/backlog/0022-updater-phase-journal-hold.md",
   "docs/development/release-v0.1.7-record.md",
   "docs/development/support-bundle-preview.md",
