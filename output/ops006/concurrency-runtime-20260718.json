@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "mode": "isolated_postgresql_ops006_concurrency_selftest",
-  "generatedAt": "2026-07-18T09:11:51.690Z",
+  "generatedAt": "2026-07-18T16:09:16.684Z",
   "status": "pass",
   "source": {
     "database": "isolated_local_postgresql",
@@ -106,5 +106,5 @@
     "businessTextIncluded": false,
     "objectIdentifiersIncluded": false
   },
-  "recordHash": "sha256:71787ea850119cb00d1f4be1eed0f0c5a6c3edf019a0ea956db6faaa92a88f6d"
+  "recordHash": "sha256:68d1c4c65398aa97e3418fd674053d9d06e902d95c3ec45766abd021727e9bcc"
 }

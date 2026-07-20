@@ -37,6 +37,7 @@ try {
   writeOps005EvidenceFiles("evidence");
   writeText(evidencePath, productionRecord());
   expectStatus("ready_for_ops005_human_review", evidencePath);
+  expectEvidenceOnlyCloseoutReady(evidencePath);
 
   writeText(evidencePath, productionRecord().replace(webImageDigest, `ghcr.io/areasong/areaforge-web:v0.1.8@sha256:${"9".repeat(64)}`));
   expectStatus("invalid", evidencePath);
@@ -102,9 +103,47 @@ function expectGitCommitOverrideMismatchFailsClosed(): void {
     gitCommit: "b".repeat(40),
     gitWorktreeClean: true,
     releaseRecordPath: "docs/development/release-supply-chain-v0.1.8.md",
+    releaseCloseoutBindingEvaluator: (_root, releaseGitCommit, currentGitCommit) => ({
+      status: "invalid",
+      releaseGitCommit,
+      currentGitCommit,
+      worktreeClean: true,
+      changedPaths: ["apps/web/app.ts"],
+      issues: ["non-evidence paths changed after Release: apps/web/app.ts"],
+    }),
   });
   if (result.status !== "needs_signed_release" || result.gitCommit !== null || result.gitCommitMatchesHead !== false) {
     throw new Error(`git commit overrides must match HEAD before Release binding: ${JSON.stringify(result)}`);
+  }
+}
+
+function expectEvidenceOnlyCloseoutReady(productionEvidencePath: string): void {
+  const closeoutHead = "c".repeat(40);
+  const result = buildOps005EvidencePreflight({
+    root,
+    now,
+    gitHead: closeoutHead,
+    gitCommit,
+    gitWorktreeClean: true,
+    releaseRecordPath: "docs/development/release-supply-chain-v0.1.8.md",
+    releaseAssetsDir,
+    productionEvidencePath,
+    releaseSignatureVerifier: () => undefined,
+    releaseCloseoutBindingEvaluator: (_root, releaseGitCommit, currentGitCommit) => ({
+      status: "evidence_only",
+      releaseGitCommit,
+      currentGitCommit,
+      worktreeClean: true,
+      changedPaths: ["docs/development/residual-risk-ledger.md"],
+      issues: [],
+    }),
+    sourceAtCommit: (commit, file) => {
+      if (commit !== gitCommit) return "";
+      return readFileSync(path.join(root, file), "utf8");
+    },
+  });
+  if (result.status !== "ready_for_ops005_human_review" || result.gitCommitMatchesHead !== false || result.closeoutBinding.status !== "evidence_only") {
+    throw new Error(`evidence-only closeout should retain Release identity: ${JSON.stringify(result)}`);
   }
 }
 

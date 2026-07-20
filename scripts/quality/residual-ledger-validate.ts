@@ -11,7 +11,10 @@ interface MarkdownResidual {
   id: string;
   type: string;
   reviewAt: string;
+  currentImpact: string;
   executableNow: boolean;
+  closeCondition: string;
+  requiredEvidence: string;
 }
 
 const root = process.cwd();
@@ -70,6 +73,11 @@ function validateMarkdownSync(
     }
     if (markdown.executableNow !== item.executableNow) {
       issues.push({ field: item.id, message: `executableNow mismatch: json=${item.executableNow}, markdown=${markdown.executableNow}` });
+    }
+    for (const field of ["currentImpact", "closeCondition", "requiredEvidence"] as const) {
+      if (normalizeLedgerText(markdown[field]) !== normalizeLedgerText(item[field])) {
+        issues.push({ field: `${item.id}.${field}`, message: "markdown and machine-readable ledger text differ" });
+      }
     }
   }
   for (const item of markdownItems) {
@@ -168,8 +176,15 @@ function parseMarkdownResiduals(markdown: string): MarkdownResidual[] {
       id: cells[0] ?? "",
       type: cells[1] ?? "",
       reviewAt: cells[2] ?? "",
+      currentImpact: cells[3] ?? "",
       executableNow: (cells[4] ?? "") === "是",
+      closeCondition: cells[5] ?? "",
+      requiredEvidence: cells[6] ?? "",
     }));
+}
+
+function normalizeLedgerText(value: string): string {
+  return value.replace(/`/g, "").replace(/\s+/g, " ").trim();
 }
 
 function fail(issues: ResidualLedgerIssue[]): never {

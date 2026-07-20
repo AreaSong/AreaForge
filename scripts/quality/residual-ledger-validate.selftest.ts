@@ -357,6 +357,9 @@ function acceptedException(item: JsonRecord, status: AcceptedExceptionStatus): J
 function writeFixture(fixtureRoot: string, item: JsonRecord): void {
   const id = String(item.id);
   const executable = item.executableNow === true ? "是" : "否";
+  const currentImpact = String(item.currentImpact);
+  const closeCondition = String(item.closeCondition);
+  const requiredEvidence = String(item.requiredEvidence);
   write(fixtureRoot, "docs/development/residual-risk-ledger.json", `${JSON.stringify({
     schemaVersion: 2,
     source: "docs/development/residual-risk-ledger.md",
@@ -365,7 +368,7 @@ function writeFixture(fixtureRoot: string, item: JsonRecord): void {
   write(fixtureRoot, "docs/development/residual-risk-ledger.md", [
     "| ID | 类型 | 复核时间 | 当前影响 | 可立即执行 | 关闭条件 | 所需证据 | Owner |",
     "|---|---|---|---|---|---|---|---|",
-    `| ${id} | ${String(item.type)} | ${String(item.reviewAt)} | fixture | ${executable} | fixture | fixture | fixture |`,
+    `| ${id} | ${String(item.type)} | ${String(item.reviewAt)} | ${currentImpact} | ${executable} | ${closeCondition} | ${requiredEvidence} | fixture |`,
     "",
   ].join("\n"));
   write(fixtureRoot, "tasks/indexes/residuals.md", `${id}\n`);

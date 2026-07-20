@@ -58,6 +58,7 @@ const requiredBoundaryStopKeys = [
   "post_update_ops001",
   "release_backup_hashes",
   "update_request_expected_before",
+  "business_state_concurrency",
   "residual_closure",
 ];
 
@@ -419,6 +420,14 @@ function validateBoundaryStops(value: unknown, issues: ValidationIssue[]): void 
         !boundaries.includes("no production deployment confirmation"))
     ) {
       issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "expected-before stop must separate verified local implementation from signed Release and production deployment confirmation" });
+    }
+    if (
+      item.key === "business_state_concurrency" &&
+      (!boundaries.includes("no matching signed Release for the verified OPS-006 checkout") ||
+        !boundaries.includes("no production migration/deploy confirmation") ||
+        !boundaries.includes("no controlled production write probe confirmation"))
+    ) {
+      issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "OPS-006 stop must separate local verification, signed Release, base rollout, and controlled production write confirmation" });
     }
   }
 }

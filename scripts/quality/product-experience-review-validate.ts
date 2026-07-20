@@ -11,6 +11,7 @@ import {
 } from "./product-experience-source";
 import { validateRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity-core";
 import { resolveProductExperienceReviewPath } from "./product-experience-review-discovery";
+import { evaluateReleaseCloseoutBinding } from "./release-closeout-binding";
 
 export interface ValidationIssue {
   field: string;
@@ -308,8 +309,20 @@ function validateCurrentBinding(fields: Map<string, string>, issues: ValidationI
   if (fields.get("appVersion") !== binding.appVersion) {
     issues.push({ field: "appVersion", message: `must match current package version ${binding.appVersion}` });
   }
-  if (fields.get("gitCommit") !== binding.gitCommit) {
-    issues.push({ field: "gitCommit", message: `must match current checkout commit ${binding.gitCommit}` });
+  const recordGitCommit = fields.get("gitCommit") ?? "";
+  if (recordGitCommit !== binding.gitCommit) {
+    const closeout = evaluateReleaseCloseoutBinding({
+      root,
+      releaseGitCommit: recordGitCommit,
+      currentGitCommit: binding.gitCommit,
+      requireCleanWorktree: false,
+    });
+    if (closeout.status !== "evidence_only") {
+      issues.push({
+        field: "gitCommit",
+        message: `must match current checkout or an evidence-only ancestor: ${closeout.issues.join(", ") || closeout.status}`,
+      });
+    }
   }
   if (fields.get("sourceFingerprintSchema") !== PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA) {
     issues.push({ field: "sourceFingerprintSchema", message: `must be ${PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA}` });
@@ -398,7 +411,7 @@ function buildRuntimeEvidenceBinding(
   if (compareCurrent) {
     const binding = currentBinding(root);
     if (identity.appVersion !== binding.appVersion || identity.appVersion !== fields.get("appVersion")) issues.push({ field: "runtimeIdentityHash", message: "runtime appVersion must match record and checkout" });
-    if (identity.gitCommit !== binding.gitCommit || identity.gitCommit !== fields.get("gitCommit")) issues.push({ field: "runtimeIdentityHash", message: "runtime gitCommit must match record and checkout" });
+    if (identity.gitCommit !== fields.get("gitCommit")) issues.push({ field: "runtimeIdentityHash", message: "runtime gitCommit must match the review source commit" });
     if (identity.sourceFingerprintSchema !== PRODUCT_EXPERIENCE_SOURCE_FINGERPRINT_SCHEMA || identity.sourceFingerprintSchema !== fields.get("sourceFingerprintSchema")) issues.push({ field: "runtimeIdentityHash", message: "runtime source schema must match record and checkout" });
     if (identity.productExperienceSourceHash !== binding.sourceHash || identity.productExperienceSourceHash !== fields.get("productExperienceSourceHash")) issues.push({ field: "runtimeIdentityHash", message: "runtime source hash must match record and checkout" });
     if (fields.get("runtimeIdentityHash") !== identity.identityHash) issues.push({ field: "runtimeIdentityHash", message: "must match the probed runtime identity" });

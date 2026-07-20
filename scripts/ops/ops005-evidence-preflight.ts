@@ -12,6 +12,10 @@ import {
   validateReleaseSupplyChainRecord,
   type ReleaseSupplyChainValidationOptions,
 } from "../quality/release-supply-chain-validate";
+import {
+  evaluateReleaseCloseoutBinding,
+  type ReleaseCloseoutBindingResult,
+} from "../quality/release-closeout-binding";
 
 export type Ops005PreflightStatus =
   | "needs_local_implementation"
@@ -31,6 +35,7 @@ type BuildOptions = {
   sourceAtCommit?: Ops005SourceAtCommitReader;
   gitWorktreeClean?: boolean;
   releaseSignatureVerifier?: ReleaseSupplyChainValidationOptions["verifySignature"];
+  releaseCloseoutBindingEvaluator?: (root: string, releaseGitCommit: string, currentGitCommit: string) => ReleaseCloseoutBindingResult;
 };
 
 type StageCheck = {
@@ -44,13 +49,20 @@ export function buildOps005EvidencePreflight(options: BuildOptions = {}) {
   const packageVersion = typeof packageJson.version === "string" ? packageJson.version : "unknown";
   const releaseTag = `v${packageVersion}`;
   const gitHead = options.gitHead ?? localGitCommit(root);
-  const requestedGitCommit = options.gitCommit ?? process.env.AREAFORGE_OPS005_GIT_COMMIT?.trim() ?? gitHead;
-  const gitCommitMatchesHead = /^[a-f0-9]{40}$/i.test(gitHead) && requestedGitCommit === gitHead;
-  const gitWorktreeClean = options.gitWorktreeClean ?? localGitWorktreeClean(root);
-  const gitIdentityReady = gitWorktreeClean && gitCommitMatchesHead;
-  const gitCommit = gitIdentityReady ? requestedGitCommit : "";
   const releaseRecordPath = options.releaseRecordPath ?? process.env.AREAFORGE_OPS005_RELEASE_RECORD?.trim() ??
     `docs/development/release-supply-chain-${releaseTag}.md`;
+  const releaseRecordGitCommit = parseIndentedKeyValueRecord(readOptional(root, releaseRecordPath)).get("gitCommit");
+  const requestedGitCommit = options.gitCommit
+    ?? process.env.AREAFORGE_OPS005_GIT_COMMIT?.trim()
+    ?? releaseRecordGitCommit
+    ?? gitHead;
+  const gitCommitMatchesHead = /^[a-f0-9]{40}$/i.test(gitHead) && requestedGitCommit === gitHead;
+  const gitWorktreeClean = options.gitWorktreeClean ?? localGitWorktreeClean(root);
+  const closeoutBinding = gitCommitMatchesHead
+    ? exactCloseoutBinding(requestedGitCommit, gitHead, gitWorktreeClean)
+    : (options.releaseCloseoutBindingEvaluator ?? defaultReleaseCloseoutBindingEvaluator)(root, requestedGitCommit, gitHead);
+  const gitIdentityReady = gitWorktreeClean && ["exact", "evidence_only"].includes(closeoutBinding.status);
+  const gitCommit = gitIdentityReady ? requestedGitCommit : "";
   const productionEvidencePath = options.productionEvidencePath ??
     process.env.AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD?.trim() ?? "";
   const releaseAssetsDir = options.releaseAssetsDir ?? process.env.AREAFORGE_OPS005_RELEASE_ASSETS_DIR?.trim() ?? "";
@@ -67,7 +79,7 @@ export function buildOps005EvidencePreflight(options: BuildOptions = {}) {
       options.releaseSignatureVerifier,
     )
     : { status: "missing", detail: gitWorktreeClean
-      ? "requested OPS-005 git commit does not equal the current checkout HEAD"
+      ? `requested OPS-005 Release commit is not bound to the current checkout: ${closeoutBinding.issues.join(", ") || closeoutBinding.status}`
       : "worktree has uncommitted changes; HEAD cannot identify the verified V2 implementation" } as StageCheck;
   const productionEvidence = gitIdentityReady
     ? checkProductionEvidence(
@@ -81,7 +93,7 @@ export function buildOps005EvidencePreflight(options: BuildOptions = {}) {
       options.now ?? envNow(),
     )
     : { status: "missing", detail: gitWorktreeClean
-      ? "production evidence cannot bind to a git commit override that differs from HEAD"
+      ? `production evidence Release commit is not bound to the current checkout: ${closeoutBinding.issues.join(", ") || closeoutBinding.status}`
       : "production evidence cannot bind to an uncommitted implementation checkout" } as StageCheck;
   const status = stageStatus(localImplementation, signedRelease, productionEvidence);
 
@@ -96,6 +108,7 @@ export function buildOps005EvidencePreflight(options: BuildOptions = {}) {
     gitCommit: gitIdentityReady ? gitCommit : null,
     gitCommitMatchesHead,
     gitWorktreeClean,
+    closeoutBinding,
     checks: {
       localImplementation,
       signedRelease,
@@ -113,8 +126,9 @@ export function buildOps005EvidencePreflight(options: BuildOptions = {}) {
     },
     requiredEvidence: [
       "schema V2, expected-before hash, semantic/request canonical hashes, target identity, idempotency, TTL, atomic publish, processing reconciliation, shared production-state lock, and dual compare local implementation",
-      "pnpm ops:ops-005:local:selftest passes on the same clean checkout that becomes the signed Release commit",
-      "matching signed Release supply-chain record for the current packageVersion, releaseTag, and gitCommit",
+      "pnpm ops:ops-005:local:selftest passes on the clean signed Release source commit",
+      "matching signed Release supply-chain record for the current packageVersion, releaseTag, and release source gitCommit",
+      "current HEAD is the Release commit or a clean evidence-only closeout descendant",
       "fresh redacted OPS-005 production evidence record with bound operational, V2 check, expected-before rejection, and decision-history artifacts",
       "AREAFORGE_AUTO_APPLY=none",
     ],
@@ -122,7 +136,7 @@ export function buildOps005EvidencePreflight(options: BuildOptions = {}) {
     doesNotProve: [
       "source-token presence does not prove pnpm ops:ops-005:local:selftest executed successfully",
       "a dirty worktree does not identify a releasable implementation commit",
-      "a git commit override that differs from HEAD cannot identify the current implementation checkout",
+      "a git commit that differs from HEAD is accepted only through the fail-closed evidence-only closeout binding",
       "local validation does not prove Release or production deployment",
     ],
     forbiddenActions: [
@@ -331,6 +345,29 @@ function localGitWorktreeClean(root: string): boolean {
   } catch {
     return false;
   }
+}
+
+function exactCloseoutBinding(
+  releaseGitCommit: string,
+  currentGitCommit: string,
+  worktreeClean: boolean,
+): ReleaseCloseoutBindingResult {
+  return {
+    status: "exact",
+    releaseGitCommit,
+    currentGitCommit,
+    worktreeClean,
+    changedPaths: [],
+    issues: [],
+  };
+}
+
+function defaultReleaseCloseoutBindingEvaluator(
+  root: string,
+  releaseGitCommit: string,
+  currentGitCommit: string,
+): ReleaseCloseoutBindingResult {
+  return evaluateReleaseCloseoutBinding({ root, releaseGitCommit, currentGitCommit });
 }
 
 function envNow(): Date {

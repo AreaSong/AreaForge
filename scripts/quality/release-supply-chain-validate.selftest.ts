@@ -23,6 +23,9 @@ try {
   expectExit("secret-like values fail", [invalidSecretRecord], 1);
   expectExit("missing provenance coverage fails", [invalidAssetRecord], 1);
   expectExit("unsigned stable placeholder fails", [invalidUnsignedRecord], 1);
+  expectExit("duplicate fields fail", [writeFixture("release-supply-chain-duplicate.txt", `${createRecord()}gitCommit: ${"f".repeat(40)}\n`)], 1);
+  expectExit("unknown fields fail", [writeFixture("release-supply-chain-unknown.txt", `${createRecord()}businessTitle: private note\n`)], 1);
+  expectExit("malformed indentation fails", [writeFixture("release-supply-chain-indent.txt", createRecord().replace("  secretsPrinted: no", " secretsPrinted: no"))], 1);
 
   const assetDir = path.join(tempDir, "assets");
   mkdirSync(assetDir);
@@ -89,6 +92,12 @@ function createRecordFromAssets(dir: string): string {
 
 function requireFile(file: string): Buffer {
   return readFileSync(file);
+}
+
+function writeFixture(name: string, content: string): string {
+  const file = path.join(tempDir, name);
+  writeFileSync(file, content);
+  return file;
 }
 
 function assert(condition: unknown, message: string): asserts condition {

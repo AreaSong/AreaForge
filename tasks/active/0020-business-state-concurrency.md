@@ -16,6 +16,8 @@ validation:
   - pnpm ops:ops-006:preflight:strict
   - pnpm ops:ops-006:runtime:validate:selftest
   - pnpm ops:ops-006:runtime:validate output/ops006/concurrency-runtime-20260718.json
+  - pnpm ops:ops-006:evidence:selftest
+  - pnpm ops:ops-006:production:preflight:selftest
   - pnpm ops:data-integrity:selftest
   - pnpm ops:data-integrity:validate output/ops006/data-integrity-before-20260718.json
   - pnpm ops:data-integrity:validate output/ops006/data-integrity-after-20260718.json
@@ -34,6 +36,8 @@ releaseRequired: true
 详细事务顺序、CAS 谓词、CheckIn 锁顺序和 PostgreSQL fixture 契约见 `docs/development/ops-006-business-state-concurrency-design.md`。
 
 当前 V2 preflight 绑定 canonical migration、只读 doctor、隔离 PostgreSQL runtime record、当前实现文件以及本文、设计文档和高风险确认包 source hash。带当前 after-doctor 和 runtime record 运行 strict 可达到 `local_verified`；这只证明同一 checkout 的本地实现与隔离数据库验证，不证明签名 Release 或生产迁移。
+
+独立 production evidence contract 见 `docs/development/ops-006-production-evidence-template.md`。`pnpm ops:ops-006:evidence:validate` 和 `pnpm ops:ops-006:production:preflight` 只有在 strict signed Release、Release source-at-commit、经独立确认的 production rollout、另行确认的 controlled synthetic probe、before/after doctor、通用 Release evidence 与 rollback target 全部绑定后，才可投影 `ready_for_ops006_human_review`；它仍不自动关闭 residual。
 
 确认后也不得从 candidate evidence 直接跳到 release/production。生命周期固定为
 `implementation_authorized -> local_validation -> local_verified -> release_ready ->

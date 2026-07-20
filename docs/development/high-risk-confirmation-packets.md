@@ -1037,6 +1037,7 @@ AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record.txt> \
 
 ```bash
 pnpm enterprise:operability:preflight
+pnpm release:closeout:binding:selftest
 pnpm release:train:preflight
 pnpm docs:readiness
 pnpm docs:completion
@@ -1058,10 +1059,13 @@ Release 资产生成后验证：
 ```bash
 sha256sum -c SHA256SUMS
 cosign verify-blob --key docs/deployment/keys/areaforge-cosign.pub --bundle SHA256SUMS.sig SHA256SUMS
-AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md pnpm sc:sc-002:preflight
-pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md /path/to/release-assets
-pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md \
+AREAFORGE_SC002_RELEASE_ASSETS_DIR=/path/to/release-assets \
+pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md /path/to/release-assets --strict
 ```
+
+签名资产阶段只校验 Release identity、assets、checksum、cosign 和 supply-chain record。`release-vX.Y.Z-record.md` 此时保持 `production-evidence-pending` 草案边界；完整 `pnpm release:evidence:validate` 必须延后到生产 backup、migration、smoke、附件 reconciliation 和 rollback 证据齐备后执行。
 
 中止条件：
 
@@ -1074,7 +1078,9 @@ pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
 
 明确确认句：
 
-> 确认执行下一次签名 Release 证据闭环 v0.1.7：范围仅限将当前已验证 commit 的所有 AreaForge workspace package version bump 到 0.1.7，创建并推送 `v0.1.7` tag，等待 GitHub Release workflow 生成签名 Release assets、GHCR digest、SBOM/provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`，并生成/校验 `release-supply-chain-v0.1.7` 与 `release-v0.1.7` 记录；不执行服务器 updater apply、Web apply/rollback 请求、生产 backup/restore、production migration、Nginx/compose 切换、自动应用策略变更、residual 台账关闭或任何密钥读取/打印/提交。
+> 确认从已完成全部本地门禁且工作区干净的 commit `<R-40位SHA>` 创建 AreaForge `v0.1.8` 签名 Release：范围仅限统一 bump package version、创建并推送 `v0.1.8` tag、运行 GitHub Release workflow、生成并严格校验 manifest、SBOM、provenance、`SHA256SUMS`、`SHA256SUMS.sig`、Web/migration immutable digest 和 supply-chain record；本次 Release 将 OPS-005/OPS-006 标记为 `release-target`，不执行服务器 updater apply、生产 backup/restore、migration deploy、timer/队列变更、Web apply/rollback 请求、自动应用策略变化、secrets 操作或 residual 台账关闭。
+
+该确认句只有在 `<R-40位SHA>` 被真实干净提交替换后才有效；占位符确认不能授权 tag/Release。
 
 ## 生产 updater apply 确认包：`v0.1.7`
 
@@ -1144,8 +1150,10 @@ sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes 
 
 ```bash
 pnpm release:evidence:validate docs/development/release-v0.1.7-record.md
-AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-v0.1.7.md pnpm sc:sc-002:preflight
-pnpm release:supply-chain:validate docs/development/release-supply-chain-v0.1.7.md /tmp/areaforge-release-v0.1.7-assets
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-v0.1.7.md \
+AREAFORGE_SC002_RELEASE_ASSETS_DIR=/tmp/areaforge-release-v0.1.7-assets \
+pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-v0.1.7.md /tmp/areaforge-release-v0.1.7-assets --strict
 pnpm github-release-updater:preflight
 pnpm shellcheck:updater
 pnpm ops:handoff --summary
@@ -1332,6 +1340,85 @@ pnpm ops:ops-001:preflight
 明确确认句：
 
 > 确认执行 OPS-006 业务状态并发一致性本地实施：范围仅限新增“最多一个活跃 StudySession”的 additive migration、task/session expected-status CAS、结束计时事务内单次副作用、同日 CheckIn 事务锁、409 冲突映射、只读 data-integrity doctor 联动和本地 PostgreSQL 并发 selftest；不执行生产 migration deploy、历史数据修复/删除/合并、批量任务修改、多用户迁移、附件改造、updater 改造、Release/tag、服务器命令、secrets 操作或 residual 台账关闭。
+
+## v0.1.8 OPS-005/006 联合生产 Rollout 确认包
+
+状态：等待真实 `R`、目标 Web/migration digest、当前生产 digest 和 rollback digest 填入后确认。占位符未替换前，本节不授权任何生产操作。
+
+该包只授权基础 rollout 和只读证据采集；不授权 OPS-006 controlled-write probe。签名 Release 确认也不能推导本包授权。
+
+必须固定：
+
+- Release source commit `R`、`v0.1.8` tag、目标 Web/migration immutable digest。
+- 当前生产 `0.1.7` Web digest和 application rollback digest。
+- OPS-005 Web/agent/updater source hash、V2 schema/check 和 legacy queue disposition。
+- OPS-006 canonical migration path/hash、additive verdict和 `StudySession_one_active_idx` 读回。
+- maintenance window、独立 rollout 确认 ID、canonical rollout scope SHA256、backup inventory/hash、before/after doctor、health/authenticated read-only smoke 和 evidence 输出位置；该 ID/scope 不得复用于 controlled probe。
+
+固定顺序：
+
+1. 进入 maintenance window，停止 update-agent/updater timer，并隔离但不删除或重放既有请求。
+2. 使用只读生产账号采集 fresh before-doctor；发现多个 active session 时立即停止，不自动修复。
+3. 完成 PostgreSQL/uploads/env/compose/Nginx/root-agent 状态备份并校验 hash。
+4. 部署与 `R` 匹配的 update-agent/updater，校验 strict Release assets、V2 check 和 processing reconciliation。
+5. 通过受控 migration runner 应用唯一 additive migration，再读回 canonical index。
+6. 切换 Web，执行 public health 与 authenticated read-only smoke。
+7. 采集 fresh after-doctor；仅当 blocker 为空、无 `needs_reconciliation` 且所有只读门禁通过时恢复 timer。
+8. 生成 OPS-005、OPS-006、Release、OPS-001 所需的 redacted evidence；不自动关闭 residual。
+
+停止条件：
+
+- checksum/cosign/manifest/commit/digest 任一不匹配。
+- backup 缺失或 hash 不可验证。
+- before-doctor 报告多个 active session、附件 mismatch 或任何 fail。
+- migration 失败、canonical index 读回不匹配、Web/agent source 不一致。
+- V2 check、health、authenticated smoke、after-doctor 或 processing reconciliation 失败。
+- 需要历史修复、DROP index、restore、请求重放、secrets 读取/打印或扩大 Web runtime 权限。
+
+回滚边界：
+
+- migration 前失败：不切换 Web，恢复原 agent/updater 并保持 timer 停止。
+- additive migration 成功而应用失败：回滚 Web/agent 到已验证兼容 digest，保留 additive index、队列和 decision history。
+- 不自动执行 DROP index、数据库/uploads restore、历史数据修复或请求重放；这些都需要新的独立确认。
+
+成功后验证：
+
+```bash
+pnpm ops:ops-005:evidence:validate <ops005-record> <release-record> <release-assets-dir>
+pnpm ops:ops-005:preflight
+pnpm ops:data-integrity:validate <before-doctor>
+pnpm ops:data-integrity:validate <after-doctor>
+pnpm release:evidence:validate \
+  docs/development/release-v0.1.8-record.md \
+  <attachment-reconciliation.csv> \
+  <attachment-reconciliation-summary.json>
+pnpm ops:ops-001:preflight
+```
+
+明确确认句：
+
+> 确认在生产主机将 AreaForge 从 `0.1.7` rollout 到签名 Release `v0.1.8`，Release commit 为 `<R-40位SHA>`，Web digest 为 `<WEB_DIGEST>`，migration digest 为 `<MIGRATION_DIGEST>`，应用回滚目标为 `<0.1.7_WEB_DIGEST>`，canonical rollout scope 为 `<ROLLOUT_SCOPE_SHA256>`：范围仅限进入维护窗口、停止 update-agent/updater timer、隔离且不删除或重放既有请求、采集 fresh before-doctor、完成 PostgreSQL/uploads/env/compose/Nginx/root agent 状态备份、部署与 `R` 匹配的 agent/updater、验证 V2 check、执行已审查的 OPS-006 additive migration、切换 Web、执行 health/authenticated read-only smoke 和 after-doctor，并仅在 blocker 为空且无 reconciliation-required 时恢复 timer；失败时保持 hold，回滚应用和 agent 到已验证兼容版本并保留 additive index、队列和 decision history；不执行 controlled-write probe、数据库/uploads restore、DROP index、历史数据修复、写入型 smoke、自动应用策略变化、secrets 读取/打印/复制/提交或 residual 台账关闭。
+
+## OPS-006 生产 Controlled Synthetic Concurrency Probe 确认包
+
+状态：等待基础 rollout、health、authenticated read-only smoke 和 before-doctor 通过后单独确认。该包属于受控生产写入，不可从联合 rollout 或长期治理总目标推定授权。
+
+确认前必须重新固定同一 Release commit、Web/migration digest、rollback target，并计算与 rollout scope 不同的 canonical controlled-probe scope SHA256；probe 使用独立确认 ID，不能复用基础 rollout 的 ID/scope。
+
+允许范围：
+
+- 仅使用专用 synthetic account/namespace；不得使用真实用户记录。
+- 并发 start 一胜一 `409 ACTIVE_SESSION_EXISTS`，结束后一胜一 `409 SESSION_STATE_CONFLICT`。
+- representative task CAS 一胜一 `409 TASK_STATE_CONFLICT`，不得重复 event/child。
+- 验证 task/syllabus minutes 只增加一次，AuditEvent、TaskDebtEvent、CheckIn session delta 均为 1。
+- 并发 CheckIn 最终聚合必须等于已提交任务状态。
+- 完成后按已确认策略清理 synthetic fixture，并采集 fresh after-doctor。
+
+禁止范围：真实用户业务写入、历史数据修复、任意对象 ID/正文/原始日志输出、backup/restore、migration、DROP index、请求重放、自动策略变化、secrets 或 residual 台账关闭。
+
+明确确认句：
+
+> 确认在已完成并通过只读门禁的 AreaForge `v0.1.8` 生产环境（Release commit `<R-40位SHA>`，Web digest `<WEB_DIGEST>`，migration digest `<MIGRATION_DIGEST>`，rollback target `<0.1.7_WEB_DIGEST>`），按 canonical controlled-probe scope `<PROBE_SCOPE_SHA256>` 对专用 synthetic account/namespace 执行一次 OPS-006 controlled concurrency probe：范围仅限并发 start/end、representative task CAS、结束计时单次分钟/事件/CheckIn 副作用和同日 CheckIn 聚合验证，记录仅保存 redacted count、稳定 409 reason code、hash、时间和 safety facts，完成后按已确认策略清理 synthetic fixture 并采集 fresh after-doctor；不写真实用户数据，不输出对象 ID/标题/正文/原始请求响应，不执行 migration、backup/restore、历史修复、DROP index、请求重放、自动策略变化、secrets 操作或 residual 台账关闭。
 
 ## OPS-007 附件 Staging/Write-Intent 本地实施确认包
 

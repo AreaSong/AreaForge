@@ -45,8 +45,10 @@ pnpm release:post-observation:status docs/development/post-release-observation-v
 `docs/development/release-supply-chain-vX.Y.Z.md` 并运行：
 
 ```bash
-AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md pnpm sc:sc-002:preflight
-pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md \
+AREAFORGE_SC002_RELEASE_ASSETS_DIR=<release-assets-dir> \
+pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md <release-assets-dir> --strict
 ```
 
 附件对账 CSV 和双向 summary 是发布记录必需输入：

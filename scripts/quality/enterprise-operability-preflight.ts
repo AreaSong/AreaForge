@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { evaluateResidualCoverage } from "./enterprise-operability-residual-coverage";
 import { readResidualLedgerV2 } from "./residual-ledger-common";
 
 interface CheckResult {
@@ -40,6 +41,7 @@ function main(): void {
 function checkRequiredFiles(): void {
   const requiredFiles = [
     "docs/development/long-term-operability-control-plane.md",
+    "docs/development/release-evidence-closeout-contract.md",
     "docs/development/completion-evidence-checklist.md",
     "docs/development/runtime-write-boundary.md",
     "docs/development/maintenance-cadence.md",
@@ -61,6 +63,7 @@ function checkRequiredFiles(): void {
     "docs/development/update-agent-status-record-template.md",
     "docs/development/ops-001-closure-packet-template.md",
     "docs/development/ops-005-expected-before-production-evidence-template.md",
+    "docs/development/ops-006-production-evidence-template.md",
     "docs/development/product-experience-review-record-template.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
@@ -74,6 +77,11 @@ function checkRequiredFiles(): void {
     ".codex/skills-src/areaforge-release-operator/SKILL.md",
     ".codex/skills-src/areaforge-residual-ledger/SKILL.md",
     ".codex/skills-src/areaforge-product-experience/SKILL.md",
+    "scripts/quality/enterprise-operability-residual-coverage.ts",
+    "scripts/quality/enterprise-operability-preflight.selftest.ts",
+    "scripts/quality/release-closeout-binding.ts",
+    "scripts/quality/release-closeout-binding.selftest.ts",
+    "scripts/quality/bound-json-evidence.ts",
     "scripts/ops/operability-status.ts",
     "scripts/quality/operability-status-validate.ts",
     "scripts/quality/operability-status-validate.selftest.ts",
@@ -108,6 +116,10 @@ function checkRequiredFiles(): void {
     "scripts/ops/data-integrity-doctor.ts",
     "scripts/quality/data-integrity-doctor-validate.ts",
     "scripts/quality/data-integrity-doctor.selftest.ts",
+    "scripts/ops/ops006-production-evidence-preflight.ts",
+    "scripts/quality/ops006-production-evidence-validate.ts",
+    "scripts/quality/ops006-production-evidence-validate.selftest.ts",
+    "scripts/quality/ops006-production-evidence-preflight.selftest.ts",
     "scripts/quality/release-evidence-validate.ts",
     "scripts/quality/release-evidence-validate.selftest.ts",
     "scripts/quality/residual-evidence-preflight.ts",
@@ -195,6 +207,8 @@ function checkControlPlaneDoc(): void {
     "--shape-only",
     "pnpm ops:ops-005:preflight",
     "pnpm ops:ops-005:evidence:validate",
+    "release-evidence-closeout-contract.md",
+    "release:closeout:binding:selftest",
     "不连接生产",
     "不创建 GitHub Release",
     "不写生产",
@@ -251,34 +265,19 @@ function checkResidualCoverage(): void {
     });
     return;
   }
-  const ledgerIds = new Set(ledger.items.map((item) => item.id));
-  const requiredIds = [
-    "AF-RISK-OPS-001",
-    "AF-RISK-OPS-002",
-    "AF-RISK-REL-001",
-    "AF-RISK-SC-001",
-    "AF-RISK-SC-002",
-    "AF-RISK-SC-003",
-    "AF-RISK-OPS-003",
-    "AF-RISK-OPS-004",
-    "AF-RISK-OPS-005",
-    "AF-RISK-OPS-006",
-    "AF-RISK-OPS-007",
-    "AF-RISK-OPS-008",
-    "AF-RISK-UX-001",
-  ];
-  const missingFromLedger = requiredIds.filter((id) => !ledgerIds.has(id));
-  const missingFromDoc = requiredIds.filter((id) => !doc.includes(id));
-  const incomplete = ledger.items
-    .filter((item) => requiredIds.includes(item.id))
-    .filter((item) => !item.reviewAt || !item.closeCondition || !item.requiredEvidence || !item.ownerSkills?.length)
-    .map((item) => item.id);
+  const result = evaluateResidualCoverage(doc, ledger.items);
   checks.push({
     name: "residual operability coverage",
-    ok: missingFromLedger.length === 0 && missingFromDoc.length === 0 && incomplete.length === 0,
-    detail: missingFromLedger.length === 0 && missingFromDoc.length === 0 && incomplete.length === 0
-      ? `${requiredIds.length} residual IDs are covered with reviewAt, closeCondition, requiredEvidence, and ownerSkills`
-      : `missing ledger ${missingFromLedger.join(", ") || "none"}; missing doc ${missingFromDoc.join(", ") || "none"}; incomplete ${incomplete.join(", ") || "none"}`,
+    ok: result.ok,
+    detail: result.ok
+      ? `${result.expectedCount} residual IDs are covered exactly once in the review section with required metadata`
+      : [
+        `section ${result.sectionIssues.join(", ") || "valid"}`,
+        `missing review entries ${result.missingFromReviewSection.join(", ") || "none"}`,
+        `orphan review entries ${result.orphanedInReviewSection.join(", ") || "none"}`,
+        `duplicate review entries ${result.duplicatedInReviewSection.join(", ") || "none"}`,
+        `incomplete ${result.incompleteItems.join(", ") || "none"}`,
+      ].join("; "),
   });
 }
 
@@ -286,6 +285,8 @@ function checkPackageScript(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const expectedScripts: Record<string, string> = {
     "enterprise:operability:preflight": "tsx scripts/quality/enterprise-operability-preflight.ts",
+    "enterprise:operability:preflight:selftest": "tsx scripts/quality/enterprise-operability-preflight.selftest.ts",
+    "release:closeout:binding:selftest": "tsx scripts/quality/release-closeout-binding.selftest.ts",
     "ops:status": "tsx scripts/ops/operability-status.ts",
     "ops:status:validate": "tsx scripts/quality/operability-status-validate.ts",
     "ops:status:validate:selftest": "tsx scripts/quality/operability-status-validate.selftest.ts",
@@ -339,6 +340,10 @@ function checkPackageScript(): void {
     "ops:ops-005:preflight:selftest": "tsx scripts/quality/ops005-evidence-preflight.selftest.ts",
     "ops:ops-005:evidence:validate": "tsx scripts/quality/ops005-production-evidence-validate.ts",
     "ops:ops-005:evidence:selftest": "tsx scripts/quality/ops005-production-evidence-validate.selftest.ts",
+    "ops:ops-006:evidence:validate": "tsx scripts/quality/ops006-production-evidence-validate.ts",
+    "ops:ops-006:evidence:selftest": "tsx scripts/quality/ops006-production-evidence-validate.selftest.ts",
+    "ops:ops-006:production:preflight": "tsx scripts/ops/ops006-production-evidence-preflight.ts",
+    "ops:ops-006:production:preflight:selftest": "tsx scripts/quality/ops006-production-evidence-preflight.selftest.ts",
     "maintenance:window:record": "tsx scripts/ops/generate-maintenance-window-record.ts",
     "maintenance:window:record:selftest": "tsx scripts/quality/maintenance-window-record.selftest.ts",
     "maintenance:window:validate": "tsx scripts/quality/maintenance-window-record-validate.ts",
@@ -507,6 +512,7 @@ function checkValidationCoverage(): void {
   const requiredTerms = [
     "docs/development/long-term-operability-control-plane.md",
     "scripts/quality/enterprise-operability-preflight.ts",
+    "scripts/quality/enterprise-operability-preflight.selftest.ts",
     "scripts/ops/long-term-operability-live-gate.ts",
     "pnpm ops:long-term:gate",
     "scripts/ops/long-term-evidence-snapshot.ts",
@@ -515,6 +521,8 @@ function checkValidationCoverage(): void {
     "pnpm ops:readonly-side-effect:selftest",
     "pnpm ops:long-term:snapshot:validate",
     "pnpm enterprise:operability:preflight",
+    "pnpm enterprise:operability:preflight:selftest",
+    "pnpm release:closeout:binding:selftest",
     "pnpm maintenance:cadence:preflight",
     "pnpm release:train:preflight",
     "pnpm residuals:review-due",

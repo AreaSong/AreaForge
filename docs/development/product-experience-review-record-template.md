@@ -12,8 +12,7 @@ pnpm experience:review:hash <record> --print-record-hashes
 pnpm experience:review:validate docs/development/product-experience-review-vX.Y.Z-or-date.md
 ```
 
-先运行 `pnpm experience:review:binding` 获取当前 `appVersion`、`gitCommit`、`sourceFingerprintSchema` 和
-`productExperienceSourceHash`，完成浏览器复核后把这四个值写入记录。
+先运行 `pnpm experience:review:binding` 获取实际被复核运行实例对应的 `appVersion`、`gitCommit`、`sourceFingerprintSchema` 和 `productExperienceSourceHash`，完成浏览器复核后把这四个值写入记录。若随后把 review/runtime/screenshots 提交到 Git，当前 HEAD 只能按 `docs/development/release-evidence-closeout-contract.md` 成为该复核提交的 evidence-only 后代。
 probe 只对 `/api/health` 执行无凭据 GET；生产或其他非本地域名必须显式允许且使用 HTTPS。
 长期运营 gate 和 snapshot 优先使用 `AREAFORGE_LONG_TERM_UX_RECORD`；未设置时从
 `docs/development/product-experience-review-*.md` 按 `reviewedAt` 选择最新记录，再由默认 validator
@@ -28,7 +27,7 @@ reviewer: <operator>
 environment: local/staging/production
 baseUrl: http://127.0.0.1:3102
 appVersion: <version>
-gitCommit: <40-character current checkout commit>
+gitCommit: <40-character reviewed runtime source commit>
 sourceFingerprintSchema: ux-source-v2
 productExperienceSourceHash: sha256:<current product experience source fingerprint>
 runtimeIdentityEvidence: output/playwright/runtime-identity-current.json
@@ -61,9 +60,9 @@ safetyFacts:
 ## 关闭条件
 
 - `reviewStatus` 必须是 `pass`。
-- 默认 validator 会把 `appVersion`、`gitCommit`、`sourceFingerprintSchema` 和 `productExperienceSourceHash` 与当前 checkout 重新比较；指纹覆盖 Web、公共资产、核心 workspace、Prisma schema/migrations、依赖锁文件、本地 UX smoke 和 validator/template；任一漂移都不能作为当前 UX 证据。
+- 默认 validator 会把 `appVersion`、`sourceFingerprintSchema` 和 `productExperienceSourceHash` 与当前 checkout 重新比较；`gitCommit` 必须等于当前 HEAD，或由 `release-evidence-closeout-contract.md` 证明当前干净 HEAD 只是该复核提交的 evidence-only 后代。指纹覆盖 Web、公共资产、核心 workspace、Prisma schema/migrations、依赖锁文件、本地 UX smoke 和 validator/template；任一产品源漂移都不能作为当前 UX 证据。
 - 当前记录必须同时绑定 runtime probe evidence；probe 的 base URL、版本、commit、source schema/hash 和
-  `identityHash` 必须与记录及当前 checkout 三方一致。生产镜像缺失/损坏 immutable identity 时
+  `identityHash` 必须与记录的被复核源提交一致，同时当前 checkout 的版本和 source fingerprint 不得漂移。生产镜像缺失/损坏 immutable identity 时
   `/api/health` 返回 503，不能形成当前体验证据。
 - runtime probe 禁止 redirect、凭据、query、fragment 和路径，响应必须是 16 KiB 内 JSON；输出使用
   no-clobber 原子发布，既有证据文件不会被覆盖。

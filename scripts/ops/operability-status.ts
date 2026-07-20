@@ -23,6 +23,7 @@ type BoundaryStopKey =
   | "post_update_ops001"
   | "release_backup_hashes"
   | "update_request_expected_before"
+  | "business_state_concurrency"
   | "residual_closure";
 
 type ClassifiedResidual = Omit<ResidualItemV2, "executableNow"> & {
@@ -534,6 +535,8 @@ export function buildOperabilityStatusSummary(projection: OperabilityStatusProje
       ...projection.commands.daily.slice(0, 4),
       "pnpm ops:ops-006:preflight:strict",
       "pnpm ops:ops-006:preflight:selftest",
+      "pnpm ops:ops-006:evidence:selftest",
+      "pnpm ops:ops-006:production:preflight:selftest",
       "pnpm ops:ops-007:preflight:strict",
       "pnpm ops:ops-007:preflight:selftest",
       "pnpm ops:ops-008:preflight:strict",
@@ -890,8 +893,29 @@ function buildBoundaryStops(): BoundaryStop[] {
       ],
     },
     {
+      key: "business_state_concurrency",
+      evidence: "AF-RISK-OPS-006 local_verified is complete; matching signed Release, base rollout, controlled synthetic probe, and production evidence remain",
+      currentBoundary: [
+        "no matching signed Release for the verified OPS-006 checkout",
+        "no production migration/deploy confirmation",
+        "no controlled production write probe confirmation",
+        "no AF-RISK-OPS-006 residual closure",
+      ],
+      allowedNow: [
+        "pnpm ops:ops-006:preflight:strict",
+        "pnpm ops:ops-006:evidence:selftest",
+        "pnpm ops:ops-006:production:preflight:selftest",
+      ],
+      requiresFreshConfirmation: [
+        "matching signed Release after local validation",
+        "separate base rollout with backup, migration, health, smoke, and doctor evidence",
+        "separate controlled synthetic concurrency write probe",
+        "maintainer review before residual ledger closure",
+      ],
+    },
+    {
       key: "residual_closure",
-      evidence: "AF-RISK-OPS-001 / AF-RISK-OPS-004 / AF-RISK-OPS-005 / supply-chain residual closure decisions",
+      evidence: "AF-RISK-OPS-001 / AF-RISK-OPS-004 / AF-RISK-OPS-005 / AF-RISK-OPS-006 / supply-chain residual closure decisions",
       currentBoundary: [
         "no residual ledger closure",
         "no completion claim without live evidence gate",

@@ -2,6 +2,8 @@
 
 `docs/` 是 AreaForge 的源事实目录。后续开发、评审、实现和部署优先以这里的文档为准。
 
+当前仓库发布候选版本为 `0.1.8`，生产仍是签名 Release `v0.1.7` / 应用版本 `0.1.7`；本地候选、签名 Release 和生产 rollout 是三类独立证据。
+
 ## 产品
 
 - `product/charter.md`：产品定位和边界。
@@ -72,7 +74,7 @@
 - `development/governance-register.md` / `development/governance-register.json`：治理权威路径、唯一 accountable owner、已有执行门禁和复审触发器的中央只读索引；不复制 lifecycle、residual 或生产激活状态。
 - `development/operations-lifecycle.md` / `development/operations-lifecycle.json`：active/draft SLO、incident transition 与 capability lifecycle 的只读机器契约；使用 `pnpm ops:lifecycle:selftest`、`pnpm ops:lifecycle:validate` 和 `pnpm ops:lifecycle:typecheck` 校验，不证明生产 SLO 已达成。
 - `development/post-release-observation-template.json` / `development/post-release-observation-v0.1.7.json`：Release 后 D14 technical/incident/error-budget gate 与 D30 product-review gate 的独立观察记录；绑定 release identity 和 release record `{path,sha256}`，使用 `pnpm release:post-observation:validate` / `status` 校验与投影。当前 `v0.1.7` 未到 D14，状态为 `pending_observation` 且 evidence 数组为空；不改写历史发布记录、不关闭 residual。
-- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、OPS-005、可校验 Release 发布记录、签名 Release 供应链和新鲜 UX 记录。
+- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、OPS-005、OPS-006 production evidence、与 OPS-006 after-doctor 同 SHA/hash 的 data-integrity record、可校验 Release 发布记录、strict 签名 Release 供应链和新鲜 UX 记录。
 - `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：schema v3 只读长期运营证据快照，聚合当前版本的证据路径 hash、OPS-001/OPS-004/OPS-005、fresh data-integrity doctor、release evidence record、供应链、UX 和运行信号状态与缺口；默认 validator 重新绑定当前 checkout，历史归档使用 `--shape-only`，不替代 live gate、生产 smoke 或 residual 人工关闭。
 - `development/long-term-evidence-snapshot-v0.1.7-20260712.json`：`schemaVersion=1` 的历史非 ready 快照，状态为 `needs_live_evidence`；schema v2 也只保留为 OPS-006 doctor 接入前的历史非 ready 格式，当前格式为 schema v3。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。

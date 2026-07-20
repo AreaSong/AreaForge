@@ -178,6 +178,18 @@ pnpm check
 git diff --check
 ```
 
+## 生产证据契约
+
+本地 `local_verified` 后不得扩写本 preflight 冒充生产验证。生产阶段使用独立的 `docs/development/ops-006-production-evidence-template.md`、`pnpm ops:ops-006:evidence:validate` 和 `pnpm ops:ops-006:production:preflight`，固定验证：
+
+- matching strict signed Release 和 Release commit 中的 migration/实现 source hash。
+- 单独确认的基础 rollout、canonical index 读回、health/authenticated read-only smoke。
+- 另行确认的 synthetic concurrency probe：start/end/task CAS 一胜一 409、单次分钟/事件/CheckIn 副作用和同日聚合。
+- fresh production before/after doctor、通用 Release evidence、backup hash 和 application rollback target。
+- after-doctor 文件 SHA/`doctorHash` 与长期 data-integrity gate 使用的记录完全一致。
+
+`ready_for_ops006_human_review` 只表示证据达到人工复核门槛；不执行 migration/probe，不授权历史修复、restore、DROP index 或 residual 关闭。
+
 ## 参考项目取舍
 
 - AreaMatrix：只吸收固定锁顺序、锁内不回调、并发交错测试原则；不复制 Swift actor、UniFFI、Rust runtime 或 SQLite WAL 机制。

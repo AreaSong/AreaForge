@@ -8,9 +8,10 @@
 
 ## 当前基线
 
+- 仓库发布候选：`0.1.8`；尚未创建签名 `v0.1.8` Release，也未部署到生产。
 - 线上地址：`https://forge.areasong.top/`
-- 当前版本：`0.1.7`
-- 当前 Release：`v0.1.7`
+- 当前生产版本：`0.1.7`
+- 当前生产 Release：`v0.1.7`
 - 更新模式：Web 版本中心提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚。
 - 默认自动策略：`AREAFORGE_AUTO_APPLY=none`
 - Web runtime 边界：不得执行 Docker、备份、恢复、migration、回滚、shell 或服务器命令。
@@ -108,7 +109,7 @@ pnpm ops:status --summary
 
 默认命令只读本地 `package.json`、长期运营入口文件、`docs/development/release-v0.1.7-record.md`、UX review 候选和 `docs/development/residual-risk-ledger.json`，输出 schema V2 `offline_long_term_operability_status_projection` JSON。除控制面、版本、residual、`releaseEvidenceGaps`、命令矩阵、source hash、protected-path fingerprint 和安全事实外，V2 强制包含机器可读 `uxReview.status=fresh|stale|invalid|missing`、记录 basename/hash、reviewedAt、age/max-age、当前版本和 issue fields。UX invalid 会使离线 overall 为 `blocked`，missing/stale 至少降为 `needs_live_evidence`；台账 `currentImpact` 不再充当 UX 实时证据。任一 residual 已 `overdue` 或 `due_today` 时，即使它当前分类为 `closed-evidence`，离线 overall 也至少降级为 `needs_live_evidence`。这些降级不自动重新打开或关闭 residual。保存 JSON 后用 validator 校验 shape 和只读边界；`--summary` 用于快速判断 blocker、UX evidence、due residual 和下一步证据命令。三种模式都不访问网络、不读取密钥、不执行服务器命令或生产写入。
 
-`ops:status` 还会输出 `boundaryStops`，把当前 no-server/no-secret/no-residual-closure 边界下不能闭环的证据显式列出。当前稳定停止线包括 post-`v0.1.7` OPS-001 证据包、`release-v0.1.7-record.md` 的 `releaseEvidenceBundleHash` 和三个 backup SHA256、`AF-RISK-OPS-005` 的签名 Release 与生产部署确认，以及 residual 关闭决策。`releaseEvidenceGaps` 则把备份字段和附件 reconciliation 路径/status/hash 绑定展开成机器可读 `gapType`、`status`、`sourceField` 和 `blocks`，用于确认它们会阻塞 `release:evidence:validate`、`ops:long-term:gate` 和维护交接。`update_request_expected_before` stop 必须区分已完成的本地代码实施、尚缺的签名 Release 和生产 timer/队列/Web/agent 部署确认，防止将设计、代码、Release 和生产部署混成一次授权。`boundaryStops` 只说明“当前授权边界内不能做什么、还能跑哪些本地 validator、未来需要哪类确认”，不等于 blocker 已关闭，也不授权读取、打印、复制或提交 secrets。
+`ops:status` 还会输出 `boundaryStops`，把当前 no-server/no-secret/no-residual-closure 边界下不能闭环的证据显式列出。当前稳定停止线包括 post-`v0.1.7` OPS-001 证据包、`release-v0.1.7-record.md` 的 `releaseEvidenceBundleHash` 和三个 backup SHA256、`AF-RISK-OPS-005` 的签名 Release与生产部署确认、`AF-RISK-OPS-006` 的 matching Release/基础 rollout/另行确认 controlled probe/生产证据，以及 residual 关闭决策。`releaseEvidenceGaps` 则把备份字段和附件 reconciliation 路径/status/hash 绑定展开成机器可读 `gapType`、`status`、`sourceField` 和 `blocks`，用于确认它们会阻塞 `release:evidence:validate`、`ops:long-term:gate` 和维护交接。OPS-005/006 stop 必须区分已完成的本地代码实施、尚缺的签名 Release、基础 rollout、受控生产写入和人工关账，防止将设计、代码、Release 和生产部署混成一次授权。`boundaryStops` 只说明“当前授权边界内不能做什么、还能跑哪些本地 validator、未来需要哪类确认”，不等于 blocker 已关闭，也不授权读取、打印、复制或提交 secrets。
 
 维护窗口、release 前检查或新线程接手时，使用只读运营交接摘要：
 
@@ -341,7 +342,7 @@ pnpm ops:ops-004:preflight
 pnpm experience:review:validate <product-experience-review-record.md|txt>
 ```
 
-该校验只读取 redacted 体验记录，检查 desktop/mobile 视口、核心旅程、截图或浏览器观察、5 秒下一步、确认边界、恢复路径、移动端可读性、空/未授权/错误态、安全事实、`AF-RISK-UX-001` 和敏感值泄露，并把 `appVersion`、`gitCommit`、`sourceFingerprintSchema=ux-source-v2`、扩展后的 `productExperienceSourceHash` 与当前 checkout 重算比较，同时要求记录默认不超过 14 天且未来时钟偏差不超过 300 秒。共享 evaluator 复用同一完整 validator，但把“结构/绑定无效”和“结构有效但过期”分开投影为 `invalid` 与 `stale`，并允许 status、handoff 和 live gate 注入同一时钟。历史记录只能显式使用 `--shape-only`，且不能进入当前体验健康或 residual 关闭证据。它不打开浏览器、不连接生产、不读取密钥、不写生产。`pnpm experience:review:selftest` 覆盖 fresh/stale/invalid/missing。
+该校验只读取 redacted 体验记录，检查 desktop/mobile 视口、核心旅程、截图或浏览器观察、5 秒下一步、确认边界、恢复路径、移动端可读性、空/未授权/错误态、安全事实、`AF-RISK-UX-001` 和敏感值泄露，并把 `appVersion`、`sourceFingerprintSchema=ux-source-v2`、扩展后的 `productExperienceSourceHash` 与当前 checkout 重算比较；`gitCommit` 必须等于当前 HEAD，或按 `release-evidence-closeout-contract.md` 证明当前干净 HEAD 只是被复核提交的 evidence-only 后代。同时要求记录默认不超过 14 天且未来时钟偏差不超过 300 秒。共享 evaluator 复用同一完整 validator，但把“结构/绑定无效”和“结构有效但过期”分开投影为 `invalid` 与 `stale`，并允许 status、handoff 和 live gate 注入同一时钟。历史记录只能显式使用 `--shape-only`，且不能进入当前体验健康或 residual 关闭证据。它不打开浏览器、不连接生产、不读取密钥、不写生产。`pnpm experience:review:selftest` 覆盖 fresh/stale/invalid/missing。
 
 生产 smoke 与告警策略见 `docs/development/production-smoke-alerting-strategy.md`。该文档只定义写入型 smoke 的确认字段、合成数据命名空间、清理/失败处理和告警阈值；没有用户确认、专用账号、清理策略和实际记录前，不得执行生产写入型 smoke，也不得关闭 `AF-RISK-OPS-002` 或 `AF-RISK-OPS-004`。
 
@@ -392,13 +393,13 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 - SC-004 证据见 `output/supply-chain/github-main-protection-readback-20260718.json` 与 `output/supply-chain/github-main-protection-controlled-pr-20260718.json`；`pnpm sc:sc-004:validate` 已通过，preflight 返回 `ready_for_human_review`。该状态不自动关闭 residual，也不证明未来 workflow/check 名称漂移后仍有效。
 - `AF-RISK-OPS-002`：写入型生产 smoke 策略已有非执行草案，但仍缺专用账号、用户确认、清理策略和受控记录。
 - `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受的安全默认，不等于自动应用能力已启用。
-- `AF-RISK-SC-001`：`v0.1.7` 已生成并校验 SBOM/provenance、checksum、cosign signature 和发布记录证据，并已由服务器侧 updater 应用到生产；带 `AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-v0.1.7.md` 运行 `pnpm sc:sc-002:preflight` 可达到 `ready_for_sc001_sc002_review`；台账关闭仍需维护者人工复核，不由生产 apply 自动关闭。
+- `AF-RISK-SC-001`：`v0.1.7` 已生成 SBOM/provenance、checksum、cosign signature 和发布记录证据，并已由服务器侧 updater 应用到生产；新的严格 preflight 还要求同时提供对应 Release assets 目录并通过 manifest/checksum/cosign 读回，历史 record-only 结果不能单独支撑 `ready_for_sc001_sc002_review`。台账关闭仍需维护者人工复核，不由生产 apply 自动关闭。
 - `AF-RISK-SC-002`：已关闭为 CI-only 证据项；后续修改 GitHub Actions、依赖审计、Release workflow、供应链记录工具或创建新 Release 前必须重新生成匹配 commit 证据，失败时重新打开。该状态不改变 `AF-RISK-SC-001` 的独立签名 Release 关闭条件。
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
 - `AF-RISK-OPS-004`：告警阈值已有非执行策略；2026-07-11 manual-window alert preview 和告警/恢复演练记录保留为历史输入；post-`v0.1.7` alert preview 已保存为 `docs/development/ops-004-alert-preview-v0.1.7-20260712.json`，matching drill 已保存为 `docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt`，带当前 preview/drill 环境变量运行 `pnpm ops:ops-004:preflight` 返回 `ready_for_human_close`；metrics dashboard 和外部告警接收人仍未产品化，台账关闭仍需维护者人工复核。
 - `AF-RISK-OPS-005`：当前 checkout 已实现 Web confirmed snapshot binding、schema V2、目标 Release/manifest/digest、TTL、三个 canonical hash、idempotency、atomic publish、processing reconciliation、不可变 decision history、legacy mutation fail-closed 和共享 production-state lock，并通过本地 fixture/selftest。该代码尚未进入匹配签名 Release，也未部署到生产；在独立生产部署确认、V2 check 和 fresh redacted rejection/history/operational evidence 形成前，该项保持 current blocker，且不得从 Web runtime 或本地文档直接执行生产动作。
-- `AF-RISK-OPS-006`：canonical partial unique index、task/session CAS、结束计时单次副作用和 CheckIn advisory lock 已完成隔离 PostgreSQL `local_verified`，runtime record、doctor before/after 和 strict preflight 均通过；匹配签名 Release、生产 migration/deploy、fresh production doctor、health/authenticated smoke 和 rollback evidence 尚未确认，因此 residual 保持 current-blocker。
+- `AF-RISK-OPS-006`：canonical partial unique index、task/session CAS、结束计时单次副作用和 CheckIn advisory lock 已完成隔离 PostgreSQL `local_verified`；独立 production evidence validator/preflight 与 live-gate check 已实现并要求 strict Release、source-at-commit、before/after doctor、canonical index、health/authenticated smoke、另行确认的 synthetic 409/单次副作用 probe、Release evidence 和 rollback 绑定。上述 matching Release 与生产动作尚未确认，因此 residual 保持 current-blocker。
 - `AF-RISK-OPS-007`：附件最终文件与 metadata 提交之间仍有崩溃窗口，staging/write-intent 需独立确认。
 - `AF-RISK-OPS-008`：updater phase journal 和 root-only maintenance hold/drain 尚未实现，不能从 Web 获得控制权。
 - `AF-RISK-UX-001`：当前仍为 monitoring gap；共享 evaluator 将最新 `product-experience-review-20260716-ops-control-plane.md` 判为 `invalid`，因为 git commit、product experience source hash 和 runtime identity 已不匹配当前 checkout。`ops:status` / `ops:handoff` 已投影该真实状态。authenticated desktop/mobile dashboard、timer closeout、Update Center 和当前运行实例身份绑定仍需重新采集；该边界不证明生产写入体验。

@@ -15,11 +15,18 @@ import { computeAttachmentReconciliationSummaryHash } from "./attachment-reconci
 import type { AttachmentReconciliationSummary } from "./attachment-reconciliation-summary";
 import { buildDataIntegrityDoctor } from "../ops/data-integrity-doctor";
 import { parseIndentedKeyValueRecord } from "./record-validator-common";
+import {
+  extractOps006EvidenceBindings,
+  validateFreshDataIntegrityRecord,
+  validateReleaseEvidenceRecord,
+} from "../ops/long-term-operability-live-gate";
 
 type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
 const developmentRuntimeIdentity = createDevelopmentRuntimeIdentity(root);
+const currentAppVersion = developmentRuntimeIdentity.appVersion;
+const oldAppVersion = currentAppVersion === "0.0.0" ? "0.0.1" : "0.0.0";
 mkdirSync(path.join(root, "output"), { recursive: true });
 const tempDir = mkdtempSync(path.join(root, "output/.tmp-long-term-gate-"));
 const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
@@ -33,7 +40,7 @@ try {
   const runtimeIdentityEvidence = path.join(tempDir, "runtime-identity.json");
   writeRuntimeIdentityEvidence(runtimeIdentityEvidence, "2026-07-10T00:00:00.000Z");
   const uxRecord = path.join(tempDir, "product-experience-review.txt");
-  writeUxRecord(uxRecord, createUxRecord("2026-07-10T00:00:00.000Z", "0.1.7", desktopScreenshot, mobileScreenshot, runtimeIdentityEvidence));
+  writeUxRecord(uxRecord, createUxRecord("2026-07-10T00:00:00.000Z", currentAppVersion, desktopScreenshot, mobileScreenshot, runtimeIdentityEvidence));
   const releaseRecord = path.join(tempDir, "release-record.txt");
   const reconciliationCsv = path.join(tempDir, "attachment-reconciliation.csv");
   const reconciliationSummary = path.join(tempDir, "attachment-reconciliation-summary.json");
@@ -41,6 +48,8 @@ try {
   writeFileSync(reconciliationCsv, attachmentEvidence.csv);
   writeFileSync(reconciliationSummary, `${JSON.stringify(attachmentEvidence.summary, null, 2)}\n`);
   writeFileSync(releaseRecord, createReleaseRecord(attachmentEvidence.csv, attachmentEvidence.summary.summaryHash));
+  testReleaseEvidenceCrossBinding(releaseRecord);
+  testOps006BindingExtraction();
   const dataIntegrityRecord = path.join(tempDir, "data-integrity-doctor.json");
   writeFileSync(dataIntegrityRecord, `${JSON.stringify(createDataIntegrityRecord(attachmentEvidence.summary), null, 2)}\n`);
   const baseEnv = {
@@ -60,7 +69,9 @@ try {
   );
   assertCheckStatus(noOps004EvidenceJson, "ops004", "missing");
   assertCheckStatus(noOps004EvidenceJson, "ops005", "missing");
+  assertCheckStatus(noOps004EvidenceJson, "ops006", "missing");
   assertCheckStatus(noOps004EvidenceJson, "dataIntegrity", "pass");
+  testDoctorCrossBinding(dataIntegrityRecord);
 
   const missingDataIntegrity = runGate({ ...baseEnv, AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: "" }, 1);
   const missingDataIntegrityJson = parseGateJson(missingDataIntegrity.stdout);
@@ -75,6 +86,7 @@ try {
   const nextCommand = typeof currentOps004EvidenceJson.nextCommand === "string" ? currentOps004EvidenceJson.nextCommand : "";
   assert(nextCommand.includes("OPS-001"), "nextCommand should mention the remaining OPS-001 gap");
   assert(nextCommand.includes("OPS-005"), "nextCommand should mention the remaining OPS-005 gap");
+  assert(nextCommand.includes("OPS-006"), "nextCommand should mention the remaining OPS-006 gap");
   assert(!nextCommand.includes("OPS-004"), "nextCommand should not mention OPS-004 when it passes");
 
   const missingReleaseEvidence = runGate({
@@ -119,7 +131,7 @@ try {
   assertCheckStatus(invalidJson, "ops001", "invalid");
 
   const oldVersionUxRecord = path.join(tempDir, "product-experience-review-old-version.txt");
-  writeUxRecord(oldVersionUxRecord, createUxRecord("2026-07-10T00:00:00.000Z", "0.1.5", desktopScreenshot, mobileScreenshot, runtimeIdentityEvidence));
+  writeUxRecord(oldVersionUxRecord, createUxRecord("2026-07-10T00:00:00.000Z", oldAppVersion, desktopScreenshot, mobileScreenshot, runtimeIdentityEvidence));
   const oldVersionUx = runGate({
     ...baseEnv,
     AREAFORGE_LONG_TERM_UX_RECORD: oldVersionUxRecord,
@@ -154,6 +166,16 @@ function runGate(env: Record<string, string>, expectedStatus: number, options: {
     AREAFORGE_OPS005_RELEASE_ASSETS_DIR: "",
     AREAFORGE_OPS005_PRODUCTION_EVIDENCE_RECORD: "",
     AREAFORGE_OPS005_GIT_COMMIT: "",
+    AREAFORGE_OPS006_DOCTOR_RECORD: "",
+    AREAFORGE_OPS006_RUNTIME_RECORD: "",
+    AREAFORGE_OPS006_RELEASE_RECORD: "",
+    AREAFORGE_OPS006_RELEASE_ASSETS_DIR: "",
+    AREAFORGE_OPS006_RELEASE_EVIDENCE_RECORD: "",
+    AREAFORGE_OPS006_PRODUCTION_EVIDENCE_RECORD: "",
+    AREAFORGE_OPS006_ROLLOUT_CONFIRMATION_ID: "",
+    AREAFORGE_OPS006_ROLLOUT_CONFIRMATION_SCOPE_SHA256: "",
+    AREAFORGE_OPS006_PROBE_CONFIRMATION_ID: "",
+    AREAFORGE_OPS006_PROBE_CONFIRMATION_SCOPE_SHA256: "",
     AREAFORGE_LONG_TERM_UX_RECORD: "",
     AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: "",
     ...env,
@@ -178,6 +200,58 @@ function runGate(env: Record<string, string>, expectedStatus: number, options: {
     throw new Error(`expected exit ${expectedStatus}, got ${String(result.status)}`);
   }
   return result;
+}
+
+function testReleaseEvidenceCrossBinding(recordPath: string): void {
+  const raw = readFileSync(recordPath, "utf8");
+  const fields = parseIndentedKeyValueRecord(raw);
+  const matching = {
+    recordSha256: `sha256:${createHash("sha256").update(raw).digest("hex")}`,
+    bundleHash: fields.get("releaseEvidenceBundleHash") ?? "",
+    releaseTag: fields.get("releaseTag") ?? "",
+    gitCommit: fields.get("gitCommit") ?? "",
+    webImageDigest: fields.get("webImageDigest") ?? "",
+    migrationImageDigest: fields.get("migrationImageDigest") ?? "",
+  };
+  assert(validateReleaseEvidenceRecord(matching, { configuredPath: recordPath }).status === "pass", "matching OPS-006 Release evidence binding should pass");
+  for (const field of ["recordSha256", "bundleHash", "releaseTag", "gitCommit", "webImageDigest", "migrationImageDigest"] as const) {
+    const mismatched = { ...matching, [field]: `${matching[field]}-mismatch` };
+    assert(
+      validateReleaseEvidenceRecord(mismatched, { configuredPath: recordPath }).status === "invalid",
+      `mismatched ${field} must invalidate OPS-006 Release evidence binding`,
+    );
+  }
+
+  const duplicateRecord = path.join(path.dirname(recordPath), "release-record-duplicate.txt");
+  writeFileSync(duplicateRecord, `${raw}releaseTag: v9.9.9\n`);
+  assert(
+    validateReleaseEvidenceRecord(null, { configuredPath: duplicateRecord }).status === "invalid",
+    "existing malformed Release evidence must be invalid rather than missing",
+  );
+  const badBundleRecord = path.join(path.dirname(recordPath), "release-record-bad-bundle.txt");
+  writeFileSync(badBundleRecord, raw.replace(/releaseEvidenceBundleHash: sha256:[a-f0-9]{64}/, `releaseEvidenceBundleHash: sha256:${"0".repeat(64)}`));
+  assert(
+    validateReleaseEvidenceRecord(null, { configuredPath: badBundleRecord }).status === "invalid",
+    "existing Release evidence with an invalid bundle hash must be invalid rather than missing",
+  );
+}
+
+function testOps006BindingExtraction(): void {
+  const evidence = {
+    afterDoctorFileSha256: `sha256:${"1".repeat(64)}`,
+    afterDoctorHash: `sha256:${"2".repeat(64)}`,
+    releaseEvidenceRecordSha256: `sha256:${"3".repeat(64)}`,
+    releaseEvidenceBundleHash: `sha256:${"4".repeat(64)}`,
+    releaseTag: "v0.1.8",
+    gitCommit: "5".repeat(40),
+    webImageDigest: `ghcr.io/areasong/areaforge-web:v0.1.8@sha256:${"6".repeat(64)}`,
+    migrationImageDigest: `ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:${"7".repeat(64)}`,
+  };
+  const parsed = extractOps006EvidenceBindings({ evidence });
+  assert(parsed.issue === null && parsed.doctorBinding?.doctorHash === evidence.afterDoctorHash, "valid OPS-006 bindings should be extracted");
+  assert(parsed.releaseBinding?.recordSha256 === evidence.releaseEvidenceRecordSha256, "Release record SHA binding should be preserved");
+  assert(extractOps006EvidenceBindings({ evidence: { ...evidence, releaseTag: "invalid" } }).issue !== null, "invalid Release identity must fail binding extraction");
+  assert(extractOps006EvidenceBindings({ evidence: { ...evidence, afterDoctorHash: "invalid" } }).issue !== null, "invalid doctor hash must fail binding extraction");
 }
 
 function createUxRecord(
@@ -335,10 +409,21 @@ function createDataIntegrityRecord(summary: Record<string, unknown>): Record<str
   }) as unknown as Record<string, unknown>;
 }
 
+function testDoctorCrossBinding(recordPath: string): void {
+  const raw = readFileSync(recordPath, "utf8");
+  const body = JSON.parse(raw) as JsonRecord;
+  const fileSha256 = `sha256:${createHash("sha256").update(raw).digest("hex")}`;
+  const options = { configuredPath: recordPath, currentTime: new Date("2026-07-11T00:00:00.000Z"), maxAgeHours: 24 };
+  const matching = validateFreshDataIntegrityRecord({ fileSha256, doctorHash: String(body.doctorHash) }, options);
+  assert(matching.status === "pass", `matching OPS-006 after-doctor binding should pass: ${JSON.stringify(matching)}`);
+  const mismatched = validateFreshDataIntegrityRecord({ fileSha256: `sha256:${"0".repeat(64)}`, doctorHash: String(body.doctorHash) }, options);
+  assert(mismatched.status === "invalid", "mismatched OPS-006 after-doctor binding must fail");
+}
+
 function parseGateJson(raw: string): JsonRecord {
   const parsed = JSON.parse(raw) as JsonRecord;
   assert(parsed.mode === "read_only_long_term_operability_live_gate", "gate mode missing");
-  assert(parsed.schemaVersion === 2, "gate schemaVersion must be 2 after OPS-005 admission");
+  assert(parsed.schemaVersion === 3, "gate schemaVersion must be 3 after OPS-006 production admission");
   return parsed;
 }
 

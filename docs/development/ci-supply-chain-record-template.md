@@ -71,4 +71,4 @@ safetyFacts:
 - `auditProdStatus` 必须为 `pass`，且 `highCriticalVulnerabilities` 必须是 `none`。
 - `actionsPinningStatus` 必须为 `pass`，`unpinnedExternalActions` 必须是 `none`。
 - `residualRiskIds` 必须包含 `AF-RISK-SC-002`，且不能包含 `AF-RISK-SC-001`。
-- 若要同时关闭或复核 `AF-RISK-SC-001`，必须使用 `docs/development/release-supply-chain-record-template.md` 和 `pnpm release:supply-chain:validate` 记录签名 Release 的 SBOM/provenance、checksum 和 signature 证据。
+- 若要同时关闭或复核 `AF-RISK-SC-001`，必须使用 `docs/development/release-supply-chain-record-template.md`，同时配置 record/assets 运行 `pnpm sc:sc-002:preflight`，并以 `pnpm release:supply-chain:validate <record> <release-assets-dir> --strict` 记录签名 Release 的 SBOM/provenance、checksum 和 signature 证据。

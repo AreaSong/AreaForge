@@ -45,6 +45,50 @@ export function parseIndentedKeyValueRecord(record: string): Map<string, string>
   return fields;
 }
 
+export function parseStrictIndentedKeyValueRecord(
+  record: string,
+  issues: ValidationIssue[],
+): Map<string, string> {
+  const fields = new Map<string, string>();
+  let currentSection = "";
+
+  for (const [index, rawLine] of record.split(/\r?\n/).entries()) {
+    const lineNumber = index + 1;
+    if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) continue;
+    if (rawLine.includes("\t")) {
+      issues.push({ field: `record.line${lineNumber}`, message: "tabs are not allowed" });
+      continue;
+    }
+    const match = rawLine.match(/^( *)([A-Za-z0-9_]+):\s*(.*)$/);
+    if (!match) {
+      issues.push({ field: `record.line${lineNumber}`, message: "must be a key/value field or comment" });
+      continue;
+    }
+
+    const indent = match[1]?.length ?? 0;
+    const key = match[2] ?? "";
+    const value = match[3]?.trim() ?? "";
+    let fullKey: string;
+    if (indent === 0) {
+      currentSection = value ? "" : key;
+      fullKey = key;
+    } else if (indent === 2 && currentSection) {
+      fullKey = `${currentSection}.${key}`;
+    } else {
+      issues.push({ field: `record.line${lineNumber}`, message: "nested fields require exactly two spaces under a section" });
+      continue;
+    }
+
+    if (fields.has(fullKey)) {
+      issues.push({ field: fullKey, message: `duplicate field at line ${lineNumber}` });
+      continue;
+    }
+    fields.set(fullKey, value);
+  }
+
+  return fields;
+}
+
 export function readRequiredFile(filePath: string): string {
   if (!existsSync(filePath)) {
     console.error(`File not found: ${filePath}`);

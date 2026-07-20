@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseStrictIndentedKeyValueRecord } from "./record-validator-common";
 
 export interface ValidationIssue {
   field: string;
@@ -121,8 +122,9 @@ function main(): void {
   }
 
   console.log(`release supply-chain record validation passed: mode=${strict ? "strict-assets" : "record"}, stable release assets, checksums, signature policy, CI/audit gates, SC residual IDs, and safety facts are present.`);
-  const fields = parseIndentedKeyValueRecord(record);
-  console.log(`releaseSupplyChainEvidenceHash: ${buildEvidenceHash(fields)}`);
+  const parseIssues: ValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record, parseIssues);
+  console.log(`releaseSupplyChainEvidenceHash: ${buildReleaseSupplyChainEvidenceHash(fields)}`);
   console.log("safetyFacts: secretsPrinted=false productionEnvIncluded=false backupIncluded=false promptOrRawAiResponseIncluded=false attachmentContentIncluded=false productionWriteAttempted=false");
 }
 
@@ -130,8 +132,10 @@ export function validateReleaseSupplyChainRecord(
   record: string,
   options: ReleaseSupplyChainValidationOptions = {},
 ): ValidationIssue[] {
-  const fields = parseIndentedKeyValueRecord(record);
-  const issues = validateRecord(record, fields);
+  const issues: ValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record, issues);
+  validateRecordShape(fields, issues);
+  issues.push(...validateRecord(record, fields));
   if (options.strict && !options.assetDir) {
     issues.push({ field: "assetDir", message: "is required in strict mode" });
     return issues;
@@ -140,6 +144,17 @@ export function validateReleaseSupplyChainRecord(
     issues.push(...validateAssetDirectory(fields, path.resolve(options.assetDir), options));
   }
   return issues;
+}
+
+function validateRecordShape(fields: Map<string, string>, issues: ValidationIssue[]): void {
+  const expected = new Set<string>([
+    ...requiredScalarFields,
+    "safetyFacts",
+    ...requiredNestedFields,
+  ]);
+  for (const field of fields.keys()) {
+    if (!expected.has(field)) issues.push({ field, message: "is not allowed in a release supply-chain record" });
+  }
 }
 
 function validateRecord(record: string, fields: Map<string, string>): ValidationIssue[] {
@@ -447,33 +462,7 @@ function requireOneOf(
   }
 }
 
-function parseIndentedKeyValueRecord(record: string): Map<string, string> {
-  const fields = new Map<string, string>();
-  let currentSection = "";
-
-  for (const rawLine of record.split(/\r?\n/)) {
-    if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) continue;
-    const match = rawLine.match(/^(\s*)([A-Za-z0-9_]+):\s*(.*)$/);
-    if (!match) continue;
-
-    const indent = match[1]?.length ?? 0;
-    const key = match[2] ?? "";
-    const value = match[3]?.trim() ?? "";
-    if (indent === 0) {
-      currentSection = value ? "" : key;
-      fields.set(key, value);
-      continue;
-    }
-
-    if (currentSection) {
-      fields.set(`${currentSection}.${key}`, value);
-    }
-  }
-
-  return fields;
-}
-
-function buildEvidenceHash(fields: Map<string, string>): string {
+export function buildReleaseSupplyChainEvidenceHash(fields: Map<string, string>): string {
   const keys = [
     ...requiredScalarFields,
     ...requiredNestedFields,

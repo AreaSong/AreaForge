@@ -7,7 +7,10 @@ import {
   sha256,
   type ValidationIssue,
 } from "../quality/record-validator-common";
-import { buildReleaseEvidenceBundleHash } from "../quality/release-evidence-validate";
+import {
+  buildReleaseEvidenceBundleHash,
+  releaseEvidenceRedactedRecordContract,
+} from "../quality/release-evidence-validate";
 import { validateAttachmentReconciliationSummary } from "../quality/attachment-reconciliation-summary";
 
 const exportDirArg = process.argv[2];
@@ -99,12 +102,12 @@ function main(): void {
   const targetVersion = required(safeFields, "targetVersion");
   const targetWebImage = required(safeFields, "targetWebImage");
   const migrationImageDigest = required(safeFields, "migrationImageDigest");
-  next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordMode", "repo-visible-draft-from-validated-redacted-export");
+  next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordMode", releaseEvidenceRedactedRecordContract.mode);
   next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordCheckedAt", new Date().toISOString());
-  next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordDoesNotProve", "production smoke completion, backup/restore execution, migration execution, updater apply execution, residual risk closure, secret disclosure absence beyond validator scan");
+  next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordDoesNotProve", releaseEvidenceRedactedRecordContract.doesNotProve);
   next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordClosesResidual", "no");
   next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordResidualLedgerUpdated", "no");
-  next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordSafetyFacts", "serverCommandAttempted=false, productionWriteAttempted=false, secretValuePrinted=false, residualLedgerUpdated=false, originalReleaseRecordOverwritten=false");
+  next = upsertTopLevelField(next, "releaseEvidenceRedactedRecordSafetyFacts", releaseEvidenceRedactedRecordContract.safetyFacts);
   next = upsertTopLevelField(next, "releaseTag", releaseTag);
   next = upsertTopLevelField(next, "AREAFORGE_IMAGE", `ghcr.io/areasong/areaforge-web:${releaseTag}`);
   next = upsertTopLevelField(next, "imageDigest", targetWebImage);

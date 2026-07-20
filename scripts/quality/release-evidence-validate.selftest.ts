@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { buildReleaseEvidenceBundleHash, resolveReleaseEvidenceValidationArgs } from "./release-evidence-validate";
+import {
+  buildReleaseEvidenceBundleHash,
+  releaseEvidenceRedactedRecordContract,
+  resolveReleaseEvidenceValidationArgs,
+} from "./release-evidence-validate";
 import { buildAttachmentReconciliationSummary } from "./attachment-reconciliation-summary";
 import { parseIndentedKeyValueRecord } from "./record-validator-common";
 
@@ -56,6 +60,12 @@ async function main(): Promise<void> {
   writeFileSync(notApplicableRecord, createRecordFromBody(createRecordBody().replace("attachmentHashMatched: yes", "attachmentHashMatched: not-applicable"), headerOnlyCsv, notApplicableSummaryBody.summaryHash));
 
   assert(resolveReleaseEvidenceValidationArgs(validRecord).length === 3, "release evidence consumers should resolve sibling CSV and summary paths from the record");
+  const summaryOnlyRecord = writeFixture(
+    tempDir,
+    "release-record-summary-only.txt",
+    validRecordBody.replace("attachmentReconciliationCsvPath: attachment-reconciliation.csv", "attachmentReconciliationCsvPath: not-copied"),
+  );
+  assert(resolveReleaseEvidenceValidationArgs(summaryOnlyRecord).length === 1, "summary without CSV must not be shifted into the CLI CSV argument");
 
   expectExit("valid record, CSV, and bidirectional summary pass", [validRecord, validCsv, validSummary], 0, "releaseEvidenceBundleHash: sha256:");
   expectExit("yes claim without reconciliation summary fails", [validRecord, validCsv], 1);
@@ -63,6 +73,26 @@ async function main(): Promise<void> {
   expectExit("invalid enum values fail", [invalidEnumRecord, validCsv, validSummary], 1);
   expectExit("missing migration runner fails when migration applied", [invalidRunnerRecord, validCsv, validSummary], 1);
   expectExit("incorrect release evidence bundle hash fails", [invalidBundleHashRecord, validCsv, validSummary], 1);
+  expectExit("duplicate fields fail", [writeFixture(tempDir, "release-record-duplicate.txt", `${validRecordBody}releaseTag: v9.9.9\n`), validCsv, validSummary], 1);
+  expectExit("unknown fields fail", [writeFixture(tempDir, "release-record-unknown.txt", `${validRecordBody}businessTitle: private note\n`), validCsv, validSummary], 1);
+  expectExit("malformed indentation fails", [writeFixture(tempDir, "release-record-indent.txt", validRecordBody.replace("  pnpmCheck: PASS", " pnpmCheck: PASS")), validCsv, validSummary], 1);
+  const redactedMetadata = [
+    `releaseEvidenceRedactedRecordMode: ${releaseEvidenceRedactedRecordContract.mode}`,
+    "releaseEvidenceRedactedRecordCheckedAt: 2026-07-18T12:00:00.000Z",
+    `releaseEvidenceRedactedRecordDoesNotProve: ${releaseEvidenceRedactedRecordContract.doesNotProve}`,
+    "releaseEvidenceRedactedRecordClosesResidual: no",
+    "releaseEvidenceRedactedRecordResidualLedgerUpdated: no",
+    `releaseEvidenceRedactedRecordSafetyFacts: ${releaseEvidenceRedactedRecordContract.safetyFacts}`,
+    `releaseEvidenceRedactedExportHash: sha256:${"a".repeat(64)}`,
+    `releaseEvidenceRedactedUpdateRecordHash: sha256:${"b".repeat(64)}`,
+  ].join("\n") + "\n";
+  const redactedRecord = writeFixture(tempDir, "release-record-redacted.txt", `${validRecordBody}${redactedMetadata}`);
+  expectExit("complete redacted export metadata passes", [redactedRecord, validCsv, validSummary], 0);
+  expectExit("redacted export metadata cannot claim residual closure", [
+    writeFixture(tempDir, "release-record-redacted-closes.txt", `${validRecordBody}${redactedMetadata.replace("releaseEvidenceRedactedRecordClosesResidual: no", "releaseEvidenceRedactedRecordClosesResidual: yes")}`),
+    validCsv,
+    validSummary,
+  ], 1);
   expectExit("non-report_only reconciliation fails", [validRecord, invalidCsv, validSummary], 1);
   expectExit("CSV mismatch fails a yes claim", [validRecord, mismatchCsv, validSummary], 1);
   expectExit("orphan summary fails a yes claim", [validRecord, validCsv, mismatchSummary], 1);
@@ -92,6 +122,12 @@ function expectExit(label: string, args: string[], expectedStatus: number, expec
     console.error(result.stderr.trim());
     process.exit(1);
   }
+}
+
+function writeFixture(tempDir: string, name: string, content: string): string {
+  const file = path.join(tempDir, name);
+  writeFileSync(file, content);
+  return file;
 }
 
 function createCsv(action: string, matches = "true"): string {

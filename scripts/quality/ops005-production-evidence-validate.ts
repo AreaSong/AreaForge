@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { readBoundJsonEvidence } from "./bound-json-evidence";
 import {
   parseIndentedKeyValueRecord,
   parseList,
@@ -239,74 +240,30 @@ function validateEvidenceFiles(
     issues.push({ field: "evidenceBaseDir", message: "is required to bind OPS-005 evidence files" });
     return;
   }
-  const rejection = readBoundEvidence(
-    options.evidenceBaseDir,
-    fields.get("expectedBeforeRejectionEvidenceFile") ?? "",
-    fields.get("expectedBeforeRejectionEvidenceHash") ?? "",
-    "expectedBeforeRejectionEvidenceFile",
+  const rejection = readBoundJsonEvidence({
+    baseDir: options.evidenceBaseDir,
+    relativeFile: fields.get("expectedBeforeRejectionEvidenceFile") ?? "",
+    recordedHash: fields.get("expectedBeforeRejectionEvidenceHash") ?? "",
+    field: "expectedBeforeRejectionEvidenceFile",
     issues,
-  );
-  const history = readBoundEvidence(
-    options.evidenceBaseDir,
-    fields.get("redactedDecisionHistoryFile") ?? "",
-    fields.get("redactedDecisionHistoryHash") ?? "",
-    "redactedDecisionHistoryFile",
+  })?.value;
+  const history = readBoundJsonEvidence({
+    baseDir: options.evidenceBaseDir,
+    relativeFile: fields.get("redactedDecisionHistoryFile") ?? "",
+    recordedHash: fields.get("redactedDecisionHistoryHash") ?? "",
+    field: "redactedDecisionHistoryFile",
     issues,
-  );
-  const operational = readBoundEvidence(
-    options.evidenceBaseDir,
-    fields.get("operationalEvidenceFile") ?? "",
-    fields.get("operationalEvidenceHash") ?? "",
-    "operationalEvidenceFile",
+  })?.value;
+  const operational = readBoundJsonEvidence({
+    baseDir: options.evidenceBaseDir,
+    relativeFile: fields.get("operationalEvidenceFile") ?? "",
+    recordedHash: fields.get("operationalEvidenceHash") ?? "",
+    field: "operationalEvidenceFile",
     issues,
-  );
+  })?.value;
   if (rejection) validateRejectionEvidence(rejection, fields, issues);
   if (history) validateDecisionHistoryEvidence(history, fields, issues);
   if (operational) validateOperationalEvidence(operational, fields, issues);
-}
-
-function readBoundEvidence(
-  baseDir: string,
-  relativeFile: string,
-  recordedHash: string,
-  field: string,
-  issues: ValidationIssue[],
-): unknown | null {
-  if (!relativeFile || path.isAbsolute(relativeFile) || relativeFile.split(/[\\/]+/).includes("..")) {
-    issues.push({ field, message: "must be a safe relative evidence path" });
-    return null;
-  }
-  const base = path.resolve(baseDir);
-  const absolute = path.resolve(base, relativeFile);
-  if (absolute !== base && !absolute.startsWith(`${base}${path.sep}`)) {
-    issues.push({ field, message: "must remain inside the evidence directory" });
-    return null;
-  }
-  if (!existsSync(absolute)) {
-    issues.push({ field, message: "evidence file does not exist" });
-    return null;
-  }
-  const stat = lstatSync(absolute);
-  if (stat.isSymbolicLink() || !stat.isFile()) {
-    issues.push({ field, message: "must be a regular non-symlink file" });
-    return null;
-  }
-  const realBase = realpathSync(base);
-  const realFile = realpathSync(absolute);
-  if (realFile !== realBase && !realFile.startsWith(`${realBase}${path.sep}`)) {
-    issues.push({ field, message: "must not escape through a symlinked parent" });
-    return null;
-  }
-  const raw = readFileSync(realFile, "utf8");
-  const actualHash = `sha256:${sha256(raw)}`;
-  if (recordedHash !== actualHash) issues.push({ field: field.replace("File", "Hash"), message: "must match evidence file content" });
-  scanForSecrets(raw, issues);
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch {
-    issues.push({ field, message: "must contain valid JSON" });
-    return null;
-  }
 }
 
 function validateRejectionEvidence(value: unknown, fields: Map<string, string>, issues: ValidationIssue[]): void {
