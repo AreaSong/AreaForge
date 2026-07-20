@@ -57,6 +57,23 @@
 - 上述验收标准全部满足，改动以干净提交推入 `codex/ltops-optimization`；不创建 tag，不部署。
 - `docs/development/feature-traceability.md` 如受影响已同步。
 
+## 审查发现与处置（2026-07-20）
+
+四路独立审查结论：安全无阻塞项（3 项加固建议）；代码质量无阻塞项（重复副本与巨型文件债务）；性能 2 项 🔴（首页重复查询编排、考纲证据树过度获取）；真实体验路子代理运行超时未产出报告，体验检查并入本轮 UX-001 亲自重采。
+
+已修复（对应提交 `78590a2`、`bf79003`）：
+
+- 安全：`getClientIp` 改为信任 Nginx 覆写的 `X-Real-IP` 并只取 XFF 最后一跳，消除登录限速伪造绕过；附件上传增加 Content-Length 预检，超限请求在读表单前即拒绝。
+- 性能：`getTodayDashboard`/`getAnalyticsSummary`/考纲地图/动机封存增加 React `cache()` 请求级共享副本，首页一次渲染的重复查询编排消除；新增 `listSyllabusOptions` 轻量考纲选项树替代全证据树供选择器使用；作战台逾期任务两条同条件查询合一；周期报表按消费字段 `select`、到期笔记改 `count`；会话 `lastSeenAt` 改 5 分钟节流写。
+- 质量：反假学习规则双副本合一为 `packages/core` 的 `evaluateAntiFakeStudy` 单实现；`serializeTask`/状态映射提取为 `task-serializer.ts` 共享模块；版本中心 UI 文案工具提取为 `update-center-ui.ts`（修复弹窗缺失 `AUTO_APPLY_POLICY_UNSUPPORTED` 映射的漂移）；考试日期常量收敛到 `exam-dates.ts` 单一事实源。
+
+登记不修复（超出本轮边界或需独立决策）：
+
+- 索引类（需 Prisma migration，命中高风险边界）：`Note.nextReviewAt` 常规索引；任务债务谓词（`plannedDate` + `status notIn`）部分索引。数据量增长后再评估收益。
+- 安全加固建议：`/api/health` 未鉴权响应包含 `gitCommit`/`sourceHash` 运行时身份；该字段被 `experience:runtime:probe` 与 update-center 健康链路消费，最小化需连动观测契约，留待独立提案。
+- 架构债（改动面大，无行为缺陷）：`service.ts` 1896 行按聚合面拆分；`audit()` 辅助函数多副本收敛；`apps/web` 经 `next.config.ts` 反向引用 `scripts/quality/product-experience-source` 的包自包含性问题。
+- core 死导出（需产品口径决策）：`summarizeCheckInHistory`（与 `getEffectiveStudyStreak` 的连续天数口径分叉）、`summarizeLightweightDebtAction` 仅测试引用；接入或删除需先统一口径。
+
 ## 运维边界
 
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
