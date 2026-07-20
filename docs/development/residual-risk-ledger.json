@@ -5,8 +5,8 @@
     {
       "id": "AF-RISK-OPS-001",
       "type": "current-blocker",
-      "reviewAt": "2026-07-17",
-      "currentImpact": "2026-07-11/12 生产只读 fallback 已补齐 smoke 账号和权限收紧的 smoke password file，并形成可人工复核证据；v0.1.7 生产 updater apply 时 extra smoke 通过；post-v0.1.7 只读 evidence bundle 已保存但状态为 needs_attention，因为 redacted update-agent status 和 production readonly smoke record 尚未重新采集入仓库；台账尚未按维护者人工复核关闭",
+      "reviewAt": "2026-07-27",
+      "currentImpact": "2026-07-11/12 生产只读 fallback 已补齐 smoke 账号和权限收紧的 smoke password file，并形成可人工复核证据；v0.1.7 生产 updater apply 时 extra smoke 通过；post-v0.1.7 只读 evidence bundle 已保存但状态为 needs_attention，因为 redacted update-agent status 和 production readonly smoke record 尚未重新采集入仓库；台账尚未按维护者人工复核关闭；2026-07-20 到期复核结论为 keep-open，记录见 docs/development/residual-closure-review-20260720-ops-001.md",
       "executableNow": false,
       "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 账号和权限收紧的 smoke 密码文件；最近一次生产版本对应的只读 smoke 通过、redacted update-agent status、operational evidence bundle 和 OPS-001 收口包齐全；生产更新后必须重采或明确降级旧证据为历史",
       "requiredEvidence": "docs/development/ops-001-production-readonly-attempt-20260711.md、docs/development/ops-001-production-readonly-20260711/prod-readonly-smoke-record.txt、docs/development/ops-001-production-readonly-20260711/redacted-update-status.json、docs/development/ops-001-production-readonly-20260711/operational-evidence-bundle.json、docs/development/ops-001-production-readonly-20260711/ops-001-closure-packet.txt、docs/development/release-v0.1.7-record.md、docs/development/operational-evidence-bundle-v0.1.7-20260712.json、后续 post-v0.1.7 redacted smoke/status/OPS-001 closure packet、pnpm smoke:prod-readonly:validate 通过、pnpm update-agent:status:validate 通过、pnpm ops:evidence:bundle:validate 通过、pnpm ops:ops-001:closure:validate 通过、pnpm ops:ops-001:preflight 返回 ready_for_human_close",
@@ -101,8 +101,8 @@
     {
       "id": "AF-RISK-SC-004",
       "type": "current-blocker",
-      "reviewAt": "2026-07-18",
-      "currentImpact": "GitHub ruleset 19138434（Protect main）已 Active：main required PR、1 approval、GitHub Actions verify required check、禁止 delete/non-fast-forward 且 bypass list 为空；受控 PR #13 已证明失败检查被阻断、成功检查通过，PR 已关闭未合并。远端实施证据已完成，但 residual 仍等待维护者人工 close/keep-open 决策",
+      "reviewAt": "2026-07-27",
+      "currentImpact": "GitHub ruleset 19138434（Protect main）已 Active：main required PR、1 approval、GitHub Actions verify required check、禁止 delete/non-fast-forward 且 bypass list 为空；受控 PR #13 已证明失败检查被阻断、成功检查通过，PR 已关闭未合并。远端实施证据已完成，但 residual 仍等待维护者人工 close/keep-open 决策；2026-07-20 到期复核结论为 keep-open，记录见 docs/development/residual-closure-review-20260720-sc-004.md，当前 preflight 判定 2026-07-18 readback/controlled PR 记录已超新鲜窗口，需在新维护窗口重采后再进入人工决策",
       "executableNow": false,
       "closeCondition": "维护者人工复核 ruleset readback、required check 绑定和受控 PR 失败/成功链路后，明确 close 或 keep-open；远端实施通过、PR 关闭或 CI 通过都不自动关闭 residual。后续 ruleset/check/workflow 变化时重新验证",
       "requiredEvidence": "tasks/backlog/0023-github-main-protection.md、output/supply-chain/github-main-protection-readback-20260718.json（sha256:2338e2393f53411129edb30d0e66d80dcad2e563fd4c7776f677b19fcf1cd711）、output/supply-chain/github-main-protection-controlled-pr-20260718.json（sha256:dcdaa2b644a9506a4566920b71eea02ae57683a34a0f1da5c142613855248ed7）、pnpm sc:sc-004:validate 通过、pnpm sc:sc-004:preflight 返回 ready_for_human_review、pnpm governance:preflight、维护者 close/keep-open 复核记录",
@@ -140,8 +140,8 @@
     {
       "id": "AF-RISK-OPS-005",
       "type": "current-blocker",
-      "reviewAt": "2026-07-20",
-      "currentImpact": "当前 checkout 已实现 schema V2、用户确认 snapshot binding、目标 Release/manifest/digest、rollback source record/target、TTL、idempotency/hash、no-clobber atomic publish、directory fsync uncertain 契约、processing reconciliation、不可变 decision history、legacy mutation fail-closed 和共享 production-state lock；本地 fixture 已覆盖恶意 request/claim ID、execution boundary 后崩溃重启和真实 rollback/policy 锁竞争。Release workflow 已增加签名后 strict assets/manifest/cosign 校验，生产证据 validator 已绑定实际 redacted rejection/history/operational JSON；但该实现尚未进入匹配签名 Release 或生产部署，线上 v0.1.7 不能据此宣称具备 V2 stale-request 防护",
+      "reviewAt": "2026-07-27",
+      "currentImpact": "当前 checkout 已实现 schema V2、用户确认 snapshot binding、目标 Release/manifest/digest、rollback source record/target、TTL、idempotency/hash、no-clobber atomic publish、directory fsync uncertain 契约、processing reconciliation、不可变 decision history、legacy mutation fail-closed 和共享 production-state lock；本地 fixture 已覆盖恶意 request/claim ID、execution boundary 后崩溃重启和真实 rollback/policy 锁竞争。Release workflow 已增加签名后 strict assets/manifest/cosign 校验，生产证据 validator 已绑定实际 redacted rejection/history/operational JSON；但该实现尚未进入匹配签名 Release 或生产部署，线上 v0.1.7 不能据此宣称具备 V2 stale-request 防护；2026-07-20 到期复核结论为 keep-open，记录见 docs/development/residual-closure-review-20260720-ops-005.md，v0.1.8 候选已搁置，签名 Release 暂无排期",
       "executableNow": false,
       "closeCondition": "保留已通过的本地 V2 证据；创建匹配提交的签名 Release并取得完整 assets；随后通过独立生产部署确认暂停 timer、隔离旧队列、部署匹配 Web/agent、V2 check 验证并恢复 timer；取得 24 小时内 fresh redacted decision history 后人工复核",
       "requiredEvidence": "docs/development/update-request-expected-before-design.md、docs/development/ops-005-expected-before-production-evidence-template.md、tasks/active/0019-update-request-expected-before-binding.md、pnpm ops:ops-005:local:selftest 覆盖 no-clobber / directory-sync-uncertain / 恶意 ID / 崩溃重启 / 真实锁竞争，pnpm shellcheck:updater / pnpm github-release-updater:preflight 通过、后续匹配签名 Release record + assets 通过 strict assets/checksum/cosign 校验、生产部署记录、V2 check、实际 redacted rejection/history/operational 文件 path+hash 绑定、至少一条 executionAttempted=no 的 EXPECTED_BEFORE_MISMATCH、shared-lock/processing reconciliation 证据、AREAFORGE_AUTO_APPLY=none 证明、pnpm ops:ops-005:evidence:validate <record> <release-record> <release-assets-dir> 通过、pnpm ops:ops-005:preflight 返回 ready_for_ops005_human_review",
