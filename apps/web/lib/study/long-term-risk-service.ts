@@ -15,8 +15,10 @@ import type { SyllabusNodeDto } from "./types";
 
 export type LongTermRiskSummaryDto = LongTermRiskSummary;
 
-export async function getLongTermRiskSummary(now = new Date()): Promise<LongTermRiskSummaryDto> {
+export async function getLongTermRiskSummary(): Promise<LongTermRiskSummaryDto> {
   // 走请求级共享副本：与页面主查询及 AI 建议复用同一份 dashboard/analytics/考纲地图。
+  // dashboard/analytics 共享副本内部各自取当前时间，这里的 now 只喂给模拟与阶段子查询。
+  const now = new Date();
   const [analytics, dashboard, syllabusMap, latestSimulation, stage] = await Promise.all([
     getAnalyticsSummaryShared(),
     getTodayDashboardShared(),
