@@ -1,4 +1,4 @@
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -31,7 +31,7 @@ RUN AREAFORGE_APP_VERSION="$AREAFORGE_APP_VERSION" \
     pnpm exec tsx scripts/ops/generate-runtime-identity.ts /app/runtime-identity.json && \
     pnpm db:generate && pnpm --filter @areaforge/web build
 
-FROM node:24-alpine AS runner
+FROM node:26-alpine AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
