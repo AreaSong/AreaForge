@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24-alpine AS runner
+FROM node:26-alpine AS runner
 
 ARG PRISMA_VERSION=7.8.0
 ARG DOTENV_VERSION=17.4.2
