@@ -1,13 +1,22 @@
 {
-  "schemaVersion": 1,
-  "mode": "read_only_resolved_incident_index",
+  "schemaVersion": 2,
+  "mode": "read_only_incident_index",
   "sourceRoot": "docs/development",
   "sourcePattern": "incident-*/incident-record.txt",
   "sourceSetSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "latestIncidentId": null,
-  "incidents": [],
+  "active": {
+    "sourceSetSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "latestIncidentId": null,
+    "incidents": []
+  },
+  "resolved": {
+    "sourceSetSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "latestIncidentId": null,
+    "incidents": []
+  },
   "doesNotProve": [
     "current production health",
+    "active incident containment or recovery",
     "incident action execution",
     "rollback, updater apply, backup, restore, or migration execution",
     "residual risk closure",

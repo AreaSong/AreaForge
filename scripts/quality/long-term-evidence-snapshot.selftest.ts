@@ -1,29 +1,42 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { buildDataIntegrityDoctor, type DataIntegritySnapshot } from "../ops/data-integrity-doctor";
 import { protectedPathFiles } from "../ops/operability-status";
-import { validateLongTermEvidenceSnapshot } from "./long-term-evidence-snapshot-validate";
+import {
+  longTermEvidenceSnapshotBindingStatus,
+  validateLongTermEvidenceSnapshot,
+} from "./long-term-evidence-snapshot-validate";
+import type { AttachmentReconciliationSummary } from "./attachment-reconciliation-summary";
+import { evaluateProductExperienceEvidence } from "./product-experience-review-validate";
+import { resolveProductExperienceReviewPath } from "./product-experience-review-discovery";
 
 type JsonRecord = Record<string, unknown>;
 
 function main(): void {
   const readySnapshot = withHash(buildSnapshot("ready_for_long_term_operability_review"));
-  const readyIssues = validateLongTermEvidenceSnapshot(JSON.stringify(readySnapshot, null, 2));
+  const readyIssues = validateShape(JSON.stringify(readySnapshot, null, 2));
   assert(readyIssues.length === 0, `expected ready snapshot to pass, got ${JSON.stringify(readyIssues)}`);
 
+  const needsEvidenceChecks = buildChecks({ ops001Status: "missing", ops001Actual: "needs_evidence" });
   const needsEvidenceSnapshot = withHash({
     ...buildSnapshot("needs_live_evidence"),
-    checks: buildChecks({ ops001Status: "missing", ops001Actual: "needs_evidence" }),
+    nextCommand: fixtureNextCommand("needs_live_evidence", needsEvidenceChecks),
+    checks: needsEvidenceChecks,
   });
-  const needsEvidenceIssues = validateLongTermEvidenceSnapshot(JSON.stringify(needsEvidenceSnapshot, null, 2));
+  const needsEvidenceIssues = validateShape(JSON.stringify(needsEvidenceSnapshot, null, 2));
   assert(needsEvidenceIssues.length === 0, `expected needs-evidence snapshot to validate, got ${JSON.stringify(needsEvidenceIssues)}`);
 
   const tampered = { ...readySnapshot, snapshotHash: "0".repeat(64) };
-  const tamperedIssues = validateLongTermEvidenceSnapshot(JSON.stringify(tampered, null, 2));
+  const tamperedIssues = validateShape(JSON.stringify(tampered, null, 2));
   assert(tamperedIssues.some((issue) => issue.field === "snapshotHash"), "expected tampered hash to fail");
 
   const badProtectedHash = withHash(withPatch(readySnapshot, (body) => {
     protectedFingerprint(body).hash = "not-a-hash";
   }));
-  const badProtectedHashIssues = validateLongTermEvidenceSnapshot(JSON.stringify(badProtectedHash, null, 2));
+  const badProtectedHashIssues = validateShape(JSON.stringify(badProtectedHash, null, 2));
   assert(
     badProtectedHashIssues.some((issue) => issue.field === "sourceSnapshot.protectedPathFingerprint.hash"),
     "expected bad protected path fingerprint hash to fail",
@@ -32,7 +45,7 @@ function main(): void {
   const missingProtectedPath = withHash(withPatch(readySnapshot, (body) => {
     protectedFingerprint(body).paths = ["README.md"];
   }));
-  const missingProtectedPathIssues = validateLongTermEvidenceSnapshot(JSON.stringify(missingProtectedPath, null, 2));
+  const missingProtectedPathIssues = validateShape(JSON.stringify(missingProtectedPath, null, 2));
   assert(
     missingProtectedPathIssues.some((issue) => issue.field === "sourceSnapshot.protectedPathFingerprint.paths"),
     "expected missing protected path to fail",
@@ -42,28 +55,71 @@ function main(): void {
     ...buildSnapshot("ready_for_long_term_operability_review"),
     checks: buildChecks({ ops001Status: "pass", ops001Actual: "needs_evidence" }),
   });
-  const greenwashIssues = validateLongTermEvidenceSnapshot(JSON.stringify(greenwashed, null, 2));
+  const greenwashIssues = validateShape(JSON.stringify(greenwashed, null, 2));
   assert(greenwashIssues.some((issue) => issue.field === "checks.ops001.status"), "expected OPS-001 greenwash to fail");
 
   const missingOps005 = withHash({
     ...buildSnapshot("ready_for_long_term_operability_review"),
     checks: buildChecks({}).filter((check) => check.key !== "ops005"),
   });
-  const missingOps005Issues = validateLongTermEvidenceSnapshot(JSON.stringify(missingOps005, null, 2));
+  const missingOps005Issues = validateShape(JSON.stringify(missingOps005, null, 2));
   assert(missingOps005Issues.some((issue) => issue.field === "checks"), "expected missing OPS-005 check to fail");
 
   const greenwashedOps005 = withHash({
     ...buildSnapshot("ready_for_long_term_operability_review"),
     checks: buildChecks({ ops005Actual: "needs_production_evidence" }),
   });
-  const greenwashedOps005Issues = validateLongTermEvidenceSnapshot(JSON.stringify(greenwashedOps005, null, 2));
+  const greenwashedOps005Issues = validateShape(JSON.stringify(greenwashedOps005, null, 2));
   assert(greenwashedOps005Issues.some((issue) => issue.field === "checks.ops005.status"), "expected OPS-005 greenwash to fail");
+
+  const missingDataIntegrity = withHash({
+    ...buildSnapshot("ready_for_long_term_operability_review"),
+    checks: buildChecks({}).filter((check) => check.key !== "dataIntegrity"),
+  });
+  const missingDataIntegrityIssues = validateShape(JSON.stringify(missingDataIntegrity, null, 2));
+  assert(missingDataIntegrityIssues.some((issue) => issue.field === "checks"), "expected missing data-integrity check to fail");
+
+  const greenwashedDataIntegrity = withHash({
+    ...buildSnapshot("ready_for_long_term_operability_review"),
+    checks: buildChecks({ dataIntegrityActual: "warn" }),
+  });
+  const greenwashedDataIntegrityIssues = validateShape(JSON.stringify(greenwashedDataIntegrity, null, 2));
+  assert(greenwashedDataIntegrityIssues.some((issue) => issue.field === "checks.dataIntegrity.status"), "expected data-integrity greenwash to fail");
+
+  const mismatchedDataHash = withHash(withPatch(readySnapshot, (body) => {
+    const checks = body.checks as JsonRecord[];
+    const doctor = checks.find((item) => item.key === "dataIntegrity");
+    if (doctor) doctor.evidenceHash = `sha256:${"7".repeat(64)}`;
+  }));
+  const mismatchedDataHashIssues = validateShape(JSON.stringify(mismatchedDataHash, null, 2));
+  assert(mismatchedDataHashIssues.some((issue) => issue.field === "checks.dataIntegrity.evidenceHash"), "expected doctor file hash mismatch to fail");
+
+  const mismatchedInputHash = withHash(withPatch(readySnapshot, (body) => {
+    const source = body.sourceSnapshot as JsonRecord;
+    const hashes = source.inputHashes as JsonRecord[];
+    const doctorHash = hashes.find((item) => item.key === "dataIntegrityRecord");
+    if (doctorHash) doctorHash.sha256 = `sha256:${"7".repeat(64)}`;
+  }));
+  const mismatchedInputHashIssues = validateShape(JSON.stringify(mismatchedInputHash, null, 2));
+  assert(mismatchedInputHashIssues.some((issue) => issue.field === "sourceSnapshot.inputHashes"), "expected input hash drift to fail");
+
+  const missingNextCommand = withHash(withPatch(readySnapshot, (body) => {
+    delete body.nextCommand;
+  }));
+  const missingNextCommandIssues = validateShape(JSON.stringify(missingNextCommand, null, 2));
+  assert(missingNextCommandIssues.some((issue) => issue.field === "nextCommand"), "expected missing nextCommand to fail");
+
+  const unsafeNextCommand = withHash(withPatch(readySnapshot, (body) => {
+    body.nextCommand = "review residual close conditions without automatic closure; then close residual automatically";
+  }));
+  const unsafeNextCommandIssues = validateShape(JSON.stringify(unsafeNextCommand, null, 2));
+  assert(unsafeNextCommandIssues.some((issue) => issue.field === "nextCommand"), "expected non-canonical nextCommand to fail");
 
   const missingSignal = withHash({
     ...buildSnapshot("ready_for_long_term_operability_review"),
     checks: buildChecks({ omitSignal: "backup" }),
   });
-  const missingSignalIssues = validateLongTermEvidenceSnapshot(JSON.stringify(missingSignal, null, 2));
+  const missingSignalIssues = validateShape(JSON.stringify(missingSignal, null, 2));
   assert(
     missingSignalIssues.some((issue) => issue.field === "checks.operationalEvidenceBundle.metadata.signals"),
     "expected missing operational signal to fail",
@@ -71,24 +127,260 @@ function main(): void {
 
   const leaked = JSON.stringify({
     ...readySnapshot,
-    metadata: "DATABASE_URL=postgresql://user:pass@example.invalid/db",
+    metadata: "DATABASE_URL=postgresql://database.invalid:5432/db",
   }, null, 2);
-  const leakedIssues = validateLongTermEvidenceSnapshot(leaked);
+  const leakedIssues = validateShape(leaked);
   assert(leakedIssues.some((issue) => issue.field === "record"), "expected secret-like value to fail");
 
   const historicalV1 = historicalSnapshotV1();
-  const historicalIssues = validateLongTermEvidenceSnapshot(JSON.stringify(historicalV1, null, 2));
+  const historicalIssues = validateShape(JSON.stringify(historicalV1, null, 2));
   assert(historicalIssues.length === 0, `expected historical non-ready v1 snapshot to pass, got ${JSON.stringify(historicalIssues)}`);
   const historicalReady = withHash({ ...historicalV1, status: "ready_for_long_term_operability_review" });
-  const historicalReadyIssues = validateLongTermEvidenceSnapshot(JSON.stringify(historicalReady, null, 2));
+  const historicalReadyIssues = validateShape(JSON.stringify(historicalReady, null, 2));
   assert(historicalReadyIssues.some((issue) => issue.field === "status"), "expected ready v1 snapshot to fail");
+
+  const historicalV2 = historicalSnapshotV2();
+  const historicalV2Issues = validateShape(JSON.stringify(historicalV2, null, 2));
+  assert(historicalV2Issues.length === 0, `expected historical non-ready v2 snapshot to pass, got ${JSON.stringify(historicalV2Issues)}`);
+  const historicalV2Ready = withHash({ ...historicalV2, status: "ready_for_long_term_operability_review" });
+  const historicalV2ReadyIssues = validateShape(JSON.stringify(historicalV2Ready, null, 2));
+  assert(historicalV2ReadyIssues.some((issue) => issue.field === "status"), "expected ready v2 snapshot to fail");
+  const historicalV2CurrentIssues = validateLongTermEvidenceSnapshot(JSON.stringify(historicalV2, null, 2));
+  assert(historicalV2CurrentIssues.some((issue) => issue.field === "sourceSnapshot.currentBinding"), "historical v2 should require shape-only validation");
+  const currentSchemaShapeOnlyIssues = validateLongTermEvidenceSnapshot(JSON.stringify(readySnapshot, null, 2), { bindingMode: "shape-only" });
+  assert(currentSchemaShapeOnlyIssues.some((issue) => issue.field === "sourceSnapshot.currentBinding"), "schema v3 must reject public shape-only validation");
+
+  const generated = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/long-term-evidence-snapshot.ts"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: { ...process.env, AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: "" },
+  });
+  assert(generated.status === 0 || generated.status === 1, `expected real snapshot generator to emit a bounded snapshot, got ${generated.stderr}`);
+  const generatedIssues = validateLongTermEvidenceSnapshot(generated.stdout);
+  assert(generatedIssues.length === 0, `expected generated snapshot current binding to pass, got ${JSON.stringify(generatedIssues)}`);
+  assert(longTermEvidenceSnapshotBindingStatus(generated.stdout) === "current", "generated snapshot should bind to current checkout");
+  const generatedBody = JSON.parse(generated.stdout) as JsonRecord;
+  const generatedEvidencePaths = (generatedBody.sourceSnapshot as JsonRecord).evidencePaths as JsonRecord[];
+  const generatedUxPath = generatedEvidencePaths.find((item) => item.key === "uxReviewRecord")?.pathLabel;
+  const expectedUxPath = resolveProductExperienceReviewPath(process.cwd());
+  assert(expectedUxPath && generatedUxPath === path.basename(expectedUxPath), `generated snapshot should use the redacted discovered UX record label, got ${String(generatedUxPath)}`);
+  const generatedChecks = generatedBody.checks as JsonRecord[];
+  const generatedUxCheck = generatedChecks.find((item) => item.key === "uxReview");
+  const expectedUxEvaluation = evaluateProductExperienceEvidence({
+    now: new Date(String(generatedBody.generatedAt)),
+    expectedVersion: String(generatedBody.expectedVersion),
+  });
+  const expectedUxStatus = expectedUxEvaluation.status === "fresh" ? "pass" : expectedUxEvaluation.status;
+  assert(
+    generatedUxCheck?.status === expectedUxStatus && generatedUxCheck?.actualStatus === expectedUxEvaluation.status,
+    "generated snapshot must inherit the shared UX evaluator result",
+  );
+  const forgedVersion = withHash(withPatch(JSON.parse(generated.stdout) as JsonRecord, (body) => {
+    body.expectedVersion = "9.9.9";
+    body.packageVersion = "9.9.9";
+    body.releaseTag = "v9.9.9";
+  }));
+  const forgedVersionIssues = validateLongTermEvidenceSnapshot(JSON.stringify(forgedVersion));
+  assert(forgedVersionIssues.some((issue) => issue.field === "packageVersion.currentBinding"), "current binding must reject forged package versions");
+  const staleGenerated = withHash(withPatch(JSON.parse(generated.stdout) as JsonRecord, (body) => {
+    const source = body.sourceSnapshot as JsonRecord;
+    source.controlPlaneSourceHash = "f".repeat(64);
+  }));
+  assert(longTermEvidenceSnapshotBindingStatus(JSON.stringify(staleGenerated)) === "stale", "tampered source binding should be stale");
+  assert(validateShape(JSON.stringify(staleGenerated)).length === 0, "shape-only should preserve historical archive validation");
+
+  testCurrentDoctorSemanticBinding();
+  testExternalUxPathFailsClosed();
 
   console.log("PASS long-term evidence snapshot validator selftest");
 }
 
-function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs_live_evidence"): JsonRecord {
+function testExternalUxPathFailsClosed(): void {
+  const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-snapshot-external-ux-"));
+  const externalUxPath = path.join(tempDir, "external-ux-record.md");
+  try {
+    writeFileSync(externalUxPath, "externalSentinel: must-not-be-read.invalid\n");
+    const generated = runSnapshotGenerator({
+      AREAFORGE_LONG_TERM_UX_RECORD: externalUxPath,
+      AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: "",
+    });
+    assert(!generated.includes("must-not-be-read.invalid"), "snapshot must not read workspace-external UX evidence");
+    const body = JSON.parse(generated) as JsonRecord;
+    const source = body.sourceSnapshot as JsonRecord;
+    const evidencePaths = source.evidencePaths as JsonRecord[];
+    const uxPath = evidencePaths.find((item) => item.key === "uxReviewRecord");
+    assert(uxPath?.sha256 === null && uxPath?.exists === false, "external UX evidence must not receive a file hash");
+    const checks = body.checks as JsonRecord[];
+    const uxCheck = checks.find((item) => item.key === "uxReview");
+    const metadata = uxCheck?.metadata as JsonRecord | undefined;
+    assert(
+      uxCheck?.status === "invalid" && Array.isArray(metadata?.issueFields) && metadata.issueFields.includes("recordPath"),
+      "external UX evidence must fail closed with recordPath issue",
+    );
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+const cleanSnapshot: DataIntegritySnapshot = {
+  activeSessionCount: 1,
+  staleActiveSessionCount: 0,
+  runningWithPausedAtCount: 0,
+  pausedWithoutPausedAtCount: 0,
+  activeWithEndedAtCount: 0,
+  terminalWithoutEndedAtCount: 0,
+  terminalWithPausedAtCount: 0,
+  negativeSessionMetricsCount: 0,
+  doneWithoutCompletedAtCount: 0,
+  nonDoneWithCompletedAtCount: 0,
+  doneWithDebtCount: 0,
+  negativeTaskMinutesCount: 0,
+};
+
+function testCurrentDoctorSemanticBinding(): void {
+  const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-snapshot-doctor-"));
+  const doctorPath = path.join(tempDir, "doctor.json");
+  const now = "2026-07-15T00:00:00.000Z";
+  try {
+    const passDoctor = buildDataIntegrityDoctor({
+      snapshot: cleanSnapshot,
+      attachmentSummary: passAttachmentSummary(),
+      generatedAt: now,
+      databaseReadAttempted: true,
+    });
+    writeFileSync(doctorPath, `${JSON.stringify(passDoctor, null, 2)}\n`);
+    withSnapshotEnvironment(doctorPath, now, () => {
+      const generated = runSnapshotGenerator({
+        AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: doctorPath,
+        AREAFORGE_LONG_TERM_SNAPSHOT_NOW: now,
+      });
+      const issues = validateLongTermEvidenceSnapshot(generated);
+      assert(issues.length === 0, `fresh pass doctor snapshot should bind, got ${JSON.stringify(issues)}`);
+    });
+
+    const warningDoctor = buildDataIntegrityDoctor({
+      snapshot: cleanSnapshot,
+      generatedAt: now,
+      databaseReadAttempted: true,
+    });
+    writeFileSync(doctorPath, `${JSON.stringify(warningDoctor, null, 2)}\n`);
+    withSnapshotEnvironment(doctorPath, now, () => {
+      const generated = runSnapshotGenerator({
+        AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD: doctorPath,
+        AREAFORGE_LONG_TERM_SNAPSHOT_NOW: now,
+      });
+      const body = JSON.parse(generated) as JsonRecord;
+      const forged = withHash(withPatch(body, (snapshot) => {
+        const checks = snapshot.checks as JsonRecord[];
+        const doctor = checks.find((item) => item.key === "dataIntegrity");
+        if (!doctor) return;
+        doctor.status = "pass";
+        doctor.actualStatus = "pass";
+        doctor.freshness = { generatedAt: now, ageHours: 0, maxAgeHours: 24, status: "fresh" };
+        doctor.metadata = {
+          doctorMode: "read_only_data_integrity_doctor",
+          overall: "pass",
+          native: "integrity_clean",
+          databaseSource: "configured_read_only_query",
+          databaseReadAttempted: true,
+          attachmentStatus: "pass",
+          doctorHash: warningDoctor.doctorHash,
+        };
+        snapshot.nextCommand = fixtureNextCommand(String(snapshot.status), checks);
+      }));
+      const issues = validateLongTermEvidenceSnapshot(JSON.stringify(forged));
+      assert(issues.some((issue) => issue.field === "checks.dataIntegrity.currentBinding"), "current binding must re-derive warning doctor semantics");
+    });
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function runSnapshotGenerator(env: Record<string, string>): string {
+  const generated = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/long-term-evidence-snapshot.ts"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
+  assert(generated.status === 0 || generated.status === 1, `snapshot generator failed to emit evidence: ${generated.stderr}`);
+  return generated.stdout;
+}
+
+function withSnapshotEnvironment(doctorPath: string, now: string, callback: () => void): void {
+  const previousDoctor = process.env.AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD;
+  const previousNow = process.env.AREAFORGE_LONG_TERM_SNAPSHOT_NOW;
+  process.env.AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD = doctorPath;
+  process.env.AREAFORGE_LONG_TERM_SNAPSHOT_NOW = now;
+  try {
+    callback();
+  } finally {
+    restoreEnv("AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD", previousDoctor);
+    restoreEnv("AREAFORGE_LONG_TERM_SNAPSHOT_NOW", previousNow);
+  }
+}
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+}
+
+function passAttachmentSummary(): AttachmentReconciliationSummary {
   return {
-    schemaVersion: 2,
+    schemaVersion: 1,
+    mode: "read_only_attachment_reconciliation_summary",
+    generatedAt: "2026-07-15T00:00:00.000Z",
+    status: "pass",
+    action: "report_only",
+    source: {
+      reconciliationCsvSha256: `sha256:${"a".repeat(64)}`,
+      uploadDirectory: "configured_private_upload_directory",
+    },
+    counts: {
+      databaseRecordCount: 0,
+      uploadFileCount: 0,
+      dbOnlyCount: 0,
+      fileOnlyCount: 0,
+      hashMismatchCount: 0,
+      sizeMismatchCount: 0,
+      invalidUriCount: 0,
+      duplicateReferenceCount: 0,
+      unsafeEntryCount: 0,
+      unexpectedEntryCount: 0,
+    },
+    fileOnlyEntryHashes: [],
+    unsafeEntryHashes: [],
+    doesNotProve: [
+      "automatic orphan cleanup",
+      "attachment metadata repair",
+      "backup restore success outside the scanned directory",
+      "production health",
+    ],
+    safetyFacts: {
+      readOnly: true,
+      databaseWriteAttempted: false,
+      uploadWriteAttempted: false,
+      fileDeleted: false,
+      fileMoved: false,
+      metadataRepaired: false,
+      fileContentIncluded: false,
+      absolutePathIncluded: false,
+      secretValuePrinted: false,
+    },
+    summaryHash: `sha256:${"b".repeat(64)}`,
+  };
+}
+
+function validateShape(raw: string) {
+  return validateLongTermEvidenceSnapshot(raw, {
+    bindingMode: "shape-only",
+    allowCurrentSchemaShapeOnlyForSelftest: true,
+  });
+}
+
+function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs_live_evidence"): JsonRecord {
+  const checks = buildChecks({});
+  return {
+    schemaVersion: 3,
     mode: "read_only_long_term_evidence_snapshot",
     generatedAt: "2026-07-12T12:30:00.000Z",
     snapshotHash: "",
@@ -97,6 +389,7 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
     packageVersion: "0.1.7",
     scope: "long_term_operability_current_checkout",
     status,
+    nextCommand: fixtureNextCommand(status, checks),
     sourceSnapshot: {
       controlPlaneSourceHash: "1".repeat(64),
       protectedPathFingerprint: protectedPathFingerprint(),
@@ -112,6 +405,7 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
         evidencePath("operationalEvidenceBundle"),
         evidencePath("ops004AlertPreview"),
         evidencePath("ops005ProductionEvidence"),
+        evidencePath("dataIntegrityRecord"),
       ],
       inputHashes: [
         inputHash("releaseEvidenceRecord"),
@@ -120,14 +414,16 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
         inputHash("operationalEvidenceBundle"),
         inputHash("ops004AlertPreview"),
         inputHash("ops005ProductionEvidence"),
+        inputHash("dataIntegrityRecord"),
       ],
     },
-    checks: buildChecks({}),
+    checks,
     doesNotProve: [
       "current production health without post-version live smoke and update-agent evidence",
       "OPS-001 closure or residual ledger closure",
       "OPS-004 alert recovery drill completion or residual ledger closure",
       "OPS-005 expected-before V2 implementation, signed Release, production deployment, or residual ledger closure without ready_for_ops005_human_review evidence",
+      "OPS-006 concurrency safety or residual closure from a passing data-integrity doctor record",
       "release evidence record validation when backup hashes are root-only or missing",
       "backup freshness, restore execution, migration execution, or rollback execution",
       "server updater apply completion for a future release",
@@ -179,6 +475,14 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
   };
 }
 
+function fixtureNextCommand(status: string, checks: JsonRecord[]): string {
+  if (status === "ready_for_long_term_operability_review") {
+    return "review residual close conditions without automatic closure";
+  }
+  const keys = checks.filter((check) => check.status !== "pass").map((check) => String(check.key));
+  return `collect or refresh evidence and rerun snapshot: ${keys.join(",")}`;
+}
+
 function protectedPathFingerprint(): JsonRecord {
   return {
     algorithm: "sha256",
@@ -208,6 +512,7 @@ function buildChecks(options: {
   ops001Status?: string;
   ops001Actual?: string;
   ops005Actual?: string;
+  dataIntegrityActual?: string;
   omitSignal?: string;
 }): JsonRecord[] {
   const ops001Status = options.ops001Status ?? "pass";
@@ -240,6 +545,27 @@ function buildChecks(options: {
         autoApply: "none",
         releaseTag: "v0.1.7",
         gitCommit: "a".repeat(40),
+      },
+    },
+    {
+      ...check(
+        "dataIntegrity",
+        "fresh business data integrity doctor",
+        "pass",
+        options.dataIntegrityActual ?? "pass",
+        "pass",
+        ["AF-RISK-OPS-006"],
+        `sha256:${"8".repeat(64)}`,
+      ),
+      freshness: { generatedAt: "2026-07-12T12:00:00Z", ageHours: 0.5, maxAgeHours: 24, status: "fresh" },
+      metadata: {
+        doctorMode: "read_only_data_integrity_doctor",
+        overall: "pass",
+        native: "integrity_clean",
+        databaseSource: "configured_read_only_query",
+        databaseReadAttempted: true,
+        attachmentStatus: "pass",
+        doctorHash: "sha256:8181818181818181818181818181818181818181818181818181818181818181",
       },
     },
     {
@@ -294,7 +620,7 @@ function buildChecks(options: {
 }
 
 function historicalSnapshotV1(): JsonRecord {
-  const current = buildSnapshot("needs_live_evidence");
+  const current = historicalSnapshotV2();
   const source = current.sourceSnapshot as JsonRecord;
   const protectedPathFingerprint = source.protectedPathFingerprint as JsonRecord;
   const historicalProtectedPaths = (protectedPathFingerprint.paths as string[]).filter((item) => ![
@@ -310,6 +636,37 @@ function historicalSnapshotV1(): JsonRecord {
   return withHash({
     ...current,
     schemaVersion: 1,
+    sourceSnapshot: {
+      ...source,
+      protectedPathFingerprint: { ...protectedPathFingerprint, paths: historicalProtectedPaths },
+      evidencePaths,
+      inputHashes,
+    },
+    checks,
+    doesNotProve,
+  });
+}
+
+function historicalSnapshotV2(): JsonRecord {
+  const current = buildSnapshot("needs_live_evidence");
+  const source = current.sourceSnapshot as JsonRecord;
+  const protectedPathFingerprint = source.protectedPathFingerprint as JsonRecord;
+  const historicalProtectedPaths = (protectedPathFingerprint.paths as string[]).filter((item) => ![
+    "docs/development/data-integrity-doctor.md",
+    "tasks/active/0020-business-state-concurrency.md",
+    "tasks/backlog/0021-attachment-staging-intent.md",
+    "tasks/backlog/0022-updater-phase-journal-hold.md",
+    "scripts/ops/data-integrity-doctor.ts",
+    "scripts/quality/data-integrity-doctor-validate.ts",
+    "scripts/quality/data-integrity-doctor.selftest.ts",
+  ].includes(item));
+  const evidencePaths = (source.evidencePaths as JsonRecord[]).filter((item) => item.key !== "dataIntegrityRecord");
+  const inputHashes = (source.inputHashes as JsonRecord[]).filter((item) => item.key !== "dataIntegrityRecord");
+  const checks = (current.checks as JsonRecord[]).filter((item) => item.key !== "dataIntegrity");
+  const doesNotProve = (current.doesNotProve as string[]).filter((item) => !item.startsWith("OPS-006 "));
+  return withHash({
+    ...current,
+    schemaVersion: 2,
     sourceSnapshot: {
       ...source,
       protectedPathFingerprint: { ...protectedPathFingerprint, paths: historicalProtectedPaths },

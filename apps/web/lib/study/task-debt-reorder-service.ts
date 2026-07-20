@@ -7,6 +7,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { applyTaskCas, type TaskCasPreimage } from "./concurrency";
 import { getNextStudyDayStart, getStudyDayRange } from "./date";
 import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { getTaskDebtReorderSuggestion } from "./service";
@@ -65,21 +66,15 @@ export interface TaskDebtReorderApplicationResult {
   requiresUserConfirmation: true;
 }
 
-interface ReorderTaskRecord {
-  id: string;
+interface ReorderTaskRecord extends TaskCasPreimage {
   subjectId: string;
   syllabusNodeId: string | null;
   parentTaskId: string | null;
   title: string;
-  type: string;
-  status: DbTaskStatus;
   priority: DbTaskPriority;
-  debtStatus: string;
-  plannedDate: Date;
   estimatedMinutes: number;
   actualMinutes: number;
   reviewText: string | null;
-  completedAt: Date | null;
 }
 
 interface AppliedReorderItem {
@@ -179,42 +174,23 @@ export async function applyTaskDebtReorder(
   });
   const shouldStopOnFirstFailure = preview.shouldStopOnFirstFailure;
 
-  if (preview.skipped.length > 0 && shouldStopOnFirstFailure) {
-    await audit(prisma, actorId, "TASK_DEBT_REORDER_APPLICATION_BLOCKED", {
-      selectedCount: selectedTaskIds.length,
-      skippedCount: preview.skipped.length,
-      shouldStopOnFirstFailure,
-      pressure: debtReorder.pressure,
-      canAutoApply: false,
-      requiresUserConfirmation: true,
-      boundary: reorderBoundary,
-    });
-
-    return {
-      applied: [],
-      skipped: preview.skipped,
-      preview,
-      stoppedOnFirstFailure: true,
-      summary: `${preview.summary} 已按 shouldStopOnFirstFailure 停止写入，请只选择仍有效的建议后重试。`,
-      canAutoApply: false,
-      requiresUserConfirmation: true,
-    };
+  if (preview.skipped.length > 0) {
+    throw new ApiError("TASK_STATE_CONFLICT", 409);
   }
 
   if (preview.items.length === 0) {
-    throw new ApiError("TASK_DEBT_REORDER_SELECTION_STALE", 409);
+    throw new ApiError("TASK_STATE_CONFLICT", 409);
   }
 
   const applied = await prisma.$transaction(async (tx) => {
     const txTasks = await getReorderTasksById(preview.items.map((item) => item.taskId), tx);
-    assertPreviewStillCurrent(preview.items, txTasks);
+    assertPreviewStillCurrent(preview.items, currentTasks, txTasks);
     const appliedItems: AppliedReorderItem[] = [];
 
     for (const item of preview.items) {
       const task = txTasks.get(item.taskId);
       if (!task) {
-        if (shouldStopOnFirstFailure) throw new ApiError("TASK_DEBT_REORDER_SELECTION_STALE", 409);
-        continue;
+        throw new ApiError("TASK_STATE_CONFLICT", 409);
       }
       appliedItems.push(await applySelectedDebtReorderItem(tx, item, task, actorId, now));
     }
@@ -325,6 +301,7 @@ async function getReorderTasksById(
       actualMinutes: true,
       reviewText: true,
       completedAt: true,
+      updatedAt: true,
     },
   });
   return new Map(tasks.map((task) => [task.id, task]));
@@ -342,14 +319,32 @@ function toCoreSuggestions(suggestions: TaskDebtReorderSuggestionDto[]): TaskDeb
 
 function assertPreviewStillCurrent(
   items: TaskDebtReorderApplicationPreviewItem[],
-  tasksById: Map<string, ReorderTaskRecord>,
+  expectedTasks: Map<string, ReorderTaskRecord>,
+  transactionTasks: Map<string, ReorderTaskRecord>,
 ): void {
   for (const item of items) {
-    const task = tasksById.get(item.taskId);
-    if (!task || task.status === "DONE" || task.status === "SKIPPED" || task.debtStatus === "NONE") {
-      throw new ApiError("TASK_DEBT_REORDER_SELECTION_STALE", 409);
+    const expected = expectedTasks.get(item.taskId);
+    const current = transactionTasks.get(item.taskId);
+    if (
+      !expected
+      || !current
+      || current.status === "DONE"
+      || current.status === "SKIPPED"
+      || current.debtStatus === "NONE"
+      || !sameTaskPreimage(expected, current)
+    ) {
+      throw new ApiError("TASK_STATE_CONFLICT", 409);
     }
   }
+}
+
+function sameTaskPreimage(left: ReorderTaskRecord, right: ReorderTaskRecord): boolean {
+  return left.status === right.status
+    && left.debtStatus === right.debtStatus
+    && left.type === right.type
+    && left.plannedDate.getTime() === right.plannedDate.getTime()
+    && left.updatedAt.getTime() === right.updatedAt.getTime()
+    && left.completedAt?.getTime() === right.completedAt?.getTime();
 }
 
 async function applySelectedDebtReorderItem(
@@ -405,10 +400,14 @@ async function mutateTaskForDebtReorderItem(
 ): Promise<{ task: ReorderTaskRecord | null; relatedTaskId: string | null; childPlannedDate: Date | null }> {
   switch (item.mutation) {
     case "none":
-      return { task: null, relatedTaskId: null, childPlannedDate: null };
+      return {
+        task: await updateReorderTask(tx, task, { updatedAt: task.updatedAt }),
+        relatedTaskId: null,
+        childPlannedDate: null,
+      };
     case "recover":
       return {
-        task: await updateReorderTask(tx, task.id, {
+        task: await updateReorderTask(tx, task, {
           status: "TODO",
           debtStatus: "ACCEPTABLE",
           plannedDate: dayStart,
@@ -420,7 +419,7 @@ async function mutateTaskForDebtReorderItem(
       };
     case "defer":
       return {
-        task: await updateReorderTask(tx, task.id, {
+        task: await updateReorderTask(tx, task, {
           status: "DEFERRED",
           debtStatus: "ACCEPTABLE",
           plannedDate: nextDayStart,
@@ -431,7 +430,7 @@ async function mutateTaskForDebtReorderItem(
       };
     case "drop":
       return {
-        task: await updateReorderTask(tx, task.id, {
+        task: await updateReorderTask(tx, task, {
           status: "SKIPPED",
           debtStatus: "NONE",
           reviewText: mergeTaskReviewText(task.reviewText, `债务重排放弃：${item.reason}`),
@@ -460,7 +459,7 @@ async function mutateTaskForDebtReorderItem(
         },
       });
       return {
-        task: await updateReorderTask(tx, task.id, {
+        task: await updateReorderTask(tx, task, {
           status: "DEFERRED",
           debtStatus: "ACCEPTABLE",
           plannedDate: nextDayStart,
@@ -472,7 +471,7 @@ async function mutateTaskForDebtReorderItem(
     }
     case "convert_review":
       return {
-        task: await updateReorderTask(tx, task.id, {
+        task: await updateReorderTask(tx, task, {
           type: "review",
           status: "TODO",
           debtStatus: "ACCEPTABLE",
@@ -489,12 +488,12 @@ async function mutateTaskForDebtReorderItem(
 
 async function updateReorderTask(
   tx: Prisma.TransactionClient,
-  taskId: string,
-  data: Prisma.StudyTaskUpdateInput,
+  task: ReorderTaskRecord,
+  data: Prisma.StudyTaskUncheckedUpdateManyInput,
 ): Promise<ReorderTaskRecord> {
-  return tx.studyTask.update({
-    where: { id: taskId },
-    data,
+  await applyTaskCas(tx, task, data);
+  const updatedTask = await tx.studyTask.findUnique({
+    where: { id: task.id },
     select: {
       id: true,
       subjectId: true,
@@ -510,8 +509,11 @@ async function updateReorderTask(
       actualMinutes: true,
       reviewText: true,
       completedAt: true,
+      updatedAt: true,
     },
   });
+  if (!updatedTask) throw new ApiError("TASK_STATE_CONFLICT", 409);
+  return updatedTask;
 }
 
 function createDecisionReason(

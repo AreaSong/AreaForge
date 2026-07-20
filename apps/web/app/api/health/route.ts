@@ -1,8 +1,14 @@
-export async function GET() {
-  return Response.json({
-    ok: true,
-    service: "AreaForge",
-    version: process.env.APP_VERSION ?? "0.1.0",
-  });
-}
+import { getRuntimeIdentity } from "../../../lib/system/runtime-identity";
 
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const runtimeIdentity = getRuntimeIdentity();
+  const ok = runtimeIdentity.status === "verified";
+  return Response.json({
+    ok,
+    service: "AreaForge",
+    version: runtimeIdentity.appVersion,
+    runtimeIdentity,
+  }, { status: ok ? 200 : 503 });
+}

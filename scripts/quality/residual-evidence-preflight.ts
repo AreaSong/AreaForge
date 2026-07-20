@@ -1,23 +1,14 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ValidationIssue } from "./record-validator-common";
-
-type ResidualItem = {
-  id: string;
-  type: string;
-  currentImpact: string;
-  closeCondition: string;
-  requiredEvidence: string;
-  ownerSkills: string[];
-};
-
-type ResidualLedger = {
-  schemaVersion?: number;
-  source?: string;
-  items?: ResidualItem[];
-};
+import {
+  readResidualLedgerV2,
+  ResidualLedgerValidationError,
+  type ResidualItemV2,
+  type ResidualLedgerV2,
+} from "./residual-ledger-common";
 
 type EvidencePathStatus = "present" | "missing" | "unsafe" | "not_file" | "empty";
 
@@ -116,7 +107,7 @@ export function buildResidualEvidencePreflight(options: BuildOptions = {}): Resi
   const root = options.root ?? process.cwd();
   const blockedBy: ValidationIssue[] = [];
   const ledger = readLedger(root, blockedBy);
-  const records = (ledger.items ?? []).map((item) => buildRecord(root, item));
+  const records = (ledger?.items ?? []).map((item) => buildRecord(root, item));
   const hasNeedsAttention = records.some((record) =>
     record.pathsMissing.length > 0 ||
     record.pathsUnsafe.length > 0 ||
@@ -130,9 +121,9 @@ export function buildResidualEvidencePreflight(options: BuildOptions = {}): Resi
     status: blockedBy.length > 0
       ? "blocked" as const
       : hasNeedsAttention ? "needs_attention" as const : "ready_for_human_review" as const,
-    source: ledgerPath as const,
+    source: "docs/development/residual-risk-ledger.json" as const,
     closesResidual: false as const,
-    residualCount: ledger.items?.length ?? 0,
+    residualCount: ledger?.items.length ?? 0,
     records,
     blockedBy,
     doesNotProve: [
@@ -190,7 +181,7 @@ export function buildResidualEvidencePreflight(options: BuildOptions = {}): Resi
   };
 }
 
-function buildRecord(root: string, item: ResidualItem): ResidualEvidenceRecord {
+function buildRecord(root: string, item: ResidualItemV2): ResidualEvidenceRecord {
   const allPaths = extractEvidencePaths(item.requiredEvidence).map((evidencePath) => checkEvidencePath(root, evidencePath));
   const pathsPresent = allPaths.filter((item): item is EvidencePathCheck & { status: "present" } => item.status === "present");
   const pathsMissing = allPaths.filter((item) => item.status === "missing" || item.status === "not_file" || item.status === "empty");
@@ -278,17 +269,19 @@ function extractUnresolvedPlaceholders(value: string): string[] {
   return [...new Set(placeholders)];
 }
 
-function readLedger(root: string, blockedBy: ValidationIssue[]): ResidualLedger {
-  const fullPath = path.join(root, ledgerPath);
-  if (!existsSync(fullPath)) {
-    blockedBy.push({ field: ledgerPath, message: "missing residual ledger" });
-    return { items: [] };
-  }
+function readLedger(root: string, blockedBy: ValidationIssue[]): ResidualLedgerV2 | null {
   try {
-    return JSON.parse(readFileSync(fullPath, "utf8")) as ResidualLedger;
+    return readResidualLedgerV2({ root });
   } catch (error) {
-    blockedBy.push({ field: ledgerPath, message: error instanceof Error ? error.message : "invalid JSON" });
-    return { items: [] };
+    if (error instanceof ResidualLedgerValidationError) {
+      blockedBy.push(...error.issues.map((issue) => ({
+        field: `${ledgerPath}.${issue.field}`,
+        message: issue.message,
+      })));
+    } else {
+      blockedBy.push({ field: ledgerPath, message: error instanceof Error ? error.message : String(error) });
+    }
+    return null;
   }
 }
 

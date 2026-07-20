@@ -145,12 +145,28 @@ pnpm github-release-updater:preflight
 4. 提交干净 commit。
 5. 创建并推送 `vX.Y.Z` tag；tag 版本必须和根 `package.json` 版本一致。
 6. 等待 GitHub Release workflow 成功，确认 Release assets 包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS`、`SHA256SUMS.sig`。
-7. 本地或 CI 验证 `sha256sum -c SHA256SUMS` 和 `cosign verify-blob --bundle SHA256SUMS.sig SHA256SUMS`；若用于关闭供应链残余项，按 `docs/development/release-supply-chain-record-template.md` 记录，先运行 `pnpm sc:sc-002:preflight`，再运行 `pnpm release:supply-chain:validate <record>`。
+7. 本地或 CI 验证 `sha256sum -c SHA256SUMS` 和 `cosign verify-blob --bundle SHA256SUMS.sig SHA256SUMS`；若用于关闭供应链残余项，按 `docs/development/release-supply-chain-record-template.md` 记录，带 `AREAFORGE_SC002_RELEASE_RECORD` 和 `AREAFORGE_SC002_RELEASE_ASSETS_DIR` 运行 `pnpm sc:sc-002:preflight`，再运行 `pnpm release:supply-chain:validate <record> <release-assets-dir> --strict`。
 8. 更新前先读取当前 health/status 证据；若生产已经运行目标版本，只记录 health/status，不重复执行 `apply --yes`。
 9. 在 Web 版本中心提交受控更新请求，或由管理员执行服务器侧 updater。
 10. 服务器 update-agent/updater 校验签名、备份、执行 migration、切换镜像和 health smoke。
 11. 验证 `https://forge.areasong.top/api/health`、`/opt/areaforge/ops-state/status.json` 和 Release 更新记录。
 12. 运行 `pnpm ops:readiness:summary`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview` 生成 redacted 运行证据摘要，记录 `bundleHash`、`overall/status`、告警预览结论、缺失证据和 residual risk IDs。
+13. 生产证据完成后若要提交 UX、redacted evidence 或 residual 状态，必须遵循 `docs/development/release-evidence-closeout-contract.md`，让当前 closeout HEAD 只包含白名单 evidence/status 文件，并运行 `pnpm release:closeout:binding:selftest`；不得在 closeout 中混入产品源码、migration、workflow、updater、依赖或运行配置。
+
+### OPS-005/006 联合 rollout 附加顺序
+
+当 Release 同时包含 Expected-Before V2 和业务状态并发一致性时，标准路径增加以下强制顺序：
+
+1. matching root agent/updater 必须先于 Web update request 部署；旧 agent 不得处理 V2 mutation。
+2. fresh before-doctor 必须先于 backup/migration，且多个 active session、附件 mismatch 或任何 fail 都立即中止；不得自动修复历史记录。
+3. backup 完成并校验 hash 后，才能执行 OPS-006 additive migration；migration 后必须读回 `StudySession_one_active_idx` 的唯一性、表达式和 predicate。
+4. Web 切换后依次运行 health、authenticated read-only smoke、OPS-005 V2 check 和 processing reconciliation。
+5. OPS-006 controlled-write concurrency probe 使用独立确认，不属于基础 rollout 默认权限。
+6. after-doctor 必须晚于 rollout 和 probe；update-agent/updater timer 只有在 after-doctor、V2 check、health/smoke 和 reconciliation/blocker 判定全部通过后才能恢复。
+7. `pnpm release:evidence:validate` 属于生产证据阶段，不属于签名资产创建阶段。
+8. 应用回滚保留 additive index、队列和 decision history；DROP index、数据库/uploads restore、历史修复或请求重放都需要新的独立确认。
+
+OPS-006 终态记录使用 `docs/development/ops-006-production-evidence-template.md`，并通过 `pnpm ops:ops-006:evidence:validate` 与 `pnpm ops:ops-006:production:preflight`。长期 gate 使用的 data-integrity record 必须与 OPS-006 after-doctor 文件 SHA 和 `doctorHash` 完全一致。
 
 ## 发布记录模板
 

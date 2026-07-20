@@ -6,8 +6,17 @@
 记录完成后运行：
 
 ```bash
+pnpm experience:review:binding
+pnpm experience:runtime:probe http://127.0.0.1:3102 output/playwright/runtime-identity-current.json
+pnpm experience:review:hash <record> --print-record-hashes
 pnpm experience:review:validate docs/development/product-experience-review-vX.Y.Z-or-date.md
 ```
+
+先运行 `pnpm experience:review:binding` 获取实际被复核运行实例对应的 `appVersion`、`gitCommit`、`sourceFingerprintSchema` 和 `productExperienceSourceHash`，完成浏览器复核后把这四个值写入记录。若随后把 review/runtime/screenshots 提交到 Git，当前 HEAD 只能按 `docs/development/release-evidence-closeout-contract.md` 成为该复核提交的 evidence-only 后代。
+probe 只对 `/api/health` 执行无凭据 GET；生产或其他非本地域名必须显式允许且使用 HTTPS。
+长期运营 gate 和 snapshot 优先使用 `AREAFORGE_LONG_TERM_UX_RECORD`；未设置时从
+`docs/development/product-experience-review-*.md` 按 `reviewedAt` 选择最新记录，再由默认 validator
+判定 current binding、版本和新鲜度。模板文件、符号链接和无法解析 `reviewedAt` 的文件不会被选中。
 
 ## 模板
 
@@ -18,6 +27,12 @@ reviewer: <operator>
 environment: local/staging/production
 baseUrl: http://127.0.0.1:3102
 appVersion: <version>
+gitCommit: <40-character reviewed runtime source commit>
+sourceFingerprintSchema: ux-source-v2
+productExperienceSourceHash: sha256:<current product experience source fingerprint>
+runtimeIdentityEvidence: output/playwright/runtime-identity-current.json
+runtimeIdentityEvidenceHash: sha256:<hash of the probe evidence file>
+runtimeIdentityHash: sha256:<identityHash from the probed runtime>
 source: local UX smoke plus browser screenshots
 reviewCommand: pnpm smoke:local-ux and playwright desktop/mobile browser review
 reviewStatus: pass/fail
@@ -25,6 +40,7 @@ reviewResultHash: sha256:<64-hex>
 viewports: desktop,mobile
 journeys: login,dashboard,timer-closeout,review,notes,syllabus,reports,simulation,update-center
 screenshotEvidence: desktop=<path-or-record>; mobile=<path-or-record>
+screenshotEvidenceHash: sha256:<hash of sorted viewport/path/file-hash entries>
 nextActionWithin5s: yes/no
 recommendationsExplainWhy: yes/no
 confirmOnlyBoundariesVisible: yes/no
@@ -44,10 +60,23 @@ safetyFacts:
 ## 关闭条件
 
 - `reviewStatus` 必须是 `pass`。
+- 默认 validator 会把 `appVersion`、`sourceFingerprintSchema` 和 `productExperienceSourceHash` 与当前 checkout 重新比较；`gitCommit` 必须等于当前 HEAD，或由 `release-evidence-closeout-contract.md` 证明当前干净 HEAD 只是该复核提交的 evidence-only 后代。指纹覆盖 Web、公共资产、核心 workspace、Prisma schema/migrations、依赖锁文件、本地 UX smoke 和 validator/template；任一产品源漂移都不能作为当前 UX 证据。
+- 当前记录必须同时绑定 runtime probe evidence；probe 的 base URL、版本、commit、source schema/hash 和
+  `identityHash` 必须与记录的被复核源提交一致，同时当前 checkout 的版本和 source fingerprint 不得漂移。生产镜像缺失/损坏 immutable identity 时
+  `/api/health` 返回 503，不能形成当前体验证据。
+- runtime probe 禁止 redirect、凭据、query、fragment 和路径，响应必须是 16 KiB 内 JSON；输出使用
+  no-clobber 原子发布，既有证据文件不会被覆盖。
+- `reviewedAt` 必须是有效 ISO-8601 时间，默认不得早于当前时间 14 天，也不得超前超过 300 秒；历史记录只能使用 `--shape-only`。
+- 历史旧记录可显式运行 `pnpm experience:review:validate <record> --shape-only`，但只验证结构，不能关闭 `AF-RISK-UX-001`、不能进入长期 live gate，也不能证明当前 UI。
 - `reviewCommand` 必须引用 `pnpm smoke:local-ux`、`pnpm smoke:prod-readonly`、Playwright 或明确的 browser review。
 - `viewports` 必须覆盖 desktop 和 mobile/narrow。
 - `journeys` 必须覆盖 login、dashboard、timer-closeout、review、notes、syllabus、reports、simulation 和 update-center。
 - `screenshotEvidence` 必须包含 desktop 和 mobile/narrow 的截图或浏览器观察记录，不得是 `none`、`missing` 或 `not-captured`。
+- 当前记录必须用 `screenshotEvidenceHash` 绑定仓库内的 PNG/JPEG/WebP 普通文件；绝对路径、越界路径、
+  symlink、空文件和大于 20MB 的文件不能通过。先填截图路径，再运行
+  `pnpm experience:review:hash <record> --print-record-hashes` 获取 runtime evidence、runtime identity、
+  screenshot 和 review 四个 hash。
+- `reviewResultHash` 必须等于 validator 对除自身外全部必填字段的 canonical hash，字段或截图绑定变化后必须重算。
 - 六个体验门必须为 `yes`：5 秒内可见下一步、建议解释原因、确认边界可见、恢复路径可见、移动端可读、空/未授权/错误态已检查。
 - `residualRiskIds` 必须保留 `AF-RISK-UX-001`，直到最近一次真实体验复核记录通过并被对应发布或维护窗口引用。
 - 记录不得包含 session cookie、数据库 URL、API key、生产 `.env`、smoke 密码、完整 prompt/raw response、附件内容、上传绝对路径、真实学习笔记或私密任务标题。

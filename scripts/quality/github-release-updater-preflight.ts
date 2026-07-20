@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 interface CheckResult {
   name: string;
@@ -25,6 +26,7 @@ function main(): void {
   checkDocs();
   checkExtraSmokeCommand();
   checkUpdateAgentRequestBoundary();
+  checkRuntimeIdentityBoundary();
   checkWebRuntimeBoundary();
 
   for (const check of checks) {
@@ -47,6 +49,8 @@ function checkRequiredFiles(): void {
     "ops/github-release-updater/areaforge-updater.service",
     "ops/github-release-updater/areaforge-updater.timer",
     "ops/update-agent/areaforge-update-agent.sh",
+    "ops/update-agent/lib/update-request-v2.sh",
+    "ops/update-agent/lib/update-request-state.sh",
     "ops/update-agent/areaforge-ops001-evidence-export.sh",
     "ops/update-agent/areaforge-ops001-readonly-fallback.sh",
     "ops/update-agent/areaforge-release-evidence-redacted-export.sh",
@@ -60,12 +64,29 @@ function checkRequiredFiles(): void {
     "scripts/quality/release-supply-chain-validate.ts",
     "scripts/quality/release-supply-chain-validate.selftest.ts",
     "scripts/ops/production-readonly-smoke.ts",
+    "scripts/ops/smoke-password.ts",
     "scripts/ops/generate-release-evidence-record-from-redacted-export.ts",
     "scripts/quality/release-evidence-redacted-export-validate.ts",
     "scripts/quality/ops001-readonly-fallback.selftest.ts",
     "scripts/quality/release-evidence-redacted-export.selftest.ts",
     "scripts/quality/release-evidence-redacted-export-record.selftest.ts",
     "scripts/quality/update-center-request-guard.selftest.ts",
+    "scripts/quality/update-center-request-v2.selftest.ts",
+    "scripts/quality/update-agent-request-v2.selftest.ts",
+    "scripts/quality/update-production-state-lock.selftest.ts",
+    "scripts/quality/attachment-crash-window-validate.ts",
+    "scripts/quality/attachment-crash-window-validate.selftest.ts",
+    "scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json",
+    "scripts/quality/updater-phase-journal-validate.ts",
+    "scripts/quality/updater-phase-journal-validate.selftest.ts",
+    "scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json",
+    "scripts/quality/updater-maintenance-control-validate.ts",
+    "scripts/quality/updater-maintenance-control-validate.selftest.ts",
+    "scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json",
+    "scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json",
+    "scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json",
+    "scripts/quality/fixtures/update-request-v2/canonical-request.json",
+    "scripts/quality/fixtures/update-request-v2/canonical-request.expected.json",
     "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
     ".github/workflows/ci.yml",
@@ -79,6 +100,22 @@ function checkRequiredFiles(): void {
     "scripts/ops/generate-ci-supply-chain-record.ts",
     "scripts/quality/ci-supply-chain-record-validate.ts",
     "scripts/quality/ci-supply-chain-record.selftest.ts",
+    "scripts/quality/release-admission.ts",
+    "scripts/quality/release-admission.selftest.ts",
+    "scripts/quality/release-identity-probe.ts",
+    "scripts/quality/release-identity-probe.selftest.ts",
+    "scripts/quality/release-workflow-policy.ts",
+    "scripts/quality/release-workflow-policy.selftest.ts",
+    "apps/web/lib/system/product-experience-contract.ts",
+    "scripts/quality/product-experience-source.ts",
+    "apps/web/lib/system/runtime-identity-core.ts",
+    "apps/web/lib/system/runtime-identity-development.ts",
+    "apps/web/lib/system/runtime-identity.ts",
+    "scripts/ops/generate-runtime-identity.ts",
+    "scripts/ops/product-experience-runtime-probe.ts",
+    "scripts/quality/product-experience-runtime-probe.selftest.ts",
+    "scripts/quality/runtime-identity.selftest.ts",
+    "infra/docker/web.Dockerfile",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -154,7 +191,7 @@ function checkReleaseSupplyChainScript(): void {
 }
 
 function checkWorkflowTopLevelSyntax(): void {
-  const allowedTopLevelKeys = new Set(["name", "on", "permissions", "env", "jobs"]);
+  const allowedTopLevelKeys = new Set(["name", "on", "permissions", "concurrency", "env", "jobs"]);
   const workflowFiles = [".github/workflows/ci.yml", ".github/workflows/release.yml"];
   const issues = workflowFiles.flatMap((file) => {
     const lines = read(file).split(/\r?\n/);
@@ -191,6 +228,9 @@ function checkExtraSmokeCommand(): void {
     "/api/auth/login",
     "/api/dashboard/today",
     "/api/system/update-status",
+    "readRestrictedSmokePassword",
+    "process.env.AREAFORGE_SMOKE_PASSWORD !== undefined",
+    "readScope: \"production-readonly-smoke\"",
   ];
   const requiredDocTerms = [
     "smoke:prod-readonly",
@@ -345,39 +385,97 @@ function checkUpdaterBoundaries(): void {
 }
 
 function checkUpdateAgentRequestBoundary(): void {
+  const updater = read("ops/github-release-updater/areaforge-updater.sh");
   const agent = read("ops/update-agent/areaforge-update-agent.sh");
+  const agentContract = read("ops/update-agent/lib/update-request-v2.sh");
+  const agentState = read("ops/update-agent/lib/update-request-state.sh");
   const docs = read("docs/deployment/github-release-updater.md");
   const webUpdateCenter = read("apps/web/lib/system/update-center.ts");
+  const webRequestContract = read("apps/web/lib/system/update-request-v2.ts");
+  const webIdempotency = read("apps/web/lib/system/update-request-idempotency.ts");
   const webUpdateRequestRoute = read("apps/web/app/api/system/update-requests/route.ts");
-  const selftest = read("scripts/quality/update-center-request-guard.selftest.ts");
+  const webSelftest = read("scripts/quality/update-center-request-v2.selftest.ts");
+  const agentSelftest = read("scripts/quality/update-agent-request-v2.selftest.ts");
+  const lockSelftest = read("scripts/quality/update-production-state-lock.selftest.ts");
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
-  const requestGuardSelftestScript = packageJson.scripts?.["update-center:request-guard:selftest"] ?? "";
-  const requiredTerms = [
-    "validate_request_schema",
-    "archive_invalid_request",
-    "invalid update request schema",
-    "update_[0-9]+_",
-    "set_auto_apply",
-    "autoApply",
-    "actorEmailHash",
-    "status_message_from_output",
-    "归档为 failed",
-    "validateUpdateRequestAgainstStatus",
-    "UPDATE_TARGET_NOT_NEWER",
-    "同版本或旧版本",
-    "update center request guard selftest passed",
+  const requestV2SelftestScript = packageJson.scripts?.["update-center:request-v2:selftest"] ?? "";
+  const ops005LocalSelftestScript = packageJson.scripts?.["ops:ops-005:local:selftest"] ?? "";
+  const missingAggregateMembers = findMissingScriptFragments(ops005LocalSelftestScript, [
+    "update-center:health:selftest",
+    "update-center:request-v2:selftest",
+    "update-center:request-guard:selftest",
+    "update-agent-request-v2.selftest.ts",
+    "update-production-state-lock.selftest.ts",
+  ]);
+  const ownerTerms: Array<[string, string, string[]]> = [
+    ["web-request", webRequestContract, ["schemaVersion", "expectedBefore", "expectedBeforeHash", "semanticHash", "requestHash", "idempotencyKey", "expiresAt", "snapshotHash", "confirmedSnapshotHash", "STATUS_SNAPSHOT_CHANGED", "positive().safe()", "max(500)", "directorySyncChain", "unlinkTemporary"]],
+    ["web-idempotency", webIdempotency, ["isValidUpdateRequestResponseBody", "responseBody", "responseStatus !== 202"]],
+    ["web-center", webUpdateCenter, ["LEGACY_MUTATION_UNBOUND", "atomicPublishUpdateRequest"]],
+    ["web-route", webUpdateRequestRoute, ["updateRequestCommandSchema", "createUpdateRequest"]],
+    ["agent-contract", agentContract, ["validate_request_schema", "expected_before_hash", "semantic_hash", "request_hash"]],
+    ["agent-state", agentState, ["archive_invalid_request", "LEGACY_MUTATION_UNBOUND", "needs_reconciliation", "executionAttempted", "image_tag_matches_version", "PROCESSING_CLAIM_AMBIGUOUS"]],
+    ["agent-runtime", agent, ["EXPECTED_BEFORE_MISMATCH", "TARGET_VERSION_NOT_NEWER", "REQUEST_EXPIRED", "ROLLBACK_ENV_SWITCH_UNCERTAIN", "PRODUCTION_STATE_LOCK_CHANGED", "publish_terminal_decision", "production_state_lock_binding_is_current", "next_queued_check", "AREAFORGE_PRODUCTION_STATE_LOCK_INHERITED", "--request-guard", "--identity-json"]],
+    ["updater-runtime", updater, ["EXPECTED_BEFORE_MISMATCH", "TARGET_VERSION_NOT_NEWER", "REQUEST_EXPIRED", "CURRENT_IMAGE_IDENTITY_INVALID", "configured_production_state_lock_path", "production-state lock inode changed while held", "image_tag_matches_version", "INHERITED_PRODUCTION_STATE_LOCK_FILE", "--request-guard"]],
+    ["docs", docs, ["expected-before", "processing", "production-state", "fd inode", "REQUEST_EXPIRED", "TARGET_VERSION_NOT_NEWER", "PROCESSING_CLAIM_AMBIGUOUS", "decision -> status -> claim cleanup", "ROLLBACK_ENV_SWITCH_UNCERTAIN"]],
+    ["web-selftest", webSelftest, ["expectedBeforeHash", "semanticHash", "requestHash", "atomic publish", "Number.MAX_SAFE_INTEGER + 1", "testAtomicPublishTemporaryCleanupUncertain", "invalid conflict response"]],
+    ["agent-selftest", agentSelftest, ["EXPECTED_BEFORE_MISMATCH", "TARGET_VERSION_NOT_NEWER", "PROCESSING_CLAIM_AMBIGUOUS", "REQUEST_EXPIRED", "ROLLBACK_ENV_SWITCH_UNCERTAIN", "LEGACY_MUTATION_UNBOUND", "NEEDS_RECONCILIATION", "inheritedLock=true", "  testStatusPublishFailureRetainsClaimWithoutReplay(", "  testApplyReconciliationMarkerOverridesTerminal(", "  testPolicyLockPathDriftFailsClosed(", "  testRollbackLockInodeReplacementFailsClosed("]],
+    ["lock-selftest", lockSelftest, ["production-state lock", "EXPECTED_BEFORE_MISMATCH", "TARGET_VERSION_NOT_NEWER", "  testTargetVersionNotNewerHasNoMutation(", "  testInheritedLockBinding(", "  testGuardExpiryAtSecondComparison(", "  testLockInodeReplacementFailsClosed(", "  testMismatchedRollbackRecordIsUnavailable("]],
   ];
-  const combined = `${agent}\n${docs}\n${webUpdateCenter}\n${webUpdateRequestRoute}\n${selftest}`;
-  const missing = requiredTerms.filter((term) => !combined.includes(term));
+  const missing = findMissingOwnedTerms(ownerTerms);
   const ok = missing.length === 0 &&
-    requestGuardSelftestScript === "tsx scripts/quality/update-center-request-guard.selftest.ts";
+    requestV2SelftestScript === "tsx scripts/quality/update-center-request-v2.selftest.ts" &&
+    missingAggregateMembers.length === 0;
   checks.push({
     name: "update-agent request boundary",
     ok,
     detail: ok
-      ? "web update center rejects no-op requests before queueing, and root update-agent validates request schema before executing updater, rollback, or config changes"
-      : `missing ${missing.join(", ") || "none"}; request guard selftest=${requestGuardSelftestScript || "missing"}`,
+      ? "Web and root update paths bind V2 requests to a confirmed snapshot, strict hashes, TTL, idempotency, processing reconciliation, shared production-state lock, and dual compare-and-reject"
+      : `missing ${[...missing, ...missingAggregateMembers.map((member) => `ops005-local:${member}`)].join(", ") || "none"}; request-v2=${requestV2SelftestScript || "missing"}; ops005-local=${ops005LocalSelftestScript || "missing"}`,
   });
+}
+
+function checkRuntimeIdentityBoundary(): void {
+  const contract = read("apps/web/lib/system/product-experience-contract.ts");
+  const core = read("apps/web/lib/system/runtime-identity-core.ts");
+  const development = read("apps/web/lib/system/runtime-identity-development.ts");
+  const runtime = read("apps/web/lib/system/runtime-identity.ts");
+  const source = read("scripts/quality/product-experience-source.ts");
+  const health = read("apps/web/app/api/health/route.ts");
+  const generator = read("scripts/ops/generate-runtime-identity.ts");
+  const probe = read("scripts/ops/product-experience-runtime-probe.ts");
+  const dockerfile = read("infra/docker/web.Dockerfile");
+  const workflow = read(".github/workflows/release.yml");
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const missing = findMissingOwnedTerms([
+    ["contract", contract, ["ux-source-v2", "canonicalSha256", "packages/core/package.json"]],
+    ["core", core, ["createStoredRuntimeIdentity", "validateStoredRuntimeIdentity", "runtimeIdentityHash", "areaforge.runtime-identity.v1"]],
+    ["development", development, ["createDevelopmentRuntimeIdentity", "computeProductExperienceSourceHash", "currentGitCommit", "areaforge.runtime-build.v1"]],
+    ["runtime", runtime, ["getRuntimeIdentity", "RUNTIME_IDENTITY_INVALID", "AREAFORGE_DEVELOPMENT_RUNTIME_IDENTITY_JSON", "/app/runtime-identity.json"]],
+    ["source", source, ["computeProductExperienceSourceHash", "currentGitCommit", "productExperienceSourcePaths"]],
+    ["health", health, ["getRuntimeIdentity", "status: ok ? 200 : 503"]],
+    ["generator", generator, ["AREAFORGE_APP_VERSION", "AREAFORGE_GIT_COMMIT", "AREAFORGE_UX_SOURCE_HASH", "AREAFORGE_BUILD_ID"]],
+    ["probe", probe, ["redirect: \"manual\"", "16384", "validateRuntimeIdentity", "atomicWriteJson"]],
+    ["docker", dockerfile, ["generate-runtime-identity.ts /app/runtime-identity.json", "COPY --from=builder --chown=nextjs:nodejs /app/runtime-identity.json"]],
+    ["workflow", workflow, ["Compute immutable web runtime identity", "AREAFORGE_UX_SOURCE_FINGERPRINT_SCHEMA", "AREAFORGE_UX_SOURCE_HASH", "AREAFORGE_BUILD_ID"]],
+  ]);
+  const scriptsOk = packageJson.scripts?.["experience:runtime:selftest"] === "tsx scripts/quality/product-experience-runtime-probe.selftest.ts" &&
+    packageJson.scripts?.["release:runtime-identity:selftest"] === "tsx scripts/quality/runtime-identity.selftest.ts";
+  checks.push({
+    name: "immutable web runtime identity",
+    ok: missing.length === 0 && scriptsOk,
+    detail: missing.length === 0 && scriptsOk
+      ? "health, immutable image identity, release build args, restricted probe, and dedicated selftests are bound to runtime owner files"
+      : `missing ${missing.join(", ") || "none"}; scripts=${scriptsOk ? "present" : "missing"}`,
+  });
+}
+
+export function findMissingOwnedTerms(ownerTerms: Array<[string, string, string[]]>): string[] {
+  return ownerTerms.flatMap(([owner, source, terms]) =>
+    terms.filter((term) => !source.includes(term)).map((term) => `${owner}:${term}`));
+}
+
+export function findMissingScriptFragments(script: string, fragments: string[]): string[] {
+  return fragments.filter((fragment) => !script.includes(fragment));
 }
 
 function checkMigrationDockerfile(): void {
@@ -417,7 +515,11 @@ function checkReleaseWorkflow(): void {
     "needs: validate",
     "pnpm github-release-updater:preflight",
     "pnpm ops:readiness",
+    "pnpm audit:all",
     "pnpm audit:prod",
+    "GITLEAKS_VERSION: 8.30.1",
+    "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+    "pnpm secrets:scan",
     "pnpm check",
     "Release supply-chain generator smoke",
     "infra/docker/web.Dockerfile",
@@ -432,17 +534,53 @@ function checkReleaseWorkflow(): void {
     "areaforge-provenance.json",
     "pnpm release:supply-chain:selftest",
     "pnpm ci:supply-chain:selftest",
+    "pnpm release:admission:selftest",
+    "pnpm release:admission",
+    "AREAFORGE_RELEASE_TAG:",
+    "AREAFORGE_WORKFLOW_SHA:",
+    "Reject existing immutable release identity",
+    "pnpm release:identity:probe:selftest",
+    "pnpm release:identity:probe",
+    "pnpm release:workflow:policy:selftest",
+    "pnpm experience:runtime:selftest",
+    "pnpm release:runtime-identity:selftest",
+    "AREAFORGE_RELEASE_REPOSITORY:",
+    "AREAFORGE_RELEASE_WEB_IMAGE:",
+    "AREAFORGE_RELEASE_MIGRATION_IMAGE:",
+    "release channel must be stable or preview",
     "pnpm ops:ops-001:fallback:selftest",
     "pnpm release:evidence:redacted-export:selftest",
     "pnpm release:evidence:redacted-export:record:selftest",
     "pnpm ops:ops-001:fallback:finalize:selftest",
+    "pnpm ops:ops-005:local:selftest",
+    "pnpm ops:ops-005:preflight:selftest",
+    "pnpm ops:ops-005:evidence:selftest",
+    "pnpm ops:ops-006:preflight:selftest",
+    "pnpm ops:ops-007:preflight:selftest",
+    "pnpm ops:ops-008:preflight:selftest",
+    "pnpm ops:ops-006:preflight",
+    "pnpm ops:ops-007:preflight",
+    "pnpm ops:ops-008:preflight",
+    "pnpm attachment:crash-window:selftest",
+    "pnpm attachment:crash-window:validate scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json",
+    "pnpm updater:phase-journal:selftest",
+    "pnpm updater:phase-journal:validate scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json",
+    "pnpm updater:maintenance-control:selftest",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json",
     "sha256sum",
     "COSIGN_PRIVATE_KEY_B64",
     "cosign sign-blob",
     "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
+    "${RUNNER_TEMP}/areaforge-cosign.key",
+    "trap cleanup_signing EXIT",
     "unsigned preview",
     "--yes",
     "--bundle SHA256SUMS.sig",
+    "pnpm release:supply-chain:record . > areaforge-release-supply-chain.md",
+    "pnpm release:supply-chain:validate areaforge-release-supply-chain.md . --strict",
+    "areaforge-release-supply-chain.md",
     "softprops/action-gh-release",
   ];
   const missing = requiredTerms.filter((term) => !workflow.includes(term));
@@ -450,7 +588,7 @@ function checkReleaseWorkflow(): void {
     name: "GitHub Release workflow",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "workflow validates release gates, builds web and migration images, emits manifest/SBOM/provenance/checksums/signature assets, and publishes a GitHub Release"
+      ? "workflow validates structured release admission and immutable identities, builds web and migration images, emits manifest/SBOM/provenance/checksums/signature assets, and publishes a GitHub Release"
       : `missing ${missing.join(", ")}`,
   });
 }
@@ -460,6 +598,7 @@ function checkCiWorkflow(): void {
   const requiredTerms = [
     "pull_request:",
     "push:",
+    "schedule:",
     "actions/checkout",
     "pnpm/action-setup",
     "version: 11.7.0",
@@ -467,13 +606,36 @@ function checkCiWorkflow(): void {
     "node-version: 24",
     "sudo apt-get install -y shellcheck",
     "pnpm install --frozen-lockfile",
+    "pnpm audit:all",
     "pnpm audit:prod",
+    "GITLEAKS_VERSION: 8.30.1",
+    "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+    "pnpm secrets:scan",
     "pnpm ci:supply-chain:selftest",
+    "pnpm experience:runtime:selftest",
+    "pnpm release:runtime-identity:selftest",
     "pnpm shellcheck:updater",
     "pnpm ops:ops-001:fallback:selftest",
     "pnpm release:evidence:redacted-export:selftest",
     "pnpm release:evidence:redacted-export:record:selftest",
     "pnpm ops:ops-001:fallback:finalize:selftest",
+    "pnpm ops:ops-005:local:selftest",
+    "pnpm ops:ops-005:preflight:selftest",
+    "pnpm ops:ops-005:evidence:selftest",
+    "pnpm ops:ops-006:preflight:selftest",
+    "pnpm ops:ops-007:preflight:selftest",
+    "pnpm ops:ops-008:preflight:selftest",
+    "pnpm ops:ops-006:preflight",
+    "pnpm ops:ops-007:preflight",
+    "pnpm ops:ops-008:preflight",
+    "pnpm attachment:crash-window:selftest",
+    "pnpm attachment:crash-window:validate scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json",
+    "pnpm updater:phase-journal:selftest",
+    "pnpm updater:phase-journal:validate scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json",
+    "pnpm updater:maintenance-control:selftest",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json",
     "pnpm github-release-updater:preflight",
     "pnpm governance:preflight",
     "pnpm package-e:preflight",
@@ -581,4 +743,4 @@ function listFiles(dir: string): string[] {
   });
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

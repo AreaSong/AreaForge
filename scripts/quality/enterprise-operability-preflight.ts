@@ -1,22 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { evaluateResidualCoverage } from "./enterprise-operability-residual-coverage";
+import { readResidualLedgerV2 } from "./residual-ledger-common";
 
 interface CheckResult {
   name: string;
   ok: boolean;
   detail: string;
-}
-
-interface ResidualLedger {
-  items?: Array<{
-    id?: string;
-    type?: string;
-    reviewAt?: string;
-    executableNow?: boolean;
-    ownerSkills?: string[];
-    closeCondition?: string;
-    requiredEvidence?: string;
-  }>;
 }
 
 const root = process.cwd();
@@ -51,6 +41,7 @@ function main(): void {
 function checkRequiredFiles(): void {
   const requiredFiles = [
     "docs/development/long-term-operability-control-plane.md",
+    "docs/development/release-evidence-closeout-contract.md",
     "docs/development/completion-evidence-checklist.md",
     "docs/development/runtime-write-boundary.md",
     "docs/development/maintenance-cadence.md",
@@ -66,10 +57,13 @@ function checkRequiredFiles(): void {
     "docs/development/maintenance-window-record-template.md",
     "docs/development/maintenance-window-index.json",
     "docs/development/incident-index.json",
+    "docs/development/operations-lifecycle.json",
+    "docs/development/operations-lifecycle.md",
     "docs/development/rollback-proof-record-template.md",
     "docs/development/update-agent-status-record-template.md",
     "docs/development/ops-001-closure-packet-template.md",
     "docs/development/ops-005-expected-before-production-evidence-template.md",
+    "docs/development/ops-006-production-evidence-template.md",
     "docs/development/product-experience-review-record-template.md",
     "docs/development/residual-risk-ledger.md",
     "docs/development/residual-risk-ledger.json",
@@ -83,6 +77,11 @@ function checkRequiredFiles(): void {
     ".codex/skills-src/areaforge-release-operator/SKILL.md",
     ".codex/skills-src/areaforge-residual-ledger/SKILL.md",
     ".codex/skills-src/areaforge-product-experience/SKILL.md",
+    "scripts/quality/enterprise-operability-residual-coverage.ts",
+    "scripts/quality/enterprise-operability-preflight.selftest.ts",
+    "scripts/quality/release-closeout-binding.ts",
+    "scripts/quality/release-closeout-binding.selftest.ts",
+    "scripts/quality/bound-json-evidence.ts",
     "scripts/ops/operability-status.ts",
     "scripts/quality/operability-status-validate.ts",
     "scripts/quality/operability-status-validate.selftest.ts",
@@ -100,6 +99,7 @@ function checkRequiredFiles(): void {
     "scripts/quality/long-term-evidence-snapshot-validate.ts",
     "scripts/quality/long-term-evidence-snapshot.selftest.ts",
     "scripts/quality/operational-evidence-bundle-validate.ts",
+    "scripts/quality/operational-evidence-source.ts",
     "scripts/quality/operational-evidence-bundle-validate.selftest.ts",
     "scripts/ops/support-bundle-preview.ts",
     "scripts/quality/support-bundle-preview-validate.ts",
@@ -113,6 +113,13 @@ function checkRequiredFiles(): void {
     "scripts/quality/attachment-reconciliation.ts",
     "scripts/quality/attachment-reconciliation-summary.ts",
     "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+    "scripts/ops/data-integrity-doctor.ts",
+    "scripts/quality/data-integrity-doctor-validate.ts",
+    "scripts/quality/data-integrity-doctor.selftest.ts",
+    "scripts/ops/ops006-production-evidence-preflight.ts",
+    "scripts/quality/ops006-production-evidence-validate.ts",
+    "scripts/quality/ops006-production-evidence-validate.selftest.ts",
+    "scripts/quality/ops006-production-evidence-preflight.selftest.ts",
     "scripts/quality/release-evidence-validate.ts",
     "scripts/quality/release-evidence-validate.selftest.ts",
     "scripts/quality/residual-evidence-preflight.ts",
@@ -150,6 +157,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/incident-index-common.ts",
     "scripts/quality/incident-index-validate.ts",
     "scripts/quality/incident-index.selftest.ts",
+    "scripts/quality/operations-lifecycle-validate.ts",
+    "scripts/quality/operations-lifecycle-validate.selftest.ts",
     "scripts/quality/rollback-proof-record-validate.ts",
     "scripts/quality/rollback-proof-record-validate.selftest.ts",
     "scripts/quality/update-agent-status-validate.ts",
@@ -185,6 +194,12 @@ function checkControlPlaneDoc(): void {
     "pnpm ops:handoff",
     "pnpm ops:long-term:gate",
     "pnpm ops:long-term:snapshot",
+    "pnpm ops:lifecycle:validate",
+    "pnpm ops:lifecycle:selftest",
+    "pnpm ops:lifecycle:typecheck",
+    "AF-SLO-HEALTH-001",
+    "schema v3",
+    "dataIntegrityRecord",
     "pnpm ops:support:bundle-preview",
     "pnpm ops:evidence:bundle:validate",
     "pnpm ops:ops-001:closure:validate",
@@ -192,6 +207,8 @@ function checkControlPlaneDoc(): void {
     "--shape-only",
     "pnpm ops:ops-005:preflight",
     "pnpm ops:ops-005:evidence:validate",
+    "release-evidence-closeout-contract.md",
+    "release:closeout:binding:selftest",
     "不连接生产",
     "不创建 GitHub Release",
     "不写生产",
@@ -237,32 +254,30 @@ function checkReleaseDecisionMatrix(): void {
 
 function checkResidualCoverage(): void {
   const doc = read("docs/development/long-term-operability-control-plane.md");
-  const ledger = JSON.parse(read("docs/development/residual-risk-ledger.json")) as ResidualLedger;
-  const ledgerIds = new Set((ledger.items ?? []).map((item) => item.id).filter((id): id is string => Boolean(id)));
-  const requiredIds = [
-    "AF-RISK-OPS-001",
-    "AF-RISK-OPS-002",
-    "AF-RISK-REL-001",
-    "AF-RISK-SC-001",
-    "AF-RISK-SC-002",
-    "AF-RISK-SC-003",
-    "AF-RISK-OPS-003",
-    "AF-RISK-OPS-004",
-    "AF-RISK-OPS-005",
-    "AF-RISK-UX-001",
-  ];
-  const missingFromLedger = requiredIds.filter((id) => !ledgerIds.has(id));
-  const missingFromDoc = requiredIds.filter((id) => !doc.includes(id));
-  const incomplete = (ledger.items ?? [])
-    .filter((item) => requiredIds.includes(item.id ?? ""))
-    .filter((item) => !item.reviewAt || !item.closeCondition || !item.requiredEvidence || !item.ownerSkills?.length)
-    .map((item) => item.id ?? "<missing-id>");
+  let ledger;
+  try {
+    ledger = readResidualLedgerV2({ root });
+  } catch (error) {
+    checks.push({
+      name: "residual operability coverage",
+      ok: false,
+      detail: `invalid V2 ledger: ${error instanceof Error ? error.message : String(error)}`,
+    });
+    return;
+  }
+  const result = evaluateResidualCoverage(doc, ledger.items);
   checks.push({
     name: "residual operability coverage",
-    ok: missingFromLedger.length === 0 && missingFromDoc.length === 0 && incomplete.length === 0,
-    detail: missingFromLedger.length === 0 && missingFromDoc.length === 0 && incomplete.length === 0
-      ? `${requiredIds.length} residual IDs are covered with reviewAt, closeCondition, requiredEvidence, and ownerSkills`
-      : `missing ledger ${missingFromLedger.join(", ") || "none"}; missing doc ${missingFromDoc.join(", ") || "none"}; incomplete ${incomplete.join(", ") || "none"}`,
+    ok: result.ok,
+    detail: result.ok
+      ? `${result.expectedCount} residual IDs are covered exactly once in the review section with required metadata`
+      : [
+        `section ${result.sectionIssues.join(", ") || "valid"}`,
+        `missing review entries ${result.missingFromReviewSection.join(", ") || "none"}`,
+        `orphan review entries ${result.orphanedInReviewSection.join(", ") || "none"}`,
+        `duplicate review entries ${result.duplicatedInReviewSection.join(", ") || "none"}`,
+        `incomplete ${result.incompleteItems.join(", ") || "none"}`,
+      ].join("; "),
   });
 }
 
@@ -270,6 +285,8 @@ function checkPackageScript(): void {
   const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
   const expectedScripts: Record<string, string> = {
     "enterprise:operability:preflight": "tsx scripts/quality/enterprise-operability-preflight.ts",
+    "enterprise:operability:preflight:selftest": "tsx scripts/quality/enterprise-operability-preflight.selftest.ts",
+    "release:closeout:binding:selftest": "tsx scripts/quality/release-closeout-binding.selftest.ts",
     "ops:status": "tsx scripts/ops/operability-status.ts",
     "ops:status:validate": "tsx scripts/quality/operability-status-validate.ts",
     "ops:status:validate:selftest": "tsx scripts/quality/operability-status-validate.selftest.ts",
@@ -279,6 +296,9 @@ function checkPackageScript(): void {
     "ops:handoff:validate:selftest": "tsx scripts/quality/operational-handoff-validate.selftest.ts",
     "ops:handoff:selftest": "tsx scripts/quality/operational-handoff.selftest.ts",
     "ops:readonly-side-effect:selftest": "tsx scripts/quality/ops-readonly-side-effect.selftest.ts",
+    "ops:lifecycle:validate": "tsx scripts/quality/operations-lifecycle-validate.ts",
+    "ops:lifecycle:selftest": "tsx scripts/quality/operations-lifecycle-validate.selftest.ts",
+    "ops:lifecycle:typecheck": "tsc --noEmit --target ES2022 --lib ES2022,DOM --module ESNext --moduleResolution Bundler --strict --skipLibCheck --esModuleInterop --types node scripts/quality/operations-lifecycle-validate.ts scripts/quality/operations-lifecycle-validate.selftest.ts",
     "completion:evidence:validate": "tsx scripts/quality/completion-evidence-validate.ts",
     "completion:evidence:selftest": "tsx scripts/quality/completion-evidence-validate.selftest.ts",
     "ops:long-term:gate": "tsx scripts/ops/long-term-operability-live-gate.ts",
@@ -300,6 +320,9 @@ function checkPackageScript(): void {
     "attachment:reconciliation": "tsx scripts/quality/attachment-reconciliation.ts",
     "attachment:reconciliation:summary": "tsx scripts/quality/attachment-reconciliation-summary.ts",
     "attachment:reconciliation:summary:selftest": "tsx scripts/quality/attachment-reconciliation-summary.selftest.ts",
+    "ops:data-integrity:doctor": "tsx scripts/ops/data-integrity-doctor.ts",
+    "ops:data-integrity:validate": "tsx scripts/quality/data-integrity-doctor-validate.ts",
+    "ops:data-integrity:selftest": "tsx scripts/quality/data-integrity-doctor.selftest.ts",
     "release:evidence:validate": "tsx scripts/quality/release-evidence-validate.ts",
     "release:evidence:selftest": "tsx scripts/quality/release-evidence-validate.selftest.ts",
     "residuals:evidence:preflight": "tsx scripts/quality/residual-evidence-preflight.ts",
@@ -317,6 +340,10 @@ function checkPackageScript(): void {
     "ops:ops-005:preflight:selftest": "tsx scripts/quality/ops005-evidence-preflight.selftest.ts",
     "ops:ops-005:evidence:validate": "tsx scripts/quality/ops005-production-evidence-validate.ts",
     "ops:ops-005:evidence:selftest": "tsx scripts/quality/ops005-production-evidence-validate.selftest.ts",
+    "ops:ops-006:evidence:validate": "tsx scripts/quality/ops006-production-evidence-validate.ts",
+    "ops:ops-006:evidence:selftest": "tsx scripts/quality/ops006-production-evidence-validate.selftest.ts",
+    "ops:ops-006:production:preflight": "tsx scripts/ops/ops006-production-evidence-preflight.ts",
+    "ops:ops-006:production:preflight:selftest": "tsx scripts/quality/ops006-production-evidence-preflight.selftest.ts",
     "maintenance:window:record": "tsx scripts/ops/generate-maintenance-window-record.ts",
     "maintenance:window:record:selftest": "tsx scripts/quality/maintenance-window-record.selftest.ts",
     "maintenance:window:validate": "tsx scripts/quality/maintenance-window-record-validate.ts",
@@ -363,6 +390,8 @@ function checkEntryPoints(): void {
   const releaseTrain = read("docs/development/release-train.md");
   const requiredLinks = [
     [rootReadme, "docs/development/long-term-operability-control-plane.md", "README.md"],
+    [rootReadme, "docs/development/operations-lifecycle.md", "README.md"],
+    [rootReadme, "pnpm ops:lifecycle:typecheck", "README.md"],
     [rootReadme, "pnpm enterprise:operability:preflight", "README.md"],
     [rootReadme, "pnpm ops:status", "README.md"],
     [rootReadme, "pnpm ops:handoff", "README.md"],
@@ -370,8 +399,10 @@ function checkEntryPoints(): void {
     [rootReadme, "pnpm ops:long-term:snapshot", "README.md"],
     [rootReadme, "pnpm release:closeout:audit", "README.md"],
     [docsReadme, "development/long-term-operability-control-plane.md", "docs/README.md"],
+    [docsReadme, "development/operations-lifecycle.md", "docs/README.md"],
     [workflowReadme, "long-term-operability-control-plane.md", "workflow/README.md"],
     [docSync, "docs/development/long-term-operability-control-plane.md", "docs/development/doc-sync-checklist.md"],
+    [docSync, "docs/development/operations-lifecycle.json", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/incident-record-template.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/restore-drill-record-template.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/maintenance-window-record-template.md", "docs/development/doc-sync-checklist.md"],
@@ -381,6 +412,7 @@ function checkEntryPoints(): void {
     [docSync, "docs/development/ci-supply-chain-record-template.md", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/support-bundle-preview.md", "docs/development/doc-sync-checklist.md"],
     [maintenance, "pnpm enterprise:operability:preflight", "docs/development/maintenance-cadence.md"],
+    [maintenance, "pnpm ops:lifecycle:typecheck", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ops:long-term:gate", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ops:long-term:snapshot", "docs/development/maintenance-cadence.md"],
     [maintenance, "pnpm ops:support:bundle-preview", "docs/development/maintenance-cadence.md"],
@@ -480,6 +512,7 @@ function checkValidationCoverage(): void {
   const requiredTerms = [
     "docs/development/long-term-operability-control-plane.md",
     "scripts/quality/enterprise-operability-preflight.ts",
+    "scripts/quality/enterprise-operability-preflight.selftest.ts",
     "scripts/ops/long-term-operability-live-gate.ts",
     "pnpm ops:long-term:gate",
     "scripts/ops/long-term-evidence-snapshot.ts",
@@ -488,6 +521,8 @@ function checkValidationCoverage(): void {
     "pnpm ops:readonly-side-effect:selftest",
     "pnpm ops:long-term:snapshot:validate",
     "pnpm enterprise:operability:preflight",
+    "pnpm enterprise:operability:preflight:selftest",
+    "pnpm release:closeout:binding:selftest",
     "pnpm maintenance:cadence:preflight",
     "pnpm release:train:preflight",
     "pnpm residuals:review-due",

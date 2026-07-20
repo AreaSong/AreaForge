@@ -434,13 +434,20 @@ export function createDashboardSnapshot(input: DashboardInput): DashboardSnapsho
     .filter((task) => task.status !== "done")
     .sort((left, right) => compareDashboardTasks(themeState, left, right))
     .slice(0, themeState === "recovery" ? 1 : 4);
+  const recoveryPlan = createRecoveryPlan({
+    riskState,
+    debtCount: input.debtCount,
+    missedDays: input.missedDays,
+    effectiveMinutes: input.effectiveMinutes,
+    topTask: topTasks[0],
+  });
 
   return {
     riskState,
     themeState,
     debtLevel,
     topTasks,
-    nextAction: createNextAction(themeState, topTasks[0]),
+    nextAction: createNextAction(themeState, topTasks[0], recoveryPlan.minimumMinutes),
     disciplineLine: createDisciplineLine(riskState, input),
   };
 }
@@ -717,9 +724,11 @@ function taskThemeWeight(themeState: ThemeState, task: StudyTaskInput): number {
   return 0;
 }
 
-function createNextAction(themeState: ThemeState, task?: StudyTaskInput): string {
+function createNextAction(themeState: ThemeState, task: StudyTaskInput | undefined, recoveryMinutes: number): string {
   if (themeState === "recovery") {
-    return task ? `先完成「${task.title}」的 30 分钟恢复任务。` : "先做 30 分钟恢复学习，重新启动。";
+    return task
+      ? `先完成「${task.title}」的 ${recoveryMinutes} 分钟恢复任务。`
+      : `先做 ${recoveryMinutes} 分钟恢复学习，重新启动。`;
   }
 
   if (!task) return "整理今天的复盘，把明天最小任务写下来。";

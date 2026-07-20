@@ -2,7 +2,7 @@
 
 `apps/web` 是 AreaForge 的 Next.js 私有 Web 应用。它承载作战台、任务、计时、复盘、考纲、笔记附件、统计、报告、模拟考试、阶段调整和版本中心 UI。
 
-当前线上版本为 `0.1.7`，公网入口为 `https://forge.areasong.top/`。Web 运行时只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
+当前仓库发布候选版本为 `0.1.8`，线上仍运行 `0.1.7`，公网入口为 `https://forge.areasong.top/`；尚未创建或部署 `v0.1.8`。Web 运行时只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
 
 ## Getting Started
 
@@ -29,7 +29,7 @@ pnpm check
 
 ## 本地真实体验 Smoke
 
-仓库提供写入型本地 UX smoke，用于验证登录、任务、计时收口、每日复盘、笔记附件、错题、大纲、模拟考试、阶段草稿、版本中心请求和主要页面 SSR。它默认只允许打到 `localhost` / `127.0.0.1`，并且必须显式设置 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，避免误跑到生产。
+仓库提供写入型本地 UX smoke，用于验证登录、任务、计时收口、每日复盘、笔记附件、错题、大纲、模拟考试、阶段草稿、版本中心请求和主要页面 SSR。它只允许打到 `localhost` / `127.0.0.1` / `[::1]`，任何非本地 URL 和 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL` 配置都会直接失败；同时必须显式设置 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，避免误跑到生产。脚本会在首个合成写入前检查不存在活跃计时，并要求 `AREAFORGE_SMOKE_PASSWORD_FILE` 是绝对路径、单一普通文件、仅 owner 可读（`0400`/`0600`）；不接受 `AREAFORGE_SMOKE_PASSWORD` 明文环境变量。
 
 示例：
 
@@ -40,6 +40,8 @@ AREAFORGE_SMOKE_PASSWORD_FILE=/private/tmp/areaforge-smoke-password \
 AREAFORGE_SMOKE_ALLOW_WRITES=true \
 pnpm smoke:local-ux
 ```
+
+密码文件准备后应执行 `chmod 600 /private/tmp/areaforge-smoke-password`（或使用 `0400`），并运行 `pnpm smoke:local-ux:selftest` 验证本地 URL、活跃计时、密码文件和结构化失败边界。
 
 macOS 上 `/tmp` 通常是指向 `/private/tmp` 的符号链接；附件安全检查会拒绝符号链接上传根。做本地附件 smoke 时，`UPLOAD_DIR` 使用真实路径，例如 `/private/tmp/areaforge-ux-smoke-uploads`。
 

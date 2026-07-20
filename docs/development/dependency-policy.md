@@ -32,7 +32,10 @@ Dependabot PR 仍需要普通验证。不能因为来自 Dependabot 就跳过 re
 ## GitHub Actions
 
 - 外部 `uses:` 必须 pin 到 40 位 commit SHA，并用行内注释保留原始主版本，例如 `# v5`，方便 Dependabot 或人工升级时追溯来源。
-- CI 和 Release workflow 都必须运行 `pnpm audit:prod`。当前该命令执行 `pnpm audit --prod --audit-level high`，把生产依赖的 high/critical 漏洞作为阻断项；moderate 或 low 结果不阻断发布，但需要在依赖治理或残余风险里评估。
+- 所有 `actions/checkout` 步骤必须设置 `persist-credentials: false`；需要发布 Release 或推送 GHCR 的步骤通过最小 job permission 和显式 action/token 输入完成，不把 Git 凭据留给后续任意 shell 步骤。
+- CI 和 Release workflow 都必须运行 `pnpm audit:all`，覆盖运行时与构建/开发工具链的 high/critical 漏洞；`pnpm audit:prod` 保留为生产依赖单独报告。moderate 或 low 结果不阻断发布，但需要在依赖治理或残余风险里评估。
+- CI 和 Release workflow 都必须运行 `pnpm secrets:scan`。扫描器固定为 Gitleaks CLI `8.30.1`，下载的 Linux release archive 必须通过官方 SHA-256 `551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb` 校验；扫描结果只输出 rule ID、仓库相对路径和行号，不输出匹配值、不上传报告、不评论 PR，也不读取 Actions secrets。已核验的历史测试 fixture 误报只能用 `.gitleaksignore` 的单条 fingerprint 放行，禁止按整个文件、目录或规则放行。
+- CI 除 pull request 和受控分支 push 外，每周执行一次只读完整门禁，避免仓库长期无提交时漏掉新披露的高危依赖问题。
 - `pnpm governance:preflight` 会扫描 `.github/workflows/ci.yml` 和 `.github/workflows/release.yml` 的外部 `uses:`，发现非 SHA pinning 时失败。
 - GitHub Actions 升级应同时更新 SHA、行内版本注释、Dependabot/Release 证据和本文件需要的验证结果。
 
@@ -49,7 +52,9 @@ Dependabot PR 仍需要普通验证。不能因为来自 Dependabot 就跳过 re
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm audit:all
 pnpm audit:prod
+pnpm secrets:scan
 pnpm governance:preflight
 pnpm check
 git diff --check
@@ -72,6 +77,8 @@ pnpm ops:readiness
 ```
 
 ## 残余风险
+
+当前 lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.16`、Prisma dev 工具链的可选传递依赖 `@hono/node-server` 固定为 `1.19.13`，用于修复对应 moderate advisory，同时避免升级 Next/Prisma 主版本。后续升级上游框架时应优先移除已不再需要的 override，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
 
 当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。`v0.1.7` 已产生真实签名 Release 的 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据，并已由服务器侧 updater 应用到生产；残余项 `AF-RISK-SC-001` 仍保持打开，是因为关闭台账需要维护者人工复核，生产 apply 不自动关闭 residual。
 

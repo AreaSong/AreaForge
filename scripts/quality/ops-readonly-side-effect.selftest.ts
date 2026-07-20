@@ -45,6 +45,16 @@ const readOnlyCommands = [
     mode: "residual_evidence_preflight",
   },
   {
+    label: "residual task promotion preview",
+    args: ["residuals:promotion-preview"],
+    mode: "read_only_residual_task_promotion_preview",
+  },
+  {
+    label: "residual task promotion preview selftest",
+    args: ["residuals:promotion-preview:selftest"],
+    summaryToken: "PASS residual promotion preview selftest",
+  },
+  {
     label: "residual closure review validator selftest",
     args: ["residuals:closure:selftest"],
     summaryToken: "residual closure review validator selftest passed",
@@ -73,6 +83,7 @@ const readOnlyCommands = [
     label: "long-term evidence snapshot",
     args: ["ops:long-term:snapshot"],
     mode: "read_only_long_term_evidence_snapshot",
+    allowedExitCodes: [0, 1],
   },
   {
     label: "completion evidence validator selftest",
@@ -97,7 +108,7 @@ const readOnlyCommands = [
   {
     label: "resolved incident index",
     args: ["incident:index"],
-    mode: "read_only_resolved_incident_index",
+    mode: "read_only_incident_index",
   },
   {
     label: "resolved incident index selftest",
@@ -118,6 +129,11 @@ const readOnlyCommands = [
     label: "attachment reconciliation summary selftest",
     args: ["attachment:reconciliation:summary:selftest"],
     summaryToken: "attachment reconciliation summary selftest passed",
+  },
+  {
+    label: "data integrity doctor selftest",
+    args: ["ops:data-integrity:selftest"],
+    summaryToken: "data integrity doctor selftest passed",
   },
   {
     label: "release evidence validator selftest",
@@ -170,7 +186,7 @@ function main(): void {
       encoding: "utf8",
       env: readOnlyEnv(),
     });
-    expectStatus(command.label, result, 0);
+    expectStatus(command.label, result, command.allowedExitCodes ?? [0]);
     if (command.mode) {
       assertJsonSafety(command.label, result.stdout, command.mode);
     }
@@ -232,7 +248,7 @@ function protectedPathFingerprintSha256(): string {
 }
 
 function assertJsonSafety(label: string, raw: string, expectedMode: string): void {
-  const parsed = JSON.parse(raw) as JsonRecord;
+  const parsed = parseFirstJsonObject(raw);
   if (parsed.mode !== expectedMode) {
     fail(`${label} mode mismatch: ${String(parsed.mode)} expected ${expectedMode}`);
   }
@@ -257,6 +273,37 @@ function assertJsonSafety(label: string, raw: string, expectedMode: string): voi
   if (expectedMode === "offline_long_term_operability_status_projection") {
     assertStatusProtectedPathFingerprint(label, parsed);
   }
+  if (expectedMode === "read_only_long_term_evidence_snapshot"
+    && parsed.status !== "pass"
+    && parsed.status !== "invalid"
+    && parsed.status !== "blocked"
+    && parsed.status !== "needs_live_evidence") {
+    fail(`${label} status must be pass, invalid, blocked, or needs_live_evidence; got ${String(parsed.status)}`);
+  }
+}
+
+function parseFirstJsonObject(raw: string): JsonRecord {
+  const start = raw.indexOf("{");
+  if (start < 0) fail("command output does not contain a JSON object");
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < raw.length; index += 1) {
+    const char = raw[index] as string;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return JSON.parse(raw.slice(start, index + 1)) as JsonRecord;
+    }
+  }
+  fail("command output contains an incomplete JSON object");
 }
 
 function assertStatusProtectedPathFingerprint(label: string, parsed: JsonRecord): void {
@@ -326,9 +373,10 @@ function assertNoSideEffects(
   }
 }
 
-function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expected: number): void {
-  if (result.status !== expected) {
-    console.error(`FAIL ${label}: expected exit ${expected}, got ${String(result.status)}`);
+function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expected: number | number[]): void {
+  const allowed = Array.isArray(expected) ? expected : [expected];
+  if (!allowed.includes(result.status ?? -1)) {
+    console.error(`FAIL ${label}: expected exit ${allowed.join(" or ")}, got ${String(result.status)}`);
     console.error(result.stdout.trim());
     console.error(result.stderr.trim());
     process.exit(1);

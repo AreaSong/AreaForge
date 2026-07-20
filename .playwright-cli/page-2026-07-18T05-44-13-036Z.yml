@@ -1,0 +1,13 @@
+- generic [active] [ref=f2e1]:
+  - main [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - img "AreaForge" [ref=f2e4]
+      - heading "进入作战台" [level=1] [ref=f2e5]
+      - generic [ref=f2e6]: 邮箱
+      - textbox "邮箱" [ref=f2e7]: invalid@example.test
+      - generic [ref=f2e8]: 密码
+      - textbox "密码" [ref=f2e9]: definitely-wrong-password
+      - paragraph [ref=f2e25]: 邮箱或密码不正确。
+      - button "登录" [ref=f2e10]
+  - button "Open Next.js Dev Tools" [ref=f2e20] [cursor=pointer]
+  - alert [ref=f2e24]

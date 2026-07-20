@@ -5,6 +5,10 @@ import {
   type Signal,
   type Status,
 } from "./operational-readiness-summary";
+import {
+  buildOperationalEvidenceSourceSnapshot,
+  type OperationalEvidenceSourceSnapshot,
+} from "../quality/operational-evidence-source";
 
 type BundleStatus = "ready" | "needs_attention" | "blocked";
 
@@ -21,10 +25,12 @@ type EvidenceBundleItem = {
 };
 
 type OperationalEvidenceBundle = {
+  schemaVersion: 2;
   status: BundleStatus;
   mode: "read_only_operational_evidence_bundle";
   bundleHash: string;
   generatedAt: string;
+  sourceSnapshot: OperationalEvidenceSourceSnapshot;
   summary: OperationalReadinessSummary;
   freshness: OperationalReadinessSummary["freshness"];
   items: EvidenceBundleItem[];
@@ -103,15 +109,22 @@ const signalDefinitions: Array<{
 ];
 
 async function main(): Promise<void> {
+  const sourceBefore = buildOperationalEvidenceSourceSnapshot();
   const summary = await collectOperationalReadinessSummary();
+  const sourceSnapshot = buildOperationalEvidenceSourceSnapshot();
+  if (sourceBefore.sourceSetHash !== sourceSnapshot.sourceSetHash) {
+    throw new Error("operational evidence inputs changed while the bundle was being generated");
+  }
   const items = signalDefinitions.map((definition) =>
     signalToBundleItem(definition, summary.signals[definition.key]),
   );
   const bundleWithoutHash = {
+    schemaVersion: 2 as const,
     status: bundleStatus(items, summary),
     mode: "read_only_operational_evidence_bundle" as const,
     bundleHash: "",
     generatedAt: new Date().toISOString(),
+    sourceSnapshot,
     summary,
     freshness: summary.freshness,
     items,
@@ -119,6 +132,7 @@ async function main(): Promise<void> {
       "collect_read_only_operational_readiness_summary",
       "assemble_signal_evidence_index",
       "map_residual_risk_ids_to_required_evidence",
+      "bind_current_source_inputs",
       "compute_bundle_hash",
     ],
     doesNotProve: [

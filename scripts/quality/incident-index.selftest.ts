@@ -23,16 +23,43 @@ try {
     severity: "p1",
     incidentType: "update",
   }));
+  writeRecord(validRoot, "incident-20260714-open", createRecord({
+    incidentId: "incident-20260714-open",
+    detectedAt: "2026-07-14T01:00:00Z",
+    recordedAt: "2026-07-14T02:00:00Z",
+    status: "open",
+    postIncidentReview: "no",
+  }));
+  writeRecord(validRoot, "incident-20260715-mitigated", createRecord({
+    incidentId: "incident-20260715-mitigated",
+    detectedAt: "2026-07-15T01:00:00Z",
+    recordedAt: "2026-07-15T02:00:00Z",
+    status: "mitigated",
+    postIncidentReview: "no",
+  }));
+  writeRecord(validRoot, "incident-20260716-follow-up", createRecord({
+    incidentId: "incident-20260716-follow-up",
+    detectedAt: "2026-07-16T01:00:00Z",
+    recordedAt: "2026-07-16T02:00:00Z",
+    status: "follow-up",
+    postIncidentReview: "no",
+  }));
   writeFileSync(path.join(validRoot, "incident-index.json"), "{}\n");
   writeFileSync(path.join(validRoot, "incident-record-template.md"), "# template\n");
 
   const generated = run(["exec", "tsx", "scripts/ops/incident-index.ts", validRoot]);
-  expectStatus("generate two-record index", generated, 0);
-  const index = JSON.parse(generated.stdout) as Record<string, unknown>;
-  assert(index.mode === "read_only_resolved_incident_index", "index mode mismatch");
+  expectStatus("generate active and resolved index", generated, 0);
+  const index = JSON.parse(generated.stdout) as IncidentIndexShape;
+  assert(index.mode === "read_only_incident_index", "index mode mismatch");
   assert(index.sourcePattern === "incident-*/incident-record.txt", "source pattern mismatch");
-  assert(index.latestIncidentId === "incident-20260713-update", "latest incident mismatch");
-  assert(Array.isArray(index.incidents) && index.incidents.length === 2, "index should contain two records");
+  assert(index.active.latestIncidentId === "incident-20260716-follow-up", "latest active incident mismatch");
+  assert(index.resolved.latestIncidentId === "incident-20260713-update", "latest resolved incident mismatch");
+  assert(index.active.incidents.length === 3, "active group should contain open, mitigated, and follow-up records");
+  assert(index.resolved.incidents.length === 2, "resolved group should contain resolved records");
+  assert(index.active.incidents.map((incident) => incident.status).join(",") === "follow-up,mitigated,open", "active statuses mismatch");
+  assert(index.resolved.incidents.every((incident) => incident.status === "resolved"), "resolved statuses mismatch");
+  assert(index.active.incidents.every((incident) => /^sha256:[a-f0-9]{64}$/.test(incident.recordSha256)), "active records must bind source hashes");
+  assert(index.resolved.incidents.every((incident) => /^sha256:[a-f0-9]{64}$/.test(incident.recordSha256)), "resolved records must bind source hashes");
 
   const generatedAgain = run(["exec", "tsx", "scripts/ops/incident-index.ts", validRoot]);
   expectStatus("deterministic rebuild", generatedAgain, 0);
@@ -55,6 +82,33 @@ try {
     incidentType: "update",
   }));
   expectStatus("source drift invalidates saved index", run(["exec", "tsx", "scripts/quality/incident-index-validate.ts", indexPath, validRoot]), 1);
+  writeRecord(validRoot, "incident-20260713-update", createRecord({
+    incidentId: "incident-20260713-update",
+    detectedAt: "2026-07-13T01:00:00Z",
+    recordedAt: "2026-07-13T02:00:00Z",
+    severity: "p1",
+    incidentType: "update",
+  }));
+
+  const tamperedRecordHashIndex = JSON.parse(generated.stdout) as IncidentIndexShape;
+  tamperedRecordHashIndex.active.incidents[0].recordSha256 = `sha256:${"d".repeat(64)}`;
+  const tamperedRecordHashPath = path.join(tempDir, "tampered-record-hash-index.json");
+  writeFileSync(tamperedRecordHashPath, `${JSON.stringify(tamperedRecordHashIndex, null, 2)}\n`);
+  expectStatus(
+    "tampered record hash fails deterministic rebuild",
+    run(["exec", "tsx", "scripts/quality/incident-index-validate.ts", tamperedRecordHashPath, validRoot]),
+    1,
+  );
+
+  const tamperedGroupHashIndex = JSON.parse(generated.stdout) as IncidentIndexShape;
+  tamperedGroupHashIndex.active.sourceSetSha256 = `sha256:${"e".repeat(64)}`;
+  const tamperedGroupHashPath = path.join(tempDir, "tampered-group-hash-index.json");
+  writeFileSync(tamperedGroupHashPath, `${JSON.stringify(tamperedGroupHashIndex, null, 2)}\n`);
+  expectStatus(
+    "tampered group source hash fails deterministic rebuild",
+    run(["exec", "tsx", "scripts/quality/incident-index-validate.ts", tamperedGroupHashPath, validRoot]),
+    1,
+  );
 
   const duplicateRoot = path.join(tempDir, "duplicate");
   writeRecord(duplicateRoot, "incident-20260714-a", createRecord({ incidentId: "incident-duplicate", recordedAt: "2026-07-14T02:00:00Z" }));
@@ -64,11 +118,18 @@ try {
   assert(duplicate.stdout.trim() === "", "duplicate failure must not emit a partial index");
   assert(duplicate.stderr.includes("duplicate incident id"), "duplicate failure must be explicit");
 
-  const unresolvedRoot = path.join(tempDir, "unresolved");
-  writeRecord(unresolvedRoot, "incident-20260715-open", createRecord({ status: "mitigated", postIncidentReview: "no" }));
-  const unresolved = run(["exec", "tsx", "scripts/ops/incident-index.ts", unresolvedRoot]);
-  expectStatus("unresolved incident fails", unresolved, 1);
-  assert(unresolved.stderr.includes("status must be resolved"), "unresolved failure must be explicit");
+  const activeRoot = path.join(tempDir, "active");
+  writeRecord(activeRoot, "incident-20260715-open", createRecord({ status: "open", postIncidentReview: "no" }));
+  const active = run(["exec", "tsx", "scripts/ops/incident-index.ts", activeRoot]);
+  expectStatus("active incident is projected", active, 0);
+  const activeIndex = JSON.parse(active.stdout) as IncidentIndexShape;
+  assert(activeIndex.active.incidents.length === 1 && activeIndex.resolved.incidents.length === 0, "active record must stay in the active group");
+
+  const activeWithoutResidualRoot = path.join(tempDir, "active-without-residual");
+  writeRecord(activeWithoutResidualRoot, "incident-20260715-open", createRecord({ status: "open", postIncidentReview: "no", residualRiskIds: "none" }));
+  const activeWithoutResidual = run(["exec", "tsx", "scripts/ops/incident-index.ts", activeWithoutResidualRoot]);
+  expectStatus("active incident without residual fails", activeWithoutResidual, 1);
+  assert(activeWithoutResidual.stderr.includes("incident record validation failed"), "active residual failure must be explicit");
 
   const noReviewRoot = path.join(tempDir, "no-review");
   writeRecord(noReviewRoot, "incident-20260715-no-review", createRecord({ postIncidentReview: "no" }));
@@ -109,8 +170,9 @@ try {
   mkdirSync(emptyRoot);
   const empty = run(["exec", "tsx", "scripts/ops/incident-index.ts", emptyRoot]);
   expectStatus("empty index", empty, 0);
-  const emptyIndex = JSON.parse(empty.stdout) as { latestIncidentId?: unknown; incidents?: unknown[] };
-  assert(emptyIndex.latestIncidentId === null && emptyIndex.incidents?.length === 0, "empty index must be explicit and valid");
+  const emptyIndex = JSON.parse(empty.stdout) as IncidentIndexShape;
+  assert(emptyIndex.active.latestIncidentId === null && emptyIndex.active.incidents.length === 0, "empty active group must be explicit");
+  assert(emptyIndex.resolved.latestIncidentId === null && emptyIndex.resolved.incidents.length === 0, "empty resolved group must be explicit");
 
   const unknownFieldIndex = JSON.parse(generated.stdout) as Record<string, unknown>;
   unknownFieldIndex.unknownField = true;
@@ -146,11 +208,24 @@ interface RecordOptions {
   detectedAt?: string;
   recordedAt?: string;
   severity?: "p0" | "p1" | "p2" | "p3";
-  status?: "resolved" | "mitigated";
+  status?: "open" | "mitigated" | "resolved" | "follow-up";
   incidentType?: "health" | "update";
   postIncidentReview?: "yes" | "no";
   residualRiskIds?: string;
   followUpTasks?: string;
+}
+
+interface IncidentIndexShape {
+  mode: string;
+  sourcePattern: string;
+  active: IncidentGroupShape;
+  resolved: IncidentGroupShape;
+}
+
+interface IncidentGroupShape {
+  sourceSetSha256: string;
+  latestIncidentId: string | null;
+  incidents: Array<{ status: string; recordSha256: string }>;
 }
 
 function writeRecord(sourceRoot: string, directory: string, record: string): void {

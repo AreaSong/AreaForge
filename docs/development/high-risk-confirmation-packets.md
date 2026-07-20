@@ -1037,6 +1037,7 @@ AREAFORGE_OPS001_SMOKE_RECORD=<prod-readonly-smoke-record.txt> \
 
 ```bash
 pnpm enterprise:operability:preflight
+pnpm release:closeout:binding:selftest
 pnpm release:train:preflight
 pnpm docs:readiness
 pnpm docs:completion
@@ -1058,10 +1059,13 @@ Release 资产生成后验证：
 ```bash
 sha256sum -c SHA256SUMS
 cosign verify-blob --key docs/deployment/keys/areaforge-cosign.pub --bundle SHA256SUMS.sig SHA256SUMS
-AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md pnpm sc:sc-002:preflight
-pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md /path/to/release-assets
-pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-vX.Y.Z.md \
+AREAFORGE_SC002_RELEASE_ASSETS_DIR=/path/to/release-assets \
+pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-vX.Y.Z.md /path/to/release-assets --strict
 ```
+
+签名资产阶段只校验 Release identity、assets、checksum、cosign 和 supply-chain record。`release-vX.Y.Z-record.md` 此时保持 `production-evidence-pending` 草案边界；完整 `pnpm release:evidence:validate` 必须延后到生产 backup、migration、smoke、附件 reconciliation 和 rollback 证据齐备后执行。
 
 中止条件：
 
@@ -1074,7 +1078,9 @@ pnpm release:evidence:validate docs/development/release-vX.Y.Z-record.md
 
 明确确认句：
 
-> 确认执行下一次签名 Release 证据闭环 v0.1.7：范围仅限将当前已验证 commit 的所有 AreaForge workspace package version bump 到 0.1.7，创建并推送 `v0.1.7` tag，等待 GitHub Release workflow 生成签名 Release assets、GHCR digest、SBOM/provenance、`SHA256SUMS` 和 `SHA256SUMS.sig`，并生成/校验 `release-supply-chain-v0.1.7` 与 `release-v0.1.7` 记录；不执行服务器 updater apply、Web apply/rollback 请求、生产 backup/restore、production migration、Nginx/compose 切换、自动应用策略变更、residual 台账关闭或任何密钥读取/打印/提交。
+> 确认从已完成全部本地门禁且工作区干净的 commit `<R-40位SHA>` 创建 AreaForge `v0.1.8` 签名 Release：范围仅限统一 bump package version、创建并推送 `v0.1.8` tag、运行 GitHub Release workflow、生成并严格校验 manifest、SBOM、provenance、`SHA256SUMS`、`SHA256SUMS.sig`、Web/migration immutable digest 和 supply-chain record；本次 Release 将 OPS-005/OPS-006 标记为 `release-target`，不执行服务器 updater apply、生产 backup/restore、migration deploy、timer/队列变更、Web apply/rollback 请求、自动应用策略变化、secrets 操作或 residual 台账关闭。
+
+该确认句只有在 `<R-40位SHA>` 被真实干净提交替换后才有效；占位符确认不能授权 tag/Release。
 
 ## 生产 updater apply 确认包：`v0.1.7`
 
@@ -1144,8 +1150,10 @@ sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes 
 
 ```bash
 pnpm release:evidence:validate docs/development/release-v0.1.7-record.md
-AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-v0.1.7.md pnpm sc:sc-002:preflight
-pnpm release:supply-chain:validate docs/development/release-supply-chain-v0.1.7.md /tmp/areaforge-release-v0.1.7-assets
+AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-v0.1.7.md \
+AREAFORGE_SC002_RELEASE_ASSETS_DIR=/tmp/areaforge-release-v0.1.7-assets \
+pnpm sc:sc-002:preflight
+pnpm release:supply-chain:validate docs/development/release-supply-chain-v0.1.7.md /tmp/areaforge-release-v0.1.7-assets --strict
 pnpm github-release-updater:preflight
 pnpm shellcheck:updater
 pnpm ops:handoff --summary
@@ -1190,7 +1198,7 @@ pnpm ops:ops-001:preflight
 
 ## Update Request Expected-Before 本地实施确认包
 
-状态：等待确认。该包只授权本地代码和测试，不授权生产部署或请求执行。
+状态：已于 2026-07-15 获得明确确认并完成本地实施验证。该确认只授权本地代码和测试，不授权生产部署、请求执行、Release/tag 或 residual 关闭。
 
 源事实：
 
@@ -1202,7 +1210,7 @@ pnpm ops:ops-001:preflight
 影响：
 
 - Web update request 升级为 schema V2，绑定 expected-before、目标 Release/manifest/digest、TTL、
-  semantic/request 双 hash、idempotency key 和原子文件发布。
+  expected-before hash、semantic/request 双 canonical hash、idempotency key 和原子文件发布。
 - root update-agent 在调用 updater、Docker 或 config write 前，从 live env/config/update record 重建
   observed-before，并在原子领取后与最终副作用边界前执行两次 compare-and-reject。
 - update-agent、updater 和 rollback mutation 共用 production-state lock；processing claim 崩溃后进入
@@ -1219,7 +1227,7 @@ pnpm ops:ops-001:preflight
 
 - 修改设计列出的 Web route/library/UI、update-agent、updater shared-lock/target-identity 接口、
   fixture/selftest、preflight 和文档。
-- 新增 V2 request/history reason code、TTL、双 hash、idempotency、expected/observed before hash、
+- 新增 V2 request/history reason code、TTL、expected-before hash、semantic/request 双 canonical hash、idempotency、observed-before hash、
   target identity、processing reconciliation、shared lock 和 atomic write 测试。
 - 只使用本地临时目录、mock updater/Docker/config writer 验证拒绝路径零副作用。
 
@@ -1258,3 +1266,310 @@ pnpm ops:ops-001:preflight
 明确确认句：
 
 > 确认执行 Update Request Expected-Before 本地实施：范围仅限 schema V2、expected-before、目标 Release/manifest/digest 绑定、TTL、semantic/request 双 canonical hash、idempotency key、原子请求发布、processing reconciliation、update-agent/updater/rollback 共享 production-state lock、root agent 原子领取后与最终副作用边界前的双重 compare-and-reject、legacy mutation fail-closed、不可变 decision history 和本地 fixture/selftest；不执行 SSH、生产 timer/队列/agent/Web 部署、updater apply、Web apply/rollback/policy 请求、backup/restore、migration、Docker/Nginx/compose 切换、自动应用策略变化、Release/tag、secrets 读取/打印/复制/提交或 residual 台账关闭。
+
+## OPS-006 业务状态并发一致性本地实施确认包
+
+状态：已确认（2026-07-18）并完成本地验证。该包只授权本地 additive migration、业务写路径和隔离 PostgreSQL fixture，不授权生产 migration、数据修复、Release 或服务器操作。
+
+当前 preflight 契约：`OPS-006-PREFLIGHT-CONTRACT-V2`，`evidenceClass: local_concurrency_verified`。preflight 绑定 canonical migration、fresh doctor、隔离 PostgreSQL runtime record、当前实现与本文、设计、task 的 source hash；strict 只证明 `local_verified`，不授权签名 Release、生产 migration/deploy 或 residual 关闭。
+
+源事实：
+
+- `docs/development/ops-006-business-state-concurrency-design.md`
+- `docs/development/data-integrity-doctor.md`
+- `tasks/active/0020-business-state-concurrency.md`
+- `docs/development/residual-risk-ledger.md` 中的 `AF-RISK-OPS-006`
+
+影响：
+
+- PostgreSQL 部分唯一索引保证当前单管理员模型最多一个 `RUNNING/PAUSED` session。
+- session/task 状态命令以 `status + updatedAt` CAS 产生唯一胜者，过期状态映射为稳定 409。
+- task action 按设计中的精确来源状态矩阵执行；同终态重试不是幂等成功。
+- 结束 session 的任务分钟、考纲分钟、债务事件、审计和 CheckIn 只由成功 CAS 的事务写一次。
+- 同日 CheckIn 刷新按学习日排序，并在聚合读取前获取固定
+  `pg_advisory_xact_lock(1095123785, YYYYMMDD)`，防止较旧聚合覆盖。
+
+主要风险：
+
+- 现有历史数据若已经有多个 active session，唯一索引创建会失败；本包不授权自动修复。
+- CAS 来源状态定义过窄会拒绝合法操作，过宽则无法阻止重复副作用。
+- 锁顺序不稳定可能造成死锁；锁内外部 IO 会扩大事务时间。
+- Prisma 唯一约束或条件更新错误若直接暴露，会泄露原始数据库异常。
+
+允许范围：
+
+- 新增且仅新增 `StudySession_one_active_idx` 部分唯一索引 migration。
+- 修改 start/pause/resume/end、task action、simulation complete、债务重排应用和 CheckIn 刷新路径。
+- 新增 CAS helper、Prisma 错误到 409 的稳定映射、隔离 PostgreSQL 并发 fixture、自测和文档。
+- 实施 gate 必须区分 `local_verified`、`release_ready` 和 `production_confirmation_required`；任何 scope/source
+  hash 漂移都重新阻塞。
+- 使用临时 PostgreSQL 实例或明确隔离的测试数据库执行 migration apply/verify 和并发测试。
+
+不包含：
+
+- 不执行生产 migration deploy、服务器命令、Release/tag、updater apply、backup/restore 或自动应用策略变化。
+- 不修复、删除、合并、自动结束或回填历史 session/task。
+- 不新增多用户模型、通用 command engine、actor runtime、创建请求幂等账本、附件 staging 或 updater phase journal。
+- 不读取、打印、复制或提交 secrets、生产数据库 URL、业务正文、对象 ID 列表或原始 Prisma 错误。
+- 不关闭 `AF-RISK-OPS-006` 或其他 residual。
+
+验证：
+
+- `pnpm ops:ops-006:preflight:selftest`
+- 带 canonical migration、24 小时内真实只读 doctor 和通过 validator 的隔离 PostgreSQL runtime record 运行 strict preflight；只有同一 checkout 的 task/design/确认包/实现 source hash 均匹配时才投影 `local_verified`。缺失证据、fixture 过期或来源漂移必须非零退出。
+- `pnpm ops:ops-006:runtime:validate:selftest` 与 `pnpm ops:ops-006:runtime:validate output/ops006/concurrency-runtime-20260718.json`。
+- `pnpm ops:data-integrity:selftest`
+- `pnpm db:generate`、`pnpm db:validate`
+- 隔离 PostgreSQL migration apply/verify 和 start/pause/resume/end/task/CheckIn 并发 fixture。
+- API 409、无部分副作用、分钟/事件只增加一次的断言。
+- `pnpm check`、`pnpm risk:preflight`、`pnpm docs:readiness`、`git diff --check`。
+
+回滚：
+
+- 本地实现失败时回滚本次服务代码并销毁隔离临时库。
+- additive index 若未来已部署，优先回滚应用镜像并保留索引；DROP index 或历史修复另行确认。
+- 任何生产 migration、数据修复或索引删除都不由本确认包授权。
+
+中止条件：
+
+- doctor 或临时库发现多个 active session，需要历史数据修复。
+- 候选 migration 包含 destructive/data-writing SQL 或与预期 index/hash 不一致。
+- 并发 end 仍可重复累加分钟、事件或 CheckIn。
+- 实施要求扩大到生产、secrets、多用户迁移、通用 command engine 或其他 residual。
+
+明确确认句：
+
+> 确认执行 OPS-006 业务状态并发一致性本地实施：范围仅限新增“最多一个活跃 StudySession”的 additive migration、task/session expected-status CAS、结束计时事务内单次副作用、同日 CheckIn 事务锁、409 冲突映射、只读 data-integrity doctor 联动和本地 PostgreSQL 并发 selftest；不执行生产 migration deploy、历史数据修复/删除/合并、批量任务修改、多用户迁移、附件改造、updater 改造、Release/tag、服务器命令、secrets 操作或 residual 台账关闭。
+
+## v0.1.8 OPS-005/006 联合生产 Rollout 确认包
+
+状态：等待真实 `R`、目标 Web/migration digest、当前生产 digest 和 rollback digest 填入后确认。占位符未替换前，本节不授权任何生产操作。
+
+该包只授权基础 rollout 和只读证据采集；不授权 OPS-006 controlled-write probe。签名 Release 确认也不能推导本包授权。
+
+必须固定：
+
+- Release source commit `R`、`v0.1.8` tag、目标 Web/migration immutable digest。
+- 当前生产 `0.1.7` Web digest和 application rollback digest。
+- OPS-005 Web/agent/updater source hash、V2 schema/check 和 legacy queue disposition。
+- OPS-006 canonical migration path/hash、additive verdict和 `StudySession_one_active_idx` 读回。
+- maintenance window、独立 rollout 确认 ID、canonical rollout scope SHA256、backup inventory/hash、before/after doctor、health/authenticated read-only smoke 和 evidence 输出位置；该 ID/scope 不得复用于 controlled probe。
+
+固定顺序：
+
+1. 进入 maintenance window，停止 update-agent/updater timer，并隔离但不删除或重放既有请求。
+2. 使用只读生产账号采集 fresh before-doctor；发现多个 active session 时立即停止，不自动修复。
+3. 完成 PostgreSQL/uploads/env/compose/Nginx/root-agent 状态备份并校验 hash。
+4. 部署与 `R` 匹配的 update-agent/updater，校验 strict Release assets、V2 check 和 processing reconciliation。
+5. 通过受控 migration runner 应用唯一 additive migration，再读回 canonical index。
+6. 切换 Web，执行 public health 与 authenticated read-only smoke。
+7. 采集 fresh after-doctor；仅当 blocker 为空、无 `needs_reconciliation` 且所有只读门禁通过时恢复 timer。
+8. 生成 OPS-005、OPS-006、Release、OPS-001 所需的 redacted evidence；不自动关闭 residual。
+
+停止条件：
+
+- checksum/cosign/manifest/commit/digest 任一不匹配。
+- backup 缺失或 hash 不可验证。
+- before-doctor 报告多个 active session、附件 mismatch 或任何 fail。
+- migration 失败、canonical index 读回不匹配、Web/agent source 不一致。
+- V2 check、health、authenticated smoke、after-doctor 或 processing reconciliation 失败。
+- 需要历史修复、DROP index、restore、请求重放、secrets 读取/打印或扩大 Web runtime 权限。
+
+回滚边界：
+
+- migration 前失败：不切换 Web，恢复原 agent/updater 并保持 timer 停止。
+- additive migration 成功而应用失败：回滚 Web/agent 到已验证兼容 digest，保留 additive index、队列和 decision history。
+- 不自动执行 DROP index、数据库/uploads restore、历史数据修复或请求重放；这些都需要新的独立确认。
+
+成功后验证：
+
+```bash
+pnpm ops:ops-005:evidence:validate <ops005-record> <release-record> <release-assets-dir>
+pnpm ops:ops-005:preflight
+pnpm ops:data-integrity:validate <before-doctor>
+pnpm ops:data-integrity:validate <after-doctor>
+pnpm release:evidence:validate \
+  docs/development/release-v0.1.8-record.md \
+  <attachment-reconciliation.csv> \
+  <attachment-reconciliation-summary.json>
+pnpm ops:ops-001:preflight
+```
+
+明确确认句：
+
+> 确认在生产主机将 AreaForge 从 `0.1.7` rollout 到签名 Release `v0.1.8`，Release commit 为 `<R-40位SHA>`，Web digest 为 `<WEB_DIGEST>`，migration digest 为 `<MIGRATION_DIGEST>`，应用回滚目标为 `<0.1.7_WEB_DIGEST>`，canonical rollout scope 为 `<ROLLOUT_SCOPE_SHA256>`：范围仅限进入维护窗口、停止 update-agent/updater timer、隔离且不删除或重放既有请求、采集 fresh before-doctor、完成 PostgreSQL/uploads/env/compose/Nginx/root agent 状态备份、部署与 `R` 匹配的 agent/updater、验证 V2 check、执行已审查的 OPS-006 additive migration、切换 Web、执行 health/authenticated read-only smoke 和 after-doctor，并仅在 blocker 为空且无 reconciliation-required 时恢复 timer；失败时保持 hold，回滚应用和 agent 到已验证兼容版本并保留 additive index、队列和 decision history；不执行 controlled-write probe、数据库/uploads restore、DROP index、历史数据修复、写入型 smoke、自动应用策略变化、secrets 读取/打印/复制/提交或 residual 台账关闭。
+
+## OPS-006 生产 Controlled Synthetic Concurrency Probe 确认包
+
+状态：等待基础 rollout、health、authenticated read-only smoke 和 before-doctor 通过后单独确认。该包属于受控生产写入，不可从联合 rollout 或长期治理总目标推定授权。
+
+确认前必须重新固定同一 Release commit、Web/migration digest、rollback target，并计算与 rollout scope 不同的 canonical controlled-probe scope SHA256；probe 使用独立确认 ID，不能复用基础 rollout 的 ID/scope。
+
+允许范围：
+
+- 仅使用专用 synthetic account/namespace；不得使用真实用户记录。
+- 并发 start 一胜一 `409 ACTIVE_SESSION_EXISTS`，结束后一胜一 `409 SESSION_STATE_CONFLICT`。
+- representative task CAS 一胜一 `409 TASK_STATE_CONFLICT`，不得重复 event/child。
+- 验证 task/syllabus minutes 只增加一次，AuditEvent、TaskDebtEvent、CheckIn session delta 均为 1。
+- 并发 CheckIn 最终聚合必须等于已提交任务状态。
+- 完成后按已确认策略清理 synthetic fixture，并采集 fresh after-doctor。
+
+禁止范围：真实用户业务写入、历史数据修复、任意对象 ID/正文/原始日志输出、backup/restore、migration、DROP index、请求重放、自动策略变化、secrets 或 residual 台账关闭。
+
+明确确认句：
+
+> 确认在已完成并通过只读门禁的 AreaForge `v0.1.8` 生产环境（Release commit `<R-40位SHA>`，Web digest `<WEB_DIGEST>`，migration digest `<MIGRATION_DIGEST>`，rollback target `<0.1.7_WEB_DIGEST>`），按 canonical controlled-probe scope `<PROBE_SCOPE_SHA256>` 对专用 synthetic account/namespace 执行一次 OPS-006 controlled concurrency probe：范围仅限并发 start/end、representative task CAS、结束计时单次分钟/事件/CheckIn 副作用和同日 CheckIn 聚合验证，记录仅保存 redacted count、稳定 409 reason code、hash、时间和 safety facts，完成后按已确认策略清理 synthetic fixture 并采集 fresh after-doctor；不写真实用户数据，不输出对象 ID/标题/正文/原始请求响应，不执行 migration、backup/restore、历史修复、DROP index、请求重放、自动策略变化、secrets 操作或 residual 台账关闭。
+
+## OPS-007 附件 Staging/Write-Intent 本地实施确认包
+
+状态：等待确认。该包只授权 additive attachment lifecycle migration、上传/下载协议和隔离 crash fixture，不授权生产 migration、历史 orphan 清理或文件删除。
+
+确认前 preflight source contract：
+
+- `OPS-007-PREFLIGHT-CONTRACT-V1`
+- `evidenceClass: protocol_preimage_candidate`
+- 只读 preflight 绑定 task、design、本确认包、当前 schema 和 crash-window fixture 的 SHA-256。
+- 在 `awaiting-high-risk-confirmation` 时 strict 必须非零退出。
+- 该证据不证明 migration、runtime、filesystem、backup/restore 或 production。
+
+源事实：
+
+- `docs/development/ops-007-attachment-crash-window-design.md`
+- `docs/architecture/file-storage.md`
+- `docs/security/file-ai-safety.md`
+- `docs/deployment/backup-restore.md`
+- `tasks/backlog/0021-attachment-staging-intent.md`
+- `docs/development/residual-risk-ledger.md` 中的 `AF-RISK-OPS-007`
+
+影响：
+
+- Attachment 引入 `PENDING / READY / FAILED` 状态、staging identity、finalized/failure metadata 和 storage identity 唯一约束。
+- legacy row 以 `READY/protocolVersion=0` 兼容，最终 schema default 与所有新 intent 均为 PENDING；READY 本身不替代同句柄完整性校验。
+- 上传改为有界流式读取、DB PENDING intent、exclusive staging write/fsync、atomic rename/directory fsync、hash verify、READY CAS。
+- 下载只读取 READY，并以 `open + O_NOFOLLOW + fstat + same handle read` 消除路径检查与打开之间的竞态。
+- 新协议记录的补偿失败和恢复进入有 claim/lease 的可审计 reconciliation；历史 orphan 保持 report-only。
+
+主要风险：
+
+- migration 前已有重复 `storedName/uri` 会导致唯一约束失败；本包不授权自动修复。
+- DB/file 双状态在 kill point 中可能停留 PENDING、staged 或 final-before-ready，reconciliation 必须有界且幂等。
+- 错误的 symlink/handle 校验可能读取上传目录外文件。
+- 备份若遗漏 `.staging` 或 PENDING metadata，会形成不可恢复截面。
+
+允许范围：
+
+- 新增 additive AttachmentStatus、protocolVersion、staging/finalized/failure/reconciliation lease 字段和
+  `stagingName/storedName/uri` 唯一约束 migration。
+- 修改 note attachment 上传服务、鉴权下载、DTO、补偿与新协议 reconciliation。
+- 将上传入口改为 bounded streaming parser；不得用 `request.formData()` / `file.arrayBuffer()` 后置 size 校验证明内存安全。
+- 修改备份/恢复文档和本地 fixture，使 final 与 `.staging`、READY 与 PENDING 状态都被明确记录。
+- 使用隔离 PostgreSQL 与临时上传目录执行 kill-point、fsync、O_NOFOLLOW、CAS 和恢复测试。
+
+不包含：
+
+- 不删除、移动、自动修复或回填历史 orphan/READY 附件，不执行附件删除功能。
+- 不执行生产 migration deploy、backup/restore、上传目录迁移、服务器命令、Release/tag 或 updater apply。
+- 不新增多用户/tenant migration，不将附件内容、URI、storedName、绝对路径、hash 或 reconciliation 明细暴露给浏览器或 AI。
+- 不读取、打印、复制或提交 secrets、生产数据库 URL、上传文件内容或生产路径。
+- 不关闭 `AF-RISK-OPS-007` 或其他 residual。
+
+验证：
+
+- `pnpm attachment:crash-window:selftest`
+- `pnpm attachment:crash-window:validate scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json`
+- 确认后运行 additive migration 静态校验、隔离 PostgreSQL apply/verify/repeat。
+- 确认后运行临时上传目录 kill-point、补偿失败、重启 reconciliation、唯一冲突和 O_NOFOLLOW fixture。
+- `pnpm attachment:reconciliation:summary:selftest`、`pnpm db:validate`、`pnpm check`、`pnpm risk:preflight`、`pnpm docs:readiness`、`git diff --check`。
+
+回滚：
+
+- 本地失败时回滚服务代码并销毁隔离临时库/目录。
+- additive 字段/约束未来若已部署，优先回滚应用并保留 schema；DROP、历史状态重写、文件移动或删除另行确认。
+
+中止条件：
+
+- doctor/临时库发现重复 storage identity，需要历史修复。
+- 任一下载路径不能证明 same-handle `O_NOFOLLOW + fstat`，或 DTO 泄露内部路径。
+- fixture 表明 READY 可先于 final durable、补偿失败会静默丢失、或 reconciliation 会删除历史文件。
+- 实施要求扩大到生产、历史清理、多用户迁移、附件删除、AI 解析或 secrets。
+
+明确确认句：
+
+> 确认执行 OPS-007 附件 staging/write-intent 本地实施：范围仅限新增 AttachmentStatus PENDING/READY/FAILED、protocolVersion、staging/finalized/failure、reconciliation lease 字段和 stagingName/storedName/uri 唯一约束的 additive migration，note 附件上传改为有界流式读取、显式 PENDING intent、exclusive staging write/fsync、atomic rename/fsync、READY CAS，下载仅允许 READY 并使用 O_NOFOLLOW 同句柄校验，补偿失败保留可审计状态，新协议记录的有界 claim/lease reconciliation，以及本地临时 PostgreSQL/上传目录 crash fixture；不删除或自动修复历史 orphan，不删除 READY 附件，不执行生产 migration/deploy、backup/restore、上传目录迁移、服务器命令、secrets 操作、多用户迁移、Release/tag 或 residual 台账关闭。
+
+## OPS-008 Updater Phase Journal 与 Maintenance Hold/Drain 本地实施确认包
+
+状态：等待确认。该包只授权 root-only 本地 updater/update-agent 状态机、临时目录 kill-point 与锁竞争测试，不授权任何生产 updater、timer、hold 或切换操作。
+
+确认前 preflight source contract：
+
+- `OPS-008-PREFLIGHT-CONTRACT-V1`
+- `evidenceClass: runtime_preimage_candidate`
+- 只读 preflight 绑定 task、design、本确认包、当前 updater/update-agent 脚本和全部 phase/maintenance fixture 的 SHA-256。
+- 在 `awaiting-high-risk-confirmation` 时 strict 必须非零退出。
+- 该证据不证明 journal durability、hold/drain 锁顺序、timer 状态或 production 行为。
+
+源事实：
+
+- `docs/development/ops-008-updater-phase-journal-design.md`
+- `docs/deployment/github-release-updater.md`
+- `docs/development/runtime-write-boundary.md`
+- `tasks/backlog/0022-updater-phase-journal-hold.md`
+- `docs/development/residual-risk-ledger.md` 中的 `AF-RISK-OPS-008`
+
+影响：
+
+- updater 以不可覆盖、hash-chained phase event 记录 admission/identity-bound/backup/prepare/migration-or-skipped/switch/health/smoke/rollback/terminal/reconciliation。
+- operation 目录和 event 必须 no-clobber、逐级目录 fsync；backup complete 绑定精确 inventory，之后才允许 migration。
+- started 无 complete、switch 后 record/journal 失败或生产状态未知时，自动进入 root-only maintenance hold。
+- 所有入口遵循 `queue-control -> production-state -> agent-local` 锁顺序；hold generation/clear 使用 CAS，hold 后禁止新 claim/automatic run，drain 只观察且不 kill/删除已有 claim。
+- Web runtime 只读取 redacted blocker，不能创建、清除或绕过 hold。
+
+主要风险：
+
+- journal sequence/hash/原子发布错误可能让重启误判阶段已完成。
+- hold/claim 检查若不在同一锁内，仍可在 hold 后产生新 mutation claim。
+- backup 未 durable 就进入 migration，或 switch 后 terminal record 失败被记为普通失败，会继续错误消费队列。
+- clear/resume 若缺少人工 production identity 核验，可能绕过 reconciliation。
+
+允许范围：
+
+- 修改 root updater/update-agent helper、redacted status projection 和本地 systemd 配置静态契约。
+- 新增 immutable event、完整 phase/rollback/reconciliation 状态机、backup inventory fsync barrier、queue-control lock、append-only hold/clear helper。
+- 使用本地临时目录和 mock 命令执行各阶段 kill-point、fsync 注入失败、hash/sequence/no-clobber 和锁竞争测试。
+- 将确认前 selftest 接入 CI/Release validate job；不得加入部署权限。
+- 扩展只读 sourceSetHash，绑定 updater/update-agent helpers、service/timer、validator/preflight；CI 运行当前 non-strict preflight。
+
+不包含：
+
+- 不执行生产 updater apply、Web apply/rollback、systemd timer 启停、生产 hold/clear/drain、backup/restore 或 migration。
+- 不执行 Docker/Nginx/compose 切换，不修改自动应用策略，不执行服务器命令或 SSH。
+- 不读取、打印、复制或提交 secrets、生产 env、root-only 原始 journal、smoke credential 或原始日志。
+- 不创建 Release/tag，不删除 journal/history，不关闭 `AF-RISK-OPS-008` 或其他 residual。
+
+验证：
+
+- `pnpm updater:phase-journal:selftest`
+- `pnpm updater:phase-journal:validate scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json`
+- `pnpm updater:maintenance-control:selftest`
+- `pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json`
+- `pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json`
+- `pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json`
+- 确认后运行 backup/migration/switch/health/smoke kill-point、fsync failure、queue-control lock 和 drain fixture。
+- `pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`、`pnpm ops:ops-005:local:selftest`、`pnpm check`、`git diff --check`。
+
+回滚：
+
+- 本地失败时回滚 journal/hold 代码并删除临时 fixture 目录。
+- 未来生产已存在 journal/hold 时不得删除历史；应用回滚后保持 hold，clear/resume 另行确认。
+
+中止条件：
+
+- event publish 不能证明 no-clobber、file/directory fsync 和连续 hash chain。
+- hold 与 claim 不能共享 lock，或 drain 会 kill/delete claim。
+- Web runtime 需要 root secret、服务器命令、hold/clear 写权限或 Docker socket。
+- 实施要求扩大到生产 timer/updater、backup/restore、migration、切换、secrets 或 residual 关闭。
+
+明确确认句：
+
+> 确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施：范围仅限 root-only no-clobber/逐级 fsync immutable hash-chained phase events、精确 backup inventory 持久化屏障、admission/identity-bound/backup/prepare/migration-or-skipped/switch/health/smoke/rollback/terminal/reconciliation 状态机、崩溃后 fail-closed hold、固定 queue-control -> production-state -> agent-local 锁顺序、hold generation/clear CAS、旧 generation 请求隔离、record/journal 失败的 reconciliation exit mapping、redacted status、扩展 sourceSetHash 和本地临时目录 kill-point/锁竞争 selftest；不执行生产 updater apply、Web apply/rollback 请求、systemd timer 启停、生产 hold/clear/drain、backup/restore、migration、Docker/Nginx/compose 切换、自动应用策略变化、服务器命令、secrets 操作、Release/tag 或 residual 台账关闭。

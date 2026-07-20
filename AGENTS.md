@@ -8,10 +8,11 @@
 
 ## 当前状态
 
-- 当前版本为 `0.1.7`，远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 签名更新运行。
+- 仓库发布候选版本为 `0.1.8`；远端 `https://forge.areasong.top/` 仍通过 GitHub Release `v0.1.7` 签名运行 `0.1.7`，尚未创建或部署 `v0.1.8`。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
+- 只读 `ops:data-integrity:doctor` 已用于发现重复活跃计时、task/session 状态矛盾和附件 reconciliation 缺口；它不修复数据。`AF-RISK-OPS-006` 的 partial unique index、task/session CAS、结束计时单次副作用和 CheckIn 锁已完成隔离 PostgreSQL 本地验证；匹配签名 Release、生产 migration/deploy 和 fresh production evidence 仍需独立确认。
 
 ## 源事实
 

@@ -8,6 +8,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Flame,
+  Menu,
   NotebookPen,
   NotebookText,
   Settings,
@@ -30,11 +31,22 @@ import { getDailyReviewAiAdvice, getTomorrowPlanAiAdvice } from "@/lib/study/ai-
 import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { getTodayDashboard } from "@/lib/study/service";
 import { listSyllabusTree } from "@/lib/study/syllabus-service";
-import { getUpdateCenterStatus } from "@/lib/system/update-center";
+import { getUpdateCenterStatus, type UpdateCenterStatus } from "@/lib/system/update-center";
 
 export const dynamic = "force-dynamic";
 
 type TodayDashboard = Awaited<ReturnType<typeof getTodayDashboard>>;
+
+const dashboardNavItems: Array<{ href: string; label: string; icon: LucideIcon }> = [
+  { href: "/syllabus", label: "考纲", icon: BookOpen },
+  { href: "/notes", label: "笔记", icon: NotebookPen },
+  { href: "/mistakes", label: "错题", icon: AlertCircle },
+  { href: "/motivation", label: "动机", icon: Archive },
+  { href: "/analytics", label: "统计", icon: BarChart3 },
+  { href: "/reports", label: "报告", icon: NotebookText },
+  { href: "/simulation", label: "模拟", icon: CalendarClock },
+  { href: "/settings", label: "设置", icon: Settings },
+];
 
 export default async function Home() {
   const user = await getCurrentUser();
@@ -42,14 +54,20 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const [dashboard, syllabusNodes, dailyReviewAdvice, tomorrowPlanAdvice, longTermRisks, updateStatus] = await Promise.all([
+  const [dashboard, syllabusNodes] = await Promise.all([
     getTodayDashboard(new Date(), { actorId: user.id, recordRecoveryRule: true }),
     listSyllabusTree(),
+  ]);
+  const [dailyReviewResult, tomorrowPlanResult, longTermRiskResult, updateStatusResult] = await Promise.allSettled([
     getDailyReviewAiAdvice(),
     getTomorrowPlanAiAdvice(),
     getLongTermRiskSummary(),
     getUpdateCenterStatus(),
   ]);
+  const dailyReviewAdvice = fulfilledValue(dailyReviewResult);
+  const tomorrowPlanAdvice = fulfilledValue(tomorrowPlanResult);
+  const longTermRisks = fulfilledValue(longTermRiskResult);
+  const updateStatus = fulfilledValue(updateStatusResult) ?? unavailableUpdateStatus();
   const { metrics, snapshot } = dashboard;
   const themeClass = getThemeShellClass(snapshot.themeState);
   const themeStatus = getThemeStatus(dashboard);
@@ -61,7 +79,7 @@ export default async function Home() {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="flex items-center gap-3 text-sm text-teal-300">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-teal-300">
               <BrandMark size={24} />
               <span>AreaForge</span>
               <UpdateVersionPopover initialStatus={updateStatus} />
@@ -78,67 +96,29 @@ export default async function Home() {
             <p className="mt-2 text-sm text-zinc-400">{dashboard.studyDay.key} / Asia Shanghai</p>
           </div>
           <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-              <Link
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
-                href="/syllabus"
-              >
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                考纲
-              </Link>
-              <Link
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
-                href="/notes"
-              >
-                <NotebookPen className="h-4 w-4" aria-hidden="true" />
-                笔记
-              </Link>
-              <Link
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
-                href="/mistakes"
-              >
-                <AlertCircle className="h-4 w-4" aria-hidden="true" />
-                错题
-              </Link>
-              <Link
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
-                href="/motivation"
-              >
-                <Archive className="h-4 w-4" aria-hidden="true" />
-                动机
-              </Link>
-              <Link
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
-                href="/analytics"
-              >
-                <BarChart3 className="h-4 w-4" aria-hidden="true" />
-                统计
-              </Link>
-              <Link
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
-                href="/reports"
-              >
-                <NotebookText className="h-4 w-4" aria-hidden="true" />
-                报告
-              </Link>
-              <Link
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
-                href="/simulation"
-              >
-                <CalendarClock className="h-4 w-4" aria-hidden="true" />
-                模拟
-              </Link>
-              <Link
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
-                href="/settings"
-              >
-                <Settings className="h-4 w-4" aria-hidden="true" />
-                设置
-              </Link>
+            <details className="lg:hidden">
+              <summary className="flex h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10">
+                <Menu className="h-4 w-4" aria-hidden="true" />
+                导航与账号
+              </summary>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {dashboardNavItems.map((item) => (
+                  <DashboardNavLink key={item.href} {...item} />
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-white/10 pt-3">
+                <span className="max-w-full truncate text-sm text-zinc-400">{user.email}</span>
+                <LogoutButton />
+              </div>
+            </details>
+            <div className="hidden flex-wrap items-center gap-3 lg:flex lg:justify-end">
+              {dashboardNavItems.map((item) => (
+                <DashboardNavLink key={item.href} compact {...item} />
+              ))}
               <span className="max-w-48 truncate text-sm text-zinc-400">{user.email}</span>
               <LogoutButton />
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div className="hidden gap-3 sm:grid sm:grid-cols-5">
               <MetricTile label="全真自测" value={`${metrics.daysToSimulation} 天`} tone="amber" />
               <MetricTile label="终局考试" value={`${metrics.daysToFinal} 天`} tone="teal" />
               <MetricTile label="连续打卡" value={`${metrics.streakDays} 天`} tone="blue" />
@@ -148,7 +128,7 @@ export default async function Home() {
           </div>
         </header>
 
-        <section className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+        <section className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
           <FocusTimer
             key={`${dashboard.activeSession?.id ?? "idle"}-${dashboard.recovery.stateId ?? "normal"}`}
             subjects={dashboard.subjects}
@@ -158,7 +138,7 @@ export default async function Home() {
             latestCompletedSession={dashboard.latestCompletedSession}
           />
 
-          <aside className="rounded-lg border border-white/10 bg-[#101419] p-5">
+          <aside className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
             <div className="flex items-start gap-3">
               <ShieldAlert className="mt-1 h-5 w-5 text-amber-300" aria-hidden="true" />
               <div>
@@ -229,12 +209,18 @@ export default async function Home() {
           </aside>
         </section>
 
-        <LongTermRiskPanel
-          summary={longTermRisks}
-          title="状态主题长期风险"
-          description="首页状态主题读取同一长期风险原因，只调整提示焦点，不隐藏完整任务列表。"
-          maxItems={3}
-        />
+        {longTermRisks ? (
+          <LongTermRiskPanel
+            summary={longTermRisks}
+            title="状态主题长期风险"
+            description="首页状态主题读取同一长期风险原因，只调整提示焦点，不隐藏完整任务列表。"
+            maxItems={3}
+          />
+        ) : (
+          <section className="border-y border-amber-300/20 bg-amber-300/10 px-5 py-4 text-sm text-amber-50">
+            长期风险摘要暂时不可用，任务和计时功能仍可继续使用。
+          </section>
+        )}
 
         <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
           <TaskPanel
@@ -289,18 +275,30 @@ export default async function Home() {
                 <h2 className="text-lg font-semibold text-white">AI 建议草稿</h2>
               </div>
               <div className="mt-4 grid gap-3">
-                <div className="rounded-md border border-white/10 bg-[#151a20] p-4">
-                  <p className="text-sm text-violet-100">{dailyReviewAdvice.advice.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-200">{dailyReviewAdvice.advice.nextReviewPrompt}</p>
-                  <p className="mt-2 text-xs leading-5 text-zinc-500">{dailyReviewAdvice.meta.reason}</p>
-                </div>
-                <div className="rounded-md border border-white/10 bg-[#151a20] p-4">
-                  <p className="text-sm text-violet-100">{tomorrowPlanAdvice.advice.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-200">{tomorrowPlanAdvice.advice.minimumTaskTitle}</p>
-                  <p className="mt-2 text-xs leading-5 text-zinc-500">
-                    {tomorrowPlanAdvice.advice.estimatedMinutes} 分钟 / {labelPriority(tomorrowPlanAdvice.advice.priority)}
-                  </p>
-                </div>
+                {dailyReviewAdvice ? (
+                  <div className="rounded-md border border-white/10 bg-[#151a20] p-4">
+                    <p className="text-sm text-violet-100">{dailyReviewAdvice.advice.title}</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-200">{dailyReviewAdvice.advice.nextReviewPrompt}</p>
+                    <p className="mt-2 text-xs leading-5 text-zinc-500">{dailyReviewAdvice.meta.reason}</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">
+                    每日复盘建议暂时不可用。
+                  </div>
+                )}
+                {tomorrowPlanAdvice ? (
+                  <div className="rounded-md border border-white/10 bg-[#151a20] p-4">
+                    <p className="text-sm text-violet-100">{tomorrowPlanAdvice.advice.title}</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-200">{tomorrowPlanAdvice.advice.minimumTaskTitle}</p>
+                    <p className="mt-2 text-xs leading-5 text-zinc-500">
+                      {tomorrowPlanAdvice.advice.estimatedMinutes} 分钟 / {labelPriority(tomorrowPlanAdvice.advice.priority)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">
+                    明日最小任务建议暂时不可用。
+                  </div>
+                )}
               </div>
             </article>
             <SignalPanel icon={CheckCircle2} title="打卡连续性" value={dashboard.checkIn.reason} />
@@ -313,6 +311,63 @@ export default async function Home() {
         </section>
       </div>
     </main>
+  );
+}
+
+function fulfilledValue<T>(result: PromiseSettledResult<T>): T | null {
+  return result.status === "fulfilled" ? result.value : null;
+}
+
+function unavailableUpdateStatus(): UpdateCenterStatus {
+  return {
+    currentVersion: process.env.APP_VERSION ?? "0.1.7",
+    currentImage: null,
+    appUrl: null,
+    deployMode: "unknown",
+    releaseUrl: "https://github.com/AreaSong/AreaForge/releases",
+    latestVersion: null,
+    latestPublishedAt: null,
+    updateAvailable: false,
+    autoApply: "none",
+    signatureRequired: false,
+    timerEnabled: null,
+    timerActive: null,
+    lastCheckedAt: null,
+    lastOperation: null,
+    rollback: {
+      available: false,
+      targetVersion: null,
+      targetImage: null,
+      sourceRecordSha256: null,
+    },
+    blocker: "版本状态暂时不可用，请稍后检查。",
+    requestQueueLength: null,
+    statusUpdatedAt: null,
+    snapshotSchemaVersion: null,
+    snapshotHash: null,
+    verifiedTarget: null,
+  };
+}
+
+function DashboardNavLink({
+  href,
+  label,
+  icon: Icon,
+  compact = false,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      className={`inline-flex items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10 ${compact ? "h-9" : "h-11"}`}
+      href={href}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      {label}
+    </Link>
   );
 }
 

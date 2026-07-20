@@ -9,7 +9,7 @@ import {
   type MasteryProofSummary,
   type SyllabusMapNodeStatus,
 } from "@areaforge/core";
-import { prisma, type Prisma } from "@areaforge/db";
+import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import type {
   MasteryEvidenceTypeDto,
@@ -25,6 +25,7 @@ type DbSyllabusNodeKind = "SUBJECT" | "CHAPTER" | "TOPIC" | "PROBLEM_TYPE";
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
 type DbMasteryLevel = "SEEN" | "LEARNED" | "BASIC_EXERCISES" | "CAN_EXPLAIN" | "RETEST_PASSED" | "EXAM_STABLE";
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
+type SyllabusDbClient = PrismaClient | Prisma.TransactionClient;
 
 const syllabusNodeEvidenceInclude = {
   _count: {
@@ -557,8 +558,12 @@ export async function addMasteryRetest(
   return serializeNode(updated, []);
 }
 
-export async function assertSyllabusNodeBelongsToSubject(nodeId: string, subjectId: string): Promise<void> {
-  const node = await prisma.syllabusNode.findUnique({
+export async function assertSyllabusNodeBelongsToSubject(
+  nodeId: string,
+  subjectId: string,
+  client: SyllabusDbClient = prisma,
+): Promise<void> {
+  const node = await client.syllabusNode.findUnique({
     where: { id: nodeId },
     select: { subjectId: true },
   });

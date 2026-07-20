@@ -500,9 +500,17 @@ function collectBackup(): Signal {
     };
   }
   if (!/sha256[:=][a-f0-9]{64}/i.test(evidence)) {
-    return { status: "warn", evidence: "backup evidence is present but does not include a sha256 marker" };
+    return {
+      status: criticalScope() ? "blocked" : "warn",
+      evidence: "untrusted free-form backup evidence cannot prove backup identity or freshness",
+      residualRiskIds: ["AF-RISK-OPS-001", "AF-RISK-OPS-004"],
+    };
   }
-  return { status: "pass", evidence: "backup evidence includes sha256 marker" };
+  return {
+    status: criticalScope() ? "blocked" : "warn",
+    evidence: "free-form backup hash is metadata-only and cannot prove archive identity or freshness",
+    residualRiskIds: ["AF-RISK-OPS-001", "AF-RISK-OPS-004"],
+  };
 }
 
 function extractJson(raw: string): string {

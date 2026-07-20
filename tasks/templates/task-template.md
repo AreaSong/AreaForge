@@ -2,15 +2,21 @@
 
 ```yaml
 status: todo
+phase: planning
+blockers: []
 risk: low|medium|high
 ownerSkill: areaforge-...
 validation:
   - pnpm docs:readiness
 residualRiskIds: []
 releaseRequired: false
+# 可选：高风险离线证据契约，例如 evidenceClass: migration_preimage_candidate
+# 可选：与 preflight/fixture 绑定的版本化契约，例如 preflightContract: OWNER-PREFLIGHT-CONTRACT-V1
 ```
 
 状态：
+
+`status` 只表示任务生命周期：active 使用 `todo/in-progress/blocked`，backlog 使用 `backlog/deferred/blocked`，done 使用 `done`。等待确认、等待签名 Release 或等待生产证据放入 `phase` 和 `blockers`，不要继续发明复合状态词。
 
 ## 目标
 

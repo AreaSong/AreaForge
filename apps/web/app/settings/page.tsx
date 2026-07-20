@@ -28,7 +28,7 @@ export default async function SettingsPage() {
             <p className="mt-2 text-sm text-zinc-500">账号、运行状态、版本更新和自动策略。</p>
           </div>
           <Link
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/10"
             href="/"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />

@@ -518,15 +518,19 @@ function checkOpsReadinessTerms(): void {
   const requiredTerms = [
     "只读运营证据聚合入口",
     "AF-RISK-OPS-001",
+    "AF-RISK-OPS-006",
     "AF-RISK-REL-001",
     "AF-RISK-SC-001",
     "AF-RISK-UX-001",
     "pnpm ops:readiness",
     "pnpm ops:readiness:summary",
+    "pnpm ops:data-integrity:doctor",
+    "schema v3",
+    "bindingStatus: current",
     "pnpm smoke:local-ux",
     "pnpm experience:review:validate",
     "areaforge-operating-loop",
-    "release workflow validates before build",
+    "release workflow validates structured admission and immutable identities before build",
   ];
   const combined = `${readiness}\n${residual}\n${script}\n${skillsReadme}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));

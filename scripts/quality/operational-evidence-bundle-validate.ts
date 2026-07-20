@@ -6,9 +6,16 @@ import {
   sha256,
   type ValidationIssue,
 } from "./record-validator-common";
+import { buildOperationalEvidenceSourceSnapshot } from "./operational-evidence-source";
 
 type BundleStatus = "ready" | "needs_attention" | "blocked";
 type JsonRecord = Record<string, unknown>;
+type BundleValidationOptions = {
+  shapeOnly?: boolean;
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  now?: Date;
+};
 
 const requiredSignalKeys = [
   "signal:health",
@@ -30,6 +37,13 @@ const requiredFreshnessSignalKeys = [
   "infrastructure",
 ];
 
+const requiredSourceFileInputs: Record<string, string> = {
+  updateStatus: "AREAFORGE_READINESS_UPDATE_STATUS_FILE",
+  releaseManifest: "AREAFORGE_READINESS_RELEASE_MANIFEST_FILE",
+  smokeResult: "AREAFORGE_READINESS_SMOKE_RESULT_FILE",
+  backupRestorePreview: "AREAFORGE_READINESS_BACKUP_RESTORE_PREVIEW_FILE",
+};
+
 const requiredForbiddenActions = [
   "execute_server_command",
   "apply_update",
@@ -49,6 +63,7 @@ const requiredCapabilities = [
   "collect_read_only_operational_readiness_summary",
   "assemble_signal_evidence_index",
   "map_residual_risk_ids_to_required_evidence",
+  "bind_current_source_inputs",
   "compute_bundle_hash",
 ];
 const requiredDoesNotProve = [
@@ -62,13 +77,14 @@ const requiredDoesNotProve = [
 
 function main(): void {
   const bundlePath = process.argv[2];
+  const shapeOnly = process.argv.slice(3).includes("--shape-only");
   if (!bundlePath) {
-    console.error("Usage: pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>");
+    console.error("Usage: pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json> [--shape-only]");
     process.exit(2);
   }
 
   const raw = readRequiredFile(path.resolve(bundlePath));
-  const issues = validateBundle(raw);
+  const issues = validateBundle(raw, { shapeOnly });
   if (issues.length > 0) {
     for (const issue of issues) {
       console.error(`FAIL ${issue.field}: ${issue.message}`);
@@ -77,17 +93,29 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("operational evidence bundle validation passed: hash, signal inventory, freshness, doesNotProve, safety facts, forbidden actions, and redaction checks are present.");
+  console.log(`operational evidence bundle validation passed: ${shapeOnly ? "historical shape" : "current source binding"}, hash, signal inventory, freshness, doesNotProve, safety facts, forbidden actions, and redaction checks are present.`);
+  console.log(`bindingStatus: ${shapeOnly ? "shape_only" : "current"}`);
   console.log(`operationalEvidenceBundleRecordHash: sha256:${sha256(extractJson(raw))}`);
   console.log("safetyFacts: readOnlyValidation=true serverCommandAttempted=false productionWriteAttempted=false secretValuePrinted=false");
 }
 
-export function validateBundle(raw: string): ValidationIssue[] {
+export function validateBundle(raw: string, options: BundleValidationOptions = {}): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   scanForSecrets(raw, issues);
   const body = parseBundle(raw, issues);
   if (!body) return issues;
 
+  const schemaVersion = body.schemaVersion ?? 1;
+  if (schemaVersion !== 1 && schemaVersion !== 2) {
+    issues.push({ field: "schemaVersion", message: "must be 1 or 2" });
+  }
+  if (schemaVersion === 1 && !options.shapeOnly) {
+    issues.push({ field: "schemaVersion", message: "historical schema v1 requires --shape-only" });
+  }
+  if (schemaVersion === 2) {
+    validateSourceSnapshot(body.sourceSnapshot, issues);
+    if (!options.shapeOnly) validateCurrentBinding(body, options, issues);
+  }
   requireOneOfValue(body.status, "status", ["ready", "needs_attention", "blocked"], issues);
   requireValue(body.mode, "mode", "read_only_operational_evidence_bundle", issues);
   requireIso(body.generatedAt, "generatedAt", issues);
@@ -98,12 +126,101 @@ export function validateBundle(raw: string): ValidationIssue[] {
   validateFreshnessConsistency(body, issues);
   validateReadyGate(body, issues);
   validateItems(body.items, issues);
-  validateStringArray(body.capabilities, "capabilities", requiredCapabilities, issues);
+  validateStringArray(
+    body.capabilities,
+    "capabilities",
+    schemaVersion === 1 ? requiredCapabilities.filter((item) => item !== "bind_current_source_inputs") : requiredCapabilities,
+    issues,
+  );
   validateStringArray(body.doesNotProve, "doesNotProve", requiredDoesNotProve, issues);
   validateStringArray(body.forbiddenActions, "forbiddenActions", requiredForbiddenActions, issues);
   validateSafetyFacts(body.safetyFacts, issues);
+  if (!options.shapeOnly && schemaVersion === 2) validateCurrentFreshness(body, options.now ?? new Date(), issues);
 
   return issues;
+}
+
+function validateSourceSnapshot(value: unknown, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ field: "sourceSnapshot", message: "must be an object for schema v2" });
+    return;
+  }
+  if (value.schemaVersion !== 1) issues.push({ field: "sourceSnapshot.schemaVersion", message: "must be 1" });
+  if (typeof value.packageVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(value.packageVersion)) {
+    issues.push({ field: "sourceSnapshot.packageVersion", message: "must be semver" });
+  }
+  for (const field of ["packageJsonHash", "implementationHash", "configHash", "sourceSetHash"]) {
+    requireSha256Value(value[field], `sourceSnapshot.${field}`, issues);
+  }
+  if (!Array.isArray(value.fileInputs)) {
+    issues.push({ field: "sourceSnapshot.fileInputs", message: "must be an array" });
+    return;
+  }
+  const requiredKeys = Object.keys(requiredSourceFileInputs);
+  const actualKeys: string[] = [];
+  for (const [index, input] of value.fileInputs.entries()) {
+    if (!isRecord(input)) {
+      issues.push({ field: `sourceSnapshot.fileInputs[${index}]`, message: "must be an object" });
+      continue;
+    }
+    requireString(input.key, `sourceSnapshot.fileInputs[${index}].key`, issues);
+    requireString(input.envKey, `sourceSnapshot.fileInputs[${index}].envKey`, issues);
+    if (typeof input.key === "string") actualKeys.push(input.key);
+    if (typeof input.key === "string" && requiredSourceFileInputs[input.key] !== input.envKey) {
+      issues.push({ field: `sourceSnapshot.fileInputs[${index}].envKey`, message: `must match ${requiredSourceFileInputs[input.key] ?? "a known source key"}` });
+    }
+    if (typeof input.configured !== "boolean") issues.push({ field: `sourceSnapshot.fileInputs[${index}].configured`, message: "must be boolean" });
+    requireOneOfValue(input.fileKind, `sourceSnapshot.fileInputs[${index}].fileKind`, ["missing", "regular", "symlink", "other"], issues);
+    if (input.pathLabel !== null && (typeof input.pathLabel !== "string" || path.basename(input.pathLabel) !== input.pathLabel)) {
+      issues.push({ field: `sourceSnapshot.fileInputs[${index}].pathLabel`, message: "must be null or a basename" });
+    }
+    if (input.fileKind === "regular") requireSha256Value(input.sha256, `sourceSnapshot.fileInputs[${index}].sha256`, issues);
+    else if (input.sha256 !== null) issues.push({ field: `sourceSnapshot.fileInputs[${index}].sha256`, message: "must be null unless fileKind=regular" });
+    if (input.fileKind === "symlink" || input.fileKind === "other") {
+      issues.push({ field: `sourceSnapshot.fileInputs[${index}].fileKind`, message: "configured evidence input must be a regular file or missing" });
+    }
+    if (input.configured === false && (input.pathLabel !== null || input.fileKind !== "missing" || input.sha256 !== null)) {
+      issues.push({ field: `sourceSnapshot.fileInputs[${index}]`, message: "unconfigured input must be missing with null path/hash" });
+    }
+    if (input.configured === true && input.pathLabel === null) {
+      issues.push({ field: `sourceSnapshot.fileInputs[${index}].pathLabel`, message: "configured input requires a basename" });
+    }
+  }
+  const missing = requiredKeys.filter((key) => !actualKeys.includes(key));
+  if (missing.length > 0) issues.push({ field: "sourceSnapshot.fileInputs", message: `missing ${missing.join(", ")}` });
+  if (new Set(actualKeys).size !== actualKeys.length || actualKeys.length !== requiredKeys.length) {
+    issues.push({ field: "sourceSnapshot.fileInputs", message: "must contain each required source input exactly once" });
+  }
+}
+
+function validateCurrentBinding(body: JsonRecord, options: BundleValidationOptions, issues: ValidationIssue[]): void {
+  if (!isRecord(body.sourceSnapshot)) return;
+  try {
+    const current = buildOperationalEvidenceSourceSnapshot({ cwd: options.cwd, env: options.env });
+    if (stableStringify(body.sourceSnapshot) !== stableStringify(current)) {
+      issues.push({ field: "bindingStatus", message: "stale: current source inputs do not match sourceSnapshot" });
+    }
+  } catch (error) {
+    issues.push({ field: "bindingStatus", message: `unavailable: ${error instanceof Error ? error.message : "cannot rebuild source snapshot"}` });
+  }
+}
+
+function validateCurrentFreshness(body: JsonRecord, now: Date, issues: ValidationIssue[]): void {
+  if (!isRecord(body.freshness) || typeof body.freshness.maxAgeSeconds !== "number") return;
+  const maxAgeSeconds = body.freshness.maxAgeSeconds;
+  const generatedAt = typeof body.generatedAt === "string" ? Date.parse(body.generatedAt) : Number.NaN;
+  if (Number.isFinite(generatedAt) && Math.max(0, (now.getTime() - generatedAt) / 1000) > maxAgeSeconds) {
+    issues.push({ field: "bindingStatus", message: "stale: bundle generation time exceeds the freshness window" });
+  }
+  if (!isRecord(body.freshness.signals)) return;
+  for (const key of requiredFreshnessSignalKeys) {
+    const signal = body.freshness.signals[key];
+    if (!isRecord(signal) || signal.status !== "fresh" || typeof signal.checkedAt !== "string") continue;
+    const checkedAt = Date.parse(signal.checkedAt);
+    if (Number.isFinite(checkedAt) && Math.max(0, (now.getTime() - checkedAt) / 1000) > maxAgeSeconds) {
+      issues.push({ field: `bindingStatus.${key}`, message: "stale: signal no longer fits the freshness window" });
+    }
+  }
 }
 
 function parseBundle(raw: string, issues: ValidationIssue[]): JsonRecord | null {

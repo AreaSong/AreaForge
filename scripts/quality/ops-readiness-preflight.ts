@@ -1,5 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { validateAttachmentCrashWindow } from "./attachment-crash-window-validate";
+import { readResidualLedgerV2 } from "./residual-ledger-common";
+import { validateUpdaterMaintenanceControl } from "./updater-maintenance-control-validate";
+import { validateUpdaterPhaseJournal } from "./updater-phase-journal-validate";
 
 interface CheckResult {
   name: string;
@@ -18,6 +22,8 @@ function main(): void {
   checkOperatingLoopSkill();
   checkReleaseWorkflowHardGates();
   checkPackageScripts();
+  checkConfirmationBeforeContracts();
+  checkOperationsLifecycle();
   checkSummaryScript();
   checkForbiddenLegacyEvidenceNames();
   checkLocalUxSmokeScript();
@@ -35,6 +41,166 @@ function main(): void {
   }
 
   console.log("ops readiness preflight passed: long-term operations evidence entrypoints are present and read-only.");
+}
+
+function checkConfirmationBeforeContracts(): void {
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const requiredScripts: Record<string, string> = {
+    "ops:ops-006:preflight": "tsx scripts/quality/ops006-concurrency-preflight.ts",
+    "ops:ops-006:preflight:strict": "tsx scripts/quality/ops006-concurrency-preflight.ts --require-candidate-ready",
+    "ops:ops-006:preflight:selftest": "tsx scripts/quality/ops006-concurrency-preflight.selftest.ts",
+    "ops:ops-007:preflight": "tsx scripts/quality/ops007-attachment-preflight.ts",
+    "ops:ops-007:preflight:strict": "tsx scripts/quality/ops007-attachment-preflight.ts --require-protocol-ready",
+    "ops:ops-007:preflight:selftest": "tsx scripts/quality/ops007-attachment-preflight.selftest.ts",
+    "attachment:crash-window:selftest": "tsx scripts/quality/attachment-crash-window-validate.selftest.ts",
+    "attachment:crash-window:validate": "tsx scripts/quality/attachment-crash-window-validate.ts",
+    "updater:phase-journal:selftest": "tsx scripts/quality/updater-phase-journal-validate.selftest.ts",
+    "updater:phase-journal:validate": "tsx scripts/quality/updater-phase-journal-validate.ts",
+    "updater:maintenance-control:selftest": "tsx scripts/quality/updater-maintenance-control-validate.selftest.ts",
+    "updater:maintenance-control:validate": "tsx scripts/quality/updater-maintenance-control-validate.ts",
+    "ops:ops-008:preflight": "tsx scripts/quality/ops008-updater-preflight.ts",
+    "ops:ops-008:preflight:strict": "tsx scripts/quality/ops008-updater-preflight.ts --strict",
+    "ops:ops-008:preflight:selftest": "tsx scripts/quality/ops008-updater-preflight.selftest.ts",
+  };
+  const missingScripts = Object.entries(requiredScripts)
+    .filter(([key, value]) => packageJson.scripts?.[key] !== value)
+    .map(([key]) => key);
+  const files = [
+    "tasks/active/0020-business-state-concurrency.md",
+    "docs/development/ops-006-business-state-concurrency-design.md",
+    "docs/development/high-risk-confirmation-packets.md",
+    "tasks/backlog/0021-attachment-staging-intent.md",
+    "docs/development/ops-007-attachment-crash-window-design.md",
+    "tasks/backlog/0022-updater-phase-journal-hold.md",
+    "docs/development/ops-008-updater-phase-journal-design.md",
+    "scripts/quality/ops006-concurrency-preflight.ts",
+    "scripts/quality/ops006-concurrency-preflight.selftest.ts",
+    "scripts/quality/ops007-attachment-preflight.ts",
+    "scripts/quality/ops007-attachment-preflight.selftest.ts",
+    "scripts/quality/attachment-crash-window-validate.ts",
+    "scripts/quality/attachment-crash-window-validate.selftest.ts",
+    "scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json",
+    "scripts/quality/updater-phase-journal-validate.ts",
+    "scripts/quality/updater-phase-journal-validate.selftest.ts",
+    "scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json",
+    "scripts/quality/updater-maintenance-control-validate.ts",
+    "scripts/quality/updater-maintenance-control-validate.selftest.ts",
+    "scripts/quality/ops008-updater-preflight.ts",
+    "scripts/quality/ops008-updater-preflight.selftest.ts",
+    "scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json",
+    "scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json",
+    "scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json",
+  ];
+  const missingFiles = files.filter((file) => !existsSync(resolve(file)));
+  const combined = files.filter((file) => existsSync(resolve(file))).map((file) => read(file)).join("\n");
+  const requiredTerms = [
+    "execute_server_command",
+    "run_migration",
+    "productionWriteAttempted: false",
+    "OPS-007 附件 Staging/Write-Intent 本地实施确认包",
+    "确认执行 OPS-007 附件 staging/write-intent 本地实施",
+    "OPS-008 Updater Phase Journal 与 Maintenance Hold/Drain 本地实施确认包",
+    "确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施",
+  ];
+  const forbidden = requiredTerms
+    .filter((term) => !combined.includes(term));
+  const confirmationMismatches = [
+    {
+      prefix: "确认执行 OPS-006 业务状态并发一致性本地实施",
+      expected: "确认执行 OPS-006 业务状态并发一致性本地实施：范围仅限新增“最多一个活跃 StudySession”的 additive migration、task/session expected-status CAS、结束计时事务内单次副作用、同日 CheckIn 事务锁、409 冲突映射、只读 data-integrity doctor 联动和本地 PostgreSQL 并发 selftest；不执行生产 migration deploy、历史数据修复/删除/合并、批量任务修改、多用户迁移、附件改造、updater 改造、Release/tag、服务器命令、secrets 操作或 residual 台账关闭。",
+      files: ["docs/development/high-risk-confirmation-packets.md", "docs/development/ops-006-business-state-concurrency-design.md", "tasks/active/0020-business-state-concurrency.md"],
+    },
+    {
+      prefix: "确认执行 OPS-007 附件 staging/write-intent 本地实施",
+      expected: "确认执行 OPS-007 附件 staging/write-intent 本地实施：范围仅限新增 AttachmentStatus PENDING/READY/FAILED、protocolVersion、staging/finalized/failure、reconciliation lease 字段和 stagingName/storedName/uri 唯一约束的 additive migration，note 附件上传改为有界流式读取、显式 PENDING intent、exclusive staging write/fsync、atomic rename/fsync、READY CAS，下载仅允许 READY 并使用 O_NOFOLLOW 同句柄校验，补偿失败保留可审计状态，新协议记录的有界 claim/lease reconciliation，以及本地临时 PostgreSQL/上传目录 crash fixture；不删除或自动修复历史 orphan，不删除 READY 附件，不执行生产 migration/deploy、backup/restore、上传目录迁移、服务器命令、secrets 操作、多用户迁移、Release/tag 或 residual 台账关闭。",
+      files: ["docs/development/high-risk-confirmation-packets.md", "docs/development/ops-007-attachment-crash-window-design.md", "tasks/backlog/0021-attachment-staging-intent.md"],
+    },
+    {
+      prefix: "确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施",
+      expected: "确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施：范围仅限 root-only no-clobber/逐级 fsync immutable hash-chained phase events、精确 backup inventory 持久化屏障、admission/identity-bound/backup/prepare/migration-or-skipped/switch/health/smoke/rollback/terminal/reconciliation 状态机、崩溃后 fail-closed hold、固定 queue-control -> production-state -> agent-local 锁顺序、hold generation/clear CAS、旧 generation 请求隔离、record/journal 失败的 reconciliation exit mapping、redacted status、扩展 sourceSetHash 和本地临时目录 kill-point/锁竞争 selftest；不执行生产 updater apply、Web apply/rollback 请求、systemd timer 启停、生产 hold/clear/drain、backup/restore、migration、Docker/Nginx/compose 切换、自动应用策略变化、服务器命令、secrets 操作、Release/tag 或 residual 台账关闭。",
+      files: ["docs/development/high-risk-confirmation-packets.md", "docs/development/ops-008-updater-phase-journal-design.md", "tasks/backlog/0022-updater-phase-journal-hold.md"],
+    },
+  ].flatMap((contract) => contract.files
+    .filter((file) => confirmationLine(read(file), contract.prefix) !== contract.expected)
+    .map((file) => `${contract.prefix}@${file}`));
+  const fixtureIssues = [
+    ...validateAttachmentCrashWindow(read("scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json")),
+    ...validateUpdaterPhaseJournal(read("scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json")),
+    ...["ops008-hold-drain-preconfirmation.json", "ops008-hold-waiting-preconfirmation.json", "ops008-hold-lock-waiting-preconfirmation.json"]
+      .flatMap((file) => validateUpdaterMaintenanceControl(read(`scripts/quality/fixtures/update-agent/maintenance-control/${file}`))),
+  ];
+  const workflowTerms = [
+    "pnpm ops:ops-006:preflight:selftest",
+    "pnpm ops:ops-007:preflight:selftest",
+    "pnpm ops:ops-008:preflight:selftest",
+    "pnpm ops:ops-006:preflight",
+    "pnpm ops:ops-007:preflight",
+    "pnpm ops:ops-008:preflight",
+    "pnpm attachment:crash-window:selftest",
+    "pnpm attachment:crash-window:validate scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json",
+    "pnpm updater:phase-journal:selftest",
+    "pnpm updater:phase-journal:validate scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json",
+    "pnpm updater:maintenance-control:selftest",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json",
+    "pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json",
+  ];
+  const workflowMismatches = [".github/workflows/ci.yml", ".github/workflows/release.yml"]
+    .flatMap((file) => workflowTerms.filter((term) => !read(file).includes(term)).map((term) => `${file}:${term}`));
+  checks.push({
+    name: "confirmation-scoped operational contracts",
+    ok: missingScripts.length === 0 && missingFiles.length === 0 && forbidden.length === 0 && confirmationMismatches.length === 0 && fixtureIssues.length === 0 && workflowMismatches.length === 0,
+    detail: missingScripts.length === 0 && missingFiles.length === 0 && forbidden.length === 0 && confirmationMismatches.length === 0 && fixtureIssues.length === 0 && workflowMismatches.length === 0
+      ? "OPS-006 local-verified and OPS-007/008 preconfirmation validators, task bindings, and no-production boundaries are present"
+      : `missing scripts ${missingScripts.join(", ") || "none"}; missing files ${missingFiles.join(", ") || "none"}; missing boundary terms ${forbidden.join(", ") || "none"}; confirmation mismatches ${confirmationMismatches.join(", ") || "none"}; fixture issues ${fixtureIssues.map((issue) => issue.field).join(", ") || "none"}; workflow mismatches ${workflowMismatches.join(", ") || "none"}`,
+  });
+}
+
+function confirmationLine(raw: string, prefix: string): string | null {
+  const line = raw.split(/\r?\n/).map((item) => item.trim()).find((item) => item.startsWith(`> ${prefix}`));
+  return line ? line.slice(2).trim() : null;
+}
+
+function checkOperationsLifecycle(): void {
+  const requiredFiles = [
+    "docs/development/operations-lifecycle.json",
+    "docs/development/operations-lifecycle.md",
+    "scripts/quality/operations-lifecycle-validate.ts",
+    "scripts/quality/operations-lifecycle-validate.selftest.ts",
+  ];
+  const packageJson = JSON.parse(read("package.json")) as { scripts?: Record<string, string> };
+  const requiredScripts: Record<string, string> = {
+    "ops:lifecycle:validate": "tsx scripts/quality/operations-lifecycle-validate.ts",
+    "ops:lifecycle:selftest": "tsx scripts/quality/operations-lifecycle-validate.selftest.ts",
+    "ops:lifecycle:typecheck": "tsc --noEmit --target ES2022 --lib ES2022,DOM --module ESNext --moduleResolution Bundler --strict --skipLibCheck --esModuleInterop --types node scripts/quality/operations-lifecycle-validate.ts scripts/quality/operations-lifecycle-validate.selftest.ts",
+  };
+  const missingFiles = requiredFiles.filter((file) => !existsSync(resolve(file)));
+  const missingScripts = Object.entries(requiredScripts)
+    .filter(([name, command]) => packageJson.scripts?.[name] !== command)
+    .map(([name]) => name);
+  const combined = requiredFiles.filter((file) => existsSync(resolve(file))).map(read).join("\n");
+  const requiredTerms = [
+    "AF-SLO-HEALTH-001",
+    "AF-SLO-SMOKE-001",
+    "AF-SLO-SEC-001",
+    "availability",
+    "latency",
+    "rto",
+    "rpo",
+    "draft",
+    "confirmed_apply",
+    "incidentRuntimeChanged",
+  ];
+  const missingTerms = requiredTerms.filter((term) => !combined.includes(term));
+  const workflows = `${read(".github/workflows/ci.yml")}\n${read(".github/workflows/release.yml")}`;
+  const workflowRunCount = workflows.split("pnpm ops:lifecycle:selftest && pnpm ops:lifecycle:validate && pnpm ops:lifecycle:typecheck").length - 1;
+  checks.push({
+    name: "operations lifecycle policy",
+    ok: missingFiles.length === 0 && missingScripts.length === 0 && missingTerms.length === 0 && workflowRunCount === 2,
+    detail: missingFiles.length === 0 && missingScripts.length === 0 && missingTerms.length === 0 && workflowRunCount === 2
+      ? "SLO, incident transition, and capability lifecycle contracts are read-only, validated, and enforced in CI/Release"
+      : `missing files ${missingFiles.join(", ") || "none"}; scripts ${missingScripts.join(", ") || "none"}; terms ${missingTerms.join(", ") || "none"}; workflow count=${workflowRunCount}`,
+  });
 }
 
 function checkForbiddenLegacyEvidenceNames(): void {
@@ -80,6 +246,7 @@ function checkRequiredFiles(): void {
     "docs/development/maintenance-window-index.json",
     "docs/development/incident-index.json",
     "docs/development/update-agent-status-record-template.md",
+    "scripts/quality/operational-readiness-summary.selftest.ts",
     "docs/development/product-experience-review-record-template.md",
     "docs/deployment/operator-onboarding.md",
     "apps/web/app/layout.tsx",
@@ -99,6 +266,7 @@ function checkRequiredFiles(): void {
     "scripts/ops/long-term-evidence-snapshot.ts",
     "scripts/ops/operational-readiness-summary.ts",
     "scripts/ops/operational-evidence-bundle.ts",
+    "scripts/quality/operational-evidence-source.ts",
     "scripts/quality/operational-evidence-bundle-validate.ts",
     "scripts/quality/operational-evidence-bundle-validate.selftest.ts",
     "scripts/ops/support-bundle-preview.ts",
@@ -117,6 +285,11 @@ function checkRequiredFiles(): void {
     "scripts/quality/ops005-production-evidence-validate.selftest.ts",
     "scripts/ops/sc002-supply-chain-preflight.ts",
     "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
+    "scripts/quality/github-main-protection-validate.ts",
+    "scripts/quality/github-main-protection-validate.selftest.ts",
+    "scripts/ops/sc004-main-protection-preflight.ts",
+    "scripts/quality/sc004-main-protection-preflight.selftest.ts",
+    "docs/development/github-main-protection-record-template.md",
     "scripts/ops/operational-alert-preview.ts",
     "scripts/ops/generate-alert-drill-record.ts",
     "scripts/ops/generate-incident-record.ts",
@@ -130,6 +303,7 @@ function checkRequiredFiles(): void {
     "scripts/quality/incident-index-validate.ts",
     "scripts/quality/incident-index.selftest.ts",
     "scripts/ops/local-ux-smoke.ts",
+    "scripts/ops/smoke-password.ts",
     "scripts/ops/generate-prod-readonly-smoke-record.ts",
     "scripts/ops/generate-ops001-closure-packet.ts",
     "scripts/ops/generate-ops001-fallback-closure.ts",
@@ -153,6 +327,9 @@ function checkRequiredFiles(): void {
     "scripts/quality/attachment-reconciliation.ts",
     "scripts/quality/attachment-reconciliation-summary.ts",
     "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+    "scripts/ops/data-integrity-doctor.ts",
+    "scripts/quality/data-integrity-doctor-validate.ts",
+    "scripts/quality/data-integrity-doctor.selftest.ts",
     "scripts/quality/release-evidence-validate.ts",
     "scripts/quality/release-evidence-validate.selftest.ts",
     "scripts/quality/ops001-blocked-record-validate.ts",
@@ -219,6 +396,9 @@ function checkOperationalReadinessDoc(): void {
     "pnpm ops:readiness",
     "pnpm ops:status",
     "pnpm ops:long-term:gate",
+    "schema v3",
+    "dataIntegrity",
+    "bindingStatus: current",
     "read_only_long_term_operability_live_gate",
     "pnpm ops:support:bundle-preview",
     "metadata_only_support_bundle_preview",
@@ -230,6 +410,9 @@ function checkOperationalReadinessDoc(): void {
     "AF-RISK-OPS-002",
     "AF-RISK-OPS-004",
     "AF-RISK-OPS-005",
+    "AF-RISK-OPS-006",
+    "AF-RISK-OPS-007",
+    "AF-RISK-OPS-008",
     "AF-RISK-UX-001",
     "Product experience review",
     "pnpm experience:review:validate",
@@ -296,7 +479,17 @@ function checkProductionSmokeAlertingStrategy(): void {
 
 function checkResidualLedger(): void {
   const ledger = read("docs/development/residual-risk-ledger.md");
-  const machineLedger = read("docs/development/residual-risk-ledger.json");
+  let machineLedger;
+  try {
+    machineLedger = readResidualLedgerV2({ root });
+  } catch (error) {
+    checks.push({
+      name: "residual risk ledger",
+      ok: false,
+      detail: `invalid V2 ledger: ${error instanceof Error ? error.message : String(error)}`,
+    });
+    return;
+  }
   const requiredIds = [
     "AF-RISK-OPS-001",
     "AF-RISK-OPS-002",
@@ -306,6 +499,10 @@ function checkResidualLedger(): void {
     "AF-RISK-SC-003",
     "AF-RISK-OPS-003",
     "AF-RISK-OPS-004",
+    "AF-RISK-OPS-005",
+    "AF-RISK-OPS-006",
+    "AF-RISK-OPS-007",
+    "AF-RISK-OPS-008",
   ];
   const requiredTerms = [
     "monitoring-gap",
@@ -315,7 +512,7 @@ function checkResidualLedger(): void {
     "所需证据",
     "Owner",
   ];
-  const combined = `${ledger}\n${machineLedger}`;
+  const combined = `${ledger}\n${JSON.stringify(machineLedger)}`;
   const missingIds = requiredIds.filter((term) => !combined.includes(term));
   const missingTerms = requiredTerms.filter((term) => !ledger.includes(term));
   const hasValidationScript = read("package.json").includes("residuals:validate");
@@ -367,14 +564,25 @@ function checkReleaseWorkflowHardGates(): void {
     "pnpm check",
     "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
     "unsigned preview",
-    "release tag ${tag} does not match package.json version",
+    "pnpm release:admission:selftest",
+    "pnpm release:admission",
+    "AREAFORGE_RELEASE_TAG:",
+    "AREAFORGE_WORKFLOW_SHA:",
+    "Reject existing immutable release identity",
+    "pnpm release:identity:probe:selftest",
+    "pnpm release:identity:probe",
+    "pnpm release:workflow:policy:selftest",
+    "AREAFORGE_RELEASE_REPOSITORY:",
+    "AREAFORGE_RELEASE_WEB_IMAGE:",
+    "AREAFORGE_RELEASE_MIGRATION_IMAGE:",
+    "release channel must be stable or preview",
   ];
   const missing = requiredTerms.filter((term) => !workflow.includes(term));
   checks.push({
     name: "release workflow hard gates",
     ok: missing.length === 0,
     detail: missing.length === 0
-      ? "release workflow validates before build and fails closed for unsigned stable releases"
+      ? "release workflow validates structured admission and immutable identities before build, and fails closed for unsigned stable releases"
       : `missing ${missing.join(", ")}`,
   });
 }
@@ -397,6 +605,7 @@ function checkPackageScripts(): void {
   const longTermSnapshotValidateScript = packageJson.scripts?.["ops:long-term:snapshot:validate"] ?? "";
   const longTermSnapshotSelftestScript = packageJson.scripts?.["ops:long-term:snapshot:selftest"] ?? "";
   const summaryScript = packageJson.scripts?.["ops:readiness:summary"] ?? "";
+  const summarySelftestScript = packageJson.scripts?.["ops:readiness:summary:selftest"] ?? "";
   const bundleScript = packageJson.scripts?.["ops:evidence:bundle"] ?? "";
   const bundleValidateScript = packageJson.scripts?.["ops:evidence:bundle:validate"] ?? "";
   const bundleSelftestScript = packageJson.scripts?.["ops:evidence:bundle:selftest"] ?? "";
@@ -413,6 +622,9 @@ function checkPackageScripts(): void {
   const attachmentReconciliationScript = packageJson.scripts?.["attachment:reconciliation"] ?? "";
   const attachmentReconciliationSummaryScript = packageJson.scripts?.["attachment:reconciliation:summary"] ?? "";
   const attachmentReconciliationSummarySelftestScript = packageJson.scripts?.["attachment:reconciliation:summary:selftest"] ?? "";
+  const dataIntegrityDoctorScript = packageJson.scripts?.["ops:data-integrity:doctor"] ?? "";
+  const dataIntegrityValidateScript = packageJson.scripts?.["ops:data-integrity:validate"] ?? "";
+  const dataIntegritySelftestScript = packageJson.scripts?.["ops:data-integrity:selftest"] ?? "";
   const releaseEvidenceValidateScript = packageJson.scripts?.["release:evidence:validate"] ?? "";
   const releaseEvidenceSelftestScript = packageJson.scripts?.["release:evidence:selftest"] ?? "";
   const ops001PreflightSelftestScript = packageJson.scripts?.["ops:ops-001:preflight:selftest"] ?? "";
@@ -429,6 +641,10 @@ function checkPackageScripts(): void {
   const ops005EvidenceSelftestScript = packageJson.scripts?.["ops:ops-005:evidence:selftest"] ?? "";
   const sc002PreflightScript = packageJson.scripts?.["sc:sc-002:preflight"] ?? "";
   const sc002PreflightSelftestScript = packageJson.scripts?.["sc:sc-002:preflight:selftest"] ?? "";
+  const sc004ValidateScript = packageJson.scripts?.["sc:sc-004:validate"] ?? "";
+  const sc004ValidateSelftestScript = packageJson.scripts?.["sc:sc-004:validate:selftest"] ?? "";
+  const sc004PreflightScript = packageJson.scripts?.["sc:sc-004:preflight"] ?? "";
+  const sc004PreflightSelftestScript = packageJson.scripts?.["sc:sc-004:preflight:selftest"] ?? "";
   const ops001ClosureScript = packageJson.scripts?.["ops:ops-001:closure"] ?? "";
   const ops001ClosureValidateScript = packageJson.scripts?.["ops:ops-001:closure:validate"] ?? "";
   const ops001ClosureSelftestScript = packageJson.scripts?.["ops:ops-001:closure:selftest"] ?? "";
@@ -444,6 +660,7 @@ function checkPackageScripts(): void {
   const prodReadonlySmokeRecordScript = packageJson.scripts?.["smoke:prod-readonly:record"] ?? "";
   const prodReadonlySmokeRecordSelftestScript = packageJson.scripts?.["smoke:prod-readonly:record:selftest"] ?? "";
   const localUxSmokeScript = packageJson.scripts?.["smoke:local-ux"] ?? "";
+  const localUxSmokeSelftestScript = packageJson.scripts?.["smoke:local-ux:selftest"] ?? "";
   const experienceReviewValidateScript = packageJson.scripts?.["experience:review:validate"] ?? "";
   const experienceReviewSelftestScript = packageJson.scripts?.["experience:review:selftest"] ?? "";
   const residualEvidencePreflightScript = packageJson.scripts?.["residuals:evidence:preflight"] ?? "";
@@ -489,6 +706,7 @@ function checkPackageScripts(): void {
       longTermSnapshotValidateScript === "tsx scripts/quality/long-term-evidence-snapshot-validate.ts" &&
       longTermSnapshotSelftestScript === "tsx scripts/quality/long-term-evidence-snapshot.selftest.ts" &&
       summaryScript === "tsx scripts/ops/operational-readiness-summary.ts" &&
+      summarySelftestScript === "tsx scripts/quality/operational-readiness-summary.selftest.ts" &&
       bundleScript === "tsx scripts/ops/operational-evidence-bundle.ts" &&
       bundleValidateScript === "tsx scripts/quality/operational-evidence-bundle-validate.ts" &&
       bundleSelftestScript === "tsx scripts/quality/operational-evidence-bundle-validate.selftest.ts" &&
@@ -504,6 +722,9 @@ function checkPackageScripts(): void {
       attachmentReconciliationScript === "tsx scripts/quality/attachment-reconciliation.ts" &&
       attachmentReconciliationSummaryScript === "tsx scripts/quality/attachment-reconciliation-summary.ts" &&
       attachmentReconciliationSummarySelftestScript === "tsx scripts/quality/attachment-reconciliation-summary.selftest.ts" &&
+      dataIntegrityDoctorScript === "tsx scripts/ops/data-integrity-doctor.ts" &&
+      dataIntegrityValidateScript === "tsx scripts/quality/data-integrity-doctor-validate.ts" &&
+      dataIntegritySelftestScript === "tsx scripts/quality/data-integrity-doctor.selftest.ts" &&
       releaseEvidenceValidateScript === "tsx scripts/quality/release-evidence-validate.ts" &&
       releaseEvidenceSelftestScript === "tsx scripts/quality/release-evidence-validate.selftest.ts" &&
       ops001PreflightScript === "tsx scripts/ops/ops001-evidence-preflight.ts" &&
@@ -521,6 +742,10 @@ function checkPackageScripts(): void {
       ops005EvidenceSelftestScript === "tsx scripts/quality/ops005-production-evidence-validate.selftest.ts" &&
       sc002PreflightScript === "tsx scripts/ops/sc002-supply-chain-preflight.ts" &&
       sc002PreflightSelftestScript === "tsx scripts/quality/sc002-supply-chain-preflight.selftest.ts" &&
+      sc004ValidateScript === "tsx scripts/quality/github-main-protection-validate.ts" &&
+      sc004ValidateSelftestScript === "tsx scripts/quality/github-main-protection-validate.selftest.ts" &&
+      sc004PreflightScript === "tsx scripts/ops/sc004-main-protection-preflight.ts" &&
+      sc004PreflightSelftestScript === "tsx scripts/quality/sc004-main-protection-preflight.selftest.ts" &&
       ops001ClosureScript === "tsx scripts/ops/generate-ops001-closure-packet.ts" &&
       ops001ClosureValidateScript === "tsx scripts/quality/ops001-closure-packet-validate.ts" &&
       ops001ClosureSelftestScript === "tsx scripts/quality/ops001-closure-packet.selftest.ts" &&
@@ -542,6 +767,7 @@ function checkPackageScripts(): void {
       residualClosureSelftestScript === "tsx scripts/quality/residual-closure-review-validate.selftest.ts" &&
       residualReviewDueScript === "tsx scripts/ops/residual-review-due.ts" &&
       localUxSmokeScript === "tsx scripts/ops/local-ux-smoke.ts" &&
+      localUxSmokeSelftestScript === "tsx scripts/quality/local-ux-smoke.selftest.ts" &&
       experienceReviewValidateScript === "tsx scripts/quality/product-experience-review-validate.ts" &&
       experienceReviewSelftestScript === "tsx scripts/quality/product-experience-review-validate.selftest.ts" &&
       operatorOnboardingPreflightScript === "tsx scripts/quality/operator-onboarding-preflight.ts" &&
@@ -564,32 +790,41 @@ function checkPackageScripts(): void {
       updateAgentStatusRecordScript === "tsx scripts/ops/generate-update-agent-status-record.ts" &&
       updateAgentStatusRecordSelftestScript === "tsx scripts/quality/update-agent-status-record.selftest.ts" &&
       updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
-    detail: `ops:readiness=${script || "missing"}; ops:status=${statusScript || "missing"}; ops:status:validate=${statusValidateScript || "missing"}; ops:status:validate:selftest=${statusValidateSelftestScript || "missing"}; ops:status:selftest=${statusSelftestScript || "missing"}; ops:handoff=${handoffScript || "missing"}; ops:handoff:validate=${handoffValidateScript || "missing"}; ops:handoff:validate:selftest=${handoffValidateSelftestScript || "missing"}; ops:handoff:selftest=${handoffSelftestScript || "missing"}; ops:readonly-side-effect:selftest=${readonlySideEffectSelftestScript || "missing"}; ops:long-term:gate=${longTermGateScript || "missing"}; ops:long-term:gate:selftest=${longTermGateSelftestScript || "missing"}; ops:long-term:snapshot=${longTermSnapshotScript || "missing"}; ops:long-term:snapshot:validate=${longTermSnapshotValidateScript || "missing"}; ops:long-term:snapshot:selftest=${longTermSnapshotSelftestScript || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:evidence:bundle:validate=${bundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${bundleSelftestScript || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}; ops:backup-restore:preview=${backupRestorePreviewScript || "missing"}; ops:backup-restore:preview:validate=${backupRestorePreviewValidateScript || "missing"}; ops:backup-restore:preview:selftest=${backupRestorePreviewSelftestScript || "missing"}; ops:ops-001:preflight=${ops001PreflightScript || "missing"}; ops:ops-001:preflight:selftest=${ops001PreflightSelftestScript || "missing"}; ops:ops-001:blocked:validate=${ops001BlockedValidateScript || "missing"}; ops:ops-001:blocked:selftest=${ops001BlockedSelftestScript || "missing"}; ops:ops-001:fallback:finalize=${ops001FallbackFinalizeScript || "missing"}; ops:ops-001:fallback:finalize:selftest=${ops001FallbackFinalizeSelftestScript || "missing"}; ops:ops-001:fallback:selftest=${ops001FallbackSelftestScript || "missing"}; ops:ops-004:preflight=${ops004PreflightScript || "missing"}; ops:ops-004:preflight:selftest=${ops004PreflightSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; ops:ops-001:closure=${ops001ClosureScript || "missing"}; ops:ops-001:closure:validate=${ops001ClosureValidateScript || "missing"}; ops:ops-001:closure:selftest=${ops001ClosureSelftestScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; alert:drill:record=${alertDrillRecordScript || "missing"}; alert:drill:record:selftest=${alertDrillRecordSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; smoke:prod-readonly:config=${prodReadonlySmokeConfigScript || "missing"}; smoke:prod-readonly:config:selftest=${prodReadonlySmokeConfigSelftestScript || "missing"}; smoke:prod-readonly:record=${prodReadonlySmokeRecordScript || "missing"}; smoke:prod-readonly:record:selftest=${prodReadonlySmokeRecordSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:evidence:preflight=${residualEvidencePreflightScript || "missing"}; residuals:evidence:preflight:selftest=${residualEvidencePreflightSelftestScript || "missing"}; residuals:closure:validate=${residualClosureValidateScript || "missing"}; residuals:closure:selftest=${residualClosureSelftestScript || "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:record=${maintenanceWindowRecordScript || "missing"}; maintenance:window:record:selftest=${maintenanceWindowRecordSelftestScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
+    detail: `ops:readiness=${script || "missing"}; ops:status=${statusScript || "missing"}; ops:status:validate=${statusValidateScript || "missing"}; ops:status:validate:selftest=${statusValidateSelftestScript || "missing"}; ops:status:selftest=${statusSelftestScript || "missing"}; ops:handoff=${handoffScript || "missing"}; ops:handoff:validate=${handoffValidateScript || "missing"}; ops:handoff:validate:selftest=${handoffValidateSelftestScript || "missing"}; ops:handoff:selftest=${handoffSelftestScript || "missing"}; ops:readonly-side-effect:selftest=${readonlySideEffectSelftestScript || "missing"}; ops:long-term:gate=${longTermGateScript || "missing"}; ops:long-term:gate:selftest=${longTermGateSelftestScript || "missing"}; ops:long-term:snapshot=${longTermSnapshotScript || "missing"}; ops:long-term:snapshot:validate=${longTermSnapshotValidateScript || "missing"}; ops:long-term:snapshot:selftest=${longTermSnapshotSelftestScript || "missing"}; ops:readiness:summary=${summaryScript || "missing"}; ops:readiness:summary:selftest=${summarySelftestScript || "missing"}; ops:evidence:bundle=${bundleScript || "missing"}; ops:evidence:bundle:validate=${bundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${bundleSelftestScript || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}; ops:backup-restore:preview=${backupRestorePreviewScript || "missing"}; ops:backup-restore:preview:validate=${backupRestorePreviewValidateScript || "missing"}; ops:backup-restore:preview:selftest=${backupRestorePreviewSelftestScript || "missing"}; ops:ops-001:preflight=${ops001PreflightScript || "missing"}; ops:ops-001:preflight:selftest=${ops001PreflightSelftestScript || "missing"}; ops:ops-001:blocked:validate=${ops001BlockedValidateScript || "missing"}; ops:ops-001:blocked:selftest=${ops001BlockedSelftestScript || "missing"}; ops:ops-001:fallback:finalize=${ops001FallbackFinalizeScript || "missing"}; ops:ops-001:fallback:finalize:selftest=${ops001FallbackFinalizeSelftestScript || "missing"}; ops:ops-001:fallback:selftest=${ops001FallbackSelftestScript || "missing"}; ops:ops-004:preflight=${ops004PreflightScript || "missing"}; ops:ops-004:preflight:selftest=${ops004PreflightSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; ops:ops-001:closure=${ops001ClosureScript || "missing"}; ops:ops-001:closure:validate=${ops001ClosureValidateScript || "missing"}; ops:ops-001:closure:selftest=${ops001ClosureSelftestScript || "missing"}; ops:alert:preview=${alertPreviewScript || "missing"}; alert:drill:validate=${alertDrillValidateScript || "missing"}; alert:drill:selftest=${alertDrillSelftestScript || "missing"}; alert:drill:record=${alertDrillRecordScript || "missing"}; alert:drill:record:selftest=${alertDrillRecordSelftestScript || "missing"}; smoke:prod-readonly:validate=${prodReadonlySmokeValidateScript || "missing"}; smoke:prod-readonly:selftest=${prodReadonlySmokeSelftestScript || "missing"}; smoke:prod-readonly:config=${prodReadonlySmokeConfigScript || "missing"}; smoke:prod-readonly:config:selftest=${prodReadonlySmokeConfigSelftestScript || "missing"}; smoke:prod-readonly:record=${prodReadonlySmokeRecordScript || "missing"}; smoke:prod-readonly:record:selftest=${prodReadonlySmokeRecordSelftestScript || "missing"}; residuals:validate=${packageJson.scripts?.["residuals:validate"] ?? "missing"}; residuals:evidence:preflight=${residualEvidencePreflightScript || "missing"}; residuals:evidence:preflight:selftest=${residualEvidencePreflightSelftestScript || "missing"}; residuals:closure:validate=${residualClosureValidateScript || "missing"}; residuals:closure:selftest=${residualClosureSelftestScript || "missing"}; residuals:review-due=${residualReviewDueScript || "missing"}; smoke:local-ux=${localUxSmokeScript || "missing"}; smoke:local-ux:selftest=${localUxSmokeSelftestScript || "missing"}; experience:review:validate=${experienceReviewValidateScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; operator:onboarding:preflight=${operatorOnboardingPreflightScript || "missing"}; release:train:preflight=${releaseTrainPreflightScript || "missing"}; maintenance:cadence:preflight=${maintenanceCadencePreflightScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:record=${maintenanceWindowRecordScript || "missing"}; maintenance:window:record:selftest=${maintenanceWindowRecordSelftestScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
   });
 }
 
 function checkLocalUxSmokeScript(): void {
   const script = read("scripts/ops/local-ux-smoke.ts");
+  const password = read("scripts/ops/smoke-password.ts");
+  const productionSmoke = read("scripts/ops/production-readonly-smoke.ts");
   const docs = read("docs/development/operational-readiness.md");
   const requiredTerms = [
     "AREAFORGE_SMOKE_ALLOW_WRITES",
-    "AREAFORGE_SMOKE_ALLOW_NON_LOCAL",
+    "AREAFORGE_SMOKE_ALLOW_NON_LOCAL is unsupported",
     "isLocalBaseUrl",
+    "assertNoActiveSession(\"active session preflight\"",
+    "AREAFORGE_SMOKE_PASSWORD_FILE must be owner-readable and group/world-inaccessible",
+    "recordFailure(\"fatal\", error)",
     "upload note attachment",
-    "update center request queued",
+    "update center request boundary",
     "AF-RISK-OPS-002",
     "不能关闭生产写入型 smoke",
     "product-experience-review-record-template.md",
     "pnpm experience:review:validate",
   ];
-  const combined = `${script}\n${docs}`;
+  const combined = `${script}\n${password}\n${productionSmoke}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
+  const forbiddenOverrides = [
+    "unless explicitly setting AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true",
+    "除非显式设置 AREAFORGE_SMOKE_ALLOW_NON_LOCAL=true",
+  ].filter((term) => combined.includes(term));
   checks.push({
     name: "local UX smoke guardrails",
-    ok: missing.length === 0,
-    detail: missing.length === 0
-      ? "local UX smoke is present, write-gated, local-by-default, and separated from production write smoke"
-      : `missing ${missing.join(", ")}`,
+    ok: missing.length === 0 && forbiddenOverrides.length === 0,
+    detail: missing.length === 0 && forbiddenOverrides.length === 0
+      ? "local UX smoke is write-gated, local-only, active-session guarded, password-file hardened, and separated from production write smoke"
+      : `missing ${missing.join(", ")}${forbiddenOverrides.length > 0 ? `; forbidden ${forbiddenOverrides.join(", ")}` : ""}`,
   });
 }
 
@@ -631,6 +866,10 @@ function checkSummaryScript(): void {
   const updateAgentStatusRecordSelftest = read("scripts/quality/update-agent-status-record.selftest.ts");
   const productExperience = read("scripts/quality/product-experience-review-validate.ts");
   const productExperienceSelftest = read("scripts/quality/product-experience-review-validate.selftest.ts");
+  const sc004Validate = read("scripts/quality/github-main-protection-validate.ts");
+  const sc004ValidateSelftest = read("scripts/quality/github-main-protection-validate.selftest.ts");
+  const sc004Preflight = read("scripts/ops/sc004-main-protection-preflight.ts");
+  const sc004PreflightSelftest = read("scripts/quality/sc004-main-protection-preflight.selftest.ts");
   const docs = read("docs/development/operational-readiness.md");
   const requiredTerms = [
     "AREAFORGE_READINESS_BASE_URL",
@@ -644,6 +883,10 @@ function checkSummaryScript(): void {
     "AF-RISK-OPS-001",
     "AF-RISK-SC-001",
     "AF-RISK-SC-002",
+    "AF-RISK-SC-004",
+    "sc:sc-004:validate",
+    "sc:sc-004:preflight",
+    "ci / verify",
     "pnpm ops:readiness:summary",
     "read_only_operational_handoff",
     "pnpm ops:handoff",
@@ -677,6 +920,10 @@ function checkSummaryScript(): void {
     "pnpm ops:evidence:bundle:validate",
     "read_only_operational_evidence_bundle",
     "bundleHash",
+    "sourceSnapshot",
+    "bindingStatus",
+    "bind_current_source_inputs",
+    "--shape-only",
     "pnpm ops:support:bundle-preview",
     "metadata_only_support_bundle_preview",
     "supportBundlePreviewHash",
@@ -717,7 +964,7 @@ function checkSummaryScript(): void {
     "product experience review validation passed",
     "product experience review validator selftest passed",
   ];
-  const combined = `${handoff}\n${handoffSelftest}\n${longTermGate}\n${longTermGateSelftest}\n${longTermSnapshot}\n${longTermSnapshotValidate}\n${longTermSnapshotSelftest}\n${script}\n${bundle}\n${supportBundlePreview}\n${supportBundlePreviewValidate}\n${supportBundlePreviewSelftest}\n${backupRestorePreview}\n${backupRestorePreviewValidate}\n${backupRestorePreviewSelftest}\n${alertPreview}\n${alertDrillRecord}\n${alertDrillRecordSelftest}\n${prodReadonlySmokeValidate}\n${prodReadonlySmokeSelftest}\n${prodReadonlySmokeConfig}\n${prodReadonlySmokeConfigSelftest}\n${prodReadonlySmokeRecord}\n${prodReadonlySmokeRecordSelftest}\n${ops001Preflight}\n${ops001PreflightSelftest}\n${ops001FallbackHelper}\n${ops001FallbackSelftest}\n${ops001ClosurePacket}\n${ops001ClosurePacketValidate}\n${ops001ClosurePacketSelftest}\n${alertDrill}\n${alertDrillSelftest}\n${updateAgentStatusRecord}\n${updateAgentStatusRecordSelftest}\n${productExperience}\n${productExperienceSelftest}\n${docs}`;
+  const combined = `${handoff}\n${handoffSelftest}\n${longTermGate}\n${longTermGateSelftest}\n${longTermSnapshot}\n${longTermSnapshotValidate}\n${longTermSnapshotSelftest}\n${script}\n${bundle}\n${supportBundlePreview}\n${supportBundlePreviewValidate}\n${supportBundlePreviewSelftest}\n${backupRestorePreview}\n${backupRestorePreviewValidate}\n${backupRestorePreviewSelftest}\n${alertPreview}\n${alertDrillRecord}\n${alertDrillRecordSelftest}\n${prodReadonlySmokeValidate}\n${prodReadonlySmokeSelftest}\n${prodReadonlySmokeConfig}\n${prodReadonlySmokeConfigSelftest}\n${prodReadonlySmokeRecord}\n${prodReadonlySmokeRecordSelftest}\n${ops001Preflight}\n${ops001PreflightSelftest}\n${ops001FallbackHelper}\n${ops001FallbackSelftest}\n${ops001ClosurePacket}\n${ops001ClosurePacketValidate}\n${ops001ClosurePacketSelftest}\n${alertDrill}\n${alertDrillSelftest}\n${updateAgentStatusRecord}\n${updateAgentStatusRecordSelftest}\n${productExperience}\n${productExperienceSelftest}\n${sc004Validate}\n${sc004ValidateSelftest}\n${sc004Preflight}\n${sc004PreflightSelftest}\n${docs}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
   checks.push({
     name: "ops readiness summary, bundle, and alert preview scripts",
@@ -738,6 +985,7 @@ function checkDocsIndex(): void {
     "development/release-train.md",
     "development/residual-risk-ledger.md",
     "development/product-experience-review-record-template.md",
+    "development/operations-lifecycle.md",
     "deployment/operator-onboarding.md",
     "areaforge-operating-loop",
   ];

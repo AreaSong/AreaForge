@@ -9,8 +9,10 @@ const requiredChecks = [
   "releaseRecord",
   "supplyChainRecord",
   "identityConsistency",
+  "residualLedger",
   "residualConsistency",
   "operationalEvidence",
+  "postReleaseObservation",
   "rollbackTarget",
 ] as const;
 
@@ -35,11 +37,14 @@ export function validateReleaseCloseoutAudit(raw: string): ValidationIssue[] {
   requireIso(body.generatedAt, "generatedAt", issues);
   requirePattern(body.version, "version", /^\d+\.\d+\.\d+$/, issues);
   if (body.releaseTag !== `v${body.version}`) issues.push({ field: "releaseTag", message: "must equal v + version" });
-  requireOneOf(body.status, "status", ["blocked", "needs_attention", "ready_for_human_review"], issues);
-  validateSource(body.source, issues);
+  requireOneOf(body.status, "status", ["blocked", "needs_attention", "pending_observation", "ready_for_human_review"], issues);
+  validateSource(body, issues);
   validateChecks(body, issues);
+  validateIdentity(body.identity, issues);
   validateResiduals(body.residuals, issues);
   validateStringArray(body.blockedBy, "blockedBy", issues);
+  validateStringArray(body.attentionBy, "attentionBy", issues);
+  validateStringArray(body.pendingBy, "pendingBy", issues);
   validateStringArray(body.doesNotProve, "doesNotProve", issues);
   validateStringArray(body.forbiddenActions, "forbiddenActions", issues);
   validateSafetyFacts(body.safetyFacts, issues);
@@ -53,19 +58,54 @@ export function validateReleaseCloseoutAudit(raw: string): ValidationIssue[] {
   const statuses = requiredChecks.map((key) => body.checks?.[key]?.status);
   const expectedStatus = statuses.includes("blocked")
     ? "blocked"
-    : statuses.includes("needs_attention") ? "needs_attention" : "ready_for_human_review";
+    : statuses.includes("needs_attention")
+      ? "needs_attention"
+      : statuses.includes("pending_observation") ? "pending_observation" : "ready_for_human_review";
   if (body.status !== expectedStatus) issues.push({ field: "status", message: `must be derived as ${expectedStatus}` });
-  if (body.status === "ready_for_human_review" && body.blockedBy.length > 0) {
-    issues.push({ field: "blockedBy", message: "must be empty when ready_for_human_review" });
+  validateReasonProjection(body, issues);
+  if (body.status === "pending_observation" && body.checks?.postReleaseObservation?.status !== "pending_observation") {
+    issues.push({ field: "status", message: "pending_observation must be derived from the postReleaseObservation check" });
   }
-  if (body.status !== "ready_for_human_review" && body.blockedBy.length === 0) {
-    issues.push({ field: "blockedBy", message: "must explain non-ready status" });
+  if (["pending_observation", "pass"].includes(body.checks?.postReleaseObservation?.status)) {
+    if (body.checks.postReleaseObservation.validator.status !== "pass") {
+      issues.push({ field: "checks.postReleaseObservation.validator.status", message: "must pass for a valid observation state" });
+    }
+    if (body.source.postReleaseObservation === null) {
+      issues.push({ field: "source.postReleaseObservation", message: "is required for a valid observation state" });
+    }
+  }
+  if (body.checks?.residualLedger?.status === "blocked" && body.checks?.residualConsistency?.status !== "blocked") {
+    issues.push({ field: "checks.residualConsistency.status", message: "must block when the residual ledger check is blocked" });
   }
 
   return issues;
 }
 
-function validateSource(source: ReleaseCloseoutAudit["source"] | undefined, issues: ValidationIssue[]): void {
+function validateReasonProjection(body: ReleaseCloseoutAudit, issues: ValidationIssue[]): void {
+  const expectedBlocked = checkReasons(body, "blocked");
+  const expectedAttention = checkReasons(body, "needs_attention");
+  const expectedPending = checkReasons(body, "pending_observation");
+  requireExactStringArray(body.blockedBy, expectedBlocked, "blockedBy", issues);
+  requireExactStringArray(body.attentionBy, expectedAttention, "attentionBy", issues);
+  requireExactStringArray(body.pendingBy, expectedPending, "pendingBy", issues);
+}
+
+function checkReasons(body: ReleaseCloseoutAudit, status: string): string[] {
+  return requiredChecks.flatMap((key) => {
+    const check = body.checks?.[key];
+    return check?.status === status ? [`${key}: ${check.detail}`] : [];
+  });
+}
+
+function requireExactStringArray(value: unknown, expected: string[], field: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) return;
+  if (JSON.stringify(value) !== JSON.stringify(expected)) {
+    issues.push({ field, message: `must exactly project ${expected.join(" | ") || "an empty list"}` });
+  }
+}
+
+function validateSource(body: ReleaseCloseoutAudit, issues: ValidationIssue[]): void {
+  const source = body.source;
   if (!isRecord(source)) {
     issues.push({ field: "source", message: "must be an object" });
     return;
@@ -76,6 +116,9 @@ function validateSource(source: ReleaseCloseoutAudit["source"] | undefined, issu
   if (source.operationalEvidenceBundle !== null) {
     validateSafePath(source.operationalEvidenceBundle, "source.operationalEvidenceBundle", issues);
   }
+  if (source.postReleaseObservation !== null) {
+    validateSafePath(source.postReleaseObservation, "source.postReleaseObservation", issues);
+  }
   if (!Array.isArray(source.inputHashes) || source.inputHashes.length === 0) {
     issues.push({ field: "source.inputHashes", message: "must contain at least one input hash" });
   } else {
@@ -85,8 +128,15 @@ function validateSource(source: ReleaseCloseoutAudit["source"] | undefined, issu
         continue;
       }
       validateSafePath(item.path, `source.inputHashes[${index}].path`, issues);
+      requireString(item.key, `source.inputHashes[${index}].key`, issues);
       requirePattern(item.sha256, `source.inputHashes[${index}].sha256`, /^sha256:[a-f0-9]{64}$/i, issues);
     }
+    validateSourceHashBinding(
+      source,
+      body.checks?.postReleaseObservation?.validator?.status,
+      body.checks?.residualLedger?.status,
+      issues,
+    );
   }
 }
 
@@ -101,10 +151,15 @@ function validateChecks(body: ReleaseCloseoutAudit, issues: ValidationIssue[]): 
       issues.push({ field: `checks.${key}`, message: "must be an object" });
       continue;
     }
-    requireOneOf(check.status, `checks.${key}.status`, ["pass", "needs_attention", "blocked"], issues);
+    const allowed = key === "postReleaseObservation"
+      ? ["pass", "pending_observation", "needs_attention", "blocked"]
+      : key === "residualLedger"
+        ? ["pass", "blocked"]
+        : ["pass", "needs_attention", "blocked"];
+    requireOneOf(check.status, `checks.${key}.status`, allowed, issues);
     requireString(check.detail, `checks.${key}.detail`, issues);
   }
-  for (const key of ["releaseRecord", "supplyChainRecord"] as const) {
+  for (const key of ["releaseRecord", "supplyChainRecord", "postReleaseObservation"] as const) {
     const validator = body.checks[key]?.validator;
     if (!isRecord(validator)) {
       issues.push({ field: `checks.${key}.validator`, message: "must be an object" });
@@ -113,6 +168,57 @@ function validateChecks(body: ReleaseCloseoutAudit, issues: ValidationIssue[]): 
     requireOneOf(validator.status, `checks.${key}.validator.status`, ["pass", "fail", "missing"], issues);
     requireString(validator.command, `checks.${key}.validator.command`, issues);
     validateStringArray(validator.issueFields, `checks.${key}.validator.issueFields`, issues);
+  }
+  const ledgerIssues = body.checks.residualLedger?.issues;
+  if (!Array.isArray(ledgerIssues)) {
+    issues.push({ field: "checks.residualLedger.issues", message: "must be an array" });
+  } else {
+    for (const [index, issue] of ledgerIssues.entries()) {
+      if (!isRecord(issue)) {
+        issues.push({ field: `checks.residualLedger.issues[${index}]`, message: "must be an object" });
+        continue;
+      }
+      requireString(issue.field, `checks.residualLedger.issues[${index}].field`, issues);
+      requireString(issue.message, `checks.residualLedger.issues[${index}].message`, issues);
+    }
+    if (body.checks.residualLedger.status === "pass" && ledgerIssues.length !== 0) {
+      issues.push({ field: "checks.residualLedger.issues", message: "must be empty when the strict V2 reader passes" });
+    }
+    if (body.checks.residualLedger.status === "blocked" && ledgerIssues.length === 0) {
+      issues.push({ field: "checks.residualLedger.issues", message: "must explain why the strict V2 reader blocked" });
+    }
+  }
+}
+
+function validateSourceHashBinding(
+  source: ReleaseCloseoutAudit["source"],
+  observationValidatorStatus: unknown,
+  residualLedgerStatus: unknown,
+  issues: ValidationIssue[],
+): void {
+  const expected = [
+    ["releaseRecord", source.releaseRecord],
+    ["supplyChainRecord", source.supplyChainRecord],
+    ["residualLedger", source.residualLedger],
+    ["operationalEvidenceBundle", source.operationalEvidenceBundle],
+    ["postReleaseObservation", source.postReleaseObservation],
+  ] as const;
+  for (const [key, sourcePath] of expected) {
+    if (sourcePath === null) continue;
+    const matches = source.inputHashes.filter((item) => item.key === key && item.path === sourcePath);
+    if (matches.length > 1) issues.push({ field: "source.inputHashes", message: `must not bind ${key} more than once` });
+    if (key === "postReleaseObservation" && observationValidatorStatus !== "missing" && matches.length !== 1) {
+      issues.push({ field: "source.inputHashes", message: "must bind postReleaseObservation exactly once when its source exists" });
+    }
+    if (key === "residualLedger" && residualLedgerStatus === "pass" && matches.length !== 1) {
+      issues.push({ field: "source.inputHashes", message: "must bind residualLedger exactly once when the strict V2 reader passes" });
+    }
+  }
+  for (const item of source.inputHashes) {
+    const expectedPath = expected.find(([key]) => key === item.key)?.[1];
+    if (expectedPath === undefined || expectedPath === null || item.path !== expectedPath) {
+      issues.push({ field: "source.inputHashes", message: `contains an unbound source hash for ${item.key}` });
+    }
   }
 }
 
@@ -129,10 +235,67 @@ function validateResiduals(value: ReleaseCloseoutAudit["residuals"] | undefined,
     "supplyChainOnlyIds",
     "currentBlockerIds",
     "needsAttentionIds",
+    "blockedAcceptedExceptionIds",
   ] as const) {
     validateStringArray(value[field], `residuals.${field}`, issues);
   }
-  if (!Array.isArray(value.records)) issues.push({ field: "residuals.records", message: "must be an array" });
+  validateAcceptedExceptions(value.acceptedExceptions, value.blockedAcceptedExceptionIds, issues);
+  if (!Array.isArray(value.records)) {
+    issues.push({ field: "residuals.records", message: "must be an array" });
+  } else {
+    for (const [index, record] of value.records.entries()) {
+      if (!isRecord(record)) {
+        issues.push({ field: `residuals.records[${index}]`, message: "must be an object" });
+        continue;
+      }
+      requireString(record.id, `residuals.records[${index}].id`, issues);
+      requireString(record.type, `residuals.records[${index}].type`, issues);
+      requireString(record.reviewAt, `residuals.records[${index}].reviewAt`, issues);
+      validateStringArray(record.ownerSkills, `residuals.records[${index}].ownerSkills`, issues);
+    }
+  }
+}
+
+function validateAcceptedExceptions(
+  value: unknown,
+  blockedIds: unknown,
+  issues: ValidationIssue[],
+): void {
+  if (!Array.isArray(value)) {
+    issues.push({ field: "residuals.acceptedExceptions", message: "must be an array" });
+    return;
+  }
+  const expectedBlocked: string[] = [];
+  for (const [index, exception] of value.entries()) {
+    const field = `residuals.acceptedExceptions[${index}]`;
+    if (!isRecord(exception)) {
+      issues.push({ field, message: "must be an object" });
+      continue;
+    }
+    requireString(exception.id, `${field}.id`, issues);
+    requireOneOf(exception.status, `${field}.status`, ["approved", "revoked", "expired", "superseded"], issues);
+    if (typeof exception.effective !== "boolean") {
+      issues.push({ field: `${field}.effective`, message: "must be a boolean" });
+      continue;
+    }
+    if (exception.effective !== (exception.status === "approved")) {
+      issues.push({ field: `${field}.effective`, message: "must be true only for a current approved accepted exception" });
+    }
+    if (!exception.effective && typeof exception.id === "string") expectedBlocked.push(exception.id);
+  }
+  requireExactStringArray(blockedIds, expectedBlocked, "residuals.blockedAcceptedExceptionIds", issues);
+}
+
+function validateIdentity(value: ReleaseCloseoutAudit["identity"] | undefined, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ field: "identity", message: "must be an object" });
+    return;
+  }
+  requireNullablePattern(value.releaseGitCommit, "identity.releaseGitCommit", /^[a-f0-9]{40}$/i, issues);
+  requireNullableIso(value.releasedAt, "identity.releasedAt", issues);
+  requireNullablePattern(value.supplyChainGitCommit, "identity.supplyChainGitCommit", /^[a-f0-9]{40}$/i, issues);
+  requireNullablePattern(value.webImageDigest, "identity.webImageDigest", /@sha256:[a-f0-9]{64}$/i, issues);
+  requireNullablePattern(value.migrationImageDigest, "identity.migrationImageDigest", /@sha256:[a-f0-9]{64}$/i, issues);
 }
 
 function validateSafetyFacts(value: ReleaseCloseoutAudit["safetyFacts"] | undefined, issues: ValidationIssue[]): void {
@@ -151,7 +314,7 @@ function validateSafetyFacts(value: ReleaseCloseoutAudit["safetyFacts"] | undefi
     issues.push({ field: "safetyFacts", message: "must be an object" });
     return;
   }
-  for (const [field, expectedValue] of Object.entries(expected)) {
+  for (const [field, expectedValue] of Object.entries(expected) as Array<[keyof typeof expected, boolean]>) {
     if (value[field] !== expectedValue) issues.push({ field: `safetyFacts.${field}`, message: `must be ${expectedValue}` });
   }
 }
@@ -204,6 +367,18 @@ function requirePattern(value: unknown, field: string, pattern: RegExp, issues: 
 
 function requireIso(value: unknown, field: string, issues: ValidationIssue[]): void {
   if (typeof value !== "string" || Number.isNaN(Date.parse(value))) issues.push({ field, message: "must be an ISO timestamp" });
+}
+
+function requireNullableIso(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (value !== null && (typeof value !== "string" || Number.isNaN(Date.parse(value)))) {
+    issues.push({ field, message: "must be null or an ISO timestamp" });
+  }
+}
+
+function requireNullablePattern(value: unknown, field: string, pattern: RegExp, issues: ValidationIssue[]): void {
+  if (value !== null && (typeof value !== "string" || !pattern.test(value))) {
+    issues.push({ field, message: `must be null or match ${pattern}` });
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

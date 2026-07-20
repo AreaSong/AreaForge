@@ -1,0 +1,299 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e34] [cursor=pointer]
+  - alert [ref=e38]
+  - main [ref=e52]:
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e58]: AreaForge
+            - button "v0.1.7" [ref=e60]
+            - generic [ref=e64]: 危险期
+            - generic [ref=e65]: 恢复状态
+          - heading "今日作战台" [level=1] [ref=e66]
+          - paragraph [ref=e67]: 2026-07-18 / Asia Shanghai
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - link "考纲" [ref=e70] [cursor=pointer]:
+              - /url: /syllabus
+            - link "笔记" [ref=e73] [cursor=pointer]:
+              - /url: /notes
+            - link "错题" [ref=e77] [cursor=pointer]:
+              - /url: /mistakes
+            - link "动机" [ref=e80] [cursor=pointer]:
+              - /url: /motivation
+            - link "统计" [ref=e84] [cursor=pointer]:
+              - /url: /analytics
+            - link "报告" [ref=e87] [cursor=pointer]:
+              - /url: /reports
+            - link "模拟" [ref=e90] [cursor=pointer]:
+              - /url: /simulation
+            - link "设置" [ref=e95] [cursor=pointer]:
+              - /url: /settings
+            - generic [ref=e99]: smoke@areasong.local
+            - button "退出" [ref=e101]
+          - generic [ref=e105]:
+            - generic [ref=e106]:
+              - paragraph [ref=e107]: 全真自测
+              - paragraph [ref=e108]: 156 天
+            - generic [ref=e109]:
+              - paragraph [ref=e110]: 终局考试
+              - paragraph [ref=e111]: 521 天
+            - generic [ref=e112]:
+              - paragraph [ref=e113]: 连续打卡
+              - paragraph [ref=e114]: 0 天
+            - generic [ref=e115]:
+              - paragraph [ref=e116]: 任务欠账
+              - paragraph [ref=e117]: 0 项
+            - generic [ref=e118]:
+              - paragraph [ref=e119]: 阶段称号
+              - paragraph [ref=e120]: 初醒
+      - generic [ref=e121]:
+        - generic [ref=e122]:
+          - generic [ref=e123]:
+            - generic [ref=e124]:
+              - paragraph [ref=e125]: 数学
+              - heading "UX smoke 今日最小任务 mrpuurkh" [level=2] [ref=e126]
+              - paragraph [ref=e127]: UX smoke 知识点 mrpuurkh
+            - generic [ref=e128]: 未开始
+          - generic [ref=e129]:
+            - generic [ref=e130]:
+              - paragraph [ref=e131]: 本次专注
+              - paragraph [ref=e132]: 00:00:00
+              - generic [ref=e133]:
+                - generic [ref=e134]:
+                  - text: 任务
+                  - combobox "任务" [ref=e135]:
+                    - option "不关联任务"
+                    - option "数学 / UX smoke 今日最小任务 mrpuurkh" [selected]
+                - generic [ref=e136]:
+                  - generic [ref=e137]: 已选：UX smoke 今日最小任务 mrpuurkh
+                  - button "清除已选任务" [ref=e138]
+              - button "开始" [ref=e143]
+            - generic [ref=e146]:
+              - paragraph [ref=e147]: 结束后收口
+              - generic [ref=e148]:
+                - paragraph [ref=e149]: 质量评分：4
+                - paragraph [ref=e150]: 是否有效：低转化
+                - paragraph [ref=e151]: 理解程度：能独立复述主链路
+                - paragraph [ref=e152]: 最小产出：完成一条 UX smoke 闭环记录
+                - paragraph [ref=e153]: 下一步：复查首页和报告是否刷新
+                - paragraph [ref=e154]: 规则原因：学习时间太短，还不足以证明一次有效推进。
+                - paragraph [ref=e155]: 补产出要求：补一条 3 句话总结，再结束这次记录。
+                - paragraph [ref=e156]: 产出记录：笔记 / 错题或订正
+                - paragraph [ref=e157]: 关联进度：UX smoke 知识点 mrpuurkh
+        - complementary [ref=e158]:
+          - generic [ref=e162]:
+            - paragraph [ref=e163]: 今日鞭策
+            - paragraph [ref=e164]: 按当前完成率，计划正在失效。别讲热血，先完成 90 分钟有效学习。
+          - generic [ref=e165]:
+            - paragraph [ref=e166]: 下一步
+            - paragraph [ref=e167]: 先完成「UX smoke 今日最小任务 mrpuurkh」的 90 分钟恢复任务。
+          - generic [ref=e168]:
+            - paragraph [ref=e176]: 阶段状态：初醒
+            - paragraph [ref=e177]: 连续性和有效时长还没有稳定，先证明今天能在场。
+            - paragraph [ref=e178]: 阶段分 0 / 压强 低
+          - generic [ref=e179]:
+            - paragraph [ref=e183]: 恢复状态
+            - paragraph [ref=e184]: 今天只压「UX smoke 今日最小任务 mrpuurkh」这个最小任务，先完成 90 分钟。
+            - generic [ref=e185]:
+              - generic [ref=e186]:
+                - paragraph [ref=e187]: 断签估计
+                - paragraph [ref=e188]: 7 天
+              - generic [ref=e189]:
+                - paragraph [ref=e190]: 任务欠账
+                - paragraph [ref=e191]: 0 项
+              - generic [ref=e192]:
+                - paragraph [ref=e193]: 聚焦任务
+                - paragraph [ref=e194]: 1 项
+              - generic [ref=e195]:
+                - paragraph [ref=e196]: 恢复目标
+                - paragraph [ref=e197]: 90 分
+          - generic [ref=e198]:
+            - paragraph [ref=e199]: 恢复模式
+            - paragraph [ref=e200]: 今天只压「UX smoke 今日最小任务 mrpuurkh」这个最小任务，先完成 90 分钟。
+            - paragraph [ref=e201]: 当前风险等级已经进入危险期，先恢复行动感。
+            - paragraph [ref=e202]: 规则触发 / 目标 90 分
+            - generic [ref=e204]:
+              - button "完成恢复" [ref=e205]
+              - button "取消恢复" [ref=e209]
+          - generic [ref=e214]:
+            - paragraph [ref=e219]: 动机唤醒
+            - paragraph [ref=e220]: 还没有封存开始的原因。先把底层理由写下来，以后只在关键节点唤醒。
+            - link "打开动机封存" [ref=e221] [cursor=pointer]:
+              - /url: /motivation
+          - generic [ref=e222]:
+            - generic [ref=e223]:
+              - paragraph [ref=e224]: 今日投入
+              - paragraph [ref=e225]: 0 分
+            - generic [ref=e226]:
+              - paragraph [ref=e227]: 有效学习
+              - paragraph [ref=e228]: 0 分
+      - generic [ref=e229]:
+        - generic [ref=e230]:
+          - generic [ref=e231]:
+            - heading "状态主题长期风险" [level=2] [ref=e235]
+            - paragraph [ref=e236]: 首页状态主题读取同一长期风险原因，只调整提示焦点，不隐藏完整任务列表。
+          - generic [ref=e237]:
+            - generic [ref=e238]: 极高风险
+            - generic [ref=e239]: 只读风险
+            - generic [ref=e240]: 需确认
+        - generic [ref=e241]:
+          - article [ref=e242]:
+            - generic [ref=e243]:
+              - generic [ref=e244]:
+                - generic [ref=e245]:
+                  - heading "长期有效学习不足" [level=3] [ref=e246]
+                  - generic [ref=e247]: 报告
+                  - generic [ref=e248]: 证据新鲜度：新
+                - paragraph [ref=e249]: 近 7 天 有效学习 0 分钟，长期策略必须先恢复执行闭环。
+              - generic [ref=e250]: 极高风险
+            - paragraph [ref=e254]: 把下一天任务缩到 1 个最小闭环，先恢复一次有效学习。
+          - article [ref=e255]:
+            - generic [ref=e256]:
+              - generic [ref=e257]:
+                - generic [ref=e258]:
+                  - heading "长期任务完成率偏低" [level=3] [ref=e259]
+                  - generic [ref=e260]: 报告
+                  - generic [ref=e261]: 证据新鲜度：新
+                - paragraph [ref=e262]: 近 7 天 任务完成率为 0%。
+              - generic [ref=e263]: 高风险
+            - paragraph [ref=e267]: 降低任务数量，把最高优先级任务拆成当天可完成的最小动作。
+          - article [ref=e268]:
+            - generic [ref=e269]:
+              - generic [ref=e270]:
+                - generic [ref=e271]:
+                  - heading "首页状态处于恢复态" [level=3] [ref=e272]
+                  - generic [ref=e273]: 状态主题
+                  - generic [ref=e274]: 证据新鲜度：新
+                - paragraph [ref=e275]: 首页状态主题已提示当前节奏需要收窄。
+              - generic [ref=e276]: 高风险
+            - paragraph [ref=e280]: 保持完整任务列表可见，但把行动焦点收敛到最小可执行任务。
+        - generic [ref=e281]:
+          - generic [ref=e282]: 下一步动作
+          - paragraph [ref=e287]: 把下一天任务缩到 1 个最小闭环，先恢复一次有效学习。
+          - paragraph [ref=e288]: 降低任务数量，把最高优先级任务拆成当天可完成的最小动作。
+          - paragraph [ref=e289]: 保持完整任务列表可见，但把行动焦点收敛到最小可执行任务。
+          - generic [ref=e290]: 所有长期建议保持确认边界，不自动修改任务或阶段计划。
+      - generic [ref=e295]:
+        - generic [ref=e296]:
+          - heading "今日任务" [level=2] [ref=e299]
+          - paragraph [ref=e300]: 状态主题只改变任务优先提示，完整任务列表仍保留在这里，不自动修改任务或阶段计划。
+          - generic [ref=e301]:
+            - generic [ref=e302]:
+              - combobox [ref=e303]:
+                - option "数学" [selected]
+                - option "英语"
+                - option "政治"
+                - option "408 数据结构"
+                - option "408 计算机组成原理"
+                - option "408 操作系统"
+                - option "408 计算机网络"
+              - textbox "新增今天要完成的任务" [ref=e304]
+            - combobox [ref=e305]:
+              - option "不关联考纲节点" [selected]
+              - option "UX smoke 知识点 mrpuurkh"
+            - generic [ref=e306]:
+              - combobox [ref=e307]:
+                - option "学习" [selected]
+                - option "复习"
+                - option "刷题"
+                - option "错题"
+                - option "模拟"
+              - combobox [ref=e308]:
+                - option "最高"
+                - option "高"
+                - option "中" [selected]
+                - option "低"
+              - spinbutton [ref=e309]: "45"
+              - button "新建" [ref=e310]
+          - article [ref=e313]:
+            - generic [ref=e314]:
+              - generic [ref=e315]:
+                - paragraph [ref=e316]: 数学
+                - heading "UX smoke 今日最小任务 mrpuurkh" [level=3] [ref=e317]
+                - paragraph [ref=e318]: 学习 / 进行中 / 35 分钟
+                - paragraph [ref=e319]: 考纲：UX smoke 知识点 mrpuurkh
+              - generic [ref=e320]: 高
+            - generic [ref=e322]:
+              - button "完成" [ref=e323]
+              - button "延期" [ref=e326]
+              - button "补做" [ref=e330]
+              - button "拆小" [ref=e334]
+              - button "改复习" [ref=e341]
+              - button "放弃" [ref=e344]
+        - generic [ref=e348]:
+          - heading "考纲作战地图" [level=2] [ref=e352]
+          - generic [ref=e353]:
+            - generic [ref=e355]:
+              - generic [ref=e356]: 数学
+              - generic [ref=e357]: 0%
+            - generic [ref=e360]:
+              - generic [ref=e361]: 英语
+              - generic [ref=e362]: 0%
+            - generic [ref=e365]:
+              - generic [ref=e366]: 政治
+              - generic [ref=e367]: 0%
+            - generic [ref=e370]:
+              - generic [ref=e371]: 408 数据结构
+              - generic [ref=e372]: 0%
+            - generic [ref=e375]:
+              - generic [ref=e376]: 408 计算机组成原理
+              - generic [ref=e377]: 0%
+            - generic [ref=e380]:
+              - generic [ref=e381]: 408 操作系统
+              - generic [ref=e382]: 0%
+            - generic [ref=e385]:
+              - generic [ref=e386]: 408 计算机网络
+              - generic [ref=e387]: 0%
+      - generic [ref=e389]:
+        - generic [ref=e390]:
+          - heading "晚间复盘" [level=2] [ref=e395]
+          - generic [ref=e396]:
+            - textbox "今天完成了什么" [ref=e397]: 今天完成本地 UX smoke 闭环 mrpuurkh。
+            - textbox "今天哪里失控了" [ref=e398]
+            - textbox "今天最该保留的一个动作" [ref=e399]: 继续保留最小任务优先。
+            - textbox "明天最小必须完成任务" [ref=e400]: 明天至少复查一个薄弱知识点。
+            - combobox "情绪状态" [ref=e401]:
+              - option "不记录情绪状态"
+              - option "当前记录：steady" [selected]
+              - option "焦虑"
+              - option "麻木"
+              - option "想她"
+              - option "自责"
+              - option "有斗志"
+              - option "很累"
+              - option "平静"
+              - option "失控"
+            - button "更新复盘" [ref=e402]
+          - paragraph [ref=e403]: 已记录 0 分钟学习，其中有效 0 分钟。
+        - generic [ref=e404]:
+          - article [ref=e405]:
+            - heading "AI 建议草稿" [level=2] [ref=e419]
+            - generic [ref=e420]:
+              - generic [ref=e421]:
+                - paragraph [ref=e422]: 本地规则复盘建议
+                - paragraph [ref=e423]: 用 3 句话写清：今天推进了什么、哪里失控、明天最小动作是什么。
+                - paragraph [ref=e424]: 首页普通打开仅展示本地规则建议，没有调用外部 AI。
+              - generic [ref=e425]:
+                - paragraph [ref=e426]: 明日恢复任务草稿
+                - paragraph [ref=e427]: 恢复推进：UX smoke 今日最小任务 mrpuurkh
+                - paragraph [ref=e428]: 30 分钟 / 最高
+          - article [ref=e429]:
+            - paragraph [ref=e433]: 打卡连续性
+            - paragraph [ref=e434]: 今天还没有完成一次有效学习动作。
+          - article [ref=e435]:
+            - paragraph [ref=e439]: 反假学习
+            - paragraph [ref=e440]: 存在 1 段低转化学习，今天还需要补一个可检查产出
+          - article [ref=e441]:
+            - paragraph [ref=e444]: 情绪状态
+            - paragraph [ref=e445]: 今日记录：steady
+          - article [ref=e446]:
+            - paragraph [ref=e449]: 统计复核
+            - paragraph [ref=e450]: 统计页会按近 7 天数据库记录复核投入、完成率、复盘率和薄弱提醒
+          - article [ref=e451]:
+            - paragraph [ref=e454]: 晚间复盘
+            - paragraph [ref=e455]: 今日复盘已提交
+          - article [ref=e456]:
+            - paragraph [ref=e469]: AI 建议
+            - paragraph [ref=e470]: 首页仅展示本地规则 AI 建议；真实 provider 只由鉴权 AI API 显式触发

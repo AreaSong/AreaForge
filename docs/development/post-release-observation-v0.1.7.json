@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "mode": "post_release_observation",
+  "release": {
+    "version": "0.1.7",
+    "releaseTag": "v0.1.7",
+    "releasedAt": "2026-07-12T11:23:25Z",
+    "gitCommit": "c1a25e4f897330fea493ad4c6dd889b62ef8f63a",
+    "releaseRecord": {
+      "path": "docs/development/release-v0.1.7-record.md",
+      "sha256": "sha256:4d87eb8e72922af8f0fb18c678b8c1292d99a793487ae0d58dffd51aeb8592ab"
+    }
+  },
+  "checkpoints": {
+    "d14": {
+      "dueDate": "2026-07-26",
+      "observedAt": null,
+      "technicalObservation": {
+        "status": "pending_observation",
+        "summary": "D14 technical observation has not been performed.",
+        "evidence": []
+      },
+      "incident": {
+        "status": "pending_observation",
+        "summary": "D14 incident observation has not been performed.",
+        "evidence": []
+      },
+      "errorBudget": {
+        "status": "pending_observation",
+        "summary": "D14 error-budget observation has not been performed.",
+        "evidence": []
+      },
+      "gate": {
+        "status": "pending_observation",
+        "reasons": [
+          "technical_observation_pending",
+          "incident_observation_pending",
+          "error_budget_observation_pending"
+        ]
+      }
+    },
+    "d30": {
+      "dueDate": "2026-08-11",
+      "observedAt": null,
+      "productReview": {
+        "status": "pending_observation",
+        "summary": "D30 product review has not been performed.",
+        "evidence": []
+      },
+      "gate": {
+        "status": "pending_observation",
+        "reasons": [
+          "product_review_pending"
+        ]
+      }
+    }
+  },
+  "gate": {
+    "status": "pending_observation",
+    "reasons": [
+      "d14_pending_observation",
+      "d30_pending_observation"
+    ]
+  },
+  "safetyFacts": {
+    "readOnlyEvidence": true,
+    "networkRequested": false,
+    "productionWriteAttempted": false,
+    "residualLedgerUpdated": false,
+    "fileWriteAttempted": false
+  }
+}

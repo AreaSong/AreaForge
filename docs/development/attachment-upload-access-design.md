@@ -4,6 +4,14 @@
 
 本文件是 `tasks/done/0004-mvp-syllabus-notes-upload.md` 的附件实现确认设计和 Package A 落地回溯。服务端写入 `UPLOAD_DIR`、附件下载或预览路由已在用户明确确认 Package A 后实现；删除附件、跨对象附件、AI 解析、孤儿文件清理或生产部署策略变化仍需另行确认。
 
+当前代码仍通过 `request.formData()` 解析 multipart，并在业务 size 校验前调用
+`file.arrayBuffer()` 完整缓冲单文件；上传顺序仍是先写 final 文件、再提交 `Attachment`
+metadata，浏览器 DTO 仍返回 `hash`。这是 Package A 的现行事实，不是长期崩溃一致性边界。
+
+`docs/development/ops-007-attachment-crash-window-design.md` 中的有界流式读取、`PENDING / READY / FAILED`
+intent、`.staging` + fsync + atomic rename、同句柄 `O_NOFOLLOW` 下载校验和浏览器 DTO 去 `hash`
+仍是待独立高风险确认的 OPS-007 目标；当前 schema/API 未实现该协议，不得写成已落地。
+
 ## 目标
 
 实现第一版笔记附件闭环：
@@ -27,9 +35,10 @@
 流程：
 
 1. `requireApiUser(request)`，未登录返回 `401`。
-2. 解析 form data，只接受一个 `file`。
+2. 使用 `request.formData()` 解析 form data，只接受一个 `file`。
 3. 校验路径参数 `noteId` 存在；第一版不支持无归属附件。
-4. 读取文件 bytes，使用 `MAX_UPLOAD_MB` 和 `ALLOWED_UPLOAD_MIME` 构造 policy。
+4. 使用 `file.arrayBuffer()` 完整读取文件 bytes，再用 `MAX_UPLOAD_MB` 和
+   `ALLOWED_UPLOAD_MIME` 构造 policy 并执行 size/MIME/magic-bytes 校验；这不是有界流式 parser。
 5. 调用 `createAttachmentMetadataDraft`：
    - magic bytes 识别真实 MIME。
    - 拒绝空文件、超大文件、未知 magic bytes、声明 MIME 不一致。
@@ -86,8 +95,10 @@
 3. 解析 `uri` 得到 `storedName`；失败返回 `ATTACHMENT_URI_INVALID`。
 4. 通过 `createSafeAttachmentFilePath(UPLOAD_DIR, storedName)` 得到路径。
 5. 校验上传根目录真实路径和文件真实路径仍在同一根目录内。
-6. 读取文件；缺失返回 `ATTACHMENT_FILE_MISSING`。
-7. 可选校验 size/hash 与 metadata 一致；不一致返回 `ATTACHMENT_FILE_MISMATCH`。
+6. 当前使用 `readFile()` 完整读取文件；缺失返回 `ATTACHMENT_FILE_MISSING`。
+7. 读取后必须校验 size/hash 与 metadata 一致；不一致返回 `ATTACHMENT_FILE_MISMATCH`。
+   当前的 `lstat` + `realpath` + `readFile` 是分步检查，不等于 OPS-007 目标中基于同一
+   `O_NOFOLLOW` 文件句柄的 `fstat/read/hash` 协议。
 8. 使用 `createAttachmentResponseHeaders` 返回：
    - `Content-Type`
    - `Content-Disposition`

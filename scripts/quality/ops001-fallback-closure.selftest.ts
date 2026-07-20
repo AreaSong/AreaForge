@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -7,7 +7,8 @@ type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-ops001-fallback-finalizer-"));
-const currentVersion = "0.1.7";
+// closure packet 校验器以根 package.json 版本为当前期望版本，fixture 必须跟随同一来源。
+const currentVersion = resolveCurrentVersion();
 const fixtureTimestamp = "2026-07-11T10:00:00Z";
 
 try {
@@ -177,6 +178,14 @@ function createSmokeOutput(): string {
     }),
     "",
   ].join("\n");
+}
+
+function resolveCurrentVersion(): string {
+  const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version?: unknown };
+  if (typeof packageJson.version !== "string" || !/^\d+\.\d+\.\d+$/.test(packageJson.version)) {
+    throw new Error("root package.json version must look like X.Y.Z");
+  }
+  return packageJson.version;
 }
 
 function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expected: number): void {

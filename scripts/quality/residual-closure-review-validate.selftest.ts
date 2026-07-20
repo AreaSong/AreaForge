@@ -14,6 +14,11 @@ try {
   const invalidSafetyRecord = path.join(tempDir, "invalid-safety.txt");
   const invalidDecisionRecord = path.join(tempDir, "invalid-decision.txt");
   const invalidSecretRecord = path.join(tempDir, "invalid-secret.txt");
+  const invalidOutcomeRecord = path.join(tempDir, "invalid-outcome.txt");
+  const invalidTypeRecord = path.join(tempDir, "invalid-type.txt");
+  const invalidMissingEvidenceRecord = path.join(tempDir, "invalid-missing-evidence.txt");
+  const invalidKeepOpenActionRecord = path.join(tempDir, "invalid-keep-open-action.txt");
+  const invalidDuplicateFieldRecord = path.join(tempDir, "invalid-duplicate-field.txt");
 
   writeFileSync(validCloseRecord, createRecord());
   writeFileSync(validKeepOpenRecord, createRecord()
@@ -29,6 +34,13 @@ try {
   writeFileSync(invalidDecisionRecord, createRecord()
     .replace("residualLedgerAction: requires-separate-ledger-update", "residualLedgerAction: none"));
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: GITHUB_TOKEN=abcdef1234567890abcdef1234567890\n`);
+  writeFileSync(invalidOutcomeRecord, createRecord().replace("validatorOutcome: ready-for-sc001-sc002-review", "validatorOutcome: fail"));
+  writeFileSync(invalidTypeRecord, createRecord().replace("currentResidualType: deferred-work", "currentResidualType: current-blocker"));
+  writeFileSync(invalidMissingEvidenceRecord, createRecord().replace("docs/development/release-v0.1.7-record.md", "docs/development/definitely-missing-evidence.md"));
+  writeFileSync(invalidKeepOpenActionRecord, createRecord()
+    .replace("reviewDecision: close", "reviewDecision: keep-open")
+    .replace("result: ready-for-ledger-update", "result: keep-open"));
+  writeFileSync(invalidDuplicateFieldRecord, `${createRecord()}\nclosesResidual: no\n`);
 
   expectExit("valid close review passes", validCloseRecord, 0, "residualClosureReviewEvidenceHash: sha256:");
   expectExit("valid keep-open review passes", validKeepOpenRecord, 0);
@@ -37,6 +49,11 @@ try {
   expectExit("residual ledger update safety flag fails", invalidSafetyRecord, 1);
   expectExit("close decision without separate ledger action fails", invalidDecisionRecord, 1);
   expectExit("secret-like values fail", invalidSecretRecord, 1);
+  expectExit("close with failed validator outcome fails", invalidOutcomeRecord, 1);
+  expectExit("residual type drift from authoritative ledger fails", invalidTypeRecord, 1);
+  expectExit("missing repository evidence fails", invalidMissingEvidenceRecord, 1);
+  expectExit("keep-open with ledger update action fails", invalidKeepOpenActionRecord, 1);
+  expectExit("duplicate scalar fields fail", invalidDuplicateFieldRecord, 1);
 
   console.log("residual closure review validator selftest passed.");
 } finally {
@@ -73,6 +90,7 @@ function createRecord(): string {
     "decisionRationale: Signed release supply-chain evidence reached ready review state and maintainer recorded the decision boundary.",
     "evidenceUris: docs/development/release-supply-chain-v0.1.7.md, docs/development/release-v0.1.7-record.md",
     "validatorCommands: pnpm release:supply-chain:validate docs/development/release-supply-chain-v0.1.7.md <release-assets-dir>, AREAFORGE_SC002_RELEASE_RECORD=docs/development/release-supply-chain-v0.1.7.md pnpm sc:sc-002:preflight",
+    "validatorOutcome: ready-for-sc001-sc002-review",
     "validatorSummary: ready_for_sc001_sc002_review and release supply-chain validation pass; release evidence still has separate backup hash blockers",
     "reopenConditions: new release, stale evidence, workflow or signing policy change, validation failure, production version change",
     "doesNotProve: residual ledger closure, production health, updater apply, backup/restore, migration, rollback, secret disclosure absence beyond validator scan",

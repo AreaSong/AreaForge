@@ -27,6 +27,8 @@ const requiredScalarFields = [
   "databaseRestoreResult",
   "uploadsRestoreResult",
   "attachmentHashMatched",
+  "homeReadResult",
+  "loginResult",
   "appHealthAfterRestore",
   "rollbackDecision",
   "drillEvidenceHash",
@@ -43,6 +45,11 @@ const requiredNestedFields = [
   "safetyFacts.realStudyContentIncluded",
   "safetyFacts.backupDeleted",
   "safetyFacts.uploadDeleted",
+] as const;
+
+const evidenceHashFields = [
+  ...requiredScalarFields.filter((field) => field !== "drillEvidenceHash"),
+  ...requiredNestedFields,
 ] as const;
 
 function main(): void {
@@ -65,7 +72,7 @@ function main(): void {
   }
 
   console.log("restore drill validation passed: non-production restore evidence, backup hashes, health result, residual handling, and safety facts are present.");
-  console.log(`restoreDrillRecordEvidenceHash: ${buildEvidenceHash(fields, [...requiredScalarFields, ...requiredNestedFields])}`);
+  console.log(`restoreDrillRecordEvidenceHash: ${buildEvidenceHash(fields, evidenceHashFields)}`);
   console.log("safetyFacts: productionRestoreAttempted=false destructiveActionAttempted=false secretValuePrinted=false backupDeleted=false uploadDeleted=false");
 }
 
@@ -85,6 +92,8 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   requireOneOf(fields, "databaseRestoreResult", ["pass", "fail", "not-applicable"], issues);
   requireOneOf(fields, "uploadsRestoreResult", ["pass", "fail", "not-applicable"], issues);
   requireOneOf(fields, "attachmentHashMatched", ["pass", "fail", "not-applicable"], issues);
+  requireOneOf(fields, "homeReadResult", ["pass", "fail", "not-applicable"], issues);
+  requireOneOf(fields, "loginResult", ["pass", "fail", "not-applicable"], issues);
   requireOneOf(fields, "appHealthAfterRestore", ["pass", "fail", "not-applicable"], issues);
   requireOneOf(fields, "rollbackDecision", ["not-needed", "repeat-drill", "open-incident", "defer"], issues);
   for (const field of requiredNestedFields) {
@@ -102,17 +111,30 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     requireNo(fields, field, issues);
   }
 
-  const failed = ["databaseRestoreResult", "uploadsRestoreResult", "attachmentHashMatched", "appHealthAfterRestore"]
+  const suppliedEvidenceHash = fields.get("drillEvidenceHash")?.toLowerCase();
+  const expectedEvidenceHash = buildEvidenceHash(fields, evidenceHashFields).toLowerCase();
+  if (suppliedEvidenceHash && suppliedEvidenceHash !== expectedEvidenceHash) {
+    issues.push({ field: "drillEvidenceHash", message: "must match the canonical restore drill record evidence hash" });
+  }
+
+  const successfulResultFields = [
+    "databaseRestoreResult",
+    "uploadsRestoreResult",
+    "attachmentHashMatched",
+    "homeReadResult",
+    "loginResult",
+    "appHealthAfterRestore",
+  ] as const;
+  const failed = successfulResultFields
     .some((field) => fields.get(field)?.toLowerCase() === "fail");
   if (failed && fields.get("residualRiskIds")?.toLowerCase() === "none") {
     issues.push({ field: "residualRiskIds", message: "must include a residual ID when drill has a failed result" });
   }
 
-  if (fields.get("databaseRestoreResult")?.toLowerCase() !== "pass") {
-    issues.push({ field: "databaseRestoreResult", message: "must be pass for a successful restore drill record" });
-  }
-  if (fields.get("appHealthAfterRestore")?.toLowerCase() !== "pass") {
-    issues.push({ field: "appHealthAfterRestore", message: "must be pass for a successful restore drill record" });
+  for (const field of successfulResultFields) {
+    if (fields.get(field)?.toLowerCase() !== "pass") {
+      issues.push({ field, message: "must be pass for a successful restore drill record" });
+    }
   }
 
   scanForSecrets(record, issues);

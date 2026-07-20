@@ -1,4 +1,6 @@
-import { accessSync, constants, statSync } from "node:fs";
+import { lstatSync } from "node:fs";
+import path from "node:path";
+import { validateRestrictedSmokePasswordFile } from "../ops/smoke-password";
 
 interface Check {
   name: string;
@@ -94,14 +96,14 @@ function checkPasswordFile(): void {
   let ok = false;
   let detail = "password file path redacted";
   try {
-    accessSync(passwordFile, constants.R_OK);
-    const stat = statSync(passwordFile);
-    const mode = stat.mode & 0o777;
-    const tooBroad = (mode & 0o077) !== 0;
-    ok = stat.isFile() && !tooBroad;
+    const metadata = lstatSync(passwordFile);
+    const mode = metadata.mode & 0o777;
+    const pathIsAbsolute = path.isAbsolute(passwordFile);
+    validateRestrictedSmokePasswordFile(passwordFile);
+    ok = pathIsAbsolute && metadata.isFile() && !metadata.isSymbolicLink() && metadata.nlink === 1;
     detail = ok
-      ? `file exists, is readable, and mode ${mode.toString(8)} is not group/world readable`
-      : `file must be a regular file and not group/world readable; current mode ${mode.toString(8)}`;
+      ? `file exists, is a single regular inode, and mode ${mode.toString(8)} is owner-readable only`
+      : `file must be absolute, a single regular inode, and owner-readable only; current mode ${mode.toString(8)}`;
   } catch (error) {
     detail = error instanceof Error ? `cannot access password file: ${redact(error.message)}` : "cannot access password file";
   }
@@ -130,8 +132,8 @@ function checkExpectedAutoApply(): void {
 function checkForbiddenEnv(): void {
   checks.push({
     name: "password env fallback",
-    ok: !process.env.AREAFORGE_SMOKE_PASSWORD,
-    detail: process.env.AREAFORGE_SMOKE_PASSWORD
+    ok: process.env.AREAFORGE_SMOKE_PASSWORD === undefined,
+    detail: process.env.AREAFORGE_SMOKE_PASSWORD !== undefined
       ? "AREAFORGE_SMOKE_PASSWORD must not be used for production smoke evidence"
       : "AREAFORGE_SMOKE_PASSWORD is not set",
   });

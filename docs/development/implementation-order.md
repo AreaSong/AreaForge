@@ -46,7 +46,7 @@
 2. `release-v0.1.7-record.md`：补齐可校验的 `releaseEvidenceBundleHash`、`databaseBackupSha256`、`uploadsBackupSha256` 与 `envBackupSha256`；本地不能伪造或从 secret 文件提取这些值。
 3. `AF-RISK-OPS-004`、`AF-RISK-SC-001`、`AF-RISK-UX-001`：保持各自的人工复核和关闭条件，不能因 validator 通过而自动关闭 residual。
 4. 长期运营优化：不引入 AreaMatrix/AreaFlow 的重型任务队列或 command API；只围绕路径审阅、ops readiness、残余风险、完成证据纪律、运行时写边界和真实体验逐项推进。
-5. `AF-RISK-OPS-005`：Web update request 当前只在入队时校验，root agent 未绑定 expected-before/TTL/hash；设计和确认包已准备，代码实施必须等待明确确认，生产部署再单独确认。
+5. `AF-RISK-OPS-005`：本地 V2 request、expected-before/TTL/hash、target identity、processing reconciliation 和共享 production-state lock 已实现并通过本地门禁；下一步需要签名 Release，生产 timer/队列/Web/agent 部署仍须单独确认。
 
 实现前确认设计：
 

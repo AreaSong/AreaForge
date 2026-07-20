@@ -6,11 +6,29 @@ import {
   parseAttachmentReconciliationCsv,
   validateAttachmentReconciliationSummary,
 } from "./attachment-reconciliation-summary";
+import { parseStrictIndentedKeyValueRecord } from "./record-validator-common";
 
-interface ValidationIssue {
+export interface ReleaseEvidenceValidationIssue {
   field: string;
   message: string;
 }
+
+export const releaseEvidenceRedactedRecordContract = {
+  mode: "repo-visible-draft-from-validated-redacted-export",
+  doesNotProve: "production smoke completion, backup/restore execution, migration execution, updater apply execution, residual risk closure, secret disclosure absence beyond validator scan",
+  safetyFacts: "serverCommandAttempted=false, productionWriteAttempted=false, secretValuePrinted=false, residualLedgerUpdated=false, originalReleaseRecordOverwritten=false",
+} as const;
+
+const redactedRecordMetadataFields = [
+  "releaseEvidenceRedactedRecordMode",
+  "releaseEvidenceRedactedRecordCheckedAt",
+  "releaseEvidenceRedactedRecordDoesNotProve",
+  "releaseEvidenceRedactedRecordClosesResidual",
+  "releaseEvidenceRedactedRecordResidualLedgerUpdated",
+  "releaseEvidenceRedactedRecordSafetyFacts",
+  "releaseEvidenceRedactedExportHash",
+  "releaseEvidenceRedactedUpdateRecordHash",
+] as const;
 
 const requiredScalarFields = [
   "releaseId",
@@ -67,6 +85,44 @@ const requiredNestedFields = [
   "expectedFailureOrStopConditions.backupMissing",
 ] as const;
 
+const bundleOptionalFields = [
+  "releaseUrl",
+  "webImageDigest",
+  "migrationImageDigest",
+  "sbomAsset",
+  "sbomSha256",
+  "provenanceAsset",
+  "provenanceSha256",
+  "supplyChainEvidence",
+  "releaseSupplyChainEvidenceHash",
+  "signatureVerification",
+  "updateAgentStatus",
+  "rollbackTargetVersion",
+  "rollbackTargetImage",
+  "residualRiskIds",
+  "operationalEvidenceBundleHash",
+  "alertPreviewStatus",
+  "attachmentReconciliationCsvSha256",
+  "attachmentReconciliationSummaryHash",
+  "attachmentReconciliationCsvPath",
+  "attachmentReconciliationSummaryPath",
+  "attachmentReconciliationStatus",
+] as const;
+
+const allowedMetadataFields = [
+  "sourceBaseline.sourceDocs",
+  "sourceBaseline.sourceHashOrCommit",
+  "claimBoundary.doesNotProve",
+  "claimBoundary.evidenceStatus",
+  "postReleaseSmoke.scope",
+  "serverUpdateRecordPath",
+  "publicHealthEvidence",
+  "readinessSummaryEvidence",
+  "operationalEvidenceBundlePath",
+  "extraSmokeChecks",
+  ...redactedRecordMetadataFields,
+] as const;
+
 const yesNoFields = [
   "migrationApplied",
   "databaseRestoreRequired",
@@ -105,31 +161,15 @@ function main(): void {
 
   const absoluteRecordPath = path.resolve(recordPath);
   const record = readRequiredFile(absoluteRecordPath);
-  const fields = parseIndentedKeyValueRecord(record);
-  const issues = validateRecord(record, fields);
-
   const reconciliationPath = process.argv[3];
-  const attachmentHashMatched = fields.get("restoreDrill.attachmentHashMatched")?.toLowerCase();
-  if (reconciliationPath) {
-    issues.push(...validateAttachmentReconciliation(path.resolve(reconciliationPath), attachmentHashMatched, fields));
-  } else if (attachmentHashMatched) {
-    issues.push({ field: "attachmentReconciliation", message: `CSV is required when restoreDrill.attachmentHashMatched is ${attachmentHashMatched}` });
-  }
   const reconciliationSummaryPath = process.argv[4];
-  if (reconciliationSummaryPath) {
-    if (!reconciliationPath) {
-      issues.push({ field: "attachmentReconciliationSummary", message: "requires attachment reconciliation CSV" });
-    } else {
-      issues.push(...validateReconciliationSummary(
-        path.resolve(reconciliationSummaryPath),
-        path.resolve(reconciliationPath),
-        attachmentHashMatched,
-        fields,
-      ));
-    }
-  } else if (attachmentHashMatched) {
-    issues.push({ field: "attachmentReconciliationSummary", message: `is required when restoreDrill.attachmentHashMatched is ${attachmentHashMatched}` });
-  }
+  const reconciliationCsv = reconciliationPath ? readRequiredFile(path.resolve(reconciliationPath)) : undefined;
+  const reconciliationSummary = reconciliationSummaryPath
+    ? readRequiredFile(path.resolve(reconciliationSummaryPath))
+    : undefined;
+  const issues = validateReleaseEvidenceBundle(record, reconciliationCsv, reconciliationSummary);
+  const parseIssues: ReleaseEvidenceValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record, parseIssues);
 
   if (issues.length > 0) {
     for (const issue of issues) {
@@ -144,8 +184,59 @@ function main(): void {
   console.log("safetyFacts: dockerCommandAttempted=false backupAttempted=false restoreAttempted=false migrationAttempted=false serverCommandAttempted=false");
 }
 
-function validateRecord(record: string, fields: Map<string, string>): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
+export function validateReleaseEvidenceBundle(
+  record: string,
+  reconciliationCsv?: string,
+  reconciliationSummary?: string,
+): ReleaseEvidenceValidationIssue[] {
+  const issues: ReleaseEvidenceValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record, issues);
+  validateRecordShape(fields, issues);
+  issues.push(...validateRecord(record, fields));
+  const attachmentHashMatched = fields.get("restoreDrill.attachmentHashMatched")?.toLowerCase();
+  if (reconciliationCsv !== undefined) {
+    issues.push(...validateAttachmentReconciliation(reconciliationCsv, attachmentHashMatched, fields));
+  } else if (attachmentHashMatched) {
+    issues.push({ field: "attachmentReconciliation", message: `CSV is required when restoreDrill.attachmentHashMatched is ${attachmentHashMatched}` });
+  }
+  if (reconciliationSummary !== undefined) {
+    if (reconciliationCsv === undefined) {
+      issues.push({ field: "attachmentReconciliationSummary", message: "requires attachment reconciliation CSV" });
+    } else {
+      issues.push(...validateReconciliationSummary(
+        reconciliationSummary,
+        reconciliationCsv,
+        attachmentHashMatched,
+        fields,
+      ));
+    }
+  } else if (attachmentHashMatched) {
+    issues.push({ field: "attachmentReconciliationSummary", message: `is required when restoreDrill.attachmentHashMatched is ${attachmentHashMatched}` });
+  }
+  return issues;
+}
+
+function validateRecordShape(
+  fields: Map<string, string>,
+  issues: ReleaseEvidenceValidationIssue[],
+): void {
+  const nestedFields = [...requiredNestedFields, ...allowedMetadataFields.filter((field) => field.includes("."))];
+  const sections = nestedFields.map((field) => field.split(".")[0] ?? "");
+  const expected = new Set<string>([
+    ...requiredScalarFields,
+    ...requiredNestedFields,
+    ...bundleOptionalFields,
+    ...allowedMetadataFields,
+    ...sections,
+    "releaseEvidenceBundleHash",
+  ]);
+  for (const field of fields.keys()) {
+    if (!expected.has(field)) issues.push({ field, message: "is not allowed in a release evidence record" });
+  }
+}
+
+function validateRecord(record: string, fields: Map<string, string>): ReleaseEvidenceValidationIssue[] {
+  const issues: ReleaseEvidenceValidationIssue[] = [];
 
   for (const field of requiredScalarFields) {
     requireField(fields, field, issues);
@@ -154,6 +245,7 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     requireField(fields, field, issues);
   }
   requireField(fields, "releaseEvidenceBundleHash", issues);
+  validateRedactedRecordMetadata(fields, issues);
 
   for (const field of yesNoFields) {
     const value = fields.get(field);
@@ -262,13 +354,43 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   return issues;
 }
 
+function validateRedactedRecordMetadata(
+  fields: Map<string, string>,
+  issues: ReleaseEvidenceValidationIssue[],
+): void {
+  if (!redactedRecordMetadataFields.some((field) => fields.has(field))) return;
+
+  for (const field of redactedRecordMetadataFields) requireField(fields, field, issues);
+  const expected = releaseEvidenceRedactedRecordContract;
+  const exactValues = new Map<string, string>([
+    ["releaseEvidenceRedactedRecordMode", expected.mode],
+    ["releaseEvidenceRedactedRecordDoesNotProve", expected.doesNotProve],
+    ["releaseEvidenceRedactedRecordClosesResidual", "no"],
+    ["releaseEvidenceRedactedRecordResidualLedgerUpdated", "no"],
+    ["releaseEvidenceRedactedRecordSafetyFacts", expected.safetyFacts],
+  ]);
+  for (const [field, value] of exactValues) {
+    if (fields.get(field) !== value) issues.push({ field, message: `must equal ${value}` });
+  }
+
+  const checkedAt = fields.get("releaseEvidenceRedactedRecordCheckedAt") ?? "";
+  const timestamp = Date.parse(checkedAt);
+  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString() !== checkedAt) {
+    issues.push({ field: "releaseEvidenceRedactedRecordCheckedAt", message: "must be a canonical UTC ISO-8601 timestamp" });
+  }
+  for (const field of ["releaseEvidenceRedactedExportHash", "releaseEvidenceRedactedUpdateRecordHash"] as const) {
+    if (!/^sha256:[a-f0-9]{64}$/.test(fields.get(field) ?? "")) {
+      issues.push({ field, message: "must be a canonical lowercase sha256 digest" });
+    }
+  }
+}
+
 function validateAttachmentReconciliation(
-  filePath: string,
+  csv: string,
   attachmentHashMatched: string | undefined,
   fields: Map<string, string>,
-): ValidationIssue[] {
-  const csv = readRequiredFile(filePath);
-  const issues: ValidationIssue[] = [];
+): ReleaseEvidenceValidationIssue[] {
+  const issues: ReleaseEvidenceValidationIssue[] = [];
   for (const item of secretPatterns) {
     if (item.pattern.test(csv)) issues.push({ field: "attachmentReconciliation", message: `must not contain ${item.label}` });
   }
@@ -305,13 +427,11 @@ function validateAttachmentReconciliation(
 }
 
 function validateReconciliationSummary(
-  summaryPath: string,
-  csvPath: string,
+  raw: string,
+  csv: string,
   attachmentHashMatched: string | undefined,
   fields: Map<string, string>,
-): ValidationIssue[] {
-  const raw = readRequiredFile(summaryPath);
-  const csv = readRequiredFile(csvPath);
+): ReleaseEvidenceValidationIssue[] {
   const issues = validateAttachmentReconciliationSummary(raw, csv)
     .map((message) => ({ field: "attachmentReconciliationSummary", message }));
   for (const item of secretPatterns) {
@@ -347,67 +467,18 @@ function validateReconciliationSummary(
   return issues;
 }
 
-function requireField(fields: Map<string, string>, field: string, issues: ValidationIssue[]): void {
+function requireField(fields: Map<string, string>, field: string, issues: ReleaseEvidenceValidationIssue[]): void {
   const value = fields.get(field);
   if (!value || value.trim().length === 0) {
     issues.push({ field, message: "is required" });
   }
 }
 
-function parseIndentedKeyValueRecord(record: string): Map<string, string> {
-  const fields = new Map<string, string>();
-  let currentSection = "";
-
-  for (const rawLine of record.split(/\r?\n/)) {
-    if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) continue;
-    const match = rawLine.match(/^(\s*)([A-Za-z0-9_]+):\s*(.*)$/);
-    if (!match) continue;
-
-    const indent = match[1]?.length ?? 0;
-    const key = match[2] ?? "";
-    const value = match[3]?.trim() ?? "";
-    if (indent === 0) {
-      currentSection = value ? "" : key;
-      fields.set(key, value);
-      continue;
-    }
-
-    if (currentSection) {
-      fields.set(`${currentSection}.${key}`, value);
-    }
-  }
-
-  return fields;
-}
-
 export function buildReleaseEvidenceBundleHash(fields: Map<string, string>): string {
-  const optionalFields = [
-    "releaseUrl",
-    "webImageDigest",
-    "migrationImageDigest",
-    "sbomAsset",
-    "sbomSha256",
-    "provenanceAsset",
-    "provenanceSha256",
-    "supplyChainEvidence",
-    "releaseSupplyChainEvidenceHash",
-    "signatureVerification",
-    "updateAgentStatus",
-    "rollbackTargetVersion",
-    "rollbackTargetImage",
-    "residualRiskIds",
-    "operationalEvidenceBundleHash",
-    "alertPreviewStatus",
-    "attachmentReconciliationCsvSha256",
-    "attachmentReconciliationSummaryHash",
-    "attachmentReconciliationCsvPath",
-    "attachmentReconciliationSummaryPath",
-    "attachmentReconciliationStatus",
-  ];
   const keys = [
     ...requiredScalarFields,
     ...requiredNestedFields,
-    ...optionalFields,
+    ...bundleOptionalFields,
   ].filter((key, index, array) => array.indexOf(key) === index).sort();
   const bundle = keys.map((key) => [key, fields.get(key) ?? ""]);
   const hash = createHash("sha256").update(JSON.stringify(bundle)).digest("hex");
@@ -427,13 +498,19 @@ function readRequiredFile(filePath: string): string {
   return readFileSync(filePath, "utf8");
 }
 
-export function resolveReleaseEvidenceValidationArgs(recordPath: string, root = process.cwd()): string[] {
+export function resolveReleaseEvidenceValidationArgs(
+  recordPath: string,
+  root = process.cwd(),
+  record?: string,
+): string[] {
   const absoluteRecord = path.isAbsolute(recordPath) ? recordPath : path.resolve(root, recordPath);
   if (!existsSync(absoluteRecord)) return [absoluteRecord];
-  const fields = parseIndentedKeyValueRecord(readFileSync(absoluteRecord, "utf8"));
+  const parseIssues: ReleaseEvidenceValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record ?? readFileSync(absoluteRecord, "utf8"), parseIssues);
+  if (parseIssues.length > 0) return [absoluteRecord];
   const csv = resolveRecordedEvidencePath(fields.get("attachmentReconciliationCsvPath"), absoluteRecord, root);
   const summary = resolveRecordedEvidencePath(fields.get("attachmentReconciliationSummaryPath"), absoluteRecord, root);
-  return [absoluteRecord, ...(csv ? [csv] : []), ...(summary ? [summary] : [])];
+  return [absoluteRecord, ...(csv ? [csv] : []), ...(csv && summary ? [summary] : [])];
 }
 
 function resolveRecordedEvidencePath(value: string | undefined, recordPath: string, root: string): string | null {

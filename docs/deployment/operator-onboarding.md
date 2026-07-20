@@ -253,7 +253,7 @@ pnpm alert:drill:validate <alert-drill-record.md|txt>
 4. 等待 GitHub Release workflow 生成 manifest、SBOM、provenance、`SHA256SUMS`、`SHA256SUMS.sig` 和 GHCR digest。
 5. 用 Web 版本中心提交受控更新请求，或由管理员在服务器执行 updater。
 6. 更新后记录 health、update-agent、smoke、rollback target、`pnpm ops:evidence:bundle` 的 `bundleHash` 和残余风险 ID。
-7. 若本次 Release 用于关闭供应链残余项，填写 `docs/development/release-supply-chain-record-template.md`，先运行 `pnpm sc:sc-002:preflight`，再运行 `pnpm release:supply-chain:validate`。
+7. 若本次 Release 用于关闭供应链残余项，填写 `docs/development/release-supply-chain-record-template.md`，同时配置 record/assets 运行 `pnpm sc:sc-002:preflight`，再运行 `pnpm release:supply-chain:validate <record> <release-assets-dir> --strict`。
    已下载 Release 资产时，可先用 `pnpm release:supply-chain:record <release-assets-dir>` 生成记录草稿；它仍要求显式填写 workflow run URL、`pnpm audit:prod`、Actions pinning、checksum 和签名校验结果。
 
 ## 禁止清单

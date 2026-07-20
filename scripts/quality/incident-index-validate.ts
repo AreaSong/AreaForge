@@ -1,15 +1,22 @@
 import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { buildIncidentIndex, resolveIncidentIndexSourceRoot, type IncidentIndex } from "./incident-index-common";
+import {
+  buildIncidentIndex,
+  resolveIncidentIndexSourceRoot,
+  type IncidentIndex,
+  type IncidentIndexEntry,
+  type IncidentIndexGroup,
+} from "./incident-index-common";
 import { scanForSecrets, sha256, type ValidationIssue } from "./record-validator-common";
 
 const indexPathArg = process.argv[2];
 const sourceRootArg = process.argv[3];
 const topLevelKeys = [
-  "schemaVersion", "mode", "sourceRoot", "sourcePattern", "sourceSetSha256", "latestIncidentId", "incidents", "doesNotProve", "safetyFacts",
+  "schemaVersion", "mode", "sourceRoot", "sourcePattern", "sourceSetSha256", "active", "resolved", "doesNotProve", "safetyFacts",
 ].sort();
+const groupKeys = ["sourceSetSha256", "latestIncidentId", "incidents"].sort();
 const incidentKeys = [
-  "incidentId", "recordPath", "recordSha256", "detectedAt", "recordedAt", "environment", "severity", "incidentType",
+  "incidentId", "recordPath", "recordSha256", "detectedAt", "recordedAt", "status", "environment", "severity", "incidentType",
   "publicHealthStatus", "rollbackDecision", "residualRiskIds", "followUpTasks",
 ].sort();
 const safetyKeys = [
@@ -51,9 +58,11 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("incident index validation passed: the deterministic read-only index matches all current resolved incident records.");
+  console.log("incident index validation passed: the deterministic read-only index matches all current active and resolved incident records.");
   console.log(`incidentIndexEvidenceHash: sha256:${sha256(raw)}`);
   console.log(`sourceSetSha256: ${parsed.sourceSetSha256}`);
+  console.log(`activeSourceSetSha256: ${parsed.active.sourceSetSha256}`);
+  console.log(`resolvedSourceSetSha256: ${parsed.resolved.sourceSetSha256}`);
   console.log("safetyFacts: readOnlyValidation=true networkRequested=false serverCommandAttempted=false productionWriteAttempted=false secretValuePrinted=false indexWritten=false incidentActionExecuted=false residualLedgerUpdated=false");
 }
 
@@ -65,20 +74,14 @@ function validateShape(raw: string, value: unknown, issues: ValidationIssue[]): 
   }
   const index = value as unknown as IncidentIndex;
   if (!hasExactKeys(value, topLevelKeys)) issues.push({ field: "index", message: "contains missing or unknown top-level fields" });
-  if (index.schemaVersion !== 1) issues.push({ field: "schemaVersion", message: "must be 1" });
-  if (index.mode !== "read_only_resolved_incident_index") issues.push({ field: "mode", message: "must be read_only_resolved_incident_index" });
+  if (index.schemaVersion !== 2) issues.push({ field: "schemaVersion", message: "must be 2" });
+  if (index.mode !== "read_only_incident_index") issues.push({ field: "mode", message: "must be read_only_incident_index" });
   if (typeof index.sourceRoot !== "string" || index.sourceRoot.length === 0) issues.push({ field: "sourceRoot", message: "must be a non-empty string" });
   if (index.sourcePattern !== "incident-*/incident-record.txt") issues.push({ field: "sourcePattern", message: "must use the fixed incident record pattern" });
   if (!isSha256(index.sourceSetSha256)) issues.push({ field: "sourceSetSha256", message: "must be sha256:<64 hex>" });
 
-  if (!Array.isArray(index.incidents)) {
-    issues.push({ field: "incidents", message: "must be an array" });
-  } else {
-    for (const [position, incident] of index.incidents.entries()) validateIncident(incident, position, issues);
-    if (index.latestIncidentId !== (index.incidents[0]?.incidentId ?? null)) {
-      issues.push({ field: "latestIncidentId", message: "must equal the first deterministically sorted incident" });
-    }
-  }
+  validateGroup(index.active, "active", ["open", "mitigated", "follow-up"], issues);
+  validateGroup(index.resolved, "resolved", ["resolved"], issues);
 
   if (!Array.isArray(index.doesNotProve) || !index.doesNotProve.every((item) => typeof item === "string")) {
     issues.push({ field: "doesNotProve", message: "must be an array of strings" });
@@ -92,8 +95,37 @@ function validateShape(raw: string, value: unknown, issues: ValidationIssue[]): 
   scanForSecrets(raw, issues);
 }
 
-function validateIncident(value: unknown, position: number, issues: ValidationIssue[]): void {
-  const field = `incidents[${position}]`;
+function validateGroup(
+  value: unknown,
+  field: "active" | "resolved",
+  allowedStatuses: IncidentIndexEntry["status"][],
+  issues: ValidationIssue[],
+): void {
+  if (!isObject(value)) {
+    issues.push({ field, message: "must be an object" });
+    return;
+  }
+  if (!hasExactKeys(value, groupKeys)) issues.push({ field, message: "contains missing or unknown fields" });
+  const group = value as unknown as IncidentIndexGroup;
+  if (!isSha256(group.sourceSetSha256)) issues.push({ field: `${field}.sourceSetSha256`, message: "must be sha256:<64 hex>" });
+  if (!Array.isArray(group.incidents)) {
+    issues.push({ field: `${field}.incidents`, message: "must be an array" });
+    return;
+  }
+  for (const [position, incident] of group.incidents.entries()) {
+    validateIncident(incident, `${field}.incidents[${position}]`, allowedStatuses, issues);
+  }
+  if (group.latestIncidentId !== (group.incidents[0]?.incidentId ?? null)) {
+    issues.push({ field: `${field}.latestIncidentId`, message: "must equal the first deterministically sorted incident" });
+  }
+}
+
+function validateIncident(
+  value: unknown,
+  field: string,
+  allowedStatuses: IncidentIndexEntry["status"][],
+  issues: ValidationIssue[],
+): void {
   if (!isObject(value)) {
     issues.push({ field, message: "must be an object" });
     return;
@@ -104,6 +136,9 @@ function validateIncident(value: unknown, position: number, issues: ValidationIs
     if (typeof incident[key] !== "string" || incident[key].length === 0) issues.push({ field: `${field}.${key}`, message: "must be a non-empty string" });
   }
   if (!isSha256(incident.recordSha256)) issues.push({ field: `${field}.recordSha256`, message: "must be sha256:<64 hex>" });
+  if (typeof incident.status !== "string" || !allowedStatuses.includes(incident.status as IncidentIndexEntry["status"])) {
+    issues.push({ field: `${field}.status`, message: `must be one of ${allowedStatuses.join(", ")}` });
+  }
   for (const key of ["residualRiskIds", "followUpTasks"]) {
     if (!Array.isArray(incident[key]) || !(incident[key] as unknown[]).every((item) => typeof item === "string")) {
       issues.push({ field: `${field}.${key}`, message: "must be an array of strings" });

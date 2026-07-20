@@ -2,7 +2,7 @@
 
 ## 目标
 
-本文件定义 AreaForge 的 metadata-only 支持包预览。它借鉴 AreaFlow 的 support bundle preview 思路，但只保留适合 AreaForge 的公开支持和维护交接能力：列出版本、文档入口、残余风险、下一步只读命令、claim boundary、`doesNotProve` 和 redaction/safety facts。
+本文件定义 AreaForge 的 metadata-only 支持包预览。它借鉴 AreaFlow 的 support bundle preview 思路，但只保留适合 AreaForge 的公开支持和维护交接能力：列出版本、文档入口、残余风险、下一步只读命令、claim boundary、`doesNotProve`、redaction/safety facts，以及数据类别、存储类型、备份覆盖、retention 来源和 export/delete/migration 支持状态。
 
 它不是 support bundle export，不复制附件、日志、数据库、备份或用户学习内容；也不连接生产、不执行 Docker、不运行 migration、不触发 updater、不创建 Release、不推 tag、不写生产。
 
@@ -27,6 +27,7 @@ pnpm ops:support:bundle-preview:selftest
 - `docs/development/residual-risk-ledger.json` 中的 residual ID、类型、复核时间、owner skill、关闭条件和所需证据。
 - `doesNotProve`：生产健康、updater apply、备份/恢复/migration/rollback 执行、GitHub Release 创建、residual 关闭、真实支持包导出或高风险操作授权。
 - `safetyFacts`：read-only、metadata-only、未导出、未联网、未执行服务器命令、未写生产、未包含敏感内容。
+- `dataLifecycle`：只读列出 `configured` / `not_configured` / `metadata_only` / `not_supported` 状态；不读取数据库行、附件内容、备份归档、私有环境值或 session 值，也不实现真实导出、删除、账号迁移或保留策略。
 
 ## 默认排除
 

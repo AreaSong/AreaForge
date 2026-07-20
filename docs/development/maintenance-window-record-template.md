@@ -74,5 +74,8 @@ safetyFacts:
 - 若存在 due 或 overdue residual，必须在 `dueResidualRiskIds` 中列出，并说明 follow-up。
 - `result: pass` 不能和 `residualReviewStatus: fail` 同时出现。
 - `result: pass` 必须同时满足 `evidenceFreshnessStatus: fresh`；证据为 `stale` 或 `unknown` 时，维护窗口结果必须降级为 `warn`、`fail` 或 `blocked`。
+- validator 会按 `blocked > fail > warn > pass` 汇总 readiness、evidence bundle、alert preview、五类核心 signal、residual review 和 evidence freshness；记录结果不得比任一输入状态更乐观。
+- `readinessOverall: blocked`、`evidenceBundleStatus: blocked` 或 `alertPreviewStatus: critical` 时，`result` 必须是 `blocked`；核心 signal 为 `fail` 或 residual review 为 `fail` 时，`result` 至少为 `fail`。
+- `finishedAt` 不得早于 `startedAt`；`dueResidualRiskIds` 非 `none` 时，`residualReviewStatus` 不能是 `pass`。
 - `claimBoundary.doesNotProve` 必须明确说明维护窗口记录不能替代 live evidence、updater apply、backup/restore、migration、rollback 或 residual risk closure 证据。
 - 记录不得包含生产 `.env`、密钥、数据库 URL、session cookie、附件内容、完整 prompt/raw response 或真实学习内容。

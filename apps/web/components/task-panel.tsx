@@ -31,6 +31,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
   const [debtNotice, setDebtNotice] = useState<string | null>(null);
   const [selectedDebtTaskIds, setSelectedDebtTaskIds] = useState<string[]>([]);
   const [isDebtActionPending, setDebtActionPending] = useState(false);
+  const [pendingTaskActions, setPendingTaskActions] = useState<Record<string, boolean>>({});
   const [isPending, startTransition] = useTransition();
   const flatNodes = useMemo(() => flattenNodes(syllabusNodes), [syllabusNodes]);
   const nodeOptions = flatNodes.filter((node) => node.subjectId === subjectId);
@@ -69,22 +70,29 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
     startTransition(() => router.refresh());
   }
 
-  async function act(path: string, body?: unknown) {
+  async function act(path: string, body?: unknown, taskId?: string) {
     setError(null);
     setDebtNotice(null);
-    const response = await fetch(path, {
-      method: "POST",
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    if (taskId) setPendingTaskActions((current) => ({ ...current, [taskId]: true }));
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
 
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error ?? "操作失败");
-      return;
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error ?? "操作失败，任务状态可能已变化，请刷新后重试。");
+        return;
+      }
+
+      startTransition(() => router.refresh());
+    } catch {
+      setError("网络暂时不可用，任务状态未确认，请刷新后重试。");
+    } finally {
+      if (taskId) setPendingTaskActions((current) => ({ ...current, [taskId]: false }));
     }
-
-    startTransition(() => router.refresh());
   }
 
   function toggleDebtSuggestion(taskId: string) {
@@ -339,7 +347,8 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
               <button
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10"
                 type="button"
-                onClick={() => act(`/api/tasks/${task.id}/complete`, { reviewText: "从今日任务面板完成" })}
+                disabled={pendingTaskActions[task.id]}
+                onClick={() => act(`/api/tasks/${task.id}/complete`, { reviewText: "从今日任务面板完成" }, task.id)}
               >
                 <Check className="h-4 w-4" aria-hidden="true" />
                 完成
@@ -347,7 +356,8 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
               <button
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-amber-300/25 px-3 text-sm text-amber-100 hover:bg-amber-400/10"
                 type="button"
-                onClick={() => act(`/api/tasks/${task.id}/defer`, { reviewText: "延期到下一学习日" })}
+                disabled={pendingTaskActions[task.id]}
+                onClick={() => act(`/api/tasks/${task.id}/defer`, { reviewText: "延期到下一学习日" }, task.id)}
               >
                 <FastForward className="h-4 w-4" aria-hidden="true" />
                 延期
@@ -355,7 +365,8 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
               <button
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-sky-300/25 px-3 text-sm text-sky-100 hover:bg-sky-400/10"
                 type="button"
-                onClick={() => act(`/api/tasks/${task.id}/recover`, { reviewText: "从任务面板补做" })}
+                disabled={pendingTaskActions[task.id]}
+                onClick={() => act(`/api/tasks/${task.id}/recover`, { reviewText: "从任务面板补做" }, task.id)}
               >
                 <RotateCcw className="h-4 w-4" aria-hidden="true" />
                 补做
@@ -368,8 +379,9 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
                     title: `${task.title} / 最小推进`,
                     estimatedMinutes: Math.min(45, Math.max(15, Math.ceil(task.estimatedMinutes / 2))),
                     reviewText: "从任务面板拆小",
-                  })
+                  }, task.id)
                 }
+                disabled={pendingTaskActions[task.id]}
               >
                 <Scissors className="h-4 w-4" aria-hidden="true" />
                 拆小
@@ -377,7 +389,8 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
               <button
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-blue-300/25 px-3 text-sm text-blue-100 hover:bg-blue-400/10"
                 type="button"
-                onClick={() => act(`/api/tasks/${task.id}/convert-review`, { reviewText: "从任务面板改成复习任务" })}
+                disabled={pendingTaskActions[task.id]}
+                onClick={() => act(`/api/tasks/${task.id}/convert-review`, { reviewText: "从任务面板改成复习任务" }, task.id)}
               >
                 <Check className="h-4 w-4" aria-hidden="true" />
                 改复习
@@ -385,7 +398,10 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
               <button
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-red-300/25 px-3 text-sm text-red-100 hover:bg-red-400/10"
                 type="button"
-                onClick={() => act(`/api/tasks/${task.id}/drop`)}
+                disabled={pendingTaskActions[task.id]}
+                onClick={() => {
+                  if (window.confirm("确认放弃这个任务？该操作会记录为任务状态变化。")) act(`/api/tasks/${task.id}/drop`, undefined, task.id);
+                }}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
                 放弃

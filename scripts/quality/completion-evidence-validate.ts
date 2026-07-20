@@ -12,6 +12,10 @@ import {
   scanForSecrets,
   type ValidationIssue,
 } from "./record-validator-common";
+import {
+  buildWorktreeValidationFingerprint,
+  type ValidationProfile,
+} from "./worktree-validation-fingerprint";
 
 const requiredScalarFields = [
   "scope",
@@ -50,6 +54,18 @@ const requiredSafetyFields = [
   "safetyFacts.secretValuePrinted",
 ] as const;
 
+const v2Fields = [
+  "schemaVersion",
+  "freshValidation.profile",
+  "validationFingerprint.algorithm",
+  "validationFingerprint.gitHead",
+  "validationFingerprint.worktreeState",
+  "validationFingerprint.worktreeHash",
+  "validationFingerprint.changedPaths",
+  "validationFingerprint.digest",
+] as const;
+const validationProfiles: ValidationProfile[] = ["docs-only", "targeted", "full", "custom"];
+
 const blockerFields = [
   "blockers.product",
   "blockers.securityPrivacy",
@@ -76,7 +92,12 @@ function main(): void {
 
   const raw = readRequiredFile(path.resolve(recordPath));
   const fields = parseIndentedKeyValueRecord(raw);
-  const issues = validateRecord(raw, fields);
+  const shapeOnly = process.argv.includes("--shape-only");
+  if (process.argv.includes("--print-current-fingerprint")) {
+    printCurrentFingerprint(fields);
+    return;
+  }
+  const issues = validateRecord(raw, fields, shapeOnly);
 
   if (issues.length > 0) {
     for (const issue of issues) {
@@ -86,12 +107,20 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("completion evidence validation passed: summary, claim scope, evidence URI, evidence class, source baseline, validation, blockers, residuals, release need, write boundary, does-not-prove boundary, and safety facts are present.");
-  console.log(`completionEvidenceHash: ${buildEvidenceHash(fields, [...requiredScalarFields, ...requiredSafetyFields])}`);
+  const schemaVersion = completionSchemaVersion(fields);
+  console.log(shapeOnly
+    ? "completion evidence shape validation passed: historical record shape is valid but current checkout binding was not evaluated."
+    : "completion evidence validation passed: summary, claim scope, evidence URI, evidence class, source baseline, current checkout fingerprint, validation, blockers, residuals, release need, write boundary, does-not-prove boundary, and safety facts are present.");
+  console.log(`bindingStatus: ${shapeOnly ? "unavailable" : "current"}`);
+  console.log(`completionEvidenceHash: ${buildEvidenceHash(fields, [
+    ...requiredScalarFields,
+    ...requiredSafetyFields,
+    ...(schemaVersion === 2 ? v2Fields : []),
+  ])}`);
   console.log("claimBoundary: this validates the completion record shape only; it does not replace runtime, release, production, smoke, or long-term live gates.");
 }
 
-function validateRecord(raw: string, fields: Map<string, string>): ValidationIssue[] {
+function validateRecord(raw: string, fields: Map<string, string>, shapeOnly: boolean): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   for (const field of requiredScalarFields) {
@@ -100,6 +129,13 @@ function validateRecord(raw: string, fields: Map<string, string>): ValidationIss
   for (const field of requiredSafetyFields) {
     requireField(fields, field, issues);
     requireOneOf(fields, field, ["yes", "no"], issues);
+  }
+  const schemaVersion = completionSchemaVersion(fields);
+  if (schemaVersion === 2) {
+    for (const field of v2Fields) requireField(fields, field, issues);
+    validateV2Fingerprint(fields, shapeOnly, issues);
+  } else if (!shapeOnly) {
+    issues.push({ field: "schemaVersion", message: "legacy V1 records require --shape-only; current binding requires schemaVersion 2" });
   }
 
   requireStrictIsoTimestamp(fields, "freshValidation.checkedAt", issues);
@@ -176,6 +212,69 @@ function validateRecord(raw: string, fields: Map<string, string>): ValidationIss
 
   scanForSecrets(raw, issues);
   return issues;
+}
+
+function validateV2Fingerprint(fields: Map<string, string>, shapeOnly: boolean, issues: ValidationIssue[]): void {
+  requireOneOf(fields, "freshValidation.profile", validationProfiles, issues);
+  requireOneOf(fields, "validationFingerprint.algorithm", ["sha256"], issues);
+  requireOneOf(fields, "validationFingerprint.worktreeState", ["clean", "dirty"], issues);
+  for (const field of ["validationFingerprint.worktreeHash", "validationFingerprint.digest"] as const) {
+    const value = fields.get(field) ?? "";
+    if (!/^sha256:[a-f0-9]{64}$/.test(value)) issues.push({ field, message: "must be sha256:<64 lowercase hex>" });
+  }
+  if (!/^[a-f0-9]{40}$/.test(fields.get("validationFingerprint.gitHead") ?? "")) {
+    issues.push({ field: "validationFingerprint.gitHead", message: "must be a 40-character lowercase Git commit" });
+  }
+  const changedPathsValue = fields.get("validationFingerprint.changedPaths") ?? "";
+  const recordedPaths = changedPathsValue === "none" ? [] : parseList(changedPathsValue).sort();
+  if (recordedPaths.some((file) => path.isAbsolute(file) || file.includes("..") || file.includes("\\"))) {
+    issues.push({ field: "validationFingerprint.changedPaths", message: "must use sorted repository-relative paths or none" });
+  }
+  if (shapeOnly) return;
+  const profile = fields.get("freshValidation.profile") as ValidationProfile | undefined;
+  if (!profile || !validationProfiles.includes(profile)) return;
+  let current;
+  try {
+    current = buildWorktreeValidationFingerprint(process.cwd(), fields.get("freshValidation.commands") ?? "", profile);
+  } catch (error) {
+    issues.push({
+      field: "validationFingerprint",
+      message: `could not compute current worktree fingerprint: ${error instanceof Error ? error.message : "unknown error"}`,
+    });
+    return;
+  }
+  const comparisons: Array<[string, string, string]> = [
+    ["validationFingerprint.gitHead", fields.get("validationFingerprint.gitHead") ?? "", current.gitHead],
+    ["validationFingerprint.worktreeState", fields.get("validationFingerprint.worktreeState") ?? "", current.worktreeState],
+    ["validationFingerprint.worktreeHash", fields.get("validationFingerprint.worktreeHash") ?? "", current.worktreeHash],
+    ["validationFingerprint.digest", fields.get("validationFingerprint.digest") ?? "", current.digest],
+  ];
+  for (const [field, recorded, expected] of comparisons) {
+    if (recorded !== expected) issues.push({ field, message: "is stale for the current checkout and validation command profile" });
+  }
+  if (JSON.stringify(recordedPaths) !== JSON.stringify(current.changedPaths)) {
+    issues.push({ field: "validationFingerprint.changedPaths", message: "is stale for the current checkout" });
+  }
+}
+
+function printCurrentFingerprint(fields: Map<string, string>): void {
+  const profile = fields.get("freshValidation.profile") as ValidationProfile | undefined;
+  if (!profile || !validationProfiles.includes(profile)) {
+    console.error(`freshValidation.profile must be one of ${validationProfiles.join(", ")}`);
+    process.exit(1);
+  }
+  const fingerprint = buildWorktreeValidationFingerprint(process.cwd(), fields.get("freshValidation.commands") ?? "", profile);
+  console.log("schemaVersion: 2");
+  console.log(`validationFingerprint.algorithm: ${fingerprint.algorithm}`);
+  console.log(`validationFingerprint.gitHead: ${fingerprint.gitHead}`);
+  console.log(`validationFingerprint.worktreeState: ${fingerprint.worktreeState}`);
+  console.log(`validationFingerprint.worktreeHash: ${fingerprint.worktreeHash}`);
+  console.log(`validationFingerprint.changedPaths: ${fingerprint.changedPaths.join(",") || "none"}`);
+  console.log(`validationFingerprint.digest: ${fingerprint.digest}`);
+}
+
+function completionSchemaVersion(fields: Map<string, string>): 1 | 2 {
+  return fields.get("schemaVersion") === "2" ? 2 : 1;
 }
 
 function isClear(value: string | undefined): boolean {

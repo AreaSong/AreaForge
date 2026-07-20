@@ -2,10 +2,13 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { buildWorktreeValidationFingerprint } from "./worktree-validation-fingerprint";
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-completion-evidence-"));
 const headCommit = gitHead();
+const validationCommands = "pnpm completion:evidence:selftest; pnpm docs:readiness";
+const fingerprint = buildWorktreeValidationFingerprint(root, validationCommands, "docs-only");
 
 try {
   const validRecord = path.join(tempDir, "completion-evidence.txt");
@@ -23,6 +26,10 @@ try {
   const invalidDoesNotProveRecord = path.join(tempDir, "completion-does-not-prove.txt");
   const invalidMissingEvidenceRecord = path.join(tempDir, "completion-missing-evidence.txt");
   const invalidSourceCommitRecord = path.join(tempDir, "completion-source-commit.txt");
+  const staleFingerprintRecord = path.join(tempDir, "completion-stale-fingerprint.txt");
+  const invalidProfileRecord = path.join(tempDir, "completion-invalid-profile.txt");
+  const changedCommandsRecord = path.join(tempDir, "completion-changed-commands.txt");
+  const legacyRecord = path.join(tempDir, "completion-legacy.txt");
 
   writeFileSync(validRecord, createRecord(headCommit));
   writeFileSync(invalidSecretRecord, `${createRecord(headCommit)}\nleaked: DATABASE_URL=postgresql://user:pass@example/db\n`);
@@ -53,8 +60,12 @@ try {
   writeFileSync(invalidMissingEvidenceRecord, createRecord(headCommit)
     .replace("docs/development/validation-matrix.md", "docs/development/does-not-exist.md"));
   writeFileSync(invalidSourceCommitRecord, createRecord("ffffffffffffffffffffffffffffffffffffffff"));
+  writeFileSync(staleFingerprintRecord, createRecord(headCommit).replace(fingerprint.worktreeHash, `sha256:${"0".repeat(64)}`));
+  writeFileSync(invalidProfileRecord, createRecord(headCommit).replace("  profile: docs-only", "  profile: unknown"));
+  writeFileSync(changedCommandsRecord, createRecord(headCommit).replace(validationCommands, `${validationCommands}; pnpm check`));
+  writeFileSync(legacyRecord, createLegacyRecord(headCommit));
 
-  expectExit("valid completion evidence record passes", [validRecord], 0, "completionEvidenceHash: sha256:");
+  expectExit("valid completion evidence record passes", [validRecord], 0, "bindingStatus: current");
   expectExit("secret-like values fail", [invalidSecretRecord], 1);
   expectExit("PASS with blocker fails", [invalidPassBlockerRecord], 1);
   expectExit("R4 without confirmation fails", [invalidHighRiskRecord], 1);
@@ -69,6 +80,11 @@ try {
   expectExit("empty does-not-prove boundary fails", [invalidDoesNotProveRecord], 1);
   expectExit("missing repository evidence fails", [invalidMissingEvidenceRecord], 1);
   expectExit("unknown source commit fails", [invalidSourceCommitRecord], 1);
+  expectExit("stale worktree fingerprint fails", [staleFingerprintRecord], 1);
+  expectExit("invalid validation profile fails", [invalidProfileRecord], 1);
+  expectExit("changed commands invalidate fingerprint", [changedCommandsRecord], 1);
+  expectExit("legacy record fails current-binding validation", [legacyRecord], 1);
+  expectExit("legacy record remains available as historical shape", [legacyRecord, "--shape-only"], 0, "bindingStatus: unavailable");
 
   console.log("completion evidence validator selftest passed.");
 } finally {
@@ -96,6 +112,7 @@ function expectExit(label: string, args: string[], expectedStatus: number, expec
 
 function createRecord(sourceCommit: string): string {
   return [
+    "schemaVersion: 2",
     "scope: docs-only enterprise completion evidence validator",
     "summary: Completion evidence validator docs-only fixture with explicit claim boundary",
     "evidenceClass: docs-only",
@@ -105,9 +122,17 @@ function createRecord(sourceCommit: string): string {
     "  sourceDocs: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md",
     `  sourceHashOrCommit: ${sourceCommit}`,
     "freshValidation:",
-    "  commands: pnpm completion:evidence:selftest, pnpm docs:readiness",
+    "  profile: docs-only",
+    `  commands: ${validationCommands}`,
     "  browserOrRuntimeEvidence: not-applicable",
     "  checkedAt: 2026-07-11T06:30:00+08:00",
+    "validationFingerprint:",
+    `  algorithm: ${fingerprint.algorithm}`,
+    `  gitHead: ${fingerprint.gitHead}`,
+    `  worktreeState: ${fingerprint.worktreeState}`,
+    `  worktreeHash: ${fingerprint.worktreeHash}`,
+    `  changedPaths: ${fingerprint.changedPaths.join(",") || "none"}`,
+    `  digest: ${fingerprint.digest}`,
     "unverified:",
     "  skippedChecks: none",
     "  reason: not-applicable",
@@ -134,6 +159,13 @@ function createRecord(sourceCommit: string): string {
     "  secretValuePrinted: no",
     "",
   ].join("\n");
+}
+
+function createLegacyRecord(sourceCommit: string): string {
+  return createRecord(sourceCommit)
+    .replace(/^schemaVersion: 2\n/m, "")
+    .replace(/^  profile: docs-only\n/m, "")
+    .replace(/^validationFingerprint:\n(?:  .+\n){6}/m, "");
 }
 
 function gitHead(): string {

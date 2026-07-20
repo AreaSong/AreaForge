@@ -1,19 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { readResidualLedgerV2 } from "./residual-ledger-common";
 
 interface CheckResult {
   name: string;
   ok: boolean;
   detail: string;
-}
-
-interface ResidualLedger {
-  items?: Array<{
-    id?: string;
-    type?: string;
-    reviewAt?: string;
-    ownerSkills?: string[];
-  }>;
 }
 
 const root = process.cwd();
@@ -55,6 +47,8 @@ function checkRequiredFiles(): void {
     "docs/development/maintenance-window-record-template.md",
     "docs/development/maintenance-window-index.json",
     "docs/development/incident-index.json",
+    "docs/development/operations-lifecycle.json",
+    "docs/development/operations-lifecycle.md",
     "docs/development/update-agent-status-record-template.md",
     "docs/development/ops-001-closure-packet-template.md",
     "docs/development/ops-005-expected-before-production-evidence-template.md",
@@ -83,12 +77,16 @@ function checkRequiredFiles(): void {
     "scripts/quality/attachment-reconciliation.ts",
     "scripts/quality/attachment-reconciliation-summary.ts",
     "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+    "scripts/ops/data-integrity-doctor.ts",
+    "scripts/quality/data-integrity-doctor-validate.ts",
+    "scripts/quality/data-integrity-doctor.selftest.ts",
     "scripts/quality/release-evidence-validate.ts",
     "scripts/quality/release-evidence-validate.selftest.ts",
     "scripts/quality/residual-evidence-preflight.ts",
     "scripts/quality/residual-evidence-preflight.selftest.ts",
     "scripts/ops/operational-readiness-summary.ts",
     "scripts/ops/operational-evidence-bundle.ts",
+    "scripts/quality/operational-evidence-source.ts",
     "scripts/quality/operational-evidence-bundle-validate.ts",
     "scripts/quality/operational-evidence-bundle-validate.selftest.ts",
     "scripts/ops/ops001-evidence-preflight.ts",
@@ -129,6 +127,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/incident-index-common.ts",
     "scripts/quality/incident-index-validate.ts",
     "scripts/quality/incident-index.selftest.ts",
+    "scripts/quality/operations-lifecycle-validate.ts",
+    "scripts/quality/operations-lifecycle-validate.selftest.ts",
     "scripts/quality/update-agent-status-validate.ts",
     "scripts/quality/update-agent-status-validate.selftest.ts",
     "scripts/quality/residual-ledger-validate.ts",
@@ -199,6 +199,9 @@ function checkMaintenanceDoc(): void {
     "pnpm incident:record:validate",
     "pnpm incident:index",
     "pnpm incident:index:validate",
+    "pnpm ops:lifecycle:validate",
+    "pnpm ops:lifecycle:selftest",
+    "pnpm ops:lifecycle:typecheck",
     "pnpm rollback:proof:validate",
     "pnpm restore:drill:validate",
     "pnpm residuals:validate",
@@ -218,6 +221,10 @@ function checkMaintenanceDoc(): void {
     "AF-RISK-SC-003",
     "AF-RISK-OPS-003",
     "AF-RISK-OPS-004",
+    "AF-RISK-OPS-005",
+    "AF-RISK-OPS-006",
+    "AF-RISK-OPS-007",
+    "AF-RISK-OPS-008",
     "AF-RISK-UX-001",
     "不连接生产",
     "不执行 Docker",
@@ -234,11 +241,21 @@ function checkMaintenanceDoc(): void {
 }
 
 function checkResidualReviewMetadata(): void {
-  const ledger = JSON.parse(read("docs/development/residual-risk-ledger.json")) as ResidualLedger;
+  let ledger;
+  try {
+    ledger = readResidualLedgerV2({ root });
+  } catch (error) {
+    checks.push({
+      name: "residual review metadata",
+      ok: false,
+      detail: `invalid V2 ledger: ${error instanceof Error ? error.message : String(error)}`,
+    });
+    return;
+  }
   const ids = new Set<string>();
   const invalid: string[] = [];
-  for (const item of ledger.items ?? []) {
-    if (item.id) ids.add(item.id);
+  for (const item of ledger.items) {
+    ids.add(item.id);
     if (!item.id || !item.type || !item.reviewAt || !/^\d{4}-\d{2}-\d{2}$/.test(item.reviewAt)) {
       invalid.push(item.id ?? "<missing-id>");
     }
@@ -255,6 +272,10 @@ function checkResidualReviewMetadata(): void {
     "AF-RISK-SC-003",
     "AF-RISK-OPS-003",
     "AF-RISK-OPS-004",
+    "AF-RISK-OPS-005",
+    "AF-RISK-OPS-006",
+    "AF-RISK-OPS-007",
+    "AF-RISK-OPS-008",
     "AF-RISK-UX-001",
   ];
   const missingIds = requiredIds.filter((id) => !ids.has(id));
@@ -293,6 +314,9 @@ function checkPackageScript(): void {
   const attachmentReconciliationScript = packageJson.scripts?.["attachment:reconciliation"] ?? "";
   const attachmentReconciliationSummaryScript = packageJson.scripts?.["attachment:reconciliation:summary"] ?? "";
   const attachmentReconciliationSummarySelftestScript = packageJson.scripts?.["attachment:reconciliation:summary:selftest"] ?? "";
+  const dataIntegrityDoctorScript = packageJson.scripts?.["ops:data-integrity:doctor"] ?? "";
+  const dataIntegrityValidateScript = packageJson.scripts?.["ops:data-integrity:validate"] ?? "";
+  const dataIntegritySelftestScript = packageJson.scripts?.["ops:data-integrity:selftest"] ?? "";
   const releaseEvidenceValidateScript = packageJson.scripts?.["release:evidence:validate"] ?? "";
   const releaseEvidenceSelftestScript = packageJson.scripts?.["release:evidence:selftest"] ?? "";
   const ops001PreflightSelftestScript = packageJson.scripts?.["ops:ops-001:preflight:selftest"] ?? "";
@@ -331,6 +355,9 @@ function checkPackageScript(): void {
   const updateAgentStatusRecordScript = packageJson.scripts?.["update-agent:status:record"] ?? "";
   const updateAgentStatusRecordSelftestScript = packageJson.scripts?.["update-agent:status:record:selftest"] ?? "";
   const updateAgentStatusValidateScript = packageJson.scripts?.["update-agent:status:validate"] ?? "";
+  const lifecycleValidateScript = packageJson.scripts?.["ops:lifecycle:validate"] ?? "";
+  const lifecycleSelftestScript = packageJson.scripts?.["ops:lifecycle:selftest"] ?? "";
+  const lifecycleTypecheckScript = packageJson.scripts?.["ops:lifecycle:typecheck"] ?? "";
   checks.push({
     name: "maintenance cadence package script",
     ok: script === "tsx scripts/quality/maintenance-cadence-preflight.ts" &&
@@ -357,6 +384,9 @@ function checkPackageScript(): void {
       attachmentReconciliationScript === "tsx scripts/quality/attachment-reconciliation.ts" &&
       attachmentReconciliationSummaryScript === "tsx scripts/quality/attachment-reconciliation-summary.ts" &&
       attachmentReconciliationSummarySelftestScript === "tsx scripts/quality/attachment-reconciliation-summary.selftest.ts" &&
+      dataIntegrityDoctorScript === "tsx scripts/ops/data-integrity-doctor.ts" &&
+      dataIntegrityValidateScript === "tsx scripts/quality/data-integrity-doctor-validate.ts" &&
+      dataIntegritySelftestScript === "tsx scripts/quality/data-integrity-doctor.selftest.ts" &&
       releaseEvidenceValidateScript === "tsx scripts/quality/release-evidence-validate.ts" &&
       releaseEvidenceSelftestScript === "tsx scripts/quality/release-evidence-validate.selftest.ts" &&
       ops001PreflightSelftestScript === "tsx scripts/quality/ops001-evidence-preflight.selftest.ts" &&
@@ -394,8 +424,11 @@ function checkPackageScript(): void {
       restoreDrillValidateScript === "tsx scripts/quality/restore-drill-validate.ts" &&
       updateAgentStatusRecordScript === "tsx scripts/ops/generate-update-agent-status-record.ts" &&
       updateAgentStatusRecordSelftestScript === "tsx scripts/quality/update-agent-status-record.selftest.ts" &&
-      updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts",
-    detail: `maintenance:cadence:preflight=${script || "missing"}; ops:status=${opsStatusScript || "missing"}; ops:status:validate=${opsStatusValidateScript || "missing"}; ops:status:validate:selftest=${opsStatusValidateSelftestScript || "missing"}; ops:status:selftest=${opsStatusSelftestScript || "missing"}; ops:handoff=${opsHandoffScript || "missing"}; ops:handoff:validate=${opsHandoffValidateScript || "missing"}; ops:handoff:validate:selftest=${opsHandoffValidateSelftestScript || "missing"}; ops:handoff:selftest=${opsHandoffSelftestScript || "missing"}; ops:evidence:bundle:validate=${evidenceBundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${evidenceBundleSelftestScript || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}; ops:backup-restore:preview=${backupRestorePreviewScript || "missing"}; ops:backup-restore:preview:validate=${backupRestorePreviewValidateScript || "missing"}; ops:backup-restore:preview:selftest=${backupRestorePreviewSelftestScript || "missing"}; ops:ops-001:preflight=${ops001PreflightScript || "missing"}; ops:ops-001:preflight:selftest=${ops001PreflightSelftestScript || "missing"}; ops:ops-004:preflight=${ops004PreflightScript || "missing"}; ops:ops-004:preflight:selftest=${ops004PreflightSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; ops:ops-001:closure=${ops001ClosureScript || "missing"}; ops:ops-001:closure:validate=${ops001ClosureValidateScript || "missing"}; ops:ops-001:closure:selftest=${ops001ClosureSelftestScript || "missing"}; residuals:evidence:preflight=${residualEvidencePreflightScript || "missing"}; residuals:evidence:preflight:selftest=${residualEvidencePreflightSelftestScript || "missing"}; residuals:closure:validate=${residualClosureValidateScript || "missing"}; residuals:closure:selftest=${residualClosureSelftestScript || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:record=${maintenanceWindowRecordScript || "missing"}; maintenance:window:record:selftest=${maintenanceWindowRecordSelftestScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; maintenance:window:selftest=${maintenanceWindowSelftestScript || "missing"}; maintenance:window:index=${maintenanceWindowIndexScript || "missing"}; maintenance:window:index:validate=${maintenanceWindowIndexValidateScript || "missing"}; maintenance:window:index:selftest=${maintenanceWindowIndexSelftestScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; incident:index=${incidentIndexScript || "missing"}; incident:index:validate=${incidentIndexValidateScript || "missing"}; incident:index:selftest=${incidentIndexSelftestScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}`,
+      updateAgentStatusValidateScript === "tsx scripts/quality/update-agent-status-validate.ts" &&
+      lifecycleValidateScript === "tsx scripts/quality/operations-lifecycle-validate.ts" &&
+      lifecycleSelftestScript === "tsx scripts/quality/operations-lifecycle-validate.selftest.ts" &&
+      lifecycleTypecheckScript === "tsc --noEmit --target ES2022 --lib ES2022,DOM --module ESNext --moduleResolution Bundler --strict --skipLibCheck --esModuleInterop --types node scripts/quality/operations-lifecycle-validate.ts scripts/quality/operations-lifecycle-validate.selftest.ts",
+    detail: `maintenance:cadence:preflight=${script || "missing"}; ops:status=${opsStatusScript || "missing"}; ops:status:validate=${opsStatusValidateScript || "missing"}; ops:status:validate:selftest=${opsStatusValidateSelftestScript || "missing"}; ops:status:selftest=${opsStatusSelftestScript || "missing"}; ops:handoff=${opsHandoffScript || "missing"}; ops:handoff:validate=${opsHandoffValidateScript || "missing"}; ops:handoff:validate:selftest=${opsHandoffValidateSelftestScript || "missing"}; ops:handoff:selftest=${opsHandoffSelftestScript || "missing"}; ops:evidence:bundle:validate=${evidenceBundleValidateScript || "missing"}; ops:evidence:bundle:selftest=${evidenceBundleSelftestScript || "missing"}; ops:support:bundle-preview=${supportBundlePreviewScript || "missing"}; ops:support:bundle-preview:validate=${supportBundlePreviewValidateScript || "missing"}; ops:support:bundle-preview:selftest=${supportBundlePreviewSelftestScript || "missing"}; ops:backup-restore:preview=${backupRestorePreviewScript || "missing"}; ops:backup-restore:preview:validate=${backupRestorePreviewValidateScript || "missing"}; ops:backup-restore:preview:selftest=${backupRestorePreviewSelftestScript || "missing"}; ops:ops-001:preflight=${ops001PreflightScript || "missing"}; ops:ops-001:preflight:selftest=${ops001PreflightSelftestScript || "missing"}; ops:ops-004:preflight=${ops004PreflightScript || "missing"}; ops:ops-004:preflight:selftest=${ops004PreflightSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; ops:ops-001:closure=${ops001ClosureScript || "missing"}; ops:ops-001:closure:validate=${ops001ClosureValidateScript || "missing"}; ops:ops-001:closure:selftest=${ops001ClosureSelftestScript || "missing"}; residuals:evidence:preflight=${residualEvidencePreflightScript || "missing"}; residuals:evidence:preflight:selftest=${residualEvidencePreflightSelftestScript || "missing"}; residuals:closure:validate=${residualClosureValidateScript || "missing"}; residuals:closure:selftest=${residualClosureSelftestScript || "missing"}; residuals:review-due=${reviewDueScript || "missing"}; experience:review:selftest=${experienceReviewSelftestScript || "missing"}; enterprise:operability:preflight=${enterpriseOperabilityPreflightScript || "missing"}; maintenance:window:record=${maintenanceWindowRecordScript || "missing"}; maintenance:window:record:selftest=${maintenanceWindowRecordSelftestScript || "missing"}; maintenance:window:validate=${maintenanceWindowValidateScript || "missing"}; maintenance:window:selftest=${maintenanceWindowSelftestScript || "missing"}; maintenance:window:index=${maintenanceWindowIndexScript || "missing"}; maintenance:window:index:validate=${maintenanceWindowIndexValidateScript || "missing"}; maintenance:window:index:selftest=${maintenanceWindowIndexSelftestScript || "missing"}; incident:record:validate=${incidentRecordValidateScript || "missing"}; incident:index=${incidentIndexScript || "missing"}; incident:index:validate=${incidentIndexValidateScript || "missing"}; incident:index:selftest=${incidentIndexSelftestScript || "missing"}; restore:drill:validate=${restoreDrillValidateScript || "missing"}; update-agent:status:record=${updateAgentStatusRecordScript || "missing"}; update-agent:status:record:selftest=${updateAgentStatusRecordSelftestScript || "missing"}; update-agent:status:validate=${updateAgentStatusValidateScript || "missing"}; ops:lifecycle:validate=${lifecycleValidateScript || "missing"}; ops:lifecycle:selftest=${lifecycleSelftestScript || "missing"}; ops:lifecycle:typecheck=${lifecycleTypecheckScript || "missing"}`,
   });
 }
 
@@ -406,6 +439,8 @@ function checkEntryPoints(): void {
   const docSync = read("docs/development/doc-sync-checklist.md");
   const requiredLinks = [
     [rootReadme, "docs/development/maintenance-cadence.md", "README.md"],
+    [rootReadme, "docs/development/operations-lifecycle.md", "README.md"],
+    [rootReadme, "pnpm ops:lifecycle:typecheck", "README.md"],
     [rootReadme, "pnpm ops:status", "README.md"],
     [rootReadme, "pnpm ops:handoff", "README.md"],
     [rootReadme, "pnpm ops:support:bundle-preview", "README.md"],
@@ -421,6 +456,7 @@ function checkEntryPoints(): void {
     [rootReadme, "pnpm maintenance:window:record", "README.md"],
     [rootReadme, "pnpm incident:index", "README.md"],
     [docsReadme, "development/maintenance-cadence.md", "docs/README.md"],
+    [docsReadme, "development/operations-lifecycle.md", "docs/README.md"],
     [docsReadme, "development/support-bundle-preview.md", "docs/README.md"],
     [docsReadme, "deployment/backup-restore.md", "docs/README.md"],
     [docsReadme, "development/ops-001-closure-packet-template.md", "docs/README.md"],
@@ -430,6 +466,7 @@ function checkEntryPoints(): void {
     [docsReadme, "development/incident-index.json", "docs/README.md"],
     [workflowReadme, "docs/development/maintenance-cadence.md", "workflow/README.md"],
     [docSync, "docs/development/maintenance-cadence.md", "docs/development/doc-sync-checklist.md"],
+    [docSync, "docs/development/operations-lifecycle.json", "docs/development/doc-sync-checklist.md"],
     [docSync, "docs/development/ops-005-expected-before-production-evidence-template.md", "docs/development/doc-sync-checklist.md"],
   ];
   const missing = requiredLinks

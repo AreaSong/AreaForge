@@ -1,10 +1,20 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { parseStrictIndentedKeyValueRecord } from "./record-validator-common";
 
-interface ValidationIssue {
+export interface ValidationIssue {
   field: string;
   message: string;
+}
+
+export interface ReleaseSupplyChainValidationOptions {
+  assetDir?: string;
+  strict?: boolean;
+  cosignPublicKey?: string;
+  verifySignature?: (input: { publicKey: string; signature: string; checksums: string }) => void;
 }
 
 const requiredScalarFields = [
@@ -91,14 +101,17 @@ function main(): void {
     process.exit(2);
   }
 
+  const args = process.argv.slice(3);
+  const strict = args.includes("--strict");
+  const assetDirArg = args.find((value) => value !== "--strict");
   const absoluteRecordPath = path.resolve(recordPath);
   const record = readRequiredFile(absoluteRecordPath);
-  const fields = parseIndentedKeyValueRecord(record);
-  const issues = validateRecord(record, fields);
-  const assetDir = process.argv[3];
-  if (assetDir) {
-    issues.push(...validateAssetDirectory(fields, path.resolve(assetDir)));
-  }
+  const issues = validateReleaseSupplyChainRecord(record, {
+    assetDir: assetDirArg ? path.resolve(assetDirArg) : undefined,
+    strict,
+    cosignPublicKey: process.env.AREAFORGE_COSIGN_PUBLIC_KEY?.trim() ||
+      path.join(process.cwd(), "docs/deployment/keys/areaforge-cosign.pub"),
+  });
 
   if (issues.length > 0) {
     for (const issue of issues) {
@@ -108,9 +121,40 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log("release supply-chain record validation passed: stable release assets, checksums, signature, CI/audit gates, SC residual IDs, and safety facts are present.");
-  console.log(`releaseSupplyChainEvidenceHash: ${buildEvidenceHash(fields)}`);
+  console.log(`release supply-chain record validation passed: mode=${strict ? "strict-assets" : "record"}, stable release assets, checksums, signature policy, CI/audit gates, SC residual IDs, and safety facts are present.`);
+  const parseIssues: ValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record, parseIssues);
+  console.log(`releaseSupplyChainEvidenceHash: ${buildReleaseSupplyChainEvidenceHash(fields)}`);
   console.log("safetyFacts: secretsPrinted=false productionEnvIncluded=false backupIncluded=false promptOrRawAiResponseIncluded=false attachmentContentIncluded=false productionWriteAttempted=false");
+}
+
+export function validateReleaseSupplyChainRecord(
+  record: string,
+  options: ReleaseSupplyChainValidationOptions = {},
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record, issues);
+  validateRecordShape(fields, issues);
+  issues.push(...validateRecord(record, fields));
+  if (options.strict && !options.assetDir) {
+    issues.push({ field: "assetDir", message: "is required in strict mode" });
+    return issues;
+  }
+  if (options.assetDir) {
+    issues.push(...validateAssetDirectory(fields, path.resolve(options.assetDir), options));
+  }
+  return issues;
+}
+
+function validateRecordShape(fields: Map<string, string>, issues: ValidationIssue[]): void {
+  const expected = new Set<string>([
+    ...requiredScalarFields,
+    "safetyFacts",
+    ...requiredNestedFields,
+  ]);
+  for (const field of fields.keys()) {
+    if (!expected.has(field)) issues.push({ field, message: "is not allowed in a release supply-chain record" });
+  }
 }
 
 function validateRecord(record: string, fields: Map<string, string>): ValidationIssue[] {
@@ -229,8 +273,21 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   return issues;
 }
 
-function validateAssetDirectory(fields: Map<string, string>, assetDir: string): ValidationIssue[] {
+function validateAssetDirectory(
+  fields: Map<string, string>,
+  assetDir: string,
+  options: ReleaseSupplyChainValidationOptions,
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  if (!existsSync(assetDir)) {
+    issues.push({ field: "assetDir", message: "does not exist" });
+    return issues;
+  }
+  const assetDirStat = lstatSync(assetDir);
+  if (assetDirStat.isSymbolicLink() || !assetDirStat.isDirectory()) {
+    issues.push({ field: "assetDir", message: "must be a real non-symlink directory" });
+    return issues;
+  }
   const assetHashFields: Record<string, string> = {
     manifestAsset: "manifestSha256",
     sbomAsset: "sbomSha256",
@@ -240,8 +297,8 @@ function validateAssetDirectory(fields: Map<string, string>, assetDir: string): 
   const sha256SumsAsset = fields.get("sha256SumsAsset") ?? "SHA256SUMS";
   const signatureAsset = fields.get("signatureAsset") ?? "SHA256SUMS.sig";
 
-  const sumsPath = path.join(assetDir, sha256SumsAsset);
-  if (!existsSync(sumsPath)) {
+  const sumsPath = safeRegularFile(assetDir, sha256SumsAsset, "assetDir.SHA256SUMS", issues);
+  if (!sumsPath) {
     issues.push({ field: "assetDir.SHA256SUMS", message: `${sha256SumsAsset} is missing` });
     return issues;
   }
@@ -254,11 +311,86 @@ function validateAssetDirectory(fields: Map<string, string>, assetDir: string): 
   }
   compareAssetHash(assetDir, composeAsset, "composeSha256", fields.get("composeSha256"), sums, issues);
 
-  const signaturePath = path.join(assetDir, signatureAsset);
-  if (!existsSync(signaturePath)) {
+  const signaturePath = safeRegularFile(assetDir, signatureAsset, "assetDir.signatureAsset", issues);
+  if (!signaturePath) {
     issues.push({ field: "assetDir.signatureAsset", message: `${signatureAsset} is missing` });
   }
+  validateManifestIdentity(fields, assetDir, issues);
+  if (options.strict && signaturePath) {
+    const publicKey = options.cosignPublicKey ? path.resolve(options.cosignPublicKey) : "";
+    if (!publicKey || !existsSync(publicKey) || lstatSync(publicKey).isSymbolicLink() || !lstatSync(publicKey).isFile()) {
+      issues.push({ field: "cosignPublicKey", message: "must be a regular non-symlink public key file in strict mode" });
+    } else if (readFileSync(signaturePath, "utf8").includes("unsigned preview")) {
+      issues.push({ field: "assetDir.signatureAsset", message: "unsigned placeholder is forbidden in strict mode" });
+    } else {
+      try {
+        (options.verifySignature ?? verifyCosignSignature)({
+          publicKey,
+          signature: signaturePath,
+          checksums: sumsPath,
+        });
+      } catch {
+        issues.push({ field: "assetDir.signatureAsset", message: "cosign signature verification failed" });
+      }
+    }
+  }
   return issues;
+}
+
+function validateManifestIdentity(fields: Map<string, string>, assetDir: string, issues: ValidationIssue[]): void {
+  const manifestName = fields.get("manifestAsset") ?? "areaforge-release-manifest.json";
+  const manifestPath = safeRegularFile(assetDir, manifestName, "assetDir.manifestAsset", issues);
+  if (!manifestPath) return;
+  let manifest: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid manifest");
+    manifest = parsed as Record<string, unknown>;
+  } catch {
+    issues.push({ field: "assetDir.manifestAsset", message: "must be valid JSON" });
+    return;
+  }
+  const expected: Array<[string, string, unknown]> = [
+    ["packageVersion", "version", manifest.version],
+    ["channel", "channel", manifest.channel],
+    ["gitCommit", "gitCommit", manifest.gitCommit],
+    ["webImageDigest", "webImageDigest", manifest.webImageDigest],
+    ["migrationImageDigest", "migrationImageDigest", manifest.migrationImageDigest],
+    ["releaseUrl", "releaseNotesUrl", manifest.releaseNotesUrl],
+  ];
+  if (manifest.schemaVersion !== 1) issues.push({ field: "assetDir.manifestAsset", message: "schemaVersion must be 1" });
+  if (manifest.app !== "AreaForge") issues.push({ field: "assetDir.manifestAsset", message: "app must be AreaForge" });
+  for (const [recordField, manifestField, manifestValue] of expected) {
+    if (fields.get(recordField) !== manifestValue) {
+      issues.push({ field: recordField, message: `must match manifest ${manifestField}` });
+    }
+  }
+}
+
+function safeRegularFile(assetDir: string, name: string, field: string, issues: ValidationIssue[]): string | null {
+  if (!/^[A-Za-z0-9._-]+$/.test(name)) {
+    issues.push({ field, message: "must be a simple asset name" });
+    return null;
+  }
+  const filePath = path.join(assetDir, name);
+  if (!existsSync(filePath)) return null;
+  const stat = lstatSync(filePath);
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    issues.push({ field, message: "must be a regular non-symlink file" });
+    return null;
+  }
+  return filePath;
+}
+
+function verifyCosignSignature(input: { publicKey: string; signature: string; checksums: string }): void {
+  execFileSync("cosign", [
+    "verify-blob",
+    "--key",
+    input.publicKey,
+    "--bundle",
+    input.signature,
+    input.checksums,
+  ], { stdio: "ignore" });
 }
 
 function compareAssetHash(
@@ -272,6 +404,11 @@ function compareAssetHash(
   const assetPath = path.join(assetDir, assetName);
   if (!existsSync(assetPath)) {
     issues.push({ field: `assetDir.${assetName}`, message: "asset file is missing" });
+    return;
+  }
+  const stat = lstatSync(assetPath);
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    issues.push({ field: `assetDir.${assetName}`, message: "must be a regular non-symlink file" });
     return;
   }
   const actual = createHash("sha256").update(readFileSync(assetPath)).digest("hex");
@@ -325,33 +462,7 @@ function requireOneOf(
   }
 }
 
-function parseIndentedKeyValueRecord(record: string): Map<string, string> {
-  const fields = new Map<string, string>();
-  let currentSection = "";
-
-  for (const rawLine of record.split(/\r?\n/)) {
-    if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) continue;
-    const match = rawLine.match(/^(\s*)([A-Za-z0-9_]+):\s*(.*)$/);
-    if (!match) continue;
-
-    const indent = match[1]?.length ?? 0;
-    const key = match[2] ?? "";
-    const value = match[3]?.trim() ?? "";
-    if (indent === 0) {
-      currentSection = value ? "" : key;
-      fields.set(key, value);
-      continue;
-    }
-
-    if (currentSection) {
-      fields.set(`${currentSection}.${key}`, value);
-    }
-  }
-
-  return fields;
-}
-
-function buildEvidenceHash(fields: Map<string, string>): string {
+export function buildReleaseSupplyChainEvidenceHash(fields: Map<string, string>): string {
   const keys = [
     ...requiredScalarFields,
     ...requiredNestedFields,
@@ -369,4 +480,4 @@ function readRequiredFile(filePath: string): string {
   return readFileSync(filePath, "utf8");
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

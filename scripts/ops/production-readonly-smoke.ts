@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readRestrictedSmokePassword } from "./smoke-password";
 
 type SmokeResult = {
   name: string;
@@ -24,17 +24,18 @@ const baseUrl = normalizeBaseUrl(
 const expectedVersion = process.env.AREAFORGE_SMOKE_EXPECTED_VERSION ?? process.env.APP_VERSION;
 const expectedAutoApply = process.env.AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY;
 const smokeEmail = process.env.AREAFORGE_SMOKE_EMAIL;
-const smokePassword = readSmokePassword();
 const attachmentId = process.env.AREAFORGE_SMOKE_ATTACHMENT_ID;
+let smokePassword: string | undefined;
 
 const results: SmokeResult[] = [];
 
 async function main(): Promise<void> {
-  if (!smokeEmail) {
-    failConfig("AREAFORGE_SMOKE_EMAIL is required");
-  }
-  if (!smokePassword) {
-    failConfig("AREAFORGE_SMOKE_PASSWORD or AREAFORGE_SMOKE_PASSWORD_FILE is required");
+  try {
+    validateConfig();
+  } catch (error) {
+    recordFailure("config", error);
+    report();
+    return;
   }
 
   await check("health", async () => {
@@ -99,24 +100,7 @@ async function main(): Promise<void> {
     });
   }
 
-  const failed = results.filter((result) => !result.ok);
-  for (const result of results) {
-    console.log(`${result.ok ? "PASS" : "FAIL"} ${result.name}: ${result.detail} (${result.durationMs}ms)`);
-  }
-  console.log(JSON.stringify({
-    ok: failed.length === 0,
-    baseUrl,
-    checkedAt: new Date().toISOString(),
-    checks: results.map((result) => ({
-      name: result.name,
-      ok: result.ok,
-      durationMs: result.durationMs,
-    })),
-  }));
-
-  if (failed.length > 0) {
-    process.exit(1);
-  }
+  report();
 }
 
 async function checkJson(
@@ -188,20 +172,25 @@ function cookieFrom(response: Response): string {
     .join("; ");
 }
 
-function readSmokePassword(): string | undefined {
-  const passwordFile = process.env.AREAFORGE_SMOKE_PASSWORD_FILE;
-  if (passwordFile) {
-    try {
-      return readFileSync(passwordFile, "utf8").trim();
-    } catch {
-      failConfig(`cannot read AREAFORGE_SMOKE_PASSWORD_FILE at ${passwordFile}`);
-    }
+function validateConfig(): void {
+  if (!smokeEmail) throw new Error("AREAFORGE_SMOKE_EMAIL is required");
+  if (process.env.AREAFORGE_SMOKE_PASSWORD !== undefined) {
+    throw new Error("AREAFORGE_SMOKE_PASSWORD is unsupported; use AREAFORGE_SMOKE_PASSWORD_FILE");
   }
-  return process.env.AREAFORGE_SMOKE_PASSWORD;
+  smokePassword = readRestrictedSmokePassword();
 }
 
 function normalizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function redactedBaseUrl(): string {
+  try {
+    const url = new URL(baseUrl);
+    return `${url.protocol}//${url.hostname}${url.port ? `:${url.port}` : ""}`;
+  } catch {
+    return "<invalid>";
+  }
 }
 
 function baseUrlFromHealthUrl(value: string | undefined): string | undefined {
@@ -220,19 +209,44 @@ function redact(value: string): string {
   }
   return output
     .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer <redacted>")
-    .replace(/postgres(?:ql)?:\/\/\S+/gi, "postgresql://<redacted>");
+    .replace(/postgres(?:ql)?:\/\/\S+/gi, "postgresql://<redacted>")
+    .replace(/\/(?:Users|private|tmp|app|srv|mnt|var)\/[^\s"'<>)]*/g, "<redacted-path>");
 }
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function failConfig(message: string): never {
-  console.error(`FAIL config: ${message}`);
-  process.exit(2);
+function report(): void {
+  const failed = results.filter((result) => !result.ok);
+  for (const result of results) {
+    console.log(`${result.ok ? "PASS" : "FAIL"} ${result.name}: ${result.detail} (${result.durationMs}ms)`);
+  }
+  console.log(JSON.stringify({
+    ok: failed.length === 0,
+    baseUrl: redactedBaseUrl(),
+    checkedAt: new Date().toISOString(),
+    readScope: "production-readonly-smoke",
+    checks: results.map((result) => ({
+      name: result.name,
+      ok: result.ok,
+      detail: result.detail,
+      durationMs: result.durationMs,
+    })),
+  }));
+  if (failed.length > 0) process.exitCode = 1;
+}
+
+function recordFailure(name: string, error: unknown): void {
+  results.push({
+    name,
+    ok: false,
+    detail: error instanceof Error ? redact(error.message) : "unknown error",
+    durationMs: 0,
+  });
 }
 
 main().catch((error) => {
-  console.error(`FAIL smoke: ${error instanceof Error ? redact(error.message) : "unknown error"}`);
-  process.exit(1);
+  recordFailure("fatal", error);
+  report();
 });

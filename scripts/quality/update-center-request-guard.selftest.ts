@@ -35,10 +35,36 @@ function main(): void {
   expectCode("missing rollback target rejected", { action: "rollback" }, "ROLLBACK_TARGET_UNAVAILABLE");
   expectCode("unchanged auto policy rejected", { action: "set_auto_apply", autoApply: "none" }, "AUTO_APPLY_POLICY_UNCHANGED");
   expectCode("missing auto policy rejected", { action: "set_auto_apply" }, "AUTO_APPLY_POLICY_REQUIRED");
+  expectCode("minor auto policy remains closed", { action: "set_auto_apply", autoApply: "minor" }, "AUTO_APPLY_POLICY_UNSUPPORTED");
+  expectCode("all auto policy remains closed", { action: "set_auto_apply", autoApply: "all" }, "AUTO_APPLY_POLICY_UNSUPPORTED");
   expectPass("newer patch apply allowed", { action: "apply", tag: "v0.1.8" });
   expectPass("newer minor apply allowed", { action: "apply", tag: "v0.2.0" });
   expectPass("check request allowed", { action: "check" });
   expectPass("changed auto policy allowed", { action: "set_auto_apply", autoApply: "patch" });
+
+  expectCode("blocker rejects apply", { action: "apply", tag: "v0.1.8" }, "UPDATE_BLOCKED", { blocker: "signature verification disabled" });
+  expectCode("blocker rejects rollback", { action: "rollback" }, "UPDATE_BLOCKED", { blocker: "signature verification disabled" });
+  expectPass("blocker still allows check", { action: "check" }, { blocker: "signature verification disabled" });
+  expectCode("reconciliation rejects apply", { action: "apply", tag: "v0.1.8" }, "UPDATE_BLOCKED", {
+    lastOperation: {
+      id: "update_reconciliation_fixture",
+      action: "apply",
+      status: "needs_reconciliation",
+      requestedAt: "2026-07-13T00:00:00Z",
+      finishedAt: "2026-07-13T00:01:00Z",
+      message: "manual reconciliation required",
+    },
+  });
+  expectPass("reconciliation still allows check", { action: "check" }, {
+    lastOperation: {
+      id: "update_reconciliation_fixture",
+      action: "apply",
+      status: "needs_reconciliation",
+      requestedAt: "2026-07-13T00:00:00Z",
+      finishedAt: "2026-07-13T00:01:00Z",
+      message: "manual reconciliation required",
+    },
+  });
   expectPass("rollback with target allowed", { action: "rollback" }, {
     rollback: {
       available: true,

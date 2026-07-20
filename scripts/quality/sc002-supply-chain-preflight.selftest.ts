@@ -1,106 +1,125 @@
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import {
+  evaluateSc002Preflight,
+  readCurrentCheckoutBinding,
+  type CheckoutBinding,
+  type ValidatorInvocation,
+  type ValidatorResult,
+} from "../ops/sc002-supply-chain-preflight";
 
-type JsonRecord = Record<string, unknown>;
-
-const root = process.cwd();
-const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-sc002-preflight-"));
+const root = mkdtempSync(path.join(os.tmpdir(), "areaforge-sc002-preflight-"));
 
 try {
-  const noEvidence = runPreflight({}, 0);
-  assertJsonStatus(noEvidence.stdout, "needs_evidence");
+  const repo = createRepository();
+  const releaseRecord = path.join(repo.root, "release-record.txt");
+  const ciRecord = path.join(repo.root, "ci-record.txt");
+  const assetsDir = path.join(repo.root, "release-assets");
+  mkdirSync(assetsDir);
+  writeFileSync(releaseRecord, createReleaseRecord(repo.releaseCommit));
+  writeFileSync(ciRecord, createCiRecord(repo.releaseCommit));
 
-  const ciRecord = path.join(tempDir, "ci-supply-chain-record.txt");
-  const releaseRecord = path.join(tempDir, "release-supply-chain-record.txt");
-  writeFileSync(ciRecord, createCiRecord());
-  writeFileSync(releaseRecord, createReleaseRecord());
+  const calls: ValidatorInvocation[] = [];
+  const runValidator = (invocation: ValidatorInvocation): ValidatorResult => {
+    calls.push(invocation);
+    const invalid = invocation.args.some((arg) => arg.includes("invalid"));
+    return { status: invalid ? 1 : 0, stdout: "", stderr: invalid ? "invalid record" : "" };
+  };
 
-  const readyForSc002 = runPreflight({
-    AREAFORGE_SC002_CI_RECORD: ciRecord,
-  }, 0);
-  assertJsonStatus(readyForSc002.stdout, "ready_for_sc002_review");
-
-  const readyForSc001Sc002 = runPreflight({
+  assertStatus(run(repo.root, repo.binding, { AREAFORGE_SC002_CI_RECORD: ciRecord }, runValidator), "ready_for_sc002_review");
+  const releaseResult = run(repo.root, repo.binding, {
     AREAFORGE_SC002_RELEASE_RECORD: releaseRecord,
-  }, 0);
-  assertJsonStatus(readyForSc001Sc002.stdout, "ready_for_sc001_sc002_review");
+    AREAFORGE_SC002_RELEASE_ASSETS_DIR: assetsDir,
+  }, runValidator);
+  assertStatus(releaseResult, "ready_for_sc001_sc002_review");
+  const releaseCall = calls.find((call) => call.args.includes(releaseRecord));
+  if (!releaseCall?.args.includes(path.resolve(assetsDir)) || !releaseCall.args.includes("--strict")) {
+    throw new Error(`signed Release validator must receive assets dir and --strict: ${JSON.stringify(releaseCall)}`);
+  }
 
-  const invalidCi = path.join(tempDir, "ci-supply-chain-invalid.txt");
-  writeFileSync(invalidCi, createCiRecord().replace("highCriticalVulnerabilities: none", "highCriticalVulnerabilities: high"));
-  const invalid = runPreflight({
-    AREAFORGE_SC002_CI_RECORD: invalidCi,
-  }, 1);
-  assertJsonStatus(invalid.stdout, "invalid");
+  const missingAssets = run(repo.root, repo.binding, { AREAFORGE_SC002_RELEASE_RECORD: releaseRecord }, runValidator);
+  assertStatus(missingAssets, "invalid");
+
+  const stale = run(repo.root, { gitCommit: "a".repeat(40), worktreeClean: true }, {
+    AREAFORGE_SC002_CI_RECORD: ciRecord,
+  }, runValidator);
+  assertStatus(stale, "needs_evidence");
+
+  const dirty = run(repo.root, { gitCommit: repo.releaseCommit, worktreeClean: false }, {
+    AREAFORGE_SC002_RELEASE_RECORD: releaseRecord,
+    AREAFORGE_SC002_RELEASE_ASSETS_DIR: assetsDir,
+  }, runValidator);
+  assertStatus(dirty, "needs_evidence");
+
+  const invalidRecord = path.join(repo.root, "invalid-record.txt");
+  writeFileSync(invalidRecord, createCiRecord(repo.releaseCommit));
+  const invalid = run(repo.root, repo.binding, { AREAFORGE_SC002_CI_RECORD: invalidRecord }, runValidator);
+  assertStatus(invalid, "invalid");
+
+  process.env.AREAFORGE_SC002_TEST_MODE = "1";
+  process.env.AREAFORGE_SC002_EXPECTED_GIT_COMMIT = "b".repeat(40);
+  process.env.AREAFORGE_SC002_EXPECTED_WORKTREE_CLEAN = "true";
+  const actual = readCurrentCheckoutBinding(repo.root);
+  delete process.env.AREAFORGE_SC002_TEST_MODE;
+  delete process.env.AREAFORGE_SC002_EXPECTED_GIT_COMMIT;
+  delete process.env.AREAFORGE_SC002_EXPECTED_WORKTREE_CLEAN;
+  if (actual.gitCommit !== repo.releaseCommit || actual.worktreeClean) {
+    throw new Error(`checkout binding must ignore spoofable test env: ${JSON.stringify(actual)}`);
+  }
 
   console.log("SC-002 supply-chain preflight selftest passed.");
 } finally {
-  rmSync(tempDir, { force: true, recursive: true });
+  rmSync(root, { force: true, recursive: true });
 }
 
-function runPreflight(env: Record<string, string>, expectedStatus: number): ReturnType<typeof spawnSync> {
-  const result = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/sc002-supply-chain-preflight.ts"], {
-    cwd: root,
-    encoding: "utf8",
+function run(
+  repoRoot: string,
+  binding: CheckoutBinding,
+  evidenceEnv: Record<string, string>,
+  runValidator: (invocation: ValidatorInvocation) => ValidatorResult,
+) {
+  return evaluateSc002Preflight({
+    root: repoRoot,
     env: {
-      ...process.env,
       AREAFORGE_SC002_CI_RECORD: "",
       AREAFORGE_SC002_RELEASE_RECORD: "",
-      ...env,
+      AREAFORGE_SC002_RELEASE_ASSETS_DIR: "",
+      ...evidenceEnv,
     },
+    checkoutBinding: binding,
+    runValidator,
   });
-  expectStatus("SC-002 supply-chain preflight", result, expectedStatus);
-  return result;
 }
 
-function assertJsonStatus(raw: string, expected: string): void {
-  const parsed = JSON.parse(raw) as JsonRecord;
-  if (parsed.mode !== "read_only_sc002_supply_chain_preflight") {
-    fail("preflight mode missing");
-  }
-  if (parsed.status !== expected) {
-    fail(`expected preflight status ${expected}, got ${String(parsed.status)}`);
-  }
-  const safety = parsed.safetyFacts as JsonRecord | undefined;
-  if (!safety || safety.githubApiCalled !== false || safety.releaseCreated !== false || safety.tagPushed !== false || safety.secretValuePrinted !== false) {
-    fail("preflight safety facts should prove no GitHub API, Release creation, tag push, or secret printing");
-  }
-  const requiredPreflight = parsed.requiredPreflight as string[] | undefined;
-  for (const command of [
-    "pnpm governance:preflight",
-    "pnpm audit:prod",
-    "pnpm release:supply-chain:record:selftest",
-    "pnpm ci:supply-chain:selftest",
-    "pnpm sc:sc-002:preflight:selftest",
-    "pnpm github-release-updater:preflight",
-  ]) {
-    if (!requiredPreflight?.includes(command)) {
-      fail(`preflight should require ${command}`);
-    }
-  }
-  const forbiddenActions = parsed.forbiddenActions as string[] | undefined;
-  for (const action of ["create_github_release", "push_git_tag", "call_github_api", "update_residual_ledger"]) {
-    if (!forbiddenActions?.includes(action)) {
-      fail(`preflight should forbid ${action}`);
-    }
-  }
+function createRepository(): { root: string; releaseCommit: string; binding: CheckoutBinding } {
+  const repoRoot = path.join(root, "repo");
+  mkdirSync(repoRoot, { recursive: true });
+  git(repoRoot, ["init", "-q"]);
+  git(repoRoot, ["config", "user.email", "test@areaforge.invalid"]);
+  git(repoRoot, ["config", "user.name", "AreaForge selftest"]);
+  writeFileSync(path.join(repoRoot, "README.md"), "source\n");
+  git(repoRoot, ["add", "."]);
+  git(repoRoot, ["commit", "-qm", "release"]);
+  const releaseCommit = git(repoRoot, ["rev-parse", "HEAD"]).trim();
+  return { root: repoRoot, releaseCommit, binding: { gitCommit: releaseCommit, worktreeClean: true } };
 }
 
-function createCiRecord(): string {
+function createCiRecord(commit: string): string {
   return [
-    "recordId: ci-supply-chain-20260710231000",
-    "recordedAt: 2026-07-10T23:10:00+08:00",
+    "recordId: ci-supply-chain-selftest",
+    "recordedAt: 2026-07-18T00:00:00+08:00",
     "workflowKind: ci",
     "repository: AreaSong/AreaForge",
     "workflowName: CI",
     "workflowRunUrl: https://github.com/AreaSong/AreaForge/actions/runs/123456789",
     "workflowRunConclusion: success",
-    "gitCommit: 0123456789abcdef0123456789abcdef01234567",
-    "expectedGitCommit: 0123456789abcdef0123456789abcdef01234567",
+    `gitCommit: ${commit}`,
+    `expectedGitCommit: ${commit}`,
     "commitMatchStatus: pass",
     "headBranch: main",
-    "packageVersion: 0.1.6",
+    "packageVersion: 0.1.8",
     "ciWorkflowStatus: pass",
     "auditProdStatus: pass",
     "governancePreflightStatus: pass",
@@ -123,24 +142,24 @@ function createCiRecord(): string {
   ].join("\n");
 }
 
-function createReleaseRecord(): string {
+function createReleaseRecord(commit: string): string {
   return [
-    "recordId: release-supply-chain-v0.1.6",
-    "recordedAt: 2026-07-10T23:10:00+08:00",
-    "releaseTag: v0.1.6",
-    "releaseUrl: https://github.com/AreaSong/AreaForge/releases/tag/v0.1.6",
+    "recordId: release-supply-chain-selftest",
+    "recordedAt: 2026-07-18T00:00:00+08:00",
+    "releaseTag: v0.1.8",
+    "releaseUrl: https://github.com/AreaSong/AreaForge/releases/tag/v0.1.8",
     "workflowRunUrl: https://github.com/AreaSong/AreaForge/actions/runs/123456789",
     "workflowRunConclusion: success",
-    "gitCommit: 0123456789abcdef0123456789abcdef01234567",
+    `gitCommit: ${commit}`,
     "channel: stable",
-    "packageVersion: 0.1.6",
+    "packageVersion: 0.1.8",
     "validateJobStatus: pass",
     "auditProdStatus: pass",
     "governancePreflightStatus: pass",
     "actionsPinningStatus: pass",
     "releaseWorkflowStatus: pass",
-    "webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.6@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.6@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.8@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "manifestAsset: areaforge-release-manifest.json",
     "sbomAsset: areaforge-sbom.spdx.json",
     "provenanceAsset: areaforge-provenance.json",
@@ -168,16 +187,10 @@ function createReleaseRecord(): string {
   ].join("\n");
 }
 
-function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expected: number): void {
-  if (result.status !== expected) {
-    console.error(`FAIL ${label}: expected exit ${expected}, got ${result.status}`);
-    console.error(result.stdout.trim());
-    console.error(result.stderr.trim());
-    process.exit(1);
-  }
+function git(cwd: string, args: string[]): string {
+  return execFileSync("git", args, { cwd, encoding: "utf8" });
 }
 
-function fail(message: string): never {
-  console.error(`FAIL ${message}`);
-  process.exit(1);
+function assertStatus(result: { status: string }, expected: string): void {
+  if (result.status !== expected) throw new Error(`expected ${expected}, got ${JSON.stringify(result)}`);
 }

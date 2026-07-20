@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "mode": "areaforge_governance_register",
+  "controls": [
+    {
+      "id": "AF-GOV-PUBLIC-001",
+      "domain": "public-repository",
+      "authorityPaths": ["SECURITY.md", "SUPPORT.md", "docs/development/support-intake.md"],
+      "ownerSkill": "areaforge-public-maintenance",
+      "enforcementRefs": ["pnpm governance:preflight", "pnpm support:intake:preflight"],
+      "reviewTriggers": ["public-intake-changed", "security-reporting-changed", "repository-visibility-changed"]
+    },
+    {
+      "id": "AF-GOV-REVIEW-001",
+      "domain": "code-review",
+      "authorityPaths": ["CODE_REVIEW.md", "docs/development/governance-boundary-matrix.md", "docs/development/protected-path-review-record-template.md"],
+      "ownerSkill": "areaforge-enterprise-governance",
+      "enforcementRefs": ["pnpm governance:changed-paths", "pnpm governance:protected-path-review:validate"],
+      "reviewTriggers": ["protected-path-set-changed", "review-policy-changed", "runtime-write-level-changed"]
+    },
+    {
+      "id": "AF-GOV-SECURITY-001",
+      "domain": "security-privacy",
+      "authorityPaths": ["docs/security/threat-model.md", "docs/security/file-ai-safety.md", "docs/development/high-risk-confirmation-packets.md"],
+      "ownerSkill": "areaforge-security-governance",
+      "enforcementRefs": ["pnpm risk:preflight", "pnpm secrets:scan"],
+      "reviewTriggers": ["auth-boundary-changed", "sensitive-data-flow-changed", "high-risk-scope-changed"]
+    },
+    {
+      "id": "AF-GOV-SUPPLY-001",
+      "domain": "dependency-supply-chain",
+      "authorityPaths": ["docs/development/dependency-policy.md", "docs/development/release-train.md", ".github/workflows/release.yml"],
+      "ownerSkill": "areaforge-supply-chain",
+      "enforcementRefs": ["pnpm governance:preflight", "pnpm github-release-updater:preflight"],
+      "reviewTriggers": ["dependency-changed", "release-workflow-changed", "signing-policy-changed"]
+    },
+    {
+      "id": "AF-GOV-CAPABILITY-001",
+      "domain": "external-capability",
+      "authorityPaths": ["docs/development/external-capability-admission.md", "AGENTS.md"],
+      "ownerSkill": "areaforge-enterprise-governance",
+      "enforcementRefs": ["pnpm governance:preflight", "pnpm skills:validate"],
+      "reviewTriggers": ["external-tool-added", "subagent-scope-expanded", "server-capability-requested"]
+    },
+    {
+      "id": "AF-GOV-RUNTIME-001",
+      "domain": "runtime-write-boundary",
+      "authorityPaths": ["docs/development/runtime-write-boundary.md", "docs/development/governance-boundary-matrix.md", "docs/deployment/github-release-updater.md"],
+      "ownerSkill": "areaforge-security-governance",
+      "enforcementRefs": ["pnpm risk:preflight", "pnpm github-release-updater:preflight"],
+      "reviewTriggers": ["runtime-write-level-changed", "server-command-boundary-changed", "update-request-boundary-changed"]
+    },
+    {
+      "id": "AF-GOV-DOCS-001",
+      "domain": "documentation",
+      "authorityPaths": ["docs/development/doc-sync-checklist.md", "docs/development/completion-evidence-checklist.md", "docs/development/validation-matrix.md"],
+      "ownerSkill": "areaforge-doc-sync",
+      "enforcementRefs": ["pnpm docs:readiness", "pnpm docs:completion"],
+      "reviewTriggers": ["source-fact-changed", "completion-claim-changed", "validation-policy-changed"]
+    }
+  ]
+}

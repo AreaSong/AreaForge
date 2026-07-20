@@ -2,39 +2,34 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-
-type ResidualType =
-  | "current-blocker"
-  | "deferred-work"
-  | "accepted-exception"
-  | "monitoring-gap"
-  | "release-follow-up"
-  | "historical-reference"
-  | "template-marker"
-  | "closed-evidence";
+import {
+  effectiveExceptionStatus,
+  effectiveExecutableNow,
+  isAcceptedExceptionEffective,
+  readResidualLedgerV2,
+  type EffectiveExceptionStatus,
+  type ResidualItemV2,
+  type ResidualLedgerV2,
+  type ResidualType,
+} from "../quality/residual-ledger-common";
+import {
+  evaluateProductExperienceEvidence,
+  type ProductExperienceEvidenceEvaluation,
+} from "../quality/product-experience-review-validate";
 
 type ReviewStatus = "overdue" | "due_today" | "due_soon" | "future";
 type OverallStatus = "ready" | "operable_with_residuals" | "needs_live_evidence" | "blocked";
-type BoundaryStopKey = "post_update_ops001" | "release_backup_hashes" | "residual_closure";
+type BoundaryStopKey =
+  | "post_update_ops001"
+  | "release_backup_hashes"
+  | "update_request_expected_before"
+  | "business_state_concurrency"
+  | "residual_closure";
 
-type ResidualLedger = {
-  schemaVersion?: number;
-  source?: string;
-  items?: ResidualItem[];
-};
-
-type ResidualItem = {
-  id: string;
-  type: ResidualType;
-  reviewAt: string;
-  currentImpact: string;
+type ClassifiedResidual = Omit<ResidualItemV2, "executableNow"> & {
   executableNow: boolean;
-  closeCondition: string;
-  requiredEvidence: string;
-  ownerSkills: string[];
-};
-
-type ClassifiedResidual = ResidualItem & {
+  effectiveExceptionStatus: EffectiveExceptionStatus;
+  acceptedExceptionEffective: boolean;
   daysUntilReview: number;
   reviewStatus: ReviewStatus;
 };
@@ -71,7 +66,7 @@ type ReleaseEvidenceGapSummary = {
 };
 
 export type OperabilityStatusProjection = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   generatedAt: string;
   mode: "offline_long_term_operability_status_projection";
   asOf: string;
@@ -128,10 +123,13 @@ export type OperabilityStatusProjection = {
     total: number;
     countsByType: Record<ResidualType, number>;
     countsByReviewStatus: Record<ReviewStatus, number>;
+    currentBlockerIds: string[];
     dueItems: Array<Pick<ClassifiedResidual, "id" | "type" | "reviewAt" | "reviewStatus" | "daysUntilReview" | "executableNow" | "ownerSkills">>;
     executableNowItems: Array<Pick<ClassifiedResidual, "id" | "type" | "reviewAt" | "reviewStatus" | "currentImpact" | "closeCondition" | "requiredEvidence" | "ownerSkills">>;
+    nonEffectiveAcceptedExceptionItems: Array<Pick<ClassifiedResidual, "id" | "reviewAt" | "reviewStatus" | "effectiveExceptionStatus" | "ownerSkills" | "closeCondition" | "requiredEvidence">>;
     releaseRelevantIds: string[];
   };
+  uxReview: ProductExperienceEvidenceEvaluation;
   releaseEvidenceGaps: ReleaseEvidenceGapSummary;
   nextActions: Array<{
     residualRiskId: string;
@@ -164,8 +162,10 @@ export type OperabilityStatusSummary = {
   currentBlockers: string[];
   boundaryStops: string[];
   dueResiduals: string[];
+  executableNowItems: string[];
   releaseRelevantResiduals: string[];
   releaseEvidenceGaps: string[];
+  uxReview: string;
   nextEvidenceCommands: string[];
   cannotClaim: string[];
   safetyFacts: Pick<
@@ -179,6 +179,7 @@ type BuildOptions = {
   root?: string;
   asOf?: string;
   generatedAt?: string;
+  uxReviewEvaluation?: ProductExperienceEvidenceEvaluation;
 };
 
 type ProjectionFacts = {
@@ -188,7 +189,7 @@ type ProjectionFacts = {
     version?: string;
     scripts?: Record<string, string>;
   };
-  ledger: ResidualLedger;
+  ledger: ResidualLedgerV2;
   residuals: ClassifiedResidual[];
   presentFiles: string[];
   missingFiles: string[];
@@ -199,6 +200,7 @@ type ProjectionFacts = {
   controlPlaneSourceHash: string;
   protectedPathFingerprint: OperabilityStatusProjection["sourceSnapshot"]["protectedPathFingerprint"];
   releaseEvidenceGaps: ReleaseEvidenceGapSummary;
+  uxReview: ProductExperienceEvidenceEvaluation;
 };
 
 const residualTypes: ResidualType[] = [
@@ -218,6 +220,13 @@ const requiredFiles = [
   "README.md",
   "docs/README.md",
   "docs/development/long-term-operability-control-plane.md",
+  "docs/development/governance-register.json",
+  "docs/development/governance-register.md",
+  "docs/development/operations-lifecycle.md",
+  "docs/development/operations-lifecycle.json",
+  "docs/development/post-release-observation-template.json",
+  "docs/development/post-release-observation-v0.1.7.json",
+  "docs/development/product-experience-review-record-template.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
   "docs/development/maintenance-window-index.json",
@@ -225,15 +234,21 @@ const requiredFiles = [
   "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/update-request-expected-before-design.md",
+  "docs/development/data-integrity-doctor.md",
   "docs/development/ops-005-expected-before-production-evidence-template.md",
   "docs/development/high-risk-confirmation-packets.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
+  "tasks/active/0020-business-state-concurrency.md",
+  "tasks/backlog/0021-attachment-staging-intent.md",
+  "tasks/backlog/0022-updater-phase-journal-hold.md",
   releaseEvidenceRecordPath,
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "docs/development/validation-matrix.md",
   "workflow/README.md",
+  "apps/web/lib/system/update-center.ts",
+  "apps/web/app/api/system/update-requests/route.ts",
   ".codex/skills-src/README.md",
   ".codex/skills-src/areaforge-operating-loop/SKILL.md",
   ".codex/skills-src/areaforge-sre-ops/SKILL.md",
@@ -260,18 +275,36 @@ const requiredFiles = [
   "scripts/ops/release-closeout-audit.ts",
   "scripts/quality/release-closeout-audit-validate.ts",
   "scripts/quality/release-closeout-audit.selftest.ts",
+  "scripts/ops/post-release-observation-status.ts",
+  "scripts/quality/post-release-observation-status.selftest.ts",
+  "scripts/quality/post-release-observation-validate.ts",
+  "scripts/quality/product-experience-review-discovery.ts",
+  "scripts/quality/product-experience-review-validate.ts",
+  "scripts/quality/post-release-observation-validate.selftest.ts",
   "scripts/quality/attachment-reconciliation.ts",
   "scripts/quality/attachment-reconciliation-summary.ts",
   "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/ops/data-integrity-doctor.ts",
+  "scripts/quality/data-integrity-doctor-validate.ts",
+  "scripts/quality/data-integrity-doctor.selftest.ts",
   "scripts/quality/release-evidence-validate.ts",
   "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
   "scripts/ops/ops004-alert-evidence-preflight.ts",
   "scripts/ops/ops005-evidence-preflight.ts",
   "scripts/quality/ops005-production-evidence-validate.ts",
+  "apps/web/lib/system/update-request-v2.ts",
+  "ops/update-agent/areaforge-update-agent.sh",
+  "ops/update-agent/lib/update-request-v2.sh",
+  "ops/update-agent/lib/update-request-state.sh",
+  "ops/github-release-updater/areaforge-updater.sh",
+  "scripts/quality/update-center-request-v2.selftest.ts",
+  "scripts/quality/update-agent-request-v2.selftest.ts",
+  "scripts/quality/update-production-state-lock.selftest.ts",
   "scripts/ops/sc002-supply-chain-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
+  "scripts/ops/residual-promotion-preview.ts",
   "scripts/ops/generate-maintenance-window-record.ts",
   "scripts/ops/maintenance-window-index.ts",
   "scripts/quality/maintenance-window-index-common.ts",
@@ -285,6 +318,7 @@ const requiredFiles = [
   "scripts/quality/rollback-proof-record-validate.selftest.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
+  "scripts/quality/residual-promotion-preview.selftest.ts",
   "scripts/quality/residual-evidence-preflight.ts",
   "scripts/quality/residual-evidence-preflight.selftest.ts",
   "docs/development/residual-closure-review-template.md",
@@ -304,12 +338,21 @@ const requiredFiles = [
   "scripts/quality/ops005-evidence-preflight.selftest.ts",
   "scripts/quality/ops005-production-evidence-validate.selftest.ts",
   "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
+  "scripts/quality/governance-register-validate.ts",
+  "scripts/quality/governance-register-validate.selftest.ts",
+  "scripts/quality/operations-lifecycle-validate.ts",
+  "scripts/quality/operations-lifecycle-validate.selftest.ts",
 ];
 const requiredPackageScripts = [
   "ops:status",
   "ops:status:validate",
   "ops:status:validate:selftest",
   "ops:status:selftest",
+  "governance:register:validate",
+  "governance:register:selftest",
+  "ops:lifecycle:validate",
+  "ops:lifecycle:selftest",
+  "ops:lifecycle:typecheck",
   "ops:handoff",
   "ops:handoff:validate",
   "ops:handoff:validate:selftest",
@@ -333,9 +376,16 @@ const requiredPackageScripts = [
   "release:closeout:audit",
   "release:closeout:audit:validate",
   "release:closeout:audit:selftest",
+  "release:post-observation:validate",
+  "release:post-observation:validate:selftest",
+  "release:post-observation:status",
+  "release:post-observation:status:selftest",
   "attachment:reconciliation",
   "attachment:reconciliation:summary",
   "attachment:reconciliation:summary:selftest",
+  "ops:data-integrity:doctor",
+  "ops:data-integrity:validate",
+  "ops:data-integrity:selftest",
   "release:evidence:validate",
   "release:evidence:selftest",
   "ops:ops-001:preflight",
@@ -348,8 +398,13 @@ const requiredPackageScripts = [
   "ops:ops-005:preflight:selftest",
   "ops:ops-005:evidence:validate",
   "ops:ops-005:evidence:selftest",
+  "ops:ops-005:local:selftest",
   "sc:sc-002:preflight",
   "sc:sc-002:preflight:selftest",
+  "sc:sc-004:validate",
+  "sc:sc-004:validate:selftest",
+  "sc:sc-004:preflight",
+  "sc:sc-004:preflight:selftest",
   "ops:alert:preview",
   "enterprise:operability:preflight",
   "maintenance:cadence:preflight",
@@ -371,6 +426,9 @@ const requiredPackageScripts = [
   "residuals:closure:validate",
   "residuals:closure:selftest",
   "residuals:review-due",
+  "residuals:review-due:selftest",
+  "residuals:promotion-preview",
+  "residuals:promotion-preview:selftest",
   "release:train:preflight",
 ];
 const controlPlaneSourceFiles = ["package.json", ...requiredFiles];
@@ -378,6 +436,12 @@ export const protectedPathFiles = [
   "README.md",
   "package.json",
   "docs/development/long-term-operability-control-plane.md",
+  "docs/development/governance-register.json",
+  "docs/development/governance-register.md",
+  "docs/development/operations-lifecycle.md",
+  "docs/development/operations-lifecycle.json",
+  "docs/development/post-release-observation-template.json",
+  "docs/development/post-release-observation-v0.1.7.json",
   "docs/development/operational-readiness.md",
   "docs/development/maintenance-window-index.json",
   "docs/development/incident-index.json",
@@ -399,8 +463,16 @@ export const protectedPathFiles = [
   "scripts/quality/attachment-reconciliation-summary.selftest.ts",
   "scripts/quality/release-evidence-validate.ts",
   "scripts/quality/release-evidence-validate.selftest.ts",
+  "scripts/ops/post-release-observation-status.ts",
+  "scripts/quality/post-release-observation-validate.ts",
+  "scripts/quality/product-experience-review-discovery.ts",
+  "scripts/quality/product-experience-review-validate.ts",
   "tasks/indexes/residuals.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
+  "tasks/active/0020-business-state-concurrency.md",
+  "scripts/ops/data-integrity-doctor.ts",
+  "scripts/quality/data-integrity-doctor-validate.ts",
+  "scripts/quality/data-integrity-doctor.selftest.ts",
   "workflow/README.md",
 ] as const;
 
@@ -408,7 +480,7 @@ export function buildOperabilityStatusProjection(options: BuildOptions = {}): Op
   const facts = collectProjectionFacts(options);
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     mode: "offline_long_term_operability_status_projection",
     asOf: facts.asOf,
@@ -431,8 +503,9 @@ export function buildOperabilityStatusProjection(options: BuildOptions = {}): Op
       missing: facts.missingScripts,
     },
     residuals: buildResidualSummary(facts),
+    uxReview: facts.uxReview,
     releaseEvidenceGaps: facts.releaseEvidenceGaps,
-    nextActions: nextActions(facts.residuals),
+    nextActions: nextActions(facts.residuals, facts.uxReview),
     boundaryStops: buildBoundaryStops(),
     commands: buildCommandMatrix(),
     claimDiscipline: buildClaimDiscipline(),
@@ -452,15 +525,33 @@ export function buildOperabilityStatusSummary(projection: OperabilityStatusProje
     boundaryStops: projection.boundaryStops.map(toBoundaryStopSummary),
     dueResiduals: projection.residuals.dueItems
       .map((item) => `${item.id} ${item.reviewStatus} reviewAt=${item.reviewAt} owners=${item.ownerSkills.join(",")}`),
+    executableNowItems: projection.residuals.executableNowItems
+      .map((item) => `${item.id} ${item.type} reviewAt=${item.reviewAt} owners=${item.ownerSkills.join(",")}`),
     releaseRelevantResiduals: projection.residuals.releaseRelevantIds,
     releaseEvidenceGaps: projection.releaseEvidenceGaps.blockingGaps
       .map((gap) => `${gap.key} ${gap.status} ${gap.gapType} blocks=${gap.blocks.join(",")}`),
+    uxReview: `${projection.uxReview.status}: ${projection.uxReview.detail}`,
     nextEvidenceCommands: uniqueStrings([
       ...projection.commands.daily.slice(0, 4),
+      "pnpm ops:ops-006:preflight:strict",
+      "pnpm ops:ops-006:preflight:selftest",
+      "pnpm ops:ops-006:evidence:selftest",
+      "pnpm ops:ops-006:production:preflight:selftest",
+      "pnpm ops:ops-007:preflight:strict",
+      "pnpm ops:ops-007:preflight:selftest",
+      "pnpm ops:ops-008:preflight:strict",
+      "pnpm ops:ops-008:preflight:selftest",
+      "pnpm sc:sc-004:preflight",
+      "pnpm sc:sc-004:preflight:selftest",
+      "pnpm sc:sc-004:validate <readback.json> <controlled-pr.json>",
+      "pnpm attachment:crash-window:selftest",
+      "pnpm updater:phase-journal:selftest",
       "pnpm ops:ops-001:preflight",
       "pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
       "pnpm release:closeout:audit -- --version <X.Y.Z>",
       "pnpm release:closeout:audit:validate <release-closeout-audit.json>",
+      "pnpm release:post-observation:validate <post-release-observation.json>",
+      "pnpm release:post-observation:status <post-release-observation.json>",
       ...projection.commands.release.slice(0, 4),
     ].map(toSummaryCommand)),
     cannotClaim: projection.doesNotProve,
@@ -476,14 +567,10 @@ export function buildOperabilityStatusSummary(projection: OperabilityStatusProje
 }
 
 function currentBlockerSummary(projection: OperabilityStatusProjection): string[] {
-  return uniqueStrings([
-    ...projection.residuals.dueItems
-      .filter((item) => item.type === "current-blocker")
-      .map((item) => `${item.id} reviewAt=${item.reviewAt} owners=${item.ownerSkills.join(",")}`),
-    ...projection.residuals.executableNowItems
-      .filter((item) => item.type === "current-blocker")
-      .map((item) => `${item.id} reviewAt=${item.reviewAt} owners=${item.ownerSkills.join(",")}`),
-  ]);
+  const ids = new Set(projection.residuals.currentBlockerIds);
+  return projection.nextActions
+    .filter((item) => ids.has(item.residualRiskId))
+    .map((item) => `${item.residualRiskId} owners=${item.ownerSkills.join(",")}`);
 }
 
 export function formatOperabilityStatusSummary(summary: OperabilityStatusSummary): string {
@@ -497,8 +584,10 @@ export function formatOperabilityStatusSummary(summary: OperabilityStatusSummary
     listBlock("currentBlockers", summary.currentBlockers),
     listBlock("boundaryStops", summary.boundaryStops),
     listBlock("dueResiduals", summary.dueResiduals),
+    listBlock("executableNowItems", summary.executableNowItems),
     listBlock("releaseRelevantResiduals", summary.releaseRelevantResiduals),
     listBlock("releaseEvidenceGaps", summary.releaseEvidenceGaps),
+    `uxReview: ${summary.uxReview}`,
     listBlock("nextEvidenceCommands", summary.nextEvidenceCommands),
     listBlock("cannotClaim", summary.cannotClaim),
     `safetyFacts: readOnly=${summary.safetyFacts.readOnly} networkRequested=${summary.safetyFacts.networkRequested} serverCommandAttempted=${summary.safetyFacts.serverCommandAttempted} productionWriteAttempted=${summary.safetyFacts.productionWriteAttempted} protectedPathWriteAttempted=${summary.safetyFacts.protectedPathWriteAttempted} secretValuePrinted=${summary.safetyFacts.secretValuePrinted}`,
@@ -508,18 +597,26 @@ export function formatOperabilityStatusSummary(summary: OperabilityStatusSummary
 function collectProjectionFacts(options: BuildOptions): ProjectionFacts {
   const root = options.root ?? process.cwd();
   const asOf = options.asOf ?? todayUtcDate();
+  const now = projectionDate(asOf);
   const packageJson = readJson<ProjectionFacts["packageJson"]>(root, "package.json");
-  const ledger = readJson<ResidualLedger>(root, ledgerPath);
-  const residuals = (ledger.items ?? []).map((item) => classifyResidual(item, asOf));
+  const ledger = readResidualLedgerV2({ root, file: ledgerPath, now });
+  const residuals = ledger.items.map((item) => classifyResidual(item, asOf, root, now));
   const missingFiles = requiredFiles.filter((file) => !existsSync(resolve(root, file)));
   const missingScripts = requiredPackageScripts.filter((script) => !(packageJson.scripts ?? {})[script]);
   const releaseRelevantItems = residuals.filter(isReleaseRelevant);
   const controlPlaneSourceHash = hashControlPlaneSources(root);
   const protectedPathFingerprint = buildProtectedPathFingerprint(root);
   const releaseEvidenceGaps = buildReleaseEvidenceGaps(root);
+  const evidenceNow = options.generatedAt
+    ? new Date(options.generatedAt)
+    : options.asOf
+      ? new Date(`${asOf}T23:59:59.999Z`)
+      : new Date();
+  const uxReview = options.uxReviewEvaluation ?? evaluateProductExperienceEvidence({ root, now: evidenceNow });
   const overall = overallStatus({
     hasMissingControlPlane: missingFiles.length > 0 || missingScripts.length > 0,
     residuals,
+    uxReview,
   });
 
   return {
@@ -536,6 +633,7 @@ function collectProjectionFacts(options: BuildOptions): ProjectionFacts {
     controlPlaneSourceHash,
     protectedPathFingerprint,
     releaseEvidenceGaps,
+    uxReview,
   };
 }
 
@@ -610,13 +708,16 @@ function buildSafetyFacts(): OperabilityStatusProjection["safetyFacts"] {
 function buildResidualSummary(facts: ProjectionFacts): OperabilityStatusProjection["residuals"] {
   const dueItems = facts.residuals.filter((item) => item.reviewStatus !== "future");
   const executableNowItems = facts.residuals.filter((item) => item.executableNow);
+  const nonEffectiveAcceptedExceptionItems = facts.residuals.filter(isNonEffectiveAcceptedException);
   return {
-    source: facts.ledger.source ?? ledgerPath,
+    source: facts.ledger.source,
     total: facts.residuals.length,
     countsByType: countBy(facts.residuals, residualTypes, (item) => item.type),
     countsByReviewStatus: countBy(facts.residuals, reviewStatuses, (item) => item.reviewStatus),
+    currentBlockerIds: facts.residuals.filter((item) => item.type === "current-blocker").map((item) => item.id),
     dueItems: dueItems.map(toDueItem),
     executableNowItems: executableNowItems.map(toExecutableNowItem),
+    nonEffectiveAcceptedExceptionItems: nonEffectiveAcceptedExceptionItems.map(toNonEffectiveAcceptedExceptionItem),
     releaseRelevantIds: facts.releaseRelevantItems.map((item) => item.id),
   };
 }
@@ -641,8 +742,11 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:evidence:bundle",
       "pnpm ops:alert:preview",
       "pnpm ops:ops-004:preflight",
+      "pnpm ops:ops-005:local:selftest",
       "pnpm ops:ops-005:preflight",
-      "pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record>",
+      "pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record> <release-record> <release-assets-dir>",
+      "pnpm sc:sc-004:validate <readback.json> <controlled-pr.json>",
+      "AREAFORGE_SC004_READBACK_RECORD=<readback.json> AREAFORGE_SC004_CONTROLLED_PR_RECORD=<controlled-pr.json> pnpm sc:sc-004:preflight",
       "pnpm maintenance:window:record",
       "pnpm maintenance:window:validate <maintenance-window-record.md|txt>",
       "pnpm maintenance:window:index",
@@ -658,6 +762,7 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:handoff:validate:selftest",
       "pnpm ops:status:validate:selftest",
       "pnpm ops:readonly-side-effect:selftest",
+      "pnpm ops:data-integrity:selftest",
       "pnpm enterprise:operability:preflight",
       "pnpm maintenance:cadence:preflight",
       "pnpm ops:support:bundle-preview:selftest",
@@ -667,9 +772,12 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:ops-001:preflight:selftest",
       "pnpm ops:ops-001:fallback:finalize:selftest",
       "pnpm ops:ops-004:preflight:selftest",
+      "pnpm ops:ops-005:local:selftest",
       "pnpm ops:ops-005:preflight:selftest",
       "pnpm ops:ops-005:evidence:selftest",
       "pnpm sc:sc-002:preflight:selftest",
+      "pnpm sc:sc-004:validate:selftest",
+      "pnpm sc:sc-004:preflight:selftest",
       "pnpm ops:long-term:snapshot:selftest",
       "pnpm maintenance:window:record:selftest",
       "pnpm maintenance:window:selftest",
@@ -679,6 +787,9 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm residuals:evidence:preflight:selftest",
       "pnpm residuals:closure:selftest",
       "pnpm residuals:review-due",
+      "pnpm residuals:review-due:selftest",
+      "pnpm residuals:promotion-preview",
+      "pnpm residuals:promotion-preview:selftest",
       "pnpm docs:readiness",
     ],
     release: [
@@ -686,6 +797,8 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm ops:status",
       "pnpm ops:long-term:gate",
       "pnpm ops:long-term:snapshot",
+      "DATABASE_URL=<read-only-url> pnpm ops:data-integrity:doctor -- --attachment-summary <attachment-reconciliation-summary.json>",
+      "pnpm ops:data-integrity:validate <data-integrity-doctor.json>",
       "pnpm release:train:preflight",
       "pnpm github-release-updater:preflight",
       "pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
@@ -694,8 +807,11 @@ function buildCommandMatrix(): OperabilityStatusProjection["commands"] {
       "pnpm release:evidence:redacted-export:selftest",
       "pnpm release:supply-chain:selftest",
       "pnpm sc:sc-002:preflight",
+      "pnpm sc:sc-004:validate <readback.json> <controlled-pr.json>",
+      "AREAFORGE_SC004_READBACK_RECORD=<readback.json> AREAFORGE_SC004_CONTROLLED_PR_RECORD=<controlled-pr.json> pnpm sc:sc-004:preflight",
+      "pnpm ops:ops-005:local:selftest",
       "pnpm ops:ops-005:preflight",
-      "pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record>",
+      "pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record> <release-record> <release-assets-dir>",
       "pnpm ops:evidence:bundle",
       "pnpm experience:review:validate <record>",
     ],
@@ -759,26 +875,47 @@ function buildBoundaryStops(): BoundaryStop[] {
     },
     {
       key: "update_request_expected_before",
-      evidence: "AF-RISK-OPS-005 expected-before V2 local implementation, signed Release, and production deployment evidence",
+      evidence: "AF-RISK-OPS-005 expected-before V2 local implementation is verified; signed Release and production deployment evidence remain",
       currentBoundary: [
-        "no high-risk local implementation confirmation",
+        "no matching signed Release for the verified V2 checkout",
         "no production deployment confirmation",
         "no mutation request execution",
+        "no AF-RISK-OPS-005 residual closure",
       ],
       allowedNow: [
-        "review docs/development/update-request-expected-before-design.md",
-        "pnpm ops:status --summary",
-        "pnpm docs:readiness",
+        "pnpm ops:ops-005:local:selftest",
+        "pnpm ops:ops-005:preflight",
+        "local signed Release readiness validation",
       ],
       requiresFreshConfirmation: [
-        "explicit Update Request Expected-Before local implementation confirmation",
         "separate signed Release confirmation after local validation",
         "separate production timer, queue isolation, Web/agent deployment, and V2 check confirmation",
       ],
     },
     {
+      key: "business_state_concurrency",
+      evidence: "AF-RISK-OPS-006 local_verified is complete; matching signed Release, base rollout, controlled synthetic probe, and production evidence remain",
+      currentBoundary: [
+        "no matching signed Release for the verified OPS-006 checkout",
+        "no production migration/deploy confirmation",
+        "no controlled production write probe confirmation",
+        "no AF-RISK-OPS-006 residual closure",
+      ],
+      allowedNow: [
+        "pnpm ops:ops-006:preflight:strict",
+        "pnpm ops:ops-006:evidence:selftest",
+        "pnpm ops:ops-006:production:preflight:selftest",
+      ],
+      requiresFreshConfirmation: [
+        "matching signed Release after local validation",
+        "separate base rollout with backup, migration, health, smoke, and doctor evidence",
+        "separate controlled synthetic concurrency write probe",
+        "maintainer review before residual ledger closure",
+      ],
+    },
+    {
       key: "residual_closure",
-      evidence: "AF-RISK-OPS-001 / AF-RISK-OPS-004 / supply-chain residual closure decisions",
+      evidence: "AF-RISK-OPS-001 / AF-RISK-OPS-004 / AF-RISK-OPS-005 / AF-RISK-OPS-006 / supply-chain residual closure decisions",
       currentBoundary: [
         "no residual ledger closure",
         "no completion claim without live evidence gate",
@@ -994,12 +1131,29 @@ function toExecutableNowItem(
   };
 }
 
-function classifyResidual(item: ResidualItem, asOf: string): ClassifiedResidual {
+function toNonEffectiveAcceptedExceptionItem(
+  item: ClassifiedResidual,
+): OperabilityStatusProjection["residuals"]["nonEffectiveAcceptedExceptionItems"][number] {
+  return {
+    id: item.id,
+    reviewAt: item.reviewAt,
+    reviewStatus: item.reviewStatus,
+    effectiveExceptionStatus: item.effectiveExceptionStatus,
+    ownerSkills: item.ownerSkills,
+    closeCondition: item.closeCondition,
+    requiredEvidence: item.requiredEvidence,
+  };
+}
+
+function classifyResidual(item: ResidualItemV2, asOf: string, root: string, now: Date): ClassifiedResidual {
   const reviewDate = parseDate(item.reviewAt);
   const asOfDate = parseDate(asOf);
   const daysUntilReview = Math.round((reviewDate.getTime() - asOfDate.getTime()) / 86_400_000);
   return {
     ...item,
+    executableNow: effectiveExecutableNow(item, { root, now }),
+    effectiveExceptionStatus: effectiveExceptionStatus(item, now),
+    acceptedExceptionEffective: isAcceptedExceptionEffective(item, now),
     daysUntilReview,
     reviewStatus: reviewStatus(daysUntilReview),
   };
@@ -1012,9 +1166,19 @@ function reviewStatus(daysUntilReview: number): ReviewStatus {
   return "future";
 }
 
-function overallStatus(input: { hasMissingControlPlane: boolean; residuals: ClassifiedResidual[] }): OverallStatus {
+function overallStatus(input: {
+  hasMissingControlPlane: boolean;
+  residuals: ClassifiedResidual[];
+  uxReview: ProductExperienceEvidenceEvaluation;
+}): OverallStatus {
   if (input.hasMissingControlPlane) return "blocked";
   if (input.residuals.some((item) => item.type === "current-blocker")) return "blocked";
+  if (input.uxReview.status === "invalid") return "blocked";
+  if (input.uxReview.status === "missing" || input.uxReview.status === "stale") return "needs_live_evidence";
+  if (input.residuals.some(isNonEffectiveAcceptedException)) return "needs_live_evidence";
+  if (input.residuals.some((item) => item.reviewStatus === "overdue" || item.reviewStatus === "due_today")) {
+    return "needs_live_evidence";
+  }
   if (input.residuals.some((item) => item.type === "monitoring-gap" || item.type === "release-follow-up")) {
     return "needs_live_evidence";
   }
@@ -1026,21 +1190,42 @@ function overallStatus(input: { hasMissingControlPlane: boolean; residuals: Clas
 
 function releaseTrainStatus(overall: OverallStatus, items: ClassifiedResidual[]): OperabilityStatusProjection["status"]["releaseTrain"] {
   if (overall === "blocked") return "blocked";
+  if (overall === "needs_live_evidence") return "needs_release_evidence";
   if (items.some((item) => item.type !== "closed-evidence" && item.type !== "historical-reference")) {
     return "needs_release_evidence";
   }
   return "ready_to_decide";
 }
 
-function nextActions(residuals: ClassifiedResidual[]): OperabilityStatusProjection["nextActions"] {
+function nextActions(
+  residuals: ClassifiedResidual[],
+  uxReview: ProductExperienceEvidenceEvaluation,
+): OperabilityStatusProjection["nextActions"] {
   return residuals
-    .filter((item) => item.type === "current-blocker" || item.executableNow || item.reviewStatus !== "future")
+    .filter((item) =>
+      item.type === "current-blocker" || item.executableNow || item.reviewStatus !== "future" ||
+      isNonEffectiveAcceptedException(item) || (item.id === "AF-RISK-UX-001" && uxReview.status !== "fresh")
+    )
     .map((item) => ({
       residualRiskId: item.id,
-      reason: item.reviewStatus === "future" ? item.currentImpact : `${item.reviewStatus}: ${item.currentImpact}`,
+      reason: nextActionReason(item, uxReview),
       requiredEvidence: item.requiredEvidence,
       ownerSkills: item.ownerSkills,
     }));
+}
+
+function nextActionReason(item: ClassifiedResidual, uxReview: ProductExperienceEvidenceEvaluation): string {
+  if (item.id === "AF-RISK-UX-001") {
+    return `ux_review_${uxReview.status}: ${uxReview.detail}`;
+  }
+  if (isNonEffectiveAcceptedException(item)) {
+    return `accepted_exception_${item.effectiveExceptionStatus ?? "invalid"}: ${item.currentImpact}`;
+  }
+  return item.reviewStatus === "future" ? item.currentImpact : `${item.reviewStatus}: ${item.currentImpact}`;
+}
+
+function isNonEffectiveAcceptedException(item: ClassifiedResidual): boolean {
+  return item.type === "accepted-exception" && !item.acceptedExceptionEffective;
 }
 
 function countBy<T, K extends string>(items: T[], keys: K[], getKey: (item: T) => K): Record<K, number> {
@@ -1110,6 +1295,10 @@ function parseDate(value: string): Date {
 
 function todayUtcDate(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function projectionDate(asOf: string): Date {
+  return new Date(`${asOf}T12:00:00.000Z`);
 }
 
 function versionTag(version: string): string {

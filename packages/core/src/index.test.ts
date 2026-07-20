@@ -209,7 +209,7 @@ test("createDashboardSnapshot changes task priority by theme", () => {
   assert.deepEqual(sprint.topTasks.map((task) => task.id), ["simulation", "mistake", "review", "generic-critical"]);
   assert.equal(sprint.nextAction.includes("全真模拟"), true);
   assert.equal(recovery.topTasks.length, 1);
-  assert.equal(recovery.nextAction.includes("30 分钟恢复任务"), true);
+  assert.equal(recovery.nextAction.includes("90 分钟恢复任务"), true);
 });
 
 test("createRecoveryPlan narrows the day during danger state", () => {

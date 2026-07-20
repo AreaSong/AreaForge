@@ -14,6 +14,8 @@ try {
   const invalidTimezoneRecord = path.join(tempDir, "incident-timezone.txt");
   const invalidResidualIdRecord = path.join(tempDir, "incident-residual-id.txt");
   const invalidFollowUpRecord = path.join(tempDir, "incident-follow-up.txt");
+  const unknownResidualRecord = path.join(tempDir, "incident-unknown-residual.txt");
+  const closedResidualRecord = path.join(tempDir, "incident-closed-residual.txt");
 
   writeFileSync(validRecord, createRecord());
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: DATABASE_URL=postgresql://user:pass@example/db\n`);
@@ -25,6 +27,8 @@ try {
   writeFileSync(invalidTimezoneRecord, createRecord().replace("detectedAt: 2026-07-10T21:30:00+08:00", "detectedAt: 2026-07-10T21:30:00"));
   writeFileSync(invalidResidualIdRecord, createRecord().replace("residualRiskIds: AF-RISK-OPS-004", "residualRiskIds: AF-RISK-OPS-004, typo-risk-id"));
   writeFileSync(invalidFollowUpRecord, createRecord().replace("followUpTasks: tasks/indexes/residuals.md", "followUpTasks: private operator notes"));
+  writeFileSync(unknownResidualRecord, createRecord().replace("AF-RISK-OPS-004", "AF-RISK-OPS-999"));
+  writeFileSync(closedResidualRecord, createRecord().replace("AF-RISK-OPS-004", "AF-RISK-SC-003"));
 
   expectExit("valid incident record passes", [validRecord], 0, "incidentRecordEvidenceHash: sha256:");
   expectExit("secret-like values fail", [invalidSecretRecord], 1);
@@ -33,6 +37,8 @@ try {
   expectExit("timestamp without timezone fails", [invalidTimezoneRecord], 1);
   expectExit("partial invalid residual id list fails", [invalidResidualIdRecord], 1);
   expectExit("free-text follow-up fails", [invalidFollowUpRecord], 1);
+  expectExit("unknown residual id fails", [unknownResidualRecord], 1);
+  expectExit("active incident cannot bind only closed evidence", [closedResidualRecord], 1);
 
   console.log("incident record validator selftest passed.");
 } finally {

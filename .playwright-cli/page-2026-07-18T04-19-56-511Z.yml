@@ -1,0 +1,9 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - img "AreaForge" [ref=e4]
+    - heading "进入作战台" [level=1] [ref=e5]
+    - generic [ref=e6]: 邮箱
+    - textbox "邮箱" [ref=e7]
+    - generic [ref=e8]: 密码
+    - textbox "密码" [ref=e9]
+    - button "登录" [ref=e10]

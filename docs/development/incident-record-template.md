@@ -31,14 +31,19 @@ pnpm incident:record:validate /path/to/incident-record.txt
 
 记录生成器只读取本地 redacted 证据文件和显式环境变量；它不连接生产、不执行命令、不写生产。
 
-事故仍处于 `open`、`mitigated` 或 `follow-up` 时只保留源记录，不进入历史索引。只有 `status: resolved` 且 `postIncidentReview: yes` 的记录，才放入 `docs/development/incident-<date-or-id>/incident-record.txt`，随后完整重建并校验：
+将通过校验的 redacted 事故记录放入 `docs/development/incident-<date-or-id>/incident-record.txt`，随后完整重建并校验：
 
 ```bash
 pnpm incident:index > docs/development/incident-index.json
 pnpm incident:index:validate docs/development/incident-index.json
 ```
 
-`incident-index.json` 只投影已解决事故历史，不是 active incident 状态机，不执行事故处置，也不能证明当前生产健康或 residual 已关闭。
+`incident-index.json` 是本地只读投影，同时表达两组源记录：
+
+- `active`：`open`、`mitigated`、`follow-up`，必须继续绑定 residual ID，不表示事故已关闭。
+- `resolved`：仅 `resolved + postIncidentReview: yes`，表示历史记录满足索引准入条件，不表示 residual 已关闭。
+
+顶层 `sourceSetSha256` 绑定全部源记录，两组各自的 `sourceSetSha256` 绑定组内源记录，每条记录的 `recordSha256` 绑定原始 `incident-record.txt`。校验器会从固定路径重新读取并确定性重建这些 hash。索引不是 active incident 状态机，不连接生产、不执行事故处置，也不能证明当前生产健康、恢复动作已执行或 residual 已关闭。
 
 若事故处理中实际执行了 rollback，除事故记录外还应按 `docs/development/rollback-proof-record-template.md` 保存回滚后证明，并运行 `pnpm rollback:proof:validate <record>`。该 proof 只验证 post-rollback 证据达到人工复核门槛，不自动重新开放更新通道。
 
@@ -85,6 +90,7 @@ safetyFacts:
 - `residualRiskIds` 只能是 `none` 或完整 `AF-RISK-*` ID 的逗号列表；不得混入自由文本或无法识别的 ID。
 - `followUpTasks` 只能是 `docs/`、`tasks/` 或 `workflow/` 下的仓库相对引用，确保历史索引保持 metadata-only。
 - `resolved` 状态必须有 `postIncidentReview: yes`。
+- `open`、`mitigated`、`follow-up` 会保留在索引的 `active` 组；投影、验证或 source hash 更新都不得自动关闭事故或 residual。
 - 实际 rollback 后必须另有通过 `pnpm rollback:proof:validate` 的回滚证明，或明确保持事故为 `follow-up` 并记录缺失证据。
 - 未完全解决的事故必须保留 `AF-RISK-*` residual ID 或转入任务/incident follow-up。
 - 记录不得包含密码、session cookie、数据库 URL、API key、生产 `.env`、cosign 私钥、完整 prompt/raw response、附件内容、上传绝对路径或真实学习内容。

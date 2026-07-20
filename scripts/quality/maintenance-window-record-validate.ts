@@ -144,6 +144,24 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
     issues.push({ field: "result", message: "cannot be pass unless evidenceFreshnessStatus is fresh" });
   }
 
+  const readinessOverall = fields.get("readinessOverall")?.toLowerCase();
+  const evidenceBundleStatus = fields.get("evidenceBundleStatus")?.toLowerCase();
+  const alertPreviewStatus = fields.get("alertPreviewStatus")?.toLowerCase();
+  const signalStatuses = ["healthStatus", "updateAgentStatus", "authenticatedSmokeStatus", "backupStatus", "infrastructureStatus"]
+    .map((field) => fields.get(field)?.toLowerCase())
+    .filter((value): value is string => Boolean(value));
+  const requiredResult = requiredResultForWindow({
+    readinessOverall,
+    evidenceBundleStatus,
+    alertPreviewStatus,
+    signalStatuses,
+    residualReviewStatus: fields.get("residualReviewStatus")?.toLowerCase(),
+    evidenceFreshnessStatus: fields.get("evidenceFreshnessStatus")?.toLowerCase(),
+  });
+  if (result && requiredResult && resultRank(result) < resultRank(requiredResult)) {
+    issues.push({ field: "result", message: `must be at least ${requiredResult} for the recorded readiness, evidence, signal, residual, and freshness states` });
+  }
+
   const freshnessMaxAge = Number(fields.get("evidenceFreshnessMaxAgeSeconds"));
   if (!Number.isInteger(freshnessMaxAge) || freshnessMaxAge <= 0) {
     issues.push({ field: "evidenceFreshnessMaxAgeSeconds", message: "must be a positive integer" });
@@ -161,6 +179,15 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
   if (dueIds !== "none" && !/AF-RISK-/i.test(dueIds)) {
     issues.push({ field: "dueResidualRiskIds", message: "must use AF-RISK-* IDs when not none" });
   }
+  if (dueIds !== "none" && fields.get("residualReviewStatus")?.toLowerCase() === "pass") {
+    issues.push({ field: "residualReviewStatus", message: "cannot be pass when dueResidualRiskIds is not none" });
+  }
+
+  const startedAt = fields.get("startedAt");
+  const finishedAt = fields.get("finishedAt");
+  if (startedAt && finishedAt && !Number.isNaN(Date.parse(startedAt)) && !Number.isNaN(Date.parse(finishedAt)) && Date.parse(finishedAt) < Date.parse(startedAt)) {
+    issues.push({ field: "finishedAt", message: "must be at or after startedAt" });
+  }
 
   const claimBoundary = fields.get("claimBoundary.doesNotProve")?.toLowerCase() ?? "";
   for (const term of requiredClaimBoundaryTerms) {
@@ -171,6 +198,66 @@ function validateRecord(record: string, fields: Map<string, string>): Validation
 
   scanForSecrets(record, issues);
   return issues;
+}
+
+type WindowSignals = {
+  readinessOverall?: string;
+  evidenceBundleStatus?: string;
+  alertPreviewStatus?: string;
+  signalStatuses: string[];
+  residualReviewStatus?: string;
+  evidenceFreshnessStatus?: string;
+};
+
+function requiredResultForWindow(signals: WindowSignals): "pass" | "warn" | "fail" | "blocked" | null {
+  const normalized = [
+    normalizeReadiness(signals.readinessOverall),
+    normalizeEvidence(signals.evidenceBundleStatus),
+    normalizeAlert(signals.alertPreviewStatus),
+    ...signals.signalStatuses.map(normalizeSignal),
+    normalizeResidual(signals.residualReviewStatus),
+    normalizeFreshness(signals.evidenceFreshnessStatus),
+  ].filter((value): value is "pass" | "warn" | "fail" | "blocked" => Boolean(value));
+  if (normalized.length === 0) return null;
+  return normalized.sort((left, right) => resultRank(right) - resultRank(left))[0] ?? null;
+}
+
+function normalizeReadiness(value?: string): "pass" | "warn" | "fail" | "blocked" | null {
+  if (value === "pass" || value === "warn" || value === "fail" || value === "blocked") return value;
+  return value === "unknown" ? "warn" : null;
+}
+
+function normalizeEvidence(value?: string): "pass" | "warn" | "fail" | "blocked" | null {
+  if (value === "ready") return "pass";
+  if (value === "needs_attention") return "warn";
+  if (value === "blocked") return "blocked";
+  return null;
+}
+
+function normalizeAlert(value?: string): "pass" | "warn" | "fail" | "blocked" | null {
+  if (value === "ok") return "pass";
+  if (value === "watch" || value === "warning") return "warn";
+  if (value === "critical") return "blocked";
+  return null;
+}
+
+function normalizeSignal(value?: string): "pass" | "warn" | "fail" | "blocked" | null {
+  if (value === "pass" || value === "warn" || value === "fail" || value === "blocked") return value;
+  return value === "unknown" ? "warn" : null;
+}
+
+function normalizeResidual(value?: string): "pass" | "warn" | "fail" | null {
+  if (value === "pass" || value === "warn" || value === "fail") return value;
+  return null;
+}
+
+function normalizeFreshness(value?: string): "pass" | "warn" | null {
+  if (value === "fresh") return "pass";
+  return value === "stale" || value === "unknown" ? "warn" : null;
+}
+
+function resultRank(value: string): number {
+  return { pass: 0, warn: 1, fail: 2, blocked: 3 }[value] ?? -1;
 }
 
 main();

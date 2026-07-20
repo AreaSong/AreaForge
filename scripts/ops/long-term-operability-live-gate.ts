@@ -1,7 +1,18 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
+import { pathToFileURL } from "node:url";
+import {
+  resolveReleaseEvidenceValidationArgs,
+  validateReleaseEvidenceBundle,
+} from "../quality/release-evidence-validate";
+import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
+import { evaluateProductExperienceEvidence } from "../quality/product-experience-review-validate";
+import {
+  parseStrictIndentedKeyValueRecord,
+  sha256,
+  type ValidationIssue,
+} from "../quality/record-validator-common";
 
 type CheckStatus = "pass" | "missing" | "stale" | "invalid";
 type GateStatus = "ready_for_long_term_operability_review" | "needs_live_evidence" | "invalid";
@@ -19,14 +30,29 @@ type CheckResult = {
   residualRiskIds: string[];
 };
 
-const defaultUxRecord = "docs/development/product-experience-review-v0.1.7-20260712-local.md";
+export type DoctorBinding = {
+  fileSha256: string;
+  doctorHash: string;
+};
+
+export type ReleaseEvidenceBinding = {
+  recordSha256: string;
+  bundleHash: string;
+  releaseTag: string;
+  gitCommit: string;
+  webImageDigest: string;
+  migrationImageDigest: string;
+};
+
 const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
 const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
 const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
 const defaultReleaseRecord = "docs/development/release-v0.1.7-record.md";
 const defaultMaxUxAgeDays = 14;
+const defaultMaxDataIntegrityAgeHours = 24;
 
 function main(): void {
+  const ops006 = runOps006ProductionCheck();
   const checks: CheckResult[] = [
     runCommandCheck({
       key: "controlPlane",
@@ -56,6 +82,8 @@ function main(): void {
       expectedStatus: "ready_for_ops005_human_review",
       residualRiskIds: ["AF-RISK-OPS-005"],
     }),
+    ops006.check,
+    validateFreshDataIntegrityRecord(ops006.binding),
     runJsonStatusCheck({
       key: "supplyChain",
       label: "signed Release supply-chain evidence",
@@ -64,13 +92,13 @@ function main(): void {
       expectedStatus: "ready_for_sc001_sc002_review",
       residualRiskIds: ["AF-RISK-SC-001", "AF-RISK-SC-002"],
     }),
-    validateReleaseEvidenceRecord(),
+    validateReleaseEvidenceRecord(ops006.releaseBinding),
     validateFreshUxRecord(),
   ];
 
   const status = gateStatus(checks);
   const result = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     generatedAt: now().toISOString(),
     mode: "read_only_long_term_operability_live_gate",
     status,
@@ -80,7 +108,9 @@ function main(): void {
       "AF-RISK-OPS-001 blocked_on_prerequisite records are valid blocker evidence only; they do not satisfy long-term operability",
       "AF-RISK-OPS-004 ready_for_human_close: alert preview plus matching alert/recovery drill record",
       "AF-RISK-OPS-005 ready_for_ops005_human_review: V2 local implementation, matching signed Release, fresh redacted production deployment evidence, V2 check, expected-before rejection executionAttempted=no, shared lock, processing reconciliation, and autoApply=none",
-      "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: signed Release supply-chain record with SBOM/provenance/checksum/signature and Actions pinning evidence",
+      "AF-RISK-OPS-006 ready_for_ops006_human_review: local verification, strict signed Release, source-at-commit migration/implementation hashes, separately confirmed production rollout, canonical index readback, health/authenticated smoke, controlled synthetic 409 and single-side-effect probe, before/after doctor, Release evidence, and rollback target",
+      "Fresh data integrity doctor: strict redacted record validation, configured read-only database aggregation, attachment reconciliation and overall pass; file SHA and doctorHash must equal the OPS-006 after-doctor binding",
+      "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: clean current checkout is the signed Release commit or a validated evidence-only closeout descendant, with SBOM/provenance/checksum/signature and Actions pinning evidence",
       "Production release evidence record: pnpm release:evidence:validate passes with database, uploads, env backup SHA256 evidence, rollback target, migration result, smoke result, and residual risk fields",
       `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes, appVersion equals ${expectedVersion()}, and reviewedAt is within ${maxUxAgeDays()} days`,
     ],
@@ -154,8 +184,9 @@ function runJsonStatusCheck(input: {
   env?: Record<string, string>;
   expectedStatus: string;
   residualRiskIds: string[];
+  validateParsed?: (value: JsonRecord) => string | null;
 }): CheckResult {
-  const { env: commandEnv, ...checkInput } = input;
+  const { env: commandEnv, validateParsed, ...checkInput } = input;
   const result = spawnSync(input.command[0] ?? "pnpm", input.command.slice(1), {
     cwd: process.cwd(),
     encoding: "utf8",
@@ -187,6 +218,16 @@ function runJsonStatusCheck(input: {
 
   const actualStatus = String(parsed.status ?? "missing");
   if (actualStatus === input.expectedStatus) {
+    const parsedIssue = validateParsed?.(parsed);
+    if (parsedIssue) {
+      return {
+        ...checkInput,
+        status: "invalid",
+        command: input.command.join(" "),
+        actualStatus,
+        detail: parsedIssue,
+      };
+    }
     return {
       ...checkInput,
       status: "pass",
@@ -203,6 +244,65 @@ function runJsonStatusCheck(input: {
     actualStatus,
     detail: `expected ${input.expectedStatus}, got ${actualStatus}`,
   };
+}
+
+function runOps006ProductionCheck(): {
+  check: CheckResult;
+  binding: DoctorBinding | null;
+  releaseBinding: ReleaseEvidenceBinding | null;
+} {
+  let binding: DoctorBinding | null = null;
+  let releaseBinding: ReleaseEvidenceBinding | null = null;
+  const check = runJsonStatusCheck({
+    key: "ops006",
+    label: "OPS-006 production concurrency and data-integrity evidence",
+    command: ["pnpm", "exec", "tsx", "scripts/ops/ops006-production-evidence-preflight.ts"],
+    expectedStatus: "ready_for_ops006_human_review",
+    residualRiskIds: ["AF-RISK-OPS-006"],
+    validateParsed: (value) => {
+      const parsed = extractOps006EvidenceBindings(value);
+      binding = parsed.doctorBinding;
+      releaseBinding = parsed.releaseBinding;
+      return parsed.issue;
+    },
+  });
+  return { check, binding, releaseBinding };
+}
+
+export function extractOps006EvidenceBindings(value: JsonRecord): {
+  issue: string | null;
+  doctorBinding: DoctorBinding | null;
+  releaseBinding: ReleaseEvidenceBinding | null;
+} {
+  const evidence = value.evidence;
+  if (!isRecord(evidence)) {
+    return { issue: "OPS-006 preflight output is missing evidence binding", doctorBinding: null, releaseBinding: null };
+  }
+  const doctorBinding = {
+    fileSha256: String(evidence.afterDoctorFileSha256 ?? ""),
+    doctorHash: String(evidence.afterDoctorHash ?? ""),
+  };
+  if (!/^sha256:[a-f0-9]{64}$/.test(doctorBinding.fileSha256)
+    || !/^sha256:[a-f0-9]{64}$/.test(doctorBinding.doctorHash)) {
+    return { issue: "OPS-006 preflight after-doctor SHA/hash binding is invalid", doctorBinding: null, releaseBinding: null };
+  }
+  const releaseBinding: ReleaseEvidenceBinding = {
+    recordSha256: String(evidence.releaseEvidenceRecordSha256 ?? ""),
+    bundleHash: String(evidence.releaseEvidenceBundleHash ?? ""),
+    releaseTag: String(evidence.releaseTag ?? ""),
+    gitCommit: String(evidence.gitCommit ?? ""),
+    webImageDigest: String(evidence.webImageDigest ?? ""),
+    migrationImageDigest: String(evidence.migrationImageDigest ?? ""),
+  };
+  if (!/^sha256:[a-f0-9]{64}$/.test(releaseBinding.recordSha256)
+    || !/^sha256:[a-f0-9]{64}$/.test(releaseBinding.bundleHash)
+    || !/^v\d+\.\d+\.\d+$/.test(releaseBinding.releaseTag)
+    || !/^[a-f0-9]{40}$/.test(releaseBinding.gitCommit)
+    || !/@sha256:[a-f0-9]{64}$/.test(releaseBinding.webImageDigest)
+    || !/@sha256:[a-f0-9]{64}$/.test(releaseBinding.migrationImageDigest)) {
+    return { issue: "OPS-006 preflight Release evidence binding is invalid", doctorBinding: null, releaseBinding: null };
+  }
+  return { issue: null, doctorBinding, releaseBinding };
 }
 
 function defaultOps004EvidenceEnv(): Record<string, string> {
@@ -224,8 +324,15 @@ function defaultSupplyChainEvidenceEnv(): Record<string, string> {
   return env;
 }
 
-function validateReleaseEvidenceRecord(): CheckResult {
-  const recordPath = path.resolve(process.env.AREAFORGE_LONG_TERM_RELEASE_RECORD?.trim() || defaultReleaseRecord);
+export function validateReleaseEvidenceRecord(
+  expected: ReleaseEvidenceBinding | null,
+  options: { configuredPath?: string; root?: string } = {},
+): CheckResult {
+  const root = path.resolve(options.root ?? process.cwd());
+  const configuredPath = options.configuredPath?.trim()
+    || process.env.AREAFORGE_LONG_TERM_RELEASE_RECORD?.trim()
+    || defaultReleaseRecord;
+  const recordPath = path.resolve(root, configuredPath);
   const command = `pnpm exec tsx scripts/quality/release-evidence-validate.ts ${redactedPathLabel(recordPath)} <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>`;
   if (!existsSync(recordPath)) {
     return {
@@ -238,121 +345,216 @@ function validateReleaseEvidenceRecord(): CheckResult {
     };
   }
 
-  const validationArgs = resolveReleaseEvidenceValidationArgs(recordPath);
-  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/release-evidence-validate.ts", ...validationArgs], {
-    cwd: process.cwd(),
-    encoding: "utf8",
-  });
-  if (validation.status === 0) {
-    return {
-      key: "releaseEvidence",
-      label: "production release evidence record",
-      status: "pass",
-      detail: "release evidence validator passed",
-      command,
-      residualRiskIds: ["AF-RISK-REL-001", "AF-RISK-OPS-001"],
-    };
+  let raw: string;
+  try {
+    raw = readFileSync(recordPath, "utf8");
+  } catch {
+    return releaseEvidenceResult("invalid", "release evidence record could not be read safely", command);
   }
+  const parseIssues: ValidationIssue[] = [];
+  parseStrictIndentedKeyValueRecord(raw, parseIssues);
+  if (parseIssues.length > 0) {
+    return releaseEvidenceResult("invalid", releaseEvidenceIssueDetail(parseIssues), command);
+  }
+  const recordOnlyIssues = validateReleaseEvidenceBundle(raw).filter((issue) => !new Set([
+    "attachmentReconciliation",
+    "attachmentReconciliationSummary",
+  ]).has(issue.field));
+  if (recordOnlyIssues.length > 0) {
+    return releaseEvidenceResult("invalid", releaseEvidenceIssueDetail(recordOnlyIssues), command);
+  }
+  const validationArgs = resolveReleaseEvidenceValidationArgs(recordPath, root, raw);
+  const csvPath = validationArgs[1];
+  const summaryPath = validationArgs[2];
+  if (!csvPath || !summaryPath || !existsSync(csvPath) || !existsSync(summaryPath)) {
+    return releaseEvidenceResult("missing", "release evidence reconciliation CSV and summary are missing", command);
+  }
+  let csv: string;
+  let summary: string;
+  try {
+    csv = readFileSync(csvPath, "utf8");
+    summary = readFileSync(summaryPath, "utf8");
+  } catch {
+    return releaseEvidenceResult("invalid", "release evidence reconciliation files could not be read safely", command);
+  }
+  const issues = validateReleaseEvidenceBundle(raw, csv, summary);
+  if (issues.length > 0) {
+    return releaseEvidenceResult("invalid", releaseEvidenceIssueDetail(issues), command);
+  }
+  if (expected && releaseEvidenceBindingIssue(raw, expected)) {
+    return releaseEvidenceResult(
+      "invalid",
+      "release evidence must be the same record and Release identity bound by OPS-006",
+      command,
+      ["AF-RISK-REL-001", "AF-RISK-OPS-001", "AF-RISK-OPS-006"],
+    );
+  }
+  return releaseEvidenceResult("pass", "release evidence validator passed", command);
+}
 
-  const detail = sanitizeOutput(validation.stderr || validation.stdout || "release evidence validator failed");
+export function releaseEvidenceBindingIssue(
+  record: string,
+  expected: ReleaseEvidenceBinding,
+): string | null {
+  const parseIssues: ValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record, parseIssues);
+  if (parseIssues.length > 0) return "release evidence record is malformed or contains duplicate fields";
+  const mismatches = [
+    expected.recordSha256 !== `sha256:${sha256(record)}`,
+    expected.bundleHash !== fields.get("releaseEvidenceBundleHash"),
+    expected.releaseTag !== fields.get("releaseTag"),
+    expected.gitCommit !== fields.get("gitCommit"),
+    expected.webImageDigest !== fields.get("webImageDigest"),
+    expected.migrationImageDigest !== fields.get("migrationImageDigest"),
+  ];
+  return mismatches.some(Boolean)
+    ? "release evidence must be the same record and Release identity bound by OPS-006"
+    : null;
+}
+
+function releaseEvidenceResult(
+  status: CheckStatus,
+  detail: string,
+  command: string,
+  residualRiskIds = ["AF-RISK-REL-001", "AF-RISK-OPS-001"],
+): CheckResult {
   return {
     key: "releaseEvidence",
     label: "production release evidence record",
-    status: releaseEvidenceFailureIsPotentialSecret(detail) ? "invalid" : "missing",
+    status,
     detail,
     command,
-    residualRiskIds: ["AF-RISK-REL-001", "AF-RISK-OPS-001"],
+    residualRiskIds,
   };
 }
 
-function releaseEvidenceFailureIsPotentialSecret(detail: string): boolean {
-  return /\b(secret|token|password|database url|bearer|api key|leak)\b/i.test(detail);
+function releaseEvidenceIssueDetail(issues: Array<{ field: string; message: string }>): string {
+  return sanitizeOutput(issues.slice(0, 8).map((issue) => `${issue.field}: ${issue.message}`).join("; "));
 }
 
 function validateFreshUxRecord(): CheckResult {
-  const recordPath = path.resolve(process.env.AREAFORGE_LONG_TERM_UX_RECORD?.trim() || defaultUxRecord);
-  const command = `pnpm exec tsx scripts/quality/product-experience-review-validate.ts ${redactedPathLabel(recordPath)}`;
-  if (!existsSync(recordPath)) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "missing",
-      detail: "product experience review record is missing",
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-
-  const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/product-experience-review-validate.ts", recordPath], {
-    cwd: process.cwd(),
-    encoding: "utf8",
+  const evaluation = evaluateProductExperienceEvidence({
+    configuredPath: process.env.AREAFORGE_LONG_TERM_UX_RECORD,
+    now: now(),
+    maxAgeSeconds: maxUxAgeDays() * 24 * 60 * 60,
+    expectedVersion: expectedVersion(),
   });
-  if (validation.status !== 0) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "invalid",
-      detail: sanitizeOutput(validation.stderr || validation.stdout || "product experience review validator failed"),
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-
-  const fields = parseIndentedKeyValueRecord(readFileSync(recordPath, "utf8"));
-  const appVersion = fields.get("appVersion");
-  const requiredVersion = expectedVersion();
-  if (appVersion !== requiredVersion) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "invalid",
-      detail: `appVersion must be ${requiredVersion}, got ${appVersion || "missing"}`,
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-
-  const reviewedAt = fields.get("reviewedAt");
-  if (!reviewedAt) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "invalid",
-      detail: "reviewedAt is missing",
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-
-  const ageDays = ageInDays(reviewedAt);
-  if (!Number.isFinite(ageDays)) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "invalid",
-      detail: "reviewedAt is not a valid date",
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
-  if (ageDays > maxUxAgeDays()) {
-    return {
-      key: "uxReview",
-      label: "fresh desktop/mobile product experience review",
-      status: "stale",
-      detail: `review is ${ageDays.toFixed(1)} days old; max allowed is ${maxUxAgeDays()} days`,
-      command,
-      residualRiskIds: ["AF-RISK-UX-001"],
-    };
-  }
 
   return {
     key: "uxReview",
     label: "fresh desktop/mobile product experience review",
-    status: "pass",
-    detail: `validator passed; appVersion=${requiredVersion}; review is ${ageDays.toFixed(1)} days old`,
-    command,
+    status: evaluation.status === "fresh" ? "pass" : evaluation.status,
+    detail: evaluation.detail,
+    command: evaluation.command,
     residualRiskIds: ["AF-RISK-UX-001"],
+  };
+}
+
+export function validateFreshDataIntegrityRecord(
+  expectedBinding: DoctorBinding | null,
+  options: { configuredPath?: string; currentTime?: Date; maxAgeHours?: number } = {},
+): CheckResult {
+  const configured = options.configuredPath ?? process.env.AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD?.trim();
+  const currentTime = options.currentTime ?? now();
+  const maxAgeHours = options.maxAgeHours ?? maxDataIntegrityAgeHours();
+  const command = "pnpm ops:data-integrity:validate <data-integrity-doctor.json>";
+  if (!configured) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "missing",
+      detail: "AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD is not configured",
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  const recordPath = path.resolve(configured);
+  if (!existsSync(recordPath)) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "missing",
+      detail: "data integrity doctor record is missing",
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  const raw = readFileSync(recordPath, "utf8");
+  const issues = validateDataIntegrityDoctor(raw);
+  if (issues.length > 0) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "invalid",
+      detail: sanitizeOutput(issues.join("; ")),
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  const body = JSON.parse(raw) as JsonRecord;
+  const status = body.status as JsonRecord;
+  const safety = body.safetyFacts as JsonRecord;
+  const source = body.source as JsonRecord;
+  const checks = body.checks as JsonRecord[];
+  const attachment = checks.find((item) => item.id === "attachments.reconciliation");
+  if (
+    status.overall !== "pass" ||
+    source.database !== "configured_read_only_query" ||
+    safety.databaseReadAttempted !== true ||
+    attachment?.status !== "pass"
+  ) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "missing",
+      detail: "doctor record must declare configured_read_only_query, databaseReadAttempted=true, overall=pass, and attachment reconciliation pass",
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  const generatedAt = new Date(String(body.generatedAt ?? ""));
+  const ageHours = (currentTime.getTime() - generatedAt.getTime()) / 3_600_000;
+  if (!Number.isFinite(ageHours) || ageHours < -5 / 60) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "invalid",
+      detail: "doctor generatedAt is invalid or in the future",
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  if (ageHours > maxAgeHours) {
+    return {
+      key: "dataIntegrity",
+      label: "fresh business data integrity doctor",
+      status: "stale",
+      detail: `doctor is ${ageHours.toFixed(1)} hours old; max allowed is ${maxAgeHours} hours`,
+      command,
+      residualRiskIds: ["AF-RISK-OPS-006"],
+    };
+  }
+  if (expectedBinding) {
+    const fileSha256 = `sha256:${sha256(raw)}`;
+    const doctorHash = String(body.doctorHash ?? "");
+    if (fileSha256 !== expectedBinding.fileSha256 || doctorHash !== expectedBinding.doctorHash) {
+      return {
+        key: "dataIntegrity",
+        label: "fresh business data integrity doctor",
+        status: "invalid",
+        detail: "configured doctor must match the OPS-006 after-doctor file SHA and canonical doctorHash",
+        command,
+        residualRiskIds: ["AF-RISK-OPS-006"],
+      };
+    }
+  }
+  return {
+    key: "dataIntegrity",
+    label: "fresh business data integrity doctor",
+    status: "pass",
+    detail: `strict validator passed; record declares a read-only database query and is ${Math.max(0, ageHours).toFixed(1)} hours old`,
+    command,
+    residualRiskIds: ["AF-RISK-OPS-006"],
   };
 }
 
@@ -379,7 +581,9 @@ function missingEvidenceLabel(check: CheckResult): string {
   if (check.key === "ops001") return "OPS-001 production read-only smoke/update-agent evidence";
   if (check.key === "ops004") return "OPS-004 alert/recovery drill evidence";
   if (check.key === "ops005") return `OPS-005 expected-before V2 staged evidence (${check.actualStatus ?? "missing"})`;
-  if (check.key === "supplyChain") return "signed Release supply-chain evidence";
+  if (check.key === "ops006") return `OPS-006 signed Release, confirmed production rollout, controlled probe, and doctor evidence (${check.actualStatus ?? "missing"})`;
+  if (check.key === "dataIntegrity") return "fresh validated business data integrity doctor with attachment reconciliation";
+  if (check.key === "supplyChain") return "clean current-checkout CI or signed Release supply-chain evidence";
   if (check.key === "releaseEvidence") {
     return "production release evidence backup/hash record; under no-secret scope, validate a server-side release evidence redacted export with pnpm release:evidence:redacted-export:validate <redacted-export-dir>";
   }
@@ -400,37 +604,8 @@ function parseJsonFromLog(raw: string): unknown {
   return JSON.parse(jsonLine);
 }
 
-function parseIndentedKeyValueRecord(record: string): Map<string, string> {
-  const fields = new Map<string, string>();
-  let currentSection = "";
-
-  for (const rawLine of record.split(/\r?\n/)) {
-    if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) continue;
-    const match = rawLine.match(/^(\s*)([A-Za-z0-9_]+):\s*(.*)$/);
-    if (!match) continue;
-
-    const indent = match[1]?.length ?? 0;
-    const key = match[2] ?? "";
-    const value = match[3]?.trim() ?? "";
-    if (indent === 0) {
-      currentSection = value ? "" : key;
-      fields.set(key, value);
-      continue;
-    }
-
-    if (currentSection) {
-      fields.set(`${currentSection}.${key}`, value);
-    }
-  }
-
-  return fields;
-}
-
-function ageInDays(value: string): number {
-  const reviewedAt = new Date(value);
-  if (Number.isNaN(reviewedAt.getTime())) return Number.NaN;
-  const ageMs = now().getTime() - reviewedAt.getTime();
-  return Math.max(0, ageMs / 86_400_000);
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function maxUxAgeDays(): number {
@@ -438,6 +613,13 @@ function maxUxAgeDays(): number {
   if (!raw) return defaultMaxUxAgeDays;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultMaxUxAgeDays;
+}
+
+function maxDataIntegrityAgeHours(): number {
+  const raw = process.env.AREAFORGE_LONG_TERM_DATA_INTEGRITY_MAX_AGE_HOURS;
+  if (!raw) return defaultMaxDataIntegrityAgeHours;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultMaxDataIntegrityAgeHours;
 }
 
 function expectedVersion(): string {
@@ -477,4 +659,4 @@ function sanitizeOutput(value: string): string {
     .slice(0, 500);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

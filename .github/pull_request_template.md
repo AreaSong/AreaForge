@@ -29,6 +29,7 @@ High-risk areas include auth/session, uploads, AI context, migrations, backups/r
 ## Validation
 
 - [ ] `pnpm governance:preflight`
+- [ ] `pnpm secrets:scan`
 - [ ] `pnpm ops:readiness`
 - [ ] `pnpm skills:validate`
 - [ ] `pnpm docs:readiness`

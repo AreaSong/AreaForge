@@ -22,6 +22,12 @@ import {
   listCheckInSnapshotsInRange,
   refreshCheckInSnapshotsForDates,
 } from "./check-in-service";
+import {
+  applySessionCas,
+  applyTaskCas,
+  isUniqueConstraintViolation,
+  type TaskCasPreimage,
+} from "./concurrency";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
 import type {
@@ -519,47 +525,28 @@ export async function listStudyTasks(): Promise<StudyTaskDto[]> {
 }
 
 export async function updateStudyTask(id: string, input: UpdateTaskInput, actorId: string): Promise<StudyTaskDto> {
-  const existing = await prisma.studyTask.findUnique({
-    where: { id },
-    select: {
-      subjectId: true,
-      syllabusNodeId: true,
-      plannedDate: true,
-    },
-  });
-
-  if (!existing) {
-    throw new ApiError("TASK_NOT_FOUND", 404);
-  }
-
-  if (input.subjectId) {
-    await assertSubjectExists(input.subjectId);
-  }
-
-  const resolvedSubjectId = input.subjectId ?? existing.subjectId;
-  const resolvedSyllabusNodeId = input.syllabusNodeId === undefined ? existing.syllabusNodeId : input.syllabusNodeId;
-  if (resolvedSyllabusNodeId) {
-    await assertSyllabusNodeBelongsToSubject(resolvedSyllabusNodeId, resolvedSubjectId);
-  }
-
   const task = await prisma.$transaction(async (tx) => {
-    const updatedTask = await tx.studyTask.update({
-      where: { id },
-      data: {
-        subjectId: input.subjectId,
-        syllabusNodeId: input.syllabusNodeId,
-        title: input.title,
-        type: input.type,
-        priority: input.priority ? toDbPriority(input.priority) : undefined,
-        plannedDate: input.plannedDate ? new Date(input.plannedDate) : undefined,
-        estimatedMinutes: input.estimatedMinutes,
-        reviewText: input.reviewText,
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
-      },
+    const existing = await getTaskCommandPreimage(tx, id);
+    assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"]);
+
+    const resolvedSubjectId = input.subjectId ?? existing.subjectId;
+    const resolvedSyllabusNodeId = input.syllabusNodeId === undefined ? existing.syllabusNodeId : input.syllabusNodeId;
+    await assertSubjectExists(resolvedSubjectId, tx);
+    if (resolvedSyllabusNodeId) {
+      await assertSyllabusNodeBelongsToSubject(resolvedSyllabusNodeId, resolvedSubjectId, tx);
+    }
+
+    await applyTaskCas(tx, existing, {
+      subjectId: input.subjectId,
+      syllabusNodeId: input.syllabusNodeId,
+      title: input.title,
+      type: input.type,
+      priority: input.priority ? toDbPriority(input.priority) : undefined,
+      plannedDate: input.plannedDate ? new Date(input.plannedDate) : undefined,
+      estimatedMinutes: input.estimatedMinutes,
+      reviewText: input.reviewText,
     });
+    const updatedTask = await getUpdatedTaskForResponse(tx, id);
 
     await audit(actorId, "STUDY_TASK_UPDATED", "StudyTask", updatedTask.id, tx);
     if (input.plannedDate) {
@@ -574,33 +561,17 @@ export async function updateStudyTask(id: string, input: UpdateTaskInput, actorI
 
 export async function completeStudyTask(id: string, reviewText: string | undefined, actorId: string): Promise<StudyTaskDto> {
   const task = await prisma.$transaction(async (tx) => {
-    const existing = await tx.studyTask.findUnique({
-      where: { id },
-      select: {
-        status: true,
-        debtStatus: true,
-        plannedDate: true,
-        type: true,
-      },
-    });
-    if (!existing) {
-      throw new ApiError("TASK_NOT_FOUND", 404);
-    }
+    const existing = await getTaskCommandPreimage(tx, id);
+    assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"]);
 
     const completedAt = new Date();
-    const updatedTask = await tx.studyTask.update({
-      where: { id },
-      data: {
-        status: "DONE",
-        debtStatus: "NONE",
-        reviewText,
-        completedAt,
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
-      },
+    await applyTaskCas(tx, existing, {
+      status: "DONE",
+      debtStatus: "NONE",
+      reviewText,
+      completedAt,
     });
+    const updatedTask = await getUpdatedTaskForResponse(tx, id);
 
     await audit(actorId, "STUDY_TASK_COMPLETED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -629,33 +600,17 @@ export async function completeStudyTask(id: string, reviewText: string | undefin
 
 export async function deferStudyTask(id: string, plannedDate: string | undefined, reviewText: string | undefined, actorId: string): Promise<StudyTaskDto> {
   const task = await prisma.$transaction(async (tx) => {
-    const existing = await tx.studyTask.findUnique({
-      where: { id },
-      select: {
-        status: true,
-        debtStatus: true,
-        plannedDate: true,
-        type: true,
-      },
-    });
-    if (!existing) {
-      throw new ApiError("TASK_NOT_FOUND", 404);
-    }
+    const existing = await getTaskCommandPreimage(tx, id);
+    assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"], true);
 
     const targetPlannedDate = plannedDate ? new Date(plannedDate) : getNextStudyDayStart();
-    const updatedTask = await tx.studyTask.update({
-      where: { id },
-      data: {
-        status: "DEFERRED",
-        debtStatus: "ACCEPTABLE",
-        plannedDate: targetPlannedDate,
-        reviewText,
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
-      },
+    await applyTaskCas(tx, existing, {
+      status: "DEFERRED",
+      debtStatus: "ACCEPTABLE",
+      plannedDate: targetPlannedDate,
+      reviewText,
     });
+    const updatedTask = await getUpdatedTaskForResponse(tx, id);
 
     await audit(actorId, "STUDY_TASK_DEFERRED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -684,31 +639,14 @@ export async function deferStudyTask(id: string, plannedDate: string | undefined
 
 export async function dropStudyTask(id: string, actorId: string): Promise<StudyTaskDto> {
   const task = await prisma.$transaction(async (tx) => {
-    const existing = await tx.studyTask.findUnique({
-      where: { id },
-      select: {
-        status: true,
-        debtStatus: true,
-        plannedDate: true,
-        type: true,
-        completedAt: true,
-      },
-    });
-    if (!existing) {
-      throw new ApiError("TASK_NOT_FOUND", 404);
-    }
+    const existing = await getTaskCommandPreimage(tx, id);
+    assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"], true);
 
-    const updatedTask = await tx.studyTask.update({
-      where: { id },
-      data: {
-        status: "SKIPPED",
-        debtStatus: "NONE",
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
-      },
+    await applyTaskCas(tx, existing, {
+      status: "SKIPPED",
+      debtStatus: "NONE",
     });
+    const updatedTask = await getUpdatedTaskForResponse(tx, id);
 
     await audit(actorId, "STUDY_TASK_DROPPED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -734,23 +672,18 @@ export async function dropStudyTask(id: string, actorId: string): Promise<StudyT
 }
 
 export async function recoverStudyTask(id: string, input: RecoverTaskInput, actorId: string): Promise<StudyTaskDto> {
-  const existing = await getTaskForLightweightDebtAction(id);
   const targetPlannedDate = input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start;
   const task = await prisma.$transaction(async (tx) => {
-    const updatedTask = await tx.studyTask.update({
-      where: { id },
-      data: {
-        status: "TODO",
-        debtStatus: "ACCEPTABLE",
-        plannedDate: targetPlannedDate,
-        reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "补做：拉回今天作为恢复任务"),
-        completedAt: null,
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
-      },
+    const existing = await getTaskCommandPreimage(tx, id);
+    assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED", "SKIPPED"]);
+    await applyTaskCas(tx, existing, {
+      status: "TODO",
+      debtStatus: "ACCEPTABLE",
+      plannedDate: targetPlannedDate,
+      reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "补做：拉回今天作为恢复任务"),
+      completedAt: null,
     });
+    const updatedTask = await getUpdatedTaskForResponse(tx, id);
 
     await audit(actorId, "STUDY_TASK_RECOVERED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -781,10 +714,11 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
   originalTask: StudyTaskDto;
   task: StudyTaskDto;
 }> {
-  const existing = await getTaskForLightweightDebtAction(id);
   const plannedDate = input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start;
 
   const [originalTask, task] = await prisma.$transaction(async (tx) => {
+    const existing = await getTaskCommandPreimage(tx, id);
+    assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"]);
     const createdTask = await tx.studyTask.create({
       data: {
         subjectId: existing.subjectId,
@@ -805,18 +739,12 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
       },
     });
 
-    const updatedOriginal = await tx.studyTask.update({
-      where: { id },
-      data: {
-        status: existing.status === "DONE" || existing.status === "SKIPPED" ? existing.status : "DEFERRED",
-        debtStatus: existing.status === "DONE" || existing.status === "SKIPPED" ? existing.debtStatus : "ACCEPTABLE",
-        reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, `拆小：生成「${input.title}」作为最小推进任务`),
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
-      },
+    await applyTaskCas(tx, existing, {
+      status: "DEFERRED",
+      debtStatus: "ACCEPTABLE",
+      reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, `拆小：生成「${input.title}」作为最小推进任务`),
     });
+    const updatedOriginal = await getUpdatedTaskForResponse(tx, id);
 
     await audit(actorId, "STUDY_TASK_SPLIT_LIGHTWEIGHT", "StudyTask", createdTask.id, tx);
     await createTaskDebtEvent({
@@ -836,7 +764,7 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
         childType: createdTask.type,
         parentTaskId: existing.id,
         originalEstimatedMinutes: existing.estimatedMinutes,
-        originalStatusWasTerminal: existing.status === "DONE" || existing.status === "SKIPPED",
+        originalStatusWasTerminal: false,
       },
     }, tx);
     await refreshCheckInSnapshotsForDates([existing.plannedDate, createdTask.plannedDate], tx);
@@ -855,24 +783,19 @@ export async function convertStudyTaskToReview(
   input: ConvertTaskToReviewInput,
   actorId: string,
 ): Promise<StudyTaskDto> {
-  const existing = await getTaskForLightweightDebtAction(id);
   const task = await prisma.$transaction(async (tx) => {
-    const updatedTask = await tx.studyTask.update({
-      where: { id },
-      data: {
-        type: "review",
-        status: "TODO",
-        debtStatus: "ACCEPTABLE",
-        plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
-        estimatedMinutes: input.estimatedMinutes ?? Math.min(90, Math.max(25, existing.estimatedMinutes)),
-        reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "改成复习任务：先复盘产出，再决定是否继续原任务"),
-        completedAt: null,
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
-      },
+    const existing = await getTaskCommandPreimage(tx, id);
+    assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED", "SKIPPED"]);
+    await applyTaskCas(tx, existing, {
+      type: "review",
+      status: "TODO",
+      debtStatus: "ACCEPTABLE",
+      plannedDate: input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start,
+      estimatedMinutes: input.estimatedMinutes ?? Math.min(90, Math.max(25, existing.estimatedMinutes)),
+      reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "改成复习任务：先复盘产出，再决定是否继续原任务"),
+      completedAt: null,
     });
+    const updatedTask = await getUpdatedTaskForResponse(tx, id);
 
     await audit(actorId, "STUDY_TASK_CONVERTED_TO_REVIEW", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -920,196 +843,163 @@ export async function getActiveStudySession(): Promise<StudySessionDto | null> {
 }
 
 export async function startStudySession(input: { subjectId?: string; taskId?: string; syllabusNodeId?: string | null }, actorId: string): Promise<StudySessionDto> {
-  const active = await getActiveStudySession();
-  if (active) {
-    throw new ApiError("ACTIVE_SESSION_EXISTS", 409);
-  }
+  try {
+    const session = await prisma.$transaction(async (tx) => {
+      const task = input.taskId ? await getTaskCommandPreimage(tx, input.taskId) : null;
+      if (task) {
+        assertTaskSourceStatus(task, ["TODO", "IN_PROGRESS"]);
+      }
 
-  const task = input.taskId
-    ? await prisma.studyTask.findUnique({
-        where: { id: input.taskId },
-      })
-    : null;
+      const subjectId = task?.subjectId ?? input.subjectId;
+      if (!subjectId) {
+        throw new ApiError("SUBJECT_REQUIRED", 400);
+      }
 
-  const subjectId = task?.subjectId ?? input.subjectId;
-  if (!subjectId) {
-    throw new ApiError("SUBJECT_REQUIRED", 400);
-  }
+      await assertSubjectExists(subjectId, tx);
+      const syllabusNodeId = input.syllabusNodeId ?? task?.syllabusNodeId ?? null;
+      if (syllabusNodeId) {
+        await assertSyllabusNodeBelongsToSubject(syllabusNodeId, subjectId, tx);
+      }
 
-  await assertSubjectExists(subjectId);
-  const syllabusNodeId = input.syllabusNodeId ?? task?.syllabusNodeId ?? null;
-  if (syllabusNodeId) {
-    await assertSyllabusNodeBelongsToSubject(syllabusNodeId, subjectId);
-  }
+      const createdSession = await tx.studySession.create({
+        data: {
+          subjectId,
+          taskId: task?.id,
+          syllabusNodeId,
+          status: "RUNNING",
+          startedAt: new Date(),
+        },
+        include: {
+          subject: true,
+          task: true,
+          syllabusNode: true,
+        },
+      });
 
-  const session = await prisma.$transaction(async (tx) => {
-    const createdSession = await tx.studySession.create({
-      data: {
-        subjectId,
-        taskId: task?.id,
-        syllabusNodeId,
-        status: "RUNNING",
-        startedAt: new Date(),
-      },
-      include: {
-        subject: true,
-        task: true,
-        syllabusNode: true,
-      },
+      if (task) {
+        await applyTaskCas(tx, task, { status: "IN_PROGRESS" });
+        await refreshCheckInSnapshotsForDates([task.plannedDate], tx);
+      }
+
+      await audit(actorId, "STUDY_SESSION_STARTED", "StudySession", createdSession.id, tx);
+      return createdSession;
     });
 
-    if (task && task.status === "TODO") {
-      await tx.studyTask.update({
-        where: { id: task.id },
-        data: { status: "IN_PROGRESS" },
-      });
-      await refreshCheckInSnapshotsForDates([task.plannedDate], tx);
+    return serializeSession(session);
+  } catch (error) {
+    if (isUniqueConstraintViolation(error)) {
+      throw new ApiError("ACTIVE_SESSION_EXISTS", 409);
     }
-
-    await audit(actorId, "STUDY_SESSION_STARTED", "StudySession", createdSession.id, tx);
-
-    return createdSession;
-  });
-
-  return serializeSession(session);
+    throw error;
+  }
 }
 
 export async function pauseStudySession(id: string, actorId: string): Promise<StudySessionDto> {
-  const session = await prisma.studySession.update({
-    where: { id, status: "RUNNING" },
-    data: {
+  const session = await prisma.$transaction(async (tx) => {
+    const existing = await tx.studySession.findUnique({ where: { id } });
+    if (!existing || existing.status !== "RUNNING") {
+      throw new ApiError("SESSION_STATE_CONFLICT", 409);
+    }
+
+    await applySessionCas(tx, existing, {
       status: "PAUSED",
       pausedAt: new Date(),
-    },
-    include: {
-      subject: true,
-      task: true,
-      syllabusNode: true,
-    },
+    });
+    await audit(actorId, "STUDY_SESSION_PAUSED", "StudySession", id, tx);
+
+    return getUpdatedSessionForResponse(tx, id);
   });
 
-  await audit(actorId, "STUDY_SESSION_PAUSED", "StudySession", session.id);
   return serializeSession(session);
 }
 
 export async function resumeStudySession(id: string, actorId: string): Promise<StudySessionDto> {
-  const existing = await prisma.studySession.findUnique({
-    where: { id },
-  });
+  const session = await prisma.$transaction(async (tx) => {
+    const existing = await tx.studySession.findUnique({ where: { id } });
+    if (!existing || existing.status !== "PAUSED" || !existing.pausedAt) {
+      throw new ApiError("SESSION_STATE_CONFLICT", 409);
+    }
 
-  if (!existing || existing.status !== "PAUSED" || !existing.pausedAt) {
-    throw new ApiError("SESSION_NOT_PAUSED", 409);
-  }
-
-  const now = new Date();
-  const extraPauseSeconds = Math.max(0, Math.floor((now.getTime() - existing.pausedAt.getTime()) / 1000));
-  const session = await prisma.studySession.update({
-    where: { id },
-    data: {
+    const now = new Date();
+    const extraPauseSeconds = Math.max(0, Math.floor((now.getTime() - existing.pausedAt.getTime()) / 1000));
+    await applySessionCas(tx, existing, {
       status: "RUNNING",
       pausedAt: null,
       accumulatedPauseSeconds: existing.accumulatedPauseSeconds + extraPauseSeconds,
-    },
-    include: {
-      subject: true,
-      task: true,
-      syllabusNode: true,
-    },
+    });
+    await audit(actorId, "STUDY_SESSION_RESUMED", "StudySession", id, tx);
+
+    return getUpdatedSessionForResponse(tx, id);
   });
 
-  await audit(actorId, "STUDY_SESSION_RESUMED", "StudySession", session.id);
   return serializeSession(session);
 }
 
 export async function endStudySession(id: string, input: EndSessionInput, actorId: string): Promise<StudySessionDto> {
-  const existing = await prisma.studySession.findUnique({
-    where: { id },
-  });
+  const session = await prisma.$transaction(async (tx) => {
+    const existing = await tx.studySession.findUnique({ where: { id } });
+    if (!existing || (existing.status !== "RUNNING" && existing.status !== "PAUSED")) {
+      throw new ApiError("SESSION_STATE_CONFLICT", 409);
+    }
 
-  if (!existing || (existing.status !== "RUNNING" && existing.status !== "PAUSED")) {
-    throw new ApiError("SESSION_NOT_ACTIVE", 409);
-  }
-
-  const now = new Date();
-  const pauseSeconds =
-    existing.status === "PAUSED" && existing.pausedAt
+    const now = new Date();
+    const pauseSeconds = existing.status === "PAUSED" && existing.pausedAt
       ? existing.accumulatedPauseSeconds + Math.max(0, Math.floor((now.getTime() - existing.pausedAt.getTime()) / 1000))
       : existing.accumulatedPauseSeconds;
-  const effectiveSeconds = getTimerElapsedSeconds({
-    status: "completed",
-    startedAt: existing.startedAt,
-    endedAt: now,
-    accumulatedPauseSeconds: pauseSeconds,
-  });
-  const effectiveMinutes = Math.max(0, Math.floor(effectiveSeconds / 60));
-  const closeout = normalizeStudyCloseout({
-    minutes: effectiveMinutes,
-    userMarkedEffective: input.isEffective,
-    understandingLevel: input.understandingLevel,
-    minimalOutput: input.minimalOutput,
-    nextAction: input.nextAction,
-    producedNote: input.producedNote,
-    producedMistake: input.producedMistake,
-    note: input.note,
-  });
-  const isEffective = closeout.isEffective;
-  const note = closeout.closeoutText;
+    const effectiveSeconds = getTimerElapsedSeconds({
+      status: "completed",
+      startedAt: existing.startedAt,
+      endedAt: now,
+      accumulatedPauseSeconds: pauseSeconds,
+    });
+    const effectiveMinutes = Math.max(0, Math.floor(effectiveSeconds / 60));
+    const closeout = normalizeStudyCloseout({
+      minutes: effectiveMinutes,
+      userMarkedEffective: input.isEffective,
+      understandingLevel: input.understandingLevel,
+      minimalOutput: input.minimalOutput,
+      nextAction: input.nextAction,
+      producedNote: input.producedNote,
+      producedMistake: input.producedMistake,
+      note: input.note,
+    });
 
-  const session = await prisma.$transaction(async (tx) => {
-    const updatedSession = await tx.studySession.update({
-      where: { id },
-      data: {
-        status: "COMPLETED",
-        endedAt: now,
-        pausedAt: null,
-        accumulatedPauseSeconds: pauseSeconds,
-        effectiveMinutes,
-        qualityScore: input.qualityScore,
-        isEffective,
-        understandingLevel: input.understandingLevel,
-        minimalOutput: input.minimalOutput,
-        nextAction: input.nextAction,
-        producedNote: input.producedNote,
-        producedMistake: input.producedMistake,
-        isLowConversion: closeout.isLowConversion,
-        antiFakeReason: closeout.antiFakeReason,
-        requiredOutput: closeout.requiredOutput,
-        closeoutVersion: 1,
-        note,
-      },
-      include: {
-        subject: true,
-        task: true,
-        syllabusNode: true,
-      },
+    await applySessionCas(tx, existing, {
+      status: "COMPLETED",
+      endedAt: now,
+      pausedAt: null,
+      accumulatedPauseSeconds: pauseSeconds,
+      effectiveMinutes,
+      qualityScore: input.qualityScore,
+      isEffective: closeout.isEffective,
+      understandingLevel: input.understandingLevel,
+      minimalOutput: input.minimalOutput,
+      nextAction: input.nextAction,
+      producedNote: input.producedNote,
+      producedMistake: input.producedMistake,
+      isLowConversion: closeout.isLowConversion,
+      antiFakeReason: closeout.antiFakeReason,
+      requiredOutput: closeout.requiredOutput,
+      closeoutVersion: 1,
+      note: closeout.closeoutText,
     });
 
     const linkedTask = existing.taskId
-      ? await tx.studyTask.findUnique({
-          where: { id: existing.taskId },
-          select: {
-            id: true,
-            status: true,
-            debtStatus: true,
-            plannedDate: true,
-            type: true,
-          },
-        })
+      ? await getTaskCommandPreimage(tx, existing.taskId)
       : null;
 
     if (linkedTask) {
-      const updatedTask = await tx.studyTask.update({
-        where: { id: linkedTask.id },
-        data: {
-          actualMinutes: {
-            increment: effectiveMinutes,
-          },
-          status: input.completeTask && isEffective ? "DONE" : "IN_PROGRESS",
-          debtStatus: input.completeTask && isEffective ? "NONE" : undefined,
-          completedAt: input.completeTask && isEffective ? now : undefined,
-        },
+      assertTaskSourceStatus(linkedTask, ["TODO", "IN_PROGRESS", "DEFERRED"]);
+      const shouldCompleteTask = input.completeTask && closeout.isEffective;
+      await applyTaskCas(tx, linkedTask, {
+        actualMinutes: { increment: effectiveMinutes },
+        status: shouldCompleteTask ? "DONE" : "IN_PROGRESS",
+        debtStatus: shouldCompleteTask ? "NONE" : undefined,
+        completedAt: shouldCompleteTask ? now : null,
       });
-      if (input.completeTask && isEffective) {
+      const updatedTask = await tx.studyTask.findUnique({ where: { id: linkedTask.id } });
+      if (!updatedTask) throw new ApiError("TASK_STATE_CONFLICT", 409);
+      if (shouldCompleteTask) {
         await createTaskDebtEvent({
           taskId: updatedTask.id,
           actorId,
@@ -1119,7 +1009,7 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
           reason: "计时结束时勾选完成且本次有效",
           metadata: {
             source: "study_session_end",
-            studySessionId: updatedSession.id,
+            studySessionId: existing.id,
             effectiveMinutes,
             qualityScore: input.qualityScore,
             startedAt: existing.startedAt.toISOString(),
@@ -1144,10 +1034,10 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
       });
     }
 
-    await audit(actorId, "STUDY_SESSION_ENDED", "StudySession", updatedSession.id, tx);
+    await audit(actorId, "STUDY_SESSION_ENDED", "StudySession", existing.id, tx);
     await refreshCheckInSnapshotsForDates([existing.startedAt, linkedTask?.plannedDate ?? null], tx);
 
-    return updatedSession;
+    return getUpdatedSessionForResponse(tx, id);
   });
 
   return serializeSession(session);
@@ -1243,8 +1133,8 @@ export async function listSubjects(): Promise<SubjectDto[]> {
   return subjects.map(serializeSubject);
 }
 
-async function assertSubjectExists(subjectId: string): Promise<void> {
-  const subject = await prisma.subject.findUnique({
+async function assertSubjectExists(subjectId: string, client: StudyDbClient = prisma): Promise<void> {
+  const subject = await client.subject.findUnique({
     where: { id: subjectId },
     select: { id: true },
   });
@@ -1254,20 +1144,76 @@ async function assertSubjectExists(subjectId: string): Promise<void> {
   }
 }
 
-async function getTaskForLightweightDebtAction(id: string) {
-  const task = await prisma.studyTask.findUnique({
+interface TaskCommandPreimage extends TaskCasPreimage {
+  subjectId: string;
+  syllabusNodeId: string | null;
+  parentTaskId: string | null;
+  title: string;
+  priority: DbTaskPriority;
+  estimatedMinutes: number;
+  actualMinutes: number;
+  reviewText: string | null;
+}
+
+async function getTaskCommandPreimage(tx: Prisma.TransactionClient, id: string): Promise<TaskCommandPreimage> {
+  const task = await tx.studyTask.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      subjectId: true,
+      syllabusNodeId: true,
+      parentTaskId: true,
+      title: true,
+      type: true,
+      status: true,
+      priority: true,
+      debtStatus: true,
+      plannedDate: true,
+      estimatedMinutes: true,
+      actualMinutes: true,
+      reviewText: true,
+      completedAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!task) throw new ApiError("TASK_NOT_FOUND", 404);
+  return task;
+}
+
+function assertTaskSourceStatus(
+  task: TaskCommandPreimage,
+  allowed: DbTaskStatus[],
+  requireIncomplete = false,
+): void {
+  if (!allowed.includes(task.status) || (requireIncomplete && task.completedAt !== null)) {
+    throw new ApiError("TASK_STATE_CONFLICT", 409);
+  }
+}
+
+async function getUpdatedTaskForResponse(tx: Prisma.TransactionClient, id: string) {
+  const task = await tx.studyTask.findUnique({
     where: { id },
     include: {
       subject: true,
       syllabusNode: true,
     },
   });
-
-  if (!task) {
-    throw new ApiError("TASK_NOT_FOUND", 404);
-  }
-
+  if (!task) throw new ApiError("TASK_STATE_CONFLICT", 409);
   return task;
+}
+
+async function getUpdatedSessionForResponse(tx: Prisma.TransactionClient, id: string) {
+  const session = await tx.studySession.findUnique({
+    where: { id },
+    include: {
+      subject: true,
+      task: true,
+      syllabusNode: true,
+    },
+  });
+  if (!session) throw new ApiError("SESSION_STATE_CONFLICT", 409);
+  return session;
 }
 
 async function getTodaySessionMetrics(
@@ -1410,7 +1356,10 @@ async function finishRecoveryState(
     if (!existing) {
       throw new ApiError("RECOVERY_STATE_NOT_FOUND", 404);
     }
-    if (existing.status !== "active") return existing;
+    if (existing.status !== "active") {
+      if (existing.status === status) return existing;
+      throw new ApiError("RECOVERY_STATE_ALREADY_FINISHED", 409);
+    }
 
     return tx.recoveryState.update({
       where: { id },

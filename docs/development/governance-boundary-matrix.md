@@ -41,6 +41,7 @@
 4. 先运行 `pnpm governance:changed-paths --summary`：`routine` 走常规验证，`protected-path` 必须链接控制面证据，`high-risk` 必须回到确认包和专项验证。该报告不授予高风险确认。
 5. 工作区不是干净状态时，先保存 [受保护路径审阅记录模板](protected-path-review-record-template.md) 或在 PR/完成声明中等价记录审阅范围、`git status` 指纹、受保护路径 fingerprint、发现和未证明项。
 6. 模板校验通过只证明记录的形态；它不证明生产健康、所有目录均被审阅、工作区干净、没有未追踪改动或任何 R4 动作已经执行。
+7. 治理权威来源、唯一 accountable owner、已有 package script 门禁和复审触发器统一登记在 `governance-register.json`；登记册不得承载 lifecycle 或 residual 状态。
 
 ## 最小验证
 

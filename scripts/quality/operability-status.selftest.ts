@@ -7,11 +7,24 @@ import {
   formatOperabilityStatusSummary,
   protectedPathFiles,
 } from "../ops/operability-status";
+import {
+  computeAcceptedExceptionBasisHash,
+  type AcceptedExceptionStatus,
+  type ResidualItemV2,
+} from "./residual-ledger-common";
+import type { ProductExperienceEvidenceEvaluation } from "./product-experience-review-validate";
 
 const requiredFiles = [
   "README.md",
   "docs/README.md",
   "docs/development/long-term-operability-control-plane.md",
+  "docs/development/governance-register.json",
+  "docs/development/governance-register.md",
+  "docs/development/operations-lifecycle.md",
+  "docs/development/operations-lifecycle.json",
+  "docs/development/post-release-observation-template.json",
+  "docs/development/post-release-observation-v0.1.7.json",
+  "docs/development/product-experience-review-record-template.md",
   "docs/development/maintenance-cadence.md",
   "docs/development/maintenance-window-record-template.md",
   "docs/development/maintenance-window-index.json",
@@ -19,15 +32,29 @@ const requiredFiles = [
   "docs/development/rollback-proof-record-template.md",
   "docs/development/operational-readiness.md",
   "docs/development/update-request-expected-before-design.md",
+  "docs/development/data-integrity-doctor.md",
   "docs/development/ops-005-expected-before-production-evidence-template.md",
   "docs/development/high-risk-confirmation-packets.md",
   "tasks/active/0019-update-request-expected-before-binding.md",
+  "tasks/active/0020-business-state-concurrency.md",
+  "tasks/backlog/0021-attachment-staging-intent.md",
+  "tasks/backlog/0022-updater-phase-journal-hold.md",
   "docs/development/release-v0.1.7-record.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "docs/development/validation-matrix.md",
   "workflow/README.md",
+  "apps/web/lib/system/update-center.ts",
+  "apps/web/app/api/system/update-requests/route.ts",
+  "apps/web/lib/system/update-request-v2.ts",
+  "ops/update-agent/areaforge-update-agent.sh",
+  "ops/update-agent/lib/update-request-v2.sh",
+  "ops/update-agent/lib/update-request-state.sh",
+  "ops/github-release-updater/areaforge-updater.sh",
+  "scripts/quality/update-center-request-v2.selftest.ts",
+  "scripts/quality/update-agent-request-v2.selftest.ts",
+  "scripts/quality/update-production-state-lock.selftest.ts",
   ".codex/skills-src/README.md",
   ".codex/skills-src/areaforge-operating-loop/SKILL.md",
   ".codex/skills-src/areaforge-sre-ops/SKILL.md",
@@ -54,9 +81,18 @@ const requiredFiles = [
   "scripts/ops/release-closeout-audit.ts",
   "scripts/quality/release-closeout-audit-validate.ts",
   "scripts/quality/release-closeout-audit.selftest.ts",
+  "scripts/ops/post-release-observation-status.ts",
+  "scripts/quality/post-release-observation-status.selftest.ts",
+  "scripts/quality/post-release-observation-validate.ts",
+  "scripts/quality/product-experience-review-discovery.ts",
+  "scripts/quality/product-experience-review-validate.ts",
+  "scripts/quality/post-release-observation-validate.selftest.ts",
   "scripts/quality/attachment-reconciliation.ts",
   "scripts/quality/attachment-reconciliation-summary.ts",
   "scripts/quality/attachment-reconciliation-summary.selftest.ts",
+  "scripts/ops/data-integrity-doctor.ts",
+  "scripts/quality/data-integrity-doctor-validate.ts",
+  "scripts/quality/data-integrity-doctor.selftest.ts",
   "scripts/quality/release-evidence-validate.ts",
   "scripts/quality/release-evidence-validate.selftest.ts",
   "scripts/ops/ops001-evidence-preflight.ts",
@@ -64,8 +100,11 @@ const requiredFiles = [
   "scripts/ops/ops005-evidence-preflight.ts",
   "scripts/quality/ops005-production-evidence-validate.ts",
   "scripts/ops/sc002-supply-chain-preflight.ts",
+  "scripts/quality/github-main-protection-validate.ts",
+  "scripts/ops/sc004-main-protection-preflight.ts",
   "scripts/ops/operational-alert-preview.ts",
   "scripts/ops/residual-review-due.ts",
+  "scripts/ops/residual-promotion-preview.ts",
   "scripts/ops/generate-maintenance-window-record.ts",
   "scripts/ops/maintenance-window-index.ts",
   "scripts/quality/maintenance-window-index-common.ts",
@@ -79,6 +118,7 @@ const requiredFiles = [
   "scripts/quality/rollback-proof-record-validate.selftest.ts",
   "scripts/quality/enterprise-operability-preflight.ts",
   "scripts/quality/residual-ledger-validate.ts",
+  "scripts/quality/residual-promotion-preview.selftest.ts",
   "scripts/quality/residual-evidence-preflight.ts",
   "scripts/quality/residual-evidence-preflight.selftest.ts",
   "docs/development/residual-closure-review-template.md",
@@ -98,6 +138,12 @@ const requiredFiles = [
   "scripts/quality/ops005-evidence-preflight.selftest.ts",
   "scripts/quality/ops005-production-evidence-validate.selftest.ts",
   "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
+  "scripts/quality/governance-register-validate.ts",
+  "scripts/quality/governance-register-validate.selftest.ts",
+  "scripts/quality/operations-lifecycle-validate.ts",
+  "scripts/quality/operations-lifecycle-validate.selftest.ts",
+  "scripts/quality/github-main-protection-validate.selftest.ts",
+  "scripts/quality/sc004-main-protection-preflight.selftest.ts",
 ];
 
 const requiredScripts = [
@@ -105,6 +151,11 @@ const requiredScripts = [
   "ops:status:validate",
   "ops:status:validate:selftest",
   "ops:status:selftest",
+  "governance:register:validate",
+  "governance:register:selftest",
+  "ops:lifecycle:validate",
+  "ops:lifecycle:selftest",
+  "ops:lifecycle:typecheck",
   "ops:handoff",
   "ops:handoff:validate",
   "ops:handoff:validate:selftest",
@@ -128,9 +179,16 @@ const requiredScripts = [
   "release:closeout:audit",
   "release:closeout:audit:validate",
   "release:closeout:audit:selftest",
+  "release:post-observation:validate",
+  "release:post-observation:validate:selftest",
+  "release:post-observation:status",
+  "release:post-observation:status:selftest",
   "attachment:reconciliation",
   "attachment:reconciliation:summary",
   "attachment:reconciliation:summary:selftest",
+  "ops:data-integrity:doctor",
+  "ops:data-integrity:validate",
+  "ops:data-integrity:selftest",
   "release:evidence:validate",
   "release:evidence:selftest",
   "ops:ops-001:preflight",
@@ -141,10 +199,15 @@ const requiredScripts = [
   "ops:ops-004:preflight:selftest",
   "ops:ops-005:preflight",
   "ops:ops-005:preflight:selftest",
+  "ops:ops-005:local:selftest",
   "ops:ops-005:evidence:validate",
   "ops:ops-005:evidence:selftest",
   "sc:sc-002:preflight",
   "sc:sc-002:preflight:selftest",
+  "sc:sc-004:validate",
+  "sc:sc-004:validate:selftest",
+  "sc:sc-004:preflight",
+  "sc:sc-004:preflight:selftest",
   "ops:alert:preview",
   "enterprise:operability:preflight",
   "maintenance:cadence:preflight",
@@ -166,6 +229,9 @@ const requiredScripts = [
   "residuals:closure:validate",
   "residuals:closure:selftest",
   "residuals:review-due",
+  "residuals:review-due:selftest",
+  "residuals:promotion-preview",
+  "residuals:promotion-preview:selftest",
   "release:train:preflight",
 ];
 
@@ -178,7 +244,8 @@ function main(): void {
       asOf: "2026-07-11",
       generatedAt: "2026-07-11T00:00:00.000Z",
     });
-    assert(projection.schemaVersion === 1, "schemaVersion should be 1");
+    assert(projection.schemaVersion === 2, "schemaVersion should be 2");
+    assert(projection.uxReview.status === "missing", "fixture without UX evidence must project missing instead of reusing ledger prose");
     assert(projection.status.controlPlane === "pass", "fixture control plane should pass");
     assert(projection.status.overall === "blocked", "current blocker should block offline overall status");
     assert(projection.status.releaseTrain === "blocked", "current blocker should block release train status");
@@ -227,16 +294,17 @@ function main(): void {
     assert(
       projection.boundaryStops.some((stop) =>
         stop.key === "update_request_expected_before" &&
-        stop.currentBoundary.includes("no high-risk local implementation confirmation") &&
+        stop.currentBoundary.includes("no matching signed Release for the verified V2 checkout") &&
         stop.currentBoundary.includes("no production deployment confirmation")
       ),
-      "projection should separate expected-before implementation and deployment confirmations",
+      "projection should separate verified expected-before implementation from signed Release and deployment confirmations",
     );
     assert(projection.safetyFacts.readOnly === true, "projection should be read-only");
     assert(projection.safetyFacts.networkRequested === false, "projection should not request network");
     assert(projection.safetyFacts.protectedPathWriteAttempted === false, "projection should not write protected paths");
     assert(projection.safetyFacts.statusProjectionWritten === false, "projection should not write a status file");
-    assert(projection.residuals.countsByType["current-blocker"] === 2, "current blocker count should be 2");
+    assert(projection.residuals.countsByType["current-blocker"] === 3, "current blocker count should be 3");
+    assert(projection.residuals.currentBlockerIds.includes("AF-RISK-OPS-006"), "future current blockers must remain explicit");
     assert(projection.releaseEvidenceGaps.status === "needs_evidence", "release evidence gaps should need evidence");
     assert(
       projection.releaseEvidenceGaps.blockingGaps.some((gap) =>
@@ -256,7 +324,30 @@ function main(): void {
     );
     assert(projection.residuals.countsByType["monitoring-gap"] === 0, "monitoring gap count should be 0");
     assert(projection.residuals.countsByReviewStatus.due_soon === 2, "due soon count should be 2");
+    assert(
+      projection.residuals.executableNowItems.some((item) => item.id === "AF-RISK-OPS-006"),
+      "effective executable residual should be projected",
+    );
+    assert(
+      projection.residuals.nonEffectiveAcceptedExceptionItems.some((item) =>
+        item.id === "AF-RISK-AI-001" && item.effectiveExceptionStatus === "expired"
+      ),
+      "non-effective accepted exception should be projected",
+    );
+    assert(
+      !projection.residuals.nonEffectiveAcceptedExceptionItems.some((item) => item.id === "AF-RISK-REL-001"),
+      "effective accepted exception should not be projected as attention",
+    );
+    assert(
+      projection.nextActions.some((item) =>
+        item.residualRiskId === "AF-RISK-AI-001" && item.reason.startsWith("accepted_exception_expired:")
+      ),
+      "non-effective accepted exception should be projected into next actions",
+    );
     assert(projection.requiredFiles.present.includes("docs/development/support-bundle-preview.md"), "projection should require support bundle preview docs");
+    assert(projection.requiredFiles.present.includes("docs/development/operations-lifecycle.json"), "projection should require operations lifecycle source");
+    assert(projection.requiredFiles.present.includes("docs/development/governance-register.json"), "projection should require governance register source");
+    assert(projection.requiredFiles.present.includes("scripts/quality/operations-lifecycle-validate.ts"), "projection should require operations lifecycle validator");
     assert(projection.requiredFiles.present.includes("docs/development/update-request-expected-before-design.md"), "projection should require expected-before design docs");
     assert(projection.requiredFiles.present.includes("tasks/active/0019-update-request-expected-before-binding.md"), "projection should require expected-before active task");
     assert(projection.requiredFiles.present.includes("scripts/quality/residual-evidence-preflight.ts"), "projection should require residual evidence preflight file");
@@ -271,10 +362,16 @@ function main(): void {
     assert(projection.requiredFiles.present.includes("scripts/ops/backup-restore-preview.ts"), "projection should require backup/restore preview script file");
     assert(projection.requiredFiles.present.includes("scripts/quality/backup-restore-preview-validate.ts"), "projection should require backup/restore preview validator file");
     assert(projection.requiredFiles.present.includes("scripts/quality/backup-restore-preview.selftest.ts"), "projection should require backup/restore preview selftest file");
+    assert(projection.requiredFiles.present.includes("scripts/ops/data-integrity-doctor.ts"), "projection should require data integrity doctor file");
+    assert(projection.requiredFiles.present.includes("scripts/quality/data-integrity-doctor-validate.ts"), "projection should require data integrity doctor validator file");
     assert(projection.requiredFiles.present.includes("ops/update-agent/areaforge-release-evidence-redacted-export.sh"), "projection should require release evidence redacted export helper file");
     assert(projection.requiredFiles.present.includes("scripts/quality/release-evidence-redacted-export-validate.ts"), "projection should require release evidence redacted export validator file");
     assert(projection.requiredFiles.present.includes("scripts/quality/release-evidence-redacted-export.selftest.ts"), "projection should require release evidence redacted export selftest file");
     assert(projection.packageScripts.present.includes("ops:support:bundle-preview"), "projection should require support bundle preview script");
+    assert(projection.packageScripts.present.includes("ops:lifecycle:validate"), "projection should require operations lifecycle validation");
+    assert(projection.packageScripts.present.includes("governance:register:validate"), "projection should require governance register validation");
+    assert(projection.packageScripts.present.includes("ops:lifecycle:selftest"), "projection should require operations lifecycle selftest");
+    assert(projection.packageScripts.present.includes("ops:lifecycle:typecheck"), "projection should require operations lifecycle typecheck");
     assert(projection.packageScripts.present.includes("residuals:evidence:preflight"), "projection should require residual evidence preflight script");
     assert(projection.packageScripts.present.includes("residuals:evidence:preflight:selftest"), "projection should require residual evidence preflight selftest script");
     assert(projection.packageScripts.present.includes("residuals:closure:validate"), "projection should require residual closure review validator script");
@@ -296,9 +393,13 @@ function main(): void {
     assert(projection.packageScripts.present.includes("ops:ops-005:preflight"), "projection should require OPS-005 expected-before evidence preflight script");
     assert(projection.packageScripts.present.includes("ops:ops-005:evidence:validate"), "projection should require OPS-005 production evidence validator script");
     assert(projection.packageScripts.present.includes("sc:sc-002:preflight"), "projection should require SC-002 supply-chain preflight script");
+    assert(projection.packageScripts.present.includes("sc:sc-004:validate"), "projection should require SC-004 evidence validator script");
+    assert(projection.packageScripts.present.includes("sc:sc-004:preflight"), "projection should require SC-004 evidence preflight script");
     assert(projection.packageScripts.present.includes("ops:long-term:gate"), "projection should require long-term live evidence gate script");
     assert(projection.packageScripts.present.includes("ops:long-term:snapshot"), "projection should require long-term evidence snapshot script");
     assert(projection.packageScripts.present.includes("ops:readonly-side-effect:selftest"), "projection should require read-only side-effect selftest script");
+    assert(projection.packageScripts.present.includes("ops:data-integrity:doctor"), "projection should require data integrity doctor script");
+    assert(projection.packageScripts.present.includes("ops:data-integrity:validate"), "projection should require data integrity doctor validator script");
     assert(projection.packageScripts.present.includes("maintenance:window:record"), "projection should require maintenance window record generator");
     assert(projection.packageScripts.present.includes("maintenance:window:validate"), "projection should require maintenance window validator");
     assert(projection.packageScripts.present.includes("maintenance:window:index:validate"), "projection should require maintenance window index validator");
@@ -314,7 +415,7 @@ function main(): void {
     assert(projection.commands.daily.some((command: string) => command.includes("ops:ops-001:fallback:finalize")), "daily commands should include OPS-001 fallback finalizer");
     assert(projection.commands.daily.includes("pnpm ops:ops-004:preflight"), "daily commands should include OPS-004 alert evidence preflight");
     assert(projection.commands.daily.includes("pnpm ops:ops-005:preflight"), "daily commands should include OPS-005 expected-before evidence preflight");
-    assert(projection.commands.daily.includes("pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record>"), "daily commands should include OPS-005 production evidence validation");
+    assert(projection.commands.daily.includes("pnpm ops:ops-005:evidence:validate <ops-005-production-evidence-record> <release-record> <release-assets-dir>"), "daily commands should include strict OPS-005 production evidence validation");
     assert(projection.commands.daily.includes("pnpm ops:long-term:snapshot"), "daily commands should include long-term evidence snapshot");
     assert(projection.commands.daily.includes("pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>"), "daily commands should include long-term evidence snapshot validation");
     assert(projection.commands.daily.includes("pnpm maintenance:window:record"), "daily commands should include maintenance window record generation");
@@ -336,6 +437,7 @@ function main(): void {
     assert(projection.commands.weekly.includes("pnpm sc:sc-002:preflight:selftest"), "weekly commands should include SC-002 supply-chain preflight selftest");
     assert(projection.commands.weekly.includes("pnpm ops:long-term:snapshot:selftest"), "weekly commands should include long-term evidence snapshot selftest");
     assert(projection.commands.weekly.includes("pnpm ops:readonly-side-effect:selftest"), "weekly commands should include read-only side-effect selftest");
+    assert(projection.commands.weekly.includes("pnpm ops:data-integrity:selftest"), "weekly commands should include data integrity doctor selftest");
     assert(projection.commands.weekly.includes("pnpm residuals:evidence:preflight:selftest"), "weekly commands should include residual evidence preflight selftest");
     assert(projection.commands.weekly.includes("pnpm residuals:closure:selftest"), "weekly commands should include residual closure review selftest");
     assert(projection.commands.weekly.includes("pnpm maintenance:window:record:selftest"), "weekly commands should include maintenance window record selftest");
@@ -344,9 +446,11 @@ function main(): void {
     assert(projection.commands.incident.includes("pnpm incident:index:validate docs/development/incident-index.json"), "incident commands should include saved incident index validation");
     assert(projection.commands.incident.includes("pnpm rollback:proof:validate <record>"), "incident commands should include rollback proof validation");
     assert(projection.commands.release.includes("pnpm sc:sc-002:preflight"), "release commands should include SC-002 supply-chain preflight");
+    assert(projection.commands.release.includes("pnpm sc:sc-004:validate <readback.json> <controlled-pr.json>"), "release commands should include SC-004 evidence validation");
     assert(projection.commands.release.includes("pnpm ops:ops-005:preflight"), "release commands should include OPS-005 expected-before preflight");
     assert(projection.commands.release.includes("pnpm ops:long-term:gate"), "release commands should include long-term live evidence gate");
     assert(projection.commands.release.includes("pnpm ops:long-term:snapshot"), "release commands should include long-term evidence snapshot");
+    assert(projection.commands.release.some((command) => command.includes("ops:data-integrity:doctor")), "release commands should include data integrity doctor");
     assert(projection.commands.release.includes("pnpm release:evidence:redacted-export:validate <redacted-export-dir>"), "release commands should include release evidence redacted export validation");
     assert(projection.commands.release.includes("pnpm release:closeout:audit -- --version <X.Y.Z>"), "release commands should include release closeout audit");
     assert(projection.commands.release.includes("pnpm release:evidence:redacted-export:selftest"), "release commands should include release evidence redacted export selftest");
@@ -359,16 +463,60 @@ function main(): void {
     assert(summary.offlineOverall === "blocked", "summary should preserve overall status");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include non-executable current blockers");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-005")), "summary should include expected-before current blocker");
+    assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-006")), "summary should include future current blockers");
     assert(summary.boundaryStops.some((item) => item.includes("post_update_ops001")), "summary should include boundary stops");
     assert(summary.boundaryStops.some((item) => item.includes("update_request_expected_before")), "summary should include expected-before boundary stop");
     assert(summary.releaseEvidenceGaps.some((item) => item.includes("releaseEvidenceBundleHash")), "summary should include release evidence gaps");
+    assert(summary.uxReview.startsWith("missing:"), "summary should include machine-derived UX evidence status");
     assert(summary.dueResiduals.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include due residual IDs");
+    assert(summary.executableNowItems.some((item) => item.includes("AF-RISK-OPS-006")), "summary should include immediately executable residuals");
     assert(summary.nextEvidenceCommands.includes("pnpm ops:handoff --summary"), "summary should include human-readable next evidence commands");
     assert(summary.nextEvidenceCommands.includes("pnpm ops:ops-001:preflight"), "summary should include OPS-001 preflight command");
+    assert(summary.nextEvidenceCommands.includes("pnpm ops:ops-006:preflight:strict"), "summary should include OPS-006 strict preflight command");
+    assert(summary.nextEvidenceCommands.includes("pnpm sc:sc-004:preflight"), "summary should include SC-004 preflight command");
+    assert(summary.nextEvidenceCommands.includes("pnpm sc:sc-004:preflight:selftest"), "summary should include SC-004 preflight selftest command");
+    assert(summary.nextEvidenceCommands.includes("pnpm sc:sc-004:validate <readback.json> <controlled-pr.json>"), "summary should include SC-004 validator command");
+    assert(summary.nextEvidenceCommands.includes("pnpm attachment:crash-window:selftest"), "summary should include OPS-007 fixture command");
+    assert(summary.nextEvidenceCommands.includes("pnpm updater:phase-journal:selftest"), "summary should include OPS-008 fixture command");
+    assert(summary.nextEvidenceCommands.includes("pnpm ops:ops-007:preflight:strict"), "summary should include OPS-007 strict preflight");
+    assert(summary.nextEvidenceCommands.includes("pnpm ops:ops-008:preflight:strict"), "summary should include OPS-008 strict preflight");
     assert(summary.nextEvidenceCommands.includes("pnpm release:evidence:redacted-export:validate <redacted-export-dir>"), "summary should include release redacted export validation command");
     assert(summary.cannotClaim.includes("current production health"), "summary should include non-proof boundary");
     assert(formattedSummary.includes("AreaForge operability status"), "formatted summary should include title");
     assert(formattedSummary.includes("safetyFacts: readOnly=true"), "formatted summary should include safety facts");
+
+    writeJson(root, "docs/development/residual-risk-ledger.json", {
+      schemaVersion: 2,
+      source: "docs/development/residual-risk-ledger.md",
+      items: [
+        residualItem({
+          id: "AF-RISK-UX-001",
+          type: "closed-evidence",
+          reviewAt: "2026-07-10",
+          currentImpact: "historical UX evidence requires periodic review",
+          closeCondition: "fresh desktop and mobile review",
+          requiredEvidence: "validated product experience record",
+          ownerSkills: ["areaforge-product-experience", "areaforge-qa-smoke"],
+        }),
+      ],
+    });
+    const overdueClosedEvidence = buildOperabilityStatusProjection({
+      root,
+      asOf: "2026-07-11",
+      generatedAt: "2026-07-11T00:00:00.000Z",
+      uxReviewEvaluation: uxEvaluation("stale"),
+    });
+    assert(overdueClosedEvidence.status.overall === "needs_live_evidence", "overdue closed evidence must downgrade offline overall status");
+    assert(overdueClosedEvidence.status.releaseTrain === "needs_release_evidence", "overdue closed evidence must downgrade release train status");
+    assert(overdueClosedEvidence.residuals.dueItems.some((item) => item.id === "AF-RISK-UX-001" && item.reviewStatus === "overdue"), "overdue evidence must remain visible in due items");
+    assert(overdueClosedEvidence.uxReview.status === "stale", "status projection must preserve stale UX evaluator output");
+    assert(
+      overdueClosedEvidence.nextActions.some((item) =>
+        item.residualRiskId === "AF-RISK-UX-001" && item.reason.startsWith("ux_review_stale:") && !item.reason.includes("historical UX evidence")
+      ),
+      "UX next action must come from the evaluator rather than static currentImpact prose",
+    );
+    writeText(root, "docs/development/residual-risk-ledger.json", fixtureLedgerJson());
 
     const initialProtectedPathHash = projection.sourceSnapshot.protectedPathFingerprint.hash;
     writeText(root, "docs/development/not-protected.txt", "fixture unprotected file\n");
@@ -402,6 +550,25 @@ function main(): void {
     assert(blockedProjection.status.controlPlane === "fail", "missing required file should fail control plane");
     assert(blockedProjection.status.overall === "blocked", "missing control plane file should block overall status");
 
+    writeText(root, "docs/development/residual-risk-ledger.json", fixtureLedgerJson().replace('"schemaVersion": 2', '"schemaVersion": 1'));
+    assertThrows(
+      () => buildOperabilityStatusProjection({ root, asOf: "2026-07-11" }),
+      "invalid residual ledger schema V2",
+      "V1 ledger must fail closed",
+    );
+    writeText(root, "docs/development/residual-risk-ledger.json", fixtureLedgerJson().replace('"ownerSkills": [', '"ownerSkills": [null,'));
+    assertThrows(
+      () => buildOperabilityStatusProjection({ root, asOf: "2026-07-11" }),
+      "invalid residual ledger schema V2",
+      "invalid residual item must fail closed instead of being filtered",
+    );
+    rmSync(path.join(root, "docs/development/residual-risk-ledger.json"));
+    assertThrows(
+      () => buildOperabilityStatusProjection({ root, asOf: "2026-07-11" }),
+      "ENOENT",
+      "missing ledger must fail closed",
+    );
+
     console.log("PASS operability status selftest");
   } finally {
     rmSync(root, { force: true, recursive: true });
@@ -418,6 +585,13 @@ function writeFixture(root: string): void {
   for (const file of requiredFiles) {
     writeText(root, file, file.endsWith(".json") ? fixtureLedgerJson() : `fixture ${file}\n`);
   }
+  writeText(root, "tasks/active/0020-business-state-concurrency.md", [
+    "```yaml",
+    "residualRiskIds:",
+    "  - AF-RISK-OPS-006",
+    "```",
+    "",
+  ].join("\n"));
   writeText(root, "docs/development/release-v0.1.7-record.md", fixtureReleaseRecord());
 }
 
@@ -433,42 +607,101 @@ function fixtureReleaseRecord(): string {
 }
 
 function fixtureLedgerJson(): string {
-  return JSON.stringify({
-    schemaVersion: 1,
-    source: "docs/development/residual-risk-ledger.md",
-    items: [
-      {
+  const items: ResidualItemV2[] = [
+      residualItem({
         id: "AF-RISK-OPS-001",
         type: "current-blocker",
         reviewAt: "2026-07-17",
         currentImpact: "post-version OPS-001 evidence is still missing",
-        executableNow: false,
         closeCondition: "current production smoke, update status, evidence bundle, and closure packet pass validators",
         requiredEvidence: "redacted smoke record, update-agent status record, evidence bundle, and closure packet",
         ownerSkills: ["areaforge-sre-ops", "areaforge-qa-smoke"],
-      },
-      {
+      }),
+      residualItem({
         id: "AF-RISK-OPS-005",
         type: "current-blocker",
         reviewAt: "2026-07-17",
         currentImpact: "update requests are not bound to expected-before state",
-        executableNow: false,
         closeCondition: "V2 contract, release, and production deployment evidence",
         requiredEvidence: "expected-before design, local selftests, signed release, and redacted production evidence",
         ownerSkills: ["areaforge-security-governance", "areaforge-release-operator", "areaforge-sre-ops"],
-      },
-      {
-        id: "AF-RISK-REL-001",
-        type: "accepted-exception",
-        reviewAt: "2026-08-10",
-        currentImpact: "auto apply remains disabled",
-        executableNow: false,
-        closeCondition: "explicit user confirmation",
-        requiredEvidence: "confirmation record",
-        ownerSkills: ["areaforge-release-operator"],
-      },
-    ],
+      }),
+      residualItem({
+        id: "AF-RISK-OPS-006",
+        type: "current-blocker",
+        reviewAt: "2026-08-17",
+        currentImpact: "business state concurrency controls are not implemented",
+        executableNow: true,
+        closeCondition: "additive uniqueness and expected-status CAS pass concurrency validation",
+        requiredEvidence: "migration, concurrency fixtures, doctor before/after, and signed release",
+        ownerSkills: ["areaforge-security-governance", "areaforge-sre-ops"],
+        taskRefs: ["tasks/active/0020-business-state-concurrency.md"],
+      }),
+      acceptedExceptionItem("AF-RISK-REL-001", "approved", "2026-08-10"),
+      acceptedExceptionItem("AF-RISK-AI-001", "expired", "2026-07-10"),
+    ];
+  return JSON.stringify({
+    schemaVersion: 2,
+    source: "docs/development/residual-risk-ledger.md",
+    items,
   }, null, 2);
+}
+
+function residualItem(overrides: Partial<ResidualItemV2> & Pick<ResidualItemV2, "id" | "type" | "reviewAt" | "currentImpact" | "closeCondition" | "requiredEvidence" | "ownerSkills">): ResidualItemV2 {
+  return {
+    executableNow: false,
+    taskRefs: [],
+    taskPromotionWaiver: null,
+    acceptedException: null,
+    ...overrides,
+  };
+}
+
+function uxEvaluation(status: ProductExperienceEvidenceEvaluation["status"]): ProductExperienceEvidenceEvaluation {
+  const stale = status === "stale";
+  const missing = status === "missing";
+  return {
+    status,
+    recordPathLabel: missing ? null : "product-experience-review-fixture.md",
+    recordSha256: missing ? null : `sha256:${"a".repeat(64)}`,
+    reviewedAt: missing ? null : "2026-06-20T00:00:00.000Z",
+    ageSeconds: missing ? null : stale ? 15 * 24 * 60 * 60 : 60,
+    maxAgeSeconds: 14 * 24 * 60 * 60,
+    appVersion: missing ? null : "0.1.7",
+    expectedVersion: "0.1.7",
+    detail: status === "fresh" ? "validator passed" : status === "stale" ? "review is older than the allowed window" : `${status} UX evidence`,
+    issueFields: status === "fresh" ? [] : status === "stale" ? ["reviewedAt"] : ["record"],
+    command: "pnpm experience:review:validate product-experience-review-fixture.md",
+  };
+}
+
+function acceptedExceptionItem(id: string, status: AcceptedExceptionStatus, expiresAt: string): ResidualItemV2 {
+  const item = residualItem({
+    id,
+    type: "accepted-exception",
+    reviewAt: "2026-09-10",
+    currentImpact: `${status} accepted exception fixture`,
+    closeCondition: "maintainer reviews the exception",
+    requiredEvidence: "accepted exception review record",
+    ownerSkills: ["areaforge-release-operator"],
+  });
+  item.acceptedException = {
+    status,
+    scope: "fixture scope",
+    reason: "fixture reason",
+    acceptedBy: "fixture-maintainer",
+    acceptedAt: "2026-07-01T00:00:00.000Z",
+    expiresAt,
+    reopenConditions: ["fixture source changes"],
+    basisHash: "",
+    sourceRef: "docs/development/residual-risk-ledger.md",
+    revokedBy: null,
+    revokedAt: null,
+    revocationReason: null,
+    supersededBy: null,
+  };
+  item.acceptedException.basisHash = computeAcceptedExceptionBasisHash(item);
+  return item;
 }
 
 function writeJson(root: string, file: string, value: unknown): void {
@@ -485,6 +718,16 @@ function assert(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function assertThrows(action: () => unknown, expected: string, message: string): void {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof Error && (error.message.includes(expected) || String(error).includes(expected))) return;
+    throw new Error(`${message}: unexpected error ${String(error)}`);
+  }
+  throw new Error(`${message}: expected an error`);
 }
 
 main();

@@ -10,6 +10,7 @@ export interface IncidentIndexEntry {
   recordSha256: string;
   detectedAt: string;
   recordedAt: string;
+  status: "open" | "mitigated" | "resolved" | "follow-up";
   environment: "production" | "staging" | "local" | "ci";
   severity: "p0" | "p1" | "p2" | "p3";
   incidentType: "health" | "update" | "backup" | "release" | "security" | "ai" | "upload" | "data" | "smoke" | "other";
@@ -19,14 +20,20 @@ export interface IncidentIndexEntry {
   followUpTasks: string[];
 }
 
-export interface IncidentIndex {
-  schemaVersion: 1;
-  mode: "read_only_resolved_incident_index";
-  sourceRoot: string;
-  sourcePattern: "incident-*/incident-record.txt";
+export interface IncidentIndexGroup {
   sourceSetSha256: string;
   latestIncidentId: string | null;
   incidents: IncidentIndexEntry[];
+}
+
+export interface IncidentIndex {
+  schemaVersion: 2;
+  mode: "read_only_incident_index";
+  sourceRoot: string;
+  sourcePattern: "incident-*/incident-record.txt";
+  sourceSetSha256: string;
+  active: IncidentIndexGroup;
+  resolved: IncidentIndexGroup;
   doesNotProve: string[];
   safetyFacts: {
     readOnly: true;
@@ -50,17 +57,20 @@ export function buildIncidentIndex(sourceRoot: string): IncidentIndex {
     .sort(compareEntries);
   const duplicate = duplicateIncidentId(incidents);
   if (duplicate) throw new Error(`duplicate incident id: ${duplicate}`);
+  const activeIncidents = incidents.filter((incident) => incident.status !== "resolved");
+  const resolvedIncidents = incidents.filter((incident) => incident.status === "resolved");
 
   return {
-    schemaVersion: 1,
-    mode: "read_only_resolved_incident_index",
+    schemaVersion: 2,
+    mode: "read_only_incident_index",
     sourceRoot: displaySourceRoot(resolvedRoot),
     sourcePattern,
     sourceSetSha256: buildSourceSetSha256(incidents),
-    latestIncidentId: incidents[0]?.incidentId ?? null,
-    incidents,
+    active: buildGroup(activeIncidents),
+    resolved: buildGroup(resolvedIncidents),
     doesNotProve: [
       "current production health",
+      "active incident containment or recovery",
       "incident action execution",
       "rollback, updater apply, backup, restore, or migration execution",
       "residual risk closure",
@@ -150,15 +160,16 @@ function inspectRecord(sourceRoot: string, recordPath: string): IncidentIndexEnt
   }
 
   const fields = parseIndentedKeyValueRecord(raw);
-  const status = required(fields, "status").toLowerCase();
+  const status = oneOf(required(fields, "status"), ["open", "mitigated", "resolved", "follow-up"] as const, "status");
   const postIncidentReview = required(fields, "postIncidentReview").toLowerCase();
+  if (status === "resolved" && postIncidentReview !== "yes") {
+    throw new Error(`resolved incident record postIncidentReview must be yes: ${recordPathDisplay}`);
+  }
   const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/incident-record-validate.ts", recordPath], {
     cwd: process.cwd(),
     encoding: "utf8",
     env: { ...process.env, NO_COLOR: "1" },
   });
-  if (status !== "resolved") throw new Error(`incident record status must be resolved: ${recordPathDisplay}`);
-  if (postIncidentReview !== "yes") throw new Error(`incident record postIncidentReview must be yes: ${recordPathDisplay}`);
   if (validation.status !== 0) throw new Error(`incident record validation failed: ${recordPathDisplay}`);
 
   const detectedAt = offsetTimestamp(required(fields, "detectedAt"), "detectedAt");
@@ -170,6 +181,7 @@ function inspectRecord(sourceRoot: string, recordPath: string): IncidentIndexEnt
     recordSha256: `sha256:${sha256(bytes)}`,
     detectedAt,
     recordedAt,
+    status,
     environment: oneOf(required(fields, "environment"), ["production", "staging", "local", "ci"] as const, "environment"),
     severity: oneOf(required(fields, "severity"), ["p0", "p1", "p2", "p3"] as const, "severity"),
     incidentType: oneOf(
@@ -212,10 +224,18 @@ function duplicateIncidentId(incidents: IncidentIndexEntry[]): string | null {
 
 function buildSourceSetSha256(incidents: IncidentIndexEntry[]): string {
   const input = [...incidents]
-    .sort((left, right) => left.recordPath.localeCompare(right.recordPath))
+    .sort((left, right) => compareBinary(left.recordPath, right.recordPath))
     .map((incident) => `${incident.recordPath}\0${incident.recordSha256.replace(/^sha256:/, "")}\n`)
     .join("");
   return `sha256:${sha256(input)}`;
+}
+
+function buildGroup(incidents: IncidentIndexEntry[]): IncidentIndexGroup {
+  return {
+    sourceSetSha256: buildSourceSetSha256(incidents),
+    latestIncidentId: incidents[0]?.incidentId ?? null,
+    incidents,
+  };
 }
 
 function displaySourceRoot(sourceRoot: string): string {

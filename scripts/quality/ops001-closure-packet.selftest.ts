@@ -1,13 +1,16 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { buildOperationalEvidenceSourceSnapshot } from "./operational-evidence-source";
 
 type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-ops001-closure-"));
+// closure packet 校验器以根 package.json 版本为当前期望版本，fixture 必须跟随同一来源。
+const currentVersion = resolveCurrentVersion();
 
 try {
   const smokeRecord = path.join(tempDir, "prod-readonly-smoke-record.txt");
@@ -68,9 +71,9 @@ try {
   writeFileSync(
     historicalPacket,
     generate.stdout
-      .replace("expectedVersion: 0.1.7", "expectedVersion: 0.1.5")
-      .replace("releaseTag: v0.1.7", "releaseTag: v0.1.5")
-      .replace("updateAgentCurrentVersion: 0.1.7", "updateAgentCurrentVersion: 0.1.5"),
+      .replace(`expectedVersion: ${currentVersion}`, "expectedVersion: 0.1.5")
+      .replace(`releaseTag: v${currentVersion}`, "releaseTag: v0.1.5")
+      .replace(`updateAgentCurrentVersion: ${currentVersion}`, "updateAgentCurrentVersion: 0.1.5"),
   );
   const historicalDefaultValidate = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/ops001-closure-packet-validate.ts", historicalPacket], {
     cwd: root,
@@ -100,10 +103,10 @@ function createSmokeRecord(): string {
     "checkedAt: 2026-07-10T22:20:00+08:00",
     "environment: production",
     "baseUrl: https://forge.areasong.top",
-    "expectedVersion: 0.1.7",
-    "releaseTag: v0.1.7",
-    "webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.7@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    `expectedVersion: ${currentVersion}`,
+    `releaseTag: v${currentVersion}`,
+    `webImageDigest: ghcr.io/areasong/areaforge-web:v${currentVersion}@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`,
+    `migrationImageDigest: ghcr.io/areasong/areaforge-migration:v${currentVersion}@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`,
     "smokeCommand: pnpm smoke:prod-readonly",
     "smokeStatus: pass",
     "smokeResultHash: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -129,10 +132,10 @@ function createSmokeRecord(): string {
 
 function createUpdateStatusRecord(): JsonRecord {
   return {
-    currentVersion: "0.1.7",
-    currentImage: "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    releaseUrl: "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.7",
-    latestVersion: "0.1.7",
+    currentVersion,
+    currentImage: `ghcr.io/areasong/areaforge-web:v${currentVersion}@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`,
+    releaseUrl: `https://github.com/AreaSong/AreaForge/releases/tag/v${currentVersion}`,
+    latestVersion: currentVersion,
     updateAvailable: false,
     autoApply: "none",
     signatureRequired: true,
@@ -173,8 +176,8 @@ function createEvidenceBundle(): JsonRecord {
       networkRequested: true,
     },
     expected: {
-      version: "0.1.7",
-      releaseTag: "v0.1.7",
+      version: currentVersion,
+      releaseTag: `v${currentVersion}`,
       autoApply: "none",
     },
     signals: {},
@@ -183,10 +186,12 @@ function createEvidenceBundle(): JsonRecord {
     overall: "warn",
   };
   return {
+    schemaVersion: 2,
     status: "needs_attention",
     mode: "read_only_operational_evidence_bundle",
     bundleHash: "",
     generatedAt: "2026-07-10T14:20:00.000Z",
+    sourceSnapshot: buildOperationalEvidenceSourceSnapshot(),
     summary,
     freshness: summary.freshness,
     items: requiredSignalItems(),
@@ -194,6 +199,7 @@ function createEvidenceBundle(): JsonRecord {
       "collect_read_only_operational_readiness_summary",
       "assemble_signal_evidence_index",
       "map_residual_risk_ids_to_required_evidence",
+      "bind_current_source_inputs",
       "compute_bundle_hash",
     ],
     doesNotProve: [
@@ -288,6 +294,14 @@ function stableStringify(value: unknown): string {
       .join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+function resolveCurrentVersion(): string {
+  const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version?: unknown };
+  if (typeof packageJson.version !== "string" || !/^\d+\.\d+\.\d+$/.test(packageJson.version)) {
+    throw new Error("root package.json version must look like X.Y.Z");
+  }
+  return packageJson.version;
 }
 
 function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expected: number): void {

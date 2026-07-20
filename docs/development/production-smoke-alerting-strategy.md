@@ -1,6 +1,6 @@
 # Production Smoke And Alerting Strategy
 
-本文件是生产 smoke 和告警策略的非执行草案。它不授权任何生产写入，不替代 `docs/development/production-release-runbook.md`，也不关闭 `AF-RISK-OPS-001`、`AF-RISK-OPS-002`、`AF-RISK-OPS-004` 或 `AF-RISK-OPS-005`。`AF-RISK-UX-001` 已由本地 desktop/mobile 体验复核关闭为证据项；2026-07-10 记录是历史证据，2026-07-12 已新增本地 `0.1.7` 复核记录，但后续 release/update、体验改动或超过 14 天维护窗口前仍需重跑。
+本文件是生产 smoke 和告警策略的非执行草案。它不授权任何生产写入，不替代 `docs/development/production-release-runbook.md`，也不关闭 `AF-RISK-OPS-001`、`AF-RISK-OPS-002`、`AF-RISK-OPS-004` 或 `AF-RISK-OPS-005`。`AF-RISK-UX-001` 当前为 monitoring gap；旧 desktop/mobile 记录仅作 shape-only 历史证据，当前 checkout 需重新完成 source-bound 体验复核。
 
 ## 默认边界
 
@@ -72,4 +72,4 @@ pnpm ops:alert:preview
 - `AF-RISK-OPS-002`：确认写入型 smoke 账号、允许写入范围、清理策略、失败处理和至少一次受控记录。
 - `AF-RISK-OPS-004`：配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录；`pnpm ops:alert:preview`、`pnpm alert:drill:validate` 和 `pnpm ops:ops-004:preflight` 只能作为演练输入、记录校验与证据预检，不自动关闭该残余项。
 - `AF-RISK-OPS-005`：生产更新 mutation 必须在本地 V2 实施、签名 Release 和独立生产部署后，以 `pnpm ops:ops-005:evidence:validate` 与 `pnpm ops:ops-005:preflight` 复核 expected-before rejection、共享锁和 reconciliation；smoke 或告警通过不能替代该控制面证据。
-- `AF-RISK-UX-001`：已关闭为证据项；新的 release/update 或体验变更仍必须完成覆盖 desktop/mobile 的真实体验复核记录并通过 `pnpm experience:review:validate`，生产 smoke、API smoke 或旧截图不能替代。
+- `AF-RISK-UX-001`：当前重新打开；必须完成覆盖 desktop/mobile/unauth 的当前 checkout 体验复核并通过默认 `pnpm experience:review:validate`，生产 smoke、API smoke、旧截图或 `--shape-only` 不能替代。

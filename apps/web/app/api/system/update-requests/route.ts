@@ -1,42 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { ApiError, apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
+import { createUpdateRequest } from "@/lib/system/update-center";
 import {
-  createUpdateRequest,
-  getUpdateCenterStatus,
-  autoApplyPolicies,
-  updateActions,
-  validateUpdateRequestAgainstStatus,
-} from "@/lib/system/update-center";
+  updateRequestCommandSchema,
+  UpdateRequestV2Error,
+  type UpdateRequestV2ErrorCode,
+} from "@/lib/system/update-request-v2";
 
 export const dynamic = "force-dynamic";
-
-const requestSchema = z.object({
-  action: z.enum(updateActions),
-  tag: z.string().regex(/^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/).optional(),
-  autoApply: z.enum(autoApplyPolicies).optional(),
-});
 
 export async function POST(request: NextRequest) {
   try {
     const user = await requireApiUser(request);
-    const parsed = requestSchema.safeParse(await readJson(request));
+    const parsed = updateRequestCommandSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
 
-    const status = await getUpdateCenterStatus();
-    const validationError = validateUpdateRequestAgainstStatus(parsed.data, status);
-    if (validationError) throw new ApiError(validationError, 409);
-
     const updateRequest = await createUpdateRequest({
-      action: parsed.data.action,
-      tag: parsed.data.tag,
-      autoApply: parsed.data.autoApply,
+      command: parsed.data,
       actorEmail: user.email,
     });
-
     return NextResponse.json({ request: updateRequest }, { status: 202 });
   } catch (error) {
+    if (error instanceof UpdateRequestV2Error) {
+      return apiErrorResponse(new ApiError(error.code, statusForV2Error(error.code)));
+    }
     return apiErrorResponse(error);
   }
+}
+
+function statusForV2Error(code: UpdateRequestV2ErrorCode): number {
+  return code === "STATUS_SNAPSHOT_INVALID" ? 503 : 409;
 }

@@ -16,21 +16,31 @@ export function LoginForm() {
     setPending(true);
 
     const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: form.get("email"),
-        password: form.get("password"),
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: form.get("email"),
+          password: form.get("password"),
+        }),
+      });
+    } catch {
+      setPending(false);
+      setError("服务暂时不可用，请检查网络后重试。");
+      return;
+    }
 
     setPending(false);
 
     if (!response.ok) {
-      setError(response.status === 429 ? "失败次数过多，稍后再试。" : "邮箱或密码不正确。");
+      if (response.status === 401) setError("邮箱或密码不正确。");
+      else if (response.status === 429) setError("失败次数过多，稍后再试。");
+      else if (response.status >= 500) setError("服务暂时不可用，请稍后重试。");
+      else setError("登录请求未完成，请检查输入后重试。");
       return;
     }
 

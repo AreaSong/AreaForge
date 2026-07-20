@@ -14,13 +14,26 @@
 pnpm completion:evidence:validate <completion-evidence-record.md|txt>
 ```
 
-该校验检查记录形态、摘要、声明范围、证据位置、证据等级、source baseline、新鲜验证、未验证边界、阻断项、Release 需求、R0-R4 写边界、不能证明项、residual 和 safety facts。仓库相对 `evidenceUri` 必须能解析为当前仓库中的普通文件；纯 40 位 `sourceHashOrCommit` 必须能解析为当前仓库 commit。HTTPS URL 和 `sha256:` 摘要只做格式检查，不联网、不读取远端内容。它不替代真实运行、浏览器、Release、生产 smoke、`pnpm ops:long-term:gate` 或人工复核。
+schema V2 默认重算并绑定当前 `HEAD`、tracked diff、staged/unstaged 状态、untracked 普通文件内容或
+symlink target、排序后的 changed paths、验证 commands 和 profile；同一路径在验证后再次变化也会返回
+stale。先填写 `freshValidation.commands` 和 `freshValidation.profile`，再运行：
+
+```bash
+pnpm completion:evidence:validate <record> --print-current-fingerprint
+```
+
+将输出写入记录后，再运行默认 validator。历史无 `schemaVersion: 2` 的 V1 记录只能显式使用
+`pnpm completion:evidence:validate <record> --shape-only`，其 `bindingStatus: unavailable`，不能进入当前
+完成声明。
+
+该校验同时检查记录形态、摘要、声明范围、证据位置、证据等级、source baseline、新鲜验证、未验证边界、阻断项、Release 需求、R0-R4 写边界、不能证明项、residual 和 safety facts。仓库相对 `evidenceUri` 必须能解析为当前仓库中的普通文件；纯 40 位 `sourceHashOrCommit` 必须能解析为当前仓库 commit。HTTPS URL 和 `sha256:` 摘要只做格式检查，不联网、不读取远端内容。它不替代真实运行、浏览器、Release、生产 smoke、`pnpm ops:long-term:gate` 或人工复核。
 
 ## 完成声明字段
 
 每次声明完成前，至少检查并在汇报中能说清：
 
 ```text
+schemaVersion: 2
 scope:
 summary:
 evidenceClass: source/runtime/release/production/docs-only/local-smoke/browser-review
@@ -30,9 +43,17 @@ sourceBaseline:
   sourceDocs:
   sourceHashOrCommit:
 freshValidation:
+  profile: docs-only/targeted/full/custom
   commands:
   browserOrRuntimeEvidence:
   checkedAt:
+validationFingerprint:
+  algorithm: sha256
+  gitHead:
+  worktreeState: clean/dirty
+  worktreeHash: sha256:<64 hex>
+  changedPaths: <sorted comma-separated repo paths or none>
+  digest: sha256:<64 hex>
 unverified:
   skippedChecks:
   reason:
@@ -93,6 +114,7 @@ safetyFacts:
 - 附件恢复或发布声明若没有同时绑定双向 reconciliation CSV/summary 的路径、status、CSV SHA256 和 summary canonical hash，不能声称附件一致性已证明；并发写入期间的扫描也不能冒充快照一致性。
 - 旧截图、旧 smoke 或历史 release 记录不能证明当前体验和当前生产健康。
 - 旧完成记录不能自动覆盖 source docs 漂移；长期运营、release、residual 关闭或重大体验声明应记录 source docs、commit 或 hash 摘要。
+- V2 fingerprint 只证明记录仍绑定当前 checkout 和声明的验证命令/profile，不证明这些命令真的成功；命令结果仍必须由日志、CI、runtime、Release 或生产证据支持。
 
 ## 阻断项
 

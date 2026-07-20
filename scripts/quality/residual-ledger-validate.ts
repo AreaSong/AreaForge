@@ -1,13 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  type ResidualItemV2,
+  type ResidualLedgerIssue,
+  type ResidualLedgerV2,
+  validateResidualLedgerV2,
+} from "./residual-ledger-common";
 
-interface ResidualLedger {
-  schemaVersion: number;
-  source: string;
-  items: ResidualItem[];
-}
-
-interface ResidualItem {
+interface MarkdownResidual {
   id: string;
   type: string;
   reviewAt: string;
@@ -15,39 +15,15 @@ interface ResidualItem {
   executableNow: boolean;
   closeCondition: string;
   requiredEvidence: string;
-  ownerSkills: string[];
-}
-
-interface MarkdownResidual {
-  id: string;
-  type: string;
-  reviewAt: string;
-  executableNow: boolean;
-}
-
-interface Issue {
-  field: string;
-  message: string;
 }
 
 const root = process.cwd();
 const markdownPath = "docs/development/residual-risk-ledger.md";
 const jsonPath = "docs/development/residual-risk-ledger.json";
 const taskIndexPath = "tasks/indexes/residuals.md";
-const allowedTypes = new Set([
-  "current-blocker",
-  "deferred-work",
-  "accepted-exception",
-  "monitoring-gap",
-  "release-follow-up",
-  "historical-reference",
-  "template-marker",
-  "closed-evidence",
-]);
-const allowedPrefixes = new Set(["OPS", "REL", "SC", "UX", "AI"]);
 
 function main(): void {
-  const issues: Issue[] = [];
+  const issues: ResidualLedgerIssue[] = [];
   if (!existsSync(resolve(markdownPath))) issues.push({ field: markdownPath, message: "missing markdown ledger" });
   if (!existsSync(resolve(jsonPath))) issues.push({ field: jsonPath, message: "missing machine-readable ledger" });
   if (!existsSync(resolve(taskIndexPath))) issues.push({ field: taskIndexPath, message: "missing task-facing residual index" });
@@ -55,69 +31,34 @@ function main(): void {
 
   const markdown = read(markdownPath);
   const taskIndex = read(taskIndexPath);
-  const ledger = readLedger(jsonPath, issues);
-  const markdownItems = parseMarkdownResiduals(markdown);
-  validateLedgerShape(ledger, issues);
-  validateMarkdownSync(ledger, markdownItems, issues);
+  const result = validateResidualLedgerV2(readLedger(jsonPath, issues), { root });
+  issues.push(...result.issues);
+  const ledger = result.ledger;
+  validateMarkdownSync(ledger, parseMarkdownResiduals(markdown), issues);
   validateTaskIndexSync(ledger, taskIndex, issues);
   validateReferences(ledger, issues);
+  validateCurrentStatusClaims(ledger, issues);
 
   if (issues.length > 0) fail(issues);
-  console.log(`residual ledger validation passed: ${ledger.items.length} residual IDs are machine-readable and synced with markdown/task index.`);
+  console.log(`residual ledger validation passed: ${ledger.items.length} schema V2 residual IDs are synced and executable bindings are valid.`);
 }
 
-function readLedger(file: string, issues: Issue[]): ResidualLedger {
+function readLedger(file: string, issues: ResidualLedgerIssue[]): unknown {
   try {
-    return JSON.parse(read(file)) as ResidualLedger;
+    return JSON.parse(read(file)) as unknown;
   } catch (error) {
     issues.push({ field: file, message: `invalid JSON: ${error instanceof Error ? error.message : String(error)}` });
-    return { schemaVersion: 0, source: "", items: [] };
+    return null;
   }
 }
 
-function validateLedgerShape(ledger: ResidualLedger, issues: Issue[]): void {
-  if (ledger.schemaVersion !== 1) {
-    issues.push({ field: "schemaVersion", message: "must be 1" });
-  }
-  if (ledger.source !== markdownPath) {
-    issues.push({ field: "source", message: `must be ${markdownPath}` });
-  }
-  if (!Array.isArray(ledger.items) || ledger.items.length === 0) {
-    issues.push({ field: "items", message: "must contain at least one residual item" });
-    return;
-  }
-
-  const seen = new Set<string>();
-  for (const [index, item] of ledger.items.entries()) {
-    const prefix = item.id.match(/^AF-RISK-([A-Z]+)-\d{3}$/)?.[1] ?? "";
-    if (!prefix || !allowedPrefixes.has(prefix)) {
-      issues.push({ field: `items[${index}].id`, message: "must match AF-RISK-(OPS|REL|SC|UX|AI)-NNN" });
-    }
-    if (seen.has(item.id)) {
-      issues.push({ field: `items[${index}].id`, message: "duplicate residual ID" });
-    }
-    seen.add(item.id);
-    if (!allowedTypes.has(item.type)) {
-      issues.push({ field: `${item.id}.type`, message: `invalid type ${item.type}` });
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(item.reviewAt)) {
-      issues.push({ field: `${item.id}.reviewAt`, message: "must be YYYY-MM-DD" });
-    }
-    for (const field of ["currentImpact", "closeCondition", "requiredEvidence"] as const) {
-      if (!item[field] || item[field].trim().length === 0) {
-        issues.push({ field: `${item.id}.${field}`, message: "must be non-empty" });
-      }
-    }
-    if (!Array.isArray(item.ownerSkills) || item.ownerSkills.length === 0) {
-      issues.push({ field: `${item.id}.ownerSkills`, message: "must list at least one owner skill" });
-    }
-  }
-}
-
-function validateMarkdownSync(ledger: ResidualLedger, markdownItems: MarkdownResidual[], issues: Issue[]): void {
+function validateMarkdownSync(
+  ledger: ResidualLedgerV2,
+  markdownItems: MarkdownResidual[],
+  issues: ResidualLedgerIssue[],
+): void {
   const byId = new Map(markdownItems.map((item) => [item.id, item]));
   const jsonIds = new Set(ledger.items.map((item) => item.id));
-
   for (const item of ledger.items) {
     const markdown = byId.get(item.id);
     if (!markdown) {
@@ -133,48 +74,49 @@ function validateMarkdownSync(ledger: ResidualLedger, markdownItems: MarkdownRes
     if (markdown.executableNow !== item.executableNow) {
       issues.push({ field: item.id, message: `executableNow mismatch: json=${item.executableNow}, markdown=${markdown.executableNow}` });
     }
-  }
-
-  for (const item of markdownItems) {
-    if (!jsonIds.has(item.id)) {
-      issues.push({ field: item.id, message: "missing from machine-readable residual ledger" });
+    for (const field of ["currentImpact", "closeCondition", "requiredEvidence"] as const) {
+      if (normalizeLedgerText(markdown[field]) !== normalizeLedgerText(item[field])) {
+        issues.push({ field: `${item.id}.${field}`, message: "markdown and machine-readable ledger text differ" });
+      }
     }
+  }
+  for (const item of markdownItems) {
+    if (!jsonIds.has(item.id)) issues.push({ field: item.id, message: "missing from machine-readable residual ledger" });
   }
 }
 
-function validateReferences(ledger: ResidualLedger, issues: Issue[]): void {
-  const operationalReadiness = read("docs/development/operational-readiness.md");
-  const completionRecord = read("docs/development/docs-100-completion-record.md");
-  const validationMatrix = read("docs/development/validation-matrix.md");
-  const combined = `${operationalReadiness}\n${completionRecord}\n${validationMatrix}`;
+function validateReferences(ledger: ResidualLedgerV2, issues: ResidualLedgerIssue[]): void {
+  const combined = [
+    read("docs/development/operational-readiness.md"),
+    read("docs/development/docs-100-completion-record.md"),
+    read("docs/development/validation-matrix.md"),
+  ].join("\n");
   for (const item of ledger.items) {
     if (!combined.includes(item.id) && item.type !== "deferred-work") {
       issues.push({ field: item.id, message: "non-deferred residual should be referenced by operational/completion/validation docs" });
     }
   }
-
   const ops001 = ledger.items.find((item) => item.id === "AF-RISK-OPS-001");
-  if (ops001) {
-    const combinedOps001Text = [
-      ops001.currentImpact,
-      ops001.closeCondition,
-      ops001.requiredEvidence,
-    ].join("\n");
-    for (const term of ["pnpm ops:ops-001:preflight", "ready_for_human_close", "pnpm ops:ops-001:closure:validate"]) {
-      if (!combinedOps001Text.includes(term)) {
-        issues.push({ field: "AF-RISK-OPS-001", message: `missing OPS-001 source term: ${term}` });
-      }
-    }
+  if (ops001) validateOps001SourceTerms(ops001, issues);
+}
+
+function validateOps001SourceTerms(item: ResidualItemV2, issues: ResidualLedgerIssue[]): void {
+  const text = [item.currentImpact, item.closeCondition, item.requiredEvidence].join("\n");
+  for (const term of ["pnpm ops:ops-001:preflight", "ready_for_human_close", "pnpm ops:ops-001:closure:validate"]) {
+    if (!text.includes(term)) issues.push({ field: item.id, message: `missing OPS-001 source term: ${term}` });
   }
 }
 
-function validateTaskIndexSync(ledger: ResidualLedger, taskIndex: string, issues: Issue[]): void {
+function validateTaskIndexSync(
+  ledger: ResidualLedgerV2,
+  taskIndex: string,
+  issues: ResidualLedgerIssue[],
+): void {
   for (const item of ledger.items) {
     if (!taskIndex.includes(item.id)) {
       issues.push({ field: `${taskIndexPath}:${item.id}`, message: "missing from task-facing residual index" });
     }
   }
-
   const requiredTermsById: Record<string, string[]> = {
     "AF-RISK-OPS-001": [
       "pnpm ops:ops-001:preflight",
@@ -187,16 +129,39 @@ function validateTaskIndexSync(ledger: ResidualLedger, taskIndex: string, issues
       "pnpm ci:supply-chain:validate",
       "pnpm release:supply-chain:validate",
     ],
-    "AF-RISK-UX-001": [
-      "pnpm experience:review:validate",
-    ],
+    "AF-RISK-UX-001": ["pnpm experience:review:validate"],
   };
-
   for (const [id, terms] of Object.entries(requiredTermsById)) {
     if (!taskIndex.includes(id)) continue;
     for (const term of terms) {
       if (!taskIndex.includes(term)) {
         issues.push({ field: `${taskIndexPath}:${id}`, message: `missing task-facing term: ${term}` });
+      }
+    }
+  }
+}
+
+function validateCurrentStatusClaims(ledger: ResidualLedgerV2, issues: ResidualLedgerIssue[]): void {
+  const currentDocs = [
+    "docs/development/operational-readiness.md",
+    "docs/development/long-term-operability-control-plane.md",
+  ];
+  for (const item of ledger.items) {
+    const lines = currentDocs
+      .flatMap((file) => read(file).split(/\r?\n/).map((line) => ({ file, line })))
+      .filter(({ line }) => line.trimStart().startsWith(`- \`${item.id}\``));
+    if (item.type === "current-blocker") {
+      for (const { file, line } of lines) {
+        if (/已关闭|closed as|status\s*[=:]\s*closed/i.test(line)) {
+          issues.push({ field: `${file}:${item.id}`, message: "current-blocker must not be described as closed in current status text" });
+        }
+      }
+    }
+    if (item.id === "AF-RISK-UX-001" && /\bfail\b/i.test(item.currentImpact)) {
+      for (const { file, line } of lines) {
+        if (/复核通过|reviewStatus\s*[=:]\s*pass|local smoke[^。；]*通过/i.test(line)) {
+          issues.push({ field: `${file}:${item.id}`, message: "UX monitoring gap with a fail record must not be described as passed" });
+        }
       }
     }
   }
@@ -211,14 +176,19 @@ function parseMarkdownResiduals(markdown: string): MarkdownResidual[] {
       id: cells[0] ?? "",
       type: cells[1] ?? "",
       reviewAt: cells[2] ?? "",
+      currentImpact: cells[3] ?? "",
       executableNow: (cells[4] ?? "") === "是",
+      closeCondition: cells[5] ?? "",
+      requiredEvidence: cells[6] ?? "",
     }));
 }
 
-function fail(issues: Issue[]): never {
-  for (const issue of issues) {
-    console.error(`FAIL ${issue.field}: ${issue.message}`);
-  }
+function normalizeLedgerText(value: string): string {
+  return value.replace(/`/g, "").replace(/\s+/g, " ").trim();
+}
+
+function fail(issues: ResidualLedgerIssue[]): never {
+  for (const issue of issues) console.error(`FAIL ${issue.field}: ${issue.message}`);
   console.error(`residual ledger validation failed: ${issues.length} issue(s).`);
   process.exit(1);
 }

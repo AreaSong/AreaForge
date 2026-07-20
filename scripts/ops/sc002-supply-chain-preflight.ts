@@ -1,15 +1,20 @@
-import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { evaluateReleaseCloseoutBinding } from "../quality/release-closeout-binding";
+import { parseStrictIndentedKeyValueRecord, type ValidationIssue } from "../quality/record-validator-common";
 
-type EvidenceStatus = "missing" | "valid" | "invalid";
+type EvidenceStatus = "missing" | "valid" | "stale" | "invalid";
 type PreflightStatus = "needs_evidence" | "ready_for_sc002_review" | "ready_for_sc001_sc002_review" | "invalid";
 
 type EvidenceInput = {
   key: string;
   label: string;
   envKey: string;
+  assetDirEnvKey?: string;
   validatorCommand: string[];
+  validatorArgs?: string[];
   coversResidualRiskIds: string[];
 };
 
@@ -17,6 +22,32 @@ type EvidenceResult = EvidenceInput & {
   path: string | null;
   status: EvidenceStatus;
   detail: string;
+  recordGitCommit: string | null;
+};
+
+export type CheckoutBinding = {
+  gitCommit: string;
+  worktreeClean: boolean;
+};
+
+export type ValidatorInvocation = {
+  command: string;
+  args: string[];
+  cwd: string;
+};
+
+export type ValidatorResult = {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+};
+
+export type Sc002PreflightOptions = {
+  root: string;
+  env: Record<string, string | undefined>;
+  checkoutBinding: CheckoutBinding;
+  runValidator?: (invocation: ValidatorInvocation) => ValidatorResult;
+  now?: Date;
 };
 
 const evidenceInputs: EvidenceInput[] = [
@@ -31,21 +62,39 @@ const evidenceInputs: EvidenceInput[] = [
     key: "releaseSupplyChainRecord",
     label: "signed Release supply-chain record",
     envKey: "AREAFORGE_SC002_RELEASE_RECORD",
+    assetDirEnvKey: "AREAFORGE_SC002_RELEASE_ASSETS_DIR",
     validatorCommand: ["pnpm", "exec", "tsx", "scripts/quality/release-supply-chain-validate.ts"],
+    validatorArgs: ["--strict"],
     coversResidualRiskIds: ["AF-RISK-SC-001", "AF-RISK-SC-002"],
   },
 ];
 
 function main(): void {
-  const evidence = evidenceInputs.map(validateEvidenceInput);
-  const status = preflightStatus(evidence);
-  const result = {
+  const root = process.cwd();
+  const result = evaluateSc002Preflight({
+    root,
+    env: process.env,
+    checkoutBinding: readCurrentCheckoutBinding(root),
+  });
+  console.log(JSON.stringify(result, null, 2));
+
+  if (result.status === "invalid" || shouldFail(result.status, process.env.AREAFORGE_SC002_PREFLIGHT_FAIL_ON)) {
+    process.exit(1);
+  }
+}
+
+export function evaluateSc002Preflight(options: Sc002PreflightOptions) {
+  const root = path.resolve(options.root);
+  const evidence = evidenceInputs.map((input) => validateEvidenceInput(input, options, root));
+  const status = preflightStatus(evidence, options.checkoutBinding);
+  return {
     schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
+    generatedAt: (options.now ?? new Date()).toISOString(),
     mode: "read_only_sc002_supply_chain_preflight",
     residualRiskId: "AF-RISK-SC-002",
     relatedResidualRiskIds: ["AF-RISK-SC-001"],
     status,
+    checkoutBinding: options.checkoutBinding,
     evidence,
     requiredPreflight: [
       "pnpm governance:preflight",
@@ -56,12 +105,15 @@ function main(): void {
       "pnpm ci:supply-chain:selftest",
       "pnpm sc:sc-002:preflight:selftest",
       "pnpm github-release-updater:preflight",
+      "current checkout must be clean; CI evidence must match HEAD, while signed Release evidence may bind an evidence-only closeout descendant",
+      "signed Release evidence requires downloaded assets plus strict manifest/checksum/cosign verification",
+      "pnpm release:closeout:binding:selftest",
       "pnpm ci:supply-chain:record <github-workflow-run.json> > <ci-supply-chain-record.txt>",
       "AREAFORGE_SC002_CI_RECORD=<ci-supply-chain-record.txt> pnpm sc:sc-002:preflight",
       "pnpm ci:supply-chain:validate <ci-supply-chain-record.txt>",
       "pnpm release:supply-chain:record <release-assets-dir> > <release-supply-chain-record.txt>",
-      "AREAFORGE_SC002_RELEASE_RECORD=<release-supply-chain-record.txt> pnpm sc:sc-002:preflight",
-      "pnpm release:supply-chain:validate <release-supply-chain-record.txt> <release-assets-dir>",
+      "AREAFORGE_SC002_RELEASE_RECORD=<release-supply-chain-record.txt> AREAFORGE_SC002_RELEASE_ASSETS_DIR=<release-assets-dir> pnpm sc:sc-002:preflight",
+      "pnpm release:supply-chain:validate <release-supply-chain-record.txt> <release-assets-dir> --strict",
     ],
     nextCommand: nextCommand(status),
     forbiddenActions: [
@@ -96,46 +148,124 @@ function main(): void {
       secretValuePrinted: false,
     },
   };
-
-  console.log(JSON.stringify(result, null, 2));
-
-  if (status === "invalid" || shouldFail(status, process.env.AREAFORGE_SC002_PREFLIGHT_FAIL_ON)) {
-    process.exit(1);
-  }
 }
 
-function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
-  const rawPath = process.env[input.envKey]?.trim();
+function validateEvidenceInput(
+  input: EvidenceInput,
+  options: Sc002PreflightOptions,
+  root: string,
+): EvidenceResult {
+  const rawPath = options.env[input.envKey]?.trim();
   if (!rawPath) {
     return {
       ...input,
       path: null,
       status: "missing",
       detail: `${input.envKey} is not set`,
+      recordGitCommit: null,
     };
   }
 
-  const absolutePath = path.resolve(rawPath);
+  const absolutePath = path.resolve(root, rawPath);
   if (!existsSync(absolutePath)) {
     return {
       ...input,
       path: "<redacted path>",
       status: "invalid",
       detail: "configured evidence path does not exist",
+      recordGitCommit: null,
+    };
+  }
+  let record: string;
+  try {
+    record = readFileSync(absolutePath, "utf8");
+  } catch {
+    return invalidEvidence(input, "configured evidence path could not be read safely");
+  }
+  const parseIssues: ValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(record, parseIssues);
+  if (parseIssues.length > 0) {
+    return invalidEvidence(input, `configured evidence record is malformed: ${parseIssues[0]?.message ?? "invalid record"}`);
+  }
+  const recordGitCommit = fields.get("gitCommit")?.trim() || null;
+
+  const assetDir = input.assetDirEnvKey ? options.env[input.assetDirEnvKey]?.trim() : undefined;
+  if (input.assetDirEnvKey && !assetDir) {
+    return {
+      ...input,
+      path: "<redacted path>",
+      status: "invalid",
+      detail: `${input.assetDirEnvKey} is required for strict signed Release validation`,
+      recordGitCommit,
     };
   }
 
   const [command, ...args] = input.validatorCommand;
-  const validation = spawnSync(command ?? "pnpm", [...args, absolutePath], {
-    cwd: process.cwd(),
-    encoding: "utf8",
+  const validation = (options.runValidator ?? runValidator)({
+    command: command ?? "pnpm",
+    args: [
+      ...args,
+      absolutePath,
+      ...(assetDir ? [path.resolve(root, assetDir)] : []),
+      ...(input.validatorArgs ?? []),
+    ],
+    cwd: root,
   });
   if (validation.status === 0) {
+    try {
+      if (readFileSync(absolutePath, "utf8") !== record) {
+        return invalidEvidence(input, "configured evidence record changed during validation");
+      }
+    } catch {
+      return invalidEvidence(input, "configured evidence record could not be reread safely");
+    }
+    if (!options.checkoutBinding.worktreeClean) {
+      return {
+        ...input,
+        path: "<redacted path>",
+        status: "stale",
+        detail: `${input.label} validator passed, but a dirty worktree cannot be bound to remote CI or Release evidence`,
+        recordGitCommit,
+      };
+    }
+    if (recordGitCommit !== options.checkoutBinding.gitCommit && input.key !== "releaseSupplyChainRecord") {
+      return {
+        ...input,
+        path: "<redacted path>",
+        status: "stale",
+        detail: `${input.label} validator passed, but gitCommit does not match the current checkout`,
+        recordGitCommit,
+      };
+    }
+    if (recordGitCommit !== options.checkoutBinding.gitCommit) {
+      const binding = evaluateReleaseCloseoutBinding({
+        root,
+        releaseGitCommit: recordGitCommit ?? "",
+        currentGitCommit: options.checkoutBinding.gitCommit,
+      });
+      if (binding.status !== "evidence_only") {
+        return {
+          ...input,
+          path: "<redacted path>",
+          status: "stale",
+          detail: `${input.label} validator passed, but closeout binding failed: ${binding.issues.join(", ") || binding.status}`,
+          recordGitCommit,
+        };
+      }
+      return {
+        ...input,
+        path: "<redacted path>",
+        status: "valid",
+        detail: `${input.label} validator passed and its Release commit is bound to the clean evidence-only closeout checkout`,
+        recordGitCommit,
+      };
+    }
     return {
       ...input,
       path: "<redacted path>",
       status: "valid",
-      detail: `${input.label} validator passed`,
+      detail: `${input.label} validator passed and is bound to the clean current checkout`,
+      recordGitCommit,
     };
   }
 
@@ -144,11 +274,23 @@ function validateEvidenceInput(input: EvidenceInput): EvidenceResult {
     path: "<redacted path>",
     status: "invalid",
     detail: sanitizeValidationOutput(validation.stderr || validation.stdout || `${input.label} validator failed`),
+    recordGitCommit: null,
   };
 }
 
-function preflightStatus(evidence: EvidenceResult[]): PreflightStatus {
+function invalidEvidence(input: EvidenceInput, detail: string): EvidenceResult {
+  return {
+    ...input,
+    path: "<redacted path>",
+    status: "invalid",
+    detail,
+    recordGitCommit: null,
+  };
+}
+
+function preflightStatus(evidence: EvidenceResult[], checkoutBinding: CheckoutBinding): PreflightStatus {
   if (evidence.some((item) => item.status === "invalid")) return "invalid";
+  if (!checkoutBinding.worktreeClean) return "needs_evidence";
   if (evidence.find((item) => item.key === "releaseSupplyChainRecord")?.status === "valid") {
     return "ready_for_sc001_sc002_review";
   }
@@ -156,6 +298,28 @@ function preflightStatus(evidence: EvidenceResult[]): PreflightStatus {
     return "ready_for_sc002_review";
   }
   return "needs_evidence";
+}
+
+export function readCurrentCheckoutBinding(root: string): CheckoutBinding {
+  const gitCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const worktreeClean = execFileSync(
+    "git",
+    ["status", "--porcelain=v1", "--untracked-files=all"],
+    { cwd: root, encoding: "utf8" },
+  ).trim().length === 0;
+  return { gitCommit, worktreeClean };
+}
+
+function runValidator(invocation: ValidatorInvocation): ValidatorResult {
+  const result = spawnSync(invocation.command, invocation.args, {
+    cwd: invocation.cwd,
+    encoding: "utf8",
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
 }
 
 function nextCommand(status: PreflightStatus): string {
@@ -193,4 +357,4 @@ function sanitizeValidationOutput(value: string): string {
     .slice(0, 500);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

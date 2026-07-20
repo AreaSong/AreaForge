@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  collectBackupRestorePreviewSources,
+  type BackupRestorePreviewSourceInputs,
+} from "../quality/backup-restore-preview-source";
 
 type PreviewStatus = "ready" | "needs_evidence" | "blocked";
 type EvidenceStatus = "present" | "root_only" | "missing" | "invalid" | "not_applicable";
@@ -46,8 +49,8 @@ type BlockingGap = {
   blocks: BlockingScope[];
 };
 
-type BackupRestorePreview = {
-  schemaVersion: 1;
+export type BackupRestorePreview = {
+  schemaVersion: 2;
   generatedAt: string;
   mode: "metadata_only_backup_restore_preview";
   backupRestorePreviewHash: string;
@@ -57,12 +60,7 @@ type BackupRestorePreview = {
     version: string;
     releaseTag: string;
   };
-  sourceInputs: {
-    releaseRecordPath: string;
-    releaseRecordHash: string;
-    restoreDrillRecordPath: string | null;
-    restoreDrillRecordHash: string | null;
-  };
+  sourceInputs: BackupRestorePreviewSourceInputs;
   capabilities: string[];
   evidenceInventory: EvidenceItem[];
   blockingGaps: BlockingGap[];
@@ -98,27 +96,27 @@ type BackupRestorePreview = {
   };
 };
 
-const defaultReleaseRecordPath = "docs/development/release-v0.1.7-record.md";
-const projectRoot = realpathSync(process.cwd());
-const tempRoot = path.resolve(tmpdir());
-const maxRecordBytes = 2 * 1024 * 1024;
-const allowedRecordExtensions = new Set([".md", ".txt", ".json"]);
+export type BuildBackupRestorePreviewOptions = {
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  generatedAt?: Date;
+  beforeFinalize?: () => void;
+};
 
-function main(): void {
-  const packageJson = readJson("package.json");
-  const releaseRecordPath = process.env.AREAFORGE_BACKUP_PREVIEW_RELEASE_RECORD ?? defaultReleaseRecordPath;
-  const restoreDrillRecordPath = process.env.AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD ?? null;
-  const releaseRecord = readAllowedRecord(releaseRecordPath, "release record");
+export function buildBackupRestorePreview(
+  options: BuildBackupRestorePreviewOptions = {},
+): BackupRestorePreview {
+  const sourcesBefore = collectBackupRestorePreviewSources({ cwd: options.cwd, env: options.env });
+  const packageJson = sourcesBefore.packageJson;
+  const releaseRecord = sourcesBefore.releaseRecord;
   const releaseFields = parseFlatKeyValueRecord(releaseRecord.content);
-  const restoreRecord = restoreDrillRecordPath
-    ? readAllowedRecord(restoreDrillRecordPath, "restore drill record")
-    : null;
+  const restoreRecord = sourcesBefore.restoreRecord;
   const restoreFields = restoreRecord ? parseFlatKeyValueRecord(restoreRecord.content) : new Map<string, string>();
-  const version = stringValue(packageJson.version, "0.0.0");
+  const version = sourcesBefore.sourceInputs.packageVersion;
   const inventory = buildInventory(releaseFields, restoreFields, Boolean(restoreRecord));
   const previewWithoutHash = {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
+    schemaVersion: 2,
+    generatedAt: (options.generatedAt ?? new Date()).toISOString(),
     mode: "metadata_only_backup_restore_preview",
     backupRestorePreviewHash: "",
     status: previewStatus(inventory),
@@ -127,12 +125,7 @@ function main(): void {
       version,
       releaseTag: stringValue(releaseFields.get("releaseTag"), `v${version}`),
     },
-    sourceInputs: {
-      releaseRecordPath: releaseRecord.displayPath,
-      releaseRecordHash: `sha256:${sha256(releaseRecord.content)}`,
-      restoreDrillRecordPath: restoreRecord?.displayPath ?? null,
-      restoreDrillRecordHash: restoreRecord ? `sha256:${sha256(restoreRecord.content)}` : null,
-    },
+    sourceInputs: sourcesBefore.sourceInputs,
     capabilities: [
       "inspect_release_backup_metadata",
       "classify_root_only_backup_hash_gaps",
@@ -140,6 +133,7 @@ function main(): void {
       "inspect_attachment_reconciliation_binding",
       "derive_machine_readable_blocking_gaps",
       "summarize_restore_dry_run_record_presence",
+      "bind_current_source_set",
       "compute_preview_hash",
     ],
     evidenceInventory: inventory,
@@ -209,11 +203,22 @@ function main(): void {
     },
   } satisfies BackupRestorePreview;
 
+  options.beforeFinalize?.();
+  const sourcesAfter = collectBackupRestorePreviewSources({ cwd: options.cwd, env: options.env });
+  if (sourcesAfter.sourceInputs.sourceSetHash !== sourcesBefore.sourceInputs.sourceSetHash) {
+    throw new Error("backup/restore preview source inputs changed during generation");
+  }
+
   const preview: BackupRestorePreview = {
     ...previewWithoutHash,
     backupRestorePreviewHash: hashPreview(previewWithoutHash),
   };
 
+  return preview;
+}
+
+function main(): void {
+  const preview = buildBackupRestorePreview();
   console.log(JSON.stringify(preview, null, 2));
 }
 
@@ -526,100 +531,6 @@ function parseFlatKeyValueRecord(record: string): Map<string, string> {
   return fields;
 }
 
-function readJson(file: string): JsonRecord {
-  return JSON.parse(readProjectText(file)) as JsonRecord;
-}
-
-function readProjectText(file: string): string {
-  if (!existsSync(file)) {
-    throw new Error(`required file not found: ${file}`);
-  }
-  return readFileSync(file, "utf8");
-}
-
-function readAllowedRecord(file: string, purpose: string): { content: string; displayPath: string } {
-  const resolved = path.resolve(file);
-  const realPath = assertAllowedRecordPath(resolved, purpose);
-  const content = readFileSync(realPath, "utf8");
-  if (containsSensitiveRecordContent(content)) {
-    throw new Error(`${purpose} contains sensitive-looking values; use a redacted record`);
-  }
-  return {
-    content,
-    displayPath: displayPath(realPath),
-  };
-}
-
-function assertAllowedRecordPath(resolvedPath: string, purpose: string): string {
-  if (!existsSync(resolvedPath)) {
-    throw new Error(`${purpose} not found or not readable`);
-  }
-  const realPath = realpathSync(resolvedPath);
-  const stats = statSync(realPath);
-  if (!stats.isFile()) {
-    throw new Error(`${purpose} must be a redacted record file`);
-  }
-  if (stats.size > maxRecordBytes) {
-    throw new Error(`${purpose} is too large for a metadata-only redacted record`);
-  }
-  if (!isInsideOrEqual(projectRoot, realPath) && !isInsideOrEqual(tempRoot, realPath)) {
-    throw new Error(`${purpose} must be under the workspace or system temp directory`);
-  }
-  const lowerPath = realPath.replaceAll(path.sep, "/").toLowerCase();
-  const baseName = path.basename(realPath).toLowerCase();
-  const extension = path.extname(baseName);
-  const forbiddenPathTerms = [
-    "/.git/",
-    "/node_modules/",
-    "/.next/",
-    "/apps/web/public/",
-    "/public/",
-    "/uploads/",
-    "/backups/",
-  ];
-  if (!allowedRecordExtensions.has(extension) || forbiddenPathTerms.some((term) => lowerPath.includes(term))) {
-    throw new Error(`${purpose} path is not an allowed redacted record file`);
-  }
-  const forbiddenNamePatterns = [
-    /^\.env(?:\.|$)/,
-    /^updater\.env$/,
-    /password/,
-    /secret/,
-    /token/,
-    /^id_(?:rsa|ed25519)$/,
-    /cosign.*\.(?:key|pem)$/,
-  ];
-  const forbiddenExtensions = [".dump", ".sql", ".sqlite", ".db", ".tar", ".gz", ".tgz", ".zip", ".7z", ".pem", ".key", ".p12", ".pfx", ".log"];
-  if (forbiddenNamePatterns.some((pattern) => pattern.test(baseName)) || forbiddenExtensions.some((item) => lowerPath.endsWith(item))) {
-    throw new Error(`${purpose} path is not an allowed redacted record file`);
-  }
-  return realPath;
-}
-
-function containsSensitiveRecordContent(content: string): boolean {
-  return [
-    /\bDATABASE_URL\s*=/i,
-    /\bpostgres(?:ql)?:\/\/[^\s]+/i,
-    /\b(?:AI_API_KEY|OPENAI_API_KEY|AUTH_SESSION_SECRET|POSTGRES_PASSWORD|GITHUB_TOKEN|COSIGN_PASSWORD|PRIVATE_KEY)\s*[:=]/i,
-    /-----BEGIN (?:RSA |OPENSSH |EC |DSA |)?PRIVATE KEY-----/,
-  ].some((pattern) => pattern.test(content));
-}
-
-function displayPath(realPath: string): string {
-  if (isInsideOrEqual(projectRoot, realPath)) {
-    return path.relative(projectRoot, realPath) || ".";
-  }
-  if (isInsideOrEqual(tempRoot, realPath)) {
-    return path.join("<tmp>", path.relative(tempRoot, realPath));
-  }
-  return "<redacted-record>";
-}
-
-function isInsideOrEqual(root: string, candidate: string): boolean {
-  const relative = path.relative(path.resolve(root), path.resolve(candidate));
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
-
 function stringValue(value: unknown, fallback: string): string {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
@@ -645,4 +556,10 @@ function stableStringify(value: unknown): string {
   return JSON.stringify(value);
 }
 
-main();
+function isMain(): boolean {
+  return process.argv[1] ? import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href : false;
+}
+
+if (isMain()) {
+  main();
+}

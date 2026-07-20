@@ -7,7 +7,9 @@ import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { getStudyDayRange } from "./date";
 
 type CheckInDbClient = PrismaClient | Prisma.TransactionClient;
+type CheckInWriteClient = Prisma.TransactionClient;
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
+export const checkInLockNamespace = 1095123785;
 
 interface CheckInRecord {
   studyDate: Date;
@@ -24,7 +26,7 @@ interface CheckInRecord {
 
 export async function refreshCheckInSnapshotForDate(
   targetDate: Date,
-  client: CheckInDbClient = prisma,
+  client: CheckInWriteClient,
 ): Promise<CheckInSnapshotSummary> {
   const day = getStudyDayRange(targetDate);
   const sessions = await client.studySession.findMany({
@@ -106,22 +108,37 @@ export async function refreshCheckInSnapshotForDate(
 
 export async function refreshCheckInSnapshotsForDates(
   targetDates: Array<Date | null | undefined>,
-  client: CheckInDbClient = prisma,
+  client: CheckInWriteClient,
 ): Promise<CheckInSnapshotSummary[]> {
-  const uniqueDates = new Map<number, Date>();
-
-  for (const targetDate of targetDates) {
-    if (!targetDate) continue;
-    const dayStart = getStudyDayRange(targetDate).start;
-    uniqueDates.set(dayStart.getTime(), dayStart);
+  const lockTargets = getCheckInLockTargets(targetDates);
+  for (const target of lockTargets) {
+    await client.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${checkInLockNamespace}, ${target.lockKey})`;
   }
 
   const snapshots: CheckInSnapshotSummary[] = [];
-  for (const targetDate of uniqueDates.values()) {
-    snapshots.push(await refreshCheckInSnapshotForDate(targetDate, client));
+  for (const target of lockTargets) {
+    snapshots.push(await refreshCheckInSnapshotForDate(target.start, client));
   }
 
   return snapshots;
+}
+
+export function getCheckInLockTargets(
+  targetDates: Array<Date | null | undefined>,
+): Array<{ studyDayKey: string; start: Date; lockKey: number }> {
+  const uniqueDays = new Map<number, { studyDayKey: string; start: Date; lockKey: number }>();
+
+  for (const targetDate of targetDates) {
+    if (!targetDate) continue;
+    const day = getStudyDayRange(targetDate);
+    uniqueDays.set(day.start.getTime(), {
+      studyDayKey: day.key,
+      start: day.start,
+      lockKey: Number(day.key.replaceAll("-", "")),
+    });
+  }
+
+  return Array.from(uniqueDays.values()).sort((left, right) => left.start.getTime() - right.start.getTime());
 }
 
 export async function findCheckInSnapshotForDate(

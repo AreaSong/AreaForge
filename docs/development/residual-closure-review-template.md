@@ -31,6 +31,7 @@ reviewDecision: close/keep-open/downgrade/reopen
 decisionRationale: <why this decision is justified by the evidence>
 evidenceUris: <repo-relative record path or sha256 digest list>
 validatorCommands: <pnpm ... commands used for the review>
+validatorOutcome: pass/ready-for-human-close/ready-for-ledger-update/ready-for-sc001-sc002-review/keep-open/blocked/fail/invalid
 validatorSummary: <pass / ready_for_human_close / ready_for_sc001_sc002_review / blocked / fail / invalid summary>
 reopenConditions: new release, stale evidence, validation failure, production version change
 doesNotProve: residual ledger closure, production health, updater apply, backup/restore, migration, rollback
@@ -53,7 +54,9 @@ safetyFacts:
 
 - `reviewDecision: close` 只表示维护者准备关闭或已形成关闭建议；记录本身必须保持 `closesResidual: no`，且 `residualLedgerAction: requires-separate-ledger-update`。
 - `reviewDecision: keep-open` 必须保持 `residualLedgerAction: none` 和 `result: keep-open`。
+- `residualRiskId` 必须存在于权威 Schema V2 residual ledger，`currentResidualType` 必须与台账一致；`close` 只接受明确的正向 `validatorOutcome`。
 - `evidenceUris` 只能使用仓库相对路径、HTTPS URL 或 `sha256:<64 hex>` 摘要；不得写服务器绝对路径、`.env`、密码文件、token、私钥、生产原始日志或备份归档路径。
+- 仓库相对 evidence 必须真实存在且是仓库内普通非 symlink 文件；记录中的顶层字段和 `safetyFacts` 字段不得重复。
 - `validatorCommands` 必须列出复核时运行的 `pnpm ...` 校验命令；复核记录 validator 不会替你执行这些命令。
 - `doesNotProve` 必须明确本记录不能证明 residual 台账已关闭、生产健康、updater apply、backup/restore、migration 或 rollback。
 - 如需真正更新 residual 台账，必须另起一次明确的台账更新变更，并运行 `pnpm residuals:validate`、相关专项 validator 和文档同步检查。

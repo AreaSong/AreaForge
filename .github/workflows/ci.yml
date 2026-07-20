@@ -6,6 +6,8 @@ on:
     branches:
       - main
       - "codex/**"
+  schedule:
+    - cron: "23 3 * * 1"
 
 permissions:
   contents: read
@@ -18,6 +20,7 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -38,6 +41,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLo "${RUNNER_TEMP}/${archive}" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          printf '%s  %s\n' "${GITLEAKS_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" gitleaks
+          sudo install -m 0755 "${RUNNER_TEMP}/gitleaks" /usr/local/bin/gitleaks
+          rm -f "${RUNNER_TEMP}/${archive}" "${RUNNER_TEMP}/gitleaks"
+
+      - name: Commit secret scan
+        run: pnpm secrets:scan
+
+      - name: Full dependency audit
+        run: pnpm audit:all
+
       - name: Production dependency audit
         run: pnpm audit:prod
 
@@ -46,6 +70,18 @@ jobs:
 
       - name: CI supply-chain record selftest
         run: pnpm ci:supply-chain:selftest
+
+      - name: Release admission selftest
+        run: pnpm release:admission:selftest
+
+      - name: Release identity probe selftest
+        run: pnpm release:identity:probe:selftest
+
+      - name: Release workflow policy selftest
+        run: pnpm release:workflow:policy:selftest
+
+      - name: SC-004 main protection evidence selftests
+        run: pnpm sc:sc-004:validate:selftest && pnpm sc:sc-004:preflight:selftest
 
       - name: Shellcheck updater
         run: pnpm shellcheck:updater
@@ -62,11 +98,29 @@ jobs:
       - name: OPS-001 fallback finalizer selftest
         run: pnpm ops:ops-001:fallback:finalize:selftest
 
+      - name: OPS-005 expected-before V2 selftest
+        run: pnpm ops:ops-005:local:selftest && pnpm ops:ops-005:preflight:selftest && pnpm ops:ops-005:evidence:selftest
+
+      - name: OPS-006/007/008 confirmation-before selftests
+        run: pnpm ops:ops-006:preflight:selftest && pnpm ops:ops-007:preflight:selftest && pnpm ops:ops-008:preflight:selftest && pnpm ops:ops-006:preflight && pnpm ops:ops-007:preflight && pnpm ops:ops-008:preflight && pnpm attachment:crash-window:selftest && pnpm attachment:crash-window:validate scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json && pnpm updater:phase-journal:selftest && pnpm updater:phase-journal:validate scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json && pnpm updater:maintenance-control:selftest && pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json && pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json && pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json
+
+      - name: Operability quality scripts typecheck
+        run: pnpm quality:operability:typecheck
+
+      - name: Operations lifecycle policy
+        run: pnpm ops:lifecycle:selftest && pnpm ops:lifecycle:validate && pnpm ops:lifecycle:typecheck
+
       - name: Updater preflight
-        run: pnpm github-release-updater:preflight
+        run: pnpm github-release-updater:preflight:selftest && pnpm github-release-updater:preflight
 
       - name: Governance preflight
         run: pnpm governance:preflight
+
+      - name: Tasks workflow doctor
+        run: pnpm tasks:doctor
+
+      - name: Tasks workflow doctor selftest
+        run: pnpm tasks:doctor:selftest
 
       - name: Changed path review
         run: |
@@ -86,6 +140,27 @@ jobs:
 
       - name: Ops readiness preflight
         run: pnpm ops:readiness
+
+      - name: Maintenance window validator selftest
+        run: pnpm maintenance:window:record:selftest
+
+      - name: Maintenance window index selftest
+        run: pnpm maintenance:window:index:selftest
+
+      - name: Incident index selftest
+        run: pnpm incident:index:selftest
+
+      - name: Support bundle preview selftest
+        run: pnpm ops:support:bundle-preview:selftest
+
+      - name: Support intake preflight
+        run: pnpm support:intake:preflight
+
+      - name: Error recovery matrix
+        run: pnpm error-recovery:validate && pnpm error-recovery:selftest && pnpm api:error-redaction:selftest
+
+      - name: Product experience binding selftest
+        run: pnpm experience:runtime:selftest && pnpm release:runtime-identity:selftest && pnpm experience:review:selftest
 
       - name: Residual ledger validate
         run: pnpm residuals:validate
