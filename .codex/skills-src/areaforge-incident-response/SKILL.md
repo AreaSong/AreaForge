@@ -1,11 +1,16 @@
 ---
 name: areaforge-incident-response
-description: "Use when Codex needs to triage or manage an AreaForge incident, outage, failed deployment, failed update, bad release, data-access issue, backup or restore failure, AI provider incident, upload/download failure, security suspicion, rollback decision, or post-incident review."
+description: "Use when Codex needs to triage or manage an AreaForge incident, outage, failed deployment, failed update, bad release, data-access issue, backup or restore failure, AI provider incident, upload/download failure, security suspicion, rollback decision, or post-incident review. This skill owns incident orchestration from severity to closeout; hand read-only signals to areaforge-observability and confirmed production execution to areaforge-sre-ops."
 ---
 
 # AreaForge Incident Response
 
 Use this skill when signals indicate user impact or operational risk and the next step must be contained, audited, and reversible.
+
+## When To Use / Hand Off
+
+- Use for: orchestrating an incident end-to-end: severity, evidence freeze, containment, rollback decision, recovery verification, and post-incident review.
+- Not here: read-only signal gathering -> `areaforge-observability`; confirmed production execution -> `areaforge-sre-ops`; security or privacy incident boundaries -> `areaforge-security-governance`; follow-up risk tracking -> `areaforge-residual-ledger`.
 
 ## Read First
 

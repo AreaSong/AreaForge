@@ -1,11 +1,16 @@
 ---
 name: areaforge-release-operator
-description: "Use when Codex needs to prepare, review, create, or verify an AreaForge feature release, GitHub Release, signed release assets, GHCR image update, server updater request, rollback target, changelog, or post-release evidence. Trigger for release tags, version bumps, GitHub Actions release workflow, update center requests, auto-update policy, production release records, or questions about shipping a finished feature."
+description: "Use when Codex needs to prepare, review, create, or verify an AreaForge feature release, GitHub Release, signed release assets, GHCR image update, server updater request, rollback target, changelog, or post-release evidence. Trigger for release tags, version bumps, GitHub Actions release workflow, update center requests, auto-update policy, production release records, or questions about shipping a finished feature. This skill owns release execution and evidence; hand artifact trust verification to areaforge-supply-chain and plain commit/push checkpoints to areaforge-git-checkpoint."
 ---
 
 # AreaForge Release Operator
 
 Operate AreaForge releases as evidence-backed production changes, not as ad-hoc tags.
+
+## When To Use / Hand Off
+
+- Use for: preparing, creating, reviewing, or verifying releases: version, tag, GitHub Release, signed assets, GHCR digest, updater request, rollback target, and post-release evidence.
+- Not here: artifact and dependency trust verification -> `areaforge-supply-chain`; local stage/commit/push before any tag -> `areaforge-git-checkpoint`; confirmed production execution -> `areaforge-sre-ops`; read-only live signals -> `areaforge-observability`.
 
 ## Read First
 

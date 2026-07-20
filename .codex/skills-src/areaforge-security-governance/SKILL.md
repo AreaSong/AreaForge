@@ -1,11 +1,16 @@
 ---
 name: areaforge-security-governance
-description: "Use when Codex needs to review or update AreaForge security governance, authentication, authorization, uploads, attachment access, AI privacy, secrets, logs, supply chain, GitHub Release signing, GHCR, updater safety, production command boundaries, or high-risk confirmation packets."
+description: "Use when Codex needs to review or update AreaForge security governance, authentication, authorization, uploads, attachment access, AI privacy, secrets, logs, supply chain, GitHub Release signing, GHCR, updater safety, production command boundaries, or high-risk confirmation packets. This skill owns security boundary review and data lifecycle coordination; hand artifact trust verification to areaforge-supply-chain and release execution to areaforge-release-operator."
 ---
 
 # AreaForge Security Governance
 
 Review security as a system: data boundary, command boundary, dependency boundary, AI boundary, and release boundary.
+
+## When To Use / Hand Off
+
+- Use for: reviewing security boundaries (auth, uploads, AI privacy, secrets, logs, command boundaries, high-risk packets) and coordinating data lifecycle work until a dedicated data-governance owner exists.
+- Not here: artifact/dependency trust verification -> `areaforge-supply-chain`; release creation and evidence -> `areaforge-release-operator`; file body and reconciliation details -> `areaforge-file-storage-safety`; AI provider/cost details -> `areaforge-ai-governance`; production execution -> `areaforge-sre-ops`.
 
 ## Read First
 

@@ -1,11 +1,16 @@
 ---
 name: areaforge-supply-chain
-description: "Use when Codex needs to inspect, design, or verify AreaForge supply-chain trust: GitHub Actions, Release assets, GHCR images, immutable digests, cosign/GPG signatures, SHA256SUMS, dependency changes, package manager build approvals, updater trust policy, SBOM or provenance gaps."
+description: "Use when Codex needs to inspect, design, or verify AreaForge supply-chain trust: GitHub Actions, Release assets, GHCR images, immutable digests, cosign/GPG signatures, SHA256SUMS, dependency changes, package manager build approvals, updater trust policy, SBOM or provenance gaps. This skill owns artifact and dependency trust verification; hand release creation to areaforge-release-operator and broad security boundary review to areaforge-security-governance."
 ---
 
 # AreaForge Supply Chain
 
 Use this skill to keep release artifacts, dependencies, and updater inputs trustworthy enough for long-term operation.
+
+## When To Use / Hand Off
+
+- Use for: verifying trust of release artifacts, images, digests, signatures, hashes, dependencies, GitHub Actions, and updater inputs.
+- Not here: creating releases or release records -> `areaforge-release-operator`; secrets and security boundary review -> `areaforge-security-governance`; production updater/apply evidence -> `areaforge-sre-ops`; repository dependency policy -> `areaforge-enterprise-governance`.
 
 ## Read First
 

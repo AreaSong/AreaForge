@@ -27,6 +27,30 @@
 - 轻量任务拆分：`tasks/**`；为空或冲突时，以 `docs/development/implementation-order.md` 为准。
 - 版本规划：`workflow/**`；为空或冲突时，以 `docs/product/roadmap.md` 为准。
 
+## Skill 快速路由（抗上下文压缩）
+
+| 任务场景 | Owner skill | 边界提示 |
+|---|---|---|
+| 跨多治理面 / 不确定归属 | `areaforge-operating-loop` | 单一面任务直接用对应 owner |
+| 发布、tag、GitHub Release、updater 请求 | `areaforge-release-operator` | 制品信任给 supply-chain；本地 commit 给 git-checkpoint |
+| 制品/依赖/签名/digest 信任验证 | `areaforge-supply-chain` | 发布执行给 release-operator |
+| 本地 stage/commit/push 检查点 | `areaforge-git-checkpoint` | tag/Release 属发布动作 |
+| 生产写操作（备份/恢复/updater apply/回滚） | `areaforge-sre-ops` | 只读信号给 observability |
+| 只读生产信号与证据 | `areaforge-observability` | 写动作给 sre-ops；事故编排给 incident-response |
+| 事故分级、止血、回滚决策、复盘 | `areaforge-incident-response` | 执行给 sre-ops；信号给 observability |
+| 安全边界、鉴权、密钥、AI 隐私、数据生命周期协调 | `areaforge-security-governance` | 文件细节给 file-storage-safety；AI 细节给 ai-governance |
+| 附件/上传/对账/存储迁移细节 | `areaforge-file-storage-safety` | 高风险边界审查给 security-governance |
+| AI provider、fallback、成本、token | `areaforge-ai-governance` | 隐私生命周期归口给 security-governance |
+| CI、依赖准入、仓库政策 | `areaforge-enterprise-governance` | 具体域细节交给对应 owner |
+| 公开 issue、支持入口、贡献者 PR | `areaforge-public-maintenance` | 各风险面交给对应 owner |
+| 浏览器/API smoke 与体验证据 | `areaforge-qa-smoke` | 产品设计判断给 product-experience |
+| 产品体验设计与打磨判断 | `areaforge-product-experience` | 验证证据给 qa-smoke |
+| 文档/任务/工作流状态同步 | `areaforge-doc-sync` | 验证命令选择给 validation-driver |
+| 残余风险分类与关闭条件 | `areaforge-residual-ledger` | 状态同步给 doc-sync |
+| 选择最小充分验证集 | `areaforge-validation-driver` | 失败语义归还 surface owner |
+
+同会话新任务须重新匹配本表；完整交接边界见 `.codex/skills-src/README.md` 的 Owner 边界表。
+
 ## 工作原则
 
 - 先读方案、上下文和最近的局部 `AGENTS.md`，再改代码。

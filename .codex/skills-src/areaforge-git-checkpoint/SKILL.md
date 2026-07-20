@@ -1,11 +1,16 @@
 ---
 name: areaforge-git-checkpoint
-description: "Use when Codex needs to stage, commit, push, or review AreaForge Git checkpoint readiness after validation, especially before GitHub Release tags, release records, updater changes, docs completion claims, or separating unrelated dirty worktree changes."
+description: "Use when Codex needs to stage, commit, push, or review AreaForge Git checkpoint readiness after validation, especially before GitHub Release tags, release records, updater changes, docs completion claims, or separating unrelated dirty worktree changes. This skill owns local stage/commit/push hygiene; creating tags, GitHub Releases, or updater requests belongs to areaforge-release-operator."
 ---
 
 # AreaForge Git Checkpoint
 
 Use this skill when work is ready to become a Git checkpoint or when a dirty worktree may affect release evidence.
+
+## When To Use / Hand Off
+
+- Use for: local Git hygiene after validation: scope isolation, staging only intended files, commit message quality, and push readiness.
+- Not here: creating or pushing tags, GitHub Releases, updater requests, or rollback targets -> `areaforge-release-operator`; choosing the validation set -> `areaforge-validation-driver`; syncing docs -> `areaforge-doc-sync`.
 
 ## Read First
 

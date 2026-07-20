@@ -1,11 +1,16 @@
 ---
 name: areaforge-observability
-description: "Use when Codex needs to inspect, design, or improve AreaForge observability: health checks, logs, update-agent status, backup freshness, disk/cert capacity, release evidence, alert thresholds, smoke signals, operational dashboards, or production readiness signals."
+description: "Use when Codex needs to inspect, design, or improve AreaForge observability: health checks, logs, update-agent status, backup freshness, disk/cert capacity, release evidence, alert thresholds, smoke signals, operational dashboards, or production readiness signals. This skill owns read-only evidence; hand production write actions to areaforge-sre-ops and incident orchestration to areaforge-incident-response."
 ---
 
 # AreaForge Observability
 
 Use this skill to prove what the system is doing before diagnosing, releasing, rolling back, or claiming production health.
+
+## When To Use / Hand Off
+
+- Use for: proving system state with read-only evidence: health, logs, update-agent status, backup freshness, alerts, and readiness signals.
+- Not here: production write actions -> `areaforge-sre-ops`; incident severity and containment -> `areaforge-incident-response`; release identity and updater decisions -> `areaforge-release-operator`; artifact trust failures -> `areaforge-supply-chain`.
 
 ## Read First
 

@@ -1,11 +1,16 @@
 ---
 name: areaforge-doc-sync
-description: "Use when Codex needs to keep AreaForge README, AGENTS, docs, tasks, workflow, ops, release records, templates, or project-level skills aligned with current code, production, and release state. Trigger after feature work, migrations, uploads, AI changes, deployment/update changes, docs edits, task status changes, or questions asking whether all documents are synchronized."
+description: "Use when Codex needs to keep AreaForge README, AGENTS, docs, tasks, workflow, ops, release records, templates, or project-level skills aligned with current code, production, and release state. Trigger after feature work, migrations, uploads, AI changes, deployment/update changes, docs edits, task status changes, or questions asking whether all documents are synchronized. This skill owns documentation alignment; choosing validation commands belongs to areaforge-validation-driver."
 ---
 
 # AreaForge Doc Sync
 
 Keep AreaForge source facts aligned across product docs, engineering docs, task ledgers, workflow plans, ops records, and Codex skills.
+
+## When To Use / Hand Off
+
+- Use for: aligning source facts across README, AGENTS, docs, tasks, workflow, ops records, templates, and skills after state changes.
+- Not here: choosing and running validation commands -> `areaforge-validation-driver`; release evidence fields themselves -> `areaforge-release-operator`; residual status decisions -> `areaforge-residual-ledger`.
 
 ## Read First
 

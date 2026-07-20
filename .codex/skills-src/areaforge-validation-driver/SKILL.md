@@ -1,11 +1,16 @@
 ---
 name: areaforge-validation-driver
-description: "Use when Codex needs to choose, run, or report the smallest sufficient AreaForge validation set for docs-only changes, web changes, Prisma migrations, core rules, AI provider changes, uploads, security changes, supply-chain changes, observability or incident workflows, release/update work, production ops, or mixed changes."
+description: "Use when Codex needs to choose, run, or report the smallest sufficient AreaForge validation set for docs-only changes, web changes, Prisma migrations, core rules, AI provider changes, uploads, security changes, supply-chain changes, observability or incident workflows, release/update work, production ops, or mixed changes. This skill owns validation selection and evidence reporting; it does not own product semantics and hands failures back to the surface owner skill."
 ---
 
 # AreaForge Validation Driver
 
 Choose validation from risk and touched paths, then report evidence honestly.
+
+## When To Use / Hand Off
+
+- Use for: choosing, running, and reporting the smallest sufficient validation set for a changed scope.
+- Not here: product or security semantics of a failure -> the owning skill (for example `areaforge-security-governance`, `areaforge-file-storage-safety`, `areaforge-release-operator`); browser/user-journey evidence -> `areaforge-qa-smoke`; docs drift -> `areaforge-doc-sync`.
 
 ## Read First
 

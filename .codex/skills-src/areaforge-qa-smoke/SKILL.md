@@ -1,11 +1,16 @@
 ---
 name: areaforge-qa-smoke
-description: "Use when Codex needs to verify AreaForge real product experience, end-to-end smoke paths, Playwright/browser screenshots, API smoke, production smoke, release smoke, or whether the app feels usable after a feature. Trigger for login, dashboard, task, timer, review, notes, syllabus, analytics, reports, simulation, update center, mobile/desktop viewport, or real experience checks."
+description: "Use when Codex needs to verify AreaForge real product experience, end-to-end smoke paths, Playwright/browser screenshots, API smoke, production smoke, release smoke, or whether the app feels usable after a feature. Trigger for login, dashboard, task, timer, review, notes, syllabus, analytics, reports, simulation, update center, mobile/desktop viewport, or real experience checks. This skill owns verification evidence; product design judgment and UX critique belong to areaforge-product-experience."
 ---
 
 # AreaForge QA Smoke
 
 Validate the product as a student would use it, then attach enough evidence for engineering confidence.
+
+## When To Use / Hand Off
+
+- Use for: executing smoke checks and collecting evidence: user journeys, browser/API smoke, screenshots, viewports, production read-only smoke.
+- Not here: product design judgment, information architecture, and UX critique -> `areaforge-product-experience`; command gate selection -> `areaforge-validation-driver`; post-release health evidence -> `areaforge-release-operator`.
 
 ## Read First
 

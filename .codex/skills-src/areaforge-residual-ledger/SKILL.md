@@ -1,11 +1,16 @@
 ---
 name: areaforge-residual-ledger
-description: "Use when Codex needs to classify, inspect, update, or report AreaForge residual risks, blockers, accepted exceptions, deferred work, release follow-ups, known gaps, historical references, or closure evidence without confusing them with current executable tasks."
+description: "Use when Codex needs to classify, inspect, update, or report AreaForge residual risks, blockers, accepted exceptions, deferred work, release follow-ups, known gaps, historical references, or closure evidence without confusing them with current executable tasks. This skill owns residual classification and close conditions; syncing the resulting status into docs belongs to areaforge-doc-sync."
 ---
 
 # AreaForge Residual Ledger
 
 Use this skill to keep unresolved items visible, classified, and closeable without turning every risk into immediate scope.
+
+## When To Use / Hand Off
+
+- Use for: classifying residual items (blocker, deferred, accepted exception, monitoring gap, follow-up, historical) with IDs, owners, and close conditions.
+- Not here: syncing residual status across docs -> `areaforge-doc-sync`; release follow-up execution -> `areaforge-release-operator`; incident follow-ups -> `areaforge-incident-response`; validation after status changes -> `areaforge-validation-driver`.
 
 ## Read First
 

@@ -1,11 +1,16 @@
 ---
 name: areaforge-sre-ops
-description: "Use when Codex needs to inspect, plan, or improve AreaForge production operations: health checks, logs, Nginx, Docker Compose, PostgreSQL, backups, restore drills, GitHub Release updater, update-agent, auto-apply policy, rollback, disk/cert capacity, incident triage, or operational readiness."
+description: "Use when Codex needs to inspect, plan, or improve AreaForge production operations: health checks, logs, Nginx, Docker Compose, PostgreSQL, backups, restore drills, GitHub Release updater, update-agent, auto-apply policy, rollback, disk/cert capacity, incident execution support, or operational readiness. This skill owns executing confirmed production operations; hand read-only signal evidence to areaforge-observability and incident severity/containment orchestration to areaforge-incident-response."
 ---
 
 # AreaForge SRE Ops
 
 Treat production as a managed system with health, backup, restore, update, rollback, and incident evidence.
+
+## When To Use / Hand Off
+
+- Use for: planning or executing confirmed production operations: health, backup, restore, updater apply, rollback, Nginx, containers, PostgreSQL.
+- Not here: read-only signal inventory and status evidence -> `areaforge-observability`; incident severity and containment orchestration -> `areaforge-incident-response`; release identity and update evidence -> `areaforge-release-operator`; artifact trust -> `areaforge-supply-chain`.
 
 ## Read First
 

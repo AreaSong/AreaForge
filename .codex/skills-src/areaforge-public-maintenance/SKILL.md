@@ -1,11 +1,16 @@
 ---
 name: areaforge-public-maintenance
-description: "Use when Codex needs to triage or improve AreaForge public repository maintenance: GitHub issues, support intake, contributor PRs, public/private security routing, self-hosting support, community-facing docs, issue templates, support preflight, or maintainer response boundaries."
+description: "Use when Codex needs to triage or improve AreaForge public repository maintenance: GitHub issues, support intake, contributor PRs, public/private security routing, self-hosting support, community-facing docs, issue templates, support preflight, or maintainer response boundaries. This skill owns public-facing triage and coordination; hand each risky surface to its owner skill such as areaforge-security-governance or areaforge-sre-ops."
 ---
 
 # AreaForge Public Maintenance
 
 Use this skill to keep the public project usable without weakening AreaForge's security, release, or production boundaries.
+
+## When To Use / Hand Off
+
+- Use for: triaging public issues, support intake, contributor PRs, and community-facing docs while guarding sensitive-data boundaries.
+- Not here: security disclosure details -> `areaforge-security-governance`; self-hosting production support -> `areaforge-sre-ops`; release/update questions -> `areaforge-release-operator`; repository policy -> `areaforge-enterprise-governance`.
 
 ## Read First
 

@@ -1,11 +1,16 @@
 ---
 name: areaforge-enterprise-governance
-description: "Use when Codex needs to inspect, design, or update AreaForge enterprise governance: CI policy, branch and release rules, dependency admission, CODEOWNERS or PR templates, security policy, review gates, repository settings, workflow drift, or governance-level readiness."
+description: "Use when Codex needs to inspect, design, or update AreaForge enterprise governance: CI policy, branch and release rules, dependency admission, CODEOWNERS or PR templates, security policy, review gates, repository settings, workflow drift, or governance-level readiness. This skill owns repository-level policy; hand security boundary details to areaforge-security-governance, artifact trust to areaforge-supply-chain, and release execution to areaforge-release-operator."
 ---
 
 # AreaForge Enterprise Governance
 
 Use this skill when a change affects how the project is governed rather than a single feature path.
+
+## When To Use / Hand Off
+
+- Use for: repository-level governance: CI policy, branch/release rules, dependency admission, ownership, PR/security policy templates, and review gates.
+- Not here: concrete security boundary review -> `areaforge-security-governance`; artifact/dependency trust details -> `areaforge-supply-chain`; release execution -> `areaforge-release-operator`; docs drift -> `areaforge-doc-sync`.
 
 ## Read First
 

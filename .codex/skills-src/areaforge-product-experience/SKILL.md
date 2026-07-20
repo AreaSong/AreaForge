@@ -1,11 +1,16 @@
 ---
 name: areaforge-product-experience
-description: "Use when Codex needs to audit, design, or improve AreaForge real user experience, product flows, learning loop clarity, dashboard information architecture, task/timer/review ergonomics, reports usefulness, recovery mode, update center usability, accessibility, empty states, copy, or visual polish."
+description: "Use when Codex needs to audit, design, or improve AreaForge real user experience, product flows, learning loop clarity, dashboard information architecture, task/timer/review ergonomics, reports usefulness, recovery mode, update center usability, accessibility, empty states, copy, or visual polish. This skill owns product design judgment; executing browser/API smoke and collecting verification evidence belongs to areaforge-qa-smoke."
 ---
 
 # AreaForge Product Experience
 
 Judge the app by whether a tired student can understand the next action and trust the system.
+
+## When To Use / Hand Off
+
+- Use for: judging and improving product experience: journey clarity, information architecture, ergonomics, accessibility, copy, and visual polish.
+- Not here: executing browser/API smoke and evidence capture -> `areaforge-qa-smoke`; syncing UX docs after behavior changes -> `areaforge-doc-sync`.
 
 ## Read First
 
