@@ -2,7 +2,17 @@
 
 `docs/` 是 AreaForge 的源事实目录。后续开发、评审、实现和部署优先以这里的文档为准。
 
-当前仓库发布候选版本为 `0.1.8`，生产仍是签名 Release `v0.1.7` / 应用版本 `0.1.7`；本地候选、签名 Release 和生产 rollout 是三类独立证据。
+当前版本与生产状态不写在本导航页：仓库候选版本见根 `package.json` 与根 README 状态节，生产运行状态见 `development/operational-readiness.md`。
+
+## 使用指南
+
+面向最终用户与自托管使用者的长期文档：
+
+- `guide/getting-started.md`：应用跑起来之后的产品上手路径。
+- `guide/user-guide.md`：按每日闭环与长期机制组织的完整使用指南。
+- `guide/configuration.md`：环境变量配置参考。
+- `guide/faq.md`：FAQ 与排障。
+- 根目录 `CHANGELOG.md`：人类可读版本历史。
 
 ## 产品
 
@@ -64,6 +74,8 @@
 - `adr/0004-ai-adapter-boundary.md`：AI 适配边界。
 
 ## 开发
+
+`development/` 混合了长期机制文档、模板和不可变历史记录；分类索引见 `development/README.md`（历史记录不代表当前状态）。
 
 - `development/setup.md`：本地开发准备。
 - `development/testing.md`：验证策略。

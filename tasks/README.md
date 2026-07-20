@@ -10,7 +10,11 @@
 - `indexes/`：执行索引，如长期运营残余项的 task-facing 视图。
 - `templates/`：任务模板。
 
-当前进度：仓库 package 已同步为 `0.1.8` 本地发布候选，生产仍运行 `0.1.7`；候选仍需干净提交、匹配 CI 和独立签名 Release 确认。Package A-E 和 docs 100% 当前证据已完成；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。`tasks/active/0019-update-request-expected-before-binding.md` 已完成本地 V2 韧性实现，等待签名 Release 与独立生产部署；`tasks/active/0020-business-state-concurrency.md` 已完成 active-session uniqueness、task/session CAS、结束计时单次副作用和 CheckIn 锁的隔离 PostgreSQL `local_verified`，独立 production validator/preflight 已实现，仍等待 matching signed Release、分别确认的基础 rollout/controlled probe 和生产证据；`tasks/active/0024-ux-residual-closure-review.md` 承接 current checkout-bound desktop/mobile review、runtime probe 和后续维护者 close/keep-open 复核，不自动修改台账。SC-004 远端 main ruleset/readback/受控 PR 已验证，仍等待人工 residual 决策。长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准；SC-002 已按 exact commit `5bec626` 的成功 CI-only 证据关闭，SC-001 保持开启；当前 current blocker 为 OPS-001、SC-004、OPS-005、OPS-006，UX-001 最新记录当前为 `invalid`，需重采 current-bound 本地证据后再进入人工复核，且本地证据不证明生产体验；OPS-007/008 分别承接附件崩溃窗口和 updater phase journal/hold-drain。
+当前进度快照（逐任务状态以各任务文件 frontmatter 为准）：
+
+- 各任务的真实状态、阻塞点和等待条件写在任务文件的 `status`、`phase` 和 `blockers` 字段里，用 `pnpm tasks:doctor` 校验；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。
+- 长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准，task-facing 视图见 `indexes/residuals.md`；current blocker、accepted exception 和逐项证据状态以台账为源事实。
+- 仓库候选版本与生产基线见根 README 状态节和 `docs/development/operational-readiness.md`。
 
 ## 使用规则
 

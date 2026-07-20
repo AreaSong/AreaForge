@@ -26,14 +26,14 @@
 NODE_ENV=production
 APP_ENV=production
 APP_URL=https://your-domain.example
-APP_VERSION=0.1.7
+APP_VERSION=<X.Y.Z，与所部署 Release 一致>
 
 DATABASE_URL=postgresql://...
 POSTGRES_DB=areaforge
 POSTGRES_USER=areaforge
 POSTGRES_PASSWORD=<strong-random-password>
 WEB_PORT=3020
-AREAFORGE_IMAGE=ghcr.io/areasong/areaforge-web:v0.1.7@sha256:<digest>
+AREAFORGE_IMAGE=ghcr.io/areasong/areaforge-web:<vX.Y.Z>@sha256:<digest>
 AREAFORGE_OPS_STATE_HOST_DIR=/opt/areaforge/ops-state
 
 AUTH_SESSION_SECRET=<strong-random-secret>
@@ -173,7 +173,7 @@ pnpm ops:support:bundle-preview:validate /tmp/areaforge-support-bundle-preview.j
 export AREAFORGE_SMOKE_BASE_URL=https://your-domain.example
 export AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
 export AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
-export AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.7
+export AREAFORGE_SMOKE_EXPECTED_VERSION=<X.Y.Z>
 export AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 export AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
 pnpm smoke:prod-readonly:config
@@ -183,8 +183,8 @@ pnpm smoke:prod-readonly | tee /tmp/areaforge-prod-readonly-smoke.log
 形成运维记录后，使用模板和校验：
 
 ```bash
-AREAFORGE_READINESS_EXPECTED_VERSION=0.1.7 \
-AREAFORGE_READINESS_RELEASE_TAG=v0.1.7 \
+AREAFORGE_READINESS_EXPECTED_VERSION=<X.Y.Z> \
+AREAFORGE_READINESS_RELEASE_TAG=<vX.Y.Z> \
 AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge \
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password \
 AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly' \
@@ -205,7 +205,7 @@ sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
 
 该命令只生成 redacted status、生产只读 smoke record、operational evidence bundle 和 OPS-001 closure packet；不执行 update apply、migration、备份、恢复、回滚或生产写入，不修改 residual 台账。导出目录可以交给维护者校验，配置文件、smoke 密码文件、生产 `.env` 和原始敏感日志不要外传。
 
-OPS-001 helper 需要生产主机或受控 release 工作目录能执行仓库 `pnpm` 脚本，并且 `/etc/areaforge/updater.env` 中必须配置 `AREAFORGE_EXTRA_SMOKE_COMMAND`、`AREAFORGE_SMOKE_BASE_URL`、`AREAFORGE_SMOKE_EMAIL` 和权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`。若生产主机无法运行 Node.js/pnpm，可用 `ops/update-agent/areaforge-ops001-readonly-fallback.sh` 导出 redacted update-agent status、前置条件摘要和可选 curl smoke 输出，再回本地运行 `pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> [output-dir]` 生成 smoke record、operational evidence bundle 和 OPS-001 closure packet。2026-07-11 的首次尝试记录在 `docs/development/ops-001-production-readonly-attempt-20260711.md`；2026-07-11/12 已用 fallback 补齐当时版本的只读 smoke、redacted update-agent status、operational evidence bundle 和 OPS-001 closure packet，证据目录为 `docs/development/ops-001-production-readonly-20260711/`。这些证据在 `v0.1.7` 更新后只能作为历史输入；当前版本仍需重新采集 post-`v0.1.7` redacted smoke/status/evidence bundle/OPS-001 closure packet，且 residual 台账关闭仍需维护者人工复核。
+OPS-001 helper 需要生产主机或受控 release 工作目录能执行仓库 `pnpm` 脚本，并且 `/etc/areaforge/updater.env` 中必须配置 `AREAFORGE_EXTRA_SMOKE_COMMAND`、`AREAFORGE_SMOKE_BASE_URL`、`AREAFORGE_SMOKE_EMAIL` 和权限收紧的 `AREAFORGE_SMOKE_PASSWORD_FILE`。若生产主机无法运行 Node.js/pnpm，可用 `ops/update-agent/areaforge-ops001-readonly-fallback.sh` 导出 redacted update-agent status、前置条件摘要和可选 curl smoke 输出，再回本地运行 `pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> [output-dir]` 生成 smoke record、operational evidence bundle 和 OPS-001 closure packet。历史采集尝试与 fallback 证据目录见 `docs/development/ops-001-production-readonly-attempt-20260711.md` 和 `docs/development/ops-001-production-readonly-20260711/`；历史证据只对采集时的版本有效，每次生产更新后都需重新采集当前版本的 redacted smoke/status/evidence bundle/OPS-001 closure packet，且 residual 台账关闭仍需维护者人工复核。
 
 若当前授权只允许补齐 release 记录中的 root-only backup hash、update-record 摘要和 redacted update-agent status，而不允许读取 smoke 密码文件，可改用 no-secret release evidence redacted export：
 
@@ -268,15 +268,15 @@ pnpm alert:drill:validate <alert-drill-record.md|txt>
 
 ## 当前残余风险
 
-自托管上线时必须显式带入这些残余项：
+自托管上线时必须显式带入这些残余项（逐项当前状态以 `docs/development/residual-risk-ledger.md` 为准）：
 
-- `AF-RISK-OPS-001`：2026-07-11/12 生产 extra/read-only smoke 是当时版本的可人工复核历史证据；post-`v0.1.7` 仍需重新采集 redacted smoke/status/evidence bundle/closure packet。
+- `AF-RISK-OPS-001`：生产只读 smoke 证据只对采集时的版本有效；每次生产更新后需重新采集 redacted smoke/status/evidence bundle/closure packet。
 - `AF-RISK-OPS-002`：生产写入型 smoke 需要单独确认、账号和清理策略。
 - `AF-RISK-REL-001`：默认 `AREAFORGE_AUTO_APPLY=none`，patch 自动应用需另行确认。
-- `AF-RISK-SC-001`：`v0.1.7` 签名 Release 已有 SBOM/provenance、checksum、cosign signature、GHCR digest 和生产 apply 证据；台账关闭仍需维护者人工复核，生产更新本身不自动关闭 residual。
+- `AF-RISK-SC-001`：签名 Release 的 SBOM/provenance、checksum、cosign signature、GHCR digest 和生产 apply 证据按版本记录；台账关闭仍需维护者人工复核，生产更新本身不自动关闭 residual。
 - `AF-RISK-SC-002`：已关闭为 CI-only 证据项；后续 GitHub Actions、依赖审计、Release workflow、供应链记录工具或新 Release 变更前需重新复核。
 - `AF-RISK-OPS-003`：服务器、域名、Nginx 或端口迁移需单独 runbook 和证据。
-- `AF-RISK-OPS-004`：2026-07-11 manual-window 告警/恢复演练仅作为历史输入；post-`v0.1.7` alert preview 与 matching drill 已保存并通过 preflight，达到 `ready_for_human_close`；metrics dashboard 和外部接收人产品化仍是后续增强，台账关闭仍需维护者人工复核。
+- `AF-RISK-OPS-004`：告警/恢复演练证据按版本记录；metrics dashboard 和外部接收人产品化仍是后续增强，台账关闭仍需维护者人工复核。
 
 ## 本地预检
 

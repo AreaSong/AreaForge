@@ -15,8 +15,24 @@
 7. `workflow/versions/**`：版本计划。
 8. `tasks/**`：执行任务。
 
+## 文档分层规则
+
+全部文档分三层，写作和检查按层执行：
+
+1. **长期文档**（`docs/guide/**`、`docs/product/**`、`docs/modules/**`、`docs/architecture/**`、`docs/ux/**`、`docs/deployment/**` 正文、`docs/adr/**`）：只写长期成立的行为、结构和边界。正文禁止出现具体版本号、日期和 Package/Batch 过程叙事；"当前实现状态"类小节一律改写为行为事实或指向状态入口。部署示例中的版本、digest 用 `<X.Y.Z>` 占位符加获取方法。防回归由 `pnpm docs:evergreen` 把关。
+2. **指定状态入口**（唯一允许写"当前状态"的位置）：根 `README.md` 状态节、`AGENTS.md` 当前状态、`docs/development/operational-readiness.md`、`docs/development/feature-traceability.md`、residual 台账、`workflow/**`、`tasks/**`。其他文档需要表达进度时，一律链接到这些入口，不复制状态。
+3. **不可变历史**（`docs/development/**` 各类 record、evidence JSON/TXT、维护窗口目录）：写入后不改写、不搬迁（脚本路径与 `{path, sha256}` 绑定）。新记录一律从 `docs/development/` 模板复制、通过对应 validator，并把文件名补进 `docs/development/README.md` 分类索引。判断当前状态永远看状态入口，不看历史记录。
+
+配套约定：
+
+- `workflow/versions/*.md` 每个计划文件必须带"计划状态"标头行（规划中/进行中/已完成/已搁置/已被替代）。
+- 每次创建 GitHub Release 时同步根 `CHANGELOG.md`（Keep a Changelog 格式），从 release record 提炼人类可读条目。
+- 门禁脚本要求长期文档保留的锚点短语（如 `docs/modules/mastery-proof.md` 中的 `Package B Batch 4`）按 `pnpm docs:evergreen` 的白名单管理，措辞调整不得删除锚点。
+
 ## 必查项
 
+- 长期文档改动是否遵守上方"文档分层规则"：正文无版本号/日期/批次叙事，状态只写指定入口；运行 `pnpm docs:evergreen` 验证。
+- 面向使用者的行为变化是否同步 `docs/guide/**`（上手、使用指南、配置参考、FAQ）；新增环境变量是否同步 `.env.example` 注释与 `docs/guide/configuration.md`。
 - 新功能是否有 `docs/modules/**` 或 `docs/product/**` 落点。
 - 新 API 是否同步 `docs/architecture/api-surface.md`。
 - 新表或字段是否同步 `docs/architecture/data-model.md`。

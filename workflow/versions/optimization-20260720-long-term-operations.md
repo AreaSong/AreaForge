@@ -2,6 +2,7 @@
 
 ## 当前状态
 
+- 计划状态：**进行中**。
 - 当前版本状态：workspace 保持 `0.1.8`；`v0.1.8` 发布候选计划已由维护者于 2026-07-20 决定搁置，候选链顶点保留在 `codex/long-term-operability` 分支。
 - 是否已有线上 Release：生产仍运行签名 Release `v0.1.7` / 应用版本 `0.1.7`。
 - 是否需要同步 `docs/**`、`tasks/**`、`workflow/**` 和入口 README：是；本轮改动完成后按 doc-sync-checklist 收口。
@@ -33,6 +34,7 @@
 - 到期 residual 复核：`AF-RISK-OPS-001` / `AF-RISK-SC-004` / `AF-RISK-OPS-005` keep-open 记录与台账 reviewAt 顺延。
 - 四路独立审查：安全与边界、代码质量与架构分层、性能与数据层、真实产品体验；修复其中阻塞级与可控高价值发现。
 - 轻量借鉴：docs 链接完整性自动检查（AreaMatrix 风格）、Prisma 分层边界静态检查（AreaFlow 风格），均含 selftest。
+- 文档体系长期化重组：新增 `docs/guide/`（上手/使用指南/配置参考/FAQ）、根 `CHANGELOG.md`、`CONTRIBUTING.md`、`.env.example` 注释；模块/架构/部署长期文档去 Package/Batch 与版本叙事；入口 README 状态收敛；`docs/development/README.md` 分类索引；workflow 版本计划统一"计划状态"标头；doc-sync-checklist 文档分层规则；`pnpm docs:evergreen` 防回归门禁 + selftest 并入 `pnpm check`。
 - `AF-RISK-UX-001` current-bound UX 重采：fresh desktop/mobile 旅程 + runtime probe + validator 通过。
 - 文档同步与收尾快照：AGENTS/README/workflow/operational-readiness/tasks 状态、`ops:status` / `ops:handoff` 快照。
 
@@ -47,6 +49,7 @@
 ## 验收标准
 
 - 功能证据：审查发现清单与修复对应提交；新增检查脚本 selftest 通过。
+- 文档分层：`docs/guide/` 四篇 + CHANGELOG + CONTRIBUTING 存在；长期文档通过 `pnpm docs:evergreen`；development 索引覆盖全部现存条目；8 个版本计划均有"计划状态"标头。
 - 文档同步：AGENTS/workflow README/v0.1.8 计划搁置标注/operational-readiness 相关入口一致。
 - 验证命令：`pnpm check`、`pnpm docs:readiness`、`pnpm ops:readiness`、`pnpm residuals:validate` 全部通过。
 - 发布证据：不适用（本轮不发布）。

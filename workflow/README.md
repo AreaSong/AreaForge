@@ -19,7 +19,11 @@
 - `versions/optimization-20260720-long-term-operations.md`：2026-07-20 长期运营优化轮（非发布版本计划）：到期 residual 复核、四路独立审查修复、轻量门禁借鉴与 UX 证据重采。
 - `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验，当前处于待开发讨论中（Planning），尚未实施。
 
-当前进度：仓库 package 已同步为 `0.1.8` 本地发布候选，生产仍是签名 Release `v0.1.7` / 应用版本 `0.1.7`；`v0.1.8` 尚未创建 tag、GitHub Release 或执行生产 rollout，且该候选计划已于 2026-07-20 被维护者搁置，当前推进的是 `optimization-20260720-long-term-operations.md` 优化轮。v0.1 到 v1.0 对应的当前 docs 100% 证据已闭环，表示当前产品范围中的所有非暂缓项已有实现和验证证据，不表示未来功能、跨页面体验或长期运营证据已经永久完整。Package A-E 均已完成。`v1.1` 当前只是下一阶段产品体验计划，目标是把已有任务、计时、考纲、笔记、错题、复习提醒和报告组织成连续行动闭环，尚未进入业务代码实施，不能计入现有 docs 完成声明。当前 `v0.1.7` 长期证据快照仍为 `needs_live_evidence`，缺 post-update OPS-001 redacted smoke/status/evidence bundle/closure packet 和 `releaseEvidenceBundleHash` / release evidence backup hash；OPS-004 matching alert drill/preflight 已达到 `ready_for_human_close` 但未关闭 residual。`tasks/active/0019-update-request-expected-before-binding.md` 的本地 V2 请求契约和 `tasks/active/0020-business-state-concurrency.md` 的本地并发保护均已通过本地门禁，下一阶段是匹配提交的签名 Release，之后再分别确认生产 rollout 与 controlled probe。后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或未来服务器/域名迁移。长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口，离线运营状态投影用 `pnpm ops:status --summary` 快速查看或 `pnpm ops:status` 生成 JSON，维护或线程交接摘要用 `pnpm ops:handoff --summary` 快速查看或 `pnpm ops:handoff` 生成 JSON，生产运营证据以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
+当前进度快照（详情以各版本计划的状态标头为准）：
+
+- 当前推进 `versions/optimization-20260720-long-term-operations.md` 优化轮；`v0.1.8` 发布候选已搁置，未创建 tag、GitHub Release 或生产 rollout。
+- 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与剩余缺口（含 `needs_live_evidence`、post-update OPS-001、release evidence backup hash 等）以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
+- 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口；后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或服务器/域名迁移。
 
 ## 使用规则
 

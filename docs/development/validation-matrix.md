@@ -24,8 +24,8 @@
 
 | 改动范围 | 最小验证 |
 |---|---|
-| `docs/**`、`README.md`、`AGENTS.md` | `rg` 检查旧引用和入口路径，`pnpm docs:readiness`，`pnpm docs:links`，`git diff --check`；若涉及完成声明、运行时写边界、release/ops/UX 残余项，补跑对应专项预检或记录校验；若新增完成声明记录，运行 `pnpm completion:evidence:validate <record>` |
-| `scripts/quality/arch-layer-boundary.ts`、`scripts/quality/docs-link-integrity.ts` 及对应 selftest | `pnpm arch:boundary`、`pnpm arch:boundary:selftest`、`pnpm docs:links`、`pnpm docs:links:selftest`、`git diff --check`；两者已并入 `pnpm check`。分层检查只做静态 import/用法扫描，不证明运行时行为；链接检查只验证仓库内相对路径存在，不校验外部 URL 可达性 |
+| `docs/**`、`README.md`、`AGENTS.md` | `rg` 检查旧引用和入口路径，`pnpm docs:readiness`，`pnpm docs:links`，`pnpm docs:evergreen`，`git diff --check`；若涉及完成声明、运行时写边界、release/ops/UX 残余项，补跑对应专项预检或记录校验；若新增完成声明记录，运行 `pnpm completion:evidence:validate <record>` |
+| `scripts/quality/arch-layer-boundary.ts`、`scripts/quality/docs-link-integrity.ts`、`scripts/quality/docs-evergreen-check.ts` 及对应 selftest | `pnpm arch:boundary`、`pnpm arch:boundary:selftest`、`pnpm docs:links`、`pnpm docs:links:selftest`、`pnpm docs:evergreen`、`pnpm docs:evergreen:selftest`、`git diff --check`；三者已并入 `pnpm check`。分层检查只做静态 import/用法扫描，不证明运行时行为；链接检查只验证仓库内相对路径存在，不校验外部 URL 可达性；evergreen 检查只做长期文档的禁用模式扫描，白名单见脚本内注释 |
 | `assets/brand/**`、`scripts/brand/**`、`scripts/quality/brand-assets-validate.ts`、`docs/ux/brand-assets.md` | 运行 `pnpm brand:validate`；SVG 运行 `xmllint --noout`；PDF 用 `pdfinfo` 并渲染抽查；检查没有 `.DS_Store` 等元数据文件；运行 `pnpm docs:readiness` 和 `git diff --check`；若接入 Web favicon、PWA manifest 或 UI，再按 `apps/web/**` 运行 typecheck、lint、build 和桌面/移动截图验证 |
 | `docs/deployment/operator-onboarding.md`、`scripts/quality/operator-onboarding-preflight.ts`、自托管上手入口 | `pnpm operator:onboarding:preflight`，`pnpm docs:readiness`，`pnpm ops:readiness`，`pnpm skills:validate`，`git diff --check` |
 | `tasks/**`、`workflow/**` | 检查对应 `docs/**` 源事实是否存在，`pnpm tasks:doctor`，`pnpm docs:readiness`，`git diff --check`；若 task 绑定 residual，补跑 `pnpm residuals:validate`，确认 `taskRefs` 与 `residualRiskIds` 双向一致 |

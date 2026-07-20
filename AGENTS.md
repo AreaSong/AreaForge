@@ -17,6 +17,7 @@
 ## 源事实
 
 - 产品定位与功能边界：`docs/product/**`。
+- 使用指南、配置参考与 FAQ：`docs/guide/**`；人类可读版本历史：`CHANGELOG.md`。
 - 工程结构与分层：`docs/architecture/**`。
 - 业务模块设计：`docs/modules/**`。
 - 页面状态与交互：`docs/ux/**`。
