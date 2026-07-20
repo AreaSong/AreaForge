@@ -90,6 +90,11 @@ Bugbot 复审（2026-07-20 收口前）：
 - 边界：本地证据不证明生产体验；`AF-RISK-UX-001` 保持 open，人工 reaffirm 承接 `tasks/active/0024`。
 - 过程噪音：采集期间并行会话两次推进 HEAD 且工作区出现指纹内中间态，导致两轮证据作废重采；最终证据绑定收口前的最终源提交。
 
+## OPS-006 提前到期复核（2026-07-20）
+
+- `AF-RISK-OPS-006` reviewAt 2026-07-22 即将到期，本轮顺带提前复核：结论 keep-open，记录见 `docs/development/residual-closure-review-20260720-ops-006.md`，通过 `pnpm residuals:closure:validate`；台账 reviewAt 顺延至 2026-07-27。
+- 复核时 `pnpm ops:ops-006:preflight:strict` 返回 `local_validation` 且 strict gate blocked：本地实现仍在，但 doctor/runtime 证据绑定已随 HEAD 推进过期，需要在未来发布候选提交冻结后重新生成 `local_verified` 证据；关闭仍依赖匹配签名 Release、独立生产 migration/rollout、controlled probe 与 fresh production doctor。
+
 ## 运维边界
 
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
