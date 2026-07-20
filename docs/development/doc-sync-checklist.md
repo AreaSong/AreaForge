@@ -20,7 +20,7 @@
 全部文档分三层，写作和检查按层执行：
 
 1. **长期文档**（`docs/guide/**`、`docs/product/**`、`docs/modules/**`、`docs/architecture/**`、`docs/ux/**`、`docs/deployment/**` 正文、`docs/adr/**`）：只写长期成立的行为、结构和边界。正文禁止出现具体版本号、日期和 Package/Batch 过程叙事；"当前实现状态"类小节一律改写为行为事实或指向状态入口。部署示例中的版本、digest 用 `<X.Y.Z>` 占位符加获取方法。防回归由 `pnpm docs:evergreen` 把关。
-2. **指定状态入口**（唯一允许写"当前状态"的位置）：根 `README.md` 状态节、`AGENTS.md` 当前状态、`docs/development/operational-readiness.md`、`docs/development/feature-traceability.md`、residual 台账、`workflow/**`、`tasks/**`。其他文档需要表达进度时，一律链接到这些入口，不复制状态。
+2. **指定状态入口**（唯一允许写"当前状态"的位置）：根 `README.md` 状态节、`AGENTS.md` 当前状态、`docs/development/operational-readiness.md`、`docs/development/feature-traceability.md`、`docs/development/feature-map.md`（视图型四态功能图，权威判定仍在 feature-traceability 与 residual 台账）、residual 台账、`workflow/**`、`tasks/**`。其他文档需要表达进度时，一律链接到这些入口，不复制状态。
 3. **不可变历史**（`docs/development/**` 各类 record、evidence JSON/TXT、维护窗口目录）：写入后不改写、不搬迁（脚本路径与 `{path, sha256}` 绑定）。新记录一律从 `docs/development/` 模板复制、通过对应 validator，并把文件名补进 `docs/development/README.md` 分类索引。判断当前状态永远看状态入口，不看历史记录。
 
 配套约定：
@@ -34,6 +34,9 @@
 - 长期文档改动是否遵守上方"文档分层规则"：正文无版本号/日期/批次叙事，状态只写指定入口；运行 `pnpm docs:evergreen` 验证。
 - 面向使用者的行为变化是否同步 `docs/guide/**`（上手、使用指南、配置参考、FAQ）；新增环境变量是否同步 `.env.example` 注释与 `docs/guide/configuration.md`。
 - 新功能是否有 `docs/modules/**` 或 `docs/product/**` 落点。
+- 功能状态变化（新增、完成、降级、搁置、划入不做）是否同步 `docs/development/feature-traceability.md`（权威）、`docs/development/feature-map.md` 对应行与快照日期，以及 Cursor Canvas 投影 `areaforge-feature-map.canvas.tsx`。
+- 新增、删除页面路由或调整主导航入口是否同步 `docs/ux/site-navigation.md`。
+- 本轮若踩到满足录入门槛（可复现/代价高/代码看不出，2/3 通过）的新坑，是否已按「触发/根因/规避/关联」格式追加 `docs/development/gotchas.md`；与 residual 台账、FAQ、error-recovery-matrix 重叠的内容是否回链而非复制。
 - 新 API 是否同步 `docs/architecture/api-surface.md`。
 - 新表或字段是否同步 `docs/architecture/data-model.md`。
 - 品牌素材、Logo、图标或静态资产入口变化是否同步 `assets/brand/brand-manifest.json`、`docs/architecture/project-structure.md`、`docs/ux/brand-assets.md` 和必要的 README 导航，并准确区分当前 checkout 已接入、线上版本已发布与生产已更新三种状态。
@@ -75,6 +78,7 @@
 - 自托管上手、公开分发或首次操作者路径变化，是否同步 `docs/deployment/operator-onboarding.md`、`README.md`、`docs/README.md`、`apps/web/README.md`、验证矩阵和相关 SRE/release skill。
 - 生产只读 smoke 记录若进入仓库或运维交接摘要，是否使用 `docs/development/production-readonly-smoke-record-template.md` 并通过 `pnpm smoke:prod-readonly:validate`。
 - 告警/恢复演练记录若进入仓库或运维交接摘要，是否使用 `docs/development/alert-drill-record-template.md` 并通过 `pnpm alert:drill:validate`。
+- 告警推送 helper（`ops/alerting/**`）、阈值或接收人配置约定变化，是否同步 `docs/deployment/alerting.md`、`docs/development/production-smoke-alerting-strategy.md`、验证矩阵对应行与 `pnpm shellcheck:updater` 覆盖清单，并保持 OPS-004 关闭条件（真实接收人 + 演练记录 + preflight）不被通知发送成功替代。
 - 事故记录若进入仓库或运维交接摘要，是否使用 `docs/development/incident-record-template.md` 并通过 `pnpm incident:record:validate`。
 - 例行恢复演练记录若进入仓库或运维交接摘要，是否使用 `docs/development/restore-drill-record-template.md` 并通过 `pnpm restore:drill:validate`，且不把演练记录当成生产 restore 授权。
 - 周/月维护窗口记录若进入仓库或运维交接摘要，是否使用 `docs/development/maintenance-window-record-template.md` 并通过 `pnpm maintenance:window:validate`。

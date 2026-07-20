@@ -15,6 +15,7 @@
 - `codex-workflow.md`：轻量 Codex 协作工作流。
 - `doc-sync-checklist.md`：文档同步、漂移检查与文档分层规则。
 - `validation-matrix.md`：按改动范围选择验证。
+- `gotchas.md`：可复用坑点库（触发/根因/规避/关联；开工前扫读、收尾时按录入门槛追加）。
 
 治理与边界：
 
@@ -44,6 +45,7 @@
 
 - `operational-readiness.md`：长期运营 readiness 与信号新鲜度。
 - `feature-traceability.md`：功能到实现、任务和版本的追踪矩阵（含批次证据）。
+- `feature-map.md`：全项目四态功能图（done/partial/planned/wont 的视图型状态入口；冲突时以 feature-traceability 与 residual 台账为准，配套 Cursor Canvas 投影）。
 - `residual-risk-ledger.md` / `residual-risk-ledger.json`：残余风险台账。
 - `docs-100-completion-record.md`：docs 100% 完成证据台账。
 - `maintenance-window-index.json` / `incident-index.json`：由已验证记录确定性重建的只读投影。
@@ -102,7 +104,7 @@
 
 复核记录：
 
-- `product-experience-review-20260710-local.md`、`product-experience-review-v0.1.7-20260712-local.md`、`product-experience-review-20260715.md`、`product-experience-review-20260716.md`、`product-experience-review-20260716-ops-control-plane.md`、`product-experience-review-20260718-5bec626.md`
-- `residual-closure-review-20260716.md`、`residual-closure-review-20260720-ops-001.md`、`residual-closure-review-20260720-ops-005.md`、`residual-closure-review-20260720-sc-004.md`
+- `product-experience-review-20260710-local.md`、`product-experience-review-v0.1.7-20260712-local.md`、`product-experience-review-20260715.md`、`product-experience-review-20260716.md`、`product-experience-review-20260716-ops-control-plane.md`、`product-experience-review-20260718-5bec626.md`、`product-experience-review-20260720-ltops.md`
+- `residual-closure-review-20260716.md`、`residual-closure-review-20260720-ops-001.md`、`residual-closure-review-20260720-ops-005.md`、`residual-closure-review-20260720-sc-004.md`、`residual-closure-review-20260720-ops-006.md`
 
 新增记录进入本目录时：从模板复制、跑对应 validator，然后把文件名补进本索引的对应分组。

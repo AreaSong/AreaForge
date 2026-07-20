@@ -2,10 +2,10 @@
 
 ## 当前状态
 
-- 计划状态：**进行中**。
-- 当前版本状态：workspace 保持 `0.1.8`；`v0.1.8` 发布候选计划已由维护者于 2026-07-20 决定搁置，候选链顶点保留在 `codex/long-term-operability` 分支。
+- 计划状态：**已完成**（2026-07-21 收口）。四路审查修复、文档体系长期化重组、docs:links/arch:boundary/docs:evergreen 门禁、到期 residual keep-open 复核（OPS-001/SC-004/OPS-005，另含 OPS-006 提前复核）与 UX-001 current-bound 重采全部落地；后续发布环见 `workflow/versions/v0.1.9-long-term-operations-release.md`。
+- 当前版本状态：本轮期间 workspace 保持 `0.1.8`；收口后由 v0.1.9 计划 bump 为 `0.1.9`。`v0.1.8` 发布候选计划保持搁置，候选链顶点保留在 `codex/long-term-operability` 分支。
 - 是否已有线上 Release：生产仍运行签名 Release `v0.1.7` / 应用版本 `0.1.7`。
-- 是否需要同步 `docs/**`、`tasks/**`、`workflow/**` 和入口 README：是；本轮改动完成后按 doc-sync-checklist 收口。
+- 是否需要同步 `docs/**`、`tasks/**`、`workflow/**` 和入口 README：已按 doc-sync-checklist 收口。
 
 ## 目标
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run AreaForge read-only alert check every 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

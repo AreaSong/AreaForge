@@ -8,7 +8,7 @@
 
 ## 当前基线
 
-- 仓库发布候选：`0.1.8`；尚未创建签名 `v0.1.8` Release，也未部署到生产。
+- 仓库发布候选：`0.1.9`（承接搁置的 `v0.1.8` 范围，计划见 `workflow/versions/v0.1.9-long-term-operations-release.md`）；尚未创建签名 Release，也未部署到生产。
 - 线上地址：`https://forge.areasong.top/`
 - 当前生产版本：`0.1.7`
 - 当前生产 Release：`v0.1.7`
@@ -397,7 +397,7 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 - `AF-RISK-SC-002`：已关闭为 CI-only 证据项；后续修改 GitHub Actions、依赖审计、Release workflow、供应链记录工具或创建新 Release 前必须重新生成匹配 commit 证据，失败时重新打开。该状态不改变 `AF-RISK-SC-001` 的独立签名 Release 关闭条件。
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。
-- `AF-RISK-OPS-004`：告警阈值已有非执行策略；2026-07-11 manual-window alert preview 和告警/恢复演练记录保留为历史输入；post-`v0.1.7` alert preview 已保存为 `docs/development/ops-004-alert-preview-v0.1.7-20260712.json`，matching drill 已保存为 `docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt`，带当前 preview/drill 环境变量运行 `pnpm ops:ops-004:preflight` 返回 `ready_for_human_close`；metrics dashboard 和外部告警接收人仍未产品化，台账关闭仍需维护者人工复核。
+- `AF-RISK-OPS-004`：告警阈值已有非执行策略；2026-07-11 manual-window alert preview 和告警/恢复演练记录保留为历史输入；post-`v0.1.7` alert preview 已保存为 `docs/development/ops-004-alert-preview-v0.1.7-20260712.json`，matching drill 已保存为 `docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt`，带当前 preview/drill 环境变量运行 `pnpm ops:ops-004:preflight` 返回 `ready_for_human_close`；服务器侧只读推送 helper 已入库（`ops/alerting/areaforge-alert-notify.sh` + systemd timer 示例，部署见 `docs/deployment/alerting.md`），但服务器 timer 安装、真实接收人配置与基于该通道的告警/恢复演练仍未执行；metrics dashboard 仍未产品化，台账关闭仍需维护者人工复核。
 - `AF-RISK-OPS-005`：当前 checkout 已实现 Web confirmed snapshot binding、schema V2、目标 Release/manifest/digest、TTL、三个 canonical hash、idempotency、atomic publish、processing reconciliation、不可变 decision history、legacy mutation fail-closed 和共享 production-state lock，并通过本地 fixture/selftest。该代码尚未进入匹配签名 Release，也未部署到生产；在独立生产部署确认、V2 check 和 fresh redacted rejection/history/operational evidence 形成前，该项保持 current blocker，且不得从 Web runtime 或本地文档直接执行生产动作。
 - `AF-RISK-OPS-006`：canonical partial unique index、task/session CAS、结束计时单次副作用和 CheckIn advisory lock 已完成隔离 PostgreSQL `local_verified`；独立 production evidence validator/preflight 与 live-gate check 已实现并要求 strict Release、source-at-commit、before/after doctor、canonical index、health/authenticated smoke、另行确认的 synthetic 409/单次副作用 probe、Release evidence 和 rollback 绑定。上述 matching Release 与生产动作尚未确认，因此 residual 保持 current-blocker。
 - `AF-RISK-OPS-007`：附件最终文件与 metadata 提交之间仍有崩溃窗口，staging/write-intent 需独立确认。

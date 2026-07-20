@@ -60,6 +60,7 @@
 
 ## UX
 
+- `ux/site-navigation.md`：页面清单、导航入口与页面跳转关系。
 - `ux/dashboard-states.md`：作战台状态。
 - `ux/focus-timer.md`：专注计时交互。
 - `ux/recovery-mode.md`：恢复模式体验。
@@ -136,6 +137,8 @@
 - `development/validation-matrix.md` 中的 `pnpm risk:preflight`：高风险包确认前的只读护栏预检。
 - `development/doc-sync-checklist.md`：文档同步和漂移检查。
 - `development/feature-traceability.md`：功能项到代码、任务和版本的追踪矩阵。
+- `development/feature-map.md`：全项目四态功能图（视图型状态入口，权威状态以 feature-traceability 与 residual 台账为准）。
+- `development/gotchas.md`：可复用坑点库（触发/根因/规避/关联）。
 - `development/structured-state-migration-design.md`：结构化学习状态 migration 确认设计。
 - `development/attachment-upload-access-design.md`：附件上传与鉴权访问确认设计。
 - `development/ai-provider-integration-design.md`：真实 AI provider 接入确认设计。
@@ -161,6 +164,7 @@
 - `deployment/docker-compose.md`：Docker Compose 策略。
 - `deployment/backup-restore.md`：备份与恢复，以及 `pnpm ops:backup-restore:preview` metadata-only 证据预览边界。
 - `deployment/github-release-updater.md`：GitHub Release 驱动的服务器侧受控自动更新。
+- `deployment/alerting.md`：服务器侧只读告警推送 helper（`ops/alerting/`）的部署、阈值、降噪与告警/恢复演练路径。
 
 ## 安全
 

@@ -183,6 +183,35 @@ Incident 后目标是保留证据、恢复服务、避免同类问题重复。
 7. 若形成后续风险，写入 residual ledger 或对应任务，不只留在聊天记录。
 8. 若涉及安全，转 `SECURITY.md` 私密路径。
 
+## 到期复核重采命令链
+
+`reviewAt` 到期、residual 关闭前或证据过期（如 `residuals:review-due` 报 `overdue`/`due_today`）时，按以下固定命令链重采证据。命令链只产出证据与预检状态，不发生产写动作，也不自动关闭台账；最终 close/keep-open 仍走人工复核记录。
+
+`AF-RISK-OPS-001`（生产认证只读 smoke）：
+
+1. 服务器（root）：`ops/update-agent/areaforge-ops001-readonly-fallback.sh --output-dir /tmp/areaforge-ops001-fallback-<ts>`；宿主机具备 pnpm 时可改用 `AREAFORGE_EXTRA_SMOKE_COMMAND` 指向的 `pnpm smoke:prod-readonly`。
+2. redacted 输出目录回传本地后：`AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=<manifest> pnpm ops:ops-001:fallback:finalize <redacted-fallback-dir> <output-dir>`。
+3. `pnpm ops:evidence:bundle` 并用 `pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>` 校验。
+4. `pnpm ops:ops-001:preflight` 达到 `ready_to_generate_packet` 后生成收口包，`pnpm ops:ops-001:closure:validate <ops-001-closure-packet.txt>`，再回跑 preflight 确认 `ready_for_human_close`。
+5. 人工结论存 residual-closure-review 记录并 `pnpm residuals:closure:validate <record>`；若更新台账，补跑 `pnpm residuals:validate`。
+
+`AF-RISK-SC-004`（main 保护 ruleset 读回 + 受控 PR）：
+
+1. 维护窗口内用具备 repo admin 的 `gh` 读回 ruleset，按 `docs/development/github-main-protection-record-template.md` 保存 redacted `readback.json`（含 canonical `readbackHash`）。
+2. 同一 `maintenanceWindowId` 内创建受控 PR，捕获 `ci / verify` check conclusion、PR URL/number/head SHA 与 Actions run URL，保存 `controlled-pr.json`。
+3. `pnpm sc:sc-004:validate <readback.json> <controlled-pr.json>`。
+4. `AREAFORGE_SC004_READBACK_RECORD=<readback.json> AREAFORGE_SC004_CONTROLLED_PR_RECORD=<controlled-pr.json> pnpm sc:sc-004:preflight` 达到 `ready_for_human_review`。
+5. 人工结论同 OPS-001 第 5 步。
+
+`AF-RISK-UX-001`（current-bound 桌面/移动体验复核）：
+
+1. 隔离环境：独立 PostgreSQL 数据库 + 独立 `UPLOAD_DIR` + seed 合成账号启动本地 runtime，不触生产。
+2. `pnpm smoke:local-ux` 全部通过；Playwright 采集 desktop 1440px 与 mobile 390px 截图，覆盖 login、dashboard、timer-closeout、review、notes、syllabus、reports、simulation、update-center 全部必需 journey；截图放 `output/playwright/` 且文件名用 `ux-`/`desktop-`/`mobile-` 前缀（evidence-only 白名单要求）。
+3. `pnpm experience:runtime:probe` 保存 runtime identity 证据，确认其 gitCommit 与当前 HEAD 一致。
+4. 从 `docs/development/product-experience-review-record-template.md` 复制记录，用 `pnpm experience:review:validate <record> --print-record-hashes` 回填哈希，再跑默认 `pnpm experience:review:validate <record>` 得到 `bindingStatus: current`。
+5. 证据提交必须是 evidence-only 提交（只含记录、截图、runtime identity JSON），否则 current binding 立即失效；采集期间不得并行推进 HEAD 或改动 UX 源文件。
+6. 本地 pass 只证明隔离 runtime 体验；生产体验声明仍需独立 live 证据，UX-001 keep-open/close 由人工复核决定。
+
 ## Residual Review
 
 复核 residual 时，遵循：

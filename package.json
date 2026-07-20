@@ -1,6 +1,6 @@
 {
   "name": "@areasong/areaforge",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -180,7 +180,7 @@
     "skills:validate": "tsx scripts/quality/skills-validate.ts",
     "secrets:scan": "tsx scripts/quality/secret-scan.ts",
     "secrets:scan:history": "tsx scripts/quality/secret-scan.ts --history",
-    "shellcheck:updater": "shellcheck -x -P ops/update-agent -e SC2317,SC2329 ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh ops/update-agent/areaforge-ops001-evidence-export.sh ops/update-agent/areaforge-ops001-readonly-fallback.sh ops/update-agent/areaforge-release-evidence-redacted-export.sh ops/update-agent/areaforge-release-readonly-smoke.sh",
+    "shellcheck:updater": "shellcheck -x -P ops/update-agent -e SC2317,SC2329 ops/github-release-updater/areaforge-updater.sh ops/update-agent/areaforge-update-agent.sh ops/update-agent/areaforge-ops001-evidence-export.sh ops/update-agent/areaforge-ops001-readonly-fallback.sh ops/update-agent/areaforge-release-evidence-redacted-export.sh ops/update-agent/areaforge-release-readonly-smoke.sh ops/alerting/areaforge-alert-notify.sh",
     "audit:all": "pnpm audit --audit-level high",
     "audit:prod": "pnpm audit --prod --audit-level high",
     "pg:trace-deprecation": "NODE_OPTIONS=--trace-deprecation tsx scripts/quality/pg-deprecation-trace.ts",

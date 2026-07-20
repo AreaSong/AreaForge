@@ -10,10 +10,16 @@
 
 - 面向使用者的长期文档：产品上手、使用指南、配置参考、FAQ 与排障（`docs/guide/`）。
 - 文档链接完整性与 Prisma 分层边界静态门禁（`pnpm docs:links`、`pnpm arch:boundary`）。
+- 服务器侧只读告警推送 helper（`ops/alerting/`）：health、update-agent 状态、备份新鲜度、磁盘、证书五类信号按阈值推送 ntfy/Telegram/webhook，支持降噪与恢复通知。
+- 站点导航、全项目功能图与坑点库长期文档（`docs/ux/site-navigation.md`、`docs/development/feature-map.md`、`docs/development/gotchas.md`）。
+- 附件上传写入意图协议：数据库先登记 PENDING 意图，staging 写入 + fsync + 原子 rename 后 CAS 置 READY；下载仅允许 READY 且以 O_NOFOLLOW 同句柄校验；新增有界 claim/lease 对账维护命令。
+- 服务器侧 updater 阶段日志与维护 hold/drain：hash-chained 不可覆盖阶段事件、备份清单持久化屏障、崩溃后 fail-closed hold 与固定锁序的队列准入。
 
 ### Changed
 
 - 长期文档与阶段性记录分层：模块/架构/部署文档回归长期表述，当前状态收敛到指定入口。
+- 登录限速只信任反向代理可控来源头；附件上传增加 Content-Length 预检。
+- 首页、考纲、报表查询编排性能优化（请求级共享、轻量选项树、查询合并与节流）。
 
 ## [0.1.7] - 2026-07-12
 
