@@ -5,6 +5,7 @@ import {
   type TaskStatus,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
+import { cache } from "react";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayKey, getStudyDayRange } from "./date";
 import type { SyllabusNodeStatusDto } from "./types";
@@ -72,6 +73,9 @@ export interface AnalyticsSummaryDto {
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
+
+// 同一次服务端渲染内的只读共享副本，供 AI 建议与长期风险等多个消费方复用同一份统计结果。
+export const getAnalyticsSummaryShared = cache(async (): Promise<AnalyticsSummaryDto> => getAnalyticsSummary());
 
 export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSummaryDto> {
   const today = getStudyDayRange(now);

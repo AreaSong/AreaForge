@@ -12,10 +12,12 @@ import { getAnalyticsSummary } from "./analytics-service";
 import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { applyTaskCas } from "./concurrency";
 import { daysUntil } from "./date";
-import { getMotivationVault, saveMotivationVault } from "./service";
+import { finalExamDate, simulationDate } from "./exam-dates";
+import { getMotivationVault, getMotivationVaultShared, saveMotivationVault } from "./service";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
+import { serializeTask } from "./task-serializer";
 import type {
   MotivationVaultDto,
   SimulationExamDto,
@@ -24,10 +26,7 @@ import type {
   StudyTaskDto,
 } from "./types";
 
-const simulationDate = new Date("2026-12-20T08:30:00+08:00");
-
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
-type DbTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type SimulationDbClient = PrismaClient | Prisma.TransactionClient;
 
 export interface CreateSimulationTaskInput {
@@ -117,7 +116,7 @@ export async function getSimulationWorkspace(now = new Date()): Promise<Simulati
     getSimulationStageDraft(now),
     listStagePlans(),
     listStageAdjustmentDrafts(),
-    getMotivationVault(),
+    getMotivationVaultShared(),
   ]);
 
   return { exams, tasks, stage, stagePlans, stageAdjustmentDrafts, motivationVault };
@@ -414,7 +413,7 @@ export async function completeSimulationTask(
 export async function getSimulationStageDraft(now = new Date()): Promise<SimulationStageDraftDto> {
   const [analytics, motivationVault] = await Promise.all([
     getAnalyticsSummary(now),
-    getMotivationVault(),
+    getMotivationVaultShared(),
   ]);
   const daysToSimulation = daysUntil(simulationDate, now);
   const readiness = evaluateSimulationReadiness({
@@ -437,7 +436,7 @@ export async function getSimulationStageDraft(now = new Date()): Promise<Simulat
     lowConversionCount: analytics.totals.lowConversionCount,
     weakSubjectNames: chooseFocusSubjects(analytics.subjects),
     simulationScoreRate: null,
-    daysToFinal: daysUntil(new Date("2027-12-20T08:30:00+08:00"), now),
+    daysToFinal: daysUntil(finalExamDate, now),
   });
 
   return {
@@ -820,69 +819,6 @@ function normalizeOptionalText(value: string | undefined): string | null {
 function formatMaybeNumber(value: number | null | undefined): string | undefined {
   if (value == null) return undefined;
   return Number.isInteger(value) ? `${value}` : `${Math.round(value * 10) / 10}`;
-}
-
-function serializeTask(task: {
-  id: string;
-  subjectId: string;
-  syllabusNodeId: string | null;
-  parentTaskId: string | null;
-  title: string;
-  type: string;
-  status: DbTaskStatus;
-  priority: DbTaskPriority;
-  debtStatus: string;
-  plannedDate: Date;
-  estimatedMinutes: number;
-  actualMinutes: number;
-  reviewText: string | null;
-  completedAt: Date | null;
-  subject: {
-    name: string;
-    color: string;
-  };
-  syllabusNode?: {
-    title: string;
-  } | null;
-}): StudyTaskDto {
-  return {
-    id: task.id,
-    subjectId: task.subjectId,
-    parentTaskId: task.parentTaskId,
-    subjectName: task.subject.name,
-    subjectColor: task.subject.color,
-    syllabusNodeId: task.syllabusNodeId,
-    syllabusNodeTitle: task.syllabusNode?.title ?? null,
-    title: task.title,
-    type: task.type,
-    status: fromDbTaskStatus(task.status),
-    priority: fromDbPriority(task.priority),
-    debtStatus: task.debtStatus,
-    plannedDate: task.plannedDate.toISOString(),
-    estimatedMinutes: task.estimatedMinutes,
-    actualMinutes: task.actualMinutes,
-    reviewText: task.reviewText,
-    completedAt: task.completedAt?.toISOString() ?? null,
-  };
-}
-
-function fromDbPriority(priority: DbTaskPriority): StudyTaskDto["priority"] {
-  return priority.toLowerCase() as StudyTaskDto["priority"];
-}
-
-function fromDbTaskStatus(status: DbTaskStatus): StudyTaskDto["status"] {
-  switch (status) {
-    case "TODO":
-      return "todo";
-    case "IN_PROGRESS":
-      return "in_progress";
-    case "DONE":
-      return "done";
-    case "SKIPPED":
-      return "skipped";
-    case "DEFERRED":
-      return "deferred";
-  }
 }
 
 function toTaskDebtEventState(task: {

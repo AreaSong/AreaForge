@@ -6,22 +6,21 @@ import {
   type LongTermRiskWeakNodeInput,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
-import { getAnalyticsSummary } from "./analytics-service";
+import { getAnalyticsSummaryShared } from "./analytics-service";
 import { daysUntil } from "./date";
-import { getTodayDashboard } from "./service";
-import { getSyllabusMapOverview } from "./syllabus-service";
+import { finalExamDate, simulationDate } from "./exam-dates";
+import { getTodayDashboardShared } from "./service";
+import { getSyllabusMapOverviewShared } from "./syllabus-service";
 import type { SyllabusNodeDto } from "./types";
-
-const simulationDate = new Date("2026-12-20T08:30:00+08:00");
-const finalExamDate = new Date("2027-12-20T08:30:00+08:00");
 
 export type LongTermRiskSummaryDto = LongTermRiskSummary;
 
 export async function getLongTermRiskSummary(now = new Date()): Promise<LongTermRiskSummaryDto> {
+  // 走请求级共享副本：与页面主查询及 AI 建议复用同一份 dashboard/analytics/考纲地图。
   const [analytics, dashboard, syllabusMap, latestSimulation, stage] = await Promise.all([
-    getAnalyticsSummary(now),
-    getTodayDashboard(now),
-    getSyllabusMapOverview(),
+    getAnalyticsSummaryShared(),
+    getTodayDashboardShared(),
+    getSyllabusMapOverviewShared(),
     getLatestSimulationInput(now),
     getStageInput(now),
   ]);

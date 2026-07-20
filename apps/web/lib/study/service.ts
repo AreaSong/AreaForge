@@ -19,6 +19,7 @@ import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { cache } from "react";
 import { ApiError } from "@/lib/api/responses";
 import { daysUntil, getNextStudyDayStart, getStudyDayKey, getStudyDayRange } from "./date";
+import { finalExamDate, simulationDate } from "./exam-dates";
 import {
   listCheckInSnapshotsInRange,
   refreshCheckInSnapshotsForDates,
@@ -31,7 +32,7 @@ import {
 } from "./concurrency";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
-import { fromDbPriority, fromDbTaskStatus, serializeTask, toDbPriority } from "./task-serializer";
+import { serializeTask, toDbPriority } from "./task-serializer";
 import type {
   DailyReviewDto,
   MotivationVaultDto,
@@ -44,8 +45,6 @@ import type {
   TodayDashboardDto,
 } from "./types";
 
-const finalExamDate = new Date("2027-12-20T08:30:00+08:00");
-const simulationDate = new Date("2026-12-20T08:30:00+08:00");
 const recoveryStateLockKey = 2026070703;
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";

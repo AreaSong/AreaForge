@@ -30,7 +30,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getDailyReviewAiAdvice, getTomorrowPlanAiAdvice } from "@/lib/study/ai-service";
 import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { getTodayDashboard } from "@/lib/study/service";
-import { listSyllabusTree } from "@/lib/study/syllabus-service";
+import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 import { getUpdateCenterStatus, type UpdateCenterStatus } from "@/lib/system/update-center";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export default async function Home() {
 
   const [dashboard, syllabusNodes] = await Promise.all([
     getTodayDashboard(new Date(), { actorId: user.id, recordRecoveryRule: true }),
-    listSyllabusTree(),
+    listSyllabusOptionsShared(),
   ]);
   const [dailyReviewResult, tomorrowPlanResult, longTermRiskResult, updateStatusResult] = await Promise.allSettled([
     getDailyReviewAiAdvice(),
