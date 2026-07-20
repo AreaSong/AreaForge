@@ -77,6 +77,19 @@
 - 架构债（改动面大，无行为缺陷）：`service.ts` 1896 行按聚合面拆分；`audit()` 辅助函数多副本收敛；`apps/web` 经 `next.config.ts` 反向引用 `scripts/quality/product-experience-source` 的包自包含性问题。
 - core 死导出（需产品口径决策）：`summarizeCheckInHistory`（与 `getEffectiveStudyStreak` 的连续天数口径分叉）、`summarizeLightweightDebtAction` 仅测试引用；接入或删除需先统一口径。
 
+Bugbot 复审（2026-07-20 收口前）：
+
+- 已修复：`getLongTermRiskSummary` 移除未使用的 `now` 参数，消除"共享副本内部取当前时间、外部又可传显式时间点"的不一致表面积（所有调用方本就无参调用）。
+- 判为误报：欠账重排"合并查询截断到 12 条"——基线 `978af8e` 的原始 `debtReorderTasks` 查询本就是 `take: 12`，合并后单查询 `take: 12` 再切片前 5 作为债务卡片，行为与基线完全等价。
+
+## UX-001 重采记录（2026-07-20）
+
+- 隔离环境：本地 PostgreSQL 容器独立数据库 + 独立上传目录 + 本地 dev runtime，seed 合成账号，不触生产。
+- 证据：34 项认证 local UX smoke 全部通过（含登录、计时开始/收口、复盘、笔记附件上传下载、错题、模拟、阶段计划、更新中心只读边界）；Playwright 桌面 1440px 六页 + 移动 390px 九张（含计时开始→结束→收口表单填写→保存的完整交互旅程）；runtime identity probe 绑定被复核提交。
+- 结论：`pass`；record 见 `docs/development/product-experience-review-20260720-ltops.md`，通过 `pnpm experience:review:validate`。
+- 边界：本地证据不证明生产体验；`AF-RISK-UX-001` 保持 open，人工 reaffirm 承接 `tasks/active/0024`。
+- 过程噪音：采集期间并行会话两次推进 HEAD 且工作区出现指纹内中间态，导致两轮证据作废重采；最终证据绑定收口前的最终源提交。
+
 ## 运维边界
 
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
