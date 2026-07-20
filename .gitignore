@@ -32,3 +32,6 @@ packages/db/generated/
 uploads/
 backups/
 
+
+# playwright-cli 页面快照临时目录
+.playwright-cli/
