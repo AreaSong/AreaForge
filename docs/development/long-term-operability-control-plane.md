@@ -254,7 +254,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - `AF-RISK-OPS-005`：当前 checkout 已完成 update request schema V2、confirmed snapshot、目标 Release/manifest/digest、TTL、idempotency/hash、processing reconciliation、不可变 decision history 和共享 production-state lock；`pnpm ops:ops-005:local:selftest`、shellcheck 与 updater preflight 已通过。本地实现、Release 和生产部署仍是三类不同证据；当前只完成第一类，任何 validator 通过都不能替代匹配签名 Release、生产 V2 check 和 redacted decision evidence。
 - `AF-RISK-OPS-006`：active-session partial unique index、task/session CAS、事务内单次副作用和 CheckIn advisory lock 已完成隔离 PostgreSQL `local_verified`；production validator/preflight 和独立 live-gate check 已实现。匹配签名 Release、基础 rollout、另行确认的 controlled synthetic probe、fresh before/after doctor、health/authenticated smoke、Release/rollback evidence 与人工复核仍未执行，residual 保持开启。
 - `AF-RISK-OPS-007`：附件 staging/write-intent 与崩溃恢复协议待独立确认，不自动清理历史孤儿。
-- `AF-RISK-OPS-008`：updater phase journal 和 root-only maintenance hold/drain 待独立确认，Web runtime 不得获得控制权。
+- `AF-RISK-OPS-008`：updater phase journal 和 root-only maintenance hold/drain 已本地验证；生产 timer/hold/apply 仍待独立确认，Web runtime 不得获得控制权。
 - `AF-RISK-UX-001`：2026-07-15 的隔离本地 31/31 authenticated smoke 和 desktop/mobile/unauth 复核在后续体验源变化后已 stale；`ux-source-v2` 现覆盖依赖、配置、核心 workspace、Prisma、公共资产和 smoke/validator。当前仅重新验证 390px 未认证登录与错误反馈无水平溢出，authenticated desktop/mobile 和运行实例身份绑定仍未完成，因此保持 monitoring gap，不进入 close 复核。
 
 ## 本地预检

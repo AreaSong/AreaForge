@@ -140,7 +140,7 @@
 | `ops.update-agent` | 服务器侧 update-agent | done | `ops/update-agent/` | root 身份领取并执行版本中心请求 |
 | `ops.updater` | github-release-updater | done | `ops/github-release-updater/` | 签名校验、备份、migration、切换、回滚全在服务器侧 |
 | `ops.auto-apply` | patch 自动应用策略 | planned | `AREAFORGE_AUTO_APPLY=none`、`AF-RISK-REL-001` | 当前安全默认不静默更新；启用需用户确认 |
-| `ops.updater-journal` | updater 阶段日志与 hold/drain | planned | `tasks/backlog/0022`、`ops-008` 设计 | 需独立确认 root-only atomic phase journal |
+| `ops.updater-journal` | updater 阶段日志与 hold/drain | local-verified | `tasks/active/0022`、`ops-008` 设计 | 本地已验证；生产 timer/hold/apply 仍需独立确认 |
 | `ops.backup-restore` | 备份与恢复演练 | done | `docs/deployment/backup-restore.md`、`pnpm restore:drill:validate` | 每日 pg_dump + 上传目录 + env；生产演练证据闭环 |
 | `ops.health` | 健康检查端点 | done | `GET /api/health` | 未鉴权响应含运行时身份，最小化留待独立提案 |
 | `ops.prod-smoke` | 生产只读 smoke | partial | `scripts/ops/production-readonly-smoke.ts`、`AF-RISK-OPS-001` | 机制齐备；当前版本证据未重采，台账待人工关闭 |

@@ -418,6 +418,11 @@ process_claim() {
     reject_claim "$claim_dir" REQUEST_EXPIRED "request TTL is invalid or expired"
     return
   fi
+  # OPS-008 旧 generation 请求隔离：maintenance clear 之前创建的 mutation 请求不得复用旧确认。
+  if [[ "$(jq -r '.action' "$request")" != "check" ]] && maintenance_stale_after_clear "$request"; then
+    reject_claim "$claim_dir" MAINTENANCE_GENERATION_STALE "mutation request predates the last maintenance hold clear and must be re-submitted"
+    return
+  fi
   case "$(jq -r '.action' "$request")" in
     check) process_check "$claim_dir" "$request" ;;
     apply) process_apply "$claim_dir" "$request" ;;

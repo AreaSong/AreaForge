@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "mode": "temporary_directory_ops008_updater_selftest",
+  "generatedAt": "2026-07-21T03:22:34.838Z",
+  "status": "pass",
+  "source": {
+    "fixtureRoot": "temporary_isolated_ops_state_directory",
+    "implementationSha256": "sha256:797b5ce990e59673bd112d59fbf4452267a249f6daaa66f76e4f15a2fb91c373"
+  },
+  "checks": [
+    {
+      "id": "journal.hash_chain_and_no_clobber",
+      "status": "pass",
+      "details": {
+        "eventCount": 16,
+        "duplicatePublishRejected": true,
+        "scanStatus": "clean"
+      }
+    },
+    {
+      "id": "journal.kill_point_blocks_admission",
+      "status": "pass",
+      "details": {
+        "scanStatus": "blocked",
+        "holdPublished": true,
+        "uncertainPhase": "migration"
+      }
+    },
+    {
+      "id": "journal.fsync_failure_blocks_side_effects",
+      "status": "pass",
+      "details": {
+        "appendFailed": true,
+        "dockerMarkerCreated": false
+      }
+    },
+    {
+      "id": "journal.corrupt_event_blocks_admission",
+      "status": "pass",
+      "details": {
+        "scanStatus": "blocked"
+      }
+    },
+    {
+      "id": "maintenance.hold_drain_waiting_and_drained",
+      "status": "pass",
+      "details": {
+        "waitingActiveClaim": true,
+        "waitingProductionLock": true,
+        "drained": true,
+        "claimPreserved": true
+      }
+    },
+    {
+      "id": "maintenance.clear_cas_and_journal_gate",
+      "status": "pass",
+      "details": {
+        "clearBlockedByNonTerminalJournal": true,
+        "casMismatchRejected": true,
+        "clearSucceededAfterTerminal": true
+      }
+    },
+    {
+      "id": "maintenance.queue_control_lock_contention",
+      "status": "pass",
+      "details": {
+        "secondAcquireFailed": true,
+        "claimBlockedWhileHoldActive": true
+      }
+    },
+    {
+      "id": "maintenance.stale_request_after_clear",
+      "status": "pass",
+      "details": {
+        "staleRejected": true,
+        "freshAccepted": true
+      }
+    },
+    {
+      "id": "updater.record_persistence_maps_reconciliation",
+      "status": "pass",
+      "details": {
+        "exitStatus": 2,
+        "reasonCode": "APPLIED_RECORD_PERSISTENCE_UNCERTAIN"
+      }
+    }
+  ],
+  "doesNotProve": [
+    "production updater phase durability",
+    "systemd timer suspension",
+    "production queue drain",
+    "backup or migration success",
+    "signed Release readiness",
+    "AF-RISK-OPS-008 residual closure"
+  ],
+  "safetyFacts": {
+    "temporaryOpsStateDirectoryUsed": true,
+    "portableFlockUsed": true,
+    "productionWriteAttempted": false,
+    "timerChanged": false,
+    "serverCommandAttempted": false,
+    "secretValuePrinted": false,
+    "updaterApplyExecutedAgainstProduction": false
+  },
+  "recordHash": "sha256:fc54c3d45a96dce18834f9248382d62a83f8952e75b738fedb6d06c54243fd3f"
+}

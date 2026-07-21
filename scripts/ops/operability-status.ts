@@ -240,7 +240,7 @@ const requiredFiles = [
   "tasks/active/0019-update-request-expected-before-binding.md",
   "tasks/active/0020-business-state-concurrency.md",
   "tasks/active/0021-attachment-staging-intent.md",
-  "tasks/backlog/0022-updater-phase-journal-hold.md",
+  "tasks/active/0022-updater-phase-journal-hold.md",
   releaseEvidenceRecordPath,
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",

@@ -223,17 +223,17 @@
       "id": "AF-RISK-OPS-008",
       "type": "deferred-work",
       "reviewAt": "2026-08-15",
-      "currentImpact": "updater 在 backup、migration、switch、smoke 中途被强杀时缺少 append-only 阶段日志；维护窗口没有 root-only hold/drain 状态，暂停 timer 和停止领取新请求仍依赖人工步骤",
+      "currentImpact": "本地已完成 root-only phase journal 与 hold/drain 实施，并通过临时目录 kill-point/锁竞争 selftest（local_verified）。生产 timer/hold/apply、签名 Release 与 residual 关闭仍未证明",
       "executableNow": false,
-      "closeCondition": "独立确认后完成 root-only atomic phase journal、启动时只读 reconciliation、hold/drain 状态投影和崩溃/竞争 selftest；Web runtime 不获得控制权，生产 timer/队列变更另行确认",
-      "requiredEvidence": "tasks/backlog/0022-updater-phase-journal-hold.md、阶段状态机设计、kill-point fixture、hold/drain claim selftest、shellcheck、updater preflight、匹配签名 Release 和独立生产部署证据",
+      "closeCondition": "匹配签名 Release 后，独立生产确认完成 timer/hold/drain、admission barrier、崩溃后 fail-closed 与 decision-history reconciliation 证据；Web runtime 不获得控制权",
+      "requiredEvidence": "tasks/active/0022-updater-phase-journal-hold.md、OPS-008-PREFLIGHT-CONTRACT-V2 local_verified、临时目录 runtime record、shellcheck、updater preflight、匹配签名 Release 和独立生产部署证据",
       "ownerSkills": [
         "areaforge-sre-ops",
         "areaforge-observability",
         "areaforge-security-governance"
       ],
       "taskRefs": [
-        "tasks/backlog/0022-updater-phase-journal-hold.md"
+        "tasks/active/0022-updater-phase-journal-hold.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null

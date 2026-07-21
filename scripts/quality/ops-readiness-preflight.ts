@@ -71,7 +71,7 @@ function checkConfirmationBeforeContracts(): void {
     "docs/development/high-risk-confirmation-packets.md",
     "tasks/active/0021-attachment-staging-intent.md",
     "docs/development/ops-007-attachment-crash-window-design.md",
-    "tasks/backlog/0022-updater-phase-journal-hold.md",
+    "tasks/active/0022-updater-phase-journal-hold.md",
     "docs/development/ops-008-updater-phase-journal-design.md",
     "scripts/quality/ops006-concurrency-preflight.ts",
     "scripts/quality/ops006-concurrency-preflight.selftest.ts",
@@ -118,7 +118,7 @@ function checkConfirmationBeforeContracts(): void {
     {
       prefix: "确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施",
       expected: "确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施：范围仅限 root-only no-clobber/逐级 fsync immutable hash-chained phase events、精确 backup inventory 持久化屏障、admission/identity-bound/backup/prepare/migration-or-skipped/switch/health/smoke/rollback/terminal/reconciliation 状态机、崩溃后 fail-closed hold、固定 queue-control -> production-state -> agent-local 锁顺序、hold generation/clear CAS、旧 generation 请求隔离、record/journal 失败的 reconciliation exit mapping、redacted status、扩展 sourceSetHash 和本地临时目录 kill-point/锁竞争 selftest；不执行生产 updater apply、Web apply/rollback 请求、systemd timer 启停、生产 hold/clear/drain、backup/restore、migration、Docker/Nginx/compose 切换、自动应用策略变化、服务器命令、secrets 操作、Release/tag 或 residual 台账关闭。",
-      files: ["docs/development/high-risk-confirmation-packets.md", "docs/development/ops-008-updater-phase-journal-design.md", "tasks/backlog/0022-updater-phase-journal-hold.md"],
+      files: ["docs/development/high-risk-confirmation-packets.md", "docs/development/ops-008-updater-phase-journal-design.md", "tasks/active/0022-updater-phase-journal-hold.md"],
     },
   ].flatMap((contract) => contract.files
     .filter((file) => confirmationLine(read(file), contract.prefix) !== contract.expected)

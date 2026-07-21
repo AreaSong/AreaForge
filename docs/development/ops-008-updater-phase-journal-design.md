@@ -1,15 +1,14 @@
 # OPS-008 Updater Phase Journal 与 Maintenance Hold/Drain 设计
 
-当前状态：`blocked / awaiting-high-risk-confirmation`。
+当前状态：`in-progress / local-verified`（G2 已确认并完成本地临时目录验证）。
 
-本文只定义确认前契约，不修改真实 updater、update-agent、systemd timer、生产队列或 root-only 状态目录。
+本文定义 OPS-008 本地实施契约。生产 timer、hold/clear/drain、updater apply、backup/restore、migration 与 Docker/Nginx/compose 切换仍保持 `production_confirmation_required`，不得从本地证据推定授权。
 
-离线 preflight 契约：`OPS-008-PREFLIGHT-CONTRACT-V1`，`evidenceClass: runtime_preimage_candidate`。preflight 只读校验并 source-hash 绑定本文、task、OPS-008 高风险确认包、当前 updater/update-agent 脚本和 checked-in phase-journal/maintenance fixtures；它不证明 journal durability、hold/drain queue-control lock 顺序或并发排他，不证明 timer 已停止，也不证明任何生产 updater、队列或切换行为。确认前 strict 必须非零退出。
+离线/本地 preflight 契约：`OPS-008-PREFLIGHT-CONTRACT-V2`，本地验证证据类 `evidenceClass: local_updater_phase_journal_verified`（确认前候选等级 `runtime_preimage_candidate` 保留为历史语义）。preflight 只读校验并 source-hash 绑定本文、task、OPS-008 高风险确认包、当前 updater/update-agent 脚本、helpers、checked-in phase-journal/maintenance fixtures；提供 `AREAFORGE_OPS008_RUNTIME_RECORD`（由临时目录 kill-point/锁竞争 selftest 生成且未过期）时可达 `local_verified`，否则停留在 `local_validation` 且 strict 必须非零退出。它不证明 journal durability（生产主机持久化），不证明 timer 已停止，也不证明任何生产 updater、队列或切换行为。
 
-当前 V1 只允许 `awaiting_high_risk_confirmation` 投影。确认后的 gate 生命周期必须是
-`implementation_authorized -> local_validation -> local_verified -> release_ready ->
+gate 生命周期：`implementation_authorized -> local_validation -> local_verified -> release_ready ->
 production_confirmation_required`；任何确认过期/撤销、scope/sourceSetHash 漂移、journal corruption 或扩大到
-生产 timer/hold/apply 时立即 fail closed。`candidateEvidenceStatus=complete` 不等于本地实施授权。
+生产 timer/hold/apply 时立即 fail closed。`candidateEvidenceStatus=complete` 不等于生产授权。
 
 ## 目标不变量
 
