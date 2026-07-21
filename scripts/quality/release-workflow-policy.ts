@@ -6,7 +6,7 @@ const root = process.cwd();
 const canonicalWorkflowPath = path.join(root, ".github/workflows/release.yml");
 const workflowPath = path.resolve(process.env.AREAFORGE_RELEASE_WORKFLOW_PATH ?? canonicalWorkflowPath);
 const packagePath = path.resolve(process.env.AREAFORGE_RELEASE_PACKAGE_PATH ?? path.join(root, "package.json"));
-const expectedWorkflowSha256 = "200d79bf726546510b4c007f9b3977338b9c2fdaea0958fcaf7c2f3a17c458d9";
+const expectedWorkflowSha256 = "e3a247ad55ce434939c2ddc7ec34de0c88a0b7b022f8bb3687625c79ba6ca7dd";
 const semanticsOnly = process.env.AREAFORGE_RELEASE_WORKFLOW_POLICY_MODE === "semantics";
 
 interface StepBlock {
