@@ -1,17 +1,22 @@
-# 学习树导入（规划，未实现）
+# 学习树导入
 
 ## 目标
 
 允许用户下载标准 Markdown 模板，在本地或外部工具整理后上传；系统严格校验、差异预览并原子确认，保留规范化源版本历史。
 
-## 规划行为
+## 当前行为
 
 - 协议 `AREAFORGE_LEARNING_TREE_V1`；模板分全局、单科与分支。
-- 五步：上传/粘贴 → 解析校验 → 差异预览 → 映射/跳过 → 原子确认。
+- 隔离 API 提供模板下载、作用域导出与无业务写入 preview；preview 返回 HMAC opaque token 与逐项 diff。
 - preview 不写考纲、卡片、资料、任务、Schedule 或 AuditEvent。
-- confirm 重新解析、校验 hash/revision，并在幂等键保护下原子提交。
-- 规范化 Markdown 无自动过期、仅软归档、随数据库备份；一次性 canonical 导出后不留服务器长期临时文件。
-- 物理删除、备份副本同步删除与完整账户导出包不在本版本范围（见 `AF-RISK-DATA-001`）。
+- 学习树 Markdown 内资料指令仅允许 HTTPS LINK；不内嵌二进制、不触发服务端抓取。
+- 现有 `POST /api/syllabus/import-markdown` 保持 legacy append-only，不无声切换为 merge。
+
+## 尚未开放
+
+- 原子 confirm、导入批次历史与已确认源版本的一次性 canonical 导出（见 `AF-RISK-DATA-001`）。
+- 生产可路由页面与导航入口。
+- StudyResource FILE 上传与资料 CRUD API。
 
 ## 非目标
 

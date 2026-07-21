@@ -410,6 +410,15 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - `pnpm --filter @areaforge/core test`、Web typecheck/lint
 - 不跑生产 migration deploy；不关闭 residual
 
+#### Batch 4（Migration 4 / 学习树 preview）专项
+
+- 依赖准入：`pnpm governance:preflight`、`pnpm audit:prod`（仅 unified/remark/yaml 栈，不含 `@xyflow/react`）
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m4`）
+- `AREAFORGE_V11_M4_ISOLATED_DB=1 pnpm ops:v11:m4:runtime:selftest`
+- `pnpm --filter @areaforge/core test`（含 learning-tree parser/diff/token）
+- 隔离 API 仅 templates/export/preview；不开放 confirm；不跑生产 migration；不关闭 `AF-RISK-DATA-001`
+
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。

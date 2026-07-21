@@ -60,7 +60,7 @@
 - `modules/exam-workspace.md`：考试工作区（规划，未实现）。
 - `modules/plan-inbox.md`：计划收件箱（规划，未实现）。
 - `modules/unified-review.md`：统一复习（规划，未实现）。
-- `modules/learning-tree-import.md`：学习树导入（规划，未实现）。
+- `modules/learning-tree-import.md`：学习树导入（preview 隔离可用；confirm 未开放）。
 
 ## UX
 

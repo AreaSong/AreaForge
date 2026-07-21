@@ -35,7 +35,7 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 下一产品版本其余实体仍在 additive-first 前提下规划；**已落地的 ExamWorkspace / SubjectGroup / PlanMilestone / TaskDependency / PlanInbox / Note kind 关系见上方核心实体**。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。
 
 - `LearningTreeImportBatch` / `LearningTreeImportItem`：已确认导入的规范化 Markdown、hash、差异与结果；preview 不写领域表。
-- `StudyResource`：FILE（绑定 READY Attachment）或 LINK（HTTPS URL）二选一资料资产。
+- `StudyResource`：FILE（绑定 READY Attachment）或 LINK（HTTPS URL）二选一资料资产；schema 含 `(workspaceId, stableKey)` unique、FILE/LINK CHECK、attachment unique、标签与四类关联。业务 CRUD/上传 API 尚未开放。
 - `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件。
 - `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：个人布局偏好，不保存业务边。
 - `MotivationItem` / `MotivationReminderState` / `NotificationPreference`：动机内容与提醒偏好。

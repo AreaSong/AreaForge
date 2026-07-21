@@ -119,6 +119,22 @@ enum PlanInboxDependencyTargetType {
   INBOX_STABLE_REF
 }
 
+enum StudyResourceSourceType {
+  FILE
+  LINK
+}
+
+enum StudyResourceCategory {
+  TEXTBOOK
+  COURSE
+  EXERCISE
+  PAST_PAPER
+  SOLUTION
+  SUMMARY
+  IMAGE
+  OTHER
+}
+
 model User {
   id                      String                   @id @default(cuid())
   email                   String                   @unique
@@ -178,6 +194,7 @@ model ExamWorkspace {
   periodicReportDecisions PeriodicReportDecision[]
   planMilestones   PlanMilestone[]
   planInboxItems   PlanInboxItem[]
+  studyResources   StudyResource[]
 
   @@unique([userId, stableKey])
   @@index([userId])
@@ -221,6 +238,7 @@ model Subject {
   mistakes                 Mistake[]
   simulationSubjectResults SimulationSubjectResult[]
   planMilestones           PlanMilestone[]
+  studyResources           StudyResource[]
 
   @@index([workspaceId])
   @@index([groupId])
@@ -253,6 +271,7 @@ model SyllabusNode {
   masteryRetests    MasteryRetest[]
   relatedNotes      NoteRelatedSyllabusNode[]
   relatedTasks      StudyTaskRelatedSyllabusNode[]
+  studyResourceLinks StudyResourceSyllabusNodeLink[]
 
   @@index([subjectId])
   @@index([parentId])
@@ -291,6 +310,7 @@ model StudyTask {
   successorDependencies   TaskDependency[] @relation("TaskDependencySuccessor")
   convertedFromInboxItems PlanInboxItem[]
   inboxDependencyRefs     PlanInboxDependencyRef[]
+  studyResourceLinks      StudyResourceTaskLink[]
 
   @@index([plannedDate])
   @@index([subjectId])
@@ -455,6 +475,7 @@ model Note {
   attachments    Attachment[]
   masteryEvidence MasteryEvidence[]
   relatedSyllabusNodes NoteRelatedSyllabusNode[]
+  studyResourceLinks StudyResourceNoteLink[]
 
   @@index([subjectId])
   @@index([syllabusNodeId])
@@ -502,6 +523,7 @@ model Attachment {
   createdAt                    DateTime         @default(now())
   updatedAt                    DateTime         @updatedAt
   note                         Note?            @relation(fields: [noteId], references: [id])
+  studyResource                StudyResource?
 
   @@index([hash])
   @@index([noteId])
@@ -522,6 +544,7 @@ model Mistake {
   subject        Subject       @relation(fields: [subjectId], references: [id])
   syllabusNode   SyllabusNode? @relation(fields: [syllabusNodeId], references: [id])
   masteryEvidence MasteryEvidence[]
+  studyResourceLinks StudyResourceMistakeLink[]
 
   @@index([subjectId])
   @@index([syllabusNodeId])
@@ -844,4 +867,100 @@ model PlanInboxDependencyRef {
   @@index([inboxItemId])
   @@index([taskId])
   @@index([importBatchId, planStableKey])
+}
+
+model StudyResource {
+  id                    String                 @id @default(cuid())
+  workspaceId           String
+  stableKey             String
+  title                 String
+  category              StudyResourceCategory  @default(OTHER)
+  sourceType            StudyResourceSourceType
+  subjectId             String?
+  attachmentId          String?                @unique
+  externalUrl           String?
+  displayHost           String?
+  duplicateOfResourceId String?
+  revision              Int                    @default(1)
+  archivedAt            DateTime?
+  actorId               String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  workspace             ExamWorkspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subject               Subject?               @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  attachment            Attachment?            @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
+  duplicateOf           StudyResource?         @relation("StudyResourceDuplicate", fields: [duplicateOfResourceId], references: [id], onDelete: SetNull)
+  duplicates            StudyResource[]        @relation("StudyResourceDuplicate")
+  tags                  StudyResourceTag[]
+  taskLinks             StudyResourceTaskLink[]
+  noteLinks             StudyResourceNoteLink[]
+  mistakeLinks          StudyResourceMistakeLink[]
+  syllabusNodeLinks     StudyResourceSyllabusNodeLink[]
+
+  @@unique([workspaceId, stableKey])
+  @@index([workspaceId])
+  @@index([subjectId])
+  @@index([sourceType])
+  @@index([archivedAt])
+  @@index([duplicateOfResourceId])
+}
+
+model StudyResourceTag {
+  id         String        @id @default(cuid())
+  resourceId String
+  tagNorm    String
+  tagDisplay String
+  createdAt  DateTime      @default(now())
+  resource   StudyResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceId, tagNorm])
+  @@index([resourceId])
+}
+
+model StudyResourceTaskLink {
+  id         String        @id @default(cuid())
+  resourceId String
+  taskId     String
+  createdAt  DateTime      @default(now())
+  resource   StudyResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  task       StudyTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceId, taskId])
+  @@index([taskId])
+}
+
+model StudyResourceNoteLink {
+  id         String        @id @default(cuid())
+  resourceId String
+  noteId     String
+  createdAt  DateTime      @default(now())
+  resource   StudyResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  note       Note          @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceId, noteId])
+  @@index([noteId])
+}
+
+model StudyResourceMistakeLink {
+  id         String        @id @default(cuid())
+  resourceId String
+  mistakeId  String
+  createdAt  DateTime      @default(now())
+  resource   StudyResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  mistake    Mistake       @relation(fields: [mistakeId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceId, mistakeId])
+  @@index([mistakeId])
+}
+
+model StudyResourceSyllabusNodeLink {
+  id             String        @id @default(cuid())
+  resourceId     String
+  syllabusNodeId String
+  createdAt      DateTime      @default(now())
+  resource       StudyResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  syllabusNode   SyllabusNode  @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceId, syllabusNodeId])
+  @@index([syllabusNodeId])
 }

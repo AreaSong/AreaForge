@@ -48,6 +48,13 @@ export function hashIdentifier(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+export {
+  createPlanBatchRef,
+  mintLearningTreePreviewToken,
+  sha256Hex,
+  verifyLearningTreePreviewToken,
+} from "./learning-tree-crypto";
+
 function scryptAsync(password: string, salt: Buffer, keyLength: number, options: ScryptOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scrypt(password, salt, keyLength, options, (error, derivedKey) => {

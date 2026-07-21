@@ -13,6 +13,12 @@ export * from "./legacy-ownership";
 export * from "./knowledge-card";
 export * from "./task-dependency";
 export * from "./plan-inbox";
+export * from "./learning-tree-protocol";
+export * from "./learning-tree-url";
+export * from "./learning-tree-parse";
+export * from "./learning-tree-diff";
+export * from "./learning-tree-templates";
+export * from "./learning-tree-export";
 
 export type RiskState =
   | "rising"
