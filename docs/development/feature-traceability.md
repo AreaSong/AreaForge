@@ -69,9 +69,9 @@
 | 考试工作区 / 自定义科目 / 408 分组 | 基础版 | Migration 1；隔离 `/api/exam-workspaces/**`；无生产 UI | Batch 7 UI |
 | 今日行动中心与科目快捷计时 | 未实现 | 版本计划第二节 | Batch 7 |
 | PlanInbox / 里程碑 / 任务依赖 | 基础版 | Migration 2–3；隔离 Inbox/里程碑/依赖 API；无 convert、无生产 UI | Batch 6 convert；Batch 7 UI |
-| 学习树 V1 preview / confirm | preview 已实现（隔离）；confirm 未开放 | Batch 4：`/api/learning-tree/templates|export|imports/preview` + Migration 4 StudyResource schema；confirm 属 Batch 5 / `AF-RISK-DATA-001` | Batch 5 |
+| 学习树 V1 preview / confirm | 隔离已实现 | Batch 4 preview + Batch 5 confirm/history/export；Migration 4–5；`AF-RISK-DATA-001` 生命周期已接受、residual 未关 | Batch 7+ 生产页 |
 | 全局关联画布 | 未实现 | 数据契约 12.5 | Batch 8 |
-| StudyResource FILE/LINK | schema 已落地；业务 API 未实现 | Migration 4 schema/CHECK；FILE/LINK CRUD 与上传属 Batch 5 | Batch 5 |
+| StudyResource FILE/LINK | 隔离 API 已实现 | Migration 4 schema + Batch 5 CRUD/staging/resolve/ZIP/MD；无生产页 | Batch 7+ UI |
 | 统一复习 Schedule/Event | 未实现 | 数据契约 12.7 | Batch 6 |
 | CheckIn v2 / 恢复三阶 | 未实现 | `docs/modules/check-in.md` 规划节 | Batch 6 |
 | 动机 / 通知 / 四类 AI 草稿 | 未实现 | 版本计划第十一节 | Batch 9 |

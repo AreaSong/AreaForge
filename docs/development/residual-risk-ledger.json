@@ -262,16 +262,16 @@
       "id": "AF-RISK-DATA-001",
       "type": "deferred-work",
       "reviewAt": "2026-10-21",
-      "currentImpact": "学习树已确认导入的规范化 Markdown 将长期留存并随数据库备份扩散；v1.1 仅提供软归档与一次性 canonical 导出，未提供物理删除、备份副本同步删除或完整账户导出。未登记接受边界前不得开放导入 confirm",
+      "currentImpact": "生命周期边界已于 2026-07-21 人工接受，允许隔离环境开放导入 confirm；已确认导入的规范化 Markdown 仍长期留存并随数据库备份扩散；v1.1 仅软归档与一次性 canonical 导出，仍缺物理删除、备份副本同步删除与完整账户导出",
       "executableNow": false,
-      "closeCondition": "完成数据生命周期确认包：访问仅 owner、无自动过期、软归档、备份同周期、导出临时资源释放、未来删除/撤销路线、data owner/validation owner/close condition；人工接受后仍保持可重开条件",
-      "requiredEvidence": "docs/development/high-risk-confirmation-packets.md（learning-tree data lifecycle）、导入鉴权/归档/backup-restore/export fixture、redaction matrix、residual close condition",
+      "closeCondition": "关闭：owner 鉴权/软归档/backup-restore/一次性导出临时资源释放 fixture 与 redaction matrix 齐备，且未来物理删除/撤销路线有单独确认包与实现证据后，方可人工关账。重开：缩短保留期、物理删除、备份副本同步删除、完整账户导出、扩大到 AI history、跨用户可见、或 confirm 落库策略变化",
+      "requiredEvidence": "docs/development/high-risk-confirmation-packets.md（learning-tree data lifecycle 已确认）、导入鉴权/归档/backup-restore/export fixture、redaction matrix、residual close/reopen condition",
       "ownerSkills": [
         "areaforge-security-governance",
         "areaforge-file-storage-safety"
       ],
       "taskRefs": [
-        "tasks/backlog/0029-v11-batch5-resources-import-confirm.md"
+        "tasks/done/0029-v11-batch5-resources-import-confirm.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null

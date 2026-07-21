@@ -13,7 +13,7 @@
 当前进度快照（逐任务状态以各任务文件 frontmatter 为准）：
 
 - 各任务的真实状态、阻塞点和等待条件写在任务文件的 `status`、`phase` 和 `blockers` 字段里，用 `pnpm tasks:doctor` 校验；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。
-- 学习行动中心阶段包见 `docs/development/v11-phase-packages.md`；Batch 0 任务 `tasks/active/0025-v11-batch0-doc-sync.md`，Batch 3–4 已完成见 `tasks/done/0027-*` 与 `0028-*`，其余 Batch 1–2/5–11 为 `tasks/backlog/0026-*` 与 `0029-*` 至 `0035-*`。
+- 学习行动中心阶段包见 `docs/development/v11-phase-packages.md`；Batch 0 任务 `tasks/active/0025-v11-batch0-doc-sync.md`，Batch 3–5 已完成见 `tasks/done/0027-*` 至 `0029-*`，其余 Batch 1–2/6–11 为 `tasks/backlog/0026-*` 与 `0030-*` 至 `0035-*`。
 - 长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准，task-facing 视图见 `indexes/residuals.md`；current blocker、accepted exception 和逐项证据状态以台账为源事实。
 - 仓库候选版本与生产基线见根 README 状态节和 `docs/development/operational-readiness.md`。
 

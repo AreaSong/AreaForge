@@ -8,7 +8,19 @@ export const defaultAllowedUploadMimeTypes = [
   "application/pdf",
 ] as const;
 
-export type AllowedUploadMimeType = (typeof defaultAllowedUploadMimeTypes)[number];
+/** StudyResource FILE allowlist: notes keep defaultAllowedUploadMimeTypes. */
+export const studyResourceAllowedUploadMimeTypes = [
+  ...defaultAllowedUploadMimeTypes,
+  "application/zip",
+  "text/markdown",
+] as const;
+
+export type AllowedUploadMimeType =
+  | (typeof defaultAllowedUploadMimeTypes)[number]
+  | (typeof studyResourceAllowedUploadMimeTypes)[number];
+
+export const STUDY_RESOURCE_MAX_UPLOAD_MB = 20;
+export const STUDY_RESOURCE_MAX_FILES_PER_BATCH = 5;
 
 export interface UploadPolicy {
   maxBytes: number;
@@ -80,7 +92,10 @@ export function isAllowedUpload(mimeType: string, sizeBytes: number, policy: Upl
   return policy.allowedMimeTypes.includes(mimeType) && sizeBytes > 0 && sizeBytes <= policy.maxBytes;
 }
 
-export function detectUploadMimeType(bytes: Uint8Array): AllowedUploadMimeType | null {
+export function detectUploadMimeType(
+  bytes: Uint8Array,
+  options?: { originalName?: string; declaredMimeType?: string | null },
+): AllowedUploadMimeType | null {
   if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
     return "image/png";
   }
@@ -101,6 +116,19 @@ export function detectUploadMimeType(bytes: Uint8Array): AllowedUploadMimeType |
     return "application/pdf";
   }
 
+  // ZIP local/central/end signatures (PK..)
+  if (
+    startsWith(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
+    startsWith(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
+    startsWith(bytes, [0x50, 0x4b, 0x07, 0x08])
+  ) {
+    return "application/zip";
+  }
+
+  if (looksLikeMarkdown(bytes, options?.originalName, options?.declaredMimeType)) {
+    return "text/markdown";
+  }
+
   return null;
 }
 
@@ -108,6 +136,7 @@ export function validateUploadBytes(
   bytes: Uint8Array,
   declaredMimeType: string | null | undefined,
   policy: UploadPolicy,
+  options?: { originalName?: string },
 ): UploadValidationResult {
   if (bytes.length <= 0) {
     return { allowed: false, detectedMimeType: null, reason: "empty_file" };
@@ -117,7 +146,10 @@ export function validateUploadBytes(
     return { allowed: false, detectedMimeType: null, reason: "too_large" };
   }
 
-  const detectedMimeType = detectUploadMimeType(bytes);
+  const detectedMimeType = detectUploadMimeType(bytes, {
+    originalName: options?.originalName,
+    declaredMimeType,
+  });
   if (!detectedMimeType) {
     return { allowed: false, detectedMimeType: null, reason: "unknown_magic_bytes" };
   }
@@ -126,7 +158,7 @@ export function validateUploadBytes(
     return { allowed: false, detectedMimeType, reason: "mime_not_allowed" };
   }
 
-  if (declaredMimeType && declaredMimeType !== detectedMimeType) {
+  if (declaredMimeType && !mimeTypesCompatible(declaredMimeType, detectedMimeType)) {
     return { allowed: false, detectedMimeType, reason: "declared_mime_mismatch" };
   }
 
@@ -140,7 +172,9 @@ export function createAttachmentMetadataDraft(input: {
   randomId: string;
   policy: UploadPolicy;
 }): AttachmentMetadataDraftResult {
-  const validation = validateUploadBytes(input.bytes, input.declaredMimeType, input.policy);
+  const validation = validateUploadBytes(input.bytes, input.declaredMimeType, input.policy, {
+    originalName: input.originalName,
+  });
   if (!validation.allowed || !validation.detectedMimeType) {
     return {
       ok: false,
@@ -172,6 +206,31 @@ export interface BoundedUploadScanInput {
   originalName: string;
   randomId: string;
   policy: UploadPolicy;
+}
+
+export function createStudyResourceUploadPolicy(
+  maxUploadMb: number = STUDY_RESOURCE_MAX_UPLOAD_MB,
+): UploadPolicy {
+  return createUploadPolicy(maxUploadMb, studyResourceAllowedUploadMimeTypes);
+}
+
+/** ZIP must never be served inline; PDF/image/markdown may use inline for private preview. */
+export function preferredDownloadDisposition(mimeType: string): "attachment" | "inline" {
+  if (mimeType === "application/zip") return "attachment";
+  if (
+    mimeType === "application/pdf" ||
+    mimeType === "image/png" ||
+    mimeType === "image/jpeg" ||
+    mimeType === "image/webp" ||
+    mimeType === "text/markdown"
+  ) {
+    return "inline";
+  }
+  return "attachment";
+}
+
+export function isInlinePreviewAllowed(mimeType: string): boolean {
+  return preferredDownloadDisposition(mimeType) === "inline";
 }
 
 /** 基于有界流式扫描结果构建 metadata draft，不重复缓冲或重复哈希文件内容。 */
@@ -209,7 +268,7 @@ function validateScannedUpload(input: BoundedUploadScanInput): UploadValidationR
   if (!input.policy.allowedMimeTypes.includes(input.detectedMimeType)) {
     return { allowed: false, detectedMimeType: input.detectedMimeType, reason: "mime_not_allowed" };
   }
-  if (input.declaredMimeType && input.declaredMimeType !== input.detectedMimeType) {
+  if (input.declaredMimeType && !mimeTypesCompatible(input.declaredMimeType, input.detectedMimeType)) {
     return { allowed: false, detectedMimeType: input.detectedMimeType, reason: "declared_mime_mismatch" };
   }
   return { allowed: true, detectedMimeType: input.detectedMimeType, reason: "ok" };
@@ -218,11 +277,11 @@ function validateScannedUpload(input: BoundedUploadScanInput): UploadValidationR
 export function parseAllowedUploadMimeTypes(value: string | null | undefined): readonly string[] {
   if (!value) return defaultAllowedUploadMimeTypes;
 
-  const allowed = new Set(defaultAllowedUploadMimeTypes);
+  const allowed = new Set<string>(defaultAllowedUploadMimeTypes);
   const parsed = value
     .split(",")
     .map((item) => item.trim())
-    .filter((item) => allowed.has(item as AllowedUploadMimeType));
+    .filter((item) => allowed.has(item));
 
   return parsed.length > 0 ? Array.from(new Set(parsed)) : defaultAllowedUploadMimeTypes;
 }
@@ -320,7 +379,7 @@ export function createAttachmentResponseHeaders(input: AttachmentResponseHeaderI
 }
 
 export function isSafeStoredAttachmentName(storedName: string): boolean {
-  return /^[a-zA-Z0-9_-]{16,}\.(png|jpg|webp|pdf)$/.test(storedName);
+  return /^[a-zA-Z0-9_-]{16,}\.(png|jpg|webp|pdf|zip|md)$/.test(storedName);
 }
 
 export const stagingDirectoryName = ".staging";
@@ -333,7 +392,7 @@ export function createStagingAttachmentName(storedName: string): string {
 }
 
 export function isSafeStagingAttachmentName(stagingName: string): boolean {
-  return /^[a-zA-Z0-9_-]{16,}\.(png|jpg|webp|pdf)\.staging$/.test(stagingName);
+  return /^[a-zA-Z0-9_-]{16,}\.(png|jpg|webp|pdf|zip|md)\.staging$/.test(stagingName);
 }
 
 export function createSafeStagingFilePath(
@@ -364,7 +423,9 @@ function createContentDisposition(disposition: "attachment" | "inline", fileName
   return `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
-function extensionForMimeType(mimeType: AllowedUploadMimeType): "png" | "jpg" | "webp" | "pdf" {
+function extensionForMimeType(
+  mimeType: AllowedUploadMimeType,
+): "png" | "jpg" | "webp" | "pdf" | "zip" | "md" {
   switch (mimeType) {
     case "image/png":
       return "png";
@@ -374,7 +435,43 @@ function extensionForMimeType(mimeType: AllowedUploadMimeType): "png" | "jpg" | 
       return "webp";
     case "application/pdf":
       return "pdf";
+    case "application/zip":
+      return "zip";
+    case "text/markdown":
+      return "md";
   }
+}
+
+function looksLikeMarkdown(
+  bytes: Uint8Array,
+  originalName?: string,
+  declaredMimeType?: string | null,
+): boolean {
+  if (bytes.some((byte) => byte === 0)) return false;
+  const name = (originalName ?? "").toLowerCase();
+  const extensionOk = name.endsWith(".md") || name.endsWith(".markdown");
+  const declaredOk =
+    declaredMimeType === "text/markdown" ||
+    declaredMimeType === "text/x-markdown" ||
+    declaredMimeType === "text/plain";
+  if (!extensionOk && !declaredOk) return false;
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return text.length > 0 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text);
+  } catch {
+    return false;
+  }
+}
+
+function mimeTypesCompatible(declared: string, detected: AllowedUploadMimeType): boolean {
+  if (declared === detected) return true;
+  if (detected === "text/markdown") {
+    return declared === "text/markdown" || declared === "text/x-markdown" || declared === "text/plain";
+  }
+  if (detected === "application/zip") {
+    return declared === "application/zip" || declared === "application/x-zip-compressed";
+  }
+  return false;
 }
 
 function startsWith(bytes: Uint8Array, signature: number[]): boolean {

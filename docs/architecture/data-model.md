@@ -30,17 +30,21 @@
 
 PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，数据库只保存 metadata、hash 和 URI。
 
+## 核心实体（补充）
+
+- `SyllabusNode.stableKey` / `revision` / `archivedAt`：Migration 5；`(subjectId, stableKey)` unique；无键旧节点按兼容规则在首次 confirm/export 补键，不批量回填。
+- `LearningTreeImportBatch` / `LearningTreeImportItem`：仅 confirm 成功时创建；规范化 Markdown、hash、`(workspaceId, idempotencyKey)` unique、request fingerprint、软归档；preview 不写领域表。
+- `StudyResource`：FILE（READY Attachment）或 LINK（HTTPS）exactly-one；隔离 CRUD/上传/重复三选一/归档 API 已落地；无生产页面；不物理删除。
+
 ## 规划扩展模型（未实现）
 
-下一产品版本其余实体仍在 additive-first 前提下规划；**已落地的 ExamWorkspace / SubjectGroup / PlanMilestone / TaskDependency / PlanInbox / Note kind 关系见上方核心实体**。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。
+下一产品版本其余实体仍在 additive-first 前提下规划；**已落地的 ExamWorkspace / SubjectGroup / PlanMilestone / TaskDependency / PlanInbox / Note kind / StudyResource / LearningTreeImport 见上方与核心实体**。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。
 
-- `LearningTreeImportBatch` / `LearningTreeImportItem`：已确认导入的规范化 Markdown、hash、差异与结果；preview 不写领域表。
-- `StudyResource`：FILE（绑定 READY Attachment）或 LINK（HTTPS URL）二选一资料资产；schema 含 `(workspaceId, stableKey)` unique、FILE/LINK CHECK、attachment unique、标签与四类关联。业务 CRUD/上传 API 尚未开放。
 - `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件。
 - `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：个人布局偏好，不保存业务边。
 - `MotivationItem` / `MotivationReminderState` / `NotificationPreference`：动机内容与提醒偏好。
 - `SimulationLossItem`：结构化失分条目。
-- 后续 additive migration 继续扩展导入、复习、布局、动机与模拟 schema；旧数据只读兼容，不批量猜测回填。
+- 后续 additive migration 继续扩展复习、布局、动机与模拟 schema；旧数据只读兼容，不批量猜测回填。
 
 ## 认证相关约束
 

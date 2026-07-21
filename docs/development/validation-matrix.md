@@ -419,6 +419,15 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - `pnpm --filter @areaforge/core test`（含 learning-tree parser/diff/token）
 - 隔离 API 仅 templates/export/preview；不开放 confirm；不跑生产 migration；不关闭 `AF-RISK-DATA-001`
 
+#### Batch 5（Migration 5 / 资料 + 导入 confirm）专项
+
+- 生命周期确认包已接受；`AF-RISK-DATA-001` **登记**关闭/重开条件，**不**自动关 residual
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m5`）
+- `AREAFORGE_V11_M5_ISOLATED_DB=1 pnpm ops:v11:m5:runtime:selftest`
+- `pnpm --filter @areaforge/storage test`、`pnpm --filter @areaforge/core test`
+- 覆盖：ZIP/MD policy、FILE/LINK、confirm 原子/幂等/409、history owner、一次性导出；无生产页；不跑生产 migration
+
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。

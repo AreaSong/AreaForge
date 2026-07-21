@@ -137,12 +137,17 @@ export async function parseSingleFileMultipart(
     consumeFraming(delimiter.length);
 
     const bytes = concatChunks(state.chunks, state.sizeBytes);
+    const originalName = disposition.fileName ?? "attachment";
+    const declaredMimeType = headers.contentType;
     scan = {
-      originalName: disposition.fileName ?? "attachment",
-      declaredMimeType: headers.contentType,
+      originalName,
+      declaredMimeType,
       sizeBytes: state.sizeBytes,
       sha256Hex: state.hash.digest("hex"),
-      detectedMimeType: detectUploadMimeType(state.sniffBuffer),
+      detectedMimeType: detectUploadMimeType(bytes, {
+        originalName,
+        declaredMimeType,
+      }),
       bytes,
     };
 

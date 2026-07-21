@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { prisma } from "../../packages/db/src/index";
 import { getLearningTreeTemplate } from "../../packages/core/src/index";
@@ -10,7 +10,7 @@ const checks: Array<{ id: string; status: "pass"; details: Record<string, string
 
 try {
   await assertIsolatedDatabase();
-  await verifyConfirmNotOpen();
+  await verifyConfirmOwnedByBatch5();
   await verifyStudyResourceIndexes();
   await resetTables();
   const seed = await seedWorkspace();
@@ -260,18 +260,16 @@ async function verifyWorkspaceStableKeyUnique(seed: Awaited<ReturnType<typeof se
   pass("workspace_stable_key_unique", { ok: true });
 }
 
-async function verifyConfirmNotOpen(): Promise<void> {
+async function verifyConfirmOwnedByBatch5(): Promise<void> {
+  // Batch 4 historically asserted confirm absence; Batch 5 opens confirm under Migration 5.
   const confirmRoute = join(
     process.cwd(),
     "apps/web/app/api/learning-tree/imports/confirm/route.ts",
   );
-  assert.equal(existsSync(confirmRoute), false);
-  const serviceSource = readFileSync(
-    join(process.cwd(), "apps/web/lib/study/learning-tree-service.ts"),
-    "utf8",
-  );
-  assert.equal(/confirmLearningTree|imports\/confirm/.test(serviceSource), false);
-  pass("confirm_not_open", { confirmRouteExists: false, serviceHasConfirm: false });
+  pass("confirm_owned_by_batch5", {
+    confirmRouteExists: existsSync(confirmRoute),
+    note: "M4 no longer blocks confirm route; M5 selftest owns confirm coverage",
+  });
 }
 
 async function verifyPreviewZeroWrite(seed: Awaited<ReturnType<typeof seedWorkspace>>): Promise<void> {

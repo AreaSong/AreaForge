@@ -31,7 +31,7 @@
 | AF-RISK-OPS-007 | 已 closed-evidence：生产迁移已 apply + recon/doctor pass，协议记录已绑定；closeout 见 `docs/development/residual-closure-review-20260721-ops-007-closeout.md`。当前 dirty checkout 下本地 preflight 可能因 runtime hash drift 为 invalid | `areaforge-file-storage-safety` / `areaforge-security-governance` | 新 Release、附件协议变化、生产 recon/doctor 失败，或需 fresh local_verified 时重新打开并刷新隔离 runtime |
 | AF-RISK-OPS-008 | 已 closed-evidence：生产 hold/barrier/clear/timers 已观测；`ops:ops-008:preflight:strict=local_verified`；closeout 见 `docs/development/residual-closure-review-20260721-ops-008-closeout.md` | `areaforge-sre-ops` / `areaforge-observability` / `areaforge-security-governance` | 新 Release、hold/journal 语义变化、preflight 不再 local_verified 或生产 hold 证据失效时重新打开 |
 | AF-RISK-UX-001 | 已 closed-evidence：current-bound local UX review；本地证据不证明生产写入体验；重审时运行 `pnpm experience:review:validate` | `areaforge-product-experience` / `areaforge-qa-smoke` | 体验改动或 fingerprint 漂移后重审 |
-| AF-RISK-DATA-001 | 学习树规范化 Markdown 长期留存与备份扩散；未完成生命周期确认前不得开放导入 confirm | `areaforge-security-governance` / `areaforge-file-storage-safety` | Batch 5 confirm/export 前必须完成确认包与人工接受 |
+| AF-RISK-DATA-001 | 生命周期边界已接受（2026-07-21），允许隔离 confirm；长期留存/备份扩散与缺物理删除仍未关；保持 deferred-work | `areaforge-security-governance` / `areaforge-file-storage-safety` | 关闭需 fixture+物理删除/撤销路线证据；重开见台账 closeCondition |
 
 ## Task Bindings
 
@@ -43,7 +43,7 @@
 | AF-RISK-OPS-008 | `tasks/active/0022-updater-phase-journal-hold.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
 | AF-RISK-SC-004 | `tasks/backlog/0023-github-main-protection.md` | backlog blocked；远端实施已验证，等待维护者 residual 决策 |
 | AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
-| AF-RISK-DATA-001 | `tasks/backlog/0029-v11-batch5-resources-import-confirm.md` | backlog；Batch 5 confirm 前必须完成生命周期确认 |
+| AF-RISK-DATA-001 | `tasks/done/0029-v11-batch5-resources-import-confirm.md` | Batch 5 已完成；生命周期已接受，residual 不自动关闭 |
 | AF-RISK-SC-002 | `tasks/backlog/0035-v11-batch11-minor-release.md` | backlog；v1.1 minor Release 前须重采匹配 commit 的 CI/供应链证据 |
 
 其他 residual 的 `taskRefs=[]`。`AF-RISK-REL-001` 使用已有历史 accepted exception，不使用 task promotion waiver；接受例外不等于 executable task，也不授权 patch 自动应用。

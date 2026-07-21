@@ -8,11 +8,13 @@ import {
   createSafeStagingFilePath,
   createStagingAttachmentName,
   createAttachmentResponseHeaders,
+  createStudyResourceUploadPolicy,
   createUploadPolicy,
-  defaultAllowedUploadMimeTypes,
+  isInlinePreviewAllowed,
   parseAllowedUploadMimeTypes,
   parseAttachmentUri,
   stagingDirectoryName,
+  STUDY_RESOURCE_MAX_UPLOAD_MB,
   type BoundedFileScan,
 } from "@areaforge/storage";
 import { getAuthEnv } from "@/lib/auth/env";
@@ -61,16 +63,49 @@ export async function createNoteAttachment(
   hooks?: AttachmentProtocolHooks,
 ): Promise<AttachmentDto> {
   await assertNoteExists(input.noteId);
+  return createAttachmentWithOps007({
+    noteId: input.noteId,
+    scan: input.scan,
+    actorId,
+    policyMimeTypes: parseAllowedUploadMimeTypes(getAuthEnv().ALLOWED_UPLOAD_MIME),
+    maxUploadMb: getAuthEnv().MAX_UPLOAD_MB,
+    hooks,
+  });
+}
 
+export async function createWorkspaceAttachment(
+  input: { scan: BoundedFileScan },
+  actorId: string,
+  hooks?: AttachmentProtocolHooks,
+): Promise<AttachmentDto> {
+  const policy = createStudyResourceUploadPolicy(STUDY_RESOURCE_MAX_UPLOAD_MB);
+  return createAttachmentWithOps007({
+    noteId: null,
+    scan: input.scan,
+    actorId,
+    policyMimeTypes: policy.allowedMimeTypes,
+    maxUploadMb: STUDY_RESOURCE_MAX_UPLOAD_MB,
+    hooks,
+  });
+}
+
+async function createAttachmentWithOps007(input: {
+  noteId: string | null;
+  scan: BoundedFileScan;
+  actorId: string;
+  policyMimeTypes: readonly string[];
+  maxUploadMb: number;
+  hooks?: AttachmentProtocolHooks;
+}): Promise<AttachmentDto> {
   const env = getAuthEnv();
-  const policy = createUploadPolicy(env.MAX_UPLOAD_MB, parseAllowedUploadMimeTypes(env.ALLOWED_UPLOAD_MIME));
+  const policy = createUploadPolicy(input.maxUploadMb, input.policyMimeTypes);
   const draftResult = createAttachmentMetadataDraftFromScan({
     sizeBytes: input.scan.sizeBytes,
     sha256Hex: input.scan.sha256Hex,
     detectedMimeType: input.scan.detectedMimeType,
     declaredMimeType: input.scan.declaredMimeType,
     originalName: input.scan.originalName,
-    randomId: hooks?.storageId?.() ?? createStorageId(),
+    randomId: input.hooks?.storageId?.() ?? createStorageId(),
     policy,
   });
 
@@ -82,15 +117,14 @@ export async function createNoteAttachment(
   const stagingName = createStagingAttachmentName(draft.storedName);
   const finalPath = getSafeAttachmentPath(env.UPLOAD_DIR, draft.storedName);
   const stagingPath = getSafeStagingPath(env.UPLOAD_DIR, stagingName);
+  const hooks = input.hooks;
 
   await mkdir(finalPath.uploadRoot, { recursive: true });
   await mkdir(path.dirname(stagingPath.filePath), { recursive: true });
   await assertResolvedUploadRoot(finalPath.uploadRoot);
 
-  // 步骤 2：先在事务内落 PENDING 写入意图；此时不存在任何文件，唯一冲突发生在文件写入之前。
-  const intent = await createPendingIntent(input.noteId, draft, stagingName, actorId);
+  const intent = await createPendingIntent(input.noteId, draft, stagingName, input.actorId);
 
-  // 步骤 3-5：文件 IO 全部在事务外。
   try {
     await hooks?.beforeStagingWrite?.();
     await writeStagingFileDurably(stagingPath.filePath, input.scan.bytes);
@@ -110,14 +144,12 @@ export async function createNoteAttachment(
     throw toApiError(error, "ATTACHMENT_WRITE_FAILED");
   }
 
-  // 步骤 6：重新打开 final 文件校验 hash/size；mismatch 保留 final 文件与 FAILED 记录，不自动删除。
   const verified = await verifyFinalFile(finalPath.uploadRoot, finalPath.filePath, draft.hash, draft.sizeBytes);
   if (!verified) {
     await markIntentFailed(intent.id, "post_rename_verify", "INTEGRITY_MISMATCH");
     throw new ApiError("ATTACHMENT_WRITE_FAILED", 500);
   }
 
-  // 步骤 7：READY CAS；失败时保留 PENDING 与 final 文件，交给显式 reconciliation。
   await hooks?.beforeReadyCas?.();
   const finalized = await prisma.attachment.updateMany({
     where: {
@@ -149,6 +181,7 @@ export async function createNoteAttachment(
 export async function getAttachmentDownload(
   id: string,
   disposition: "attachment" | "inline" = "attachment",
+  actorId?: string,
 ): Promise<AttachmentDownload> {
   const attachment = await prisma.attachment.findUnique({
     where: { id },
@@ -162,18 +195,51 @@ export async function getAttachmentDownload(
       uri: true,
       status: true,
       createdAt: true,
+      studyResource: {
+        select: {
+          id: true,
+          workspace: { select: { userId: true } },
+        },
+      },
+      note: {
+        select: {
+          subject: { select: { workspace: { select: { userId: true } } } },
+        },
+      },
     },
   });
 
-  if (!attachment || !attachment.noteId) {
+  if (!attachment) {
     throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
   }
+
+  const noteOwned = Boolean(attachment.noteId);
+  const resourceOwned = Boolean(attachment.studyResource);
+  if (!noteOwned && !resourceOwned) {
+    throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
+  }
+
+  if (actorId) {
+    const ownerId =
+      attachment.studyResource?.workspace.userId ??
+      attachment.note?.subject.workspace?.userId ??
+      null;
+    // Legacy notes may lack workspace; noteId presence alone was historically enough.
+    if (ownerId && ownerId !== actorId) {
+      throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
+    }
+  }
+
   if (attachment.status !== "READY") {
     throw new ApiError("ATTACHMENT_NOT_READY", 409);
   }
-  const inlineAllowed = defaultAllowedUploadMimeTypes.some((mimeType) => mimeType === attachment.mimeType);
-  if (disposition === "inline" && !inlineAllowed) {
+
+  if (disposition === "inline" && !isInlinePreviewAllowed(attachment.mimeType)) {
     throw new ApiError("ATTACHMENT_INVALID_DISPOSITION", 400);
+  }
+  // ZIP always forced to attachment disposition
+  if (attachment.mimeType === "application/zip") {
+    disposition = "attachment";
   }
 
   const storedName = parseAttachmentUri(attachment.uri);
@@ -185,7 +251,6 @@ export async function getAttachmentDownload(
   const safePath = getSafeAttachmentPath(env.UPLOAD_DIR, storedName);
   await assertResolvedUploadRoot(safePath.uploadRoot);
 
-  // O_NOFOLLOW 打开后基于同一句柄 fstat、读取和校验，消除 lstat/readFile TOCTOU。
   let handle: Awaited<ReturnType<typeof open>> | null = null;
   let bytes: Uint8Array;
   try {
@@ -210,7 +275,6 @@ export async function getAttachmentDownload(
 
   const fileHash = createHashHex(bytes);
   if (bytes.length !== attachment.sizeBytes || fileHash !== attachment.hash) {
-    // 报告型拒绝：不修改历史 row，等显式 reconciliation 标记 needs_attention。
     throw new ApiError("ATTACHMENT_FILE_MISMATCH", 409);
   }
 
@@ -254,7 +318,7 @@ export function serializeAttachment(attachment: {
 }
 
 async function createPendingIntent(
-  noteId: string,
+  noteId: string | null,
   draft: { originalName: string; storedName: string; mimeType: string; sizeBytes: number; hash: string; uri: string },
   stagingName: string,
   actorId: string,
@@ -263,7 +327,7 @@ async function createPendingIntent(
     return await prisma.$transaction(async (tx) => {
       const created = await tx.attachment.create({
         data: {
-          noteId,
+          noteId: noteId ?? undefined,
           originalName: draft.originalName,
           storedName: draft.storedName,
           mimeType: draft.mimeType,

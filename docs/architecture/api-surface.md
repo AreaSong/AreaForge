@@ -39,14 +39,15 @@
 - `/api/plan-milestones/**`：里程碑列表/创建/编辑
 - `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen（**无 convert**）
 - `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
+- `/api/learning-tree/templates|export|imports/preview|imports/confirm`、`/api/learning-tree/imports`、`/api/learning-tree/imports/:id`、`/api/learning-tree/imports/:id/export`（隔离；preview 零业务写入；confirm 原子）
+- `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（隔离，无生产页）
 
 仍为规划、未实现：
 
 - `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
 - `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影。
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
-- 学习树 `templates` / `export` / `imports/preview` / `imports/confirm`；preview 无业务写入。
-- 知识画布分层查询与布局 CAS；资料、统一复习事件、动机、通知偏好与四类显式 AI 草稿。
+- 知识画布分层查询与布局 CAS；统一复习事件、动机、通知偏好与四类显式 AI 草稿。
 
 权威路由与错误契约见 `workflow/versions/v1.1-learning-action-center.md`。旧 `POST /api/syllabus/import-markdown` 在切换前保留 append-only legacy 行为。
 

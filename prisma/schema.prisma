@@ -153,6 +153,7 @@ model User {
   examWorkspaces          ExamWorkspace[]
   taskDependencies        TaskDependency[]
   planInboxItems          PlanInboxItem[]
+  learningTreeImportBatches LearningTreeImportBatch[]
 }
 
 model AuthSession {
@@ -195,6 +196,7 @@ model ExamWorkspace {
   planMilestones   PlanMilestone[]
   planInboxItems   PlanInboxItem[]
   studyResources   StudyResource[]
+  learningTreeImportBatches LearningTreeImportBatch[]
 
   @@unique([userId, stableKey])
   @@index([userId])
@@ -257,6 +259,9 @@ model SyllabusNode {
   sortOrder     Int                @default(0)
   targetMinutes Int                @default(0)
   actualMinutes Int                @default(0)
+  stableKey     String?
+  revision      Int                @default(1)
+  archivedAt    DateTime?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   subject       Subject            @relation(fields: [subjectId], references: [id])
@@ -273,8 +278,10 @@ model SyllabusNode {
   relatedTasks      StudyTaskRelatedSyllabusNode[]
   studyResourceLinks StudyResourceSyllabusNodeLink[]
 
+  @@unique([subjectId, stableKey])
   @@index([subjectId])
   @@index([parentId])
+  @@index([archivedAt])
 }
 
 model StudyTask {
@@ -963,4 +970,57 @@ model StudyResourceSyllabusNodeLink {
 
   @@unique([resourceId, syllabusNodeId])
   @@index([syllabusNodeId])
+}
+
+model LearningTreeImportBatch {
+  id                 String   @id @default(cuid())
+  workspaceId        String
+  protocolVersion    String
+  parserVersion      String
+  scope              String
+  canonicalMarkdown  String
+  sourceSha256       String
+  canonicalPlanHash  String
+  rootRevision       Int
+  statsJson          Json
+  resultJson         Json
+  idempotencyKey     String
+  requestFingerprint String
+  previewNonce       String
+  previewOperationId String?
+  archivedAt         DateTime?
+  actorId            String?
+  confirmedAt        DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  workspace          ExamWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor              User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  items              LearningTreeImportItem[]
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, confirmedAt])
+  @@index([actorId])
+  @@index([archivedAt])
+  @@index([previewNonce])
+}
+
+model LearningTreeImportItem {
+  id                String   @id @default(cuid())
+  batchId           String
+  stableRef         String
+  objectType        String
+  diffType          String
+  sourceLine        Int?
+  sourceTargetKey   String?
+  mappedTargetId    String?
+  mappedTargetKey   String?
+  userChoice        String
+  applyResult       String
+  redactedErrorCode String?
+  createdAt         DateTime @default(now())
+  batch             LearningTreeImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([stableRef])
+  @@index([objectType])
 }
