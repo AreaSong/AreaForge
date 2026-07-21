@@ -24,18 +24,21 @@ Migration 6、统一复习、CheckIn v2、恢复三阶、任务桥接与 PlanInb
 - Migration 6：`20260721220000_v11_m6_review_checkin_v2`（ReviewSchedule/Event、CheckIn v2 字段、Recovery v2、桥接、Note/Mistake archivedAt、MasteryRetest.reviewEventId）
 - 隔离 API：`/api/review-schedules/**`、corrections、`/api/check-ins`、`/api/recovery/**`、plan-inbox convert、bridge-*
 - Core：间隔、CheckIn v2 聚合、Recovery 三阶规则
+- 桥接完成：`completeBridgeTaskWithReview` 与 `confirmReviewEventInTx` 同事务；普通 `completeStudyTask` / session end 完成桥接任务返回 `REVIEW_BRIDGE_COMPLETE_REQUIRES_RESULT`
 - 临时库 selftest：`AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest`
 - **无**生产页面/导航；**未**生产 migration；**未**关闭 residual
 
-## 验证收口（2026-07-21）
+## 验证收口（2026-07-21 本会话实测）
 
 | 命令 | 结果 |
 |---|---|
 | `pnpm db:validate` | PASS |
-| `DATABASE_URL=…@127.0.0.1:54333/areaforge_v11m6 pnpm db:migrate:deploy` | PASS（含 Migration 6） |
-| `AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest` | PASS |
+| `DATABASE_URL=…@127.0.0.1:54333/areaforge_v11m6 pnpm db:migrate:deploy` | PASS（含 Migration 6；No pending） |
+| `AREAFORGE_V11_M6_ISOLATED_DB=1 DATABASE_URL=…areaforge_v11m6 pnpm ops:v11:m6:runtime:selftest` | PASS（含硬验收 5 项） |
 | `pnpm --filter @areaforge/core test` | PASS（68） |
-| `pnpm --filter @areaforge/web typecheck` | PASS |
+| `pnpm check` | PASS |
+
+硬验收 check id：`zero_duration_rejected`、`event_immutable_after_correction`、`correction_cas_stale_revision`、`checkin_source_version_upgrade`、`bridge_complete_requires_review_event_result`。
 
 ## 禁止（仍有效）
 

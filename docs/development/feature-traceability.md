@@ -65,15 +65,15 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 五工作台 App Shell 与稳定路由 | 未实现 | 版本计划第一节信息架构 | Batch 7+ |
-| 考试工作区 / 自定义科目 / 408 分组 | 基础版 | Migration 1；隔离 `/api/exam-workspaces/**`；无生产 UI | Batch 7 UI |
-| 今日行动中心与科目快捷计时 | 未实现 | 版本计划第二节 | Batch 7 |
-| PlanInbox / 里程碑 / 任务依赖 | 基础版 | Migration 2–3；隔离 Inbox/里程碑/依赖 API；Batch 6 已开放隔离原子 convert；无生产 UI | Batch 7 UI |
-| 学习树 V1 preview / confirm | 隔离已实现 | Batch 4 preview + Batch 5 confirm/history/export；Migration 4–5；`AF-RISK-DATA-001` 生命周期已接受、residual 未关 | Batch 7+ 生产页 |
+| 五工作台 App Shell 与稳定路由 | 隔离已实现 | Batch 7：受限 App Shell；开放 `/today*`、`/focus/[sessionId]`、`/quick-review/[scheduleId]`、`/settings`/`/settings/workspace`；知识/动机/通知/AI/阶段入口隐藏 | Batch 8+ |
+| 考试工作区 / 自定义科目 / 408 分组 | 隔离已实现 | Migration 1 API + Batch 7 `/settings/workspace` 首次设置两步流 | Batch 11 生产切换 |
+| 今日行动中心与科目快捷计时 | 隔离已实现 | `/today` + `GET /api/action-center/today`；科目快捷 → `/focus` | Batch 11 生产切换 |
+| PlanInbox / 里程碑 / 任务依赖 | 隔离已实现 | Inbox/里程碑/依赖 API + Batch 7 `/today/inbox*`、`/today/plan`、`/today/tasks/[taskId]` | Batch 11 生产切换 |
+| 学习树 V1 preview / confirm | 隔离已实现 | Batch 4 preview + Batch 5 confirm/history/export；Migration 4–5；`AF-RISK-DATA-001` 生命周期已接受、residual 未关 | Batch 8+ 知识页 |
 | 全局关联画布 | 未实现 | 数据契约 12.5 | Batch 8 |
-| StudyResource FILE/LINK | 隔离 API 已实现 | Migration 4 schema + Batch 5 CRUD/staging/resolve/ZIP/MD；无生产页 | Batch 7+ UI |
-| 统一复习 Schedule/Event | 隔离已实现 | Migration 6；隔离 `/api/review-schedules/**` + corrections + bridge；无生产页 | Batch 7+ UI |
-| CheckIn v2 / 恢复三阶 | 隔离已实现 | Migration 6；`GET /api/check-ins` + `/api/recovery/**`；无生产页 | Batch 7+ UI |
+| StudyResource FILE/LINK | 隔离 API 已实现 | Migration 4 schema + Batch 5 CRUD/staging/resolve/ZIP/MD；无知识页 | Batch 8+ UI |
+| 统一复习 Schedule/Event | 隔离已实现 | Batch 6 API + Batch 7 `/quick-review/[scheduleId]`；统一复习列表页仍属 Batch 8 | Batch 8 `/knowledge/reviews` |
+| CheckIn v2 / 恢复三阶 | 隔离已实现 | Batch 6 API + Batch 7 今日摘要与「我学不下去了」Recovery Drawer | Batch 9 动机内容库 |
 | 动机 / 通知 / 四类 AI 草稿 | 未实现 | 版本计划第十一节 | Batch 9 |
 | 模拟结构化失分 / 报告阶段入箱 | 未实现 | 版本计划第十节 | Batch 10 |
 | 完整 minor 签名发布 | 未实现 | 14.4 / Batch 11；地基 OPS-006/007 已由 `v0.1.9` 覆盖待 S2 复核 | Batch 11 |

@@ -44,14 +44,14 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/");
+    router.replace("/today");
     router.refresh();
   }
 
   return (
     <form className="w-full max-w-sm rounded-lg border border-white/10 bg-[#101419] p-6" onSubmit={submit}>
       <BrandLogo priority />
-      <h1 className="mt-5 text-2xl font-semibold text-white">进入作战台</h1>
+      <h1 className="mt-5 text-2xl font-semibold text-white">进入行动中心</h1>
 
       <label className="mt-6 block text-sm text-zinc-300" htmlFor="email">
         邮箱

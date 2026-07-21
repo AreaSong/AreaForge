@@ -4,12 +4,12 @@
 
 把复盘、报告、阶段、模拟、低转化、恢复与显式 AI 产生的计划建议统一为可补全、可转换的草稿，系统不静默创建正式任务。
 
-## 当前实现（隔离 API）
+## 当前实现（隔离分支）
 
 - Schema：`PlanInboxItem` / `PlanInboxDependencyRef` / `PlanMilestone` / `TaskDependency`。
-- API：`/api/plan-inbox/**`（列表、创建、编辑、dismiss、reopen、convert）；`/api/plan-milestones/**`；`/api/tasks/:id/dependencies/**`。
+- API：`/api/plan-inbox/**`（列表、创建、编辑、dismiss、reopen、convert）；`/api/plan-milestones/**`；`/api/tasks/:id/dependencies/**`；`GET /api/plan/rolling`（仅计数，不泄正文）。
 - 已开放隔离原子 convert：同事务创建 `StudyTask`、置 `CONVERTED`、写审计；可选绑定 `reviewScheduleId` 桥接。
-- 生产可路由页面尚未开放。
+- UI：`/today/inbox`、`/today/inbox/[itemId]`、`/today/plan` Inbox 数量入口。
 
 ## 规划行为
 

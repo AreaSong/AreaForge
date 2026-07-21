@@ -4,11 +4,12 @@
 
 为备考提供单一当前考试范围边界：科目、阶段、推荐、通知与新写入只作用于 ACTIVE 工作区；历史工作区可归档只读回放。
 
-## 当前实现（隔离 API）
+## 当前实现（隔离分支）
 
 - Schema：`ExamWorkspace` / `SubjectGroup`；`Subject.legacyCode` 可空；legacy 行 `workspaceId IS NULL`。
-- API：`/api/exam-workspaces/**`（创建、激活、接管 preview/apply、科目分组、自定义科目）。
-- 无生产可路由页面或导航入口；首次设置 UI 尚未开放。
+- API：`/api/exam-workspaces/**`（创建、激活、接管 preview/apply、科目分组、科目列表 GET、自定义科目）。
+- UI：`/settings/workspace` 首次设置两步流（目标与科目 → 旧数据接管）；取消不创建 ACTIVE。
+- 生产默认导航切换见版本计划完整 minor Release；状态见 `docs/development/feature-traceability.md`。
 
 ## 规划行为
 

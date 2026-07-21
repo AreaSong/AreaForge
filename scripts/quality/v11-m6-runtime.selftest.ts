@@ -14,6 +14,7 @@ import {
 } from "../../apps/web/lib/study/recovery-v2-service";
 import {
   abandonBridgeTask,
+  completeBridgeTaskWithReview,
   confirmReviewEvent,
   correctReviewEvent,
   createBridgeTask,
@@ -21,6 +22,7 @@ import {
   pauseReviewSchedule,
   resumeReviewSchedule,
 } from "../../apps/web/lib/study/review-schedule-service";
+import { completeStudyTask } from "../../apps/web/lib/study/service";
 import { getStudyDayRange } from "../../apps/web/lib/study/date";
 
 /**
@@ -31,6 +33,12 @@ import { getStudyDayRange } from "../../apps/web/lib/study/date";
  * - Recovery 三阶 / 单日一阶
  * - 桥接 partial unique / 放弃不取消排期
  * - PlanInbox convert 原子性
+ * 硬验收并发/事务 fixture：
+ * - 零时长拒绝
+ * - Event 不可变（correction 不改原行）
+ * - correction stale revision CAS 409
+ * - CheckIn sourceVersion 1→2 触达升级
+ * - 桥接完成必须有 ReviewEvent.result；普通 complete 拒绝桥接
  */
 
 const checks: Array<{ id: string; status: "pass"; details: Record<string, string | number | boolean> }> = [];
@@ -46,6 +54,7 @@ try {
   await verifyCorrectionSingleSuccessor(seed);
   await verifyBridgeAndInboxConvert(seed);
   await verifyRecoveryStages(seed);
+  await verifyHardConcurrencyFixtures(seed);
 
   console.log(
     JSON.stringify(
@@ -461,6 +470,205 @@ async function verifyRecoveryStages(seed: Awaited<ReturnType<typeof seedWorkspac
   });
   assert.equal(canceled.status, "CANCELED");
   pass("recovery_stages", { startedId: started.id, advancedTo: 2 });
+}
+
+async function verifyHardConcurrencyFixtures(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  const dueDate = getStudyDayRange().start.toISOString();
+
+  // 1) 零时长拒绝
+  const zeroNote = await prisma.note.create({
+    data: {
+      subjectId: seed.subject.id,
+      title: "Zero duration note",
+      content: "x",
+      kind: "CONCEPT",
+    },
+  });
+  const zeroSchedule = await materializeReviewSchedule(seed.user.id, {
+    targetType: "NOTE",
+    noteId: zeroNote.id,
+    dueDate,
+  });
+  try {
+    await confirmReviewEvent(seed.user.id, zeroSchedule.id, {
+      idempotencyKey: `zero-${randomUUID()}`,
+      expectedRevision: zeroSchedule.revision,
+      result: "PASSED",
+      durationSeconds: 0,
+    });
+    assert.fail("expected zero duration rejection");
+  } catch (error) {
+    assert.ok(error instanceof ApiError);
+    assert.equal(error.code, "REVIEW_INVALID_DURATION");
+    assert.equal(error.status, 400);
+  }
+  pass("zero_duration_rejected", { scheduleId: zeroSchedule.id });
+
+  // 2) Event 不可变 + 3) correction CAS stale revision
+  const immNote = await prisma.note.create({
+    data: {
+      subjectId: seed.subject.id,
+      title: "Immutable event note",
+      content: "x",
+      kind: "METHOD",
+    },
+  });
+  const immSchedule = await materializeReviewSchedule(seed.user.id, {
+    targetType: "NOTE",
+    noteId: immNote.id,
+    dueDate,
+  });
+  const originalConfirm = await confirmReviewEvent(seed.user.id, immSchedule.id, {
+    idempotencyKey: `imm-${randomUUID()}`,
+    expectedRevision: immSchedule.revision,
+    result: "FAILED",
+    durationSeconds: 120,
+  });
+  const originalBefore = await prisma.reviewEvent.findUniqueOrThrow({
+    where: { id: originalConfirm.event.id },
+  });
+
+  try {
+    await correctReviewEvent(seed.user.id, originalConfirm.event.id, {
+      idempotencyKey: `stale-corr-${randomUUID()}`,
+      expectedRevision: originalConfirm.schedule.revision - 1,
+      result: "PASSED",
+    });
+    assert.fail("expected stale correction CAS conflict");
+  } catch (error) {
+    assert.ok(error instanceof ApiError);
+    assert.equal(error.code, "REVIEW_SCHEDULE_REVISION_CONFLICT");
+    assert.equal(error.status, 409);
+  }
+  pass("correction_cas_stale_revision", { eventId: originalConfirm.event.id });
+
+  const correction = await correctReviewEvent(seed.user.id, originalConfirm.event.id, {
+    idempotencyKey: `imm-corr-${randomUUID()}`,
+    expectedRevision: originalConfirm.schedule.revision,
+    result: "PASSED",
+  });
+  const originalAfter = await prisma.reviewEvent.findUniqueOrThrow({
+    where: { id: originalConfirm.event.id },
+  });
+  assert.equal(originalAfter.result, originalBefore.result);
+  assert.equal(originalAfter.durationSeconds, originalBefore.durationSeconds);
+  assert.equal(originalAfter.result, "FAILED");
+  assert.equal(originalAfter.durationSeconds, 120);
+  assert.equal(correction.event.correctedEventId, originalConfirm.event.id);
+  assert.equal(correction.event.result, "PASSED");
+  assert.equal(correction.event.durationSeconds, 120);
+  pass("event_immutable_after_correction", {
+    originalId: originalConfirm.event.id,
+    correctionId: correction.event.id,
+  });
+
+  // 4) CheckIn sourceVersion 1→2 触达升级
+  await resetTables();
+  const upgradeSeed = await seedWorkspace();
+  const upgradeDay = getStudyDayRange().start;
+  await prisma.checkIn.create({
+    data: {
+      workspaceId: upgradeSeed.workspace.id,
+      studyDate: upgradeDay,
+      sourceVersion: 1,
+      completedMinimumAction: false,
+      totalMinutes: 0,
+      effectiveMinutes: 0,
+      effectiveSessionCount: 0,
+      taskCompletionRate: 0,
+      reviewSubmitted: false,
+      lowEfficiency: true,
+      lowConversionCount: 0,
+      reviewCount: 0,
+      reviewSeconds: 0,
+      passedCount: 0,
+      partialCount: 0,
+      failedCount: 0,
+      minimumActionSource: "NONE",
+    },
+  });
+  const upgradeNote = await prisma.note.create({
+    data: {
+      subjectId: upgradeSeed.subject.id,
+      title: "Upgrade checkin note",
+      content: "x",
+      kind: "EXAMPLE",
+    },
+  });
+  const upgradeSchedule = await materializeReviewSchedule(upgradeSeed.user.id, {
+    targetType: "NOTE",
+    noteId: upgradeNote.id,
+    dueDate: upgradeDay.toISOString(),
+  });
+  await confirmReviewEvent(upgradeSeed.user.id, upgradeSchedule.id, {
+    idempotencyKey: `upgrade-${randomUUID()}`,
+    expectedRevision: upgradeSchedule.revision,
+    result: "PASSED",
+    durationSeconds: 300,
+  });
+  const upgraded = await listWorkspaceCheckIns(upgradeSeed.workspace.id, upgradeDay, upgradeDay);
+  assert.equal(upgraded.length, 1);
+  assert.equal(upgraded[0].sourceVersion, 2);
+  assert.equal(upgraded[0].reviewCount, 1);
+  assert.equal(upgraded[0].reviewSeconds, 300);
+  assert.equal(upgraded[0].passedCount, 1);
+  assert.equal(upgraded[0].minimumActionSource, "REVIEW");
+  pass("checkin_source_version_upgrade", {
+    sourceVersion: upgraded[0].sourceVersion,
+    reviewSeconds: upgraded[0].reviewSeconds,
+  });
+
+  // 5) 桥接完成必须有 ReviewEvent.result；普通 complete 拒绝
+  const bridgeNote = await prisma.note.create({
+    data: {
+      subjectId: upgradeSeed.subject.id,
+      title: "Bridge complete note",
+      content: "x",
+      kind: "CONCEPT",
+    },
+  });
+  const bridgeSchedule = await materializeReviewSchedule(upgradeSeed.user.id, {
+    targetType: "NOTE",
+    noteId: bridgeNote.id,
+    dueDate: upgradeDay.toISOString(),
+  });
+  const bridge = await createBridgeTask(upgradeSeed.user.id, {
+    reviewScheduleId: bridgeSchedule.id,
+    subjectId: upgradeSeed.subject.id,
+    title: "Bridge complete task",
+  });
+
+  try {
+    await completeStudyTask(bridge.taskId, undefined, upgradeSeed.user.id);
+    assert.fail("expected plain complete to reject bridge task");
+  } catch (error) {
+    assert.ok(error instanceof ApiError);
+    assert.equal(error.code, "REVIEW_BRIDGE_COMPLETE_REQUIRES_RESULT");
+    assert.equal(error.status, 409);
+  }
+
+  const completed = await completeBridgeTaskWithReview(upgradeSeed.user.id, bridge.taskId, {
+    idempotencyKey: `bridge-done-${randomUUID()}`,
+    expectedRevision: bridgeSchedule.revision,
+    result: "PARTIAL",
+    durationSeconds: 180,
+  });
+  assert.equal(completed.event.result, "PARTIAL");
+  assert.equal(completed.event.durationSeconds, 180);
+  assert.ok(completed.event.id);
+  const doneTask = await prisma.studyTask.findUniqueOrThrow({ where: { id: bridge.taskId } });
+  assert.equal(doneTask.status, "DONE");
+  const persistedEvent = await prisma.reviewEvent.findUniqueOrThrow({
+    where: { id: completed.event.id },
+  });
+  assert.equal(persistedEvent.result, "PARTIAL");
+  pass("bridge_complete_requires_review_event_result", {
+    taskId: bridge.taskId,
+    eventId: completed.event.id,
+    result: completed.event.result,
+  });
 }
 
 function pass(id: string, details: Record<string, string | number | boolean>): void {

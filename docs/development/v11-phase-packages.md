@@ -11,7 +11,8 @@
 | S3 数据与核心服务 | 4 | `tasks/done/0028-v11-batch4-learning-tree-preview.md` | Migration 4 + V1 parser/preview/templates/export（隔离，无 confirm） | Batch 5 |
 | S3 数据与核心服务 | 5 | `tasks/done/0029-v11-batch5-resources-import-confirm.md` | Migration 5 + StudyResource 隔离 API + 原子 confirm/历史/导出；DATA-001 生命周期已接受（residual 未关） | Batch 6 |
 | S3 数据与核心服务 | 6 | `tasks/done/0030-v11-batch6-review-checkin-v2.md` | Migration 6 + 统一复习/CheckIn v2/恢复三阶/桥接/Inbox convert（隔离，无生产入口） | Batch 7 |
-| S4 可见产品 | 7–10 | `0031`–`0034` | 任务包已拆分，**未写业务代码** | App Shell 起逐步开放隔离入口 |
+| S4 可见产品 | 7 | `tasks/done/0031-v11-batch7-app-shell-today.md` | App Shell + `/today*` + `/focus` + `/quick-review` + 基础设置（隔离验收入口；无知识/动机/通知/AI/阶段全入口） | Batch 8 |
+| S4 可见产品 | 8–10 | `0032`–`0034` | 任务包已拆分，**未写业务代码** | 画布与知识台起逐步开放 |
 | S5 完整 minor | 11 | `0035` | 任务包已拆分 | Release admission + 生产另确认 |
 
 硬约束：

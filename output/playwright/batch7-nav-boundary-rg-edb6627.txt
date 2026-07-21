@@ -1,0 +1,9 @@
+NAV_ITEMS:
+2:  { href: "/today", label: "今日", match: (path: string) => path === "/today" || path.startsWith("/today?") },
+3:  { href: "/today/plan", label: "计划", match: (path: string) => path.startsWith("/today/plan") || path.startsWith("/today/tasks") },
+4:  { href: "/today/inbox", label: "收件箱", match: (path: string) => path.startsWith("/today/inbox") },
+5:  { href: "/settings/workspace", label: "设置", match: (path: string) => path.startsWith("/settings") },
+FORBIDDEN_IN_NAV_SOURCE:
+(no matches — PASS)
+FORBIDDEN_HREF_IN_APP_SHELL:
+(no matches — PASS)

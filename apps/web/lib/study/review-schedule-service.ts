@@ -284,153 +284,166 @@ export async function resumeReviewSchedule(
   });
 }
 
+type ConfirmReviewInput = {
+  idempotencyKey: string;
+  expectedRevision: number;
+  result: ReviewResult;
+  durationSeconds: number;
+  nextDueDate?: string;
+  note?: string | null;
+};
+
+async function confirmReviewEventInTx(
+  tx: Tx,
+  actorId: string,
+  workspaceId: string,
+  scheduleId: string,
+  input: ConfirmReviewInput,
+): Promise<{ schedule: ReviewScheduleDto; event: ReviewEventDto; reused: boolean }> {
+  if (validateReviewDurationSeconds(input.durationSeconds) !== "ok") {
+    throw new ApiError("REVIEW_INVALID_DURATION", 400);
+  }
+  const confirmedAt = new Date();
+  const learningDay = getStudyDayRange(confirmedAt);
+
+  await lockSchedule(tx, scheduleId);
+  const schedule = await tx.reviewSchedule.findFirst({
+    where: { id: scheduleId, workspaceId },
+  });
+  if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
+  const nextPass = nextConsecutivePassCount({
+    current: schedule.consecutivePassCount,
+    result: input.result,
+  });
+  const suggestedDays = suggestReviewIntervalDays({
+    result: input.result,
+    consecutivePassCountAfter: nextPass,
+  });
+  const nextDueDate = input.nextDueDate
+    ? getStudyDayRange(new Date(input.nextDueDate)).start
+    : addShanghaiLearningDays(learningDay.start, suggestedDays);
+  const fingerprint = buildReviewRequestFingerprint({
+    result: input.result,
+    durationSeconds: input.durationSeconds,
+    nextDueDateKey: input.nextDueDate ? getStudyDayRange(nextDueDate).key : "AUTO",
+    note: input.note,
+  });
+
+  const existingEvent = await tx.reviewEvent.findUnique({
+    where: {
+      reviewScheduleId_idempotencyKey: {
+        reviewScheduleId: scheduleId,
+        idempotencyKey: input.idempotencyKey,
+      },
+    },
+  });
+  if (existingEvent) {
+    if (existingEvent.requestFingerprint !== fingerprint) {
+      throw new ApiError("REVIEW_IDEMPOTENCY_CONFLICT", 409, {
+        latest: serializeEvent(existingEvent),
+        conflictFields: ["requestFingerprint"],
+      });
+    }
+    return {
+      schedule: serializeSchedule(schedule),
+      event: serializeEvent(existingEvent),
+      reused: true,
+    };
+  }
+
+  if (
+    assertExpectedRevision({
+      currentRevision: schedule.revision,
+      expectedRevision: input.expectedRevision,
+    }) === "revision_conflict"
+  ) {
+    throw new ApiError("REVIEW_SCHEDULE_REVISION_CONFLICT", 409, {
+      latest: serializeSchedule(schedule),
+      conflictFields: ["revision"],
+    });
+  }
+
+  if (schedule.status !== "ACTIVE") {
+    throw new ApiError("REVIEW_SCHEDULE_PAUSED", 409, {
+      latest: serializeSchedule(schedule),
+      conflictFields: ["status"],
+    });
+  }
+  await assertTargetNotArchived(tx, schedule);
+
+  const event = await tx.reviewEvent.create({
+    data: {
+      reviewScheduleId: scheduleId,
+      idempotencyKey: input.idempotencyKey,
+      requestFingerprint: fingerprint,
+      expectedRevision: input.expectedRevision,
+      appliedRevision: schedule.revision + 1,
+      result: input.result,
+      durationSeconds: input.durationSeconds,
+      confirmedAt,
+      learningDate: learningDay.start,
+      nextDueDate,
+      consecutivePassDelta: nextPass - schedule.consecutivePassCount,
+      note: input.note?.trim() || null,
+      actorId,
+    },
+  });
+
+  const updated = await tx.reviewSchedule.update({
+    where: { id: schedule.id },
+    data: {
+      dueDate: nextDueDate,
+      consecutivePassCount: nextPass,
+      revision: { increment: 1 },
+    },
+  });
+
+  if (schedule.targetType === "SYLLABUS_NODE" && schedule.syllabusNodeId) {
+    await createSyllabusRetest(tx, {
+      syllabusNodeId: schedule.syllabusNodeId,
+      result: input.result,
+      nextDueDate,
+      reviewEventId: event.id,
+      actorId,
+      confirmedAt,
+    });
+  }
+
+  await refreshWorkspaceCheckInSnapshotForDate(workspaceId, learningDay.start, tx);
+
+  await tx.auditEvent.create({
+    data: {
+      actorId,
+      action: "REVIEW_EVENT_CONFIRMED",
+      entityType: "ReviewEvent",
+      entityId: event.id,
+      metadata: {
+        scheduleId,
+        result: input.result,
+        durationSeconds: input.durationSeconds,
+      },
+    },
+  });
+
+  return {
+    schedule: serializeSchedule(updated),
+    event: serializeEvent(event),
+    reused: false,
+  };
+}
+
 export async function confirmReviewEvent(
   actorId: string,
   scheduleId: string,
-  input: {
-    idempotencyKey: string;
-    expectedRevision: number;
-    result: ReviewResult;
-    durationSeconds: number;
-    nextDueDate?: string;
-    note?: string | null;
-  },
+  input: ConfirmReviewInput,
 ): Promise<{ schedule: ReviewScheduleDto; event: ReviewEventDto; reused: boolean }> {
   if (validateReviewDurationSeconds(input.durationSeconds) !== "ok") {
     throw new ApiError("REVIEW_INVALID_DURATION", 400);
   }
   const workspace = await resolveActiveWorkspace(actorId);
-  const confirmedAt = new Date();
-  const learningDay = getStudyDayRange(confirmedAt);
-
-  return prisma.$transaction(async (tx) => {
-    await lockSchedule(tx, scheduleId);
-    const schedule = await tx.reviewSchedule.findFirst({
-      where: { id: scheduleId, workspaceId: workspace.id },
-    });
-    if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
-    const nextPass = nextConsecutivePassCount({
-      current: schedule.consecutivePassCount,
-      result: input.result,
-    });
-    const suggestedDays = suggestReviewIntervalDays({
-      result: input.result,
-      consecutivePassCountAfter: nextPass,
-    });
-    const nextDueDate = input.nextDueDate
-      ? getStudyDayRange(new Date(input.nextDueDate)).start
-      : addShanghaiLearningDays(learningDay.start, suggestedDays);
-    const fingerprint = buildReviewRequestFingerprint({
-      result: input.result,
-      durationSeconds: input.durationSeconds,
-      nextDueDateKey: input.nextDueDate
-        ? getStudyDayRange(nextDueDate).key
-        : "AUTO",
-      note: input.note,
-    });
-
-    const existingEvent = await tx.reviewEvent.findUnique({
-      where: {
-        reviewScheduleId_idempotencyKey: {
-          reviewScheduleId: scheduleId,
-          idempotencyKey: input.idempotencyKey,
-        },
-      },
-    });
-    if (existingEvent) {
-      if (existingEvent.requestFingerprint !== fingerprint) {
-        throw new ApiError("REVIEW_IDEMPOTENCY_CONFLICT", 409, {
-          latest: serializeEvent(existingEvent),
-          conflictFields: ["requestFingerprint"],
-        });
-      }
-      return {
-        schedule: serializeSchedule(schedule),
-        event: serializeEvent(existingEvent),
-        reused: true,
-      };
-    }
-
-    if (
-      assertExpectedRevision({
-        currentRevision: schedule.revision,
-        expectedRevision: input.expectedRevision,
-      }) === "revision_conflict"
-    ) {
-      throw new ApiError("REVIEW_SCHEDULE_REVISION_CONFLICT", 409, {
-        latest: serializeSchedule(schedule),
-        conflictFields: ["revision"],
-      });
-    }
-
-    if (schedule.status !== "ACTIVE") {
-      throw new ApiError("REVIEW_SCHEDULE_PAUSED", 409, {
-        latest: serializeSchedule(schedule),
-        conflictFields: ["status"],
-      });
-    }
-    await assertTargetNotArchived(tx, schedule);
-
-    const event = await tx.reviewEvent.create({
-      data: {
-        reviewScheduleId: scheduleId,
-        idempotencyKey: input.idempotencyKey,
-        requestFingerprint: fingerprint,
-        expectedRevision: input.expectedRevision,
-        appliedRevision: schedule.revision + 1,
-        result: input.result,
-        durationSeconds: input.durationSeconds,
-        confirmedAt,
-        learningDate: learningDay.start,
-        nextDueDate,
-        consecutivePassDelta: nextPass - schedule.consecutivePassCount,
-        note: input.note?.trim() || null,
-        actorId,
-      },
-    });
-
-    const updated = await tx.reviewSchedule.update({
-      where: { id: schedule.id },
-      data: {
-        dueDate: nextDueDate,
-        consecutivePassCount: nextPass,
-        revision: { increment: 1 },
-      },
-    });
-
-    if (schedule.targetType === "SYLLABUS_NODE" && schedule.syllabusNodeId) {
-      await createSyllabusRetest(tx, {
-        syllabusNodeId: schedule.syllabusNodeId,
-        result: input.result,
-        nextDueDate,
-        reviewEventId: event.id,
-        actorId,
-        confirmedAt,
-      });
-    }
-
-    await refreshWorkspaceCheckInSnapshotForDate(workspace.id, learningDay.start, tx);
-
-    await tx.auditEvent.create({
-      data: {
-        actorId,
-        action: "REVIEW_EVENT_CONFIRMED",
-        entityType: "ReviewEvent",
-        entityId: event.id,
-        metadata: {
-          scheduleId,
-          result: input.result,
-          durationSeconds: input.durationSeconds,
-        },
-      },
-    });
-
-    return {
-      schedule: serializeSchedule(updated),
-      event: serializeEvent(event),
-      reused: false,
-    };
-  });
+  return prisma.$transaction(async (tx) =>
+    confirmReviewEventInTx(tx, actorId, workspace.id, scheduleId, input),
+  );
 }
 
 export async function correctReviewEvent(
@@ -630,39 +643,62 @@ export async function createBridgeTask(
 export async function completeBridgeTaskWithReview(
   actorId: string,
   taskId: string,
-  input: {
-    idempotencyKey: string;
-    expectedRevision: number;
-    result: ReviewResult;
-    durationSeconds: number;
-    nextDueDate?: string;
-    note?: string | null;
-  },
+  input: ConfirmReviewInput,
 ): Promise<{ schedule: ReviewScheduleDto; event: ReviewEventDto; taskId: string }> {
+  if (validateReviewDurationSeconds(input.durationSeconds) !== "ok") {
+    throw new ApiError("REVIEW_INVALID_DURATION", 400);
+  }
   const workspace = await resolveActiveWorkspace(actorId);
-  const task = await prisma.studyTask.findFirst({
-    where: { id: taskId },
-    include: { reviewSchedule: true, subject: true },
-  });
-  if (!task?.reviewScheduleId || !task.reviewSchedule) {
-    throw new ApiError("REVIEW_BRIDGE_REQUIRED", 400);
-  }
-  if (task.reviewSchedule.workspaceId !== workspace.id) {
-    throw new ApiError("STUDY_TASK_NOT_FOUND", 404);
-  }
-  if (task.status === "DONE") {
-    throw new ApiError("STUDY_TASK_ALREADY_DONE", 409);
-  }
 
-  const confirmed = await confirmReviewEvent(actorId, task.reviewScheduleId, input);
-  await prisma.studyTask.update({
-    where: { id: task.id },
-    data: {
-      status: "DONE",
-      completedAt: new Date(),
-    },
+  return prisma.$transaction(async (tx) => {
+    const task = await tx.studyTask.findFirst({
+      where: { id: taskId },
+      include: { reviewSchedule: true },
+    });
+    if (!task?.reviewScheduleId || !task.reviewSchedule) {
+      throw new ApiError("REVIEW_BRIDGE_REQUIRED", 400);
+    }
+    if (task.reviewSchedule.workspaceId !== workspace.id) {
+      throw new ApiError("STUDY_TASK_NOT_FOUND", 404);
+    }
+    if (task.status === "DONE") {
+      throw new ApiError("STUDY_TASK_ALREADY_DONE", 409);
+    }
+    if (!["TODO", "IN_PROGRESS", "DEFERRED"].includes(task.status)) {
+      throw new ApiError("TASK_STATE_CONFLICT", 409);
+    }
+
+    const confirmed = await confirmReviewEventInTx(
+      tx,
+      actorId,
+      workspace.id,
+      task.reviewScheduleId,
+      input,
+    );
+
+    if (!confirmed.event.result) {
+      throw new ApiError("REVIEW_BRIDGE_COMPLETE_REQUIRES_RESULT", 409);
+    }
+
+    const cas = await tx.studyTask.updateMany({
+      where: {
+        id: task.id,
+        status: task.status,
+        updatedAt: task.updatedAt,
+        reviewScheduleId: task.reviewScheduleId,
+      },
+      data: {
+        status: "DONE",
+        debtStatus: "NONE",
+        completedAt: new Date(),
+      },
+    });
+    if (cas.count !== 1) {
+      throw new ApiError("TASK_STATE_CONFLICT", 409);
+    }
+
+    return { ...confirmed, taskId: task.id };
   });
-  return { ...confirmed, taskId: task.id };
 }
 
 export async function deferBridgeTask(

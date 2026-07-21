@@ -28,6 +28,9 @@ assert(productionSmokeSource.includes("readRestrictedSmokePassword")
 "production read-only smoke must share the restricted password boundary");
 assert(source.includes("detail: result.detail"), "structured report must retain redacted failure details");
 assert(source.includes('recordFailure("fatal", error)'), "unexpected failures must use the structured report path");
+assert(source.includes('batch7 app shell nav isolation'), "Batch 7 App Shell nav isolation check must remain");
+assert(source.includes('startSource: "SUBJECT_SHORTCUT"'), "Batch 7 subject shortcut start path must remain");
+assert(source.includes('href="/motivation"'), "Batch 7 isolation must reject motivation nav href");
 
 await main();
 

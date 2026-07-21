@@ -53,5 +53,6 @@
 - 复习秒数计入复习指标，不计入有效学习分钟。
 - `GET /api/check-ins?from=&to=` 只读；刷新只由 session / review / task / Inbox 事务触发。
 - 恢复模式演进为 30/60/90 三阶（`/api/recovery/**`），按用户+工作区最多一个 active 状态；保留既有 `/api/recovery-states/**`。
+- 今日行动中心与 App Shell 消费 CheckIn/Recovery 摘要；「我学不下去了」仅开 Recovery Drawer，不开放动机内容库。
 
 权威规则见 `workflow/versions/v1.1-learning-action-center.md`；实现状态见 `docs/development/feature-traceability.md`。

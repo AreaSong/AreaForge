@@ -4,97 +4,61 @@
 
 ## 导航拓扑
 
-整体是以作战台（`/`）为枢纽的星型结构：作战台承载核心闭环操作，八个子页从作战台进入，并统一通过「返回作战台」回到中心。应用没有全局共享导航栏组件，主导航内嵌在作战台页面头部。
+隔离分支已启用受保护 App Shell：登录后默认进入今日行动中心，主导航仅开放今日/计划/收件箱/基础设置。知识、复盘、阶段、动机、通知、AI 不出现在 Shell 导航。Legacy 子页路由仍可直达，但不进新导航。
 
 ```mermaid
 flowchart TB
-  login["/login 登录"] --> home["/ 作战台"]
-  home --> syllabus["/syllabus 考纲"]
-  home --> notes["/notes 笔记"]
-  home --> mistakes["/mistakes 错题"]
-  home --> motivation["/motivation 动机"]
-  home --> analytics["/analytics 统计"]
-  home --> reports["/reports 报告"]
-  home --> simulation["/simulation 模拟"]
-  home --> settingsPage["/settings 设置"]
-  syllabus --> home
-  notes --> home
-  mistakes --> home
-  motivation --> home
-  analytics --> home
-  reports --> home
-  simulation --> home
-  settingsPage --> home
+  login["/login 登录"] --> today["/today 行动中心"]
+  today --> plan["/today/plan"]
+  today --> inbox["/today/inbox"]
+  today --> focus["/focus/sessionId"]
+  today --> quickReview["/quick-review/scheduleId"]
+  today --> workspace["/settings/workspace"]
+  plan --> task["/today/tasks/taskId"]
+  inbox --> inboxItem["/today/inbox/itemId"]
+  workspace --> today
+  settings["/settings"] --> workspace
 ```
 
-## 页面清单
+## 页面清单（当前开放）
 
 | 路由 | 名称 | 职责 | 入口文件 |
 |---|---|---|---|
-| `/` | 作战台 | 今日闭环中心：专注计时、任务面板、晚间复盘、AI 建议、恢复模式、状态主题、长期风险面板、版本弹窗 | `apps/web/app/page.tsx` |
-| `/login` | 登录 | 单管理员登录；已登录访问时重定向回作战台 | `apps/web/app/login/page.tsx` |
-| `/syllabus` | 考纲 | 考纲进度树、作战地图、掌握证明 | `apps/web/app/syllabus/page.tsx` |
-| `/notes` | 笔记 | 笔记与资料、附件上传下载、复习提醒 | `apps/web/app/notes/page.tsx` |
-| `/mistakes` | 错题 | 错题记录与复盘 | `apps/web/app/mistakes/page.tsx` |
-| `/motivation` | 动机 | 动机封存与唤醒信号 | `apps/web/app/motivation/page.tsx` |
-| `/analytics` | 统计 | 基础统计与长期风险 | `apps/web/app/analytics/page.tsx` |
-| `/reports` | 报告 | 周审判与月复盘、报告决策 | `apps/web/app/reports/page.tsx` |
-| `/simulation` | 模拟 | 全真模拟考试、阶段计划与阶段调整草稿 | `apps/web/app/simulation/page.tsx` |
-| `/settings` | 设置 | 账户与版本中心（受控更新请求） | `apps/web/app/settings/page.tsx` |
+| `/today` | 今日行动中心 | 推荐、三队列、科目快捷计时、首次工作区 CTA | `apps/web/app/(app)/today/page.tsx` |
+| `/today/plan` | 计划 | 七天/日期条、正式任务、欠账、Inbox 计数 | `apps/web/app/(app)/today/plan/page.tsx` |
+| `/today/tasks/[taskId]` | 任务详情 | 任务唯一 canonical 详情与启动 | `apps/web/app/(app)/today/tasks/[taskId]/page.tsx` |
+| `/today/inbox` | 收件箱 | OPEN 草稿列表 | `apps/web/app/(app)/today/inbox/page.tsx` |
+| `/today/inbox/[itemId]` | 收件箱详情 | 转换与来源摘要 | `apps/web/app/(app)/today/inbox/[itemId]/page.tsx` |
+| `/focus/[sessionId]` | 全屏专注 | 正计时、暂停/继续、结束收口 | `apps/web/app/(app)/focus/[sessionId]/page.tsx` |
+| `/quick-review/[scheduleId]` | 快速复习 | 单对象确认复习事件 | `apps/web/app/(app)/quick-review/[scheduleId]/page.tsx` |
+| `/settings/workspace` | 考试工作区 | 首次设置两步流、科目与接管 | `apps/web/app/(app)/settings/workspace/page.tsx` |
+| `/settings` | 基础设置 | 账户与版本中心 | `apps/web/app/(app)/settings/page.tsx` |
+| `/login` | 登录 | 单管理员登录；已登录重定向 `/today` | `apps/web/app/login/page.tsx` |
 
-专注计时、任务计划、晚间复盘、AI 建议和恢复模式没有独立路由，它们是作战台页面内嵌区块，对应组件：`FocusTimer`、`TaskPanel`、`ReviewForm`、AI 建议展示（`getDailyReviewAiAdvice` / `getTomorrowPlanAiAdvice` 服务端注入）、`RecoveryStateControls`，以及 `LongTermRiskPanel` 长期风险面板。
+`/` 登录后重定向到 `/today`。
 
-## 特殊页面
+## Legacy 兼容路由（不进当前导航）
 
-| 文件 | 职责 | 出口 |
+| 路由 | 名称 | 说明 |
 |---|---|---|
-| `apps/web/app/error.tsx` | 全局错误边界 | 重试、回作战台、支持入口外链 |
-| `apps/web/app/not-found.tsx` | 404 | 回作战台、支持入口外链 |
-| `apps/web/app/loading.tsx` | 根级路由加载骨架 | 无 |
+| `/syllabus` `/notes` `/mistakes` `/motivation` `/analytics` `/reports` `/simulation` | 旧子页 | 保持可直达；生产默认导航切换见版本计划完整 minor Release |
 
 ## 鉴权环
 
-- 全部业务页面（作战台与八个子页）在服务端校验会话，未登录一律重定向到 `/login`。
-- `/login` 在已登录状态下访问时重定向到 `/`。
-- 登录成功后进入作战台；退出登录入口在作战台头部（`LogoutButton`）。
+- App Shell 业务页在 `(app)/layout.tsx` 校验会话，未登录重定向 `/login`。
+- `/login` 已登录访问时重定向 `/today`。
+- 深链白名单见 `apps/web/lib/navigation/batch7.ts`；非法目标回 `/today`。
 
 ## 主导航入口
 
-主导航定义在作战台页面头部的 `dashboardNavItems`（`apps/web/app/page.tsx`），桌面端渲染为头部横排链接，移动端渲染为折叠菜单，两套渲染共用同一数据：
-
 | 文案 | 目标 |
 |---|---|
-| 考纲 | `/syllabus` |
-| 笔记 | `/notes` |
-| 错题 | `/mistakes` |
-| 动机 | `/motivation` |
-| 统计 | `/analytics` |
-| 报告 | `/reports` |
-| 模拟 | `/simulation` |
-| 设置 | `/settings` |
+| 今日 | `/today` |
+| 计划 | `/today/plan` |
+| 收件箱 | `/today/inbox` |
+| 设置 | `/settings/workspace` |
 
-八个子页头部统一提供「返回作战台」链接回 `/`，不在子页之间横向互链。
-
-## 规划导航（未实现）
-
-下一产品版本将改为五工作台壳与稳定路由族（今日、知识、复盘、阶段、设置）。旧路由在切换前保持兼容，详情见 `workflow/versions/v1.1-learning-action-center.md` 第一节。规划路由示例：
-
-- `/today`、`/today/plan`、`/today/tasks/[taskId]`、`/today/inbox`
-- `/knowledge/canvas`、`/knowledge/imports`、`/knowledge/notes`
-- `/focus/[sessionId]`、`/quick-review/[scheduleId]`
-- `/review/*`、`/stage/*`、`/settings/*`
-
-实现状态见 `docs/development/feature-traceability.md`；在对应 Batch 开放前不得注册半成品生产入口。
-
-## 导航之外的跳转
-
-| 来源 | 目标 | 触发 |
-|---|---|---|
-| 作战台动机区块 | `/motivation` | 页内链接 |
-| 版本更新弹窗（`UpdateVersionPopover`，挂载于作战台头部） | `/settings` | 引导进入版本中心 |
-| 设置页版本中心（`SettingsWorkbench`） | GitHub Release 页（外链） | 查看候选版本说明 |
-| 笔记附件列表（`NoteLibrary`） | 附件鉴权下载 API | 附件下载走鉴权接口，不走公开静态路径 |
-| 错误页 / 404 | 支持入口（外链） | `SUPPORT_URL` |
+顶栏提供五状态灯（`GET /api/app-shell/status`）与次级「我学不下去了」（Recovery v2，不开放动机内容库）。
 
 ## 同步约定
 

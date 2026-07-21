@@ -375,6 +375,8 @@ export const startSessionSchema = z
     subjectId: z.string().min(1).optional(),
     taskId: z.string().min(1).optional(),
     syllabusNodeId: z.string().min(1).nullable().optional(),
+    goalMinutes: z.number().int().min(5).max(720).nullable().optional(),
+    startSource: z.enum(["TASK", "SUBJECT_SHORTCUT", "RECOVERY"]).optional(),
   })
   .refine((value) => value.subjectId || value.taskId, {
     message: "subjectId or taskId is required",

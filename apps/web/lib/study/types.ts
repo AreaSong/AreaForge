@@ -92,6 +92,8 @@ export interface StudyTaskDto {
   completedAt: string | null;
 }
 
+export type StudySessionStartSourceDto = "TASK" | "SUBJECT_SHORTCUT" | "RECOVERY";
+
 export interface StudySessionDto {
   id: string;
   subjectId: string;
@@ -118,6 +120,8 @@ export interface StudySessionDto {
   requiredOutput: string | null;
   closeoutVersion: number;
   note: string | null;
+  goalMinutes: number | null;
+  startSource: StudySessionStartSourceDto | null;
 }
 
 export interface MasteryConditionRecordDto {

@@ -32,12 +32,14 @@ import {
 } from "./concurrency";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
+import { findActiveWorkspaceOrNull } from "./exam-workspace-service";
 import { serializeTask, toDbPriority } from "./task-serializer";
 import type {
   DailyReviewDto,
   MotivationVaultDto,
   RecoveryStateDto,
   StudySessionDto,
+  StudySessionStartSourceDto,
   StudyTaskDto,
   SubjectDto,
   TaskDebtReorderDto,
@@ -555,6 +557,11 @@ export async function completeStudyTask(id: string, reviewText: string | undefin
   const task = await prisma.$transaction(async (tx) => {
     const existing = await getTaskCommandPreimage(tx, id);
     assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"]);
+    if (existing.reviewScheduleId) {
+      throw new ApiError("REVIEW_BRIDGE_COMPLETE_REQUIRES_RESULT", 409, {
+        conflictFields: ["reviewScheduleId", "result"],
+      });
+    }
 
     const completedAt = new Date();
     await applyTaskCas(tx, existing, {
@@ -834,7 +841,16 @@ export async function getActiveStudySession(): Promise<StudySessionDto | null> {
   return session ? serializeSession(session) : null;
 }
 
-export async function startStudySession(input: { subjectId?: string; taskId?: string; syllabusNodeId?: string | null }, actorId: string): Promise<StudySessionDto> {
+export async function startStudySession(
+  input: {
+    subjectId?: string;
+    taskId?: string;
+    syllabusNodeId?: string | null;
+    goalMinutes?: number | null;
+    startSource?: StudySessionStartSourceDto;
+  },
+  actorId: string,
+): Promise<StudySessionDto> {
   try {
     const session = await prisma.$transaction(async (tx) => {
       const task = input.taskId ? await getTaskCommandPreimage(tx, input.taskId) : null;
@@ -847,11 +863,28 @@ export async function startStudySession(input: { subjectId?: string; taskId?: st
         throw new ApiError("SUBJECT_REQUIRED", 400);
       }
 
-      await assertSubjectExists(subjectId, tx);
+      const workspace = await findActiveWorkspaceOrNull(actorId);
+      const subject = await tx.subject.findUnique({
+        where: { id: subjectId },
+        select: { id: true, workspaceId: true, archivedAt: true },
+      });
+      if (!subject) {
+        throw new ApiError("SUBJECT_NOT_FOUND", 404);
+      }
+      if (subject.archivedAt) {
+        throw new ApiError("SUBJECT_ARCHIVED", 409);
+      }
+      if (workspace && subject.workspaceId !== workspace.id) {
+        throw new ApiError("SUBJECT_WORKSPACE_MISMATCH", 409);
+      }
+
       const syllabusNodeId = input.syllabusNodeId ?? task?.syllabusNodeId ?? null;
       if (syllabusNodeId) {
         await assertSyllabusNodeBelongsToSubject(syllabusNodeId, subjectId, tx);
       }
+
+      const startSource: StudySessionStartSourceDto =
+        input.startSource ?? (task ? "TASK" : "SUBJECT_SHORTCUT");
 
       const createdSession = await tx.studySession.create({
         data: {
@@ -860,6 +893,8 @@ export async function startStudySession(input: { subjectId?: string; taskId?: st
           syllabusNodeId,
           status: "RUNNING",
           startedAt: new Date(),
+          goalMinutes: input.goalMinutes ?? null,
+          startSource,
         },
         include: {
           subject: true,
@@ -880,7 +915,11 @@ export async function startStudySession(input: { subjectId?: string; taskId?: st
     return serializeSession(session);
   } catch (error) {
     if (isUniqueConstraintViolation(error)) {
-      throw new ApiError("ACTIVE_SESSION_EXISTS", 409);
+      const active = await getActiveStudySession();
+      throw new ApiError("ACTIVE_SESSION_EXISTS", 409, {
+        latest: active,
+        conflictFields: ["status"],
+      });
     }
     throw error;
   }
@@ -983,6 +1022,11 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
     if (linkedTask) {
       assertTaskSourceStatus(linkedTask, ["TODO", "IN_PROGRESS", "DEFERRED"]);
       const shouldCompleteTask = input.completeTask && closeout.isEffective;
+      if (shouldCompleteTask && linkedTask.reviewScheduleId) {
+        throw new ApiError("REVIEW_BRIDGE_COMPLETE_REQUIRES_RESULT", 409, {
+          conflictFields: ["reviewScheduleId", "result"],
+        });
+      }
       await applyTaskCas(tx, linkedTask, {
         actualMinutes: { increment: effectiveMinutes },
         status: shouldCompleteTask ? "DONE" : "IN_PROGRESS",
@@ -1150,6 +1194,7 @@ interface TaskCommandPreimage extends TaskCasPreimage {
   estimatedMinutes: number;
   actualMinutes: number;
   reviewText: string | null;
+  reviewScheduleId: string | null;
 }
 
 async function getTaskCommandPreimage(tx: Prisma.TransactionClient, id: string): Promise<TaskCommandPreimage> {
@@ -1171,6 +1216,7 @@ async function getTaskCommandPreimage(tx: Prisma.TransactionClient, id: string):
       reviewText: true,
       completedAt: true,
       updatedAt: true,
+      reviewScheduleId: true,
     },
   });
 
@@ -1541,6 +1587,8 @@ function serializeSession(session: {
   requiredOutput: string | null;
   closeoutVersion: number;
   note: string | null;
+  goalMinutes?: number | null;
+  startSource?: StudySessionStartSourceDto | null;
   subject: {
     name: string;
   };
@@ -1577,6 +1625,8 @@ function serializeSession(session: {
     requiredOutput: session.requiredOutput,
     closeoutVersion: session.closeoutVersion,
     note: session.note,
+    goalMinutes: session.goalMinutes ?? null,
+    startSource: session.startSource ?? null,
   };
 }
 

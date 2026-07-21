@@ -50,6 +50,12 @@ import {
   evaluateRecoveryDayProgress,
   stageTargetMinutes,
   computeRecoveryProgressMinutes,
+  selectActionCenterRecommendation,
+  partitionActionCenterQueues,
+  queuesAreEmpty,
+  classifyReviewPriorityBand,
+  classifyTaskPriorityBand,
+  projectAppShellStatus,
 } from "./index";
 
 type DashboardInputForTest = Parameters<typeof createDashboardSnapshot>[0];
@@ -1433,4 +1439,136 @@ test("recovery v2 stage progression", () => {
     }),
     { nextStage: 2, nextStatus: "EXPIRED", advanced: false },
   );
+});
+
+test("action-center recommendation order and bridged review filter", () => {
+  const candidates = [
+    {
+      id: "task-bridge",
+      kind: "task" as const,
+      title: "桥接复习任务",
+      reason: "承接到期复习",
+      priorityBand: "today_high_priority_task" as const,
+      riskScore: 2,
+      overdueDays: 0,
+      estimatedMinutes: 25,
+      createdAtMs: 2,
+      hardBlocked: false,
+      softDependencyHint: null,
+      bridgedReviewScheduleId: "sched-1",
+      reviewObjectKind: null,
+      taskPriority: "high" as const,
+      href: "/today/tasks/task-bridge",
+    },
+    {
+      id: "sched-1",
+      kind: "review" as const,
+      title: "到期笔记",
+      reason: "今日到期",
+      priorityBand: "due_other_review" as const,
+      riskScore: 1,
+      overdueDays: 0,
+      estimatedMinutes: 10,
+      createdAtMs: 1,
+      hardBlocked: false,
+      softDependencyHint: null,
+      bridgedReviewScheduleId: null,
+      reviewObjectKind: "NOTE" as const,
+      taskPriority: null,
+      href: "/quick-review/sched-1",
+    },
+    {
+      id: "activity-1",
+      kind: "activity" as const,
+      title: "继续专注",
+      reason: "已有进行中活动",
+      priorityBand: "continue_activity" as const,
+      riskScore: 0,
+      overdueDays: 0,
+      estimatedMinutes: 0,
+      createdAtMs: 0,
+      hardBlocked: false,
+      softDependencyHint: null,
+      bridgedReviewScheduleId: null,
+      reviewObjectKind: null,
+      taskPriority: null,
+      href: "/focus/session-1",
+    },
+    {
+      id: "blocked-task",
+      kind: "task" as const,
+      title: "被硬依赖阻塞",
+      reason: "前置未完成",
+      priorityBand: "today_normal_task" as const,
+      riskScore: 5,
+      overdueDays: 0,
+      estimatedMinutes: 30,
+      createdAtMs: 3,
+      hardBlocked: true,
+      softDependencyHint: null,
+      bridgedReviewScheduleId: null,
+      reviewObjectKind: null,
+      taskPriority: "medium" as const,
+      href: "/today/tasks/blocked-task",
+    },
+  ];
+
+  const recommendation = selectActionCenterRecommendation(candidates);
+  assert.equal(recommendation?.id, "activity-1");
+  assert.equal(recommendation?.priorityBand, "continue_activity");
+
+  const queues = partitionActionCenterQueues(candidates);
+  assert.equal(queues.formalTasks.some((item) => item.id === "task-bridge"), true);
+  assert.equal(queues.noteResourceSyllabusReviews.some((item) => item.id === "sched-1"), false);
+  assert.equal(queuesAreEmpty(queues), false);
+  assert.equal(classifyReviewPriorityBand("MISTAKE"), "due_mistake_review");
+  assert.equal(classifyTaskPriorityBand({ overdueDays: 2, taskPriority: "low", plannedForToday: true }), "overdue_task");
+});
+
+test("app-shell lights and mobile top priority", () => {
+  const status = projectAppShellStatus({
+    activity: {
+      hasActive: true,
+      isPaused: false,
+      justCompleted: false,
+      conflictOrUnknown: false,
+      continueHref: "/focus/s1",
+    },
+    review: {
+      executableCount: 2,
+      bridgedCount: 1,
+      overdueLearningDays: 1,
+      blocked: false,
+      inQuickReview: false,
+      nextHref: "/today",
+    },
+    debt: {
+      countable: 0,
+      severe: false,
+      recoveryBlocked: false,
+      arrangedComplete: false,
+      debtHref: "/today/plan",
+    },
+    stage: {
+      hasStage: false,
+      inProgress: false,
+      milestoneHealthy: false,
+      milestoneNearOrDraftPending: false,
+      conflictOrBlocked: false,
+      stageHref: "/today",
+    },
+    todayClosure: {
+      inReminderWindow: true,
+      minimumActionDone: false,
+      dailyReviewDone: false,
+      minimumActionHref: "/today",
+      reviewHref: "/today",
+    },
+  });
+
+  assert.equal(status.lights.find((light) => light.kind === "activity")?.tone, "blue");
+  assert.equal(status.lights.find((light) => light.kind === "review")?.tone, "amber");
+  assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.tone, "amber");
+  assert.notEqual(status.lights.find((light) => light.kind === "todayClosure")?.tone, "red");
+  assert.equal(status.mobileTop.kind, "activity");
 });

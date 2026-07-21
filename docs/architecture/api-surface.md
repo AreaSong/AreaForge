@@ -49,10 +49,15 @@
 
 仍为规划、未实现：
 
-- `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
-- `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影。
-- `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
 - 知识画布分层查询与布局 CAS；动机、通知偏好与四类显式 AI 草稿。
+
+已落地（隔离分支可路由；生产一次切换见版本计划完整 minor Release）：
+
+- `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
+- `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影；无 ACTIVE 工作区时返回 `setupRequired`。
+- `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
+- `GET /api/exam-workspaces/:id/subjects`：工作区科目列表（原仅有 POST）。
+- `POST /api/study-sessions/start`：支持 `goalMinutes` / `startSource`（含 `SUBJECT_SHORTCUT`），并校验 ACTIVE 工作区科目。
 
 权威路由与错误契约见 `workflow/versions/v1.1-learning-action-center.md`。旧 `POST /api/syllabus/import-markdown` 在切换前保留 append-only legacy 行为。
 

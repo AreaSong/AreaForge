@@ -175,6 +175,12 @@ async function main(): Promise<void> {
 
   await checkedJson("dashboard today", "/api/dashboard/today", cookie, undefined, (body) =>
     asRecord(body).dashboard ? null : "dashboard payload missing");
+  await checkedJson("app shell status", "/api/app-shell/status", cookie, undefined, (body) =>
+    asRecord(body).status ? null : "app-shell status payload missing");
+  await checkedJson("action center today", "/api/action-center/today", cookie, undefined, (body) =>
+    asRecord(body).today ? null : "action-center today payload missing");
+  await checkedJson("plan rolling", "/api/plan/rolling", cookie, undefined, (body) =>
+    asRecord(body).plan ? null : "plan rolling payload missing");
   await checkedJson("analytics summary", "/api/analytics/summary", cookie, undefined, (body) =>
     asRecord(body).analytics ? null : "analytics payload missing");
   await checkedJson("reports periodic", "/api/reports/periodic", cookie, undefined, (body) =>
@@ -268,7 +274,18 @@ async function main(): Promise<void> {
     if (!response.response.ok) throw new Error("V2 check request was not accepted");
   });
 
-  for (const page of ["/", "/notes", "/syllabus", "/analytics", "/reports", "/simulation", "/settings"]) {
+  for (const page of [
+    "/today",
+    "/today/plan",
+    "/today/inbox",
+    "/settings",
+    "/settings/workspace",
+    "/notes",
+    "/syllabus",
+    "/analytics",
+    "/reports",
+    "/simulation",
+  ]) {
     await check(`page ${page}`, async () => {
       const response = await requestRaw(page, { cookie });
       const text = await response.text();
@@ -280,6 +297,72 @@ async function main(): Promise<void> {
       }
     });
   }
+
+  await check("batch7 app shell nav isolation", async () => {
+    const response = await requestRaw("/today", { cookie });
+    const text = await response.text();
+    if (text.includes("NEXT_REDIRECT;replace;/login")) {
+      throw new Error("authenticated /today redirected to login");
+    }
+    for (const label of ["今日", "计划", "收件箱", "设置"]) {
+      if (!text.includes(label)) {
+        throw new Error(`Batch 7 nav missing label: ${label}`);
+      }
+    }
+    const forbiddenHrefs = [
+      'href="/notes"',
+      'href="/syllabus"',
+      'href="/analytics"',
+      'href="/reports"',
+      'href="/simulation"',
+      'href="/motivation"',
+      'href="/mistakes"',
+      'href="/dashboard"',
+    ];
+    for (const href of forbiddenHrefs) {
+      if (text.includes(href)) {
+        throw new Error(`Batch 7 App Shell must not expose ${href}`);
+      }
+    }
+  });
+
+  await assertNoActiveSession("active session before subject shortcut", cookie);
+  const shortcutBody = await checkedJson("subject shortcut start", "/api/study-sessions/start", cookie, {
+    method: "POST",
+    body: {
+      subjectId,
+      goalMinutes: 25,
+      startSource: "SUBJECT_SHORTCUT",
+    },
+  });
+  const shortcutSessionId = stringField(asRecord(shortcutBody).session, "id");
+  if (!shortcutSessionId) throw new Error("subject shortcut start missing session.id");
+
+  await check("page /focus/[sessionId]", async () => {
+    const response = await requestRaw(`/focus/${encodeURIComponent(shortcutSessionId)}`, { cookie });
+    const text = await response.text();
+    if (text.includes("NEXT_REDIRECT;replace;/login")) {
+      throw new Error("authenticated focus page redirected to login");
+    }
+    if (!text.includes("AreaForge") && !text.includes("专注")) {
+      throw new Error("focus page payload missing expected markers");
+    }
+  });
+
+  await checkedJson("end subject shortcut session", `/api/study-sessions/${encodeURIComponent(shortcutSessionId)}/end`, cookie, {
+    method: "POST",
+    body: {
+      qualityScore: 3,
+      isEffective: true,
+      understandingLevel: "能独立复述主链路",
+      minimalOutput: "Batch 7 科目快捷计时 smoke",
+      nextAction: "回到今日行动中心",
+      producedNote: false,
+      producedMistake: false,
+      note: "Batch 7 subject shortcut closeout",
+      completeTask: false,
+    },
+  });
 
   report();
 }

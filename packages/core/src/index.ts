@@ -22,6 +22,8 @@ export * from "./learning-tree-export";
 export * from "./unified-review";
 export * from "./check-in-v2";
 export * from "./recovery-v2";
+export * from "./action-center";
+export * from "./app-shell";
 
 export type RiskState =
   | "rising"

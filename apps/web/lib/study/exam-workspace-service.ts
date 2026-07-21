@@ -82,10 +82,14 @@ function serializeWorkspace(row: {
   };
 }
 
-export async function resolveActiveWorkspace(actorId: string) {
-  const workspace = await prisma.examWorkspace.findFirst({
+export async function findActiveWorkspaceOrNull(actorId: string) {
+  return prisma.examWorkspace.findFirst({
     where: { userId: actorId, status: "ACTIVE" },
   });
+}
+
+export async function resolveActiveWorkspace(actorId: string) {
+  const workspace = await findActiveWorkspaceOrNull(actorId);
   if (!workspace) {
     throw new ApiError("ACTIVE_WORKSPACE_NOT_FOUND", 404);
   }
@@ -375,6 +379,26 @@ export async function listSubjectGroups(actorId: string, workspaceId: string): P
     name: row.name,
     sortOrder: row.sortOrder,
     archivedAt: row.archivedAt?.toISOString() ?? null,
+  }));
+}
+
+export async function listWorkspaceSubjects(actorId: string, workspaceId: string): Promise<WorkspaceSubjectDto[]> {
+  await assertOwnedWorkspace(actorId, workspaceId);
+  const rows = await prisma.subject.findMany({
+    where: { workspaceId },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    workspaceId: row.workspaceId,
+    groupId: row.groupId,
+    stableKey: row.stableKey,
+    legacyCode: row.legacyCode,
+    name: row.name,
+    color: row.color,
+    sortOrder: row.sortOrder,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+    legacyScope: false,
   }));
 }
 
