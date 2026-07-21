@@ -3,12 +3,12 @@
 import { BookOpenCheck, Download, FileText, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import type { NoteDto, NoteMasteryStatusDto, StudyTaskDto, SubjectDto, SyllabusNodeDto } from "@/lib/study/types";
+import type { NoteDto, NoteMasteryStatusDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
 interface NoteLibraryProps {
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];
-  nodes: SyllabusNodeDto[];
+  nodes: SyllabusOptionNodeDto[];
   notes: NoteDto[];
 }
 
@@ -391,7 +391,7 @@ function labelAttachmentError(error?: string): string {
   }
 }
 
-function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {
+function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): FlatNode[] {
   return nodes.flatMap((node) => [
     {
       id: node.id,

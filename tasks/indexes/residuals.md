@@ -28,8 +28,8 @@
 | AF-RISK-OPS-004 | 2026-07-11 manual-window alert preview 和告警/恢复演练记录保留为历史输入；post-`v0.1.7` alert preview 与 `docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt` 已匹配，带当前 preview/drill 路径运行 `pnpm ops:ops-004:preflight` 返回 `ready_for_human_close`；外部接收人和 metrics dashboard 仍未产品化，台账关闭需维护者人工复核 | `areaforge-observability` | 建立外部告警、关闭 OPS-004 或声称完整生产健康前 |
 | AF-RISK-OPS-005 | 本地 V2 expected-before、目标身份、TTL、idempotency/hash、no-clobber publish、directory fsync uncertain、processing reconciliation、不可变 decision history 和共享 production-state lock 已实现；Release workflow 已增加 strict assets/manifest/cosign 校验，生产 validator 已绑定实际 redacted rejection/history/operational JSON；尚缺匹配签名 Release、生产部署和 fresh evidence | `areaforge-security-governance` / `areaforge-release-operator` / `areaforge-sre-ops` | 先创建匹配提交的签名 Release并严格验证 record+assets；生产部署必须再次确认并暂停 timer、隔离旧队列、验证 V2 check，随后验证 JSON path+hash 和 `executionAttempted=no` rejection |
 | AF-RISK-OPS-006 | partial unique index、task/session CAS、结束计时单次副作用和 CheckIn 锁已达到隔离 PostgreSQL `local_verified`；尚未进入匹配签名 Release 或生产 migration/deploy | `areaforge-security-governance` / `areaforge-sre-ops` / `areaforge-validation-driver` | 先创建匹配 exact commit 的签名 Release；生产前另行确认 fresh doctor、additive migration、health/smoke/rollback 与 after-doctor，不得从本地 pass 直接部署 |
-| AF-RISK-OPS-007 | 附件写文件与 metadata 提交之间仍有崩溃窗口，当前只靠补偿和只读 reconciliation 发现孤儿 | `areaforge-file-storage-safety` / `areaforge-security-governance` | 实施 staging/write-intent 前单独确认 migration、旧附件兼容和不自动清理边界 |
-| AF-RISK-OPS-008 | updater 缺阶段日志和 root-only maintenance hold/drain，强杀后的精确阶段与维护停止领取仍依赖人工判断 | `areaforge-sre-ops` / `areaforge-observability` / `areaforge-security-governance` | 实施 phase journal/hold/drain 前单独确认 updater、timer、队列和生产边界 |
+| AF-RISK-OPS-007 | staging/write-intent 协议已在当前 checkout 本地实施并通过隔离 runtime selftest 达 `local_verified`；生产仍运行旧协议，崩溃窗口风险在生产未消除 | `areaforge-file-storage-safety` / `areaforge-security-governance` | 先创建匹配 exact commit 的签名 Release；生产 additive migration/deploy 另行确认（先跑重复 storage identity doctor 预检），不得从本地 pass 直接部署 |
+| AF-RISK-OPS-008 | 本地 local_verified；生产 timer/hold/apply 与签名 Release 仍未证明 | `areaforge-sre-ops` / `areaforge-observability` / `areaforge-security-governance` | 生产 timer/hold/apply 与匹配签名 Release 仍需单独确认 |
 | AF-RISK-UX-001 | local UX smoke guardrail selftest 已通过；共享 evaluator 当前将最新记录判为 `invalid`，因为 git commit、source hash 和 runtime identity 不匹配当前 checkout。残余仍 open，且生产体验未被本地证据证明，窄屏任务选择器仍有 polish follow-up | `areaforge-product-experience` / `areaforge-qa-smoke` | 启动当前 checkout runtime，重新采集 current-bound desktop/mobile review 与 runtime probe，运行 `pnpm experience:review:validate`；随后由维护者 reaffirm `keep-open` 或另行授权 residual 台账更新 |
 
 ## Task Bindings
@@ -38,8 +38,8 @@
 |---|---|---|
 | AF-RISK-OPS-005 | `tasks/active/0019-update-request-expected-before-binding.md` | active；等待签名 Release、独立生产部署和 fresh evidence |
 | AF-RISK-OPS-006 | `tasks/active/0020-business-state-concurrency.md` | active local-verified；等待签名 Release、独立生产 migration/deploy 和 fresh evidence |
-| AF-RISK-OPS-007 | `tasks/backlog/0021-attachment-staging-intent.md` | backlog blocked；不表示当前可执行 |
-| AF-RISK-OPS-008 | `tasks/backlog/0022-updater-phase-journal-hold.md` | backlog blocked；不表示当前可执行 |
+| AF-RISK-OPS-007 | `tasks/active/0021-attachment-staging-intent.md` | active local-verified；等待签名 Release、独立生产 migration/deploy 和 fresh evidence |
+| AF-RISK-OPS-008 | `tasks/active/0022-updater-phase-journal-hold.md` | active local-verified；生产仍 blocked |
 | AF-RISK-SC-004 | `tasks/backlog/0023-github-main-protection.md` | backlog blocked；远端实施已验证，等待维护者 residual 决策 |
 | AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md` | active in-progress；只做维护者 close/keep-open 复核，不自动修改台账 |
 

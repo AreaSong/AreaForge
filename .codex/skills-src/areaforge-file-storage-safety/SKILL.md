@@ -1,11 +1,16 @@
 ---
 name: areaforge-file-storage-safety
-description: "Use when Codex needs to review, change, or plan AreaForge file storage safety: note attachments, upload/download authorization, UPLOAD_DIR privacy, Attachment metadata/hash/URI, orphan files, reconciliation, attachment deletion, storage migration, uploads backup/restore, or file evidence in release and rollback records."
+description: "Use when Codex needs to review, change, or plan AreaForge file storage safety: note attachments, upload/download authorization, UPLOAD_DIR privacy, Attachment metadata/hash/URI, orphan files, reconciliation, attachment deletion, storage migration, uploads backup/restore, or file evidence in release and rollback records. This skill owns file body and attachment lifecycle details; broad auth/privacy boundary review belongs to areaforge-security-governance."
 ---
 
 # AreaForge File Storage Safety
 
 Keep file handling boring, private, reversible, and auditable.
+
+## When To Use / Hand Off
+
+- Use for: attachment and file lifecycle details: upload/download paths, metadata/hash agreement, reconciliation, deletion, storage migration, uploads backup/restore.
+- Not here: broad auth, secret, and privacy boundary review -> `areaforge-security-governance`; production backup/restore execution -> `areaforge-sre-ops`; validation selection -> `areaforge-validation-driver`.
 
 ## Read First
 

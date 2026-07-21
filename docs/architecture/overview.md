@@ -42,30 +42,20 @@ packages/ai -> Sub2API / OpenAI compatible API
 - PostgreSQL 保存结构化状态，附件目录保存文件本体。
 - 数据库 migration 不通过网页按钮触发。
 
-## 当前工程状态
+## 能力域
 
-当前已经完成：
+各层承载的能力：
 
-- monorepo 基础。
-- Next.js Web 应用骨架与主要工作页。
-- Prisma schema。
-- Docker Compose 基础。
-- 首页作战台真实数据库聚合。
-- 单管理员登录、数据库会话、`HttpOnly` Cookie 和登录限速。
-- 数据库 seed 初始化管理员和基础科目。
-- 每日任务 CRUD。
-- 专注计时持久化。
-- 每晚复盘保存。
-- 考纲树与笔记基础 API/UI。
-- 任务债务、打卡检查、反假学习和恢复模式结构化闭环：规则推导、首页展示、恢复任务聚焦、补做/拆小/改复习轻量流转、`CheckIn` 日快照、`TaskDebtEvent` 事件账本、`RecoveryState` 恢复状态和计时收口判断。
-- `packages/core` 已沉淀结构化收口、近窗打卡历史、轻量任务债务动作、掌握证明、作战地图状态、阶段称号、动机唤醒、模拟准备度、模拟结果复盘和阶段调整草稿等平台无关规则。
-- 错题、掌握证明显式记录、动机封存、情绪标签、阶段称号、基础统计、作战地图筛选、周/月报告和结构化模拟考试主路径。
-- `packages/ai` 已提供本地规则 fallback、结构化 schema、OpenAI-compatible JSON provider、mock/外呼测试和敏感上下文拦截。
-- `packages/storage` 已提供附件上传纯规则安全底座，Web 层已完成 noteId 绑定附件上传、私有落盘和鉴权下载。
-- Package E 的本机生产发布、备份、恢复和回滚演练已闭环；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.7` 签名更新运行，服务器启用 cosign bundle 校验，Web 版本中心只提交受控请求，root agent 执行更新；当前远端记录证明 apply、health 和 extra-smoke，root-only backup hash、post-update OPS-001/OPS-004 和长期运营 live gate 仍按残余证据处理。
-- 长期运营入口已补齐：release workflow 先验证再发布，stable 签名 fail closed；`v0.1.7` 已生成并校验 SBOM/provenance、checksum、cosign signature 和 GHCR digest 证据，并已记录服务器侧 apply 与公网 health；`operational-readiness.md` 记录只读运营证据模型；`residual-risk-ledger.md` 记录 post-update OPS-001 证据、告警演练、自动策略、签名 Release 复核等残余风险 ID。
+- Web 应用：作战台真实数据库聚合、每日任务 CRUD、专注计时持久化、每晚复盘、考纲树与笔记、错题、掌握证明显式记录、动机封存、情绪标签、阶段称号、基础统计、作战地图筛选、周/月报告、结构化模拟考试和恢复模式。
+- 认证与会话：单管理员登录、数据库会话、`HttpOnly` Cookie、登录限速；seed 初始化管理员和基础科目。
+- 结构化状态：`CheckIn` 日快照、`TaskDebtEvent` 事件账本、`RecoveryState` 恢复状态、计时收口判断，支撑任务债务、打卡检查、反假学习和恢复模式闭环。
+- `packages/core`：结构化收口、近窗打卡历史、轻量任务债务动作、掌握证明、作战地图状态、阶段称号、动机唤醒、模拟准备度、模拟结果复盘和阶段调整草稿等平台无关规则。
+- `packages/ai`：本地规则 fallback、结构化 schema、OpenAI-compatible JSON provider、mock/外呼测试和敏感上下文拦截。
+- `packages/storage`：附件上传纯规则安全底座；Web 层实现 noteId 绑定附件上传、私有落盘和鉴权下载。
+- 发布与运维：GitHub Release 签名发布（SBOM/provenance、checksum、cosign、GHCR digest，stable 签名 fail closed）、服务器侧 updater 受控更新、备份/恢复/回滚流程；Web 版本中心只提交受控请求。
 
-尚未完成：
+## 暂缓项
 
-- 暂缓项：AI 自动完整学习计划、复杂 PDF 自动解析、小程序、原生 App、多用户、排名系统、复杂权限系统，以及 Web runtime 直接执行服务器命令的一键运维入口。
-- 可选增强：生产只读 extra smoke 的 release/update 后新鲜复核（`AF-RISK-OPS-001`）、写入型任务/计时/附件上传/AI smoke 策略（`AF-RISK-OPS-002`）、`v0.1.7` 签名 Release 供应链证据的维护者人工关闭复核（`AF-RISK-SC-001`）、长期 AI 调用费用账本和更细结构化复习历史。
+AI 自动完整学习计划、复杂 PDF 自动解析、小程序、原生 App、多用户、排名系统、复杂权限系统，以及 Web runtime 直接执行服务器命令的一键运维入口。
+
+功能实现进度以 [功能追踪矩阵](../development/feature-traceability.md) 为准；生产与发布的当前状态、残余风险以 [运营 readiness](../development/operational-readiness.md) 和 [残余风险台账](../development/residual-risk-ledger.md) 为准。

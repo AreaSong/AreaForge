@@ -16,8 +16,10 @@ import {
   type TaskDebtReorderPressure,
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
+import { cache } from "react";
 import { ApiError } from "@/lib/api/responses";
 import { daysUntil, getNextStudyDayStart, getStudyDayKey, getStudyDayRange } from "./date";
+import { finalExamDate, simulationDate } from "./exam-dates";
 import {
   listCheckInSnapshotsInRange,
   refreshCheckInSnapshotsForDates,
@@ -30,6 +32,7 @@ import {
 } from "./concurrency";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
+import { serializeTask, toDbPriority } from "./task-serializer";
 import type {
   DailyReviewDto,
   MotivationVaultDto,
@@ -42,8 +45,6 @@ import type {
   TodayDashboardDto,
 } from "./types";
 
-const finalExamDate = new Date("2027-12-20T08:30:00+08:00");
-const simulationDate = new Date("2026-12-20T08:30:00+08:00");
 const recoveryStateLockKey = 2026070703;
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
@@ -164,8 +165,7 @@ export async function getTodayDashboard(
     activeSession,
     review,
     debtCount,
-    debtTasks,
-    debtReorderTasks,
+    overdueTasks,
     recentSessions,
     checkInSnapshots,
     motivationVault,
@@ -235,22 +235,7 @@ export async function getTodayDashboard(
         },
       },
     }),
-    prisma.studyTask.findMany({
-      where: {
-        plannedDate: {
-          lt: day.start,
-        },
-        status: {
-          notIn: ["DONE", "SKIPPED"],
-        },
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
-      },
-      orderBy: [{ priority: "desc" }, { plannedDate: "asc" }],
-      take: 5,
-    }),
+    // 单次取 12 条逾期任务：前 5 条给欠账预览，全量给欠账重排，替代原先两条同条件查询。
     prisma.studyTask.findMany({
       where: {
         plannedDate: {
@@ -290,8 +275,8 @@ export async function getTodayDashboard(
 
   const sessionDtos = todaySessions.map(serializeSession);
   const taskDtos = tasks.map(serializeTask);
-  const debtTaskDtos = debtTasks.map(serializeTask);
-  const debtReorderTaskDtos = debtReorderTasks.map(serializeTask);
+  const debtReorderTaskDtos = overdueTasks.map(serializeTask);
+  const debtTaskDtos = debtReorderTaskDtos.slice(0, 5);
   const todayMinutes = sumTodayMinutes(sessionDtos, activeSession ? serializeSession(activeSession) : null, now);
   const derivedDailySnapshot = buildDailyCheckInSnapshot({
     studyDate: day.key,
@@ -430,6 +415,13 @@ export async function getTodayDashboard(
     },
   };
 }
+
+/**
+ * 同一次服务端渲染内的只读共享副本：AI 建议、长期风险等次级消费方复用同一份
+ * 作战台数据，避免每个消费方重复触发整组 Prisma 查询。写路径（recordRecoveryRule）
+ * 仍走 getTodayDashboard 原函数。
+ */
+export const getTodayDashboardShared = cache(async (): Promise<TodayDashboardDto> => getTodayDashboard());
 
 export async function getTaskDebtReorderSuggestion(now = new Date()): Promise<TaskDebtReorderDto> {
   const dashboard = await getTodayDashboard(now);
@@ -1096,6 +1088,9 @@ export async function getMotivationVault(): Promise<MotivationVaultDto | null> {
   return vault ? serializeMotivationVault(vault) : null;
 }
 
+// 同一次服务端渲染内共享动机封存读取（模拟工作台与阶段草稿共用）；写路径仍读原函数。
+export const getMotivationVaultShared = cache(async (): Promise<MotivationVaultDto | null> => getMotivationVault());
+
 export async function saveMotivationVault(
   input: SaveMotivationVaultInput,
   actorId: string,
@@ -1256,50 +1251,6 @@ function serializeSubject(subject: {
     name: subject.name,
     color: subject.color,
     sortOrder: subject.sortOrder,
-  };
-}
-
-function serializeTask(task: {
-  id: string;
-  subjectId: string;
-  syllabusNodeId: string | null;
-  parentTaskId: string | null;
-  title: string;
-  type: string;
-  status: DbTaskStatus;
-  priority: DbTaskPriority;
-  debtStatus: string;
-  plannedDate: Date;
-  estimatedMinutes: number;
-  actualMinutes: number;
-  reviewText: string | null;
-  completedAt: Date | null;
-  subject: {
-    name: string;
-    color: string;
-  };
-  syllabusNode?: {
-    title: string;
-  } | null;
-}): StudyTaskDto {
-  return {
-    id: task.id,
-    subjectId: task.subjectId,
-    parentTaskId: task.parentTaskId,
-    subjectName: task.subject.name,
-    subjectColor: task.subject.color,
-    syllabusNodeId: task.syllabusNodeId,
-    syllabusNodeTitle: task.syllabusNode?.title ?? null,
-    title: task.title,
-    type: task.type,
-    status: fromDbTaskStatus(task.status),
-    priority: fromDbPriority(task.priority),
-    debtStatus: task.debtStatus,
-    plannedDate: task.plannedDate.toISOString(),
-    estimatedMinutes: task.estimatedMinutes,
-    actualMinutes: task.actualMinutes,
-    reviewText: task.reviewText,
-    completedAt: task.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -1828,29 +1779,6 @@ function getEffectiveStudyStreak(
   }
 
   return streak;
-}
-
-function toDbPriority(priority: "low" | "medium" | "high" | "critical"): DbTaskPriority {
-  return priority.toUpperCase() as DbTaskPriority;
-}
-
-function fromDbPriority(priority: DbTaskPriority): "low" | "medium" | "high" | "critical" {
-  return priority.toLowerCase() as "low" | "medium" | "high" | "critical";
-}
-
-function fromDbTaskStatus(status: DbTaskStatus): "todo" | "in_progress" | "done" | "skipped" | "deferred" {
-  switch (status) {
-    case "TODO":
-      return "todo";
-    case "IN_PROGRESS":
-      return "in_progress";
-    case "DONE":
-      return "done";
-    case "SKIPPED":
-      return "skipped";
-    case "DEFERRED":
-      return "deferred";
-  }
 }
 
 function fromDbSessionStatus(status: DbStudySessionStatus): "running" | "paused" | "completed" | "canceled" {

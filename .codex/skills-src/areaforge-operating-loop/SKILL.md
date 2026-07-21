@@ -1,6 +1,6 @@
 ---
 name: areaforge-operating-loop
-description: "Use when Codex needs to run AreaForge work end-to-end across multiple skills: classify Quick/Change/Mission-Critical/Review/Ops/Release work, choose owner skills, gather source facts, enforce high-risk gates, select validation, sync docs, and report residual risk."
+description: "Use when Codex needs to run AreaForge work end-to-end across multiple skills: classify Quick/Change/Mission-Critical/Review/Ops/Release work, choose owner skills, gather source facts, enforce high-risk gates, select validation, sync docs, and report residual risk. This skill owns orchestration only; when the task clearly belongs to a single surface, activate that owner skill directly."
 ---
 
 # AreaForge Operating Loop
@@ -8,6 +8,11 @@ description: "Use when Codex needs to run AreaForge work end-to-end across multi
 ## Overview
 
 Use this skill as the light orchestration layer for AreaForge. It routes work through the existing owner skills and keeps the loop evidence-backed without importing a heavyweight task runner from AreaMatrix or AreaFlow.
+
+## When To Use / Hand Off
+
+- Use for: multi-surface work that needs classification, owner-skill routing, high-risk gating, validation selection, doc sync, and residual closeout in one loop.
+- Not here: single-surface tasks -> activate the owner skill directly (for example `areaforge-release-operator` for a release, `areaforge-qa-smoke` for a smoke check, `areaforge-doc-sync` for doc drift).
 
 ## Read First
 

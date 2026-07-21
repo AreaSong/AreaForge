@@ -15,7 +15,12 @@ export function normalizeEmail(email: string): string {
 }
 
 export function getClientIp(request: NextRequest): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "local";
+  // 生产入口 Nginx 用 $remote_addr 覆写 X-Real-IP（infra/nginx/*.conf.example），该头可信；
+  // X-Forwarded-For 是追加语义（proxy_add_x_forwarded_for），首项可被请求方伪造，只能取最后一跳。
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",").map((item) => item.trim()).filter(Boolean);
+  return forwarded?.[forwarded.length - 1] || "local";
 }
 
 export function createLoginRateLimitKey(ip: string, email: string): string {
@@ -68,6 +73,9 @@ export function getSessionExpiresAt(now = new Date()): Date {
   return new Date(now.getTime() + sessionMaxAgeSeconds * 1000);
 }
 
+// lastSeenAt 只用于会话活跃度展示，按 5 分钟粒度节流，避免每个请求都产生一次会话写。
+const sessionLastSeenWriteIntervalMs = 5 * 60 * 1000;
+
 async function findUserBySessionToken(token: string, secret: string): Promise<CurrentUser | null> {
   const now = new Date();
   const session = await prisma.authSession.findUnique({
@@ -78,6 +86,7 @@ async function findUserBySessionToken(token: string, secret: string): Promise<Cu
       id: true,
       expiresAt: true,
       revokedAt: true,
+      lastSeenAt: true,
       user: {
         select: {
           id: true,
@@ -89,10 +98,14 @@ async function findUserBySessionToken(token: string, secret: string): Promise<Cu
 
   if (!session || session.revokedAt || session.expiresAt <= now) return null;
 
-  await prisma.authSession.update({
-    where: { id: session.id },
-    data: { lastSeenAt: now },
-  });
+  const lastSeenStale = !session.lastSeenAt
+    || now.getTime() - session.lastSeenAt.getTime() >= sessionLastSeenWriteIntervalMs;
+  if (lastSeenStale) {
+    await prisma.authSession.update({
+      where: { id: session.id },
+      data: { lastSeenAt: now },
+    });
+  }
 
   return session.user;
 }

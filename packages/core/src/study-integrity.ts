@@ -21,6 +21,20 @@ export interface StudyCloseoutSummary {
   closeoutText: string;
 }
 
+export interface AntiFakeStudyInput {
+  minutes: number;
+  hasOutput: boolean;
+  canExplain: boolean;
+  practiced: boolean;
+  reviewedMistake: boolean;
+}
+
+export interface AntiFakeStudyResult {
+  isLowConversion: boolean;
+  reason: string;
+  requiredOutput: string;
+}
+
 export interface CheckInSnapshotInput {
   studyDate: string;
   completedMinimumAction: boolean;
@@ -173,7 +187,7 @@ export function normalizeStudyCloseout(input: StudyCloseoutInput): StudyCloseout
   const canExplain = canExplainFromText(input.understandingLevel, input.note);
   const practiced = mentionsPractice(input.minimalOutput, input.note);
   const reviewedMistake = Boolean(input.producedMistake || mentionsMistakeReview(input.minimalOutput, input.note));
-  const antiFake = evaluateCloseoutConversion({
+  const antiFake = evaluateAntiFakeStudy({
     minutes: input.minutes,
     hasOutput,
     canExplain,
@@ -354,13 +368,11 @@ export function previewTaskDebtReorderApplication(
   };
 }
 
-function evaluateCloseoutConversion(input: {
-  minutes: number;
-  hasOutput: boolean;
-  canExplain: boolean;
-  practiced: boolean;
-  reviewedMistake: boolean;
-}) {
+/**
+ * 反假学习转化规则的唯一实现：结束计时收口与任何独立评估入口共用同一份判定，
+ * 避免规则文案与阈值出现双副本漂移。
+ */
+export function evaluateAntiFakeStudy(input: AntiFakeStudyInput): AntiFakeStudyResult {
   if (input.minutes < 25) {
     return {
       isLowConversion: true,
@@ -402,7 +414,7 @@ function evaluateCloseoutConversion(input: {
 
 function composeCloseoutText(
   input: StudyCloseoutInput,
-  antiFake: ReturnType<typeof evaluateCloseoutConversion>,
+  antiFake: AntiFakeStudyResult,
   isEffective: boolean,
 ): string {
   return [

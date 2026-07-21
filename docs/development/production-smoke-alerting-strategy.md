@@ -51,6 +51,8 @@ pnpm ops:alert:preview
 
 该命令只读取 readiness 信号并输出 `read_only_alert_preview`、severity、`wouldNotify`、owner 和 recommendedAction；它不调用外部告警接收人，不发送通知，不执行服务器命令，不写生产数据。预览通过只能证明规则映射可执行，不能替代真实接收人配置、metrics dashboard 或演练记录。
 
+服务器侧真实推送使用 `ops/alerting/areaforge-alert-notify.sh`（部署步骤见 `docs/deployment/alerting.md`）：它按本表阈值只读采集 health、update-agent 新鲜度、备份新鲜度、磁盘容量、证书到期五类信号，`notify` 模式推送 redacted 摘要到 ntfy/Telegram/webhook 接收人，带 unchanged 降噪与恢复通知。它同样不执行任何生产写动作；推送成功只提供 OPS-004 演练素材，不自动关闭残余项。
+
 演练记录模板见 `docs/development/alert-drill-record-template.md`。已有 `pnpm ops:alert:preview` 输出时，可用 `pnpm alert:drill:record <ops-alert-preview.json>` 生成记录草稿；生成器要求操作者显式填写接收人配置、ACK、检测结果、恢复结果和恢复动作说明，不发送通知、不调用外部告警接收人、不写生产。记录完成后运行 `pnpm alert:drill:validate <alert-drill-record.md|txt>`，该命令只读记录并校验字段、枚举、hash、`AF-RISK-OPS-004` 和敏感值泄露，不发送通知。关闭 OPS-004 前再运行 `pnpm ops:ops-004:preflight`，用同一次 alert preview 文件和演练记录证明 hash 对齐；该预检不发送通知、不调用外部接收人、不改台账。
 
 | 信号 | warn | blocked/fail | Owner |
@@ -70,6 +72,6 @@ pnpm ops:alert:preview
 
 - `AF-RISK-OPS-001`：服务器配置只读 extra smoke、smoke 密码文件和最近一次通过记录；host 缺 pnpm 时允许等价 curl fallback 输出，但最终仍需本地 record/evidence/closure 校验。
 - `AF-RISK-OPS-002`：确认写入型 smoke 账号、允许写入范围、清理策略、失败处理和至少一次受控记录。
-- `AF-RISK-OPS-004`：配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录；`pnpm ops:alert:preview`、`pnpm alert:drill:validate` 和 `pnpm ops:ops-004:preflight` 只能作为演练输入、记录校验与证据预检，不自动关闭该残余项。
+- `AF-RISK-OPS-004`：配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录；服务器侧可用 `ops/alerting/areaforge-alert-notify.sh` timer 承担采集与推送（见 `docs/deployment/alerting.md`）。`pnpm ops:alert:preview`、`pnpm alert:drill:validate` 和 `pnpm ops:ops-004:preflight` 只能作为演练输入、记录校验与证据预检，不自动关闭该残余项。
 - `AF-RISK-OPS-005`：生产更新 mutation 必须在本地 V2 实施、签名 Release 和独立生产部署后，以 `pnpm ops:ops-005:evidence:validate` 与 `pnpm ops:ops-005:preflight` 复核 expected-before rejection、共享锁和 reconciliation；smoke 或告警通过不能替代该控制面证据。
 - `AF-RISK-UX-001`：当前重新打开；必须完成覆盖 desktop/mobile/unauth 的当前 checkout 体验复核并通过默认 `pnpm experience:review:validate`，生产 smoke、API smoke、旧截图或 `--shape-only` 不能替代。

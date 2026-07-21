@@ -21,6 +21,7 @@ export async function listNotes(): Promise<NoteDto[]> {
       syllabusNode: true,
       task: true,
       attachments: {
+        where: { status: "READY" },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -56,7 +57,7 @@ export async function createNote(input: CreateNoteInput, actorId: string): Promi
       subject: true,
       syllabusNode: true,
       task: true,
-      attachments: true,
+      attachments: { where: { status: "READY" } },
     },
   });
 
@@ -117,7 +118,6 @@ function serializeNote(note: {
     originalName: string;
     mimeType: string;
     sizeBytes: number;
-    hash: string;
     createdAt: Date;
   }>;
 }): NoteDto {

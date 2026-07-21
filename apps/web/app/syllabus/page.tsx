@@ -7,7 +7,7 @@ import { SyllabusManager } from "@/components/syllabus-manager";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { listSubjects } from "@/lib/study/service";
-import { getSyllabusMapOverview } from "@/lib/study/syllabus-service";
+import { getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default async function SyllabusPage() {
 
   const [subjects, overview, longTermRisks] = await Promise.all([
     listSubjects(),
-    getSyllabusMapOverview(),
+    getSyllabusMapOverviewShared(),
     getLongTermRiskSummary(),
   ]);
 

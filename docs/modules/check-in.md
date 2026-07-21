@@ -34,7 +34,7 @@
 
 ## 兼容策略
 
-- Package B Batch 1 已新增 `CheckIn` 日快照；历史无快照日期继续保留当前派生逻辑。
+- `CheckIn` 日快照与历史派生逻辑并存；历史无快照日期继续保留派生逻辑。
 - 新写路径在结束计时、任务状态变化和保存每日复盘后 upsert 当日快照。
 - 首页、统计和报告优先读 `CheckIn`；某日没有快照时 fallback 到 session/task/review 派生逻辑。
 - analytics 和 reports 必须按学习日逐日混合：有快照的日期读 `CheckIn`，没有快照的日期继续按旧数据派生，不能把无快照历史日直接当作断签或 0 学习。

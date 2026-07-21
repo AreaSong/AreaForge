@@ -31,6 +31,8 @@ const allowedEvidenceClasses = new Set([
   "local-smoke",
   "browser-review",
   "local_concurrency_verified",
+  "local_attachment_protocol_verified",
+  "local_updater_phase_journal_verified",
   "migration_preimage_candidate",
   "protocol_preimage_candidate",
   "runtime_preimage_candidate",

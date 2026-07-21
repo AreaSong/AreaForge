@@ -200,13 +200,20 @@ export interface SyllabusMapOverviewDto {
   summaryBySubject: Record<string, SyllabusMapSummary>;
 }
 
+/** 考纲节点选择器的轻量树：只含选项渲染所需字段，不携带证据与掌握证明明细。 */
+export interface SyllabusOptionNodeDto {
+  id: string;
+  subjectId: string;
+  title: string;
+  children: SyllabusOptionNodeDto[];
+}
+
 export interface AttachmentDto {
   id: string;
   noteId: string | null;
   originalName: string;
   mimeType: string;
   sizeBytes: number;
-  hash: string;
   downloadApiPath: string;
   createdAt: string;
 }

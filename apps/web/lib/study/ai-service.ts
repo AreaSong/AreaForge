@@ -15,8 +15,8 @@ import {
   type TomorrowPlanAdvice,
 } from "@areaforge/ai";
 import { getAuthEnv } from "@/lib/auth/env";
-import { getAnalyticsSummary } from "./analytics-service";
-import { getTodayDashboard } from "./service";
+import { getAnalyticsSummaryShared } from "./analytics-service";
+import { getTodayDashboardShared } from "./service";
 
 export interface SafeAiAdviceEnvelope<TAdvice> {
   advice: TAdvice;
@@ -47,7 +47,7 @@ const aiProviderRateLimits = new Map<string, AiProviderRateLimitState>();
 export async function getDisciplineAiAdvice(
   options: AiAdviceRequestOptions = {},
 ): Promise<SafeAiAdviceEnvelope<DisciplineAdvice>> {
-  const dashboard = await getTodayDashboard();
+  const dashboard = await getTodayDashboardShared();
   const context = {
     phase: dashboard.stage.title,
     riskState: dashboard.snapshot.riskState,
@@ -72,7 +72,7 @@ export async function getDisciplineAiAdvice(
 export async function getDailyReviewAiAdvice(
   options: AiAdviceRequestOptions = {},
 ): Promise<SafeAiAdviceEnvelope<DailyReviewAdvice>> {
-  const dashboard = await getTodayDashboard();
+  const dashboard = await getTodayDashboardShared();
   const context = {
     totalMinutes: dashboard.metrics.todayMinutes,
     effectiveMinutes: dashboard.metrics.effectiveMinutes,
@@ -98,8 +98,8 @@ export async function getTomorrowPlanAiAdvice(
   options: AiAdviceRequestOptions = {},
 ): Promise<SafeAiAdviceEnvelope<TomorrowPlanAdvice>> {
   const [dashboard, analytics] = await Promise.all([
-    getTodayDashboard(),
-    getAnalyticsSummary(),
+    getTodayDashboardShared(),
+    getAnalyticsSummaryShared(),
   ]);
   const weakestSubject = analytics.subjects
     .filter((subject) => subject.effectiveMinutes === 0)

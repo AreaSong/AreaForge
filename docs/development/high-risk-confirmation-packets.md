@@ -1422,15 +1422,15 @@ pnpm ops:ops-001:preflight
 
 ## OPS-007 附件 Staging/Write-Intent 本地实施确认包
 
-状态：等待确认。该包只授权 additive attachment lifecycle migration、上传/下载协议和隔离 crash fixture，不授权生产 migration、历史 orphan 清理或文件删除。
+状态：已确认（2026-07-21，G1）并完成本地验证。该包只授权 additive attachment lifecycle migration、上传/下载协议和隔离 crash fixture，不授权生产 migration、历史 orphan 清理或文件删除；生产阶段固定为 `production_confirmation_required`。
 
-确认前 preflight source contract：
+当前 preflight source contract：
 
-- `OPS-007-PREFLIGHT-CONTRACT-V1`
-- `evidenceClass: protocol_preimage_candidate`
-- 只读 preflight 绑定 task、design、本确认包、当前 schema 和 crash-window fixture 的 SHA-256。
-- 在 `awaiting-high-risk-confirmation` 时 strict 必须非零退出。
-- 该证据不证明 migration、runtime、filesystem、backup/restore 或 production。
+- `OPS-007-PREFLIGHT-CONTRACT-V2`
+- `evidenceClass: local_attachment_protocol_verified`（确认前候选等级 `protocol_preimage_candidate` 保留为历史语义）
+- 只读 preflight 绑定 task、design、本确认包、当前 schema、canonical additive migration 和 crash-window fixture 的 SHA-256。
+- 提供 fresh 隔离 PostgreSQL/临时上传目录 runtime record（`AREAFORGE_OPS007_RUNTIME_RECORD`）时 strict 可达 `local_verified`；证据缺失或过期时 strict 必须非零退出。
+- 该证据只证明当前 checkout 的本地实现，不证明签名 Release、生产 migration、生产 filesystem、backup/restore 或 residual 关闭。
 
 源事实：
 
@@ -1438,7 +1438,7 @@ pnpm ops:ops-001:preflight
 - `docs/architecture/file-storage.md`
 - `docs/security/file-ai-safety.md`
 - `docs/deployment/backup-restore.md`
-- `tasks/backlog/0021-attachment-staging-intent.md`
+- `tasks/active/0021-attachment-staging-intent.md`
 - `docs/development/residual-risk-ledger.md` 中的 `AF-RISK-OPS-007`
 
 影响：
@@ -1499,22 +1499,22 @@ pnpm ops:ops-001:preflight
 
 ## OPS-008 Updater Phase Journal 与 Maintenance Hold/Drain 本地实施确认包
 
-状态：等待确认。该包只授权 root-only 本地 updater/update-agent 状态机、临时目录 kill-point 与锁竞争测试，不授权任何生产 updater、timer、hold 或切换操作。
+状态：已确认（2026-07-21，G2）并完成本地验证。该包只授权 root-only 本地 updater/update-agent 状态机、临时目录 kill-point 与锁竞争测试，不授权任何生产 updater、timer、hold 或切换操作；后续生产步骤仍为 `production_confirmation_required`。
 
-确认前 preflight source contract：
+本地 preflight source contract：
 
-- `OPS-008-PREFLIGHT-CONTRACT-V1`
-- `evidenceClass: runtime_preimage_candidate`
+- `OPS-008-PREFLIGHT-CONTRACT-V2`
+- `evidenceClass: local_updater_phase_journal_verified`（确认前候选等级 `runtime_preimage_candidate` 保留为历史语义）
 - 只读 preflight 绑定 task、design、本确认包、当前 updater/update-agent 脚本和全部 phase/maintenance fixture 的 SHA-256。
-- 在 `awaiting-high-risk-confirmation` 时 strict 必须非零退出。
-- 该证据不证明 journal durability、hold/drain 锁顺序、timer 状态或 production 行为。
+- 提供 fresh 临时目录 runtime record（`AREAFORGE_OPS008_RUNTIME_RECORD`）时 strict 可达 `local_verified`；证据缺失或过期时 strict 必须非零退出。
+- 该证据只证明当前 checkout 的本地实现，不证明 journal 在生产主机上的 durability、timer 状态或 production 行为。
 
 源事实：
 
 - `docs/development/ops-008-updater-phase-journal-design.md`
 - `docs/deployment/github-release-updater.md`
 - `docs/development/runtime-write-boundary.md`
-- `tasks/backlog/0022-updater-phase-journal-hold.md`
+- `tasks/active/0022-updater-phase-journal-hold.md`
 - `docs/development/residual-risk-ledger.md` 中的 `AF-RISK-OPS-008`
 
 影响：
@@ -1549,13 +1549,15 @@ pnpm ops:ops-001:preflight
 
 验证：
 
+- `pnpm ops:ops-008:runtime:selftest`
+- `pnpm ops:ops-008:runtime:validate`
+- `AREAFORGE_OPS008_RUNTIME_RECORD=... pnpm ops:ops-008:preflight:strict`
 - `pnpm updater:phase-journal:selftest`
 - `pnpm updater:phase-journal:validate scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json`
 - `pnpm updater:maintenance-control:selftest`
 - `pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json`
 - `pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json`
 - `pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json`
-- 确认后运行 backup/migration/switch/health/smoke kill-point、fsync failure、queue-control lock 和 drain fixture。
 - `pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`、`pnpm ops:ops-005:local:selftest`、`pnpm check`、`git diff --check`。
 
 回滚：

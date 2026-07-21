@@ -25,9 +25,11 @@
 - 可以严肃，但不羞辱。
 - 重点不是补偿过去，而是今天重新开始。
 
-当前 `packages/core` 已提供 `rankRecoveryTaskCandidates` 和 `selectRecoveryTaskCandidate` 纯规则，用于恢复模式下排除已完成/跳过任务、优先可见欠账、去重，并在同等优先级下选择预计时长更小的任务。
+## 当前行为
 
-Package B Batch 3 已新增 `RecoveryState` 持久状态：
+`packages/core` 提供 `rankRecoveryTaskCandidates` 和 `selectRecoveryTaskCandidate` 纯规则，用于恢复模式下排除已完成/跳过任务、优先可见欠账、去重，并在同等优先级下选择预计时长更小的任务。
+
+`RecoveryState` 持久状态：
 
 - dashboard 和首页优先读取 active `RecoveryState`。
 - 无 active 状态时继续使用 `createRecoveryPlan` 实时规则 fallback。
@@ -35,3 +37,5 @@ Package B Batch 3 已新增 `RecoveryState` 持久状态：
 - 用户点击“我需要恢复”时创建或复用 `triggerType=manual` 的 active 状态。
 - 完成或取消恢复只更新 `RecoveryState.status/endedAt/exitCondition`。
 - 恢复状态不会批量修改历史欠账，不隐藏、删除或延期原任务；首页计时器聚焦恢复候选，任务区保留完整任务列表。
+
+实现进度与批次证据见 [功能追踪矩阵](../development/feature-traceability.md)。

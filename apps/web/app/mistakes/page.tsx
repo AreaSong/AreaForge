@@ -6,7 +6,7 @@ import { MistakeLibrary } from "@/components/mistake-library";
 import { getCurrentUser } from "@/lib/auth/session";
 import { listMistakes } from "@/lib/study/mistakes-service";
 import { listSubjects } from "@/lib/study/service";
-import { listSyllabusTree } from "@/lib/study/syllabus-service";
+import { listSyllabusOptions } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export default async function MistakesPage() {
     redirect("/login");
   }
 
-  const [subjects, nodes, mistakes] = await Promise.all([listSubjects(), listSyllabusTree(), listMistakes()]);
+  const [subjects, nodes, mistakes] = await Promise.all([listSubjects(), listSyllabusOptions(), listMistakes()]);
 
   return (
     <main className="min-h-screen bg-[#080b0f] text-zinc-100">

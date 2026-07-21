@@ -15,6 +15,8 @@ CLAIM_TTL_SECONDS="${AREAFORGE_UPDATE_AGENT_CLAIM_TTL_SECONDS:-600}"
 CLOCK_SKEW_SECONDS=30
 RECONCILED_STALE=0
 ACTIVE_PROCESSING_CLAIM=0
+AGENT_MAINTENANCE_BLOCKED=0
+AGENT_JOURNAL_BLOCKED=0
 HELD_PRODUCTION_STATE_LOCK_FILE=""
 PRODUCTION_STATE_LOCK_ERROR=""
 CONFIG_ENV_KEYS=(
@@ -60,6 +62,10 @@ CONFIG_ENV_CAPTURED=0
 source "$SCRIPT_DIR/lib/update-request-v2.sh"
 # shellcheck source=lib/update-request-state.sh
 source "$SCRIPT_DIR/lib/update-request-state.sh"
+# shellcheck source=lib/updater-phase-journal.sh
+source "$SCRIPT_DIR/lib/updater-phase-journal.sh"
+# shellcheck source=lib/updater-maintenance-control.sh
+source "$SCRIPT_DIR/lib/updater-maintenance-control.sh"
 
 log() {
   printf '[areaforge-update-agent] %s\n' "$*" >&2
@@ -360,7 +366,11 @@ status_from_state() {
   latest_version="$(jq -r '.manifestVersion // empty' <<< "$verified_target")"
   github_repo="${AREAFORGE_GITHUB_REPO:-AreaSong/AreaForge}"
   blocker=""
-  if [[ "$ACTIVE_PROCESSING_CLAIM" == "1" ]]; then
+  if [[ "$AGENT_JOURNAL_BLOCKED" == "1" ]]; then
+    blocker="updater 阶段日志存在未终结或损坏的 operation，已进入 fail-closed 维护 hold；人工 reconciliation 完成前不领取新请求。"
+  elif [[ "$AGENT_MAINTENANCE_BLOCKED" == "1" ]]; then
+    blocker="维护 hold 已激活或维护事件流异常：update-agent 暂停领取新请求，自动 updater run 不会开始；等待服务器运维 clear。"
+  elif [[ "$ACTIVE_PROCESSING_CLAIM" == "1" ]]; then
     blocker="更新队列存在需要人工协调的 processing 请求；完成只读核对和人工处置前不会执行后续变更。"
   elif ! image_tag_matches_version "$current_image" "$current_version"; then
     blocker="当前运行镜像不是与 APP_VERSION 一致的 GHCR Release digest；请先修复镜像身份或 GHCR 访问。"
@@ -949,19 +959,49 @@ main() {
   require_cmd sync
   load_config
   ensure_state_dirs
+  journal_init "$STATE_DIR"
+  maintenance_init "$STATE_DIR"
   exec 9>"$LOCK_FILE"
   flock -n 9 || {
     log "another update agent process is running"
     exit 0
   }
+  # OPS-008 admission barrier：hold 检查、journal scanner 与 claim 领取共用同一 queue-control 临界区，
+  # 消除“观察为空后又领取”的竞态。跨进程协调锁获取顺序固定 queue-control -> production-state；
+  # agent 单实例锁只在未持有协调锁时获取，且 queue-control/production-state 持有者永不获取它。
+  maintenance_acquire_queue_control || {
+    log "queue-control lock is busy; skipping this agent run"
+    exit 0
+  }
+  local admission_hold admission_scan
+  admission_hold="$(maintenance_active_hold)"
+  admission_scan="$(journal_scan_all)"
+  if [[ "$admission_scan" != "clean" ]]; then
+    # 崩溃后 fail-closed：非终态/损坏 journal 直接阻塞 mutation admission，并尽力发布 redacted hold。
+    AGENT_JOURNAL_BLOCKED=1
+    if [[ "$admission_hold" == "null" ]]; then
+      maintenance_publish_hold JOURNAL_REQUIRES_RECONCILIATION "update-agent.recovery" >/dev/null || true
+    fi
+    merge_status null false
+    maintenance_release_queue_control
+    return
+  fi
+  if [[ "$admission_hold" != "null" ]]; then
+    AGENT_MAINTENANCE_BLOCKED=1
+    merge_status null false
+    maintenance_release_queue_control
+    return
+  fi
   reconcile_stale_claims
   local request claim_dir
   if [[ "$ACTIVE_PROCESSING_CLAIM" == "1" ]]; then
     request="$(next_queued_check || true)"
     if [[ -n "$request" ]]; then
       claim_dir="$(claim_request "$request")"
+      maintenance_release_queue_control
       process_claim "$claim_dir"
     else
+      maintenance_release_queue_control
       merge_status null false
     fi
     return
@@ -969,10 +1009,12 @@ main() {
   request="$(next_queued_request)"
   if [[ -n "$request" ]]; then
     claim_dir="$(claim_request "$request")"
+    maintenance_release_queue_control
     process_claim "$claim_dir"
   elif [[ "$RECONCILED_STALE" == "1" ]]; then
-    :
+    maintenance_release_queue_control
   else
+    maintenance_release_queue_control
     merge_status null true
   fi
 }

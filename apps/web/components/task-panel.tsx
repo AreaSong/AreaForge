@@ -3,12 +3,12 @@
 import { Check, FastForward, Plus, RotateCcw, Scissors, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import type { StudyTaskDto, SubjectDto, SyllabusNodeDto, TaskDebtReorderDto } from "@/lib/study/types";
+import type { StudyTaskDto, SubjectDto, SyllabusOptionNodeDto, TaskDebtReorderDto } from "@/lib/study/types";
 
 interface TaskPanelProps {
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];
-  syllabusNodes: SyllabusNodeDto[];
+  syllabusNodes: SyllabusOptionNodeDto[];
   debtReorder: TaskDebtReorderDto;
 }
 
@@ -446,7 +446,7 @@ function labelDebtAction(action: TaskDebtReorderDto["suggestions"][number]["acti
   }
 }
 
-function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {
+function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): FlatNode[] {
   return nodes.flatMap((node) => [
     {
       id: node.id,

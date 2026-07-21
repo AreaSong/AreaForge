@@ -196,14 +196,6 @@ export interface TimerSessionInput {
   now?: Date;
 }
 
-export interface AntiFakeStudyInput {
-  minutes: number;
-  hasOutput: boolean;
-  canExplain: boolean;
-  practiced: boolean;
-  reviewedMistake: boolean;
-}
-
 export function determineRiskState(input: DashboardInput): RiskState {
   if (input.daysToFinal <= 120) return "sprint";
   if (input.missedDays >= 5 || input.taskCompletionRate < 0.25) return "danger";
@@ -457,50 +449,6 @@ export function getTimerElapsedSeconds(input: TimerSessionInput): number {
   const now = input.endedAt ?? input.pausedAt ?? input.now ?? new Date();
   const totalSeconds = Math.max(0, Math.floor((now.getTime() - input.startedAt.getTime()) / 1000));
   return Math.max(0, totalSeconds - input.accumulatedPauseSeconds);
-}
-
-export function evaluateAntiFakeStudy(input: AntiFakeStudyInput): {
-  isLowConversion: boolean;
-  reason: string;
-  requiredOutput: string;
-} {
-  if (input.minutes < 25) {
-    return {
-      isLowConversion: true,
-      reason: "学习时间太短，还不足以证明一次有效推进。",
-      requiredOutput: "补一条 3 句话总结，再结束这次记录。",
-    };
-  }
-
-  if (!input.hasOutput) {
-    return {
-      isLowConversion: true,
-      reason: "只有投入时长，没有留下可检查的产出。",
-      requiredOutput: "写下本次学到的一个概念、一个例题或一个错因。",
-    };
-  }
-
-  if (!input.canExplain && !input.practiced) {
-    return {
-      isLowConversion: true,
-      reason: "看过不等于会了，还没有讲清或做题验证。",
-      requiredOutput: "用自己的话解释 1 个知识点，或复现 1 道基础题。",
-    };
-  }
-
-  if (input.reviewedMistake) {
-    return {
-      isLowConversion: false,
-      reason: "本次学习有复盘动作，具备转化证据。",
-      requiredOutput: "保留这条复盘，明天继续压同类题。",
-    };
-  }
-
-  return {
-    isLowConversion: false,
-    reason: "本次学习有可检查产出。",
-    requiredOutput: "把产出关联到任务或大纲节点。",
-  };
 }
 
 function clampScore(score: number): number {

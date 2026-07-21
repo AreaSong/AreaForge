@@ -76,6 +76,8 @@ docker compose -f docker-compose.prod.yml exec -T postgres \
 tar -C "$(dirname "$UPLOAD_DIR")" -czf "$BACKUP_DIR/uploads-$(date +%Y%m%d%H%M%S).tar.gz" "$(basename "$UPLOAD_DIR")"
 ```
 
+OPS-007 staging/write-intent 协议生效后，上传目录包含隐藏的 `.staging/` 子目录；归档必须包含它，且备份期间不得清理 staging 文件。restore 后先运行 report-only 对账；`PENDING`/`FAILED` 附件不提供下载，新协议 `PENDING` 的恢复只能由显式维护命令 `pnpm attachment:reconcile:new-protocol` 处理，restore 不自动把 `PENDING` 标记为 `READY`，也不删除 file-only/staging 项。
+
 临时库恢复演练：
 
 ```bash

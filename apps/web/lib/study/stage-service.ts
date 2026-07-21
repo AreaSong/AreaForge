@@ -6,14 +6,13 @@ import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getAnalyticsSummary } from "./analytics-service";
 import { daysUntil, getStudyDayRange } from "./date";
+import { finalExamDate, simulationDate } from "./exam-dates";
 import type {
   StageAdjustmentDraftRecordDto,
   StageAdjustmentTaskActionDto,
   StagePlanDto,
 } from "./types";
 
-const simulationDate = new Date("2026-12-20T08:30:00+08:00");
-const finalExamDate = new Date("2027-12-20T08:30:00+08:00");
 const defaultStageGoal = "2026 年 12 月同步全真自测";
 
 type StageDbClient = PrismaClient | Prisma.TransactionClient;

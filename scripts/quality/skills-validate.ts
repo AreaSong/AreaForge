@@ -126,6 +126,7 @@ if (!fs.existsSync(skillsReadme)) {
 }
 
 const skillsReadmeContent = read(skillsReadme);
+const skillDescriptions = new Map<string, string>();
 
 for (const skill of requiredSkills) {
   const skillDir = path.join(skillsRoot, skill);
@@ -147,6 +148,15 @@ for (const skill of requiredSkills) {
   }
   if (markdown.includes("[TODO") || markdown.includes("Structuring This Skill")) {
     fail(`${skill} still contains template TODO text`);
+  }
+  skillDescriptions.set(skill, meta.description);
+
+  const handOffMatch = markdown.match(/^## When To Use \/ Hand Off\n([\s\S]*?)(?=\n## )/m);
+  if (!handOffMatch) {
+    fail(`${skill} SKILL.md missing "## When To Use / Hand Off" section`);
+  }
+  if (!/`areaforge-[a-z-]+`/.test(handOffMatch[1])) {
+    fail(`${skill} "When To Use / Hand Off" section must reference at least one areaforge- owner skill`);
   }
 
   for (const ref of referencedReferenceFiles(markdown)) {
@@ -205,4 +215,50 @@ for (const skill of requiredSkills) {
   }
 }
 
+reportDescriptionOverlap(skillDescriptions);
+
 pass(`validated ${requiredSkills.length} AreaForge repo-local skills`);
+
+// 非阻塞信号:description 触发词重叠过高会导致激活随机化,只提示不失败。
+function reportDescriptionOverlap(descriptions: Map<string, string>): void {
+  const OVERLAP_WARN_THRESHOLD = 10;
+  const frameworkWords = new Set([
+    "use", "when", "codex", "needs", "this", "skill", "owns", "hand",
+    "hands", "belongs", "such", "only", "also", "after", "before",
+    "into", "from", "their", "them", "then", "they", "with", "without",
+    "trigger", "questions", "about", "whether",
+  ]);
+
+  const significantTerms = (description: string): Set<string> => {
+    const terms = new Set<string>();
+    for (const raw of description.toLowerCase().split(/[^a-z0-9-]+/)) {
+      const term = raw.replace(/^-+|-+$/g, "");
+      if (term.length < 4 || frameworkWords.has(term) || term.startsWith("areaforge")) {
+        continue;
+      }
+      terms.add(term);
+    }
+    return terms;
+  };
+
+  const entries = [...descriptions.entries()].map(([name, description]) => ({
+    name,
+    terms: significantTerms(description),
+  }));
+
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      let shared = 0;
+      for (const term of entries[i].terms) {
+        if (entries[j].terms.has(term)) {
+          shared++;
+        }
+      }
+      if (shared >= OVERLAP_WARN_THRESHOLD) {
+        console.warn(
+          `WARN overlap: ${entries[i].name} <-> ${entries[j].name} (${shared} shared trigger terms)`,
+        );
+      }
+    }
+  }
+}

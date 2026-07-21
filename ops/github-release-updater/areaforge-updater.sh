@@ -2,6 +2,13 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
+UPDATER_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+UPDATER_LIB_DIR="${AREAFORGE_UPDATER_LIB_DIR:-$UPDATER_SCRIPT_DIR/../update-agent/lib}"
+# shellcheck source=lib/updater-phase-journal.sh
+source "$UPDATER_LIB_DIR/updater-phase-journal.sh"
+# shellcheck source=lib/updater-maintenance-control.sh
+source "$UPDATER_LIB_DIR/updater-maintenance-control.sh"
+
 COMMAND="run"
 CONFIG_FILE="${AREAFORGE_UPDATER_CONFIG:-/etc/areaforge/updater.env}"
 TAG_OVERRIDE=""
@@ -11,6 +18,8 @@ YES=0
 IDENTITY_JSON_PATH=""
 REQUEST_GUARD_PATH=""
 REQUEST_GUARD_FILE_SHA256=""
+JOURNAL_ENABLED=0
+UPDATER_ADMISSION_QUEUE_CONTROL_HELD=0
 PRODUCTION_STATE_LOCK_HELD=0
 INHERITED_PRODUCTION_STATE_LOCK="${AREAFORGE_PRODUCTION_STATE_LOCK_INHERITED:-0}"
 INHERITED_PRODUCTION_STATE_LOCK_FILE="${AREAFORGE_INHERITED_PRODUCTION_STATE_LOCK_FILE:-}"
@@ -18,6 +27,7 @@ WORK_DIR=""
 CONFIG_ENV_CAPTURED=0
 CONFIG_ENV_KEYS=(
   AREAFORGE_GITHUB_REPO
+  AREAFORGE_OPS_STATE_DIR
   AREAFORGE_RELEASE_CHANNEL
   AREAFORGE_RELEASE_MANIFEST_ASSET
   AREAFORGE_RELEASE_CHECKSUM_ASSET
@@ -200,6 +210,7 @@ load_config() {
   AREAFORGE_UPDATE_RECORD_DIR="${AREAFORGE_UPDATE_RECORD_DIR:-$AREAFORGE_BACKUP_DIR/github-release-updates}"
   AREAFORGE_UPLOADS_VOLUME="${AREAFORGE_UPLOADS_VOLUME:-${AREAFORGE_COMPOSE_PROJECT}_areaforge-uploads}"
   AREAFORGE_PRODUCTION_STATE_LOCK_FILE="${AREAFORGE_PRODUCTION_STATE_LOCK_FILE:-$AREAFORGE_DEPLOY_DIR/.areaforge-production-state.lock}"
+  AREAFORGE_OPS_STATE_DIR="${AREAFORGE_OPS_STATE_DIR:-/opt/areaforge/ops-state}"
   AREAFORGE_AUTO_APPLY="${AREAFORGE_AUTO_APPLY:-none}"
   AREAFORGE_ALLOW_PRERELEASE="${AREAFORGE_ALLOW_PRERELEASE:-false}"
   AREAFORGE_ALLOW_COMPOSE_UPDATE="${AREAFORGE_ALLOW_COMPOSE_UPDATE:-false}"
@@ -888,7 +899,7 @@ switch_web() {
   run_cmd compose up -d web || return 1
 }
 
-run_smoke() {
+run_health() {
   log "waiting for health: $HEALTH_URL"
   if [[ "$DRY_RUN" != "1" ]]; then
     local ok=0
@@ -903,7 +914,9 @@ run_smoke() {
   else
     log "dry-run: would curl $HEALTH_URL"
   fi
+}
 
+run_extra_smoke() {
   if [[ -n "${AREAFORGE_EXTRA_SMOKE_COMMAND:-}" ]]; then
     log "running extra smoke command"
     if [[ "$DRY_RUN" == "1" ]]; then
@@ -918,6 +931,11 @@ run_smoke() {
       fi
     fi
   fi
+}
+
+run_smoke() {
+  run_health || return 1
+  run_extra_smoke
 }
 
 rollback_application() {
@@ -997,6 +1015,174 @@ EOF_RECORD
   log "wrote update record: $record"
 }
 
+# OPS-008 admission barrier：所有 mutation 入口共用。非继承模式下在 queue-control 内检查
+# active hold 与 journal scanner；journal 非 clean 时发布 fail-closed hold 并拒绝进入。
+# 锁获取顺序固定：queue-control -> production-state；本函数持有 queue-control 返回，
+# 调用方在拿到 production-state 后释放（不跨下载、备份、migration 长时间持有）。
+updater_admission_barrier() {
+  local hold scan
+  journal_init "$AREAFORGE_OPS_STATE_DIR"
+  maintenance_init "$AREAFORGE_OPS_STATE_DIR"
+  if [[ "$INHERITED_PRODUCTION_STATE_LOCK" == "1" ]]; then
+    # update-agent 已在同一 queue-control 临界区完成 hold/journal admission；此处为只读防御复查。
+    hold="$(maintenance_active_hold)"
+    [[ "$hold" == "null" ]] || die "MAINTENANCE_HOLD_ACTIVE: maintenance hold blocks updater admission"
+    scan="$(journal_scan_all)"
+    [[ "$scan" == "clean" ]] || die "JOURNAL_REQUIRES_RECONCILIATION: non-terminal or corrupt updater journal blocks admission"
+    return 0
+  fi
+  maintenance_acquire_queue_control || die "queue-control lock is busy; updater admission was refused"
+  hold="$(maintenance_active_hold)"
+  if [[ "$hold" != "null" ]]; then
+    maintenance_release_queue_control
+    die "MAINTENANCE_HOLD_ACTIVE: maintenance hold blocks updater admission"
+  fi
+  scan="$(journal_scan_all)"
+  if [[ "$scan" != "clean" ]]; then
+    maintenance_publish_hold JOURNAL_REQUIRES_RECONCILIATION "updater.recovery" || true
+    maintenance_release_queue_control
+    die "JOURNAL_REQUIRES_RECONCILIATION: non-terminal or corrupt updater journal blocks admission"
+  fi
+  UPDATER_ADMISSION_QUEUE_CONTROL_HELD=1
+}
+
+updater_release_admission_queue_control() {
+  [[ "$UPDATER_ADMISSION_QUEUE_CONTROL_HELD" == "1" ]] || return 0
+  maintenance_release_queue_control
+  UPDATER_ADMISSION_QUEUE_CONTROL_HELD=0
+}
+
+# 发布 fail-closed hold：先确保 journal 已落盘（调用方负责），再释放 production-state，
+# 最后短暂持有 queue-control 发布 hold，避免持有 production-state 时逆序获取 queue-control。
+updater_publish_fail_closed_hold() {
+  local reason="$1"
+  if [[ "$PRODUCTION_STATE_LOCK_HELD" == "1" ]]; then
+    flock -u 8 || true
+    PRODUCTION_STATE_LOCK_HELD=0
+  fi
+  if maintenance_acquire_queue_control; then
+    maintenance_publish_hold "$reason" "updater.reconciliation" "${JOURNAL_OPERATION_ID:-}" || true
+    maintenance_release_queue_control
+  else
+    log "queue-control is busy; the fail-closed hold will be published by the next admission scan"
+  fi
+}
+
+# journal 事件（副作用阶段）：写失败直接进入 reconciliation + fail-closed hold，退出码 2。
+journal_apply_event() {
+  local phase="$1"
+  [[ "$JOURNAL_ENABLED" == "1" ]] || return 0
+  if ! journal_append_event "$@"; then
+    journal_reconcile_and_exit JOURNAL_WRITE_UNCERTAIN "$phase"
+  fi
+}
+
+journal_reconcile_and_exit() {
+  local reason="$1"
+  local uncertain_phase="${2:-}"
+  journal_note_reconciliation "$reason" "$uncertain_phase"
+  printf 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=%s executionAttempted=true\n' "$reason" >&2
+  exit 2
+}
+
+# 只追加 reconciliation 事件并发布 hold；marker 与退出码由调用方控制（保持既有 exit contract）。
+journal_note_reconciliation() {
+  local reason="$1"
+  local uncertain_phase="${2:-}"
+  if [[ "$JOURNAL_ENABLED" == "1" ]]; then
+    journal_append_event reconciliation reconciliation_required "$reason" \
+      "$(jq -cn --arg uncertainPhase "$uncertain_phase" \
+        '{uncertainPhase:(if $uncertainPhase == "" then null else $uncertainPhase end)}')" ||
+      log "journal reconciliation event could not be persisted"
+  fi
+  updater_publish_fail_closed_hold "$reason"
+}
+
+# 在 guard 双重比较通过后、任何副作用之前创建 journal operation 并绑定已验证 release 身份。
+# 事件或逐级 fsync 失败时零副作用退出。dry-run 不写 journal。
+journal_begin_apply_operation() {
+  [[ "$DRY_RUN" != "1" ]] || return 0
+  local operation_id release_tag release_id before_hash
+  operation_id="$(journal_generate_operation_id)" || die "journal operation id generation failed"
+  release_tag="$(jq -r '.tag_name' "$RELEASE_JSON")"
+  release_id="$(jq -r '.id' "$RELEASE_JSON")"
+  if [[ -n "$REQUEST_GUARD_PATH" ]]; then
+    JOURNAL_SOURCE_KIND="request"
+    JOURNAL_SOURCE="update-agent.request"
+    JOURNAL_REQUEST_ID="$(jq -c '.id' "$REQUEST_GUARD_PATH")"
+    JOURNAL_REQUEST_HASH="$(jq -c '.requestHash' "$REQUEST_GUARD_PATH")"
+  elif [[ "$COMMAND" == "run" ]]; then
+    JOURNAL_SOURCE_KIND="automatic"
+    JOURNAL_SOURCE="updater.run"
+    JOURNAL_REQUEST_ID="null"
+    JOURNAL_REQUEST_HASH="null"
+  else
+    JOURNAL_SOURCE_KIND="operator"
+    JOURNAL_SOURCE="updater.apply"
+    JOURNAL_REQUEST_ID="null"
+    JOURNAL_REQUEST_HASH="null"
+  fi
+  JOURNAL_EXECUTION_ATTEMPTED=false
+  JOURNAL_RELEASE_JSON=null
+  journal_create_operation "$operation_id" || die "journal admission failed before any side effect"
+  # pre-validation 事件只绑定 candidate tag/release id/manifest asset hash，不标记未验证 digest 为可信。
+  JOURNAL_RELEASE_JSON="$(jq -cn \
+    --arg candidateTag "$release_tag" \
+    --argjson releaseId "$release_id" \
+    --arg manifestSha256 "sha256:$(sha256_file "$MANIFEST_PATH")" \
+    '{candidateTag:$candidateTag,releaseId:$releaseId,manifestSha256:$manifestSha256}')"
+  journal_append_event validation started CANDIDATE_SELECTED || die "journal validation event failed before any side effect"
+  before_hash="$(sha256_text "$(observed_before_json | jq -cS .)")"
+  # identity-bound complete：首次绑定已验证 release 身份，后续事件必须逐字段一致。
+  JOURNAL_RELEASE_JSON="$(jq -cn \
+    --arg releaseTag "$release_tag" \
+    --arg manifestVersion "$TARGET_VERSION" \
+    --arg manifestSha256 "sha256:$(sha256_file "$MANIFEST_PATH")" \
+    --arg webImageDigest "$WEB_IMAGE_DIGEST" \
+    --arg migrationImageDigest "${MIGRATION_IMAGE_DIGEST:-}" \
+    '{releaseTag:$releaseTag,manifestVersion:$manifestVersion,manifestSha256:$manifestSha256,webImageDigest:$webImageDigest,migrationImageDigest:(if $migrationImageDigest == "" then null else $migrationImageDigest end)}')"
+  journal_append_event validation complete IDENTITY_BOUND \
+    "$(jq -cn --arg beforeStateHash "$before_hash" '{beforeStateHash:$beforeStateHash}')" ||
+    die "journal identity binding failed before any side effect"
+  JOURNAL_ENABLED=1
+}
+
+# backup complete 前的持久化屏障：备份集逐文件、逐级目录 fsync，绑定精确 inventory；
+# 任一级不确定都不得进入 migration/Docker。
+journal_backup_complete_barrier() {
+  [[ "$JOURNAL_ENABLED" == "1" ]] || return 0
+  local entry inventory inventory_hash
+  while IFS= read -r entry; do
+    [[ -n "$entry" ]] || continue
+    if ! journal_fsync "$entry"; then
+      journal_reconcile_and_exit BACKUP_DURABILITY_UNCERTAIN backup
+    fi
+  done < <(find "$RECORD_DIR" -mindepth 1 \( -type f -o -type d \) | sort)
+  journal_fsync "$RECORD_DIR" || journal_reconcile_and_exit BACKUP_DURABILITY_UNCERTAIN backup
+  journal_fsync "$(dirname "$RECORD_DIR")" || journal_reconcile_and_exit BACKUP_DURABILITY_UNCERTAIN backup
+  inventory="$(cd "$RECORD_DIR" && find . -type f -exec sha256sum {} \; | sort)"
+  inventory_hash="$(sha256_text "$inventory")"
+  journal_apply_event backup complete BACKUP_DURABLE \
+    "$(jq -cn --arg backupSetId "$RELEASE_ID" --arg backupInventoryHash "$inventory_hash" \
+      '{backupSetId:$backupSetId,backupInventoryHash:$backupInventoryHash}')"
+}
+
+# terminal 事件：绑定 update record hash 与最终 production identity hash；
+# 写失败使用专用 reconciliation exit（不发布 terminal marker）。
+journal_terminal_event() {
+  local status="$1"
+  local reason="$2"
+  [[ "$JOURNAL_ENABLED" == "1" ]] || return 0
+  local record_hash identity_hash extra
+  record_hash="sha256:$(sha256_file "$RECORD_DIR/update-record.txt")"
+  identity_hash="$(sha256_text "$(jq -cnS --arg version "$(env_get APP_VERSION)" --arg image "$(env_get AREAFORGE_IMAGE)" '{version:$version,image:$image}')")"
+  extra="$(jq -cn --arg updateRecordHash "$record_hash" --arg productionIdentityHash "$identity_hash" \
+    '{updateRecordHash:$updateRecordHash,productionIdentityHash:$productionIdentityHash}')"
+  if ! journal_append_event terminal "$status" "$reason" "$extra"; then
+    journal_reconcile_and_exit JOURNAL_TERMINAL_UNCERTAIN terminal
+  fi
+}
+
 apply_update() {
   require_production_state_lock
   [[ "$COMMAND" != "apply" || "$YES" == "1" || "$DRY_RUN" == "1" ]] || die "apply requires --yes"
@@ -1008,47 +1194,98 @@ apply_update() {
   fi
 
   validate_request_guard "second"
+  journal_begin_apply_operation
   printf 'AREAFORGE_REQUEST_EXECUTION action=apply executionAttempted=true\n' >&2
+  JOURNAL_EXECUTION_ATTEMPTED=true
+  journal_apply_event backup started BACKUP_STARTED
   backup_before_update
+  journal_backup_complete_barrier
   local failure="none"
   local migration_attempted="false"
   local requires_migration="${REQUIRES_MIGRATION:-false}"
+  journal_apply_event prepare started PREPARE_STARTED
   if ! pull_images; then failure="docker image pull failed"; fi
   if [[ "$failure" == "none" ]] && ! maybe_update_compose_file; then failure="compose update failed"; fi
+  if [[ "$failure" == "none" ]]; then
+    journal_apply_event prepare complete PREPARE_COMPLETE
+  fi
   if [[ "$failure" == "none" && "$requires_migration" == "true" ]]; then
     migration_attempted="true"
-    if ! run_migration_if_needed; then failure="migration deploy failed"; fi
+    journal_apply_event migration started MIGRATION_STARTED
+    if ! run_migration_if_needed; then
+      failure="migration deploy failed"
+    else
+      journal_apply_event migration complete MIGRATION_COMPLETE
+    fi
+  elif [[ "$failure" == "none" ]]; then
+    journal_apply_event migration skipped NO_MIGRATION_IMAGE
   fi
-  if [[ "$failure" == "none" ]] && ! switch_web; then failure="web switch failed"; fi
-  if [[ "$failure" == "none" ]] && ! run_smoke; then failure="smoke failed"; fi
+  if [[ "$failure" == "none" ]]; then
+    journal_apply_event switch started SWITCH_STARTED
+    if ! switch_web; then
+      failure="web switch failed"
+    else
+      journal_apply_event switch complete SWITCH_COMPLETE
+    fi
+  fi
+  if [[ "$failure" == "none" ]]; then
+    journal_apply_event health started HEALTH_STARTED
+    if ! run_health; then
+      failure="smoke failed"
+    else
+      journal_apply_event health complete HEALTH_COMPLETE
+    fi
+  fi
+  if [[ "$failure" == "none" ]]; then
+    journal_apply_event smoke started SMOKE_STARTED
+    if ! run_extra_smoke; then
+      failure="smoke failed"
+    else
+      journal_apply_event smoke complete SMOKE_COMPLETE
+    fi
+  fi
 
   if [[ "$failure" != "none" ]]; then
     log "update failed: $failure"
+    journal_apply_event rollback started ROLLBACK_STARTED
     if ! rollback_application; then
       if ! write_record "recovery_uncertain" "$failure; rollback recovery uncertain"; then
         log "failed to persist recovery-uncertain update record"
       fi
+      if [[ "$JOURNAL_ENABLED" == "1" ]]; then
+        journal_append_event rollback needs_reconciliation ROLLBACK_RECOVERY_UNCERTAIN ||
+          log "journal rollback reconciliation event could not be persisted"
+      fi
+      journal_note_reconciliation ROLLBACK_RECOVERY_UNCERTAIN rollback
       printf 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=ROLLBACK_RECOVERY_UNCERTAIN executionAttempted=true\n' >&2
       return 2
     fi
+    journal_apply_event rollback complete ROLLBACK_COMPLETE
+    journal_apply_event terminal started TERMINAL_STARTED
     if ! write_record "rolled_back" "$failure"; then
       log "failed to persist rolled-back update record"
+      journal_note_reconciliation ROLLBACK_RECORD_PERSISTENCE_UNCERTAIN terminal
       printf 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=ROLLBACK_RECORD_PERSISTENCE_UNCERTAIN executionAttempted=true\n' >&2
       return 2
     fi
     if [[ "$migration_attempted" == "true" ]]; then
+      journal_note_reconciliation MIGRATION_STATE_UNCERTAIN migration
       printf 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=MIGRATION_STATE_UNCERTAIN executionAttempted=true\n' >&2
       return 2
     fi
+    journal_terminal_event rolled_back APPLY_FAILED_ROLLED_BACK
     printf 'AREAFORGE_UPDATER_TERMINAL status=rolled_back executionAttempted=true\n' >&2
     return 1
   fi
 
+  journal_apply_event terminal started TERMINAL_STARTED
   if ! write_record "applied" "none"; then
     log "update side effects completed but applied record persistence failed"
+    journal_note_reconciliation APPLIED_RECORD_PERSISTENCE_UNCERTAIN terminal
     printf 'AREAFORGE_UPDATER_RECONCILIATION reasonCode=APPLIED_RECORD_PERSISTENCE_UNCERTAIN executionAttempted=true\n' >&2
     return 2
   fi
+  journal_terminal_event applied APPLY_COMPLETED
   printf 'AREAFORGE_UPDATER_TERMINAL status=applied executionAttempted=true\n' >&2
   log "update applied: $CURRENT_VERSION -> $TARGET_VERSION"
 }
@@ -1089,8 +1326,11 @@ main() {
     require_cmd docker
     require_cmd flock
     require_cmd sync
+    require_cmd find
+    updater_admission_barrier
     locked_state_path="$AREAFORGE_PRODUCTION_STATE_LOCK_FILE"
     acquire_production_state_lock
+    updater_release_admission_queue_control
     load_config
     [[ "$AREAFORGE_PRODUCTION_STATE_LOCK_FILE" == "$locked_state_path" ]] || die "production-state lock path changed while acquiring lock"
     require_production_state_lock

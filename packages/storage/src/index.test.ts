@@ -2,17 +2,22 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   createAttachmentMetadataDraft,
+  createAttachmentMetadataDraftFromScan,
   createAttachmentResponseHeaders,
   createAttachmentUri,
   createSafeAttachmentFilePath,
+  createSafeStagingFilePath,
+  createStagingAttachmentName,
   createStoredAttachmentName,
   createUploadPolicy,
   detectUploadMimeType,
   isAllowedUpload,
   isPathInsideDirectory,
+  isSafeStagingAttachmentName,
   normalizeOriginalFileName,
   parseAllowedUploadMimeTypes,
   parseAttachmentUri,
+  stagingDirectoryName,
   validateUploadBytes,
 } from "./index";
 
@@ -137,6 +142,61 @@ test("createSafeAttachmentFilePath rejects public upload roots", () => {
       }),
     /UNSAFE_FORBIDDEN_DIR/,
   );
+});
+
+test("staging names and paths stay inside the reserved .staging directory", () => {
+  const stagingName = createStagingAttachmentName("abcDEF1234567890.png");
+  assert.equal(stagingName, "abcDEF1234567890.png.staging");
+  assert.equal(isSafeStagingAttachmentName(stagingName), true);
+  assert.equal(isSafeStagingAttachmentName("abcDEF1234567890.png"), false);
+  assert.equal(isSafeStagingAttachmentName("../abcDEF1234567890.png.staging"), false);
+  assert.throws(() => createStagingAttachmentName("../evil.png"), /UNSAFE_STORED_NAME/);
+
+  const resolved = createSafeStagingFilePath("/app/uploads", stagingName);
+  assert.equal(resolved.uploadRoot, "/app/uploads");
+  assert.equal(resolved.filePath, `/app/uploads/${stagingDirectoryName}/${stagingName}`);
+  assert.throws(() => createSafeStagingFilePath("/app/uploads", "abcDEF1234567890.png"), /UNSAFE_STAGING_NAME/);
+});
+
+test("createAttachmentMetadataDraftFromScan trusts only the streamed scan result", () => {
+  const policy = createUploadPolicy(1);
+  const ok = createAttachmentMetadataDraftFromScan({
+    sizeBytes: 9,
+    sha256Hex: "a".repeat(64),
+    detectedMimeType: "image/png",
+    declaredMimeType: "image/png",
+    originalName: "notes/图.png",
+    randomId: "abcDEF1234567890",
+    policy,
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.draft?.storedName, "abcDEF1234567890.png");
+  assert.equal(ok.draft?.hash, "a".repeat(64));
+  assert.equal(ok.draft?.originalName, "图.png");
+
+  const mismatch = createAttachmentMetadataDraftFromScan({
+    sizeBytes: 9,
+    sha256Hex: "a".repeat(64),
+    detectedMimeType: "image/png",
+    declaredMimeType: "application/pdf",
+    originalName: "a.png",
+    randomId: "abcDEF1234567890",
+    policy,
+  });
+  assert.equal(mismatch.ok, false);
+  assert.equal(mismatch.validation.reason, "declared_mime_mismatch");
+
+  const oversize = createAttachmentMetadataDraftFromScan({
+    sizeBytes: policy.maxBytes + 1,
+    sha256Hex: "a".repeat(64),
+    detectedMimeType: "image/png",
+    declaredMimeType: null,
+    originalName: "a.png",
+    randomId: "abcDEF1234567890",
+    policy,
+  });
+  assert.equal(oversize.ok, false);
+  assert.equal(oversize.validation.reason, "too_large");
 });
 
 test("createAttachmentResponseHeaders emits private nosniff download headers", () => {

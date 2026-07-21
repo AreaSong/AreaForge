@@ -654,8 +654,8 @@ function historicalSnapshotV2(): JsonRecord {
   const historicalProtectedPaths = (protectedPathFingerprint.paths as string[]).filter((item) => ![
     "docs/development/data-integrity-doctor.md",
     "tasks/active/0020-business-state-concurrency.md",
-    "tasks/backlog/0021-attachment-staging-intent.md",
-    "tasks/backlog/0022-updater-phase-journal-hold.md",
+    "tasks/active/0021-attachment-staging-intent.md",
+    "tasks/active/0022-updater-phase-journal-hold.md",
     "scripts/ops/data-integrity-doctor.ts",
     "scripts/quality/data-integrity-doctor-validate.ts",
     "scripts/quality/data-integrity-doctor.selftest.ts",

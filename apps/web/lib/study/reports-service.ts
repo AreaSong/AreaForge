@@ -149,7 +149,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     tasks,
     reviews,
     mistakes,
-    dueNotes,
+    dueNoteCount,
     debtTasks,
     weakNodes,
     checkInSnapshots,
@@ -160,6 +160,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     prisma.subject.findMany({
       orderBy: { sortOrder: "asc" },
     }),
+    // 报表只做区间聚合，按实际消费字段 select，不携带 subject/syllabusNode 关联行。
     prisma.studySession.findMany({
       where: {
         startedAt: {
@@ -168,8 +169,12 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
         },
         status: "COMPLETED",
       },
-      include: {
-        subject: true,
+      select: {
+        subjectId: true,
+        startedAt: true,
+        effectiveMinutes: true,
+        isEffective: true,
+        isLowConversion: true,
       },
     }),
     prisma.studyTask.findMany({
@@ -179,8 +184,9 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           lt: range.end,
         },
       },
-      include: {
-        subject: true,
+      select: {
+        plannedDate: true,
+        status: true,
       },
     }),
     prisma.dailyReview.findMany({
@@ -189,6 +195,9 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           gte: range.start,
           lt: range.end,
         },
+      },
+      select: {
+        reviewDate: true,
       },
     }),
     prisma.mistake.findMany({
@@ -214,21 +223,18 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           },
         ],
       },
-      include: {
-        subject: true,
-        syllabusNode: true,
+      select: {
+        subjectId: true,
+        createdAt: true,
+        updatedAt: true,
       },
     }),
-    prisma.note.findMany({
+    prisma.note.count({
       where: {
         nextReviewAt: {
           gte: range.start,
           lt: range.end,
         },
-      },
-      include: {
-        subject: true,
-        syllabusNode: true,
       },
     }),
     prisma.studyTask.findMany({
@@ -324,7 +330,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     mistakeReviewUpdateCount,
     reviewCompletionRate,
     weakNodeCount: weakNodes.length,
-    dueNoteCount: dueNotes.length,
+    dueNoteCount,
     weakness,
   });
   const rangeDto = {
@@ -344,7 +350,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     reviewCount: reviews.length,
     mistakesCreatedCount,
     mistakeReviewUpdateCount,
-    dueNoteCount: dueNotes.length,
+    dueNoteCount,
     weakNodeCount: weakNodes.length,
   };
   const nextCycleDraft = createPeriodicNextCycleDraft({

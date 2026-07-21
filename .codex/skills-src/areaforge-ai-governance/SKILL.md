@@ -1,11 +1,16 @@
 ---
 name: areaforge-ai-governance
-description: "Use when Codex needs to review, change, or extend AreaForge AI provider behavior, OpenAI-compatible calls, prompt/data minimization, fallback, rate limiting, logging, schema validation, long-term stage AI drafts, AI cost controls, AI history, token usage, or privacy boundaries."
+description: "Use when Codex needs to review, change, or extend AreaForge AI provider behavior, OpenAI-compatible calls, prompt/data minimization, fallback, rate limiting, logging, schema validation, long-term stage AI drafts, AI cost controls, AI history, token usage, or privacy boundaries. This skill owns AI provider and cost details; AI privacy lifecycle coordination belongs to areaforge-security-governance."
 ---
 
 # AreaForge AI Governance
 
 Keep AI helpful, explicit, bounded, auditable, and cheap enough to survive production use.
+
+## When To Use / Hand Off
+
+- Use for: AI provider behavior details: outbound context, fallback, rate limiting, schema validation, cost controls, token usage, and AI history boundaries.
+- Not here: AI privacy lifecycle coordination and high-risk boundary review -> `areaforge-security-governance`; retention-gap tracking -> `areaforge-residual-ledger`; AI test/scan selection -> `areaforge-validation-driver`.
 
 ## Read First
 

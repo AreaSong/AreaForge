@@ -8,7 +8,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { listNotes } from "@/lib/study/notes-service";
 import { listStudyTasks, listSubjects } from "@/lib/study/service";
-import { listSyllabusTree } from "@/lib/study/syllabus-service";
+import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ export default async function NotesPage() {
   const [subjects, tasks, nodes, notes, longTermRisks] = await Promise.all([
     listSubjects(),
     listStudyTasks(),
-    listSyllabusTree(),
+    listSyllabusOptionsShared(),
     listNotes(),
     getLongTermRiskSummary(),
   ]);

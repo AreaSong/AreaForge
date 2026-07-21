@@ -4,7 +4,7 @@
 
 AreaForge 的当前品牌素材包位于 `assets/brand/final/`。它保存可编辑 SVG 源文件、常用 PNG 导出、Web/PWA 接入素材、原生平台图标和印刷交付文件。
 
-该目录仍是品牌素材源事实。当前 checkout 通过 `assets/brand/brand-manifest.json` 把受控副本同步到 `apps/web/app/` 和 `apps/web/public/brand/`；素材或代码进入工作区不代表线上 `0.1.7` 已发布更新。
+该目录仍是品牌素材源事实。当前 checkout 通过 `assets/brand/brand-manifest.json` 把受控副本同步到 `apps/web/app/` 和 `apps/web/public/brand/`；素材或代码进入工作区不代表线上已发布更新。
 
 ## 当前资产
 

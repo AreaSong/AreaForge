@@ -4,12 +4,12 @@ import { Pause, Play, Square, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getTimerElapsedSeconds, type TimerStatus } from "@areaforge/core";
-import type { StudySessionDto, StudyTaskDto, SubjectDto, SyllabusNodeDto } from "@/lib/study/types";
+import type { StudySessionDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
 interface FocusTimerProps {
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];
-  syllabusNodes: SyllabusNodeDto[];
+  syllabusNodes: SyllabusOptionNodeDto[];
   activeSession: StudySessionDto | null;
   latestCompletedSession: StudySessionDto | null;
 }
@@ -405,7 +405,7 @@ function getSessionTime(session: StudySessionDto): number {
   return Date.parse(session.endedAt ?? session.startedAt);
 }
 
-function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {
+function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): FlatNode[] {
   return nodes.flatMap((node) => [
     {
       id: node.id,

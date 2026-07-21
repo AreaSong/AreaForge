@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-- 仓库发布候选版本为 `0.1.8`；远端 `https://forge.areasong.top/` 仍通过 GitHub Release `v0.1.7` 签名运行 `0.1.7`，尚未创建或部署 `v0.1.8`。
+- 仓库发布候选版本为 `0.1.9`；远端 `https://forge.areasong.top/` 仍通过 GitHub Release `v0.1.7` 签名运行 `0.1.7`。`v0.1.8` 计划保持搁置并由 `workflow/versions/v0.1.9-long-term-operations-release.md` 承接；2026-07-20 长期运营优化轮已收口，当前推进 v0.1.9 发布环（签名 Release、生产受控更新与残余项证据重采，三个确认点由维护者显式给出）。维护者已于 2026-07-21 按确认包原文确认并完成本地验证：OPS-007（附件 staging/write-intent，`local_verified`）与 OPS-008（updater phase journal 与 hold/drain，`local_verified`）；两者均已并入 v0.1.9 候选，生产 migration/timer/hold/apply 仍需独立确认。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
@@ -17,6 +17,7 @@
 ## 源事实
 
 - 产品定位与功能边界：`docs/product/**`。
+- 使用指南、配置参考与 FAQ：`docs/guide/**`；人类可读版本历史：`CHANGELOG.md`。
 - 工程结构与分层：`docs/architecture/**`。
 - 业务模块设计：`docs/modules/**`。
 - 页面状态与交互：`docs/ux/**`。
@@ -26,6 +27,30 @@
 - 技术决策：`docs/adr/**`。
 - 轻量任务拆分：`tasks/**`；为空或冲突时，以 `docs/development/implementation-order.md` 为准。
 - 版本规划：`workflow/**`；为空或冲突时，以 `docs/product/roadmap.md` 为准。
+
+## Skill 快速路由（抗上下文压缩）
+
+| 任务场景 | Owner skill | 边界提示 |
+|---|---|---|
+| 跨多治理面 / 不确定归属 | `areaforge-operating-loop` | 单一面任务直接用对应 owner |
+| 发布、tag、GitHub Release、updater 请求 | `areaforge-release-operator` | 制品信任给 supply-chain；本地 commit 给 git-checkpoint |
+| 制品/依赖/签名/digest 信任验证 | `areaforge-supply-chain` | 发布执行给 release-operator |
+| 本地 stage/commit/push 检查点 | `areaforge-git-checkpoint` | tag/Release 属发布动作 |
+| 生产写操作（备份/恢复/updater apply/回滚） | `areaforge-sre-ops` | 只读信号给 observability |
+| 只读生产信号与证据 | `areaforge-observability` | 写动作给 sre-ops；事故编排给 incident-response |
+| 事故分级、止血、回滚决策、复盘 | `areaforge-incident-response` | 执行给 sre-ops；信号给 observability |
+| 安全边界、鉴权、密钥、AI 隐私、数据生命周期协调 | `areaforge-security-governance` | 文件细节给 file-storage-safety；AI 细节给 ai-governance |
+| 附件/上传/对账/存储迁移细节 | `areaforge-file-storage-safety` | 高风险边界审查给 security-governance |
+| AI provider、fallback、成本、token | `areaforge-ai-governance` | 隐私生命周期归口给 security-governance |
+| CI、依赖准入、仓库政策 | `areaforge-enterprise-governance` | 具体域细节交给对应 owner |
+| 公开 issue、支持入口、贡献者 PR | `areaforge-public-maintenance` | 各风险面交给对应 owner |
+| 浏览器/API smoke 与体验证据 | `areaforge-qa-smoke` | 产品设计判断给 product-experience |
+| 产品体验设计与打磨判断 | `areaforge-product-experience` | 验证证据给 qa-smoke |
+| 文档/任务/工作流状态同步 | `areaforge-doc-sync` | 验证命令选择给 validation-driver |
+| 残余风险分类与关闭条件 | `areaforge-residual-ledger` | 状态同步给 doc-sync |
+| 选择最小充分验证集 | `areaforge-validation-driver` | 失败语义归还 surface owner |
+
+同会话新任务须重新匹配本表；完整交接边界见 `.codex/skills-src/README.md` 的 Owner 边界表。
 
 ## 工作原则
 

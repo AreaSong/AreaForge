@@ -10,6 +10,7 @@ import {
   type SyllabusMapNodeStatus,
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
+import { cache } from "react";
 import { ApiError } from "@/lib/api/responses";
 import type {
   MasteryEvidenceTypeDto,
@@ -19,6 +20,7 @@ import type {
   SyllabusNodeDto,
   SyllabusNodeKindDto,
   SyllabusNodeStatusDto,
+  SyllabusOptionNodeDto,
 } from "./types";
 
 type DbSyllabusNodeKind = "SUBJECT" | "CHAPTER" | "TOPIC" | "PROBLEM_TYPE";
@@ -283,6 +285,51 @@ export async function listSyllabusTree(): Promise<SyllabusNodeDto[]> {
     ),
   );
 }
+
+/**
+ * 任务/计时/笔记/错题选择器专用的轻量考纲树：不加载证据、掌握证明与地图信号，
+ * 避免选择器场景为每个节点携带整组关联查询。
+ */
+export async function listSyllabusOptions(): Promise<SyllabusOptionNodeDto[]> {
+  const nodes = await prisma.syllabusNode.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      subjectId: true,
+      parentId: true,
+      title: true,
+      subject: {
+        select: { sortOrder: true },
+      },
+    },
+  });
+
+  const byId = new Map<string, SyllabusOptionNodeDto>();
+  const roots: Array<{ dto: SyllabusOptionNodeDto; subjectSortOrder: number }> = [];
+  for (const node of nodes) {
+    byId.set(node.id, { id: node.id, subjectId: node.subjectId, title: node.title, children: [] });
+  }
+  for (const node of nodes) {
+    const dto = byId.get(node.id);
+    if (!dto) continue;
+    const parent = node.parentId ? byId.get(node.parentId) : null;
+    if (parent) {
+      parent.children.push(dto);
+    } else {
+      roots.push({ dto, subjectSortOrder: node.subject.sortOrder });
+    }
+  }
+
+  return roots
+    .sort((left, right) => left.subjectSortOrder - right.subjectSortOrder)
+    .map((root) => root.dto);
+}
+
+// 同一次服务端渲染内共享轻量考纲树，页面与次级消费方不重复查询。
+export const listSyllabusOptionsShared = cache(async (): Promise<SyllabusOptionNodeDto[]> => listSyllabusOptions());
+
+// 同一次服务端渲染内共享考纲地图总览（长期风险摘要与考纲页共用）。
+export const getSyllabusMapOverviewShared = cache(async (): Promise<SyllabusMapOverviewDto> => getSyllabusMapOverview());
 
 export async function getSyllabusMapOverview(): Promise<SyllabusMapOverviewDto> {
   const nodes = await listSyllabusTree();

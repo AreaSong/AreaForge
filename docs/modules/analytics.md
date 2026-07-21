@@ -32,4 +32,11 @@
 - 每个统计图都要能回答“下一步该做什么”。
 - 不为了好看堆图表。
 
-当前 `packages/core` 已提供 `summarizeSyllabusMap` 纯规则，可把考纲节点状态聚合为覆盖率、验证率、推荐筛选和下一步动作。`packages/core` 也已提供 `summarizeAnalyticsRisks` 纯规则，把有效学习不足、任务完成率偏低、复盘缺口、薄弱节点、到期错题和到期笔记压缩成风险项与行动建议；`summarizeLongTermRisks` 已在 Package D Batch D4 接入 Web 只读服务和 `GET /api/analytics/long-term-risks`，把周期报告、任务债务、作战地图、复习队列、模拟考试、阶段计划和首页状态主题压缩成统一长期风险 DTO，并保持 `canAutoApply=false`、`requiresUserConfirmation=true`。Web 层只负责查库和 DTO 格式转换，不写长期风险状态。
+## 当前行为
+
+- `packages/core` 提供 `summarizeSyllabusMap` 纯规则，把考纲节点状态聚合为覆盖率、验证率、推荐筛选和下一步动作。
+- `packages/core` 提供 `summarizeAnalyticsRisks` 纯规则，把有效学习不足、任务完成率偏低、复盘缺口、薄弱节点、到期错题和到期笔记压缩成风险项与行动建议。
+- `summarizeLongTermRisks` 通过 Web 只读服务和 `GET /api/analytics/long-term-risks`，把周期报告、任务债务、作战地图、复习队列、模拟考试、阶段计划和首页状态主题压缩成统一长期风险 DTO，并保持 `canAutoApply=false`、`requiresUserConfirmation=true`。
+- Web 层只负责查库和 DTO 格式转换，不写长期风险状态。
+
+实现进度与批次证据见 [功能追踪矩阵](../development/feature-traceability.md)。

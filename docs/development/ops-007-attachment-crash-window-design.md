@@ -1,23 +1,30 @@
 # OPS-007 附件 Staging 与写入意图设计
 
-当前状态：`blocked / awaiting-high-risk-confirmation`。
+当前状态：`in-progress / local-verified`（维护者已于 2026-07-21 按确认句原文确认，G1）。
 
-本文定义确认前契约，不授权修改 Attachment schema、上传服务、真实上传目录、备份/恢复或历史文件。
+本文档同时是实施后的协议源事实：本地实施已完成并通过隔离 PostgreSQL/临时上传目录 runtime selftest；
+生产 migration/deploy、backup/restore 策略变更和历史文件处理仍未获授权。
 
-## 确认前 Preflight 契约
+## Preflight 契约（V2）
 
-- source contract：`OPS-007-PREFLIGHT-CONTRACT-V1`。
-- `evidenceClass: protocol_preimage_candidate`。
-- preflight 分别计算 task、design、high-risk packet、current schema 和 checked-in fixture 的 SHA-256，
-  并以 `sourceBindingHash` 绑定完整输入集合；任一源事实漂移都必须使检查失效或绑定 hash 变化。
-- 普通模式只输出 `awaiting-high-risk-confirmation` 状态投影；未经明确确认，strict 必须非零退出。
-- fixture 必须先通过既有 crash-window validator，preflight 不读取上传目录、不连接数据库、不读取 secrets。
-- 该证据不证明 migration、runtime、filesystem、backup/restore 或 production；也不证明附件协议已获确认或 residual 已关闭。
+- source contract：`OPS-007-PREFLIGHT-CONTRACT-V2`。
+- 本地实施证据等级：`evidenceClass: local_attachment_protocol_verified`；确认前的候选等级
+  `protocol_preimage_candidate` 保留为历史语义。
+- preflight 分别计算 task、design、high-risk packet、current schema、canonical additive migration 和
+  checked-in fixture 的 SHA-256，并以 `sourceBindingHash` 绑定完整输入集合；任一源事实漂移都必须使检查失效或
+  绑定 hash 变化。current schema 必须包含 OPS-007 实施标记（`AttachmentStatus`、`stagingName`、
+  reconciliation lease 字段、`storedName/uri` 唯一约束）。
+- 提供 `AREAFORGE_OPS007_RUNTIME_RECORD`（由 `pnpm ops:ops-007:runtime:selftest` 在隔离 PostgreSQL +
+  临时上传目录生成、经 `pnpm ops:ops-007:runtime:validate` 语义校验、实现 hash 绑定当前 checkout 且未过期）
+  时，preflight 达到 `local_verified`；否则停留在 `local_validation`，此时 strict 必须非零退出。
+- fixture 必须先通过既有 crash-window validator，preflight 不读取上传目录、不连接开发/生产数据库、不读取 secrets。
+- 该证据只证明当前 checkout 的本地协议实现；不证明签名 Release、生产 migration、生产 filesystem、
+  backup/restore 或 residual 已关闭。
 
 确认与证据生命周期固定为：`awaiting_high_risk_confirmation -> implementation_authorized -> local_validation ->
-local_verified -> release_ready -> production_confirmation_required`。当前 V1 preflight 只允许第一个状态；
-`candidate/pass/complete` 不能代替用户确认。确认过期、撤销、scope/source hash 漂移或扩大到生产、历史清理、
-真实 backup/restore 时必须 fail closed。
+local_verified -> release_ready -> production_confirmation_required`。当前状态为 `local_verified`；
+`candidate/pass/complete` 不能代替用户确认，本地 pass 也不能代替生产确认。确认过期、撤销、scope/source hash
+漂移或扩大到生产、历史清理、真实 backup/restore 时必须 fail closed。
 
 ## 目标不变量
 

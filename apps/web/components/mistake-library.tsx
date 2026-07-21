@@ -3,11 +3,11 @@
 import { AlertCircle, CheckCircle2, Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import type { MistakeCauseDto, MistakeDto, SubjectDto, SyllabusNodeDto } from "@/lib/study/types";
+import type { MistakeCauseDto, MistakeDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
 interface MistakeLibraryProps {
   subjects: SubjectDto[];
-  nodes: SyllabusNodeDto[];
+  nodes: SyllabusOptionNodeDto[];
   mistakes: MistakeDto[];
 }
 
@@ -285,7 +285,7 @@ function CauseOptions() {
   );
 }
 
-function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {
+function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): FlatNode[] {
   return nodes.flatMap((node) => [
     {
       id: node.id,
