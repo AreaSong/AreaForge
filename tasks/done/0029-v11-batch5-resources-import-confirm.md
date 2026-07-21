@@ -43,6 +43,13 @@ releaseRequired: false
 | `pnpm --filter @areaforge/core test` | PASS（65） |
 | `pnpm check` | PASS |
 
+## 续接加固（2026-07-22）
+
+- confirm 仅接受当前 preview diff 中的唯一 selection；`mappedTargetId` 必须来自该项当前 workspace 候选，拒绝跨 workspace 目标。
+- FILE 资料 resolve 通过 note workspace 或 `ATTACHMENT_INTENT_CREATED` actor 绑定校验 staging attachment owner。
+- 资料关联在替换现有关联前，原子验证 task/note/mistake/syllabus target 全部属于当前 workspace。
+- M5 隔离 runtime fixture 已覆盖跨 owner attachment、跨 workspace 关联和跨 workspace confirm mapping 拒绝；未新增 migration，未触碰生产，未物理删除文件或历史。
+
 ## 禁止（仍有效）
 
 - 不新增生产可路由页面或导航入口。
