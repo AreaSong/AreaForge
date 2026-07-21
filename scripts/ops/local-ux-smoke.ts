@@ -280,8 +280,11 @@ async function main(): Promise<void> {
     "/today/inbox",
     "/settings",
     "/settings/workspace",
-    "/notes",
-    "/syllabus",
+    "/knowledge/canvas",
+    "/knowledge/overview",
+    "/knowledge/notes",
+    "/knowledge/syllabus",
+    "/knowledge/reviews",
     "/analytics",
     "/reports",
     "/simulation",
@@ -298,32 +301,49 @@ async function main(): Promise<void> {
     });
   }
 
-  await check("batch7 app shell nav isolation", async () => {
+  await check("batch8 app shell nav isolation", async () => {
     const response = await requestRaw("/today", { cookie });
     const text = await response.text();
     if (text.includes("NEXT_REDIRECT;replace;/login")) {
       throw new Error("authenticated /today redirected to login");
     }
-    for (const label of ["今日", "计划", "收件箱", "设置"]) {
+    for (const label of ["今日", "计划", "收件箱", "知识", "设置"]) {
       if (!text.includes(label)) {
-        throw new Error(`Batch 7 nav missing label: ${label}`);
+        throw new Error(`Batch 8 nav missing label: ${label}`);
       }
     }
+    if (!text.includes('href="/knowledge/canvas"')) {
+      throw new Error("Batch 8 App Shell must expose knowledge canvas href");
+    }
     const forbiddenHrefs = [
-      'href="/notes"',
-      'href="/syllabus"',
       'href="/analytics"',
       'href="/reports"',
       'href="/simulation"',
       'href="/motivation"',
-      'href="/mistakes"',
       'href="/dashboard"',
+      'href="/settings/notifications"',
+      'href="/stage"',
     ];
     for (const href of forbiddenHrefs) {
       if (text.includes(href)) {
-        throw new Error(`Batch 7 App Shell must not expose ${href}`);
+        throw new Error(`Batch 8 App Shell must not expose ${href}`);
       }
     }
+  });
+
+  await checkedJson("batch8 knowledge canvas api", "/api/knowledge-canvas?depth=1&limit=40", cookie, {
+    method: "GET",
+  }, (body) => {
+    const canvas = asRecord(body).canvas;
+    if (!canvas || typeof canvas !== "object") return "knowledge canvas missing canvas payload";
+    const record = asRecord(canvas);
+    if (!Array.isArray(record.nodes) || !Array.isArray(record.list)) {
+      return "knowledge canvas missing nodes/list";
+    }
+    if (!record.layout || typeof asRecord(record.layout).revision !== "number") {
+      return "knowledge canvas missing layout revision";
+    }
+    return null;
   });
 
   await assertNoActiveSession("active session before subject shortcut", cookie);

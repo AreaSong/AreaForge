@@ -40,16 +40,18 @@
 - `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（隔离原子转换；无生产页）
 - `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
 - `/api/learning-tree/templates|export|imports/preview|imports/confirm`、`/api/learning-tree/imports`、`/api/learning-tree/imports/:id`、`/api/learning-tree/imports/:id/export`（隔离；preview 零业务写入；confirm 原子）
-- `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（隔离，无生产页）
-- `/api/review-schedules/**`：物化/列表/改期/pause/resume/confirm event/bridge（隔离）
+- `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（隔离；`/knowledge/resources`）
+- `/api/review-schedules/**`：物化/列表/改期/pause/resume/confirm event/bridge（隔离；`/knowledge/reviews`）
 - `POST /api/review-events/:id/corrections`：追加最新事件更正（隔离）
 - `GET /api/check-ins?from=&to=`：当前 workspace CheckIn v2 只读投影（隔离；无客户端写）
 - `/api/recovery/active|start|/:id/cancel|/:id/restart`：Recovery v2 三阶（隔离；保留既有 `/api/recovery-states/**`）
 - `/api/study-tasks/:id/bridge-complete|bridge-defer|bridge-abandon`：复习桥接任务完成/延期/放弃（隔离）
+- `GET /api/knowledge-canvas`：分层派生节点/边、等价列表与布局摘要（隔离验收）
+- `PUT|DELETE /api/knowledge-canvas/layout`：个人布局 CAS 保存/重置（隔离验收；不改业务边）
 
 仍为规划、未实现：
 
-- 知识画布分层查询与布局 CAS；动机、通知偏好与四类显式 AI 草稿。
+- 动机、通知偏好与四类显式 AI 草稿 API（layout/motivation/notification schema 已落地，入口仍隐藏）。
 
 已落地（隔离分支可路由；生产一次切换见版本计划完整 minor Release）：
 
@@ -58,6 +60,7 @@
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
 - `GET /api/exam-workspaces/:id/subjects`：工作区科目列表（原仅有 POST）。
 - `POST /api/study-sessions/start`：支持 `goalMinutes` / `startSource`（含 `SUBJECT_SHORTCUT`），并校验 ACTIVE 工作区科目。
+- Note API：创建支持 `kind` / `studyDate` / `stableKey` / `relatedSyllabusNodeIds` / `revision` 字段（画布快捷创建复用）。
 
 权威路由与错误契约见 `workflow/versions/v1.1-learning-action-center.md`。旧 `POST /api/syllabus/import-markdown` 在切换前保留 append-only legacy 行为。
 

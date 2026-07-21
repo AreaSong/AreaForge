@@ -236,8 +236,13 @@ export interface NoteDto {
   subjectColor: string;
   syllabusNodeId: string | null;
   syllabusNodeTitle: string | null;
+  relatedSyllabusNodeIds: string[];
   taskId: string | null;
   taskTitle: string | null;
+  kind: string;
+  studyDate: string | null;
+  stableKey: string | null;
+  revision: number;
   title: string;
   content: string;
   masteryStatus: NoteMasteryStatusDto | null;

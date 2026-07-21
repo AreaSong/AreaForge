@@ -1,3 +1,4 @@
+import { isNoteKind, normalizeRelatedNodeIds } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
@@ -7,7 +8,11 @@ import type { NoteDto, NoteMasteryStatusDto } from "./types";
 export interface CreateNoteInput {
   subjectId: string;
   syllabusNodeId?: string | null;
+  relatedSyllabusNodeIds?: string[];
   taskId?: string | null;
+  kind?: string;
+  studyDate?: string | null;
+  stableKey?: string | null;
   title: string;
   content: string;
   masteryStatus?: NoteMasteryStatusDto | null;
@@ -20,6 +25,7 @@ export async function listNotes(): Promise<NoteDto[]> {
       subject: true,
       syllabusNode: true,
       task: true,
+      relatedSyllabusNodes: true,
       attachments: {
         where: { status: "READY" },
         orderBy: { createdAt: "desc" },
@@ -30,6 +36,23 @@ export async function listNotes(): Promise<NoteDto[]> {
   });
 
   return notes.map(serializeNote);
+}
+
+export async function getNoteById(noteId: string): Promise<NoteDto | null> {
+  const note = await prisma.note.findUnique({
+    where: { id: noteId },
+    include: {
+      subject: true,
+      syllabusNode: true,
+      task: true,
+      relatedSyllabusNodes: true,
+      attachments: {
+        where: { status: "READY" },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+  return note ? serializeNote(note) : null;
 }
 
 export async function createNote(input: CreateNoteInput, actorId: string): Promise<NoteDto> {
@@ -43,20 +66,55 @@ export async function createNote(input: CreateNoteInput, actorId: string): Promi
     await assertTaskBelongsToSubject(input.taskId, input.subjectId);
   }
 
+  const kind = input.kind ?? "GENERAL";
+  if (!isNoteKind(kind)) {
+    throw new ApiError("INVALID_NOTE_KIND", 400);
+  }
+
+  const relatedIds = input.relatedSyllabusNodeIds ?? [];
+  if (relatedIds.length > 0 || input.syllabusNodeId) {
+    const nodeIds = Array.from(new Set([...(input.syllabusNodeId ? [input.syllabusNodeId] : []), ...relatedIds]));
+    const nodes = await prisma.syllabusNode.findMany({
+      where: { id: { in: nodeIds } },
+      select: { id: true, subjectId: true },
+    });
+    const nodeSubjectIds = Object.fromEntries(nodes.map((node) => [node.id, node.subjectId]));
+    const normalized = normalizeRelatedNodeIds({
+      primaryNodeId: input.syllabusNodeId,
+      relatedNodeIds: relatedIds,
+      nodeSubjectIds,
+      taskSubjectId: input.subjectId,
+    });
+    if (!normalized.ok) {
+      throw new ApiError("NOTE_NODE_SUBJECT_MISMATCH", 400);
+    }
+  }
+
   const note = await prisma.note.create({
     data: {
       subjectId: input.subjectId,
       syllabusNodeId: input.syllabusNodeId ?? null,
       taskId: input.taskId ?? null,
+      kind,
+      studyDate: input.studyDate ? new Date(input.studyDate) : null,
+      stableKey: input.stableKey ?? null,
       title: input.title,
       content: input.content,
       masteryStatus: input.masteryStatus ?? null,
       nextReviewAt: input.nextReviewAt ? new Date(input.nextReviewAt) : null,
+      relatedSyllabusNodes: relatedIds.length
+        ? {
+            create: relatedIds
+              .filter((id) => id !== input.syllabusNodeId)
+              .map((syllabusNodeId) => ({ syllabusNodeId })),
+          }
+        : undefined,
     },
     include: {
       subject: true,
       syllabusNode: true,
       task: true,
+      relatedSyllabusNodes: true,
       attachments: { where: { status: "READY" } },
     },
   });
@@ -96,6 +154,10 @@ function serializeNote(note: {
   subjectId: string;
   syllabusNodeId: string | null;
   taskId: string | null;
+  kind: string;
+  studyDate: Date | null;
+  stableKey: string | null;
+  revision: number;
   title: string;
   content: string;
   masteryStatus: string | null;
@@ -112,6 +174,7 @@ function serializeNote(note: {
   task?: {
     title: string;
   } | null;
+  relatedSyllabusNodes?: Array<{ syllabusNodeId: string }>;
   attachments: Array<{
     id: string;
     noteId: string | null;
@@ -128,8 +191,13 @@ function serializeNote(note: {
     subjectColor: note.subject.color,
     syllabusNodeId: note.syllabusNodeId,
     syllabusNodeTitle: note.syllabusNode?.title ?? null,
+    relatedSyllabusNodeIds: (note.relatedSyllabusNodes ?? []).map((row) => row.syllabusNodeId),
     taskId: note.taskId,
     taskTitle: note.task?.title ?? null,
+    kind: note.kind,
+    studyDate: note.studyDate?.toISOString() ?? null,
+    stableKey: note.stableKey,
+    revision: note.revision,
     title: note.title,
     content: note.content,
     masteryStatus: note.masteryStatus as NoteMasteryStatusDto | null,

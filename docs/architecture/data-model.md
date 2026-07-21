@@ -36,15 +36,15 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `LearningTreeImportBatch` / `LearningTreeImportItem`：仅 confirm 成功时创建；规范化 Markdown、hash、`(workspaceId, idempotencyKey)` unique、request fingerprint、软归档；preview 不写领域表。
 - `StudyResource`：FILE（READY Attachment）或 LINK（HTTPS）exactly-one；隔离 CRUD/上传/重复三选一/归档 API 已落地；无生产页面；不物理删除。
 - `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；隔离 API 已落地，无生产页。
+- `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：每用户每工作区唯一布局；节点仅 x/y/折叠/固定/隐藏；业务边实时派生。隔离验收已开放 `/knowledge/canvas` 与 layout API。
+- `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema 已落地；动机/通知/AI API 与入口仍隐藏。
 
 ## 规划扩展模型（未实现）
 
-下一产品版本其余实体仍在 additive-first 前提下规划；**已落地的 ExamWorkspace / SubjectGroup / PlanMilestone / TaskDependency / PlanInbox / Note kind / StudyResource / LearningTreeImport / ReviewSchedule / ReviewEvent / CheckIn v2 / Recovery v2 见上方与核心实体**。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。
+下一产品版本其余实体仍在 additive-first 前提下规划；**已落地的 ExamWorkspace / SubjectGroup / PlanMilestone / TaskDependency / PlanInbox / Note kind / StudyResource / LearningTreeImport / ReviewSchedule / ReviewEvent / CheckIn v2 / Recovery v2 / KnowledgeCanvasLayout / Motivation* / NotificationPreference / AiDraftOperation schema 见上方与核心实体**。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。
 
-- `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：个人布局偏好，不保存业务边。
-- `MotivationItem` / `MotivationReminderState` / `NotificationPreference`：动机内容与提醒偏好。
 - `SimulationLossItem`：结构化失分条目。
-- 后续 additive migration 继续扩展布局、动机与模拟 schema；旧数据只读兼容，不批量猜测回填。
+- 后续 additive migration 继续扩展模拟 schema；旧数据只读兼容，不批量猜测回填。
 
 ## 认证相关约束
 

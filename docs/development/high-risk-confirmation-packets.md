@@ -1626,8 +1626,14 @@ pnpm ops:ops-001:preflight
 - 进入 Batch 4/8 改 lockfile 前必须完成许可证、漏洞、bundle/build-script、telemetry 复核与 `pnpm governance:preflight`。
 - 不授权：远程内容上传、客户端密钥、服务端 URL 抓取。
 
-**确认状态（2026-07-21，学习树栈）**：已确认并实施。Batch 4 仅引入 `unified` / `remark-parse` / `remark-frontmatter` / `remark-directive` / `remark-stringify` / `yaml` / `mdast-util-to-markdown` / `mdast-util-directive` / `micromark-extension-directive` / `unist-util-visit` 至 `@areaforge/core`；`pnpm governance:preflight` 通过；`pnpm audit:prod` 无 high/critical。**未**引入 `@xyflow/react`（Batch 8）、远程内容上传、客户端密钥或服务端 URL 抓取。
+**确认状态（2026-07-21，学习树栈）**：已确认并实施。Batch 4 仅引入 `unified` / `remark-parse` / `remark-frontmatter` / `remark-directive` / `remark-stringify` / `yaml` / `mdast-util-to-markdown` / `mdast-util-directive` / `micromark-extension-directive` / `unist-util-visit` 至 `@areaforge/core`；`pnpm governance:preflight` 通过；`pnpm audit:prod` 无 high/critical。**未**引入远程内容上传、客户端密钥或服务端 URL 抓取。
 
 明确确认句（已确认，学习树栈）：
 
 > 允许按 docs/development/dependency-policy.md 与 high-risk 确认包骨架，对学习树 parser 所需 unified/remark/yaml 做依赖准入与 lockfile 变更；不引入远程内容上传、客户端密钥或服务端 URL 抓取。
+
+**确认状态（2026-07-21，`@xyflow/react`）**：已确认并实施。Batch 8 将 `@xyflow/react@12.11.2`（MIT）引入 `@areaforge/web`；包无 postinstall/telemetry SaaS 脚本；`pnpm governance:preflight` 通过；`pnpm audit:prod` 无 high/critical。**未**引入远程内容上传、客户端密钥、服务端 URL 抓取或 telemetry SaaS。
+
+明确确认句（已确认，画布栈）：
+
+> 允许按 docs/development/dependency-policy.md 对 @xyflow/react 做依赖准入与 lockfile 变更；不引入远程内容上传、客户端密钥、telemetry SaaS 或服务端 URL 抓取。

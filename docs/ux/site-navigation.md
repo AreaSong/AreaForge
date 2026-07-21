@@ -4,7 +4,7 @@
 
 ## 导航拓扑
 
-隔离分支已启用受保护 App Shell：登录后默认进入今日行动中心，主导航仅开放今日/计划/收件箱/基础设置。知识、复盘、阶段、动机、通知、AI 不出现在 Shell 导航。Legacy 子页路由仍可直达，但不进新导航。
+隔离分支已启用受保护 App Shell：登录后默认进入今日行动中心，主导航开放今日/计划/收件箱/知识/基础设置。复盘（报告）、阶段、动机、通知、AI 不出现在 Shell 导航。`/syllabus` `/notes` `/mistakes` 重定向到 `/knowledge/*`。
 
 ```mermaid
 flowchart TB
@@ -14,6 +14,14 @@ flowchart TB
   today --> focus["/focus/sessionId"]
   today --> quickReview["/quick-review/scheduleId"]
   today --> workspace["/settings/workspace"]
+  today --> knowledge["/knowledge/canvas"]
+  knowledge --> overview["/knowledge/overview"]
+  knowledge --> syllabus["/knowledge/syllabus"]
+  knowledge --> notes["/knowledge/notes"]
+  knowledge --> mistakes["/knowledge/mistakes"]
+  knowledge --> resources["/knowledge/resources"]
+  knowledge --> imports["/knowledge/imports"]
+  knowledge --> reviews["/knowledge/reviews"]
   plan --> task["/today/tasks/taskId"]
   inbox --> inboxItem["/today/inbox/itemId"]
   workspace --> today
@@ -33,6 +41,14 @@ flowchart TB
 | `/quick-review/[scheduleId]` | 快速复习 | 单对象确认复习事件 | `apps/web/app/(app)/quick-review/[scheduleId]/page.tsx` |
 | `/settings/workspace` | 考试工作区 | 首次设置两步流、科目与接管 | `apps/web/app/(app)/settings/workspace/page.tsx` |
 | `/settings` | 基础设置 | 账户与版本中心 | `apps/web/app/(app)/settings/page.tsx` |
+| `/knowledge/canvas` | 关联画布 | 派生关系图、搜索、等价列表、布局 CAS | `apps/web/app/(app)/knowledge/canvas/page.tsx` |
+| `/knowledge/overview` | 知识概览 | 待复习/薄弱/资料/导入摘要 | `apps/web/app/(app)/knowledge/overview/page.tsx` |
+| `/knowledge/syllabus` | 考纲 | 考纲进度树 | `apps/web/app/(app)/knowledge/syllabus/page.tsx` |
+| `/knowledge/notes` | 知识卡片 | Note 卡片库 | `apps/web/app/(app)/knowledge/notes/page.tsx` |
+| `/knowledge/mistakes` | 错题 | 错题库 | `apps/web/app/(app)/knowledge/mistakes/page.tsx` |
+| `/knowledge/resources` | 资料 | StudyResource 列表 | `apps/web/app/(app)/knowledge/resources/page.tsx` |
+| `/knowledge/imports` | 导入 | 学习树导入历史 | `apps/web/app/(app)/knowledge/imports/page.tsx` |
+| `/knowledge/reviews` | 统一复习 | 复习排期列表 → 快速复习 | `apps/web/app/(app)/knowledge/reviews/page.tsx` |
 | `/login` | 登录 | 单管理员登录；已登录重定向 `/today` | `apps/web/app/login/page.tsx` |
 
 `/` 登录后重定向到 `/today`。
@@ -41,7 +57,8 @@ flowchart TB
 
 | 路由 | 名称 | 说明 |
 |---|---|---|
-| `/syllabus` `/notes` `/mistakes` `/motivation` `/analytics` `/reports` `/simulation` | 旧子页 | 保持可直达；生产默认导航切换见版本计划完整 minor Release |
+| `/syllabus` `/notes` `/mistakes` | 旧子页 | 服务端重定向到 `/knowledge/syllabus` `/knowledge/notes` `/knowledge/mistakes` |
+| `/motivation` `/analytics` `/reports` `/simulation` | 旧子页 | 保持可直达但不进 Shell；生产默认导航切换见版本计划完整 minor Release |
 
 ## 鉴权环
 

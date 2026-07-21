@@ -438,6 +438,21 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - 覆盖：exactly-one Schedule、confirm 幂等/fingerprint 409、correction 单 successor、CheckIn v2 升级、Recovery 三阶、桥接 partial unique、Inbox convert；硬验收 fixture：零时长拒绝、Event 不可变、correction CAS、sourceVersion 1→2、桥接完成须有 ReviewEvent.result；无生产页；不跑生产 migration；不关闭 residual
 - 注意：勿与 Package B Batch 6（`StagePlan` / `StageAdjustmentDraft`，已完成）混淆
 
+#### Batch 7（App Shell + 今日行动中心）专项
+
+- `pnpm check`、`pnpm smoke:local-ux`（含 App Shell nav isolation 与科目快捷计时）
+- 开放 `/today*` `/focus` `/quick-review` `/settings*`；知识/动机/通知/AI/阶段入口隐藏
+- 不跑生产 migration；不关闭 residual
+
+#### Batch 8（Migration 7 + 知识工作台 / 画布）专项
+
+- `@xyflow/react` 依赖准入：`pnpm governance:preflight`、`pnpm audit:prod`；禁 telemetry SaaS / 远程上传 / 服务端 URL 抓取
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m7`）
+- `pnpm --filter @areaforge/core test`（画布 depth/cursor/布局字段拒绝）
+- `pnpm check`、`pnpm smoke:local-ux`（知识入口可见；动机/通知/阶段 href 仍禁止；canvas API）
+- 覆盖：分层派生、布局 CAS、等价列表、桌面可拖/移动只读、`/knowledge/*`、legacy 重定向；动机/通知/AI API 不开放；不跑生产 migration；不关闭 residual
+
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。

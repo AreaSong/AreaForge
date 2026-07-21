@@ -100,7 +100,12 @@ export const createMasteryRetestSchema = z.object({
 export const createNoteSchema = z.object({
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),
+  relatedSyllabusNodeIds: z.array(z.string().min(1)).max(20).optional(),
   taskId: z.string().min(1).nullable().optional(),
+  kind: z.enum(["GENERAL", "CONCEPT", "METHOD", "EXAMPLE", "JOURNAL", "SUMMARY"]).optional(),
+  studyDate: z.string().datetime().nullable().optional(),
+  stableKey: z.string().trim().min(1).max(120).nullable().optional(),
+  expectedRevision: z.number().int().positive().optional(),
   title: z.string().trim().min(1).max(160),
   content: z.string().trim().min(1).max(10000),
   masteryStatus: z.enum(["understood", "partial", "unknown", "relearn", "before_exam"]).nullable().optional(),

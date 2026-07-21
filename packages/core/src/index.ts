@@ -24,6 +24,7 @@ export * from "./check-in-v2";
 export * from "./recovery-v2";
 export * from "./action-center";
 export * from "./app-shell";
+export * from "./knowledge-canvas";
 
 export type RiskState =
   | "rising"

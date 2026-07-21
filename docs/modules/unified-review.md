@@ -13,7 +13,7 @@
   - `POST /api/review-schedules/:id/events` 确认
   - `POST /api/review-events/:id/corrections`
   - bridge：`/api/review-schedules/:id/bridge` 与 `/api/study-tasks/:id/bridge-*`
-- UI：`/quick-review/[scheduleId]` 单对象快速复习；统一复习列表/排期管理页尚未开放。
+- UI：`/quick-review/[scheduleId]` 单对象快速复习；`/knowledge/reviews` 统一复习列表。
 - 确认事务：Event → CAS Schedule →（考纲）Retest/Evidence → CheckIn v2 → Audit。
 - 临时库验证：`AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest`
 
@@ -28,6 +28,6 @@
 ## 非目标
 
 - 不新增第二结果表或自动把错题连通过判为掌握升级。
-- 统一复习列表页（`/knowledge/reviews`）尚未开放；当前仅开放 `/quick-review/[scheduleId]`。
+- 动机内容库、通知偏好与 AI 草稿入口仍隐藏；见版本计划后续阶段。
 
 权威规格见 `workflow/versions/v1.1-learning-action-center.md`；实现状态见 `docs/development/feature-traceability.md`。

@@ -56,6 +56,13 @@ import {
   classifyReviewPriorityBand,
   classifyTaskPriorityBand,
   projectAppShellStatus,
+  selectCanvasChildren,
+  assertLayoutPatchSafe,
+  filterStaleLayoutRefs,
+  clampCanvasDepth,
+  clampCanvasPageSize,
+  isKnowledgeCanvasEntityType,
+  canMutateKnowledgeCanvasLayout,
 } from "./index";
 
 type DashboardInputForTest = Parameters<typeof createDashboardSnapshot>[0];
@@ -1571,4 +1578,133 @@ test("app-shell lights and mobile top priority", () => {
   assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.tone, "amber");
   assert.notEqual(status.lights.find((light) => light.kind === "todayClosure")?.tone, "red");
   assert.equal(status.mobileTop.kind, "activity");
+});
+
+test("knowledge canvas layout conflict, layered load, and mobile read-only layout", () => {
+  assert.equal(clampCanvasDepth(99), 4);
+  assert.equal(clampCanvasPageSize(5000), 200);
+  assert.equal(isKnowledgeCanvasEntityType("NOTE"), true);
+  assert.equal(isKnowledgeCanvasEntityType("FREEFORM"), false);
+
+  // Layout CAS conflict: stale expectedRevision must not overwrite newer layout.
+  assert.equal(assertExpectedRevision({ currentRevision: 3, expectedRevision: 3 }), "ok");
+  assert.equal(assertExpectedRevision({ currentRevision: 3, expectedRevision: 2 }), "revision_conflict");
+  assert.equal(assertLayoutPatchSafe({ expectedRevision: 0, nodes: [] }), "missing_revision");
+
+  const workspace = {
+    id: "ws",
+    entityType: "WORKSPACE" as const,
+    parentId: null,
+    label: "Workspace",
+    subjectId: null,
+  };
+  const subject = {
+    id: "sub",
+    entityType: "SUBJECT" as const,
+    parentId: "ws",
+    label: "Math",
+    subjectId: "sub",
+  };
+  const note = {
+    id: "note",
+    entityType: "NOTE" as const,
+    parentId: "sub",
+    label: "Card",
+    subjectId: "sub",
+  };
+  const layeredNodes = [workspace, subject, note];
+  const layeredEdges = [
+    { id: "e-sub", sourceId: "ws", targetId: "sub", kind: "contains" as const },
+    { id: "e-note", sourceId: "sub", targetId: "note", kind: "related" as const },
+  ];
+
+  // Layered load: depth 0 keeps focus only; depth 2 reaches grandchild note.
+  const depth0 = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 0,
+    limit: 20,
+  });
+  assert.deepEqual(
+    depth0.nodes.map((node) => node.id),
+    ["ws"],
+  );
+
+  const depth2 = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 2,
+    limit: 20,
+  });
+  assert.deepEqual(
+    depth2.nodes.map((node) => node.id).sort(),
+    ["note", "sub", "ws"],
+  );
+
+  const pageNodes = Array.from({ length: 12 }, (_, index) => ({
+    id: `n${index}`,
+    entityType: index === 0 ? ("WORKSPACE" as const) : ("SUBJECT" as const),
+    parentId: index === 0 ? null : "n0",
+    label: `Node ${index}`,
+    subjectId: index === 0 ? null : "sub-1",
+  }));
+  const pageEdges = pageNodes.slice(1).map((node) => ({
+    id: `e-${node.id}`,
+    sourceId: "n0",
+    targetId: node.id,
+    kind: "contains" as const,
+  }));
+
+  const page1 = selectCanvasChildren({
+    nodes: pageNodes,
+    edges: pageEdges,
+    focusId: "n0",
+    depth: 1,
+    limit: 5,
+  });
+  assert.equal(page1.nodes.length, 5);
+  assert.equal(page1.truncated, true);
+  assert.ok(page1.nextCursor);
+
+  const page2 = selectCanvasChildren({
+    nodes: pageNodes,
+    edges: pageEdges,
+    focusId: "n0",
+    depth: 1,
+    limit: 5,
+    cursor: page1.nextCursor,
+  });
+  assert.ok(page2.nodes.length > 0);
+  assert.equal(page2.nodes.some((node) => node.id === page1.nodes[0]?.id), false);
+
+  assert.equal(
+    assertLayoutPatchSafe({
+      expectedRevision: 1,
+      nodes: [{ entityType: "NOTE", entityId: "note-1", x: 10, y: 20 }],
+    }),
+    "ok",
+  );
+  assert.equal(
+    assertLayoutPatchSafe({
+      expectedRevision: 1,
+      nodes: [{ entityType: "NOTE", entityId: "note-1", x: 10, y: 20, title: "nope" } as never],
+    }),
+    "business_fields_forbidden",
+  );
+
+  // Mobile read-only layout: only desktop viewport may mutate personal layout.
+  assert.equal(canMutateKnowledgeCanvasLayout({ isDesktopViewport: true }), true);
+  assert.equal(canMutateKnowledgeCanvasLayout({ isDesktopViewport: false }), false);
+
+  const stale = filterStaleLayoutRefs({
+    nodeLayouts: [
+      { entityType: "NOTE", entityId: "alive" },
+      { entityType: "NOTE", entityId: "gone" },
+    ],
+    liveEntityIds: new Set(["NOTE:alive"]),
+  });
+  assert.deepEqual(stale.kept, [{ entityType: "NOTE", entityId: "alive" }]);
+  assert.deepEqual(stale.staleCandidates, [{ entityType: "NOTE", entityId: "gone" }]);
 });

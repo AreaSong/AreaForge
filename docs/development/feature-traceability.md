@@ -65,14 +65,14 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 五工作台 App Shell 与稳定路由 | 隔离已实现 | Batch 7：受限 App Shell；开放 `/today*`、`/focus/[sessionId]`、`/quick-review/[scheduleId]`、`/settings`/`/settings/workspace`；知识/动机/通知/AI/阶段入口隐藏 | Batch 8+ |
+| 五工作台 App Shell 与稳定路由 | 隔离已实现 | Batch 8：App Shell 开放今日/计划/收件箱/知识/基础设置；`/knowledge/*` 已开放；动机/通知/AI/阶段入口仍隐藏 | Batch 9+ |
 | 考试工作区 / 自定义科目 / 408 分组 | 隔离已实现 | Migration 1 API + Batch 7 `/settings/workspace` 首次设置两步流 | Batch 11 生产切换 |
 | 今日行动中心与科目快捷计时 | 隔离已实现 | `/today` + `GET /api/action-center/today`；科目快捷 → `/focus` | Batch 11 生产切换 |
 | PlanInbox / 里程碑 / 任务依赖 | 隔离已实现 | Inbox/里程碑/依赖 API + Batch 7 `/today/inbox*`、`/today/plan`、`/today/tasks/[taskId]` | Batch 11 生产切换 |
-| 学习树 V1 preview / confirm | 隔离已实现 | Batch 4 preview + Batch 5 confirm/history/export；Migration 4–5；`AF-RISK-DATA-001` 生命周期已接受、residual 未关 | Batch 8+ 知识页 |
-| 全局关联画布 | 未实现 | 数据契约 12.5 | Batch 8 |
-| StudyResource FILE/LINK | 隔离 API 已实现 | Migration 4 schema + Batch 5 CRUD/staging/resolve/ZIP/MD；无知识页 | Batch 8+ UI |
-| 统一复习 Schedule/Event | 隔离已实现 | Batch 6 API + Batch 7 `/quick-review/[scheduleId]`；统一复习列表页仍属 Batch 8 | Batch 8 `/knowledge/reviews` |
+| 学习树 V1 preview / confirm | 隔离已实现 | Batch 4 preview + Batch 5 confirm/history/export；Batch 8 `/knowledge/imports`；`AF-RISK-DATA-001` residual 未关 | Batch 11 生产切换 |
+| 全局关联画布 | 隔离已实现 | Migration 7 layout + `GET/PUT/DELETE /api/knowledge-canvas*` + `/knowledge/canvas`（`@xyflow/react`）；动机/通知/AI 仍隐藏 | Batch 9+ |
+| StudyResource FILE/LINK | 隔离已实现 | Migration 4 schema + Batch 5 API + Batch 8 `/knowledge/resources` | Batch 11 生产切换 |
+| 统一复习 Schedule/Event | 隔离已实现 | Batch 6 API + Batch 7 `/quick-review/[scheduleId]` + Batch 8 `/knowledge/reviews` | Batch 11 生产切换 |
 | CheckIn v2 / 恢复三阶 | 隔离已实现 | Batch 6 API + Batch 7 今日摘要与「我学不下去了」Recovery Drawer | Batch 9 动机内容库 |
 | 动机 / 通知 / 四类 AI 草稿 | 未实现 | 版本计划第十一节 | Batch 9 |
 | 模拟结构化失分 / 报告阶段入箱 | 未实现 | 版本计划第十节 | Batch 10 |

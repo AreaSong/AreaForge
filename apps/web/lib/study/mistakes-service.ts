@@ -45,6 +45,17 @@ export async function listMistakes(): Promise<MistakeDto[]> {
   return mistakes.map(serializeMistake);
 }
 
+export async function getMistakeById(id: string): Promise<MistakeDto | null> {
+  const mistake = await prisma.mistake.findUnique({
+    where: { id },
+    include: {
+      subject: true,
+      syllabusNode: true,
+    },
+  });
+  return mistake ? serializeMistake(mistake) : null;
+}
+
 export async function createMistake(input: CreateMistakeInput, actorId: string): Promise<MistakeDto> {
   await assertSubjectExists(input.subjectId);
   if (input.syllabusNodeId) {

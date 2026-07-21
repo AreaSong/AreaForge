@@ -157,6 +157,11 @@ model User {
   recoveryStatesAsUser    RecoveryState[]          @relation("RecoveryStateUser")
   reviewSchedules         ReviewSchedule[]
   reviewEvents            ReviewEvent[]
+  knowledgeCanvasLayouts  KnowledgeCanvasLayout[]
+  motivationItems         MotivationItem[]
+  motivationReminderState MotivationReminderState?
+  notificationPreference  NotificationPreference?
+  aiDraftOperations       AiDraftOperation[]
 }
 
 model AuthSession {
@@ -201,6 +206,8 @@ model ExamWorkspace {
   studyResources   StudyResource[]
   learningTreeImportBatches LearningTreeImportBatch[]
   reviewSchedules  ReviewSchedule[]
+  knowledgeCanvasLayouts KnowledgeCanvasLayout[]
+  aiDraftOperations AiDraftOperation[]
 
   @@unique([userId, stableKey])
   @@index([userId])
@@ -1114,4 +1121,149 @@ model ReviewEvent {
   @@index([learningDate])
   @@index([correctedEventId])
   @@index([actorId])
+}
+
+enum MotivationItemType {
+  QUOTE
+  VIDEO_LINK
+  VAULT_EXCERPT
+}
+
+enum AiDraftOperationStatus {
+  PENDING
+  IN_FLIGHT
+  SUCCEEDED
+  FAILED
+  EXPIRED
+}
+
+enum KnowledgeCanvasEntityType {
+  WORKSPACE
+  SUBJECT_GROUP
+  SUBJECT
+  SYLLABUS_NODE
+  NOTE
+  MISTAKE
+  STUDY_RESOURCE
+  TASK
+  MILESTONE
+  STUDY_SESSION
+  REVIEW_SCHEDULE
+}
+
+model KnowledgeCanvasLayout {
+  id           String                     @id @default(cuid())
+  userId       String
+  workspaceId  String
+  viewportX    Float                      @default(0)
+  viewportY    Float                      @default(0)
+  viewportZoom Float                      @default(1)
+  revision     Int                        @default(1)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  user         User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    ExamWorkspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  nodes        KnowledgeCanvasNodeLayout[]
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model KnowledgeCanvasNodeLayout {
+  id         String                    @id @default(cuid())
+  layoutId   String
+  entityType KnowledgeCanvasEntityType
+  entityId   String
+  x          Float
+  y          Float
+  collapsed  Boolean                   @default(false)
+  pinned     Boolean                   @default(false)
+  hidden     Boolean                   @default(false)
+  createdAt  DateTime                  @default(now())
+  updatedAt  DateTime                  @updatedAt
+  layout     KnowledgeCanvasLayout     @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+
+  @@unique([layoutId, entityType, entityId])
+  @@index([entityType, entityId])
+}
+
+model MotivationItem {
+  id              String             @id @default(cuid())
+  userId          String
+  type            MotivationItemType
+  title           String
+  body            String?
+  externalUrl     String?
+  vaultSourceId   String?
+  tags            String[]           @default([])
+  enabled         Boolean            @default(true)
+  sortOrder       Int                @default(0)
+  revision        Int                @default(1)
+  actorId         String?
+  archivedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled, sortOrder])
+  @@index([archivedAt])
+}
+
+model MotivationReminderState {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  lastAutoShowAt   DateTime?
+  learningDay      DateTime?
+  dailyCount       Int       @default(0)
+  recentItemIds    String[]  @default([])
+  revision         Int       @default(1)
+  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationPreference {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  reviewDueEnabled   Boolean  @default(true)
+  planStartEnabled   Boolean  @default(true)
+  eveningReviewEnabled Boolean @default(true)
+  reviewDueWindowStart Int    @default(8)
+  reviewDueWindowEnd   Int    @default(22)
+  planStartWindowStart Int    @default(7)
+  planStartWindowEnd   Int    @default(21)
+  eveningReviewWindowStart Int @default(20)
+  eveningReviewWindowEnd   Int @default(23)
+  quietHoursStart    Int?
+  quietHoursEnd      Int?
+  revision           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AiDraftOperation {
+  id                 String                 @id @default(cuid())
+  operationId        String
+  actorId            String
+  workspaceId        String
+  endpoint           String
+  purpose            String
+  requestFingerprint String
+  nonce              String
+  projectionVersion  String
+  status             AiDraftOperationStatus @default(PENDING)
+  resultReference    String?
+  expiresAt          DateTime
+  consumedAt         DateTime?
+  revision           Int                    @default(1)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  actor              User                   @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  workspace          ExamWorkspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, operationId])
+  @@unique([workspaceId, endpoint, nonce])
+  @@index([actorId])
+  @@index([status, expiresAt])
 }

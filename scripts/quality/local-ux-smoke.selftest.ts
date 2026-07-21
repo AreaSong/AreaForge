@@ -28,9 +28,29 @@ assert(productionSmokeSource.includes("readRestrictedSmokePassword")
 "production read-only smoke must share the restricted password boundary");
 assert(source.includes("detail: result.detail"), "structured report must retain redacted failure details");
 assert(source.includes('recordFailure("fatal", error)'), "unexpected failures must use the structured report path");
-assert(source.includes('batch7 app shell nav isolation'), "Batch 7 App Shell nav isolation check must remain");
+assert(source.includes('batch8 app shell nav isolation'), "Batch 8 App Shell nav isolation check must remain");
 assert(source.includes('startSource: "SUBJECT_SHORTCUT"'), "Batch 7 subject shortcut start path must remain");
-assert(source.includes('href="/motivation"'), "Batch 7 isolation must reject motivation nav href");
+assert(source.includes('href="/motivation"'), "Batch 8 isolation must reject motivation nav href");
+assert(source.includes('href="/settings/notifications"'), "Batch 8 isolation must reject notification settings href");
+assert(source.includes('href="/knowledge/canvas"'), "Batch 8 must require knowledge canvas nav href");
+assert(source.includes("batch8 knowledge canvas api"), "Batch 8 knowledge canvas API smoke must remain");
+
+const canvasClientSource = readFileSync(
+  path.join(repositoryRoot, "apps/web/components/knowledge-canvas-client.tsx"),
+  "utf8",
+);
+assert(
+  canvasClientSource.includes("canMutateKnowledgeCanvasLayout"),
+  "Batch 8 canvas client must gate layout mutation via canMutateKnowledgeCanvasLayout",
+);
+assert(
+  canvasClientSource.includes("布局编辑仅桌面可用"),
+  "Batch 8 canvas client must keep mobile read-only layout copy",
+);
+assert(
+  !canvasClientSource.includes("/api/notes") && !canvasClientSource.includes("/api/mistakes"),
+  "Batch 8 quick create must not invent canvas-private write APIs",
+);
 
 await main();
 
