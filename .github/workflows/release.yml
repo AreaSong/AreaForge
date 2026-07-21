@@ -124,6 +124,9 @@ jobs:
       - name: OPS-005 expected-before V2 selftest
         run: pnpm ops:ops-005:local:selftest && pnpm ops:ops-005:preflight:selftest && pnpm ops:ops-005:evidence:selftest
 
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
       - name: OPS-006/007/008 confirmation-before selftests
         run: pnpm ops:ops-006:preflight:selftest && pnpm ops:ops-007:preflight:selftest && pnpm ops:ops-008:preflight:selftest && pnpm ops:ops-006:preflight && pnpm ops:ops-007:preflight && pnpm ops:ops-008:preflight && pnpm attachment:crash-window:selftest && pnpm attachment:crash-window:validate scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json && pnpm updater:phase-journal:selftest && pnpm updater:phase-journal:validate scripts/quality/fixtures/update-agent/phase-journal/ops008-preconfirmation.json && pnpm updater:maintenance-control:selftest && pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-drain-preconfirmation.json && pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-waiting-preconfirmation.json && pnpm updater:maintenance-control:validate scripts/quality/fixtures/update-agent/maintenance-control/ops008-hold-lock-waiting-preconfirmation.json
 
