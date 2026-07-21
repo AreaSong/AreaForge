@@ -33,11 +33,11 @@
 
 ### Action Center 与工作区
 
-Batch 3 已在隔离分支落地（**无生产导航入口**）：
+已在隔离分支落地（**无生产导航入口**）：
 
 - `/api/exam-workspaces/**`：工作区列表/创建、激活切换、接管 preview/apply、科目分组读取、自定义科目创建
 - `/api/plan-milestones/**`：里程碑列表/创建/编辑
-- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen（**无 convert**，convert 属 Batch 6）
+- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen（**无 convert**）
 - `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
 
 仍为规划、未实现：

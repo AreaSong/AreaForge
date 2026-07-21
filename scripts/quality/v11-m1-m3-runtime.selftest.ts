@@ -18,15 +18,18 @@ try {
   await assertIsolatedDatabase();
   await verifyPartialIndexes();
   await resetAndSeedLegacy();
+  await verifyActiveWorkspaceUnique();
   await verifySubjectLegacyCodeAndCustom();
-  await verifyTakeoverAndRollback();
+  await verifyTakeoverIneligibleNoPartialWrite();
+  await verifyTakeoverMidTransactionRollback();
+  await verifyTakeoverHappyPath();
   await verifyDependencyCycle();
-  await verifyPlanInboxOriginUniqueAndDismiss();
+  await verifyPlanInboxWriteBoundaries();
 
   console.log(
     JSON.stringify(
       {
-        schemaVersion: "v11-m1-m3-runtime-selftest-v1",
+        schemaVersion: "v11-m1-m3-runtime-selftest-v2",
         status: "pass",
         checks,
       },
@@ -170,13 +173,58 @@ async function resetAndSeedLegacy(): Promise<void> {
   pass("legacy_fixture_seeded", { subjects: 2, tasks: 3 });
 }
 
-async function verifySubjectLegacyCodeAndCustom(): Promise<void> {
-  const workspace = await createExamWorkspace("user-a", {
-    stableKey: "kaoyan-2027",
-    name: "考研 2027",
+async function verifyActiveWorkspaceUnique(): Promise<void> {
+  const first = await createExamWorkspace("user-a", {
+    stableKey: "ws-first",
+    name: "第一工作区",
     activate: true,
   });
-  const custom = await createWorkspaceSubject("user-a", workspace.id, {
+  const second = await createExamWorkspace("user-a", {
+    stableKey: "ws-second",
+    name: "第二工作区",
+    activate: true,
+  });
+
+  const actives = await prisma.examWorkspace.findMany({
+    where: { userId: "user-a", status: "ACTIVE" },
+  });
+  assert.equal(actives.length, 1);
+  assert.equal(actives[0]?.id, second.id);
+
+  const archivedFirst = await prisma.examWorkspace.findFirst({ where: { id: first.id } });
+  assert.equal(archivedFirst?.status, "ARCHIVED");
+
+  let partialUniqueRejected = false;
+  try {
+    await prisma.$executeRaw`
+      UPDATE "ExamWorkspace"
+      SET status = 'ACTIVE', "archivedAt" = NULL
+      WHERE id = ${first.id}
+    `;
+  } catch {
+    partialUniqueRejected = true;
+  }
+  assert.equal(partialUniqueRejected, true);
+
+  const stillOne = await prisma.examWorkspace.count({
+    where: { userId: "user-a", status: "ACTIVE" },
+  });
+  assert.equal(stillOne, 1);
+
+  pass("active_workspace_unique", {
+    firstId: first.id,
+    secondId: second.id,
+    partialUniqueRejected,
+  });
+}
+
+async function verifySubjectLegacyCodeAndCustom(): Promise<void> {
+  const workspace = await prisma.examWorkspace.findFirst({
+    where: { userId: "user-a", status: "ACTIVE" },
+  });
+  assert.ok(workspace);
+
+  const custom = await createWorkspaceSubject("user-a", workspace!.id, {
     stableKey: "custom-stats",
     name: "统计学",
     color: "#111111",
@@ -187,17 +235,83 @@ async function verifySubjectLegacyCodeAndCustom(): Promise<void> {
   const legacy = await prisma.subject.findFirst({ where: { id: "subj-math" } });
   assert.equal(legacy?.legacyCode, "MATH");
   assert.equal(legacy?.workspaceId, null);
-  pass("subject_legacy_and_custom", { workspaceId: workspace.id, customId: custom.id });
+  pass("subject_legacy_and_custom", { workspaceId: workspace!.id, customId: custom.id });
 }
 
-async function verifyTakeoverAndRollback(): Promise<void> {
+async function verifyTakeoverIneligibleNoPartialWrite(): Promise<void> {
   const workspace = await prisma.examWorkspace.findFirst({
     where: { userId: "user-a", status: "ACTIVE" },
   });
   assert.ok(workspace);
 
+  await prisma.subject.update({
+    where: { id: "subj-math" },
+    data: { workspaceId: null, groupId: null },
+  });
+
   const preview = await previewWorkspaceTakeover("user-a");
   assert.ok(preview.eligibleSubjectIds.includes("subj-math"));
+  assert.ok(preview.unresolvedSubjectIds.includes("subj-orphan"));
+
+  let blocked = false;
+  try {
+    await applyWorkspaceTakeover("user-a", {
+      workspaceId: workspace!.id,
+      subjectIds: ["subj-math", "subj-orphan"],
+      expectedRevision: workspace!.revision,
+    });
+  } catch (error) {
+    blocked = error instanceof ApiError && error.code === "TAKEOVER_SUBJECT_NOT_ELIGIBLE";
+  }
+  assert.equal(blocked, true);
+
+  const math = await prisma.subject.findFirst({ where: { id: "subj-math" } });
+  const orphan = await prisma.subject.findFirst({ where: { id: "subj-orphan" } });
+  assert.equal(math?.workspaceId, null);
+  assert.equal(orphan?.workspaceId, null);
+
+  pass("takeover_ineligible_no_partial_write", {
+    blocked,
+    eligible: preview.eligibleCount,
+    unresolved: preview.unresolvedCount,
+  });
+}
+
+async function verifyTakeoverMidTransactionRollback(): Promise<void> {
+  const workspace = await prisma.examWorkspace.findFirst({
+    where: { userId: "user-a", status: "ACTIVE" },
+  });
+  assert.ok(workspace);
+
+  let forcedFailure = false;
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.subject.update({
+        where: { id: "subj-math" },
+        data: { workspaceId: workspace!.id },
+      });
+      forcedFailure = true;
+      throw new Error("forced_mid_takeover_failure");
+    });
+  } catch (error) {
+    assert.equal(error instanceof Error && error.message === "forced_mid_takeover_failure", true);
+  }
+  assert.equal(forcedFailure, true);
+
+  const math = await prisma.subject.findFirst({ where: { id: "subj-math" } });
+  assert.equal(math?.workspaceId, null);
+
+  pass("takeover_mid_transaction_rollback", {
+    forcedFailure,
+    workspaceIdStillNull: math?.workspaceId === null,
+  });
+}
+
+async function verifyTakeoverHappyPath(): Promise<void> {
+  const workspace = await prisma.examWorkspace.findFirst({
+    where: { userId: "user-a", status: "ACTIVE" },
+  });
+  assert.ok(workspace);
 
   const applied = await applyWorkspaceTakeover("user-a", {
     workspaceId: workspace!.id,
@@ -209,26 +323,7 @@ async function verifyTakeoverAndRollback(): Promise<void> {
   const taken = await prisma.subject.findFirst({ where: { id: "subj-math" } });
   assert.equal(taken?.workspaceId, workspace!.id);
 
-  // rollback simulation: leave schema, restore subject to legacy null workspace in fixture only
-  await prisma.subject.update({
-    where: { id: "subj-math" },
-    data: { workspaceId: null, groupId: null },
-  });
-  const restored = await prisma.subject.findFirst({ where: { id: "subj-math" } });
-  assert.equal(restored?.workspaceId, null);
-
-  // apply again after revision bump
-  const refreshed = await prisma.examWorkspace.findFirst({ where: { id: workspace!.id } });
-  await applyWorkspaceTakeover("user-a", {
-    workspaceId: workspace!.id,
-    subjectIds: ["subj-math"],
-    expectedRevision: refreshed!.revision,
-  });
-
-  pass("takeover_apply_and_fixture_rollback", {
-    eligible: preview.eligibleCount,
-    unresolved: preview.unresolvedCount,
-  });
+  pass("takeover_happy_path", { subjectId: "subj-math", workspaceId: workspace!.id });
 }
 
 async function verifyDependencyCycle(): Promise<void> {
@@ -267,10 +362,13 @@ async function verifyDependencyCycle(): Promise<void> {
   }
   assert.equal(selfLoopBlocked, true);
 
-  pass("dependency_cycle_and_self_loop", { cycleBlocked, selfLoopBlocked });
+  const edgeCount = await prisma.taskDependency.count();
+  assert.equal(edgeCount, 2);
+
+  pass("dependency_cycle_and_self_loop", { cycleBlocked, selfLoopBlocked, edgeCount });
 }
 
-async function verifyPlanInboxOriginUniqueAndDismiss(): Promise<void> {
+async function verifyPlanInboxWriteBoundaries(): Promise<void> {
   const workspace = await prisma.examWorkspace.findFirst({
     where: { userId: "user-a", status: "ACTIVE" },
   });
@@ -321,9 +419,26 @@ async function verifyPlanInboxOriginUniqueAndDismiss(): Promise<void> {
   const dismissed = await dismissPlanInboxItem("user-a", item.id, item.revision);
   assert.equal(dismissed.status, "DISMISSED");
 
-  pass("plan_inbox_origin_and_dismiss", {
+  let convertedWithoutTaskRejected = false;
+  try {
+    await prisma.$executeRaw`
+      INSERT INTO "PlanInboxItem" (
+        id, "workspaceId", "stableKey", "originKey", "originVersion", "originType",
+        "originSnapshot", status, title, revision, "createdAt", "updatedAt", "convertedTaskId"
+      ) VALUES (
+        'bad-converted', ${workspace!.id}, 'bad-converted', 'bad:origin', 1, 'TEST',
+        '{}'::jsonb, 'CONVERTED', '非法转换', 1, NOW(), NOW(), NULL
+      )
+    `;
+  } catch {
+    convertedWithoutTaskRejected = true;
+  }
+  assert.equal(convertedWithoutTaskRejected, true);
+
+  pass("plan_inbox_write_boundaries", {
     itemId: item.id,
     originConflict,
+    convertedWithoutTaskRejected,
   });
 }
 
@@ -331,5 +446,4 @@ function pass(id: string, details: Record<string, string | number | boolean>): v
   checks.push({ id, status: "pass", details });
 }
 
-// keep hash helper referenced for future fingerprinting hooks
 void createHash;

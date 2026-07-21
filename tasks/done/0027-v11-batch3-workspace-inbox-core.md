@@ -24,7 +24,8 @@ releaseRequired: false
 - Subject `code` → 可空 `legacyCode`；partial unique 覆盖 workspace / legacy 范围
 - API：`/api/exam-workspaces/**`、`/api/plan-milestones/**`、`/api/plan-inbox/**`（dismiss/reopen，无 convert）、`/api/tasks/:id/dependencies/**`
 - `packages/core` 工作区/legacy/依赖/Inbox/知识卡片规则 + 单元测试
-- 临时库 selftest：`AREAFORGE_V11_M1M3_ISOLATED_DB=1 pnpm ops:v11:m1m3:runtime:selftest`
+- 临时库 selftest v2：`AREAFORGE_V11_M1M3_ISOLATED_DB=1 pnpm ops:v11:m1m3:runtime:selftest`
+  - 覆盖：ACTIVE workspace 唯一（含 partial unique 拒绝）、接管 ineligible 无部分写入、中途失败事务回滚、依赖环/自环拒绝、PlanInbox origin 冲突与 CONVERTED 无 task 的 CHECK
 - Batch 3 **无 lockfile 新依赖**；不开放生产页面；**无** PlanInbox convert（Batch 6）；**未**生产 migration deploy；**未**关闭 residual
 
 ## 禁止（仍有效）
