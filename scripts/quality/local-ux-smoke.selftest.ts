@@ -16,6 +16,9 @@ assert(source.indexOf('assertNoActiveSession("active session preflight"') < sour
   "active session preflight must happen before workspace fixture writes");
 assert(source.includes("ensureSmokeWorkspace(cookie, tag)"),
   "local UX smoke must establish the active v1.1 workspace fixture explicitly");
+assert(source.includes("expectedRevision: examRevision") && source.includes("paperFullScore: 100")
+  && source.includes('reason: "CONCEPT_GAP"'),
+  "local UX smoke must use the Batch 10 revision-bound structured simulation result contract");
 assert(source.includes('assertNoActiveSession("active session before synthetic writes"'),
   "synthetic writes need a second active-session guard");
 assert(source.includes("process.env.AREAFORGE_SMOKE_ALLOW_NON_LOCAL !== undefined"),

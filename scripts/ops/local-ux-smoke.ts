@@ -193,12 +193,16 @@ async function main(): Promise<void> {
       targetScore: 300,
     },
   });
-  const examId = stringField(asRecord(examBody).exam, "id");
+  const exam = asRecord(examBody.exam);
+  const examId = stringField(exam, "id");
+  const examRevision = exam.revision;
   if (!examId) throw new Error("create simulation exam response missing exam.id");
+  if (typeof examRevision !== "number") throw new Error("create simulation exam response missing exam.revision");
 
   await checkedJson("save simulation result", `/api/simulation/exams/${encodeURIComponent(examId)}/results`, cookie, {
     method: "POST",
     body: {
+      expectedRevision: examRevision,
       targetDurationMinutes: 180,
       actualDurationMinutes: 170,
       targetScore: 300,
@@ -210,12 +214,19 @@ async function main(): Promise<void> {
       subjectResults: [
         {
           subjectId,
+          paperFullScore: 100,
           targetScore: 100,
           actualScore: 82,
           durationMinutes: 50,
           blankQuestionCount: 1,
           lossReasons: ["基础概念"],
           summary: "需要复盘。",
+          lossItems: [{
+            reason: "CONCEPT_GAP",
+            syllabusNodeId,
+            lostScore: 18,
+            note: "本地 smoke 结构化失分",
+          }],
         },
       ],
     },
