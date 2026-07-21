@@ -12,6 +12,10 @@ const productionSmokeSource = readFileSync(path.join(repositoryRoot, "scripts/op
 
 assert(source.indexOf('assertNoActiveSession("active session preflight"') < source.indexOf('"create syllabus node"'),
   "active session preflight must happen before the first business write");
+assert(source.indexOf('assertNoActiveSession("active session preflight"') < source.indexOf('"create active exam workspace"'),
+  "active session preflight must happen before workspace fixture writes");
+assert(source.includes("ensureSmokeWorkspace(cookie, tag)"),
+  "local UX smoke must establish the active v1.1 workspace fixture explicitly");
 assert(source.includes('assertNoActiveSession("active session before synthetic writes"'),
   "synthetic writes need a second active-session guard");
 assert(source.includes("process.env.AREAFORGE_SMOKE_ALLOW_NON_LOCAL !== undefined"),

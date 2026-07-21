@@ -57,10 +57,7 @@ async function main(): Promise<void> {
 
   await assertNoActiveSession("active session preflight", cookie);
 
-  const subjectsBody = await checkedJson("subjects", "/api/subjects", cookie);
-  const subject = firstArrayItem(asRecord(subjectsBody).subjects);
-  const subjectId = stringField(subject, "id");
-  if (!subjectId) throw new Error("subjects response did not include a subject id");
+  const subjectId = await ensureSmokeWorkspace(cookie, tag);
 
   await assertNoActiveSession("active session before synthetic writes", cookie);
 
@@ -404,6 +401,49 @@ async function checkedAttachmentUpload(noteId: string, cookie: string): Promise<
     method: "POST",
     rawBody: attachmentFormData(),
   });
+}
+
+async function ensureSmokeWorkspace(cookie: string, tag: string): Promise<string> {
+  const workspacesBody = await checkedJson("exam workspaces", "/api/exam-workspaces", cookie);
+  const workspaces = asRecord(workspacesBody).workspaces;
+  let workspace = Array.isArray(workspaces)
+    ? workspaces.map(asRecord).find((item) => item.status === "ACTIVE")
+    : undefined;
+
+  if (!stringField(workspace, "id")) {
+    const createdBody = await checkedJson("create active exam workspace", "/api/exam-workspaces", cookie, {
+      method: "POST",
+      body: {
+        stableKey: `ux-smoke-${tag}`,
+        name: `UX smoke 工作区 ${tag}`,
+        activate: true,
+      },
+    });
+    workspace = asRecord(createdBody.workspace);
+  }
+
+  const workspaceId = stringField(workspace, "id");
+  if (!workspaceId) throw new Error("active exam workspace response missing workspace.id");
+
+  const subjectsPath = `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/subjects`;
+  const subjectsBody = await checkedJson("workspace subjects", subjectsPath, cookie);
+  let subject = firstArrayItem(asRecord(subjectsBody).subjects);
+  if (!stringField(subject, "id")) {
+    const createdBody = await checkedJson("create workspace subject", subjectsPath, cookie, {
+      method: "POST",
+      body: {
+        stableKey: `ux-smoke-subject-${tag}`,
+        name: `UX smoke 科目 ${tag}`,
+        color: "#0f766e",
+        sortOrder: 10,
+      },
+    });
+    subject = asRecord(createdBody.subject);
+  }
+
+  const subjectId = stringField(subject, "id");
+  if (!subjectId) throw new Error("workspace subject response missing subject.id");
+  return subjectId;
 }
 
 async function assertNoActiveSession(name: string, cookie: string): Promise<void> {
