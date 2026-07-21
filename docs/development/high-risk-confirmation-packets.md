@@ -1617,7 +1617,9 @@ pnpm ops:ops-001:preflight
 - `AI_PAYLOAD_BINDING_SECRET` 仅服务端；不得进入客户端 bundle。
 - 不授权：后台/GET 外呼、附件或未选择正文、费用账本、自动写业务对象。
 
-明确确认句（待填）：
+**确认状态（2026-07-21）**：已确认并进入 Batch 9 实施。仅鉴权 POST、选中文本与预览勾选投影、purpose-separated HMAC 与 opaque preview token。**未**授权附件/未选择正文、自动写业务对象、保存 prompt/raw response 或 residual 关闭。
+
+明确确认句（已确认）：
 
 > 确认四类显式 AI 草稿用途（learning-tree / knowledge-card / plan / motivation）：仅鉴权 POST、选中文本与预览勾选投影、purpose-separated HMAC 与 opaque preview token；不授权附件/未选择正文、自动写业务对象、保存 prompt/raw response 或 residual 关闭。
 

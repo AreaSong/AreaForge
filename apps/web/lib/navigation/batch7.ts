@@ -24,6 +24,15 @@ export const KNOWLEDGE_TAB_ITEMS = [
   { href: "/knowledge/reviews", label: "复习" },
 ] as const;
 
+export const SETTINGS_TAB_ITEMS = [
+  { href: "/settings/workspace", label: "工作区" },
+  { href: "/settings/profile", label: "档案" },
+  { href: "/settings/notifications", label: "通知" },
+  { href: "/settings/ai", label: "AI" },
+  { href: "/settings/experience", label: "体验" },
+  { href: "/settings/system", label: "系统" },
+] as const;
+
 export const SAFE_RETURN_PATHS = [
   "/today",
   "/today/plan",
@@ -40,6 +49,8 @@ export const SAFE_RETURN_PATHS = [
   "/settings",
   "/settings/workspace",
   "/settings/profile",
+  "/settings/notifications",
+  "/settings/ai",
   "/settings/experience",
   "/settings/system",
 ] as const;

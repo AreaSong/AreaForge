@@ -51,7 +51,13 @@
 
 仍为规划、未实现：
 
-- 动机、通知偏好与四类显式 AI 草稿 API（layout/motivation/notification schema 已落地，入口仍隐藏）。
+- 阶段工作台全入口与模拟失分结构化补强（Batch 10）。
+
+已落地（隔离验收；Batch 9）：
+
+- `/api/motivation/items/**`、`POST /api/motivation/next`、`POST /api/motivation/reminder-state`
+- `GET|PATCH /api/notification-preferences`、`POST /api/notifications/test`
+- `POST /api/ai/drafts/learning-tree|knowledge-card|plan|motivation`（preview|generate；`AiDraftOperation` CAS；`AI_PAYLOAD_BINDING_SECRET`）
 
 已落地（隔离分支可路由；生产一次切换见版本计划完整 minor Release）：
 

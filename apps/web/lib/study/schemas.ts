@@ -406,3 +406,53 @@ export const saveReviewSchema = z.object({
   tomorrowMinimum: z.string().trim().min(1).max(1000),
   mood: z.string().trim().max(120).optional(),
 });
+
+export const createMotivationItemSchema = z.object({
+  type: z.enum(["QUOTE", "VIDEO_LINK", "VAULT_EXCERPT"]),
+  title: z.string().trim().min(1).max(160),
+  body: z.string().trim().max(4000).nullable().optional(),
+  externalUrl: z.string().trim().url().nullable().optional(),
+  vaultSourceId: z.string().min(1).nullable().optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+  enabled: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(10000).optional(),
+});
+
+export const updateMotivationItemSchema = z.object({
+  expectedRevision: z.number().int().min(1),
+  title: z.string().trim().min(1).max(160).optional(),
+  body: z.string().trim().max(4000).nullable().optional(),
+  externalUrl: z.string().trim().url().nullable().optional(),
+  vaultSourceId: z.string().min(1).nullable().optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+  enabled: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(10000).optional(),
+});
+
+export const archiveMotivationItemSchema = z.object({
+  expectedRevision: z.number().int().min(1),
+});
+
+export const motivationReminderStateSchema = z.object({
+  expectedRevision: z.number().int().min(0),
+  shownItemId: z.string().min(1),
+});
+
+export const patchNotificationPreferencesSchema = z.object({
+  expectedRevision: z.number().int().min(0),
+  reviewDueEnabled: z.boolean().optional(),
+  planStartEnabled: z.boolean().optional(),
+  eveningReviewEnabled: z.boolean().optional(),
+  reviewDueWindowStart: z.number().int().min(0).max(23).optional(),
+  reviewDueWindowEnd: z.number().int().min(0).max(23).optional(),
+  planStartWindowStart: z.number().int().min(0).max(23).optional(),
+  planStartWindowEnd: z.number().int().min(0).max(23).optional(),
+  eveningReviewWindowStart: z.number().int().min(0).max(23).optional(),
+  eveningReviewWindowEnd: z.number().int().min(0).max(23).optional(),
+  quietHoursStart: z.number().int().min(0).max(23).nullable().optional(),
+  quietHoursEnd: z.number().int().min(0).max(23).nullable().optional(),
+});
+
+export const testNotificationSchema = z.object({
+  category: z.enum(["review", "plan", "evening"]).default("review"),
+});

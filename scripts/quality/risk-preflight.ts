@@ -54,6 +54,7 @@ function main(): void {
   checkAttachmentStillBeforePackageA();
   checkAiDesign();
   checkAiStillBeforePackageC();
+  checkV11Batch9AiDraftBoundaries();
   checkStructuredMigrationDesign();
   checkMasteryProofBasicImplementation();
   checkSecondStageDesign();
@@ -2511,6 +2512,102 @@ function checkAiStillBeforePackageC(): void {
     detail: persistenceMatches.length === 0
       ? "schema and AI services do not persist full prompts or raw model responses after Package C first version"
       : `found prompt/response persistence surface: ${persistenceMatches.join(", ")}`,
+  });
+}
+
+function checkV11Batch9AiDraftBoundaries(): void {
+  const envExample = readIfExists(".env.example");
+  const config = readIfExists("packages/config/src/index.ts");
+  const packets = readIfExists("docs/development/high-risk-confirmation-packets.md");
+  const authBinding = readIfExists("packages/auth/src/ai-payload-binding.ts");
+  const draftRoutes = [
+    "apps/web/app/api/ai/drafts/learning-tree/route.ts",
+    "apps/web/app/api/ai/drafts/knowledge-card/route.ts",
+    "apps/web/app/api/ai/drafts/plan/route.ts",
+    "apps/web/app/api/ai/drafts/motivation/route.ts",
+  ];
+
+  const confirmationOk =
+    packets.includes("确认状态（2026-07-21）") &&
+    packets.includes("确认四类显式 AI 草稿用途（learning-tree / knowledge-card / plan / motivation）");
+  checks.push({
+    name: "v1.1 Batch 9 AI four-draft confirmation",
+    ok: confirmationOk,
+    detail: confirmationOk
+      ? "four-draft high-risk confirmation is marked confirmed"
+      : "four-draft confirmation packet is not marked confirmed",
+  });
+
+  const secretInEnv = /^AI_PAYLOAD_BINDING_SECRET=/m.test(envExample);
+  const secretInConfig = config.includes("AI_PAYLOAD_BINDING_SECRET");
+  const secretOptionalMin32 =
+    config.includes("AI_PAYLOAD_BINDING_SECRET") &&
+    (config.includes("z.string().min(32).optional()") || config.includes("value.length >= 32"));
+  checks.push({
+    name: "v1.1 Batch 9 AI_PAYLOAD_BINDING_SECRET config",
+    ok: secretInEnv && secretInConfig && secretOptionalMin32,
+    detail:
+      secretInEnv && secretInConfig && secretOptionalMin32
+        ? "AI_PAYLOAD_BINDING_SECRET documented in .env.example and server env schema (>=32, optional)"
+        : "AI_PAYLOAD_BINDING_SECRET missing from env/config schema",
+  });
+
+  const forbiddenPublic = ["NEXT_PUBLIC_AI_PAYLOAD", "NEXT_PUBLIC_AI_PAYLOAD_BINDING_SECRET"].filter((term) =>
+    `${envExample}\n${config}`.includes(term),
+  );
+  const clientLeak = listFiles("apps/web")
+    .filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"))
+    .filter((file) => {
+      const normalized = file.replaceAll(path.sep, "/");
+      if (normalized.includes("/app/api/")) return false;
+      if (normalized.includes("/lib/study/ai-draft-service.ts")) return false;
+      if (normalized.includes("/lib/study/ai-draft-status.ts")) return false;
+      if (normalized.includes("/lib/auth/")) return false;
+      const text = readIfExists(file);
+      return text.includes("AI_PAYLOAD_BINDING_SECRET");
+    });
+  checks.push({
+    name: "v1.1 Batch 9 AI_PAYLOAD_BINDING_SECRET client boundary",
+    ok: forbiddenPublic.length === 0 && clientLeak.length === 0,
+    detail:
+      forbiddenPublic.length === 0 && clientLeak.length === 0
+        ? "AI_PAYLOAD_BINDING_SECRET stays server-only (no NEXT_PUBLIC_ / client import)"
+        : `leak surface: ${[...forbiddenPublic, ...clientLeak].join(", ")}`,
+  });
+
+  const bindingOk =
+    authBinding.includes("selection:v1") &&
+    authBinding.includes("preview:v1") &&
+    authBinding.includes("provider:v1") &&
+    authBinding.includes("mintAiDraftPreviewToken") &&
+    authBinding.includes("verifyAiDraftPreviewToken");
+  checks.push({
+    name: "v1.1 Batch 9 purpose-separated HMAC binding",
+    ok: bindingOk,
+    detail: bindingOk
+      ? "auth package exposes purpose-separated HMAC and opaque AI draft preview token"
+      : "ai-payload-binding helpers missing",
+  });
+
+  const missingRoutes = draftRoutes.filter((file) => !existsSync(resolve(file)));
+  const unsafeDraftRoutes = draftRoutes
+    .filter((file) => existsSync(resolve(file)))
+    .filter((file) => {
+      const route = readIfExists(file);
+      const hasOnlyPost =
+        route.includes("export async function POST") &&
+        !["GET", "PUT", "PATCH", "DELETE"].some((method) =>
+          new RegExp(`export\\s+async\\s+function\\s+${method}\\b`).test(route),
+        );
+      return !hasOnlyPost || !route.includes("requireApiUser(request)");
+    });
+  checks.push({
+    name: "v1.1 Batch 9 AI draft routes auth boundary",
+    ok: missingRoutes.length === 0 && unsafeDraftRoutes.length === 0,
+    detail:
+      missingRoutes.length === 0 && unsafeDraftRoutes.length === 0
+        ? "four AI draft routes exist as authenticated POST-only endpoints"
+        : `route issues: missing=${missingRoutes.join(", ") || "none"}; unsafe=${unsafeDraftRoutes.join(", ") || "none"}`,
   });
 }
 

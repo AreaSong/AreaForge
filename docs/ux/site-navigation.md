@@ -4,7 +4,7 @@
 
 ## 导航拓扑
 
-隔离分支已启用受保护 App Shell：登录后默认进入今日行动中心，主导航开放今日/计划/收件箱/知识/基础设置。复盘（报告）、阶段、动机、通知、AI 不出现在 Shell 导航。`/syllabus` `/notes` `/mistakes` 重定向到 `/knowledge/*`。
+隔离分支已启用受保护 App Shell：登录后默认进入今日行动中心，主导航开放今日/计划/收件箱/知识/设置。设置子页开放档案/通知/AI（体验/系统薄壳）；阶段不出现在 Shell 导航。`/syllabus` `/notes` `/mistakes` 重定向到 `/knowledge/*`；`/motivation` 重定向到 `/settings/profile`。
 
 ```mermaid
 flowchart TB
@@ -75,7 +75,7 @@ flowchart TB
 | 收件箱 | `/today/inbox` |
 | 设置 | `/settings/workspace` |
 
-顶栏提供五状态灯（`GET /api/app-shell/status`）与次级「我学不下去了」（Recovery v2，不开放动机内容库）。
+顶栏提供五状态灯（`GET /api/app-shell/status`）与次级「我学不下去了」（动机内容库一条匹配 + 继续/5 分钟/最小任务；不伪造完成事实）。
 
 ## 同步约定
 

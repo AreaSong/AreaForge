@@ -63,6 +63,12 @@ import {
   clampCanvasPageSize,
   isKnowledgeCanvasEntityType,
   canMutateKnowledgeCanvasLayout,
+  canAutoShowMotivationReminder,
+  validateMotivationItemPayload,
+  nextReminderStateAfterShow,
+  pickMotivationItemId,
+  normalizeAiDraftInput,
+  buildAiDraftCanonicalPayloads,
 } from "./index";
 
 type DashboardInputForTest = Parameters<typeof createDashboardSnapshot>[0];
@@ -1707,4 +1713,105 @@ test("knowledge canvas layout conflict, layered load, and mobile read-only layou
   });
   assert.deepEqual(stale.kept, [{ entityType: "NOTE", entityId: "alive" }]);
   assert.deepEqual(stale.staleCandidates, [{ entityType: "NOTE", entityId: "gone" }]);
+});
+
+test("motivation reminder frequency and item payload rules", () => {
+  const day = new Date("2026-07-21T00:00:00.000Z");
+  const nextDay = new Date("2026-07-22T00:00:00.000Z");
+  const now = new Date("2026-07-21T10:00:00.000Z");
+
+  assert.deepEqual(
+    canAutoShowMotivationReminder({
+      now,
+      learningDay: day,
+      lastAutoShowAt: new Date("2026-07-21T07:00:00.000Z"),
+      dailyCount: 1,
+      currentLearningDay: day,
+    }),
+    { allowed: false, reason: "interval" },
+  );
+
+  assert.deepEqual(
+    canAutoShowMotivationReminder({
+      now: new Date("2026-07-21T12:00:00.000Z"),
+      learningDay: day,
+      lastAutoShowAt: new Date("2026-07-21T07:00:00.000Z"),
+      dailyCount: 2,
+      currentLearningDay: day,
+    }),
+    { allowed: false, reason: "daily_cap" },
+  );
+
+  assert.deepEqual(
+    canAutoShowMotivationReminder({
+      now: new Date("2026-07-22T01:00:00.000Z"),
+      learningDay: day,
+      lastAutoShowAt: new Date("2026-07-21T07:00:00.000Z"),
+      dailyCount: 2,
+      currentLearningDay: nextDay,
+    }),
+    { allowed: true },
+  );
+
+  assert.equal(validateMotivationItemPayload({ type: "QUOTE", body: "keep going" }).ok, true);
+  assert.equal(validateMotivationItemPayload({ type: "QUOTE", body: "x", externalUrl: "https://a.com" }).ok, false);
+  assert.equal(validateMotivationItemPayload({ type: "VIDEO_LINK", externalUrl: "https://example.com/v" }).ok, true);
+  assert.equal(validateMotivationItemPayload({ type: "VIDEO_LINK", externalUrl: "http://example.com/v" }).ok, false);
+  assert.equal(
+    validateMotivationItemPayload({ type: "VAULT_EXCERPT", body: "excerpt", vaultSourceId: "vault-1" }).ok,
+    true,
+  );
+
+  const after = nextReminderStateAfterShow({
+    now,
+    currentLearningDay: day,
+    previousLearningDay: day,
+    previousDailyCount: 1,
+    previousRecentItemIds: ["a", "b"],
+    shownItemId: "c",
+  });
+  assert.equal(after.dailyCount, 2);
+  assert.deepEqual(after.recentItemIds.slice(0, 3), ["c", "a", "b"]);
+  assert.equal(pickMotivationItemId({ enabledItemIds: ["a", "b", "c"], recentItemIds: ["a", "b"] }), "c");
+});
+
+test("ai draft input contracts normalize fail-closed and size limits", () => {
+  const ok = normalizeAiDraftInput("motivation", {
+    selectedText: "  keep calm\r\nand study  ",
+    tone: "CALM",
+  });
+  assert.equal(ok.endpoint, "motivation");
+  assert.equal(ok.selectedText, "  keep calm\nand study  ");
+
+  assert.throws(
+    () =>
+      normalizeAiDraftInput("learning-tree", {
+        selectedText: "tree",
+        scope: "global",
+        extra: true,
+      } as never),
+  );
+
+  assert.throws(
+    () =>
+      normalizeAiDraftInput("knowledge-card", {
+        selectedText: "card",
+        kind: "UNKNOWN",
+      }),
+  );
+
+  const huge = "x".repeat(5 * 1024);
+  assert.throws(() => normalizeAiDraftInput("motivation", { selectedText: huge, tone: "BRIEF" }));
+
+  const payloads = buildAiDraftCanonicalPayloads(
+    normalizeAiDraftInput("plan", {
+      selectedText: "plan text",
+      checkedProjection: {
+        subjectLabel: "数学",
+        defaultDurationMinutes: 25,
+      },
+    }),
+  );
+  assert.equal(payloads.projectionVersion, "plan-input-v1");
+  assert.ok(payloads.previewPayload.includes("数学"));
 });

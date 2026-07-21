@@ -321,12 +321,24 @@ async function main(): Promise<void> {
       'href="/simulation"',
       'href="/motivation"',
       'href="/dashboard"',
-      'href="/settings/notifications"',
       'href="/stage"',
     ];
     for (const href of forbiddenHrefs) {
       if (text.includes(href)) {
-        throw new Error(`Batch 8 App Shell must not expose ${href}`);
+        throw new Error(`Batch 9 App Shell must not expose ${href}`);
+      }
+    }
+  });
+
+  await check("batch9 settings openings", async () => {
+    for (const path of ["/settings/profile", "/settings/notifications", "/settings/ai"]) {
+      const response = await requestRaw(path, { cookie });
+      const text = await response.text();
+      if (text.includes("NEXT_REDIRECT;replace;/login")) {
+        throw new Error(`authenticated ${path} redirected to login`);
+      }
+      if (response.status >= 500) {
+        throw new Error(`${path} returned ${response.status}`);
       }
     }
   });

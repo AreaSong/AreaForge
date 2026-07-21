@@ -7,6 +7,8 @@ import {
   createAiPrompt,
   createFallbackDailyReviewAdvice,
   createFallbackDisciplineAdvice,
+  createFallbackLearningTreeDraftAdvice,
+  createFallbackMotivationDraftAdvice,
   createFallbackStageAdjustmentAdvice,
   createFallbackTomorrowPlanAdvice,
   createOpenAiCompatibleJsonProvider,
@@ -16,6 +18,8 @@ import {
   generateAdviceWithProvider,
   validateDailyReviewAdvice,
   validateDisciplineAdvice,
+  validateLearningTreeDraftAdvice,
+  validateMotivationDraftAdvice,
   validateStageAdjustmentAdvice,
   validateTomorrowPlanAdvice,
   type StageAdjustmentContext,
@@ -642,3 +646,26 @@ function stageAdjustmentContext(): StageAdjustmentContext {
     riskTags: ["steady"],
   };
 }
+
+test("motivation draft fallback never reads vault fields", async () => {
+  const result = await generateAdviceWithProvider({
+    kind: "motivation_draft",
+    context: { selectedText: "坚持下去", tone: "CALM" as const },
+    fallback: createFallbackMotivationDraftAdvice,
+    validate: validateMotivationDraftAdvice,
+  });
+  assert.equal(result.advice.schemaVersion, "motivation-draft-v1");
+  assert.equal(result.meta.externalCall, false);
+  assert.ok(!JSON.stringify(result.advice).includes("whyStarted"));
+});
+
+test("learning tree draft fallback stays markdown only", async () => {
+  const result = await generateAdviceWithProvider({
+    kind: "learning_tree_draft",
+    context: { selectedText: "极限定义", scope: "subject" as const, subjectLabel: "数学" },
+    fallback: createFallbackLearningTreeDraftAdvice,
+    validate: validateLearningTreeDraftAdvice,
+  });
+  assert.equal(result.advice.schemaVersion, "learning-tree-draft-v1");
+  assert.ok(result.advice.markdownDraft.includes("极限定义") || result.advice.markdownDraft.includes("数学"));
+});

@@ -25,6 +25,10 @@ export const serverEnvSchema = z.object({
   AI_MAX_RETRIES: intFromString.default(2),
   AI_LOG_PROMPTS: booleanFromString.default(false),
   AI_ALLOW_SENSITIVE_CONTEXT: booleanFromString.default(false),
+  AI_PAYLOAD_BINDING_SECRET: z.preprocess(
+    (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
+    z.string().min(32).optional(),
+  ),
   UPLOAD_DIR: z.string().default("/app/uploads"),
   MAX_UPLOAD_MB: intFromString.default(20),
   ALLOWED_UPLOAD_MIME: z.string().default("image/png,image/jpeg,image/webp,application/pdf"),

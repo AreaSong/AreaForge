@@ -28,6 +28,7 @@ export function AppShell(props: {
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [lightOpen, setLightOpen] = useState<string | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [motivationLine, setMotivationLine] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const immersive = pathname.startsWith("/focus/") || pathname.startsWith("/quick-review/");
 
@@ -48,6 +49,34 @@ export function AppShell(props: {
       cancelled = true;
     };
   }, [pathname]);
+
+  async function openMotivationHelp() {
+    setRecoveryError(null);
+    setMotivationLine(null);
+    setRecoveryOpen(true);
+    try {
+      const response = await fetch("/api/motivation/next", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordReminder: false }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { item?: { title?: string; body?: string | null; externalUrl?: string | null }; error?: string }
+        | null;
+      if (!response.ok) {
+        setRecoveryError(body?.error ?? "无法加载动机内容");
+        return;
+      }
+      if (body?.item) {
+        const line = body.item.body ?? body.item.externalUrl ?? body.item.title ?? null;
+        setMotivationLine(line);
+      } else {
+        setMotivationLine("内容库为空。可到设置 → 档案添加语录。");
+      }
+    } catch {
+      setRecoveryError("无法加载动机内容");
+    }
+  }
 
   async function startRecovery() {
     setRecoveryError(null);
@@ -128,7 +157,7 @@ export function AppShell(props: {
               <button
                 type="button"
                 className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/5"
-                onClick={() => setRecoveryOpen(true)}
+                onClick={() => void openMotivationHelp()}
               >
                 我学不下去了
               </button>
@@ -180,19 +209,34 @@ export function AppShell(props: {
       </div>
 
       <Drawer open={recoveryOpen} title="我学不下去了" onClose={() => setRecoveryOpen(false)}>
-        <p className="text-sm text-zinc-400">启动恢复三阶，只突出一个最小行动。不会打开动机内容库。</p>
+        <p className="text-sm text-zinc-400">一条匹配内容 + 三个恢复动作。内容消费不是完成指标。</p>
+        {motivationLine ? <p className="mt-3 rounded-md border border-white/10 p-3 text-sm text-zinc-200">{motivationLine}</p> : null}
         {recoveryError ? <p className="mt-3 text-sm text-red-300">{recoveryError}</p> : null}
         <div className="mt-4 flex flex-col gap-2">
+          <button
+            type="button"
+            className="h-11 rounded-md border border-white/10 px-4 text-sm text-zinc-200 hover:bg-white/5"
+            onClick={() => setRecoveryOpen(false)}
+          >
+            继续当前
+          </button>
+          <Link
+            href="/focus"
+            className="h-11 rounded-md border border-white/10 px-4 text-center text-sm leading-[2.75rem] text-zinc-200"
+            onClick={() => setRecoveryOpen(false)}
+          >
+            启动 5 分钟
+          </Link>
           <button
             type="button"
             disabled={pending}
             className="h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black hover:bg-teal-400 disabled:opacity-60"
             onClick={() => void startRecovery()}
           >
-            开始恢复最小行动
+            切换到最小任务
           </button>
-          <Link href="/today" className="h-11 rounded-md border border-white/10 px-4 text-center text-sm leading-[2.75rem] text-zinc-200" onClick={() => setRecoveryOpen(false)}>
-            回到今日
+          <Link href="/settings/profile" className="text-center text-xs text-teal-300 hover:underline" onClick={() => setRecoveryOpen(false)}>
+            管理动机内容库
           </Link>
         </div>
       </Drawer>

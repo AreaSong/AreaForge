@@ -55,6 +55,13 @@ export {
   verifyLearningTreePreviewToken,
 } from "./learning-tree-crypto";
 
+export {
+  hmacAiPayload,
+  isValidAiPayloadBindingSecret,
+  mintAiDraftPreviewToken,
+  verifyAiDraftPreviewToken,
+} from "./ai-payload-binding";
+
 function scryptAsync(password: string, salt: Buffer, keyLength: number, options: ScryptOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scrypt(password, salt, keyLength, options, (error, derivedKey) => {

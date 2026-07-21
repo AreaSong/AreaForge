@@ -25,6 +25,8 @@ export * from "./recovery-v2";
 export * from "./action-center";
 export * from "./app-shell";
 export * from "./knowledge-canvas";
+export * from "./motivation-library";
+export * from "./ai-draft";
 
 export type RiskState =
   | "rising"

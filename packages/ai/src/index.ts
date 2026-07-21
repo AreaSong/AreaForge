@@ -14,7 +14,15 @@ export const aiAdviceStatusSchema = z.enum([
 
 export type AiAdviceStatus = z.infer<typeof aiAdviceStatusSchema>;
 
-export type AiAdviceKind = "discipline" | "daily_review" | "tomorrow_plan" | "stage_adjustment";
+export type AiAdviceKind =
+  | "discipline"
+  | "daily_review"
+  | "tomorrow_plan"
+  | "stage_adjustment"
+  | "learning_tree_draft"
+  | "knowledge_card_draft"
+  | "plan_draft"
+  | "motivation_draft";
 
 export type AiProviderErrorCode =
   | "missing_config"
@@ -87,6 +95,51 @@ export const stageAdjustmentAdviceSchema = z.object({
 
 export type StageAdjustmentAdvice = z.infer<typeof stageAdjustmentAdviceSchema>;
 
+export const learningTreeDraftAdviceSchema = z.object({
+  status: aiAdviceStatusSchema.default(localFallbackStatus),
+  schemaVersion: z.literal("learning-tree-draft-v1"),
+  markdownDraft: z.string().min(1).max(32_000),
+  notes: z.array(z.string().min(1).max(300)).max(5),
+  reason: z.string().min(1).max(800),
+});
+export type LearningTreeDraftAdvice = z.infer<typeof learningTreeDraftAdviceSchema>;
+
+export const knowledgeCardDraftAdviceSchema = z.object({
+  status: aiAdviceStatusSchema.default(localFallbackStatus),
+  schemaVersion: z.literal("knowledge-card-draft-v1"),
+  title: z.string().min(1).max(160),
+  body: z.string().min(1).max(12_000),
+  kindHint: z.enum(["GENERAL", "CONCEPT", "METHOD", "EXAMPLE", "JOURNAL", "SUMMARY"]),
+  reason: z.string().min(1).max(800),
+});
+export type KnowledgeCardDraftAdvice = z.infer<typeof knowledgeCardDraftAdviceSchema>;
+
+export const planDraftAdviceSchema = z.object({
+  status: aiAdviceStatusSchema.default(localFallbackStatus),
+  schemaVersion: z.literal("plan-draft-v1"),
+  title: z.string().min(1).max(160),
+  tasks: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(160),
+        estimatedMinutes: z.number().int().min(5).max(480),
+      }),
+    )
+    .min(1)
+    .max(8),
+  reason: z.string().min(1).max(800),
+});
+export type PlanDraftAdvice = z.infer<typeof planDraftAdviceSchema>;
+
+export const motivationDraftAdviceSchema = z.object({
+  status: aiAdviceStatusSchema.default(localFallbackStatus),
+  schemaVersion: z.literal("motivation-draft-v1"),
+  line: z.string().min(1).max(500),
+  recoveryHint: z.string().min(1).max(300),
+  reason: z.string().min(1).max(800),
+});
+export type MotivationDraftAdvice = z.infer<typeof motivationDraftAdviceSchema>;
+
 export interface DisciplineContext {
   phase: string;
   riskState: string;
@@ -145,6 +198,33 @@ export interface StageAdjustmentContext {
   stagePlanStatus?: "draft" | "active" | "completed" | "archived";
   daysToStageEnd?: number | null;
   riskTags: string[];
+}
+
+export interface LearningTreeDraftContext {
+  selectedText: string;
+  scope: "global" | "subject" | "branch";
+  subjectLabel?: string;
+  rootNodeLabel?: string;
+}
+
+export interface KnowledgeCardDraftContext {
+  selectedText: string;
+  kind: "GENERAL" | "CONCEPT" | "METHOD" | "EXAMPLE" | "JOURNAL" | "SUMMARY";
+  subjectLabel?: string;
+  nodeLabel?: string;
+}
+
+export interface PlanDraftContext {
+  selectedText: string;
+  subjectLabel?: string;
+  milestoneLabel?: string;
+  dateWindow?: { start: string; end: string };
+  defaultDurationMinutes?: number;
+}
+
+export interface MotivationDraftContext {
+  selectedText: string;
+  tone: "CALM" | "DIRECT" | "BRIEF";
 }
 
 export interface AiJsonProviderRequest<TContext> {
@@ -372,6 +452,86 @@ export function validateTomorrowPlanAdvice(value: unknown): TomorrowPlanAdvice {
 
 export function validateStageAdjustmentAdvice(value: unknown): StageAdjustmentAdvice {
   return stageAdjustmentAdviceSchema.parse(value);
+}
+
+export function createFallbackLearningTreeDraftAdvice(context: LearningTreeDraftContext): LearningTreeDraftAdvice {
+  const label = context.rootNodeLabel ?? context.subjectLabel ?? "学习树";
+  return {
+    status: localFallbackStatus,
+    schemaVersion: "learning-tree-draft-v1",
+    markdownDraft: [
+      "---",
+      `scope: ${context.scope}`,
+      `title: ${label}`,
+      "---",
+      "",
+      `# ${label}`,
+      "",
+      "## 草稿节点",
+      "",
+      `- ${context.selectedText.slice(0, 120).trim() || "待整理考点"}`,
+    ].join("\n"),
+    notes: ["本地规则草稿，仍须经过学习树 preview/confirm。"],
+    reason: "AI disabled 或不可用，仅基于选中文本生成本地 Markdown 草稿。",
+  };
+}
+
+export function createFallbackKnowledgeCardDraftAdvice(context: KnowledgeCardDraftContext): KnowledgeCardDraftAdvice {
+  return {
+    status: localFallbackStatus,
+    schemaVersion: "knowledge-card-draft-v1",
+    title: (context.nodeLabel ?? context.subjectLabel ?? "知识卡片草稿").slice(0, 160),
+    body: context.selectedText.slice(0, 12_000),
+    kindHint: context.kind,
+    reason: "AI disabled 或不可用，仅回填选中文本为卡片草稿。",
+  };
+}
+
+export function createFallbackPlanDraftAdvice(context: PlanDraftContext): PlanDraftAdvice {
+  const minutes = context.defaultDurationMinutes ?? 25;
+  return {
+    status: localFallbackStatus,
+    schemaVersion: "plan-draft-v1",
+    title: (context.milestoneLabel ?? context.subjectLabel ?? "计划草稿").slice(0, 160),
+    tasks: [
+      {
+        title: context.selectedText.slice(0, 160).trim() || "最小推进任务",
+        estimatedMinutes: minutes,
+      },
+    ],
+    reason: "AI disabled 或不可用，计划草稿仅进入预览/Inbox，不直接创建任务。",
+  };
+}
+
+export function createFallbackMotivationDraftAdvice(context: MotivationDraftContext): MotivationDraftAdvice {
+  const lineByTone = {
+    CALM: "先稳住呼吸，只做眼前这一小步。",
+    DIRECT: "停下来谈判没有用，现在开始最短可执行动作。",
+    BRIEF: "现在开始。",
+  } as const;
+  return {
+    status: localFallbackStatus,
+    schemaVersion: "motivation-draft-v1",
+    line: context.selectedText.trim().slice(0, 500) || lineByTone[context.tone],
+    recoveryHint: "继续当前、启动 5 分钟，或切到最小任务。",
+    reason: "AI disabled 或不可用；未读取动机封存、情绪或任务状态。",
+  };
+}
+
+export function validateLearningTreeDraftAdvice(value: unknown): LearningTreeDraftAdvice {
+  return learningTreeDraftAdviceSchema.parse(value);
+}
+
+export function validateKnowledgeCardDraftAdvice(value: unknown): KnowledgeCardDraftAdvice {
+  return knowledgeCardDraftAdviceSchema.parse(value);
+}
+
+export function validatePlanDraftAdvice(value: unknown): PlanDraftAdvice {
+  return planDraftAdviceSchema.parse(value);
+}
+
+export function validateMotivationDraftAdvice(value: unknown): MotivationDraftAdvice {
+  return motivationDraftAdviceSchema.parse(value);
 }
 
 export async function generateAdviceWithProvider<TContext, TAdvice extends { status: AiAdviceStatus }>(
@@ -754,6 +914,20 @@ function sanitizeProviderContext<TContext>(kind: AiAdviceKind, context: TContext
         "daysToStageEnd",
         "riskTags",
       ]);
+    case "learning_tree_draft":
+      return pickDefined(source, ["selectedText", "scope", "subjectLabel", "rootNodeLabel"]);
+    case "knowledge_card_draft":
+      return pickDefined(source, ["selectedText", "kind", "subjectLabel", "nodeLabel"]);
+    case "plan_draft":
+      return pickDefined(source, [
+        "selectedText",
+        "subjectLabel",
+        "milestoneLabel",
+        "dateWindow",
+        "defaultDurationMinutes",
+      ]);
+    case "motivation_draft":
+      return pickDefined(source, ["selectedText", "tone"]);
   }
 }
 
@@ -775,6 +949,14 @@ function adviceInstruction(kind: AiAdviceKind): string {
       return "生成明日最小任务建议，禁止使用原始任务标题。";
     case "stage_adjustment":
       return "生成长期阶段调整草稿，只能基于聚合长期字段，输出仍需用户确认后才能应用。";
+    case "learning_tree_draft":
+      return "基于用户选中文本生成可编辑学习树 Markdown 草稿；不得声称已写入考纲。";
+    case "knowledge_card_draft":
+      return "基于用户选中文本生成知识卡片标题与正文草稿；不得读取未提供的附件或卡片正文。";
+    case "plan_draft":
+      return "基于用户选中文本生成计划草稿任务列表；不得直接创建任务，结果只可进入预览或 Inbox。";
+    case "motivation_draft":
+      return "基于用户选中文本与语气生成短激励语；不得读取动机封存、情绪、连续性或任务状态。";
   }
 }
 
@@ -813,6 +995,35 @@ function adviceOutputContract(kind: AiAdviceKind): Record<string, unknown> {
         nextStageEmphasis: "string, 1-1000 chars",
         canAutoApply: false,
         requiresUserConfirmation: true,
+      };
+    case "learning_tree_draft":
+      return {
+        schemaVersion: "learning-tree-draft-v1",
+        markdownDraft: "string, 1-32000 chars",
+        notes: "array of at most 5 strings",
+        reason: "string, 1-800 chars",
+      };
+    case "knowledge_card_draft":
+      return {
+        schemaVersion: "knowledge-card-draft-v1",
+        title: "string, 1-160 chars",
+        body: "string, 1-12000 chars",
+        kindHint: "GENERAL | CONCEPT | METHOD | EXAMPLE | JOURNAL | SUMMARY",
+        reason: "string, 1-800 chars",
+      };
+    case "plan_draft":
+      return {
+        schemaVersion: "plan-draft-v1",
+        title: "string, 1-160 chars",
+        tasks: "array of 1-8 { title, estimatedMinutes 5-480 }",
+        reason: "string, 1-800 chars",
+      };
+    case "motivation_draft":
+      return {
+        schemaVersion: "motivation-draft-v1",
+        line: "string, 1-500 chars",
+        recoveryHint: "string, 1-300 chars",
+        reason: "string, 1-800 chars",
       };
   }
 }

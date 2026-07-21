@@ -37,7 +37,7 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `StudyResource`：FILE（READY Attachment）或 LINK（HTTPS）exactly-one；隔离 CRUD/上传/重复三选一/归档 API 已落地；无生产页面；不物理删除。
 - `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；隔离 API 已落地，无生产页。
 - `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：每用户每工作区唯一布局；节点仅 x/y/折叠/固定/隐藏；业务边实时派生。隔离验收已开放 `/knowledge/canvas` 与 layout API。
-- `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema 已落地；动机/通知/AI API 与入口仍隐藏。
+- `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema + 隔离 API/设置页已落地（Batch 9）；`/stage` 入口仍隐藏。
 
 ## 规划扩展模型（未实现）
 
