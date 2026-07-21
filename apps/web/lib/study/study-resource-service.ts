@@ -262,11 +262,15 @@ export async function resolveStudyResourceUpload(
 
   const attachment = await prisma.attachment.findUnique({
     where: { id: input.attachmentId },
-    include: { studyResource: true },
+    include: {
+      studyResource: true,
+      note: { select: { subject: { select: { workspaceId: true } } } },
+    },
   });
   if (!attachment || attachment.status !== "READY") {
     throw new ApiError("ATTACHMENT_NOT_READY", 409);
   }
+  await assertAttachmentOwnedByActor(actorId, workspace.id, attachment);
   if (attachment.studyResource) {
     throw new ApiError("STUDY_RESOURCE_ATTACHMENT_BOUND", 409);
   }
@@ -445,6 +449,8 @@ export async function linkStudyResource(
   await loadResource(workspace.id, id);
 
   await prisma.$transaction(async (tx) => {
+    await assertLinkTargetsInWorkspace(tx, workspace.id, input);
+
     if (input.taskIds) {
       await tx.studyResourceTaskLink.deleteMany({ where: { resourceId: id } });
       if (input.taskIds.length) {
@@ -488,6 +494,72 @@ export async function linkStudyResource(
   });
 
   return serialize(await loadResource(workspace.id, id));
+}
+
+async function assertAttachmentOwnedByActor(
+  actorId: string,
+  workspaceId: string,
+  attachment: {
+    id: string;
+    noteId: string | null;
+    note: { subject: { workspaceId: string | null } } | null;
+  },
+): Promise<void> {
+  if (attachment.noteId) {
+    if (attachment.note?.subject.workspaceId !== workspaceId) {
+      throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
+    }
+    return;
+  }
+
+  const intent = await prisma.auditEvent.findFirst({
+    where: {
+      actorId,
+      action: "ATTACHMENT_INTENT_CREATED",
+      entityType: "Attachment",
+      entityId: attachment.id,
+    },
+    select: { id: true },
+  });
+  if (!intent) throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
+}
+
+async function assertLinkTargetsInWorkspace(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  input: {
+    taskIds?: string[];
+    noteIds?: string[];
+    mistakeIds?: string[];
+    syllabusNodeIds?: string[];
+  },
+): Promise<void> {
+  const checks = await Promise.all([
+    countOwnedIds(input.taskIds, (ids) =>
+      tx.studyTask.count({ where: { id: { in: ids }, subject: { workspaceId } } }),
+    ),
+    countOwnedIds(input.noteIds, (ids) =>
+      tx.note.count({ where: { id: { in: ids }, subject: { workspaceId } } }),
+    ),
+    countOwnedIds(input.mistakeIds, (ids) =>
+      tx.mistake.count({ where: { id: { in: ids }, subject: { workspaceId } } }),
+    ),
+    countOwnedIds(input.syllabusNodeIds, (ids) =>
+      tx.syllabusNode.count({ where: { id: { in: ids }, subject: { workspaceId } } }),
+    ),
+  ]);
+  if (checks.some((valid) => !valid)) {
+    throw new ApiError("STUDY_RESOURCE_LINK_TARGET_NOT_FOUND", 404);
+  }
+}
+
+async function countOwnedIds(
+  ids: string[] | undefined,
+  count: (uniqueIds: string[]) => Promise<number>,
+): Promise<boolean> {
+  if (!ids) return true;
+  const uniqueIds = [...new Set(ids)];
+  return (await count(uniqueIds)) === uniqueIds.length;
 }
 
 export async function archiveStudyResource(actorId: string, id: string): Promise<StudyResourceDto> {

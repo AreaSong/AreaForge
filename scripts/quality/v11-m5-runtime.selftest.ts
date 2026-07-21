@@ -21,6 +21,7 @@ import {
 import {
   createLinkStudyResource,
   archiveStudyResource,
+  linkStudyResource,
   resolveStudyResourceUpload,
   stageStudyResourceUpload,
 } from "../../apps/web/lib/study/study-resource-service";
@@ -55,6 +56,7 @@ try {
   await verifyLinkResourceAndArchive(seed);
   await verifyHttpsZeroNetwork();
   await verifyDuplicateThreeWay(seed);
+  await verifyResourceOwnerIsolation(seed);
   await verifyResourceDirectiveGate(seed);
   await verifyConfirmAtomicAndIdempotent(seed);
   await verifyHistoryOwnerAndExport(seed);
@@ -247,7 +249,84 @@ async function verifyDuplicateThreeWay(seed: Awaited<ReturnType<typeof seedWorks
   });
 }
 
+async function verifyResourceOwnerIsolation(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  const other = await seedOtherWorkspace();
+  const staged = await stageStudyResourceUpload(seed.user.id, pdfScan(pdfBytes(384), "owner.pdf"));
+
+  let attachmentDenied = false;
+  try {
+    await resolveStudyResourceUpload(other.user.id, {
+      attachmentId: staged.attachment.id,
+      decision: "copy",
+      title: "Stolen",
+      subjectId: other.subject.id,
+    });
+  } catch (error) {
+    attachmentDenied = error instanceof ApiError && error.code === "ATTACHMENT_NOT_FOUND";
+  }
+  assert.equal(attachmentDenied, true);
+
+  const resource = await createLinkStudyResource(seed.user.id, {
+    title: "Owner resource",
+    url: "https://example.com/owner",
+    subjectId: seed.subject.id,
+  });
+  const foreignNote = await prisma.note.create({
+    data: {
+      subjectId: other.subject.id,
+      title: "Foreign note",
+      content: "private",
+    },
+  });
+  let linkDenied = false;
+  try {
+    await linkStudyResource(seed.user.id, resource.id, { noteIds: [foreignNote.id] });
+  } catch (error) {
+    linkDenied =
+      error instanceof ApiError && error.code === "STUDY_RESOURCE_LINK_TARGET_NOT_FOUND";
+  }
+  assert.equal(linkDenied, true);
+  assert.equal(
+    await prisma.studyResourceNoteLink.count({ where: { resourceId: resource.id } }),
+    0,
+  );
+  await archiveStudyResource(seed.user.id, resource.id);
+
+  pass("resource_owner_isolation", {
+    attachmentDenied: true,
+    foreignLinkDenied: true,
+  });
+}
+
+async function seedOtherWorkspace() {
+  const user = await prisma.user.create({
+    data: { email: `v11m5-other-${randomUUID()}@example.com`, passwordHash: "x" },
+  });
+  const workspace = await prisma.examWorkspace.create({
+    data: {
+      userId: user.id,
+      stableKey: `other-${randomUUID()}`,
+      name: "Other Workspace",
+      status: "ACTIVE",
+    },
+  });
+  const subject = await prisma.subject.create({
+    data: {
+      workspaceId: workspace.id,
+      stableKey: `other-subject-${randomUUID()}`,
+      name: "Other Subject",
+      color: "#222222",
+    },
+  });
+  return { user, workspace, subject };
+}
+
 async function verifyResourceDirectiveGate(seed: Awaited<ReturnType<typeof seedWorkspace>>): Promise<void> {
+  const resourcesBefore = await prisma.studyResource.count({
+    where: { workspaceId: seed.workspace.id, sourceType: "LINK", archivedAt: null },
+  });
   const fileKindMarkdown = [
     "---",
     "protocol: AREAFORGE_LEARNING_TREE_V1",
@@ -306,10 +385,10 @@ async function verifyResourceDirectiveGate(seed: Awaited<ReturnType<typeof seedW
   assert.equal(badUrlPreview.blocking, true);
   assert.ok(badUrlPreview.errors.some((error) => error.code === "URL_INVALID"));
 
-  const resourcesBefore = await prisma.studyResource.count({
+  const resourcesAfter = await prisma.studyResource.count({
     where: { workspaceId: seed.workspace.id, sourceType: "LINK", archivedAt: null },
   });
-  assert.equal(resourcesBefore, 0);
+  assert.equal(resourcesAfter, resourcesBefore);
 
   pass("resource_directive_gate", {
     fileKindBlocked: true,
@@ -347,6 +426,32 @@ async function verifyConfirmAtomicAndIdempotent(
   const selections = preview.items
     .filter((item) => item.diffType !== "UNCHANGED")
     .map((item) => ({ stableKey: item.stableKey, choice: "apply" as const }));
+
+  const foreign = await seedOtherWorkspace();
+  const foreignNode = await prisma.syllabusNode.create({
+    data: {
+      subjectId: foreign.subject.id,
+      title: "Foreign node",
+      kind: "CHAPTER",
+      stableKey: `foreign-node-${randomUUID()}`,
+    },
+  });
+  let mappingDenied = false;
+  try {
+    await confirmLearningTreeImport(seed.user.id, {
+      markdown: preview.canonicalMarkdown || markdown,
+      previewToken: preview.previewToken,
+      idempotencyKey: "m5-map",
+      selections: selections.map((selection, index) =>
+        index === 0 ? { ...selection, mappedTargetId: foreignNode.id } : selection,
+      ),
+      previewOperationId: preview.operationId,
+    });
+  } catch (error) {
+    mappingDenied =
+      error instanceof ApiError && error.code === "LEARNING_TREE_CONFIRM_MAPPING_NOT_ALLOWED";
+  }
+  assert.equal(mappingDenied, true);
 
   const beforeNodes = await prisma.syllabusNode.count({ where: { subjectId: seed.subject.id } });
   const beforeResources = await prisma.studyResource.count({
@@ -437,6 +542,7 @@ async function verifyConfirmAtomicAndIdempotent(
     resourceApplied: true,
     failRolledBack: true,
     idempotencyConflict: true,
+    foreignMappingDenied: true,
   });
 }
 

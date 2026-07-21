@@ -459,6 +459,8 @@ export async function confirmLearningTreeImport(
     throw new ApiError("LEARNING_TREE_CONFIRM_BLOCKED", 409);
   }
 
+  assertValidConfirmSelections(input.selections, diffItems);
+
   const selectionMap = new Map(input.selections.map((row) => [row.stableKey, row]));
   const selectionFingerprint = input.selections
     .slice()
@@ -689,6 +691,29 @@ export async function confirmLearningTreeImport(
       throw new ApiError("LEARNING_TREE_IDEMPOTENCY_CONFLICT", 409);
     }
     throw error;
+  }
+}
+
+function assertValidConfirmSelections(
+  selections: LearningTreeConfirmSelection[],
+  diffItems: LearningTreeDiffItem[],
+): void {
+  const diffByKey = new Map(diffItems.map((item) => [item.stableKey, item]));
+  const seen = new Set<string>();
+
+  for (const selection of selections) {
+    const item = diffByKey.get(selection.stableKey);
+    if (!item || seen.has(selection.stableKey)) {
+      throw new ApiError("LEARNING_TREE_CONFIRM_SELECTION_INVALID", 400);
+    }
+    seen.add(selection.stableKey);
+
+    if (
+      selection.mappedTargetId &&
+      !item.candidateMatches.some((candidate) => candidate.entityId === selection.mappedTargetId)
+    ) {
+      throw new ApiError("LEARNING_TREE_CONFIRM_MAPPING_NOT_ALLOWED", 403);
+    }
   }
 }
 
