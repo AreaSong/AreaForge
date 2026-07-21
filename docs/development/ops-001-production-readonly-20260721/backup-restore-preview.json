@@ -1,0 +1,421 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-21T06:55:30.516Z",
+  "mode": "metadata_only_backup_restore_preview",
+  "backupRestorePreviewHash": "33d7377ad519fd54f7f63a5045ca0660b1fa5d6f4ce26a133e154fe38e702ec1",
+  "status": "needs_evidence",
+  "app": {
+    "name": "@areasong/areaforge",
+    "version": "0.1.9",
+    "releaseTag": "v0.1.9"
+  },
+  "sourceInputs": {
+    "schemaVersion": 1,
+    "packageVersion": "0.1.9",
+    "packageJsonHash": "sha256:47482c5ea32faed1b34f644878c223991900f25e7fb2f72e2528c0e7c60d840c",
+    "implementationHash": "sha256:40c77214d1c434f880e3ec5346f415037c1e338e6ab6f06ab066a846f39db8d3",
+    "releaseRecordPath": "docs/development/release-v0.1.9-record.md",
+    "releaseRecordHash": "sha256:704735a39ac1a5e0dfb6b84ea2dc623c87d28a5f04fd8d008ae6f6fcdeb1c98e",
+    "restoreDrillRecordPath": null,
+    "restoreDrillRecordHash": null,
+    "sourceSetHash": "sha256:d16d6ae51926e5dba95a5ed12a96688f29cb4a3e5a8ee1bc30d8adeeb78fc8dd"
+  },
+  "capabilities": [
+    "inspect_release_backup_metadata",
+    "classify_root_only_backup_hash_gaps",
+    "classify_release_evidence_bundle_hash_gap",
+    "inspect_attachment_reconciliation_binding",
+    "derive_machine_readable_blocking_gaps",
+    "summarize_restore_dry_run_record_presence",
+    "bind_current_source_set",
+    "compute_preview_hash"
+  ],
+  "evidenceInventory": [
+    {
+      "key": "databaseBackupSha256",
+      "category": "backup_manifest",
+      "status": "present",
+      "evidence": "database backup sha256 is present as metadata",
+      "requiredEvidence": [
+        "database backup sha256 as sha256:<64 hex> or documented redacted root-only source"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "hashPresent": true,
+        "rootOnly": false,
+        "valueClass": "sha256"
+      }
+    },
+    {
+      "key": "uploadsBackupSha256",
+      "category": "backup_manifest",
+      "status": "present",
+      "evidence": "uploads backup sha256 is present as metadata",
+      "requiredEvidence": [
+        "uploads backup sha256 as sha256:<64 hex> or documented redacted root-only source"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "hashPresent": true,
+        "rootOnly": false,
+        "valueClass": "sha256"
+      }
+    },
+    {
+      "key": "envBackupSha256",
+      "category": "backup_manifest",
+      "status": "present",
+      "evidence": "production env backup sha256 is present as metadata",
+      "requiredEvidence": [
+        "production env backup sha256 as sha256:<64 hex> or documented redacted root-only source"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "hashPresent": true,
+        "rootOnly": false,
+        "valueClass": "sha256"
+      }
+    },
+    {
+      "key": "releaseEvidenceBundleHash",
+      "category": "release_evidence_bundle",
+      "status": "present",
+      "evidence": "release evidence bundle hash is present as metadata",
+      "requiredEvidence": [
+        "release evidence bundle hash as sha256:<64 hex> or documented redacted root-only source"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "hashPresent": true,
+        "rootOnly": false,
+        "valueClass": "sha256"
+      }
+    },
+    {
+      "key": "attachmentReconciliationCsvPath",
+      "category": "attachment_integrity",
+      "status": "present",
+      "evidence": "attachment reconciliation CSV path is present as metadata",
+      "requiredEvidence": [
+        "attachment reconciliation CSV path as a redacted repository or evidence-bundle path"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "pathPresent": true,
+        "rawPathIncluded": false,
+        "source": "release_record"
+      }
+    },
+    {
+      "key": "attachmentReconciliationCsvSha256",
+      "category": "attachment_integrity",
+      "status": "present",
+      "evidence": "attachment reconciliation CSV sha256 is present as metadata",
+      "requiredEvidence": [
+        "attachment reconciliation CSV sha256 as sha256:<64 hex>"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "hashPresent": true,
+        "valueClass": "sha256",
+        "source": "release_record"
+      }
+    },
+    {
+      "key": "attachmentReconciliationSummaryPath",
+      "category": "attachment_integrity",
+      "status": "present",
+      "evidence": "attachment reconciliation summary path is present as metadata",
+      "requiredEvidence": [
+        "attachment reconciliation summary path as a redacted repository or evidence-bundle path"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "pathPresent": true,
+        "rawPathIncluded": false,
+        "source": "release_record"
+      }
+    },
+    {
+      "key": "attachmentReconciliationSummaryHash",
+      "category": "attachment_integrity",
+      "status": "present",
+      "evidence": "attachment reconciliation summary hash is present as metadata",
+      "requiredEvidence": [
+        "attachment reconciliation summary hash as sha256:<64 hex>"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "hashPresent": true,
+        "valueClass": "sha256",
+        "source": "release_record"
+      }
+    },
+    {
+      "key": "attachmentReconciliationStatus",
+      "category": "attachment_integrity",
+      "status": "present",
+      "evidence": "attachment reconciliation status is pass",
+      "requiredEvidence": [
+        "attachmentReconciliationStatus=pass or mismatch bound in releaseEvidenceBundleHash"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "result": "pass",
+        "source": "release_record"
+      }
+    },
+    {
+      "key": "composeConfigBackupPath",
+      "category": "backup_manifest",
+      "status": "root_only",
+      "evidence": "compose config backup reference is recorded as root-only and not copied into repository evidence",
+      "requiredEvidence": [
+        "compose config backup reference redacted path or root-only update-record pointer"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "pathEvidenceClass": "root_only_pointer",
+        "rawPathIncluded": false
+      }
+    },
+    {
+      "key": "nginxConfigBackupPath",
+      "category": "backup_manifest",
+      "status": "root_only",
+      "evidence": "Nginx config backup reference is recorded as root-only and not copied into repository evidence",
+      "requiredEvidence": [
+        "Nginx config backup reference redacted path or root-only update-record pointer"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "pathEvidenceClass": "root_only_pointer",
+        "rawPathIncluded": false
+      }
+    },
+    {
+      "key": "databaseRestoreResult",
+      "category": "restore_dry_run",
+      "status": "missing",
+      "evidence": "database restore dry-run result record not supplied",
+      "requiredEvidence": [
+        "redacted restore drill record with databaseRestoreResult=pass or not-applicable"
+      ],
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "metadata": {
+        "restoreDrillRecordSupplied": false
+      }
+    },
+    {
+      "key": "uploadsRestoreResult",
+      "category": "restore_dry_run",
+      "status": "missing",
+      "evidence": "uploads restore dry-run result record not supplied",
+      "requiredEvidence": [
+        "redacted restore drill record with uploadsRestoreResult=pass or not-applicable"
+      ],
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "metadata": {
+        "restoreDrillRecordSupplied": false
+      }
+    },
+    {
+      "key": "attachmentHashMatched",
+      "category": "attachment_integrity",
+      "status": "missing",
+      "evidence": "attachment metadata/file integrity result record not supplied",
+      "requiredEvidence": [
+        "redacted restore drill record with attachmentHashMatched=pass or not-applicable"
+      ],
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "metadata": {
+        "restoreDrillRecordSupplied": false
+      }
+    },
+    {
+      "key": "rollbackTarget",
+      "category": "rollback",
+      "status": "present",
+      "evidence": "rollback target version and immutable image digest are recorded",
+      "requiredEvidence": [
+        "rollbackTargetVersion",
+        "rollbackTargetImage with image@sha256"
+      ],
+      "residualRiskIds": [],
+      "metadata": {
+        "rollbackTargetVersionPresent": true,
+        "rollbackTargetImageDigestPresent": true,
+        "rollbackTargetImageIncluded": false
+      }
+    }
+  ],
+  "blockingGaps": [
+    {
+      "key": "composeConfigBackupPath",
+      "category": "backup_manifest",
+      "gapType": "backup_config_reference",
+      "status": "root_only",
+      "sourceInput": "release_record",
+      "sourceField": "composeConfigBackupPath",
+      "safeEvidence": "compose config backup reference is recorded as root-only and not copied into repository evidence",
+      "requiredEvidence": [
+        "compose config backup reference redacted path or root-only update-record pointer"
+      ],
+      "residualRiskIds": [],
+      "blocks": [
+        "backup_restore_preview_ready",
+        "maintenance_handoff"
+      ]
+    },
+    {
+      "key": "nginxConfigBackupPath",
+      "category": "backup_manifest",
+      "gapType": "backup_config_reference",
+      "status": "root_only",
+      "sourceInput": "release_record",
+      "sourceField": "nginxConfigBackupPath",
+      "safeEvidence": "Nginx config backup reference is recorded as root-only and not copied into repository evidence",
+      "requiredEvidence": [
+        "Nginx config backup reference redacted path or root-only update-record pointer"
+      ],
+      "residualRiskIds": [],
+      "blocks": [
+        "backup_restore_preview_ready",
+        "maintenance_handoff"
+      ]
+    },
+    {
+      "key": "databaseRestoreResult",
+      "category": "restore_dry_run",
+      "gapType": "restore_dry_run_result",
+      "status": "missing",
+      "sourceInput": "restore_drill_record",
+      "sourceField": "databaseRestoreResult",
+      "safeEvidence": "database restore dry-run result record not supplied",
+      "requiredEvidence": [
+        "redacted restore drill record with databaseRestoreResult=pass or not-applicable"
+      ],
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "blocks": [
+        "restore_dry_run_claim",
+        "backup_restore_preview_ready",
+        "maintenance_handoff"
+      ]
+    },
+    {
+      "key": "uploadsRestoreResult",
+      "category": "restore_dry_run",
+      "gapType": "restore_dry_run_result",
+      "status": "missing",
+      "sourceInput": "restore_drill_record",
+      "sourceField": "uploadsRestoreResult",
+      "safeEvidence": "uploads restore dry-run result record not supplied",
+      "requiredEvidence": [
+        "redacted restore drill record with uploadsRestoreResult=pass or not-applicable"
+      ],
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "blocks": [
+        "restore_dry_run_claim",
+        "backup_restore_preview_ready",
+        "maintenance_handoff"
+      ]
+    },
+    {
+      "key": "attachmentHashMatched",
+      "category": "attachment_integrity",
+      "gapType": "attachment_integrity_result",
+      "status": "missing",
+      "sourceInput": "restore_drill_record",
+      "sourceField": "attachmentHashMatched",
+      "safeEvidence": "attachment metadata/file integrity result record not supplied",
+      "requiredEvidence": [
+        "redacted restore drill record with attachmentHashMatched=pass or not-applicable"
+      ],
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "blocks": [
+        "restore_dry_run_claim",
+        "backup_restore_preview_ready",
+        "maintenance_handoff"
+      ]
+    }
+  ],
+  "restoreDryRun": {
+    "status": "missing",
+    "evidence": "restore dry-run metadata is not supplied; preview remains inventory-only",
+    "doesNotApplyRestore": true
+  },
+  "claimBoundary": {
+    "canClaim": [
+      "backup and restore evidence metadata has been inventoried",
+      "root-only backup hash gaps are explicit",
+      "restore dry-run record presence is classified"
+    ],
+    "cannotClaim": [
+      "backup archive exists",
+      "release evidence bundle exists",
+      "restore apply was executed",
+      "production restore is authorized",
+      "database dump or upload archive was read",
+      "release evidence validator passes",
+      "long-term live gate passes"
+    ]
+  },
+  "doesNotProve": [
+    "backup archive exists",
+    "database dump integrity beyond supplied metadata",
+    "upload archive integrity beyond supplied metadata",
+    "release evidence bundle integrity beyond supplied metadata",
+    "production restore authorization",
+    "restore apply execution",
+    "migration execution",
+    "rollback execution",
+    "release evidence validator success",
+    "residual risk closure"
+  ],
+  "forbiddenActions": [
+    "execute_server_command",
+    "perform_backup",
+    "perform_restore",
+    "run_migration",
+    "rollback_release",
+    "write_database",
+    "write_upload_directory",
+    "read_or_print_secret_values",
+    "copy_backup_archive",
+    "read_database_dump",
+    "read_upload_archive",
+    "read_private_env",
+    "update_residual_ledger"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "metadataOnly": true,
+    "previewOnly": true,
+    "networkRequested": false,
+    "serverCommandAttempted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "productionWriteAttempted": false,
+    "secretValuePrinted": false,
+    "secretValueIncluded": false,
+    "privateEnvIncluded": false,
+    "databaseDumpIncluded": false,
+    "backupArchiveIncluded": false,
+    "uploadFileContentIncluded": false,
+    "attachmentContentIncluded": false,
+    "rawLogIncluded": false,
+    "residualLedgerUpdated": false
+  }
+}

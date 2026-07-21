@@ -1,8 +1,8 @@
 {
   "status": "warning",
   "mode": "read_only_alert_preview",
-  "generatedAt": "2026-07-21T05:26:21.930Z",
-  "environment": "unknown",
+  "generatedAt": "2026-07-21T06:56:35.135Z",
+  "environment": "production",
   "scope": "daily",
   "delivery": {
     "enabled": false,
@@ -13,51 +13,45 @@
     {
       "key": "alert:health",
       "signal": "health",
-      "severity": "watch",
+      "severity": "info",
       "wouldNotify": false,
       "owner": "areaforge-sre-ops",
-      "summary": "health is unknown",
-      "evidence": "AREAFORGE_READINESS_BASE_URL, AREAFORGE_SMOKE_BASE_URL, APP_URL, or AREAFORGE_HEALTH_URL is not set",
+      "summary": "health is pass",
+      "evidence": "GET https://forge.areasong.top/api/health returned AreaForge 0.1.9",
       "residualRiskIds": [],
       "recommendedAction": "collect public health again within the freshness window and compare expected version"
     },
     {
       "key": "alert:releaseIdentity",
       "signal": "releaseIdentity",
-      "severity": "warning",
-      "wouldNotify": true,
+      "severity": "info",
+      "wouldNotify": false,
       "owner": "areaforge-release-operator / areaforge-supply-chain",
-      "summary": "releaseIdentity is warn",
-      "evidence": "missing release tag, web image digest, migration image digest",
-      "residualRiskIds": [
-        "AF-RISK-SC-001"
-      ],
+      "summary": "releaseIdentity is pass",
+      "evidence": "release manifest provides release tag and immutable image digests",
+      "residualRiskIds": [],
       "recommendedAction": "record release tag, immutable image digests, manifest, checksum, and signature evidence"
     },
     {
       "key": "alert:updateAgent",
       "signal": "updateAgent",
-      "severity": "warning",
-      "wouldNotify": true,
+      "severity": "info",
+      "wouldNotify": false,
       "owner": "areaforge-sre-ops",
-      "summary": "updateAgent is unknown",
-      "evidence": "update status not collected; provide AREAFORGE_READINESS_UPDATE_STATUS_FILE or smoke credentials",
-      "residualRiskIds": [
-        "AF-RISK-OPS-001"
-      ],
+      "summary": "updateAgent is pass",
+      "evidence": "update-agent status has no blocker and signature is required",
+      "residualRiskIds": [],
       "recommendedAction": "collect redacted update-agent status or authenticated update status without running updater actions"
     },
     {
       "key": "alert:authenticatedSmoke",
       "signal": "authenticatedSmoke",
-      "severity": "warning",
-      "wouldNotify": true,
+      "severity": "info",
+      "wouldNotify": false,
       "owner": "areaforge-qa-smoke",
-      "summary": "authenticatedSmoke is warn",
-      "evidence": "no authenticated smoke result supplied; run pnpm smoke:prod-readonly or set AREAFORGE_READINESS_SMOKE_RESULT_FILE",
-      "residualRiskIds": [
-        "AF-RISK-OPS-001"
-      ],
+      "summary": "authenticatedSmoke is pass",
+      "evidence": "authenticated smoke result file reports ok=true",
+      "residualRiskIds": [],
       "recommendedAction": "run or attach a recent read-only authenticated smoke result"
     },
     {
@@ -66,9 +60,10 @@
       "severity": "warning",
       "wouldNotify": true,
       "owner": "areaforge-sre-ops",
-      "summary": "backup is unknown",
-      "evidence": "backup freshness evidence not supplied",
+      "summary": "backup is warn",
+      "evidence": "backup/restore metadata preview status is needs_evidence",
       "residualRiskIds": [
+        "AF-RISK-OPS-001",
         "AF-RISK-OPS-004"
       ],
       "recommendedAction": "attach current database/uploads/env/config backup hashes before release, update, migration, or rollback"
@@ -76,25 +71,23 @@
     {
       "key": "alert:rollback",
       "signal": "rollback",
-      "severity": "watch",
+      "severity": "info",
       "wouldNotify": false,
       "owner": "areaforge-release-operator / areaforge-sre-ops",
-      "summary": "rollback is unknown",
-      "evidence": "rollback target not supplied",
+      "summary": "rollback is pass",
+      "evidence": "rollback target is available",
       "residualRiskIds": [],
       "recommendedAction": "record previous version, previous image digest, and rollback decision or plan"
     },
     {
       "key": "alert:infrastructure",
       "signal": "infrastructure",
-      "severity": "warning",
-      "wouldNotify": true,
+      "severity": "info",
+      "wouldNotify": false,
       "owner": "areaforge-observability / areaforge-sre-ops",
-      "summary": "infrastructure is unknown",
-      "evidence": "disk/certificate evidence not supplied",
-      "residualRiskIds": [
-        "AF-RISK-OPS-004"
-      ],
+      "summary": "infrastructure is pass",
+      "evidence": "certificate expires in 60 day(s)",
+      "residualRiskIds": [],
       "recommendedAction": "record disk status, certificate days remaining, and alert receiver or manual review window"
     }
   ],
@@ -105,7 +98,7 @@
     "productionWriteAttempted": false,
     "secretValuePrinted": false,
     "smokePasswordReadFromFile": false,
-    "networkRequested": false,
+    "networkRequested": true,
     "notificationSent": false,
     "externalAlertReceiverCalled": false
   },

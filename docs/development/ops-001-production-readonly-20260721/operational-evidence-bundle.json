@@ -2,14 +2,14 @@
   "schemaVersion": 2,
   "status": "needs_attention",
   "mode": "read_only_operational_evidence_bundle",
-  "bundleHash": "ab5d438e22d7740b6b7170eacd6ae7e7c1c0fe8f1d1d5fbfe34f7ad18bd52dd1",
-  "generatedAt": "2026-07-21T05:29:31.854Z",
+  "bundleHash": "6ae00bae3b45e9485caa63b529e7c0a843f8ca94dd356a6aef31d515d312cefc",
+  "generatedAt": "2026-07-21T06:55:57.301Z",
   "sourceSnapshot": {
     "schemaVersion": 1,
     "packageVersion": "0.1.9",
     "packageJsonHash": "47482c5ea32faed1b34f644878c223991900f25e7fb2f72e2528c0e7c60d840c",
     "implementationHash": "ead37cf457af8de78effec8640f3ff1fa61d7b48985f28b006521c84a3ae5e03",
-    "configHash": "49725a4cf87327d3e3059e1873663b8eda51bd77f19fa4d5fa00b814b27a2465",
+    "configHash": "8dd20deb544e5b5f3fb4ee6933148144fd8e4755626d63e4b7278348dd0f1dfa",
     "fileInputs": [
       {
         "key": "updateStatus",
@@ -38,16 +38,16 @@
       {
         "key": "backupRestorePreview",
         "envKey": "AREAFORGE_READINESS_BACKUP_RESTORE_PREVIEW_FILE",
-        "configured": false,
-        "pathLabel": null,
-        "fileKind": "missing",
-        "sha256": null
+        "configured": true,
+        "pathLabel": "backup-restore-preview.json",
+        "fileKind": "regular",
+        "sha256": "8f19b5d70ba7a426452049cd2a870544a52e087b608eba24c421cf3ead4cc34f"
       }
     ],
-    "sourceSetHash": "c633163f8591172912e69181fd416b1e868db1289cd9fe8321af8a265bb1fd29"
+    "sourceSetHash": "d118be0ab3f2e0ea7198e16ac1ff511bc012d638d7bd8097b9cebc2c45419053"
   },
   "summary": {
-    "checkedAt": "2026-07-21T05:29:30.393Z",
+    "checkedAt": "2026-07-21T06:55:55.341Z",
     "environment": "production",
     "scope": "daily",
     "baseUrl": "https://forge.areasong.top",
@@ -57,7 +57,7 @@
       "migrationAttempted": false,
       "productionWriteAttempted": false,
       "secretValuePrinted": false,
-      "smokePasswordReadFromFile": true,
+      "smokePasswordReadFromFile": false,
       "networkRequested": true
     },
     "expected": {
@@ -181,11 +181,158 @@
         }
       },
       "backup": {
-        "status": "unknown",
-        "evidence": "backup freshness evidence not supplied",
+        "status": "warn",
+        "evidence": "backup/restore metadata preview status is needs_evidence",
         "residualRiskIds": [
+          "AF-RISK-OPS-001",
           "AF-RISK-OPS-004"
-        ]
+        ],
+        "data": {
+          "previewStatus": "needs_evidence",
+          "previewHash": "33d7377ad519fd54f7f63a5045ca0660b1fa5d6f4ce26a133e154fe38e702ec1",
+          "inventory": [
+            {
+              "key": "databaseBackupSha256",
+              "status": "present",
+              "category": "backup_manifest"
+            },
+            {
+              "key": "uploadsBackupSha256",
+              "status": "present",
+              "category": "backup_manifest"
+            },
+            {
+              "key": "envBackupSha256",
+              "status": "present",
+              "category": "backup_manifest"
+            },
+            {
+              "key": "releaseEvidenceBundleHash",
+              "status": "present",
+              "category": "release_evidence_bundle"
+            },
+            {
+              "key": "attachmentReconciliationCsvPath",
+              "status": "present",
+              "category": "attachment_integrity"
+            },
+            {
+              "key": "attachmentReconciliationCsvSha256",
+              "status": "present",
+              "category": "attachment_integrity"
+            },
+            {
+              "key": "attachmentReconciliationSummaryPath",
+              "status": "present",
+              "category": "attachment_integrity"
+            },
+            {
+              "key": "attachmentReconciliationSummaryHash",
+              "status": "present",
+              "category": "attachment_integrity"
+            },
+            {
+              "key": "attachmentReconciliationStatus",
+              "status": "present",
+              "category": "attachment_integrity"
+            },
+            {
+              "key": "composeConfigBackupPath",
+              "status": "root_only",
+              "category": "backup_manifest"
+            },
+            {
+              "key": "nginxConfigBackupPath",
+              "status": "root_only",
+              "category": "backup_manifest"
+            },
+            {
+              "key": "databaseRestoreResult",
+              "status": "missing",
+              "category": "restore_dry_run"
+            },
+            {
+              "key": "uploadsRestoreResult",
+              "status": "missing",
+              "category": "restore_dry_run"
+            },
+            {
+              "key": "attachmentHashMatched",
+              "status": "missing",
+              "category": "attachment_integrity"
+            },
+            {
+              "key": "rollbackTarget",
+              "status": "present",
+              "category": "rollback"
+            }
+          ],
+          "blockingGaps": [
+            {
+              "key": "composeConfigBackupPath",
+              "status": "root_only",
+              "category": "backup_manifest",
+              "gapType": "backup_config_reference",
+              "sourceInput": "release_record",
+              "sourceField": "composeConfigBackupPath",
+              "blocks": [
+                "backup_restore_preview_ready",
+                "maintenance_handoff"
+              ]
+            },
+            {
+              "key": "nginxConfigBackupPath",
+              "status": "root_only",
+              "category": "backup_manifest",
+              "gapType": "backup_config_reference",
+              "sourceInput": "release_record",
+              "sourceField": "nginxConfigBackupPath",
+              "blocks": [
+                "backup_restore_preview_ready",
+                "maintenance_handoff"
+              ]
+            },
+            {
+              "key": "databaseRestoreResult",
+              "status": "missing",
+              "category": "restore_dry_run",
+              "gapType": "restore_dry_run_result",
+              "sourceInput": "restore_drill_record",
+              "sourceField": "databaseRestoreResult",
+              "blocks": [
+                "restore_dry_run_claim",
+                "backup_restore_preview_ready",
+                "maintenance_handoff"
+              ]
+            },
+            {
+              "key": "uploadsRestoreResult",
+              "status": "missing",
+              "category": "restore_dry_run",
+              "gapType": "restore_dry_run_result",
+              "sourceInput": "restore_drill_record",
+              "sourceField": "uploadsRestoreResult",
+              "blocks": [
+                "restore_dry_run_claim",
+                "backup_restore_preview_ready",
+                "maintenance_handoff"
+              ]
+            },
+            {
+              "key": "attachmentHashMatched",
+              "status": "missing",
+              "category": "attachment_integrity",
+              "gapType": "attachment_integrity_result",
+              "sourceInput": "restore_drill_record",
+              "sourceField": "attachmentHashMatched",
+              "blocks": [
+                "restore_dry_run_claim",
+                "backup_restore_preview_ready",
+                "maintenance_handoff"
+              ]
+            }
+          ]
+        }
       },
       "rollback": {
         "status": "pass",
@@ -215,23 +362,23 @@
       "latestEvidenceFreshnessStatus": "unknown",
       "signals": {
         "health": {
-          "checkedAt": "2026-07-21T05:29:30.393Z",
+          "checkedAt": "2026-07-21T06:55:55.341Z",
           "ageSeconds": 0,
           "status": "fresh"
         },
         "releaseIdentity": {
-          "checkedAt": "2026-07-21T05:29:30.393Z",
+          "checkedAt": "2026-07-21T06:55:55.341Z",
           "ageSeconds": 0,
           "status": "fresh"
         },
         "updateAgent": {
           "checkedAt": "2026-07-21T05:27:41Z",
-          "ageSeconds": 109,
+          "ageSeconds": 5294,
           "status": "fresh"
         },
         "authenticatedSmoke": {
           "checkedAt": "2026-07-21T05:08:10Z",
-          "ageSeconds": 1280,
+          "ageSeconds": 6465,
           "status": "fresh"
         },
         "backup": {
@@ -240,44 +387,45 @@
           "status": "unknown"
         },
         "rollback": {
-          "checkedAt": "2026-07-21T05:29:30.393Z",
+          "checkedAt": "2026-07-21T06:55:55.341Z",
           "ageSeconds": 0,
           "status": "fresh"
         },
         "infrastructure": {
-          "checkedAt": "2026-07-21T05:29:30.393Z",
+          "checkedAt": "2026-07-21T06:55:55.341Z",
           "ageSeconds": 0,
           "status": "fresh"
         }
       }
     },
     "residualRiskIds": [
+      "AF-RISK-OPS-001",
       "AF-RISK-OPS-004"
     ],
-    "overall": "unknown"
+    "overall": "warn"
   },
   "freshness": {
     "maxAgeSeconds": 1209600,
     "latestEvidenceFreshnessStatus": "unknown",
     "signals": {
       "health": {
-        "checkedAt": "2026-07-21T05:29:30.393Z",
+        "checkedAt": "2026-07-21T06:55:55.341Z",
         "ageSeconds": 0,
         "status": "fresh"
       },
       "releaseIdentity": {
-        "checkedAt": "2026-07-21T05:29:30.393Z",
+        "checkedAt": "2026-07-21T06:55:55.341Z",
         "ageSeconds": 0,
         "status": "fresh"
       },
       "updateAgent": {
         "checkedAt": "2026-07-21T05:27:41Z",
-        "ageSeconds": 109,
+        "ageSeconds": 5294,
         "status": "fresh"
       },
       "authenticatedSmoke": {
         "checkedAt": "2026-07-21T05:08:10Z",
-        "ageSeconds": 1280,
+        "ageSeconds": 6465,
         "status": "fresh"
       },
       "backup": {
@@ -286,12 +434,12 @@
         "status": "unknown"
       },
       "rollback": {
-        "checkedAt": "2026-07-21T05:29:30.393Z",
+        "checkedAt": "2026-07-21T06:55:55.341Z",
         "ageSeconds": 0,
         "status": "fresh"
       },
       "infrastructure": {
-        "checkedAt": "2026-07-21T05:29:30.393Z",
+        "checkedAt": "2026-07-21T06:55:55.341Z",
         "ageSeconds": 0,
         "status": "fresh"
       }
@@ -458,8 +606,9 @@
       "status": "needs_attention",
       "source": "redacted backup freshness evidence",
       "description": "database, uploads, env, compose, and Nginx backup evidence",
-      "evidence": "backup freshness evidence not supplied",
+      "evidence": "backup/restore metadata preview status is needs_evidence",
       "residualRiskIds": [
+        "AF-RISK-OPS-001",
         "AF-RISK-OPS-004"
       ],
       "requiredEvidence": [
@@ -467,7 +616,152 @@
         "uploads backup sha256",
         "env/config backup reference"
       ],
-      "metadata": {}
+      "metadata": {
+        "previewStatus": "needs_evidence",
+        "previewHash": "33d7377ad519fd54f7f63a5045ca0660b1fa5d6f4ce26a133e154fe38e702ec1",
+        "inventory": [
+          {
+            "key": "databaseBackupSha256",
+            "status": "present",
+            "category": "backup_manifest"
+          },
+          {
+            "key": "uploadsBackupSha256",
+            "status": "present",
+            "category": "backup_manifest"
+          },
+          {
+            "key": "envBackupSha256",
+            "status": "present",
+            "category": "backup_manifest"
+          },
+          {
+            "key": "releaseEvidenceBundleHash",
+            "status": "present",
+            "category": "release_evidence_bundle"
+          },
+          {
+            "key": "attachmentReconciliationCsvPath",
+            "status": "present",
+            "category": "attachment_integrity"
+          },
+          {
+            "key": "attachmentReconciliationCsvSha256",
+            "status": "present",
+            "category": "attachment_integrity"
+          },
+          {
+            "key": "attachmentReconciliationSummaryPath",
+            "status": "present",
+            "category": "attachment_integrity"
+          },
+          {
+            "key": "attachmentReconciliationSummaryHash",
+            "status": "present",
+            "category": "attachment_integrity"
+          },
+          {
+            "key": "attachmentReconciliationStatus",
+            "status": "present",
+            "category": "attachment_integrity"
+          },
+          {
+            "key": "composeConfigBackupPath",
+            "status": "root_only",
+            "category": "backup_manifest"
+          },
+          {
+            "key": "nginxConfigBackupPath",
+            "status": "root_only",
+            "category": "backup_manifest"
+          },
+          {
+            "key": "databaseRestoreResult",
+            "status": "missing",
+            "category": "restore_dry_run"
+          },
+          {
+            "key": "uploadsRestoreResult",
+            "status": "missing",
+            "category": "restore_dry_run"
+          },
+          {
+            "key": "attachmentHashMatched",
+            "status": "missing",
+            "category": "attachment_integrity"
+          },
+          {
+            "key": "rollbackTarget",
+            "status": "present",
+            "category": "rollback"
+          }
+        ],
+        "blockingGaps": [
+          {
+            "key": "composeConfigBackupPath",
+            "status": "root_only",
+            "category": "backup_manifest",
+            "gapType": "backup_config_reference",
+            "sourceInput": "release_record",
+            "sourceField": "composeConfigBackupPath",
+            "blocks": [
+              "backup_restore_preview_ready",
+              "maintenance_handoff"
+            ]
+          },
+          {
+            "key": "nginxConfigBackupPath",
+            "status": "root_only",
+            "category": "backup_manifest",
+            "gapType": "backup_config_reference",
+            "sourceInput": "release_record",
+            "sourceField": "nginxConfigBackupPath",
+            "blocks": [
+              "backup_restore_preview_ready",
+              "maintenance_handoff"
+            ]
+          },
+          {
+            "key": "databaseRestoreResult",
+            "status": "missing",
+            "category": "restore_dry_run",
+            "gapType": "restore_dry_run_result",
+            "sourceInput": "restore_drill_record",
+            "sourceField": "databaseRestoreResult",
+            "blocks": [
+              "restore_dry_run_claim",
+              "backup_restore_preview_ready",
+              "maintenance_handoff"
+            ]
+          },
+          {
+            "key": "uploadsRestoreResult",
+            "status": "missing",
+            "category": "restore_dry_run",
+            "gapType": "restore_dry_run_result",
+            "sourceInput": "restore_drill_record",
+            "sourceField": "uploadsRestoreResult",
+            "blocks": [
+              "restore_dry_run_claim",
+              "backup_restore_preview_ready",
+              "maintenance_handoff"
+            ]
+          },
+          {
+            "key": "attachmentHashMatched",
+            "status": "missing",
+            "category": "attachment_integrity",
+            "gapType": "attachment_integrity_result",
+            "sourceInput": "restore_drill_record",
+            "sourceField": "attachmentHashMatched",
+            "blocks": [
+              "restore_dry_run_claim",
+              "backup_restore_preview_ready",
+              "maintenance_handoff"
+            ]
+          }
+        ]
+      }
     },
     {
       "key": "signal:rollback",
@@ -547,7 +841,7 @@
     "migrationAttempted": false,
     "productionWriteAttempted": false,
     "secretValuePrinted": false,
-    "smokePasswordReadFromFile": true,
+    "smokePasswordReadFromFile": false,
     "networkRequested": true,
     "productionDeployAttempted": false,
     "updaterApplyAttempted": false,

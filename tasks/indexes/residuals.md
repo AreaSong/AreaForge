@@ -26,20 +26,20 @@
 | AF-RISK-SC-004 | GitHub `main` ruleset `19138434`、required PR/approval、GitHub Actions `verify`、delete/non-fast-forward 禁止和无 bypass 已读回；受控 PR `#13` 已覆盖失败/成功检查并关闭未合并。远端实施完成，residual 仍待人工 close/keep-open 决策 | `areaforge-enterprise-governance` / `areaforge-supply-chain` | 复核两份 `output/supply-chain/github-main-protection-*.json`、validator/preflight 与 ruleset/check 漂移后，维护者明确 close 或 keep-open；不得自动关闭 |
 | AF-RISK-OPS-003 | 服务器、域名、Nginx 或端口迁移需单独 runbook 和证据 | `areaforge-sre-ops` | 基础设施迁移前 |
 | AF-RISK-OPS-004 | 2026-07-11 manual-window alert preview 和告警/恢复演练记录保留为历史输入；post-`v0.1.7` alert preview 与 `docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt` 已匹配，带当前 preview/drill 路径运行 `pnpm ops:ops-004:preflight` 返回 `ready_for_human_close`；外部接收人和 metrics dashboard 仍未产品化，台账关闭需维护者人工复核 | `areaforge-observability` | 建立外部告警、关闭 OPS-004 或声称完整生产健康前 |
-| AF-RISK-OPS-005 | 本地 V2 expected-before、目标身份、TTL、idempotency/hash、no-clobber publish、directory fsync uncertain、processing reconciliation、不可变 decision history 和共享 production-state lock 已实现；Release workflow 已增加 strict assets/manifest/cosign 校验，生产 validator 已绑定实际 redacted rejection/history/operational JSON；尚缺匹配签名 Release、生产部署和 fresh evidence | `areaforge-security-governance` / `areaforge-release-operator` / `areaforge-sre-ops` | 先创建匹配提交的签名 Release并严格验证 record+assets；生产部署必须再次确认并暂停 timer、隔离旧队列、验证 V2 check，随后验证 JSON path+hash 和 `executionAttempted=no` rejection |
-| AF-RISK-OPS-006 | partial unique index、task/session CAS、结束计时单次副作用和 CheckIn 锁已达到隔离 PostgreSQL `local_verified`；尚未进入匹配签名 Release 或生产 migration/deploy | `areaforge-security-governance` / `areaforge-sre-ops` / `areaforge-validation-driver` | 先创建匹配 exact commit 的签名 Release；生产前另行确认 fresh doctor、additive migration、health/smoke/rollback 与 after-doctor，不得从本地 pass 直接部署 |
-| AF-RISK-OPS-007 | staging/write-intent 协议已在当前 checkout 本地实施并通过隔离 runtime selftest 达 `local_verified`；生产仍运行旧协议，崩溃窗口风险在生产未消除 | `areaforge-file-storage-safety` / `areaforge-security-governance` | 先创建匹配 exact commit 的签名 Release；生产 additive migration/deploy 另行确认（先跑重复 storage identity doctor 预检），不得从本地 pass 直接部署 |
-| AF-RISK-OPS-008 | 本地 local_verified；生产 timer/hold/apply 与签名 Release 仍未证明 | `areaforge-sre-ops` / `areaforge-observability` / `areaforge-security-governance` | 生产 timer/hold/apply 与匹配签名 Release 仍需单独确认 |
+| AF-RISK-OPS-005 | 已 closed-evidence：v0.1.9 生产 mismatch 证据包通过 `ops:ops-005:evidence:validate`；closeout 见 `docs/development/residual-closure-review-20260721-ops-005-closeout.md`。dirty worktree 下 `ops:ops-005:preflight` 仍可能 `needs_signed_release`，不构成重新打开条件 alone | `areaforge-security-governance` / `areaforge-release-operator` / `areaforge-sre-ops` | 新 Release、expectedBefore 语义变化、evidence:validate 失败或生产版本变化时重新打开 |
+| AF-RISK-OPS-006 | 已 closed-evidence：Phase B doctor 时间序 + probe + write-smoke PASS，`ops:ops-006:evidence:validate` 通过；closeout 见 `docs/development/residual-closure-review-20260721-ops-006-closeout.md`。dirty worktree 下 production:preflight 仍可能 blocked | `areaforge-security-governance` / `areaforge-sre-ops` / `areaforge-validation-driver` | 新 Release、concurrency 语义变化、evidence:validate 失败或 doctor/smoke 过期时重新打开 |
+| AF-RISK-OPS-007 | 已 closed-evidence：生产迁移已 apply + recon/doctor pass，协议记录已绑定；closeout 见 `docs/development/residual-closure-review-20260721-ops-007-closeout.md`。当前 dirty checkout 下本地 preflight 可能因 runtime hash drift 为 invalid | `areaforge-file-storage-safety` / `areaforge-security-governance` | 新 Release、附件协议变化、生产 recon/doctor 失败，或需 fresh local_verified 时重新打开并刷新隔离 runtime |
+| AF-RISK-OPS-008 | 已 closed-evidence：生产 hold/barrier/clear/timers 已观测；`ops:ops-008:preflight:strict=local_verified`；closeout 见 `docs/development/residual-closure-review-20260721-ops-008-closeout.md` | `areaforge-sre-ops` / `areaforge-observability` / `areaforge-security-governance` | 新 Release、hold/journal 语义变化、preflight 不再 local_verified 或生产 hold 证据失效时重新打开 |
 | AF-RISK-UX-001 | local UX smoke guardrail selftest 已通过；共享 evaluator 当前将最新记录判为 `invalid`，因为 git commit、source hash 和 runtime identity 不匹配当前 checkout。残余仍 open，且生产体验未被本地证据证明，窄屏任务选择器仍有 polish follow-up | `areaforge-product-experience` / `areaforge-qa-smoke` | 启动当前 checkout runtime，重新采集 current-bound desktop/mobile review 与 runtime probe，运行 `pnpm experience:review:validate`；随后由维护者 reaffirm `keep-open` 或另行授权 residual 台账更新 |
 
 ## Task Bindings
 
 | Residual | Task | 状态边界 |
 |---|---|---|
-| AF-RISK-OPS-005 | `tasks/active/0019-update-request-expected-before-binding.md` | active；等待签名 Release、独立生产部署和 fresh evidence |
-| AF-RISK-OPS-006 | `tasks/active/0020-business-state-concurrency.md` | active local-verified；等待签名 Release、独立生产 migration/deploy 和 fresh evidence |
-| AF-RISK-OPS-007 | `tasks/active/0021-attachment-staging-intent.md` | active local-verified；等待签名 Release、独立生产 migration/deploy 和 fresh evidence |
-| AF-RISK-OPS-008 | `tasks/active/0022-updater-phase-journal-hold.md` | active local-verified；生产仍 blocked |
+| AF-RISK-OPS-005 | `tasks/active/0019-update-request-expected-before-binding.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
+| AF-RISK-OPS-006 | `tasks/active/0020-business-state-concurrency.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
+| AF-RISK-OPS-007 | `tasks/active/0021-attachment-staging-intent.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
+| AF-RISK-OPS-008 | `tasks/active/0022-updater-phase-journal-hold.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
 | AF-RISK-SC-004 | `tasks/backlog/0023-github-main-protection.md` | backlog blocked；远端实施已验证，等待维护者 residual 决策 |
 | AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md` | active in-progress；只做维护者 close/keep-open 复核，不自动修改台账 |
 

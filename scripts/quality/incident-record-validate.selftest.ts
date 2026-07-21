@@ -23,12 +23,12 @@ try {
     .replace("highRiskConfirmation: yes", "highRiskConfirmation: no"));
   writeFileSync(invalidResidualRecord, createRecord()
     .replace("status: mitigated", "status: open")
-    .replace("residualRiskIds: AF-RISK-OPS-004", "residualRiskIds: none"));
+    .replace("residualRiskIds: AF-RISK-OPS-002", "residualRiskIds: none"));
   writeFileSync(invalidTimezoneRecord, createRecord().replace("detectedAt: 2026-07-10T21:30:00+08:00", "detectedAt: 2026-07-10T21:30:00"));
-  writeFileSync(invalidResidualIdRecord, createRecord().replace("residualRiskIds: AF-RISK-OPS-004", "residualRiskIds: AF-RISK-OPS-004, typo-risk-id"));
+  writeFileSync(invalidResidualIdRecord, createRecord().replace("residualRiskIds: AF-RISK-OPS-002", "residualRiskIds: AF-RISK-OPS-002, typo-risk-id"));
   writeFileSync(invalidFollowUpRecord, createRecord().replace("followUpTasks: tasks/indexes/residuals.md", "followUpTasks: private operator notes"));
-  writeFileSync(unknownResidualRecord, createRecord().replace("AF-RISK-OPS-004", "AF-RISK-OPS-999"));
-  writeFileSync(closedResidualRecord, createRecord().replace("AF-RISK-OPS-004", "AF-RISK-SC-003"));
+  writeFileSync(unknownResidualRecord, createRecord().replace("AF-RISK-OPS-002", "AF-RISK-OPS-999"));
+  writeFileSync(closedResidualRecord, createRecord().replace("AF-RISK-OPS-002", "AF-RISK-SC-003"));
 
   expectExit("valid incident record passes", [validRecord], 0, "incidentRecordEvidenceHash: sha256:");
   expectExit("secret-like values fail", [invalidSecretRecord], 1);
@@ -85,7 +85,7 @@ function createRecord(): string {
     "evidenceBundleHash: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "alertPreviewHash: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "highRiskConfirmation: yes",
-    "residualRiskIds: AF-RISK-OPS-004",
+    "residualRiskIds: AF-RISK-OPS-002",
     "followUpTasks: tasks/indexes/residuals.md",
     "postIncidentReview: no",
     "safetyFacts:",
