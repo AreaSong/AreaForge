@@ -1,0 +1,557 @@
+{
+  "schemaVersion": 2,
+  "status": "needs_attention",
+  "mode": "read_only_operational_evidence_bundle",
+  "bundleHash": "ab5d438e22d7740b6b7170eacd6ae7e7c1c0fe8f1d1d5fbfe34f7ad18bd52dd1",
+  "generatedAt": "2026-07-21T05:29:31.854Z",
+  "sourceSnapshot": {
+    "schemaVersion": 1,
+    "packageVersion": "0.1.9",
+    "packageJsonHash": "47482c5ea32faed1b34f644878c223991900f25e7fb2f72e2528c0e7c60d840c",
+    "implementationHash": "ead37cf457af8de78effec8640f3ff1fa61d7b48985f28b006521c84a3ae5e03",
+    "configHash": "49725a4cf87327d3e3059e1873663b8eda51bd77f19fa4d5fa00b814b27a2465",
+    "fileInputs": [
+      {
+        "key": "updateStatus",
+        "envKey": "AREAFORGE_READINESS_UPDATE_STATUS_FILE",
+        "configured": true,
+        "pathLabel": "redacted-update-status.json",
+        "fileKind": "regular",
+        "sha256": "c4df3c8eb71f2e7e5d133fa589f9356f8cb58bf8103c1b3f42eda2e5aa7f046b"
+      },
+      {
+        "key": "releaseManifest",
+        "envKey": "AREAFORGE_READINESS_RELEASE_MANIFEST_FILE",
+        "configured": true,
+        "pathLabel": "areaforge-release-manifest.json",
+        "fileKind": "regular",
+        "sha256": "ce79f48d5b506890af39a6cedee33acd84051ce989167c5037003717903a3c3e"
+      },
+      {
+        "key": "smokeResult",
+        "envKey": "AREAFORGE_READINESS_SMOKE_RESULT_FILE",
+        "configured": true,
+        "pathLabel": "prod-readonly-smoke-output.log",
+        "fileKind": "regular",
+        "sha256": "970fb431c66c31eaf25eab592cd682968edcea919d68d71048e58fed16393c6c"
+      },
+      {
+        "key": "backupRestorePreview",
+        "envKey": "AREAFORGE_READINESS_BACKUP_RESTORE_PREVIEW_FILE",
+        "configured": false,
+        "pathLabel": null,
+        "fileKind": "missing",
+        "sha256": null
+      }
+    ],
+    "sourceSetHash": "c633163f8591172912e69181fd416b1e868db1289cd9fe8321af8a265bb1fd29"
+  },
+  "summary": {
+    "checkedAt": "2026-07-21T05:29:30.393Z",
+    "environment": "production",
+    "scope": "daily",
+    "baseUrl": "https://forge.areasong.top",
+    "safetyFacts": {
+      "serverCommandAttempted": false,
+      "backupRestoreAttempted": false,
+      "migrationAttempted": false,
+      "productionWriteAttempted": false,
+      "secretValuePrinted": false,
+      "smokePasswordReadFromFile": true,
+      "networkRequested": true
+    },
+    "expected": {
+      "version": "0.1.9",
+      "releaseTag": "v0.1.9",
+      "autoApply": "none"
+    },
+    "signals": {
+      "health": {
+        "status": "pass",
+        "evidence": "GET https://forge.areasong.top/api/health returned AreaForge 0.1.9",
+        "data": {
+          "ok": true,
+          "service": "AreaForge",
+          "version": "0.1.9"
+        }
+      },
+      "releaseIdentity": {
+        "status": "pass",
+        "evidence": "release manifest provides release tag and immutable image digests",
+        "data": {
+          "releaseTag": "v0.1.9",
+          "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d",
+          "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab",
+          "currentVersion": "0.1.9",
+          "currentImage": "ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d",
+          "releaseUrl": "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.9",
+          "manifestSource": "file:output/release-v0.1.9/areaforge-release-manifest.json",
+          "manifestVersion": "0.1.9",
+          "manifestChannel": "stable",
+          "manifestGitCommit": "749692ba719d801f14186a94af97b96350380141",
+          "manifestAssets": {
+            "sha256SumsAsset": "SHA256SUMS",
+            "signatureAsset": "SHA256SUMS.sig",
+            "sbomAsset": "areaforge-sbom.spdx.json",
+            "provenanceAsset": "areaforge-provenance.json"
+          },
+          "manifestError": null
+        }
+      },
+      "updateAgent": {
+        "status": "pass",
+        "evidence": "update-agent status has no blocker and signature is required",
+        "data": {
+          "currentVersion": "0.1.9",
+          "currentImage": "ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d",
+          "releaseUrl": "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.9",
+          "latestVersion": "0.1.9",
+          "updateAvailable": false,
+          "autoApply": "none",
+          "signatureRequired": true,
+          "timerEnabled": true,
+          "timerActive": true,
+          "lastCheckedAt": "2026-07-21T05:27:41Z",
+          "blocker": null,
+          "rollback": {
+            "available": true,
+            "targetVersion": "0.1.7",
+            "targetImage": "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd"
+          },
+          "statusUpdatedAt": "2026-07-21T05:27:41Z"
+        }
+      },
+      "authenticatedSmoke": {
+        "status": "pass",
+        "evidence": "authenticated smoke result file reports ok=true",
+        "data": {
+          "checkedAt": "2026-07-21T05:08:10Z",
+          "checks": [
+            {
+              "name": "health",
+              "ok": true,
+              "durationMs": 128
+            },
+            {
+              "name": "login",
+              "ok": true,
+              "durationMs": 1384
+            },
+            {
+              "name": "auth/me",
+              "ok": true,
+              "durationMs": 200
+            },
+            {
+              "name": "dashboard",
+              "ok": true,
+              "durationMs": 1395
+            },
+            {
+              "name": "notes",
+              "ok": true,
+              "durationMs": 180
+            },
+            {
+              "name": "syllabus",
+              "ok": true,
+              "durationMs": 160
+            },
+            {
+              "name": "analytics",
+              "ok": true,
+              "durationMs": 191
+            },
+            {
+              "name": "reports",
+              "ok": true,
+              "durationMs": 314
+            },
+            {
+              "name": "long-term-risks",
+              "ok": true,
+              "durationMs": 200
+            },
+            {
+              "name": "update-status",
+              "ok": true,
+              "durationMs": 356
+            }
+          ]
+        }
+      },
+      "backup": {
+        "status": "unknown",
+        "evidence": "backup freshness evidence not supplied",
+        "residualRiskIds": [
+          "AF-RISK-OPS-004"
+        ]
+      },
+      "rollback": {
+        "status": "pass",
+        "evidence": "rollback target is available",
+        "data": {
+          "available": true,
+          "targetVersion": "0.1.7",
+          "targetImage": "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd"
+        }
+      },
+      "infrastructure": {
+        "status": "pass",
+        "evidence": "certificate expires in 60 day(s)",
+        "data": {
+          "disk": null,
+          "certificateDaysRemaining": 60,
+          "certificateValidTo": "Sep 19 02:48:22 2026 GMT",
+          "certificateHost": "forge.areasong.top",
+          "certificateSource": "tls",
+          "certificateAuthorized": true,
+          "certificateAuthorizationError": null
+        }
+      }
+    },
+    "freshness": {
+      "maxAgeSeconds": 1209600,
+      "latestEvidenceFreshnessStatus": "unknown",
+      "signals": {
+        "health": {
+          "checkedAt": "2026-07-21T05:29:30.393Z",
+          "ageSeconds": 0,
+          "status": "fresh"
+        },
+        "releaseIdentity": {
+          "checkedAt": "2026-07-21T05:29:30.393Z",
+          "ageSeconds": 0,
+          "status": "fresh"
+        },
+        "updateAgent": {
+          "checkedAt": "2026-07-21T05:27:41Z",
+          "ageSeconds": 109,
+          "status": "fresh"
+        },
+        "authenticatedSmoke": {
+          "checkedAt": "2026-07-21T05:08:10Z",
+          "ageSeconds": 1280,
+          "status": "fresh"
+        },
+        "backup": {
+          "checkedAt": null,
+          "ageSeconds": null,
+          "status": "unknown"
+        },
+        "rollback": {
+          "checkedAt": "2026-07-21T05:29:30.393Z",
+          "ageSeconds": 0,
+          "status": "fresh"
+        },
+        "infrastructure": {
+          "checkedAt": "2026-07-21T05:29:30.393Z",
+          "ageSeconds": 0,
+          "status": "fresh"
+        }
+      }
+    },
+    "residualRiskIds": [
+      "AF-RISK-OPS-004"
+    ],
+    "overall": "unknown"
+  },
+  "freshness": {
+    "maxAgeSeconds": 1209600,
+    "latestEvidenceFreshnessStatus": "unknown",
+    "signals": {
+      "health": {
+        "checkedAt": "2026-07-21T05:29:30.393Z",
+        "ageSeconds": 0,
+        "status": "fresh"
+      },
+      "releaseIdentity": {
+        "checkedAt": "2026-07-21T05:29:30.393Z",
+        "ageSeconds": 0,
+        "status": "fresh"
+      },
+      "updateAgent": {
+        "checkedAt": "2026-07-21T05:27:41Z",
+        "ageSeconds": 109,
+        "status": "fresh"
+      },
+      "authenticatedSmoke": {
+        "checkedAt": "2026-07-21T05:08:10Z",
+        "ageSeconds": 1280,
+        "status": "fresh"
+      },
+      "backup": {
+        "checkedAt": null,
+        "ageSeconds": null,
+        "status": "unknown"
+      },
+      "rollback": {
+        "checkedAt": "2026-07-21T05:29:30.393Z",
+        "ageSeconds": 0,
+        "status": "fresh"
+      },
+      "infrastructure": {
+        "checkedAt": "2026-07-21T05:29:30.393Z",
+        "ageSeconds": 0,
+        "status": "fresh"
+      }
+    }
+  },
+  "items": [
+    {
+      "key": "signal:health",
+      "category": "app_health",
+      "status": "ready",
+      "source": "GET /api/health or explicit missing base URL",
+      "description": "public health and version signal",
+      "evidence": "GET https://forge.areasong.top/api/health returned AreaForge 0.1.9",
+      "residualRiskIds": [],
+      "requiredEvidence": [
+        "AreaForge health JSON",
+        "expected version when release or update scoped"
+      ],
+      "metadata": {
+        "ok": true,
+        "service": "AreaForge",
+        "version": "0.1.9"
+      }
+    },
+    {
+      "key": "signal:releaseIdentity",
+      "category": "release_identity",
+      "status": "ready",
+      "source": "release tag, health, update status, and immutable image digests",
+      "description": "release tag and image digest agreement",
+      "evidence": "release manifest provides release tag and immutable image digests",
+      "residualRiskIds": [],
+      "requiredEvidence": [
+        "release tag",
+        "web image@sha256",
+        "migration image@sha256",
+        "manifest and checksum/signature evidence for release/update scope"
+      ],
+      "metadata": {
+        "releaseTag": "v0.1.9",
+        "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d",
+        "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab",
+        "currentVersion": "0.1.9",
+        "currentImage": "ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d",
+        "releaseUrl": "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.9",
+        "manifestSource": "file:output/release-v0.1.9/areaforge-release-manifest.json",
+        "manifestVersion": "0.1.9",
+        "manifestChannel": "stable",
+        "manifestGitCommit": "749692ba719d801f14186a94af97b96350380141",
+        "manifestAssets": {
+          "sha256SumsAsset": "SHA256SUMS",
+          "signatureAsset": "SHA256SUMS.sig",
+          "sbomAsset": "areaforge-sbom.spdx.json",
+          "provenanceAsset": "areaforge-provenance.json"
+        },
+        "manifestError": null
+      }
+    },
+    {
+      "key": "signal:updateAgent",
+      "category": "update_agent",
+      "status": "ready",
+      "source": "redacted update status file or authenticated /api/system/update-status",
+      "description": "server update-agent state without executing updater actions",
+      "evidence": "update-agent status has no blocker and signature is required",
+      "residualRiskIds": [],
+      "requiredEvidence": [
+        "blocker=null",
+        "signatureRequired=true",
+        "timer enabled/active or documented limitation"
+      ],
+      "metadata": {
+        "currentVersion": "0.1.9",
+        "currentImage": "ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d",
+        "releaseUrl": "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.9",
+        "latestVersion": "0.1.9",
+        "updateAvailable": false,
+        "autoApply": "none",
+        "signatureRequired": true,
+        "timerEnabled": true,
+        "timerActive": true,
+        "lastCheckedAt": "2026-07-21T05:27:41Z",
+        "blocker": null,
+        "rollback": {
+          "available": true,
+          "targetVersion": "0.1.7",
+          "targetImage": "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd"
+        },
+        "statusUpdatedAt": "2026-07-21T05:27:41Z"
+      }
+    },
+    {
+      "key": "signal:authenticatedSmoke",
+      "category": "authenticated_smoke",
+      "status": "ready",
+      "source": "pnpm smoke:prod-readonly output or human redacted record",
+      "description": "authenticated user journey smoke evidence",
+      "evidence": "authenticated smoke result file reports ok=true",
+      "residualRiskIds": [],
+      "requiredEvidence": [
+        "recent smoke result",
+        "ok=true",
+        "checkedAt within freshness window"
+      ],
+      "metadata": {
+        "checkedAt": "2026-07-21T05:08:10Z",
+        "checks": [
+          {
+            "name": "health",
+            "ok": true,
+            "durationMs": 128
+          },
+          {
+            "name": "login",
+            "ok": true,
+            "durationMs": 1384
+          },
+          {
+            "name": "auth/me",
+            "ok": true,
+            "durationMs": 200
+          },
+          {
+            "name": "dashboard",
+            "ok": true,
+            "durationMs": 1395
+          },
+          {
+            "name": "notes",
+            "ok": true,
+            "durationMs": 180
+          },
+          {
+            "name": "syllabus",
+            "ok": true,
+            "durationMs": 160
+          },
+          {
+            "name": "analytics",
+            "ok": true,
+            "durationMs": 191
+          },
+          {
+            "name": "reports",
+            "ok": true,
+            "durationMs": 314
+          },
+          {
+            "name": "long-term-risks",
+            "ok": true,
+            "durationMs": 200
+          },
+          {
+            "name": "update-status",
+            "ok": true,
+            "durationMs": 356
+          }
+        ]
+      }
+    },
+    {
+      "key": "signal:backup",
+      "category": "backup",
+      "status": "needs_attention",
+      "source": "redacted backup freshness evidence",
+      "description": "database, uploads, env, compose, and Nginx backup evidence",
+      "evidence": "backup freshness evidence not supplied",
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "requiredEvidence": [
+        "database backup sha256",
+        "uploads backup sha256",
+        "env/config backup reference"
+      ],
+      "metadata": {}
+    },
+    {
+      "key": "signal:rollback",
+      "category": "rollback",
+      "status": "ready",
+      "source": "update-agent rollback target or release record",
+      "description": "rollback target availability",
+      "evidence": "rollback target is available",
+      "residualRiskIds": [],
+      "requiredEvidence": [
+        "previous version",
+        "previous image@sha256",
+        "rollback decision or plan"
+      ],
+      "metadata": {
+        "available": true,
+        "targetVersion": "0.1.7",
+        "targetImage": "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd"
+      }
+    },
+    {
+      "key": "signal:infrastructure",
+      "category": "infrastructure",
+      "status": "ready",
+      "source": "redacted disk evidence and automatic HTTPS certificate freshness evidence",
+      "description": "disk and TLS certificate readiness",
+      "evidence": "certificate expires in 60 day(s)",
+      "residualRiskIds": [],
+      "requiredEvidence": [
+        "disk status",
+        "certificate days remaining",
+        "alert receiver or manual review window"
+      ],
+      "metadata": {
+        "disk": null,
+        "certificateDaysRemaining": 60,
+        "certificateValidTo": "Sep 19 02:48:22 2026 GMT",
+        "certificateHost": "forge.areasong.top",
+        "certificateSource": "tls",
+        "certificateAuthorized": true,
+        "certificateAuthorizationError": null
+      }
+    }
+  ],
+  "capabilities": [
+    "collect_read_only_operational_readiness_summary",
+    "assemble_signal_evidence_index",
+    "map_residual_risk_ids_to_required_evidence",
+    "bind_current_source_inputs",
+    "compute_bundle_hash"
+  ],
+  "doesNotProve": [
+    "current production health without all required live signals",
+    "updater apply completion",
+    "backup, restore, migration, or rollback execution",
+    "GitHub Release creation",
+    "residual risk closure",
+    "production write smoke safety"
+  ],
+  "forbiddenActions": [
+    "execute_server_command",
+    "apply_update",
+    "run_migration",
+    "perform_backup",
+    "perform_restore",
+    "rollback_release",
+    "write_database",
+    "write_upload_directory",
+    "trigger_production_write_smoke",
+    "read_or_print_secret_values",
+    "create_github_release",
+    "push_git_tag"
+  ],
+  "safetyFacts": {
+    "serverCommandAttempted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "productionWriteAttempted": false,
+    "secretValuePrinted": false,
+    "smokePasswordReadFromFile": true,
+    "networkRequested": true,
+    "productionDeployAttempted": false,
+    "updaterApplyAttempted": false,
+    "rollbackAttempted": false,
+    "secretFileContentIncluded": false
+  }
+}
