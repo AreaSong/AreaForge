@@ -148,6 +148,7 @@
 - `development/ai-provider-integration-design.md`：真实 AI provider 接入确认设计。
 - `development/second-stage-long-term-loop-design.md`：第二阶段长期闭环确认设计。
 - `development/production-release-runbook.md`：生产发布、备份与恢复确认 runbook。
+- `development/release-v1.1.0-candidate-record.md`：学习行动中心 complete minor 的本地完成与 Release admission 候选记录；保持 `NOT-READY` 直到目标 commit 的 UX、SC-002、SC-004 与签名确认齐全。
 - `development/release-record-template.md`：后续每个线上版本使用的标准 Release 证据记录模板。
 - `development/release-supply-chain-record-template.md`：下一次签名 Release / CI 的 SBOM、provenance、签名和 Actions pinning 证据记录模板。
 - `development/github-release-updater-design.md`：GitHub Release 自动更新器设计。

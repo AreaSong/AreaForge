@@ -2,7 +2,7 @@
 
 `apps/web` 是 AreaForge 的 Next.js 私有 Web 应用。它承载作战台、任务、计时、复盘、考纲、笔记附件、统计、报告、模拟考试、阶段调整和版本中心 UI。
 
-当前仓库发布候选版本为 `0.1.8`，线上仍运行 `0.1.7`，公网入口为 `https://forge.areasong.top/`；尚未创建或部署 `v0.1.8`。Web 运行时只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
+当前仓库发布候选版本为 `1.1.0`，线上仍通过签名 Release `v0.1.9` 运行 `0.1.9`，公网入口为 `https://forge.areasong.top/`；尚未创建或部署 `v1.1.0`。Web 运行时只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
 
 ## Getting Started
 

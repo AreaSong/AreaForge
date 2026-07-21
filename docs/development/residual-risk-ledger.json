@@ -96,7 +96,7 @@
         "areaforge-enterprise-governance"
       ],
       "taskRefs": [
-        "tasks/backlog/0035-v11-batch11-minor-release.md"
+        "tasks/active/0035-v11-batch11-minor-release.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null

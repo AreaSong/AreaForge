@@ -44,6 +44,6 @@
 | AF-RISK-SC-004 | `tasks/backlog/0023-github-main-protection.md` | backlog blocked；远端实施已验证，等待维护者 residual 决策 |
 | AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
 | AF-RISK-DATA-001 | `tasks/done/0029-v11-batch5-resources-import-confirm.md` | Batch 5 已完成；生命周期已接受，residual 不自动关闭 |
-| AF-RISK-SC-002 | `tasks/backlog/0035-v11-batch11-minor-release.md` | backlog；v1.1 minor Release 前须重采匹配 commit 的 CI/供应链证据 |
+| AF-RISK-SC-002 | `tasks/active/0035-v11-batch11-minor-release.md` | active；v1.1 minor Release 前须重采匹配 commit 的 CI/供应链证据；不自动改变 residual 状态 |
 
 其他 residual 的 `taskRefs=[]`。`AF-RISK-REL-001` 使用已有历史 accepted exception，不使用 task promotion waiver；接受例外不等于 executable task，也不授权 patch 自动应用。

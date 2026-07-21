@@ -878,8 +878,12 @@ function checkPackageDCompletedBatchEvidence(
     const riskService = readIfExists("apps/web/lib/study/long-term-risk-service.ts");
     const riskRoutePath = "apps/web/app/api/analytics/long-term-risks/route.ts";
     const riskRoute = readIfExists(riskRoutePath);
-    const syllabusSurface = readIfExists("apps/web/app/syllabus/page.tsx") + readIfExists("apps/web/components/syllabus-panel.tsx");
-    const notesSurface = readIfExists("apps/web/app/notes/page.tsx") + readIfExists("apps/web/components/notes-panel.tsx");
+    const syllabusSurface = readIfExists("apps/web/app/syllabus/page.tsx")
+      + readIfExists("apps/web/components/syllabus-panel.tsx")
+      + readIfExists("apps/web/components/syllabus-manager.tsx");
+    const notesSurface = readIfExists("apps/web/app/notes/page.tsx")
+      + readIfExists("apps/web/components/notes-panel.tsx")
+      + readIfExists("apps/web/components/note-library.tsx");
     const simulationSurface = readIfExists("apps/web/app/simulation/page.tsx");
     const riskRouteMethods = getExportedRouteMethods(riskRoute);
     const unexpectedRiskRouteMethods = riskRouteMethods.filter((method) => method !== "GET").map((method) => `${riskRoutePath}:${method}`);
@@ -1620,8 +1624,12 @@ function checkProductionCompose(): void {
   });
 
   const apiFiles = listFiles("apps/web/app/api").filter((file) => file.endsWith("/route.ts"));
+  const allowedBusinessRestoreRoutes = new Set([
+    "apps/web/app/api/study-resources/[id]/restore/route.ts",
+  ]);
   const forbiddenOpsRouteFiles = apiFiles.filter((file) => {
     const normalized = file.replaceAll(path.sep, "/").toLowerCase();
+    if (allowedBusinessRestoreRoutes.has(normalized)) return false;
     const content = readIfExists(file).toLowerCase();
     return ["deploy", "backup", "restore", "migration", "migrate"].some((term) =>
       normalized.includes(term) || content.includes(term),
@@ -1798,6 +1806,9 @@ function checkPackageBBatchBoundaries(): void {
   const recoverySchemas = readIfExists("apps/web/lib/study/schemas.ts");
   const dashboardRoute = readIfExists("apps/web/app/api/dashboard/today/route.ts");
   const homePage = readIfExists("apps/web/app/page.tsx");
+  const todayPage = readIfExists("apps/web/app/(app)/today/page.tsx");
+  const actionCenterToday = readIfExists("apps/web/components/action-center-today.tsx");
+  const homeRedirectsToToday = homePage.includes('redirect("/today")');
   const batch3RuntimeSignals = [
     {
       label: "RecoveryState additive migration",
@@ -1817,7 +1828,8 @@ function checkPackageBBatchBoundaries(): void {
     },
     {
       label: "dashboard records rule trigger explicitly",
-      ok: dashboardRoute.includes("recordRecoveryRule: true") && homePage.includes("recordRecoveryRule: true"),
+      ok: dashboardRoute.includes("recordRecoveryRule: true")
+        && (homePage.includes("recordRecoveryRule: true") || homeRedirectsToToday),
     },
     {
       label: "RecoveryState DTO exposes source and state fields",
@@ -1835,9 +1847,16 @@ function checkPackageBBatchBoundaries(): void {
     },
     {
       label: "homepage recovery controls preserve full task panel",
-      ok: fileExists("apps/web/components/recovery-state-controls.tsx")
-        && homePage.includes("tasks={dashboard.tasks}")
-        && homePage.includes("tasks={focusTasks}"),
+      ok: (
+        fileExists("apps/web/components/recovery-state-controls.tsx")
+          && homePage.includes("tasks={dashboard.tasks}")
+          && homePage.includes("tasks={focusTasks}")
+      ) || (
+        homeRedirectsToToday
+          && todayPage.includes("<ActionCenterToday")
+          && actionCenterToday.includes("today.recovery")
+          && actionCenterToday.includes("today.queues.formalTasks")
+      ),
     },
   ];
   const missingBatch3Signals = batch3RuntimeSignals.filter((signal) => !signal.ok).map((signal) => signal.label);

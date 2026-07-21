@@ -10,11 +10,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 当前状态：
 
-- AreaForge 仓库发布候选版本为 `0.1.8`；远端 `https://forge.areasong.top/` 仍通过 GitHub Release `v0.1.7` 签名运行 `0.1.7`，尚未创建或部署 `v0.1.8`；`v0.1.5` 仅作为历史发布证据保留。
+- AreaForge 仓库发布候选版本为 `1.1.0`；远端 `https://forge.areasong.top/` 仍通过 GitHub Release `v0.1.9` 签名运行 `0.1.9`，尚未创建或部署 `v1.1.0`。
 - Package A-E 和 docs 100% 当前证据已闭环。
 - Web 版本中心只能提交受控检查、应用、回退或策略请求；服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
-- 当前 checkout 已实现 Update Request V2 的 confirmed snapshot、TTL/hash/idempotency 和 atomic publish；生产 `v0.1.7` 尚未部署该实现，不能把本地代码状态写成线上事实。
+- 当前 checkout 已实现学习行动中心 Batch 3–10 与 Update Request V2；生产仍为 `v0.1.9`，不能把本地候选代码状态写成线上事实。
 
 Web 层边界：
 

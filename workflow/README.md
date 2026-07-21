@@ -18,12 +18,12 @@
 - `versions/v0.1.8-long-term-operability.md`：OPS-005/006、长期证据和体验加固的本地发布候选；维护者已于 2026-07-20 决定搁置，范围由 v0.1.9 计划承接。
 - `versions/optimization-20260720-long-term-operations.md`：2026-07-20 长期运营优化轮（非发布版本计划，已完成）：到期 residual 复核、四路独立审查修复、轻量门禁借鉴与 UX 证据重采。
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
-- `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；基线已对齐生产 `v0.1.9`；大阶段 S0–S5 / Batch 0–11；隔离分支 `codex/v1.1-learning-action-center`；Batch 0 文档与任务拆分启动中，业务代码尚未实施。
+- `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；基线为生产 `v0.1.9`；大阶段 S0–S5 / Batch 0–11；隔离分支 `codex/v1.1-learning-action-center`；Batch 3–10 已落地，Batch 11 正在准备 `v1.1.0` 本地候选。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
 - 生产与签名 Release 基线为 `v0.1.9`；`v0.1.8` 计划保持搁置并由 v0.1.9 承接范围。
-- 下一产品主线推进 `versions/v1.1-learning-action-center.md`（S0/S1）；Batch 1/2 在 OPS-006/007 `closed-evidence` 充分时缩减为门禁复核。
+- 下一产品主线推进 `versions/v1.1-learning-action-center.md`（S5/Batch 11）；当前只冻结 `v1.1.0` 本地候选，SC-002/SC-004 按目标 commit 重采后才可进入 complete minor Release admission。
 - 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
 - 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口。
 

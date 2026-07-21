@@ -256,6 +256,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - `AF-RISK-OPS-007`：附件 staging/write-intent 与崩溃恢复协议待独立确认，不自动清理历史孤儿。
 - `AF-RISK-OPS-008`：updater phase journal 和 root-only maintenance hold/drain 已本地验证；生产 timer/hold/apply 仍待独立确认，Web runtime 不得获得控制权。
 - `AF-RISK-UX-001`：2026-07-15 的隔离本地 31/31 authenticated smoke 和 desktop/mobile/unauth 复核在后续体验源变化后已 stale；`ux-source-v2` 现覆盖依赖、配置、核心 workspace、Prisma、公共资产和 smoke/validator。当前仅重新验证 390px 未认证登录与错误反馈无水平溢出，authenticated desktop/mobile 和运行实例身份绑定仍未完成，因此保持 monitoring gap，不进入 close 复核。
+- `AF-RISK-DATA-001`：学习树导入生命周期边界已人工接受，当前保持 `deferred-work`；已确认导入的规范化 Markdown 长期留存并随数据库备份扩散。后续物理删除、备份副本同步删除、完整账户导出、AI history/provider trace 或跨用户可见性变化必须按台账关闭/重开条件独立确认，本地 Release 候选与生产 apply 均不自动关闭该项。
 
 ## 本地预检
 

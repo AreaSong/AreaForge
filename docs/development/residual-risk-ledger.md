@@ -65,7 +65,7 @@ schema V2 为每个 item 增加：
 - `AF-RISK-SC-004` -> `tasks/backlog/0023-github-main-protection.md`
 - `AF-RISK-UX-001` -> `tasks/active/0024-ux-residual-closure-review.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`
 - `AF-RISK-DATA-001` -> `tasks/done/0029-v11-batch5-resources-import-confirm.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`
-- `AF-RISK-SC-002` -> `tasks/backlog/0035-v11-batch11-minor-release.md`（v1.1 Release 前须按新 commit 重采 CI/供应链证据）
+- `AF-RISK-SC-002` -> `tasks/active/0035-v11-batch11-minor-release.md`（v1.1 Release 前须按新 commit 重采 CI/供应链证据；当前状态不因任务移动而改变）
 - 其余 item 的 `taskRefs=[]`；当前没有 task promotion waiver。
 
 `AF-RISK-REL-001` 的 `acceptedException` 只记录已有历史事实：AreaSong 在 `2026-07-10T19:40:59+08:00` 接受继续保持 `AREAFORGE_AUTO_APPLY=none`、不启用 patch 自动应用的当前边界，来源为 `git:4a76627add00e6fa07f5194e4252cec12a7b4e28`，到期日为 `2026-08-10`。其 scope、reason、重新打开条件和 `basisHash` 只绑定既有 `none/patch`、签名、备份、extra smoke、rollback target 与 manifest policy 边界；不表示 patch 自动应用已获授权，也不构成新的接受事实。
