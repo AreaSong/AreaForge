@@ -30,13 +30,12 @@ export async function decidePeriodicReport(
   const nextCycleDraft = input.action === "confirm" ? report.decisionPreview.nextCycleDraft : null;
 
   const result = await prisma.$transaction(async (tx) => {
-    const existing = await tx.periodicReportDecision.findUnique({
+    const existing = await tx.periodicReportDecision.findFirst({
       where: {
-        kind_rangeStart_rangeEnd: {
-          kind: report.kind,
-          rangeStart: new Date(report.range.start),
-          rangeEnd: new Date(report.range.end),
-        },
+        kind: report.kind,
+        rangeStart: new Date(report.range.start),
+        rangeEnd: new Date(report.range.end),
+        workspaceId: null,
       },
     });
 

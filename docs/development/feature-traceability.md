@@ -66,9 +66,9 @@
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
 | 五工作台 App Shell 与稳定路由 | 未实现 | 版本计划第一节信息架构 | Batch 7+ |
-| 考试工作区 / 自定义科目 / 408 分组 | 未实现 | 数据契约 12.1 | Batch 3 |
+| 考试工作区 / 自定义科目 / 408 分组 | 基础版 | Migration 1；隔离 `/api/exam-workspaces/**`；无生产 UI | Batch 7 UI |
 | 今日行动中心与科目快捷计时 | 未实现 | 版本计划第二节 | Batch 7 |
-| PlanInbox / 里程碑 / 任务依赖 | 未实现 | 数据契约 12.3 | Batch 3 / 6 |
+| PlanInbox / 里程碑 / 任务依赖 | 基础版 | Migration 2–3；隔离 Inbox/里程碑/依赖 API；无 convert、无生产 UI | Batch 6 convert；Batch 7 UI |
 | 学习树 V1 preview / confirm | 未实现 | 版本计划第八节；`AF-RISK-DATA-001` | Batch 4–5 |
 | 全局关联画布 | 未实现 | 数据契约 12.5 | Batch 8 |
 | StudyResource FILE/LINK | 未实现 | 数据契约 12.6；依赖 OPS-007 | Batch 5 |

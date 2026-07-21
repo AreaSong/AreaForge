@@ -1578,7 +1578,7 @@ pnpm ops:ops-001:preflight
 
 ## 学习行动中心确认包骨架（未授权实施）
 
-以下确认包只固定边界与确认句模板，**尚未获得维护者确认**，不得据此写业务代码、跑生产 migration 或开放导入 confirm。权威规格见 `workflow/versions/v1.1-learning-action-center.md`。
+以下确认包固定边界与确认句模板。权威规格见 `workflow/versions/v1.1-learning-action-center.md`。未确认项不得写对应业务代码、跑生产 migration 或开放导入 confirm。
 
 ### 完整产品数据 migration 确认包（Migration 1–8）
 
@@ -1587,10 +1587,16 @@ pnpm ops:ops-001:preflight
 - 验证：临时 PostgreSQL apply/verify/replay；接管失败回滚；旧 API 双读。
 - 回滚：优先回滚应用代码并保留 additive schema；DROP/数据修复另行确认。
 - 不授权：生产 deploy、历史文本批量解析、文件移动。
+- **确认状态（2026-07-21）**：已确认。授权范围仅限按 1→8 顺序的 additive Prisma/SQL migrations 与临时库验证；Subject code → 可空 `legacyCode` 单列影响已单列；**不授权**生产 migration deploy、destructive DDL、历史修复、文件移动或 residual 关闭。Batch 3 仅实施并隔离验证 Migration 1–3。
 
-明确确认句（待填）：
+明确确认句（已确认）：
 
 > 确认批准学习行动中心完整产品数据 migration 包：范围仅限按 1→8 顺序的 additive Prisma/SQL migrations 与临时库验证；Subject code 约束放宽单列影响；不授权生产 migration deploy、destructive DDL、历史修复、文件移动或 residual 关闭。
+
+### Batch 3 依赖准入说明
+
+- Batch 3（Migration 1–3 / workspace / Inbox core）**不修改 lockfile**，不引入 `@xyflow/react` 或 `unified/remark/yaml`。
+- 上述新依赖仍须在 Batch 4/8 改 lockfile 前完成下方依赖准入确认包；Batch 3 仅跑 `pnpm governance:preflight` 作无变更复核。
 
 ### 学习树数据生命周期确认包（`AF-RISK-DATA-001`）
 

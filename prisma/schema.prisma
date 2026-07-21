@@ -17,6 +17,11 @@ enum SubjectCode {
   COMPUTER_NETWORK
 }
 
+enum ExamWorkspaceStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum TaskStatus {
   TODO
   IN_PROGRESS
@@ -45,6 +50,12 @@ enum StudySessionStatus {
   PAUSED
   COMPLETED
   CANCELED
+}
+
+enum StudySessionStartSource {
+  TASK
+  SUBJECT_SHORTCUT
+  RECOVERY
 }
 
 enum SyllabusNodeKind {
@@ -83,21 +94,49 @@ enum MistakeCause {
   UNFAMILIAR_PATTERN
 }
 
+enum NoteKind {
+  GENERAL
+  CONCEPT
+  METHOD
+  EXAMPLE
+  JOURNAL
+  SUMMARY
+}
+
+enum TaskDependencyType {
+  SOFT
+  HARD
+}
+
+enum PlanInboxItemStatus {
+  OPEN
+  DISMISSED
+  CONVERTED
+}
+
+enum PlanInboxDependencyTargetType {
+  TASK
+  INBOX_STABLE_REF
+}
+
 model User {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  passwordHash   String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  auditEvents    AuditEvent[]
-  sessions       AuthSession[]
-  taskDebtEvents TaskDebtEvent[]
-  recoveryStates RecoveryState[]
-  masteryConditions MasteryConditionRecord[]
-  masteryEvidence   MasteryEvidence[]
-  masteryRetests    MasteryRetest[]
-  stageAdjustmentDrafts StageAdjustmentDraft[]
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  passwordHash            String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  auditEvents             AuditEvent[]
+  sessions                AuthSession[]
+  taskDebtEvents          TaskDebtEvent[]
+  recoveryStates          RecoveryState[]
+  masteryConditions       MasteryConditionRecord[]
+  masteryEvidence         MasteryEvidence[]
+  masteryRetests          MasteryRetest[]
+  stageAdjustmentDrafts   StageAdjustmentDraft[]
   periodicReportDecisions PeriodicReportDecision[]
+  examWorkspaces          ExamWorkspace[]
+  taskDependencies        TaskDependency[]
+  planInboxItems          PlanInboxItem[]
 }
 
 model AuthSession {
@@ -114,20 +153,79 @@ model AuthSession {
   @@index([expiresAt])
 }
 
+model ExamWorkspace {
+  id               String              @id @default(cuid())
+  userId           String
+  stableKey        String
+  name             String
+  targetExamDate   DateTime?
+  stageSummary     String?
+  status           ExamWorkspaceStatus @default(ACTIVE)
+  revision         Int                 @default(1)
+  archivedAt       DateTime?
+  archivedByUserId String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectGroups    SubjectGroup[]
+  subjects         Subject[]
+  stagePlans       StagePlan[]
+  dailyReviews     DailyReview[]
+  checkIns         CheckIn[]
+  recoveryStates   RecoveryState[]
+  simulationExams  SimulationExam[]
+  stageAdjustmentDrafts StageAdjustmentDraft[]
+  periodicReportDecisions PeriodicReportDecision[]
+  planMilestones   PlanMilestone[]
+  planInboxItems   PlanInboxItem[]
+
+  @@unique([userId, stableKey])
+  @@index([userId])
+  @@index([status])
+}
+
+model SubjectGroup {
+  id          String         @id @default(cuid())
+  workspaceId String
+  stableKey   String
+  name        String
+  sortOrder   Int            @default(0)
+  archivedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  workspace   ExamWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subjects    Subject[]
+
+  @@unique([workspaceId, stableKey])
+  @@index([workspaceId])
+}
+
 model Subject {
-  id            String         @id @default(cuid())
-  code          SubjectCode    @unique
-  name          String
-  color         String
-  sortOrder     Int            @default(0)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  tasks         StudyTask[]
-  sessions      StudySession[]
-  syllabusNodes SyllabusNode[]
-  notes         Note[]
-  mistakes      Mistake[]
+  id                       String                    @id @default(cuid())
+  legacyCode               SubjectCode?
+  workspaceId              String?
+  groupId                  String?
+  stableKey                String
+  name                     String
+  color                    String
+  sortOrder                Int                       @default(0)
+  archivedAt               DateTime?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  workspace                ExamWorkspace?            @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  group                    SubjectGroup?             @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  tasks                    StudyTask[]
+  sessions                 StudySession[]
+  syllabusNodes            SyllabusNode[]
+  notes                    Note[]
+  mistakes                 Mistake[]
   simulationSubjectResults SimulationSubjectResult[]
+  planMilestones           PlanMilestone[]
+
+  @@index([workspaceId])
+  @@index([groupId])
+  @@index([stableKey])
+  @@index([legacyCode])
 }
 
 model SyllabusNode {
@@ -153,6 +251,8 @@ model SyllabusNode {
   masteryConditions MasteryConditionRecord[]
   masteryEvidence   MasteryEvidence[]
   masteryRetests    MasteryRetest[]
+  relatedNotes      NoteRelatedSyllabusNode[]
+  relatedTasks      StudyTaskRelatedSyllabusNode[]
 
   @@index([subjectId])
   @@index([parentId])
@@ -163,6 +263,7 @@ model StudyTask {
   subjectId         String
   syllabusNodeId    String?
   parentTaskId      String?
+  planMilestoneId   String?
   title             String
   type              String
   status            TaskStatus      @default(TODO)
@@ -179,46 +280,67 @@ model StudyTask {
   syllabusNode      SyllabusNode?   @relation(fields: [syllabusNodeId], references: [id])
   parent            StudyTask?      @relation("TaskTree", fields: [parentTaskId], references: [id], onDelete: SetNull)
   children          StudyTask[]     @relation("TaskTree")
+  planMilestone     PlanMilestone?  @relation(fields: [planMilestoneId], references: [id], onDelete: SetNull)
   sessions          StudySession[]
   notes             Note[]
   taskDebtEvents    TaskDebtEvent[] @relation("TaskDebtEventTask")
   relatedDebtEvents TaskDebtEvent[] @relation("RelatedTaskDebtEvent")
   masteryEvidence   MasteryEvidence[]
+  relatedSyllabusNodes StudyTaskRelatedSyllabusNode[]
+  predecessorDependencies TaskDependency[] @relation("TaskDependencyPredecessor")
+  successorDependencies   TaskDependency[] @relation("TaskDependencySuccessor")
+  convertedFromInboxItems PlanInboxItem[]
+  inboxDependencyRefs     PlanInboxDependencyRef[]
 
   @@index([plannedDate])
   @@index([subjectId])
   @@index([syllabusNodeId])
   @@index([parentTaskId])
+  @@index([planMilestoneId])
+}
+
+model StudyTaskRelatedSyllabusNode {
+  id             String       @id @default(cuid())
+  taskId         String
+  syllabusNodeId String
+  createdAt      DateTime     @default(now())
+  task           StudyTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  syllabusNode   SyllabusNode @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, syllabusNodeId])
+  @@index([syllabusNodeId])
 }
 
 model StudySession {
-  id                      String             @id @default(cuid())
+  id                      String                    @id @default(cuid())
   subjectId               String
   taskId                  String?
   syllabusNodeId          String?
-  status                  StudySessionStatus @default(RUNNING)
+  status                  StudySessionStatus        @default(RUNNING)
   startedAt               DateTime
   pausedAt                DateTime?
   endedAt                 DateTime?
-  accumulatedPauseSeconds Int                @default(0)
-  effectiveMinutes        Int                @default(0)
+  accumulatedPauseSeconds Int                       @default(0)
+  effectiveMinutes        Int                       @default(0)
   qualityScore            Int?
   isEffective             Boolean?
   understandingLevel      String?
   minimalOutput           String?
   nextAction              String?
-  producedNote            Boolean            @default(false)
-  producedMistake         Boolean            @default(false)
+  producedNote            Boolean                   @default(false)
+  producedMistake         Boolean                   @default(false)
   isLowConversion         Boolean?
   antiFakeReason          String?
   requiredOutput          String?
-  closeoutVersion         Int                @default(1)
+  closeoutVersion         Int                       @default(1)
   note                    String?
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
-  subject                 Subject            @relation(fields: [subjectId], references: [id])
-  task                    StudyTask?         @relation(fields: [taskId], references: [id])
-  syllabusNode            SyllabusNode?      @relation(fields: [syllabusNodeId], references: [id])
+  goalMinutes             Int?
+  startSource             StudySessionStartSource?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  subject                 Subject                   @relation(fields: [subjectId], references: [id])
+  task                    StudyTask?                @relation(fields: [taskId], references: [id])
+  syllabusNode            SyllabusNode?             @relation(fields: [syllabusNodeId], references: [id])
   masteryEvidence         MasteryEvidence[]
 
   @@index([status])
@@ -227,34 +349,44 @@ model StudySession {
 }
 
 model DailyReview {
-  id               String   @id @default(cuid())
-  reviewDate       DateTime @unique
-  totalMinutes     Int      @default(0)
-  effectiveMinutes Int      @default(0)
+  id               String         @id @default(cuid())
+  workspaceId      String?
+  reviewDate       DateTime
+  totalMinutes     Int            @default(0)
+  effectiveMinutes Int            @default(0)
   summary          String?
   lostControl      String?
   keepAction       String?
   tomorrowMinimum  String?
   mood             String?
   aiSuggestion     String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  workspace        ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([reviewDate])
 }
 
 model CheckIn {
-  id                     String   @id @default(cuid())
-  studyDate              DateTime @unique
-  completedMinimumAction Boolean  @default(false)
-  totalMinutes           Int      @default(0)
-  effectiveMinutes       Int      @default(0)
-  effectiveSessionCount  Int      @default(0)
-  taskCompletionRate     Float    @default(0)
-  reviewSubmitted        Boolean  @default(false)
-  lowEfficiency          Boolean  @default(false)
-  lowConversionCount     Int      @default(0)
-  sourceVersion          Int      @default(1)
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                     String         @id @default(cuid())
+  workspaceId            String?
+  studyDate              DateTime
+  completedMinimumAction Boolean        @default(false)
+  totalMinutes           Int            @default(0)
+  effectiveMinutes       Int            @default(0)
+  effectiveSessionCount  Int            @default(0)
+  taskCompletionRate     Float          @default(0)
+  reviewSubmitted        Boolean        @default(false)
+  lowEfficiency          Boolean        @default(false)
+  lowConversionCount     Int            @default(0)
+  sourceVersion          Int            @default(1)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  workspace              ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([studyDate])
 }
 
 model TaskDebtEvent {
@@ -280,10 +412,11 @@ model TaskDebtEvent {
 }
 
 model RecoveryState {
-  id               String    @id @default(cuid())
+  id               String         @id @default(cuid())
+  workspaceId      String?
   status           String
   triggerType      String
-  startedAt        DateTime  @default(now())
+  startedAt        DateTime       @default(now())
   endedAt          DateTime?
   targetMinutes    Int
   visibleTaskLimit Int
@@ -291,12 +424,14 @@ model RecoveryState {
   exitCondition    String?
   metadata         Json?
   actorId          String?
-  actor            User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actor            User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  workspace        ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([startedAt])
   @@index([endedAt])
   @@index([actorId])
+  @@index([workspaceId])
 }
 
 model Note {
@@ -304,6 +439,10 @@ model Note {
   subjectId      String
   syllabusNodeId String?
   taskId         String?
+  kind           NoteKind      @default(GENERAL)
+  studyDate      DateTime?
+  stableKey      String?
+  revision       Int           @default(1)
   title          String
   content        String
   masteryStatus  String?
@@ -315,8 +454,23 @@ model Note {
   task           StudyTask?    @relation(fields: [taskId], references: [id])
   attachments    Attachment[]
   masteryEvidence MasteryEvidence[]
+  relatedSyllabusNodes NoteRelatedSyllabusNode[]
 
   @@index([subjectId])
+  @@index([syllabusNodeId])
+  @@index([stableKey])
+  @@index([kind])
+}
+
+model NoteRelatedSyllabusNode {
+  id             String       @id @default(cuid())
+  noteId         String
+  syllabusNodeId String
+  createdAt      DateTime     @default(now())
+  note           Note         @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  syllabusNode   SyllabusNode @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, syllabusNodeId])
   @@index([syllabusNodeId])
 }
 
@@ -400,26 +554,28 @@ model AuditEvent {
 }
 
 model PeriodicReportDecision {
-  id                       String   @id @default(cuid())
+  id                       String         @id @default(cuid())
+  workspaceId              String?
   kind                     String
   rangeStart               DateTime
   rangeEnd                 DateTime
   status                   String
   reportSnapshot           Json
   nextCycleDraft           Json?
-  canAutoApply             Boolean  @default(false)
-  requiresUserConfirmation Boolean  @default(true)
+  canAutoApply             Boolean        @default(false)
+  requiresUserConfirmation Boolean        @default(true)
   actorId                  String?
-  decidedAt                DateTime @default(now())
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-  actor                    User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  decidedAt                DateTime       @default(now())
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  actor                    User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  workspace                ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
-  @@unique([kind, rangeStart, rangeEnd])
   @@index([kind])
   @@index([status])
   @@index([decidedAt])
   @@index([actorId])
+  @@index([workspaceId])
 }
 
 model MasteryConditionRecord {
@@ -493,6 +649,7 @@ model MasteryRetest {
 
 model SimulationExam {
   id                    String                    @id @default(cuid())
+  workspaceId           String?
   name                  String
   examDate              DateTime
   isFirstSynchronized   Boolean                   @default(false)
@@ -507,10 +664,12 @@ model SimulationExam {
   reviewText            String?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
+  workspace             ExamWorkspace?            @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   subjectResults        SimulationSubjectResult[]
 
   @@index([examDate])
   @@index([isFirstSynchronized])
+  @@index([workspaceId])
 }
 
 model SimulationSubjectResult {
@@ -533,6 +692,9 @@ model SimulationSubjectResult {
 
 model StagePlan {
   id               String                 @id @default(cuid())
+  workspaceId      String?
+  stableKey        String?
+  revision         Int                    @default(1)
   name             String
   startDate        DateTime
   endDate          DateTime
@@ -541,15 +703,19 @@ model StagePlan {
   status           String
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
+  workspace        ExamWorkspace?         @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   adjustmentDrafts StageAdjustmentDraft[]
+  planMilestones   PlanMilestone[]
 
   @@index([status])
   @@index([startDate])
   @@index([endDate])
+  @@index([workspaceId])
 }
 
 model StageAdjustmentDraft {
-  id                       String     @id @default(cuid())
+  id                       String         @id @default(cuid())
+  workspaceId              String?
   stagePlanId              String?
   source                   String
   mode                     String
@@ -559,17 +725,123 @@ model StageAdjustmentDraft {
   taskIntensity            String
   taskAdjustmentActions    Json
   nextStageEmphasis        String
-  canAutoApply             Boolean    @default(false)
-  requiresUserConfirmation Boolean    @default(true)
+  canAutoApply             Boolean        @default(false)
+  requiresUserConfirmation Boolean        @default(true)
   status                   String
-  createdAt                DateTime   @default(now())
+  createdAt                DateTime       @default(now())
   appliedAt                DateTime?
   actorId                  String?
-  stagePlan                StagePlan? @relation(fields: [stagePlanId], references: [id], onDelete: SetNull)
-  actor                    User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  stagePlan                StagePlan?     @relation(fields: [stagePlanId], references: [id], onDelete: SetNull)
+  actor                    User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  workspace                ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([stagePlanId])
   @@index([status])
   @@index([createdAt])
   @@index([actorId])
+  @@index([workspaceId])
+}
+
+model PlanMilestone {
+  id          String         @id @default(cuid())
+  workspaceId String
+  stagePlanId String
+  subjectId   String?
+  stableKey   String
+  title       String
+  targetDate  DateTime?
+  sortOrder   Int            @default(0)
+  status      String         @default("OPEN")
+  revision    Int            @default(1)
+  archivedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  workspace   ExamWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stagePlan   StagePlan      @relation(fields: [stagePlanId], references: [id], onDelete: Cascade)
+  subject     Subject?       @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  tasks       StudyTask[]
+  inboxItems  PlanInboxItem[]
+
+  @@unique([workspaceId, stableKey])
+  @@index([stagePlanId])
+  @@index([subjectId])
+  @@index([status])
+}
+
+model TaskDependency {
+  id            String             @id @default(cuid())
+  predecessorId String
+  successorId   String
+  type          TaskDependencyType @default(SOFT)
+  revision      Int                @default(1)
+  actorId       String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  predecessor   StudyTask          @relation("TaskDependencyPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor     StudyTask          @relation("TaskDependencySuccessor", fields: [successorId], references: [id], onDelete: Cascade)
+  actor         User?              @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([predecessorId, successorId])
+  @@index([successorId])
+  @@index([actorId])
+}
+
+model PlanInboxItem {
+  id                 String             @id @default(cuid())
+  workspaceId        String
+  stableKey          String
+  originKey          String
+  originVersion      Int
+  originType         String
+  originSnapshot     Json
+  status             PlanInboxItemStatus @default(OPEN)
+  title              String
+  subjectId          String?
+  plannedDate        DateTime?
+  estimatedMinutes   Int?
+  priority           String?
+  type               String?
+  planMilestoneId    String?
+  primaryNodeId      String?
+  relatedNodeIds     Json?
+  revision           Int                @default(1)
+  convertedTaskId    String?            @unique
+  supersededByItemId String?
+  actorId            String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  dismissedAt        DateTime?
+  convertedAt        DateTime?
+  workspace          ExamWorkspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  planMilestone      PlanMilestone?     @relation(fields: [planMilestoneId], references: [id], onDelete: SetNull)
+  convertedTask      StudyTask?         @relation(fields: [convertedTaskId], references: [id], onDelete: SetNull)
+  supersededByItem   PlanInboxItem?     @relation("PlanInboxSupersede", fields: [supersededByItemId], references: [id], onDelete: SetNull)
+  supersedesItems    PlanInboxItem[]    @relation("PlanInboxSupersede")
+  actor              User?              @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  dependencyRefs     PlanInboxDependencyRef[]
+
+  @@unique([workspaceId, originKey, originVersion])
+  @@unique([workspaceId, stableKey])
+  @@index([workspaceId, status])
+  @@index([planMilestoneId])
+  @@index([actorId])
+  @@index([supersededByItemId])
+}
+
+model PlanInboxDependencyRef {
+  id               String                         @id @default(cuid())
+  inboxItemId      String
+  targetType       PlanInboxDependencyTargetType
+  dependencyType   TaskDependencyType             @default(SOFT)
+  taskId           String?
+  importBatchId    String?
+  planStableKey    String?
+  planOriginVersion Int?
+  createdAt        DateTime                       @default(now())
+  inboxItem        PlanInboxItem                  @relation(fields: [inboxItemId], references: [id], onDelete: Cascade)
+  task             StudyTask?                     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([inboxItemId])
+  @@index([taskId])
+  @@index([importBatchId, planStableKey])
 }

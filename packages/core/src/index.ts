@@ -8,6 +8,11 @@ export * from "./periodic-report";
 export * from "./recovery-task";
 export * from "./analytics-summary";
 export * from "./long-term-risk";
+export * from "./exam-workspace";
+export * from "./legacy-ownership";
+export * from "./knowledge-card";
+export * from "./task-dependency";
+export * from "./plan-inbox";
 
 export type RiskState =
   | "rising"

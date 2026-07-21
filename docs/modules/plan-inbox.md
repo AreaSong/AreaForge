@@ -1,10 +1,16 @@
-# 计划收件箱（规划，未实现）
+# 计划收件箱
 
 ## 目标
 
 把复盘、报告、阶段、模拟、低转化、恢复与显式 AI 产生的计划建议统一为可补全、可转换的草稿，系统不静默创建正式任务。
 
-## 规划行为
+## 当前实现（Batch 3，隔离）
+
+- Schema：`PlanInboxItem` / `PlanInboxDependencyRef` / `PlanMilestone` / `TaskDependency`。
+- API：`/api/plan-inbox/**`（列表、创建、编辑、dismiss、reopen）；`/api/plan-milestones/**`；`/api/tasks/:id/dependencies/**`。
+- **无**原子 convert（Batch 6）；无生产可路由页面。
+
+## 规划行为（后续 Batch）
 
 - 持久状态为 `OPEN` / `DISMISSED` / `CONVERTED`；`supersededByItemId` 是版本替代引用，不是第四状态。
 - 自动入箱：明日最低行动、已确认报告/阶段中的计划草稿。

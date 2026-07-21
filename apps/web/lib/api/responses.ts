@@ -18,6 +18,7 @@ export class ApiError extends Error {
   constructor(
     public readonly code: string,
     public readonly status = 400,
+    public readonly details?: { latest?: unknown; conflictFields?: string[] },
   ) {
     super(code);
   }
@@ -25,7 +26,10 @@ export class ApiError extends Error {
 
 export function apiErrorResponse(error: unknown): NextResponse {
   if (error instanceof ApiError) {
-    return NextResponse.json({ error: error.code }, { status: error.status });
+    const body: { error: string; latest?: unknown; conflictFields?: string[] } = { error: error.code };
+    if (error.details?.latest !== undefined) body.latest = error.details.latest;
+    if (error.details?.conflictFields) body.conflictFields = error.details.conflictFields;
+    return NextResponse.json(body, { status: error.status });
   }
 
   const errorId = randomUUID();

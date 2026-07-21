@@ -402,6 +402,14 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 
 确认前仅 docs/risk；确认后按改动范围叠加 `pnpm db:validate`、临时 PostgreSQL、core/Web/storage 测试、隔离 smoke；生产入口仅 Batch 11。细节见 `docs/development/v11-phase-packages.md` 与版本计划第十六节。
 
+#### Batch 3（Migration 1–3 / workspace-inbox core）专项
+
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m1m3`）
+- `AREAFORGE_V11_M1M3_ISOLATED_DB=1 pnpm ops:v11:m1m3:runtime:selftest`
+- `pnpm --filter @areaforge/core test`、Web typecheck/lint
+- 不跑生产 migration deploy；不关闭 residual
+
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。

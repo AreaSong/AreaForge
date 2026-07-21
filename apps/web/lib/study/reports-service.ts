@@ -281,13 +281,12 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     listCheckInSnapshotsInRange(range.start, range.end),
     listStagePlans(),
     listStageAdjustmentDrafts(),
-    prisma.periodicReportDecision.findUnique({
+    prisma.periodicReportDecision.findFirst({
       where: {
-        kind_rangeStart_rangeEnd: {
-          kind,
-          rangeStart: range.start,
-          rangeEnd: range.end,
-        },
+        kind,
+        rangeStart: range.start,
+        rangeEnd: range.end,
+        workspaceId: null,
       },
     }),
   ]);

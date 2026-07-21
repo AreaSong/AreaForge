@@ -31,14 +31,20 @@
 
 在行动中心与五工作台落地前，本接口继续作为今日聚合主入口并保持兼容。
 
-### Action Center 与工作区（规划，未实现）
+### Action Center 与工作区
 
-下一产品版本新增（实现前不得当作已上线能力）：
+Batch 3 已在隔离分支落地（**无生产导航入口**）：
+
+- `/api/exam-workspaces/**`：工作区列表/创建、激活切换、接管 preview/apply、科目分组读取、自定义科目创建
+- `/api/plan-milestones/**`：里程碑列表/创建/编辑
+- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen（**无 convert**，convert 属 Batch 6）
+- `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
+
+仍为规划、未实现：
 
 - `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
 - `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影。
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
-- `/api/exam-workspaces/**`、科目分组与自定义科目、里程碑、任务依赖、计划收件箱。
 - 学习树 `templates` / `export` / `imports/preview` / `imports/confirm`；preview 无业务写入。
 - 知识画布分层查询与布局 CAS；资料、统一复习事件、动机、通知偏好与四类显式 AI 草稿。
 

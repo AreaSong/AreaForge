@@ -2,13 +2,19 @@ import "dotenv/config";
 import { getPrismaClient } from "../../packages/db/src/index";
 
 const subjectSeeds = [
-  { code: "MATH", name: "数学", color: "#38bdf8", sortOrder: 10 },
-  { code: "ENGLISH", name: "英语", color: "#14b8a6", sortOrder: 20 },
-  { code: "POLITICS", name: "政治", color: "#f43f5e", sortOrder: 30 },
-  { code: "DATA_STRUCTURE", name: "408 数据结构", color: "#f59e0b", sortOrder: 40 },
-  { code: "COMPUTER_ORGANIZATION", name: "408 计算机组成原理", color: "#a78bfa", sortOrder: 50 },
-  { code: "OPERATING_SYSTEM", name: "408 操作系统", color: "#22c55e", sortOrder: 60 },
-  { code: "COMPUTER_NETWORK", name: "408 计算机网络", color: "#fb7185", sortOrder: 70 },
+  { legacyCode: "MATH" as const, stableKey: "math", name: "数学", color: "#38bdf8", sortOrder: 10 },
+  { legacyCode: "ENGLISH" as const, stableKey: "english", name: "英语", color: "#14b8a6", sortOrder: 20 },
+  { legacyCode: "POLITICS" as const, stableKey: "politics", name: "政治", color: "#f43f5e", sortOrder: 30 },
+  { legacyCode: "DATA_STRUCTURE" as const, stableKey: "data-structure", name: "408 数据结构", color: "#f59e0b", sortOrder: 40 },
+  {
+    legacyCode: "COMPUTER_ORGANIZATION" as const,
+    stableKey: "computer-organization",
+    name: "408 计算机组成原理",
+    color: "#a78bfa",
+    sortOrder: 50,
+  },
+  { legacyCode: "OPERATING_SYSTEM" as const, stableKey: "operating-system", name: "408 操作系统", color: "#22c55e", sortOrder: 60 },
+  { legacyCode: "COMPUTER_NETWORK" as const, stableKey: "computer-network", name: "408 计算机网络", color: "#fb7185", sortOrder: 70 },
 ] as const;
 
 const prisma = getPrismaClient();
@@ -24,15 +30,34 @@ async function main() {
   }
 
   for (const subject of subjectSeeds) {
-    await prisma.subject.upsert({
-      where: { code: subject.code },
-      create: subject,
-      update: {
-        name: subject.name,
-        color: subject.color,
-        sortOrder: subject.sortOrder,
+    const existing = await prisma.subject.findFirst({
+      where: {
+        OR: [{ legacyCode: subject.legacyCode }, { stableKey: subject.stableKey, workspaceId: null }],
       },
     });
+    if (existing) {
+      await prisma.subject.update({
+        where: { id: existing.id },
+        data: {
+          legacyCode: subject.legacyCode,
+          stableKey: subject.stableKey,
+          name: subject.name,
+          color: subject.color,
+          sortOrder: subject.sortOrder,
+        },
+      });
+    } else {
+      await prisma.subject.create({
+        data: {
+          legacyCode: subject.legacyCode,
+          stableKey: subject.stableKey,
+          name: subject.name,
+          color: subject.color,
+          sortOrder: subject.sortOrder,
+          workspaceId: null,
+        },
+      });
+    }
   }
 
   await prisma.auditEvent.create({

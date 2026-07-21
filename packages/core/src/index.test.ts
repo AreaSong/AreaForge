@@ -29,6 +29,18 @@ import {
   selectRecoveryTaskCandidate,
   summarizeAnalyticsRisks,
   summarizeLongTermRisks,
+  assertExpectedRevision,
+  canActivateWorkspace,
+  buildActiveSwitchPlan,
+  classifyLegacyOwnership,
+  summarizeTakeoverPreview,
+  normalizeRelatedNodeIds,
+  validateDependencyEdge,
+  wouldCreateDependencyCycle,
+  isHardBlocked,
+  canDismissInboxItem,
+  canConvertInboxItem,
+  isNoteKind,
 } from "./index";
 
 type DashboardInputForTest = Parameters<typeof createDashboardSnapshot>[0];
@@ -1285,4 +1297,70 @@ test("parseSyllabusMarkdown rejects oversized or too deep imports", () => {
 
   assert.match(tooDeep.errors.join("\n"), /没有识别/);
   assert.match(tooMany.errors.join("\n"), /最多只能导入/);
+});
+
+test("exam workspace revision and switch helpers", () => {
+  assert.equal(assertExpectedRevision({ currentRevision: 2, expectedRevision: 2 }), "ok");
+  assert.equal(assertExpectedRevision({ currentRevision: 2, expectedRevision: 1 }), "revision_conflict");
+  assert.equal(canActivateWorkspace({ targetStatus: "ACTIVE", hasActiveSession: false }), "already_active");
+  assert.equal(canActivateWorkspace({ targetStatus: "ARCHIVED", hasActiveSession: true }), "active_session_blocks_switch");
+  assert.deepEqual(buildActiveSwitchPlan({ currentActiveId: "a", targetId: "b" }), {
+    archiveIds: ["a"],
+    activateId: "b",
+  });
+});
+
+test("legacy ownership and takeover preview", () => {
+  assert.equal(
+    classifyLegacyOwnership({
+      subjectOwnerCandidates: ["u1"],
+      referencedOwnerCandidates: ["u1"],
+      hasOrphanSubject: false,
+      hasCrossOwnerReference: false,
+      hasMissingOwner: false,
+    }),
+    "TAKEOVER_ELIGIBLE",
+  );
+  assert.equal(
+    classifyLegacyOwnership({
+      subjectOwnerCandidates: ["u1", "u2"],
+      referencedOwnerCandidates: [],
+      hasOrphanSubject: false,
+      hasCrossOwnerReference: false,
+      hasMissingOwner: false,
+    }),
+    "UNRESOLVED_LEGACY",
+  );
+  const preview = summarizeTakeoverPreview([
+    { verdict: "TAKEOVER_ELIGIBLE", affectedDates: 2 },
+    { verdict: "UNRESOLVED_LEGACY", affectedPeriods: 1 },
+  ]);
+  assert.equal(preview.eligibleCount, 1);
+  assert.equal(preview.unresolvedCount, 1);
+  assert.equal(preview.affectedDateCount, 2);
+});
+
+test("knowledge card related nodes and dependency cycle rules", () => {
+  const ok = normalizeRelatedNodeIds({
+    primaryNodeId: "n1",
+    relatedNodeIds: ["n2", "n2", "n1"],
+    nodeSubjectIds: { n1: "s1", n2: "s1" },
+    taskSubjectId: "s1",
+  });
+  assert.equal(ok.ok, true);
+  if (ok.ok) assert.deepEqual(ok.relatedNodeIds, ["n2"]);
+
+  assert.equal(validateDependencyEdge({ predecessorId: "a", successorId: "a", existing: [] }), "self_loop");
+  assert.equal(
+    wouldCreateDependencyCycle({
+      edges: [{ predecessorId: "b", successorId: "a", type: "SOFT" }],
+      predecessorId: "a",
+      successorId: "b",
+    }),
+    true,
+  );
+  assert.equal(isHardBlocked({ predecessorStatus: "TODO", dependencyType: "HARD" }), true);
+  assert.equal(canDismissInboxItem({ status: "OPEN", supersededByItemId: null }), "ok");
+  assert.equal(canConvertInboxItem({ status: "OPEN", supersededByItemId: "x", originArchived: false }), "superseded");
+  assert.equal(isNoteKind("CONCEPT"), true);
 });

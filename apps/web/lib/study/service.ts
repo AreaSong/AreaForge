@@ -222,8 +222,8 @@ export async function getTodayDashboard(
       },
       orderBy: { startedAt: "desc" },
     }),
-    prisma.dailyReview.findUnique({
-      where: { reviewDate: day.start },
+    prisma.dailyReview.findFirst({
+      where: { reviewDate: day.start, workspaceId: null },
     }),
     prisma.studyTask.count({
       where: {
@@ -1037,8 +1037,8 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
 
 export async function getTodayReview(): Promise<DailyReviewDto | null> {
   const day = getStudyDayRange();
-  const review = await prisma.dailyReview.findUnique({
-    where: { reviewDate: day.start },
+  const review = await prisma.dailyReview.findFirst({
+    where: { reviewDate: day.start, workspaceId: null },
   });
 
   return review ? serializeReview(review) : null;
@@ -1048,28 +1048,30 @@ export async function saveTodayReview(input: SaveReviewInput, actorId: string): 
   const day = getStudyDayRange();
   const review = await prisma.$transaction(async (tx) => {
     const metrics = await getTodaySessionMetrics(day.start, day.end, tx);
-    const savedReview = await tx.dailyReview.upsert({
-      where: { reviewDate: day.start },
-      create: {
-        reviewDate: day.start,
-        totalMinutes: metrics.totalMinutes,
-        effectiveMinutes: metrics.effectiveMinutes,
-        summary: input.summary,
-        lostControl: input.lostControl,
-        keepAction: input.keepAction,
-        tomorrowMinimum: input.tomorrowMinimum,
-        mood: input.mood,
-      },
-      update: {
-        totalMinutes: metrics.totalMinutes,
-        effectiveMinutes: metrics.effectiveMinutes,
-        summary: input.summary,
-        lostControl: input.lostControl,
-        keepAction: input.keepAction,
-        tomorrowMinimum: input.tomorrowMinimum,
-        mood: input.mood,
-      },
+    const existing = await tx.dailyReview.findFirst({
+      where: { reviewDate: day.start, workspaceId: null },
     });
+    const reviewData = {
+      totalMinutes: metrics.totalMinutes,
+      effectiveMinutes: metrics.effectiveMinutes,
+      summary: input.summary,
+      lostControl: input.lostControl,
+      keepAction: input.keepAction,
+      tomorrowMinimum: input.tomorrowMinimum,
+      mood: input.mood,
+    };
+    const savedReview = existing
+      ? await tx.dailyReview.update({
+          where: { id: existing.id },
+          data: reviewData,
+        })
+      : await tx.dailyReview.create({
+          data: {
+            reviewDate: day.start,
+            workspaceId: null,
+            ...reviewData,
+          },
+        });
 
     await audit(actorId, "DAILY_REVIEW_SAVED", "DailyReview", savedReview.id, tx);
     await refreshCheckInSnapshotsForDates([day.start], tx);
@@ -1240,17 +1242,27 @@ async function getTodaySessionMetrics(
 
 function serializeSubject(subject: {
   id: string;
-  code: string;
+  legacyCode: string | null;
+  stableKey: string;
+  workspaceId: string | null;
+  groupId: string | null;
   name: string;
   color: string;
   sortOrder: number;
+  archivedAt?: Date | null;
 }): SubjectDto {
   return {
     id: subject.id,
-    code: subject.code,
+    code: subject.legacyCode ?? subject.stableKey,
+    legacyCode: subject.legacyCode,
+    stableKey: subject.stableKey,
+    workspaceId: subject.workspaceId,
+    groupId: subject.groupId,
     name: subject.name,
     color: subject.color,
     sortOrder: subject.sortOrder,
+    archivedAt: subject.archivedAt?.toISOString() ?? null,
+    legacyScope: subject.workspaceId === null,
   };
 }
 

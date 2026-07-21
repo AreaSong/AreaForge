@@ -54,9 +54,10 @@ export async function refreshCheckInSnapshotForDate(
       status: true,
     },
   });
-  const review = await client.dailyReview.findUnique({
+  const review = await client.dailyReview.findFirst({
     where: {
       reviewDate: day.start,
+      workspaceId: null,
     },
     select: {
       id: true,
@@ -74,34 +75,42 @@ export async function refreshCheckInSnapshotForDate(
     })),
     reviewSubmitted: Boolean(review),
   });
-  const record = await client.checkIn.upsert({
+  const existing = await client.checkIn.findFirst({
     where: {
       studyDate: day.start,
-    },
-    create: {
-      studyDate: day.start,
-      completedMinimumAction: snapshot.completedMinimumAction,
-      totalMinutes: snapshot.totalMinutes,
-      effectiveMinutes: snapshot.effectiveMinutes,
-      effectiveSessionCount: snapshot.effectiveSessionCount,
-      taskCompletionRate: snapshot.taskCompletionRate,
-      reviewSubmitted: snapshot.reviewSubmitted,
-      lowEfficiency: snapshot.lowEfficiency,
-      lowConversionCount: snapshot.lowConversionCount,
-      sourceVersion: snapshot.sourceVersion,
-    },
-    update: {
-      completedMinimumAction: snapshot.completedMinimumAction,
-      totalMinutes: snapshot.totalMinutes,
-      effectiveMinutes: snapshot.effectiveMinutes,
-      effectiveSessionCount: snapshot.effectiveSessionCount,
-      taskCompletionRate: snapshot.taskCompletionRate,
-      reviewSubmitted: snapshot.reviewSubmitted,
-      lowEfficiency: snapshot.lowEfficiency,
-      lowConversionCount: snapshot.lowConversionCount,
-      sourceVersion: snapshot.sourceVersion,
+      workspaceId: null,
     },
   });
+  const record = existing
+    ? await client.checkIn.update({
+        where: { id: existing.id },
+        data: {
+          completedMinimumAction: snapshot.completedMinimumAction,
+          totalMinutes: snapshot.totalMinutes,
+          effectiveMinutes: snapshot.effectiveMinutes,
+          effectiveSessionCount: snapshot.effectiveSessionCount,
+          taskCompletionRate: snapshot.taskCompletionRate,
+          reviewSubmitted: snapshot.reviewSubmitted,
+          lowEfficiency: snapshot.lowEfficiency,
+          lowConversionCount: snapshot.lowConversionCount,
+          sourceVersion: snapshot.sourceVersion,
+        },
+      })
+    : await client.checkIn.create({
+        data: {
+          studyDate: day.start,
+          workspaceId: null,
+          completedMinimumAction: snapshot.completedMinimumAction,
+          totalMinutes: snapshot.totalMinutes,
+          effectiveMinutes: snapshot.effectiveMinutes,
+          effectiveSessionCount: snapshot.effectiveSessionCount,
+          taskCompletionRate: snapshot.taskCompletionRate,
+          reviewSubmitted: snapshot.reviewSubmitted,
+          lowEfficiency: snapshot.lowEfficiency,
+          lowConversionCount: snapshot.lowConversionCount,
+          sourceVersion: snapshot.sourceVersion,
+        },
+      });
 
   return serializeCheckInSnapshot(record);
 }
@@ -146,9 +155,10 @@ export async function findCheckInSnapshotForDate(
   client: CheckInDbClient = prisma,
 ): Promise<CheckInSnapshotSummary | null> {
   const day = getStudyDayRange(targetDate);
-  const record = await client.checkIn.findUnique({
+  const record = await client.checkIn.findFirst({
     where: {
       studyDate: day.start,
+      workspaceId: null,
     },
   });
 
@@ -166,6 +176,7 @@ export async function listCheckInSnapshotsInRange(
         gte: start,
         lt: end,
       },
+      workspaceId: null,
     },
     orderBy: {
       studyDate: "asc",
