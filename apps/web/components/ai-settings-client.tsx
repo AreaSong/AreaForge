@@ -54,7 +54,7 @@ function AiDraftDemo() {
           <option value="plan">plan</option>
         </select>
       </label>
-      <AiDraftPanel endpoint={endpoint} />
+      <AiDraftPanel key={endpoint} endpoint={endpoint} />
     </div>
   );
 }

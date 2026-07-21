@@ -34,6 +34,21 @@ assert(source.includes('href="/motivation"'), "Shell isolation must reject motiv
 assert(source.includes('href="/stage"'), "Shell isolation must keep stage hidden until Batch 10");
 assert(source.includes("batch9 settings openings"), "Batch 9 must smoke settings profile/notifications/ai");
 assert(!source.includes("'href=\"/settings/notifications\"'"), "Batch 9 opens notifications settings; must not forbid that href in shell isolation");
+
+const aiDraftPanel = readFileSync(
+  path.join(process.cwd(), "apps/web/components/ai-draft-panel.tsx"),
+  "utf8",
+);
+assert(
+  aiDraftPanel.includes("可选上下文（默认不发送）") &&
+    aiDraftPanel.includes('type="checkbox"') &&
+    aiDraftPanel.includes("body.checkedProjection = buildCheckedProjection"),
+  "Batch 9 AI draft UI must keep optional projections unchecked by default and send only checked fields",
+);
+assert(
+  aiDraftPanel.includes("revokePreview()") && aiDraftPanel.includes("setToken(null)"),
+  "Batch 9 AI draft UI must revoke the preview token after form changes",
+);
 assert(source.includes('href="/knowledge/canvas"'), "Batch 8 must require knowledge canvas nav href");
 assert(source.includes("batch8 knowledge canvas api"), "Batch 8 knowledge canvas API smoke must remain");
 

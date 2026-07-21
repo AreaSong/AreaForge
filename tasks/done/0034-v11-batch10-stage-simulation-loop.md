@@ -34,7 +34,7 @@ releaseRequired: true
 - `pnpm db:validate` 与 `pnpm check` 通过；后者覆盖 typecheck、测试、lint、Prisma validate 与 production build。
 - Playwright：桌面 `1440×1000` 与移动 `390×844` 完成模拟失分→补救 Inbox→Task→七天计划→报告确认→阶段确认→7 天趋势跨页闭环。
 - 人工递增模拟 revision 后保存返回 409，`109.5` 和现场总结保留；旧 `/reports`、`/simulation` 跳转到 canonical 入口。
-- current-bound 体验记录：`docs/development/product-experience-review-20260722-v11-batch10.md`；默认 validator 返回 `bindingStatus: current`、`reviewFreshnessStatus: fresh`。
+- 冻结提交 `122f1aa` 的体验记录：`docs/development/product-experience-review-20260722-v11-batch10.md`；在该提交的隔离 worktree 中，默认 validator 返回 `bindingStatus: current`、`reviewFreshnessStatus: fresh`。后续 checkout 已进入 Batch 11，不能把这份历史批次记录表述为后续 HEAD 的 current-bound 证据。
 
 ## 新增回归路径
 
