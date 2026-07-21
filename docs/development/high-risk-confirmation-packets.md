@@ -1587,7 +1587,7 @@ pnpm ops:ops-001:preflight
 - 验证：临时 PostgreSQL apply/verify/replay；接管失败回滚；旧 API 双读。
 - 回滚：优先回滚应用代码并保留 additive schema；DROP/数据修复另行确认。
 - 不授权：生产 deploy、历史文本批量解析、文件移动。
-- **确认状态（2026-07-21）**：已确认。授权范围仅限按 1→8 顺序的 additive Prisma/SQL migrations 与临时库验证；Subject code → 可空 `legacyCode` 单列影响已单列；**不授权**生产 migration deploy、destructive DDL、历史修复、文件移动或 residual 关闭。Batch 3 仅实施并隔离验证 Migration 1–3。
+- **确认状态（2026-07-21）**：已确认。授权范围仅限按 1→8 顺序的 additive Prisma/SQL migrations 与临时库验证；Subject code → 可空 `legacyCode` 单列影响已单列；**不授权**生产 migration deploy、destructive DDL、历史修复、文件移动或 residual 关闭。Batch 3–6 已分别实施并隔离验证 Migration 1–6；Batch 7+ 继续按序推进 Migration 7–8。
 
 明确确认句（已确认）：
 

@@ -68,12 +68,12 @@
 | 五工作台 App Shell 与稳定路由 | 未实现 | 版本计划第一节信息架构 | Batch 7+ |
 | 考试工作区 / 自定义科目 / 408 分组 | 基础版 | Migration 1；隔离 `/api/exam-workspaces/**`；无生产 UI | Batch 7 UI |
 | 今日行动中心与科目快捷计时 | 未实现 | 版本计划第二节 | Batch 7 |
-| PlanInbox / 里程碑 / 任务依赖 | 基础版 | Migration 2–3；隔离 Inbox/里程碑/依赖 API；无 convert、无生产 UI | Batch 6 convert；Batch 7 UI |
+| PlanInbox / 里程碑 / 任务依赖 | 基础版 | Migration 2–3；隔离 Inbox/里程碑/依赖 API；Batch 6 已开放隔离原子 convert；无生产 UI | Batch 7 UI |
 | 学习树 V1 preview / confirm | 隔离已实现 | Batch 4 preview + Batch 5 confirm/history/export；Migration 4–5；`AF-RISK-DATA-001` 生命周期已接受、residual 未关 | Batch 7+ 生产页 |
 | 全局关联画布 | 未实现 | 数据契约 12.5 | Batch 8 |
 | StudyResource FILE/LINK | 隔离 API 已实现 | Migration 4 schema + Batch 5 CRUD/staging/resolve/ZIP/MD；无生产页 | Batch 7+ UI |
-| 统一复习 Schedule/Event | 未实现 | 数据契约 12.7 | Batch 6 |
-| CheckIn v2 / 恢复三阶 | 未实现 | `docs/modules/check-in.md` 规划节 | Batch 6 |
+| 统一复习 Schedule/Event | 隔离已实现 | Migration 6；隔离 `/api/review-schedules/**` + corrections + bridge；无生产页 | Batch 7+ UI |
+| CheckIn v2 / 恢复三阶 | 隔离已实现 | Migration 6；`GET /api/check-ins` + `/api/recovery/**`；无生产页 | Batch 7+ UI |
 | 动机 / 通知 / 四类 AI 草稿 | 未实现 | 版本计划第十一节 | Batch 9 |
 | 模拟结构化失分 / 报告阶段入箱 | 未实现 | 版本计划第十节 | Batch 10 |
 | 完整 minor 签名发布 | 未实现 | 14.4 / Batch 11；地基 OPS-006/007 已由 `v0.1.9` 覆盖待 S2 复核 | Batch 11 |

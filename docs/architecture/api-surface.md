@@ -37,17 +37,22 @@
 
 - `/api/exam-workspaces/**`：工作区列表/创建、激活切换、接管 preview/apply、科目分组读取、自定义科目创建
 - `/api/plan-milestones/**`：里程碑列表/创建/编辑
-- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen（**无 convert**）
+- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（隔离原子转换；无生产页）
 - `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
 - `/api/learning-tree/templates|export|imports/preview|imports/confirm`、`/api/learning-tree/imports`、`/api/learning-tree/imports/:id`、`/api/learning-tree/imports/:id/export`（隔离；preview 零业务写入；confirm 原子）
 - `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（隔离，无生产页）
+- `/api/review-schedules/**`：物化/列表/改期/pause/resume/confirm event/bridge（隔离）
+- `POST /api/review-events/:id/corrections`：追加最新事件更正（隔离）
+- `GET /api/check-ins?from=&to=`：当前 workspace CheckIn v2 只读投影（隔离；无客户端写）
+- `/api/recovery/active|start|/:id/cancel|/:id/restart`：Recovery v2 三阶（隔离；保留既有 `/api/recovery-states/**`）
+- `/api/study-tasks/:id/bridge-complete|bridge-defer|bridge-abandon`：复习桥接任务完成/延期/放弃（隔离）
 
 仍为规划、未实现：
 
 - `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
 - `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影。
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
-- 知识画布分层查询与布局 CAS；统一复习事件、动机、通知偏好与四类显式 AI 草稿。
+- 知识画布分层查询与布局 CAS；动机、通知偏好与四类显式 AI 草稿。
 
 权威路由与错误契约见 `workflow/versions/v1.1-learning-action-center.md`。旧 `POST /api/syllabus/import-markdown` 在切换前保留 append-only legacy 行为。
 

@@ -94,6 +94,7 @@
     "ops:v11:m1m3:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-m1-m3-runtime.selftest.ts",
     "ops:v11:m4:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-m4-runtime.selftest.ts",
     "ops:v11:m5:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-m5-runtime.selftest.ts",
+    "ops:v11:m6:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-m6-runtime.selftest.ts",
     "ops:ops-006:runtime:validate": "tsx scripts/quality/ops006-concurrency-runtime-validate.ts",
     "ops:ops-006:runtime:validate:selftest": "tsx scripts/quality/ops006-concurrency-runtime-validate.selftest.ts",
     "ops:ops-006:evidence:validate": "tsx scripts/quality/ops006-production-evidence-validate.ts",

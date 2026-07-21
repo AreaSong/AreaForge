@@ -428,6 +428,16 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - `pnpm --filter @areaforge/storage test`、`pnpm --filter @areaforge/core test`
 - 覆盖：ZIP/MD policy、FILE/LINK、confirm 原子/幂等/409、history owner、一次性导出；无生产页；不跑生产 migration
 
+#### Batch 6（Migration 6 / 统一复习 + CheckIn v2 + 桥接 + Inbox convert）专项
+
+- 复用完整产品数据 migration 确认包（1→8）；本批只实施并临时库验证 Migration 6
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m6`）
+- `AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest`
+- `pnpm --filter @areaforge/core test`（含间隔 / CheckIn v2 / Recovery 三阶规则）
+- 覆盖：exactly-one Schedule、confirm 幂等/fingerprint 409、correction 单 successor、CheckIn v2 升级、Recovery 三阶、桥接 partial unique、Inbox convert；无生产页；不跑生产 migration；不关闭 residual
+- 注意：勿与 Package B Batch 6（`StagePlan` / `StageAdjustmentDraft`，已完成）混淆
+
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。

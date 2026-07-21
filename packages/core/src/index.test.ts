@@ -41,6 +41,15 @@ import {
   canDismissInboxItem,
   canConvertInboxItem,
   isNoteKind,
+  nextConsecutivePassCount,
+  suggestReviewIntervalDays,
+  validateReviewDurationSeconds,
+  aggregateReviewMetrics,
+  deriveMinimumActionSource,
+  completedMinimumActionV2,
+  evaluateRecoveryDayProgress,
+  stageTargetMinutes,
+  computeRecoveryProgressMinutes,
 } from "./index";
 
 type DashboardInputForTest = Parameters<typeof createDashboardSnapshot>[0];
@@ -1363,4 +1372,65 @@ test("knowledge card related nodes and dependency cycle rules", () => {
   assert.equal(canDismissInboxItem({ status: "OPEN", supersededByItemId: null }), "ok");
   assert.equal(canConvertInboxItem({ status: "OPEN", supersededByItemId: "x", originArchived: false }), "superseded");
   assert.equal(isNoteKind("CONCEPT"), true);
+});
+
+test("unified review interval and duration rules", () => {
+  assert.equal(nextConsecutivePassCount({ current: 2, result: "FAILED" }), 0);
+  assert.equal(nextConsecutivePassCount({ current: 2, result: "PASSED" }), 3);
+  assert.equal(suggestReviewIntervalDays({ result: "FAILED", consecutivePassCountAfter: 0 }), 1);
+  assert.equal(suggestReviewIntervalDays({ result: "PARTIAL", consecutivePassCountAfter: 0 }), 3);
+  assert.equal(suggestReviewIntervalDays({ result: "PASSED", consecutivePassCountAfter: 1 }), 7);
+  assert.equal(suggestReviewIntervalDays({ result: "PASSED", consecutivePassCountAfter: 4 }), 60);
+  assert.equal(suggestReviewIntervalDays({ result: "PASSED", consecutivePassCountAfter: 10 }), 60);
+  assert.equal(validateReviewDurationSeconds(0), "invalid_duration");
+  assert.equal(validateReviewDurationSeconds(300), "ok");
+});
+
+test("check-in v2 review aggregation and minimum action source", () => {
+  const metrics = aggregateReviewMetrics([
+    { id: "e1", result: "PASSED", durationSeconds: 200, correctedEventId: null },
+    { id: "e2", result: "FAILED", durationSeconds: 100, correctedEventId: "e1" },
+  ]);
+  assert.equal(metrics.reviewCount, 1);
+  assert.equal(metrics.reviewSeconds, 100);
+  assert.equal(metrics.failedCount, 1);
+  assert.equal(deriveMinimumActionSource({ sessionMinimumMet: false, reviewSeconds: 300 }), "REVIEW");
+  assert.equal(completedMinimumActionV2({ sessionMinimumMet: true, reviewSeconds: 300 }), true);
+  assert.equal(completedMinimumActionV2({ sessionMinimumMet: false, reviewSeconds: 299 }), false);
+});
+
+test("recovery v2 stage progression", () => {
+  assert.equal(stageTargetMinutes(1), 30);
+  assert.equal(stageTargetMinutes(3), 90);
+  assert.equal(computeRecoveryProgressMinutes({ effectiveSessionMinutes: 20, confirmedReviewSeconds: 600 }), 30);
+  assert.deepEqual(
+    evaluateRecoveryDayProgress({
+      currentStage: 1,
+      status: "ACTIVE",
+      progressMinutesToday: 30,
+      windowDayIndex: 0,
+      alreadyAdvancedToday: false,
+    }),
+    { nextStage: 2, nextStatus: "ACTIVE", advanced: true },
+  );
+  assert.deepEqual(
+    evaluateRecoveryDayProgress({
+      currentStage: 1,
+      status: "ACTIVE",
+      progressMinutesToday: 90,
+      windowDayIndex: 0,
+      alreadyAdvancedToday: true,
+    }),
+    { nextStage: 1, nextStatus: "ACTIVE", advanced: false },
+  );
+  assert.deepEqual(
+    evaluateRecoveryDayProgress({
+      currentStage: 2,
+      status: "ACTIVE",
+      progressMinutesToday: 10,
+      windowDayIndex: 7,
+      alreadyAdvancedToday: false,
+    }),
+    { nextStage: 2, nextStatus: "EXPIRED", advanced: false },
+  );
 });

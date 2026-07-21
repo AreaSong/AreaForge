@@ -1,6 +1,7 @@
 import {
   assertExpectedRevision,
   buildOriginIdentity,
+  canConvertInboxItem,
   canDismissInboxItem,
   canReopenInboxItem,
   type PlanInboxItemStatus,
@@ -8,6 +9,7 @@ import {
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { getStudyDayRange } from "./date";
 
 export interface PlanInboxItemDto {
   id: string;
@@ -269,6 +271,102 @@ export async function reopenPlanInboxItem(
     },
   });
   return serialize(updated);
+}
+
+export async function convertPlanInboxItem(
+  actorId: string,
+  itemId: string,
+  input: {
+    expectedRevision: number;
+    reviewScheduleId?: string | null;
+  },
+): Promise<PlanInboxItemDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.planInboxItem.findFirst({
+      where: { id: itemId, workspaceId: workspace.id },
+    });
+    if (!existing) throw new ApiError("PLAN_INBOX_ITEM_NOT_FOUND", 404);
+    if (
+      assertExpectedRevision({
+        currentRevision: existing.revision,
+        expectedRevision: input.expectedRevision,
+      }) === "revision_conflict"
+    ) {
+      throw new ApiError("PLAN_INBOX_REVISION_CONFLICT", 409, {
+        latest: serialize(existing),
+        conflictFields: ["revision"],
+      });
+    }
+
+    const gate = canConvertInboxItem({
+      status: existing.status,
+      supersededByItemId: existing.supersededByItemId,
+      originArchived: false,
+    });
+    if (gate !== "ok") throw new ApiError(`PLAN_INBOX_${gate.toUpperCase()}`, 409);
+
+    if (!existing.subjectId) {
+      throw new ApiError("PLAN_INBOX_SUBJECT_REQUIRED", 400);
+    }
+    if (!existing.title.trim()) {
+      throw new ApiError("PLAN_INBOX_TITLE_REQUIRED", 400);
+    }
+
+    const plannedDate = existing.plannedDate ?? getStudyDayRange().start;
+    const reviewScheduleId: string | null = input.reviewScheduleId ?? null;
+    if (reviewScheduleId) {
+      const schedule = await tx.reviewSchedule.findFirst({
+        where: { id: reviewScheduleId, workspaceId: workspace.id },
+      });
+      if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
+    }
+
+    const priority =
+      existing.priority === "LOW" ||
+      existing.priority === "MEDIUM" ||
+      existing.priority === "HIGH" ||
+      existing.priority === "CRITICAL"
+        ? existing.priority
+        : "MEDIUM";
+
+    const task = await tx.studyTask.create({
+      data: {
+        subjectId: existing.subjectId,
+        syllabusNodeId: existing.primaryNodeId,
+        planMilestoneId: existing.planMilestoneId,
+        title: existing.title.trim(),
+        type: existing.type?.trim() || "focus",
+        priority,
+        plannedDate,
+        estimatedMinutes: existing.estimatedMinutes ?? 25,
+        reviewScheduleId,
+      },
+    });
+
+    const updated = await tx.planInboxItem.update({
+      where: { id: existing.id },
+      data: {
+        status: "CONVERTED",
+        convertedTaskId: task.id,
+        convertedAt: new Date(),
+        revision: { increment: 1 },
+      },
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        actorId,
+        action: "PLAN_INBOX_CONVERTED",
+        entityType: "PlanInboxItem",
+        entityId: existing.id,
+        metadata: { taskId: task.id, reviewScheduleId },
+      },
+    });
+
+    return serialize(updated);
+  });
 }
 
 function isUniqueViolation(error: unknown): boolean {

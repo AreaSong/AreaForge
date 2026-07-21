@@ -19,6 +19,9 @@ export * from "./learning-tree-parse";
 export * from "./learning-tree-diff";
 export * from "./learning-tree-templates";
 export * from "./learning-tree-export";
+export * from "./unified-review";
+export * from "./check-in-v2";
+export * from "./recovery-v2";
 
 export type RiskState =
   | "rising"

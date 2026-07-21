@@ -154,6 +154,9 @@ model User {
   taskDependencies        TaskDependency[]
   planInboxItems          PlanInboxItem[]
   learningTreeImportBatches LearningTreeImportBatch[]
+  recoveryStatesAsUser    RecoveryState[]          @relation("RecoveryStateUser")
+  reviewSchedules         ReviewSchedule[]
+  reviewEvents            ReviewEvent[]
 }
 
 model AuthSession {
@@ -197,6 +200,7 @@ model ExamWorkspace {
   planInboxItems   PlanInboxItem[]
   studyResources   StudyResource[]
   learningTreeImportBatches LearningTreeImportBatch[]
+  reviewSchedules  ReviewSchedule[]
 
   @@unique([userId, stableKey])
   @@index([userId])
@@ -277,6 +281,7 @@ model SyllabusNode {
   relatedNotes      NoteRelatedSyllabusNode[]
   relatedTasks      StudyTaskRelatedSyllabusNode[]
   studyResourceLinks StudyResourceSyllabusNodeLink[]
+  reviewSchedules   ReviewSchedule[]
 
   @@unique([subjectId, stableKey])
   @@index([subjectId])
@@ -290,6 +295,7 @@ model StudyTask {
   syllabusNodeId    String?
   parentTaskId      String?
   planMilestoneId   String?
+  reviewScheduleId  String?
   title             String
   type              String
   status            TaskStatus      @default(TODO)
@@ -307,6 +313,7 @@ model StudyTask {
   parent            StudyTask?      @relation("TaskTree", fields: [parentTaskId], references: [id], onDelete: SetNull)
   children          StudyTask[]     @relation("TaskTree")
   planMilestone     PlanMilestone?  @relation(fields: [planMilestoneId], references: [id], onDelete: SetNull)
+  reviewSchedule    ReviewSchedule? @relation(fields: [reviewScheduleId], references: [id], onDelete: SetNull)
   sessions          StudySession[]
   notes             Note[]
   taskDebtEvents    TaskDebtEvent[] @relation("TaskDebtEventTask")
@@ -324,6 +331,7 @@ model StudyTask {
   @@index([syllabusNodeId])
   @@index([parentTaskId])
   @@index([planMilestoneId])
+  @@index([reviewScheduleId])
 }
 
 model StudyTaskRelatedSyllabusNode {
@@ -408,6 +416,12 @@ model CheckIn {
   lowEfficiency          Boolean        @default(false)
   lowConversionCount     Int            @default(0)
   sourceVersion          Int            @default(1)
+  reviewCount            Int            @default(0)
+  reviewSeconds          Int            @default(0)
+  passedCount            Int            @default(0)
+  partialCount           Int            @default(0)
+  failedCount            Int            @default(0)
+  minimumActionSource    String         @default("NONE")
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   workspace              ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
@@ -439,25 +453,34 @@ model TaskDebtEvent {
 }
 
 model RecoveryState {
-  id               String         @id @default(cuid())
-  workspaceId      String?
-  status           String
-  triggerType      String
-  startedAt        DateTime       @default(now())
-  endedAt          DateTime?
-  targetMinutes    Int
-  visibleTaskLimit Int
-  reason           String
-  exitCondition    String?
-  metadata         Json?
-  actorId          String?
-  actor            User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  workspace        ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  id                 String         @id @default(cuid())
+  workspaceId        String?
+  userId             String?
+  status             String
+  triggerType        String
+  startedAt          DateTime       @default(now())
+  endedAt            DateTime?
+  targetMinutes      Int
+  visibleTaskLimit   Int
+  reason             String
+  exitCondition      String?
+  metadata           Json?
+  actorId            String?
+  currentStage       Int            @default(1)
+  windowStartDate    DateTime?
+  windowEndDate      DateTime?
+  lastProgressDate   DateTime?
+  progressionVersion Int            @default(1)
+  revision           Int            @default(1)
+  actor              User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  user               User?          @relation("RecoveryStateUser", fields: [userId], references: [id], onDelete: SetNull)
+  workspace          ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([startedAt])
   @@index([endedAt])
   @@index([actorId])
+  @@index([userId])
   @@index([workspaceId])
 }
 
@@ -474,6 +497,7 @@ model Note {
   content        String
   masteryStatus  String?
   nextReviewAt   DateTime?
+  archivedAt     DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   subject        Subject       @relation(fields: [subjectId], references: [id])
@@ -483,11 +507,13 @@ model Note {
   masteryEvidence MasteryEvidence[]
   relatedSyllabusNodes NoteRelatedSyllabusNode[]
   studyResourceLinks StudyResourceNoteLink[]
+  reviewSchedules ReviewSchedule[]
 
   @@index([subjectId])
   @@index([syllabusNodeId])
   @@index([stableKey])
   @@index([kind])
+  @@index([archivedAt])
 }
 
 model NoteRelatedSyllabusNode {
@@ -546,16 +572,19 @@ model Mistake {
   cause          MistakeCause  @default(UNKNOWN)
   correctIdea    String?
   nextReviewAt   DateTime?
+  archivedAt     DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   subject        Subject       @relation(fields: [subjectId], references: [id])
   syllabusNode   SyllabusNode? @relation(fields: [syllabusNodeId], references: [id])
   masteryEvidence MasteryEvidence[]
   studyResourceLinks StudyResourceMistakeLink[]
+  reviewSchedules ReviewSchedule[]
 
   @@index([subjectId])
   @@index([syllabusNodeId])
   @@index([nextReviewAt])
+  @@index([archivedAt])
 }
 
 model MotivationVault {
@@ -664,10 +693,12 @@ model MasteryRetest {
   score          String?
   summary        String?
   nextReviewAt   DateTime?
+  reviewEventId  String?           @unique
   actorId        String?
   createdAt      DateTime          @default(now())
   syllabusNode   SyllabusNode      @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
   evidence       MasteryEvidence[]
+  reviewEvent    ReviewEvent?      @relation(fields: [reviewEventId], references: [id], onDelete: SetNull)
   actor          User?             @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([syllabusNodeId])
@@ -903,6 +934,7 @@ model StudyResource {
   noteLinks             StudyResourceNoteLink[]
   mistakeLinks          StudyResourceMistakeLink[]
   syllabusNodeLinks     StudyResourceSyllabusNodeLink[]
+  reviewSchedules       ReviewSchedule[]
 
   @@unique([workspaceId, stableKey])
   @@index([workspaceId])
@@ -1023,4 +1055,63 @@ model LearningTreeImportItem {
   @@index([batchId])
   @@index([stableRef])
   @@index([objectType])
+}
+
+model ReviewSchedule {
+  id                   String         @id @default(cuid())
+  workspaceId          String
+  targetType           String
+  noteId               String?
+  mistakeId            String?
+  studyResourceId      String?
+  syllabusNodeId       String?
+  status               String         @default("ACTIVE")
+  dueDate              DateTime?
+  pausedReason         String?
+  consecutivePassCount Int            @default(0)
+  revision             Int            @default(1)
+  actorId              String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  workspace            ExamWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  note                 Note?          @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  mistake              Mistake?       @relation(fields: [mistakeId], references: [id], onDelete: Cascade)
+  studyResource        StudyResource? @relation(fields: [studyResourceId], references: [id], onDelete: Cascade)
+  syllabusNode         SyllabusNode?  @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
+  actor                User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  events               ReviewEvent[]
+  bridgeTasks          StudyTask[]
+
+  @@index([workspaceId, status, dueDate])
+  @@index([actorId])
+}
+
+model ReviewEvent {
+  id                   String         @id @default(cuid())
+  reviewScheduleId     String
+  idempotencyKey       String
+  requestFingerprint   String
+  expectedRevision     Int
+  appliedRevision      Int
+  result               String
+  durationSeconds      Int
+  confirmedAt          DateTime       @default(now())
+  learningDate         DateTime
+  nextDueDate          DateTime
+  consecutivePassDelta Int            @default(0)
+  correctedEventId     String?
+  note                 String?
+  actorId              String?
+  createdAt            DateTime       @default(now())
+  reviewSchedule       ReviewSchedule @relation(fields: [reviewScheduleId], references: [id], onDelete: Cascade)
+  correctedEvent       ReviewEvent?   @relation("ReviewEventCorrection", fields: [correctedEventId], references: [id], onDelete: SetNull)
+  corrections          ReviewEvent[]  @relation("ReviewEventCorrection")
+  actor                User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  masteryRetest        MasteryRetest?
+
+  @@unique([reviewScheduleId, idempotencyKey])
+  @@index([reviewScheduleId, confirmedAt])
+  @@index([learningDate])
+  @@index([correctedEventId])
+  @@index([actorId])
 }

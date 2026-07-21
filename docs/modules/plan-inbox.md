@@ -7,8 +7,9 @@
 ## 当前实现（隔离 API）
 
 - Schema：`PlanInboxItem` / `PlanInboxDependencyRef` / `PlanMilestone` / `TaskDependency`。
-- API：`/api/plan-inbox/**`（列表、创建、编辑、dismiss、reopen）；`/api/plan-milestones/**`；`/api/tasks/:id/dependencies/**`。
-- 原子 convert 与生产可路由页面尚未开放。
+- API：`/api/plan-inbox/**`（列表、创建、编辑、dismiss、reopen、convert）；`/api/plan-milestones/**`；`/api/tasks/:id/dependencies/**`。
+- 已开放隔离原子 convert：同事务创建 `StudyTask`、置 `CONVERTED`、写审计；可选绑定 `reviewScheduleId` 桥接。
+- 生产可路由页面尚未开放。
 
 ## 规划行为
 

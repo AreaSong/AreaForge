@@ -43,15 +43,15 @@
 - 任务计划日变化时需要刷新旧计划日和新计划日；同一天重复刷新必须幂等。
 - 历史日期不推断用户没有实际记录过的打卡状态，也不做不可靠回填。
 
-## 快照演进（规划 CheckIn v2，未实现）
+## 快照演进（CheckIn v2，隔离已实现）
 
-下一产品版本在保留现有日快照与 fallback 的前提下演进：
+在保留现有日快照与 fallback 的前提下演进；隔离服务/API 已落地：
 
-- CheckIn 归属当前考试工作区，唯一键变为工作区 + 上海学习日。
-- `sourceVersion=2` 时字段完整；旧 `sourceVersion=1` 在触达该学习日写路径时原子升级，不批量回填历史。
+- CheckIn 归属当前考试工作区，唯一键为工作区 + 上海学习日（partial unique）。
+- `sourceVersion=2` 时字段完整（含 `reviewCount`/`reviewSeconds`/结果计数/`minimumActionSource`）；旧 `sourceVersion=1` 在触达该学习日写路径时原子升级，不批量回填历史。
 - 最低行动来源可包含已确认复习；当日已确认复习累计至少 300 秒可满足最低行动。
 - 复习秒数计入复习指标，不计入有效学习分钟。
-- 不提供客户端直接写入 CheckIn；刷新只由 session / review / task / Inbox 事务触发。
-- 恢复模式演进为 30/60/90 三阶，按用户+工作区最多一个 active 状态。
+- `GET /api/check-ins?from=&to=` 只读；刷新只由 session / review / task / Inbox 事务触发。
+- 恢复模式演进为 30/60/90 三阶（`/api/recovery/**`），按用户+工作区最多一个 active 状态；保留既有 `/api/recovery-states/**`。
 
 权威规则见 `workflow/versions/v1.1-learning-action-center.md`；实现状态见 `docs/development/feature-traceability.md`。
