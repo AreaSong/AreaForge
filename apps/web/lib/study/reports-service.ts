@@ -12,6 +12,7 @@ import { prisma } from "@areaforge/db";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 import type { StageAdjustmentDraftRecordDto, StagePlanDto } from "./types";
 
 const shanghaiOffsetMs = 8 * 60 * 60 * 1000;
@@ -83,7 +84,7 @@ export interface PeriodicReportDto {
   weakness: {
     title: string;
     detail: string;
-    source: "syllabus_node" | "debt_subject" | "zero_effective_subject" | "low_conversion" | "none";
+    source: "syllabus_node" | "debt_subject" | "zero_effective_subject" | "low_conversion" | "simulation_loss" | "none";
     severity: "critical" | "high" | "medium" | "low" | "clear";
     reasons: string[];
     subjectName?: string;
@@ -132,17 +133,19 @@ export interface PeriodicReportsDto {
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
 
-export async function getPeriodicReports(now = new Date()): Promise<PeriodicReportsDto> {
+export async function getPeriodicReports(now = new Date(), actorId?: string): Promise<PeriodicReportsDto> {
   const [week, month] = await Promise.all([
-    getPeriodicReport("week", now),
-    getPeriodicReport("month", now),
+    getPeriodicReport("week", now, actorId),
+    getPeriodicReport("month", now, actorId),
   ]);
 
   return { week, month };
 }
 
-export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date()): Promise<PeriodicReportDto> {
+export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date(), actorId?: string): Promise<PeriodicReportDto> {
   const range = kind === "week" ? getWeekRange(now) : getMonthRange(now);
+  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
+  const subjectScope = workspace ? { subject: { workspaceId: workspace.id } } : {};
   const [
     subjects,
     sessions,
@@ -158,6 +161,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     existingDecision,
   ] = await Promise.all([
     prisma.subject.findMany({
+      where: workspace ? { workspaceId: workspace.id } : undefined,
       orderBy: { sortOrder: "asc" },
     }),
     // 报表只做区间聚合，按实际消费字段 select，不携带 subject/syllabusNode 关联行。
@@ -168,6 +172,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           lt: range.end,
         },
         status: "COMPLETED",
+        ...subjectScope,
       },
       select: {
         subjectId: true,
@@ -183,6 +188,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           gte: range.start,
           lt: range.end,
         },
+        ...subjectScope,
       },
       select: {
         plannedDate: true,
@@ -195,6 +201,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           gte: range.start,
           lt: range.end,
         },
+        ...(workspace ? { workspaceId: workspace.id } : {}),
       },
       select: {
         reviewDate: true,
@@ -222,6 +229,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
             },
           },
         ],
+        ...subjectScope,
       },
       select: {
         subjectId: true,
@@ -235,6 +243,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           gte: range.start,
           lt: range.end,
         },
+        ...subjectScope,
       },
     }),
     prisma.studyTask.findMany({
@@ -245,6 +254,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
         status: {
           notIn: ["DONE", "SKIPPED"],
         },
+        ...subjectScope,
       },
       include: {
         subject: true,
@@ -263,6 +273,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
             },
           },
         ],
+        ...(workspace ? { subject: { workspaceId: workspace.id } } : {}),
       },
       include: {
         subject: true,
@@ -278,15 +289,15 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
       orderBy: [{ updatedAt: "desc" }],
       take: 10,
     }),
-    listCheckInSnapshotsInRange(range.start, range.end),
-    listStagePlans(),
-    listStageAdjustmentDrafts(),
+    listCheckInSnapshotsInRange(range.start, range.end, prisma, workspace?.id ?? null),
+    listStagePlans(actorId),
+    listStageAdjustmentDrafts(actorId),
     prisma.periodicReportDecision.findFirst({
       where: {
         kind,
         rangeStart: range.start,
         rangeEnd: range.end,
-        workspaceId: null,
+        workspaceId: workspace?.id ?? null,
       },
     }),
   ]);
@@ -301,7 +312,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
   const mistakesCreatedCount = mistakes.filter((mistake) => isWithin(mistake.createdAt, range.start, range.end)).length;
   const mistakeReviewUpdateCount = mistakes.filter((mistake) => isReviewUpdate(mistake, range.start, range.end)).length;
   const subjectShares = buildSubjectShares(subjects, sessions, debtTasks, mistakes);
-  const weakness = choosePeriodicWeakness({
+  let weakness = choosePeriodicWeakness({
     subjectShares: subjectShares.map((subject) => ({
       subjectName: subject.subjectName,
       effectiveMinutes: subject.effectiveMinutes,
@@ -319,6 +330,35 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     })),
     lowConversionCount,
   });
+  if (workspace) {
+    const losses = await prisma.simulationLossItem.findMany({
+      where: {
+        archivedAt: null,
+        simulationSubjectResult: { simulationExam: { workspaceId: workspace.id, examDate: { gte: range.start, lt: range.end } } },
+      },
+      include: { syllabusNode: true, simulationSubjectResult: { include: { subject: true } } },
+    });
+    const aggregate = new Map<string, { score: number; maxItem: number; subjectName: string; nodeTitle?: string; reason: string }>();
+    for (const loss of losses) {
+      const key = `${loss.simulationSubjectResult.subjectId}:${loss.reason}:${loss.syllabusNodeId ?? "none"}`;
+      const current = aggregate.get(key) ?? { score: 0, maxItem: 0, subjectName: loss.simulationSubjectResult.subject.name, nodeTitle: loss.syllabusNode?.title, reason: loss.reason };
+      current.score += loss.lostScore;
+      current.maxItem = Math.max(current.maxItem, loss.lostScore);
+      aggregate.set(key, current);
+    }
+    const severe = Array.from(aggregate.values()).filter((item) => item.maxItem >= 5 || item.score >= 10).sort((left, right) => right.score - left.score)[0];
+    if (severe) {
+      weakness = {
+        title: "最大短板：模拟结构化失分",
+        detail: `${severe.subjectName}${severe.nodeTitle ? ` / ${severe.nodeTitle}` : ""}：同类失分 ${severe.score} 分。`,
+        source: "simulation_loss",
+        severity: severe.score >= 15 ? "critical" : "high",
+        reasons: ["该模拟属于当前报告周期。", "只聚合未归档结构化失分。", "legacy fallback totals 不参与候选。"],
+        subjectName: severe.subjectName,
+        syllabusNodeTitle: severe.nodeTitle,
+      };
+    }
+  }
   const strategy = createStrategy({
     kind,
     effectiveMinutes,

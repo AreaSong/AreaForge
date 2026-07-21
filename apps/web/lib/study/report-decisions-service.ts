@@ -6,6 +6,7 @@ import {
   type PeriodicReportDecisionDto,
   type PeriodicReportKind,
 } from "./reports-service";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 
 type ReportDecisionClient = PrismaClient | Prisma.TransactionClient;
 
@@ -23,8 +24,9 @@ export async function decidePeriodicReport(
   actorId: string,
   now = new Date(),
 ): Promise<PeriodicReportDecisionDto> {
-  const report = await getPeriodicReport(input.kind, now);
+  const report = await getPeriodicReport(input.kind, now, actorId);
   assertCurrentReportRange(input, report.range);
+  const workspace = await resolveActiveWorkspace(actorId);
 
   const status = input.action === "confirm" ? "confirmed" : "rejected";
   const nextCycleDraft = input.action === "confirm" ? report.decisionPreview.nextCycleDraft : null;
@@ -35,7 +37,7 @@ export async function decidePeriodicReport(
         kind: report.kind,
         rangeStart: new Date(report.range.start),
         rangeEnd: new Date(report.range.end),
-        workspaceId: null,
+        workspaceId: workspace.id,
       },
     });
 
@@ -60,8 +62,52 @@ export async function decidePeriodicReport(
         canAutoApply: false,
         requiresUserConfirmation: true,
         actorId,
+        workspaceId: workspace.id,
       },
     });
+
+    if (input.action === "confirm") {
+      for (const [index, action] of report.decisionPreview.nextCycleDraft.actions.entries()) {
+        const originKey = `report:${report.kind}:${report.range.start}:${index}`;
+        await tx.planInboxItem.create({
+          data: {
+            workspaceId: workspace.id,
+            stableKey: `${created.id}:action:${index}`,
+            originKey,
+            originVersion: 1,
+            originType: "PERIODIC_REPORT",
+            originSnapshot: { decisionId: created.id, kind: report.kind, action, range: report.range },
+            title: action,
+            estimatedMinutes: 30,
+            priority: report.weakness.severity === "critical" ? "critical" : "high",
+            type: "review",
+            actorId,
+          },
+        });
+      }
+      const stagePlan = await tx.stagePlan.findFirst({
+        where: { workspaceId: workspace.id, status: { in: ["active", "draft"] } },
+        orderBy: [{ status: "asc" }, { startDate: "asc" }],
+      });
+      await tx.stageAdjustmentDraft.create({
+        data: {
+          workspaceId: workspace.id,
+          stagePlanId: stagePlan?.id ?? null,
+          source: "local_rule",
+          mode: report.strategy.theme === "strengthening" ? "strengthen" : report.strategy.theme === "steady" ? "maintain" : report.strategy.theme,
+          risk: report.weakness.severity === "clear" ? "low" : report.weakness.severity,
+          riskConclusion: report.weakness.detail,
+          focusSubjects: report.weakness.subjectName ? [report.weakness.subjectName] : [],
+          taskIntensity: report.strategy.theme === "recovery" ? "reduce" : report.strategy.theme === "sprint" ? "sprint" : "keep",
+          taskAdjustmentActions: [],
+          nextStageEmphasis: report.strategy.stageAdjustment,
+          canAutoApply: false,
+          requiresUserConfirmation: true,
+          status: "draft",
+          actorId,
+        },
+      });
+    }
 
     await audit(
       tx,
@@ -86,6 +132,20 @@ export async function decidePeriodicReport(
       decision: created,
       alreadyDecided: false,
     };
+  }).catch(async (error: unknown) => {
+    if (!isUniqueViolation(error)) throw error;
+    const existing = await prisma.periodicReportDecision.findFirst({
+      where: {
+        kind: report.kind,
+        rangeStart: new Date(report.range.start),
+        rangeEnd: new Date(report.range.end),
+        workspaceId: workspace.id,
+      },
+    });
+    if (!existing || existing.status !== status) {
+      throw new ApiError("PERIODIC_REPORT_DECISION_CONFLICT", 409);
+    }
+    return { decision: existing, alreadyDecided: true };
   });
 
   return {
@@ -94,9 +154,10 @@ export async function decidePeriodicReport(
   };
 }
 
-export async function listPeriodicReportDecisions(kind?: PeriodicReportKind): Promise<PeriodicReportDecisionDto[]> {
+export async function listPeriodicReportDecisions(kind?: PeriodicReportKind, actorId?: string): Promise<PeriodicReportDecisionDto[]> {
+  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
   const decisions = await prisma.periodicReportDecision.findMany({
-    where: kind ? { kind } : undefined,
+    where: { ...(kind ? { kind } : {}), ...(workspace ? { workspaceId: workspace.id } : {}) },
     orderBy: [{ decidedAt: "desc" }],
     take: 50,
   });
@@ -132,4 +193,8 @@ async function audit(
       metadata,
     },
   });
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 }

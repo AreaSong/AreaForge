@@ -25,7 +25,7 @@ export default async function AnalyticsPage() {
   }
 
   const [analytics, longTermRisks] = await Promise.all([
-    getAnalyticsSummary(),
+    getAnalyticsSummary(new Date(), user.id),
     getLongTermRiskSummary(),
   ]);
 

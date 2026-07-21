@@ -63,8 +63,8 @@ schema V2 为每个 item 增加：
 - `AF-RISK-OPS-007` -> `tasks/active/0021-attachment-staging-intent.md`
 - `AF-RISK-OPS-008` -> `tasks/active/0022-updater-phase-journal-hold.md`
 - `AF-RISK-SC-004` -> `tasks/backlog/0023-github-main-protection.md`
-- `AF-RISK-UX-001` -> `tasks/active/0024-ux-residual-closure-review.md`
-- `AF-RISK-DATA-001` -> `tasks/done/0029-v11-batch5-resources-import-confirm.md`
+- `AF-RISK-UX-001` -> `tasks/active/0024-ux-residual-closure-review.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`
+- `AF-RISK-DATA-001` -> `tasks/done/0029-v11-batch5-resources-import-confirm.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`
 - `AF-RISK-SC-002` -> `tasks/backlog/0035-v11-batch11-minor-release.md`（v1.1 Release 前须按新 commit 重采 CI/供应链证据）
 - 其余 item 的 `taskRefs=[]`；当前没有 task promotion waiver。
 

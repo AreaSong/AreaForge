@@ -52,6 +52,7 @@ async function getLatestSimulationInput(now: Date) {
     where: {
       actualScore: { not: null },
       targetScore: { not: null },
+      subjectResults: { some: {} },
     },
     include: {
       subjectResults: {

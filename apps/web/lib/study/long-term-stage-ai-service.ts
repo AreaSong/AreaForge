@@ -246,6 +246,7 @@ async function getLatestSimulationSummary(): Promise<StageAdjustmentContext["sim
         { actualDurationMinutes: { not: null } },
         { blankQuestionCount: { gt: 0 } },
       ],
+      subjectResults: { some: {} },
     },
     include: {
       subjectResults: {

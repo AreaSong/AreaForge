@@ -19,6 +19,8 @@ import { listSubjects } from "@/lib/study/service";
 export const dynamic = "force-dynamic";
 
 export default async function SimulationPage() {
+  redirect("/stage/simulation");
+  /* legacy page kept below for source compatibility */
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");

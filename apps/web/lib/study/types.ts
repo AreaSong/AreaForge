@@ -285,12 +285,38 @@ export interface SimulationSubjectResultDto {
   subjectId: string;
   subjectName: string;
   subjectColor: string;
+  paperFullScore: number | null;
   targetScore: number | null;
   actualScore: number | null;
   durationMinutes: number | null;
   blankQuestionCount: number;
   lossReasons: string[];
   summary: string | null;
+  revision: number;
+  lossItems: SimulationLossItemDto[];
+}
+
+export type SimulationLossReasonDto =
+  | "CONCEPT_GAP"
+  | "MEMORY_FORMULA"
+  | "METHOD_ERROR"
+  | "CALCULATION_CARELESS"
+  | "TIME_ALLOCATION"
+  | "READING_COMPREHENSION"
+  | "UNFAMILIAR_PATTERN"
+  | "MINDSET"
+  | "UNANSWERED"
+  | "OTHER";
+
+export interface SimulationLossItemDto {
+  id: string;
+  reason: SimulationLossReasonDto;
+  syllabusNodeId: string | null;
+  syllabusNodeTitle: string | null;
+  lostScore: number;
+  note: string | null;
+  revision: number;
+  archivedAt: string | null;
 }
 
 export interface SimulationExamDto {
@@ -309,11 +335,16 @@ export interface SimulationExamDto {
   reviewText: string | null;
   createdAt: string;
   updatedAt: string;
+  revision: number;
+  totalsSource: "subject_sum" | "legacy_fallback";
+  legacyDisplayTotals: { targetScore: number | null; actualScore: number | null } | null;
+  warnings: string[];
   subjectResults: SimulationSubjectResultDto[];
 }
 
 export interface StagePlanDto {
   id: string;
+  revision: number;
   name: string;
   startDate: string;
   endDate: string;

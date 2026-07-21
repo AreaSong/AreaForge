@@ -8,7 +8,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-teal-300/80">Settings</p>
           <h1 className="mt-1 text-2xl font-semibold text-white">设置</h1>
-          <p className="mt-1 text-sm text-zinc-500">工作区、档案、通知与 AI。阶段入口仍隐藏。</p>
+          <p className="mt-1 text-sm text-zinc-500">工作区、档案、通知与 AI；复盘和阶段已在主导航开放。</p>
         </div>
         <nav className="flex flex-wrap gap-2" aria-label="设置">
           {SETTINGS_TAB_ITEMS.map((item) => (

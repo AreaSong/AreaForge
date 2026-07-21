@@ -329,6 +329,7 @@ export async function listCheckInSnapshotsInRange(
   start: Date,
   end: Date,
   client: CheckInDbClient = prisma,
+  workspaceId: string | null = null,
 ): Promise<Map<string, CheckInSnapshotSummary>> {
   const records = await client.checkIn.findMany({
     where: {
@@ -336,7 +337,7 @@ export async function listCheckInSnapshotsInRange(
         gte: start,
         lt: end,
       },
-      workspaceId: null,
+      workspaceId,
     },
     orderBy: {
       studyDate: "asc",

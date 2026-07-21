@@ -1,14 +1,17 @@
-export const BATCH8_NAV_ITEMS = [
+export const BATCH10_NAV_ITEMS = [
   { href: "/today", label: "今日", match: (path: string) => path === "/today" || path.startsWith("/today?") },
   { href: "/today/plan", label: "计划", match: (path: string) => path.startsWith("/today/plan") || path.startsWith("/today/tasks") },
-  { href: "/today/inbox", label: "收件箱", match: (path: string) => path.startsWith("/today/inbox") },
   {
     href: "/knowledge/canvas",
     label: "知识",
     match: (path: string) => path === "/knowledge" || path.startsWith("/knowledge/"),
   },
+  { href: "/review/reports", label: "复盘", match: (path: string) => path.startsWith("/review/") },
+  { href: "/stage/overview", label: "阶段", match: (path: string) => path.startsWith("/stage/") },
   { href: "/settings/workspace", label: "设置", match: (path: string) => path.startsWith("/settings") },
 ] as const;
+
+export const BATCH8_NAV_ITEMS = BATCH10_NAV_ITEMS;
 
 /** @deprecated Use BATCH8_NAV_ITEMS */
 export const BATCH7_NAV_ITEMS = BATCH8_NAV_ITEMS;
@@ -46,6 +49,10 @@ export const SAFE_RETURN_PATHS = [
   "/knowledge/resources",
   "/knowledge/imports",
   "/knowledge/reviews",
+  "/review/reports",
+  "/stage/overview",
+  "/stage/simulation",
+  "/stage/analytics",
   "/settings",
   "/settings/workspace",
   "/settings/profile",
@@ -79,6 +86,8 @@ export function isBatch8OpenPath(pathname: string): boolean {
     pathname === "/knowledge" ||
     pathname.startsWith("/knowledge/") ||
     pathname.startsWith("/settings")
+    || pathname.startsWith("/review/")
+    || pathname.startsWith("/stage/")
   );
 }
 

@@ -14,7 +14,7 @@
 
 入口：`/settings/profile`（legacy `/motivation` 重定向）；封存正文默认不进入 AI。
 
-## 内容库（Batch 9）
+## 内容库
 
 - 类型：`QUOTE` / `VIDEO_LINK`（HTTPS）/ `VAULT_EXCERPT`（用户显式摘录）。
 - `POST /api/motivation/next` 返回一条可展示内容与继续 / 5 分钟 / 最小任务三动作。

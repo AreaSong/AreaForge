@@ -20,6 +20,85 @@ export interface SimulationResultSummary {
   postSimulationRequiredFields: string[];
 }
 
+export const SIMULATION_LOSS_REASONS = [
+  "CONCEPT_GAP",
+  "MEMORY_FORMULA",
+  "METHOD_ERROR",
+  "CALCULATION_CARELESS",
+  "TIME_ALLOCATION",
+  "READING_COMPREHENSION",
+  "UNFAMILIAR_PATTERN",
+  "MINDSET",
+  "UNANSWERED",
+  "OTHER",
+] as const;
+
+export type SimulationLossReason = (typeof SIMULATION_LOSS_REASONS)[number];
+
+export interface StructuredSimulationLossInput {
+  id?: string;
+  subjectId: string;
+  reason: SimulationLossReason;
+  syllabusNodeId?: string | null;
+  lostScore: number;
+  archived?: boolean;
+}
+
+export interface SimulationSubjectScoreInput {
+  subjectId: string;
+  paperFullScore: number;
+  targetScore: number;
+  actualScore: number;
+}
+
+export function isHalfPointScore(value: number): boolean {
+  return Number.isFinite(value) && Math.round(value * 2) === value * 2;
+}
+
+export function summarizeSimulationScores(subjects: SimulationSubjectScoreInput[]) {
+  return subjects.reduce(
+    (summary, subject) => ({
+      paperFullScore: summary.paperFullScore + subject.paperFullScore,
+      targetScore: summary.targetScore + subject.targetScore,
+      actualScore: summary.actualScore + subject.actualScore,
+      realLostScore: summary.realLostScore + Math.max(0, subject.paperFullScore - subject.actualScore),
+      targetGap: summary.targetGap + Math.max(0, subject.targetScore - subject.actualScore),
+    }),
+    { paperFullScore: 0, targetScore: 0, actualScore: 0, realLostScore: 0, targetGap: 0 },
+  );
+}
+
+export function isHighSeveritySimulationLoss(items: StructuredSimulationLossInput[]): boolean {
+  const active = items.filter((item) => !item.archived);
+  if (active.some((item) => item.lostScore >= 5)) return true;
+  const grouped = new Map<string, number>();
+  for (const item of active) {
+    const key = `${item.subjectId}:${item.reason}:${item.syllabusNodeId ?? "none"}`;
+    grouped.set(key, (grouped.get(key) ?? 0) + item.lostScore);
+  }
+  return Array.from(grouped.values()).some((score) => score >= 10);
+}
+
+export function buildSimulationRemediationGroups(items: StructuredSimulationLossInput[]) {
+  const grouped = new Map<string, { subjectId: string; reason: SimulationLossReason; syllabusNodeId: string | null; lostScore: number; itemIds: string[] }>();
+  for (const item of items.filter((entry) => !entry.archived)) {
+    const key = `${item.subjectId}:${item.reason}:${item.syllabusNodeId ?? "none"}`;
+    const current = grouped.get(key) ?? {
+      subjectId: item.subjectId,
+      reason: item.reason,
+      syllabusNodeId: item.syllabusNodeId ?? null,
+      lostScore: 0,
+      itemIds: [],
+    };
+    current.lostScore += item.lostScore;
+    if (item.id) current.itemIds.push(item.id);
+    grouped.set(key, current);
+  }
+  return Array.from(grouped.entries())
+    .map(([originKey, value]) => ({ originKey: `simulation-loss:${originKey}`, ...value }))
+    .sort((left, right) => right.lostScore - left.lostScore || left.originKey.localeCompare(right.originKey));
+}
+
 export function summarizeSimulationResult(input: SimulationResultInput): SimulationResultSummary {
   const scoreGap = input.actualScore - input.targetScore;
   const scoreRate = input.targetScore > 0 ? roundRate(input.actualScore / input.targetScore) : 0;

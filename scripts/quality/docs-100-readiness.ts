@@ -134,6 +134,7 @@ const allowedTraceabilityStatuses = new Set([
   "基础版",
   "待确认",
   "基础版 / 待确认",
+  "隔离已实现",
   "暂缓",
   "暂缓 / 高风险",
   "未实现",

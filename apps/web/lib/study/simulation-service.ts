@@ -2,6 +2,9 @@ import {
   draftStageAdjustment,
   evaluateSimulationReadiness,
   summarizeSimulationResult,
+  buildSimulationRemediationGroups,
+  summarizeSimulationScores,
+  type SimulationLossReason,
   type StageAdjustmentDraft,
   type SimulationReadinessSummary,
   type SimulationResultSummary,
@@ -17,6 +20,7 @@ import { getMotivationVault, getMotivationVaultShared, saveMotivationVault } fro
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 import { serializeTask } from "./task-serializer";
 import type {
   MotivationVaultDto,
@@ -57,15 +61,24 @@ export interface CreateSimulationExamInput {
 
 export interface SimulationSubjectResultInput {
   subjectId: string;
-  targetScore?: number;
-  actualScore?: number;
+  expectedRevision?: number;
+  paperFullScore: number;
+  targetScore: number;
+  actualScore: number;
   durationMinutes?: number;
   blankQuestionCount: number;
   lossReasons: string[];
   summary?: string;
+  lossItems: Array<{
+    reason: SimulationLossReason;
+    syllabusNodeId?: string | null;
+    lostScore: number;
+    note?: string | null;
+  }>;
 }
 
 export interface SaveSimulationExamResultsInput {
+  expectedRevision: number;
   targetDurationMinutes?: number;
   actualDurationMinutes?: number;
   targetScore?: number;
@@ -122,11 +135,13 @@ export async function getSimulationWorkspace(now = new Date()): Promise<Simulati
   return { exams, tasks, stage, stagePlans, stageAdjustmentDrafts, motivationVault };
 }
 
-export async function listSimulationExams(): Promise<SimulationExamDto[]> {
+export async function listSimulationExams(actorId?: string): Promise<SimulationExamDto[]> {
+  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
   const exams = await prisma.simulationExam.findMany({
+    where: workspace ? { OR: [{ workspaceId: workspace.id }, { workspaceId: null }] } : undefined,
     include: {
       subjectResults: {
-        include: { subject: true },
+        include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
         orderBy: { subjectId: "asc" },
       },
     },
@@ -137,14 +152,31 @@ export async function listSimulationExams(): Promise<SimulationExamDto[]> {
   return exams.map(serializeSimulationExam);
 }
 
+export async function getSimulationExam(id: string, actorId: string): Promise<SimulationExamDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const exam = await prisma.simulationExam.findFirst({
+    where: { id, OR: [{ workspaceId: workspace.id }, { workspaceId: null }] },
+    include: {
+      subjectResults: {
+        include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
+        orderBy: { subjectId: "asc" },
+      },
+    },
+  });
+  if (!exam) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
+  return serializeSimulationExam(exam);
+}
+
 export async function createSimulationExam(
   input: CreateSimulationExamInput,
   actorId: string,
 ): Promise<SimulationExamDto> {
   const examDate = input.examDate ? new Date(input.examDate) : simulationDate;
+  const workspace = await resolveActiveWorkspace(actorId);
   const exam = await prisma.$transaction(async (tx) => {
     const created = await tx.simulationExam.create({
       data: {
+        workspaceId: workspace.id,
         name: input.name,
         examDate,
         isFirstSynchronized: input.isFirstSynchronized ?? isFirstSimulationTask(examDate),
@@ -153,7 +185,7 @@ export async function createSimulationExam(
       },
       include: {
         subjectResults: {
-          include: { subject: true },
+          include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
           orderBy: { subjectId: "asc" },
         },
       },
@@ -171,27 +203,39 @@ export async function saveSimulationExamResults(
   input: SaveSimulationExamResultsInput,
   actorId: string,
 ): Promise<SimulationExamDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
   const exam = await prisma.$transaction(async (tx) => {
-    const existing = await tx.simulationExam.findUnique({
-      where: { id },
+    const existing = await tx.simulationExam.findFirst({
+      where: { id, workspaceId: workspace.id },
       select: {
         id: true,
         isFirstSynchronized: true,
         targetDurationMinutes: true,
         targetScore: true,
+        revision: true,
       },
     });
     if (!existing) {
       throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
     }
+    if (input.expectedRevision !== existing.revision) {
+      throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, { latest: { revision: existing.revision }, conflictFields: ["revision"] });
+    }
 
     assertUniqueSubjectResults(input.subjectResults);
-    await assertSubjectsExist(input.subjectResults.map((result) => result.subjectId), tx);
+    await assertSubjectsExist(input.subjectResults.map((result) => result.subjectId), workspace.id, tx);
+    await assertSimulationLossNodes(input.subjectResults, tx);
+    const currentSubjectResults = await tx.simulationSubjectResult.findMany({
+      where: { simulationExamId: id, subjectId: { in: input.subjectResults.map((result) => result.subjectId) } },
+      select: { id: true, subjectId: true, revision: true },
+    });
+    const currentSubjectResultBySubjectId = new Map(currentSubjectResults.map((result) => [result.subjectId, result]));
 
+    const scoreSummary = summarizeSimulationScores(input.subjectResults);
     const targetDurationMinutes = input.targetDurationMinutes ?? existing.targetDurationMinutes;
     const actualDurationMinutes = input.actualDurationMinutes ?? sumDefined(input.subjectResults, "durationMinutes");
-    const targetScore = input.targetScore ?? sumDefined(input.subjectResults, "targetScore") ?? existing.targetScore;
-    const actualScore = input.actualScore ?? sumDefined(input.subjectResults, "actualScore");
+    const targetScore = scoreSummary.targetScore;
+    const actualScore = scoreSummary.actualScore;
     const blankQuestionCount =
       input.blankQuestionCount ?? input.subjectResults.reduce((total, result) => total + result.blankQuestionCount, 0);
     const lossReasons = normalizeLossReasons([
@@ -209,8 +253,8 @@ export async function saveSimulationExamResults(
       isFirstSynchronizedSimulation: existing.isFirstSynchronized,
     });
 
-    await tx.simulationExam.update({
-      where: { id },
+    const examUpdate = await tx.simulationExam.updateMany({
+      where: { id, workspaceId: workspace.id, revision: input.expectedRevision },
       data: {
         targetDurationMinutes,
         actualDurationMinutes,
@@ -228,42 +272,85 @@ export async function saveSimulationExamResults(
           blankQuestionCount,
           lossReasons,
         }),
-      },
-      include: {
-        subjectResults: {
-          include: { subject: true },
-          orderBy: { subjectId: "asc" },
-        },
+        revision: { increment: 1 },
       },
     });
+    if (examUpdate.count !== 1) {
+      const latest = await tx.simulationExam.findUnique({ where: { id }, select: { revision: true } });
+      throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, {
+        latest: latest ?? undefined,
+        conflictFields: ["revision"],
+      });
+    }
 
     for (const result of input.subjectResults) {
-      await tx.simulationSubjectResult.upsert({
-        where: {
-          simulationExamId_subjectId: {
+      const current = currentSubjectResultBySubjectId.get(result.subjectId);
+      let savedResult: { id: string; revision: number };
+      if (!current) {
+        if (result.expectedRevision != null) {
+          throw new ApiError("SIMULATION_SUBJECT_REVISION_CONFLICT", 409, {
+            latest: { subjectId: result.subjectId, revision: null },
+            conflictFields: ["revision"],
+          });
+        }
+        savedResult = await tx.simulationSubjectResult.create({
+          data: {
             simulationExamId: id,
             subjectId: result.subjectId,
+            paperFullScore: result.paperFullScore,
+            targetScore: result.targetScore,
+            actualScore: result.actualScore,
+            durationMinutes: result.durationMinutes,
+            blankQuestionCount: result.blankQuestionCount,
+            lossReasons: result.lossReasons,
+            summary: normalizeOptionalText(result.summary),
           },
-        },
-        create: {
-          simulationExamId: id,
-          subjectId: result.subjectId,
-          targetScore: result.targetScore,
-          actualScore: result.actualScore,
-          durationMinutes: result.durationMinutes,
-          blankQuestionCount: result.blankQuestionCount,
-          lossReasons: result.lossReasons,
-          summary: normalizeOptionalText(result.summary),
-        },
-        update: {
-          targetScore: result.targetScore,
-          actualScore: result.actualScore,
-          durationMinutes: result.durationMinutes,
-          blankQuestionCount: result.blankQuestionCount,
-          lossReasons: result.lossReasons,
-          summary: normalizeOptionalText(result.summary),
-        },
+          select: { id: true, revision: true },
+        });
+      } else {
+        if (result.expectedRevision !== current.revision) {
+          throw new ApiError("SIMULATION_SUBJECT_REVISION_CONFLICT", 409, {
+            latest: { subjectId: result.subjectId, revision: current.revision },
+            conflictFields: ["revision"],
+          });
+        }
+        const subjectUpdate = await tx.simulationSubjectResult.updateMany({
+          where: { id: current.id, revision: result.expectedRevision },
+          data: {
+            paperFullScore: result.paperFullScore,
+            targetScore: result.targetScore,
+            actualScore: result.actualScore,
+            durationMinutes: result.durationMinutes,
+            blankQuestionCount: result.blankQuestionCount,
+            lossReasons: result.lossReasons,
+            summary: normalizeOptionalText(result.summary),
+            revision: { increment: 1 },
+          },
+        });
+        if (subjectUpdate.count !== 1) {
+          const latest = await tx.simulationSubjectResult.findUnique({ where: { id: current.id }, select: { revision: true } });
+          throw new ApiError("SIMULATION_SUBJECT_REVISION_CONFLICT", 409, {
+            latest: { subjectId: result.subjectId, revision: latest?.revision ?? current.revision },
+            conflictFields: ["revision"],
+          });
+        }
+        savedResult = { id: current.id, revision: current.revision + 1 };
+      }
+      await tx.simulationLossItem.updateMany({
+        where: { simulationSubjectResultId: savedResult.id, archivedAt: null },
+        data: { archivedAt: new Date(), revision: { increment: 1 } },
       });
+      if (result.lossItems.length > 0) {
+        await tx.simulationLossItem.createMany({
+          data: result.lossItems.map((item) => ({
+            simulationSubjectResultId: savedResult.id,
+            reason: item.reason,
+            syllabusNodeId: item.syllabusNodeId ?? null,
+            lostScore: item.lostScore,
+            note: normalizeOptionalText(item.note ?? undefined),
+          })),
+        });
+      }
     }
 
     await audit(actorId, "SIMULATION_EXAM_RESULTS_SAVED", "SimulationExam", id, tx);
@@ -272,7 +359,7 @@ export async function saveSimulationExamResults(
       where: { id },
       include: {
         subjectResults: {
-          include: { subject: true },
+          include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
           orderBy: { subjectId: "asc" },
         },
       },
@@ -280,6 +367,136 @@ export async function saveSimulationExamResults(
   });
 
   return serializeSimulationExam(exam);
+}
+
+export interface SimulationRemediationDto {
+  originKey: string;
+  subjectId: string;
+  subjectName: string;
+  reason: SimulationLossReason;
+  syllabusNodeId: string | null;
+  syllabusNodeTitle: string | null;
+  lostScore: number;
+  itemIds: string[];
+  originVersion: number;
+}
+
+export interface SimulationRemediationSelection {
+  originKey: string;
+  originVersion: number;
+}
+
+export async function listSimulationRemediations(examId: string, actorId: string): Promise<SimulationRemediationDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  return loadSimulationRemediations(examId, workspace.id, prisma, true);
+}
+
+async function loadSimulationRemediations(
+  examId: string,
+  workspaceId: string,
+  client: SimulationDbClient,
+  allowLegacy: boolean,
+): Promise<SimulationRemediationDto[]> {
+  const exam = await client.simulationExam.findFirst({
+    where: { id: examId, ...(allowLegacy ? { OR: [{ workspaceId }, { workspaceId: null }] } : { workspaceId }) },
+    select: {
+      revision: true,
+      workspaceId: true,
+      subjectResults: {
+        select: {
+          subjectId: true,
+          revision: true,
+          subject: { select: { name: true } },
+          lossItems: {
+            where: { archivedAt: null },
+            select: {
+              id: true,
+              reason: true,
+              syllabusNodeId: true,
+              lostScore: true,
+              syllabusNode: { select: { title: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!exam) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
+  if (exam.workspaceId == null) return [];
+  const itemLookup = new Map(exam.subjectResults.flatMap((result) => result.lossItems.map((item) => [item.id, { item, result }] as const)));
+  return buildSimulationRemediationGroups(exam.subjectResults.flatMap((result) => result.lossItems.map((item) => ({
+    id: item.id,
+    subjectId: result.subjectId,
+    reason: item.reason as SimulationLossReason,
+    syllabusNodeId: item.syllabusNodeId,
+    lostScore: item.lostScore,
+  })))).map((group) => {
+    const sample = group.itemIds.length > 0 ? itemLookup.get(group.itemIds[0]!) : undefined;
+    return {
+      ...group,
+      subjectName: sample?.result.subject.name ?? "未知科目",
+      syllabusNodeTitle: sample?.item.syllabusNode?.title ?? null,
+      originVersion: sample?.result.revision ?? exam.revision,
+    };
+  });
+}
+
+export async function addSimulationRemediationsToInbox(
+  examId: string,
+  actorId: string,
+  selections: SimulationRemediationSelection[],
+): Promise<{ created: number; reused: number }> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  if (new Set(selections.map((selection) => selection.originKey)).size !== selections.length) {
+    throw new ApiError("SIMULATION_REMEDIATION_DUPLICATE", 400);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const candidates = await loadSimulationRemediations(examId, workspace.id, tx, false);
+    const candidateByKey = new Map(candidates.map((candidate) => [candidate.originKey, candidate]));
+    const selected = selections.map((selection) => {
+      const candidate = candidateByKey.get(selection.originKey);
+      if (!candidate || candidate.originVersion !== selection.originVersion) {
+        throw new ApiError("SIMULATION_REMEDIATION_STALE", 409, {
+          latest: candidate ?? undefined,
+          conflictFields: ["originKey", "originVersion"],
+        });
+      }
+      return candidate;
+    });
+    const inserted = await tx.planInboxItem.createMany({
+      data: selected.map((candidate) => ({
+        workspaceId: workspace.id,
+        stableKey: `${candidate.originKey}:v${candidate.originVersion}`,
+        originKey: candidate.originKey,
+        originVersion: candidate.originVersion,
+        originType: "SIMULATION_LOSS",
+        originSnapshot: {
+          examId,
+          itemIds: candidate.itemIds,
+          lostScore: candidate.lostScore,
+          reason: candidate.reason,
+        } as Prisma.InputJsonValue,
+        title: `${candidate.subjectName}：补救 ${labelSimulationLossReason(candidate.reason)}（${candidate.lostScore} 分）`,
+        subjectId: candidate.subjectId,
+        primaryNodeId: candidate.syllabusNodeId,
+        estimatedMinutes: candidate.lostScore >= 10 ? 60 : 30,
+        priority: candidate.lostScore >= 10 ? "critical" : "high",
+        type: "review",
+        actorId,
+      })),
+      skipDuplicates: true,
+    });
+    return { created: inserted.count, reused: selected.length - inserted.count };
+  });
+}
+
+function labelSimulationLossReason(reason: SimulationLossReason): string {
+  return ({
+    CONCEPT_GAP: "概念缺口", MEMORY_FORMULA: "记忆/公式", METHOD_ERROR: "方法错误",
+    CALCULATION_CARELESS: "计算/粗心", TIME_ALLOCATION: "时间分配", READING_COMPREHENSION: "审题理解",
+    UNFAMILIAR_PATTERN: "题型陌生", MINDSET: "心态", UNANSWERED: "未作答", OTHER: "其他",
+  } satisfies Record<SimulationLossReason, string>)[reason];
 }
 
 export async function listSimulationTasks(): Promise<StudyTaskDto[]> {
@@ -645,11 +862,13 @@ async function assertSubjectExists(subjectId: string): Promise<void> {
   }
 }
 
-async function assertSubjectsExist(subjectIds: string[], client: SimulationDbClient): Promise<void> {
+async function assertSubjectsExist(subjectIds: string[], workspaceId: string, client: SimulationDbClient): Promise<void> {
   const uniqueSubjectIds = Array.from(new Set(subjectIds));
   const count = await client.subject.count({
     where: {
       id: { in: uniqueSubjectIds },
+      workspaceId,
+      archivedAt: null,
     },
   });
 
@@ -748,22 +967,55 @@ function serializeSimulationExam(exam: {
   reviewText: string | null;
   createdAt: Date;
   updatedAt: Date;
+  revision: number;
   subjectResults: Array<{
     id: string;
     simulationExamId: string;
     subjectId: string;
+    paperFullScore: number | null;
     targetScore: number | null;
     actualScore: number | null;
     durationMinutes: number | null;
     blankQuestionCount: number;
     lossReasons: unknown;
     summary: string | null;
+    revision: number;
+    lossItems: Array<{
+      id: string;
+      reason: string;
+      syllabusNodeId: string | null;
+      lostScore: number;
+      note: string | null;
+      revision: number;
+      archivedAt: Date | null;
+      syllabusNode: { title: string } | null;
+    }>;
     subject: {
       name: string;
       color: string;
     };
   }>;
 }): SimulationExamDto {
+  const hasLegacyTotals = exam.targetScore != null || exam.actualScore != null || exam.lossReasons != null;
+  const totalsSource = exam.subjectResults.length > 0 || !hasLegacyTotals ? "subject_sum" : "legacy_fallback";
+  const scoreSummary = totalsSource === "subject_sum"
+    ? summarizeSimulationScores(exam.subjectResults.map((result) => ({
+        subjectId: result.subjectId,
+        paperFullScore: result.paperFullScore ?? Math.max(result.targetScore ?? 0, result.actualScore ?? 0),
+        targetScore: result.targetScore ?? 0,
+        actualScore: result.actualScore ?? 0,
+      })))
+    : null;
+  const warnings = exam.subjectResults.flatMap((result) => {
+    if (result.paperFullScore == null || result.actualScore == null) return [];
+    const structuredLoss = result.lossItems
+      .filter((item) => item.archivedAt == null)
+      .reduce((sum, item) => sum + item.lostScore, 0);
+    const realLoss = Math.max(0, result.paperFullScore - result.actualScore);
+    return Math.abs(structuredLoss - realLoss) >= 0.25
+      ? [`${result.subject.name}：结构化失分 ${structuredLoss} 分与真实丢分 ${realLoss} 分不一致`]
+      : [];
+  });
   return {
     id: exam.id,
     name: exam.name,
@@ -771,8 +1023,8 @@ function serializeSimulationExam(exam: {
     isFirstSynchronized: exam.isFirstSynchronized,
     targetDurationMinutes: exam.targetDurationMinutes,
     actualDurationMinutes: exam.actualDurationMinutes,
-    targetScore: exam.targetScore,
-    actualScore: exam.actualScore,
+    targetScore: scoreSummary?.targetScore ?? exam.targetScore,
+    actualScore: scoreSummary?.actualScore ?? exam.actualScore,
     blankQuestionCount: exam.blankQuestionCount,
     lossReasons: parseLossReasons(exam.lossReasons),
     mindset: exam.mindset,
@@ -780,20 +1032,50 @@ function serializeSimulationExam(exam: {
     reviewText: exam.reviewText,
     createdAt: exam.createdAt.toISOString(),
     updatedAt: exam.updatedAt.toISOString(),
+    revision: exam.revision,
+    totalsSource,
+    legacyDisplayTotals: totalsSource === "legacy_fallback" ? { targetScore: exam.targetScore, actualScore: exam.actualScore } : null,
+    warnings,
     subjectResults: exam.subjectResults.map((result) => ({
       id: result.id,
       simulationExamId: result.simulationExamId,
       subjectId: result.subjectId,
       subjectName: result.subject.name,
       subjectColor: result.subject.color,
+      paperFullScore: result.paperFullScore,
       targetScore: result.targetScore,
       actualScore: result.actualScore,
       durationMinutes: result.durationMinutes,
       blankQuestionCount: result.blankQuestionCount,
       lossReasons: parseLossReasons(result.lossReasons),
       summary: result.summary,
+      revision: result.revision,
+      lossItems: result.lossItems.map((item) => ({
+        id: item.id,
+        reason: item.reason as SimulationExamDto["subjectResults"][number]["lossItems"][number]["reason"],
+        syllabusNodeId: item.syllabusNodeId,
+        syllabusNodeTitle: item.syllabusNode?.title ?? null,
+        lostScore: item.lostScore,
+        note: item.note,
+        revision: item.revision,
+        archivedAt: item.archivedAt?.toISOString() ?? null,
+      })),
     })),
   };
+}
+
+async function assertSimulationLossNodes(
+  results: SimulationSubjectResultInput[],
+  client: SimulationDbClient,
+): Promise<void> {
+  for (const result of results) {
+    const nodeIds = Array.from(new Set(result.lossItems.map((item) => item.syllabusNodeId).filter((id): id is string => Boolean(id))));
+    if (nodeIds.length === 0) continue;
+    const count = await client.syllabusNode.count({
+      where: { id: { in: nodeIds }, subjectId: result.subjectId, archivedAt: null },
+    });
+    if (count !== nodeIds.length) throw new ApiError("SIMULATION_LOSS_NODE_SUBJECT_MISMATCH", 400);
+  }
 }
 
 function sumDefined(items: SimulationSubjectResultInput[], key: keyof SimulationSubjectResultInput): number | undefined {

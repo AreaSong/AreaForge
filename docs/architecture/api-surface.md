@@ -49,15 +49,15 @@
 - `GET /api/knowledge-canvas`：分层派生节点/边、等价列表与布局摘要（隔离验收）
 - `PUT|DELETE /api/knowledge-canvas/layout`：个人布局 CAS 保存/重置（隔离验收；不改业务边）
 
-仍为规划、未实现：
-
-- 阶段工作台全入口与模拟失分结构化补强（Batch 10）。
-
-已落地（隔离验收；Batch 9）：
+已落地（隔离验收）：
 
 - `/api/motivation/items/**`、`POST /api/motivation/next`、`POST /api/motivation/reminder-state`
 - `GET|PATCH /api/notification-preferences`、`POST /api/notifications/test`
 - `POST /api/ai/drafts/learning-tree|knowledge-card|plan|motivation`（preview|generate；`AiDraftOperation` CAS；`AI_PAYLOAD_BINDING_SECRET`）
+- `/api/simulation/exams/**`：分科 totals、结构化失分、warning 与 revision CAS。
+- `/api/simulation/exams/:id/remediations`：补救候选读取与显式逐项入箱。
+- `/api/reports/periodic/decisions`：冻结报告、原子入箱并生成独立阶段草稿。
+- `/api/simulation/stage-adjustment-drafts/:id/confirm|reject`：阶段终态决策；确认更新 StagePlan 并原子入箱，不改现有任务。
 
 已落地（隔离分支可路由；生产一次切换见版本计划完整 minor Release）：
 

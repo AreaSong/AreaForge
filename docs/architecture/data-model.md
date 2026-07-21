@@ -37,14 +37,12 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `StudyResource`：FILE（READY Attachment）或 LINK（HTTPS）exactly-one；隔离 CRUD/上传/重复三选一/归档 API 已落地；无生产页面；不物理删除。
 - `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；隔离 API 已落地，无生产页。
 - `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：每用户每工作区唯一布局；节点仅 x/y/折叠/固定/隐藏；业务边实时派生。隔离验收已开放 `/knowledge/canvas` 与 layout API。
-- `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema + 隔离 API/设置页已落地（Batch 9）；`/stage` 入口仍隐藏。
+- `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema + 隔离 API/设置页已落地。
+- `SimulationLossItem`：直接归属分科结果，固定原因、可选考纲节点、0.5 分 lostScore、revision 与软归档；模拟与分科根保留 revision CAS。
 
-## 规划扩展模型（未实现）
+## 规划扩展模型
 
-下一产品版本其余实体仍在 additive-first 前提下规划；**已落地的 ExamWorkspace / SubjectGroup / PlanMilestone / TaskDependency / PlanInbox / Note kind / StudyResource / LearningTreeImport / ReviewSchedule / ReviewEvent / CheckIn v2 / Recovery v2 / KnowledgeCanvasLayout / Motivation* / NotificationPreference / AiDraftOperation schema 见上方与核心实体**。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。
-
-- `SimulationLossItem`：结构化失分条目。
-- 后续 additive migration 继续扩展模拟 schema；旧数据只读兼容，不批量猜测回填。
+后续实体继续遵循 additive-first；已落地模型见上方与 Prisma schema。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。旧数据只读兼容，不批量猜测回填。
 
 ## 认证相关约束
 

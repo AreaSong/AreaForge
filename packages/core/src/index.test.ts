@@ -17,6 +17,8 @@ import {
   normalizeStudyCloseout,
   parseSyllabusMarkdown,
   summarizeSimulationResult,
+  summarizeSimulationScores,
+  isHighSeveritySimulationLoss,
   summarizeCheckInHistory,
   summarizeLightweightDebtAction,
   choosePeriodicWeakness,
@@ -1288,6 +1290,33 @@ test("summarizeSimulationResult keeps near target simulations focused", () => {
   assert.equal(result.performance, "near_target");
   assert.equal(result.timePressure, "low");
   assert.equal(result.shouldRecalibratePlan, false);
+});
+
+test("structured simulation totals keep real loss separate from target gap", () => {
+  const totals = summarizeSimulationScores([
+    { subjectId: "math", paperFullScore: 150, targetScore: 120, actualScore: 110 },
+    { subjectId: "english", paperFullScore: 100, targetScore: 75, actualScore: 80 },
+  ]);
+  assert.deepEqual(totals, {
+    paperFullScore: 250,
+    targetScore: 195,
+    actualScore: 190,
+    realLostScore: 60,
+    targetGap: 10,
+  });
+});
+
+test("structured simulation loss severity supports item and aggregate thresholds", () => {
+  assert.equal(isHighSeveritySimulationLoss([
+    { subjectId: "math", reason: "METHOD_ERROR", lostScore: 5 },
+  ]), true);
+  assert.equal(isHighSeveritySimulationLoss([
+    { subjectId: "math", reason: "METHOD_ERROR", syllabusNodeId: "node", lostScore: 4.5 },
+    { subjectId: "math", reason: "METHOD_ERROR", syllabusNodeId: "node", lostScore: 5.5 },
+  ]), true);
+  assert.equal(isHighSeveritySimulationLoss([
+    { subjectId: "math", reason: "METHOD_ERROR", lostScore: 4.5, archived: true },
+  ]), false);
 });
 
 test("parseSyllabusMarkdown converts headings and nested lists into nodes", () => {

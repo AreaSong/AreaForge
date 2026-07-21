@@ -253,7 +253,8 @@
         "areaforge-qa-smoke"
       ],
       "taskRefs": [
-        "tasks/active/0024-ux-residual-closure-review.md"
+        "tasks/active/0024-ux-residual-closure-review.md",
+        "tasks/done/0034-v11-batch10-stage-simulation-loop.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
@@ -271,7 +272,8 @@
         "areaforge-file-storage-safety"
       ],
       "taskRefs": [
-        "tasks/done/0029-v11-batch5-resources-import-confirm.md"
+        "tasks/done/0029-v11-batch5-resources-import-confirm.md",
+        "tasks/done/0034-v11-batch10-stage-simulation-loop.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null

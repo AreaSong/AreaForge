@@ -289,6 +289,7 @@ model SyllabusNode {
   relatedTasks      StudyTaskRelatedSyllabusNode[]
   studyResourceLinks StudyResourceSyllabusNodeLink[]
   reviewSchedules   ReviewSchedule[]
+  simulationLossItems SimulationLossItem[]
 
   @@unique([subjectId, stableKey])
   @@index([subjectId])
@@ -730,6 +731,7 @@ model SimulationExam {
   mindset               String?
   summary               String?
   reviewText            String?
+  revision              Int                       @default(1)
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
   workspace             ExamWorkspace?            @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
@@ -744,18 +746,40 @@ model SimulationSubjectResult {
   id                 String         @id @default(cuid())
   simulationExamId   String
   subjectId          String
+  paperFullScore     Float?
   targetScore        Float?
   actualScore        Float?
   durationMinutes    Int?
   blankQuestionCount Int            @default(0)
   lossReasons        Json?
   summary            String?
+  revision           Int            @default(1)
   simulationExam     SimulationExam @relation(fields: [simulationExamId], references: [id], onDelete: Cascade)
   subject            Subject        @relation(fields: [subjectId], references: [id])
+  lossItems          SimulationLossItem[]
 
   @@unique([simulationExamId, subjectId])
   @@index([simulationExamId])
   @@index([subjectId])
+}
+
+model SimulationLossItem {
+  id                        String                  @id @default(cuid())
+  simulationSubjectResultId String
+  reason                    String
+  syllabusNodeId            String?
+  lostScore                 Float
+  note                      String?
+  revision                  Int                     @default(1)
+  archivedAt                DateTime?
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  simulationSubjectResult   SimulationSubjectResult @relation(fields: [simulationSubjectResultId], references: [id], onDelete: Cascade)
+  syllabusNode              SyllabusNode?           @relation(fields: [syllabusNodeId], references: [id], onDelete: SetNull)
+
+  @@index([simulationSubjectResultId, archivedAt])
+  @@index([reason, archivedAt])
+  @@index([syllabusNodeId, archivedAt])
 }
 
 model StagePlan {

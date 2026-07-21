@@ -21,6 +21,8 @@ import { getPeriodicReports, type PeriodicReportDto } from "@/lib/study/reports-
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
+  redirect("/review/reports");
+  /* legacy page kept below for source compatibility */
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
@@ -324,6 +326,8 @@ function labelWeaknessSource(source: PeriodicReportDto["weakness"]["source"]): s
       return "来源：投入缺口";
     case "low_conversion":
       return "来源：低转化";
+    case "simulation_loss":
+      return "来源：模拟失分";
     case "none":
       return "来源：稳态";
   }

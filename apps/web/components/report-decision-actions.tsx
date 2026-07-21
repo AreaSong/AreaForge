@@ -14,36 +14,44 @@ export function ReportDecisionActions({ report }: ReportDecisionActionsProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isDeciding, setIsDeciding] = useState(false);
   const decision = report.decision;
-  const disabled = isPending || Boolean(decision);
+  const disabled = isPending || isDeciding || Boolean(decision);
 
   async function decide(action: "confirm" | "reject") {
+    if (isDeciding) return;
+    if (action === "reject" && !window.confirm("驳回后该报告版本进入不可逆终态；重新考虑需要生成新版本。确认驳回？")) return;
     setError(null);
     setNotice(null);
 
-    const response = await fetch("/api/reports/periodic/decisions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        kind: report.kind,
-        action,
-        rangeStart: report.range.start,
-        rangeEnd: report.range.end,
-      }),
-    });
+    setIsDeciding(true);
+    try {
+      const response = await fetch("/api/reports/periodic/decisions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: report.kind,
+          action,
+          rangeStart: report.range.start,
+          rangeEnd: report.range.end,
+        }),
+      });
 
-    const body = (await response.json().catch(() => null)) as {
-      decision?: { alreadyDecided?: boolean };
-      error?: string;
-    } | null;
+      const body = (await response.json().catch(() => null)) as {
+        decision?: { alreadyDecided?: boolean };
+        error?: string;
+      } | null;
 
-    if (!response.ok) {
-      setError(labelDecisionError(body?.error));
-      return;
+      if (!response.ok) {
+        setError(labelDecisionError(body?.error));
+        return;
+      }
+
+      setNotice(body?.decision?.alreadyDecided ? "该周期报告已经处理，正在刷新回放。" : action === "confirm" ? "报告已冻结，计划草稿已入箱；阶段建议仍需独立确认。" : "报告版本已不可逆驳回。");
+      startTransition(() => router.refresh());
+    } finally {
+      setIsDeciding(false);
     }
-
-    setNotice(body?.decision?.alreadyDecided ? "该周期报告已经处理，正在刷新回放。" : "报告决策已记录。");
-    startTransition(() => router.refresh());
   }
 
   return (
@@ -52,7 +60,7 @@ export function ReportDecisionActions({ report }: ReportDecisionActionsProps) {
         <div>
           <p className="text-sm font-medium text-zinc-100">报告决策</p>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
-            只冻结报告快照、下一周期草稿和审计记录，不自动修改任务或阶段计划。
+            确认会冻结快照、原子加入全部计划草稿，并生成独立的阶段建议；不会修改现有任务或 StagePlan。
           </p>
         </div>
         {decision ? (

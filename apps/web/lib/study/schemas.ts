@@ -186,12 +186,23 @@ const stagePlanStatusSchema = z.enum(["draft", "active", "completed", "archived"
 
 const simulationSubjectResultSchema = z.object({
   subjectId: z.string().min(1),
-  targetScore: z.number().min(0).max(1000).optional(),
-  actualScore: z.number().min(0).max(1000).optional(),
+  expectedRevision: z.number().int().min(1).optional(),
+  paperFullScore: z.number().positive().max(1000).multipleOf(0.5),
+  targetScore: z.number().min(0).max(1000).multipleOf(0.5),
+  actualScore: z.number().min(0).max(1000).multipleOf(0.5),
   durationMinutes: z.number().int().min(0).max(720).optional(),
   blankQuestionCount: z.number().int().min(0).max(300).default(0),
   lossReasons: simulationLossReasonsSchema,
   summary: z.string().trim().max(2000).optional(),
+  lossItems: z.array(z.object({
+    reason: z.enum(["CONCEPT_GAP", "MEMORY_FORMULA", "METHOD_ERROR", "CALCULATION_CARELESS", "TIME_ALLOCATION", "READING_COMPREHENSION", "UNFAMILIAR_PATTERN", "MINDSET", "UNANSWERED", "OTHER"]),
+    syllabusNodeId: z.string().min(1).nullable().optional(),
+    lostScore: z.number().positive().max(1000).multipleOf(0.5),
+    note: z.string().trim().max(500).nullable().optional(),
+  })).max(100).default([]),
+}).superRefine((value, context) => {
+  if (value.targetScore > value.paperFullScore) context.addIssue({ code: "custom", path: ["targetScore"], message: "targetScore must not exceed paperFullScore" });
+  if (value.actualScore > value.paperFullScore) context.addIssue({ code: "custom", path: ["actualScore"], message: "actualScore must not exceed paperFullScore" });
 });
 
 const simulationExamSchema = z.object({
@@ -206,6 +217,7 @@ export const createSimulationExamSchema = simulationExamSchema;
 
 export const saveSimulationExamResultsSchema = z
   .object({
+    expectedRevision: z.number().int().min(1),
     targetDurationMinutes: z.number().int().min(30).max(720).optional(),
     actualDurationMinutes: z.number().int().min(0).max(720).optional(),
     targetScore: z.number().min(0).max(1000).optional(),

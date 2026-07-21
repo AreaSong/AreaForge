@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { BrandMark } from "@/components/brand-logo";
 import { LogoutButton } from "@/components/logout-button";
 import { Drawer } from "@/components/ui/overlays";
-import { BATCH8_NAV_ITEMS } from "@/lib/navigation/batch7";
+import { BATCH10_NAV_ITEMS } from "@/lib/navigation/batch7";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
 
 const toneClass: Record<string, string> = {
@@ -107,7 +107,7 @@ export function AppShell(props: {
             <span className="text-sm font-medium">AreaForge</span>
           </div>
           <nav className="flex flex-col gap-1" aria-label="主导航">
-            {BATCH8_NAV_ITEMS.map((item) => {
+            {BATCH10_NAV_ITEMS.map((item) => {
               const active = item.match(pathname);
               return (
                 <Link
@@ -191,7 +191,7 @@ export function AppShell(props: {
             aria-label="移动导航"
           >
             <div className="mx-auto flex max-w-lg items-center justify-around">
-              {BATCH8_NAV_ITEMS.map((item) => {
+              {BATCH10_NAV_ITEMS.slice(0, 5).map((item) => {
                 const active = item.match(pathname);
                 return (
                   <Link

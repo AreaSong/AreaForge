@@ -7,6 +7,7 @@ export type PeriodicWeaknessSource =
   | "debt_subject"
   | "zero_effective_subject"
   | "low_conversion"
+  | "simulation_loss"
   | "none";
 
 export type PeriodicWeaknessSeverity = "critical" | "high" | "medium" | "low" | "clear";

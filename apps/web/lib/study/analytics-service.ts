@@ -8,6 +8,7 @@ import { prisma } from "@areaforge/db";
 import { cache } from "react";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayKey, getStudyDayRange } from "./date";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 import type { SyllabusNodeStatusDto } from "./types";
 
 const dayMs = 24 * 60 * 60 * 1000;
@@ -77,10 +78,16 @@ type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVI
 // 同一次服务端渲染内的只读共享副本，供 AI 建议与长期风险等多个消费方复用同一份统计结果。
 export const getAnalyticsSummaryShared = cache(async (): Promise<AnalyticsSummaryDto> => getAnalyticsSummary());
 
-export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSummaryDto> {
+export async function getAnalyticsSummary(
+  now = new Date(),
+  actorId?: string,
+  windowDays: 7 | 30 = weekDays,
+): Promise<AnalyticsSummaryDto> {
   const today = getStudyDayRange(now);
-  const start = new Date(today.start.getTime() - (weekDays - 1) * dayMs);
+  const start = new Date(today.start.getTime() - (windowDays - 1) * dayMs);
   const reviewLookaheadEnd = new Date(today.end.getTime() + 3 * dayMs);
+  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
+  const subjectScope = workspace ? { subject: { workspaceId: workspace.id } } : {};
 
   const [
     subjects,
@@ -95,6 +102,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
     checkInSnapshots,
   ] = await Promise.all([
     prisma.subject.findMany({
+      where: workspace ? { workspaceId: workspace.id } : undefined,
       orderBy: { sortOrder: "asc" },
     }),
     prisma.studySession.findMany({
@@ -104,6 +112,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
           lt: today.end,
         },
         status: "COMPLETED",
+        ...subjectScope,
       },
       include: {
         subject: true,
@@ -115,6 +124,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
           gte: start,
           lt: today.end,
         },
+        ...subjectScope,
       },
       include: {
         subject: true,
@@ -126,15 +136,17 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
           gte: start,
           lt: today.end,
         },
+        ...(workspace ? { workspaceId: workspace.id } : {}),
       },
       orderBy: { reviewDate: "asc" },
     }),
-    prisma.mistake.count(),
+    prisma.mistake.count({ where: subjectScope }),
     prisma.mistake.findMany({
       where: {
         nextReviewAt: {
           lte: reviewLookaheadEnd,
         },
+        ...subjectScope,
       },
       include: {
         subject: true,
@@ -148,6 +160,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
         nextReviewAt: {
           lte: reviewLookaheadEnd,
         },
+        ...subjectScope,
       },
       include: {
         subject: true,
@@ -159,6 +172,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
     prisma.syllabusNode.findMany({
       where: {
         OR: [{ status: "WEAK" }, { status: "NEEDS_REVIEW" }],
+        ...(workspace ? { subject: { workspaceId: workspace.id } } : {}),
       },
       include: {
         subject: true,
@@ -179,6 +193,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
         mistakes: {
           some: {},
         },
+        ...(workspace ? { subject: { workspaceId: workspace.id } } : {}),
       },
       include: {
         subject: true,
@@ -194,10 +209,10 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
       orderBy: [{ updatedAt: "desc" }],
       take: 8,
     }),
-    listCheckInSnapshotsInRange(start, today.end),
+    listCheckInSnapshotsInRange(start, today.end, prisma, workspace?.id ?? null),
   ]);
 
-  const dailySnapshots = buildDailySnapshots(start, sessions, tasks, reviews, checkInSnapshots);
+  const dailySnapshots = buildDailySnapshots(start, sessions, tasks, reviews, checkInSnapshots, windowDays);
   const daily = dailySnapshots.map((snapshot) => ({
     dayKey: snapshot.studyDate,
     totalMinutes: snapshot.totalMinutes,
@@ -213,7 +228,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
   const weekMinutes = daily.reduce((total, point) => total + point.totalMinutes, 0);
   const weekEffectiveMinutes = daily.reduce((total, point) => total + point.effectiveMinutes, 0);
   const weeklyTaskCompletionRate = averageDailyTaskCompletion(dailySnapshots);
-  const reviewCompletionRate = dailySnapshots.filter((snapshot) => snapshot.reviewSubmitted).length / weekDays;
+  const reviewCompletionRate = dailySnapshots.filter((snapshot) => snapshot.reviewSubmitted).length / windowDays;
   const streakDays = calculateStreak(daily);
   const missedDays = daily.filter((point) => point.effectiveMinutes === 0).length;
   const lowConversionCount = dailySnapshots.reduce((total, snapshot) => total + snapshot.lowConversionCount, 0);
@@ -261,7 +276,7 @@ export async function getAnalyticsSummary(now = new Date()): Promise<AnalyticsSu
     range: {
       start: start.toISOString(),
       end: today.end.toISOString(),
-      days: weekDays,
+      days: windowDays,
     },
     totals: {
       todayMinutes: todayPoint.totalMinutes,
@@ -302,10 +317,11 @@ function buildDailySnapshots(
     reviewDate: Date;
   }>,
   checkInSnapshots: Map<string, ReturnType<typeof buildDailyCheckInSnapshot>>,
+  days = weekDays,
 ): ReturnType<typeof buildDailyCheckInSnapshot>[] {
   const reviewKeys = new Set(reviews.map((review) => getStudyDayKey(review.reviewDate)));
 
-  return Array.from({ length: weekDays }, (_, index) => {
+  return Array.from({ length: days }, (_, index) => {
     const day = getStudyDayRange(new Date(start.getTime() + index * dayMs));
     const snapshot = checkInSnapshots.get(day.key);
     if (snapshot) {
