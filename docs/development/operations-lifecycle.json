@@ -45,9 +45,10 @@
       },
       "residualRiskIds": [
         "AF-RISK-OPS-001",
+        "AF-RISK-OPS-003",
         "AF-RISK-OPS-004"
       ],
-      "notes": "Active means the repository has a bounded evidence format and freshness calculation; it does not assert that the latest production observation is currently fresh."
+      "notes": "Active means the repository has a bounded evidence format and freshness calculation; it does not assert that the latest production observation is currently fresh. OPS-001/004 remain historical bindings; OPS-003 covers infra migration impact on public health observation."
     },
     {
       "id": "AF-SLO-SMOKE-001",
@@ -79,9 +80,11 @@
         "metrics": []
       },
       "residualRiskIds": [
-        "AF-RISK-OPS-001"
+        "AF-RISK-OPS-001",
+        "AF-RISK-OPS-002",
+        "AF-RISK-OPS-003"
       ],
-      "notes": "The 24 hour threshold follows the existing production smoke alerting strategy and requires an authenticated read-only record."
+      "notes": "The 24 hour threshold follows the existing production smoke alerting strategy and requires an authenticated read-only record. OPS-001 is historical closeout evidence; OPS-002/003 remain open smoke-program and infra-migration coverage."
     },
     {
       "id": "AF-SLO-SEC-001",
@@ -113,10 +116,11 @@
         "metrics": []
       },
       "residualRiskIds": [
+        "AF-RISK-REL-001",
         "AF-RISK-SC-002",
         "AF-RISK-SC-004"
       ],
-      "notes": "Zero tolerance applies to known secret exposure, unauthorized access, or destructive security invariant violations; missing evidence remains unknown rather than pass."
+      "notes": "Zero tolerance applies to known secret exposure, unauthorized access, or destructive security invariant violations; missing evidence remains unknown rather than pass. REL-001 keeps the active auto-apply=none security boundary while SC-002/004 remain historical supply-chain closeout bindings."
     },
     {
       "id": "AF-SLO-AVAIL-001",
@@ -282,9 +286,10 @@
       "closeCondition": null,
       "residualRiskIds": [
         "AF-RISK-OPS-001",
+        "AF-RISK-OPS-003",
         "AF-RISK-OPS-004"
       ],
-      "notes": "Projects existing evidence and does not execute production actions."
+      "notes": "Projects existing evidence and does not execute production actions. OPS-003 covers continuing observation risk across future infra moves."
     },
     {
       "id": "AF-CAP-INCIDENT-EVIDENCE",
@@ -295,9 +300,10 @@
       "entrypoint": "pnpm incident:index:validate",
       "closeCondition": null,
       "residualRiskIds": [
+        "AF-RISK-OPS-003",
         "AF-RISK-OPS-004"
       ],
-      "notes": "Validates records and allowed lifecycle states without changing incident runtime state."
+      "notes": "Validates records and allowed lifecycle states without changing incident runtime state. OPS-003 remains open for migration-driven incident follow-up coverage."
     },
     {
       "id": "AF-CAP-POST-RELEASE-OBSERVATION",
@@ -309,9 +315,12 @@
       "closeCondition": null,
       "residualRiskIds": [
         "AF-RISK-OPS-001",
+        "AF-RISK-OPS-002",
+        "AF-RISK-OPS-003",
+        "AF-RISK-REL-001",
         "AF-RISK-UX-001"
       ],
-      "notes": "Defines D14 technical, incident, error-budget and D30 product-review gates. Per-release observation status and path/sha256 evidence remain only in the observation record and are not copied into this lifecycle contract."
+      "notes": "Defines D14 technical, incident, error-budget and D30 product-review gates. Per-release observation status and path/sha256 evidence remain only in the observation record and are not copied into this lifecycle contract. Open bindings mirror remaining v0.1.9 release residuals."
     },
     {
       "id": "AF-CAP-UPDATE-APPLY",
@@ -325,7 +334,7 @@
         "AF-RISK-REL-001",
         "AF-RISK-OPS-005"
       ],
-      "notes": "The capability exists, while automatic execution remains disabled by AREAFORGE_AUTO_APPLY=none and outside Web runtime."
+      "notes": "The capability exists, while automatic execution remains disabled by AREAFORGE_AUTO_APPLY=none and outside Web runtime. REL-001 remains the open accepted-exception binding; OPS-005 is historical expected-before closeout evidence."
     },
     {
       "id": "AF-CAP-WRITE-SMOKE",
