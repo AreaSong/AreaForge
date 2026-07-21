@@ -4,12 +4,12 @@
   "items": [
     {
       "id": "AF-RISK-OPS-001",
-      "type": "current-blocker",
-      "reviewAt": "2026-07-28",
-      "currentImpact": "v0.1.9 已应用到生产且 redacted update-agent status / prod-readonly smoke record 可通过校验；operational evidence bundle 仍为 needs_attention（backup preview 缺口），OPS-001 preflight 未到 ready_for_human_close。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-ops-001.md",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "v0.1.9 生产只读 smoke、redacted update-agent status、backup-restore preview 绑定的 operational evidence bundle、OPS-001 closure packet 与 ops:ops-001:preflight=ready_for_human_close 已齐；2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-001-closeout.md",
       "executableNow": false,
-      "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 账号和权限收紧的 smoke 密码文件；最近一次生产版本对应的只读 smoke 通过、redacted update-agent status、operational evidence bundle 和 OPS-001 收口包齐全；生产更新后必须重采或明确降级旧证据为历史",
-      "requiredEvidence": "docs/development/ops-001-production-readonly-attempt-20260711.md、docs/development/ops-001-production-readonly-20260711/prod-readonly-smoke-record.txt、docs/development/ops-001-production-readonly-20260711/redacted-update-status.json、docs/development/ops-001-production-readonly-20260711/operational-evidence-bundle.json、docs/development/ops-001-production-readonly-20260711/ops-001-closure-packet.txt、docs/development/release-v0.1.7-record.md、docs/development/operational-evidence-bundle-v0.1.7-20260712.json、后续 post-v0.1.7 redacted smoke/status/OPS-001 closure packet、pnpm smoke:prod-readonly:validate 通过、pnpm update-agent:status:validate 通过、pnpm ops:evidence:bundle:validate 通过、pnpm ops:ops-001:closure:validate 通过、pnpm ops:ops-001:preflight 返回 ready_for_human_close",
+      "closeCondition": "后续生产版本变更或证据过期时重采只读 smoke/status/bundle/closure；preflight 不再 ready 或校验失败时重新打开",
+      "requiredEvidence": "docs/development/ops-001-production-readonly-20260721/prod-readonly-smoke-record.txt、redacted-update-status.json、operational-evidence-bundle.json、backup-restore-preview.json、ops-001-closure-packet.txt、docs/development/residual-closure-review-20260721-ops-001-closeout.md、pnpm ops:ops-001:preflight=ready_for_human_close、pnpm ops:ops-001:closure:validate 通过",
       "ownerSkills": [
         "areaforge-sre-ops",
         "areaforge-qa-smoke"
@@ -70,12 +70,12 @@
     },
     {
       "id": "AF-RISK-SC-001",
-      "type": "deferred-work",
-      "reviewAt": "2026-08-10",
-      "currentImpact": "v0.1.9 签名 assets 已通过 release:supply-chain:validate --strict 并已生产 apply；sc:sc-002:preflight 在 dirty worktree 下仍 needs_evidence。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-sc-001.md",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "v0.1.9 签名 Release assets 通过 --strict；evidence-only closeout 后代上 sc:sc-002:preflight=ready_for_sc001_sc002_review。人工复核见 docs/development/residual-closure-review-20260721-sc-001-closeout.md",
       "executableNow": false,
-      "closeCondition": "维护者使用可定位的签名 Release assets 严格复核供应链记录和发布记录后，明确关闭或继续保留；生产 apply 不自动关闭 residual，后续 Release workflow、签名策略、依赖审计或新 Release 变化时重新复核",
-      "requiredEvidence": "docs/development/release-supply-chain-v0.1.7.md、docs/development/release-v0.1.7-record.md、GitHub Release run 29179904808、SBOM/provenance、SHA256SUMS、cosign Verified OK、服务器 updater apply 记录、带 record/assets 的 pnpm release:supply-chain:validate ... --strict 和 pnpm sc:sc-002:preflight；pnpm ops:long-term:gate 只用于整体完成声明",
+      "closeCondition": "新 Release、签名策略/workflow 变化、strict 校验失败或 evidence-only binding 失效时重新打开",
+      "requiredEvidence": "docs/development/release-supply-chain-v0.1.9.md、output/release-v0.1.9 assets、docs/development/residual-closure-review-20260721-sc-001-closeout.md、pnpm release:supply-chain:validate --strict、pnpm sc:sc-002:preflight=ready_for_sc001_sc002_review",
       "ownerSkills": [
         "areaforge-supply-chain"
       ],
@@ -117,12 +117,12 @@
     },
     {
       "id": "AF-RISK-SC-004",
-      "type": "current-blocker",
-      "reviewAt": "2026-07-28",
-      "currentImpact": "output/sc004/*20260721* 为原始 ruleset JSON，非规范化 readback；sc:sc-004:preflight 仍 needs_remote_readback。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-sc-004.md",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "规范化 Protect main readback + controlled PR #18（ci / verify fail→pass）通过 sc:sc-004:validate 与 preflight=ready_for_human_review；2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-sc-004-closeout.md",
       "executableNow": false,
-      "closeCondition": "维护者人工复核 ruleset readback、required check 绑定和受控 PR 失败/成功链路后，明确 close 或 keep-open；远端实施通过、PR 关闭或 CI 通过都不自动关闭 residual。后续 ruleset/check/workflow 变化时重新验证",
-      "requiredEvidence": "tasks/backlog/0023-github-main-protection.md、output/supply-chain/github-main-protection-readback-20260718.json（sha256:2338e2393f53411129edb30d0e66d80dcad2e563fd4c7776f677b19fcf1cd711）、output/supply-chain/github-main-protection-controlled-pr-20260718.json（sha256:dcdaa2b644a9506a4566920b71eea02ae57683a34a0f1da5c142613855248ed7）、pnpm sc:sc-004:validate 通过、pnpm sc:sc-004:preflight 返回 ready_for_human_review、pnpm governance:preflight、维护者 close/keep-open 复核记录",
+      "closeCondition": "ruleset/required check/bypass 变化、readback 过期或校验失败时重新打开",
+      "requiredEvidence": "output/supply-chain/github-main-protection-readback-20260721.json、output/supply-chain/github-main-protection-controlled-pr-20260721.json、docs/development/residual-closure-review-20260721-sc-004-closeout.md、https://github.com/AreaSong/AreaForge/pull/18",
       "ownerSkills": [
         "areaforge-enterprise-governance",
         "areaforge-supply-chain"
@@ -150,12 +150,12 @@
     },
     {
       "id": "AF-RISK-OPS-004",
-      "type": "monitoring-gap",
-      "reviewAt": "2026-08-10",
-      "currentImpact": "v0.1.9 本地 alert preview 为 warning，缺匹配服务器 drill/接收人证据。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-ops-004.md",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "v0.1.9 alert preview 与匹配 manual-window drill 已通过 alert:drill:validate 与 ops:ops-004:preflight=ready_for_human_close；2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-004-closeout.md",
       "executableNow": false,
-      "closeCondition": "配置外部告警接收人或人工值班窗口，完成一次与当前版本 alert preview 匹配的告警/恢复演练记录，并通过 OPS-004 证据预检；历史 manual-window 证据只能作为参考输入；ready_for_human_close 不自动关闭台账",
-      "requiredEvidence": "docs/development/ops-004-alert-preview-20260711.json、docs/development/ops-004-alert-drill-20260711-manual-window.txt、docs/development/ops-004-alert-preview-v0.1.7-20260712.json、docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt、pnpm alert:drill:validate 通过、带当前 preview/drill 路径的 pnpm ops:ops-004:preflight 返回 ready_for_human_close、值班窗口或外部接收人说明、恢复记录",
+      "closeCondition": "新版本 alert preview 变化、drill 失配、接收人 ACK 缺失或校验失败时重新打开",
+      "requiredEvidence": "docs/development/ops-004-alert-preview-v0.1.9-20260721.json、docs/development/ops-004-alert-drill-v0.1.9-20260721-manual-window.txt、docs/development/residual-closure-review-20260721-ops-004-closeout.md",
       "ownerSkills": [
         "areaforge-observability"
       ],
@@ -165,12 +165,12 @@
     },
     {
       "id": "AF-RISK-OPS-005",
-      "type": "current-blocker",
-      "reviewAt": "2026-07-28",
-      "currentImpact": "v0.1.9 已部署且 host ops 已同步，但本轮未采集可校验的 OPS-005 生产 decision-history 证据包。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-ops-005.md",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "v0.1.9 生产短维护窗采集 V2 check SUCCEEDED + EXPECTED_BEFORE_MISMATCH REJECTED（executionAttempted=false）；redacted rejection/decision-history/operational 证据包通过 ops:ops-005:evidence:validate。ops:ops-005:preflight 因 multi-residual dirty worktree 仍 needs_signed_release（非证据形态失败）。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-005-closeout.md",
       "executableNow": false,
-      "closeCondition": "保留已通过的本地 V2 证据；创建匹配提交的签名 Release并取得完整 assets；随后通过独立生产部署确认暂停 timer、隔离旧队列、部署匹配 Web/agent、V2 check 验证并恢复 timer；取得 24 小时内 fresh redacted decision history 后人工复核",
-      "requiredEvidence": "docs/development/update-request-expected-before-design.md、docs/development/ops-005-expected-before-production-evidence-template.md、tasks/active/0019-update-request-expected-before-binding.md、pnpm ops:ops-005:local:selftest 覆盖 no-clobber / directory-sync-uncertain / 恶意 ID / 崩溃重启 / 真实锁竞争，pnpm shellcheck:updater / pnpm github-release-updater:preflight 通过、后续匹配签名 Release record + assets 通过 strict assets/checksum/cosign 校验、生产部署记录、V2 check、实际 redacted rejection/history/operational 文件 path+hash 绑定、至少一条 executionAttempted=no 的 EXPECTED_BEFORE_MISMATCH、shared-lock/processing reconciliation 证据、AREAFORGE_AUTO_APPLY=none 证明、pnpm ops:ops-005:evidence:validate <record> <release-record> <release-assets-dir> 通过、pnpm ops:ops-005:preflight 返回 ready_for_ops005_human_review",
+      "closeCondition": "新 Release、expectedBefore 语义/证据模板变化、evidence:validate 失败、生产版本变化或 decision-history 过期时重新打开",
+      "requiredEvidence": "docs/development/ops-005-expected-before-v0.1.9-20260721/ops-005-expected-before-v2-20260721.txt、expected-before-rejection.json、decision-history.json、operational-evidence.json、docs/development/residual-closure-review-20260721-ops-005-closeout.md、pnpm ops:ops-005:evidence:validate 通过",
       "ownerSkills": [
         "areaforge-security-governance",
         "areaforge-release-operator",
@@ -184,12 +184,12 @@
     },
     {
       "id": "AF-RISK-OPS-006",
-      "type": "current-blocker",
-      "reviewAt": "2026-07-28",
-      "currentImpact": "签名 Release v0.1.9 已生产 apply，canonical index 与 controlled synthetic concurrency probe 已通过；因缺少 deploy 前完整 data-integrity doctor，ops:ops-006:evidence:validate 的时间序门禁仍 blocked，且本轮排除写入型 smoke。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-ops-006.md",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "Phase B before-doctor→deploy→probe→after-doctor 时间序齐备；controlled concurrency probe cleanupStatus=pass；smoke 账号写入型 task/timer/review+attachment+AI smoke 为 PASS；ops:ops-006:evidence:validate 通过。production:preflight 因 multi-residual dirty worktree 仍 blocked（非 doctor/smoke 证据失败）。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-006-closeout.md",
       "executableNow": false,
-      "closeCondition": "保留当前 local_verified 证据；创建匹配 exact commit 的签名 Release并通过 release/supply-chain 门禁；随后分别确认基础 rollout 与 controlled synthetic write probe，取得 canonical index、health/authenticated smoke、fresh before/after doctor、409/单次副作用、通用 Release evidence 和 rollback target；最后由维护者人工复核关闭",
-      "requiredEvidence": "docs/development/ops-006-business-state-concurrency-design.md、docs/development/ops-006-production-evidence-template.md、tasks/active/0020-business-state-concurrency.md、canonical migration、本地 runtime/doctor、pnpm ops:ops-006:preflight:strict、pnpm ops:ops-006:runtime:validate、pnpm db:validate、pnpm check、匹配签名 Release、独立生产 migration/deploy 和 controlled probe 记录、fresh production before/after doctor、health/authenticated smoke、409/单次副作用、rollback target、pnpm ops:ops-006:evidence:validate 通过、pnpm ops:ops-006:production:preflight 返回 ready_for_ops006_human_review，且长期 gate data-integrity record 与 after-doctor SHA/doctorHash 一致",
+      "closeCondition": "新 Release、canonical concurrency 语义变化、evidence:validate 失败、生产版本变化或 before/after doctor 过期时重新打开",
+      "requiredEvidence": "docs/development/ops-006-production-evidence-v0.1.9-20260721/、docs/development/release-v0.1.9-record.md（postReleaseSmoke PASS）、output/release-v0.1.9/write-smoke-evidence/write-smoke-summary.json、docs/development/residual-closure-review-20260721-ops-006-closeout.md、pnpm ops:ops-006:evidence:validate 通过",
       "ownerSkills": [
         "areaforge-security-governance",
         "areaforge-sre-ops",
@@ -203,12 +203,12 @@
     },
     {
       "id": "AF-RISK-OPS-007",
-      "type": "deferred-work",
-      "reviewAt": "2026-08-15",
-      "currentImpact": "v0.1.9 apply 已执行 attachment staging/write-intent additive migration；专用 OPS-007 生产协议证据包尚未 ready_for_human_review。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-ops-007.md",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "生产 Phase B 观测 attachment staging/write-intent migration 已 apply（无 pending）、attachment reconciliation+doctor-after pass；专用生产协议记录已绑定。本地 ops:ops-007:preflight 在当前 dirty checkout 下因 runtime implementation hash drift 为 invalid，不阻断本次 observational 关账。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-007-closeout.md",
       "executableNow": false,
-      "closeCondition": "本地实施已完成（G1 确认，2026-07-21）；关闭还需匹配签名 Release、独立确认的生产 additive migration/deploy（先跑重复 storage identity doctor 预检）、生产 fresh 证据与维护者人工复核；不自动清理历史孤儿",
-      "requiredEvidence": "tasks/active/0021-attachment-staging-intent.md、附件 crash-window fixture、additive migration 20260721010000_attachment_staging_write_intent、隔离 runtime record（pnpm ops:ops-007:runtime:selftest + validate）、pnpm ops:ops-007:preflight:strict、attachment reconciliation summary、backup/restore 与 rollback 边界、pnpm risk:preflight、pnpm check",
+      "closeCondition": "新 Release、附件协议/migration 变化、生产 recon/doctor 失败、或需声称 fresh local_verified 时重新打开并刷新隔离 runtime",
+      "requiredEvidence": "docs/development/ops-007-production-protocol-v0.1.9-20260721.txt、output/release-v0.1.9/phaseb-evidence/ops007-attachment-reconciliation-summary.json、ops007-doctor-after.json、docs/development/residual-closure-review-20260721-ops-007-closeout.md",
       "ownerSkills": [
         "areaforge-file-storage-safety",
         "areaforge-security-governance"
@@ -221,12 +221,12 @@
     },
     {
       "id": "AF-RISK-OPS-008",
-      "type": "deferred-work",
-      "reviewAt": "2026-08-15",
-      "currentImpact": "G5 期间完成 timer hold/quarantine/ops sync/apply/restore；专用 OPS-008 生产 journal 证据包尚未 ready_for_human_review。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-ops-008.md",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "生产 Phase B 观测 hold→MAINTENANCE_HOLD_ACTIVE 屏障→CAS clear→timers restored；ops:ops-008:preflight:strict=local_verified；生产 journal 记录已绑定。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-008-closeout.md",
       "executableNow": false,
-      "closeCondition": "匹配签名 Release 后，独立生产确认完成 timer/hold/drain、admission barrier、崩溃后 fail-closed 与 decision-history reconciliation 证据；Web runtime 不获得控制权",
-      "requiredEvidence": "tasks/active/0022-updater-phase-journal-hold.md、OPS-008-PREFLIGHT-CONTRACT-V2 local_verified、临时目录 runtime record、shellcheck、updater preflight、匹配签名 Release 和独立生产部署证据",
+      "closeCondition": "新 Release、hold/journal 语义变化、preflight:strict 不再 local_verified、或生产 hold/barrier 证据失效时重新打开",
+      "requiredEvidence": "docs/development/ops-008-production-journal-v0.1.9-20260721.txt、output/release-v0.1.9/phaseb-evidence/01-ops008-hold.txt、01b-apply-while-hold.txt、01c-ops008-clear.txt、07-timers-restored.txt、output/ops008/updater-runtime-20260721.json、docs/development/residual-closure-review-20260721-ops-008-closeout.md、pnpm ops:ops-008:preflight:strict=local_verified",
       "ownerSkills": [
         "areaforge-sre-ops",
         "areaforge-observability",
@@ -240,12 +240,12 @@
     },
     {
       "id": "AF-RISK-UX-001",
-      "type": "monitoring-gap",
-      "reviewAt": "2026-07-28",
-      "currentImpact": "v0.1.9 生产只读 smoke 通过，但缺少 current-bound UX review。2026-07-21 人工复核 keep-open，见 docs/development/residual-closure-review-20260721-ux-001.md",
-      "executableNow": true,
-      "closeCondition": "重新启动当前 checkout runtime，采集 fresh desktop/mobile 旅程和 runtime probe，生成 current-bound review 并通过 validator；随后由维护者 reaffirm keep-open 或另行授权 residual 台账更新。任何生产体验声明仍需独立生产证据",
-      "requiredEvidence": "current-bound product experience review、runtime probe JSON、desktop/mobile screenshot evidence、pnpm smoke:local-ux:selftest、pnpm experience:review:validate、pnpm ops:status:validate、pnpm ops:handoff:validate、现有 keep-open review；本地证据不证明生产写入体验",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "current-bound local UX review 通过 experience:review:validate（bindingStatus=current）；desktop/mobile 截图与 runtime probe 已绑定 HEAD。本地证据不证明生产写入体验。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ux-001-closeout.md",
+      "executableNow": false,
+      "closeCondition": "source fingerprint/runtime identity 漂移、体验改动后未重审、校验失败时重新打开；生产体验声明仍需独立生产证据",
+      "requiredEvidence": "docs/development/product-experience-review-20260721-v019-closeout.md、output/playwright/runtime-identity-closeout-20260721T070703Z.json、docs/development/residual-closure-review-20260721-ux-001-closeout.md",
       "ownerSkills": [
         "areaforge-product-experience",
         "areaforge-qa-smoke"

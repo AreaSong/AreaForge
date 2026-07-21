@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "mode": "read_only_data_integrity_doctor",
-  "generatedAt": "2026-07-21T05:20:32.056Z",
+  "generatedAt": "2026-07-21T09:13:19.375Z",
   "status": {
     "overall": "pass",
     "native": "integrity_clean"
@@ -71,7 +71,7 @@
   ],
   "source": {
     "database": "configured_read_only_query",
-    "attachmentSummarySha256": "sha256:37ef30ea6c40335946a595bd9b38f0394726ac552ed4a26b2577b948fa807707"
+    "attachmentSummarySha256": "sha256:d935f4dde17aa1ba7f07ea6846bb7189a12b905080a9d6e675fd9bac57e40ca2"
   },
   "doesNotProve": [
     "automatic data repair or deletion",
@@ -91,5 +91,5 @@
     "absolutePathIncluded": false,
     "secretValuePrinted": false
   },
-  "doctorHash": "sha256:1fc0a03f97e101aa259bcd00761f642b448b3b2d6a0dbbf1b8738cf4993f8c89"
+  "doctorHash": "sha256:6aaef57ce725c918a4152d41155d4c7af0c2e325e0c99957909c4e505fddb211"
 }

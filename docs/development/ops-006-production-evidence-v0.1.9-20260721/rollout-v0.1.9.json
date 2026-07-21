@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "mode": "redacted_ops006_production_rollout",
-  "recordedAt": "2026-07-21T05:21:00.000Z",
+  "recordedAt": "2026-07-21T09:13:30.000Z",
   "environment": "production",
   "identity": {
     "releaseTag": "v0.1.9",
@@ -13,12 +13,12 @@
     "migrationSha256": "sha256:928b5e3e60b2ce2f4e1292393ac8d2ff1bde2a4ee5c860170f422cb1fbf2b953",
     "implementationSha256": "sha256:11971a875ef6558912b8627172222e6af77637deaabed5dc6da77553b3f1b615",
     "migrationVersion": "20260718010000_add_active_session_unique_index",
-    "maintenanceWindowId": "g5-v019-20260721050614"
+    "maintenanceWindowId": "mw-residual-closeout-20260721"
   },
   "deployment": {
-    "startedAt": "2026-07-21T05:06:14.000Z",
-    "finishedAt": "2026-07-21T05:08:11.000Z",
-    "confirmationId": "confirm-ops006-rollout-v019-20260721",
+    "startedAt": "2026-07-21T09:08:31.000Z",
+    "finishedAt": "2026-07-21T09:08:54.000Z",
+    "confirmationId": "confirm-ops006-rollout-phaseb-20260721",
     "confirmationScopeSha256": "sha256:7ff7fa18b6562f8f4ff670f32fd78bab46d850d7e7820feaacf1ae8390da6bc1",
     "backupStatus": "pass",
     "databaseBackupSha256": "19a4e1b19fba058c54f5dda8165f9732f8369c9aceb1756ee3f0ed0b98a90b6e",
@@ -39,8 +39,8 @@
     }
   },
   "controlledProbe": {
-    "recordedAt": "2026-07-21T05:20:30.156Z",
-    "confirmationId": "confirm-ops006-probe-v019-20260721",
+    "recordedAt": "2026-07-21T09:13:15.221Z",
+    "confirmationId": "confirm-ops006-probe-phaseb-20260721",
     "confirmationScopeSha256": "sha256:50ca0b8cb671f8d4c96f5687a3061b27c7334a98cb34d58767366f0404f84a38",
     "syntheticScope": true,
     "start": {
@@ -79,13 +79,13 @@
     "cleanupStatus": "pass"
   },
   "healthSmoke": {
-    "recordedAt": "2026-07-21T05:08:18.000Z",
+    "recordedAt": "2026-07-21T09:08:55.000Z",
     "health": "pass",
     "authenticatedReadOnlySmoke": "pass"
   },
   "doctorBinding": {
-    "beforeDoctorHash": "sha256:3d868d23a07628cdb65d226f41d0f19be46806fe3496f1d2edc810fd5a63e3ee",
-    "afterDoctorHash": "sha256:1fc0a03f97e101aa259bcd00761f642b448b3b2d6a0dbbf1b8738cf4993f8c89"
+    "beforeDoctorHash": "sha256:8c5efba717862d3f0c99d2daafdd020d01f8a3ed199fb08c4a548a2069fe3c0b",
+    "afterDoctorHash": "sha256:6aaef57ce725c918a4152d41155d4c7af0c2e325e0c99957909c4e505fddb211"
   },
   "rollback": {
     "targetImage": "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd",
@@ -107,5 +107,5 @@
     "residualLedgerUpdated": false,
     "webRuntimeServerCommandAttempted": false
   },
-  "rolloutHash": "sha256:822b8f5b038b24028b920fc2ccd7aaeaefa9bbfd69521c4a98cffdae4a36d2fe"
+  "rolloutHash": "sha256:8c4a71c60429427a9dbb979b036414d750b3199605fd05b32cb24a9acac5aa16"
 }
