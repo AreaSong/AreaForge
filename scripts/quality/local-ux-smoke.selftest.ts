@@ -35,10 +35,9 @@ assert(productionSmokeSource.includes("readRestrictedSmokePassword")
 "production read-only smoke must share the restricted password boundary");
 assert(source.includes("detail: result.detail"), "structured report must retain redacted failure details");
 assert(source.includes('recordFailure("fatal", error)'), "unexpected failures must use the structured report path");
-assert(source.includes('batch8 app shell nav isolation'), "Batch 8 App Shell nav isolation check must remain");
+assert(source.includes('batch10 app shell nav isolation'), "Batch 10 App Shell nav isolation check must remain");
 assert(source.includes('startSource: "SUBJECT_SHORTCUT"'), "Batch 7 subject shortcut start path must remain");
 assert(source.includes('href="/motivation"'), "Shell isolation must reject motivation nav href");
-assert(source.includes('href="/stage"'), "Shell isolation must keep stage hidden until Batch 10");
 assert(source.includes("batch9 settings openings"), "Batch 9 must smoke settings profile/notifications/ai");
 assert(!source.includes("'href=\"/settings/notifications\"'"), "Batch 9 opens notifications settings; must not forbid that href in shell isolation");
 
@@ -57,6 +56,8 @@ assert(
   "Batch 9 AI draft UI must revoke the preview token after form changes",
 );
 assert(source.includes('href="/knowledge/canvas"'), "Batch 8 must require knowledge canvas nav href");
+assert(source.includes('href="/review/reports"') && source.includes('href="/stage/overview"'),
+  "Batch 10 must require reports and stage App Shell navigation");
 assert(source.includes("batch8 knowledge canvas api"), "Batch 8 knowledge canvas API smoke must remain");
 
 const canvasClientSource = readFileSync(

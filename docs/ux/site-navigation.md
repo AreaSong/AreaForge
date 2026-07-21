@@ -4,7 +4,7 @@
 
 ## 导航拓扑
 
-隔离分支已启用受保护 App Shell：登录后默认进入今日行动中心，主导航开放今日/计划/收件箱/知识/设置。设置子页开放档案/通知/AI（体验/系统薄壳）；阶段不出现在 Shell 导航。`/syllabus` `/notes` `/mistakes` 重定向到 `/knowledge/*`；`/motivation` 重定向到 `/settings/profile`。
+隔离分支已启用受保护 App Shell：登录后默认进入今日行动中心；桌面主导航开放今日/计划/知识/复盘/阶段/设置，移动底部导航显示前五项。收件箱保留为今日工作台的页内入口。设置子页开放工作区/档案/通知/AI/体验/系统。`/syllabus` `/notes` `/mistakes` 重定向到 `/knowledge/*`；`/motivation` 重定向到 `/settings/profile`。
 
 ```mermaid
 flowchart TB
@@ -22,6 +22,10 @@ flowchart TB
   knowledge --> resources["/knowledge/resources"]
   knowledge --> imports["/knowledge/imports"]
   knowledge --> reviews["/knowledge/reviews"]
+  today --> report["/review/reports"]
+  today --> stage["/stage/overview"]
+  stage --> simulation["/stage/simulation"]
+  stage --> analytics["/stage/analytics"]
   plan --> task["/today/tasks/taskId"]
   inbox --> inboxItem["/today/inbox/itemId"]
   workspace --> today
@@ -49,6 +53,12 @@ flowchart TB
 | `/knowledge/resources` | 资料 | StudyResource 列表 | `apps/web/app/(app)/knowledge/resources/page.tsx` |
 | `/knowledge/imports` | 导入 | 学习树导入历史 | `apps/web/app/(app)/knowledge/imports/page.tsx` |
 | `/knowledge/reviews` | 统一复习 | 复习排期列表 → 快速复习 | `apps/web/app/(app)/knowledge/reviews/page.tsx` |
+| `/review/reports` | 复盘 | 周/月报告与当前周期决策 | `apps/web/app/(app)/review/reports/page.tsx` |
+| `/review/reports/history/[decisionId]` | 报告历史 | 冻结报告决策回放 | `apps/web/app/(app)/review/reports/history/[decisionId]/page.tsx` |
+| `/stage/overview` | 阶段总览 | 阶段计划、确认边界与当前建议 | `apps/web/app/(app)/stage/overview/page.tsx` |
+| `/stage/simulation` | 模拟 | 模拟列表与结构化失分入口 | `apps/web/app/(app)/stage/simulation/page.tsx` |
+| `/stage/simulation/[examId]` | 模拟详情 | 分科结果、失分与补救入箱 | `apps/web/app/(app)/stage/simulation/[examId]/page.tsx` |
+| `/stage/analytics` | 阶段统计 | 7/30 天趋势与阶段风险 | `apps/web/app/(app)/stage/analytics/page.tsx` |
 | `/login` | 登录 | 单管理员登录；已登录重定向 `/today` | `apps/web/app/login/page.tsx` |
 
 `/` 登录后重定向到 `/today`。
@@ -58,7 +68,8 @@ flowchart TB
 | 路由 | 名称 | 说明 |
 |---|---|---|
 | `/syllabus` `/notes` `/mistakes` | 旧子页 | 服务端重定向到 `/knowledge/syllabus` `/knowledge/notes` `/knowledge/mistakes` |
-| `/motivation` `/analytics` `/reports` `/simulation` | 旧子页 | 保持可直达但不进 Shell；生产默认导航切换见版本计划完整 minor Release |
+| `/motivation` | 旧动机页 | 重定向到 `/settings/profile` |
+| `/analytics` `/reports` `/simulation` | 旧子页 | 保持兼容入口；canonical 页面分别位于 `/stage/analytics`、`/review/reports`、`/stage/simulation` |
 
 ## 鉴权环
 
@@ -72,8 +83,12 @@ flowchart TB
 |---|---|
 | 今日 | `/today` |
 | 计划 | `/today/plan` |
-| 收件箱 | `/today/inbox` |
+| 知识 | `/knowledge/canvas` |
+| 复盘 | `/review/reports` |
+| 阶段 | `/stage/overview` |
 | 设置 | `/settings/workspace` |
+
+移动端底部导航显示今日、计划、知识、复盘、阶段；设置与收件箱从对应工作台页内进入。
 
 顶栏提供五状态灯（`GET /api/app-shell/status`）与次级「我学不下去了」（动机内容库一条匹配 + 继续/5 分钟/最小任务；不伪造完成事实）。
 

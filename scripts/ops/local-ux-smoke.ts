@@ -309,19 +309,21 @@ async function main(): Promise<void> {
     });
   }
 
-  await check("batch8 app shell nav isolation", async () => {
+  await check("batch10 app shell nav isolation", async () => {
     const response = await requestRaw("/today", { cookie });
     const text = await response.text();
     if (text.includes("NEXT_REDIRECT;replace;/login")) {
       throw new Error("authenticated /today redirected to login");
     }
-    for (const label of ["今日", "计划", "收件箱", "知识", "设置"]) {
+    for (const label of ["今日", "计划", "知识", "复盘", "阶段", "设置"]) {
       if (!text.includes(label)) {
-        throw new Error(`Batch 8 nav missing label: ${label}`);
+        throw new Error(`Batch 10 nav missing label: ${label}`);
       }
     }
-    if (!text.includes('href="/knowledge/canvas"')) {
-      throw new Error("Batch 8 App Shell must expose knowledge canvas href");
+    for (const href of ['href="/knowledge/canvas"', 'href="/review/reports"', 'href="/stage/overview"']) {
+      if (!text.includes(href)) {
+        throw new Error(`Batch 10 App Shell must expose ${href}`);
+      }
     }
     const forbiddenHrefs = [
       'href="/analytics"',
@@ -329,11 +331,10 @@ async function main(): Promise<void> {
       'href="/simulation"',
       'href="/motivation"',
       'href="/dashboard"',
-      'href="/stage"',
     ];
     for (const href of forbiddenHrefs) {
       if (text.includes(href)) {
-        throw new Error(`Batch 9 App Shell must not expose ${href}`);
+        throw new Error(`Batch 10 App Shell must not expose legacy ${href}`);
       }
     }
   });
