@@ -1,0 +1,60 @@
+recordId: ops-006-production-evidence-v0.1.9-20260721
+recordedAt: 2026-07-21T05:22:00.000Z
+environment: production
+releaseTag: v0.1.9
+packageVersion: 0.1.9
+gitCommit: 749692ba719d801f14186a94af97b96350380141
+webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d
+migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab
+migrationPath: prisma/migrations/20260718010000_add_active_session_unique_index/migration.sql
+migrationSha256: sha256:928b5e3e60b2ce2f4e1292393ac8d2ff1bde2a4ee5c860170f422cb1fbf2b953
+implementationSha256: sha256:11971a875ef6558912b8627172222e6af77637deaabed5dc6da77553b3f1b615
+maintenanceWindowId: g5-v019-20260721050614
+rolloutConfirmationId: confirm-ops006-rollout-v019-20260721
+rolloutConfirmationScopeSha256: sha256:7ff7fa18b6562f8f4ff670f32fd78bab46d850d7e7820feaacf1ae8390da6bc1
+controlledProbeConfirmationId: confirm-ops006-probe-v019-20260721
+controlledProbeConfirmationScopeSha256: sha256:50ca0b8cb671f8d4c96f5687a3061b27c7334a98cb34d58767366f0404f84a38
+rollbackTargetImage: ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd
+databaseBackupSha256: 19a4e1b19fba058c54f5dda8165f9732f8369c9aceb1756ee3f0ed0b98a90b6e
+releaseSupplyChainRecordSha256: sha256:173053d10a8ad64af24d9e4eac336be2aae90a991e5efc5be1627910f870ac13
+releaseEvidenceRecordSha256: sha256:704735a39ac1a5e0dfb6b84ea2dc623c87d28a5f04fd8d008ae6f6fcdeb1c98e
+localVerificationStatus: pass
+signedReleaseStatus: pass
+rolloutConfirmationStatus: pass
+controlledProbeConfirmationStatus: pass
+productionMigrationStatus: pass
+productionDeploymentStatus: pass
+canonicalIndexVerificationStatus: pass
+authenticatedSmokeStatus: pass
+controlledConcurrencyProbeStatus: pass
+rollbackTargetStatus: pass
+migrationVersion: 20260718010000_add_active_session_unique_index
+migrationRunner: one_off_migration_job
+indexRollbackPolicy: retain
+beforeDoctorFile: doctor-before.json
+beforeDoctorFileSha256: sha256:d78971ce1ec5fc19709d12a62fde27b1b64c75bb603d32e5ff20d79adceb0f34
+beforeDoctorHash: sha256:3d868d23a07628cdb65d226f41d0f19be46806fe3496f1d2edc810fd5a63e3ee
+afterDoctorFile: doctor-after.json
+afterDoctorFileSha256: sha256:787cce2139317fd35c1faf52030b9c90a8e136bb45c6056e8155381efb965105
+afterDoctorHash: sha256:1fc0a03f97e101aa259bcd00761f642b448b3b2d6a0dbbf1b8738cf4993f8c89
+rolloutEvidenceFile: rollout-v0.1.9.json
+rolloutEvidenceFileSha256: sha256:1596aec9a9137404a9e9b67b14ed3d087d4869b34ddbeb3ca5da319212e18ae1
+rolloutEvidenceHash: sha256:822b8f5b038b24028b920fc2ccd7aaeaefa9bbfd69521c4a98cffdae4a36d2fe
+releaseSupplyChainEvidenceHash: sha256:9eca6fcfdce942b894b5105ab290b2b332bb6eb17995c84bc75f5712e7f5b987
+releaseEvidenceBundleHash: sha256:836bc6a1b2226d2b2e2635a37286bd138df3b5818dfc781a356ae27daba904e0
+evidenceFreshnessMaxAgeHours: 24
+residualRiskIds: AF-RISK-OPS-006
+doesNotProve: AF-RISK-OPS-006 residual closure,historical production data repair,future concurrency safety after this evidence window,database or uploads restore execution,secrets absence beyond validator scan
+recordHash: sha256:dcecf33d3ffc735273aead984f5a62765638656030865292c53b4992560edb6c
+safetyFacts:
+  secretValuePrinted: no
+  realUserBusinessDataWritten: no
+  syntheticProbeWriteAttempted: yes
+  historicalRepairAttempted: no
+  destructiveMigrationAttempted: no
+  destructiveRollbackAttempted: no
+  businessTextIncluded: no
+  objectIdentifiersIncluded: no
+  databaseUrlIncluded: no
+  residualLedgerUpdated: no
+  webRuntimeServerCommandAttempted: no

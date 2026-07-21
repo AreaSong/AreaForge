@@ -1,0 +1,27 @@
+recordId: prod-readonly-smoke-20260721050810
+checkedAt: 2026-07-21T05:08:10Z
+environment: production
+baseUrl: https://forge.areasong.top
+expectedVersion: 0.1.9
+releaseTag: v0.1.9
+webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d
+migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab
+smokeCommand: ops/update-agent/areaforge-ops001-readonly-fallback.sh
+smokeStatus: pass
+smokeResultHash: sha256:970fb431c66c31eaf25eab592cd682968edcea919d68d71048e58fed16393c6c
+checks: health,login,auth/me,dashboard,notes,syllabus,analytics,reports,long-term-risks,update-status
+smokePasswordSource: AREAFORGE_SMOKE_PASSWORD_FILE=<redacted path>
+smokePasswordReadFromFile: yes
+updateStatusIncluded: yes
+updaterEnvSummary: AREAFORGE_EXTRA_SMOKE_COMMAND configured, password file path redacted
+updateRecordSummary: github-0.1.9-20260721050738 smokeHealth=PASS extraSmoke=PASS updateRecordSha256=sha256:3b73a9a2b26182e1d9cfa24a588d6dd4d229c72b1d3f764070fdbe0ae93937e4
+residualRiskIds: AF-RISK-OPS-001
+followUpTasks: tasks/indexes/residuals.md
+safetyFacts:
+  serverCommandAttempted: no
+  backupRestoreAttempted: no
+  migrationAttempted: no
+  productionWriteAttempted: no
+  secretValuePrinted: no
+  passwordValuePrinted: no
+  writeSmokeAttempted: no

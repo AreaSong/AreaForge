@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "mode": "read_only_attachment_reconciliation_summary",
+  "generatedAt": "2026-07-21T05:20:25.017Z",
+  "status": "pass",
+  "action": "report_only",
+  "source": {
+    "reconciliationCsvSha256": "sha256:21e4fd44193daa6f950f25d2cde42498f74d17ee5816ae3cc56bc1ca96bb972d",
+    "uploadDirectory": "configured_private_upload_directory"
+  },
+  "counts": {
+    "databaseRecordCount": 1,
+    "uploadFileCount": 1,
+    "dbOnlyCount": 0,
+    "fileOnlyCount": 0,
+    "hashMismatchCount": 0,
+    "sizeMismatchCount": 0,
+    "invalidUriCount": 0,
+    "duplicateReferenceCount": 0,
+    "unsafeEntryCount": 0,
+    "unexpectedEntryCount": 0
+  },
+  "fileOnlyEntryHashes": [],
+  "unsafeEntryHashes": [],
+  "doesNotProve": [
+    "automatic orphan cleanup",
+    "attachment metadata repair",
+    "backup restore success outside the scanned directory",
+    "production health"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "databaseWriteAttempted": false,
+    "uploadWriteAttempted": false,
+    "fileDeleted": false,
+    "fileMoved": false,
+    "metadataRepaired": false,
+    "fileContentIncluded": false,
+    "absolutePathIncluded": false,
+    "secretValuePrinted": false
+  },
+  "summaryHash": "sha256:bb42ecc447ce0729f50e74f9308eff8c62d2b71174eb8899640f0fdfb1f6a9ff"
+}

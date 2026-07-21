@@ -1,0 +1,18 @@
+recordId: ops-004-v019-local-preview-gap-20260721
+generatedAt: 2026-07-21T05:26:14Z
+environment: local-worktree-without-production-env
+status: warning
+doesNotProve: server-side alert timer installation, external receiver delivery, AF-RISK-OPS-004 residual closure
+localPreviewPath: docs/development/ops-004-alert-preview-v0.1.9-20260721.json
+localPreviewStatus: warning
+deliveryEnabled: false
+receiverConfigured: false
+serverHelperGap: ops/alerting/areaforge-alert-notify.sh exists in repo but la timer/receiver not configured in this closeout scope
+drillStub: not-generated-local-only-preview-insufficient-for-ops-004-preflight-ready_for_human_close
+followUpTasks: docs/development/residual-risk-ledger.md, docs/deployment/alerting.md
+residualRiskIds: AF-RISK-OPS-004
+safetyFacts:
+  serverCommandAttempted: no
+  productionWriteAttempted: no
+  secretValuePrinted: no
+  residualLedgerUpdated: no

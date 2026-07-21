@@ -8,11 +8,11 @@
 
 ## 当前状态
 
-- 仓库发布候选版本为 `0.1.9`；远端 `https://forge.areasong.top/` 仍通过 GitHub Release `v0.1.7` 签名运行 `0.1.7`。`v0.1.8` 计划保持搁置并由 `workflow/versions/v0.1.9-long-term-operations-release.md` 承接；2026-07-20 长期运营优化轮已收口，当前推进 v0.1.9 发布环（签名 Release、生产受控更新与残余项证据重采，三个确认点由维护者显式给出）。维护者已于 2026-07-21 按确认包原文确认并完成本地验证：OPS-007（附件 staging/write-intent，`local_verified`）与 OPS-008（updater phase journal 与 hold/drain，`local_verified`）；两者均已并入 v0.1.9 候选，生产 migration/timer/hold/apply 仍需独立确认。
+- 仓库与生产均已切到签名 Release `v0.1.9`（commit `749692ba719d801f14186a94af97b96350380141`）；远端 `https://forge.areasong.top/` 公网 health 报告 `0.1.9`。G5 受控更新于 2026-07-21T05:08:11Z 完成（备份 hash 已入 redacted export；回滚目标仍为 `v0.1.7` 不可变 digest）。`v0.1.8` 计划保持搁置并由 `workflow/versions/v0.1.9-long-term-operations-release.md` 承接。维护者已于 2026-07-21 按确认包原文确认并完成本地验证：OPS-007（附件 staging/write-intent，`local_verified`）与 OPS-008（updater phase journal 与 hold/drain，`local_verified`）；OPS-006 controlled probe 已在生产通过，但 full OPS-006 evidence validate 仍缺 deploy 前 full doctor 且 release smoke 绑定与 OPS-002 排除范围冲突。OPS-007/OPS-008 生产 migration/timer/hold 仍需独立确认。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
-- 只读 `ops:data-integrity:doctor` 已用于发现重复活跃计时、task/session 状态矛盾和附件 reconciliation 缺口；它不修复数据。`AF-RISK-OPS-006` 的 partial unique index、task/session CAS、结束计时单次副作用和 CheckIn 锁已完成隔离 PostgreSQL 本地验证；匹配签名 Release、生产 migration/deploy 和 fresh production evidence 仍需独立确认。
+- 只读 `ops:data-integrity:doctor` 已用于发现重复活跃计时、task/session 状态矛盾和附件 reconciliation 缺口；它不修复数据。`AF-RISK-OPS-006` 的 partial unique index、task/session CAS、结束计时单次副作用和 CheckIn 锁已在生产 migration 与 controlled probe 中验证；full production evidence validate 仍 blocked（deploy 前 full doctor 缺失、write smoke 未执行）。
 
 ## 源事实
 
