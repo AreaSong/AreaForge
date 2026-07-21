@@ -138,7 +138,7 @@ try {
   assert(noReview.stderr.includes("postIncidentReview must be yes"), "post-review failure must be explicit");
 
   const invalidResidualRoot = path.join(tempDir, "invalid-residual");
-  writeRecord(invalidResidualRoot, "incident-20260715-invalid-residual", createRecord({ residualRiskIds: "AF-RISK-OPS-004, typo-risk-id" }));
+  writeRecord(invalidResidualRoot, "incident-20260715-invalid-residual", createRecord({ residualRiskIds: "AF-RISK-OPS-002, typo-risk-id" }));
   const invalidResidual = run(["exec", "tsx", "scripts/ops/incident-index.ts", invalidResidualRoot]);
   expectStatus("partial invalid residual id fails", invalidResidual, 1);
   assert(invalidResidual.stderr.includes("incident record validation failed"), "invalid residual failure must be explicit");
@@ -262,7 +262,7 @@ function createRecord(options: RecordOptions = {}): string {
     `evidenceBundleHash: sha256:${"b".repeat(64)}`,
     `alertPreviewHash: sha256:${"c".repeat(64)}`,
     "highRiskConfirmation: not-applicable",
-    `residualRiskIds: ${options.residualRiskIds ?? (status === "resolved" ? "none" : "AF-RISK-OPS-004")}`,
+    `residualRiskIds: ${options.residualRiskIds ?? (status === "resolved" ? "none" : "AF-RISK-OPS-002")}`,
     `followUpTasks: ${options.followUpTasks ?? "tasks/indexes/residuals.md, docs/development/incident-record-template.md"}`,
     `postIncidentReview: ${postIncidentReview}`,
     "safetyFacts:",
