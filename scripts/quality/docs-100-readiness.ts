@@ -136,6 +136,7 @@ const allowedTraceabilityStatuses = new Set([
   "基础版 / 待确认",
   "暂缓",
   "暂缓 / 高风险",
+  "未实现",
 ]);
 
 const checks: CheckResult[] = [];

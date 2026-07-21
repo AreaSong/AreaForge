@@ -34,6 +34,7 @@ schema V2 为每个 item 增加：
 - `AF-RISK-SC-*`：供应链、签名、依赖、SBOM/provenance。
 - `AF-RISK-UX-*`：真实体验、可用性、端到端体验证据。
 - `AF-RISK-AI-*`：AI provider、隐私、费用、fallback。
+- `AF-RISK-DATA-*`：数据生命周期、留存、导出、撤销/删除边界。
 
 ## 当前残余项
 
@@ -53,6 +54,7 @@ schema V2 为每个 item 增加：
 | AF-RISK-OPS-007 | closed-evidence | 2026-10-21 | 生产 Phase B 观测 attachment staging/write-intent migration 已 apply（无 pending）、attachment reconciliation+doctor-after pass；专用生产协议记录已绑定。本地 ops:ops-007:preflight 在当前 dirty checkout 下因 runtime implementation hash drift 为 invalid，不阻断本次 observational 关账。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-007-closeout.md | 否 | 新 Release、附件协议/migration 变化、生产 recon/doctor 失败、或需声称 fresh local_verified 时重新打开并刷新隔离 runtime | docs/development/ops-007-production-protocol-v0.1.9-20260721.txt、output/release-v0.1.9/phaseb-evidence/ops007-attachment-reconciliation-summary.json、ops007-doctor-after.json、docs/development/residual-closure-review-20260721-ops-007-closeout.md | `areaforge-file-storage-safety` / `areaforge-security-governance` |
 | AF-RISK-OPS-008 | closed-evidence | 2026-10-21 | 生产 Phase B 观测 hold→MAINTENANCE_HOLD_ACTIVE 屏障→CAS clear→timers restored；ops:ops-008:preflight:strict=local_verified；生产 journal 记录已绑定。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-008-closeout.md | 否 | 新 Release、hold/journal 语义变化、preflight:strict 不再 local_verified、或生产 hold/barrier 证据失效时重新打开 | docs/development/ops-008-production-journal-v0.1.9-20260721.txt、output/release-v0.1.9/phaseb-evidence/01-ops008-hold.txt、01b-apply-while-hold.txt、01c-ops008-clear.txt、07-timers-restored.txt、output/ops008/updater-runtime-20260721.json、docs/development/residual-closure-review-20260721-ops-008-closeout.md、pnpm ops:ops-008:preflight:strict=local_verified | `areaforge-sre-ops` / `areaforge-observability` / `areaforge-security-governance` |
 | AF-RISK-UX-001 | closed-evidence | 2026-10-21 | current-bound local UX review 通过 experience:review:validate（bindingStatus=current）；desktop/mobile 截图与 runtime probe 已绑定 HEAD。本地证据不证明生产写入体验。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ux-001-closeout.md | 否 | source fingerprint/runtime identity 漂移、体验改动后未重审、校验失败时重新打开；生产体验声明仍需独立生产证据 | docs/development/product-experience-review-20260721-v019-closeout.md、output/playwright/runtime-identity-closeout-20260721T070703Z.json、docs/development/residual-closure-review-20260721-ux-001-closeout.md | `areaforge-product-experience` / `areaforge-qa-smoke` |
+| AF-RISK-DATA-001 | deferred-work | 2026-10-21 | 学习树已确认导入的规范化 Markdown 将长期留存并随数据库备份扩散；v1.1 仅提供软归档与一次性 canonical 导出，未提供物理删除、备份副本同步删除或完整账户导出。未登记接受边界前不得开放导入 confirm | 否 | 完成数据生命周期确认包：访问仅 owner、无自动过期、软归档、备份同周期、导出临时资源释放、未来删除/撤销路线、data owner/validation owner/close condition；人工接受后仍保持可重开条件 | docs/development/high-risk-confirmation-packets.md（learning-tree data lifecycle）、导入鉴权/归档/backup-restore/export fixture、redaction matrix、residual close condition | `areaforge-security-governance` / `areaforge-file-storage-safety` |
 
 ## 任务绑定与接受例外
 
@@ -62,6 +64,8 @@ schema V2 为每个 item 增加：
 - `AF-RISK-OPS-008` -> `tasks/active/0022-updater-phase-journal-hold.md`
 - `AF-RISK-SC-004` -> `tasks/backlog/0023-github-main-protection.md`
 - `AF-RISK-UX-001` -> `tasks/active/0024-ux-residual-closure-review.md`
+- `AF-RISK-DATA-001` -> `tasks/backlog/0029-v11-batch5-resources-import-confirm.md`
+- `AF-RISK-SC-002` -> `tasks/backlog/0035-v11-batch11-minor-release.md`（v1.1 Release 前须按新 commit 重采 CI/供应链证据）
 - 其余 item 的 `taskRefs=[]`；当前没有 task promotion waiver。
 
 `AF-RISK-REL-001` 的 `acceptedException` 只记录已有历史事实：AreaSong 在 `2026-07-10T19:40:59+08:00` 接受继续保持 `AREAFORGE_AUTO_APPLY=none`、不启用 patch 自动应用的当前边界，来源为 `git:4a76627add00e6fa07f5194e4252cec12a7b4e28`，到期日为 `2026-08-10`。其 scope、reason、重新打开条件和 `basisHash` 只绑定既有 `none/patch`、签名、备份、extra smoke、rollback target 与 manifest policy 边界；不表示 patch 自动应用已获授权，也不构成新的接受事实。

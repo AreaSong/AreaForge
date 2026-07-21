@@ -374,7 +374,33 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - Web runtime 不得新增 updater route、Docker/backup/restore/migration 命令入口或 `docker.sock` 访问。
 - `AREAFORGE_AUTO_APPLY=none` 是默认策略；patch 自动应用必须同时满足服务器配置和 manifest `autoApply.patch=true`。
 
-当前远端 `v0.1.7` 已验证：Release asset 包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`；服务器侧 updater 签名校验通过，Web image digest 为 `ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`；migration image digest 为 `ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`；`GET https://forge.areasong.top/api/health` 返回 `0.1.7`；服务器 updater 记录 `smokeHealth=PASS`、`extraSmoke=PASS`、`rollbackAttempted=no`。`v0.1.5` 远端签名发布记录仍作为历史基线保留；`AF-RISK-SC-001` 和 `AF-RISK-OPS-001` 台账关闭仍需维护者人工复核和 post-update redacted 证据。
+当前远端 `v0.1.7` 已验证：Release asset 包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`；服务器侧 updater 签名校验通过，Web image digest 为 `ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`；migration image digest 为 `ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`；`GET https://forge.areasong.top/api/health` 返回 `0.1.7`；服务器 updater 记录 `smokeHealth=PASS`、`extraSmoke=PASS`、`rollbackAttempted=no`。`v0.1.5` 远端签名发布记录仍作为历史基线保留；`AF-RISK-SC-001` 和 `AF-RISK-OPS-001` 台账关闭仍需维护者人工复核和 post-update redacted 证据。当前生产基线已前进到 `v0.1.9`；学习行动中心阶段验证见下方专项，不得用旧 `v0.1.7` 叙述覆盖当前 production health。
+
+## 学习行动中心（v1.1）专项验证
+
+### Batch 0（文档同步）
+
+确认前 / 文档阶段至少运行：
+
+- `pnpm tasks:doctor`
+- `pnpm docs:readiness`
+- `pnpm docs:evergreen`
+- `pnpm docs:completion`（允许因规划「未实现」行保持既有 docs 100% 语义；不得把规划能力标成已完成）
+- `pnpm risk:preflight`
+- `pnpm residuals:validate`
+- `pnpm governance:preflight`
+- `git diff --check`
+
+验证重点：Exact docs 区分规划/已实现；`AF-RISK-DATA-001` 已登记；确认包骨架未冒充已授权；tasks 0025–0035 可追踪。
+
+### Batch 1–2（门禁复核）
+
+- 复核记录：`docs/development/v11-s2-ops006-007-gate-review.md`
+- 对照 OPS-006/007 四级 gate 与 `v0.1.9` production evidence；不重复实施。
+
+### Batch 3–11（实现阶段，确认后）
+
+确认前仅 docs/risk；确认后按改动范围叠加 `pnpm db:validate`、临时 PostgreSQL、core/Web/storage 测试、隔离 smoke；生产入口仅 Batch 11。细节见 `docs/development/v11-phase-packages.md` 与版本计划第十六节。
 
 ## docs 100% 最终门禁
 

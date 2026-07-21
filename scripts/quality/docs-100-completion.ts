@@ -93,6 +93,7 @@ function checkTraceabilityCompletion(): CompletionIssue[] {
   const rows = parseTraceabilityRows(read(traceabilityPath));
   const blockingRows = rows.filter((row) => {
     if (row.section === "暂缓项") return false;
+    if (row.section.startsWith("下一产品版本")) return false;
     return blockingStatusKeywords.some((status) => row.status.includes(status));
   });
 

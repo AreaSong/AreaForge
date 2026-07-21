@@ -21,7 +21,7 @@
 | AF-RISK-OPS-002 | 写入型生产 smoke 策略已有非执行草案，但仍缺账号、确认、清理和受控记录 | `areaforge-qa-smoke` / `areaforge-security-governance` | 执行生产写入 smoke 前 |
 | AF-RISK-REL-001 | `AREAFORGE_AUTO_APPLY=none` 是安全默认，不等于自动应用已启用 | `areaforge-release-operator` / `areaforge-sre-ops` | 调整自动更新策略前 |
 | AF-RISK-SC-001 | `v0.1.7` 签名 Release 已生成并校验 SBOM/provenance、checksum、cosign signature 和 GHCR digest 证据，并已由服务器侧 updater 应用到生产；带当前 release supply-chain record 路径运行 `pnpm sc:sc-002:preflight` 已到 `ready_for_sc001_sc002_review`，台账仍待维护者人工复核关闭 | `areaforge-supply-chain` | 关闭台账前复核 `release-supply-chain-v0.1.7` / `release-v0.1.7`；生产 apply 不自动关闭 residual；后续创建新 Release 或修改 release workflow 前 |
-| AF-RISK-SC-002 | 已按 exact commit `5bec626` 的成功 CI run `29634081982` 关闭为 CI-only 证据项；record、人工复核和 clean detached worktree preflight 均通过，且明确不关闭 SC-001 | `areaforge-supply-chain` / `areaforge-enterprise-governance` | 后续修改 GitHub Actions、依赖审计、Release workflow、供应链记录工具或创建新 Release 前，重新生成匹配 commit 证据并运行 `pnpm ci:supply-chain:validate`；进入签名 Release 时补跑 `pnpm release:supply-chain:validate <record> <release-assets-dir> --strict`。匹配 CI 失败、commit mismatch、未 pin action 或 high/critical 漏洞时重新打开 |
+| AF-RISK-SC-002 | 已按 exact commit `5bec626` 的成功 CI run 关闭为 CI-only 证据项；v1.1 Release 前须重跑 `pnpm sc:sc-002:preflight`、`pnpm ci:supply-chain:validate`、`pnpm release:supply-chain:validate` | `areaforge-supply-chain` / `areaforge-enterprise-governance` | 创建新 Release 或改 Actions/依赖审计前；承接 task `0035` |
 | AF-RISK-SC-003 | 已关闭为证据项；`packages/db` 已串行化 Prisma pg adapter transaction query，后续升级 `pg` / Prisma adapter 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke | `areaforge-supply-chain` / `areaforge-sre-ops` | 升级 `pg` / Prisma adapter 前 |
 | AF-RISK-SC-004 | GitHub `main` ruleset `19138434`、required PR/approval、GitHub Actions `verify`、delete/non-fast-forward 禁止和无 bypass 已读回；受控 PR `#13` 已覆盖失败/成功检查并关闭未合并。远端实施完成，residual 仍待人工 close/keep-open 决策 | `areaforge-enterprise-governance` / `areaforge-supply-chain` | 复核两份 `output/supply-chain/github-main-protection-*.json`、validator/preflight 与 ruleset/check 漂移后，维护者明确 close 或 keep-open；不得自动关闭 |
 | AF-RISK-OPS-003 | 服务器、域名、Nginx 或端口迁移需单独 runbook 和证据 | `areaforge-sre-ops` | 基础设施迁移前 |
@@ -30,7 +30,8 @@
 | AF-RISK-OPS-006 | 已 closed-evidence：Phase B doctor 时间序 + probe + write-smoke PASS，`ops:ops-006:evidence:validate` 通过；closeout 见 `docs/development/residual-closure-review-20260721-ops-006-closeout.md`。dirty worktree 下 production:preflight 仍可能 blocked | `areaforge-security-governance` / `areaforge-sre-ops` / `areaforge-validation-driver` | 新 Release、concurrency 语义变化、evidence:validate 失败或 doctor/smoke 过期时重新打开 |
 | AF-RISK-OPS-007 | 已 closed-evidence：生产迁移已 apply + recon/doctor pass，协议记录已绑定；closeout 见 `docs/development/residual-closure-review-20260721-ops-007-closeout.md`。当前 dirty checkout 下本地 preflight 可能因 runtime hash drift 为 invalid | `areaforge-file-storage-safety` / `areaforge-security-governance` | 新 Release、附件协议变化、生产 recon/doctor 失败，或需 fresh local_verified 时重新打开并刷新隔离 runtime |
 | AF-RISK-OPS-008 | 已 closed-evidence：生产 hold/barrier/clear/timers 已观测；`ops:ops-008:preflight:strict=local_verified`；closeout 见 `docs/development/residual-closure-review-20260721-ops-008-closeout.md` | `areaforge-sre-ops` / `areaforge-observability` / `areaforge-security-governance` | 新 Release、hold/journal 语义变化、preflight 不再 local_verified 或生产 hold 证据失效时重新打开 |
-| AF-RISK-UX-001 | local UX smoke guardrail selftest 已通过；共享 evaluator 当前将最新记录判为 `invalid`，因为 git commit、source hash 和 runtime identity 不匹配当前 checkout。残余仍 open，且生产体验未被本地证据证明，窄屏任务选择器仍有 polish follow-up | `areaforge-product-experience` / `areaforge-qa-smoke` | 启动当前 checkout runtime，重新采集 current-bound desktop/mobile review 与 runtime probe，运行 `pnpm experience:review:validate`；随后由维护者 reaffirm `keep-open` 或另行授权 residual 台账更新 |
+| AF-RISK-UX-001 | 已 closed-evidence：current-bound local UX review；本地证据不证明生产写入体验；重审时运行 `pnpm experience:review:validate` | `areaforge-product-experience` / `areaforge-qa-smoke` | 体验改动或 fingerprint 漂移后重审 |
+| AF-RISK-DATA-001 | 学习树规范化 Markdown 长期留存与备份扩散；未完成生命周期确认前不得开放导入 confirm | `areaforge-security-governance` / `areaforge-file-storage-safety` | Batch 5 confirm/export 前必须完成确认包与人工接受 |
 
 ## Task Bindings
 
@@ -41,6 +42,8 @@
 | AF-RISK-OPS-007 | `tasks/active/0021-attachment-staging-intent.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
 | AF-RISK-OPS-008 | `tasks/active/0022-updater-phase-journal-hold.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
 | AF-RISK-SC-004 | `tasks/backlog/0023-github-main-protection.md` | backlog blocked；远端实施已验证，等待维护者 residual 决策 |
-| AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md` | active in-progress；只做维护者 close/keep-open 复核，不自动修改台账 |
+| AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
+| AF-RISK-DATA-001 | `tasks/backlog/0029-v11-batch5-resources-import-confirm.md` | backlog；Batch 5 confirm 前必须完成生命周期确认 |
+| AF-RISK-SC-002 | `tasks/backlog/0035-v11-batch11-minor-release.md` | backlog；v1.1 minor Release 前须重采匹配 commit 的 CI/供应链证据 |
 
 其他 residual 的 `taskRefs=[]`。`AF-RISK-REL-001` 使用已有历史 accepted exception，不使用 task promotion waiver；接受例外不等于 executable task，也不授权 patch 自动应用。

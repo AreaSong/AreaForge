@@ -1575,3 +1575,45 @@ pnpm ops:ops-001:preflight
 明确确认句：
 
 > 确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施：范围仅限 root-only no-clobber/逐级 fsync immutable hash-chained phase events、精确 backup inventory 持久化屏障、admission/identity-bound/backup/prepare/migration-or-skipped/switch/health/smoke/rollback/terminal/reconciliation 状态机、崩溃后 fail-closed hold、固定 queue-control -> production-state -> agent-local 锁顺序、hold generation/clear CAS、旧 generation 请求隔离、record/journal 失败的 reconciliation exit mapping、redacted status、扩展 sourceSetHash 和本地临时目录 kill-point/锁竞争 selftest；不执行生产 updater apply、Web apply/rollback 请求、systemd timer 启停、生产 hold/clear/drain、backup/restore、migration、Docker/Nginx/compose 切换、自动应用策略变化、服务器命令、secrets 操作、Release/tag 或 residual 台账关闭。
+
+## 学习行动中心确认包骨架（未授权实施）
+
+以下确认包只固定边界与确认句模板，**尚未获得维护者确认**，不得据此写业务代码、跑生产 migration 或开放导入 confirm。权威规格见 `workflow/versions/v1.1-learning-action-center.md`。
+
+### 完整产品数据 migration 确认包（Migration 1–8）
+
+- 影响：八个 additive migrations（含 Subject code 约束放宽与 workspace 复合唯一）；空库与 legacy fixture 必须按 1→8 验证。
+- 风险：错误接管旧科目、复合唯一数据写入后不得直接回滚到旧 compatibility floor。
+- 验证：临时 PostgreSQL apply/verify/replay；接管失败回滚；旧 API 双读。
+- 回滚：优先回滚应用代码并保留 additive schema；DROP/数据修复另行确认。
+- 不授权：生产 deploy、历史文本批量解析、文件移动。
+
+明确确认句（待填）：
+
+> 确认批准学习行动中心完整产品数据 migration 包：范围仅限按 1→8 顺序的 additive Prisma/SQL migrations 与临时库验证；Subject code 约束放宽单列影响；不授权生产 migration deploy、destructive DDL、历史修复、文件移动或 residual 关闭。
+
+### 学习树数据生命周期确认包（`AF-RISK-DATA-001`）
+
+- data owner：`areaforge-security-governance`
+- validation owner：`areaforge-file-storage-safety` / `areaforge-validation-driver`
+- 边界：已确认导入仅 owner 可见；无自动过期；仅软归档；随数据库同周期备份；一次性 canonical 导出后释放临时文件；未来物理删除/撤销路线冻结但不在本版本实现。
+- 不授权：物理删除、缩短保留期、备份副本同步删除、用户迁移、完整账户导出包、扩大到 AI history。
+
+明确确认句（待填）：
+
+> 确认接受学习树导入规范化 Markdown 的数据生命周期边界：仅当前用户可读、无自动过期、仅软归档、随数据库备份、一次性 canonical 导出；不授权物理删除、备份副本同步删除、完整账户导出或开放导入 confirm 之外的用途。接受后登记 `AF-RISK-DATA-001` 关闭条件与重新打开条件。
+
+### 四类 AI 草稿用途确认包
+
+- 固定四类 endpoint 的 allowed fields、字段来源、上限、HMAC purpose、30 分钟 token、fallback 与日志脱敏。
+- `AI_PAYLOAD_BINDING_SECRET` 仅服务端；不得进入客户端 bundle。
+- 不授权：后台/GET 外呼、附件或未选择正文、费用账本、自动写业务对象。
+
+明确确认句（待填）：
+
+> 确认四类显式 AI 草稿用途（learning-tree / knowledge-card / plan / motivation）：仅鉴权 POST、选中文本与预览勾选投影、purpose-separated HMAC 与 opaque preview token；不授权附件/未选择正文、自动写业务对象、保存 prompt/raw response 或 residual 关闭。
+
+### 依赖准入确认包（`@xyflow/react` 与 unified/remark/yaml）
+
+- 进入 Batch 4/8 改 lockfile 前必须完成许可证、漏洞、bundle/build-script、telemetry 复核与 `pnpm governance:preflight`。
+- 不授权：远程内容上传、客户端密钥、服务端 URL 抓取。

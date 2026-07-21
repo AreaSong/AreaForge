@@ -57,6 +57,10 @@
 - `modules/simulation-exam.md`：全真模拟。
 - `modules/periodic-reports.md`：周审判与月复盘。
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
+- `modules/exam-workspace.md`：考试工作区（规划，未实现）。
+- `modules/plan-inbox.md`：计划收件箱（规划，未实现）。
+- `modules/unified-review.md`：统一复习（规划，未实现）。
+- `modules/learning-tree-import.md`：学习树导入（规划，未实现）。
 
 ## UX
 

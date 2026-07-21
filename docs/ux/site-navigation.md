@@ -75,6 +75,17 @@ flowchart TB
 
 八个子页头部统一提供「返回作战台」链接回 `/`，不在子页之间横向互链。
 
+## 规划导航（未实现）
+
+下一产品版本将改为五工作台壳与稳定路由族（今日、知识、复盘、阶段、设置）。旧路由在切换前保持兼容，详情见 `workflow/versions/v1.1-learning-action-center.md` 第一节。规划路由示例：
+
+- `/today`、`/today/plan`、`/today/tasks/[taskId]`、`/today/inbox`
+- `/knowledge/canvas`、`/knowledge/imports`、`/knowledge/notes`
+- `/focus/[sessionId]`、`/quick-review/[scheduleId]`
+- `/review/*`、`/stage/*`、`/settings/*`
+
+实现状态见 `docs/development/feature-traceability.md`；在对应 Batch 开放前不得注册半成品生产入口。
+
 ## 导航之外的跳转
 
 | 来源 | 目标 | 触发 |

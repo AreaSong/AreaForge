@@ -29,6 +29,21 @@
 
 今日作战台返回真实数据库聚合，并包含最近一次已完成计时 `latestCompletedSession`，用于刷新后继续展示结构化收口、低转化原因和补产出要求。dashboard 优先读取 active `RecoveryState`；无 active 状态时继续按 `createRecoveryPlan` 实时规则 fallback。首页和 dashboard API 在规则触发恢复时会幂等创建一条 active `RecoveryState`，不会修改、隐藏或删除 `StudyTask`。
 
+在行动中心与五工作台落地前，本接口继续作为今日聚合主入口并保持兼容。
+
+### Action Center 与工作区（规划，未实现）
+
+下一产品版本新增（实现前不得当作已上线能力）：
+
+- `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
+- `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影。
+- `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
+- `/api/exam-workspaces/**`、科目分组与自定义科目、里程碑、任务依赖、计划收件箱。
+- 学习树 `templates` / `export` / `imports/preview` / `imports/confirm`；preview 无业务写入。
+- 知识画布分层查询与布局 CAS；资料、统一复习事件、动机、通知偏好与四类显式 AI 草稿。
+
+权威路由与错误契约见 `workflow/versions/v1.1-learning-action-center.md`。旧 `POST /api/syllabus/import-markdown` 在切换前保留 append-only legacy 行为。
+
 ### Recovery States
 
 - `POST /api/recovery-states/manual`

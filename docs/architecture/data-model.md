@@ -28,6 +28,20 @@
 
 PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，数据库只保存 metadata、hash 和 URI。
 
+## 规划扩展模型（未实现）
+
+下一产品版本将在 additive-first 前提下引入下列实体与约束；**当前运行时仍以上方已实现模型为准**。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。
+
+- `ExamWorkspace` / `SubjectGroup`：当前考试工作区与 408 分组；同一用户最多一个 ACTIVE 工作区。
+- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与计划收件箱。
+- `LearningTreeImportBatch` / `LearningTreeImportItem`：已确认导入的规范化 Markdown、hash、差异与结果；preview 不写领域表。
+- `StudyResource`：FILE（绑定 READY Attachment）或 LINK（HTTPS URL）二选一资料资产。
+- `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件。
+- `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：个人布局偏好，不保存业务边。
+- `MotivationItem` / `MotivationReminderState` / `NotificationPreference`：动机内容与提醒偏好。
+- `SimulationLossItem`：结构化失分条目。
+- `CheckIn` / `RecoveryState` / `Note` / `Subject` 等现有模型按工作区归属、stableKey、revision 与快照版本演进；旧数据只读兼容，不批量猜测回填。
+
 ## 认证相关约束
 
 - `User.email` 唯一。

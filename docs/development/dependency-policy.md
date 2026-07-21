@@ -18,6 +18,7 @@
 - 涉及 auth、uploads、AI、release/updater、backup/restore、migration 的依赖变更，按高风险边界处理。
 - 不接受未说明用途的 transitive churn；锁文件变化必须能追溯到明确依赖。
 - 不把生产密钥、registry token、cosign 私钥或 smoke 凭据写入依赖配置、CI 日志或 release 记录。
+- 学习行动中心规划依赖（画布 `@xyflow/react`，学习树 `unified` / `remark-*` / `yaml` / `mdast-util-to-markdown`）在首次改 lockfile 前必须完成许可证、漏洞、bundle/build-script、telemetry 复核，并运行 `pnpm governance:preflight` 与 `pnpm audit:prod`；不得引入远程内容上传、客户端密钥或服务端 URL 抓取。确认包骨架见 `docs/development/high-risk-confirmation-packets.md`。
 
 ## Dependabot
 

@@ -128,8 +128,8 @@ export function validateRecord(raw: string, fields: Map<string, string>): Valida
 
 function validateResidualId(value: string | undefined, issues: ValidationIssue[]): void {
   if (!value) return;
-  if (!/^AF-RISK-(OPS|REL|SC|UX|AI)-\d{3}$/.test(value)) {
-    issues.push({ field: "residualRiskId", message: "must match AF-RISK-(OPS|REL|SC|UX|AI)-NNN" });
+  if (!/^AF-RISK-(OPS|REL|SC|UX|AI|DATA)-\d{3}$/.test(value)) {
+    issues.push({ field: "residualRiskId", message: "must match AF-RISK-(OPS|REL|SC|UX|AI|DATA)-NNN" });
   }
 }
 

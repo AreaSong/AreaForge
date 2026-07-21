@@ -18,13 +18,14 @@
 - `versions/v0.1.8-long-term-operability.md`：OPS-005/006、长期证据和体验加固的本地发布候选；维护者已于 2026-07-20 决定搁置，范围由 v0.1.9 计划承接。
 - `versions/optimization-20260720-long-term-operations.md`：2026-07-20 长期运营优化轮（非发布版本计划，已完成）：到期 residual 复核、四路独立审查修复、轻量门禁借鉴与 UX 证据重采。
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
-- `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验，当前处于待开发讨论中（Planning），尚未实施。
+- `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；基线已对齐生产 `v0.1.9`；大阶段 S0–S5 / Batch 0–11；隔离分支 `codex/v1.1-learning-action-center`；Batch 0 文档与任务拆分启动中，业务代码尚未实施。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
-- 当前推进 `versions/v0.1.9-long-term-operations-release.md` 发布候选；2026-07-20 优化轮已收口，`v0.1.8` 计划保持搁置由 v0.1.9 承接；尚未创建 tag、GitHub Release 或生产 rollout。
-- 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与剩余缺口（含 `needs_live_evidence`、post-update OPS-001、release evidence backup hash 等）以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
-- 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口；后续版本计划用于承接新功能、生产 extra smoke、自动策略调整或服务器/域名迁移。
+- 生产与签名 Release 基线为 `v0.1.9`；`v0.1.8` 计划保持搁置并由 v0.1.9 承接范围。
+- 下一产品主线推进 `versions/v1.1-learning-action-center.md`（S0/S1）；Batch 1/2 在 OPS-006/007 `closed-evidence` 充分时缩减为门禁复核。
+- 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
+- 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口。
 
 ## 使用规则
 

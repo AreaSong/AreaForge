@@ -19,3 +19,7 @@ AI 不可以做：
 所有 AI 输出必须做结构化校验；失败时回退本地规则文案。
 
 `packages/ai` 提供本地 fallback、结构化 schema、敏感字段拦截和 OpenAI-compatible JSON provider。敏感字段拦截会识别常见 camelCase、snake_case 和 kebab-case 变体；Web 层只在三条鉴权 POST AI route 中允许显式外呼，首页普通 SSR 保持本地 fallback。长期阶段调整 AI 草稿通过鉴权 POST 显式触发路径落地；调用历史、费用统计、发送更大字段清单或保存完整 prompt/响应仍需后续单独确认。
+
+## 规划扩展（未实现）
+
+下一产品版本可增加四类显式文本草稿（学习树、知识卡片、计划、动机）：用户必须先选中文本，发送前预览全部 payload；结果只进入预览、学习树校验、卡片保存或计划收件箱。仍禁止普通页面/SSR/GET/后台自动外呼，禁止附件与未选择正文进入 provider。权威契约见 `workflow/versions/v1.1-learning-action-center.md`。

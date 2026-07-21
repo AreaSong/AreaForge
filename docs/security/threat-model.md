@@ -38,3 +38,7 @@
 ## 细化规则
 
 文件上传、附件访问、AI 调用、备份恢复和高风险确认规则见 `docs/security/file-ai-safety.md`。
+
+## 规划扩展资产（未实现）
+
+下一产品版本额外纳入威胁面：考试工作区归属、学习树规范化 Markdown 长期留存与导出、资料 HTTPS 外链、浏览器通知 payload、四类 AI 草稿 HMAC token。导入 confirm 前必须完成 `AF-RISK-DATA-001` 生命周期边界；AI 草稿仍禁止附件与未选择正文。规格见 `workflow/versions/v1.1-learning-action-center.md`。

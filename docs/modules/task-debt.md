@@ -54,3 +54,7 @@
 - `POST /api/tasks/debt-reorder/applications` 写 `TaskDebtEvent.action=reorder_applied` 与 `AuditEvent`，应用前重新校验任务状态和当前建议；有跳过项时按 `shouldStopOnFirstFailure` 停止写入并返回摘要。
 
 实现进度与批次证据见 [功能追踪矩阵](../development/feature-traceability.md)。
+
+## 规划扩展（未实现）
+
+下一产品版本中，欠账与正式任务进入滚动七天看板；计划草稿先进计划收件箱再转换。债务重排建议仍不得静默应用。见 `docs/modules/plan-inbox.md`。
