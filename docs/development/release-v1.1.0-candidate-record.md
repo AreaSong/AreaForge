@@ -1,5 +1,51 @@
 # v1.1.0 本地完成与 Release Candidate 记录
 
+schemaVersion: 2
+scope: v1.1 Batch 11 local candidate completion and Release admission readiness
+summary: Local product, migration, compatibility floor, dependency and UX evidence pass while current-commit SC evidence and signed Release confirmation remain blocked
+evidenceClass: local-smoke
+claimScope: local-runtime
+evidenceUri: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md,output/playwright/v11-batch11-admission-046cc70/runtime-identity-046cc70.json,tasks/active/0035-v11-batch11-minor-release.md,https://github.com/AreaSong/AreaForge/actions/runs/29887252667
+sourceBaseline:
+  sourceDocs: workflow/versions/v1.1-learning-action-center.md,docs/development/v11-phase-packages.md,docs/development/validation-matrix.md,docs/development/high-risk-confirmation-packets.md
+  sourceHashOrCommit: 63a14328fa0ced8db04da41377b7efc73ed077cd
+freshValidation:
+  profile: full
+  commands: pnpm install --frozen-lockfile; pnpm audit:all; pnpm audit:prod; pnpm completion:evidence:selftest; DATABASE_URL=<isolated-v11compat-db> pnpm db:migrate:deploy; pnpm ops:v11:compatibility-floor:runtime:selftest seed; pnpm ops:v11:compatibility-floor:runtime:selftest probe; pnpm check; pnpm release:train:preflight; pnpm governance:preflight; pnpm docs:readiness; pnpm docs:completion; pnpm risk:preflight; pnpm residuals:validate; pnpm secrets:scan; git diff --check
+  browserOrRuntimeEvidence: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md
+  checkedAt: 2026-07-22T03:35:55Z
+validationFingerprint:
+  algorithm: sha256
+  gitHead: 63a14328fa0ced8db04da41377b7efc73ed077cd
+  worktreeState: clean
+  worktreeHash: sha256:5e5a71dc06df0be8f737d81120b0b79d452afa110fe658a5ef1052a2aba307b6
+  changedPaths: none
+  digest: sha256:52586347e47e39cc0b2421046ea51d573e882cd553efbbe19d299c3cc49d51cf
+unverified:
+  skippedChecks: matching successful CI for the final candidate commit, fresh SC-004 remote readback and controlled PR, signed Release assets, production apply
+  reason: GitHub CI run 29887252667 for source commit 9ac4c413 failed the full dependency audit; local remediation requires a new frozen candidate commit and matching CI
+blockers:
+  product: none
+  securityPrivacy: none
+  dependencySupplyChain: final candidate commit still needs successful SC-002 CI evidence and fresh SC-004 evidence
+  ciRelease: signed Release confirmation and immutable Release identity admission are not authorized or complete
+  gitCheckpoint: none
+residualRiskIds: AF-RISK-SC-002,AF-RISK-SC-004,AF-RISK-DATA-001
+releaseRequired: yes
+highestRuntimeWriteBoundary: R1
+highRiskConfirmation: yes
+doesNotProve: signed Release, release asset trust, production health, production migration/apply/smoke/rollback, long-term operability, residual closure
+result: NOT-READY
+safetyFacts:
+  productionTouched: no
+  productionWriteAttempted: no
+  serverCommandAttempted: no
+  backupRestoreAttempted: no
+  migrationAttempted: yes
+  updaterApplyAttempted: no
+  releaseCreated: no
+  secretValuePrinted: no
+
 ## 身份与结论
 
 - 目标版本：`1.1.0`。
@@ -34,6 +80,8 @@
 - `pnpm release:train:preflight`、`pnpm release:workflow:policy`、`pnpm release:admission:selftest`、`pnpm release:identity:probe:selftest`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater`：PASS。
 - Release/CI supply-chain record selftests、SC-002 preflight selftest、SC-004 validator/preflight selftests：PASS。
 - `pnpm audit:prod --audit-level high`：PASS；报告 2 个 moderate，未报告 high/critical。
+- `pnpm audit:all`：当前工作树修复后 PASS；`sharp@0.35.3` 与 `fast-uri@3.1.4` 消除 GitHub run `29887252667` 暴露的两个 high advisory，仍有 2 个 moderate。
+- [Compatibility floor 本地证据](./v11-compatibility-floor-evidence-20260722.md)：PASS；全 20 migrations apply/replay 后，由当前候选写入第二工作区、自定义科目和 workspace 复合唯一记录，再切换到冻结 floor commit `c30fe8f59e9e9a64ed0ee9d2ef115a0ed5214dd4` 的 production build/服务读取同一 schema。
 - 候选记录后的 StudyResource/学习树租户隔离加固在新一次性 `v11m5` 数据库重跑全部 20 个 migration 与 M5 runtime selftest：PASS，包含 owner 外拒绝、confirm 原子回滚、幂等冲突与无服务端临时文件。
 - `pnpm smoke:local-ux`：PASS；覆盖 ACTIVE workspace fixture、计时收口、附件、analytics、结构化模拟结果、阶段草稿、canonical 页面与 App Shell 导航。
 - [Batch 11 体验复核](./product-experience-review-20260722-v11-batch11.md)：PASS；绑定 `U=046cc701b37d73539309d2f110df9a72816d3b83`、runtime probe、desktop `1440x1000`、mobile `390x844` 与四张截图，控制台无 error、无横向溢出。
@@ -43,7 +91,7 @@
 
 ## Admission 缺口
 
-- `AF-RISK-SC-002`：当前只读 preflight 为 `needs_evidence`；候选 commit 冻结并获得匹配 CI run 后必须重采，不复用旧 commit 记录。
+- `AF-RISK-SC-002`：`9ac4c413…` 的 GitHub run `29887252667` 在 full dependency audit 失败；本地已修复 `sharp` / `fast-uri` high advisory，必须冻结新的候选 commit 并取得 matching successful CI 后重采，不能把失败 run 或旧 commit 记录当作通过。
 - `AF-RISK-SC-004`：当前只读 preflight 为 `needs_remote_readback`；必须按目标 commit/同一维护窗口重采 main protection readback 与 controlled PR 证据。
 - UX：current-bound 本地证据已通过；它只证明 `U` 及合法 evidence-only 后代，不替代签名 Release 或生产 smoke。
 - 签名 Release：尚未收到候选 commit 对应的明确确认句；未创建 tag、GitHub Release、SBOM/provenance、GHCR digest、checksum 或 cosign 资产。
@@ -68,5 +116,5 @@
 ## Residual 与回滚边界
 
 - 本候选继续关联 `AF-RISK-SC-002`、`AF-RISK-SC-004`、`AF-RISK-DATA-001`；不自动改变任何状态。
-- 生产回滚目标必须由 complete minor Release admission 与后续生产确认重新冻结；新 workspace/custom subject 写入后不能直接把 `v0.1.7` 当 compatibility floor。
+- 本地 compatibility floor 已冻结为 `c30fe8f59e9e9a64ed0ee9d2ef115a0ed5214dd4` 并通过 application rollback probe；签名 Release admission 仍须把对应 floor build 固定为 immutable image digest，生产确认再冻结实际回滚目标。
 - 数据库/uploads restore、DROP、数据修复、附件移动或删除仍需独立高风险确认。
