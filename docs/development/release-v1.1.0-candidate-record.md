@@ -5,25 +5,25 @@ scope: v1.1 Batch 11 local candidate completion and Release admission readiness
 summary: Local product, migration, compatibility floor, dependency and UX evidence pass while current-commit SC evidence and signed Release confirmation remain blocked
 evidenceClass: local-smoke
 claimScope: local-runtime
-evidenceUri: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md,output/playwright/v11-batch11-admission-046cc70/runtime-identity-046cc70.json,tasks/active/0035-v11-batch11-minor-release.md,https://github.com/AreaSong/AreaForge/actions/runs/29887252667
+evidenceUri: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md,output/playwright/v11-batch11-admission-046cc70/runtime-identity-046cc70.json,tasks/active/0035-v11-batch11-minor-release.md,https://github.com/AreaSong/AreaForge/actions/runs/29887252667,https://github.com/AreaSong/AreaForge/actions/runs/29888908012
 sourceBaseline:
   sourceDocs: workflow/versions/v1.1-learning-action-center.md,docs/development/v11-phase-packages.md,docs/development/validation-matrix.md,docs/development/high-risk-confirmation-packets.md
-  sourceHashOrCommit: 63a14328fa0ced8db04da41377b7efc73ed077cd
+  sourceHashOrCommit: 18a55df4cdf366a9fd71ed88192952026c81272a
 freshValidation:
   profile: full
-  commands: pnpm install --frozen-lockfile; pnpm audit:all; pnpm audit:prod; pnpm completion:evidence:selftest; DATABASE_URL=<isolated-v11compat-db> pnpm db:migrate:deploy; pnpm ops:v11:compatibility-floor:runtime:selftest seed; pnpm ops:v11:compatibility-floor:runtime:selftest probe; pnpm check; pnpm release:train:preflight; pnpm governance:preflight; pnpm docs:readiness; pnpm docs:completion; pnpm risk:preflight; pnpm residuals:validate; pnpm secrets:scan; git diff --check
+  commands: pnpm install --frozen-lockfile; pnpm audit:all; pnpm audit:prod; pnpm completion:evidence:selftest; pnpm quality:operability:typecheck; DATABASE_URL=<isolated-v11compat-db> pnpm db:migrate:deploy; pnpm ops:v11:compatibility-floor:runtime:selftest seed; pnpm ops:v11:compatibility-floor:runtime:selftest probe; AREAFORGE_OPS006_ISOLATED_DB=1 DATABASE_URL=<isolated-ops006-db> pnpm ops:ops-006:runtime:selftest; pnpm check; pnpm release:train:preflight; pnpm governance:preflight; pnpm docs:readiness; pnpm docs:completion; pnpm risk:preflight; pnpm residuals:validate; pnpm secrets:scan; git diff --check
   browserOrRuntimeEvidence: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md
-  checkedAt: 2026-07-22T03:35:55Z
+  checkedAt: 2026-07-22T03:45:35Z
 validationFingerprint:
   algorithm: sha256
-  gitHead: 63a14328fa0ced8db04da41377b7efc73ed077cd
+  gitHead: 18a55df4cdf366a9fd71ed88192952026c81272a
   worktreeState: clean
   worktreeHash: sha256:5e5a71dc06df0be8f737d81120b0b79d452afa110fe658a5ef1052a2aba307b6
   changedPaths: none
-  digest: sha256:52586347e47e39cc0b2421046ea51d573e882cd553efbbe19d299c3cc49d51cf
+  digest: sha256:6e7fc77acca16a7bf4cb28b932b178d0dfea9ab30203ac15abde5acbb79959ac
 unverified:
   skippedChecks: matching successful CI for the final candidate commit, fresh SC-004 remote readback and controlled PR, signed Release assets, production apply
-  reason: GitHub CI run 29887252667 for source commit 9ac4c413 failed the full dependency audit; local remediation requires a new frozen candidate commit and matching CI
+  reason: GitHub run 29888908012 passed both dependency audits but exposed an old OPS-006 Subject fixture typecheck mismatch; the fixture now passes isolated runtime and typecheck locally, so a new frozen candidate commit and matching CI are required
 blockers:
   product: none
   securityPrivacy: none
@@ -75,6 +75,7 @@ safetyFacts:
 - `pnpm --filter @areaforge/core typecheck`、`pnpm --filter @areaforge/web typecheck`、`pnpm --filter @areaforge/web lint`：PASS。
 - 五个一次性本地 PostgreSQL 数据库分别完成全部 20 个 migration；M1–3、M4、M5、M6、M8 runtime selftest：PASS；M8 重复 deploy 返回 `No pending migrations to apply`。
 - `pnpm check`：PASS，覆盖 workspace typecheck/test、Web lint、Prisma validate 与 Next.js production build。
+- `pnpm quality:operability:typecheck`：PASS；`OPS-006` fixture 已适配 v1.1 `Subject.legacyCode/stableKey`，并在一次性 PostgreSQL 16 空库应用全部 20 个 migration 后完成并发 runtime selftest：PASS。
 - `pnpm docs:readiness`、`pnpm docs:completion`、`pnpm docs:links`、`pnpm docs:evergreen`、`pnpm tasks:doctor`、`pnpm residuals:validate`：PASS。
 - `pnpm risk:preflight`、`pnpm governance:preflight`、`pnpm secrets:scan`、`pnpm enterprise:operability:preflight`、`pnpm skills:validate`：PASS。
 - `pnpm release:train:preflight`、`pnpm release:workflow:policy`、`pnpm release:admission:selftest`、`pnpm release:identity:probe:selftest`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater`：PASS。
@@ -91,7 +92,7 @@ safetyFacts:
 
 ## Admission 缺口
 
-- `AF-RISK-SC-002`：`9ac4c413…` 的 GitHub run `29887252667` 在 full dependency audit 失败；本地已修复 `sharp` / `fast-uri` high advisory，必须冻结新的候选 commit 并取得 matching successful CI 后重采，不能把失败 run 或旧 commit 记录当作通过。
+- `AF-RISK-SC-002`：`9ac4c413…` 的 run `29887252667` 在 full dependency audit 失败；`397636d9…` 的 run `29888908012` 已通过两个 audit，但在 operability scripts typecheck 暴露旧 OPS-006 Subject fixture。两处均已本地修复，仍必须取得最终候选 commit 的 matching successful CI 后重采，不能把任一失败 run 当作通过。
 - `AF-RISK-SC-004`：当前只读 preflight 为 `needs_remote_readback`；必须按目标 commit/同一维护窗口重采 main protection readback 与 controlled PR 证据。
 - UX：current-bound 本地证据已通过；它只证明 `U` 及合法 evidence-only 后代，不替代签名 Release 或生产 smoke。
 - 签名 Release：尚未收到候选 commit 对应的明确确认句；未创建 tag、GitHub Release、SBOM/provenance、GHCR digest、checksum 或 cosign 资产。
