@@ -1,10 +1,11 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { buildSc004Preflight } from "../ops/sc004-main-protection-preflight";
 
-const dir = mkdtempSync(path.join(tmpdir(), "areaforge-sc004-"));
+const dir = path.join(tmpdir(), `areaforge-sc004-${process.pid}-${Date.now()}`);
+mkdirSync(dir);
 try {
   const readbackPath = path.join(dir, "readback.json");
   const prPath = path.join(dir, "controlled-pr.json");
@@ -32,7 +33,9 @@ try {
   console.log("sc004 main protection preflight selftest passed.");
 } finally { rmSync(dir, { recursive: true, force: true }); }
 
-function assertStatus(value: Record<string, unknown>, expected: string): void { if (value.status !== expected) throw new Error(`expected ${expected}, got ${String(value.status)}`); }
+function assertStatus(value: Record<string, unknown>, expected: string): void {
+  if (value.status !== expected) throw new Error(`expected ${expected}, got ${String(value.status)}: ${JSON.stringify(value)}`);
+}
 function withHash(value: Record<string, unknown>, field: string): Record<string, unknown> {
   const withoutHash = { ...value, [field]: "" };
   return { ...value, [field]: `sha256:${createHash("sha256").update(stableStringify(withoutHash)).digest("hex")}` };
