@@ -79,7 +79,7 @@ pnpm ops:readiness
 
 ## 残余风险
 
-当前 lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.16`、Prisma dev 工具链的可选传递依赖 `@hono/node-server` 固定为 `1.19.13`、eslint/minimatch 传递依赖 `brace-expansion` 固定为 `1.1.16`，用于修复对应 advisory，同时避免升级 Next/Prisma/eslint 主版本。后续升级上游框架时应优先移除已不再需要的 override，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
+当前 lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.16`、Prisma dev 工具链的可选传递依赖 `@hono/node-server` 固定为 `1.19.13`、Prisma/ajv 传递依赖 `fast-uri` 固定为 `3.1.4`、Next 可选图像依赖 `sharp` 固定为 `0.35.3`、eslint/minimatch 传递依赖 `brace-expansion` 固定为 `1.1.16`，用于修复对应 advisory，同时避免升级 Next/Prisma/eslint 主版本。根工具依赖 `sharp` 同样固定到 `0.35.3`；后续升级 Next、Prisma 或 sharp 上游时应优先移除已不再需要的 override，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
 
 当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。`v0.1.7` 已产生真实签名 Release 的 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据，并已由服务器侧 updater 应用到生产；残余项 `AF-RISK-SC-001` 仍保持打开，是因为关闭台账需要维护者人工复核，生产 apply 不自动关闭 residual。
 

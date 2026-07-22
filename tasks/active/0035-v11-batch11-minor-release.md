@@ -12,8 +12,11 @@ ownerSkill: areaforge-release-operator
 validation:
   - pnpm release:train:preflight
   - pnpm governance:preflight
+  - pnpm ops:v11:compatibility-floor:runtime:selftest
 residualRiskIds:
   - AF-RISK-SC-002
+  - AF-RISK-SC-004
+  - AF-RISK-DATA-001
 releaseRequired: true
 ```
 
@@ -29,6 +32,8 @@ releaseRequired: true
 - 候选 commit 冻结后，SC-002/SC-004 必须按该 commit 重采；`v0.1.9` 或更早证据不得替代。
 - 签名 Release 确认句、tag、GitHub Release、生产 backup/migration/apply/smoke/rollback 均不在当前授权内。
 - `AREAFORGE_AUTO_APPLY=none` 保持不变；任何 residual 状态都不自动关闭。
+- 本地 compatibility floor probe 已通过，证据见 `docs/development/v11-compatibility-floor-evidence-20260722.md`；签名 Release 仍须固定 floor image digest。
+- `9ac4c413…` 的 GitHub CI 在 full dependency audit 失败；本地 high advisory 已修复，SC-002 必须等待新的冻结候选 commit 与 matching successful CI。
 
 ## Admission 判定
 

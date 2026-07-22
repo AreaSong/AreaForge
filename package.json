@@ -96,6 +96,7 @@
     "ops:v11:m5:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-m5-runtime.selftest.ts",
     "ops:v11:m6:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-m6-runtime.selftest.ts",
     "ops:v11:m8:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-m8-runtime.selftest.ts",
+    "ops:v11:compatibility-floor:runtime:selftest": "TSX_TSCONFIG_PATH=${TSX_TSCONFIG_PATH:-apps/web/tsconfig.json} tsx scripts/quality/v11-compatibility-floor-runtime.selftest.ts",
     "ops:ops-006:runtime:validate": "tsx scripts/quality/ops006-concurrency-runtime-validate.ts",
     "ops:ops-006:runtime:validate:selftest": "tsx scripts/quality/ops006-concurrency-runtime-validate.selftest.ts",
     "ops:ops-006:evidence:validate": "tsx scripts/quality/ops006-production-evidence-validate.ts",
@@ -245,7 +246,7 @@
     "@types/node": "^20.19.43",
     "dotenv": "^17.2.3",
     "prisma": "^7.6.0",
-    "sharp": "0.34.5",
+    "sharp": "0.35.3",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

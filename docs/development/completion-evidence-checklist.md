@@ -16,7 +16,9 @@ pnpm completion:evidence:validate <completion-evidence-record.md|txt>
 
 schema V2 默认重算并绑定当前 `HEAD`、tracked diff、staged/unstaged 状态、untracked 普通文件内容或
 symlink target、排序后的 changed paths、验证 commands 和 profile；同一路径在验证后再次变化也会返回
-stale。先填写 `freshValidation.commands` 和 `freshValidation.profile`，再运行：
+stale。仓库内记录文件自身从 fingerprint 排除，并仅允许其成为所绑定 `HEAD` 的单个 evidence-only
+后代 commit；该后代只能新增或修改这一份记录，任何第二个 commit、其他路径、merge、rename 或 delete
+都会返回 stale。先填写 `freshValidation.commands` 和 `freshValidation.profile`，再运行：
 
 ```bash
 pnpm completion:evidence:validate <record> --print-current-fingerprint

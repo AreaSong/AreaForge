@@ -453,6 +453,14 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - `pnpm check`、`pnpm smoke:local-ux`（知识入口可见；动机/通知/阶段 href 仍禁止；canvas API）
 - 覆盖：分层派生、布局 CAS、等价列表、桌面可拖/移动只读、`/knowledge/*`、legacy 重定向；动机/通知/AI API 不开放；不跑生产 migration；不关闭 residual
 
+#### Batch 11（完整 Migration Gate / compatibility floor）专项
+
+- 一次性 PostgreSQL 数据库名必须含 `v11compat`，按仓库顺序应用全部 migration，再次 deploy 必须返回无 pending migration
+- 当前候选运行 `pnpm ops:v11:compatibility-floor:runtime:selftest seed`，写入第二工作区、自定义科目和 workspace-scoped DailyReview/CheckIn/PeriodicReportDecision 复合唯一 fixture
+- detached checkout 冻结 floor commit，完成 frozen install、Prisma generate 与 Web production build；设置 `AREAFORGE_V11_COMPATIBILITY_FLOOR_ROOT` 和对应 `TSX_TSCONFIG_PATH` 后运行同一入口的 `probe`
+- floor probe 必须从同一已升级数据库读回两个工作区、自定义科目和复合唯一记录；不 restore、不 DROP additive schema、不把 `v0.1.7` 当 floor
+- 证据记录：`docs/development/v11-compatibility-floor-evidence-20260722.md`；本地 PASS 不替代 floor image digest、SC-002/SC-004、签名 Release 或生产 apply
+
 ## docs 100% 最终门禁
 
 - `pnpm docs:readiness` 只证明治理结构、入口和追踪关系存在。

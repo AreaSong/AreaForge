@@ -20,12 +20,15 @@ export function buildWorktreeValidationFingerprint(
   root: string,
   commandsValue: string,
   profile: ValidationProfile,
+  excludedPaths: string[] = [],
+  gitHeadOverride?: string,
 ): WorktreeValidationFingerprint {
-  const gitHead = git(root, ["rev-parse", "HEAD"]).trim();
-  const status = git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
-  const trackedDiff = git(root, ["diff", "--binary", "--full-index", "--no-ext-diff", "HEAD", "--"]);
-  const trackedPaths = nulList(git(root, ["diff", "--name-only", "-z", "HEAD", "--"]));
-  const untrackedPaths = nulList(git(root, ["ls-files", "--others", "--exclude-standard", "-z"]));
+  const gitHead = gitHeadOverride ?? git(root, ["rev-parse", "HEAD"]).trim();
+  const pathspec = [".", ...excludedPaths.map((file) => `:(exclude)${file}`)];
+  const status = git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", ...pathspec]);
+  const trackedDiff = git(root, ["diff", "--binary", "--full-index", "--no-ext-diff", "HEAD", "--", ...pathspec]);
+  const trackedPaths = nulList(git(root, ["diff", "--name-only", "-z", "HEAD", "--", ...pathspec]));
+  const untrackedPaths = nulList(git(root, ["ls-files", "--others", "--exclude-standard", "-z", "--", ...pathspec]));
   const changedPaths = [...new Set([...trackedPaths, ...untrackedPaths])].sort();
   const untracked = untrackedPaths.sort().map((file) => describeUntracked(root, file));
   const worktreeHash = sha256(JSON.stringify({

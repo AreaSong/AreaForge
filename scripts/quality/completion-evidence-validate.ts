@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync } from "node:fs";
+import { existsSync, lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
 import {
   buildEvidenceHash,
@@ -74,11 +74,10 @@ const blockerFields = [
   "blockers.gitCheckpoint",
 ] as const;
 
-const highRiskSafetyFields = [
+const r4SafetyFields = [
   "safetyFacts.productionWriteAttempted",
   "safetyFacts.serverCommandAttempted",
   "safetyFacts.backupRestoreAttempted",
-  "safetyFacts.migrationAttempted",
   "safetyFacts.updaterApplyAttempted",
   "safetyFacts.releaseCreated",
 ] as const;
@@ -90,14 +89,15 @@ function main(): void {
     process.exit(2);
   }
 
-  const raw = readRequiredFile(path.resolve(recordPath));
+  const absoluteRecordPath = path.resolve(recordPath);
+  const raw = readRequiredFile(absoluteRecordPath);
   const fields = parseIndentedKeyValueRecord(raw);
   const shapeOnly = process.argv.includes("--shape-only");
   if (process.argv.includes("--print-current-fingerprint")) {
-    printCurrentFingerprint(fields);
+    printCurrentFingerprint(fields, absoluteRecordPath);
     return;
   }
-  const issues = validateRecord(raw, fields, shapeOnly);
+  const issues = validateRecord(raw, fields, shapeOnly, absoluteRecordPath);
 
   if (issues.length > 0) {
     for (const issue of issues) {
@@ -120,7 +120,7 @@ function main(): void {
   console.log("claimBoundary: this validates the completion record shape only; it does not replace runtime, release, production, smoke, or long-term live gates.");
 }
 
-function validateRecord(raw: string, fields: Map<string, string>, shapeOnly: boolean): ValidationIssue[] {
+function validateRecord(raw: string, fields: Map<string, string>, shapeOnly: boolean, recordPath: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   for (const field of requiredScalarFields) {
@@ -133,7 +133,7 @@ function validateRecord(raw: string, fields: Map<string, string>, shapeOnly: boo
   const schemaVersion = completionSchemaVersion(fields);
   if (schemaVersion === 2) {
     for (const field of v2Fields) requireField(fields, field, issues);
-    validateV2Fingerprint(fields, shapeOnly, issues);
+    validateV2Fingerprint(fields, shapeOnly, recordPath, issues);
   } else if (!shapeOnly) {
     issues.push({ field: "schemaVersion", message: "legacy V1 records require --shape-only; current binding requires schemaVersion 2" });
   }
@@ -176,15 +176,21 @@ function validateRecord(raw: string, fields: Map<string, string>, shapeOnly: boo
     issues.push({ field: "residualRiskIds", message: "must use AF-RISK-* IDs when not none" });
   }
 
-  const highRiskFlagged = highRiskSafetyFields.some((field) => fields.get(field)?.toLowerCase() === "yes");
+  const migrationAttempted = fields.get("safetyFacts.migrationAttempted")?.toLowerCase() === "yes";
+  const r4Flagged = r4SafetyFields.some((field) => fields.get(field)?.toLowerCase() === "yes")
+    || (migrationAttempted && fields.get("safetyFacts.productionTouched")?.toLowerCase() === "yes");
   const highRiskAttempted = fields.get("highestRuntimeWriteBoundary")?.toLowerCase() === "r4"
-    || highRiskFlagged;
+    || r4Flagged
+    || migrationAttempted;
   const confirmation = fields.get("highRiskConfirmation")?.toLowerCase();
   if (highRiskAttempted && confirmation !== "yes") {
-    issues.push({ field: "highRiskConfirmation", message: "must be yes when R4 or high-risk release/production action is recorded" });
+    issues.push({ field: "highRiskConfirmation", message: "must be yes when R4, migration, or high-risk release/production action is recorded" });
   }
-  if (highRiskFlagged && fields.get("highestRuntimeWriteBoundary")?.toLowerCase() !== "r4") {
-    issues.push({ field: "highestRuntimeWriteBoundary", message: "must be R4 when high-risk production, release, migration, backup/restore, server, or updater action is recorded" });
+  if (r4Flagged && fields.get("highestRuntimeWriteBoundary")?.toLowerCase() !== "r4") {
+    issues.push({ field: "highestRuntimeWriteBoundary", message: "must be R4 when high-risk production, release, production migration, backup/restore, server, or updater action is recorded" });
+  }
+  if (migrationAttempted && fields.get("highestRuntimeWriteBoundary")?.toLowerCase() === "r0") {
+    issues.push({ field: "highestRuntimeWriteBoundary", message: "must be at least R1 when a local or fixture migration is recorded" });
   }
   if (!highRiskAttempted && confirmation === "yes") {
     issues.push({ field: "highRiskConfirmation", message: "should be no or not-applicable when no high-risk action is recorded" });
@@ -203,7 +209,7 @@ function validateRecord(raw: string, fields: Map<string, string>, shapeOnly: boo
   if (evidenceClass === "docs-only" && fields.get("highestRuntimeWriteBoundary")?.toLowerCase() !== "r0") {
     issues.push({ field: "highestRuntimeWriteBoundary", message: "must be R0 when evidenceClass is docs-only" });
   }
-  if (evidenceClass === "docs-only" && highRiskFlagged) {
+  if (evidenceClass === "docs-only" && (r4Flagged || migrationAttempted)) {
     issues.push({ field: "evidenceClass", message: "docs-only evidence cannot include release, production write, server, backup/restore, migration, or updater apply actions" });
   }
   if (fields.get("safetyFacts.releaseCreated")?.toLowerCase() === "yes" && !["release", "production"].includes(evidenceClass ?? "")) {
@@ -214,7 +220,7 @@ function validateRecord(raw: string, fields: Map<string, string>, shapeOnly: boo
   return issues;
 }
 
-function validateV2Fingerprint(fields: Map<string, string>, shapeOnly: boolean, issues: ValidationIssue[]): void {
+function validateV2Fingerprint(fields: Map<string, string>, shapeOnly: boolean, recordPath: string, issues: ValidationIssue[]): void {
   requireOneOf(fields, "freshValidation.profile", validationProfiles, issues);
   requireOneOf(fields, "validationFingerprint.algorithm", ["sha256"], issues);
   requireOneOf(fields, "validationFingerprint.worktreeState", ["clean", "dirty"], issues);
@@ -233,9 +239,19 @@ function validateV2Fingerprint(fields: Map<string, string>, shapeOnly: boolean, 
   if (shapeOnly) return;
   const profile = fields.get("freshValidation.profile") as ValidationProfile | undefined;
   if (!profile || !validationProfiles.includes(profile)) return;
+  const recordedGitHead = fields.get("validationFingerprint.gitHead") ?? "";
+  const exclusion = recordExclusion(recordPath);
+  const fingerprintHead = resolveFingerprintHead(recordedGitHead, exclusion[0], issues);
+  if (!fingerprintHead) return;
   let current;
   try {
-    current = buildWorktreeValidationFingerprint(process.cwd(), fields.get("freshValidation.commands") ?? "", profile);
+    current = buildWorktreeValidationFingerprint(
+      process.cwd(),
+      fields.get("freshValidation.commands") ?? "",
+      profile,
+      exclusion,
+      fingerprintHead,
+    );
   } catch (error) {
     issues.push({
       field: "validationFingerprint",
@@ -257,13 +273,18 @@ function validateV2Fingerprint(fields: Map<string, string>, shapeOnly: boolean, 
   }
 }
 
-function printCurrentFingerprint(fields: Map<string, string>): void {
+function printCurrentFingerprint(fields: Map<string, string>, recordPath: string): void {
   const profile = fields.get("freshValidation.profile") as ValidationProfile | undefined;
   if (!profile || !validationProfiles.includes(profile)) {
     console.error(`freshValidation.profile must be one of ${validationProfiles.join(", ")}`);
     process.exit(1);
   }
-  const fingerprint = buildWorktreeValidationFingerprint(process.cwd(), fields.get("freshValidation.commands") ?? "", profile);
+  const fingerprint = buildWorktreeValidationFingerprint(
+    process.cwd(),
+    fields.get("freshValidation.commands") ?? "",
+    profile,
+    recordExclusion(recordPath),
+  );
   console.log("schemaVersion: 2");
   console.log(`validationFingerprint.algorithm: ${fingerprint.algorithm}`);
   console.log(`validationFingerprint.gitHead: ${fingerprint.gitHead}`);
@@ -271,6 +292,44 @@ function printCurrentFingerprint(fields: Map<string, string>): void {
   console.log(`validationFingerprint.worktreeHash: ${fingerprint.worktreeHash}`);
   console.log(`validationFingerprint.changedPaths: ${fingerprint.changedPaths.join(",") || "none"}`);
   console.log(`validationFingerprint.digest: ${fingerprint.digest}`);
+}
+
+function recordExclusion(recordPath: string): string[] {
+  const repositoryRoot = realpathSync(process.cwd());
+  const canonicalRecordPath = realpathSync(recordPath);
+  const relative = path.relative(repositoryRoot, canonicalRecordPath);
+  if (!relative || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return [];
+  return [relative.split(path.sep).join("/")];
+}
+
+function resolveFingerprintHead(recordedGitHead: string, recordPath: string | undefined, issues: ValidationIssue[]): string | undefined {
+  const currentGitHead = git(["rev-parse", "HEAD"]);
+  if (recordedGitHead === currentGitHead) return currentGitHead;
+  if (recordPath && isSingleRecordOnlyDescendant(recordedGitHead, currentGitHead, recordPath)) return recordedGitHead;
+  issues.push({
+    field: "validationFingerprint.gitHead",
+    message: "is stale; only a single evidence-only descendant commit changing this record is allowed",
+  });
+  return undefined;
+}
+
+function isSingleRecordOnlyDescendant(base: string, current: string, recordPath: string): boolean {
+  if (!/^[a-f0-9]{40}$/.test(base)) return false;
+  const parents = git(["show", "-s", "--format=%P", current]).split(/\s+/).filter(Boolean);
+  if (parents.length !== 1 || parents[0] !== base) return false;
+  const changedPaths = git(["diff", "--name-only", "-z", "--no-renames", base, current, "--"])
+    .split("\0")
+    .filter(Boolean);
+  if (changedPaths.length !== 1 || changedPaths[0] !== recordPath) return false;
+  const status = git(["diff", "--name-status", "--no-renames", base, current, "--", recordPath]);
+  const [changeType, changedPath] = status.split("\t");
+  return (changeType === "A" || changeType === "M") && changedPath === recordPath;
+}
+
+function git(args: string[]): string {
+  const result = spawnSync("git", args, { cwd: process.cwd(), encoding: "utf8" });
+  if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed`);
+  return result.stdout.trim();
 }
 
 function completionSchemaVersion(fields: Map<string, string>): 1 | 2 {
