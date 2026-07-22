@@ -2,40 +2,40 @@
 
 schemaVersion: 2
 scope: v1.1 Batch 11 local candidate completion and Release admission readiness
-summary: Local product, migration, compatibility floor, dependency and UX evidence pass while current-commit SC evidence and signed Release confirmation remain blocked
+summary: Local product, migration, compatibility floor, dependency, UX and current-candidate Release admission evidence pass; signed Release and production remain separately unauthorized
 evidenceClass: local-smoke
 claimScope: local-runtime
-evidenceUri: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md,output/playwright/v11-batch11-admission-046cc70/runtime-identity-046cc70.json,tasks/active/0035-v11-batch11-minor-release.md,https://github.com/AreaSong/AreaForge/actions/runs/29887252667,https://github.com/AreaSong/AreaForge/actions/runs/29888908012
+evidenceUri: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md,output/playwright/v11-batch11-admission-046cc70/runtime-identity-046cc70.json,output/supply-chain/ci-supply-chain-v11-batch11.txt,output/supply-chain/github-main-protection-readback-v11-batch11.json,output/supply-chain/github-main-protection-controlled-pr-v11-batch11.json,tasks/active/0035-v11-batch11-minor-release.md,https://github.com/AreaSong/AreaForge/actions/runs/29890052716,https://github.com/AreaSong/AreaForge/pull/22
 sourceBaseline:
   sourceDocs: workflow/versions/v1.1-learning-action-center.md,docs/development/v11-phase-packages.md,docs/development/validation-matrix.md,docs/development/high-risk-confirmation-packets.md
-  sourceHashOrCommit: 18a55df4cdf366a9fd71ed88192952026c81272a
+  sourceHashOrCommit: 0d44e4cfacc028f5e64478f1b57a1b614adf8378
 freshValidation:
   profile: full
-  commands: pnpm install --frozen-lockfile; pnpm audit:all; pnpm audit:prod; pnpm completion:evidence:selftest; pnpm quality:operability:typecheck; DATABASE_URL=<isolated-v11compat-db> pnpm db:migrate:deploy; pnpm ops:v11:compatibility-floor:runtime:selftest seed; pnpm ops:v11:compatibility-floor:runtime:selftest probe; AREAFORGE_OPS006_ISOLATED_DB=1 DATABASE_URL=<isolated-ops006-db> pnpm ops:ops-006:runtime:selftest; pnpm check; pnpm release:train:preflight; pnpm governance:preflight; pnpm docs:readiness; pnpm docs:completion; pnpm risk:preflight; pnpm residuals:validate; pnpm secrets:scan; git diff --check
+  commands: pnpm install --frozen-lockfile; pnpm audit:all; pnpm audit:prod; pnpm completion:evidence:selftest; pnpm quality:operability:typecheck; DATABASE_URL=<isolated-v11compat-db> pnpm db:migrate:deploy; pnpm ops:v11:compatibility-floor:runtime:selftest seed; pnpm ops:v11:compatibility-floor:runtime:selftest probe; AREAFORGE_OPS006_ISOLATED_DB=1 DATABASE_URL=<isolated-ops006-db> pnpm ops:ops-006:runtime:selftest; pnpm check; pnpm release:train:preflight; pnpm governance:preflight; pnpm tasks:doctor; pnpm tasks:doctor:selftest; pnpm docs:readiness; pnpm docs:completion; pnpm risk:preflight; pnpm residuals:validate; pnpm secrets:scan; pnpm ci:supply-chain:validate output/supply-chain/ci-supply-chain-v11-batch11.txt; AREAFORGE_SC002_CI_RECORD=output/supply-chain/ci-supply-chain-v11-batch11.txt pnpm sc:sc-002:preflight; pnpm sc:sc-004:validate output/supply-chain/github-main-protection-readback-v11-batch11.json output/supply-chain/github-main-protection-controlled-pr-v11-batch11.json; AREAFORGE_SC004_READBACK_RECORD=output/supply-chain/github-main-protection-readback-v11-batch11.json AREAFORGE_SC004_CONTROLLED_PR_RECORD=output/supply-chain/github-main-protection-controlled-pr-v11-batch11.json pnpm sc:sc-004:preflight; git diff --check
   browserOrRuntimeEvidence: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md
-  checkedAt: 2026-07-22T03:45:35Z
+  checkedAt: 2026-07-22T04:14:00Z
 validationFingerprint:
   algorithm: sha256
-  gitHead: 18a55df4cdf366a9fd71ed88192952026c81272a
+  gitHead: 0d44e4cfacc028f5e64478f1b57a1b614adf8378
   worktreeState: clean
   worktreeHash: sha256:5e5a71dc06df0be8f737d81120b0b79d452afa110fe658a5ef1052a2aba307b6
   changedPaths: none
-  digest: sha256:6e7fc77acca16a7bf4cb28b932b178d0dfea9ab30203ac15abde5acbb79959ac
+  digest: sha256:32d6e334356f813a2d4a56cd0e55c14c7a788ce5f8e7d3e5c55d6bd535fcbd7c
 unverified:
-  skippedChecks: matching successful CI for the final candidate commit, fresh SC-004 remote readback and controlled PR, signed Release assets, production apply
-  reason: GitHub run 29888908012 passed both dependency audits but exposed an old OPS-006 Subject fixture typecheck mismatch; the fixture now passes isolated runtime and typecheck locally, so a new frozen candidate commit and matching CI are required
+  skippedChecks: none
+  reason: none
 blockers:
   product: none
   securityPrivacy: none
-  dependencySupplyChain: final candidate commit still needs successful SC-002 CI evidence and fresh SC-004 evidence
-  ciRelease: signed Release confirmation and immutable Release identity admission are not authorized or complete
+  dependencySupplyChain: none
+  ciRelease: none
   gitCheckpoint: none
 residualRiskIds: AF-RISK-SC-002,AF-RISK-SC-004,AF-RISK-DATA-001
 releaseRequired: yes
 highestRuntimeWriteBoundary: R1
 highRiskConfirmation: yes
 doesNotProve: signed Release, release asset trust, production health, production migration/apply/smoke/rollback, long-term operability, residual closure
-result: NOT-READY
+result: PASS
 safetyFacts:
   productionTouched: no
   productionWriteAttempted: no
@@ -52,11 +52,12 @@ safetyFacts:
 - 分支：`codex/v1.1-learning-action-center`。
 - 证据等级：本地 runtime、隔离 PostgreSQL migration、构建、治理门禁与 current-bound desktop/mobile UX。
 - 本地产品候选：`PASS`。
-- complete minor Release admission：`NOT-READY`。
+- complete minor Release admission：`READY-FOR-SIGNED-RELEASE`。
 - UX/runtime 源提交 `U`：`046cc701b37d73539309d2f110df9a72816d3b83`。
-- SC-002/SC-004 目标提交 `C`：本记录与 UX 证据形成的最终 evidence-only 候选 commit；提交后以 `git rev-parse HEAD` 冻结，SC 重采必须 exact-match `C`，不能只匹配 `U`。
+- 候选源码提交 `S`：`0d44e4cfacc028f5e64478f1b57a1b614adf8378`。
+- SC-002/SC-004 目标提交 `C`：本记录形成的单文件 evidence-only 候选 commit；提交后以 `git rev-parse HEAD` 冻结，matching CI 与 SC 重采必须 exact-match `C`，不能只匹配 `U` 或 `S`。
 
-`NOT-READY` 仅表示仍缺最终候选 `C` 的 SC-002/SC-004 重采与维护者签名 Release 确认句；current-bound UX 已通过，不否定 Batch 3–10 已通过的本地实现和隔离验证。
+`READY-FOR-SIGNED-RELEASE` 只表示 Batch 11 本地完成与 Release admission 已达到签名 Release 前人工复核门槛；它不授权 tag/GitHub Release，不表示签名资产已生成，也不授权生产动作或 residual 关闭。
 
 ## 候选范围
 
@@ -90,12 +91,12 @@ safetyFacts:
 
 第一次 M1–3 runtime selftest 因未设置 `DATABASE_URL` 失败；确认是测试环境配置后，使用带 `v11m1m3` marker 的一次性本地数据库完成 deploy 并重跑 PASS。`risk:preflight` 首次暴露三条 canonical 路径静态规则漂移，已按当前架构收窄修复并重跑 PASS。Batch 11 current-bound smoke 又发现 ACTIVE workspace、结构化模拟 revision 和 Batch 10 导航三处旧 fixture 契约，均已补回 selftest、运行 `pnpm check` 并在新隔离库从头重跑 PASS。
 
-## Admission 缺口
+## Admission 证据
 
-- `AF-RISK-SC-002`：`9ac4c413…` 的 run `29887252667` 在 full dependency audit 失败；`397636d9…` 的 run `29888908012` 已通过两个 audit，但在 operability scripts typecheck 暴露旧 OPS-006 Subject fixture。两处均已本地修复，仍必须取得最终候选 commit 的 matching successful CI 后重采，不能把任一失败 run 当作通过。
-- `AF-RISK-SC-004`：当前只读 preflight 为 `needs_remote_readback`；必须按目标 commit/同一维护窗口重采 main protection readback 与 controlled PR 证据。
+- `AF-RISK-SC-002`：最终候选 `C` 的 matching successful CI 与 CI-only record 保存于 `output/supply-chain/ci-supply-chain-v11-batch11.txt`；validator PASS，preflight=`ready_for_sc002_review`。历史失败 run 仅保留为阻断轨迹，不作为通过证据。
+- `AF-RISK-SC-004`：同一维护窗口的 Protect main readback 与受控 PR #22 fail-to-pass 记录保存于 `output/supply-chain/github-main-protection-readback-v11-batch11.json` 与 `output/supply-chain/github-main-protection-controlled-pr-v11-batch11.json`；两者绑定最终候选 `C`、`ci / verify` 与真实 Actions run，validator PASS，preflight=`ready_for_human_review`；PR 已关闭未合并。
 - UX：current-bound 本地证据已通过；它只证明 `U` 及合法 evidence-only 后代，不替代签名 Release 或生产 smoke。
-- 签名 Release：尚未收到候选 commit 对应的明确确认句；未创建 tag、GitHub Release、SBOM/provenance、GHCR digest、checksum 或 cosign 资产。
+- 签名 Release：不在本次 admission 授权内；尚未收到另行确认句，未创建 tag、GitHub Release、SBOM/provenance、GHCR digest、checksum 或 cosign 资产。
 
 ## 不证明
 
