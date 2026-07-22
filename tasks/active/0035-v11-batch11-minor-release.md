@@ -33,7 +33,7 @@ releaseRequired: true
 - 签名 Release 确认句、tag、GitHub Release、生产 backup/migration/apply/smoke/rollback 均不在当前授权内。
 - `AREAFORGE_AUTO_APPLY=none` 保持不变；任何 residual 状态都不自动关闭。
 - 本地 compatibility floor probe 已通过，证据见 `docs/development/v11-compatibility-floor-evidence-20260722.md`；签名 Release 仍须固定 floor image digest。
-- `9ac4c413…` 的 GitHub CI 在 full dependency audit 失败；本地 high advisory 已修复，SC-002 必须等待新的冻结候选 commit 与 matching successful CI。
+- `9ac4c413…` 的 GitHub run `29887252667` 在 full dependency audit 失败；`397636d9…` 的 run `29888908012` 通过两个 audit 后在 operability scripts typecheck 暴露旧 OPS-006 Subject fixture。两处均已本地修复，SC-002 必须等待最终冻结候选 commit 与 matching successful CI。
 
 ## Admission 判定
 
