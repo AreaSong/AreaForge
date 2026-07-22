@@ -130,7 +130,8 @@
         "areaforge-supply-chain"
       ],
       "taskRefs": [
-        "tasks/backlog/0023-github-main-protection.md"
+        "tasks/backlog/0023-github-main-protection.md",
+        "tasks/active/0035-v11-batch11-minor-release.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
@@ -273,7 +274,8 @@
       ],
       "taskRefs": [
         "tasks/done/0029-v11-batch5-resources-import-confirm.md",
-        "tasks/done/0034-v11-batch10-stage-simulation-loop.md"
+        "tasks/done/0034-v11-batch10-stage-simulation-loop.md",
+        "tasks/active/0035-v11-batch11-minor-release.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null

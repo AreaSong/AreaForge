@@ -62,9 +62,9 @@ schema V2 为每个 item 增加：
 - `AF-RISK-OPS-006` -> `tasks/active/0020-business-state-concurrency.md`
 - `AF-RISK-OPS-007` -> `tasks/active/0021-attachment-staging-intent.md`
 - `AF-RISK-OPS-008` -> `tasks/active/0022-updater-phase-journal-hold.md`
-- `AF-RISK-SC-004` -> `tasks/backlog/0023-github-main-protection.md`
+- `AF-RISK-SC-004` -> `tasks/backlog/0023-github-main-protection.md`、`tasks/active/0035-v11-batch11-minor-release.md`（仅重采 v1.1 Release admission 证据，不改变 residual 状态）
 - `AF-RISK-UX-001` -> `tasks/active/0024-ux-residual-closure-review.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`
-- `AF-RISK-DATA-001` -> `tasks/done/0029-v11-batch5-resources-import-confirm.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`
+- `AF-RISK-DATA-001` -> `tasks/done/0029-v11-batch5-resources-import-confirm.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`、`tasks/active/0035-v11-batch11-minor-release.md`（仅保留 Release admission 未关闭清单，不改变 deferred-work 状态）
 - `AF-RISK-SC-002` -> `tasks/active/0035-v11-batch11-minor-release.md`（v1.1 Release 前须按新 commit 重采 CI/供应链证据；当前状态不因任务移动而改变）
 - 其余 item 的 `taskRefs=[]`；当前没有 task promotion waiver。
 
