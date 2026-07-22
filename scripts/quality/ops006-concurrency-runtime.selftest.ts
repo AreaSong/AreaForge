@@ -355,7 +355,7 @@ async function createBaseFixture(): Promise<BaseFixture> {
     data: { email: `ops006-${createHash("sha256").update(String(Date.now() + Math.random())).digest("hex").slice(0, 12)}@example.invalid`, passwordHash: "fixture" },
   });
   const subject = await prisma.subject.create({
-    data: { code: "MATH", name: "OPS-006 fixture", color: "#111111" },
+    data: { legacyCode: "MATH", stableKey: "math", name: "OPS-006 fixture", color: "#111111" },
   });
   const node = await prisma.syllabusNode.create({
     data: { subjectId: subject.id, title: "OPS-006 fixture", kind: "TOPIC" },
