@@ -3,6 +3,7 @@ import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { serializeAttachment } from "./attachments-service";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 import type { NoteDto, NoteMasteryStatusDto } from "./types";
 
 export interface CreateNoteInput {
@@ -19,8 +20,10 @@ export interface CreateNoteInput {
   nextReviewAt?: string | null;
 }
 
-export async function listNotes(): Promise<NoteDto[]> {
+export async function listNotes(actorId: string): Promise<NoteDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
   const notes = await prisma.note.findMany({
+    where: { subject: { workspaceId: workspace.id } },
     include: {
       subject: true,
       syllabusNode: true,
@@ -38,9 +41,10 @@ export async function listNotes(): Promise<NoteDto[]> {
   return notes.map(serializeNote);
 }
 
-export async function getNoteById(noteId: string): Promise<NoteDto | null> {
-  const note = await prisma.note.findUnique({
-    where: { id: noteId },
+export async function getNoteById(noteId: string, actorId: string): Promise<NoteDto | null> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const note = await prisma.note.findFirst({
+    where: { id: noteId, subject: { workspaceId: workspace.id } },
     include: {
       subject: true,
       syllabusNode: true,
@@ -56,14 +60,15 @@ export async function getNoteById(noteId: string): Promise<NoteDto | null> {
 }
 
 export async function createNote(input: CreateNoteInput, actorId: string): Promise<NoteDto> {
-  await assertSubjectExists(input.subjectId);
+  const workspace = await resolveActiveWorkspace(actorId);
+  await assertSubjectExists(input.subjectId, workspace.id);
 
   if (input.syllabusNodeId) {
     await assertSyllabusNodeBelongsToSubject(input.syllabusNodeId, input.subjectId);
   }
 
   if (input.taskId) {
-    await assertTaskBelongsToSubject(input.taskId, input.subjectId);
+    await assertTaskBelongsToSubject(input.taskId, input.subjectId, workspace.id);
   }
 
   const kind = input.kind ?? "GENERAL";
@@ -75,7 +80,7 @@ export async function createNote(input: CreateNoteInput, actorId: string): Promi
   if (relatedIds.length > 0 || input.syllabusNodeId) {
     const nodeIds = Array.from(new Set([...(input.syllabusNodeId ? [input.syllabusNodeId] : []), ...relatedIds]));
     const nodes = await prisma.syllabusNode.findMany({
-      where: { id: { in: nodeIds } },
+      where: { id: { in: nodeIds }, subject: { workspaceId: workspace.id } },
       select: { id: true, subjectId: true },
     });
     const nodeSubjectIds = Object.fromEntries(nodes.map((node) => [node.id, node.subjectId]));
@@ -123,9 +128,9 @@ export async function createNote(input: CreateNoteInput, actorId: string): Promi
   return serializeNote(note);
 }
 
-async function assertSubjectExists(subjectId: string): Promise<void> {
-  const subject = await prisma.subject.findUnique({
-    where: { id: subjectId },
+async function assertSubjectExists(subjectId: string, workspaceId: string): Promise<void> {
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, workspaceId },
     select: { id: true },
   });
 
@@ -134,9 +139,9 @@ async function assertSubjectExists(subjectId: string): Promise<void> {
   }
 }
 
-async function assertTaskBelongsToSubject(taskId: string, subjectId: string): Promise<void> {
-  const task = await prisma.studyTask.findUnique({
-    where: { id: taskId },
+async function assertTaskBelongsToSubject(taskId: string, subjectId: string, workspaceId: string): Promise<void> {
+  const task = await prisma.studyTask.findFirst({
+    where: { id: taskId, subject: { workspaceId } },
     select: { subjectId: true },
   });
 

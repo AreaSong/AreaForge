@@ -27,9 +27,9 @@ export default async function SimulationPage() {
   }
 
   const [subjects, workspace, longTermRisks] = await Promise.all([
-    listSubjects(),
-    getSimulationWorkspace(),
-    getLongTermRiskSummary(),
+    listSubjects(user!.id),
+    getSimulationWorkspace(user!.id),
+    getLongTermRiskSummary(user!.id),
   ]);
 
   return (

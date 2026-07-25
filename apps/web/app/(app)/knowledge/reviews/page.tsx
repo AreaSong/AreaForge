@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function KnowledgeReviewsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const schedules = await listReviewSchedules(user.id, { status: "ACTIVE" });
+  const schedules = await listReviewSchedules(user.id, { status: "ACTIVE", excludeBridged: true });
 
   return (
     <div className="space-y-4">

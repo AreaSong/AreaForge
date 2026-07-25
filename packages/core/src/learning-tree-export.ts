@@ -13,6 +13,36 @@ export interface LearningTreeExportSubject {
   title: string;
   groupKey?: string;
   nodes: LearningTreeExportNode[];
+  cards?: LearningTreeExportCard[];
+  resources?: LearningTreeExportResource[];
+  plans?: LearningTreeExportPlan[];
+}
+
+export interface LearningTreeExportCard {
+  stableKey: string;
+  title: string;
+  kind: string;
+  subjectKey: string;
+  primaryNode?: string;
+  relatedNodes?: string[];
+  bodyMarkdown: string;
+}
+
+export interface LearningTreeExportResource {
+  stableKey: string;
+  title: string;
+  subjectKey: string;
+  url: string;
+}
+
+export interface LearningTreeExportPlan {
+  stableKey: string;
+  title: string;
+  subjectKey: string;
+  milestoneKey?: string;
+  durationMinutes?: number;
+  dependsOn?: string;
+  dependencyType?: string;
 }
 
 export interface LearningTreeExportGroup {
@@ -52,9 +82,48 @@ export function exportLearningTreeMarkdown(input: LearningTreeExportInput): stri
     for (const node of subject.nodes) {
       writeNode(lines, node);
     }
+    for (const card of subject.cards ?? []) {
+      writeCard(lines, card);
+    }
+    for (const resource of subject.resources ?? []) {
+      writeResource(lines, resource);
+    }
+    for (const plan of subject.plans ?? []) {
+      writePlan(lines, plan);
+    }
   }
 
   return `${lines.join("\n").trimEnd()}\n`;
+}
+
+function writeCard(lines: string[], card: LearningTreeExportCard): void {
+  const related = card.relatedNodes?.length ? ` relatedNodes="${escapeAttr(card.relatedNodes.join(","))}"` : "";
+  const primary = card.primaryNode ? ` primaryNode="${escapeAttr(card.primaryNode)}"` : "";
+  lines.push(
+    `:::af-card{#${card.stableKey} kind="${escapeAttr(card.kind)}" title="${escapeAttr(card.title)}" subjectKey="${escapeAttr(card.subjectKey)}"${primary}${related}}`,
+  );
+  if (card.bodyMarkdown.trim()) lines.push(card.bodyMarkdown.trimEnd());
+  lines.push(":::", "");
+}
+
+function writeResource(lines: string[], resource: LearningTreeExportResource): void {
+  lines.push(
+    `::af-resource{#${resource.stableKey} kind="LINK" subjectKey="${escapeAttr(resource.subjectKey)}" title="${escapeAttr(resource.title)}" url="${escapeAttr(resource.url)}"}`,
+    "",
+  );
+}
+
+function writePlan(lines: string[], plan: LearningTreeExportPlan): void {
+  const attrs = [
+    `#${plan.stableKey}`,
+    `subjectKey="${escapeAttr(plan.subjectKey)}"`,
+    `title="${escapeAttr(plan.title)}"`,
+  ];
+  if (plan.milestoneKey) attrs.push(`milestoneKey="${escapeAttr(plan.milestoneKey)}"`);
+  if (plan.durationMinutes != null) attrs.push(`durationMinutes="${plan.durationMinutes}"`);
+  if (plan.dependsOn) attrs.push(`dependsOn="${escapeAttr(plan.dependsOn)}"`);
+  if (plan.dependencyType) attrs.push(`dependencyType="${escapeAttr(plan.dependencyType)}"`);
+  lines.push(`::af-plan{${attrs.join(" ")}}`, "");
 }
 
 function writeNode(lines: string[], node: LearningTreeExportNode): void {

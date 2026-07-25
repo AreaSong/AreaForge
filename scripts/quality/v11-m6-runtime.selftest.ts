@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { prisma } from "../../packages/db/src/index";
 import { ApiError } from "../../apps/web/lib/api/responses";
 import { listWorkspaceCheckIns } from "../../apps/web/lib/study/check-in-service";
+import { createMistake } from "../../apps/web/lib/study/mistakes-service";
 import { convertPlanInboxItem, createPlanInboxItem } from "../../apps/web/lib/study/plan-inbox-service";
 import {
   applyRecoveryDayProgress,
@@ -22,6 +23,7 @@ import {
   pauseReviewSchedule,
   resumeReviewSchedule,
 } from "../../apps/web/lib/study/review-schedule-service";
+import { getReviewTarget } from "../../apps/web/lib/study/review-target-service";
 import { completeStudyTask } from "../../apps/web/lib/study/service";
 import { getStudyDayRange } from "../../apps/web/lib/study/date";
 
@@ -49,6 +51,7 @@ try {
   await verifyMigration6Schema();
   await resetTables();
   const seed = await seedWorkspace();
+  await verifyMistakeCompletenessGate(seed);
   await verifyScheduleConstraints(seed);
   await verifyConfirmIdempotencyAndCheckIn(seed);
   await verifyCorrectionSingleSuccessor(seed);
@@ -194,11 +197,82 @@ async function seedWorkspace() {
     data: {
       subjectId: subject.id,
       title: "Mistake 1",
-      cause: "UNKNOWN",
+      cause: "WRONG_APPROACH",
+      correctIdea: "先识别约束，再选择正确方法。",
       nextReviewAt: getStudyDayRange().start,
     },
   });
   return { user, workspace, subject, note, mistake };
+}
+
+async function verifyMistakeCompletenessGate(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  await assert.rejects(
+    () => createMistake({
+      subjectId: seed.subject.id,
+      title: "Missing explicit cause",
+      cause: "unknown",
+      correctIdea: "已有正确思路",
+    }, seed.user.id),
+    (error: unknown) => error instanceof ApiError && error.code === "MISTAKE_INCOMPLETE" && error.status === 400,
+  );
+  await assert.rejects(
+    () => createMistake({
+      subjectId: seed.subject.id,
+      title: "Missing correct idea",
+      cause: "wrong_approach",
+    }, seed.user.id),
+    (error: unknown) => error instanceof ApiError && error.code === "MISTAKE_INCOMPLETE" && error.status === 400,
+  );
+
+  const legacyIncomplete = await prisma.mistake.create({
+    data: {
+      subjectId: seed.subject.id,
+      title: "Legacy incomplete mistake",
+      cause: "UNKNOWN",
+      correctIdea: null,
+      nextReviewAt: getStudyDayRange().start,
+    },
+  });
+  const dueDate = getStudyDayRange().start.toISOString();
+  await assert.rejects(
+    () => materializeReviewSchedule(seed.user.id, {
+      targetType: "MISTAKE",
+      mistakeId: legacyIncomplete.id,
+      dueDate,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_TARGET_INCOMPLETE" && error.status === 409,
+  );
+
+  const legacySchedule = await prisma.reviewSchedule.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      targetType: "MISTAKE",
+      mistakeId: legacyIncomplete.id,
+      status: "ACTIVE",
+      dueDate: getStudyDayRange().start,
+      revision: 1,
+      actorId: seed.user.id,
+    },
+  });
+  const target = await getReviewTarget(seed.user.id, legacySchedule.id);
+  assert.equal(target.canPass, false);
+  await assert.rejects(
+    () => confirmReviewEvent(seed.user.id, legacySchedule.id, {
+      idempotencyKey: `legacy-incomplete-${randomUUID()}`,
+      expectedRevision: legacySchedule.revision,
+      result: "PASSED",
+      durationSeconds: 60,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_TARGET_INCOMPLETE" && error.status === 409,
+  );
+  assert.equal(await prisma.reviewEvent.count({ where: { reviewScheduleId: legacySchedule.id } }), 0);
+  pass("mistake_completeness_gate", {
+    legacyMistakeId: legacyIncomplete.id,
+    legacyScheduleId: legacySchedule.id,
+    canPass: target.canPass,
+  });
 }
 
 async function verifyScheduleConstraints(seed: Awaited<ReturnType<typeof seedWorkspace>>): Promise<void> {
@@ -411,6 +485,15 @@ async function verifyBridgeAndInboxConvert(
   assert.equal(afterAbandon.status, "ACTIVE");
   assert.ok(afterAbandon.dueDate);
 
+  const primaryNode = await prisma.syllabusNode.create({
+    data: { subjectId: seed.subject.id, title: "Inbox primary", kind: "TOPIC", stableKey: "inbox-primary" },
+  });
+  const relatedNode = await prisma.syllabusNode.create({
+    data: { subjectId: seed.subject.id, title: "Inbox related", kind: "PROBLEM_TYPE", stableKey: "inbox-related" },
+  });
+  const predecessor = await prisma.studyTask.create({
+    data: { subjectId: seed.subject.id, title: "Inbox predecessor", type: "focus", plannedDate: getStudyDayRange().start, estimatedMinutes: 20 },
+  });
   const inbox = await createPlanInboxItem(seed.user.id, {
     stableKey: `inbox-${randomUUID()}`,
     originKey: `origin-${randomUUID()}`,
@@ -422,26 +505,71 @@ async function verifyBridgeAndInboxConvert(
     plannedDate: getStudyDayRange().start.toISOString(),
     estimatedMinutes: 30,
     type: "focus",
+    primaryNodeId: primaryNode.id,
+    relatedNodeIds: [relatedNode.id],
+    predecessorTasks: [{ taskId: predecessor.id, dependencyType: "HARD" }],
   });
+  const conversionKey = `inbox-convert-${randomUUID()}`;
   const converted = await convertPlanInboxItem(seed.user.id, inbox.id, {
     expectedRevision: inbox.revision,
+    idempotencyKey: conversionKey,
   });
   assert.equal(converted.status, "CONVERTED");
   assert.ok(converted.convertedTaskId);
 
-  try {
-    await convertPlanInboxItem(seed.user.id, inbox.id, {
-      expectedRevision: converted.revision,
-    });
-    assert.fail("expected already converted");
-  } catch (error) {
-    assert.ok(error instanceof ApiError);
-    assert.equal(error.code, "PLAN_INBOX_NOT_OPEN");
-  }
+  const reused = await convertPlanInboxItem(seed.user.id, inbox.id, {
+    expectedRevision: inbox.revision,
+    idempotencyKey: conversionKey,
+  });
+  assert.equal(reused.convertedTaskId, converted.convertedTaskId);
+  assert.equal(await prisma.studyTask.count({ where: { id: converted.convertedTaskId ?? "" } }), 1);
+  assert.equal(await prisma.studyTaskRelatedSyllabusNode.count({ where: { taskId: converted.convertedTaskId ?? "", syllabusNodeId: relatedNode.id } }), 1);
+  assert.equal(await prisma.taskDependency.count({ where: { predecessorId: predecessor.id, successorId: converted.convertedTaskId ?? "", type: "HARD" } }), 1);
+
+  await assert.rejects(
+    () => convertPlanInboxItem(seed.user.id, inbox.id, { expectedRevision: converted.revision, idempotencyKey: `different-${randomUUID()}` }),
+    (error: unknown) => error instanceof ApiError && error.code === "PLAN_INBOX_ALREADY_CONVERTED",
+  );
+
+  const incomplete = await createPlanInboxItem(seed.user.id, {
+    stableKey: `incomplete-${randomUUID()}`,
+    originKey: `incomplete-${randomUUID()}`,
+    originVersion: 1,
+    originType: "SELFTEST",
+    originSnapshot: { source: "selftest" },
+    title: "Incomplete item",
+    subjectId: seed.subject.id,
+  });
+  await assert.rejects(
+    () => convertPlanInboxItem(seed.user.id, incomplete.id, { expectedRevision: incomplete.revision, idempotencyKey: `incomplete-${randomUUID()}` }),
+    (error: unknown) => error instanceof ApiError && error.code === "PLAN_INBOX_INCOMPLETE",
+  );
+
+  const unresolved = await createPlanInboxItem(seed.user.id, {
+    stableKey: `unresolved-${randomUUID()}`,
+    originKey: `unresolved-${randomUUID()}`,
+    originVersion: 1,
+    originType: "SELFTEST",
+    originSnapshot: { source: "selftest" },
+    title: "Unresolved dependency",
+    subjectId: seed.subject.id,
+    plannedDate: getStudyDayRange().start.toISOString(),
+    estimatedMinutes: 25,
+  });
+  await prisma.planInboxDependencyRef.create({
+    data: { inboxItemId: unresolved.id, targetType: "INBOX_STABLE_REF", dependencyType: "SOFT", planStableKey: "missing-plan", planOriginVersion: 1 },
+  });
+  await assert.rejects(
+    () => convertPlanInboxItem(seed.user.id, unresolved.id, { expectedRevision: unresolved.revision, idempotencyKey: `unresolved-${randomUUID()}` }),
+    (error: unknown) => error instanceof ApiError && error.code === "PLAN_INBOX_DEPENDENCY_UNRESOLVED",
+  );
+  assert.equal(await prisma.studyTask.count({ where: { title: "Unresolved dependency" } }), 0);
 
   pass("bridge_and_inbox_convert", {
     abandonedScheduleId: afterAbandon.id,
     convertedTaskId: converted.convertedTaskId ?? "",
+    dependencyCount: 1,
+    relatedNodeCount: 1,
   });
 }
 

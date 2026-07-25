@@ -52,15 +52,18 @@ async function seedWithCandidate(): Promise<void> {
       name: "Compatibility Second",
       activate: true,
     });
+    const firstCurrent = await prisma.examWorkspace.findUniqueOrThrow({ where: { id: first.id } });
     await services.createWorkspaceSubject("v11-compat-user", first.id, {
       stableKey: "custom-first",
       name: "Custom First",
       color: "#2563eb",
+      expectedWorkspaceRevision: firstCurrent.revision,
     });
     await services.createWorkspaceSubject("v11-compat-user", second.id, {
       stableKey: "custom-second",
       name: "Custom Second",
       color: "#16a34a",
+      expectedWorkspaceRevision: second.revision,
     });
 
     const sharedDate = new Date("2026-07-22T00:00:00.000Z");

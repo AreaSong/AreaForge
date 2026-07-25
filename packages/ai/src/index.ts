@@ -456,24 +456,40 @@ export function validateStageAdjustmentAdvice(value: unknown): StageAdjustmentAd
 
 export function createFallbackLearningTreeDraftAdvice(context: LearningTreeDraftContext): LearningTreeDraftAdvice {
   const label = context.rootNodeLabel ?? context.subjectLabel ?? "学习树";
+  const headings = context.selectedText
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^(?:#{1,6}|[-*+]|\d+[.)])\s*/, "").trim())
+    .filter(Boolean)
+    .slice(0, 24)
+    .map((line) => `# ${line.slice(0, 120)}`);
+  const scopeMetadata = [
+    context.scope !== "global" ? "subjectKey: __AREAFORGE_ACTIVE_SUBJECT__" : null,
+    context.scope === "branch" ? "rootNodeKey: __AREAFORGE_ACTIVE_ROOT_NODE__" : null,
+  ].filter((line): line is string => Boolean(line));
+  const globalSubject = context.scope === "global"
+    ? [`::af-subject{title="${escapeLearningTreeAttribute(context.subjectLabel ?? "AI 学习树草稿")}"}`, ""]
+    : [];
   return {
     status: localFallbackStatus,
     schemaVersion: "learning-tree-draft-v1",
     markdownDraft: [
       "---",
+      "protocol: AREAFORGE_LEARNING_TREE_V1",
       `scope: ${context.scope}`,
-      `title: ${label}`,
+      "workspaceKey: __AREAFORGE_ACTIVE_WORKSPACE__",
+      ...scopeMetadata,
       "---",
       "",
-      `# ${label}`,
-      "",
-      "## 草稿节点",
-      "",
-      `- ${context.selectedText.slice(0, 120).trim() || "待整理考点"}`,
+      ...globalSubject,
+      ...(headings.length > 0 ? headings : [`# ${label}`]),
     ].join("\n"),
     notes: ["本地规则草稿，仍须经过学习树 preview/confirm。"],
     reason: "AI disabled 或不可用，仅基于选中文本生成本地 Markdown 草稿。",
   };
+}
+
+function escapeLearningTreeAttribute(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').slice(0, 120);
 }
 
 export function createFallbackKnowledgeCardDraftAdvice(context: KnowledgeCardDraftContext): KnowledgeCardDraftAdvice {

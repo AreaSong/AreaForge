@@ -7,7 +7,7 @@ import { listPlanInboxItems } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";
 
-export default async function TodayInboxPage() {
+export default async function TodayInboxPage({ searchParams }: { searchParams: Promise<{ status?: string; stableRef?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const workspace = await findActiveWorkspaceOrNull(user.id);
@@ -21,6 +21,11 @@ export default async function TodayInboxPage() {
       </section>
     );
   }
-  const items = await listPlanInboxItems(user.id, "OPEN");
-  return <PlanInboxClient items={items} />;
+  const query = await searchParams;
+  const status = query.status === "DISMISSED" || query.status === "CONVERTED" ? query.status : "OPEN";
+  const listed = await listPlanInboxItems(user.id, query.stableRef ? undefined : status);
+  const items = query.stableRef
+    ? listed.filter((item) => `${item.stableKey}@${item.originVersion}` === query.stableRef || item.stableKey === query.stableRef)
+    : listed;
+  return <PlanInboxClient items={items} status={status} />;
 }

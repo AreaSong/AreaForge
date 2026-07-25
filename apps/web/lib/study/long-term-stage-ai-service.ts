@@ -45,7 +45,7 @@ export async function createAiStageAdjustmentDraft(
   options: CreateAiStageAdjustmentDraftOptions = {},
 ): Promise<AiStageAdjustmentDraftResult> {
   const now = options.now ?? new Date();
-  const context = await minimizedLongTermStageContext(input, now);
+  const context = await minimizedLongTermStageContext(input, actorId, now);
   const provider = resolveConfiguredAiProvider("stage_adjustment", {
     allowExternalProvider: options.allowExternalProvider,
     provider: options.provider,
@@ -84,10 +84,11 @@ export async function createAiStageAdjustmentDraft(
 
 export async function minimizedLongTermStageContext(
   input: CreateStageAdjustmentDraftInput,
+  actorId: string,
   now = new Date(),
 ): Promise<StageAdjustmentContext & { stagePlanId: string | null }> {
   const [analytics, stagePlan, latestExam, weakNodeSummary] = await Promise.all([
-    getAnalyticsSummary(now),
+    getAnalyticsSummary(now, actorId),
     resolveStagePlan(input.stagePlanId),
     getLatestSimulationSummary(),
     summarizeWeakNodes(now),
@@ -333,7 +334,11 @@ function summarizeStageGoal(goal: string): string {
 
 function serializeStageAdjustmentDraft(draft: {
   id: string;
+  revision: number;
   stagePlanId: string | null;
+  sourceReportDecisionId?: string | null;
+  sourceReportRevision?: number | null;
+  originVersion?: number | null;
   source: string;
   mode: string;
   risk: string;
@@ -351,7 +356,11 @@ function serializeStageAdjustmentDraft(draft: {
 }): StageAdjustmentDraftRecordDto {
   return {
     id: draft.id,
+    revision: draft.revision,
     stagePlanId: draft.stagePlanId,
+    sourceReportDecisionId: draft.sourceReportDecisionId ?? null,
+    sourceReportRevision: draft.sourceReportRevision ?? null,
+    originVersion: draft.originVersion ?? null,
     source: draft.source as StageAdjustmentDraftRecordDto["source"],
     mode: draft.mode as StageAdjustmentDraftRecordDto["mode"],
     risk: draft.risk as StageAdjustmentDraftRecordDto["risk"],

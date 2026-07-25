@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const user = await requireApiUser(request);
-    return NextResponse.json({ imports: await listLearningTreeImports(user.id) });
+    const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "1";
+    return NextResponse.json({ imports: await listLearningTreeImports(user.id, { includeArchived }) });
   } catch (error) {
     return apiErrorResponse(error);
   }

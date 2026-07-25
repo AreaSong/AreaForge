@@ -54,6 +54,15 @@ export function isKnowledgeCanvasEntityType(value: string): value is KnowledgeCa
   return (KNOWLEDGE_CANVAS_ENTITY_TYPES as readonly string[]).includes(value);
 }
 
+export function isKnowledgeCanvasCursor(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const separator = value.indexOf(":");
+  return separator > 0 &&
+    separator === value.lastIndexOf(":") &&
+    separator < value.length - 1 &&
+    isKnowledgeCanvasEntityType(value.slice(0, separator));
+}
+
 export function clampCanvasDepth(depth: number | null | undefined): number {
   if (depth == null || !Number.isFinite(depth)) return 1;
   return Math.min(KNOWLEDGE_CANVAS_MAX_DEPTH, Math.max(0, Math.floor(depth)));
@@ -107,14 +116,30 @@ export function selectCanvasChildren(input: {
     if (frontier.length === 0) break;
   }
 
-  let candidates = [...reachable]
+  const matches = [...reachable]
     .map((id) => byId.get(id)!)
     .filter((node) => {
       if (input.subjectFilter && node.subjectId && node.subjectId !== input.subjectFilter) return false;
       if (input.entityTypeFilter && node.entityType !== input.entityTypeFilter) return false;
       if (q && !node.label.toLowerCase().includes(q)) return false;
       return true;
-    })
+    });
+
+  // Keep the focus and the shortest parent chain visible when a filter matches
+  // a descendant. This preserves the visual context and keeps connecting edges.
+  const keepIds = new Set(matches.map((node) => node.id));
+  keepIds.add(focus.id);
+  const parentById = new Map(input.nodes.map((node) => [node.id, node.parentId]));
+  for (const node of matches) {
+    let parentId = parentById.get(node.id) ?? null;
+    while (parentId && reachable.has(parentId)) {
+      keepIds.add(parentId);
+      parentId = parentById.get(parentId) ?? null;
+    }
+  }
+  const candidates = [...keepIds]
+    .map((id) => byId.get(id))
+    .filter((node): node is KnowledgeCanvasNodeInput => Boolean(node))
     .sort((a, b) => a.id.localeCompare(b.id));
 
   const startIndex = input.cursor ? candidates.findIndex((node) => node.id === input.cursor) + 1 : 0;

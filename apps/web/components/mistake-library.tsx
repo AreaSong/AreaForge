@@ -3,12 +3,16 @@
 import { AlertCircle, CheckCircle2, Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
+import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
 import type { MistakeCauseDto, MistakeDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
 interface MistakeLibraryProps {
   subjects: SubjectDto[];
   nodes: SyllabusOptionNodeDto[];
   mistakes: MistakeDto[];
+  initialSubjectId?: string;
+  initialSyllabusNodeId?: string;
 }
 
 interface FlatNode {
@@ -18,10 +22,13 @@ interface FlatNode {
   depth: number;
 }
 
-export function MistakeLibrary({ subjects, nodes, mistakes }: MistakeLibraryProps) {
+export function MistakeLibrary({ subjects, nodes, mistakes, initialSubjectId, initialSyllabusNodeId }: MistakeLibraryProps) {
   const router = useRouter();
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
-  const [syllabusNodeId, setSyllabusNodeId] = useState("");
+  useRestoreListReturn();
+  const initialSubject = subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId as string : subjects[0]?.id ?? "";
+  const initialNode = flattenNodes(nodes).some((node) => node.id === initialSyllabusNodeId && node.subjectId === initialSubject) ? initialSyllabusNodeId as string : "";
+  const [subjectId, setSubjectId] = useState(initialSubject);
+  const [syllabusNodeId, setSyllabusNodeId] = useState(initialNode);
   const [title, setTitle] = useState("");
   const [source, setSource] = useState("");
   const [cause, setCause] = useState<MistakeCauseDto>("unknown");
@@ -114,6 +121,7 @@ export function MistakeLibrary({ subjects, nodes, mistakes }: MistakeLibraryProp
               onChange={(event) => {
                 setSubjectId(event.target.value);
                 setSyllabusNodeId("");
+                updateKnowledgeContext({ subjectId: event.target.value, syllabusNodeId: null });
               }}
               required
             >
@@ -163,7 +171,8 @@ export function MistakeLibrary({ subjects, nodes, mistakes }: MistakeLibraryProp
             className="min-h-32 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
             value={correctIdea}
             onChange={(event) => setCorrectIdea(event.target.value)}
-            placeholder="正确思路、错因和下次避免方式"
+            placeholder="正确思路和下次避免方式"
+            required
           />
           <input
             className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
@@ -175,7 +184,7 @@ export function MistakeLibrary({ subjects, nodes, mistakes }: MistakeLibraryProp
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
             type="submit"
-            disabled={isPending || !subjectId}
+            disabled={isPending || !subjectId || cause === "unknown" || !correctIdea.trim()}
           >
             <AlertCircle className="h-4 w-4" aria-hidden="true" />
             保存错题
@@ -209,6 +218,7 @@ export function MistakeLibrary({ subjects, nodes, mistakes }: MistakeLibraryProp
                   <p className="mt-1 text-xs text-zinc-500">
                     {mistake.syllabusNodeTitle ?? "未关联考纲"} / {labelCause(mistake.cause)}
                   </p>
+                  {mistake.cause === "unknown" || !mistake.correctIdea?.trim() ? <p className="mt-2 text-xs text-amber-200">待补全：选择明确错因并填写正确思路后，才能加入新的快速复习或确认通过。</p> : null}
                 </div>
                 {mistake.nextReviewAt ? (
                   <span className="rounded-md border border-amber-300/25 px-2 py-1 text-xs text-amber-100">
@@ -216,6 +226,9 @@ export function MistakeLibrary({ subjects, nodes, mistakes }: MistakeLibraryProp
                   </span>
                 ) : null}
               </div>
+              <ListDetailLink href={`/knowledge/mistakes/${mistake.id}`} focusId={`mistake-${mistake.id}`} className="mt-3 inline-flex text-sm text-teal-300 hover:underline">
+                打开错题详情
+              </ListDetailLink>
 
               {editingId === mistake.id ? (
                 <div className="mt-4 grid gap-3">

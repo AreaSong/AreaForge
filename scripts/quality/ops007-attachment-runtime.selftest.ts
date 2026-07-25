@@ -567,8 +567,22 @@ async function createNoteFixture(): Promise<{ noteId: string; actorId: string }>
   const user = await prisma.user.create({
     data: { email: `ops007-${randomUUID().slice(0, 12)}@example.invalid`, passwordHash: "fixture" },
   });
+  const workspace = await prisma.examWorkspace.create({
+    data: {
+      userId: user.id,
+      stableKey: `ops007-${randomUUID().slice(0, 8)}`,
+      name: "OPS-007 fixture",
+      status: "ACTIVE",
+    },
+  });
   const subject = await prisma.subject.create({
-    data: { code: "MATH", name: "OPS-007 fixture", color: "#111111" },
+    data: {
+      workspaceId: workspace.id,
+      legacyCode: "MATH",
+      stableKey: `math-${randomUUID().slice(0, 8)}`,
+      name: "OPS-007 fixture",
+      color: "#111111",
+    },
   });
   const note = await prisma.note.create({
     data: { subjectId: subject.id, title: "ops007", content: "fixture" },

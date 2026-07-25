@@ -81,13 +81,18 @@ export async function createPlanMilestone(
     if (!subject) throw new ApiError("SUBJECT_NOT_FOUND", 404);
   }
 
+  const stableKey = input.stableKey.trim();
+  const title = input.title.trim();
+  const duplicate = await prisma.planMilestone.findFirst({ where: { workspaceId: workspace.id, stableKey } });
+  if (duplicate) throw new ApiError("PLAN_MILESTONE_STABLE_KEY_CONFLICT", 409, { latest: serialize(duplicate), conflictFields: ["stableKey"] });
+
   const created = await prisma.planMilestone.create({
     data: {
       workspaceId: workspace.id,
       stagePlanId: input.stagePlanId,
       subjectId: input.subjectId ?? null,
-      stableKey: input.stableKey.trim(),
-      title: input.title.trim(),
+      stableKey,
+      title,
       targetDate: input.targetDate ? new Date(input.targetDate) : null,
       sortOrder: input.sortOrder ?? 0,
     },

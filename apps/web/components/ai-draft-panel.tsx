@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 type Endpoint = "learning-tree" | "knowledge-card" | "plan" | "motivation";
@@ -30,7 +31,7 @@ const projectionFields = {
   motivation: [],
 } satisfies Record<Endpoint, Array<{ key: ProjectionKey; label: string }>>;
 
-const noteKinds = ["GENERAL", "CONCEPT", "FORMULA", "METHOD", "EXAMPLE", "SUMMARY"] as const;
+const noteKinds = ["GENERAL", "CONCEPT", "METHOD", "EXAMPLE", "JOURNAL", "SUMMARY"] as const;
 
 interface ProjectionValues {
   subjectLabel: string;
@@ -52,7 +53,8 @@ const emptyProjectionValues: ProjectionValues = {
   defaultDurationMinutes: "",
 };
 
-export function AiDraftPanel(props: { endpoint: Endpoint; defaultText?: string }) {
+export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaultText?: string }) {
+  const router = useRouter();
   const [selectedText, setSelectedText] = useState(props.defaultText ?? "");
   const [tone, setTone] = useState<"CALM" | "DIRECT" | "BRIEF">("CALM");
   const [scope, setScope] = useState<"global" | "subject" | "branch">("global");
@@ -63,12 +65,17 @@ export function AiDraftPanel(props: { endpoint: Endpoint; defaultText?: string }
   const [token, setToken] = useState<string | null>(null);
   const [draft, setDraft] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
+  const [operation, setOperation] = useState<{ id: string; projectionVersion: string } | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [savingResult, setSavingResult] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function revokePreview() {
     setToken(null);
     setPreview(null);
     setDraft(null);
+    setOperation(null);
+    setSaveNotice(null);
   }
 
   function changeForm(update: () => void) {
@@ -104,6 +111,73 @@ export function AiDraftPanel(props: { endpoint: Endpoint; defaultText?: string }
       return;
     }
     setDraft(response.payload?.draft ?? null);
+    setOperation({
+      id: String(response.payload?.operationId ?? ""),
+      projectionVersion: String(response.payload?.projectionVersion ?? ""),
+    });
+  }
+
+  async function adoptDraft() {
+    if (!draft || !operation?.id || savingResult) return;
+    setError(null);
+    setSaveNotice(null);
+    setSavingResult(true);
+    try {
+      if (props.endpoint === "learning-tree" && isLearningTreeDraft(draft)) {
+        saveLocalAiDraft(props.userId, "learning-tree", { markdownDraft: draft.markdownDraft, scope });
+        router.push("/knowledge/imports");
+        return;
+      }
+      if (props.endpoint === "knowledge-card" && isKnowledgeCardDraft(draft)) {
+        saveLocalAiDraft(props.userId, "knowledge-card", draft);
+        router.push("/knowledge/notes");
+        return;
+      }
+      if (props.endpoint === "plan" && isPlanDraft(draft)) {
+        for (const [index, task] of draft.tasks.entries()) {
+          const stableKey = `ai-plan:${operation.id}:${index}`;
+          const response = await fetch("/api/plan-inbox", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              stableKey,
+              originKey: stableKey,
+              originVersion: 1,
+              originType: "AI_PLAN_DRAFT",
+              originSnapshot: { operationId: operation.id, projectionVersion: operation.projectionVersion, schemaVersion: draft.schemaVersion },
+              title: task.title,
+              plannedDate: checked.dateWindow && values.dateStart ? new Date(`${values.dateStart}T00:00:00+08:00`).toISOString() : null,
+              estimatedMinutes: task.estimatedMinutes,
+              priority: "MEDIUM",
+              type: "focus",
+            }),
+          });
+          if (!response.ok) throw new Error(readError(await response.json().catch(() => null), "计划草稿入箱失败"));
+        }
+        setSaveNotice(`已将 ${draft.tasks.length} 项计划草稿加入收件箱，仍需逐项补全并转换。`);
+        return;
+      }
+      if (props.endpoint === "motivation" && isMotivationDraft(draft)) {
+        const response = await fetch("/api/motivation/items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "QUOTE",
+            title: draft.line.slice(0, 160),
+            body: `${draft.line}\n\n${draft.recoveryHint}`,
+            tags: ["ai-draft"],
+          }),
+        });
+        if (!response.ok) throw new Error(readError(await response.json().catch(() => null), "动机草稿保存失败"));
+        setSaveNotice("已保存到动机内容库。生成操作本身未自动写入内容库。");
+        return;
+      }
+      throw new Error("草稿结构与当前用途不匹配，请重新生成。");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "采用草稿失败");
+    } finally {
+      setSavingResult(false);
+    }
   }
 
   return (
@@ -162,8 +236,42 @@ export function AiDraftPanel(props: { endpoint: Endpoint; defaultText?: string }
       </div>
       {preview ? <PayloadPreview title="将发送以下内容" value={preview} /> : null}
       {draft ? <PayloadPreview title="草稿结果" value={draft} accent /> : null}
+      {draft ? (
+        <button type="button" disabled={savingResult} className="h-10 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200 disabled:opacity-60" onClick={() => void adoptDraft()}>
+          {savingResult ? "处理中..." : adoptDraftLabel(props.endpoint)}
+        </button>
+      ) : null}
+      {saveNotice ? <p role="status" className="text-sm text-teal-200">{saveNotice}</p> : null}
     </div>
   );
+}
+
+function adoptDraftLabel(endpoint: Endpoint): string {
+  return ({ "learning-tree": "送往学习树校验", "knowledge-card": "转到知识卡片表单", plan: "加入计划收件箱", motivation: "保存到动机内容库" })[endpoint];
+}
+
+function saveLocalAiDraft(userId: string, endpoint: "learning-tree" | "knowledge-card", value: unknown) {
+  window.localStorage.setItem(`areaforge.ai-draft.${endpoint}.${userId}`, JSON.stringify({ version: 1, userId, updatedAt: Date.now(), value }));
+}
+
+function isLearningTreeDraft(value: unknown): value is { schemaVersion: "learning-tree-draft-v1"; markdownDraft: string } {
+  return isRecord(value) && value.schemaVersion === "learning-tree-draft-v1" && typeof value.markdownDraft === "string";
+}
+
+function isKnowledgeCardDraft(value: unknown): value is { schemaVersion: "knowledge-card-draft-v1"; title: string; body: string; kindHint: string } {
+  return isRecord(value) && value.schemaVersion === "knowledge-card-draft-v1" && typeof value.title === "string" && typeof value.body === "string" && typeof value.kindHint === "string";
+}
+
+function isPlanDraft(value: unknown): value is { schemaVersion: "plan-draft-v1"; tasks: Array<{ title: string; estimatedMinutes: number }> } {
+  return isRecord(value) && value.schemaVersion === "plan-draft-v1" && Array.isArray(value.tasks) && value.tasks.every((task) => isRecord(task) && typeof task.title === "string" && typeof task.estimatedMinutes === "number");
+}
+
+function isMotivationDraft(value: unknown): value is { schemaVersion: "motivation-draft-v1"; line: string; recoveryHint: string } {
+  return isRecord(value) && value.schemaVersion === "motivation-draft-v1" && typeof value.line === "string" && typeof value.recoveryHint === "string";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function EndpointOptions(props: {

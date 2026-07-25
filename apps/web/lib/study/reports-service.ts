@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   buildDailyCheckInSnapshot,
   choosePeriodicWeakness,
@@ -13,7 +14,7 @@ import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
-import type { StageAdjustmentDraftRecordDto, StagePlanDto } from "./types";
+import type { PlanInboxWriteSummaryDto, StageAdjustmentDraftRecordDto, StagePlanDto } from "./types";
 
 const shanghaiOffsetMs = 8 * 60 * 60 * 1000;
 const dayMs = 24 * 60 * 60 * 1000;
@@ -48,10 +49,14 @@ export interface PeriodicReportDecisionDto {
   requiresUserConfirmation: true;
   decidedAt: string;
   actorId: string | null;
+  stageDraftId: string | null;
+  inboxResult: PlanInboxWriteSummaryDto;
   alreadyDecided?: boolean;
 }
 
 export interface PeriodicReportDto {
+  id: string;
+  revision: number;
   kind: PeriodicReportKind;
   title: string;
   range: {
@@ -423,7 +428,13 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     requiresUserConfirmation: true as const,
   };
 
+  const persistedDecisionContext = existingDecision && workspace
+    ? await getPeriodicReportDecisionContext(existingDecision.id, workspace.id, kind, range.start)
+    : null;
+
   return {
+    id: `${kind}:${rangeDto.start}`,
+    revision: createReportRevision(decisionPreview.snapshot),
     kind,
     title: kind === "week" ? "周审判报告" : "月复盘报告",
     range: rangeDto,
@@ -447,8 +458,13 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
       requiresUserConfirmation: true,
     },
     decisionPreview,
-    decision: existingDecision ? serializePeriodicReportDecision(existingDecision) : null,
+    decision: existingDecision ? serializePeriodicReportDecision(existingDecision, persistedDecisionContext ?? undefined) : null,
   };
+}
+
+function createReportRevision(snapshot: PeriodicDecisionSnapshotDto): number {
+  const hex = createHash("sha256").update(JSON.stringify(snapshot)).digest("hex").slice(0, 8);
+  return (Number.parseInt(hex, 16) % 2_147_483_646) + 1;
 }
 
 export function serializePeriodicReportDecision(decision: {
@@ -463,7 +479,7 @@ export function serializePeriodicReportDecision(decision: {
   requiresUserConfirmation: boolean;
   decidedAt: Date;
   actorId: string | null;
-}): PeriodicReportDecisionDto {
+}, context?: { stageDraftId: string | null; inboxResult: PlanInboxWriteSummaryDto }): PeriodicReportDecisionDto {
   return {
     id: decision.id,
     kind: decision.kind === "month" ? "month" : "week",
@@ -478,6 +494,44 @@ export function serializePeriodicReportDecision(decision: {
     requiresUserConfirmation: true,
     decidedAt: decision.decidedAt.toISOString(),
     actorId: decision.actorId,
+    stageDraftId: context?.stageDraftId ?? null,
+    inboxResult: context?.inboxResult ?? { created: [], reused: [], superseded: [], createdCount: 0, reusedCount: 0, supersededCount: 0 },
+  };
+}
+
+export async function getPeriodicReportDecisionContext(
+  decisionId: string,
+  workspaceId: string,
+  kind: PeriodicReportKind,
+  rangeStart: Date,
+): Promise<{ stageDraftId: string | null; inboxResult: PlanInboxWriteSummaryDto }> {
+  const originPrefix = `report:${kind}:${rangeStart.toISOString()}:`;
+  const [stageDraft, inboxItems] = await Promise.all([
+    prisma.stageAdjustmentDraft.findFirst({
+      where: { sourceReportDecisionId: decisionId, workspaceId },
+      select: { id: true },
+    }),
+    prisma.planInboxItem.findMany({
+      where: {
+        workspaceId,
+        originType: { in: ["PERIODIC_REPORT", "STAGE_ADJUSTMENT"] },
+        originKey: { startsWith: originPrefix },
+      },
+      select: { id: true, supersededByItemId: true },
+    }),
+  ]);
+  const current = inboxItems.filter((item) => !item.supersededByItemId);
+  const superseded = inboxItems.filter((item) => item.supersededByItemId).map((item) => item.id);
+  return {
+    stageDraftId: stageDraft?.id ?? null,
+    inboxResult: {
+      created: current.map((item) => item.id),
+      reused: [],
+      superseded,
+      createdCount: current.length,
+      reusedCount: 0,
+      supersededCount: superseded.length,
+    },
   };
 }
 

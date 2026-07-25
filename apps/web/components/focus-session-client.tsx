@@ -2,18 +2,29 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getTimerElapsedSeconds, type TimerStatus } from "@areaforge/core";
 import type { StudySessionDto } from "@/lib/study/types";
 
 const DRAFT_PREFIX = "areaforge.focus.closeout.";
+const DRAFT_VERSION = 2;
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
-function readFocusDraft(sessionId: string) {
+function focusDraftKey(userId: string, sessionId: string) {
+  return `${DRAFT_PREFIX}v2.${userId}.${sessionId}`;
+}
+
+function readFocusDraft(userId: string, sessionId: string) {
   if (typeof window === "undefined") return null;
-  const raw = window.sessionStorage.getItem(`${DRAFT_PREFIX}${sessionId}`);
+  const key = focusDraftKey(userId, sessionId);
+  const raw = window.localStorage.getItem(key);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as {
+    const parsed = JSON.parse(raw) as {
+      version?: number;
+      userId?: string;
+      sessionId?: string;
+      updatedAt?: number;
       qualityScore?: string;
       isEffective?: string;
       understandingLevel?: string;
@@ -22,12 +33,25 @@ function readFocusDraft(sessionId: string) {
       note?: string;
       completeTask?: boolean;
     };
+    if (
+      parsed.version !== DRAFT_VERSION ||
+      parsed.userId !== userId ||
+      parsed.sessionId !== sessionId ||
+      typeof parsed.updatedAt !== "number" ||
+      Date.now() - parsed.updatedAt > DRAFT_TTL_MS
+    ) {
+      window.localStorage.removeItem(key);
+      return null;
+    }
+    return parsed;
   } catch {
+    window.localStorage.removeItem(key);
     return null;
   }
 }
 
 export function FocusSessionClient(props: {
+  userId: string;
   session: StudySessionDto;
   activeConflictId: string | null;
   returnTo: string;
@@ -37,10 +61,15 @@ export function FocusSessionClient(props: {
   const [now, setNow] = useState(() => new Date());
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lowConversionStep, setLowConversionStep] = useState(false);
+  const [conflict, setConflict] = useState<{ latest?: StudySessionDto; conflictFields?: string[] } | null>(null);
+  const commandKeys = useRef<Record<string, string>>({});
+  const [lowConversionStep, setLowConversionStep] = useState(
+    props.session.status === "completed" && props.session.isLowConversion === true,
+  );
   const [evidenceStep, setEvidenceStep] = useState(false);
+  const [lowConversionAdded, setLowConversionAdded] = useState(false);
   const [draft, setDraft] = useState(() => {
-    const saved = readFocusDraft(props.session.id);
+    const saved = readFocusDraft(props.userId, props.session.id);
     return {
       qualityScore: saved?.qualityScore ?? "3",
       isEffective: saved?.isEffective ?? "true",
@@ -53,8 +82,14 @@ export function FocusSessionClient(props: {
   });
 
   useEffect(() => {
-    window.sessionStorage.setItem(`${DRAFT_PREFIX}${session.id}`, JSON.stringify(draft));
-  }, [draft, session.id]);
+    window.localStorage.setItem(focusDraftKey(props.userId, session.id), JSON.stringify({
+      version: DRAFT_VERSION,
+      userId: props.userId,
+      sessionId: session.id,
+      updatedAt: Date.now(),
+      ...draft,
+    }));
+  }, [draft, props.userId, session.id]);
 
   useEffect(() => {
     if (session.status !== "running") return;
@@ -83,20 +118,35 @@ export function FocusSessionClient(props: {
 
   async function mutate(path: string, body?: unknown) {
     setError(null);
+    setConflict(null);
     const response = await fetch(path, {
       method: "POST",
       headers: body ? { "Content-Type": "application/json" } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
-    const data = (await response.json().catch(() => null)) as { session?: StudySessionDto; error?: string } | null;
-    if (!response.ok) throw new Error(data?.error ?? "请求失败");
+    const data = (await response.json().catch(() => null)) as { session?: StudySessionDto; error?: string; latest?: StudySessionDto; conflictFields?: string[] } | null;
+    if (!response.ok) {
+      if (response.status === 409) setConflict({ latest: data?.latest, conflictFields: data?.conflictFields });
+      throw new Error(data?.error ?? "请求失败");
+    }
     if (data?.session) setSession(data.session);
     return data?.session ?? null;
   }
 
+  function commandInput(action: "pause" | "resume" | "end") {
+    const key = commandKeys.current[action] ?? `study-session-${action}-${session.id}-${crypto.randomUUID()}`;
+    commandKeys.current[action] = key;
+    return {
+      expectedStatus: session.status === "paused" ? "paused" as const : "running" as const,
+      expectedUpdatedAt: session.updatedAt,
+      idempotencyKey: key,
+    };
+  }
+
   async function pause() {
     try {
-      await mutate(`/api/study-sessions/${session.id}/pause`);
+      await mutate(`/api/study-sessions/${session.id}/pause`, commandInput("pause"));
+      delete commandKeys.current.pause;
     } catch (err) {
       setError(err instanceof Error ? err.message : "暂停失败");
     }
@@ -104,7 +154,8 @@ export function FocusSessionClient(props: {
 
   async function resume() {
     try {
-      await mutate(`/api/study-sessions/${session.id}/resume`);
+      await mutate(`/api/study-sessions/${session.id}/resume`, commandInput("resume"));
+      delete commandKeys.current.resume;
     } catch (err) {
       setError(err instanceof Error ? err.message : "继续失败");
     }
@@ -113,6 +164,7 @@ export function FocusSessionClient(props: {
   async function end() {
     try {
       const completed = await mutate(`/api/study-sessions/${session.id}/end`, {
+        ...commandInput("end"),
         qualityScore: Number(draft.qualityScore),
         isEffective: draft.isEffective === "true",
         understandingLevel: draft.understandingLevel,
@@ -123,7 +175,8 @@ export function FocusSessionClient(props: {
         note: draft.note,
         completeTask: draft.completeTask,
       });
-      window.sessionStorage.removeItem(`${DRAFT_PREFIX}${session.id}`);
+      delete commandKeys.current.end;
+      window.localStorage.removeItem(focusDraftKey(props.userId, session.id));
       setEnding(false);
       if (completed?.isLowConversion) {
         setLowConversionStep(true);
@@ -137,6 +190,39 @@ export function FocusSessionClient(props: {
 
   function finishReplace() {
     router.replace(props.returnTo);
+  }
+
+  async function addLowConversionToInbox() {
+    setError(null);
+    const originKey = `low-conversion:${session.id}`;
+    const response = await fetch("/api/plan-inbox", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        stableKey: originKey,
+        originKey,
+        originVersion: session.closeoutVersion || 1,
+        originType: "LOW_CONVERSION",
+        originSnapshot: {
+          sessionId: session.id,
+          antiFakeReason: session.antiFakeReason,
+          requiredOutput: session.requiredOutput,
+        },
+        title: session.requiredOutput || `补充产出：${session.taskTitle ?? session.subjectName}`,
+        subjectId: session.subjectId,
+        plannedDate: new Date().toISOString(),
+        estimatedMinutes: 15,
+        priority: "HIGH",
+        type: "focus",
+        primaryNodeId: session.syllabusNodeId,
+      }),
+    });
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    if (!response.ok && body?.error !== "PLAN_INBOX_ORIGIN_CONFLICT") {
+      setError(body?.error ?? "加入收件箱失败");
+      return;
+    }
+    setLowConversionAdded(true);
   }
 
   if (props.activeConflictId) {
@@ -238,9 +324,7 @@ export function FocusSessionClient(props: {
             <button type="button" className="h-10 rounded-md bg-teal-500/90 px-3 text-sm text-black" onClick={() => setEvidenceStep(true)}>
               立即补产出
             </button>
-            <Link href="/today/inbox" className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10">
-              加入收件箱
-            </Link>
+            {lowConversionAdded ? <Link href="/today/inbox" className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-teal-300">查看收件箱</Link> : <button type="button" className="h-10 rounded-md border border-white/10 px-3 text-sm" onClick={() => void addLowConversionToInbox()}>加入收件箱</button>}
             <button type="button" className="h-10 rounded-md border border-white/10 px-3 text-sm" onClick={() => setEvidenceStep(true)}>
               跳过
             </button>
@@ -251,8 +335,11 @@ export function FocusSessionClient(props: {
       {evidenceStep ? (
         <div className="space-y-3 rounded-md border border-white/10 bg-[#101419] p-4">
           <h2 className="font-medium text-white">证据接力（可跳过）</h2>
-          <p className="text-sm text-zinc-400">本批仅提供入口提示；笔记/错题/复测完整页属后续批次。</p>
+          <p className="text-sm text-zinc-400">进入同一套知识表单，当前科目、任务和主考纲节点会随入口预填。</p>
           <div className="flex flex-wrap gap-2">
+            <Link href={`/knowledge/notes?subjectId=${encodeURIComponent(session.subjectId)}${session.syllabusNodeId ? `&syllabusNodeId=${encodeURIComponent(session.syllabusNodeId)}` : ""}${session.taskId ? `&taskId=${encodeURIComponent(session.taskId)}` : ""}`} className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-teal-300">新增知识卡片</Link>
+            <Link href={`/knowledge/mistakes?subjectId=${encodeURIComponent(session.subjectId)}${session.syllabusNodeId ? `&syllabusNodeId=${encodeURIComponent(session.syllabusNodeId)}` : ""}`} className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-teal-300">新增错题</Link>
+            {session.syllabusNodeId ? <Link href={`/knowledge/syllabus/${session.syllabusNodeId}`} className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-teal-300">记录复测</Link> : null}
             <button type="button" className="h-10 rounded-md border border-white/10 px-3 text-sm" onClick={finishReplace}>
               跳过并返回
             </button>
@@ -269,7 +356,8 @@ export function FocusSessionClient(props: {
         </button>
       ) : null}
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
+      {conflict ? <div className="rounded-md border border-amber-300/20 bg-amber-400/5 p-3 text-sm text-amber-100"><p>活动状态已变化，当前输入与命令键均已保留。</p>{conflict.conflictFields?.length ? <p className="mt-1">冲突字段：{conflict.conflictFields.join("、")}</p> : null}{conflict.latest ? <p className="mt-1 text-zinc-300">最新状态：{conflict.latest.status} · {new Date(conflict.latest.updatedAt).toLocaleString("zh-CN")}</p> : null}<button type="button" className="mt-2 text-teal-300 hover:underline" onClick={() => window.location.reload()}>刷新最新状态</button></div> : null}
     </section>
   );
 }

@@ -489,6 +489,7 @@ export {
   multipartHeaderLimitBytes,
   multipartReadChunkBytes,
   parseMultipartBoundary,
+  parseMultipleFilesMultipart,
   parseSingleFileMultipart,
 } from "./bounded-multipart";
 export type { BoundedFileScan, BoundedMultipartFailure } from "./bounded-multipart";

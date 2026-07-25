@@ -3,6 +3,8 @@ import {
   assertLayoutPatchSafe,
   defaultNodePosition,
   filterStaleLayoutRefs,
+  isKnowledgeCanvasCursor,
+  isKnowledgeCanvasEntityType,
   selectCanvasChildren,
   type KnowledgeCanvasEntityType,
   type KnowledgeCanvasEdgeInput,
@@ -50,10 +52,14 @@ export interface KnowledgeCanvasQueryDto {
   focusId: string;
   depth: number;
   nodes: KnowledgeCanvasNodeDto[];
+  hiddenNodes: KnowledgeCanvasNodeDto[];
   edges: KnowledgeCanvasEdgeDto[];
   list: Array<{ id: string; entityType: KnowledgeCanvasEntityType; label: string; href: string | null; subjectId: string | null }>;
   nextCursor: string | null;
   truncated: boolean;
+  filterOptions: {
+    subjects: Array<{ id: string; label: string }>;
+  };
   layout: KnowledgeCanvasLayoutDto;
 }
 
@@ -68,7 +74,7 @@ function detailHref(entityType: KnowledgeCanvasEntityType, entityId: string): st
     case "SUBJECT":
       return `/knowledge/overview?subjectId=${encodeURIComponent(entityId)}`;
     case "SYLLABUS_NODE":
-      return `/knowledge/syllabus?nodeId=${encodeURIComponent(entityId)}`;
+      return `/knowledge/syllabus/${encodeURIComponent(entityId)}`;
     case "NOTE":
       return `/knowledge/notes/${encodeURIComponent(entityId)}`;
     case "MISTAKE":
@@ -78,7 +84,7 @@ function detailHref(entityType: KnowledgeCanvasEntityType, entityId: string): st
     case "TASK":
       return `/today/tasks/${encodeURIComponent(entityId)}`;
     case "REVIEW_SCHEDULE":
-      return `/quick-review/${encodeURIComponent(entityId)}`;
+      return `/knowledge/reviews/${encodeURIComponent(entityId)}`;
     case "MILESTONE":
       return "/today/plan";
     case "STUDY_SESSION":
@@ -109,8 +115,21 @@ export async function getKnowledgeCanvas(
     q?: string | null;
     subjectId?: string | null;
     entityType?: string | null;
+    status?: string | null;
   },
 ): Promise<KnowledgeCanvasQueryDto> {
+  if (input.depth != null && (!Number.isInteger(input.depth) || input.depth < 0 || input.depth > 4)) {
+    throw new ApiError("INVALID_CANVAS_DEPTH", 400);
+  }
+  if (input.limit != null && (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 200)) {
+    throw new ApiError("INVALID_CANVAS_LIMIT", 400);
+  }
+  if (input.cursor != null && input.cursor.trim() && !isKnowledgeCanvasCursor(input.cursor.trim())) {
+    throw new ApiError("INVALID_CANVAS_CURSOR", 400);
+  }
+  if (input.status != null && input.status !== "active" && input.status !== "all") {
+    throw new ApiError("INVALID_CANVAS_STATUS", 400);
+  }
   const workspace = input.workspaceId
     ? await prisma.examWorkspace.findFirst({ where: { id: input.workspaceId, userId: actorId } })
     : await resolveActiveWorkspace(actorId);
@@ -118,59 +137,125 @@ export async function getKnowledgeCanvas(
     throw new ApiError("WORKSPACE_NOT_FOUND", 404);
   }
 
+  const requestedType = input.entityType?.trim() || null;
+  if (requestedType && !isKnowledgeCanvasEntityType(requestedType)) {
+    throw new ApiError("INVALID_CANVAS_ENTITY_TYPE", 400);
+  }
+  const query = input.q?.trim() || null;
+  const cursor = input.cursor?.trim() || null;
+  const depth = input.depth ?? 1;
+  const limit = input.limit ?? 80;
+  const queryWindow = Math.min(2000, Math.max(80, limit * (depth + 1) * 2));
+  const includeAllStatuses = input.status === "all";
+  const structuralTypes = new Set<KnowledgeCanvasEntityType>([
+    "WORKSPACE",
+    "SUBJECT_GROUP",
+    "SUBJECT",
+    "SYLLABUS_NODE",
+  ]);
+  const shouldLoad = (entityType: KnowledgeCanvasEntityType) =>
+    !requestedType || requestedType === entityType || structuralTypes.has(entityType) ||
+    (requestedType === "REVIEW_SCHEDULE" && ["NOTE", "MISTAKE", "STUDY_RESOURCE"].includes(entityType));
+
   const [groups, subjects, syllabusNodes, notes, mistakes, resources, tasks, milestones, sessions, schedules, layout] =
     await Promise.all([
       prisma.subjectGroup.findMany({
         where: { workspaceId: workspace.id, archivedAt: null },
         orderBy: { sortOrder: "asc" },
+        take: shouldLoad("SUBJECT_GROUP") ? queryWindow : 0,
       }),
       prisma.subject.findMany({
-        where: { workspaceId: workspace.id, archivedAt: null },
+        where: {
+          workspaceId: workspace.id,
+          archivedAt: null,
+        },
         orderBy: { sortOrder: "asc" },
+        take: shouldLoad("SUBJECT") ? queryWindow : 0,
       }),
       prisma.syllabusNode.findMany({
-        where: { subject: { workspaceId: workspace.id }, archivedAt: null },
+        where: {
+          subject: { workspaceId: workspace.id },
+          archivedAt: null,
+          subjectId: input.subjectId || undefined,
+        },
         select: { id: true, title: true, subjectId: true, parentId: true },
         orderBy: { sortOrder: "asc" },
-        take: 2000,
+        take: shouldLoad("SYLLABUS_NODE") ? queryWindow : 0,
       }),
       prisma.note.findMany({
-        where: { subject: { workspaceId: workspace.id }, archivedAt: null },
+        where: {
+          subject: { workspaceId: workspace.id },
+          archivedAt: null,
+          subjectId: input.subjectId || undefined,
+          title: query ? { contains: query, mode: "insensitive" } : undefined,
+        },
         select: { id: true, title: true, subjectId: true, syllabusNodeId: true },
         orderBy: { updatedAt: "desc" },
-        take: 1000,
+        take: shouldLoad("NOTE") ? queryWindow : 0,
       }),
       prisma.mistake.findMany({
-        where: { subject: { workspaceId: workspace.id }, archivedAt: null },
+        where: {
+          subject: { workspaceId: workspace.id },
+          archivedAt: null,
+          subjectId: input.subjectId || undefined,
+          title: query ? { contains: query, mode: "insensitive" } : undefined,
+        },
         select: { id: true, title: true, subjectId: true, syllabusNodeId: true },
         orderBy: { updatedAt: "desc" },
-        take: 1000,
+        take: shouldLoad("MISTAKE") ? queryWindow : 0,
       }),
       prisma.studyResource.findMany({
-        where: { workspaceId: workspace.id, archivedAt: null },
+        where: {
+          workspaceId: workspace.id,
+          archivedAt: null,
+          subjectId: input.subjectId || undefined,
+          title: query ? { contains: query, mode: "insensitive" } : undefined,
+        },
         select: { id: true, title: true, subjectId: true },
         orderBy: { updatedAt: "desc" },
-        take: 1000,
+        take: shouldLoad("STUDY_RESOURCE") ? queryWindow : 0,
       }),
       prisma.studyTask.findMany({
-        where: { subject: { workspaceId: workspace.id }, status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } },
+        where: {
+          subject: { workspaceId: workspace.id },
+          subjectId: input.subjectId || undefined,
+          status: includeAllStatuses ? undefined : { in: ["TODO", "IN_PROGRESS", "DEFERRED"] },
+          title: query ? { contains: query, mode: "insensitive" } : undefined,
+        },
         select: { id: true, title: true, subjectId: true, syllabusNodeId: true },
         orderBy: { updatedAt: "desc" },
-        take: 500,
+        take: shouldLoad("TASK") ? queryWindow : 0,
       }),
       prisma.planMilestone.findMany({
-        where: { workspaceId: workspace.id, archivedAt: null },
+        where: {
+          workspaceId: workspace.id,
+          archivedAt: null,
+          title: query ? { contains: query, mode: "insensitive" } : undefined,
+        },
         select: { id: true, title: true },
         orderBy: { sortOrder: "asc" },
-        take: 200,
+        take: shouldLoad("MILESTONE") ? queryWindow : 0,
       }),
       prisma.studySession.findMany({
-        where: { subject: { workspaceId: workspace.id }, status: { in: ["RUNNING", "PAUSED"] } },
+        where: {
+          subject: { workspaceId: workspace.id },
+          subjectId: input.subjectId || undefined,
+          status: includeAllStatuses ? undefined : { in: ["RUNNING", "PAUSED"] },
+        },
         select: { id: true, subjectId: true, status: true },
-        take: 50,
+        take: shouldLoad("STUDY_SESSION") ? queryWindow : 0,
       }),
       prisma.reviewSchedule.findMany({
-        where: { workspaceId: workspace.id, status: "ACTIVE" },
+        where: {
+          workspaceId: workspace.id,
+          status: includeAllStatuses ? undefined : "ACTIVE",
+          OR: input.subjectId ? [
+            { note: { subjectId: input.subjectId } },
+            { mistake: { subjectId: input.subjectId } },
+            { studyResource: { subjectId: input.subjectId } },
+            { syllabusNode: { subjectId: input.subjectId } },
+          ] : undefined,
+        },
         select: {
           id: true,
           noteId: true,
@@ -178,7 +263,7 @@ export async function getKnowledgeCanvas(
           studyResourceId: true,
           syllabusNodeId: true,
         },
-        take: 500,
+        take: shouldLoad("REVIEW_SCHEDULE") ? queryWindow : 0,
       }),
       prisma.knowledgeCanvasLayout.findUnique({
         where: { userId_workspaceId: { userId: actorId, workspaceId: workspace.id } },
@@ -341,20 +426,30 @@ export async function getKnowledgeCanvas(
       label: "到期复习",
       subjectId: target?.subjectId ?? null,
     });
+    // Keep both directions so expanding the reviewed object reveals its schedule,
+    // while opening the schedule still exposes the reviewed object.
+    edges.push({ id: `schedules:${targetId}:${id}`, sourceId: targetId, targetId: id, kind: "schedules" });
     edges.push({ id: `schedules:${id}:${targetId}`, sourceId: id, targetId, kind: "schedules" });
   }
 
+  if (cursor && !nodes.some((node) => node.id === cursor)) {
+    throw new ApiError("INVALID_CANVAS_CURSOR", 400);
+  }
+
   const focusId = input.focus?.trim() || workspaceNodeId;
+  if (input.focus?.trim() && !nodes.some((node) => node.id === focusId)) {
+    throw new ApiError("INVALID_CANVAS_FOCUS", 400);
+  }
   const selected = selectCanvasChildren({
     nodes,
     edges,
     focusId,
     depth: input.depth ?? 1,
-    cursor: input.cursor,
+    cursor,
     limit: input.limit,
     subjectFilter: input.subjectId,
-    entityTypeFilter: input.entityType as KnowledgeCanvasEntityType | null,
-    query: input.q,
+    entityTypeFilter: requestedType as KnowledgeCanvasEntityType | null,
+    query,
   });
 
   const layoutByEntity = new Map(
@@ -394,6 +489,7 @@ export async function getKnowledgeCanvas(
     focusId,
     depth: input.depth ?? 1,
     nodes: dtoNodes.filter((node) => !node.hidden),
+    hiddenNodes: dtoNodes.filter((node) => node.hidden),
     edges: selected.edges,
     list: dtoNodes
       .filter((node) => !node.hidden)
@@ -406,6 +502,9 @@ export async function getKnowledgeCanvas(
       })),
     nextCursor: selected.nextCursor,
     truncated: selected.truncated,
+    filterOptions: {
+      subjects: subjects.map((subject) => ({ id: subject.id, label: subject.name })),
+    },
     layout: {
       workspaceId: workspace.id,
       revision: layout?.revision ?? 1,
@@ -462,7 +561,7 @@ export async function saveKnowledgeCanvasLayout(
           viewportX: input.viewportX ?? 0,
           viewportY: input.viewportY ?? 0,
           viewportZoom: input.viewportZoom ?? 1,
-          revision: 1,
+          revision: 2,
           nodes: {
             create: (input.nodes ?? []).map((node) => ({
               entityType: node.entityType,
@@ -500,8 +599,8 @@ export async function saveKnowledgeCanvasLayout(
       });
     }
 
-    const updated = await tx.knowledgeCanvasLayout.update({
-      where: { id: existing.id },
+    const cas = await tx.knowledgeCanvasLayout.updateMany({
+      where: { id: existing.id, revision: input.expectedRevision },
       data: {
         viewportX: input.viewportX ?? existing.viewportX,
         viewportY: input.viewportY ?? existing.viewportY,
@@ -509,6 +608,18 @@ export async function saveKnowledgeCanvasLayout(
         revision: { increment: 1 },
       },
     });
+    if (cas.count !== 1) {
+      const latest = await tx.knowledgeCanvasLayout.findUnique({ where: { id: existing.id } });
+      throw new ApiError("LAYOUT_REVISION_CONFLICT", 409, {
+        latest: latest ? {
+          revision: latest.revision,
+          viewportX: latest.viewportX,
+          viewportY: latest.viewportY,
+          viewportZoom: latest.viewportZoom,
+        } : null,
+        conflictFields: ["revision"],
+      });
+    }
 
     for (const node of input.nodes ?? []) {
       await tx.knowledgeCanvasNodeLayout.upsert({
@@ -539,6 +650,7 @@ export async function saveKnowledgeCanvasLayout(
       });
     }
 
+    const updated = await tx.knowledgeCanvasLayout.findUniqueOrThrow({ where: { id: existing.id } });
     return {
       workspaceId: updated.workspaceId,
       revision: updated.revision,
@@ -577,9 +689,8 @@ export async function resetKnowledgeCanvasLayout(
         conflictFields: ["revision"],
       });
     }
-    await tx.knowledgeCanvasNodeLayout.deleteMany({ where: { layoutId: existing.id } });
-    const updated = await tx.knowledgeCanvasLayout.update({
-      where: { id: existing.id },
+    const cas = await tx.knowledgeCanvasLayout.updateMany({
+      where: { id: existing.id, revision: input.expectedRevision },
       data: {
         viewportX: 0,
         viewportY: 0,
@@ -587,6 +698,15 @@ export async function resetKnowledgeCanvasLayout(
         revision: { increment: 1 },
       },
     });
+    if (cas.count !== 1) {
+      const latest = await tx.knowledgeCanvasLayout.findUnique({ where: { id: existing.id } });
+      throw new ApiError("LAYOUT_REVISION_CONFLICT", 409, {
+        latest: latest ? { revision: latest.revision } : null,
+        conflictFields: ["revision"],
+      });
+    }
+    await tx.knowledgeCanvasNodeLayout.deleteMany({ where: { layoutId: existing.id } });
+    const updated = await tx.knowledgeCanvasLayout.findUniqueOrThrow({ where: { id: existing.id } });
     return {
       workspaceId: updated.workspaceId,
       revision: updated.revision,

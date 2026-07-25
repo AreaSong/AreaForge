@@ -104,6 +104,7 @@ export interface StudySessionDto {
   syllabusNodeTitle: string | null;
   status: StudySessionStatusDto;
   startedAt: string;
+  updatedAt: string;
   pausedAt: string | null;
   endedAt: string | null;
   accumulatedPauseSeconds: number;
@@ -162,6 +163,7 @@ export interface MasteryEvidenceCandidateDto {
 
 export interface DailyReviewDto {
   id: string;
+  revision: number;
   reviewDate: string;
   totalMinutes: number;
   effectiveMinutes: number;
@@ -333,6 +335,8 @@ export interface SimulationExamDto {
   mindset: string | null;
   summary: string | null;
   reviewText: string | null;
+  status: "DRAFT" | "CONFIRMED";
+  confirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
   revision: number;
@@ -357,7 +361,11 @@ export interface StagePlanDto {
 
 export interface StageAdjustmentDraftRecordDto {
   id: string;
+  revision: number;
   stagePlanId: string | null;
+  sourceReportDecisionId: string | null;
+  sourceReportRevision: number | null;
+  originVersion: number | null;
   source: StageAdjustmentDraftSourceDto;
   mode: StagePlanModeDto;
   risk: StageAdjustmentDraftRiskDto;
@@ -372,6 +380,15 @@ export interface StageAdjustmentDraftRecordDto {
   createdAt: string;
   appliedAt: string | null;
   actorId: string | null;
+}
+
+export interface PlanInboxWriteSummaryDto {
+  created: string[];
+  reused: string[];
+  superseded: string[];
+  createdCount: number;
+  reusedCount: number;
+  supersededCount: number;
 }
 
 export interface SyllabusOverviewDto {

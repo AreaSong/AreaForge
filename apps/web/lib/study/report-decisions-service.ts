@@ -2,11 +2,14 @@ import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import {
   getPeriodicReport,
+  getPeriodicReportDecisionContext,
   serializePeriodicReportDecision,
   type PeriodicReportDecisionDto,
   type PeriodicReportKind,
 } from "./reports-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { createPlanInboxItemWithResult, type PlanInboxWriteResult } from "./plan-inbox-service";
+import type { PlanInboxWriteSummaryDto } from "./types";
 
 type ReportDecisionClient = PrismaClient | Prisma.TransactionClient;
 
@@ -15,8 +18,20 @@ export type PeriodicReportDecisionAction = "confirm" | "reject";
 export interface DecidePeriodicReportInput {
   kind: PeriodicReportKind;
   action: PeriodicReportDecisionAction;
+  expectedRevision: number;
   rangeStart: string;
   rangeEnd: string;
+}
+
+function emptyInboxResult(): PlanInboxWriteSummaryDto {
+  return { created: [], reused: [], superseded: [], createdCount: 0, reusedCount: 0, supersededCount: 0 };
+}
+
+function summarizeInboxWrites(writes: PlanInboxWriteResult[]): PlanInboxWriteSummaryDto {
+  const created = writes.filter((write) => write.created).map((write) => write.item.id);
+  const reused = writes.filter((write) => write.reused).map((write) => write.item.id);
+  const superseded = writes.flatMap((write) => write.superseded.map((item) => item.id));
+  return { created, reused, superseded, createdCount: created.length, reusedCount: reused.length, supersededCount: superseded.length };
 }
 
 export async function decidePeriodicReport(
@@ -26,6 +41,12 @@ export async function decidePeriodicReport(
 ): Promise<PeriodicReportDecisionDto> {
   const report = await getPeriodicReport(input.kind, now, actorId);
   assertCurrentReportRange(input, report.range);
+  if (input.expectedRevision !== report.revision) {
+    throw new ApiError("PERIODIC_REPORT_REVISION_CONFLICT", 409, {
+      latest: { id: report.id, revision: report.revision, range: report.range },
+      conflictFields: ["revision"],
+    });
+  }
   const workspace = await resolveActiveWorkspace(actorId);
 
   const status = input.action === "confirm" ? "confirmed" : "rejected";
@@ -43,9 +64,12 @@ export async function decidePeriodicReport(
 
     if (existing) {
       if (existing.status === status) {
+        const stageDraft = await tx.stageAdjustmentDraft.findFirst({ where: { sourceReportDecisionId: existing.id, workspaceId: workspace.id }, select: { id: true } });
         return {
           decision: existing,
           alreadyDecided: true,
+          stageDraftId: stageDraft?.id ?? null,
+          inboxResult: emptyInboxResult(),
         };
       }
       throw new ApiError("PERIODIC_REPORT_DECISION_CONFLICT", 409);
@@ -66,46 +90,53 @@ export async function decidePeriodicReport(
       },
     });
 
+    const inboxWrites: PlanInboxWriteResult[] = [];
+    let stageDraftId: string | null = null;
     if (input.action === "confirm") {
       for (const [index, action] of report.decisionPreview.nextCycleDraft.actions.entries()) {
         const originKey = `report:${report.kind}:${report.range.start}:${index}`;
-        await tx.planInboxItem.create({
-          data: {
-            workspaceId: workspace.id,
-            stableKey: `${created.id}:action:${index}`,
-            originKey,
-            originVersion: 1,
-            originType: "PERIODIC_REPORT",
-            originSnapshot: { decisionId: created.id, kind: report.kind, action, range: report.range },
-            title: action,
-            estimatedMinutes: 30,
-            priority: report.weakness.severity === "critical" ? "critical" : "high",
-            type: "review",
-            actorId,
-          },
-        });
+        inboxWrites.push(await createPlanInboxItemWithResult(tx, workspace.id, actorId, {
+          stableKey: `${created.id}:action:${index}`,
+          originKey,
+          originVersion: report.revision,
+          originType: "PERIODIC_REPORT",
+          originSnapshot: { decisionId: created.id, kind: report.kind, action, range: report.range, sourceReportRevision: report.revision },
+          title: action,
+          estimatedMinutes: 30,
+          priority: report.weakness.severity === "critical" ? "critical" : "high",
+          type: "review",
+        }));
       }
       const stagePlan = await tx.stagePlan.findFirst({
         where: { workspaceId: workspace.id, status: { in: ["active", "draft"] } },
         orderBy: [{ status: "asc" }, { startDate: "asc" }],
       });
-      await tx.stageAdjustmentDraft.create({
+      const stageDraft = await tx.stageAdjustmentDraft.create({
         data: {
           workspaceId: workspace.id,
           stagePlanId: stagePlan?.id ?? null,
+          sourceReportDecisionId: created.id,
+          sourceReportRevision: report.revision,
+          originVersion: report.revision + 1,
           source: "local_rule",
           mode: report.strategy.theme === "strengthening" ? "strengthen" : report.strategy.theme === "steady" ? "maintain" : report.strategy.theme,
           risk: report.weakness.severity === "clear" ? "low" : report.weakness.severity,
           riskConclusion: report.weakness.detail,
           focusSubjects: report.weakness.subjectName ? [report.weakness.subjectName] : [],
           taskIntensity: report.strategy.theme === "recovery" ? "reduce" : report.strategy.theme === "sprint" ? "sprint" : "keep",
-          taskAdjustmentActions: [],
+          taskAdjustmentActions: report.decisionPreview.nextCycleDraft.actions as unknown as Prisma.InputJsonValue,
           nextStageEmphasis: report.strategy.stageAdjustment,
           canAutoApply: false,
           requiresUserConfirmation: true,
           status: "draft",
           actorId,
         },
+      });
+      stageDraftId = stageDraft.id;
+    } else {
+      await tx.stageAdjustmentDraft.updateMany({
+        where: { workspaceId: workspace.id, sourceReportDecisionId: created.id, status: "draft" },
+        data: { status: "rejected", revision: { increment: 1 }, actorId },
       });
     }
 
@@ -131,6 +162,8 @@ export async function decidePeriodicReport(
     return {
       decision: created,
       alreadyDecided: false,
+      stageDraftId,
+      inboxResult: summarizeInboxWrites(inboxWrites),
     };
   }).catch(async (error: unknown) => {
     if (!isUniqueViolation(error)) throw error;
@@ -145,12 +178,15 @@ export async function decidePeriodicReport(
     if (!existing || existing.status !== status) {
       throw new ApiError("PERIODIC_REPORT_DECISION_CONFLICT", 409);
     }
-    return { decision: existing, alreadyDecided: true };
+    const stageDraft = await prisma.stageAdjustmentDraft.findFirst({ where: { sourceReportDecisionId: existing.id, workspaceId: workspace.id }, select: { id: true } });
+    return { decision: existing, alreadyDecided: true, stageDraftId: stageDraft?.id ?? null, inboxResult: emptyInboxResult() };
   });
 
   return {
     ...serializePeriodicReportDecision(result.decision),
     alreadyDecided: result.alreadyDecided,
+    stageDraftId: result.stageDraftId,
+    inboxResult: result.inboxResult,
   };
 }
 
@@ -162,7 +198,25 @@ export async function listPeriodicReportDecisions(kind?: PeriodicReportKind, act
     take: 50,
   });
 
-  return decisions.map(serializePeriodicReportDecision);
+  return Promise.all(decisions.map(async (decision) => {
+    const context = workspace
+      ? await getPeriodicReportDecisionContext(decision.id, workspace.id, decision.kind as PeriodicReportKind, decision.rangeStart)
+      : null;
+    return serializePeriodicReportDecision(decision, context ?? undefined);
+  }));
+}
+
+export async function getPeriodicReportDecision(id: string, actorId: string): Promise<PeriodicReportDecisionDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const decision = await prisma.periodicReportDecision.findFirst({ where: { id, workspaceId: workspace.id } });
+  if (!decision) throw new ApiError("PERIODIC_REPORT_DECISION_NOT_FOUND", 404);
+  const context = await getPeriodicReportDecisionContext(
+    decision.id,
+    workspace.id,
+    decision.kind as PeriodicReportKind,
+    decision.rangeStart,
+  );
+  return serializePeriodicReportDecision(decision, context);
 }
 
 function assertCurrentReportRange(

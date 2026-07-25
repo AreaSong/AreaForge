@@ -9,15 +9,16 @@ import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
-export default async function KnowledgeNotesPage() {
+export default async function KnowledgeNotesPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; syllabusNodeId?: string; taskId?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const query = await searchParams;
   const [subjects, tasks, nodes, notes] = await Promise.all([
-    listSubjects(),
-    listStudyTasks(),
-    listSyllabusOptionsShared(),
-    listNotes(),
+    listSubjects(user.id),
+    listStudyTasks(user.id),
+    listSyllabusOptionsShared(user.id),
+    listNotes(user.id),
   ]);
 
   return (
@@ -31,10 +32,10 @@ export default async function KnowledgeNotesPage() {
       <details className="rounded-lg border border-white/10 p-3">
         <summary className="cursor-pointer text-sm text-teal-300">上下文 AI 草稿（需选中文本）</summary>
         <div className="mt-3">
-          <AiDraftPanel endpoint="knowledge-card" />
+          <AiDraftPanel endpoint="knowledge-card" userId={user.id} />
         </div>
       </details>
-      <NoteLibrary subjects={subjects} tasks={tasks} nodes={nodes} notes={notes} />
+      <NoteLibrary userId={user.id} subjects={subjects} tasks={tasks} nodes={nodes} notes={notes} initialSubjectId={query.subjectId} initialSyllabusNodeId={query.syllabusNodeId} initialTaskId={query.taskId} />
     </div>
   );
 }

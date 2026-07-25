@@ -49,6 +49,8 @@ try {
   await resetFixture();
   await verifySessionTransitionsAndSingleEndEffects();
   await resetFixture();
+  await verifySessionCommandIdempotency();
+  await resetFixture();
   await verifyTaskCommandCas();
   await resetFixture();
   await verifySimulationCas();
@@ -261,6 +263,89 @@ async function verifySessionTransitionsAndSingleEndEffects(): Promise<void> {
   });
 }
 
+async function verifySessionCommandIdempotency(): Promise<void> {
+  const base = await createBaseFixture();
+  const taskId = await createTask(base, "session-idempotency");
+  const started = await startStudySession({ taskId, syllabusNodeId: base.syllabusNodeId }, base.actorId);
+  const pauseInput = {
+    expectedStatus: "running" as const,
+    expectedUpdatedAt: started.updatedAt,
+    idempotencyKey: `pause-${started.id}`,
+  };
+  const paused = await pauseStudySession(started.id, base.actorId, pauseInput);
+  const pauseReused = await pauseStudySession(started.id, base.actorId, pauseInput);
+  if (pauseReused.updatedAt !== paused.updatedAt || pauseReused.status !== "paused") throw new Error("pause idempotency did not reuse result");
+  await expectApiError(
+    () => pauseStudySession(started.id, base.actorId, { ...pauseInput, expectedUpdatedAt: new Date(0).toISOString() }),
+    "SESSION_IDEMPOTENCY_CONFLICT",
+  );
+
+  const resumeInput = {
+    expectedStatus: "paused" as const,
+    expectedUpdatedAt: paused.updatedAt,
+    idempotencyKey: `resume-${started.id}`,
+  };
+  const resumed = await resumeStudySession(started.id, base.actorId, resumeInput);
+  const resumeReused = await resumeStudySession(started.id, base.actorId, resumeInput);
+  if (resumeReused.updatedAt !== resumed.updatedAt || resumeReused.status !== "running") throw new Error("resume idempotency did not reuse result");
+
+  await prisma.studySession.update({ where: { id: started.id }, data: { startedAt: new Date(Date.now() - 31 * 60_000) } });
+  const preEnd = await prisma.studySession.findUniqueOrThrow({ where: { id: started.id } });
+  const endInput = {
+    expectedStatus: "running" as const,
+    expectedUpdatedAt: preEnd.updatedAt.toISOString(),
+    idempotencyKey: `end-${started.id}`,
+    qualityScore: 4,
+    isEffective: true,
+    understandingLevel: "clear",
+    minimalOutput: "完成幂等命令夹具并保留可复核结果。",
+    nextAction: "继续验证",
+    producedNote: true,
+    producedMistake: false,
+    completeTask: true,
+  };
+  const ended = await endStudySession(started.id, endInput, base.actorId);
+  const endReused = await endStudySession(started.id, endInput, base.actorId);
+  if (endReused.updatedAt !== ended.updatedAt || endReused.status !== "completed") throw new Error("end idempotency did not reuse result");
+  await expectApiError(
+    () => endStudySession(started.id, { ...endInput, qualityScore: 5 }, base.actorId),
+    "SESSION_IDEMPOTENCY_CONFLICT",
+  );
+
+  const staleTaskId = await createTask(base, "session-stale-command");
+  const staleSession = await startStudySession({ taskId: staleTaskId }, base.actorId);
+  await expectApiError(
+    () => pauseStudySession(staleSession.id, base.actorId, {
+      expectedStatus: "running",
+      expectedUpdatedAt: new Date(0).toISOString(),
+      idempotencyKey: `stale-${staleSession.id}`,
+    }),
+    "SESSION_STATE_CONFLICT",
+  );
+  const unchanged = await prisma.studySession.findUniqueOrThrow({ where: { id: staleSession.id } });
+  if (unchanged.status !== "RUNNING") throw new Error("stale command changed the session");
+
+  const [endAuditCount, debtEventCount] = await Promise.all([
+    prisma.auditEvent.count({ where: { action: "STUDY_SESSION_ENDED", entityId: started.id } }),
+    prisma.taskDebtEvent.count({ where: { taskId, action: "complete" } }),
+  ]);
+  if (endAuditCount !== 1 || debtEventCount !== 1) throw new Error("idempotent end repeated side effects");
+  checks.push({
+    id: "session.command_idempotency_expected_preimage",
+    status: "pass",
+    details: { pauseReused: true, resumeReused: true, endReused: true, staleRejected: true, endAuditCount, debtEventCount },
+  });
+}
+
+async function expectApiError(run: () => Promise<unknown>, code: string): Promise<void> {
+  try {
+    await run();
+    throw new Error(`expected ${code}`);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.code !== code) throw error;
+  }
+}
+
 async function verifyTaskCommandCas(): Promise<void> {
   const base = await createBaseFixture();
   const commands: Array<{
@@ -354,8 +439,11 @@ async function createBaseFixture(): Promise<BaseFixture> {
   const user = await prisma.user.create({
     data: { email: `ops006-${createHash("sha256").update(String(Date.now() + Math.random())).digest("hex").slice(0, 12)}@example.invalid`, passwordHash: "fixture" },
   });
+  const workspace = await prisma.examWorkspace.create({
+    data: { userId: user.id, stableKey: "ops006", name: "OPS-006 fixture", status: "ACTIVE" },
+  });
   const subject = await prisma.subject.create({
-    data: { legacyCode: "MATH", stableKey: "math", name: "OPS-006 fixture", color: "#111111" },
+    data: { workspaceId: workspace.id, legacyCode: "MATH", stableKey: "math", name: "OPS-006 fixture", color: "#111111" },
   });
   const node = await prisma.syllabusNode.create({
     data: { subjectId: subject.id, title: "OPS-006 fixture", kind: "TOPIC" },

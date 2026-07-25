@@ -5,6 +5,7 @@ import { getReviewSchedule, type ReviewScheduleDto } from "@/lib/study/review-sc
 import { getActiveStudySession } from "@/lib/study/service";
 import { sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { ApiError } from "@/lib/api/responses";
+import { getReviewTarget } from "@/lib/study/review-target-service";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function QuickReviewPage({
   const query = await searchParams;
   const returnTo = sanitizeReturnPath(query.returnTo ?? "/today");
 
-  const active = await getActiveStudySession();
+  const active = await getActiveStudySession(user.id);
   if (active) {
     redirect(`/focus/${active.id}?returnTo=${encodeURIComponent(returnTo)}`);
   }
@@ -36,5 +37,6 @@ export default async function QuickReviewPage({
     throw error;
   }
 
-  return <QuickReviewClient schedule={schedule} returnTo={returnTo} />;
+  const target = await getReviewTarget(user.id, schedule.id);
+  return <QuickReviewClient userId={user.id} schedule={schedule} target={target} returnTo={returnTo} />;
 }

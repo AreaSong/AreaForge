@@ -63,6 +63,7 @@ import {
   filterStaleLayoutRefs,
   clampCanvasDepth,
   clampCanvasPageSize,
+  isKnowledgeCanvasCursor,
   isKnowledgeCanvasEntityType,
   canMutateKnowledgeCanvasLayout,
   canAutoShowMotivationReminder,
@@ -1620,6 +1621,9 @@ test("knowledge canvas layout conflict, layered load, and mobile read-only layou
   assert.equal(clampCanvasPageSize(5000), 200);
   assert.equal(isKnowledgeCanvasEntityType("NOTE"), true);
   assert.equal(isKnowledgeCanvasEntityType("FREEFORM"), false);
+  assert.equal(isKnowledgeCanvasCursor("NOTE:note-1"), true);
+  assert.equal(isKnowledgeCanvasCursor("FREEFORM:note-1"), false);
+  assert.equal(isKnowledgeCanvasCursor("NOTE"), false);
 
   // Layout CAS conflict: stale expectedRevision must not overwrite newer layout.
   assert.equal(assertExpectedRevision({ currentRevision: 3, expectedRevision: 3 }), "ok");
@@ -1677,6 +1681,17 @@ test("knowledge canvas layout conflict, layered load, and mobile read-only layou
     depth2.nodes.map((node) => node.id).sort(),
     ["note", "sub", "ws"],
   );
+
+  const filtered = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 2,
+    entityTypeFilter: "NOTE",
+    limit: 20,
+  });
+  assert.deepEqual(filtered.nodes.map((node) => node.id).sort(), ["note", "sub", "ws"]);
+  assert.deepEqual(filtered.edges.map((edge) => edge.id).sort(), ["e-note", "e-sub"]);
 
   const pageNodes = Array.from({ length: 12 }, (_, index) => ({
     id: `n${index}`,

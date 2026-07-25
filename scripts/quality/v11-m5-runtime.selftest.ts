@@ -13,18 +13,25 @@ import { canonicalizeHttpsUrl } from "../../packages/core/src/index";
 import { prisma } from "../../packages/db/src/index";
 import {
   confirmLearningTreeImport,
+  consumeLearningTreeExport,
   exportLearningTreeImportCanonical,
   getLearningTreeImport,
   listLearningTreeImports,
   previewLearningTreeImport,
+  previewActiveLearningTreeExport,
+  setLearningTreeImportArchived,
 } from "../../apps/web/lib/study/learning-tree-service";
 import {
   createLinkStudyResource,
   archiveStudyResource,
+  assertBatchFileLimit,
   linkStudyResource,
+  listStagedStudyResourceUploads,
+  restoreStudyResource,
   resolveStudyResourceUpload,
   stageStudyResourceUpload,
 } from "../../apps/web/lib/study/study-resource-service";
+import { finalizeWorkspaceAttachment } from "../../apps/web/lib/study/attachments-service";
 import { ApiError } from "../../apps/web/lib/api/responses";
 
 /**
@@ -59,12 +66,14 @@ try {
   await verifyResourceOwnerIsolation(seed);
   await verifyResourceDirectiveGate(seed);
   await verifyConfirmAtomicAndIdempotent(seed);
+  await verifyActiveExportAndGrant(seed);
+  await verifyConflictMapping(seed);
   await verifyHistoryOwnerAndExport(seed);
 
   console.log(
     JSON.stringify(
       {
-        schemaVersion: "v11-m5-runtime-selftest-v1",
+        schemaVersion: "v11-m5-runtime-selftest-v3",
         status: "pass",
         checks,
       },
@@ -108,9 +117,9 @@ async function verifyMigration5Schema(): Promise<void> {
   const tables = await prisma.$queryRaw<Array<{ tablename: string }>>`
     SELECT tablename FROM pg_tables
     WHERE schemaname = 'public'
-      AND tablename IN ('LearningTreeImportBatch', 'LearningTreeImportItem')
+      AND tablename IN ('LearningTreeImportBatch', 'LearningTreeImportItem', 'LearningTreeExportGrant')
   `;
-  assert.equal(tables.length, 2);
+  assert.equal(tables.length, 3);
   pass("migration5_schema", { indexes: indexes.length, tables: tables.length });
 }
 
@@ -133,6 +142,7 @@ async function resetTables(): Promise<void> {
     TRUNCATE TABLE
       "LearningTreeImportItem",
       "LearningTreeImportBatch",
+      "LearningTreeExportGrant",
       "PlanInboxDependencyRef",
       "PlanInboxItem",
       "StudyResourceTag",
@@ -151,6 +161,58 @@ async function resetTables(): Promise<void> {
       "User"
     RESTART IDENTITY CASCADE
   `);
+}
+
+async function verifyActiveExportAndGrant(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  const preview = await previewActiveLearningTreeExport(seed.user.id, "subject", {
+    subjectKey: seed.subject.stableKey,
+  });
+  assert.ok(preview.objectCount >= 4);
+  assert.ok(preview.cardBodyCount >= 1);
+  assert.ok(preview.planTitleCount >= 1);
+  assert.ok(preview.externalHosts.includes("example.com"));
+
+  const exported = await consumeLearningTreeExport(seed.user.id, {
+    token: preview.exportToken,
+    scope: "subject",
+    subjectKey: seed.subject.stableKey,
+  });
+  assert.match(exported.markdown, /:::af-card\{#/);
+  assert.match(exported.markdown, /::af-resource\{#/);
+  assert.match(exported.markdown, /::af-plan\{#/);
+
+  let consumed = false;
+  try {
+    await consumeLearningTreeExport(seed.user.id, {
+      token: preview.exportToken,
+      scope: "subject",
+      subjectKey: seed.subject.stableKey,
+    });
+  } catch (error) {
+    consumed = error instanceof ApiError && error.code === "LEARNING_TREE_EXPORT_TOKEN_CONSUMED";
+  }
+  assert.equal(consumed, true);
+
+  let missingRoot = false;
+  try {
+    await previewActiveLearningTreeExport(seed.user.id, "branch", {
+      subjectKey: seed.subject.stableKey,
+      rootNodeKey: "missing-root",
+    });
+  } catch (error) {
+    missingRoot = error instanceof ApiError && error.code === "ROOT_NODE_NOT_FOUND";
+  }
+  assert.equal(missingRoot, true);
+  pass("active_export_one_time_grant", {
+    objects: preview.objectCount,
+    cards: preview.cardBodyCount,
+    plans: preview.planTitleCount,
+    externalHosts: preview.externalHosts.length,
+    oneTime: true,
+    invalidBranchRejected: true,
+  });
 }
 
 async function seedWorkspace() {
@@ -181,6 +243,13 @@ async function seedWorkspace() {
 }
 
 async function verifyLinkResourceAndArchive(seed: Awaited<ReturnType<typeof seedWorkspace>>): Promise<void> {
+  assert.doesNotThrow(() => assertBatchFileLimit(5));
+  assert.throws(() => assertBatchFileLimit(6), (error: unknown) => error instanceof ApiError && error.code === "STUDY_RESOURCE_BATCH_LIMIT");
+  const unorganized = await createLinkStudyResource(seed.user.id, {
+    title: "Unsorted link",
+    url: "https://example.com/unsorted",
+  });
+  assert.equal(unorganized.organizeStatus, "UNSORTED");
   const resource = await createLinkStudyResource(seed.user.id, {
     title: "Official syllabus",
     url: "https://Example.COM/path",
@@ -189,9 +258,25 @@ async function verifyLinkResourceAndArchive(seed: Awaited<ReturnType<typeof seed
   assert.equal(resource.sourceType, "LINK");
   assert.equal(resource.displayHost, "example.com");
   assert.equal(resource.organizeStatus, "READY_FOR_USE");
+  const schedule = await prisma.reviewSchedule.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      targetType: "STUDY_RESOURCE",
+      studyResourceId: resource.id,
+      dueDate: new Date("2026-07-30T00:00:00.000Z"),
+      actorId: seed.user.id,
+    },
+  });
   const archived = await archiveStudyResource(seed.user.id, resource.id);
   assert.equal(archived.organizeStatus, "ARCHIVED");
-  pass("link_resource_archive", { id: resource.id });
+  const paused = await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+  assert.equal(paused.status, "PAUSED");
+  assert.equal(paused.dueDate, null);
+  assert.equal(paused.pausedReason, "TARGET_ARCHIVED");
+  const restored = await restoreStudyResource(seed.user.id, resource.id);
+  assert.equal(restored.organizeStatus, "READY_FOR_USE");
+  assert.equal((await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: schedule.id } })).status, "PAUSED");
+  pass("link_resource_archive", { id: resource.id, unorganizedGate: true, scheduleRemainsPausedAfterRestore: true, batchLimit: 5 });
 }
 
 async function verifyHttpsZeroNetwork(): Promise<void> {
@@ -220,6 +305,10 @@ async function verifyDuplicateThreeWay(seed: Awaited<ReturnType<typeof seedWorks
     decision: "skip",
   });
   assert.deepEqual(skipped, { skipped: true });
+  assert.deepEqual(await resolveStudyResourceUpload(seed.user.id, {
+    attachmentId: secondStage.attachment.id,
+    decision: "skip",
+  }), { skipped: true });
 
   const thirdStage = await stageStudyResourceUpload(seed.user.id, pdfScan(bytes, "dup-c.pdf"));
   const reused = await resolveStudyResourceUpload(seed.user.id, {
@@ -229,6 +318,13 @@ async function verifyDuplicateThreeWay(seed: Awaited<ReturnType<typeof seedWorks
   });
   assert.ok(!("skipped" in reused));
   assert.equal(reused.id, original.id);
+  const reusedRetry = await resolveStudyResourceUpload(seed.user.id, {
+    attachmentId: thirdStage.attachment.id,
+    decision: "reuse",
+    reuseResourceId: original.id,
+  });
+  assert.ok(!("skipped" in reusedRetry));
+  assert.equal(reusedRetry.id, original.id);
 
   const fourthStage = await stageStudyResourceUpload(seed.user.id, pdfScan(bytes, "dup-d.pdf"));
   const copied = await resolveStudyResourceUpload(seed.user.id, {
@@ -240,12 +336,46 @@ async function verifyDuplicateThreeWay(seed: Awaited<ReturnType<typeof seedWorks
   assert.ok(!("skipped" in copied));
   assert.notEqual(copied.id, original.id);
   assert.equal(copied.duplicateOfResourceId, original.id);
+  const copiedRetry = await resolveStudyResourceUpload(seed.user.id, {
+    attachmentId: fourthStage.attachment.id,
+    decision: "copy",
+    title: "Copy PDF",
+    subjectId: seed.subject.id,
+  });
+  assert.ok(!("skipped" in copiedRetry));
+  assert.equal(copiedRetry.id, copied.id);
+
+  let changedRetryRejected = false;
+  try {
+    await resolveStudyResourceUpload(seed.user.id, {
+      attachmentId: fourthStage.attachment.id,
+      decision: "skip",
+    });
+  } catch (error) {
+    changedRetryRejected = error instanceof ApiError && error.code === "STUDY_RESOURCE_UPLOAD_DECISION_CONFLICT";
+  }
+  assert.equal(changedRetryRejected, true);
+
+  const readyUnbound = await stageStudyResourceUpload(seed.user.id, pdfScan(pdfBytes(513), "ready-unbound.pdf"));
+  await finalizeWorkspaceAttachment(seed.user.id, readyUnbound.attachment.id);
+  const recovered = await listStagedStudyResourceUploads(seed.user.id);
+  assert.ok(recovered.some((item) => item.attachment.id === readyUnbound.attachment.id));
+  const recoveredCopy = await resolveStudyResourceUpload(seed.user.id, {
+    attachmentId: readyUnbound.attachment.id,
+    decision: "copy",
+    title: "Recovered ready upload",
+    subjectId: seed.subject.id,
+  });
+  assert.ok(!("skipped" in recoveredCopy));
 
   pass("duplicate_three_way", {
     originalId: original.id,
     copyId: copied.id,
     skipped: true,
     reused: true,
+    retriesReturnOriginalResult: true,
+    changedRetryRejected: true,
+    readyUnboundRecovered: true,
   });
 }
 
@@ -608,6 +738,18 @@ async function verifyHistoryOwnerAndExport(
   }
   assert.equal(exportDenied, true);
 
+  const archived = await setLearningTreeImportArchived(seed.user.id, detail.id, true);
+  assert.ok(archived.archivedAt);
+  assert.equal((await listLearningTreeImports(seed.user.id)).some((item) => item.id === detail.id), false);
+  assert.equal(
+    (await listLearningTreeImports(seed.user.id, { includeArchived: true })).some((item) => item.id === detail.id),
+    true,
+  );
+  assert.ok((await getLearningTreeImport(seed.user.id, detail.id)).archivedAt);
+  const restored = await setLearningTreeImportArchived(seed.user.id, detail.id, false);
+  assert.equal(restored.archivedAt, null);
+  assert.equal((await listLearningTreeImports(seed.user.id)).some((item) => item.id === detail.id), true);
+
   pass("history_owner_export_no_temp", {
     batchId: detail.id,
     bytes: exported.markdown.length,
@@ -615,7 +757,45 @@ async function verifyHistoryOwnerAndExport(
     exportDenied: true,
     uploadDirUnchanged: true,
     noServerTempWrite: true,
+    archiveHiddenAndRestored: true,
   });
+}
+
+async function verifyConflictMapping(seed: Awaited<ReturnType<typeof seedWorkspace>>): Promise<void> {
+  const candidates = await Promise.all(
+    ["legacy-a", "legacy-b"].map((id) =>
+      prisma.syllabusNode.create({
+        data: { id, subjectId: seed.subject.id, title: "Ambiguous", kind: "CHAPTER", stableKey: null },
+      }),
+    ),
+  );
+  const markdown = [
+    "---",
+    "protocol: AREAFORGE_LEARNING_TREE_V1",
+    "scope: subject",
+    "workspaceKey: example-workspace",
+    "subjectKey: math",
+    "---",
+    "",
+    "# Ambiguous",
+    "",
+  ].join("\n");
+  const preview = await previewLearningTreeImport(seed.user.id, { markdown, scope: "subject" });
+  const conflict = preview.items.find((item) => item.diffType === "CONFLICT");
+  assert.ok(conflict);
+  assert.equal(conflict.candidateMatches.length, 2);
+  const targetId = candidates[0]!.id;
+  const result = await confirmLearningTreeImport(seed.user.id, {
+    markdown: preview.canonicalMarkdown || markdown,
+    previewToken: preview.previewToken,
+    previewOperationId: preview.operationId,
+    idempotencyKey: "idem-m5-conflict-map",
+    selections: [{ stableKey: conflict.stableKey, choice: "apply", mappedTargetId: targetId }],
+  });
+  assert.equal(result.appliedCount, 1);
+  const mapped = await prisma.syllabusNode.findUniqueOrThrow({ where: { id: targetId } });
+  assert.equal(mapped.stableKey, conflict.stableKey);
+  pass("conflict_mapping_resolves_block", { candidateCount: 2, mapped: true });
 }
 
 function pdfBytes(size: number): Uint8Array {

@@ -265,6 +265,50 @@ test("learning tree export includes stable keys", () => {
   assert.equal(reparsed.ok, true, JSON.stringify(reparsed.errors));
 });
 
+test("learning tree export round-trips cards resources and plans", () => {
+  const markdown = exportLearningTreeMarkdown({
+    scope: "subject",
+    workspaceKey: "ws",
+    subjectKey: "subj",
+    subjects: [{
+      stableKey: "subj",
+      title: "数据结构",
+      nodes: [{ stableKey: "node_list", title: "线性表", depth: 1 }],
+      cards: [{
+        stableKey: "card_list",
+        title: "线性表卡片",
+        kind: "CONCEPT",
+        subjectKey: "subj",
+        primaryNode: "node_list",
+        relatedNodes: ["node_list"],
+        bodyMarkdown: "**连续存储**与链式存储。",
+      }],
+      resources: [{
+        stableKey: "resource_list",
+        title: "参考资料",
+        subjectKey: "subj",
+        url: "https://example.com/list",
+      }],
+      plans: [{
+        stableKey: "plan_list",
+        title: "复习线性表",
+        subjectKey: "subj",
+        durationMinutes: 25,
+        dependencyType: "SOFT",
+      }],
+    }],
+  });
+  const parsed = parseLearningTreeMarkdown(markdown);
+  assert.equal(parsed.ok, true, JSON.stringify(parsed.errors));
+  assert.deepEqual(
+    parsed.objects.map((object) => `${object.type}:${object.stableKey}`),
+    ["node:node_list", "card:card_list", "resource:resource_list", "plan:plan_list"],
+  );
+  const card = parsed.objects.find((object) => object.type === "card");
+  assert.ok(card?.type === "card");
+  assert.equal(card.bodyMarkdown, "**连续存储**与链式存储。");
+});
+
 function withSubjectFrontmatter(body: string): string {
   return `---
 protocol: AREAFORGE_LEARNING_TREE_V1

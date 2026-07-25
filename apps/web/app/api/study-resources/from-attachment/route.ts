@@ -6,11 +6,13 @@ import { createStudyResourceFromAttachment } from "@/lib/study/study-resource-se
 
 export const dynamic = "force-dynamic";
 
+const categorySchema = z.enum(["TEXTBOOK", "COURSE", "EXERCISE", "PAST_PAPER", "SOLUTION", "SUMMARY", "IMAGE", "OTHER"]);
+
 const schema = z.object({
   attachmentId: z.string().min(1),
   title: z.string().trim().min(1).max(200).optional(),
   subjectId: z.string().nullable().optional(),
-  category: z.string().optional(),
+  category: categorySchema.optional(),
   tags: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
 });
 

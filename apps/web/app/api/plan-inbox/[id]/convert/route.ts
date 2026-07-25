@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const bodySchema = z.object({
   expectedRevision: z.number().int().positive(),
   reviewScheduleId: z.string().min(1).nullable().optional(),
+  idempotencyKey: z.string().min(8).max(200).optional(),
 });
 
 export async function POST(

@@ -3,6 +3,7 @@
 import { ChevronRight, ClipboardCheck, Plus, RotateCcw, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
 import type {
   MasteryEvidenceTypeDto,
   MasteryLevelDto,
@@ -19,6 +20,7 @@ interface SyllabusManagerProps {
   nodes: SyllabusNodeDto[];
   summary: SyllabusMapOverviewDto["summary"];
   summaryBySubject: SyllabusMapOverviewDto["summaryBySubject"];
+  initialSubjectId?: string;
 }
 
 interface FlatNode {
@@ -57,9 +59,9 @@ type AddMasteryRetestBody = {
   nextReviewAt?: string | null;
 };
 
-export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: SyllabusManagerProps) {
+export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, initialSubjectId }: SyllabusManagerProps) {
   const router = useRouter();
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
+  const [subjectId, setSubjectId] = useState(subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId as string : subjects[0]?.id ?? "");
   const [parentId, setParentId] = useState("");
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<SyllabusNodeKindDto>("topic");
@@ -219,6 +221,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject }: 
               onChange={(event) => {
                 setSubjectId(event.target.value);
                 setParentId("");
+                updateKnowledgeContext({ subjectId: event.target.value, syllabusNodeId: null });
               }}
               required
             >

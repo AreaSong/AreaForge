@@ -127,8 +127,8 @@ export const createMistakeSchema = z.object({
       "time_pressure",
       "unfamiliar_pattern",
     ])
-    .default("unknown"),
-  correctIdea: z.string().trim().max(3000).nullable().optional(),
+    .refine((value) => value !== "unknown", { message: "新错题必须选择明确错因" }),
+  correctIdea: z.string().trim().min(1).max(3000),
   nextReviewAt: z.string().datetime().nullable().optional(),
 });
 
@@ -262,11 +262,13 @@ export const stagePlanSchema = createStagePlanSchema
 
 export const updateStagePlanSchema = stagePlanBaseSchema
   .extend({
+    expectedRevision: z.number().int().min(1),
     mode: stagePlanModeSchema,
     status: stagePlanStatusSchema,
   })
   .partial()
-  .refine((value) => Object.keys(value).length > 0, {
+  .required({ expectedRevision: true })
+  .refine((value) => Object.keys(value).some((key) => key !== "expectedRevision"), {
     message: "at least one field is required",
   })
   .refine(
@@ -289,6 +291,7 @@ export const aiStageAdjustmentDraftSchema = stageAdjustmentDraftSchema;
 export const periodicReportDecisionSchema = z.object({
   kind: z.enum(["week", "month"]),
   action: z.enum(["confirm", "reject"]),
+  expectedRevision: z.number().int().positive(),
   rangeStart: z.string().datetime(),
   rangeEnd: z.string().datetime(),
 });
@@ -399,7 +402,13 @@ export const startSessionSchema = z
     message: "subjectId or taskId is required",
   });
 
-export const endSessionSchema = z.object({
+export const sessionCommandSchema = z.object({
+  expectedStatus: z.enum(["running", "paused"]),
+  expectedUpdatedAt: z.string().datetime(),
+  idempotencyKey: z.string().min(8).max(200),
+});
+
+export const endSessionSchema = sessionCommandSchema.extend({
   qualityScore: z.number().int().min(1).max(5),
   isEffective: z.boolean(),
   understandingLevel: z.string().trim().min(1).max(80),
@@ -417,6 +426,10 @@ export const saveReviewSchema = z.object({
   keepAction: z.string().trim().min(1).max(1000),
   tomorrowMinimum: z.string().trim().min(1).max(1000),
   mood: z.string().trim().max(120).optional(),
+});
+
+export const updateReviewSchema = saveReviewSchema.extend({
+  expectedRevision: z.number().int().min(1),
 });
 
 export const createMotivationItemSchema = z.object({

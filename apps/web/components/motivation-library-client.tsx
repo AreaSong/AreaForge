@@ -1,49 +1,100 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import {
+  loadPrivateBusinessDraft,
+  LONG_PRIVATE_DRAFT_TTL_MS,
+  redirectToLoginWithCurrentLocation,
+  removePrivateBusinessDraft,
+  savePrivateBusinessDraft,
+} from "@/lib/client/private-business-drafts";
 import type { MotivationItemDto } from "@/lib/study/motivation-library-service";
 
-export function MotivationLibraryClient(props: { initialItems: MotivationItemDto[] }) {
+interface MotivationLibraryDraft {
+  title: string;
+  body: string;
+}
+
+export function MotivationLibraryClient(props: { userId: string; initialItems: MotivationItemDto[] }) {
+  const draftKey = `areaforge.motivation-library.draft.${props.userId}`;
   const [items, setItems] = useState(props.initialItems);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const draft = loadPrivateBusinessDraft(draftKey, LONG_PRIVATE_DRAFT_TTL_MS, isMotivationLibraryDraft);
+    if (draft) {
+      setTitle(draft.title);
+      setBody(draft.body);
+    }
+    setDraftReady(true);
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    savePrivateBusinessDraft<MotivationLibraryDraft>(draftKey, { title, body });
+  }, [body, draftKey, draftReady, title]);
 
   async function createQuote() {
     setError(null);
-    const response = await fetch("/api/motivation/items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "QUOTE", title, body }),
-    });
-    const payload = (await response.json().catch(() => null)) as
-      | { item?: MotivationItemDto; error?: string }
-      | null;
-    if (!response.ok || !payload?.item) {
-      setError(payload?.error ?? "创建失败");
-      return;
+    try {
+      const response = await fetch("/api/motivation/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "QUOTE", title, body }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { item?: MotivationItemDto; error?: string }
+        | null;
+      if (response.status === 401) {
+        setError("登录已过期，草稿已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok || !payload?.item) {
+        setError(payload?.error ?? "创建失败，草稿已保留");
+        return;
+      }
+      setItems((prev) => [...prev, payload.item!]);
+      setTitle("");
+      setBody("");
+      removePrivateBusinessDraft(draftKey);
+    } catch {
+      setError("网络不可用，草稿已保留；恢复网络后请显式重试。");
     }
-    setItems((prev) => [...prev, payload.item!]);
-    setTitle("");
-    setBody("");
   }
 
   async function toggleEnabled(item: MotivationItemDto) {
     setError(null);
-    const response = await fetch(`/api/motivation/items/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ expectedRevision: item.revision, enabled: !item.enabled }),
-    });
-    const payload = (await response.json().catch(() => null)) as
-      | { item?: MotivationItemDto; error?: string }
-      | null;
-    if (!response.ok || !payload?.item) {
-      setError(payload?.error ?? "更新失败");
-      return;
+    try {
+      const response = await fetch(`/api/motivation/items/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedRevision: item.revision, enabled: !item.enabled }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { item?: MotivationItemDto; latest?: MotivationItemDto; conflictFields?: string[]; error?: string }
+        | null;
+      if (response.status === 401) {
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok || !payload?.item) {
+        if (response.status === 409 && payload?.latest) {
+          setItems((prev) => prev.map((row) => row.id === item.id ? payload.latest! : row));
+          setError(`内容已在其他页面更新；已载入最新状态（冲突字段：${payload.conflictFields?.join("、") ?? "revision"}），请确认后重试。`);
+          return;
+        }
+        setError(payload?.error ?? "更新失败");
+        return;
+      }
+      setItems((prev) => prev.map((row) => (row.id === item.id ? payload.item! : row)));
+    } catch {
+      setError("网络不可用，未执行更新；恢复网络后请显式重试。");
     }
-    setItems((prev) => prev.map((row) => (row.id === item.id ? payload.item! : row)));
   }
 
   return (
@@ -67,7 +118,7 @@ export function MotivationLibraryClient(props: { initialItems: MotivationItemDto
           />
         </label>
       </div>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
       <button
         type="button"
         disabled={pending || !title.trim() || !body.trim()}
@@ -100,4 +151,10 @@ export function MotivationLibraryClient(props: { initialItems: MotivationItemDto
       </ul>
     </div>
   );
+}
+
+function isMotivationLibraryDraft(value: unknown): value is MotivationLibraryDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as Partial<MotivationLibraryDraft>;
+  return typeof draft.title === "string" && typeof draft.body === "string";
 }

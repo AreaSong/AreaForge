@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PlanInboxItemClient } from "@/components/plan-inbox-item-client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { listPlanInboxItems } from "@/lib/study/plan-inbox-service";
+import { getPlanInboxFormOptions, listPlanInboxItems } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export default async function TodayInboxItemPage({ params }: { params: Promise<{
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { itemId } = await params;
-  const items = await listPlanInboxItems(user.id);
+  const [items, options] = await Promise.all([listPlanInboxItems(user.id), getPlanInboxFormOptions(user.id)]);
   const item = items.find((row) => row.id === itemId);
   if (!item) {
     return (
@@ -22,5 +22,5 @@ export default async function TodayInboxItemPage({ params }: { params: Promise<{
       </section>
     );
   }
-  return <PlanInboxItemClient item={item} />;
+  return <PlanInboxItemClient item={item} options={options} />;
 }

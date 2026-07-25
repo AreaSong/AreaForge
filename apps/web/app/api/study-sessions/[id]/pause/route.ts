@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/api/auth";
-import { apiErrorResponse } from "@/lib/api/responses";
+import { requireApiUser, readJson } from "@/lib/api/auth";
+import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { pauseStudySession } from "@/lib/study/service";
+import { sessionCommandSchema } from "@/lib/study/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   try {
     const user = await requireApiUser(request);
     const { id } = await context.params;
-    return NextResponse.json({ session: await pauseStudySession(id, user.id) });
+    const parsed = sessionCommandSchema.safeParse(await readJson(request));
+    if (!parsed.success) return zodErrorResponse(parsed.error);
+    return NextResponse.json({ session: await pauseStudySession(id, user.id, parsed.data) });
   } catch (error) {
     return apiErrorResponse(error);
   }

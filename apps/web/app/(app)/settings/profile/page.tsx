@@ -24,8 +24,8 @@ export default async function SettingsProfilePage() {
           动机封存正文默认不进入 AI。内容库可保存语录、HTTPS 视频链接或显式摘录。
         </p>
       </div>
-      <MotivationVaultForm vault={vault} />
-      <MotivationLibraryClient initialItems={items} />
+      <MotivationVaultForm userId={user.id} vault={vault} />
+      <MotivationLibraryClient userId={user.id} initialItems={items} />
     </section>
   );
 }

@@ -30,7 +30,7 @@ export default async function ReportsPage() {
 
   const [reports, longTermRisks] = await Promise.all([
     getPeriodicReports(),
-    getLongTermRiskSummary(),
+    getLongTermRiskSummary(user!.id),
   ]);
 
   return (

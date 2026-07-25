@@ -8,14 +8,15 @@ import { getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
-export default async function KnowledgeSyllabusPage() {
+export default async function KnowledgeSyllabusPage({ searchParams }: { searchParams: Promise<{ subjectId?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const query = await searchParams;
 
   const [subjects, overview, longTermRisks] = await Promise.all([
-    listSubjects(),
-    getSyllabusMapOverviewShared(),
-    getLongTermRiskSummary(),
+    listSubjects(user.id),
+    getSyllabusMapOverviewShared(user.id),
+    getLongTermRiskSummary(user.id),
   ]);
 
   return (
@@ -30,6 +31,7 @@ export default async function KnowledgeSyllabusPage() {
         nodes={overview.nodes}
         summary={overview.summary}
         summaryBySubject={overview.summaryBySubject}
+        initialSubjectId={query.subjectId}
       />
     </div>
   );

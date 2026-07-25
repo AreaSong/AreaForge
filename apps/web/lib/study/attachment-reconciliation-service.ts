@@ -45,6 +45,7 @@ export interface AttachmentReconciliationSummaryCounts {
   blockedDualFileCount: number;
   lostClaimCount: number;
   skippedYoungIntentCount: number;
+  skippedAwaitingDecisionCount: number;
   skippedActiveLeaseCount: number;
   retryLaterCount: number;
   reportOnlyFailedCount: number;
@@ -91,6 +92,7 @@ export async function reconcileNewProtocolAttachments(
     blockedDualFileCount: 0,
     lostClaimCount: 0,
     skippedYoungIntentCount: 0,
+    skippedAwaitingDecisionCount: 0,
     skippedActiveLeaseCount: 0,
     retryLaterCount: 0,
     reportOnlyFailedCount: 0,
@@ -100,8 +102,35 @@ export async function reconcileNewProtocolAttachments(
     where: { status: "FAILED", protocolVersion: { gte: attachmentProtocolVersion } },
   });
 
+  const [stagedDecisionEvents, resolvedDecisionEvents] = await Promise.all([
+    prisma.auditEvent.findMany({
+      where: { action: "STUDY_RESOURCE_UPLOAD_STAGED", entityType: "Attachment", entityId: { not: null } },
+      select: { entityId: true },
+    }),
+    prisma.auditEvent.findMany({
+      where: { action: "STUDY_RESOURCE_UPLOAD_RESOLVED", entityType: "Attachment", entityId: { not: null } },
+      select: { entityId: true },
+    }),
+  ]);
+  const resolvedDecisionIds = new Set(
+    resolvedDecisionEvents.map((event) => event.entityId).filter((id): id is string => typeof id === "string"),
+  );
+  const awaitingDecisionIds = Array.from(new Set(
+    stagedDecisionEvents
+      .map((event) => event.entityId)
+      .filter((id): id is string => typeof id === "string")
+      .filter((id) => !resolvedDecisionIds.has(id)),
+  ));
+  counts.skippedAwaitingDecisionCount = await prisma.attachment.count({
+    where: { id: { in: awaitingDecisionIds }, status: "PENDING", protocolVersion: { gte: attachmentProtocolVersion } },
+  });
+
   const candidates = await prisma.attachment.findMany({
-    where: { status: "PENDING", protocolVersion: { gte: attachmentProtocolVersion } },
+    where: {
+      status: "PENDING",
+      protocolVersion: { gte: attachmentProtocolVersion },
+      ...(awaitingDecisionIds.length ? { id: { notIn: awaitingDecisionIds } } : {}),
+    },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: limit,
     select: {

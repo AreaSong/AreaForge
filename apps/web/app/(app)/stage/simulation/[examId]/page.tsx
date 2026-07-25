@@ -48,7 +48,7 @@ async function loadPageData(examId: string, actorId: string) {
     const [exam, subjects, syllabus, remediations] = await Promise.all([
       getSimulationExam(examId, actorId),
       listWorkspaceSubjects(actorId, workspace.id),
-      listSyllabusOptions(),
+      listSyllabusOptions(actorId),
       listSimulationRemediations(examId, actorId),
     ]);
     return { exam, subjects, syllabus, remediations };

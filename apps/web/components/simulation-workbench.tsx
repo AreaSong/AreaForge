@@ -207,10 +207,13 @@ export function SimulationWorkbench({
     startTransition(() => router.refresh());
   }
 
-  async function decidePersistentDraft(id: string, action: "confirm" | "reject") {
+  async function decidePersistentDraft(id: string, revision: number, action: "confirm" | "reject") {
+    if (action === "reject" && !window.confirm("驳回后当前阶段草稿进入不可逆终态。确认驳回？")) return;
     setError(null);
     const response = await fetch(`/api/simulation/stage-adjustment-drafts/${id}/${action}`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedRevision: revision }),
     });
 
     if (!response.ok) {
@@ -518,7 +521,7 @@ export function SimulationWorkbench({
                     <button
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-violet-300 px-3 text-sm font-medium text-[#120d1b] disabled:cursor-not-allowed disabled:opacity-50"
                       type="button"
-                      onClick={() => decidePersistentDraft(draft.id, "confirm")}
+                      onClick={() => decidePersistentDraft(draft.id, draft.revision, "confirm")}
                       disabled={isPending || !draft.stagePlanId}
                     >
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
@@ -527,7 +530,7 @@ export function SimulationWorkbench({
                     <button
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
                       type="button"
-                      onClick={() => decidePersistentDraft(draft.id, "reject")}
+                      onClick={() => decidePersistentDraft(draft.id, draft.revision, "reject")}
                       disabled={isPending}
                     >
                       <XCircle className="h-4 w-4" aria-hidden="true" />

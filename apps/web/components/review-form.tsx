@@ -1,6 +1,7 @@
 "use client";
 
 import { NotebookPen } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { DailyReviewDto } from "@/lib/study/types";
@@ -14,16 +15,19 @@ const moodOptions = ["焦虑", "麻木", "想她", "自责", "有斗志", "很�
 export function ReviewForm({ review }: ReviewFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
   const currentMood = review?.mood ?? "";
   const hasLegacyMood = currentMood.length > 0 && !moodOptions.includes(currentMood as (typeof moodOptions)[number]);
 
   async function submit(formData: FormData) {
     setError(null);
-    const response = await fetch("/api/reviews/today", {
-      method: "POST",
+    setSaved(false);
+    const response = await fetch(review ? `/api/daily-reviews/${review.id}` : "/api/daily-reviews", {
+      method: review ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        ...(review ? { expectedRevision: review.revision } : {}),
         summary: String(formData.get("summary") ?? ""),
         lostControl: String(formData.get("lostControl") ?? ""),
         keepAction: String(formData.get("keepAction") ?? ""),
@@ -38,6 +42,7 @@ export function ReviewForm({ review }: ReviewFormProps) {
       return;
     }
 
+    setSaved(true);
     startTransition(() => router.refresh());
   }
 
@@ -102,7 +107,14 @@ export function ReviewForm({ review }: ReviewFormProps) {
           已记录 {review.totalMinutes} 分钟学习，其中有效 {review.effectiveMinutes} 分钟。
         </p>
       ) : null}
-      {error ? <p className="mt-3 text-sm text-red-200">{error}</p> : null}
+      <div aria-live="polite">
+        {saved ? (
+          <p className="mt-3 text-sm text-emerald-200">
+            复盘与明日最低行动已保存。<Link className="ml-2 underline" href="/today/inbox">查看收件箱</Link>
+          </p>
+        ) : null}
+        {error ? <p className="mt-3 text-sm text-red-200">{error}</p> : null}
+      </div>
     </div>
   );
 }

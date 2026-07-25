@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 
-export function LoginForm() {
+export function LoginForm({ returnTo = "/today" }: { returnTo?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -44,7 +44,7 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/today");
+    router.replace(returnTo);
     router.refresh();
   }
 

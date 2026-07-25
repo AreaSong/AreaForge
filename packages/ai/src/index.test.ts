@@ -667,5 +667,8 @@ test("learning tree draft fallback stays markdown only", async () => {
     validate: validateLearningTreeDraftAdvice,
   });
   assert.equal(result.advice.schemaVersion, "learning-tree-draft-v1");
+  assert.ok(result.advice.markdownDraft.includes("protocol: AREAFORGE_LEARNING_TREE_V1"));
+  assert.ok(result.advice.markdownDraft.includes("workspaceKey: __AREAFORGE_ACTIVE_WORKSPACE__"));
+  assert.ok(result.advice.markdownDraft.includes("subjectKey: __AREAFORGE_ACTIVE_SUBJECT__"));
   assert.ok(result.advice.markdownDraft.includes("极限定义") || result.advice.markdownDraft.includes("数学"));
 });

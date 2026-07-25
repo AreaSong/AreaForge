@@ -2,14 +2,20 @@
 
 import { BookOpenCheck, Download, FileText, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
+import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
 import type { NoteDto, NoteMasteryStatusDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
 interface NoteLibraryProps {
+  userId: string;
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];
   nodes: SyllabusOptionNodeDto[];
   notes: NoteDto[];
+  initialSubjectId?: string;
+  initialSyllabusNodeId?: string;
+  initialTaskId?: string;
 }
 
 interface FlatNode {
@@ -19,22 +25,47 @@ interface FlatNode {
   depth: number;
 }
 
-export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps) {
+export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubjectId, initialSyllabusNodeId, initialTaskId }: NoteLibraryProps) {
   const router = useRouter();
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
-  const [syllabusNodeId, setSyllabusNodeId] = useState("");
-  const [taskId, setTaskId] = useState("");
+  useRestoreListReturn();
+  const initialSubject = subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId as string : subjects[0]?.id ?? "";
+  const initialNode = flattenNodes(nodes).some((node) => node.id === initialSyllabusNodeId && node.subjectId === initialSubject) ? initialSyllabusNodeId as string : "";
+  const initialTask = tasks.some((task) => task.id === initialTaskId && task.subjectId === initialSubject) ? initialTaskId as string : "";
+  const [subjectId, setSubjectId] = useState(initialSubject);
+  const [syllabusNodeId, setSyllabusNodeId] = useState(initialNode);
+  const [taskId, setTaskId] = useState(initialTask);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [kind, setKind] = useState<"GENERAL" | "CONCEPT" | "METHOD" | "EXAMPLE" | "JOURNAL" | "SUMMARY">("GENERAL");
   const [masteryStatus, setMasteryStatus] = useState<NoteMasteryStatusDto>("partial");
   const [nextReviewAt, setNextReviewAt] = useState("");
-  const [noteSubjectFilter, setNoteSubjectFilter] = useState("all");
-  const [noteNodeFilter, setNoteNodeFilter] = useState("all");
+  const [noteSubjectFilter, setNoteSubjectFilter] = useState(initialSubjectId && subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId : "all");
+  const [noteNodeFilter, setNoteNodeFilter] = useState(initialNode || "all");
   const [noteMasteryFilter, setNoteMasteryFilter] = useState<"all" | NoteMasteryStatusDto>("all");
   const [noteReviewFilter, setNoteReviewFilter] = useState<"all" | "due" | "scheduled" | "none">("all");
   const [uploadingNoteId, setUploadingNoteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const raw = window.localStorage.getItem(aiKnowledgeCardDraftKey(userId));
+      if (!raw) return;
+      try {
+        const envelope = JSON.parse(raw) as { version?: number; userId?: string; updatedAt?: number; value?: { title?: string; body?: string; kindHint?: string } };
+        if (envelope.version !== 1 || envelope.userId !== userId || typeof envelope.updatedAt !== "number" || Date.now() - envelope.updatedAt > 7 * 24 * 60 * 60 * 1000) {
+          window.localStorage.removeItem(aiKnowledgeCardDraftKey(userId));
+          return;
+        }
+        if (typeof envelope.value?.title === "string") setTitle(envelope.value.title);
+        if (typeof envelope.value?.body === "string") setContent(envelope.value.body);
+        if (isNoteKind(envelope.value?.kindHint)) setKind(envelope.value.kindHint);
+      } catch {
+        window.localStorage.removeItem(aiKnowledgeCardDraftKey(userId));
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [userId]);
 
   const flatNodes = useMemo(() => flattenNodes(nodes), [nodes]);
   const nodeOptions = flatNodes.filter((node) => node.subjectId === subjectId);
@@ -64,6 +95,7 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
         subjectId,
         syllabusNodeId: syllabusNodeId || null,
         taskId: taskId || null,
+        kind,
         title,
         content,
         masteryStatus,
@@ -79,6 +111,8 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
 
     setTitle("");
     setContent("");
+    setKind("GENERAL");
+    window.localStorage.removeItem(aiKnowledgeCardDraftKey(userId));
     setSyllabusNodeId("");
     setTaskId("");
     setNextReviewAt("");
@@ -132,6 +166,9 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
                   {subject.name}
                 </option>
               ))}
+            </select>
+            <select aria-label="卡片类型" className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100" value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
+              <option value="GENERAL">通用</option><option value="CONCEPT">概念</option><option value="METHOD">方法</option><option value="EXAMPLE">例题</option><option value="JOURNAL">学习记录</option><option value="SUMMARY">总结</option>
             </select>
             <select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
@@ -225,6 +262,7 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
             onChange={(event) => {
               setNoteSubjectFilter(event.target.value);
               setNoteNodeFilter("all");
+              updateKnowledgeContext({ subjectId: event.target.value === "all" ? null : event.target.value, syllabusNodeId: null });
             }}
           >
             <option value="all">全部科目</option>
@@ -237,7 +275,10 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
           <select
             className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={noteNodeFilter}
-            onChange={(event) => setNoteNodeFilter(event.target.value)}
+            onChange={(event) => {
+              setNoteNodeFilter(event.target.value);
+              updateKnowledgeContext({ syllabusNodeId: event.target.value === "all" || event.target.value === "none" ? null : event.target.value });
+            }}
           >
             <option value="all">全部节点</option>
             <option value="none">未关联节点</option>
@@ -299,6 +340,9 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
                   </span>
                 ) : null}
               </div>
+              <ListDetailLink href={`/knowledge/notes/${note.id}`} focusId={`note-${note.id}`} className="mt-3 inline-flex text-sm text-teal-300 hover:underline">
+                打开卡片详情
+              </ListDetailLink>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{note.content}</p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-500">
                 {note.taskTitle ? <span>任务：{note.taskTitle}</span> : null}
@@ -389,6 +433,14 @@ function labelAttachmentError(error?: string): string {
     default:
       return "附件上传失败";
   }
+}
+
+function aiKnowledgeCardDraftKey(userId: string): string {
+  return `areaforge.ai-draft.knowledge-card.${userId}`;
+}
+
+function isNoteKind(value: unknown): value is "GENERAL" | "CONCEPT" | "METHOD" | "EXAMPLE" | "JOURNAL" | "SUMMARY" {
+  return typeof value === "string" && ["GENERAL", "CONCEPT", "METHOD", "EXAMPLE", "JOURNAL", "SUMMARY"].includes(value);
 }
 
 function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): FlatNode[] {

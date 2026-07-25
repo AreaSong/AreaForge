@@ -17,6 +17,7 @@ export * from "./learning-tree-protocol";
 export * from "./learning-tree-url";
 export * from "./learning-tree-parse";
 export * from "./learning-tree-diff";
+export * from "./safe-markdown";
 export * from "./learning-tree-templates";
 export * from "./learning-tree-export";
 export * from "./unified-review";
@@ -27,6 +28,7 @@ export * from "./app-shell";
 export * from "./knowledge-canvas";
 export * from "./motivation-library";
 export * from "./ai-draft";
+export * from "./foreground-notification";
 
 export type RiskState =
   | "rising"

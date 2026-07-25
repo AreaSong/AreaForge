@@ -32,7 +32,7 @@ export interface SafeAiAdviceEnvelope<TAdvice> {
 export interface AiAdviceRequestOptions {
   allowExternalProvider?: boolean;
   provider?: AiJsonProvider;
-  userId?: string;
+  userId: string;
 }
 
 interface AiProviderRateLimitState {
@@ -45,9 +45,9 @@ const aiProviderRateLimitMaxCalls = 6;
 const aiProviderRateLimits = new Map<string, AiProviderRateLimitState>();
 
 export async function getDisciplineAiAdvice(
-  options: AiAdviceRequestOptions = {},
+  options: AiAdviceRequestOptions,
 ): Promise<SafeAiAdviceEnvelope<DisciplineAdvice>> {
-  const dashboard = await getTodayDashboardShared();
+  const dashboard = await getTodayDashboardShared(options.userId);
   const context = {
     phase: dashboard.stage.title,
     riskState: dashboard.snapshot.riskState,
@@ -70,9 +70,9 @@ export async function getDisciplineAiAdvice(
 }
 
 export async function getDailyReviewAiAdvice(
-  options: AiAdviceRequestOptions = {},
+  options: AiAdviceRequestOptions,
 ): Promise<SafeAiAdviceEnvelope<DailyReviewAdvice>> {
-  const dashboard = await getTodayDashboardShared();
+  const dashboard = await getTodayDashboardShared(options.userId);
   const context = {
     totalMinutes: dashboard.metrics.todayMinutes,
     effectiveMinutes: dashboard.metrics.effectiveMinutes,
@@ -95,11 +95,11 @@ export async function getDailyReviewAiAdvice(
 }
 
 export async function getTomorrowPlanAiAdvice(
-  options: AiAdviceRequestOptions = {},
+  options: AiAdviceRequestOptions,
 ): Promise<SafeAiAdviceEnvelope<TomorrowPlanAdvice>> {
   const [dashboard, analytics] = await Promise.all([
-    getTodayDashboardShared(),
-    getAnalyticsSummaryShared(),
+    getTodayDashboardShared(options.userId),
+    getAnalyticsSummaryShared(options.userId),
   ]);
   const weakestSubject = analytics.subjects
     .filter((subject) => subject.effectiveMinutes === 0)

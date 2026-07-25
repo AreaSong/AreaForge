@@ -154,6 +154,7 @@ model User {
   taskDependencies        TaskDependency[]
   planInboxItems          PlanInboxItem[]
   learningTreeImportBatches LearningTreeImportBatch[]
+  learningTreeExportGrants LearningTreeExportGrant[]
   recoveryStatesAsUser    RecoveryState[]          @relation("RecoveryStateUser")
   reviewSchedules         ReviewSchedule[]
   reviewEvents            ReviewEvent[]
@@ -205,6 +206,7 @@ model ExamWorkspace {
   planInboxItems   PlanInboxItem[]
   studyResources   StudyResource[]
   learningTreeImportBatches LearningTreeImportBatch[]
+  learningTreeExportGrants LearningTreeExportGrant[]
   reviewSchedules  ReviewSchedule[]
   knowledgeCanvasLayouts KnowledgeCanvasLayout[]
   aiDraftOperations AiDraftOperation[]
@@ -394,6 +396,7 @@ model StudySession {
 model DailyReview {
   id               String         @id @default(cuid())
   workspaceId      String?
+  revision         Int            @default(1)
   reviewDate       DateTime
   totalMinutes     Int            @default(0)
   effectiveMinutes Int            @default(0)
@@ -731,6 +734,8 @@ model SimulationExam {
   mindset               String?
   summary               String?
   reviewText            String?
+  status                String                    @default("DRAFT")
+  confirmedAt           DateTime?
   revision              Int                       @default(1)
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
@@ -809,6 +814,9 @@ model StageAdjustmentDraft {
   id                       String         @id @default(cuid())
   workspaceId              String?
   stagePlanId              String?
+  sourceReportDecisionId   String?
+  sourceReportRevision     Int?
+  originVersion            Int?
   source                   String
   mode                     String
   risk                     String
@@ -820,6 +828,7 @@ model StageAdjustmentDraft {
   canAutoApply             Boolean        @default(false)
   requiresUserConfirmation Boolean        @default(true)
   status                   String
+  revision                 Int            @default(1)
   createdAt                DateTime       @default(now())
   appliedAt                DateTime?
   actorId                  String?
@@ -832,6 +841,8 @@ model StageAdjustmentDraft {
   @@index([createdAt])
   @@index([actorId])
   @@index([workspaceId])
+  @@index([sourceReportDecisionId])
+  @@index([workspaceId, originVersion])
 }
 
 model PlanMilestone {
@@ -1086,6 +1097,27 @@ model LearningTreeImportItem {
   @@index([batchId])
   @@index([stableRef])
   @@index([objectType])
+}
+
+model LearningTreeExportGrant {
+  id           String        @id @default(cuid())
+  nonce        String        @unique
+  actorId      String
+  workspaceId  String
+  scope        String
+  subjectKey   String?
+  rootNodeKey  String?
+  sourceSha256 String
+  rootRevision Int
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  actor        User          @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  workspace    ExamWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([actorId, expiresAt])
+  @@index([workspaceId, expiresAt])
+  @@index([consumedAt])
 }
 
 model ReviewSchedule {

@@ -2,7 +2,7 @@
 
 import { Pause, Play, Square, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { getTimerElapsedSeconds, type TimerStatus } from "@areaforge/core";
 import type { StudySessionDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
@@ -32,6 +32,7 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [isPending, startTransition] = useTransition();
+  const commandKeys = useRef<Record<string, string>>({});
   const flatNodes = useMemo(() => flattenNodes(syllabusNodes), [syllabusNodes]);
 
   const timerStatus: TimerStatus = isEnding
@@ -100,10 +101,21 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
     }
   }
 
+  function commandInput(action: "pause" | "resume" | "end", current: StudySessionDto) {
+    const idempotencyKey = commandKeys.current[action] ?? `study-session-${action}-${current.id}-${crypto.randomUUID()}`;
+    commandKeys.current[action] = idempotencyKey;
+    return {
+      expectedStatus: current.status === "paused" ? "paused" as const : "running" as const,
+      expectedUpdatedAt: current.updatedAt,
+      idempotencyKey,
+    };
+  }
+
   async function pause() {
     if (!session) return;
     try {
-      await mutate(`/api/study-sessions/${session.id}/pause`);
+      await mutate(`/api/study-sessions/${session.id}/pause`, commandInput("pause", session));
+      delete commandKeys.current.pause;
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "暂停失败");
     }
@@ -112,7 +124,8 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
   async function resume() {
     if (!session) return;
     try {
-      await mutate(`/api/study-sessions/${session.id}/resume`);
+      await mutate(`/api/study-sessions/${session.id}/resume`, commandInput("resume", session));
+      delete commandKeys.current.resume;
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "继续失败");
     }
@@ -122,6 +135,7 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
     if (!session) return;
     try {
       const completedSession = await mutate(`/api/study-sessions/${session.id}/end`, {
+        ...commandInput("end", session),
         qualityScore: Number(formData.get("qualityScore")),
         isEffective: formData.get("isEffective") === "true",
         understandingLevel: String(formData.get("understandingLevel") ?? ""),
@@ -132,6 +146,7 @@ export function FocusTimer({ subjects, tasks, syllabusNodes, activeSession, late
         note: String(formData.get("note") ?? ""),
         completeTask: formData.get("completeTask") === "on",
       });
+      delete commandKeys.current.end;
       if (completedSession) setLocalCompletedSession(completedSession);
       setSession(null);
       setIsEnding(false);

@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
+
+const focusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 export function Modal(props: {
   open: boolean;
@@ -10,29 +19,31 @@ export function Modal(props: {
   allowEscape?: boolean;
 }) {
   const { open, allowEscape = true, onClose, title, children } = props;
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
 
   useEffect(() => {
-    if (!open || !allowEscape) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, allowEscape, onClose]);
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useOverlayFocus({ open, panelRef, allowEscape, onClose: () => onCloseRef.current() });
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" role="presentation">
-      <button type="button" className="absolute inset-0 cursor-default" aria-label="关闭对话框背景" onClick={onClose} />
+      <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={onClose} />
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className="relative z-10 w-full max-w-lg rounded-lg border border-white/10 bg-[#101419] p-4 shadow-xl"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <h2 id={titleId} className="text-lg font-semibold text-white">{title}</h2>
           <button
             type="button"
             className="rounded-md border border-white/10 px-2 py-1 text-sm text-zinc-300 hover:bg-white/10"
@@ -54,27 +65,31 @@ export function Drawer(props: {
   children: React.ReactNode;
 }) {
   const { open, onClose, title, children } = props;
+  const titleId = useId();
+  const panelRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
 
   useEffect(() => {
-    if (!open) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useOverlayFocus({ open, panelRef, allowEscape: true, onClose: () => onCloseRef.current() });
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50" role="presentation">
-      <button type="button" className="absolute inset-0 cursor-default" aria-label="关闭抽屉背景" onClick={onClose} />
+      <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={onClose} />
       <aside
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#0d1117] p-4 shadow-xl"
-        aria-label={title}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <h2 id={titleId} className="text-lg font-semibold text-white">{title}</h2>
           <button
             type="button"
             className="rounded-md border border-white/10 px-2 py-1 text-sm text-zinc-300 hover:bg-white/10"
@@ -86,5 +101,65 @@ export function Drawer(props: {
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </aside>
     </div>
+  );
+}
+
+function useOverlayFocus<T extends HTMLElement>(input: {
+  open: boolean;
+  panelRef: React.RefObject<T | null>;
+  allowEscape: boolean;
+  onClose: () => void;
+}) {
+  const closeRef = useRef(input.onClose);
+
+  useEffect(() => {
+    closeRef.current = input.onClose;
+  }, [input.onClose]);
+
+  useEffect(() => {
+    if (!input.open) return;
+    const panel = input.panelRef.current;
+    if (!panel) return;
+    const activePanel: T = panel;
+    const returnTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const initialTarget = getFocusableElements(activePanel)[0] ?? activePanel;
+    initialTarget.focus();
+
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape" && input.allowEscape) {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = getFocusableElements(activePanel);
+      if (elements.length === 0) {
+        event.preventDefault();
+        activePanel.focus();
+        return;
+      }
+      const first = elements[0]!;
+      const last = elements[elements.length - 1]!;
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !activePanel.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !activePanel.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (returnTarget?.isConnected) returnTarget.focus();
+    };
+  }, [input.open, input.allowEscape, input.panelRef]);
+}
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+    (element) => element.getAttribute("aria-hidden") !== "true" && element.tabIndex >= 0,
   );
 }

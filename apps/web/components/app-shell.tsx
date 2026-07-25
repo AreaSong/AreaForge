@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { selectForegroundNotifications, type ForegroundNotificationCategory } from "@areaforge/core";
 import { BrandMark } from "@/components/brand-logo";
 import { LogoutButton } from "@/components/logout-button";
 import { Drawer } from "@/components/ui/overlays";
@@ -50,6 +51,35 @@ export function AppShell(props: {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (immersive || document.visibilityState !== "visible" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    const shanghaiNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const category = selectForegroundNotifications({
+      hour: shanghaiNow.getUTCHours(),
+      preference: status.notificationPreference,
+      candidates: status.notificationCandidates,
+    })[0];
+    if (!category) return;
+
+    const date = shanghaiNow.toISOString().slice(0, 10);
+    const dedupeKey = `af.notification.sent.${status.workspaceId ?? "setup"}.${date}.${category}`;
+    if (window.localStorage.getItem(dedupeKey) === "1") return;
+    const payload = foregroundNotificationPayload(category);
+    const showSpecificTitle = window.localStorage.getItem("af.notification.showSpecificTitle") === "1";
+    const notification = new Notification(showSpecificTitle ? payload.title : "AreaForge 提醒", {
+      body: payload.body,
+      tag: payload.tag,
+      data: { route: payload.route },
+    });
+    window.localStorage.setItem(dedupeKey, "1");
+    notification.onclick = () => {
+      window.focus();
+      router.push(sanitizeNotificationRoute(payload.route));
+      notification.close();
+    };
+  }, [immersive, router, status]);
+
   async function openMotivationHelp() {
     setRecoveryError(null);
     setMotivationLine(null);
@@ -92,6 +122,31 @@ export function AppShell(props: {
     }
     setRecoveryOpen(false);
     startTransition(() => router.refresh());
+  }
+
+  async function startFiveMinutes() {
+    setRecoveryError(null);
+    if (!status.defaultSubjectId) {
+      setRecoveryError("当前工作区没有可用科目，请先完成工作区设置。");
+      return;
+    }
+    const response = await fetch("/api/study-sessions/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subjectId: status.defaultSubjectId, goalMinutes: 5, startSource: "RECOVERY" }),
+    });
+    const body = await response.json().catch(() => null) as { session?: { id: string }; latest?: { id?: string }; error?: string } | null;
+    const sessionId = body?.session?.id ?? (response.status === 409 ? body?.latest?.id : undefined);
+    if (!response.ok && !sessionId) {
+      setRecoveryError(body?.error ?? "无法启动 5 分钟行动");
+      return;
+    }
+    if (!sessionId) {
+      setRecoveryError("未返回可继续的计时活动");
+      return;
+    }
+    setRecoveryOpen(false);
+    router.push(`/focus/${sessionId}?returnTo=${encodeURIComponent(pathname)}`);
   }
 
   if (immersive) {
@@ -220,13 +275,14 @@ export function AppShell(props: {
           >
             继续当前
           </button>
-          <Link
-            href="/focus"
+          <button
+            type="button"
+            disabled={pending}
             className="h-11 rounded-md border border-white/10 px-4 text-center text-sm leading-[2.75rem] text-zinc-200"
-            onClick={() => setRecoveryOpen(false)}
+            onClick={() => void startFiveMinutes()}
           >
             启动 5 分钟
-          </Link>
+          </button>
           <button
             type="button"
             disabled={pending}
@@ -242,4 +298,19 @@ export function AppShell(props: {
       </Drawer>
     </div>
   );
+}
+
+function foregroundNotificationPayload(category: ForegroundNotificationCategory) {
+  switch (category) {
+    case "review":
+      return { title: "复习提醒", body: "有到期复习可处理。", tag: "af-review-due", route: "/knowledge/reviews" };
+    case "plan":
+      return { title: "计划提醒", body: "今日计划窗口已到。", tag: "af-plan-start", route: "/today/plan" };
+    case "evening":
+      return { title: "复盘提醒", body: "晚间复盘窗口已到。", tag: "af-evening-review", route: "/review/daily" };
+  }
+}
+
+function sanitizeNotificationRoute(route: string): string {
+  return ["/knowledge/reviews", "/today/plan", "/review/daily"].includes(route) ? route : "/today";
 }

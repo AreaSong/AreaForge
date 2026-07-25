@@ -9,11 +9,17 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const categorySchema = z.enum(["TEXTBOOK", "COURSE", "EXERCISE", "PAST_PAPER", "SOLUTION", "SUMMARY", "IMAGE", "OTHER"]);
+
 const patchSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
-  category: z.string().optional(),
+  category: categorySchema.optional(),
   subjectId: z.string().nullable().optional(),
   tags: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
+  taskIds: z.array(z.string()).max(100).optional(),
+  noteIds: z.array(z.string()).max(100).optional(),
+  mistakeIds: z.array(z.string()).max(100).optional(),
+  syllabusNodeIds: z.array(z.string()).max(500).optional(),
   expectedRevision: z.number().int().positive(),
 });
 

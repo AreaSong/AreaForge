@@ -50,8 +50,10 @@ export function hashIdentifier(value: string): string {
 
 export {
   createPlanBatchRef,
+  mintLearningTreeExportToken,
   mintLearningTreePreviewToken,
   sha256Hex,
+  verifyLearningTreeExportToken,
   verifyLearningTreePreviewToken,
 } from "./learning-tree-crypto";
 

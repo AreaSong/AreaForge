@@ -5,6 +5,7 @@ import {
   createUploadPolicy,
   multipartFramingOverheadBytes,
   parseMultipartBoundary,
+  parseMultipleFilesMultipart,
   parseSingleFileMultipart,
 } from "./index";
 
@@ -114,6 +115,50 @@ test("rejects a second file part and unexpected fields without buffering them", 
     parseSingleFileMultipart(chunked(unexpectedField, 64), contentType, policyWithMaxBytes(1024 * 1024)),
     (error: unknown) => error instanceof BoundedMultipartError && error.reason === "unexpected_part",
   );
+});
+
+test("accepts at most five files in one bounded batch", async () => {
+  const fiveFiles = Array.from({ length: 5 }, (_, index) => ({
+    name: "file",
+    fileName: `${index + 1}.png`,
+    contentType: "image/png",
+    bytes: pngBytes(64 + index),
+  }));
+  const accepted = await parseMultipleFilesMultipart(
+    chunked(buildBody(fiveFiles), 47),
+    contentType,
+    policyWithMaxBytes(1024),
+    5,
+  );
+  assert.equal(accepted.length, 5);
+  assert.deepEqual(accepted.map((scan) => scan.originalName), fiveFiles.map((file) => file.fileName));
+
+  await assert.rejects(
+    parseMultipleFilesMultipart(
+      chunked(buildBody([...fiveFiles, { ...fiveFiles[0]!, fileName: "6.png" }]), 71),
+      contentType,
+      policyWithMaxBytes(1024),
+      5,
+    ),
+    (error: unknown) => error instanceof BoundedMultipartError && error.reason === "too_many_files",
+  );
+});
+
+test("returns an oversized batch item while preserving later file order", async () => {
+  const accepted = await parseMultipleFilesMultipart(
+    chunked(buildBody([
+      { name: "file", fileName: "large.png", bytes: pngBytes(1025) },
+      { name: "file", fileName: "small.png", bytes: pngBytes(64) },
+    ]), 53),
+    contentType,
+    policyWithMaxBytes(1024),
+    5,
+  );
+  assert.equal(accepted.length, 2);
+  assert.equal(accepted[0]?.businessError, "too_large");
+  assert.equal(accepted[0]?.originalName, "large.png");
+  assert.equal(accepted[1]?.businessError, undefined);
+  assert.equal(accepted[1]?.originalName, "small.png");
 });
 
 test("rejects oversized part headers and missing terminal boundary", async () => {

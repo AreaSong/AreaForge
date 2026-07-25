@@ -12,6 +12,14 @@ const createSchema = z.object({
   targetExamDate: z.string().datetime().nullable().optional(),
   stageSummary: z.string().max(500).nullable().optional(),
   activate: z.boolean().optional(),
+  subjects: z.array(z.object({
+    stableKey: z.string().trim().min(1).max(80),
+    name: z.string().trim().min(1).max(120),
+    color: z.string().trim().min(1).max(32),
+    sortOrder: z.number().int().optional(),
+    groupStableKey: z.literal("408").nullable().optional(),
+  })).min(1).max(12).optional(),
+  takeoverSubjectIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export async function GET(request: NextRequest) {

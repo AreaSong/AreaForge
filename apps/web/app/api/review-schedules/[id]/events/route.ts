@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
-import { confirmReviewEvent } from "@/lib/study/review-schedule-service";
+import { confirmReviewEvent, getNextDueReviewScheduleId } from "@/lib/study/review-schedule-service";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,11 @@ export async function POST(
     const { id } = await context.params;
     const parsed = bodySchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
-    return NextResponse.json(await confirmReviewEvent(user.id, id, parsed.data));
+    const confirmed = await confirmReviewEvent(user.id, id, parsed.data);
+    return NextResponse.json({
+      ...confirmed,
+      nextScheduleId: await getNextDueReviewScheduleId(user.id, id),
+    });
   } catch (error) {
     return apiErrorResponse(error);
   }

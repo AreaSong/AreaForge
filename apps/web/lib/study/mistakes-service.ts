@@ -1,6 +1,7 @@
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 import type { MistakeCauseDto, MistakeDto } from "./types";
 
 type DbMistakeCause =
@@ -32,8 +33,10 @@ export interface UpdateMistakeInput {
   nextReviewAt?: string | null;
 }
 
-export async function listMistakes(): Promise<MistakeDto[]> {
+export async function listMistakes(actorId: string): Promise<MistakeDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
   const mistakes = await prisma.mistake.findMany({
+    where: { subject: { workspaceId: workspace.id } },
     include: {
       subject: true,
       syllabusNode: true,
@@ -45,9 +48,10 @@ export async function listMistakes(): Promise<MistakeDto[]> {
   return mistakes.map(serializeMistake);
 }
 
-export async function getMistakeById(id: string): Promise<MistakeDto | null> {
-  const mistake = await prisma.mistake.findUnique({
-    where: { id },
+export async function getMistakeById(id: string, actorId: string): Promise<MistakeDto | null> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const mistake = await prisma.mistake.findFirst({
+    where: { id, subject: { workspaceId: workspace.id } },
     include: {
       subject: true,
       syllabusNode: true,
@@ -57,9 +61,13 @@ export async function getMistakeById(id: string): Promise<MistakeDto | null> {
 }
 
 export async function createMistake(input: CreateMistakeInput, actorId: string): Promise<MistakeDto> {
-  await assertSubjectExists(input.subjectId);
+  const workspace = await resolveActiveWorkspace(actorId);
+  await assertSubjectExists(input.subjectId, workspace.id);
   if (input.syllabusNodeId) {
     await assertSyllabusNodeBelongsToSubject(input.syllabusNodeId, input.subjectId);
+  }
+  if (input.cause === "unknown" || !input.correctIdea?.trim()) {
+    throw new ApiError("MISTAKE_INCOMPLETE", 400);
   }
 
   const mistake = await prisma.mistake.create({
@@ -69,7 +77,7 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
       title: input.title,
       source: input.source ?? null,
       cause: toDbCause(input.cause),
-      correctIdea: input.correctIdea ?? null,
+      correctIdea: input.correctIdea.trim(),
       nextReviewAt: input.nextReviewAt ? new Date(input.nextReviewAt) : null,
     },
     include: {
@@ -83,8 +91,9 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
 }
 
 export async function updateMistake(id: string, input: UpdateMistakeInput, actorId: string): Promise<MistakeDto> {
-  const existing = await prisma.mistake.findUnique({
-    where: { id },
+  const workspace = await resolveActiveWorkspace(actorId);
+  const existing = await prisma.mistake.findFirst({
+    where: { id, subject: { workspaceId: workspace.id } },
     select: {
       subjectId: true,
       syllabusNodeId: true,
@@ -96,7 +105,7 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
   }
 
   if (input.subjectId) {
-    await assertSubjectExists(input.subjectId);
+    await assertSubjectExists(input.subjectId, workspace.id);
   }
 
   const resolvedSubjectId = input.subjectId ?? existing.subjectId;
@@ -106,7 +115,7 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
   }
 
   const mistake = await prisma.mistake.update({
-    where: { id },
+    where: { id, subject: { workspaceId: workspace.id } },
     data: {
       subjectId: input.subjectId,
       syllabusNodeId: input.syllabusNodeId,
@@ -126,9 +135,9 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
   return serializeMistake(mistake);
 }
 
-async function assertSubjectExists(subjectId: string): Promise<void> {
-  const subject = await prisma.subject.findUnique({
-    where: { id: subjectId },
+async function assertSubjectExists(subjectId: string, workspaceId: string): Promise<void> {
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, workspaceId },
     select: { id: true },
   });
 

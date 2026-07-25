@@ -436,6 +436,8 @@ async function ensureSmokeWorkspace(cookie: string, tag: string): Promise<string
 
   const workspaceId = stringField(workspace, "id");
   if (!workspaceId) throw new Error("active exam workspace response missing workspace.id");
+  const workspaceRevision = Number(asRecord(workspace).revision);
+  if (!Number.isInteger(workspaceRevision) || workspaceRevision < 1) throw new Error("active exam workspace response missing workspace.revision");
 
   const subjectsPath = `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/subjects`;
   const subjectsBody = await checkedJson("workspace subjects", subjectsPath, cookie);
@@ -448,6 +450,7 @@ async function ensureSmokeWorkspace(cookie: string, tag: string): Promise<string
         name: `UX smoke 科目 ${tag}`,
         color: "#0f766e",
         sortOrder: 10,
+        expectedWorkspaceRevision: workspaceRevision,
       },
     });
     subject = asRecord(createdBody.subject);

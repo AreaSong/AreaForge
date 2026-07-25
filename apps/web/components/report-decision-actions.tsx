@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, XCircle } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { PeriodicReportDto } from "@/lib/study/reports-service";
@@ -20,34 +21,39 @@ export function ReportDecisionActions({ report }: ReportDecisionActionsProps) {
 
   async function decide(action: "confirm" | "reject") {
     if (isDeciding) return;
-    if (action === "reject" && !window.confirm("驳回后该报告版本进入不可逆终态；重新考虑需要生成新版本。确认驳回？")) return;
+    if (action === "reject" && !window.confirm("驳回后该周期决策不可覆盖；如需重新评估，请生成新的阶段草稿。确认驳回？")) return;
     setError(null);
     setNotice(null);
 
     setIsDeciding(true);
     try {
-      const response = await fetch("/api/reports/periodic/decisions", {
+      const response = await fetch(`/api/reports/${encodeURIComponent(report.id)}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: report.kind,
-          action,
+          expectedRevision: report.revision,
           rangeStart: report.range.start,
           rangeEnd: report.range.end,
         }),
       });
 
       const body = (await response.json().catch(() => null)) as {
-        decision?: { alreadyDecided?: boolean };
+        decision?: { alreadyDecided?: boolean; stageDraftId?: string | null; inboxResult?: { createdCount: number; reusedCount: number; supersededCount: number } };
         error?: string;
+        latest?: { revision?: number; range?: { start?: string; end?: string } };
+        conflictFields?: string[];
       } | null;
 
       if (!response.ok) {
-        setError(labelDecisionError(body?.error));
+        const suffix = response.status === 409 && body?.latest ? `（本地 revision=${report.revision}，服务端 revision=${body.latest.revision ?? "未知"}；字段=${body.conflictFields?.join("、") ?? "revision"}）` : "";
+        setError(`${labelDecisionError(body?.error)}${suffix}`);
         return;
       }
 
-      setNotice(body?.decision?.alreadyDecided ? "该周期报告已经处理，正在刷新回放。" : action === "confirm" ? "报告已冻结，计划草稿已入箱；阶段建议仍需独立确认。" : "报告版本已不可逆驳回。");
+      const inbox = body?.decision?.inboxResult;
+      const counts = inbox ? `入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}，替代 ${inbox.supersededCount}` : "";
+      setNotice(body?.decision?.alreadyDecided ? "该周期报告已经处理，正在刷新回放。" : action === "confirm" ? `报告已冻结，${counts}；阶段建议仍需独立确认。` : "报告版本已不可逆驳回。");
       startTransition(() => router.refresh());
     } finally {
       setIsDeciding(false);
@@ -96,7 +102,11 @@ export function ReportDecisionActions({ report }: ReportDecisionActionsProps) {
           <p>处理时间：{new Date(decision.decidedAt).toLocaleString("zh-CN")}</p>
           <p>冻结短板：{decision.reportSnapshot.weakness.title}</p>
           <p>确认边界：{decision.canAutoApply ? "可自动应用" : "不自动应用"} / {decision.requiresUserConfirmation ? "需确认" : "无需确认"}</p>
+          <p>收件箱：新增 {decision.inboxResult.createdCount}，替代 {decision.inboxResult.supersededCount}</p>
           {decision.nextCycleDraft ? <p>下周期草稿：{decision.nextCycleDraft.focus}</p> : null}
+          {decision.inboxResult.createdCount > 0 ? <Link className="w-fit text-teal-300" href="/today/inbox">查看收件箱</Link> : null}
+          {decision.stageDraftId ? <Link className="w-fit text-teal-300" href="/stage/overview">查看阶段建议</Link> : null}
+          {decision.status === "rejected" ? <Link className="w-fit text-teal-300" href="/stage/overview">前往阶段概览重新评估</Link> : null}
         </div>
       ) : null}
 

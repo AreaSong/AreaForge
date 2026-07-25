@@ -2,15 +2,32 @@
 
 import { Archive, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import {
+  loadPrivateBusinessDraft,
+  LONG_PRIVATE_DRAFT_TTL_MS,
+  redirectToLoginWithCurrentLocation,
+  removePrivateBusinessDraft,
+  savePrivateBusinessDraft,
+} from "@/lib/client/private-business-drafts";
 import type { MotivationVaultDto } from "@/lib/study/types";
 
 interface MotivationVaultFormProps {
+  userId: string;
   vault: MotivationVaultDto | null;
 }
 
-export function MotivationVaultForm({ vault }: MotivationVaultFormProps) {
+interface MotivationVaultDraft {
+  whyStarted: string;
+  neverReturnTo: string;
+  futureSelf: string;
+  messageToFuture: string;
+  firstSimulationDiary: string;
+}
+
+export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps) {
   const router = useRouter();
+  const draftKey = `areaforge.motivation-vault.draft.${userId}`;
   const [whyStarted, setWhyStarted] = useState(vault?.whyStarted ?? "");
   const [neverReturnTo, setNeverReturnTo] = useState(vault?.neverReturnTo ?? "");
   const [futureSelf, setFutureSelf] = useState(vault?.futureSelf ?? "");
@@ -18,33 +35,69 @@ export function MotivationVaultForm({ vault }: MotivationVaultFormProps) {
   const [firstSimulationDiary, setFirstSimulationDiary] = useState(vault?.firstSimulationDiary ?? "");
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(vault?.updatedAt ?? null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const draft = loadPrivateBusinessDraft(draftKey, LONG_PRIVATE_DRAFT_TTL_MS, isMotivationVaultDraft);
+    if (draft) {
+      setWhyStarted(draft.whyStarted);
+      setNeverReturnTo(draft.neverReturnTo);
+      setFutureSelf(draft.futureSelf);
+      setMessageToFuture(draft.messageToFuture);
+      setFirstSimulationDiary(draft.firstSimulationDiary);
+    }
+    setDraftReady(true);
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    savePrivateBusinessDraft<MotivationVaultDraft>(draftKey, {
+      whyStarted,
+      neverReturnTo,
+      futureSelf,
+      messageToFuture,
+      firstSimulationDiary,
+    });
+  }, [draftKey, draftReady, firstSimulationDiary, futureSelf, messageToFuture, neverReturnTo, whyStarted]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSaving(true);
+    try {
+      const response = await fetch("/api/motivation-vault", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          whyStarted,
+          neverReturnTo,
+          futureSelf,
+          messageToFuture,
+          firstSimulationDiary,
+        }),
+      });
+      if (response.status === 401) {
+        setError("登录已过期，草稿已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "保存动机档案失败，草稿已保留");
+        return;
+      }
 
-    const response = await fetch("/api/motivation-vault", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        whyStarted,
-        neverReturnTo,
-        futureSelf,
-        messageToFuture,
-        firstSimulationDiary,
-      }),
-    });
-
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "保存动机档案失败");
-      return;
+      const body = (await response.json()) as { vault: MotivationVaultDto };
+      setSavedAt(body.vault.updatedAt);
+      removePrivateBusinessDraft(draftKey);
+      startTransition(() => router.refresh());
+    } catch {
+      setError("网络不可用，草稿已保留；恢复网络后请显式重试。");
+    } finally {
+      setSaving(false);
     }
-
-    const body = (await response.json()) as { vault: MotivationVaultDto };
-    setSavedAt(body.vault.updatedAt);
-    startTransition(() => router.refresh());
   }
 
   return (
@@ -89,14 +142,14 @@ export function MotivationVaultForm({ vault }: MotivationVaultFormProps) {
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
             type="submit"
-            disabled={isPending}
+            disabled={isPending || saving}
           >
             <Save className="h-4 w-4" aria-hidden="true" />
             保存封存内容
           </button>
         </form>
 
-        {error ? <p className="mt-4 text-sm text-red-200">{error}</p> : null}
+        {error ? <p role="alert" className="mt-4 text-sm text-red-200">{error}</p> : null}
         {savedAt ? (
           <p className="mt-4 text-sm text-zinc-500">上次封存：{new Date(savedAt).toLocaleString("zh-CN")}</p>
         ) : null}
@@ -114,6 +167,13 @@ export function MotivationVaultForm({ vault }: MotivationVaultFormProps) {
       </section>
     </div>
   );
+}
+
+function isMotivationVaultDraft(value: unknown): value is MotivationVaultDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as Partial<MotivationVaultDraft>;
+  return [draft.whyStarted, draft.neverReturnTo, draft.futureSelf, draft.messageToFuture, draft.firstSimulationDiary]
+    .every((field) => typeof field === "string");
 }
 
 function MotivationTextarea({

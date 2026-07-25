@@ -4,7 +4,54 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-export function StageDraftActions({ draftId }: { draftId: string }) {
+interface StageDraftCreateActionProps {
+  stagePlanId: string;
+  label?: string;
+}
+
+export function StageDraftCreateAction({ stagePlanId, label = "生成阶段草稿" }: StageDraftCreateActionProps) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function createDraft() {
+    if (creating) return;
+    setError(null);
+    setCreating(true);
+    try {
+      const response = await fetch("/api/stage-adjustment-drafts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ stagePlanId }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        setError(body?.error ?? "生成阶段草稿失败");
+        return;
+      }
+      startTransition(() => router.refresh());
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        disabled={pending || creating}
+        onClick={() => void createDraft()}
+        className="h-10 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200 disabled:opacity-60"
+      >
+        {creating ? "生成中..." : label}
+      </button>
+      {error ? <p role="alert" className="mt-2 text-sm text-red-300">{error}</p> : null}
+    </div>
+  );
+}
+
+export function StageDraftActions({ draftId, revision }: { draftId: string; revision: number }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [deciding, setDeciding] = useState(false);
@@ -17,10 +64,20 @@ export function StageDraftActions({ draftId }: { draftId: string }) {
     setError(null);
     setDeciding(true);
     try {
-      const response = await fetch(`/api/simulation/stage-adjustment-drafts/${draftId}/${action}`, { method: "POST" });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) { setError(body?.error ?? "阶段决策失败"); return; }
-      setNotice(action === "confirm" ? "阶段计划已更新，全部草稿已原子入箱；现有任务未被修改。" : "阶段草稿已不可逆拒绝。");
+      const response = await fetch(`/api/stage-adjustment-drafts/${draftId}/${action}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expectedRevision: revision }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string; draft?: { revision?: number }; inboxResult?: { createdCount: number; reusedCount: number; supersededCount: number }; latest?: { revision?: number }; conflictFields?: string[] } | null;
+      if (!response.ok) {
+        const suffix = response.status === 409 && body?.latest ? `（本地 revision=${revision}，服务端 revision=${body.latest.revision ?? "未知"}；字段=${body.conflictFields?.join("、") ?? "revision"}）` : "";
+        setError(`${body?.error ?? "阶段决策失败"}${suffix}`);
+        return;
+      }
+      const inbox = body?.inboxResult;
+      const counts = inbox ? `入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}，替代 ${inbox.supersededCount}` : "";
+      setNotice(action === "confirm" ? `阶段计划已更新，${counts}；现有任务未被修改。` : "阶段草稿已不可逆拒绝。");
       startTransition(() => router.refresh());
     } finally {
       setDeciding(false);

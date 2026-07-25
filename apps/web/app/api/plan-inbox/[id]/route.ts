@@ -15,6 +15,12 @@ const patchSchema = z.object({
   type: z.string().nullable().optional(),
   planMilestoneId: z.string().nullable().optional(),
   primaryNodeId: z.string().nullable().optional(),
+  subjectId: z.string().nullable().optional(),
+  relatedNodeIds: z.array(z.string().min(1)).max(50).optional(),
+  predecessorTasks: z.array(z.object({
+    taskId: z.string().min(1),
+    dependencyType: z.enum(["SOFT", "HARD"]),
+  })).max(50).optional(),
 });
 
 export async function PATCH(

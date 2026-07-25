@@ -27,6 +27,7 @@ export function SimulationDetailClient(props: { exam: SimulationExamDto; subject
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [examRevision, setExamRevision] = useState(props.exam.revision);
+  const [examStatus, setExamStatus] = useState(props.exam.status);
   const [selectedOriginKeys, setSelectedOriginKeys] = useState<string[]>(props.remediations.map((item) => item.originKey));
   const [drafts, setDrafts] = useState<SubjectDraft[]>(() => props.subjects.map((subject) => {
     const existing = props.exam.subjectResults.find((result) => result.subjectId === subject.id);
@@ -49,8 +50,8 @@ export function SimulationDetailClient(props: { exam: SimulationExamDto; subject
 
   async function save() {
     setError(null); setNotice(null);
-    const response = await fetch(`/api/simulation/exams/${props.exam.id}/results`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+    const response = await fetch(`/api/simulation-exams/${props.exam.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         expectedRevision: examRevision, mindset, summary: summary || "已保存分科结果", lossReasons: [],
         subjectResults: drafts,
@@ -66,6 +67,23 @@ export function SimulationDetailClient(props: { exam: SimulationExamDto; subject
       }));
     }
     setNotice(body?.exam?.warnings.length ? body.exam.warnings.join("；") : "模拟结果已保存，补救不会自动入箱。");
+    startTransition(() => router.refresh());
+  }
+
+  async function confirm() {
+    setError(null); setNotice(null);
+    const response = await fetch(`/api/simulation-exams/${props.exam.id}/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedRevision: examRevision }),
+    });
+    const body = await response.json().catch(() => null) as { exam?: SimulationExamDto; error?: string } | null;
+    if (!response.ok) { setError(labelSaveError(body?.error)); return; }
+    if (body?.exam) {
+      setExamRevision(body.exam.revision);
+      setExamStatus(body.exam.status);
+    }
+    setNotice("模拟考试已确认并进入只读状态，补救仍需单独加入收件箱。");
     startTransition(() => router.refresh());
   }
 
@@ -91,6 +109,8 @@ export function SimulationDetailClient(props: { exam: SimulationExamDto; subject
       <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="模拟科目">
         {props.subjects.map((subject) => <button key={subject.id} role="tab" aria-selected={active.subjectId === subject.id} onClick={() => setSelectedSubjectId(subject.id)} className={`shrink-0 rounded-md border px-3 py-2 text-sm ${active.subjectId === subject.id ? "border-teal-400 text-teal-200" : "border-white/10 text-zinc-400"}`}>{subject.name}</button>)}
       </div>
+      {examStatus === "CONFIRMED" ? <p className="rounded-md border border-teal-400/20 bg-teal-500/5 p-3 text-sm text-teal-100">这场模拟已确认，成绩与失分只读。</p> : null}
+      <fieldset disabled={examStatus === "CONFIRMED"} className="contents disabled:opacity-70">
       <section className="rounded-md border border-white/10 bg-[#101419] p-4">
         <h2 className="font-medium text-white">{props.subjects.find((item) => item.id === active.subjectId)?.name}分科结果</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -108,9 +128,10 @@ export function SimulationDetailClient(props: { exam: SimulationExamDto; subject
         </div>)}</div>
       </section>
       <section className="rounded-md border border-white/10 bg-[#101419] p-4"><label className="block text-sm text-zinc-400">心态<textarea value={mindset} onChange={(event) => setMindset(event.target.value)} className="mt-1 min-h-16 w-full rounded-md bg-[#151a20] p-3 text-white" /></label><label className="mt-3 block text-sm text-zinc-400">整场总结<textarea value={summary} onChange={(event) => setSummary(event.target.value)} className="mt-1 min-h-20 w-full rounded-md bg-[#151a20] p-3 text-white" /></label></section>
+      </fieldset>
       {props.remediations.length > 0 ? <section className="rounded-md border border-white/10 bg-[#101419] p-4"><h2 className="font-medium text-white">补救候选</h2><div className="mt-3 space-y-2">{props.remediations.map((item) => <label key={item.originKey} className="flex items-start gap-3 rounded-md border border-white/10 p-3 text-sm"><input type="checkbox" className="mt-1" checked={selectedOriginKeys.includes(item.originKey)} onChange={(event) => setSelectedOriginKeys((keys) => event.target.checked ? [...keys, item.originKey] : keys.filter((key) => key !== item.originKey))}/><span><span className="text-white">{item.subjectName} · {reasons.find((reason) => reason.value === item.reason)?.label}</span><span className="mt-1 block text-xs text-zinc-500">{item.lostScore} 分{item.syllabusNodeTitle ? ` · ${item.syllabusNodeTitle}` : ""}</span></span></label>)}</div></section> : null}
       {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}{notice ? <p role="status" className="text-sm text-teal-200">{notice}</p> : null}
-      <div className="flex flex-wrap gap-3"><button disabled={pending} onClick={() => void save()} className="h-11 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60">保存模拟结果</button><button disabled={pending || props.remediations.length === 0} onClick={() => void addRemediations()} className="h-11 rounded-md border border-white/10 px-4 text-sm disabled:opacity-50">将选中补救加入收件箱</button><Link href="/today/inbox" className="h-11 px-3 text-sm leading-[2.75rem] text-teal-300">查看收件箱</Link></div>
+      <div className="flex flex-wrap gap-3">{examStatus === "DRAFT" ? <><button disabled={pending} onClick={() => void save()} className="h-11 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60">保存模拟结果</button><button disabled={pending} onClick={() => void confirm()} className="h-11 rounded-md border border-teal-300/30 px-4 text-sm text-teal-200 disabled:opacity-50">确认模拟结果</button></> : null}<button disabled={pending || props.remediations.length === 0} onClick={() => void addRemediations()} className="h-11 rounded-md border border-white/10 px-4 text-sm disabled:opacity-50">将选中补救加入收件箱</button><Link href="/today/inbox" className="h-11 px-3 text-sm leading-[2.75rem] text-teal-300">查看收件箱</Link></div>
     </div>
   );
 }

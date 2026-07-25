@@ -7,7 +7,9 @@ import { ApiError } from "@/lib/api/responses";
 import { getAnalyticsSummary } from "./analytics-service";
 import { daysUntil, getStudyDayRange } from "./date";
 import { finalExamDate, simulationDate } from "./exam-dates";
+import { createPlanInboxItemWithResult, type PlanInboxWriteResult } from "./plan-inbox-service";
 import type {
+  PlanInboxWriteSummaryDto,
   StageAdjustmentDraftRecordDto,
   StageAdjustmentTaskActionDto,
   StagePlanDto,
@@ -31,6 +33,12 @@ export interface CreateStageAdjustmentDraftInput {
   stagePlanId?: string | null;
 }
 
+export interface StageAdjustmentDecisionResult {
+  draft: StageAdjustmentDraftRecordDto;
+  stageDraftId: string;
+  inboxResult: PlanInboxWriteSummaryDto;
+}
+
 export async function listStagePlans(actorId?: string): Promise<StagePlanDto[]> {
   const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
   const plans = await prisma.stagePlan.findMany({
@@ -40,6 +48,15 @@ export async function listStagePlans(actorId?: string): Promise<StagePlanDto[]> 
   });
 
   return plans.map(serializeStagePlan);
+}
+
+export async function getCurrentStagePlan(actorId: string): Promise<StagePlanDto | null> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const plan = await prisma.stagePlan.findFirst({
+    where: { workspaceId: workspace.id, status: { in: ["active", "draft"] } },
+    orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
+  });
+  return plan ? serializeStagePlan(plan) : null;
 }
 
 export async function createStagePlan(input: SaveStagePlanInput, actorId: string): Promise<StagePlanDto> {
@@ -64,7 +81,11 @@ export async function createStagePlan(input: SaveStagePlanInput, actorId: string
   return serializeStagePlan(plan);
 }
 
-export async function updateStagePlan(id: string, input: Partial<SaveStagePlanInput>, actorId: string): Promise<StagePlanDto> {
+export async function updateStagePlan(
+  id: string,
+  input: Partial<SaveStagePlanInput> & { expectedRevision: number },
+  actorId: string,
+): Promise<StagePlanDto> {
   const workspace = await resolveActiveWorkspace(actorId);
   const plan = await prisma.$transaction(async (tx) => {
     const existing = await tx.stagePlan.findFirst({ where: { id, workspaceId: workspace.id } });
@@ -75,7 +96,7 @@ export async function updateStagePlan(id: string, input: Partial<SaveStagePlanIn
     if (nextEndDate.getTime() < nextStartDate.getTime()) throw new ApiError("STAGE_PLAN_DATE_RANGE_INVALID", 400);
 
     const changed = await tx.stagePlan.updateMany({
-      where: { id, workspaceId: workspace.id, revision: existing.revision },
+      where: { id, workspaceId: workspace.id, revision: input.expectedRevision },
       data: {
         name: input.name,
         startDate: input.startDate ? nextStartDate : undefined,
@@ -113,6 +134,13 @@ export async function listStageAdjustmentDrafts(actorId?: string): Promise<Stage
   return drafts.map(serializeStageAdjustmentDraft);
 }
 
+export async function getStageAdjustmentDraft(id: string, actorId: string): Promise<StageAdjustmentDraftRecordDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const draft = await prisma.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id } });
+  if (!draft) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_NOT_FOUND", 404);
+  return serializeStageAdjustmentDraft(draft);
+}
+
 export async function createStageAdjustmentDraft(
   input: CreateStageAdjustmentDraftInput,
   actorId: string,
@@ -138,11 +166,14 @@ export async function createStageAdjustmentDraft(
     daysToFinal: daysUntil(finalExamDate, now),
   });
 
-  const draft = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const created = await tx.stageAdjustmentDraft.create({
       data: {
         workspaceId: workspace.id,
         stagePlanId: stagePlan?.id ?? null,
+        originVersion: null,
+        sourceReportDecisionId: null,
+        sourceReportRevision: null,
         source: "local_rule",
         mode: adjustment.mode,
         risk: adjustment.risk,
@@ -167,25 +198,50 @@ export async function createStageAdjustmentDraft(
     return created;
   });
 
-  return serializeStageAdjustmentDraft(draft);
+  return serializeStageAdjustmentDraft(result);
 }
 
-export async function confirmStageAdjustmentDraft(id: string, actorId: string): Promise<StageAdjustmentDraftRecordDto> {
+export async function confirmStageAdjustmentDraft(id: string, expectedRevision: number, actorId: string): Promise<StageAdjustmentDecisionResult> {
   const workspace = await resolveActiveWorkspace(actorId);
-  const draft = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id }, include: { stagePlan: true } });
     if (!existing) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_NOT_FOUND", 404);
-    if (existing.status === "applied") return existing;
+    if (existing.status === "applied") {
+      return { draft: serializeStageAdjustmentDraft(existing), stageDraftId: existing.id, inboxResult: emptyInboxResult() };
+    }
     if (existing.status === "rejected") throw new ApiError("STAGE_ADJUSTMENT_DRAFT_REJECTED", 409);
+    if (existing.revision !== expectedRevision) {
+      throw new ApiError("STAGE_ADJUSTMENT_DRAFT_REVISION_CONFLICT", 409, {
+        latest: serializeStageAdjustmentDraft(existing),
+        conflictFields: ["revision"],
+      });
+    }
     if (!existing.stagePlan) throw new ApiError("STAGE_PLAN_REQUIRED", 400);
+    const newerDraft = await tx.stageAdjustmentDraft.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        stagePlanId: existing.stagePlan.id,
+        status: "draft",
+        createdAt: { gt: existing.createdAt },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (newerDraft) {
+      throw new ApiError("STAGE_ADJUSTMENT_DRAFT_SUPERSEDED", 409, {
+        latest: serializeStageAdjustmentDraft(newerDraft),
+        conflictFields: ["version"],
+      });
+    }
 
     const claimed = await tx.stageAdjustmentDraft.updateMany({
-      where: { id, workspaceId: workspace.id, status: "draft" },
-      data: { status: "applied", appliedAt: new Date(), actorId },
+      where: { id, workspaceId: workspace.id, status: "draft", revision: expectedRevision },
+      data: { status: "applied", appliedAt: new Date(), actorId, revision: { increment: 1 } },
     });
     if (claimed.count !== 1) {
       const latest = await tx.stageAdjustmentDraft.findUnique({ where: { id } });
-      if (latest?.status === "applied") return latest;
+      if (latest?.status === "applied") {
+        return { draft: serializeStageAdjustmentDraft(latest), stageDraftId: latest.id, inboxResult: emptyInboxResult() };
+      }
       throw new ApiError("STAGE_ADJUSTMENT_DRAFT_CONFLICT", 409, {
         latest: latest ? serializeStageAdjustmentDraft(latest) : undefined,
         conflictFields: ["status"],
@@ -213,22 +269,32 @@ export async function confirmStageAdjustmentDraft(id: string, actorId: string): 
       tx.stageAdjustmentDraft.findUniqueOrThrow({ where: { id } }),
     ]);
     const actions = parseStringArray(existing.taskAdjustmentActions);
+    const inboxWrites: PlanInboxWriteResult[] = [];
+    const sourceReport = existing.sourceReportDecisionId
+      ? await tx.periodicReportDecision.findFirst({ where: { id: existing.sourceReportDecisionId, workspaceId: workspace.id } })
+      : null;
     for (const [index, action] of actions.entries()) {
-      await tx.planInboxItem.create({
-        data: {
-          workspaceId: workspace.id,
-          stableKey: `${existing.id}:action:${index}`,
-          originKey: `stage:${existing.id}:${index}`,
-          originVersion: 1,
-          originType: "STAGE_ADJUSTMENT",
-          originSnapshot: { draftId: existing.id, action, stagePlanId: updatedPlan.id },
-          title: labelStageInboxAction(action),
-          estimatedMinutes: 30,
-          priority: existing.risk === "critical" ? "critical" : "high",
-          type: "review",
-          actorId,
+      const originKey = sourceReport
+        ? `report:${sourceReport.kind}:${sourceReport.rangeStart.toISOString()}:${index}`
+        : `stage:${existing.id}:${index}`;
+      const write = await createPlanInboxItemWithResult(tx, workspace.id, actorId, {
+        stableKey: `${existing.id}:action:${index}`,
+        originKey,
+        originVersion: existing.originVersion ?? existing.sourceReportRevision ?? 1,
+        originType: "STAGE_ADJUSTMENT",
+        originSnapshot: {
+          draftId: existing.id,
+          action,
+          stagePlanId: updatedPlan.id,
+          sourceReportDecisionId: existing.sourceReportDecisionId,
+          sourceReportRevision: existing.sourceReportRevision,
         },
+        title: labelStageInboxAction(action),
+        estimatedMinutes: 30,
+        priority: existing.risk === "critical" ? "critical" : "high",
+        type: "review",
       });
+      inboxWrites.push(write);
     }
 
     await audit(tx, actorId, "STAGE_ADJUSTMENT_DRAFT_APPLIED", "StageAdjustmentDraft", id, {
@@ -238,27 +304,40 @@ export async function confirmStageAdjustmentDraft(id: string, actorId: string): 
       before: createStagePlanSnapshot(existing.stagePlan),
       after: createStagePlanSnapshot(updatedPlan),
     });
-    return updatedDraft;
+    return {
+      draft: serializeStageAdjustmentDraft(updatedDraft),
+      stageDraftId: updatedDraft.id,
+      inboxResult: summarizeInboxWrites(inboxWrites),
+    };
   });
-
-  return serializeStageAdjustmentDraft(draft);
+  return result;
 }
 
-export async function rejectStageAdjustmentDraft(id: string, actorId: string): Promise<StageAdjustmentDraftRecordDto> {
+export async function rejectStageAdjustmentDraft(id: string, expectedRevision: number, actorId: string): Promise<StageAdjustmentDecisionResult> {
   const workspace = await resolveActiveWorkspace(actorId);
-  const draft = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id } });
     if (!existing) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_NOT_FOUND", 404);
-    if (existing.status === "rejected") return existing;
+    if (existing.status === "rejected") {
+      return { draft: serializeStageAdjustmentDraft(existing), stageDraftId: existing.id, inboxResult: emptyInboxResult() };
+    }
     if (existing.status === "applied") throw new ApiError("STAGE_ADJUSTMENT_DRAFT_APPLIED", 409);
+    if (existing.revision !== expectedRevision) {
+      throw new ApiError("STAGE_ADJUSTMENT_DRAFT_REVISION_CONFLICT", 409, {
+        latest: serializeStageAdjustmentDraft(existing),
+        conflictFields: ["revision"],
+      });
+    }
 
     const changed = await tx.stageAdjustmentDraft.updateMany({
-      where: { id, workspaceId: workspace.id, status: "draft" },
-      data: { status: "rejected", actorId },
+      where: { id, workspaceId: workspace.id, status: "draft", revision: expectedRevision },
+      data: { status: "rejected", actorId, revision: { increment: 1 } },
     });
     if (changed.count !== 1) {
       const latest = await tx.stageAdjustmentDraft.findUnique({ where: { id } });
-      if (latest?.status === "rejected") return latest;
+      if (latest?.status === "rejected") {
+        return { draft: serializeStageAdjustmentDraft(latest), stageDraftId: latest.id, inboxResult: emptyInboxResult() };
+      }
       throw new ApiError("STAGE_ADJUSTMENT_DRAFT_CONFLICT", 409, {
         latest: latest ? serializeStageAdjustmentDraft(latest) : undefined,
         conflictFields: ["status"],
@@ -271,14 +350,24 @@ export async function rejectStageAdjustmentDraft(id: string, actorId: string): P
       canAutoApply: false,
       requiresUserConfirmation: true,
     });
-    return rejected;
+    return { draft: serializeStageAdjustmentDraft(rejected), stageDraftId: rejected.id, inboxResult: emptyInboxResult() };
   });
-
-  return serializeStageAdjustmentDraft(draft);
+  return result;
 }
 
 function labelStageInboxAction(action: string): string {
   return ({ split: "拆分过大任务", defer: "延期低优先级任务", drop: "移出低价值任务", convert_review: "转为复习行动", simulate: "安排阶段模拟", retest: "安排薄弱节点复测" } as Record<string, string>)[action] ?? action;
+}
+
+function emptyInboxResult(): PlanInboxWriteSummaryDto {
+  return { created: [], reused: [], superseded: [], createdCount: 0, reusedCount: 0, supersededCount: 0 };
+}
+
+function summarizeInboxWrites(writes: PlanInboxWriteResult[]): PlanInboxWriteSummaryDto {
+  const created = writes.filter((write) => write.created).map((write) => write.item.id);
+  const reused = writes.filter((write) => write.reused).map((write) => write.item.id);
+  const superseded = writes.flatMap((write) => write.superseded.map((item) => item.id));
+  return { created, reused, superseded, createdCount: created.length, reusedCount: reused.length, supersededCount: superseded.length };
 }
 
 export async function createDefaultStagePlan(actorId: string, now = new Date()): Promise<StagePlanDto> {
@@ -372,7 +461,11 @@ function serializeStagePlan(plan: {
 
 function serializeStageAdjustmentDraft(draft: {
   id: string;
+  revision: number;
   stagePlanId: string | null;
+  sourceReportDecisionId: string | null;
+  sourceReportRevision: number | null;
+  originVersion: number | null;
   source: string;
   mode: string;
   risk: string;
@@ -390,7 +483,11 @@ function serializeStageAdjustmentDraft(draft: {
 }): StageAdjustmentDraftRecordDto {
   return {
     id: draft.id,
+    revision: draft.revision,
     stagePlanId: draft.stagePlanId,
+    sourceReportDecisionId: draft.sourceReportDecisionId,
+    sourceReportRevision: draft.sourceReportRevision,
+    originVersion: draft.originVersion,
     source: draft.source as StageAdjustmentDraftRecordDto["source"],
     mode: draft.mode as StageAdjustmentDraftRecordDto["mode"],
     risk: draft.risk as StageAdjustmentDraftRecordDto["risk"],

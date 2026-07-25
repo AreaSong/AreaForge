@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackToListLink } from "@/components/list-return-context";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getNoteById } from "@/lib/study/notes-service";
 
@@ -13,14 +13,14 @@ export default async function KnowledgeNoteDetailPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { noteId } = await params;
-  const note = await getNoteById(noteId);
+  const note = await getNoteById(noteId, user.id);
   if (!note) redirect("/knowledge/notes");
 
   return (
     <article className="space-y-4">
-      <Link className="text-sm text-teal-300 hover:underline" href="/knowledge/notes">
+      <BackToListLink className="text-sm text-teal-300 hover:underline" fallbackHref="/knowledge/notes">
         返回卡片列表
-      </Link>
+      </BackToListLink>
       <header>
         <p className="text-xs text-zinc-500">
           {note.kind} · {note.subjectName}

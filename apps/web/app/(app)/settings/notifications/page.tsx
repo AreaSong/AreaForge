@@ -18,7 +18,7 @@ export default async function SettingsNotificationsPage() {
           浏览器通知仅在页面打开时发送；权限拒绝只降级，不循环请求。具体标题属于当前设备本地偏好。
         </p>
       </div>
-      <NotificationSettingsClient initial={preference} />
+      <NotificationSettingsClient userId={user.id} initial={preference} />
     </section>
   );
 }

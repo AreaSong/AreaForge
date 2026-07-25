@@ -12,6 +12,7 @@ const createSchema = z.object({
   color: z.string().trim().min(1).max(32),
   sortOrder: z.number().int().optional(),
   groupId: z.string().nullable().optional(),
+  expectedWorkspaceRevision: z.number().int().positive(),
 });
 
 export async function GET(

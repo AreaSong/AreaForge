@@ -8,12 +8,20 @@ import { getStudyDayRange } from "./date";
 import { findActiveWorkspaceOrNull } from "./exam-workspace-service";
 import { listWorkspaceCheckIns } from "./check-in-service";
 import { getActiveStudySession } from "./service";
+import { getNotificationPreferences, type NotificationPreferenceDto } from "./notification-preferences-service";
 
 export interface AppShellStatusDto extends AppShellStatusProjection {
   setupRequired: boolean;
   workspaceId: string | null;
   reviewExecutableCount: number;
   reviewBridgedCount: number;
+  defaultSubjectId: string | null;
+  notificationPreference: NotificationPreferenceDto;
+  notificationCandidates: {
+    reviewDue: boolean;
+    planStart: boolean;
+    eveningReview: boolean;
+  };
 }
 
 function serializeStatus(
@@ -23,6 +31,9 @@ function serializeStatus(
     workspaceId: string | null;
     reviewExecutableCount: number;
     reviewBridgedCount: number;
+    defaultSubjectId: string | null;
+    notificationPreference: NotificationPreferenceDto;
+    notificationCandidates: AppShellStatusDto["notificationCandidates"];
   },
 ): AppShellStatusDto {
   return {
@@ -32,7 +43,10 @@ function serializeStatus(
 }
 
 export async function getAppShellStatus(actorId: string): Promise<AppShellStatusDto> {
-  const workspace = await findActiveWorkspaceOrNull(actorId);
+  const [workspace, notificationPreference] = await Promise.all([
+    findActiveWorkspaceOrNull(actorId),
+    getNotificationPreferences(actorId),
+  ]);
   if (!workspace) {
     const empty = projectAppShellStatus({
       activity: {
@@ -78,15 +92,18 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       workspaceId: null,
       reviewExecutableCount: 0,
       reviewBridgedCount: 0,
+      defaultSubjectId: null,
+      notificationPreference,
+      notificationCandidates: { reviewDue: false, planStart: false, eveningReview: false },
     });
   }
 
   const day = getStudyDayRange();
   const sevenDaysAgo = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-  const [activeSession, dueSchedules, bridgedTasks, debtTasks, stagePlan, checkIns, dailyReview] =
+  const [activeSession, dueSchedules, bridgedTasks, debtTasks, todayPlanTasks, stagePlan, checkIns, dailyReview, defaultSubject] =
     await Promise.all([
-      getActiveStudySession(),
+      getActiveStudySession(actorId),
       prisma.reviewSchedule.findMany({
         where: {
           workspaceId: workspace.id,
@@ -115,9 +132,17 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         },
         select: { id: true, debtStatus: true, plannedDate: true },
       }),
+      prisma.studyTask.findMany({
+        where: {
+          subject: { workspaceId: workspace.id },
+          status: { in: ["TODO", "IN_PROGRESS"] },
+          plannedDate: { gte: day.start, lt: day.end },
+        },
+        select: { id: true },
+      }),
       prisma.stagePlan.findFirst({
         where: {
-          OR: [{ workspaceId: workspace.id }, { workspaceId: null }],
+          workspaceId: workspace.id,
           status: { in: ["ACTIVE", "active", "DRAFT", "draft"] },
         },
         orderBy: { updatedAt: "desc" },
@@ -126,8 +151,13 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       prisma.dailyReview.findFirst({
         where: {
           reviewDate: { gte: day.start, lt: day.end },
-          OR: [{ workspaceId: workspace.id }, { workspaceId: null }],
+          workspaceId: workspace.id,
         },
+      }),
+      prisma.subject.findFirst({
+        where: { workspaceId: workspace.id, archivedAt: null },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: { id: true },
       }),
     ]);
 
@@ -208,6 +238,13 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
     workspaceId: workspace.id,
     reviewExecutableCount: executableCount,
     reviewBridgedCount: bridgedCount,
+    defaultSubjectId: defaultSubject?.id ?? null,
+    notificationPreference,
+    notificationCandidates: {
+      reviewDue: executableCount > 0,
+      planStart: todayPlanTasks.length > 0,
+      eveningReview: !dailyReview?.summary,
+    },
   });
 }
 

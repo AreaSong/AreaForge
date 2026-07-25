@@ -7,9 +7,14 @@ import { listSyllabusOptions } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
 
-export default async function KnowledgeMistakesPage() {
+export default async function KnowledgeMistakesPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; syllabusNodeId?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const [subjects, nodes, mistakes] = await Promise.all([listSubjects(), listSyllabusOptions(), listMistakes()]);
-  return <MistakeLibrary subjects={subjects} nodes={nodes} mistakes={mistakes} />;
+  const query = await searchParams;
+  const [subjects, nodes, mistakes] = await Promise.all([
+    listSubjects(user.id),
+    listSyllabusOptions(user.id),
+    listMistakes(user.id),
+  ]);
+  return <MistakeLibrary subjects={subjects} nodes={nodes} mistakes={mistakes} initialSubjectId={query.subjectId} initialSyllabusNodeId={query.syllabusNodeId} />;
 }

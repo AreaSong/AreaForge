@@ -1,11 +1,13 @@
 export const LEARNING_TREE_PROTOCOL = "AREAFORGE_LEARNING_TREE_V1" as const;
 export const LEARNING_TREE_PARSER_VERSION = "1.0.0" as const;
 export const LEARNING_TREE_PREVIEW_PURPOSE = "learning-tree-preview:v1" as const;
+export const LEARNING_TREE_EXPORT_PURPOSE = "learning-tree-export:v1" as const;
 
 export const LEARNING_TREE_MAX_BYTES = 2 * 1024 * 1024;
 export const LEARNING_TREE_MAX_OBJECTS = 5000;
 export const LEARNING_TREE_MAX_DEPTH = 6;
 export const LEARNING_TREE_PREVIEW_TTL_MS = 30 * 60 * 1000;
+export const LEARNING_TREE_EXPORT_TTL_MS = 5 * 60 * 1000;
 
 export type LearningTreeScope = "global" | "subject" | "branch";
 
@@ -42,6 +44,7 @@ export type LearningTreeErrorCode =
   | "CROSS_SUBJECT_REF"
   | "URL_INVALID"
   | "DEPENDENCY_CYCLE"
+  | "MILESTONE_NOT_FOUND"
   | "MISSING_SUBJECT"
   | "EMPTY_TITLE"
   | "PARSE_ERROR";
@@ -69,6 +72,20 @@ export interface LearningTreePreviewTokenClaims {
   sourceSha256: string;
   canonicalPlanHash: string;
   scope: LearningTreeScope;
+  rootRevision: number;
+  expiry: number;
+  nonce: string;
+}
+
+export interface LearningTreeExportTokenClaims {
+  actorId: string;
+  workspaceId: string;
+  protocolVersion: typeof LEARNING_TREE_PROTOCOL;
+  parserVersion: typeof LEARNING_TREE_PARSER_VERSION;
+  sourceSha256: string;
+  scope: LearningTreeScope;
+  subjectKey?: string;
+  rootNodeKey?: string;
   rootRevision: number;
   expiry: number;
   nonce: string;

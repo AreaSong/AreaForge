@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
 
 export function AiSettingsClient(props: {
+  userId: string;
   aiEnabled: boolean;
   modelConfigured: boolean;
   bindingSecretConfigured: boolean;
@@ -29,12 +30,12 @@ export function AiSettingsClient(props: {
       <p className="text-sm text-zinc-400">
         隐私边界：不发送附件、未选择正文、完整动机封存或复盘正文；不保存 prompt/raw response。
       </p>
-      <AiDraftDemo />
+      <AiDraftDemo userId={props.userId} />
     </div>
   );
 }
 
-function AiDraftDemo() {
+function AiDraftDemo({ userId }: { userId: string }) {
   const [endpoint, setEndpoint] = useState<"learning-tree" | "knowledge-card" | "plan" | "motivation">(
     "motivation",
   );
@@ -54,7 +55,7 @@ function AiDraftDemo() {
           <option value="plan">plan</option>
         </select>
       </label>
-      <AiDraftPanel key={endpoint} endpoint={endpoint} />
+      <AiDraftPanel key={endpoint} endpoint={endpoint} userId={userId} />
     </div>
   );
 }

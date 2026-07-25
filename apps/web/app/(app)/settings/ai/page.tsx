@@ -19,6 +19,7 @@ export default async function SettingsAiPage() {
         </p>
       </div>
       <AiSettingsClient
+        userId={user.id}
         aiEnabled={status.aiEnabled}
         modelConfigured={status.modelConfigured}
         bindingSecretConfigured={status.bindingSecretConfigured}

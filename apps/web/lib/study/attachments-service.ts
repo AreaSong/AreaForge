@@ -21,6 +21,7 @@ import { getAuthEnv } from "@/lib/auth/env";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import type { AttachmentDto } from "./types";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 
 /**
  * OPS-007 附件写入意图协议：
@@ -62,7 +63,7 @@ export async function createNoteAttachment(
   actorId: string,
   hooks?: AttachmentProtocolHooks,
 ): Promise<AttachmentDto> {
-  await assertNoteExists(input.noteId);
+  await assertNoteExists(input.noteId, actorId);
   return createAttachmentWithOps007({
     noteId: input.noteId,
     scan: input.scan,
@@ -89,6 +90,116 @@ export async function createWorkspaceAttachment(
   });
 }
 
+/**
+ * Writes a workspace upload to the private staging area but deliberately
+ * leaves the Attachment PENDING until the resource duplicate decision is
+ * known. The returned metadata is safe to persist in a resumable client state.
+ */
+export async function stageWorkspaceAttachment(
+  input: { scan: BoundedFileScan },
+  actorId: string,
+  hooks?: AttachmentProtocolHooks,
+): Promise<AttachmentDto> {
+  const policy = createStudyResourceUploadPolicy(STUDY_RESOURCE_MAX_UPLOAD_MB);
+  const staged = await stageAttachmentWithOps007({
+    noteId: null,
+    scan: input.scan,
+    actorId,
+    policyMimeTypes: policy.allowedMimeTypes,
+    maxUploadMb: STUDY_RESOURCE_MAX_UPLOAD_MB,
+    hooks,
+  });
+  return serializeAttachment(staged.attachment);
+}
+
+/** Finalize a previously staged workspace upload after an explicit decision. */
+export async function finalizeWorkspaceAttachment(
+  actorId: string,
+  attachmentId: string,
+  hooks?: AttachmentProtocolHooks,
+): Promise<AttachmentDto> {
+  const attachment = await prisma.attachment.findUnique({
+    where: { id: attachmentId },
+    select: {
+      id: true,
+      noteId: true,
+      originalName: true,
+      mimeType: true,
+      sizeBytes: true,
+      hash: true,
+      uri: true,
+      status: true,
+      stagingName: true,
+      updatedAt: true,
+      createdAt: true,
+      reconciliationClaimId: true,
+      studyResource: { select: { id: true } },
+    },
+  });
+  if (!attachment || attachment.noteId || attachment.studyResource) {
+    throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
+  }
+  await assertAttachmentIntentOwner(actorId, attachment.id);
+  if (attachment.status === "READY") return serializeAttachment(attachment);
+  if (attachment.status !== "PENDING" || attachment.reconciliationClaimId) {
+    throw new ApiError("ATTACHMENT_NOT_READY", 409);
+  }
+
+  const storedName = parseAttachmentUri(attachment.uri);
+  if (!storedName) throw new ApiError("ATTACHMENT_URI_INVALID", 500);
+  const env = getAuthEnv();
+  const finalPath = getSafeAttachmentPath(env.UPLOAD_DIR, storedName);
+  const stagingPath = attachment.stagingName ? getSafeStagingPath(env.UPLOAD_DIR, attachment.stagingName) : null;
+  await mkdir(finalPath.uploadRoot, { recursive: true });
+  await assertResolvedUploadRoot(finalPath.uploadRoot);
+
+  try {
+    await hooks?.beforeAtomicRename?.();
+    const finalPresent = (await verifyFinalFile(finalPath.uploadRoot, finalPath.filePath, attachment.hash, attachment.sizeBytes));
+    if (!finalPresent) {
+      if (!stagingPath) throw new ApiError("ATTACHMENT_STAGING_MISSING", 409);
+      try {
+        await rename(stagingPath.filePath, finalPath.filePath);
+        await fsyncDirectory(finalPath.uploadRoot);
+      } catch (error) {
+        // A maintenance reconciliation may have completed the rename between
+        // the probe and this call. Accept it only after re-verifying the final.
+        if (!(await verifyFinalFile(finalPath.uploadRoot, finalPath.filePath, attachment.hash, attachment.sizeBytes))) {
+          throw error;
+        }
+      }
+    }
+    await hooks?.afterAtomicRename?.();
+  } catch (error) {
+    throw toApiError(error, "ATTACHMENT_WRITE_FAILED");
+  }
+
+  if (!(await verifyFinalFile(finalPath.uploadRoot, finalPath.filePath, attachment.hash, attachment.sizeBytes))) {
+    await markIntentFailed(attachment.id, "post_rename_verify", "INTEGRITY_MISMATCH");
+    throw new ApiError("ATTACHMENT_WRITE_FAILED", 500);
+  }
+
+  await hooks?.beforeReadyCas?.();
+  const finalized = await prisma.attachment.updateMany({
+    where: {
+      id: attachment.id,
+      status: "PENDING",
+      protocolVersion: attachmentProtocolVersion,
+      updatedAt: attachment.updatedAt,
+      reconciliationClaimId: null,
+    },
+    data: {
+      status: "READY",
+      finalizedAt: new Date(),
+      stagingName: null,
+      failureCode: null,
+      failurePhase: null,
+    },
+  });
+  if (finalized.count !== 1) throw new ApiError("ATTACHMENT_RECONCILIATION_REQUIRED", 500);
+  return serializeAttachment(await prisma.attachment.findUniqueOrThrow({ where: { id: attachment.id }, select: attachmentDtoSelect }));
+}
+
 async function createAttachmentWithOps007(input: {
   noteId: string | null;
   scan: BoundedFileScan;
@@ -97,6 +208,33 @@ async function createAttachmentWithOps007(input: {
   maxUploadMb: number;
   hooks?: AttachmentProtocolHooks;
 }): Promise<AttachmentDto> {
+  const staged = await stageAttachmentWithOps007(input);
+  return finalizeStagedAttachment(staged, input.hooks);
+}
+
+interface StagedAttachment {
+  attachment: {
+    id: string;
+    noteId: string | null;
+    originalName: string;
+    mimeType: string;
+    sizeBytes: number;
+    createdAt: Date;
+  };
+  updatedAt: Date;
+  draft: { storedName: string; hash: string; sizeBytes: number };
+  stagingPath: { filePath: string };
+  finalPath: { filePath: string; uploadRoot: string };
+}
+
+async function stageAttachmentWithOps007(input: {
+  noteId: string | null;
+  scan: BoundedFileScan;
+  actorId: string;
+  policyMimeTypes: readonly string[];
+  maxUploadMb: number;
+  hooks?: AttachmentProtocolHooks;
+}): Promise<StagedAttachment> {
   const env = getAuthEnv();
   const policy = createUploadPolicy(input.maxUploadMb, input.policyMimeTypes);
   const draftResult = createAttachmentMetadataDraftFromScan({
@@ -134,48 +272,55 @@ async function createAttachmentWithOps007(input: {
     throw toApiError(error, "ATTACHMENT_WRITE_FAILED");
   }
 
+  const attachment = await prisma.attachment.findUniqueOrThrow({
+    where: { id: intent.id },
+    select: {
+      id: true,
+      noteId: true,
+      originalName: true,
+      mimeType: true,
+      sizeBytes: true,
+      createdAt: true,
+    },
+  });
+  return {
+    attachment,
+    updatedAt: intent.updatedAt,
+    draft: { storedName: draft.storedName, hash: draft.hash, sizeBytes: draft.sizeBytes },
+    stagingPath,
+    finalPath,
+  };
+}
+
+async function finalizeStagedAttachment(staged: StagedAttachment, hooks?: AttachmentProtocolHooks): Promise<AttachmentDto> {
   try {
     await hooks?.beforeAtomicRename?.();
-    await rename(stagingPath.filePath, finalPath.filePath);
-    await fsyncDirectory(finalPath.uploadRoot);
+    await rename(staged.stagingPath.filePath, staged.finalPath.filePath);
+    await fsyncDirectory(staged.finalPath.uploadRoot);
     await hooks?.afterAtomicRename?.();
   } catch (error) {
-    await failIntentWithCompensation(intent.id, "atomic_rename", "ATOMIC_RENAME_FAILED", stagingPath.filePath, hooks);
+    await failIntentWithCompensation(staged.attachment.id, "atomic_rename", "ATOMIC_RENAME_FAILED", staged.stagingPath.filePath, hooks);
     throw toApiError(error, "ATTACHMENT_WRITE_FAILED");
   }
 
-  const verified = await verifyFinalFile(finalPath.uploadRoot, finalPath.filePath, draft.hash, draft.sizeBytes);
-  if (!verified) {
-    await markIntentFailed(intent.id, "post_rename_verify", "INTEGRITY_MISMATCH");
+  if (!(await verifyFinalFile(staged.finalPath.uploadRoot, staged.finalPath.filePath, staged.draft.hash, staged.draft.sizeBytes))) {
+    await markIntentFailed(staged.attachment.id, "post_rename_verify", "INTEGRITY_MISMATCH");
     throw new ApiError("ATTACHMENT_WRITE_FAILED", 500);
   }
 
   await hooks?.beforeReadyCas?.();
   const finalized = await prisma.attachment.updateMany({
     where: {
-      id: intent.id,
+      id: staged.attachment.id,
       status: "PENDING",
       protocolVersion: attachmentProtocolVersion,
-      updatedAt: intent.updatedAt,
+      updatedAt: staged.updatedAt,
       reconciliationClaimId: null,
     },
-    data: {
-      status: "READY",
-      finalizedAt: new Date(),
-      stagingName: null,
-      failureCode: null,
-      failurePhase: null,
-    },
+    data: { status: "READY", finalizedAt: new Date(), stagingName: null, failureCode: null, failurePhase: null },
   });
-  if (finalized.count !== 1) {
-    throw new ApiError("ATTACHMENT_RECONCILIATION_REQUIRED", 500);
-  }
-
-  const attachment = await prisma.attachment.findUniqueOrThrow({
-    where: { id: intent.id },
-    select: attachmentDtoSelect,
-  });
-  return serializeAttachment(attachment);
+  if (finalized.count !== 1) throw new ApiError("ATTACHMENT_RECONCILIATION_REQUIRED", 500);
+  return serializeAttachment(await prisma.attachment.findUniqueOrThrow({ where: { id: staged.attachment.id }, select: attachmentDtoSelect }));
 }
 
 export async function getAttachmentDownload(
@@ -289,6 +434,51 @@ export async function getAttachmentDownload(
   };
 }
 
+/**
+ * Ends an explicitly skipped, still-unbound workspace upload without leaving
+ * a READY file that can never be reached through a business object.
+ */
+export async function discardUnboundAttachment(actorId: string, attachmentId: string): Promise<void> {
+  const attachment = await prisma.attachment.findUnique({
+    where: { id: attachmentId },
+    select: {
+      id: true,
+      uri: true,
+      stagingName: true,
+      status: true,
+      noteId: true,
+      studyResource: { select: { id: true } },
+    },
+  });
+  if (!attachment || attachment.noteId || attachment.studyResource) {
+    throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
+  }
+  await assertAttachmentIntentOwner(actorId, attachment.id);
+  if (attachment.status === "FAILED") return;
+  const updated = await prisma.attachment.updateMany({
+    where: { id: attachment.id, status: { in: ["PENDING", "READY"] } },
+    data: {
+      status: "FAILED",
+      failureCode: "STAGING_SKIPPED",
+      failurePhase: "user_skip",
+      stagingName: null,
+    },
+  });
+  if (updated.count !== 1) return;
+  const storedName = parseAttachmentUri(attachment.uri);
+  if (!storedName) throw new ApiError("ATTACHMENT_URI_INVALID", 500);
+  const env = getAuthEnv();
+  const safePath = getSafeAttachmentPath(env.UPLOAD_DIR, storedName);
+  const safeStagingPath = attachment.stagingName ? getSafeStagingPath(env.UPLOAD_DIR, attachment.stagingName) : null;
+  try {
+    await rm(safePath.filePath, { force: true });
+    if (safeStagingPath) await rm(safeStagingPath.filePath, { force: true });
+    await fsyncDirectory(safePath.uploadRoot);
+  } catch {
+    throw new ApiError("ATTACHMENT_CLEANUP_FAILED", 500);
+  }
+}
+
 const attachmentDtoSelect = {
   id: true,
   noteId: true,
@@ -366,6 +556,19 @@ async function createPendingIntent(
   }
 }
 
+async function assertAttachmentIntentOwner(actorId: string, attachmentId: string): Promise<void> {
+  const intent = await prisma.auditEvent.findFirst({
+    where: {
+      actorId,
+      action: "ATTACHMENT_INTENT_CREATED",
+      entityType: "Attachment",
+      entityId: attachmentId,
+    },
+    select: { id: true },
+  });
+  if (!intent) throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
+}
+
 async function writeStagingFileDurably(stagingFilePath: string, bytes: Uint8Array): Promise<void> {
   let handle: Awaited<ReturnType<typeof open>> | null = null;
   try {
@@ -437,9 +640,10 @@ async function markIntentFailed(attachmentId: string, failurePhase: string, fail
   }).catch(() => undefined);
 }
 
-async function assertNoteExists(noteId: string): Promise<void> {
-  const note = await prisma.note.findUnique({
-    where: { id: noteId },
+async function assertNoteExists(noteId: string, actorId: string): Promise<void> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const note = await prisma.note.findFirst({
+    where: { id: noteId, subject: { workspaceId: workspace.id } },
     select: { id: true },
   });
 

@@ -116,7 +116,7 @@ async function lockSchedule(tx: Tx, scheduleId: string) {
 
 export async function listReviewSchedules(
   actorId: string,
-  options?: { status?: "ACTIVE" | "PAUSED"; dueBefore?: Date },
+  options?: { status?: "ACTIVE" | "PAUSED"; dueBefore?: Date; excludeBridged?: boolean },
 ): Promise<ReviewScheduleDto[]> {
   const workspace = await resolveActiveWorkspace(actorId);
   const rows = await prisma.reviewSchedule.findMany({
@@ -126,10 +126,33 @@ export async function listReviewSchedules(
       ...(options?.dueBefore
         ? { dueDate: { lte: options.dueBefore }, status: "ACTIVE" }
         : {}),
+      ...(options?.excludeBridged
+        ? { bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } } }
+        : {}),
     },
     orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
   });
   return rows.map(serializeSchedule);
+}
+
+export async function getNextDueReviewScheduleId(
+  actorId: string,
+  currentScheduleId: string,
+): Promise<string | null> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const today = getStudyDayRange(new Date());
+  const next = await prisma.reviewSchedule.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      id: { not: currentScheduleId },
+      status: "ACTIVE",
+      dueDate: { lte: today.end },
+      bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
+    },
+    orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  return next?.id ?? null;
 }
 
 export async function getReviewSchedule(actorId: string, scheduleId: string): Promise<ReviewScheduleDto> {
@@ -139,6 +162,20 @@ export async function getReviewSchedule(actorId: string, scheduleId: string): Pr
   });
   if (!row) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
   return serializeSchedule(row);
+}
+
+export async function listReviewEvents(actorId: string, scheduleId: string): Promise<ReviewEventDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const schedule = await prisma.reviewSchedule.findFirst({
+    where: { id: scheduleId, workspaceId: workspace.id },
+    select: { id: true },
+  });
+  if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
+  const rows = await prisma.reviewEvent.findMany({
+    where: { reviewScheduleId: schedule.id },
+    orderBy: [{ confirmedAt: "desc" }, { id: "desc" }],
+  });
+  return rows.map(serializeEvent);
 }
 
 export async function materializeReviewSchedule(
@@ -157,7 +194,47 @@ export async function materializeReviewSchedule(
   await assertTargetOwned(workspace.id, input);
 
   const existing = await findExistingSchedule(workspace.id, input);
-  if (existing) return serializeSchedule(existing);
+  if (existing) {
+    if (existing.status === "ACTIVE") return serializeSchedule(existing);
+    if (existing.pausedReason !== "TARGET_ARCHIVED") {
+      return serializeSchedule(existing);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      await lockSchedule(tx, existing.id);
+      const current = await tx.reviewSchedule.findFirst({
+        where: { id: existing.id, workspaceId: workspace.id },
+      });
+      if (!current) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
+      if (current.status === "ACTIVE") return serializeSchedule(current);
+      if (current.pausedReason !== "TARGET_ARCHIVED") {
+        throw new ApiError("REVIEW_SCHEDULE_PAUSED", 409, {
+          latest: serializeSchedule(current),
+          conflictFields: ["status", "pausedReason"],
+        });
+      }
+      await assertTargetNotArchived(tx, current);
+      const resumed = await tx.reviewSchedule.update({
+        where: { id: current.id },
+        data: {
+          status: "ACTIVE",
+          dueDate,
+          pausedReason: null,
+          revision: { increment: 1 },
+        },
+      });
+      await tx.auditEvent.create({
+        data: {
+          actorId,
+          action: "REVIEW_SCHEDULE_RESUMED_AFTER_TARGET_RESTORE",
+          entityType: "ReviewSchedule",
+          entityId: resumed.id,
+          metadata: { targetType: resumed.targetType },
+        },
+      });
+      return serializeSchedule(resumed);
+    });
+  }
 
   try {
     const created = await prisma.reviewSchedule.create({
@@ -179,7 +256,13 @@ export async function materializeReviewSchedule(
   } catch (error) {
     if (isUniqueViolation(error)) {
       const raced = await findExistingSchedule(workspace.id, input);
-      if (raced) return serializeSchedule(raced);
+      if (raced) {
+        if (raced.status === "ACTIVE") return serializeSchedule(raced);
+        if (raced.pausedReason === "TARGET_ARCHIVED") {
+          return materializeReviewSchedule(actorId, input);
+        }
+        return serializeSchedule(raced);
+      }
     }
     throw error;
   }
@@ -370,6 +453,7 @@ async function confirmReviewEventInTx(
     });
   }
   await assertTargetNotArchived(tx, schedule);
+  await assertReviewResultAllowed(tx, schedule, input.result);
 
   const event = await tx.reviewEvent.create({
     data: {
@@ -846,6 +930,9 @@ async function assertTargetOwned(
       where: { id: input.mistakeId, subject: { workspaceId } },
     });
     if (!mistake || mistake.archivedAt) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
+    if (mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
+      throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, { conflictFields: ["cause", "correctIdea"] });
+    }
     return;
   }
   if (input.targetType === "STUDY_RESOURCE" && input.studyResourceId) {
@@ -887,6 +974,24 @@ async function assertTargetNotArchived(tx: Tx, schedule: {
   if (schedule.syllabusNodeId) {
     const node = await tx.syllabusNode.findUnique({ where: { id: schedule.syllabusNodeId } });
     if (!node || node.archivedAt) throw new ApiError("REVIEW_TARGET_ARCHIVED", 409);
+  }
+}
+
+async function assertReviewResultAllowed(
+  tx: Tx,
+  schedule: { mistakeId: string | null },
+  result: ReviewResult,
+): Promise<void> {
+  if (!schedule.mistakeId || result !== "PASSED") return;
+  const mistake = await tx.mistake.findUnique({
+    where: { id: schedule.mistakeId },
+    select: { cause: true, correctIdea: true },
+  });
+  if (!mistake || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
+    throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, {
+      latest: { targetType: "MISTAKE", canPass: false },
+      conflictFields: ["cause", "correctIdea"],
+    });
   }
 }
 

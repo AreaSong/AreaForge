@@ -6,11 +6,13 @@ import { createLinkStudyResource } from "@/lib/study/study-resource-service";
 
 export const dynamic = "force-dynamic";
 
+const categorySchema = z.enum(["TEXTBOOK", "COURSE", "EXERCISE", "PAST_PAPER", "SOLUTION", "SUMMARY", "IMAGE", "OTHER"]);
+
 const schema = z.object({
   title: z.string().trim().min(1).max(200),
   url: z.string().trim().min(1).max(2048),
   subjectId: z.string().nullable().optional(),
-  category: z.string().optional(),
+  category: categorySchema.optional(),
   stableKey: z.string().trim().min(1).max(80).optional(),
   tags: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
 });

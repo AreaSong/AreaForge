@@ -3,15 +3,21 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../../packages/db/src/index";
 import {
   addSimulationRemediationsToInbox,
+  archiveSimulationLossItem,
+  confirmSimulationExam,
+  createSimulationLossItem,
   createSimulationExam,
   getSimulationExam,
   listSimulationExams,
   listSimulationRemediations,
+  restoreSimulationLossItem,
   saveSimulationExamResults,
+  updateSimulationLossItem,
 } from "../../apps/web/lib/study/simulation-service";
-import { decidePeriodicReport } from "../../apps/web/lib/study/report-decisions-service";
+import { decidePeriodicReport, getPeriodicReportDecision } from "../../apps/web/lib/study/report-decisions-service";
 import { getPeriodicReport } from "../../apps/web/lib/study/reports-service";
-import { confirmStageAdjustmentDraft } from "../../apps/web/lib/study/stage-service";
+import { confirmStageAdjustmentDraft, createStageAdjustmentDraft, rejectStageAdjustmentDraft } from "../../apps/web/lib/study/stage-service";
+import { ApiError } from "../../apps/web/lib/api/responses";
 import {
   convertPlanInboxItem,
   listPlanInboxItems,
@@ -146,11 +152,15 @@ try {
 
   const legacy = await prisma.simulationExam.create({ data: { name: "Legacy", examDate: now, targetScore: 100, actualScore: 60 } });
   const legacyBefore = await prisma.simulationExam.findUniqueOrThrow({ where: { id: legacy.id } });
-  const legacyDto = await getSimulationExam(legacy.id, user.id);
-  assert.equal(legacyDto.totalsSource, "legacy_fallback");
-  assert.deepEqual(legacyDto.legacyDisplayTotals, { targetScore: 100, actualScore: 60 });
-  assert.equal((await listSimulationExams(user.id)).some((item) => item.id === legacy.id), true);
-  assert.deepEqual(await listSimulationRemediations(legacy.id, user.id), []);
+  await assert.rejects(
+    () => getSimulationExam(legacy.id, user.id),
+    (error: unknown) => error instanceof Error && error.message === "SIMULATION_EXAM_NOT_FOUND",
+  );
+  assert.equal((await listSimulationExams(user.id)).some((item) => item.id === legacy.id), false);
+  await assert.rejects(
+    () => listSimulationRemediations(legacy.id, user.id),
+    (error: unknown) => error instanceof Error && error.message === "SIMULATION_EXAM_NOT_FOUND",
+  );
   await assert.rejects(
     () => saveSimulationExamResults(legacy.id, {
       expectedRevision: legacy.revision,
@@ -181,6 +191,7 @@ try {
   const reportDecision = await decidePeriodicReport({
     kind: "week",
     action: "confirm",
+    expectedRevision: report.revision,
     rangeStart: report.range.start,
     rangeEnd: report.range.end,
   }, user.id, now);
@@ -191,15 +202,83 @@ try {
   const reportDraftCount = await prisma.stageAdjustmentDraft.count({ where: { workspaceId: workspace.id, status: "draft" } });
   assert.ok(reportInboxCount > 0);
   assert.equal(reportDraftCount, 1);
+  assert.ok(reportDecision.stageDraftId);
+  assert.equal(reportDecision.inboxResult.createdCount, reportInboxCount);
   const reportRetry = await decidePeriodicReport({
     kind: "week",
     action: "confirm",
+    expectedRevision: report.revision,
     rangeStart: report.range.start,
     rangeEnd: report.range.end,
   }, user.id, now);
   assert.equal(reportRetry.alreadyDecided, true);
   assert.equal(await prisma.planInboxItem.count({ where: { workspaceId: workspace.id, originType: "PERIODIC_REPORT" } }), reportInboxCount);
   assert.equal(await prisma.stageAdjustmentDraft.count({ where: { workspaceId: workspace.id } }), reportDraftCount);
+
+  const reportStageDraft = await prisma.stageAdjustmentDraft.findUniqueOrThrow({ where: { id: reportDecision.stageDraftId! } });
+  const reportStageApplied = await confirmStageAdjustmentDraft(reportStageDraft.id, reportStageDraft.revision, user.id);
+  assert.equal(reportStageApplied.stageDraftId, reportStageDraft.id);
+  assert.equal(reportStageApplied.inboxResult.createdCount, reportInboxCount);
+  assert.equal(reportStageApplied.inboxResult.supersededCount, reportInboxCount);
+  assert.equal(await prisma.planInboxItem.count({
+    where: { workspaceId: workspace.id, originType: "PERIODIC_REPORT", supersededByItemId: { not: null } },
+  }), reportInboxCount);
+  const currentReportStageInboxCount = await prisma.planInboxItem.count({
+    where: { workspaceId: workspace.id, originType: "STAGE_ADJUSTMENT", supersededByItemId: null },
+  });
+  assert.equal(currentReportStageInboxCount, reportInboxCount);
+  const refreshedReport = await getPeriodicReport("week", now, user.id);
+  assert.equal(refreshedReport.decision?.stageDraftId, reportStageDraft.id);
+  assert.equal(refreshedReport.decision?.inboxResult.createdCount, currentReportStageInboxCount);
+  assert.equal(refreshedReport.decision?.inboxResult.supersededCount, reportInboxCount);
+  const reportDetail = await getPeriodicReportDecision(reportDecision.id, user.id);
+  assert.equal(reportDetail.stageDraftId, reportStageDraft.id);
+  assert.equal(reportDetail.inboxResult.createdCount, currentReportStageInboxCount);
+
+  const monthlyReport = await getPeriodicReport("month", now, user.id);
+  const reportInboxBeforeReject = await prisma.planInboxItem.count({ where: { workspaceId: workspace.id } });
+  const reportDraftsBeforeReject = await prisma.stageAdjustmentDraft.count({ where: { workspaceId: workspace.id } });
+  const rejectedReport = await decidePeriodicReport({
+    kind: "month",
+    action: "reject",
+    expectedRevision: monthlyReport.revision,
+    rangeStart: monthlyReport.range.start,
+    rangeEnd: monthlyReport.range.end,
+  }, user.id, now);
+  assert.equal(rejectedReport.status, "rejected");
+  const rejectedReportRetry = await decidePeriodicReport({
+    kind: "month",
+    action: "reject",
+    expectedRevision: monthlyReport.revision,
+    rangeStart: monthlyReport.range.start,
+    rangeEnd: monthlyReport.range.end,
+  }, user.id, now);
+  assert.equal(rejectedReportRetry.alreadyDecided, true);
+  await assert.rejects(
+    () => decidePeriodicReport({
+      kind: "month",
+      action: "confirm",
+      expectedRevision: monthlyReport.revision,
+      rangeStart: monthlyReport.range.start,
+      rangeEnd: monthlyReport.range.end,
+    }, user.id, now),
+    (error: unknown) => error instanceof Error && error.message === "PERIODIC_REPORT_DECISION_CONFLICT",
+  );
+  assert.equal(await prisma.planInboxItem.count({ where: { workspaceId: workspace.id } }), reportInboxBeforeReject);
+  assert.equal(await prisma.stageAdjustmentDraft.count({ where: { workspaceId: workspace.id } }), reportDraftsBeforeReject);
+
+  const rejectedStageVersion = await createStageAdjustmentDraft({ stagePlanId: stagePlan.id }, user.id, now);
+  const rejectedStageResult = await rejectStageAdjustmentDraft(rejectedStageVersion.id, rejectedStageVersion.revision, user.id);
+  const rejectedStage = rejectedStageResult.draft;
+  assert.equal(rejectedStage.status, "rejected");
+  assert.equal(rejectedStageResult.stageDraftId, rejectedStage.id);
+  assert.equal(rejectedStageResult.inboxResult.createdCount, 0);
+  const rejectedStageRetry = await rejectStageAdjustmentDraft(rejectedStageVersion.id, rejectedStageVersion.revision, user.id);
+  assert.equal(rejectedStageRetry.draft.id, rejectedStage.id);
+  const rebuiltStageVersion = await createStageAdjustmentDraft({ stagePlanId: stagePlan.id }, user.id, now);
+  assert.notEqual(rebuiltStageVersion.id, rejectedStage.id);
+  assert.equal(rebuiltStageVersion.status, "draft");
+  assert.equal((await prisma.stageAdjustmentDraft.findUniqueOrThrow({ where: { id: rejectedStage.id } })).status, "rejected");
 
   const stageDraft = await prisma.stageAdjustmentDraft.create({
     data: {
@@ -217,29 +296,70 @@ try {
       actorId: user.id,
     },
   });
+  await assert.rejects(
+    () => confirmStageAdjustmentDraft(rebuiltStageVersion.id, rebuiltStageVersion.revision, user.id),
+    (error: unknown) => error instanceof ApiError && error.code === "STAGE_ADJUSTMENT_DRAFT_SUPERSEDED" && error.status === 409,
+  );
   const tasksBeforeStage = stableRows(await prisma.studyTask.findMany({ where: { subject: { workspaceId: workspace.id } } }));
-  const applied = await confirmStageAdjustmentDraft(stageDraft.id, user.id);
-  assert.equal(applied.status, "applied");
+  const stagePlanBeforeManual = await prisma.stagePlan.findUniqueOrThrow({ where: { id: stagePlan.id } });
+  const stageInboxBeforeManual = await prisma.planInboxItem.count({ where: { workspaceId: workspace.id, originType: "STAGE_ADJUSTMENT" } });
+  const applied = await confirmStageAdjustmentDraft(stageDraft.id, stageDraft.revision, user.id);
+  assert.equal(applied.draft.status, "applied");
+  assert.equal(applied.stageDraftId, stageDraft.id);
+  assert.equal(applied.inboxResult.createdCount, 2);
   const stagePlanAfter = await prisma.stagePlan.findUniqueOrThrow({ where: { id: stagePlan.id } });
   assert.equal(stagePlanAfter.goal, "补强极限并复测");
-  assert.equal(stagePlanAfter.revision, stagePlan.revision + 1);
+  assert.equal(stagePlanAfter.revision, stagePlanBeforeManual.revision + 1);
   assert.deepEqual(stableRows(await prisma.studyTask.findMany({ where: { subject: { workspaceId: workspace.id } } })), tasksBeforeStage);
-  assert.equal(await prisma.planInboxItem.count({ where: { workspaceId: workspace.id, originType: "STAGE_ADJUSTMENT" } }), 2);
-  await confirmStageAdjustmentDraft(stageDraft.id, user.id);
-  assert.equal(await prisma.planInboxItem.count({ where: { workspaceId: workspace.id, originType: "STAGE_ADJUSTMENT" } }), 2);
+  assert.equal(await prisma.planInboxItem.count({ where: { workspaceId: workspace.id, originType: "STAGE_ADJUSTMENT" } }), stageInboxBeforeManual + 2);
+  await confirmStageAdjustmentDraft(stageDraft.id, stageDraft.revision, user.id);
+  assert.equal(await prisma.planInboxItem.count({ where: { workspaceId: workspace.id, originType: "STAGE_ADJUSTMENT" } }), stageInboxBeforeManual + 2);
+
+  const examBeforeLossLifecycle = await getSimulationExam(exam.id, user.id);
+  const subjectResultId = examBeforeLossLifecycle.subjectResults[0]!.id;
+  const createdLoss = await createSimulationLossItem(subjectResultId, {
+    reason: "METHOD_ERROR",
+    syllabusNodeId: node.id,
+    lostScore: 1,
+    note: "单项生命周期",
+  }, user.id);
+  const updatedLoss = await updateSimulationLossItem(subjectResultId, createdLoss.id, {
+    expectedRevision: createdLoss.revision,
+    lostScore: 1.5,
+  }, user.id);
+  await assert.rejects(
+    () => updateSimulationLossItem(subjectResultId, createdLoss.id, { expectedRevision: createdLoss.revision, lostScore: 2 }, user.id),
+    (error: unknown) => error instanceof Error && error.message === "SIMULATION_LOSS_ITEM_REVISION_CONFLICT",
+  );
+  const archivedLoss = await archiveSimulationLossItem(subjectResultId, createdLoss.id, updatedLoss.revision, user.id);
+  assert.ok(archivedLoss.archivedAt);
+  const restoredLoss = await restoreSimulationLossItem(subjectResultId, createdLoss.id, archivedLoss.revision, user.id);
+  assert.equal(restoredLoss.archivedAt, null);
+  const latestExam = await getSimulationExam(exam.id, user.id);
+  const confirmedExam = await confirmSimulationExam(exam.id, latestExam.revision, user.id);
+  assert.equal(confirmedExam.status, "CONFIRMED");
+  await assert.rejects(
+    () => createSimulationLossItem(subjectResultId, { reason: "OTHER", lostScore: 0.5 }, user.id),
+    (error: unknown) => error instanceof Error && error.message === "SIMULATION_EXAM_CONFIRMED",
+  );
 
   await assert.rejects(() => prisma.simulationLossItem.create({ data: { simulationSubjectResultId: saved.subjectResults[0]!.id, reason: "METHOD_ERROR", lostScore: 0.3 } }));
   assert.equal(baselineTask.id, tasksBeforeReport.find((task) => task.id === baselineTask.id)?.id);
   console.log(JSON.stringify({
-    schemaVersion: "v11-m8-runtime-selftest-v2",
+    schemaVersion: "v11-m8-runtime-selftest-v3",
     status: "pass",
     database,
     checks: {
       migration8Schema: "pass",
       simulationCasAndRemediationTransaction: "pass",
       reportConfirmNoStagePlanOrTaskMutation: "pass",
+      reportStageLineageRefreshAndSupersede: "pass",
+      reportRejectTerminalAndIdempotent: "pass",
       stageConfirmNoTaskMutation: "pass",
-      legacyTotalsReadOnly: "pass",
+      supersededStageDraftConfirmRejected: "pass",
+      stageRejectAndNewVersionRebuild: "pass",
+      legacyTotalsHiddenFromCurrentWorkspace: "pass",
+      lossItemLifecycleAndExamConfirmation: "pass",
       crossPageCanonicalFixture: "pass",
       workspaceIsolationAndSevenDayDto: "pass",
     },

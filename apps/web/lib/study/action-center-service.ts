@@ -92,7 +92,7 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
 
   const [activeSession, subjects, groups, tasks, schedules, checkIns, recovery] =
     await Promise.all([
-      getActiveStudySession(),
+      getActiveStudySession(actorId),
       prisma.subject.findMany({
         where: { workspaceId: workspace.id },
         include: { group: true },

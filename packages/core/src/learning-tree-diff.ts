@@ -38,7 +38,8 @@ export function buildLearningTreeDiff(input: {
           (row, index) =>
             !usedExisting.has(index) &&
             row.objectType === object.type &&
-            row.stableKey === object.stableKey,
+            (row.stableKey === object.stableKey ||
+              (!row.stableKey && row.entityId === legacyEntityIdForKey(object.type, object.stableKey))),
         )
       : -1;
 
@@ -134,4 +135,9 @@ export function buildLearningTreeDiff(input: {
 
   // Missing existing objects stay unchanged; only explicit archived=true archives.
   return items;
+}
+
+function legacyEntityIdForKey(objectType: LearningTreeObjectType, stableKey: string): string | null {
+  const prefix = `legacy_${objectType}_`;
+  return stableKey.startsWith(prefix) ? stableKey.slice(prefix.length) : null;
 }

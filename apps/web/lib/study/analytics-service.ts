@@ -76,18 +76,20 @@ type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
 
 // 同一次服务端渲染内的只读共享副本，供 AI 建议与长期风险等多个消费方复用同一份统计结果。
-export const getAnalyticsSummaryShared = cache(async (): Promise<AnalyticsSummaryDto> => getAnalyticsSummary());
+export const getAnalyticsSummaryShared = cache(
+  async (actorId: string): Promise<AnalyticsSummaryDto> => getAnalyticsSummary(new Date(), actorId),
+);
 
 export async function getAnalyticsSummary(
   now = new Date(),
-  actorId?: string,
+  actorId: string,
   windowDays: 7 | 30 = weekDays,
 ): Promise<AnalyticsSummaryDto> {
   const today = getStudyDayRange(now);
   const start = new Date(today.start.getTime() - (windowDays - 1) * dayMs);
   const reviewLookaheadEnd = new Date(today.end.getTime() + 3 * dayMs);
-  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
-  const subjectScope = workspace ? { subject: { workspaceId: workspace.id } } : {};
+  const workspace = await resolveActiveWorkspace(actorId);
+  const subjectScope = { subject: { workspaceId: workspace.id } };
 
   const [
     subjects,
@@ -102,7 +104,7 @@ export async function getAnalyticsSummary(
     checkInSnapshots,
   ] = await Promise.all([
     prisma.subject.findMany({
-      where: workspace ? { workspaceId: workspace.id } : undefined,
+      where: { workspaceId: workspace.id },
       orderBy: { sortOrder: "asc" },
     }),
     prisma.studySession.findMany({

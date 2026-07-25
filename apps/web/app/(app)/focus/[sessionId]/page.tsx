@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getActiveStudySession } from "@/lib/study/service";
 import { prisma } from "@areaforge/db";
 import { sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { resolveActiveWorkspace } from "@/lib/study/exam-workspace-service";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +21,16 @@ export default async function FocusSessionPage({
   const query = await searchParams;
   const returnTo = sanitizeReturnPath(query.returnTo);
 
-  const session = await prisma.studySession.findUnique({
-    where: { id: sessionId },
+  const workspace = await resolveActiveWorkspace(user.id);
+  const session = await prisma.studySession.findFirst({
+    where: { id: sessionId, subject: { workspaceId: workspace.id } },
     include: { subject: true, task: true, syllabusNode: true },
   });
   if (!session) {
     redirect("/today");
   }
 
-  const active = await getActiveStudySession();
+  const active = await getActiveStudySession(user.id);
   const dto = {
     id: session.id,
     subjectId: session.subjectId,
@@ -39,6 +41,7 @@ export default async function FocusSessionPage({
     syllabusNodeTitle: session.syllabusNode?.title ?? null,
     status: session.status.toLowerCase() as "running" | "paused" | "completed" | "canceled",
     startedAt: session.startedAt.toISOString(),
+    updatedAt: session.updatedAt.toISOString(),
     pausedAt: session.pausedAt?.toISOString() ?? null,
     endedAt: session.endedAt?.toISOString() ?? null,
     accumulatedPauseSeconds: session.accumulatedPauseSeconds,
@@ -61,6 +64,7 @@ export default async function FocusSessionPage({
 
   return (
     <FocusSessionClient
+      userId={user.id}
       session={dto}
       activeConflictId={active && active.id !== sessionId ? active.id : null}
       returnTo={returnTo}

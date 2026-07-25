@@ -12,6 +12,7 @@ import {
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { cache } from "react";
 import { ApiError } from "@/lib/api/responses";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 import type {
   MasteryEvidenceTypeDto,
   MasteryLevelDto,
@@ -263,8 +264,10 @@ interface FlatSyllabusNode {
   };
 }
 
-export async function listSyllabusTree(): Promise<SyllabusNodeDto[]> {
+export async function listSyllabusTree(actorId: string): Promise<SyllabusNodeDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
   const subjects = await prisma.subject.findMany({
+    where: { workspaceId: workspace.id },
     orderBy: { sortOrder: "asc" },
     include: {
       syllabusNodes: {
@@ -286,12 +289,27 @@ export async function listSyllabusTree(): Promise<SyllabusNodeDto[]> {
   );
 }
 
+export async function getSyllabusNode(actorId: string, nodeId: string): Promise<SyllabusNodeDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const node = await prisma.syllabusNode.findFirst({
+    where: { id: nodeId, subject: { workspaceId: workspace.id } },
+    include: {
+      subject: true,
+      ...syllabusNodeEvidenceInclude,
+    },
+  });
+  if (!node) throw new ApiError("SYLLABUS_NODE_NOT_FOUND", 404);
+  return serializeNode(node, []);
+}
+
 /**
  * 任务/计时/笔记/错题选择器专用的轻量考纲树：不加载证据、掌握证明与地图信号，
  * 避免选择器场景为每个节点携带整组关联查询。
  */
-export async function listSyllabusOptions(): Promise<SyllabusOptionNodeDto[]> {
+export async function listSyllabusOptions(actorId: string): Promise<SyllabusOptionNodeDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
   const nodes = await prisma.syllabusNode.findMany({
+    where: { subject: { workspaceId: workspace.id } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,
@@ -326,13 +344,17 @@ export async function listSyllabusOptions(): Promise<SyllabusOptionNodeDto[]> {
 }
 
 // 同一次服务端渲染内共享轻量考纲树，页面与次级消费方不重复查询。
-export const listSyllabusOptionsShared = cache(async (): Promise<SyllabusOptionNodeDto[]> => listSyllabusOptions());
+export const listSyllabusOptionsShared = cache(
+  async (actorId: string): Promise<SyllabusOptionNodeDto[]> => listSyllabusOptions(actorId),
+);
 
 // 同一次服务端渲染内共享考纲地图总览（长期风险摘要与考纲页共用）。
-export const getSyllabusMapOverviewShared = cache(async (): Promise<SyllabusMapOverviewDto> => getSyllabusMapOverview());
+export const getSyllabusMapOverviewShared = cache(
+  async (actorId: string): Promise<SyllabusMapOverviewDto> => getSyllabusMapOverview(actorId),
+);
 
-export async function getSyllabusMapOverview(): Promise<SyllabusMapOverviewDto> {
-  const nodes = await listSyllabusTree();
+export async function getSyllabusMapOverview(actorId: string): Promise<SyllabusMapOverviewDto> {
+  const nodes = await listSyllabusTree(actorId);
   const flatNodes = flattenSyllabusNodes(nodes);
   const summaryInputs = flatNodes.map(toSyllabusMapSummaryInput);
   const subjectIds = Array.from(new Set(flatNodes.map((node) => node.subjectId)));
@@ -357,7 +379,8 @@ export async function createSyllabusNode(
   input: CreateSyllabusNodeInput,
   actorId: string,
 ): Promise<SyllabusNodeDto> {
-  await assertSubjectExists(input.subjectId);
+  const workspace = await resolveActiveWorkspace(actorId);
+  await assertSubjectExists(input.subjectId, workspace.id);
   if (input.parentId) {
     await assertSyllabusNodeBelongsToSubject(input.parentId, input.subjectId);
   }
@@ -387,7 +410,8 @@ export async function importSyllabusMarkdown(
   input: ImportSyllabusMarkdownInput,
   actorId: string,
 ): Promise<ImportSyllabusMarkdownResult> {
-  await assertSubjectExists(input.subjectId);
+  const workspace = await resolveActiveWorkspace(actorId);
+  await assertSubjectExists(input.subjectId, workspace.id);
   if (input.parentId) {
     await assertSyllabusNodeBelongsToSubject(input.parentId, input.subjectId);
   }
@@ -460,8 +484,9 @@ export async function updateSyllabusNode(
   input: UpdateSyllabusNodeInput,
   actorId: string,
 ): Promise<SyllabusNodeDto> {
-  const existing = await prisma.syllabusNode.findUnique({
-    where: { id },
+  const workspace = await resolveActiveWorkspace(actorId);
+  const existing = await prisma.syllabusNode.findFirst({
+    where: { id, subject: { workspaceId: workspace.id } },
     include: {
       subject: true,
       ...syllabusNodeEvidenceInclude,
@@ -535,7 +560,8 @@ export async function addMasteryEvidence(
   input: CreateMasteryEvidenceInput,
   actorId: string,
 ): Promise<SyllabusNodeDto> {
-  const node = await findSyllabusNodeForProof(syllabusNodeId);
+  const workspace = await resolveActiveWorkspace(actorId);
+  const node = await findSyllabusNodeForProof(syllabusNodeId, prisma, workspace.id);
   const data = await buildMasteryEvidenceCreateData(node, input, actorId);
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -563,7 +589,8 @@ export async function addMasteryRetest(
   input: CreateMasteryRetestInput,
   actorId: string,
 ): Promise<SyllabusNodeDto> {
-  await assertSyllabusNodeExists(syllabusNodeId);
+  const workspace = await resolveActiveWorkspace(actorId);
+  await assertSyllabusNodeExists(syllabusNodeId, prisma, workspace.id);
   const testedAt = input.testedAt ? new Date(input.testedAt) : new Date();
   const nextReviewAt = input.nextReviewAt ? new Date(input.nextReviewAt) : null;
 
@@ -624,9 +651,9 @@ export async function assertSyllabusNodeBelongsToSubject(
   }
 }
 
-async function assertSubjectExists(subjectId: string): Promise<void> {
-  const subject = await prisma.subject.findUnique({
-    where: { id: subjectId },
+async function assertSubjectExists(subjectId: string, workspaceId: string): Promise<void> {
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, workspaceId },
     select: { id: true },
   });
 
@@ -669,9 +696,10 @@ function assertNodeCanMarkMastery(
 async function assertSyllabusNodeExists(
   id: string,
   client: Prisma.TransactionClient | typeof prisma = prisma,
+  workspaceId?: string,
 ): Promise<void> {
-  const node = await client.syllabusNode.findUnique({
-    where: { id },
+  const node = await client.syllabusNode.findFirst({
+    where: { id, ...(workspaceId ? { subject: { workspaceId } } : {}) },
     select: { id: true },
   });
 
@@ -683,9 +711,10 @@ async function assertSyllabusNodeExists(
 async function findSyllabusNodeForProof(
   id: string,
   client: Prisma.TransactionClient | typeof prisma = prisma,
+  workspaceId?: string,
 ): Promise<FlatSyllabusNode> {
-  const node = await client.syllabusNode.findUnique({
-    where: { id },
+  const node = await client.syllabusNode.findFirst({
+    where: { id, ...(workspaceId ? { subject: { workspaceId } } : {}) },
     include: {
       subject: true,
       ...syllabusNodeEvidenceInclude,
