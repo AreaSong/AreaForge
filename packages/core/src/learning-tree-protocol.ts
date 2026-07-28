@@ -1,5 +1,5 @@
 export const LEARNING_TREE_PROTOCOL = "AREAFORGE_LEARNING_TREE_V1" as const;
-export const LEARNING_TREE_PARSER_VERSION = "1.0.0" as const;
+export const LEARNING_TREE_PARSER_VERSION = "1.1.0" as const;
 export const LEARNING_TREE_PREVIEW_PURPOSE = "learning-tree-preview:v1" as const;
 export const LEARNING_TREE_EXPORT_PURPOSE = "learning-tree-export:v1" as const;
 
@@ -62,6 +62,7 @@ export interface LearningTreeFrontmatter {
   workspaceKey: string;
   subjectKey?: string;
   rootNodeKey?: string;
+  rootParentNodeKey?: string;
 }
 
 export interface LearningTreePreviewTokenClaims {
@@ -71,6 +72,7 @@ export interface LearningTreePreviewTokenClaims {
   parserVersion: typeof LEARNING_TREE_PARSER_VERSION;
   sourceSha256: string;
   canonicalPlanHash: string;
+  diffSnapshotHash: string;
   scope: LearningTreeScope;
   rootRevision: number;
   expiry: number;

@@ -359,19 +359,28 @@ async function verifyTaskCommandCas(): Promise<void> {
     { name: "recover", create: () => createTask(base, "recover", { status: "SKIPPED", debtStatus: "NONE" }), run: (id: string) => recoverStudyTask(id, {}, base.actorId) },
     { name: "split", create: () => createTask(base, "split"), run: (id: string) => splitStudyTask(id, { title: "split-child", estimatedMinutes: 20 }, base.actorId) },
     { name: "convert", create: () => createTask(base, "convert"), run: (id: string) => convertStudyTaskToReview(id, { estimatedMinutes: 25 }, base.actorId) },
-    { name: "metadata", create: () => createTask(base, "metadata"), run: (id: string) => updateStudyTask(id, { title: "metadata-updated" }, base.actorId) },
   ];
 
   for (const command of commands) {
     const taskId = await command.create();
     expectOneWinnerOneConflict(await raceLockedTask(taskId, () => command.run(taskId)), "TASK_STATE_CONFLICT");
   }
+  const metadataTaskId = await createTask(base, "metadata");
+  const metadataBaseline = await prisma.studyTask.findUniqueOrThrow({
+    where: { id: metadataTaskId },
+    select: { status: true, updatedAt: true },
+  });
+  expectOneWinnerOneConflict(await raceLockedTask(metadataTaskId, () => updateStudyTask(metadataTaskId, {
+    expectedStatus: metadataBaseline.status.toLowerCase() as "todo",
+    expectedUpdatedAt: metadataBaseline.updatedAt.toISOString(),
+    title: "metadata-updated",
+  }, base.actorId)), "TASK_STATE_CONFLICT");
   const splitChildren = await prisma.studyTask.count({ where: { title: "split-child" } });
   if (splitChildren !== 1) throw new Error("OPS-006 split CAS left duplicate child side effects");
   checks.push({
     id: "task.command_cas",
     status: "pass",
-    details: { commandCount: commands.length, winnerCount: commands.length, conflictCount: commands.length, splitChildCount: 1 },
+    details: { commandCount: commands.length + 1, winnerCount: commands.length + 1, conflictCount: commands.length + 1, splitChildCount: 1 },
   });
 }
 

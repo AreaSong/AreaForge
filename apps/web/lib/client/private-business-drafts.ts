@@ -1,16 +1,22 @@
 export const PRIVATE_BUSINESS_DRAFT_PREFIXES = [
+  "areaforge.command.",
   "areaforge.quick-review.",
   "areaforge.focus.closeout.",
+  "areaforge.daily-review.draft.",
+  "areaforge.task.draft.",
   "areaforge.note.draft.",
   "areaforge.mistake.draft.",
   "areaforge.resource.draft.",
   "areaforge.plan-inbox.draft.",
   "areaforge.ai-draft.",
   "areaforge.learning-tree-import.",
+  "areaforge.syllabus.draft.",
   "areaforge.motivation-vault.draft.",
   "areaforge.motivation-library.draft.",
   "areaforge.notification-preference.draft.",
+  "areaforge.simulation.draft.",
   "areaforge.workspace-setup.draft.",
+  "areaforge.workspace-edit.draft.",
 ] as const;
 
 export const SHORT_PRIVATE_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -49,14 +55,18 @@ export function loadPrivateBusinessDraft<T>(
     }
     return parsed.value;
   } catch {
-    window.localStorage.removeItem(key);
+    removePrivateBusinessDraft(key);
     return null;
   }
 }
 
 export function removePrivateBusinessDraft(key: string): void {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(key);
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Storage can be unavailable. There is no further recovery action here.
+  }
 }
 
 export function redirectToLoginWithCurrentLocation(): void {
@@ -72,12 +82,16 @@ export function clearPrivateBusinessDrafts() {
 }
 
 function clearMatchingKeys(storage: Storage) {
-  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
-    (key): key is string => Boolean(key),
-  );
-  for (const key of keys) {
-    if (PRIVATE_BUSINESS_DRAFT_PREFIXES.some((prefix) => key.startsWith(prefix))) {
-      storage.removeItem(key);
+  try {
+    const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
+      (key): key is string => Boolean(key),
+    );
+    for (const key of keys) {
+      if (PRIVATE_BUSINESS_DRAFT_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+        storage.removeItem(key);
+      }
     }
+  } catch {
+    // A failed storage backend must not prevent a successful logout.
   }
 }

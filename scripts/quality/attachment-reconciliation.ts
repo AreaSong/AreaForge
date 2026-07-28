@@ -145,6 +145,7 @@ function parseArgs(args: string[]): { uploadDir: string; outputPath: string; sum
   const summaryOutputFlag = args.indexOf("--summary-output");
   const summaryOutput = summaryOutputFlag >= 0 ? args[summaryOutputFlag + 1] : undefined;
   const positional = args.filter((_, index) =>
+    args[index] !== "--" &&
     (databaseUrlFlag < 0 || (index !== databaseUrlFlag && index !== databaseUrlFlag + 1)) &&
     (summaryOutputFlag < 0 || (index !== summaryOutputFlag && index !== summaryOutputFlag + 1)),
   );

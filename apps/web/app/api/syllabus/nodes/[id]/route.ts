@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { updateSyllabusNodeSchema } from "@/lib/study/schemas";
-import { updateSyllabusNode } from "@/lib/study/syllabus-service";
+import { getSyllabusNode, updateSyllabusNode } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await requireApiUser(request);
+    const { id } = await context.params;
+    return NextResponse.json({ node: await getSyllabusNode(user.id, id) });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {

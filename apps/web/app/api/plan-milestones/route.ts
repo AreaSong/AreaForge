@@ -7,7 +7,9 @@ import { createPlanMilestone, listPlanMilestones } from "@/lib/study/plan-milest
 export const dynamic = "force-dynamic";
 
 const createSchema = z.object({
+  idempotencyKey: z.string().trim().min(8).max(200).optional(),
   stagePlanId: z.string().min(1),
+  expectedStagePlanRevision: z.number().int().positive().optional(),
   stableKey: z.string().trim().min(1).max(80),
   title: z.string().trim().min(1).max(200),
   subjectId: z.string().nullable().optional(),
@@ -29,7 +31,12 @@ export async function POST(request: NextRequest) {
     const user = await requireApiUser(request);
     const parsed = createSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
-    return NextResponse.json({ milestone: await createPlanMilestone(user.id, parsed.data) }, { status: 201 });
+    const input = {
+      ...parsed.data,
+      idempotencyKey: parsed.data.idempotencyKey
+        ?? `plan-milestone:${parsed.data.stagePlanId}:${parsed.data.stableKey}`,
+    };
+    return NextResponse.json({ milestone: await createPlanMilestone(user.id, input) }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }

@@ -51,6 +51,21 @@ export interface SimulationSubjectScoreInput {
   actualScore: number;
 }
 
+export interface SimulationRemediationOriginSnapshotInput {
+  examId: string;
+  subjectResultId: string;
+  subjectResultRevision: number;
+  subjectId: string;
+  reason: SimulationLossReason;
+  syllabusNodeId: string | null;
+  itemIds: string[];
+  lostScore: number;
+}
+
+export interface SimulationRemediationOriginSnapshot extends SimulationRemediationOriginSnapshotInput {
+  provenanceVersion: 1;
+}
+
 export function isHalfPointScore(value: number): boolean {
   return Number.isFinite(value) && Math.round(value * 2) === value * 2;
 }
@@ -79,7 +94,30 @@ export function isHighSeveritySimulationLoss(items: StructuredSimulationLossInpu
   return Array.from(grouped.values()).some((score) => score >= 10);
 }
 
-export function buildSimulationRemediationGroups(items: StructuredSimulationLossInput[]) {
+export function buildSimulationRemediationOriginKey(input: {
+  examId: string;
+  subjectId: string;
+  reason: SimulationLossReason;
+  syllabusNodeId?: string | null;
+}): string {
+  return `simulation-loss:${input.examId}:${input.subjectId}:${input.reason}:${input.syllabusNodeId ?? "none"}`;
+}
+
+export function buildSimulationRemediationOriginSnapshot(
+  input: SimulationRemediationOriginSnapshotInput,
+): SimulationRemediationOriginSnapshot & Record<string, unknown> {
+  return {
+    provenanceVersion: 1,
+    ...input,
+    syllabusNodeId: input.syllabusNodeId ?? null,
+    itemIds: Array.from(new Set(input.itemIds)).sort(),
+  };
+}
+
+export function buildSimulationRemediationGroups(
+  items: StructuredSimulationLossInput[],
+  source: { examId: string },
+) {
   const grouped = new Map<string, { subjectId: string; reason: SimulationLossReason; syllabusNodeId: string | null; lostScore: number; itemIds: string[] }>();
   for (const item of items.filter((entry) => !entry.archived)) {
     const key = `${item.subjectId}:${item.reason}:${item.syllabusNodeId ?? "none"}`;
@@ -95,7 +133,16 @@ export function buildSimulationRemediationGroups(items: StructuredSimulationLoss
     grouped.set(key, current);
   }
   return Array.from(grouped.entries())
-    .map(([originKey, value]) => ({ originKey: `simulation-loss:${originKey}`, ...value }))
+    .map(([, value]) => ({
+      originKey: buildSimulationRemediationOriginKey({
+        examId: source.examId,
+        subjectId: value.subjectId,
+        reason: value.reason,
+        syllabusNodeId: value.syllabusNodeId,
+      }),
+      ...value,
+      itemIds: value.itemIds.sort(),
+    }))
     .sort((left, right) => right.lostScore - left.lostScore || left.originKey.localeCompare(right.originKey));
 }
 

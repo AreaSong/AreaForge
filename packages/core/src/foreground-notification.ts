@@ -1,5 +1,65 @@
 export type ForegroundNotificationCategory = "review" | "plan" | "evening";
 
+export interface ForegroundNotificationPayload {
+  title: string;
+  body: string;
+  tag: string;
+  actionLabel: string;
+  data: { route: string };
+}
+
+type ForegroundNotificationDetail = Omit<ForegroundNotificationPayload, "data"> & { route: string };
+
+const notificationDetails: Record<ForegroundNotificationCategory, ForegroundNotificationDetail> = {
+  review: {
+    title: "复习提醒",
+    body: "有到期复习可处理。",
+    tag: "af-review-due",
+    actionLabel: "打开复习",
+    route: "/knowledge/reviews",
+  },
+  plan: {
+    title: "计划提醒",
+    body: "今日计划窗口已到。",
+    tag: "af-plan-start",
+    actionLabel: "打开计划",
+    route: "/today/plan",
+  },
+  evening: {
+    title: "复盘提醒",
+    body: "晚间复盘窗口已到。",
+    tag: "af-evening-review",
+    actionLabel: "打开复盘",
+    route: "/review/daily",
+  },
+};
+
+const safeNotificationRoutes = new Set(["/knowledge/reviews", "/today/plan", "/review/daily"]);
+
+/** Keeps notification click navigation within the known application routes. */
+export function sanitizeForegroundNotificationRoute(route: string | null | undefined): string {
+  return route && safeNotificationRoutes.has(route) ? route : "/today";
+}
+
+/**
+ * Canonical foreground notification payload shared by the browser and the test API.
+ * Callers should use the generic product title unless the current device explicitly
+ * opts into exposing a category-specific title.
+ */
+export function buildForegroundNotificationPayload(
+  category: ForegroundNotificationCategory,
+  route?: string | null,
+): ForegroundNotificationPayload {
+  const detail = notificationDetails[category];
+  return {
+    title: detail.title,
+    body: detail.body,
+    tag: detail.tag,
+    actionLabel: detail.actionLabel,
+    data: { route: sanitizeForegroundNotificationRoute(route ?? detail.route) },
+  };
+}
+
 export interface ForegroundNotificationPreference {
   reviewDueEnabled: boolean;
   planStartEnabled: boolean;

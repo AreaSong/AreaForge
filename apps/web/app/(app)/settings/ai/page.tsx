@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { AiSettingsClient } from "@/components/ai-settings-client";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { getAiDraftBindingStatus } from "@/lib/study/ai-draft-status";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/settings/ai");
 
 export default async function SettingsAiPage() {
   const user = await getCurrentUser();
@@ -13,7 +15,7 @@ export default async function SettingsAiPage() {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold text-white">AI 设置</h2>
+        <h1 className="text-xl font-semibold text-white">AI 设置</h1>
         <p className="mt-1 text-sm text-zinc-400">
           仅显式 POST 触发；四类草稿需选中文本并预览。密钥与 binding secret 不进入客户端。
         </p>

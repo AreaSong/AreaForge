@@ -26,6 +26,12 @@ try {
   expect("duplicate admission step", `${workflow}\n      - name: Validate release admission\n        run: pnpm release:admission\n`, 1, "RELEASE_STEP_DUPLICATE_VALIDATE_RELEASE_ADMISSION");
   expect("admission continue on error", injectStepField(workflow, "Validate release admission", "continue-on-error: true"), 1, "RELEASE_STEP_CONTINUE_ON_ERROR_VALIDATE_RELEASE_ADMISSION");
   expect("admission custom shell", injectStepField(workflow, "Validate release admission", "shell: echo {0}"), 1, "RELEASE_STEP_SHELL_INVALID_VALIDATE_RELEASE_ADMISSION");
+  expect("duplicate v1.1 admission step", `${workflow}\n      - name: Validate v1.1 release admission\n        run: pnpm release:v11:admission\n`, 1, "RELEASE_STEP_DUPLICATE_VALIDATE_V1_1_RELEASE_ADMISSION");
+  expect("duplicate v1.1 admission selftest", `${workflow}\n      - name: v1.1 release admission selftest\n        run: pnpm release:v11:admission:selftest\n`, 1, "RELEASE_STEP_DUPLICATE_V1_1_RELEASE_ADMISSION_SELFTEST");
+  expect("v1.1 admission continue on error", injectStepField(workflow, "Validate v1.1 release admission", "continue-on-error: true"), 1, "RELEASE_STEP_CONTINUE_ON_ERROR_VALIDATE_V1_1_RELEASE_ADMISSION");
+  expect("v1.1 admission condition widened", workflow.replace("if: ${{ steps.vars.outputs.tag == 'v1.1.0' }}", "if: always()"), 1, "V11_ADMISSION_CONDITION_INVALID");
+  expect("v1.1 admission record path changed", workflow.replace("AREAFORGE_V11_RELEASE_ADMISSION_RECORD: docs/development/v11-release-admission-record.md", "AREAFORGE_V11_RELEASE_ADMISSION_RECORD: docs/development/other.md"), 1, "V11_ADMISSION_RECORD_PATH_NOT_FIXED");
+  expect("v1.1 admission failure bypass", workflow.replace("        run: pnpm release:v11:admission\n", "        run: pnpm release:v11:admission || true\n"), 1, "V11_ADMISSION_FAILURE_BYPASS_FORBIDDEN");
   expect("signing conditional", injectStepField(workflow, "Sign checksums", "if: always()"), 1, "RELEASE_STEP_CONDITIONAL_SIGN_CHECKSUMS");
   expect("signing early success", workflow.replace(
     '          if ! cosign sign-blob --yes --key "${signing_key}" --bundle SHA256SUMS.sig SHA256SUMS 2>"${signing_error}"; then',
@@ -73,6 +79,18 @@ try {
   expect(
     "guard after publish",
     moveStepBefore(workflow, "Reject existing immutable release identity", "Publish GitHub Release"),
+    1,
+    "RELEASE_GUARD_ORDER_INVALID",
+  );
+  expect(
+    "v1.1 admission before generic admission",
+    moveStepBefore(workflow, "Validate v1.1 release admission", "Validate release admission"),
+    1,
+    "RELEASE_GUARD_ORDER_INVALID",
+  );
+  expect(
+    "runtime identity before v1.1 admission",
+    moveStepBefore(workflow, "Compute immutable web runtime identity", "Validate v1.1 release admission"),
     1,
     "RELEASE_GUARD_ORDER_INVALID",
   );

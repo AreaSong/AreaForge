@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
+import {
+  loadPrivateBusinessDraft,
+  LONG_PRIVATE_DRAFT_TTL_MS,
+  redirectToLoginWithCurrentLocation,
+  removePrivateBusinessDraft,
+  savePrivateBusinessDraft,
+} from "@/lib/client/private-business-drafts";
 import type {
   ExamWorkspaceDto,
   SubjectGroupDto,
@@ -11,6 +19,7 @@ import type {
 } from "@/lib/study/exam-workspace-service";
 
 export function WorkspaceSettingsClient(props: {
+  userId: string;
   workspaces: ExamWorkspaceDto[];
   activeId: string | null;
   subjects: WorkspaceSubjectDto[];
@@ -19,6 +28,15 @@ export function WorkspaceSettingsClient(props: {
   setupMode: boolean;
 }) {
   const router = useRouter();
+  const { withActivityBarrier } = useQuickReviewActivityGuard();
+  const setupDraftKey = `areaforge.workspace-setup.draft.${props.userId}`;
+  const activeWorkspace = props.workspaces.find((workspace) => workspace.id === props.activeId) ?? null;
+  const workspaceEditDraftKey = activeWorkspace
+    ? `areaforge.workspace-edit.draft.${props.userId}.${activeWorkspace.id}`
+    : null;
+  const savedWorkspaceBaseline = useRef<WorkspaceEditDraft | null>(
+    activeWorkspace ? toWorkspaceEditDraft(activeWorkspace) : null,
+  );
   const [step, setStep] = useState<"goal" | "takeover">(props.setupMode ? "goal" : "goal");
   const [name, setName] = useState("考研工作区");
   const [stableKey, setStableKey] = useState("ws-primary");
@@ -26,13 +44,97 @@ export function WorkspaceSettingsClient(props: {
   const [subjectName, setSubjectName] = useState("高等数学");
   const [subjectKey, setSubjectKey] = useState("math");
   const [include408, setInclude408] = useState(true);
-  const activeWorkspace = props.workspaces.find((workspace) => workspace.id === props.activeId) ?? null;
   const [editName, setEditName] = useState(activeWorkspace?.name ?? "");
   const [editTargetDate, setEditTargetDate] = useState(activeWorkspace?.targetExamDate?.slice(0, 10) ?? "");
   const [editStageSummary, setEditStageSummary] = useState(activeWorkspace?.stageSummary ?? "");
+  const [workspaceDraftBaseRevision, setWorkspaceDraftBaseRevision] = useState(activeWorkspace?.revision ?? 1);
+  const [workspaceDraftSourceKey, setWorkspaceDraftSourceKey] = useState<string | null>(null);
+  const [workspaceConflict, setWorkspaceConflict] = useState<WorkspaceConflict | null>(null);
+  const [workspaceMergeNotice, setWorkspaceMergeNotice] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [setupDraftReady, setSetupDraftReady] = useState(false);
+
+  useEffect(() => {
+    if (!props.setupMode) return;
+    const timer = window.setTimeout(() => {
+      const draft = loadPrivateBusinessDraft(setupDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isWorkspaceSetupDraft);
+      if (draft) {
+        setStep(draft.step);
+        setName(draft.name);
+        setStableKey(draft.stableKey);
+        setTargetExamDate(draft.targetExamDate);
+        setSubjectName(draft.subjectName);
+        setSubjectKey(draft.subjectKey);
+        setInclude408(draft.include408);
+      }
+      setSetupDraftReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [props.setupMode, setupDraftKey]);
+
+  useEffect(() => {
+    if (!props.setupMode || !setupDraftReady) return;
+    savePrivateBusinessDraft<WorkspaceSetupDraft>(setupDraftKey, {
+      step,
+      name,
+      stableKey,
+      targetExamDate,
+      subjectName,
+      subjectKey,
+      include408,
+    });
+  }, [include408, name, props.setupMode, setupDraftKey, setupDraftReady, stableKey, step, subjectKey, subjectName, targetExamDate]);
+
+  useEffect(() => {
+    if (!activeWorkspace || !workspaceEditDraftKey || props.setupMode) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const baseline = toWorkspaceEditDraft(activeWorkspace);
+      const draft = loadPrivateBusinessDraft(workspaceEditDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isWorkspaceEditDraft);
+      const restored = draft ?? baseline;
+      savedWorkspaceBaseline.current = baseline;
+      setEditName(restored.name);
+      setEditTargetDate(restored.targetExamDate);
+      setEditStageSummary(restored.stageSummary);
+      setWorkspaceDraftBaseRevision(restored.baseRevision);
+      setWorkspaceMergeNotice(null);
+      if (draft && draft.baseRevision !== activeWorkspace.revision) {
+        setWorkspaceConflict({ latest: activeWorkspace, conflictFields: ["revision"] });
+        setError("工作区已在其他页面更新；本地草稿仍保留，请比较后选择如何合并。");
+      } else {
+        setWorkspaceConflict(null);
+        setError(null);
+      }
+      setWorkspaceDraftSourceKey(workspaceEditDraftKey);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeWorkspace, props.setupMode, workspaceEditDraftKey]);
+
+  useEffect(() => {
+    if (!activeWorkspace || !workspaceEditDraftKey || workspaceDraftSourceKey !== workspaceEditDraftKey) return;
+    const draft: WorkspaceEditDraft = {
+      name: editName,
+      targetExamDate: editTargetDate,
+      stageSummary: editStageSummary,
+      baseRevision: workspaceDraftBaseRevision,
+    };
+    if (savedWorkspaceBaseline.current && workspaceEditDraftsEqual(draft, savedWorkspaceBaseline.current)) {
+      removePrivateBusinessDraft(workspaceEditDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft(workspaceEditDraftKey, draft);
+  }, [
+    activeWorkspace,
+    editName,
+    editStageSummary,
+    editTargetDate,
+    workspaceDraftBaseRevision,
+    workspaceDraftSourceKey,
+    workspaceEditDraftKey,
+  ]);
 
   async function completeFirstUseSetup(takeover: boolean) {
     if (pending) return;
@@ -62,10 +164,16 @@ export function WorkspaceSettingsClient(props: {
       const createBody = (await createResponse.json().catch(() => null)) as
         | { workspace?: ExamWorkspaceDto; error?: string }
         | null;
-      if (!createResponse.ok || !createBody?.workspace) {
-        setError(createBody?.error ?? "创建工作区失败");
+      if (createResponse.status === 401) {
+        setError("登录已过期，首次设置草稿已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
         return;
       }
+      if (!createResponse.ok || !createBody?.workspace) {
+        setError(createBody?.error ?? "创建工作区失败，首次设置草稿已保留");
+        return;
+      }
+      removePrivateBusinessDraft(setupDraftKey);
       router.replace("/today");
       router.refresh();
     } catch {
@@ -79,74 +187,147 @@ export function WorkspaceSettingsClient(props: {
     setError(null);
     if (!props.activeId || !activeWorkspace) return;
     setPending(true);
-    const response = await fetch(`/api/exam-workspaces/${props.activeId}/subjects`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        stableKey: subjectKey,
-        name: subjectName,
-        color: "#35d7c5",
-        groupId: selectedGroupId || null,
-        expectedWorkspaceRevision: activeWorkspace.revision,
-      }),
-    });
-    setPending(false);
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "添加科目失败");
-      return;
+    try {
+      const response = await fetch(`/api/exam-workspaces/${props.activeId}/subjects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stableKey: subjectKey,
+          name: subjectName,
+          color: "#35d7c5",
+          groupId: selectedGroupId || null,
+          expectedWorkspaceRevision: activeWorkspace.revision,
+        }),
+      });
+      if (response.status === 401) {
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "添加科目失败，本地输入仍保留");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("网络不可用，本地输入仍保留；恢复网络后请显式重试。");
+    } finally {
+      setPending(false);
     }
-    router.refresh();
   }
 
   async function updateSubject(subject: WorkspaceSubjectDto, patch: Record<string, unknown>) {
     if (!activeWorkspace || pending) return;
     setPending(true); setError(null);
-    const response = await fetch(`/api/exam-workspaces/${activeWorkspace.id}/subjects/${subject.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ expectedWorkspaceRevision: activeWorkspace.revision, ...patch }),
-    });
-    setPending(false);
-    if (!response.ok) {
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      setError(body?.error ?? "科目更新失败"); return;
+    try {
+      const response = await fetch(`/api/exam-workspaces/${activeWorkspace.id}/subjects/${subject.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedWorkspaceRevision: activeWorkspace.revision, ...patch }),
+      });
+      if (response.status === 401) return redirectToLoginWithCurrentLocation();
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { error?: string } | null;
+        setError(body?.error ?? "科目更新失败"); return;
+      }
+      router.refresh();
+    } catch {
+      setError("网络不可用，科目更新未提交；恢复网络后请显式重试。");
+    } finally {
+      setPending(false);
     }
-    router.refresh();
   }
 
   async function saveWorkspace() {
     if (!activeWorkspace || pending) return;
-    setPending(true); setError(null);
-    const response = await fetch(`/api/exam-workspaces/${activeWorkspace.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        expectedRevision: activeWorkspace.revision,
+    setPending(true); setError(null); setWorkspaceMergeNotice(null);
+    try {
+      const response = await fetch(`/api/exam-workspaces/${activeWorkspace.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expectedRevision: workspaceDraftBaseRevision,
+          name: editName,
+          targetExamDate: editTargetDate ? new Date(`${editTargetDate}T00:00:00+08:00`).toISOString() : null,
+          stageSummary: editStageSummary || null,
+        }),
+      });
+      if (response.status === 401) return redirectToLoginWithCurrentLocation();
+      const body = await response.json().catch(() => null) as WorkspaceUpdateResponse | null;
+      if (!response.ok) {
+        if (response.status === 409 && isExamWorkspaceDto(body?.latest)) {
+          setWorkspaceConflict({ latest: body.latest, conflictFields: body.conflictFields ?? ["revision"] });
+          setError("工作区已在其他页面更新；本地草稿仍保留，请比较后选择如何合并。");
+        } else {
+          setError(body?.error ?? "工作区保存失败，本地输入仍保留");
+        }
+        return;
+      }
+      const saved = isExamWorkspaceDto(body?.workspace) ? body.workspace : null;
+      const baseline: WorkspaceEditDraft = {
         name: editName,
-        targetExamDate: editTargetDate ? new Date(`${editTargetDate}T00:00:00+08:00`).toISOString() : null,
-        stageSummary: editStageSummary || null,
-      }),
-    });
-    setPending(false);
-    if (!response.ok) {
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      setError(body?.error ?? "工作区保存失败"); return;
+        targetExamDate: editTargetDate,
+        stageSummary: editStageSummary,
+        baseRevision: saved?.revision ?? workspaceDraftBaseRevision + 1,
+      };
+      savedWorkspaceBaseline.current = baseline;
+      setWorkspaceDraftBaseRevision(baseline.baseRevision);
+      setWorkspaceConflict(null);
+      if (workspaceEditDraftKey) removePrivateBusinessDraft(workspaceEditDraftKey);
+      router.refresh();
+    } catch {
+      setError("网络不可用，工作区输入仍保留；恢复网络后请显式重试。");
+    } finally {
+      setPending(false);
     }
+  }
+
+  function adoptLatestWorkspace() {
+    if (!workspaceConflict || !workspaceEditDraftKey) return;
+    const latest = workspaceConflict.latest;
+    const baseline = toWorkspaceEditDraft(latest);
+    setEditName(baseline.name);
+    setEditTargetDate(baseline.targetExamDate);
+    setEditStageSummary(baseline.stageSummary);
+    setWorkspaceDraftBaseRevision(baseline.baseRevision);
+    savedWorkspaceBaseline.current = baseline;
+    removePrivateBusinessDraft(workspaceEditDraftKey);
+    setWorkspaceConflict(null);
+    setError(null);
+    setWorkspaceMergeNotice(`已采用服务端最新状态 r${latest.revision}。`);
     router.refresh();
+  }
+
+  function keepLocalWorkspaceDraft() {
+    if (!workspaceConflict) return;
+    const revision = workspaceConflict.latest.revision;
+    setWorkspaceDraftBaseRevision(revision);
+    setWorkspaceConflict(null);
+    setError(null);
+    setWorkspaceMergeNotice(`本地输入已保留，并改为基于服务端 r${revision}；请检查后再次点击保存。`);
   }
 
   async function activateWorkspace(workspace: ExamWorkspaceDto) {
     if (pending) return;
+    await withActivityBarrier(() => runActivateWorkspace(workspace), { allowDiscard: false });
+  }
+
+  async function runActivateWorkspace(workspace: ExamWorkspaceDto) {
     setPending(true); setError(null);
-    const response = await fetch(`/api/exam-workspaces/${workspace.id}/activate`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ expectedRevision: workspace.revision }),
-    });
-    setPending(false);
-    if (!response.ok) {
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      setError(body?.error ?? "切换工作区失败"); return;
+    try {
+      const response = await fetch(`/api/exam-workspaces/${workspace.id}/activate`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedRevision: workspace.revision }),
+      });
+      if (response.status === 401) return redirectToLoginWithCurrentLocation();
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { error?: string } | null;
+        setError(body?.error ?? "切换工作区失败"); return;
+      }
+      router.replace("/today"); router.refresh();
+    } catch {
+      setError("网络不可用，工作区未切换；恢复网络后请显式重试。");
+    } finally {
+      setPending(false);
     }
-    router.replace("/today"); router.refresh();
   }
 
   return (
@@ -233,6 +414,21 @@ export function WorkspaceSettingsClient(props: {
           </div>
           <label className="block text-sm text-zinc-400">阶段摘要<textarea className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] p-2 text-white" value={editStageSummary} onChange={(event) => setEditStageSummary(event.target.value)} /></label>
           <button type="button" disabled={pending} onClick={() => void saveWorkspace()} className="h-10 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60">保存工作区</button>
+          {workspaceConflict ? (
+            <div className="space-y-2 border-l-2 border-amber-300 pl-3 text-sm text-amber-100" role="status">
+              <p>服务端最新版本为 r{workspaceConflict.latest.revision}；冲突字段：{workspaceConflict.conflictFields.join("、")}。</p>
+              <dl className="grid gap-1 text-xs text-zinc-300">
+                <div><dt className="inline text-zinc-500">服务端名称：</dt><dd className="inline">{workspaceConflict.latest.name}</dd></div>
+                <div><dt className="inline text-zinc-500">服务端目标日：</dt><dd className="inline">{workspaceConflict.latest.targetExamDate?.slice(0, 10) ?? "未设置"}</dd></div>
+                <div><dt className="inline text-zinc-500">服务端阶段摘要：</dt><dd className="inline">{workspaceConflict.latest.stageSummary || "未设置"}</dd></div>
+              </dl>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="h-9 rounded-md border border-white/10 px-3 text-xs" onClick={adoptLatestWorkspace}>采用服务端最新状态</button>
+                <button type="button" className="h-9 rounded-md border border-amber-300/50 px-3 text-xs" onClick={keepLocalWorkspaceDraft}>保留本地输入并重新确认</button>
+              </div>
+            </div>
+          ) : null}
+          {workspaceMergeNotice ? <p className="text-sm text-teal-200" role="status">{workspaceMergeNotice}</p> : null}
         </div>
       ) : null}
 
@@ -277,7 +473,83 @@ export function WorkspaceSettingsClient(props: {
         </ul>
       </div>
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="text-sm text-red-300" role="alert">{error}</p> : null}
     </section>
   );
+}
+
+interface WorkspaceSetupDraft {
+  step: "goal" | "takeover";
+  name: string;
+  stableKey: string;
+  targetExamDate: string;
+  subjectName: string;
+  subjectKey: string;
+  include408: boolean;
+}
+
+interface WorkspaceEditDraft {
+  name: string;
+  targetExamDate: string;
+  stageSummary: string;
+  baseRevision: number;
+}
+
+interface WorkspaceConflict {
+  latest: ExamWorkspaceDto;
+  conflictFields: string[];
+}
+
+interface WorkspaceUpdateResponse {
+  workspace?: unknown;
+  latest?: unknown;
+  conflictFields?: string[];
+  error?: string;
+}
+
+function isWorkspaceSetupDraft(value: unknown): value is WorkspaceSetupDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as Partial<WorkspaceSetupDraft>;
+  return (draft.step === "goal" || draft.step === "takeover")
+    && typeof draft.name === "string"
+    && typeof draft.stableKey === "string"
+    && typeof draft.targetExamDate === "string"
+    && typeof draft.subjectName === "string"
+    && typeof draft.subjectKey === "string"
+    && typeof draft.include408 === "boolean";
+}
+
+function toWorkspaceEditDraft(workspace: ExamWorkspaceDto): WorkspaceEditDraft {
+  return {
+    name: workspace.name,
+    targetExamDate: workspace.targetExamDate?.slice(0, 10) ?? "",
+    stageSummary: workspace.stageSummary ?? "",
+    baseRevision: workspace.revision,
+  };
+}
+
+function workspaceEditDraftsEqual(left: WorkspaceEditDraft, right: WorkspaceEditDraft): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function isWorkspaceEditDraft(value: unknown): value is WorkspaceEditDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as Partial<WorkspaceEditDraft>;
+  return typeof draft.name === "string"
+    && typeof draft.targetExamDate === "string"
+    && typeof draft.stageSummary === "string"
+    && Number.isInteger(draft.baseRevision)
+    && (draft.baseRevision ?? 0) > 0;
+}
+
+function isExamWorkspaceDto(value: unknown): value is ExamWorkspaceDto {
+  if (!value || typeof value !== "object") return false;
+  const workspace = value as Partial<ExamWorkspaceDto>;
+  return typeof workspace.id === "string"
+    && typeof workspace.name === "string"
+    && (workspace.targetExamDate === null || typeof workspace.targetExamDate === "string")
+    && (workspace.stageSummary === null || typeof workspace.stageSummary === "string")
+    && (workspace.status === "ACTIVE" || workspace.status === "ARCHIVED")
+    && Number.isInteger(workspace.revision)
+    && (workspace.revision ?? 0) > 0;
 }

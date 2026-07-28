@@ -1,6 +1,8 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  historicalRollbackIdentity,
+  productionBaselineIdentity,
   protectedPathFiles,
 } from "../ops/operability-status";
 import {
@@ -193,6 +195,41 @@ function validateApp(value: unknown, issues: ValidationIssue[]): void {
   requireValue(value.onlineUrl, "app.onlineUrl", "https://forge.areasong.top/", issues);
   requireString(value.releaseTag, "app.releaseTag", issues);
   requireValue(value.autoApplyDefault, "app.autoApplyDefault", "none", issues);
+  validateCurrentCheckout(value.currentCheckout, "app.currentCheckout", issues);
+  validateReleaseIdentity(value.productionBaseline, "app.productionBaseline", productionBaselineIdentity, issues);
+  validateReleaseIdentity(value.historicalRollback, "app.historicalRollback", historicalRollbackIdentity, issues);
+  if (isRecord(value.currentCheckout) && value.version !== value.currentCheckout.version) {
+    issues.push({ field: "app.version", message: "must remain the compatibility alias of app.currentCheckout.version" });
+  }
+  if (typeof value.version === "string" && value.releaseTag !== `v${value.version}`) {
+    issues.push({ field: "app.releaseTag", message: "must remain the compatibility tag derived from app.currentCheckout.version" });
+  }
+}
+
+function validateCurrentCheckout(value: unknown, field: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ field, message: "must be an object" });
+    return;
+  }
+  if (typeof value.version !== "string" || !/^\d+\.\d+\.\d+$/.test(value.version)) {
+    issues.push({ field: `${field}.version`, message: "must look like X.Y.Z" });
+  }
+}
+
+function validateReleaseIdentity(
+  value: unknown,
+  field: string,
+  expected: { version: string; releaseTag: string; releaseRecordPath: string; role?: string },
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ field, message: "must be an object" });
+    return;
+  }
+  requireValue(value.version, `${field}.version`, expected.version, issues);
+  requireValue(value.releaseTag, `${field}.releaseTag`, expected.releaseTag, issues);
+  requireValue(value.releaseRecordPath, `${field}.releaseRecordPath`, expected.releaseRecordPath, issues);
+  if (expected.role) requireValue(value.role, `${field}.role`, expected.role, issues);
 }
 
 function validateSourceBaseline(value: unknown, issues: ValidationIssue[]): void {
@@ -331,7 +368,7 @@ function validateReleaseEvidenceGaps(value: unknown, field: string, issues: Vali
     issues.push({ field, message: "must be an object" });
     return;
   }
-  requireString(value.sourceRecordPath, `${field}.sourceRecordPath`, issues);
+  requireValue(value.sourceRecordPath, `${field}.sourceRecordPath`, productionBaselineIdentity.releaseRecordPath, issues);
   if (!(typeof value.sourceRecordHash === "string" || value.sourceRecordHash === null)) {
     issues.push({ field: `${field}.sourceRecordHash`, message: "must be sha256 string or null" });
   } else if (typeof value.sourceRecordHash === "string" && !/^sha256:[a-f0-9]{64}$/i.test(value.sourceRecordHash)) {
@@ -359,7 +396,7 @@ function validateReleaseEvidenceGaps(value: unknown, field: string, issues: Vali
     if (typeof gap.key === "string") keys.add(gap.key);
     requireOneOf(gap.gapType, `${prefix}.gapType`, ["release_evidence_bundle_hash", "release_evidence_backup_hash", "attachment_reconciliation_binding"], issues);
     requireOneOf(gap.status, `${prefix}.status`, ["root_only", "missing", "invalid"], issues);
-    requireString(gap.sourceRecord, `${prefix}.sourceRecord`, issues);
+    requireValue(gap.sourceRecord, `${prefix}.sourceRecord`, productionBaselineIdentity.releaseRecordPath, issues);
     requireString(gap.sourceField, `${prefix}.sourceField`, issues);
     requireString(gap.safeEvidence, `${prefix}.safeEvidence`, issues);
     requireStringArray(gap.requiredEvidence, `${prefix}.requiredEvidence`, issues);
@@ -416,18 +453,17 @@ function validateBoundaryStops(value: unknown, issues: ValidationIssue[]): void 
     }
     if (
       item.key === "update_request_expected_before" &&
-      (!boundaries.includes("no matching signed Release for the verified V2 checkout") ||
-        !boundaries.includes("no production deployment confirmation"))
+      (!boundaries.includes("no authorization for a later signed Release or production apply") ||
+        !boundaries.includes("no mutation request execution from this offline projection"))
     ) {
-      issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "expected-before stop must separate verified local implementation from signed Release and production deployment confirmation" });
+      issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "expected-before stop must preserve the no-apply and no-offline-mutation boundaries after v0.1.9 closure" });
     }
     if (
       item.key === "business_state_concurrency" &&
-      (!boundaries.includes("no matching signed Release for the verified OPS-006 checkout") ||
-        !boundaries.includes("no production migration/deploy confirmation") ||
-        !boundaries.includes("no controlled production write probe confirmation"))
+      (!boundaries.includes("no authorization for a later migration or production deploy") ||
+        !boundaries.includes("no controlled production write probe from this offline projection"))
     ) {
-      issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "OPS-006 stop must separate local verification, signed Release, base rollout, and controlled production write confirmation" });
+      issues.push({ field: `boundaryStops[${index}].currentBoundary`, message: "OPS-006 stop must preserve the no-deploy and no-offline-write-probe boundaries after v0.1.9 closure" });
     }
   }
 }

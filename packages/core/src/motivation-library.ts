@@ -7,6 +7,24 @@ export const MOTIVATION_REMINDER_INTERVAL_MS = 4 * 60 * 60 * 1000;
 export const MOTIVATION_REMINDER_DAILY_MAX = 2;
 export const MOTIVATION_RECENT_ITEM_LIMIT = 8;
 
+export interface AutomaticMotivationGateInput {
+  enabled: boolean;
+  hour: number;
+  windowStart: number;
+  windowEnd: number;
+  visible: boolean;
+  immersive: boolean;
+  hasActiveActivity: boolean;
+  trigger: "RECOVERY" | "LOW_CONVERSION" | null;
+}
+
+export type AutomaticMotivationGate =
+  | { allowed: true }
+  | {
+      allowed: false;
+      reason: "disabled" | "hidden" | "immersive" | "active_activity" | "no_trigger" | "outside_window";
+    };
+
 export const MOTIVATION_RECOVERY_ACTIONS = ["CONTINUE", "START_5_MIN", "MINIMUM_TASK"] as const;
 export type MotivationRecoveryAction = (typeof MOTIVATION_RECOVERY_ACTIONS)[number];
 
@@ -40,6 +58,32 @@ export function validateMotivationItemPayload(input: {
 
 export function isHttpsUrl(value: string): boolean {
   return canonicalizeHttpsUrl(value).ok;
+}
+
+/** Evaluates the device preference and current activity before an automatic request is sent. */
+export function evaluateAutomaticMotivationGate(input: AutomaticMotivationGateInput): AutomaticMotivationGate {
+  if (!input.enabled) return { allowed: false, reason: "disabled" };
+  if (!input.visible) return { allowed: false, reason: "hidden" };
+  if (input.immersive) return { allowed: false, reason: "immersive" };
+  if (input.hasActiveActivity) return { allowed: false, reason: "active_activity" };
+  if (!input.trigger) return { allowed: false, reason: "no_trigger" };
+  if (!isValidHour(input.hour) || !isValidHour(input.windowStart) || !isValidHour(input.windowEnd)) {
+    return { allowed: false, reason: "outside_window" };
+  }
+  if (!isHourInWindow(input.hour, input.windowStart, input.windowEnd)) {
+    return { allowed: false, reason: "outside_window" };
+  }
+  return { allowed: true };
+}
+
+function isValidHour(value: number): boolean {
+  return Number.isInteger(value) && value >= 0 && value <= 23;
+}
+
+function isHourInWindow(hour: number, start: number, end: number): boolean {
+  if (start === end) return true;
+  if (start < end) return hour >= start && hour < end;
+  return hour >= start || hour < end;
 }
 
 export function canAutoShowMotivationReminder(input: {

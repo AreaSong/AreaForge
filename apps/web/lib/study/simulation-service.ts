@@ -3,6 +3,7 @@ import {
   evaluateSimulationReadiness,
   summarizeSimulationResult,
   buildSimulationRemediationGroups,
+  buildSimulationRemediationOriginSnapshot,
   summarizeSimulationScores,
   type SimulationLossReason,
   type StageAdjustmentDraft,
@@ -20,7 +21,14 @@ import { getMotivationVault, getMotivationVaultShared, saveMotivationVault } fro
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { createPlanInboxItemWithResult } from "./plan-inbox-service";
+import {
+  buildPersistentCreateFingerprint,
+  findPersistentCreateReplay,
+  normalizeIdempotencyKey,
+  recordPersistentCreateResult,
+} from "./persistent-idempotency";
 import { serializeTask } from "./task-serializer";
 import type {
   MotivationVaultDto,
@@ -53,6 +61,7 @@ export interface CompleteSimulationTaskInput {
 }
 
 export interface CreateSimulationExamInput {
+  idempotencyKey: string;
   name: string;
   examDate?: string;
   isFirstSynchronized?: boolean;
@@ -70,7 +79,7 @@ export interface SimulationSubjectResultInput {
   blankQuestionCount: number;
   lossReasons: string[];
   summary?: string;
-  lossItems: Array<{
+  lossItems?: Array<{
     reason: SimulationLossReason;
     syllabusNodeId?: string | null;
     lostScore: number;
@@ -92,10 +101,22 @@ export interface SaveSimulationExamResultsInput {
 }
 
 export interface SaveSimulationLossItemInput {
+  idempotencyKey: string;
+  expectedExamRevision?: number;
+  expectedSubjectResultRevision?: number;
   reason: SimulationLossReason;
   syllabusNodeId?: string | null;
   lostScore: number;
   note?: string | null;
+}
+
+export interface SimulationLossItemMutationResult {
+  lossItem: SimulationLossItemDto;
+  versions: {
+    subjectResultRevision: number;
+    examRevision: number;
+    examStatus: SimulationExamDto["status"];
+  };
 }
 
 export interface SimulationStageDraftDto {
@@ -179,9 +200,43 @@ export async function createSimulationExam(
   input: CreateSimulationExamInput,
   actorId: string,
 ): Promise<SimulationExamDto> {
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const examDate = input.examDate ? new Date(input.examDate) : simulationDate;
-  const workspace = await resolveActiveWorkspace(actorId);
-  const exam = await prisma.$transaction(async (tx) => {
+  const requestFingerprint = buildPersistentCreateFingerprint("simulation-exam-create-v1", {
+    name: input.name,
+    examDate: input.examDate ?? null,
+    isFirstSynchronized: input.isFirstSynchronized ?? null,
+    targetDurationMinutes: input.targetDurationMinutes ?? null,
+    targetScore: input.targetScore ?? null,
+  });
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const command = {
+      actorId,
+      workspaceId: workspace.id,
+      action: "SIMULATION_EXAM_CREATED",
+      entityType: "SimulationExam",
+      idempotencyKey,
+      requestFingerprint,
+      conflictCode: "SIMULATION_EXAM_IDEMPOTENCY_CONFLICT",
+    };
+    const replay = await findPersistentCreateReplay(tx, command);
+    if (replay) {
+      const snapshot = parseSimulationExamSnapshot(replay.resultSnapshot);
+      if (snapshot) return snapshot;
+      const storedExam = await tx.simulationExam.findFirst({
+        where: { id: replay.resultId, workspaceId: workspace.id },
+        include: {
+          subjectResults: {
+            include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
+            orderBy: { subjectId: "asc" },
+          },
+        },
+      });
+      if (!storedExam) throw new ApiError("SIMULATION_EXAM_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
+      return serializeSimulationExam(storedExam);
+    }
+
     const created = await tx.simulationExam.create({
       data: {
         workspaceId: workspace.id,
@@ -199,11 +254,13 @@ export async function createSimulationExam(
       },
     });
 
-    await audit(actorId, "SIMULATION_EXAM_CREATED", "SimulationExam", created.id, tx);
-    return created;
+    const result = serializeSimulationExam(created);
+    await recordPersistentCreateResult(tx, command, created.id, {
+      examDate: created.examDate.toISOString(),
+      resultSnapshot: result as unknown as Prisma.InputJsonObject,
+    });
+    return result;
   });
-
-  return serializeSimulationExam(exam);
 }
 
 export async function saveSimulationExamResults(
@@ -211,37 +268,61 @@ export async function saveSimulationExamResults(
   input: SaveSimulationExamResultsInput,
   actorId: string,
 ): Promise<SimulationExamDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
   const exam = await prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const existing = await tx.simulationExam.findFirst({
       where: { id, workspaceId: workspace.id },
-      select: {
-        id: true,
-        status: true,
-        isFirstSynchronized: true,
-        targetDurationMinutes: true,
-        targetScore: true,
-        revision: true,
+      include: {
+        subjectResults: {
+          include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
+          orderBy: { subjectId: "asc" },
+        },
       },
     });
     if (!existing) {
       throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
     }
     if (existing.status !== "DRAFT") {
-      throw new ApiError("SIMULATION_EXAM_CONFIRMED", 409);
+      throw new ApiError("SIMULATION_EXAM_CONFIRMED", 409, {
+        latest: serializeSimulationExam(existing),
+        conflictFields: ["status"],
+      });
     }
     if (input.expectedRevision !== existing.revision) {
-      throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, { latest: { revision: existing.revision }, conflictFields: ["revision"] });
+      throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, {
+        latest: serializeSimulationExam(existing),
+        conflictFields: ["revision"],
+      });
     }
 
     assertUniqueSubjectResults(input.subjectResults);
-    await assertSubjectsExist(input.subjectResults.map((result) => result.subjectId), workspace.id, tx);
+    if (existing.subjectResults.some((result) => result.subject.archivedAt)) {
+      throw new ApiError("SUBJECT_ARCHIVED", 409, {
+        latest: serializeSimulationExam(existing),
+        conflictFields: ["subjectResults.subjectId"],
+      });
+    }
+    await assertSubjectsExist(
+      input.subjectResults.map((result) => result.subjectId),
+      workspace.id,
+      tx,
+      { latest: serializeSimulationExam(existing), conflictFields: ["subjectResults.subjectId"] },
+    );
     await assertSimulationLossNodes(input.subjectResults, tx);
-    const currentSubjectResults = await tx.simulationSubjectResult.findMany({
-      where: { simulationExamId: id, subjectId: { in: input.subjectResults.map((result) => result.subjectId) } },
-      select: { id: true, subjectId: true, revision: true },
-    });
+    const currentSubjectResults = existing.subjectResults;
     const currentSubjectResultBySubjectId = new Map(currentSubjectResults.map((result) => [result.subjectId, result]));
+    for (const result of input.subjectResults) {
+      const current = currentSubjectResultBySubjectId.get(result.subjectId);
+      const revisionMatches = current
+        ? result.expectedRevision === current.revision
+        : result.expectedRevision == null;
+      if (!revisionMatches) {
+        throw new ApiError("SIMULATION_SUBJECT_REVISION_CONFLICT", 409, {
+          latest: serializeSimulationExam(existing),
+          conflictFields: [`subjectResults.${result.subjectId}.revision`],
+        });
+      }
+    }
 
     const scoreSummary = summarizeSimulationScores(input.subjectResults);
     const targetDurationMinutes = input.targetDurationMinutes ?? existing.targetDurationMinutes;
@@ -288,9 +369,8 @@ export async function saveSimulationExamResults(
       },
     });
     if (examUpdate.count !== 1) {
-      const latest = await tx.simulationExam.findUnique({ where: { id }, select: { revision: true } });
       throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, {
-        latest: latest ?? undefined,
+        latest: await loadSimulationExamDto(tx, id, workspace.id),
         conflictFields: ["revision"],
       });
     }
@@ -299,12 +379,6 @@ export async function saveSimulationExamResults(
       const current = currentSubjectResultBySubjectId.get(result.subjectId);
       let savedResult: { id: string; revision: number };
       if (!current) {
-        if (result.expectedRevision != null) {
-          throw new ApiError("SIMULATION_SUBJECT_REVISION_CONFLICT", 409, {
-            latest: { subjectId: result.subjectId, revision: null },
-            conflictFields: ["revision"],
-          });
-        }
         savedResult = await tx.simulationSubjectResult.create({
           data: {
             simulationExamId: id,
@@ -320,12 +394,6 @@ export async function saveSimulationExamResults(
           select: { id: true, revision: true },
         });
       } else {
-        if (result.expectedRevision !== current.revision) {
-          throw new ApiError("SIMULATION_SUBJECT_REVISION_CONFLICT", 409, {
-            latest: { subjectId: result.subjectId, revision: current.revision },
-            conflictFields: ["revision"],
-          });
-        }
         const subjectUpdate = await tx.simulationSubjectResult.updateMany({
           where: { id: current.id, revision: result.expectedRevision },
           data: {
@@ -340,32 +408,39 @@ export async function saveSimulationExamResults(
           },
         });
         if (subjectUpdate.count !== 1) {
-          const latest = await tx.simulationSubjectResult.findUnique({ where: { id: current.id }, select: { revision: true } });
           throw new ApiError("SIMULATION_SUBJECT_REVISION_CONFLICT", 409, {
-            latest: { subjectId: result.subjectId, revision: latest?.revision ?? current.revision },
-            conflictFields: ["revision"],
+            latest: await loadSimulationExamDto(tx, id, workspace.id),
+            conflictFields: [`subjectResults.${result.subjectId}.revision`],
           });
         }
         savedResult = { id: current.id, revision: current.revision + 1 };
       }
-      await tx.simulationLossItem.updateMany({
-        where: { simulationSubjectResultId: savedResult.id, archivedAt: null },
-        data: { archivedAt: new Date(), revision: { increment: 1 } },
-      });
-      if (result.lossItems.length > 0) {
-        await tx.simulationLossItem.createMany({
-          data: result.lossItems.map((item) => ({
-            simulationSubjectResultId: savedResult.id,
-            reason: item.reason,
-            syllabusNodeId: item.syllabusNodeId ?? null,
-            lostScore: item.lostScore,
-            note: normalizeOptionalText(item.note ?? undefined),
-          })),
+      if (result.lossItems !== undefined) {
+        await tx.simulationLossItem.updateMany({
+          where: { simulationSubjectResultId: savedResult.id, archivedAt: null },
+          data: { archivedAt: new Date(), revision: { increment: 1 } },
         });
+        if (result.lossItems.length > 0) {
+          await tx.simulationLossItem.createMany({
+            data: result.lossItems.map((item) => ({
+              simulationSubjectResultId: savedResult.id,
+              reason: item.reason,
+              syllabusNodeId: item.syllabusNodeId ?? null,
+              lostScore: item.lostScore,
+              note: normalizeOptionalText(item.note ?? undefined),
+            })),
+          });
+        }
       }
     }
 
     await audit(actorId, "SIMULATION_EXAM_RESULTS_SAVED", "SimulationExam", id, tx);
+    const upgradedLegacy = currentSubjectResults.length === 0 && (
+      existing.targetScore != null || existing.actualScore != null || existing.lossReasons != null
+    );
+    if (upgradedLegacy) {
+      await audit(actorId, "SIMULATION_LEGACY_RESULTS_UPGRADED", "SimulationExam", id, tx);
+    }
 
     return tx.simulationExam.findUniqueOrThrow({
       where: { id },
@@ -386,8 +461,8 @@ export async function confirmSimulationExam(
   expectedRevision: number,
   actorId: string,
 ): Promise<SimulationExamDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
   const exam = await prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const existing = await tx.simulationExam.findFirst({
       where: { id, workspaceId: workspace.id },
       include: {
@@ -398,6 +473,12 @@ export async function confirmSimulationExam(
       },
     });
     if (!existing) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
+    if (existing.subjectResults.some((result) => result.subject.archivedAt)) {
+      throw new ApiError("SUBJECT_ARCHIVED", 409, {
+        latest: serializeSimulationExam(existing),
+        conflictFields: ["subjectResults.subjectId"],
+      });
+    }
     if (existing.status === "CONFIRMED") return existing;
     if (existing.revision !== expectedRevision) {
       throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, {
@@ -414,8 +495,10 @@ export async function confirmSimulationExam(
       data: { status: "CONFIRMED", confirmedAt, revision: { increment: 1 } },
     });
     if (changed.count !== 1) {
-      const latest = await tx.simulationExam.findUnique({ where: { id }, select: { revision: true, status: true } });
-      throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, { latest, conflictFields: ["revision", "status"] });
+      throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, {
+        latest: await loadSimulationExamDto(tx, id, workspace.id),
+        conflictFields: ["revision", "status"],
+      });
     }
     await audit(actorId, "SIMULATION_EXAM_CONFIRMED", "SimulationExam", id, tx);
     return tx.simulationExam.findUniqueOrThrow({
@@ -442,9 +525,50 @@ export async function createSimulationLossItem(
   input: SaveSimulationLossItemInput,
   actorId: string,
 ) {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const item = await prisma.$transaction(async (tx) => {
+  return (await createSimulationLossItemCommand(subjectResultId, input, actorId)).lossItem;
+}
+
+export async function createSimulationLossItemCommand(
+  subjectResultId: string,
+  input: SaveSimulationLossItemInput,
+  actorId: string,
+): Promise<SimulationLossItemMutationResult> {
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const requestFingerprint = buildPersistentCreateFingerprint("simulation-loss-item-create-v1", {
+    subjectResultId,
+    expectedExamRevision: input.expectedExamRevision ?? null,
+    expectedSubjectResultRevision: input.expectedSubjectResultRevision ?? null,
+    reason: input.reason,
+    syllabusNodeId: input.syllabusNodeId ?? null,
+    lostScore: input.lostScore,
+    note: input.note ?? null,
+  });
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const result = await loadOwnedSubjectResult(subjectResultId, workspace.id, tx);
+    const command = {
+      actorId,
+      workspaceId: workspace.id,
+      action: "SIMULATION_LOSS_ITEM_CREATED",
+      entityType: "SimulationLossItem",
+      idempotencyKey,
+      requestFingerprint,
+      conflictCode: "SIMULATION_LOSS_ITEM_IDEMPOTENCY_CONFLICT",
+    };
+    const replay = await findPersistentCreateReplay(tx, command);
+    if (replay) {
+      const snapshot = parseSimulationLossItemSnapshot(replay.resultSnapshot);
+      if (snapshot) return { lossItem: snapshot, versions: simulationVersionsFromResult(result) };
+      const storedItem = await tx.simulationLossItem.findFirst({
+        where: { id: replay.resultId, simulationSubjectResultId: result.id },
+        include: { syllabusNode: true },
+      });
+      if (!storedItem) throw new ApiError("SIMULATION_LOSS_ITEM_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
+      return { lossItem: serializeLossItem(storedItem), versions: simulationVersionsFromResult(result) };
+    }
+
+    await assertLossParentRevisions(result, input, tx, workspace.id);
+    await assertSubjectExists(result.subjectId, workspace.id, tx);
     assertSimulationDraft(result.simulationExam.status);
     await assertLossNodeForSubject(input.syllabusNodeId, result.subjectId, workspace.id, tx);
     const created = await tx.simulationLossItem.create({
@@ -457,11 +581,28 @@ export async function createSimulationLossItem(
       },
       include: { syllabusNode: true },
     });
-    await bumpSimulationVersions(tx, result.id, result.simulationExamId);
-    await audit(actorId, "SIMULATION_LOSS_ITEM_CREATED", "SimulationLossItem", created.id, tx);
-    return created;
+    const versions = await bumpSimulationVersions(tx, result.id, result.simulationExamId, result.simulationExam.status);
+    const response = serializeLossItem(created);
+    await recordPersistentCreateResult(tx, command, created.id, {
+      simulationSubjectResultId: result.id,
+      resultSnapshot: response as unknown as Prisma.InputJsonObject,
+    });
+    return { lossItem: response, versions };
   });
-  return serializeLossItem(item);
+}
+
+function parseSimulationExamSnapshot(value: Prisma.JsonValue | undefined): SimulationExamDto | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value.id === "string" && Array.isArray(value.subjectResults)
+    ? value as unknown as SimulationExamDto
+    : null;
+}
+
+function parseSimulationLossItemSnapshot(value: Prisma.JsonValue | undefined): SimulationLossItemDto | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value.id === "string" && typeof value.reason === "string"
+    ? value as unknown as SimulationLossItemDto
+    : null;
 }
 
 export async function updateSimulationLossItem(
@@ -470,7 +611,16 @@ export async function updateSimulationLossItem(
   input: Partial<SaveSimulationLossItemInput> & { expectedRevision: number },
   actorId: string,
 ) {
-  return mutateSimulationLossItem(subjectResultId, lossItemId, input.expectedRevision, actorId, async (tx, context) => {
+  return (await updateSimulationLossItemCommand(subjectResultId, lossItemId, input, actorId)).lossItem;
+}
+
+export async function updateSimulationLossItemCommand(
+  subjectResultId: string,
+  lossItemId: string,
+  input: Partial<SaveSimulationLossItemInput> & { expectedRevision: number },
+  actorId: string,
+): Promise<SimulationLossItemMutationResult> {
+  return mutateSimulationLossItem(subjectResultId, lossItemId, input, actorId, async (tx, context) => {
     await assertLossNodeForSubject(input.syllabusNodeId, context.subjectId, context.workspaceId, tx);
     const changed = await tx.simulationLossItem.updateMany({
       where: { id: lossItemId, simulationSubjectResultId: subjectResultId, revision: input.expectedRevision },
@@ -488,9 +638,18 @@ export async function updateSimulationLossItem(
 }
 
 export async function archiveSimulationLossItem(subjectResultId: string, lossItemId: string, expectedRevision: number, actorId: string) {
-  return mutateSimulationLossItem(subjectResultId, lossItemId, expectedRevision, actorId, async (tx) => {
+  return (await archiveSimulationLossItemCommand(subjectResultId, lossItemId, { expectedRevision }, actorId)).lossItem;
+}
+
+export async function archiveSimulationLossItemCommand(
+  subjectResultId: string,
+  lossItemId: string,
+  input: { expectedRevision: number; expectedExamRevision?: number; expectedSubjectResultRevision?: number },
+  actorId: string,
+): Promise<SimulationLossItemMutationResult> {
+  return mutateSimulationLossItem(subjectResultId, lossItemId, input, actorId, async (tx) => {
     const changed = await tx.simulationLossItem.updateMany({
-      where: { id: lossItemId, simulationSubjectResultId: subjectResultId, revision: expectedRevision, archivedAt: null },
+      where: { id: lossItemId, simulationSubjectResultId: subjectResultId, revision: input.expectedRevision, archivedAt: null },
       data: { archivedAt: new Date(), revision: { increment: 1 } },
     });
     if (changed.count !== 1) throw await lossItemConflict(tx, lossItemId);
@@ -499,9 +658,18 @@ export async function archiveSimulationLossItem(subjectResultId: string, lossIte
 }
 
 export async function restoreSimulationLossItem(subjectResultId: string, lossItemId: string, expectedRevision: number, actorId: string) {
-  return mutateSimulationLossItem(subjectResultId, lossItemId, expectedRevision, actorId, async (tx) => {
+  return (await restoreSimulationLossItemCommand(subjectResultId, lossItemId, { expectedRevision }, actorId)).lossItem;
+}
+
+export async function restoreSimulationLossItemCommand(
+  subjectResultId: string,
+  lossItemId: string,
+  input: { expectedRevision: number; expectedExamRevision?: number; expectedSubjectResultRevision?: number },
+  actorId: string,
+): Promise<SimulationLossItemMutationResult> {
+  return mutateSimulationLossItem(subjectResultId, lossItemId, input, actorId, async (tx) => {
     const changed = await tx.simulationLossItem.updateMany({
-      where: { id: lossItemId, simulationSubjectResultId: subjectResultId, revision: expectedRevision, archivedAt: { not: null } },
+      where: { id: lossItemId, simulationSubjectResultId: subjectResultId, revision: input.expectedRevision, archivedAt: { not: null } },
       data: { archivedAt: null, revision: { increment: 1 } },
     });
     if (changed.count !== 1) throw await lossItemConflict(tx, lossItemId);
@@ -512,36 +680,86 @@ export async function restoreSimulationLossItem(subjectResultId: string, lossIte
 async function mutateSimulationLossItem(
   subjectResultId: string,
   lossItemId: string,
-  expectedRevision: number,
+  input: { expectedRevision: number; expectedExamRevision?: number; expectedSubjectResultRevision?: number },
   actorId: string,
   mutation: (tx: Prisma.TransactionClient, context: { subjectId: string; workspaceId: string }) => Promise<string>,
-) {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const item = await prisma.$transaction(async (tx) => {
+): Promise<SimulationLossItemMutationResult> {
+  const result = await prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const result = await loadOwnedSubjectResult(subjectResultId, workspace.id, tx);
+    await assertLossParentRevisions(result, input, tx, workspace.id);
+    await assertSubjectExists(result.subjectId, workspace.id, tx);
     assertSimulationDraft(result.simulationExam.status);
     const existing = result.lossItems.find((candidate) => candidate.id === lossItemId);
     if (!existing) throw new ApiError("SIMULATION_LOSS_ITEM_NOT_FOUND", 404);
-    if (existing.revision !== expectedRevision) throw await lossItemConflict(tx, lossItemId);
+    if (existing.revision !== input.expectedRevision) throw await lossItemConflict(tx, lossItemId);
     const action = await mutation(tx, { subjectId: result.subjectId, workspaceId: workspace.id });
-    await bumpSimulationVersions(tx, result.id, result.simulationExamId);
+    const versions = await bumpSimulationVersions(tx, result.id, result.simulationExamId, result.simulationExam.status);
     await audit(actorId, action, "SimulationLossItem", lossItemId, tx);
-    return tx.simulationLossItem.findUniqueOrThrow({ where: { id: lossItemId }, include: { syllabusNode: true } });
+    const item = await tx.simulationLossItem.findUniqueOrThrow({ where: { id: lossItemId }, include: { syllabusNode: true } });
+    return { item, versions };
   });
-  return serializeLossItem(item);
+  return { lossItem: serializeLossItem(result.item), versions: result.versions };
 }
 
 async function loadOwnedSubjectResult(subjectResultId: string, workspaceId: string, client: SimulationDbClient = prisma) {
   const result = await client.simulationSubjectResult.findFirst({
     where: { id: subjectResultId, simulationExam: { workspaceId } },
-    include: { simulationExam: { select: { id: true, status: true } }, lossItems: { include: { syllabusNode: true } } },
+    include: { simulationExam: { select: { id: true, status: true, revision: true } }, lossItems: { include: { syllabusNode: true } } },
   });
   if (!result) throw new ApiError("SIMULATION_SUBJECT_RESULT_NOT_FOUND", 404);
   return result;
 }
 
+async function loadSimulationExamDto(
+  client: SimulationDbClient,
+  examId: string,
+  workspaceId: string,
+): Promise<SimulationExamDto | undefined> {
+  const exam = await client.simulationExam.findFirst({
+    where: { id: examId, workspaceId },
+    include: {
+      subjectResults: {
+        include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
+        orderBy: { subjectId: "asc" },
+      },
+    },
+  });
+  return exam ? serializeSimulationExam(exam) : undefined;
+}
+
 function assertSimulationDraft(status: string) {
   if (status !== "DRAFT") throw new ApiError("SIMULATION_EXAM_CONFIRMED", 409);
+}
+
+async function assertLossParentRevisions(
+  result: {
+    revision: number;
+    simulationExamId: string;
+    simulationExam: { revision: number; status: string };
+  },
+  input: { expectedExamRevision?: number; expectedSubjectResultRevision?: number },
+  client: SimulationDbClient,
+  workspaceId: string,
+): Promise<void> {
+  const conflictFields = [
+    ...(input.expectedExamRevision !== undefined && input.expectedExamRevision !== result.simulationExam.revision
+      ? ["revision"]
+      : []),
+    ...(input.expectedSubjectResultRevision !== undefined && input.expectedSubjectResultRevision !== result.revision
+      ? ["subjectResults.revision"]
+      : []),
+  ];
+  if (conflictFields.length === 0) return;
+  throw new ApiError(
+    conflictFields.includes("revision") ? "SIMULATION_EXAM_REVISION_CONFLICT" : "SIMULATION_SUBJECT_REVISION_CONFLICT",
+    409,
+    {
+      latest: await loadSimulationExamDto(client, result.simulationExamId, workspaceId),
+      conflictFields,
+      workbench: "/stage/simulation",
+    },
+  );
 }
 
 async function assertLossNodeForSubject(
@@ -555,11 +773,32 @@ async function assertLossNodeForSubject(
   if (!node) throw new ApiError("SIMULATION_LOSS_NODE_NOT_FOUND", 404);
 }
 
-async function bumpSimulationVersions(tx: Prisma.TransactionClient, subjectResultId: string, examId: string) {
-  await Promise.all([
-    tx.simulationSubjectResult.update({ where: { id: subjectResultId }, data: { revision: { increment: 1 } } }),
-    tx.simulationExam.update({ where: { id: examId }, data: { revision: { increment: 1 } } }),
+async function bumpSimulationVersions(
+  tx: Prisma.TransactionClient,
+  subjectResultId: string,
+  examId: string,
+  examStatus: string,
+): Promise<SimulationLossItemMutationResult["versions"]> {
+  const [subjectResult, exam] = await Promise.all([
+    tx.simulationSubjectResult.update({ where: { id: subjectResultId }, data: { revision: { increment: 1 } }, select: { revision: true } }),
+    tx.simulationExam.update({ where: { id: examId }, data: { revision: { increment: 1 } }, select: { revision: true } }),
   ]);
+  return {
+    subjectResultRevision: subjectResult.revision,
+    examRevision: exam.revision,
+    examStatus: examStatus as SimulationExamDto["status"],
+  };
+}
+
+function simulationVersionsFromResult(result: {
+  revision: number;
+  simulationExam: { revision: number; status: string };
+}): SimulationLossItemMutationResult["versions"] {
+  return {
+    subjectResultRevision: result.revision,
+    examRevision: result.simulationExam.revision,
+    examStatus: result.simulationExam.status as SimulationExamDto["status"],
+  };
 }
 
 async function lossItemConflict(tx: Prisma.TransactionClient, lossItemId: string): Promise<ApiError> {
@@ -572,6 +811,7 @@ async function lossItemConflict(tx: Prisma.TransactionClient, lossItemId: string
 
 export interface SimulationRemediationDto {
   originKey: string;
+  subjectResultId: string;
   subjectId: string;
   subjectName: string;
   reason: SimulationLossReason;
@@ -589,7 +829,7 @@ export interface SimulationRemediationSelection {
 
 export async function listSimulationRemediations(examId: string, actorId: string): Promise<SimulationRemediationDto[]> {
   const workspace = await resolveActiveWorkspace(actorId);
-  return loadSimulationRemediations(examId, workspace.id, prisma, false);
+  return loadSimulationRemediations(examId, workspace.id, prisma, false, true);
 }
 
 async function loadSimulationRemediations(
@@ -597,6 +837,7 @@ async function loadSimulationRemediations(
   workspaceId: string,
   client: SimulationDbClient,
   allowLegacy: boolean,
+  activeSubjectsOnly = false,
 ): Promise<SimulationRemediationDto[]> {
   const exam = await client.simulationExam.findFirst({
     where: { id: examId, ...(allowLegacy ? { OR: [{ workspaceId }, { workspaceId: null }] } : { workspaceId }) },
@@ -606,8 +847,9 @@ async function loadSimulationRemediations(
       subjectResults: {
         select: {
           subjectId: true,
+          id: true,
           revision: true,
-          subject: { select: { name: true } },
+          subject: { select: { name: true, archivedAt: true } },
           lossItems: {
             where: { archivedAt: null },
             select: {
@@ -624,20 +866,25 @@ async function loadSimulationRemediations(
   });
   if (!exam) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
   if (exam.workspaceId == null) return [];
-  const itemLookup = new Map(exam.subjectResults.flatMap((result) => result.lossItems.map((item) => [item.id, { item, result }] as const)));
-  return buildSimulationRemediationGroups(exam.subjectResults.flatMap((result) => result.lossItems.map((item) => ({
+  const subjectResults = activeSubjectsOnly
+    ? exam.subjectResults.filter((result) => result.subject.archivedAt == null)
+    : exam.subjectResults;
+  const itemLookup = new Map(subjectResults.flatMap((result) => result.lossItems.map((item) => [item.id, { item, result }] as const)));
+  return buildSimulationRemediationGroups(subjectResults.flatMap((result) => result.lossItems.map((item) => ({
     id: item.id,
     subjectId: result.subjectId,
     reason: item.reason as SimulationLossReason,
     syllabusNodeId: item.syllabusNodeId,
     lostScore: item.lostScore,
-  })))).map((group) => {
+  }))), { examId }).map((group) => {
     const sample = group.itemIds.length > 0 ? itemLookup.get(group.itemIds[0]!) : undefined;
+    if (!sample) throw new ApiError("SIMULATION_REMEDIATION_SOURCE_INVALID", 409);
     return {
       ...group,
-      subjectName: sample?.result.subject.name ?? "未知科目",
-      syllabusNodeTitle: sample?.item.syllabusNode?.title ?? null,
-      originVersion: sample?.result.revision ?? exam.revision,
+      subjectResultId: sample.result.id,
+      subjectName: sample.result.subject.name,
+      syllabusNodeTitle: sample.item.syllabusNode?.title ?? null,
+      originVersion: sample.result.revision,
     };
   });
 }
@@ -647,12 +894,12 @@ export async function addSimulationRemediationsToInbox(
   actorId: string,
   selections: SimulationRemediationSelection[],
 ): Promise<{ created: number; reused: number }> {
-  const workspace = await resolveActiveWorkspace(actorId);
   if (new Set(selections.map((selection) => selection.originKey)).size !== selections.length) {
     throw new ApiError("SIMULATION_REMEDIATION_DUPLICATE", 400);
   }
 
   return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const candidates = await loadSimulationRemediations(examId, workspace.id, tx, false);
     const candidateByKey = new Map(candidates.map((candidate) => [candidate.originKey, candidate]));
     const selected = selections.map((selection) => {
@@ -665,30 +912,36 @@ export async function addSimulationRemediationsToInbox(
       }
       return candidate;
     });
-    const inserted = await tx.planInboxItem.createMany({
-      data: selected.map((candidate) => ({
-        workspaceId: workspace.id,
+    await assertSubjectsExist(selected.map((candidate) => candidate.subjectId), workspace.id, tx);
+    let created = 0;
+    let reused = 0;
+    for (const candidate of selected) {
+      const write = await createPlanInboxItemWithResult(tx, workspace.id, actorId, {
         stableKey: `${candidate.originKey}:v${candidate.originVersion}`,
         originKey: candidate.originKey,
         originVersion: candidate.originVersion,
         originType: "SIMULATION_LOSS",
-        originSnapshot: {
+        originSnapshot: buildSimulationRemediationOriginSnapshot({
           examId,
+          subjectResultId: candidate.subjectResultId,
+          subjectResultRevision: candidate.originVersion,
+          subjectId: candidate.subjectId,
           itemIds: candidate.itemIds,
           lostScore: candidate.lostScore,
           reason: candidate.reason,
-        } as Prisma.InputJsonValue,
+          syllabusNodeId: candidate.syllabusNodeId,
+        }),
         title: `${candidate.subjectName}：补救 ${labelSimulationLossReason(candidate.reason)}（${candidate.lostScore} 分）`,
         subjectId: candidate.subjectId,
         primaryNodeId: candidate.syllabusNodeId,
         estimatedMinutes: candidate.lostScore >= 10 ? 60 : 30,
         priority: candidate.lostScore >= 10 ? "critical" : "high",
         type: "review",
-        actorId,
-      })),
-      skipDuplicates: true,
-    });
-    return { created: inserted.count, reused: selected.length - inserted.count };
+      });
+      created += write.created ? 1 : 0;
+      reused += write.reused ? 1 : 0;
+    }
+    return { created, reused };
   });
 }
 
@@ -722,13 +975,12 @@ export async function createSimulationTask(
   input: CreateSimulationTaskInput,
   actorId: string,
 ): Promise<StudyTaskDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  await assertSubjectExists(input.subjectId, workspace.id);
-  if (input.syllabusNodeId) {
-    await assertSyllabusNodeBelongsToSubject(input.syllabusNodeId, input.subjectId);
-  }
-
   const task = await prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    await assertSubjectExists(input.subjectId, workspace.id, tx);
+    if (input.syllabusNodeId) {
+      await assertSyllabusNodeBelongsToSubject(input.syllabusNodeId, input.subjectId, tx, workspace.id);
+    }
     const createdTask = await tx.studyTask.create({
       data: {
         subjectId: input.subjectId,
@@ -760,8 +1012,9 @@ export async function completeSimulationTask(
   actorId: string,
 ): Promise<StudyTaskDto> {
   const task = await prisma.$transaction(async (tx) => {
-    const existing = await tx.studyTask.findUnique({
-      where: { id },
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const existing = await tx.studyTask.findFirst({
+      where: { id, subject: { workspaceId: workspace.id } },
       select: {
         id: true,
         type: true,
@@ -771,10 +1024,14 @@ export async function completeSimulationTask(
         plannedDate: true,
         completedAt: true,
         updatedAt: true,
+        subject: { select: { archivedAt: true } },
       },
     });
     if (!existing || existing.type !== "simulation_exam") {
       throw new ApiError("SIMULATION_TASK_NOT_FOUND", 404);
+    }
+    if (existing.subject.archivedAt) {
+      throw new ApiError("SUBJECT_ARCHIVED", 409);
     }
     if (!["TODO", "IN_PROGRESS", "DEFERRED"].includes(existing.status)) {
       throw new ApiError("TASK_STATE_CONFLICT", 409);
@@ -890,11 +1147,14 @@ export async function getSimulationStageDraft(actorId: string, now = new Date())
 export async function saveFirstSimulationDiary(
   firstSimulationDiary: string,
   actorId: string,
+  idempotencyKey: string,
 ): Promise<MotivationVaultDto> {
   const existing = await getMotivationVault();
 
   return saveMotivationVault(
     {
+      idempotencyKey,
+      expectedUpdatedAt: existing?.updatedAt ?? null,
       whyStarted: existing?.whyStarted ?? undefined,
       neverReturnTo: existing?.neverReturnTo ?? undefined,
       futureSelf: existing?.futureSelf ?? undefined,
@@ -1055,29 +1315,44 @@ function labelTimePressure(pressure: SimulationResultSummary["timePressure"]): s
   }
 }
 
-async function assertSubjectExists(subjectId: string, workspaceId: string): Promise<void> {
-  const subject = await prisma.subject.findFirst({
+async function assertSubjectExists(
+  subjectId: string,
+  workspaceId: string,
+  client: SimulationDbClient,
+): Promise<void> {
+  const subject = await client.subject.findFirst({
     where: { id: subjectId, workspaceId },
-    select: { id: true },
+    select: { archivedAt: true },
   });
 
   if (!subject) {
     throw new ApiError("SUBJECT_NOT_FOUND", 404);
   }
+  if (subject.archivedAt) {
+    throw new ApiError("SUBJECT_ARCHIVED", 409);
+  }
 }
 
-async function assertSubjectsExist(subjectIds: string[], workspaceId: string, client: SimulationDbClient): Promise<void> {
+async function assertSubjectsExist(
+  subjectIds: string[],
+  workspaceId: string,
+  client: SimulationDbClient,
+  conflictDetails?: { latest?: unknown; conflictFields?: string[] },
+): Promise<void> {
   const uniqueSubjectIds = Array.from(new Set(subjectIds));
-  const count = await client.subject.count({
+  const subjects = await client.subject.findMany({
     where: {
       id: { in: uniqueSubjectIds },
       workspaceId,
-      archivedAt: null,
     },
+    select: { id: true, archivedAt: true },
   });
 
-  if (count !== uniqueSubjectIds.length) {
+  if (subjects.length !== uniqueSubjectIds.length) {
     throw new ApiError("SUBJECT_NOT_FOUND", 404);
+  }
+  if (subjects.some((subject) => subject.archivedAt)) {
+    throw new ApiError("SUBJECT_ARCHIVED", 409, conflictDetails);
   }
 }
 
@@ -1290,7 +1565,7 @@ async function assertSimulationLossNodes(
   client: SimulationDbClient,
 ): Promise<void> {
   for (const result of results) {
-    const nodeIds = Array.from(new Set(result.lossItems.map((item) => item.syllabusNodeId).filter((id): id is string => Boolean(id))));
+    const nodeIds = Array.from(new Set((result.lossItems ?? []).map((item) => item.syllabusNodeId).filter((id): id is string => Boolean(id))));
     if (nodeIds.length === 0) continue;
     const count = await client.syllabusNode.count({
       where: { id: { in: nodeIds }, subjectId: result.subjectId, archivedAt: null },

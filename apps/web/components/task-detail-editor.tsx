@@ -1,0 +1,481 @@
+"use client";
+
+import { Save, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { Modal } from "@/components/ui/overlays";
+import {
+  LONG_PRIVATE_DRAFT_TTL_MS,
+  loadPrivateBusinessDraft,
+  redirectToLoginWithCurrentLocation,
+  removePrivateBusinessDraft,
+  savePrivateBusinessDraft,
+} from "@/lib/client/private-business-drafts";
+import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
+import type { TaskUpdateSnapshotDto } from "@/lib/study/task-detail-service";
+import type { SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+
+interface TaskEditValues {
+  subjectId: string;
+  syllabusNodeId: string;
+  relatedSyllabusNodeIds: string[];
+  planMilestoneId: string;
+  title: string;
+  type: string;
+  priority: TaskUpdateSnapshotDto["priority"];
+  plannedDate: string;
+  estimatedMinutes: number;
+  reviewText: string;
+}
+
+interface TaskEditConflict {
+  baseline: TaskUpdateSnapshotDto;
+  latest: TaskUpdateSnapshotDto;
+  conflictFields: string[];
+}
+
+interface TaskEditDraft {
+  expectedStatus: TaskUpdateSnapshotDto["status"];
+  expectedUpdatedAt: string;
+  values: TaskEditValues;
+}
+
+export function TaskDetailEditor(props: {
+  snapshot: TaskUpdateSnapshotDto;
+  subjects: SubjectDto[];
+  syllabusNodes: SyllabusOptionNodeDto[];
+  milestones: PlanMilestoneDto[];
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const draftKey = `areaforge.task.draft.${props.snapshot.id}`;
+  const [baseline, setBaseline] = useState(props.snapshot);
+  const [values, setValues] = useState<TaskEditValues>(() => valuesFromSnapshot(props.snapshot));
+  const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<TaskEditConflict | null>(null);
+  const [draftNeedsRebase, setDraftNeedsRebase] = useState(false);
+  const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
+  const flatNodes = useMemo(() => flattenNodes(props.syllabusNodes), [props.syllabusNodes]);
+  const availableNodes = flatNodes.filter((node) => node.subjectId === values.subjectId);
+  const availableMilestones = props.milestones.filter((milestone) =>
+    !milestone.archivedAt && (!milestone.subjectId || milestone.subjectId === values.subjectId),
+  );
+  const dirty = !editValuesEqual(values, valuesFromSnapshot(baseline));
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const saved = loadPrivateBusinessDraft(draftKey, LONG_PRIVATE_DRAFT_TTL_MS, isTaskEditDraft);
+      if (saved) {
+        setValues(saved.values);
+        if (saved.expectedStatus !== props.snapshot.status || saved.expectedUpdatedAt !== props.snapshot.updatedAt) {
+          setDraftNeedsRebase(true);
+          setError("本地草稿来自旧任务版本。确认以服务端最新版本为基线前，系统不会提交。");
+        }
+      }
+      setHydrated(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [draftKey, props.snapshot.status, props.snapshot.updatedAt]);
+
+  useEffect(() => {
+    if (!hydrated || !dirty) return;
+    saveTaskDraft(draftKey, baseline, values);
+  }, [baseline, dirty, draftKey, hydrated, values]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  function changeSubject(subjectId: string) {
+    setValues((current) => ({
+      ...current,
+      subjectId,
+      syllabusNodeId: "",
+      relatedSyllabusNodeIds: [],
+      planMilestoneId: "",
+    }));
+  }
+
+  function toggleRelatedNode(nodeId: string) {
+    setValues((current) => ({
+      ...current,
+      relatedSyllabusNodeIds: current.relatedSyllabusNodeIds.includes(nodeId)
+        ? current.relatedSyllabusNodeIds.filter((id) => id !== nodeId)
+        : current.relatedSyllabusNodeIds.length < 20
+          ? [...current.relatedSyllabusNodeIds, nodeId]
+          : current.relatedSyllabusNodeIds,
+    }));
+  }
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    if (draftNeedsRebase) {
+      setError("请先确认以服务端最新版本为基线，或放弃旧草稿。");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/tasks/${props.snapshot.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expectedStatus: baseline.status,
+          expectedUpdatedAt: baseline.updatedAt,
+          subjectId: values.subjectId,
+          syllabusNodeId: values.syllabusNodeId || null,
+          relatedSyllabusNodeIds: values.relatedSyllabusNodeIds,
+          planMilestoneId: values.planMilestoneId || null,
+          title: values.title,
+          type: values.type,
+          priority: values.priority,
+          plannedDate: studyDateToIso(values.plannedDate),
+          estimatedMinutes: values.estimatedMinutes,
+          reviewText: values.reviewText.trim() || null,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+        latest?: unknown;
+        conflictFields?: string[];
+      } | null;
+
+      if (response.status === 401) {
+        saveTaskDraft(draftKey, baseline, values);
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (response.status === 409 && isTaskUpdateSnapshot(body?.latest)) {
+        saveTaskDraft(draftKey, baseline, values);
+        setConflict({
+          baseline,
+          latest: body.latest,
+          conflictFields: body?.conflictFields ?? ["updatedAt"],
+        });
+        return;
+      }
+      if (!response.ok) {
+        setError(body?.error ?? "保存失败，本地输入仍保留");
+        return;
+      }
+
+      removePrivateBusinessDraft(draftKey);
+      props.onSaved();
+    } catch {
+      saveTaskDraft(draftKey, baseline, values);
+      setError("网络不可用，本地草稿已保留；恢复网络后请显式重试。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function requestClose() {
+    if (dirty) setCloseConfirmationOpen(true);
+    else props.onCancel();
+  }
+
+  return (
+    <>
+      <form className="space-y-5 border-y border-white/10 py-5" onSubmit={submit}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-white">编辑任务</h2>
+          <button type="button" className="inline-flex h-10 items-center gap-2 px-2 text-sm text-zinc-300" onClick={requestClose}>
+            <X className="h-4 w-4" aria-hidden="true" />
+            关闭编辑
+          </button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-2 text-sm text-zinc-300 md:col-span-2">
+            标题
+            <input
+              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
+              value={values.title}
+              maxLength={120}
+              required
+              onChange={(event) => setValues((current) => ({ ...current, title: event.target.value }))}
+            />
+          </label>
+          <label className="grid gap-2 text-sm text-zinc-300">
+            科目
+            <select
+              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
+              value={values.subjectId}
+              onChange={(event) => changeSubject(event.target.value)}
+            >
+              {props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm text-zinc-300">
+            里程碑
+            <select
+              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
+              value={values.planMilestoneId}
+              onChange={(event) => setValues((current) => ({ ...current, planMilestoneId: event.target.value }))}
+            >
+              <option value="">不关联里程碑</option>
+              {availableMilestones.map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.title}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm text-zinc-300">
+            主考纲节点
+            <select
+              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
+              value={values.syllabusNodeId}
+              onChange={(event) => setValues((current) => ({
+                ...current,
+                syllabusNodeId: event.target.value,
+                relatedSyllabusNodeIds: current.relatedSyllabusNodeIds.filter((id) => id !== event.target.value),
+              }))}
+            >
+              <option value="">不关联主节点</option>
+              {availableNodes.map((node) => <option key={node.id} value={node.id}>{`${"  ".repeat(node.depth)}${node.title}`}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm text-zinc-300">
+            计划日期
+            <input
+              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
+              type="date"
+              value={values.plannedDate}
+              required
+              onChange={(event) => setValues((current) => ({ ...current, plannedDate: event.target.value }))}
+            />
+          </label>
+          <label className="grid gap-2 text-sm text-zinc-300">
+            类型
+            <select
+              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
+              value={values.type}
+              onChange={(event) => setValues((current) => ({ ...current, type: event.target.value }))}
+            >
+              <option value="study">学习</option>
+              <option value="review">复习</option>
+              <option value="practice">刷题</option>
+              <option value="mistake">错题</option>
+              <option value="simulation_exam">模拟</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm text-zinc-300">
+            优先级
+            <select
+              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
+              value={values.priority}
+              onChange={(event) => setValues((current) => ({ ...current, priority: event.target.value as TaskEditValues["priority"] }))}
+            >
+              <option value="critical">最高</option>
+              <option value="high">高</option>
+              <option value="medium">中</option>
+              <option value="low">低</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm text-zinc-300">
+            预计分钟
+            <input
+              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
+              type="number"
+              min={5}
+              max={720}
+              value={values.estimatedMinutes}
+              onChange={(event) => setValues((current) => ({ ...current, estimatedMinutes: Number(event.target.value) }))}
+            />
+          </label>
+        </div>
+
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium text-zinc-200">相关考纲节点（最多 20 个）</legend>
+          <div className="grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
+            {availableNodes.filter((node) => node.id !== values.syllabusNodeId).map((node) => (
+              <label key={node.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-400">
+                <input
+                  className="mt-1 h-4 w-4 accent-teal-400"
+                  type="checkbox"
+                  checked={values.relatedSyllabusNodeIds.includes(node.id)}
+                  onChange={() => toggleRelatedNode(node.id)}
+                />
+                <span className="min-w-0 break-words">{`${"  ".repeat(node.depth)}${node.title}`}</span>
+              </label>
+            ))}
+            {availableNodes.length === 0 ? <p className="text-sm text-zinc-500">该科目暂无可关联节点</p> : null}
+          </div>
+        </fieldset>
+
+        <label className="grid gap-2 text-sm text-zinc-300">
+          任务复盘
+          <textarea
+            className="min-h-28 rounded-md border border-white/10 bg-[#0d1117] p-3 text-white"
+            value={values.reviewText}
+            maxLength={2000}
+            onChange={(event) => setValues((current) => ({ ...current, reviewText: event.target.value }))}
+          />
+        </label>
+
+        {draftNeedsRebase ? (
+          <div className="space-y-3 rounded-md border border-amber-300/20 bg-amber-300/10 p-3 text-sm text-amber-100">
+            <p>服务端任务已在草稿保存后更新。请核对输入，再明确选择是否基于最新版本继续。</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="h-10 rounded-md border border-amber-200/30 px-3" onClick={() => {
+                setDraftNeedsRebase(false);
+                setError(null);
+                saveTaskDraft(draftKey, baseline, values);
+              }}>以最新版本为基线</button>
+              <button type="button" className="h-10 px-3" onClick={() => {
+                setValues(valuesFromSnapshot(baseline));
+                setDraftNeedsRebase(false);
+                setError(null);
+                removePrivateBusinessDraft(draftKey);
+              }}>放弃旧草稿</button>
+            </div>
+          </div>
+        ) : null}
+
+        {error ? <p role="alert" className="text-sm text-red-200">{error}</p> : null}
+        <button
+          type="submit"
+          className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={saving || draftNeedsRebase || !values.title.trim() || !values.subjectId || !values.plannedDate}
+        >
+          <Save className="h-4 w-4" aria-hidden="true" />
+          {saving ? "保存中" : "保存任务"}
+        </button>
+      </form>
+
+      <Modal open={closeConfirmationOpen} title="保留未保存的任务编辑？" onClose={() => setCloseConfirmationOpen(false)}>
+        <div className="space-y-4 text-sm text-zinc-300">
+          <p>当前输入已保存在本设备。关闭编辑不会写入服务端。</p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" className="h-10 px-3 text-zinc-300" onClick={() => setCloseConfirmationOpen(false)}>继续编辑</button>
+            <button type="button" className="h-10 rounded-md border border-white/10 px-3" onClick={props.onCancel}>关闭并保留草稿</button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConflictResolutionModal
+        open={Boolean(conflict)}
+        title="任务已在其他页面更新"
+        description="服务端版本已变化。本地草稿仍保留，请采用服务端版本，或基于最新版本人工合并后再次保存。"
+        conflictFields={conflict?.conflictFields ?? []}
+        comparisons={conflict ? taskConflictComparisons(conflict, values) : []}
+        onAdoptServer={() => {
+          if (!conflict) return;
+          setBaseline(conflict.latest);
+          setValues(valuesFromSnapshot(conflict.latest));
+          setDraftNeedsRebase(false);
+          removePrivateBusinessDraft(draftKey);
+          setConflict(null);
+        }}
+        onManualMerge={() => {
+          if (!conflict) return;
+          setBaseline(conflict.latest);
+          setDraftNeedsRebase(false);
+          saveTaskDraft(draftKey, conflict.latest, values);
+          setConflict(null);
+        }}
+      />
+    </>
+  );
+}
+
+function valuesFromSnapshot(snapshot: TaskUpdateSnapshotDto): TaskEditValues {
+  return {
+    subjectId: snapshot.subjectId,
+    syllabusNodeId: snapshot.syllabusNodeId ?? "",
+    relatedSyllabusNodeIds: snapshot.relatedSyllabusNodeIds,
+    planMilestoneId: snapshot.planMilestoneId ?? "",
+    title: snapshot.title,
+    type: snapshot.type,
+    priority: snapshot.priority,
+    plannedDate: snapshot.plannedDate.slice(0, 10),
+    estimatedMinutes: snapshot.estimatedMinutes,
+    reviewText: snapshot.reviewText ?? "",
+  };
+}
+
+function taskConflictComparisons(conflict: TaskEditConflict, local: TaskEditValues) {
+  const server = valuesFromSnapshot(conflict.latest);
+  const baseline = valuesFromSnapshot(conflict.baseline);
+  return (Object.keys(local) as Array<keyof TaskEditValues>).map((field) => ({
+    field,
+    label: taskFieldLabel(field),
+    baseline: baseline[field],
+    local: local[field],
+    server: server[field],
+  }));
+}
+
+function taskFieldLabel(field: keyof TaskEditValues): string {
+  return ({
+    subjectId: "科目",
+    syllabusNodeId: "主考纲节点",
+    relatedSyllabusNodeIds: "相关考纲节点",
+    planMilestoneId: "里程碑",
+    title: "标题",
+    type: "类型",
+    priority: "优先级",
+    plannedDate: "计划日期",
+    estimatedMinutes: "预计分钟",
+    reviewText: "任务复盘",
+  })[field];
+}
+
+function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): Array<SyllabusOptionNodeDto & { depth: number }> {
+  return nodes.flatMap((node) => [{ ...node, depth }, ...flattenNodes(node.children, depth + 1)]);
+}
+
+function studyDateToIso(value: string): string {
+  return new Date(`${value}T00:00:00+08:00`).toISOString();
+}
+
+function editValuesEqual(left: TaskEditValues, right: TaskEditValues): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function isTaskEditDraft(value: unknown): value is TaskEditDraft {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Partial<TaskEditDraft>;
+  return ["todo", "in_progress", "done", "skipped", "deferred"].includes(record.expectedStatus ?? "")
+    && typeof record.expectedUpdatedAt === "string"
+    && isTaskEditValues(record.values);
+}
+
+function isTaskEditValues(value: unknown): value is TaskEditValues {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Partial<TaskEditValues>;
+  return typeof record.subjectId === "string"
+    && typeof record.syllabusNodeId === "string"
+    && Array.isArray(record.relatedSyllabusNodeIds)
+    && record.relatedSyllabusNodeIds.every((id) => typeof id === "string")
+    && typeof record.planMilestoneId === "string"
+    && typeof record.title === "string"
+    && typeof record.type === "string"
+    && ["low", "medium", "high", "critical"].includes(record.priority ?? "")
+    && typeof record.plannedDate === "string"
+    && typeof record.estimatedMinutes === "number"
+    && typeof record.reviewText === "string";
+}
+
+function saveTaskDraft(key: string, baseline: TaskUpdateSnapshotDto, values: TaskEditValues): void {
+  savePrivateBusinessDraft<TaskEditDraft>(key, {
+    expectedStatus: baseline.status,
+    expectedUpdatedAt: baseline.updatedAt,
+    values,
+  });
+}
+
+function isTaskUpdateSnapshot(value: unknown): value is TaskUpdateSnapshotDto {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Partial<TaskUpdateSnapshotDto>;
+  return typeof record.id === "string"
+    && typeof record.subjectId === "string"
+    && (record.syllabusNodeId === null || typeof record.syllabusNodeId === "string")
+    && Array.isArray(record.relatedSyllabusNodeIds)
+    && (record.planMilestoneId === null || typeof record.planMilestoneId === "string")
+    && typeof record.title === "string"
+    && typeof record.updatedAt === "string";
+}

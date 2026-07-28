@@ -48,6 +48,10 @@ try {
   await resetFixture();
   await verifyHappyPathUpload();
   await resetFixture();
+  await verifyPersistentUploadIdempotency();
+  await resetFixture();
+  await verifyArchivedNoteWriteGate();
+  await resetFixture();
   await verifyStorageIdentityConflict();
   await resetFixture();
   await verifyStagingFailureCompensation();
@@ -182,7 +186,7 @@ async function verifyRepeatAndDuplicatePreimage(): Promise<void> {
 async function verifyHappyPathUpload(): Promise<void> {
   const { noteId, actorId } = await createNoteFixture();
   const scan = await scanFixtureUpload(pngFile(4096));
-  const dto = await createNoteAttachment({ noteId, scan }, actorId);
+  const dto = await createNoteAttachment({ noteId, scan, idempotencyKey: randomUUID() }, actorId);
 
   const row = await prisma.attachment.findUniqueOrThrow({ where: { id: dto.id } });
   const stagingEntries = await listStagingEntries();
@@ -207,15 +211,150 @@ async function verifyHappyPathUpload(): Promise<void> {
   });
 }
 
+async function verifyPersistentUploadIdempotency(): Promise<void> {
+  const { noteId, actorId } = await createNoteFixture();
+  const key = `ops007-note-upload-${randomUUID()}`;
+  const scan = await scanFixtureUpload(pngFile(1536));
+  const first = await createNoteAttachment({ noteId, scan, idempotencyKey: key }, actorId);
+  const replay = await createNoteAttachment({ noteId, scan, idempotencyKey: key }, actorId);
+  if (replay.id !== first.id || await prisma.attachment.count() !== 1 || await countUploadFiles() !== 1) {
+    throw new Error("note attachment replay must return the original READY attachment without a second file");
+  }
+
+  const changedScan = await scanFixtureUpload(pngFile(1537));
+  const mismatchRejected = await expectApiError(
+    () => createNoteAttachment({
+      noteId,
+      scan: changedScan,
+      idempotencyKey: key,
+    }, actorId),
+    "NOTE_ATTACHMENT_UPLOAD_CONFLICT",
+  );
+  if (!mismatchRejected || await prisma.attachment.count() !== 1) {
+    throw new Error("same note attachment key with changed file bytes must fail before file write");
+  }
+
+  const concurrentKey = `ops007-note-upload-concurrent-${randomUUID()}`;
+  const concurrentScan = await scanFixtureUpload(pngFile(2049));
+  const concurrent = await Promise.allSettled([
+    createNoteAttachment({ noteId, scan: concurrentScan, idempotencyKey: concurrentKey }, actorId),
+    createNoteAttachment({ noteId, scan: concurrentScan, idempotencyKey: concurrentKey }, actorId),
+  ]);
+  const fulfilled = concurrent.filter((result) => result.status === "fulfilled");
+  const rejected = concurrent.filter((result) => result.status === "rejected");
+  const pendingCode = rejected[0]?.status === "rejected" && rejected[0].reason instanceof ApiError
+    ? rejected[0].reason.code
+    : "";
+  if (fulfilled.length !== 1 || rejected.length !== 1 || pendingCode !== "NOTE_ATTACHMENT_UPLOAD_IN_PROGRESS") {
+    throw new Error("concurrent note attachment submissions must allow one write and fail closed on the in-flight duplicate");
+  }
+  const concurrentReplay = await createNoteAttachment({ noteId, scan: concurrentScan, idempotencyKey: concurrentKey }, actorId);
+  if (fulfilled[0]?.status !== "fulfilled" || concurrentReplay.id !== fulfilled[0].value.id) {
+    throw new Error("completed concurrent note attachment command must replay its original DTO");
+  }
+  checks.push({
+    id: "upload.persistent_command_idempotency",
+    status: "pass",
+    details: {
+      replayReturnedOriginal: true,
+      payloadMismatchRejectedBeforeWrite: true,
+      concurrentDuplicateFailedClosed: true,
+      completedSnapshotReplayed: true,
+    },
+  });
+}
+
+async function verifyArchivedNoteWriteGate(): Promise<void> {
+  const archivedBeforeUpload = await createNoteFixture("MATH");
+  await prisma.note.update({
+    where: { id: archivedBeforeUpload.noteId },
+    data: { archivedAt: new Date(), revision: { increment: 1 } },
+  });
+  const rejected = await captureApiError(async () => createNoteAttachment({
+    noteId: archivedBeforeUpload.noteId,
+    scan: await scanFixtureUpload(pngFile(1024)),
+    idempotencyKey: `ops007-archived-${randomUUID()}`,
+  }, archivedBeforeUpload.actorId));
+  if (
+    rejected?.code !== "NOTE_ARCHIVED"
+    || rejected.status !== 409
+    || rejected.details?.conflictFields?.[0] !== "archivedAt"
+    || await prisma.attachment.count({ where: { noteId: archivedBeforeUpload.noteId } }) !== 0
+    || await countUploadFiles() !== 0
+  ) {
+    throw new Error("an already archived note must reject attachment upload before intent or file write");
+  }
+
+  const replayTarget = await createNoteFixture("ENGLISH");
+  const replayKey = `ops007-archived-replay-${randomUUID()}`;
+  const replayScan = await scanFixtureUpload(pngFile(1536));
+  const first = await createNoteAttachment({
+    noteId: replayTarget.noteId,
+    scan: replayScan,
+    idempotencyKey: replayKey,
+  }, replayTarget.actorId);
+  await prisma.note.update({
+    where: { id: replayTarget.noteId },
+    data: { archivedAt: new Date(), revision: { increment: 1 } },
+  });
+  const replay = await createNoteAttachment({
+    noteId: replayTarget.noteId,
+    scan: replayScan,
+    idempotencyKey: replayKey,
+  }, replayTarget.actorId);
+  if (replay.id !== first.id || await prisma.attachment.count({ where: { noteId: replayTarget.noteId } }) !== 1) {
+    throw new Error("a completed attachment command must remain replayable after the note is archived");
+  }
+
+  const racingTarget = await createNoteFixture("POLITICS");
+  const raced = await captureApiError(async () => createNoteAttachment({
+    noteId: racingTarget.noteId,
+    scan: await scanFixtureUpload(pngFile(2048)),
+    idempotencyKey: `ops007-archive-race-${randomUUID()}`,
+  }, racingTarget.actorId, {
+    beforeReadyCas: async () => {
+      await prisma.note.update({
+        where: { id: racingTarget.noteId },
+        data: { archivedAt: new Date(), revision: { increment: 1 } },
+      });
+    },
+  }));
+  const failed = await prisma.attachment.findFirstOrThrow({ where: { noteId: racingTarget.noteId } });
+  const downloadRejected = await expectApiError(
+    () => getAttachmentDownload(failed.id, "attachment", racingTarget.actorId),
+    "ATTACHMENT_NOT_READY",
+  );
+  if (
+    raced?.code !== "NOTE_ARCHIVED"
+    || failed.status !== "FAILED"
+    || failed.failureCode !== "NOTE_ARCHIVED"
+    || failed.failurePhase !== "ready_cas"
+    || !downloadRejected
+  ) {
+    throw new Error("archive racing the READY CAS must leave a non-downloadable FAILED attachment intent");
+  }
+
+  checks.push({
+    id: "upload.archived_note_write_gate",
+    status: "pass",
+    details: {
+      archivedRejectedBeforeIntent: true,
+      completedReplayPreserved: true,
+      readyCasRaceFailedClosed: true,
+      failedIntentDownloadBlocked: true,
+    },
+  });
+}
+
 async function verifyStorageIdentityConflict(): Promise<void> {
   const { noteId, actorId } = await createNoteFixture();
   const fixedId = randomUUID().replaceAll("-", "");
-  const first = await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(1024)) }, actorId, { storageId: () => fixedId });
+  const first = await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(1024)), idempotencyKey: randomUUID() }, actorId, { storageId: () => fixedId });
 
   const filesBefore = await countUploadFiles();
   let conflictCode = "";
   try {
-    await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(2048)) }, actorId, { storageId: () => fixedId });
+    await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(2048)), idempotencyKey: randomUUID() }, actorId, { storageId: () => fixedId });
   } catch (error) {
     conflictCode = error instanceof ApiError ? error.code : "";
   }
@@ -241,7 +380,7 @@ async function verifyStagingFailureCompensation(): Promise<void> {
   };
   let failureCode = "";
   try {
-    await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(1024)) }, actorId, hooks);
+    await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(1024)), idempotencyKey: randomUUID() }, actorId, hooks);
   } catch (error) {
     failureCode = error instanceof ApiError ? error.code : "";
   }
@@ -274,7 +413,7 @@ async function verifyCompensationFailureAuditable(): Promise<void> {
     },
   };
   try {
-    await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(1024)) }, actorId, hooks);
+    await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(1024)), idempotencyKey: randomUUID() }, actorId, hooks);
   } catch {
     // 预期失败。
   }
@@ -307,7 +446,7 @@ async function verifyReadyCasConflictPreservesFinal(): Promise<void> {
   };
   let conflictCode = "";
   try {
-    await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(1024)) }, actorId, hooks);
+    await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(1024)), idempotencyKey: randomUUID() }, actorId, hooks);
   } catch (error) {
     conflictCode = error instanceof ApiError ? error.code : "";
   }
@@ -455,7 +594,7 @@ async function verifyClaimLeaseCas(): Promise<void> {
 
 async function verifyDownloadGate(): Promise<void> {
   const { noteId, actorId } = await createNoteFixture();
-  const ready = await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(2048)) }, actorId);
+  const ready = await createNoteAttachment({ noteId, scan: await scanFixtureUpload(pngFile(2048)), idempotencyKey: randomUUID() }, actorId);
   const readyRow = await prisma.attachment.findUniqueOrThrow({ where: { id: ready.id } });
 
   // PENDING / FAILED 拒绝。
@@ -563,7 +702,9 @@ async function createPendingRow(
   return row;
 }
 
-async function createNoteFixture(): Promise<{ noteId: string; actorId: string }> {
+async function createNoteFixture(
+  legacyCode: "MATH" | "ENGLISH" | "POLITICS" = "MATH",
+): Promise<{ noteId: string; actorId: string }> {
   const user = await prisma.user.create({
     data: { email: `ops007-${randomUUID().slice(0, 12)}@example.invalid`, passwordHash: "fixture" },
   });
@@ -578,7 +719,7 @@ async function createNoteFixture(): Promise<{ noteId: string; actorId: string }>
   const subject = await prisma.subject.create({
     data: {
       workspaceId: workspace.id,
-      legacyCode: "MATH",
+      legacyCode,
       stableKey: `math-${randomUUID().slice(0, 8)}`,
       name: "OPS-007 fixture",
       color: "#111111",
@@ -634,6 +775,15 @@ async function expectApiError(run: () => Promise<unknown>, code: string): Promis
     return false;
   } catch (error) {
     return error instanceof ApiError && error.code === code;
+  }
+}
+
+async function captureApiError(run: () => Promise<unknown>): Promise<ApiError | null> {
+  try {
+    await run();
+    return null;
+  } catch (error) {
+    return error instanceof ApiError ? error : null;
   }
 }
 

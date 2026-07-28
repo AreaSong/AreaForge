@@ -5,6 +5,7 @@ import {
   getPeriodicReportDecisionContext,
   serializePeriodicReportDecision,
   type PeriodicReportDecisionDto,
+  type PeriodicReportDto,
   type PeriodicReportKind,
 } from "./reports-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
@@ -12,6 +13,15 @@ import { createPlanInboxItemWithResult, type PlanInboxWriteResult } from "./plan
 import type { PlanInboxWriteSummaryDto } from "./types";
 
 type ReportDecisionClient = PrismaClient | Prisma.TransactionClient;
+
+const reportWorkbench = "/review/reports";
+
+export interface ReportDecisionConflictLatest {
+  kind: "periodic-report-decision";
+  report: PeriodicReportDto;
+  decision: PeriodicReportDecisionDto | null;
+  sourceConflict?: unknown;
+}
 
 export type PeriodicReportDecisionAction = "confirm" | "reject";
 
@@ -40,11 +50,12 @@ export async function decidePeriodicReport(
   now = new Date(),
 ): Promise<PeriodicReportDecisionDto> {
   const report = await getPeriodicReport(input.kind, now, actorId);
-  assertCurrentReportRange(input, report.range);
+  assertCurrentReportRange(input, report);
   if (input.expectedRevision !== report.revision) {
     throw new ApiError("PERIODIC_REPORT_REVISION_CONFLICT", 409, {
-      latest: { id: report.id, revision: report.revision, range: report.range },
+      latest: reportConflictLatest(report),
       conflictFields: ["revision"],
+      workbench: reportWorkbench,
     });
   }
   const workspace = await resolveActiveWorkspace(actorId);
@@ -72,7 +83,11 @@ export async function decidePeriodicReport(
           inboxResult: emptyInboxResult(),
         };
       }
-      throw new ApiError("PERIODIC_REPORT_DECISION_CONFLICT", 409);
+      throw new ApiError("PERIODIC_REPORT_DECISION_CONFLICT", 409, {
+        latest: reportConflictLatest(report, serializePeriodicReportDecision(existing)),
+        conflictFields: ["decision.status"],
+        workbench: reportWorkbench,
+      });
     }
 
     const created = await tx.periodicReportDecision.create({
@@ -166,20 +181,29 @@ export async function decidePeriodicReport(
       inboxResult: summarizeInboxWrites(inboxWrites),
     };
   }).catch(async (error: unknown) => {
-    if (!isUniqueViolation(error)) throw error;
-    const existing = await prisma.periodicReportDecision.findFirst({
-      where: {
-        kind: report.kind,
-        rangeStart: new Date(report.range.start),
-        rangeEnd: new Date(report.range.end),
-        workspaceId: workspace.id,
-      },
-    });
-    if (!existing || existing.status !== status) {
-      throw new ApiError("PERIODIC_REPORT_DECISION_CONFLICT", 409);
+    if (isUniqueViolation(error)) {
+      const existing = await prisma.periodicReportDecision.findFirst({
+        where: {
+          kind: report.kind,
+          rangeStart: new Date(report.range.start),
+          rangeEnd: new Date(report.range.end),
+          workspaceId: workspace.id,
+        },
+      });
+      if (!existing || existing.status !== status) {
+        throw new ApiError("PERIODIC_REPORT_DECISION_CONFLICT", 409, {
+          latest: reportConflictLatest(report, existing ? serializePeriodicReportDecision(existing) : report.decision),
+          conflictFields: ["decision.status"],
+          workbench: reportWorkbench,
+        });
+      }
+      const stageDraft = await prisma.stageAdjustmentDraft.findFirst({ where: { sourceReportDecisionId: existing.id, workspaceId: workspace.id }, select: { id: true } });
+      return { decision: existing, alreadyDecided: true, stageDraftId: stageDraft?.id ?? null, inboxResult: emptyInboxResult() };
     }
-    const stageDraft = await prisma.stageAdjustmentDraft.findFirst({ where: { sourceReportDecisionId: existing.id, workspaceId: workspace.id }, select: { id: true } });
-    return { decision: existing, alreadyDecided: true, stageDraftId: stageDraft?.id ?? null, inboxResult: emptyInboxResult() };
+    if (error instanceof ApiError && error.status === 409) {
+      throw enrichReportConflict(error, report);
+    }
+    throw error;
   });
 
   return {
@@ -221,14 +245,47 @@ export async function getPeriodicReportDecision(id: string, actorId: string): Pr
 
 function assertCurrentReportRange(
   input: DecidePeriodicReportInput,
-  range: { start: string; end: string },
+  report: PeriodicReportDto,
 ): void {
   if (
-    new Date(input.rangeStart).getTime() !== new Date(range.start).getTime() ||
-    new Date(input.rangeEnd).getTime() !== new Date(range.end).getTime()
+    new Date(input.rangeStart).getTime() !== new Date(report.range.start).getTime() ||
+    new Date(input.rangeEnd).getTime() !== new Date(report.range.end).getTime()
   ) {
-    throw new ApiError("PERIODIC_REPORT_RANGE_STALE", 409);
+    throw new ApiError("PERIODIC_REPORT_RANGE_STALE", 409, {
+      latest: reportConflictLatest(report),
+      conflictFields: ["range.start", "range.end"],
+      workbench: reportWorkbench,
+    });
   }
+}
+
+function reportConflictLatest(
+  report: PeriodicReportDto,
+  decision: PeriodicReportDecisionDto | null = report.decision,
+  sourceConflict?: unknown,
+): ReportDecisionConflictLatest {
+  return {
+    kind: "periodic-report-decision",
+    report,
+    decision,
+    ...(sourceConflict === undefined ? {} : { sourceConflict }),
+  };
+}
+
+function enrichReportConflict(error: ApiError, report: PeriodicReportDto): ApiError {
+  const latest = isReportDecisionConflictLatest(error.details?.latest)
+    ? error.details.latest
+    : reportConflictLatest(report, report.decision, error.details?.latest);
+  return new ApiError(error.code, 409, {
+    latest,
+    conflictFields: error.details?.conflictFields?.length ? error.details.conflictFields : ["decision"],
+    workbench: reportWorkbench,
+  });
+}
+
+function isReportDecisionConflictLatest(value: unknown): value is ReportDecisionConflictLatest {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value)
+    && (value as { kind?: unknown }).kind === "periodic-report-decision");
 }
 
 async function audit(

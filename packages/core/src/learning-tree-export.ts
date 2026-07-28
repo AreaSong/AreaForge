@@ -5,6 +5,8 @@ export interface LearningTreeExportNode {
   title: string;
   depth: number;
   archived?: boolean;
+  sortOrder?: number;
+  status?: string;
   children?: LearningTreeExportNode[];
 }
 
@@ -55,6 +57,7 @@ export interface LearningTreeExportInput {
   workspaceKey: string;
   subjectKey?: string;
   rootNodeKey?: string;
+  rootParentNodeKey?: string;
   groups?: LearningTreeExportGroup[];
   subjects: LearningTreeExportSubject[];
 }
@@ -66,6 +69,7 @@ export function exportLearningTreeMarkdown(input: LearningTreeExportInput): stri
   lines.push(`workspaceKey: ${input.workspaceKey}`);
   if (input.subjectKey) lines.push(`subjectKey: ${input.subjectKey}`);
   if (input.rootNodeKey) lines.push(`rootNodeKey: ${input.rootNodeKey}`);
+  if (input.rootParentNodeKey) lines.push(`rootParentNodeKey: ${input.rootParentNodeKey}`);
   lines.push("---", "");
 
   if (input.scope === "global") {
@@ -130,6 +134,8 @@ function writeNode(lines: string[], node: LearningTreeExportNode): void {
   lines.push(`${"#".repeat(node.depth)} ${node.title}`);
   const attrs = [`#${node.stableKey}`];
   if (node.archived) attrs.push('archived="true"');
+  if (node.sortOrder !== undefined) attrs.push(`sortOrder="${node.sortOrder}"`);
+  if (node.status) attrs.push(`status="${escapeAttr(node.status)}"`);
   lines.push(`::af-node{${attrs.join(" ")}}`, "");
   for (const child of node.children ?? []) {
     writeNode(lines, child);

@@ -6,11 +6,10 @@ import { convertPlanInboxItem } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";
 
-const bodySchema = z.object({
+export const planInboxConvertSchema = z.object({
   expectedRevision: z.number().int().positive(),
-  reviewScheduleId: z.string().min(1).nullable().optional(),
-  idempotencyKey: z.string().min(8).max(200).optional(),
-});
+  idempotencyKey: z.string().trim().min(8).max(200),
+}).strict();
 
 export async function POST(
   request: NextRequest,
@@ -19,7 +18,7 @@ export async function POST(
   try {
     const user = await requireApiUser(request);
     const { id } = await context.params;
-    const parsed = bodySchema.safeParse(await readJson(request));
+    const parsed = planInboxConvertSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
     return NextResponse.json({
       item: await convertPlanInboxItem(user.id, id, parsed.data),

@@ -7,11 +7,20 @@ import {
   type StageAdjustmentAdvice,
   type StageAdjustmentContext,
 } from "@areaforge/ai";
-import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
+import { prisma, type Prisma } from "@areaforge/db";
 import { getAnalyticsSummary } from "./analytics-service";
 import { resolveConfiguredAiProvider } from "./ai-service";
 import { ApiError } from "@/lib/api/responses";
 import { daysUntil } from "./date";
+import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import {
+  buildPersistentCreateFingerprint,
+  claimPersistentCreateCommand,
+  completePersistentCreateClaim,
+  normalizeIdempotencyKey,
+  type PersistentCreateCommand,
+  type PersistentCreateReplay,
+} from "./persistent-idempotency";
 import { createStageAdjustmentDraft, type CreateStageAdjustmentDraftInput } from "./stage-service";
 import type { StageAdjustmentDraftRecordDto } from "./types";
 
@@ -20,7 +29,10 @@ const stageGoalSummaryMaxLength = 120;
 const staleEvidenceDays = 30;
 const dayMs = 24 * 60 * 60 * 1000;
 
-type StageAiDbClient = PrismaClient | Prisma.TransactionClient;
+type ScopedStageAdjustmentContext = StageAdjustmentContext & {
+  workspaceId: string;
+  stagePlanId: string;
+};
 
 export interface CreateAiStageAdjustmentDraftOptions {
   allowExternalProvider?: boolean;
@@ -46,6 +58,29 @@ export async function createAiStageAdjustmentDraft(
 ): Promise<AiStageAdjustmentDraftResult> {
   const now = options.now ?? new Date();
   const context = await minimizedLongTermStageContext(input, actorId, now);
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const command: PersistentCreateCommand = {
+    actorId,
+    workspaceId: context.workspaceId,
+    action: "AI_STAGE_ADJUSTMENT_DRAFT_CREATED",
+    entityType: "StageAdjustmentDraft",
+    idempotencyKey,
+    requestFingerprint: buildPersistentCreateFingerprint("ai-stage-adjustment-draft-create-v1", {
+      stagePlanId: input.stagePlanId ?? null,
+    }),
+    conflictCode: "AI_STAGE_ADJUSTMENT_DRAFT_IDEMPOTENCY_CONFLICT",
+  };
+  const claim = await prisma.$transaction((tx) => claimPersistentCreateCommand(tx, command));
+  if (claim.state === "pending") {
+    throw new ApiError("AI_STAGE_ADJUSTMENT_DRAFT_IN_PROGRESS", 409, {
+      latest: { state: "pending" },
+      conflictFields: ["idempotencyKey"],
+    });
+  }
+  if (claim.state === "replayed") {
+    return replayAiStageAdjustmentDraft(claim.replay, context.workspaceId);
+  }
+
   const provider = resolveConfiguredAiProvider("stage_adjustment", {
     allowExternalProvider: options.allowExternalProvider,
     provider: options.provider,
@@ -59,48 +94,48 @@ export async function createAiStageAdjustmentDraft(
     fallback: createFallbackStageAdjustmentAdvice,
     validate: validateStageAdjustmentAdvice,
   });
-
-  if (result.meta.status !== "ai_generated") {
-    return fallbackToLocalRule(input, actorId, result.meta.status, result.meta.reason, now, result.meta.externalCall);
-  }
-
-  const draft = await persistAiStageAdjustmentDraft({
+  const ai = {
+    status: result.meta.status,
+    externalCall: result.meta.externalCall,
+    fallbackToLocalRule: result.meta.status !== "ai_generated",
+    reason: result.meta.reason,
+  };
+  const draft = await persistClaimedAiStageAdjustmentDraft({
     advice: result.advice,
     context,
     actorId,
     externalCall: result.meta.externalCall,
+    source: result.meta.status === "ai_generated" ? "ai" : "local_rule",
+    command,
+    claimEventId: claim.claimEventId,
+    ai,
   });
 
-  return {
-    draft,
-    ai: {
-      status: result.meta.status,
-      externalCall: result.meta.externalCall,
-      fallbackToLocalRule: false,
-      reason: result.meta.reason,
-    },
-  };
+  return { draft, ai };
 }
 
 export async function minimizedLongTermStageContext(
   input: CreateStageAdjustmentDraftInput,
   actorId: string,
   now = new Date(),
-): Promise<StageAdjustmentContext & { stagePlanId: string | null }> {
+): Promise<ScopedStageAdjustmentContext> {
+  const workspace = await resolveActiveWorkspace(actorId);
   const [analytics, stagePlan, latestExam, weakNodeSummary] = await Promise.all([
     getAnalyticsSummary(now, actorId),
-    resolveStagePlan(input.stagePlanId),
-    getLatestSimulationSummary(),
-    summarizeWeakNodes(now),
+    resolveStagePlan(input.stagePlanId, workspace.id),
+    getLatestSimulationSummary(workspace.id),
+    summarizeWeakNodes(now, workspace.id),
   ]);
+  if (!stagePlan) throw new ApiError("STAGE_PLAN_REQUIRED", 400);
 
   return {
     rangeKind: "week",
     rangeStart: analytics.range.start,
     rangeEnd: analytics.range.end,
     rangeDays: analytics.range.days,
-    stagePlanId: stagePlan?.id ?? null,
-    stageGoalSummary: summarizeStageGoal(stagePlan?.goal ?? defaultStageGoal),
+    workspaceId: workspace.id,
+    stagePlanId: stagePlan.id,
+    stageGoalSummary: summarizeStageGoal(stagePlan.goal ?? defaultStageGoal),
     effectiveMinutes: analytics.totals.weekEffectiveMinutes,
     taskCompletionRate: analytics.totals.weeklyTaskCompletionRate,
     reviewCompletionRate: analytics.totals.reviewCompletionRate,
@@ -112,9 +147,9 @@ export async function minimizedLongTermStageContext(
     })),
     weakNodeSummary,
     simulationSummary: latestExam,
-    stagePlanMode: stagePlan?.mode,
-    stagePlanStatus: stagePlan?.status,
-    daysToStageEnd: stagePlan ? daysUntil(stagePlan.endDate, now) : null,
+    stagePlanMode: stagePlan.mode,
+    stagePlanStatus: stagePlan.status,
+    daysToStageEnd: daysUntil(stagePlan.endDate, now),
     riskTags: createRiskTags(analytics, latestExam, stagePlan, now),
   };
 }
@@ -140,17 +175,36 @@ export async function fallbackToLocalRule(
   };
 }
 
-async function persistAiStageAdjustmentDraft(input: {
+async function persistClaimedAiStageAdjustmentDraft(input: {
   advice: StageAdjustmentAdvice;
-  context: StageAdjustmentContext & { stagePlanId: string | null };
+  context: ScopedStageAdjustmentContext;
   actorId: string;
   externalCall: boolean;
+  source: "ai" | "local_rule";
+  command: PersistentCreateCommand;
+  claimEventId: string;
+  ai: AiStageAdjustmentDraftResult["ai"];
 }): Promise<StageAdjustmentDraftRecordDto> {
   const draft = await prisma.$transaction(async (tx) => {
+    const activeWorkspace = await lockActiveWorkspaceForWrite(tx, input.actorId);
+    if (activeWorkspace.id !== input.context.workspaceId) {
+      throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409);
+    }
+    const stagePlan = await tx.stagePlan.findFirst({
+      where: {
+        id: input.context.stagePlanId,
+        workspaceId: activeWorkspace.id,
+        status: { in: ["active", "draft"] },
+      },
+      select: { id: true },
+    });
+    if (!stagePlan) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
+
     const created = await tx.stageAdjustmentDraft.create({
       data: {
-        stagePlanId: input.context.stagePlanId,
-        source: "ai",
+        workspaceId: activeWorkspace.id,
+        stagePlanId: stagePlan.id,
+        source: input.source,
         mode: input.advice.mode,
         risk: input.advice.risk,
         riskConclusion: input.advice.riskConclusion,
@@ -165,7 +219,7 @@ async function persistAiStageAdjustmentDraft(input: {
       },
     });
 
-    await audit(tx, input.actorId, "AI_STAGE_ADJUSTMENT_DRAFT_CREATED", "StageAdjustmentDraft", created.id, {
+    await completePersistentCreateClaim(tx, input.command, input.claimEventId, created.id, {
       source: created.source,
       stagePlanId: created.stagePlanId,
       aiStatus: input.advice.status,
@@ -184,7 +238,7 @@ async function persistAiStageAdjustmentDraft(input: {
         hasSimulationSummary: Boolean(input.context.simulationSummary),
         riskTags: input.context.riskTags,
       },
-    });
+    }, { ai: input.ai });
 
     return created;
   });
@@ -192,7 +246,42 @@ async function persistAiStageAdjustmentDraft(input: {
   return serializeStageAdjustmentDraft(draft);
 }
 
-async function resolveStagePlan(stagePlanId?: string | null): Promise<{
+async function replayAiStageAdjustmentDraft(
+  replay: PersistentCreateReplay,
+  workspaceId: string,
+): Promise<AiStageAdjustmentDraftResult> {
+  const draft = await prisma.stageAdjustmentDraft.findFirst({
+    where: { id: replay.resultId, workspaceId },
+  });
+  if (!draft) throw new ApiError("AI_STAGE_ADJUSTMENT_DRAFT_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
+  const snapshot = asRecord(replay.resultSnapshot);
+  const ai = asRecord(snapshot.ai);
+  if (
+    typeof ai.status !== "string" ||
+    typeof ai.externalCall !== "boolean" ||
+    typeof ai.fallbackToLocalRule !== "boolean" ||
+    typeof ai.reason !== "string"
+  ) {
+    throw new ApiError("AI_STAGE_ADJUSTMENT_DRAFT_IDEMPOTENCY_SNAPSHOT_UNAVAILABLE", 409);
+  }
+  return {
+    draft: serializeStageAdjustmentDraft(draft),
+    ai: {
+      status: ai.status as AiAdviceStatus,
+      externalCall: ai.externalCall,
+      fallbackToLocalRule: ai.fallbackToLocalRule,
+      reason: ai.reason,
+    },
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+async function resolveStagePlan(stagePlanId: string | null | undefined, workspaceId: string): Promise<{
   id: string;
   goal: string;
   mode: StageAdjustmentContext["stagePlanMode"];
@@ -200,8 +289,8 @@ async function resolveStagePlan(stagePlanId?: string | null): Promise<{
   endDate: Date;
 } | null> {
   if (stagePlanId) {
-    const plan = await prisma.stagePlan.findUnique({
-      where: { id: stagePlanId },
+    const plan = await prisma.stagePlan.findFirst({
+      where: { id: stagePlanId, workspaceId },
       select: { id: true, goal: true, mode: true, status: true, endDate: true },
     });
     if (!plan) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
@@ -209,7 +298,7 @@ async function resolveStagePlan(stagePlanId?: string | null): Promise<{
   }
 
   const plan = await prisma.stagePlan.findFirst({
-    where: { status: { in: ["active", "draft"] } },
+    where: { workspaceId, status: { in: ["active", "draft"] } },
     orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
     select: { id: true, goal: true, mode: true, status: true, endDate: true },
   });
@@ -239,9 +328,10 @@ function normalizeStagePlan(plan: {
   };
 }
 
-async function getLatestSimulationSummary(): Promise<StageAdjustmentContext["simulationSummary"]> {
+async function getLatestSimulationSummary(workspaceId: string): Promise<StageAdjustmentContext["simulationSummary"]> {
   const exam = await prisma.simulationExam.findFirst({
     where: {
+      workspaceId,
       OR: [
         { actualScore: { not: null } },
         { actualDurationMinutes: { not: null } },
@@ -271,10 +361,13 @@ async function getLatestSimulationSummary(): Promise<StageAdjustmentContext["sim
   };
 }
 
-async function summarizeWeakNodes(now: Date): Promise<StageAdjustmentContext["weakNodeSummary"]> {
+async function summarizeWeakNodes(now: Date, workspaceId: string): Promise<StageAdjustmentContext["weakNodeSummary"]> {
   const staleBefore = new Date(now.getTime() - staleEvidenceDays * dayMs);
   const nodes = await prisma.syllabusNode.findMany({
-    where: { status: { in: ["WEAK", "NEEDS_REVIEW"] } },
+    where: {
+      status: { in: ["WEAK", "NEEDS_REVIEW"] },
+      subject: { workspaceId },
+    },
     select: {
       status: true,
       updatedAt: true,
@@ -380,23 +473,4 @@ function serializeStageAdjustmentDraft(draft: {
 
 function parseStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
-async function audit(
-  client: StageAiDbClient,
-  actorId: string,
-  action: string,
-  entityType: string,
-  entityId: string,
-  metadata: Prisma.InputJsonObject,
-): Promise<void> {
-  await client.auditEvent.create({
-    data: {
-      actorId,
-      action,
-      entityType,
-      entityId,
-      metadata,
-    },
-  });
 }

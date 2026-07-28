@@ -7,16 +7,21 @@ execute deployment, backup, restore, Docker, or migration commands.
 Current remote production state:
 
 - Public URL: `https://forge.areasong.top/`
-- Current app version: `0.1.7`
-- Verified release: `v0.1.7`
-- Web image digest: `ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
-- Migration image digest: `ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`
+- Current app version: `0.1.9`
+- Verified production release: `v0.1.9` at commit `749692ba719d801f14186a94af97b96350380141`
+- Web image digest: `ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d`
+- Migration image digest: `ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab`
+- Update record: `/opt/areaforge/backups/github-release-updates/github-0.1.9-20260721050738/update-record.txt`
+- Protected historical rollback: `v0.1.7` at Web digest `sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
 - Signature policy: `AREAFORGE_REQUIRE_SIGNATURE=true`
 - Auto-apply policy: `AREAFORGE_AUTO_APPLY=none`
 
 The detailed release evidence is tracked in
-`docs/development/release-v0.1.7-record.md`; the earlier `v0.1.5`
-evidence remains in `docs/development/package-e-remote-github-release-record.md`.
+`docs/development/release-v0.1.9-record.md`. The `v0.1.7` record is retained as
+protected historical rollback evidence, and the earlier `v0.1.5` evidence
+remains in `docs/development/package-e-remote-github-release-record.md`.
+The repository checkout is an unreleased `1.1.0` release candidate; it does not
+mean that a `v1.1.0` Release or production apply exists.
 
 Repository releases now run the `.github/workflows/release.yml` validate job
 before any image build/push. Stable releases fail closed if cosign signing key
@@ -24,9 +29,10 @@ secrets are missing; unsigned placeholder assets are only allowed for preview
 channel experiments and are not production trust evidence. New releases also
 publish `areaforge-sbom.spdx.json` and `areaforge-provenance.json`; the updater
 downloads both assets, verifies their `SHA256SUMS` entries, and stores them with
-the update record. The current `v0.1.7` production release includes those
-assets; `AF-RISK-SC-001` still stays open until the maintainer performs an
-explicit residual-ledger review.
+the update record. The current `v0.1.9` production release includes those
+assets. `AF-RISK-SC-001` is `closed-evidence` for that release after strict
+validation and explicit residual-ledger review; a new Release or signing-policy
+change requires fresh evidence and may reopen it.
 
 The updater supports three modes:
 
@@ -45,7 +51,7 @@ The current remote release was applied with:
 
 ```bash
 sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh \
-  apply --yes --tag v0.1.7 --config /etc/areaforge/updater.env
+  apply --yes --tag v0.1.9 --config /etc/areaforge/updater.env
 ```
 
 Typical timer setup:
@@ -77,7 +83,7 @@ run:
 
 ```bash
 AREAFORGE_READINESS_BASE_URL=https://forge.areasong.top \
-AREAFORGE_READINESS_EXPECTED_VERSION=0.1.7 \
+AREAFORGE_READINESS_EXPECTED_VERSION=0.1.9 \
 pnpm ops:readiness:summary
 ```
 
@@ -95,7 +101,7 @@ AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
 AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
 AREAFORGE_SMOKE_EMAIL=admin@example.com
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
-AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.7
+AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.9
 AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 ```
 
@@ -109,9 +115,11 @@ requests into the ops-state directory. The server-side update agent consumes
 those requests and invokes this updater; the Web runtime still does not execute
 server commands directly.
 
-For an OPS-001 review, a root operator can export redacted evidence without
+When a production version change, stale evidence, or validation failure requires
+a fresh OPS-001 review, a root operator can export redacted evidence without
 running updater apply, migrations, backups, restores, rollbacks, or production
-writes:
+writes. The existing `v0.1.9` closeout should not be recollected without such a
+trigger:
 
 ```bash
 sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
@@ -171,7 +179,7 @@ no-secret release evidence exporter instead:
 
 ```bash
 sudo /opt/areaforge/ops/update-agent/areaforge-release-evidence-redacted-export.sh \
-  --update-record /opt/areaforge/backups/github-release-updates/github-0.1.7-20260712112325/update-record.txt \
+  --update-record /opt/areaforge/backups/github-release-updates/github-0.1.9-20260721050738/update-record.txt \
   --status /opt/areaforge/ops-state/status.json \
   --output-dir /tmp/areaforge-release-evidence-redacted-$(date -u +%Y%m%d%H%M%S)
 ```

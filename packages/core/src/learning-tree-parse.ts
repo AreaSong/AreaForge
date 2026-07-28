@@ -115,6 +115,15 @@ const NOTE_KINDS = new Set<LearningTreeNoteKind>([
   "JOURNAL",
   "SUMMARY",
 ]);
+const SYLLABUS_STATUSES = new Set([
+  "NOT_STARTED",
+  "LEARNING",
+  "COVERED",
+  "NEEDS_REVIEW",
+  "MASTERED",
+  "WEAK",
+  "DEFERRED",
+]);
 
 const ALLOWED_LEAF = new Set(["af-group", "af-subject", "af-node", "af-resource", "af-plan"]);
 const ALLOWED_CONTAINER = new Set(["af-card"]);
@@ -160,6 +169,7 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
   let currentSubjectKey: string | null =
     frontmatter.scope === "global" ? null : (frontmatter.subjectKey ?? null);
   const nodeStack: Array<{ depth: number; stableKey: string; title: string }> = [];
+  const consumedNodeDirectiveIndexes = new Set<number>();
   let objectCount = 0;
   let generatedSeq = 0;
 
@@ -207,11 +217,27 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
       let status: string | undefined;
       const next = tree.children[index + 1];
       if (next && isLeafDirective(next) && directiveName(next) === "af-node") {
+        consumedNodeDirectiveIndexes.add(index + 1);
         const attrs = directiveAttributes(next);
+        validateDirectiveAttributes(attrs, ["id", "stableKey", "archived", "sortOrder", "status"], "af-node", errors, next.position?.start.line);
         explicitKey = attrs.id || attrs.stableKey;
+        if (attrs.archived && attrs.archived !== "true" && attrs.archived !== "false") {
+          pushError(errors, "PARSE_ERROR", "af-node archived 只能为 true 或 false。", next.position?.start.line);
+        }
         archived = attrs.archived === "true";
-        if (attrs.sortOrder) sortOrder = Number.parseInt(attrs.sortOrder, 10);
+        if (attrs.sortOrder) {
+          const parsedSortOrder = Number(attrs.sortOrder);
+          if (!Number.isInteger(parsedSortOrder) || parsedSortOrder < 0 || parsedSortOrder > 1_000_000) {
+            pushError(errors, "PARSE_ERROR", "af-node sortOrder 必须为 0 到 1000000 的整数。", next.position?.start.line);
+          } else {
+            sortOrder = parsedSortOrder;
+          }
+        }
         status = attrs.status;
+        if (status && !SYLLABUS_STATUSES.has(status)) {
+          pushError(errors, "PARSE_ERROR", `未知考纲状态：${status}`, next.position?.start.line);
+          status = undefined;
+        }
       }
 
       const stableKey = ensureKey("node", explicitKey, `${currentSubjectKey}:${title}:${depth}`);
@@ -221,6 +247,12 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
         nodeStack.pop();
       }
       const parent = nodeStack[nodeStack.length - 1] ?? null;
+      const branchRootParent =
+        frontmatter.scope === "branch" &&
+        stableKey === frontmatter.rootNodeKey &&
+        !parent
+          ? frontmatter.rootParentNodeKey ?? null
+          : null;
       const pathTitles = [...nodeStack.map((item) => item.title), title];
       objects.push({
         type: "node",
@@ -228,7 +260,7 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
         title,
         depth,
         subjectKey: currentSubjectKey,
-        parentStableKey: parent?.stableKey ?? null,
+        parentStableKey: parent?.stableKey ?? branchRootParent,
         pathTitles,
         archived,
         sortOrder,
@@ -241,6 +273,13 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
 
     if (isContainerDirective(node) && directiveName(node) === "af-card") {
       const attrs = directiveAttributes(node);
+      validateDirectiveAttributes(
+        attrs,
+        ["id", "stableKey", "kind", "title", "subjectKey", "primaryNode", "relatedNodes"],
+        "af-card",
+        errors,
+        node.position?.start.line,
+      );
       const title = (attrs.title ?? "").trim();
       if (!title) {
         pushError(errors, "EMPTY_TITLE", "知识卡片标题不能为空。", node.position?.start.line);
@@ -259,14 +298,17 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
       const stableKey = ensureKey("card", attrs.id || attrs.stableKey, `${subjectKey}:${title}`);
       if (!stableKey || !bump()) continue;
       const bodyMarkdown = childrenToMarkdown(node.children as Content[]);
+      const primaryNode = attrs.primaryNode?.trim() || undefined;
+      const relatedNodes = Array.from(new Set(splitList(attrs.relatedNodes)))
+        .filter((relatedKey) => relatedKey !== primaryNode);
       objects.push({
         type: "card",
         stableKey,
         title,
         kind,
         subjectKey,
-        primaryNode: attrs.primaryNode,
-        relatedNodes: splitList(attrs.relatedNodes),
+        primaryNode,
+        relatedNodes,
         bodyMarkdown,
         sourceLine: node.position?.start.line,
       });
@@ -282,6 +324,7 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
       const attrs = directiveAttributes(node);
 
       if (name === "af-group") {
+        validateDirectiveAttributes(attrs, ["id", "stableKey", "groupKey", "title"], name, errors, node.position?.start.line);
         if (frontmatter.scope !== "global") {
           pushError(errors, "SCOPE_INVALID", "af-group 仅允许 global scope。", node.position?.start.line);
           continue;
@@ -303,6 +346,13 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
       }
 
       if (name === "af-subject") {
+        validateDirectiveAttributes(
+          attrs,
+          ["id", "stableKey", "subjectKey", "title", "group"],
+          name,
+          errors,
+          node.position?.start.line,
+        );
         if (frontmatter.scope !== "global") {
           pushError(errors, "SCOPE_INVALID", "af-subject 仅允许 global scope。", node.position?.start.line);
           continue;
@@ -332,11 +382,20 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
       }
 
       if (name === "af-node") {
-        // Handled with preceding heading; standalone af-node is ignored as metadata.
+        if (!consumedNodeDirectiveIndexes.has(index)) {
+          pushError(errors, "PARSE_ERROR", "af-node 必须紧跟在对应标题之后。", node.position?.start.line);
+        }
         continue;
       }
 
       if (name === "af-resource") {
+        validateDirectiveAttributes(
+          attrs,
+          ["id", "stableKey", "kind", "subjectKey", "title", "url"],
+          name,
+          errors,
+          node.position?.start.line,
+        );
         const title = (attrs.title ?? "").trim();
         const subjectKey = attrs.subjectKey || currentSubjectKey;
         if (!subjectKey) {
@@ -372,6 +431,22 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
       }
 
       if (name === "af-plan") {
+        validateDirectiveAttributes(
+          attrs,
+          [
+            "id",
+            "stableKey",
+            "subjectKey",
+            "title",
+            "milestoneKey",
+            "durationMinutes",
+            "dependsOn",
+            "dependencyType",
+          ],
+          name,
+          errors,
+          node.position?.start.line,
+        );
         const title = (attrs.title ?? "").trim();
         const subjectKey = attrs.subjectKey || currentSubjectKey;
         if (!subjectKey) {
@@ -388,13 +463,25 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
         if (dependsOn && !dependsOn.startsWith("plan:")) {
           pushError(errors, "PARSE_ERROR", "dependsOn 只能引用 plan:<stableKey>。", node.position?.start.line, stableKey);
         }
+        let durationMinutes: number | undefined;
+        if (attrs.durationMinutes) {
+          const parsedDuration = Number(attrs.durationMinutes);
+          if (!Number.isInteger(parsedDuration) || parsedDuration < 1 || parsedDuration > 1_440) {
+            pushError(errors, "PARSE_ERROR", "durationMinutes 必须为 1 到 1440 的整数。", node.position?.start.line, stableKey);
+          } else {
+            durationMinutes = parsedDuration;
+          }
+        }
+        if (attrs.dependencyType && attrs.dependencyType !== "SOFT" && attrs.dependencyType !== "HARD") {
+          pushError(errors, "PARSE_ERROR", "dependencyType 只能为 SOFT 或 HARD。", node.position?.start.line, stableKey);
+        }
         objects.push({
           type: "plan",
           stableKey,
           title,
           subjectKey,
           milestoneKey: attrs.milestoneKey,
-          durationMinutes: attrs.durationMinutes ? Number.parseInt(attrs.durationMinutes, 10) : undefined,
+          durationMinutes,
           dependsOn,
           dependencyType: attrs.dependencyType === "HARD" ? "HARD" : "SOFT",
           batchRef: "",
@@ -421,6 +508,8 @@ export function parseLearningTreeMarkdown(markdown: string): LearningTreeParseRe
     }
   }
 
+  validateBranchRoot(objects, frontmatter, errors);
+  validateObjectReferences(objects, frontmatter, errors);
   validatePlanDependencies(objects, errors);
 
   const canonicalMarkdown = serializeCanonical(frontmatter, objects);
@@ -459,9 +548,27 @@ function parseFrontmatter(tree: Root, errors: LearningTreeIssue[]): LearningTree
   }
   let data: Record<string, unknown>;
   try {
-    data = parseYaml(yamlNode.value) as Record<string, unknown>;
+    const parsed = parseYaml(yamlNode.value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      pushError(errors, "FRONTMATTER_INVALID", "YAML frontmatter 必须是对象。", yamlNode.position?.start.line);
+      return null;
+    }
+    data = parsed as Record<string, unknown>;
   } catch {
     pushError(errors, "FRONTMATTER_INVALID", "YAML frontmatter 无法解析。");
+    return null;
+  }
+  const allowedFrontmatter = new Set([
+    "protocol",
+    "scope",
+    "workspaceKey",
+    "subjectKey",
+    "rootNodeKey",
+    "rootParentNodeKey",
+  ]);
+  const unknownFrontmatter = Object.keys(data).filter((key) => !allowedFrontmatter.has(key));
+  if (unknownFrontmatter.length) {
+    pushError(errors, "FRONTMATTER_INVALID", `未知 frontmatter 字段：${unknownFrontmatter.join("、")}。`);
     return null;
   }
   if (data.protocol !== LEARNING_TREE_PROTOCOL) {
@@ -480,6 +587,7 @@ function parseFrontmatter(tree: Root, errors: LearningTreeIssue[]): LearningTree
   }
   const subjectKey = data.subjectKey ? String(data.subjectKey).trim() : undefined;
   const rootNodeKey = data.rootNodeKey ? String(data.rootNodeKey).trim() : undefined;
+  const rootParentNodeKey = data.rootParentNodeKey ? String(data.rootParentNodeKey).trim() : undefined;
   if ((scope === "subject" || scope === "branch") && !subjectKey) {
     pushError(errors, "FRONTMATTER_INVALID", "subject/branch scope 必须声明 subjectKey。");
     return null;
@@ -488,12 +596,21 @@ function parseFrontmatter(tree: Root, errors: LearningTreeIssue[]): LearningTree
     pushError(errors, "FRONTMATTER_INVALID", "branch scope 必须声明 rootNodeKey。");
     return null;
   }
+  if (scope !== "branch" && rootParentNodeKey) {
+    pushError(errors, "FRONTMATTER_INVALID", "rootParentNodeKey 仅允许 branch scope。");
+    return null;
+  }
+  if (rootParentNodeKey && rootParentNodeKey === rootNodeKey) {
+    pushError(errors, "FRONTMATTER_INVALID", "rootParentNodeKey 不能与 rootNodeKey 相同。");
+    return null;
+  }
   return {
     protocol: LEARNING_TREE_PROTOCOL,
     scope,
     workspaceKey,
     subjectKey,
     rootNodeKey,
+    rootParentNodeKey,
   };
 }
 
@@ -508,9 +625,86 @@ function scanForbiddenSyntax(tree: Root, errors: LearningTreeIssue[]): void {
   });
 }
 
+function validateObjectReferences(
+  objects: LearningTreeObject[],
+  frontmatter: LearningTreeFrontmatter,
+  errors: LearningTreeIssue[],
+): void {
+  const declaredSubjects = new Set(
+    objects.filter((object): object is LearningTreeSubjectObject => object.type === "subject")
+      .map((subject) => subject.stableKey),
+  );
+  const declaredGroups = new Set(
+    objects.filter((object): object is LearningTreeGroupObject => object.type === "group")
+      .map((group) => group.stableKey),
+  );
+  if (frontmatter.subjectKey) declaredSubjects.add(frontmatter.subjectKey);
+  const nodes = new Map(
+    objects.filter((object): object is LearningTreeNodeObject => object.type === "node")
+      .map((node) => [node.stableKey, node]),
+  );
+
+  for (const object of objects) {
+    if (object.type === "subject" && object.groupKey && !declaredGroups.has(object.groupKey)) {
+      pushError(errors, "PARSE_ERROR", `科目引用了未声明分组：${object.groupKey}`, object.sourceLine, object.stableKey);
+      continue;
+    }
+    if ("subjectKey" in object && !declaredSubjects.has(object.subjectKey)) {
+      pushError(errors, "MISSING_SUBJECT", `对象引用了未声明科目：${object.subjectKey}`, object.sourceLine, object.stableKey);
+      continue;
+    }
+    if (object.type === "node" && object.parentStableKey) {
+      const isExternalBranchParent =
+        frontmatter.scope === "branch" &&
+        object.stableKey === frontmatter.rootNodeKey &&
+        object.parentStableKey === frontmatter.rootParentNodeKey;
+      if (isExternalBranchParent) continue;
+      const parent = nodes.get(object.parentStableKey);
+      if (!parent || parent.subjectKey !== object.subjectKey) {
+        pushError(errors, "CROSS_SUBJECT_REF", `考纲父节点无效：${object.parentStableKey}`, object.sourceLine, object.stableKey);
+      } else if (parent.archived && !object.archived) {
+        pushError(errors, "PARSE_ERROR", `未归档节点不能挂在已归档父节点下：${object.parentStableKey}`, object.sourceLine, object.stableKey);
+      }
+    }
+    if (object.type !== "card") continue;
+    for (const nodeKey of [object.primaryNode, ...object.relatedNodes].filter((key): key is string => Boolean(key))) {
+      const node = nodes.get(nodeKey);
+      if (!node) {
+        pushError(errors, "PARSE_ERROR", `卡片引用的节点不存在：${nodeKey}`, object.sourceLine, object.stableKey);
+      } else if (node.subjectKey !== object.subjectKey) {
+        pushError(errors, "CROSS_SUBJECT_REF", `卡片不能跨科目引用节点：${nodeKey}`, object.sourceLine, object.stableKey);
+      }
+    }
+  }
+}
+
+function validateBranchRoot(
+  objects: LearningTreeObject[],
+  frontmatter: LearningTreeFrontmatter,
+  errors: LearningTreeIssue[],
+): void {
+  if (frontmatter.scope !== "branch" || !frontmatter.rootNodeKey) return;
+  const nodes = objects.filter((object): object is LearningTreeNodeObject => object.type === "node");
+  const nodeKeys = new Set(nodes.map((node) => node.stableKey));
+  const roots = nodes.filter((node) => !node.parentStableKey || !nodeKeys.has(node.parentStableKey));
+  if (roots.length !== 1) {
+    pushError(errors, "FRONTMATTER_INVALID", "branch scope 必须且只能包含一个根节点。");
+    return;
+  }
+  if (roots[0]!.stableKey !== frontmatter.rootNodeKey) {
+    pushError(
+      errors,
+      "FRONTMATTER_INVALID",
+      `branch rootNodeKey 必须指向实际根节点：${roots[0]!.stableKey}`,
+      roots[0]!.sourceLine,
+      roots[0]!.stableKey,
+    );
+  }
+}
+
 function validatePlanDependencies(objects: LearningTreeObject[], errors: LearningTreeIssue[]): void {
   const plans = objects.filter((object): object is LearningTreePlanObject => object.type === "plan");
-  const keys = new Set(plans.map((plan) => plan.stableKey));
+  const plansByKey = new Map(plans.map((plan) => [plan.stableKey, plan]));
   const visiting = new Set<string>();
   const visited = new Set<string>();
 
@@ -518,8 +712,13 @@ function validatePlanDependencies(objects: LearningTreeObject[], errors: Learnin
   for (const plan of plans) {
     if (!plan.dependsOn) continue;
     const target = plan.dependsOn.replace(/^plan:/, "");
-    if (!keys.has(target)) {
+    const targetPlan = plansByKey.get(target);
+    if (!targetPlan) {
       pushError(errors, "PARSE_ERROR", `计划依赖不存在：${plan.dependsOn}`, plan.sourceLine, plan.stableKey);
+      continue;
+    }
+    if (targetPlan.subjectKey !== plan.subjectKey) {
+      pushError(errors, "CROSS_SUBJECT_REF", `计划不能跨科目依赖：${plan.dependsOn}`, plan.sourceLine, plan.stableKey);
       continue;
     }
     adj.set(plan.stableKey, target);
@@ -551,6 +750,7 @@ function serializeCanonical(frontmatter: LearningTreeFrontmatter, objects: Learn
   lines.push(`workspaceKey: ${frontmatter.workspaceKey}`);
   if (frontmatter.subjectKey) lines.push(`subjectKey: ${frontmatter.subjectKey}`);
   if (frontmatter.rootNodeKey) lines.push(`rootNodeKey: ${frontmatter.rootNodeKey}`);
+  if (frontmatter.rootParentNodeKey) lines.push(`rootParentNodeKey: ${frontmatter.rootParentNodeKey}`);
   lines.push("---", "");
 
   let currentSubject: string | null = frontmatter.subjectKey ?? null;
@@ -685,4 +885,18 @@ function directiveAttributes(node: Content): Record<string, string> {
   // remark-directive puts id in attributes.id from {#id}
   if ("id" in attrs) attrs.stableKey = attrs.stableKey ?? attrs.id;
   return attrs;
+}
+
+function validateDirectiveAttributes(
+  attrs: Record<string, string>,
+  allowed: string[],
+  directive: string,
+  errors: LearningTreeIssue[],
+  sourceLine?: number,
+): void {
+  const allowedKeys = new Set(allowed);
+  const unknown = Object.keys(attrs).filter((key) => !allowedKeys.has(key));
+  if (unknown.length) {
+    pushError(errors, "PARSE_ERROR", `${directive} 包含未知属性：${unknown.join("、")}。`, sourceLine);
+  }
 }

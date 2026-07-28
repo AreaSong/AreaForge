@@ -21,7 +21,7 @@ const patchSchema = z.object({
     taskId: z.string().min(1),
     dependencyType: z.enum(["SOFT", "HARD"]),
   })).max(50).optional(),
-});
+}).strict();
 
 export async function PATCH(
   request: NextRequest,

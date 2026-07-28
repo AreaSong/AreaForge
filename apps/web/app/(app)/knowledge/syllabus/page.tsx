@@ -2,13 +2,15 @@ import { redirect } from "next/navigation";
 import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { SyllabusManager } from "@/components/syllabus-manager";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { listSubjects } from "@/lib/study/service";
-import { getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";
+import { filterSyllabusTreeByQuery, getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/knowledge/syllabus");
 
-export default async function KnowledgeSyllabusPage({ searchParams }: { searchParams: Promise<{ subjectId?: string }> }) {
+export default async function KnowledgeSyllabusPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; q?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const query = await searchParams;
@@ -18,9 +20,11 @@ export default async function KnowledgeSyllabusPage({ searchParams }: { searchPa
     getSyllabusMapOverviewShared(user.id),
     getLongTermRiskSummary(user.id),
   ]);
+  const nodes = filterSyllabusTreeByQuery(overview.nodes, query.q);
 
   return (
     <div className="space-y-4">
+      <h1 className="text-2xl font-semibold text-white">考纲</h1>
       <LongTermRiskPanel
         summary={longTermRisks}
         title="考纲遗忘风险"
@@ -28,10 +32,10 @@ export default async function KnowledgeSyllabusPage({ searchParams }: { searchPa
       />
       <SyllabusManager
         subjects={subjects}
-        nodes={overview.nodes}
+        nodes={nodes}
         summary={overview.summary}
         summaryBySubject={overview.summaryBySubject}
-        initialSubjectId={query.subjectId}
+        initialSubjectId={query.subjectId ?? nodes[0]?.subjectId}
       />
     </div>
   );

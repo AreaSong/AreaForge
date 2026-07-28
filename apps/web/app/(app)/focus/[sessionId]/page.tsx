@@ -1,12 +1,13 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { FocusSessionClient } from "@/components/focus-session-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getActiveStudySession } from "@/lib/study/service";
 import { prisma } from "@areaforge/db";
-import { sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { resolveActiveWorkspace } from "@/lib/study/exam-workspace-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/focus/session");
 
 export default async function FocusSessionPage({
   params,
@@ -27,7 +28,7 @@ export default async function FocusSessionPage({
     include: { subject: true, task: true, syllabusNode: true },
   });
   if (!session) {
-    redirect("/today");
+    notFound();
   }
 
   const active = await getActiveStudySession(user.id);
@@ -68,6 +69,7 @@ export default async function FocusSessionPage({
       session={dto}
       activeConflictId={active && active.id !== sessionId ? active.id : null}
       returnTo={returnTo}
+      initialNow={new Date().toISOString()}
     />
   );
 }

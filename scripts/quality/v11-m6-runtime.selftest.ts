@@ -2,15 +2,29 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { mintAiDraftResultProof } from "../../packages/auth/src/index";
 import { prisma } from "../../packages/db/src/index";
 import { ApiError } from "../../apps/web/lib/api/responses";
 import { listWorkspaceCheckIns } from "../../apps/web/lib/study/check-in-service";
+import { activateExamWorkspace } from "../../apps/web/lib/study/exam-workspace-service";
 import { createMistake } from "../../apps/web/lib/study/mistakes-service";
-import { convertPlanInboxItem, createPlanInboxItem } from "../../apps/web/lib/study/plan-inbox-service";
+import {
+  adoptAiPlanDraftToInbox,
+  convertPlanInboxItem,
+  createLowConversionPlanInboxItem,
+  createPlanInboxItem,
+  createUserPlanInboxItem,
+  dismissPlanInboxItem,
+  matchesPlanInboxStableRef,
+  updatePlanInboxItem,
+} from "../../apps/web/lib/study/plan-inbox-service";
+import { planInboxClientCreateSchema } from "../../apps/web/app/api/plan-inbox/route";
+import { planInboxConvertSchema } from "../../apps/web/app/api/plan-inbox/[id]/convert/route";
 import {
   applyRecoveryDayProgress,
   cancelRecoveryV2,
   getActiveRecoveryV2,
+  restartRecoveryV2,
   startRecoveryV2,
 } from "../../apps/web/lib/study/recovery-v2-service";
 import {
@@ -19,12 +33,21 @@ import {
   confirmReviewEvent,
   correctReviewEvent,
   createBridgeTask,
+  deferBridgeTask,
   materializeReviewSchedule,
   pauseReviewSchedule,
+  rescheduleReview,
   resumeReviewSchedule,
 } from "../../apps/web/lib/study/review-schedule-service";
 import { getReviewTarget } from "../../apps/web/lib/study/review-target-service";
-import { completeStudyTask } from "../../apps/web/lib/study/service";
+import {
+  completeStudyTask,
+  createStudyTask,
+  endStudySession,
+  startStudySession,
+  updateStudyTask,
+} from "../../apps/web/lib/study/service";
+import { getTaskUpdateSnapshot } from "../../apps/web/lib/study/task-detail-service";
 import { getStudyDayRange } from "../../apps/web/lib/study/date";
 
 /**
@@ -44,6 +67,9 @@ import { getStudyDayRange } from "../../apps/web/lib/study/date";
  */
 
 const checks: Array<{ id: string; status: "pass"; details: Record<string, string | number | boolean> }> = [];
+if (!process.env.AUTH_SESSION_SECRET || process.env.AUTH_SESSION_SECRET.length < 32) {
+  process.env.AUTH_SESSION_SECRET = "v11-m6-isolated-auth-session-secret-20260726";
+}
 
 try {
   await assertIsolatedDatabase();
@@ -52,10 +78,15 @@ try {
   await resetTables();
   const seed = await seedWorkspace();
   await verifyMistakeCompletenessGate(seed);
+  await verifyTaskCanonicalRelations(seed);
+  await verifyResourceTaskAndShortcutSession(seed);
   await verifyScheduleConstraints(seed);
   await verifyConfirmIdempotencyAndCheckIn(seed);
+  await verifyQuickReviewActivityExclusion(seed);
   await verifyCorrectionSingleSuccessor(seed);
   await verifyBridgeAndInboxConvert(seed);
+  await verifyBridgeWorkspaceSwitchBoundary();
+  await verifyTrustedInboxAdoptions(seed);
   await verifyRecoveryStages(seed);
   await verifyHardConcurrencyFixtures(seed);
 
@@ -94,6 +125,8 @@ async function verifyRoutesExist(): Promise<void> {
     "apps/web/app/api/check-ins/route.ts",
     "apps/web/app/api/recovery/start/route.ts",
     "apps/web/app/api/plan-inbox/[id]/convert/route.ts",
+    "apps/web/app/api/plan-inbox/ai-plan-adoptions/route.ts",
+    "apps/web/app/api/plan-inbox/low-conversion/route.ts",
   ];
   for (const route of routes) {
     assert.equal(existsSync(join(process.cwd(), route)), true);
@@ -210,6 +243,7 @@ async function verifyMistakeCompletenessGate(
 ): Promise<void> {
   await assert.rejects(
     () => createMistake({
+      idempotencyKey: `m6-incomplete-cause-${randomUUID()}`,
       subjectId: seed.subject.id,
       title: "Missing explicit cause",
       cause: "unknown",
@@ -219,6 +253,7 @@ async function verifyMistakeCompletenessGate(
   );
   await assert.rejects(
     () => createMistake({
+      idempotencyKey: `m6-incomplete-idea-${randomUUID()}`,
       subjectId: seed.subject.id,
       title: "Missing correct idea",
       cause: "wrong_approach",
@@ -258,20 +293,293 @@ async function verifyMistakeCompletenessGate(
   });
   const target = await getReviewTarget(seed.user.id, legacySchedule.id);
   assert.equal(target.canPass, false);
-  await assert.rejects(
-    () => confirmReviewEvent(seed.user.id, legacySchedule.id, {
-      idempotencyKey: `legacy-incomplete-${randomUUID()}`,
-      expectedRevision: legacySchedule.revision,
-      result: "PASSED",
-      durationSeconds: 60,
-    }),
-    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_TARGET_INCOMPLETE" && error.status === 409,
-  );
+  for (const result of ["PASSED", "PARTIAL", "FAILED"] as const) {
+    await assert.rejects(
+      () => confirmReviewEvent(seed.user.id, legacySchedule.id, {
+        idempotencyKey: `legacy-incomplete-${result.toLowerCase()}-${randomUUID()}`,
+        expectedRevision: legacySchedule.revision,
+        result,
+        durationSeconds: 60,
+      }),
+      (error: unknown) => error instanceof ApiError && error.code === "REVIEW_TARGET_INCOMPLETE" && error.status === 409,
+    );
+  }
   assert.equal(await prisma.reviewEvent.count({ where: { reviewScheduleId: legacySchedule.id } }), 0);
   pass("mistake_completeness_gate", {
     legacyMistakeId: legacyIncomplete.id,
     legacyScheduleId: legacySchedule.id,
     canPass: target.canPass,
+  });
+}
+
+async function verifyTaskCanonicalRelations(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  const [primaryNode, relatedNode, replacementNode] = await Promise.all([
+    prisma.syllabusNode.create({ data: { subjectId: seed.subject.id, title: "Task primary", kind: "TOPIC" } }),
+    prisma.syllabusNode.create({ data: { subjectId: seed.subject.id, title: "Task related", kind: "TOPIC" } }),
+    prisma.syllabusNode.create({ data: { subjectId: seed.subject.id, title: "Task replacement", kind: "TOPIC" } }),
+  ]);
+  const stagePlan = await prisma.stagePlan.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `task-stage-${randomUUID()}`,
+      name: "Task stage",
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      goal: "Validate canonical task relations",
+      mode: "maintain",
+      status: "active",
+    },
+  });
+  const milestone = await prisma.planMilestone.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stagePlanId: stagePlan.id,
+      subjectId: seed.subject.id,
+      stableKey: `task-milestone-${randomUUID()}`,
+      title: "Task milestone",
+    },
+  });
+  const idempotencyKey = `task-canonical-${randomUUID()}`;
+  const createInput = {
+    idempotencyKey,
+    subjectId: seed.subject.id,
+    syllabusNodeId: primaryNode.id,
+    relatedSyllabusNodeIds: [relatedNode.id],
+    planMilestoneId: milestone.id,
+    title: "Canonical task",
+    type: "study",
+    priority: "high" as const,
+    estimatedMinutes: 35,
+  };
+  const created = await createStudyTask(createInput, seed.user.id);
+  const replay = await createStudyTask(createInput, seed.user.id);
+  assert.equal(replay.id, created.id);
+  const persisted = await prisma.studyTask.findUniqueOrThrow({
+    where: { id: created.id },
+    include: { relatedSyllabusNodes: true },
+  });
+  assert.equal(persisted.planMilestoneId, milestone.id);
+  assert.equal(persisted.syllabusNodeId, primaryNode.id);
+  assert.deepEqual(persisted.relatedSyllabusNodes.map((relation) => relation.syllabusNodeId), [relatedNode.id]);
+
+  const baseline = await getTaskUpdateSnapshot(seed.user.id, created.id);
+  await updateStudyTask(created.id, {
+    expectedStatus: baseline.status,
+    expectedUpdatedAt: baseline.updatedAt,
+    syllabusNodeId: relatedNode.id,
+    relatedSyllabusNodeIds: [replacementNode.id],
+    title: "Canonical task updated",
+  }, seed.user.id);
+  const latest = await getTaskUpdateSnapshot(seed.user.id, created.id);
+  assert.equal(latest.syllabusNodeId, relatedNode.id);
+  assert.deepEqual(latest.relatedSyllabusNodeIds, [replacementNode.id]);
+  assert.notEqual(latest.updatedAt, baseline.updatedAt);
+
+  await assert.rejects(
+    () => updateStudyTask(created.id, {
+      expectedStatus: baseline.status,
+      expectedUpdatedAt: baseline.updatedAt,
+      title: "stale overwrite",
+    }, seed.user.id),
+    (error: unknown) => error instanceof ApiError
+      && error.code === "TASK_STATE_CONFLICT"
+      && error.status === 409
+      && error.details?.workbench === "/today/plan"
+      && (error.details.latest as { updatedAt?: string } | undefined)?.updatedAt === latest.updatedAt,
+  );
+  pass("task_canonical_relations_and_cas", {
+    taskId: created.id,
+    replayed: replay.id === created.id,
+    relatedNodeCount: latest.relatedSyllabusNodeIds.length,
+    staleRejected: true,
+  });
+}
+
+async function verifyResourceTaskAndShortcutSession(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  const otherSubject = await prisma.subject.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `shortcut-other-${randomUUID()}`,
+      name: "Shortcut other subject",
+      color: "#222222",
+    },
+  });
+  const [primaryNode, overrideNode] = await Promise.all([
+    prisma.syllabusNode.create({ data: { subjectId: seed.subject.id, title: "Resource primary", kind: "TOPIC" } }),
+    prisma.syllabusNode.create({ data: { subjectId: seed.subject.id, title: "Resource override", kind: "TOPIC" } }),
+  ]);
+  const resource = await prisma.studyResource.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `resource-task-${randomUUID()}`,
+      title: "Resource task source",
+      category: "OTHER",
+      sourceType: "LINK",
+      subjectId: seed.subject.id,
+      externalUrl: "https://example.com/resource-task",
+      displayHost: "example.com",
+    },
+  });
+  const idempotencyKey = `resource-task-${randomUUID()}`;
+  const input = {
+    idempotencyKey,
+    sourceResourceId: resource.id,
+    subjectId: seed.subject.id,
+    syllabusNodeId: primaryNode.id,
+    title: "Task created from resource",
+    type: "study",
+    priority: "medium" as const,
+    estimatedMinutes: 25,
+  };
+  const created = await createStudyTask(input, seed.user.id);
+  const replay = await createStudyTask(input, seed.user.id);
+  assert.equal(replay.id, created.id);
+  assert.equal(await prisma.studyResourceTaskLink.count({ where: { resourceId: resource.id, taskId: created.id } }), 1);
+  assert.equal((await prisma.studyResource.findUniqueOrThrow({ where: { id: resource.id } })).revision, resource.revision + 1);
+
+  await assert.rejects(
+    () => createStudyTask({ ...input, sourceResourceId: undefined, title: "Changed replay payload" }, seed.user.id),
+    (error: unknown) => error instanceof ApiError && error.code === "STUDY_TASK_IDEMPOTENCY_CONFLICT",
+  );
+
+  const archivedResource = await prisma.studyResource.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `resource-archived-${randomUUID()}`,
+      title: "Archived resource",
+      category: "OTHER",
+      sourceType: "LINK",
+      subjectId: seed.subject.id,
+      externalUrl: "https://example.com/archived-resource",
+      displayHost: "example.com",
+      archivedAt: new Date(),
+    },
+  });
+  const mismatchedResource = await prisma.studyResource.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `resource-mismatch-${randomUUID()}`,
+      title: "Mismatched resource",
+      category: "OTHER",
+      sourceType: "LINK",
+      subjectId: seed.subject.id,
+      externalUrl: "https://example.com/mismatched-resource",
+      displayHost: "example.com",
+    },
+  });
+  const foreignUser = await prisma.user.create({
+    data: { email: `v11m6-resource-foreign-${randomUUID()}@example.com`, passwordHash: "x" },
+  });
+  const foreignWorkspace = await prisma.examWorkspace.create({
+    data: { userId: foreignUser.id, stableKey: "m6-resource-foreign", name: "Foreign", status: "ACTIVE" },
+  });
+  const foreignResource = await prisma.studyResource.create({
+    data: {
+      workspaceId: foreignWorkspace.id,
+      stableKey: `resource-foreign-${randomUUID()}`,
+      title: "Foreign resource",
+      category: "OTHER",
+      sourceType: "LINK",
+      externalUrl: "https://example.com/foreign-resource",
+      displayHost: "example.com",
+    },
+  });
+  const taskCountBeforeFailures = await prisma.studyTask.count();
+  const linkCountBeforeFailures = await prisma.studyResourceTaskLink.count();
+  const failureCases = [
+    {
+      sourceResourceId: archivedResource.id,
+      subjectId: seed.subject.id,
+      code: "STUDY_RESOURCE_ARCHIVED",
+    },
+    {
+      sourceResourceId: mismatchedResource.id,
+      subjectId: otherSubject.id,
+      code: "STUDY_RESOURCE_SUBJECT_MISMATCH",
+    },
+    {
+      sourceResourceId: foreignResource.id,
+      subjectId: seed.subject.id,
+      code: "STUDY_RESOURCE_NOT_FOUND",
+    },
+  ];
+  for (const [index, testCase] of failureCases.entries()) {
+    await assert.rejects(
+      () => createStudyTask({
+        ...input,
+        idempotencyKey: `resource-task-failure-${index}-${randomUUID()}`,
+        sourceResourceId: testCase.sourceResourceId,
+        subjectId: testCase.subjectId,
+        syllabusNodeId: null,
+      }, seed.user.id),
+      (error: unknown) => error instanceof ApiError && error.code === testCase.code,
+    );
+  }
+  assert.equal(await prisma.studyTask.count(), taskCountBeforeFailures);
+  assert.equal(await prisma.studyResourceTaskLink.count(), linkCountBeforeFailures);
+
+  const inherited = await startStudySession({
+    subjectId: seed.subject.id,
+    taskId: created.id,
+    startSource: "SUBJECT_SHORTCUT",
+  }, seed.user.id);
+  assert.equal(inherited.syllabusNodeId, primaryNode.id);
+  assert.equal(inherited.startSource, "SUBJECT_SHORTCUT");
+  assert.equal(inherited.goalMinutes, null);
+  await cancelFixtureSession(inherited.id);
+
+  const cleared = await startStudySession({
+    subjectId: seed.subject.id,
+    taskId: created.id,
+    syllabusNodeId: null,
+    goalMinutes: null,
+    startSource: "SUBJECT_SHORTCUT",
+  }, seed.user.id);
+  assert.equal(cleared.syllabusNodeId, null);
+  await cancelFixtureSession(cleared.id);
+
+  const overridden = await startStudySession({
+    subjectId: seed.subject.id,
+    taskId: created.id,
+    syllabusNodeId: overrideNode.id,
+    goalMinutes: 35,
+    startSource: "SUBJECT_SHORTCUT",
+  }, seed.user.id);
+  assert.equal(overridden.syllabusNodeId, overrideNode.id);
+  assert.equal(overridden.goalMinutes, 35);
+  await cancelFixtureSession(overridden.id);
+
+  await assert.rejects(
+    () => startStudySession({
+      subjectId: otherSubject.id,
+      taskId: created.id,
+      startSource: "SUBJECT_SHORTCUT",
+    }, seed.user.id),
+    (error: unknown) => error instanceof ApiError
+      && error.code === "TASK_SUBJECT_MISMATCH"
+      && error.details?.workbench === `/today/tasks/${created.id}`,
+  );
+  assert.equal(await prisma.studySession.count({ where: { status: { in: ["RUNNING", "PAUSED"] } } }), 0);
+
+  pass("resource_task_atomicity_and_shortcut_session", {
+    resourceRevision: resource.revision + 1,
+    replayReusedTask: true,
+    failedCreatesRolledBack: failureCases.length,
+    inheritedNode: true,
+    explicitNodeClear: true,
+    overriddenNode: true,
+    subjectMismatchRejected: true,
+  });
+}
+
+async function cancelFixtureSession(sessionId: string): Promise<void> {
+  await prisma.studySession.update({
+    where: { id: sessionId },
+    data: { status: "CANCELED", endedAt: new Date() },
   });
 }
 
@@ -319,7 +627,57 @@ async function verifyScheduleConstraints(seed: Awaited<ReturnType<typeof seedWor
     dueDate,
   });
   assert.equal(resumed.status, "ACTIVE");
-  pass("schedule_constraints_pause_resume", { scheduleId: schedule.id });
+
+  const rescheduleRace = await Promise.allSettled([
+    rescheduleReview(seed.user.id, schedule.id, {
+      expectedRevision: resumed.revision,
+      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    }),
+    rescheduleReview(seed.user.id, schedule.id, {
+      expectedRevision: resumed.revision,
+      dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    }),
+  ]);
+  assert.equal(rescheduleRace.filter((result) => result.status === "fulfilled").length, 1);
+  const rescheduleRejected = rescheduleRace.find((result) => result.status === "rejected");
+  assert.ok(rescheduleRejected?.status === "rejected");
+  assert.equal(
+    rescheduleRejected.reason instanceof ApiError && rescheduleRejected.reason.code === "REVIEW_SCHEDULE_REVISION_CONFLICT",
+    true,
+  );
+  const afterReschedule = await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+  assert.equal(afterReschedule.revision, resumed.revision + 1);
+
+  const archivedTarget = await prisma.note.create({
+    data: { subjectId: seed.subject.id, title: "Archived resume target", content: "x", kind: "CONCEPT" },
+  });
+  const archivedSchedule = await materializeReviewSchedule(seed.user.id, {
+    targetType: "NOTE",
+    noteId: archivedTarget.id,
+    dueDate,
+  });
+  const pausedArchivedSchedule = await pauseReviewSchedule(seed.user.id, archivedSchedule.id, {
+    expectedRevision: archivedSchedule.revision,
+    reason: "manual before archive",
+  });
+  await prisma.note.update({ where: { id: archivedTarget.id }, data: { archivedAt: new Date() } });
+  await assert.rejects(
+    () => resumeReviewSchedule(seed.user.id, archivedSchedule.id, {
+      expectedRevision: pausedArchivedSchedule.revision,
+      dueDate,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_TARGET_ARCHIVED",
+  );
+  const unchangedPaused = await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: archivedSchedule.id } });
+  assert.equal(unchangedPaused.status, "PAUSED");
+  assert.equal(unchangedPaused.revision, pausedArchivedSchedule.revision);
+  await prisma.note.update({ where: { id: archivedTarget.id }, data: { archivedAt: null } });
+
+  pass("schedule_constraints_pause_resume", {
+    scheduleId: schedule.id,
+    concurrentRescheduleSingleWinner: true,
+    archivedTargetResumeRejected: true,
+  });
 }
 
 async function verifyConfirmIdempotencyAndCheckIn(
@@ -391,6 +749,60 @@ async function verifyConfirmIdempotencyAndCheckIn(
   });
 }
 
+async function verifyQuickReviewActivityExclusion(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  const note = await prisma.note.create({
+    data: {
+      subjectId: seed.subject.id,
+      title: "Quick review activity exclusion",
+      content: "complete review target",
+      kind: "CONCEPT",
+    },
+  });
+  const schedule = await materializeReviewSchedule(seed.user.id, {
+    targetType: "NOTE",
+    noteId: note.id,
+    dueDate: getStudyDayRange().start.toISOString(),
+  });
+  const command = {
+    idempotencyKey: `quick-review-activity-${randomUUID()}`,
+    expectedRevision: schedule.revision,
+    result: "PARTIAL" as const,
+    durationSeconds: 180,
+    note: "activity exclusion",
+  };
+  const running = await startStudySession({ subjectId: seed.subject.id }, seed.user.id);
+  await assert.rejects(
+    () => confirmReviewEvent(seed.user.id, schedule.id, command),
+    (error: unknown) => error instanceof ApiError
+      && error.code === "ACTIVE_SESSION_BLOCKS_QUICK_REVIEW"
+      && error.details?.workbench === `/focus/${running.id}`,
+  );
+  assert.equal(await prisma.reviewEvent.count({ where: { reviewScheduleId: schedule.id } }), 0);
+  await prisma.studySession.update({
+    where: { id: running.id },
+    data: { status: "CANCELED", endedAt: new Date() },
+  });
+
+  const confirmed = await confirmReviewEvent(seed.user.id, schedule.id, command);
+  assert.equal(confirmed.reused, false);
+  const secondRunning = await startStudySession({ subjectId: seed.subject.id }, seed.user.id);
+  const replay = await confirmReviewEvent(seed.user.id, schedule.id, command);
+  assert.equal(replay.reused, true);
+  assert.equal(replay.event.id, confirmed.event.id);
+  assert.equal(await prisma.reviewEvent.count({ where: { reviewScheduleId: schedule.id } }), 1);
+  await prisma.studySession.update({
+    where: { id: secondRunning.id },
+    data: { status: "CANCELED", endedAt: new Date() },
+  });
+
+  pass("quick_review_activity_exclusion", {
+    activeSessionBlocked: true,
+    idempotentReplayPrecedesActivityGate: true,
+  });
+}
+
 async function verifyCorrectionSingleSuccessor(
   seed: Awaited<ReturnType<typeof seedWorkspace>>,
 ): Promise<void> {
@@ -413,13 +825,26 @@ async function verifyCorrectionSingleSuccessor(
     result: "FAILED",
     durationSeconds: 90,
   });
-  const correction = await correctReviewEvent(seed.user.id, confirmed.event.id, {
-    idempotencyKey: `corr-${randomUUID()}`,
+  const correctionKey = `corr-${randomUUID()}`;
+  const correctionInput = {
+    idempotencyKey: correctionKey,
     expectedRevision: confirmed.schedule.revision,
-    result: "PASSED",
-  });
+    result: "PASSED" as const,
+  };
+  const correction = await correctReviewEvent(seed.user.id, confirmed.event.id, correctionInput);
   assert.equal(correction.event.correctedEventId, confirmed.event.id);
   assert.equal(correction.event.durationSeconds, 90);
+
+  const correctionRetry = await correctReviewEvent(seed.user.id, confirmed.event.id, correctionInput);
+  assert.equal(correctionRetry.reused, true);
+  assert.equal(correctionRetry.event.id, correction.event.id);
+  await assert.rejects(
+    () => correctReviewEvent(seed.user.id, confirmed.event.id, {
+      ...correctionInput,
+      result: "PARTIAL",
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_IDEMPOTENCY_CONFLICT",
+  );
 
   try {
     await correctReviewEvent(seed.user.id, confirmed.event.id, {
@@ -437,13 +862,45 @@ async function verifyCorrectionSingleSuccessor(
     );
   }
 
+  const concurrentNote = await prisma.note.create({
+    data: { subjectId: seed.subject.id, title: "Concurrent correction note", content: "x", kind: "METHOD" },
+  });
+  const concurrentSchedule = await materializeReviewSchedule(seed.user.id, {
+    targetType: "NOTE",
+    noteId: concurrentNote.id,
+    dueDate: getStudyDayRange().start.toISOString(),
+  });
+  const concurrentConfirmed = await confirmReviewEvent(seed.user.id, concurrentSchedule.id, {
+    idempotencyKey: `confirm-${randomUUID()}`,
+    expectedRevision: concurrentSchedule.revision,
+    result: "FAILED",
+    durationSeconds: 60,
+  });
+  const concurrentCorrectionInput = {
+    idempotencyKey: `corr-concurrent-${randomUUID()}`,
+    expectedRevision: concurrentConfirmed.schedule.revision,
+    result: "PARTIAL" as const,
+  };
+  const concurrentCorrections = await Promise.all([
+    correctReviewEvent(seed.user.id, concurrentConfirmed.event.id, concurrentCorrectionInput),
+    correctReviewEvent(seed.user.id, concurrentConfirmed.event.id, concurrentCorrectionInput),
+  ]);
+  assert.equal(concurrentCorrections[0]?.event.id, concurrentCorrections[1]?.event.id);
+  assert.equal(concurrentCorrections.filter((result) => result.reused).length, 1);
+  assert.equal(await prisma.reviewEvent.count({ where: { correctedEventId: concurrentConfirmed.event.id } }), 1);
+
   const today = getStudyDayRange();
   const checkIns = await listWorkspaceCheckIns(seed.workspace.id, today.start, today.start);
   const row = checkIns[0];
   assert.ok(row);
   // correction replaces original: one effective event from first confirm (320) + this note's 90
   assert.ok(row.reviewSeconds >= 90);
-  pass("correction_single_successor", { correctionId: correction.event.id });
+  pass("correction_single_successor", {
+    correctionId: correction.event.id,
+    sequentialRetryReused: true,
+    concurrentRetryReused: true,
+    changedPayloadRejected: true,
+  });
 }
 
 async function verifyBridgeAndInboxConvert(
@@ -481,9 +938,89 @@ async function verifyBridgeAndInboxConvert(
     assert.equal(error.code, "REVIEW_BRIDGE_ALREADY_EXISTS");
   }
 
+  const alternateSubject = await prisma.subject.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `bridge-alt-${randomUUID()}`,
+      name: "Bridge alternate",
+      color: "#0f766e",
+    },
+  });
+  const guardedNote = await prisma.note.create({
+    data: { subjectId: seed.subject.id, title: "Guarded bridge note", content: "x", kind: "EXAMPLE" },
+  });
+  const guardedSchedule = await materializeReviewSchedule(seed.user.id, {
+    targetType: "NOTE",
+    noteId: guardedNote.id,
+    dueDate: getStudyDayRange().start.toISOString(),
+  });
+  await assert.rejects(
+    () => createBridgeTask(seed.user.id, {
+      reviewScheduleId: guardedSchedule.id,
+      subjectId: alternateSubject.id,
+      title: "Cross-subject forged bridge",
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_SCHEDULE_SUBJECT_MISMATCH",
+  );
+  const pausedGuardedSchedule = await pauseReviewSchedule(seed.user.id, guardedSchedule.id, {
+    expectedRevision: guardedSchedule.revision,
+    reason: "bridge guard",
+  });
+  await assert.rejects(
+    () => createBridgeTask(seed.user.id, {
+      reviewScheduleId: pausedGuardedSchedule.id,
+      subjectId: seed.subject.id,
+      title: "Paused forged bridge",
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_SCHEDULE_NOT_BRIDGABLE",
+  );
+
   const afterAbandon = await abandonBridgeTask(seed.user.id, bridge.taskId);
   assert.equal(afterAbandon.status, "ACTIVE");
   assert.ok(afterAbandon.dueDate);
+  await assert.rejects(
+    () => abandonBridgeTask(seed.user.id, bridge.taskId),
+    (error: unknown) => error instanceof ApiError && error.code === "TASK_STATE_CONFLICT",
+  );
+  await assert.rejects(
+    () => deferBridgeTask(seed.user.id, bridge.taskId, {
+      expectedScheduleRevision: afterAbandon.revision,
+      plannedDate: getStudyDayRange().start.toISOString(),
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "TASK_STATE_CONFLICT",
+  );
+
+  const completedNote = await prisma.note.create({
+    data: { subjectId: seed.subject.id, title: "Completed bridge note", content: "x", kind: "EXAMPLE" },
+  });
+  const completedSchedule = await materializeReviewSchedule(seed.user.id, {
+    targetType: "NOTE",
+    noteId: completedNote.id,
+    dueDate: getStudyDayRange().start.toISOString(),
+  });
+  const completedBridge = await createBridgeTask(seed.user.id, {
+    reviewScheduleId: completedSchedule.id,
+    subjectId: seed.subject.id,
+    title: "Completed bridge",
+  });
+  const completedResult = await completeBridgeTaskWithReview(seed.user.id, completedBridge.taskId, {
+    idempotencyKey: `bridge-complete-${randomUUID()}`,
+    expectedRevision: completedSchedule.revision,
+    result: "PASSED",
+    durationSeconds: 120,
+  });
+  assert.equal((await prisma.studyTask.findUniqueOrThrow({ where: { id: completedBridge.taskId } })).status, "DONE");
+  await assert.rejects(
+    () => abandonBridgeTask(seed.user.id, completedBridge.taskId),
+    (error: unknown) => error instanceof ApiError && error.code === "TASK_STATE_CONFLICT",
+  );
+  await assert.rejects(
+    () => deferBridgeTask(seed.user.id, completedBridge.taskId, {
+      expectedScheduleRevision: completedResult.schedule.revision,
+      plannedDate: getStudyDayRange().start.toISOString(),
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "TASK_STATE_CONFLICT",
+  );
 
   const primaryNode = await prisma.syllabusNode.create({
     data: { subjectId: seed.subject.id, title: "Inbox primary", kind: "TOPIC", stableKey: "inbox-primary" },
@@ -494,6 +1031,81 @@ async function verifyBridgeAndInboxConvert(
   const predecessor = await prisma.studyTask.create({
     data: { subjectId: seed.subject.id, title: "Inbox predecessor", type: "focus", plannedDate: getStudyDayRange().start, estimatedMinutes: 20 },
   });
+  const publicInput = {
+    clientRequestKey: `public-inbox-${randomUUID()}`,
+    title: "Public user-created inbox",
+    subjectId: seed.subject.id,
+    plannedDate: getStudyDayRange().start.toISOString(),
+    estimatedMinutes: 20,
+  };
+  for (const [field, value] of Object.entries({
+    originKey: "simulation-loss:forged",
+    originVersion: 999,
+    originType: "SIMULATION_LOSS",
+    originSnapshot: { examId: "forged" },
+  })) {
+    assert.equal(planInboxClientCreateSchema.safeParse({ ...publicInput, [field]: value }).success, false);
+  }
+  const publicInbox = await createUserPlanInboxItem(seed.user.id, publicInput);
+  assert.equal(publicInbox.originType, "USER_CREATED");
+  assert.match(publicInbox.originKey, /^user-created:[a-f0-9]{64}$/);
+  assert.deepEqual(publicInbox.originSnapshot, {
+    provenanceVersion: 1,
+    source: "USER_CREATED",
+    clientRequestKeyHash: publicInbox.originKey.slice("user-created:".length),
+  });
+  const publicCreationAudit = await prisma.auditEvent.findFirstOrThrow({
+    where: { action: "PLAN_INBOX_CREATED", entityType: "PlanInboxItem", entityId: publicInbox.id },
+    select: { metadata: true },
+  });
+  const publicAuditText = JSON.stringify(publicCreationAudit.metadata);
+  assert.equal(publicAuditText.includes(publicInput.title), false);
+  assert.equal(publicAuditText.includes("inputFingerprint"), false);
+
+  const reviewInbox = await createPlanInboxItem(seed.user.id, {
+    stableKey: `review-due-${afterAbandon.id}`,
+    originKey: `review-due-${afterAbandon.id}`,
+    originVersion: afterAbandon.revision,
+    originType: "REVIEW_DUE",
+    originSnapshot: {
+      reviewScheduleId: afterAbandon.id,
+      reviewScheduleRevision: afterAbandon.revision,
+      dueDate: afterAbandon.dueDate,
+    },
+    title: "Trusted review due inbox",
+    subjectId: seed.subject.id,
+    plannedDate: afterAbandon.dueDate,
+    estimatedMinutes: 25,
+    type: "review",
+  });
+  const convertedReviewInbox = await convertPlanInboxItem(seed.user.id, reviewInbox.id, {
+    expectedRevision: reviewInbox.revision,
+    idempotencyKey: `review-due-convert-${randomUUID()}`,
+  });
+  assert.ok(convertedReviewInbox.convertedTaskId);
+  assert.equal((await prisma.studyTask.findUniqueOrThrow({
+    where: { id: convertedReviewInbox.convertedTaskId! },
+    select: { reviewScheduleId: true },
+  })).reviewScheduleId, afterAbandon.id);
+  const incompleteReviewInbox = await createPlanInboxItem(seed.user.id, {
+    stableKey: `review-due-incomplete-${randomUUID()}`,
+    originKey: `review-due-incomplete-${randomUUID()}`,
+    originVersion: 1,
+    originType: "REVIEW_DUE",
+    originSnapshot: { reviewScheduleId: afterAbandon.id },
+    title: "Incomplete review due inbox",
+    subjectId: seed.subject.id,
+    plannedDate: afterAbandon.dueDate,
+    estimatedMinutes: 25,
+    type: "review",
+  });
+  await assert.rejects(
+    () => convertPlanInboxItem(seed.user.id, incompleteReviewInbox.id, {
+      expectedRevision: incompleteReviewInbox.revision,
+      idempotencyKey: `review-due-incomplete-${randomUUID()}`,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "PLAN_INBOX_ORIGIN_STALE",
+  );
   const inbox = await createPlanInboxItem(seed.user.id, {
     stableKey: `inbox-${randomUUID()}`,
     originKey: `origin-${randomUUID()}`,
@@ -526,10 +1138,65 @@ async function verifyBridgeAndInboxConvert(
   assert.equal(await prisma.studyTaskRelatedSyllabusNode.count({ where: { taskId: converted.convertedTaskId ?? "", syllabusNodeId: relatedNode.id } }), 1);
   assert.equal(await prisma.taskDependency.count({ where: { predecessorId: predecessor.id, successorId: converted.convertedTaskId ?? "", type: "HARD" } }), 1);
 
+  assert.equal(planInboxConvertSchema.safeParse({
+    expectedRevision: inbox.revision,
+    idempotencyKey: conversionKey,
+    reviewScheduleId: schedule.id,
+  }).success, false);
+
   await assert.rejects(
     () => convertPlanInboxItem(seed.user.id, inbox.id, { expectedRevision: converted.revision, idempotencyKey: `different-${randomUUID()}` }),
     (error: unknown) => error instanceof ApiError && error.code === "PLAN_INBOX_ALREADY_CONVERTED",
   );
+
+  const concurrentInbox = await createPlanInboxItem(seed.user.id, {
+    stableKey: `concurrent-${randomUUID()}`,
+    originKey: `concurrent-${randomUUID()}`,
+    originVersion: 1,
+    originType: "SELFTEST",
+    originSnapshot: { source: "selftest", sourceStableKey: "source-plan" },
+    title: "Concurrent conversion",
+    subjectId: seed.subject.id,
+    plannedDate: getStudyDayRange().start.toISOString(),
+    estimatedMinutes: 25,
+  });
+  assert.equal(matchesPlanInboxStableRef(concurrentInbox, "source-plan@1"), true);
+  const concurrentKey = `concurrent-convert-${randomUUID()}`;
+  const concurrentConverted = await Promise.all([
+    convertPlanInboxItem(seed.user.id, concurrentInbox.id, {
+      expectedRevision: concurrentInbox.revision,
+      idempotencyKey: concurrentKey,
+    }),
+    convertPlanInboxItem(seed.user.id, concurrentInbox.id, {
+      expectedRevision: concurrentInbox.revision,
+      idempotencyKey: concurrentKey,
+    }),
+  ]);
+  assert.equal(concurrentConverted[0]?.convertedTaskId, concurrentConverted[1]?.convertedTaskId);
+  assert.equal(await prisma.studyTask.count({ where: { id: concurrentConverted[0]?.convertedTaskId ?? "" } }), 1);
+
+  const racingInbox = await createPlanInboxItem(seed.user.id, {
+    stableKey: `transition-race-${randomUUID()}`,
+    originKey: `transition-race-${randomUUID()}`,
+    originVersion: 1,
+    originType: "SELFTEST",
+    originSnapshot: { source: "selftest" },
+    title: "Transition race",
+    subjectId: seed.subject.id,
+    plannedDate: getStudyDayRange().start.toISOString(),
+    estimatedMinutes: 20,
+  });
+  const transitionRace = await Promise.allSettled([
+    convertPlanInboxItem(seed.user.id, racingInbox.id, {
+      expectedRevision: racingInbox.revision,
+      idempotencyKey: `transition-race-${randomUUID()}`,
+    }),
+    dismissPlanInboxItem(seed.user.id, racingInbox.id, racingInbox.revision),
+  ]);
+  assert.equal(transitionRace.filter((result) => result.status === "fulfilled").length, 1);
+  const racedState = await prisma.planInboxItem.findUniqueOrThrow({ where: { id: racingInbox.id } });
+  assert.equal(racedState.status === "CONVERTED" || racedState.status === "DISMISSED", true);
+  assert.equal(Boolean(racedState.convertedTaskId), racedState.status === "CONVERTED");
 
   const incomplete = await createPlanInboxItem(seed.user.id, {
     stableKey: `incomplete-${randomUUID()}`,
@@ -570,6 +1237,342 @@ async function verifyBridgeAndInboxConvert(
     convertedTaskId: converted.convertedTaskId ?? "",
     dependencyCount: 1,
     relatedNodeCount: 1,
+    concurrentConvertReused: true,
+    transitionRaceAtomic: true,
+    stableRefMatched: true,
+    clientProvenanceSpoofRejected: true,
+    clientProvenanceRebuilt: true,
+    reviewDueSnapshotRequired: true,
+    auditContentRedacted: true,
+  });
+}
+
+async function verifyBridgeWorkspaceSwitchBoundary(): Promise<void> {
+  const user = await prisma.user.create({
+    data: { email: `v11m6-switch-${randomUUID()}@example.com`, passwordHash: "x" },
+  });
+  const oldWorkspace = await prisma.examWorkspace.create({
+    data: {
+      userId: user.id,
+      stableKey: `m6-old-${randomUUID()}`,
+      name: "M6 Old Workspace",
+      status: "ACTIVE",
+    },
+  });
+  const oldSubject = await prisma.subject.create({
+    data: {
+      workspaceId: oldWorkspace.id,
+      stableKey: `m6-old-subject-${randomUUID()}`,
+      name: "M6 Old Subject",
+      color: "#111111",
+    },
+  });
+  const reviewNote = await prisma.note.create({
+    data: { subjectId: oldSubject.id, title: "Historical review writes", content: "x", kind: "EXAMPLE" },
+  });
+  const reviewSchedule = await materializeReviewSchedule(user.id, {
+    targetType: "NOTE",
+    noteId: reviewNote.id,
+    dueDate: getStudyDayRange().start.toISOString(),
+  });
+  const confirmedReview = await confirmReviewEvent(user.id, reviewSchedule.id, {
+    idempotencyKey: `historical-confirm-${randomUUID()}`,
+    expectedRevision: reviewSchedule.revision,
+    result: "FAILED",
+    durationSeconds: 60,
+  });
+  const historicalBridges = await Promise.all(
+    ["complete", "defer", "abandon"].map(async (operation) => {
+      const note = await prisma.note.create({
+        data: { subjectId: oldSubject.id, title: `Historical ${operation} bridge`, content: "x", kind: "EXAMPLE" },
+      });
+      const reviewSchedule = await materializeReviewSchedule(user.id, {
+        targetType: "NOTE",
+        noteId: note.id,
+        dueDate: getStudyDayRange().start.toISOString(),
+      });
+      const bridgeTask = await createBridgeTask(user.id, {
+        reviewScheduleId: reviewSchedule.id,
+        subjectId: oldSubject.id,
+        title: `Historical ${operation} task`,
+      });
+      return { operation, reviewSchedule, bridgeTask };
+    }),
+  );
+  const nextWorkspace = await prisma.examWorkspace.create({
+    data: {
+      userId: user.id,
+      stableKey: `m6-next-${randomUUID()}`,
+      name: "M6 Next Workspace",
+      status: "ARCHIVED",
+    },
+  });
+  await prisma.subject.create({
+    data: {
+      workspaceId: nextWorkspace.id,
+      stableKey: `m6-next-subject-${randomUUID()}`,
+      name: "M6 Next Subject",
+      color: "#0f766e",
+    },
+  });
+  await activateExamWorkspace(user.id, nextWorkspace.id, nextWorkspace.revision);
+
+  const switchedSchedule = await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: reviewSchedule.id } });
+  const switchedEventCount = await prisma.reviewEvent.count({ where: { reviewScheduleId: reviewSchedule.id } });
+  await assert.rejects(
+    () => materializeReviewSchedule(user.id, {
+      targetType: "NOTE",
+      noteId: reviewNote.id,
+      dueDate: getStudyDayRange().start.toISOString(),
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_TARGET_NOT_FOUND",
+  );
+  await assert.rejects(
+    () => rescheduleReview(user.id, reviewSchedule.id, {
+      expectedRevision: switchedSchedule.revision,
+      dueDate: getStudyDayRange().start.toISOString(),
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_SCHEDULE_NOT_FOUND",
+  );
+  await assert.rejects(
+    () => pauseReviewSchedule(user.id, reviewSchedule.id, {
+      expectedRevision: switchedSchedule.revision,
+      reason: "blocked historical pause",
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_SCHEDULE_NOT_FOUND",
+  );
+  await assert.rejects(
+    () => resumeReviewSchedule(user.id, reviewSchedule.id, {
+      expectedRevision: switchedSchedule.revision,
+      dueDate: getStudyDayRange().start.toISOString(),
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_SCHEDULE_NOT_FOUND",
+  );
+  await assert.rejects(
+    () => correctReviewEvent(user.id, confirmedReview.event.id, {
+      idempotencyKey: `historical-correct-${randomUUID()}`,
+      expectedRevision: switchedSchedule.revision,
+      result: "PASSED",
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "REVIEW_EVENT_NOT_FOUND",
+  );
+
+  const completeHistorical = historicalBridges.find((item) => item.operation === "complete")!;
+  const deferHistorical = historicalBridges.find((item) => item.operation === "defer")!;
+  const abandonHistorical = historicalBridges.find((item) => item.operation === "abandon")!;
+  await assert.rejects(
+    () => completeBridgeTaskWithReview(user.id, completeHistorical.bridgeTask.taskId, {
+      idempotencyKey: `historical-complete-${randomUUID()}`,
+      expectedRevision: completeHistorical.reviewSchedule.revision,
+      result: "PASSED",
+      durationSeconds: 60,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "STUDY_TASK_NOT_FOUND",
+  );
+  await assert.rejects(
+    () => deferBridgeTask(user.id, deferHistorical.bridgeTask.taskId, {
+      expectedScheduleRevision: deferHistorical.reviewSchedule.revision,
+      plannedDate: getStudyDayRange().start.toISOString(),
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "STUDY_TASK_NOT_FOUND",
+  );
+  await assert.rejects(
+    () => abandonBridgeTask(user.id, abandonHistorical.bridgeTask.taskId),
+    (error: unknown) => error instanceof ApiError && error.code === "STUDY_TASK_NOT_FOUND",
+  );
+  const historicalTaskRows = await prisma.studyTask.findMany({
+    where: { id: { in: historicalBridges.map((item) => item.bridgeTask.taskId) } },
+    select: { status: true },
+  });
+  assert.equal(historicalTaskRows.length, 3);
+  assert.ok(historicalTaskRows.every((task) => task.status === "TODO"));
+  assert.equal(await prisma.reviewEvent.count({
+    where: { reviewScheduleId: { in: historicalBridges.map((item) => item.reviewSchedule.id) } },
+  }), 0);
+  assert.deepEqual(
+    await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: reviewSchedule.id } }),
+    switchedSchedule,
+  );
+  assert.equal(await prisma.reviewEvent.count({ where: { reviewScheduleId: reviewSchedule.id } }), switchedEventCount);
+  pass("bridge_workspace_switch_boundary", {
+    historicalTasks: historicalTaskRows.length,
+    rejectedWrites: 8,
+  });
+}
+
+async function verifyTrustedInboxAdoptions(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  const proofSecret = ["v11", "m6", "isolated", "result", "proof", "fixture", "20260726"].join("-");
+  process.env.AI_PAYLOAD_BINDING_SECRET = proofSecret;
+  const operationId = randomUUID();
+  const operation = await prisma.aiDraftOperation.create({
+    data: {
+      operationId,
+      actorId: seed.user.id,
+      workspaceId: seed.workspace.id,
+      endpoint: "plan",
+      purpose: "preview:v1",
+      requestFingerprint: "m6-ai-plan-request-fingerprint",
+      nonce: randomUUID(),
+      projectionVersion: "plan-projection-v1",
+      status: "SUCCEEDED",
+      resultReference: `draft:plan:${operationId}:local_rule_fallback`,
+      expiresAt: new Date(Date.now() + 60_000),
+      revision: 3,
+    },
+  });
+  const proofDraft = {
+    status: "local_rule_fallback" as const,
+    schemaVersion: "plan-draft-v1" as const,
+    title: "AI trusted plan",
+    tasks: [{ title: "AI trusted plan item", estimatedMinutes: 25 }],
+    reason: "M6 isolated result proof fixture.",
+  };
+  const resultProof = mintAiDraftResultProof({
+    actorId: seed.user.id,
+    workspaceId: seed.workspace.id,
+    endpoint: "plan",
+    operationId,
+    projectionVersion: operation.projectionVersion,
+    outputSchema: "plan-draft-v1",
+    status: proofDraft.status,
+    externalCall: false,
+    draft: proofDraft,
+    meta: { reason: "isolated fallback", sensitiveContextIncluded: false },
+  }, proofSecret).token;
+  const aiInput = {
+    operationId,
+    projectionVersion: operation.projectionVersion,
+    resultProof,
+    tasks: [{
+      title: "AI trusted plan item",
+      plannedDate: getStudyDayRange().start.toISOString(),
+      estimatedMinutes: 25,
+    }],
+  };
+  const [aiItem] = await adoptAiPlanDraftToInbox(seed.user.id, aiInput);
+  assert.ok(aiItem);
+  assert.equal(aiItem.originType, "AI_PLAN");
+  assert.equal((aiItem.originSnapshot as { operationId?: string }).operationId, operationId);
+  assert.equal(JSON.stringify(aiItem.originSnapshot).includes(resultProof), false);
+  const acknowledgedOperation = await prisma.aiDraftOperation.findUniqueOrThrow({ where: { id: operation.id } });
+  assert.equal(acknowledgedOperation.status, "SUCCEEDED");
+  assert.equal(acknowledgedOperation.revision, 4);
+  assert.ok(acknowledgedOperation.consumedAt);
+  const editedAiItem = await updatePlanInboxItem(seed.user.id, aiItem.id, {
+    expectedRevision: aiItem.revision,
+    title: "AI item edited by user",
+  });
+  const [retriedAiItem] = await adoptAiPlanDraftToInbox(seed.user.id, aiInput);
+  assert.equal(retriedAiItem?.id, editedAiItem.id);
+  assert.equal(retriedAiItem?.title, "AI item edited by user");
+  await assert.rejects(
+    () => adoptAiPlanDraftToInbox(seed.user.id, {
+      ...aiInput,
+      tasks: [{ ...aiInput.tasks[0], title: "forged task under a valid operation" }],
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "AI_DRAFT_RESULT_MISMATCH",
+  );
+  const tamperedProof = `${resultProof.slice(0, -1)}${resultProof.endsWith("A") ? "B" : "A"}`;
+  await assert.rejects(
+    () => adoptAiPlanDraftToInbox(seed.user.id, { ...aiInput, resultProof: tamperedProof }),
+    (error: unknown) => error instanceof ApiError && error.code === "AI_DRAFT_RESULT_PROOF_INVALID",
+  );
+  await assert.rejects(
+    () => adoptAiPlanDraftToInbox(seed.user.id, { ...aiInput, operationId: randomUUID() }),
+    (error: unknown) => error instanceof ApiError && error.code === "AI_DRAFT_RESULT_PROOF_INVALID",
+  );
+
+  const endedAt = getStudyDayRange().start;
+  const lowConversionSession = await prisma.studySession.create({
+    data: {
+      subjectId: seed.subject.id,
+      status: "COMPLETED",
+      startedAt: new Date(endedAt.getTime() - 25 * 60_000),
+      endedAt,
+      effectiveMinutes: 25,
+      isEffective: false,
+      isLowConversion: true,
+      requiredOutput: "补一条可复核产出",
+      closeoutVersion: 2,
+    },
+  });
+  const lowItem = await createLowConversionPlanInboxItem(seed.user.id, {
+    sessionId: lowConversionSession.id,
+    expectedCloseoutVersion: lowConversionSession.closeoutVersion,
+  });
+  assert.equal(lowItem.originType, "LOW_CONVERSION");
+  assert.equal((lowItem.originSnapshot as { sessionId?: string }).sessionId, lowConversionSession.id);
+  const editedLowItem = await updatePlanInboxItem(seed.user.id, lowItem.id, {
+    expectedRevision: lowItem.revision,
+    title: "用户修改后的低转化补救",
+  });
+  const retriedLowItem = await createLowConversionPlanInboxItem(seed.user.id, {
+    sessionId: lowConversionSession.id,
+    expectedCloseoutVersion: lowConversionSession.closeoutVersion,
+  });
+  assert.equal(retriedLowItem.id, editedLowItem.id);
+  assert.equal(retriedLowItem.title, "用户修改后的低转化补救");
+  const lowRetargetSubject = await prisma.subject.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `low-retarget-${randomUUID()}`,
+      name: "Low conversion retarget",
+      color: "#2563eb",
+    },
+  });
+  const retargetedLowItem = await updatePlanInboxItem(seed.user.id, editedLowItem.id, {
+    expectedRevision: editedLowItem.revision,
+    subjectId: lowRetargetSubject.id,
+    primaryNodeId: null,
+    relatedNodeIds: [],
+  });
+  await prisma.subject.update({ where: { id: seed.subject.id }, data: { archivedAt: new Date() } });
+  await assert.rejects(
+    () => convertPlanInboxItem(seed.user.id, retargetedLowItem.id, {
+      expectedRevision: retargetedLowItem.revision,
+      idempotencyKey: `low-archived-source-${randomUUID()}`,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "PLAN_INBOX_ORIGIN_ARCHIVED",
+  );
+  await prisma.subject.update({ where: { id: seed.subject.id }, data: { archivedAt: null } });
+  await assert.rejects(
+    () => createLowConversionPlanInboxItem(seed.user.id, {
+      sessionId: lowConversionSession.id,
+      expectedCloseoutVersion: 1,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "LOW_CONVERSION_SOURCE_STALE",
+  );
+
+  const ordinarySession = await prisma.studySession.create({
+    data: {
+      subjectId: seed.subject.id,
+      status: "COMPLETED",
+      startedAt: new Date(endedAt.getTime() - 15 * 60_000),
+      endedAt,
+      effectiveMinutes: 15,
+      isEffective: true,
+      isLowConversion: false,
+    },
+  });
+  await assert.rejects(
+    () => createLowConversionPlanInboxItem(seed.user.id, {
+      sessionId: ordinarySession.id,
+      expectedCloseoutVersion: ordinarySession.closeoutVersion,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "LOW_CONVERSION_SOURCE_INVALID",
+  );
+
+  pass("trusted_inbox_adoptions", {
+    aiOriginRebuilt: true,
+    aiResultProofBound: true,
+    aiRetryAfterEditReused: true,
+    forgedAiTasksRejected: true,
+    tamperedAiProofRejected: true,
+    lowConversionOriginRebuilt: true,
+    lowConversionRetryAfterEditReused: true,
+    forgedOperationRejected: true,
   });
 }
 
@@ -591,13 +1594,109 @@ async function verifyRecoveryStages(seed: Awaited<ReturnType<typeof seedWorkspac
   assert.ok(noDouble);
   assert.equal(noDouble.currentStage, 2);
 
-  const active = await getActiveRecoveryV2(seed.user.id);
-  assert.ok(active);
-  const canceled = await cancelRecoveryV2(seed.user.id, active.id, {
-    expectedRevision: active.revision,
+  await prisma.recoveryState.update({
+    where: { id: noDouble.id },
+    data: { lastProgressDate: new Date(getStudyDayRange().start.getTime() - 24 * 60 * 60 * 1000) },
   });
-  assert.equal(canceled.status, "CANCELED");
-  pass("recovery_stages", { startedId: started.id, advancedTo: 2 });
+  const stageThree = await applyRecoveryDayProgress(seed.user.id, { progressMinutesToday: 60 });
+  assert.ok(stageThree);
+  assert.equal(stageThree.currentStage, 3);
+  assert.equal(stageThree.status, "ACTIVE");
+
+  await prisma.recoveryState.update({
+    where: { id: stageThree.id },
+    data: { lastProgressDate: new Date(getStudyDayRange().start.getTime() - 24 * 60 * 60 * 1000) },
+  });
+  const completed = await applyRecoveryDayProgress(seed.user.id, { progressMinutesToday: 90 });
+  assert.ok(completed);
+  assert.equal(completed.currentStage, 3);
+  assert.equal(completed.status, "COMPLETED");
+  assert.equal(await getActiveRecoveryV2(seed.user.id), null);
+
+  const reviewRecovery = await startRecoveryV2(seed.user.id, { reason: "review production hook" });
+  const recoveryNote = await prisma.note.create({
+    data: {
+      subjectId: seed.subject.id,
+      title: "Recovery review hook",
+      content: "review hook",
+      kind: "CONCEPT",
+    },
+  });
+  const recoverySchedule = await materializeReviewSchedule(seed.user.id, {
+    targetType: "NOTE",
+    noteId: recoveryNote.id,
+    dueDate: getStudyDayRange().start.toISOString(),
+  });
+  await confirmReviewEvent(seed.user.id, recoverySchedule.id, {
+    idempotencyKey: `recovery-review-${randomUUID()}`,
+    expectedRevision: recoverySchedule.revision,
+    result: "PARTIAL",
+    durationSeconds: 1800,
+  });
+  const afterReview = await getActiveRecoveryV2(seed.user.id);
+  assert.ok(afterReview);
+  assert.equal(afterReview.id, reviewRecovery.id);
+  assert.equal(afterReview.currentStage, 2);
+  await cancelRecoveryV2(seed.user.id, afterReview.id, { expectedRevision: afterReview.revision });
+
+  const sessionRecovery = await startRecoveryV2(seed.user.id, { reason: "session production hook" });
+  const running = await startStudySession({ subjectId: seed.subject.id }, seed.user.id);
+  await prisma.studySession.update({
+    where: { id: running.id },
+    data: { startedAt: new Date(Date.now() - 31 * 60_000) },
+  });
+  const sessionPreimage = await prisma.studySession.findUniqueOrThrow({ where: { id: running.id } });
+  await endStudySession(running.id, {
+    expectedStatus: "running",
+    expectedUpdatedAt: sessionPreimage.updatedAt.toISOString(),
+    idempotencyKey: `recovery-session-${running.id}`,
+    qualityScore: 4,
+    isEffective: true,
+    understandingLevel: "清晰",
+    minimalOutput: "完成 Recovery 生产推进链路核验。",
+    nextAction: "继续下一阶",
+    producedNote: true,
+    producedMistake: false,
+    completeTask: false,
+  }, seed.user.id);
+  const afterSession = await getActiveRecoveryV2(seed.user.id);
+  assert.ok(afterSession);
+  assert.equal(afterSession.id, sessionRecovery.id);
+  assert.equal(afterSession.currentStage, 2);
+  await cancelRecoveryV2(seed.user.id, afterSession.id, { expectedRevision: afterSession.revision });
+
+  const expiring = await startRecoveryV2(seed.user.id, { reason: "expiry read hook" });
+  const sevenDaysAgo = new Date(getStudyDayRange().start.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const stale = await prisma.recoveryState.update({
+    where: { id: expiring.id },
+    data: {
+      windowStartDate: sevenDaysAgo,
+      windowEndDate: getStudyDayRange().start,
+      revision: { increment: 1 },
+    },
+  });
+  const expiredProjection = await getActiveRecoveryV2(seed.user.id);
+  assert.ok(expiredProjection);
+  assert.equal(expiredProjection.effectiveStatus, "EXPIRED");
+  assert.equal(expiredProjection.restartAvailable, true);
+  const projectedExpired = await prisma.recoveryState.findUniqueOrThrow({ where: { id: stale.id } });
+  assert.equal(projectedExpired.status, "ACTIVE");
+  const restarted = await restartRecoveryV2(seed.user.id, projectedExpired.id, {
+    expectedRevision: projectedExpired.revision,
+  });
+  const expired = await prisma.recoveryState.findUniqueOrThrow({ where: { id: projectedExpired.id } });
+  assert.equal(expired.status, "EXPIRED");
+  assert.equal(restarted.status, "ACTIVE");
+  assert.notEqual(restarted.id, expired.id);
+  await cancelRecoveryV2(seed.user.id, restarted.id, { expectedRevision: restarted.revision });
+
+  pass("recovery_stages_and_production_hooks", {
+    completedId: completed.id,
+    reviewRecoveryId: reviewRecovery.id,
+    sessionRecoveryId: sessionRecovery.id,
+    expiredId: expired.id,
+    restartedId: restarted.id,
+  });
 }
 
 async function verifyHardConcurrencyFixtures(

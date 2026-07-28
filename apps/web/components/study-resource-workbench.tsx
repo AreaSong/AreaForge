@@ -2,10 +2,19 @@
 
 import { FileUp, Link2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ConflictResolutionModal, type ConflictComparison } from "@/components/conflict-resolution-modal";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
 import { Drawer } from "@/components/ui/overlays";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
+import {
+  loadPrivateBusinessDraft,
+  LONG_PRIVATE_DRAFT_TTL_MS,
+  redirectToLoginWithCurrentLocation,
+  removePrivateBusinessDraft,
+  savePrivateBusinessDraft,
+} from "@/lib/client/private-business-drafts";
 import type { StudyResourceDto, StudyResourceEditorOptionsDto, StagingUploadResult } from "@/lib/study/study-resource-service";
 
 type UploadItem = {
@@ -18,6 +27,33 @@ type UploadItem = {
   reuseResourceId?: string;
   resultTitle?: string;
   error?: string;
+  submittedSnapshot?: UploadResolutionRequest;
+};
+
+type UploadResolutionRequest = {
+  attachmentId: string;
+  decision: "reuse" | "copy" | "skip";
+  reuseResourceId?: string;
+  title: string;
+  subjectId: string | null;
+  category: string;
+  tags: string[];
+};
+
+type UploadResolutionLatest = {
+  attachmentId: string;
+  decision: "reuse" | "copy" | "skip";
+  resourceId: string | null;
+  resource: StudyResourceDto | null;
+  request: UploadResolutionRequest | null;
+};
+
+type UploadResolutionConflict = {
+  itemKey: string;
+  submitted: UploadResolutionRequest;
+  latest: UploadResolutionLatest;
+  conflictFields: string[];
+  workbench: string;
 };
 
 type BatchStagingResponseItem = {
@@ -33,9 +69,17 @@ type PendingUploadDraft = {
   staging: StagingUploadResult;
   decision: "reuse" | "copy" | "skip";
   reuseResourceId?: string;
+  submittedSnapshot?: UploadResolutionRequest;
 };
 
-const pendingUploadDraftKey = "areaforge.resource.draft.upload-pending";
+type ResourceFormDraft = {
+  mode: "files" | "link";
+  subjectId: string;
+  category: string;
+  tags: string;
+  linkTitle: string;
+  linkUrl: string;
+};
 
 const categories = [
   ["TEXTBOOK", "教材/讲义"], ["COURSE", "课程资料"], ["EXERCISE", "习题/题集"],
@@ -44,15 +88,20 @@ const categories = [
 ] as const;
 
 export function StudyResourceWorkbench(props: {
+  userId: string;
   resources: StudyResourceDto[];
   archivedResources: StudyResourceDto[];
   options: StudyResourceEditorOptionsDto;
   initialSubjectId?: string;
+  initialCreate?: boolean;
 }) {
   const router = useRouter();
+  const createModeRef = useRef<HTMLButtonElement>(null);
+  const pendingUploadDraftKey = `areaforge.resource.draft.upload-pending.${props.userId}`;
+  const formDraftKey = `areaforge.resource.draft.form.${props.userId}`;
   useRestoreListReturn();
   const [mode, setMode] = useState<"files" | "link">("files");
-  const [uploads, setUploads] = useState<UploadItem[]>(() => loadPendingUploads());
+  const [uploads, setUploads] = useState<UploadItem[]>(() => loadPendingUploads(pendingUploadDraftKey));
   const [subjectId, setSubjectId] = useState(props.options.subjects.some((subject) => subject.id === props.initialSubjectId) ? props.initialSubjectId as string : props.options.subjects[0]?.id ?? "");
   const [category, setCategory] = useState("OTHER");
   const [tags, setTags] = useState("");
@@ -61,7 +110,44 @@ export function StudyResourceWorkbench(props: {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicateDrawerOpen, setDuplicateDrawerOpen] = useState(false);
-  const [recoveredPending, setRecoveredPending] = useState(() => loadPendingUploads().some((item) => item.status === "duplicate"));
+  const [resolutionConflict, setResolutionConflict] = useState<UploadResolutionConflict | null>(null);
+  const [conflictOpen, setConflictOpen] = useState(false);
+  const [recoveredPending, setRecoveredPending] = useState(() => loadPendingUploads(pendingUploadDraftKey).some((item) => item.status === "duplicate"));
+  const [formDraftReady, setFormDraftReady] = useState(false);
+
+  useEffect(() => {
+    if (!props.initialCreate) return;
+    const timer = window.setTimeout(() => {
+      createModeRef.current?.scrollIntoView({ block: "center" });
+      createModeRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [props.initialCreate]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const draft = loadPrivateBusinessDraft(formDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isResourceFormDraft);
+      if (draft) {
+        setMode(draft.mode);
+        setSubjectId(draft.subjectId);
+        setCategory(draft.category);
+        setTags(draft.tags);
+        setLinkTitle(draft.linkTitle);
+        setLinkUrl(draft.linkUrl);
+      }
+      setFormDraftReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [formDraftKey]);
+
+  useEffect(() => {
+    if (!formDraftReady) return;
+    if (!linkTitle && !linkUrl && !tags && !uploads.some((item) => item.status === "duplicate")) {
+      removePrivateBusinessDraft(formDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft<ResourceFormDraft>(formDraftKey, { mode, subjectId, category, tags, linkTitle, linkUrl });
+  }, [category, formDraftKey, formDraftReady, linkTitle, linkUrl, mode, subjectId, tags, uploads]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +171,7 @@ export function StudyResourceWorkbench(props: {
   useEffect(() => {
     const pendingItems = uploads.filter((item): item is UploadItem & { staging: StagingUploadResult; decision: "reuse" | "copy" | "skip" } => item.status === "duplicate" && Boolean(item.staging && item.decision));
     if (pendingItems.length === 0) {
-      window.localStorage.removeItem(pendingUploadDraftKey);
+      removePrivateBusinessDraft(pendingUploadDraftKey);
       return;
     }
     const draft: PendingUploadDraft[] = pendingItems.map((item) => ({
@@ -93,13 +179,14 @@ export function StudyResourceWorkbench(props: {
       fileName: item.originalName,
       staging: {
         attachment: item.staging.attachment,
-        duplicates: item.staging.duplicates.map(({ resourceId, stableKey, title }) => ({ resourceId, stableKey, title, hash: "" })),
+        duplicates: item.staging.duplicates.map(({ resourceId, stableKey, title }) => ({ resourceId, stableKey, title })),
       },
       decision: item.decision,
       reuseResourceId: item.reuseResourceId,
+      submittedSnapshot: item.submittedSnapshot,
     }));
-    window.localStorage.setItem(pendingUploadDraftKey, JSON.stringify(draft));
-  }, [uploads]);
+    savePrivateBusinessDraft(pendingUploadDraftKey, draft);
+  }, [pendingUploadDraftKey, uploads]);
 
   useEffect(() => {
     const hasUnresolvedUpload = pending || uploads.some((item) => item.status === "staging" || item.status === "duplicate");
@@ -130,6 +217,13 @@ export function StudyResourceWorkbench(props: {
     setPending(true);
     setError(null);
     const selected = uploads.filter((item) => item.status === "ready");
+    const commandScope = `study-resource:upload-batch:${props.userId}`;
+    const idempotencyKey = getOrCreateIdempotencyKey(commandScope, "resource-upload", selected.map((item) => ({
+      name: item.file?.name ?? item.originalName,
+      size: item.file?.size ?? null,
+      type: item.file?.type ?? null,
+      lastModified: item.file?.lastModified ?? null,
+    })));
     setUploads((current) => current.map((item) => item.status === "ready" ? { ...item, status: "staging" } : item));
     const form = new FormData();
     selected.forEach((item) => {
@@ -137,12 +231,22 @@ export function StudyResourceWorkbench(props: {
     });
     let response: Response;
     try {
-      response = await fetch("/api/study-resources/uploads/staging", { method: "POST", body: form });
+      response = await fetch("/api/study-resources/uploads/staging", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: form,
+      });
     } catch {
       const message = "上传请求失败，请检查网络后重新选择文件";
       setUploads((current) => current.map((item) => item.status === "staging" ? { ...item, status: "failed", error: message } : item));
       setError(message);
       setPending(false);
+      return;
+    }
+    if (response.status === 401) {
+      setUploads((current) => current.map((item) => item.status === "staging" ? { ...item, status: "failed", error: "登录已过期，请重新登录后重新选择文件" } : item));
+      setPending(false);
+      redirectToLoginWithCurrentLocation();
       return;
     }
     const body = await response.json().catch(() => null) as { items?: BatchStagingResponseItem[]; error?: string } | null;
@@ -153,6 +257,7 @@ export function StudyResourceWorkbench(props: {
       setPending(false);
       return;
     }
+    completeIdempotentCommand(commandScope);
     const staged = selected.map((item, index) => {
       const result = body.items?.find((candidate) => candidate.index === index);
       if (!result?.staging || result.error) {
@@ -169,51 +274,123 @@ export function StudyResourceWorkbench(props: {
       }
       return { ...item, staging: result.staging, decision: "copy" as const };
     });
-    const resolved = await Promise.all(staged.map((item) => item.status === "duplicate" ? item : resolveItem(item)));
-    const resolvedByKey = new Map(resolved.map((item) => [item.key, item]));
-    const results = uploads.map((item) => resolvedByKey.get(item.key) ?? item);
+    const prepared = staged.map((item) => item.status === "duplicate"
+      ? item
+      : { ...item, status: "duplicate" as const, submittedSnapshot: buildResolutionRequest(item) });
+    setUploads((current) => current.map((item) => prepared.find((next) => next.key === item.key) ?? item));
+    const autoTargets = prepared.filter((item, index) => staged[index]?.status !== "duplicate");
+    const settled = await Promise.all(autoTargets.map((item) => resolveItem(
+      item,
+      item.submittedSnapshot ?? buildResolutionRequest(item),
+    )));
+    const firstConflict = settled.find((entry) => entry.conflict)?.conflict;
+    if (firstConflict) openResolutionConflict(firstConflict);
+    const resolvedByKey = new Map(settled.map((entry) => [entry.item.key, entry.item]));
+    const preparedByKey = new Map(prepared.map((item) => [item.key, item]));
+    const results = uploads.map((item) => resolvedByKey.get(item.key) ?? preparedByKey.get(item.key) ?? item);
     setUploads(results);
     setPending(false);
     if (results.some((item) => item.status === "done")) router.refresh();
     if (results.some((item) => item.status === "duplicate")) setDuplicateDrawerOpen(true);
   }
 
-  async function resolveItem(item: UploadItem): Promise<UploadItem> {
-    if (!item.staging || !item.decision) return { ...item, status: "failed", error: "缺少重复处理决策" };
+  async function resolveItem(
+    item: UploadItem,
+    submitted: UploadResolutionRequest,
+  ): Promise<{ item: UploadItem; conflict?: UploadResolutionConflict }> {
+    if (!item.staging || !item.decision) {
+      return { item: { ...item, status: "failed", error: "缺少重复处理决策" } };
+    }
     let response: Response;
     try {
       response = await fetch("/api/study-resources/uploads/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          attachmentId: item.staging.attachment.id,
-          decision: item.decision,
-          reuseResourceId: item.decision === "reuse" ? item.reuseResourceId : undefined,
-          title: item.originalName,
-          subjectId: subjectId || null,
-          category,
-          tags: splitTags(tags),
-        }),
+        body: JSON.stringify(submitted),
       });
     } catch {
-      return { ...item, status: "duplicate", error: "处理请求失败，请重试" };
-    }
-    const body = await response.json().catch(() => null) as { resource?: StudyResourceDto; skipped?: boolean; error?: string } | null;
-    if (!response.ok || (!body?.resource && !body?.skipped)) {
       return {
-        ...item,
-        status: item.status === "duplicate" ? "duplicate" : "failed",
-        error: body?.error ?? "处理失败",
+        item: {
+          ...item,
+          status: "duplicate",
+          submittedSnapshot: submitted,
+          error: "处理结果未知，提交快照已保留；请显式重试",
+        },
       };
     }
-    return { ...item, status: "done", resultTitle: body.skipped ? "已跳过" : body.resource?.title };
+    const body = await response.json().catch(() => null) as {
+      resource?: StudyResourceDto;
+      skipped?: boolean;
+      error?: string;
+      latest?: unknown;
+      conflictFields?: string[];
+      workbench?: string;
+    } | null;
+    if (response.status === 401) {
+      redirectToLoginWithCurrentLocation();
+      return {
+        item: {
+          ...item,
+          status: "duplicate",
+          submittedSnapshot: submitted,
+          error: "登录已过期，重复处理决策与提交快照已保留",
+        },
+      };
+    }
+    if (response.status === 409 && isUploadResolutionLatest(body?.latest)) {
+      return {
+        item: { ...item, status: "duplicate", submittedSnapshot: submitted, error: "服务端已有不同终态，请先处理冲突" },
+        conflict: {
+          itemKey: item.key,
+          submitted,
+          latest: body.latest,
+          conflictFields: body?.conflictFields ?? ["decision"],
+          workbench: safeResourceWorkbench(body?.workbench),
+        },
+      };
+    }
+    if (response.status === 404) {
+      router.replace(safeResourceWorkbench(body?.workbench));
+      return {
+        item: {
+          ...item,
+          status: "duplicate",
+          submittedSnapshot: submitted,
+          error: "上传对象已不可用，草稿已保留；请从资料工作台重新核对",
+        },
+      };
+    }
+    if (!response.ok || (!body?.resource && !body?.skipped)) {
+      return {
+        item: {
+          ...item,
+          status: "duplicate",
+          submittedSnapshot: submitted,
+          error: body?.error ?? "处理失败",
+        },
+      };
+    }
+    return {
+      item: {
+        ...item,
+        status: "done",
+        submittedSnapshot: undefined,
+        error: undefined,
+        resultTitle: body.skipped ? "已跳过" : body.resource?.title,
+      },
+    };
   }
 
   async function resolveDuplicates() {
     const targets = uploads.filter((item) => item.status === "duplicate");
     if (!targets.length || pending) return;
     setPending(true);
-    const resolved = await Promise.all(targets.map((item) => resolveItem(item)));
+    const prepared = targets.map((item) => ({ ...item, submittedSnapshot: buildResolutionRequest(item) }));
+    setUploads((current) => current.map((item) => prepared.find((next) => next.key === item.key) ?? item));
+    const settled = await Promise.all(prepared.map((item) => resolveItem(item, item.submittedSnapshot)));
+    const firstConflict = settled.find((entry) => entry.conflict)?.conflict;
+    if (firstConflict) openResolutionConflict(firstConflict);
+    const resolved = settled.map((entry) => entry.item);
     setUploads((current) => current.map((item) => resolved.find((next) => next.key === item.key) ?? item));
     setPending(false);
     if (resolved.every((item) => item.status !== "duplicate")) setRecoveredPending(false);
@@ -221,25 +398,100 @@ export function StudyResourceWorkbench(props: {
     if (resolved.every((item) => item.status !== "duplicate")) setDuplicateDrawerOpen(false);
   }
 
+  function buildResolutionRequest(item: UploadItem): UploadResolutionRequest {
+    if (!item.staging || !item.decision) throw new Error("Upload decision is incomplete");
+    return {
+      attachmentId: item.staging.attachment.id,
+      decision: item.decision,
+      reuseResourceId: item.decision === "reuse" ? item.reuseResourceId : undefined,
+      title: item.originalName,
+      subjectId: subjectId || null,
+      category,
+      tags: splitTags(tags),
+    };
+  }
+
+  function openResolutionConflict(conflict: UploadResolutionConflict) {
+    setResolutionConflict(conflict);
+    setDuplicateDrawerOpen(false);
+    setConflictOpen(true);
+  }
+
+  function adoptResolvedUpload() {
+    if (!resolutionConflict) return;
+    const resultTitle = resolutionConflict.latest.decision === "skip"
+      ? "已跳过"
+      : resolutionConflict.latest.resource?.title ?? "已按服务端终态完成";
+    setUploads((current) => current.map((item) => item.key === resolutionConflict.itemKey
+      ? { ...item, status: "done", submittedSnapshot: undefined, error: undefined, resultTitle }
+      : item));
+    setConflictOpen(false);
+    setResolutionConflict(null);
+    router.refresh();
+  }
+
+  function mergeResolvedUploadBaseline() {
+    if (!resolutionConflict) return;
+    const serverRequest = resolutionConflict.latest.request;
+    setUploads((current) => current.map((item) => item.key === resolutionConflict.itemKey
+      ? {
+          ...item,
+          decision: resolutionConflict.latest.decision,
+          reuseResourceId: resolutionConflict.latest.resourceId ?? undefined,
+          submittedSnapshot: undefined,
+          error: "已对齐服务端终态基线；请检查后再次点击应用全部决策。",
+        }
+      : item));
+    if (serverRequest) {
+      setSubjectId(serverRequest.subjectId ?? "");
+      setCategory(serverRequest.category);
+      setTags(serverRequest.tags.join("，"));
+    }
+    setConflictOpen(false);
+    setResolutionConflict(null);
+    setDuplicateDrawerOpen(true);
+  }
+
   async function createLink() {
     if (pending || !linkTitle.trim() || !linkUrl.trim()) return;
     setPending(true); setError(null);
-    const response = await fetch("/api/study-resources/links", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: linkTitle, url: linkUrl, subjectId: subjectId || null, category, tags: splitTags(tags) }),
-    });
-    const body = await response.json().catch(() => null) as { error?: string } | null;
-    setPending(false);
-    if (!response.ok) return setError(body?.error ?? "外链资料创建失败");
-    setLinkTitle(""); setLinkUrl(""); router.refresh();
+    try {
+      const response = await fetch("/api/study-resources/links", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: linkTitle, url: linkUrl, subjectId: subjectId || null, category, tags: splitTags(tags) }),
+      });
+      const body = await response.json().catch(() => null) as { error?: string } | null;
+      if (response.status === 401) {
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        setError(body?.error ?? "外链资料创建失败，草稿已保留");
+        return;
+      }
+      setLinkTitle(""); setLinkUrl(""); setTags("");
+      removePrivateBusinessDraft(formDraftKey);
+      router.refresh();
+    } catch {
+      setError("网络不可用，外链资料草稿已保留；恢复网络后请显式重试。");
+    } finally {
+      setPending(false);
+    }
   }
+
+  const conflictItem = resolutionConflict
+    ? uploads.find((item) => item.key === resolutionConflict.itemKey)
+    : undefined;
+  const localConflictRequest = conflictItem?.staging && conflictItem.decision
+    ? buildResolutionRequest(conflictItem)
+    : resolutionConflict?.submitted;
 
   return (
     <div className="space-y-7">
       <header><h1 className="text-2xl font-semibold text-white">资料</h1></header>
       <section className="space-y-4 border-b border-white/10 pb-7">
         <div className="inline-flex rounded-md border border-white/10 p-1" role="group" aria-label="资料创建方式">
-          <button type="button" aria-pressed={mode === "files"} onClick={() => setMode("files")} className={`h-8 rounded px-3 text-sm ${mode === "files" ? "bg-white/10 text-white" : "text-zinc-400"}`}>文件批次</button>
+          <button ref={createModeRef} type="button" aria-pressed={mode === "files"} onClick={() => setMode("files")} className={`h-8 rounded px-3 text-sm ${mode === "files" ? "bg-white/10 text-white" : "text-zinc-400"}`}>文件批次</button>
           <button type="button" aria-pressed={mode === "link"} onClick={() => setMode("link")} className={`h-8 rounded px-3 text-sm ${mode === "link" ? "bg-white/10 text-white" : "text-zinc-400"}`}>HTTPS 外链</button>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -277,7 +529,7 @@ export function StudyResourceWorkbench(props: {
                   aria-label={`${item.originalName}重复处理`}
                   className="h-9 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm"
                   value={item.decision}
-                  onChange={(event) => setUploads((current) => current.map((row) => row.key === item.key ? { ...row, decision: event.target.value as UploadItem["decision"] } : row))}
+                  onChange={(event) => setUploads((current) => current.map((row) => row.key === item.key ? { ...row, decision: event.target.value as UploadItem["decision"], submittedSnapshot: undefined } : row))}
                 >
                   <option value="reuse">复用已有资料</option>
                   <option value="copy">上传为副本</option>
@@ -288,7 +540,7 @@ export function StudyResourceWorkbench(props: {
                     aria-label={`${item.originalName}复用目标`}
                     className="h-9 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm"
                     value={item.reuseResourceId}
-                    onChange={(event) => setUploads((current) => current.map((row) => row.key === item.key ? { ...row, reuseResourceId: event.target.value } : row))}
+                    onChange={(event) => setUploads((current) => current.map((row) => row.key === item.key ? { ...row, reuseResourceId: event.target.value, submittedSnapshot: undefined } : row))}
                   >
                     {item.staging?.duplicates.map((row) => <option key={row.resourceId} value={row.resourceId}>{row.title}</option>)}
                   </select>
@@ -299,6 +551,20 @@ export function StudyResourceWorkbench(props: {
           <button type="button" disabled={pending || !uploads.some((item) => item.status === "duplicate")} onClick={() => void resolveDuplicates()} className="h-10 w-full rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-50">应用全部决策</button>
         </div>
       </Drawer>
+      <ConflictResolutionModal
+        open={conflictOpen && Boolean(resolutionConflict)}
+        title="处理资料上传终态冲突"
+        description="该上传已由另一页面或先前请求完成。当前决策与首次提交快照仍保留，系统不会自动重放或覆盖。"
+        conflictFields={resolutionConflict?.conflictFields ?? []}
+        comparisons={resolutionConflict && localConflictRequest
+          ? uploadResolutionComparisons(resolutionConflict, localConflictRequest)
+          : []}
+        onClose={() => setConflictOpen(false)}
+        onAdoptServer={adoptResolvedUpload}
+        onManualMerge={mergeResolvedUploadBaseline}
+        adoptLabel="接受服务端已完成终态"
+        mergeLabel="以服务端终态为基线再检查"
+      />
     </div>
   );
 }
@@ -315,12 +581,11 @@ function ResourceList({ title, resources }: { title: string; resources: StudyRes
 function statusLabel(item: UploadItem) { if (item.status === "ready") return "待上传"; if (item.status === "staging") return "检查中"; if (item.status === "duplicate") return "待重复决策"; if (item.status === "failed") return "失败"; return item.resultTitle ?? "完成"; }
 function splitTags(value: string) { return value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean).slice(0, 20); }
 
-function loadPendingUploads(): UploadItem[] {
+function loadPendingUploads(key: string): UploadItem[] {
   if (typeof window === "undefined") return [];
-  try {
-    const raw = JSON.parse(window.localStorage.getItem(pendingUploadDraftKey) ?? "null") as unknown;
-    if (!Array.isArray(raw)) return [];
-    return raw.slice(0, 5).flatMap((value): UploadItem[] => {
+  const raw = loadPrivateBusinessDraft(key, LONG_PRIVATE_DRAFT_TTL_MS, isPendingUploadDraftArray);
+  if (!raw) return [];
+  return raw.slice(0, 5).flatMap((value): UploadItem[] => {
       if (!isPendingUploadDraft(value)) return [];
       return [{
         key: value.key,
@@ -330,12 +595,9 @@ function loadPendingUploads(): UploadItem[] {
         staging: value.staging,
         decision: value.decision,
         reuseResourceId: value.reuseResourceId,
+        submittedSnapshot: value.submittedSnapshot,
       }];
     });
-  } catch {
-    window.localStorage.removeItem(pendingUploadDraftKey);
-    return [];
-  }
 }
 
 function restoreServerPendingUpload(staging: StagingUploadResult): UploadItem {
@@ -372,5 +634,65 @@ function isPendingUploadDraft(value: unknown): value is PendingUploadDraft {
   const staging = candidate.staging;
   return typeof candidate.key === "string" && typeof candidate.fileName === "string" &&
     (candidate.decision === "reuse" || candidate.decision === "copy" || candidate.decision === "skip") &&
+    (candidate.submittedSnapshot === undefined || isUploadResolutionRequest(candidate.submittedSnapshot)) &&
     Boolean(staging && typeof staging === "object" && staging.attachment && typeof staging.attachment.id === "string" && Array.isArray(staging.duplicates));
+}
+
+function isPendingUploadDraftArray(value: unknown): value is PendingUploadDraft[] {
+  return Array.isArray(value) && value.every(isPendingUploadDraft);
+}
+
+function isResourceFormDraft(value: unknown): value is ResourceFormDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as Partial<ResourceFormDraft>;
+  return (draft.mode === "files" || draft.mode === "link")
+    && [draft.subjectId, draft.category, draft.tags, draft.linkTitle, draft.linkUrl]
+      .every((field) => typeof field === "string");
+}
+
+function isUploadResolutionRequest(value: unknown): value is UploadResolutionRequest {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<UploadResolutionRequest>;
+  return typeof candidate.attachmentId === "string" &&
+    (candidate.decision === "reuse" || candidate.decision === "copy" || candidate.decision === "skip") &&
+    (candidate.reuseResourceId === undefined || typeof candidate.reuseResourceId === "string") &&
+    typeof candidate.title === "string" &&
+    (candidate.subjectId === null || typeof candidate.subjectId === "string") &&
+    typeof candidate.category === "string" &&
+    Array.isArray(candidate.tags) && candidate.tags.every((tag) => typeof tag === "string");
+}
+
+function isUploadResolutionLatest(value: unknown): value is UploadResolutionLatest {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<UploadResolutionLatest>;
+  return typeof candidate.attachmentId === "string" &&
+    (candidate.decision === "reuse" || candidate.decision === "copy" || candidate.decision === "skip") &&
+    (candidate.resourceId === null || typeof candidate.resourceId === "string") &&
+    (candidate.resource === null || isStudyResourceDto(candidate.resource)) &&
+    (candidate.request === null || isUploadResolutionRequest(candidate.request));
+}
+
+function isStudyResourceDto(value: unknown): value is StudyResourceDto {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<StudyResourceDto>;
+  return typeof candidate.id === "string" && typeof candidate.revision === "number" && typeof candidate.title === "string";
+}
+
+function safeResourceWorkbench(value: unknown): string {
+  return value === "/knowledge/resources" ? value : "/knowledge/resources";
+}
+
+function uploadResolutionComparisons(
+  conflict: UploadResolutionConflict,
+  local: UploadResolutionRequest,
+): ConflictComparison[] {
+  const server = conflict.latest.request;
+  return [
+    { field: "decision", label: "处理决策", baseline: conflict.submitted.decision, local: local.decision, server: server?.decision ?? conflict.latest.decision },
+    { field: "reuseResourceId", label: "复用目标", baseline: conflict.submitted.reuseResourceId, local: local.reuseResourceId, server: server?.reuseResourceId ?? conflict.latest.resourceId },
+    { field: "title", label: "资料标题", baseline: conflict.submitted.title, local: local.title, server: server?.title },
+    { field: "subjectId", label: "科目", baseline: conflict.submitted.subjectId, local: local.subjectId, server: server?.subjectId },
+    { field: "category", label: "资料类型", baseline: conflict.submitted.category, local: local.category, server: server?.category },
+    { field: "tags", label: "标签", baseline: conflict.submitted.tags, local: local.tags, server: server?.tags },
+  ];
 }

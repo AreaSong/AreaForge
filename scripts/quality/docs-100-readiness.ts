@@ -25,6 +25,7 @@ const requiredFiles = [
   "docs/development/ai-provider-integration-design.md",
   "docs/development/second-stage-long-term-loop-design.md",
   "docs/development/production-release-runbook.md",
+  "docs/development/release-v0.1.9-record.md",
   "docs/development/release-record-template.md",
   "docs/development/release-train.md",
   "docs/development/completion-evidence-checklist.md",
@@ -552,15 +553,17 @@ function checkCurrentProductionEvidenceBoundary(): void {
   const workflowV02 = read("workflow/versions/v0.2-first-version-risk-closures.md");
   const workflowV10 = read("workflow/versions/v1.0-prod-release.md");
   const completionRecord = read("docs/development/docs-100-completion-record.md");
-  const releaseRecord = read("docs/development/release-v0.1.7-record.md");
+  const releaseRecord = read("docs/development/release-v0.1.9-record.md");
   const controlPlane = read("docs/development/long-term-operability-control-plane.md");
   const scannedDocs = `${readme}\n${architectureOverview}\n${workflowReadme}\n${workflowV02}\n${workflowV10}\n${completionRecord}\n${controlPlane}`;
   const requiredBoundaryTerms = [
     "needs_live_evidence",
-    "post-update OPS-001",
-    "OPS-004",
-    "release evidence backup hash",
-    "root-only backup hash",
+    "当前 checkout",
+    "生产基线",
+    "历史回滚",
+    "AF-RISK-OPS-002",
+    "AF-RISK-OPS-003",
+    "AF-RISK-REL-001",
     "长期运营 live gate",
   ];
   const forbiddenOverclaims = [
@@ -570,17 +573,22 @@ function checkCurrentProductionEvidenceBoundary(): void {
   ];
   const missing = requiredBoundaryTerms.filter((term) => !scannedDocs.includes(term));
   const forbidden = forbiddenOverclaims.filter((term) => scannedDocs.includes(term));
-  const releaseHasRootOnlyBoundary =
-    releaseRecord.includes("not-copied-root-only-update-record") &&
-    releaseRecord.includes("release evidence validation remains blocked by root-only backup hashes");
+  const releaseHasCurrentBoundary =
+    releaseRecord.includes("releaseTag: v0.1.9") &&
+    releaseRecord.includes('publicHealthEvidence: GET https://forge.areasong.top/api/health returned {"ok":true,"service":"AreaForge","version":"0.1.9"}') &&
+    releaseRecord.includes("databaseBackupPath: <redacted-root-only-path>") &&
+    ["databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256"].every((field) =>
+      new RegExp(`^${field}: [a-f0-9]{64}$`, "m").test(releaseRecord)
+    ) &&
+    releaseRecord.includes("root-only paths remain on host");
 
   checks.push({
     name: "current production evidence boundary",
-    ok: missing.length === 0 && forbidden.length === 0 && releaseHasRootOnlyBoundary,
+    ok: missing.length === 0 && forbidden.length === 0 && releaseHasCurrentBoundary,
     detail:
-      missing.length === 0 && forbidden.length === 0 && releaseHasRootOnlyBoundary
-        ? "v0.1.7 docs distinguish production apply/health from long-term live evidence and backup-hash gaps"
-        : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}; release root-only boundary ${releaseHasRootOnlyBoundary ? "present" : "missing"}`,
+      missing.length === 0 && forbidden.length === 0 && releaseHasCurrentBoundary
+        ? "v0.1.9 docs distinguish the production baseline, current checkout, historical rollback, and long-term live evidence"
+        : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}; v0.1.9 release boundary ${releaseHasCurrentBoundary ? "present" : "missing"}`,
   });
 }
 

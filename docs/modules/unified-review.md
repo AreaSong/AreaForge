@@ -16,6 +16,7 @@
 - UI：`/quick-review/[scheduleId]` 单对象快速复习；`/knowledge/reviews` 统一复习列表。
 - 确认事务：Event → CAS Schedule →（考纲）Retest/Evidence → CheckIn v2 → Audit。
 - 临时库验证：`AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest`
+- 上述能力属于当前隔离候选，仍待最终 runtime、体验与 Release admission 验证后再生产切换。
 
 ## 行为要点
 
@@ -28,6 +29,6 @@
 ## 非目标
 
 - 不新增第二结果表或自动把错题连通过判为掌握升级。
-- 动机内容库、通知偏好与 AI 草稿入口仍隐藏；见版本计划后续阶段。
+- 动机内容库、通知偏好与四类 AI 草稿已在当前隔离候选开放对应设置或显式入口；统一复习不会自动触发通知或 AI 外呼，也不会把未选择的复习正文发送给 AI。
 
 权威规格见 `workflow/versions/v1.1-learning-action-center.md`；实现状态见 `docs/development/feature-traceability.md`。

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { getKnowledgeOverview } from "@/lib/study/knowledge-canvas-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/knowledge/overview");
 
 export default async function KnowledgeOverviewPage() {
   const user = await getCurrentUser();
@@ -19,9 +21,19 @@ export default async function KnowledgeOverviewPage() {
 
   return (
     <div className="space-y-6">
+      <h1 className="text-2xl font-semibold text-white">知识概览</h1>
       <section className="space-y-2">
         <h2 className="text-lg font-medium text-white">当前工作区：{overview.workspaceName}</h2>
         <p className="text-sm text-zinc-500">优先处理到期复习与薄弱节点，再回画布检查关联。</p>
+        {overview.nextAction ? (
+          <Link href={overview.nextAction.href} className="mt-3 inline-flex h-11 items-center rounded-md bg-teal-500 px-4 text-sm font-medium text-black">
+            打开最高优先级对象：{overview.nextAction.label}
+          </Link>
+        ) : (
+          <Link href="/knowledge/canvas" className="mt-3 inline-flex h-11 items-center rounded-md bg-teal-500 px-4 text-sm font-medium text-black">
+            打开关联画布
+          </Link>
+        )}
       </section>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => (
@@ -42,7 +54,7 @@ export default async function KnowledgeOverviewPage() {
           {overview.canvasSummary.resourceCount}
         </p>
         <Link className="mt-3 inline-block text-teal-300 hover:underline" href="/knowledge/canvas">
-          打开关联画布
+          查看画布详情
         </Link>
       </section>
     </div>

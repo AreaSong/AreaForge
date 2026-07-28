@@ -1,6 +1,19 @@
-export const BATCH10_NAV_ITEMS = [
-  { href: "/today", label: "今日", match: (path: string) => path === "/today" || path.startsWith("/today?") },
-  { href: "/today/plan", label: "计划", match: (path: string) => path.startsWith("/today/plan") || path.startsWith("/today/tasks") },
+export interface AppNavigationItem {
+  href: string;
+  label: string;
+  match: (path: string) => boolean;
+  children?: readonly AppNavigationItem[];
+}
+
+export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
+  {
+    href: "/today",
+    label: "今日",
+    match: (path: string) => path === "/today" || path.startsWith("/today/"),
+    children: [
+      { href: "/today/plan", label: "计划", match: (path: string) => path.startsWith("/today/plan") || path.startsWith("/today/tasks") },
+    ],
+  },
   {
     href: "/knowledge/canvas",
     label: "知识",
@@ -36,45 +49,89 @@ export const SETTINGS_TAB_ITEMS = [
   { href: "/settings/system", label: "系统" },
 ] as const;
 
-export const SAFE_RETURN_PATHS = [
-  "/today",
-  "/today/plan",
-  "/today/inbox",
-  "/knowledge",
-  "/knowledge/canvas",
-  "/knowledge/overview",
-  "/knowledge/syllabus",
-  "/knowledge/notes",
-  "/knowledge/mistakes",
-  "/knowledge/resources",
-  "/knowledge/imports",
-  "/knowledge/reviews",
-  "/review/reports",
-  "/stage/overview",
-  "/stage/simulation",
-  "/stage/analytics",
-  "/settings",
-  "/settings/workspace",
-  "/settings/profile",
-  "/settings/notifications",
-  "/settings/ai",
-  "/settings/experience",
-  "/settings/system",
+interface RegisteredRoute {
+  pattern: RegExp;
+  title: string;
+  returnQueryKeys?: readonly string[];
+}
+
+const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
+  { pattern: /^\/$/, title: "AreaForge" },
+  { pattern: /^\/login$/, title: "登录" },
+  { pattern: /^\/setup$/, title: "初始化" },
+  { pattern: /^\/today$/, title: "今日行动中心" },
+  { pattern: /^\/today\/plan$/, title: "计划", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum"] },
+  { pattern: /^\/today\/inbox$/, title: "收件箱", returnQueryKeys: ["status", "stableRef"] },
+  { pattern: /^\/today\/inbox\/[^/]+$/, title: "收件箱详情" },
+  { pattern: /^\/today\/tasks\/[^/]+$/, title: "任务详情" },
+  { pattern: /^\/focus\/[^/]+$/, title: "专注计时", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/quick-review\/[^/]+$/, title: "快速复习", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/knowledge$/, title: "知识工作台" },
+  { pattern: /^\/knowledge\/canvas$/, title: "关联画布", returnQueryKeys: ["workspaceId", "subjectId", "syllabusNodeId", "focus", "q"] },
+  { pattern: /^\/knowledge\/overview$/, title: "知识概览" },
+  { pattern: /^\/knowledge\/imports$/, title: "学习树导入" },
+  { pattern: /^\/knowledge\/imports\/[^/]+$/, title: "导入批次" },
+  { pattern: /^\/knowledge\/syllabus$/, title: "考纲", returnQueryKeys: ["subjectId", "q"] },
+  { pattern: /^\/knowledge\/syllabus\/[^/]+$/, title: "考纲节点详情" },
+  { pattern: /^\/knowledge\/notes$/, title: "知识卡片", returnQueryKeys: ["subjectId", "syllabusNodeId", "taskId", "q"] },
+  { pattern: /^\/knowledge\/notes\/[^/]+$/, title: "知识卡片详情" },
+  { pattern: /^\/knowledge\/mistakes$/, title: "错题", returnQueryKeys: ["subjectId", "syllabusNodeId", "q"] },
+  { pattern: /^\/knowledge\/mistakes\/[^/]+$/, title: "错题详情" },
+  { pattern: /^\/knowledge\/resources$/, title: "资料", returnQueryKeys: ["subjectId", "q"] },
+  { pattern: /^\/knowledge\/resources\/[^/]+\/preview$/, title: "资料预览" },
+  { pattern: /^\/knowledge\/resources\/[^/]+$/, title: "资料详情" },
+  { pattern: /^\/knowledge\/reviews$/, title: "统一复习" },
+  { pattern: /^\/knowledge\/reviews\/[^/]+$/, title: "复习排期详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/review$/, title: "复盘" },
+  { pattern: /^\/review\/daily$/, title: "晚间复盘" },
+  { pattern: /^\/review\/reports$/, title: "周期报告", returnQueryKeys: ["tab", "period"] },
+  { pattern: /^\/review\/reports\/history\/[^/]+$/, title: "冻结报告", returnQueryKeys: ["period"] },
+  { pattern: /^\/stage$/, title: "阶段" },
+  { pattern: /^\/stage\/overview$/, title: "阶段概览", returnQueryKeys: ["createMilestone", "returnTo"] },
+  { pattern: /^\/stage\/simulation$/, title: "模拟考试" },
+  { pattern: /^\/stage\/simulation\/[^/]+$/, title: "模拟考试详情" },
+  { pattern: /^\/stage\/analytics$/, title: "阶段趋势", returnQueryKeys: ["window"] },
+  { pattern: /^\/settings$/, title: "设置" },
+  { pattern: /^\/settings\/workspace$/, title: "工作区设置", returnQueryKeys: ["setup"] },
+  { pattern: /^\/settings\/profile$/, title: "个人档案与动机" },
+  { pattern: /^\/settings\/notifications$/, title: "通知偏好" },
+  { pattern: /^\/settings\/ai$/, title: "AI 设置" },
+  { pattern: /^\/settings\/experience$/, title: "体验设置" },
+  { pattern: /^\/settings\/system$/, title: "系统设置" },
 ] as const;
 
+export function getRouteTitle(pathname: string): string {
+  return REGISTERED_ROUTES.find((route) => route.pattern.test(pathname))?.title ?? "页面不存在";
+}
+
+export function getRouteMetadata(pathname: string): { title: string } {
+  return { title: getRouteTitle(pathname) };
+}
+
 export function sanitizeReturnPath(value: string | null | undefined): string {
-  if (!value) return "/today";
-  if (!value.startsWith("/") || value.startsWith("//")) return "/today";
-  const path = value.split("?")[0] ?? value;
-  if (path.startsWith("/today/tasks/")) return value;
-  if (path.startsWith("/focus/")) return value;
-  if (path.startsWith("/quick-review/")) return value;
-  if (path.startsWith("/knowledge/")) return value;
-  if (SAFE_RETURN_PATHS.some((allowed) => path === allowed || path.startsWith(`${allowed}/`))) {
-    return value;
+  return normalizeReturnPath(value, true);
+}
+
+function normalizeReturnPath(value: string | null | undefined, allowNested: boolean): string {
+  if (!value || value.length > 2_048 || !value.startsWith("/") || value.startsWith("//")) return "/today";
+  try {
+    const url = new URL(value, "https://areaforge.invalid");
+    if (url.origin !== "https://areaforge.invalid" || url.hash) return "/today";
+    const route = REGISTERED_ROUTES.find((candidate) => candidate.pattern.test(url.pathname));
+    if (!route || url.pathname === "/login" || url.pathname === "/setup") return "/today";
+
+    const allowedKeys = new Set(route.returnQueryKeys ?? []);
+    const normalized = new URLSearchParams();
+    for (const key of allowedKeys) {
+      const entry = url.searchParams.get(key);
+      if (entry === null || entry.length > 512) continue;
+      normalized.set(key, key === "returnTo" && allowNested ? normalizeReturnPath(entry, false) : entry);
+    }
+    const query = normalized.toString();
+    return `${url.pathname}${query ? `?${query}` : ""}`;
+  } catch {
+    return "/today";
   }
-  if (path === "/today" || path.startsWith("/today/")) return value;
-  return "/today";
 }
 
 export function isBatch8OpenPath(pathname: string): boolean {

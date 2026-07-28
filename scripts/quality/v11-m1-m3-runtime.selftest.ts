@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "../../packages/db/src/index";
 import {
   applyWorkspaceTakeover,
+  activateExamWorkspace,
   createExamWorkspace,
   createSubjectGroup,
   createWorkspaceSubject,
@@ -10,8 +11,15 @@ import {
   updateSubjectGroup,
   updateWorkspaceSubject,
 } from "../../apps/web/lib/study/exam-workspace-service";
-import { createPlanInboxItem, dismissPlanInboxItem } from "../../apps/web/lib/study/plan-inbox-service";
-import { createPlanMilestone } from "../../apps/web/lib/study/plan-milestone-service";
+import {
+  convertPlanInboxItem,
+  createPlanInboxItem,
+  dismissPlanInboxItem,
+  updatePlanInboxItem,
+} from "../../apps/web/lib/study/plan-inbox-service";
+import { createPlanMilestone, updatePlanMilestone } from "../../apps/web/lib/study/plan-milestone-service";
+import { startRecoveryV2 } from "../../apps/web/lib/study/recovery-v2-service";
+import { createStudyTask } from "../../apps/web/lib/study/service";
 import { createTaskDependency } from "../../apps/web/lib/study/task-dependency-service";
 import { ApiError } from "../../apps/web/lib/api/responses";
 
@@ -23,6 +31,8 @@ try {
   await resetAndSeedLegacy();
   await verifyActiveWorkspaceUnique();
   await verifyAtomicWorkspaceSetupAndRevisionWrites();
+  await verifySubjectArchiveBoundaries();
+  await verifyWorkspaceRecoverySwitchRace();
   await verifySubjectLegacyCodeAndCustom();
   await verifyTakeoverIneligibleNoPartialWrite();
   await verifyTakeoverMidTransactionRollback();
@@ -183,11 +193,13 @@ async function verifyActiveWorkspaceUnique(): Promise<void> {
     stableKey: "ws-first",
     name: "第一工作区",
     activate: true,
+    subjects: [{ stableKey: "first-subject", name: "第一科目", color: "#2563eb" }],
   });
   const second = await createExamWorkspace("user-a", {
     stableKey: "ws-second",
     name: "第二工作区",
     activate: true,
+    subjects: [{ stableKey: "second-subject", name: "第二科目", color: "#16a34a" }],
   });
 
   const actives = await prisma.examWorkspace.findMany({
@@ -228,6 +240,7 @@ async function verifyAtomicWorkspaceSetupAndRevisionWrites(): Promise<void> {
     stableKey: "ws-original",
     name: "原工作区",
     activate: true,
+    subjects: [{ stableKey: "original-subject", name: "原科目", color: "#2563eb" }],
   });
 
   let atomicRollback = false;
@@ -324,6 +337,145 @@ async function verifyAtomicWorkspaceSetupAndRevisionWrites(): Promise<void> {
   });
 }
 
+async function verifySubjectArchiveBoundaries(): Promise<void> {
+  await prisma.user.create({
+    data: { id: "user-subject-archive", email: "subject-archive@example.com", passwordHash: "x" },
+  });
+  const workspace = await createExamWorkspace("user-subject-archive", {
+    stableKey: "subject-archive",
+    name: "科目归档边界",
+    subjects: [
+      { stableKey: "primary", name: "主科目", color: "#2563eb" },
+      { stableKey: "secondary", name: "备用科目", color: "#16a34a" },
+    ],
+  });
+  const subjects = await prisma.subject.findMany({
+    where: { workspaceId: workspace.id },
+    orderBy: { stableKey: "asc" },
+  });
+  const primary = subjects.find((subject) => subject.stableKey === "primary");
+  const secondary = subjects.find((subject) => subject.stableKey === "secondary");
+  assert.ok(primary);
+  assert.ok(secondary);
+
+  const note = await prisma.note.create({
+    data: { subjectId: primary!.id, title: "归档复习", content: "x", kind: "CONCEPT" },
+  });
+  const schedule = await prisma.reviewSchedule.create({
+    data: {
+      workspaceId: workspace.id,
+      targetType: "NOTE",
+      noteId: note.id,
+      dueDate: new Date("2026-07-26T00:00:00.000Z"),
+    },
+  });
+  const activeSession = await prisma.studySession.create({
+    data: { subjectId: primary!.id, status: "RUNNING", startedAt: new Date() },
+  });
+  await assert.rejects(
+    () => updateWorkspaceSubject("user-subject-archive", workspace.id, primary!.id, {
+      expectedWorkspaceRevision: workspace.revision,
+      archived: true,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "ACTIVE_SESSION_BLOCKS_SUBJECT_ARCHIVE",
+  );
+  await prisma.studySession.delete({ where: { id: activeSession.id } });
+
+  const archived = await updateWorkspaceSubject("user-subject-archive", workspace.id, primary!.id, {
+    expectedWorkspaceRevision: workspace.revision,
+    archived: true,
+  });
+  assert.ok(archived.subject.archivedAt);
+  const pausedSchedule = await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+  assert.equal(pausedSchedule.status, "PAUSED");
+  assert.equal(pausedSchedule.pausedReason, "SUBJECT_ARCHIVED");
+  await assert.rejects(
+    () => createStudyTask({
+      idempotencyKey: "m1m3-archived-subject-task",
+      subjectId: primary!.id,
+      title: "不得写入归档科目",
+      type: "focus",
+      priority: "medium",
+      estimatedMinutes: 25,
+    }, "user-subject-archive"),
+    (error: unknown) => error instanceof ApiError && error.code === "SUBJECT_ARCHIVED",
+  );
+  await assert.rejects(
+    () => updateWorkspaceSubject("user-subject-archive", workspace.id, secondary!.id, {
+      expectedWorkspaceRevision: archived.workspace.revision,
+      archived: true,
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "WORKSPACE_ACTIVE_SUBJECT_REQUIRED",
+  );
+
+  await prisma.user.create({
+    data: { id: "user-subject-race", email: "subject-race@example.com", passwordHash: "x" },
+  });
+  const raceWorkspace = await createExamWorkspace("user-subject-race", {
+    stableKey: "subject-race",
+    name: "科目并发归档",
+    subjects: [
+      { stableKey: "left", name: "左", color: "#2563eb" },
+      { stableKey: "right", name: "右", color: "#16a34a" },
+    ],
+  });
+  const raceSubjects = await prisma.subject.findMany({ where: { workspaceId: raceWorkspace.id } });
+  const archiveRace = await Promise.allSettled(raceSubjects.map((subject) =>
+    updateWorkspaceSubject("user-subject-race", raceWorkspace.id, subject.id, {
+      expectedWorkspaceRevision: raceWorkspace.revision,
+      archived: true,
+    })));
+  assert.equal(archiveRace.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(await prisma.subject.count({ where: { workspaceId: raceWorkspace.id, archivedAt: null } }), 1);
+
+  pass("subject_archive_boundaries", {
+    activeSessionBlocked: true,
+    reviewSchedulePaused: true,
+    archivedWriteRejected: true,
+    lastSubjectPreserved: true,
+    concurrentArchiveSerialized: true,
+  });
+}
+
+async function verifyWorkspaceRecoverySwitchRace(): Promise<void> {
+  await prisma.user.create({
+    data: { id: "user-workspace-race", email: "workspace-race@example.com", passwordHash: "x" },
+  });
+  const first = await createExamWorkspace("user-workspace-race", {
+    stableKey: "first",
+    name: "第一工作区",
+    subjects: [{ stableKey: "first", name: "第一科", color: "#2563eb" }],
+  });
+  const second = await createExamWorkspace("user-workspace-race", {
+    stableKey: "second",
+    name: "第二工作区",
+    subjects: [{ stableKey: "second", name: "第二科", color: "#16a34a" }],
+  });
+  await startRecoveryV2("user-workspace-race", { reason: "workspace switch race" });
+
+  await Promise.all([
+    activateExamWorkspace("user-workspace-race", first.id, first.revision + 1),
+    startRecoveryV2("user-workspace-race", { reason: "concurrent restart" }),
+  ]);
+  const activeWorkspace = await prisma.examWorkspace.findFirstOrThrow({
+    where: { userId: "user-workspace-race", status: "ACTIVE" },
+  });
+  const activeRecoveries = await prisma.recoveryState.findMany({
+    where: { userId: "user-workspace-race", status: "ACTIVE" },
+  });
+  assert.equal(activeWorkspace.id, first.id);
+  assert.equal(activeRecoveries.length <= 1, true);
+  assert.equal(activeRecoveries.every((recovery) => recovery.workspaceId === activeWorkspace.id), true);
+  assert.equal(await prisma.recoveryState.count({
+    where: { workspaceId: second.id, status: "ACTIVE" },
+  }), 0);
+  pass("workspace_recovery_switch_race", {
+    activeWorkspaceId: activeWorkspace.id,
+    activeRecoveryCount: activeRecoveries.length,
+    archivedWorkspaceRecoveryCount: 0,
+  });
+}
+
 async function verifySubjectLegacyCodeAndCustom(): Promise<void> {
   const workspace = await prisma.examWorkspace.findFirst({
     where: { userId: "user-a", status: "ACTIVE" },
@@ -351,9 +503,17 @@ async function verifyTakeoverIneligibleNoPartialWrite(): Promise<void> {
   });
   assert.ok(workspace);
 
-  await prisma.subject.update({
-    where: { id: "subj-math" },
-    data: { workspaceId: null, groupId: null },
+  const missingOwnerPreview = await previewWorkspaceTakeover("user-a");
+  assert.equal(missingOwnerPreview.eligibleSubjectIds.includes("subj-math"), false);
+  assert.ok(missingOwnerPreview.unresolvedSubjectIds.includes("subj-math"));
+
+  await prisma.auditEvent.createMany({
+    data: ["subj-math", "task-1", "task-2", "task-3"].map((entityId) => ({
+      actorId: "user-a",
+      action: "LEGACY_FIXTURE_OWNER_EVIDENCE",
+      entityType: entityId === "subj-math" ? "Subject" : "StudyTask",
+      entityId,
+    })),
   });
 
   const preview = await previewWorkspaceTakeover("user-a");
@@ -379,6 +539,7 @@ async function verifyTakeoverIneligibleNoPartialWrite(): Promise<void> {
 
   pass("takeover_ineligible_no_partial_write", {
     blocked,
+    missingOwnerBlocked: true,
     eligible: preview.eligibleCount,
     unresolved: preview.unresolvedCount,
   });
@@ -469,6 +630,14 @@ async function verifyAtomicFirstUseSetupTakeover(): Promise<void> {
   assert.equal(await prisma.examWorkspace.count({ where: { userId: "user-c" } }), 0);
   assert.equal((await prisma.subject.findUniqueOrThrow({ where: { id: "subj-setup-unresolved" } })).workspaceId, null);
 
+  await prisma.auditEvent.create({
+    data: {
+      actorId: "user-c",
+      action: "LEGACY_FIXTURE_OWNER_EVIDENCE",
+      entityType: "Subject",
+      entityId: "subj-setup-eligible",
+    },
+  });
   const workspace = await createExamWorkspace("user-c", {
     stableKey: "setup-complete",
     name: "原子首次设置",
@@ -525,7 +694,37 @@ async function verifyDependencyCycle(): Promise<void> {
   const edgeCount = await prisma.taskDependency.count();
   assert.equal(edgeCount, 2);
 
-  pass("dependency_cycle_and_self_loop", { cycleBlocked, selfLoopBlocked, edgeCount });
+  const subject = await prisma.subject.findFirstOrThrow({
+    where: { workspace: { userId: "user-a", status: "ACTIVE" }, archivedAt: null },
+  });
+  const [left, right] = await Promise.all([
+    prisma.studyTask.create({
+      data: { subjectId: subject.id, title: "并发环左", type: "focus", plannedDate: new Date("2026-07-24T00:00:00.000Z") },
+    }),
+    prisma.studyTask.create({
+      data: { subjectId: subject.id, title: "并发环右", type: "focus", plannedDate: new Date("2026-07-24T00:00:00.000Z") },
+    }),
+  ]);
+  const concurrentCycle = await Promise.allSettled([
+    createTaskDependency("user-a", { predecessorId: left.id, successorId: right.id, type: "HARD" }),
+    createTaskDependency("user-a", { predecessorId: right.id, successorId: left.id, type: "HARD" }),
+  ]);
+  assert.equal(concurrentCycle.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(await prisma.taskDependency.count({
+    where: {
+      OR: [
+        { predecessorId: left.id, successorId: right.id },
+        { predecessorId: right.id, successorId: left.id },
+      ],
+    },
+  }), 1);
+
+  pass("dependency_cycle_and_self_loop", {
+    cycleBlocked,
+    selfLoopBlocked,
+    edgeCount,
+    concurrentOppositeEdgeSerialized: true,
+  });
 }
 
 async function verifyPlanInboxWriteBoundaries(): Promise<void> {
@@ -546,11 +745,61 @@ async function verifyPlanInboxWriteBoundaries(): Promise<void> {
     },
   });
 
-  await createPlanMilestone("user-a", {
+  const milestoneCommandKey = `m1-m3-milestone-${randomUUID()}`;
+  const milestone = await createPlanMilestone("user-a", {
+    idempotencyKey: milestoneCommandKey,
     stagePlanId: stagePlan.id,
+    expectedStagePlanRevision: stagePlan.revision,
     stableKey: "m1",
     title: "里程碑 1",
   });
+  const milestoneReplay = await createPlanMilestone("user-a", {
+    idempotencyKey: milestoneCommandKey,
+    stagePlanId: stagePlan.id,
+    expectedStagePlanRevision: stagePlan.revision,
+    stableKey: "m1",
+    title: "里程碑 1",
+  });
+  assert.equal(milestoneReplay.id, milestone.id);
+  assert.equal(await prisma.planMilestone.count({ where: { workspaceId: workspace!.id, stableKey: "m1" } }), 1);
+  await assert.rejects(
+    () => createPlanMilestone("user-a", {
+      idempotencyKey: milestoneCommandKey,
+      stagePlanId: stagePlan.id,
+      expectedStagePlanRevision: stagePlan.revision,
+      stableKey: "m1",
+      title: "同键异内容",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.code, "PLAN_MILESTONE_IDEMPOTENCY_CONFLICT");
+      assert.equal(error.status, 409);
+      assert.deepEqual(error.details?.conflictFields, ["idempotencyKey", "requestFingerprint"]);
+      assert.equal(error.details?.workbench, "/stage/overview");
+      const latest = error.details?.latest as { kind?: unknown; milestone?: { id?: unknown }; stagePlan?: { id?: unknown } } | undefined;
+      assert.equal(latest?.kind, "plan-milestone");
+      assert.equal(latest?.milestone?.id, milestone.id);
+      assert.equal(latest?.stagePlan?.id, stagePlan.id);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => updatePlanMilestone("user-a", milestone.id, {
+      expectedRevision: milestone.revision + 1,
+      archive: true,
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.code, "PLAN_MILESTONE_REVISION_CONFLICT");
+      assert.deepEqual(error.details?.conflictFields, ["revision"]);
+      assert.equal(error.details?.workbench, "/stage/overview");
+      const latest = error.details?.latest as { kind?: unknown; milestone?: { id?: unknown; revision?: unknown } } | undefined;
+      assert.equal(latest?.kind, "plan-milestone");
+      assert.equal(latest?.milestone?.id, milestone.id);
+      assert.equal(latest?.milestone?.revision, milestone.revision);
+      return true;
+    },
+  );
 
   const item = await createPlanInboxItem("user-a", {
     stableKey: "inbox-1",
@@ -561,13 +810,33 @@ async function verifyPlanInboxWriteBoundaries(): Promise<void> {
     title: "明日最低行动",
   });
 
+  await assert.rejects(
+    () => createPlanInboxItem("user-a", {
+      stableKey: "inbox-invalid-subject",
+      originKey: "inbox-invalid-subject",
+      originVersion: 1,
+      originType: "SELFTEST",
+      originSnapshot: { source: "selftest" },
+      title: "关系冲突必须返回当前基线",
+      subjectId: "missing-subject",
+    }),
+    (error: unknown) => {
+      if (!(error instanceof ApiError) || error.code !== "PLAN_INBOX_SUBJECT_INVALID" || error.status !== 409) return false;
+      const latest = error.details?.latest as { kind?: unknown; item?: unknown; relations?: { subject?: unknown } } | undefined;
+      return latest?.kind === "plan-inbox-relations"
+        && latest.item === null
+        && latest.relations?.subject === null
+        && error.details?.conflictFields?.includes("subjectId") === true;
+    },
+  );
+
   const reused = await createPlanInboxItem("user-a", {
-    stableKey: "inbox-2",
+    stableKey: "inbox-1",
     originKey: "daily-review:2026-07-21",
     originVersion: 1,
     originType: "DAILY_REVIEW",
-    originSnapshot: { source: "selftest-dup" },
-    title: "重复",
+    originSnapshot: { source: "selftest" },
+    title: "明日最低行动",
   });
   assert.equal(reused.id, item.id);
   assert.equal(reused.title, item.title);
@@ -579,8 +848,157 @@ async function verifyPlanInboxWriteBoundaries(): Promise<void> {
     },
   }), 1);
 
-  const dismissed = await dismissPlanInboxItem("user-a", item.id, item.revision);
+  await assert.rejects(
+    () => createPlanInboxItem("user-a", {
+      stableKey: "inbox-conflict",
+      originKey: "daily-review:2026-07-21",
+      originVersion: 1,
+      originType: "DAILY_REVIEW",
+      originSnapshot: { source: "different-content" },
+      title: "不得静默复用",
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "PLAN_INBOX_ORIGIN_CONFLICT",
+  );
+
+  const versionTwoInput = {
+    stableKey: "inbox-2",
+    originKey: "daily-review:2026-07-21",
+    originVersion: 2,
+    originType: "DAILY_REVIEW",
+    originSnapshot: { source: "selftest-v2" },
+    title: "明日最低行动 v2",
+  };
+  const concurrent = await Promise.all([
+    createPlanInboxItem("user-a", versionTwoInput),
+    createPlanInboxItem("user-a", versionTwoInput),
+  ]);
+  assert.equal(concurrent[0]!.id, concurrent[1]!.id);
+  assert.equal(await prisma.planInboxItem.count({
+    where: {
+      workspaceId: workspace!.id,
+      originKey: versionTwoInput.originKey,
+      originVersion: versionTwoInput.originVersion,
+    },
+  }), 1);
+  const superseded = await prisma.planInboxItem.findUniqueOrThrow({ where: { id: item.id } });
+  assert.equal(superseded.supersededByItemId, concurrent[0]!.id);
+
+  await createPlanInboxItem("user-a", {
+    stableKey: "newer-first-v2",
+    originKey: "newer-first",
+    originVersion: 2,
+    originType: "SELFTEST",
+    originSnapshot: { source: "v2" },
+    title: "新版本",
+  });
+  await assert.rejects(
+    () => createPlanInboxItem("user-a", {
+      stableKey: "newer-first-v1",
+      originKey: "newer-first",
+      originVersion: 1,
+      originType: "SELFTEST",
+      originSnapshot: { source: "v1" },
+      title: "倒序旧版本",
+    }),
+    (error: unknown) => error instanceof ApiError && error.code === "PLAN_INBOX_ORIGIN_VERSION_STALE",
+  );
+
+  const current = concurrent[0]!;
+  const dismissed = await dismissPlanInboxItem("user-a", current.id, current.revision);
   assert.equal(dismissed.status, "DISMISSED");
+
+  const subject = await prisma.subject.findFirstOrThrow({
+    where: { workspaceId: workspace!.id, archivedAt: null },
+  });
+  const convertible = await createPlanInboxItem("user-a", {
+    stableKey: "convert-idempotency",
+    originKey: "convert-idempotency",
+    originVersion: 1,
+    originType: "SELFTEST",
+    originSnapshot: { source: "selftest" },
+    title: "幂等转换",
+    subjectId: subject.id,
+    plannedDate: "2026-07-29T00:00:00.000Z",
+    estimatedMinutes: 25,
+    priority: "HIGH",
+    type: "focus",
+  });
+  const convertInput = {
+    expectedRevision: convertible.revision,
+    idempotencyKey: "m1m3-plan-inbox-convert-recovery",
+  };
+  const firstConvert = await convertPlanInboxItem("user-a", convertible.id, convertInput);
+  const recoveredConvert = await convertPlanInboxItem("user-a", convertible.id, convertInput);
+  assert.equal(recoveredConvert.id, firstConvert.id);
+  assert.equal(recoveredConvert.convertedTaskId, firstConvert.convertedTaskId);
+  assert.equal(await prisma.studyTask.count({ where: { id: firstConvert.convertedTaskId! } }), 1);
+  assert.equal(await prisma.auditEvent.count({
+    where: {
+      actorId: "user-a",
+      action: "PLAN_INBOX_CONVERTED",
+      entityType: "PlanInboxItem",
+      AND: [
+        { metadata: { path: ["workspaceId"], equals: workspace!.id } },
+        { metadata: { path: ["idempotencyKey"], equals: convertInput.idempotencyKey } },
+      ],
+    },
+  }), 1);
+
+  await assert.rejects(
+    () => convertPlanInboxItem("user-a", convertible.id, {
+      ...convertInput,
+      expectedRevision: convertInput.expectedRevision + 1,
+    }),
+    (error: unknown) => assertPlanInboxConflict(error, "PLAN_INBOX_IDEMPOTENCY_CONFLICT", convertible.id, ["idempotencyKey", "requestFingerprint"]),
+  );
+
+  const otherConvertible = await createPlanInboxItem("user-a", {
+    stableKey: "convert-idempotency-other",
+    originKey: "convert-idempotency-other",
+    originVersion: 1,
+    originType: "SELFTEST",
+    originSnapshot: { source: "selftest" },
+    title: "不得跨项目复用命令",
+    subjectId: subject.id,
+    plannedDate: "2026-07-30T00:00:00.000Z",
+    estimatedMinutes: 25,
+  });
+  await assert.rejects(
+    () => convertPlanInboxItem("user-a", otherConvertible.id, {
+      expectedRevision: otherConvertible.revision,
+      idempotencyKey: convertInput.idempotencyKey,
+    }),
+    (error: unknown) => assertPlanInboxConflict(error, "PLAN_INBOX_IDEMPOTENCY_CONFLICT", otherConvertible.id, ["idempotencyKey", "requestFingerprint"]),
+  );
+
+  const concurrentConvertible = await createPlanInboxItem("user-a", {
+    stableKey: "convert-idempotency-concurrent",
+    originKey: "convert-idempotency-concurrent",
+    originVersion: 1,
+    originType: "SELFTEST",
+    originSnapshot: { source: "selftest" },
+    title: "并发幂等转换",
+    subjectId: subject.id,
+    plannedDate: "2026-07-31T00:00:00.000Z",
+    estimatedMinutes: 25,
+  });
+  const concurrentInput = {
+    expectedRevision: concurrentConvertible.revision,
+    idempotencyKey: "m1m3-plan-inbox-convert-concurrent",
+  };
+  const concurrentConvert = await Promise.all([
+    convertPlanInboxItem("user-a", concurrentConvertible.id, concurrentInput),
+    convertPlanInboxItem("user-a", concurrentConvertible.id, concurrentInput),
+  ]);
+  assert.equal(concurrentConvert[0]!.convertedTaskId, concurrentConvert[1]!.convertedTaskId);
+
+  await assert.rejects(
+    () => updatePlanInboxItem("user-a", otherConvertible.id, {
+      expectedRevision: otherConvertible.revision + 1,
+      title: "过期 revision 不得覆盖",
+    }),
+    (error: unknown) => assertPlanInboxConflict(error, "PLAN_INBOX_REVISION_CONFLICT", otherConvertible.id, ["revision"]),
+  );
 
   let convertedWithoutTaskRejected = false;
   try {
@@ -601,8 +1019,32 @@ async function verifyPlanInboxWriteBoundaries(): Promise<void> {
   pass("plan_inbox_write_boundaries", {
     itemId: item.id,
     sameOriginVersionReused: true,
+    sameOriginVersionConflictRejected: true,
+    concurrentSameRequestReused: true,
+    olderOpenVersionSuperseded: true,
+    staleOriginVersionRejected: true,
+    convertUnknownResultRecovered: true,
+    convertIdempotencyBoundToItemAndRevision: true,
+    concurrentConvertCreatedOnce: true,
+    conflictIncludesLatestFieldsAndWorkbench: true,
+    createRelationConflictIncludesLatestBaseline: true,
     convertedWithoutTaskRejected,
   });
+}
+
+function assertPlanInboxConflict(
+  error: unknown,
+  code: string,
+  itemId: string,
+  expectedFields: string[],
+): boolean {
+  if (!(error instanceof ApiError) || error.code !== code || error.status !== 409) return false;
+  const latest = error.details?.latest as { id?: unknown; revision?: unknown; status?: unknown } | undefined;
+  return latest?.id === itemId
+    && typeof latest.revision === "number"
+    && typeof latest.status === "string"
+    && error.details?.workbench === "/today/inbox"
+    && expectedFields.every((field) => error.details?.conflictFields?.includes(field));
 }
 
 function pass(id: string, details: Record<string, string | number | boolean>): void {

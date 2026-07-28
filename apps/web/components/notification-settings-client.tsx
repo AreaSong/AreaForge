@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { sanitizeForegroundNotificationRoute } from "@areaforge/core";
+import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -12,9 +14,17 @@ import type { NotificationPreferenceDto } from "@/lib/study/notification-prefere
 
 const SHOW_TITLE_KEY = "af.notification.showSpecificTitle";
 
+interface NotificationConflict {
+  baseline: NotificationPreferenceDto;
+  submitted: NotificationPreferenceDto;
+  latest: NotificationPreferenceDto;
+  conflictFields: string[];
+}
+
 export function NotificationSettingsClient(props: { userId: string; initial: NotificationPreferenceDto }) {
   const draftKey = `areaforge.notification-preference.draft.${props.userId}`;
   const [pref, setPref] = useState(props.initial);
+  const [savedPref, setSavedPref] = useState(props.initial);
   const [showSpecificTitle, setShowSpecificTitle] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(SHOW_TITLE_KEY) === "1";
@@ -22,7 +32,7 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [latestConflict, setLatestConflict] = useState<NotificationPreferenceDto | null>(null);
+  const [conflict, setConflict] = useState<NotificationConflict | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [testCategory, setTestCategory] = useState<"review" | "plan" | "evening">("review");
   const [pending, startTransition] = useTransition();
@@ -35,46 +45,87 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
   }, []);
 
   useEffect(() => {
-    const draft = loadPrivateBusinessDraft(draftKey, LONG_PRIVATE_DRAFT_TTL_MS, isNotificationPreference);
-    if (draft) setPref(draft);
-    setDraftReady(true);
-  }, [draftKey]);
+    const timer = window.setTimeout(() => {
+      const draft = loadPrivateBusinessDraft(draftKey, LONG_PRIVATE_DRAFT_TTL_MS, isNotificationPreference);
+      if (draft) {
+        setPref(draft);
+        if (draft.revision !== props.initial.revision) {
+          setConflict({
+            baseline: props.initial,
+            submitted: draft,
+            latest: props.initial,
+            conflictFields: ["revision"],
+          });
+        }
+      }
+      setDraftReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [draftKey, props.initial]);
 
   useEffect(() => {
     if (!draftReady) return;
+    if (notificationPreferencesEqual(pref, savedPref)) {
+      removePrivateBusinessDraft(draftKey);
+      return;
+    }
     savePrivateBusinessDraft(draftKey, pref);
-  }, [draftKey, draftReady, pref]);
+  }, [draftKey, draftReady, pref, savedPref]);
 
   async function save() {
     setError(null);
     setMessage(null);
-    const response = await fetch("/api/notification-preferences", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        expectedRevision: pref.revision,
-        reviewDueEnabled: pref.reviewDueEnabled,
-        planStartEnabled: pref.planStartEnabled,
-        eveningReviewEnabled: pref.eveningReviewEnabled,
-        reviewDueWindowStart: pref.reviewDueWindowStart,
-        reviewDueWindowEnd: pref.reviewDueWindowEnd,
-        planStartWindowStart: pref.planStartWindowStart,
-        planStartWindowEnd: pref.planStartWindowEnd,
-        eveningReviewWindowStart: pref.eveningReviewWindowStart,
-        eveningReviewWindowEnd: pref.eveningReviewWindowEnd,
-        quietHoursStart: pref.quietHoursStart,
-        quietHoursEnd: pref.quietHoursEnd,
-      }),
-    });
-    const payload = (await response.json().catch(() => null)) as
-      | { preference?: NotificationPreferenceDto; error?: string }
-      | null;
-    if (!response.ok || !payload?.preference) {
-      setError(payload?.error ?? "保存失败");
-      return;
+    setConflict(null);
+    const submitted = structuredClone(pref);
+    try {
+      const response = await fetch("/api/notification-preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expectedRevision: submitted.revision,
+          reviewDueEnabled: submitted.reviewDueEnabled,
+          planStartEnabled: submitted.planStartEnabled,
+          eveningReviewEnabled: submitted.eveningReviewEnabled,
+          reviewDueWindowStart: submitted.reviewDueWindowStart,
+          reviewDueWindowEnd: submitted.reviewDueWindowEnd,
+          planStartWindowStart: submitted.planStartWindowStart,
+          planStartWindowEnd: submitted.planStartWindowEnd,
+          eveningReviewWindowStart: submitted.eveningReviewWindowStart,
+          eveningReviewWindowEnd: submitted.eveningReviewWindowEnd,
+          quietHoursStart: submitted.quietHoursStart,
+          quietHoursEnd: submitted.quietHoursEnd,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { preference?: NotificationPreferenceDto; latest?: NotificationPreferenceDto; conflictFields?: string[]; error?: string; workbench?: string }
+        | null;
+      if (response.status === 401) {
+        setError("登录已过期，本地修改已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (response.status === 409 && payload?.latest && isNotificationPreference(payload.latest)) {
+        setConflict({
+          baseline: savedPref,
+          submitted,
+          latest: payload.latest,
+          conflictFields: payload.conflictFields ?? ["revision"],
+        });
+        setError("提醒偏好已在其他页面更新。本地修改仍保留，请查看最新状态后决定如何合并。");
+        return;
+      }
+      if (!response.ok || !payload?.preference) {
+        setError(payload?.error ?? "保存失败，本地修改已保留");
+        return;
+      }
+      setPref((current) => notificationPreferencesEqual(current, submitted)
+        ? payload.preference!
+        : { ...current, revision: payload.preference!.revision });
+      setSavedPref(payload.preference);
+      setMessage("提醒偏好已保存");
+    } catch {
+      setError("网络不可用，本地修改已保留；恢复网络后请显式重试。");
     }
-    setPref(payload.preference);
-    setMessage("提醒偏好已保存");
   }
 
   async function requestPermissionOnce() {
@@ -93,33 +144,42 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
   async function sendTest() {
     setError(null);
     setMessage(null);
-    const response = await fetch("/api/notifications/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: testCategory }),
-    });
-    const payload = (await response.json().catch(() => null)) as
-      | { payload?: { title: string; body: string; tag: string; data: { route: string } }; error?: string }
-      | null;
-    if (!response.ok || !payload?.payload) {
-      setError(payload?.error ?? "测试失败");
-      return;
+    try {
+      const response = await fetch("/api/notifications/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: testCategory }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { payload?: { title: string; body: string; tag: string; data: { route: string } }; error?: string }
+        | null;
+      if (response.status === 401) {
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok || !payload?.payload) {
+        setError(payload?.error ?? "测试失败");
+        return;
+      }
+      if (!("Notification" in window) || Notification.permission !== "granted") {
+        setMessage("权限未授予：已降级为应用内提示 - " + payload.payload.body);
+        return;
+      }
+      const title = showSpecificTitle ? payload.payload.title : "AreaForge 提醒";
+      const notification = new Notification(title, { body: payload.payload.body, tag: payload.payload.tag, data: payload.payload.data });
+      notification.onclick = () => {
+        window.focus();
+        window.location.assign(sanitizeForegroundNotificationRoute(payload.payload?.data.route));
+        notification.close();
+      };
+      setMessage("已发送前台测试通知");
+    } catch {
+      setError("网络不可用，暂时无法发送测试通知。");
     }
-    if (!("Notification" in window) || Notification.permission !== "granted") {
-      setMessage("权限未授予：已降级为应用内提示 — " + payload.payload.body);
-      return;
-    }
-    const title = showSpecificTitle ? payload.payload.title : "AreaForge 提醒";
-    const notification = new Notification(title, { body: payload.payload.body, tag: payload.payload.tag, data: payload.payload.data });
-    notification.onclick = () => {
-      window.focus();
-      window.location.assign(sanitizeNotificationRoute(payload.payload?.data.route));
-      notification.close();
-    };
-    setMessage("已发送前台测试通知");
   }
 
   return (
+    <>
     <div className="space-y-4 rounded-lg border border-white/10 p-4">
       <label className="flex items-center gap-2 text-sm text-zinc-300">
         <input
@@ -212,6 +272,29 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
         </button>
       </div>
     </div>
+    <ConflictResolutionModal
+      open={conflict !== null}
+      title="提醒偏好已在其他页面更新"
+      description="本地修改和服务端最新值都已保留。请选择采用服务端，或以最新 revision 为基线人工合并后再次保存。"
+      conflictFields={conflict?.conflictFields ?? []}
+      comparisons={conflict ? notificationConflictComparisons(conflict) : []}
+      onAdoptServer={() => {
+        if (!conflict) return;
+        setPref(conflict.latest);
+        setSavedPref(conflict.latest);
+        setConflict(null);
+        setError(null);
+        setMessage("已采用服务端最新提醒偏好");
+      }}
+      onManualMerge={() => {
+        if (!conflict) return;
+        setPref({ ...conflict.submitted, revision: conflict.latest.revision });
+        setSavedPref(conflict.latest);
+        setConflict(null);
+        setError("已前移到服务端最新 revision 并保留本地修改；请检查后再次点击保存，不会自动重放");
+      }}
+    />
+    </>
   );
 }
 
@@ -233,6 +316,48 @@ function HourSelect(props: { label: string; value: number; onChange: (value: num
   );
 }
 
-function sanitizeNotificationRoute(route?: string): string {
-  return route && ["/knowledge/reviews", "/today/plan", "/today"].includes(route) ? route : "/today";
+function isNotificationPreference(value: unknown): value is NotificationPreferenceDto {
+  if (!value || typeof value !== "object") return false;
+  const pref = value as Partial<NotificationPreferenceDto>;
+  return [pref.reviewDueEnabled, pref.planStartEnabled, pref.eveningReviewEnabled]
+    .every((field) => typeof field === "boolean")
+    && [
+      pref.reviewDueWindowStart,
+      pref.reviewDueWindowEnd,
+      pref.planStartWindowStart,
+      pref.planStartWindowEnd,
+      pref.eveningReviewWindowStart,
+      pref.eveningReviewWindowEnd,
+      pref.revision,
+    ].every((field) => typeof field === "number" && Number.isInteger(field))
+    && (pref.quietHoursStart === null || typeof pref.quietHoursStart === "number")
+    && (pref.quietHoursEnd === null || typeof pref.quietHoursEnd === "number");
+}
+
+function notificationPreferencesEqual(left: NotificationPreferenceDto, right: NotificationPreferenceDto): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function notificationConflictComparisons(conflict: NotificationConflict) {
+  const labels: Record<keyof NotificationPreferenceDto, string> = {
+    reviewDueEnabled: "复习到期提醒",
+    planStartEnabled: "计划开始提醒",
+    eveningReviewEnabled: "晚间复盘提醒",
+    reviewDueWindowStart: "复习时间窗开始",
+    reviewDueWindowEnd: "复习时间窗结束",
+    planStartWindowStart: "计划时间窗开始",
+    planStartWindowEnd: "计划时间窗结束",
+    eveningReviewWindowStart: "晚间复盘开始",
+    eveningReviewWindowEnd: "晚间复盘结束",
+    quietHoursStart: "安静时段开始",
+    quietHoursEnd: "安静时段结束",
+    revision: "版本",
+  };
+  return (Object.keys(labels) as Array<keyof NotificationPreferenceDto>).map((field) => ({
+    field,
+    label: labels[field],
+    baseline: conflict.baseline[field],
+    local: conflict.submitted[field],
+    server: conflict.latest[field],
+  }));
 }

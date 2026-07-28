@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import {
   hmacAiPayload,
+  isAiDraftResultProofLengthAllowed,
   isValidAiPayloadBindingSecret,
   mintAiDraftPreviewToken,
+  mintAiDraftResultProof,
   verifyAiDraftPreviewToken,
+  verifyAiDraftResultProof,
 } from "@areaforge/auth";
 import {
   AI_DRAFT_OUTPUT_SCHEMAS,
@@ -25,11 +28,12 @@ import {
   validatePlanDraftAdvice,
   type AiAdviceKind,
   type AiAdviceStatus,
+  type AiJsonProvider,
 } from "@areaforge/ai";
-import { prisma } from "@areaforge/db";
+import { prisma, type Prisma } from "@areaforge/db";
 import { getAuthEnv } from "@/lib/auth/env";
 import { ApiError } from "@/lib/api/responses";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import { resolveConfiguredAiProvider } from "./ai-service";
 
 export interface AiDraftPreviewResponse {
@@ -53,11 +57,21 @@ export interface AiDraftGenerateResponse {
   status: AiAdviceStatus;
   externalCall: boolean;
   draft: unknown;
+  resultProof: string;
   meta: {
     reason: string;
     sensitiveContextIncluded: boolean;
   };
 }
+
+interface AiDraftGenerateOptions {
+  provider?: AiJsonProvider;
+}
+
+const aiDraftResultCache = new Map<string, { expiresAt: number; response: AiDraftGenerateResponse }>();
+const aiDraftResultCacheMaxEntries = 256;
+const aiDraftProviderTimeoutMs = 30_000;
+const aiDraftInFlightLeaseMs = 45_000;
 
 function mapEndpointToKind(endpoint: AiDraftEndpoint): AiAdviceKind {
   switch (endpoint) {
@@ -130,6 +144,7 @@ export async function previewAiDraft(
     }
 
     const workspace = await resolveActiveWorkspace(actorId);
+    await expireStaleAiDraftOperations(actorId, workspace.id);
     const input = normalizeAiDraftInput(endpoint, rawBody);
     const canonical = buildAiDraftCanonicalPayloads(input);
     const selectionHash = hmacAiPayload("selection:v1", canonical.selectionPayload, secret);
@@ -188,7 +203,12 @@ export async function generateAiDraft(
   endpoint: AiDraftEndpoint,
   previewToken: string,
   rawBody: Record<string, unknown>,
+  options: AiDraftGenerateOptions = {},
 ): Promise<AiDraftGenerateResponse> {
+  let inFlightOperation: {
+    id: string;
+    revision: number;
+  } | null = null;
   try {
     const env = getAuthEnv();
     const secret = env.AI_PAYLOAD_BINDING_SECRET;
@@ -197,6 +217,7 @@ export async function generateAiDraft(
     }
 
     const workspace = await resolveActiveWorkspace(actorId);
+    await expireStaleAiDraftOperations(actorId, workspace.id);
     const verified = verifyAiDraftPreviewToken(previewToken, secret, {
       actorId,
       workspaceId: workspace.id,
@@ -238,120 +259,104 @@ export async function generateAiDraft(
     if (existing.nonce !== claims.nonce) {
       throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
     }
+    if (existing.consumedAt) {
+      throw new ApiError("AI_DRAFT_OPERATION_CONSUMED", 409);
+    }
     if (existing.status === "SUCCEEDED" && existing.resultReference) {
-      return {
-        phase: "generate",
-        endpoint,
-        operationId: existing.operationId,
-        projectionVersion: existing.projectionVersion,
-        outputSchema: AI_DRAFT_OUTPUT_SCHEMAS[endpoint],
-        status: "local_rule_fallback",
-        externalCall: false,
-        draft: { resultReference: existing.resultReference },
-        meta: {
-          reason: "同一 operation 已成功，返回既有结果引用，不再次外呼。",
-          sensitiveContextIncluded: false,
-        },
-      };
+      const replay = readCachedAiDraftResult(workspace.id, existing.operationId);
+      if (replay) return replay;
+      throw new ApiError("AI_DRAFT_RESULT_UNAVAILABLE", 409);
     }
     if (existing.status === "IN_FLIGHT") {
       throw new ApiError("AI_DRAFT_OPERATION_IN_FLIGHT", 409);
     }
-    if (existing.status !== "PENDING" && existing.status !== "FAILED") {
+    if (existing.status === "FAILED") {
+      throw new ApiError("AI_DRAFT_RESULT_UNAVAILABLE", 409);
+    }
+    if (existing.status === "EXPIRED") {
+      throw new ApiError("AI_DRAFT_OPERATION_EXPIRED", 409);
+    }
+    if (existing.status !== "PENDING") {
       throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
     }
 
     const cas = await prisma.aiDraftOperation.updateMany({
       where: {
         id: existing.id,
-        status: { in: ["PENDING", "FAILED"] },
+        status: "PENDING",
         revision: existing.revision,
       },
       data: {
         status: "IN_FLIGHT",
         revision: { increment: 1 },
+        updatedAt: new Date(),
       },
     });
     if (cas.count !== 1) {
       throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
     }
+    inFlightOperation = {
+      id: existing.id,
+      revision: existing.revision + 1,
+    };
 
     const kind = mapEndpointToKind(endpoint);
     const context = buildProviderContext(input);
     const provider = resolveConfiguredAiProvider(kind, {
       allowExternalProvider: true,
+      provider: options.provider,
+      maxProviderRetries: 0,
+      providerTimeoutMs: Math.min(env.AI_TIMEOUT_MS, aiDraftProviderTimeoutMs),
       userId: actorId,
     });
 
     let result;
-    try {
-      switch (endpoint) {
-        case "learning-tree":
-          result = await generateAdviceWithProvider({
-            kind,
-            context: context as never,
-            provider: provider.provider,
-            providerUnavailableReason: provider.unavailableReason,
-            fallback: createFallbackLearningTreeDraftAdvice,
-            validate: validateLearningTreeDraftAdvice,
-          });
-          break;
-        case "knowledge-card":
-          result = await generateAdviceWithProvider({
-            kind,
-            context: context as never,
-            provider: provider.provider,
-            providerUnavailableReason: provider.unavailableReason,
-            fallback: createFallbackKnowledgeCardDraftAdvice,
-            validate: validateKnowledgeCardDraftAdvice,
-          });
-          break;
-        case "plan":
-          result = await generateAdviceWithProvider({
-            kind,
-            context: context as never,
-            provider: provider.provider,
-            providerUnavailableReason: provider.unavailableReason,
-            fallback: createFallbackPlanDraftAdvice,
-            validate: validatePlanDraftAdvice,
-          });
-          break;
-        case "motivation":
-          result = await generateAdviceWithProvider({
-            kind,
-            context: context as never,
-            provider: provider.provider,
-            providerUnavailableReason: provider.unavailableReason,
-            fallback: createFallbackMotivationDraftAdvice,
-            validate: validateMotivationDraftAdvice,
-          });
-          break;
-      }
-    } catch (error) {
-      await prisma.aiDraftOperation.update({
-        where: { id: existing.id },
-        data: {
-          status: "FAILED",
-          resultReference: `error:${endpoint}:${claims.operationId}`,
-          revision: { increment: 1 },
-        },
-      });
-      throw error;
+    switch (endpoint) {
+      case "learning-tree":
+        result = await generateAdviceWithProvider({
+          kind,
+          context: context as never,
+          provider: provider.provider,
+          providerUnavailableReason: provider.unavailableReason,
+          fallback: createFallbackLearningTreeDraftAdvice,
+          validate: validateLearningTreeDraftAdvice,
+        });
+        break;
+      case "knowledge-card":
+        result = await generateAdviceWithProvider({
+          kind,
+          context: context as never,
+          provider: provider.provider,
+          providerUnavailableReason: provider.unavailableReason,
+          fallback: createFallbackKnowledgeCardDraftAdvice,
+          validate: validateKnowledgeCardDraftAdvice,
+        });
+        break;
+      case "plan":
+        result = await generateAdviceWithProvider({
+          kind,
+          context: context as never,
+          provider: provider.provider,
+          providerUnavailableReason: provider.unavailableReason,
+          fallback: createFallbackPlanDraftAdvice,
+          validate: validatePlanDraftAdvice,
+        });
+        break;
+      case "motivation":
+        result = await generateAdviceWithProvider({
+          kind,
+          context: context as never,
+          provider: provider.provider,
+          providerUnavailableReason: provider.unavailableReason,
+          fallback: createFallbackMotivationDraftAdvice,
+          validate: validateMotivationDraftAdvice,
+        });
+        break;
     }
 
-    const resultReference = `draft:${endpoint}:${claims.operationId}:${result.meta.status}`;
-    await prisma.aiDraftOperation.update({
-      where: { id: existing.id },
-      data: {
-        status: "SUCCEEDED",
-        resultReference,
-        consumedAt: new Date(),
-        revision: { increment: 1 },
-      },
-    });
-
-    return {
-      phase: "generate",
+    const resultProof = mintAiDraftResultProof({
+      actorId,
+      workspaceId: workspace.id,
       endpoint,
       operationId: claims.operationId,
       projectionVersion: AI_DRAFT_PROJECTION_VERSIONS[endpoint],
@@ -363,10 +368,289 @@ export async function generateAiDraft(
         reason: result.meta.reason,
         sensitiveContextIncluded: result.meta.sensitiveContextIncluded,
       },
+    }, secret).token;
+    if (!isAiDraftResultProofLengthAllowed(resultProof)) {
+      throw new ApiError("AI_DRAFT_RESULT_TOO_LARGE", 413);
+    }
+    const response: AiDraftGenerateResponse = {
+      phase: "generate",
+      endpoint,
+      operationId: claims.operationId,
+      projectionVersion: AI_DRAFT_PROJECTION_VERSIONS[endpoint],
+      outputSchema: AI_DRAFT_OUTPUT_SCHEMAS[endpoint],
+      status: result.meta.status,
+      externalCall: result.meta.externalCall,
+      draft: result.advice,
+      resultProof,
+      meta: {
+        reason: result.meta.reason,
+        sensitiveContextIncluded: result.meta.sensitiveContextIncluded,
+      },
     };
+    const resultReference = buildAiDraftResultReference(endpoint, claims.operationId, response.status);
+    cacheAiDraftResult(workspace.id, claims.operationId, claims.expiry, response);
+    let finalized: { count: number };
+    try {
+      finalized = await prisma.aiDraftOperation.updateMany({
+        where: {
+          id: existing.id,
+          status: "IN_FLIGHT",
+          revision: existing.revision + 1,
+        },
+        data: {
+          status: "SUCCEEDED",
+          resultReference,
+          revision: { increment: 1 },
+        },
+      });
+    } catch (error) {
+      deleteCachedAiDraftResult(workspace.id, claims.operationId);
+      throw error;
+    }
+    if (finalized.count !== 1) {
+      deleteCachedAiDraftResult(workspace.id, claims.operationId);
+      throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
+    }
+    inFlightOperation = null;
+
+    return response;
   } catch (error) {
+    if (inFlightOperation) {
+      await markAiDraftOperationFailed(inFlightOperation).catch(() => undefined);
+    }
     mapDraftError(error);
   }
+}
+
+export async function acknowledgeAiDraftResult(
+  actorId: string,
+  endpoint: AiDraftEndpoint,
+  resultProof: string,
+): Promise<AiDraftGenerateResponse> {
+  const acknowledged = await prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    return acknowledgeAiDraftResultInTx(tx, actorId, workspace.id, endpoint, resultProof);
+  });
+  return acknowledged.response;
+}
+
+export async function acknowledgeAiDraftResultInTx(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  workspaceId: string,
+  endpoint: AiDraftEndpoint,
+  resultProof: string,
+  expected: { operationId?: string; projectionVersion?: string } = {},
+): Promise<{ response: AiDraftGenerateResponse; workspaceId: string; expiry: number }> {
+  const verified = verifyAiDraftResultForActor(actorId, workspaceId, endpoint, resultProof, expected);
+  const operation = await tx.aiDraftOperation.findUnique({
+    where: { workspaceId_operationId: { workspaceId, operationId: verified.response.operationId } },
+  });
+  if (
+    !operation
+    || operation.actorId !== actorId
+    || operation.endpoint !== endpoint
+    || operation.projectionVersion !== verified.response.projectionVersion
+  ) {
+    throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
+  }
+  const resultReference = buildAiDraftResultReference(
+    endpoint,
+    operation.operationId,
+    verified.response.status,
+  );
+  if (operation.status === "SUCCEEDED" && operation.resultReference === resultReference) {
+    if (!operation.consumedAt) {
+      const consumed = await tx.aiDraftOperation.updateMany({
+        where: {
+          id: operation.id,
+          status: "SUCCEEDED",
+          resultReference,
+          consumedAt: null,
+          revision: operation.revision,
+        },
+        data: {
+          consumedAt: new Date(),
+          revision: { increment: 1 },
+        },
+      });
+      if (consumed.count !== 1) {
+        const latest = await tx.aiDraftOperation.findUnique({ where: { id: operation.id } });
+        if (
+          latest?.status !== "SUCCEEDED"
+          || latest.resultReference !== resultReference
+          || !latest.consumedAt
+        ) {
+          throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
+        }
+      }
+    }
+  } else {
+    throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
+  }
+  deleteCachedAiDraftResult(workspaceId, operation.operationId);
+  return { ...verified, workspaceId };
+}
+
+function verifyAiDraftResultForActor(
+  actorId: string,
+  workspaceId: string,
+  endpoint: AiDraftEndpoint,
+  resultProof: string,
+  expected: { operationId?: string; projectionVersion?: string },
+): { response: AiDraftGenerateResponse; expiry: number } {
+  const secret = getAuthEnv().AI_PAYLOAD_BINDING_SECRET;
+  if (!isValidAiPayloadBindingSecret(secret)) throw new ApiError("AI_BINDING_SECRET_INVALID", 503);
+  const verified = verifyAiDraftResultProof(resultProof, secret, {
+    actorId,
+    workspaceId,
+    endpoint,
+    operationId: expected.operationId,
+    projectionVersion: expected.projectionVersion,
+    outputSchema: AI_DRAFT_OUTPUT_SCHEMAS[endpoint],
+  });
+  if (!verified.ok) throw new ApiError("AI_DRAFT_RESULT_PROOF_INVALID", 409);
+  const draft = validateDraftForEndpoint(endpoint, verified.claims.draft);
+  if (!isAdviceStatus(verified.claims.status)) throw new ApiError("AI_DRAFT_RESULT_PROOF_INVALID", 409);
+  const reason = verified.claims.meta.reason;
+  const sensitiveContextIncluded = verified.claims.meta.sensitiveContextIncluded;
+  if (typeof reason !== "string" || typeof sensitiveContextIncluded !== "boolean") {
+    throw new ApiError("AI_DRAFT_RESULT_PROOF_INVALID", 409);
+  }
+  return {
+    expiry: verified.claims.expiry,
+    response: {
+      phase: "generate",
+      endpoint,
+      operationId: verified.claims.operationId,
+      projectionVersion: verified.claims.projectionVersion,
+      outputSchema: verified.claims.outputSchema,
+      status: verified.claims.status,
+      externalCall: verified.claims.externalCall,
+      draft,
+      resultProof,
+      meta: { reason, sensitiveContextIncluded },
+    },
+  };
+}
+
+function validateDraftForEndpoint(endpoint: AiDraftEndpoint, draft: unknown) {
+  try {
+    switch (endpoint) {
+      case "learning-tree": return validateLearningTreeDraftAdvice(draft);
+      case "knowledge-card": return validateKnowledgeCardDraftAdvice(draft);
+      case "plan": return validatePlanDraftAdvice(draft);
+      case "motivation": return validateMotivationDraftAdvice(draft);
+    }
+  } catch {
+    throw new ApiError("AI_DRAFT_RESULT_PROOF_INVALID", 409);
+  }
+}
+
+function isAdviceStatus(value: string): value is AiAdviceStatus {
+  return value === "local_rule_fallback"
+    || value === "ai_generated"
+    || value === "ai_invalid_fallback"
+    || value === "ai_error_fallback";
+}
+
+async function expireStaleAiDraftOperations(actorId: string, workspaceId: string): Promise<void> {
+  const now = new Date();
+  await prisma.aiDraftOperation.updateMany({
+    where: {
+      actorId,
+      workspaceId,
+      status: "PENDING",
+      expiresAt: { lte: now },
+    },
+    data: {
+      status: "EXPIRED",
+      revision: { increment: 1 },
+    },
+  });
+  await prisma.aiDraftOperation.updateMany({
+    where: {
+      actorId,
+      workspaceId,
+      status: "IN_FLIGHT",
+      updatedAt: { lte: new Date(now.getTime() - aiDraftInFlightLeaseMs) },
+    },
+    data: {
+      status: "FAILED",
+      resultReference: "error:result-unavailable:v1",
+      revision: { increment: 1 },
+    },
+  });
+}
+
+async function markAiDraftOperationFailed(input: {
+  id: string;
+  revision: number;
+}): Promise<void> {
+  await prisma.aiDraftOperation.updateMany({
+    where: {
+      id: input.id,
+      status: "IN_FLIGHT",
+      revision: input.revision,
+    },
+    data: {
+      status: "FAILED",
+      resultReference: "error:result-unavailable:v1",
+      revision: { increment: 1 },
+    },
+  });
+}
+
+function buildAiDraftResultReference(
+  endpoint: AiDraftEndpoint,
+  operationId: string,
+  status: AiAdviceStatus,
+): string {
+  return `draft:${endpoint}:${operationId}:${status}`;
+}
+
+function readCachedAiDraftResult(workspaceId: string, operationId: string): AiDraftGenerateResponse | null {
+  const key = aiDraftResultCacheKey(workspaceId, operationId);
+  const entry = aiDraftResultCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    aiDraftResultCache.delete(key);
+    return null;
+  }
+  return entry.response;
+}
+
+function cacheAiDraftResult(
+  workspaceId: string,
+  operationId: string,
+  expiresAt: number,
+  response: AiDraftGenerateResponse,
+): void {
+  for (const [key, entry] of aiDraftResultCache) {
+    if (entry.expiresAt <= Date.now()) aiDraftResultCache.delete(key);
+  }
+  while (aiDraftResultCache.size >= aiDraftResultCacheMaxEntries) {
+    const oldestKey = aiDraftResultCache.keys().next().value as string | undefined;
+    if (!oldestKey) break;
+    aiDraftResultCache.delete(oldestKey);
+  }
+  aiDraftResultCache.set(aiDraftResultCacheKey(workspaceId, operationId), { expiresAt, response });
+}
+
+function aiDraftResultCacheKey(workspaceId: string, operationId: string): string {
+  return `${workspaceId}:${operationId}`;
+}
+
+function deleteCachedAiDraftResult(workspaceId: string, operationId: string): void {
+  aiDraftResultCache.delete(aiDraftResultCacheKey(workspaceId, operationId));
+}
+
+export function hasCachedAiDraftResultForTesting(workspaceId: string, operationId: string): boolean {
+  return readCachedAiDraftResult(workspaceId, operationId) !== null;
+}
+
+export function clearAiDraftResultCacheForTesting(): void {
+  aiDraftResultCache.clear();
 }
 
 export async function handleAiDraftRequest(
@@ -383,6 +667,16 @@ export async function handleAiDraftRequest(
       throw new ApiError("AI_DRAFT_TOKEN_INVALID", 400);
     }
     return generateAiDraft(actorId, endpoint, body.previewToken, body);
+  }
+  if (phase === "ack") {
+    if (
+      Object.keys(body).some((key) => key !== "phase" && key !== "resultProof")
+      || typeof body.resultProof !== "string"
+      || !isAiDraftResultProofLengthAllowed(body.resultProof)
+    ) {
+      throw new ApiError("AI_DRAFT_RESULT_PROOF_INVALID", 400);
+    }
+    return acknowledgeAiDraftResult(actorId, endpoint, body.resultProof);
   }
   throw new ApiError("AI_DRAFT_INVALID_ENUM", 400);
 }

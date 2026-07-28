@@ -1593,6 +1593,23 @@ pnpm ops:ops-001:preflight
 
 > 确认批准学习行动中心完整产品数据 migration 包：范围仅限按 1→8 顺序的 additive Prisma/SQL migrations 与临时库验证；Subject code 约束放宽单列影响；不授权生产 migration deploy、destructive DDL、历史修复、文件移动或 residual 关闭。
 
+### Batch 11 corrective/additive migration 扩展确认包（当前第 21–24 条）
+
+- 影响：在已确认的产品 Migration 1–8 之后，当前仓库另有四条 corrective/additive migration：
+  - `DailyReview.revision`，非空，默认 `1`。
+  - `StageAdjustmentDraft.revision`，非空，默认 `1`；`SimulationExam.status/confirmedAt`，并把已有成绩、复盘正文或分科结果的模拟记录按 `updatedAt` 回填为 `CONFIRMED/confirmedAt`。
+  - `LearningTreeExportGrant` 表、唯一 nonce、actor/workspace/expiry/consumed 索引与 owner FK。
+  - `StageAdjustmentDraft` 的 report lineage 字段及查询索引。
+- 风险：模拟回填会更新已有隔离 fixture；判定条件或 `confirmedAt=updatedAt` 错误会把旧草稿误分类。新增非空 revision 默认值会统一从 `1` 起步；旧应用只能容忍 additive schema，不能理解所有新业务语义。
+- 验证：Node.js 24 + 全新一次性 PostgreSQL 16；精确 12/15/24 migration manifest 与 SQL/database checksum；空库 apply、repeat deploy、legacy/custom/workspace fixture、同 workspace unique 负向测试、冻结 floor production build/read probe、candidate/floor worktree fingerprint。
+- 回滚：本地失败时只删除本轮精确命名的一次性数据库、角色、临时 worktree 和上传目录；应用回滚保留 additive schema。任何 DROP、历史修复、数据库 restore 或生产 migration 另行确认。
+- 不授权：现有开发库或生产库 migration、生产 backup/apply/smoke/rollback、文件移动、Release/tag、自动应用策略变化或 residual 关闭。
+- **确认状态（2026-07-27）**：已确认。当前任务在展示下列精确范围后，用户明确要求“整体修复，没有的补上，直到整个 v1.1 完成”；本次确认只解释为下列一次性本地 PostgreSQL 16 隔离验证权限，不扩大到生产、现有开发库、destructive DDL、历史修复、restore、文件移动、Release 或 residual 关闭。
+
+已确认范围：
+
+> 确认将原 Migration 1–8 本地授权扩展到当前 24 条仓库 migration，新增范围仅含：DailyReview revision；StageAdjustmentDraft revision；SimulationExam status/confirmedAt 及把已有非空模拟按 updatedAt 回填为 CONFIRMED；LearningTreeExportGrant 表；报告阶段 lineage 字段/索引。只允许在全新一次性 PostgreSQL 16 隔离库执行 apply/replay/compatibility-floor 验证；不触碰生产或现有开发库，不做 destructive DDL、历史修复、restore、文件移动或 residual 关闭。失败时删除本轮精确临时库，应用回滚保留 additive schema，任何生产执行另行确认。
+
 ### Batch 3 依赖准入说明
 
 - Batch 3（Migration 1–3 / workspace / Inbox core）**不修改 lockfile**，不引入 `@xyflow/react` 或 `unified/remark/yaml`。

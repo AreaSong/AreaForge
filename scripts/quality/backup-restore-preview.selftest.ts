@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildBackupRestorePreview } from "../ops/backup-restore-preview";
@@ -8,12 +8,17 @@ import { validateBackupRestorePreview } from "./backup-restore-preview-validate"
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(root, ".tmp-areaforge-backup-restore-preview-"));
+const defaultEnv = { ...process.env };
+delete defaultEnv.AREAFORGE_BACKUP_PREVIEW_RELEASE_RECORD;
+delete defaultEnv.AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD;
+const currentPackageVersion = (JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version: string }).version;
 
 try {
   const previewPath = path.join(tempDir, "backup-restore-preview.json");
   const generated = spawnSync("pnpm", ["exec", "tsx", "scripts/ops/backup-restore-preview.ts"], {
     cwd: root,
     encoding: "utf8",
+    env: defaultEnv,
   });
   expectStatus("generate backup/restore preview", generated, 0);
   writeFileSync(previewPath, generated.stdout);
@@ -21,6 +26,7 @@ try {
   const validation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/backup-restore-preview-validate.ts", previewPath], {
     cwd: root,
     encoding: "utf8",
+    env: defaultEnv,
   });
   expectStatus("validate backup/restore preview", validation, 0);
   if (!validation.stdout.includes("backupRestorePreviewRecordHash: sha256:")) {
@@ -32,6 +38,7 @@ try {
   const shapeOnlyValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/backup-restore-preview-validate.ts", previewPath, "--shape-only"], {
     cwd: root,
     encoding: "utf8",
+    env: defaultEnv,
   });
   expectStatus("shape-only backup/restore preview validation", shapeOnlyValidation, 0);
   if (!shapeOnlyValidation.stdout.includes("bindingStatus: unavailable")) {
@@ -46,50 +53,24 @@ try {
   for (const field of ["packageVersion", "packageJsonHash", "implementationHash", "sourceSetHash"]) {
     if (typeof sourceInputs[field] !== "string") fail(`backup/restore preview source binding missing ${field}`);
   }
+  if (sourceInputs.packageVersion !== currentPackageVersion) {
+    fail("backup/restore preview should keep sourceInputs.packageVersion bound to the current checkout");
+  }
+  if (sourceInputs.releaseRecordPath !== "docs/development/release-v0.1.9-record.md") {
+    fail("backup/restore preview should default Release evidence to v0.1.9");
+  }
+  const app = parsed.app as Record<string, unknown>;
+  if (app.releaseTag !== "v0.1.9") {
+    fail("backup/restore preview should identify the v0.1.9 production Release record");
+  }
   const doesNotProve = parsed.doesNotProve as unknown[];
   if (!doesNotProve.includes("restore apply execution")) {
     fail("backup/restore preview restore non-proof boundary missing");
   }
   const blockingGaps = parsed.blockingGaps as Array<Record<string, unknown>>;
-  const releaseEvidenceBundleGap = blockingGaps.find((item) => item.key === "releaseEvidenceBundleHash");
-  if (!releaseEvidenceBundleGap) {
-    fail("backup/restore preview blocking gap missing releaseEvidenceBundleHash");
-  }
-  if (
-    releaseEvidenceBundleGap.gapType !== "release_evidence_bundle_hash" ||
-    releaseEvidenceBundleGap.sourceInput !== "release_record" ||
-    releaseEvidenceBundleGap.sourceField !== "releaseEvidenceBundleHash"
-  ) {
-    fail("backup/restore preview blocking gap metadata is wrong for releaseEvidenceBundleHash");
-  }
-  if (typeof releaseEvidenceBundleGap.safeEvidence !== "string" || !releaseEvidenceBundleGap.safeEvidence.includes("root-only")) {
-    fail("backup/restore preview blocking gap safe evidence is wrong for releaseEvidenceBundleHash");
-  }
-
-  for (const key of ["databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256"]) {
-    const gap = blockingGaps.find((item) => item.key === key);
-    if (!gap) {
-      fail(`backup/restore preview blocking gap missing ${key}`);
-    }
-    if (gap.gapType !== "release_evidence_backup_hash" || gap.sourceInput !== "release_record" || gap.sourceField !== key) {
-      fail(`backup/restore preview blocking gap metadata is wrong for ${key}`);
-    }
-    if (typeof gap.safeEvidence !== "string" || !gap.safeEvidence.includes("root-only")) {
-      fail(`backup/restore preview blocking gap safe evidence is wrong for ${key}`);
-    }
-    const blocks = gap.blocks as unknown[];
-    if (!blocks.includes("release_evidence_validator") || !blocks.includes("long_term_live_gate")) {
-      fail(`backup/restore preview blocking gap for ${key} does not name release evidence and long-term gate blockers`);
-    }
-  }
-  for (const key of ["attachmentReconciliationCsvPath", "attachmentReconciliationCsvSha256", "attachmentReconciliationSummaryPath", "attachmentReconciliationSummaryHash", "attachmentReconciliationStatus"]) {
-    const gap = blockingGaps.find((item) => item.key === key);
-    if (!gap || gap.gapType !== "attachment_integrity_result" || gap.sourceInput !== "release_record") {
-      fail(`backup/restore preview attachment binding gap is missing or invalid for ${key}`);
-    }
-    const blocks = gap.blocks as unknown[];
-    if (!blocks.includes("release_evidence_validator") || !blocks.includes("long_term_live_gate")) {
-      fail(`backup/restore preview attachment binding gap does not block release evidence and long-term gate for ${key}`);
+  for (const key of ["releaseEvidenceBundleHash", "databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256", "attachmentReconciliationCsvPath", "attachmentReconciliationCsvSha256", "attachmentReconciliationSummaryPath", "attachmentReconciliationSummaryHash", "attachmentReconciliationStatus"]) {
+    if (blockingGaps.some((item) => item.key === key)) {
+      fail(`v0.1.9 production Release metadata should not expose a blocking gap for ${key}`);
     }
   }
   const safetyFacts = parsed.safetyFacts as Record<string, unknown>;
@@ -108,6 +89,7 @@ try {
   const unsafeValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/backup-restore-preview-validate.ts", unsafePath], {
     cwd: root,
     encoding: "utf8",
+    env: defaultEnv,
   });
   expectStatus("unsafe backup/restore preview fails", unsafeValidation, 1);
 
@@ -122,6 +104,7 @@ try {
   const tamperedStatusValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/backup-restore-preview-validate.ts", tamperedStatusPath], {
     cwd: root,
     encoding: "utf8",
+    env: defaultEnv,
   });
   expectStatus("tampered backup/restore preview status fails", tamperedStatusValidation, 1);
   if (!tamperedStatusValidation.stderr.includes("status")) {
@@ -131,7 +114,7 @@ try {
   const tamperedGapPath = path.join(tempDir, "backup-restore-preview-tampered-gap.json");
   const tamperedGap = {
     ...parsed,
-    blockingGaps: blockingGaps.filter((item) => item.key !== "databaseBackupSha256"),
+    blockingGaps: blockingGaps.filter((item) => item.key !== "databaseRestoreResult"),
     backupRestorePreviewHash: "",
   };
   tamperedGap.backupRestorePreviewHash = hashPreview(tamperedGap);
@@ -139,6 +122,7 @@ try {
   const tamperedGapValidation = spawnSync("pnpm", ["exec", "tsx", "scripts/quality/backup-restore-preview-validate.ts", tamperedGapPath], {
     cwd: root,
     encoding: "utf8",
+    env: defaultEnv,
   });
   expectStatus("tampered backup/restore preview blocking gaps fail", tamperedGapValidation, 1);
   if (!tamperedGapValidation.stderr.includes("blockingGaps")) {

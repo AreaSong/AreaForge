@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/login-form";
 import { getCurrentUser } from "@/lib/auth/session";
-import { sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/login");
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
   const query = await searchParams;

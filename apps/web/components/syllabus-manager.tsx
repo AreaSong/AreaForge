@@ -2,8 +2,17 @@
 
 import { ChevronRight, ClipboardCheck, Plus, RotateCcw, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { ConflictResolutionModal, type ConflictComparison } from "@/components/conflict-resolution-modal";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
+import {
+  loadPrivateBusinessDraft,
+  redirectToLoginWithCurrentLocation,
+  removePrivateBusinessDraft,
+  savePrivateBusinessDraft,
+  SHORT_PRIVATE_DRAFT_TTL_MS,
+} from "@/lib/client/private-business-drafts";
 import type {
   MasteryEvidenceTypeDto,
   MasteryLevelDto,
@@ -42,6 +51,28 @@ type UpdateNodeBody = Partial<{
   masteryConditions: MasteryCondition[];
   targetMinutes: number;
 }>;
+type SyllabusUpdateBaseline = Pick<
+  SyllabusNodeDto,
+  "id" | "revision" | "parentId" | "title" | "kind" | "status" | "masteryLevel" | "masteryConditions" | "sortOrder" | "targetMinutes"
+>;
+type SyllabusUpdateSubmission = {
+  nodeId: string;
+  expectedRevision: number;
+  baseline: SyllabusUpdateBaseline;
+  body: UpdateNodeBody;
+};
+type SyllabusConflict = {
+  baseline: SyllabusUpdateBaseline;
+  submission: SyllabusUpdateSubmission;
+  latest: SyllabusNodeDto;
+  conflictFields: string[];
+};
+type ApiFailure = {
+  error?: string;
+  latest?: unknown;
+  conflictFields?: string[];
+  workbench?: string;
+};
 type AddMasteryEvidenceBody = {
   evidenceType: MasteryEvidenceType;
   taskId?: string;
@@ -58,6 +89,18 @@ type AddMasteryRetestBody = {
   summary?: string;
   nextReviewAt?: string | null;
 };
+type MasteryEvidenceFormDraft = {
+  evidenceType: MasteryEvidenceType;
+  evidenceReferenceId: string;
+  evidenceSummary: string;
+};
+type MasteryRetestFormDraft = {
+  result: MasteryRetestResult;
+  testedAt: string;
+  score: string;
+  summary: string;
+  nextReviewDate: string;
+};
 
 export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, initialSubjectId }: SyllabusManagerProps) {
   const router = useRouter();
@@ -73,7 +116,83 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
   const [importMarkdown, setImportMarkdown] = useState("");
   const [importNotice, setImportNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<SyllabusConflict | null>(null);
+  const [revisionOverrides, setRevisionOverrides] = useState<Record<string, number>>({});
+  const [restoredSubmission, setRestoredSubmission] = useState<SyllabusUpdateSubmission | null>(null);
+  const [draftsLoaded, setDraftsLoaded] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const restoreTimer = window.setTimeout(() => {
+      const createDraft = loadPrivateBusinessDraft(
+        syllabusCreateDraftKey,
+        SHORT_PRIVATE_DRAFT_TTL_MS,
+        isSyllabusCreateDraft,
+      );
+      if (createDraft) {
+        setSubjectId(subjects.some((subject) => subject.id === createDraft.subjectId) ? createDraft.subjectId : subjects[0]?.id ?? "");
+        setParentId(createDraft.parentId ?? "");
+        setTitle(createDraft.title);
+        setKind(createDraft.kind);
+        setStatus(createDraft.status);
+        setTargetMinutes(createDraft.targetMinutes);
+      }
+      const importDraft = loadPrivateBusinessDraft(
+        syllabusImportDraftKey,
+        SHORT_PRIVATE_DRAFT_TTL_MS,
+        isSyllabusImportDraft,
+      );
+      if (importDraft) {
+        setSubjectId(subjects.some((subject) => subject.id === importDraft.subjectId) ? importDraft.subjectId : subjects[0]?.id ?? "");
+        setParentId(importDraft.parentId ?? "");
+        setImportMarkdown(importDraft.markdown);
+      }
+      for (const node of flattenTree(nodes)) {
+        const updateDraft = loadPrivateBusinessDraft(
+          syllabusUpdateDraftKey(node.id),
+          SHORT_PRIVATE_DRAFT_TTL_MS,
+          isSyllabusUpdateSubmission,
+        );
+        if (updateDraft) {
+          setRestoredSubmission(updateDraft);
+          break;
+        }
+      }
+      setDraftsLoaded(true);
+    }, 0);
+
+    return () => window.clearTimeout(restoreTimer);
+  }, [nodes, subjects]);
+
+  useEffect(() => {
+    if (!draftsLoaded) return;
+    if (!title.trim() && !parentId && kind === "topic" && status === "not_started" && targetMinutes === 45) {
+      removePrivateBusinessDraft(syllabusCreateDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft(syllabusCreateDraftKey, {
+      subjectId,
+      parentId: parentId || null,
+      title,
+      kind,
+      status,
+      targetMinutes,
+    });
+  }, [draftsLoaded, subjectId, parentId, title, kind, status, targetMinutes]);
+
+  useEffect(() => {
+    if (!draftsLoaded) return;
+    if (!importMarkdown.trim()) {
+      removePrivateBusinessDraft(syllabusImportDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft(syllabusImportDraftKey, {
+      subjectId,
+      parentId: parentId || null,
+      markdown: importMarkdown,
+    });
+  }, [draftsLoaded, subjectId, parentId, importMarkdown]);
 
   const subjectNodes = useMemo(() => nodes.filter((node) => node.subjectId === subjectId), [nodes, subjectId]);
   const subjectFlatNodeCount = useMemo(() => flattenTree(subjectNodes).length, [subjectNodes]);
@@ -99,112 +218,241 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
     event.preventDefault();
     setError(null);
     setImportNotice(null);
+    const payload = {
+      subjectId,
+      parentId: parentId || null,
+      title,
+      kind,
+      status,
+      targetMinutes,
+    };
+    const commandScope = `syllabus-node:${subjectId}:create`;
+    savePrivateBusinessDraft(syllabusCreateDraftKey, payload);
+    setPendingCommand("create");
+    try {
+      const response = await fetch("/api/syllabus/nodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "syllabus-node", payload),
+        }),
+      });
 
-    const response = await fetch("/api/syllabus/nodes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subjectId,
-        parentId: parentId || null,
-        title,
-        kind,
-        status,
-        targetMinutes,
-      }),
-    });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as ApiFailure | null;
+        if (response.status === 401) redirectToLoginWithCurrentLocation();
+        else if (response.status === 404 && body?.workbench === "/knowledge/syllabus") router.replace(body.workbench);
+        setError(body?.error ?? "创建考纲节点失败，草稿与重试标识已保留");
+        return;
+      }
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "创建考纲节点失败");
-      return;
+      const responseBody = (await response.json().catch(() => null)) as { node?: SyllabusNodeDto } | null;
+      if (!responseBody?.node) {
+        setError("服务端未返回已创建节点，当前输入与重试标识仍保留");
+        return;
+      }
+      completeIdempotentCommand(commandScope);
+      removePrivateBusinessDraft(syllabusCreateDraftKey);
+      setTitle("");
+      setParentId("");
+      startTransition(() => router.refresh());
+    } catch {
+      setError("网络中断，创建草稿与同一重试标识已保留，请明确重试");
+    } finally {
+      setPendingCommand(null);
     }
-
-    setTitle("");
-    setParentId("");
-    startTransition(() => router.refresh());
   }
 
   async function submitImport(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setImportNotice(null);
+    const payload = {
+      subjectId,
+      parentId: parentId || null,
+      markdown: importMarkdown,
+    };
+    const commandScope = `syllabus-markdown-import:${subjectId}`;
 
-    const response = await fetch("/api/syllabus/import-markdown", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subjectId,
-        parentId: parentId || null,
-        markdown: importMarkdown,
-      }),
-    });
+    savePrivateBusinessDraft(syllabusImportDraftKey, payload);
+    setPendingCommand("import");
+    try {
+      const response = await fetch("/api/syllabus/import-markdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "syllabus-import", payload),
+        }),
+      });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "导入考纲失败");
-      return;
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as ApiFailure | null;
+        if (response.status === 401) redirectToLoginWithCurrentLocation();
+        else if (response.status === 404 && body?.workbench === "/knowledge/syllabus") router.replace(body.workbench);
+        setError(body?.error ?? "导入考纲失败，Markdown 与重试标识已保留");
+        return;
+      }
+
+      const body = (await response.json()) as { import?: { importedCount: number; ignoredLines: number[] } };
+      if (!body.import) {
+        setError("服务端未返回导入结果，当前 Markdown 与重试标识仍保留");
+        return;
+      }
+      completeIdempotentCommand(commandScope);
+      removePrivateBusinessDraft(syllabusImportDraftKey);
+      const importedCount = body.import.importedCount;
+      const ignoredCount = body.import.ignoredLines.length;
+      setImportMarkdown("");
+      setImportNotice(`已导入 ${importedCount} 个节点${ignoredCount > 0 ? `，忽略 ${ignoredCount} 行` : ""}。`);
+      startTransition(() => router.refresh());
+    } catch {
+      setError("网络中断，导入草稿与同一重试标识已保留，请明确重试");
+    } finally {
+      setPendingCommand(null);
     }
-
-    const body = (await response.json()) as { import?: { importedCount: number; ignoredLines: number[] } };
-    const importedCount = body.import?.importedCount ?? 0;
-    const ignoredCount = body.import?.ignoredLines.length ?? 0;
-    setImportMarkdown("");
-    setImportNotice(`已导入 ${importedCount} 个节点${ignoredCount > 0 ? `，忽略 ${ignoredCount} 行` : ""}。`);
-    startTransition(() => router.refresh());
   }
 
-  async function updateNode(id: string, body: UpdateNodeBody) {
+  async function updateNode(id: string, body: UpdateNodeBody): Promise<boolean> {
     setError(null);
-    const response = await fetch(`/api/syllabus/nodes/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error ?? "更新考纲节点失败");
-      return;
+    const baseline = findNodeById(nodes, id);
+    if (!baseline) {
+      setError("考纲节点已不在当前树中，请返回考纲工作台刷新");
+      return false;
     }
+    const submission: SyllabusUpdateSubmission = {
+      nodeId: id,
+      expectedRevision: revisionOverrides[id] ?? baseline.revision,
+      baseline: createSyllabusUpdateBaseline(baseline),
+      body: structuredClone(body),
+    };
+    savePrivateBusinessDraft(syllabusUpdateDraftKey(id), submission);
+    setPendingCommand(`${id}:update`);
+    try {
+      const response = await fetch(`/api/syllabus/nodes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...submission.body, expectedRevision: submission.expectedRevision }),
+      });
 
-    startTransition(() => router.refresh());
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as ApiFailure | null;
+        if (response.status === 401) redirectToLoginWithCurrentLocation();
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        else if (response.status === 409 && isSyllabusNodeDto(data?.latest)) {
+          setConflict({
+            baseline,
+            submission,
+            latest: data.latest,
+            conflictFields: data.conflictFields ?? ["revision"],
+          });
+        }
+        setError(data?.error ?? "更新考纲节点失败，首次提交快照已保留");
+        return false;
+      }
+
+      const responseBody = (await response.json().catch(() => null)) as { node?: SyllabusNodeDto } | null;
+      if (!responseBody?.node) {
+        setError("服务端未返回更新后的节点，首次提交快照仍保留");
+        return false;
+      }
+      removePrivateBusinessDraft(syllabusUpdateDraftKey(id));
+      setRestoredSubmission((current) => current?.nodeId === id ? null : current);
+      setRevisionOverrides((current) => omitRecordKey(current, id));
+      startTransition(() => router.refresh());
+      return true;
+    } catch {
+      setError("网络中断，节点更新快照已保留，请先确认服务端状态再明确重试");
+      return false;
+    } finally {
+      setPendingCommand(null);
+    }
   }
 
-  async function addMasteryEvidence(id: string, body: AddMasteryEvidenceBody) {
-    setError(null);
-    const response = await fetch(`/api/syllabus/nodes/${id}/mastery-evidence`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error ?? "新增掌握证据失败");
+  function retryRestoredUpdate() {
+    if (!restoredSubmission) return;
+    const latest = findNodeById(nodes, restoredSubmission.nodeId);
+    if (!latest) {
+      setError("草稿对应节点已不存在，请返回考纲工作台处理");
       return;
     }
-
-    startTransition(() => router.refresh());
+    if (latest.revision !== restoredSubmission.expectedRevision) {
+      setConflict({
+        baseline: restoredSubmission.baseline,
+        submission: restoredSubmission,
+        latest,
+        conflictFields: collectClientConflictFields(restoredSubmission.body, latest),
+      });
+      return;
+    }
+    void updateNode(restoredSubmission.nodeId, restoredSubmission.body);
   }
 
-  async function addMasteryRetest(id: string, body: AddMasteryRetestBody) {
+  async function addMasteryEvidence(id: string, body: AddMasteryEvidenceBody): Promise<boolean> {
     setError(null);
-    const response = await fetch(`/api/syllabus/nodes/${id}/mastery-retests`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error ?? "新增复测记录失败");
-      return;
+    setPendingCommand(`${id}:evidence`);
+    try {
+      const response = await fetch(`/api/syllabus/nodes/${id}/mastery-evidence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as ApiFailure | null;
+        if (response.status === 401) redirectToLoginWithCurrentLocation();
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        setError(data?.error ?? "新增掌握证据失败，输入草稿已保留");
+        return false;
+      }
+      startTransition(() => router.refresh());
+      return true;
+    } catch {
+      setError("网络中断，证据输入已保留，请明确重试");
+      return false;
+    } finally {
+      setPendingCommand(null);
     }
+  }
 
-    startTransition(() => router.refresh());
+  async function addMasteryRetest(id: string, body: AddMasteryRetestBody): Promise<boolean> {
+    setError(null);
+    const commandScope = `mastery-retest:${id}`;
+    setPendingCommand(`${id}:retest`);
+    try {
+      const response = await fetch(`/api/syllabus/nodes/${id}/mastery-retests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...body,
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "mastery-retest", body),
+        }),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as ApiFailure | null;
+        if (response.status === 401) redirectToLoginWithCurrentLocation();
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        setError(data?.error ?? "新增复测记录失败，输入草稿与重试标识已保留");
+        return false;
+      }
+      const responseBody = (await response.json().catch(() => null)) as { node?: SyllabusNodeDto } | null;
+      if (!responseBody?.node) {
+        setError("服务端未返回复测后的节点，当前输入与重试标识仍保留");
+        return false;
+      }
+      completeIdempotentCommand(commandScope);
+      startTransition(() => router.refresh());
+      return true;
+    } catch {
+      setError("网络中断，复测输入与同一重试标识已保留，请明确重试");
+      return false;
+    } finally {
+      setPendingCommand(null);
+    }
   }
 
   return (
+    <>
     <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
       <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
         <div className="flex items-center gap-2">
@@ -224,6 +472,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
                 updateKnowledgeContext({ subjectId: event.target.value, syllabusNodeId: null });
               }}
               required
+              disabled={pendingCommand !== null}
             >
               {subjects.map((subject) => (
                 <option key={subject.id} value={subject.id}>
@@ -239,6 +488,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100"
               value={parentId}
               onChange={(event) => setParentId(event.target.value)}
+              disabled={pendingCommand !== null}
             >
               <option value="">作为根节点</option>
               {parentOptions.map((node) => (
@@ -256,6 +506,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
             onChange={(event) => setTitle(event.target.value)}
             placeholder="章节、知识点或题型名称"
             required
+            disabled={pendingCommand !== null}
           />
 
           <div className="grid min-w-0 gap-3 sm:grid-cols-3">
@@ -263,6 +514,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
               value={kind}
               onChange={(event) => setKind(event.target.value as SyllabusNodeKindDto)}
+              disabled={pendingCommand !== null}
             >
               <option value="subject">科目</option>
               <option value="chapter">章节</option>
@@ -273,6 +525,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               className="h-11 min-w-0 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
               value={status}
               onChange={(event) => setStatus(event.target.value as SyllabusNodeStatusDto)}
+              disabled={pendingCommand !== null}
             >
               <StatusOptions />
             </select>
@@ -284,13 +537,14 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               value={targetMinutes}
               onChange={(event) => setTargetMinutes(Number(event.target.value))}
               aria-label="目标分钟"
+              disabled={pendingCommand !== null}
             />
           </div>
 
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
             type="submit"
-            disabled={isPending || !subjectId}
+            disabled={isPending || pendingCommand !== null || !subjectId}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             写入考纲
@@ -308,11 +562,12 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               onChange={(event) => setImportMarkdown(event.target.value)}
               placeholder={"# 第一章\n## 极限\n- 极限定义\n  - 夹逼准则"}
               required
+              disabled={pendingCommand !== null}
             />
             <button
               className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-teal-300/25 px-4 font-medium text-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
               type="submit"
-              disabled={isPending || !subjectId || importMarkdown.trim().length === 0}
+              disabled={isPending || pendingCommand !== null || !subjectId || importMarkdown.trim().length === 0}
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               导入节点
@@ -447,6 +702,32 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
         </div>
 
         <div className="mt-5 grid gap-3">
+          {restoredSubmission ? (
+            <div className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-50">
+              <p>检测到上次未确认终态的节点更新。系统不会自动重放。</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="h-9 rounded-md bg-amber-200 px-3 font-medium text-black"
+                  onClick={retryRestoredUpdate}
+                  disabled={pendingCommand !== null}
+                >
+                  检查并再次提交
+                </button>
+                <button
+                  type="button"
+                  className="h-9 rounded-md border border-white/10 px-3"
+                  onClick={() => {
+                    removePrivateBusinessDraft(syllabusUpdateDraftKey(restoredSubmission.nodeId));
+                    setRestoredSubmission(null);
+                  }}
+                  disabled={pendingCommand !== null}
+                >
+                  放弃这份草稿
+                </button>
+              </div>
+            </div>
+          ) : null}
           {subjectNodes.length === 0 ? (
             <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
               这个科目还没有考纲节点，先建立第一个章节或知识点。
@@ -464,13 +745,204 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               onUpdate={updateNode}
               onAddMasteryEvidence={addMasteryEvidence}
               onAddMasteryRetest={addMasteryRetest}
+              pendingCommand={pendingCommand}
             />
           ))}
         </div>
       </section>
     </div>
+    <ConflictResolutionModal
+      open={conflict !== null}
+      title="考纲节点已被其他页面更新"
+      description="旧 revision 已失效。系统不会自动覆盖任何一方；请选择采用服务端，或保留本地输入并在检查差异后再次明确提交。"
+      conflictFields={conflict?.conflictFields ?? []}
+      comparisons={conflict ? buildSyllabusConflictComparisons(conflict) : []}
+      onAdoptServer={() => {
+        if (!conflict) return;
+        removePrivateBusinessDraft(syllabusUpdateDraftKey(conflict.submission.nodeId));
+        setRestoredSubmission((current) => current?.nodeId === conflict.submission.nodeId ? null : current);
+        setRevisionOverrides((current) => omitRecordKey(current, conflict.submission.nodeId));
+        setConflict(null);
+        setError("已采用服务端版本");
+        startTransition(() => router.refresh());
+      }}
+      onManualMerge={() => {
+        if (!conflict) return;
+        setRevisionOverrides((current) => ({
+          ...current,
+          [conflict.submission.nodeId]: conflict.latest.revision,
+        }));
+        setConflict(null);
+        setError("已载入服务端最新 revision，本地输入仍保留；检查后请再次点击保存，不会自动重放");
+      }}
+    />
+    </>
   );
 }
+
+const syllabusCreateDraftKey = "areaforge.syllabus.draft.create";
+const syllabusImportDraftKey = "areaforge.syllabus.draft.import";
+
+function syllabusUpdateDraftKey(nodeId: string): string {
+  return `areaforge.syllabus.draft.node.${nodeId}.update`;
+}
+
+function syllabusEvidenceDraftKey(nodeId: string): string {
+  return `areaforge.syllabus.draft.node.${nodeId}.evidence`;
+}
+
+function syllabusRetestDraftKey(nodeId: string): string {
+  return `areaforge.syllabus.draft.node.${nodeId}.retest`;
+}
+
+function createSyllabusUpdateBaseline(node: SyllabusNodeDto): SyllabusUpdateBaseline {
+  return {
+    id: node.id,
+    revision: node.revision,
+    parentId: node.parentId,
+    title: node.title,
+    kind: node.kind,
+    status: node.status,
+    masteryLevel: node.masteryLevel,
+    masteryConditions: [...node.masteryConditions],
+    sortOrder: node.sortOrder,
+    targetMinutes: node.targetMinutes,
+  };
+}
+
+function buildSyllabusConflictComparisons(conflict: SyllabusConflict): ConflictComparison[] {
+  const fields = Array.from(new Set([
+    "revision",
+    ...conflict.conflictFields,
+    ...Object.keys(conflict.submission.body),
+  ]));
+  return fields.map((field) => ({
+    field,
+    label: labelSyllabusConflictField(field),
+    baseline: readSyllabusConflictValue(conflict.baseline, field),
+    local: field === "revision"
+      ? conflict.submission.expectedRevision
+      : conflict.submission.body[field as keyof UpdateNodeBody]
+        ?? readSyllabusConflictValue(conflict.baseline, field),
+    server: readSyllabusConflictValue(conflict.latest, field),
+  }));
+}
+
+function collectClientConflictFields(body: UpdateNodeBody, latest: SyllabusNodeDto): string[] {
+  const fields = ["revision"];
+  for (const [field, value] of Object.entries(body)) {
+    const latestValue = readSyllabusConflictValue(latest, field);
+    if (JSON.stringify(value) !== JSON.stringify(latestValue)) fields.push(field);
+  }
+  return fields;
+}
+
+function readSyllabusConflictValue(
+  source: SyllabusUpdateBaseline | SyllabusNodeDto,
+  field: string,
+): unknown {
+  return field in source ? source[field as keyof typeof source] : undefined;
+}
+
+function labelSyllabusConflictField(field: string): string {
+  const labels: Record<string, string> = {
+    revision: "版本",
+    parentId: "父节点",
+    title: "标题",
+    kind: "类型",
+    status: "状态",
+    masteryLevel: "掌握等级",
+    masteryConditions: "掌握条件",
+    sortOrder: "排序",
+    targetMinutes: "目标分钟",
+  };
+  return labels[field] ?? field;
+}
+
+function omitRecordKey(record: Record<string, number>, key: string): Record<string, number> {
+  const next = { ...record };
+  delete next[key];
+  return next;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isSyllabusCreateDraft(value: unknown): value is {
+  subjectId: string;
+  parentId: string | null;
+  title: string;
+  kind: SyllabusNodeKindDto;
+  status: SyllabusNodeStatusDto;
+  targetMinutes: number;
+} {
+  if (!isRecord(value)) return false;
+  return typeof value.subjectId === "string"
+    && (value.parentId === null || typeof value.parentId === "string")
+    && typeof value.title === "string"
+    && syllabusNodeKinds.includes(value.kind as SyllabusNodeKindDto)
+    && syllabusNodeStatuses.includes(value.status as SyllabusNodeStatusDto)
+    && typeof value.targetMinutes === "number";
+}
+
+function isSyllabusImportDraft(value: unknown): value is {
+  subjectId: string;
+  parentId: string | null;
+  markdown: string;
+} {
+  return isRecord(value)
+    && typeof value.subjectId === "string"
+    && (value.parentId === null || typeof value.parentId === "string")
+    && typeof value.markdown === "string";
+}
+
+function isSyllabusUpdateSubmission(value: unknown): value is SyllabusUpdateSubmission {
+  if (!isRecord(value) || !isRecord(value.body) || !isRecord(value.baseline)) return false;
+  return typeof value.nodeId === "string"
+    && Number.isInteger(value.expectedRevision)
+    && value.expectedRevision as number > 0
+    && typeof value.baseline.id === "string"
+    && Number.isInteger(value.baseline.revision);
+}
+
+function isSyllabusNodeDto(value: unknown): value is SyllabusNodeDto {
+  return isRecord(value)
+    && typeof value.id === "string"
+    && Number.isInteger(value.revision)
+    && typeof value.title === "string"
+    && syllabusNodeStatuses.includes(value.status as SyllabusNodeStatusDto)
+    && Array.isArray(value.masteryConditions);
+}
+
+function isMasteryEvidenceFormDraft(value: unknown): value is MasteryEvidenceFormDraft {
+  return isRecord(value)
+    && masteryEvidenceTypes.includes(value.evidenceType as MasteryEvidenceType)
+    && typeof value.evidenceReferenceId === "string"
+    && typeof value.evidenceSummary === "string";
+}
+
+function isMasteryRetestFormDraft(value: unknown): value is MasteryRetestFormDraft {
+  return isRecord(value)
+    && masteryRetestResults.includes(value.result as MasteryRetestResult)
+    && typeof value.testedAt === "string"
+    && typeof value.score === "string"
+    && typeof value.summary === "string"
+    && typeof value.nextReviewDate === "string";
+}
+
+const syllabusNodeKinds: SyllabusNodeKindDto[] = ["subject", "chapter", "topic", "problem_type"];
+const syllabusNodeStatuses: SyllabusNodeStatusDto[] = [
+  "not_started",
+  "learning",
+  "covered",
+  "needs_review",
+  "mastered",
+  "weak",
+  "deferred",
+];
+const masteryEvidenceTypes: MasteryEvidenceType[] = ["task", "session", "note", "mistake", "retest"];
+const masteryRetestResults: MasteryRetestResult[] = ["passed", "partial", "failed"];
 
 const statusFilterOptions: SyllabusNodeStatusDto[] = [
   "not_started",
@@ -628,11 +1100,13 @@ function SyllabusTreeNode({
   onUpdate,
   onAddMasteryEvidence,
   onAddMasteryRetest,
+  pendingCommand,
 }: {
   node: SyllabusNodeDto;
-  onUpdate: (id: string, body: UpdateNodeBody) => Promise<void>;
-  onAddMasteryEvidence: (id: string, body: AddMasteryEvidenceBody) => Promise<void>;
-  onAddMasteryRetest: (id: string, body: AddMasteryRetestBody) => Promise<void>;
+  onUpdate: (id: string, body: UpdateNodeBody) => Promise<boolean>;
+  onAddMasteryEvidence: (id: string, body: AddMasteryEvidenceBody) => Promise<boolean>;
+  onAddMasteryRetest: (id: string, body: AddMasteryRetestBody) => Promise<boolean>;
+  pendingCommand: string | null;
 }) {
   const progress = node.targetMinutes === 0 ? 0 : Math.min(100, Math.round((node.actualMinutes / node.targetMinutes) * 100));
   const evidenceCount = node.masteryProof.evidenceCount;
@@ -647,12 +1121,80 @@ function SyllabusTreeNode({
   const [retestScore, setRetestScore] = useState("");
   const [retestSummary, setRetestSummary] = useState("");
   const [retestNextReviewDate, setRetestNextReviewDate] = useState("");
+  const [draftsLoaded, setDraftsLoaded] = useState(false);
+  const pending = pendingCommand?.startsWith(`${node.id}:`) ?? false;
+  const evidenceDraftKey = syllabusEvidenceDraftKey(node.id);
+  const retestDraftKey = syllabusRetestDraftKey(node.id);
   const selectedConditionSet = new Set(selectedConditions);
   const evidenceCandidates = node.masteryEvidenceCandidates[evidenceType];
   const selectedEvidenceReferenceId = evidenceCandidates.some((candidate) => candidate.id === evidenceReferenceId)
     ? evidenceReferenceId
     : evidenceCandidates[0]?.id ?? "";
   const explicitConditionCount = node.masteryConditionRecords.filter((record) => record.checked).length;
+
+  useEffect(() => {
+    const restoreTimer = window.setTimeout(() => {
+      const evidenceDraft = loadPrivateBusinessDraft(
+        evidenceDraftKey,
+        SHORT_PRIVATE_DRAFT_TTL_MS,
+        isMasteryEvidenceFormDraft,
+      );
+      if (evidenceDraft) {
+        setEvidenceType(evidenceDraft.evidenceType);
+        setEvidenceReferenceId(evidenceDraft.evidenceReferenceId);
+        setEvidenceSummary(evidenceDraft.evidenceSummary);
+      }
+      const retestDraft = loadPrivateBusinessDraft(
+        retestDraftKey,
+        SHORT_PRIVATE_DRAFT_TTL_MS,
+        isMasteryRetestFormDraft,
+      );
+      if (retestDraft) {
+        setRetestResult(retestDraft.result);
+        setRetestTestedAt(retestDraft.testedAt);
+        setRetestScore(retestDraft.score);
+        setRetestSummary(retestDraft.summary);
+        setRetestNextReviewDate(retestDraft.nextReviewDate);
+      }
+      setDraftsLoaded(true);
+    }, 0);
+
+    return () => window.clearTimeout(restoreTimer);
+  }, [evidenceDraftKey, retestDraftKey]);
+
+  useEffect(() => {
+    if (!draftsLoaded) return;
+    const defaultReferenceId = node.masteryEvidenceCandidates.task[0]?.id ?? "";
+    const dirty = evidenceType !== "task"
+      || evidenceReferenceId !== defaultReferenceId
+      || evidenceSummary.trim().length > 0;
+    if (!dirty) {
+      removePrivateBusinessDraft(evidenceDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft<MasteryEvidenceFormDraft>(evidenceDraftKey, {
+      evidenceType,
+      evidenceReferenceId,
+      evidenceSummary,
+    });
+  }, [draftsLoaded, evidenceDraftKey, evidenceType, evidenceReferenceId, evidenceSummary, node.masteryEvidenceCandidates.task]);
+
+  useEffect(() => {
+    if (!draftsLoaded) return;
+    const dirty = retestResult !== "passed"
+      || Boolean(retestTestedAt || retestScore.trim() || retestSummary.trim() || retestNextReviewDate);
+    if (!dirty) {
+      removePrivateBusinessDraft(retestDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft<MasteryRetestFormDraft>(retestDraftKey, {
+      result: retestResult,
+      testedAt: retestTestedAt,
+      score: retestScore,
+      summary: retestSummary,
+      nextReviewDate: retestNextReviewDate,
+    });
+  }, [draftsLoaded, retestDraftKey, retestResult, retestTestedAt, retestScore, retestSummary, retestNextReviewDate]);
 
   function toggleCondition(condition: MasteryCondition) {
     setSelectedConditions((current) =>
@@ -679,7 +1221,7 @@ function SyllabusTreeNode({
     setEvidenceReferenceId(node.masteryEvidenceCandidates[nextType][0]?.id ?? "");
   }
 
-  function submitEvidence(event: React.FormEvent<HTMLFormElement>) {
+  async function submitEvidence(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedEvidenceReferenceId) return;
 
@@ -689,24 +1231,41 @@ function SyllabusTreeNode({
     };
     body[getMasteryEvidenceReferenceKey(evidenceType)] = selectedEvidenceReferenceId;
 
-    setEvidenceSummary("");
-    void onAddMasteryEvidence(node.id, body);
+    savePrivateBusinessDraft<MasteryEvidenceFormDraft>(evidenceDraftKey, {
+      evidenceType,
+      evidenceReferenceId: selectedEvidenceReferenceId,
+      evidenceSummary,
+    });
+    if (await onAddMasteryEvidence(node.id, body)) {
+      removePrivateBusinessDraft(evidenceDraftKey);
+      setEvidenceSummary("");
+    }
   }
 
-  function submitRetest(event: React.FormEvent<HTMLFormElement>) {
+  async function submitRetest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const testedAt = retestTestedAt ? localDateTimeToIso(retestTestedAt) : undefined;
     const nextReviewAt = retestNextReviewDate ? dateInputToIso(retestNextReviewDate) : null;
 
-    void onAddMasteryRetest(node.id, {
+    const body: AddMasteryRetestBody = {
       testedAt,
       result: retestResult,
       score: retestScore.trim() || undefined,
       summary: retestSummary.trim() || undefined,
       nextReviewAt,
+    };
+    savePrivateBusinessDraft<MasteryRetestFormDraft>(retestDraftKey, {
+      result: retestResult,
+      testedAt: retestTestedAt,
+      score: retestScore,
+      summary: retestSummary,
+      nextReviewDate: retestNextReviewDate,
     });
-    setRetestScore("");
-    setRetestSummary("");
+    if (await onAddMasteryRetest(node.id, body)) {
+      removePrivateBusinessDraft(retestDraftKey);
+      setRetestScore("");
+      setRetestSummary("");
+    }
   }
 
   return (
@@ -754,6 +1313,7 @@ function SyllabusTreeNode({
               }
               void onUpdate(node.id, { status: nextStatus });
             }}
+            disabled={pending}
           >
             <StatusOptions />
           </select>
@@ -767,6 +1327,7 @@ function SyllabusTreeNode({
               className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={targetMasteryLevel}
               onChange={(event) => setTargetMasteryLevel(event.target.value as MasteryLevelDto)}
+              disabled={pending}
             >
               {masteryLevelOptions.map((level) => (
                 <option key={level} value={level}>
@@ -788,6 +1349,7 @@ function SyllabusTreeNode({
                     type="checkbox"
                     checked={selectedConditionSet.has(condition)}
                     onChange={() => toggleCondition(condition)}
+                    disabled={pending}
                   />
                   <span>{labelMasteryCondition(condition)}</span>
                 </label>
@@ -800,6 +1362,7 @@ function SyllabusTreeNode({
             className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200 hover:bg-white/10"
             type="button"
             onClick={saveConditions}
+            disabled={pending}
           >
             <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
             保存条件
@@ -808,7 +1371,7 @@ function SyllabusTreeNode({
             className="inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10 disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
             onClick={proveMastery}
-            disabled={!canSubmitProof}
+            disabled={pending || !canSubmitProof}
             title={canSubmitProof ? node.masteryProof.nextAction : "还没有任务、计时、笔记、错题或复测证据"}
           >
             <Save className="h-4 w-4" aria-hidden="true" />
@@ -827,6 +1390,7 @@ function SyllabusTreeNode({
               className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={evidenceType}
               onChange={(event) => changeEvidenceType(event.target.value as MasteryEvidenceType)}
+              disabled={pending}
             >
               {masteryEvidenceTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -838,7 +1402,7 @@ function SyllabusTreeNode({
               className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={selectedEvidenceReferenceId}
               onChange={(event) => setEvidenceReferenceId(event.target.value)}
-              disabled={evidenceCandidates.length === 0}
+              disabled={pending || evidenceCandidates.length === 0}
             >
               {evidenceCandidates.length === 0 ? (
                 <option value="">暂无可引用记录</option>
@@ -857,11 +1421,12 @@ function SyllabusTreeNode({
             onChange={(event) => setEvidenceSummary(event.target.value)}
             placeholder="证据备注"
             maxLength={1000}
+            disabled={pending}
           />
           <button
             className="mt-3 inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10 disabled:cursor-not-allowed disabled:opacity-50"
             type="submit"
-            disabled={!selectedEvidenceReferenceId}
+            disabled={pending || !selectedEvidenceReferenceId}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             写入证据
@@ -878,6 +1443,7 @@ function SyllabusTreeNode({
               className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
               value={retestResult}
               onChange={(event) => setRetestResult(event.target.value as MasteryRetestResult)}
+              disabled={pending}
             >
               {masteryRetestResultOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -891,6 +1457,7 @@ function SyllabusTreeNode({
               value={retestTestedAt}
               onChange={(event) => setRetestTestedAt(event.target.value)}
               aria-label="复测时间"
+              disabled={pending}
             />
             <input
               className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
@@ -898,6 +1465,7 @@ function SyllabusTreeNode({
               onChange={(event) => setRetestScore(event.target.value)}
               placeholder="分数或结果"
               maxLength={80}
+              disabled={pending}
             />
             <input
               className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
@@ -905,6 +1473,7 @@ function SyllabusTreeNode({
               value={retestNextReviewDate}
               onChange={(event) => setRetestNextReviewDate(event.target.value)}
               aria-label="下次复习日期"
+              disabled={pending}
             />
           </div>
           <input
@@ -913,10 +1482,12 @@ function SyllabusTreeNode({
             onChange={(event) => setRetestSummary(event.target.value)}
             placeholder="复测摘要"
             maxLength={2000}
+            disabled={pending}
           />
           <button
             className="mt-3 inline-flex h-9 items-center gap-2 rounded-md border border-sky-300/25 px-3 text-sm text-sky-100 hover:bg-sky-400/10"
             type="submit"
+            disabled={pending}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             写入复测
@@ -959,6 +1530,7 @@ function SyllabusTreeNode({
               onUpdate={onUpdate}
               onAddMasteryEvidence={onAddMasteryEvidence}
               onAddMasteryRetest={onAddMasteryRetest}
+              pendingCommand={pendingCommand}
             />
           ))}
         </div>

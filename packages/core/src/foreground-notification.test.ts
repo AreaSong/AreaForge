@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { selectForegroundNotifications, type ForegroundNotificationPreference } from "./foreground-notification";
+import {
+  buildForegroundNotificationPayload,
+  sanitizeForegroundNotificationRoute,
+  selectForegroundNotifications,
+  type ForegroundNotificationPreference,
+} from "./foreground-notification";
 
 const preference: ForegroundNotificationPreference = {
   reviewDueEnabled: true,
@@ -51,4 +56,16 @@ test("equal notification window means all day while equal quiet hours are disabl
     preference: allDay,
     candidates: { reviewDue: true, planStart: false, eveningReview: false },
   }), ["review"]);
+});
+
+test("canonical notification payloads use the action-center routes", () => {
+  assert.deepEqual(buildForegroundNotificationPayload("review").data, { route: "/knowledge/reviews" });
+  assert.deepEqual(buildForegroundNotificationPayload("plan").data, { route: "/today/plan" });
+  assert.deepEqual(buildForegroundNotificationPayload("evening").data, { route: "/review/daily" });
+});
+
+test("notification payload routes reject non-canonical navigation", () => {
+  assert.equal(sanitizeForegroundNotificationRoute("javascript:alert(1)"), "/today");
+  assert.equal(buildForegroundNotificationPayload("review", "/settings/workspace").data.route, "/today");
+  assert.equal(sanitizeForegroundNotificationRoute("/review/daily"), "/review/daily");
 });

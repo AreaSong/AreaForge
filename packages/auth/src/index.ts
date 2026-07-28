@@ -58,10 +58,21 @@ export {
 } from "./learning-tree-crypto";
 
 export {
+  AI_DRAFT_RESULT_PROOF_MAX_LENGTH,
+  AI_DRAFT_RESULT_PROOF_PURPOSE,
+  AI_DRAFT_RESULT_PROOF_TTL_MS,
+  AI_DRAFT_RESULT_PROOF_VERSION,
   hmacAiPayload,
+  isAiDraftResultProofLengthAllowed,
   isValidAiPayloadBindingSecret,
   mintAiDraftPreviewToken,
+  mintAiDraftResultProof,
   verifyAiDraftPreviewToken,
+  verifyAiDraftResultProof,
+  type AiDraftResultProofClaims,
+  type AiDraftResultProofExpected,
+  type AiDraftResultProofInput,
+  type AiDraftResultProofVerification,
 } from "./ai-payload-binding";
 
 function scryptAsync(password: string, salt: Buffer, keyLength: number, options: ScryptOptions): Promise<Buffer> {

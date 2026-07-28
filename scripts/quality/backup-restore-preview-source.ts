@@ -27,7 +27,7 @@ export type BackupRestorePreviewSources = {
   sourceInputs: BackupRestorePreviewSourceInputs;
 };
 
-export const defaultBackupPreviewReleaseRecord = "docs/development/release-v0.1.7-record.md";
+export const defaultBackupPreviewReleaseRecord = "docs/development/release-v0.1.9-record.md";
 
 const maxRecordBytes = 2 * 1024 * 1024;
 const allowedRecordExtensions = new Set([".md", ".txt", ".json"]);

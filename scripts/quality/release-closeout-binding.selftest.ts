@@ -21,6 +21,7 @@ async function main(): Promise<void> {
     testImageContentBoundaries();
     testModeDeleteCopyAndMergeBoundaries();
     testAllowlistSurface();
+    testV11EvidenceOnlySurface();
     console.log("release closeout binding selftest passed.");
   } finally {
     rmSync(suiteRoot, { recursive: true, force: true });
@@ -194,6 +195,51 @@ function testAllowlistSurface(): void {
   for (const file of denied) {
     if (isAllowedCloseoutPath(file)) throw new Error(`expected denied path: ${file}`);
   }
+}
+
+function testV11EvidenceOnlySurface(): void {
+  const allowed = [
+    "docs/development/v11-release-admission-record.md",
+    "docs/development/v11-s2-ops006-007-gate-review.md",
+    "docs/development/v11-accessibility-review-20260727.md",
+    "docs/development/v11-compatibility-floor-evidence-20260727.md",
+    "output/v11-compatibility/compatibility-floor-runtime-v1.1.0-20260727.json",
+    "output/supply-chain/ci-supply-chain-v1.1.0-20260727.txt",
+    "output/supply-chain/sc004-main-protection-readback-v1.1.0-20260727.json",
+    "output/supply-chain/sc004-controlled-pr-v1.1.0-20260727.json",
+  ];
+  for (const file of allowed) {
+    if (!isAllowedCloseoutPath(file)) throw new Error(`expected v1.1 allowlisted path: ${file}`);
+  }
+
+  const repo = createRepository("v11-evidence-only");
+  for (const file of allowed) write(repo.root, file, `${file}\n`);
+  commit(repo.root, "add v1.1 admission evidence");
+  assertStatus(evaluate(repo), "evidence_only");
+
+  const denied = [
+    "docs/development/v11-release-admission-record-copy.md",
+    "docs/development/archive/v11-accessibility-review-20260727.md",
+    "docs/development/v11-compatibility-floor-evidence-20260727.json",
+    "output/v11-compatibility/nested/compatibility-floor-runtime-v1.1.0-20260727.json",
+    "output/v11-compatibility/compatibility-floor-runtime-v1.2.0-20260727.json",
+    "output/supply-chain/ci-supply-chain-v1.1.1-20260727.txt",
+    "output/supply-chain/sc004-main-protection-readback-v1.1.0-20260727.txt",
+    "output/supply-chain/sc004-controlled-pr-v1.1.0-20260727.md",
+  ];
+  for (const file of denied) {
+    if (isAllowedCloseoutPath(file)) throw new Error(`expected denied v1.1 path: ${file}`);
+  }
+
+  const nested = createRepository("v11-denied-nested");
+  write(nested.root, denied[3] as string, "out-of-scope nested runtime\n");
+  commit(nested.root, "add nested v1.1 runtime");
+  assertInvalid(evaluate(nested), denied[3] as string);
+
+  const wrongVersion = createRepository("v11-denied-version");
+  write(wrongVersion.root, denied[5] as string, "out-of-scope release evidence\n");
+  commit(wrongVersion.root, "add other-version supply-chain evidence");
+  assertInvalid(evaluate(wrongVersion), denied[5] as string);
 }
 
 function createRepository(name: string): { root: string; releaseCommit: string } {

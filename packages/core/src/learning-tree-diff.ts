@@ -10,6 +10,12 @@ export interface LearningTreeExistingRef {
   pathTitles?: string[];
   archived?: boolean;
   entityId?: string;
+  semanticSignature?: string;
+  revision?: number;
+  updatedAt?: string;
+  sortOrder?: number;
+  status?: string;
+  originVersion?: number;
 }
 
 export interface LearningTreeDiffItem {
@@ -19,7 +25,13 @@ export interface LearningTreeDiffItem {
   title: string;
   subjectKey: string | null;
   sourceLine?: number;
-  candidateMatches: Array<{ entityId?: string; stableKey: string | null; title: string }>;
+  candidateMatches: Array<{
+    entityId?: string;
+    stableKey: string | null;
+    title: string;
+    revision?: number;
+    updatedAt?: string;
+  }>;
   blocking: boolean;
   reason?: string;
 }
@@ -38,6 +50,7 @@ export function buildLearningTreeDiff(input: {
           (row, index) =>
             !usedExisting.has(index) &&
             row.objectType === object.type &&
+            stableIdentitySharesSubject(object.type, row.subjectKey, subjectKey) &&
             (row.stableKey === object.stableKey ||
               (!row.stableKey && row.entityId === legacyEntityIdForKey(object.type, object.stableKey))),
         )
@@ -50,10 +63,17 @@ export function buildLearningTreeDiff(input: {
       const moved =
         object.type === "node" &&
         (existing.parentStableKey ?? null) !== (object.parentStableKey ?? null);
+      const semanticChanged =
+        (existing.semanticSignature === undefined
+          ? existing.title !== object.title
+          : existing.semanticSignature !== learningTreeObjectSemanticSignature(object)) ||
+        (object.type === "node" &&
+          ((object.sortOrder !== undefined && existing.sortOrder !== object.sortOrder) ||
+            (object.status !== undefined && existing.status !== object.status)));
       let diffType: LearningTreeDiffType = "UNCHANGED";
-      if (archivedIncoming && !existing.archived) diffType = "ARCHIVE";
-      else if (moved) diffType = "MOVE";
-      else if (existing.title !== object.title) diffType = "UPDATE";
+      if (moved) diffType = "MOVE";
+      else if (archivedIncoming && !existing.archived) diffType = "ARCHIVE";
+      else if (semanticChanged) diffType = "UPDATE";
       items.push({
         objectType: object.type,
         diffType,
@@ -62,7 +82,7 @@ export function buildLearningTreeDiff(input: {
         subjectKey,
         sourceLine: object.sourceLine,
         candidateMatches: [
-          { entityId: existing.entityId, stableKey: existing.stableKey, title: existing.title },
+          candidateMatch(existing),
         ],
         blocking: false,
       });
@@ -94,7 +114,7 @@ export function buildLearningTreeDiff(input: {
         subjectKey,
         sourceLine: object.sourceLine,
         candidateMatches: [
-          { entityId: existing.entityId, stableKey: existing.stableKey, title: existing.title },
+          candidateMatch(existing),
         ],
         blocking: false,
         reason: "matched_by_path_title",
@@ -110,11 +130,7 @@ export function buildLearningTreeDiff(input: {
         title: object.title,
         subjectKey,
         sourceLine: object.sourceLine,
-        candidateMatches: candidates.map(({ row }) => ({
-          entityId: row.entityId,
-          stableKey: row.stableKey,
-          title: row.title,
-        })),
+        candidateMatches: candidates.map(({ row }) => candidateMatch(row)),
         blocking: true,
         reason: "ambiguous_title_match",
       });
@@ -135,6 +151,65 @@ export function buildLearningTreeDiff(input: {
 
   // Missing existing objects stay unchanged; only explicit archived=true archives.
   return items;
+}
+
+export function learningTreeObjectSemanticSignature(object: LearningTreeObject): string {
+  switch (object.type) {
+    case "group":
+      return JSON.stringify(["group", object.title]);
+    case "subject":
+      return JSON.stringify(["subject", object.title, object.groupKey ?? null]);
+    case "node":
+      return JSON.stringify([
+        "node",
+        object.title,
+        object.subjectKey,
+        object.parentStableKey ?? null,
+        object.archived,
+      ]);
+    case "card":
+      return JSON.stringify([
+        "card",
+        object.title,
+        object.subjectKey,
+        object.kind,
+        object.primaryNode ?? null,
+        [...object.relatedNodes].sort(),
+        object.bodyMarkdown,
+      ]);
+    case "resource":
+      return JSON.stringify(["resource", object.title, object.subjectKey, object.kind, object.url]);
+    case "plan":
+      return JSON.stringify([
+        "plan",
+        object.title,
+        object.subjectKey,
+        object.milestoneKey ?? null,
+        object.durationMinutes ?? null,
+        object.dependsOn ?? null,
+        object.dependencyType ?? "SOFT",
+      ]);
+  }
+}
+
+function stableIdentitySharesSubject(
+  objectType: LearningTreeObjectType,
+  existingSubjectKey: string | null,
+  incomingSubjectKey: string | null,
+): boolean {
+  return objectType !== "node" && objectType !== "card"
+    ? true
+    : existingSubjectKey === incomingSubjectKey;
+}
+
+function candidateMatch(row: LearningTreeExistingRef): LearningTreeDiffItem["candidateMatches"][number] {
+  return {
+    entityId: row.entityId,
+    stableKey: row.stableKey,
+    title: row.title,
+    revision: row.revision,
+    updatedAt: row.updatedAt,
+  };
 }
 
 function legacyEntityIdForKey(objectType: LearningTreeObjectType, stableKey: string): string | null {

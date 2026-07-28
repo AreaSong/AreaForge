@@ -362,7 +362,8 @@
 - `pnpm github-release-updater:preflight`
 - `pnpm shellcheck:updater`
 - `pnpm check`
-- 如改动 Dockerfile：`docker build -f infra/docker/migration.Dockerfile .`
+- 如改动 Web Docker dependency context 或 patched dependency：`docker build --target deps --file infra/docker/web.Dockerfile .`
+- 如改动 migration image：`docker build --file infra/docker/migration.Dockerfile .`
 
 CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actions pinning 检查：所有外部 `uses:` 应 pin 到 40 位 commit SHA，并保留行内版本注释以便升级审查。
 
@@ -455,11 +456,13 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 
 #### Batch 11（完整 Migration Gate / compatibility floor）专项
 
-- 一次性 PostgreSQL 数据库名必须含 `v11compat`，按仓库顺序应用全部 migration，再次 deploy 必须返回无 pending migration
-- 当前候选运行 `pnpm ops:v11:compatibility-floor:runtime:selftest seed`，写入第二工作区、自定义科目和 workspace-scoped DailyReview/CheckIn/PeriodicReportDecision 复合唯一 fixture
-- detached checkout 冻结 floor commit，完成 frozen install、Prisma generate 与 Web production build；设置 `AREAFORGE_V11_COMPATIBILITY_FLOOR_ROOT` 和对应 `TSX_TSCONFIG_PATH` 后运行同一入口的 `probe`
-- floor probe 必须从同一已升级数据库读回两个工作区、自定义科目和复合唯一记录；不 restore、不 DROP additive schema、不把 `v0.1.7` 当 floor
-- 证据记录：`docs/development/v11-compatibility-floor-evidence-20260722.md`；本地 PASS 不替代 floor image digest、SC-002/SC-004、签名 Release 或生产 apply
+- 先运行 `pnpm ops:v11:compatibility-floor:manifest:selftest`，精确核对生产 legacy commit 的 12 条、compatibility floor commit 的 15 条和当前候选的 24 条 migration 名称、顺序与 SQL SHA-256。
+- 使用 Node.js 24 和一次性 PostgreSQL 16；显式提供精确数据库名 `AREAFORGE_V11_COMPATIBILITY_EXPECTED_DATABASE_NAME`，名称必须含 `v11compat`，查询到的 `current_database()` 必须完全相等。禁止指向默认开发库或生产库。
+- 推荐唯一编排入口为 `pnpm ops:v11:compatibility-floor:orchestrate`。它依次执行当前 24 条 migration deploy、candidate seed、detached floor frozen install / Prisma generate / production build、floor probe、repeat deploy 和 final ledger validation。
+- `_prisma_migrations` 必须精确为 24 行：名称及实际应用顺序与 manifest 相同、checksum 与 SQL SHA-256 相同、`finished_at` 非空、`rolled_back_at` 为空、`logs` 为空、`applied_steps_count=1`；额外、重复、失败或回滚记录全部拒绝。
+- candidate fixture 必须包含 legacy Subject、两个 `legacyCode=null` 自定义科目、第二工作区，以及不同 workspace 可共存的 DailyReview / CheckIn / PeriodicReportDecision；同一 workspace 的三个复合唯一重复写必须分别失败。
+- seed、probe、repeat deploy 前后必须绑定同一 candidate dirty-worktree 内容 fingerprint；detached floor 必须绑定精确 commit 且保持 clean。floor probe 从同一已升级数据库读回 legacy/custom/workspace fixture；不 restore、不 DROP additive schema、不把 `v0.1.7` 当 floor。
+- 当前 24 条证据记录使用 `docs/development/v11-compatibility-floor-evidence-20260727.md`。`docs/development/v11-compatibility-floor-evidence-20260722.md` 仅为 20 条 migration 的历史记录，不可复用为当前候选证据；本地 PASS 不替代 floor image digest、SC-002/SC-004、签名 Release 或生产 apply。
 
 ## docs 100% 最终门禁
 

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       entityType,
       status: params.get("status"),
     });
-    return NextResponse.json({ canvas });
+    return NextResponse.json({ canvas }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return apiErrorResponse(error);
   }

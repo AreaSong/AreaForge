@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
   type: z.enum(["SOFT", "HARD"]),
+  expectedRevision: z.number().int().positive(),
 });
+
+const deleteSchema = z.object({ expectedRevision: z.number().int().positive() });
 
 export async function PATCH(
   request: NextRequest,
@@ -20,7 +23,7 @@ export async function PATCH(
     const parsed = patchSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
     return NextResponse.json({
-      dependency: await updateTaskDependencyType(user.id, dependencyId, parsed.data.type),
+      dependency: await updateTaskDependencyType(user.id, dependencyId, parsed.data),
     });
   } catch (error) {
     return apiErrorResponse(error);
@@ -34,7 +37,9 @@ export async function DELETE(
   try {
     const user = await requireApiUser(request);
     const { dependencyId } = await context.params;
-    await deleteTaskDependency(user.id, dependencyId);
+    const parsed = deleteSchema.safeParse(await readJson(request));
+    if (!parsed.success) return zodErrorResponse(parsed.error);
+    await deleteTaskDependency(user.id, dependencyId, parsed.data.expectedRevision);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return apiErrorResponse(error);

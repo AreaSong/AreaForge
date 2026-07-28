@@ -149,12 +149,15 @@ async function parseFilesMultipart(
     };
 
     const partEnd = await reader.readUntilDelimiter(delimiter, (chunk) => {
-      state.sizeBytes += chunk.length;
-      if (state.sizeBytes > policy.maxBytes) {
+      if (state.businessError) return;
+      const nextSizeBytes = state.sizeBytes + chunk.length;
+      if (nextSizeBytes > policy.maxBytes) {
+        state.sizeBytes = policy.maxBytes + 1;
         if (!collectBusinessErrors) throw new BoundedMultipartError("too_large");
         state.businessError = "too_large";
         return;
       }
+      state.sizeBytes = nextSizeBytes;
       state.hash.update(chunk);
       state.chunks.push(chunk);
       if (state.sniffBuffer.length < 16) {
@@ -169,18 +172,21 @@ async function parseFilesMultipart(
     if (!partEnd) throw new BoundedMultipartError("bad_multipart");
     consumeFraming(delimiter.length);
 
-    const bytes = concatChunks(state.chunks, state.sizeBytes);
+    const oversized = state.businessError === "too_large";
+    const bytes = oversized ? new Uint8Array(0) : concatChunks(state.chunks, state.sizeBytes);
     const originalName = disposition.fileName ?? "attachment";
     const declaredMimeType = headers.contentType;
     scans.push({
       originalName,
       declaredMimeType,
       sizeBytes: state.sizeBytes,
-      sha256Hex: state.hash.digest("hex"),
-      detectedMimeType: detectUploadMimeType(bytes, {
-        originalName,
-        declaredMimeType,
-      }),
+      sha256Hex: oversized ? "" : state.hash.digest("hex"),
+      detectedMimeType: oversized
+        ? null
+        : detectUploadMimeType(bytes, {
+            originalName,
+            declaredMimeType,
+          }),
       bytes,
       ...(state.businessError ? { businessError: state.businessError } : {}),
     });

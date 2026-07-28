@@ -2,7 +2,15 @@
 
 import { Eye, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import {
+  loadPrivateBusinessDraft,
+  LONG_PRIVATE_DRAFT_TTL_MS,
+  redirectToLoginWithCurrentLocation,
+  removePrivateBusinessDraft,
+  savePrivateBusinessDraft,
+} from "@/lib/client/private-business-drafts";
 
 type Endpoint = "learning-tree" | "knowledge-card" | "plan" | "motivation";
 type ProjectionKey =
@@ -43,6 +51,17 @@ interface ProjectionValues {
   defaultDurationMinutes: string;
 }
 
+interface AiFormDraft {
+  selectedText: string;
+  tone: "CALM" | "DIRECT" | "BRIEF";
+  scope: "global" | "subject" | "branch";
+  kind: (typeof noteKinds)[number];
+  checked: Partial<Record<ProjectionKey, boolean>>;
+  values: ProjectionValues;
+  generatedDraft: unknown;
+  operation: { id: string; projectionVersion: string; resultProof: string } | null;
+}
+
 const emptyProjectionValues: ProjectionValues = {
   subjectLabel: "",
   rootNodeLabel: "",
@@ -55,6 +74,7 @@ const emptyProjectionValues: ProjectionValues = {
 
 export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaultText?: string }) {
   const router = useRouter();
+  const formDraftKey = `areaforge.ai-draft.form.${props.endpoint}.${props.userId}`;
   const [selectedText, setSelectedText] = useState(props.defaultText ?? "");
   const [tone, setTone] = useState<"CALM" | "DIRECT" | "BRIEF">("CALM");
   const [scope, setScope] = useState<"global" | "subject" | "branch">("global");
@@ -65,10 +85,47 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
   const [token, setToken] = useState<string | null>(null);
   const [draft, setDraft] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
-  const [operation, setOperation] = useState<{ id: string; projectionVersion: string } | null>(null);
+  const [operation, setOperation] = useState<AiFormDraft["operation"]>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [savingResult, setSavingResult] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const saved = loadPrivateBusinessDraft(formDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isAiFormDraft);
+      if (saved) {
+        setSelectedText(saved.selectedText);
+        setTone(saved.tone);
+        setScope(saved.scope);
+        setKind(saved.kind);
+        setChecked(saved.checked);
+        setValues(saved.values);
+        setDraft(saved.generatedDraft);
+        setOperation(saved.operation);
+      }
+      setDraftReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [formDraftKey]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    if (!selectedText.trim() && !draft) {
+      removePrivateBusinessDraft(formDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft<AiFormDraft>(formDraftKey, {
+      selectedText,
+      tone,
+      scope,
+      kind,
+      checked,
+      values,
+      generatedDraft: draft,
+      operation,
+    });
+  }, [checked, draft, draftReady, formDraftKey, kind, operation, scope, selectedText, tone, values]);
 
   function revokePreview() {
     setToken(null);
@@ -84,37 +141,87 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
     setError(null);
   }
 
+  function clearAdoptedDraft() {
+    setSelectedText("");
+    setTone("CALM");
+    setScope("global");
+    setKind("GENERAL");
+    setChecked({});
+    setValues(emptyProjectionValues);
+    setPreview(null);
+    setToken(null);
+    setDraft(null);
+    setOperation(null);
+    removePrivateBusinessDraft(formDraftKey);
+  }
+
   const requestInput = { endpoint: props.endpoint, selectedText, tone, scope, kind, checked, values };
   const projectionReady = checkedProjectionIsComplete(props.endpoint, checked, values);
 
   async function runPreview() {
     setError(null);
     setDraft(null);
-    const response = await postDraft(props.endpoint, buildRequestBody("preview", requestInput));
-    if (!response.ok || !response.payload?.previewToken) {
-      setError(readError(response.payload, "预览失败"));
-      return;
+    try {
+      const response = await postDraft(props.endpoint, buildRequestBody("preview", requestInput));
+      if (response.status === 401) {
+        setError("登录已过期，AI 输入草稿已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok || !response.payload?.previewToken) {
+        setError(readError(response.payload, response.status === 409 ? "预览状态冲突，请显式重试" : "预览失败"));
+        return;
+      }
+      setToken(response.payload.previewToken as string);
+      setPreview((response.payload.payloadPreview as Record<string, unknown>) ?? null);
+    } catch {
+      setError("网络不可用，AI 输入草稿已保留；恢复网络后请显式重试。");
     }
-    setToken(response.payload.previewToken as string);
-    setPreview((response.payload.payloadPreview as Record<string, unknown>) ?? null);
   }
 
   async function runGenerate() {
     if (!token) return;
     setError(null);
-    const response = await postDraft(
-      props.endpoint,
-      buildRequestBody("generate", requestInput, token),
-    );
-    if (!response.ok) {
-      setError(readError(response.payload, "生成失败"));
-      return;
+    try {
+      const response = await postDraft(
+        props.endpoint,
+        buildRequestBody("generate", requestInput, token),
+      );
+      if (response.status === 401) {
+        setError("登录已过期，AI 输入草稿已保留。重新登录后请重新预览并显式生成。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        setError(readError(response.payload, response.status === 409 ? "生成状态冲突，请重新预览" : "生成失败"));
+        return;
+      }
+      const generatedDraft = response.payload?.draft ?? null;
+      const nextOperation = {
+        id: String(response.payload?.operationId ?? ""),
+        projectionVersion: String(response.payload?.projectionVersion ?? ""),
+        resultProof: String(response.payload?.resultProof ?? ""),
+      };
+      if (!generatedDraft || !nextOperation.id || !nextOperation.projectionVersion || !nextOperation.resultProof) {
+        setError("生成结果不完整，请重新预览并显式重试。");
+        return;
+      }
+      savePrivateBusinessDraft<AiFormDraft>(formDraftKey, {
+        selectedText,
+        tone,
+        scope,
+        kind,
+        checked,
+        values,
+        generatedDraft,
+        operation: nextOperation,
+      });
+      setDraft(generatedDraft);
+      setOperation(nextOperation);
+      await acknowledgeResult(nextOperation, "生成结果已保留；服务端确认失败，采用时将再次确认。");
+    } catch {
+      setError("网络不可用，AI 输入草稿已保留；恢复网络后请重新预览并显式重试。");
     }
-    setDraft(response.payload?.draft ?? null);
-    setOperation({
-      id: String(response.payload?.operationId ?? ""),
-      projectionVersion: String(response.payload?.projectionVersion ?? ""),
-    });
   }
 
   async function adoptDraft() {
@@ -123,53 +230,72 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
     setSaveNotice(null);
     setSavingResult(true);
     try {
+      if (!await acknowledgeResult(operation, "结果确认失败，草稿已保留，请显式重试采用。")) return;
       if (props.endpoint === "learning-tree" && isLearningTreeDraft(draft)) {
         saveLocalAiDraft(props.userId, "learning-tree", { markdownDraft: draft.markdownDraft, scope });
+        clearAdoptedDraft();
         router.push("/knowledge/imports");
         return;
       }
       if (props.endpoint === "knowledge-card" && isKnowledgeCardDraft(draft)) {
         saveLocalAiDraft(props.userId, "knowledge-card", draft);
+        clearAdoptedDraft();
         router.push("/knowledge/notes");
         return;
       }
       if (props.endpoint === "plan" && isPlanDraft(draft)) {
-        for (const [index, task] of draft.tasks.entries()) {
-          const stableKey = `ai-plan:${operation.id}:${index}`;
-          const response = await fetch("/api/plan-inbox", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              stableKey,
-              originKey: stableKey,
-              originVersion: 1,
-              originType: "AI_PLAN_DRAFT",
-              originSnapshot: { operationId: operation.id, projectionVersion: operation.projectionVersion, schemaVersion: draft.schemaVersion },
+        const plannedDate = checked.dateWindow && values.dateStart
+          ? new Date(`${values.dateStart}T00:00:00+08:00`).toISOString()
+          : null;
+        const response = await fetch("/api/plan-inbox/ai-plan-adoptions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            operationId: operation.id,
+            projectionVersion: operation.projectionVersion,
+            resultProof: operation.resultProof,
+            tasks: draft.tasks.map((task) => ({
               title: task.title,
-              plannedDate: checked.dateWindow && values.dateStart ? new Date(`${values.dateStart}T00:00:00+08:00`).toISOString() : null,
+              plannedDate,
               estimatedMinutes: task.estimatedMinutes,
-              priority: "MEDIUM",
-              type: "focus",
-            }),
-          });
-          if (!response.ok) throw new Error(readError(await response.json().catch(() => null), "计划草稿入箱失败"));
+            })),
+          }),
+        });
+        if (response.status === 401) {
+          setError("登录已过期，生成结果已保留。重新登录后请显式重试采用。");
+          redirectToLoginWithCurrentLocation();
+          return;
         }
+        if (!response.ok) throw new Error(readError(await response.json().catch(() => null), "计划草稿入箱失败"));
         setSaveNotice(`已将 ${draft.tasks.length} 项计划草稿加入收件箱，仍需逐项补全并转换。`);
+        clearAdoptedDraft();
         return;
       }
       if (props.endpoint === "motivation" && isMotivationDraft(draft)) {
+        const commandPayload = {
+          type: "QUOTE" as const,
+          title: draft.line.slice(0, 160),
+          body: `${draft.line}\n\n${draft.recoveryHint}`,
+          tags: ["ai-draft"],
+        };
+        const commandScope = `ai-motivation-adoption:${operation.id}`;
         const response = await fetch("/api/motivation/items", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: "QUOTE",
-            title: draft.line.slice(0, 160),
-            body: `${draft.line}\n\n${draft.recoveryHint}`,
-            tags: ["ai-draft"],
+            ...commandPayload,
+            idempotencyKey: getOrCreateIdempotencyKey(commandScope, "motivation-item", commandPayload),
           }),
         });
+        if (response.status === 401) {
+          setError("登录已过期，生成结果已保留。重新登录后请显式重试采用。");
+          redirectToLoginWithCurrentLocation();
+          return;
+        }
         if (!response.ok) throw new Error(readError(await response.json().catch(() => null), "动机草稿保存失败"));
+        completeIdempotentCommand(commandScope);
         setSaveNotice("已保存到动机内容库。生成操作本身未自动写入内容库。");
+        clearAdoptedDraft();
         return;
       }
       throw new Error("草稿结构与当前用途不匹配，请重新生成。");
@@ -177,6 +303,38 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       setError(caught instanceof Error ? caught.message : "采用草稿失败");
     } finally {
       setSavingResult(false);
+    }
+  }
+
+  async function acknowledgeResult(
+    currentOperation: NonNullable<AiFormDraft["operation"]>,
+    failureMessage: string,
+  ): Promise<boolean> {
+    try {
+      const response = await postDraft(props.endpoint, {
+        phase: "ack",
+        resultProof: currentOperation.resultProof,
+      });
+      if (response.status === 401) {
+        setError("登录已过期，生成结果已保留。重新登录后请显式重试采用。");
+        redirectToLoginWithCurrentLocation();
+        return false;
+      }
+      if (!response.ok) {
+        setError(readError(response.payload, failureMessage));
+        return false;
+      }
+      if (
+        response.payload?.operationId !== currentOperation.id
+        || response.payload?.projectionVersion !== currentOperation.projectionVersion
+      ) {
+        setError("生成结果身份不一致，请重新预览并显式生成。");
+        return false;
+      }
+      return true;
+    } catch {
+      setError(failureMessage);
+      return false;
     }
   }
 
@@ -426,7 +584,36 @@ async function postDraft(endpoint: Endpoint, body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
   const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-  return { ok: response.ok, payload };
+  return { ok: response.ok, status: response.status, payload };
+}
+
+function isAiFormDraft(value: unknown): value is AiFormDraft {
+  if (!isRecord(value) || typeof value.selectedText !== "string") return false;
+  if (!["CALM", "DIRECT", "BRIEF"].includes(String(value.tone))) return false;
+  if (!["global", "subject", "branch"].includes(String(value.scope))) return false;
+  if (!noteKinds.includes(value.kind as (typeof noteKinds)[number])) return false;
+  if (!isRecord(value.checked) || !isProjectionValues(value.values)) return false;
+  if (value.operation !== null && (
+    !isRecord(value.operation)
+    || typeof value.operation.id !== "string"
+    || typeof value.operation.projectionVersion !== "string"
+    || typeof value.operation.resultProof !== "string"
+    || !value.operation.resultProof
+  )) return false;
+  return true;
+}
+
+function isProjectionValues(value: unknown): value is ProjectionValues {
+  if (!isRecord(value)) return false;
+  return [
+    "subjectLabel",
+    "rootNodeLabel",
+    "nodeLabel",
+    "milestoneLabel",
+    "dateStart",
+    "dateEnd",
+    "defaultDurationMinutes",
+  ].every((key) => typeof value[key] === "string");
 }
 
 function readError(payload: Record<string, unknown> | null, fallback: string): string {

@@ -20,7 +20,17 @@ import {
 import { listWorkspaceCheckIns, type CheckInV2Dto } from "./check-in-service";
 import { getActiveRecoveryV2, type RecoveryV2Dto } from "./recovery-v2-service";
 import { getActiveStudySession } from "./service";
-import type { StudySessionDto } from "./types";
+import { listSyllabusOptions } from "./syllabus-service";
+import type { StudySessionDto, SyllabusOptionNodeDto } from "./types";
+
+export interface SubjectShortcutTaskOptionDto {
+  id: string;
+  subjectId: string;
+  title: string;
+  syllabusNodeId: string | null;
+  syllabusNodeTitle: string | null;
+  disabledReason: string | null;
+}
 
 export interface ActionCenterTodayDto {
   setupRequired: boolean;
@@ -32,6 +42,10 @@ export interface ActionCenterTodayDto {
   activity: StudySessionDto | null;
   recovery: RecoveryV2Dto | null;
   checkIn: CheckInV2Dto | null;
+  shortcutOptions: {
+    tasks: SubjectShortcutTaskOptionDto[];
+    syllabusNodes: SyllabusOptionNodeDto[];
+  };
   statusBar:
     | "setup"
     | "paused_activity"
@@ -81,6 +95,7 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
       activity: null,
       recovery: null,
       checkIn: null,
+      shortcutOptions: { tasks: [], syllabusNodes: [] },
       statusBar: "setup",
       primaryActionLabel: "设置考试目标",
       primaryActionHref: "/settings/workspace?setup=1",
@@ -90,11 +105,11 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
   const day = getStudyDayRange();
   const last7Start = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-  const [activeSession, subjects, groups, tasks, schedules, checkIns, recovery] =
+  const [activeSession, subjects, groups, tasks, shortcutTasks, syllabusOptions, schedules, checkIns, recovery] =
     await Promise.all([
       getActiveStudySession(actorId),
       prisma.subject.findMany({
-        where: { workspaceId: workspace.id },
+        where: { workspaceId: workspace.id, archivedAt: null },
         include: { group: true },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       }),
@@ -104,7 +119,7 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
       }),
       prisma.studyTask.findMany({
         where: {
-          subject: { workspaceId: workspace.id },
+          subject: { workspaceId: workspace.id, archivedAt: null },
           status: { in: ["TODO", "IN_PROGRESS"] },
           plannedDate: { lte: day.end },
         },
@@ -116,6 +131,21 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
         },
         orderBy: [{ plannedDate: "asc" }, { createdAt: "asc" }],
       }),
+      prisma.studyTask.findMany({
+        where: {
+          subject: { workspaceId: workspace.id, archivedAt: null },
+          status: { in: ["TODO", "IN_PROGRESS"] },
+        },
+        include: {
+          syllabusNode: { select: { title: true } },
+          successorDependencies: {
+            include: { predecessor: { select: { status: true, title: true } } },
+          },
+        },
+        orderBy: [{ plannedDate: "asc" }, { createdAt: "asc" }],
+        take: 200,
+      }),
+      listSyllabusOptions(actorId),
       prisma.reviewSchedule.findMany({
         where: {
           workspaceId: workspace.id,
@@ -184,6 +214,21 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
       };
     }),
   });
+  const shortcutTaskOptions: SubjectShortcutTaskOptionDto[] = shortcutTasks.map((task) => {
+    const blockers = task.successorDependencies.filter((dependency) =>
+      dependency.type === "HARD" && dependency.predecessor.status !== "DONE",
+    );
+    return {
+      id: task.id,
+      subjectId: task.subjectId,
+      title: task.title,
+      syllabusNodeId: task.syllabusNodeId,
+      syllabusNodeTitle: task.syllabusNode?.title ?? null,
+      disabledReason: blockers.length
+        ? `硬依赖未完成：${blockers.map((dependency) => dependency.predecessor.title).join("、")}`
+        : null,
+    };
+  });
 
   const candidates: ActionCenterCandidate[] = [];
 
@@ -207,7 +252,7 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
     });
   }
 
-  if (recovery) {
+  if (recovery?.effectiveStatus === "ACTIVE") {
     candidates.push({
       id: recovery.id,
       kind: "recovery",
@@ -303,7 +348,7 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
 
   let statusBar: ActionCenterTodayDto["statusBar"] = null;
   if (activeSession?.status === "paused") statusBar = "paused_activity";
-  else if (recovery) statusBar = "recovery_minimum";
+  else if (recovery?.effectiveStatus === "ACTIVE") statusBar = "recovery_minimum";
   else {
     const hourShanghai = new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCHours();
     if (hourShanghai >= 20 && !(checkIn?.completedMinimumAction)) statusBar = "evening_review";
@@ -336,6 +381,7 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
     activity: activeSession,
     recovery,
     checkIn,
+    shortcutOptions: { tasks: shortcutTaskOptions, syllabusNodes: syllabusOptions },
     statusBar,
     primaryActionLabel,
     primaryActionHref,

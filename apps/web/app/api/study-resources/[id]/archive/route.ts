@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/api/auth";
-import { apiErrorResponse } from "@/lib/api/responses";
+import { requireApiUser, readJson } from "@/lib/api/auth";
+import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
+import { studyResourceRevisionCommandSchema } from "@/lib/study/schemas";
 import { archiveStudyResource } from "@/lib/study/study-resource-service";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   try {
     const user = await requireApiUser(request);
     const { id } = await context.params;
-    return NextResponse.json({ resource: await archiveStudyResource(user.id, id) });
+    const parsed = studyResourceRevisionCommandSchema.safeParse(await readJson(request));
+    if (!parsed.success) return zodErrorResponse(parsed.error);
+    return NextResponse.json({ resource: await archiveStudyResource(user.id, id, parsed.data.expectedRevision) });
   } catch (error) {
     return apiErrorResponse(error);
   }

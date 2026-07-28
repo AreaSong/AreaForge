@@ -24,6 +24,7 @@ import { finalExamDate, simulationDate } from "./exam-dates";
 import {
   listCheckInSnapshotsInRange,
   refreshWorkspaceCheckInSnapshotForDate,
+  type CheckInV2Dto,
 } from "./check-in-service";
 import {
   applySessionCas,
@@ -33,8 +34,19 @@ import {
 } from "./concurrency";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import {
+  buildPersistentCreateFingerprint,
+  findPersistentCreateReplay,
+  normalizeIdempotencyKey,
+  recordPersistentCreateResult,
+  type PersistentCreateCommand,
+} from "./persistent-idempotency";
+import { applyRecoveryV2CheckInProgressInTx } from "./recovery-v2-service";
+import { assertSuccessorStartAllowed, lockWorkspaceDependencyGraph } from "./task-dependency-service";
+import { createPlanInboxItemWithResult } from "./plan-inbox-service";
 import { serializeTask, toDbPriority } from "./task-serializer";
+import { loadTaskUpdateSnapshotForWorkspace } from "./task-detail-service";
 import type {
   DailyReviewDto,
   MotivationVaultDto,
@@ -43,6 +55,7 @@ import type {
   StudySessionStartSourceDto,
   StudyTaskDto,
   SubjectDto,
+  TaskStatusDto,
   TaskDebtReorderDto,
   SyllabusOverviewDto,
   TodayDashboardDto,
@@ -76,8 +89,12 @@ export interface GetTodayDashboardOptions {
 }
 
 export interface CreateTaskInput {
+  idempotencyKey: string;
   subjectId: string;
   syllabusNodeId?: string | null;
+  relatedSyllabusNodeIds?: string[];
+  planMilestoneId?: string | null;
+  sourceResourceId?: string;
   title: string;
   type: string;
   priority: "low" | "medium" | "high" | "critical";
@@ -86,8 +103,12 @@ export interface CreateTaskInput {
 }
 
 export interface UpdateTaskInput {
+  expectedStatus: TaskStatusDto;
+  expectedUpdatedAt: string;
   subjectId?: string;
   syllabusNodeId?: string | null;
+  relatedSyllabusNodeIds?: string[];
+  planMilestoneId?: string | null;
   title?: string;
   type?: string;
   priority?: "low" | "medium" | "high" | "critical";
@@ -145,7 +166,7 @@ export interface FinishRecoveryStateInput {
   exitCondition?: string;
 }
 
-export interface SaveReviewInput {
+export interface ReviewContentInput {
   summary: string;
   lostControl?: string;
   keepAction: string;
@@ -153,11 +174,21 @@ export interface SaveReviewInput {
   mood?: string;
 }
 
+export interface SaveTodayReviewInput extends ReviewContentInput {
+  idempotencyKey?: string;
+}
+
+export interface SaveReviewInput extends ReviewContentInput {
+  idempotencyKey: string;
+}
+
 export interface UpdateReviewInput extends SaveReviewInput {
   expectedRevision: number;
 }
 
 export interface SaveMotivationVaultInput {
+  idempotencyKey: string;
+  expectedUpdatedAt: string | null;
   whyStarted?: string;
   neverReturnTo?: string;
   futureSelf?: string;
@@ -189,7 +220,7 @@ export async function getTodayDashboard(
     activeRecoveryState,
   ] = await Promise.all([
     prisma.subject.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId: workspace.id, archivedAt: null },
       orderBy: { sortOrder: "asc" },
       include: {
         syllabusNodes: {
@@ -202,7 +233,7 @@ export async function getTodayDashboard(
     }),
     prisma.studyTask.findMany({
       where: {
-        subject: { workspaceId: workspace.id },
+        subject: { workspaceId: workspace.id, archivedAt: null },
         plannedDate: {
           gte: day.start,
           lt: day.end,
@@ -216,7 +247,7 @@ export async function getTodayDashboard(
     }),
     prisma.studySession.findMany({
       where: {
-        subject: { workspaceId: workspace.id },
+        subject: { workspaceId: workspace.id, archivedAt: null },
         startedAt: {
           gte: day.start,
           lt: day.end,
@@ -231,7 +262,7 @@ export async function getTodayDashboard(
     }),
     prisma.studySession.findFirst({
       where: {
-        subject: { workspaceId: workspace.id },
+        subject: { workspaceId: workspace.id, archivedAt: null },
         status: {
           in: ["RUNNING", "PAUSED"],
         },
@@ -248,7 +279,7 @@ export async function getTodayDashboard(
     }),
     prisma.studyTask.count({
       where: {
-        subject: { workspaceId: workspace.id },
+        subject: { workspaceId: workspace.id, archivedAt: null },
         plannedDate: {
           lt: day.start,
         },
@@ -260,7 +291,7 @@ export async function getTodayDashboard(
     // 单次取 12 条逾期任务：前 5 条给欠账预览，全量给欠账重排，替代原先两条同条件查询。
     prisma.studyTask.findMany({
       where: {
-        subject: { workspaceId: workspace.id },
+        subject: { workspaceId: workspace.id, archivedAt: null },
         plannedDate: {
           lt: day.start,
         },
@@ -277,7 +308,7 @@ export async function getTodayDashboard(
     }),
     prisma.studySession.findMany({
       where: {
-        subject: { workspaceId: workspace.id },
+        subject: { workspaceId: workspace.id, archivedAt: null },
         startedAt: {
           gte: recentStart,
           lt: day.end,
@@ -497,18 +528,73 @@ export async function cancelRecoveryState(
 }
 
 export async function createStudyTask(input: CreateTaskInput, actorId: string): Promise<StudyTaskDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  await assertSubjectExists(input.subjectId, workspace.id);
-  if (input.syllabusNodeId) {
-    await assertSyllabusNodeBelongsToSubject(input.syllabusNodeId, input.subjectId);
-  }
-
   const day = input.plannedDate ? new Date(input.plannedDate) : getStudyDayRange().start;
-  const task = await prisma.$transaction(async (tx) => {
+  const relatedSyllabusNodeIds = normalizeTaskRelatedNodeIds(input.relatedSyllabusNodeIds ?? []);
+  assertTaskSyllabusRelationsDistinct(input.syllabusNodeId ?? null, relatedSyllabusNodeIds);
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const requestFingerprint = buildPersistentCreateFingerprint("study-task-create-v1", {
+    subjectId: input.subjectId,
+    syllabusNodeId: input.syllabusNodeId ?? null,
+    relatedSyllabusNodeIds,
+    planMilestoneId: input.planMilestoneId ?? null,
+    sourceResourceId: input.sourceResourceId ?? null,
+    title: input.title,
+    type: input.type,
+    priority: input.priority,
+    plannedDate: day.toISOString(),
+    estimatedMinutes: input.estimatedMinutes,
+  });
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const command = {
+      actorId,
+      workspaceId: workspace.id,
+      action: "STUDY_TASK_CREATED",
+      entityType: "StudyTask",
+      idempotencyKey,
+      requestFingerprint,
+      conflictCode: "STUDY_TASK_IDEMPOTENCY_CONFLICT",
+    };
+    const replay = await findPersistentCreateReplay(tx, command);
+    if (replay) {
+      const snapshot = parseStudyTaskSnapshot(replay.resultSnapshot);
+      if (snapshot) return snapshot;
+      const storedTask = await tx.studyTask.findFirst({
+        where: { id: replay.resultId, subject: { workspaceId: workspace.id } },
+        include: { subject: true, syllabusNode: true },
+      });
+      if (!storedTask) throw new ApiError("STUDY_TASK_IDEMPOTENCY_RESULT_NOT_FOUND", 409);
+      return serializeTask(storedTask);
+    }
+    await assertSubjectExists(input.subjectId, workspace.id, tx);
+    const sourceResource = input.sourceResourceId ? await tx.studyResource.findFirst({
+      where: { id: input.sourceResourceId, workspaceId: workspace.id },
+      select: { id: true, subjectId: true, archivedAt: true, revision: true },
+    }) : null;
+    if (input.sourceResourceId && !sourceResource) throw new ApiError("STUDY_RESOURCE_NOT_FOUND", 404);
+    if (sourceResource?.archivedAt) {
+      throw new ApiError("STUDY_RESOURCE_ARCHIVED", 409, {
+        latest: sourceResource,
+        conflictFields: ["archivedAt"],
+        workbench: "/knowledge/resources",
+      });
+    }
+    if (sourceResource?.subjectId && sourceResource.subjectId !== input.subjectId) {
+      throw new ApiError("STUDY_RESOURCE_SUBJECT_MISMATCH", 409, {
+        latest: sourceResource,
+        conflictFields: ["subjectId"],
+        workbench: "/knowledge/resources",
+      });
+    }
+    await assertActiveTaskRelations(tx, workspace.id, input.subjectId, {
+      syllabusNodeIds: [input.syllabusNodeId, ...relatedSyllabusNodeIds].filter((id): id is string => Boolean(id)),
+      planMilestoneId: input.planMilestoneId ?? null,
+    });
     const createdTask = await tx.studyTask.create({
       data: {
         subjectId: input.subjectId,
         syllabusNodeId: input.syllabusNodeId ?? null,
+        planMilestoneId: input.planMilestoneId ?? null,
         title: input.title,
         type: input.type,
         priority: toDbPriority(input.priority),
@@ -520,14 +606,51 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
         syllabusNode: true,
       },
     });
+    if (relatedSyllabusNodeIds.length > 0) {
+      await tx.studyTaskRelatedSyllabusNode.createMany({
+        data: relatedSyllabusNodeIds.map((syllabusNodeId) => ({ taskId: createdTask.id, syllabusNodeId })),
+      });
+    }
+    if (sourceResource) {
+      await tx.studyResourceTaskLink.create({
+        data: { resourceId: sourceResource.id, taskId: createdTask.id },
+      });
+      const updatedResource = await tx.studyResource.updateMany({
+        where: {
+          id: sourceResource.id,
+          workspaceId: workspace.id,
+          archivedAt: null,
+          revision: sourceResource.revision,
+        },
+        data: { revision: { increment: 1 }, actorId },
+      });
+      if (updatedResource.count !== 1) {
+        throw new ApiError("STUDY_RESOURCE_REVISION_CONFLICT", 409, {
+          conflictFields: ["revision", "archivedAt"],
+          workbench: "/knowledge/resources",
+        });
+      }
+    }
 
-    await audit(actorId, "STUDY_TASK_CREATED", "StudyTask", createdTask.id, tx);
+    const result = serializeTask(createdTask);
+    await recordPersistentCreateResult(tx, command, createdTask.id, {
+      resultSnapshot: result as unknown as Prisma.InputJsonObject,
+    });
+    if (sourceResource) {
+      await tx.auditEvent.create({
+        data: {
+          actorId,
+          action: "STUDY_RESOURCE_TASK_LINKED",
+          entityType: "StudyResource",
+          entityId: sourceResource.id,
+          metadata: { taskId: createdTask.id },
+        },
+      });
+    }
     await refreshWorkspaceCheckInsForDates(actorId, [createdTask.plannedDate], tx);
 
-    return createdTask;
+    return result;
   });
-
-  return serializeTask(task);
 }
 
 export async function listStudyTasks(actorId: string): Promise<StudyTaskDto[]> {
@@ -548,26 +671,70 @@ export async function listStudyTasks(actorId: string): Promise<StudyTaskDto[]> {
 export async function updateStudyTask(id: string, input: UpdateTaskInput, actorId: string): Promise<StudyTaskDto> {
   const task = await prisma.$transaction(async (tx) => {
     const existing = await getTaskCommandPreimage(tx, id, actorId);
+    const workspace = await resolveActiveWorkspace(actorId, tx);
+    await assertTaskUpdateExpectation(tx, workspace.id, existing, input);
     assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"]);
 
     const resolvedSubjectId = input.subjectId ?? existing.subjectId;
     const resolvedSyllabusNodeId = input.syllabusNodeId === undefined ? existing.syllabusNodeId : input.syllabusNodeId;
-    const workspace = await resolveActiveWorkspace(actorId, tx);
+    const resolvedRelatedNodeIds = input.relatedSyllabusNodeIds === undefined
+      ? existing.relatedSyllabusNodeIds
+      : normalizeTaskRelatedNodeIds(input.relatedSyllabusNodeIds);
+    const resolvedPlanMilestoneId = input.planMilestoneId === undefined
+      ? existing.planMilestoneId
+      : input.planMilestoneId;
+    const subjectChanged = resolvedSubjectId !== existing.subjectId;
+    const relatedNodesChanged = !sameStringSet(resolvedRelatedNodeIds, existing.relatedSyllabusNodeIds);
+    const primaryNodeChanged = resolvedSyllabusNodeId !== existing.syllabusNodeId;
+    const milestoneChanged = resolvedPlanMilestoneId !== existing.planMilestoneId;
+
+    assertTaskSyllabusRelationsDistinct(resolvedSyllabusNodeId, resolvedRelatedNodeIds);
+    if (existing.reviewScheduleId && subjectChanged) {
+      throw await taskUpdateConflict(tx, workspace.id, id, ["subjectId", "reviewScheduleId"]);
+    }
     await assertSubjectExists(resolvedSubjectId, workspace.id, tx);
-    if (resolvedSyllabusNodeId) {
-      await assertSyllabusNodeBelongsToSubject(resolvedSyllabusNodeId, resolvedSubjectId, tx);
+    try {
+      await assertActiveTaskRelations(tx, workspace.id, resolvedSubjectId, {
+        syllabusNodeIds: [
+          ...(subjectChanged || primaryNodeChanged ? [resolvedSyllabusNodeId] : []),
+          ...(subjectChanged || relatedNodesChanged ? resolvedRelatedNodeIds : []),
+        ].filter((nodeId): nodeId is string => Boolean(nodeId)),
+        planMilestoneId: subjectChanged || milestoneChanged ? resolvedPlanMilestoneId : null,
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        throw await taskUpdateConflict(tx, workspace.id, id, error.details?.conflictFields ?? ["relations"]);
+      }
+      throw error;
     }
 
-    await applyTaskCas(tx, existing, {
-      subjectId: input.subjectId,
-      syllabusNodeId: input.syllabusNodeId,
-      title: input.title,
-      type: input.type,
-      priority: input.priority ? toDbPriority(input.priority) : undefined,
-      plannedDate: input.plannedDate ? new Date(input.plannedDate) : undefined,
-      estimatedMinutes: input.estimatedMinutes,
-      reviewText: input.reviewText,
-    });
+    try {
+      await applyTaskCas(tx, existing, {
+        subjectId: input.subjectId,
+        syllabusNodeId: input.syllabusNodeId,
+        planMilestoneId: input.planMilestoneId,
+        title: input.title,
+        type: input.type,
+        priority: input.priority ? toDbPriority(input.priority) : undefined,
+        plannedDate: input.plannedDate ? new Date(input.plannedDate) : undefined,
+        estimatedMinutes: input.estimatedMinutes,
+        reviewText: input.reviewText,
+        updatedAt: nextTaskUpdatedAt(existing.updatedAt),
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        throw await taskUpdateConflict(tx, workspace.id, id, ["status", "updatedAt"]);
+      }
+      throw error;
+    }
+    if (relatedNodesChanged) {
+      await tx.studyTaskRelatedSyllabusNode.deleteMany({ where: { taskId: id } });
+      if (resolvedRelatedNodeIds.length > 0) {
+        await tx.studyTaskRelatedSyllabusNode.createMany({
+          data: resolvedRelatedNodeIds.map((syllabusNodeId) => ({ taskId: id, syllabusNodeId })),
+        });
+      }
+    }
     const updatedTask = await getUpdatedTaskForResponse(tx, id);
 
     await audit(actorId, "STUDY_TASK_UPDATED", "StudyTask", updatedTask.id, tx);
@@ -883,9 +1050,19 @@ export async function startStudySession(
 ): Promise<StudySessionDto> {
   try {
     const session = await prisma.$transaction(async (tx) => {
+      const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
       const task = input.taskId ? await getTaskCommandPreimage(tx, input.taskId, actorId) : null;
       if (task) {
         assertTaskSourceStatus(task, ["TODO", "IN_PROGRESS"]);
+        if (input.subjectId && input.subjectId !== task.subjectId) {
+          throw new ApiError("TASK_SUBJECT_MISMATCH", 409, {
+            latest: { taskId: task.id, subjectId: task.subjectId },
+            conflictFields: ["subjectId", "taskId"],
+            workbench: `/today/tasks/${task.id}`,
+          });
+        }
+        await lockWorkspaceDependencyGraph(tx, workspace.id);
+        await assertSuccessorStartAllowed(task.id, tx);
       }
 
       const subjectId = task?.subjectId ?? input.subjectId;
@@ -893,7 +1070,6 @@ export async function startStudySession(
         throw new ApiError("SUBJECT_REQUIRED", 400);
       }
 
-      const workspace = await resolveActiveWorkspace(actorId, tx);
       const subject = await tx.subject.findFirst({
         where: { id: subjectId, workspaceId: workspace.id },
         select: { id: true, workspaceId: true, archivedAt: true },
@@ -904,7 +1080,9 @@ export async function startStudySession(
       if (subject.archivedAt) {
         throw new ApiError("SUBJECT_ARCHIVED", 409);
       }
-      const syllabusNodeId = input.syllabusNodeId ?? task?.syllabusNodeId ?? null;
+      const syllabusNodeId = input.syllabusNodeId === undefined
+        ? task?.syllabusNodeId ?? null
+        : input.syllabusNodeId;
       if (syllabusNodeId) {
         await assertSyllabusNodeBelongsToSubject(syllabusNodeId, subjectId, tx);
       }
@@ -1118,7 +1296,22 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
       expectedStatus: input.expectedStatus,
       expectedUpdatedAt: input.expectedUpdatedAt,
     } : undefined, "end", endFingerprint);
-    await refreshWorkspaceCheckInsForDates(actorId, [existing.startedAt, linkedTask?.plannedDate ?? null], tx);
+    const refreshedCheckIns = await refreshWorkspaceCheckInsForDates(
+      actorId,
+      [existing.startedAt, linkedTask?.plannedDate ?? null],
+      tx,
+    );
+    const sessionDay = getStudyDayRange(existing.startedAt);
+    const sessionCheckIn = refreshedCheckIns.get(sessionDay.start.getTime());
+    if (sessionCheckIn) {
+      const workspace = await resolveActiveWorkspace(actorId, tx);
+      await applyRecoveryV2CheckInProgressInTx(tx, actorId, workspace.id, {
+        studyDate: sessionDay.start,
+        effectiveSessionMinutes: sessionCheckIn.effectiveMinutes,
+        confirmedReviewSeconds: sessionCheckIn.reviewSeconds,
+        now,
+      });
+    }
 
     return getUpdatedSessionForResponse(tx, id);
   });
@@ -1140,11 +1333,52 @@ export async function getDailyReview(actorId: string, targetDate: Date): Promise
   return review ? serializeReview(review) : null;
 }
 
-export async function saveTodayReview(input: SaveReviewInput, actorId: string): Promise<DailyReviewDto> {
-  const existing = await getTodayReview(actorId);
-  return existing
-    ? updateDailyReview(existing.id, { ...input, expectedRevision: existing.revision }, actorId)
-    : createDailyReview(input, actorId);
+export async function saveTodayReview(input: SaveTodayReviewInput, actorId: string): Promise<DailyReviewDto> {
+  const day = getStudyDayRange(new Date());
+  const idempotencyKey = input.idempotencyKey === undefined
+    ? null
+    : normalizeIdempotencyKey(input.idempotencyKey);
+  const requestFingerprint = idempotencyKey
+    ? buildPersistentCreateFingerprint("daily-review-save-today-v1", {
+        reviewDate: day.start.toISOString(),
+        ...dailyReviewCommandPayload(input),
+      })
+    : null;
+
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const command = idempotencyKey && requestFingerprint
+      ? dailyReviewCommand(actorId, workspace.id, "DAILY_REVIEW_TODAY_SAVED", idempotencyKey, requestFingerprint)
+      : null;
+    if (command) {
+      const replay = await replayDailyReviewCommand(tx, command, async () => {
+        const latest = await tx.dailyReview.findFirst({
+          where: { reviewDate: day.start, workspaceId: workspace.id },
+        });
+        return latest ? serializeReview(latest) : null;
+      });
+      if (replay) return replay;
+    }
+
+    const existing = await tx.dailyReview.findFirst({
+      where: { reviewDate: day.start, workspaceId: workspace.id },
+    });
+    const metrics = await getTodaySessionMetrics(day.start, day.end, workspace.id, tx);
+    const savedReview = existing
+      ? await updateTodayReview(tx, workspace.id, existing, input, metrics)
+      : await tx.dailyReview.create({
+          data: { reviewDate: day.start, workspaceId: workspace.id, ...createReviewData(input, metrics) },
+        });
+    await syncReviewMinimumInbox(tx, workspace.id, actorId, savedReview, day.end, input.tomorrowMinimum);
+    await refreshWorkspaceCheckInSnapshotForDate(workspace.id, day.start, tx);
+    const result = serializeReview(savedReview);
+    if (command) {
+      await recordDailyReviewCommandResult(tx, command, result);
+    } else {
+      await audit(actorId, existing ? "DAILY_REVIEW_UPDATED" : "DAILY_REVIEW_SAVED", "DailyReview", savedReview.id, tx);
+    }
+    return result;
+  });
 }
 
 export async function createDailyReview(
@@ -1152,23 +1386,42 @@ export async function createDailyReview(
   actorId: string,
   targetDate = new Date(),
 ): Promise<DailyReviewDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
   const day = getStudyDayRange(targetDate);
-  const review = await prisma.$transaction(async (tx) => {
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const requestFingerprint = buildPersistentCreateFingerprint("daily-review-create-v1", {
+    reviewDate: day.start.toISOString(),
+    ...dailyReviewCommandPayload(input),
+  });
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const command = dailyReviewCommand(actorId, workspace.id, "DAILY_REVIEW_SAVED", idempotencyKey, requestFingerprint);
+    const replay = await replayDailyReviewCommand(tx, command, async () => {
+      const latest = await tx.dailyReview.findFirst({
+        where: { reviewDate: day.start, workspaceId: workspace.id },
+      });
+      return latest ? serializeReview(latest) : null;
+    });
+    if (replay) return replay;
     const existing = await tx.dailyReview.findFirst({
       where: { reviewDate: day.start, workspaceId: workspace.id },
     });
-    if (existing) throw new ApiError("DAILY_REVIEW_ALREADY_EXISTS", 409, { latest: serializeReview(existing) });
+    if (existing) {
+      throw new ApiError("DAILY_REVIEW_ALREADY_EXISTS", 409, {
+        latest: serializeReview(existing),
+        conflictFields: ["reviewDate"],
+        workbench: "/review/daily",
+      });
+    }
     const metrics = await getTodaySessionMetrics(day.start, day.end, workspace.id, tx);
     const savedReview = await tx.dailyReview.create({
       data: { reviewDate: day.start, workspaceId: workspace.id, ...createReviewData(input, metrics) },
     });
     await syncReviewMinimumInbox(tx, workspace.id, actorId, savedReview, day.end, input.tomorrowMinimum);
-    await audit(actorId, "DAILY_REVIEW_SAVED", "DailyReview", savedReview.id, tx);
     await refreshWorkspaceCheckInSnapshotForDate(workspace.id, day.start, tx);
-    return savedReview;
+    const result = serializeReview(savedReview);
+    await recordDailyReviewCommandResult(tx, command, result);
+    return result;
   });
-  return serializeReview(review);
 }
 
 export async function updateDailyReview(
@@ -1176,12 +1429,28 @@ export async function updateDailyReview(
   input: UpdateReviewInput,
   actorId: string,
 ): Promise<DailyReviewDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const review = await prisma.$transaction(async (tx) => {
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const requestFingerprint = buildPersistentCreateFingerprint("daily-review-update-v1", {
+    id,
+    expectedRevision: input.expectedRevision,
+    ...dailyReviewCommandPayload(input),
+  });
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const command = dailyReviewCommand(actorId, workspace.id, "DAILY_REVIEW_UPDATED", idempotencyKey, requestFingerprint);
+    const replay = await replayDailyReviewCommand(tx, command, async () => {
+      const latest = await tx.dailyReview.findFirst({ where: { id, workspaceId: workspace.id } });
+      return latest ? serializeReview(latest) : null;
+    });
+    if (replay) return replay;
     const existing = await tx.dailyReview.findFirst({ where: { id, workspaceId: workspace.id } });
-    if (!existing) throw new ApiError("DAILY_REVIEW_NOT_FOUND", 404);
+    if (!existing) throw new ApiError("DAILY_REVIEW_NOT_FOUND", 404, { workbench: "/review/daily" });
     if (existing.revision !== input.expectedRevision) {
-      throw new ApiError("DAILY_REVIEW_REVISION_CONFLICT", 409, { latest: serializeReview(existing) });
+      throw new ApiError("DAILY_REVIEW_REVISION_CONFLICT", 409, {
+        latest: serializeReview(existing),
+        conflictFields: ["revision"],
+        workbench: "/review/daily",
+      });
     }
     const day = getStudyDayRange(existing.reviewDate);
     const metrics = await getTodaySessionMetrics(day.start, day.end, workspace.id, tx);
@@ -1189,14 +1458,21 @@ export async function updateDailyReview(
       where: { id, workspaceId: workspace.id, revision: input.expectedRevision },
       data: { ...createReviewData(input, metrics), revision: { increment: 1 } },
     });
-    if (updated.count !== 1) throw new ApiError("DAILY_REVIEW_REVISION_CONFLICT", 409);
+    if (updated.count !== 1) {
+      const latest = await tx.dailyReview.findFirst({ where: { id, workspaceId: workspace.id } });
+      throw new ApiError("DAILY_REVIEW_REVISION_CONFLICT", 409, {
+        latest: latest ? serializeReview(latest) : undefined,
+        conflictFields: ["revision"],
+        workbench: "/review/daily",
+      });
+    }
     const savedReview = await tx.dailyReview.findUniqueOrThrow({ where: { id } });
     await syncReviewMinimumInbox(tx, workspace.id, actorId, savedReview, day.end, input.tomorrowMinimum);
-    await audit(actorId, "DAILY_REVIEW_UPDATED", "DailyReview", id, tx);
     await refreshWorkspaceCheckInSnapshotForDate(workspace.id, day.start, tx);
-    return savedReview;
+    const result = serializeReview(savedReview);
+    await recordDailyReviewCommandResult(tx, command, result);
+    return result;
   });
-  return serializeReview(review);
 }
 
 export async function getMotivationVault(): Promise<MotivationVaultDto | null> {
@@ -1214,10 +1490,6 @@ export async function saveMotivationVault(
   input: SaveMotivationVaultInput,
   actorId: string,
 ): Promise<MotivationVaultDto> {
-  const existing = await prisma.motivationVault.findFirst({
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
   const data = {
     whyStarted: normalizeOptionalText(input.whyStarted),
     neverReturnTo: normalizeOptionalText(input.neverReturnTo),
@@ -1225,24 +1497,79 @@ export async function saveMotivationVault(
     messageToFuture: normalizeOptionalText(input.messageToFuture),
     firstSimulationDiary: normalizeOptionalText(input.firstSimulationDiary),
   };
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const requestFingerprint = buildPersistentCreateFingerprint("motivation-vault-save-v2", {
+    expectedUpdatedAt: input.expectedUpdatedAt,
+    data,
+  });
 
-  const vault = existing
-    ? await prisma.motivationVault.update({
-        where: { id: existing.id },
-        data,
-      })
-    : await prisma.motivationVault.create({
-        data,
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(8197, 1101)`;
+    const command = {
+      actorId,
+      workspaceId: `user-global:${actorId}`,
+      action: "MOTIVATION_VAULT_SAVED",
+      entityType: "MotivationVault",
+      idempotencyKey,
+      requestFingerprint,
+      conflictCode: "MOTIVATION_VAULT_IDEMPOTENCY_CONFLICT",
+    };
+    const replay = await findPersistentCreateReplay(tx, command);
+    if (replay) {
+      const snapshot = parseMotivationVaultSnapshot(replay.resultSnapshot);
+      if (snapshot) return snapshot;
+      const existingResult = await tx.motivationVault.findUnique({ where: { id: replay.resultId } });
+      if (!existingResult) throw new ApiError("MOTIVATION_VAULT_IDEMPOTENCY_RESULT_NOT_FOUND", 409);
+      return serializeMotivationVault(existingResult);
+    }
+
+    const existing = await tx.motivationVault.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+    const currentUpdatedAt = existing?.updatedAt.toISOString() ?? null;
+    if (currentUpdatedAt !== input.expectedUpdatedAt) {
+      throw new ApiError("MOTIVATION_VAULT_REVISION_CONFLICT", 409, {
+        latest: existing ? serializeMotivationVault(existing) : null,
+        conflictFields: collectMotivationVaultConflictFields(input, existing ? serializeMotivationVault(existing) : null),
+        workbench: "/settings/profile",
       });
+    }
+    const vault = existing
+      ? await tx.motivationVault.update({ where: { id: existing.id }, data })
+      : await tx.motivationVault.create({ data });
+    const result = serializeMotivationVault(vault);
+    await recordPersistentCreateResult(tx, command, vault.id, {
+      resultSnapshot: result as unknown as Prisma.InputJsonObject,
+    });
+    return result;
+  });
+}
 
-  await audit(actorId, "MOTIVATION_VAULT_SAVED", "MotivationVault", vault.id);
-  return serializeMotivationVault(vault);
+function collectMotivationVaultConflictFields(
+  input: SaveMotivationVaultInput,
+  latest: MotivationVaultDto | null,
+): string[] {
+  const fields = ["updatedAt"];
+  if (!latest) return fields;
+  const values: Array<[keyof SaveMotivationVaultInput, string | null]> = [
+    ["whyStarted", latest.whyStarted],
+    ["neverReturnTo", latest.neverReturnTo],
+    ["futureSelf", latest.futureSelf],
+    ["messageToFuture", latest.messageToFuture],
+    ["firstSimulationDiary", latest.firstSimulationDiary],
+  ];
+  for (const [field, serverValue] of values) {
+    if (input[field] !== undefined && normalizeOptionalText(input[field] as string | undefined) !== serverValue) {
+      fields.push(field);
+    }
+  }
+  return fields;
 }
 
 export async function listSubjects(actorId: string): Promise<SubjectDto[]> {
   const workspace = await resolveActiveWorkspace(actorId);
   const subjects = await prisma.subject.findMany({
-    where: { workspaceId: workspace.id },
+    where: { workspaceId: workspace.id, archivedAt: null },
     orderBy: { sortOrder: "asc" },
   });
 
@@ -1256,18 +1583,21 @@ async function assertSubjectExists(
 ): Promise<void> {
   const subject = await client.subject.findFirst({
     where: { id: subjectId, workspaceId },
-    select: { id: true },
+    select: { id: true, archivedAt: true },
   });
 
   if (!subject) {
     throw new ApiError("SUBJECT_NOT_FOUND", 404);
   }
+  if (subject.archivedAt) throw new ApiError("SUBJECT_ARCHIVED", 409);
 }
 
 interface TaskCommandPreimage extends TaskCasPreimage {
   subjectId: string;
   syllabusNodeId: string | null;
+  relatedSyllabusNodeIds: string[];
   parentTaskId: string | null;
+  planMilestoneId: string | null;
   title: string;
   priority: DbTaskPriority;
   estimatedMinutes: number;
@@ -1288,6 +1618,7 @@ async function getTaskCommandPreimage(
       id: true,
       subjectId: true,
       syllabusNodeId: true,
+      planMilestoneId: true,
       parentTaskId: true,
       title: true,
       type: true,
@@ -1301,11 +1632,122 @@ async function getTaskCommandPreimage(
       completedAt: true,
       updatedAt: true,
       reviewScheduleId: true,
+      relatedSyllabusNodes: {
+        select: { syllabusNodeId: true },
+        orderBy: { createdAt: "asc" },
+      },
+      subject: { select: { archivedAt: true } },
     },
   });
 
   if (!task) throw new ApiError("TASK_NOT_FOUND", 404);
-  return task;
+  const { subject, relatedSyllabusNodes, ...taskPreimage } = task;
+  const preimage = {
+    ...taskPreimage,
+    relatedSyllabusNodeIds: relatedSyllabusNodes.map((relation) => relation.syllabusNodeId),
+  };
+  if (subject.archivedAt) throw new ApiError("SUBJECT_ARCHIVED", 409);
+
+  // Read the task preimage before serializing workspace mutations so concurrent
+  // commands still race against the same CAS predicate. Revalidate scope after
+  // taking the lock to reject a workspace switch or subject archive in between.
+  const lockedWorkspace = await lockActiveWorkspaceForWrite(tx, actorId);
+  if (lockedWorkspace.id !== workspace.id) {
+    throw new ApiError("TASK_STATE_CONFLICT", 409, { conflictFields: ["workspaceId"] });
+  }
+  const currentSubject = await tx.subject.findFirst({
+    where: { id: preimage.subjectId, workspaceId: lockedWorkspace.id },
+    select: { archivedAt: true },
+  });
+  if (!currentSubject) {
+    throw new ApiError("TASK_STATE_CONFLICT", 409, { conflictFields: ["workspaceId", "subjectId"] });
+  }
+  if (currentSubject.archivedAt) throw new ApiError("SUBJECT_ARCHIVED", 409);
+  return preimage;
+}
+
+async function assertTaskUpdateExpectation(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  existing: TaskCommandPreimage,
+  input: Pick<UpdateTaskInput, "expectedStatus" | "expectedUpdatedAt">,
+): Promise<void> {
+  const conflictFields: string[] = [];
+  const expectedStatus = input.expectedStatus.toUpperCase() as DbTaskStatus;
+  const expectedUpdatedAt = new Date(input.expectedUpdatedAt);
+  if (existing.status !== expectedStatus) conflictFields.push("status");
+  if (!Number.isFinite(expectedUpdatedAt.getTime()) || existing.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+    conflictFields.push("updatedAt");
+  }
+  if (conflictFields.length > 0) {
+    throw await taskUpdateConflict(tx, workspaceId, existing.id, conflictFields);
+  }
+}
+
+async function taskUpdateConflict(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  taskId: string,
+  conflictFields: string[],
+): Promise<ApiError> {
+  const latest = await loadTaskUpdateSnapshotForWorkspace(tx, workspaceId, taskId);
+  return new ApiError("TASK_STATE_CONFLICT", 409, {
+    latest,
+    conflictFields: Array.from(new Set(conflictFields)),
+    workbench: "/today/plan",
+  });
+}
+
+function normalizeTaskRelatedNodeIds(nodeIds: string[]): string[] {
+  if (new Set(nodeIds).size !== nodeIds.length) {
+    throw new ApiError("TASK_RELATED_SYLLABUS_DUPLICATE", 400);
+  }
+  return [...nodeIds].sort();
+}
+
+function assertTaskSyllabusRelationsDistinct(primaryNodeId: string | null, relatedNodeIds: string[]): void {
+  if (primaryNodeId && relatedNodeIds.includes(primaryNodeId)) {
+    throw new ApiError("TASK_PRIMARY_RELATED_SYLLABUS_OVERLAP", 400);
+  }
+}
+
+async function assertActiveTaskRelations(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  subjectId: string,
+  input: { syllabusNodeIds: string[]; planMilestoneId: string | null },
+): Promise<void> {
+  const syllabusNodeIds = Array.from(new Set(input.syllabusNodeIds));
+  if (syllabusNodeIds.length > 0) {
+    const nodes = await tx.syllabusNode.findMany({
+      where: { id: { in: syllabusNodeIds }, subject: { workspaceId } },
+      select: { id: true, subjectId: true, archivedAt: true },
+    });
+    if (nodes.length !== syllabusNodeIds.length || nodes.some((node) => node.subjectId !== subjectId || node.archivedAt)) {
+      throw new ApiError("TASK_SYLLABUS_RELATION_INVALID", 409, {
+        conflictFields: ["syllabusNodeId", "relatedSyllabusNodeIds"],
+      });
+    }
+  }
+  if (input.planMilestoneId) {
+    const milestone = await tx.planMilestone.findFirst({
+      where: { id: input.planMilestoneId, workspaceId },
+      select: { subjectId: true, archivedAt: true },
+    });
+    if (!milestone || milestone.archivedAt || (milestone.subjectId && milestone.subjectId !== subjectId)) {
+      throw new ApiError("TASK_MILESTONE_INVALID", 409, { conflictFields: ["planMilestoneId"] });
+    }
+  }
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((value) => rightSet.has(value));
+}
+
+function nextTaskUpdatedAt(current: Date): Date {
+  return new Date(Math.max(Date.now(), current.getTime() + 1));
 }
 
 function assertTaskSourceStatus(
@@ -1467,7 +1909,7 @@ async function getTodaySessionMetrics(
 }
 
 function createReviewData(
-  input: SaveReviewInput,
+  input: ReviewContentInput,
   metrics: { totalMinutes: number; effectiveMinutes: number },
 ) {
   return {
@@ -1481,6 +1923,113 @@ function createReviewData(
   };
 }
 
+function dailyReviewCommandPayload(input: ReviewContentInput) {
+  return {
+    summary: input.summary,
+    lostControl: input.lostControl ?? null,
+    keepAction: input.keepAction,
+    tomorrowMinimum: input.tomorrowMinimum,
+    mood: input.mood ?? null,
+  };
+}
+
+function parseStudyTaskSnapshot(value: Prisma.JsonValue | undefined): StudyTaskDto | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value.id === "string" && typeof value.title === "string"
+    ? value as unknown as StudyTaskDto
+    : null;
+}
+
+function parseDailyReviewSnapshot(value: Prisma.JsonValue | undefined): DailyReviewDto | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const snapshot = value as Record<string, unknown>;
+  if (
+    typeof snapshot.id !== "string" ||
+    typeof snapshot.revision !== "number" ||
+    typeof snapshot.reviewDate !== "string" ||
+    typeof snapshot.totalMinutes !== "number" ||
+    typeof snapshot.effectiveMinutes !== "number"
+  ) return null;
+  const nullableFields = ["summary", "lostControl", "keepAction", "tomorrowMinimum", "mood", "aiSuggestion"];
+  if (!nullableFields.every((field) => snapshot[field] === null || typeof snapshot[field] === "string")) return null;
+  return snapshot as unknown as DailyReviewDto;
+}
+
+function dailyReviewCommand(
+  actorId: string,
+  workspaceId: string,
+  action: string,
+  idempotencyKey: string,
+  requestFingerprint: string,
+): PersistentCreateCommand {
+  return {
+    actorId,
+    workspaceId,
+    action,
+    entityType: "DailyReview",
+    idempotencyKey,
+    requestFingerprint,
+    conflictCode: "DAILY_REVIEW_IDEMPOTENCY_CONFLICT",
+  };
+}
+
+async function replayDailyReviewCommand(
+  tx: Prisma.TransactionClient,
+  command: PersistentCreateCommand,
+  readLatest: () => Promise<DailyReviewDto | null>,
+): Promise<DailyReviewDto | null> {
+  try {
+    const replay = await findPersistentCreateReplay(tx, command);
+    if (!replay) return null;
+    const snapshot = parseDailyReviewSnapshot(replay.resultSnapshot);
+    if (snapshot) return snapshot;
+    const existingResult = await tx.dailyReview.findFirst({
+      where: { id: replay.resultId, workspaceId: command.workspaceId },
+    });
+    if (!existingResult) throw new ApiError("DAILY_REVIEW_IDEMPOTENCY_RESULT_NOT_FOUND", 409);
+    return serializeReview(existingResult);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 409) throw error;
+    throw new ApiError(error.code, 409, {
+      latest: await readLatest(),
+      conflictFields: error.details?.conflictFields ?? ["idempotencyKey"],
+      workbench: "/review/daily",
+    });
+  }
+}
+
+async function updateTodayReview(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  existing: { id: string; revision: number },
+  input: ReviewContentInput,
+  metrics: { totalMinutes: number; effectiveMinutes: number },
+) {
+  const updated = await tx.dailyReview.updateMany({
+    where: { id: existing.id, workspaceId, revision: existing.revision },
+    data: { ...createReviewData(input, metrics), revision: { increment: 1 } },
+  });
+  if (updated.count !== 1) {
+    const latest = await tx.dailyReview.findFirst({ where: { id: existing.id, workspaceId } });
+    throw new ApiError("DAILY_REVIEW_REVISION_CONFLICT", 409, {
+      latest: latest ? serializeReview(latest) : null,
+      conflictFields: ["revision"],
+      workbench: "/review/daily",
+    });
+  }
+  return tx.dailyReview.findUniqueOrThrow({ where: { id: existing.id } });
+}
+
+async function recordDailyReviewCommandResult(
+  tx: Prisma.TransactionClient,
+  command: PersistentCreateCommand,
+  result: DailyReviewDto,
+): Promise<void> {
+  await recordPersistentCreateResult(tx, command, result.id, {
+    resultSnapshot: result as unknown as Prisma.InputJsonObject,
+  });
+}
+
 async function syncReviewMinimumInbox(
   tx: Prisma.TransactionClient,
   workspaceId: string,
@@ -1490,38 +2039,21 @@ async function syncReviewMinimumInbox(
   tomorrowMinimum: string,
 ): Promise<void> {
   const originKey = `daily-review:${getStudyDayKey(review.reviewDate)}:minimum`;
-  const baseStableKey = originKey;
-  const originSnapshot = {
-    dailyReviewId: review.id,
-    reviewDate: review.reviewDate.toISOString(),
-    reviewRevision: review.revision,
-  } satisfies Prisma.InputJsonObject;
-  const data = {
+  await createPlanInboxItemWithResult(tx, workspaceId, actorId, {
+    stableKey: `${originKey}:v${review.revision}`,
     originKey,
     originVersion: review.revision,
     originType: "DAILY_REVIEW_MINIMUM",
-    originSnapshot,
+    originSnapshot: {
+      dailyReviewId: review.id,
+      reviewDate: review.reviewDate.toISOString(),
+      reviewRevision: review.revision,
+    },
     title: tomorrowMinimum.trim(),
-    plannedDate,
+    plannedDate: plannedDate.toISOString(),
     estimatedMinutes: 25,
     priority: "MEDIUM",
     type: "focus",
-    actorId,
-  };
-  const current = await tx.planInboxItem.findUnique({
-    where: { workspaceId_stableKey: { workspaceId, stableKey: baseStableKey } },
-  });
-  if (!current || current.status !== "OPEN") {
-    await tx.planInboxItem.upsert({
-      where: { workspaceId_originKey_originVersion: { workspaceId, originKey, originVersion: review.revision } },
-      create: { workspaceId, stableKey: current ? `${baseStableKey}:v${review.revision}` : baseStableKey, ...data },
-      update: data,
-    });
-    return;
-  }
-  await tx.planInboxItem.update({
-    where: { id: current.id },
-    data: { ...data, revision: { increment: 1 } },
   });
 }
 
@@ -1529,17 +2061,22 @@ async function refreshWorkspaceCheckInsForDates(
   actorId: string,
   targetDates: Array<Date | null | undefined>,
   tx: Prisma.TransactionClient,
-): Promise<void> {
+): Promise<Map<number, CheckInV2Dto>> {
   const workspace = await resolveActiveWorkspace(actorId, tx);
   const uniqueDays = new Map<number, Date>();
+  const refreshed = new Map<number, CheckInV2Dto>();
   for (const targetDate of targetDates) {
     if (!targetDate) continue;
     const day = getStudyDayRange(targetDate);
     uniqueDays.set(day.start.getTime(), day.start);
   }
   for (const targetDate of Array.from(uniqueDays.values()).sort((left, right) => left.getTime() - right.getTime())) {
-    await refreshWorkspaceCheckInSnapshotForDate(workspace.id, targetDate, tx);
+    refreshed.set(
+      targetDate.getTime(),
+      await refreshWorkspaceCheckInSnapshotForDate(workspace.id, targetDate, tx),
+    );
   }
+  return refreshed;
 }
 
 function serializeSubject(subject: {
@@ -1956,6 +2493,19 @@ function serializeMotivationVault(vault: {
     createdAt: vault.createdAt.toISOString(),
     updatedAt: vault.updatedAt.toISOString(),
   };
+}
+
+function parseMotivationVaultSnapshot(value: Prisma.JsonValue | undefined): MotivationVaultDto | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const snapshot = value as Record<string, unknown>;
+  if (
+    typeof snapshot.id !== "string" ||
+    typeof snapshot.createdAt !== "string" ||
+    typeof snapshot.updatedAt !== "string"
+  ) return null;
+  const nullableFields = ["whyStarted", "neverReturnTo", "futureSelf", "messageToFuture", "firstSimulationDiary"];
+  if (!nullableFields.every((field) => snapshot[field] === null || typeof snapshot[field] === "string")) return null;
+  return snapshot as unknown as MotivationVaultDto;
 }
 
 function serializeSyllabusOverview(subject: {

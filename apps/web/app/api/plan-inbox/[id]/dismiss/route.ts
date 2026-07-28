@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   expectedRevision: z.number().int().positive(),
-});
+}).strict();
 
 export async function POST(
   request: NextRequest,

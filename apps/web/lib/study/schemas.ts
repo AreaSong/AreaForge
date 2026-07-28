@@ -1,8 +1,14 @@
 import { z } from "zod";
 
+export const idempotencyKeySchema = z.string().trim().min(8).max(200);
+
 export const createTaskSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),
+  relatedSyllabusNodeIds: z.array(z.string().min(1)).max(20).optional(),
+  planMilestoneId: z.string().min(1).nullable().optional(),
+  sourceResourceId: z.string().min(1).optional(),
   title: z.string().trim().min(1).max(120),
   type: z.string().trim().min(1).max(40).default("study"),
   priority: z.enum(["low", "medium", "high", "critical"]).default("medium"),
@@ -11,6 +17,7 @@ export const createTaskSchema = z.object({
 });
 
 export const createSyllabusNodeSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   subjectId: z.string().min(1),
   parentId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(120),
@@ -27,12 +34,14 @@ export const createSyllabusNodeSchema = z.object({
 });
 
 export const importSyllabusMarkdownSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   subjectId: z.string().min(1),
   parentId: z.string().min(1).nullable().optional(),
   markdown: z.string().trim().min(1).max(20000),
 });
 
 export const updateSyllabusNodeSchema = z.object({
+  expectedRevision: z.number().int().positive(),
   parentId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(120).optional(),
   kind: z.enum(["subject", "chapter", "topic", "problem_type"]).optional(),
@@ -90,6 +99,7 @@ export const createMasteryEvidenceSchema = z
   });
 
 export const createMasteryRetestSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   testedAt: z.string().datetime().optional(),
   result: masteryRetestResultSchema,
   score: z.string().trim().max(80).optional(),
@@ -98,6 +108,7 @@ export const createMasteryRetestSchema = z.object({
 });
 
 export const createNoteSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),
   relatedSyllabusNodeIds: z.array(z.string().min(1)).max(20).optional(),
@@ -112,7 +123,27 @@ export const createNoteSchema = z.object({
   nextReviewAt: z.string().datetime().nullable().optional(),
 });
 
+export const updateNoteSchema = z.object({
+  expectedRevision: z.number().int().positive(),
+  subjectId: z.string().min(1).optional(),
+  syllabusNodeId: z.string().min(1).nullable().optional(),
+  relatedSyllabusNodeIds: z.array(z.string().min(1)).max(20).optional(),
+  taskId: z.string().min(1).nullable().optional(),
+  resourceIds: z.array(z.string().min(1)).max(100).optional(),
+  kind: z.enum(["GENERAL", "CONCEPT", "METHOD", "EXAMPLE", "JOURNAL", "SUMMARY"]).optional(),
+  studyDate: z.string().datetime().nullable().optional(),
+  title: z.string().trim().min(1).max(160).optional(),
+  content: z.string().max(10000).refine((value) => value.trim().length > 0).optional(),
+  masteryStatus: z.enum(["understood", "partial", "unknown", "relearn", "before_exam"]).nullable().optional(),
+  nextReviewAt: z.string().datetime().nullable().optional(),
+});
+
+export const noteRevisionCommandSchema = z.object({
+  expectedRevision: z.number().int().positive(),
+});
+
 export const createMistakeSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(180),
@@ -133,6 +164,7 @@ export const createMistakeSchema = z.object({
 });
 
 export const updateMistakeSchema = z.object({
+  expectedUpdatedAt: z.string().datetime(),
   subjectId: z.string().min(1).optional(),
   syllabusNodeId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(180).optional(),
@@ -150,12 +182,21 @@ export const updateMistakeSchema = z.object({
     .optional(),
   correctIdea: z.string().trim().max(3000).nullable().optional(),
   nextReviewAt: z.string().datetime().nullable().optional(),
+}).refine(
+  (value) => Object.entries(value).some(([field, fieldValue]) => field !== "expectedUpdatedAt" && fieldValue !== undefined),
+  { message: "至少提供一个要更新的错题字段" },
+);
+
+export const mistakeArchiveCommandSchema = z.object({
+  expectedUpdatedAt: z.string().datetime(),
 });
 
 const motivationTextSchema = z.string().trim().max(3000).optional();
 
 export const saveMotivationVaultSchema = z
   .object({
+    idempotencyKey: idempotencyKeySchema,
+    expectedUpdatedAt: z.string().datetime().nullable(),
     whyStarted: motivationTextSchema,
     neverReturnTo: motivationTextSchema,
     futureSelf: motivationTextSchema,
@@ -177,6 +218,7 @@ export const saveMotivationVaultSchema = z
   );
 
 export const saveFirstSimulationDiarySchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   firstSimulationDiary: z.string().trim().min(1).max(5000),
 });
 
@@ -199,13 +241,14 @@ const simulationSubjectResultSchema = z.object({
     syllabusNodeId: z.string().min(1).nullable().optional(),
     lostScore: z.number().positive().max(1000).multipleOf(0.5),
     note: z.string().trim().max(500).nullable().optional(),
-  })).max(100).default([]),
+  })).max(100).optional(),
 }).superRefine((value, context) => {
   if (value.targetScore > value.paperFullScore) context.addIssue({ code: "custom", path: ["targetScore"], message: "targetScore must not exceed paperFullScore" });
   if (value.actualScore > value.paperFullScore) context.addIssue({ code: "custom", path: ["actualScore"], message: "actualScore must not exceed paperFullScore" });
 });
 
 const simulationExamSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   name: z.string().trim().min(1).max(160),
   examDate: z.string().datetime().optional(),
   isFirstSynchronized: z.boolean().optional(),
@@ -250,6 +293,8 @@ const stagePlanBaseSchema = z.object({
 });
 
 const createStagePlanSchema = stagePlanBaseSchema.extend({
+  idempotencyKey: idempotencyKeySchema,
+  baseRevision: z.number().int().positive().nullable(),
   mode: stagePlanModeSchema.default("maintain"),
   status: stagePlanStatusSchema.default("draft"),
 });
@@ -283,6 +328,7 @@ export const updateStagePlanSchema = stagePlanBaseSchema
   );
 
 export const stageAdjustmentDraftSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   stagePlanId: z.string().min(1).nullable().optional(),
 });
 
@@ -343,8 +389,12 @@ export const completeSimulationTaskSchema = z.object({
 });
 
 export const updateTaskSchema = z.object({
+  expectedStatus: z.enum(["todo", "in_progress", "done", "skipped", "deferred"]),
+  expectedUpdatedAt: z.string().datetime(),
   subjectId: z.string().min(1).optional(),
   syllabusNodeId: z.string().min(1).nullable().optional(),
+  relatedSyllabusNodeIds: z.array(z.string().min(1)).max(20).optional(),
+  planMilestoneId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(120).optional(),
   type: z.string().trim().min(1).max(40).optional(),
   priority: z.enum(["low", "medium", "high", "critical"]).optional(),
@@ -420,7 +470,7 @@ export const endSessionSchema = sessionCommandSchema.extend({
   completeTask: z.boolean().default(false),
 });
 
-export const saveReviewSchema = z.object({
+const reviewContentSchema = z.object({
   summary: z.string().trim().min(1).max(2000),
   lostControl: z.string().trim().max(2000).optional(),
   keepAction: z.string().trim().min(1).max(1000),
@@ -428,16 +478,27 @@ export const saveReviewSchema = z.object({
   mood: z.string().trim().max(120).optional(),
 });
 
-export const updateReviewSchema = saveReviewSchema.extend({
+export const saveTodayReviewSchema = reviewContentSchema.extend({
+  idempotencyKey: idempotencyKeySchema.optional(),
+});
+
+export const saveReviewSchema = reviewContentSchema.extend({
+  idempotencyKey: idempotencyKeySchema,
+});
+
+export const updateReviewSchema = reviewContentSchema.extend({
+  idempotencyKey: idempotencyKeySchema,
   expectedRevision: z.number().int().min(1),
 });
 
 export const createMotivationItemSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
   type: z.enum(["QUOTE", "VIDEO_LINK", "VAULT_EXCERPT"]),
   title: z.string().trim().min(1).max(160),
   body: z.string().trim().max(4000).nullable().optional(),
   externalUrl: z.string().trim().url().nullable().optional(),
   vaultSourceId: z.string().min(1).nullable().optional(),
+  vaultField: z.enum(["whyStarted", "neverReturnTo", "futureSelf", "messageToFuture", "firstSimulationDiary"]).optional(),
   tags: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
   enabled: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
@@ -456,6 +517,17 @@ export const updateMotivationItemSchema = z.object({
 
 export const archiveMotivationItemSchema = z.object({
   expectedRevision: z.number().int().min(1),
+});
+
+export const studyResourceRevisionCommandSchema = z.object({
+  expectedRevision: z.number().int().min(1),
+});
+
+export const reorderMotivationItemsSchema = z.object({
+  order: z.array(z.object({
+    id: z.string().min(1),
+    expectedRevision: z.number().int().min(1),
+  })).max(500),
 });
 
 export const motivationReminderStateSchema = z.object({

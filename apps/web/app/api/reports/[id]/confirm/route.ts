@@ -15,7 +15,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const parsed = bodySchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
     const current = await getPeriodicReport(parsed.data.kind, new Date(), user.id);
-    if (current.id !== id) throw new ApiError("PERIODIC_REPORT_REVISION_CONFLICT", 409, { latest: current, conflictFields: ["id", "revision"] });
+    if (current.id !== id) {
+      throw new ApiError("PERIODIC_REPORT_REVISION_CONFLICT", 409, {
+        latest: { kind: "periodic-report-decision", report: current, decision: current.decision },
+        conflictFields: ["id", "revision"],
+        workbench: "/review/reports",
+      });
+    }
     const decision = await decidePeriodicReport({ ...parsed.data, action: "confirm" }, user.id);
     return NextResponse.json({ decision, stageDraftId: decision.stageDraftId, inboxResult: decision.inboxResult }, { status: decision.alreadyDecided ? 200 : 201 });
   } catch (error) {

@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -20,6 +21,7 @@ function main(): void {
   checkManifestExample();
   checkUpdaterBoundaries();
   checkMigrationDockerfile();
+  checkWebDockerPatchContext();
   checkWorkflowTopLevelSyntax();
   checkCiWorkflow();
   checkReleaseWorkflow();
@@ -89,6 +91,10 @@ function checkRequiredFiles(): void {
     "scripts/quality/fixtures/update-request-v2/canonical-request.expected.json",
     "scripts/quality/ops-readiness-preflight.ts",
     "infra/docker/migration.Dockerfile",
+    "infra/docker/web.Dockerfile",
+    "patches/minimatch@3.1.5.patch",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
     ".github/workflows/ci.yml",
     ".github/workflows/release.yml",
     "docs/deployment/github-release-updater.md",
@@ -115,7 +121,6 @@ function checkRequiredFiles(): void {
     "scripts/ops/product-experience-runtime-probe.ts",
     "scripts/quality/product-experience-runtime-probe.selftest.ts",
     "scripts/quality/runtime-identity.selftest.ts",
-    "infra/docker/web.Dockerfile",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -478,6 +483,58 @@ export function findMissingScriptFragments(script: string, fragments: string[]):
   return fragments.filter((fragment) => !script.includes(fragment));
 }
 
+interface WebDockerPatchContext {
+  dockerfile: string;
+  workspace: string;
+  lockfile: string;
+  patchPath: string;
+  patchSha256: string | null;
+}
+
+export function findWebDockerPatchContextIssues(input: WebDockerPatchContext): string[] {
+  const issues: string[] = [];
+  const copyIndex = input.dockerfile.indexOf("COPY patches ./patches");
+  const installIndex = input.dockerfile.indexOf("RUN pnpm install --frozen-lockfile");
+  if (copyIndex < 0) issues.push("dockerfile missing COPY patches ./patches");
+  if (installIndex < 0) issues.push("dockerfile missing frozen pnpm install");
+  if (copyIndex >= 0 && installIndex >= 0 && copyIndex > installIndex) {
+    issues.push("dockerfile copies patches after pnpm install");
+  }
+
+  const workspaceBinding = `minimatch@3.1.5: ${input.patchPath}`;
+  if (!input.workspace.includes(workspaceBinding)) issues.push("workspace patch path is not bound");
+
+  const lockMatch = /^\s{2}minimatch@3\.1\.5:\s+([a-f0-9]{64})\s*$/m.exec(input.lockfile);
+  if (!lockMatch) issues.push("lockfile patch hash is missing");
+  if (!input.patchSha256) issues.push("patch file is missing or not a regular file");
+  if (lockMatch && input.patchSha256 && lockMatch[1] !== input.patchSha256) {
+    issues.push("patch file hash does not match lockfile");
+  }
+  return issues;
+}
+
+function checkWebDockerPatchContext(): void {
+  const patchPath = "patches/minimatch@3.1.5.patch";
+  const absolutePatchPath = resolve(patchPath);
+  const patchSha256 = existsSync(absolutePatchPath) && lstatSync(absolutePatchPath).isFile()
+    ? createHash("sha256").update(readFileSync(absolutePatchPath)).digest("hex")
+    : null;
+  const issues = findWebDockerPatchContextIssues({
+    dockerfile: read("infra/docker/web.Dockerfile"),
+    workspace: read("pnpm-workspace.yaml"),
+    lockfile: read("pnpm-lock.yaml"),
+    patchPath,
+    patchSha256,
+  });
+  checks.push({
+    name: "Web Docker patched dependency context",
+    ok: issues.length === 0,
+    detail: issues.length === 0
+      ? "patched dependency file and lock hash enter the Web deps stage before frozen install"
+      : issues.join("; "),
+  });
+}
+
 function checkMigrationDockerfile(): void {
   const dockerfile = read("infra/docker/migration.Dockerfile");
   const requiredTerms = [
@@ -606,6 +663,7 @@ function checkCiWorkflow(): void {
     "node-version: 24",
     "sudo apt-get install -y shellcheck",
     "pnpm install --frozen-lockfile",
+    "docker build --target deps --file infra/docker/web.Dockerfile .",
     "pnpm audit:all",
     "pnpm audit:prod",
     "GITLEAKS_VERSION: 8.30.1",

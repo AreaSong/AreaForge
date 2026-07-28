@@ -1,122 +1,105 @@
 # v1.1.0 本地完成与 Release Candidate 记录
 
 schemaVersion: 2
-scope: v1.1 Batch 11 local candidate completion and Release admission readiness
-summary: Local product, migration, compatibility floor, dependency, UX and current-candidate Release admission evidence pass; signed Release and production remain separately unauthorized
+scope: v1.1 Batch 11 local product completion and current worktree validation
+summary: Current dirty worktree passes the v1.1 local product, isolated migration/runtime, browser, governance and recovery gates; Release admission remains blocked until a target commit is frozen and SC-002/SC-004 are recollected for that exact commit
 evidenceClass: local-smoke
 claimScope: local-runtime
-evidenceUri: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md,output/playwright/v11-batch11-admission-046cc70/runtime-identity-046cc70.json,output/supply-chain/ci-supply-chain-v11-batch11.txt,output/supply-chain/github-main-protection-readback-v11-batch11.json,output/supply-chain/github-main-protection-controlled-pr-v11-batch11.json,tasks/active/0035-v11-batch11-minor-release.md,https://github.com/AreaSong/AreaForge/actions/runs/29890052716,https://github.com/AreaSong/AreaForge/pull/22
+evidenceUri: workflow/versions/v1.1-learning-action-center.md,output/playwright/v11-final-20260726/canvas-desktop.png,output/playwright/v11-final-20260726/canvas-mobile.png,tasks/active/0035-v11-batch11-minor-release.md
 sourceBaseline:
   sourceDocs: workflow/versions/v1.1-learning-action-center.md,docs/development/v11-phase-packages.md,docs/development/validation-matrix.md,docs/development/high-risk-confirmation-packets.md
-  sourceHashOrCommit: 0d44e4cfacc028f5e64478f1b57a1b614adf8378
+  sourceHashOrCommit: 552b23547ac4b216d5d77a822cc3f1c623136b plus the documented dirty local candidate
 freshValidation:
-  profile: full
-  commands: pnpm install --frozen-lockfile; pnpm audit:all; pnpm audit:prod; pnpm completion:evidence:selftest; pnpm quality:operability:typecheck; DATABASE_URL=<isolated-v11compat-db> pnpm db:migrate:deploy; pnpm ops:v11:compatibility-floor:runtime:selftest seed; pnpm ops:v11:compatibility-floor:runtime:selftest probe; AREAFORGE_OPS006_ISOLATED_DB=1 DATABASE_URL=<isolated-ops006-db> pnpm ops:ops-006:runtime:selftest; pnpm check; pnpm release:train:preflight; pnpm governance:preflight; pnpm tasks:doctor; pnpm tasks:doctor:selftest; pnpm docs:readiness; pnpm docs:completion; pnpm risk:preflight; pnpm residuals:validate; pnpm secrets:scan; pnpm ci:supply-chain:validate output/supply-chain/ci-supply-chain-v11-batch11.txt; AREAFORGE_SC002_CI_RECORD=output/supply-chain/ci-supply-chain-v11-batch11.txt pnpm sc:sc-002:preflight; pnpm sc:sc-004:validate output/supply-chain/github-main-protection-readback-v11-batch11.json output/supply-chain/github-main-protection-controlled-pr-v11-batch11.json; AREAFORGE_SC004_READBACK_RECORD=output/supply-chain/github-main-protection-readback-v11-batch11.json AREAFORGE_SC004_CONTROLLED_PR_RECORD=output/supply-chain/github-main-protection-controlled-pr-v11-batch11.json pnpm sc:sc-004:preflight; git diff --check
-  browserOrRuntimeEvidence: docs/development/v11-compatibility-floor-evidence-20260722.md,docs/development/product-experience-review-20260722-v11-batch11.md
-  checkedAt: 2026-07-22T04:14:00Z
+  profile: full-local-candidate
+  commands: pnpm check; pnpm db:validate; pnpm tasks:doctor; pnpm docs:readiness; pnpm docs:completion; pnpm risk:preflight; pnpm governance:preflight; pnpm residuals:validate; pnpm error-recovery:validate; pnpm smoke:local-ux:selftest; pnpm release:train:preflight; pnpm enterprise:operability:preflight; pnpm secrets:scan; git diff --check
+  browserOrRuntimeEvidence: isolated PostgreSQL 24-migration runtime matrix; local UX smoke; Playwright desktop/mobile/error-recovery checks; output/playwright/v11-final-20260726
+  checkedAt: 2026-07-26T04:35:33+08:00
 validationFingerprint:
-  algorithm: sha256
-  gitHead: 0d44e4cfacc028f5e64478f1b57a1b614adf8378
-  worktreeState: clean
-  worktreeHash: sha256:5e5a71dc06df0be8f737d81120b0b79d452afa110fe658a5ef1052a2aba307b6
-  changedPaths: none
-  digest: sha256:32d6e334356f813a2d4a56cd0e55c14c7a788ce5f8e7d3e5c55d6bd535fcbd7c
+  algorithm: none-until-target-commit-freeze
+  gitHead: 552b23547ac4b216d5d5d77a822cc3f1c623136b
+  worktreeState: dirty-local-candidate
+  worktreeHash: not-frozen
+  changedPaths: v1.1 draft recovery, report history return, local UX smoke contracts, governance preflight and current completion evidence
+  digest: not-frozen
 unverified:
-  skippedChecks: none
-  reason: none
+  skippedChecks: matching CI, exact-commit SC-002, fresh SC-004 readback/controlled PR, signed Release assets, production apply
+  reason: no target candidate commit was created or pushed in this validation scope
 blockers:
   product: none
   securityPrivacy: none
-  dependencySupplyChain: none
-  ciRelease: none
-  gitCheckpoint: none
+  dependencySupplyChain: exact target commit not frozen; SC-002 and SC-004 must be recollected
+  ciRelease: current dirty worktree has no matching CI or signed Release
+  gitCheckpoint: dirty worktree intentionally not committed or pushed
 residualRiskIds: AF-RISK-SC-002,AF-RISK-SC-004,AF-RISK-DATA-001
 releaseRequired: yes
 highestRuntimeWriteBoundary: R1
 highRiskConfirmation: yes
-doesNotProve: signed Release, release asset trust, production health, production migration/apply/smoke/rollback, long-term operability, residual closure
-result: PASS
+doesNotProve: exact-commit Release admission, signed Release, release asset trust, production health, production migration/apply/smoke/rollback, long-term operability, residual closure
+result: PASS-LOCAL-NOT-ADMITTED
 safetyFacts:
   productionTouched: no
   productionWriteAttempted: no
   serverCommandAttempted: no
   backupRestoreAttempted: no
-  migrationAttempted: yes
+  migrationAttempted: isolated-local-only
   updaterApplyAttempted: no
   releaseCreated: no
   secretValuePrinted: no
 
-## 身份与结论
+## 结论
 
 - 目标版本：`1.1.0`。
 - 分支：`codex/v1.1-learning-action-center`。
-- 证据等级：本地 runtime、隔离 PostgreSQL migration、构建、治理门禁与 current-bound desktop/mobile UX。
-- 本地产品候选：`PASS`。
-- complete minor Release admission：`READY-FOR-SIGNED-RELEASE`。
-- UX/runtime 源提交 `U`：`046cc701b37d73539309d2f110df9a72816d3b83`。
-- 候选源码提交 `S`：`0d44e4cfacc028f5e64478f1b57a1b614adf8378`。
-- SC-002/SC-004 目标提交 `C`：本记录形成的单文件 evidence-only 候选 commit；提交后以 `git rev-parse HEAD` 冻结，matching CI 与 SC 重采必须 exact-match `C`，不能只匹配 `U` 或 `S`。
+- v1.1 本地产品与功能逐项验收：`PASS`。
+- 当前工作树完整门禁：`PASS`。
+- complete minor Release admission：`NOT READY`。
+- 原因：当前候选仍是 dirty worktree，没有冻结目标 commit；旧的 CI、SC-002、SC-004 和 PR 证据不能覆盖当前改动。
 
-`READY-FOR-SIGNED-RELEASE` 只表示 Batch 11 本地完成与 Release admission 已达到签名 Release 前人工复核门槛；它不授权 tag/GitHub Release，不表示签名资产已生成，也不授权生产动作或 residual 关闭。
+本记录只确认 v1.1 在本地隔离环境达到可验证的产品完成态。它不授权 commit、push、tag、GitHub Release、生产 backup/migration/apply/smoke/rollback、updater 或 residual 状态更新。
 
-## 候选范围
+## 本轮补齐
 
-- Batch 3–10 的学习行动中心实现：当前考试工作区、计划收件箱、学习树 preview/confirm、StudyResource、统一复习与 CheckIn v2、App Shell 与今日行动中心、知识工作台与关联画布、动机/通知/四类 AI 草稿、模拟失分/报告/阶段确认闭环。
-- 八个有序 additive product migrations；不包含 production migration deploy、历史修复、destructive DDL 或文件移动。
-- 根包、Web 与全部 AreaForge workspace package version 统一为 `1.1.0`。
-- 修正 `risk:preflight` 对 canonical 页面与 StudyResource 软恢复路由的静态识别；Web runtime 的 Docker、backup、restore、migration、shell 与服务器命令禁区不变。
+- 私密业务草稿覆盖笔记、错题、资料创建与详情、Inbox、快速复习、学习树导入、AI、动机、通知和工作区设置；按用户与对象隔离，7 天 TTL，主动退出统一清理。
+- 401 保留草稿并安全回登录，网络失败保留输入且不自动重试；409 保留本地值并展示服务端最新 revision。
+- AI 已生成未采用结果可跨刷新恢复；成功采用后清除输入、生成结果、operation 和本地草稿，避免重复采用。
+- StudyResource 详情以服务端已保存状态为基线，仅在真实变更时持久化草稿；保存成功后不残留已提交草稿。
+- 报告历史列表和详情使用统一列表返回上下文，恢复 `tab`、`period`、滚动与焦点。
+- Local UX smoke 先建立 ACTIVE 工作区再检查活动会话；两条计时结束路径均使用 `expectedStatus`、`expectedUpdatedAt` 和 `idempotencyKey`。
+- `risk:preflight` 只在 Package D D1 完成证据存在时允许精确报告决策路由，并只对白名单中的业务恢复端点排除 Web 运维误报。
 
-## 新鲜本地验证
+## 隔离运行时证据
 
-以下验证在 2026-07-22、候选源码工作树上执行：
+- 新鲜隔离 PostgreSQL 数据库应用全部 24 个 migration：PASS。
+- M1-M3、M4、M5、M6、M8、5,000 对象画布、owner isolation、AI 四用途与防篡改、OPS-006 concurrency、OPS-007 attachment crash/reconciliation：PASS。
+- `pnpm smoke:local-ux`：PASS，覆盖登录、ACTIVE 工作区、任务、计时、复盘、笔记附件、错题、模拟、阶段、画布 API、页面路由和版本中心只读边界。
+- 所有写验证只使用隔离数据库和临时上传目录；没有访问或修改生产。
 
-- `pnpm install --frozen-lockfile`：PASS。
-- `pnpm db:generate`、`pnpm db:validate`：PASS。
-- `pnpm --filter @areaforge/core test`：PASS，75 tests。
-- `pnpm --filter @areaforge/core typecheck`、`pnpm --filter @areaforge/web typecheck`、`pnpm --filter @areaforge/web lint`：PASS。
-- 五个一次性本地 PostgreSQL 数据库分别完成全部 20 个 migration；M1–3、M4、M5、M6、M8 runtime selftest：PASS；M8 重复 deploy 返回 `No pending migrations to apply`。
-- `pnpm check`：PASS，覆盖 workspace typecheck/test、Web lint、Prisma validate 与 Next.js production build。
-- `pnpm quality:operability:typecheck`：PASS；`OPS-006` fixture 已适配 v1.1 `Subject.legacyCode/stableKey`，并在一次性 PostgreSQL 16 空库应用全部 20 个 migration 后完成并发 runtime selftest：PASS。
-- `pnpm docs:readiness`、`pnpm docs:completion`、`pnpm docs:links`、`pnpm docs:evergreen`、`pnpm tasks:doctor`、`pnpm residuals:validate`：PASS。
-- `pnpm risk:preflight`、`pnpm governance:preflight`、`pnpm secrets:scan`、`pnpm enterprise:operability:preflight`、`pnpm skills:validate`：PASS。
-- `pnpm release:train:preflight`、`pnpm release:workflow:policy`、`pnpm release:admission:selftest`、`pnpm release:identity:probe:selftest`、`pnpm github-release-updater:preflight`、`pnpm shellcheck:updater`：PASS。
-- Release/CI supply-chain record selftests、SC-002 preflight selftest、SC-004 validator/preflight selftests：PASS。
-- `pnpm audit:prod --audit-level high`：PASS；报告 2 个 moderate，未报告 high/critical。
-- `pnpm audit:all`：当前工作树修复后 PASS；`sharp@0.35.3` 与 `fast-uri@3.1.4` 消除 GitHub run `29887252667` 暴露的两个 high advisory，仍有 2 个 moderate。
-- [Compatibility floor 本地证据](./v11-compatibility-floor-evidence-20260722.md)：PASS；全 20 migrations apply/replay 后，由当前候选写入第二工作区、自定义科目和 workspace 复合唯一记录，再切换到冻结 floor commit `c30fe8f59e9e9a64ed0ee9d2ef115a0ed5214dd4` 的 production build/服务读取同一 schema。
-- 候选记录后的 StudyResource/学习树租户隔离加固在新一次性 `v11m5` 数据库重跑全部 20 个 migration 与 M5 runtime selftest：PASS，包含 owner 外拒绝、confirm 原子回滚、幂等冲突与无服务端临时文件。
-- `pnpm smoke:local-ux`：PASS；覆盖 ACTIVE workspace fixture、计时收口、附件、analytics、结构化模拟结果、阶段草稿、canonical 页面与 App Shell 导航。
-- [Batch 11 体验复核](./product-experience-review-20260722-v11-batch11.md)：PASS；绑定 `U=046cc701b37d73539309d2f110df9a72816d3b83`、runtime probe、desktop `1440x1000`、mobile `390x844` 与四张截图，控制台无 error、无横向溢出。
-- `git diff --check`：PASS。
+## 浏览器证据
 
-第一次 M1–3 runtime selftest 因未设置 `DATABASE_URL` 失败；确认是测试环境配置后，使用带 `v11m1m3` marker 的一次性本地数据库完成 deploy 并重跑 PASS。`risk:preflight` 首次暴露三条 canonical 路径静态规则漂移，已按当前架构收窄修复并重跑 PASS。Batch 11 current-bound smoke 又发现 ACTIVE workspace、结构化模拟 revision 和 Batch 10 导航三处旧 fixture 契约，均已补回 selftest、运行 `pnpm check` 并在新隔离库从头重跑 PASS。
+- 桌面 `1440x1000`、移动 `390x844` 和窄视口 `720x1000`：页面级横向溢出为 0。
+- 动机档案、动机内容库、AI、笔记、错题、资料外链与资料详情：刷新恢复通过；成功保存或采用后的草稿清理通过。
+- 主动求助 Drawer：一条内容、三个恢复动作、焦点陷阱、Esc 关闭和返回触发按钮通过。
+- 报告历史：确认生成冻结报告、进入详情、返回后恢复 `tab=history&period=week` 与列表焦点通过。
+- 画布：桌面画布、移动查阅、等价列表、键盘布局命令入口和无横向溢出通过；截图位于 `output/playwright/v11-final-20260726/`。
+- 登录 `returnTo`：外部绝对 URL 回退 `/today`，合法站内路径和查询参数原样恢复。
+- 401 mock：本地通知草稿保留且没有写入服务端；409 mock：本地值不被覆盖并展示最新 revision；人工采用最新状态后草稿清除。
+- 控制台唯一 error 为验收主动注入的 409 HTTP 响应，没有未解释的运行时错误。
 
-## Admission 证据
+## 最终门禁
 
-- `AF-RISK-SC-002`：最终候选 `C` 的 matching successful CI 与 CI-only record 保存于 `output/supply-chain/ci-supply-chain-v11-batch11.txt`；validator PASS，preflight=`ready_for_sc002_review`。历史失败 run 仅保留为阻断轨迹，不作为通过证据。
-- `AF-RISK-SC-004`：同一维护窗口的 Protect main readback 与受控 PR #22 fail-to-pass 记录保存于 `output/supply-chain/github-main-protection-readback-v11-batch11.json` 与 `output/supply-chain/github-main-protection-controlled-pr-v11-batch11.json`；两者绑定最终候选 `C`、`ci / verify` 与真实 Actions run，validator PASS，preflight=`ready_for_human_review`；PR 已关闭未合并。
-- UX：current-bound 本地证据已通过；它只证明 `U` 及合法 evidence-only 后代，不替代签名 Release 或生产 smoke。
-- 签名 Release：不在本次 admission 授权内；尚未收到另行确认句，未创建 tag、GitHub Release、SBOM/provenance、GHCR digest、checksum 或 cosign 资产。
+以下本地门禁均通过：
 
-## 不证明
+- `pnpm check`：Core 80/80、AI 24/24、Storage 25/25、Auth 3/3，workspace typecheck/test、Web lint、Prisma validate 和 Next production build 全部通过。
+- `pnpm db:validate`、`pnpm tasks:doctor`、`pnpm docs:readiness`、`pnpm docs:completion`。
+- `pnpm risk:preflight`、`pnpm governance:preflight`、`pnpm residuals:validate`、`pnpm error-recovery:validate`。
+- `pnpm smoke:local-ux:selftest`、`pnpm release:train:preflight`、`pnpm enterprise:operability:preflight`、`pnpm secrets:scan`。
+- `git diff --check`。
 
-本记录不证明签名 Release 已创建、Release assets 可信、生产 backup/migration/apply/smoke/rollback 已执行、线上运行 `1.1.0`、长期运营已完成或任何 residual 已关闭。
+## Release 与 residual 边界
 
-## 安全事实
-
-- `AREAFORGE_AUTO_APPLY=none` 未改变。
-- production touched：no。
-- production write attempted：no。
-- server command attempted：no。
-- backup/restore attempted：no。
-- production migration attempted：no。
-- updater apply/rollback attempted：no。
-- tag/Release created：no。
-- residual ledger status changed：no；仅同步 0035 taskRef 与 DATA-001 控制面复核入口。
-- secret value printed：no。
-
-## Residual 与回滚边界
-
-- 本候选继续关联 `AF-RISK-SC-002`、`AF-RISK-SC-004`、`AF-RISK-DATA-001`；不自动改变任何状态。
-- 本地 compatibility floor 已冻结为 `c30fe8f59e9e9a64ed0ee9d2ef115a0ed5214dd4` 并通过 application rollback probe；签名 Release admission 仍须把对应 floor build 固定为 immutable image digest，生产确认再冻结实际回滚目标。
-- 数据库/uploads restore、DROP、数据修复、附件移动或删除仍需独立高风险确认。
+- 旧记录中绑定 2026-07-22 commit 的 `READY-FOR-SIGNED-RELEASE` 不适用于当前工作树，现已撤销。
+- `AF-RISK-SC-002` 必须在未来目标 commit 冻结后取得 matching successful CI/供应链记录。
+- `AF-RISK-SC-004` 必须针对同一目标 commit 取得 fresh main protection readback 与受控 PR 证据。
+- `AF-RISK-DATA-001` 保持 `deferred-work`；本轮不关闭、不降级、不改写接受边界。
+- 签名 Release、GHCR digest、SBOM/provenance、checksums/cosign、生产 backup/migration/apply/health/smoke/rollback 均未执行。
+- `AREAFORGE_AUTO_APPLY=none` 未改变，Web runtime 服务器命令禁区保持不变。

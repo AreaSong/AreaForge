@@ -51,6 +51,9 @@ export type OperationalHandoff = {
 export type OperationalHandoffSummary = {
   title: "AreaForge operational handoff";
   app: string;
+  currentCheckout: string;
+  productionBaseline: string;
+  historicalRollback: string;
   offlineOverall: OperationalHandoff["status"]["offlineOverall"];
   controlPlane: OperationalHandoff["status"]["controlPlane"];
   releaseTrain: OperationalHandoff["status"]["releaseTrain"];
@@ -159,7 +162,10 @@ export function buildOperationalHandoff(options: BuildOptions = {}): Operational
 export function buildOperationalHandoffSummary(handoff: OperationalHandoff): OperationalHandoffSummary {
   return {
     title: "AreaForge operational handoff",
-    app: `${handoff.app.name} ${handoff.app.version} (${handoff.app.releaseTag})`,
+    app: handoff.app.name,
+    currentCheckout: `${handoff.app.currentCheckout.version} (local checkout; no Release implied)`,
+    productionBaseline: `${handoff.app.productionBaseline.version} (${handoff.app.productionBaseline.releaseTag}) record=${handoff.app.productionBaseline.releaseRecordPath}`,
+    historicalRollback: `${handoff.app.historicalRollback.version} (${handoff.app.historicalRollback.releaseTag}) role=${handoff.app.historicalRollback.role} record=${handoff.app.historicalRollback.releaseRecordPath}`,
     offlineOverall: handoff.status.offlineOverall,
     controlPlane: handoff.status.controlPlane,
     releaseTrain: handoff.status.releaseTrain,
@@ -191,6 +197,9 @@ export function formatOperationalHandoffSummary(summary: OperationalHandoffSumma
   return [
     summary.title,
     `app: ${summary.app}`,
+    `currentCheckout: ${summary.currentCheckout}`,
+    `productionBaseline: ${summary.productionBaseline}`,
+    `historicalRollback: ${summary.historicalRollback}`,
     `offlineOverall: ${summary.offlineOverall}`,
     `controlPlane: ${summary.controlPlane}`,
     `releaseTrain: ${summary.releaseTrain}`,
@@ -287,7 +296,7 @@ function buildClaimBoundary(projection: OperabilityStatusProjection): Operationa
     "updater apply completion from Web update requests or offline projection",
     "auto-apply enablement while AREAFORGE_AUTO_APPLY remains none",
     "residual risk closure without close-condition evidence",
-    "post-update OPS-001 closure or release evidence bundle/backup hashes under a no-server/no-secret boundary",
+    "fresh OPS-001 recapture or release evidence/backup hashes for a later production version under a no-server/no-secret boundary",
   ];
 
   if (projection.status.controlPlane !== "pass") {

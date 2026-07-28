@@ -29,8 +29,8 @@ const currentAppVersion = developmentRuntimeIdentity.appVersion;
 const oldAppVersion = currentAppVersion === "0.0.0" ? "0.0.1" : "0.0.0";
 mkdirSync(path.join(root, "output"), { recursive: true });
 const tempDir = mkdtempSync(path.join(root, "output/.tmp-long-term-gate-"));
-const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
-const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
+const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.9-20260721.json";
+const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.9-20260721-manual-window.txt";
 
 try {
   const desktopScreenshot = path.join(tempDir, "desktop-dashboard.png");
@@ -61,6 +61,9 @@ try {
 
   const noOps004Evidence = runGate(baseEnv, 1);
   const noOps004EvidenceJson = parseGateJson(noOps004Evidence.stdout);
+  assert((noOps004EvidenceJson.currentCheckout as JsonRecord)?.version === currentAppVersion, "live gate should identify the current checkout version");
+  assert((noOps004EvidenceJson.productionBaseline as JsonRecord)?.releaseTag === "v0.1.9", "live gate should identify the v0.1.9 production baseline");
+  assert((noOps004EvidenceJson.historicalRollback as JsonRecord)?.releaseTag === "v0.1.7", "live gate should preserve the v0.1.7 rollback target");
   assert(
     noOps004EvidenceJson.status === "needs_live_evidence",
     `missing OPS-004 evidence should block the gate, got ${String(noOps004EvidenceJson.status)}: ${JSON.stringify(
@@ -213,7 +216,8 @@ function testReleaseEvidenceCrossBinding(recordPath: string): void {
     webImageDigest: fields.get("webImageDigest") ?? "",
     migrationImageDigest: fields.get("migrationImageDigest") ?? "",
   };
-  assert(validateReleaseEvidenceRecord(matching, { configuredPath: recordPath }).status === "pass", "matching OPS-006 Release evidence binding should pass");
+  const matchingResult = validateReleaseEvidenceRecord(matching, { configuredPath: recordPath });
+  assert(matchingResult.status === "pass", `matching OPS-006 Release evidence binding should pass: ${matchingResult.detail}`);
   for (const field of ["recordSha256", "bundleHash", "releaseTag", "gitCommit", "webImageDigest", "migrationImageDigest"] as const) {
     const mismatched = { ...matching, [field]: `${matching[field]}-mismatch` };
     assert(
@@ -353,18 +357,16 @@ function writeRuntimeIdentityEvidence(file: string, observedAt: string): void {
 }
 
 function createReleaseRecord(csv: string, summaryHash: string): string {
-  let record = readFileSync(path.resolve("docs/development/release-v0.1.7-record.md"), "utf8")
+  const record = readFileSync(path.resolve("docs/development/release-v0.1.9-record.md"), "utf8")
     .replace(/^databaseBackupSha256: .+$/m, `databaseBackupSha256: ${"b".repeat(64)}`)
     .replace(/^uploadsBackupSha256: .+$/m, `uploadsBackupSha256: ${"c".repeat(64)}`)
-    .replace(/^envBackupSha256: .+$/m, `envBackupSha256: ${"d".repeat(64)}`);
-  const fields = [
-    "attachmentReconciliationCsvPath: attachment-reconciliation.csv",
-    `attachmentReconciliationCsvSha256: sha256:${createHash("sha256").update(csv).digest("hex")}`,
-    "attachmentReconciliationSummaryPath: attachment-reconciliation-summary.json",
-    `attachmentReconciliationSummaryHash: ${summaryHash}`,
-    "attachmentReconciliationStatus: pass",
-  ].join("\n");
-  record = record.replace(/^preflight:\s*$/m, `${fields}\npreflight:`);
+    .replace(/^envBackupSha256: .+$/m, `envBackupSha256: ${"d".repeat(64)}`)
+    .replace(/^attachmentReconciliationCsvPath: .+$/m, "attachmentReconciliationCsvPath: attachment-reconciliation.csv")
+    .replace(/^attachmentReconciliationCsvSha256: .+$/m, `attachmentReconciliationCsvSha256: sha256:${createHash("sha256").update(csv).digest("hex")}`)
+    .replace(/^attachmentReconciliationSummaryPath: .+$/m, "attachmentReconciliationSummaryPath: attachment-reconciliation-summary.json")
+    .replace(/^attachmentReconciliationSummaryHash: .+$/m, `attachmentReconciliationSummaryHash: ${summaryHash}`)
+    .replace(/^attachmentReconciliationStatus: .+$/m, "attachmentReconciliationStatus: pass")
+    .replace(/^  attachmentHashMatched: yes$/m, "  attachmentHashMatched: not-applicable");
   const hash = buildReleaseEvidenceBundleHash(parseIndentedKeyValueRecord(record));
   return record.replace(/^releaseEvidenceBundleHash: .+$/m, `releaseEvidenceBundleHash: ${hash}`);
 }

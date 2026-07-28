@@ -39,6 +39,7 @@ const requiredFiles = [
   "tasks/active/0020-business-state-concurrency.md",
   "tasks/active/0021-attachment-staging-intent.md",
   "tasks/active/0022-updater-phase-journal-hold.md",
+  "docs/development/release-v0.1.9-record.md",
   "docs/development/release-v0.1.7-record.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -245,6 +246,9 @@ function main(): void {
       generatedAt: "2026-07-11T00:00:00.000Z",
     });
     assert(projection.schemaVersion === 2, "schemaVersion should be 2");
+    assert(projection.app.currentCheckout.version === "0.1.5", "projection should identify the fixture checkout version");
+    assert(projection.app.productionBaseline.releaseTag === "v0.1.9", "projection should identify the production baseline");
+    assert(projection.app.historicalRollback.releaseTag === "v0.1.7", "projection should preserve the historical rollback target");
     assert(projection.uxReview.status === "missing", "fixture without UX evidence must project missing instead of reusing ledger prose");
     assert(projection.status.controlPlane === "pass", "fixture control plane should pass");
     assert(projection.status.overall === "blocked", "current blocker should block offline overall status");
@@ -294,10 +298,10 @@ function main(): void {
     assert(
       projection.boundaryStops.some((stop) =>
         stop.key === "update_request_expected_before" &&
-        stop.currentBoundary.includes("no matching signed Release for the verified V2 checkout") &&
-        stop.currentBoundary.includes("no production deployment confirmation")
+        stop.currentBoundary.includes("no authorization for a later signed Release or production apply") &&
+        stop.currentBoundary.includes("no mutation request execution from this offline projection")
       ),
-      "projection should separate verified expected-before implementation from signed Release and deployment confirmations",
+      "projection should preserve later-release and offline-mutation boundaries after closure",
     );
     assert(projection.safetyFacts.readOnly === true, "projection should be read-only");
     assert(projection.safetyFacts.networkRequested === false, "projection should not request network");
@@ -460,6 +464,9 @@ function main(): void {
     const summary = buildOperabilityStatusSummary(projection);
     const formattedSummary = formatOperabilityStatusSummary(summary);
     assert(summary.title === "AreaForge operability status", "summary should have a stable title");
+    assert(summary.currentCheckout.includes("0.1.5"), "summary should identify the current checkout without implying a Release");
+    assert(summary.productionBaseline.includes("v0.1.9"), "summary should identify the production baseline");
+    assert(summary.historicalRollback.includes("v0.1.7"), "summary should identify the historical rollback target");
     assert(summary.offlineOverall === "blocked", "summary should preserve overall status");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include non-executable current blockers");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-005")), "summary should include expected-before current blocker");
@@ -483,6 +490,7 @@ function main(): void {
     assert(summary.nextEvidenceCommands.includes("pnpm release:evidence:redacted-export:validate <redacted-export-dir>"), "summary should include release redacted export validation command");
     assert(summary.cannotClaim.includes("current production health"), "summary should include non-proof boundary");
     assert(formattedSummary.includes("AreaForge operability status"), "formatted summary should include title");
+    assert(formattedSummary.includes("currentCheckout: 0.1.5 (local checkout; no Release implied)"), "formatted summary should keep checkout and Release semantics separate");
     assert(formattedSummary.includes("safetyFacts: readOnly=true"), "formatted summary should include safety facts");
 
     writeJson(root, "docs/development/residual-risk-ledger.json", {
@@ -592,12 +600,12 @@ function writeFixture(root: string): void {
     "```",
     "",
   ].join("\n"));
-  writeText(root, "docs/development/release-v0.1.7-record.md", fixtureReleaseRecord());
+  writeText(root, "docs/development/release-v0.1.9-record.md", fixtureReleaseRecord());
 }
 
 function fixtureReleaseRecord(): string {
   return [
-    "releaseTag: v0.1.7",
+    "releaseTag: v0.1.9",
     "releaseEvidenceBundleHash: pending-redacted-root-only-backup-hash-copy",
     "databaseBackupSha256: not-copied-root-only-update-record",
     "uploadsBackupSha256: not-copied-root-only-update-record",

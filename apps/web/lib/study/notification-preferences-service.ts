@@ -1,4 +1,5 @@
 import { prisma } from "@areaforge/db";
+import { buildForegroundNotificationPayload, type ForegroundNotificationCategory } from "@areaforge/core";
 import { ApiError } from "@/lib/api/responses";
 
 export interface NotificationPreferenceDto {
@@ -76,12 +77,15 @@ export async function patchNotificationPreferences(
   userId: string,
   input: Partial<Omit<NotificationPreferenceDto, "revision">> & { expectedRevision: number },
 ): Promise<NotificationPreferenceDto> {
-  const existing = await prisma.notificationPreference.findUnique({ where: { userId } });
+  return prisma.$transaction(async (tx) => {
+  await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(8237, hashtext(${userId}))`;
+  const existing = await tx.notificationPreference.findUnique({ where: { userId } });
   const currentRevision = existing?.revision ?? 0;
   if (currentRevision !== input.expectedRevision) {
     throw new ApiError("NOTIFICATION_PREFERENCE_REVISION_CONFLICT", 409, {
       latest: existing ? toDto(existing) : { ...DEFAULT_PREFERENCE },
-      conflictFields: ["revision"],
+      conflictFields: collectNotificationConflictFields(input, existing ? toDto(existing) : { ...DEFAULT_PREFERENCE }),
+      workbench: "/settings/notifications",
     });
   }
 
@@ -113,7 +117,7 @@ export async function patchNotificationPreferences(
   if (next.quietHoursStart != null) assertHour(next.quietHoursStart, "quietHoursStart");
   if (next.quietHoursEnd != null) assertHour(next.quietHoursEnd, "quietHoursEnd");
 
-  const row = await prisma.notificationPreference.upsert({
+  const row = await tx.notificationPreference.upsert({
     where: { userId },
     create: {
       userId,
@@ -126,40 +130,22 @@ export async function patchNotificationPreferences(
     },
   });
   return toDto(row);
+  });
+}
+
+function collectNotificationConflictFields(
+  input: Partial<Omit<NotificationPreferenceDto, "revision">> & { expectedRevision: number },
+  latest: NotificationPreferenceDto,
+): string[] {
+  const fields = ["revision"];
+  for (const [field, value] of Object.entries(input)) {
+    if (field === "expectedRevision") continue;
+    if (JSON.stringify(value) !== JSON.stringify(latest[field as keyof NotificationPreferenceDto])) fields.push(field);
+  }
+  return fields;
 }
 
 /** Minimal foreground notification payload — never includes task/syllabus/motivation titles. */
-export function buildTestNotificationPayload(category: "review" | "plan" | "evening"): {
-  title: string;
-  body: string;
-  tag: string;
-  actionLabel: string;
-  data: { route: string };
-} {
-  switch (category) {
-    case "review":
-      return {
-        title: "复习提醒",
-        body: "有到期复习可处理。",
-        tag: "af-review-due",
-        actionLabel: "打开复习",
-        data: { route: "/knowledge/reviews" },
-      };
-    case "plan":
-      return {
-        title: "计划提醒",
-        body: "今日计划窗口已到。",
-        tag: "af-plan-start",
-        actionLabel: "打开计划",
-        data: { route: "/today/plan" },
-      };
-    case "evening":
-      return {
-        title: "复盘提醒",
-        body: "晚间复盘窗口已到。",
-        tag: "af-evening-review",
-        actionLabel: "打开今日",
-        data: { route: "/today" },
-      };
-  }
+export function buildTestNotificationPayload(category: ForegroundNotificationCategory) {
+  return buildForegroundNotificationPayload(category);
 }

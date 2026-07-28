@@ -1,16 +1,24 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { PlanRollingClient } from "@/components/plan-rolling-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPlanRolling } from "@/lib/study/plan-rolling-service";
+import { listPlanMilestones } from "@/lib/study/plan-milestone-service";
+import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 import { findActiveWorkspaceOrNull, listWorkspaceSubjects } from "@/lib/study/exam-workspace-service";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { ApiError } from "@/lib/api/responses";
+import { getStudyResource, type StudyResourceDto } from "@/lib/study/study-resource-service";
+import type { SyllabusOptionNodeDto } from "@/lib/study/types";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/today/plan");
 
 export default async function TodayPlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; subjectId?: string; status?: string; q?: string; createMinimum?: string }>;
+  searchParams: Promise<{ date?: string; subjectId?: string; status?: string; q?: string; createMinimum?: string; resourceId?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -35,19 +43,55 @@ export default async function TodayPlanPage({
   }
 
   const workspace = await findActiveWorkspaceOrNull(user.id);
-  const subjects = workspace ? await listWorkspaceSubjects(user.id, workspace.id) : [];
+  const [subjects, syllabusNodes, milestones] = workspace ? await Promise.all([
+    listWorkspaceSubjects(user.id, workspace.id),
+    listSyllabusOptionsShared(user.id),
+    listPlanMilestones(user.id),
+  ]) : [[], [], []];
+  let sourceResource: StudyResourceDto | null = null;
+  if (params.resourceId) {
+    try {
+      sourceResource = await getStudyResource(user.id, params.resourceId);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) notFound();
+      throw error;
+    }
+  }
+  const sourceNodeIds = sourceResource?.syllabusNodeIds.filter((nodeId) =>
+    flattenSyllabusOptions(syllabusNodes).some((node) => node.id === nodeId && node.subjectId === sourceResource?.subjectId),
+  ) ?? [];
 
   return (
-    <PlanRollingClient
-      initial={plan}
-      subjects={subjects.map((subject) => ({ id: subject.id, name: subject.name }))}
-      createMinimum={params.createMinimum === "1"}
-      query={{
-        date: params.date,
-        subjectId: params.subjectId,
-        status: params.status,
-        q: params.q,
-      }}
-    />
+    <div className="space-y-4">
+      <details className="rounded-md border border-white/10 p-3">
+        <summary className="cursor-pointer text-sm text-teal-300">计划 AI 草稿</summary>
+        <div className="mt-3"><AiDraftPanel endpoint="plan" userId={user.id} /></div>
+      </details>
+      <PlanRollingClient
+        initial={plan}
+        subjects={subjects.filter((subject) => !subject.archivedAt).map((subject) => ({ id: subject.id, name: subject.name }))}
+        syllabusNodes={syllabusNodes}
+        milestones={milestones}
+        createMinimum={params.createMinimum === "1"}
+        sourceResource={sourceResource ? {
+          id: sourceResource.id,
+          title: sourceResource.title,
+          subjectId: sourceResource.subjectId,
+          syllabusNodeId: sourceNodeIds.length === 1 ? sourceNodeIds[0] ?? null : null,
+          archived: Boolean(sourceResource.archivedAt),
+        } : null}
+        query={{
+          date: params.date,
+          subjectId: params.subjectId,
+          status: params.status,
+          q: params.q,
+          resourceId: params.resourceId,
+        }}
+      />
+    </div>
   );
+}
+
+function flattenSyllabusOptions(nodes: SyllabusOptionNodeDto[]): SyllabusOptionNodeDto[] {
+  return nodes.flatMap((node) => [node, ...flattenSyllabusOptions(node.children)]);
 }

@@ -14,11 +14,12 @@ const focusableSelector = [
 export function Modal(props: {
   open: boolean;
   title: string;
-  onClose: () => void;
+  onClose?: () => void;
   children: React.ReactNode;
   allowEscape?: boolean;
 }) {
   const { open, allowEscape = true, onClose, title, children } = props;
+  const dismissible = typeof onClose === "function";
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -27,32 +28,39 @@ export function Modal(props: {
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  useOverlayFocus({ open, panelRef, allowEscape, onClose: () => onCloseRef.current() });
+  useOverlayFocus({
+    open,
+    panelRef,
+    allowEscape: allowEscape && dismissible,
+    onClose: () => onCloseRef.current?.(),
+  });
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" role="presentation">
-      <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-2 sm:items-center sm:p-4" role="presentation">
+      <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={allowEscape && dismissible ? onClose : undefined} />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative z-10 w-full max-w-lg rounded-lg border border-white/10 bg-[#101419] p-4 shadow-xl"
+        className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col rounded-lg border border-white/10 bg-[#101419] p-4 shadow-xl sm:max-h-[calc(100dvh-2rem)]"
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
           <h2 id={titleId} className="text-lg font-semibold text-white">{title}</h2>
-          <button
-            type="button"
-            className="rounded-md border border-white/10 px-2 py-1 text-sm text-zinc-300 hover:bg-white/10"
-            onClick={onClose}
-          >
-            关闭
-          </button>
+          {dismissible ? (
+            <button
+              type="button"
+              className="rounded-md border border-white/10 px-2 py-1 text-sm text-zinc-300 hover:bg-white/10"
+              onClick={onClose}
+            >
+              关闭
+            </button>
+          ) : null}
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );

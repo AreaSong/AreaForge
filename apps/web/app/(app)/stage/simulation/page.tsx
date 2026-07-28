@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SimulationListClient } from "@/components/simulation-list-client";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { listSimulationExams } from "@/lib/study/simulation-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/stage/simulation");
 
 export default async function StageSimulationPage() {
   const user = await getCurrentUser(); if (!user) redirect("/login");

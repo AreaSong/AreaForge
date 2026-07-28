@@ -14,9 +14,11 @@ function renderNode(node: SafeMarkdownNode, key: string): React.ReactNode {
     case "paragraph": return <p key={key}>{renderNodes(node.children, key)}</p>;
     case "heading": {
       const content = renderNodes(node.children, key);
-      if (node.depth === 1) return <h1 key={key} className="text-2xl font-semibold text-white">{content}</h1>;
-      if (node.depth === 2) return <h2 key={key} className="text-xl font-semibold text-white">{content}</h2>;
-      return <h3 key={key} className="text-base font-medium text-white">{content}</h3>;
+      if (node.depth === 1) return <h2 key={key} className="text-xl font-semibold text-white">{content}</h2>;
+      if (node.depth === 2) return <h3 key={key} className="text-lg font-semibold text-white">{content}</h3>;
+      if (node.depth === 3) return <h4 key={key} className="text-base font-medium text-white">{content}</h4>;
+      if (node.depth === 4) return <h5 key={key} className="text-sm font-medium text-white">{content}</h5>;
+      return <h6 key={key} className="text-sm font-medium text-zinc-100">{content}</h6>;
     }
     case "blockquote": return <blockquote key={key} className="border-l-2 border-teal-400/40 pl-3 text-zinc-400">{renderNodes(node.children, key)}</blockquote>;
     case "list": {

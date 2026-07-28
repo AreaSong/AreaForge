@@ -31,6 +31,8 @@ export interface SafeAiAdviceEnvelope<TAdvice> {
 
 export interface AiAdviceRequestOptions {
   allowExternalProvider?: boolean;
+  maxProviderRetries?: number;
+  providerTimeoutMs?: number;
   provider?: AiJsonProvider;
   userId: string;
 }
@@ -124,7 +126,10 @@ export async function getTomorrowPlanAiAdvice(
   return createEnvelope(result);
 }
 
-export function createConfiguredAiProvider(): AiJsonProvider | undefined {
+export function createConfiguredAiProvider(
+  maxRetries?: number,
+  timeoutMs?: number,
+): AiJsonProvider | undefined {
   const env = getAuthEnv();
 
   if (!env.AI_ENABLED) return undefined;
@@ -143,8 +148,8 @@ export function createConfiguredAiProvider(): AiJsonProvider | undefined {
     baseUrl: env.AI_BASE_URL,
     apiKey: env.AI_API_KEY,
     model: env.AI_MODEL,
-    timeoutMs: env.AI_TIMEOUT_MS,
-    maxRetries: env.AI_MAX_RETRIES,
+    timeoutMs: timeoutMs ?? env.AI_TIMEOUT_MS,
+    maxRetries: maxRetries ?? env.AI_MAX_RETRIES,
     logPrompts: false,
     allowSensitiveContext: false,
   });
@@ -192,7 +197,7 @@ export function resolveConfiguredAiProvider(kind: AiAdviceKind, options: AiAdvic
     };
   }
 
-  const provider = createConfiguredAiProvider();
+  const provider = createConfiguredAiProvider(options.maxProviderRetries, options.providerTimeoutMs);
   if (provider) return { provider };
 
   return {

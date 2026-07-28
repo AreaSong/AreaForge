@@ -3,6 +3,8 @@
 import { Check, FastForward, Plus, RotateCcw, Scissors, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type { StudyTaskDto, SubjectDto, SyllabusOptionNodeDto, TaskDebtReorderDto } from "@/lib/study/types";
 
 interface TaskPanelProps {
@@ -31,6 +33,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
   const [debtNotice, setDebtNotice] = useState<string | null>(null);
   const [selectedDebtTaskIds, setSelectedDebtTaskIds] = useState<string[]>([]);
   const [isDebtActionPending, setDebtActionPending] = useState(false);
+  const [isCreating, setCreating] = useState(false);
   const [pendingTaskActions, setPendingTaskActions] = useState<Record<string, boolean>>({});
   const [isPending, startTransition] = useTransition();
   const flatNodes = useMemo(() => flattenNodes(syllabusNodes), [syllabusNodes]);
@@ -44,30 +47,48 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isCreating) return;
     setError(null);
     setDebtNotice(null);
-    const response = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subjectId,
-        syllabusNodeId: syllabusNodeId || null,
-        title,
-        type: taskType,
-        priority,
-        estimatedMinutes,
-      }),
-    });
+    const payload = {
+      subjectId,
+      syllabusNodeId: syllabusNodeId || null,
+      title,
+      type: taskType,
+      priority,
+      estimatedMinutes,
+    };
+    const commandScope = "task-panel:create";
+    setCreating(true);
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "task-create", payload),
+          ...payload,
+        }),
+      });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "创建任务失败");
-      return;
+      if (response.status === 401) {
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "创建任务失败，当前输入仍保留");
+        return;
+      }
+
+      completeIdempotentCommand(commandScope);
+      setTitle("");
+      setSyllabusNodeId("");
+      startTransition(() => router.refresh());
+    } catch {
+      setError("网络不可用，任务输入与命令身份仍保留；恢复网络后请显式重试。");
+    } finally {
+      setCreating(false);
     }
-
-    setTitle("");
-    setSyllabusNodeId("");
-    startTransition(() => router.refresh());
   }
 
   async function act(path: string, body?: unknown, taskId?: string) {
@@ -224,7 +245,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
             type="submit"
-            disabled={isPending || !subjectId}
+            disabled={isPending || isCreating || !subjectId}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             新建

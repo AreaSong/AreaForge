@@ -11,6 +11,7 @@ import { getActiveStudySession } from "./service";
 import { getNotificationPreferences, type NotificationPreferenceDto } from "./notification-preferences-service";
 
 export interface AppShellStatusDto extends AppShellStatusProjection {
+  serverTime: string;
   setupRequired: boolean;
   workspaceId: string | null;
   reviewExecutableCount: number;
@@ -22,11 +23,16 @@ export interface AppShellStatusDto extends AppShellStatusProjection {
     planStart: boolean;
     eveningReview: boolean;
   };
+  motivationReminderCandidate: {
+    trigger: "RECOVERY" | "LOW_CONVERSION" | null;
+    blockedByActiveActivity: boolean;
+  };
 }
 
 function serializeStatus(
   projection: AppShellStatusProjection,
   extras: {
+    serverTime: string;
     setupRequired: boolean;
     workspaceId: string | null;
     reviewExecutableCount: number;
@@ -34,6 +40,7 @@ function serializeStatus(
     defaultSubjectId: string | null;
     notificationPreference: NotificationPreferenceDto;
     notificationCandidates: AppShellStatusDto["notificationCandidates"];
+    motivationReminderCandidate: AppShellStatusDto["motivationReminderCandidate"];
   },
 ): AppShellStatusDto {
   return {
@@ -62,7 +69,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         overdueLearningDays: 0,
         blocked: false,
         inQuickReview: false,
-        nextHref: "/today",
+        nextHref: "/knowledge/reviews",
       },
       debt: {
         countable: 0,
@@ -77,17 +84,18 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         milestoneHealthy: false,
         milestoneNearOrDraftPending: false,
         conflictOrBlocked: false,
-        stageHref: "/today",
+        stageHref: "/stage/overview",
       },
       todayClosure: {
         inReminderWindow: false,
         minimumActionDone: false,
         dailyReviewDone: false,
         minimumActionHref: "/today",
-        reviewHref: "/today",
+        reviewHref: "/review/daily",
       },
     });
     return serializeStatus(empty, {
+      serverTime: new Date().toISOString(),
       setupRequired: true,
       workspaceId: null,
       reviewExecutableCount: 0,
@@ -95,13 +103,26 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       defaultSubjectId: null,
       notificationPreference,
       notificationCandidates: { reviewDue: false, planStart: false, eveningReview: false },
+      motivationReminderCandidate: { trigger: null, blockedByActiveActivity: false },
     });
   }
 
   const day = getStudyDayRange();
   const sevenDaysAgo = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-  const [activeSession, dueSchedules, bridgedTasks, debtTasks, todayPlanTasks, stagePlan, checkIns, dailyReview, defaultSubject] =
+  const [
+    activeSession,
+    dueSchedules,
+    bridgedTasks,
+    debtTasks,
+    todayPlanTasks,
+    stagePlan,
+    checkIns,
+    dailyReview,
+    defaultSubject,
+    activeRecovery,
+    lowConversionInbox,
+  ] =
     await Promise.all([
       getActiveStudySession(actorId),
       prisma.reviewSchedule.findMany({
@@ -159,6 +180,25 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         select: { id: true },
       }),
+      prisma.recoveryState.findFirst({
+        where: {
+          userId: actorId,
+          workspaceId: workspace.id,
+          status: "ACTIVE",
+          endedAt: null,
+          OR: [{ windowEndDate: null }, { windowEndDate: { gte: day.start } }],
+        },
+        select: { id: true },
+      }),
+      prisma.planInboxItem.findFirst({
+        where: {
+          workspaceId: workspace.id,
+          status: "OPEN",
+          originType: "LOW_CONVERSION",
+          supersededByItemId: null,
+        },
+        select: { id: true },
+      }),
     ]);
 
   const bridgedScheduleIds = new Set(
@@ -207,7 +247,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       overdueLearningDays,
       blocked: false,
       inQuickReview: false,
-      nextHref: "/today",
+      nextHref: "/knowledge/reviews",
     },
     debt: {
       countable: debtTasks.length,
@@ -222,18 +262,19 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       milestoneHealthy: Boolean(stagePlan) && !["draft", "DRAFT"].includes(stagePlan?.status ?? ""),
       milestoneNearOrDraftPending: ["draft", "DRAFT"].includes(stagePlan?.status ?? ""),
       conflictOrBlocked: false,
-      stageHref: "/today",
+      stageHref: "/stage/overview",
     },
     todayClosure: {
       inReminderWindow,
       minimumActionDone: todayCheckIn?.completedMinimumAction ?? false,
       dailyReviewDone: Boolean(dailyReview?.summary),
       minimumActionHref: "/today",
-      reviewHref: "/today",
+      reviewHref: "/review/daily",
     },
   });
 
   return serializeStatus(projection, {
+    serverTime: new Date().toISOString(),
     setupRequired: false,
     workspaceId: workspace.id,
     reviewExecutableCount: executableCount,
@@ -244,6 +285,10 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       reviewDue: executableCount > 0,
       planStart: todayPlanTasks.length > 0,
       eveningReview: !dailyReview?.summary,
+    },
+    motivationReminderCandidate: {
+      trigger: activeRecovery ? "RECOVERY" : lowConversionInbox ? "LOW_CONVERSION" : null,
+      blockedByActiveActivity: Boolean(activeSession),
     },
   });
 }

@@ -94,7 +94,7 @@ export function normalizedTag(version: string): string {
 
 export function formatDateTime(value: string | null): string {
   if (!value) return "未知";
-  return new Date(value).toLocaleString("zh-CN");
+  return new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
 
 export function shortHash(value: string | null | undefined): string {

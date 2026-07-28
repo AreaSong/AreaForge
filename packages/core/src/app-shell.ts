@@ -108,6 +108,15 @@ function activityLight(input: AppShellStatusInput["activity"]): AppShellLight {
 
 function reviewLight(input: AppShellStatusInput["review"]): AppShellLight {
   const totalDue = input.executableCount + input.bridgedCount;
+  if (input.inQuickReview) {
+    return {
+      kind: "review",
+      tone: "blue",
+      label: "复习",
+      summary: "正在快速复习",
+      action: { label: "继续复习", href: input.nextHref },
+    };
+  }
   if (input.blocked || input.overdueLearningDays >= 3) {
     return {
       kind: "review",
@@ -117,15 +126,6 @@ function reviewLight(input: AppShellStatusInput["review"]): AppShellLight {
         ? "复习被阻塞"
         : `逾期至少 ${input.overdueLearningDays} 个学习日`,
       action: { label: "查看队列", href: input.nextHref },
-    };
-  }
-  if (input.inQuickReview) {
-    return {
-      kind: "review",
-      tone: "blue",
-      label: "复习",
-      summary: "正在快速复习",
-      action: { label: "继续复习", href: input.nextHref },
     };
   }
   if (totalDue > 0 || input.overdueLearningDays > 0) {
@@ -289,6 +289,8 @@ export function selectMobileTopLight(lights: AppShellLight[]): AppShellLight {
   if (activity && (activity.tone === "blue" || activity.tone === "amber" || activity.tone === "red")) {
     return activity;
   }
+  const quickReview = lights.find((light) => light.kind === "review" && light.tone === "blue");
+  if (quickReview) return quickReview;
   return [...lights].sort((a, b) => TONE_SEVERITY[b.tone] - TONE_SEVERITY[a.tone])[0] ?? lights[0];
 }
 

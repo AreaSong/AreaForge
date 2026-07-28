@@ -5,7 +5,12 @@ import {
   collectEvidencePaths,
   type SnapshotCheck,
 } from "../ops/long-term-evidence-snapshot";
-import { buildOperabilityStatusProjection, protectedPathFiles } from "../ops/operability-status";
+import {
+  buildOperabilityStatusProjection,
+  historicalRollbackIdentity,
+  productionBaselineIdentity,
+  protectedPathFiles,
+} from "../ops/operability-status";
 import {
   readRequiredFile,
   scanForSecrets,
@@ -177,6 +182,7 @@ export function validateLongTermEvidenceSnapshot(raw: string, options: Validatio
   if (body.releaseTag !== `v${String(body.packageVersion)}`) {
     issues.push({ field: "releaseTag", message: "must equal v + packageVersion" });
   }
+  if (schemaVersion === 3) validateSnapshotIdentities(body, issues);
   requireValue(body.scope, "scope", "long_term_operability_current_checkout", issues);
   requireOneOf(body.status, "status", [
     "ready_for_long_term_operability_review",
@@ -248,6 +254,14 @@ function currentBindingIssues(body: JsonRecord): ValidationIssue[] {
   if (body.packageVersion !== projection.app.version || body.expectedVersion !== projection.app.version || body.releaseTag !== projection.app.releaseTag) {
     issues.push({ field: "packageVersion.currentBinding", message: "does not match the current package version and release tag" });
   }
+  if (
+    !isRecord(body.currentCheckout) ||
+    body.currentCheckout.version !== projection.app.currentCheckout.version ||
+    stableStringify(body.productionBaseline) !== stableStringify(projection.app.productionBaseline) ||
+    stableStringify(body.historicalRollback) !== stableStringify(projection.app.historicalRollback)
+  ) {
+    issues.push({ field: "currentCheckout.currentBinding", message: "does not match the current checkout, production baseline, and historical rollback identities" });
+  }
   if (sourceSnapshot.controlPlaneSourceHash !== projection.sourceSnapshot.controlPlaneSourceHash) {
     issues.push({ field: "sourceSnapshot.controlPlaneSourceHash.currentBinding", message: "does not match the current checkout" });
   }
@@ -283,6 +297,32 @@ function currentBindingIssues(body: JsonRecord): ValidationIssue[] {
     issues.push({ field: "checks.dataIntegrity.currentBinding", message: "does not match the current doctor record semantics or freshness" });
   }
   return issues;
+}
+
+function validateSnapshotIdentities(body: JsonRecord, issues: ValidationIssue[]): void {
+  if (!isRecord(body.currentCheckout)) {
+    issues.push({ field: "currentCheckout", message: "must be an object" });
+  } else if (body.currentCheckout.version !== body.packageVersion) {
+    issues.push({ field: "currentCheckout.version", message: "must match packageVersion" });
+  }
+  validateFixedIdentity(body.productionBaseline, "productionBaseline", productionBaselineIdentity, issues);
+  validateFixedIdentity(body.historicalRollback, "historicalRollback", historicalRollbackIdentity, issues);
+}
+
+function validateFixedIdentity(
+  value: unknown,
+  field: string,
+  expected: { version: string; releaseTag: string; releaseRecordPath: string; role?: string },
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ field, message: "must be an object" });
+    return;
+  }
+  requireValue(value.version, `${field}.version`, expected.version, issues);
+  requireValue(value.releaseTag, `${field}.releaseTag`, expected.releaseTag, issues);
+  requireValue(value.releaseRecordPath, `${field}.releaseRecordPath`, expected.releaseRecordPath, issues);
+  if (expected.role) requireValue(value.role, `${field}.role`, expected.role, issues);
 }
 
 function dataIntegrityBindingShape(check: JsonRecord | SnapshotCheck): JsonRecord {

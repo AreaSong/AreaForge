@@ -3,18 +3,14 @@ import { z } from "zod";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import {
-  createPlanInboxItem,
+  createUserPlanInboxItem,
   listPlanInboxItems,
 } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";
 
-const createSchema = z.object({
-  stableKey: z.string().trim().min(1).max(80),
-  originKey: z.string().trim().min(1).max(160),
-  originVersion: z.number().int().positive(),
-  originType: z.string().trim().min(1).max(80),
-  originSnapshot: z.record(z.string(), z.unknown()),
+export const planInboxClientCreateSchema = z.object({
+  clientRequestKey: z.string().trim().min(1).max(160),
   title: z.string().trim().min(1).max(200),
   subjectId: z.string().nullable().optional(),
   plannedDate: z.string().datetime().nullable().optional(),
@@ -28,7 +24,7 @@ const createSchema = z.object({
     taskId: z.string().min(1),
     dependencyType: z.enum(["SOFT", "HARD"]),
   })).max(50).optional(),
-});
+}).strict();
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,9 +41,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await requireApiUser(request);
-    const parsed = createSchema.safeParse(await readJson(request));
+    const parsed = planInboxClientCreateSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
-    return NextResponse.json({ item: await createPlanInboxItem(user.id, parsed.data) }, { status: 201 });
+    return NextResponse.json({ item: await createUserPlanInboxItem(user.id, parsed.data) }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }

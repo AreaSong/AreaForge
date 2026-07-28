@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { PlanInboxClient } from "@/components/plan-inbox-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { findActiveWorkspaceOrNull } from "@/lib/study/exam-workspace-service";
-import { listPlanInboxItems } from "@/lib/study/plan-inbox-service";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { listPlanInboxItems, matchesPlanInboxStableRef } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/today/inbox");
 
 export default async function TodayInboxPage({ searchParams }: { searchParams: Promise<{ status?: string; stableRef?: string }> }) {
   const user = await getCurrentUser();
@@ -25,7 +27,7 @@ export default async function TodayInboxPage({ searchParams }: { searchParams: P
   const status = query.status === "DISMISSED" || query.status === "CONVERTED" ? query.status : "OPEN";
   const listed = await listPlanInboxItems(user.id, query.stableRef ? undefined : status);
   const items = query.stableRef
-    ? listed.filter((item) => `${item.stableKey}@${item.originVersion}` === query.stableRef || item.stableKey === query.stableRef)
+    ? listed.filter((item) => matchesPlanInboxStableRef(item, query.stableRef as string))
     : listed;
   return <PlanInboxClient items={items} status={status} />;
 }

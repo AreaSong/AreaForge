@@ -3,11 +3,12 @@ import { QuickReviewClient } from "@/components/quick-review-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getReviewSchedule, type ReviewScheduleDto } from "@/lib/study/review-schedule-service";
 import { getActiveStudySession } from "@/lib/study/service";
-import { sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { ApiError } from "@/lib/api/responses";
 import { getReviewTarget } from "@/lib/study/review-target-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/quick-review/schedule");
 
 export default async function QuickReviewPage({
   params,
@@ -32,11 +33,19 @@ export default async function QuickReviewPage({
     schedule = await getReviewSchedule(user.id, scheduleId);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      redirect("/today");
+      redirect("/knowledge/reviews");
     }
     throw error;
   }
 
-  const target = await getReviewTarget(user.id, schedule.id);
+  let target;
+  try {
+    target = await getReviewTarget(user.id, schedule.id);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      redirect("/knowledge/reviews");
+    }
+    throw error;
+  }
   return <QuickReviewClient userId={user.id} schedule={schedule} target={target} returnTo={returnTo} />;
 }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { WorkspaceSettingsClient } from "@/components/workspace-settings-client";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
 import {
   findActiveWorkspaceOrNull,
   listExamWorkspaces,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/study/exam-workspace-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/settings/workspace");
 
 export default async function WorkspaceSettingsPage({
   searchParams,
@@ -27,6 +29,7 @@ export default async function WorkspaceSettingsPage({
 
   return (
     <WorkspaceSettingsClient
+      userId={user.id}
       workspaces={workspaces}
       activeId={active?.id ?? null}
       subjects={subjects}

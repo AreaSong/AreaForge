@@ -15,6 +15,7 @@ const requiredCheckIds = [
   "checkin.lock_key_contract",
   "session.concurrent_start",
   "session.pause_resume_end_cas",
+  "session.command_idempotency_expected_preimage",
   "task.command_cas",
   "task.simulation_complete_cas",
   "task.debt_reorder_cas",
@@ -142,6 +143,17 @@ function validateCheckDetails(
   const session = checks.get("session.pause_resume_end_cas")?.details;
   if (session?.pauseWinnerCount !== 1 || session.resumeWinnerCount !== 1 || session.endWinnerCount !== 1) {
     issues.push("session transition winners are invalid");
+  }
+  const idempotency = checks.get("session.command_idempotency_expected_preimage")?.details;
+  if (
+    idempotency?.pauseReused !== true
+    || idempotency.resumeReused !== true
+    || idempotency.endReused !== true
+    || idempotency.staleRejected !== true
+    || idempotency.endAuditCount !== 1
+    || idempotency.debtEventCount !== 1
+  ) {
+    issues.push("session command idempotency details are invalid");
   }
   const task = checks.get("task.command_cas")?.details;
   if (typeof task?.commandCount !== "number" || task.winnerCount !== task.commandCount || task.conflictCount !== task.commandCount) {

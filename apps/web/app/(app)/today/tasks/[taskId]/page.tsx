@@ -1,46 +1,64 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { TaskDetailClient } from "@/components/task-detail-client";
-import { getCurrentUser } from "@/lib/auth/session";
-import { getStudyTaskDetail } from "@/lib/study/plan-rolling-service";
-import { listTaskDependencies, type TaskDependencyDto } from "@/lib/study/task-dependency-service";
 import { ApiError } from "@/lib/api/responses";
-import type { StudyTaskDto } from "@/lib/study/types";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { listPlanMilestones } from "@/lib/study/plan-milestone-service";
+import { listSubjects } from "@/lib/study/service";
+import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
+import { listOwnedTaskDependencies } from "@/lib/study/task-dependency-service";
+import { getStudyTaskDetail, listTaskDependencyCandidates } from "@/lib/study/task-detail-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/today/tasks/task");
 
 export default async function TaskDetailPage({ params }: { params: Promise<{ taskId: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { taskId } = await params;
 
-  let task: StudyTaskDto | null = null;
-  let dependencies: TaskDependencyDto[] = [];
-  let notFound = false;
-
+  let pageData: Awaited<ReturnType<typeof loadTaskPageData>>;
   try {
-    [task, dependencies] = await Promise.all([
-      getStudyTaskDetail(user.id, taskId),
-      listTaskDependencies(user.id, taskId),
-    ]);
+    pageData = await loadTaskPageData(user.id, taskId);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      notFound = true;
-    } else {
-      throw error;
+      notFound();
     }
+    throw error;
   }
 
-  if (notFound || !task) {
-    return (
-      <section className="space-y-3">
-        <h1 className="text-2xl font-semibold text-white">任务不存在</h1>
-        <Link href="/today/plan" className="text-teal-300 hover:underline">
-          返回计划
-        </Link>
-      </section>
-    );
-  }
+  return (
+    <TaskDetailClient
+      detail={pageData.detail}
+      dependencies={pageData.dependencies}
+      subjects={pageData.subjects}
+      syllabusNodes={pageData.syllabusNodes}
+      milestones={pageData.milestones}
+      dependencyCandidates={pageData.dependencyCandidates}
+    />
+  );
+}
 
-  return <TaskDetailClient task={task} dependencies={dependencies} />;
+async function loadTaskPageData(actorId: string, taskId: string) {
+  const [detail, dependencies] = await Promise.all([
+    getStudyTaskDetail(actorId, taskId),
+    listOwnedTaskDependencies(actorId, taskId),
+  ]);
+  if (detail.readOnly) {
+    return {
+      detail,
+      dependencies,
+      subjects: [],
+      syllabusNodes: [],
+      milestones: [],
+      dependencyCandidates: [],
+    };
+  }
+  const [subjects, syllabusNodes, milestones, dependencyCandidates] = await Promise.all([
+    listSubjects(actorId),
+    listSyllabusOptionsShared(actorId),
+    listPlanMilestones(actorId),
+    listTaskDependencyCandidates(actorId, taskId),
+  ]);
+  return { detail, dependencies, subjects, syllabusNodes, milestones, dependencyCandidates };
 }

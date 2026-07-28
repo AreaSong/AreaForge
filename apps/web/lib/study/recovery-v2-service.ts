@@ -1,21 +1,29 @@
 import {
   RECOVERY_WINDOW_DAYS,
   assertExpectedRevision,
+  computeRecoveryProgressMinutes,
   evaluateRecoveryDayProgress,
   recoveryWindowDayIndex,
   stageTargetMinutes,
   type RecoveryV2Status,
 } from "@areaforge/core";
-import { prisma } from "@areaforge/db";
+import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getStudyDayRange } from "./date";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+
+const recoveryV2LockNamespace = 2026072122;
+type Tx = Prisma.TransactionClient;
 
 export interface RecoveryV2Dto {
   id: string;
   workspaceId: string | null;
   userId: string | null;
   status: RecoveryV2Status;
+  /** GET 可投影到期状态，不在只读路径写回数据库。 */
+  effectiveStatus: RecoveryV2Status;
+  effectiveReason: string;
+  restartAvailable: boolean;
   triggerType: string;
   currentStage: number;
   targetMinutes: number;
@@ -48,11 +56,17 @@ function serialize(row: {
   startedAt: Date;
   endedAt: Date | null;
 }): RecoveryV2Dto {
+  const status = normalizeStatus(row.status);
+  const expiredOnRead = status === "ACTIVE" && isRecoveryV2Expired(row, new Date());
+  const effectiveStatus = expiredOnRead ? "EXPIRED" : status;
   return {
     id: row.id,
     workspaceId: row.workspaceId,
     userId: row.userId,
-    status: normalizeStatus(row.status),
+    status,
+    effectiveStatus,
+    effectiveReason: expiredOnRead ? "恢复窗口已到期，可重新开始恢复三阶。" : row.reason,
+    restartAvailable: effectiveStatus === "EXPIRED",
     triggerType: row.triggerType,
     currentStage: row.currentStage,
     targetMinutes: row.targetMinutes,
@@ -83,59 +97,29 @@ function normalizeStatus(status: string): RecoveryV2Status {
 export async function getActiveRecoveryV2(actorId: string): Promise<RecoveryV2Dto | null> {
   const workspace = await resolveActiveWorkspace(actorId);
   const row = await prisma.recoveryState.findFirst({
-    where: {
-      userId: actorId,
-      workspaceId: workspace.id,
-      status: { in: ["ACTIVE", "active"] },
-    },
+    where: { userId: actorId, workspaceId: workspace.id, status: "ACTIVE" },
     orderBy: { startedAt: "desc" },
   });
-  return row ? serialize(row) : null;
+  if (!row) return null;
+  return serialize(row);
 }
 
 export async function startRecoveryV2(
   actorId: string,
   input?: { reason?: string },
 ): Promise<RecoveryV2Dto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  if (workspace.status !== "ACTIVE") {
-    throw new ApiError("RECOVERY_WORKSPACE_NOT_ACTIVE", 409);
-  }
+  return prisma.$transaction(async (tx) => {
+    const workspace = await resolveActiveWorkspace(actorId, tx);
+    await lockRecoveryV2Scope(tx, actorId, workspace.id);
 
-  const today = getStudyDayRange();
-  const windowEnd = new Date(today.start.getTime() + RECOVERY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-
-  try {
-    const created = await prisma.recoveryState.create({
-      data: {
-        userId: actorId,
-        actorId,
-        workspaceId: workspace.id,
-        status: "ACTIVE",
-        triggerType: "manual",
-        currentStage: 1,
-        targetMinutes: stageTargetMinutes(1),
-        visibleTaskLimit: 1,
-        reason: input?.reason?.trim() || "手动进入恢复：先完成三阶最小有效学习。",
-        windowStartDate: today.start,
-        windowEndDate: windowEnd,
-        progressionVersion: 1,
-        revision: 1,
-      },
-    });
-    return serialize(created);
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: string }).code === "P2002"
-    ) {
-      const existing = await getActiveRecoveryV2(actorId);
-      if (existing) return existing;
+    const active = await findActiveRecoveryV2InTx(tx, actorId, workspace.id);
+    if (active) {
+      const current = await expireRecoveryV2IfNeeded(tx, active, new Date());
+      if (normalizeStatus(current.status) === "ACTIVE") return serialize(current);
     }
-    throw error;
-  }
+
+    return serialize(await createRecoveryV2InTx(tx, actorId, workspace.id, input?.reason));
+  });
 }
 
 export async function cancelRecoveryV2(
@@ -143,34 +127,33 @@ export async function cancelRecoveryV2(
   recoveryId: string,
   input: { expectedRevision: number },
 ): Promise<RecoveryV2Dto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const existing = await prisma.recoveryState.findFirst({
-    where: { id: recoveryId, userId: actorId, workspaceId: workspace.id },
-  });
-  if (!existing) throw new ApiError("RECOVERY_NOT_FOUND", 404);
-  if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision: input.expectedRevision }) === "revision_conflict") {
-    throw new ApiError("RECOVERY_REVISION_CONFLICT", 409, {
-      latest: serialize(existing),
-      conflictFields: ["revision"],
-    });
-  }
-  if (normalizeStatus(existing.status) !== "ACTIVE") {
-    throw new ApiError("RECOVERY_NOT_ACTIVE", 409, {
-      latest: serialize(existing),
-      conflictFields: ["status"],
-    });
-  }
+  return prisma.$transaction(async (tx) => {
+    const workspace = await resolveActiveWorkspace(actorId, tx);
+    await lockRecoveryV2Scope(tx, actorId, workspace.id);
+    const existing = await findRecoveryV2ByIdInTx(tx, actorId, workspace.id, recoveryId);
+    if (!existing) throw new ApiError("RECOVERY_NOT_FOUND", 404);
+    assertRecoveryRevision(existing, input.expectedRevision);
+    const current = normalizeStatus(existing.status) === "ACTIVE"
+      ? await expireRecoveryV2IfNeeded(tx, existing, new Date())
+      : existing;
+    if (normalizeStatus(current.status) !== "ACTIVE") {
+      throw new ApiError("RECOVERY_NOT_ACTIVE", 409, {
+        latest: serialize(current),
+        conflictFields: ["status"],
+      });
+    }
 
-  const updated = await prisma.recoveryState.update({
-    where: { id: existing.id },
-    data: {
-      status: "CANCELED",
-      endedAt: new Date(),
-      exitCondition: "user_cancel",
-      revision: { increment: 1 },
-    },
+    const updated = await tx.recoveryState.update({
+      where: { id: current.id },
+      data: {
+        status: "CANCELED",
+        endedAt: new Date(),
+        exitCondition: "user_cancel",
+        revision: { increment: 1 },
+      },
+    });
+    return serialize(updated);
   });
-  return serialize(updated);
 }
 
 export async function restartRecoveryV2(
@@ -178,85 +161,168 @@ export async function restartRecoveryV2(
   recoveryId: string,
   input: { expectedRevision: number },
 ): Promise<RecoveryV2Dto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const existing = await prisma.recoveryState.findFirst({
-    where: { id: recoveryId, userId: actorId, workspaceId: workspace.id },
+  return prisma.$transaction(async (tx) => {
+    const workspace = await resolveActiveWorkspace(actorId, tx);
+    await lockRecoveryV2Scope(tx, actorId, workspace.id);
+    const existing = await findRecoveryV2ByIdInTx(tx, actorId, workspace.id, recoveryId);
+    if (!existing) throw new ApiError("RECOVERY_NOT_FOUND", 404);
+    assertRecoveryRevision(existing, input.expectedRevision);
+
+    const current = normalizeStatus(existing.status) === "ACTIVE"
+      ? await expireRecoveryV2IfNeeded(tx, existing, new Date())
+      : existing;
+    if (normalizeStatus(current.status) === "ACTIVE") {
+      throw new ApiError("RECOVERY_ALREADY_ACTIVE", 409, {
+        latest: serialize(current),
+        conflictFields: ["status"],
+      });
+    }
+
+    return serialize(await createRecoveryV2InTx(
+      tx,
+      actorId,
+      workspace.id,
+      "重新开始恢复三阶。",
+    ));
   });
-  if (!existing) throw new ApiError("RECOVERY_NOT_FOUND", 404);
-  if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision: input.expectedRevision }) === "revision_conflict") {
-    throw new ApiError("RECOVERY_REVISION_CONFLICT", 409, {
-      latest: serialize(existing),
-      conflictFields: ["revision"],
-    });
-  }
-
-  const status = normalizeStatus(existing.status);
-  if (status === "ACTIVE") {
-    throw new ApiError("RECOVERY_ALREADY_ACTIVE", 409, {
-      latest: serialize(existing),
-      conflictFields: ["status"],
-    });
-  }
-
-  await prisma.recoveryState.update({
-    where: { id: existing.id },
-    data: {
-      status: status === "EXPIRED" || status === "COMPLETED" || status === "CANCELED" ? status : "CANCELED",
-      endedAt: existing.endedAt ?? new Date(),
-      revision: { increment: 1 },
-    },
-  });
-
-  return startRecoveryV2(actorId, { reason: "重新开始恢复三阶。" });
 }
 
 export async function applyRecoveryDayProgress(
   actorId: string,
   input: { progressMinutesToday: number },
 ): Promise<RecoveryV2Dto | null> {
-  const active = await getActiveRecoveryV2(actorId);
-  if (!active) return null;
-
-  const workspace = await resolveActiveWorkspace(actorId);
-  const existing = await prisma.recoveryState.findFirst({
-    where: { id: active.id, workspaceId: workspace.id },
+  return prisma.$transaction(async (tx) => {
+    const workspace = await resolveActiveWorkspace(actorId, tx);
+    await lockRecoveryV2Scope(tx, actorId, workspace.id);
+    const existing = await findActiveRecoveryV2InTx(tx, actorId, workspace.id);
+    if (!existing) return null;
+    return serialize(await applyRecoveryV2ProgressInTx(tx, existing, input.progressMinutesToday, new Date()));
   });
-  if (!existing || !existing.windowStartDate) return active;
+}
 
-  const today = getStudyDayRange();
-  const dayIndex = recoveryWindowDayIndex({
-    windowStartDate: existing.windowStartDate,
-    todayStart: today.start,
-  });
-  const alreadyAdvancedToday =
-    existing.lastProgressDate !== null &&
-    getStudyDayRange(existing.lastProgressDate).key === today.key;
+export async function applyRecoveryV2CheckInProgressInTx(
+  tx: Tx,
+  actorId: string,
+  workspaceId: string,
+  input: {
+    studyDate: Date;
+    effectiveSessionMinutes: number;
+    confirmedReviewSeconds: number;
+    now: Date;
+  },
+): Promise<RecoveryV2Dto | null> {
+  await lockRecoveryV2Scope(tx, actorId, workspaceId);
+  const existing = await findActiveRecoveryV2InTx(tx, actorId, workspaceId);
+  if (!existing) return null;
 
-  const result = evaluateRecoveryDayProgress({
-    currentStage: existing.currentStage,
-    status: normalizeStatus(existing.status),
-    progressMinutesToday: input.progressMinutesToday,
-    windowDayIndex: dayIndex,
-    alreadyAdvancedToday,
-  });
-
-  if (!result.advanced && result.nextStatus === normalizeStatus(existing.status)) {
-    if (result.nextStatus === "EXPIRED" && normalizeStatus(existing.status) === "ACTIVE") {
-      const expired = await prisma.recoveryState.update({
-        where: { id: existing.id },
-        data: {
-          status: "EXPIRED",
-          endedAt: new Date(),
-          exitCondition: "window_expired",
-          revision: { increment: 1 },
-        },
-      });
-      return serialize(expired);
-    }
-    return serialize(existing);
+  const today = getStudyDayRange(input.now);
+  if (getStudyDayRange(input.studyDate).key !== today.key) {
+    return serialize(await expireRecoveryV2IfNeeded(tx, existing, input.now));
   }
 
-  const updated = await prisma.recoveryState.update({
+  const progressMinutesToday = computeRecoveryProgressMinutes({
+    effectiveSessionMinutes: input.effectiveSessionMinutes,
+    confirmedReviewSeconds: input.confirmedReviewSeconds,
+  });
+  return serialize(await applyRecoveryV2ProgressInTx(tx, existing, progressMinutesToday, input.now));
+}
+
+type RecoveryV2Record = Prisma.RecoveryStateGetPayload<Record<string, never>>;
+
+async function lockRecoveryV2Scope(tx: Tx, actorId: string, workspaceId: string): Promise<void> {
+  const scope = `${actorId}:${workspaceId}`;
+  await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${recoveryV2LockNamespace}, hashtext(${scope}))`;
+}
+
+async function findActiveRecoveryV2InTx(
+  tx: Tx,
+  actorId: string,
+  workspaceId: string,
+): Promise<RecoveryV2Record | null> {
+  return tx.recoveryState.findFirst({
+    where: { userId: actorId, workspaceId, status: "ACTIVE" },
+    orderBy: { startedAt: "desc" },
+  });
+}
+
+async function findRecoveryV2ByIdInTx(
+  tx: Tx,
+  actorId: string,
+  workspaceId: string,
+  recoveryId: string,
+): Promise<RecoveryV2Record | null> {
+  return tx.recoveryState.findFirst({
+    where: { id: recoveryId, userId: actorId, workspaceId },
+  });
+}
+
+async function createRecoveryV2InTx(
+  tx: Tx,
+  actorId: string,
+  workspaceId: string,
+  reason?: string,
+): Promise<RecoveryV2Record> {
+  const today = getStudyDayRange();
+  return tx.recoveryState.create({
+    data: {
+      userId: actorId,
+      actorId,
+      workspaceId,
+      status: "ACTIVE",
+      triggerType: "manual",
+      currentStage: 1,
+      targetMinutes: stageTargetMinutes(1),
+      visibleTaskLimit: 1,
+      reason: reason?.trim() || "手动进入恢复：先完成三阶最小有效学习。",
+      windowStartDate: today.start,
+      windowEndDate: new Date(today.start.getTime() + RECOVERY_WINDOW_DAYS * 24 * 60 * 60 * 1000),
+      progressionVersion: 1,
+      revision: 1,
+    },
+  });
+}
+
+async function expireRecoveryV2IfNeeded(
+  tx: Tx,
+  existing: RecoveryV2Record,
+  now: Date,
+): Promise<RecoveryV2Record> {
+  if (normalizeStatus(existing.status) !== "ACTIVE" || !isRecoveryV2Expired(existing, now)) return existing;
+  return tx.recoveryState.update({
+    where: { id: existing.id },
+    data: {
+      status: "EXPIRED",
+      endedAt: new Date(),
+      exitCondition: "window_expired",
+      revision: { increment: 1 },
+    },
+  });
+}
+
+async function applyRecoveryV2ProgressInTx(
+  tx: Tx,
+  existing: RecoveryV2Record,
+  progressMinutesToday: number,
+  now: Date,
+): Promise<RecoveryV2Record> {
+  if (!existing.windowStartDate) return existing;
+  const today = getStudyDayRange(now);
+  const status = normalizeStatus(existing.status);
+  const result = evaluateRecoveryDayProgress({
+    currentStage: existing.currentStage,
+    status,
+    progressMinutesToday,
+    windowDayIndex: recoveryWindowDayIndex({
+      windowStartDate: existing.windowStartDate,
+      todayStart: today.start,
+    }),
+    alreadyAdvancedToday:
+      existing.lastProgressDate !== null &&
+      getStudyDayRange(existing.lastProgressDate).key === today.key,
+  });
+
+  if (!result.advanced && result.nextStatus === status) return existing;
+  return tx.recoveryState.update({
     where: { id: existing.id },
     data: {
       currentStage: result.nextStage,
@@ -270,11 +336,28 @@ export async function applyRecoveryDayProgress(
           : result.nextStatus === "EXPIRED"
             ? "window_expired"
             : existing.exitCondition,
-      progressionVersion: result.advanced
-        ? { increment: 1 }
-        : existing.progressionVersion,
+      progressionVersion: result.advanced ? { increment: 1 } : existing.progressionVersion,
       revision: { increment: 1 },
     },
   });
-  return serialize(updated);
+}
+
+function isRecoveryV2Expired(
+  existing: Pick<RecoveryV2Record, "status" | "windowStartDate">,
+  now: Date,
+): boolean {
+  if (!existing.windowStartDate || normalizeStatus(existing.status) !== "ACTIVE") return false;
+  return recoveryWindowDayIndex({
+    windowStartDate: existing.windowStartDate,
+    todayStart: getStudyDayRange(now).start,
+  }) >= RECOVERY_WINDOW_DAYS;
+}
+
+function assertRecoveryRevision(existing: RecoveryV2Record, expectedRevision: number): void {
+  if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision }) === "revision_conflict") {
+    throw new ApiError("RECOVERY_REVISION_CONFLICT", 409, {
+      latest: serialize(existing),
+      conflictFields: ["revision"],
+    });
+  }
 }

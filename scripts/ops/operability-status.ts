@@ -65,6 +65,19 @@ type ReleaseEvidenceGapSummary = {
   doesNotProve: string[];
 };
 
+export const productionBaselineIdentity = {
+  version: "0.1.9",
+  releaseTag: "v0.1.9",
+  releaseRecordPath: "docs/development/release-v0.1.9-record.md",
+};
+
+export const historicalRollbackIdentity = {
+  version: "0.1.7",
+  releaseTag: "v0.1.7",
+  releaseRecordPath: "docs/development/release-v0.1.7-record.md",
+  role: "protected_rollback_target",
+};
+
 export type OperabilityStatusProjection = {
   schemaVersion: 2;
   generatedAt: string;
@@ -76,6 +89,11 @@ export type OperabilityStatusProjection = {
     onlineUrl: "https://forge.areasong.top/";
     releaseTag: string;
     autoApplyDefault: "none";
+    currentCheckout: {
+      version: string;
+    };
+    productionBaseline: typeof productionBaselineIdentity;
+    historicalRollback: typeof historicalRollbackIdentity;
   };
   sourceBaseline: {
     borrowedMechanisms: string[];
@@ -155,6 +173,9 @@ export type OperabilityStatusProjection = {
 export type OperabilityStatusSummary = {
   title: "AreaForge operability status";
   app: string;
+  currentCheckout: string;
+  productionBaseline: string;
+  historicalRollback: string;
   offlineOverall: OverallStatus;
   controlPlane: OperabilityStatusProjection["status"]["controlPlane"];
   releaseTrain: OperabilityStatusProjection["status"]["releaseTrain"];
@@ -215,7 +236,7 @@ const residualTypes: ResidualType[] = [
 ];
 const reviewStatuses: ReviewStatus[] = ["overdue", "due_today", "due_soon", "future"];
 const ledgerPath = "docs/development/residual-risk-ledger.json";
-const releaseEvidenceRecordPath = "docs/development/release-v0.1.7-record.md";
+const releaseEvidenceRecordPath = productionBaselineIdentity.releaseRecordPath;
 const requiredFiles = [
   "README.md",
   "docs/README.md",
@@ -242,6 +263,7 @@ const requiredFiles = [
   "tasks/active/0021-attachment-staging-intent.md",
   "tasks/active/0022-updater-phase-journal-hold.md",
   releaseEvidenceRecordPath,
+  historicalRollbackIdentity.releaseRecordPath,
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
@@ -450,6 +472,7 @@ export const protectedPathFiles = [
   "docs/development/ops-005-expected-before-production-evidence-template.md",
   "docs/development/high-risk-confirmation-packets.md",
   releaseEvidenceRecordPath,
+  historicalRollbackIdentity.releaseRecordPath,
   "docs/development/residual-risk-ledger.md",
   "docs/development/residual-risk-ledger.json",
   "docs/development/validation-matrix.md",
@@ -516,7 +539,10 @@ export function buildOperabilityStatusProjection(options: BuildOptions = {}): Op
 export function buildOperabilityStatusSummary(projection: OperabilityStatusProjection): OperabilityStatusSummary {
   return {
     title: "AreaForge operability status",
-    app: `${projection.app.name} ${projection.app.version} (${projection.app.releaseTag})`,
+    app: projection.app.name,
+    currentCheckout: `${projection.app.currentCheckout.version} (local checkout; no Release implied)`,
+    productionBaseline: `${projection.app.productionBaseline.version} (${projection.app.productionBaseline.releaseTag}) record=${projection.app.productionBaseline.releaseRecordPath}`,
+    historicalRollback: `${projection.app.historicalRollback.version} (${projection.app.historicalRollback.releaseTag}) role=${projection.app.historicalRollback.role} record=${projection.app.historicalRollback.releaseRecordPath}`,
     offlineOverall: projection.status.overall,
     controlPlane: projection.status.controlPlane,
     releaseTrain: projection.status.releaseTrain,
@@ -577,6 +603,9 @@ export function formatOperabilityStatusSummary(summary: OperabilityStatusSummary
   return [
     summary.title,
     `app: ${summary.app}`,
+    `currentCheckout: ${summary.currentCheckout}`,
+    `productionBaseline: ${summary.productionBaseline}`,
+    `historicalRollback: ${summary.historicalRollback}`,
     `offlineOverall: ${summary.offlineOverall}`,
     `controlPlane: ${summary.controlPlane}`,
     `releaseTrain: ${summary.releaseTrain}`,
@@ -638,12 +667,18 @@ function collectProjectionFacts(options: BuildOptions): ProjectionFacts {
 }
 
 function buildAppStatus(packageJson: ProjectionFacts["packageJson"]): OperabilityStatusProjection["app"] {
+  const checkoutVersion = packageJson.version ?? "unknown";
   return {
     name: packageJson.name ?? "@areasong/areaforge",
-    version: packageJson.version ?? "unknown",
+    version: checkoutVersion,
     onlineUrl: "https://forge.areasong.top/",
-    releaseTag: versionTag(packageJson.version ?? "unknown"),
+    releaseTag: versionTag(checkoutVersion),
     autoApplyDefault: "none",
+    currentCheckout: {
+      version: checkoutVersion,
+    },
+    productionBaseline: productionBaselineIdentity,
+    historicalRollback: historicalRollbackIdentity,
   };
 }
 
@@ -838,7 +873,7 @@ function buildBoundaryStops(): BoundaryStop[] {
   return [
     {
       key: "post_update_ops001",
-      evidence: "post-v0.1.7 production readonly smoke, redacted update-agent status, operational evidence bundle, and OPS-001 closure packet",
+      evidence: "AF-RISK-OPS-001 is closed-evidence on production v0.1.9; any later production version or stale/failed evidence requires a fresh readonly smoke, redacted status, bundle, and closure packet",
       currentBoundary: [
         "no server command",
         "no secret read/print/copy/commit",
@@ -850,14 +885,14 @@ function buildBoundaryStops(): BoundaryStop[] {
         "local status, handoff, docs, and validator checks",
       ],
       requiresFreshConfirmation: [
-        "server-side redacted or fallback evidence collection scope",
-        "explicit permission for any smoke credential file read if authenticated smoke is required",
-        "maintainer review before any residual ledger closure",
+        "server-side redacted or fallback evidence collection scope after a later production change or evidence invalidation",
+        "explicit permission for any smoke credential file read if fresh authenticated smoke is required",
+        "maintainer review before reopening or changing the residual ledger state",
       ],
     },
     {
       key: "release_backup_hashes",
-      evidence: "releaseEvidenceBundleHash, backup SHA256 fields, and attachment reconciliation path/status/hash bindings for docs/development/release-v0.1.7-record.md",
+      evidence: "docs/development/release-v0.1.9-record.md contains releaseEvidenceBundleHash, backup SHA256 fields, and attachment reconciliation bindings; any later Release needs a new matching record",
       currentBoundary: [
         "no server command",
         "no root-only update-record or backup metadata read",
@@ -865,22 +900,21 @@ function buildBoundaryStops(): BoundaryStop[] {
       ],
       allowedNow: [
         "pnpm ops:backup-restore:preview",
-        "pnpm release:evidence:validate docs/development/release-v0.1.7-record.md",
+        "pnpm release:evidence:validate docs/development/release-v0.1.9-record.md",
         "pnpm release:evidence:redacted-export:selftest",
       ],
       requiresFreshConfirmation: [
-        "server-side no-secret redacted release evidence export",
-        "local validation with pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
+        "server-side no-secret redacted release evidence export after a later Release or evidence invalidation",
+        "local validation of any new export with pnpm release:evidence:redacted-export:validate <redacted-export-dir>",
       ],
     },
     {
       key: "update_request_expected_before",
-      evidence: "AF-RISK-OPS-005 expected-before V2 local implementation is verified; signed Release and production deployment evidence remain",
+      evidence: "AF-RISK-OPS-005 expected-before V2 is closed-evidence on production v0.1.9; any later Release or apply needs a new matching evidence chain",
       currentBoundary: [
-        "no matching signed Release for the verified V2 checkout",
-        "no production deployment confirmation",
-        "no mutation request execution",
-        "no AF-RISK-OPS-005 residual closure",
+        "no authorization for a later signed Release or production apply",
+        "no mutation request execution from this offline projection",
+        "no automatic residual ledger state change",
       ],
       allowedNow: [
         "pnpm ops:ops-005:local:selftest",
@@ -888,18 +922,17 @@ function buildBoundaryStops(): BoundaryStop[] {
         "local signed Release readiness validation",
       ],
       requiresFreshConfirmation: [
-        "separate signed Release confirmation after local validation",
-        "separate production timer, queue isolation, Web/agent deployment, and V2 check confirmation",
+        "separate signed Release confirmation for a later candidate",
+        "separate production timer, queue isolation, Web/agent deployment, and V2 check confirmation for a later apply",
       ],
     },
     {
       key: "business_state_concurrency",
-      evidence: "AF-RISK-OPS-006 local_verified is complete; matching signed Release, base rollout, controlled synthetic probe, and production evidence remain",
+      evidence: "AF-RISK-OPS-006 is closed-evidence on production v0.1.9; any later migration, rollout, or probe needs a new matching evidence chain",
       currentBoundary: [
-        "no matching signed Release for the verified OPS-006 checkout",
-        "no production migration/deploy confirmation",
-        "no controlled production write probe confirmation",
-        "no AF-RISK-OPS-006 residual closure",
+        "no authorization for a later migration or production deploy",
+        "no controlled production write probe from this offline projection",
+        "no automatic residual ledger state change",
       ],
       allowedNow: [
         "pnpm ops:ops-006:preflight:strict",
@@ -907,15 +940,15 @@ function buildBoundaryStops(): BoundaryStop[] {
         "pnpm ops:ops-006:production:preflight:selftest",
       ],
       requiresFreshConfirmation: [
-        "matching signed Release after local validation",
-        "separate base rollout with backup, migration, health, smoke, and doctor evidence",
-        "separate controlled synthetic concurrency write probe",
+        "matching signed Release for a later candidate",
+        "separate later rollout with backup, migration, health, smoke, and doctor evidence",
+        "separate controlled synthetic concurrency write probe for a later rollout",
         "maintainer review before residual ledger closure",
       ],
     },
     {
       key: "residual_closure",
-      evidence: "AF-RISK-OPS-001 / AF-RISK-OPS-004 / AF-RISK-OPS-005 / AF-RISK-OPS-006 / supply-chain residual closure decisions",
+      evidence: "AF-RISK-OPS-002 / AF-RISK-OPS-003 / AF-RISK-REL-001 and any explicitly reopened residual closure decisions",
       currentBoundary: [
         "no residual ledger closure",
         "no completion claim without live evidence gate",

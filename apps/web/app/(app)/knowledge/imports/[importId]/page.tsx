@@ -1,10 +1,14 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { LearningTreeBatchArchiveButton } from "@/components/learning-tree-import-client";
+import { notFound, redirect } from "next/navigation";
+import { DetailHeading } from "@/components/detail-heading";
+import { LearningTreeBatchArchiveButton } from "@/components/learning-tree-import-history";
+import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { getLearningTreeImport } from "@/lib/study/learning-tree-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/knowledge/imports/import");
 
 export default async function KnowledgeImportDetailPage({
   params,
@@ -14,7 +18,10 @@ export default async function KnowledgeImportDetailPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { importId } = await params;
-  const batch = await getLearningTreeImport(user.id, importId);
+  const batch = await getLearningTreeImport(user.id, importId).catch((error: unknown) => {
+    if (error instanceof ApiError && error.status === 404) notFound();
+    throw error;
+  });
 
   return (
     <article className="space-y-4">
@@ -22,7 +29,7 @@ export default async function KnowledgeImportDetailPage({
         返回导入列表
       </Link>
       <header>
-        <h2 className="text-2xl font-semibold text-white">导入批次</h2>
+        <DetailHeading className="text-2xl font-semibold text-white">导入批次</DetailHeading>
         <p className="mt-1 text-sm text-zinc-500">
           {batch.scope} · parser {batch.parserVersion} · {batch.items.length} 项
         </p>
@@ -30,7 +37,12 @@ export default async function KnowledgeImportDetailPage({
           <a className="inline-flex h-9 items-center rounded-md border border-white/10 px-3 text-sm text-zinc-200" href={`/api/learning-tree/imports/${batch.id}/export`}>
             下载规范化 Markdown
           </a>
-          <LearningTreeBatchArchiveButton batchId={batch.id} archived={Boolean(batch.archivedAt)} />
+          <LearningTreeBatchArchiveButton
+            batchId={batch.id}
+            archived={Boolean(batch.archivedAt)}
+            workspaceStatus={batch.workspaceStatus}
+            workspaceRevision={batch.workspaceRevision}
+          />
         </div>
       </header>
       <dl className="grid gap-3 border-y border-white/10 py-4 text-sm sm:grid-cols-2">

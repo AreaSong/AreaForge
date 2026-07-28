@@ -1,7 +1,16 @@
 import { assertExpectedRevision } from "@areaforge/core";
-import { prisma } from "@areaforge/db";
+import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import type { StagePlanDto } from "./types";
+import {
+  buildPersistentCreateFingerprint,
+  findPersistentCreateReplay,
+  normalizeIdempotencyKey,
+  recordPersistentCreateResult,
+} from "./persistent-idempotency";
+
+const milestoneWorkbench = "/stage/overview";
 
 export interface PlanMilestoneDto {
   id: string;
@@ -15,6 +24,14 @@ export interface PlanMilestoneDto {
   status: string;
   revision: number;
   archivedAt: string | null;
+}
+
+export interface PlanMilestoneConflictLatest {
+  kind: "plan-milestone";
+  milestone: PlanMilestoneDto | null;
+  stagePlan?: StagePlanDto | null;
+  commandState?: "conflict" | "result_unavailable";
+  sourceConflict?: unknown;
 }
 
 function serialize(row: {
@@ -57,7 +74,9 @@ export async function listPlanMilestones(actorId: string): Promise<PlanMilestone
 export async function createPlanMilestone(
   actorId: string,
   input: {
+    idempotencyKey: string;
     stagePlanId: string;
+    expectedStagePlanRevision?: number;
     stableKey: string;
     title: string;
     subjectId?: string | null;
@@ -65,49 +84,121 @@ export async function createPlanMilestone(
     sortOrder?: number;
   },
 ): Promise<PlanMilestoneDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const stagePlan = await prisma.stagePlan.findFirst({
-    where: {
-      id: input.stagePlanId,
-      OR: [{ workspaceId: workspace.id }, { workspaceId: null }],
-    },
-  });
-  if (!stagePlan) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
-
-  if (input.subjectId) {
-    const subject = await prisma.subject.findFirst({
-      where: { id: input.subjectId, OR: [{ workspaceId: workspace.id }, { workspaceId: null }] },
-    });
-    if (!subject) throw new ApiError("SUBJECT_NOT_FOUND", 404);
-  }
-
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const stableKey = input.stableKey.trim();
   const title = input.title.trim();
-  const duplicate = await prisma.planMilestone.findFirst({ where: { workspaceId: workspace.id, stableKey } });
-  if (duplicate) throw new ApiError("PLAN_MILESTONE_STABLE_KEY_CONFLICT", 409, { latest: serialize(duplicate), conflictFields: ["stableKey"] });
-
-  const created = await prisma.planMilestone.create({
-    data: {
-      workspaceId: workspace.id,
-      stagePlanId: input.stagePlanId,
-      subjectId: input.subjectId ?? null,
-      stableKey,
-      title,
-      targetDate: input.targetDate ? new Date(input.targetDate) : null,
-      sortOrder: input.sortOrder ?? 0,
-    },
+  const requestFingerprint = buildPersistentCreateFingerprint("plan-milestone-create-v1", {
+    stagePlanId: input.stagePlanId,
+    expectedStagePlanRevision: input.expectedStagePlanRevision ?? null,
+    stableKey,
+    title,
+    subjectId: input.subjectId ?? null,
+    targetDate: input.targetDate ?? null,
+    sortOrder: input.sortOrder ?? 0,
   });
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+      const command = {
+        actorId,
+        workspaceId: workspace.id,
+        action: "PLAN_MILESTONE_CREATED",
+        entityType: "PlanMilestone",
+        idempotencyKey,
+        requestFingerprint,
+        conflictCode: "PLAN_MILESTONE_IDEMPOTENCY_CONFLICT",
+      };
+      const replay = await findPersistentCreateReplay(tx, command);
+      if (replay) {
+        const snapshot = parseMilestoneSnapshot(replay.resultSnapshot);
+        if (snapshot) return snapshot;
+        const stored = await tx.planMilestone.findFirst({ where: { id: replay.resultId, workspaceId: workspace.id } });
+        if (!stored) throw new ApiError("PLAN_MILESTONE_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
+        return serialize(stored);
+      }
 
-  await prisma.auditEvent.create({
-    data: {
-      actorId,
-      action: "PLAN_MILESTONE_CREATED",
-      entityType: "PlanMilestone",
-      entityId: created.id,
-    },
-  });
+      const stagePlan = await tx.stagePlan.findFirst({
+        where: { id: input.stagePlanId, workspaceId: workspace.id },
+      });
+      if (!stagePlan) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
+      if (input.expectedStagePlanRevision !== undefined && stagePlan.revision !== input.expectedStagePlanRevision) {
+        throw new ApiError("PLAN_MILESTONE_STAGE_PLAN_REVISION_CONFLICT", 409, {
+          latest: milestoneConflictLatest(null, undefined, undefined, serializeStagePlan(stagePlan)),
+          conflictFields: ["stagePlan.revision"],
+          workbench: milestoneWorkbench,
+        });
+      }
 
-  return serialize(created);
+      if (input.subjectId) {
+        const subject = await tx.subject.findFirst({
+          where: { id: input.subjectId, workspaceId: workspace.id, archivedAt: null },
+        });
+        if (!subject) throw new ApiError("SUBJECT_NOT_FOUND", 404);
+      }
+
+      const duplicate = await tx.planMilestone.findFirst({ where: { workspaceId: workspace.id, stableKey } });
+      if (duplicate) {
+        throw new ApiError("PLAN_MILESTONE_STABLE_KEY_CONFLICT", 409, {
+          latest: milestoneConflictLatest(serialize(duplicate), undefined, undefined, serializeStagePlan(stagePlan)),
+          conflictFields: ["stableKey"],
+          workbench: milestoneWorkbench,
+        });
+      }
+
+      const created = await tx.planMilestone.create({
+        data: {
+          workspaceId: workspace.id,
+          stagePlanId: input.stagePlanId,
+          subjectId: input.subjectId ?? null,
+          stableKey,
+          title,
+          targetDate: input.targetDate ? new Date(input.targetDate) : null,
+          sortOrder: input.sortOrder ?? 0,
+        },
+      });
+
+      const result = serialize(created);
+      await recordPersistentCreateResult(tx, command, created.id, {
+        stagePlanId: created.stagePlanId,
+        stableKey: created.stableKey,
+        resultSnapshot: result as unknown as Prisma.InputJsonObject,
+      });
+      return result;
+    });
+  } catch (error) {
+    if (!(error instanceof ApiError) && !isUniqueViolation(error)) throw error;
+    const workspace = await resolveActiveWorkspace(actorId);
+    const [latest, stagePlan] = await Promise.all([
+      prisma.planMilestone.findFirst({ where: { workspaceId: workspace.id, stableKey } }),
+      prisma.stagePlan.findFirst({ where: { id: input.stagePlanId, workspaceId: workspace.id } }),
+    ]);
+    if (isUniqueViolation(error)) {
+      throw new ApiError("PLAN_MILESTONE_STABLE_KEY_CONFLICT", 409, {
+        latest: milestoneConflictLatest(
+          latest ? serialize(latest) : null,
+          undefined,
+          undefined,
+          stagePlan ? serializeStagePlan(stagePlan) : null,
+        ),
+        conflictFields: ["stableKey"],
+        workbench: milestoneWorkbench,
+      });
+    }
+    if (!(error instanceof ApiError)) throw error;
+    if (error.status !== 409) throw error;
+    throw new ApiError(error.code, 409, {
+      latest: isMilestoneConflictLatest(error.details?.latest)
+        ? error.details.latest
+        : milestoneConflictLatest(
+            latest ? serialize(latest) : null,
+            error.code.includes("RESULT_UNAVAILABLE") ? "result_unavailable" : "conflict",
+            error.details?.latest,
+            stagePlan ? serializeStagePlan(stagePlan) : null,
+          ),
+      conflictFields: error.details?.conflictFields?.length ? error.details.conflictFields : ["idempotencyKey"],
+      workbench: milestoneWorkbench,
+    });
+  }
 }
 
 export async function updatePlanMilestone(
@@ -122,30 +213,102 @@ export async function updatePlanMilestone(
     archive?: boolean;
   },
 ): Promise<PlanMilestoneDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const existing = await prisma.planMilestone.findFirst({
-    where: { id: milestoneId, workspaceId: workspace.id },
-  });
-  if (!existing) throw new ApiError("PLAN_MILESTONE_NOT_FOUND", 404);
-
-  if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision: input.expectedRevision }) === "revision_conflict") {
-    throw new ApiError("PLAN_MILESTONE_REVISION_CONFLICT", 409, {
-      latest: serialize(existing),
-      conflictFields: ["revision"],
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const existing = await tx.planMilestone.findFirst({
+      where: { id: milestoneId, workspaceId: workspace.id },
     });
-  }
+    if (!existing) throw new ApiError("PLAN_MILESTONE_NOT_FOUND", 404);
 
-  const updated = await prisma.planMilestone.update({
-    where: { id: existing.id },
-    data: {
-      title: input.title?.trim() ?? undefined,
-      targetDate: input.targetDate === undefined ? undefined : input.targetDate ? new Date(input.targetDate) : null,
-      sortOrder: input.sortOrder,
-      status: input.status,
-      archivedAt: input.archive === true ? new Date() : input.archive === false ? null : undefined,
-      revision: { increment: 1 },
-    },
+    if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision: input.expectedRevision }) === "revision_conflict") {
+      throw new ApiError("PLAN_MILESTONE_REVISION_CONFLICT", 409, {
+        latest: milestoneConflictLatest(serialize(existing)),
+        conflictFields: ["revision"],
+        workbench: milestoneWorkbench,
+      });
+    }
+
+    const changed = await tx.planMilestone.updateMany({
+      where: { id: existing.id, workspaceId: workspace.id, revision: input.expectedRevision },
+      data: {
+        title: input.title?.trim() ?? undefined,
+        targetDate: input.targetDate === undefined ? undefined : input.targetDate ? new Date(input.targetDate) : null,
+        sortOrder: input.sortOrder,
+        status: input.status,
+        archivedAt: input.archive === true ? new Date() : input.archive === false ? null : undefined,
+        revision: { increment: 1 },
+      },
+    });
+    if (changed.count !== 1) {
+      const latest = await tx.planMilestone.findUnique({ where: { id: existing.id } });
+      throw new ApiError("PLAN_MILESTONE_REVISION_CONFLICT", 409, {
+        latest: milestoneConflictLatest(latest ? serialize(latest) : null),
+        conflictFields: ["revision"],
+        workbench: milestoneWorkbench,
+      });
+    }
+    const updated = await tx.planMilestone.findUniqueOrThrow({ where: { id: existing.id } });
+    await tx.auditEvent.create({
+      data: { actorId, action: "PLAN_MILESTONE_UPDATED", entityType: "PlanMilestone", entityId: existing.id },
+    });
+
+    return serialize(updated);
   });
+}
 
-  return serialize(updated);
+function parseMilestoneSnapshot(value: Prisma.JsonValue | undefined): PlanMilestoneDto | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value.id === "string" && typeof value.revision === "number"
+    ? value as unknown as PlanMilestoneDto
+    : null;
+}
+
+function milestoneConflictLatest(
+  milestone: PlanMilestoneDto | null,
+  commandState?: PlanMilestoneConflictLatest["commandState"],
+  sourceConflict?: unknown,
+  stagePlan?: StagePlanDto | null,
+): PlanMilestoneConflictLatest {
+  return {
+    kind: "plan-milestone",
+    milestone,
+    ...(stagePlan === undefined ? {} : { stagePlan }),
+    ...(commandState ? { commandState } : {}),
+    ...(sourceConflict === undefined ? {} : { sourceConflict }),
+  };
+}
+
+function serializeStagePlan(row: {
+  id: string;
+  revision: number;
+  name: string;
+  startDate: Date;
+  endDate: Date;
+  goal: string;
+  mode: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): StagePlanDto {
+  return {
+    id: row.id,
+    revision: row.revision,
+    name: row.name,
+    startDate: row.startDate.toISOString(),
+    endDate: row.endDate.toISOString(),
+    goal: row.goal,
+    mode: row.mode as StagePlanDto["mode"],
+    status: row.status as StagePlanDto["status"],
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function isMilestoneConflictLatest(value: unknown): value is PlanMilestoneConflictLatest {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value)
+    && (value as { kind?: unknown }).kind === "plan-milestone");
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "P2002");
 }

@@ -10,17 +10,47 @@ const source = readFileSync(scriptPath, "utf8");
 const passwordSource = readFileSync(path.join(repositoryRoot, "scripts/ops/smoke-password.ts"), "utf8");
 const productionSmokeSource = readFileSync(path.join(repositoryRoot, "scripts/ops/production-readonly-smoke.ts"), "utf8");
 
-assert(source.indexOf('assertNoActiveSession("active session preflight"') < source.indexOf('"create syllabus node"'),
+const workspaceFixtureIndex = source.indexOf("const subjectId = await ensureSmokeWorkspace(cookie, tag)");
+const activeSessionPreflightIndex = source.indexOf('assertNoActiveSession("active session preflight"');
+assert(workspaceFixtureIndex >= 0 && workspaceFixtureIndex < activeSessionPreflightIndex,
+  "local UX smoke must establish the active workspace before querying the active session");
+assert(activeSessionPreflightIndex < source.indexOf('"create syllabus node"'),
   "active session preflight must happen before the first business write");
-assert(source.indexOf('assertNoActiveSession("active session preflight"') < source.indexOf('"create active exam workspace"'),
-  "active session preflight must happen before workspace fixture writes");
 assert(source.includes("ensureSmokeWorkspace(cookie, tag)"),
   "local UX smoke must establish the active v1.1 workspace fixture explicitly");
+assert(source.includes('requireLastCheckPassed("health")') && source.includes('requireLastCheckPassed("login")'),
+  "health and login checks must fail fast before workspace or business requests");
 assert(source.includes("expectedRevision: examRevision") && source.includes("paperFullScore: 100")
   && source.includes('reason: "CONCEPT_GAP"'),
   "local UX smoke must use the Batch 10 revision-bound structured simulation result contract");
-assert(source.includes('assertNoActiveSession("active session before synthetic writes"'),
-  "synthetic writes need a second active-session guard");
+assert((source.match(/expectedStatus: "running"/g) ?? []).length >= 2
+  && (source.match(/expectedUpdatedAt:/g) ?? []).length >= 2
+  && source.includes("ux-smoke-end-")
+  && source.includes("ux-smoke-shortcut-end-"),
+  "both timer closeout paths must retain CAS and idempotency fields");
+for (const label of [
+  "create syllabus node",
+  "create task",
+  "create note",
+  "create mistake",
+  "create simulation exam",
+  "create stage plan",
+  "create stage draft local rule",
+]) {
+  assertSourceWindow(label, ["idempotencyKey:"]);
+}
+assertSourceWindow("create stage plan", ["baseRevision: null"]);
+assertSourceWindow("upload note attachment", ['headers: { "Idempotency-Key":']);
+const legacyReviewBlock = source.slice(
+  source.indexOf('"save daily review"'),
+  source.indexOf('"create note"'),
+);
+assert(legacyReviewBlock.length > 0 && !legacyReviewBlock.includes("idempotencyKey:"),
+  "legacy /api/reviews/today smoke must remain keyless");
+assert(source.includes("Keep this request keyless so the smoke continues to cover the legacy today endpoint."),
+  "legacy review compatibility intent must remain explicit");
+assert(source.includes('"stage plans"') && source.includes('plan.status === "active" || plan.status === "draft"'),
+  "local UX smoke must reuse an existing current stage plan on repeated runs");
 assert(source.includes("process.env.AREAFORGE_SMOKE_ALLOW_NON_LOCAL !== undefined"),
   "legacy non-local override must be rejected explicitly");
 assert(!source.includes("const allowNonLocal"), "non-local override must not remain an executable option");
@@ -59,6 +89,15 @@ assert(source.includes('href="/knowledge/canvas"'), "Batch 8 must require knowle
 assert(source.includes('href="/review/reports"') && source.includes('href="/stage/overview"'),
   "Batch 10 must require reports and stage App Shell navigation");
 assert(source.includes("batch8 knowledge canvas api"), "Batch 8 knowledge canvas API smoke must remain");
+
+function assertSourceWindow(label: string, snippets: string[]): void {
+  const start = source.indexOf(`"${label}"`);
+  assert(start >= 0, `local UX smoke is missing mutation block: ${label}`);
+  const block = source.slice(start, start + 1_400);
+  for (const snippet of snippets) {
+    assert(block.includes(snippet), `${label} must include ${snippet}`);
+  }
+}
 
 const canvasClientSource = readFileSync(
   path.join(repositoryRoot, "apps/web/components/knowledge-canvas-client.tsx"),
@@ -127,6 +166,7 @@ async function main(): Promise<void> {
     const activePassword = path.join(tempDir, "active-password");
     writeFileSync(activePassword, "synthetic-secret-value\n", { mode: 0o600 });
     chmodSync(activePassword, 0o600);
+    await assertLoginFailureStopsRequests(activePassword);
     await assertActiveSessionStopsWrites(activePassword);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
@@ -160,6 +200,43 @@ function runSmoke(overrides: Record<string, string>): { output: string; status: 
   }
 }
 
+async function assertLoginFailureStopsRequests(passwordFile: string): Promise<void> {
+  const requests: string[] = [];
+  const server = createServer((request, response) => {
+    requests.push(`${request.method ?? "GET"} ${request.url ?? ""}`);
+    response.setHeader("content-type", "application/json");
+    if (request.method === "GET" && request.url === "/api/health") {
+      response.end(JSON.stringify({ ok: true, service: "AreaForge" }));
+      return;
+    }
+    if (request.method === "POST" && request.url === "/api/auth/login") {
+      response.statusCode = 401;
+      response.end(JSON.stringify({ error: "INVALID_CREDENTIALS" }));
+      return;
+    }
+    response.statusCode = 500;
+    response.end(JSON.stringify({ error: "unexpected selftest request" }));
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+  try {
+    const address = server.address();
+    assert(address && typeof address !== "string", "selftest server must expose a TCP address");
+    const result = await runSmokeAsync({
+      AREAFORGE_SMOKE_BASE_URL: `http://127.0.0.1:${address.port}`,
+      AREAFORGE_SMOKE_PASSWORD_FILE: passwordFile,
+    });
+    assertStructuredFailure(result, "login fail-fast", "login");
+    assert(requests.join(",") === "GET /api/health,POST /api/auth/login",
+      `login failure must stop all later requests; requests=${requests.join(",")}`);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
 async function assertActiveSessionStopsWrites(passwordFile: string): Promise<void> {
   const requests: string[] = [];
   const server = createServer((request, response) => {
@@ -172,6 +249,14 @@ async function assertActiveSessionStopsWrites(passwordFile: string): Promise<voi
     if (request.method === "POST" && request.url === "/api/auth/login") {
       response.setHeader("set-cookie", "session=selftest; Path=/; HttpOnly");
       response.end(JSON.stringify({ user: { email: "smoke@areasong.local" } }));
+      return;
+    }
+    if (request.method === "GET" && request.url === "/api/exam-workspaces") {
+      response.end(JSON.stringify({ workspaces: [{ id: "workspace-selftest", status: "ACTIVE", revision: 1 }] }));
+      return;
+    }
+    if (request.method === "GET" && request.url === "/api/exam-workspaces/workspace-selftest/subjects") {
+      response.end(JSON.stringify({ subjects: [{ id: "subject-selftest" }] }));
       return;
     }
     if (request.method === "GET" && request.url === "/api/study-sessions/active") {

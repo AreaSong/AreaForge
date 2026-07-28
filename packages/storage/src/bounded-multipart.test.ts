@@ -157,8 +157,31 @@ test("returns an oversized batch item while preserving later file order", async 
   assert.equal(accepted.length, 2);
   assert.equal(accepted[0]?.businessError, "too_large");
   assert.equal(accepted[0]?.originalName, "large.png");
+  assert.equal(accepted[0]?.sizeBytes, 1025);
+  assert.equal(accepted[0]?.bytes.length, 0);
+  assert.equal(accepted[0]?.sha256Hex, "");
+  assert.equal(accepted[0]?.detectedMimeType, null);
   assert.equal(accepted[1]?.businessError, undefined);
   assert.equal(accepted[1]?.originalName, "small.png");
+});
+
+test("keeps an untrusted oversized batch part bounded at limit plus one", async () => {
+  const limit = 1024;
+  const accepted = await parseMultipleFilesMultipart(
+    chunked(buildBody([
+      { name: "file", fileName: "untrusted-length.png", bytes: pngBytes(4 * 1024 * 1024) },
+      { name: "file", fileName: "after.png", bytes: pngBytes(64) },
+    ]), 64 * 1024),
+    contentType,
+    policyWithMaxBytes(limit),
+    5,
+  );
+
+  assert.equal(accepted[0]?.businessError, "too_large");
+  assert.equal(accepted[0]?.sizeBytes, limit + 1);
+  assert.equal(accepted[0]?.bytes.length, 0);
+  assert.equal(accepted[1]?.originalName, "after.png");
+  assert.equal(accepted[1]?.bytes.length, 64);
 });
 
 test("rejects oversized part headers and missing terminal boundary", async () => {

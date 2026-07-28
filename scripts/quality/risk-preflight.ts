@@ -1,5 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  hasMasteryProofSubmissionGuard,
+  isAllowedBusinessRestoreRoute,
+} from "./risk-preflight-boundaries";
 
 interface CheckResult {
   name: string;
@@ -468,7 +472,11 @@ function checkSecondStageStillBeforePackageD(): void {
     hasWriteRouteMethod(readIfExists(file)) &&
     !isPackageDReportDecisionRoute(file, packageDStatus.d1),
   );
-  const d1ReportDecisionRoute = "apps/web/app/api/reports/periodic/decisions/route.ts";
+  const d1ReportDecisionRoutes = [
+    "apps/web/app/api/reports/periodic/decisions/route.ts",
+    "apps/web/app/api/reports/[id]/confirm/route.ts",
+    "apps/web/app/api/reports/[id]/reject/route.ts",
+  ];
   const unexpectedD1ReportDecisionRoutes = packageDStatus.d1
     ? allApiFiles.filter((file) =>
       isPackageDReportDecisionRouteFamily(file) &&
@@ -476,7 +484,12 @@ function checkSecondStageStillBeforePackageD(): void {
     )
     : [];
   const invalidD1ReportDecisionMethods = packageDStatus.d1
-    ? getExportedRouteMethods(readIfExists(d1ReportDecisionRoute)).filter((method) => !["GET", "POST"].includes(method))
+    ? d1ReportDecisionRoutes.flatMap((file) => {
+      const allowedMethods = file.includes("/periodic/decisions/") ? ["GET", "POST"] : ["POST"];
+      return getExportedRouteMethods(readIfExists(file))
+        .filter((method) => !allowedMethods.includes(method))
+        .map((method) => `${file}:${method}`);
+    })
     : [];
   const forbiddenStageAiDraftRoutes = allApiFiles.filter((file) =>
     file.replaceAll(path.sep, "/").includes("/simulation/stage-adjustment-drafts/ai") &&
@@ -537,7 +550,7 @@ function checkSecondStageStillBeforePackageD(): void {
         ...forbiddenReportsPeriodicMethods,
         ...forbiddenReportWriteRoutes,
         ...unexpectedD1ReportDecisionRoutes,
-        ...invalidD1ReportDecisionMethods.map((method) => `${d1ReportDecisionRoute}:${method}`),
+        ...invalidD1ReportDecisionMethods,
       ].join(", ")}`,
   });
 
@@ -1323,9 +1336,11 @@ function checkMasteryProofBasicImplementation(): void {
     "masteryLevel: targetMasteryLevel",
     "masteryConditions: selectedConditions",
     'type="checkbox"',
-    "disabled={!canSubmitProof}",
     "保存证明",
   ].filter((term) => !syllabusManager.includes(term));
+  if (!hasMasteryProofSubmissionGuard(syllabusManager)) {
+    missingUiTerms.push("disabled={pending || !canSubmitProof}");
+  }
   checks.push({
     name: "mastery proof basic UI chain",
     ok: missingUiTerms.length === 0,
@@ -1624,12 +1639,9 @@ function checkProductionCompose(): void {
   });
 
   const apiFiles = listFiles("apps/web/app/api").filter((file) => file.endsWith("/route.ts"));
-  const allowedBusinessRestoreRoutes = new Set([
-    "apps/web/app/api/study-resources/[id]/restore/route.ts",
-  ]);
   const forbiddenOpsRouteFiles = apiFiles.filter((file) => {
     const normalized = file.replaceAll(path.sep, "/").toLowerCase();
-    if (allowedBusinessRestoreRoutes.has(normalized)) return false;
+    if (isAllowedBusinessRestoreRoute(normalized)) return false;
     const content = readIfExists(file).toLowerCase();
     return ["deploy", "backup", "restore", "migration", "migrate"].some((term) =>
       normalized.includes(term) || content.includes(term),
@@ -2858,12 +2870,14 @@ function isReportDecisionScopeRoute(file: string): boolean {
 function isPackageDReportDecisionRoute(file: string, d1Done: boolean): boolean {
   if (!d1Done) return false;
   const normalized = file.replaceAll(path.sep, "/");
-  return /\/reports\/periodic\/decisions\/route\.ts$/.test(normalized);
+  return /\/reports\/periodic\/decisions\/route\.ts$/.test(normalized) ||
+    /\/reports\/\[id\]\/(confirm|reject)\/route\.ts$/.test(normalized);
 }
 
 function isPackageDReportDecisionRouteFamily(file: string): boolean {
   const normalized = file.replaceAll(path.sep, "/");
-  return normalized.includes("/reports/periodic/decisions/");
+  return normalized.includes("/reports/periodic/decisions/") ||
+    /\/reports\/\[[^\]]+\]\/(confirm|reject)\//.test(normalized);
 }
 
 function isPackageDDebtReorderDecisionRoute(file: string, d2Done: boolean): boolean {

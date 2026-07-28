@@ -6,7 +6,7 @@ export default function KnowledgeLayout({ children }: { children: React.ReactNod
       <header className="space-y-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-teal-300/80">Knowledge</p>
-          <h1 className="mt-1 text-2xl font-semibold text-white">知识工作台</h1>
+          <p className="mt-1 text-sm font-medium text-zinc-200">知识工作台</p>
           <p className="mt-1 text-sm text-zinc-500">画布派生真实关系；卡片、错题、资料与复习共用同一对象。</p>
         </div>
         <KnowledgeNavigation />

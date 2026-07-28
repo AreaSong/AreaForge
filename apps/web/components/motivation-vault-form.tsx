@@ -3,6 +3,8 @@
 import { Archive, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -17,12 +19,23 @@ interface MotivationVaultFormProps {
   vault: MotivationVaultDto | null;
 }
 
-interface MotivationVaultDraft {
+interface MotivationVaultFields {
   whyStarted: string;
   neverReturnTo: string;
   futureSelf: string;
   messageToFuture: string;
   firstSimulationDiary: string;
+}
+
+interface MotivationVaultDraft {
+  baseUpdatedAt: string | null;
+  fields: MotivationVaultFields;
+}
+
+interface MotivationVaultConflict {
+  submitted: MotivationVaultDraft;
+  latest: MotivationVaultDto | null;
+  conflictFields: string[];
 }
 
 export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps) {
@@ -35,47 +48,69 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
   const [firstSimulationDiary, setFirstSimulationDiary] = useState(vault?.firstSimulationDiary ?? "");
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(vault?.updatedAt ?? null);
+  const [savedFields, setSavedFields] = useState<MotivationVaultFields>(() => fieldsFromVault(vault));
+  const [conflict, setConflict] = useState<MotivationVaultConflict | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    const draft = loadPrivateBusinessDraft(draftKey, LONG_PRIVATE_DRAFT_TTL_MS, isMotivationVaultDraft);
-    if (draft) {
-      setWhyStarted(draft.whyStarted);
-      setNeverReturnTo(draft.neverReturnTo);
-      setFutureSelf(draft.futureSelf);
-      setMessageToFuture(draft.messageToFuture);
-      setFirstSimulationDiary(draft.firstSimulationDiary);
-    }
-    setDraftReady(true);
-  }, [draftKey]);
+    const timer = window.setTimeout(() => {
+      const draft = loadPrivateBusinessDraft(draftKey, LONG_PRIVATE_DRAFT_TTL_MS, isMotivationVaultDraft);
+      if (draft) {
+        setWhyStarted(draft.fields.whyStarted);
+        setNeverReturnTo(draft.fields.neverReturnTo);
+        setFutureSelf(draft.fields.futureSelf);
+        setMessageToFuture(draft.fields.messageToFuture);
+        setFirstSimulationDiary(draft.fields.firstSimulationDiary);
+        if (draft.baseUpdatedAt !== (vault?.updatedAt ?? null)) {
+          setConflict({
+            submitted: draft,
+            latest: vault,
+            conflictFields: ["updatedAt"],
+          });
+        }
+      }
+      setDraftReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [draftKey, vault]);
 
   useEffect(() => {
     if (!draftReady) return;
+    const fields = { whyStarted, neverReturnTo, futureSelf, messageToFuture, firstSimulationDiary };
+    if (motivationVaultFieldsEqual(fields, savedFields)) {
+      removePrivateBusinessDraft(draftKey);
+      return;
+    }
     savePrivateBusinessDraft<MotivationVaultDraft>(draftKey, {
-      whyStarted,
-      neverReturnTo,
-      futureSelf,
-      messageToFuture,
-      firstSimulationDiary,
+      baseUpdatedAt: savedAt,
+      fields,
     });
-  }, [draftKey, draftReady, firstSimulationDiary, futureSelf, messageToFuture, neverReturnTo, whyStarted]);
+  }, [draftKey, draftReady, firstSimulationDiary, futureSelf, messageToFuture, neverReturnTo, savedAt, savedFields, whyStarted]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSaving(true);
     try {
+      const fields: MotivationVaultFields = {
+        whyStarted,
+        neverReturnTo,
+        futureSelf,
+        messageToFuture,
+        firstSimulationDiary,
+      };
+      const submission: MotivationVaultDraft = { baseUpdatedAt: savedAt, fields: structuredClone(fields) };
+      savePrivateBusinessDraft(draftKey, submission);
+      const commandScope = `motivation-vault:${userId}`;
       const response = await fetch("/api/motivation-vault", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          whyStarted,
-          neverReturnTo,
-          futureSelf,
-          messageToFuture,
-          firstSimulationDiary,
+          ...submission.fields,
+          expectedUpdatedAt: submission.baseUpdatedAt,
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "motivation-vault", submission),
         }),
       });
       if (response.status === 401) {
@@ -84,13 +119,33 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
         return;
       }
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+          latest?: MotivationVaultDto | null;
+          conflictFields?: string[];
+          workbench?: string;
+        } | null;
+        if (response.status === 409 && body && "latest" in body) {
+          setConflict({
+            submitted: submission,
+            latest: isMotivationVaultDto(body.latest) ? body.latest : null,
+            conflictFields: body.conflictFields ?? ["updatedAt"],
+          });
+        }
         setError(body?.error ?? "保存动机档案失败，草稿已保留");
         return;
       }
 
       const body = (await response.json()) as { vault: MotivationVaultDto };
+      completeIdempotentCommand(commandScope);
       setSavedAt(body.vault.updatedAt);
+      const nextFields = fieldsFromVault(body.vault);
+      setSavedFields(nextFields);
+      setWhyStarted(nextFields.whyStarted);
+      setNeverReturnTo(nextFields.neverReturnTo);
+      setFutureSelf(nextFields.futureSelf);
+      setMessageToFuture(nextFields.messageToFuture);
+      setFirstSimulationDiary(nextFields.firstSimulationDiary);
       removePrivateBusinessDraft(draftKey);
       startTransition(() => router.refresh());
     } catch {
@@ -101,6 +156,7 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
   }
 
   return (
+    <>
     <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
       <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
         <div className="flex items-center gap-2">
@@ -114,30 +170,35 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
             value={whyStarted}
             onChange={setWhyStarted}
             placeholder="写下开始这场长期备考的真实原因"
+            disabled={saving}
           />
           <MotivationTextarea
             label="最不想回到什么状态"
             value={neverReturnTo}
             onChange={setNeverReturnTo}
             placeholder="记录那个必须远离的状态"
+            disabled={saving}
           />
           <MotivationTextarea
             label="想成为怎样的人"
             value={futureSelf}
             onChange={setFutureSelf}
             placeholder="描述长期训练后你要变成的人"
+            disabled={saving}
           />
           <MotivationTextarea
             label="给未来自己的话"
             value={messageToFuture}
             onChange={setMessageToFuture}
             placeholder="留给未来某个失守或冲刺时刻的自己"
+            disabled={saving}
           />
           <MotivationTextarea
             label="第一次全真自测后的阶段日记"
             value={firstSimulationDiary}
             onChange={setFirstSimulationDiary}
             placeholder="第一次全真自测后再回来补这一段"
+            disabled={saving}
           />
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
@@ -151,7 +212,7 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
 
         {error ? <p role="alert" className="mt-4 text-sm text-red-200">{error}</p> : null}
         {savedAt ? (
-          <p className="mt-4 text-sm text-zinc-500">上次封存：{new Date(savedAt).toLocaleString("zh-CN")}</p>
+          <p className="mt-4 text-sm text-zinc-500">上次封存：{new Date(savedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</p>
         ) : null}
       </section>
 
@@ -166,13 +227,87 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
         </div>
       </section>
     </div>
+    <ConflictResolutionModal
+      open={conflict !== null}
+      title="动机档案已在其他页面更新"
+      description="本地草稿和服务端最新值都已保留。系统不会自动覆盖或重放，请检查差异后决定下一步。"
+      conflictFields={conflict?.conflictFields ?? []}
+      comparisons={conflict ? motivationVaultComparisons(conflict, savedFields) : []}
+      onAdoptServer={() => {
+        if (!conflict) return;
+        const next = fieldsFromVault(conflict.latest);
+        setWhyStarted(next.whyStarted);
+        setNeverReturnTo(next.neverReturnTo);
+        setFutureSelf(next.futureSelf);
+        setMessageToFuture(next.messageToFuture);
+        setFirstSimulationDiary(next.firstSimulationDiary);
+        setSavedFields(next);
+        setSavedAt(conflict.latest?.updatedAt ?? null);
+        removePrivateBusinessDraft(draftKey);
+        setConflict(null);
+        setError(null);
+      }}
+      onManualMerge={() => {
+        if (!conflict) return;
+        setSavedFields(fieldsFromVault(conflict.latest));
+        setSavedAt(conflict.latest?.updatedAt ?? null);
+        setConflict(null);
+        setError("已采用服务端最新基线并保留本地输入；合并后请再次点击保存，不会自动重放");
+      }}
+    />
+    </>
   );
+}
+
+function fieldsFromVault(vault: MotivationVaultDto | null): MotivationVaultFields {
+  return {
+    whyStarted: vault?.whyStarted ?? "",
+    neverReturnTo: vault?.neverReturnTo ?? "",
+    futureSelf: vault?.futureSelf ?? "",
+    messageToFuture: vault?.messageToFuture ?? "",
+    firstSimulationDiary: vault?.firstSimulationDiary ?? "",
+  };
+}
+
+function motivationVaultFieldsEqual(left: MotivationVaultFields, right: MotivationVaultFields): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function motivationVaultComparisons(
+  conflict: MotivationVaultConflict,
+  baseline: MotivationVaultFields,
+) {
+  const latest = fieldsFromVault(conflict.latest);
+  const labels: Record<keyof MotivationVaultFields, string> = {
+    whyStarted: "为什么开始",
+    neverReturnTo: "最不想回到什么状态",
+    futureSelf: "想成为怎样的人",
+    messageToFuture: "给未来自己的话",
+    firstSimulationDiary: "第一次全真自测后的阶段日记",
+  };
+  return (Object.keys(labels) as Array<keyof MotivationVaultFields>).map((field) => ({
+    field,
+    label: labels[field],
+    baseline: baseline[field],
+    local: conflict.submitted.fields[field],
+    server: latest[field],
+  }));
+}
+
+function isMotivationVaultDto(value: unknown): value is MotivationVaultDto {
+  if (!value || typeof value !== "object") return false;
+  const vault = value as Partial<MotivationVaultDto>;
+  return typeof vault.id === "string"
+    && typeof vault.updatedAt === "string"
+    && [vault.whyStarted, vault.neverReturnTo, vault.futureSelf, vault.messageToFuture, vault.firstSimulationDiary]
+      .every((field) => field === null || typeof field === "string");
 }
 
 function isMotivationVaultDraft(value: unknown): value is MotivationVaultDraft {
   if (!value || typeof value !== "object") return false;
   const draft = value as Partial<MotivationVaultDraft>;
-  return [draft.whyStarted, draft.neverReturnTo, draft.futureSelf, draft.messageToFuture, draft.firstSimulationDiary]
+  if (!(draft.baseUpdatedAt === null || typeof draft.baseUpdatedAt === "string") || !draft.fields) return false;
+  return [draft.fields.whyStarted, draft.fields.neverReturnTo, draft.fields.futureSelf, draft.fields.messageToFuture, draft.fields.firstSimulationDiary]
     .every((field) => typeof field === "string");
 }
 
@@ -181,11 +316,13 @@ function MotivationTextarea({
   value,
   onChange,
   placeholder,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  disabled: boolean;
 }) {
   return (
     <label className="grid gap-2 text-sm text-zinc-300">
@@ -195,6 +332,7 @@ function MotivationTextarea({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        disabled={disabled}
       />
     </label>
   );

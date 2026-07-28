@@ -177,6 +177,9 @@ export interface DailyReviewDto {
 
 export interface SyllabusNodeDto {
   id: string;
+  revision: number;
+  stableKey: string | null;
+  archivedAt: string | null;
   subjectId: string;
   subjectName: string;
   subjectColor: string;
@@ -245,6 +248,7 @@ export interface NoteDto {
   studyDate: string | null;
   stableKey: string | null;
   revision: number;
+  archivedAt: string | null;
   title: string;
   content: string;
   masteryStatus: NoteMasteryStatusDto | null;
@@ -252,6 +256,34 @@ export interface NoteDto {
   createdAt: string;
   updatedAt: string;
   attachments: AttachmentDto[];
+  relatedSyllabusNodes: Array<{
+    id: string;
+    title: string;
+    archivedAt: string | null;
+  }>;
+  linkedResources: Array<{
+    id: string;
+    title: string;
+    sourceType: "FILE" | "LINK";
+    archivedAt: string | null;
+  }>;
+  reviewSchedule: {
+    id: string;
+    status: "ACTIVE" | "PAUSED";
+    dueDate: string | null;
+    pausedReason: string | null;
+    consecutivePassCount: number;
+    revision: number;
+    events: Array<{
+      id: string;
+      result: "PASSED" | "PARTIAL" | "FAILED";
+      durationSeconds: number;
+      confirmedAt: string;
+      nextDueDate: string;
+      correctedEventId: string | null;
+      note: string | null;
+    }>;
+  } | null;
 }
 
 export interface MistakeDto {
@@ -266,8 +298,35 @@ export interface MistakeDto {
   cause: MistakeCauseDto;
   correctIdea: string | null;
   nextReviewAt: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  reviewSchedule: MistakeReviewScheduleDto | null;
+  reviewHistory: MistakeReviewEventDto[];
+}
+
+export interface MistakeReviewScheduleDto {
+  id: string;
+  status: "ACTIVE" | "PAUSED";
+  dueDate: string | null;
+  pausedReason: string | null;
+  consecutivePassCount: number;
+  revision: number;
+  updatedAt: string;
+}
+
+export interface MistakeReviewEventDto {
+  id: string;
+  reviewScheduleId: string;
+  result: "PASSED" | "PARTIAL" | "FAILED";
+  durationSeconds: number;
+  confirmedAt: string;
+  learningDate: string;
+  nextDueDate: string;
+  consecutivePassDelta: number;
+  correctedEventId: string | null;
+  note: string | null;
+  appliedRevision: number;
 }
 
 export interface MotivationVaultDto {

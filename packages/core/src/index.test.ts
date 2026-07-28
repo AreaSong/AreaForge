@@ -18,6 +18,8 @@ import {
   parseSyllabusMarkdown,
   summarizeSimulationResult,
   summarizeSimulationScores,
+  buildSimulationRemediationGroups,
+  buildSimulationRemediationOriginSnapshot,
   isHighSeveritySimulationLoss,
   summarizeCheckInHistory,
   summarizeLightweightDebtAction,
@@ -65,8 +67,19 @@ import {
   clampCanvasPageSize,
   isKnowledgeCanvasCursor,
   isKnowledgeCanvasEntityType,
+  KNOWLEDGE_CANVAS_MAX_RENDERED_NODES,
   canMutateKnowledgeCanvasLayout,
+  applyKnowledgeCanvasLayoutPatches,
+  beginKnowledgeCanvasLayoutSave,
+  completeKnowledgeCanvasLayoutSave,
+  createKnowledgeCanvasLayoutQueue,
+  enqueueKnowledgeCanvasLayoutPatches,
+  enqueueKnowledgeCanvasViewportPatch,
+  hasKnowledgeCanvasLayoutQueueWork,
+  restoreKnowledgeCanvasLayoutSave,
+  shouldApplyKnowledgeCanvasResponseLayout,
   canAutoShowMotivationReminder,
+  evaluateAutomaticMotivationGate,
   validateMotivationItemPayload,
   nextReminderStateAfterShow,
   pickMotivationItemId,
@@ -1320,6 +1333,40 @@ test("structured simulation loss severity supports item and aggregate thresholds
   ]), false);
 });
 
+test("simulation remediation provenance separates exams and canonicalizes snapshots", () => {
+  const items = [
+    { id: "loss-b", subjectId: "math", reason: "METHOD_ERROR" as const, syllabusNodeId: "node", lostScore: 4 },
+    { id: "loss-a", subjectId: "math", reason: "METHOD_ERROR" as const, syllabusNodeId: "node", lostScore: 6 },
+  ];
+  const first = buildSimulationRemediationGroups(items, { examId: "exam-a" })[0];
+  const second = buildSimulationRemediationGroups(items, { examId: "exam-b" })[0];
+
+  assert.ok(first);
+  assert.ok(second);
+  assert.notEqual(first.originKey, second.originKey);
+  assert.deepEqual(first.itemIds, ["loss-a", "loss-b"]);
+  assert.deepEqual(buildSimulationRemediationOriginSnapshot({
+    examId: "exam-a",
+    subjectResultId: "result-a",
+    subjectResultRevision: 3,
+    subjectId: first.subjectId,
+    reason: first.reason,
+    syllabusNodeId: first.syllabusNodeId,
+    itemIds: ["loss-b", "loss-a", "loss-a"],
+    lostScore: first.lostScore,
+  }), {
+    provenanceVersion: 1,
+    examId: "exam-a",
+    subjectResultId: "result-a",
+    subjectResultRevision: 3,
+    subjectId: "math",
+    reason: "METHOD_ERROR",
+    syllabusNodeId: "node",
+    itemIds: ["loss-a", "loss-b"],
+    lostScore: 10,
+  });
+});
+
 test("parseSyllabusMarkdown converts headings and nested lists into nodes", () => {
   const parsed = parseSyllabusMarkdown({
     markdown: [
@@ -1432,6 +1479,7 @@ test("unified review interval and duration rules", () => {
   assert.equal(suggestReviewIntervalDays({ result: "PASSED", consecutivePassCountAfter: 4 }), 60);
   assert.equal(suggestReviewIntervalDays({ result: "PASSED", consecutivePassCountAfter: 10 }), 60);
   assert.equal(validateReviewDurationSeconds(0), "invalid_duration");
+  assert.equal(validateReviewDurationSeconds(1), "ok");
   assert.equal(validateReviewDurationSeconds(300), "ok");
 });
 
@@ -1583,11 +1631,62 @@ test("app-shell lights and mobile top priority", () => {
       overdueLearningDays: 1,
       blocked: false,
       inQuickReview: false,
-      nextHref: "/today",
+      nextHref: "/knowledge/reviews",
     },
     debt: {
-      countable: 0,
+      countable: 1,
       severe: false,
+      recoveryBlocked: false,
+      arrangedComplete: false,
+      debtHref: "/today/plan",
+    },
+    stage: {
+      hasStage: true,
+      inProgress: true,
+      milestoneHealthy: false,
+      milestoneNearOrDraftPending: false,
+      conflictOrBlocked: false,
+      stageHref: "/stage/overview",
+    },
+    todayClosure: {
+      inReminderWindow: true,
+      minimumActionDone: true,
+      dailyReviewDone: false,
+      minimumActionHref: "/today",
+      reviewHref: "/review/daily",
+    },
+  });
+
+  assert.equal(status.lights.find((light) => light.kind === "activity")?.tone, "blue");
+  assert.equal(status.lights.find((light) => light.kind === "review")?.tone, "amber");
+  assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.tone, "amber");
+  assert.notEqual(status.lights.find((light) => light.kind === "todayClosure")?.tone, "red");
+  assert.equal(status.lights.find((light) => light.kind === "activity")?.action?.href, "/focus/s1");
+  assert.equal(status.lights.find((light) => light.kind === "review")?.action?.href, "/knowledge/reviews");
+  assert.equal(status.lights.find((light) => light.kind === "debt")?.action?.href, "/today/plan");
+  assert.equal(status.lights.find((light) => light.kind === "stage")?.action?.href, "/stage/overview");
+  assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.action?.href, "/review/daily");
+  assert.equal(status.mobileTop.kind, "activity");
+
+  const quickReviewStatus = projectAppShellStatus({
+    activity: {
+      hasActive: false,
+      isPaused: false,
+      justCompleted: false,
+      conflictOrUnknown: false,
+      continueHref: "/today",
+    },
+    review: {
+      executableCount: 2,
+      bridgedCount: 0,
+      overdueLearningDays: 4,
+      blocked: true,
+      inQuickReview: true,
+      nextHref: "/quick-review/review-1",
+    },
+    debt: {
+      countable: 4,
+      severe: true,
       recoveryBlocked: false,
       arrangedComplete: false,
       debtHref: "/today/plan",
@@ -1598,27 +1697,70 @@ test("app-shell lights and mobile top priority", () => {
       milestoneHealthy: false,
       milestoneNearOrDraftPending: false,
       conflictOrBlocked: false,
-      stageHref: "/today",
+      stageHref: "/stage/overview",
     },
     todayClosure: {
-      inReminderWindow: true,
+      inReminderWindow: false,
       minimumActionDone: false,
       dailyReviewDone: false,
       minimumActionHref: "/today",
-      reviewHref: "/today",
+      reviewHref: "/review/daily",
     },
   });
+  assert.equal(quickReviewStatus.lights.find((light) => light.kind === "review")?.tone, "blue");
+  assert.equal(quickReviewStatus.lights.find((light) => light.kind === "debt")?.tone, "red");
+  assert.equal(quickReviewStatus.mobileTop.kind, "review");
+  assert.equal(quickReviewStatus.mobileTop.action?.href, "/quick-review/review-1");
 
-  assert.equal(status.lights.find((light) => light.kind === "activity")?.tone, "blue");
-  assert.equal(status.lights.find((light) => light.kind === "review")?.tone, "amber");
-  assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.tone, "amber");
-  assert.notEqual(status.lights.find((light) => light.kind === "todayClosure")?.tone, "red");
-  assert.equal(status.mobileTop.kind, "activity");
+  const noQuickReviewStatus = projectAppShellStatus({
+    ...{
+      activity: {
+        hasActive: false,
+        isPaused: false,
+        justCompleted: false,
+        conflictOrUnknown: false,
+        continueHref: "/today",
+      },
+      review: {
+        executableCount: 0,
+        bridgedCount: 0,
+        overdueLearningDays: 0,
+        blocked: false,
+        inQuickReview: false,
+        nextHref: "/knowledge/reviews",
+      },
+      debt: {
+        countable: 4,
+        severe: true,
+        recoveryBlocked: false,
+        arrangedComplete: false,
+        debtHref: "/today/plan",
+      },
+      stage: {
+        hasStage: false,
+        inProgress: false,
+        milestoneHealthy: false,
+        milestoneNearOrDraftPending: false,
+        conflictOrBlocked: false,
+        stageHref: "/stage/overview",
+      },
+      todayClosure: {
+        inReminderWindow: false,
+        minimumActionDone: false,
+        dailyReviewDone: false,
+        minimumActionHref: "/today",
+        reviewHref: "/review/daily",
+      },
+    },
+  });
+  assert.equal(noQuickReviewStatus.mobileTop.kind, "debt");
 });
 
 test("knowledge canvas layout conflict, layered load, and mobile read-only layout", () => {
   assert.equal(clampCanvasDepth(99), 4);
   assert.equal(clampCanvasPageSize(5000), 200);
+  assert.equal(clampCanvasPageSize(1), 2);
+  assert.equal(KNOWLEDGE_CANVAS_MAX_RENDERED_NODES, 500);
   assert.equal(isKnowledgeCanvasEntityType("NOTE"), true);
   assert.equal(isKnowledgeCanvasEntityType("FREEFORM"), false);
   assert.equal(isKnowledgeCanvasCursor("NOTE:note-1"), true);
@@ -1682,6 +1824,27 @@ test("knowledge canvas layout conflict, layered load, and mobile read-only layou
     ["note", "sub", "ws"],
   );
 
+  const leafFocus = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "note",
+    depth: 1,
+    limit: 20,
+  });
+  assert.deepEqual(leafFocus.nodes.map((node) => node.id).sort(), ["note", "sub"]);
+  assert.deepEqual(leafFocus.edges.map((edge) => edge.id), ["e-note"]);
+
+  const globalSearch = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 0,
+    query: "Card",
+    limit: 20,
+  });
+  assert.deepEqual(globalSearch.nodes.map((node) => node.id).sort(), ["note", "sub", "ws"]);
+  assert.deepEqual(globalSearch.edges.map((edge) => edge.id).sort(), ["e-note", "e-sub"]);
+
   const filtered = selectCanvasChildren({
     nodes: layeredNodes,
     edges: layeredEdges,
@@ -1717,6 +1880,9 @@ test("knowledge canvas layout conflict, layered load, and mobile read-only layou
   assert.equal(page1.nodes.length, 5);
   assert.equal(page1.truncated, true);
   assert.ok(page1.nextCursor);
+  assert.ok(page1.nodes.some((node) => node.id === "n0"));
+  assert.ok(page1.edges.every((edge) => page1.nodes.some((node) => node.id === edge.sourceId)));
+  assert.ok(page1.edges.every((edge) => page1.nodes.some((node) => node.id === edge.targetId)));
 
   const page2 = selectCanvasChildren({
     nodes: pageNodes,
@@ -1727,7 +1893,52 @@ test("knowledge canvas layout conflict, layered load, and mobile read-only layou
     cursor: page1.nextCursor,
   });
   assert.ok(page2.nodes.length > 0);
-  assert.equal(page2.nodes.some((node) => node.id === page1.nodes[0]?.id), false);
+  assert.ok(page2.nodes.some((node) => node.id === "n0"));
+  assert.equal(
+    page2.nodes.filter((node) => page1.nodes.some((previous) => previous.id === node.id)).every((node) => node.id === "n0"),
+    true,
+  );
+  assert.ok(page2.edges.every((edge) => page2.nodes.some((node) => node.id === edge.sourceId)));
+  assert.ok(page2.edges.every((edge) => page2.nodes.some((node) => node.id === edge.targetId)));
+
+  const relationContext = selectCanvasChildren({
+    nodes: [
+      workspace,
+      subject,
+      note,
+      { id: "task", entityType: "TASK", parentId: "sub", label: "Task", subjectId: "sub" },
+    ],
+    edges: [
+      ...layeredEdges,
+      { id: "e-task", sourceId: "sub", targetId: "task", kind: "related" },
+      { id: "e-evidence", sourceId: "task", targetId: "note", kind: "evidence" },
+    ],
+    focusId: "ws",
+    depth: 2,
+    entityTypeFilter: "NOTE",
+    limit: 5,
+  });
+  assert.ok(relationContext.nodes.some((node) => node.id === "task"));
+  assert.ok(relationContext.edges.some((edge) => edge.id === "e-evidence"));
+
+  const tinyPage = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 2,
+    limit: 1,
+  });
+  assert.equal(tinyPage.nodes.length, 2);
+  assert.equal(tinyPage.contextTruncated, true);
+  assert.equal(tinyPage.nextCursor, "note");
+  const invalidCursor = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 2,
+    cursor: "TASK:not-in-candidates",
+  });
+  assert.equal(invalidCursor.invalidCursor, true);
 
   assert.equal(
     assertLayoutPatchSafe({
@@ -1743,6 +1954,38 @@ test("knowledge canvas layout conflict, layered load, and mobile read-only layou
     }),
     "business_fields_forbidden",
   );
+  assert.equal(
+    assertLayoutPatchSafe({
+      expectedRevision: 1,
+      nodes: [
+        { entityType: "NOTE", entityId: "note-1", x: 10, y: 20 },
+        { entityType: "NOTE", entityId: "note-1", x: 30, y: 40 },
+      ],
+    }),
+    "duplicate_node",
+  );
+  assert.equal(
+    assertLayoutPatchSafe({ expectedRevision: 1, viewportX: 0, viewportY: 0, viewportZoom: 0 }),
+    "invalid_viewport",
+  );
+  assert.equal(
+    shouldApplyKnowledgeCanvasResponseLayout({
+      requestMutationGeneration: 0,
+      currentMutationGeneration: 1,
+      incomingRevision: 1,
+      currentRevision: 2,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldApplyKnowledgeCanvasResponseLayout({
+      requestMutationGeneration: 1,
+      currentMutationGeneration: 1,
+      incomingRevision: 2,
+      currentRevision: 2,
+    }),
+    true,
+  );
 
   // Mobile read-only layout: only desktop viewport may mutate personal layout.
   assert.equal(canMutateKnowledgeCanvasLayout({ isDesktopViewport: true }), true);
@@ -1757,6 +2000,46 @@ test("knowledge canvas layout conflict, layered load, and mobile read-only layou
   });
   assert.deepEqual(stale.kept, [{ entityType: "NOTE", entityId: "alive" }]);
   assert.deepEqual(stale.staleCandidates, [{ entityType: "NOTE", entityId: "gone" }]);
+});
+
+test("knowledge canvas layout queue preserves writes during save and retry", () => {
+  const first = { entityType: "NOTE" as const, entityId: "note-1", x: 10, y: 20, pinned: false };
+  const newer = { entityType: "NOTE" as const, entityId: "note-1", x: 30, y: 40, pinned: true };
+  let queue = enqueueKnowledgeCanvasLayoutPatches(createKnowledgeCanvasLayoutQueue(), [first]);
+  const firstSave = beginKnowledgeCanvasLayoutSave(queue);
+  queue = firstSave.state;
+  assert.deepEqual(firstSave.batch, [first]);
+
+  queue = enqueueKnowledgeCanvasLayoutPatches(queue, [newer]);
+  queue = completeKnowledgeCanvasLayoutSave(queue);
+  assert.deepEqual(queue.pending, [newer]);
+  const secondSave = beginKnowledgeCanvasLayoutSave(queue);
+  assert.deepEqual(secondSave.batch, [newer]);
+
+  let retryQueue = enqueueKnowledgeCanvasLayoutPatches(createKnowledgeCanvasLayoutQueue(), [first]);
+  retryQueue = beginKnowledgeCanvasLayoutSave(retryQueue).state;
+  retryQueue = enqueueKnowledgeCanvasLayoutPatches(retryQueue, [newer]);
+  const failed = restoreKnowledgeCanvasLayoutSave(retryQueue);
+  assert.deepEqual(failed.pending, [newer]);
+  assert.deepEqual(failed.inFlight, []);
+  assert.deepEqual(applyKnowledgeCanvasLayoutPatches([first], [newer]), [newer]);
+
+  const firstViewport = { viewportX: 10, viewportY: 20, viewportZoom: 1.2 };
+  const newerViewport = { viewportX: 30, viewportY: 40, viewportZoom: 1.5 };
+  let viewportQueue = enqueueKnowledgeCanvasViewportPatch(createKnowledgeCanvasLayoutQueue(), firstViewport);
+  assert.equal(hasKnowledgeCanvasLayoutQueueWork(viewportQueue), true);
+  const viewportSave = beginKnowledgeCanvasLayoutSave(viewportQueue);
+  assert.deepEqual(viewportSave.viewport, firstViewport);
+  viewportQueue = enqueueKnowledgeCanvasViewportPatch(viewportSave.state, newerViewport);
+  viewportQueue = completeKnowledgeCanvasLayoutSave(viewportQueue);
+  assert.deepEqual(viewportQueue.pendingViewport, newerViewport);
+
+  let viewportRetry = enqueueKnowledgeCanvasViewportPatch(createKnowledgeCanvasLayoutQueue(), firstViewport);
+  viewportRetry = beginKnowledgeCanvasLayoutSave(viewportRetry).state;
+  viewportRetry = enqueueKnowledgeCanvasViewportPatch(viewportRetry, newerViewport);
+  viewportRetry = restoreKnowledgeCanvasLayoutSave(viewportRetry);
+  assert.deepEqual(viewportRetry.pendingViewport, newerViewport);
+  assert.equal(viewportRetry.inFlightViewport, null);
 });
 
 test("motivation reminder frequency and item payload rules", () => {
@@ -1817,6 +2100,23 @@ test("motivation reminder frequency and item payload rules", () => {
   assert.equal(after.dailyCount, 2);
   assert.deepEqual(after.recentItemIds.slice(0, 3), ["c", "a", "b"]);
   assert.equal(pickMotivationItemId({ enabledItemIds: ["a", "b", "c"], recentItemIds: ["a", "b"] }), "c");
+
+  const eligible = {
+    enabled: true,
+    hour: 21,
+    windowStart: 20,
+    windowEnd: 7,
+    visible: true,
+    immersive: false,
+    hasActiveActivity: false,
+    trigger: "RECOVERY" as const,
+  };
+  assert.deepEqual(evaluateAutomaticMotivationGate(eligible), { allowed: true });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, enabled: false }), { allowed: false, reason: "disabled" });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, immersive: true }), { allowed: false, reason: "immersive" });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, hasActiveActivity: true }), { allowed: false, reason: "active_activity" });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, trigger: null }), { allowed: false, reason: "no_trigger" });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, hour: 12 }), { allowed: false, reason: "outside_window" });
 });
 
 test("ai draft input contracts normalize fail-closed and size limits", () => {

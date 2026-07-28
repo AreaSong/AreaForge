@@ -3,13 +3,15 @@ import { redirect } from "next/navigation";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { NoteLibrary } from "@/components/note-library";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { listNotes } from "@/lib/study/notes-service";
 import { listStudyTasks, listSubjects } from "@/lib/study/service";
 import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/knowledge/notes");
 
-export default async function KnowledgeNotesPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; syllabusNodeId?: string; taskId?: string }> }) {
+export default async function KnowledgeNotesPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; syllabusNodeId?: string; taskId?: string; create?: string; q?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -18,11 +20,12 @@ export default async function KnowledgeNotesPage({ searchParams }: { searchParam
     listSubjects(user.id),
     listStudyTasks(user.id),
     listSyllabusOptionsShared(user.id),
-    listNotes(user.id),
+    listNotes(user.id, { q: query.q }),
   ]);
 
   return (
     <div className="space-y-4">
+      <h1 className="text-2xl font-semibold text-white">知识卡片</h1>
       <p className="text-sm text-zinc-500">
         知识卡片复用 Note 对象。详情也可从画布打开。
         <Link className="ml-2 text-teal-300 hover:underline" href="/knowledge/canvas">
@@ -35,7 +38,7 @@ export default async function KnowledgeNotesPage({ searchParams }: { searchParam
           <AiDraftPanel endpoint="knowledge-card" userId={user.id} />
         </div>
       </details>
-      <NoteLibrary userId={user.id} subjects={subjects} tasks={tasks} nodes={nodes} notes={notes} initialSubjectId={query.subjectId} initialSyllabusNodeId={query.syllabusNodeId} initialTaskId={query.taskId} />
+      <NoteLibrary userId={user.id} subjects={subjects} tasks={tasks} nodes={nodes} notes={notes} initialSubjectId={query.subjectId} initialSyllabusNodeId={query.syllabusNodeId} initialTaskId={query.taskId} initialCreate={query.create === "1"} />
     </div>
   );
 }

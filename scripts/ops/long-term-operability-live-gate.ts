@@ -8,6 +8,7 @@ import {
 } from "../quality/release-evidence-validate";
 import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
 import { evaluateProductExperienceEvidence } from "../quality/product-experience-review-validate";
+import { historicalRollbackIdentity, productionBaselineIdentity } from "./operability-status";
 import {
   parseStrictIndentedKeyValueRecord,
   sha256,
@@ -44,14 +45,15 @@ export type ReleaseEvidenceBinding = {
   migrationImageDigest: string;
 };
 
-const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
-const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
-const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
-const defaultReleaseRecord = "docs/development/release-v0.1.7-record.md";
+const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.9-20260721.json";
+const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.9-20260721-manual-window.txt";
+const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.9.md";
+const defaultReleaseRecord = productionBaselineIdentity.releaseRecordPath;
 const defaultMaxUxAgeDays = 14;
 const defaultMaxDataIntegrityAgeHours = 24;
 
 function main(): void {
+  const checkoutVersion = expectedVersion();
   const ops006 = runOps006ProductionCheck();
   const checks: CheckResult[] = [
     runCommandCheck({
@@ -101,6 +103,11 @@ function main(): void {
     schemaVersion: 3,
     generatedAt: now().toISOString(),
     mode: "read_only_long_term_operability_live_gate",
+    currentCheckout: {
+      version: checkoutVersion,
+    },
+    productionBaseline: productionBaselineIdentity,
+    historicalRollback: historicalRollbackIdentity,
     status,
     checks,
     requiredEvidence: [
@@ -112,7 +119,7 @@ function main(): void {
       "Fresh data integrity doctor: strict redacted record validation, configured read-only database aggregation, attachment reconciliation and overall pass; file SHA and doctorHash must equal the OPS-006 after-doctor binding",
       "AF-RISK-SC-001/AF-RISK-SC-002 ready_for_sc001_sc002_review: clean current checkout is the signed Release commit or a validated evidence-only closeout descendant, with SBOM/provenance/checksum/signature and Actions pinning evidence",
       "Production release evidence record: pnpm release:evidence:validate passes with database, uploads, env backup SHA256 evidence, rollback target, migration result, smoke result, and residual risk fields",
-      `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes, appVersion equals ${expectedVersion()}, and reviewedAt is within ${maxUxAgeDays()} days`,
+      `AF-RISK-UX-001 fresh product experience review: pnpm experience:review:validate passes, appVersion equals ${checkoutVersion}, and reviewedAt is within ${maxUxAgeDays()} days`,
     ],
     nextCommand: nextCommand(status, checks),
     forbiddenActions: [
@@ -633,7 +640,7 @@ function expectedVersion(): string {
   } catch {
     // Fall through to the current release baseline used by the bundled default records.
   }
-  return "0.1.7";
+  return productionBaselineIdentity.version;
 }
 
 function now(): Date {
