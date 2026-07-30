@@ -4,6 +4,7 @@ import type {
   Browser,
   BrowserContext,
   Page,
+  Request,
   Response as PlaywrightResponse,
 } from "playwright-core";
 import {
@@ -18,6 +19,10 @@ import type {
   BrowserEvidenceConfig,
   JourneyFixture,
   JourneyId,
+} from "./v11-browser-fixtures";
+import {
+  prepareFixtureActiveSession,
+  releaseFixtureActiveSessions,
 } from "./v11-browser-fixtures";
 
 export type JourneyEvidenceItem = V11JourneyEvidenceItem;
@@ -64,7 +69,12 @@ export async function runJourneySuite(input: {
 }): Promise<JourneyEvidenceItem[]> {
   const results: JourneyEvidenceItem[] = [];
   for (const fixture of input.fixtures) {
-    results.push(await runJourney({ ...input, fixture }));
+    await prepareFixtureActiveSession(fixture);
+    try {
+      results.push(await runJourney({ ...input, fixture }));
+    } finally {
+      await releaseFixtureActiveSessions(fixture);
+    }
   }
   return results;
 }
@@ -121,18 +131,21 @@ async function runJourney(input: {
       journey: input.fixture.journeyId,
       viewport,
       accountRef: input.fixture.accountRef,
-      startPath: resolveStartPath(input.fixture),
+      startPath: canonicalEvidenceRoute(resolveStartPath(input.fixture), contract.startPath),
       startedAt,
       finishedAt: new Date(completed).toISOString(),
       durationMs: completed - started,
-      mutation: scenario.mutation.evidence,
+      mutation: {
+        ...scenario.mutation.evidence,
+        path: canonicalEvidenceRoute(scenario.mutation.evidence.path, contract.mutation.path),
+      },
       oracle: {
         method: "GET",
         path: scenario.before.path,
         before: scenario.before.evidence,
         after: scenario.after.evidence,
       },
-      terminalPath: currentPath(page),
+      terminalPath: canonicalEvidenceRoute(currentPath(page), contract.terminalPath),
       terminalAssertions: scenario.terminalAssertions,
       screenshot,
       telemetry: {
@@ -180,6 +193,7 @@ async function runLoginJourney(input: ScenarioContext) {
     assertion("dashboard-present", true, Boolean(asRecord(body).dashboard)),
   ]);
   assertOracleChanged(before, after);
+  await input.page.getByRole("heading", { name: "今日行动中心", level: 1 }).waitFor({ state: "visible" });
   return {
     before,
     mutation,
@@ -233,7 +247,16 @@ async function runTimerCloseoutJourney(input: ScenarioContext) {
     path: `/api/study-sessions/${sessionId}/end`,
     expectedStatus: 200,
   }, () => form.getByRole("button", { name: "保存收口" }).click());
-  await input.page.getByRole("heading", { name: "证据接力（可跳过）" }).waitFor();
+  const evidenceHeading = input.page.getByRole("heading", { name: "证据接力（可跳过）" });
+  const lowConversion = input.page.getByRole("heading", { name: "低转化：先已保存 session" }).locator("..");
+  await Promise.race([
+    evidenceHeading.waitFor({ state: "visible" }),
+    lowConversion.waitFor({ state: "visible" }),
+  ]);
+  if (await lowConversion.isVisible()) {
+    await lowConversion.getByRole("button", { name: "跳过", exact: true }).click();
+  }
+  await evidenceHeading.waitFor({ state: "visible" });
   const after = await activeSessionOracle(input, "fixture-session-closed", false);
   assertOracleChanged(before, after);
   return {
@@ -320,7 +343,10 @@ async function runSyllabusJourney(input: ScenarioContext) {
     expectedStatus: 201,
   }, () => input.page.getByRole("button", { name: "写入考纲" }).click());
   const nodeId = stringField(asRecord(mutation.body).node, "id");
-  await input.page.getByText("合成浏览器考纲节点", { exact: true }).first().waitFor();
+  const createdNode = input.page.getByText("合成浏览器考纲节点", { exact: true })
+    .filter({ visible: true })
+    .first();
+  await createdNode.waitFor();
   const after = await captureOracle(input.context, input.config, "/api/syllabus", (status, body) => {
     const nodes = flattenSyllabusNodes(asRecord(body).nodes);
     return [
@@ -335,7 +361,7 @@ async function runSyllabusJourney(input: ScenarioContext) {
     mutation,
     after,
     terminalAssertions: await terminalAssertions(input.page, [
-      ["created-node-visible", () => input.page.getByText("合成浏览器考纲节点", { exact: true }).first().isVisible()],
+      ["created-node-visible", () => createdNode.isVisible()],
       ["syllabus-form-cleared", async () => await input.page.getByPlaceholder("章节、知识点或题型名称").inputValue() === ""],
     ]),
   };
@@ -624,7 +650,9 @@ function collectStrictTelemetry(page: Page) {
     if (active && message.type() === "error") consoleErrors += 1;
   };
   const onPageError = () => { if (active) pageErrors += 1; };
-  const onRequestFailed = () => { if (active) requestFailures += 1; };
+  const onRequestFailed = (request: Request) => {
+    if (active && !isExpectedRscAbort(request)) requestFailures += 1;
+  };
   const onResponse = (response: PlaywrightResponse) => {
     if (active && response.status() >= 400) httpFailures += 1;
   };
@@ -647,6 +675,13 @@ function collectStrictTelemetry(page: Page) {
   };
 }
 
+function isExpectedRscAbort(request: Request): boolean {
+  const headers = request.headers();
+  return request.failure()?.errorText === "net::ERR_ABORTED"
+    && request.resourceType() === "fetch"
+    && headers.rsc === "1";
+}
+
 function resolveStartPath(fixture: JourneyFixture): string {
   const configured = startPaths[fixture.journeyId];
   return configured.replace(":sessionId", fixture.activeSessionId ?? "missing");
@@ -665,6 +700,37 @@ function requestPath(response: PlaywrightResponse): string {
 function currentPath(page: Page): string {
   const url = new URL(page.url());
   return `${url.pathname}${url.search}`;
+}
+
+export function canonicalEvidenceRoute(actual: string, template: string): string {
+  const base = "http://areaforge.invalid";
+  const actualUrl = new URL(actual, base);
+  const templateUrl = new URL(template, base);
+  const actualParts = actualUrl.pathname.split("/");
+  const templateParts = templateUrl.pathname.split("/");
+  if (actualParts.length !== templateParts.length) throw new Error("observed route does not match evidence contract shape");
+
+  const normalizedParts = templateParts.map((part, index) => {
+    const actualPart = actualParts[index];
+    if (/^:[A-Za-z][A-Za-z0-9]*$/.test(part)) {
+      if (!actualPart) throw new Error("observed route has an empty dynamic segment");
+      return "synthetic-id";
+    }
+    if (actualPart !== part) throw new Error("observed route fixed segment does not match evidence contract");
+    return part;
+  });
+  const actualQuery = [...actualUrl.searchParams.entries()].sort();
+  const templateQuery = [...templateUrl.searchParams.entries()].sort();
+  if (JSON.stringify(actualQuery) !== JSON.stringify(templateQuery)) {
+    const actualKeys = actualQuery.map(([key]) => key);
+    const templateKeys = templateQuery.map(([key]) => key);
+    const mismatchedKeys = [...new Set([...actualKeys, ...templateKeys])].filter((key) =>
+      JSON.stringify(actualUrl.searchParams.getAll(key)) !== JSON.stringify(templateUrl.searchParams.getAll(key)));
+    throw new Error(
+      `observed route query does not match evidence contract: actualKeys=${actualKeys.join(",") || "none"}; templateKeys=${templateKeys.join(",") || "none"}; mismatchedKeys=${mismatchedKeys.join(",") || "none"}`,
+    );
+  }
+  return `${normalizedParts.join("/")}${templateUrl.search}`;
 }
 
 function sha256(bytes: Uint8Array): string {

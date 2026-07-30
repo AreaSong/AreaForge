@@ -5,21 +5,21 @@ scope: v1.1 Batch 11 local product completion and current worktree validation
 summary: Current dirty worktree passes the v1.1 local product, isolated migration/runtime, browser, governance and recovery gates; Release admission remains blocked until a target commit is frozen and SC-002/SC-004 are recollected for that exact commit
 evidenceClass: local-smoke
 claimScope: local-runtime
-evidenceUri: workflow/versions/v1.1-learning-action-center.md,output/playwright/v11-final-20260726/canvas-desktop.png,output/playwright/v11-final-20260726/canvas-mobile.png,tasks/active/0035-v11-batch11-minor-release.md
+evidenceUri: workflow/versions/v1.1-learning-action-center.md,output/playwright/v11-browser-evidence-20260730-runnerfix-test39/v11-browser-journey-evidence.json,output/playwright/v11-browser-evidence-20260730-runnerfix-test39/v11-accessibility-evidence.json,tasks/active/0035-v11-batch11-minor-release.md
 sourceBaseline:
   sourceDocs: workflow/versions/v1.1-learning-action-center.md,docs/development/v11-phase-packages.md,docs/development/validation-matrix.md,docs/development/high-risk-confirmation-packets.md
-  sourceHashOrCommit: 552b23547ac4b216d5d77a822cc3f1c623136b plus the documented dirty local candidate
+  sourceHashOrCommit: 218e22f60125ee9dccfb661cbcaa6496643f1c47 plus dirty productExperienceSourceHash sha256:3da723c7001a32246fc731b5b613ff75946342f56164843ec8c14b32f5aae4d5
 freshValidation:
   profile: full-local-candidate
-  commands: pnpm check; pnpm db:validate; pnpm tasks:doctor; pnpm docs:readiness; pnpm docs:completion; pnpm risk:preflight; pnpm governance:preflight; pnpm residuals:validate; pnpm error-recovery:validate; pnpm smoke:local-ux:selftest; pnpm release:train:preflight; pnpm enterprise:operability:preflight; pnpm secrets:scan; git diff --check
-  browserOrRuntimeEvidence: isolated PostgreSQL 24-migration runtime matrix; local UX smoke; Playwright desktop/mobile/error-recovery checks; output/playwright/v11-final-20260726
-  checkedAt: 2026-07-26T04:35:33+08:00
+  commands: pnpm check; pnpm ops:v11:browser-evidence:selftest; pnpm quality:operability:typecheck; pnpm ops:v11:browser-evidence:validate <journey>; pnpm ops:v11:browser-evidence:validate <accessibility>; git diff --check
+  browserOrRuntimeEvidence: PostgreSQL 16 fresh empty database with 24 migrations; 19 isolated synthetic accounts; production-build 18/18 desktop-mobile journeys; 24/24 accessibility checks; output/playwright/v11-browser-evidence-20260730-runnerfix-test39
+  checkedAt: 2026-07-30T15:55:55+08:00
 validationFingerprint:
   algorithm: none-until-target-commit-freeze
-  gitHead: 552b23547ac4b216d5d5d77a822cc3f1c623136b
+  gitHead: 218e22f60125ee9dccfb661cbcaa6496643f1c47
   worktreeState: dirty-local-candidate
   worktreeHash: not-frozen
-  changedPaths: v1.1 draft recovery, report history return, local UX smoke contracts, governance preflight and current completion evidence
+  changedPaths: v1.1 browser evidence runner and validators, knowledge canvas return/focus behavior, immediate mutation terminal states, update-center evidence, action-center return context and candidate documentation
   digest: not-frozen
 unverified:
   skippedChecks: matching CI, exact-commit SC-002, fresh SC-004 readback/controlled PR, signed Release assets, production apply
@@ -80,7 +80,7 @@ safetyFacts:
 - 动机档案、动机内容库、AI、笔记、错题、资料外链与资料详情：刷新恢复通过；成功保存或采用后的草稿清理通过。
 - 主动求助 Drawer：一条内容、三个恢复动作、焦点陷阱、Esc 关闭和返回触发按钮通过。
 - 报告历史：确认生成冻结报告、进入详情、返回后恢复 `tab=history&period=week` 与列表焦点通过。
-- 画布：桌面画布、移动查阅、等价列表、键盘布局命令入口和无横向溢出通过；截图位于 `output/playwright/v11-final-20260726/`。
+- 画布：桌面布局/冲突/返回焦点、移动 depth=2 等价列表和 canonical 详情焦点通过；18 张旅程截图与 24 份无障碍 observation 位于 `output/playwright/v11-browser-evidence-20260730-runnerfix-test39/`。
 - 登录 `returnTo`：外部绝对 URL 回退 `/today`，合法站内路径和查询参数原样恢复。
 - 401 mock：本地通知草稿保留且没有写入服务端；409 mock：本地值不被覆盖并展示最新 revision；人工采用最新状态后草稿清除。
 - 控制台唯一 error 为验收主动注入的 409 HTTP 响应，没有未解释的运行时错误。
@@ -89,7 +89,8 @@ safetyFacts:
 
 以下本地门禁均通过：
 
-- `pnpm check`：Core 80/80、AI 24/24、Storage 25/25、Auth 3/3，workspace typecheck/test、Web lint、Prisma validate 和 Next production build 全部通过。
+- `pnpm check`：Core 94/94、AI 24/24、Storage 26/26、Auth 12/12，workspace typecheck/test、Web lint、Prisma validate 和 Next production build 全部通过。
+- `pnpm ops:v11:browser-evidence:selftest`、`pnpm quality:operability:typecheck` 与两份 `pnpm ops:v11:browser-evidence:validate`：全部通过。
 - `pnpm db:validate`、`pnpm tasks:doctor`、`pnpm docs:readiness`、`pnpm docs:completion`。
 - `pnpm risk:preflight`、`pnpm governance:preflight`、`pnpm residuals:validate`、`pnpm error-recovery:validate`。
 - `pnpm smoke:local-ux:selftest`、`pnpm release:train:preflight`、`pnpm enterprise:operability:preflight`、`pnpm secrets:scan`。

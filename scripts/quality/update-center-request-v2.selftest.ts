@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -61,7 +61,26 @@ async function main(): Promise<void> {
   await testAtomicPublishDirectoryCreationSync(snapshot);
   await testAtomicPublishTemporaryCleanupUncertain(snapshot);
   await testStatusBindingAndPublicProjection(snapshot);
+  await testPendingRequestCount();
   console.log("update center request V2 selftest passed.");
+}
+
+async function testPendingRequestCount(): Promise<void> {
+  const { countPendingUpdateRequests } = await import("../../apps/web/lib/system/update-center");
+  const root = await mkdtemp(path.join(os.tmpdir(), "areaforge-update-queue-count-"));
+  const requests = path.join(root, "requests");
+  try {
+    assert(await countPendingUpdateRequests(requests) === 0, "a missing request directory must report an empty queue");
+    await mkdir(requests);
+    await writeFile(path.join(requests, "request.json"), "{}\n");
+    await writeFile(path.join(requests, ".request.tmp"), "{}\n");
+    await writeFile(path.join(requests, "readme.txt"), "ignored\n");
+    await symlink(path.join(requests, "request.json"), path.join(requests, "linked.json"));
+    assert(await countPendingUpdateRequests(requests) === 1, "only regular non-hidden JSON requests may enter the queue count");
+    assert(await countPendingUpdateRequests(path.join(requests, "request.json")) === null, "unexpected directory read errors must remain unknown");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 }
 
 function testClientIdempotencyRetry(): void {

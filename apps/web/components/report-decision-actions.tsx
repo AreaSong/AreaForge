@@ -15,7 +15,10 @@ import {
 } from "@/lib/client/private-business-drafts";
 import { selectReportDecisionBaseline } from "@/lib/client/versioned-conflict-baseline";
 import type { ReportDecisionConflictLatest } from "@/lib/study/report-decisions-service";
-import type { PeriodicReportDto } from "@/lib/study/reports-service";
+import type {
+  PeriodicReportDecisionDto,
+  PeriodicReportDto,
+} from "@/lib/study/reports-service";
 
 type ReportDecisionAction = "confirm" | "reject";
 
@@ -39,11 +42,7 @@ interface ReportDecisionConflict {
 }
 
 interface ReportDecisionResponse {
-  decision?: {
-    alreadyDecided?: boolean;
-    stageDraftId?: string | null;
-    inboxResult?: { createdCount: number; reusedCount: number; supersededCount: number };
-  };
+  decision?: PeriodicReportDecisionDto;
   error?: string;
   latest?: unknown;
   conflictFields?: string[];
@@ -127,6 +126,7 @@ export function ReportDecisionActions({ report }: { report: PeriodicReportDto })
 
       removePrivateBusinessDraft(commandKey);
       setCommand(null);
+      if (body?.decision) setBaselineOverride({ ...baseline, decision: body.decision });
       const inbox = body?.decision?.inboxResult;
       const counts = inbox ? `入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}，替代 ${inbox.supersededCount}` : "";
       setNotice(body?.decision?.alreadyDecided

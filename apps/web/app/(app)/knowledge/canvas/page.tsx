@@ -7,10 +7,14 @@ import { getKnowledgeCanvas } from "@/lib/study/knowledge-canvas-service";
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/knowledge/canvas");
 
-export default async function KnowledgeCanvasPage({ searchParams }: { searchParams: Promise<{ workspaceId?: string; subjectId?: string; syllabusNodeId?: string; focus?: string; q?: string; entityType?: string; relation?: string; status?: string; view?: string }> }) {
+export default async function KnowledgeCanvasPage({ searchParams }: { searchParams: Promise<{ workspaceId?: string; subjectId?: string; syllabusNodeId?: string; focus?: string; q?: string; entityType?: string; relation?: string; status?: string; view?: string; depth?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const query = await searchParams;
+  const requestedDepth = Number(query.depth);
+  const depth = Number.isInteger(requestedDepth) && requestedDepth >= 1 && requestedDepth <= 4
+    ? requestedDepth
+    : 1;
   const canvas = await getKnowledgeCanvas(user.id, {
     workspaceId: query.workspaceId,
     focus: query.focus ?? (query.syllabusNodeId ? `SYLLABUS_NODE:${query.syllabusNodeId}` : undefined),
@@ -18,7 +22,7 @@ export default async function KnowledgeCanvasPage({ searchParams }: { searchPara
     q: query.q,
     entityType: query.entityType,
     status: query.status,
-    depth: 1,
+    depth,
     limit: 80,
   });
   return (

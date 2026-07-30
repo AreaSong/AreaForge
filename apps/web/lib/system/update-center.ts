@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   atomicPublishUpdateRequest,
@@ -85,7 +85,10 @@ export type UpdateRequestValidationCode =
   | "AUTO_APPLY_POLICY_UNSUPPORTED";
 
 export async function getUpdateCenterStatus(): Promise<UpdateCenterStatus> {
-  const rawStatus = await readJsonFile(statusPath);
+  const [rawStatus, pendingRequestCount] = await Promise.all([
+    readJsonFile(statusPath),
+    countPendingUpdateRequests(requestsDir),
+  ]);
   const source = asRecord(rawStatus);
   const snapshot = parseVerifiedStatusSnapshot(rawStatus);
   const currentVersion = snapshot?.currentVersion ?? process.env.APP_VERSION ?? stringValue(source.currentVersion) ?? "0.1.0";
@@ -116,12 +119,22 @@ export async function getUpdateCenterStatus(): Promise<UpdateCenterStatus> {
       sourceRecordSha256: snapshot?.rollback.sourceRecordSha256 ?? null,
     },
     blocker: nullableString(source.blocker),
-    requestQueueLength: nullableNumber(source.requestQueueLength),
+    requestQueueLength: pendingRequestCount ?? nullableNumber(source.requestQueueLength),
     statusUpdatedAt: nullableString(source.statusUpdatedAt),
     snapshotSchemaVersion: source.snapshotSchemaVersion === 2 ? 2 : null,
     snapshotHash: snapshot?.snapshotHash ?? null,
     verifiedTarget: snapshot?.verifiedTarget ?? null,
   };
+}
+
+export async function countPendingUpdateRequests(directory: string): Promise<number | null> {
+  try {
+    const entries = await readdir(directory, { withFileTypes: true });
+    return entries.filter((entry) => entry.isFile() && !entry.name.startsWith(".") && entry.name.endsWith(".json")).length;
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? error.code : null;
+    return code === "ENOENT" ? 0 : null;
+  }
 }
 
 export async function createUpdateRequest(input: CreateUpdateRequestInput): Promise<UpdateOperation> {

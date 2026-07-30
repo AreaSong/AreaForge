@@ -276,20 +276,6 @@ export async function createBrowserFixtureSet(password: string): Promise<Browser
     masteryStatus: "partial",
     revision: 1,
   }] : []);
-  const sessions: Prisma.StudySessionCreateManyInput[] = allAccounts.flatMap((account) => account.activeSessionId ? [{
-    id: account.activeSessionId,
-    subjectId: account.subjectId,
-    taskId: account.taskId,
-    syllabusNodeId: account.syllabusNodeId,
-    status: "RUNNING" as const,
-    startedAt: new Date(now.getTime() - 6 * 60 * 1000),
-    accumulatedPauseSeconds: 0,
-    effectiveMinutes: 0,
-    goalMinutes: 25,
-    startSource: "TASK" as const,
-    closeoutVersion: 1,
-  }] : []);
-
   await prisma.$transaction(async (tx) => {
     await tx.user.createMany({ data: users });
     await tx.examWorkspace.createMany({ data: workspaces });
@@ -297,7 +283,6 @@ export async function createBrowserFixtureSet(password: string): Promise<Browser
     await tx.syllabusNode.createMany({ data: syllabusNodes });
     await tx.studyTask.createMany({ data: tasks });
     if (notes.length > 0) await tx.note.createMany({ data: notes });
-    if (sessions.length > 0) await tx.studySession.createMany({ data: sessions });
   });
 
   const accounts = [
@@ -329,6 +314,38 @@ export async function createBrowserFixtureSet(password: string): Promise<Browser
     manifestSha256: computeFixtureManifestHash(manifestWithoutHash),
   };
   return { manifest, journeys: journeyFixtures, accessibility };
+}
+
+export async function prepareFixtureActiveSession(fixture: FixtureAccount): Promise<void> {
+  if (!fixture.activeSessionId) return;
+  await prisma.studySession.create({
+    data: {
+      id: fixture.activeSessionId,
+      subjectId: fixture.subjectId,
+      taskId: fixture.taskId,
+      syllabusNodeId: fixture.syllabusNodeId,
+      status: "RUNNING",
+      startedAt: new Date(Date.now() - 6 * 60 * 1000),
+      accumulatedPauseSeconds: 0,
+      effectiveMinutes: 0,
+      goalMinutes: 25,
+      startSource: "TASK",
+      closeoutVersion: 1,
+    },
+  });
+}
+
+export async function releaseFixtureActiveSessions(fixture: FixtureAccount): Promise<void> {
+  await prisma.studySession.updateMany({
+    where: {
+      subjectId: fixture.subjectId,
+      status: { in: ["RUNNING", "PAUSED"] },
+    },
+    data: {
+      status: "CANCELED",
+      endedAt: new Date(),
+    },
+  });
 }
 
 function createJourneyFixtureInputs(fixtureSetId: string): JourneyFixture[] {

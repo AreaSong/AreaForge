@@ -4,11 +4,9 @@
 status: in-progress
 phase: implementation
 blockers:
-  - migration-21-24-local-confirmation
-  - current-24-migration-compatibility-floor
-  - current-production-mode-nine-journey-ux
+  - frozen-commit-24-migration-compatibility-floor-rebind
+  - frozen-commit-production-mode-browser-recapture
   - current-completion-evidence
-  - target-commit-freeze
   - matching-sc-002-sc-004
   - signed-release-confirmation
 risk: high
@@ -39,11 +37,11 @@ releaseRequired: true
 
 - 目标版本：`1.1.0`。
 - 已确认前置：Batch 10 完成；完整 Migration Gate 与 OPS-006/007 independent production apply 证据齐全。
-- 当前正在按 v1.1 验收合同逐功能重验并补缺；`pnpm check` 与 M6/Task runtime 已新鲜通过，但 24-migration compatibility floor、production-mode 九条旅程、独立无障碍记录和 current-bound completion evidence 尚未全部重采。
+- 当前 pre-freeze 本地候选已通过 `pnpm check`、24-migration compatibility floor、production-mode 18 条旅程（9×desktop/mobile）和 24 项独立无障碍记录；本任务文件所在提交冻结为目标 source commit，compatibility/browser 证据仍须按该提交重采，current-bound completion evidence 也尚未生成。
 - 2026-07-29 已按独立高风险确认补齐外部 Provider 当前浏览器默认关闭偏好：`/settings/ai` 确认保存、鉴权偏好 API 和八条既有 AI POST route 统一 gate 已在隔离候选实现并完成专项 API/桌面/移动验收；未使用真实生产 key，未新增 migration 或 AI history/cost/trace。
-- 2026-07-29 已完成结构化浏览器证据 contract/runner/validator 与 v1.1 admission 直接绑定：Product Experience 的 18 条 journey JSON、独立无障碍的 24 项 JSON、nested hash/schema/source/final-reread，以及 evidence-only 精确白名单均有负向 selftest；这只完成采集基础设施，不代表真实 production-mode 旅程已重采。
-- 真实浏览器重采会在隔离 PostgreSQL 上执行现有 24 条 migration（若目标库尚未升级）、创建 18 个旅程账号与 1 个无障碍账号，并运行写入型页面 mutation；当前 AI Provider 确认不授权这些数据库动作，执行前必须取得独立精确确认。
-- 候选 commit 冻结后，SC-002/SC-004 必须按该 commit 重采；`v0.1.9` 或更早证据不得替代。
+- 2026-07-30 已按独立精确确认完成 dirty worktree 本地浏览器重采：全新 PostgreSQL 16 空库顺序应用 24 条 migration，创建 18 个旅程账号与 1 个无障碍账号，18/18 journey、24/24 accessibility 及两份正式 validator 均通过；候选证据位于 `output/playwright/v11-browser-evidence-20260730-runnerfix-test39/`。
+- 本轮浏览器重采只证明隔离本地 production-build 候选；目标 commit 冻结后仍须在新空库重采，不得复用已写入 fixture 的 test39 数据库或把 dirty-worktree 证据用于 Release admission。
+- SC-002/SC-004 必须按本任务文件所在 source commit 及其合法 evidence-only closeout 重采；`v0.1.9` 或更早证据不得替代。
 - 签名 Release 确认句、tag、GitHub Release、生产 backup/migration/apply/smoke/rollback 均不在当前授权内。
 - `AREAFORGE_AUTO_APPLY=none` 保持不变；任何 residual 状态都不自动关闭。
 - `docs/development/v11-compatibility-floor-evidence-20260722.md` 只绑定历史 20-migration 候选。当前 24-migration 入口是 `docs/development/v11-compatibility-floor-evidence-20260727.md`，在扩展确认与新鲜编排通过前保持 pending；签名 Release 仍须另行固定 floor image digest。

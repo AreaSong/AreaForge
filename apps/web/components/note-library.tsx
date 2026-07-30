@@ -69,6 +69,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
   const [error, setError] = useState<string | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [createdNotes, setCreatedNotes] = useState<NoteDto[]>([]);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -143,14 +144,18 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
     () => flatNodes.filter((node) => noteSubjectFilter === "all" || node.subjectId === noteSubjectFilter),
     [flatNodes, noteSubjectFilter],
   );
+  const visibleNotes = useMemo(
+    () => [...createdNotes.filter((created) => !notes.some((note) => note.id === created.id)), ...notes],
+    [createdNotes, notes],
+  );
   const filteredNotes = useMemo(
-    () => notes.filter((note) =>
+    () => visibleNotes.filter((note) =>
       matchesSubject(note, noteSubjectFilter) &&
       matchesNode(note, noteNodeFilter) &&
       matchesMastery(note, noteMasteryFilter) &&
       matchesReview(note, noteReviewFilter),
     ),
-    [notes, noteSubjectFilter, noteNodeFilter, noteMasteryFilter, noteReviewFilter],
+    [visibleNotes, noteSubjectFilter, noteNodeFilter, noteMasteryFilter, noteReviewFilter],
   );
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -168,6 +173,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
       nextReviewAt: nextReviewAt ? new Date(nextReviewAt).toISOString() : null,
     };
     const commandScope = `note:create:${userId}`;
+    let createdNote: NoteDto | null = null;
     setSaving(true);
 
     try {
@@ -190,6 +196,12 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
         setError(body?.error ?? "保存笔记失败，草稿已保留");
         return;
       }
+      const body = (await response.json().catch(() => null)) as { note?: NoteDto } | null;
+      if (!body?.note) {
+        setError("服务端未返回已创建笔记，当前草稿与重试标识仍保留");
+        return;
+      }
+      createdNote = body.note;
     } catch {
       setError("网络不可用，笔记草稿已保留；恢复网络后请显式重试。");
       return;
@@ -197,7 +209,11 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
       setSaving(false);
     }
 
+    if (!createdNote) return;
     completeIdempotentCommand(commandScope);
+    setCreatedNotes((current) => current.some((note) => note.id === createdNote.id)
+      ? current
+      : [createdNote, ...current]);
     setTitle("");
     setContent("");
     setKind("GENERAL");
@@ -359,7 +375,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
             <h2 className="mt-1 text-xl font-semibold text-white">笔记与最小产出</h2>
           </div>
           <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
-            {filteredNotes.length} / {notes.length} 条
+            {filteredNotes.length} / {visibleNotes.length} 条
           </span>
         </div>
 
@@ -422,12 +438,12 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
         </div>
 
         <div className="mt-5 grid gap-3">
-          {notes.length === 0 ? (
+          {visibleNotes.length === 0 ? (
             <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
               还没有笔记。计时结束后的最小产出可以在这里沉淀下来。
             </p>
           ) : null}
-          {notes.length > 0 && filteredNotes.length === 0 ? (
+          {visibleNotes.length > 0 && filteredNotes.length === 0 ? (
             <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
               当前筛选下没有笔记。
             </p>

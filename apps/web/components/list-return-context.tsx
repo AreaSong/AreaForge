@@ -53,7 +53,7 @@ export function BackToListLink(props: { fallbackHref: string; children: React.Re
         const record = readRecordForDestination(currentUrl());
         if (!record || !sourceIsSameOrigin(record.sourceUrl) || window.history.length <= 1) return;
         event.preventDefault();
-        window.history.back();
+        window.location.replace(record.sourceUrl);
       }}
     >
       {props.children}

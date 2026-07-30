@@ -14,7 +14,11 @@ import {
   type V11RedactedValue,
   type V11Viewport,
 } from "../quality/v11-browser-evidence-contract";
-import type { BrowserEvidenceConfig, FixtureAccount } from "./v11-browser-fixtures";
+import {
+  prepareFixtureActiveSession,
+  type BrowserEvidenceConfig,
+  type FixtureAccount,
+} from "./v11-browser-fixtures";
 
 type MechanismByCategory = {
   keyboard: "keyboard";
@@ -92,7 +96,7 @@ async function runUnauthenticatedLiveCheck(
     await page.getByLabel("密码").fill(input.config.password);
     const response = await clickAndWaitForResponse(page, input.config, "/api/auth/login", 401, () =>
       page.getByRole("button", { name: "登录" }).click());
-    const alert = page.getByRole("alert");
+    const alert = page.getByRole("alert").filter({ hasText: /\S/ });
     await alert.waitFor();
     const observation = await alert.evaluate((element) => ({
       live: element.getAttribute("aria-live") ?? "",
@@ -131,6 +135,7 @@ async function runDesktopChecks(
     await keyboardNavigationCheck(page, checks);
     await canvasDesktopChecks(page, context, input.config, input.fixture, checks);
     await noteFocusCheck(page, input.fixture, input.config, checks);
+    await prepareFixtureActiveSession(input.fixture);
     await focusLiveChecks(page, input.fixture, input.config, checks);
     await reviewLiveChecks(page, input.config, checks);
     await notificationFallbackLiveCheck(page, input.config, checks);
@@ -146,6 +151,10 @@ async function keyboardLogin(
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
   await page.goto(url(config, "/login"), { waitUntil: "domcontentloaded" });
+  await Promise.all([
+    page.getByLabel("邮箱").waitFor(),
+    page.getByLabel("密码").waitFor(),
+  ]);
   await page.keyboard.press("Tab");
   const emailFocused = await page.getByLabel("邮箱").evaluate((element) => element === document.activeElement);
   await page.keyboard.type(fixture.email);
@@ -156,6 +165,7 @@ async function keyboardLogin(
     new URL(response.url()).pathname === "/api/auth/login" && response.request().method() === "POST");
   const [response] = await Promise.all([responsePromise, page.keyboard.press("Enter")]);
   await page.waitForURL((candidate) => candidate.pathname === "/today");
+  await page.getByRole("heading", { name: "今日行动中心", level: 1 }).waitFor();
   record(checks, {
     id: "KBD-01",
     category: "keyboard",
@@ -220,8 +230,8 @@ async function semanticsAndColorChecks(
     mechanism: "dom",
     assertions: [
       assertion("five-status-indicators", 5, colors.count),
-      assertion("all-statuses-have-text", colors.count, colors.textCount),
-      assertion("all-statuses-have-accessible-name", colors.count, colors.namedCount),
+      assertion("all-statuses-have-text", 5, colors.textCount),
+      assertion("all-statuses-have-accessible-name", 5, colors.namedCount),
       assertion("computed-colors-observed", 1, colors.colorCount, "gte"),
     ],
   });
@@ -530,12 +540,20 @@ async function canvasDesktopChecks(
     ],
   });
 
+  const expandResponsePromise = page.waitForResponse((candidate) =>
+    new URL(candidate.url()).pathname === "/api/knowledge-canvas"
+      && candidate.request().method() === "GET");
+  await page.getByRole("button", { name: "展开一层" }).click();
+  const expandResponse = await expandResponsePromise;
+  if (expandResponse.status() !== 200) throw new Error("accessibility canvas depth expansion failed");
+  await page.getByText("刷新中…", { exact: true }).waitFor({ state: "detached" });
+
   const listButton = page.getByRole("button", { name: "等价列表" });
   await listButton.focus();
   await page.keyboard.press("Enter");
   const list = page.getByRole("list", { name: "画布等价列表" });
   await list.waitFor();
-  const canvasBody = asRecord(asRecord(after.body).canvas);
+  const canvasBody = asRecord(asRecord(parseJson(await expandResponse.body())).canvas);
   const apiList = arrayRecords(canvasBody.list);
   const apiListCount = apiList.length;
   const domRowCount = await list.getByRole("listitem").count();
@@ -558,8 +576,10 @@ async function canvasDesktopChecks(
   const subjectSelect = page.getByRole("combobox", { name: "按科目筛选" });
   const subjectOptions = subjectSelect.locator('option:not([value=""])');
   const subjectOptionCount = await subjectOptions.count();
-  const subjectId = await subjectOptions.first().getAttribute("value");
-  if (!subjectId) throw new Error("accessibility canvas fixture has no subject filter option");
+  const subjectId = fixture.subjectId;
+  if (await subjectSelect.locator(`option[value="${subjectId}"]`).count() === 0) {
+    throw new Error("accessibility canvas fixture subject filter option is missing");
+  }
   await subjectSelect.selectOption(subjectId);
   const subjectResponsePromise = page.waitForResponse((candidate) =>
     new URL(candidate.url()).pathname === "/api/knowledge-canvas"
@@ -592,21 +612,21 @@ async function canvasDesktopChecks(
     ],
   });
 
-  const noteId = required(fixture.noteId, "accessibility fixture note");
-  const noteLink = list.locator(`a[href="/knowledge/notes/${noteId}"]`);
-  await noteLink.waitFor();
-  await noteLink.focus();
-  const listLinkFocused = await noteLink.evaluate((element) => element === document.activeElement);
+  const detailPath = `/knowledge/syllabus/${fixture.syllabusNodeId}`;
+  const detailLink = list.locator(`a[href="${detailPath}"]`);
+  await detailLink.waitFor();
+  await detailLink.focus();
+  const listLinkFocused = await detailLink.evaluate((element) => element === document.activeElement);
   await page.keyboard.press("Enter");
-  await page.waitForURL((candidate) => candidate.pathname === `/knowledge/notes/${noteId}`);
+  await page.waitForURL((candidate) => candidate.pathname === detailPath);
   await page.waitForFunction(() => document.activeElement?.tagName === "H1");
   const detailHeadingFocused = await page.evaluate(() => document.activeElement?.tagName === "H1");
-  const backLink = page.getByRole("link", { name: "返回卡片列表" });
+  const backLink = page.getByRole("link", { name: "返回考纲树" });
   await backLink.focus();
   await page.keyboard.press("Enter");
   await page.waitForURL((candidate) => candidate.pathname === "/knowledge/canvas" && candidate.searchParams.get("view") === "list");
-  const restoredNoteLink = page.locator(`a[href="/knowledge/notes/${noteId}"]`);
-  await waitForElementFocus(restoredNoteLink);
+  const restoredDetailLink = page.locator(`a[href="${detailPath}"]`);
+  await waitForElementFocus(restoredDetailLink);
   record(checks, {
     id: "FOCUS-04",
     category: "focus",
@@ -619,7 +639,7 @@ async function canvasDesktopChecks(
       assertion("canvas-list-link-focused-before-enter", true, listLinkFocused),
       assertion("canvas-detail-heading-focused", true, detailHeadingFocused),
       assertion("canvas-return-url-restored", sourcePath, `${new URL(page.url()).pathname}${new URL(page.url()).search}`),
-      assertion("canvas-list-row-focus-restored", true, await restoredNoteLink.evaluate((element) => element === document.activeElement)),
+      assertion("canvas-list-row-focus-restored", true, await restoredDetailLink.evaluate((element) => element === document.activeElement)),
     ],
   });
 }
@@ -740,7 +760,7 @@ async function reviewLiveChecks(
   await page.route("**/api/daily-reviews/**", (route) => route.abort("failed"));
   await page.getByPlaceholder("今天完成了什么").fill("合成无障碍网络失败草稿");
   await page.getByRole("button", { name: "更新复盘" }).click();
-  const alert = page.getByRole("alert");
+  const alert = page.getByRole("alert").filter({ hasText: /\S/ });
   await alert.waitFor();
   const draftCount = await page.evaluate(() => Object.keys(localStorage)
     .filter((key) => key.startsWith("areaforge.daily-review.draft.")).length);
@@ -893,15 +913,26 @@ async function runMobileChecks(
     const layoutButtonsDisabled = await page.locator('[aria-label$="微调"]').evaluateAll((buttons) =>
       buttons.length > 0 && buttons.every((button) => (button as HTMLButtonElement).disabled));
     const resetCount = await page.getByRole("button", { name: "重置布局" }).count();
+    const expandResponsePromise = page.waitForResponse((candidate) =>
+      new URL(candidate.url()).pathname === "/api/knowledge-canvas"
+        && candidate.request().method() === "GET");
+    await page.getByRole("button", { name: "展开一层" }).click();
+    const expandResponse = await expandResponsePromise;
+    if (expandResponse.status() !== 200) throw new Error("mobile accessibility canvas depth expansion failed");
+    await page.getByText("刷新中…", { exact: true }).waitFor({ state: "detached" });
+
     const toggle = page.getByRole("button", { name: "等价列表" });
     await toggle.focus();
     await page.keyboard.press("Enter");
     const list = page.getByRole("list", { name: "画布等价列表" });
     await list.waitFor();
-    const open = list.getByRole("link", { name: "打开" }).first();
+    const detailPath = `/knowledge/syllabus/${input.fixture.syllabusNodeId}`;
+    const open = list.locator(`a[href="${detailPath}"]`);
     const linkCount = await list.getByRole("link", { name: "打开" }).count();
+    await open.waitFor();
     await open.focus();
     await page.keyboard.press("Enter");
+    await page.waitForURL((candidate) => candidate.pathname === detailPath);
     await page.waitForFunction(() => document.activeElement?.tagName === "H1");
     const destination = pathname(page);
     const headingFocused = await page.evaluate(() => document.activeElement?.tagName === "H1");
@@ -1120,13 +1151,16 @@ async function waitForFocusWithin(locator: ReturnType<Page["locator"]>): Promise
 async function waitForFocus(locator: ReturnType<Page["locator"]>, within: boolean): Promise<void> {
   await locator.evaluate((element, contains) => new Promise<void>((resolve, reject) => {
     const deadline = performance.now() + 5_000;
-    const poll = () => {
+    const interval = window.setInterval(() => {
       const matched = contains ? element.contains(document.activeElement) : element === document.activeElement;
-      if (matched) return resolve();
-      if (performance.now() >= deadline) return reject(new Error("focus did not reach the expected target"));
-      requestAnimationFrame(poll);
-    };
-    poll();
+      if (matched) {
+        window.clearInterval(interval);
+        resolve();
+      } else if (performance.now() >= deadline) {
+        window.clearInterval(interval);
+        reject(new Error("focus did not reach the expected target"));
+      }
+    }, 16);
   }), within);
 }
 
@@ -1139,12 +1173,15 @@ async function setChromeDefaultZoom(context: BrowserContext, zoom: 1 | 2): Promi
     await select.selectOption(String(zoom));
     await select.evaluate((element, expected) => new Promise<void>((resolve, reject) => {
       const deadline = performance.now() + 5_000;
-      const poll = () => {
-        if ((element as HTMLSelectElement).value === expected) return resolve();
-        if (performance.now() >= deadline) return reject(new Error("native browser zoom setting did not settle"));
-        requestAnimationFrame(poll);
-      };
-      poll();
+      const interval = window.setInterval(() => {
+        if ((element as HTMLSelectElement).value === expected) {
+          window.clearInterval(interval);
+          resolve();
+        } else if (performance.now() >= deadline) {
+          window.clearInterval(interval);
+          reject(new Error("native browser zoom setting did not settle"));
+        }
+      }, 16);
     }), String(zoom));
     return await select.inputValue();
   } finally {
@@ -1201,6 +1238,7 @@ async function nativeRouteMetrics(
     ].join(",");
     const focusables = Array.from(document.querySelectorAll<HTMLElement>(selector))
       .filter((element) => element.getClientRects().length > 0
+        && element.closest("details:not([open])") === null
         && getComputedStyle(element).visibility !== "hidden"
         && getComputedStyle(element).display !== "none")
       .slice(0, 300);

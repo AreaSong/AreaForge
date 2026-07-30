@@ -345,7 +345,11 @@ export function KnowledgeCanvasClient(props: {
 
   function focusCanvasNode(nodeId: string) {
     window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(nodeId)}"]`)?.focus();
+      window.requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(nodeId)}"]`)
+          ?.focus({ preventScroll: true });
+      });
     });
   }
 
@@ -413,6 +417,7 @@ export function KnowledgeCanvasClient(props: {
           syncOptionalSearchParam(nextUrl, "relation", params.resetFilters ? "" : relationKindFilter);
           syncOptionalSearchParam(nextUrl, "status", params.resetFilters || statusFilter === "active" ? "" : statusFilter);
           syncOptionalSearchParam(nextUrl, "view", view === "list" ? "list" : "");
+          syncOptionalSearchParam(nextUrl, "depth", incomingCanvas.depth === 1 ? "" : String(incomingCanvas.depth));
           window.history.pushState(null, "", nextUrl);
         }
         return true;
@@ -568,7 +573,12 @@ export function KnowledgeCanvasClient(props: {
           ...(pendingViewport ?? {}),
         },
       });
-      if (!hasKnowledgeCanvasLayoutQueueWork(layoutQueueRef.current)) setLayoutAnnouncement("布局已同步");
+      if (!hasKnowledgeCanvasLayoutQueueWork(layoutQueueRef.current)) {
+        const pendingSuffix = "，等待同步";
+        setLayoutAnnouncement((current) => current.endsWith(pendingSuffix)
+          ? `${current.slice(0, -pendingSuffix.length)}，已同步`
+          : "布局已同步");
+      }
       setLayoutConflict(null);
       setOffline(false);
     } catch {

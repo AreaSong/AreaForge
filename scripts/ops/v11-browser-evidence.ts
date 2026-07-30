@@ -21,6 +21,7 @@ import {
   computeRuntimeResponseHash,
   type V11AccessibilityEvidence,
   type V11AccessibilityCategory,
+  type V11AccessibilityCheck,
   type V11AccessibilityObservation,
   type V11EvidenceBinding,
   type V11EvidenceEnvironment,
@@ -38,6 +39,7 @@ import {
   createNoClobberOutputDirectory,
   assertBrowserEvidenceDatabasePreflight,
   loadBrowserEvidenceConfig,
+  releaseFixtureActiveSessions,
   type BrowserEvidenceConfig,
   type FixtureManifest,
 } from "./v11-browser-fixtures";
@@ -100,13 +102,18 @@ export async function runV11BrowserEvidence(): Promise<BrowserEvidenceResult> {
     });
     if (screenshots.count() !== 18) throw new Error("journey suite did not write exactly 18 screenshots");
 
-    const checks = await runAccessibilitySuite({
-      browser,
-      nativeContext,
-      config,
-      fixture: fixtureSet.accessibility,
-      artifacts: createAccessibilityArtifactWriter(config),
-    });
+    let checks: V11AccessibilityCheck[];
+    try {
+      checks = await runAccessibilitySuite({
+        browser,
+        nativeContext,
+        config,
+        fixture: fixtureSet.accessibility,
+        artifacts: createAccessibilityArtifactWriter(config),
+      });
+    } finally {
+      await releaseFixtureActiveSessions(fixtureSet.accessibility);
+    }
     assertBindingUnchanged(binding, await currentBinding(config.root));
     const runtimeIdentityEvidence = await captureRuntimeIdentity(config, binding);
     if (
@@ -492,9 +499,9 @@ function assertEvidenceValid(
     validateV11BrowserEvidence(journey, binding),
     validateV11BrowserEvidence(accessibility, binding),
   ];
-  if (results.some((result) => !result.valid)) {
-    throw new Error("generated browser evidence failed in-memory contract validation");
-  }
+  const issues = results.flatMap((result, index) => result.issues.map((issue) =>
+    `${index === 0 ? "journey" : "accessibility"}.${issue.field}: ${issue.message}`));
+  if (issues.length > 0) throw new Error(`generated browser evidence failed in-memory contract validation: ${issues.join("; ")}`);
 }
 
 function assertEvidenceFilesValid(

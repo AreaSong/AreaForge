@@ -104,6 +104,11 @@ type MasteryRetestFormDraft = {
 
 export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, initialSubjectId }: SyllabusManagerProps) {
   const router = useRouter();
+  const [createdNodes, setCreatedNodes] = useState<SyllabusNodeDto[]>([]);
+  const displayNodes = useMemo(
+    () => createdNodes.reduce(insertSyllabusNode, nodes),
+    [createdNodes, nodes],
+  );
   const [subjectId, setSubjectId] = useState(subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId as string : subjects[0]?.id ?? "");
   const [parentId, setParentId] = useState("");
   const [title, setTitle] = useState("");
@@ -148,7 +153,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
         setParentId(importDraft.parentId ?? "");
         setImportMarkdown(importDraft.markdown);
       }
-      for (const node of flattenTree(nodes)) {
+      for (const node of flattenTree(displayNodes)) {
         const updateDraft = loadPrivateBusinessDraft(
           syllabusUpdateDraftKey(node.id),
           SHORT_PRIVATE_DRAFT_TTL_MS,
@@ -163,7 +168,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
     }, 0);
 
     return () => window.clearTimeout(restoreTimer);
-  }, [nodes, subjects]);
+  }, [displayNodes, subjects]);
 
   useEffect(() => {
     if (!draftsLoaded) return;
@@ -194,9 +199,9 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
     });
   }, [draftsLoaded, subjectId, parentId, importMarkdown]);
 
-  const subjectNodes = useMemo(() => nodes.filter((node) => node.subjectId === subjectId), [nodes, subjectId]);
+  const subjectNodes = useMemo(() => displayNodes.filter((node) => node.subjectId === subjectId), [displayNodes, subjectId]);
   const subjectFlatNodeCount = useMemo(() => flattenTree(subjectNodes).length, [subjectNodes]);
-  const flatNodes = useMemo(() => flattenNodes(nodes), [nodes]);
+  const flatNodes = useMemo(() => flattenNodes(displayNodes), [displayNodes]);
   const parentOptions = flatNodes.filter((node) => node.subjectId === subjectId);
   const statusCounts = useMemo(() => countStatuses(subjectNodes), [subjectNodes]);
   const mapStatusCounts = useMemo(() => countMapStatuses(subjectNodes), [subjectNodes]);
@@ -254,9 +259,12 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       }
       completeIdempotentCommand(commandScope);
       removePrivateBusinessDraft(syllabusCreateDraftKey);
+      setCreatedNodes((current) => current.some((node) => node.id === responseBody.node?.id)
+        ? current
+        : [...current, responseBody.node as SyllabusNodeDto]);
       setTitle("");
       setParentId("");
-      startTransition(() => router.refresh());
+      router.refresh();
     } catch {
       setError("网络中断，创建草稿与同一重试标识已保留，请明确重试");
     } finally {
@@ -316,7 +324,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
 
   async function updateNode(id: string, body: UpdateNodeBody): Promise<boolean> {
     setError(null);
-    const baseline = findNodeById(nodes, id);
+    const baseline = findNodeById(displayNodes, id);
     if (!baseline) {
       setError("考纲节点已不在当前树中，请返回考纲工作台刷新");
       return false;
@@ -372,7 +380,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
 
   function retryRestoredUpdate() {
     if (!restoredSubmission) return;
-    const latest = findNodeById(nodes, restoredSubmission.nodeId);
+    const latest = findNodeById(displayNodes, restoredSubmission.nodeId);
     if (!latest) {
       setError("草稿对应节点已不存在，请返回考纲工作台处理");
       return;
@@ -1748,6 +1756,18 @@ function nodeMatchesAction(node: SyllabusNodeDto, actionFilter: Exclude<ActionFi
 
 function flattenTree(nodes: SyllabusNodeDto[]): SyllabusNodeDto[] {
   return nodes.flatMap((node) => [node, ...flattenTree(node.children)]);
+}
+
+function insertSyllabusNode(nodes: SyllabusNodeDto[], created: SyllabusNodeDto): SyllabusNodeDto[] {
+  if (flattenTree(nodes).some((node) => node.id === created.id)) return nodes;
+  if (!created.parentId) return sortSyllabusNodes([...nodes, created]);
+  return nodes.map((node) => node.id === created.parentId
+    ? { ...node, children: sortSyllabusNodes([...node.children, created]) }
+    : { ...node, children: insertSyllabusNode(node.children, created) });
+}
+
+function sortSyllabusNodes(nodes: SyllabusNodeDto[]): SyllabusNodeDto[] {
+  return nodes.sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title, "zh-CN"));
 }
 
 function flattenNodes(nodes: SyllabusNodeDto[], depth = 0): FlatNode[] {

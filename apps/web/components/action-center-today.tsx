@@ -55,7 +55,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       if (response.status === 401) return redirectToLoginWithCurrentLocation();
       if (!response.ok) {
         if (response.status === 409 && body?.latest?.id) {
-          router.push(`/focus/${body.latest.id}`);
+          router.push(`/focus/${body.latest.id}?returnTo=%2Ftoday`);
           return;
         }
         setError(body?.error ?? "无法开始计时，当前选择仍保留；请显式重试。");
@@ -63,7 +63,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       }
       if (body?.session?.id) {
         setConfirmOpen(false);
-        router.push(`/focus/${body.session.id}`);
+        router.push(`/focus/${body.session.id}?returnTo=%2Ftoday`);
         return;
       }
       setError("未返回 session，当前选择仍保留；请显式重试。");

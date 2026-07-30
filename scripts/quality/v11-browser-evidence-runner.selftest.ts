@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { loadBrowserEvidenceConfig } from "../ops/v11-browser-fixtures";
+import { canonicalEvidenceRoute } from "../ops/v11-browser-journeys";
 import {
   V11_ACCESSIBILITY_CHECK_CONTRACTS,
   V11_ACCESSIBILITY_CHECK_IDS,
@@ -22,6 +23,10 @@ const chromePath = path.join(temporaryRoot, "synthetic-chrome");
 writeFileSync(chromePath, "browser-evidence-config-selftest\n", { mode: 0o700 });
 chmodSync(chromePath, 0o700);
 const originalEnvironment = { ...process.env };
+const accessibilitySuiteSource = readFileSync(
+  path.resolve(process.cwd(), "scripts/ops/v11-accessibility-suite.ts"),
+  "utf8",
+);
 
 try {
   const baseline = {
@@ -61,6 +66,37 @@ try {
   for (const checkId of V11_ACCESSIBILITY_CHECK_IDS) {
     assertUniqueContractIds(V11_ACCESSIBILITY_CHECK_CONTRACTS[checkId].assertions, checkId);
   }
+  assert.doesNotMatch(
+    accessibilitySuiteSource,
+    /const poll = \(\) =>/,
+    "browser evaluate waits must not depend on transpiler-named nested poll callbacks",
+  );
+  assert.match(
+    accessibilitySuiteSource,
+    /closest\("details:not\(\[open\]\)"\) === null/,
+    "native zoom checks must exclude controls inside closed details",
+  );
+  assert.equal(
+    canonicalEvidenceRoute(
+      "/focus/55a3c28f-ff5a-407f-94d7-20ef90d886a2?returnTo=%2Ftoday",
+      "/focus/:sessionId?returnTo=%2Ftoday",
+    ),
+    "/focus/synthetic-id?returnTo=%2Ftoday",
+  );
+  assert.equal(
+    canonicalEvidenceRoute(
+      "/api/reports/period:week:2026-07-30/confirm",
+      "/api/reports/:reportId/confirm",
+    ),
+    "/api/reports/synthetic-id/confirm",
+  );
+  assert.throws(
+    () => canonicalEvidenceRoute(
+      "/focus/55a3c28f-ff5a-407f-94d7-20ef90d886a2?returnTo=%2Freports",
+      "/focus/:sessionId?returnTo=%2Ftoday",
+    ),
+    /query does not match/,
+  );
 
   const sampleContract = [{
     id: "sample-check",
