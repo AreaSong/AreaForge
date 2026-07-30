@@ -166,22 +166,39 @@ try {
     }, user.id),
     (error: unknown) => error instanceof ApiError && error.code === "STAGE_PLAN_NOT_FOUND",
   );
-  const aiStageDraft = await createAiStageAdjustmentDraft({
-    idempotencyKey: `m8-ai-stage-${randomUUID()}`,
-    stagePlanId: stagePlan.id,
-  }, user.id, {
-    provider: createStaticJsonProvider({
-      mode: "strengthen",
-      risk: "medium",
-      riskConclusion: "当前工作区需要补强数学。",
-      focusSubjects: ["数学"],
-      taskIntensity: "increase",
-      taskAdjustmentActions: ["retest"],
-      nextStageEmphasis: "先补强当前工作区的数学证据。",
-      canAutoApply: false,
-      requiresUserConfirmation: true,
-    }),
-  });
+  const originalAiEnabled = process.env.AI_ENABLED;
+  const originalSensitiveContext = process.env.AI_ALLOW_SENSITIVE_CONTEXT;
+  const originalAuthSessionSecret = process.env.AUTH_SESSION_SECRET;
+  process.env.AI_ENABLED = "true";
+  process.env.AI_ALLOW_SENSITIVE_CONTEXT = "false";
+  process.env.AUTH_SESSION_SECRET = "v11-m8-isolated-auth-session-secret-20260729";
+  let aiStageDraft: Awaited<ReturnType<typeof createAiStageAdjustmentDraft>>;
+  try {
+    aiStageDraft = await createAiStageAdjustmentDraft({
+      idempotencyKey: `m8-ai-stage-${randomUUID()}`,
+      stagePlanId: stagePlan.id,
+    }, user.id, {
+      allowExternalProvider: true,
+      provider: createStaticJsonProvider({
+        mode: "strengthen",
+        risk: "medium",
+        riskConclusion: "当前工作区需要补强数学。",
+        focusSubjects: ["数学"],
+        taskIntensity: "increase",
+        taskAdjustmentActions: ["retest"],
+        nextStageEmphasis: "先补强当前工作区的数学证据。",
+        canAutoApply: false,
+        requiresUserConfirmation: true,
+      }),
+    });
+  } finally {
+    if (originalAiEnabled === undefined) delete process.env.AI_ENABLED;
+    else process.env.AI_ENABLED = originalAiEnabled;
+    if (originalSensitiveContext === undefined) delete process.env.AI_ALLOW_SENSITIVE_CONTEXT;
+    else process.env.AI_ALLOW_SENSITIVE_CONTEXT = originalSensitiveContext;
+    if (originalAuthSessionSecret === undefined) delete process.env.AUTH_SESSION_SECRET;
+    else process.env.AUTH_SESSION_SECRET = originalAuthSessionSecret;
+  }
   const persistedAiStageDraft = await prisma.stageAdjustmentDraft.findUniqueOrThrow({ where: { id: aiStageDraft.draft.id } });
   assert.equal(persistedAiStageDraft.workspaceId, workspace.id);
   assert.equal(persistedAiStageDraft.stagePlanId, stagePlan.id);

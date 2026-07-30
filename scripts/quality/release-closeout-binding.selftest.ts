@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
 import { evaluateReleaseCloseoutBinding, isAllowedCloseoutPath } from "./release-closeout-binding";
+import { V11_ACCESSIBILITY_CHECK_IDS, V11_JOURNEY_IDS } from "./v11-browser-evidence-contract";
 
 const suiteRoot = mkdtempSync(path.join(os.tmpdir(), "areaforge-release-closeout-binding-"));
 
@@ -198,7 +199,8 @@ function testAllowlistSurface(): void {
 }
 
 function testV11EvidenceOnlySurface(): void {
-  const allowed = [
+  const evidenceRoot = "output/playwright/v11-browser-evidence-20260729";
+  const allowedText = [
     "docs/development/v11-release-admission-record.md",
     "docs/development/v11-s2-ops006-007-gate-review.md",
     "docs/development/v11-accessibility-review-20260727.md",
@@ -207,13 +209,24 @@ function testV11EvidenceOnlySurface(): void {
     "output/supply-chain/ci-supply-chain-v1.1.0-20260727.txt",
     "output/supply-chain/sc004-main-protection-readback-v1.1.0-20260727.json",
     "output/supply-chain/sc004-controlled-pr-v1.1.0-20260727.json",
+    `${evidenceRoot}/v11-browser-journey-evidence.json`,
+    `${evidenceRoot}/v11-accessibility-evidence.json`,
+    `${evidenceRoot}/runtime-identity-v1.1.0.json`,
+    ...V11_ACCESSIBILITY_CHECK_IDS.map((id) =>
+      `${evidenceRoot}/observations/a11y-${id.toLowerCase()}.json`),
   ];
+  const allowedImages = V11_JOURNEY_IDS.flatMap((journey) => [
+    `${evidenceRoot}/screenshots/desktop-${journey}.png`,
+    `${evidenceRoot}/screenshots/mobile-${journey}.png`,
+  ]);
+  const allowed = [...allowedText, ...allowedImages];
   for (const file of allowed) {
     if (!isAllowedCloseoutPath(file)) throw new Error(`expected v1.1 allowlisted path: ${file}`);
   }
 
   const repo = createRepository("v11-evidence-only");
-  for (const file of allowed) write(repo.root, file, `${file}\n`);
+  for (const file of allowedText) write(repo.root, file, `${file}\n`);
+  for (const file of allowedImages) write(repo.root, file, minimalPng());
   commit(repo.root, "add v1.1 admission evidence");
   assertStatus(evaluate(repo), "evidence_only");
 
@@ -226,6 +239,13 @@ function testV11EvidenceOnlySurface(): void {
     "output/supply-chain/ci-supply-chain-v1.1.1-20260727.txt",
     "output/supply-chain/sc004-main-protection-readback-v1.1.0-20260727.txt",
     "output/supply-chain/sc004-controlled-pr-v1.1.0-20260727.md",
+    `${evidenceRoot}/v11-browser-journey-evidence.txt`,
+    `${evidenceRoot}/nested/v11-accessibility-evidence.json`,
+    `${evidenceRoot}/screenshots/desktop-secret.png`,
+    `${evidenceRoot}/screenshots/mobile-login.jpg`,
+    `${evidenceRoot}/observations/a11y-zoom-04.json`,
+    `${evidenceRoot}/observations/a11y-zoom-01.txt`,
+    `${evidenceRoot}/auth-state.json`,
   ];
   for (const file of denied) {
     if (isAllowedCloseoutPath(file)) throw new Error(`expected denied v1.1 path: ${file}`);
@@ -240,6 +260,20 @@ function testV11EvidenceOnlySurface(): void {
   write(wrongVersion.root, denied[5] as string, "out-of-scope release evidence\n");
   commit(wrongVersion.root, "add other-version supply-chain evidence");
   assertInvalid(evaluate(wrongVersion), denied[5] as string);
+}
+
+function minimalPng(): Buffer {
+  const signature = Buffer.from("89504e470d0a1a0a", "hex");
+  const ihdr = Buffer.alloc(25);
+  ihdr.writeUInt32BE(13, 0);
+  ihdr.write("IHDR", 4, "ascii");
+  ihdr.writeUInt32BE(1, 8);
+  ihdr.writeUInt32BE(1, 12);
+  ihdr[16] = 8;
+  ihdr[17] = 6;
+  const iend = Buffer.alloc(12);
+  iend.write("IEND", 4, "ascii");
+  return Buffer.concat([signature, ihdr, iend]);
 }
 
 function createRepository(name: string): { root: string; releaseCommit: string } {

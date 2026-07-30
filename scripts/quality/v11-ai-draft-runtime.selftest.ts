@@ -74,6 +74,7 @@ try {
     const preview = await previewAiDraft(user.id, fixture.endpoint, fixture.input);
     assert.equal(preview.endpoint, fixture.endpoint);
     assert.equal(preview.outputSchema, fixture.schemaVersion);
+    assert.match(preview.note, /当前浏览器未开启外部 AI Provider/);
     assert.equal("selectionHash" in preview, false);
     assert.equal("providerPayloadHash" in preview, false);
     await assert.rejects(
@@ -123,6 +124,8 @@ try {
     );
   }
 
+  process.env.AI_ENABLED = "true";
+  process.env.AI_ALLOW_SENSITIVE_CONTEXT = "false";
   let providerCallCount = 0;
   const provider: AiJsonProvider = {
     externalCall: true,
@@ -137,7 +140,9 @@ try {
     },
   };
   const providerInput = { phase: "preview", selectedText: "先开始五分钟", tone: "CALM" };
-  const providerPreview = await previewAiDraft(user.id, "motivation", providerInput);
+  const providerPreview = await previewAiDraft(user.id, "motivation", providerInput, {
+    allowExternalProvider: true,
+  });
   const providerGenerateBody = {
     ...providerInput,
     phase: "generate",
@@ -148,14 +153,14 @@ try {
     "motivation",
     providerPreview.previewToken,
     providerGenerateBody,
-    { provider },
+    { allowExternalProvider: true, provider },
   );
   const providerReplayed = await generateAiDraft(
     user.id,
     "motivation",
     providerPreview.previewToken,
     providerGenerateBody,
-    { provider },
+    { allowExternalProvider: true, provider },
   );
   assert.deepEqual(providerReplayed, providerGenerated);
   assert.equal(providerCallCount, 1);
@@ -166,7 +171,7 @@ try {
       "motivation",
       providerPreview.previewToken,
       providerGenerateBody,
-      { provider },
+      { allowExternalProvider: true, provider },
     ),
     (error: unknown) => error instanceof Error && error.message === "AI_DRAFT_RESULT_UNAVAILABLE",
   );
@@ -185,7 +190,7 @@ try {
       "motivation",
       providerPreview.previewToken,
       providerGenerateBody,
-      { provider },
+      { allowExternalProvider: true, provider },
     ),
     (error: unknown) => error instanceof Error && error.message === "AI_DRAFT_OPERATION_CONSUMED",
   );
@@ -216,7 +221,7 @@ try {
       phase: "preview",
       selectedText: "默认 provider 不可重试",
       tone: "DIRECT",
-    });
+    }, { allowExternalProvider: true });
     const noRetryGenerated = await generateAiDraft(
       user.id,
       "motivation",
@@ -227,6 +232,7 @@ try {
         tone: "DIRECT",
         previewToken: noRetryPreview.previewToken,
       },
+      { allowExternalProvider: true },
     );
     assert.equal(noRetryGenerated.status, "ai_error_fallback");
     assert.equal(noRetryGenerated.externalCall, true);
@@ -341,7 +347,7 @@ try {
     phase: "preview",
     selectedText: "验证迟到 worker 无法覆盖 stale claim",
     tone: "BRIEF",
-  });
+  }, { allowExternalProvider: true });
   let releaseProvider!: () => void;
   let markProviderStarted!: () => void;
   const providerGate = new Promise<void>((resolve) => {
@@ -375,7 +381,7 @@ try {
       tone: "BRIEF",
       previewToken: staleWorkerPreview.previewToken,
     },
-    { provider: staleWorkerProvider },
+    { allowExternalProvider: true, provider: staleWorkerProvider },
   );
   await providerStarted;
   const staleClaimUpdates = await prisma.$executeRaw`
@@ -416,7 +422,7 @@ try {
         tone: "BRIEF",
         previewToken: staleWorkerPreview.previewToken,
       },
-      { provider: staleWorkerProvider },
+      { allowExternalProvider: true, provider: staleWorkerProvider },
     ),
     (error: unknown) => error instanceof Error && error.message === "AI_DRAFT_RESULT_UNAVAILABLE",
   );

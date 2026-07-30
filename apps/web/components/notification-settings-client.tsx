@@ -240,8 +240,16 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
       <p className="text-xs text-zinc-500">
         浏览器权限：{permission === "unsupported" ? "不支持" : permission}
       </p>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      {message ? <p className="text-sm text-emerald-300">{message}</p> : null}
+      {error ? (
+        <p className="text-sm text-red-300" role="alert" aria-live="assertive" aria-atomic="true">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="text-sm text-emerald-300" role="status" aria-live="polite" aria-atomic="true">
+          {message}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"

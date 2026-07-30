@@ -4,7 +4,7 @@
 
 本文件最初用于 `tasks/done/0005-mvp-ai-discipline.md` 和 `tasks/backlog/0017-ai-stage-privacy-cost.md` 的实现前确认。当前 `tasks/done/0005-mvp-ai-discipline.md` 已完成 Package C 真实 AI Provider 第一版，Package D Batch D3 已完成长期阶段 AI 草稿显式触发路径；本文继续作为 provider 边界和后续长期 AI 扩展的约束说明。
 
-Package C 已允许在 `AI_ENABLED=true` 且服务端配置完整时，由三条鉴权 AI POST route 显式触发真实 provider。Package D Batch D3 额外允许 `POST /api/simulation/stage-adjustment-drafts/ai` 显式生成长期阶段 AI 草稿。真实 key 生产烟测、保存调用历史、费用统计、自动应用阶段计划或发送更完整私密上下文，仍必须等用户后续明确确认后再做。
+Package C 已允许三条鉴权 AI POST route 显式触发真实 provider，Package D Batch D3 额外允许 `POST /api/simulation/stage-adjustment-drafts/ai` 显式生成长期阶段 AI 草稿，v1.1 四类草稿提供四条独立鉴权 POST route。当前八条路径还必须同时满足当前浏览器偏好开启、`AI_ENABLED=true` 且服务端配置完整；默认、缺失、关闭或畸形偏好都 fail closed 到本地规则。真实 key 生产烟测、保存调用历史、费用统计、自动应用阶段计划或发送更完整私密上下文，仍必须等用户后续明确确认后再做。
 
 ## 当前基线
 
@@ -20,7 +20,13 @@ Package C 已允许在 `AI_ENABLED=true` 且服务端配置完整时，由三条
   - `POST /api/ai/tomorrow-plan`
 - D3 后长期阶段 AI 草稿 API 已有：
   - `POST /api/simulation/stage-adjustment-drafts/ai`
-- Web 服务已接入 env 驱动 provider 创建；只有上述鉴权 POST route 传入 `allowExternalProvider: true` 时才允许外呼。
+- v1.1 四类文本草稿 API 已有：
+  - `POST /api/ai/drafts/learning-tree`
+  - `POST /api/ai/drafts/knowledge-card`
+  - `POST /api/ai/drafts/plan`
+  - `POST /api/ai/drafts/motivation`
+- 当前浏览器偏好 API 已有：`GET|PATCH /api/ai/preferences`；PATCH 只接受严格布尔值，使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的 Cookie，不提供 Provider key 编辑。
+- Web 服务已接入 env 驱动 provider 创建；上述八条鉴权 POST route 都从请求读取同一偏好并传入 `allowExternalProvider: preference.externalProviderEnabled`。未明确开启时 provider gate 先于注入或配置 provider 执行。
 - 首页普通 SSR 不传 `allowExternalProvider`，仍展示 `local_rule_fallback`，不会因为普通打开首页产生真实外呼成本。
 
 仍待单独确认：
@@ -35,6 +41,7 @@ Package C 已允许在 `AI_ENABLED=true` 且服务端配置完整时，由三条
 - 鞭策文案。
 - 每日复盘建议。
 - 明日最小任务建议。
+- 用户显式选中文本并完成发送前预览的学习树、知识卡片、计划和动机草稿。
 - 用户显式触发的长期阶段调整草稿。
 
 不允许：
@@ -86,6 +93,8 @@ Provider config：
 - `AI_ENABLED=true`：必须同时存在 `AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`。
 - 缺少必要变量时，不外呼，返回本地 fallback，并在服务端记录脱敏配置错误。
 - 不把 `AI_API_KEY` 暴露给客户端；客户端只接收 `meta.status/externalCall/reason`。
+- 当前浏览器偏好默认关闭；只有鉴权偏好 API 可以保存开关，偏好缺失、清除、关闭或畸形时不外呼。
+- `/settings/ai` 只读展示 Provider/Payload Binding 配置状态，策略变化经确认 Modal 保存；客户端不能查看或编辑服务端 key。
 - 普通首页 SSR 不传 `allowExternalProvider`；真实 provider 第一版只由鉴权 AI POST route 显式触发。
 - 三条 AI POST route 传入 `userId`，Web 服务按用户和建议类型做轻量内存限流；超限时回退本地规则，不调用 provider。
 
@@ -167,7 +176,7 @@ Provider config：
 费用保护建议：
 
 - 第一版不自动后台刷新 AI。
-- 只由用户显式触发的 AI API 调用真实 provider。
+- 只由用户显式触发、且当前浏览器已明确开启偏好的 AI API 调用真实 provider。
 - 当前首页会在服务端渲染时调用每日复盘建议和明日任务建议，但不传 `allowExternalProvider`，因此只展示本地 fallback，不会外呼。
 - Package C 已选定首页策略：`homepage local fallback only`；真实外呼策略为 `explicit trigger only`。若未来要改为后台刷新或缓存策略，必须满足 `cache or rate limit required` 并另走确认。
 - 三条 AI API 已加基础内存限流；后续如保存调用历史或做分布式限流，必须另行确认 migration 或基础设施方案。
@@ -224,6 +233,7 @@ Provider config：
 
 工程检查：
 
+- `pnpm ops:v11:ai-provider-preference:selftest`
 - `pnpm --filter @areaforge/ai test`
 - `pnpm --filter @areaforge/ai typecheck`
 - `pnpm --filter @areaforge/web typecheck`
@@ -232,8 +242,11 @@ Provider config：
 
 烟测：
 
-- `AI_ENABLED=false` 时三个 AI API 均返回 `local_rule_fallback`。
+- 偏好缺失、关闭或畸形时八条鉴权 POST 路径均不调用 Provider，并返回对应本地规则 fallback。
+- `AI_ENABLED=false` 时三条 AI 建议 API 均返回 `local_rule_fallback`，其余草稿路径同样保持本地规则。
 - `AI_ENABLED=true` 且配置缺失时不外呼并 fallback。
+- `GET|PATCH /api/ai/preferences` 未登录返回 401，空字段、错误类型和未知字段返回 400；开启/关闭后只改变当前浏览器 HttpOnly Cookie。
+- `/settings/ai` 开启和关闭都显示策略确认 Modal；取消、Escape 或保存失败后焦点恢复到“保存 AI 设置”，桌面和移动端无溢出。
 - mock/测试 provider 成功时返回 `ai_generated`。
 - 轻量限流触发时不调用 provider 并 fallback。
 - provider 失败时核心页面和 API 仍可用。
@@ -250,7 +263,7 @@ Provider config：
 
 ## 回滚策略
 
-- 设置 `AI_ENABLED=false` 立即回到本地规则。
+- 先设置 `AI_ENABLED=false` 立即阻止外呼，再清除当前浏览器偏好 Cookie；旧版本回滚前不能只依赖新 gate。
 - 保留 provider 代码但不创建 provider。
 - 不删除用户记录，不修改任务和复盘。
 - 如果 provider 误返回非法输出，schema fallback 已保护主流程。

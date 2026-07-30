@@ -284,6 +284,7 @@ function checkSecretScanGate(): void {
     "run: pnpm secrets:scan",
     "forbiddenOutputs: 匹配值、原始报告、SARIF 上传、PR 评论、secret 内容",
     "fd2cca12d7fb4aa945b1a9a5e39f5f4ce1021f7a:scripts/quality/update-production-state-lock.selftest.ts:generic-api-key:284",
+    "03653fc4004181b4971103729a63717a43f7542b:scripts/quality/v11-compatibility-floor-manifest.ts:generic-api-key:17",
   ];
   const combined = `${packageJson}\n${script}\n${workflows}\n${admission}\n${ignores}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
@@ -302,7 +303,10 @@ function checkSecretScanExceptions(): void {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#"));
-  const expectedFingerprint = "fd2cca12d7fb4aa945b1a9a5e39f5f4ce1021f7a:scripts/quality/update-production-state-lock.selftest.ts:generic-api-key:284";
+  const expectedFingerprints = [
+    "03653fc4004181b4971103729a63717a43f7542b:scripts/quality/v11-compatibility-floor-manifest.ts:generic-api-key:17",
+    "fd2cca12d7fb4aa945b1a9a5e39f5f4ce1021f7a:scripts/quality/update-production-state-lock.selftest.ts:generic-api-key:284",
+  ];
   const markers: string[] = [];
   for (const file of trackedFiles()) {
     if (!existsSync(resolve(file))) continue;
@@ -318,11 +322,12 @@ function checkSecretScanExceptions(): void {
   }
   const expectedMarkerPrefix = "scripts/quality/update-production-state-lock.selftest.ts:";
   const markerOk = markers.length === 1 && markers[0]?.startsWith(expectedMarkerPrefix) && markers[0]?.includes("synthetic invalid manifest fixture");
+  const fingerprintsOk = JSON.stringify(ignoreLines.toSorted()) === JSON.stringify(expectedFingerprints);
   checks.push({
     name: "secret scan exceptions",
-    ok: ignoreLines.length === 1 && ignoreLines[0] === expectedFingerprint && Boolean(markerOk),
-    detail: ignoreLines.length === 1 && ignoreLines[0] === expectedFingerprint && markerOk
-      ? "secret scan exceptions are limited to one reviewed historical fingerprint and one synthetic fixture line"
+    ok: fingerprintsOk && Boolean(markerOk),
+    detail: fingerprintsOk && markerOk
+      ? "secret scan exceptions are limited to two reviewed historical fingerprints and one synthetic fixture line"
       : `unexpected fingerprints=${ignoreLines.length}; inline markers=${markers.length}`,
   });
 }

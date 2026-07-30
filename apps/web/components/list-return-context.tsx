@@ -51,7 +51,7 @@ export function BackToListLink(props: { fallbackHref: string; children: React.Re
       className={props.className}
       onClick={(event) => {
         const record = readRecordForDestination(currentUrl());
-        if (!record || !sourceMatchesFallback(record.sourceUrl, props.fallbackHref) || window.history.length <= 1) return;
+        if (!record || !sourceIsSameOrigin(record.sourceUrl) || window.history.length <= 1) return;
         event.preventDefault();
         window.history.back();
       }}
@@ -88,11 +88,10 @@ function readRecordForSource(sourceUrl: string): ListReturnRecord | null {
   return readRecords().find((record) => record.sourceUrl === sourceUrl) ?? null;
 }
 
-function sourceMatchesFallback(sourceUrl: string, fallbackHref: string): boolean {
+function sourceIsSameOrigin(sourceUrl: string): boolean {
   try {
     const source = new URL(sourceUrl, window.location.origin);
-    const fallback = new URL(fallbackHref, window.location.origin);
-    return source.origin === fallback.origin && source.pathname === fallback.pathname;
+    return source.origin === window.location.origin;
   } catch {
     return false;
   }

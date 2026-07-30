@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarCheck2,
   ClipboardCheck,
@@ -69,11 +69,24 @@ export function AppShell(props: {
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
+  const lastLightTriggerRef = useRef<HTMLButtonElement | null>(null);
   const immersive = pathname.startsWith("/focus/") || pathname.startsWith("/quick-review/");
   const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
   const displayStatus = projectLocalQuickReviewStatus(status, quickReviewClaim);
 
   useEffect(() => subscribeQuickReviewActivity(props.userId, setQuickReviewClaim), [props.userId]);
+
+  useEffect(() => {
+    if (!lightOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setLightOpen(null);
+      window.requestAnimationFrame(() => lastLightTriggerRef.current?.focus());
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [lightOpen]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -88,6 +101,16 @@ export function AppShell(props: {
       window.localStorage.setItem("af.sidebar.collapsed", next ? "1" : "0");
       return next;
     });
+  }
+
+  function openStatusLight(kind: string, trigger: HTMLButtonElement) {
+    lastLightTriggerRef.current = trigger;
+    setLightOpen(kind);
+  }
+
+  function closeStatusLight() {
+    setLightOpen(null);
+    window.requestAnimationFrame(() => lastLightTriggerRef.current?.focus());
   }
 
   useEffect(() => {
@@ -266,7 +289,10 @@ export function AppShell(props: {
   return (
     <div className="af-app-shell h-dvh overflow-hidden bg-[#080b0f] text-zinc-100 lg:h-auto lg:min-h-screen lg:overflow-visible">
       <div className="mx-auto flex h-full w-full max-w-7xl lg:min-h-screen">
-        <aside className={`hidden shrink-0 flex-col border-r border-white/10 px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-16" : "w-56"}`}>
+        <aside
+          aria-label="桌面应用侧栏"
+          className={`hidden shrink-0 flex-col border-r border-white/10 px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-16" : "w-56"}`}
+        >
           <div className={`mb-6 flex items-center text-teal-300 ${sidebarCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
             <div className="flex min-w-0 items-center gap-2">
               <BrandMark size={22} />
@@ -330,8 +356,10 @@ export function AppShell(props: {
                     key={light.kind}
                     type="button"
                     className={`rounded-md border px-2 py-1 text-xs ${toneClass[light.tone] ?? toneClass.gray}`}
-                    onClick={() => setLightOpen(light.kind)}
+                    onClick={(event) => openStatusLight(light.kind, event.currentTarget)}
                     aria-label={`${light.label}：${light.summary}`}
+                    aria-expanded={lightOpen === light.kind}
+                    aria-controls="status-light-panel"
                   >
                     {light.label}
                   </button>
@@ -340,8 +368,10 @@ export function AppShell(props: {
               <button
                 type="button"
                 className={`rounded-md border px-2 py-1 text-xs md:hidden ${toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray}`}
-                onClick={() => setLightOpen(displayStatus.mobileTop.kind)}
+                onClick={(event) => openStatusLight(displayStatus.mobileTop.kind, event.currentTarget)}
                 aria-label={`状态：${displayStatus.mobileTop.summary}`}
+                aria-expanded={lightOpen === displayStatus.mobileTop.kind}
+                aria-controls="status-light-panel"
               >
                 {displayStatus.mobileTop.label}
               </button>
@@ -375,7 +405,12 @@ export function AppShell(props: {
                 : `${syncState === "offline" ? "当前离线" : "状态刷新失败"}；显示上次服务端状态（${formatServerTime(status.serverTime)}）`}
             </p>
             {lightOpen ? (
-              <div className="mt-3 rounded-md border border-white/10 bg-[#101419] p-3 text-sm">
+              <div
+                id="status-light-panel"
+                role="region"
+                aria-label="状态详情"
+                className="mt-3 rounded-md border border-white/10 bg-[#101419] p-3 text-sm"
+              >
                 {displayStatus.lights
                   .filter((light) => light.kind === lightOpen)
                   .map((light) => (
@@ -387,7 +422,7 @@ export function AppShell(props: {
                           {light.action.label}
                         </Link>
                       ) : null}
-                      <button type="button" className="block text-xs text-zinc-500" onClick={() => setLightOpen(null)}>
+                      <button type="button" className="block text-xs text-zinc-500" onClick={closeStatusLight}>
                         收起
                       </button>
                     </div>

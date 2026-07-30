@@ -53,6 +53,7 @@
 
 - `/api/motivation/items/**`、`POST /api/motivation/next`、`POST /api/motivation/reminder-state`
 - `GET|PATCH /api/notification-preferences`、`POST /api/notifications/test`
+- `GET|PATCH /api/ai/preferences`（当前浏览器外部 Provider 偏好；缺失/畸形默认关闭；不保存 Provider 配置或密钥）
 - `POST /api/ai/drafts/learning-tree|knowledge-card|plan|motivation`（preview|generate；`AiDraftOperation` CAS；`AI_PAYLOAD_BINDING_SECRET`）
 - `/api/simulation/exams/**`：分科 totals、结构化失分、warning 与 revision CAS。
 - `/api/simulation/exams/:id/remediations`：补救候选读取与显式逐项入箱。
@@ -202,14 +203,18 @@ Markdown 导入只解析标题和列表，创建新的 `SyllabusNode`，不删�
 
 阶段计划可通过 `stage-plans` API 创建和局部更新；阶段调整草稿通过本地规则持久化，固定 `canAutoApply=false`、`requiresUserConfirmation=true`。`confirm` 只在用户显式确认时更新关联 `StagePlan` 的模式、目标和必要状态，并写入 `AuditEvent`；`reject` 只更新草稿状态。两者都不自动重排任务、不批量修改任务、不删除历史阶段记录。
 
-`POST /api/simulation/stage-adjustment-drafts/ai` 作为唯一长期阶段 AI 草稿显式触发入口。该 route 必须鉴权且 POST-only，只发送最小化长期聚合字段和阶段目标摘要；成功只创建 `StageAdjustmentDraft.source="ai"` 草稿并写审计摘要，失败回退 `local_rule` 草稿。不保存完整 prompt/raw response，不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不自动确认草稿、不批量修改任务、不执行生产部署。报告驱动的自动阶段应用、长期应用历史扩展或更大 AI 上下文字段清单属于后续增强，必须另行确认。
+`POST /api/simulation/stage-adjustment-drafts/ai` 作为唯一长期阶段 AI 草稿显式触发入口。该 route 必须鉴权且 POST-only，并读取当前浏览器外部 Provider 偏好；只发送最小化长期聚合字段和阶段目标摘要。成功只创建 `StageAdjustmentDraft.source="ai"` 草稿并写审计摘要，偏好关闭、配置不可用或调用失败时回退 `local_rule` 草稿。不保存完整 prompt/raw response，不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不自动确认草稿、不批量修改任务、不执行生产部署。报告驱动的自动阶段应用、长期应用历史扩展或更大 AI 上下文字段清单属于后续增强，必须另行确认。
 
 ### AI
 
+- `GET|PATCH /api/ai/preferences`
 - `POST /api/ai/discipline`
 - `POST /api/ai/daily-review`
 - `POST /api/ai/tomorrow-plan`
 
 AI API 只返回建议，不直接修改用户原始数据。
-三条 AI POST route 在 `AI_ENABLED=true` 且配置完整时可创建 OpenAI-compatible provider 并发起显式外呼；`AI_ENABLED=false` 或配置不完整时返回 `local_rule_fallback`。真实外呼只发送聚合字段，不发送动机档案、完整情绪记录、完整复盘正文、附件内容、上传路径或原始任务标题。首页普通 SSR 继续使用本地 fallback，不触发真实 provider 成本。
+`GET|PATCH /api/ai/preferences` 必须鉴权；PATCH 只接受严格布尔字段 `externalProviderEnabled`，并写入当前浏览器 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的偏好 Cookie。未知字段、错误类型或空请求返回 400；缺失、清除或畸形 Cookie 读取为关闭。该接口不读取或修改 Provider key，不新增数据库记录。
+
+三条建议、四类 AI 草稿和长期阶段草稿共八条鉴权 POST route 都必须读取同一当前浏览器偏好。只有偏好开启、`AI_ENABLED=true` 且配置完整时才可创建 OpenAI-compatible provider 并发起显式外呼；任一条件不满足时返回对应本地规则 fallback。真实外呼仍只发送各 route 既有最小化字段，不发送动机档案、完整情绪记录、完整复盘正文、附件内容、上传路径或原始任务标题。首页普通 SSR 继续使用本地 fallback，不触发真实 provider 成本。
+旧 `/api/stage-adjustment-drafts/ai` 只允许 re-export canonical `/api/simulation/stage-adjustment-drafts/ai` 的同一个 POST handler，不得形成第二套 Provider gate 或 payload 实现。
 AI 建议结构使用 `ai_generated`、`ai_invalid_fallback` 和 `ai_error_fallback` 区分成功、校验失败和错误回退；不保存完整 prompt 或完整模型响应。

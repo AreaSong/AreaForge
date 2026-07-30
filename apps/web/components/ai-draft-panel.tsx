@@ -82,6 +82,7 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
   const [checked, setChecked] = useState<Partial<Record<ProjectionKey, boolean>>>({});
   const [values, setValues] = useState<ProjectionValues>(emptyProjectionValues);
   const [preview, setPreview] = useState<Record<string, unknown> | null>(null);
+  const [previewNote, setPreviewNote] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [draft, setDraft] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,6 +131,7 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
   function revokePreview() {
     setToken(null);
     setPreview(null);
+    setPreviewNote(null);
     setDraft(null);
     setOperation(null);
     setSaveNotice(null);
@@ -149,6 +151,7 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
     setChecked({});
     setValues(emptyProjectionValues);
     setPreview(null);
+    setPreviewNote(null);
     setToken(null);
     setDraft(null);
     setOperation(null);
@@ -161,6 +164,9 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
   async function runPreview() {
     setError(null);
     setDraft(null);
+    setToken(null);
+    setPreview(null);
+    setPreviewNote(null);
     try {
       const response = await postDraft(props.endpoint, buildRequestBody("preview", requestInput));
       if (response.status === 401) {
@@ -168,12 +174,17 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
         redirectToLoginWithCurrentLocation();
         return;
       }
-      if (!response.ok || !response.payload?.previewToken) {
+      if (
+        !response.ok
+        || typeof response.payload?.previewToken !== "string"
+        || typeof response.payload.note !== "string"
+      ) {
         setError(readError(response.payload, response.status === 409 ? "预览状态冲突，请显式重试" : "预览失败"));
         return;
       }
-      setToken(response.payload.previewToken as string);
+      setToken(response.payload.previewToken);
       setPreview((response.payload.payloadPreview as Record<string, unknown>) ?? null);
+      setPreviewNote(response.payload.note);
     } catch {
       setError("网络不可用，AI 输入草稿已保留；恢复网络后请显式重试。");
     }
@@ -392,7 +403,8 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
           确认生成草稿
         </button>
       </div>
-      {preview ? <PayloadPreview title="将发送以下内容" value={preview} /> : null}
+      {previewNote ? <p role="status" className="text-sm text-zinc-300">{previewNote}</p> : null}
+      {preview ? <PayloadPreview title="本次生成输入预览" value={preview} /> : null}
       {draft ? <PayloadPreview title="草稿结果" value={draft} accent /> : null}
       {draft ? (
         <button type="button" disabled={savingResult} className="h-10 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200 disabled:opacity-60" onClick={() => void adoptDraft()}>

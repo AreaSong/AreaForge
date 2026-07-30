@@ -1640,6 +1640,22 @@ pnpm ops:ops-001:preflight
 
 > 确认四类显式 AI 草稿用途（learning-tree / knowledge-card / plan / motivation）：仅鉴权 POST、选中文本与预览勾选投影、purpose-separated HMAC 与 opaque preview token；不授权附件/未选择正文、自动写业务对象、保存 prompt/raw response 或 residual 关闭。
 
+### v1.1 AI 设置外部 Provider 偏好确认包
+
+- 影响：补齐 `/settings/ai` 的“开关 -> Provider -> payload 隐私 -> 保存 AI 设置”合同。新增当前浏览器范围的外部 Provider opt-in；偏好缺失、清除或畸形时默认关闭。只有 `AI_ENABLED=true`、服务端 Provider 配置完整且当前浏览器偏好开启时，现有八条鉴权显式 POST AI 路径才允许外呼；否则继续返回本地规则 fallback。
+- 持久化：使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的偏好 cookie；它不是认证或授权凭据，不包含 user id、Provider 地址、模型、密钥、prompt、正文或内容 hash。偏好只在当前浏览器生效，不新增 Prisma model、数据库字段或第 25 条 migration。
+- UI：Provider 和 Payload Binding 继续只读展示服务端配置状态；页面提供外部 Provider 开关和唯一主动作“保存 AI 设置”。开关变化属于外呼策略变化，保存前使用确认 Modal；页面不允许查看、填写或修改 `AI_API_KEY`、`AI_PAYLOAD_BINDING_SECRET` 或其他服务端密钥。
+- 风险：遗漏任一 AI route 可能绕过偏好；cookie 清除会让不同浏览器状态不一致；错误地把偏好当成 Provider 配置可能给出虚假成功；回滚到旧应用前若未关闭 `AI_ENABLED`，旧版本会恢复“显式 POST 即可外呼”的历史行为。
+- 验证：枚举三条第一版建议、四类 AI 草稿和一条长期阶段草稿共八条 route；未登录 401；默认/畸形/关闭偏好均不外呼；确认开启后仅现有最小化 payload 可外呼；`AI_ENABLED=false` 或 Provider 配置缺失继续优先 fallback；cookie 属性、Modal 焦点恢复、桌面/移动设置页、日志脱敏、客户端密钥扫描、AI tests、Web typecheck/lint/build、`pnpm risk:preflight` 和 `pnpm check` 通过。
+- 回滚：先设置 `AI_ENABLED=false` 阻止外呼，再回滚本批 UI/API/route gate 代码；清除偏好 cookie。不需要数据库或文件恢复，不删除用户记录，不改变现有 AI 草稿、阶段草稿或业务对象。
+- 不授权：扩大 allowed fields、附件/OCR/未选择正文、完整动机/情绪/复盘、Provider key 编辑、prompt/raw response/history/token/cost/provider trace 持久化、后台/GET/SSR 外呼、自动应用业务对象、第 25 条 migration、真实生产 key smoke、Release、生产 apply 或 residual 关闭。
+
+**确认状态（2026-07-29）**：已确认并在 `v1.1.0` 隔离候选实施。授权范围仅为当前浏览器默认关闭偏好、设置页确认保存和八条既有鉴权 POST 路径的共同外呼 gate；未新增 migration、Provider key 编辑、payload 字段或 AI 历史/费用/trace 持久化，也未授权真实生产 key smoke、Release、生产 apply 或 residual 关闭。
+
+明确确认句（已确认）：
+
+> 确认执行 v1.1 AI 设置外部 Provider 偏好：范围仅限当前浏览器 HttpOnly 安全默认关闭的外呼 opt-in、`/settings/ai` 开关与“保存 AI 设置”、策略变化确认 Modal，以及对现有三条建议、四类 AI 草稿和一条长期阶段草稿共八条鉴权显式 POST 路径的统一外呼 gate；不新增 migration，不开放 Provider key 编辑，不扩大 AI payload，不保存 prompt/raw response/history/token/cost/provider trace，不执行真实生产 key smoke、Release、生产 apply 或 residual 关闭。
+
 ### 依赖准入确认包（`@xyflow/react` 与 unified/remark/yaml）
 
 - 进入 Batch 4/8 改 lockfile 前必须完成许可证、漏洞、bundle/build-script、telemetry 复核与 `pnpm governance:preflight`。

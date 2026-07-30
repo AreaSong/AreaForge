@@ -439,15 +439,24 @@ const quickReviewClientSource = readFileSync("apps/web/components/quick-review-c
 const guardSource = readFileSync("apps/web/components/quick-review-activity-guard.tsx", "utf8");
 const activitySource = readFileSync("apps/web/lib/client/quick-review-activity.ts", "utf8");
 const focusSource = readFileSync("apps/web/components/focus-timer.tsx", "utf8");
+const appShellSource = readFileSync("apps/web/components/app-shell.tsx", "utf8");
 assert.doesNotMatch(quickReviewClientSource, /writeQuickReviewDraft/);
 assert.match(quickReviewClientSource, /accessRef\.current === "writable"/);
 assert.match(quickReviewClientSource, /markStale\(nextDraft\)/);
+assert.ok(
+  quickReviewClientSource.indexOf("if (done)") < quickReviewClientSource.indexOf("if (!draft)"),
+  "confirmed review result must render before the removed local draft fallback",
+);
 assert.match(guardSource, /await readActiveStudySession\(\)/);
 assert.match(guardSource, /await request\.operation\(\)/);
 assert.match(guardSource, /requestQuickReviewCommand/);
 assert.doesNotMatch(activitySource, /sessionStorage|TAB_ID_KEY/);
 assert.doesNotMatch(focusSource, /useState\(\(\) => new Date\(\)\)/);
 assert.match(focusSource, /new Date\(activeSession\?\.updatedAt \?\? activeSession\?\.startedAt \?\? 0\)/);
+assert.match(appShellSource, /event\.key !== "Escape"/);
+assert.match(appShellSource, /aria-expanded=\{lightOpen === light\.kind\}/);
+assert.match(appShellSource, /aria-controls="status-light-panel"/);
+assert.match(appShellSource, /lastLightTriggerRef\.current\?\.focus\(\)/);
 
 for (const path of [
   "apps/web/components/focus-timer.tsx",

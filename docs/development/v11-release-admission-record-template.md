@@ -10,9 +10,9 @@ pnpm release:v11:admission
 该 v1.1 专用命令未设置 `AREAFORGE_RELEASE_TAG` 时默认固定为 `v1.1.0`；显式传入任何其他非空 tag
 都会返回 `invalid`。
 
-命令只读取仓库内证据、重算普通非 symlink 文件的 SHA-256，并调用既有 completion、UX、SC-002、
-SC-004 与 source/evidence-only evaluator。它不连接网络、不创建 tag/Release、不构建或推送镜像，也不执行
-生产 backup、migration、apply、smoke、rollback 或 residual 更新。
+命令只读取仓库内证据、重算普通非 symlink 文件的 SHA-256，并调用既有 completion、UX、结构化浏览器证据、
+SC-002、SC-004 与 source/evidence-only evaluator。它不连接网络、不创建 tag/Release、不构建或推送镜像，
+也不执行生产 backup、migration、apply、smoke、rollback 或 residual 更新。
 
 记录中每个 `path` 必须是规范化仓库相对路径；每个 `sha256` 必须按文件当前原始字节计算。script、selftest、
 命令名或“验证已存在”不能代替运行后保存的独立证据。缺少记录或证据时输出 `not_ready`；畸形记录、越界路径、
@@ -70,6 +70,21 @@ evidence-only 文件形成 current fingerprint 循环；随后由 admission 自�
 
 通用 validator 通过但上述任一完成语义不满足时，admission 仍返回 `invalid`。
 
+## 结构化浏览器证据绑定
+
+`productExperienceEvidence.path` 指向的体验记录必须继续包含
+`journeyEvidence` / `journeyEvidenceHash`，直接绑定 `v11-browser-journey-evidence-v1` JSON。
+admission 不只依赖 Product Experience evaluator 的汇总结论；它会再次安全读取该 JSON，并以同一
+`sourceGitCommit`、`releaseVersion=1.1.0` 和当前 `productExperienceSourceHash` 调用正式浏览器证据 validator。
+
+独立无障碍记录必须用下方 `structuredEvidence.path` / `structuredEvidence.sha256` 直接绑定
+`v11-accessibility-evidence-v1` JSON。该 JSON 必须包含固定 24 项检查、对应 observation JSON 与 artifact hash，
+并与旅程证据使用相同的 production-build runtime identity、source commit/version/hash 契约。
+
+两份 JSON 的路径必须是仓库相对普通 `.json` 文件，不能位于 `scripts/`、不能是 selftest、不能经过 symlink；
+Markdown 内 hash、validator 读取结果和最终 admission 重读必须保持一致。旅程名称、七个 `pass` 汇总字段、
+旧截图目录或 validator 命令名都不能替代结构化 JSON。
+
 ## 独立无障碍记录契约
 
 `accessibilityEvidence.path` 指向的记录至少包含以下顶层字段。它必须来自独立的 production-mode local 或
@@ -90,6 +105,9 @@ ariaLive: pass
 nonColorStatus: pass
 zoom200Percent: pass
 canvasEquivalentList: pass
+structuredEvidence:
+  path: output/playwright/<evidence-set>/v11-accessibility-evidence.json
+  sha256: sha256:<64-lowercase-hex>
 doesNotProve: signed Release, production apply, residual closure
 ```
 

@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { AiSettingsClient } from "@/components/ai-settings-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { getAiDraftBindingStatus } from "@/lib/study/ai-draft-status";
+import { readAiProviderPreference } from "@/lib/study/ai-provider-preference";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/settings/ai");
@@ -11,6 +13,7 @@ export default async function SettingsAiPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const status = getAiDraftBindingStatus();
+  const preference = readAiProviderPreference(await cookies());
 
   return (
     <section className="space-y-4">
@@ -25,6 +28,7 @@ export default async function SettingsAiPage() {
         aiEnabled={status.aiEnabled}
         modelConfigured={status.modelConfigured}
         bindingSecretConfigured={status.bindingSecretConfigured}
+        initialExternalProviderEnabled={preference.externalProviderEnabled}
       />
     </section>
   );

@@ -34,7 +34,7 @@ import { prisma, type Prisma } from "@areaforge/db";
 import { getAuthEnv } from "@/lib/auth/env";
 import { ApiError } from "@/lib/api/responses";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
-import { resolveConfiguredAiProvider } from "./ai-service";
+import { resolveAiProviderPrerequisites, resolveConfiguredAiProvider } from "./ai-service";
 
 export interface AiDraftPreviewResponse {
   phase: "preview";
@@ -65,6 +65,7 @@ export interface AiDraftGenerateResponse {
 }
 
 interface AiDraftGenerateOptions {
+  allowExternalProvider?: boolean;
   provider?: AiJsonProvider;
 }
 
@@ -135,6 +136,7 @@ export async function previewAiDraft(
   actorId: string,
   endpoint: AiDraftEndpoint,
   rawBody: Record<string, unknown>,
+  options: AiDraftGenerateOptions = {},
 ): Promise<AiDraftPreviewResponse> {
   try {
     const env = getAuthEnv();
@@ -145,6 +147,11 @@ export async function previewAiDraft(
 
     const workspace = await resolveActiveWorkspace(actorId);
     await expireStaleAiDraftOperations(actorId, workspace.id);
+    const providerPrerequisites = resolveAiProviderPrerequisites({
+      allowExternalProvider: options.allowExternalProvider,
+      provider: options.provider,
+      userId: actorId,
+    });
     const input = normalizeAiDraftInput(endpoint, rawBody);
     const canonical = buildAiDraftCanonicalPayloads(input);
     const selectionHash = hmacAiPayload("selection:v1", canonical.selectionPayload, secret);
@@ -191,7 +198,9 @@ export async function previewAiDraft(
       outputSchema: AI_DRAFT_OUTPUT_SCHEMAS[endpoint],
       expiresAt: new Date(claims.expiry).toISOString(),
       payloadPreview: JSON.parse(canonical.previewPayload) as Record<string, unknown>,
-      note: "发送前预览：仅包含选中文本与已勾选投影；确认后才会外呼 provider。",
+      note: providerPrerequisites.available
+        ? "发送前预览：仅包含选中文本与已勾选投影；确认后才可能外呼 provider。"
+        : `发送前预览：仅包含选中文本与已勾选投影；${providerPrerequisites.unavailableReason}`,
     };
   } catch (error) {
     mapDraftError(error);
@@ -303,7 +312,7 @@ export async function generateAiDraft(
     const kind = mapEndpointToKind(endpoint);
     const context = buildProviderContext(input);
     const provider = resolveConfiguredAiProvider(kind, {
-      allowExternalProvider: true,
+      allowExternalProvider: options.allowExternalProvider,
       provider: options.provider,
       maxProviderRetries: 0,
       providerTimeoutMs: Math.min(env.AI_TIMEOUT_MS, aiDraftProviderTimeoutMs),
@@ -657,16 +666,17 @@ export async function handleAiDraftRequest(
   actorId: string,
   endpoint: AiDraftEndpoint,
   body: Record<string, unknown>,
+  options: AiDraftGenerateOptions = {},
 ): Promise<AiDraftPreviewResponse | AiDraftGenerateResponse> {
   const phase = body.phase;
   if (phase === "preview") {
-    return previewAiDraft(actorId, endpoint, body);
+    return previewAiDraft(actorId, endpoint, body, options);
   }
   if (phase === "generate") {
     if (typeof body.previewToken !== "string" || !body.previewToken) {
       throw new ApiError("AI_DRAFT_TOKEN_INVALID", 400);
     }
-    return generateAiDraft(actorId, endpoint, body.previewToken, body);
+    return generateAiDraft(actorId, endpoint, body.previewToken, body, options);
   }
   if (phase === "ack") {
     if (

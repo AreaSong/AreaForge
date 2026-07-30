@@ -9,6 +9,15 @@ import {
   exitCodeForV11ReleaseAdmission,
   type V11ReleaseAdmissionDependencies,
 } from "./v11-release-admission";
+import { computeProductExperienceSourceHash } from "./product-experience-source";
+import {
+  V11_ACCESSIBILITY_CHECK_IDS,
+  V11_ACCESSIBILITY_SCHEMA,
+  V11_JOURNEY_IDS,
+  V11_JOURNEY_SCHEMA,
+  V11_VIEWPORTS,
+  type V11EvidenceValidationResult,
+} from "./v11-browser-evidence-contract";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "scripts/quality/v11-release-admission.ts");
@@ -29,6 +38,10 @@ const evidencePaths = {
 } as const;
 const ops006Path = "docs/development/ops-006-production-evidence-v0.1.9-20260721/ops-006-production-evidence-v0.1.9-20260721.txt";
 const ops007Path = "docs/development/ops-007-production-protocol-v0.1.9-20260721.txt";
+const structuredEvidencePaths = {
+  journey: "output/playwright/v11-browser-evidence-fixture/v11-browser-journey-evidence.json",
+  accessibility: "output/playwright/v11-browser-evidence-fixture/v11-accessibility-evidence.json",
+} as const;
 
 try {
   createFixture();
@@ -70,6 +83,59 @@ try {
   writeEvidence(evidencePaths.completionEvidence, completionRecord("PASS", "needs CI evidence"));
   writeAdmissionRecord();
   assert.equal(evaluate(dependencies).status, "invalid", "PASS with a blocker must fail");
+  restoreFixtureFiles();
+
+  rmSync(path.join(tempRoot, structuredEvidencePaths.accessibility));
+  assert.equal(evaluate(dependencies).status, "not_ready", "missing nested accessibility evidence must be not_ready");
+  restoreFixtureFiles();
+
+  writeJson(structuredEvidencePaths.journey, { schemaVersion: V11_JOURNEY_SCHEMA, tampered: true });
+  assert.equal(evaluate(dependencies).status, "invalid", "nested journey evidence hash drift must be invalid");
+  restoreFixtureFiles();
+
+  const wrongJourneySchema = evaluate({
+    ...dependencies,
+    validateBrowserEvidence: (evidencePath, binding) => {
+      const result = dependencies.validateBrowserEvidence?.(evidencePath, binding)
+        ?? invalidBrowserEvidence("missing fixture validator");
+      return evidencePath === structuredEvidencePaths.journey
+        ? { ...result, schemaVersion: V11_ACCESSIBILITY_SCHEMA }
+        : result;
+    },
+  });
+  assert.equal(wrongJourneySchema.status, "invalid", "journey evidence must use the journey schema");
+
+  const tamperDuringStructuredValidation = evaluate({
+    ...dependencies,
+    validateBrowserEvidence: (evidencePath, binding) => {
+      const result = dependencies.validateBrowserEvidence?.(evidencePath, binding)
+        ?? invalidBrowserEvidence("missing fixture validator");
+      if (evidencePath === structuredEvidencePaths.accessibility) {
+        writeEvidence(evidencePath, `${JSON.stringify({ changed: true })}\n`);
+      }
+      return result;
+    },
+  });
+  assert.equal(
+    tamperDuringStructuredValidation.status,
+    "invalid",
+    "nested evidence changed during validation must fail",
+  );
+  restoreFixtureFiles();
+
+  const journeyArtifact = structuredJourneyArtifactPath("desktop-login");
+  const tamperNestedArtifactAfterBinding = evaluate({
+    ...dependencies,
+    evaluateSc002: (options) => {
+      writeEvidence(journeyArtifact, "changed after nested artifact binding\n");
+      return dependencies.evaluateSc002!(options);
+    },
+  });
+  assert.equal(
+    tamperNestedArtifactAfterBinding.status,
+    "invalid",
+    "a screenshot changed after nested binding must fail the final integrity reread",
+  );
   restoreFixtureFiles();
 
   const badManifest = compatibilityRuntime();
@@ -237,6 +303,22 @@ function passingDependencies(): V11ReleaseAdmissionDependencies {
       };
     },
     evaluateSc004: () => ({ status: "ready_for_human_review" }),
+    validateBrowserEvidence: (evidencePath, binding) => {
+      assert.equal(binding.expectedCommit, sourceCommit, "browser evidence must bind the source commit");
+      assert.equal(binding.expectedVersion, "1.1.0", "browser evidence must bind v1.1.0");
+      assert.equal(
+        binding.expectedSourceHash,
+        computeProductExperienceSourceHash(tempRoot),
+        "browser evidence must bind the current source fingerprint",
+      );
+      if (evidencePath === structuredEvidencePaths.journey) {
+        return validBrowserEvidence(V11_JOURNEY_SCHEMA, 18);
+      }
+      if (evidencePath === structuredEvidencePaths.accessibility) {
+        return validBrowserEvidence(V11_ACCESSIBILITY_SCHEMA, 24);
+      }
+      return invalidBrowserEvidence(`unexpected structured evidence path: ${evidencePath}`);
+    },
   };
 }
 
@@ -244,7 +326,7 @@ function freshUx() {
   return {
     status: "fresh" as const,
     recordPathLabel: evidencePaths.productExperienceEvidence,
-    recordSha256: sha("product experience\n"),
+    recordSha256: sha(readFixtureContent(path.join(tempRoot, evidencePaths.productExperienceEvidence))),
     reviewedAt: "2026-07-27T00:00:00.000Z",
     ageSeconds: 0,
     maxAgeSeconds: 100,
@@ -281,7 +363,10 @@ function createFixture(): void {
 
 function restoreFixtureFiles(): void {
   writeEvidence(evidencePaths.completionEvidence, completionRecord("PASS"));
-  writeEvidence(evidencePaths.productExperienceEvidence, "product experience\n");
+  writeStructuredBrowserArtifacts();
+  writeJson(structuredEvidencePaths.journey, structuredJourneyEvidence());
+  writeJson(structuredEvidencePaths.accessibility, structuredAccessibilityEvidence());
+  writeEvidence(evidencePaths.productExperienceEvidence, productExperienceRecord());
   writeEvidence(evidencePaths.accessibilityEvidence, accessibilityRecord());
   writeJson(evidencePaths.compatibilityRuntimeEvidence, compatibilityRuntime());
   writeCompatibilityRecord();
@@ -292,6 +377,68 @@ function restoreFixtureFiles(): void {
   writeJson(evidencePaths.sc004ReadbackEvidence, { fixture: true });
   writeJson(evidencePaths.sc004ControlledPrEvidence, { headSha: sourceCommit });
   writeAdmissionRecord();
+}
+
+function writeStructuredBrowserArtifacts(): void {
+  for (const id of structuredJourneyIds()) {
+    writeEvidence(structuredJourneyArtifactPath(id), `synthetic screenshot fixture ${id}\n`);
+  }
+  for (const id of V11_ACCESSIBILITY_CHECK_IDS) {
+    writeEvidence(structuredAccessibilityArtifactPath(id), `${JSON.stringify({ synthetic: true, id })}\n`);
+  }
+}
+
+function structuredJourneyEvidence() {
+  return {
+    schemaVersion: V11_JOURNEY_SCHEMA,
+    journeys: structuredJourneyIds().map((id) => {
+      const artifactPath = structuredJourneyArtifactPath(id);
+      return {
+        id,
+        screenshot: {
+          path: artifactPath,
+          sha256: sha(readFixtureContent(path.join(tempRoot, artifactPath))),
+        },
+      };
+    }),
+  };
+}
+
+function structuredAccessibilityEvidence() {
+  return {
+    schemaVersion: V11_ACCESSIBILITY_SCHEMA,
+    checks: V11_ACCESSIBILITY_CHECK_IDS.map((id) => {
+      const artifactPath = structuredAccessibilityArtifactPath(id);
+      return {
+        id,
+        artifact: {
+          path: artifactPath,
+          sha256: sha(readFixtureContent(path.join(tempRoot, artifactPath))),
+        },
+      };
+    }),
+  };
+}
+
+function structuredJourneyIds(): string[] {
+  return V11_VIEWPORTS.flatMap((viewport) => V11_JOURNEY_IDS.map((journey) => `${viewport}-${journey}`));
+}
+
+function structuredJourneyArtifactPath(id: string): string {
+  return `output/playwright/v11-browser-evidence-fixture/screenshots/${id}.png`;
+}
+
+function structuredAccessibilityArtifactPath(id: string): string {
+  return `output/playwright/v11-browser-evidence-fixture/observations/a11y-${id.toLowerCase()}.json`;
+}
+
+function productExperienceRecord(): string {
+  return [
+    "recordId: product-experience-fixture",
+    `journeyEvidence: ${structuredEvidencePaths.journey}`,
+    `journeyEvidenceHash: ${sha(readFixtureContent(path.join(tempRoot, structuredEvidencePaths.journey)))}`,
+    "",
+  ].join("\n");
 }
 
 function completionRecord(result: string, ciBlocker = "none"): string {
@@ -329,6 +476,9 @@ function accessibilityRecord(): string {
     "nonColorStatus: pass",
     "zoom200Percent: pass",
     "canvasEquivalentList: pass",
+    "structuredEvidence:",
+    `  path: ${structuredEvidencePaths.accessibility}`,
+    `  sha256: ${sha(readFixtureContent(path.join(tempRoot, structuredEvidencePaths.accessibility)))}`,
     "doesNotProve: signed Release, production apply, residual closure",
     "",
   ].join("\n");
@@ -478,4 +628,20 @@ function git(args: string[]): string {
 
 function sha(value: string): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function validBrowserEvidence(
+  schemaVersion: typeof V11_JOURNEY_SCHEMA | typeof V11_ACCESSIBILITY_SCHEMA,
+  itemCount: number,
+): V11EvidenceValidationResult {
+  return { valid: true, schemaVersion, itemCount, issues: [] };
+}
+
+function invalidBrowserEvidence(message: string): V11EvidenceValidationResult {
+  return {
+    valid: false,
+    schemaVersion: null,
+    itemCount: 0,
+    issues: [{ field: "recordPath", message }],
+  };
 }

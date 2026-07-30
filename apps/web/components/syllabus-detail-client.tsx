@@ -3,7 +3,7 @@
 import { Archive, BookOpenCheck, Pencil, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { DetailHeading } from "@/components/detail-heading";
 import { BackToListLink } from "@/components/list-return-context";
@@ -36,10 +36,22 @@ export function SyllabusDetailClient(props: {
   const [reviewDate, setReviewDate] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ArchiveConflict | null>(null);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const messageRef = useRef<HTMLParagraphElement>(null);
+  const restoreEditFocusRef = useRef(false);
   const archived = Boolean(props.node.archivedAt);
   const reviewDue = props.schedule?.status === "ACTIVE"
     && Boolean(props.schedule.dueDate)
     && Date.parse(props.schedule.dueDate as string) <= Date.parse(props.renderedAt);
+
+  useEffect(() => {
+    if (editing || !restoreEditFocusRef.current) return;
+    restoreEditFocusRef.current = false;
+    const frame = window.requestAnimationFrame(() => {
+      (editButtonRef.current ?? messageRef.current)?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [editing, message]);
 
   async function changeArchiveState(intent: ArchiveIntent) {
     if (pending) return;
@@ -115,6 +127,7 @@ export function SyllabusDetailClient(props: {
   }
 
   function refreshAfterEdit(message: string) {
+    restoreEditFocusRef.current = true;
     setEditing(false);
     setRetesting(false);
     setMessage(message);
@@ -146,7 +159,7 @@ export function SyllabusDetailClient(props: {
               <BookOpenCheck size={16} aria-hidden />开始复测
             </Link>
           ) : (
-            <button type="button" disabled={Boolean(pending)} onClick={() => { setEditing(true); setRetesting(false); }} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50">
+            <button ref={editButtonRef} type="button" disabled={Boolean(pending)} onClick={() => { setEditing(true); setRetesting(false); }} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50">
               <Pencil size={16} aria-hidden />编辑节点
             </button>
           )}
@@ -163,7 +176,7 @@ export function SyllabusDetailClient(props: {
         </div>
       </header>
 
-      {message ? <p role="status" className="rounded-md border border-white/10 bg-[#101419] px-3 py-2 text-sm text-zinc-300">{message}</p> : null}
+      {message ? <p ref={messageRef} role="status" tabIndex={-1} className="rounded-md border border-white/10 bg-[#101419] px-3 py-2 text-sm text-zinc-300">{message}</p> : null}
 
       {editing && !archived ? (
         <SyllabusDetailEditor

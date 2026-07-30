@@ -59,6 +59,7 @@ function main(): void {
   checkAiDesign();
   checkAiStillBeforePackageC();
   checkV11Batch9AiDraftBoundaries();
+  checkV11AiProviderPreferenceBoundary();
   checkStructuredMigrationDesign();
   checkMasteryProofBasicImplementation();
   checkSecondStageDesign();
@@ -844,7 +845,8 @@ function checkPackageDCompletedBatchEvidence(
     const requiredTerms = [
       ["route", route, "export async function POST"],
       ["route", route, "requireApiUser(request)"],
-      ["route", route, "allowExternalProvider: true"],
+      ["route", route, "readAiProviderPreferenceFromRequest(request)"],
+      ["route", route, "allowExternalProvider: preference.externalProviderEnabled"],
       ["service", service, "createAiStageAdjustmentDraft"],
       ["service", service, "minimizedLongTermStageContext"],
       ["service", service, "source: \"ai\""],
@@ -2642,6 +2644,64 @@ function checkV11Batch9AiDraftBoundaries(): void {
   });
 }
 
+function checkV11AiProviderPreferenceBoundary(): void {
+  const packets = readIfExists("docs/development/high-risk-confirmation-packets.md");
+  const preferenceService = readIfExists("apps/web/lib/study/ai-provider-preference.ts");
+  const preferenceRoute = readIfExists("apps/web/app/api/ai/preferences/route.ts");
+  const stageAiCompatibilityRoute = readIfExists("apps/web/app/api/stage-adjustment-drafts/ai/route.ts");
+  const settingsPage = readIfExists("apps/web/app/(app)/settings/ai/page.tsx");
+  const settingsClient = readIfExists("apps/web/components/ai-settings-client.tsx");
+  const routes = [
+    "apps/web/app/api/ai/discipline/route.ts",
+    "apps/web/app/api/ai/daily-review/route.ts",
+    "apps/web/app/api/ai/tomorrow-plan/route.ts",
+    "apps/web/app/api/ai/drafts/learning-tree/route.ts",
+    "apps/web/app/api/ai/drafts/knowledge-card/route.ts",
+    "apps/web/app/api/ai/drafts/plan/route.ts",
+    "apps/web/app/api/ai/drafts/motivation/route.ts",
+    "apps/web/app/api/simulation/stage-adjustment-drafts/ai/route.ts",
+  ];
+  const routeProblems = routes.flatMap((file) => {
+    const route = readIfExists(file);
+    const missing = [
+      "requireApiUser(request)",
+      "readAiProviderPreferenceFromRequest(request)",
+      "allowExternalProvider: preference.externalProviderEnabled",
+    ].filter((term) => !route.includes(term));
+    if (route.includes("allowExternalProvider: true")) missing.push("forbidden allowExternalProvider: true");
+    return missing.map((term) => `${file}:${term}`);
+  });
+  const requiredTerms = [
+    ["confirmation", packets, "确认执行 v1.1 AI 设置外部 Provider 偏好"],
+    ["preference-service", preferenceService, "value === enabledValue"],
+    ["preference-service", preferenceService, "httpOnly: true"],
+    ["preference-service", preferenceService, "sameSite: \"strict\""],
+    ["preference-service", preferenceService, "secure: process.env.NODE_ENV === \"production\""],
+    ["preference-route", preferenceRoute, "export async function GET"],
+    ["preference-route", preferenceRoute, "export async function PATCH"],
+    ["preference-route", preferenceRoute, "patchAiProviderPreferenceSchema.safeParse"],
+    [
+      "stage-ai-compatibility-route",
+      stageAiCompatibilityRoute,
+      'export { POST } from "@/app/api/simulation/stage-adjustment-drafts/ai/route"',
+    ],
+    ["settings-page", settingsPage, "readAiProviderPreference(await cookies())"],
+    ["settings-client", settingsClient, "保存 AI 设置"],
+    ["settings-client", settingsClient, "<Modal"],
+  ];
+  const missing = requiredTerms
+    .filter(([, content, term]) => !content.includes(term))
+    .map(([surface, , term]) => `${surface}:${term}`);
+
+  checks.push({
+    name: "v1.1 AI provider preference boundary",
+    ok: missing.length === 0 && routeProblems.length === 0,
+    detail: missing.length === 0 && routeProblems.length === 0
+      ? "current-browser fail-closed preference, authenticated settings API/UI, all eight explicit AI POST paths, and the stage compatibility re-export share one provider gate"
+      : `missing or unsafe ${[...missing, ...routeProblems].join(", ")}`,
+  });
+}
+
 function hasPackageCImplementationEvidence(
   ai: string,
   aiTests: string,
@@ -2676,10 +2736,14 @@ function hasPackageCImplementationEvidence(
     "allowExternalProvider",
     "checkAiProviderRateLimit",
     "aiProviderRateLimitMaxCalls",
-    "首页普通打开仅展示本地规则建议",
+    "当前浏览器未开启外部 AI Provider",
   ];
   const routeTermsPresent = aiRouteFiles.every((file) =>
-    apiRouteContains(file, ["requireApiUser(request)", "allowExternalProvider: true"]),
+    apiRouteContains(file, [
+      "requireApiUser(request)",
+      "readAiProviderPreferenceFromRequest(request)",
+      "allowExternalProvider: preference.externalProviderEnabled",
+    ]),
   );
 
   return aiImplementationTerms.every((term) => ai.includes(term)) &&

@@ -40,13 +40,13 @@
 ## AI
 
 **AI 建议按钮不可用？**
-`AI_ENABLED` 默认是 `false`。启用需要同时配置 `AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`（OpenAI-compatible），见 [配置参考](configuration.md)。
+`AI_ENABLED` 默认是 `false`。启用需要管理员在服务端同时配置 `AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`（OpenAI-compatible），并由当前浏览器在 `/settings/ai` 明确开启“允许显式 AI 操作调用外部 Provider”后保存。任一条件不满足都会使用本地规则，见 [配置参考](configuration.md)。
 
 **AI 调用失败或很慢？**
 超时（`AI_TIMEOUT_MS`）和重试（`AI_MAX_RETRIES`）用尽后会自动回退本地规则，功能不中断。持续失败先检查 base URL 连通性、key 有效性和模型名。
 
 **AI 会看到我的复盘和动机档案吗？**
-默认不会。动机档案、完整情绪记录、完整复盘正文、附件内容都在默认排除列表里，除非显式打开 `AI_ALLOW_SENSITIVE_CONTEXT`（不建议）。
+不会按默认路径发送。动机档案、完整情绪记录、完整复盘正文、附件内容都在排除列表里；当前实现要求 `AI_ALLOW_SENSITIVE_CONTEXT=false`，设为 `true` 反而会禁用 Provider 并回退本地规则。扩大字段范围必须另行高风险确认。
 
 ## 部署与运行
 

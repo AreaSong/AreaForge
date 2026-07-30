@@ -77,7 +77,11 @@ export function LoginForm({ returnTo = "/today" }: { returnTo?: string }) {
         type="password"
       />
 
-      {error ? <p className="mt-4 text-sm text-red-200">{error}</p> : null}
+      {error ? (
+        <p aria-atomic="true" aria-live="assertive" className="mt-4 text-sm text-red-200" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <button
         className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-teal-400 font-medium text-[#071011] transition hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-70"

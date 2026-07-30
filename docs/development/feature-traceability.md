@@ -76,6 +76,7 @@
 | 统一复习 Schedule/Event | 隔离已实现 | Batch 6 API + Batch 7 `/quick-review/[scheduleId]` + Batch 8 `/knowledge/reviews` | Batch 11 生产切换 |
 | CheckIn v2 / 恢复三阶 | 隔离已实现 | Batch 6 API + Batch 7 今日摘要 + Batch 9「我学不下去了」接动机内容库 | Batch 11 生产切换 |
 | 动机 / 通知 / 四类 AI 草稿 | 隔离已实现 | Batch 9：内容库/提醒、通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET` | Batch 11 生产切换 |
+| 外部 Provider 当前浏览器偏好 | 隔离已实现 | `/settings/ai` 开关/保存/策略确认；鉴权 `GET|PATCH /api/ai/preferences`；安全默认关闭 Cookie；三条建议、四类草稿和长期阶段草稿共八条鉴权 POST route 统一 gate；本地 `AI_ENABLED=false` 验证无外呼 | Batch 11 production admission；真实生产 key smoke、Release、生产 apply 与 residual 关闭未授权 |
 | 模拟结构化失分 / 报告阶段入箱 | 隔离已实现 | Migration 8；分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升、报告/阶段确认边界 | Batch 11 production admission |
 | 完整 minor 签名发布 | 未实现 | 14.4 / Batch 11；地基 OPS-006/007 已由 `v0.1.9` 覆盖待 S2 复核 | Batch 11 |
 

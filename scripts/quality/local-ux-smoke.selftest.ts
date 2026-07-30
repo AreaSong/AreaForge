@@ -10,7 +10,7 @@ const source = readFileSync(scriptPath, "utf8");
 const passwordSource = readFileSync(path.join(repositoryRoot, "scripts/ops/smoke-password.ts"), "utf8");
 const productionSmokeSource = readFileSync(path.join(repositoryRoot, "scripts/ops/production-readonly-smoke.ts"), "utf8");
 
-const workspaceFixtureIndex = source.indexOf("const subjectId = await ensureSmokeWorkspace(cookie, tag)");
+const workspaceFixtureIndex = source.indexOf("const workspace = await ensureSmokeWorkspace(cookie, tag)");
 const activeSessionPreflightIndex = source.indexOf('assertNoActiveSession("active session preflight"');
 assert(workspaceFixtureIndex >= 0 && workspaceFixtureIndex < activeSessionPreflightIndex,
   "local UX smoke must establish the active workspace before querying the active session");
@@ -89,6 +89,26 @@ assert(source.includes('href="/knowledge/canvas"'), "Batch 8 must require knowle
 assert(source.includes('href="/review/reports"') && source.includes('href="/stage/overview"'),
   "Batch 10 must require reports and stage App Shell navigation");
 assert(source.includes("batch8 knowledge canvas api"), "Batch 8 knowledge canvas API smoke must remain");
+assert(source.includes('schemaVersion: "v11-browser-fixture-manifest-v1"'),
+  "local UX smoke must expose a versioned browser fixture manifest");
+for (const fixtureKey of [
+  "taskDetail",
+  "inboxDetail",
+  "importDetail",
+  "syllabusDetail",
+  "noteDetail",
+  "mistakeDetail",
+  "resourceDetail",
+  "resourcePreview",
+  "reviewDetail",
+  "reportHistory",
+  "simulationDetail",
+  "focus",
+  "quickReview",
+]) {
+  assert(source.includes(`${fixtureKey}:`), `browser fixture manifest must include ${fixtureKey}`);
+}
+assert(!source.includes("browserFixtures = { cookie"), "browser fixture manifest must never include the auth cookie");
 
 function assertSourceWindow(label: string, snippets: string[]): void {
   const start = source.indexOf(`"${label}"`);
@@ -252,7 +272,9 @@ async function assertActiveSessionStopsWrites(passwordFile: string): Promise<voi
       return;
     }
     if (request.method === "GET" && request.url === "/api/exam-workspaces") {
-      response.end(JSON.stringify({ workspaces: [{ id: "workspace-selftest", status: "ACTIVE", revision: 1 }] }));
+      response.end(JSON.stringify({
+        workspaces: [{ id: "workspace-selftest", stableKey: "workspace-selftest", status: "ACTIVE", revision: 1 }],
+      }));
       return;
     }
     if (request.method === "GET" && request.url === "/api/exam-workspaces/workspace-selftest/subjects") {

@@ -34,10 +34,16 @@
 - versioned Release / supply-chain / operational evidence / closeout audit 记录。
 - OPS-001 的精确 smoke/status/bundle/closure 文件名，OPS-005/OPS-006 的版本化 production evidence/结构化子证据，以及 residual 人工复核记录。
 - product-experience review、runtime identity 和 PNG/JPEG/WebP 截图证据。
+- `output/playwright/v11-browser-evidence-<id>/` 下两份固定结构化 JSON、18 张
+  `screenshots/{desktop,mobile}-<journey>.png` 与 24 份
+  `observations/a11y-{kbd,focus,sem,live,color,zoom,canvas}-NN.json`；其中 `a11y-zoom-01.json`
+  承载原生浏览器 200% 缩放的九旅程 metrics。该目录中的其他文件名、trace、video、auth state、任意截图或
+  嵌套副本不进入白名单。
 - `docs/development/residual-risk-ledger.{md,json}`、`operational-readiness.md`、`long-term-operability-control-plane.md`。
 - 仅当前长期治理任务 `0014/0019/0020/0023/0024` 在 `tasks/{active,backlog,done}` 中的状态文件、任务 residual 索引和 README 状态同步；任意新 task 或设计文档不自动进入白名单。
 - 根 README、docs README、workflow README 的当前状态同步。
-- `output/ops005`、`output/ops006`、`output/supply-chain` 下受限前缀的结构化 redacted 文件，以及 `output/playwright` 下受限命名的 runtime identity/截图。
+- `output/ops005`、`output/ops006`、`output/supply-chain` 下受限前缀的结构化 redacted 文件，以及
+  `output/playwright` 下受限命名的 runtime identity/截图/结构化 v1.1 浏览器证据。
 
 以下路径始终禁止进入 evidence-only closeout：
 

@@ -15,8 +15,20 @@ import { pathToFileURL } from "node:url";
 import { buildSc004Preflight } from "../ops/sc004-main-protection-preflight";
 import { evaluateSc002Preflight } from "../ops/sc002-supply-chain-preflight";
 import { evaluateProductExperienceEvidence } from "./product-experience-review-validate";
+import { computeProductExperienceSourceHash } from "./product-experience-source";
 import { evaluateReleaseCloseoutBinding } from "./release-closeout-binding";
 import { parseStrictIndentedKeyValueRecord, type ValidationIssue } from "./record-validator-common";
+import {
+  V11_ACCESSIBILITY_SCHEMA,
+  V11_ACCESSIBILITY_CHECK_IDS,
+  V11_JOURNEY_SCHEMA,
+  V11_JOURNEY_IDS,
+  V11_VIEWPORTS,
+  type V11EvidenceBinding,
+  type V11EvidenceSchema,
+  type V11EvidenceValidationResult,
+} from "./v11-browser-evidence-contract";
+import { validateV11BrowserEvidenceFile } from "./v11-browser-evidence-validate";
 
 export type V11ReleaseAdmissionStatus = "ready_for_signed_release" | "not_ready" | "invalid";
 type CheckStatus = "ready" | "not_ready" | "invalid";
@@ -59,6 +71,7 @@ export type V11ReleaseAdmissionDependencies = {
   evaluateSc002?: typeof evaluateSc002Preflight;
   evaluateSc004?: typeof buildSc004Preflight;
   evaluateBinding?: typeof evaluateReleaseCloseoutBinding;
+  validateBrowserEvidence?: typeof validateV11BrowserEvidenceFile;
 };
 
 export type V11ReleaseAdmissionOptions = {
@@ -181,9 +194,35 @@ export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions 
   const sourceGitCommit = base.sourceGitCommit as string;
   const completion = evidence.get("completionEvidence") as EvidenceReference;
   const productExperience = evidence.get("productExperienceEvidence") as EvidenceReference;
+  const browserBinding = resolveBrowserEvidenceBinding(root, sourceGitCommit, checks);
+  if (!browserBinding) return finish(base);
   checks.push(evaluateCompletionCheck(root, completion, sourceGitCommit, dependencies));
   checks.push(evaluateProductExperienceCheck(root, productExperience, options.now, dependencies));
+  checks.push(validateStructuredBrowserEvidence({
+    root,
+    record: productExperience,
+    pathField: "journeyEvidence",
+    hashField: "journeyEvidenceHash",
+    expectedSchema: V11_JOURNEY_SCHEMA,
+    checkId: "product_experience_structured_evidence",
+    evidenceKey: "productExperienceStructuredEvidence",
+    binding: browserBinding,
+    evidence,
+    dependencies,
+  }));
   checks.push(validateAccessibility(evidence.get("accessibilityEvidence") as EvidenceReference, sourceGitCommit));
+  checks.push(validateStructuredBrowserEvidence({
+    root,
+    record: evidence.get("accessibilityEvidence") as EvidenceReference,
+    pathField: "structuredEvidence.path",
+    hashField: "structuredEvidence.sha256",
+    expectedSchema: V11_ACCESSIBILITY_SCHEMA,
+    checkId: "accessibility_structured_evidence",
+    evidenceKey: "accessibilityStructuredEvidence",
+    binding: browserBinding,
+    evidence,
+    dependencies,
+  }));
   checks.push(validateCompatibilityFloor(
     evidence.get("compatibilityFloorEvidence") as EvidenceReference,
     evidence.get("compatibilityRuntimeEvidence") as EvidenceReference,
@@ -288,6 +327,160 @@ function evaluateProductExperienceCheck(
   } catch (error) {
     return invalid("product_experience", safeError(error));
   }
+}
+
+function resolveBrowserEvidenceBinding(
+  root: string,
+  sourceGitCommit: string,
+  checks: AdmissionCheck[],
+): V11EvidenceBinding | null {
+  try {
+    const expectedSourceHash = computeProductExperienceSourceHash(root);
+    checks.push(ready(
+      "browser_evidence_source_binding",
+      `structured browser evidence source hash is ${expectedSourceHash}`,
+    ));
+    return {
+      root,
+      expectedCommit: sourceGitCommit,
+      expectedVersion,
+      expectedSourceHash,
+    };
+  } catch (error) {
+    checks.push(invalid("browser_evidence_source_binding", safeError(error)));
+    return null;
+  }
+}
+
+function validateStructuredBrowserEvidence(options: {
+  root: string;
+  record: EvidenceReference;
+  pathField: string;
+  hashField: string;
+  expectedSchema: V11EvidenceSchema;
+  checkId: string;
+  evidenceKey: string;
+  binding: V11EvidenceBinding;
+  evidence: Map<string, EvidenceReference>;
+  dependencies: V11ReleaseAdmissionDependencies;
+}): AdmissionCheck {
+  const parseIssues: ValidationIssue[] = [];
+  const fields = parseStrictIndentedKeyValueRecord(options.record.raw, parseIssues);
+  requireValue(fields, options.pathField, parseIssues);
+  requireValue(fields, options.hashField, parseIssues);
+  if (parseIssues.length > 0) return invalid(options.checkId, summarizeIssues(parseIssues));
+
+  const evidencePath = fields.get(options.pathField) ?? "";
+  const expectedSha = fields.get(options.hashField) ?? "";
+  const pathIssue = validateStructuredEvidencePath(evidencePath);
+  if (pathIssue) return invalid(options.checkId, `${options.pathField}: ${pathIssue}`);
+  if (!/^sha256:[a-f0-9]{64}$/.test(expectedSha)) {
+    return invalid(options.checkId, `${options.hashField}: must be sha256:<64 lowercase hex>`);
+  }
+
+  const nested = readRepoFile(options.root, evidencePath);
+  if (!("reference" in nested)) {
+    return nested.status === "missing"
+      ? notReady(options.checkId, nested.detail)
+      : invalid(options.checkId, nested.detail);
+  }
+  if (nested.reference.sha256 !== expectedSha) {
+    return invalid(options.checkId, `${options.hashField}: must match the current structured evidence bytes`);
+  }
+
+  const validator = options.dependencies.validateBrowserEvidence ?? validateV11BrowserEvidenceFile;
+  let validated: V11EvidenceValidationResult;
+  try {
+    validated = validator(nested.reference.path, options.binding);
+  } catch (error) {
+    return invalid(options.checkId, safeError(error));
+  }
+  const validationIssue = describeBrowserEvidenceFailure(validated, options.expectedSchema);
+  if (validationIssue) return invalid(options.checkId, validationIssue);
+  const reread = verifyReferenceUnchanged(options.root, nested.reference);
+  if (reread) return invalid(options.checkId, reread);
+
+  const artifacts = collectStructuredBrowserArtifacts(
+    options.root,
+    nested.reference,
+    options.expectedSchema,
+  );
+  if ("detail" in artifacts) return invalid(options.checkId, artifacts.detail);
+
+  options.evidence.set(options.evidenceKey, nested.reference);
+  for (const artifact of artifacts.references) {
+    options.evidence.set(`${options.evidenceKey}:${artifact.path}`, artifact);
+  }
+  return ready(
+    options.checkId,
+    `${options.expectedSchema} and ${artifacts.references.length} nested artifacts are hash-bound, source-bound, and validator-confirmed`,
+    nested.reference,
+  );
+}
+
+function collectStructuredBrowserArtifacts(
+  root: string,
+  evidence: EvidenceReference,
+  schema: V11EvidenceSchema,
+): { references: EvidenceReference[] } | { detail: string } {
+  let value: unknown;
+  try {
+    value = JSON.parse(evidence.raw) as unknown;
+  } catch {
+    return { detail: "structured browser evidence must contain valid JSON before nested artifact binding" };
+  }
+  if (!isRecord(value) || value.schemaVersion !== schema) {
+    return { detail: `structured browser evidence must use ${schema} before nested artifact binding` };
+  }
+
+  const expectedCount = schema === V11_JOURNEY_SCHEMA ? 18 : 24;
+  const items = schema === V11_JOURNEY_SCHEMA ? value.journeys : value.checks;
+  if (!Array.isArray(items) || items.length !== expectedCount) {
+    return { detail: `${schema} must expose exactly ${expectedCount} nested artifact references` };
+  }
+
+  const expectedIds = schema === V11_JOURNEY_SCHEMA
+    ? V11_VIEWPORTS.flatMap((viewport) => V11_JOURNEY_IDS.map((journey) => `${viewport}-${journey}`))
+    : [...V11_ACCESSIBILITY_CHECK_IDS];
+  const seenPaths = new Set<string>();
+  const references: EvidenceReference[] = [];
+  for (const [index, item] of items.entries()) {
+    if (!isRecord(item) || item.id !== expectedIds[index]) {
+      return { detail: `${schema} nested artifact item ${index} must use canonical id ${expectedIds[index]}` };
+    }
+    const artifact = schema === V11_JOURNEY_SCHEMA ? item.screenshot : item.artifact;
+    if (!isRecord(artifact) || typeof artifact.path !== "string" || typeof artifact.sha256 !== "string") {
+      return { detail: `${schema} nested artifact ${String(item.id)} must contain path and sha256` };
+    }
+    if (seenPaths.has(artifact.path)) {
+      return { detail: `${schema} nested artifact path must be unique: ${artifact.path}` };
+    }
+    seenPaths.add(artifact.path);
+    const bound = readBoundEvidence(root, artifact.path, artifact.sha256, `${schema}.${String(item.id)}`);
+    if (!("reference" in bound)) return { detail: bound.detail };
+    references.push(bound.reference);
+  }
+  return { references };
+}
+
+function validateStructuredEvidencePath(value: string): string | null {
+  if (!value.endsWith(".json")) return "must reference a repository JSON evidence file";
+  if (value.startsWith("scripts/") || /(?:^|\/)\.?[^/]*selftest(?:\.|$)/i.test(value)) {
+    return "must reference evidence, not a script or selftest";
+  }
+  return null;
+}
+
+function describeBrowserEvidenceFailure(
+  result: V11EvidenceValidationResult,
+  expectedSchema: V11EvidenceSchema,
+): string | null {
+  if (result.valid && result.schemaVersion === expectedSchema) return null;
+  const issues = result.issues.slice(0, 5)
+    .map((issue) => `${issue.field}: ${issue.message}`)
+    .join("; ");
+  if (issues) return issues;
+  return `structured evidence schema must be ${expectedSchema}`;
 }
 
 function evaluateSc002Check(
@@ -837,6 +1030,10 @@ function readJsonString(raw: string, key: string): string | null {
   } catch {
     return null;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function finish(base: Omit<V11ReleaseAdmissionResult, "status">): V11ReleaseAdmissionResult {

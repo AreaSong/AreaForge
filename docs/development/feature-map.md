@@ -3,7 +3,7 @@
 > **视图型状态入口，不是第二套权威真相。** 功能状态与批次证据的权威入口是 [`feature-traceability.md`](feature-traceability.md)，残余缺口以 [`residual-risk-ledger.md`](residual-risk-ledger.md) 为准；三者冲突时以后两者为准，并在同一轮修正本文。
 > Cursor Canvas `areaforge-feature-map.canvas.tsx`（工作区 canvases 目录）是本文的可视化投影，状态变化时同步更新。
 
-快照日期：2026-07-27（生产运行 `v0.1.9`；仓库正在验证 `v1.1.0` 学习行动中心隔离候选，尚未完成 Release admission 或生产切换）
+快照日期：2026-07-28（生产运行 `v0.1.9`；仓库正在验证 `v1.1.0` 学习行动中心隔离候选，尚未完成 Release admission 或生产切换）
 
 ## 四态与映射
 
@@ -83,7 +83,7 @@
 | `loop.motivation-wake` | 动机唤醒机制 | done | `packages/core` `evaluateMotivationWake` | 只展示唤醒信号，不进 AI 默认上下文 |
 | `loop.stage-plan` | 持久阶段计划与调整草稿 | done | `StagePlan/StageAdjustmentDraft`、confirm/reject API | 草稿确认边界持久化 |
 | `loop.report-auto-apply` | 报告驱动自动任务/阶段应用 | planned | traceability「后续承接」列 | 明确不进当前范围；启动需单独高风险确认 |
-| `future.v1.1` | v1.1 学习行动中心 | partial | `workflow/versions/v1.1-learning-action-center.md`、`docs/development/feature-traceability.md` | Batch 3–10 已隔离实现五工作台、考试工作区、计划收件箱、统一复习、学习树 confirm、报告/阶段入箱、通知与四类 AI；Batch 11 仍待最终验证、Release admission 与生产切换 |
+| `future.v1.1` | v1.1 学习行动中心 | partial | `workflow/versions/v1.1-learning-action-center.md`、`docs/development/feature-traceability.md` | Batch 3–10 已隔离实现五工作台、考试工作区、计划收件箱、统一复习、学习树 confirm、报告/阶段入箱、通知、四类 AI 与当前浏览器外呼偏好；Batch 11 仍待最终验证、Release admission 与生产切换 |
 | `future.knowledge-canvas` | 全局知识关联画布 | partial | `/knowledge/canvas`、`tasks/done/0032-v11-batch8-canvas-knowledge.md` | 派生关系、分层加载、个人布局和等价列表已在隔离候选实现；仍待最终体验证据与生产切换 |
 
 ## 4. AI 边界
@@ -91,6 +91,7 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `ai.provider` | OpenAI-compatible provider 接入 | done | `packages/ai/src/index.ts`、`AI_ENABLED` | 普通首页 SSR 不触发外呼 |
+| `ai.browser-opt-in` | 外部 Provider 当前浏览器偏好 | partial | `/settings/ai`、`GET|PATCH /api/ai/preferences`、八条鉴权 AI POST route | 隔离候选已默认关闭并统一 gate；尚未进入签名 Release 或生产切换 |
 | `ai.discipline` | 鞭策文案 | done | `/api/ai/discipline` | 配置完整时显式外呼，首页仍展示本地规则 |
 | `ai.daily-review` | AI 复盘建议 | done | `/api/ai/daily-review` | 只发送聚合字段，不发完整复盘正文 |
 | `ai.tomorrow-plan` | AI 明日任务建议 | done | `/api/ai/tomorrow-plan` | 任务标题默认脱敏后不进入外呼 |

@@ -48,7 +48,27 @@ import {
 } from "@areaforge/core";
 import type { KnowledgeCanvasQueryDto } from "@/lib/study/knowledge-canvas-service";
 import { Drawer, Modal } from "@/components/ui/overlays";
+import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
 import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
+
+type CanvasRelationKind = KnowledgeCanvasQueryDto["edges"][number]["kind"];
+
+const relationKindLabels: Record<CanvasRelationKind, string> = {
+  contains: "包含",
+  related: "关联",
+  depends: "依赖",
+  schedules: "排期",
+  evidence: "证据",
+};
+
+function isCanvasRelationKind(value: string | undefined): value is CanvasRelationKind {
+  return Boolean(value && Object.hasOwn(relationKindLabels, value));
+}
+
+function syncOptionalSearchParam(url: URL, key: string, value: string): void {
+  if (value) url.searchParams.set(key, value);
+  else url.searchParams.delete(key);
+}
 
 function useIsDesktop() {
   const [desktop, setDesktop] = useState(false);
@@ -120,7 +140,20 @@ function applyCollapsedBranches(data: KnowledgeCanvasQueryDto, mobileOverrides: 
   };
 }
 
+function applyRelationFilter(data: KnowledgeCanvasQueryDto, relationKind: CanvasRelationKind | ""): KnowledgeCanvasQueryDto {
+  if (!relationKind) return data;
+  const edges = data.edges.filter((edge) => edge.kind === relationKind);
+  const visibleIds = new Set(edges.flatMap((edge) => [edge.sourceId, edge.targetId]));
+  return {
+    ...data,
+    nodes: data.nodes.filter((node) => visibleIds.has(node.id)),
+    edges,
+    list: data.list.filter((row) => visibleIds.has(row.id)),
+  };
+}
+
 type LayoutConflictState = {
+  action: "save" | "reset";
   latest: Partial<KnowledgeCanvasQueryDto["layout"]> | null;
   conflictFields: string[];
 };
@@ -184,14 +217,26 @@ function preserveLocalLayout(
   return { ...applyLocalLayoutPatches(incoming, patches), layout: local.layout };
 }
 
-export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto; initialQuery?: string }) {
+export function KnowledgeCanvasClient(props: {
+  initial: KnowledgeCanvasQueryDto;
+  initialQuery?: string;
+  initialEntityType?: string;
+  initialSubjectId?: string;
+  initialRelationKind?: string;
+  initialStatus?: "active" | "all";
+  initialView?: "canvas" | "list";
+}) {
+  useRestoreListReturn();
   const desktop = useIsDesktop();
   const [canvas, setCanvas] = useState(props.initial);
   const [query, setQuery] = useState(props.initialQuery ?? "");
-  const [entityTypeFilter, setEntityTypeFilter] = useState("");
-  const [subjectFilter, setSubjectFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"active" | "all">("active");
-  const [view, setView] = useState<"canvas" | "list">("canvas");
+  const [entityTypeFilter, setEntityTypeFilter] = useState(props.initialEntityType ?? "");
+  const [subjectFilter, setSubjectFilter] = useState(props.initialSubjectId ?? "");
+  const [relationKindFilter, setRelationKindFilter] = useState<CanvasRelationKind | "">(
+    isCanvasRelationKind(props.initialRelationKind) ? props.initialRelationKind : "",
+  );
+  const [statusFilter, setStatusFilter] = useState<"active" | "all">(props.initialStatus ?? "active");
+  const [view, setView] = useState<"canvas" | "list">(props.initialView ?? "canvas");
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
@@ -223,10 +268,15 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
   const [selectedNodeId, setSelectedNodeId] = useState(props.initial.nodes[0]?.id ?? "");
   const [groupTargetId, setGroupTargetId] = useState("");
   const [hiddenTargetId, setHiddenTargetId] = useState(props.initial.hiddenNodes[0]?.id ?? "");
+  const hiddenRestoreSelectRef = useRef<HTMLSelectElement>(null);
+  const resetLayoutTriggerRef = useRef<HTMLButtonElement>(null);
 
   const visibleCanvas = useMemo(
-    () => applyCollapsedBranches(canvas, desktop ? new Set<string>() : mobileCollapseOverrides),
-    [canvas, desktop, mobileCollapseOverrides],
+    () => applyRelationFilter(
+      applyCollapsedBranches(canvas, desktop ? new Set<string>() : mobileCollapseOverrides),
+      relationKindFilter,
+    ),
+    [canvas, desktop, mobileCollapseOverrides, relationKindFilter],
   );
   const nodes = useMemo(
     () => draggedNodes?.filter((node) => visibleCanvas.nodes.some((visible) => visible.id === node.id)) ?? toFlowNodes(visibleCanvas, desktop),
@@ -316,7 +366,7 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
     if (!params.resetFilters && query.trim()) search.set("q", query.trim());
     if (!params.resetFilters && entityTypeFilter) search.set("entityType", entityTypeFilter);
     if (!params.resetFilters && subjectFilter) search.set("subjectId", subjectFilter);
-    search.set("status", statusFilter);
+    search.set("status", params.resetFilters ? "active" : statusFilter);
     try {
       const response = await fetch(`/api/knowledge-canvas?${search.toString()}`, { cache: "no-store" });
       if (!response.ok) {
@@ -350,13 +400,19 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
           setQuery("");
           setEntityTypeFilter("");
           setSubjectFilter("");
+          setRelationKindFilter("");
+          setStatusFilter("active");
         }
         if (params.focus) {
           const nextUrl = new URL(window.location.href);
           nextUrl.searchParams.set("focus", params.focus);
-          nextUrl.searchParams.delete("q");
-          nextUrl.searchParams.delete("subjectId");
           nextUrl.searchParams.delete("syllabusNodeId");
+          syncOptionalSearchParam(nextUrl, "q", params.resetFilters ? "" : query.trim());
+          syncOptionalSearchParam(nextUrl, "entityType", params.resetFilters ? "" : entityTypeFilter);
+          syncOptionalSearchParam(nextUrl, "subjectId", params.resetFilters ? "" : subjectFilter);
+          syncOptionalSearchParam(nextUrl, "relation", params.resetFilters ? "" : relationKindFilter);
+          syncOptionalSearchParam(nextUrl, "status", params.resetFilters || statusFilter === "active" ? "" : statusFilter);
+          syncOptionalSearchParam(nextUrl, "view", view === "list" ? "list" : "");
           window.history.pushState(null, "", nextUrl);
         }
         return true;
@@ -476,7 +532,11 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
       if (response.status === 409) {
         layoutQueueRef.current = restoreKnowledgeCanvasLayoutSave(layoutQueueRef.current);
         layoutBlockedRef.current = true;
-        const conflict = { latest: body?.latest ?? null, conflictFields: body?.conflictFields ?? ["revision"] };
+        const conflict = {
+          action: "save" as const,
+          latest: body?.latest ?? null,
+          conflictFields: body?.conflictFields ?? ["revision"],
+        };
         setLayoutConflict(conflict);
         if (body?.error === "LAYOUT_REVISION_CONFLICT" && typeof body.latest?.revision === "number") {
           const current = canvasRef.current;
@@ -535,6 +595,32 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
     layoutBlockedRef.current = false;
     setLayoutConflict(null);
     setError(null);
+    void flushLayoutQueue();
+  }
+
+  async function adoptLatestLayoutConflict(): Promise<void> {
+    layoutQueueRef.current = createKnowledgeCanvasLayoutQueue();
+    layoutBlockedRef.current = false;
+    setLayoutConflict(null);
+    setError(null);
+    replaceDraggedNodes(null);
+    syncLayoutDirty();
+    const reloaded = await reload({ focus: canvasRef.current.focusId, depth: 1, resetFilters: true });
+    setLayoutAnnouncement(reloaded ? "已采用服务端最新布局，本地冲突修改未应用" : "服务端最新布局重新加载失败，请重试");
+    window.requestAnimationFrame(() => resetLayoutTriggerRef.current?.focus({ preventScroll: true }));
+  }
+
+  function retryLayoutConflict(): void {
+    const action = layoutConflict?.action;
+    if (!action) return;
+    setLayoutConflict(null);
+    setError(null);
+    layoutBlockedRef.current = false;
+    if (action === "reset") {
+      void resetLayout();
+      return;
+    }
+    setLayoutAnnouncement("已使用服务端最新 revision 保留本地布局修改并显式重试");
     void flushLayoutQueue();
   }
 
@@ -625,7 +711,26 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
     await updateSelectedLayout(
       { pinned: !current.pinned },
       `${current.label}已${current.pinned ? "取消固定" : "固定"}，等待同步`,
+      true,
     );
+  }
+
+  async function hideSelectedNode(): Promise<void> {
+    if (!selectedNode) return;
+    const saved = await updateSelectedLayout(
+      { hidden: true },
+      `${selectedNode.label}已隐藏，焦点移至“恢复隐藏对象”，等待同步`,
+    );
+    if (saved) window.requestAnimationFrame(() => hiddenRestoreSelectRef.current?.focus({ preventScroll: true }));
+  }
+
+  function toggleEquivalentView(): void {
+    const next = view === "canvas" ? "list" : "canvas";
+    setView(next);
+    const url = new URL(window.location.href);
+    if (next === "list") url.searchParams.set("view", "list");
+    else url.searchParams.delete("view");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   }
 
   async function autoLayout() {
@@ -705,7 +810,11 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
       } | null;
       if (!response.ok) {
         if (response.status === 409) {
-          setLayoutConflict({ latest: body?.latest ?? null, conflictFields: body?.conflictFields ?? ["revision"] });
+          setLayoutConflict({
+            action: "reset",
+            latest: body?.latest ?? null,
+            conflictFields: body?.conflictFields ?? ["revision"],
+          });
           if (typeof body?.latest?.revision === "number") {
             replaceCanvas({
               ...canvasRef.current,
@@ -713,6 +822,7 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
             });
           }
         }
+        if (response.status === 409) setResetOpen(false);
         setError(response.status === 409 ? "布局已在其他设备更新，未执行重置" : "重置布局失败");
         return;
       }
@@ -722,6 +832,8 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
       }
       setLayoutConflict(null);
       setOffline(false);
+      setError(null);
+      setLayoutAnnouncement("画布布局已重置，焦点返回“重置布局”");
       setResetOpen(false);
       replaceDraggedNodes(null);
       startTransition(() => {
@@ -734,6 +846,17 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
   }
 
   const listRows = useMemo(() => visibleCanvas.list, [visibleCanvas.list]);
+  const relationLabelsByNode = useMemo(() => {
+    const labels = new Map<string, Set<string>>();
+    for (const edge of visibleCanvas.edges) {
+      for (const id of [edge.sourceId, edge.targetId]) {
+        const values = labels.get(id) ?? new Set<string>();
+        values.add(relationKindLabels[edge.kind]);
+        labels.set(id, values);
+      }
+    }
+    return labels;
+  }, [visibleCanvas.edges]);
 
   return (
     <div className="space-y-4">
@@ -769,6 +892,17 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
             {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.label}</option>)}
           </select>
           <select
+            aria-label="按关系筛选"
+            className="h-10 rounded-md border border-white/10 bg-black/30 px-2 text-sm"
+            value={relationKindFilter}
+            onChange={(event) => setRelationKindFilter(event.target.value as CanvasRelationKind | "")}
+          >
+            <option value="">全部关系</option>
+            {(Object.keys(relationKindLabels) as CanvasRelationKind[]).map((kind) => (
+              <option key={kind} value={kind}>{relationKindLabels[kind]}</option>
+            ))}
+          </select>
+          <select
             aria-label="按状态筛选"
             className="h-10 rounded-md border border-white/10 bg-black/30 px-2 text-sm"
             value={statusFilter}
@@ -794,7 +928,7 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
           <button
             type="button"
             className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5"
-            onClick={() => setView(view === "canvas" ? "list" : "canvas")}
+            onClick={toggleEquivalentView}
           >
             {view === "canvas" ? "等价列表" : "画布视图"}
           </button>
@@ -809,6 +943,7 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
           </button>
           {canMutateKnowledgeCanvasLayout({ isDesktopViewport: desktop }) ? (
             <button
+              ref={resetLayoutTriggerRef}
               type="button"
               className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5"
               disabled={layoutDirty || layoutPending}
@@ -840,11 +975,11 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
           }}
         >
           <span />
-          <button type="button" aria-label="向上微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(0, -24)}><ArrowUp size={16} aria-hidden="true" /></button>
+          <button type="button" title="向上微调" aria-label="向上微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(0, -24)}><ArrowUp size={16} aria-hidden="true" /></button>
           <span />
-          <button type="button" aria-label="向左微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(-24, 0)}><ArrowLeft size={16} aria-hidden="true" /></button>
-          <button type="button" aria-label="向下微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(0, 24)}><ArrowDown size={16} aria-hidden="true" /></button>
-          <button type="button" aria-label="向右微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(24, 0)}><ArrowRight size={16} aria-hidden="true" /></button>
+          <button type="button" title="向左微调" aria-label="向左微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(-24, 0)}><ArrowLeft size={16} aria-hidden="true" /></button>
+          <button type="button" title="向下微调" aria-label="向下微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(0, 24)}><ArrowDown size={16} aria-hidden="true" /></button>
+          <button type="button" title="向右微调" aria-label="向右微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(24, 0)}><ArrowRight size={16} aria-hidden="true" /></button>
         </div>
         <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-1">
           <label className="grid min-w-0 gap-1 text-xs text-zinc-400">
@@ -858,11 +993,11 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
             <button type="button" title="自动布局" aria-label="自动布局" className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm" disabled={!desktop || canvas.nodes.length === 0} onClick={() => void autoLayout()}><WandSparkles size={16} aria-hidden="true" />自动布局</button>
             <button type="button" title={selectedNode?.pinned ? "取消固定" : "固定对象"} aria-label={selectedNode?.pinned ? "取消固定" : "固定对象"} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm" disabled={!desktop || !selectedNode} onClick={() => void toggleSelectedPinned()}>{selectedNode?.pinned ? <PinOff size={16} aria-hidden="true" /> : <Pin size={16} aria-hidden="true" />}{selectedNode?.pinned ? "取消固定" : "固定"}</button>
             <button type="button" title="移动到真实分组" aria-label="移动到真实分组" className="h-10 rounded-md border border-white/10 px-3 text-sm" disabled={!desktop || !selectedNode || !groupTargetId} onClick={() => void moveSelectedToGroup()}>移动</button>
-            <button type="button" title="隐藏对象" aria-label="隐藏对象" className="grid h-10 w-10 place-items-center rounded-md border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void updateSelectedLayout({ hidden: true }, `${selectedNode?.label ?? "对象"}已隐藏，等待同步`)}><EyeOff size={16} aria-hidden="true" /></button>
+            <button type="button" title="隐藏对象" aria-label="隐藏对象" className="grid h-10 w-10 place-items-center rounded-md border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void hideSelectedNode()}><EyeOff size={16} aria-hidden="true" /></button>
           </div>
           {canvas.hiddenNodes.length > 0 ? (
             <div className="flex gap-2">
-              <select aria-label="恢复隐藏对象" className="h-10 min-w-0 flex-1 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100" value={effectiveHiddenTargetId} onChange={(event) => setHiddenTargetId(event.target.value)} disabled={!desktop}>
+              <select ref={hiddenRestoreSelectRef} aria-label="恢复隐藏对象" className="h-10 min-w-0 flex-1 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100" value={effectiveHiddenTargetId} onChange={(event) => setHiddenTargetId(event.target.value)} disabled={!desktop}>
                 {canvas.hiddenNodes.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
               </select>
               <button type="button" title="恢复隐藏对象" aria-label="恢复隐藏对象" className="grid h-10 w-10 place-items-center rounded-md border border-white/10" disabled={!desktop || !effectiveHiddenTargetId} onClick={() => void restoreHiddenNode()}><Eye size={16} aria-hidden="true" /></button>
@@ -944,12 +1079,17 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
             <li key={row.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
               <div className="min-w-0">
                 <p className="text-zinc-100">{row.label}</p>
-                <p className="text-xs text-zinc-500">{row.entityType}</p>
+                <p className="text-xs text-zinc-500">
+                  {row.entityType}
+                  {relationLabelsByNode.get(row.id)?.size
+                    ? ` · ${[...relationLabelsByNode.get(row.id)!].join("、")}`
+                    : ""}
+                </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button type="button" className="text-zinc-300 hover:text-white" onClick={() => void focusBranch(row.id)}>聚焦</button>
                 {row.href ? (
-                  <Link className="text-teal-300 hover:underline" href={row.href}>打开</Link>
+                  <ListDetailLink className="text-teal-300 hover:underline" href={row.href} focusId={`canvas-row-${row.id}`}>打开</ListDetailLink>
                 ) : null}
               </div>
             </li>
@@ -1020,6 +1160,31 @@ export function KnowledgeCanvasClient(props: { initial: KnowledgeCanvasQueryDto;
           <button type="button" className="rounded-md bg-amber-500/20 px-3 py-2 text-sm text-amber-100" disabled={layoutDirty || layoutPending} onClick={() => void resetLayout()}>
             确认重置
           </button>
+        </div>
+      </Modal>
+
+      <Modal open={layoutConflict !== null} title="布局已在其他设备更新" allowEscape={false}>
+        <div className="space-y-3 text-sm text-zinc-300">
+          <p>
+            服务端 revision {layoutConflict?.latest?.revision ?? "未知"}；冲突字段：
+            {layoutConflict?.conflictFields.join("、") ?? "revision"}。本地修改仍保留，系统不会强制覆盖。
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-md border border-white/10 px-3 py-2 text-sm"
+              onClick={() => void adoptLatestLayoutConflict()}
+            >
+              采用服务端布局
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-teal-500/20 px-3 py-2 text-sm text-teal-100"
+              onClick={retryLayoutConflict}
+            >
+              {layoutConflict?.action === "reset" ? "使用最新状态重试重置" : "保留本地修改并重试"}
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

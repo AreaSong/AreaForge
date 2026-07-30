@@ -278,6 +278,33 @@ export function QuickReviewClient(props: {
     );
   }
 
+  if (done) {
+    return (
+      <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 px-4">
+        <DetailHeading className="text-2xl font-semibold text-white">本次复习已确认</DetailHeading>
+        <dl className="grid grid-cols-2 gap-3 rounded-md border border-white/10 bg-[#101419] p-4 text-sm">
+          <div><dt className="text-zinc-500">结果</dt><dd className="mt-1 text-white">{done.event.result}</dd></div>
+          <div><dt className="text-zinc-500">有效时长</dt><dd className="mt-1 text-white">{formatDuration(done.event.durationSeconds)}</dd></div>
+          <div><dt className="text-zinc-500">下次复习</dt><dd className="mt-1 text-white">{new Date(done.event.nextDueDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}</dd></div>
+          <div><dt className="text-zinc-500">排期版本</dt><dd className="mt-1 text-white">r{done.schedule.revision}{done.reused ? "（重试复用）" : ""}</dd></div>
+        </dl>
+        <section className="space-y-2 rounded-md border border-white/10 bg-[#101419] p-4">
+          <p className="text-xs text-zinc-500">本次复习对象</p>
+          <h2 className="text-lg font-medium text-white">{props.target.title}</h2>
+          <p className="text-sm text-zinc-400">{props.target.subtitle}</p>
+          <Link className="text-sm text-teal-300 hover:underline" href={props.target.canonicalHref}>查看对象详情</Link>
+        </section>
+        <p className="text-sm text-zinc-400">结果页不会自动跳转，由你决定下一步。</p>
+        <div className="flex flex-wrap gap-3">
+          {done.nextScheduleId ? <Link href={`/quick-review/${done.nextScheduleId}?returnTo=${encodeURIComponent(props.returnTo)}`} className="text-teal-300 hover:underline">开始下一项</Link> : null}
+          <Link href={props.returnTo} className="text-teal-300 hover:underline">返回原位置</Link>
+          <Link href="/today" className="text-teal-300 hover:underline">回今日</Link>
+          <Link href={`/knowledge/reviews/${done.schedule.id}?returnTo=${encodeURIComponent(props.returnTo)}`} className="text-teal-300 hover:underline">查看排期详情</Link>
+        </div>
+      </section>
+    );
+  }
+
   if (!draft) {
     return <p className="p-6 text-sm text-zinc-400">{access === "remote-readonly" ? "另一标签页正在创建或编辑这份草稿，本页保持只读。" : "正在恢复本地复习草稿..."}</p>;
   }
@@ -493,33 +520,6 @@ export function QuickReviewClient(props: {
     setConflict(null);
     setConflictOpen(false);
     setError({ error: `已基于服务端 r${revision} 重建确认命令；草稿保留，请检查后显式重试。` });
-  }
-
-  if (done) {
-    return (
-      <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 px-4">
-        <DetailHeading className="text-2xl font-semibold text-white">本次复习已确认</DetailHeading>
-        <dl className="grid grid-cols-2 gap-3 rounded-md border border-white/10 bg-[#101419] p-4 text-sm">
-          <div><dt className="text-zinc-500">结果</dt><dd className="mt-1 text-white">{done.event.result}</dd></div>
-          <div><dt className="text-zinc-500">有效时长</dt><dd className="mt-1 text-white">{formatDuration(done.event.durationSeconds)}</dd></div>
-          <div><dt className="text-zinc-500">下次复习</dt><dd className="mt-1 text-white">{new Date(done.event.nextDueDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}</dd></div>
-          <div><dt className="text-zinc-500">排期版本</dt><dd className="mt-1 text-white">r{done.schedule.revision}{done.reused ? "（重试复用）" : ""}</dd></div>
-        </dl>
-        <section className="space-y-2 rounded-md border border-white/10 bg-[#101419] p-4">
-          <p className="text-xs text-zinc-500">本次复习对象</p>
-          <h2 className="text-lg font-medium text-white">{props.target.title}</h2>
-          <p className="text-sm text-zinc-400">{props.target.subtitle}</p>
-          <Link className="text-sm text-teal-300 hover:underline" href={props.target.canonicalHref}>查看对象详情</Link>
-        </section>
-        <p className="text-sm text-zinc-400">结果页不会自动跳转，由你决定下一步。</p>
-        <div className="flex flex-wrap gap-3">
-          {done.nextScheduleId ? <Link href={`/quick-review/${done.nextScheduleId}?returnTo=${encodeURIComponent(props.returnTo)}`} className="text-teal-300 hover:underline">开始下一项</Link> : null}
-          <Link href={props.returnTo} className="text-teal-300 hover:underline">返回原位置</Link>
-          <Link href="/today" className="text-teal-300 hover:underline">回今日</Link>
-          <Link href={`/knowledge/reviews/${done.schedule.id}?returnTo=${encodeURIComponent(props.returnTo)}`} className="text-teal-300 hover:underline">查看排期详情</Link>
-        </div>
-      </section>
-    );
   }
 
   return (

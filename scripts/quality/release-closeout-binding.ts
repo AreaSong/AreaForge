@@ -49,6 +49,15 @@ const allowedTaskFiles = new Set([
   "0024-ux-residual-closure-review.md",
 ]);
 
+const v11BrowserEvidenceRootPattern =
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\//;
+const v11BrowserEvidencePathPatterns = [
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\/(?:v11-browser-journey-evidence|v11-accessibility-evidence)\.json$/,
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\/runtime-identity[A-Za-z0-9._-]*\.json$/,
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\/screenshots\/(?:desktop|mobile)-(?:login|dashboard|timer-closeout|review|notes|syllabus|reports|simulation|update-center)\.png$/,
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\/observations\/a11y-(?:kbd-0[1-5]|focus-0[1-4]|sem-0[1-2]|live-0[1-6]|color-01|zoom-0[1-3]|canvas-0[1-3])\.json$/,
+];
+
 const allowedPathPatterns = [
   /^docs\/development\/(?:release|release-supply-chain)-v\d+\.\d+\.\d+[^/]*\.(?:md|txt|json)$/,
   /^docs\/development\/operational-evidence-bundle-v\d+\.\d+\.\d+[^/]*\.json$/,
@@ -129,6 +138,9 @@ export function evaluateReleaseCloseoutBinding(
 
 export function isAllowedCloseoutPath(file: string): boolean {
   if (!isSafeRelativePath(file)) return false;
+  if (v11BrowserEvidenceRootPattern.test(file)) {
+    return v11BrowserEvidencePathPatterns.some((pattern) => pattern.test(file));
+  }
   if (exactAllowedPaths.has(file)) return true;
   if (isAllowedTaskPath(file)) return true;
   return allowedPathPatterns.some((pattern) => pattern.test(file));

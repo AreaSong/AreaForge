@@ -12,6 +12,8 @@ import {
 import { validateRuntimeIdentity } from "../../apps/web/lib/system/runtime-identity-core";
 import { resolveProductExperienceReviewPath } from "./product-experience-review-discovery";
 import { evaluateReleaseCloseoutBinding } from "./release-closeout-binding";
+import { V11_JOURNEY_SCHEMA, readV11SafeRepoFile } from "./v11-browser-evidence-contract";
+import { validateV11BrowserEvidenceFile } from "./v11-browser-evidence-validate";
 
 export interface ValidationIssue {
   field: string;
@@ -81,6 +83,8 @@ const requiredBindingFields = [
   "runtimeIdentityEvidenceHash",
   "runtimeIdentityHash",
   "screenshotEvidenceHash",
+  "journeyEvidence",
+  "journeyEvidenceHash",
 ] as const;
 
 export const defaultReviewMaxAgeSeconds = 14 * 24 * 60 * 60;
@@ -156,16 +160,19 @@ function main(): void {
     const issues: ValidationIssue[] = [];
     const runtimeBinding = buildRuntimeEvidenceBinding(fields, issues, false, root);
     const screenshotHash = buildScreenshotEvidenceHash(fields, issues, root);
-    if (!runtimeBinding || !screenshotHash || issues.length > 0) {
+    const journeyBinding = buildJourneyEvidenceBinding(fields, issues, false, root);
+    if (!runtimeBinding || !screenshotHash || !journeyBinding || issues.length > 0) {
       for (const issue of issues) console.error(`FAIL ${issue.field}: ${issue.message}`);
       process.exit(1);
     }
     fields.set("runtimeIdentityEvidenceHash", runtimeBinding.evidenceHash);
     fields.set("runtimeIdentityHash", runtimeBinding.identityHash);
     fields.set("screenshotEvidenceHash", screenshotHash);
+    fields.set("journeyEvidenceHash", journeyBinding.evidenceHash);
     console.log(`runtimeIdentityEvidenceHash: ${runtimeBinding.evidenceHash}`);
     console.log(`runtimeIdentityHash: ${runtimeBinding.identityHash}`);
     console.log(`screenshotEvidenceHash: ${screenshotHash}`);
+    console.log(`journeyEvidenceHash: ${journeyBinding.evidenceHash}`);
     console.log(`reviewResultHash: ${buildEvidenceHash(fields)}`);
     return;
   }
@@ -231,6 +238,7 @@ export function validateProductExperienceReviewRecord(
   if (!shapeOnly) {
     validateCurrentBinding(fields, issues, root);
     buildRuntimeEvidenceBinding(fields, issues, true, root);
+    buildJourneyEvidenceBinding(fields, issues, true, root);
   }
 
   const command = fields.get("reviewCommand") ?? "";
@@ -419,6 +427,53 @@ function buildRuntimeEvidenceBinding(
   const evidenceHash = `sha256:${createHash("sha256").update(readFileSync(absolutePath)).digest("hex")}`;
   if (compareCurrent && fields.get("runtimeIdentityEvidenceHash") !== evidenceHash) issues.push({ field: "runtimeIdentityEvidenceHash", message: "must bind the runtime identity evidence file" });
   return { evidenceHash, identityHash: identity.identityHash };
+}
+
+function buildJourneyEvidenceBinding(
+  fields: Map<string, string>,
+  issues: ValidationIssue[],
+  compareCurrent: boolean,
+  root: string,
+): { evidenceHash: string } | null {
+  const evidencePath = fields.get("journeyEvidence");
+  if (!evidencePath) return null;
+  let file;
+  try {
+    file = readV11SafeRepoFile(root, evidencePath, 4 * 1024 * 1024);
+  } catch (error) {
+    issues.push({
+      field: "journeyEvidence",
+      message: error instanceof Error ? error.message : "must be a safe repo-relative JSON file",
+    });
+    return null;
+  }
+  if (!file.relativePath.endsWith(".json")) {
+    issues.push({ field: "journeyEvidence", message: "must be a repo-relative JSON file" });
+    return null;
+  }
+  const expectedHash = fields.get("journeyEvidenceHash");
+  if (compareCurrent && expectedHash && expectedHash !== file.sha256) {
+    issues.push({ field: "journeyEvidenceHash", message: "must match the current journey evidence bytes" });
+  }
+  const expectedCommit = fields.get("gitCommit") ?? "";
+  const expectedVersion = fields.get("appVersion") ?? "";
+  const expectedSourceHash = fields.get("productExperienceSourceHash") ?? "";
+  const validation = validateV11BrowserEvidenceFile(file.relativePath, {
+    root,
+    expectedCommit,
+    expectedVersion,
+    expectedSourceHash,
+  });
+  if (!validation.valid || validation.schemaVersion !== V11_JOURNEY_SCHEMA) {
+    const detail = validation.issues.slice(0, 5)
+      .map((issue) => `${issue.field}: ${issue.message}`)
+      .join("; ");
+    issues.push({
+      field: "journeyEvidence",
+      message: detail || `must use ${V11_JOURNEY_SCHEMA}`,
+    });
+  }
+  return { evidenceHash: file.sha256 };
 }
 
 function normalizedReviewBaseUrl(fields: Map<string, string>, issues: ValidationIssue[]): string | null {

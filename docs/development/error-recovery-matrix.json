@@ -85,6 +85,18 @@
       "evidenceCommand": "pnpm risk:preflight && pnpm check"
     },
     {
+      "id": "ER-AI-002",
+      "domain": "ai/provider-preference",
+      "severity": "P1",
+      "failureSignal": "current-browser external provider preference save is rejected, loses network, or returns a malformed response",
+      "userMessage": "AI 设置尚未保存；当前已保存外呼策略保持不变，请恢复网络或重新登录后显式重试。",
+      "userRecoveryAction": "close_confirmation_keep_unsaved_choice_and_retry_after_auth_or_network_recovery",
+      "operatorDiagnosticEntry": "pnpm ops:v11:ai-provider-preference:selftest; docs/security/file-ai-safety.md",
+      "sideEffectExpectation": "failed_save_does_not_change_saved_preference_or_enable_provider_call",
+      "reopenResidual": "AF-RISK-AI-001",
+      "evidenceCommand": "pnpm ops:v11:ai-provider-preference:selftest && pnpm --filter @areaforge/web typecheck"
+    },
+    {
       "id": "ER-UPDATE-001",
       "domain": "update-center/status",
       "severity": "P1",

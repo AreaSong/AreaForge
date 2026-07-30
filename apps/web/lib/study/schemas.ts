@@ -550,6 +550,10 @@ export const patchNotificationPreferencesSchema = z.object({
   quietHoursEnd: z.number().int().min(0).max(23).nullable().optional(),
 });
 
+export const patchAiProviderPreferenceSchema = z.object({
+  externalProviderEnabled: z.boolean(),
+}).strict();
+
 export const testNotificationSchema = z.object({
   category: z.enum(["review", "plan", "evening"]).default("review"),
 });

@@ -159,35 +159,13 @@ export function resolveConfiguredAiProvider(kind: AiAdviceKind, options: AiAdvic
   provider?: AiJsonProvider;
   unavailableReason?: string;
 } {
+  const prerequisites = resolveAiProviderPrerequisites(options);
+  if (!prerequisites.available) {
+    return { unavailableReason: prerequisites.unavailableReason };
+  }
+
   if (options.provider) {
     return { provider: options.provider };
-  }
-
-  if (!options.allowExternalProvider) {
-    return {
-      unavailableReason: "首页普通打开仅展示本地规则建议，没有调用外部 AI。",
-    };
-  }
-
-  const env = getAuthEnv();
-  if (!env.AI_ENABLED) {
-    return {
-      unavailableReason: "AI_ENABLED=false：当前仅使用本地规则生成结构化建议，没有调用外部 AI。",
-    };
-  }
-
-  if (!env.AI_BASE_URL || !env.AI_API_KEY || !env.AI_MODEL) {
-    logAiProviderConfigIssue("missing_config");
-    return {
-      unavailableReason: "AI provider 配置缺失，已回退本地规则建议。",
-    };
-  }
-
-  if (env.AI_ALLOW_SENSITIVE_CONTEXT) {
-    logAiProviderConfigIssue("sensitive_context_disabled");
-    return {
-      unavailableReason: "AI_ALLOW_SENSITIVE_CONTEXT=true 在第一版被禁用，已回退本地规则建议。",
-    };
   }
 
   const rateLimit = checkAiProviderRateLimit(kind, options.userId ?? "unknown");
@@ -203,6 +181,48 @@ export function resolveConfiguredAiProvider(kind: AiAdviceKind, options: AiAdvic
   return {
     unavailableReason: "AI provider 配置缺失，已回退本地规则建议。",
   };
+}
+
+export function resolveAiProviderPrerequisites(options: AiAdviceRequestOptions): {
+  available: boolean;
+  unavailableReason?: string;
+} {
+  if (!options.allowExternalProvider) {
+    return {
+      available: false,
+      unavailableReason: "当前浏览器未开启外部 AI Provider，已使用本地规则建议。",
+    };
+  }
+
+  const env = getAuthEnv();
+  if (!env.AI_ENABLED) {
+    return {
+      available: false,
+      unavailableReason: "AI_ENABLED=false：当前仅使用本地规则生成结构化建议，没有调用外部 AI。",
+    };
+  }
+
+  if (options.provider) {
+    return { available: true };
+  }
+
+  if (!env.AI_BASE_URL || !env.AI_API_KEY || !env.AI_MODEL) {
+    logAiProviderConfigIssue("missing_config");
+    return {
+      available: false,
+      unavailableReason: "AI provider 配置缺失，已回退本地规则建议。",
+    };
+  }
+
+  if (env.AI_ALLOW_SENSITIVE_CONTEXT) {
+    logAiProviderConfigIssue("sensitive_context_disabled");
+    return {
+      available: false,
+      unavailableReason: "AI_ALLOW_SENSITIVE_CONTEXT=true 在第一版被禁用，已回退本地规则建议。",
+    };
+  }
+
+  return { available: true };
 }
 
 function logAiProviderConfigIssue(reason: "missing_config" | "sensitive_context_disabled"): void {

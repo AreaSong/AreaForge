@@ -44,6 +44,8 @@ AI 第一版只允许生成：
 
 阶段调整草稿属于第二阶段长期闭环。Package D Batch D3 已完成长期阶段 AI 草稿显式触发路径：只允许用户主动调用鉴权 `POST /api/simulation/stage-adjustment-drafts/ai`，只发送最小聚合字段和阶段目标摘要，成功只写 `StageAdjustmentDraft.source="ai"` 草稿和审计摘要，失败回退本地规则。D3 仍不得发送动机档案、完整情绪记录、完整复盘正文、附件内容、文件路径或完整任务标题，不得保存完整 prompt/raw response，也不得自动应用阶段计划或批量修改任务。
 
+外部 Provider 默认关闭。三条建议、四类文本草稿和一条长期阶段草稿共八条鉴权显式 POST 路径，必须同时满足当前浏览器明确 opt-in、`AI_ENABLED=true` 和服务端 Provider 配置完整；偏好缺失、清除、关闭或畸形时一律回退本地规则。当前浏览器偏好使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的 Cookie，不写数据库，也不包含用户标识、Provider 配置、模型、密钥、prompt、正文或内容 hash。`/settings/ai` 只允许切换外呼偏好，不允许查看或编辑服务端 Provider key。
+
 AI 不允许：
 
 - 直接覆盖用户记录。
@@ -61,6 +63,7 @@ AI 不允许：
 - 校验失败回退本地规则文案。
 - 失败不影响任务、计时、复盘等核心流程。
 - 日志不记录 API Key、完整 prompt、动机档案、情绪正文和复盘正文。
+- 外部 Provider 偏好缺失、清除、关闭、畸形或保存失败时保持 fail closed；保存失败不得改变已保存策略或触发外呼。
 
 ## 高风险确认
 
@@ -69,6 +72,7 @@ AI 不允许：
 - 默认把动机档案发给 AI。
 - 默认把完整情绪记录发给 AI。
 - 默认把复盘正文发给 AI。
+- 将当前浏览器外部 Provider 偏好从默认关闭改为默认开启，或允许客户端编辑 Provider key。
 - 删除附件或迁移上传目录。
 - 修改备份、恢复或保留策略。
 - 网页内直接触发部署或服务器命令。
