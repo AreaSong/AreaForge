@@ -5,7 +5,7 @@ sourceGitCommit: 94755024860ceb29a18024e4aae9d3611ef30e03
 bindingPolicy: source-or-evidence-only
 completionEvidence:
   path: docs/development/release-v1.1.0-candidate-record.md
-  sha256: sha256:1d8833b6ab5111dd0f6927207f7558fce5c918476fe76008f92d44115ccbcfc2
+  sha256: sha256:9e94f69eb66da666f3cee6201e2cd2a305afb365c544f9b4497fb9024e713280
 productExperienceEvidence:
   path: docs/development/product-experience-review-v1.1.0-20260730.md
   sha256: sha256:2003c73ba8324835dd2fce2c5a383663fad1958b56edce35ccbe72b9088255e6

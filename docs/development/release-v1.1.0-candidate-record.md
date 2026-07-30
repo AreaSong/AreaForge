@@ -45,13 +45,3 @@ safetyFacts:
   updaterApplyAttempted: no
   releaseCreated: no
   secretValuePrinted: no
-
-## 结论
-
-- 冻结产品源提交：`94755024860ceb29a18024e4aae9d3611ef30e03`。
-- v1.1 本地产品、隔离 migration/runtime、浏览器、无障碍、兼容性、匹配 CI、SC-002 与 SC-004 证据均通过。
-- AI 外部 Provider 偏好保持当前浏览器 HttpOnly、默认关闭、显式 opt-in；统一 gate 覆盖既有八条鉴权显式 POST 路径。
-- 未开放 Provider key 编辑，未扩大 AI payload，未保存请求正文、响应正文、历史、用量、成本或 Provider 追踪信息。
-- `AF-RISK-DATA-001` 保持 `deferred-work`；本记录不改变或关闭 residual 台账。
-
-本记录只授权进入只读 v1.1 Release admission。它不创建 tag/GitHub Release，不执行真实 Provider key smoke，也不执行生产 backup、migration、apply、smoke、rollback 或 residual 状态更新。
