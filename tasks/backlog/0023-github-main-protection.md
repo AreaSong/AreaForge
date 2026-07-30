@@ -63,6 +63,13 @@ releaseRequired: false
 - controlled PR 证据：`output/supply-chain/github-main-protection-controlled-pr-20260718.json`，`sha256:dcdaa2b644a9506a4566920b71eea02ae57683a34a0f1da5c142613855248ed7`。
 - 本任务的远端实施和证据验证已完成；按确认边界，`AF-RISK-SC-004` 不自动关闭，继续等待维护者人工 close/keep-open 决策。
 
+### 2026-07-31 单维护者策略调整
+
+- 当前仓库只有一名具写权限的人类维护者，required approvals 为 `1` 会使维护者创建的 PR 永久无法获得独立批准。维护者已明确确认将 `Protect main` 的 required approvals 长期调整为 `0`。
+- GitHub rules API 已读回 ruleset `19138434` 的 `required_approving_review_count=0`；required PR、GitHub Actions `verify` 必需检查、空 bypass list、禁止 branch deletion 与禁止 non-fast-forward/force push 均保持不变。
+- 该调整是单维护者拓扑的受控例外，不等同于取消代码评审或 CI。增加第二名可信且具写权限的人类维护者后，必须重新评估并优先恢复 required approvals 为 `1`，同时重新采集 SC-004 readback/controlled PR 证据。
+- 本次重采只服务于 `v1.1.0` Release admission，不自动修改或关闭 `AF-RISK-SC-004` residual。
+
 ## 高风险边界
 
 - 影响：改变 `main` 合并权限和发布提交来源。

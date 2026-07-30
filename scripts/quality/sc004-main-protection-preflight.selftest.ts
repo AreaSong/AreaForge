@@ -9,7 +9,7 @@ mkdirSync(dir);
 try {
   const readbackPath = path.join(dir, "readback.json");
   const prPath = path.join(dir, "controlled-pr.json");
-  writeFileSync(readbackPath, JSON.stringify(withHash({ schemaVersion: 1, repository: "AreaSong/AreaForge", branch: "main", sourceKind: "ruleset", observedAt: "2026-07-15T11:00:00.000Z", maintenanceWindowId: "mw-sc004", requiredPullRequest: true, requiredApprovingReviewCount: 1, requiredStatusChecks: ["ci / verify"], enforceAdmins: true, allowForcePushes: false, allowDeletions: false, adminBypassActors: [], redaction: { secretsRemoved: true, tokenRemoved: true }, readbackHash: "" }, "readbackHash")));
+  writeFileSync(readbackPath, JSON.stringify(withHash({ schemaVersion: 1, repository: "AreaSong/AreaForge", branch: "main", sourceKind: "ruleset", observedAt: "2026-07-15T11:00:00.000Z", maintenanceWindowId: "mw-sc004", requiredPullRequest: true, requiredApprovingReviewCount: 0, requiredStatusChecks: ["ci / verify"], enforceAdmins: true, allowForcePushes: false, allowDeletions: false, adminBypassActors: [], redaction: { secretsRemoved: true, tokenRemoved: true }, readbackHash: "" }, "readbackHash")));
   writeFileSync(prPath, JSON.stringify(withHash(controlledPrValue("mw-sc004"), "evidenceHash")));
   const validEnv = { AREAFORGE_SC004_READBACK_RECORD: readbackPath, AREAFORGE_SC004_CONTROLLED_PR_RECORD: prPath };
   assertStatus(buildSc004Preflight({}, Date.parse("2026-07-15T12:00:00.000Z")), "needs_remote_readback");

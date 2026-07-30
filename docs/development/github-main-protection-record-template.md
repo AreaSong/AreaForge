@@ -23,7 +23,7 @@ pnpm exec tsx scripts/quality/github-main-protection-validate.ts <readback.json>
   "observedAt": "2026-07-15T10:00:00.000Z",
   "maintenanceWindowId": "mw-sc004-20260715",
   "requiredPullRequest": true,
-  "requiredApprovingReviewCount": 1,
+  "requiredApprovingReviewCount": 0,
   "requiredStatusChecks": ["ci / verify"],
   "enforceAdmins": true,
   "allowForcePushes": false,
@@ -35,6 +35,7 @@ pnpm exec tsx scripts/quality/github-main-protection-validate.ts <readback.json>
 ```
 
 `sourceKind` 只能是 `branch_protection`、`ruleset` 或 `combined`。required status checks 必须精确为单元素数组 `["ci / verify"]`，`verify` 等单独值不能通过。
+`requiredApprovingReviewCount` 必须是 GitHub 支持的整数 `0..10`。当前仓库只有一名具写权限的人类维护者，因此使用 `0` 避免 PR 自审批死锁；该例外不取消 required PR、`ci / verify`、空 bypass list、禁止删除与禁止 force push。增加第二名可信维护者后，应重新评估并优先恢复为 `1`。
 
 ## Controlled PR JSON
 

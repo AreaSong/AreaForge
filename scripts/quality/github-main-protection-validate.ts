@@ -97,8 +97,13 @@ export function validateReadback(raw: string, now = Date.now(), maxAgeSeconds = 
     issues.push({ field: "maintenanceWindowId", message: "must be a non-empty string" });
   }
   if (value.requiredPullRequest !== true) issues.push({ field: "requiredPullRequest", message: "must be true" });
-  if (typeof value.requiredApprovingReviewCount !== "number" || !Number.isInteger(value.requiredApprovingReviewCount) || value.requiredApprovingReviewCount < 1) {
-    issues.push({ field: "requiredApprovingReviewCount", message: "must be an integer >= 1" });
+  if (
+    typeof value.requiredApprovingReviewCount !== "number"
+    || !Number.isInteger(value.requiredApprovingReviewCount)
+    || value.requiredApprovingReviewCount < 0
+    || value.requiredApprovingReviewCount > 10
+  ) {
+    issues.push({ field: "requiredApprovingReviewCount", message: "must be an integer from 0 to 10" });
   }
   if (!Array.isArray(value.requiredStatusChecks) || value.requiredStatusChecks.length !== 1 || value.requiredStatusChecks[0] !== "ci / verify") {
     issues.push({ field: "requiredStatusChecks", message: "must be exactly [\"ci / verify\"]" });
