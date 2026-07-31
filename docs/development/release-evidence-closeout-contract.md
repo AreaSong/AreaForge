@@ -21,8 +21,8 @@
 1. `R` 和 `C` 都是当前仓库可解析的 40 位 commit。
 2. `C == R`，或 `R` 是 `C` 的祖先；`R..C` 必须是无 merge 的线性 evidence-only 提交链，并逐提交检查，不能用“先改源码再 revert”的最终净差异绕过。
 3. evidence-only 绑定时工作区必须干净。
-4. `R..C` 每个提交的所有变更路径都在本契约精确白名单内；删除和 copy 一律失败，rename 只允许当前治理任务在 `active/backlog/done` 间移动。
-5. 每个提交中的 closeout 文件必须是 Git mode `100644` 的普通文件；symlink、symlink parent、executable、超大文件、无效截图 header 或敏感内容失败。
+4. `R..C` 每个提交的所有目标变更路径都在本契约精确白名单内；删除一律失败，rename 只允许当前治理任务在 `active/backlog/done` 间移动。Git copy 仅把 source 作为 provenance，不把 source 加入 closeout `changedPaths` 或赋予其白名单权限；copy destination 必须独立命中既有白名单。
+5. 每个提交中的 closeout destination 必须是 Git mode `100644` 的普通文件，并按目标 blob 重新执行大小、结构和敏感内容校验；symlink、symlink parent、executable、超大文件、无效截图结构或敏感内容失败。copy 不复用 source 的校验结论。
 6. CI-only SC-002 记录仍必须 exact-match 当前 HEAD；只有同时提供 Release assets 目录并通过 strict manifest/checksum/cosign 校验的 Release record 可以使用 evidence-only closeout。
 7. OPS-005 的 Release、生产记录和脚本 source-at-commit 校验继续绑定 `R`，不得改绑 `C`。
 8. UX runtime identity 与 review record 绑定 `U`；若当前 HEAD 是 evidence-only 后代，当前 UX source fingerprint 仍必须与 `U` 一致。
