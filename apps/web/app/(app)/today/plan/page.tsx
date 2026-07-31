@@ -63,10 +63,6 @@ export default async function TodayPlanPage({
 
   return (
     <div className="space-y-4">
-      <details className="rounded-md border border-white/10 p-3">
-        <summary className="cursor-pointer text-sm text-teal-300">计划 AI 草稿</summary>
-        <div className="mt-3"><AiDraftPanel endpoint="plan" userId={user.id} /></div>
-      </details>
       <PlanRollingClient
         initial={plan}
         subjects={subjects.filter((subject) => !subject.archivedAt).map((subject) => ({ id: subject.id, name: subject.name }))}
@@ -88,6 +84,10 @@ export default async function TodayPlanPage({
           resourceId: params.resourceId,
         }}
       />
+      <details className="border-t border-white/10 pt-4">
+        <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300">AI 计划草稿</summary>
+        <div className="mt-3"><AiDraftPanel endpoint="plan" userId={user.id} /></div>
+      </details>
     </div>
   );
 }

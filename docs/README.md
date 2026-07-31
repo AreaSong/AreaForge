@@ -57,10 +57,10 @@
 - `modules/simulation-exam.md`：全真模拟。
 - `modules/periodic-reports.md`：周审判与月复盘。
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
-- `modules/exam-workspace.md`：考试工作区（`v1.1` 隔离候选已实现；待最终验证与生产切换）。
-- `modules/plan-inbox.md`：计划收件箱（`v1.1` 隔离候选已实现；待最终验证与生产切换）。
-- `modules/unified-review.md`：统一复习（`v1.1` 隔离候选已实现；待最终验证与生产切换）。
-- `modules/learning-tree-import.md`：学习树导入（preview、原子 confirm、历史与一次性导出已在 `v1.1` 隔离候选实现；待最终验证与生产切换）。
+- `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；当前工作树继续修复首次设置与科目管理体验）。
+- `modules/plan-inbox.md`：计划收件箱（`v1.1.0` 已进入生产）。
+- `modules/unified-review.md`：统一复习（`v1.1.0` 已进入生产）。
+- `modules/learning-tree-import.md`：学习树导入（preview、原子 confirm、历史与一次性导出已随 `v1.1.0` 进入生产）。
 
 ## UX
 
@@ -90,9 +90,9 @@
 - `development/long-term-operability-control-plane.md`：长期运营控制面，统一 release 决策、维护窗口、真实体验、残余风险、供应链和 skill 增减规则。
 - `development/governance-register.md` / `development/governance-register.json`：治理权威路径、唯一 accountable owner、已有执行门禁和复审触发器的中央只读索引；不复制 lifecycle、residual 或生产激活状态。
 - `development/operations-lifecycle.md` / `development/operations-lifecycle.json`：active/draft SLO、incident transition 与 capability lifecycle 的只读机器契约；使用 `pnpm ops:lifecycle:selftest`、`pnpm ops:lifecycle:validate` 和 `pnpm ops:lifecycle:typecheck` 校验，不证明生产 SLO 已达成。
-- `development/post-release-observation-template.json` / `development/post-release-observation-v0.1.7.json`：Release 后 D14 technical/incident/error-budget gate 与 D30 product-review gate 的独立观察记录；绑定 release identity 和 release record `{path,sha256}`，使用 `pnpm release:post-observation:validate` / `status` 校验与投影。现有 `v0.1.7` 文件仅是历史观察记录，不能冒充当前生产 `v0.1.9` 的 observation；不改写历史发布记录、不关闭 residual。
+- `development/post-release-observation-template.json` / `development/post-release-observation-v0.1.7.json`：Release 后 D14 technical/incident/error-budget gate 与 D30 product-review gate 的独立观察记录；绑定 release identity 和 release record `{path,sha256}`，使用 `pnpm release:post-observation:validate` / `status` 校验与投影。现有 `v0.1.7` 文件仅是历史观察记录，不能冒充当前生产 `v1.1.0` 的 observation；不改写历史发布记录、不关闭 residual。
 - `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、OPS-005、OPS-006 production evidence、与 OPS-006 after-doctor 同 SHA/hash 的 data-integrity record、可校验 Release 发布记录、strict 签名 Release 供应链和新鲜 UX 记录。
-- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：schema v3 只读长期运营证据快照，显式区分 `currentCheckout=1.1.0`、`productionBaseline=v0.1.9` 和 `historicalRollback=v0.1.7`，聚合证据路径 hash、OPS-001/OPS-004/OPS-005、fresh data-integrity doctor、release evidence record、供应链、UX 和运行信号状态与缺口；默认 validator 重新绑定当前 checkout，历史归档使用 `--shape-only`，不替代 live gate、生产 smoke 或 residual 人工关闭。
+- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：schema v3 只读长期运营证据快照；当前生产事实为 `v1.1.0`，但该工具仍默认读取 `v0.1.9` 历史证据，因此在默认输入更新前只能显示历史缺口，不能证明当前生产；历史归档使用 `--shape-only`，不替代 live gate、生产 smoke 或 residual 人工关闭。
 - `development/long-term-evidence-snapshot-v0.1.7-20260712.json`：`schemaVersion=1` 的历史非 ready 快照，状态为 `needs_live_evidence`；schema v2 也只保留为 OPS-006 doctor 接入前的历史非 ready 格式，当前格式为 schema v3。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
 - `pnpm release:closeout:audit -- --version <X.Y.Z>`：版本级只读 closeout 交叉审计，校验 Release、供应链、运行证据、rollback target 与 residual 台账的一致性；输出需再用 `pnpm release:closeout:audit:validate <audit.json>` 校验。
@@ -148,9 +148,9 @@
 - `development/ai-provider-integration-design.md`：真实 AI provider 接入确认设计。
 - `development/second-stage-long-term-loop-design.md`：第二阶段长期闭环确认设计。
 - `development/production-release-runbook.md`：生产发布、备份与恢复确认 runbook。
-- `development/release-v0.1.9-record.md` / `development/release-supply-chain-v0.1.9.md`：当前生产基线 `v0.1.9` 的 updater apply、redacted backup/smoke/rollback 摘要和 strict 签名供应链证据；不表示当前 `1.1.0` checkout 已发布。
+- `development/release-v0.1.9-record.md` / `development/release-supply-chain-v0.1.9.md`：历史生产基线 `v0.1.9` 的 updater apply、redacted backup/smoke/rollback 摘要和 strict 签名供应链证据；不证明当前 `v1.1.0` 生产健康。
 - `development/release-v0.1.7-record.md`：受保护的历史回滚目标证据，不替代当前生产发布记录。
-- `development/release-v1.1.0-candidate-record.md`：学习行动中心 complete minor 的本地完成与 Release admission 候选记录；保持 `NOT-READY` 直到目标 commit 的 UX、SC-002、SC-004 与签名确认齐全。
+- `development/release-v1.1.0-candidate-record.md`：`v1.1.0` 发布前冻结候选的历史完成记录；只绑定当时 source commit，不能证明当前发布后修复工作树或当前生产健康。
 - `development/release-record-template.md`：后续每个线上版本使用的标准 Release 证据记录模板。
 - `development/release-supply-chain-record-template.md`：下一次签名 Release / CI 的 SBOM、provenance、签名和 Actions pinning 证据记录模板。
 - `development/github-release-updater-design.md`：GitHub Release 自动更新器设计。

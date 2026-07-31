@@ -9,11 +9,11 @@
 ## 当前结论
 
 - Package A-E 和 docs 100% 当前范围已完成，源事实见 `docs/development/docs-100-completion-record.md`。
-- 当前 checkout 为 `1.1.0` 学习行动中心本地 Release Candidate；尚未创建 `v1.1.0` tag/Release，也未执行 production apply，不能据此升级线上事实。
-- 生产基线为 `0.1.9` / `v0.1.9` / commit `749692ba719d801f14186a94af97b96350380141` / `https://forge.areasong.top/`，当前生产发布记录见 `docs/development/release-v0.1.9-record.md`。`v0.1.7` 仅作为受保护的历史回滚目标，证据见 `docs/development/release-v0.1.7-record.md`；`docs/development/package-e-remote-github-release-record.md` 继续保留更早的 `v0.1.5` 历史记录。
+- 当前生产基线为 `1.1.0` / `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3` / `https://forge.areasong.top/`；当前工作树继续准备尚未 commit、发布或 production apply 的发布后产品化修复。
+- `docs/development/release-v0.1.9-record.md` 是历史生产记录，`docs/development/release-v0.1.7-record.md` 是更早的历史回滚证据；仓库当前仍缺完整的 `v1.1.0` redacted updater status、镜像 digest 和发布后运营证据收口记录，不能用旧记录填补这些缺口。
 - 自动更新当前安全默认是 `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 updater 执行高风险动作。
-- `v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006、OPS-007、OPS-008、SC-001、SC-004 和 UX-001 已按各自证据与人工复核记录进入 `closed-evidence`；SC-002/SC-003 也保持 `closed-evidence`。当前仍开放的是 OPS-002、OPS-003、REL-001，`AF-RISK-DATA-001` 保持 `deferred-work`。这些状态不自动授权 `v1.1.0` Release、production apply、migration、写入 smoke 或自动更新策略变化。
-- `docs/development/long-term-operability-not-ready-20260711.txt` 与 `docs/development/long-term-evidence-snapshot-v0.1.7-20260712.json` 都是历史记录：前者是 completion evidence V1，后者是状态为 `needs_live_evidence` 的 v0.1.7 只读快照。它们只能分别通过 shape-only 校验说明历史记录形态和当时缺口，不绑定当前 checkout，不替代当前 `v0.1.9` 生产证据、`pnpm ops:long-term:gate` 或 residual 人工复核。具体 `snapshotHash` 以快照文件和 `pnpm ops:long-term:snapshot:validate` 输出为准，避免源文档自引用导致 hash 漂移。
+- `v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006、OPS-007、OPS-008、SC-001、SC-004 和 UX-001 已按各自证据与人工复核记录进入 `closed-evidence`；SC-002/SC-003 也保持 `closed-evidence`。当前仍开放的是 OPS-002、OPS-003、REL-001，`AF-RISK-DATA-001` 保持 `deferred-work`。这些历史状态不自动证明 `v1.1.0` 当前生产健康，也不授权后续修复 Release、production apply、migration、写入 smoke 或自动更新策略变化。
+- `docs/development/long-term-operability-not-ready-20260711.txt` 与 `docs/development/long-term-evidence-snapshot-v0.1.7-20260712.json` 都是历史记录：前者是 completion evidence V1，后者是状态为 `needs_live_evidence` 的 v0.1.7 只读快照。它们只能分别通过 shape-only 校验说明历史记录形态和当时缺口，不绑定当前 checkout，不替代当前 `v1.1.0` 生产证据、`pnpm ops:long-term:gate` 或 residual 人工复核。具体 `snapshotHash` 以快照文件和 `pnpm ops:long-term:snapshot:validate` 输出为准，避免源文档自引用导致 hash 漂移。
 
 ## Operations Lifecycle 机器契约
 
@@ -169,7 +169,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 3. 若需要生产写入、服务器命令、backup/restore、migration、updater apply、rollback 或发布动作，必须走高风险确认包。
 4. 若仍是外部条件或接受例外，更新 `reviewAt`、影响、关闭条件和所需证据，不把它隐藏在聊天记录里。
 
-`pnpm ops:status` 输出 schema V2 AreaFlow-style 离线长期运营投影：控制面、residual、release gaps、下一步证据和安全事实之外，强制包含共享 UX evaluator 的 `fresh / stale / invalid / missing`、记录 basename/hash、时间窗口和 issue fields。`app.currentCheckout` 表示当前 package `1.1.0`，`app.productionBaseline` 固定表示生产 `v0.1.9`，`app.historicalRollback` 固定表示受保护回滚目标 `v0.1.7`；兼容字段 `app.version/releaseTag` 仍表示 checkout，不能解释为对应 Release 已存在。该 evaluator 同时验证当前 commit/source/runtime/screenshot 绑定和 freshness，UX next action 不再从静态台账文案推导。输出继续包含 `controlPlaneSourceHash`、`protectedPathFingerprint` 与 `doesNotProve`；它们只证明投影绑定到当前只读源事实，不证明生产健康或高风险动作已执行。保存 JSON 后用 validator 校验，`--summary` 仅用于快速阅读。
+`pnpm ops:status` 输出 schema V2 AreaFlow-style 离线长期运营投影。当前工具的默认 Release 输入仍是 `v0.1.9` 历史记录，因此 `app.productionBaseline` 在默认运行中是历史工具投影，不是当前 `v1.1.0` 生产事实；在默认输入和相应 validator 更新前只能用于暴露证据缺口。UX evaluator、source hash、protected-path fingerprint 与只读安全边界保持不变，`--summary` 不能替代当前 health、Release 或 redacted updater 证据。
 
 `ops:status` 的 `boundaryStops` 记录当前授权边界会阻止哪些未来动作。`v0.1.9` 的 OPS-001/004/005/006 生产证据已经关账，当前停止线保护的是后续签名 Release、production apply、migration、controlled production write probe 和 residual 台账变更；历史通过结果不能自动授权 `v1.1.0` 或更晚版本。`update_request_expected_before` 和 `business_state_concurrency` stop 继续把离线投影、未来签名 Release、生产 rollout、受控写入和人工关账拆开，不能用一次笼统授权替代。它把“当前还能跑的本地 validator”和“未来需要的显式确认”分开；不会授权服务器命令、不会授权读取/打印/复制/提交 secrets，也不会把历史证据升级成当前 checkout 的完成证据。
 
@@ -181,9 +181,9 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 
 维护者形成 residual close / keep-open / downgrade / reopen 结论时，先用 `docs/development/residual-closure-review-template.md` 保存人工复核记录，并运行 `pnpm residuals:closure:validate <record>`。该记录只证明复核结论、证据 URI、validator 摘要、重新打开条件和 `doesNotProve` 完整；它必须保持 `closesResidual=no`，不自动修改 `docs/development/residual-risk-ledger.md` 或 `docs/development/residual-risk-ledger.json`。
 
-`pnpm ops:long-term:gate` 是完成声明前的严格 live evidence gate。默认 OPS-001/004、Release 和供应链输入来自当前生产 `v0.1.9`，checkout/UX binding 则继续针对 `package.json` 的 `1.1.0`；两者不匹配时必须保持 `needs_live_evidence`，不能暗示 `v1.1.0` 已发布。除 OPS-001/004/005、Release、供应链和 UX 外，它还要求显式 `AREAFORGE_LONG_TERM_DATA_INTEGRITY_RECORD`：记录在默认 24 小时内、validator 通过、真实执行数据库只读聚合、附件 reconciliation 为 pass 且 `overall=pass`。UX 记录优先使用 `AREAFORGE_LONG_TERM_UX_RECORD`；未设置时按 `reviewedAt` 从 `docs/development/product-experience-review-*.md` 选择最新候选，再由 current-binding validator 裁决，避免固定读取已过期日期文件。doctor 缺失、partial、warn/fail 或 stale 时必须继续阻断；该门禁不修复数据、不执行生产动作，也不自动修改任何 residual 状态。
+`pnpm ops:long-term:gate` 是完成声明前的严格 live evidence gate。默认 OPS-001/004、Release 和供应链输入仍来自 `v0.1.9` 历史记录，checkout/UX binding 针对 `package.json` 的 `1.1.0`；因此当前默认运行必须保持 `needs_live_evidence`，但这表示工具证据未迁移，不表示 `v1.1.0` 尚未发布。其 data-integrity、UX freshness、只读和 residual 边界保持不变。
 
-`pnpm ops:long-term:snapshot` 是长期运营证据的只读快照入口。它会调用现有 control-plane、OPS-001、OPS-004、OPS-005、data-integrity、release evidence 和 SC 校验器；UX 则直接继承 status/handoff/live gate 共用 evaluator 的 `fresh/stale/invalid/missing`、同一时钟和 expected version，不再二次启动 validator 或自行解释过期记录。UX evidence path/hash 也来自 evaluator 的 workspace 安全投影，显式 workspace 外路径不会被快照读取或哈希。输出 schema v3 `read_only_long_term_evidence_snapshot` JSON，显式包含 `currentCheckout`、`productionBaseline`、`historicalRollback`、`dataIntegrityRecord` 路径、文件 hash、内部 doctor hash、freshness、`nextCommand` 和 OPS-006 check；九项 required check 全部通过才可进入人工复核。默认生产证据读取 `v0.1.9`，checkout/UX/current-source binding 读取 `1.1.0`，因此版本不匹配时必须保持 `needs_live_evidence`。默认 `pnpm ops:long-term:snapshot:validate` 会把保存记录重新绑定到当前 checkout、三层身份、protected path fingerprint 和当前配置的证据文件；历史 schema v1/v2 只能显式 `--shape-only`，且不能升级为 ready。它用于维护交接和说明“当前缺什么证据”，不会联网、SSH、读取密钥、执行服务器命令、创建 Release、下载资产、执行 updater、备份、恢复、migration、生产写入或修改 residual 台账；即使 validator 通过，也只证明记录形态、当前输入与缺口绑定正确，不证明生产健康或 residual 状态变化。
+`pnpm ops:long-term:snapshot` 是长期运营证据的只读快照入口。默认生产证据仍读取 `v0.1.9` 历史记录，checkout/UX/current-source binding 读取 `1.1.0`，所以当前默认结果必须保持 `needs_live_evidence`，并明确视为历史输入迁移缺口。schema v3、data-integrity、UX evaluator、current binding 与无联网/无生产写入边界保持不变；validator 通过也不证明当前生产健康或 residual 状态变化。
 
 `pnpm ops:support:bundle-preview` 输出 metadata-only 支持包预览，把公开支持可用的版本、文档、命令名、residual ID、关闭条件、claim boundary 和 redaction/safety facts 聚合为可校验 JSON。它不导出支持包、不包含用户内容、不联网、不写生产；公开 issue 或自托管排障优先使用该预览，release/incident 证据冻结仍使用 `pnpm ops:evidence:bundle`。
 

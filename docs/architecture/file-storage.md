@@ -52,8 +52,8 @@ CSV 和 summary 必须写在 `UPLOAD_DIR` 外，输出路径不能相同、不�
 
 ## StudyResource 扩展（隔离已落地）
 
-在既有 Attachment staging 协议之上：FILE 只引用 READY 附件，LINK 只保存规范化 HTTPS URL；资料与笔记附件身份分离；重复文件走复用/副本/跳过三选一；ZIP/Markdown 进入资料 allowlist（ZIP 仅鉴权下载，不解压/不预览）；不物理删除资料或历史 orphan。资料页面与导航已在当前隔离候选实现，仍待最终 runtime、体验与 Release admission 验证后再生产切换。权威契约见 `workflow/versions/v1.1-learning-action-center.md`。
+在既有 Attachment staging 协议之上：FILE 只引用 READY 附件，LINK 只保存规范化 HTTPS URL；资料与笔记附件身份分离；重复文件走复用/副本/跳过三选一；ZIP/Markdown 进入资料 allowlist（ZIP 仅鉴权下载，不解压/不预览）；不物理删除资料或历史 orphan。资料页面与导航已进入当前产品。权威契约见 `workflow/versions/v1.1-learning-action-center.md`。
 
-## 学习行动中心关联能力（隔离候选已实现）
+## 学习行动中心关联能力
 
-统一复习排期、知识画布布局、动机提醒与通知偏好已在当前隔离候选实现；它们不改变 FILE/LINK exactly-one、私有鉴权访问或附件 staging 边界，也不证明生产已切换。`AF-RISK-DATA-001` 保持 `deferred-work`；物理删除、历史 orphan 自动清理和完整账户导出不在当前范围。
+统一复习排期、知识画布布局、动机提醒与通知偏好已进入当前产品；它们不改变 FILE/LINK exactly-one、私有鉴权访问或附件 staging 边界。`AF-RISK-DATA-001` 保持 `deferred-work`；物理删除、历史 orphan 自动清理和完整账户导出不在当前范围。

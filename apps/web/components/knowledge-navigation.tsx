@@ -34,14 +34,16 @@ export function KnowledgeNavigation() {
 
   return (
     <div className="space-y-3">
-      <nav className="flex flex-wrap gap-2" aria-label="知识工作台">
+      <nav className="grid grid-cols-4 gap-1 sm:flex sm:flex-wrap" aria-label="知识工作台">
         {KNOWLEDGE_TAB_ITEMS.map((item) => {
           const href = contextQuery ? `${item.href}?${contextQuery}` : item.href;
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}
               href={href}
-              className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/5 hover:text-white"
+              aria-current={active ? "page" : undefined}
+              className={`rounded-md px-2 py-2 text-center text-sm ${active ? "bg-white/10 text-white" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-200"}`}
             >
               {item.label}
             </Link>

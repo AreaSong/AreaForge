@@ -12,7 +12,13 @@ const patchSchema = z.object({
   sortOrder: z.number().int().optional(),
   groupId: z.string().nullable().optional(),
   archived: z.boolean().optional(),
-}).refine((value) => Object.keys(value).some((key) => key !== "expectedWorkspaceRevision"), { message: "at least one field is required" });
+  move: z.enum(["UP", "DOWN"]).optional(),
+})
+  .refine((value) => Object.keys(value).some((key) => key !== "expectedWorkspaceRevision"), { message: "at least one field is required" })
+  .refine(
+    (value) => !value.move || [value.name, value.color, value.sortOrder, value.groupId, value.archived].every((field) => field === undefined),
+    { message: "move cannot be combined with other fields" },
+  );
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string; subjectId: string }> }) {
   try {

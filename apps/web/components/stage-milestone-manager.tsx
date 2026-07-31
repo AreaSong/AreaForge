@@ -65,7 +65,7 @@ export function StageMilestoneManager({ plan, milestones, initialStableKey, retu
   const createCommandScope = `plan-milestone:create:${plan.id}`;
   const [rows, setRows] = useState(milestones);
   const [baseRevision, setBaseRevision] = useState(plan.revision);
-  const [stableKey, setStableKey] = useState(initialStableKey ?? "");
+  const [stableKey, setStableKey] = useState(initialStableKey ?? nextMilestoneKey(milestones));
   const [title, setTitle] = useState(initialStableKey ?? "");
   const [targetDate, setTargetDate] = useState("");
   const [firstSubmittedPayload, setFirstSubmittedPayload] = useState<MilestoneCreatePayload | null>(null);
@@ -185,10 +185,11 @@ export function StageMilestoneManager({ plan, milestones, initialStableKey, retu
         if (response.status === 404 && body?.workbench) router.push(body.workbench);
         return;
       }
-      setRows((current) => upsertMilestone(current, body.milestone as PlanMilestoneDto));
+      const nextRows = upsertMilestone(rows, body.milestone as PlanMilestoneDto);
+      setRows(nextRows);
       removePrivateBusinessDraft(createDraftKey);
       completeIdempotentCommand(createCommandScope);
-      setStableKey("");
+      setStableKey(nextMilestoneKey(nextRows));
       setTitle("");
       setTargetDate("");
       setFirstSubmittedPayload(null);
@@ -328,21 +329,21 @@ export function StageMilestoneManager({ plan, milestones, initialStableKey, retu
   }
 
   return (
-    <section className="space-y-4 rounded-md border border-white/10 bg-[#101419] p-4" aria-labelledby="stage-milestones-heading">
-      <div><h2 id="stage-milestones-heading" className="text-lg font-medium text-white">里程碑</h2><p className="mt-1 text-sm text-zinc-500">计划草稿中的 milestoneKey 只能引用这里的当前里程碑；归档不会删除历史引用。</p></div>
-      <ul className="space-y-2">
+    <section className="space-y-4 border-y border-white/10 py-5" aria-labelledby="stage-milestones-heading">
+      <div><h2 id="stage-milestones-heading" className="text-base font-medium text-white">里程碑</h2><p className="mt-1 text-sm text-zinc-500">用关键日期把当前阶段拆成可检查的小目标。</p></div>
+      <ul className="divide-y divide-white/10 border-y border-white/10">
         {rows.length ? rows.map((row) => (
-          <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 p-3 text-sm">
-            <div><p className={row.archivedAt ? "text-zinc-500 line-through" : "text-zinc-100"}>{row.title}</p><p className="text-xs text-zinc-500">{row.stableKey}{row.targetDate ? ` · ${new Date(row.targetDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}` : ""}{row.archivedAt ? " · 已归档" : ""}</p></div>
+          <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+            <div><p className={row.archivedAt ? "text-zinc-500 line-through" : "text-zinc-100"}>{row.title}</p><p className="text-xs text-zinc-500">{row.targetDate ? new Date(row.targetDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }) : "未设置目标日期"}{row.archivedAt ? " · 已归档" : ""}</p></div>
             <button type="button" disabled={saving} onClick={() => void toggleArchive(row)} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-xs text-zinc-200 disabled:opacity-50">{row.archivedAt ? <RotateCcw size={14} aria-hidden /> : <Archive size={14} aria-hidden />}{row.archivedAt ? "恢复" : "归档"}</button>
           </li>
         )) : <li className="text-sm text-zinc-500">当前阶段还没有里程碑。</li>}
       </ul>
-      <form className="grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-3" onSubmit={create}>
-        <label className="grid gap-1 text-sm text-zinc-300">稳定键<input className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-2" maxLength={80} required value={stableKey} onChange={(event) => { setStableKey(event.target.value); markFormEdited(); }} placeholder="例如 mock-01" /></label>
-        <label className="grid gap-1 text-sm text-zinc-300">标题<input className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-2" maxLength={200} required value={title} onChange={(event) => { setTitle(event.target.value); markFormEdited(); }} placeholder="阶段里程碑" /></label>
+      <form className="grid gap-3 sm:grid-cols-2" onSubmit={create}>
+        <label className="grid gap-1 text-sm text-zinc-300">标题<input className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-2" maxLength={200} required value={title} onChange={(event) => { setTitle(event.target.value); markFormEdited(); }} placeholder="例如：完成高数基础复习" /></label>
         <label className="grid gap-1 text-sm text-zinc-300">目标日期<input className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-2" type="date" value={targetDate} onChange={(event) => { setTargetDate(event.target.value); markFormEdited(); }} /></label>
-        <div className="flex flex-wrap items-center gap-3 sm:col-span-3"><button type="submit" disabled={saving} className="h-10 rounded-md bg-teal-400 px-4 text-sm font-medium text-[#071011] disabled:opacity-50">{saving ? "保存中..." : "创建里程碑"}</button>{returnTo ? <Link href={returnTo} className="text-sm text-teal-300 hover:underline">返回并重新预览导入</Link> : null}</div>
+        <details className="text-xs text-zinc-500 sm:col-span-2"><summary className="cursor-pointer">高级选项</summary><label className="mt-2 grid max-w-md gap-1">内部标识<input className="h-9 rounded-md border border-white/10 bg-[#0d1117] px-2" maxLength={80} required value={stableKey} onChange={(event) => { setStableKey(event.target.value); markFormEdited(); }} /></label></details>
+        <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><button type="submit" disabled={saving} className="h-10 rounded-md bg-teal-400 px-4 text-sm font-medium text-[#071011] disabled:opacity-50">{saving ? "保存中..." : "创建里程碑"}</button>{returnTo ? <Link href={returnTo} className="text-sm text-teal-300 hover:underline">返回并重新预览导入</Link> : null}</div>
       </form>
       {notice ? <p role="status" className="text-sm text-teal-200">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : null}
@@ -403,6 +404,13 @@ function upsertMilestone(rows: PlanMilestoneDto[], milestone: PlanMilestoneDto):
   return rows.some((row) => row.id === milestone.id)
     ? rows.map((row) => row.id === milestone.id ? milestone : row)
     : [...rows, milestone];
+}
+
+function nextMilestoneKey(rows: PlanMilestoneDto[]): string {
+  const used = new Set(rows.map((row) => row.stableKey));
+  let suffix = rows.length + 1;
+  while (used.has(`milestone-${suffix}`)) suffix += 1;
+  return `milestone-${suffix}`;
 }
 
 function isMilestoneConflictLatest(value: unknown): value is PlanMilestoneConflictLatest {

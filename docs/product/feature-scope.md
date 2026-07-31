@@ -51,9 +51,9 @@
 - 动机唤醒机制。
 - AI 根据长期数据生成阶段调整建议。
 
-## 下一产品版本规划（隔离实现，生产未切换）
+## 学习行动中心
 
-以下能力已在隔离分支实施，但尚未通过完整 minor Release admission 或生产切换；不得计入当前生产或 docs 100% 完成声明。权威规格见 `workflow/versions/v1.1-learning-action-center.md`；实现状态见 `docs/development/feature-traceability.md`。
+以下能力已进入生产。当前隔离分支还包含尚未 commit、发布或 production apply 的首次设置、科目管理与核心页面产品化修复；不得把本轮工作树状态写成线上事实，也不得用本节扩大既有文档完成声明。权威规格见版本计划；实现状态见 `docs/development/feature-traceability.md`。
 
 - 五个稳定工作台与受保护应用壳（今日、知识、复盘、阶段、设置）。
 - 当前考试工作区、自定义科目、408 分组与历史工作区归档。

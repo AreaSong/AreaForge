@@ -60,25 +60,25 @@
 | 动机唤醒机制 | 已完成 | `evaluateMotivationWake` 覆盖未封存、断签、危险期、自测窗口、重大复盘和重情绪；首页只展示唤醒信号，不进入 AI 默认上下文 | 更细粒度历史策略可后续增强 |
 | AI 根据长期数据生成阶段调整建议 | 已完成 | Package D Batch D3 已新增显式鉴权 `POST /api/simulation/stage-adjustment-drafts/ai` 和 `/simulation` 的“生成 AI 草稿”入口；长期 AI 上下文只发送周期范围、阶段目标摘要、有效时长、完成率、复盘完成率、低转化次数、科目占比、薄弱节点摘要、模拟考试汇总、阶段计划模式/状态、距阶段结束天数和风险标签；成功只写 `StageAdjustmentDraft.source="ai"` 结构化草稿和 `AI_STAGE_ADJUSTMENT_DRAFT_CREATED` 审计摘要，失败回退本地规则；不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不保存完整 prompt/raw response，不自动应用阶段计划；Package D Batch D4 后，长期风险 DTO 为阶段草稿提供一致风险原因但不触发 AI 外呼；Package D Batch D5 已完成证据收口 | 报告驱动的自动阶段应用不进入当前范围 |
 
-## 下一产品版本：学习行动中心（隔离实现，生产未切换）
+## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源；**不得**计入 docs 100% 完成声明。任务拆分见 `tasks/backlog/0026-*` 至 `0035-*` 与 `tasks/active/0025-v11-batch0-doc-sync.md`。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；当前工作树继续修复首次设置、科目管理和核心页面体验，但尚未形成新的 commit、Release 或 production apply。该版本状态不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 五工作台 App Shell 与稳定路由 | 隔离已实现 | Batch 10：开放 `/review/reports*`、`/stage/overview|simulation|analytics`；旧 `/reports`、`/simulation` 兼容跳转 | Batch 11 production admission |
-| 考试工作区 / 自定义科目 / 408 分组 | 隔离已实现 | Migration 1 API + Batch 7 `/settings/workspace` 首次设置两步流 | Batch 11 生产切换 |
-| 今日行动中心与科目快捷计时 | 隔离已实现 | `/today` + `GET /api/action-center/today`；科目快捷 → `/focus` | Batch 11 生产切换 |
-| PlanInbox / 里程碑 / 任务依赖 | 隔离已实现 | Inbox/里程碑/依赖 API + Batch 7 `/today/inbox*`、`/today/plan`、`/today/tasks/[taskId]` | Batch 11 生产切换 |
-| 学习树 V1 preview / confirm | 隔离已实现 | Batch 4 preview + Batch 5 confirm/history/export；Batch 8 `/knowledge/imports`；`AF-RISK-DATA-001` residual 未关 | Batch 11 生产切换 |
-| 全局关联画布 | 隔离已实现 | Migration 7 layout + `GET/PUT/DELETE /api/knowledge-canvas*` + `/knowledge/canvas`（`@xyflow/react`） | Batch 11 生产切换 |
-| StudyResource FILE/LINK | 隔离已实现 | Migration 4 schema + Batch 5 API + Batch 8 `/knowledge/resources` | Batch 11 生产切换 |
-| 统一复习 Schedule/Event | 隔离已实现 | Batch 6 API + Batch 7 `/quick-review/[scheduleId]` + Batch 8 `/knowledge/reviews` | Batch 11 生产切换 |
-| CheckIn v2 / 恢复三阶 | 隔离已实现 | Batch 6 API + Batch 7 今日摘要 + Batch 9「我学不下去了」接动机内容库 | Batch 11 生产切换 |
-| 动机 / 通知 / 四类 AI 草稿 | 隔离已实现 | Batch 9：内容库/提醒、通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET` | Batch 11 生产切换 |
-| 外部 Provider 当前浏览器偏好 | 隔离已实现 | `/settings/ai` 开关/保存/策略确认；鉴权 `GET|PATCH /api/ai/preferences`；安全默认关闭 Cookie；三条建议、四类草稿和长期阶段草稿共八条鉴权 POST route 统一 gate；本地 `AI_ENABLED=false` 验证无外呼 | Batch 11 production admission；真实生产 key smoke、Release、生产 apply 与 residual 关闭未授权 |
-| 模拟结构化失分 / 报告阶段入箱 | 隔离已实现 | Migration 8；分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升、报告/阶段确认边界 | Batch 11 production admission |
-| 完整 minor 签名发布 | 未实现 | 14.4 / Batch 11；地基 OPS-006/007 已由 `v0.1.9` 覆盖待 S2 复核 | Batch 11 |
+| 五工作台 App Shell 与稳定路由 | 已完成 | `/today`、`/knowledge/*`、`/review/*`、`/stage/*`、`/settings/*`；旧 `/reports`、`/simulation` 兼容跳转 | 发布后信息架构修复待新 Release |
+| 考试工作区 / 自定义科目 / 408 分组 | 已完成 | `/settings/workspace` 与鉴权 API；首次设置、接管、科目/分组编辑、排序、归档、恢复 | 发布后产品化修复待新 Release |
+| 今日行动中心与科目快捷计时 | 已完成 | `/today` + `GET /api/action-center/today`；科目快捷进入 `/focus` | 当前工作树继续收敛视觉层级 |
+| PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/today/inbox*`、`/today/plan`、`/today/tasks/[taskId]`、`/stage/overview` 与鉴权 API | current-bound browser evidence 待重采 |
+| 学习树 V1 preview / confirm | 已完成 | `/knowledge/imports`；preview、confirm/history/export；`AF-RISK-DATA-001` residual 未关 | 物理删除与完整账户导出仍不在范围 |
+| 全局关联画布 | 已完成 | `GET/PUT/DELETE /api/knowledge-canvas*` + `/knowledge/canvas`（`@xyflow/react`） | current-bound browser evidence 待重采 |
+| StudyResource FILE/LINK | 已完成 | `/knowledge/resources` 与鉴权 CRUD/上传/下载/归档 API | 不支持物理删除 |
+| 统一复习 Schedule/Event | 已完成 | `/knowledge/reviews`、`/quick-review/[scheduleId]` 与确认/correction/bridge API | current-bound browser evidence 待重采 |
+| CheckIn v2 / 恢复三阶 | 已完成 | 今日摘要、Recovery v2 三阶与「我学不下去了」动机入口 | 不自动改写任务 |
+| 动机 / 通知 / 四类 AI 草稿 | 已完成 | 内容库/提醒、通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET` | 不保存 prompt/raw response/history/token/cost/provider trace |
+| 外部 Provider 当前浏览器偏好 | 已完成 | `/settings/ai` 开关/保存/策略确认；鉴权 `GET|PATCH /api/ai/preferences`；安全默认关闭 Cookie；八条鉴权 POST route 统一 gate | 未执行真实生产 key smoke；不开放 Provider key 编辑 |
+| 模拟结构化失分 / 报告阶段入箱 | 已完成 | 分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升、报告/阶段确认边界 | 不自动修改现有任务 |
+| 完整 minor Release | 已完成 | `v1.1.0` Release/tag、签名资产与 verified production runtime identity；tag 本身没有 GPG signature | 当前修复须重新通过 admission 后另行发布与 apply |
 
 ## 暂缓项
 

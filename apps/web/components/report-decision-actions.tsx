@@ -169,12 +169,12 @@ export function ReportDecisionActions({ report }: { report: PeriodicReportDto })
   }
 
   return (
-    <div className="mt-4 rounded-md border border-white/10 bg-[#151a20] p-4">
+    <div className="mt-4 border-t border-white/10 pt-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-medium text-zinc-100">报告决策</p>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
-            确认会冻结快照、原子加入全部计划草稿，并生成独立的阶段建议；不会修改现有任务或 StagePlan。
+            确认会冻结当前报告、加入全部计划草稿，并生成独立的阶段建议；不会修改现有任务或当前阶段。
           </p>
         </div>
         {decision ? (

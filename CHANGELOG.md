@@ -6,9 +6,14 @@
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-07-22
+### Fixed
 
-本节随完整 minor Release 候选冻结；只有匹配 commit 的签名 GitHub Release 与 tag 创建成功后才构成发布事实。
+- 修复首次创建工作区时默认科目与待接管旧科目的 stable key 冲突，改为可理解的 409 结果并避免重复创建数学与 408 科目。
+- 补齐无工作区引导、科目与分组管理，并收敛今日、计划、知识、复盘、阶段和设置页面的信息层级与移动端导航。
+
+## [1.1.0] - 2026-07-31
+
+稳定 GitHub Release `v1.1.0` 已发布，Release 资产包含 manifest、SBOM、provenance、SHA256SUMS 与签名文件；生产 health 绑定 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。发布后产品化修复继续记录在 `[Unreleased]`，不属于本版本既有资产。
 
 ### Added
 
@@ -19,12 +24,12 @@
 
 ### Changed
 
-- 数据模型通过八个有序 additive migration 扩展到 workspace、导入历史、复习、画布、动机、通知和模拟失分；生产 migration 仍须独立确认。
-- 应用版本与全部 AreaForge workspace package version 统一提升到 `1.1.0`，为 complete minor Release admission 提供一致身份。
+- 数据模型通过八个有序 additive migration 扩展到 workspace、导入历史、复习、画布、动机、通知和模拟失分。
+- 应用版本与全部 AreaForge workspace package version 统一提升到 `1.1.0`。
 
 ### Security
 
-- 保持 AI payload 最小化、附件鉴权访问、Web runtime 禁止服务器命令及 `AREAFORGE_AUTO_APPLY=none`；本候选不授权 production apply 或 residual 关闭。
+- 保持 AI payload 最小化、附件鉴权访问、Web runtime 禁止服务器命令及 `AREAFORGE_AUTO_APPLY=none`；Release 或生产更新不自动关闭 residual。
 
 ## [0.1.9] - 2026-07-21
 

@@ -266,11 +266,11 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
 
   return (
     <div className="grid min-w-0 gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
-        <div className="flex items-center gap-2">
+      <details className="min-w-0 border-y border-white/10 py-4" open={initialCreate}>
+        <summary className="flex cursor-pointer items-center gap-2 text-base font-medium text-white">
           <Plus className="h-5 w-5 text-teal-300" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-white">新增笔记</h2>
-        </div>
+          新增卡片
+        </summary>
 
         <form className="mt-5 grid min-w-0 gap-3" onSubmit={submit}>
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
@@ -366,13 +366,12 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
         </form>
 
         {error ? <p className="mt-4 text-sm text-red-200">{error}</p> : null}
-      </section>
+      </details>
 
-      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
+      <section className="min-w-0 border-y border-white/10 py-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm text-zinc-400">资料库</p>
-            <h2 className="mt-1 text-xl font-semibold text-white">笔记与最小产出</h2>
+            <h2 className="text-lg font-semibold text-white">我的卡片</h2>
           </div>
           <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
             {filteredNotes.length} / {visibleNotes.length} 条

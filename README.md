@@ -46,10 +46,11 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 
 | 层级 | 当前事实 |
 |---|---|
-| 仓库候选 | `1.1.0` 学习行动中心完整 minor 候选正在本地验证与 commit 冻结；SC-002/SC-004 仍须按目标 commit 重采，尚未创建 `v1.1.0` tag 或 Release |
-| 线上基线 | `0.1.9`，通过签名 GitHub Release `v0.1.9` 运行在 [forge.areasong.top](https://forge.areasong.top/)；本候选未触发 production apply |
+| 仓库状态 | `v1.1.0` 已发布并进入生产；当前 `codex/v1.1-learning-action-center` 工作树继续进行发布后产品化修复，尚未形成新的 commit、tag 或修复 Release |
+| 线上基线 | `1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`，公网 health 已验证；当前线上仍不包含本轮首次设置、科目管理与核心页面 UI 修复 |
 | 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
-| 状态详情 | 只读快照用 `pnpm ops:status --summary`；readiness、信号新鲜度与剩余证据缺口见 [运营 readiness](docs/development/operational-readiness.md) 与 [残余风险台账](docs/development/residual-risk-ledger.md) |
+| 当前收口 | 本地产品化修复已通过全量检查和桌面/移动验收；生产重复科目与精确 `[AF_SMOKE]` 数据已在备份、单事务和严格计数门禁下清理，22 个静态入口已完成桌面/移动只读复验；下一步是冻结修复 commit 并重采 current-bound admission 证据 |
+| 状态详情 | 只读快照用 `pnpm ops:status --summary`；该命令尚有 `v0.1.9` 默认生产证据绑定，更新前不得把其结果解释为当前 `v1.1.0` 生产健康；实时事实与剩余缺口见 [运营 readiness](docs/development/operational-readiness.md) 与 [残余风险台账](docs/development/residual-risk-ledger.md) |
 
 深入的状态证据入口：[长期运营控制面](docs/development/long-term-operability-control-plane.md)、[治理登记册](docs/development/governance-register.md)、[Operations lifecycle](docs/development/operations-lifecycle.md)、[docs 100% 完成记录](docs/development/docs-100-completion-record.md)、[版本历史](CHANGELOG.md)。
 

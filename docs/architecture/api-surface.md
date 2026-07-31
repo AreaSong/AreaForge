@@ -29,27 +29,27 @@
 
 今日作战台返回真实数据库聚合，并包含最近一次已完成计时 `latestCompletedSession`，用于刷新后继续展示结构化收口、低转化原因和补产出要求。dashboard 优先读取 active `RecoveryState`；无 active 状态时继续按 `createRecoveryPlan` 实时规则 fallback。首页和 dashboard API 在规则触发恢复时会幂等创建一条 active `RecoveryState`，不会修改、隐藏或删除 `StudyTask`。
 
-在行动中心与五工作台落地前，本接口继续作为今日聚合主入口并保持兼容。
+本接口继续作为旧首页聚合兼容入口；学习行动中心使用独立的行动中心与五工作台 API。
 
 ### Action Center 与工作区
 
-已在隔离分支落地（**无生产导航入口**）：
+学习行动中心已落地并提供生产导航入口：
 
 - `/api/exam-workspaces/**`：工作区列表/创建、激活切换、接管 preview/apply、科目分组读取、自定义科目创建
 - `/api/plan-milestones/**`：里程碑列表/创建/编辑
-- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（隔离原子转换；无生产页）
+- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（原子转换；`/today/inbox`）
 - `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
-- `/api/learning-tree/templates|export|imports/preview|imports/confirm`、`/api/learning-tree/imports`、`/api/learning-tree/imports/:id`、`/api/learning-tree/imports/:id/export`（隔离；preview 零业务写入；confirm 原子）
-- `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（隔离；`/knowledge/resources`）
-- `/api/review-schedules/**`：物化/列表/改期/pause/resume/confirm event/bridge（隔离；`/knowledge/reviews`）
-- `POST /api/review-events/:id/corrections`：追加最新事件更正（隔离）
-- `GET /api/check-ins?from=&to=`：当前 workspace CheckIn v2 只读投影（隔离；无客户端写）
-- `/api/recovery/active|start|/:id/cancel|/:id/restart`：Recovery v2 三阶（隔离；保留既有 `/api/recovery-states/**`）
-- `/api/study-tasks/:id/bridge-complete|bridge-defer|bridge-abandon`：复习桥接任务完成/延期/放弃（隔离）
-- `GET /api/knowledge-canvas`：分层派生节点/边、等价列表与布局摘要（隔离验收）
-- `PUT|DELETE /api/knowledge-canvas/layout`：个人布局 CAS 保存/重置（隔离验收；不改业务边）
+- `/api/learning-tree/templates|export|imports/preview|imports/confirm`、`/api/learning-tree/imports`、`/api/learning-tree/imports/:id`、`/api/learning-tree/imports/:id/export`（preview 零业务写入；confirm 原子；`/knowledge/imports`）
+- `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（`/knowledge/resources`）
+- `/api/review-schedules/**`：物化/列表/改期/pause/resume/confirm event/bridge（`/knowledge/reviews`）
+- `POST /api/review-events/:id/corrections`：追加最新事件更正
+- `GET /api/check-ins?from=&to=`：当前 workspace CheckIn v2 只读投影；无客户端写
+- `/api/recovery/active|start|/:id/cancel|/:id/restart`：Recovery v2 三阶；保留既有 `/api/recovery-states/**`
+- `/api/study-tasks/:id/bridge-complete|bridge-defer|bridge-abandon`：复习桥接任务完成/延期/放弃
+- `GET /api/knowledge-canvas`：分层派生节点/边、等价列表与布局摘要
+- `PUT|DELETE /api/knowledge-canvas/layout`：个人布局 CAS 保存/重置；不改业务边
 
-已落地（隔离验收）：
+已落地：
 
 - `/api/motivation/items/**`、`POST /api/motivation/next`、`POST /api/motivation/reminder-state`
 - `GET|PATCH /api/notification-preferences`、`POST /api/notifications/test`
@@ -60,12 +60,13 @@
 - `/api/reports/periodic/decisions`：冻结报告、原子入箱并生成独立阶段草稿。
 - `/api/simulation/stage-adjustment-drafts/:id/confirm|reject`：阶段终态决策；确认更新 StagePlan 并原子入箱，不改现有任务。
 
-已落地（隔离分支可路由；生产一次切换见版本计划完整 minor Release）：
+已落地：
 
 - `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
 - `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影；无 ACTIVE 工作区时返回 `setupRequired`。
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
-- `GET /api/exam-workspaces/:id/subjects`：工作区科目列表（原仅有 POST）。
+- `GET|POST /api/exam-workspaces/:id/subjects`：工作区科目列表与创建；创建只接受当前未归档分组。
+- `PATCH /api/exam-workspaces/:id/subjects/:subjectId` 与 `PATCH /api/exam-workspaces/:id/subject-groups/:groupId`：名称、颜色、归属、归档/恢复和 `move=UP|DOWN` 相邻换位；move 不与其他字段混用，边界移动不增加 workspace revision 或审计事件。
 - `POST /api/study-sessions/start`：支持 `goalMinutes` / `startSource`（含 `SUBJECT_SHORTCUT`），并校验 ACTIVE 工作区科目。
 - Note API：创建支持 `kind` / `studyDate` / `stableKey` / `relatedSyllabusNodeIds` / `revision` 字段（画布快捷创建复用）。
 

@@ -7,16 +7,15 @@
 ## 当前行为
 
 - 协议 `AREAFORGE_LEARNING_TREE_V1`；模板分全局、单科与分支。
-- 隔离 API：模板、作用域导出、无业务写入 preview、原子 confirm、导入历史与一次性 canonical 导出。
+- API 与页面：模板、作用域导出、无业务写入 preview、原子 confirm、导入历史与一次性 canonical 导出；页面入口位于 `/knowledge/imports`。
 - preview 不写考纲、卡片、资料、任务、Schedule 或 AuditEvent；confirm 成功后才创建 `LearningTreeImportBatch/Item`。
 - 学习树 Markdown 内资料指令仅允许 HTTPS LINK；不内嵌二进制、不触发服务端抓取。
-- StudyResource FILE/LINK 隔离 CRUD、ZIP/Markdown 存储策略与重复三选一已落地（无生产页面）。
+- StudyResource FILE/LINK CRUD、ZIP/Markdown 存储策略与重复三选一已落地，页面入口位于 `/knowledge/resources`。
 - 数据生命周期边界已接受（`AF-RISK-DATA-001`）：仅 owner 可见、无自动过期、仅软归档、随库备份、一次性导出；residual **未**自动关闭。
 - 现有 `POST /api/syllabus/import-markdown` 保持 legacy append-only，不无声切换为 merge。
 
 ## 尚未开放
 
-- 生产可路由页面与导航入口。
 - 物理删除导入历史/附件、完整账户导出。
 
 ## 非目标

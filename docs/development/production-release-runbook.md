@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 `tasks/backlog/0014-deployment-backup-release.md` 和 `workflow/versions/v1.0-prod-release.md` 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v0.1.9` 完成签名校验更新并运行 `0.1.9`。当前 checkout 为未发布的 `1.1.0` Release Candidate，不能据此改写生产结论。
+本文件是 AreaForge 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v1.1.0` 完成受控更新并运行 `1.1.0`，production runtime identity 绑定 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。当前工作树包含尚未 commit、发布或 production apply 的发布后产品化修复，不能据此改写线上代码身份。
 
 后续任何新的生产发布、备份恢复、migration deploy、服务器命令、签名策略降级或 Web 运维能力扩大，仍必须等用户明确确认后再执行。
 
@@ -14,13 +14,12 @@
 
 - 公网入口：`https://forge.areasong.top/`
 - AreaForge 本机端口：`127.0.0.1:3020`
-- 当前线上版本：`0.1.9`
-- 当前生产 Release：`v0.1.9` / commit `749692ba719d801f14186a94af97b96350380141`
-- Web image：`ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d`
-- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab`
-- 发布记录：`docs/development/release-v0.1.9-record.md`
-- 服务器更新记录：`/opt/areaforge/backups/github-release-updates/github-0.1.9-20260721050738/update-record.txt`
-- 历史回滚目标：`v0.1.7` immutable Web digest `sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
+- 当前线上版本：`1.1.0`
+- 当前生产 Release：`v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`
+- Web/Migration image：当前 immutable digest 尚未回填仓库；下次发布或回滚前必须从 manifest/redacted updater status 确认
+- 当前生产事实与缺口：`docs/development/operational-readiness.md`
+- 完整 redacted updater status 与服务器更新记录：尚未入库
+- 回滚目标：写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；真实目标与 digest 必须由当前 updater status 确认
 
 目标架构：
 

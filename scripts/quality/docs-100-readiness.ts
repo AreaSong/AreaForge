@@ -26,6 +26,7 @@ const requiredFiles = [
   "docs/development/second-stage-long-term-loop-design.md",
   "docs/development/production-release-runbook.md",
   "docs/development/release-v0.1.9-record.md",
+  "docs/development/operational-readiness.md",
   "docs/development/release-record-template.md",
   "docs/development/release-train.md",
   "docs/development/completion-evidence-checklist.md",
@@ -37,7 +38,6 @@ const requiredFiles = [
   "docs/development/maintenance-window-index.json",
   "docs/development/incident-index.json",
   "docs/development/rollback-proof-record-template.md",
-  "docs/development/operational-readiness.md",
   "docs/development/production-smoke-alerting-strategy.md",
   "docs/development/product-experience-review-record-template.md",
   "docs/development/product-experience-review-20260710-local.md",
@@ -82,6 +82,9 @@ const requiredFiles = [
   "workflow/versions/v0.3-structured-learning-state.md",
   "workflow/versions/v0.4-second-stage-long-term-loop.md",
   "workflow/versions/v1.0-prod-release.md",
+  "workflow/versions/v1.1-learning-action-center.md",
+  "apps/web/AGENTS.md",
+  "apps/web/README.md",
 ] as const;
 
 const highRiskPackages = [
@@ -548,14 +551,27 @@ function checkOpsReadinessTerms(): void {
 
 function checkCurrentProductionEvidenceBoundary(): void {
   const readme = read("README.md");
+  const webAgentGuide = read("apps/web/AGENTS.md");
+  const webReadme = read("apps/web/README.md");
+  const docsReadme = read("docs/README.md");
   const architectureOverview = read("docs/architecture/overview.md");
+  const dataModel = read("docs/architecture/data-model.md");
+  const apiSurface = read("docs/architecture/api-surface.md");
+  const learningTreeImport = read("docs/modules/learning-tree-import.md");
+  const threatModel = read("docs/security/threat-model.md");
+  const fileAiSafety = read("docs/security/file-ai-safety.md");
+  const updaterGuide = read("docs/deployment/github-release-updater.md");
+  const productionRunbook = read("docs/development/production-release-runbook.md");
+  const featureTraceability = read("docs/development/feature-traceability.md");
   const workflowReadme = read("workflow/README.md");
+  const workflowV11 = read("workflow/versions/v1.1-learning-action-center.md");
   const workflowV02 = read("workflow/versions/v0.2-first-version-risk-closures.md");
   const workflowV10 = read("workflow/versions/v1.0-prod-release.md");
   const completionRecord = read("docs/development/docs-100-completion-record.md");
-  const releaseRecord = read("docs/development/release-v0.1.9-record.md");
+  const historicalReleaseRecord = read("docs/development/release-v0.1.9-record.md");
+  const operationalReadiness = read("docs/development/operational-readiness.md");
   const controlPlane = read("docs/development/long-term-operability-control-plane.md");
-  const scannedDocs = `${readme}\n${architectureOverview}\n${workflowReadme}\n${workflowV02}\n${workflowV10}\n${completionRecord}\n${controlPlane}`;
+  const scannedDocs = `${readme}\n${webAgentGuide}\n${webReadme}\n${docsReadme}\n${architectureOverview}\n${dataModel}\n${apiSurface}\n${learningTreeImport}\n${threatModel}\n${fileAiSafety}\n${updaterGuide}\n${productionRunbook}\n${featureTraceability}\n${workflowReadme}\n${workflowV11}\n${workflowV02}\n${workflowV10}\n${completionRecord}\n${operationalReadiness}\n${controlPlane}`;
   const requiredBoundaryTerms = [
     "needs_live_evidence",
     "当前 checkout",
@@ -573,22 +589,74 @@ function checkCurrentProductionEvidenceBoundary(): void {
   ];
   const missing = requiredBoundaryTerms.filter((term) => !scannedDocs.includes(term));
   const forbidden = forbiddenOverclaims.filter((term) => scannedDocs.includes(term));
-  const releaseHasCurrentBoundary =
-    releaseRecord.includes("releaseTag: v0.1.9") &&
-    releaseRecord.includes('publicHealthEvidence: GET https://forge.areasong.top/api/health returned {"ok":true,"service":"AreaForge","version":"0.1.9"}') &&
-    releaseRecord.includes("databaseBackupPath: <redacted-root-only-path>") &&
+  const productionCommit = "4dbdb31a96498487af09aa7f90275bfc549448f3";
+  const currentProductionSources = [readme, webAgentGuide, workflowReadme, workflowV11, operationalReadiness, controlPlane];
+  const currentProductionIdentity = currentProductionSources.every((source) =>
+    source.includes("v1.1.0") && source.includes(productionCommit)
+  ) && workflowV11.includes("稳定 GitHub Release 已创建");
+  const historicalReleaseBoundary =
+    historicalReleaseRecord.includes("releaseTag: v0.1.9") &&
+    historicalReleaseRecord.includes('publicHealthEvidence: GET https://forge.areasong.top/api/health returned {"ok":true,"service":"AreaForge","version":"0.1.9"}') &&
+    historicalReleaseRecord.includes("databaseBackupPath: <redacted-root-only-path>") &&
     ["databaseBackupSha256", "uploadsBackupSha256", "envBackupSha256"].every((field) =>
-      new RegExp(`^${field}: [a-f0-9]{64}$`, "m").test(releaseRecord)
+      new RegExp(`^${field}: [a-f0-9]{64}$`, "m").test(historicalReleaseRecord)
     ) &&
-    releaseRecord.includes("root-only paths remain on host");
+    historicalReleaseRecord.includes("root-only paths remain on host") &&
+    operationalReadiness.includes("均为历史证据，不能替代当前 `v1.1.0` 生产证据");
+  const currentStatusSources = [
+    webAgentGuide,
+    webReadme,
+    docsReadme,
+    dataModel,
+    apiSurface,
+    learningTreeImport,
+    threatModel,
+    fileAiSafety,
+    updaterGuide,
+    productionRunbook,
+    featureTraceability,
+    workflowReadme,
+    workflowV11,
+  ];
+  const staleCurrentPhrases = [
+    "生产与签名 Release 基线为 `v0.1.9`",
+    "当前生产基线 `v0.1.9`",
+    "当前线上版本：`0.1.9`",
+    "当前生产 Release：`v0.1.9`",
+    "当前生产 GitHub Release：`v0.1.9`",
+    "尚未创建或部署 `v1.1.0`",
+    "尚无 `v1.1.0` tag/Release",
+    "是否已有线上 v1.1 Release：没有",
+    "待最终验证与生产切换",
+    "尚未生产切换",
+    "生产未切换",
+    "无生产导航入口",
+    "无生产 UI",
+    "无生产页面",
+    "无生产页",
+    "下一产品版本：学习行动中心",
+  ];
+  const staleCurrentClaims = currentStatusSources.reduce(
+    (count, source) => count + staleCurrentPhrases.filter((phrase) => source.includes(phrase)).length,
+    0,
+  );
+  const currentProductSurfaces =
+    ["/settings/workspace", "/knowledge/resources", "/knowledge/reviews"].every((route) => dataModel.includes(route)) &&
+    apiSurface.includes("学习行动中心已落地并提供生产导航入口") &&
+    learningTreeImport.includes("/knowledge/imports") &&
+    featureTraceability.includes("## 学习行动中心（已进入生产）") &&
+    featureTraceability.includes("| 完整 minor Release | 已完成 |") &&
+    [fileAiSafety, updaterGuide, productionRunbook].every((source) => source.includes("1.1.0")) &&
+    updaterGuide.includes(productionCommit) &&
+    productionRunbook.includes(productionCommit);
 
   checks.push({
     name: "current production evidence boundary",
-    ok: missing.length === 0 && forbidden.length === 0 && releaseHasCurrentBoundary,
+    ok: missing.length === 0 && forbidden.length === 0 && currentProductionIdentity && historicalReleaseBoundary && staleCurrentClaims === 0 && currentProductSurfaces,
     detail:
-      missing.length === 0 && forbidden.length === 0 && releaseHasCurrentBoundary
-        ? "v0.1.9 docs distinguish the production baseline, current checkout, historical rollback, and long-term live evidence"
-        : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}; v0.1.9 release boundary ${releaseHasCurrentBoundary ? "present" : "missing"}`,
+      missing.length === 0 && forbidden.length === 0 && currentProductionIdentity && historicalReleaseBoundary && staleCurrentClaims === 0 && currentProductSurfaces
+        ? "v1.1.0 current production identity is consistent and v0.1.9 remains historical evidence only"
+        : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}; current identity ${currentProductionIdentity ? "present" : "missing"}; historical boundary ${historicalReleaseBoundary ? "present" : "missing"}; current product surfaces ${currentProductSurfaces ? "present" : "missing"}; stale current claims ${staleCurrentClaims}`,
   });
 }
 

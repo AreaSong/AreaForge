@@ -173,7 +173,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
   if (today.setupRequired) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-white">今日行动中心</h1>
+        <h1 className="text-xl font-semibold text-white">今日</h1>
         <div className="rounded-md border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           尚未设置考试工作区。不展示伪造统计。
         </div>
@@ -189,10 +189,10 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
 
   return (
     <section className="space-y-6">
-      <div>
-        <p className="text-sm text-teal-300">{today.workspace?.name}</p>
-        <h1 className="mt-1 text-3xl font-semibold text-white">今日行动中心</h1>
-      </div>
+      <header className="border-b border-white/10 pb-4">
+        <h1 className="text-xl font-semibold text-white">今日</h1>
+        <p className="mt-1 text-sm text-zinc-500">{today.workspace?.name}</p>
+      </header>
 
       {today.statusBar ? (
         <div className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200">
@@ -239,9 +239,9 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
 
       <div className="space-y-3">
         <h2 className="text-lg font-medium text-white">科目快捷计时</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="divide-y divide-white/10 border-y border-white/10">
           {today.subjectTimers.subjects.map((subject) => (
-            <div key={subject.subjectId} className="rounded-md border border-white/10 bg-[#101419] p-3">
+            <div key={subject.subjectId} className="py-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-medium text-white">{subject.title}</p>
@@ -267,10 +267,10 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
           ))}
         </div>
         {today.subjectTimers.groups.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="divide-y divide-white/10 border-b border-white/10">
             {today.subjectTimers.groups.map((group) => (
-              <div key={group.groupId} className="rounded-md border border-dashed border-white/10 px-3 py-2 text-xs text-zinc-500">
-                {group.title}（分组聚合，不可直接开始）· 今日 {group.todayEffectiveMinutes} 分
+              <div key={group.groupId} className="py-2 text-xs text-zinc-500">
+                {group.title}合计 · 今日 {group.todayEffectiveMinutes} 分
               </div>
             ))}
           </div>
@@ -279,7 +279,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-medium text-white">三队列</h2>
+          <h2 className="text-lg font-medium text-white">待办队列</h2>
           <div className="flex gap-1 md:hidden">
             {(
               [

@@ -8,23 +8,22 @@ AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单
 
 ## 当前远端状态
 
-截至 `2026-07-21`，远端生产已经完成 `v0.1.9` 签名 Release 更新。当前 checkout 为未发布的 `1.1.0` Release Candidate，尚无 `v1.1.0` tag/Release 或 production apply：
+截至 `2026-07-31`，远端生产已经完成 `v1.1.0` Release 更新；公网 health 与 Release/tag 交叉确认 production runtime identity 为 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。当前工作树包含尚未 commit、发布或 production apply 的发布后产品化修复：
 
 - 线上地址：`https://forge.areasong.top/`
-- 当前线上版本：`0.1.9`
-- 当前生产 GitHub Release：`v0.1.9` / commit `749692ba719d801f14186a94af97b96350380141`
-- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v0.1.9`
-- Web image：`ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d`
-- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab`
+- 当前线上版本：`1.1.0`
+- 当前生产 GitHub Release：`v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`
+- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v1.1.0`
+- Web/Migration image：当前 immutable digest 尚未回填仓库，必须从 `v1.1.0` manifest 或服务器 redacted updater status 采集；不得沿用 `v0.1.9` digest
 - 服务器健康检查：`AREAFORGE_HEALTH_URL=http://127.0.0.1:3020/api/health`
 - 签名校验：`AREAFORGE_REQUIRE_SIGNATURE=true`，`AREAFORGE_COSIGN_PUBLIC_KEY=/etc/areaforge/cosign.pub`
 - update-agent：`timerEnabled=true`、`timerActive=true`、`blocker=null`（生产 root-only status 进入仓库前必须先 redacted）
 - 自动策略：`AREAFORGE_AUTO_APPLY=none`
-- 更新记录：`/opt/areaforge/backups/github-release-updates/github-0.1.9-20260721050738/update-record.txt`
-- 只读公网校验：`GET https://forge.areasong.top/api/health` 返回 `0.1.9`
-- 历史回滚目标：`v0.1.7` / Web immutable digest `sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
+- 当前更新记录：完整 redacted status、update record 与镜像 digest 尚未入库
+- 只读公网校验：`GET https://forge.areasong.top/api/health` 返回 `1.1.0` 与 verified runtime identity
+- 回滚目标：写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；真实 rollback target 与 immutable digest 仍须从当前 updater status 确认
 
-当前生产发布证据见 `docs/development/release-v0.1.9-record.md`；`docs/development/release-v0.1.7-record.md` 仅保留受保护的历史回滚证据，`docs/development/package-e-remote-github-release-record.md` 保留更早的 `v0.1.5` 历史证据。
+当前生产事实与缺口见 `docs/development/operational-readiness.md`。`docs/development/release-v0.1.9-record.md`、`docs/development/release-v0.1.7-record.md` 和更早记录均为历史证据，不能替代 `v1.1.0` 的 redacted updater、digest、smoke 或 rollback 证据。`v1.1.0` Release 资产包含签名文件，但 annotated tag 本身没有 GPG signature。
 
 ## 发布端配置
 
@@ -144,9 +143,9 @@ AREAFORGE_GITHUB_TOKEN=<只读 release/package token>
 
 ## Update Request V2 安全契约
 
-生产 `v0.1.9` 已完成 OPS-005 V2 check、`EXPECTED_BEFORE_MISMATCH` 零执行拒绝、decision history
-和 production evidence 人工关账。当前 checkout `1.1.0` 尚未形成签名 Release 或生产部署，不能继承
-`v0.1.9` 的执行授权；新 Release 或 expected-before 语义变化仍须重新采集证据。
+历史生产 `v0.1.9` 已完成 OPS-005 V2 check、`EXPECTED_BEFORE_MISMATCH` 零执行拒绝、decision history
+和 production evidence 人工关账。当前生产已是 `v1.1.0`，但版本变化不会自动刷新或关闭 OPS residual；
+发布后修复和后续 Release 仍不能继承 `v0.1.9` 的执行授权，expected-before 语义或 Release 身份变化时必须重新采集证据。
 
 V2 链路如下：
 
@@ -299,11 +298,11 @@ export AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-reado
 export AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
 export AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
 export AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
-export AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.9
+export AREAFORGE_SMOKE_EXPECTED_VERSION=1.1.0
 export AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 pnpm smoke:prod-readonly:config
 pnpm smoke:prod-readonly | tee /tmp/areaforge-prod-readonly-smoke.log
-AREAFORGE_READINESS_RELEASE_TAG=v0.1.9 \
+AREAFORGE_READINESS_RELEASE_TAG=v1.1.0 \
 AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge \
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password \
 AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly' \
@@ -317,7 +316,7 @@ pnpm smoke:prod-readonly:validate /tmp/areaforge-prod-readonly-smoke-record.txt
 
 ### OPS-001 只读证据导出
 
-当生产版本变化、证据过期或校验失败导致 `AF-RISK-OPS-001` 需要重新复核，且生产 `status.json`、smoke 密码文件和 `/opt/areaforge` 均为 root-only 时，管理员可在服务器上运行只读导出 helper。当前 `v0.1.9` 已有关账证据，不应无变化重复采集：
+当生产版本变化、证据过期或校验失败导致 `AF-RISK-OPS-001` 需要重新复核，且生产 `status.json`、smoke 密码文件和 `/opt/areaforge` 均为 root-only 时，管理员可在服务器上运行只读导出 helper。`v0.1.9` 关账证据只属于历史版本；`v1.1.0` 的新鲜证据仍须在独立授权和可用配置下采集，且不会自动改变 residual 状态：
 
 ```bash
 sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
