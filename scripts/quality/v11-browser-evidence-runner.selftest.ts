@@ -31,6 +31,10 @@ const overlaySource = readFileSync(
   path.resolve(process.cwd(), "apps/web/components/ui/overlays.tsx"),
   "utf8",
 );
+const canvasSource = readFileSync(
+  path.resolve(process.cwd(), "apps/web/components/knowledge-canvas-client.tsx"),
+  "utf8",
+);
 
 try {
   const baseline = {
@@ -99,6 +103,21 @@ try {
     overlaySource,
     /document\.removeEventListener\("focusin", onFocusIn\)/,
     "modal focus trap must remove the focusin listener on close",
+  );
+  assert.match(
+    overlaySource,
+    /const explicitReturnTarget = input\.returnFocusRef\?\.current/,
+    "async modal focus restoration must support an explicit trigger captured before opening",
+  );
+  assert.match(
+    canvasSource,
+    /returnFocusRef=\{layoutConflictReturnFocusRef\}/,
+    "canvas conflict modal must restore focus to the initiating layout control",
+  );
+  assert.match(
+    canvasSource,
+    /layoutConflictReturnFocusRef\.current = activeElement/,
+    "canvas layout mutations must capture their initiating control before an async conflict",
   );
   assert.equal(
     canonicalEvidenceRoute(
