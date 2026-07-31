@@ -162,7 +162,56 @@ function testModeDeleteCopyAndMergeBoundaries(): void {
     path.join(copied.root, "docs/development/residual-closure-review-copy.md"),
   );
   commit(copied.root, "copy existing evidence");
-  assertInvalid(evaluate(copied), "cannot delete or copy");
+  assertCopyStatus(copied.root);
+  const copiedResult = evaluate(copied);
+  assertStatus(copiedResult, "evidence_only");
+  if (copiedResult.changedPaths.join(",") !== "docs/development/residual-closure-review-copy.md") {
+    throw new Error(`copy binding must report only the target: ${JSON.stringify(copiedResult)}`);
+  }
+
+  const copiedOutsideAllowlist = createRepository("copy-outside-allowlist");
+  copyFileSync(
+    path.join(copiedOutsideAllowlist.root, "docs/development/residual-risk-ledger.md"),
+    path.join(copiedOutsideAllowlist.root, "apps/web/copied-evidence.md"),
+  );
+  commit(copiedOutsideAllowlist.root, "copy evidence outside allowlist");
+  assertCopyStatus(copiedOutsideAllowlist.root);
+  assertInvalid(evaluate(copiedOutsideAllowlist), "apps/web/copied-evidence.md");
+
+  const copiedSecret = createRepository("copy-secret");
+  write(copiedSecret.root, "apps/web/secret-source.txt", "DATABASE_URL=postgresql://user:pass@db/area\n");
+  commit(copiedSecret.root, "add pre-existing secret fixture");
+  copiedSecret.releaseCommit = git(copiedSecret.root, ["rev-parse", "HEAD"]).trim();
+  copyFileSync(
+    path.join(copiedSecret.root, "apps/web/secret-source.txt"),
+    path.join(copiedSecret.root, "docs/development/residual-closure-review-copy-secret.md"),
+  );
+  commit(copiedSecret.root, "copy secret into evidence target");
+  assertCopyStatus(copiedSecret.root);
+  assertInvalid(evaluate(copiedSecret), "database URL");
+
+  const copiedInvalidImage = createRepository("copy-invalid-image");
+  write(copiedInvalidImage.root, "apps/web/invalid-image-source.bin", Buffer.from("not-a-png"));
+  commit(copiedInvalidImage.root, "add invalid image source fixture");
+  copiedInvalidImage.releaseCommit = git(copiedInvalidImage.root, ["rev-parse", "HEAD"]).trim();
+  mkdirSync(path.join(copiedInvalidImage.root, "output/playwright"), { recursive: true });
+  copyFileSync(
+    path.join(copiedInvalidImage.root, "apps/web/invalid-image-source.bin"),
+    path.join(copiedInvalidImage.root, "output/playwright/ux-copy-invalid.png"),
+  );
+  commit(copiedInvalidImage.root, "copy invalid image into evidence target");
+  assertCopyStatus(copiedInvalidImage.root);
+  assertInvalid(evaluate(copiedInvalidImage), "invalid image structure");
+
+  const staleAfterCopy = createRepository("stale-after-copy");
+  copyFileSync(
+    path.join(staleAfterCopy.root, "docs/development/residual-risk-ledger.md"),
+    path.join(staleAfterCopy.root, "docs/development/residual-closure-review-copy.md"),
+  );
+  commit(staleAfterCopy.root, "copy valid evidence");
+  write(staleAfterCopy.root, "apps/web/app.ts", "export const version = 2;\n");
+  commit(staleAfterCopy.root, "stale source binding");
+  assertInvalid(evaluate(staleAfterCopy), "apps/web/app.ts");
 
   const merged = createRepository("merge");
   const baseBranch = git(merged.root, ["branch", "--show-current"]).trim();
@@ -301,6 +350,14 @@ function commit(root: string, message: string): void {
 
 function git(root: string, args: string[]): string {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" });
+}
+
+function assertCopyStatus(root: string): void {
+  const status = git(root, [
+    "diff-tree", "--root", "--no-commit-id", "--name-status", "-r",
+    "--find-renames", "--find-copies", "--find-copies-harder", "HEAD",
+  ]);
+  if (!/^C\d+\t/m.test(status)) throw new Error(`expected Git copy status, got: ${status}`);
 }
 
 function write(root: string, file: string, content: string | Buffer): void {

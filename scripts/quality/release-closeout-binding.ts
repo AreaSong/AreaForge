@@ -122,7 +122,7 @@ export function evaluateReleaseCloseoutBinding(
   for (const commit of commits) {
     validateCommitShape(root, commit, issues);
     for (const change of commitChanges(root, commit)) {
-      for (const file of change.paths) changedPaths.add(file);
+      for (const file of changedFiles(change)) changedPaths.add(file);
       validateChange(root, commit, change, issues);
     }
   }
@@ -161,26 +161,35 @@ function validateCommitShape(root: string, commit: string, issues: string[]): vo
 
 function validateChange(root: string, commit: string, change: CommitChange, issues: string[]): void {
   const status = change.status[0] ?? "";
-  if (status === "D" || status === "C") {
-    issues.push(`evidence-only closeout cannot delete or copy files: ${change.paths.join(", ")}`);
+  if (status === "D") {
+    issues.push(`evidence-only closeout cannot delete files: ${change.paths.join(", ")}`);
     return;
   }
-  if (!new Set(["A", "M", "R"]).has(status)) {
+  if (!new Set(["A", "C", "M", "R"]).has(status)) {
     issues.push(`evidence-only closeout does not permit Git status ${change.status}: ${change.paths.join(", ")}`);
+    return;
+  }
+  if ((status === "C" || status === "R") && change.paths.length !== 2) {
+    issues.push(`evidence-only closeout has malformed Git status ${change.status}: ${change.paths.join(", ")}`);
     return;
   }
   if (status === "R" && !change.paths.every(isAllowedTaskPath)) {
     issues.push(`evidence-only closeout only permits task moves: ${change.paths.join(", ")}`);
   }
-  for (const file of change.paths) {
+  const filesAtCommit = changedFiles(change);
+  for (const file of filesAtCommit) {
     if (!isAllowedCloseoutPath(file)) {
       issues.push(`non-evidence path changed after Release: ${file}`);
     }
   }
-  const filesAtCommit = status === "R" ? change.paths.slice(-1) : change.paths;
   for (const file of filesAtCommit) {
     if (isAllowedCloseoutPath(file)) validateFileAtCommit(root, commit, file, issues);
   }
+}
+
+function changedFiles(change: CommitChange): string[] {
+  const status = change.status[0] ?? "";
+  return status === "C" || status === "R" ? change.paths.slice(-1) : change.paths;
 }
 
 function validateFileAtCommit(root: string, commit: string, file: string, issues: string[]): void {
@@ -318,7 +327,7 @@ function commitChanges(root: string, commit: string): CommitChange[] {
   return output.split(/\r?\n/).filter(Boolean).map((line) => {
     const fields = line.split("\t");
     const status = fields[0] ?? "";
-    return { status, paths: status.startsWith("R") ? fields.slice(1) : [fields[1] ?? ""] };
+    return { status, paths: status.startsWith("R") || status.startsWith("C") ? fields.slice(1) : [fields[1] ?? ""] };
   });
 }
 
