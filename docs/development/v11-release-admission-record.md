@@ -20,7 +20,7 @@ compatibilityRuntimeEvidence:
   sha256: sha256:2626e2bc5c791df294c2d20c13e12993547c42f0c08b7367de38341fd5f5ebf7
 ops006007ReviewEvidence:
   path: docs/development/v11-s2-ops006-007-gate-review.md
-  sha256: sha256:94f56c8ffa0143ad0a207d27690dbb96561d6c2e69b2184b3364ea4a63a55f74
+  sha256: sha256:5ab39c4bce39f95f3c9e370d0c6a2c6a30c5038e20d6fa5875657889b4da58f5
 sc002Evidence:
   path: output/supply-chain/ci-supply-chain-v1.1.1-20260731-b3a0002.txt
   sha256: sha256:34d921c6af01e8ef862fcc4cebdfadf90f55e7d862a5dbb84b3482d4363ff106
