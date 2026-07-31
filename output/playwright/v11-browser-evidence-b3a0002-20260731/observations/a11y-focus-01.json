@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-07-31T14:50:53.987Z",
+  "checkId": "FOCUS-01",
+  "checkKey": "modal-initial-focus",
+  "route": "/today",
+  "target": "subject-shortcut-modal",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "dom",
+  "assertions": [
+    {
+      "id": "modal-received-focus",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}
