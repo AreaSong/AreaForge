@@ -8,8 +8,8 @@
 
 ## 当前状态
 
-- 生产与最新签名 Release 基线仍为 `v0.1.9`（commit `749692ba719d801f14186a94af97b96350380141`）；远端 `https://forge.areasong.top/` 公网 health 报告 `0.1.9`。仓库正在隔离分支准备 `v1.1.0` 学习行动中心完整 minor 候选，尚未创建 tag/Release 或执行 production apply。G5 受控更新于 2026-07-21T05:08:11Z 完成（备份 hash 已入 redacted export；回滚目标仍为 `v0.1.7` 不可变 digest）。`v0.1.8` 计划保持搁置并由 `workflow/versions/v0.1.9-long-term-operations-release.md` 承接。2026-07-21 Phase B 后续关账已将 `AF-RISK-OPS-005/006/007/008` 记为 `closed-evidence`（mismatch 证据、doctor 时间序 + write-smoke、附件 recon、hold/barrier/clear）；`OPS-002` / `OPS-003` / `REL-001` 仍保持未关。
-- 下一产品主线：学习行动中心（`workflow/versions/v1.1-learning-action-center.md`），隔离分支 `codex/v1.1-learning-action-center`；S0–S2 与 Batch 3–10（Migration 1–8、五个工作台、学习树与资料、统一复习、关联画布、动机/通知/AI、模拟/报告/阶段闭环）已落地；Batch 11 正在准备 `v1.1.0` 本地完成记录与验证候选。SC-002/SC-004 必须按冻结目标 commit 重采；`AF-RISK-DATA-001` residual 保持 deferred-work 未关。阶段索引见 `docs/development/v11-phase-packages.md`。
+- 生产与最新稳定 Release 基线为 `v1.1.0`（commit `4dbdb31a96498487af09aa7f90275bfc549448f3`）；远端 `https://forge.areasong.top/api/health` 报告 `1.1.0` 与 verified production runtime identity。GitHub Release 于 2026-07-31 发布并包含 manifest、SBOM、provenance、checksum 和签名资产；annotated tag 本身没有 GPG signature，不能写成“签名 tag”。`v0.1.9` 及其 OPS/供应链 closeout 只保留历史证据，不能证明当前 `v1.1.0` 生产健康。
+- 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`），分支 `codex/v1.1-learning-action-center`；Batch 3–10 和 Batch 11 `v1.1.0` Release/production apply 已发生。package version 已提升为 `1.1.1`，发布后产品化修复已形成新的本地候选：首次设置与接管冲突、无工作区引导、科目/分组完整管理、App Shell 以及今日/计划/知识/复盘/阶段/设置的信息层级已完成本地修复并通过全量检查与桌面/移动验收，但尚未 push、创建 `v1.1.1` Release 或 production apply。2026-07-31 已在双备份和单事务下完成生产 5 组重复科目与 `[AF_SMOKE]` 清理，并完成 22/22 静态入口桌面/移动复验；审计事件批准计数为 14、实际删除 22，额外 8 条属于同批合成对象且偏差已记录。`AF-RISK-DATA-001` 保持 deferred-work，任何 residual 状态变化另行确认。阶段索引见 `docs/development/v11-phase-packages.md`。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。学习行动中心规划能力不计入该完成声明。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。

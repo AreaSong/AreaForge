@@ -270,6 +270,7 @@ export function KnowledgeCanvasClient(props: {
   const [hiddenTargetId, setHiddenTargetId] = useState(props.initial.hiddenNodes[0]?.id ?? "");
   const hiddenRestoreSelectRef = useRef<HTMLSelectElement>(null);
   const resetLayoutTriggerRef = useRef<HTMLButtonElement>(null);
+  const layoutConflictReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const visibleCanvas = useMemo(
     () => applyRelationFilter(
@@ -478,6 +479,7 @@ export function KnowledgeCanvasClient(props: {
     if (!canMutateKnowledgeCanvasLayout({ isDesktopViewport: desktopRef.current }) || patches.length === 0) {
       return false;
     }
+    rememberLayoutMutationTrigger();
     applyQueuedLayoutLocally(patches);
     layoutQueueRef.current = enqueueKnowledgeCanvasLayoutPatches(layoutQueueRef.current, patches);
     layoutMutationGenerationRef.current += 1;
@@ -488,6 +490,7 @@ export function KnowledgeCanvasClient(props: {
 
   function enqueueViewport(nextViewport: Viewport): boolean {
     if (!canMutateKnowledgeCanvasLayout({ isDesktopViewport: desktopRef.current })) return false;
+    rememberLayoutMutationTrigger();
     const patch = {
       viewportX: nextViewport.x,
       viewportY: nextViewport.y,
@@ -503,6 +506,13 @@ export function KnowledgeCanvasClient(props: {
     syncLayoutDirty();
     if (!layoutBlockedRef.current) void flushLayoutQueue();
     return true;
+  }
+
+  function rememberLayoutMutationTrigger(): void {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && activeElement !== document.body) {
+      layoutConflictReturnFocusRef.current = activeElement;
+    }
   }
 
   async function flushLayoutQueue(): Promise<void> {
@@ -820,6 +830,7 @@ export function KnowledgeCanvasClient(props: {
       } | null;
       if (!response.ok) {
         if (response.status === 409) {
+          layoutConflictReturnFocusRef.current = resetLayoutTriggerRef.current;
           setLayoutConflict({
             action: "reset",
             latest: body?.latest ?? null,
@@ -1173,7 +1184,12 @@ export function KnowledgeCanvasClient(props: {
         </div>
       </Modal>
 
-      <Modal open={layoutConflict !== null} title="布局已在其他设备更新" allowEscape={false}>
+      <Modal
+        open={layoutConflict !== null}
+        title="布局已在其他设备更新"
+        allowEscape={false}
+        returnFocusRef={layoutConflictReturnFocusRef}
+      >
         <div className="space-y-3 text-sm text-zinc-300">
           <p>
             服务端 revision {layoutConflict?.latest?.revision ?? "未知"}；冲突字段：

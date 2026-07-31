@@ -5,7 +5,18 @@ import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { updateSubjectGroup } from "@/lib/study/exam-workspace-service";
 
 export const dynamic = "force-dynamic";
-const patchSchema = z.object({ expectedWorkspaceRevision: z.number().int().positive(), name: z.string().trim().min(1).max(120).optional(), sortOrder: z.number().int().optional(), archived: z.boolean().optional() }).refine((value) => Object.keys(value).some((key) => key !== "expectedWorkspaceRevision"), { message: "at least one field is required" });
+const patchSchema = z.object({
+  expectedWorkspaceRevision: z.number().int().positive(),
+  name: z.string().trim().min(1).max(120).optional(),
+  sortOrder: z.number().int().optional(),
+  archived: z.boolean().optional(),
+  move: z.enum(["UP", "DOWN"]).optional(),
+})
+  .refine((value) => Object.keys(value).some((key) => key !== "expectedWorkspaceRevision"), { message: "at least one field is required" })
+  .refine(
+    (value) => !value.move || [value.name, value.sortOrder, value.archived].every((field) => field === undefined),
+    { message: "move cannot be combined with other fields" },
+  );
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string; groupId: string }> }) {
   try {

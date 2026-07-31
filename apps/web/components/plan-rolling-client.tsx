@@ -158,15 +158,15 @@ export function PlanRollingClient(props: {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold text-white">计划</h1>
-          <p className="mt-1 text-sm text-zinc-400">正式任务、欠账与带日期 Inbox 数量入口</p>
+          <h1 className="text-xl font-semibold text-white">计划</h1>
+          <p className="mt-1 text-sm text-zinc-500">安排任务，处理欠账与待确认计划</p>
         </div>
         <Link href={props.initial.inboxEntryPath} className="text-sm text-teal-300 hover:underline">
-          带日期收件箱 {props.initial.datedInboxCount}
+          待确认计划 {props.initial.datedInboxCount}
         </Link>
-      </div>
+      </header>
       {props.sourceResource ? (
         <p className={`rounded-md border px-3 py-2 text-sm ${props.sourceResource.archived ? "border-red-400/30 text-red-200" : "border-teal-400/20 text-teal-100"}`}>
           来源资料：{props.sourceResource.title}{props.sourceResource.archived ? "（已归档，不能创建关联任务）" : ""}
@@ -203,7 +203,7 @@ export function PlanRollingClient(props: {
         ))}
       </div>
 
-      <div className="rounded-md border border-white/10 bg-[#101419] p-4 lg:hidden">
+      <section className="border-y border-white/10 py-4 lg:hidden">
         <h2 className="text-sm font-medium text-zinc-200">当日任务</h2>
         <ul className="mt-2 space-y-2">
           {selectedDayTasks.map((task) => (
@@ -215,7 +215,7 @@ export function PlanRollingClient(props: {
             </li>
           ))}
         </ul>
-      </div>
+      </section>
 
       {props.initial.debt.length > 0 ? (
         <div className="rounded-md border border-amber-400/20 bg-amber-500/5 p-4">
@@ -232,8 +232,8 @@ export function PlanRollingClient(props: {
         </div>
       ) : null}
 
-      <div className="rounded-md border border-white/10 bg-[#101419] p-4">
-        <h2 className="text-sm font-medium text-white">新建任务</h2>
+      <details className="border-y border-white/10 py-4" open={props.createMinimum || Boolean(props.sourceResource)}>
+        <summary className="cursor-pointer text-sm font-medium text-white">新建任务</summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             <span className="text-zinc-400">标题</span>
@@ -270,12 +270,12 @@ export function PlanRollingClient(props: {
             </select>
           </label>
           <label className="text-sm">
-            <span className="text-zinc-400">主考纲节点</span>
+            <span className="text-zinc-400">主要知识点</span>
             <select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={syllabusNodeId} onChange={(event) => {
               setSyllabusNodeId(event.target.value);
               setRelatedSyllabusNodeIds((current) => current.filter((id) => id !== event.target.value));
             }}>
-              <option value="">不关联主节点</option>
+              <option value="">不关联知识点</option>
               {availableNodes.map((node) => <option key={node.id} value={node.id}>{`${"  ".repeat(node.depth)}${node.title}`}</option>)}
             </select>
           </label>
@@ -304,7 +304,7 @@ export function PlanRollingClient(props: {
           </label>
         </div>
         <fieldset className="mt-3 space-y-2">
-          <legend className="text-sm text-zinc-400">相关考纲节点（最多 20 个）</legend>
+          <legend className="text-sm text-zinc-400">其他相关知识点（最多 20 个）</legend>
           <div className="grid max-h-44 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
             {availableNodes.filter((node) => node.id !== syllabusNodeId).map((node) => (
               <label key={node.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-300">
@@ -324,7 +324,7 @@ export function PlanRollingClient(props: {
         >
           {creatingTask ? "创建中..." : "新建任务"}
         </button>
-      </div>
+      </details>
     </section>
   );
 }

@@ -1,14 +1,14 @@
 # v1.1 Complete Minor Release Admission 记录模板
 
-本模板只用于冻结 `v1.1.0` 签名 Release 前的只读 admission 输入。将完成记录保存到固定路径
+本模板用于冻结 `v1.1.x` patch 系列签名 Release 前的只读 admission 输入。将完成记录保存到固定路径
 `docs/development/v11-release-admission-record.md` 后，运行：
 
 ```bash
 pnpm release:v11:admission
 ```
 
-该 v1.1 专用命令未设置 `AREAFORGE_RELEASE_TAG` 时默认固定为 `v1.1.0`；显式传入任何其他非空 tag
-都会返回 `invalid`。
+该 v1.1 专用命令未设置 `AREAFORGE_RELEASE_TAG` 时默认使用当前修复候选 `v1.1.1`；显式 tag 必须匹配
+`v1.1.<patch>`，并由 tag 派生精确 `releaseVersion`。其他 minor/major、前导零或非标准 tag 都返回 `invalid`。
 
 命令只读取仓库内证据、重算普通非 symlink 文件的 SHA-256，并调用既有 completion、UX、结构化浏览器证据、
 SC-002、SC-004 与 source/evidence-only evaluator。它不连接网络、不创建 tag/Release、不构建或推送镜像，
@@ -24,15 +24,15 @@ symlink、hash 漂移或无效 evaluator 结果输出 `invalid`。
 
 ```text
 schemaVersion: 1
-releaseTag: v1.1.0
-releaseVersion: 1.1.0
+releaseTag: v1.1.<patch>
+releaseVersion: 1.1.<patch>
 sourceGitCommit: <40-character-lowercase-source-commit>
 bindingPolicy: source-or-evidence-only
 completionEvidence:
-  path: docs/development/release-v1.1.0-candidate-record.md
+  path: docs/development/release-v1.1.<patch>-candidate-record.md
   sha256: sha256:<64-lowercase-hex>
 productExperienceEvidence:
-  path: docs/development/product-experience-review-v1.1.0-<date>.md
+  path: docs/development/product-experience-review-v1.1.<patch>-<date>.md
   sha256: sha256:<64-lowercase-hex>
 accessibilityEvidence:
   path: docs/development/v11-accessibility-review-<date>.md
@@ -41,19 +41,19 @@ compatibilityFloorEvidence:
   path: docs/development/v11-compatibility-floor-evidence-20260727.md
   sha256: sha256:<64-lowercase-hex>
 compatibilityRuntimeEvidence:
-  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.0-<date>.json
+  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.<patch>-<date>.json
   sha256: sha256:<64-lowercase-hex>
 ops006007ReviewEvidence:
   path: docs/development/v11-s2-ops006-007-gate-review.md
   sha256: sha256:<64-lowercase-hex>
 sc002Evidence:
-  path: output/supply-chain/ci-supply-chain-v1.1.0-<date>.txt
+  path: output/supply-chain/ci-supply-chain-v1.1.<patch>-<date>.txt
   sha256: sha256:<64-lowercase-hex>
 sc004ReadbackEvidence:
-  path: output/supply-chain/sc004-main-protection-readback-v1.1.0-<date>.json
+  path: output/supply-chain/sc004-main-protection-readback-v1.1.<patch>-<date>.json
   sha256: sha256:<64-lowercase-hex>
 sc004ControlledPrEvidence:
-  path: output/supply-chain/sc004-controlled-pr-v1.1.0-<date>.json
+  path: output/supply-chain/sc004-controlled-pr-v1.1.<patch>-<date>.json
   sha256: sha256:<64-lowercase-hex>
 ```
 
@@ -75,7 +75,7 @@ evidence-only 文件形成 current fingerprint 循环；随后由 admission 自�
 `productExperienceEvidence.path` 指向的体验记录必须继续包含
 `journeyEvidence` / `journeyEvidenceHash`，直接绑定 `v11-browser-journey-evidence-v1` JSON。
 admission 不只依赖 Product Experience evaluator 的汇总结论；它会再次安全读取该 JSON，并以同一
-`sourceGitCommit`、`releaseVersion=1.1.0` 和当前 `productExperienceSourceHash` 调用正式浏览器证据 validator。
+`sourceGitCommit`、记录中的精确 `releaseVersion` 和当前 `productExperienceSourceHash` 调用正式浏览器证据 validator。
 
 独立无障碍记录必须用下方 `structuredEvidence.path` / `structuredEvidence.sha256` 直接绑定
 `v11-accessibility-evidence-v1` JSON。该 JSON 必须包含固定 24 项检查、对应 observation JSON 与 artifact hash，
@@ -94,7 +94,7 @@ staging 浏览器复核，不能用总 UX 记录或 selftest 代替。
 schemaVersion: 1
 recordId: <record-id>
 reviewedAt: <ISO-8601>
-appVersion: 1.1.0
+appVersion: 1.1.<patch>
 gitCommit: <same-as-sourceGitCommit>
 status: pass
 environment: production-mode-local
@@ -120,7 +120,7 @@ schemaVersion: 1
 status: pass
 candidateImplementationCommit: <same-as-sourceGitCommit>
 compatibilityRuntimeEvidence:
-  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.0-<date>.json
+  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.<patch>-<date>.json
   sha256: sha256:<same-as-admission-compatibilityRuntimeEvidence-sha256>
 candidateWorktreeFingerprint: sha256:<same-as-runtime-candidateFingerprint-digest>
 legacyMigrationCount: 12

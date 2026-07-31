@@ -17,8 +17,9 @@ export function Modal(props: {
   onClose?: () => void;
   children: React.ReactNode;
   allowEscape?: boolean;
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
 }) {
-  const { open, allowEscape = true, onClose, title, children } = props;
+  const { open, allowEscape = true, onClose, title, children, returnFocusRef } = props;
   const dismissible = typeof onClose === "function";
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -33,6 +34,7 @@ export function Modal(props: {
     panelRef,
     allowEscape: allowEscape && dismissible,
     onClose: () => onCloseRef.current?.(),
+    returnFocusRef,
   });
 
   if (!open) return null;
@@ -117,6 +119,7 @@ function useOverlayFocus<T extends HTMLElement>(input: {
   panelRef: React.RefObject<T | null>;
   allowEscape: boolean;
   onClose: () => void;
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
 }) {
   const closeRef = useRef(input.onClose);
 
@@ -129,9 +132,24 @@ function useOverlayFocus<T extends HTMLElement>(input: {
     const panel = input.panelRef.current;
     if (!panel) return;
     const activePanel: T = panel;
-    const returnTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const initialTarget = getFocusableElements(activePanel)[0] ?? activePanel;
-    initialTarget.focus();
+    const explicitReturnTarget = input.returnFocusRef?.current;
+    const returnTarget = explicitReturnTarget?.isConnected
+      ? explicitReturnTarget
+      : document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    function focusInitialTarget(): void {
+      const initialTarget = getFocusableElements(activePanel)[0] ?? activePanel;
+      initialTarget.focus();
+    }
+
+    focusInitialTarget();
+
+    function onFocusIn(event: FocusEvent): void {
+      if (activePanel.contains(event.target as Node)) return;
+      focusInitialTarget();
+    }
 
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape" && input.allowEscape) {
@@ -158,12 +176,14 @@ function useOverlayFocus<T extends HTMLElement>(input: {
       }
     }
 
+    document.addEventListener("focusin", onFocusIn);
     document.addEventListener("keydown", onKey);
     return () => {
+      document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("keydown", onKey);
       if (returnTarget?.isConnected) returnTarget.focus();
     };
-  }, [input.open, input.allowEscape, input.panelRef]);
+  }, [input.open, input.allowEscape, input.panelRef, input.returnFocusRef]);
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {

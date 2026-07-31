@@ -25,20 +25,18 @@ export default async function KnowledgeNotesPage({ searchParams }: { searchParam
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-white">知识卡片</h1>
+      <h1 className="text-xl font-semibold text-white">知识卡片</h1>
       <p className="text-sm text-zinc-500">
-        知识卡片复用 Note 对象。详情也可从画布打开。
+        整理自己的理解、题解和复盘产出。
         <Link className="ml-2 text-teal-300 hover:underline" href="/knowledge/canvas">
           回到画布
         </Link>
       </p>
-      <details className="rounded-lg border border-white/10 p-3">
-        <summary className="cursor-pointer text-sm text-teal-300">上下文 AI 草稿（需选中文本）</summary>
-        <div className="mt-3">
-          <AiDraftPanel endpoint="knowledge-card" userId={user.id} />
-        </div>
-      </details>
       <NoteLibrary userId={user.id} subjects={subjects} tasks={tasks} nodes={nodes} notes={notes} initialSubjectId={query.subjectId} initialSyllabusNodeId={query.syllabusNodeId} initialTaskId={query.taskId} initialCreate={query.create === "1"} />
+      <details className="border-t border-white/10 pt-4">
+        <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300">AI 卡片草稿</summary>
+        <div className="mt-3"><AiDraftPanel endpoint="knowledge-card" userId={user.id} /></div>
+      </details>
     </div>
   );
 }

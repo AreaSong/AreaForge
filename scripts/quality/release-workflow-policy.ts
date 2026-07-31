@@ -6,7 +6,7 @@ const root = process.cwd();
 const canonicalWorkflowPath = path.join(root, ".github/workflows/release.yml");
 const workflowPath = path.resolve(process.env.AREAFORGE_RELEASE_WORKFLOW_PATH ?? canonicalWorkflowPath);
 const packagePath = path.resolve(process.env.AREAFORGE_RELEASE_PACKAGE_PATH ?? path.join(root, "package.json"));
-const expectedWorkflowSha256 = "d73d9ab6ea2810588b3f9baa8e25bb71fc3d1c51b41eea505e321c67e01caa51";
+const expectedWorkflowSha256 = "8380b8533ad90ae67044f17ba93fa243d585101a465dfadbe2cbcbb3d0d4ebaa";
 const semanticsOnly = process.env.AREAFORGE_RELEASE_WORKFLOW_POLICY_MODE === "semantics";
 
 interface StepBlock {
@@ -386,7 +386,7 @@ function requireHardGateStep(step: StepBlock | null, issues: string[]): void {
 
 function requireV11AdmissionGate(step: StepBlock | null, issues: string[]): void {
   if (!step) return;
-  if (directValue(step, "if") !== "${{ steps.vars.outputs.tag == 'v1.1.0' }}") {
+  if (directValue(step, "if") !== "${{ startsWith(steps.vars.outputs.tag, 'v1.1.') }}") {
     issues.push("V11_ADMISSION_CONDITION_INVALID");
   }
   const continueOnError = directValue(step, "continue-on-error");

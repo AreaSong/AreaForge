@@ -54,7 +54,15 @@ export interface TakeoverPreviewDto {
   affectedPeriodCount: number;
   eligibleSubjectIds: string[];
   unresolvedSubjectIds: string[];
+  eligibleSubjects: Array<{
+    id: string;
+    stableKey: string;
+    legacyCode: WorkspaceSubjectDto["legacyCode"];
+    name: string;
+  }>;
 }
+
+type MoveDirection = "UP" | "DOWN";
 
 function serializeWorkspace(row: {
   id: string;
@@ -153,6 +161,28 @@ export async function createExamWorkspace(
     if (new Set(stableKeys).size !== stableKeys.length) {
       throw new ApiError("SUBJECT_STABLE_KEY_DUPLICATE", 400);
     }
+    const requestedTakeover = Array.from(new Set(input.takeoverSubjectIds ?? []));
+    if (requestedTakeover.length > 0) {
+      const preview = await previewWorkspaceTakeoverWithClient(actorId, tx);
+      const eligibleSet = new Set(preview.eligibleSubjectIds);
+      if (requestedTakeover.some((id) => !eligibleSet.has(id))) {
+        throw new ApiError("TAKEOVER_SUBJECT_NOT_ELIGIBLE", 409, {
+          latest: preview,
+          conflictFields: ["takeoverSubjectIds"],
+        });
+      }
+      const takeoverSubjects = await tx.subject.findMany({
+        where: { id: { in: requestedTakeover }, workspaceId: null },
+        select: { stableKey: true },
+      });
+      const takeoverStableKeys = new Set(takeoverSubjects.map((subject) => subject.stableKey));
+      const conflictingKeys = stableKeys.filter((stableKey) => takeoverStableKeys.has(stableKey));
+      if (conflictingKeys.length > 0) {
+        throw new ApiError("SUBJECT_STABLE_KEY_CONFLICT_WITH_TAKEOVER", 409, {
+          conflictFields: ["subjects", "takeoverSubjectIds"],
+        });
+      }
+    }
     if (activate) {
       await assertWorkspaceSwitchHasNoActiveSession(tx, actorId);
       const current = await tx.examWorkspace.findFirst({ where: { userId: actorId, status: "ACTIVE" } });
@@ -195,16 +225,7 @@ export async function createExamWorkspace(
       });
     }
 
-    const requestedTakeover = Array.from(new Set(input.takeoverSubjectIds ?? []));
     if (requestedTakeover.length > 0) {
-      const preview = await previewWorkspaceTakeoverWithClient(actorId, tx);
-      const eligibleSet = new Set(preview.eligibleSubjectIds);
-      if (requestedTakeover.some((id) => !eligibleSet.has(id))) {
-        throw new ApiError("TAKEOVER_SUBJECT_NOT_ELIGIBLE", 409, {
-          latest: preview,
-          conflictFields: ["takeoverSubjectIds"],
-        });
-      }
       await applyEligibleLegacySubjects(tx, created.id, group408.id, requestedTakeover);
       await applyEligibleLegacyRoots(tx, actorId, created.id);
     }
@@ -362,6 +383,9 @@ async function previewWorkspaceTakeoverWithClient(
 
   const rows: Array<{
     subjectId: string;
+    stableKey: string;
+    legacyCode: WorkspaceSubjectDto["legacyCode"];
+    name: string;
     verdict: LegacyOwnershipVerdict;
     affectedDates: number;
     affectedPeriods: number;
@@ -424,6 +448,9 @@ async function previewWorkspaceTakeoverWithClient(
 
     rows.push({
       subjectId: subject.id,
+      stableKey: subject.stableKey,
+      legacyCode: subject.legacyCode,
+      name: subject.name,
       verdict,
       affectedDates,
       affectedPeriods: 0,
@@ -437,6 +464,14 @@ async function previewWorkspaceTakeoverWithClient(
     crossOwnerBlockedCount: rows.filter((row) => row.crossOwnerBlocked).length,
     eligibleSubjectIds: rows.filter((row) => row.verdict === "TAKEOVER_ELIGIBLE").map((row) => row.subjectId),
     unresolvedSubjectIds: rows.filter((row) => row.verdict === "UNRESOLVED_LEGACY").map((row) => row.subjectId),
+    eligibleSubjects: rows
+      .filter((row) => row.verdict === "TAKEOVER_ELIGIBLE")
+      .map((row) => ({
+        id: row.subjectId,
+        stableKey: row.stableKey,
+        legacyCode: row.legacyCode,
+        name: row.name,
+      })),
   };
 }
 
@@ -674,27 +709,34 @@ export async function createWorkspaceSubject(
     expectedWorkspaceRevision: number;
   },
 ): Promise<WorkspaceSubjectDto> {
-  return prisma.$transaction(async (tx) => {
-    const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
-    if (input.groupId) {
-      const group = await tx.subjectGroup.findFirst({ where: { id: input.groupId, workspaceId } });
-      if (!group) throw new ApiError("SUBJECT_GROUP_NOT_FOUND", 404);
-    }
-    const created = await tx.subject.create({
-      data: {
-        workspaceId,
-        groupId: input.groupId ?? null,
-        stableKey: input.stableKey.trim(),
-        name: input.name.trim(),
-        color: input.color,
-        sortOrder: input.sortOrder ?? 100,
-        legacyCode: null,
-      },
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
+      if (input.groupId) {
+        const group = await tx.subjectGroup.findFirst({ where: { id: input.groupId, workspaceId, archivedAt: null } });
+        if (!group) throw new ApiError("SUBJECT_GROUP_NOT_FOUND", 404);
+      }
+      const created = await tx.subject.create({
+        data: {
+          workspaceId,
+          groupId: input.groupId ?? null,
+          stableKey: input.stableKey.trim(),
+          name: input.name.trim(),
+          color: input.color,
+          sortOrder: input.sortOrder ?? 100,
+          legacyCode: null,
+        },
+      });
+      await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+      await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_CREATED", entityType: "Subject", entityId: created.id } });
+      return serializeSubject(created);
     });
-    await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
-    await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_CREATED", entityType: "Subject", entityId: created.id } });
-    return serializeSubject(created);
-  });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new ApiError("SUBJECT_STABLE_KEY_ALREADY_EXISTS", 409);
+    }
+    throw error;
+  }
 }
 
 export async function updateWorkspaceSubject(
@@ -708,12 +750,23 @@ export async function updateWorkspaceSubject(
     sortOrder?: number;
     groupId?: string | null;
     archived?: boolean;
+    move?: MoveDirection;
   },
 ): Promise<{ subject: WorkspaceSubjectDto; workspace: ExamWorkspaceDto }> {
   return prisma.$transaction(async (tx) => {
     const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
     const subject = await tx.subject.findFirst({ where: { id: subjectId, workspaceId } });
     if (!subject) throw new ApiError("SUBJECT_NOT_FOUND", 404);
+    if (input.move) {
+      assertMoveOnly(input, ["name", "color", "sortOrder", "groupId", "archived"]);
+      if (subject.archivedAt) throw new ApiError("SUBJECT_ARCHIVED", 409);
+      const moved = await reorderWorkspaceSubjects(tx, workspaceId, subject.id, input.move);
+      if (!moved) return { subject: serializeSubject(subject), workspace: serializeWorkspace(workspace) };
+      const reordered = await tx.subject.findUniqueOrThrow({ where: { id: subject.id } });
+      const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+      await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_REORDERED", entityType: "Subject", entityId: subject.id } });
+      return { subject: serializeSubject(reordered), workspace: serializeWorkspace(updatedWorkspace) };
+    }
     if (input.groupId) {
       const group = await tx.subjectGroup.findFirst({ where: { id: input.groupId, workspaceId, archivedAt: null } });
       if (!group) throw new ApiError("SUBJECT_GROUP_NOT_FOUND", 404);
@@ -769,25 +822,42 @@ export async function createSubjectGroup(
   workspaceId: string,
   input: { expectedWorkspaceRevision: number; stableKey: string; name: string; sortOrder?: number },
 ): Promise<{ group: SubjectGroupDto; workspace: ExamWorkspaceDto }> {
-  return prisma.$transaction(async (tx) => {
-    const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
-    const group = await tx.subjectGroup.create({ data: { workspaceId, stableKey: input.stableKey.trim(), name: input.name.trim(), sortOrder: input.sortOrder ?? 100 } });
-    const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
-    await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_GROUP_CREATED", entityType: "SubjectGroup", entityId: group.id } });
-    return { group: serializeSubjectGroup(group), workspace: serializeWorkspace(updatedWorkspace) };
-  });
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
+      const group = await tx.subjectGroup.create({ data: { workspaceId, stableKey: input.stableKey.trim(), name: input.name.trim(), sortOrder: input.sortOrder ?? 100 } });
+      const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+      await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_GROUP_CREATED", entityType: "SubjectGroup", entityId: group.id } });
+      return { group: serializeSubjectGroup(group), workspace: serializeWorkspace(updatedWorkspace) };
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new ApiError("SUBJECT_GROUP_STABLE_KEY_ALREADY_EXISTS", 409);
+    }
+    throw error;
+  }
 }
 
 export async function updateSubjectGroup(
   actorId: string,
   workspaceId: string,
   groupId: string,
-  input: { expectedWorkspaceRevision: number; name?: string; sortOrder?: number; archived?: boolean },
+  input: { expectedWorkspaceRevision: number; name?: string; sortOrder?: number; archived?: boolean; move?: MoveDirection },
 ): Promise<{ group: SubjectGroupDto; workspace: ExamWorkspaceDto }> {
   return prisma.$transaction(async (tx) => {
     const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
     const group = await tx.subjectGroup.findFirst({ where: { id: groupId, workspaceId } });
     if (!group) throw new ApiError("SUBJECT_GROUP_NOT_FOUND", 404);
+    if (input.move) {
+      assertMoveOnly(input, ["name", "sortOrder", "archived"]);
+      if (group.archivedAt) throw new ApiError("SUBJECT_GROUP_ARCHIVED", 409);
+      const moved = await reorderSubjectGroups(tx, workspaceId, group.id, input.move);
+      if (!moved) return { group: serializeSubjectGroup(group), workspace: serializeWorkspace(workspace) };
+      const reordered = await tx.subjectGroup.findUniqueOrThrow({ where: { id: group.id } });
+      const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+      await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_GROUP_REORDERED", entityType: "SubjectGroup", entityId: group.id } });
+      return { group: serializeSubjectGroup(reordered), workspace: serializeWorkspace(updatedWorkspace) };
+    }
     const updated = await tx.subjectGroup.update({
       where: { id: group.id },
       data: { name: input.name?.trim(), sortOrder: input.sortOrder, archivedAt: input.archived === undefined ? undefined : input.archived ? new Date() : null },
@@ -820,6 +890,67 @@ function serializeSubject(row: { id: string; workspaceId: string | null; groupId
 
 function serializeSubjectGroup(row: { id: string; workspaceId: string; stableKey: string; name: string; sortOrder: number; archivedAt: Date | null }): SubjectGroupDto {
   return { id: row.id, workspaceId: row.workspaceId, stableKey: row.stableKey, name: row.name, sortOrder: row.sortOrder, archivedAt: row.archivedAt?.toISOString() ?? null };
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+function assertMoveOnly(input: Record<string, unknown>, patchFields: string[]): void {
+  if (patchFields.some((field) => input[field] !== undefined)) {
+    throw new ApiError("MOVE_PATCH_CONFLICT", 400);
+  }
+}
+
+async function reorderWorkspaceSubjects(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  subjectId: string,
+  move: MoveDirection,
+): Promise<boolean> {
+  const rows = await tx.subject.findMany({
+    where: { workspaceId, archivedAt: null },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  const reordered = swapWithNeighbor(rows, subjectId, move);
+  if (!reordered) return false;
+  for (const [index, row] of reordered.entries()) {
+    await tx.subject.update({ where: { id: row.id }, data: { sortOrder: (index + 1) * 10 } });
+  }
+  return true;
+}
+
+async function reorderSubjectGroups(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  groupId: string,
+  move: MoveDirection,
+): Promise<boolean> {
+  const rows = await tx.subjectGroup.findMany({
+    where: { workspaceId, archivedAt: null },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  const reordered = swapWithNeighbor(rows, groupId, move);
+  if (!reordered) return false;
+  for (const [index, row] of reordered.entries()) {
+    await tx.subjectGroup.update({ where: { id: row.id }, data: { sortOrder: (index + 1) * 10 } });
+  }
+  return true;
+}
+
+function swapWithNeighbor<T extends { id: string }>(
+  rows: T[],
+  rowId: string,
+  move: MoveDirection,
+): T[] | null {
+  const index = rows.findIndex((row) => row.id === rowId);
+  const targetIndex = move === "UP" ? index - 1 : index + 1;
+  if (index < 0 || targetIndex < 0 || targetIndex >= rows.length) return null;
+  const reordered = [...rows];
+  [reordered[index], reordered[targetIndex]] = [reordered[targetIndex]!, reordered[index]!];
+  return reordered;
 }
 
 async function assertOwnedWorkspace(actorId: string, workspaceId: string) {

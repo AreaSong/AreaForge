@@ -86,8 +86,8 @@ export type V11ReleaseAdmissionOptions = {
 
 type AdmissionBase = Omit<V11ReleaseAdmissionResult, "status">;
 
-const expectedTag = "v1.1.0";
-const expectedVersion = "1.1.0";
+const defaultReleaseTag = "v1.1.1";
+const v11ReleaseTagPattern = /^v1\.1\.(?:0|[1-9]\d*)$/;
 const canonicalRecordPath = "docs/development/v11-release-admission-record.md";
 const maxEvidenceBytes = 4 * 1024 * 1024;
 const evidenceSections = [
@@ -115,7 +115,8 @@ export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions 
   const env = options.env ?? process.env;
   const root = path.resolve(options.root ?? env.AREAFORGE_V11_RELEASE_ADMISSION_ROOT ?? process.cwd());
   const configuredReleaseTag = options.releaseTag ?? env.AREAFORGE_RELEASE_TAG;
-  const releaseTag = configuredReleaseTag?.trim() || expectedTag;
+  const releaseTag = configuredReleaseTag?.trim() || defaultReleaseTag;
+  const releaseVersion = releaseTag.startsWith("v") ? releaseTag.slice(1) : releaseTag;
   const configuredRecordPath = options.recordPath ?? env.AREAFORGE_V11_RELEASE_ADMISSION_RECORD ?? canonicalRecordPath;
   const recordPathLabel = normalizeRelativePath(configuredRecordPath) ?? configuredRecordPath;
   const checks: AdmissionCheck[] = [];
@@ -123,7 +124,7 @@ export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions 
     schemaVersion: 1 as const,
     mode: "read_only_v11_release_admission" as const,
     releaseTag,
-    releaseVersion: expectedVersion,
+    releaseVersion,
     recordPath: recordPathLabel,
     sourceGitCommit: null as string | null,
     currentGitCommit: options.currentGitCommit ?? env.AREAFORGE_WORKFLOW_SHA ?? null,
@@ -149,8 +150,8 @@ export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions 
     },
   };
 
-  if (releaseTag !== expectedTag) {
-    checks.push(invalid("release_identity", `release tag must be exactly ${expectedTag}`));
+  if (!v11ReleaseTagPattern.test(releaseTag)) {
+    checks.push(invalid("release_identity", "release tag must identify the v1.1.x patch series"));
     return finish(base);
   }
 
@@ -169,7 +170,7 @@ export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions 
 
   const parseIssues: ValidationIssue[] = [];
   const fields = parseStrictIndentedKeyValueRecord(admissionRecord.reference.raw, parseIssues);
-  validateAdmissionRecordFields(fields, parseIssues);
+  validateAdmissionRecordFields(fields, parseIssues, releaseTag, releaseVersion);
   if (parseIssues.length > 0) {
     checks.push(invalid("admission_record", summarizeIssues(parseIssues)));
     return finish(base);
@@ -194,10 +195,10 @@ export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions 
   const sourceGitCommit = base.sourceGitCommit as string;
   const completion = evidence.get("completionEvidence") as EvidenceReference;
   const productExperience = evidence.get("productExperienceEvidence") as EvidenceReference;
-  const browserBinding = resolveBrowserEvidenceBinding(root, sourceGitCommit, checks);
+  const browserBinding = resolveBrowserEvidenceBinding(root, sourceGitCommit, releaseVersion, checks);
   if (!browserBinding) return finish(base);
   checks.push(evaluateCompletionCheck(root, completion, sourceGitCommit, dependencies));
-  checks.push(evaluateProductExperienceCheck(root, productExperience, options.now, dependencies));
+  checks.push(evaluateProductExperienceCheck(root, productExperience, releaseVersion, options.now, dependencies));
   checks.push(validateStructuredBrowserEvidence({
     root,
     record: productExperience,
@@ -210,7 +211,11 @@ export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions 
     evidence,
     dependencies,
   }));
-  checks.push(validateAccessibility(evidence.get("accessibilityEvidence") as EvidenceReference, sourceGitCommit));
+  checks.push(validateAccessibility(
+    evidence.get("accessibilityEvidence") as EvidenceReference,
+    sourceGitCommit,
+    releaseVersion,
+  ));
   checks.push(validateStructuredBrowserEvidence({
     root,
     record: evidence.get("accessibilityEvidence") as EvidenceReference,
@@ -310,6 +315,7 @@ function collectEvidence(root: string, fields: Map<string, string>, checks: Admi
 function evaluateProductExperienceCheck(
   root: string,
   reference: EvidenceReference,
+  expectedVersion: string,
   now: Date | undefined,
   dependencies: V11ReleaseAdmissionDependencies,
 ): AdmissionCheck {
@@ -332,6 +338,7 @@ function evaluateProductExperienceCheck(
 function resolveBrowserEvidenceBinding(
   root: string,
   sourceGitCommit: string,
+  expectedVersion: string,
   checks: AdmissionCheck[],
 ): V11EvidenceBinding | null {
   try {
@@ -549,7 +556,12 @@ export function exitCodeForV11ReleaseAdmission(status: V11ReleaseAdmissionStatus
   return status === "not_ready" ? 1 : 2;
 }
 
-function validateAdmissionRecordFields(fields: Map<string, string>, issues: ValidationIssue[]): void {
+function validateAdmissionRecordFields(
+  fields: Map<string, string>,
+  issues: ValidationIssue[],
+  expectedTag: string,
+  expectedVersion: string,
+): void {
   const exactTopLevel = ["schemaVersion", "releaseTag", "releaseVersion", "sourceGitCommit", "bindingPolicy"];
   for (const field of exactTopLevel) requireValue(fields, field, issues);
   for (const section of evidenceSections) {
@@ -677,7 +689,11 @@ function validateCompletionSemantics(raw: string, sourceGitCommit: string): stri
   return issues.slice(0, 8);
 }
 
-function validateAccessibility(reference: EvidenceReference, sourceGitCommit: string): AdmissionCheck {
+function validateAccessibility(
+  reference: EvidenceReference,
+  sourceGitCommit: string,
+  expectedVersion: string,
+): AdmissionCheck {
   const issues: ValidationIssue[] = [];
   const fields = parseStrictIndentedKeyValueRecord(reference.raw, issues);
   const passFields = [

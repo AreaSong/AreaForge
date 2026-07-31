@@ -1,6 +1,6 @@
 # Production Smoke And Alerting Strategy
 
-本文件是生产 smoke 和告警策略的非执行草案。它不授权任何生产写入，不替代 `docs/development/production-release-runbook.md`，也不关闭 `AF-RISK-OPS-001`、`AF-RISK-OPS-002`、`AF-RISK-OPS-004` 或 `AF-RISK-OPS-005`。`AF-RISK-UX-001` 当前为 monitoring gap；旧 desktop/mobile 记录仅作 shape-only 历史证据，当前 checkout 需重新完成 source-bound 体验复核。
+本文件是生产 smoke 和告警策略的非执行草案。它不授权任何生产写入，不替代 `docs/development/production-release-runbook.md`，也不改变 `AF-RISK-OPS-001`、`AF-RISK-OPS-002`、`AF-RISK-OPS-004`、`AF-RISK-OPS-005` 或 `AF-RISK-UX-001` 的台账状态。`AF-RISK-UX-001` 当前保持 `closed-evidence`；本轮发布后产品化修复已经改变 source fingerprint，后续修复 Release 仍需按新目标 commit 重采 source-bound desktop/mobile 体验证据，但该需求不会自动重新打开 residual。
 
 ## 默认边界
 
@@ -74,4 +74,4 @@ pnpm ops:alert:preview
 - `AF-RISK-OPS-002`：确认写入型 smoke 账号、允许写入范围、清理策略、失败处理和至少一次受控记录。
 - `AF-RISK-OPS-004`：配置外部告警接收人或人工值班窗口，并完成一次告警/恢复演练记录；服务器侧可用 `ops/alerting/areaforge-alert-notify.sh` timer 承担采集与推送（见 `docs/deployment/alerting.md`）。`pnpm ops:alert:preview`、`pnpm alert:drill:validate` 和 `pnpm ops:ops-004:preflight` 只能作为演练输入、记录校验与证据预检，不自动关闭该残余项。
 - `AF-RISK-OPS-005`：生产更新 mutation 必须在本地 V2 实施、签名 Release 和独立生产部署后，以 `pnpm ops:ops-005:evidence:validate` 与 `pnpm ops:ops-005:preflight` 复核 expected-before rejection、共享锁和 reconciliation；smoke 或告警通过不能替代该控制面证据。
-- `AF-RISK-UX-001`：当前重新打开；必须完成覆盖 desktop/mobile/unauth 的当前 checkout 体验复核并通过默认 `pnpm experience:review:validate`，生产 smoke、API smoke、旧截图或 `--shape-only` 不能替代。
+- `AF-RISK-UX-001`：当前保持 `closed-evidence`；任何新体验完成或修复 Release 声明仍必须完成覆盖 desktop/mobile/unauth 的当前 checkout 体验复核并通过默认 `pnpm experience:review:validate`。生产 smoke、API smoke、旧截图或 `--shape-only` 不能替代，校验失败时按台账重新打开条件处理。

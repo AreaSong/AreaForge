@@ -345,12 +345,13 @@ export function AppShell(props: {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-screen">
           <header className="af-shell-header sticky top-0 z-20 shrink-0 border-b border-white/10 bg-[#080b0f]/95 px-4 py-3 backdrop-blur">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 lg:hidden">
-                <BrandMark size={20} />
-                <span className="text-sm text-teal-300">AreaForge</span>
-              </div>
-              <div className="hidden items-center gap-2 md:flex" aria-label="状态灯">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2 lg:hidden">
+                  <BrandMark size={20} />
+                  <span className="text-sm text-teal-300">AreaForge</span>
+                </div>
+                <div className="hidden items-center gap-2 md:flex" aria-label="状态灯">
                 {displayStatus.lights.map((light) => (
                   <button
                     key={light.kind}
@@ -364,18 +365,19 @@ export function AppShell(props: {
                     {light.label}
                   </button>
                 ))}
+                </div>
               </div>
-              <button
-                type="button"
-                className={`rounded-md border px-2 py-1 text-xs md:hidden ${toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray}`}
-                onClick={(event) => openStatusLight(displayStatus.mobileTop.kind, event.currentTarget)}
-                aria-label={`状态：${displayStatus.mobileTop.summary}`}
-                aria-expanded={lightOpen === displayStatus.mobileTop.kind}
-                aria-controls="status-light-panel"
-              >
-                {displayStatus.mobileTop.label}
-              </button>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  className={`rounded-md border px-2 py-1 text-xs md:hidden ${toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray}`}
+                  onClick={(event) => openStatusLight(displayStatus.mobileTop.kind, event.currentTarget)}
+                  aria-label={`状态：${displayStatus.mobileTop.summary}`}
+                  aria-expanded={lightOpen === displayStatus.mobileTop.kind}
+                  aria-controls="status-light-panel"
+                >
+                  {displayStatus.mobileTop.label}
+                </button>
                 <button
                   type="button"
                   className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/5"
@@ -387,15 +389,18 @@ export function AppShell(props: {
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/5"
+                  className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/5 sm:px-3"
                   onClick={() => void openMotivationHelp()}
+                  aria-label="我学不下去了"
+                  title="我学不下去了"
                 >
-                  我学不下去了
+                  <TriangleAlert size={16} aria-hidden="true" />
+                  <span className="hidden sm:inline">我学不下去了</span>
                 </button>
               </div>
             </div>
             <p
-              className={`mt-2 text-xs ${syncState === "current" ? "text-zinc-500" : "text-amber-200"}`}
+              className={`${syncState === "current" ? "sr-only md:mt-2 md:block md:text-xs md:text-zinc-500" : "mt-2 text-xs text-amber-200"}`}
               role="status"
               aria-live="polite"
               aria-atomic="true"

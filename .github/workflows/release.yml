@@ -264,7 +264,7 @@ jobs:
         run: pnpm release:admission
 
       - name: Validate v1.1 release admission
-        if: ${{ steps.vars.outputs.tag == 'v1.1.0' }}
+        if: ${{ startsWith(steps.vars.outputs.tag, 'v1.1.') }}
         env:
           AREAFORGE_V11_RELEASE_ADMISSION_RECORD: docs/development/v11-release-admission-record.md
           AREAFORGE_RELEASE_TAG: ${{ steps.vars.outputs.tag }}

@@ -5,10 +5,10 @@
 - `User`：单管理员账号。
 - `AuthSession`：登录会话，只保存 session token 哈希、过期时间和用户关联。
 - `Subject`：数学、英语、政治、408 各子科目。`legacyCode`（可空，原 `code`）保留默认科目兼容；`stableKey` 必填；可空 `workspaceId`/`groupId`；未接管行以 `workspaceId IS NULL` 作为 legacy 只读范围。自定义科目不伪造 enum code。
-- `ExamWorkspace` / `SubjectGroup`：考试工作区与 408 分组；同一用户最多一个 ACTIVE 工作区（partial unique）。已提供隔离 API，无生产 UI。
+- `ExamWorkspace` / `SubjectGroup`：考试工作区与 408 分组；同一用户最多一个 ACTIVE 工作区（partial unique）。工作区、科目与分组通过 `/settings/workspace` 管理。
 - `SyllabusNode`：考纲进度树节点，包含当前掌握状态和掌握等级；掌握证明优先读取显式条件、证据引用和复测记录，缺失显式证据时继续 fallback 到现有任务、计时、笔记和错题 `_count`。
 - `StudyTask`：每日任务；`parentTaskId` 自关联记录拆小任务的父子关系。旧任务没有父子关系时保持 `null`，不做猜测回填。当前已支持可空 `planMilestoneId`、相关考纲关联表，以及可空 `reviewScheduleId`（复习任务桥接；同一 Schedule 最多一个未完成桥接任务）。
-- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与计划收件箱。已提供隔离 core API，含原子 `convert`（无生产 UI）。
+- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与计划收件箱。含原子 `convert`，页面入口位于 `/stage/overview`、`/today/plan`、`/today/inbox` 与任务详情。
 - `StudySession`：学习计时记录；结构化收口字段包括理解程度、最小产出、下一步动作、是否产生笔记/错题、低转化标记、反假学习原因、补产出要求和收口版本，同时保留旧 `note` 文本可读。OPS-006 使用 PostgreSQL partial unique index `StudySession_one_active_idx` 保证全局最多一个 `RUNNING/PAUSED` session；该索引由 additive SQL migration 管理，不在 Prisma schema 中伪装成 `status` 全值唯一。当前已支持可空 `goalMinutes` / `startSource`。
 - `DailyReview`：每日复盘；当前已支持可空 `workspaceId`，并以 partial unique 区分 legacy 与 workspace 复合唯一。
 - `CheckIn`：每日打卡快照；按学习日唯一，记录最低动作、总/有效时长、有效 session 数、任务完成率、复盘状态、低效标记、低转化次数和来源版本。当前支持 CheckIn v2 字段（`reviewCount`/`reviewSeconds`/结果计数/`minimumActionSource`）；触达日原子升级 `sourceVersion=2`，不批量回填历史。新写路径维护快照，历史无快照日期由读取侧 fallback 派生；同一学习日刷新在事务内先获取 `pg_advisory_xact_lock(1095123785, YYYYMMDD)`，再读取聚合并写入，避免旧快照覆盖新提交。当前已支持可空 `workspaceId` 与 partial unique。
@@ -34,8 +34,8 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 
 - `SyllabusNode.stableKey` / `revision` / `archivedAt`：Migration 5；`(subjectId, stableKey)` unique；无键旧节点按兼容规则在首次 confirm/export 补键，不批量回填。
 - `LearningTreeImportBatch` / `LearningTreeImportItem`：仅 confirm 成功时创建；规范化 Markdown、hash、`(workspaceId, idempotencyKey)` unique、request fingerprint、软归档；preview 不写领域表。
-- `StudyResource`：FILE（READY Attachment）或 LINK（HTTPS）exactly-one；隔离 CRUD/上传/重复三选一/归档 API 已落地；无生产页面；不物理删除。
-- `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；隔离 API 已落地，无生产页。
+- `StudyResource`：FILE（READY Attachment）或 LINK（HTTPS）exactly-one；支持 CRUD、上传、重复三选一和归档，页面入口位于 `/knowledge/resources`；不物理删除。
+- `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；页面入口位于 `/knowledge/reviews` 与 `/quick-review/[scheduleId]`。
 - `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：每用户每工作区唯一布局；节点仅 x/y/折叠/固定/隐藏；业务边实时派生。隔离验收已开放 `/knowledge/canvas` 与 layout API。
 - `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema + 隔离 API/设置页已落地。
 - `SimulationLossItem`：直接归属分科结果，固定原因、可选考纲节点、0.5 分 lostScore、revision 与软归档；模拟与分科根保留 revision CAS。

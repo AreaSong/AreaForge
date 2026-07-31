@@ -1,32 +1,32 @@
 schemaVersion: 1
-releaseTag: v1.1.0
-releaseVersion: 1.1.0
-sourceGitCommit: fe89bde6e2cdc995f0c6eb1882b5442c6306c634
+releaseTag: v1.1.1
+releaseVersion: 1.1.1
+sourceGitCommit: b3a0002291abb40dead66f36103d91867254d95a
 bindingPolicy: source-or-evidence-only
 completionEvidence:
-  path: docs/development/release-v1.1.0-candidate-record.md
-  sha256: sha256:73a1d89ec4b717297fab7f381288023b864b77efdd6146c4bd38f156dd8ab1d1
+  path: docs/development/release-v1.1.1-candidate-record.md
+  sha256: sha256:077a302d11dfe6d746465288ed925a78372e85f308fb3449896f076ef69d260b
 productExperienceEvidence:
-  path: docs/development/product-experience-review-v1.1.0-20260731.md
-  sha256: sha256:0799f8f0ffeea098eb6718a904f284551e2b519dc22dcffbd6d2bb59e582de22
+  path: docs/development/product-experience-review-v1.1.1-20260731.md
+  sha256: sha256:1162bd3006d2b153773f85e746911430b66c13cf3f9c0cc9e8233c9ff7227bd4
 accessibilityEvidence:
-  path: docs/development/v11-accessibility-review-20260731.md
-  sha256: sha256:b96416ea7420a3dec4eda40d19dfbd87cb51750a1319eb3277cc7479af38d618
+  path: docs/development/v11-accessibility-review-v1.1.1-20260731.md
+  sha256: sha256:629043b5fc996b858ce03e8be4342e8077bba9d692ed4a345ce52632322fe449
 compatibilityFloorEvidence:
-  path: docs/development/v11-compatibility-floor-evidence-20260727.md
-  sha256: sha256:bdb215669368c2d1a056682d3c8b12bca74cbcab02e9b433074e9fe1916ba039
+  path: docs/development/v11-compatibility-floor-evidence-v1.1.1-20260731.md
+  sha256: sha256:5e327ac4c8d9f6ecf7ed11123a3a2d0282e58994e7e9a1cf64f924c140841834
 compatibilityRuntimeEvidence:
-  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.0-20260731-fe89bde.json
-  sha256: sha256:7641e42b194b76e8ace340476be84fa5806503e62c80dff08bc9e10f78adbf94
+  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.1-20260731-b3a0002.json
+  sha256: sha256:2626e2bc5c791df294c2d20c13e12993547c42f0c08b7367de38341fd5f5ebf7
 ops006007ReviewEvidence:
   path: docs/development/v11-s2-ops006-007-gate-review.md
-  sha256: sha256:94f56c8ffa0143ad0a207d27690dbb96561d6c2e69b2184b3364ea4a63a55f74
+  sha256: sha256:5ab39c4bce39f95f3c9e370d0c6a2c6a30c5038e20d6fa5875657889b4da58f5
 sc002Evidence:
-  path: output/supply-chain/ci-supply-chain-v1.1.0-20260731-fe89bde.txt
-  sha256: sha256:7cd4d23baa99cc3d1c07fbdba1c69648069d1e151b3dc83e71050a10b8609f39
+  path: output/supply-chain/ci-supply-chain-v1.1.1-20260731-b3a0002.txt
+  sha256: sha256:34d921c6af01e8ef862fcc4cebdfadf90f55e7d862a5dbb84b3482d4363ff106
 sc004ReadbackEvidence:
-  path: output/supply-chain/sc004-main-protection-readback-v1.1.0-20260731-fe89bde.json
-  sha256: sha256:7d348d5ec928086a394fd2c2005b9a03afc1e9abdb485e0c11f68fcc212fd063
+  path: output/supply-chain/sc004-main-protection-readback-v1.1.1-20260731-b3a0002.json
+  sha256: sha256:0d70101c1a0df40fff0a5e4c3ae329db0ac7831154f6ca02c1997e96ffdb441e
 sc004ControlledPrEvidence:
-  path: output/supply-chain/sc004-controlled-pr-v1.1.0-20260731-fe89bde.json
-  sha256: sha256:d553d8ef73d5982648e4d5b954444136af6788b6bd4f73c47ef9a723ced40fd6
+  path: output/supply-chain/sc004-controlled-pr-v1.1.1-20260731-b3a0002.json
+  sha256: sha256:904813ff177fe52f2439c9869aeadc25eca950dba52f44a55483005406161bb7
