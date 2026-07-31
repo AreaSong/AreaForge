@@ -21,7 +21,8 @@ export interface ReleaseCloseoutBindingOptions {
 
 type CommitChange = {
   status: string;
-  paths: string[];
+  sourcePath?: string;
+  destinationPath: string;
 };
 
 const commitPattern = /^[a-f0-9]{40}$/i;
@@ -122,7 +123,8 @@ export function evaluateReleaseCloseoutBinding(
   for (const commit of commits) {
     validateCommitShape(root, commit, issues);
     for (const change of commitChanges(root, commit)) {
-      for (const file of change.paths) changedPaths.add(file);
+      if (change.status.startsWith("R") && change.sourcePath) changedPaths.add(change.sourcePath);
+      changedPaths.add(change.destinationPath);
       validateChange(root, commit, change, issues);
     }
   }
@@ -161,25 +163,26 @@ function validateCommitShape(root: string, commit: string, issues: string[]): vo
 
 function validateChange(root: string, commit: string, change: CommitChange, issues: string[]): void {
   const status = change.status[0] ?? "";
-  if (status === "D" || status === "C") {
-    issues.push(`evidence-only closeout cannot delete or copy files: ${change.paths.join(", ")}`);
+  const paths = change.sourcePath
+    ? [change.sourcePath, change.destinationPath]
+    : [change.destinationPath];
+  if (status === "D") {
+    issues.push(`evidence-only closeout cannot delete files: ${change.destinationPath}`);
     return;
   }
-  if (!new Set(["A", "M", "R"]).has(status)) {
-    issues.push(`evidence-only closeout does not permit Git status ${change.status}: ${change.paths.join(", ")}`);
+  if (!new Set(["A", "C", "M", "R"]).has(status)) {
+    issues.push(`evidence-only closeout does not permit Git status ${change.status}: ${paths.join(", ")}`);
     return;
   }
-  if (status === "R" && !change.paths.every(isAllowedTaskPath)) {
-    issues.push(`evidence-only closeout only permits task moves: ${change.paths.join(", ")}`);
+  if (status === "R" && !paths.every(isAllowedTaskPath)) {
+    issues.push(`evidence-only closeout only permits task moves: ${paths.join(", ")}`);
   }
-  for (const file of change.paths) {
-    if (!isAllowedCloseoutPath(file)) {
-      issues.push(`non-evidence path changed after Release: ${file}`);
-    }
+  const pathsRequiringAdmission = status === "R" ? paths : [change.destinationPath];
+  for (const file of pathsRequiringAdmission) {
+    if (!isAllowedCloseoutPath(file)) issues.push(`non-evidence path changed after Release: ${file}`);
   }
-  const filesAtCommit = status === "R" ? change.paths.slice(-1) : change.paths;
-  for (const file of filesAtCommit) {
-    if (isAllowedCloseoutPath(file)) validateFileAtCommit(root, commit, file, issues);
+  if (isAllowedCloseoutPath(change.destinationPath)) {
+    validateFileAtCommit(root, commit, change.destinationPath, issues);
   }
 }
 
@@ -318,7 +321,14 @@ function commitChanges(root: string, commit: string): CommitChange[] {
   return output.split(/\r?\n/).filter(Boolean).map((line) => {
     const fields = line.split("\t");
     const status = fields[0] ?? "";
-    return { status, paths: status.startsWith("R") ? fields.slice(1) : [fields[1] ?? ""] };
+    if (status.startsWith("R") || status.startsWith("C")) {
+      return {
+        status,
+        sourcePath: fields[1] ?? "",
+        destinationPath: fields[2] ?? "",
+      };
+    }
+    return { status, destinationPath: fields[1] ?? "" };
   });
 }
 

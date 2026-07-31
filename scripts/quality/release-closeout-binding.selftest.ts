@@ -20,7 +20,8 @@ async function main(): Promise<void> {
     testPathAndContentBoundaries();
     await testEvidenceSizeBoundaries();
     testImageContentBoundaries();
-    testModeDeleteCopyAndMergeBoundaries();
+    testModeDeleteAndMergeBoundaries();
+    testCopyBoundaries();
     testAllowlistSurface();
     testV11EvidenceOnlySurface();
     console.log("release closeout binding selftest passed.");
@@ -138,7 +139,7 @@ function testImageContentBoundaries(): void {
   assertInvalid(evaluate(secretImage), "database URL");
 }
 
-function testModeDeleteCopyAndMergeBoundaries(): void {
+function testModeDeleteAndMergeBoundaries(): void {
   const executable = createRepository("executable");
   const executablePath = "docs/development/residual-closure-review-executable.md";
   write(executable.root, executablePath, "reviewDecision: close\n");
@@ -156,14 +157,6 @@ function testModeDeleteCopyAndMergeBoundaries(): void {
   commit(deleted.root, "delete evidence");
   assertInvalid(evaluate(deleted), "cannot delete");
 
-  const copied = createRepository("copy");
-  copyFileSync(
-    path.join(copied.root, "docs/development/residual-risk-ledger.md"),
-    path.join(copied.root, "docs/development/residual-closure-review-copy.md"),
-  );
-  commit(copied.root, "copy existing evidence");
-  assertInvalid(evaluate(copied), "cannot delete or copy");
-
   const merged = createRepository("merge");
   const baseBranch = git(merged.root, ["branch", "--show-current"]).trim();
   git(merged.root, ["checkout", "-qb", "evidence-branch"]);
@@ -174,6 +167,65 @@ function testModeDeleteCopyAndMergeBoundaries(): void {
   commit(merged.root, "main evidence");
   git(merged.root, ["merge", "--no-ff", "-qm", "merge evidence", "evidence-branch"]);
   assertInvalid(evaluate(merged), "merge commit");
+}
+
+function testCopyBoundaries(): void {
+  testAllowedCopy();
+  testDeniedCopyDestination();
+  testCopiedDestinationContentValidation();
+}
+
+function testAllowedCopy(): void {
+  const allowed = createRepository("copy-allowed");
+  const allowedDestination = "docs/development/residual-closure-review-copy.md";
+  copyFileSync(
+    path.join(allowed.root, "apps/web/app.ts"),
+    path.join(allowed.root, allowedDestination),
+  );
+  commit(allowed.root, "copy source as approved evidence");
+  assertLastCommitHasStatus(allowed.root, "C", allowedDestination);
+  const result = evaluate(allowed);
+  assertStatus(result, "evidence_only");
+  if (result.changedPaths.join(",") !== allowedDestination) {
+    throw new Error(`copy source leaked into changed paths: ${JSON.stringify(result)}`);
+  }
+}
+
+function testDeniedCopyDestination(): void {
+  const deniedDestination = createRepository("copy-denied-destination");
+  const deniedPath = "docs/development/copied-source.md";
+  copyFileSync(
+    path.join(deniedDestination.root, "apps/web/app.ts"),
+    path.join(deniedDestination.root, deniedPath),
+  );
+  commit(deniedDestination.root, "copy source outside evidence allowlist");
+  assertLastCommitHasStatus(deniedDestination.root, "C", deniedPath);
+  assertInvalid(evaluate(deniedDestination), deniedPath);
+}
+
+function testCopiedDestinationContentValidation(): void {
+  const secret = createRepository("copy-secret");
+  const secretSource = "apps/web/provider-fixture.txt";
+  write(secret.root, secretSource, "DATABASE_URL=postgresql://user:pass@db/area\n");
+  commit(secret.root, "add source fixture before binding");
+  secret.releaseCommit = git(secret.root, ["rev-parse", "HEAD"]).trim();
+  const secretDestination = "docs/development/residual-closure-review-copy-secret.md";
+  copyFileSync(path.join(secret.root, secretSource), path.join(secret.root, secretDestination));
+  commit(secret.root, "copy secret-bearing evidence");
+  assertLastCommitHasStatus(secret.root, "C", secretDestination);
+  assertInvalid(evaluate(secret), "database URL");
+
+  const invalidImage = createRepository("copy-invalid-image");
+  const imageSource = "apps/web/screenshot-fixture.png";
+  write(invalidImage.root, imageSource, Buffer.from("89504e470d0a1a0a", "hex"));
+  commit(invalidImage.root, "add image fixture before binding");
+  invalidImage.releaseCommit = git(invalidImage.root, ["rev-parse", "HEAD"]).trim();
+  const imageDestination = "output/playwright/ux-copy-invalid.png";
+  mkdirSync(path.dirname(path.join(invalidImage.root, imageDestination)), { recursive: true });
+  copyFileSync(path.join(invalidImage.root, imageSource), path.join(invalidImage.root, imageDestination));
+  commit(invalidImage.root, "copy invalid screenshot evidence");
+  assertLastCommitHasStatus(invalidImage.root, "C", imageDestination);
+  assertInvalid(evaluate(invalidImage), "invalid image structure");
 }
 
 function testAllowlistSurface(): void {
@@ -288,6 +340,17 @@ function createRepository(name: string): { root: string; releaseCommit: string }
   write(root, "tasks/active/0019-update-request-expected-before-binding.md", "status: in-progress\n");
   commit(root, "source");
   return { root, releaseCommit: git(root, ["rev-parse", "HEAD"]).trim() };
+}
+
+function assertLastCommitHasStatus(root: string, expectedStatus: string, destination: string): void {
+  const changes = git(root, [
+    "diff-tree", "--root", "--no-commit-id", "--name-status", "-r",
+    "--find-renames", "--find-copies", "--find-copies-harder", "HEAD",
+  ]);
+  const match = changes.split(/\r?\n/).find((line) => line.endsWith(`\t${destination}`));
+  if (!match?.startsWith(expectedStatus)) {
+    throw new Error(`expected ${expectedStatus} status for ${destination}, got: ${changes}`);
+  }
 }
 
 function evaluate(repo: { root: string; releaseCommit: string }) {
