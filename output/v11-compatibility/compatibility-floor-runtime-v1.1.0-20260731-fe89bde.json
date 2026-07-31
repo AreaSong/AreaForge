@@ -1,6 +1,6 @@
 {
   "schemaVersion": "v11-compatibility-floor-runtime-v2",
-  "expectedDatabaseName": "areaforge_v11compat_fe89bde",
+  "expectedDatabaseName": "areaforge_v11compat_fe89bde_rerun",
   "postgresServerVersionNum": 160011,
   "candidateCommit": "fe89bde6e2cdc995f0c6eb1882b5442c6306c634",
   "legacyCommit": "749692ba719d801f14186a94af97b96350380141",
@@ -19,7 +19,9 @@
       "sha256": "f5d083da94fc883b5a2428cdb5d565b7a3df20745f3b197d7d777625fd966419"
     }
   },
-  "fingerprintExcludedPaths": [],
+  "fingerprintExcludedPaths": [
+    "docs/development/v11-compatibility-floor-evidence-20260727.md"
+  ],
   "candidateFingerprint": {
     "algorithm": "sha256",
     "gitHead": "fe89bde6e2cdc995f0c6eb1882b5442c6306c634",
@@ -61,7 +63,7 @@
   },
   "finalValidation": {
     "status": "pass",
-    "databaseName": "areaforge_v11compat_fe89bde",
+    "databaseName": "areaforge_v11compat_fe89bde_rerun",
     "migrationCount": 24,
     "candidateFingerprintStable": true,
     "repeatDeployLedgerStable": true
