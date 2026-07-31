@@ -8,7 +8,7 @@
 
 ## 当前基线
 
-- 当前 checkout：`v1.1.0` tag 指向 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；当前工作树包含尚未 commit、tag、发布或 production apply 的发布后产品化修复。
+- 当前 checkout：`v1.1.0` tag 指向 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；发布后产品化修复已形成新的本地 checkpoint，尚未 push、创建修复 Release 或 production apply。
 - 线上地址：`https://forge.areasong.top/`
 - 生产基线：`1.1.0` / `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；公网 health 已于 2026-07-31 只读验证。
 - 生产镜像：当前 Web/Migration immutable digest 尚未回填仓库；必须从 redacted updater/Release 证据采集，不能沿用 `v0.1.9` digest。

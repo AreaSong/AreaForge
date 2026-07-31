@@ -193,13 +193,13 @@ async function runLoginJourney(input: ScenarioContext) {
     assertion("dashboard-present", true, Boolean(asRecord(body).dashboard)),
   ]);
   assertOracleChanged(before, after);
-  await input.page.getByRole("heading", { name: "今日行动中心", level: 1 }).waitFor({ state: "visible" });
+  await input.page.getByRole("heading", { name: "今日", level: 1 }).waitFor({ state: "visible" });
   return {
     before,
     mutation,
     after,
     terminalAssertions: await terminalAssertions(input.page, [
-      ["today-heading", () => input.page.getByRole("heading", { name: "今日行动中心", level: 1 }).isVisible()],
+      ["today-heading", () => input.page.getByRole("heading", { name: "今日", level: 1 }).isVisible()],
       ["authenticated-route", () => Promise.resolve(currentPath(input.page) === "/today")],
     ]),
   };
@@ -305,6 +305,7 @@ async function runReviewJourney(input: ScenarioContext) {
 
 async function runNotesJourney(input: ScenarioContext) {
   const before = await listOracle(input, "/api/notes", "notes", "notes-before", 0);
+  await input.page.getByText("新增卡片", { exact: true }).click();
   await input.page.getByPlaceholder("笔记标题").fill("合成浏览器卡片");
   await input.page.getByPlaceholder("写下自己的理解、题解或复盘产出").fill("合成浏览器卡片正文");
   const mutation = await captureUiMutation(input.page, input.config, {
@@ -393,7 +394,7 @@ async function runReportsJourney(input: ScenarioContext) {
     after,
     terminalAssertions: await terminalAssertions(input.page, [
       ["report-confirmed-visible", () => input.page.getByText("已确认", { exact: true }).first().isVisible()],
-      ["report-boundary-visible", () => input.page.getByText(/不会修改现有任务或 StagePlan/).isVisible()],
+      ["report-boundary-visible", () => input.page.getByText(/不会修改现有任务或当前阶段/).isVisible()],
     ]),
   };
 }

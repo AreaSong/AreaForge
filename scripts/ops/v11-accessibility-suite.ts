@@ -165,7 +165,7 @@ async function keyboardLogin(
     new URL(response.url()).pathname === "/api/auth/login" && response.request().method() === "POST");
   const [response] = await Promise.all([responsePromise, page.keyboard.press("Enter")]);
   await page.waitForURL((candidate) => candidate.pathname === "/today");
-  await page.getByRole("heading", { name: "今日行动中心", level: 1 }).waitFor();
+  await page.getByRole("heading", { name: "今日", level: 1 }).waitFor();
   record(checks, {
     id: "KBD-01",
     category: "keyboard",
@@ -489,11 +489,11 @@ async function canvasDesktopChecks(
     const [primaryResponse] = await Promise.all([primaryConflictBaseline, page.keyboard.press("ArrowRight")]);
     primaryConflictBaselineStatus = primaryResponse.status();
 
-    const staleCommand = conflictPage.locator('[aria-label="画布布局键盘命令"]');
-    await staleCommand.click({ trial: true });
-    await staleCommand.focus();
     const staleConflict = layoutMutationResponse(conflictPage);
-    const [staleResponse] = await Promise.all([staleConflict, conflictPage.keyboard.press("ArrowLeft")]);
+    const [staleResponse] = await Promise.all([
+      staleConflict,
+      conflictPage.getByRole("button", { name: "向左微调" }).click(),
+    ]);
     staleConflictStatus = staleResponse.status();
     const conflictModal = conflictPage.getByRole("dialog", { name: "布局已在其他设备更新" });
     await conflictModal.waitFor();
