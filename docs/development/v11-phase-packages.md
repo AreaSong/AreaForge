@@ -23,4 +23,4 @@
 - Batch 4 仅 preview；Batch 5 已开放隔离 confirm（须 Migration 4+5 与 DATA-001 生命周期接受；residual 不自动关）。
 - `v1.1.0` 已在 Batch 11 切换生产；后续修复 Release 仍须独立 admission 与生产 apply 确认。
 - Batch 10 current-bound 体验记录为 `docs/development/product-experience-review-20260722-v11-batch10.md`；它只证明隔离本地 checkout，不替代签名 Release、生产 migration 或生产 smoke，也不自动关闭 residual。
-- Batch 11 历史候选已形成 `v1.1.0` Release 并进入生产；当前工作树是发布后修复候选，尚未 commit/tag/Release/apply。新修复 Release 必须按新目标 commit 重采相应 admission/供应链/体验证据，不能复用 `v1.1.0` 或 `v0.1.9` 的历史通过结果；residual 状态不自动变化。
+- Batch 11 历史候选已形成 `v1.1.0` Release 并进入生产；当前分支的发布后修复候选已形成新的本地 checkpoint，但尚未 push、创建修复 Release 或 production apply。新修复 Release 必须按新目标 commit 重采相应 admission/供应链/体验证据，不能复用 `v1.1.0` 或 `v0.1.9` 的历史通过结果；residual 状态不自动变化。

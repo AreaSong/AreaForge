@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 当前状态：
 
-- `v1.1.0` 已创建稳定 GitHub Release 并进入生产，远端 `https://forge.areasong.top/api/health` 报告 `1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3` 与 verified runtime identity；当前工作树包含尚未 commit、发布或部署的发布后产品化修复。
+- `v1.1.0` 已创建稳定 GitHub Release 并进入生产，远端 `https://forge.areasong.top/api/health` 报告 `1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3` 与 verified runtime identity；当前分支包含已形成本地 checkpoint、但尚未 push、创建修复 Release 或 production apply 的发布后产品化修复。
 - Package A-E 和 docs 100% 当前证据已闭环。
 - Web 版本中心只能提交受控检查、应用、回退或策略请求；服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。

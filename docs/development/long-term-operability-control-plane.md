@@ -9,7 +9,7 @@
 ## 当前结论
 
 - Package A-E 和 docs 100% 当前范围已完成，源事实见 `docs/development/docs-100-completion-record.md`。
-- 当前生产基线为 `1.1.0` / `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3` / `https://forge.areasong.top/`；当前工作树继续准备尚未 commit、发布或 production apply 的发布后产品化修复。
+- 当前生产基线为 `1.1.0` / `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3` / `https://forge.areasong.top/`；当前分支继续准备已形成本地 checkpoint、但尚未 push、创建修复 Release 或 production apply 的发布后产品化修复。
 - `docs/development/release-v0.1.9-record.md` 是历史生产记录，`docs/development/release-v0.1.7-record.md` 是更早的历史回滚证据；仓库当前仍缺完整的 `v1.1.0` redacted updater status、镜像 digest 和发布后运营证据收口记录，不能用旧记录填补这些缺口。
 - 自动更新当前安全默认是 `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 updater 执行高风险动作。
 - `v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006、OPS-007、OPS-008、SC-001、SC-004 和 UX-001 已按各自证据与人工复核记录进入 `closed-evidence`；SC-002/SC-003 也保持 `closed-evidence`。当前仍开放的是 OPS-002、OPS-003、REL-001，`AF-RISK-DATA-001` 保持 `deferred-work`。这些历史状态不自动证明 `v1.1.0` 当前生产健康，也不授权后续修复 Release、production apply、migration、写入 smoke 或自动更新策略变化。

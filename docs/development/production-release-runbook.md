@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 AreaForge 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v1.1.0` 完成受控更新并运行 `1.1.0`，production runtime identity 绑定 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。当前工作树包含尚未 commit、发布或 production apply 的发布后产品化修复，不能据此改写线上代码身份。
+本文件是 AreaForge 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v1.1.0` 完成受控更新并运行 `1.1.0`，production runtime identity 绑定 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。当前分支包含已形成本地 checkpoint、但尚未 push、创建修复 Release 或 production apply 的发布后产品化修复，不能据此改写线上代码身份。
 
 后续任何新的生产发布、备份恢复、migration deploy、服务器命令、签名策略降级或 Web 运维能力扩大，仍必须等用户明确确认后再执行。
 

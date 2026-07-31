@@ -130,8 +130,18 @@ function useOverlayFocus<T extends HTMLElement>(input: {
     if (!panel) return;
     const activePanel: T = panel;
     const returnTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const initialTarget = getFocusableElements(activePanel)[0] ?? activePanel;
-    initialTarget.focus();
+
+    function focusInitialTarget(): void {
+      const initialTarget = getFocusableElements(activePanel)[0] ?? activePanel;
+      initialTarget.focus();
+    }
+
+    focusInitialTarget();
+
+    function onFocusIn(event: FocusEvent): void {
+      if (activePanel.contains(event.target as Node)) return;
+      focusInitialTarget();
+    }
 
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape" && input.allowEscape) {
@@ -158,8 +168,10 @@ function useOverlayFocus<T extends HTMLElement>(input: {
       }
     }
 
+    document.addEventListener("focusin", onFocusIn);
     document.addEventListener("keydown", onKey);
     return () => {
+      document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("keydown", onKey);
       if (returnTarget?.isConnected) returnTarget.focus();
     };

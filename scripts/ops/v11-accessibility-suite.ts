@@ -480,6 +480,8 @@ async function canvasDesktopChecks(
   let conflictRetryStatus = 0;
   let conflictModalBlockedEscape = false;
   let conflictCopyRetained = false;
+  let conflictModalReceivedFocus = false;
+  let conflictFocusReturned = false;
   try {
     await conflictPage.goto(url(config, "/knowledge/canvas"), { waitUntil: "domcontentloaded" });
     const primaryCommand = page.locator('[aria-label="画布布局键盘命令"]');
@@ -489,15 +491,17 @@ async function canvasDesktopChecks(
     const [primaryResponse] = await Promise.all([primaryConflictBaseline, page.keyboard.press("ArrowRight")]);
     primaryConflictBaselineStatus = primaryResponse.status();
 
+    const conflictTrigger = conflictPage.getByRole("button", { name: "向左微调" });
     const staleConflict = layoutMutationResponse(conflictPage);
     const [staleResponse] = await Promise.all([
       staleConflict,
-      conflictPage.getByRole("button", { name: "向左微调" }).click(),
+      conflictTrigger.click(),
     ]);
     staleConflictStatus = staleResponse.status();
     const conflictModal = conflictPage.getByRole("dialog", { name: "布局已在其他设备更新" });
     await conflictModal.waitFor();
     await waitForFocusWithin(conflictModal);
+    conflictModalReceivedFocus = await conflictModal.evaluate((element) => element.contains(document.activeElement));
     conflictCopyRetained = await conflictModal.getByText(/本地修改仍保留/).isVisible();
     await conflictPage.keyboard.press("Escape");
     conflictModalBlockedEscape = await conflictModal.isVisible();
@@ -508,6 +512,8 @@ async function canvasDesktopChecks(
     ]);
     conflictRetryStatus = retryResponse.status();
     await conflictModal.waitFor({ state: "detached" });
+    await waitForElementFocus(conflictTrigger);
+    conflictFocusReturned = await conflictTrigger.evaluate((element) => element === document.activeElement);
   } finally {
     await conflictPage.close();
   }
@@ -534,9 +540,11 @@ async function canvasDesktopChecks(
       assertion("reset-layout-focus-returned", true, resetFocusReturned),
       assertion("conflict-baseline-layout-status", 200, primaryConflictBaselineStatus),
       assertion("stale-layout-conflict-status", 409, staleConflictStatus),
+      assertion("conflict-modal-received-focus", true, conflictModalReceivedFocus),
       assertion("conflict-modal-retained-local-copy", true, conflictCopyRetained),
       assertion("conflict-modal-blocked-escape", true, conflictModalBlockedEscape),
       assertion("conflict-explicit-retry-status", 200, conflictRetryStatus),
+      assertion("conflict-focus-returned-to-trigger", true, conflictFocusReturned),
     ],
   });
 

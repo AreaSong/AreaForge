@@ -27,6 +27,10 @@ const accessibilitySuiteSource = readFileSync(
   path.resolve(process.cwd(), "scripts/ops/v11-accessibility-suite.ts"),
   "utf8",
 );
+const overlaySource = readFileSync(
+  path.resolve(process.cwd(), "apps/web/components/ui/overlays.tsx"),
+  "utf8",
+);
 
 try {
   const baseline = {
@@ -75,6 +79,26 @@ try {
     accessibilitySuiteSource,
     /closest\("details:not\(\[open\]\)"\) === null/,
     "native zoom checks must exclude controls inside closed details",
+  );
+  assert.match(
+    accessibilitySuiteSource,
+    /assertion\("conflict-modal-received-focus", true, conflictModalReceivedFocus\)/,
+    "canvas conflict evidence must prove that the modal received focus",
+  );
+  assert.match(
+    accessibilitySuiteSource,
+    /assertion\("conflict-focus-returned-to-trigger", true, conflictFocusReturned\)/,
+    "canvas conflict evidence must prove that focus returned after resolution",
+  );
+  assert.match(
+    overlaySource,
+    /document\.addEventListener\("focusin", onFocusIn\)/,
+    "modal focus trap must contain programmatic focus movement",
+  );
+  assert.match(
+    overlaySource,
+    /document\.removeEventListener\("focusin", onFocusIn\)/,
+    "modal focus trap must remove the focusin listener on close",
   );
   assert.equal(
     canonicalEvidenceRoute(

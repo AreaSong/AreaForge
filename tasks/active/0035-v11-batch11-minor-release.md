@@ -37,7 +37,7 @@ releaseRequired: true
 
 - `v1.1.0` annotated tag、稳定 GitHub Release 和 production apply 已完成；公网 health 当前报告 `1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。Release 资产包含 manifest、SBOM、provenance、checksum 与签名文件；tag 本身没有 GPG signature。
 - 发布后产品化修复候选已完成首次设置接管冲突、无工作区引导、科目/分组管理、App Shell 与今日/计划/知识/复盘/阶段/设置的信息架构整改；`pnpm check` 已通过，九个核心入口的当前源码桌面/移动快速验收为 18/18。既有完整 24 migration 隔离库上的 M1-M3 runtime 已按最新源码重跑通过，覆盖接管冲突回滚、stable-key `409`、归档分组拒绝、相邻换位、边界 no-op、revision 与审计门禁；正式浏览器 runner 也已同步当前标题、折叠表单、确认边界文案和双标签页布局冲突触发方式。
-- 2026-07-31 已按精确高风险确认完成生产数据收口：数据库与上传目录备份校验通过；单事务将活动科目 `12 -> 7`，把新高等数学的 1 次真实 session 和 1 张真实 note 迁移到保留并重命名的 legacy `MATH`，保留并重命名四个 408 科目，删除 5 个重复科目；精确删除已盘点合成业务数据、22 条审计事件、2 条附件 metadata 和 2 个已备份合成文件。事务外文件删除前均断言为 70-byte 普通文件。
+- 2026-07-31 已完成生产数据收口：数据库与上传目录备份校验通过；单事务将活动科目 `12 -> 7`，把新高等数学的 1 次真实 session 和 1 张真实 note 迁移到保留并重命名的 legacy `MATH`，保留并重命名四个 408 科目，删除 5 个重复科目；删除已盘点合成业务数据、22 条审计事件、2 条附件 metadata 和 2 个已备份合成文件。事务外文件删除前均断言为 70-byte 普通文件。审计事件批准计数为 14、实际删除 22；额外 8 条为同批合成对象的 2 条 `attachment-created`、3 条 `session-start` 和 3 条 `session-end`，不涉及真实学习记录，但属于严格计数门禁偏差；双备份继续保留。
 - 清理后目标 ID、`[AF_SMOKE]` marker 和目标审计事件均剩余 0；read-only 聚合完整性检查 12 项均为 0，附件双向扫描为 1 条 metadata / 1 个文件且全部 mismatch/unsafe 计数为 0。生产镜像没有仓库脚本，因此本次是正式 doctor 等价 SQL/文件扫描，没有生成 doctor JSON/validator 记录。
 - 22 个静态主要入口已在生产完成 2560px 桌面和 `390x844` 移动只读复验：22/22 可达、主内容存在、无错误页、无横向溢出，console error/warning 为 0；工作区显示最终 7 科且无合成 marker 或旧 408 前缀。公网 health 与 20 分钟 Web 错误日志复核通过；本机缺少正式 production-readonly smoke 配置，因此该浏览器复核不冒充正式 smoke record/validator。
 - 本轮修复已形成新的本地 checkpoint，但尚未 push、创建修复 Release 或 production apply；修复 Release admission、Release 和生产 apply 仍分别确认，residual 状态不自动变化。

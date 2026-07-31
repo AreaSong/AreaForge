@@ -62,7 +62,7 @@
 
 ## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；当前工作树继续修复首次设置、科目管理和核心页面体验，但尚未形成新的 commit、Release 或 production apply。该版本状态不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；当前分支继续修复首次设置、科目管理和核心页面体验，已形成新的本地 checkpoint，但尚未 push、创建修复 Release 或 production apply。该版本状态不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
