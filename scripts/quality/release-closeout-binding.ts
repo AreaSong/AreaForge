@@ -34,6 +34,8 @@ const exactAllowedPaths = new Set([
   "docs/development/operational-readiness.md",
   "docs/development/residual-risk-ledger.json",
   "docs/development/residual-risk-ledger.md",
+  "docs/development/v11-release-admission-record.md",
+  "docs/development/v11-s2-ops006-007-gate-review.md",
   "tasks/README.md",
   "tasks/indexes/residuals.md",
   "workflow/README.md",
@@ -47,6 +49,15 @@ const allowedTaskFiles = new Set([
   "0024-ux-residual-closure-review.md",
 ]);
 
+const v11BrowserEvidenceRootPattern =
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\//;
+const v11BrowserEvidencePathPatterns = [
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\/(?:v11-browser-journey-evidence|v11-accessibility-evidence)\.json$/,
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\/runtime-identity[A-Za-z0-9._-]*\.json$/,
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\/screenshots\/(?:desktop|mobile)-(?:login|dashboard|timer-closeout|review|notes|syllabus|reports|simulation|update-center)\.png$/,
+  /^output\/playwright\/v11-browser-evidence-[A-Za-z0-9][A-Za-z0-9._-]*\/observations\/a11y-(?:kbd-0[1-5]|focus-0[1-4]|sem-0[1-2]|live-0[1-6]|color-01|zoom-0[1-3]|canvas-0[1-3])\.json$/,
+];
+
 const allowedPathPatterns = [
   /^docs\/development\/(?:release|release-supply-chain)-v\d+\.\d+\.\d+[^/]*\.(?:md|txt|json)$/,
   /^docs\/development\/operational-evidence-bundle-v\d+\.\d+\.\d+[^/]*\.json$/,
@@ -54,10 +65,16 @@ const allowedPathPatterns = [
   /^docs\/development\/ops-(?:005|006)-production-evidence-v\d+\.\d+\.\d+[^/]*\.(?:md|txt|json)$/,
   /^docs\/development\/residual-closure-review-[^/]+\.(?:md|txt|json)$/,
   /^docs\/development\/product-experience-review-[^/]+\.(?:md|txt|json)$/,
+  /^docs\/development\/v11-accessibility-review-[A-Za-z0-9._-]+\.md$/,
+  /^docs\/development\/v11-compatibility-floor-evidence-[A-Za-z0-9._-]+\.md$/,
   /^docs\/development\/release-closeout-audit-[^/]+\.json$/,
   /^output\/ops005\/(?:[A-Za-z0-9._-]+\/)*(?:production-evidence|operational-evidence|decision-history|v2-check|processing-reconciliation)[A-Za-z0-9._-]*\.(?:json|md|txt)$/,
   /^output\/ops006\/(?:concurrency-runtime|data-integrity-(?:before|after)|production-evidence|rollout|concurrency-probe|doctor-(?:before|after))[A-Za-z0-9._-]*\.(?:json|md|txt)$/,
   /^output\/supply-chain\/residual-review-AF-RISK-(?:SC-001|SC-002|SC-004)-[^/]+\.(?:md|txt|json)$/,
+  /^output\/supply-chain\/ci-supply-chain-v1\.1\.0-[A-Za-z0-9._-]+\.txt$/,
+  /^output\/supply-chain\/sc004-main-protection-readback-v1\.1\.0-[A-Za-z0-9._-]+\.json$/,
+  /^output\/supply-chain\/sc004-controlled-pr-v1\.1\.0-[A-Za-z0-9._-]+\.json$/,
+  /^output\/v11-compatibility\/compatibility-floor-runtime-v1\.1\.0-[A-Za-z0-9._-]+\.json$/,
   /^output\/playwright\/(?:[A-Za-z0-9._-]+\/)*(?:runtime-identity[^/]*\.json|(?:ux-|desktop-|mobile-)[^/]+\.(?:png|jpe?g|webp))$/,
 ];
 
@@ -105,7 +122,7 @@ export function evaluateReleaseCloseoutBinding(
   for (const commit of commits) {
     validateCommitShape(root, commit, issues);
     for (const change of commitChanges(root, commit)) {
-      for (const file of change.paths) changedPaths.add(file);
+      for (const file of changedFiles(change)) changedPaths.add(file);
       validateChange(root, commit, change, issues);
     }
   }
@@ -121,6 +138,9 @@ export function evaluateReleaseCloseoutBinding(
 
 export function isAllowedCloseoutPath(file: string): boolean {
   if (!isSafeRelativePath(file)) return false;
+  if (v11BrowserEvidenceRootPattern.test(file)) {
+    return v11BrowserEvidencePathPatterns.some((pattern) => pattern.test(file));
+  }
   if (exactAllowedPaths.has(file)) return true;
   if (isAllowedTaskPath(file)) return true;
   return allowedPathPatterns.some((pattern) => pattern.test(file));
@@ -141,26 +161,35 @@ function validateCommitShape(root: string, commit: string, issues: string[]): vo
 
 function validateChange(root: string, commit: string, change: CommitChange, issues: string[]): void {
   const status = change.status[0] ?? "";
-  if (status === "D" || status === "C") {
-    issues.push(`evidence-only closeout cannot delete or copy files: ${change.paths.join(", ")}`);
+  if (status === "D") {
+    issues.push(`evidence-only closeout cannot delete files: ${change.paths.join(", ")}`);
     return;
   }
-  if (!new Set(["A", "M", "R"]).has(status)) {
+  if (!new Set(["A", "C", "M", "R"]).has(status)) {
     issues.push(`evidence-only closeout does not permit Git status ${change.status}: ${change.paths.join(", ")}`);
+    return;
+  }
+  if ((status === "C" || status === "R") && change.paths.length !== 2) {
+    issues.push(`evidence-only closeout has malformed Git status ${change.status}: ${change.paths.join(", ")}`);
     return;
   }
   if (status === "R" && !change.paths.every(isAllowedTaskPath)) {
     issues.push(`evidence-only closeout only permits task moves: ${change.paths.join(", ")}`);
   }
-  for (const file of change.paths) {
+  const filesAtCommit = changedFiles(change);
+  for (const file of filesAtCommit) {
     if (!isAllowedCloseoutPath(file)) {
       issues.push(`non-evidence path changed after Release: ${file}`);
     }
   }
-  const filesAtCommit = status === "R" ? change.paths.slice(-1) : change.paths;
   for (const file of filesAtCommit) {
     if (isAllowedCloseoutPath(file)) validateFileAtCommit(root, commit, file, issues);
   }
+}
+
+function changedFiles(change: CommitChange): string[] {
+  const status = change.status[0] ?? "";
+  return status === "C" || status === "R" ? change.paths.slice(-1) : change.paths;
 }
 
 function validateFileAtCommit(root: string, commit: string, file: string, issues: string[]): void {
@@ -298,7 +327,7 @@ function commitChanges(root: string, commit: string): CommitChange[] {
   return output.split(/\r?\n/).filter(Boolean).map((line) => {
     const fields = line.split("\t");
     const status = fields[0] ?? "";
-    return { status, paths: status.startsWith("R") ? fields.slice(1) : [fields[1] ?? ""] };
+    return { status, paths: status.startsWith("R") || status.startsWith("C") ? fields.slice(1) : [fields[1] ?? ""] };
   });
 }
 

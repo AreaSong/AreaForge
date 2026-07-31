@@ -6,7 +6,7 @@ const root = process.cwd();
 const canonicalWorkflowPath = path.join(root, ".github/workflows/release.yml");
 const workflowPath = path.resolve(process.env.AREAFORGE_RELEASE_WORKFLOW_PATH ?? canonicalWorkflowPath);
 const packagePath = path.resolve(process.env.AREAFORGE_RELEASE_PACKAGE_PATH ?? path.join(root, "package.json"));
-const expectedWorkflowSha256 = "e3a247ad55ce434939c2ddc7ec34de0c88a0b7b022f8bb3687625c79ba6ca7dd";
+const expectedWorkflowSha256 = "d73d9ab6ea2810588b3f9baa8e25bb71fc3d1c51b41eea505e321c67e01caa51";
 const semanticsOnly = process.env.AREAFORGE_RELEASE_WORKFLOW_POLICY_MODE === "semantics";
 
 interface StepBlock {
@@ -33,6 +33,8 @@ function main(): void {
   const requiredScripts: Record<string, string> = {
     "release:admission": "tsx scripts/quality/release-admission.ts",
     "release:admission:selftest": "tsx scripts/quality/release-admission.selftest.ts",
+    "release:v11:admission": "tsx scripts/quality/v11-release-admission.ts",
+    "release:v11:admission:selftest": "tsx scripts/quality/v11-release-admission.selftest.ts",
     "release:identity:probe": "tsx scripts/quality/release-identity-probe.ts",
     "release:identity:probe:selftest": "tsx scripts/quality/release-identity-probe.selftest.ts",
     "release:workflow:policy": "tsx scripts/quality/release-workflow-policy.ts",
@@ -56,9 +58,12 @@ function main(): void {
   }
   const installGitleaks = uniqueStep(steps, "Install gitleaks", issues);
   const secretScan = uniqueStep(steps, "Commit secret scan", issues);
+  const v11AdmissionSelftest = uniqueStep(steps, "v1.1 release admission selftest", issues);
   const resolve = uniqueStep(steps, "Resolve release tag", issues);
   const fetchDefault = uniqueStep(steps, "Fetch default branch for release admission", issues);
   const admission = uniqueStep(steps, "Validate release admission", issues);
+  const v11Admission = uniqueStep(steps, "Validate v1.1 release admission", issues);
+  const runtimeIdentity = uniqueStep(steps, "Compute immutable web runtime identity", issues);
   const replay = uniqueStep(steps, "Reject existing immutable release identity", issues);
   const webPush = uniqueStep(steps, "Build and push web image", issues);
   const migrationPush = uniqueStep(steps, "Build and push migration image", issues);
@@ -77,15 +82,20 @@ function main(): void {
     requireStepJob(step, "validate", issues);
     requireHardGateStep(step, issues);
   }
+  requireStepJob(v11AdmissionSelftest, "validate", issues);
+  requireHardGateStep(v11AdmissionSelftest, issues);
+  requireScalarValue(v11AdmissionSelftest, "run", "pnpm release:v11:admission:selftest", "V11_ADMISSION_SELFTEST_NOT_CALLED", issues);
   requireNestedValue(installGitleaks, "env", "GITLEAKS_VERSION", "8.30.1", "GITLEAKS_VERSION_NOT_PINNED", issues);
   requireNestedValue(installGitleaks, "env", "GITLEAKS_SHA256", "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb", "GITLEAKS_CHECKSUM_NOT_PINNED", issues);
   requireRunLine(installGitleaks, "printf '%s  %s\\n' \"${GITLEAKS_SHA256}\" \"${RUNNER_TEMP}/${archive}\" | sha256sum -c -", "GITLEAKS_CHECKSUM_NOT_VERIFIED", issues);
   requireScalarValue(secretScan, "run", "pnpm secrets:scan", "SECRET_SCAN_NOT_CALLED", issues);
 
-  for (const step of [resolve, fetchDefault, admission, replay, webPush, migrationPush, manifest, supplyChain, checksums, installCosign, signing, supplyChainRecord, supplyChainValidation, publish]) {
+  for (const step of [resolve, fetchDefault, admission, runtimeIdentity, replay, webPush, migrationPush, manifest, supplyChain, checksums, installCosign, signing, supplyChainRecord, supplyChainValidation, publish]) {
     requireStepJob(step, "build-release", issues);
     requireHardGateStep(step, issues);
   }
+  requireStepJob(v11Admission, "build-release", issues);
+  requireV11AdmissionGate(v11Admission, issues);
 
   requireNestedValue(resolve, "env", "INPUT_TAG", "${{ inputs.tag }}", "DISPATCH_TAG_NOT_ENV_BOUND", issues);
   requireNestedValue(resolve, "env", "INPUT_CHANNEL", "${{ inputs.channel }}", "DISPATCH_CHANNEL_NOT_ENV_BOUND", issues);
@@ -94,6 +104,10 @@ function main(): void {
   requireScalarValue(admission, "run", "pnpm release:admission", "ADMISSION_NOT_CALLED", issues);
   requireNestedValue(admission, "env", "AREAFORGE_RELEASE_TAG", "${{ steps.vars.outputs.tag }}", "ADMISSION_TAG_NOT_BOUND", issues);
   requireNestedValue(admission, "env", "AREAFORGE_WORKFLOW_SHA", "${{ github.sha }}", "ADMISSION_SHA_NOT_BOUND", issues);
+  requireScalarValue(v11Admission, "run", "pnpm release:v11:admission", "V11_ADMISSION_NOT_CALLED", issues);
+  requireNestedValue(v11Admission, "env", "AREAFORGE_V11_RELEASE_ADMISSION_RECORD", "docs/development/v11-release-admission-record.md", "V11_ADMISSION_RECORD_PATH_NOT_FIXED", issues);
+  requireNestedValue(v11Admission, "env", "AREAFORGE_RELEASE_TAG", "${{ steps.vars.outputs.tag }}", "V11_ADMISSION_TAG_NOT_BOUND", issues);
+  requireNestedValue(v11Admission, "env", "AREAFORGE_WORKFLOW_SHA", "${{ github.sha }}", "V11_ADMISSION_SHA_NOT_BOUND", issues);
   requireScalarValue(replay, "run", "pnpm release:identity:probe", "IDENTITY_PROBE_NOT_CALLED", issues);
   requireNestedValue(replay, "env", "AREAFORGE_RELEASE_REPOSITORY", "${{ github.repository }}", "IDENTITY_REPOSITORY_NOT_BOUND", issues);
   requireNestedValue(replay, "env", "AREAFORGE_RELEASE_WEB_IMAGE", "${{ steps.vars.outputs.web_image }}", "WEB_IDENTITY_NOT_BOUND", issues);
@@ -149,10 +163,11 @@ function main(): void {
     issues.push("SECRET_SCAN_INSTALL_ORDER_INVALID");
   }
 
-  if (resolve && fetchDefault && admission && replay && webPush && migrationPush && manifest &&
+  if (resolve && fetchDefault && admission && v11Admission && runtimeIdentity && replay && webPush && migrationPush && manifest &&
       supplyChain && checksums && installCosign && signing && supplyChainRecord && supplyChainValidation && publish &&
       !(resolve.startLine < fetchDefault.startLine && fetchDefault.startLine < admission.startLine &&
-        admission.startLine < replay.startLine && replay.startLine < webPush.startLine &&
+        admission.startLine < v11Admission.startLine && v11Admission.startLine < runtimeIdentity.startLine &&
+        runtimeIdentity.startLine < replay.startLine && replay.startLine < webPush.startLine &&
         webPush.startLine < migrationPush.startLine && migrationPush.startLine < manifest.startLine &&
         manifest.startLine < supplyChain.startLine && supplyChain.startLine < checksums.startLine &&
         checksums.startLine < installCosign.startLine && installCosign.startLine < signing.startLine &&
@@ -366,6 +381,23 @@ function requireHardGateStep(step: StepBlock | null, issues: string[]): void {
     if (hasTopLevelSuccessExit(step)) {
       issues.push(`RELEASE_STEP_EARLY_SUCCESS_EXIT_${step.name.replace(/\W+/g, "_").toUpperCase()}`);
     }
+  }
+}
+
+function requireV11AdmissionGate(step: StepBlock | null, issues: string[]): void {
+  if (!step) return;
+  if (directValue(step, "if") !== "${{ steps.vars.outputs.tag == 'v1.1.0' }}") {
+    issues.push("V11_ADMISSION_CONDITION_INVALID");
+  }
+  const continueOnError = directValue(step, "continue-on-error");
+  if (continueOnError !== null && continueOnError !== "false") {
+    issues.push("RELEASE_STEP_CONTINUE_ON_ERROR_VALIDATE_V1_1_RELEASE_ADMISSION");
+  }
+  const shell = directValue(step, "shell");
+  if (shell !== null && shell !== "bash") issues.push("RELEASE_STEP_SHELL_INVALID_VALIDATE_V1_1_RELEASE_ADMISSION");
+  if (hasTopLevelSuccessExit(step)) issues.push("RELEASE_STEP_EARLY_SUCCESS_EXIT_VALIDATE_V1_1_RELEASE_ADMISSION");
+  if (runCommandLines(step).some((line) => /\|\|\s*true\b/.test(line))) {
+    issues.push("V11_ADMISSION_FAILURE_BYPASS_FORBIDDEN");
   }
 }
 

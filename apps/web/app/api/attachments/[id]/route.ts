@@ -7,10 +7,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    await requireApiUser(request);
+    const user = await requireApiUser(request);
     const { id } = await context.params;
     const disposition = parseDisposition(request.nextUrl.searchParams.get("disposition"));
-    const download = await getAttachmentDownload(id, disposition);
+    const download = await getAttachmentDownload(id, disposition, user.id);
     return new NextResponse(toArrayBuffer(download.bytes), { headers: download.headers });
   } catch (error) {
     return apiErrorResponse(error);

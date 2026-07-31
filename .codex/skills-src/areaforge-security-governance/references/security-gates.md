@@ -6,7 +6,8 @@
 - API routes do not trust client-provided actor/user ids.
 - Upload paths cannot escape `UPLOAD_DIR`; uploads are not in `public/`.
 - Attachment DTO exposes `downloadApiPath`, not internal URI or stored filename.
-- AI routes are POST-only, authenticated, minimized, and fallback-safe.
+- AI call routes are POST-only, authenticated, minimized, fallback-safe, and fail closed unless the current browser explicitly enables external Provider use.
+- The Provider preference endpoint is authenticated, accepts only the strict boolean policy field, stores no Provider key or content, and uses a host-only HttpOnly/Strict cookie.
 - Client bundle contains no server secrets.
 - Logs do not include `.env`, database URL, API keys, prompt/raw response, upload absolute path, or full private text.
 - Release updater verifies hash/signature and uses immutable digests.

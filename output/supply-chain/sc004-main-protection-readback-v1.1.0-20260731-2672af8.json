@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "repository": "AreaSong/AreaForge",
+  "branch": "main",
+  "sourceKind": "ruleset",
+  "observedAt": "2026-07-30T23:58:34Z",
+  "maintenanceWindowId": "v11-sc004-20260731-2672af8-pr24",
+  "requiredPullRequest": true,
+  "requiredApprovingReviewCount": 0,
+  "requiredStatusChecks": [
+    "ci / verify"
+  ],
+  "enforceAdmins": true,
+  "allowForcePushes": false,
+  "allowDeletions": false,
+  "adminBypassActors": [],
+  "redaction": {
+    "secretsRemoved": true,
+    "tokenRemoved": true
+  },
+  "readbackHash": "sha256:44591c7b7c67ca884cd54819725422f58785519ca269ea20edea8c4ba7f085ad"
+}

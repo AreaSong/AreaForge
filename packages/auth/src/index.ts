@@ -48,6 +48,33 @@ export function hashIdentifier(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+export {
+  createPlanBatchRef,
+  mintLearningTreeExportToken,
+  mintLearningTreePreviewToken,
+  sha256Hex,
+  verifyLearningTreeExportToken,
+  verifyLearningTreePreviewToken,
+} from "./learning-tree-crypto";
+
+export {
+  AI_DRAFT_RESULT_PROOF_MAX_LENGTH,
+  AI_DRAFT_RESULT_PROOF_PURPOSE,
+  AI_DRAFT_RESULT_PROOF_TTL_MS,
+  AI_DRAFT_RESULT_PROOF_VERSION,
+  hmacAiPayload,
+  isAiDraftResultProofLengthAllowed,
+  isValidAiPayloadBindingSecret,
+  mintAiDraftPreviewToken,
+  mintAiDraftResultProof,
+  verifyAiDraftPreviewToken,
+  verifyAiDraftResultProof,
+  type AiDraftResultProofClaims,
+  type AiDraftResultProofExpected,
+  type AiDraftResultProofInput,
+  type AiDraftResultProofVerification,
+} from "./ai-payload-binding";
+
 function scryptAsync(password: string, salt: Buffer, keyLength: number, options: ScryptOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scrypt(password, salt, keyLength, options, (error, derivedKey) => {

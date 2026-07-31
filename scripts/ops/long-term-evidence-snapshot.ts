@@ -3,7 +3,12 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { buildOperabilityStatusProjection, type OperabilityStatusProjection } from "./operability-status";
+import {
+  buildOperabilityStatusProjection,
+  historicalRollbackIdentity,
+  productionBaselineIdentity,
+  type OperabilityStatusProjection,
+} from "./operability-status";
 import { validateDataIntegrityDoctor } from "../quality/data-integrity-doctor-validate";
 import { resolveReleaseEvidenceValidationArgs } from "../quality/release-evidence-validate";
 import {
@@ -47,6 +52,11 @@ type LongTermEvidenceSnapshot = {
   expectedVersion: string;
   releaseTag: string;
   packageVersion: string;
+  currentCheckout: {
+    version: string;
+  };
+  productionBaseline: typeof productionBaselineIdentity;
+  historicalRollback: typeof historicalRollbackIdentity;
   scope: "long_term_operability_current_checkout";
   status: SnapshotStatus;
   nextCommand: string;
@@ -86,11 +96,11 @@ type LongTermEvidenceSnapshot = {
   };
 };
 
-const defaultOperationalEvidenceBundle = "docs/development/operational-evidence-bundle-v0.1.7-20260712.json";
-const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.7-20260712.json";
-const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.7-20260712-manual-window.txt";
-const defaultReleaseEvidenceRecord = "docs/development/release-v0.1.7-record.md";
-const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.7.md";
+const defaultOperationalEvidenceBundle = "docs/development/ops-001-production-readonly-20260721/operational-evidence-bundle.json";
+const defaultOps004AlertPreview = "docs/development/ops-004-alert-preview-v0.1.9-20260721.json";
+const defaultOps004AlertDrillRecord = "docs/development/ops-004-alert-drill-v0.1.9-20260721-manual-window.txt";
+const defaultReleaseEvidenceRecord = productionBaselineIdentity.releaseRecordPath;
+const defaultReleaseSupplyChainRecord = "docs/development/release-supply-chain-v0.1.9.md";
 const defaultMaxUxAgeDays = 14;
 const defaultMaxDataIntegrityAgeHours = 24;
 
@@ -138,6 +148,11 @@ function main(): void {
     expectedVersion: packageVersion,
     releaseTag,
     packageVersion,
+    currentCheckout: {
+      version: packageVersion,
+    },
+    productionBaseline: productionBaselineIdentity,
+    historicalRollback: historicalRollbackIdentity,
     scope: "long_term_operability_current_checkout" as const,
     status,
     nextCommand: snapshotNextCommand(status, checks),
@@ -986,7 +1001,9 @@ function expectedVersion(): string {
   const raw = process.env.AREAFORGE_LONG_TERM_EXPECTED_VERSION?.trim();
   if (raw) return raw;
   const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as { version?: unknown };
-  return typeof packageJson.version === "string" && packageJson.version.trim() ? packageJson.version.trim() : "0.1.7";
+  return typeof packageJson.version === "string" && packageJson.version.trim()
+    ? packageJson.version.trim()
+    : productionBaselineIdentity.version;
 }
 
 function now(): Date {

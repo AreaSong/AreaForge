@@ -54,3 +54,7 @@
 - `POST /api/tasks/debt-reorder/applications` 写 `TaskDebtEvent.action=reorder_applied` 与 `AuditEvent`，应用前重新校验任务状态和当前建议；有跳过项时按 `shouldStopOnFirstFailure` 停止写入并返回摘要。
 
 实现进度与批次证据见 [功能追踪矩阵](../development/feature-traceability.md)。
+
+## 学习行动中心扩展（隔离候选已实现）
+
+当前隔离候选已让欠账与正式任务进入滚动七天看板；计划草稿先进计划收件箱再由用户确认转换。债务重排建议仍不得静默应用，现有正式任务也不会被报告、阶段或 AI 草稿直接改写。该能力仍待最终候选验证与生产切换，见 `docs/modules/plan-inbox.md`。

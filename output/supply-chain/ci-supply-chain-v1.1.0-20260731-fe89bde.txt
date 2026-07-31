@@ -1,0 +1,30 @@
+recordId: ci-supply-chain-20260731075240
+recordedAt: 2026-07-31T07:52:40.248Z
+workflowKind: ci
+repository: AreaSong/AreaForge
+workflowName: ci
+workflowRunUrl: https://github.com/AreaSong/AreaForge/actions/runs/30613767836
+workflowRunConclusion: success
+gitCommit: fe89bde6e2cdc995f0c6eb1882b5442c6306c634
+expectedGitCommit: fe89bde6e2cdc995f0c6eb1882b5442c6306c634
+commitMatchStatus: pass
+headBranch: codex/v1.1-learning-action-center
+packageVersion: 1.1.0
+ciWorkflowStatus: pass
+auditProdStatus: pass
+governancePreflightStatus: pass
+actionsPinningStatus: pass
+skillsValidateStatus: pass
+releaseSupplyChainSelftestStatus: pass
+pinnedActionsCount: 15
+unpinnedExternalActions: none
+highCriticalVulnerabilities: none
+residualRiskIds: AF-RISK-SC-002
+followUpTasks: tasks/indexes/residuals.md
+safetyFacts:
+  secretsPrinted: no
+  productionEnvIncluded: no
+  backupIncluded: no
+  productionWriteAttempted: no
+  releaseCreated: no
+  tagPushed: no

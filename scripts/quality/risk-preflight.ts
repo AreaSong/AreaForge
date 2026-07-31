@@ -1,5 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  hasMasteryProofSubmissionGuard,
+  isAllowedBusinessRestoreRoute,
+} from "./risk-preflight-boundaries";
 
 interface CheckResult {
   name: string;
@@ -54,6 +58,8 @@ function main(): void {
   checkAttachmentStillBeforePackageA();
   checkAiDesign();
   checkAiStillBeforePackageC();
+  checkV11Batch9AiDraftBoundaries();
+  checkV11AiProviderPreferenceBoundary();
   checkStructuredMigrationDesign();
   checkMasteryProofBasicImplementation();
   checkSecondStageDesign();
@@ -467,7 +473,11 @@ function checkSecondStageStillBeforePackageD(): void {
     hasWriteRouteMethod(readIfExists(file)) &&
     !isPackageDReportDecisionRoute(file, packageDStatus.d1),
   );
-  const d1ReportDecisionRoute = "apps/web/app/api/reports/periodic/decisions/route.ts";
+  const d1ReportDecisionRoutes = [
+    "apps/web/app/api/reports/periodic/decisions/route.ts",
+    "apps/web/app/api/reports/[id]/confirm/route.ts",
+    "apps/web/app/api/reports/[id]/reject/route.ts",
+  ];
   const unexpectedD1ReportDecisionRoutes = packageDStatus.d1
     ? allApiFiles.filter((file) =>
       isPackageDReportDecisionRouteFamily(file) &&
@@ -475,7 +485,12 @@ function checkSecondStageStillBeforePackageD(): void {
     )
     : [];
   const invalidD1ReportDecisionMethods = packageDStatus.d1
-    ? getExportedRouteMethods(readIfExists(d1ReportDecisionRoute)).filter((method) => !["GET", "POST"].includes(method))
+    ? d1ReportDecisionRoutes.flatMap((file) => {
+      const allowedMethods = file.includes("/periodic/decisions/") ? ["GET", "POST"] : ["POST"];
+      return getExportedRouteMethods(readIfExists(file))
+        .filter((method) => !allowedMethods.includes(method))
+        .map((method) => `${file}:${method}`);
+    })
     : [];
   const forbiddenStageAiDraftRoutes = allApiFiles.filter((file) =>
     file.replaceAll(path.sep, "/").includes("/simulation/stage-adjustment-drafts/ai") &&
@@ -536,7 +551,7 @@ function checkSecondStageStillBeforePackageD(): void {
         ...forbiddenReportsPeriodicMethods,
         ...forbiddenReportWriteRoutes,
         ...unexpectedD1ReportDecisionRoutes,
-        ...invalidD1ReportDecisionMethods.map((method) => `${d1ReportDecisionRoute}:${method}`),
+        ...invalidD1ReportDecisionMethods,
       ].join(", ")}`,
   });
 
@@ -830,7 +845,8 @@ function checkPackageDCompletedBatchEvidence(
     const requiredTerms = [
       ["route", route, "export async function POST"],
       ["route", route, "requireApiUser(request)"],
-      ["route", route, "allowExternalProvider: true"],
+      ["route", route, "readAiProviderPreferenceFromRequest(request)"],
+      ["route", route, "allowExternalProvider: preference.externalProviderEnabled"],
       ["service", service, "createAiStageAdjustmentDraft"],
       ["service", service, "minimizedLongTermStageContext"],
       ["service", service, "source: \"ai\""],
@@ -877,8 +893,12 @@ function checkPackageDCompletedBatchEvidence(
     const riskService = readIfExists("apps/web/lib/study/long-term-risk-service.ts");
     const riskRoutePath = "apps/web/app/api/analytics/long-term-risks/route.ts";
     const riskRoute = readIfExists(riskRoutePath);
-    const syllabusSurface = readIfExists("apps/web/app/syllabus/page.tsx") + readIfExists("apps/web/components/syllabus-panel.tsx");
-    const notesSurface = readIfExists("apps/web/app/notes/page.tsx") + readIfExists("apps/web/components/notes-panel.tsx");
+    const syllabusSurface = readIfExists("apps/web/app/syllabus/page.tsx")
+      + readIfExists("apps/web/components/syllabus-panel.tsx")
+      + readIfExists("apps/web/components/syllabus-manager.tsx");
+    const notesSurface = readIfExists("apps/web/app/notes/page.tsx")
+      + readIfExists("apps/web/components/notes-panel.tsx")
+      + readIfExists("apps/web/components/note-library.tsx");
     const simulationSurface = readIfExists("apps/web/app/simulation/page.tsx");
     const riskRouteMethods = getExportedRouteMethods(riskRoute);
     const unexpectedRiskRouteMethods = riskRouteMethods.filter((method) => method !== "GET").map((method) => `${riskRoutePath}:${method}`);
@@ -1318,9 +1338,11 @@ function checkMasteryProofBasicImplementation(): void {
     "masteryLevel: targetMasteryLevel",
     "masteryConditions: selectedConditions",
     'type="checkbox"',
-    "disabled={!canSubmitProof}",
     "保存证明",
   ].filter((term) => !syllabusManager.includes(term));
+  if (!hasMasteryProofSubmissionGuard(syllabusManager)) {
+    missingUiTerms.push("disabled={pending || !canSubmitProof}");
+  }
   checks.push({
     name: "mastery proof basic UI chain",
     ok: missingUiTerms.length === 0,
@@ -1621,6 +1643,7 @@ function checkProductionCompose(): void {
   const apiFiles = listFiles("apps/web/app/api").filter((file) => file.endsWith("/route.ts"));
   const forbiddenOpsRouteFiles = apiFiles.filter((file) => {
     const normalized = file.replaceAll(path.sep, "/").toLowerCase();
+    if (isAllowedBusinessRestoreRoute(normalized)) return false;
     const content = readIfExists(file).toLowerCase();
     return ["deploy", "backup", "restore", "migration", "migrate"].some((term) =>
       normalized.includes(term) || content.includes(term),
@@ -1797,6 +1820,9 @@ function checkPackageBBatchBoundaries(): void {
   const recoverySchemas = readIfExists("apps/web/lib/study/schemas.ts");
   const dashboardRoute = readIfExists("apps/web/app/api/dashboard/today/route.ts");
   const homePage = readIfExists("apps/web/app/page.tsx");
+  const todayPage = readIfExists("apps/web/app/(app)/today/page.tsx");
+  const actionCenterToday = readIfExists("apps/web/components/action-center-today.tsx");
+  const homeRedirectsToToday = homePage.includes('redirect("/today")');
   const batch3RuntimeSignals = [
     {
       label: "RecoveryState additive migration",
@@ -1816,7 +1842,8 @@ function checkPackageBBatchBoundaries(): void {
     },
     {
       label: "dashboard records rule trigger explicitly",
-      ok: dashboardRoute.includes("recordRecoveryRule: true") && homePage.includes("recordRecoveryRule: true"),
+      ok: dashboardRoute.includes("recordRecoveryRule: true")
+        && (homePage.includes("recordRecoveryRule: true") || homeRedirectsToToday),
     },
     {
       label: "RecoveryState DTO exposes source and state fields",
@@ -1834,9 +1861,16 @@ function checkPackageBBatchBoundaries(): void {
     },
     {
       label: "homepage recovery controls preserve full task panel",
-      ok: fileExists("apps/web/components/recovery-state-controls.tsx")
-        && homePage.includes("tasks={dashboard.tasks}")
-        && homePage.includes("tasks={focusTasks}"),
+      ok: (
+        fileExists("apps/web/components/recovery-state-controls.tsx")
+          && homePage.includes("tasks={dashboard.tasks}")
+          && homePage.includes("tasks={focusTasks}")
+      ) || (
+        homeRedirectsToToday
+          && todayPage.includes("<ActionCenterToday")
+          && actionCenterToday.includes("today.recovery")
+          && actionCenterToday.includes("today.queues.formalTasks")
+      ),
     },
   ];
   const missingBatch3Signals = batch3RuntimeSignals.filter((signal) => !signal.ok).map((signal) => signal.label);
@@ -2514,6 +2548,160 @@ function checkAiStillBeforePackageC(): void {
   });
 }
 
+function checkV11Batch9AiDraftBoundaries(): void {
+  const envExample = readIfExists(".env.example");
+  const config = readIfExists("packages/config/src/index.ts");
+  const packets = readIfExists("docs/development/high-risk-confirmation-packets.md");
+  const authBinding = readIfExists("packages/auth/src/ai-payload-binding.ts");
+  const draftRoutes = [
+    "apps/web/app/api/ai/drafts/learning-tree/route.ts",
+    "apps/web/app/api/ai/drafts/knowledge-card/route.ts",
+    "apps/web/app/api/ai/drafts/plan/route.ts",
+    "apps/web/app/api/ai/drafts/motivation/route.ts",
+  ];
+
+  const confirmationOk =
+    packets.includes("确认状态（2026-07-21）") &&
+    packets.includes("确认四类显式 AI 草稿用途（learning-tree / knowledge-card / plan / motivation）");
+  checks.push({
+    name: "v1.1 Batch 9 AI four-draft confirmation",
+    ok: confirmationOk,
+    detail: confirmationOk
+      ? "four-draft high-risk confirmation is marked confirmed"
+      : "four-draft confirmation packet is not marked confirmed",
+  });
+
+  const secretInEnv = /^AI_PAYLOAD_BINDING_SECRET=/m.test(envExample);
+  const secretInConfig = config.includes("AI_PAYLOAD_BINDING_SECRET");
+  const secretOptionalMin32 =
+    config.includes("AI_PAYLOAD_BINDING_SECRET") &&
+    (config.includes("z.string().min(32).optional()") || config.includes("value.length >= 32"));
+  checks.push({
+    name: "v1.1 Batch 9 AI_PAYLOAD_BINDING_SECRET config",
+    ok: secretInEnv && secretInConfig && secretOptionalMin32,
+    detail:
+      secretInEnv && secretInConfig && secretOptionalMin32
+        ? "AI_PAYLOAD_BINDING_SECRET documented in .env.example and server env schema (>=32, optional)"
+        : "AI_PAYLOAD_BINDING_SECRET missing from env/config schema",
+  });
+
+  const forbiddenPublic = ["NEXT_PUBLIC_AI_PAYLOAD", "NEXT_PUBLIC_AI_PAYLOAD_BINDING_SECRET"].filter((term) =>
+    `${envExample}\n${config}`.includes(term),
+  );
+  const clientLeak = listFiles("apps/web")
+    .filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"))
+    .filter((file) => {
+      const normalized = file.replaceAll(path.sep, "/");
+      if (normalized.includes("/app/api/")) return false;
+      if (normalized.includes("/lib/study/ai-draft-service.ts")) return false;
+      if (normalized.includes("/lib/study/ai-draft-status.ts")) return false;
+      if (normalized.includes("/lib/auth/")) return false;
+      const text = readIfExists(file);
+      return text.includes("AI_PAYLOAD_BINDING_SECRET");
+    });
+  checks.push({
+    name: "v1.1 Batch 9 AI_PAYLOAD_BINDING_SECRET client boundary",
+    ok: forbiddenPublic.length === 0 && clientLeak.length === 0,
+    detail:
+      forbiddenPublic.length === 0 && clientLeak.length === 0
+        ? "AI_PAYLOAD_BINDING_SECRET stays server-only (no NEXT_PUBLIC_ / client import)"
+        : `leak surface: ${[...forbiddenPublic, ...clientLeak].join(", ")}`,
+  });
+
+  const bindingOk =
+    authBinding.includes("selection:v1") &&
+    authBinding.includes("preview:v1") &&
+    authBinding.includes("provider:v1") &&
+    authBinding.includes("mintAiDraftPreviewToken") &&
+    authBinding.includes("verifyAiDraftPreviewToken");
+  checks.push({
+    name: "v1.1 Batch 9 purpose-separated HMAC binding",
+    ok: bindingOk,
+    detail: bindingOk
+      ? "auth package exposes purpose-separated HMAC and opaque AI draft preview token"
+      : "ai-payload-binding helpers missing",
+  });
+
+  const missingRoutes = draftRoutes.filter((file) => !existsSync(resolve(file)));
+  const unsafeDraftRoutes = draftRoutes
+    .filter((file) => existsSync(resolve(file)))
+    .filter((file) => {
+      const route = readIfExists(file);
+      const hasOnlyPost =
+        route.includes("export async function POST") &&
+        !["GET", "PUT", "PATCH", "DELETE"].some((method) =>
+          new RegExp(`export\\s+async\\s+function\\s+${method}\\b`).test(route),
+        );
+      return !hasOnlyPost || !route.includes("requireApiUser(request)");
+    });
+  checks.push({
+    name: "v1.1 Batch 9 AI draft routes auth boundary",
+    ok: missingRoutes.length === 0 && unsafeDraftRoutes.length === 0,
+    detail:
+      missingRoutes.length === 0 && unsafeDraftRoutes.length === 0
+        ? "four AI draft routes exist as authenticated POST-only endpoints"
+        : `route issues: missing=${missingRoutes.join(", ") || "none"}; unsafe=${unsafeDraftRoutes.join(", ") || "none"}`,
+  });
+}
+
+function checkV11AiProviderPreferenceBoundary(): void {
+  const packets = readIfExists("docs/development/high-risk-confirmation-packets.md");
+  const preferenceService = readIfExists("apps/web/lib/study/ai-provider-preference.ts");
+  const preferenceRoute = readIfExists("apps/web/app/api/ai/preferences/route.ts");
+  const stageAiCompatibilityRoute = readIfExists("apps/web/app/api/stage-adjustment-drafts/ai/route.ts");
+  const settingsPage = readIfExists("apps/web/app/(app)/settings/ai/page.tsx");
+  const settingsClient = readIfExists("apps/web/components/ai-settings-client.tsx");
+  const routes = [
+    "apps/web/app/api/ai/discipline/route.ts",
+    "apps/web/app/api/ai/daily-review/route.ts",
+    "apps/web/app/api/ai/tomorrow-plan/route.ts",
+    "apps/web/app/api/ai/drafts/learning-tree/route.ts",
+    "apps/web/app/api/ai/drafts/knowledge-card/route.ts",
+    "apps/web/app/api/ai/drafts/plan/route.ts",
+    "apps/web/app/api/ai/drafts/motivation/route.ts",
+    "apps/web/app/api/simulation/stage-adjustment-drafts/ai/route.ts",
+  ];
+  const routeProblems = routes.flatMap((file) => {
+    const route = readIfExists(file);
+    const missing = [
+      "requireApiUser(request)",
+      "readAiProviderPreferenceFromRequest(request)",
+      "allowExternalProvider: preference.externalProviderEnabled",
+    ].filter((term) => !route.includes(term));
+    if (route.includes("allowExternalProvider: true")) missing.push("forbidden allowExternalProvider: true");
+    return missing.map((term) => `${file}:${term}`);
+  });
+  const requiredTerms = [
+    ["confirmation", packets, "确认执行 v1.1 AI 设置外部 Provider 偏好"],
+    ["preference-service", preferenceService, "value === enabledValue"],
+    ["preference-service", preferenceService, "httpOnly: true"],
+    ["preference-service", preferenceService, "sameSite: \"strict\""],
+    ["preference-service", preferenceService, "secure: process.env.NODE_ENV === \"production\""],
+    ["preference-route", preferenceRoute, "export async function GET"],
+    ["preference-route", preferenceRoute, "export async function PATCH"],
+    ["preference-route", preferenceRoute, "patchAiProviderPreferenceSchema.safeParse"],
+    [
+      "stage-ai-compatibility-route",
+      stageAiCompatibilityRoute,
+      'export { POST } from "@/app/api/simulation/stage-adjustment-drafts/ai/route"',
+    ],
+    ["settings-page", settingsPage, "readAiProviderPreference(await cookies())"],
+    ["settings-client", settingsClient, "保存 AI 设置"],
+    ["settings-client", settingsClient, "<Modal"],
+  ];
+  const missing = requiredTerms
+    .filter(([, content, term]) => !content.includes(term))
+    .map(([surface, , term]) => `${surface}:${term}`);
+
+  checks.push({
+    name: "v1.1 AI provider preference boundary",
+    ok: missing.length === 0 && routeProblems.length === 0,
+    detail: missing.length === 0 && routeProblems.length === 0
+      ? "current-browser fail-closed preference, authenticated settings API/UI, all eight explicit AI POST paths, and the stage compatibility re-export share one provider gate"
+      : `missing or unsafe ${[...missing, ...routeProblems].join(", ")}`,
+  });
+}
+
 function hasPackageCImplementationEvidence(
   ai: string,
   aiTests: string,
@@ -2548,10 +2736,14 @@ function hasPackageCImplementationEvidence(
     "allowExternalProvider",
     "checkAiProviderRateLimit",
     "aiProviderRateLimitMaxCalls",
-    "首页普通打开仅展示本地规则建议",
+    "当前浏览器未开启外部 AI Provider",
   ];
   const routeTermsPresent = aiRouteFiles.every((file) =>
-    apiRouteContains(file, ["requireApiUser(request)", "allowExternalProvider: true"]),
+    apiRouteContains(file, [
+      "requireApiUser(request)",
+      "readAiProviderPreferenceFromRequest(request)",
+      "allowExternalProvider: preference.externalProviderEnabled",
+    ]),
   );
 
   return aiImplementationTerms.every((term) => ai.includes(term)) &&
@@ -2742,12 +2934,14 @@ function isReportDecisionScopeRoute(file: string): boolean {
 function isPackageDReportDecisionRoute(file: string, d1Done: boolean): boolean {
   if (!d1Done) return false;
   const normalized = file.replaceAll(path.sep, "/");
-  return /\/reports\/periodic\/decisions\/route\.ts$/.test(normalized);
+  return /\/reports\/periodic\/decisions\/route\.ts$/.test(normalized) ||
+    /\/reports\/\[id\]\/(confirm|reject)\/route\.ts$/.test(normalized);
 }
 
 function isPackageDReportDecisionRouteFamily(file: string): boolean {
   const normalized = file.replaceAll(path.sep, "/");
-  return normalized.includes("/reports/periodic/decisions/");
+  return normalized.includes("/reports/periodic/decisions/") ||
+    /\/reports\/\[[^\]]+\]\/(confirm|reject)\//.test(normalized);
 }
 
 function isPackageDDebtReorderDecisionRoute(file: string, d2Done: boolean): boolean {

@@ -59,10 +59,17 @@ export type StageAdjustmentTaskActionDto =
 
 export interface SubjectDto {
   id: string;
+  /** Dual-read: legacy enum code when present, otherwise stableKey. */
   code: string;
+  legacyCode: string | null;
+  stableKey: string;
+  workspaceId: string | null;
+  groupId: string | null;
   name: string;
   color: string;
   sortOrder: number;
+  archivedAt: string | null;
+  legacyScope: boolean;
 }
 
 export interface StudyTaskDto {
@@ -85,6 +92,8 @@ export interface StudyTaskDto {
   completedAt: string | null;
 }
 
+export type StudySessionStartSourceDto = "TASK" | "SUBJECT_SHORTCUT" | "RECOVERY";
+
 export interface StudySessionDto {
   id: string;
   subjectId: string;
@@ -95,6 +104,7 @@ export interface StudySessionDto {
   syllabusNodeTitle: string | null;
   status: StudySessionStatusDto;
   startedAt: string;
+  updatedAt: string;
   pausedAt: string | null;
   endedAt: string | null;
   accumulatedPauseSeconds: number;
@@ -111,6 +121,8 @@ export interface StudySessionDto {
   requiredOutput: string | null;
   closeoutVersion: number;
   note: string | null;
+  goalMinutes: number | null;
+  startSource: StudySessionStartSourceDto | null;
 }
 
 export interface MasteryConditionRecordDto {
@@ -151,6 +163,7 @@ export interface MasteryEvidenceCandidateDto {
 
 export interface DailyReviewDto {
   id: string;
+  revision: number;
   reviewDate: string;
   totalMinutes: number;
   effectiveMinutes: number;
@@ -164,6 +177,9 @@ export interface DailyReviewDto {
 
 export interface SyllabusNodeDto {
   id: string;
+  revision: number;
+  stableKey: string | null;
+  archivedAt: string | null;
   subjectId: string;
   subjectName: string;
   subjectColor: string;
@@ -225,8 +241,14 @@ export interface NoteDto {
   subjectColor: string;
   syllabusNodeId: string | null;
   syllabusNodeTitle: string | null;
+  relatedSyllabusNodeIds: string[];
   taskId: string | null;
   taskTitle: string | null;
+  kind: string;
+  studyDate: string | null;
+  stableKey: string | null;
+  revision: number;
+  archivedAt: string | null;
   title: string;
   content: string;
   masteryStatus: NoteMasteryStatusDto | null;
@@ -234,6 +256,34 @@ export interface NoteDto {
   createdAt: string;
   updatedAt: string;
   attachments: AttachmentDto[];
+  relatedSyllabusNodes: Array<{
+    id: string;
+    title: string;
+    archivedAt: string | null;
+  }>;
+  linkedResources: Array<{
+    id: string;
+    title: string;
+    sourceType: "FILE" | "LINK";
+    archivedAt: string | null;
+  }>;
+  reviewSchedule: {
+    id: string;
+    status: "ACTIVE" | "PAUSED";
+    dueDate: string | null;
+    pausedReason: string | null;
+    consecutivePassCount: number;
+    revision: number;
+    events: Array<{
+      id: string;
+      result: "PASSED" | "PARTIAL" | "FAILED";
+      durationSeconds: number;
+      confirmedAt: string;
+      nextDueDate: string;
+      correctedEventId: string | null;
+      note: string | null;
+    }>;
+  } | null;
 }
 
 export interface MistakeDto {
@@ -248,8 +298,35 @@ export interface MistakeDto {
   cause: MistakeCauseDto;
   correctIdea: string | null;
   nextReviewAt: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  reviewSchedule: MistakeReviewScheduleDto | null;
+  reviewHistory: MistakeReviewEventDto[];
+}
+
+export interface MistakeReviewScheduleDto {
+  id: string;
+  status: "ACTIVE" | "PAUSED";
+  dueDate: string | null;
+  pausedReason: string | null;
+  consecutivePassCount: number;
+  revision: number;
+  updatedAt: string;
+}
+
+export interface MistakeReviewEventDto {
+  id: string;
+  reviewScheduleId: string;
+  result: "PASSED" | "PARTIAL" | "FAILED";
+  durationSeconds: number;
+  confirmedAt: string;
+  learningDate: string;
+  nextDueDate: string;
+  consecutivePassDelta: number;
+  correctedEventId: string | null;
+  note: string | null;
+  appliedRevision: number;
 }
 
 export interface MotivationVaultDto {
@@ -269,12 +346,38 @@ export interface SimulationSubjectResultDto {
   subjectId: string;
   subjectName: string;
   subjectColor: string;
+  paperFullScore: number | null;
   targetScore: number | null;
   actualScore: number | null;
   durationMinutes: number | null;
   blankQuestionCount: number;
   lossReasons: string[];
   summary: string | null;
+  revision: number;
+  lossItems: SimulationLossItemDto[];
+}
+
+export type SimulationLossReasonDto =
+  | "CONCEPT_GAP"
+  | "MEMORY_FORMULA"
+  | "METHOD_ERROR"
+  | "CALCULATION_CARELESS"
+  | "TIME_ALLOCATION"
+  | "READING_COMPREHENSION"
+  | "UNFAMILIAR_PATTERN"
+  | "MINDSET"
+  | "UNANSWERED"
+  | "OTHER";
+
+export interface SimulationLossItemDto {
+  id: string;
+  reason: SimulationLossReasonDto;
+  syllabusNodeId: string | null;
+  syllabusNodeTitle: string | null;
+  lostScore: number;
+  note: string | null;
+  revision: number;
+  archivedAt: string | null;
 }
 
 export interface SimulationExamDto {
@@ -291,13 +394,20 @@ export interface SimulationExamDto {
   mindset: string | null;
   summary: string | null;
   reviewText: string | null;
+  status: "DRAFT" | "CONFIRMED";
+  confirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  revision: number;
+  totalsSource: "subject_sum" | "legacy_fallback";
+  legacyDisplayTotals: { targetScore: number | null; actualScore: number | null } | null;
+  warnings: string[];
   subjectResults: SimulationSubjectResultDto[];
 }
 
 export interface StagePlanDto {
   id: string;
+  revision: number;
   name: string;
   startDate: string;
   endDate: string;
@@ -310,7 +420,11 @@ export interface StagePlanDto {
 
 export interface StageAdjustmentDraftRecordDto {
   id: string;
+  revision: number;
   stagePlanId: string | null;
+  sourceReportDecisionId: string | null;
+  sourceReportRevision: number | null;
+  originVersion: number | null;
   source: StageAdjustmentDraftSourceDto;
   mode: StagePlanModeDto;
   risk: StageAdjustmentDraftRiskDto;
@@ -325,6 +439,15 @@ export interface StageAdjustmentDraftRecordDto {
   createdAt: string;
   appliedAt: string | null;
   actorId: string | null;
+}
+
+export interface PlanInboxWriteSummaryDto {
+  created: string[];
+  reused: string[];
+  superseded: string[];
+  createdCount: number;
+  reusedCount: number;
+  supersededCount: number;
 }
 
 export interface SyllabusOverviewDto {

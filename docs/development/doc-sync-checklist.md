@@ -34,6 +34,7 @@
 - 长期文档改动是否遵守上方"文档分层规则"：正文无版本号/日期/批次叙事，状态只写指定入口；运行 `pnpm docs:evergreen` 验证。
 - 面向使用者的行为变化是否同步 `docs/guide/**`（上手、使用指南、配置参考、FAQ）；新增环境变量是否同步 `.env.example` 注释与 `docs/guide/configuration.md`。
 - 新功能是否有 `docs/modules/**` 或 `docs/product/**` 落点。
+- 学习行动中心类**规划同步**是否写清「规划 / 未实现」、链到 `workflow/versions/v1.1-learning-action-center.md` 与 `docs/development/feature-traceability.md`，且不扩大 docs 100% / Package A-E 完成声明；Exact docs 勾选见版本计划 Planning Gate，阶段包见 `docs/development/v11-phase-packages.md`。
 - 功能状态变化（新增、完成、降级、搁置、划入不做）是否同步 `docs/development/feature-traceability.md`（权威）、`docs/development/feature-map.md` 对应行与快照日期，以及 Cursor Canvas 投影 `areaforge-feature-map.canvas.tsx`。
 - 新增、删除页面路由或调整主导航入口是否同步 `docs/ux/site-navigation.md`。
 - 本轮若踩到满足录入门槛（可复现/代价高/代码看不出，2/3 通过）的新坑，是否已按「触发/根因/规避/关联」格式追加 `docs/development/gotchas.md`；与 residual 台账、FAQ、error-recovery-matrix 重叠的内容是否回链而非复制。

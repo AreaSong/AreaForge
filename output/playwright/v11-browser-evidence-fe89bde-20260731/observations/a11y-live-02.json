@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-07-31T07:48:01.058Z",
+  "checkId": "LIVE-02",
+  "checkKey": "timer-status-assertive",
+  "route": "/focus/26364a61-2911-4b28-9d02-813015fa6224",
+  "target": "focus-timer-status",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "dom",
+  "assertions": [
+    {
+      "id": "timer-status-has-text",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "timer-status-assertive",
+      "predicate": "equals",
+      "expected": "assertive",
+      "actual": "assertive",
+      "passed": true
+    },
+    {
+      "id": "timer-status-atomic",
+      "predicate": "equals",
+      "expected": "true",
+      "actual": "true",
+      "passed": true
+    }
+  ]
+}

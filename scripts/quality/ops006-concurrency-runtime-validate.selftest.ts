@@ -23,6 +23,13 @@ stale.generatedAt = "2026-07-01T00:00:00.000Z";
 stale.recordHash = calculateOps006RecordHash(stale);
 assertInvalid(JSON.stringify(stale), "record must be fresh within 24 hours");
 
+const idempotencyTampered = structuredClone(record);
+const idempotencyCheck = idempotencyTampered.checks.find((check) => check.id === "session.command_idempotency_expected_preimage");
+if (!idempotencyCheck) throw new Error("OPS-006 runtime selftest fixture is missing the idempotency check");
+idempotencyCheck.details.endAuditCount = 2;
+idempotencyTampered.recordHash = calculateOps006RecordHash(idempotencyTampered);
+assertInvalid(JSON.stringify(idempotencyTampered), "session command idempotency details are invalid");
+
 console.log("PASS OPS-006 runtime record validator selftest");
 
 function createFixture() {
@@ -42,6 +49,14 @@ function createFixture() {
       pass("checkin.lock_key_contract", { orderedDayCount: 2 }),
       pass("session.concurrent_start", { successCount: 1, conflictCount: 1 }),
       pass("session.pause_resume_end_cas", { pauseWinnerCount: 1, resumeWinnerCount: 1, endWinnerCount: 1 }),
+      pass("session.command_idempotency_expected_preimage", {
+        pauseReused: true,
+        resumeReused: true,
+        endReused: true,
+        staleRejected: true,
+        endAuditCount: 1,
+        debtEventCount: 1,
+      }),
       pass("task.command_cas", { commandCount: 7, winnerCount: 7, conflictCount: 7 }),
       pass("task.simulation_complete_cas", { successCount: 1, conflictCount: 1 }),
       pass("task.debt_reorder_cas", { successCount: 1, conflictCount: 1 }),

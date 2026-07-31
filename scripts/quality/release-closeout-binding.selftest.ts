@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
 import { evaluateReleaseCloseoutBinding, isAllowedCloseoutPath } from "./release-closeout-binding";
+import { V11_ACCESSIBILITY_CHECK_IDS, V11_JOURNEY_IDS } from "./v11-browser-evidence-contract";
 
 const suiteRoot = mkdtempSync(path.join(os.tmpdir(), "areaforge-release-closeout-binding-"));
 
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
     testImageContentBoundaries();
     testModeDeleteCopyAndMergeBoundaries();
     testAllowlistSurface();
+    testV11EvidenceOnlySurface();
     console.log("release closeout binding selftest passed.");
   } finally {
     rmSync(suiteRoot, { recursive: true, force: true });
@@ -160,7 +162,56 @@ function testModeDeleteCopyAndMergeBoundaries(): void {
     path.join(copied.root, "docs/development/residual-closure-review-copy.md"),
   );
   commit(copied.root, "copy existing evidence");
-  assertInvalid(evaluate(copied), "cannot delete or copy");
+  assertCopyStatus(copied.root);
+  const copiedResult = evaluate(copied);
+  assertStatus(copiedResult, "evidence_only");
+  if (copiedResult.changedPaths.join(",") !== "docs/development/residual-closure-review-copy.md") {
+    throw new Error(`copy binding must report only the target: ${JSON.stringify(copiedResult)}`);
+  }
+
+  const copiedOutsideAllowlist = createRepository("copy-outside-allowlist");
+  copyFileSync(
+    path.join(copiedOutsideAllowlist.root, "docs/development/residual-risk-ledger.md"),
+    path.join(copiedOutsideAllowlist.root, "apps/web/copied-evidence.md"),
+  );
+  commit(copiedOutsideAllowlist.root, "copy evidence outside allowlist");
+  assertCopyStatus(copiedOutsideAllowlist.root);
+  assertInvalid(evaluate(copiedOutsideAllowlist), "apps/web/copied-evidence.md");
+
+  const copiedSecret = createRepository("copy-secret");
+  write(copiedSecret.root, "apps/web/secret-source.txt", "DATABASE_URL=postgresql://user:pass@db/area\n");
+  commit(copiedSecret.root, "add pre-existing secret fixture");
+  copiedSecret.releaseCommit = git(copiedSecret.root, ["rev-parse", "HEAD"]).trim();
+  copyFileSync(
+    path.join(copiedSecret.root, "apps/web/secret-source.txt"),
+    path.join(copiedSecret.root, "docs/development/residual-closure-review-copy-secret.md"),
+  );
+  commit(copiedSecret.root, "copy secret into evidence target");
+  assertCopyStatus(copiedSecret.root);
+  assertInvalid(evaluate(copiedSecret), "database URL");
+
+  const copiedInvalidImage = createRepository("copy-invalid-image");
+  write(copiedInvalidImage.root, "apps/web/invalid-image-source.bin", Buffer.from("not-a-png"));
+  commit(copiedInvalidImage.root, "add invalid image source fixture");
+  copiedInvalidImage.releaseCommit = git(copiedInvalidImage.root, ["rev-parse", "HEAD"]).trim();
+  mkdirSync(path.join(copiedInvalidImage.root, "output/playwright"), { recursive: true });
+  copyFileSync(
+    path.join(copiedInvalidImage.root, "apps/web/invalid-image-source.bin"),
+    path.join(copiedInvalidImage.root, "output/playwright/ux-copy-invalid.png"),
+  );
+  commit(copiedInvalidImage.root, "copy invalid image into evidence target");
+  assertCopyStatus(copiedInvalidImage.root);
+  assertInvalid(evaluate(copiedInvalidImage), "invalid image structure");
+
+  const staleAfterCopy = createRepository("stale-after-copy");
+  copyFileSync(
+    path.join(staleAfterCopy.root, "docs/development/residual-risk-ledger.md"),
+    path.join(staleAfterCopy.root, "docs/development/residual-closure-review-copy.md"),
+  );
+  commit(staleAfterCopy.root, "copy valid evidence");
+  write(staleAfterCopy.root, "apps/web/app.ts", "export const version = 2;\n");
+  commit(staleAfterCopy.root, "stale source binding");
+  assertInvalid(evaluate(staleAfterCopy), "apps/web/app.ts");
 
   const merged = createRepository("merge");
   const baseBranch = git(merged.root, ["branch", "--show-current"]).trim();
@@ -196,6 +247,84 @@ function testAllowlistSurface(): void {
   }
 }
 
+function testV11EvidenceOnlySurface(): void {
+  const evidenceRoot = "output/playwright/v11-browser-evidence-20260729";
+  const allowedText = [
+    "docs/development/v11-release-admission-record.md",
+    "docs/development/v11-s2-ops006-007-gate-review.md",
+    "docs/development/v11-accessibility-review-20260727.md",
+    "docs/development/v11-compatibility-floor-evidence-20260727.md",
+    "output/v11-compatibility/compatibility-floor-runtime-v1.1.0-20260727.json",
+    "output/supply-chain/ci-supply-chain-v1.1.0-20260727.txt",
+    "output/supply-chain/sc004-main-protection-readback-v1.1.0-20260727.json",
+    "output/supply-chain/sc004-controlled-pr-v1.1.0-20260727.json",
+    `${evidenceRoot}/v11-browser-journey-evidence.json`,
+    `${evidenceRoot}/v11-accessibility-evidence.json`,
+    `${evidenceRoot}/runtime-identity-v1.1.0.json`,
+    ...V11_ACCESSIBILITY_CHECK_IDS.map((id) =>
+      `${evidenceRoot}/observations/a11y-${id.toLowerCase()}.json`),
+  ];
+  const allowedImages = V11_JOURNEY_IDS.flatMap((journey) => [
+    `${evidenceRoot}/screenshots/desktop-${journey}.png`,
+    `${evidenceRoot}/screenshots/mobile-${journey}.png`,
+  ]);
+  const allowed = [...allowedText, ...allowedImages];
+  for (const file of allowed) {
+    if (!isAllowedCloseoutPath(file)) throw new Error(`expected v1.1 allowlisted path: ${file}`);
+  }
+
+  const repo = createRepository("v11-evidence-only");
+  for (const file of allowedText) write(repo.root, file, `${file}\n`);
+  for (const file of allowedImages) write(repo.root, file, minimalPng());
+  commit(repo.root, "add v1.1 admission evidence");
+  assertStatus(evaluate(repo), "evidence_only");
+
+  const denied = [
+    "docs/development/v11-release-admission-record-copy.md",
+    "docs/development/archive/v11-accessibility-review-20260727.md",
+    "docs/development/v11-compatibility-floor-evidence-20260727.json",
+    "output/v11-compatibility/nested/compatibility-floor-runtime-v1.1.0-20260727.json",
+    "output/v11-compatibility/compatibility-floor-runtime-v1.2.0-20260727.json",
+    "output/supply-chain/ci-supply-chain-v1.1.1-20260727.txt",
+    "output/supply-chain/sc004-main-protection-readback-v1.1.0-20260727.txt",
+    "output/supply-chain/sc004-controlled-pr-v1.1.0-20260727.md",
+    `${evidenceRoot}/v11-browser-journey-evidence.txt`,
+    `${evidenceRoot}/nested/v11-accessibility-evidence.json`,
+    `${evidenceRoot}/screenshots/desktop-secret.png`,
+    `${evidenceRoot}/screenshots/mobile-login.jpg`,
+    `${evidenceRoot}/observations/a11y-zoom-04.json`,
+    `${evidenceRoot}/observations/a11y-zoom-01.txt`,
+    `${evidenceRoot}/auth-state.json`,
+  ];
+  for (const file of denied) {
+    if (isAllowedCloseoutPath(file)) throw new Error(`expected denied v1.1 path: ${file}`);
+  }
+
+  const nested = createRepository("v11-denied-nested");
+  write(nested.root, denied[3] as string, "out-of-scope nested runtime\n");
+  commit(nested.root, "add nested v1.1 runtime");
+  assertInvalid(evaluate(nested), denied[3] as string);
+
+  const wrongVersion = createRepository("v11-denied-version");
+  write(wrongVersion.root, denied[5] as string, "out-of-scope release evidence\n");
+  commit(wrongVersion.root, "add other-version supply-chain evidence");
+  assertInvalid(evaluate(wrongVersion), denied[5] as string);
+}
+
+function minimalPng(): Buffer {
+  const signature = Buffer.from("89504e470d0a1a0a", "hex");
+  const ihdr = Buffer.alloc(25);
+  ihdr.writeUInt32BE(13, 0);
+  ihdr.write("IHDR", 4, "ascii");
+  ihdr.writeUInt32BE(1, 8);
+  ihdr.writeUInt32BE(1, 12);
+  ihdr[16] = 8;
+  ihdr[17] = 6;
+  const iend = Buffer.alloc(12);
+  iend.write("IEND", 4, "ascii");
+  return Buffer.concat([signature, ihdr, iend]);
+}
+
 function createRepository(name: string): { root: string; releaseCommit: string } {
   const root = path.join(suiteRoot, name);
   mkdirSync(root, { recursive: true });
@@ -221,6 +350,14 @@ function commit(root: string, message: string): void {
 
 function git(root: string, args: string[]): string {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" });
+}
+
+function assertCopyStatus(root: string): void {
+  const status = git(root, [
+    "diff-tree", "--root", "--no-commit-id", "--name-status", "-r",
+    "--find-renames", "--find-copies", "--find-copies-harder", "HEAD",
+  ]);
+  if (!/^C\d+\t/m.test(status)) throw new Error(`expected Git copy status, got: ${status}`);
 }
 
 function write(root: string, file: string, content: string | Buffer): void {

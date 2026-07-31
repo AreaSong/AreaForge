@@ -28,6 +28,39 @@ body {
   font-family: var(--font-area-sans);
 }
 
+html[data-af-text-scale="112"] {
+  font-size: 112%;
+}
+
+html[data-af-text-scale="125"] {
+  font-size: 125%;
+}
+
+html[data-af-theme="contrast"] {
+  --background: #000000;
+  --foreground: #ffffff;
+}
+
+html[data-af-theme="contrast"] .af-app-shell,
+html[data-af-theme="contrast"] .af-shell-header,
+html[data-af-theme="contrast"] .af-shell-nav {
+  background-color: #000000;
+}
+
+html[data-af-density="compact"] .af-shell-main {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+html[data-af-motion="reduce"] *,
+html[data-af-motion="reduce"] *::before,
+html[data-af-motion="reduce"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;

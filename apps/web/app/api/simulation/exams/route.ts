@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    await requireApiUser(request);
-    return NextResponse.json({ exams: await listSimulationExams() });
+    const user = await requireApiUser(request);
+    return NextResponse.json({ exams: await listSimulationExams(user.id) });
   } catch (error) {
     return apiErrorResponse(error);
   }

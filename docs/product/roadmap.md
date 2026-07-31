@@ -36,3 +36,4 @@ AreaForge 采用“阶段节点 + 终局节点”。
 4. 鞭策：规则状态、AI 建议、恢复模式。
 5. 统计：周报、月报、模拟考试、部署发布。
 6. 发布运维：GitHub Release 签名发布、GHCR 镜像 digest、服务器侧 update-agent/updater 受控更新和版本中心只读/请求流。
+7. 学习行动中心：五工作台、考试工作区、行动中心、统一复习、计划收件箱、学习树版本导入、关联画布与跨页闭环。规格与批次见 `workflow/versions/v1.1-learning-action-center.md`；进度入口见 `docs/development/feature-traceability.md`。

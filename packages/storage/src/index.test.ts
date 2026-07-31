@@ -33,6 +33,26 @@ test("detectUploadMimeType recognizes first-version attachment formats", () => {
   assert.equal(detectUploadMimeType(webp), "image/webp");
 });
 
+test("detectUploadMimeType recognizes zip and markdown for study resources", () => {
+  const zip = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00]);
+  const markdown = new TextEncoder().encode("# Title\n\nbody");
+  assert.equal(detectUploadMimeType(zip), "application/zip");
+  assert.equal(
+    detectUploadMimeType(markdown, { originalName: "notes.md", declaredMimeType: "text/markdown" }),
+    "text/markdown",
+  );
+  assert.equal(detectUploadMimeType(markdown, { originalName: "notes.txt" }), null);
+});
+
+test("createStudyResourceUploadPolicy allows zip and markdown", async () => {
+  const { createStudyResourceUploadPolicy, preferredDownloadDisposition } = await import("./index");
+  const policy = createStudyResourceUploadPolicy(20);
+  assert.ok(policy.allowedMimeTypes.includes("application/zip"));
+  assert.ok(policy.allowedMimeTypes.includes("text/markdown"));
+  assert.equal(preferredDownloadDisposition("application/zip"), "attachment");
+  assert.equal(preferredDownloadDisposition("text/markdown"), "inline");
+});
+
 test("validateUploadBytes rejects MIME spoofing and oversize files", () => {
   const policy = createUploadPolicy(1);
   assert.deepEqual(validateUploadBytes(png, "image/jpeg", policy), {

@@ -33,10 +33,18 @@ export const productExperienceSourcePaths = [
   "scripts/ops/local-ux-smoke.ts",
   "scripts/ops/smoke-password.ts",
   "scripts/ops/product-experience-runtime-probe.ts",
+  "scripts/ops/v11-browser-fixtures.ts",
+  "scripts/ops/v11-browser-journeys.ts",
+  "scripts/ops/v11-accessibility-suite.ts",
+  "scripts/ops/v11-browser-evidence.ts",
   "scripts/quality/product-experience-source.ts",
   "scripts/quality/product-experience-review-validate.ts",
   "scripts/quality/product-experience-review-validate.selftest.ts",
   "scripts/quality/product-experience-runtime-probe.selftest.ts",
+  "scripts/quality/v11-browser-evidence-contract.ts",
+  "scripts/quality/v11-browser-evidence-validate.ts",
+  "scripts/quality/v11-browser-evidence-validate.selftest.ts",
+  "scripts/quality/v11-browser-evidence-runner.selftest.ts",
   "docs/development/product-experience-review-record-template.md",
 ] as const;
 

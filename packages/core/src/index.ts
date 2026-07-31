@@ -8,6 +8,28 @@ export * from "./periodic-report";
 export * from "./recovery-task";
 export * from "./analytics-summary";
 export * from "./long-term-risk";
+export * from "./exam-workspace";
+export * from "./legacy-ownership";
+export * from "./knowledge-card";
+export * from "./task-dependency";
+export * from "./plan-inbox";
+export * from "./learning-tree-protocol";
+export * from "./learning-tree-url";
+export * from "./learning-tree-parse";
+export * from "./learning-tree-diff";
+export * from "./safe-markdown";
+export * from "./learning-tree-templates";
+export * from "./learning-tree-export";
+export * from "./learning-tree-selection";
+export * from "./unified-review";
+export * from "./check-in-v2";
+export * from "./recovery-v2";
+export * from "./action-center";
+export * from "./app-shell";
+export * from "./knowledge-canvas";
+export * from "./motivation-library";
+export * from "./ai-draft";
+export * from "./foreground-notification";
 
 export type RiskState =
   | "rising"

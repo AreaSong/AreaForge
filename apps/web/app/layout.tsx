@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ExperiencePreferenceHydrator } from "@/components/experience-preference-hydrator";
 import "./globals.css";
 
 const description = "私人考研督战与自我锻造系统";
@@ -47,6 +48,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: "dark",
   themeColor: "#06191F",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -56,7 +58,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="h-full antialiased">
-      <body className="min-h-full bg-[#080b0f] text-zinc-100">{children}</body>
+      <body className="min-h-full bg-[#080b0f] text-zinc-100">
+        <ExperiencePreferenceHydrator />
+        {children}
+      </body>
     </html>
   );
 }

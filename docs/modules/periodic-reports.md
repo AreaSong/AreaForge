@@ -47,10 +47,14 @@
 ## 当前行为
 
 - `packages/core` 提供 `choosePeriodicWeakness`、`summarizePeriodicReportStrategy`、`createPeriodicNextCycleDraft` 和 `createPeriodicReportDecisionSnapshot` 纯规则，根据薄弱节点、欠账集中科目、零有效投入科目、低转化次数、有效学习时长、任务完成率、错题复盘、复盘完成率和到期笔记生成最大短板、周期策略、必须压住的问题、下一步动作、冷静结论、下周期草稿和只读回放快照。最大短板返回来源、严重度和选择依据，报告页展示这些追溯信息。
-- 周/月报告具备确认和驳回入口：`PeriodicReportDecision` 冻结当时的 `reportSnapshot`，确认时保存 `nextCycleDraft`，并写入 `AuditEvent`。
+- 周/月报告具备确认和驳回入口：`PeriodicReportDecision` 冻结当时的 `reportSnapshot`，当前隔离候选在确认事务中保存 `nextCycleDraft`、原子写入计划收件箱，并在需要时生成独立待确认的阶段草稿，同时写入 `AuditEvent`。
 - `GET /api/reports/periodic` 实时派生当前报告，优先带回当前周期已存在的决策用于只读回放；历史决策通过报告决策列表只读查询。
 - 周期策略、本地复盘草稿、下周期决策预览和已保存决策都透传 `canAutoApply=false` 和 `requiresUserConfirmation=true`。
 - 报告页展示同源长期风险 DTO。
-- 决策入口只记录报告态度、快照、草稿和审计，不修改任务、不应用阶段计划、不批量改复盘或考纲节点；报告驱动的自动阶段应用不进入当前范围。
+- 报告确认可以原子写入计划收件箱并生成独立阶段草稿，但不直接修改现有任务、不应用 `StagePlan`，也不批量改复盘或考纲节点；报告驱动的自动阶段应用不进入当前范围。
 
 实现进度与批次证据见 [功能追踪矩阵](../development/feature-traceability.md)。
+
+## 学习行动中心扩展（隔离候选已实现）
+
+当前隔离候选已让报告确认在同一事务冻结快照并将计划草稿原子入箱，不修改阶段计划或现有任务；阶段确认保持独立，并可处理其自己的派生草稿。该闭环仍待最终候选验证与生产切换，见 `docs/modules/plan-inbox.md` 与版本计划第十节。

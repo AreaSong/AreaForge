@@ -49,6 +49,9 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `AI_MAX_RETRIES` | `2` | 失败重试次数 |
 | `AI_LOG_PROMPTS` | `false` | 是否在日志记录 prompt；保持 `false`，开启会把学习内容写进日志 |
 | `AI_ALLOW_SENSITIVE_CONTEXT` | `false` | 是否允许把敏感上下文（完整复盘正文等）发给 AI；默认关闭是隐私边界，改动前先读 [文件与 AI 安全](../security/file-ai-safety.md) |
+| `AI_PAYLOAD_BINDING_SECRET` | （可选）≥32 字符 | 四类显式 AI 草稿的 purpose-separated HMAC 与 opaque preview token 绑定密钥；**仅服务端**，禁止 `NEXT_PUBLIC_*`；缺失或过短时只阻止四类草稿外呼并稳定 fallback，不影响任务/计时/导入 preview |
+
+Provider 配置只存在于服务端环境，不能在网页中查看或编辑。即使 `AI_ENABLED=true` 且配置完整，外部调用仍按浏览器默认关闭；登录后需在 `/settings/ai` 明确开启并保存当前浏览器偏好。偏好保存在 HttpOnly Cookie 中，清除浏览器数据后恢复关闭；关闭偏好或保存失败时继续使用本地规则。
 
 ## 上传与附件
 

@@ -31,8 +31,10 @@ export interface SafeAiAdviceEnvelope<TAdvice> {
 
 export interface AiAdviceRequestOptions {
   allowExternalProvider?: boolean;
+  maxProviderRetries?: number;
+  providerTimeoutMs?: number;
   provider?: AiJsonProvider;
-  userId?: string;
+  userId: string;
 }
 
 interface AiProviderRateLimitState {
@@ -45,9 +47,9 @@ const aiProviderRateLimitMaxCalls = 6;
 const aiProviderRateLimits = new Map<string, AiProviderRateLimitState>();
 
 export async function getDisciplineAiAdvice(
-  options: AiAdviceRequestOptions = {},
+  options: AiAdviceRequestOptions,
 ): Promise<SafeAiAdviceEnvelope<DisciplineAdvice>> {
-  const dashboard = await getTodayDashboardShared();
+  const dashboard = await getTodayDashboardShared(options.userId);
   const context = {
     phase: dashboard.stage.title,
     riskState: dashboard.snapshot.riskState,
@@ -70,9 +72,9 @@ export async function getDisciplineAiAdvice(
 }
 
 export async function getDailyReviewAiAdvice(
-  options: AiAdviceRequestOptions = {},
+  options: AiAdviceRequestOptions,
 ): Promise<SafeAiAdviceEnvelope<DailyReviewAdvice>> {
-  const dashboard = await getTodayDashboardShared();
+  const dashboard = await getTodayDashboardShared(options.userId);
   const context = {
     totalMinutes: dashboard.metrics.todayMinutes,
     effectiveMinutes: dashboard.metrics.effectiveMinutes,
@@ -95,11 +97,11 @@ export async function getDailyReviewAiAdvice(
 }
 
 export async function getTomorrowPlanAiAdvice(
-  options: AiAdviceRequestOptions = {},
+  options: AiAdviceRequestOptions,
 ): Promise<SafeAiAdviceEnvelope<TomorrowPlanAdvice>> {
   const [dashboard, analytics] = await Promise.all([
-    getTodayDashboardShared(),
-    getAnalyticsSummaryShared(),
+    getTodayDashboardShared(options.userId),
+    getAnalyticsSummaryShared(options.userId),
   ]);
   const weakestSubject = analytics.subjects
     .filter((subject) => subject.effectiveMinutes === 0)
@@ -124,7 +126,10 @@ export async function getTomorrowPlanAiAdvice(
   return createEnvelope(result);
 }
 
-export function createConfiguredAiProvider(): AiJsonProvider | undefined {
+export function createConfiguredAiProvider(
+  maxRetries?: number,
+  timeoutMs?: number,
+): AiJsonProvider | undefined {
   const env = getAuthEnv();
 
   if (!env.AI_ENABLED) return undefined;
@@ -143,8 +148,8 @@ export function createConfiguredAiProvider(): AiJsonProvider | undefined {
     baseUrl: env.AI_BASE_URL,
     apiKey: env.AI_API_KEY,
     model: env.AI_MODEL,
-    timeoutMs: env.AI_TIMEOUT_MS,
-    maxRetries: env.AI_MAX_RETRIES,
+    timeoutMs: timeoutMs ?? env.AI_TIMEOUT_MS,
+    maxRetries: maxRetries ?? env.AI_MAX_RETRIES,
     logPrompts: false,
     allowSensitiveContext: false,
   });
@@ -154,35 +159,13 @@ export function resolveConfiguredAiProvider(kind: AiAdviceKind, options: AiAdvic
   provider?: AiJsonProvider;
   unavailableReason?: string;
 } {
+  const prerequisites = resolveAiProviderPrerequisites(options);
+  if (!prerequisites.available) {
+    return { unavailableReason: prerequisites.unavailableReason };
+  }
+
   if (options.provider) {
     return { provider: options.provider };
-  }
-
-  if (!options.allowExternalProvider) {
-    return {
-      unavailableReason: "首页普通打开仅展示本地规则建议，没有调用外部 AI。",
-    };
-  }
-
-  const env = getAuthEnv();
-  if (!env.AI_ENABLED) {
-    return {
-      unavailableReason: "AI_ENABLED=false：当前仅使用本地规则生成结构化建议，没有调用外部 AI。",
-    };
-  }
-
-  if (!env.AI_BASE_URL || !env.AI_API_KEY || !env.AI_MODEL) {
-    logAiProviderConfigIssue("missing_config");
-    return {
-      unavailableReason: "AI provider 配置缺失，已回退本地规则建议。",
-    };
-  }
-
-  if (env.AI_ALLOW_SENSITIVE_CONTEXT) {
-    logAiProviderConfigIssue("sensitive_context_disabled");
-    return {
-      unavailableReason: "AI_ALLOW_SENSITIVE_CONTEXT=true 在第一版被禁用，已回退本地规则建议。",
-    };
   }
 
   const rateLimit = checkAiProviderRateLimit(kind, options.userId ?? "unknown");
@@ -192,12 +175,54 @@ export function resolveConfiguredAiProvider(kind: AiAdviceKind, options: AiAdvic
     };
   }
 
-  const provider = createConfiguredAiProvider();
+  const provider = createConfiguredAiProvider(options.maxProviderRetries, options.providerTimeoutMs);
   if (provider) return { provider };
 
   return {
     unavailableReason: "AI provider 配置缺失，已回退本地规则建议。",
   };
+}
+
+export function resolveAiProviderPrerequisites(options: AiAdviceRequestOptions): {
+  available: boolean;
+  unavailableReason?: string;
+} {
+  if (!options.allowExternalProvider) {
+    return {
+      available: false,
+      unavailableReason: "当前浏览器未开启外部 AI Provider，已使用本地规则建议。",
+    };
+  }
+
+  const env = getAuthEnv();
+  if (!env.AI_ENABLED) {
+    return {
+      available: false,
+      unavailableReason: "AI_ENABLED=false：当前仅使用本地规则生成结构化建议，没有调用外部 AI。",
+    };
+  }
+
+  if (options.provider) {
+    return { available: true };
+  }
+
+  if (!env.AI_BASE_URL || !env.AI_API_KEY || !env.AI_MODEL) {
+    logAiProviderConfigIssue("missing_config");
+    return {
+      available: false,
+      unavailableReason: "AI provider 配置缺失，已回退本地规则建议。",
+    };
+  }
+
+  if (env.AI_ALLOW_SENSITIVE_CONTEXT) {
+    logAiProviderConfigIssue("sensitive_context_disabled");
+    return {
+      available: false,
+      unavailableReason: "AI_ALLOW_SENSITIVE_CONTEXT=true 在第一版被禁用，已回退本地规则建议。",
+    };
+  }
+
+  return { available: true };
 }
 
 function logAiProviderConfigIssue(reason: "missing_config" | "sensitive_context_disabled"): void {

@@ -39,6 +39,8 @@ reviewStatus: pass/fail
 reviewResultHash: sha256:<64-hex>
 viewports: desktop,mobile
 journeys: login,dashboard,timer-closeout,review,notes,syllabus,reports,simulation,update-center
+journeyEvidence: output/playwright/<evidence-set>/v11-browser-journey-evidence.json
+journeyEvidenceHash: sha256:<hash of the validated structured journey evidence file>
 screenshotEvidence: desktop=<path-or-record>; mobile=<path-or-record>
 screenshotEvidenceHash: sha256:<hash of sorted viewport/path/file-hash entries>
 nextActionWithin5s: yes/no
@@ -71,11 +73,12 @@ safetyFacts:
 - `reviewCommand` 必须引用 `pnpm smoke:local-ux`、`pnpm smoke:prod-readonly`、Playwright 或明确的 browser review。
 - `viewports` 必须覆盖 desktop 和 mobile/narrow。
 - `journeys` 必须覆盖 login、dashboard、timer-closeout、review、notes、syllabus、reports、simulation 和 update-center。
+- 当前记录必须用 `journeyEvidence` / `journeyEvidenceHash` 绑定结构化的 9×desktop/mobile 浏览器旅程文件；该文件必须由同一 production-build runtime、同一 source commit/hash 采集，18 条 mutation 必须来自页面 UI，前后 oracle 只能使用 GET，且每条截图 hash 与当前文件字节一致。旅程名称文本或旧截图目录不能替代该 validator。
 - `screenshotEvidence` 必须包含 desktop 和 mobile/narrow 的截图或浏览器观察记录，不得是 `none`、`missing` 或 `not-captured`。
 - 当前记录必须用 `screenshotEvidenceHash` 绑定仓库内的 PNG/JPEG/WebP 普通文件；绝对路径、越界路径、
   symlink、空文件和大于 20MB 的文件不能通过。先填截图路径，再运行
   `pnpm experience:review:hash <record> --print-record-hashes` 获取 runtime evidence、runtime identity、
-  screenshot 和 review 四个 hash。
+  journey、screenshot 和 review 五类 hash。
 - `reviewResultHash` 必须等于 validator 对除自身外全部必填字段的 canonical hash，字段或截图绑定变化后必须重算。
 - 六个体验门必须为 `yes`：5 秒内可见下一步、建议解释原因、确认边界可见、恢复路径可见、移动端可读、空/未授权/错误态已检查。
 - `residualRiskIds` 必须保留 `AF-RISK-UX-001`，直到最近一次真实体验复核记录通过并被对应发布或维护窗口引用。

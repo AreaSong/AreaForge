@@ -21,6 +21,8 @@ pnpm error-recovery:selftest
 
 矩阵明确保留以下未完成项：业务 session 并发协议 `AF-RISK-OPS-006`、附件 staging/write-intent `AF-RISK-OPS-007`、updater phase journal/hold-drain `AF-RISK-OPS-008`、生产只读证据 `AF-RISK-OPS-001`、Expected-Before 生产部署 `AF-RISK-OPS-005` 和当前认证体验证据 `AF-RISK-UX-001`。矩阵通过只证明文档化恢复契约完整，不证明这些 residual 已关闭。
 
+`ER-AI-002` 固定当前浏览器外部 Provider 偏好的失败恢复：确认框关闭并显示错误，未保存开关值保留供显式重试，服务端已保存策略和外呼 gate 不得因网络、401、4xx/5xx 或畸形响应而改变。该行只引用既有 `AF-RISK-AI-001` 作为重新打开条件，不创建、更新或关闭 residual。
+
 ## 维护门禁
 
 变更 auth、timer、附件、AI、Update Center、备份恢复、公开支持或事故流程时，先更新 JSON，再同步本文件、相关 owner skill、validation matrix 和 residual 入口，最后运行：

@@ -21,6 +21,10 @@
     "../ops/data-integrity-doctor.ts",
     "../ops/ops006-production-evidence-preflight.ts",
     "../ops/residual-promotion-preview.ts",
+    "../ops/v11-accessibility-suite.ts",
+    "../ops/v11-browser-evidence.ts",
+    "../ops/v11-browser-fixtures.ts",
+    "../ops/v11-browser-journeys.ts",
     "operability-status.selftest.ts",
     "sc002-supply-chain-preflight.selftest.ts",
     "long-term-operability-live-gate.selftest.ts",
@@ -43,5 +47,9 @@
     "updater-maintenance-control-validate.ts",
     "updater-maintenance-control-validate.selftest.ts",
     "residual-promotion-preview.selftest.ts"
+    ,"v11-browser-evidence-contract.ts"
+    ,"v11-browser-evidence-runner.selftest.ts"
+    ,"v11-browser-evidence-validate.selftest.ts"
+    ,"v11-browser-evidence-validate.ts"
   ]
 }

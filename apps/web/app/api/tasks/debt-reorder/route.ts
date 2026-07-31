@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    await requireApiUser(request);
-    return NextResponse.json({ debtReorder: await getTaskDebtReorderSuggestion() });
+    const user = await requireApiUser(request);
+    return NextResponse.json({ debtReorder: await getTaskDebtReorderSuggestion(user.id) });
   } catch (error) {
     return apiErrorResponse(error);
   }

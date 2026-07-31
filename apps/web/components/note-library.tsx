@@ -2,14 +2,29 @@
 
 import { BookOpenCheck, Download, FileText, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
+import {
+  loadPrivateBusinessDraft,
+  LONG_PRIVATE_DRAFT_TTL_MS,
+  redirectToLoginWithCurrentLocation,
+  removePrivateBusinessDraft,
+  savePrivateBusinessDraft,
+} from "@/lib/client/private-business-drafts";
 import type { NoteDto, NoteMasteryStatusDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
 interface NoteLibraryProps {
+  userId: string;
   subjects: SubjectDto[];
   tasks: StudyTaskDto[];
   nodes: SyllabusOptionNodeDto[];
   notes: NoteDto[];
+  initialSubjectId?: string;
+  initialSyllabusNodeId?: string;
+  initialTaskId?: string;
+  initialCreate?: boolean;
 }
 
 interface FlatNode {
@@ -19,22 +34,108 @@ interface FlatNode {
   depth: number;
 }
 
-export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps) {
+interface NoteFormDraft {
+  subjectId: string;
+  syllabusNodeId: string;
+  taskId: string;
+  title: string;
+  content: string;
+  kind: "GENERAL" | "CONCEPT" | "METHOD" | "EXAMPLE" | "JOURNAL" | "SUMMARY";
+  masteryStatus: NoteMasteryStatusDto;
+  nextReviewAt: string;
+}
+
+export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubjectId, initialSyllabusNodeId, initialTaskId, initialCreate }: NoteLibraryProps) {
   const router = useRouter();
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
-  const [syllabusNodeId, setSyllabusNodeId] = useState("");
-  const [taskId, setTaskId] = useState("");
+  const createTitleRef = useRef<HTMLInputElement>(null);
+  const formDraftKey = `areaforge.note.draft.${userId}.create`;
+  useRestoreListReturn();
+  const initialSubject = subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId as string : subjects[0]?.id ?? "";
+  const initialNode = flattenNodes(nodes).some((node) => node.id === initialSyllabusNodeId && node.subjectId === initialSubject) ? initialSyllabusNodeId as string : "";
+  const initialTask = tasks.some((task) => task.id === initialTaskId && task.subjectId === initialSubject) ? initialTaskId as string : "";
+  const [subjectId, setSubjectId] = useState(initialSubject);
+  const [syllabusNodeId, setSyllabusNodeId] = useState(initialNode);
+  const [taskId, setTaskId] = useState(initialTask);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [kind, setKind] = useState<"GENERAL" | "CONCEPT" | "METHOD" | "EXAMPLE" | "JOURNAL" | "SUMMARY">("GENERAL");
   const [masteryStatus, setMasteryStatus] = useState<NoteMasteryStatusDto>("partial");
   const [nextReviewAt, setNextReviewAt] = useState("");
-  const [noteSubjectFilter, setNoteSubjectFilter] = useState("all");
-  const [noteNodeFilter, setNoteNodeFilter] = useState("all");
+  const [noteSubjectFilter, setNoteSubjectFilter] = useState(initialSubjectId && subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId : "all");
+  const [noteNodeFilter, setNoteNodeFilter] = useState(initialNode || "all");
   const [noteMasteryFilter, setNoteMasteryFilter] = useState<"all" | NoteMasteryStatusDto>("all");
   const [noteReviewFilter, setNoteReviewFilter] = useState<"all" | "due" | "scheduled" | "none">("all");
   const [uploadingNoteId, setUploadingNoteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [createdNotes, setCreatedNotes] = useState<NoteDto[]>([]);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!initialCreate) return;
+    const timer = window.setTimeout(() => {
+      createTitleRef.current?.scrollIntoView({ block: "center" });
+      createTitleRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [initialCreate]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const raw = window.localStorage.getItem(aiKnowledgeCardDraftKey(userId));
+      if (!raw) return;
+      try {
+        const envelope = JSON.parse(raw) as { version?: number; userId?: string; updatedAt?: number; value?: { title?: string; body?: string; kindHint?: string } };
+        if (envelope.version !== 1 || envelope.userId !== userId || typeof envelope.updatedAt !== "number" || Date.now() - envelope.updatedAt > 7 * 24 * 60 * 60 * 1000) {
+          window.localStorage.removeItem(aiKnowledgeCardDraftKey(userId));
+          return;
+        }
+        if (typeof envelope.value?.title === "string") setTitle(envelope.value.title);
+        if (typeof envelope.value?.body === "string") setContent(envelope.value.body);
+        if (isNoteKind(envelope.value?.kindHint)) setKind(envelope.value.kindHint);
+      } catch {
+        window.localStorage.removeItem(aiKnowledgeCardDraftKey(userId));
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [userId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const draft = loadPrivateBusinessDraft(formDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isNoteFormDraft);
+      if (draft) {
+        setSubjectId(draft.subjectId);
+        setSyllabusNodeId(draft.syllabusNodeId);
+        setTaskId(draft.taskId);
+        setTitle(draft.title);
+        setContent(draft.content);
+        setKind(draft.kind);
+        setMasteryStatus(draft.masteryStatus);
+        setNextReviewAt(draft.nextReviewAt);
+      }
+      setDraftReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [formDraftKey]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    if (!title && !content) {
+      removePrivateBusinessDraft(formDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft<NoteFormDraft>(formDraftKey, {
+      subjectId,
+      syllabusNodeId,
+      taskId,
+      title,
+      content,
+      kind,
+      masteryStatus,
+      nextReviewAt,
+    });
+  }, [content, draftReady, formDraftKey, kind, masteryStatus, nextReviewAt, subjectId, syllabusNodeId, taskId, title]);
 
   const flatNodes = useMemo(() => flattenNodes(nodes), [nodes]);
   const nodeOptions = flatNodes.filter((node) => node.subjectId === subjectId);
@@ -43,42 +144,81 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
     () => flatNodes.filter((node) => noteSubjectFilter === "all" || node.subjectId === noteSubjectFilter),
     [flatNodes, noteSubjectFilter],
   );
+  const visibleNotes = useMemo(
+    () => [...createdNotes.filter((created) => !notes.some((note) => note.id === created.id)), ...notes],
+    [createdNotes, notes],
+  );
   const filteredNotes = useMemo(
-    () => notes.filter((note) =>
+    () => visibleNotes.filter((note) =>
       matchesSubject(note, noteSubjectFilter) &&
       matchesNode(note, noteNodeFilter) &&
       matchesMastery(note, noteMasteryFilter) &&
       matchesReview(note, noteReviewFilter),
     ),
-    [notes, noteSubjectFilter, noteNodeFilter, noteMasteryFilter, noteReviewFilter],
+    [visibleNotes, noteSubjectFilter, noteNodeFilter, noteMasteryFilter, noteReviewFilter],
   );
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     setError(null);
+    const payload = {
+      subjectId,
+      syllabusNodeId: syllabusNodeId || null,
+      taskId: taskId || null,
+      kind,
+      title,
+      content,
+      masteryStatus,
+      nextReviewAt: nextReviewAt ? new Date(nextReviewAt).toISOString() : null,
+    };
+    const commandScope = `note:create:${userId}`;
+    let createdNote: NoteDto | null = null;
+    setSaving(true);
 
-    const response = await fetch("/api/notes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subjectId,
-        syllabusNodeId: syllabusNodeId || null,
-        taskId: taskId || null,
-        title,
-        content,
-        masteryStatus,
-        nextReviewAt: nextReviewAt ? new Date(nextReviewAt).toISOString() : null,
-      }),
-    });
+    try {
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "note-create", payload),
+          ...payload,
+        }),
+      });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "保存笔记失败");
+      if (response.status === 401) {
+        setError("登录已过期，笔记草稿已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "保存笔记失败，草稿已保留");
+        return;
+      }
+      const body = (await response.json().catch(() => null)) as { note?: NoteDto } | null;
+      if (!body?.note) {
+        setError("服务端未返回已创建笔记，当前草稿与重试标识仍保留");
+        return;
+      }
+      createdNote = body.note;
+    } catch {
+      setError("网络不可用，笔记草稿已保留；恢复网络后请显式重试。");
       return;
+    } finally {
+      setSaving(false);
     }
 
+    if (!createdNote) return;
+    completeIdempotentCommand(commandScope);
+    setCreatedNotes((current) => current.some((note) => note.id === createdNote.id)
+      ? current
+      : [createdNote, ...current]);
     setTitle("");
     setContent("");
+    setKind("GENERAL");
+    window.localStorage.removeItem(aiKnowledgeCardDraftKey(userId));
+    removePrivateBusinessDraft(formDraftKey);
     setSyllabusNodeId("");
     setTaskId("");
     setNextReviewAt("");
@@ -89,36 +229,53 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
     if (!file) return;
     setError(null);
     setUploadingNoteId(noteId);
+    const commandScope = `note-attachment:upload:${userId}:${noteId}`;
+    const idempotencyKey = getOrCreateIdempotencyKey(commandScope, "note-attachment", {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      lastModified: file.lastModified,
+    });
 
     const formData = new FormData();
     formData.append("file", file);
-    const response = await fetch(`/api/notes/${noteId}/attachments`, {
-      method: "POST",
-      body: formData,
-    });
-
-    setUploadingNoteId(null);
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(labelAttachmentError(body?.error));
-      return;
+    try {
+      const response = await fetch(`/api/notes/${noteId}/attachments`, {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: formData,
+      });
+      if (response.status === 401) {
+        setError("登录已过期；上传命令身份已保留。重新登录并选择同一文件后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(labelAttachmentError(body?.error));
+        return;
+      }
+      completeIdempotentCommand(commandScope);
+      startTransition(() => router.refresh());
+    } catch {
+      setError("网络不可用，附件未上传；请恢复网络后重新选择文件。");
+    } finally {
+      setUploadingNoteId(null);
     }
-
-    startTransition(() => router.refresh());
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-      <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
         <div className="flex items-center gap-2">
           <Plus className="h-5 w-5 text-teal-300" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-white">新增笔记</h2>
         </div>
 
-        <form className="mt-5 grid gap-3" onSubmit={submit}>
-          <div className="grid gap-3 sm:grid-cols-2">
+        <form className="mt-5 grid min-w-0 gap-3" onSubmit={submit}>
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             <select
-              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+              className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
               value={subjectId}
               onChange={(event) => {
                 setSubjectId(event.target.value);
@@ -133,8 +290,11 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
                 </option>
               ))}
             </select>
+            <select aria-label="卡片类型" className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100" value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
+              <option value="GENERAL">通用</option><option value="CONCEPT">概念</option><option value="METHOD">方法</option><option value="EXAMPLE">例题</option><option value="JOURNAL">学习记录</option><option value="SUMMARY">总结</option>
+            </select>
             <select
-              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+              className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
               value={masteryStatus}
               onChange={(event) => setMasteryStatus(event.target.value as NoteMasteryStatusDto)}
             >
@@ -147,7 +307,7 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
           </div>
 
           <select
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={syllabusNodeId}
             onChange={(event) => setSyllabusNodeId(event.target.value)}
           >
@@ -161,7 +321,7 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
           </select>
 
           <select
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={taskId}
             onChange={(event) => setTaskId(event.target.value)}
           >
@@ -174,21 +334,22 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
           </select>
 
           <input
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            ref={createTitleRef}
+            className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="笔记标题"
             required
           />
           <textarea
-            className="min-h-44 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
+            className="min-h-44 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
             value={content}
             onChange={(event) => setContent(event.target.value)}
             placeholder="写下自己的理解、题解或复盘产出"
             required
           />
           <input
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             type="datetime-local"
             value={nextReviewAt}
             onChange={(event) => setNextReviewAt(event.target.value)}
@@ -197,7 +358,7 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
             type="submit"
-            disabled={isPending || !subjectId}
+            disabled={isPending || saving || !subjectId}
           >
             <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
             保存笔记
@@ -207,24 +368,25 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
         {error ? <p className="mt-4 text-sm text-red-200">{error}</p> : null}
       </section>
 
-      <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
+      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm text-zinc-400">资料库</p>
             <h2 className="mt-1 text-xl font-semibold text-white">笔记与最小产出</h2>
           </div>
           <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
-            {filteredNotes.length} / {notes.length} 条
+            {filteredNotes.length} / {visibleNotes.length} 条
           </span>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
           <select
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={noteSubjectFilter}
             onChange={(event) => {
               setNoteSubjectFilter(event.target.value);
               setNoteNodeFilter("all");
+              updateKnowledgeContext({ subjectId: event.target.value === "all" ? null : event.target.value, syllabusNodeId: null });
             }}
           >
             <option value="all">全部科目</option>
@@ -235,9 +397,12 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
             ))}
           </select>
           <select
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={noteNodeFilter}
-            onChange={(event) => setNoteNodeFilter(event.target.value)}
+            onChange={(event) => {
+              setNoteNodeFilter(event.target.value);
+              updateKnowledgeContext({ syllabusNodeId: event.target.value === "all" || event.target.value === "none" ? null : event.target.value });
+            }}
           >
             <option value="all">全部节点</option>
             <option value="none">未关联节点</option>
@@ -249,7 +414,7 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
             ))}
           </select>
           <select
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={noteMasteryFilter}
             onChange={(event) => setNoteMasteryFilter(event.target.value as "all" | NoteMasteryStatusDto)}
           >
@@ -261,7 +426,7 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
             <option value="before_exam">考前再看</option>
           </select>
           <select
-            className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
+            className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={noteReviewFilter}
             onChange={(event) => setNoteReviewFilter(event.target.value as "all" | "due" | "scheduled" | "none")}
           >
@@ -273,12 +438,12 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
         </div>
 
         <div className="mt-5 grid gap-3">
-          {notes.length === 0 ? (
+          {visibleNotes.length === 0 ? (
             <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
               还没有笔记。计时结束后的最小产出可以在这里沉淀下来。
             </p>
           ) : null}
-          {notes.length > 0 && filteredNotes.length === 0 ? (
+          {visibleNotes.length > 0 && filteredNotes.length === 0 ? (
             <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
               当前筛选下没有笔记。
             </p>
@@ -295,14 +460,17 @@ export function NoteLibrary({ subjects, tasks, nodes, notes }: NoteLibraryProps)
                 </div>
                 {note.nextReviewAt ? (
                   <span className="rounded-md border border-amber-300/25 px-2 py-1 text-xs text-amber-100">
-                    {new Date(note.nextReviewAt).toLocaleDateString("zh-CN")}
+                    {new Date(note.nextReviewAt).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}
                   </span>
                 ) : null}
               </div>
+              <ListDetailLink href={`/knowledge/notes/${note.id}`} focusId={`note-${note.id}`} className="mt-3 inline-flex text-sm text-teal-300 hover:underline">
+                打开卡片详情
+              </ListDetailLink>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{note.content}</p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-500">
                 {note.taskTitle ? <span>任务：{note.taskTitle}</span> : null}
-                <span>更新：{new Date(note.updatedAt).toLocaleString("zh-CN")}</span>
+                <span>更新：{new Date(note.updatedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</span>
                 {note.attachments.length > 0 ? (
                   <span className="inline-flex items-center gap-1">
                     <FileText className="h-3.5 w-3.5" aria-hidden="true" />
@@ -389,6 +557,23 @@ function labelAttachmentError(error?: string): string {
     default:
       return "附件上传失败";
   }
+}
+
+function isNoteFormDraft(value: unknown): value is NoteFormDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as Partial<NoteFormDraft>;
+  return [draft.subjectId, draft.syllabusNodeId, draft.taskId, draft.title, draft.content, draft.nextReviewAt]
+    .every((field) => typeof field === "string")
+    && isNoteKind(draft.kind)
+    && ["understood", "partial", "unknown", "relearn", "before_exam"].includes(String(draft.masteryStatus));
+}
+
+function aiKnowledgeCardDraftKey(userId: string): string {
+  return `areaforge.ai-draft.knowledge-card.${userId}`;
+}
+
+function isNoteKind(value: unknown): value is "GENERAL" | "CONCEPT" | "METHOD" | "EXAMPLE" | "JOURNAL" | "SUMMARY" {
+  return typeof value === "string" && ["GENERAL", "CONCEPT", "METHOD", "EXAMPLE", "JOURNAL", "SUMMARY"].includes(value);
 }
 
 function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): FlatNode[] {

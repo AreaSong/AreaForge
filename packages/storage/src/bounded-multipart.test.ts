@@ -5,6 +5,7 @@ import {
   createUploadPolicy,
   multipartFramingOverheadBytes,
   parseMultipartBoundary,
+  parseMultipleFilesMultipart,
   parseSingleFileMultipart,
 } from "./index";
 
@@ -114,6 +115,73 @@ test("rejects a second file part and unexpected fields without buffering them", 
     parseSingleFileMultipart(chunked(unexpectedField, 64), contentType, policyWithMaxBytes(1024 * 1024)),
     (error: unknown) => error instanceof BoundedMultipartError && error.reason === "unexpected_part",
   );
+});
+
+test("accepts at most five files in one bounded batch", async () => {
+  const fiveFiles = Array.from({ length: 5 }, (_, index) => ({
+    name: "file",
+    fileName: `${index + 1}.png`,
+    contentType: "image/png",
+    bytes: pngBytes(64 + index),
+  }));
+  const accepted = await parseMultipleFilesMultipart(
+    chunked(buildBody(fiveFiles), 47),
+    contentType,
+    policyWithMaxBytes(1024),
+    5,
+  );
+  assert.equal(accepted.length, 5);
+  assert.deepEqual(accepted.map((scan) => scan.originalName), fiveFiles.map((file) => file.fileName));
+
+  await assert.rejects(
+    parseMultipleFilesMultipart(
+      chunked(buildBody([...fiveFiles, { ...fiveFiles[0]!, fileName: "6.png" }]), 71),
+      contentType,
+      policyWithMaxBytes(1024),
+      5,
+    ),
+    (error: unknown) => error instanceof BoundedMultipartError && error.reason === "too_many_files",
+  );
+});
+
+test("returns an oversized batch item while preserving later file order", async () => {
+  const accepted = await parseMultipleFilesMultipart(
+    chunked(buildBody([
+      { name: "file", fileName: "large.png", bytes: pngBytes(1025) },
+      { name: "file", fileName: "small.png", bytes: pngBytes(64) },
+    ]), 53),
+    contentType,
+    policyWithMaxBytes(1024),
+    5,
+  );
+  assert.equal(accepted.length, 2);
+  assert.equal(accepted[0]?.businessError, "too_large");
+  assert.equal(accepted[0]?.originalName, "large.png");
+  assert.equal(accepted[0]?.sizeBytes, 1025);
+  assert.equal(accepted[0]?.bytes.length, 0);
+  assert.equal(accepted[0]?.sha256Hex, "");
+  assert.equal(accepted[0]?.detectedMimeType, null);
+  assert.equal(accepted[1]?.businessError, undefined);
+  assert.equal(accepted[1]?.originalName, "small.png");
+});
+
+test("keeps an untrusted oversized batch part bounded at limit plus one", async () => {
+  const limit = 1024;
+  const accepted = await parseMultipleFilesMultipart(
+    chunked(buildBody([
+      { name: "file", fileName: "untrusted-length.png", bytes: pngBytes(4 * 1024 * 1024) },
+      { name: "file", fileName: "after.png", bytes: pngBytes(64) },
+    ]), 64 * 1024),
+    contentType,
+    policyWithMaxBytes(limit),
+    5,
+  );
+
+  assert.equal(accepted[0]?.businessError, "too_large");
+  assert.equal(accepted[0]?.sizeBytes, limit + 1);
+  assert.equal(accepted[0]?.bytes.length, 0);
+  assert.equal(accepted[1]?.originalName, "after.png");
+  assert.equal(accepted[1]?.bytes.length, 64);
 });
 
 test("rejects oversized part headers and missing terminal boundary", async () => {

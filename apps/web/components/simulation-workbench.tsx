@@ -3,6 +3,7 @@
 import { BrainCircuit, CheckCircle2, Plus, Save, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import type { SimulationStageDraftDto } from "@/lib/study/simulation-service";
 import type {
   MotivationVaultDto,
@@ -64,15 +65,20 @@ export function SimulationWorkbench({
     event.preventDefault();
     setError(null);
 
+    const payload = {
+      name: examName,
+      examDate: new Date(examDate).toISOString(),
+      isFirstSynchronized,
+      targetDurationMinutes,
+      targetScore: parseOptionalNumber(examTargetScore),
+    };
+    const commandScope = "simulation-workbench:exam:create";
     const response = await fetch("/api/simulation/exams", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: examName,
-        examDate: new Date(examDate).toISOString(),
-        isFirstSynchronized,
-        targetDurationMinutes,
-        targetScore: parseOptionalNumber(examTargetScore),
+        ...payload,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "simulation-exam", payload),
       }),
     });
 
@@ -82,14 +88,19 @@ export function SimulationWorkbench({
     }
 
     const body = (await response.json().catch(() => null)) as { exam?: SimulationExamDto } | null;
-    if (body?.exam?.id) setSelectedExamId(body.exam.id);
+    if (!body?.exam?.id) {
+      setError("服务端未返回已创建考试，当前输入与重试标识仍保留");
+      return;
+    }
+    completeIdempotentCommand(commandScope);
+    setSelectedExamId(body.exam.id);
     startTransition(() => router.refresh());
   }
 
   async function saveStructuredResults(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    if (!resolvedSelectedExamId || !resultSubjectId) {
+    if (!resolvedSelectedExamId || !selectedExam || !resultSubjectId) {
       setError("请先选择一条结构化模拟考试和科目");
       return;
     }
@@ -109,6 +120,7 @@ export function SimulationWorkbench({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        expectedRevision: selectedExam.revision,
         targetDurationMinutes: selectedExam?.targetDurationMinutes ?? targetDurationMinutes,
         actualDurationMinutes: sumNumeric(subjectResults.map((result) => result.durationMinutes)),
         targetScore: sumNumeric(subjectResults.map((result) => result.targetScore)),
@@ -134,10 +146,15 @@ export function SimulationWorkbench({
     event.preventDefault();
     setError(null);
 
+    const payload = { firstSimulationDiary };
+    const commandScope = "simulation-workbench:first-diary";
     const response = await fetch("/api/simulation/first-diary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ firstSimulationDiary }),
+      body: JSON.stringify({
+        ...payload,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "first-diary", payload),
+      }),
     });
 
     if (!response.ok) {
@@ -145,6 +162,12 @@ export function SimulationWorkbench({
       return;
     }
 
+    const body = (await response.json().catch(() => null)) as { vault?: MotivationVaultDto } | null;
+    if (!body?.vault) {
+      setError("服务端未返回已保存日记，当前输入与重试标识仍保留");
+      return;
+    }
+    completeIdempotentCommand(commandScope);
     startTransition(() => router.refresh());
   }
 
@@ -152,16 +175,21 @@ export function SimulationWorkbench({
     event.preventDefault();
     setError(null);
 
+    const payload = {
+      name: stagePlanName,
+      startDate: new Date(stagePlanStartDate).toISOString(),
+      endDate: new Date(stagePlanEndDate).toISOString(),
+      goal: stagePlanGoal,
+      mode: stagePlanMode,
+      status: stagePlanStatus,
+    };
+    const commandScope = "simulation-workbench:stage-plan:create";
     const response = await fetch("/api/simulation/stage-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: stagePlanName,
-        startDate: new Date(stagePlanStartDate).toISOString(),
-        endDate: new Date(stagePlanEndDate).toISOString(),
-        goal: stagePlanGoal,
-        mode: stagePlanMode,
-        status: stagePlanStatus,
+        ...payload,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "stage-plan", payload),
       }),
     });
 
@@ -171,16 +199,26 @@ export function SimulationWorkbench({
     }
 
     const body = (await response.json().catch(() => null)) as { plan?: StagePlanDto } | null;
-    if (body?.plan?.id) setSelectedStagePlanId(body.plan.id);
+    if (!body?.plan?.id) {
+      setError("服务端未返回已保存阶段计划，当前输入与重试标识仍保留");
+      return;
+    }
+    completeIdempotentCommand(commandScope);
+    setSelectedStagePlanId(body.plan.id);
     startTransition(() => router.refresh());
   }
 
   async function generatePersistentDraft() {
     setError(null);
+    const payload = { stagePlanId: selectedStagePlanId || null };
+    const commandScope = "simulation-workbench:stage-draft:create";
     const response = await fetch("/api/simulation/stage-adjustment-drafts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stagePlanId: selectedStagePlanId || null }),
+      body: JSON.stringify({
+        ...payload,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "stage-draft", payload),
+      }),
     });
 
     if (!response.ok) {
@@ -188,15 +226,26 @@ export function SimulationWorkbench({
       return;
     }
 
+    const body = (await response.json().catch(() => null)) as { draft?: StageAdjustmentDraftRecordDto } | null;
+    if (!body?.draft) {
+      setError("服务端未返回阶段草稿，当前输入与重试标识仍保留");
+      return;
+    }
+    completeIdempotentCommand(commandScope);
     startTransition(() => router.refresh());
   }
 
   async function generateAiPersistentDraft() {
     setError(null);
+    const payload = { stagePlanId: selectedStagePlanId || null };
+    const commandScope = "simulation-workbench:stage-draft:ai";
     const response = await fetch("/api/simulation/stage-adjustment-drafts/ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stagePlanId: selectedStagePlanId || null }),
+      body: JSON.stringify({
+        ...payload,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "stage-draft-ai", payload),
+      }),
     });
 
     if (!response.ok) {
@@ -204,13 +253,22 @@ export function SimulationWorkbench({
       return;
     }
 
+    const body = (await response.json().catch(() => null)) as { draft?: StageAdjustmentDraftRecordDto } | null;
+    if (!body?.draft) {
+      setError("服务端未返回 AI 阶段草稿，当前输入与重试标识仍保留");
+      return;
+    }
+    completeIdempotentCommand(commandScope);
     startTransition(() => router.refresh());
   }
 
-  async function decidePersistentDraft(id: string, action: "confirm" | "reject") {
+  async function decidePersistentDraft(id: string, revision: number, action: "confirm" | "reject") {
+    if (action === "reject" && !window.confirm("驳回后当前阶段草稿进入不可逆终态。确认驳回？")) return;
     setError(null);
     const response = await fetch(`/api/simulation/stage-adjustment-drafts/${id}/${action}`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedRevision: revision }),
     });
 
     if (!response.ok) {
@@ -295,7 +353,7 @@ export function SimulationWorkbench({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-sm text-zinc-400">
-                    {new Date(exam.examDate).toLocaleString("zh-CN")}
+                    {new Date(exam.examDate).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
                     {exam.isFirstSynchronized ? " / 同步自测" : ""}
                   </p>
                   <h3 className="mt-1 font-medium text-white">{exam.name}</h3>
@@ -341,7 +399,7 @@ export function SimulationWorkbench({
                     <p className="text-sm text-zinc-400">{task.subjectName}</p>
                     <h3 className="mt-1 font-medium text-white">{task.title}</h3>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {new Date(task.plannedDate).toLocaleString("zh-CN")} / {labelStatus(task.status)}
+                      {new Date(task.plannedDate).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })} / {labelStatus(task.status)}
                     </p>
                     {task.syllabusNodeTitle ? <p className="mt-1 text-xs text-teal-200">节点：{task.syllabusNodeTitle}</p> : null}
                   </div>
@@ -479,7 +537,7 @@ export function SimulationWorkbench({
                 <h3 className="mt-3 font-medium text-white">{plan.name}</h3>
                 <p className="mt-2 text-sm leading-6 text-zinc-300">{plan.goal}</p>
                 <p className="mt-2 text-xs text-zinc-500">
-                  {new Date(plan.startDate).toLocaleDateString("zh-CN")} 至 {new Date(plan.endDate).toLocaleDateString("zh-CN")}
+                  {new Date(plan.startDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })} 至 {new Date(plan.endDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}
                 </p>
               </article>
             ))}
@@ -511,14 +569,14 @@ export function SimulationWorkbench({
                 <p className="mt-3 text-sm leading-6 text-violet-50">{draft.riskConclusion}</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-300">{draft.nextStageEmphasis}</p>
                 <p className="mt-2 text-xs text-zinc-500">
-                  {labelStageMode(draft.mode)} / {labelTaskIntensity(draft.taskIntensity)} / {new Date(draft.createdAt).toLocaleString("zh-CN")}
+                  {labelStageMode(draft.mode)} / {labelTaskIntensity(draft.taskIntensity)} / {new Date(draft.createdAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
                 </p>
                 {draft.status === "draft" ? (
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-violet-300 px-3 text-sm font-medium text-[#120d1b] disabled:cursor-not-allowed disabled:opacity-50"
                       type="button"
-                      onClick={() => decidePersistentDraft(draft.id, "confirm")}
+                      onClick={() => decidePersistentDraft(draft.id, draft.revision, "confirm")}
                       disabled={isPending || !draft.stagePlanId}
                     >
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
@@ -527,7 +585,7 @@ export function SimulationWorkbench({
                     <button
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
                       type="button"
-                      onClick={() => decidePersistentDraft(draft.id, "reject")}
+                      onClick={() => decidePersistentDraft(draft.id, draft.revision, "reject")}
                       disabled={isPending}
                     >
                       <XCircle className="h-4 w-4" aria-hidden="true" />
@@ -554,7 +612,7 @@ export function SimulationWorkbench({
             >
               {exams.map((exam) => (
                 <option key={exam.id} value={exam.id}>
-                  {exam.name} / {new Date(exam.examDate).toLocaleDateString("zh-CN")}
+                  {exam.name} / {new Date(exam.examDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}
                 </option>
               ))}
             </select>
@@ -671,19 +729,39 @@ function mergeSubjectResults(
     summary: string;
   },
 ) {
+  const currentSavedResult = exam?.subjectResults.find((result) => result.subjectId === current.subjectId);
+  const serializeResult = (result: SimulationExamDto["subjectResults"][number]) => ({
+    subjectId: result.subjectId,
+    expectedRevision: result.revision,
+    paperFullScore: result.paperFullScore ?? Math.max(result.targetScore ?? 0, result.actualScore ?? 0, 100),
+    targetScore: result.targetScore ?? 0,
+    actualScore: result.actualScore ?? 0,
+    durationMinutes: result.durationMinutes ?? undefined,
+    blankQuestionCount: result.blankQuestionCount,
+    lossReasons: result.lossReasons,
+    summary: result.summary ?? undefined,
+    lossItems: result.lossItems
+      .filter((item) => item.archivedAt == null)
+      .map((item) => ({
+        reason: item.reason,
+        syllabusNodeId: item.syllabusNodeId,
+        lostScore: item.lostScore,
+        note: item.note,
+      })),
+  });
   return [
     ...(exam?.subjectResults ?? [])
       .filter((result) => result.subjectId !== current.subjectId)
-      .map((result) => ({
-        subjectId: result.subjectId,
-        targetScore: result.targetScore ?? undefined,
-        actualScore: result.actualScore ?? undefined,
-        durationMinutes: result.durationMinutes ?? undefined,
-        blankQuestionCount: result.blankQuestionCount,
-        lossReasons: result.lossReasons,
-        summary: result.summary ?? undefined,
-      })),
-    current,
+      .map(serializeResult),
+    {
+      ...current,
+      expectedRevision: currentSavedResult?.revision,
+      paperFullScore: currentSavedResult?.paperFullScore
+        ?? Math.max(current.targetScore ?? 0, current.actualScore ?? 0, 100),
+      targetScore: current.targetScore ?? 0,
+      actualScore: current.actualScore ?? 0,
+      lossItems: currentSavedResult ? serializeResult(currentSavedResult).lossItems : [],
+    },
   ];
 }
 

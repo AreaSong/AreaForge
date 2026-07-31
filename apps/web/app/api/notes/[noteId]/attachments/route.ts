@@ -23,6 +23,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ no
   try {
     const user = await requireApiUser(request);
     const { noteId } = await context.params;
+    const idempotencyKey = request.headers.get("idempotency-key");
+    if (!idempotencyKey) throw new ApiError("INVALID_IDEMPOTENCY_KEY", 400);
     assertDeclaredContentLengthWithinPolicy(request);
 
     if (!request.body) {
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ no
       throw multipartErrorToApiError(error);
     }
 
-    const attachment = await createNoteAttachment({ noteId, scan }, user.id);
+    const attachment = await createNoteAttachment({ noteId, scan, idempotencyKey }, user.id);
     return NextResponse.json({ attachment }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);

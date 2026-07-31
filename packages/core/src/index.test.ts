@@ -17,6 +17,10 @@ import {
   normalizeStudyCloseout,
   parseSyllabusMarkdown,
   summarizeSimulationResult,
+  summarizeSimulationScores,
+  buildSimulationRemediationGroups,
+  buildSimulationRemediationOriginSnapshot,
+  isHighSeveritySimulationLoss,
   summarizeCheckInHistory,
   summarizeLightweightDebtAction,
   choosePeriodicWeakness,
@@ -29,6 +33,58 @@ import {
   selectRecoveryTaskCandidate,
   summarizeAnalyticsRisks,
   summarizeLongTermRisks,
+  assertExpectedRevision,
+  canActivateWorkspace,
+  buildActiveSwitchPlan,
+  classifyLegacyOwnership,
+  summarizeTakeoverPreview,
+  normalizeRelatedNodeIds,
+  validateDependencyEdge,
+  wouldCreateDependencyCycle,
+  isHardBlocked,
+  canDismissInboxItem,
+  canConvertInboxItem,
+  isNoteKind,
+  nextConsecutivePassCount,
+  suggestReviewIntervalDays,
+  validateReviewDurationSeconds,
+  aggregateReviewMetrics,
+  deriveMinimumActionSource,
+  completedMinimumActionV2,
+  evaluateRecoveryDayProgress,
+  stageTargetMinutes,
+  computeRecoveryProgressMinutes,
+  selectActionCenterRecommendation,
+  partitionActionCenterQueues,
+  queuesAreEmpty,
+  classifyReviewPriorityBand,
+  classifyTaskPriorityBand,
+  projectAppShellStatus,
+  selectCanvasChildren,
+  assertLayoutPatchSafe,
+  filterStaleLayoutRefs,
+  clampCanvasDepth,
+  clampCanvasPageSize,
+  isKnowledgeCanvasCursor,
+  isKnowledgeCanvasEntityType,
+  KNOWLEDGE_CANVAS_MAX_RENDERED_NODES,
+  canMutateKnowledgeCanvasLayout,
+  applyKnowledgeCanvasLayoutPatches,
+  beginKnowledgeCanvasLayoutSave,
+  completeKnowledgeCanvasLayoutSave,
+  createKnowledgeCanvasLayoutQueue,
+  enqueueKnowledgeCanvasLayoutPatches,
+  enqueueKnowledgeCanvasViewportPatch,
+  hasKnowledgeCanvasLayoutQueueWork,
+  restoreKnowledgeCanvasLayoutSave,
+  shouldApplyKnowledgeCanvasResponseLayout,
+  canAutoShowMotivationReminder,
+  evaluateAutomaticMotivationGate,
+  validateMotivationItemPayload,
+  nextReminderStateAfterShow,
+  pickMotivationItemId,
+  normalizeAiDraftInput,
+  buildAiDraftCanonicalPayloads,
 } from "./index";
 
 type DashboardInputForTest = Parameters<typeof createDashboardSnapshot>[0];
@@ -1250,6 +1306,67 @@ test("summarizeSimulationResult keeps near target simulations focused", () => {
   assert.equal(result.shouldRecalibratePlan, false);
 });
 
+test("structured simulation totals keep real loss separate from target gap", () => {
+  const totals = summarizeSimulationScores([
+    { subjectId: "math", paperFullScore: 150, targetScore: 120, actualScore: 110 },
+    { subjectId: "english", paperFullScore: 100, targetScore: 75, actualScore: 80 },
+  ]);
+  assert.deepEqual(totals, {
+    paperFullScore: 250,
+    targetScore: 195,
+    actualScore: 190,
+    realLostScore: 60,
+    targetGap: 10,
+  });
+});
+
+test("structured simulation loss severity supports item and aggregate thresholds", () => {
+  assert.equal(isHighSeveritySimulationLoss([
+    { subjectId: "math", reason: "METHOD_ERROR", lostScore: 5 },
+  ]), true);
+  assert.equal(isHighSeveritySimulationLoss([
+    { subjectId: "math", reason: "METHOD_ERROR", syllabusNodeId: "node", lostScore: 4.5 },
+    { subjectId: "math", reason: "METHOD_ERROR", syllabusNodeId: "node", lostScore: 5.5 },
+  ]), true);
+  assert.equal(isHighSeveritySimulationLoss([
+    { subjectId: "math", reason: "METHOD_ERROR", lostScore: 4.5, archived: true },
+  ]), false);
+});
+
+test("simulation remediation provenance separates exams and canonicalizes snapshots", () => {
+  const items = [
+    { id: "loss-b", subjectId: "math", reason: "METHOD_ERROR" as const, syllabusNodeId: "node", lostScore: 4 },
+    { id: "loss-a", subjectId: "math", reason: "METHOD_ERROR" as const, syllabusNodeId: "node", lostScore: 6 },
+  ];
+  const first = buildSimulationRemediationGroups(items, { examId: "exam-a" })[0];
+  const second = buildSimulationRemediationGroups(items, { examId: "exam-b" })[0];
+
+  assert.ok(first);
+  assert.ok(second);
+  assert.notEqual(first.originKey, second.originKey);
+  assert.deepEqual(first.itemIds, ["loss-a", "loss-b"]);
+  assert.deepEqual(buildSimulationRemediationOriginSnapshot({
+    examId: "exam-a",
+    subjectResultId: "result-a",
+    subjectResultRevision: 3,
+    subjectId: first.subjectId,
+    reason: first.reason,
+    syllabusNodeId: first.syllabusNodeId,
+    itemIds: ["loss-b", "loss-a", "loss-a"],
+    lostScore: first.lostScore,
+  }), {
+    provenanceVersion: 1,
+    examId: "exam-a",
+    subjectResultId: "result-a",
+    subjectResultRevision: 3,
+    subjectId: "math",
+    reason: "METHOD_ERROR",
+    syllabusNodeId: "node",
+    itemIds: ["loss-a", "loss-b"],
+    lostScore: 10,
+  });
+});
+
 test("parseSyllabusMarkdown converts headings and nested lists into nodes", () => {
   const parsed = parseSyllabusMarkdown({
     markdown: [
@@ -1285,4 +1402,760 @@ test("parseSyllabusMarkdown rejects oversized or too deep imports", () => {
 
   assert.match(tooDeep.errors.join("\n"), /没有识别/);
   assert.match(tooMany.errors.join("\n"), /最多只能导入/);
+});
+
+test("exam workspace revision and switch helpers", () => {
+  assert.equal(assertExpectedRevision({ currentRevision: 2, expectedRevision: 2 }), "ok");
+  assert.equal(assertExpectedRevision({ currentRevision: 2, expectedRevision: 1 }), "revision_conflict");
+  assert.equal(canActivateWorkspace({ targetStatus: "ACTIVE", hasActiveSession: false }), "already_active");
+  assert.equal(canActivateWorkspace({ targetStatus: "ARCHIVED", hasActiveSession: true }), "active_session_blocks_switch");
+  assert.deepEqual(buildActiveSwitchPlan({ currentActiveId: "a", targetId: "b" }), {
+    archiveIds: ["a"],
+    activateId: "b",
+  });
+});
+
+test("legacy ownership and takeover preview", () => {
+  assert.equal(
+    classifyLegacyOwnership({
+      subjectOwnerCandidates: ["u1"],
+      referencedOwnerCandidates: ["u1"],
+      hasOrphanSubject: false,
+      hasCrossOwnerReference: false,
+      hasMissingOwner: false,
+    }),
+    "TAKEOVER_ELIGIBLE",
+  );
+  assert.equal(
+    classifyLegacyOwnership({
+      subjectOwnerCandidates: ["u1", "u2"],
+      referencedOwnerCandidates: [],
+      hasOrphanSubject: false,
+      hasCrossOwnerReference: false,
+      hasMissingOwner: false,
+    }),
+    "UNRESOLVED_LEGACY",
+  );
+  const preview = summarizeTakeoverPreview([
+    { verdict: "TAKEOVER_ELIGIBLE", affectedDates: 2 },
+    { verdict: "UNRESOLVED_LEGACY", affectedPeriods: 1 },
+  ]);
+  assert.equal(preview.eligibleCount, 1);
+  assert.equal(preview.unresolvedCount, 1);
+  assert.equal(preview.affectedDateCount, 2);
+});
+
+test("knowledge card related nodes and dependency cycle rules", () => {
+  const ok = normalizeRelatedNodeIds({
+    primaryNodeId: "n1",
+    relatedNodeIds: ["n2", "n2", "n1"],
+    nodeSubjectIds: { n1: "s1", n2: "s1" },
+    taskSubjectId: "s1",
+  });
+  assert.equal(ok.ok, true);
+  if (ok.ok) assert.deepEqual(ok.relatedNodeIds, ["n2"]);
+
+  assert.equal(validateDependencyEdge({ predecessorId: "a", successorId: "a", existing: [] }), "self_loop");
+  assert.equal(
+    wouldCreateDependencyCycle({
+      edges: [{ predecessorId: "b", successorId: "a", type: "SOFT" }],
+      predecessorId: "a",
+      successorId: "b",
+    }),
+    true,
+  );
+  assert.equal(isHardBlocked({ predecessorStatus: "TODO", dependencyType: "HARD" }), true);
+  assert.equal(canDismissInboxItem({ status: "OPEN", supersededByItemId: null }), "ok");
+  assert.equal(canConvertInboxItem({ status: "OPEN", supersededByItemId: "x", originArchived: false }), "superseded");
+  assert.equal(isNoteKind("CONCEPT"), true);
+});
+
+test("unified review interval and duration rules", () => {
+  assert.equal(nextConsecutivePassCount({ current: 2, result: "FAILED" }), 0);
+  assert.equal(nextConsecutivePassCount({ current: 2, result: "PASSED" }), 3);
+  assert.equal(suggestReviewIntervalDays({ result: "FAILED", consecutivePassCountAfter: 0 }), 1);
+  assert.equal(suggestReviewIntervalDays({ result: "PARTIAL", consecutivePassCountAfter: 0 }), 3);
+  assert.equal(suggestReviewIntervalDays({ result: "PASSED", consecutivePassCountAfter: 1 }), 7);
+  assert.equal(suggestReviewIntervalDays({ result: "PASSED", consecutivePassCountAfter: 4 }), 60);
+  assert.equal(suggestReviewIntervalDays({ result: "PASSED", consecutivePassCountAfter: 10 }), 60);
+  assert.equal(validateReviewDurationSeconds(0), "invalid_duration");
+  assert.equal(validateReviewDurationSeconds(1), "ok");
+  assert.equal(validateReviewDurationSeconds(300), "ok");
+});
+
+test("check-in v2 review aggregation and minimum action source", () => {
+  const metrics = aggregateReviewMetrics([
+    { id: "e1", result: "PASSED", durationSeconds: 200, correctedEventId: null },
+    { id: "e2", result: "FAILED", durationSeconds: 100, correctedEventId: "e1" },
+  ]);
+  assert.equal(metrics.reviewCount, 1);
+  assert.equal(metrics.reviewSeconds, 100);
+  assert.equal(metrics.failedCount, 1);
+  assert.equal(deriveMinimumActionSource({ sessionMinimumMet: false, reviewSeconds: 300 }), "REVIEW");
+  assert.equal(completedMinimumActionV2({ sessionMinimumMet: true, reviewSeconds: 300 }), true);
+  assert.equal(completedMinimumActionV2({ sessionMinimumMet: false, reviewSeconds: 299 }), false);
+});
+
+test("recovery v2 stage progression", () => {
+  assert.equal(stageTargetMinutes(1), 30);
+  assert.equal(stageTargetMinutes(3), 90);
+  assert.equal(computeRecoveryProgressMinutes({ effectiveSessionMinutes: 20, confirmedReviewSeconds: 600 }), 30);
+  assert.deepEqual(
+    evaluateRecoveryDayProgress({
+      currentStage: 1,
+      status: "ACTIVE",
+      progressMinutesToday: 30,
+      windowDayIndex: 0,
+      alreadyAdvancedToday: false,
+    }),
+    { nextStage: 2, nextStatus: "ACTIVE", advanced: true },
+  );
+  assert.deepEqual(
+    evaluateRecoveryDayProgress({
+      currentStage: 1,
+      status: "ACTIVE",
+      progressMinutesToday: 90,
+      windowDayIndex: 0,
+      alreadyAdvancedToday: true,
+    }),
+    { nextStage: 1, nextStatus: "ACTIVE", advanced: false },
+  );
+  assert.deepEqual(
+    evaluateRecoveryDayProgress({
+      currentStage: 2,
+      status: "ACTIVE",
+      progressMinutesToday: 10,
+      windowDayIndex: 7,
+      alreadyAdvancedToday: false,
+    }),
+    { nextStage: 2, nextStatus: "EXPIRED", advanced: false },
+  );
+});
+
+test("action-center recommendation order and bridged review filter", () => {
+  const candidates = [
+    {
+      id: "task-bridge",
+      kind: "task" as const,
+      title: "桥接复习任务",
+      reason: "承接到期复习",
+      priorityBand: "today_high_priority_task" as const,
+      riskScore: 2,
+      overdueDays: 0,
+      estimatedMinutes: 25,
+      createdAtMs: 2,
+      hardBlocked: false,
+      softDependencyHint: null,
+      bridgedReviewScheduleId: "sched-1",
+      reviewObjectKind: null,
+      taskPriority: "high" as const,
+      href: "/today/tasks/task-bridge",
+    },
+    {
+      id: "sched-1",
+      kind: "review" as const,
+      title: "到期笔记",
+      reason: "今日到期",
+      priorityBand: "due_other_review" as const,
+      riskScore: 1,
+      overdueDays: 0,
+      estimatedMinutes: 10,
+      createdAtMs: 1,
+      hardBlocked: false,
+      softDependencyHint: null,
+      bridgedReviewScheduleId: null,
+      reviewObjectKind: "NOTE" as const,
+      taskPriority: null,
+      href: "/quick-review/sched-1",
+    },
+    {
+      id: "activity-1",
+      kind: "activity" as const,
+      title: "继续专注",
+      reason: "已有进行中活动",
+      priorityBand: "continue_activity" as const,
+      riskScore: 0,
+      overdueDays: 0,
+      estimatedMinutes: 0,
+      createdAtMs: 0,
+      hardBlocked: false,
+      softDependencyHint: null,
+      bridgedReviewScheduleId: null,
+      reviewObjectKind: null,
+      taskPriority: null,
+      href: "/focus/session-1",
+    },
+    {
+      id: "blocked-task",
+      kind: "task" as const,
+      title: "被硬依赖阻塞",
+      reason: "前置未完成",
+      priorityBand: "today_normal_task" as const,
+      riskScore: 5,
+      overdueDays: 0,
+      estimatedMinutes: 30,
+      createdAtMs: 3,
+      hardBlocked: true,
+      softDependencyHint: null,
+      bridgedReviewScheduleId: null,
+      reviewObjectKind: null,
+      taskPriority: "medium" as const,
+      href: "/today/tasks/blocked-task",
+    },
+  ];
+
+  const recommendation = selectActionCenterRecommendation(candidates);
+  assert.equal(recommendation?.id, "activity-1");
+  assert.equal(recommendation?.priorityBand, "continue_activity");
+
+  const queues = partitionActionCenterQueues(candidates);
+  assert.equal(queues.formalTasks.some((item) => item.id === "task-bridge"), true);
+  assert.equal(queues.noteResourceSyllabusReviews.some((item) => item.id === "sched-1"), false);
+  assert.equal(queuesAreEmpty(queues), false);
+  assert.equal(classifyReviewPriorityBand("MISTAKE"), "due_mistake_review");
+  assert.equal(classifyTaskPriorityBand({ overdueDays: 2, taskPriority: "low", plannedForToday: true }), "overdue_task");
+});
+
+test("app-shell lights and mobile top priority", () => {
+  const status = projectAppShellStatus({
+    activity: {
+      hasActive: true,
+      isPaused: false,
+      justCompleted: false,
+      conflictOrUnknown: false,
+      continueHref: "/focus/s1",
+    },
+    review: {
+      executableCount: 2,
+      bridgedCount: 1,
+      overdueLearningDays: 1,
+      blocked: false,
+      inQuickReview: false,
+      nextHref: "/knowledge/reviews",
+    },
+    debt: {
+      countable: 1,
+      severe: false,
+      recoveryBlocked: false,
+      arrangedComplete: false,
+      debtHref: "/today/plan",
+    },
+    stage: {
+      hasStage: true,
+      inProgress: true,
+      milestoneHealthy: false,
+      milestoneNearOrDraftPending: false,
+      conflictOrBlocked: false,
+      stageHref: "/stage/overview",
+    },
+    todayClosure: {
+      inReminderWindow: true,
+      minimumActionDone: true,
+      dailyReviewDone: false,
+      minimumActionHref: "/today",
+      reviewHref: "/review/daily",
+    },
+  });
+
+  assert.equal(status.lights.find((light) => light.kind === "activity")?.tone, "blue");
+  assert.equal(status.lights.find((light) => light.kind === "review")?.tone, "amber");
+  assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.tone, "amber");
+  assert.notEqual(status.lights.find((light) => light.kind === "todayClosure")?.tone, "red");
+  assert.equal(status.lights.find((light) => light.kind === "activity")?.action?.href, "/focus/s1");
+  assert.equal(status.lights.find((light) => light.kind === "review")?.action?.href, "/knowledge/reviews");
+  assert.equal(status.lights.find((light) => light.kind === "debt")?.action?.href, "/today/plan");
+  assert.equal(status.lights.find((light) => light.kind === "stage")?.action?.href, "/stage/overview");
+  assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.action?.href, "/review/daily");
+  assert.equal(status.mobileTop.kind, "activity");
+
+  const quickReviewStatus = projectAppShellStatus({
+    activity: {
+      hasActive: false,
+      isPaused: false,
+      justCompleted: false,
+      conflictOrUnknown: false,
+      continueHref: "/today",
+    },
+    review: {
+      executableCount: 2,
+      bridgedCount: 0,
+      overdueLearningDays: 4,
+      blocked: true,
+      inQuickReview: true,
+      nextHref: "/quick-review/review-1",
+    },
+    debt: {
+      countable: 4,
+      severe: true,
+      recoveryBlocked: false,
+      arrangedComplete: false,
+      debtHref: "/today/plan",
+    },
+    stage: {
+      hasStage: false,
+      inProgress: false,
+      milestoneHealthy: false,
+      milestoneNearOrDraftPending: false,
+      conflictOrBlocked: false,
+      stageHref: "/stage/overview",
+    },
+    todayClosure: {
+      inReminderWindow: false,
+      minimumActionDone: false,
+      dailyReviewDone: false,
+      minimumActionHref: "/today",
+      reviewHref: "/review/daily",
+    },
+  });
+  assert.equal(quickReviewStatus.lights.find((light) => light.kind === "review")?.tone, "blue");
+  assert.equal(quickReviewStatus.lights.find((light) => light.kind === "debt")?.tone, "red");
+  assert.equal(quickReviewStatus.mobileTop.kind, "review");
+  assert.equal(quickReviewStatus.mobileTop.action?.href, "/quick-review/review-1");
+
+  const noQuickReviewStatus = projectAppShellStatus({
+    ...{
+      activity: {
+        hasActive: false,
+        isPaused: false,
+        justCompleted: false,
+        conflictOrUnknown: false,
+        continueHref: "/today",
+      },
+      review: {
+        executableCount: 0,
+        bridgedCount: 0,
+        overdueLearningDays: 0,
+        blocked: false,
+        inQuickReview: false,
+        nextHref: "/knowledge/reviews",
+      },
+      debt: {
+        countable: 4,
+        severe: true,
+        recoveryBlocked: false,
+        arrangedComplete: false,
+        debtHref: "/today/plan",
+      },
+      stage: {
+        hasStage: false,
+        inProgress: false,
+        milestoneHealthy: false,
+        milestoneNearOrDraftPending: false,
+        conflictOrBlocked: false,
+        stageHref: "/stage/overview",
+      },
+      todayClosure: {
+        inReminderWindow: false,
+        minimumActionDone: false,
+        dailyReviewDone: false,
+        minimumActionHref: "/today",
+        reviewHref: "/review/daily",
+      },
+    },
+  });
+  assert.equal(noQuickReviewStatus.mobileTop.kind, "debt");
+});
+
+test("knowledge canvas layout conflict, layered load, and mobile read-only layout", () => {
+  assert.equal(clampCanvasDepth(99), 4);
+  assert.equal(clampCanvasPageSize(5000), 200);
+  assert.equal(clampCanvasPageSize(1), 2);
+  assert.equal(KNOWLEDGE_CANVAS_MAX_RENDERED_NODES, 500);
+  assert.equal(isKnowledgeCanvasEntityType("NOTE"), true);
+  assert.equal(isKnowledgeCanvasEntityType("FREEFORM"), false);
+  assert.equal(isKnowledgeCanvasCursor("NOTE:note-1"), true);
+  assert.equal(isKnowledgeCanvasCursor("FREEFORM:note-1"), false);
+  assert.equal(isKnowledgeCanvasCursor("NOTE"), false);
+
+  // Layout CAS conflict: stale expectedRevision must not overwrite newer layout.
+  assert.equal(assertExpectedRevision({ currentRevision: 3, expectedRevision: 3 }), "ok");
+  assert.equal(assertExpectedRevision({ currentRevision: 3, expectedRevision: 2 }), "revision_conflict");
+  assert.equal(assertLayoutPatchSafe({ expectedRevision: 0, nodes: [] }), "missing_revision");
+
+  const workspace = {
+    id: "ws",
+    entityType: "WORKSPACE" as const,
+    parentId: null,
+    label: "Workspace",
+    subjectId: null,
+  };
+  const subject = {
+    id: "sub",
+    entityType: "SUBJECT" as const,
+    parentId: "ws",
+    label: "Math",
+    subjectId: "sub",
+  };
+  const note = {
+    id: "note",
+    entityType: "NOTE" as const,
+    parentId: "sub",
+    label: "Card",
+    subjectId: "sub",
+  };
+  const layeredNodes = [workspace, subject, note];
+  const layeredEdges = [
+    { id: "e-sub", sourceId: "ws", targetId: "sub", kind: "contains" as const },
+    { id: "e-note", sourceId: "sub", targetId: "note", kind: "related" as const },
+  ];
+
+  // Layered load: depth 0 keeps focus only; depth 2 reaches grandchild note.
+  const depth0 = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 0,
+    limit: 20,
+  });
+  assert.deepEqual(
+    depth0.nodes.map((node) => node.id),
+    ["ws"],
+  );
+
+  const depth2 = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 2,
+    limit: 20,
+  });
+  assert.deepEqual(
+    depth2.nodes.map((node) => node.id).sort(),
+    ["note", "sub", "ws"],
+  );
+
+  const leafFocus = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "note",
+    depth: 1,
+    limit: 20,
+  });
+  assert.deepEqual(leafFocus.nodes.map((node) => node.id).sort(), ["note", "sub"]);
+  assert.deepEqual(leafFocus.edges.map((edge) => edge.id), ["e-note"]);
+
+  const globalSearch = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 0,
+    query: "Card",
+    limit: 20,
+  });
+  assert.deepEqual(globalSearch.nodes.map((node) => node.id).sort(), ["note", "sub", "ws"]);
+  assert.deepEqual(globalSearch.edges.map((edge) => edge.id).sort(), ["e-note", "e-sub"]);
+
+  const filtered = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 2,
+    entityTypeFilter: "NOTE",
+    limit: 20,
+  });
+  assert.deepEqual(filtered.nodes.map((node) => node.id).sort(), ["note", "sub", "ws"]);
+  assert.deepEqual(filtered.edges.map((edge) => edge.id).sort(), ["e-note", "e-sub"]);
+
+  const pageNodes = Array.from({ length: 12 }, (_, index) => ({
+    id: `n${index}`,
+    entityType: index === 0 ? ("WORKSPACE" as const) : ("SUBJECT" as const),
+    parentId: index === 0 ? null : "n0",
+    label: `Node ${index}`,
+    subjectId: index === 0 ? null : "sub-1",
+  }));
+  const pageEdges = pageNodes.slice(1).map((node) => ({
+    id: `e-${node.id}`,
+    sourceId: "n0",
+    targetId: node.id,
+    kind: "contains" as const,
+  }));
+
+  const page1 = selectCanvasChildren({
+    nodes: pageNodes,
+    edges: pageEdges,
+    focusId: "n0",
+    depth: 1,
+    limit: 5,
+  });
+  assert.equal(page1.nodes.length, 5);
+  assert.equal(page1.truncated, true);
+  assert.ok(page1.nextCursor);
+  assert.ok(page1.nodes.some((node) => node.id === "n0"));
+  assert.ok(page1.edges.every((edge) => page1.nodes.some((node) => node.id === edge.sourceId)));
+  assert.ok(page1.edges.every((edge) => page1.nodes.some((node) => node.id === edge.targetId)));
+
+  const page2 = selectCanvasChildren({
+    nodes: pageNodes,
+    edges: pageEdges,
+    focusId: "n0",
+    depth: 1,
+    limit: 5,
+    cursor: page1.nextCursor,
+  });
+  assert.ok(page2.nodes.length > 0);
+  assert.ok(page2.nodes.some((node) => node.id === "n0"));
+  assert.equal(
+    page2.nodes.filter((node) => page1.nodes.some((previous) => previous.id === node.id)).every((node) => node.id === "n0"),
+    true,
+  );
+  assert.ok(page2.edges.every((edge) => page2.nodes.some((node) => node.id === edge.sourceId)));
+  assert.ok(page2.edges.every((edge) => page2.nodes.some((node) => node.id === edge.targetId)));
+
+  const relationContext = selectCanvasChildren({
+    nodes: [
+      workspace,
+      subject,
+      note,
+      { id: "task", entityType: "TASK", parentId: "sub", label: "Task", subjectId: "sub" },
+    ],
+    edges: [
+      ...layeredEdges,
+      { id: "e-task", sourceId: "sub", targetId: "task", kind: "related" },
+      { id: "e-evidence", sourceId: "task", targetId: "note", kind: "evidence" },
+    ],
+    focusId: "ws",
+    depth: 2,
+    entityTypeFilter: "NOTE",
+    limit: 5,
+  });
+  assert.ok(relationContext.nodes.some((node) => node.id === "task"));
+  assert.ok(relationContext.edges.some((edge) => edge.id === "e-evidence"));
+
+  const tinyPage = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 2,
+    limit: 1,
+  });
+  assert.equal(tinyPage.nodes.length, 2);
+  assert.equal(tinyPage.contextTruncated, true);
+  assert.equal(tinyPage.nextCursor, "note");
+  const invalidCursor = selectCanvasChildren({
+    nodes: layeredNodes,
+    edges: layeredEdges,
+    focusId: "ws",
+    depth: 2,
+    cursor: "TASK:not-in-candidates",
+  });
+  assert.equal(invalidCursor.invalidCursor, true);
+
+  assert.equal(
+    assertLayoutPatchSafe({
+      expectedRevision: 1,
+      nodes: [{ entityType: "NOTE", entityId: "note-1", x: 10, y: 20 }],
+    }),
+    "ok",
+  );
+  assert.equal(
+    assertLayoutPatchSafe({
+      expectedRevision: 1,
+      nodes: [{ entityType: "NOTE", entityId: "note-1", x: 10, y: 20, title: "nope" } as never],
+    }),
+    "business_fields_forbidden",
+  );
+  assert.equal(
+    assertLayoutPatchSafe({
+      expectedRevision: 1,
+      nodes: [
+        { entityType: "NOTE", entityId: "note-1", x: 10, y: 20 },
+        { entityType: "NOTE", entityId: "note-1", x: 30, y: 40 },
+      ],
+    }),
+    "duplicate_node",
+  );
+  assert.equal(
+    assertLayoutPatchSafe({ expectedRevision: 1, viewportX: 0, viewportY: 0, viewportZoom: 0 }),
+    "invalid_viewport",
+  );
+  assert.equal(
+    shouldApplyKnowledgeCanvasResponseLayout({
+      requestMutationGeneration: 0,
+      currentMutationGeneration: 1,
+      incomingRevision: 1,
+      currentRevision: 2,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldApplyKnowledgeCanvasResponseLayout({
+      requestMutationGeneration: 1,
+      currentMutationGeneration: 1,
+      incomingRevision: 2,
+      currentRevision: 2,
+    }),
+    true,
+  );
+
+  // Mobile read-only layout: only desktop viewport may mutate personal layout.
+  assert.equal(canMutateKnowledgeCanvasLayout({ isDesktopViewport: true }), true);
+  assert.equal(canMutateKnowledgeCanvasLayout({ isDesktopViewport: false }), false);
+
+  const stale = filterStaleLayoutRefs({
+    nodeLayouts: [
+      { entityType: "NOTE", entityId: "alive" },
+      { entityType: "NOTE", entityId: "gone" },
+    ],
+    liveEntityIds: new Set(["NOTE:alive"]),
+  });
+  assert.deepEqual(stale.kept, [{ entityType: "NOTE", entityId: "alive" }]);
+  assert.deepEqual(stale.staleCandidates, [{ entityType: "NOTE", entityId: "gone" }]);
+});
+
+test("knowledge canvas layout queue preserves writes during save and retry", () => {
+  const first = { entityType: "NOTE" as const, entityId: "note-1", x: 10, y: 20, pinned: false };
+  const newer = { entityType: "NOTE" as const, entityId: "note-1", x: 30, y: 40, pinned: true };
+  let queue = enqueueKnowledgeCanvasLayoutPatches(createKnowledgeCanvasLayoutQueue(), [first]);
+  const firstSave = beginKnowledgeCanvasLayoutSave(queue);
+  queue = firstSave.state;
+  assert.deepEqual(firstSave.batch, [first]);
+
+  queue = enqueueKnowledgeCanvasLayoutPatches(queue, [newer]);
+  queue = completeKnowledgeCanvasLayoutSave(queue);
+  assert.deepEqual(queue.pending, [newer]);
+  const secondSave = beginKnowledgeCanvasLayoutSave(queue);
+  assert.deepEqual(secondSave.batch, [newer]);
+
+  let retryQueue = enqueueKnowledgeCanvasLayoutPatches(createKnowledgeCanvasLayoutQueue(), [first]);
+  retryQueue = beginKnowledgeCanvasLayoutSave(retryQueue).state;
+  retryQueue = enqueueKnowledgeCanvasLayoutPatches(retryQueue, [newer]);
+  const failed = restoreKnowledgeCanvasLayoutSave(retryQueue);
+  assert.deepEqual(failed.pending, [newer]);
+  assert.deepEqual(failed.inFlight, []);
+  assert.deepEqual(applyKnowledgeCanvasLayoutPatches([first], [newer]), [newer]);
+
+  const firstViewport = { viewportX: 10, viewportY: 20, viewportZoom: 1.2 };
+  const newerViewport = { viewportX: 30, viewportY: 40, viewportZoom: 1.5 };
+  let viewportQueue = enqueueKnowledgeCanvasViewportPatch(createKnowledgeCanvasLayoutQueue(), firstViewport);
+  assert.equal(hasKnowledgeCanvasLayoutQueueWork(viewportQueue), true);
+  const viewportSave = beginKnowledgeCanvasLayoutSave(viewportQueue);
+  assert.deepEqual(viewportSave.viewport, firstViewport);
+  viewportQueue = enqueueKnowledgeCanvasViewportPatch(viewportSave.state, newerViewport);
+  viewportQueue = completeKnowledgeCanvasLayoutSave(viewportQueue);
+  assert.deepEqual(viewportQueue.pendingViewport, newerViewport);
+
+  let viewportRetry = enqueueKnowledgeCanvasViewportPatch(createKnowledgeCanvasLayoutQueue(), firstViewport);
+  viewportRetry = beginKnowledgeCanvasLayoutSave(viewportRetry).state;
+  viewportRetry = enqueueKnowledgeCanvasViewportPatch(viewportRetry, newerViewport);
+  viewportRetry = restoreKnowledgeCanvasLayoutSave(viewportRetry);
+  assert.deepEqual(viewportRetry.pendingViewport, newerViewport);
+  assert.equal(viewportRetry.inFlightViewport, null);
+});
+
+test("motivation reminder frequency and item payload rules", () => {
+  const day = new Date("2026-07-21T00:00:00.000Z");
+  const nextDay = new Date("2026-07-22T00:00:00.000Z");
+  const now = new Date("2026-07-21T10:00:00.000Z");
+
+  assert.deepEqual(
+    canAutoShowMotivationReminder({
+      now,
+      learningDay: day,
+      lastAutoShowAt: new Date("2026-07-21T07:00:00.000Z"),
+      dailyCount: 1,
+      currentLearningDay: day,
+    }),
+    { allowed: false, reason: "interval" },
+  );
+
+  assert.deepEqual(
+    canAutoShowMotivationReminder({
+      now: new Date("2026-07-21T12:00:00.000Z"),
+      learningDay: day,
+      lastAutoShowAt: new Date("2026-07-21T07:00:00.000Z"),
+      dailyCount: 2,
+      currentLearningDay: day,
+    }),
+    { allowed: false, reason: "daily_cap" },
+  );
+
+  assert.deepEqual(
+    canAutoShowMotivationReminder({
+      now: new Date("2026-07-22T01:00:00.000Z"),
+      learningDay: day,
+      lastAutoShowAt: new Date("2026-07-21T07:00:00.000Z"),
+      dailyCount: 2,
+      currentLearningDay: nextDay,
+    }),
+    { allowed: true },
+  );
+
+  assert.equal(validateMotivationItemPayload({ type: "QUOTE", body: "keep going" }).ok, true);
+  assert.equal(validateMotivationItemPayload({ type: "QUOTE", body: "x", externalUrl: "https://a.com" }).ok, false);
+  assert.equal(validateMotivationItemPayload({ type: "VIDEO_LINK", externalUrl: "https://example.com/v" }).ok, true);
+  assert.equal(validateMotivationItemPayload({ type: "VIDEO_LINK", externalUrl: "http://example.com/v" }).ok, false);
+  assert.equal(
+    validateMotivationItemPayload({ type: "VAULT_EXCERPT", body: "excerpt", vaultSourceId: "vault-1" }).ok,
+    true,
+  );
+
+  const after = nextReminderStateAfterShow({
+    now,
+    currentLearningDay: day,
+    previousLearningDay: day,
+    previousDailyCount: 1,
+    previousRecentItemIds: ["a", "b"],
+    shownItemId: "c",
+  });
+  assert.equal(after.dailyCount, 2);
+  assert.deepEqual(after.recentItemIds.slice(0, 3), ["c", "a", "b"]);
+  assert.equal(pickMotivationItemId({ enabledItemIds: ["a", "b", "c"], recentItemIds: ["a", "b"] }), "c");
+
+  const eligible = {
+    enabled: true,
+    hour: 21,
+    windowStart: 20,
+    windowEnd: 7,
+    visible: true,
+    immersive: false,
+    hasActiveActivity: false,
+    trigger: "RECOVERY" as const,
+  };
+  assert.deepEqual(evaluateAutomaticMotivationGate(eligible), { allowed: true });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, enabled: false }), { allowed: false, reason: "disabled" });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, immersive: true }), { allowed: false, reason: "immersive" });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, hasActiveActivity: true }), { allowed: false, reason: "active_activity" });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, trigger: null }), { allowed: false, reason: "no_trigger" });
+  assert.deepEqual(evaluateAutomaticMotivationGate({ ...eligible, hour: 12 }), { allowed: false, reason: "outside_window" });
+});
+
+test("ai draft input contracts normalize fail-closed and size limits", () => {
+  const ok = normalizeAiDraftInput("motivation", {
+    selectedText: "  keep calm\r\nand study  ",
+    tone: "CALM",
+  });
+  assert.equal(ok.endpoint, "motivation");
+  assert.equal(ok.selectedText, "  keep calm\nand study  ");
+
+  assert.throws(
+    () =>
+      normalizeAiDraftInput("learning-tree", {
+        selectedText: "tree",
+        scope: "global",
+        extra: true,
+      } as never),
+  );
+
+  assert.throws(
+    () =>
+      normalizeAiDraftInput("knowledge-card", {
+        selectedText: "card",
+        kind: "UNKNOWN",
+      }),
+  );
+
+  const huge = "x".repeat(5 * 1024);
+  assert.throws(() => normalizeAiDraftInput("motivation", { selectedText: huge, tone: "BRIEF" }));
+
+  const payloads = buildAiDraftCanonicalPayloads(
+    normalizeAiDraftInput("plan", {
+      selectedText: "plan text",
+      checkedProjection: {
+        subjectLabel: "数学",
+        defaultDurationMinutes: 25,
+      },
+    }),
+  );
+  assert.equal(payloads.projectionVersion, "plan-input-v1");
+  assert.ok(payloads.previewPayload.includes("数学"));
 });

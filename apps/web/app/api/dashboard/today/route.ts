@@ -9,8 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const user = await requireApiUser(request);
     return NextResponse.json({
-      dashboard: await getTodayDashboard(new Date(), {
-        actorId: user.id,
+      dashboard: await getTodayDashboard(user.id, new Date(), {
         recordRecoveryRule: true,
       }),
     });

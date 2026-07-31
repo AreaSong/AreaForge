@@ -18,7 +18,7 @@
 
 涉及 enterprise residual 覆盖、控制面持续复核清单、`scripts/quality/enterprise-operability-residual-coverage.ts`、`scripts/quality/enterprise-operability-preflight.selftest.ts` 或对应 preflight 时，运行 `pnpm enterprise:operability:preflight:selftest` 和 `pnpm enterprise:operability:preflight`。selftest 必须证明权威 V2 台账与 `## 当前必须持续复核的证据` 章节全量双向一致，并覆盖新增未同步、清单外孤儿、重复条目、缺少 metadata 和章节边界异常；不得退回整篇文档字符串搜索。
 
-涉及 `docs/development/release-evidence-closeout-contract.md`、`scripts/quality/release-closeout-binding.ts`、`scripts/quality/release-closeout-binding.selftest.ts`、SC-002/OPS-005/OPS-006/UX 的 Release 后证据提交绑定时，运行 `pnpm release:closeout:binding:selftest`、`pnpm sc:sc-002:preflight:selftest`、`pnpm ops:ops-005:preflight:selftest`、`pnpm ops:ops-006:production:preflight:selftest`、`pnpm experience:review:selftest`、`pnpm governance:preflight`、`pnpm secrets:scan` 和 `git diff --check`。evidence-only 后代逐提交只允许契约精确白名单中的普通 redacted 文件；merge、删除、任意 task/design 路径、symlink/executable、敏感内容及任何产品源码、migration、workflow、updater、依赖或运行配置变化必须失败并要求新 Release。
+涉及 `docs/development/release-evidence-closeout-contract.md`、`scripts/quality/release-closeout-binding.ts`、`scripts/quality/release-closeout-binding.selftest.ts`、SC-002/OPS-005/OPS-006/UX 的 Release 后证据提交绑定时，运行 `pnpm release:closeout:binding:selftest`、`pnpm ops:v11:browser-evidence:selftest`、`pnpm release:v11:admission:selftest`、`pnpm sc:sc-002:preflight:selftest`、`pnpm ops:ops-005:preflight:selftest`、`pnpm ops:ops-006:production:preflight:selftest`、`pnpm experience:review:selftest`、`pnpm governance:preflight`、`pnpm secrets:scan` 和 `git diff --check`。evidence-only 后代逐提交只允许契约精确白名单中的普通 redacted 文件；v1.1 浏览器目录只允许两份固定结构化 JSON、18 张固定 journey PNG、24 份固定 a11y observation JSON 和受限 runtime identity，其他截图、trace/video/auth state、merge、删除、任意 task/design 路径、symlink/executable、敏感内容及任何产品源码、migration、workflow、updater、依赖或运行配置变化必须失败并要求新 Release。
 
 ## 路径到验证
 
@@ -40,6 +40,7 @@
 | `docs/development/governance-register.md`、`docs/development/governance-register.json`、`scripts/quality/governance-register-validate.ts`、`scripts/quality/governance-register-validate.selftest.ts` | `pnpm governance:register:selftest`、`pnpm governance:register:validate`、`pnpm governance:preflight`、`pnpm ops:status:selftest`、`pnpm docs:readiness`、`git diff --check`；通过只证明权威路径、accountable owner、已有 package script 门禁和复审触发器一致，不证明引用命令已执行、lifecycle 状态、生产激活或 residual 关闭 |
 | `docs/development/operational-readiness.md`、`docs/development/support-bundle-preview.md`、`docs/development/production-smoke-alerting-strategy.md`、`docs/development/production-readonly-smoke-record-template.md`、`docs/development/ops-001-closure-packet-template.md`、`docs/development/ops-001-production-readonly-attempt-*.md`、`docs/development/alert-drill-record-template.md`、`docs/development/residual-risk-ledger.md`、`docs/development/residual-risk-ledger.json`、`docs/development/residual-closure-review-template.md`、`scripts/quality/ops-readiness-preflight.ts`、`scripts/quality/residual-ledger-validate.ts`、`scripts/quality/residual-evidence-preflight.ts`、`scripts/quality/residual-evidence-preflight.selftest.ts`、`scripts/quality/residual-closure-review-validate.ts`、`scripts/quality/residual-closure-review-validate.selftest.ts`、`scripts/ops/operability-status.ts`、`scripts/quality/operability-status-validate.ts`、`scripts/quality/operability-status-validate.selftest.ts`、`scripts/quality/operability-status.selftest.ts`、`scripts/ops/operational-handoff.ts`、`scripts/quality/operational-handoff-validate.ts`、`scripts/quality/operational-handoff-validate.selftest.ts`、`scripts/quality/operational-handoff.selftest.ts`、`scripts/quality/ops-readonly-side-effect.selftest.ts`、`scripts/ops/long-term-evidence-snapshot.ts`、`scripts/quality/long-term-evidence-snapshot-validate.ts`、`scripts/quality/long-term-evidence-snapshot.selftest.ts`、`scripts/ops/support-bundle-preview.ts`、`scripts/quality/support-bundle-preview-validate.ts`、`scripts/quality/support-bundle-preview.selftest.ts`、`scripts/ops/backup-restore-preview.ts`、`scripts/quality/backup-restore-preview-validate.ts`、`scripts/quality/backup-restore-preview.selftest.ts`、`scripts/ops/ops001-evidence-preflight.ts`、`scripts/quality/ops001-evidence-preflight.selftest.ts`、`scripts/quality/ops001-blocked-record-validate.ts`、`scripts/quality/ops001-blocked-record.selftest.ts`、`scripts/ops/generate-ops001-fallback-closure.ts`、`scripts/quality/ops001-fallback-closure.selftest.ts`、`scripts/ops/ops004-alert-evidence-preflight.ts`、`scripts/quality/ops004-alert-evidence-preflight.selftest.ts`、`scripts/ops/residual-review-due.ts`、`scripts/quality/prod-readonly-smoke-validate.ts`、`scripts/quality/prod-readonly-smoke-validate.selftest.ts`、`scripts/quality/prod-readonly-smoke-config-preflight.ts`、`scripts/quality/prod-readonly-smoke-config-preflight.selftest.ts`、`scripts/ops/generate-prod-readonly-smoke-record.ts`、`scripts/quality/prod-readonly-smoke-record.selftest.ts`、`scripts/ops/generate-ops001-closure-packet.ts`、`scripts/quality/ops001-closure-packet-validate.ts`、`scripts/quality/ops001-closure-packet.selftest.ts`、`scripts/quality/alert-drill-validate.ts`、`scripts/quality/alert-drill-validate.selftest.ts`、`scripts/ops/generate-alert-drill-record.ts`、`scripts/quality/alert-drill-record.selftest.ts`、`scripts/ops/operational-readiness-summary.ts`、`scripts/quality/operational-readiness-summary.selftest.ts`、`scripts/ops/operational-evidence-bundle.ts`、`scripts/quality/operational-evidence-bundle-validate.ts`、`scripts/quality/operational-evidence-bundle-validate.selftest.ts`、`scripts/ops/operational-alert-preview.ts` | `pnpm ops:readiness`，`pnpm ops:status`，`pnpm ops:status:validate <operability-status.json>`，`pnpm ops:status:validate:selftest`，`pnpm ops:status:selftest`，`pnpm ops:handoff`，`pnpm ops:handoff:validate <operational-handoff.json>`，`pnpm ops:handoff:validate:selftest`，`pnpm ops:handoff:selftest`，`pnpm ops:readonly-side-effect:selftest`，`pnpm ops:long-term:snapshot:selftest`，`pnpm ops:support:bundle-preview:selftest`，`pnpm ops:backup-restore:preview:selftest`，`pnpm ops:ops-001:preflight`，`pnpm ops:ops-001:preflight:selftest`，`pnpm ops:ops-001:blocked:selftest`，`pnpm ops:ops-001:fallback:selftest`，`pnpm ops:ops-001:fallback:finalize:selftest`，`pnpm ops:ops-004:preflight`，`pnpm ops:ops-004:preflight:selftest`，`pnpm residuals:validate`，`pnpm residuals:evidence:preflight:selftest`，`pnpm residuals:evidence:preflight`，`pnpm residuals:closure:selftest`，`pnpm residuals:review-due`，`pnpm ops:readiness:summary`，`pnpm ops:readiness:summary:selftest`，`pnpm ops:evidence:bundle`，`pnpm ops:evidence:bundle:selftest`，`pnpm ops:ops-001:closure:selftest`，`pnpm ops:alert:preview`，`pnpm smoke:prod-readonly:selftest`，`pnpm smoke:prod-readonly:config:selftest`，`pnpm smoke:prod-readonly:record:selftest`，`pnpm alert:drill:selftest`，`pnpm alert:drill:record:selftest`，`pnpm docs:readiness`，`git diff --check`；若形成 OPS-001 blocked record，运行 `pnpm ops:ops-001:blocked:validate <ops001-blocked-record.txt>` 和 `AREAFORGE_OPS001_BLOCKED_RECORD=<record> pnpm ops:ops-001:preflight`；若形成 fallback redacted 输出目录，运行 `AREAFORGE_READINESS_RELEASE_MANIFEST_FILE=<manifest> pnpm ops:ops-001:fallback:finalize <dir> <out>`；若形成真实证据包，运行 `pnpm ops:evidence:bundle:validate <operational-evidence-bundle.json>`、`pnpm ops:ops-001:preflight` 和 `pnpm ops:ops-001:closure:validate <ops-001-closure-packet.txt>`；若形成长期证据快照，运行 `pnpm ops:long-term:snapshot:validate <long-term-evidence-snapshot.json>`，并保留 `needs_live_evidence` 不能证明生产健康；若形成告警演练证据，运行 `pnpm alert:drill:validate <alert-drill-record.txt>` 和 `pnpm ops:ops-004:preflight`；若形成 residual 人工复核记录，运行 `pnpm residuals:closure:validate <residual-closure-review-record>`，且该记录保持 `closesResidual=no`，不等于台账已关闭；若形成支持包预览，运行 `pnpm ops:support:bundle-preview:validate <support-bundle-preview.json>`；若形成备份/恢复证据预览，运行 `pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>` |
 | `docs/development/product-experience-review-record-template.md`、`scripts/quality/product-experience-review-discovery.ts`、`scripts/quality/product-experience-review-validate.ts`、`scripts/quality/product-experience-review-validate.selftest.ts`、`scripts/ops/operability-status.ts`、`scripts/ops/operational-handoff.ts`、`scripts/ops/long-term-operability-live-gate.ts`、本地 UX smoke 与 `docs/ux/**` | `pnpm experience:review:selftest`、`pnpm smoke:local-ux:selftest`、`pnpm ops:long-term:gate:selftest`、`pnpm ops:status:selftest`、`pnpm ops:status:validate:selftest`、`pnpm ops:handoff:selftest`、`pnpm ops:handoff:validate:selftest`、`pnpm docs:readiness`、`pnpm residuals:validate`、`pnpm skills:validate`、`git diff --check`；共享 evaluator 必须按 invalid 优先于 stale 的顺序投影 `fresh/stale/invalid/missing`，status/handoff V2 只能继承这一份结果，不能从 residual `currentImpact` 推断。真实记录仍需 `ux-source-v2`、14 天新鲜度/300 秒未来偏差、current runtime identity 和 desktop/mobile 证据；若改 UI，补跑真实浏览器/Playwright smoke。 |
+| `scripts/ops/v11-browser-{fixtures,journeys,evidence}.ts`、`scripts/ops/v11-accessibility-suite.ts`、`scripts/quality/v11-browser-evidence-{contract,validate}*`、`scripts/quality/v11-release-admission*`、`docs/development/v11-release-admission-record-template.md` | `pnpm ops:v11:browser-evidence:selftest`、`pnpm experience:review:selftest`、`pnpm release:v11:admission:selftest`、`pnpm release:closeout:binding:selftest`、`pnpm quality:operability:typecheck`、`pnpm governance:preflight`、`pnpm secrets:scan`、`git diff --check`；真实采集另运行 `pnpm ops:v11:browser-evidence`，随后分别以 `pnpm ops:v11:browser-evidence:validate <journey.json|accessibility.json> --expected-commit <sha> --expected-version 1.1.0` 校验。runner 是本地写入型证据采集：会要求 loopback production-build runtime、本地 PostgreSQL、restricted password file、显式 write opt-in，并创建 18 个旅程账号与 1 个无障碍账号；执行现有 migration 或创建账号前仍需独立确认。两份 JSON 必须直接进入 Product Experience/独立无障碍记录并由 v1.1 admission 重验 schema、hash、commit/version/source hash 与最终重读。 |
 | `docs/development/completion-evidence-checklist.md`、`scripts/quality/completion-evidence-validate.ts`、`scripts/quality/completion-evidence-validate.selftest.ts`、`scripts/quality/worktree-validation-fingerprint.ts`、`scripts/quality/worktree-validation-fingerprint.selftest.ts`、`docs/development/runtime-write-boundary.md` | `pnpm completion:evidence:fingerprint:selftest`、`pnpm completion:evidence:selftest`；schema V2 记录先运行 `pnpm completion:evidence:validate <record> --print-current-fingerprint`，写回 HEAD/worktree/changed paths/commands/profile fingerprint 后运行默认 validator；历史 V1 只能 `--shape-only`；再运行 `pnpm docs:readiness`、`pnpm risk:preflight`、`pnpm ops:readiness`、`pnpm skills:validate`、`git diff --check`；若改变 release/update 口径，补跑 `pnpm release:train:preflight` |
 | `docs/development/long-term-operability-control-plane.md`、`docs/development/support-bundle-preview.md`、`docs/deployment/backup-restore.md`、`scripts/quality/enterprise-operability-preflight.ts`、`scripts/ops/operability-status.ts`、`scripts/quality/operability-status-validate.ts`、`scripts/quality/operability-status-validate.selftest.ts`、`scripts/ops/operational-handoff.ts`、`scripts/quality/operational-handoff-validate.ts`、`scripts/quality/operational-handoff-validate.selftest.ts`、`scripts/quality/ops-readonly-side-effect.selftest.ts`、`scripts/ops/long-term-evidence-snapshot.ts`、`scripts/quality/long-term-evidence-snapshot-validate.ts`、`scripts/quality/long-term-evidence-snapshot.selftest.ts`、`scripts/ops/support-bundle-preview.ts`、`scripts/ops/backup-restore-preview.ts`、`scripts/quality/backup-restore-preview-validate.ts`、`scripts/quality/backup-restore-preview.selftest.ts`、长期运营控制面入口 | `pnpm enterprise:operability:preflight`，`pnpm maintenance:cadence:preflight`，`pnpm release:train:preflight`，`pnpm ops:readiness`，`pnpm ops:status`，`pnpm ops:status:validate <operability-status.json>`，`pnpm ops:status:validate:selftest`，`pnpm ops:status:selftest`，`pnpm ops:handoff`，`pnpm ops:handoff:validate <operational-handoff.json>`，`pnpm ops:handoff:validate:selftest`，`pnpm ops:handoff:selftest`，`pnpm ops:readonly-side-effect:selftest`，`pnpm ops:long-term:snapshot:selftest`，`pnpm ops:support:bundle-preview:selftest`，`pnpm ops:backup-restore:preview:selftest`，`pnpm residuals:validate`，`pnpm residuals:review-due`，`pnpm residuals:closure:selftest`，`pnpm docs:readiness`，`pnpm skills:validate`，`git diff --check`；若保存 residual 人工复核记录，运行 `pnpm residuals:closure:validate <record>`；若需要固定当前证据与缺口，运行 `pnpm ops:long-term:snapshot > <snapshot.json>` 和 `pnpm ops:long-term:snapshot:validate <snapshot.json>`；若需要固定备份/恢复证据缺口，运行 `pnpm ops:backup-restore:preview > <backup-restore-preview.json>` 和 `pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>` |
 | `scripts/ops/long-term-operability-live-gate.ts`、`scripts/quality/long-term-operability-live-gate.selftest.ts`、长期运营完成声明 gate | `pnpm ops:long-term:gate:selftest`，`pnpm enterprise:operability:preflight`，`pnpm ops:status`，`pnpm ops:status:selftest`，`pnpm docs:readiness`，`pnpm skills:validate`，`git diff --check`；若用于实际长期运营完成声明，运行 `pnpm ops:long-term:gate`，缺 OPS-001、OPS-004、OPS-005、OPS-006 production evidence、与 OPS-006 after-doctor 同 SHA/hash 的 data-integrity record、可校验 Release 发布记录、strict 签名 Release 供应链或新鲜 UX 证据时该命令应失败 |
@@ -54,6 +55,7 @@
 | `packages/core/**` | 相关单元测试，至少 `pnpm typecheck` |
 | `packages/db/**` | `pnpm db:generate`、`pnpm typecheck`，涉及查询行为时补测试或手动验证 |
 | `packages/ai/**` | AI 输出 schema 校验测试，本地回退路径验证 |
+| `apps/web/lib/study/ai-provider-preference.ts`、`apps/web/app/api/ai/preferences/**`、`apps/web/app/api/ai/**`、`apps/web/app/api/simulation/stage-adjustment-drafts/ai/**`、`apps/web/app/api/stage-adjustment-drafts/ai/**`、`apps/web/components/ai-settings-client.tsx`、`scripts/quality/v11-ai-provider-preference.selftest.ts` | `pnpm ops:v11:ai-provider-preference:selftest`、`pnpm --filter @areaforge/ai test`、`pnpm --filter @areaforge/web typecheck`、`pnpm --filter @areaforge/web lint`、`pnpm --filter @areaforge/web build`、`pnpm error-recovery:validate`、`pnpm risk:preflight`、`git diff --check`；专项静态门禁还必须证明旧阶段 AI 路径只 re-export canonical POST handler。真实 UI 验证覆盖未登录 401、默认/畸形/关闭 fail-closed、开启/关闭 Cookie 属性、`AI_ENABLED=false` 无外呼、策略确认 Modal、Escape/失败后的焦点恢复，以及桌面/390px 移动端无溢出。不得使用真实生产 key，不得把本地通过写成 Release、生产 apply 或 residual 关闭 |
 | `packages/storage/**`、`docs/architecture/file-storage.md`、`.codex/skills-src/areaforge-file-storage-safety/**` | 上传策略测试，大小、MIME、路径穿越边界验证；涉及附件、`UPLOAD_DIR`、对账、备份/恢复或迁移时补跑 `pnpm risk:preflight`、相关 upload/download smoke 和 docs gates |
 | `apps/web/**` UI | `pnpm check`，可启动时用浏览器或截图检查主要页面；涉及版本中心请求边界时补跑 `pnpm update-center:request-guard:selftest` 和 `pnpm github-release-updater:preflight`；涉及核心学习闭环、附件、模拟、阶段或版本中心体验时，在本地临时库上补跑 `pnpm smoke:local-ux`；用于体验收口或 release/update 交接时，按 `docs/development/product-experience-review-record-template.md` 留下记录并运行 `pnpm experience:review:validate <record>` |
 | `docs/development/update-request-expected-before-design.md`、`apps/web/lib/system/update-center.ts`、`apps/web/lib/system/update-center-health.ts`、`apps/web/app/api/system/update-requests/route.ts`、`ops/update-agent/areaforge-update-agent.sh`、`ops/github-release-updater/areaforge-updater.sh` 的 shared-lock/target-identity 接口、update request fixture/selftest | 确认前只运行 docs/risk/governance gates；确认后运行 `pnpm ops:ops-005:local:selftest`，覆盖 V2 schema、safe-integer Release ID、三类 domain-separated hash、queued status 与 rollback availability binding、TTL 初始/最终边界、双重 expected-before、target identity、`TARGET_VERSION_NOT_NEWER`、durability/网络不确定重试 key 复用、idempotency conflict、processing reconciliation 与多 request ambiguity、decision -> status -> claim cleanup 的 fsync 恢复、root inode 原子替换失败、shared lock、legacy、重复/矛盾 marker、atomic publish 和 zero-side-effect，并补跑 `pnpm shellcheck:updater`、`pnpm github-release-updater:preflight`、Web typecheck/lint、`pnpm check`、`pnpm governance:preflight`、`pnpm risk:preflight`、`git diff --check`。本地通过不授权生产 timer、队列、agent 部署、updater apply、rollback 或策略变化；脏工作树不得绑定为 Release commit。 |
@@ -362,7 +364,8 @@
 - `pnpm github-release-updater:preflight`
 - `pnpm shellcheck:updater`
 - `pnpm check`
-- 如改动 Dockerfile：`docker build -f infra/docker/migration.Dockerfile .`
+- 如改动 Web Docker dependency context 或 patched dependency：`docker build --target deps --file infra/docker/web.Dockerfile .`
+- 如改动 migration image：`docker build --file infra/docker/migration.Dockerfile .`
 
 CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actions pinning 检查：所有外部 `uses:` 应 pin 到 40 位 commit SHA，并保留行内版本注释以便升级审查。
 
@@ -374,7 +377,98 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - Web runtime 不得新增 updater route、Docker/backup/restore/migration 命令入口或 `docker.sock` 访问。
 - `AREAFORGE_AUTO_APPLY=none` 是默认策略；patch 自动应用必须同时满足服务器配置和 manifest `autoApply.patch=true`。
 
-当前远端 `v0.1.7` 已验证：Release asset 包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`；服务器侧 updater 签名校验通过，Web image digest 为 `ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`；migration image digest 为 `ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`；`GET https://forge.areasong.top/api/health` 返回 `0.1.7`；服务器 updater 记录 `smokeHealth=PASS`、`extraSmoke=PASS`、`rollbackAttempted=no`。`v0.1.5` 远端签名发布记录仍作为历史基线保留；`AF-RISK-SC-001` 和 `AF-RISK-OPS-001` 台账关闭仍需维护者人工复核和 post-update redacted 证据。
+当前远端 `v0.1.7` 已验证：Release asset 包含 `areaforge-release-manifest.json`、`areaforge-sbom.spdx.json`、`areaforge-provenance.json`、`docker-compose.prod.yml`、`SHA256SUMS` 和 `SHA256SUMS.sig`；服务器侧 updater 签名校验通过，Web image digest 为 `ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`；migration image digest 为 `ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`；`GET https://forge.areasong.top/api/health` 返回 `0.1.7`；服务器 updater 记录 `smokeHealth=PASS`、`extraSmoke=PASS`、`rollbackAttempted=no`。`v0.1.5` 远端签名发布记录仍作为历史基线保留；`AF-RISK-SC-001` 和 `AF-RISK-OPS-001` 台账关闭仍需维护者人工复核和 post-update redacted 证据。当前生产基线已前进到 `v0.1.9`；学习行动中心阶段验证见下方专项，不得用旧 `v0.1.7` 叙述覆盖当前 production health。
+
+## 学习行动中心（v1.1）专项验证
+
+### Batch 0（文档同步）
+
+确认前 / 文档阶段至少运行：
+
+- `pnpm tasks:doctor`
+- `pnpm docs:readiness`
+- `pnpm docs:evergreen`
+- `pnpm docs:completion`（允许因规划「未实现」行保持既有 docs 100% 语义；不得把规划能力标成已完成）
+- `pnpm risk:preflight`
+- `pnpm residuals:validate`
+- `pnpm governance:preflight`
+- `git diff --check`
+
+验证重点：Exact docs 区分规划/已实现；`AF-RISK-DATA-001` 已登记；确认包骨架未冒充已授权；tasks 0025–0035 可追踪。
+
+### Batch 1–2（门禁复核）
+
+- 复核记录：`docs/development/v11-s2-ops006-007-gate-review.md`
+- 对照 OPS-006/007 四级 gate 与 `v0.1.9` production evidence；不重复实施。
+
+### Batch 3–11（实现阶段，确认后）
+
+确认前仅 docs/risk；确认后按改动范围叠加 `pnpm db:validate`、临时 PostgreSQL、core/Web/storage 测试、隔离 smoke；生产入口仅 Batch 11。细节见 `docs/development/v11-phase-packages.md` 与版本计划第十六节。
+
+#### Batch 3（Migration 1–3 / workspace-inbox core）专项
+
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m1m3`）
+- `AREAFORGE_V11_M1M3_ISOLATED_DB=1 pnpm ops:v11:m1m3:runtime:selftest`
+- `pnpm --filter @areaforge/core test`、Web typecheck/lint
+- 不跑生产 migration deploy；不关闭 residual
+
+#### Batch 4（Migration 4 / 学习树 preview）专项
+
+- 依赖准入：`pnpm governance:preflight`、`pnpm audit:prod`（仅 unified/remark/yaml 栈，不含 `@xyflow/react`）
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m4`）
+- `AREAFORGE_V11_M4_ISOLATED_DB=1 pnpm ops:v11:m4:runtime:selftest`
+- `pnpm --filter @areaforge/core test`（含 learning-tree parser/diff/token）
+- 隔离 API 仅 templates/export/preview；不开放 confirm；不跑生产 migration；不关闭 `AF-RISK-DATA-001`
+
+#### Batch 5（Migration 5 / 资料 + 导入 confirm）专项
+
+- 生命周期确认包已接受；`AF-RISK-DATA-001` **登记**关闭/重开条件，**不**自动关 residual
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m5`）
+- `AREAFORGE_V11_M5_ISOLATED_DB=1 pnpm ops:v11:m5:runtime:selftest`
+- `pnpm --filter @areaforge/storage test`、`pnpm --filter @areaforge/core test`
+- 覆盖：ZIP/MD policy、FILE/LINK、confirm 原子/幂等/409、history owner、一次性导出；无生产页；不跑生产 migration
+
+#### Batch 6（Migration 6 / 统一复习 + CheckIn v2 + 桥接 + Inbox convert）专项
+
+- 复用完整产品数据 migration 确认包（1→8）；本批只实施并临时库验证 Migration 6
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m6`）
+- `AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest`
+- `pnpm --filter @areaforge/core test`（含间隔 / CheckIn v2 / Recovery 三阶规则）
+- 覆盖：exactly-one Schedule、confirm 幂等/fingerprint 409、correction 单 successor、CheckIn v2 升级、Recovery 三阶、桥接 partial unique、Inbox convert；硬验收 fixture：零时长拒绝、Event 不可变、correction CAS、sourceVersion 1→2、桥接完成须有 ReviewEvent.result；无生产页；不跑生产 migration；不关闭 residual
+- 注意：勿与 Package B Batch 6（`StagePlan` / `StageAdjustmentDraft`，已完成）混淆
+
+#### Batch 7（App Shell + 今日行动中心）专项
+
+- `pnpm check`、`pnpm smoke:local-ux`（含 App Shell nav isolation 与科目快捷计时）
+- 开放 `/today*` `/focus` `/quick-review` `/settings*`；知识/动机/通知/AI/阶段入口隐藏
+- 不跑生产 migration；不关闭 residual
+
+#### Batch 8（Migration 7 + 知识工作台 / 画布）专项
+
+- `@xyflow/react` 依赖准入：`pnpm governance:preflight`、`pnpm audit:prod`；禁 telemetry SaaS / 远程上传 / 服务端 URL 抓取
+- `pnpm db:generate`、`pnpm db:validate`
+- 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m7`）
+- `pnpm --filter @areaforge/core test`（画布 depth/cursor/布局字段拒绝）
+- `pnpm check`、`pnpm smoke:local-ux`（知识入口可见；动机/通知/阶段 href 仍禁止；canvas API）
+- 覆盖：分层派生、布局 CAS、等价列表、桌面可拖/移动只读、`/knowledge/*`、legacy 重定向；动机/通知/AI API 不开放；不跑生产 migration；不关闭 residual
+
+#### Batch 11（完整 Migration Gate / compatibility floor）专项
+
+- 先运行 `pnpm ops:v11:browser-evidence:selftest`、`pnpm experience:review:selftest`、`pnpm release:v11:admission:selftest` 和 `pnpm release:closeout:binding:selftest`，证明旅程/无障碍 schema、嵌套 hash、source binding、篡改拒绝与 evidence-only 精确白名单本身有效；selftest 不产生真实浏览器证据。
+- 真实 production-mode 浏览器证据使用 `pnpm ops:v11:browser-evidence`：固定 9 个 journey × desktop/mobile 共 18 个独立账号、1 个独立无障碍账号、18 次页面 UI mutation、GET-only 前后 oracle、18 张截图，以及 24 项键盘/焦点/语义/live/color/zoom/canvas observation。输出目录使用 `output/playwright/v11-browser-evidence-<id>/`，两份顶层 JSON 分别运行 `pnpm ops:v11:browser-evidence:validate`。
+- runner 会在本地 PostgreSQL 创建 19 个不会自动删除的合成账号；若目标库尚未升级，还需先执行仓库现有 24 条 migration。migration 与合成写入不属于只读 validator 授权，必须在精确确认后仅对隔离库运行，禁止默认开发库、生产库和非 loopback runtime。
+- Product Experience 记录必须直接绑定 `v11-browser-journey-evidence-v1` 路径/hash；独立无障碍记录必须直接绑定 `v11-accessibility-evidence-v1` 路径/hash。`pnpm release:v11:admission` 会以同一 `sourceGitCommit / 1.1.0 / productExperienceSourceHash` 再次调用正式 validator，并在最终阶段重读所有嵌套证据。
+- 先运行 `pnpm ops:v11:compatibility-floor:manifest:selftest`，精确核对生产 legacy commit 的 12 条、compatibility floor commit 的 15 条和当前候选的 24 条 migration 名称、顺序与 SQL SHA-256。
+- 使用 Node.js 24 和一次性 PostgreSQL 16；显式提供精确数据库名 `AREAFORGE_V11_COMPATIBILITY_EXPECTED_DATABASE_NAME`，名称必须含 `v11compat`，查询到的 `current_database()` 必须完全相等。禁止指向默认开发库或生产库。
+- 推荐唯一编排入口为 `pnpm ops:v11:compatibility-floor:orchestrate`。它依次执行当前 24 条 migration deploy、candidate seed、detached floor frozen install / Prisma generate / production build、floor probe、repeat deploy 和 final ledger validation。
+- `_prisma_migrations` 必须精确为 24 行：名称及实际应用顺序与 manifest 相同、checksum 与 SQL SHA-256 相同、`finished_at` 非空、`rolled_back_at` 为空、`logs` 为空、`applied_steps_count=1`；额外、重复、失败或回滚记录全部拒绝。
+- candidate fixture 必须包含 legacy Subject、两个 `legacyCode=null` 自定义科目、第二工作区，以及不同 workspace 可共存的 DailyReview / CheckIn / PeriodicReportDecision；同一 workspace 的三个复合唯一重复写必须分别失败。
+- seed、probe、repeat deploy 前后必须绑定同一 candidate dirty-worktree 内容 fingerprint；detached floor 必须绑定精确 commit 且保持 clean。floor probe 从同一已升级数据库读回 legacy/custom/workspace fixture；不 restore、不 DROP additive schema、不把 `v0.1.7` 当 floor。
+- 当前 24 条证据记录使用 `docs/development/v11-compatibility-floor-evidence-20260727.md`。`docs/development/v11-compatibility-floor-evidence-20260722.md` 仅为 20 条 migration 的历史记录，不可复用为当前候选证据；本地 PASS 不替代 floor image digest、SC-002/SC-004、签名 Release 或生产 apply。
 
 ## docs 100% 最终门禁
 

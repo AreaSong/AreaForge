@@ -36,6 +36,32 @@ function main(): void {
   }), "schemaVersion");
 
   expectFail(withPatch(handoff, (body) => {
+    delete (body.app as Partial<OperationalHandoff["app"]>).currentCheckout;
+  }), "app.currentCheckout");
+
+  expectFail(withPatch(handoff, (body) => {
+    body.app.productionBaseline.releaseRecordPath = "docs/development/release-v0.1.7-record.md" as "docs/development/release-v0.1.9-record.md";
+  }), "app.productionBaseline.releaseRecordPath");
+
+  expectFail(withPatch(handoff, (body) => {
+    body.app.historicalRollback.role = "current_production" as "protected_rollback_target";
+  }), "app.historicalRollback.role");
+
+  expectFail(withPatch(handoff, (body) => {
+    body.evidenceFocus.releaseEvidenceGaps.sourceRecordPath = "docs/development/release-v0.1.7-record.md";
+  }), "evidenceFocus.releaseEvidenceGaps.sourceRecordPath");
+
+  const forgedAppBinding = withPatch(handoff, (body) => {
+    body.app.version = "9.9.9";
+    body.app.releaseTag = "v9.9.9";
+    body.app.currentCheckout.version = "9.9.9";
+  });
+  expectFail(forgedAppBinding, "app.currentBinding");
+  if (operationalHandoffBindingStatus(forgedAppBinding) !== "stale") {
+    throw new Error("forged app identity should make handoff binding stale");
+  }
+
+  expectFail(withPatch(handoff, (body) => {
     delete (body.evidenceFocus as Partial<OperationalHandoff["evidenceFocus"]>).uxReview;
   }), "evidenceFocus.uxReview");
 

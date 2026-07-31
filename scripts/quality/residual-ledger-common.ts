@@ -137,7 +137,7 @@ const allowedTypes = new Set<ResidualType>([
   "template-marker",
   "closed-evidence",
 ]);
-const allowedPrefixes = new Set(["OPS", "REL", "SC", "UX", "AI"]);
+const allowedPrefixes = new Set(["OPS", "REL", "SC", "UX", "AI", "DATA"]);
 const allowedExceptionStatuses = new Set<AcceptedExceptionStatus>(["approved", "revoked", "expired", "superseded"]);
 
 export function readResidualLedgerV2(options: ResidualLedgerReadOptions = {}): ResidualLedgerV2 {
@@ -324,7 +324,7 @@ function validateResidualItem(
 ): void {
   const prefix = item.id.match(/^AF-RISK-([A-Z]+)-\d{3}$/)?.[1] ?? "";
   if (!prefix || !allowedPrefixes.has(prefix)) {
-    issues.push({ field: `${field}.id`, message: "must match AF-RISK-(OPS|REL|SC|UX|AI)-NNN" });
+    issues.push({ field: `${field}.id`, message: "must match AF-RISK-(OPS|REL|SC|UX|AI|DATA)-NNN" });
   }
   if (seen.has(item.id)) issues.push({ field: `${field}.id`, message: "duplicate residual ID" });
   seen.add(item.id);

@@ -6,6 +6,7 @@ const migrationRelativePath = "prisma/migrations/20260721010000_attachment_stagi
 const implementationFiles = [
   "apps/web/lib/study/attachments-service.ts",
   "apps/web/lib/study/attachment-reconciliation-service.ts",
+  "apps/web/lib/study/persistent-idempotency.ts",
   "apps/web/app/api/notes/[noteId]/attachments/route.ts",
   "packages/storage/src/index.ts",
   "packages/storage/src/bounded-multipart.ts",
@@ -14,6 +15,8 @@ const requiredCheckIds = [
   "migration.apply_verify_legacy_defaults",
   "migration.repeat_and_duplicate_preimage_rejected",
   "upload.write_intent_happy_path",
+  "upload.persistent_command_idempotency",
+  "upload.archived_note_write_gate",
   "upload.storage_identity_conflict_before_file",
   "upload.staging_failure_compensation",
   "upload.compensation_failure_auditable",
@@ -140,6 +143,24 @@ function validateCheckDetails(
   const happyPath = checks.get("upload.write_intent_happy_path")?.details;
   if (happyPath?.readyCount !== 1 || happyPath.stagingLeftoverCount !== 0 || happyPath.dtoHashExposed !== false) {
     issues.push("happy-path upload details are invalid");
+  }
+  const idempotency = checks.get("upload.persistent_command_idempotency")?.details;
+  if (
+    idempotency?.replayReturnedOriginal !== true
+    || idempotency.payloadMismatchRejectedBeforeWrite !== true
+    || idempotency.concurrentDuplicateFailedClosed !== true
+    || idempotency.completedSnapshotReplayed !== true
+  ) {
+    issues.push("persistent upload idempotency details are invalid");
+  }
+  const archivedNote = checks.get("upload.archived_note_write_gate")?.details;
+  if (
+    archivedNote?.archivedRejectedBeforeIntent !== true
+    || archivedNote.completedReplayPreserved !== true
+    || archivedNote.readyCasRaceFailedClosed !== true
+    || archivedNote.failedIntentDownloadBlocked !== true
+  ) {
+    issues.push("archived-note attachment write gate details are invalid");
   }
   const conflict = checks.get("upload.storage_identity_conflict_before_file")?.details;
   if (conflict?.conflictBeforeFileWrite !== true || conflict.newFileCount !== 0) {

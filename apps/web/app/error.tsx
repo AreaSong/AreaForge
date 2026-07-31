@@ -2,6 +2,7 @@
 
 import { AlertTriangle, House, LifeBuoy, RotateCcw } from "lucide-react";
 import Link from "next/link";
+import { useEffect } from "react";
 
 const SUPPORT_URL = "https://github.com/AreaSong/AreaForge/issues/new/choose";
 
@@ -11,9 +12,13 @@ type ErrorPageProps = {
 };
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
+  useEffect(() => {
+    document.title = "页面出错 | AreaForge";
+  }, []);
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#080b0f] px-4 py-8 text-zinc-100">
-      <section className="w-full max-w-xl rounded-lg border border-white/10 bg-[#101419] p-6 shadow-2xl shadow-black/20 sm:p-8">
+      <section className="w-full max-w-xl rounded-lg border border-white/10 bg-[#101419] p-6 shadow-2xl shadow-black/20 sm:p-8" role="alert" aria-live="assertive" aria-atomic="true">
         <div className="flex items-start gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-rose-300/25 bg-rose-300/10 text-rose-200">
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
@@ -48,10 +53,10 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
           </button>
           <Link
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-4 text-sm text-zinc-100 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-teal-300/70 focus:ring-offset-2 focus:ring-offset-[#101419]"
-            href="/"
+            href="/today"
           >
             <House className="h-4 w-4" aria-hidden="true" />
-            返回首页
+            返回今日
           </Link>
           <a
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-4 text-sm text-zinc-300 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-teal-300/70 focus:ring-offset-2 focus:ring-offset-[#101419]"

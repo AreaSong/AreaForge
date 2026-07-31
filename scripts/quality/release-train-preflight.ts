@@ -39,6 +39,7 @@ function checkRequiredFiles(): void {
     "docs/development/release-record-template.md",
     "docs/development/release-supply-chain-record-template.md",
     "docs/development/ci-supply-chain-record-template.md",
+    "docs/development/v11-release-admission-record-template.md",
     "docs/development/operational-readiness.md",
     "docs/development/residual-risk-ledger.md",
     "docs/deployment/github-release-updater.md",
@@ -60,6 +61,8 @@ function checkRequiredFiles(): void {
     "scripts/quality/ci-supply-chain-record.selftest.ts",
     "scripts/ops/sc002-supply-chain-preflight.ts",
     "scripts/quality/sc002-supply-chain-preflight.selftest.ts",
+    "scripts/quality/v11-release-admission.ts",
+    "scripts/quality/v11-release-admission.selftest.ts",
   ];
   const missing = requiredFiles.filter((file) => !existsSync(resolve(file)));
   checks.push({
@@ -152,6 +155,9 @@ function checkReleaseWorkflow(): void {
     "stable releases require COSIGN_PRIVATE_KEY_B64 or COSIGN_PRIVATE_KEY",
     "pnpm release:admission:selftest",
     "pnpm release:admission",
+    "pnpm release:v11:admission",
+    "pnpm release:v11:admission:selftest",
+    "AREAFORGE_V11_RELEASE_ADMISSION_RECORD: docs/development/v11-release-admission-record.md",
     "AREAFORGE_RELEASE_TAG:",
     "AREAFORGE_WORKFLOW_SHA:",
     "AREAFORGE_DEFAULT_BRANCH:",
@@ -190,6 +196,8 @@ function checkPackageScript(): void {
   const sc002PreflightSelftestScript = packageJson.scripts?.["sc:sc-002:preflight:selftest"] ?? "";
   const releaseAdmissionScript = packageJson.scripts?.["release:admission"] ?? "";
   const releaseAdmissionSelftestScript = packageJson.scripts?.["release:admission:selftest"] ?? "";
+  const v11ReleaseAdmissionScript = packageJson.scripts?.["release:v11:admission"] ?? "";
+  const v11ReleaseAdmissionSelftestScript = packageJson.scripts?.["release:v11:admission:selftest"] ?? "";
   const releaseIdentityProbeScript = packageJson.scripts?.["release:identity:probe"] ?? "";
   const releaseIdentityProbeSelftestScript = packageJson.scripts?.["release:identity:probe:selftest"] ?? "";
   const releaseWorkflowPolicyScript = packageJson.scripts?.["release:workflow:policy"] ?? "";
@@ -206,11 +214,13 @@ function checkPackageScript(): void {
       sc002PreflightSelftestScript === "tsx scripts/quality/sc002-supply-chain-preflight.selftest.ts" &&
       releaseAdmissionScript === "tsx scripts/quality/release-admission.ts" &&
       releaseAdmissionSelftestScript === "tsx scripts/quality/release-admission.selftest.ts" &&
+      v11ReleaseAdmissionScript === "tsx scripts/quality/v11-release-admission.ts" &&
+      v11ReleaseAdmissionSelftestScript === "tsx scripts/quality/v11-release-admission.selftest.ts" &&
       releaseIdentityProbeScript === "tsx scripts/quality/release-identity-probe.ts" &&
       releaseIdentityProbeSelftestScript === "tsx scripts/quality/release-identity-probe.selftest.ts" &&
       releaseWorkflowPolicyScript === "tsx scripts/quality/release-workflow-policy.ts" &&
       releaseWorkflowPolicySelftestScript === "tsx scripts/quality/release-workflow-policy.selftest.ts",
-    detail: `release:train:preflight=${script || "missing"}; release:supply-chain:record:selftest=${releaseSupplyChainRecordSelftestScript || "missing"}; release:evidence:redacted-export:validate=${redactedExportValidateScript || "missing"}; release:evidence:redacted-export:record=${redactedExportRecordScript || "missing"}; release:evidence:redacted-export:selftest=${redactedExportSelftestScript || "missing"}; release:evidence:redacted-export:record:selftest=${redactedExportRecordSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; release:admission=${releaseAdmissionScript || "missing"}; release:identity:probe=${releaseIdentityProbeScript || "missing"}; release:workflow:policy=${releaseWorkflowPolicyScript || "missing"}`,
+    detail: `release:train:preflight=${script || "missing"}; release:supply-chain:record:selftest=${releaseSupplyChainRecordSelftestScript || "missing"}; release:evidence:redacted-export:validate=${redactedExportValidateScript || "missing"}; release:evidence:redacted-export:record=${redactedExportRecordScript || "missing"}; release:evidence:redacted-export:selftest=${redactedExportSelftestScript || "missing"}; release:evidence:redacted-export:record:selftest=${redactedExportRecordSelftestScript || "missing"}; sc:sc-002:preflight=${sc002PreflightScript || "missing"}; sc:sc-002:preflight:selftest=${sc002PreflightSelftestScript || "missing"}; release:admission=${releaseAdmissionScript || "missing"}; release:v11:admission=${v11ReleaseAdmissionScript || "missing"}; release:identity:probe=${releaseIdentityProbeScript || "missing"}; release:workflow:policy=${releaseWorkflowPolicyScript || "missing"}`,
   });
 }
 

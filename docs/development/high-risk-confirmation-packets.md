@@ -1575,3 +1575,100 @@ pnpm ops:ops-001:preflight
 明确确认句：
 
 > 确认执行 OPS-008 updater phase journal 与 maintenance hold/drain 本地实施：范围仅限 root-only no-clobber/逐级 fsync immutable hash-chained phase events、精确 backup inventory 持久化屏障、admission/identity-bound/backup/prepare/migration-or-skipped/switch/health/smoke/rollback/terminal/reconciliation 状态机、崩溃后 fail-closed hold、固定 queue-control -> production-state -> agent-local 锁顺序、hold generation/clear CAS、旧 generation 请求隔离、record/journal 失败的 reconciliation exit mapping、redacted status、扩展 sourceSetHash 和本地临时目录 kill-point/锁竞争 selftest；不执行生产 updater apply、Web apply/rollback 请求、systemd timer 启停、生产 hold/clear/drain、backup/restore、migration、Docker/Nginx/compose 切换、自动应用策略变化、服务器命令、secrets 操作、Release/tag 或 residual 台账关闭。
+
+## 学习行动中心确认包骨架（未授权实施）
+
+以下确认包固定边界与确认句模板。权威规格见 `workflow/versions/v1.1-learning-action-center.md`。未确认项不得写对应业务代码、跑生产 migration 或开放导入 confirm。
+
+### 完整产品数据 migration 确认包（Migration 1–8）
+
+- 影响：八个 additive migrations（含 Subject code 约束放宽与 workspace 复合唯一）；空库与 legacy fixture 必须按 1→8 验证。
+- 风险：错误接管旧科目、复合唯一数据写入后不得直接回滚到旧 compatibility floor。
+- 验证：临时 PostgreSQL apply/verify/replay；接管失败回滚；旧 API 双读。
+- 回滚：优先回滚应用代码并保留 additive schema；DROP/数据修复另行确认。
+- 不授权：生产 deploy、历史文本批量解析、文件移动。
+- **确认状态（2026-07-21）**：已确认。授权范围仅限按 1→8 顺序的 additive Prisma/SQL migrations 与临时库验证；Subject code → 可空 `legacyCode` 单列影响已单列；**不授权**生产 migration deploy、destructive DDL、历史修复、文件移动或 residual 关闭。Batch 3–6 已分别实施并隔离验证 Migration 1–6；Batch 7+ 继续按序推进 Migration 7–8。
+
+明确确认句（已确认）：
+
+> 确认批准学习行动中心完整产品数据 migration 包：范围仅限按 1→8 顺序的 additive Prisma/SQL migrations 与临时库验证；Subject code 约束放宽单列影响；不授权生产 migration deploy、destructive DDL、历史修复、文件移动或 residual 关闭。
+
+### Batch 11 corrective/additive migration 扩展确认包（当前第 21–24 条）
+
+- 影响：在已确认的产品 Migration 1–8 之后，当前仓库另有四条 corrective/additive migration：
+  - `DailyReview.revision`，非空，默认 `1`。
+  - `StageAdjustmentDraft.revision`，非空，默认 `1`；`SimulationExam.status/confirmedAt`，并把已有成绩、复盘正文或分科结果的模拟记录按 `updatedAt` 回填为 `CONFIRMED/confirmedAt`。
+  - `LearningTreeExportGrant` 表、唯一 nonce、actor/workspace/expiry/consumed 索引与 owner FK。
+  - `StageAdjustmentDraft` 的 report lineage 字段及查询索引。
+- 风险：模拟回填会更新已有隔离 fixture；判定条件或 `confirmedAt=updatedAt` 错误会把旧草稿误分类。新增非空 revision 默认值会统一从 `1` 起步；旧应用只能容忍 additive schema，不能理解所有新业务语义。
+- 验证：Node.js 24 + 全新一次性 PostgreSQL 16；精确 12/15/24 migration manifest 与 SQL/database checksum；空库 apply、repeat deploy、legacy/custom/workspace fixture、同 workspace unique 负向测试、冻结 floor production build/read probe、candidate/floor worktree fingerprint。
+- 回滚：本地失败时只删除本轮精确命名的一次性数据库、角色、临时 worktree 和上传目录；应用回滚保留 additive schema。任何 DROP、历史修复、数据库 restore 或生产 migration 另行确认。
+- 不授权：现有开发库或生产库 migration、生产 backup/apply/smoke/rollback、文件移动、Release/tag、自动应用策略变化或 residual 关闭。
+- **确认状态（2026-07-27）**：已确认。当前任务在展示下列精确范围后，用户明确要求“整体修复，没有的补上，直到整个 v1.1 完成”；本次确认只解释为下列一次性本地 PostgreSQL 16 隔离验证权限，不扩大到生产、现有开发库、destructive DDL、历史修复、restore、文件移动、Release 或 residual 关闭。
+
+已确认范围：
+
+> 确认将原 Migration 1–8 本地授权扩展到当前 24 条仓库 migration，新增范围仅含：DailyReview revision；StageAdjustmentDraft revision；SimulationExam status/confirmedAt 及把已有非空模拟按 updatedAt 回填为 CONFIRMED；LearningTreeExportGrant 表；报告阶段 lineage 字段/索引。只允许在全新一次性 PostgreSQL 16 隔离库执行 apply/replay/compatibility-floor 验证；不触碰生产或现有开发库，不做 destructive DDL、历史修复、restore、文件移动或 residual 关闭。失败时删除本轮精确临时库，应用回滚保留 additive schema，任何生产执行另行确认。
+
+### Batch 3 依赖准入说明
+
+- Batch 3（Migration 1–3 / workspace / Inbox core）**不修改 lockfile**，不引入 `@xyflow/react` 或 `unified/remark/yaml`。
+- 上述新依赖仍须在 Batch 4/8 改 lockfile 前完成下方依赖准入确认包；Batch 3 仅跑 `pnpm governance:preflight` 作无变更复核。
+
+### 学习树数据生命周期确认包（`AF-RISK-DATA-001`）
+
+- data owner：`areaforge-security-governance`
+- validation owner：`areaforge-file-storage-safety` / `areaforge-validation-driver`
+- 边界：已确认导入仅 owner 可见；无自动过期；仅软归档；随数据库同周期备份；一次性 canonical 导出后释放临时文件；未来物理删除/撤销路线冻结但不在本版本实现。
+- 不授权：物理删除、缩短保留期、备份副本同步删除、用户迁移、完整账户导出包、扩大到 AI history。
+
+**确认状态（2026-07-21）**：已确认。授权隔离环境开放导入 confirm 与一次性 canonical 导出；接受长期留存与备份扩散边界。**不**关闭 `AF-RISK-DATA-001` residual；关闭/重开条件已登记于 residual 台账。
+
+明确确认句（已确认）：
+
+> 确认接受学习树导入规范化 Markdown 的数据生命周期边界：仅当前用户可读、无自动过期、仅软归档、随数据库备份、一次性 canonical 导出；不授权物理删除、备份副本同步删除、完整账户导出或开放导入 confirm 之外的用途。接受后登记 `AF-RISK-DATA-001` 关闭条件与重新打开条件。
+
+### 四类 AI 草稿用途确认包
+
+- 固定四类 endpoint 的 allowed fields、字段来源、上限、HMAC purpose、30 分钟 token、fallback 与日志脱敏。
+- `AI_PAYLOAD_BINDING_SECRET` 仅服务端；不得进入客户端 bundle。
+- 不授权：后台/GET 外呼、附件或未选择正文、费用账本、自动写业务对象。
+
+**确认状态（2026-07-21）**：已确认并进入 Batch 9 实施。仅鉴权 POST、选中文本与预览勾选投影、purpose-separated HMAC 与 opaque preview token。**未**授权附件/未选择正文、自动写业务对象、保存 prompt/raw response 或 residual 关闭。
+
+明确确认句（已确认）：
+
+> 确认四类显式 AI 草稿用途（learning-tree / knowledge-card / plan / motivation）：仅鉴权 POST、选中文本与预览勾选投影、purpose-separated HMAC 与 opaque preview token；不授权附件/未选择正文、自动写业务对象、保存 prompt/raw response 或 residual 关闭。
+
+### v1.1 AI 设置外部 Provider 偏好确认包
+
+- 影响：补齐 `/settings/ai` 的“开关 -> Provider -> payload 隐私 -> 保存 AI 设置”合同。新增当前浏览器范围的外部 Provider opt-in；偏好缺失、清除或畸形时默认关闭。只有 `AI_ENABLED=true`、服务端 Provider 配置完整且当前浏览器偏好开启时，现有八条鉴权显式 POST AI 路径才允许外呼；否则继续返回本地规则 fallback。
+- 持久化：使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的偏好 cookie；它不是认证或授权凭据，不包含 user id、Provider 地址、模型、密钥、prompt、正文或内容 hash。偏好只在当前浏览器生效，不新增 Prisma model、数据库字段或第 25 条 migration。
+- UI：Provider 和 Payload Binding 继续只读展示服务端配置状态；页面提供外部 Provider 开关和唯一主动作“保存 AI 设置”。开关变化属于外呼策略变化，保存前使用确认 Modal；页面不允许查看、填写或修改 `AI_API_KEY`、`AI_PAYLOAD_BINDING_SECRET` 或其他服务端密钥。
+- 风险：遗漏任一 AI route 可能绕过偏好；cookie 清除会让不同浏览器状态不一致；错误地把偏好当成 Provider 配置可能给出虚假成功；回滚到旧应用前若未关闭 `AI_ENABLED`，旧版本会恢复“显式 POST 即可外呼”的历史行为。
+- 验证：枚举三条第一版建议、四类 AI 草稿和一条长期阶段草稿共八条 route；未登录 401；默认/畸形/关闭偏好均不外呼；确认开启后仅现有最小化 payload 可外呼；`AI_ENABLED=false` 或 Provider 配置缺失继续优先 fallback；cookie 属性、Modal 焦点恢复、桌面/移动设置页、日志脱敏、客户端密钥扫描、AI tests、Web typecheck/lint/build、`pnpm risk:preflight` 和 `pnpm check` 通过。
+- 回滚：先设置 `AI_ENABLED=false` 阻止外呼，再回滚本批 UI/API/route gate 代码；清除偏好 cookie。不需要数据库或文件恢复，不删除用户记录，不改变现有 AI 草稿、阶段草稿或业务对象。
+- 不授权：扩大 allowed fields、附件/OCR/未选择正文、完整动机/情绪/复盘、Provider key 编辑、prompt/raw response/history/token/cost/provider trace 持久化、后台/GET/SSR 外呼、自动应用业务对象、第 25 条 migration、真实生产 key smoke、Release、生产 apply 或 residual 关闭。
+
+**确认状态（2026-07-29）**：已确认并在 `v1.1.0` 隔离候选实施。授权范围仅为当前浏览器默认关闭偏好、设置页确认保存和八条既有鉴权 POST 路径的共同外呼 gate；未新增 migration、Provider key 编辑、payload 字段或 AI 历史/费用/trace 持久化，也未授权真实生产 key smoke、Release、生产 apply 或 residual 关闭。
+
+明确确认句（已确认）：
+
+> 确认执行 v1.1 AI 设置外部 Provider 偏好：范围仅限当前浏览器 HttpOnly 安全默认关闭的外呼 opt-in、`/settings/ai` 开关与“保存 AI 设置”、策略变化确认 Modal，以及对现有三条建议、四类 AI 草稿和一条长期阶段草稿共八条鉴权显式 POST 路径的统一外呼 gate；不新增 migration，不开放 Provider key 编辑，不扩大 AI payload，不保存 prompt/raw response/history/token/cost/provider trace，不执行真实生产 key smoke、Release、生产 apply 或 residual 关闭。
+
+### 依赖准入确认包（`@xyflow/react` 与 unified/remark/yaml）
+
+- 进入 Batch 4/8 改 lockfile 前必须完成许可证、漏洞、bundle/build-script、telemetry 复核与 `pnpm governance:preflight`。
+- 不授权：远程内容上传、客户端密钥、服务端 URL 抓取。
+
+**确认状态（2026-07-21，学习树栈）**：已确认并实施。Batch 4 仅引入 `unified` / `remark-parse` / `remark-frontmatter` / `remark-directive` / `remark-stringify` / `yaml` / `mdast-util-to-markdown` / `mdast-util-directive` / `micromark-extension-directive` / `unist-util-visit` 至 `@areaforge/core`；`pnpm governance:preflight` 通过；`pnpm audit:prod` 无 high/critical。**未**引入远程内容上传、客户端密钥或服务端 URL 抓取。
+
+明确确认句（已确认，学习树栈）：
+
+> 允许按 docs/development/dependency-policy.md 与 high-risk 确认包骨架，对学习树 parser 所需 unified/remark/yaml 做依赖准入与 lockfile 变更；不引入远程内容上传、客户端密钥或服务端 URL 抓取。
+
+**确认状态（2026-07-21，`@xyflow/react`）**：已确认并实施。Batch 8 将 `@xyflow/react@12.11.2`（MIT）引入 `@areaforge/web`；包无 postinstall/telemetry SaaS 脚本；`pnpm governance:preflight` 通过；`pnpm audit:prod` 无 high/critical。**未**引入远程内容上传、客户端密钥、服务端 URL 抓取或 telemetry SaaS。
+
+明确确认句（已确认，画布栈）：
+
+> 允许按 docs/development/dependency-policy.md 对 @xyflow/react 做依赖准入与 lockfile 变更；不引入远程内容上传、客户端密钥、telemetry SaaS 或服务端 URL 抓取。

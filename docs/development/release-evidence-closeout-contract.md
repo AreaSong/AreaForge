@@ -21,7 +21,7 @@
 1. `R` 和 `C` 都是当前仓库可解析的 40 位 commit。
 2. `C == R`，或 `R` 是 `C` 的祖先；`R..C` 必须是无 merge 的线性 evidence-only 提交链，并逐提交检查，不能用“先改源码再 revert”的最终净差异绕过。
 3. evidence-only 绑定时工作区必须干净。
-4. `R..C` 每个提交的所有变更路径都在本契约精确白名单内；删除和 copy 一律失败，rename 只允许当前治理任务在 `active/backlog/done` 间移动。
+4. `R..C` 每个提交的所有实际变更路径都在本契约精确白名单内；删除一律失败；copy 只允许目标路径命中既有 evidence 白名单，并按目标内容继续执行 mode、大小、结构和 secret 校验；rename 只允许当前治理任务在 `active/backlog/done` 间移动。copy 的源路径未发生树内容变化，不计入 `changedPaths`，也不能借此放行非白名单目标。
 5. 每个提交中的 closeout 文件必须是 Git mode `100644` 的普通文件；symlink、symlink parent、executable、超大文件、无效截图 header 或敏感内容失败。
 6. CI-only SC-002 记录仍必须 exact-match 当前 HEAD；只有同时提供 Release assets 目录并通过 strict manifest/checksum/cosign 校验的 Release record 可以使用 evidence-only closeout。
 7. OPS-005 的 Release、生产记录和脚本 source-at-commit 校验继续绑定 `R`，不得改绑 `C`。
@@ -34,10 +34,16 @@
 - versioned Release / supply-chain / operational evidence / closeout audit 记录。
 - OPS-001 的精确 smoke/status/bundle/closure 文件名，OPS-005/OPS-006 的版本化 production evidence/结构化子证据，以及 residual 人工复核记录。
 - product-experience review、runtime identity 和 PNG/JPEG/WebP 截图证据。
+- `output/playwright/v11-browser-evidence-<id>/` 下两份固定结构化 JSON、18 张
+  `screenshots/{desktop,mobile}-<journey>.png` 与 24 份
+  `observations/a11y-{kbd,focus,sem,live,color,zoom,canvas}-NN.json`；其中 `a11y-zoom-01.json`
+  承载原生浏览器 200% 缩放的九旅程 metrics。该目录中的其他文件名、trace、video、auth state、任意截图或
+  嵌套副本不进入白名单。
 - `docs/development/residual-risk-ledger.{md,json}`、`operational-readiness.md`、`long-term-operability-control-plane.md`。
 - 仅当前长期治理任务 `0014/0019/0020/0023/0024` 在 `tasks/{active,backlog,done}` 中的状态文件、任务 residual 索引和 README 状态同步；任意新 task 或设计文档不自动进入白名单。
 - 根 README、docs README、workflow README 的当前状态同步。
-- `output/ops005`、`output/ops006`、`output/supply-chain` 下受限前缀的结构化 redacted 文件，以及 `output/playwright` 下受限命名的 runtime identity/截图。
+- `output/ops005`、`output/ops006`、`output/supply-chain` 下受限前缀的结构化 redacted 文件，以及
+  `output/playwright` 下受限命名的 runtime identity/截图/结构化 v1.1 浏览器证据。
 
 以下路径始终禁止进入 evidence-only closeout：
 

@@ -23,6 +23,7 @@ export type BoundedMultipartFailure =
   | "headers_too_large"
   | "unexpected_part"
   | "multiple_files"
+  | "too_many_files"
   | "file_part_missing"
   | "too_large"
   | "framing_overhead_exceeded";
@@ -43,6 +44,8 @@ export interface BoundedFileScan {
   sha256Hex: string;
   detectedMimeType: AllowedUploadMimeType | null;
   bytes: Uint8Array;
+  /** Batch-only business validation failure; framing errors still throw. */
+  businessError?: "too_large";
 }
 
 export function parseMultipartBoundary(contentType: string | null | undefined): string | null {
@@ -75,6 +78,34 @@ export async function parseSingleFileMultipart(
   contentType: string | null | undefined,
   policy: UploadPolicy,
 ): Promise<BoundedFileScan> {
+  const scans = await parseFilesMultipart(body, contentType, policy, 1, "multiple_files", false);
+  return scans[0]!;
+}
+
+/**
+ * 解析有界文件批次。每个 part 都必须命名为 `file`，且文件数量只能为 1..maxFiles。
+ * 每个文件分别执行实际字节上限、增量 hash 和 magic-byte 检测。
+ */
+export async function parseMultipleFilesMultipart(
+  body: AsyncIterable<Uint8Array>,
+  contentType: string | null | undefined,
+  policy: UploadPolicy,
+  maxFiles: number,
+): Promise<BoundedFileScan[]> {
+  if (!Number.isInteger(maxFiles) || maxFiles < 1) {
+    throw new BoundedMultipartError("too_many_files");
+  }
+  return parseFilesMultipart(body, contentType, policy, maxFiles, "too_many_files", true);
+}
+
+async function parseFilesMultipart(
+  body: AsyncIterable<Uint8Array>,
+  contentType: string | null | undefined,
+  policy: UploadPolicy,
+  maxFiles: number,
+  overflowReason: "multiple_files" | "too_many_files",
+  collectBusinessErrors: boolean,
+): Promise<BoundedFileScan[]> {
   const boundary = parseMultipartBoundary(contentType);
   if (!boundary) throw new BoundedMultipartError("missing_boundary");
 
@@ -99,7 +130,7 @@ export async function parseSingleFileMultipart(
   }
   consumeFraming(firstLine.length + 2);
 
-  let scan: BoundedFileScan | null = null;
+  const scans: BoundedFileScan[] = [];
 
   for (;;) {
     const headers = await readPartHeaders(reader);
@@ -108,9 +139,9 @@ export async function parseSingleFileMultipart(
     if (!disposition || disposition.fieldName !== "file") {
       throw new BoundedMultipartError("unexpected_part");
     }
-    if (scan) throw new BoundedMultipartError("multiple_files");
+    if (scans.length >= maxFiles) throw new BoundedMultipartError(overflowReason);
 
-    const state: ScanState = {
+    const state: ScanState & { businessError?: "too_large" } = {
       hash: createHash("sha256"),
       chunks: [],
       sizeBytes: 0,
@@ -118,10 +149,15 @@ export async function parseSingleFileMultipart(
     };
 
     const partEnd = await reader.readUntilDelimiter(delimiter, (chunk) => {
-      state.sizeBytes += chunk.length;
-      if (state.sizeBytes > policy.maxBytes) {
-        throw new BoundedMultipartError("too_large");
+      if (state.businessError) return;
+      const nextSizeBytes = state.sizeBytes + chunk.length;
+      if (nextSizeBytes > policy.maxBytes) {
+        state.sizeBytes = policy.maxBytes + 1;
+        if (!collectBusinessErrors) throw new BoundedMultipartError("too_large");
+        state.businessError = "too_large";
+        return;
       }
+      state.sizeBytes = nextSizeBytes;
       state.hash.update(chunk);
       state.chunks.push(chunk);
       if (state.sniffBuffer.length < 16) {
@@ -136,15 +172,24 @@ export async function parseSingleFileMultipart(
     if (!partEnd) throw new BoundedMultipartError("bad_multipart");
     consumeFraming(delimiter.length);
 
-    const bytes = concatChunks(state.chunks, state.sizeBytes);
-    scan = {
-      originalName: disposition.fileName ?? "attachment",
-      declaredMimeType: headers.contentType,
+    const oversized = state.businessError === "too_large";
+    const bytes = oversized ? new Uint8Array(0) : concatChunks(state.chunks, state.sizeBytes);
+    const originalName = disposition.fileName ?? "attachment";
+    const declaredMimeType = headers.contentType;
+    scans.push({
+      originalName,
+      declaredMimeType,
       sizeBytes: state.sizeBytes,
-      sha256Hex: state.hash.digest("hex"),
-      detectedMimeType: detectUploadMimeType(state.sniffBuffer),
+      sha256Hex: oversized ? "" : state.hash.digest("hex"),
+      detectedMimeType: oversized
+        ? null
+        : detectUploadMimeType(bytes, {
+            originalName,
+            declaredMimeType,
+          }),
       bytes,
-    };
+      ...(state.businessError ? { businessError: state.businessError } : {}),
+    });
 
     const trailer = await reader.readExact(2);
     if (!trailer) throw new BoundedMultipartError("bad_multipart");
@@ -155,9 +200,9 @@ export async function parseSingleFileMultipart(
     if (!bytesEqual(trailer, CRLF)) throw new BoundedMultipartError("bad_multipart");
   }
 
-  if (!scan) throw new BoundedMultipartError("file_part_missing");
+  if (scans.length === 0) throw new BoundedMultipartError("file_part_missing");
   await reader.drainRemainder(multipartFramingOverheadBytes);
-  return scan;
+  return scans;
 }
 
 interface PartHeaders {

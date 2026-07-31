@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    await requireApiUser(request);
+    const user = await requireApiUser(request);
     const kind = request.nextUrl.searchParams.get("kind");
-    const decisions = await listPeriodicReportDecisions(kind === "week" || kind === "month" ? kind : undefined);
+    const decisions = await listPeriodicReportDecisions(kind === "week" || kind === "month" ? kind : undefined, user.id);
     return NextResponse.json({ decisions });
   } catch (error) {
     return apiErrorResponse(error);

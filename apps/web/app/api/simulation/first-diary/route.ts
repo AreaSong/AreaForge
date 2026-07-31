@@ -13,7 +13,11 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) return zodErrorResponse(parsed.error);
 
     return NextResponse.json({
-      vault: await saveFirstSimulationDiary(parsed.data.firstSimulationDiary, user.id),
+      vault: await saveFirstSimulationDiary(
+        parsed.data.firstSimulationDiary,
+        user.id,
+        parsed.data.idempotencyKey,
+      ),
     });
   } catch (error) {
     return apiErrorResponse(error);

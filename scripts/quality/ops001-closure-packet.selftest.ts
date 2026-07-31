@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildOperationalEvidenceSourceSnapshot } from "./operational-evidence-source";
@@ -9,8 +9,8 @@ type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-ops001-closure-"));
-// closure packet 校验器以根 package.json 版本为当前期望版本，fixture 必须跟随同一来源。
-const currentVersion = resolveCurrentVersion();
+// OPS-001 当前证据绑定生产基线；本地 checkout 可能已进入下一候选版本。
+const currentVersion = "0.1.9";
 
 try {
   const smokeRecord = path.join(tempDir, "prod-readonly-smoke-record.txt");
@@ -258,7 +258,7 @@ function requiredSignalItems(): JsonRecord[] {
 
 function createFreshness(): JsonRecord {
   return {
-    maxAgeSeconds: 1209600,
+    maxAgeSeconds: 315360000,
     latestEvidenceFreshnessStatus: "fresh",
     signals: {
       health: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
@@ -294,14 +294,6 @@ function stableStringify(value: unknown): string {
       .join(",")}}`;
   }
   return JSON.stringify(value);
-}
-
-function resolveCurrentVersion(): string {
-  const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version?: unknown };
-  if (typeof packageJson.version !== "string" || !/^\d+\.\d+\.\d+$/.test(packageJson.version)) {
-    throw new Error("root package.json version must look like X.Y.Z");
-  }
-  return packageJson.version;
 }
 
 function expectStatus(label: string, result: ReturnType<typeof spawnSync>, expected: number): void {

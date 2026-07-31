@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { readSafeJsonFile, validateControlledPr, validateReadback } from "./github-main-protection-validate";
@@ -9,7 +9,13 @@ const validReadback = withHash({ schemaVersion: 1, repository: "AreaSong/AreaFor
 const validPr = withHash(controlledPrValue("mw-sc004-20260715"), "evidenceHash");
 
 expectValid(validateReadback(JSON.stringify(validReadback), now), "valid readback");
+expectValid(
+  validateReadback(JSON.stringify(withHash({ ...validReadback, requiredApprovingReviewCount: 0 }, "readbackHash")), now),
+  "valid single-maintainer readback",
+);
 expectValid(validateControlledPr(JSON.stringify(validPr), now), "valid readback + controlled PR");
+expectInvalid({ ...validReadback, requiredApprovingReviewCount: -1 }, "negative approval count");
+expectInvalid({ ...validReadback, requiredApprovingReviewCount: 11 }, "approval count above GitHub maximum");
 expectInvalid({ ...validReadback, requiredStatusChecks: ["CI / verify"] }, "wrong check case");
 expectInvalid({ ...validReadback, allowForcePushes: true }, "force push");
 expectInvalid({ ...validReadback, adminBypassActors: ["RepositoryAdmin"] }, "admin bypass");
@@ -33,7 +39,8 @@ function expectInvalid(value: Record<string, unknown>, label: string): void {
 }
 function expectInvalidPr(value: Record<string, unknown>, label: string): void { if (validateControlledPr(JSON.stringify(withHash(value, "evidenceHash")), now).valid) throw new Error(`${label} should fail`); }
 function testSafePathGuard(): void {
-  const dir = mkdtempSync(path.join(tmpdir(), "areaforge-sc004-validator-"));
+  const dir = path.join(tmpdir(), `areaforge-sc004-validator-${process.pid}-${Date.now()}`);
+  mkdirSync(dir);
   try {
     const validPath = path.join(dir, "evidence.json");
     writeFileSync(validPath, "{}");

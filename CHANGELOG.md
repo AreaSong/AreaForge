@@ -6,6 +6,26 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-22
+
+本节随完整 minor Release 候选冻结；只有匹配 commit 的签名 GitHub Release 与 tag 创建成功后才构成发布事实。
+
+### Added
+
+- 学习行动中心：当前考试工作区、七天计划、计划收件箱、专注与快速复习构成统一行动入口。
+- 知识工作台：学习树模板、严格预览与原子确认、知识卡片、错题、资料、统一复习和关联画布。
+- 阶段闭环：结构化模拟考试与失分、补救候选入箱、周期报告决策、阶段调整确认和 7/30 天分析。
+- 体验与协助：动机内容库、通知偏好、四类显式 AI 草稿，以及桌面和移动端 canonical 路由。
+
+### Changed
+
+- 数据模型通过八个有序 additive migration 扩展到 workspace、导入历史、复习、画布、动机、通知和模拟失分；生产 migration 仍须独立确认。
+- 应用版本与全部 AreaForge workspace package version 统一提升到 `1.1.0`，为 complete minor Release admission 提供一致身份。
+
+### Security
+
+- 保持 AI payload 最小化、附件鉴权访问、Web runtime 禁止服务器命令及 `AREAFORGE_AUTO_APPLY=none`；本候选不授权 production apply 或 residual 关闭。
+
 ## [0.1.9] - 2026-07-21
 
 ### Added
@@ -103,7 +123,9 @@
 - 恢复模式：规则触发与手动触发的最小任务恢复流程。
 - 私有交付：Docker Compose 生产编排、备份与恢复流程、GitHub Release 服务器侧自动更新器。
 
-[Unreleased]: https://github.com/AreaSong/AreaForge/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/AreaSong/AreaForge/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/AreaSong/AreaForge/compare/v0.1.9...v1.1.0
+[0.1.9]: https://github.com/AreaSong/AreaForge/compare/v0.1.7...v0.1.9
 [0.1.7]: https://github.com/AreaSong/AreaForge/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/AreaSong/AreaForge/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/AreaSong/AreaForge/compare/v0.1.4...v0.1.5

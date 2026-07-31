@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 
-export function LoginForm() {
+export function LoginForm({ returnTo = "/today" }: { returnTo?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -44,14 +44,14 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/");
+    router.replace(returnTo);
     router.refresh();
   }
 
   return (
     <form className="w-full max-w-sm rounded-lg border border-white/10 bg-[#101419] p-6" onSubmit={submit}>
       <BrandLogo priority />
-      <h1 className="mt-5 text-2xl font-semibold text-white">进入作战台</h1>
+      <h1 className="mt-5 text-2xl font-semibold text-white">进入行动中心</h1>
 
       <label className="mt-6 block text-sm text-zinc-300" htmlFor="email">
         邮箱
@@ -77,7 +77,11 @@ export function LoginForm() {
         type="password"
       />
 
-      {error ? <p className="mt-4 text-sm text-red-200">{error}</p> : null}
+      {error ? (
+        <p aria-atomic="true" aria-live="assertive" className="mt-4 text-sm text-red-200" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <button
         className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-teal-400 font-medium text-[#071011] transition hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-70"

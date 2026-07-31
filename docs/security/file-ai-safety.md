@@ -44,6 +44,8 @@ AI 第一版只允许生成：
 
 阶段调整草稿属于第二阶段长期闭环。Package D Batch D3 已完成长期阶段 AI 草稿显式触发路径：只允许用户主动调用鉴权 `POST /api/simulation/stage-adjustment-drafts/ai`，只发送最小聚合字段和阶段目标摘要，成功只写 `StageAdjustmentDraft.source="ai"` 草稿和审计摘要，失败回退本地规则。D3 仍不得发送动机档案、完整情绪记录、完整复盘正文、附件内容、文件路径或完整任务标题，不得保存完整 prompt/raw response，也不得自动应用阶段计划或批量修改任务。
 
+外部 Provider 默认关闭。三条建议、四类文本草稿和一条长期阶段草稿共八条鉴权显式 POST 路径，必须同时满足当前浏览器明确 opt-in、`AI_ENABLED=true` 和服务端 Provider 配置完整；偏好缺失、清除、关闭或畸形时一律回退本地规则。当前浏览器偏好使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的 Cookie，不写数据库，也不包含用户标识、Provider 配置、模型、密钥、prompt、正文或内容 hash。`/settings/ai` 只允许切换外呼偏好，不允许查看或编辑服务端 Provider key。
+
 AI 不允许：
 
 - 直接覆盖用户记录。
@@ -61,6 +63,7 @@ AI 不允许：
 - 校验失败回退本地规则文案。
 - 失败不影响任务、计时、复盘等核心流程。
 - 日志不记录 API Key、完整 prompt、动机档案、情绪正文和复盘正文。
+- 外部 Provider 偏好缺失、清除、关闭、畸形或保存失败时保持 fail closed；保存失败不得改变已保存策略或触发外呼。
 
 ## 高风险确认
 
@@ -69,6 +72,7 @@ AI 不允许：
 - 默认把动机档案发给 AI。
 - 默认把完整情绪记录发给 AI。
 - 默认把复盘正文发给 AI。
+- 将当前浏览器外部 Provider 偏好从默认关闭改为默认开启，或允许客户端编辑 Provider key。
 - 删除附件或迁移上传目录。
 - 修改备份、恢复或保留策略。
 - 网页内直接触发部署或服务器命令。
@@ -77,7 +81,7 @@ AI 不允许：
 
 允许的自动更新形态是服务器侧受控 updater：`ops/github-release-updater/areaforge-updater.sh` 由管理员手动执行、systemd timer 触发或由 `areaforge-update-agent.timer` 消费 Web 版本中心写入的受控请求后触发。它读取 GitHub Release manifest、校验 `SHA256SUMS` / `SHA256SUMS.sig`，备份数据库和上传目录，使用一次性 migration image，再切换 Docker Compose Web 镜像。
 
-当前远端生产已启用该形态：`https://forge.areasong.top/` 运行 `0.1.7`，服务器 `AREAFORGE_REQUIRE_SIGNATURE=true`，`/etc/areaforge/cosign.pub` 校验 cosign bundle，自动应用策略保持 `AREAFORGE_AUTO_APPLY=none`。当前记录见 `docs/development/release-v0.1.7-record.md`；`docs/development/package-e-remote-github-release-record.md` 保留 `v0.1.5` 历史证据。
+当前远端生产已启用该形态：`https://forge.areasong.top/` 运行 `0.1.9`，服务器 `AREAFORGE_REQUIRE_SIGNATURE=true`，`/etc/areaforge/cosign.pub` 校验 cosign bundle，自动应用策略保持 `AREAFORGE_AUTO_APPLY=none`。当前记录见 `docs/development/release-v0.1.9-record.md`；`docs/development/release-v0.1.7-record.md` 是受保护的历史回滚证据，`docs/development/package-e-remote-github-release-record.md` 保留 `v0.1.5` 历史证据。
 
 禁止：
 
@@ -86,6 +90,17 @@ AI 不允许：
 - 跳过签名/hash 校验后自动应用 Release。
 - 静默应用 major 更新。
 - 在失败回滚时默认覆盖生产数据库或移动上传目录。
+
+## 学习行动中心扩展边界（隔离候选已实现）
+
+当前隔离候选已增加资料 FILE/LINK、学习树规范化 Markdown 留存/导出、前台通知与四类 AI 草稿；这些能力仍待最终 runtime、体验与 Release admission 验证，尚未生产切换：
+
+- 导入 confirm 的数据生命周期边界已确认，允许隔离验证；`AF-RISK-DATA-001` 仍保持 `deferred-work`，不因候选实现或发布自动关闭。
+- LINK 资料不得由服务端 fetch/redirect；通知默认隐藏具体标题。
+- AI 草稿仍禁止附件、未选择正文与完整动机/复盘外呼。
+- 物理删除资料或导入历史、备份副本同步删除、用户迁移与完整账户导出不在当前候选范围。
+
+权威规格见 `workflow/versions/v1.1-learning-action-center.md`。
 
 数据库恢复、上传目录恢复、签名策略降级、major 自动应用和网页内运维入口都属于高风险变化，必须另行说明影响、验证和回滚后确认。
 

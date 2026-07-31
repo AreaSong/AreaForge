@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify Web Docker dependency context
+        run: docker build --target deps --file infra/docker/web.Dockerfile .
+
       - name: Generate Prisma client
         run: pnpm db:generate
 

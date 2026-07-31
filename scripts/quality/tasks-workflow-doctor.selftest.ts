@@ -18,6 +18,11 @@ try {
   writeLedger(["tasks/active/0003-active.md"]);
 
   expectStatus("valid fixture", 0);
+  writeFileSync(activeFile, task("in-progress", "implementation", [], true));
+  expectStatus("canonical implementation phase", 0);
+  writeFileSync(activeFile, task("in-progress", "global-revalidation", [], true));
+  expectStatus("unsupported ad-hoc phase", 1);
+  writeFileSync(activeFile, task("blocked", "awaiting-high-risk-confirmation", ["explicit confirmation"], true));
   writeFileSync(path.join(fixture, "docs/development/residual-risk-ledger.json"), JSON.stringify({
     schemaVersion: 1,
     source: "docs/development/residual-risk-ledger.md",

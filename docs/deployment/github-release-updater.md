@@ -8,22 +8,23 @@ AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单
 
 ## 当前远端状态
 
-截至 `2026-07-12`，远端生产已经完成 `v0.1.7` 签名 Release 更新：
+截至 `2026-07-21`，远端生产已经完成 `v0.1.9` 签名 Release 更新。当前 checkout 为未发布的 `1.1.0` Release Candidate，尚无 `v1.1.0` tag/Release 或 production apply：
 
 - 线上地址：`https://forge.areasong.top/`
-- 当前线上版本：`0.1.7`
-- 最新 GitHub Release：`v0.1.7`
-- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v0.1.7`
-- Web image：`ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
-- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654`
+- 当前线上版本：`0.1.9`
+- 当前生产 GitHub Release：`v0.1.9` / commit `749692ba719d801f14186a94af97b96350380141`
+- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v0.1.9`
+- Web image：`ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d`
+- Migration image：`ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab`
 - 服务器健康检查：`AREAFORGE_HEALTH_URL=http://127.0.0.1:3020/api/health`
 - 签名校验：`AREAFORGE_REQUIRE_SIGNATURE=true`，`AREAFORGE_COSIGN_PUBLIC_KEY=/etc/areaforge/cosign.pub`
 - update-agent：`timerEnabled=true`、`timerActive=true`、`blocker=null`（生产 root-only status 进入仓库前必须先 redacted）
 - 自动策略：`AREAFORGE_AUTO_APPLY=none`
-- 更新记录：`/opt/areaforge/backups/github-release-updates/github-0.1.7-20260712112325/update-record.txt`
-- 只读公网校验：`GET https://forge.areasong.top/api/health` 返回 `0.1.7`
+- 更新记录：`/opt/areaforge/backups/github-release-updates/github-0.1.9-20260721050738/update-record.txt`
+- 只读公网校验：`GET https://forge.areasong.top/api/health` 返回 `0.1.9`
+- 历史回滚目标：`v0.1.7` / Web immutable digest `sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd`
 
-当前发布证据见 `docs/development/release-v0.1.7-record.md`；`docs/development/package-e-remote-github-release-record.md` 保留 `v0.1.5` 历史证据。
+当前生产发布证据见 `docs/development/release-v0.1.9-record.md`；`docs/development/release-v0.1.7-record.md` 仅保留受保护的历史回滚证据，`docs/development/package-e-remote-github-release-record.md` 保留更早的 `v0.1.5` 历史证据。
 
 ## 发布端配置
 
@@ -143,8 +144,9 @@ AREAFORGE_GITHUB_TOKEN=<只读 release/package token>
 
 ## Update Request V2 安全契约
 
-当前 checkout 已完成 OPS-005 本地实现，但尚未通过新的签名 Release 部署到生产。生产 `v0.1.7`
-不能据此宣称已经运行 V2。
+生产 `v0.1.9` 已完成 OPS-005 V2 check、`EXPECTED_BEFORE_MISMATCH` 零执行拒绝、decision history
+和 production evidence 人工关账。当前 checkout `1.1.0` 尚未形成签名 Release 或生产部署，不能继承
+`v0.1.9` 的执行授权；新 Release 或 expected-before 语义变化仍须重新采集证据。
 
 V2 链路如下：
 
@@ -208,10 +210,10 @@ sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes 
   --config /etc/areaforge/updater.env
 ```
 
-AreaForge 当前远端验证过的命令：
+AreaForge 当前生产基线验证过的命令：
 
 ```bash
-sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes --tag v0.1.7 --config /etc/areaforge/updater.env
+sudo /opt/areaforge/ops/github-release-updater/areaforge-updater.sh apply --yes --tag v0.1.9 --config /etc/areaforge/updater.env
 sudo /opt/areaforge/ops/update-agent/areaforge-update-agent.sh
 ```
 
@@ -277,7 +279,7 @@ AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly'
 AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
 AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
-AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.7
+AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.9
 AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 AREAFORGE_SMOKE_ATTACHMENT_ID=<optional-known-attachment-id>
 ```
@@ -297,11 +299,11 @@ export AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-reado
 export AREAFORGE_SMOKE_BASE_URL=https://forge.areasong.top
 export AREAFORGE_SMOKE_EMAIL=<smoke-account-email>
 export AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password
-export AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.7
+export AREAFORGE_SMOKE_EXPECTED_VERSION=0.1.9
 export AREAFORGE_SMOKE_EXPECTED_AUTO_APPLY=none
 pnpm smoke:prod-readonly:config
 pnpm smoke:prod-readonly | tee /tmp/areaforge-prod-readonly-smoke.log
-AREAFORGE_READINESS_RELEASE_TAG=v0.1.7 \
+AREAFORGE_READINESS_RELEASE_TAG=v0.1.9 \
 AREAFORGE_READINESS_GITHUB_REPO=AreaSong/AreaForge \
 AREAFORGE_SMOKE_PASSWORD_FILE=/etc/areaforge/smoke-password \
 AREAFORGE_EXTRA_SMOKE_COMMAND='cd /opt/areaforge && pnpm smoke:prod-readonly' \
@@ -315,7 +317,7 @@ pnpm smoke:prod-readonly:validate /tmp/areaforge-prod-readonly-smoke-record.txt
 
 ### OPS-001 只读证据导出
 
-当需要关闭或复核 `AF-RISK-OPS-001`，且生产 `status.json`、smoke 密码文件和 `/opt/areaforge` 均为 root-only 时，管理员可在服务器上运行只读导出 helper：
+当生产版本变化、证据过期或校验失败导致 `AF-RISK-OPS-001` 需要重新复核，且生产 `status.json`、smoke 密码文件和 `/opt/areaforge` 均为 root-only 时，管理员可在服务器上运行只读导出 helper。当前 `v0.1.9` 已有关账证据，不应无变化重复采集：
 
 ```bash
 sudo /opt/areaforge/ops/update-agent/areaforge-ops001-evidence-export.sh \
@@ -345,7 +347,7 @@ fallback helper 只读取 updater 配置、`ops-state/status.json` 和 smoke 密
 
 ```bash
 sudo /opt/areaforge/ops/update-agent/areaforge-release-evidence-redacted-export.sh \
-  --update-record /opt/areaforge/backups/github-release-updates/github-0.1.7-20260712112325/update-record.txt \
+  --update-record /opt/areaforge/backups/github-release-updates/github-0.1.9-20260721050738/update-record.txt \
   --status /opt/areaforge/ops-state/status.json \
   --output-dir /tmp/areaforge-release-evidence-redacted-$(date -u +%Y%m%d%H%M%S)
 ```
@@ -361,14 +363,14 @@ validator 会检查目录文件、backup hash、redacted update-agent status、�
 ```bash
 pnpm release:evidence:redacted-export:record \
   /path/to/areaforge-release-evidence-redacted-<timestamp> \
-  docs/development/release-v0.1.7-record.md \
-  /tmp/release-v0.1.7-record.redacted-draft.md \
+  docs/development/release-v0.1.9-record.md \
+  /tmp/release-v0.1.9-record.redacted-draft.md \
   /path/to/attachment-reconciliation.csv \
   /path/to/attachment-reconciliation-summary.json
-pnpm release:evidence:validate /tmp/release-v0.1.7-record.redacted-draft.md /path/to/attachment-reconciliation.csv /path/to/attachment-reconciliation-summary.json
+pnpm release:evidence:validate /tmp/release-v0.1.9-record.redacted-draft.md /path/to/attachment-reconciliation.csv /path/to/attachment-reconciliation-summary.json
 ```
 
-生成器只消费 allowlisted safe fields、redacted status、bounded smoke output 和已独立生成的附件双向 reconciliation CSV/summary，默认拒绝覆盖原 release record；redacted updater export 本身不读取上传目录，也不能伪造 `not-applicable`。它会写入 redacted backup hash/path presence、redacted update-record hash、附件对账路径/status/hash 绑定、`releaseEvidenceRedactedExportHash`、`releaseEvidenceRedactedRecordMode`、`releaseEvidenceRedactedRecordDoesNotProve`、`releaseEvidenceRedactedRecordClosesResidual: no`、`releaseEvidenceRedactedRecordResidualLedgerUpdated: no` 和计算后的 `releaseEvidenceBundleHash`，随后立即运行 `pnpm release:evidence:validate` 复核 hash 一致性。该链路可用于 release record backup hash 补全和 `AREAFORGE_UPDATE_RECORD_SUMMARY` 摘要；它不能单独生成 `prod-readonly-smoke-record.txt`、`operational-evidence-bundle.json` 或 `ops-001-closure-packet.txt`，也不能关闭 `AF-RISK-OPS-001` 或支撑长期运营完成声明。仓库侧回归入口是 `pnpm release:evidence:redacted-export:selftest` 和 `pnpm release:evidence:redacted-export:record:selftest`，发布/updater 门禁会通过 `pnpm shellcheck:updater` 和 `pnpm github-release-updater:preflight` 检查该 helper 与生成器。
+生成器只消费 allowlisted safe fields、redacted status、bounded smoke output 和已独立生成的附件双向 reconciliation CSV/summary，默认拒绝覆盖原 release record；redacted updater export 本身不读取上传目录，也不能伪造 `not-applicable`。它会写入 redacted backup hash/path presence、redacted update-record hash、附件对账路径/status/hash 绑定、`releaseEvidenceRedactedExportHash`、`releaseEvidenceRedactedRecordMode`、`releaseEvidenceRedactedRecordDoesNotProve`、`releaseEvidenceRedactedRecordClosesResidual: no`、`releaseEvidenceRedactedRecordResidualLedgerUpdated: no` 和计算后的 `releaseEvidenceBundleHash`，随后立即运行 `pnpm release:evidence:validate` 复核 hash 一致性。该链路可用于 release record backup hash 补全和 `AREAFORGE_UPDATE_RECORD_SUMMARY` 摘要；它不能单独生成 `prod-readonly-smoke-record.txt`、`operational-evidence-bundle.json` 或 `ops-001-closure-packet.txt`，也不能修改 `AF-RISK-OPS-001` 状态或支撑新的长期运营完成声明。当前 `v0.1.9` 的 `closed-evidence` 来自独立 production smoke、bundle、closure packet 和人工复核，不是该导出命令的自动副作用。仓库侧回归入口是 `pnpm release:evidence:redacted-export:selftest` 和 `pnpm release:evidence:redacted-export:record:selftest`，发布/updater 门禁会通过 `pnpm shellcheck:updater` 和 `pnpm github-release-updater:preflight` 检查该 helper 与生成器。
 
 导出后只把生成目录里的 redacted 文件复制回本地或运维记录；不要复制 `/etc/areaforge/updater.env`、smoke 密码文件、生产 `.env`、数据库 dump、原始日志或附件内容。维护者复核时仍需运行：
 

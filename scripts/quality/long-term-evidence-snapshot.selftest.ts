@@ -4,7 +4,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildDataIntegrityDoctor, type DataIntegritySnapshot } from "../ops/data-integrity-doctor";
-import { protectedPathFiles } from "../ops/operability-status";
+import {
+  historicalRollbackIdentity,
+  productionBaselineIdentity,
+  protectedPathFiles,
+} from "../ops/operability-status";
 import {
   longTermEvidenceSnapshotBindingStatus,
   validateLongTermEvidenceSnapshot,
@@ -160,7 +164,21 @@ function main(): void {
   assert(generatedIssues.length === 0, `expected generated snapshot current binding to pass, got ${JSON.stringify(generatedIssues)}`);
   assert(longTermEvidenceSnapshotBindingStatus(generated.stdout) === "current", "generated snapshot should bind to current checkout");
   const generatedBody = JSON.parse(generated.stdout) as JsonRecord;
+  const generatedCheckout = generatedBody.currentCheckout as JsonRecord;
+  const generatedProduction = generatedBody.productionBaseline as JsonRecord;
+  const generatedRollback = generatedBody.historicalRollback as JsonRecord;
+  assert(generatedCheckout.version === generatedBody.packageVersion, "generated snapshot should bind checkout identity to packageVersion");
+  assert(generatedProduction.releaseTag === "v0.1.9", "generated snapshot should identify v0.1.9 as the production baseline");
+  assert(generatedRollback.releaseTag === "v0.1.7", "generated snapshot should preserve v0.1.7 as the historical rollback target");
   const generatedEvidencePaths = (generatedBody.sourceSnapshot as JsonRecord).evidencePaths as JsonRecord[];
+  assert(
+    generatedEvidencePaths.find((item) => item.key === "releaseEvidenceRecord")?.pathLabel === "docs/development/release-v0.1.9-record.md",
+    "generated snapshot should default production Release evidence to v0.1.9",
+  );
+  assert(
+    generatedEvidencePaths.find((item) => item.key === "operationalEvidenceBundle")?.pathLabel === "docs/development/ops-001-production-readonly-20260721/operational-evidence-bundle.json",
+    "generated snapshot should default OPS-001 evidence to the v0.1.9 production bundle",
+  );
   const generatedUxPath = generatedEvidencePaths.find((item) => item.key === "uxReviewRecord")?.pathLabel;
   const expectedUxPath = resolveProductExperienceReviewPath(process.cwd());
   assert(expectedUxPath && generatedUxPath === path.basename(expectedUxPath), `generated snapshot should use the redacted discovered UX record label, got ${String(generatedUxPath)}`);
@@ -384,9 +402,14 @@ function buildSnapshot(status: "ready_for_long_term_operability_review" | "needs
     mode: "read_only_long_term_evidence_snapshot",
     generatedAt: "2026-07-12T12:30:00.000Z",
     snapshotHash: "",
-    expectedVersion: "0.1.7",
-    releaseTag: "v0.1.7",
-    packageVersion: "0.1.7",
+    expectedVersion: "0.1.9",
+    releaseTag: "v0.1.9",
+    packageVersion: "0.1.9",
+    currentCheckout: {
+      version: "0.1.9",
+    },
+    productionBaseline: productionBaselineIdentity,
+    historicalRollback: historicalRollbackIdentity,
     scope: "long_term_operability_current_checkout",
     status,
     nextCommand: fixtureNextCommand(status, checks),
@@ -543,7 +566,7 @@ function buildChecks(options: {
         sharedProductionStateLock: "pass",
         processingReconciliation: "pass",
         autoApply: "none",
-        releaseTag: "v0.1.7",
+        releaseTag: "v0.1.9",
         gitCommit: "a".repeat(40),
       },
     },
@@ -580,7 +603,7 @@ function buildChecks(options: {
       ),
       versionMatch: true,
       metadata: {
-        releaseTag: "v0.1.7",
+        releaseTag: "v0.1.9",
         releaseEvidenceBundleHashStatus: "valid_sha256",
         databaseBackupSha256Status: "valid_sha256",
         uploadsBackupSha256Status: "valid_sha256",

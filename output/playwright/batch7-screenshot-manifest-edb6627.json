@@ -1,0 +1,18 @@
+{
+  "gitCommit": "edb6627fb1d7f41373cebcd137baa382114291fc",
+  "checkedAt": "2026-07-21T13:38:22.635468Z",
+  "baseUrl": "http://127.0.0.1:3102",
+  "viewports": [
+    "desktop-1440x900",
+    "mobile-390x844"
+  ],
+  "screenshots": [
+    "output/playwright/batch7-settings-workspace-desktop.png",
+    "output/playwright/batch7-settings-workspace-mobile.png",
+    "output/playwright/batch7-today-desktop.png",
+    "output/playwright/batch7-today-mobile.png",
+    "output/playwright/batch7-today-plan-desktop.png",
+    "output/playwright/batch7-today-plan-mobile.png"
+  ],
+  "screenshotEvidenceHash": "sha256:36dee94b6819e32fc0d4f7236c929a98b5b7143e48ef1d4127c079b2e3d1987a"
+}

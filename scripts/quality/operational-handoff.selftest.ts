@@ -37,6 +37,7 @@ const requiredFiles = [
   "tasks/active/0020-business-state-concurrency.md",
   "tasks/active/0021-attachment-staging-intent.md",
   "tasks/active/0022-updater-phase-journal-hold.md",
+  "docs/development/release-v0.1.9-record.md",
   "docs/development/release-v0.1.7-record.md",
   "docs/development/support-bundle-preview.md",
   "docs/development/residual-risk-ledger.md",
@@ -245,6 +246,9 @@ function main(): void {
     });
 
     assert(handoff.schemaVersion === 2, "schemaVersion should be 2");
+    assert(handoff.app.currentCheckout.version === "0.1.5", "handoff should identify the fixture checkout version");
+    assert(handoff.app.productionBaseline.releaseTag === "v0.1.9", "handoff should identify the production baseline");
+    assert(handoff.app.historicalRollback.releaseTag === "v0.1.7", "handoff should preserve the historical rollback target");
     assert(handoff.mode === "read_only_operational_handoff", "mode should identify handoff");
     assert(handoff.status.controlPlane === "pass", "fixture control plane should pass");
     assert(handoff.status.offlineOverall === "blocked", "current blocker should block handoff status");
@@ -292,10 +296,10 @@ function main(): void {
     assert(
       handoff.evidenceFocus.boundaryStops.some((item) =>
         item.key === "update_request_expected_before" &&
-        item.currentBoundary.includes("no matching signed Release for the verified V2 checkout") &&
-        item.currentBoundary.includes("no production deployment confirmation")
+        item.currentBoundary.includes("no authorization for a later signed Release or production apply") &&
+        item.currentBoundary.includes("no mutation request execution from this offline projection")
       ),
-      "handoff should separate verified expected-before implementation from signed Release and deployment confirmations",
+      "handoff should preserve later-release and offline-mutation boundaries after closure",
     );
     assert(handoff.evidenceFocus.releaseEvidenceGaps.status === "needs_evidence", "handoff should include release evidence gap status");
     assert(handoff.evidenceFocus.uxReview.status === "missing", "handoff must inherit the status projection UX evaluator result");
@@ -356,6 +360,9 @@ function main(): void {
     const formattedSummary = formatOperationalHandoffSummary(summary);
     assert(summary.uxReview.startsWith("missing:"), "handoff summary must expose the inherited UX evidence status");
     assert(summary.title === "AreaForge operational handoff", "summary should have a stable title");
+    assert(summary.currentCheckout.includes("0.1.5"), "summary should identify the current checkout without implying a Release");
+    assert(summary.productionBaseline.includes("v0.1.9"), "summary should identify the production baseline");
+    assert(summary.historicalRollback.includes("v0.1.7"), "summary should identify the historical rollback target");
     assert(summary.currentBlockers.some((item) => item.includes("AF-RISK-OPS-001")), "summary should include non-executable current blockers");
     assert(summary.boundaryStops.some((item) => item.includes("post_update_ops001")), "summary should include boundary stops");
     assert(summary.boundaryStops.some((item) => item.includes("update_request_expected_before")), "summary should include expected-before boundary stop");
@@ -370,6 +377,7 @@ function main(): void {
     assert(summary.nextLiveEvidenceCommands.includes("pnpm release:evidence:redacted-export:validate <redacted-export-dir>"), "summary should include release redacted export validation command");
     assert(summary.cannotClaim.some((claim) => claim.includes("current production health")), "summary should preserve claim boundary");
     assert(formattedSummary.includes("AreaForge operational handoff"), "formatted summary should include title");
+    assert(formattedSummary.includes("currentCheckout: 0.1.5 (local checkout; no Release implied)"), "formatted summary should keep checkout and Release semantics separate");
     assert(formattedSummary.includes("safetyFacts: readOnly=true"), "formatted summary should include safety facts");
 
     rmSync(path.join(root, "scripts/ops/operational-handoff.ts"));
@@ -397,12 +405,12 @@ function writeFixture(root: string): void {
   for (const file of requiredFiles) {
     writeText(root, file, file.endsWith(".json") ? fixtureLedgerJson() : `fixture ${file}\n`);
   }
-  writeText(root, "docs/development/release-v0.1.7-record.md", fixtureReleaseRecord());
+  writeText(root, "docs/development/release-v0.1.9-record.md", fixtureReleaseRecord());
 }
 
 function fixtureReleaseRecord(): string {
   return [
-    "releaseTag: v0.1.7",
+    "releaseTag: v0.1.9",
     "releaseEvidenceBundleHash: pending-redacted-root-only-backup-hash-copy",
     "databaseBackupSha256: not-copied-root-only-update-record",
     "uploadsBackupSha256: not-copied-root-only-update-record",

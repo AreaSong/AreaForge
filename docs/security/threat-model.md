@@ -38,3 +38,7 @@
 ## 细化规则
 
 文件上传、附件访问、AI 调用、备份恢复和高风险确认规则见 `docs/security/file-ai-safety.md`。
+
+## 学习行动中心新增资产（隔离候选已实现）
+
+当前隔离候选已把考试工作区归属、学习树规范化 Markdown 长期留存与导出、资料 HTTPS 外链、浏览器通知 payload、四类 AI 草稿 HMAC（基于哈希的消息认证码）token 纳入实际威胁面；仍待最终 runtime、体验与 Release admission 验证，尚未生产切换。导入 confirm 的生命周期边界已确认，但 `AF-RISK-DATA-001` 继续保持 `deferred-work`；AI 草稿仍禁止附件与未选择正文，物理删除与完整账户导出不在当前范围。规格见 `workflow/versions/v1.1-learning-action-center.md`。

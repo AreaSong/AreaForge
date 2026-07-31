@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   buildEvidenceHash,
@@ -232,15 +231,7 @@ function smokeProofNowMs(): number {
 function expectedOps001Version(): string {
   const envVersion = process.env.AREAFORGE_OPS001_EXPECTED_VERSION?.trim();
   if (envVersion) return envVersion;
-  try {
-    const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as { version?: unknown };
-    if (typeof packageJson.version === "string" && packageJson.version.trim()) {
-      return packageJson.version.trim();
-    }
-  } catch {
-    // Fall through to the current repository baseline.
-  }
-  return "0.1.7";
+  return "0.1.9";
 }
 
 main();

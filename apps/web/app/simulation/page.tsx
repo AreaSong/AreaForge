@@ -19,15 +19,17 @@ import { listSubjects } from "@/lib/study/service";
 export const dynamic = "force-dynamic";
 
 export default async function SimulationPage() {
+  redirect("/stage/simulation");
+  /* legacy page kept below for source compatibility */
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
   }
 
   const [subjects, workspace, longTermRisks] = await Promise.all([
-    listSubjects(),
-    getSimulationWorkspace(),
-    getLongTermRiskSummary(),
+    listSubjects(user!.id),
+    getSimulationWorkspace(user!.id),
+    getLongTermRiskSummary(user!.id),
   ]);
 
   return (

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildWorktreeValidationFingerprint } from "./worktree-validation-fingerprint";
@@ -9,6 +9,7 @@ const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-completion-evidence-"
 const headCommit = gitHead();
 const validationCommands = "pnpm completion:evidence:selftest; pnpm docs:readiness";
 const fingerprint = buildWorktreeValidationFingerprint(root, validationCommands, "docs-only");
+const inRepoRecord = path.join(root, ".completion-evidence-selftest.tmp");
 
 try {
   const validRecord = path.join(tempDir, "completion-evidence.txt");
@@ -19,6 +20,7 @@ try {
   const invalidUnverifiedReasonRecord = path.join(tempDir, "completion-unverified-reason.txt");
   const invalidResidualListRecord = path.join(tempDir, "completion-residual-list.txt");
   const invalidHighRiskBoundaryRecord = path.join(tempDir, "completion-high-risk-boundary.txt");
+  const validLocalMigrationRecord = path.join(tempDir, "completion-local-migration.txt");
   const invalidDocsOnlyReleaseRecord = path.join(tempDir, "completion-docs-only-release.txt");
   const invalidTimestampRecord = path.join(tempDir, "completion-timestamp.txt");
   const invalidEvidenceUriRecord = path.join(tempDir, "completion-evidence-uri.txt");
@@ -30,6 +32,12 @@ try {
   const invalidProfileRecord = path.join(tempDir, "completion-invalid-profile.txt");
   const changedCommandsRecord = path.join(tempDir, "completion-changed-commands.txt");
   const legacyRecord = path.join(tempDir, "completion-legacy.txt");
+  const inRepoFingerprint = buildWorktreeValidationFingerprint(
+    root,
+    validationCommands,
+    "docs-only",
+    [path.basename(inRepoRecord)],
+  );
 
   writeFileSync(validRecord, createRecord(headCommit));
   writeFileSync(invalidSecretRecord, `${createRecord(headCommit)}\nleaked: DATABASE_URL=postgresql://user:pass@example/db\n`);
@@ -46,6 +54,12 @@ try {
   writeFileSync(invalidHighRiskBoundaryRecord, createRecord(headCommit)
     .replace("  migrationAttempted: no", "  migrationAttempted: yes")
     .replace("highRiskConfirmation: not-applicable", "highRiskConfirmation: yes"));
+  writeFileSync(validLocalMigrationRecord, createRecord(headCommit)
+    .replace("evidenceClass: docs-only", "evidenceClass: local-smoke")
+    .replace("claimScope: source-only", "claimScope: local-runtime")
+    .replace("highestRuntimeWriteBoundary: R0", "highestRuntimeWriteBoundary: R1")
+    .replace("highRiskConfirmation: not-applicable", "highRiskConfirmation: yes")
+    .replace("  migrationAttempted: no", "  migrationAttempted: yes"));
   writeFileSync(invalidDocsOnlyReleaseRecord, createRecord(headCommit)
     .replace("  releaseCreated: no", "  releaseCreated: yes")
     .replace("highRiskConfirmation: not-applicable", "highRiskConfirmation: yes"));
@@ -73,6 +87,7 @@ try {
   expectExit("PASS with unverified reason fails", [invalidUnverifiedReasonRecord], 1);
   expectExit("residual list with extra text fails", [invalidResidualListRecord], 1);
   expectExit("high-risk flag without R4 fails", [invalidHighRiskBoundaryRecord], 1);
+  expectExit("isolated local migration is allowed at R1 with confirmation", [validLocalMigrationRecord], 0);
   expectExit("docs-only with release action fails", [invalidDocsOnlyReleaseRecord], 1);
   expectExit("date-only checkedAt fails", [invalidTimestampRecord], 1);
   expectExit("unsafe evidence URI fails", [invalidEvidenceUriRecord], 1);
@@ -85,9 +100,13 @@ try {
   expectExit("changed commands invalidate fingerprint", [changedCommandsRecord], 1);
   expectExit("legacy record fails current-binding validation", [legacyRecord], 1);
   expectExit("legacy record remains available as historical shape", [legacyRecord, "--shape-only"], 0, "bindingStatus: unavailable");
+  writeFileSync(inRepoRecord, createRecord(headCommit, inRepoFingerprint));
+  expectExit("repository record excludes itself from the checkout fingerprint", [inRepoRecord], 0, "bindingStatus: current");
+  verifyEvidenceOnlyDescendantBinding();
 
   console.log("completion evidence validator selftest passed.");
 } finally {
+  rmSync(inRepoRecord, { force: true });
   rmSync(tempDir, { force: true, recursive: true });
 }
 
@@ -110,7 +129,7 @@ function expectExit(label: string, args: string[], expectedStatus: number, expec
   }
 }
 
-function createRecord(sourceCommit: string): string {
+function createRecord(sourceCommit: string, selectedFingerprint = fingerprint): string {
   return [
     "schemaVersion: 2",
     "scope: docs-only enterprise completion evidence validator",
@@ -127,12 +146,12 @@ function createRecord(sourceCommit: string): string {
     "  browserOrRuntimeEvidence: not-applicable",
     "  checkedAt: 2026-07-11T06:30:00+08:00",
     "validationFingerprint:",
-    `  algorithm: ${fingerprint.algorithm}`,
-    `  gitHead: ${fingerprint.gitHead}`,
-    `  worktreeState: ${fingerprint.worktreeState}`,
-    `  worktreeHash: ${fingerprint.worktreeHash}`,
-    `  changedPaths: ${fingerprint.changedPaths.join(",") || "none"}`,
-    `  digest: ${fingerprint.digest}`,
+    `  algorithm: ${selectedFingerprint.algorithm}`,
+    `  gitHead: ${selectedFingerprint.gitHead}`,
+    `  worktreeState: ${selectedFingerprint.worktreeState}`,
+    `  worktreeHash: ${selectedFingerprint.worktreeHash}`,
+    `  changedPaths: ${selectedFingerprint.changedPaths.join(",") || "none"}`,
+    `  digest: ${selectedFingerprint.digest}`,
     "unverified:",
     "  skippedChecks: none",
     "  reason: not-applicable",
@@ -171,5 +190,71 @@ function createLegacyRecord(sourceCommit: string): string {
 function gitHead(): string {
   const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" });
   if (result.status !== 0) throw new Error("completion evidence selftest requires a Git checkout");
+  return result.stdout.trim();
+}
+
+function verifyEvidenceOnlyDescendantBinding(): void {
+  const repository = mkdtempSync(path.join(tmpdir(), "areaforge-completion-descendant-"));
+  const validator = path.join(root, "scripts/quality/completion-evidence-validate.ts");
+  const tsx = path.join(root, "node_modules/.bin/tsx");
+  const recordPath = path.join(repository, "completion.txt");
+  const evidencePath = path.join(repository, "docs/development/evidence.md");
+  try {
+    mkdirSync(path.dirname(evidencePath), { recursive: true });
+    writeFileSync(evidencePath, "fixture evidence\n");
+    runGit(repository, ["init", "-q"]);
+    runGit(repository, ["config", "user.email", "completion@example.invalid"]);
+    runGit(repository, ["config", "user.name", "Completion Selftest"]);
+    runGit(repository, ["add", "."]);
+    runGit(repository, ["commit", "-qm", "source"]);
+    const sourceCommit = runGit(repository, ["rev-parse", "HEAD"]);
+    const descendantFingerprint = buildWorktreeValidationFingerprint(
+      repository,
+      validationCommands,
+      "docs-only",
+      ["completion.txt"],
+    );
+    writeFileSync(recordPath, createDescendantRecord(sourceCommit, descendantFingerprint));
+    runGit(repository, ["add", "completion.txt"]);
+    runGit(repository, ["commit", "-qm", "evidence closeout"]);
+
+    expectDirectValidator(tsx, validator, repository, recordPath, 0);
+    writeFileSync(evidencePath, "drifted evidence\n");
+    runGit(repository, ["add", "."]);
+    runGit(repository, ["commit", "-qm", "unrelated drift"]);
+    expectDirectValidator(tsx, validator, repository, recordPath, 1);
+  } finally {
+    rmSync(repository, { force: true, recursive: true });
+  }
+}
+
+function createDescendantRecord(sourceCommit: string, selectedFingerprint: typeof fingerprint): string {
+  return createRecord(sourceCommit, selectedFingerprint)
+    .replace(
+      "evidenceUri: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md",
+      "evidenceUri: docs/development/evidence.md",
+    )
+    .replace(
+      "  sourceDocs: docs/development/completion-evidence-checklist.md, docs/development/validation-matrix.md",
+      "  sourceDocs: docs/development/evidence.md",
+    );
+}
+
+function expectDirectValidator(tsx: string, validator: string, cwd: string, record: string, expectedStatus: number): void {
+  const result = spawnSync(tsx, [validator, record], { cwd, encoding: "utf8" });
+  if (result.status !== expectedStatus) {
+    console.error(result.stdout.trim());
+    console.error(result.stderr.trim());
+    console.error(`HEAD=${runGit(cwd, ["rev-parse", "HEAD"])}`);
+    console.error(`parent=${runGit(cwd, ["show", "-s", "--format=%P", "HEAD"])}`);
+    console.error(`changes=${runGit(cwd, ["diff", "--name-status", "HEAD^", "HEAD", "--"])}`);
+    console.error(readFileSync(record, "utf8").match(/gitHead: .+/)?.[0] ?? "gitHead missing");
+    throw new Error(`descendant validator expected ${expectedStatus}, got ${result.status}`);
+  }
+}
+
+function runGit(cwd: string, args: string[]): string {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.stderr.trim() || `git ${args.join(" ")} failed`);
   return result.stdout.trim();
 }

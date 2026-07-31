@@ -37,7 +37,7 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 | 执行闭环 | 每日任务与债务流转、专注计时暂停/继续/恢复、结构化结束收口、有效学习判断、晚间复盘 |
 | 知识证据 | 考纲进度树、作战地图、掌握条件与证据、复测记录、笔记、私有附件、错题与复习提醒 |
 | 长期校准 | 近 7 天统计、长期风险、周审判、月复盘、全真模拟、阶段计划和需确认的调整草稿 |
-| AI 协助 | OpenAI-compatible Provider、结构化输出校验、本地规则回退、最小化上下文和显式触发 |
+| AI 协助 | OpenAI-compatible Provider、当前浏览器默认关闭 opt-in、结构化输出校验、本地规则回退、最小化上下文和显式触发 |
 | 私有交付 | 单管理员登录、PostgreSQL 持久化、备份恢复、签名 Release、服务器侧受控更新与回滚 |
 
 第一版与第二阶段文档范围的当前实现状态，统一以 [功能追踪矩阵](docs/development/feature-traceability.md) 为准。
@@ -46,8 +46,8 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 
 | 层级 | 当前事实 |
 |---|---|
-| 仓库候选 | `0.1.9` 发布候选推进中（承接已搁置的 `v0.1.8` 范围），计划见 [v0.1.9 版本计划](workflow/versions/v0.1.9-long-term-operations-release.md)；尚未创建 tag 或 Release |
-| 线上基线 | `0.1.7`，通过签名 GitHub Release `v0.1.7` 运行在 [forge.areasong.top](https://forge.areasong.top/) |
+| 仓库候选 | `1.1.0` 学习行动中心完整 minor 候选正在本地验证与 commit 冻结；SC-002/SC-004 仍须按目标 commit 重采，尚未创建 `v1.1.0` tag 或 Release |
+| 线上基线 | `0.1.9`，通过签名 GitHub Release `v0.1.9` 运行在 [forge.areasong.top](https://forge.areasong.top/)；本候选未触发 production apply |
 | 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
 | 状态详情 | 只读快照用 `pnpm ops:status --summary`；readiness、信号新鲜度与剩余证据缺口见 [运营 readiness](docs/development/operational-readiness.md) 与 [残余风险台账](docs/development/residual-risk-ledger.md) |
 
@@ -57,7 +57,7 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 
 - 当前是单管理员、电脑优先、移动端响应式适配的私有 Web 应用。
 - PostgreSQL 是结构化状态的源事实；附件本体保存在私有上传目录，并通过鉴权 API 访问。
-- AI 默认不读取动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题。
+- AI 默认不读取动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题；外部 Provider 还需当前浏览器在 `/settings/ai` 显式开启，Provider key 不进入客户端。
 - 报告、债务重排和阶段调整都保留用户确认边界，不静默自动应用。
 - Web runtime 不执行 Docker、备份、恢复、migration、回滚或服务器命令。
 - 多用户、排名、小程序、原生 App、复杂权限、AI 自动完整计划和复杂 PDF 自动解析仍不在当前范围。

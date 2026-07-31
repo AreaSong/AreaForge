@@ -49,6 +49,24 @@ try {
     throw new Error("OPS-007 local verification must keep production blocked");
   }
 
+  const idempotencyTampered = structuredClone(runtimeRecord);
+  const idempotencyCheck = idempotencyTampered.checks.find((check) => check.id === "upload.persistent_command_idempotency");
+  if (!idempotencyCheck) throw new Error("OPS-007 runtime fixture is missing the idempotency check");
+  idempotencyCheck.details.completedSnapshotReplayed = false;
+  idempotencyTampered.recordHash = calculateOps007RecordHash(idempotencyTampered);
+  writeFileSync(runtime, `${JSON.stringify(idempotencyTampered, null, 2)}\n`);
+  expectStatus("invalid", runtime);
+  writeFileSync(runtime, `${JSON.stringify(runtimeRecord, null, 2)}\n`);
+
+  const archivedNoteTampered = structuredClone(runtimeRecord);
+  const archivedNoteCheck = archivedNoteTampered.checks.find((check) => check.id === "upload.archived_note_write_gate");
+  if (!archivedNoteCheck) throw new Error("OPS-007 runtime fixture is missing the archived-note check");
+  archivedNoteCheck.details.readyCasRaceFailedClosed = false;
+  archivedNoteTampered.recordHash = calculateOps007RecordHash(archivedNoteTampered);
+  writeFileSync(runtime, `${JSON.stringify(archivedNoteTampered, null, 2)}\n`);
+  expectStatus("invalid", runtime);
+  writeFileSync(runtime, `${JSON.stringify(runtimeRecord, null, 2)}\n`);
+
   const awaiting = withAwaitingTask(() => expectStatus("awaiting_high_risk_confirmation", runtime));
   if (ops007PreflightExitCode(awaiting.status, false) !== 0 || ops007PreflightExitCode(awaiting.status, true) !== 1) {
     throw new Error("OPS-007 awaiting confirmation must pass projection mode and fail strict mode");
@@ -118,6 +136,7 @@ function copySources(): void {
     "scripts/quality/fixtures/attachment-crash-window/ops007-preconfirmation.json",
     "apps/web/lib/study/attachments-service.ts",
     "apps/web/lib/study/attachment-reconciliation-service.ts",
+    "apps/web/lib/study/persistent-idempotency.ts",
     "apps/web/app/api/notes/[noteId]/attachments/route.ts",
     "packages/storage/src/index.ts",
     "packages/storage/src/bounded-multipart.ts",
@@ -146,6 +165,18 @@ function createRuntimeRecord() {
       pass("migration.apply_verify_legacy_defaults", { legacyReadyCount: 1, legacyProtocolVersionZeroCount: 1 }),
       pass("migration.repeat_and_duplicate_preimage_rejected", { repeatApplyRejected: true, duplicatePreimageRejected: true }),
       pass("upload.write_intent_happy_path", { readyCount: 1, stagingLeftoverCount: 0, dtoHashExposed: false }),
+      pass("upload.persistent_command_idempotency", {
+        replayReturnedOriginal: true,
+        payloadMismatchRejectedBeforeWrite: true,
+        concurrentDuplicateFailedClosed: true,
+        completedSnapshotReplayed: true,
+      }),
+      pass("upload.archived_note_write_gate", {
+        archivedRejectedBeforeIntent: true,
+        completedReplayPreserved: true,
+        readyCasRaceFailedClosed: true,
+        failedIntentDownloadBlocked: true,
+      }),
       pass("upload.storage_identity_conflict_before_file", { conflictBeforeFileWrite: true, newFileCount: 0 }),
       pass("upload.staging_failure_compensation", { failedCount: 1, stagingRemoved: true }),
       pass("upload.compensation_failure_auditable", { failureCodeStable: true, stagingRetained: true }),

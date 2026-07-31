@@ -20,6 +20,26 @@ function main(): void {
   }), "schemaVersion");
 
   expectFail(withPatch(projection, (body) => {
+    delete (body.app as Partial<MutableProjection["app"]>).currentCheckout;
+  }), "app.currentCheckout");
+
+  expectFail(withPatch(projection, (body) => {
+    body.app.version = "9.9.9";
+  }), "app.version");
+
+  expectFail(withPatch(projection, (body) => {
+    body.app.productionBaseline.releaseTag = "v9.9.9" as "v0.1.9";
+  }), "app.productionBaseline.releaseTag");
+
+  expectFail(withPatch(projection, (body) => {
+    body.app.historicalRollback.role = "current_production" as "protected_rollback_target";
+  }), "app.historicalRollback.role");
+
+  expectFail(withPatch(projection, (body) => {
+    body.releaseEvidenceGaps.sourceRecordPath = "docs/development/release-v0.1.7-record.md";
+  }), "releaseEvidenceGaps.sourceRecordPath");
+
+  expectFail(withPatch(projection, (body) => {
     delete (body as Partial<MutableProjection>).uxReview;
   }), "uxReview");
 

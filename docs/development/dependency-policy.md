@@ -18,6 +18,7 @@
 - 涉及 auth、uploads、AI、release/updater、backup/restore、migration 的依赖变更，按高风险边界处理。
 - 不接受未说明用途的 transitive churn；锁文件变化必须能追溯到明确依赖。
 - 不把生产密钥、registry token、cosign 私钥或 smoke 凭据写入依赖配置、CI 日志或 release 记录。
+- 学习行动中心规划依赖（画布 `@xyflow/react`，学习树 `unified` / `remark-*` / `yaml` / `mdast-util-to-markdown`）在首次改 lockfile 前必须完成许可证、漏洞、bundle/build-script、telemetry 复核，并运行 `pnpm governance:preflight` 与 `pnpm audit:prod`；不得引入远程内容上传、客户端密钥或服务端 URL 抓取。确认包骨架见 `docs/development/high-risk-confirmation-packets.md`。
 
 ## Dependabot
 
@@ -78,7 +79,7 @@ pnpm ops:readiness
 
 ## 残余风险
 
-当前 lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.16`、Prisma dev 工具链的可选传递依赖 `@hono/node-server` 固定为 `1.19.13`、eslint/minimatch 传递依赖 `brace-expansion` 固定为 `1.1.16`，用于修复对应 advisory，同时避免升级 Next/Prisma/eslint 主版本。后续升级上游框架时应优先移除已不再需要的 override，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
+当前 Web 运行时和 lint 配置固定为 `next@16.2.11` / `eslint-config-next@16.2.11`。lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.18`、Prisma dev 工具链的可选传递依赖 `@hono/node-server` 固定为 `2.0.10`、Prisma/ajv 传递依赖 `fast-uri` 固定为 `3.1.4`、Next 可选图像依赖 `sharp` 固定为 `0.35.3`、eslint/minimatch 传递依赖 `brace-expansion` 固定为 `5.0.8`，用于修复对应 advisory，同时避免升级 Next/Prisma/eslint 主版本。`minimatch@3.1.5` 仍按旧 CommonJS 函数导出调用 `brace-expansion`，因此 workspace 使用 hash 绑定的 `patches/minimatch@3.1.5.patch` 同时兼容旧函数导出与 `5.0.8` 的 `{ expand }` 导出；该补丁只恢复调用契约，不改变 glob 语义或放宽安全上限。根工具依赖 `sharp` 同样固定到 `0.35.3`；后续升级 Next、Prisma、eslint、minimatch 或 sharp 上游时应优先移除已不再需要的 override/patch，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
 
 当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。`v0.1.7` 已产生真实签名 Release 的 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据，并已由服务器侧 updater 应用到生产；残余项 `AF-RISK-SC-001` 仍保持打开，是因为关闭台账需要维护者人工复核，生产 apply 不自动关闭 residual。
 

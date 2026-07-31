@@ -91,7 +91,7 @@ export async function decideTaskDebtReorder(
   now = new Date(),
 ): Promise<TaskDebtReorderDecisionResult> {
   const selectedTaskIds = normalizeSelectedTaskIds(input.selectedTaskIds);
-  const debtReorder = await getTaskDebtReorderSuggestion(now);
+  const debtReorder = await getTaskDebtReorderSuggestion(actorId, now);
   const selectedSuggestions = selectCurrentSuggestions(debtReorder, selectedTaskIds);
   const tasksById = await getReorderTasksById(selectedSuggestions.map((suggestion) => suggestion.taskId));
   const skipped = [
@@ -161,7 +161,7 @@ export async function applyTaskDebtReorder(
   now = new Date(),
 ): Promise<TaskDebtReorderApplicationResult> {
   const selectedTaskIds = normalizeSelectedTaskIds(input.selectedTaskIds);
-  const debtReorder = await getTaskDebtReorderSuggestion(now);
+  const debtReorder = await getTaskDebtReorderSuggestion(actorId, now);
   const currentTasks = await getReorderTasksById(selectedTaskIds);
   const preview = previewTaskDebtReorderApplication({
     suggestions: toCoreSuggestions(debtReorder.suggestions),

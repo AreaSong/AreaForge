@@ -2,7 +2,7 @@
 
 `apps/web` 是 AreaForge 的 Next.js 私有 Web 应用。它承载作战台、任务、计时、复盘、考纲、笔记附件、统计、报告、模拟考试、阶段调整和版本中心 UI。
 
-当前仓库发布候选版本为 `0.1.8`，线上仍运行 `0.1.7`，公网入口为 `https://forge.areasong.top/`；尚未创建或部署 `v0.1.8`。Web 运行时只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
+当前仓库发布候选版本为 `1.1.0`，线上仍通过签名 Release `v0.1.9` 运行 `0.1.9`，公网入口为 `https://forge.areasong.top/`；尚未创建或部署 `v1.1.0`。Web 运行时只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
 
 ## Getting Started
 
@@ -24,6 +24,7 @@ postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge
 pnpm --filter @areaforge/web typecheck
 pnpm --filter @areaforge/web lint
 pnpm --filter @areaforge/web build
+pnpm ops:v11:ai-provider-preference:selftest
 pnpm check
 ```
 
@@ -57,7 +58,7 @@ pnpm experience:review:validate <product-experience-review-record.md|txt>
 ## 运行边界
 
 - 页面和组件不直接调用 Prisma，数据库访问集中在 `packages/db` 和 Web service 层。
-- AI 只生成建议或草稿，不直接覆盖用户记录；普通首页 SSR 不触发真实 provider 外呼。
+- AI 只生成建议或草稿，不直接覆盖用户记录；普通首页 SSR 不触发真实 provider 外呼。八条显式 AI POST 路径还要求当前浏览器在 `/settings/ai` 明确开启偏好，缺失或畸形时默认使用本地规则；Provider key 只存在于服务端环境。
 - 附件不从 `public/` 暴露，下载必须走鉴权 API。
 - `/api/system/update-requests` 只写入受控请求；真正的更新由服务器侧 update-agent/updater 执行。
 - 更新请求入队前会做本地只读状态校验：同版本或旧版本 `apply`、无回退目标的 `rollback`、未变化的自动策略不会写入 request 文件。

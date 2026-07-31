@@ -15,12 +15,18 @@ type RequestOptions = {
   headers?: HeadersInit;
 };
 
+type BrowserFixtureManifest = {
+  schemaVersion: "v11-browser-fixture-manifest-v1";
+  routes: Record<string, string>;
+};
+
 const timeoutMs = Number(process.env.AREAFORGE_SMOKE_TIMEOUT_MS ?? "10000");
 const baseUrl = normalizeBaseUrl(process.env.AREAFORGE_SMOKE_BASE_URL ?? "http://127.0.0.1:3102");
 const smokeEmail = process.env.AREAFORGE_SMOKE_EMAIL;
 const allowWrites = process.env.AREAFORGE_SMOKE_ALLOW_WRITES === "true";
 let smokePassword: string | undefined;
 const results: CheckResult[] = [];
+let browserFixtures: BrowserFixtureManifest | null = null;
 
 async function main(): Promise<void> {
   try {
@@ -43,6 +49,7 @@ async function main(): Promise<void> {
       throw new Error("health payload is not AreaForge ok=true");
     }
   });
+  requireLastCheckPassed("health");
 
   await check("login", async () => {
     const response = await request("/api/auth/login", {
@@ -54,19 +61,17 @@ async function main(): Promise<void> {
     if (!cookie) throw new Error("login did not return a session cookie");
     if (user.email !== smokeEmail) throw new Error("login response user email mismatch");
   });
+  requireLastCheckPassed("login");
+
+  const workspace = await ensureSmokeWorkspace(cookie, tag);
+  const { workspaceStableKey, subjectId } = workspace;
 
   await assertNoActiveSession("active session preflight", cookie);
-
-  const subjectsBody = await checkedJson("subjects", "/api/subjects", cookie);
-  const subject = firstArrayItem(asRecord(subjectsBody).subjects);
-  const subjectId = stringField(subject, "id");
-  if (!subjectId) throw new Error("subjects response did not include a subject id");
-
-  await assertNoActiveSession("active session before synthetic writes", cookie);
 
   const nodeBody = await checkedJson("create syllabus node", "/api/syllabus/nodes", cookie, {
     method: "POST",
     body: {
+      idempotencyKey: crypto.randomUUID(),
       subjectId,
       title: `UX smoke 知识点 ${tag}`,
       kind: "topic",
@@ -80,6 +85,7 @@ async function main(): Promise<void> {
   const taskBody = await checkedJson("create task", "/api/tasks", cookie, {
     method: "POST",
     body: {
+      idempotencyKey: crypto.randomUUID(),
       subjectId,
       syllabusNodeId,
       title: `UX smoke 今日最小任务 ${tag}`,
@@ -91,20 +97,43 @@ async function main(): Promise<void> {
   const taskId = stringField(asRecord(taskBody).task, "id");
   if (!taskId) throw new Error("create task response missing task.id");
 
+  const inboxBody = await checkedJson("create plan inbox item", "/api/plan-inbox", cookie, {
+    method: "POST",
+    body: {
+      clientRequestKey: `ux-smoke-inbox-${tag}`,
+      title: `UX smoke 计划草稿 ${tag}`,
+      subjectId,
+      plannedDate: tomorrow,
+      estimatedMinutes: 30,
+      priority: "high",
+      type: "review",
+      primaryNodeId: syllabusNodeId,
+      relatedNodeIds: [],
+      predecessorTasks: [],
+    },
+  });
+  const inboxItemId = stringField(asRecord(inboxBody).item, "id");
+  if (!inboxItemId) throw new Error("create plan inbox item response missing item.id");
+
   await assertNoActiveSession("active session before start", cookie);
 
   const sessionBody = await checkedJson("start session", "/api/study-sessions/start", cookie, {
     method: "POST",
     body: { taskId },
   });
-  const sessionId = stringField(asRecord(sessionBody).session, "id");
-  if (!sessionId) throw new Error("start session response missing session.id");
+  const startedSession = asRecord(sessionBody.session);
+  const sessionId = stringField(startedSession, "id");
+  const sessionUpdatedAt = stringField(startedSession, "updatedAt");
+  if (!sessionId || !sessionUpdatedAt) throw new Error("start session response missing id or updatedAt");
 
   await assertActiveSession("active session after start", cookie);
 
   await checkedJson("end session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
     method: "POST",
     body: {
+      expectedStatus: "running",
+      expectedUpdatedAt: sessionUpdatedAt,
+      idempotencyKey: `ux-smoke-end-${sessionId}-${crypto.randomUUID()}`,
       qualityScore: 4,
       isEffective: true,
       understandingLevel: "能独立复述主链路",
@@ -117,6 +146,7 @@ async function main(): Promise<void> {
     },
   });
 
+  // Keep this request keyless so the smoke continues to cover the legacy today endpoint.
   await checkedJson("save daily review", "/api/reviews/today", cookie, {
     method: "POST",
     body: {
@@ -130,6 +160,7 @@ async function main(): Promise<void> {
   const noteBody = await checkedJson("create note", "/api/notes", cookie, {
     method: "POST",
     body: {
+      idempotencyKey: crypto.randomUUID(),
       subjectId,
       syllabusNodeId,
       taskId,
@@ -142,11 +173,37 @@ async function main(): Promise<void> {
   const noteId = stringField(asRecord(noteBody).note, "id");
   if (!noteId) throw new Error("create note response missing note.id");
 
+  const scheduleBody = await checkedJson("materialize review schedule", "/api/review-schedules", cookie, {
+    method: "POST",
+    body: {
+      targetType: "NOTE",
+      noteId,
+      dueDate: today,
+    },
+  });
+  const reviewScheduleId = stringField(asRecord(scheduleBody).schedule, "id");
+  if (!reviewScheduleId) throw new Error("materialize review schedule response missing schedule.id");
+
   const attachmentBody = await checkedAttachmentUpload(noteId, cookie);
   const attachment = asRecord(attachmentBody.attachment);
   if (attachment.uri || attachment.storedName) throw new Error("attachment response leaked internal storage fields");
   const downloadApiPath = stringField(attachment, "downloadApiPath");
+  const attachmentId = stringField(attachment, "id");
   if (!downloadApiPath) throw new Error("attachment response missing downloadApiPath");
+  if (!attachmentId) throw new Error("attachment response missing id");
+
+  const resourceBody = await checkedJson("create study resource", "/api/study-resources/from-attachment", cookie, {
+    method: "POST",
+    body: {
+      attachmentId,
+      title: `UX smoke 图片资料 ${tag}`,
+      subjectId,
+      category: "IMAGE",
+      tags: ["ux-smoke"],
+    },
+  });
+  const resourceId = stringField(asRecord(resourceBody).resource, "id");
+  if (!resourceId) throw new Error("create study resource response missing resource.id");
 
   await check("download note attachment", async () => {
     const response = await requestRaw(downloadApiPath, { cookie });
@@ -160,9 +217,10 @@ async function main(): Promise<void> {
     }
   });
 
-  await checkedJson("create mistake", "/api/mistakes", cookie, {
+  const mistakeBody = await checkedJson("create mistake", "/api/mistakes", cookie, {
     method: "POST",
     body: {
+      idempotencyKey: crypto.randomUUID(),
       subjectId,
       syllabusNodeId,
       title: `UX smoke 错题 ${tag}`,
@@ -172,17 +230,91 @@ async function main(): Promise<void> {
       nextReviewAt: tomorrow,
     },
   });
+  const mistakeId = stringField(asRecord(mistakeBody).mistake, "id");
+  if (!mistakeId) throw new Error("create mistake response missing mistake.id");
+
+  const importMarkdown = [
+    "---",
+    "protocol: AREAFORGE_LEARNING_TREE_V1",
+    "scope: global",
+    `workspaceKey: ${workspaceStableKey}`,
+    "---",
+    "",
+    `::af-subject{#ux-smoke-import-subject-${tag} title=\"UX smoke 导入科目 ${tag}\"}`,
+    "",
+    `# UX smoke 导入节点 ${tag}`,
+    `::af-node{#ux-smoke-import-node-${tag}}`,
+    "",
+  ].join("\n");
+  const importPreviewBody = await checkedJson("preview learning tree import", "/api/learning-tree/imports/preview", cookie, {
+    method: "POST",
+    body: { markdown: importMarkdown, scope: "global" },
+  });
+  const importPreview = asRecord(importPreviewBody.preview);
+  if (importPreview.blocking !== false) throw new Error("learning tree import preview is blocking");
+  const previewToken = stringField(importPreview, "previewToken");
+  const previewOperationId = stringField(importPreview, "operationId");
+  const previewItems = Array.isArray(importPreview.items) ? importPreview.items.map(asRecord) : [];
+  if (!previewToken || !previewOperationId || previewItems.length === 0) {
+    throw new Error("learning tree import preview missing token, operationId, or items");
+  }
+  const previewSelections = previewItems.map((item) => {
+    const stableKey = stringField(item, "stableKey");
+    if (!stableKey) throw new Error("learning tree import preview item missing stableKey");
+    return { stableKey, choice: "apply" as const };
+  });
+  const importConfirmBody = await checkedJson("confirm learning tree import", "/api/learning-tree/imports/confirm", cookie, {
+    method: "POST",
+    body: {
+      markdown: importMarkdown,
+      previewToken,
+      previewOperationId,
+      idempotencyKey: `ux-smoke-import-${tag}`,
+      selections: previewSelections,
+    },
+  });
+  const importId = stringField(asRecord(importConfirmBody.result), "batchId");
+  if (!importId) throw new Error("confirm learning tree import response missing result.batchId");
 
   await checkedJson("dashboard today", "/api/dashboard/today", cookie, undefined, (body) =>
     asRecord(body).dashboard ? null : "dashboard payload missing");
+  await checkedJson("app shell status", "/api/app-shell/status", cookie, undefined, (body) =>
+    asRecord(body).status ? null : "app-shell status payload missing");
+  await checkedJson("action center today", "/api/action-center/today", cookie, undefined, (body) =>
+    asRecord(body).today ? null : "action-center today payload missing");
+  await checkedJson("plan rolling", "/api/plan/rolling", cookie, undefined, (body) =>
+    asRecord(body).plan ? null : "plan rolling payload missing");
   await checkedJson("analytics summary", "/api/analytics/summary", cookie, undefined, (body) =>
     asRecord(body).analytics ? null : "analytics payload missing");
   await checkedJson("reports periodic", "/api/reports/periodic", cookie, undefined, (body) =>
     asRecord(body).reports ? null : "reports payload missing");
 
+  const currentReportBody = await checkedJson("current weekly report", "/api/reports/current?period=week", cookie);
+  const currentReport = asRecord(currentReportBody.report);
+  const reportRange = asRecord(currentReport.range);
+  const reportRevision = currentReport.revision;
+  const reportRangeStart = stringField(reportRange, "start");
+  const reportRangeEnd = stringField(reportRange, "end");
+  if (typeof reportRevision !== "number" || !reportRangeStart || !reportRangeEnd) {
+    throw new Error("current weekly report response missing revision or range");
+  }
+  const reportDecisionBody = await checkedJson("confirm weekly report", "/api/reports/periodic/decisions", cookie, {
+    method: "POST",
+    body: {
+      kind: "week",
+      action: "confirm",
+      expectedRevision: reportRevision,
+      rangeStart: reportRangeStart,
+      rangeEnd: reportRangeEnd,
+    },
+  });
+  const reportDecisionId = stringField(asRecord(reportDecisionBody.decision), "id");
+  if (!reportDecisionId) throw new Error("confirm weekly report response missing decision.id");
+
   const examBody = await checkedJson("create simulation exam", "/api/simulation/exams", cookie, {
     method: "POST",
     body: {
+      idempotencyKey: crypto.randomUUID(),
       name: `UX smoke 模拟 ${tag}`,
       examDate: today,
       isFirstSynchronized: false,
@@ -190,12 +322,16 @@ async function main(): Promise<void> {
       targetScore: 300,
     },
   });
-  const examId = stringField(asRecord(examBody).exam, "id");
+  const exam = asRecord(examBody.exam);
+  const examId = stringField(exam, "id");
+  const examRevision = exam.revision;
   if (!examId) throw new Error("create simulation exam response missing exam.id");
+  if (typeof examRevision !== "number") throw new Error("create simulation exam response missing exam.revision");
 
   await checkedJson("save simulation result", `/api/simulation/exams/${encodeURIComponent(examId)}/results`, cookie, {
     method: "POST",
     body: {
+      expectedRevision: examRevision,
       targetDurationMinutes: 180,
       actualDurationMinutes: 170,
       targetScore: 300,
@@ -207,34 +343,51 @@ async function main(): Promise<void> {
       subjectResults: [
         {
           subjectId,
+          paperFullScore: 100,
           targetScore: 100,
           actualScore: 82,
           durationMinutes: 50,
           blankQuestionCount: 1,
           lossReasons: ["基础概念"],
           summary: "需要复盘。",
+          lossItems: [{
+            reason: "CONCEPT_GAP",
+            syllabusNodeId,
+            lostScore: 18,
+            note: "本地 smoke 结构化失分",
+          }],
         },
       ],
     },
   });
 
-  const stagePlanBody = await checkedJson("create stage plan", "/api/simulation/stage-plans", cookie, {
-    method: "POST",
-    body: {
-      name: `UX smoke 阶段 ${tag}`,
-      startDate: today,
-      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      goal: "验证阶段计划和调整草稿路径。",
-      mode: "maintain",
-      status: "active",
-    },
-  });
-  const stagePlanId = stringField(asRecord(stagePlanBody).plan, "id");
+  const stagePlansBody = await checkedJson("stage plans", "/api/simulation/stage-plans", cookie);
+  const stagePlans = asRecord(stagePlansBody).plans;
+  const currentStagePlan = Array.isArray(stagePlans)
+    ? stagePlans.map(asRecord).find((plan) => plan.status === "active" || plan.status === "draft")
+    : undefined;
+  let stagePlanId = stringField(currentStagePlan, "id");
+  if (!stagePlanId) {
+    const stagePlanBody = await checkedJson("create stage plan", "/api/simulation/stage-plans", cookie, {
+      method: "POST",
+      body: {
+        idempotencyKey: crypto.randomUUID(),
+        baseRevision: null,
+        name: `UX smoke 阶段 ${tag}`,
+        startDate: today,
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        goal: "验证阶段计划和调整草稿路径。",
+        mode: "maintain",
+        status: "active",
+      },
+    });
+    stagePlanId = stringField(asRecord(stagePlanBody).plan, "id");
+  }
   if (!stagePlanId) throw new Error("create stage plan response missing plan.id");
 
   const draftBody = await checkedJson("create stage draft local rule", "/api/simulation/stage-adjustment-drafts", cookie, {
     method: "POST",
-    body: { stagePlanId },
+    body: { idempotencyKey: crypto.randomUUID(), stagePlanId },
   });
   const draft = asRecord(asRecord(draftBody).draft);
   if (draft.canAutoApply !== false || draft.requiresUserConfirmation !== true) {
@@ -268,7 +421,21 @@ async function main(): Promise<void> {
     if (!response.response.ok) throw new Error("V2 check request was not accepted");
   });
 
-  for (const page of ["/", "/notes", "/syllabus", "/analytics", "/reports", "/simulation", "/settings"]) {
+  for (const page of [
+    "/today",
+    "/today/plan",
+    "/today/inbox",
+    "/settings",
+    "/settings/workspace",
+    "/knowledge/canvas",
+    "/knowledge/overview",
+    "/knowledge/notes",
+    "/knowledge/syllabus",
+    "/knowledge/reviews",
+    "/analytics",
+    "/reports",
+    "/simulation",
+  ]) {
     await check(`page ${page}`, async () => {
       const response = await requestRaw(page, { cookie });
       const text = await response.text();
@@ -281,14 +448,216 @@ async function main(): Promise<void> {
     });
   }
 
+  await check("batch10 app shell nav isolation", async () => {
+    const response = await requestRaw("/today", { cookie });
+    const text = await response.text();
+    if (text.includes("NEXT_REDIRECT;replace;/login")) {
+      throw new Error("authenticated /today redirected to login");
+    }
+    for (const label of ["今日", "计划", "知识", "复盘", "阶段", "设置"]) {
+      if (!text.includes(label)) {
+        throw new Error(`Batch 10 nav missing label: ${label}`);
+      }
+    }
+    for (const href of ['href="/knowledge/canvas"', 'href="/review/reports"', 'href="/stage/overview"']) {
+      if (!text.includes(href)) {
+        throw new Error(`Batch 10 App Shell must expose ${href}`);
+      }
+    }
+    const forbiddenHrefs = [
+      'href="/analytics"',
+      'href="/reports"',
+      'href="/simulation"',
+      'href="/motivation"',
+      'href="/dashboard"',
+    ];
+    for (const href of forbiddenHrefs) {
+      if (text.includes(href)) {
+        throw new Error(`Batch 10 App Shell must not expose legacy ${href}`);
+      }
+    }
+  });
+
+  await check("batch9 settings openings", async () => {
+    for (const path of ["/settings/profile", "/settings/notifications", "/settings/ai"]) {
+      const response = await requestRaw(path, { cookie });
+      const text = await response.text();
+      if (text.includes("NEXT_REDIRECT;replace;/login")) {
+        throw new Error(`authenticated ${path} redirected to login`);
+      }
+      if (response.status >= 500) {
+        throw new Error(`${path} returned ${response.status}`);
+      }
+    }
+  });
+
+  await checkedJson("batch8 knowledge canvas api", "/api/knowledge-canvas?depth=1&limit=40", cookie, {
+    method: "GET",
+  }, (body) => {
+    const canvas = asRecord(body).canvas;
+    if (!canvas || typeof canvas !== "object") return "knowledge canvas missing canvas payload";
+    const record = asRecord(canvas);
+    if (!Array.isArray(record.nodes) || !Array.isArray(record.list)) {
+      return "knowledge canvas missing nodes/list";
+    }
+    if (!record.layout || typeof asRecord(record.layout).revision !== "number") {
+      return "knowledge canvas missing layout revision";
+    }
+    return null;
+  });
+
+  await assertNoActiveSession("active session before subject shortcut", cookie);
+  const shortcutBody = await checkedJson("subject shortcut start", "/api/study-sessions/start", cookie, {
+    method: "POST",
+    body: {
+      subjectId,
+      goalMinutes: 25,
+      startSource: "SUBJECT_SHORTCUT",
+    },
+  });
+  const shortcutSessionId = stringField(asRecord(shortcutBody).session, "id");
+  const shortcutSession = asRecord(shortcutBody.session);
+  const shortcutUpdatedAt = stringField(shortcutSession, "updatedAt");
+  if (!shortcutSessionId || !shortcutUpdatedAt) throw new Error("subject shortcut start missing id or updatedAt");
+
+  await check("page /focus/[sessionId]", async () => {
+    const response = await requestRaw(`/focus/${encodeURIComponent(shortcutSessionId)}`, { cookie });
+    const text = await response.text();
+    if (text.includes("NEXT_REDIRECT;replace;/login")) {
+      throw new Error("authenticated focus page redirected to login");
+    }
+    if (!text.includes("AreaForge") && !text.includes("专注")) {
+      throw new Error("focus page payload missing expected markers");
+    }
+  });
+
+  await checkedJson("end subject shortcut session", `/api/study-sessions/${encodeURIComponent(shortcutSessionId)}/end`, cookie, {
+    method: "POST",
+    body: {
+      expectedStatus: "running",
+      expectedUpdatedAt: shortcutUpdatedAt,
+      idempotencyKey: `ux-smoke-shortcut-end-${shortcutSessionId}-${crypto.randomUUID()}`,
+      qualityScore: 3,
+      isEffective: true,
+      understandingLevel: "能独立复述主链路",
+      minimalOutput: "Batch 7 科目快捷计时 smoke",
+      nextAction: "回到今日行动中心",
+      producedNote: false,
+      producedMistake: false,
+      note: "Batch 7 subject shortcut closeout",
+      completeTask: false,
+    },
+  });
+
+  browserFixtures = {
+    schemaVersion: "v11-browser-fixture-manifest-v1",
+    routes: {
+      today: "/today",
+      todayPlan: "/today/plan",
+      taskDetail: `/today/tasks/${taskId}`,
+      todayInbox: "/today/inbox",
+      inboxDetail: `/today/inbox/${inboxItemId}`,
+      canvas: "/knowledge/canvas",
+      knowledgeOverview: "/knowledge/overview",
+      imports: "/knowledge/imports",
+      importDetail: `/knowledge/imports/${importId}`,
+      syllabus: "/knowledge/syllabus",
+      syllabusDetail: `/knowledge/syllabus/${syllabusNodeId}`,
+      notes: "/knowledge/notes",
+      noteDetail: `/knowledge/notes/${noteId}`,
+      mistakes: "/knowledge/mistakes",
+      mistakeDetail: `/knowledge/mistakes/${mistakeId}`,
+      resources: "/knowledge/resources",
+      resourceDetail: `/knowledge/resources/${resourceId}`,
+      resourcePreview: `/knowledge/resources/${resourceId}/preview`,
+      reviews: "/knowledge/reviews",
+      reviewDetail: `/knowledge/reviews/${reviewScheduleId}`,
+      dailyReview: "/review/daily",
+      reports: "/review/reports",
+      reportHistory: `/review/reports/history/${reportDecisionId}`,
+      stageOverview: "/stage/overview",
+      simulations: "/stage/simulation",
+      simulationDetail: `/stage/simulation/${examId}`,
+      analytics: "/stage/analytics",
+      profile: "/settings/profile",
+      workspace: "/settings/workspace",
+      ai: "/settings/ai",
+      experience: "/settings/experience",
+      notifications: "/settings/notifications",
+      system: "/settings/system",
+      focus: `/focus/${sessionId}`,
+      quickReview: `/quick-review/${reviewScheduleId}`,
+    },
+  };
+
   report();
 }
 
 async function checkedAttachmentUpload(noteId: string, cookie: string): Promise<Record<string, unknown>> {
   return await checkedJson("upload note attachment", `/api/notes/${encodeURIComponent(noteId)}/attachments`, cookie, {
     method: "POST",
+    headers: { "Idempotency-Key": crypto.randomUUID() },
     rawBody: attachmentFormData(),
   });
+}
+
+async function ensureSmokeWorkspace(cookie: string, tag: string): Promise<{
+  workspaceId: string;
+  workspaceStableKey: string;
+  subjectId: string;
+}> {
+  const workspacesBody = await checkedJson("exam workspaces", "/api/exam-workspaces", cookie);
+  const workspaces = asRecord(workspacesBody).workspaces;
+  let workspace = Array.isArray(workspaces)
+    ? workspaces.map(asRecord).find((item) => item.status === "ACTIVE")
+    : undefined;
+
+  if (!stringField(workspace, "id")) {
+    const createdBody = await checkedJson("create active exam workspace", "/api/exam-workspaces", cookie, {
+      method: "POST",
+      body: {
+        stableKey: `ux-smoke-${tag}`,
+        name: `UX smoke 工作区 ${tag}`,
+        activate: true,
+        subjects: [{
+          stableKey: `ux-smoke-subject-${tag}`,
+          name: `UX smoke 科目 ${tag}`,
+          color: "#0f766e",
+          sortOrder: 10,
+          groupStableKey: null,
+        }],
+      },
+    });
+    workspace = asRecord(createdBody.workspace);
+  }
+
+  const workspaceId = stringField(workspace, "id");
+  const workspaceStableKey = stringField(workspace, "stableKey");
+  if (!workspaceId) throw new Error("active exam workspace response missing workspace.id");
+  if (!workspaceStableKey) throw new Error("active exam workspace response missing workspace.stableKey");
+  const workspaceRevision = Number(asRecord(workspace).revision);
+  if (!Number.isInteger(workspaceRevision) || workspaceRevision < 1) throw new Error("active exam workspace response missing workspace.revision");
+
+  const subjectsPath = `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/subjects`;
+  const subjectsBody = await checkedJson("workspace subjects", subjectsPath, cookie);
+  let subject = firstArrayItem(asRecord(subjectsBody).subjects);
+  if (!stringField(subject, "id")) {
+    const createdBody = await checkedJson("create workspace subject", subjectsPath, cookie, {
+      method: "POST",
+      body: {
+        stableKey: `ux-smoke-subject-${tag}`,
+        name: `UX smoke 科目 ${tag}`,
+        color: "#0f766e",
+        sortOrder: 10,
+        expectedWorkspaceRevision: workspaceRevision,
+      },
+    });
+    subject = asRecord(createdBody.subject);
+  }
+
+  const subjectId = stringField(subject, "id");
+  if (!subjectId) throw new Error("workspace subject response missing subject.id");
+  return { workspaceId, workspaceStableKey, subjectId };
 }
 
 async function assertNoActiveSession(name: string, cookie: string): Promise<void> {
@@ -395,6 +764,13 @@ async function check(name: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
+function requireLastCheckPassed(name: string): void {
+  const result = results.at(-1);
+  if (!result || result.name !== name || !result.ok) {
+    throw new Error(`${name} failed`);
+  }
+}
+
 function validateConfig(): void {
   if (!allowWrites) throw new Error("AREAFORGE_SMOKE_ALLOW_WRITES=true is required because local UX smoke writes synthetic data");
   if (process.env.AREAFORGE_SMOKE_ALLOW_NON_LOCAL !== undefined) {
@@ -418,6 +794,7 @@ function report(): void {
     baseUrl: redactedBaseUrl(),
     checkedAt: new Date().toISOString(),
     writeScope: "synthetic-local-ux-smoke",
+    browserFixtures,
     checks: results.map((result) => ({
       name: result.name,
       ok: result.ok,

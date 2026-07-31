@@ -193,6 +193,7 @@ function checkD1ImplementationIfDone(): void {
   }
 
   const schema = read("prisma/schema.prisma");
+  const workspaceMigration = read("prisma/migrations/20260721120000_v11_m1_exam_workspace_subject/migration.sql");
   const route = read("apps/web/app/api/reports/periodic/decisions/route.ts");
   const service = read("apps/web/lib/study/report-decisions-service.ts");
   const reportsService = read("apps/web/lib/study/reports-service.ts");
@@ -202,7 +203,8 @@ function checkD1ImplementationIfDone(): void {
   const unexpectedMethods = exportedMethods.filter((method) => !["GET", "POST"].includes(method));
   const requiredTerms = [
     ["schema", schema, "model PeriodicReportDecision"],
-    ["schema", schema, "@@unique([kind, rangeStart, rangeEnd])"],
+    ["workspace-migration", workspaceMigration, "CREATE UNIQUE INDEX \"PeriodicReportDecision_workspace_period_uidx\""],
+    ["workspace-migration", workspaceMigration, "(\"workspaceId\", \"kind\", \"rangeStart\", \"rangeEnd\")"],
     ["route", route, "export async function GET"],
     ["route", route, "export async function POST"],
     ["route", route, "requireApiUser(request)"],
@@ -215,7 +217,7 @@ function checkD1ImplementationIfDone(): void {
     ["reports-page", reportsPage, "ReportDecisionActions"],
     ["report-decision-actions", reportDecisionActions, "确认本报告"],
     ["report-decision-actions", reportDecisionActions, "驳回本报告"],
-    ["report-decision-actions", reportDecisionActions, "不自动修改任务或阶段计划"],
+    ["report-decision-actions", reportDecisionActions, "不会修改现有任务或 StagePlan"],
   ];
   const missing = requiredTerms
     .filter(([, content, term]) => !content.includes(term))
@@ -329,7 +331,8 @@ function checkD3ImplementationIfDone(): void {
   const requiredTerms = [
     ["ai-route", route, "export async function POST"],
     ["ai-route", route, "requireApiUser(request)"],
-    ["ai-route", route, "allowExternalProvider: true"],
+    ["ai-route", route, "readAiProviderPreferenceFromRequest(request)"],
+    ["ai-route", route, "allowExternalProvider: preference.externalProviderEnabled"],
     ["service", service, "createAiStageAdjustmentDraft"],
     ["service", service, "minimizedLongTermStageContext"],
     ["service", service, "source: \"ai\""],
@@ -375,8 +378,18 @@ function checkD4ImplementationIfDone(): void {
 
   const riskService = readIfExists("apps/web/lib/study/long-term-risk-service.ts");
   const riskRoute = readIfExists("apps/web/app/api/analytics/long-term-risks/route.ts");
-  const syllabusPage = readIfExists("apps/web/app/syllabus/page.tsx") ?? readIfExists("apps/web/components/syllabus-panel.tsx");
-  const notesPage = readIfExists("apps/web/app/notes/page.tsx") ?? readIfExists("apps/web/components/notes-panel.tsx");
+  const syllabusPage = readExistingFiles([
+    "apps/web/app/(app)/knowledge/syllabus/page.tsx",
+    "apps/web/components/syllabus-manager.tsx",
+    "apps/web/app/syllabus/page.tsx",
+    "apps/web/components/syllabus-panel.tsx",
+  ]);
+  const notesPage = readExistingFiles([
+    "apps/web/app/(app)/knowledge/notes/page.tsx",
+    "apps/web/components/note-library.tsx",
+    "apps/web/app/notes/page.tsx",
+    "apps/web/components/notes-panel.tsx",
+  ]);
   const reportsPage = readIfExists("apps/web/app/reports/page.tsx");
   const taskPanel = readIfExists("apps/web/components/task-panel.tsx");
   const routeMethods = riskRoute ? getExportedRouteMethods(riskRoute) : [];
@@ -556,7 +569,8 @@ function isBatch6StageDraftDecisionRoute(file: string): boolean {
 }
 
 function isD1ReportDecisionRoute(file: string): boolean {
-  return /\/reports\/periodic\/decisions\/route\.ts$/.test(file);
+  return /\/reports\/periodic\/decisions\/route\.ts$/.test(file) ||
+    /\/reports\/\[[^\]]+\]\/(confirm|reject)\/route\.ts$/.test(file);
 }
 
 function isD2DebtReorderDecisionRoute(file: string): boolean {
@@ -652,6 +666,13 @@ function read(file: string): string {
 
 function readIfExists(file: string): string | null {
   return existsSync(resolve(file)) ? read(file) : null;
+}
+
+function readExistingFiles(files: readonly string[]): string {
+  return files
+    .filter((file) => existsSync(resolve(file)))
+    .map((file) => read(file))
+    .join("\n");
 }
 
 function getExportedRouteMethods(routeContent: string): string[] {
