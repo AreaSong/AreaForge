@@ -57,7 +57,7 @@
 - `modules/simulation-exam.md`：全真模拟。
 - `modules/periodic-reports.md`：周审判与月复盘。
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
-- `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；当前工作树继续修复首次设置与科目管理体验）。
+- `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；当前 `v1.1.1` 候选继续修复首次设置与科目管理体验）。
 - `modules/plan-inbox.md`：计划收件箱（`v1.1.0` 已进入生产）。
 - `modules/unified-review.md`：统一复习（`v1.1.0` 已进入生产）。
 - `modules/learning-tree-import.md`：学习树导入（preview、原子 confirm、历史与一次性导出已随 `v1.1.0` 进入生产）。

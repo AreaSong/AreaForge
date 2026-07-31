@@ -71,10 +71,10 @@ const allowedPathPatterns = [
   /^output\/ops005\/(?:[A-Za-z0-9._-]+\/)*(?:production-evidence|operational-evidence|decision-history|v2-check|processing-reconciliation)[A-Za-z0-9._-]*\.(?:json|md|txt)$/,
   /^output\/ops006\/(?:concurrency-runtime|data-integrity-(?:before|after)|production-evidence|rollout|concurrency-probe|doctor-(?:before|after))[A-Za-z0-9._-]*\.(?:json|md|txt)$/,
   /^output\/supply-chain\/residual-review-AF-RISK-(?:SC-001|SC-002|SC-004)-[^/]+\.(?:md|txt|json)$/,
-  /^output\/supply-chain\/ci-supply-chain-v1\.1\.0-[A-Za-z0-9._-]+\.txt$/,
-  /^output\/supply-chain\/sc004-main-protection-readback-v1\.1\.0-[A-Za-z0-9._-]+\.json$/,
-  /^output\/supply-chain\/sc004-controlled-pr-v1\.1\.0-[A-Za-z0-9._-]+\.json$/,
-  /^output\/v11-compatibility\/compatibility-floor-runtime-v1\.1\.0-[A-Za-z0-9._-]+\.json$/,
+  /^output\/supply-chain\/ci-supply-chain-v1\.1\.(?:0|[1-9]\d*)-[A-Za-z0-9._-]+\.txt$/,
+  /^output\/supply-chain\/sc004-main-protection-readback-v1\.1\.(?:0|[1-9]\d*)-[A-Za-z0-9._-]+\.json$/,
+  /^output\/supply-chain\/sc004-controlled-pr-v1\.1\.(?:0|[1-9]\d*)-[A-Za-z0-9._-]+\.json$/,
+  /^output\/v11-compatibility\/compatibility-floor-runtime-v1\.1\.(?:0|[1-9]\d*)-[A-Za-z0-9._-]+\.json$/,
   /^output\/playwright\/(?:[A-Za-z0-9._-]+\/)*(?:runtime-identity[^/]*\.json|(?:ux-|desktop-|mobile-)[^/]+\.(?:png|jpe?g|webp))$/,
 ];
 

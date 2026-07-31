@@ -30,7 +30,7 @@ const evidencePaths = {
   productExperienceEvidence: "docs/evidence/product-experience.md",
   accessibilityEvidence: "docs/evidence/accessibility.md",
   compatibilityFloorEvidence: "docs/evidence/compatibility-floor.md",
-  compatibilityRuntimeEvidence: "output/v11-compatibility/compatibility-floor-runtime-v1.1.0-fixture.json",
+  compatibilityRuntimeEvidence: "output/v11-compatibility/compatibility-floor-runtime-v1.1.1-fixture.json",
   ops006007ReviewEvidence: "docs/evidence/ops-review.md",
   sc002Evidence: "docs/evidence/sc002.md",
   sc004ReadbackEvidence: "docs/evidence/sc004-readback.json",
@@ -50,8 +50,8 @@ try {
   assert.equal(ready.status, "ready_for_signed_release", JSON.stringify(ready));
   assert.equal(exitCodeForV11ReleaseAdmission(ready.status), 0);
   assert(ready.checks.every((check) => check.status === "ready"));
-  assert.equal(evaluate(dependencies, {}).status, "ready_for_signed_release", "the v1.1 command must default to v1.1.0");
-  assert.equal(evaluate(dependencies, { releaseTag: "v1.1.1" }).status, "invalid", "an explicit wrong tag must fail");
+  assert.equal(evaluate(dependencies, {}).status, "ready_for_signed_release", "the v1.1 command must default to v1.1.1");
+  assert.equal(evaluate(dependencies, { releaseTag: "v1.2.0" }).status, "invalid", "a tag outside v1.1.x must fail");
 
   rmSync(path.join(tempRoot, evidencePaths.completionEvidence));
   const missing = evaluate(dependencies);
@@ -244,7 +244,7 @@ try {
     },
   });
   assert.equal(cliMissing.status, 1, cliMissing.stderr);
-  assert.equal(JSON.parse(cliMissing.stdout).releaseTag, "v1.1.0");
+  assert.equal(JSON.parse(cliMissing.stdout).releaseTag, "v1.1.1");
   assert.equal(JSON.parse(cliMissing.stdout).status, "not_ready");
 
   console.log("PASS v1.1 release admission selftest");
@@ -254,7 +254,7 @@ try {
 
 function evaluate(
   dependencies: V11ReleaseAdmissionDependencies,
-  options: { releaseTag?: string } = { releaseTag: "v1.1.0" },
+  options: { releaseTag?: string } = { releaseTag: "v1.1.1" },
 ) {
   return evaluateV11ReleaseAdmission({
     root: tempRoot,
@@ -305,7 +305,7 @@ function passingDependencies(): V11ReleaseAdmissionDependencies {
     evaluateSc004: () => ({ status: "ready_for_human_review" }),
     validateBrowserEvidence: (evidencePath, binding) => {
       assert.equal(binding.expectedCommit, sourceCommit, "browser evidence must bind the source commit");
-      assert.equal(binding.expectedVersion, "1.1.0", "browser evidence must bind v1.1.0");
+      assert.equal(binding.expectedVersion, "1.1.1", "browser evidence must bind the requested v1.1 patch");
       assert.equal(
         binding.expectedSourceHash,
         computeProductExperienceSourceHash(tempRoot),
@@ -330,8 +330,8 @@ function freshUx() {
     reviewedAt: "2026-07-27T00:00:00.000Z",
     ageSeconds: 0,
     maxAgeSeconds: 100,
-    appVersion: "1.1.0",
-    expectedVersion: "1.1.0",
+    appVersion: "1.1.1",
+    expectedVersion: "1.1.1",
     detail: "current UX fixture passed",
     issueFields: [],
     command: "fixture",
@@ -465,7 +465,7 @@ function accessibilityRecord(): string {
     "schemaVersion: 1",
     "recordId: accessibility-fixture",
     "reviewedAt: 2026-07-27T00:00:00.000Z",
-    "appVersion: 1.1.0",
+    "appVersion: 1.1.1",
     `gitCommit: ${sourceCommit}`,
     "status: pass",
     "environment: production-mode-local",
@@ -586,8 +586,8 @@ function writeOpsReview(overrides: { ops006Sha?: string; ops007Sha?: string } = 
 function writeAdmissionRecord(overrides: Partial<Record<keyof typeof evidencePaths, string>> = {}): void {
   const lines = [
     "schemaVersion: 1",
-    "releaseTag: v1.1.0",
-    "releaseVersion: 1.1.0",
+    "releaseTag: v1.1.1",
+    "releaseVersion: 1.1.1",
     `sourceGitCommit: ${sourceCommit}`,
     "bindingPolicy: source-or-evidence-only",
   ];

@@ -62,12 +62,12 @@
 
 ## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；当前分支继续修复首次设置、科目管理和核心页面体验，已形成新的本地 checkpoint，但尚未 push、创建修复 Release 或 production apply。该版本状态不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；当前分支 package version 为 `1.1.1`，继续修复首次设置、科目管理和核心页面体验，但尚未 push、创建 `v1.1.1` Release 或 production apply。该版本状态不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 五工作台 App Shell 与稳定路由 | 已完成 | `/today`、`/knowledge/*`、`/review/*`、`/stage/*`、`/settings/*`；旧 `/reports`、`/simulation` 兼容跳转 | 发布后信息架构修复待新 Release |
-| 考试工作区 / 自定义科目 / 408 分组 | 已完成 | `/settings/workspace` 与鉴权 API；首次设置、接管、科目/分组编辑、排序、归档、恢复 | 发布后产品化修复待新 Release |
+| 五工作台 App Shell 与稳定路由 | 已完成 | `/today`、`/knowledge/*`、`/review/*`、`/stage/*`、`/settings/*`；旧 `/reports`、`/simulation` 兼容跳转 | 发布后信息架构修复待 `v1.1.1` Release |
+| 考试工作区 / 自定义科目 / 408 分组 | 已完成 | `/settings/workspace` 与鉴权 API；首次设置、接管、科目/分组编辑、排序、归档、恢复 | 发布后产品化修复待 `v1.1.1` Release |
 | 今日行动中心与科目快捷计时 | 已完成 | `/today` + `GET /api/action-center/today`；科目快捷进入 `/focus` | 当前工作树继续收敛视觉层级 |
 | PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/today/inbox*`、`/today/plan`、`/today/tasks/[taskId]`、`/stage/overview` 与鉴权 API | current-bound browser evidence 待重采 |
 | 学习树 V1 preview / confirm | 已完成 | `/knowledge/imports`；preview、confirm/history/export；`AF-RISK-DATA-001` residual 未关 | 物理删除与完整账户导出仍不在范围 |
@@ -78,7 +78,7 @@
 | 动机 / 通知 / 四类 AI 草稿 | 已完成 | 内容库/提醒、通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET` | 不保存 prompt/raw response/history/token/cost/provider trace |
 | 外部 Provider 当前浏览器偏好 | 已完成 | `/settings/ai` 开关/保存/策略确认；鉴权 `GET|PATCH /api/ai/preferences`；安全默认关闭 Cookie；八条鉴权 POST route 统一 gate | 未执行真实生产 key smoke；不开放 Provider key 编辑 |
 | 模拟结构化失分 / 报告阶段入箱 | 已完成 | 分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升、报告/阶段确认边界 | 不自动修改现有任务 |
-| 完整 minor Release | 已完成 | `v1.1.0` Release/tag、签名资产与 verified production runtime identity；tag 本身没有 GPG signature | 当前修复须重新通过 admission 后另行发布与 apply |
+| 完整 minor Release | 已完成 | `v1.1.0` Release/tag、签名资产与 verified production runtime identity；tag 本身没有 GPG signature | 当前 `v1.1.1` 修复须重新通过 admission 后另行发布与 apply |
 
 ## 暂缓项
 

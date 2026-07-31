@@ -3,7 +3,7 @@
 > **视图型状态入口，不是第二套权威真相。** 功能状态与批次证据的权威入口是 [`feature-traceability.md`](feature-traceability.md)，残余缺口以 [`residual-risk-ledger.md`](residual-risk-ledger.md) 为准；三者冲突时以后两者为准，并在同一轮修正本文。
 > Cursor Canvas `areaforge-feature-map.canvas.tsx`（工作区 canvases 目录）是本文的可视化投影，状态变化时同步更新。
 
-快照日期：2026-07-31（生产运行 `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；仓库正在验证尚未发布或部署的发布后产品化修复）
+快照日期：2026-07-31（生产运行 `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；仓库 package version 为 `1.1.1`，正在验证尚未发布或部署的发布后产品化修复）
 
 ## 四态与映射
 
@@ -83,7 +83,7 @@
 | `loop.motivation-wake` | 动机唤醒机制 | done | `packages/core` `evaluateMotivationWake` | 只展示唤醒信号，不进 AI 默认上下文 |
 | `loop.stage-plan` | 持久阶段计划与调整草稿 | done | `StagePlan/StageAdjustmentDraft`、confirm/reject API | 草稿确认边界持久化 |
 | `loop.report-auto-apply` | 报告驱动自动任务/阶段应用 | planned | traceability「后续承接」列 | 明确不进当前范围；启动需单独高风险确认 |
-| `future.v1.1` | v1.1 学习行动中心 | done | `workflow/versions/v1.1-learning-action-center.md`、`docs/development/feature-traceability.md` | Batch 3–11 已形成 `v1.1.0` Release 并进入生产；当前工作树继续准备首次设置、科目管理和核心页面产品化修复，须新 commit/admission/Release 后才能改变线上实现 |
+| `future.v1.1` | v1.1 学习行动中心 | done | `workflow/versions/v1.1-learning-action-center.md`、`docs/development/feature-traceability.md` | Batch 3–11 已形成 `v1.1.0` Release 并进入生产；当前工作树以 `v1.1.1` 准备首次设置、科目管理和核心页面产品化修复，须新 commit/admission/Release 后才能改变线上实现 |
 | `future.knowledge-canvas` | 全局知识关联画布 | done | `/knowledge/canvas`、`tasks/done/0032-v11-batch8-canvas-knowledge.md` | 派生关系、分层加载、个人布局和等价列表已进入 `v1.1.0` 生产；当前导航与视觉收敛仍待修复 Release |
 
 ## 4. AI 边界
