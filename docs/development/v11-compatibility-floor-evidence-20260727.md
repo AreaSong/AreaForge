@@ -1,10 +1,10 @@
 schemaVersion: 1
 status: pass
-candidateImplementationCommit: 94755024860ceb29a18024e4aae9d3611ef30e03
+candidateImplementationCommit: fe89bde6e2cdc995f0c6eb1882b5442c6306c634
 compatibilityRuntimeEvidence:
-  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.0-20260730-9475502.json
-  sha256: sha256:ac8edc70e56950b05715c528852d669cf9fe52629d881a87d5255530dcb6cced
-candidateWorktreeFingerprint: sha256:f39c44ef6fe2673195cefb2e30f5a02a14f3a81566e3308ea07ba22ac1bf916e
+  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.0-20260731-fe89bde.json
+  sha256: sha256:4c8c887c7699326ff4cfb9e124181b3dc49458ebfcb3595d6f37f3ca54fb141d
+candidateWorktreeFingerprint: sha256:ca849ff291244f81b589fa4c5bb61b52318c1bcc0df5bf6fd313d9ac7cf3c28c
 legacyMigrationCount: 12
 legacyMigrationManifestSha256: sha256:90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368
 floorMigrationCount: 15

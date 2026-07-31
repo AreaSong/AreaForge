@@ -1,6 +1,6 @@
 schemaVersion: 1
 status: pass
-sourceGitCommit: 94755024860ceb29a18024e4aae9d3611ef30e03
+sourceGitCommit: fe89bde6e2cdc995f0c6eb1882b5442c6306c634
 reviewOutcome: ops006_ops007_four_gate_pass
 ops006RuntimeEvidence:
   path: docs/development/ops-006-production-evidence-v0.1.9-20260721/ops-006-production-evidence-v0.1.9-20260721.txt
