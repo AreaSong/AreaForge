@@ -14,11 +14,11 @@ freshValidation:
   checkedAt: 2026-08-01T00:00:00+08:00
 validationFingerprint:
   algorithm: sha256
-  gitHead: f995310e30c41270ee1e0a1c1ceeae9b6a8017eb
-  worktreeState: dirty
-  worktreeHash: sha256:9f0284a23b3bf0a70eaf992bc63436e86ed411e2ee739922a488aa0dae1079f9
-  changedPaths: AGENTS.md,CHANGELOG.md,README.md,apps/web/AGENTS.md,apps/web/README.md,docs/README.md,docs/deployment/github-release-updater.md,docs/development/README.md,docs/development/feature-map.md,docs/development/feature-traceability.md,docs/development/long-term-operability-control-plane.md,docs/development/operational-readiness.md,docs/development/production-release-runbook.md,docs/development/release-supply-chain-v1.1.1.md,docs/development/v11-phase-packages.md,docs/product/feature-scope.md,tasks/active/0035-v11-batch11-minor-release.md,workflow/README.md,workflow/versions/v1.1-learning-action-center.md
-  digest: sha256:9c91876331441d44053d2006cf4971306cc7e5e76ece1b941af49e9892e11b69
+  gitHead: bb851765bad7a5830c7187858f9ccfc5d7cc19b6
+  worktreeState: clean
+  worktreeHash: sha256:5e5a71dc06df0be8f737d81120b0b79d452afa110fe658a5ef1052a2aba307b6
+  changedPaths: none
+  digest: sha256:7c1817e5a4677158f74cc66c53beb3b4e8971ff9f0ad86675de52eb80659a9f0
 unverified:
   skippedChecks: none
   reason: none
