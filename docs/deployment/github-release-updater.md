@@ -8,7 +8,7 @@ AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单
 
 ## 当前远端状态
 
-截至 `2026-07-31`，远端生产已经完成 `v1.1.0` Release 更新；公网 health 与 Release/tag 交叉确认 production runtime identity 为 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。当前分支 package version 为 `1.1.1`，包含尚未 push、创建 `v1.1.1` Release 或 production apply 的发布后产品化修复候选：
+截至 `2026-07-31`，最新稳定 GitHub Release 为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；远端生产仍运行 `v1.1.0`，公网 health 与 Release/tag 交叉确认 production runtime identity 为 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。`v1.1.1` production apply 尚未执行：
 
 - 线上地址：`https://forge.areasong.top/`
 - 当前线上版本：`1.1.0`

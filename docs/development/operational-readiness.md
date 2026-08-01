@@ -4,11 +4,11 @@
 
 本文件是 AreaForge 的只读运营证据聚合入口。它不替代生产 runbook，也不授予 Web runtime 服务器命令能力；它只定义长期运营时应收集哪些证据、多久视为新鲜、缺失时如何降级。
 
-当前生产身份以 `https://forge.areasong.top/api/health` 的 verified runtime identity、GitHub `v1.1.0` Release/tag 和后续服务器 updater redacted status 交叉确认。仓库内 `docs/development/release-v0.1.9-record.md`、`github-0.1.9-20260721050738/update-record.txt` 及 `v0.1.9` OPS/供应链 closeout 均为历史证据，不能替代当前 `v1.1.0` 生产证据；当前仓库尚缺完整的 `v1.1.0` 生产 redacted status、镜像 digest 和发布后运营证据收口记录。
+当前生产身份以 `https://forge.areasong.top/api/health` 的 verified runtime identity、GitHub `v1.1.0` Release/tag 和后续服务器 updater redacted status 交叉确认。最新稳定 GitHub Release 已前进到 `v1.1.1`，但未执行 production apply；Release 资产不能替代当前 `v1.1.0` 生产证据。仓库内 `docs/development/release-v0.1.9-record.md`、`github-0.1.9-20260721050738/update-record.txt` 及 `v0.1.9` OPS/供应链 closeout 均为历史证据，不能替代当前 `v1.1.0` 生产证据；仓库仍缺完整的 `v1.1.0` 生产 redacted status、镜像 digest 和发布后运营证据收口记录。
 
 ## 当前基线
 
-- 当前 checkout：package version 为 `1.1.1`，用于准备发布后产品化修复候选；`v1.1.0` tag 仍指向已发布的 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。本地候选尚未 push、创建 `v1.1.1` Release 或 production apply。
+- 当前 checkout：package version 为 `1.1.1`；稳定 `v1.1.1` Release 指向 commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，Release 资产 checksum 与签名验证通过。生产仍为 `v1.1.0`，`v1.1.1` production apply 尚未执行。
 - 线上地址：`https://forge.areasong.top/`
 - 生产基线：`1.1.0` / `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；公网 health 已于 2026-07-31 只读验证。
 - 生产镜像：当前 Web/Migration immutable digest 尚未回填仓库；必须从 redacted updater/Release 证据采集，不能沿用 `v0.1.9` digest。

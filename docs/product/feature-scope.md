@@ -53,7 +53,7 @@
 
 ## 学习行动中心
 
-以下能力已进入生产。当前隔离分支还包含已形成本地 checkpoint、但尚未 push、创建修复 Release 或 production apply 的首次设置、科目管理与核心页面产品化修复；不得把本轮分支状态写成线上事实，也不得用本节扩大既有文档完成声明。权威规格见版本计划；实现状态见 `docs/development/feature-traceability.md`。
+以下能力已进入生产。首次设置、科目管理与核心页面产品化修复已形成稳定 `v1.1.1` GitHub Release，但尚未 production apply；不得把 Release 工件状态写成线上事实，也不得用本节扩大既有文档完成声明。权威规格见版本计划；实现状态见 `docs/development/feature-traceability.md`。
 
 - 五个稳定工作台与受保护应用壳（今日、知识、复盘、阶段、设置）。
 - 当前考试工作区、自定义科目、408 分组与历史工作区归档。
