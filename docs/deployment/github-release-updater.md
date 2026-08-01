@@ -8,22 +8,22 @@ AreaForge 支持 GitHub Release 驱动的服务器侧自动更新。它适合单
 
 ## 当前远端状态
 
-截至 `2026-07-31`，最新稳定 GitHub Release 为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；远端生产仍运行 `v1.1.0`，公网 health 与 Release/tag 交叉确认 production runtime identity 为 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。`v1.1.1` production apply 尚未执行：
+截至 `2026-08-01`，最新稳定 GitHub Release 与远端生产均为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。Web 版本中心提交的受控请求已由服务器侧 root update-agent/updater 完成，公网 health 与 Release/tag 交叉确认 production runtime identity：
 
 - 线上地址：`https://forge.areasong.top/`
-- 当前线上版本：`1.1.0`
-- 当前生产 GitHub Release：`v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`
-- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v1.1.0`
-- Web/Migration image：当前 immutable digest 尚未回填仓库，必须从 `v1.1.0` manifest 或服务器 redacted updater status 采集；不得沿用 `v0.1.9` digest
+- 当前线上版本：`1.1.1`
+- 当前生产 GitHub Release：`v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`
+- Release 地址：`https://github.com/AreaSong/AreaForge/releases/tag/v1.1.1`
+- Web image：`ghcr.io/areasong/areaforge-web:v1.1.1@sha256:46f32025693d3d7a16585984d77c9c6c4b6a2603456bad92c223dd1147a9daeb`
 - 服务器健康检查：`AREAFORGE_HEALTH_URL=http://127.0.0.1:3020/api/health`
 - 签名校验：`AREAFORGE_REQUIRE_SIGNATURE=true`，`AREAFORGE_COSIGN_PUBLIC_KEY=/etc/areaforge/cosign.pub`
-- update-agent：`timerEnabled=true`、`timerActive=true`、`blocker=null`（生产 root-only status 进入仓库前必须先 redacted）
+- update-agent：最近操作 `SUCCEEDED / APPLY_COMPLETED`、`blocker=null`、队列 0；生产 root-only status 进入仓库前必须先 redacted
 - 自动策略：`AREAFORGE_AUTO_APPLY=none`
-- 当前更新记录：完整 redacted status、update record 与镜像 digest 尚未入库
-- 只读公网校验：`GET https://forge.areasong.top/api/health` 返回 `1.1.0` 与 verified runtime identity
-- 回滚目标：写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；真实 rollback target 与 immutable digest 仍须从当前 updater status 确认
+- 当前更新结果：migration 24/24、Web/PostgreSQL healthy、health/extra smoke PASS、journal clean；未执行 restore 或 rollback
+- 只读公网校验：`GET https://forge.areasong.top/api/health` 返回 `1.1.1` 与 verified runtime identity
+- 更新前回滚目标：`v1.1.0` / `ghcr.io/areasong/areaforge-web:v1.1.0@sha256:ae2d515db11feff673d9b1721c73d51c0d4e31feea59174fc750eb02e6eb130c`；写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`
 
-当前生产事实与缺口见 `docs/development/operational-readiness.md`。`docs/development/release-v0.1.9-record.md`、`docs/development/release-v0.1.7-record.md` 和更早记录均为历史证据，不能替代 `v1.1.0` 的 redacted updater、digest、smoke 或 rollback 证据。`v1.1.0` Release 资产包含签名文件，但 annotated tag 本身没有 GPG signature。
+当前生产事实与缺口见 `docs/development/operational-readiness.md`。`docs/development/release-v0.1.9-record.md`、`docs/development/release-v0.1.7-record.md` 和更早记录均为历史证据，不能替代 `v1.1.1` 的 updater、digest、smoke 或 rollback 证据。`v1.1.1` Release 资产包含签名文件，但 annotated tag 本身没有 GPG signature。
 
 ## 发布端配置
 
@@ -144,7 +144,7 @@ AREAFORGE_GITHUB_TOKEN=<只读 release/package token>
 ## Update Request V2 安全契约
 
 历史生产 `v0.1.9` 已完成 OPS-005 V2 check、`EXPECTED_BEFORE_MISMATCH` 零执行拒绝、decision history
-和 production evidence 人工关账。当前生产已是 `v1.1.0`，但版本变化不会自动刷新或关闭 OPS residual；
+和 production evidence 人工关账。当前生产已是 `v1.1.1`，但版本变化不会自动刷新或关闭 OPS residual；
 发布后修复和后续 Release 仍不能继承 `v0.1.9` 的执行授权，expected-before 语义或 Release 身份变化时必须重新采集证据。
 
 V2 链路如下：

@@ -4,15 +4,16 @@
 
 本文件是 AreaForge 的只读运营证据聚合入口。它不替代生产 runbook，也不授予 Web runtime 服务器命令能力；它只定义长期运营时应收集哪些证据、多久视为新鲜、缺失时如何降级。
 
-当前生产身份以 `https://forge.areasong.top/api/health` 的 verified runtime identity、GitHub `v1.1.0` Release/tag 和后续服务器 updater redacted status 交叉确认。最新稳定 GitHub Release 已前进到 `v1.1.1`，但未执行 production apply；Release 资产不能替代当前 `v1.1.0` 生产证据。仓库内 `docs/development/release-v0.1.9-record.md`、`github-0.1.9-20260721050738/update-record.txt` 及 `v0.1.9` OPS/供应链 closeout 均为历史证据，不能替代当前 `v1.1.0` 生产证据；仓库仍缺完整的 `v1.1.0` 生产 redacted status、镜像 digest 和发布后运营证据收口记录。
+当前生产身份以 `https://forge.areasong.top/api/health` 的 verified runtime identity、GitHub `v1.1.1` Release/tag 和服务器 updater 状态交叉确认。2026-08-01 已通过 Web 版本中心受控请求完成 production apply；Release 资产本身仍不能替代生产证据。仓库内 `docs/development/release-v0.1.9-record.md`、`github-0.1.9-20260721050738/update-record.txt` 及旧版 OPS/供应链 closeout 均为历史证据，不能替代当前 `v1.1.1` 生产证据。
 
 ## 当前基线
 
-- 当前 checkout：package version 为 `1.1.1`；稳定 `v1.1.1` Release 指向 commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，Release 资产 checksum 与签名验证通过。生产仍为 `v1.1.0`，`v1.1.1` production apply 尚未执行。
+- 当前 checkout：package version 为 `1.1.1`；稳定 `v1.1.1` Release 与生产均指向 commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，Release 资产 checksum 与签名验证通过。
 - 线上地址：`https://forge.areasong.top/`
-- 生产基线：`1.1.0` / `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；公网 health 已于 2026-07-31 只读验证。
-- 生产镜像：当前 Web/Migration immutable digest 尚未回填仓库；必须从 redacted updater/Release 证据采集，不能沿用 `v0.1.9` digest。
-- compatibility floor：应用写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；`v0.1.9` 仅是设计 floor，真实 rollback target 与 immutable digest 仍须由当前 updater status/发布记录确认。
+- 生产基线：`1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；公网 health 已于 2026-08-01 只读验证。
+- 生产 Web 镜像：`ghcr.io/areasong/areaforge-web:v1.1.1@sha256:46f32025693d3d7a16585984d77c9c6c4b6a2603456bad92c223dd1147a9daeb`。
+- compatibility floor：应用写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；本次更新前回滚目标为 `v1.1.0` / Web digest `sha256:ae2d515db11feff673d9b1721c73d51c0d4e31feea59174fc750eb02e6eb130c`。
+- 2026-08-01 Web 受控更新：旧 `v1.1.0` processing claim 在 root-only 控制状态备份后完成隔离，原始 `NEEDS_RECONCILIATION / MIGRATION_STATE_UNCERTAIN` 审计记录保留，状态投影重建后解除 blocker。随后 Web 请求完成 `v1.1.1` apply；最近操作为 `SUCCEEDED / APPLY_COMPLETED`，队列 0、blocker null、Web/PostgreSQL healthy、migration `24 finished / 0 unfinished / 0 rolled back / 24 total`、health/extra smoke PASS、journal clean。更新流程创建并校验数据库、上传目录和环境配置备份，未执行 restore、rollback、业务数据修复或 residual 状态变化；`AREAFORGE_AUTO_APPLY=none` 保持不变。
 - 2026-07-31 生产数据收口：已创建并校验 `manual-data-fix-20260731T112330Z` 数据库与上传目录备份（数据库 SHA-256 `094c3e3e1946951ab4ae03ab28e61daffd39f98d8cb768f36882eae7fe7f3abc`；上传归档 SHA-256 `934aa349f1377648376ead64bcde39e5a6dd9b7099d3fdb41128ea85d75c010d`）。单事务将 workspace revision `4 -> 5`、12 个活动科目收敛为 7 个，将新高等数学的 1 次真实 session 和 1 张真实 note 迁移至保留的 legacy `MATH`，保留并重命名数学及四个 408 科目，删除 5 个重复科目；同时删除已盘点的合成业务数据、22 条对应审计事件、2 条附件 metadata 和 2 个已备份合成文件。审计事件的批准计数为 14，实际删除 22；额外 8 条均属于同批合成对象，具体为 2 条 `attachment-created`、3 条 `session-start` 和 3 条 `session-end`。这不涉及真实学习记录，但违反了批准的严格计数门禁；双备份继续保留，可用于受控恢复决策。
 - 清理后只读复核：正式 doctor 等价的 repeatable-read/read-only 聚合查询 12 项均为 0；附件双向扫描为 1 条 metadata / 1 个文件，db-only、file-only、hash/size mismatch、非法 URI、重复引用、unsafe/unexpected entry 均为 0。生产镜像没有仓库脚本与正式 doctor runtime，因此本次没有生成 `ops:data-integrity:doctor` JSON/validator 记录；该限制不得扩写成正式 doctor 证据。
 - 清理后产品复核：22 个静态主要入口在 2560px 桌面和 `390x844` 移动视口均为 22/22 可达、主内容存在、无错误页、无横向溢出，浏览器 console error/warning 为 0；`/settings/workspace` 显示最终 7 科且无 `[AF_SMOKE]` 或旧 `408 ` 前缀。公网 health 于 `2026-07-31T11:39:15Z` 报告 `1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3` / verified，随后 20 分钟 Web 日志错误关键字计数为 0。本机缺少 `smoke:prod-readonly:config` 所需账号/密码文件/extra command/expected version/auto-apply 配置，因此该浏览器复核不是正式 production-readonly smoke record，也不替代其 validator。
@@ -111,9 +112,9 @@ pnpm ops:status:validate <operability-status.json>
 pnpm ops:status --summary
 ```
 
-默认命令仍只读本地 `package.json`、长期运营入口文件、历史生产记录 `docs/development/release-v0.1.9-record.md`、历史回滚记录 `docs/development/release-v0.1.7-record.md`、UX review 候选和 `docs/development/residual-risk-ledger.json`，输出 schema V2 `offline_long_term_operability_status_projection` JSON。由于默认生产证据输入尚未迁移到 `v1.1.0`，其 `productionBaseline` 只能解释为历史工具投影，不得用于当前生产健康声明；当前事实以本文件顶部的 health/Release 交叉确认和明确缺口为准。其余 UX、residual、source binding 与只读安全边界保持不变。
+默认命令仍只读本地 `package.json`、长期运营入口文件、历史生产记录 `docs/development/release-v0.1.9-record.md`、历史回滚记录 `docs/development/release-v0.1.7-record.md`、UX review 候选和 `docs/development/residual-risk-ledger.json`，输出 schema V2 `offline_long_term_operability_status_projection` JSON。由于默认生产证据输入尚未迁移到 `v1.1.1`，其 `productionBaseline` 只能解释为历史工具投影，不得用于当前生产健康声明；当前事实以本文件顶部的 health/Release/updater 交叉确认和明确缺口为准。其余 UX、residual、source binding 与只读安全边界保持不变。
 
-`ops:status` 还会输出 `boundaryStops`，把当前 no-server/no-secret/no-residual-closure 边界下不能执行的动作显式列出。`v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006 与供应链证据已经按各自 closeout 进入 `closed-evidence`；停止线现在保护的是未来 Release/apply、migration、受控写 probe 和台账状态变更，不能把历史通过结果当成对 `v1.1.0` 或后续版本的授权。`releaseEvidenceGaps` 继续把当前生产记录的备份字段和附件 reconciliation 路径/status/hash 绑定展开成机器可读 `gapType`、`status`、`sourceField` 和 `blocks`；`v0.1.9` 默认记录完整时该组为 `ready`，但这不证明当前 checkout 已发布。`boundaryStops` 只说明“当前授权边界内不能做什么、还能跑哪些本地 validator、未来需要哪类确认”，不自动重新打开或关闭 residual，也不授权读取、打印、复制或提交 secrets。
+`ops:status` 还会输出 `boundaryStops`，把当前 no-server/no-secret/no-residual-closure 边界下不能执行的动作显式列出。`v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006 与供应链证据已经按各自 closeout 进入 `closed-evidence`；停止线现在保护的是未来 Release/apply、migration、受控写 probe 和台账状态变更，不能把历史通过结果当成对 `v1.1.1` 或后续版本的授权。`releaseEvidenceGaps` 继续把当前生产记录的备份字段和附件 reconciliation 路径/status/hash 绑定展开成机器可读 `gapType`、`status`、`sourceField` 和 `blocks`；`v0.1.9` 默认记录完整时该组为 `ready`，但这不证明当前 checkout 已发布。`boundaryStops` 只说明“当前授权边界内不能做什么、还能跑哪些本地 validator、未来需要哪类确认”，不自动重新打开或关闭 residual，也不授权读取、打印、复制或提交 secrets。
 
 维护窗口、release 前检查或新线程接手时，使用只读运营交接摘要：
 
@@ -170,7 +171,7 @@ pnpm ops:backup-restore:preview > /path/to/backup-restore-preview.json
 pnpm ops:backup-restore:preview:validate /path/to/backup-restore-preview.json
 ```
 
-该命令默认读取历史 `docs/development/release-v0.1.9-record.md`。在完整 `v1.1.0` redacted 生产记录入库前，默认输出只能用于查看旧证据形态；不得称为当前生产 preview。可通过 `AREAFORGE_BACKUP_PREVIEW_RELEASE_RECORD` 显式选择一份已脱敏记录，并通过 `AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD` 指向 redacted 恢复演练记录。输入限制、schema v2、source binding 和只读边界保持不变；`bindingStatus: current` 只表示绑定当前代码和所选输入，不会把历史 Release 记录升级为当前生产证据。
+该命令默认读取历史 `docs/development/release-v0.1.9-record.md`。在默认输入迁移到 `v1.1.1` redacted 生产记录前，输出只能用于查看旧证据形态；不得称为当前生产 preview。可通过 `AREAFORGE_BACKUP_PREVIEW_RELEASE_RECORD` 显式选择一份已脱敏记录，并通过 `AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD` 指向 redacted 恢复演练记录。输入限制、schema v2、source binding 和只读边界保持不变；`bindingStatus: current` 只表示绑定当前代码和所选输入，不会把历史 Release 记录升级为当前生产证据。
 
 `blockingGaps` 由 inventory 中非 `present` / `not_applicable` 项派生，用 `gapType`、`sourceInput`、`sourceField`、`safeEvidence` 和稳定 `blocks` 枚举列出会阻塞 release evidence、long-term gate、restore drill、rollback readiness 或 preview ready 的具体缺口；`releaseEvidenceBundleHash` 会以独立 `release_evidence_bundle_hash` 缺口出现，避免只看三类备份 hash 而漏掉发布证据包 hash。它不升级证据等级，也不证明备份归档存在。该命令不读取备份归档、数据库 dump、上传文件、生产 `.env` 或密钥，不连接生产、不执行服务器命令、不备份、不恢复、不运行 migration、不回滚、不修改 residual 台账；`bindingStatus: current` 和 validator 通过不代表备份归档存在、restore dry-run 成功、生产恢复授权、release evidence validator 通过或长期运营 live gate 通过。
 

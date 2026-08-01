@@ -18,12 +18,12 @@
 - `versions/v0.1.8-long-term-operability.md`：OPS-005/006、长期证据和体验加固的本地发布候选；维护者已于 2026-07-20 决定搁置，范围由 v0.1.9 计划承接。
 - `versions/optimization-20260720-long-term-operations.md`：2026-07-20 长期运营优化轮（非发布版本计划，已完成）：到期 residual 复核、四路独立审查修复、轻量门禁借鉴与 UX 证据重采。
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
-- `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 已发布并进入生产；隔离分支 `codex/v1.1-learning-action-center` 当前以 package version `1.1.1` 收拢发布后产品化修复候选。
+- `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 与发布后修复 `v1.1.1` 均已发布并完成受控 production apply，修复分支已通过 PR #27/#28 合并到 `main`。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
-- 最新稳定 GitHub Release 为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；生产仍为 `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`，`v0.1.9` 与更早版本只保留历史证据。
-- `versions/v1.1-learning-action-center.md` 的发布后修复已形成稳定 `v1.1.1` GitHub Release；SC-002/SC-004、browser/compatibility、受保护 PR 与 Release 资产校验均已按 commit `f995310` 完成。生产仍运行 `v1.1.0`，`v1.1.1` production apply 需独立确认。
+- 最新稳定 GitHub Release 与生产基线均为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；`v0.1.9` 与更早版本只保留历史证据。
+- `versions/v1.1-learning-action-center.md` 的发布后修复已完成 SC-002/SC-004、browser/compatibility、受保护 PR、Release 资产校验和 Web 受控 production apply。更新后 Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；`AREAFORGE_AUTO_APPLY=none` 与 residual 状态未改变。
 - 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
 - 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口。
 

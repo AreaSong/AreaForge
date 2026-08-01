@@ -10,11 +10,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 当前状态：
 
-- 最新稳定 GitHub Release 为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；远端 `https://forge.areasong.top/api/health` 仍报告生产 `1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3` 与 verified runtime identity，`v1.1.1` production apply 尚未执行。
+- 最新稳定 GitHub Release 与生产基线均为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；2026-08-01 已通过 Web 版本中心完成受控 production apply，远端 `https://forge.areasong.top/api/health` 报告 verified runtime identity。
 - Package A-E 和 docs 100% 当前证据已闭环。
 - Web 版本中心只能提交受控检查、应用、回退或策略请求；服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
-- 当前 checkout 已实现学习行动中心 Batch 3–10、Update Request V2 和发布后产品化修复；`v1.1.1` 已是 Release 工件事实，但只能把 `v1.1.0` Release commit 已有的能力写成线上事实。
+- 当前 checkout 已实现学习行动中心 Batch 3–10、Update Request V2 和发布后产品化修复；`v1.1.1` Release commit 的能力已随 verified production runtime identity 进入线上。
 
 Web 层边界：
 
