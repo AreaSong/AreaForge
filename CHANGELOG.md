@@ -6,7 +6,11 @@
 
 ## [Unreleased]
 
-目标修复版本为 `v1.1.1`；当前仅是本地候选，尚未创建 tag、GitHub Release 或执行生产更新。
+暂无。
+
+## [1.1.1] - 2026-07-31
+
+稳定 GitHub Release `v1.1.1` 已发布；生产仍运行 `v1.1.0`，本条 Release 记录不表示 production apply 已执行。
 
 ### Fixed
 
@@ -131,7 +135,8 @@
 - 恢复模式：规则触发与手动触发的最小任务恢复流程。
 - 私有交付：Docker Compose 生产编排、备份与恢复流程、GitHub Release 服务器侧自动更新器。
 
-[Unreleased]: https://github.com/AreaSong/AreaForge/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/AreaSong/AreaForge/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/AreaSong/AreaForge/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/AreaSong/AreaForge/compare/v0.1.9...v1.1.0
 [0.1.9]: https://github.com/AreaSong/AreaForge/compare/v0.1.7...v0.1.9
 [0.1.7]: https://github.com/AreaSong/AreaForge/compare/v0.1.6...v0.1.7

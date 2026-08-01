@@ -22,8 +22,8 @@
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
-- 生产与稳定 GitHub Release 基线为 `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；`v0.1.9` 与更早版本只保留历史证据。
-- 当前继续推进 `versions/v1.1-learning-action-center.md` 的 `v1.1.1` 发布后修复候选：本地实现已完成，但尚未 push、创建修复 Release 或 production apply；SC-002/SC-004 和 browser/compatibility 必须按新目标 commit 重采。
+- 最新稳定 GitHub Release 为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；生产仍为 `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`，`v0.1.9` 与更早版本只保留历史证据。
+- `versions/v1.1-learning-action-center.md` 的发布后修复已形成稳定 `v1.1.1` GitHub Release；SC-002/SC-004、browser/compatibility、受保护 PR 与 Release 资产校验均已按 commit `f995310` 完成。生产仍运行 `v1.1.0`，`v1.1.1` production apply 需独立确认。
 - 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
 - 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口。
 

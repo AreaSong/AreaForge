@@ -57,7 +57,7 @@
 - `modules/simulation-exam.md`：全真模拟。
 - `modules/periodic-reports.md`：周审判与月复盘。
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
-- `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；当前 `v1.1.1` 候选继续修复首次设置与科目管理体验）。
+- `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；首次设置与科目管理体验修复已随 `v1.1.1` Release 发布，尚未 production apply）。
 - `modules/plan-inbox.md`：计划收件箱（`v1.1.0` 已进入生产）。
 - `modules/unified-review.md`：统一复习（`v1.1.0` 已进入生产）。
 - `modules/learning-tree-import.md`：学习树导入（preview、原子 confirm、历史与一次性导出已随 `v1.1.0` 进入生产）。
@@ -151,6 +151,7 @@
 - `development/release-v0.1.9-record.md` / `development/release-supply-chain-v0.1.9.md`：历史生产基线 `v0.1.9` 的 updater apply、redacted backup/smoke/rollback 摘要和 strict 签名供应链证据；不证明当前 `v1.1.0` 生产健康。
 - `development/release-v0.1.7-record.md`：受保护的历史回滚目标证据，不替代当前生产发布记录。
 - `development/release-v1.1.0-candidate-record.md`：`v1.1.0` 发布前冻结候选的历史完成记录；只绑定当时 source commit，不能证明当前发布后修复工作树或当前生产健康。
+- `development/release-v1.1.1-artifact-record.md` / `development/release-supply-chain-v1.1.1.md`：稳定 `v1.1.1` GitHub Release 的工件边界、不可变镜像 digest、checksum 和签名资产证据；不证明 production apply、生产健康或 residual 关闭。
 - `development/release-record-template.md`：后续每个线上版本使用的标准 Release 证据记录模板。
 - `development/release-supply-chain-record-template.md`：下一次签名 Release / CI 的 SBOM、provenance、签名和 Actions pinning 证据记录模板。
 - `development/github-release-updater-design.md`：GitHub Release 自动更新器设计。

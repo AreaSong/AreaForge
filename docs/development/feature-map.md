@@ -83,7 +83,7 @@
 | `loop.motivation-wake` | 动机唤醒机制 | done | `packages/core` `evaluateMotivationWake` | 只展示唤醒信号，不进 AI 默认上下文 |
 | `loop.stage-plan` | 持久阶段计划与调整草稿 | done | `StagePlan/StageAdjustmentDraft`、confirm/reject API | 草稿确认边界持久化 |
 | `loop.report-auto-apply` | 报告驱动自动任务/阶段应用 | planned | traceability「后续承接」列 | 明确不进当前范围；启动需单独高风险确认 |
-| `future.v1.1` | v1.1 学习行动中心 | done | `workflow/versions/v1.1-learning-action-center.md`、`docs/development/feature-traceability.md` | Batch 3–11 已形成 `v1.1.0` Release 并进入生产；当前工作树以 `v1.1.1` 准备首次设置、科目管理和核心页面产品化修复，须新 commit/admission/Release 后才能改变线上实现 |
+| `future.v1.1` | v1.1 学习行动中心 | done | `workflow/versions/v1.1-learning-action-center.md`、`docs/development/feature-traceability.md` | Batch 3–11 已形成 `v1.1.0` Release 并进入生产；首次设置、科目管理和核心页面产品化修复已形成 `v1.1.1` Release，尚未 production apply |
 | `future.knowledge-canvas` | 全局知识关联画布 | done | `/knowledge/canvas`、`tasks/done/0032-v11-batch8-canvas-knowledge.md` | 派生关系、分层加载、个人布局和等价列表已进入 `v1.1.0` 生产；当前导航与视觉收敛仍待修复 Release |
 
 ## 4. AI 边界
