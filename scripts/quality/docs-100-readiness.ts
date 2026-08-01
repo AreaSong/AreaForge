@@ -589,11 +589,12 @@ function checkCurrentProductionEvidenceBoundary(): void {
   ];
   const missing = requiredBoundaryTerms.filter((term) => !scannedDocs.includes(term));
   const forbidden = forbiddenOverclaims.filter((term) => scannedDocs.includes(term));
-  const productionCommit = "4dbdb31a96498487af09aa7f90275bfc549448f3";
+  const productionVersion = "v1.1.1";
+  const productionCommit = "f995310e30c41270ee1e0a1c1ceeae9b6a8017eb";
   const currentProductionSources = [readme, webAgentGuide, workflowReadme, workflowV11, operationalReadiness, controlPlane];
   const currentProductionIdentity = currentProductionSources.every((source) =>
-    source.includes("v1.1.0") && source.includes(productionCommit)
-  ) && workflowV11.includes("稳定 GitHub Release 已创建");
+    source.includes(productionVersion) && source.includes(productionCommit)
+  ) && workflowV11.includes("稳定 GitHub Release") && workflowV11.includes("production apply");
   const historicalReleaseBoundary =
     historicalReleaseRecord.includes("releaseTag: v0.1.9") &&
     historicalReleaseRecord.includes('publicHealthEvidence: GET https://forge.areasong.top/api/health returned {"ok":true,"service":"AreaForge","version":"0.1.9"}') &&
@@ -602,7 +603,7 @@ function checkCurrentProductionEvidenceBoundary(): void {
       new RegExp(`^${field}: [a-f0-9]{64}$`, "m").test(historicalReleaseRecord)
     ) &&
     historicalReleaseRecord.includes("root-only paths remain on host") &&
-    operationalReadiness.includes("均为历史证据，不能替代当前 `v1.1.0` 生产证据");
+    operationalReadiness.includes("均为历史证据，不能替代当前 `v1.1.1` 生产证据");
   const currentStatusSources = [
     webAgentGuide,
     webReadme,
@@ -646,7 +647,7 @@ function checkCurrentProductionEvidenceBoundary(): void {
     learningTreeImport.includes("/knowledge/imports") &&
     featureTraceability.includes("## 学习行动中心（已进入生产）") &&
     featureTraceability.includes("| 完整 minor Release | 已完成 |") &&
-    [fileAiSafety, updaterGuide, productionRunbook].every((source) => source.includes("1.1.0")) &&
+    [fileAiSafety, updaterGuide, productionRunbook].every((source) => source.includes("1.1.1")) &&
     updaterGuide.includes(productionCommit) &&
     productionRunbook.includes(productionCommit);
 
@@ -655,7 +656,7 @@ function checkCurrentProductionEvidenceBoundary(): void {
     ok: missing.length === 0 && forbidden.length === 0 && currentProductionIdentity && historicalReleaseBoundary && staleCurrentClaims === 0 && currentProductSurfaces,
     detail:
       missing.length === 0 && forbidden.length === 0 && currentProductionIdentity && historicalReleaseBoundary && staleCurrentClaims === 0 && currentProductSurfaces
-        ? "v1.1.0 current production identity is consistent and v0.1.9 remains historical evidence only"
+        ? "v1.1.1 current production identity is consistent and v0.1.9 remains historical evidence only"
         : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}; current identity ${currentProductionIdentity ? "present" : "missing"}; historical boundary ${historicalReleaseBoundary ? "present" : "missing"}; current product surfaces ${currentProductSurfaces ? "present" : "missing"}; stale current claims ${staleCurrentClaims}`,
   });
 }

@@ -2,7 +2,7 @@
 
 ## 状态
 
-本文件是 AreaForge 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v1.1.0` 完成受控更新并运行 `1.1.0`，production runtime identity 绑定 commit `4dbdb31a96498487af09aa7f90275bfc549448f3`。最新稳定 GitHub Release 为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，但尚未 production apply，不能据此改写线上代码身份。
+本文件是 AreaForge 的生产发布、备份与恢复 runbook。Package E E1-E4 已完成本机单机生产发布、备份、恢复和回滚证据；远端 `https://forge.areasong.top/` 已通过 GitHub Release `v1.1.1` 完成受控更新并运行 `1.1.1`，production runtime identity 绑定 commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。
 
 后续任何新的生产发布、备份恢复、migration deploy、服务器命令、签名策略降级或 Web 运维能力扩大，仍必须等用户明确确认后再执行。
 
@@ -14,12 +14,12 @@
 
 - 公网入口：`https://forge.areasong.top/`
 - AreaForge 本机端口：`127.0.0.1:3020`
-- 当前线上版本：`1.1.0`
-- 当前生产 Release：`v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`
-- Web/Migration image：当前 immutable digest 尚未回填仓库；下次发布或回滚前必须从 manifest/redacted updater status 确认
+- 当前线上版本：`1.1.1`
+- 当前生产 Release：`v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`
+- Web image：`ghcr.io/areasong/areaforge-web:v1.1.1@sha256:46f32025693d3d7a16585984d77c9c6c4b6a2603456bad92c223dd1147a9daeb`
 - 当前生产事实与缺口：`docs/development/operational-readiness.md`
-- 完整 redacted updater status 与服务器更新记录：尚未入库
-- 回滚目标：写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；真实目标与 digest 必须由当前 updater status 确认
+- updater 结果：`SUCCEEDED / APPLY_COMPLETED`、blocker null、队列 0、migration 24/24、health/extra smoke PASS、journal clean
+- 更新前回滚目标：`v1.1.0` / Web digest `sha256:ae2d515db11feff673d9b1721c73d51c0d4e31feea59174fc750eb02e6eb130c`；写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`
 
 目标架构：
 

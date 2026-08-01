@@ -78,7 +78,7 @@
 | 动机 / 通知 / 四类 AI 草稿 | 已完成 | 内容库/提醒、通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET` | 不保存 prompt/raw response/history/token/cost/provider trace |
 | 外部 Provider 当前浏览器偏好 | 已完成 | `/settings/ai` 开关/保存/策略确认；鉴权 `GET|PATCH /api/ai/preferences`；安全默认关闭 Cookie；八条鉴权 POST route 统一 gate | 未执行真实生产 key smoke；不开放 Provider key 编辑 |
 | 模拟结构化失分 / 报告阶段入箱 | 已完成 | 分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升、报告/阶段确认边界 | 不自动修改现有任务 |
-| 完整 minor Release | 已完成 | `v1.1.0` Release/tag 与 verified production runtime identity；`v1.1.1` Release/admission/签名资产；tag 本身没有 GPG signature | `v1.1.1` production apply 尚未执行 |
+| 完整 minor Release | 已完成 | `v1.1.0` Release/tag；`v1.1.1` Release/admission/签名资产、Web 受控 production apply 与 verified production runtime identity；tag 本身没有 GPG signature | `AREAFORGE_AUTO_APPLY=none` 与 residual 状态保持不变 |
 
 ## 暂缓项
 

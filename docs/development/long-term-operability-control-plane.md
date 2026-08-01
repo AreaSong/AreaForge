@@ -9,11 +9,11 @@
 ## 当前结论
 
 - Package A-E 和 docs 100% 当前范围已完成，源事实见 `docs/development/docs-100-completion-record.md`。
-- 当前生产基线为 `1.1.0` / `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3` / `https://forge.areasong.top/`；最新稳定 GitHub Release 为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，但 production apply 尚未执行。
-- `docs/development/release-v0.1.9-record.md` 是历史生产记录，`docs/development/release-v0.1.7-record.md` 是更早的历史回滚证据；仓库当前仍缺完整的 `v1.1.0` redacted updater status、镜像 digest 和发布后运营证据收口记录，不能用旧记录填补这些缺口。
+- 当前生产基线与最新稳定 GitHub Release 均为 `1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb` / `https://forge.areasong.top/`；2026-08-01 Web 受控 production apply 已完成，公网 health 报告 verified runtime identity。
+- `docs/development/release-v0.1.9-record.md` 是历史生产记录，`docs/development/release-v0.1.7-record.md` 是更早的历史回滚证据；当前 `v1.1.1` 生产事实已由公网 health、固定 Web digest 与服务器 updater 结果交叉确认，旧记录不能替代这些当前证据。
 - 自动更新当前安全默认是 `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 updater 执行高风险动作。
-- `v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006、OPS-007、OPS-008、SC-001、SC-004 和 UX-001 已按各自证据与人工复核记录进入 `closed-evidence`；SC-002/SC-003 也保持 `closed-evidence`。当前仍开放的是 OPS-002、OPS-003、REL-001，`AF-RISK-DATA-001` 保持 `deferred-work`。这些历史状态不自动证明 `v1.1.0` 当前生产健康，也不授权后续修复 Release、production apply、migration、写入 smoke 或自动更新策略变化。
-- `docs/development/long-term-operability-not-ready-20260711.txt` 与 `docs/development/long-term-evidence-snapshot-v0.1.7-20260712.json` 都是历史记录：前者是 completion evidence V1，后者是状态为 `needs_live_evidence` 的 v0.1.7 只读快照。它们只能分别通过 shape-only 校验说明历史记录形态和当时缺口，不绑定当前 checkout，不替代当前 `v1.1.0` 生产证据、`pnpm ops:long-term:gate` 或 residual 人工复核。具体 `snapshotHash` 以快照文件和 `pnpm ops:long-term:snapshot:validate` 输出为准，避免源文档自引用导致 hash 漂移。
+- `v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006、OPS-007、OPS-008、SC-001、SC-004 和 UX-001 已按各自证据与人工复核记录进入 `closed-evidence`；SC-002/SC-003 也保持 `closed-evidence`。当前仍开放的是 OPS-002、OPS-003、REL-001，`AF-RISK-DATA-001` 保持 `deferred-work`。这些历史状态不自动证明 `v1.1.1` 当前生产健康，也不授权未来 Release、production apply、migration、写入 smoke 或自动更新策略变化。
+- `docs/development/long-term-operability-not-ready-20260711.txt` 与 `docs/development/long-term-evidence-snapshot-v0.1.7-20260712.json` 都是历史记录：前者是 completion evidence V1，后者是状态为 `needs_live_evidence` 的 v0.1.7 只读快照。它们只能分别通过 shape-only 校验说明历史记录形态和当时缺口，不绑定当前 checkout，不替代当前 `v1.1.1` 生产证据、`pnpm ops:long-term:gate` 或 residual 人工复核。具体 `snapshotHash` 以快照文件和 `pnpm ops:long-term:snapshot:validate` 输出为准，避免源文档自引用导致 hash 漂移。
 
 ## Operations Lifecycle 机器契约
 
@@ -169,9 +169,9 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 3. 若需要生产写入、服务器命令、backup/restore、migration、updater apply、rollback 或发布动作，必须走高风险确认包。
 4. 若仍是外部条件或接受例外，更新 `reviewAt`、影响、关闭条件和所需证据，不把它隐藏在聊天记录里。
 
-`pnpm ops:status` 输出 schema V2 AreaFlow-style 离线长期运营投影。当前工具的默认 Release 输入仍是 `v0.1.9` 历史记录，因此 `app.productionBaseline` 在默认运行中是历史工具投影，不是当前 `v1.1.0` 生产事实；在默认输入和相应 validator 更新前只能用于暴露证据缺口。UX evaluator、source hash、protected-path fingerprint 与只读安全边界保持不变，`--summary` 不能替代当前 health、Release 或 redacted updater 证据。
+`pnpm ops:status` 输出 schema V2 AreaFlow-style 离线长期运营投影。当前工具的默认 Release 输入仍是 `v0.1.9` 历史记录，因此 `app.productionBaseline` 在默认运行中是历史工具投影，不是当前 `v1.1.1` 生产事实；在默认输入和相应 validator 更新前只能用于暴露证据缺口。UX evaluator、source hash、protected-path fingerprint 与只读安全边界保持不变，`--summary` 不能替代当前 health、Release 或 redacted updater 证据。
 
-`ops:status` 的 `boundaryStops` 记录当前授权边界会阻止哪些未来动作。`v0.1.9` 的 OPS-001/004/005/006 生产证据已经关账，当前停止线保护的是后续签名 Release、production apply、migration、controlled production write probe 和 residual 台账变更；历史通过结果不能自动授权 `v1.1.0` 或更晚版本。`update_request_expected_before` 和 `business_state_concurrency` stop 继续把离线投影、未来签名 Release、生产 rollout、受控写入和人工关账拆开，不能用一次笼统授权替代。它把“当前还能跑的本地 validator”和“未来需要的显式确认”分开；不会授权服务器命令、不会授权读取/打印/复制/提交 secrets，也不会把历史证据升级成当前 checkout 的完成证据。
+`ops:status` 的 `boundaryStops` 记录当前授权边界会阻止哪些未来动作。`v0.1.9` 的 OPS-001/004/005/006 生产证据已经关账，当前停止线保护的是后续签名 Release、production apply、migration、controlled production write probe 和 residual 台账变更；历史通过结果不能自动授权 `v1.1.1` 或更晚版本。`update_request_expected_before` 和 `business_state_concurrency` stop 继续把离线投影、未来签名 Release、生产 rollout、受控写入和人工关账拆开，不能用一次笼统授权替代。它把“当前还能跑的本地 validator”和“未来需要的显式确认”分开；不会授权服务器命令、不会授权读取/打印/复制/提交 secrets，也不会把历史证据升级成当前 checkout 的完成证据。
 
 `pnpm ops:readonly-side-effect:selftest` 是只读控制面的副作用回归检查。它会清空当前进程中的 `AREAFORGE_*` 环境变量后运行 `ops:status`、`ops:handoff`、`ops:support:bundle-preview`、`ops:backup-restore:preview`、维护窗口索引与已解决事故索引的生成/校验/selftest、`residuals:evidence:preflight`、`residuals:closure:selftest`、`ops:ops-001:preflight`、`ops:ops-004:preflight`、`ops:long-term:snapshot`、completion/release evidence validator selftests、变更路径/受保护路径审阅 selftests 和 Web 版本中心请求 guard selftest，校验输出里的 `safetyFacts` 或 selftest completion token，并比对关键文档/台账文件 hash 与 `git status --short`。它与 `sourceSnapshot.protectedPathFingerprint` 复用同一组 protected paths，并会复算 fingerprint，防止状态投影声明的保护路径集合和实际副作用检查分叉。它只证明这些本地只读入口和 validator selftests 没有改仓库，不证明生产健康、updater apply、备份、恢复、migration、rollback、OPS-001/OPS-004 收口、告警发送或 residual 关闭。
 
@@ -181,7 +181,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 
 维护者形成 residual close / keep-open / downgrade / reopen 结论时，先用 `docs/development/residual-closure-review-template.md` 保存人工复核记录，并运行 `pnpm residuals:closure:validate <record>`。该记录只证明复核结论、证据 URI、validator 摘要、重新打开条件和 `doesNotProve` 完整；它必须保持 `closesResidual=no`，不自动修改 `docs/development/residual-risk-ledger.md` 或 `docs/development/residual-risk-ledger.json`。
 
-`pnpm ops:long-term:gate` 是完成声明前的严格 live evidence gate。默认 OPS-001/004、Release 和供应链输入仍来自 `v0.1.9` 历史记录，checkout/UX binding 针对 `package.json` 的当前 `1.1.1` 候选；因此当前默认运行必须保持 `needs_live_evidence`，但这表示工具证据未迁移，不表示 `v1.1.0` 尚未发布。显式 `dataIntegrityRecord` 必须绑定与 OPS-006 after-doctor 相同 SHA/hash 的新鲜只读记录；其 UX freshness、只读和 residual 边界保持不变。
+`pnpm ops:long-term:gate` 是完成声明前的严格 live evidence gate。默认 OPS-001/004、Release 和供应链输入仍来自 `v0.1.9` 历史记录，checkout/UX binding 针对 `package.json` 的当前 `1.1.1`；因此当前默认运行必须保持 `needs_live_evidence`，但这表示工具证据未迁移，不表示 `v1.1.1` 尚未发布或应用。显式 `dataIntegrityRecord` 必须绑定与 OPS-006 after-doctor 相同 SHA/hash 的新鲜只读记录；其 UX freshness、只读和 residual 边界保持不变。
 
 `pnpm ops:long-term:snapshot` 是长期运营证据的只读快照入口。默认生产证据仍读取 `v0.1.9` 历史记录，checkout/UX/current-source binding 读取当前 `1.1.1` 候选，所以当前默认结果必须保持 `needs_live_evidence`，并明确视为历史输入迁移缺口。schema v3、data-integrity、UX evaluator、current binding 与无联网/无生产写入边界保持不变；validator 通过也不证明当前生产健康或 residual 状态变化。
 
@@ -252,11 +252,11 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - `AF-RISK-SC-004`：GitHub main ruleset/readback、受控 PR #18 和 closeout 人工复核已进入 `closed-evidence`；ruleset、required check、bypass 或 workflow 变化时重新验证并按条件重新打开。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 runbook 和证据。
 - `AF-RISK-OPS-004`：`v0.1.9` alert preview、matching manual-window drill 和 closeout 人工复核已进入 `closed-evidence`；新版本预览变化、drill 失配、接收人 ACK 缺失或校验失败时重新打开。
-- `AF-RISK-OPS-005`：`v0.1.9` 生产 V2 check、`EXPECTED_BEFORE_MISMATCH` 零执行拒绝、decision history 与 closeout 人工复核已进入 `closed-evidence`；当前 `1.1.0` checkout 及后续 Release 不继承该生产授权。
+- `AF-RISK-OPS-005`：`v0.1.9` 生产 V2 check、`EXPECTED_BEFORE_MISMATCH` 零执行拒绝、decision history 与 closeout 人工复核已进入 `closed-evidence`；当前 `1.1.1` checkout 及后续 Release 不继承该生产授权。
 - `AF-RISK-OPS-006`：`v0.1.9` Phase B before-doctor、deploy、controlled concurrency probe、after-doctor、受控写 smoke 与 closeout 人工复核已进入 `closed-evidence`；新 Release、并发语义变化、证据过期或 validator 失败时重新打开。
 - `AF-RISK-OPS-007`：`v0.1.9` attachment staging/write-intent migration、生产 reconciliation、doctor-after 与协议记录已进入 `closed-evidence`；它不授权自动清理历史孤儿。
 - `AF-RISK-OPS-008`：`v0.1.9` hold、barrier、CAS clear、timer restore 和 production journal 已进入 `closed-evidence`；Web runtime 仍不得获得 hold/drain 或服务器命令控制权。
-- `AF-RISK-UX-001`：`v0.1.9` current-bound 本地 UX review、desktop/mobile 截图和 runtime probe 已通过人工复核并进入 `closed-evidence`；当前 `1.1.0` 体验源已变化，Release admission 仍须按冻结目标 commit 重采，不改变历史关账状态。
+- `AF-RISK-UX-001`：`v0.1.9` current-bound 本地 UX review、desktop/mobile 截图和 runtime probe 已通过人工复核并进入 `closed-evidence`；`v1.1.1` 体验源已按冻结目标 commit 完成 Release admission，不改变历史关账状态。
 - `AF-RISK-DATA-001`：学习树导入生命周期边界已人工接受，当前保持 `deferred-work`；已确认导入的规范化 Markdown 长期留存并随数据库备份扩散。后续物理删除、备份副本同步删除、完整账户导出、AI history/provider trace 或跨用户可见性变化必须按台账关闭/重开条件独立确认，本地 Release 候选与生产 apply 均不自动关闭该项。
 
 ## 本地预检

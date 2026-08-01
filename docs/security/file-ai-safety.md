@@ -81,7 +81,7 @@ AI 不允许：
 
 允许的自动更新形态是服务器侧受控 updater：`ops/github-release-updater/areaforge-updater.sh` 由管理员手动执行、systemd timer 触发或由 `areaforge-update-agent.timer` 消费 Web 版本中心写入的受控请求后触发。它读取 GitHub Release manifest、校验 `SHA256SUMS` / `SHA256SUMS.sig`，备份数据库和上传目录，使用一次性 migration image，再切换 Docker Compose Web 镜像。
 
-当前远端生产已启用该形态：`https://forge.areasong.top/` 运行 `1.1.0`，公网 health 报告 verified runtime identity；服务器保持签名校验与 `AREAFORGE_AUTO_APPLY=none`。`v1.1.0` Release 资产包含签名文件，但 annotated tag 本身没有 GPG signature。当前证据缺口见 `docs/development/operational-readiness.md`；`docs/development/release-v0.1.9-record.md` 与更早记录只保留历史证据。
+当前远端生产已启用该形态：`https://forge.areasong.top/` 运行 `1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，公网 health 报告 verified runtime identity；服务器保持签名校验与 `AREAFORGE_AUTO_APPLY=none`。`v1.1.1` Release 资产包含签名文件，但 annotated tag 本身没有 GPG signature。当前证据缺口见 `docs/development/operational-readiness.md`；`docs/development/release-v0.1.9-record.md` 与更早记录只保留历史证据。
 
 禁止：
 
@@ -93,7 +93,7 @@ AI 不允许：
 
 ## 学习行动中心扩展边界
 
-当前生产已增加资料 FILE/LINK、学习树规范化 Markdown 留存/导出、前台通知与四类 AI 草稿；发布后产品化修复仍须按新的 source commit 重采 runtime、体验与 Release admission 证据后才能再次发布：
+当前生产已增加资料 FILE/LINK、学习树规范化 Markdown 留存/导出、前台通知与四类 AI 草稿；发布后产品化修复已按 commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb` 重采 runtime、体验与 Release admission 证据，并随 `v1.1.1` 完成受控 production apply：
 
 - 导入 confirm 的数据生命周期边界已确认，允许隔离验证；`AF-RISK-DATA-001` 仍保持 `deferred-work`，不因候选实现或发布自动关闭。
 - LINK 资料不得由服务端 fetch/redirect；通知默认隐藏具体标题。

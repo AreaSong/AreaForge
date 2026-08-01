@@ -8,8 +8,8 @@
 
 ## 当前状态
 
-- 最新稳定 GitHub Release 为 `v1.1.1`（commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`），于 2026-07-31 发布并包含 manifest、SBOM、provenance、checksum 和签名资产；annotated tag 本身没有 GPG signature，不能写成“签名 tag”。生产仍为 `v1.1.0`（commit `4dbdb31a96498487af09aa7f90275bfc549448f3`），远端 `https://forge.areasong.top/api/health` 报告 `1.1.0` 与 verified production runtime identity；Release 不证明生产已更新。
-- 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`），分支 `codex/v1.1-learning-action-center`；Batch 3–10 和 Batch 11 `v1.1.0` Release/production apply 已发生，发布后产品化修复也已通过受保护 PR #27 合并并形成 `v1.1.1` Release。首次设置与接管冲突、无工作区引导、科目/分组完整管理、App Shell 以及今日/计划/知识/复盘/阶段/设置的信息层级已完成并通过门禁与桌面/移动验收；`v1.1.1` production apply 尚未执行，必须独立确认。2026-07-31 已在双备份和单事务下完成生产 5 组重复科目与 `[AF_SMOKE]` 清理，并完成 22/22 静态入口桌面/移动复验；审计事件批准计数为 14、实际删除 22，额外 8 条属于同批合成对象且偏差已记录。`AF-RISK-DATA-001` 保持 deferred-work，任何 residual 状态变化另行确认。阶段索引见 `docs/development/v11-phase-packages.md`。
+- 最新稳定 GitHub Release 与生产基线均为 `v1.1.1`（commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`）；Release 于 2026-07-31 发布并包含 manifest、SBOM、provenance、checksum 和签名资产，annotated tag 本身没有 GPG signature，不能写成“签名 tag”。2026-08-01 已通过 Web 版本中心受控请求完成 production apply，远端 `https://forge.areasong.top/api/health` 报告 `1.1.1` 与 verified production runtime identity。
+- 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`）；发布后产品化修复已通过受保护 PR #27/#28 合并到 `main`，`v1.1.1` Release 与 production apply 均已完成。首次设置与接管冲突、无工作区引导、科目/分组完整管理、App Shell 以及今日/计划/知识/复盘/阶段/设置的信息层级已通过门禁与桌面/移动验收。2026-07-31 已在双备份和单事务下完成生产 5 组重复科目与 `[AF_SMOKE]` 清理，并完成 22/22 静态入口桌面/移动复验；审计事件批准计数为 14、实际删除 22，额外 8 条属于同批合成对象且偏差已记录。2026-08-01 updater 旧 processing claim 已在保留原始审计记录后完成状态投影重建，随后更新记录为 `APPLY_COMPLETED`，Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；`AREAFORGE_AUTO_APPLY=none` 与 residual 状态均未改变。`AF-RISK-DATA-001` 保持 deferred-work。阶段索引见 `docs/development/v11-phase-packages.md`。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。学习行动中心规划能力不计入该完成声明。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
