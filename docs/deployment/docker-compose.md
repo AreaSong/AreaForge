@@ -57,7 +57,7 @@ docker compose -f docker-compose.prod.yml up -d
 - `postgres` 不映射公网端口。
 - `web` 只绑定 `127.0.0.1:${WEB_PORT:-3000}`，由 Nginx 反代访问。
 - `.env` 只保存在服务器，权限收紧。
-- `POSTGRES_PASSWORD`、`AUTH_SESSION_SECRET`、`AI_API_KEY` 使用强随机值。
+- `POSTGRES_PASSWORD`、`AUTH_SESSION_SECRET`、`AI_API_KEY`、`AI_CREDENTIALS_ENCRYPTION_KEY` 使用强随机值；后者用于账户 Provider 密文，必须只存在服务端环境。
 - 上传目录和数据库卷必须备份。
 
 发布前必须先备份数据库和上传目录，再执行 Prisma migration deploy；失败时回滚镜像版本，并使用备份恢复数据库和上传目录。

@@ -439,7 +439,20 @@ const quickReviewClientSource = readFileSync("apps/web/components/quick-review-c
 const guardSource = readFileSync("apps/web/components/quick-review-activity-guard.tsx", "utf8");
 const activitySource = readFileSync("apps/web/lib/client/quick-review-activity.ts", "utf8");
 const focusSource = readFileSync("apps/web/components/focus-timer.tsx", "utf8");
+const focusSessionSource = readFileSync("apps/web/components/focus-session-client.tsx", "utf8");
+const focusPanelsSource = readFileSync("apps/web/components/focus-session-panels.tsx", "utf8");
+const focusEvidenceFormsSource = readFileSync("apps/web/components/focus-evidence-forms.tsx", "utf8");
+const focusEvidenceClientSource = readFileSync("apps/web/lib/client/focus-evidence.ts", "utf8");
+const studyServiceSource = readFileSync("apps/web/lib/study/service.ts", "utf8");
 const appShellSource = readFileSync("apps/web/components/app-shell.tsx", "utf8");
+const overlaysSource = readFileSync("apps/web/components/ui/overlays.tsx", "utf8");
+const dailyReviewPageSource = readFileSync("apps/web/app/(app)/review/daily/page.tsx", "utf8");
+const dailyReviewFormSource = readFileSync("apps/web/components/review-form.tsx", "utf8");
+const dailyReviewResultSource = readFileSync("apps/web/components/daily-review-result.tsx", "utf8");
+const dailyReviewFactsSource = readFileSync("apps/web/lib/study/daily-review-facts-service.ts", "utf8");
+const dailyReviewApiSource = readFileSync("apps/web/app/api/daily-reviews/route.ts", "utf8");
+const planInboxItemSource = readFileSync("apps/web/components/plan-inbox-item-client.tsx", "utf8");
+const planInboxOriginSource = readFileSync("apps/web/components/plan-inbox-origin.tsx", "utf8");
 assert.doesNotMatch(quickReviewClientSource, /writeQuickReviewDraft/);
 assert.match(quickReviewClientSource, /accessRef\.current === "writable"/);
 assert.match(quickReviewClientSource, /markStale\(nextDraft\)/);
@@ -453,10 +466,40 @@ assert.match(guardSource, /requestQuickReviewCommand/);
 assert.doesNotMatch(activitySource, /sessionStorage|TAB_ID_KEY/);
 assert.doesNotMatch(focusSource, /useState\(\(\) => new Date\(\)\)/);
 assert.match(focusSource, /new Date\(activeSession\?\.updatedAt \?\? activeSession\?\.startedAt \?\? 0\)/);
-assert.match(appShellSource, /event\.key !== "Escape"/);
-assert.match(appShellSource, /aria-expanded=\{lightOpen === light\.kind\}/);
-assert.match(appShellSource, /aria-controls="status-light-panel"/);
-assert.match(appShellSource, /lastLightTriggerRef\.current\?\.focus\(\)/);
+assert.doesNotMatch(focusSessionSource, /minimalOutput:\s*draft\.minimalOutput\s*\|\|/);
+assert.doesNotMatch(focusSessionSource, /本次最小产出/);
+assert.match(focusSessionSource, /minimalOutput\.length < 4/);
+assert.match(focusPanelsSource, /<form noValidate/);
+assert.match(focusPanelsSource, /不会自动生成占位产出/);
+assert.match(focusEvidenceFormsSource, /fetch\("\/api\/notes"/);
+assert.match(focusEvidenceFormsSource, /fetch\("\/api\/mistakes"/);
+assert.match(focusEvidenceFormsSource, /SyllabusRetestForm/);
+assert.match(focusEvidenceClientSource, /\/api\/study-sessions\/\$\{session\.id\}\/evidence/);
+assert.match(studyServiceSource, /SESSION_EVIDENCE_REQUIRES_COMPLETED/);
+assert.match(studyServiceSource, /SESSION_EVIDENCE_CONTEXT_MISMATCH/);
+assert.match(studyServiceSource, /producedNote: true/);
+assert.match(studyServiceSource, /producedMistake: true/);
+assert.match(appShellSource, /aria-expanded=\{lightOpen\}/);
+assert.match(appShellSource, /<Drawer open=\{lightOpen\} title="今日状态"/);
+assert.match(appShellSource, /displayStatus\.lights\.map/);
+assert.match(overlaysSource, /event\.key === "Escape" && input\.allowEscape/);
+assert.match(overlaysSource, /returnTarget\?\.isConnected/);
+assert.match(dailyReviewPageSource, /getDailyReviewFacts/);
+assert.match(dailyReviewPageSource, /getDailyReviewMinimumInboxItem/);
+assert.match(dailyReviewFormSource, /setInboxItem\(isPlanInboxItemDto/);
+assert.match(dailyReviewResultSource, /补全明日任务/);
+assert.match(dailyReviewFactsSource, /STUDY_SESSION_EVIDENCE_LINKED/);
+assert.match(dailyReviewApiSource, /\{ review, inboxItem \}/);
+assert.match(
+  planInboxItemSource,
+  /withReturnTo\(`\/today\/tasks\/\$\{body\.item\.convertedTaskId\}`, returnTo\)/,
+);
+assert.match(planInboxItemSource, /withInboxStatus\(returnTo, "CONVERTED"\)/);
+assert.match(planInboxItemSource, /<Link href=\{returnTo\}/);
+assert.match(planInboxItemSource, /date\.getTime\(\) \+ 8 \* 60 \* 60 \* 1000/);
+assert.match(planInboxItemSource, /planInboxOriginLabel/);
+assert.match(planInboxOriginSource, /来自今日复盘/);
+assert.match(planInboxOriginSource, /来自模拟考试补救/);
 
 for (const path of [
   "apps/web/components/focus-timer.tsx",

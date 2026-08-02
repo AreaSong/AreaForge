@@ -38,6 +38,8 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；页面入口位于 `/knowledge/reviews` 与 `/quick-review/[scheduleId]`。
 - `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：每用户每工作区唯一布局；节点仅 x/y/折叠/固定/隐藏；业务边实时派生。隔离验收已开放 `/knowledge/canvas` 与 layout API。
 - `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema + 隔离 API/设置页已落地。
+- `AiRuntimeSetting`：全局 AI Web 运行开关单例；保存 enabled、revision 和时间字段。启停由鉴权 Web API 修改并写入 `AuditEvent`；`AI_ENABLED=false` 仍是服务端硬闸门，网页不能绕过。
+- `AiProviderCredential`：当前账户 Provider 配置；服务端保存 base URL、model、API Key 密文、fingerprint、revision 和时间字段，API Key 不进入 Web 响应或审计 metadata。
 - `SimulationLossItem`：直接归属分科结果，固定原因、可选考纲节点、0.5 分 lostScore、revision 与软归档；模拟与分科根保留 revision CAS。
 
 ## 规划扩展模型

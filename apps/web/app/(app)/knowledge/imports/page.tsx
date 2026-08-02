@@ -11,26 +11,26 @@ import {
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/knowledge/imports");
 
-export default async function KnowledgeImportsPage() {
+export default async function KnowledgeImportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const query = await searchParams;
+  const initialView = query.mode === "import" || query.mode === "export" ? query.mode : "overview";
   const [allImports, exportOptions] = await Promise.all([
     listLearningTreeImports(user.id, { includeArchived: true }),
     listLearningTreeExportOptions(user.id),
   ]);
 
-  return (
-    <div className="space-y-4">
-      <details className="rounded-md border border-white/10 p-3">
-        <summary className="cursor-pointer text-sm text-teal-300">学习树 AI 草稿</summary>
-        <div className="mt-3"><AiDraftPanel endpoint="learning-tree" userId={user.id} /></div>
-      </details>
-      <LearningTreeImportClient
-        userId={user.id}
-        imports={allImports.filter((item) => !item.archivedAt)}
-        archivedImports={allImports.filter((item) => Boolean(item.archivedAt))}
-        exportOptions={exportOptions}
-      />
-    </div>
-  );
+  return <LearningTreeImportClient
+    userId={user.id}
+    imports={allImports.filter((item) => !item.archivedAt)}
+    archivedImports={allImports.filter((item) => Boolean(item.archivedAt))}
+    exportOptions={exportOptions}
+    initialView={initialView}
+    aiDraftPanel={<AiDraftPanel endpoint="learning-tree" userId={user.id} />}
+  />;
 }

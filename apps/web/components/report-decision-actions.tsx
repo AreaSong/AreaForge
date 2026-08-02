@@ -1,10 +1,11 @@
 "use client";
 
-import { CheckCircle2, XCircle } from "lucide-react";
-import Link from "next/link";
+import { ArrowRight, CheckCircle2, ClipboardList, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { Alert, Badge } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
 import {
   loadPrivateBusinessDraft,
@@ -14,6 +15,7 @@ import {
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
 import { selectReportDecisionBaseline } from "@/lib/client/versioned-conflict-baseline";
+import { withReturnTo } from "@/lib/navigation/batch7";
 import type { ReportDecisionConflictLatest } from "@/lib/study/report-decisions-service";
 import type {
   PeriodicReportDecisionDto,
@@ -49,7 +51,7 @@ interface ReportDecisionResponse {
   workbench?: string;
 }
 
-export function ReportDecisionActions({ report }: { report: PeriodicReportDto }) {
+export function ReportDecisionActions({ report, returnTo = "/review/reports" }: { report: PeriodicReportDto; returnTo?: string }) {
   const router = useRouter();
   const [baselineOverride, setBaselineOverride] = useState<PeriodicReportDto | null>(null);
   const [command, setCommand] = useState<ReportDecisionCommand | null>(null);
@@ -169,45 +171,59 @@ export function ReportDecisionActions({ report }: { report: PeriodicReportDto })
   }
 
   return (
-    <div className="mt-4 border-t border-white/10 pt-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="border-b border-white/10 pb-7" aria-labelledby="report-decision-heading">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div>
-          <p className="text-sm font-medium text-zinc-100">报告决策</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">
-            确认会冻结当前报告、加入全部计划草稿，并生成独立的阶段建议；不会修改现有任务或当前阶段。
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="report-decision-heading" className="text-lg font-medium text-zinc-100">确认下周期策略</h2>
+            <Badge tone={decision?.status === "confirmed" ? "success" : decision?.status === "rejected" ? "neutral" : "warning"}>
+              {decision?.status === "confirmed" ? "已确认" : decision?.status === "rejected" ? "已驳回" : "需要你的决定"}
+            </Badge>
+          </div>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">
+            确认会冻结当前报告，并将下周期动作作为草稿送入收件箱；阶段建议仍需独立确认，不会直接修改现有任务或当前阶段。
           </p>
         </div>
-        {decision ? (
-          <span className="w-fit rounded-md border border-teal-300/20 px-2 py-1 text-xs text-teal-100">
-            {decision.status === "confirmed" ? "已确认" : "已驳回"}
-          </span>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-60" disabled={disabled} onClick={() => void decide("confirm")} type="button">
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />确认本报告
-            </button>
-            <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-rose-300/30 px-3 text-sm font-medium text-rose-100 hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60" disabled={disabled} onClick={() => setRejectConfirmOpen(true)} type="button">
-              <XCircle className="h-4 w-4" aria-hidden="true" />驳回本报告
-            </button>
+        {!decision ? (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" size="lg" loading={isDeciding && command?.action === "confirm"} disabled={disabled} onClick={() => void decide("confirm")} type="button">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />确认并送入收件箱
+            </Button>
+            <Button variant="danger" size="lg" disabled={disabled} onClick={() => setRejectConfirmOpen(true)} type="button">
+              <XCircle className="h-4 w-4" aria-hidden="true" />驳回
+            </Button>
           </div>
-        )}
+        ) : null}
       </div>
 
       {decision ? (
-        <div className="mt-3 grid gap-2 border-t border-white/10 pt-3 text-xs leading-5 text-zinc-400">
-          <p>处理时间：{new Date(decision.decidedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</p>
-          <p>冻结短板：{decision.reportSnapshot.weakness.title}</p>
-          <p>确认边界：{decision.canAutoApply ? "可自动应用" : "不自动应用"} / {decision.requiresUserConfirmation ? "需确认" : "无需确认"}</p>
-          <p>收件箱：新增 {decision.inboxResult.createdCount}，替代 {decision.inboxResult.supersededCount}</p>
-          {decision.nextCycleDraft ? <p>下周期草稿：{decision.nextCycleDraft.focus}</p> : null}
-          {decision.inboxResult.createdCount > 0 ? <Link className="w-fit text-teal-300" href="/today/inbox">查看收件箱</Link> : null}
-          {decision.stageDraftId ? <Link className="w-fit text-teal-300" href="/stage/overview">查看阶段建议</Link> : null}
-          {decision.status === "rejected" ? <Link className="w-fit text-teal-300" href="/stage/overview">前往阶段概览重新评估</Link> : null}
+        <div className="mt-5 grid gap-5 border-t border-white/10 pt-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-zinc-100">
+              {decision.status === "confirmed"
+                ? decision.inboxResult.createdCount > 0
+                  ? "决策已冻结，下一步处理新生成的草稿"
+                  : decision.inboxResult.reusedCount > 0
+                    ? "决策已冻结，本次复用了已有计划草稿"
+                    : "决策已冻结，本次没有生成计划草稿"
+                : "本期报告已驳回，没有应用任何调整"}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">
+              {new Date(decision.decidedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
+              {decision.status === "confirmed" ? ` · 入箱新增 ${decision.inboxResult.createdCount}，复用 ${decision.inboxResult.reusedCount}，替代 ${decision.inboxResult.supersededCount}` : " · 需要调整时请在阶段概览重新评估"}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/today/inbox", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
+            {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/today/inbox", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
+            {decision.stageDraftId ? <ButtonLink href="/stage/overview" variant="secondary">审阅阶段建议<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
+            {decision.status === "rejected" ? <ButtonLink href="/stage/overview" variant="secondary">前往阶段概览<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
+          </div>
         </div>
       ) : null}
 
-      {notice ? <p role="status" className="mt-3 text-xs text-teal-100">{notice}</p> : null}
-      {error ? <p role="alert" className="mt-3 text-xs text-red-200">{error}</p> : null}
+      {notice ? <Alert tone="success" className="mt-4">{notice}</Alert> : null}
+      {error ? <Alert tone="danger" className="mt-4">{error}</Alert> : null}
 
       <Modal open={rejectConfirmOpen} title="确认不可逆驳回" onClose={() => setRejectConfirmOpen(false)} allowEscape={false}>
         <div className="space-y-4 text-sm text-zinc-300">
@@ -230,7 +246,7 @@ export function ReportDecisionActions({ report }: { report: PeriodicReportDto })
         onManualMerge={keepIntentOnLatestRevision}
         mergeLabel="基于最新版本保留意图"
       />
-    </div>
+    </section>
   );
 }
 

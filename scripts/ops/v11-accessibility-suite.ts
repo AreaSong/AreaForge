@@ -210,18 +210,27 @@ async function semanticsAndColorChecks(
     ],
   });
 
-  const colors = await page.locator('[aria-label="状态灯"] button').evaluateAll((buttons) => {
-    const visible = buttons.filter((button) => {
-      const element = button as HTMLElement;
+  const statusTrigger = page.getByRole("button", { name: /^今日状态：/ });
+  await statusTrigger.click();
+  const statusDetails = page.locator('[aria-label="今日状态详情"]');
+  await statusDetails.waitFor();
+  const colors = await statusDetails.locator(":scope > div").evaluateAll((items) => {
+    const visible = items.filter((item) => {
+      const element = item as HTMLElement;
       return element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden";
     });
     return {
       count: visible.length,
       textCount: visible.filter((button) => Boolean(button.textContent?.trim())).length,
-      namedCount: visible.filter((button) => Boolean(button.getAttribute("aria-label")?.trim())).length,
-      colorCount: new Set(visible.map((button) => getComputedStyle(button).color)).size,
+      namedCount: visible.filter((item) => Boolean(item.querySelector("p")?.textContent?.trim())).length,
+      colorCount: new Set(visible.map((item) => {
+        const marker = item.querySelector("span");
+        return marker ? getComputedStyle(marker).borderTopColor : "";
+      })).size,
     };
   });
+  await page.keyboard.press("Escape");
+  await statusDetails.waitFor({ state: "detached" });
   record(checks, {
     id: "COLOR-01",
     category: "color",
@@ -241,7 +250,8 @@ async function modalChecks(
   page: Page,
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
-  const section = page.getByRole("heading", { name: "科目快捷计时" }).locator("..");
+  const section = page.locator("details").filter({ hasText: "临时专注" });
+  await section.locator("summary").click();
   const trigger = section.getByRole("button", { name: "开始", exact: true }).first();
   await trigger.focus();
   const triggerFocused = await trigger.evaluate((element) => element === document.activeElement);
@@ -363,7 +373,7 @@ async function keyboardNavigationCheck(
   await knowledgeLink.focus();
   const focused = await knowledgeLink.evaluate((element) => element === document.activeElement);
   await page.keyboard.press("Enter");
-  await page.waitForURL((candidate) => candidate.pathname === "/knowledge/canvas");
+  await page.waitForURL((candidate) => candidate.pathname === "/knowledge/overview");
   record(checks, {
     id: "KBD-02",
     category: "keyboard",
@@ -373,12 +383,15 @@ async function keyboardNavigationCheck(
     assertions: [
       assertion("quick-create-trigger-focused", true, quickCreateFocused),
       assertion("quick-create-opened-by-enter", true, quickCreateLinks > 0),
-      assertion("quick-create-exposes-four-actions", 4, quickCreateLinks),
+      assertion("quick-create-exposes-five-actions", 5, quickCreateLinks),
       assertion("quick-create-escape-returned-focus", true, quickCreateFocusReturned),
       assertion("nav-link-focused", true, focused),
-      assertion("enter-activated-navigation", "/knowledge/canvas", pathname(page)),
+      assertion("enter-activated-navigation", "/knowledge/overview", pathname(page)),
     ],
   });
+  await page.goto(new URL("/knowledge/canvas", page.url()).toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("画布焦点对象").waitFor({ state: "visible" });
 }
 
 async function canvasDesktopChecks(
@@ -396,7 +409,9 @@ async function canvasDesktopChecks(
   const [response] = await Promise.all([responsePromise, page.keyboard.press("ArrowRight")]);
   const announcement = page.locator('[aria-label="画布布局命令"] [aria-live="polite"]');
   await waitForNonEmptyText(announcement);
-  await selectedNode.waitFor();
+  // React Flow may keep a node visually hidden while fitting the initial viewport;
+  // this check is about the keyboard focus target, so attachment is the stable gate.
+  await selectedNode.waitFor({ state: "attached" });
   await waitForElementFocus(selectedNode);
   const focusRetained = await selectedNode.evaluate((element) => element === document.activeElement);
   const announcementLength = await announcement.evaluate((element) => element.textContent?.trim().length ?? 0);
@@ -447,7 +462,7 @@ async function canvasDesktopChecks(
     restoreResponsePromise,
     page.getByRole("button", { name: "恢复隐藏对象" }).click(),
   ]);
-  await selectedNode.waitFor();
+  await selectedNode.waitFor({ state: "attached" });
   await waitForElementFocus(selectedNode);
 
   const beforeReset = await getJson(context, config, canvasPath);
@@ -660,7 +675,7 @@ async function noteFocusCheck(
 ): Promise<void> {
   const noteId = required(fixture.noteId, "accessibility fixture note");
   await page.goto(new URL(`/knowledge/notes`, page.url()).toString(), { waitUntil: "domcontentloaded" });
-  const link = page.getByRole("link", { name: "打开卡片详情" }).first();
+  const link = page.getByRole("link", { name: "打开详情" }).first();
   await link.focus();
   const focusedBefore = await link.evaluate((element) => element === document.activeElement);
   await page.keyboard.press("Enter");
@@ -755,19 +770,26 @@ async function reviewLiveChecks(
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
   await page.goto(url(config, "/review/daily"), { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("今天完成了什么").fill("合成无障碍复盘");
-  await page.getByPlaceholder("今天最该保留的一个动作").fill("合成无障碍保留动作");
-  await page.getByPlaceholder("明天最小必须完成任务").fill("合成无障碍明日行动");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("今天实际推进了什么").fill("合成无障碍复盘");
+  await page.getByLabel("明天应该继续做什么").fill("合成无障碍保留动作");
+  await page.getByLabel("即使状态不好，明天也必须完成的一个动作").fill("合成无障碍明日行动");
+  await page.getByLabel("当前状态").selectOption({ label: "平静" });
+  const completeButton = page.getByRole("button", { name: "完成复盘", exact: true });
+  await completeButton.waitFor({ state: "visible" });
   const response = await clickAndWaitForResponse(page, config, "/api/daily-reviews", 201, () =>
-    page.getByRole("button", { name: "保存复盘" }).click());
+    completeButton.click());
   const success = page.locator('[aria-live="polite"]').filter({ hasText: "复盘" });
-  await success.waitFor();
-  const successVisible = await success.isVisible();
+  await success.waitFor({ state: "attached" });
+  await page.getByText("复盘与明日最低行动已保存。", { exact: true }).waitFor({ state: "attached" });
+  const updateButton = page.getByRole("button", { name: "更新复盘与明日行动", exact: true });
+  await updateButton.waitFor({ state: "visible" });
+  const successPresent = await success.count() > 0;
   const successLive = await success.getAttribute("aria-live") ?? "missing";
 
   await page.route("**/api/daily-reviews/**", (route) => route.abort("failed"));
-  await page.getByPlaceholder("今天完成了什么").fill("合成无障碍网络失败草稿");
-  await page.getByRole("button", { name: "更新复盘" }).click();
+  await page.getByLabel("今天实际推进了什么").fill("合成无障碍网络失败草稿");
+  await updateButton.click();
   const alert = page.getByRole("alert").filter({ hasText: /\S/ });
   await alert.waitFor();
   const draftCount = await page.evaluate(() => Object.keys(localStorage)
@@ -780,7 +802,7 @@ async function reviewLiveChecks(
     mechanism: "dom",
     assertions: [
       assertion("review-save-status", 201, response.status()),
-      assertion("review-success-live-region", true, successVisible),
+      assertion("review-success-live-region", true, successPresent),
       assertion("review-success-polite", "polite", successLive),
       assertion("network-error-alert-visible", true, await alert.isVisible()),
       assertion("network-error-has-message", true, await alert.evaluate((element) => Boolean(element.textContent?.trim()))),

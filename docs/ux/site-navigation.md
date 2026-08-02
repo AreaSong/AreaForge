@@ -1,20 +1,36 @@
 # 站点导航与页面跳转关系
 
-本文档记录 Web 应用的页面清单、导航入口和页面间跳转关系的长期结构事实。功能完成状态不写在本文，见 `docs/development/feature-traceability.md` 与 `docs/development/feature-map.md`；API 明细见 `docs/architecture/api-surface.md`。
+本文档记录 Web 应用的页面清单、canonical 路由和页面间跳转关系。目标 App Shell、页面模板、主操作与桌面/移动布局见 `docs/ux/application-shell-and-workbench-layouts.md`；功能完成状态不写在本文，见 `docs/development/feature-traceability.md` 与 `docs/development/feature-map.md`；API 明细见 `docs/architecture/api-surface.md`。
 
 ## 导航拓扑
 
-隔离分支已启用受保护 App Shell：登录后默认进入今日行动中心；桌面主导航开放今日/计划/知识/复盘/阶段/设置，移动底部导航显示前五项。收件箱保留为今日工作台的页内入口。设置子页开放工作区/档案/通知/AI/体验/系统。`/syllabus` `/notes` `/mistakes` 重定向到 `/knowledge/*`；`/motivation` 重定向到 `/settings/profile`。
+登录后默认进入今日行动中心。当前一级导航为今日/计划/知识/复盘/阶段，设置位于侧栏底部或账户入口；移动底部导航显示五个一级工作台。收件箱保留为今日工作台的页内入口。设置子页包括工作区/档案/通知/AI/体验/系统。`/syllabus` `/notes` `/mistakes` 重定向到 `/knowledge/*`；`/motivation` 重定向到 `/settings/profile`。功能实现差异以 `docs/development/feature-traceability.md` 为准。
+
+跨工作台详情统一使用安全 `returnTo`：来源路径、允许的筛选参数和最多三跳的逐级来源都经过注册路由归一化；页面按实际来源展示明确返回文案。专注完成始终以“回到今日，查看下一行动”为主接力，同时保留具体来源作为次操作；快速复习无后续项时直接回到具体来源。每日复盘、周期报告、阶段处理结果和模拟补救进入计划收件箱时保留当前结果页（及其合法筛选参数），处理完成后可回到原判断上下文。
+
+登录后页面共用工作台级 `loading` 与 `error` 边界：页面切换时 Shell 保持稳定；异常重试失败后按当前路由返回所属工作台。知识、今日、复盘与阶段的动态详情继续使用各自 `not-found` 出口，不把局部内容不存在误报成全站 404。
+
+核心编辑器共用持久化状态：本机草稿与服务端成功必须分开显示；草稿存在时刷新或关闭浏览器会触发离开提醒，站内返回原详情后按既有私密草稿 TTL 恢复。版本冲突不会自动覆盖或自动重放。
+
+核心编辑器也共用操作层级：底部操作区只有一个主提交动作，关闭或放弃为次级动作；卡片、错题、资料编辑时隐藏归档等生命周期操作。冲突未处理时主提交禁用，必须先在冲突弹窗明确选择服务端版本或人工合并。移动端按钮改为纵向全宽排列，不把保存、放弃和归档挤在同一行。
+
+生命周期操作遵循统一去向：归档前确认影响，成功后留在当前详情并提供恢复；恢复直接执行但不会自动恢复已暂停排期；有修改时放弃编辑先确认清除本机草稿，无修改时直接退出。任务放弃同样先确认，成功后由现有任务状态和补做入口承接，不创建额外中间页面。
+
+创建流程也使用统一入口：App Shell 快捷创建可打开任务、知识卡片、错题、资料和考纲节点；对应列表或地图只保留一个页面创建按钮，并使用同一个 Drawer。单个对象创建成功进入新对象 canonical 详情并携带列表 `returnTo`；Markdown、多文件上传等批量创建留在原列表并显示结果摘要。关闭 Drawer 不清除本机草稿。
+
+知识列表统一由工作台顶部搜索承载 `q`，页面工具栏再承载科目、节点、掌握状态、错因、复习、地图或行动等业务筛选。两类条件都写入 URL 和安全 `returnTo`；清除页面筛选不清除 `q`，因此刷新或从详情返回时仍能恢复用户离开前的列表上下文。
+
+知识列表只承担扫描和进入对象：状态标签、标题、摘要和元数据保持同一阅读顺序，唯一对象级导航为“打开详情”。卡片附件与考纲掌握管理仍可在列表显式展开，但默认收起；错题编辑统一进入详情，避免列表与 canonical 详情同时维护两套编辑状态。
 
 ```mermaid
 flowchart TB
   login["/login 登录"] --> today["/today 行动中心"]
-  today --> plan["/today/plan"]
+  today --> plan["/today/plan 计划"]
   today --> inbox["/today/inbox"]
   today --> focus["/focus/sessionId"]
   today --> quickReview["/quick-review/scheduleId"]
   today --> workspace["/settings/workspace"]
-  today --> knowledge["/knowledge/canvas"]
+  today --> knowledge["/knowledge/overview"]
   knowledge --> overview["/knowledge/overview"]
   knowledge --> syllabus["/knowledge/syllabus"]
   knowledge --> notes["/knowledge/notes"]
@@ -22,47 +38,65 @@ flowchart TB
   knowledge --> resources["/knowledge/resources"]
   knowledge --> imports["/knowledge/imports"]
   knowledge --> reviews["/knowledge/reviews"]
-  today --> report["/review/reports"]
+  today --> dailyReview["/review/daily"]
+  dailyReview --> report["/review/reports"]
   today --> stage["/stage/overview"]
   stage --> simulation["/stage/simulation"]
+  simulation --> simulationExam["/stage/simulation/examId"]
+  simulationExam --> inbox
+  simulationExam --> stage
   stage --> analytics["/stage/analytics"]
   plan --> task["/today/tasks/taskId"]
   inbox --> inboxItem["/today/inbox/itemId"]
+  settings["/settings 设置总览"] --> workspace
+  settings --> profile["/settings/profile"]
   workspace --> today
-  settings["/settings"] --> workspace
+  profile --> today
 ```
 
 ## 页面清单（当前开放）
 
 | 路由 | 名称 | 职责 | 入口文件 |
 |---|---|---|---|
-| `/today` | 今日行动中心 | 推荐、三队列、科目快捷计时、首次工作区 CTA | `apps/web/app/(app)/today/page.tsx` |
-| `/today/plan` | 计划 | 七天/日期条、正式任务、欠账、Inbox 计数 | `apps/web/app/(app)/today/plan/page.tsx` |
-| `/today/tasks/[taskId]` | 任务详情 | 任务唯一 canonical 详情与启动 | `apps/web/app/(app)/today/tasks/[taskId]/page.tsx` |
-| `/today/inbox` | 收件箱 | OPEN 草稿列表 | `apps/web/app/(app)/today/inbox/page.tsx` |
-| `/today/inbox/[itemId]` | 收件箱详情 | 转换与来源摘要 | `apps/web/app/(app)/today/inbox/[itemId]/page.tsx` |
-| `/focus/[sessionId]` | 全屏专注 | 正计时、暂停/继续、结束收口 | `apps/web/app/(app)/focus/[sessionId]/page.tsx` |
-| `/quick-review/[scheduleId]` | 快速复习 | 单对象确认复习事件 | `apps/web/app/(app)/quick-review/[scheduleId]/page.tsx` |
-| `/settings/workspace` | 考试工作区 | 首次设置两步流、科目与接管 | `apps/web/app/(app)/settings/workspace/page.tsx` |
-| `/settings/ai` | AI 设置 | 当前浏览器外部 Provider 开关、服务端状态和 payload 隐私；策略变化确认后保存 | `apps/web/app/(app)/settings/ai/page.tsx` |
-| `/settings` | 基础设置 | 账户与版本中心 | `apps/web/app/(app)/settings/page.tsx` |
+| `/today` | 今日行动中心 | 推荐、任务/复习/错题单一分段队列、今日完成摘要、科目快捷计时、首次工作区 CTA | `apps/web/app/(app)/today/page.tsx` |
+| `/today/plan` | 计划 | 顶部搜索与科目/状态筛选、七日日期带、正式任务、欠账、Inbox 计数；桌面以 `taskId` 在右侧展开任务详情 | `apps/web/app/(app)/today/plan/page.tsx` |
+| `/today/tasks/[taskId]` | 任务详情 | 任务 canonical 详情与启动；接受白名单 `returnTo`，从今日或计划进入并把来源继续传给专注页；桌面详情内容复用于计划分栏 | `apps/web/app/(app)/today/tasks/[taskId]/page.tsx` |
+| `/today/inbox` | 收件箱 | 待处理、已忽略、已转换列表；详情、已转换任务和空状态保留当前状态/稳定引用筛选，嵌套来源提供返回上一层草稿出口 | `apps/web/app/(app)/today/inbox/page.tsx` |
+| `/today/inbox/[itemId]` | 收件箱详情 | 转换与来源摘要；返回、转换后任务、替代版本、稳定依赖和阶段入口都携带安全的收件箱 `returnTo` | `apps/web/app/(app)/today/inbox/[itemId]/page.tsx` |
+| `/focus/[sessionId]` | 全屏专注 | 正计时、暂停/继续、结束收口、证据接力；完成后主操作回今日下一行动，非今日来源可返回原页面；低转化补救进入收件箱时保留专注来源 | `apps/web/app/(app)/focus/[sessionId]/page.tsx` |
+| `/quick-review/[scheduleId]` | 快速复习 | 查看真实对象、确认结果、写回下次日期与连续掌握；有下一项时继续，否则按来源回到今日或复习队列 | `apps/web/app/(app)/quick-review/[scheduleId]/page.tsx` |
+| `/settings/workspace` | 考试工作区 | 首次设置两步流、考试目标、科目与接管；首次完成返回今日行动 | `apps/web/app/(app)/settings/workspace/page.tsx` |
+| `/settings/ai` | AI 设置 | Web 全局 AI 开关、当前浏览器外部 Provider 授权、账户 Provider 状态和 payload 隐私；策略变化确认后保存 | `apps/web/app/(app)/settings/ai/page.tsx` |
+| `/settings` | 设置总览 | 汇总六类配置状态；无工作区时给出唯一首次设置动作，有工作区时返回今日行动 | `apps/web/app/(app)/settings/page.tsx` |
+| `/settings/profile` | 档案与动机 | 动机封存、当前设备提醒、可展示内容库和低频 AI 草稿 | `apps/web/app/(app)/settings/profile/page.tsx` |
+| `/settings/notifications` | 通知 | 通知类别与时间偏好 | `apps/web/app/(app)/settings/notifications/page.tsx` |
+| `/settings/experience` | 体验 | 主题、密度与界面偏好 | `apps/web/app/(app)/settings/experience/page.tsx` |
+| `/settings/system` | 系统 | 版本中心与诊断入口 | `apps/web/app/(app)/settings/system/page.tsx` |
 | `/knowledge/canvas` | 关联画布 | 派生关系图、搜索、等价列表、布局 CAS | `apps/web/app/(app)/knowledge/canvas/page.tsx` |
-| `/knowledge/overview` | 知识概览 | 待复习/薄弱/资料/导入摘要 | `apps/web/app/(app)/knowledge/overview/page.tsx` |
-| `/knowledge/syllabus` | 考纲 | 考纲进度树 | `apps/web/app/(app)/knowledge/syllabus/page.tsx` |
+| `/knowledge/overview` | 知识概览 | 唯一下一行动、到期/薄弱摘要与最近卡片/错题证据 | `apps/web/app/(app)/knowledge/overview/page.tsx` |
+| `/knowledge/syllabus` | 考纲 | 作战地图与考纲进度树；长期遗忘风险在地图后以紧凑摘要呈现，可展开查看完整原因与下一步动作 | `apps/web/app/(app)/knowledge/syllabus/page.tsx` |
+| `/knowledge/syllabus/[nodeId]` | 考纲节点 | 节点身份、当前下一行动、统一复习排期、掌握证明与复测；无排期时可带上下文进入最小任务创建；到期时优先开始复测；接受安全 `returnTo` 返回来源 | `apps/web/app/(app)/knowledge/syllabus/[nodeId]/page.tsx` |
 | `/knowledge/notes` | 知识卡片 | Note 卡片库 | `apps/web/app/(app)/knowledge/notes/page.tsx` |
+| `/knowledge/notes/[noteId]` | 知识卡片详情 | 查看与编辑卡片；下一行动引导首次排期或查看排期，到期时优先开始复习；接受安全 `returnTo` 返回来源 | `apps/web/app/(app)/knowledge/notes/[noteId]/page.tsx` |
 | `/knowledge/mistakes` | 错题 | 错题库 | `apps/web/app/(app)/knowledge/mistakes/page.tsx` |
-| `/knowledge/resources` | 资料 | StudyResource 列表 | `apps/web/app/(app)/knowledge/resources/page.tsx` |
-| `/knowledge/imports` | 导入 | 学习树导入历史 | `apps/web/app/(app)/knowledge/imports/page.tsx` |
-| `/knowledge/reviews` | 统一复习 | 复习排期列表 → 快速复习 | `apps/web/app/(app)/knowledge/reviews/page.tsx` |
-| `/review/reports` | 复盘 | 周/月报告与当前周期决策 | `apps/web/app/(app)/review/reports/page.tsx` |
-| `/review/reports/history/[decisionId]` | 报告历史 | 冻结报告决策回放 | `apps/web/app/(app)/review/reports/history/[decisionId]/page.tsx` |
-| `/stage/overview` | 阶段总览 | 阶段计划、确认边界与当前建议 | `apps/web/app/(app)/stage/overview/page.tsx` |
-| `/stage/simulation` | 模拟 | 模拟列表与结构化失分入口 | `apps/web/app/(app)/stage/simulation/page.tsx` |
-| `/stage/simulation/[examId]` | 模拟详情 | 分科结果、失分与补救入箱 | `apps/web/app/(app)/stage/simulation/[examId]/page.tsx` |
-| `/stage/analytics` | 阶段统计 | 7/30 天趋势与阶段风险 | `apps/web/app/(app)/stage/analytics/page.tsx` |
+| `/knowledge/mistakes/[mistakeId]` | 错题详情 | 下一行动引导补全、独立重做或首次排期；错因与复习历史；到期时优先开始复习；接受安全 `returnTo` 返回来源 | `apps/web/app/(app)/knowledge/mistakes/[mistakeId]/page.tsx` |
+| `/knowledge/resources` | 资料 | 按科目筛选的 StudyResource 列表；唯一“添加资料”入口打开文件/HTTPS 外链抽屉，未完成上传与重复决策可恢复 | `apps/web/app/(app)/knowledge/resources/page.tsx` |
+| `/knowledge/resources/[resourceId]` | 资料详情 | 默认查看资料事实与关联对象；页头消费资料，下一行动承接关联/创建任务，显式进入整理；接受安全 `returnTo` 返回来源 | `apps/web/app/(app)/knowledge/resources/[resourceId]/page.tsx` |
+| `/knowledge/resources/[resourceId]/preview` | 资料预览 | 全屏查看私有文件；返回含上游来源的资料详情 | `apps/web/app/(app)/knowledge/resources/[resourceId]/preview/page.tsx` |
+| `/knowledge/imports` | 导入 | 默认批次总览；`mode=import` 进入内容、差异与原子确认，`mode=export` 独立导出；未完成草稿可恢复 | `apps/web/app/(app)/knowledge/imports/page.tsx` |
+| `/knowledge/imports/[importId]` | 导入批次 | 中文应用/跳过结果、导入明细与考纲核验接力；技术校验信息折叠 | `apps/web/app/(app)/knowledge/imports/[importId]/page.tsx` |
+| `/knowledge/reviews` | 统一复习 | 单一到期队列、今日进度、状态筛选 → 快速复习 | `apps/web/app/(app)/knowledge/reviews/page.tsx` |
+| `/knowledge/reviews/[scheduleId]` | 复习排期详情 | 按“下一行动 → 对象核验 → 排期管理 → 事件历史”分层；活动排期主操作进入快速复习，暂停/恢复与历史更正为管理动作，并保留安全 `returnTo` | `apps/web/app/(app)/knowledge/reviews/[scheduleId]/page.tsx` |
+| `/review/daily` | 今日复盘 | 每日事实、偏差与明日最低行动；完成结果进入收件箱时保留复盘来源 | `apps/web/app/(app)/review/daily/page.tsx` |
+| `/review/reports` | 周期报告 | 执行事实、唯一短板、待确认策略 -> 计划收件箱 / 阶段建议；收件箱入口保留当前周/月报告视图 | `apps/web/app/(app)/review/reports/page.tsx` |
+| `/review/reports/history/[decisionId]` | 报告历史 | 冻结事实、当时决策与入箱汇总的只读回放；查看当前收件箱时保留历史报告来源 | `apps/web/app/(app)/review/reports/history/[decisionId]/page.tsx` |
+| `/stage/overview` | 阶段总览 | 当前生效计划、待确认建议、里程碑与最近处理结果；阶段结果进入收件箱时保留当前概览上下文 | `apps/web/app/(app)/stage/overview/page.tsx` |
+| `/stage/simulation` | 模拟 | 未完成考试优先、已确认历史与独立创建入口 | `apps/web/app/(app)/stage/simulation/page.tsx` |
+| `/stage/simulation/[examId]` | 模拟详情 | 录分、失分分析、事实确认、补救入箱；回读补救当前 Inbox 状态并阻止重复发送，再接力收件箱或阶段概览；收件箱入口和“来源考试”回溯都保留上一层来源 | `apps/web/app/(app)/stage/simulation/[examId]/page.tsx` |
+| `/stage/analytics` | 阶段统计 | 最高风险直达处理 + 7/30 天趋势证据 | `apps/web/app/(app)/stage/analytics/page.tsx` |
 | `/login` | 登录 | 单管理员登录；已登录重定向 `/today` | `apps/web/app/login/page.tsx` |
 
-`/` 登录后重定向到 `/today`。
+`/` 登录后重定向到 `/today`；`/knowledge`、`/review`、`/stage` 分别重定向到所属工作台的默认入口。
 
 ## Legacy 兼容路由（不进当前导航）
 
@@ -84,14 +118,15 @@ flowchart TB
 |---|---|
 | 今日 | `/today` |
 | 计划 | `/today/plan` |
-| 知识 | `/knowledge/canvas` |
-| 复盘 | `/review/reports` |
+| 知识 | `/knowledge/overview` |
+| 复盘 | `/review/daily` |
 | 阶段 | `/stage/overview` |
-| 设置 | `/settings/workspace` |
 
-移动端底部导航显示今日、计划、知识、复盘、阶段；设置与收件箱从对应工作台页内进入。
+移动端底部导航显示今日、计划、知识、复盘、阶段；设置从账户入口进入，收件箱从今日工作台进入。
 
-顶栏提供五状态灯（`GET /api/app-shell/status`）与次级「我学不下去了」（动机内容库一条匹配 + 继续/5 分钟/最小任务；不伪造完成事实）。
+设置桌面端使用左侧纵向二级导航，移动端使用横向滚动二级入口。首次进入且尚无工作区时，从 `/settings` 进入 `/settings/workspace?setup=1`，完成考试目标、首个科目和已有数据处理后返回 `/today`；档案、通知、AI、体验与系统设置均为按需配置，不阻断主学习闭环。
+
+当前顶栏将 `GET /api/app-shell/status` 返回的分项状态汇总为单一“今日状态”入口，并保留次级“我学不下去了”恢复入口；状态详情可以导航到建议动作，但状态本身不作为第二套导航。
 
 ## 同步约定
 

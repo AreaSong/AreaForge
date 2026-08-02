@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
@@ -263,12 +264,11 @@ export function StageDraftActions({ draft }: { draft: StageAdjustmentDraftRecord
   return (
     <div className="mt-4">
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={pending || deciding || baseline.status !== "draft"} onClick={() => void decide("confirm")} className="h-10 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-60">确认阶段调整</button>
-        <button type="button" disabled={pending || deciding || baseline.status !== "draft"} onClick={() => setRejectConfirmOpen(true)} className="h-10 rounded-md border border-red-300/30 px-3 text-sm text-red-200 disabled:opacity-60">拒绝</button>
-        <Link href="/today/inbox" className="h-10 px-2 text-sm leading-10 text-teal-300">查看收件箱</Link>
+        <Button type="button" variant="primary" size="lg" loading={deciding && command?.action === "confirm"} disabled={pending || deciding || baseline.status !== "draft"} onClick={() => void decide("confirm")}>确认并更新阶段</Button>
+        <Button type="button" variant="danger" size="lg" disabled={pending || deciding || baseline.status !== "draft"} onClick={() => setRejectConfirmOpen(true)}>拒绝</Button>
       </div>
-      {notice ? <p role="status" className="mt-2 text-sm text-teal-200">{notice}</p> : null}
-      {error ? <p role="alert" className="mt-2 text-sm text-red-300">{error}</p> : null}
+      {notice ? <Alert tone="success" className="mt-3">{notice}</Alert> : null}
+      {error ? <Alert tone="danger" className="mt-3">{error}</Alert> : null}
 
       <Modal open={rejectConfirmOpen} title="确认不可逆拒绝" onClose={() => setRejectConfirmOpen(false)} allowEscape={false}>
         <div className="space-y-4 text-sm text-zinc-300">

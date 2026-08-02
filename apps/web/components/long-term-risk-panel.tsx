@@ -6,6 +6,7 @@ interface LongTermRiskPanelProps {
   title?: string;
   description?: string;
   maxItems?: number;
+  compact?: boolean;
 }
 
 export function LongTermRiskPanel({
@@ -13,8 +14,39 @@ export function LongTermRiskPanel({
   title = "长期风险",
   description = "同一组来源、窗口、证据新鲜度和下一步动作。",
   maxItems = 4,
+  compact = false,
 }: LongTermRiskPanelProps) {
   const risks = summary.risks.slice(0, maxItems);
+
+  if (compact) {
+    return (
+      <section className="rounded-lg border border-white/10 bg-[#101419] p-4 sm:p-5">
+        <details>
+          <summary className="flex cursor-pointer list-none flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-300" aria-hidden="true" />
+                <h2 className="text-base font-semibold text-white">{title}</h2>
+              </div>
+              <p className="mt-1 text-sm text-zinc-400">
+                {summary.risks[0]?.title ?? "暂无需要立即处理的长期风险"}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-md border px-2 py-1 text-xs ${levelClass(summary.topRiskLevel)}`}>
+                {labelSeverity(summary.topRiskLevel)}
+              </span>
+              <span className="text-sm text-teal-200">查看风险详情</span>
+            </div>
+          </summary>
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <p className="mb-4 text-sm leading-6 text-zinc-400">{description}</p>
+            <RiskDetails summary={summary} risks={risks} />
+          </div>
+        </details>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
@@ -39,8 +71,24 @@ export function LongTermRiskPanel({
         </div>
       </div>
 
+      <div className="mt-4">
+        <RiskDetails summary={summary} risks={risks} />
+      </div>
+    </section>
+  );
+}
+
+function RiskDetails({
+  summary,
+  risks,
+}: {
+  summary: LongTermRiskSummaryDto;
+  risks: LongTermRiskSummaryDto["risks"];
+}) {
+  return (
+    <>
       {summary.focusSubjects.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {summary.focusSubjects.map((subject) => (
             <span key={subject} className="rounded-md border border-teal-300/20 bg-teal-300/10 px-3 py-2 text-sm text-teal-50">
               {subject}
@@ -100,7 +148,7 @@ export function LongTermRiskPanel({
           <span>所有长期建议保持确认边界，不自动修改任务或阶段计划。</span>
         </div>
       </div>
-    </section>
+    </>
   );
 }
 

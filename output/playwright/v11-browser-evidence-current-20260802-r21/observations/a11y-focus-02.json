@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-01T17:38:31.110Z",
+  "checkId": "FOCUS-02",
+  "checkKey": "modal-trigger-return",
+  "route": "/today",
+  "target": "subject-shortcut-trigger",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "keyboard",
+  "assertions": [
+    {
+      "id": "escape-closed-modal",
+      "predicate": "equals",
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "focus-returned-to-trigger",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

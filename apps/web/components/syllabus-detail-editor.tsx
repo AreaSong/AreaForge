@@ -4,6 +4,8 @@ import { Save, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { MasteryProofCondition } from "@areaforge/core";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { EditorActionBar } from "@/components/ui/editor-actions";
+import { Alert, PersistenceStatus } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
 import {
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -12,6 +14,7 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
+import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
 import type {
   MasteryLevelDto,
   SyllabusNodeDto,
@@ -92,12 +95,7 @@ export function SyllabusDetailEditor(props: {
     savePrivateBusinessDraft<SyllabusEditDraft>(draftKey, { baseRevision: baseline.revision, values });
   }, [baseline.revision, dirty, draftKey, hydrated, values]);
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  useUnsavedChangesWarning(dirty);
 
   function toggleCondition(condition: MasteryProofCondition) {
     setValues((current) => ({
@@ -166,11 +164,10 @@ export function SyllabusDetailEditor(props: {
     <>
       <form className="space-y-5 border-y border-white/10 py-5" onSubmit={submit}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">编辑考纲节点</h2>
-          <button type="button" className="inline-flex h-10 items-center gap-2 px-2 text-sm text-zinc-300" onClick={() => dirty ? setCloseConfirmationOpen(true) : props.onCancel()}>
-            <X className="h-4 w-4" aria-hidden="true" />
-            关闭编辑
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold text-white">编辑考纲节点</h2>
+            <PersistenceStatus state={conflict || draftNeedsRebase ? "conflict" : saving ? "saving" : dirty ? "local-draft" : "clean"} />
+          </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2 text-sm text-zinc-300 md:col-span-2">
@@ -241,10 +238,18 @@ export function SyllabusDetailEditor(props: {
             </div>
           </div>
         ) : null}
-        {error ? <p role="alert" className="text-sm text-red-200">{error}</p> : null}
-        <button type="submit" className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:opacity-50" disabled={saving || draftNeedsRebase || !values.title.trim()}>
-          <Save className="h-4 w-4" aria-hidden="true" />{saving ? "保存中" : "保存节点"}
-        </button>
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+        <EditorActionBar
+          primaryType="submit"
+          primaryLabel="保存节点"
+          primaryIcon={<Save className="h-4 w-4" aria-hidden="true" />}
+          primaryDisabled={draftNeedsRebase || !values.title.trim()}
+          loading={saving}
+          secondaryLabel="关闭编辑"
+          secondaryIcon={<X className="h-4 w-4" aria-hidden="true" />}
+          onSecondary={() => dirty ? setCloseConfirmationOpen(true) : props.onCancel()}
+          hint="保存后更新节点结构；关闭编辑不会写入服务端。"
+        />
       </form>
 
       <Modal open={closeConfirmationOpen} title="保留未保存的节点编辑？" onClose={() => setCloseConfirmationOpen(false)}>

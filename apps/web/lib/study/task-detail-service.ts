@@ -41,6 +41,7 @@ export interface StudyTaskDetailDto {
     id: string;
     status: string;
     dueDate: string | null;
+    revision: number;
   } | null;
   relatedSyllabusNodes: Array<{
     id: string;
@@ -116,7 +117,7 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
           orderBy: { createdAt: "asc" },
         },
         planMilestone: { select: { id: true, title: true, status: true, archivedAt: true } },
-        reviewSchedule: { select: { id: true, status: true, dueDate: true } },
+        reviewSchedule: { select: { id: true, status: true, dueDate: true, revision: true } },
         parent: { select: { id: true, title: true, status: true } },
         children: {
           select: { id: true, title: true, status: true },
@@ -182,6 +183,7 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
       id: task.reviewSchedule.id,
       status: task.reviewSchedule.status,
       dueDate: task.reviewSchedule.dueDate?.toISOString() ?? null,
+      revision: task.reviewSchedule.revision,
     } : null,
     relatedSyllabusNodes: task.relatedSyllabusNodes.map(({ syllabusNode }) => ({
       id: syllabusNode.id,

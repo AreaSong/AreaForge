@@ -820,6 +820,8 @@ export interface SimulationRemediationDto {
   lostScore: number;
   itemIds: string[];
   originVersion: number;
+  inboxItemId: string | null;
+  inboxStatus: "OPEN" | "DISMISSED" | "CONVERTED" | null;
 }
 
 export interface SimulationRemediationSelection {
@@ -870,7 +872,7 @@ async function loadSimulationRemediations(
     ? exam.subjectResults.filter((result) => result.subject.archivedAt == null)
     : exam.subjectResults;
   const itemLookup = new Map(subjectResults.flatMap((result) => result.lossItems.map((item) => [item.id, { item, result }] as const)));
-  return buildSimulationRemediationGroups(subjectResults.flatMap((result) => result.lossItems.map((item) => ({
+  const remediations = buildSimulationRemediationGroups(subjectResults.flatMap((result) => result.lossItems.map((item) => ({
     id: item.id,
     subjectId: result.subjectId,
     reason: item.reason as SimulationLossReason,
@@ -885,6 +887,23 @@ async function loadSimulationRemediations(
       subjectName: sample.result.subject.name,
       syllabusNodeTitle: sample.item.syllabusNode?.title ?? null,
       originVersion: sample.result.revision,
+    };
+  });
+  if (remediations.length === 0) return [];
+  const inboxItems = await client.planInboxItem.findMany({
+    where: {
+      workspaceId,
+      originKey: { in: remediations.map((item) => item.originKey) },
+    },
+    select: { id: true, originKey: true, originVersion: true, status: true },
+  });
+  const inboxByOrigin = new Map(inboxItems.map((item) => [`${item.originKey}:${item.originVersion}`, item]));
+  return remediations.map((remediation) => {
+    const inboxItem = inboxByOrigin.get(`${remediation.originKey}:${remediation.originVersion}`);
+    return {
+      ...remediation,
+      inboxItemId: inboxItem?.id ?? null,
+      inboxStatus: inboxItem?.status ?? null,
     };
   });
 }

@@ -56,6 +56,17 @@ export interface ActionCenterTodayDto {
   primaryActionHref: string;
 }
 
+const REVIEW_CANDIDATE_TITLES = {
+  NOTE: "卡片复习",
+  MISTAKE: "错题复习",
+  STUDY_RESOURCE: "资料复习",
+  SYLLABUS_NODE: "考纲节点复习",
+} as const;
+
+function reviewCandidateTitle(targetType: string): string {
+  return REVIEW_CANDIDATE_TITLES[targetType as keyof typeof REVIEW_CANDIDATE_TITLES] ?? "知识对象复习";
+}
+
 function serializeWorkspace(row: {
   id: string;
   stableKey: string;
@@ -325,7 +336,7 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
     candidates.push({
       id: schedule.id,
       kind: "review",
-      title: `${objectKind} 复习`,
+      title: reviewCandidateTitle(objectKind),
       reason: overdueDays > 0 ? `复习逾期 ${overdueDays} 天` : "今日到期复习",
       priorityBand: classifyReviewPriorityBand(objectKind),
       riskScore: overdueDays * 8 + (objectKind === "MISTAKE" ? 6 : 2),

@@ -27,9 +27,16 @@ const initialDraft: RetestDraft = {
   nextReviewDate: "",
 };
 
-export function SyllabusRetestForm(props: { nodeId: string; onCancel: () => void; onSaved: () => void }) {
-  const draftKey = `areaforge.syllabus.draft.retest.${props.nodeId}`;
-  const commandScope = `mastery-retest:${props.nodeId}:canonical`;
+export function SyllabusRetestForm(props: {
+  nodeId: string;
+  onCancel: () => void;
+  onSaved: (result: { retestId?: string }) => void | Promise<void>;
+  draftScope?: string;
+  commandScope?: string;
+  compact?: boolean;
+}) {
+  const draftKey = `areaforge.syllabus.draft.retest.${props.draftScope ?? props.nodeId}`;
+  const commandScope = props.commandScope ?? `mastery-retest:${props.nodeId}:canonical`;
   const [draft, setDraft] = useState(initialDraft);
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,7 +78,7 @@ export function SyllabusRetestForm(props: { nodeId: string; onCancel: () => void
           ...payload,
         }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as { error?: string; retestId?: string } | null;
       if (response.status === 401) {
         savePrivateBusinessDraft(draftKey, draft);
         redirectToLoginWithCurrentLocation();
@@ -81,25 +88,27 @@ export function SyllabusRetestForm(props: { nodeId: string; onCancel: () => void
         setError(body?.error ?? "复测记录保存失败，输入和重试身份仍保留");
         return;
       }
+      await props.onSaved({ retestId: body?.retestId });
       completeIdempotentCommand(commandScope);
       removePrivateBusinessDraft(draftKey);
-      props.onSaved();
-    } catch {
+    } catch (caught) {
       savePrivateBusinessDraft(draftKey, draft);
-      setError("网络中断，输入与同一重试身份已保留；恢复网络后请显式重试。");
+      setError(caught instanceof Error ? caught.message : "网络中断，输入与同一重试身份已保留；恢复网络后请显式重试。");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <form className="space-y-4 border-y border-white/10 py-5" onSubmit={submit}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">记录复测</h2>
-        <button type="button" className="inline-flex h-10 items-center gap-2 px-2 text-sm text-zinc-300" onClick={props.onCancel}>
-          <X className="h-4 w-4" aria-hidden="true" />关闭复测
-        </button>
-      </div>
+    <form className={props.compact ? "space-y-4" : "space-y-4 border-y border-white/10 py-5"} onSubmit={submit}>
+      {!props.compact ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-white">记录复测</h2>
+          <button type="button" className="inline-flex h-10 items-center gap-2 px-2 text-sm text-zinc-300" onClick={props.onCancel}>
+            <X className="h-4 w-4" aria-hidden="true" />关闭复测
+          </button>
+        </div>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2 text-sm text-zinc-300">
           结果

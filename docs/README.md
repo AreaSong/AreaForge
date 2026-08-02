@@ -64,6 +64,8 @@
 
 ## UX
 
+- `ux/application-shell-and-workbench-layouts.md`：目标 App Shell、页面布局模板、工作台信息架构与逐页跳转契约。
+- `ux/shared-ui-foundations.md`：共享设计令牌、布局原语、控件状态、反馈与响应式契约。
 - `ux/site-navigation.md`：页面清单、导航入口与页面跳转关系。
 - `ux/dashboard-states.md`：作战台状态。
 - `ux/focus-timer.md`：专注计时交互。

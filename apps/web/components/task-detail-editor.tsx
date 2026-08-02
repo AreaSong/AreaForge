@@ -3,6 +3,8 @@
 import { Save, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { EditorActionBar } from "@/components/ui/editor-actions";
+import { Alert, PersistenceStatus } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
 import {
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -11,6 +13,7 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
+import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
 import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
 import type { TaskUpdateSnapshotDto } from "@/lib/study/task-detail-service";
 import type { SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
@@ -84,12 +87,7 @@ export function TaskDetailEditor(props: {
     saveTaskDraft(draftKey, baseline, values);
   }, [baseline, dirty, draftKey, hydrated, values]);
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  useUnsavedChangesWarning(dirty);
 
   function changeSubject(subjectId: string) {
     setValues((current) => ({
@@ -184,11 +182,10 @@ export function TaskDetailEditor(props: {
     <>
       <form className="space-y-5 border-y border-white/10 py-5" onSubmit={submit}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">编辑任务</h2>
-          <button type="button" className="inline-flex h-10 items-center gap-2 px-2 text-sm text-zinc-300" onClick={requestClose}>
-            <X className="h-4 w-4" aria-hidden="true" />
-            关闭编辑
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold text-white">编辑任务</h2>
+            <PersistenceStatus state={conflict || draftNeedsRebase ? "conflict" : saving ? "saving" : dirty ? "local-draft" : "clean"} />
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -335,15 +332,18 @@ export function TaskDetailEditor(props: {
           </div>
         ) : null}
 
-        {error ? <p role="alert" className="text-sm text-red-200">{error}</p> : null}
-        <button
-          type="submit"
-          className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={saving || draftNeedsRebase || !values.title.trim() || !values.subjectId || !values.plannedDate}
-        >
-          <Save className="h-4 w-4" aria-hidden="true" />
-          {saving ? "保存中" : "保存任务"}
-        </button>
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+        <EditorActionBar
+          primaryType="submit"
+          primaryLabel="保存任务"
+          primaryIcon={<Save className="h-4 w-4" aria-hidden="true" />}
+          primaryDisabled={draftNeedsRebase || !values.title.trim() || !values.subjectId || !values.plannedDate}
+          loading={saving}
+          secondaryLabel="关闭编辑"
+          secondaryIcon={<X className="h-4 w-4" aria-hidden="true" />}
+          onSecondary={requestClose}
+          hint="保存后更新任务详情；关闭编辑不会写入服务端。"
+        />
       </form>
 
       <Modal open={closeConfirmationOpen} title="保留未保存的任务编辑？" onClose={() => setCloseConfirmationOpen(false)}>

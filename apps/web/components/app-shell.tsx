@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Activity,
+  BookOpen,
   CalendarCheck2,
   ClipboardCheck,
   FilePlus2,
   Flag,
-  Network,
+  ListTree,
+  ListTodo,
   NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
@@ -62,31 +65,18 @@ export function AppShell(props: {
   const [syncState, setSyncState] = useState<ShellSyncState>("current");
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [motivationDrawerSource, setMotivationDrawerSource] = useState<"manual" | "automatic">("manual");
-  const [lightOpen, setLightOpen] = useState<string | null>(null);
+  const [lightOpen, setLightOpen] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [motivationLine, setMotivationLine] = useState<string | null>(null);
   const [motivationUrl, setMotivationUrl] = useState<string | null>(null);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
-  const lastLightTriggerRef = useRef<HTMLButtonElement | null>(null);
   const immersive = pathname.startsWith("/focus/") || pathname.startsWith("/quick-review/");
   const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
   const displayStatus = projectLocalQuickReviewStatus(status, quickReviewClaim);
 
   useEffect(() => subscribeQuickReviewActivity(props.userId, setQuickReviewClaim), [props.userId]);
-
-  useEffect(() => {
-    if (!lightOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setLightOpen(null);
-      window.requestAnimationFrame(() => lastLightTriggerRef.current?.focus());
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [lightOpen]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -103,14 +93,8 @@ export function AppShell(props: {
     });
   }
 
-  function openStatusLight(kind: string, trigger: HTMLButtonElement) {
-    lastLightTriggerRef.current = trigger;
-    setLightOpen(kind);
-  }
-
-  function closeStatusLight() {
-    setLightOpen(null);
-    window.requestAnimationFrame(() => lastLightTriggerRef.current?.focus());
+  function openStatusLight() {
+    setLightOpen((current) => !current);
   }
 
   useEffect(() => {
@@ -287,11 +271,11 @@ export function AppShell(props: {
   }
 
   return (
-    <div className="af-app-shell h-dvh overflow-hidden bg-[#080b0f] text-zinc-100 lg:h-auto lg:min-h-screen lg:overflow-visible">
-      <div className="mx-auto flex h-full w-full max-w-7xl lg:min-h-screen">
+    <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100">
+      <div className="flex h-full w-full">
         <aside
           aria-label="桌面应用侧栏"
-          className={`hidden shrink-0 flex-col border-r border-white/10 px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-16" : "w-56"}`}
+          className={`hidden shrink-0 flex-col border-r border-white/10 bg-[var(--af-surface-subtle)] px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-16" : "w-56"}`}
         >
           <div className={`mb-6 flex items-center text-teal-300 ${sidebarCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
             <div className="flex min-w-0 items-center gap-2">
@@ -338,45 +322,50 @@ export function AppShell(props: {
             })}
           </nav>
           <div className={`mt-auto space-y-2 pt-6 text-xs text-zinc-500 ${sidebarCollapsed ? "grid justify-items-center" : "px-2"}`}>
+            <Link
+              href="/settings/workspace"
+              aria-current={pathname.startsWith("/settings") ? "location" : undefined}
+              title={sidebarCollapsed ? "设置" : undefined}
+              className={`flex h-9 items-center rounded-md text-zinc-400 hover:bg-white/[0.06] hover:text-white ${sidebarCollapsed ? "w-9 justify-center" : "gap-3 px-2"}`}
+            >
+              <Settings size={16} aria-hidden="true" />
+              <span className={sidebarCollapsed ? "sr-only" : undefined}>设置</span>
+            </Link>
             <p className={sidebarCollapsed ? "sr-only" : undefined}>{props.email}</p>
             <LogoutButton compact={sidebarCollapsed} />
           </div>
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-screen">
-          <header className="af-shell-header sticky top-0 z-20 shrink-0 border-b border-white/10 bg-[#080b0f]/95 px-4 py-3 backdrop-blur">
+          <header className="af-shell-header z-20 shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/95 px-4 py-3 backdrop-blur sm:px-6 xl:px-8">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2">
                 <div className="flex shrink-0 items-center gap-2 lg:hidden">
                   <BrandMark size={20} />
                   <span className="text-sm text-teal-300">AreaForge</span>
                 </div>
-                <div className="hidden items-center gap-2 md:flex" aria-label="状态灯">
-                {displayStatus.lights.map((light) => (
-                  <button
-                    key={light.kind}
-                    type="button"
-                    className={`rounded-md border px-2 py-1 text-xs ${toneClass[light.tone] ?? toneClass.gray}`}
-                    onClick={(event) => openStatusLight(light.kind, event.currentTarget)}
-                    aria-label={`${light.label}：${light.summary}`}
-                    aria-expanded={lightOpen === light.kind}
-                    aria-controls="status-light-panel"
-                  >
-                    {light.label}
-                  </button>
-                ))}
-                </div>
+                <button
+                  type="button"
+                  className="hidden h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 text-xs text-zinc-200 hover:bg-white/[0.07] md:inline-flex"
+                  onClick={openStatusLight}
+                  aria-label={`今日状态：${displayStatus.mobileTop.summary}`}
+                  aria-expanded={lightOpen}
+                >
+                  <Activity size={15} className={toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray} aria-hidden="true" />
+                  <span>今日状态</span>
+                  <span className="max-w-52 truncate text-zinc-500">{displayStatus.mobileTop.summary}</span>
+                </button>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
-                  className={`rounded-md border px-2 py-1 text-xs md:hidden ${toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray}`}
-                  onClick={(event) => openStatusLight(displayStatus.mobileTop.kind, event.currentTarget)}
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-2 text-xs md:hidden ${toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray}`}
+                  onClick={openStatusLight}
                   aria-label={`状态：${displayStatus.mobileTop.summary}`}
-                  aria-expanded={lightOpen === displayStatus.mobileTop.kind}
-                  aria-controls="status-light-panel"
+                  aria-expanded={lightOpen}
                 >
-                  {displayStatus.mobileTop.label}
+                  <Activity size={15} aria-hidden="true" />
+                  状态
                 </button>
                 <button
                   type="button"
@@ -409,31 +398,6 @@ export function AppShell(props: {
                 ? `状态同步于 ${formatServerTime(status.serverTime)}`
                 : `${syncState === "offline" ? "当前离线" : "状态刷新失败"}；显示上次服务端状态（${formatServerTime(status.serverTime)}）`}
             </p>
-            {lightOpen ? (
-              <div
-                id="status-light-panel"
-                role="region"
-                aria-label="状态详情"
-                className="mt-3 rounded-md border border-white/10 bg-[#101419] p-3 text-sm"
-              >
-                {displayStatus.lights
-                  .filter((light) => light.kind === lightOpen)
-                  .map((light) => (
-                    <div key={light.kind} className="space-y-2">
-                      <p className="font-medium text-white">{light.label}</p>
-                      <p className="text-zinc-400">{light.summary}</p>
-                      {light.action ? (
-                        <Link href={light.action.href} className="inline-flex text-teal-300 hover:underline" onClick={() => setLightOpen(null)}>
-                          {light.action.label}
-                        </Link>
-                      ) : null}
-                      <button type="button" className="block text-xs text-zinc-500" onClick={closeStatusLight}>
-                        收起
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            ) : null}
             {activeNavigationItem?.children?.length ? (
               <nav className="mt-3 flex gap-2 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`}>
                 {activeNavigationItem.children.map((child) => (
@@ -450,7 +414,7 @@ export function AppShell(props: {
             ) : null}
           </header>
 
-          <main className="af-shell-main min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:overflow-visible lg:pb-6">{props.children}</main>
+          <main className="af-shell-main min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6">{props.children}</main>
 
           <nav
             className="af-shell-nav z-20 shrink-0 border-t border-white/10 bg-[#0d1117]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
@@ -491,7 +455,26 @@ export function AppShell(props: {
           <QuickCreateLink href="/knowledge/notes?create=1" label="知识卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/mistakes?create=1" label="错题" onSelect={() => setQuickCreateOpen(false)} icon={<TriangleAlert size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/resources?create=1" label="资料" onSelect={() => setQuickCreateOpen(false)} icon={<FilePlus2 size={18} aria-hidden="true" />} />
+          <QuickCreateLink href="/knowledge/syllabus?create=1" label="考纲节点" onSelect={() => setQuickCreateOpen(false)} icon={<ListTree size={18} aria-hidden="true" />} />
         </nav>
+      </Drawer>
+      <Drawer open={lightOpen} title="今日状态" onClose={() => setLightOpen(false)}>
+        <div className="divide-y divide-white/10" aria-label="今日状态详情">
+          {displayStatus.lights.map((light) => (
+            <div key={light.kind} className="py-4 first:pt-0">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full border ${toneClass[light.tone] ?? toneClass.gray}`} aria-hidden="true" />
+                <p className="text-sm font-medium text-zinc-200">{light.label}</p>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-zinc-500">{light.summary}</p>
+              {light.action ? (
+                <Link href={light.action.href} className="mt-2 inline-flex text-sm text-teal-300 hover:underline" onClick={() => setLightOpen(false)}>
+                  {light.action.label}
+                </Link>
+              ) : null}
+            </div>
+          ))}
+        </div>
       </Drawer>
     </div>
   );
@@ -538,9 +521,11 @@ function navigationAriaCurrent(
 function NavigationIcon({ href }: { href: string }) {
   const Icon = href === "/today"
     ? CalendarCheck2
-    : href === "/knowledge/canvas"
-      ? Network
-      : href === "/review/reports"
+    : href === "/today/plan"
+      ? ListTodo
+      : href === "/knowledge/overview"
+        ? BookOpen
+        : href === "/review/daily"
         ? ClipboardCheck
         : href === "/stage/overview"
           ? Flag

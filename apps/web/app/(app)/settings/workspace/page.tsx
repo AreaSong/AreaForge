@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { WorkspaceSettingsClient } from "@/components/workspace-settings-client";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 import {
@@ -28,14 +29,16 @@ export default async function WorkspaceSettingsPage({
   const takeover = await previewWorkspaceTakeover(user.id).catch(() => null);
 
   return (
-    <WorkspaceSettingsClient
-      userId={user.id}
-      workspaces={workspaces}
-      activeId={active?.id ?? null}
-      subjects={subjects}
-      groups={groups}
-      takeover={takeover}
-      setupMode={params.setup === "1" || !active}
-    />
+    <PageFrame variant="dashboard-wide">
+      <WorkspaceSettingsClient
+        userId={user.id}
+        workspaces={workspaces}
+        activeId={active?.id ?? null}
+        subjects={subjects}
+        groups={groups}
+        takeover={takeover}
+        setupMode={params.setup === "1" || !active}
+      />
+    </PageFrame>
   );
 }

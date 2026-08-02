@@ -24,10 +24,10 @@
 | 双节点倒计时 | 已完成 | 首页和阶段规则使用 2026/2027 节点 | 后续与冲刺模式联动 |
 | 每日任务 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/tasks`；今日任务表单支持写入已有 `StudyTask.type` | `tasks/backlog/0015-structured-state-migration.md` |
 | 任务债务基础版 | 已完成 | `StudyTask.status/debtStatus`、任务面板、complete/defer/drop/recover/split/convert-review API；Package B Batch 2 已新增 `TaskDebtEvent` 事件账本和 `StudyTask.parentTaskId`，债务动作继续写 `AuditEvent` 并同步写事件账本；Package D Batch D2 已完成重排建议确认、驳回和所选项应用记录 | 更长期的自动阶段联动或批量应用需单独确认 |
-| 学习计时 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/study-sessions/*`；Package B Batch 0 已追加 `StudySession` 结构化收口字段；Batch 1 已让结束计时刷新 `CheckIn` 日快照；Batch 2 已让有效自动完成任务写入债务事件账本 | 长期风险/主题只读联动已由 Package D 完成；更深自动应用另行确认 |
+| 学习计时 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/study-sessions/*`；结构化收口、反假学习、CheckIn 刷新和有效任务完成债务事件均已接入；专注收口内嵌创建知识卡片、错题、复测，并通过 `POST /api/study-sessions/:id/evidence` 校验上下文、幂等回写产出标志与证据回执 | 长期风险/主题只读联动已完成；更深自动应用另行确认 |
 | 专注计时模式 | 已完成 | 首页 `FocusTimer` 与 active session 恢复 | 后续 UX 打磨 |
 | 打卡 | 已完成 | `evaluateDailyCheckIn`、`CheckIn` 日快照、首页 `dashboard.checkIn`、analytics/reports 逐日快照优先和缺失日期 fallback；不把打开应用算作打卡，active session 时长只实时展示、结束后固化 | 连续性已接入长期风险/主题只读联动；未来自动应用另行确认 |
-| 每晚复盘 | 已完成 | `DailyReview`、`/api/reviews/today` | AI 真实建议和结构化统计继续增强 |
+| 每晚复盘 | 已完成 | `DailyReview`、`/review/daily`、`/api/daily-reviews*`、`/api/reviews/today`；页面展示当天真实时长、任务、低转化、科目和证据摘要，保存后直达原子生成的明日最低行动 Inbox 项，Inbox 转换成功进入正式任务详情 | AI 真实建议和更细粒度历史统计继续增强 |
 | 考纲进度树 | 已完成 | `/syllabus`、`/api/syllabus/*`、Markdown 导入 | 附件和自动状态更新后增强 |
 | 知识点掌握状态 | 已完成 | `SyllabusNode.status`、`masteryLevel`、`/syllabus` 状态筛选、节点卡片和最近证据时间；Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`，显式证据优先并保留 `_count` fallback；Package D Batch D4 已接入长期风险只读 DTO | 更细结构化复习历史或自动计划应用需单独确认 |
 | 知识点掌握证明基础版 | 已完成 | `packages/core/src/mastery-proof.ts`；`/syllabus` 节点可选择目标掌握等级、勾选并保存掌握条件；`PATCH /api/syllabus/nodes/:id` 用显式证据或 `_count` fallback 校验，失败返回 `MASTERY_PROOF_REQUIRED`，成功写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent`；`POST /api/syllabus/nodes/:id/mastery-evidence` 写入证据引用；`POST /api/syllabus/nodes/:id/mastery-retests` 写入复测记录，`failed/partial` 不自动降级；Package B Batch 4 已完成 | 更复杂证据图谱和复习历史分析后续增强 |
@@ -50,8 +50,8 @@
 |---|---|---|---|
 | 全真模拟考试模式完整实现 | 已完成 | Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、`/api/simulation/exams`、`/api/simulation/exams/:id/results` 和 `/simulation` 结构化主写入路径；旧 `StudyTask.type = "simulation_exam"` 只读兼容；Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft` 和持久草稿确认边界；Package D Batch D3 已完成长期 AI 阶段草稿显式入口 | 报告驱动自动阶段应用不进入当前范围，未来需单独确认 |
 | 2026 年 12 月同步自测专题流程 | 已完成 | `/simulation` 固定 2026 同步全真自测节点、第一次自测阶段日记、结构化模拟考试 `isFirstSynchronized` 标记、考后本地重校准草稿；Batch 6 后可把本地重校准草稿持久化为需确认的 `StageAdjustmentDraft`；Package D Batch D1 后报告可确认、驳回并只读回放 | 更深自动应用流不进入当前范围，未来需单独确认 |
-| 周审判报告 | 已完成 | `/reports` 周报返回时长、有效时长、科目占比、完成率、欠账、低转化、错题复盘、最大短板、下周期问题、`decisionPreview` 下周期草稿和确认边界；Package D Batch D1 已新增 `PeriodicReportDecision`、报告确认/驳回、冻结 `reportSnapshot`、确认时的 `nextCycleDraft`、审计和只读回放 | 报告驱动自动改任务或阶段计划不进入当前范围，未来需单独确认 |
-| 月复盘报告 | 已完成 | `/reports` 月报返回阶段策略、长期短板、科目投入、低转化、是否调整阶段计划的只读建议；Batch 6 后展示最新持久阶段计划和持久草稿边界；Package D Batch D1 已让确认/驳回写入报告决策，固定 `canAutoApply=false` / `requiresUserConfirmation=true` | 月报驱动自动任务重排或阶段应用不进入当前范围，未来需单独确认 |
+| 周审判报告 | 已完成 | `/review/reports` 周报返回时长、有效时长、科目占比、完成率、欠账、低转化、错题复盘、最大短板、下周期问题和 `decisionPreview`；页面区分事实/规则判断/待确认草稿/冻结结果，确认后先接计划收件箱，再独立审阅阶段建议；`PeriodicReportDecision` 保留审计和只读回放 | 报告驱动自动改任务或阶段计划不进入当前范围，未来需单独确认 |
+| 月复盘报告 | 已完成 | `/review/reports` 月报展示阶段策略、长期短板、科目投入、低转化和待确认动作；确认/驳回固定 `canAutoApply=false` / `requiresUserConfirmation=true`，历史页只读回放入箱汇总；阶段概览区分生效计划、待确认建议与最近结果 | 月报驱动自动任务重排或阶段应用不进入当前范围，未来需单独确认 |
 | 任务债务自动重排建议 | 已完成 | `GET /api/tasks/debt-reorder` 和首页任务区已展示保留、补做、延期、拆小、放弃、改复习建议；建议透传 `canAutoApply=false` / `requiresUserConfirmation=true`；Package D Batch D2 后支持对所选建议确认、驳回和显式应用所选，复用 `TaskDebtEvent` 与 `AuditEvent`，不自动应用全部建议 | 更长期的任务/阶段自动联动需单独确认 |
 | 知识点遗忘风险提醒 | 已完成 | `/analytics`、`/reports` 和 `/syllabus` 基于错题集中、最近证据时间、错题记录更新趋势、笔记到期、节点状态和 Batch 4 显式复测记录派生遗忘/复习风险；Package D Batch D4 已把遗忘风险纳入 `GET /api/analytics/long-term-risks` 和同源 `LongTermRiskPanel`，展示来源、窗口、证据新鲜度和下一步动作 | 更细结构化复习历史如未来需要，另走单独确认 |
 | 笔记复习提醒 | 已完成 | `Note.nextReviewAt`、`/notes` 复习提醒筛选、`/analytics` 到期笔记风险和 `/reports` 到期笔记计数；Package D Batch D4 已把笔记复习提醒接入长期风险 DTO；附件上传已由 Package A 完成 | 后续可继续做更细复习策略 |
@@ -62,22 +62,22 @@
 
 ## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；首次设置、科目管理和核心页面体验修复已形成稳定 `v1.1.1` GitHub Release，但尚未 production apply。该版本状态不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；`v1.1.1` 已发布并完成受控 production apply。当前 checkout 的 UI/交互收敛属于 Release 后工作树，r38 只证明本地 current-bound 验收，不改变既有生产事实；该版本状态不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 五工作台 App Shell 与稳定路由 | 已完成 | `/today`、`/knowledge/*`、`/review/*`、`/stage/*`、`/settings/*`；旧 `/reports`、`/simulation` 兼容跳转 | 发布后信息架构修复已进入 `v1.1.1` Release，尚未 production apply |
-| 考试工作区 / 自定义科目 / 408 分组 | 已完成 | `/settings/workspace` 与鉴权 API；首次设置、接管、科目/分组编辑、排序、归档、恢复 | 发布后产品化修复已进入 `v1.1.1` Release，尚未 production apply |
-| 今日行动中心与科目快捷计时 | 已完成 | `/today` + `GET /api/action-center/today`；科目快捷进入 `/focus` | 当前工作树继续收敛视觉层级 |
-| PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/today/inbox*`、`/today/plan`、`/today/tasks/[taskId]`、`/stage/overview` 与鉴权 API | current-bound browser evidence 待重采 |
+| 五工作台 App Shell 与稳定路由 | 已完成 | `/today`、`/knowledge/*`、`/review/*`、`/stage/*`、`/settings/*`；旧 `/reports`、`/simulation` 兼容跳转；当前源码候选将 `/settings` 收敛为真实配置总览，并统一设置二级导航与页面外壳；r38 current-bound browser evidence 覆盖主要工作台路径；`docs/development/v11-special-acceptance-20260802.md` 补齐设置中心与首次使用证据 | 旧工作台与当前可见能力的收敛差异仍需产品/架构整改，不改变既有 Release/生产事实 |
+| 考试工作区 / 自定义科目 / 408 分组 | 已完成 | `/settings/workspace` 与鉴权 API；首次设置按考试目标与科目、已有数据处理两步推进；保留接管、科目/分组编辑、排序、归档、恢复；专项验收已实际创建首个工作区、首科目和 408 四科并刷新复核 | 物理删除、完整账户导出等数据生命周期仍不在范围，不改变既有 Release/生产事实 |
+| 今日行动中心与科目快捷计时 | 已完成 | `/today` + `GET /api/action-center/today`；推荐/队列进入任务或复习时保留今日来源，任务详情继续把来源传给 `/focus`；专注完成主接力回到今日下一行动，并保留非今日原页面次操作 | 当前工作树继续收敛视觉层级 |
+| PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/today/inbox*`、`/today/plan`、`/today/tasks/[taskId]`、`/stage/overview` 与鉴权 API；Inbox 转换、已转换列表、每日复盘任务均携带来源 `returnTo`，任务详情按今日/计划/收件箱/复盘/阶段/知识显示正确返回语义；空状态提供可执行出口；`docs/development/v11-special-acceptance-20260802.md` 已覆盖批量转换、硬依赖、revision 冲突、返回路径和幂等重放 | 继续收敛旧工作台和自动应用边界，不改变既有 Release/生产事实 |
 | 学习树 V1 preview / confirm | 已完成 | `/knowledge/imports`；preview、confirm/history/export；`AF-RISK-DATA-001` residual 未关 | 物理删除与完整账户导出仍不在范围 |
-| 全局关联画布 | 已完成 | `GET/PUT/DELETE /api/knowledge-canvas*` + `/knowledge/canvas`（`@xyflow/react`） | current-bound browser evidence 待重采 |
+| 全局关联画布 | 已完成 | `GET/PUT/DELETE /api/knowledge-canvas*` + `/knowledge/canvas`（`@xyflow/react`）；r38 的 CANVAS-01/02/03 与 24 项无障碍证据已 current-bound | 继续保留节点关系编辑的产品体验打磨，不改变既有 Release/生产事实 |
 | StudyResource FILE/LINK | 已完成 | `/knowledge/resources` 与鉴权 CRUD/上传/下载/归档 API | 不支持物理删除 |
-| 统一复习 Schedule/Event | 已完成 | `/knowledge/reviews`、`/quick-review/[scheduleId]` 与确认/correction/bridge API | current-bound browser evidence 待重采 |
+| 统一复习 Schedule/Event | 已完成 | `/knowledge/overview` 唯一下一行动与最近证据；`/knowledge/reviews` 单一队列、今日进度和中文状态筛选；`/quick-review/[scheduleId]` 真实对象、确认结果、连续掌握变化、下次日期与继续下一项；任务详情桥接入口支持完成/延期/放弃及同幂等键重放；无下一项时按来源返回今日下一行动或复习队列；排期详情保留对象回链、事件 correction/bridge API；r38 与专项记录共同覆盖 daily review、桥接详情和 live-region 反馈 | 真实 Provider、生产写入和数据生命周期仍不在本轮范围 |
 | CheckIn v2 / 恢复三阶 | 已完成 | 今日摘要、Recovery v2 三阶与「我学不下去了」动机入口 | 不自动改写任务 |
-| 动机 / 通知 / 四类 AI 草稿 | 已完成 | 内容库/提醒、通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET` | 不保存 prompt/raw response/history/token/cost/provider trace |
-| 外部 Provider 当前浏览器偏好 | 已完成 | `/settings/ai` 开关/保存/策略确认；鉴权 `GET|PATCH /api/ai/preferences`；安全默认关闭 Cookie；八条鉴权 POST route 统一 gate | 未执行真实生产 key smoke；不开放 Provider key 编辑 |
-| 模拟结构化失分 / 报告阶段入箱 | 已完成 | 分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升、报告/阶段确认边界 | 不自动修改现有任务 |
+| 动机 / 通知 / 四类 AI 草稿 | 已完成 | `/settings/profile` 按动机封存、当前设备提醒、可展示内容库组织，AI 草稿降为低频显式入口；通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET`；专项记录已复核档案、通知、AI、体验设置页面 | 不保存 prompt/raw response/history/token/cost/provider trace；真实 Provider key smoke 未执行 |
+| 外部 Provider 当前账户配置、Web 全局开关与浏览器偏好 | 已完成 | `/settings/ai` 支持 Web 全局开关、当前账户 Provider 的更新/删除/合成测试和当前浏览器授权；鉴权 `GET|PATCH /api/ai/runtime`、`GET|PATCH|DELETE /api/ai/provider`、`POST /api/ai/provider/test` 与 `GET|PATCH /api/ai/preferences`；`AiRuntimeSetting` 审计、AES-256-GCM 密文、fingerprint、密钥不回显，八条鉴权 POST route 统一 gate | 当前实现已完成本地代码与迁移验收；真实 Provider key smoke、生产 migration/备份密文生命周期仍未验收；`AI_ENABLED` 保留为服务端硬闸门 |
+| 模拟结构化失分 / 报告阶段入箱 | 已完成 | 分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升；模拟 UI 按“录分 -> 失分分析并确认事实 -> 补救入箱”推进，确认后只读，并回读每条补救的 Inbox 状态以阻止刷新后重复发送；Inbox 显示人类可读来源和考试回链，并接力阶段重评；报告与阶段完成态区分新增、复用和零草稿，报告确认后直达计划收件箱并接力阶段建议，阶段确认后再次把派生动作入箱，所有确认边界均不自动修改现有任务 | 不自动修改现有任务 |
 | 完整 minor Release | 已完成 | `v1.1.0` Release/tag；`v1.1.1` Release/admission/签名资产、Web 受控 production apply 与 verified production runtime identity；tag 本身没有 GPG signature | `AREAFORGE_AUTO_APPLY=none` 与 residual 状态保持不变 |
 
 ## 暂缓项

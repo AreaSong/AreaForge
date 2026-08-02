@@ -46,6 +46,8 @@ AI_API_KEY=<server-only-key>
 AI_MODEL=<model>
 AI_LOG_PROMPTS=false
 AI_ALLOW_SENSITIVE_CONTEXT=false
+AI_CREDENTIALS_ENCRYPTION_KEY=<server-only-random-secret-at-least-32-chars>
+AI_PAYLOAD_BINDING_SECRET=<server-only-random-secret-at-least-32-chars>
 
 UPLOAD_DIR=/app/uploads
 BACKUP_DIR=/backups

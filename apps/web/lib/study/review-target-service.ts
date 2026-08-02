@@ -39,7 +39,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       id: note.id,
       type: "NOTE",
       title: note.title,
-      subtitle: `${note.subject.name} · ${note.kind}`,
+      subtitle: `${note.subject.name} · ${noteKindLabel(note.kind)}`,
       canonicalHref: `/knowledge/notes/${note.id}`,
       body: parseSafeMarkdown(note.content),
       revealTitle: null,
@@ -89,7 +89,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       id: resource.id,
       type: "STUDY_RESOURCE",
       title: resource.title,
-      subtitle: `${resource.subject?.name ?? "未分科"} · ${resource.category}`,
+      subtitle: `${resource.subject?.name ?? "未分科"} · ${resourceCategoryLabel(resource.category)}`,
       canonicalHref: `/knowledge/resources/${resource.id}`,
       body: parseSafeMarkdown(`${source}${tags}`),
       revealTitle: null,
@@ -108,9 +108,9 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       id: node.id,
       type: "SYLLABUS_NODE",
       title: node.title,
-      subtitle: `${node.subject.name} · ${node.kind}`,
+      subtitle: `${node.subject.name} · ${syllabusKindLabel(node.kind)}`,
       canonicalHref: `/knowledge/syllabus/${node.id}`,
-      body: parseSafeMarkdown(`当前状态：${node.status}\n\n掌握等级：${node.masteryLevel ?? "尚未记录"}`),
+      body: parseSafeMarkdown(`当前状态：${syllabusStatusLabel(node.status)}\n\n掌握等级：${masteryLevelLabel(node.masteryLevel)}`),
       revealTitle: null,
       revealBody: [],
       canPass: true,
@@ -118,4 +118,25 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   }
 
   throw new ApiError("REVIEW_TARGET_INVALID", 409);
+}
+
+function noteKindLabel(value: string) {
+  return ({ GENERAL: "通用卡片", CONCEPT: "概念卡片", METHOD: "方法卡片", EXAMPLE: "例题卡片", JOURNAL: "学习记录", SUMMARY: "总结卡片" } as Record<string, string>)[value] ?? "知识卡片";
+}
+
+function resourceCategoryLabel(value: string) {
+  return ({ BOOK: "书籍", COURSE: "课程", ARTICLE: "文章", PAPER: "试卷", VIDEO: "视频", OTHER: "学习资料" } as Record<string, string>)[value] ?? "学习资料";
+}
+
+function syllabusKindLabel(value: string) {
+  return ({ SUBJECT: "科目", CHAPTER: "章节", TOPIC: "知识点", PROBLEM_TYPE: "题型专题", subject: "科目", chapter: "章节", topic: "知识点", problem_type: "题型专题" } as Record<string, string>)[value] ?? "考纲节点";
+}
+
+function syllabusStatusLabel(value: string) {
+  return ({ NOT_STARTED: "未开始", LEARNING: "学习中", COVERED: "已覆盖", NEEDS_REVIEW: "待复习", MASTERED: "已掌握", WEAK: "薄弱", DEFERRED: "延期", not_started: "未开始", learning: "学习中", covered: "已覆盖", needs_review: "待复习", mastered: "已掌握", weak: "薄弱", deferred: "延期" } as Record<string, string>)[value] ?? "未记录";
+}
+
+function masteryLevelLabel(value: string | null) {
+  if (!value) return "尚未记录";
+  return ({ SEEN: "见过", LEARNED: "已学习", BASIC_EXERCISES: "基础题", CAN_EXPLAIN: "能讲解", RETEST_PASSED: "复测通过", EXAM_STABLE: "考试稳定", seen: "见过", learned: "已学习", basic_exercises: "基础题", can_explain: "能讲解", retest_passed: "复测通过", exam_stable: "考试稳定" } as Record<string, string>)[value] ?? "尚未记录";
 }

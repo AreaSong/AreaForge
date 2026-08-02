@@ -214,7 +214,7 @@ export const V11_JOURNEY_CONTRACTS = {
   },
   syllabus: {
     startPath: "/knowledge/syllabus",
-    terminalPath: "/knowledge/syllabus",
+    terminalPath: "/knowledge/syllabus?subjectId=synthetic-id",
     mutation: { method: "POST", path: "/api/syllabus/nodes", status: 201, requestCount: 1 },
     oraclePath: "/api/syllabus", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -296,7 +296,7 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
   },
   "KBD-02": {
     checkKey: "main-navigation-enter", category: "keyboard", route: "/today", target: "main-navigation", profile: "desktop", mechanism: "keyboard",
-    assertions: [equalsAssertion("quick-create-trigger-focused", true), equalsAssertion("quick-create-opened-by-enter", true), equalsAssertion("quick-create-exposes-four-actions", 4), equalsAssertion("quick-create-escape-returned-focus", true), equalsAssertion("nav-link-focused", true), equalsAssertion("enter-activated-navigation", "/knowledge/canvas")],
+    assertions: [equalsAssertion("quick-create-trigger-focused", true), equalsAssertion("quick-create-opened-by-enter", true), equalsAssertion("quick-create-exposes-five-actions", 5), equalsAssertion("quick-create-escape-returned-focus", true), equalsAssertion("nav-link-focused", true), equalsAssertion("enter-activated-navigation", "/knowledge/overview")],
   },
   "KBD-03": {
     checkKey: "modal-open-keyboard", category: "keyboard", route: "/today", target: "subject-shortcut-modal", profile: "desktop", mechanism: "keyboard",

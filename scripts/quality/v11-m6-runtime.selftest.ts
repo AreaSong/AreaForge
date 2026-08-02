@@ -1876,12 +1876,13 @@ async function verifyHardConcurrencyFixtures(
     assert.equal(error.status, 409);
   }
 
-  const completed = await completeBridgeTaskWithReview(upgradeSeed.user.id, bridge.taskId, {
+  const completionInput = {
     idempotencyKey: `bridge-done-${randomUUID()}`,
     expectedRevision: bridgeSchedule.revision,
     result: "PARTIAL",
     durationSeconds: 180,
-  });
+  } as const;
+  const completed = await completeBridgeTaskWithReview(upgradeSeed.user.id, bridge.taskId, completionInput);
   assert.equal(completed.event.result, "PARTIAL");
   assert.equal(completed.event.durationSeconds, 180);
   assert.ok(completed.event.id);
@@ -1891,10 +1892,15 @@ async function verifyHardConcurrencyFixtures(
     where: { id: completed.event.id },
   });
   assert.equal(persistedEvent.result, "PARTIAL");
+  const replayed = await completeBridgeTaskWithReview(upgradeSeed.user.id, bridge.taskId, completionInput);
+  assert.equal(replayed.reused, true);
+  assert.equal(replayed.event.id, completed.event.id);
+  assert.equal((await prisma.reviewEvent.count({ where: { reviewScheduleId: bridgeSchedule.id } })), 1);
   pass("bridge_complete_requires_review_event_result", {
     taskId: bridge.taskId,
     eventId: completed.event.id,
     result: completed.event.result,
+    replayReused: replayed.reused,
   });
 }
 

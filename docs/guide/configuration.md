@@ -41,7 +41,7 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `AI_ENABLED` | `false` | 总开关；关闭时全部走本地规则，AI 相关入口降级 |
+| `AI_ENABLED` | `false` | 服务端硬闸门；关闭时全部走本地规则，Web 全局开关不能绕过；日常启停在 `/settings/ai` 管理 |
 | `AI_BASE_URL` | 可选 | OpenAI-compatible 服务地址（含 `/v1`） |
 | `AI_API_KEY` | 可选 | API key，只放服务器环境文件，不进 Git、不进浏览器 |
 | `AI_MODEL` | 可选 | 模型名 |
@@ -49,9 +49,12 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `AI_MAX_RETRIES` | `2` | 失败重试次数 |
 | `AI_LOG_PROMPTS` | `false` | 是否在日志记录 prompt；保持 `false`，开启会把学习内容写进日志 |
 | `AI_ALLOW_SENSITIVE_CONTEXT` | `false` | 是否允许把敏感上下文（完整复盘正文等）发给 AI；默认关闭是隐私边界，改动前先读 [文件与 AI 安全](../security/file-ai-safety.md) |
+| `AI_CREDENTIALS_ENCRYPTION_KEY` | （可选）≥32 字符 | Web Provider 凭据的服务端 AES-256-GCM 加密主密钥；仅用于解密当前账户配置，不进入客户端；启用 Web 配置前必须设置 |
 | `AI_PAYLOAD_BINDING_SECRET` | （可选）≥32 字符 | 四类显式 AI 草稿的 purpose-separated HMAC 与 opaque preview token 绑定密钥；**仅服务端**，禁止 `NEXT_PUBLIC_*`；缺失或过短时只阻止四类草稿外呼并稳定 fallback，不影响任务/计时/导入 preview |
 
-Provider 配置只存在于服务端环境，不能在网页中查看或编辑。即使 `AI_ENABLED=true` 且配置完整，外部调用仍按浏览器默认关闭；登录后需在 `/settings/ai` 明确开启并保存当前浏览器偏好。偏好保存在 HttpOnly Cookie 中，清除浏览器数据后恢复关闭；关闭偏好或保存失败时继续使用本地规则。
+Provider 有两种来源：部署环境变量是兼容回退；登录用户也可以在 `/settings/ai` 为当前账户填写 Base URL、模型和 API Key。账户配置优先于环境变量，API Key 由服务端使用 `AI_CREDENTIALS_ENCRYPTION_KEY` 以 AES-256-GCM 加密保存，Web 端只允许更新、删除和测试，永远不回显密钥。首次启用 Web 配置前必须设置加密主密钥；删除账户配置不会立即物理删除历史备份中的密文。
+
+即使 `AI_ENABLED=true` 且 Provider 配置完整，外部调用仍按 Web 全局开关和浏览器默认关闭；登录后先在 `/settings/ai` 开启全局 AI，再明确开启当前浏览器偏好。Web 全局开关存入数据库并写入审计事件；浏览器偏好保存在 HttpOnly Cookie 中，清除浏览器数据后恢复关闭。服务端硬闸门关闭时网页不能开启；任一开关关闭或保存失败时继续使用本地规则。
 
 ## 上传与附件
 

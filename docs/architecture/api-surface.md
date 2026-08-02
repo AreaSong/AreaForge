@@ -53,7 +53,10 @@
 
 - `/api/motivation/items/**`、`POST /api/motivation/next`、`POST /api/motivation/reminder-state`
 - `GET|PATCH /api/notification-preferences`、`POST /api/notifications/test`
-- `GET|PATCH /api/ai/preferences`（当前浏览器外部 Provider 偏好；缺失/畸形默认关闭；不保存 Provider 配置或密钥）
+- `GET|PATCH /api/ai/preferences`（当前浏览器外部 Provider 偏好；缺失/畸形默认关闭）
+- `GET|PATCH /api/ai/runtime`（全局 AI Web 运行开关；启停写入 `AuditEvent`，服务端 `AI_ENABLED=false` 时拒绝开启）
+- `GET|PATCH|DELETE /api/ai/provider`（当前账户 Provider 状态与配置；API Key 只提交、不回显；账户配置优先于环境变量回退）
+- `POST /api/ai/provider/test`（当前账户合成连接测试；不保存或返回原始响应）
 - `POST /api/ai/drafts/learning-tree|knowledge-card|plan|motivation`（preview|generate；`AiDraftOperation` CAS；`AI_PAYLOAD_BINDING_SECRET`）
 - `/api/simulation/exams/**`：分科 totals、结构化失分、warning 与 revision CAS。
 - `/api/simulation/exams/:id/remediations`：补救候选读取与显式逐项入箱。
@@ -97,6 +100,8 @@
 
 `GET /api/reports/periodic` 实时派生周审判和月复盘数据报告、规则策略、本地规则复盘草稿和 `decisionPreview` 下周期决策预览；`decisionPreview` 只包含聚合指标、最大短板摘要、策略、下一周期草稿和确认边界，不包含任务标题列表、完整复盘正文、附件内容或阶段计划应用结果。默认不把长期记录、情绪记录或动机档案发送给 AI。
 
+每日复盘写入口 `POST /api/daily-reviews`、`PATCH /api/daily-reviews/:id` 与兼容入口 `POST /api/reviews/today` 在复盘和明日最低行动原子入箱成功后，同时返回 `review` 与对应的 `inboxItem`。客户端必须使用该项目 ID 进入 `/today/inbox/:itemId`，不得通过标题猜测或退回无上下文的收件箱总列表；复盘页面的客观事实摘要由服务端按当前用户、ACTIVE 工作区和上海学习日只读派生。
+
 `POST /api/reports/periodic/decisions` 允许对当前周/月报告做确认或驳回。服务端会重新计算当前报告范围，拒绝过期页面提交；同向重复提交返回已处理，反向提交返回冲突。确认会保存冻结 `reportSnapshot` 和 `nextCycleDraft`，驳回只保存冻结快照；两者都写入 `AuditEvent`，且只记录报告决策，不批量修改任务、不应用阶段计划、不外呼长期 AI。`GET /api/reports/periodic/decisions` 返回最近报告决策用于只读回放。
 
 ### Tasks
@@ -123,6 +128,7 @@
 - `POST /api/study-sessions/:id/pause`
 - `POST /api/study-sessions/:id/resume`
 - `POST /api/study-sessions/:id/end`
+- `POST /api/study-sessions/:id/evidence`
 
 计时写入原则：
 
@@ -132,6 +138,7 @@
 - 当前单管理员第一版全局只允许一个 active session；数据库 partial unique index 是最终约束，并发 start 冲突稳定返回 `ACTIVE_SESSION_EXISTS` / 409。
 - pause/resume/end 使用 `id + status + updatedAt` CAS；过期或重复状态返回 `SESSION_STATE_CONFLICT` / 409。任务 metadata/action、simulation complete 和 debt reorder application 使用包含 `status/debtStatus/type/plannedDate/updatedAt` 的 CAS，冲突返回 `TASK_STATE_CONFLICT` / 409，失败事务不保留审计、债务事件、子任务或 CheckIn 部分副作用。
 - 计时结束会基于收口字段运行反假学习规则，并双写 `StudySession.isEffective`、结构化收口字段和文本化 `note`；历史 `note` 不解析、不回填，统计优先读 `isLowConversion`，缺失时 fallback 到旧 `isEffective === false`。只有 session CAS 胜者可以累加关联任务/考纲分钟、写 `TaskDebtEvent.action=complete`、审计和 CheckIn。
+- 计时结束后的证据接力通过 `POST /api/study-sessions/:id/evidence` 回写。请求必须携带 `expectedCloseoutVersion`、证据类型、证据 ID 和幂等键；服务端只接受已完成 Session，并校验证据属于当前用户、ACTIVE 工作区及同一科目/任务/考纲上下文。卡片或错题回写单调更新 `producedNote` / `producedMistake`，三类证据都写入可查询审计回执；重放同一请求不得重复创建或重复产生业务副作用。
 
 ### Syllabus
 
@@ -208,14 +215,21 @@ Markdown 导入只解析标题和列表，创建新的 `SyllabusNode`，不删�
 
 ### AI
 
+- `GET|PATCH /api/ai/runtime`
+- `GET|PATCH|DELETE /api/ai/provider`
+- `POST /api/ai/provider/test`
 - `GET|PATCH /api/ai/preferences`
 - `POST /api/ai/discipline`
 - `POST /api/ai/daily-review`
 - `POST /api/ai/tomorrow-plan`
 
 AI API 只返回建议，不直接修改用户原始数据。
-`GET|PATCH /api/ai/preferences` 必须鉴权；PATCH 只接受严格布尔字段 `externalProviderEnabled`，并写入当前浏览器 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的偏好 Cookie。未知字段、错误类型或空请求返回 400；缺失、清除或畸形 Cookie 读取为关闭。该接口不读取或修改 Provider key，不新增数据库记录。
+`GET|PATCH /api/ai/preferences` 必须鉴权；PATCH 只接受严格布尔字段 `externalProviderEnabled`，并写入当前浏览器 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的偏好 Cookie。未知字段、错误类型或空请求返回 400；缺失、清除或畸形 Cookie 读取为关闭。该接口不读取或修改 Provider key。
 
-三条建议、四类 AI 草稿和长期阶段草稿共八条鉴权 POST route 都必须读取同一当前浏览器偏好。只有偏好开启、`AI_ENABLED=true` 且配置完整时才可创建 OpenAI-compatible provider 并发起显式外呼；任一条件不满足时返回对应本地规则 fallback。真实外呼仍只发送各 route 既有最小化字段，不发送动机档案、完整情绪记录、完整复盘正文、附件内容、上传路径或原始任务标题。首页普通 SSR 继续使用本地 fallback，不触发真实 provider 成本。
+`GET|PATCH /api/ai/runtime` 必须鉴权；PATCH 只接受严格布尔字段 `enabled` 和可选的 `expectedRevision`，写入全局 `AiRuntimeSetting` 并追加 `AI_RUNTIME_ENABLED` 或 `AI_RUNTIME_DISABLED` 审计事件。服务端 `AI_ENABLED=false` 时开启请求返回 `AI_RUNTIME_SERVER_DISABLED`，不得通过 Web 绕过硬闸门；响应只返回 enabled、revision、时间和派生状态，不返回任何密钥。
+
+`GET|PATCH|DELETE /api/ai/provider` 和 `POST /api/ai/provider/test` 必须鉴权。PATCH 首次保存必须提供 API Key，已有配置更新地址或模型时可留空以保留原密钥；服务端只保存 AES-256-GCM 密文与 fingerprint，GET 和任何错误响应不得回显密钥。测试只使用合成最小上下文，不保存 prompt/raw response；服务端硬闸门关闭、Web 全局开关关闭或浏览器偏好关闭时不发起外呼。
+
+三条建议、四类 AI 草稿和长期阶段草稿共八条鉴权 POST route 都必须读取同一当前浏览器偏好和全局 Web 运行开关。只有偏好开启、Web 全局开关开启、`AI_ENABLED=true` 且配置完整时才可创建 OpenAI-compatible provider 并发起显式外呼；任一条件不满足时返回对应本地规则 fallback。真实外呼仍只发送各 route 既有最小化字段，不发送动机档案、完整情绪记录、完整复盘正文、附件内容、上传路径或原始任务标题。首页普通 SSR 继续使用本地 fallback，不触发真实 provider 成本。
 旧 `/api/stage-adjustment-drafts/ai` 只允许 re-export canonical `/api/simulation/stage-adjustment-drafts/ai` 的同一个 POST handler，不得形成第二套 Provider gate 或 payload 实现。
 AI 建议结构使用 `ai_generated`、`ai_invalid_fallback` 和 `ai_error_fallback` 区分成功、校验失败和错误回退；不保存完整 prompt 或完整模型响应。

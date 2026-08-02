@@ -45,13 +45,15 @@ import {
 import { applyRecoveryV2CheckInProgressInTx } from "./recovery-v2-service";
 import { assertSuccessorStartAllowed, lockWorkspaceDependencyGraph } from "./task-dependency-service";
 import { createPlanInboxItemWithResult } from "./plan-inbox-service";
-import { serializeTask, toDbPriority } from "./task-serializer";
+import { fromDbTaskStatus, serializeTask, toDbPriority } from "./task-serializer";
 import { loadTaskUpdateSnapshotForWorkspace } from "./task-detail-service";
 import type {
   DailyReviewDto,
   MotivationVaultDto,
   RecoveryStateDto,
   StudySessionDto,
+  StudySessionEvidenceReceiptDto,
+  StudySessionEvidenceTypeDto,
   StudySessionStartSourceDto,
   StudyTaskDto,
   SubjectDto,
@@ -136,6 +138,13 @@ export interface SessionCommandInput {
   expectedStatus: "running" | "paused";
   expectedUpdatedAt: string;
   idempotencyKey: string;
+}
+
+export interface LinkSessionEvidenceInput {
+  idempotencyKey: string;
+  expectedCloseoutVersion: number;
+  evidenceType: StudySessionEvidenceTypeDto;
+  evidenceId: string;
 }
 
 export interface RecoverTaskInput {
@@ -1319,6 +1328,178 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
   return serializeSession(session);
 }
 
+export async function linkStudySessionEvidence(
+  sessionId: string,
+  input: LinkSessionEvidenceInput,
+  actorId: string,
+): Promise<{ session: StudySessionDto; receipt: StudySessionEvidenceReceiptDto }> {
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const requestFingerprint = buildPersistentCreateFingerprint("study-session-evidence-link-v1", {
+    sessionId,
+    expectedCloseoutVersion: input.expectedCloseoutVersion,
+    evidenceType: input.evidenceType,
+    evidenceId: input.evidenceId,
+  });
+
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const session = await tx.studySession.findFirst({
+      where: { id: sessionId, subject: { workspaceId: workspace.id } },
+      include: { subject: true, task: true, syllabusNode: true },
+    });
+    if (!session) throw new ApiError("SESSION_NOT_FOUND", 404);
+    if (session.status !== "COMPLETED") {
+      throw new ApiError("SESSION_EVIDENCE_REQUIRES_COMPLETED", 409, { conflictFields: ["status"] });
+    }
+    if (session.closeoutVersion !== input.expectedCloseoutVersion) {
+      throw new ApiError("SESSION_STATE_CONFLICT", 409, {
+        latest: serializeSession(session),
+        conflictFields: ["closeoutVersion"],
+      });
+    }
+
+    const command: PersistentCreateCommand = {
+      actorId,
+      workspaceId: workspace.id,
+      action: "STUDY_SESSION_EVIDENCE_LINKED",
+      entityType: "StudySession",
+      idempotencyKey,
+      requestFingerprint,
+      conflictCode: "SESSION_EVIDENCE_IDEMPOTENCY_CONFLICT",
+    };
+    const replay = await findPersistentCreateReplay(tx, command);
+    if (replay) {
+      return {
+        session: serializeSession(session),
+        receipt: parseSessionEvidenceReceipt(replay.resultSnapshot) ?? {
+          evidenceType: input.evidenceType,
+          evidenceId: input.evidenceId,
+          label: sessionEvidenceTypeLabel(input.evidenceType),
+        },
+      };
+    }
+
+    const receipt = await validateSessionEvidence(tx, workspace.id, session, input);
+    const updated = await tx.studySession.update({
+      where: { id: session.id },
+      data: {
+        ...(input.evidenceType === "note" ? { producedNote: true } : {}),
+        ...(input.evidenceType === "mistake" ? { producedMistake: true } : {}),
+      },
+      include: { subject: true, task: true, syllabusNode: true },
+    });
+    await recordPersistentCreateResult(tx, command, session.id, {
+      sessionId: session.id,
+      evidenceType: receipt.evidenceType,
+      evidenceId: receipt.evidenceId,
+      label: receipt.label,
+      resultSnapshot: receipt as unknown as Prisma.InputJsonObject,
+    });
+    return { session: serializeSession(updated), receipt };
+  });
+}
+
+export async function listStudySessionEvidenceReceipts(
+  sessionId: string,
+  actorId: string,
+): Promise<StudySessionEvidenceReceiptDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const ownedSession = await prisma.studySession.findFirst({
+    where: { id: sessionId, subject: { workspaceId: workspace.id } },
+    select: { id: true },
+  });
+  if (!ownedSession) throw new ApiError("SESSION_NOT_FOUND", 404);
+  const events = await prisma.auditEvent.findMany({
+    where: {
+      actorId,
+      action: "STUDY_SESSION_EVIDENCE_LINKED",
+      entityType: "StudySession",
+      entityId: sessionId,
+    },
+    orderBy: { createdAt: "asc" },
+    select: { metadata: true },
+  });
+  return events.flatMap((event) => {
+    const receipt = parseSessionEvidenceReceipt(event.metadata);
+    return receipt ? [receipt] : [];
+  });
+}
+
+async function validateSessionEvidence(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  session: { subjectId: string; taskId: string | null; syllabusNodeId: string | null },
+  input: LinkSessionEvidenceInput,
+): Promise<StudySessionEvidenceReceiptDto> {
+  if (input.evidenceType === "note") {
+    const note = await tx.note.findFirst({
+      where: { id: input.evidenceId, subject: { workspaceId } },
+      select: { id: true, title: true, subjectId: true, taskId: true, syllabusNodeId: true },
+    });
+    if (!note) throw new ApiError("NOTE_NOT_FOUND", 404);
+    assertSessionEvidenceContext(session, note);
+    return { evidenceType: "note", evidenceId: note.id, label: note.title };
+  }
+  if (input.evidenceType === "mistake") {
+    const mistake = await tx.mistake.findFirst({
+      where: { id: input.evidenceId, subject: { workspaceId } },
+      select: { id: true, title: true, subjectId: true, syllabusNodeId: true },
+    });
+    if (!mistake) throw new ApiError("MISTAKE_NOT_FOUND", 404);
+    assertSessionEvidenceContext(session, mistake);
+    return { evidenceType: "mistake", evidenceId: mistake.id, label: mistake.title };
+  }
+  if (!session.syllabusNodeId) {
+    throw new ApiError("SESSION_RETEST_REQUIRES_SYLLABUS_NODE", 409, { conflictFields: ["syllabusNodeId"] });
+  }
+  const retest = await tx.masteryRetest.findFirst({
+    where: { id: input.evidenceId, syllabusNode: { subject: { workspaceId } } },
+    select: { id: true, result: true, syllabusNodeId: true },
+  });
+  if (!retest) throw new ApiError("MASTERY_RETEST_NOT_FOUND", 404);
+  if (retest.syllabusNodeId !== session.syllabusNodeId) {
+    throw new ApiError("SESSION_EVIDENCE_CONTEXT_MISMATCH", 409, { conflictFields: ["syllabusNodeId"] });
+  }
+  return {
+    evidenceType: "retest",
+    evidenceId: retest.id,
+    label: `复测${retest.result === "passed" ? "通过" : retest.result === "partial" ? "部分通过" : "未通过"}`,
+  };
+}
+
+function assertSessionEvidenceContext(
+  session: { subjectId: string; taskId: string | null; syllabusNodeId: string | null },
+  evidence: { subjectId: string; taskId?: string | null; syllabusNodeId: string | null },
+): void {
+  const conflictFields: string[] = [];
+  if (evidence.subjectId !== session.subjectId) conflictFields.push("subjectId");
+  if (session.syllabusNodeId && evidence.syllabusNodeId !== session.syllabusNodeId) conflictFields.push("syllabusNodeId");
+  if ("taskId" in evidence && session.taskId && evidence.taskId !== session.taskId) conflictFields.push("taskId");
+  if (conflictFields.length > 0) {
+    throw new ApiError("SESSION_EVIDENCE_CONTEXT_MISMATCH", 409, { conflictFields });
+  }
+}
+
+function parseSessionEvidenceReceipt(value: Prisma.JsonValue | undefined | null): StudySessionEvidenceReceiptDto | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (
+    (value.evidenceType !== "note" && value.evidenceType !== "mistake" && value.evidenceType !== "retest") ||
+    typeof value.evidenceId !== "string" ||
+    typeof value.label !== "string"
+  ) return null;
+  return {
+    evidenceType: value.evidenceType,
+    evidenceId: value.evidenceId,
+    label: value.label,
+  };
+}
+
+function sessionEvidenceTypeLabel(value: StudySessionEvidenceTypeDto): string {
+  if (value === "note") return "知识卡片";
+  if (value === "mistake") return "错题";
+  return "复测";
+}
+
 export async function getTodayReview(actorId: string): Promise<DailyReviewDto | null> {
   return getDailyReview(actorId, new Date());
 }
@@ -2388,6 +2569,7 @@ function serializeSession(session: {
   };
   task?: {
     title: string;
+    status: DbTaskStatus;
   } | null;
   syllabusNode?: {
     title: string;
@@ -2399,6 +2581,7 @@ function serializeSession(session: {
     subjectName: session.subject.name,
     taskId: session.taskId,
     taskTitle: session.task?.title ?? null,
+    taskStatus: session.task ? fromDbTaskStatus(session.task.status) : null,
     syllabusNodeId: session.syllabusNodeId,
     syllabusNodeTitle: session.syllabusNode?.title ?? null,
     status: fromDbSessionStatus(session.status),

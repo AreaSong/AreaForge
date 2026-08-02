@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Archive, ArrowDown, ArrowUp, Pencil, Power } from "lucide-react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/feedback";
+import { SectionHeader } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
@@ -319,8 +322,12 @@ export function MotivationLibraryClient(props: {
 
   return (
     <>
-      <div className="space-y-5 rounded-lg border border-white/10 p-4">
-        <h2 className="text-base font-medium text-white">动机内容库</h2>
+      <section className="space-y-5 border-t border-white/10 pt-6">
+        <SectionHeader
+          title="动机内容库"
+          description="管理可在提醒和关键节点展示的语录、HTTPS 视频链接或你明确选择的封存摘录。"
+          meta={<span className="text-xs text-zinc-500">{activeItems.length} 条启用内容</span>}
+        />
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-sm">
             <span className="text-zinc-400">内容类型</span>
@@ -342,11 +349,11 @@ export function MotivationLibraryClient(props: {
           ) : null}
           <TextInput label="标签（逗号分隔）" value={draft.tags} onChange={(tags) => setDraft((current) => ({ ...current, tags }))} />
         </div>
-        {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
-        {message ? <p role="status" className="text-sm text-emerald-300">{message}</p> : null}
-        <button type="button" disabled={creating || !canCreate} className="h-10 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black disabled:opacity-50" onClick={() => void createItem()}>
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+        {message ? <Alert tone="success">{message}</Alert> : null}
+        <Button type="button" disabled={creating || !canCreate} variant="primary" loading={creating} loadingLabel="正在添加" onClick={() => void createItem()}>
           添加内容
-        </button>
+        </Button>
 
         {retryMutation ? (
           <div className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-50">
@@ -386,7 +393,7 @@ export function MotivationLibraryClient(props: {
             <ul className="mt-3 space-y-2">{archivedItems.map((item) => <ReadOnlyItem key={item.id} item={item} />)}</ul>
           </details>
         ) : null}
-      </div>
+      </section>
       <ConflictResolutionModal
         open={conflict !== null}
         title="动机内容已在其他页面更新"
@@ -443,9 +450,9 @@ function ItemList(props: {
                 <div className="flex gap-2"><button type="button" className="h-9 rounded-md bg-teal-500 px-3 text-sm text-black" disabled={props.busyItemId !== null} onClick={() => props.onSaveEdit(item)}>保存</button><button type="button" className="h-9 rounded-md border border-white/10 px-3 text-sm" onClick={props.onCancelEdit}>取消</button></div>
               </div>
             ) : (
-              <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0"><ReadOnlyContent item={item} /></div>
-                <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                <div className="flex flex-wrap gap-1 sm:shrink-0 sm:justify-end">
                   <IconButton label="上移" disabled={index === 0 || props.busyItemId !== null} onClick={() => props.onMove(index, -1)}><ArrowUp size={16} /></IconButton>
                   <IconButton label="下移" disabled={index === props.items.length - 1 || props.busyItemId !== null} onClick={() => props.onMove(index, 1)}><ArrowDown size={16} /></IconButton>
                   <IconButton label="编辑" disabled={props.busyItemId !== null} onClick={() => props.onBeginEdit(item)}><Pencil size={16} /></IconButton>

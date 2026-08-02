@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-01T18:34:22.097Z",
+  "checkId": "LIVE-01",
+  "checkKey": "login-error-assertive",
+  "route": "/login",
+  "target": "login-error",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "dom",
+  "assertions": [
+    {
+      "id": "invalid-login-status",
+      "predicate": "equals",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "id": "alert-is-assertive",
+      "predicate": "equals",
+      "expected": "assertive",
+      "actual": "assertive",
+      "passed": true
+    },
+    {
+      "id": "alert-is-atomic",
+      "predicate": "equals",
+      "expected": "true",
+      "actual": "true",
+      "passed": true
+    },
+    {
+      "id": "alert-has-message",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

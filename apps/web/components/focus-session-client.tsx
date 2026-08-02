@@ -5,26 +5,45 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getTimerElapsedSeconds, type TimerStatus } from "@areaforge/core";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
-import { DetailHeading } from "@/components/detail-heading";
+import { FocusEvidenceForms } from "@/components/focus-evidence-forms";
+import {
+  CloseoutWorkspace,
+  CompleteWorkspace,
+  EvidenceWorkspace,
+  FocusHeader,
+  FocusTimerWorkspace,
+  LowConversionWorkspace,
+  type CloseoutOutcome,
+  type FocusContext,
+  type FocusEvidenceReceipt,
+  type FocusEvidenceType,
+  type TaskDisposition,
+  type UnderstandingLevel,
+} from "@/components/focus-session-panels";
+import { Alert } from "@/components/ui/feedback";
+import { isFocusEvidenceFlowOpen, linkFocusSessionEvidence, setFocusEvidenceFlowOpen } from "@/lib/client/focus-evidence";
+import { focusRequestErrorMessage, formatFocusElapsed } from "@/lib/client/focus-session";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type { StudySessionDto } from "@/lib/study/types";
 
 const DRAFT_PREFIX = "areaforge.focus.closeout.";
-const DRAFT_VERSION = 2;
+const DRAFT_VERSION = 3;
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
+type FocusPhase = "focus" | "closeout" | "low-conversion" | "evidence" | "complete";
 
 interface FocusCloseoutDraft {
   qualityScore: string;
   isEffective: string;
-  understandingLevel: string;
+  understandingLevel: UnderstandingLevel;
   minimalOutput: string;
   nextAction: string;
   note: string;
-  completeTask: boolean;
+  taskDisposition: TaskDisposition;
 }
 
 function focusDraftKey(userId: string, sessionId: string) {
-  return `${DRAFT_PREFIX}v2.${userId}.${sessionId}`;
+  return `${DRAFT_PREFIX}v3.${userId}.${sessionId}`;
 }
 
 function readFocusDraft(userId: string, sessionId: string) {
@@ -40,11 +59,11 @@ function readFocusDraft(userId: string, sessionId: string) {
       updatedAt?: number;
       qualityScore?: string;
       isEffective?: string;
-      understandingLevel?: string;
+      understandingLevel?: UnderstandingLevel;
       minimalOutput?: string;
       nextAction?: string;
       note?: string;
-      completeTask?: boolean;
+      taskDisposition?: TaskDisposition;
     };
     if (
       parsed.version !== DRAFT_VERSION ||
@@ -71,7 +90,7 @@ function defaultFocusCloseoutDraft(): FocusCloseoutDraft {
     minimalOutput: "",
     nextAction: "继续推进",
     note: "",
-    completeTask: false,
+    taskDisposition: "continue",
   };
 }
 
@@ -84,7 +103,7 @@ function mergeFocusCloseoutDraft(saved: ReturnType<typeof readFocusDraft>): Focu
     minimalOutput: saved?.minimalOutput ?? fallback.minimalOutput,
     nextAction: saved?.nextAction ?? fallback.nextAction,
     note: saved?.note ?? fallback.note,
-    completeTask: saved?.completeTask ?? fallback.completeTask,
+    taskDisposition: saved?.taskDisposition ?? fallback.taskDisposition,
   };
 }
 
@@ -94,12 +113,15 @@ export function FocusSessionClient(props: {
   activeConflictId: string | null;
   returnTo: string;
   initialNow: string;
+  initialEvidenceReceipts: FocusEvidenceReceipt[];
 }) {
   const router = useRouter();
   const [session, setSession] = useState(props.session);
   const [now, setNow] = useState(() => new Date(props.initialNow));
-  const [ending, setEnding] = useState(false);
+  const [phase, setPhase] = useState<FocusPhase>(() => initialPhase(props.session));
   const [error, setError] = useState<string | null>(null);
+  const [closeoutError, setCloseoutError] = useState<string | null>(null);
+  const [submittingCloseout, setSubmittingCloseout] = useState(false);
   const [conflict, setConflict] = useState<{
     latest?: StudySessionDto;
     conflictFields: string[];
@@ -107,11 +129,9 @@ export function FocusSessionClient(props: {
   } | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
   const commandKeys = useRef<Record<string, string>>({});
-  const [lowConversionStep, setLowConversionStep] = useState(
-    props.session.status === "completed" && props.session.isLowConversion === true,
-  );
-  const [evidenceStep, setEvidenceStep] = useState(false);
   const [lowConversionAdded, setLowConversionAdded] = useState(false);
+  const [activeEvidenceType, setActiveEvidenceType] = useState<FocusEvidenceType>("note");
+  const [evidenceReceipts, setEvidenceReceipts] = useState(props.initialEvidenceReceipts);
   const [draft, setDraft] = useState<FocusCloseoutDraft>(defaultFocusCloseoutDraft);
   const [draftReady, setDraftReady] = useState(false);
 
@@ -122,6 +142,15 @@ export function FocusSessionClient(props: {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [props.session.id, props.userId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (session.status === "completed" && isFocusEvidenceFlowOpen(props.userId, session.id)) {
+        setPhase("evidence");
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [props.userId, session.id, session.status]);
 
   useEffect(() => {
     if (!draftReady) return;
@@ -159,12 +188,15 @@ export function FocusSessionClient(props: {
   const goalReached =
     typeof session.goalMinutes === "number" && Math.floor(elapsedSeconds / 60) >= session.goalMinutes;
   const timerLabel = session.status === "running" ? "正计时" : session.status === "paused" ? "已暂停" : "已结束";
-  const goalStatus = session.status === "completed"
-    ? goalReached ? " · 已达目标" : " · 未达目标"
-    : goalReached ? " · 已到点提醒（不自动结束）" : "";
-  const closeoutOutcome = draft.isEffective === "false"
+  const closeoutOutcome: CloseoutOutcome = draft.isEffective === "false"
     ? "not-achieved"
     : Number(draft.qualityScore) >= 4 ? "achieved" : "partial";
+  const context: FocusContext = {
+    subjectName: session.subjectName,
+    taskTitle: session.taskTitle,
+    syllabusNodeTitle: session.syllabusNodeTitle,
+    goalMinutes: session.goalMinutes,
+  };
 
   async function mutate(path: string, body: unknown, action: "pause" | "resume" | "end") {
     if (conflict) throw new Error("请先处理活动状态冲突，再提交新的状态命令。");
@@ -206,7 +238,7 @@ export function FocusSessionClient(props: {
       await mutate(`/api/study-sessions/${session.id}/pause`, commandInput("pause"), "pause");
       delete commandKeys.current.pause;
     } catch (err) {
-      setError(requestErrorMessage(err, "暂停失败"));
+      setError(focusRequestErrorMessage(err, "暂停失败"));
     }
   }
 
@@ -215,39 +247,48 @@ export function FocusSessionClient(props: {
       await mutate(`/api/study-sessions/${session.id}/resume`, commandInput("resume"), "resume");
       delete commandKeys.current.resume;
     } catch (err) {
-      setError(requestErrorMessage(err, "继续失败"));
+      setError(focusRequestErrorMessage(err, "继续失败"));
     }
   }
 
   async function end() {
+    const minimalOutput = draft.minimalOutput.trim();
+    const nextAction = draft.nextAction.trim();
+    if (minimalOutput.length < 4) {
+      setCloseoutError("请填写至少 4 个字符的真实最小产出，系统不会代填学习事实。");
+      return;
+    }
+    if (!nextAction) {
+      setCloseoutError(draft.taskDisposition === "blocked" ? "请写明阻塞原因和恢复位置。" : "请填写下一动作。");
+      return;
+    }
+    setSubmittingCloseout(true);
+    setCloseoutError(null);
     try {
       const completed = await mutate(`/api/study-sessions/${session.id}/end`, {
         ...commandInput("end"),
         qualityScore: Number(draft.qualityScore),
         isEffective: draft.isEffective === "true",
         understandingLevel: draft.understandingLevel,
-        minimalOutput: draft.minimalOutput || "本次最小产出",
-        nextAction: draft.nextAction,
+        minimalOutput,
+        nextAction,
         producedNote: false,
         producedMistake: false,
         note: draft.note,
-        completeTask: draft.completeTask,
+        completeTask: draft.taskDisposition === "complete",
       }, "end");
       delete commandKeys.current.end;
       window.localStorage.removeItem(focusDraftKey(props.userId, session.id));
-      setEnding(false);
       if (completed?.isLowConversion) {
-        setLowConversionStep(true);
+        setPhase("low-conversion");
         return;
       }
-      setEvidenceStep(true);
+      openEvidenceFlow();
     } catch (err) {
-      setError(requestErrorMessage(err, "结束失败"));
+      setError(focusRequestErrorMessage(err, "结束失败"));
+    } finally {
+      setSubmittingCloseout(false);
     }
-  }
-
-  function finishReplace() {
-    router.replace(props.returnTo);
   }
 
   function adoptLatestSession() {
@@ -258,7 +299,7 @@ export function FocusSessionClient(props: {
     }
     setSession(conflict.latest);
     delete commandKeys.current[conflict.action];
-    if (conflict.latest.status === "completed") setEnding(false);
+    if (conflict.latest.status === "completed") setPhase(initialPhase(conflict.latest));
     setConflict(null);
     setConflictOpen(false);
     setError("已采用服务端最新活动状态；本地收口草稿仍保留。");
@@ -296,8 +337,27 @@ export function FocusSessionClient(props: {
       }
       setLowConversionAdded(true);
     } catch (err) {
-      setError(requestErrorMessage(err, "加入收件箱失败"));
+      setError(focusRequestErrorMessage(err, "加入收件箱失败"));
     }
+  }
+
+  function openEvidenceFlow() {
+    setFocusEvidenceFlowOpen(props.userId, session.id, true);
+    setPhase("evidence");
+  }
+
+  function completeEvidenceFlow() {
+    setFocusEvidenceFlowOpen(props.userId, session.id, false);
+    setPhase("complete");
+  }
+
+  async function linkEvidence(input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) {
+    const body = await linkFocusSessionEvidence(session, input);
+    setSession(body.session);
+    setEvidenceReceipts((current) => current.some((receipt) =>
+      receipt.evidenceType === body.receipt.evidenceType && receipt.evidenceId === body.receipt.evidenceId)
+      ? current
+      : [...current, body.receipt]);
   }
 
   if (props.activeConflictId) {
@@ -313,142 +373,90 @@ export function FocusSessionClient(props: {
   }
 
   return (
-    <section className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-8">
-      <div className="flex items-center justify-between gap-3">
-        <Link href={props.returnTo} className="text-sm text-zinc-400 hover:text-zinc-200">
-          离开视图（不结束活动）
-        </Link>
-        <span className="text-xs text-zinc-500" aria-live="assertive" aria-atomic="true">
-          {session.status === "paused" ? "已暂停" : session.status === "running" ? "进行中" : "已结束"}
-        </span>
-      </div>
-
-      <div>
-        <p className="text-sm text-teal-300">{session.subjectName}</p>
-        <DetailHeading className="mt-2 text-3xl font-semibold text-white">{session.taskTitle ?? "科目快捷专注"}</DetailHeading>
-        {session.syllabusNodeTitle ? <p className="mt-2 text-sm text-zinc-400">{session.syllabusNodeTitle}</p> : null}
-      </div>
-
-      <div className="rounded-lg border border-teal-300/30 bg-[#101419] p-6">
-        <p className="text-sm text-zinc-500">{timerLabel}</p>
-        <p className="mt-3 text-6xl font-semibold tabular-nums text-white">{formatElapsed(elapsedSeconds)}</p>
-        {session.goalMinutes ? (
-          <p className={`mt-2 text-sm ${goalReached ? "text-amber-200" : "text-zinc-500"}`}>
-            目标 {session.goalMinutes} 分钟{goalStatus}
-          </p>
-        ) : null}
-        <div className="mt-5 flex flex-wrap gap-2">
-          {session.status === "running" ? (
-            <button type="button" className="h-11 rounded-md border border-white/10 px-4 text-sm" onClick={() => void pause()}>
-              暂停
-            </button>
-          ) : null}
-          {session.status === "paused" ? (
-            <button type="button" className="h-11 rounded-md border border-white/10 px-4 text-sm" onClick={() => void resume()}>
-              继续
-            </button>
-          ) : null}
-          {session.status === "running" || session.status === "paused" ? (
-            <button type="button" className="h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black" onClick={() => setEnding(true)}>
-              结束并收口
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      {ending ? (
-        <form
-          className="space-y-3 rounded-md border border-white/10 bg-[#101419] p-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void end();
-          }}
+    <section className="min-h-screen w-full bg-[var(--af-canvas)]">
+      <FocusHeader returnTo={props.returnTo} status={session.status} phaseLabel={phaseLabel(phase)} />
+      {error ? <div className="px-4 pt-4 sm:px-6 lg:px-8"><Alert tone="danger">{error}</Alert></div> : null}
+      {phase === "focus" && (session.status === "running" || session.status === "paused") ? (
+        <FocusTimerWorkspace
+          context={context}
+          elapsedLabel={formatFocusElapsed(elapsedSeconds)}
+          timerLabel={timerLabel}
+          goalReached={goalReached}
+          status={session.status}
+          onPause={() => void pause()}
+          onResume={() => void resume()}
+          onEnd={() => { setError(null); setPhase("closeout"); }}
+        />
+      ) : null}
+      {phase === "closeout" ? (
+        <CloseoutWorkspace
+          context={context}
+          elapsedLabel={formatFocusElapsed(elapsedSeconds)}
+          outcome={closeoutOutcome}
+          understandingLevel={draft.understandingLevel}
+          minimalOutput={draft.minimalOutput}
+          nextAction={draft.nextAction}
+          taskDisposition={draft.taskDisposition}
+          validationError={closeoutError}
+          submitting={submittingCloseout}
+          onOutcomeChange={(outcome) => setDraft({
+            ...draft,
+            isEffective: outcome === "not-achieved" ? "false" : "true",
+            qualityScore: outcome === "achieved" ? "4" : outcome === "partial" ? "3" : "1",
+          })}
+          onUnderstandingChange={(understandingLevel) => setDraft({ ...draft, understandingLevel })}
+          onMinimalOutputChange={(minimalOutput) => { setCloseoutError(null); setDraft({ ...draft, minimalOutput }); }}
+          onNextActionChange={(nextAction) => { setCloseoutError(null); setDraft({ ...draft, nextAction }); }}
+          onTaskDispositionChange={(taskDisposition) => setDraft({
+            ...draft,
+            taskDisposition,
+            nextAction: taskDisposition === "complete" ? "转入下一项" : taskDisposition === "blocked" ? "" : "继续推进",
+          })}
+          onCancel={() => { setCloseoutError(null); setPhase("focus"); }}
+          onSubmit={() => void end()}
+        />
+      ) : null}
+      {phase === "low-conversion" ? (
+        <LowConversionWorkspace
+          reason={session.antiFakeReason ?? "有效性判定需要补产出。"}
+          addedToInbox={lowConversionAdded}
+          returnTo={props.returnTo}
+          onSupplement={openEvidenceFlow}
+          onAddToInbox={() => void addLowConversionToInbox()}
+          onAccept={completeEvidenceFlow}
+        />
+      ) : null}
+      {phase === "evidence" ? (
+        <EvidenceWorkspace
+          activeType={activeEvidenceType}
+          canRetest={Boolean(session.syllabusNodeId)}
+          receipts={evidenceReceipts}
+          onTypeChange={setActiveEvidenceType}
+          onComplete={completeEvidenceFlow}
         >
-          <h2 className="text-lg font-medium text-white">收口确认</h2>
-          <label className="block text-sm">
-            收口结果
-            <select
-              className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2"
-              value={closeoutOutcome}
-              onChange={(event) => {
-                const outcome = event.target.value;
-                setDraft({
-                  ...draft,
-                  isEffective: outcome === "not-achieved" ? "false" : "true",
-                  qualityScore: outcome === "achieved" ? "4" : outcome === "partial" ? "3" : "1",
-                });
-              }}
-            >
-              <option value="achieved">达成</option>
-              <option value="partial">部分达成</option>
-              <option value="not-achieved">未达成</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            理解程度
-            <input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={draft.understandingLevel} onChange={(e) => setDraft({ ...draft, understandingLevel: e.target.value })} />
-          </label>
-          <label className="block text-sm">
-            最小产出
-            <textarea className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] px-2 py-2" value={draft.minimalOutput} onChange={(e) => setDraft({ ...draft, minimalOutput: e.target.value })} />
-          </label>
-          <label className="block text-sm">
-            下一动作
-            <input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={draft.nextAction} onChange={(e) => setDraft({ ...draft, nextAction: e.target.value })} />
-          </label>
-          {session.taskId ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={draft.completeTask} onChange={(e) => setDraft({ ...draft, completeTask: e.target.checked })} />
-              同时完成任务
-            </label>
-          ) : null}
-          <button type="submit" className="h-11 w-full rounded-md bg-teal-500/90 text-sm font-medium text-black">
-            保存收口
-          </button>
-        </form>
+          <FocusEvidenceForms
+            userId={props.userId}
+            sessionId={session.id}
+            subjectId={session.subjectId}
+            subjectName={session.subjectName}
+            taskId={session.taskId}
+            taskTitle={session.taskTitle}
+            syllabusNodeId={session.syllabusNodeId}
+            syllabusNodeTitle={session.syllabusNodeTitle}
+            activeType={activeEvidenceType}
+            onEvidenceSaved={linkEvidence}
+          />
+        </EvidenceWorkspace>
       ) : null}
-
-      {lowConversionStep ? (
-        <div className="space-y-3 rounded-md border border-amber-400/30 bg-amber-500/10 p-4">
-          <h2 className="font-medium text-amber-100">低转化：先已保存 session</h2>
-          <p className="text-sm text-amber-50/80">{session.antiFakeReason ?? "有效性判定需要补产出。"}</p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="h-10 rounded-md bg-teal-500/90 px-3 text-sm text-black" onClick={() => setEvidenceStep(true)}>
-              立即补产出
-            </button>
-            {lowConversionAdded ? <Link href="/today/inbox" className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-teal-300">查看收件箱</Link> : <button type="button" className="h-10 rounded-md border border-white/10 px-3 text-sm" onClick={() => void addLowConversionToInbox()}>加入收件箱</button>}
-            <button type="button" className="h-10 rounded-md border border-white/10 px-3 text-sm" onClick={() => setEvidenceStep(true)}>
-              跳过
-            </button>
-          </div>
-        </div>
+      {phase === "complete" ? (
+        <CompleteWorkspace
+          elapsedLabel={formatFocusElapsed(elapsedSeconds)}
+          lowConversion={session.isLowConversion === true}
+          taskStatus={session.taskStatus}
+          returnTo={props.returnTo}
+          receipts={evidenceReceipts}
+        />
       ) : null}
-
-      {evidenceStep ? (
-        <div className="space-y-3 rounded-md border border-white/10 bg-[#101419] p-4">
-          <h2 className="font-medium text-white">证据接力（可跳过）</h2>
-          <p className="text-sm text-zinc-400">进入同一套知识表单，当前科目、任务和主考纲节点会随入口预填。</p>
-          <div className="flex flex-wrap gap-2">
-            <Link href={`/knowledge/notes?subjectId=${encodeURIComponent(session.subjectId)}${session.syllabusNodeId ? `&syllabusNodeId=${encodeURIComponent(session.syllabusNodeId)}` : ""}${session.taskId ? `&taskId=${encodeURIComponent(session.taskId)}` : ""}`} className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-teal-300">新增知识卡片</Link>
-            <Link href={`/knowledge/mistakes?subjectId=${encodeURIComponent(session.subjectId)}${session.syllabusNodeId ? `&syllabusNodeId=${encodeURIComponent(session.syllabusNodeId)}` : ""}`} className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-teal-300">新增错题</Link>
-            {session.syllabusNodeId ? <Link href={`/knowledge/syllabus/${session.syllabusNodeId}`} className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-teal-300">记录复测</Link> : null}
-            <button type="button" className="h-10 rounded-md border border-white/10 px-3 text-sm" onClick={finishReplace}>
-              跳过并返回
-            </button>
-            <button type="button" className="h-10 rounded-md bg-teal-500/90 px-3 text-sm text-black" onClick={finishReplace}>
-              完成
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {session.status === "completed" && !lowConversionStep && !evidenceStep ? (
-        <button type="button" className="h-11 rounded-md bg-teal-500/90 text-sm font-medium text-black" onClick={finishReplace}>
-          返回来源
-        </button>
-      ) : null}
-
-      {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
       {conflict && !conflictOpen ? <button type="button" className="w-fit text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理活动状态冲突</button> : null}
       <ConflictResolutionModal
         open={conflictOpen && Boolean(conflict)}
@@ -469,19 +477,15 @@ export function FocusSessionClient(props: {
   );
 }
 
-function formatElapsed(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+function initialPhase(session: StudySessionDto): FocusPhase {
+  if (session.status !== "completed") return "focus";
+  return session.isLowConversion ? "low-conversion" : "complete";
 }
 
-function requestErrorMessage(error: unknown, fallback: string): string {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    return "网络不可用，草稿与当前状态已保留。恢复网络后请显式重试。";
-  }
-  if (error instanceof TypeError) {
-    return "请求未送达，草稿与当前状态已保留。请检查网络后显式重试。";
-  }
-  return error instanceof Error ? error.message : fallback;
+function phaseLabel(phase: FocusPhase): string {
+  if (phase === "focus") return "专注计时";
+  if (phase === "closeout") return "学习收口";
+  if (phase === "low-conversion") return "低转化补救";
+  if (phase === "evidence") return "证据接力";
+  return "完成摘要";
 }

@@ -40,6 +40,7 @@ Nginx -> web container -> PostgreSQL
 - `AI_BASE_URL`
 - `AI_API_KEY`
 - `AI_MODEL`
+- `AI_CREDENTIALS_ENCRYPTION_KEY`
 - `AI_TIMEOUT_MS`
 - `AI_MAX_RETRIES`
 - `AI_LOG_PROMPTS`

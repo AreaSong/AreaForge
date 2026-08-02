@@ -4,7 +4,8 @@ import { Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { KNOWLEDGE_TAB_ITEMS } from "@/lib/navigation/batch7";
+import { KNOWLEDGE_TAB_ITEMS, KNOWLEDGE_TOOL_ITEMS } from "@/lib/navigation/batch7";
+import { WorkbenchNavigation } from "@/components/ui/workbench-navigation";
 import {
   KNOWLEDGE_CONTEXT_EVENT,
   KNOWLEDGE_CONTEXT_KEYS,
@@ -34,22 +35,7 @@ export function KnowledgeNavigation() {
 
   return (
     <div className="space-y-3">
-      <nav className="grid grid-cols-4 gap-1 sm:flex sm:flex-wrap" aria-label="知识工作台">
-        {KNOWLEDGE_TAB_ITEMS.map((item) => {
-          const href = contextQuery ? `${item.href}?${contextQuery}` : item.href;
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return (
-            <Link
-              key={item.href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={`rounded-md px-2 py-2 text-center text-sm ${active ? "bg-white/10 text-white" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-200"}`}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <WorkbenchNavigation label="知识工作台" items={KNOWLEDGE_TAB_ITEMS} tools={KNOWLEDGE_TOOL_ITEMS} suffix={contextQuery ? `?${contextQuery}` : ""} />
       <form action={pathname} method="get" role="search" className="flex max-w-xl items-center gap-2">
         {KNOWLEDGE_CONTEXT_KEYS.filter((key) => key !== "q").map((key) => {
           const value = context.get(key);
