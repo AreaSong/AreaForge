@@ -51,8 +51,8 @@
 - 失分与补救 API：分科失分条目使用 `/api/simulation/subject-results/:subjectResultId/loss-items*`；补救写入使用 `POST /api/simulation/exams/:id/remediations`。
 - 阶段计划 API：`GET/POST /api/simulation/stage-plans`、`PATCH /api/simulation/stage-plans/:id`。
 - 阶段草稿 API：`GET/POST /api/simulation/stage-adjustment-drafts`、`POST /api/simulation/stage-adjustment-drafts/ai`、`POST /api/simulation/stage-adjustment-drafts/:id/confirm`、`POST /api/simulation/stage-adjustment-drafts/:id/reject`。
-- canonical 页面为 `/stage/simulation`。列表优先继续最近未完成考试，再展示已确认历史和独立创建区；详情按录分、确认事实、补救入箱三步推进。
-- 已确认考试的补救先进入 `/today/inbox` 补全并显式转为任务；全部补救已入箱、已忽略或已转任务时，详情显示完成态并提供收件箱与阶段重评两个出口，不再显示重复发送命令。两条路径都不自动修改既有任务或阶段计划。
+- canonical 页面为 `/test/simulations`。列表优先继续最近未完成考试，再展示已确认历史和独立创建区；详情按录分、确认事实、补救入箱三步推进。
+- 已确认考试的补救先进入 `/plan/inbox` 补全并显式转为任务；全部补救已入箱、已忽略或已转任务时，详情显示完成态并提供收件箱与阶段重评两个出口，不再显示重复发送命令。两条路径都不自动修改既有任务或阶段计划。
 - 长期 AI 阶段草稿只走显式触发，成功只写 `StageAdjustmentDraft.source="ai"`，失败回退本地规则；模拟考试、阶段计划和首页状态主题共用统一长期风险 DTO。
 
 ## 不在当前范围

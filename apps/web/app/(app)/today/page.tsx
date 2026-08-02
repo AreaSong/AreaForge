@@ -7,9 +7,14 @@ import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/today");
 
-export default async function TodayPage() {
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const today = await getActionCenterToday(user.id);
+  const query = await searchParams;
+  const today = await getActionCenterToday(user.id, query.date);
   return <ActionCenterToday initial={today} />;
 }

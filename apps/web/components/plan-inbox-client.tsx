@@ -20,7 +20,7 @@ interface PlanInboxListConflict {
   conflictFields: string[];
 }
 
-export function PlanInboxClient({ items: initialItems, status, returnTo = "/today/inbox" }: { items: PlanInboxItemDto[]; status: Status; returnTo?: string }) {
+export function PlanInboxClient({ items: initialItems, status, returnTo = "/plan/inbox" }: { items: PlanInboxItemDto[]; status: Status; returnTo?: string }) {
   const router = useRouter();
   const sourceReturnTo = getSourceReturnTo(returnTo);
   const [items, setItems] = useState(initialItems);
@@ -107,14 +107,14 @@ export function PlanInboxClient({ items: initialItems, status, returnTo = "/toda
               {item.supersededByItemId ? <p className="mt-2 text-xs text-amber-200">此版本已被替代，只能查看历史。</p> : null}
               <div className="mt-3 flex flex-wrap gap-2 text-sm">
                 {item.status === "OPEN" && !item.supersededByItemId ? (
-                  <Link href={withReturnTo(`/today/inbox/${item.id}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>
+                  <Link href={withReturnTo(`/plan/inbox/${item.id}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>
                     {item.missingFields.length ? "补全并转换" : "确认并转换"}
                   </Link>
                 ) : null}
                 {item.status === "OPEN" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className={buttonClassName({ variant: "ghost", size: "sm" })} onClick={() => void transition(item, "dismiss")}>忽略</button> : null}
                 {item.status === "DISMISSED" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className={buttonClassName({ variant: "secondary", size: "sm" })} onClick={() => void transition(item, "reopen")}>恢复草稿</button> : null}
-                {item.convertedTaskId ? <Link href={withReturnTo(`/today/tasks/${item.convertedTaskId}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>打开任务</Link> : null}
-                {item.status !== "OPEN" || item.supersededByItemId ? <Link href={withReturnTo(`/today/inbox/${item.id}`, returnTo)} className={buttonClassName({ variant: "ghost", size: "sm" })}>查看记录</Link> : null}
+                {item.convertedTaskId ? <Link href={withReturnTo(`/plan/tasks/${item.convertedTaskId}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>打开任务</Link> : null}
+                {item.status !== "OPEN" || item.supersededByItemId ? <Link href={withReturnTo(`/plan/inbox/${item.id}`, returnTo)} className={buttonClassName({ variant: "ghost", size: "sm" })}>查看记录</Link> : null}
               </div>
             </li>
           ))}
@@ -146,11 +146,11 @@ export function PlanInboxClient({ items: initialItems, status, returnTo = "/toda
 function withInboxStatus(returnTo: string, status: Status): string {
   try {
     const url = new URL(returnTo, "https://areaforge.invalid");
-    if (url.pathname !== "/today/inbox") return `/today/inbox?status=${status}`;
+    if (url.pathname !== "/plan/inbox") return `/plan/inbox?status=${status}`;
     url.searchParams.set("status", status);
     return `${url.pathname}?${url.searchParams.toString()}`;
   } catch {
-    return `/today/inbox?status=${status}`;
+    return `/plan/inbox?status=${status}`;
   }
 }
 

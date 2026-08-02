@@ -32,7 +32,7 @@ export function TaskDetailClient(props: {
   const task = props.detail.task;
   const sourceHref = props.embedded && props.closeHref
     ? props.closeHref
-    : props.returnTo ?? "/today/plan";
+    : props.returnTo ?? "/plan";
   const focusReturnTo = sourceHref;
   const terminal = task.status === "done" || task.status === "skipped";
   const editable = !props.detail.readOnly && !terminal && !props.detail.subjectArchived;
@@ -383,7 +383,7 @@ function RelationItem(props: { label: string; children: React.ReactNode }) {
 }
 
 function TaskLink({ task, returnTo }: { task: { id: string; title: string; status: string }; returnTo: string }) {
-  return <Link className="text-teal-300 hover:underline" href={withReturnTo(`/today/tasks/${task.id}`, returnTo)}>{task.title} · {taskStatusLabel(task.status)}</Link>;
+  return <Link className="text-teal-300 hover:underline" href={withReturnTo(`/plan/tasks/${task.id}`, returnTo)}>{task.title} · {taskStatusLabel(task.status)}</Link>;
 }
 
 function DependencyList(props: {
@@ -413,7 +413,7 @@ function DependencyList(props: {
             const linkedStatus = incoming ? dependency.predecessorStatus : dependency.successorStatus;
             return (
               <li key={dependency.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
-                <Link className="min-w-0 break-words text-teal-300 hover:underline" href={withReturnTo(`/today/tasks/${linkedId}`, props.returnTo)}>
+                <Link className="min-w-0 break-words text-teal-300 hover:underline" href={withReturnTo(`/plan/tasks/${linkedId}`, props.returnTo)}>
                   {linkedTitle ?? `任务 ${linkedId.slice(0, 8)}`} · {taskStatusLabel(linkedStatus ?? "unknown")}
                 </Link>
                 <div className="flex items-center gap-2">
@@ -464,7 +464,7 @@ function DependencyList(props: {
 }
 
 function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
-  const returnTo = `/today/tasks/${detail.task.id}`;
+  const returnTo = `/plan/tasks/${detail.task.id}`;
   return (
     <section aria-labelledby="task-history-heading" className="space-y-4 border-t border-white/10 pt-5">
       <h2 id="task-history-heading" className="text-lg font-semibold text-white">行动历史</h2>
@@ -497,10 +497,10 @@ function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
 
 function taskSourceLabel(sourceHref: string): string {
   if (sourceHref === "/today") return "返回今日";
-  if (sourceHref.startsWith("/today/inbox")) return "返回收件箱";
-  if (sourceHref.startsWith("/today/plan")) return "返回计划";
+  if (sourceHref.startsWith("/plan/inbox")) return "返回收件箱";
+  if (sourceHref.startsWith("/plan/stages")) return "返回阶段";
+  if (sourceHref.startsWith("/plan")) return "返回计划";
   if (sourceHref.startsWith("/review/")) return "返回复盘";
-  if (sourceHref.startsWith("/stage/")) return "返回阶段";
   if (sourceHref.startsWith("/knowledge/")) return "返回知识";
   return "返回来源";
 }

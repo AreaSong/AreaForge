@@ -43,11 +43,11 @@ export function apiErrorResponse(error: unknown): NextResponse {
 }
 
 function workbenchForError(code: string): string {
-  if (code.includes("PLAN_INBOX")) return "/today/inbox";
+  if (code.includes("PLAN_INBOX")) return "/plan/inbox";
   if (code.includes("TASK") || code.includes("SESSION") || code.includes("RECOVERY")) return "/today";
   if (code.includes("REPORT")) return "/review/reports";
-  if (code.includes("SIMULATION")) return "/stage/simulation";
-  if (code.includes("STAGE") || code.includes("MILESTONE")) return "/stage/overview";
+  if (code.includes("SIMULATION")) return "/test/simulations";
+  if (code.includes("STAGE") || code.includes("MILESTONE")) return "/plan/stages";
   if (code.includes("REVIEW_EVENT") || code.includes("REVIEW_SCHEDULE") || code.includes("REVIEW_TARGET")) {
     return "/knowledge/reviews";
   }

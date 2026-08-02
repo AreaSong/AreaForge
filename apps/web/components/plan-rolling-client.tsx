@@ -71,7 +71,7 @@ export function PlanRollingClient(props: {
     for (const [key, value] of Object.entries(props.query)) {
       if (value) params.set(key, value);
     }
-    return `/today/plan${params.size ? `?${params.toString()}` : ""}`;
+    return `/plan${params.size ? `?${params.toString()}` : ""}`;
   }, [props.query]);
   const draftKey = `areaforge.task.draft.create.${selectedDate ?? "undated"}.${props.sourceResource?.id ?? props.query.syllabusNodeId ?? (props.createMinimum ? "minimum" : "direct")}`;
   useRestoreListReturn();
@@ -120,7 +120,7 @@ export function PlanRollingClient(props: {
     for (const [key, value] of Object.entries(merged)) {
       if (value) params.set(key, value);
     }
-    startTransition(() => router.push(`/today/plan?${params.toString()}`));
+    startTransition(() => router.push(`/plan?${params.toString()}`));
   }
 
   async function createTask() {
@@ -171,7 +171,7 @@ export function PlanRollingClient(props: {
       setRelatedSyllabusNodeIds([]);
       setPlanMilestoneId("");
       setCreateOpen(false);
-      startTransition(() => router.push(withReturnTo(`/today/tasks/${createdTaskId}`, currentPlanHref)));
+      startTransition(() => router.push(withReturnTo(`/plan/tasks/${createdTaskId}`, currentPlanHref)));
     } catch {
       setError("网络不可用，任务输入仍保留；恢复网络后请显式重试。");
     } finally {
@@ -264,7 +264,7 @@ export function PlanRollingClient(props: {
               tasks={selectedDayTasks}
               detailTaskId={props.detailTaskId}
               desktopHref={desktopTaskHref}
-              mobileHref={(taskId) => withReturnTo(`/today/tasks/${taskId}`, currentPlanHref)}
+              mobileHref={(taskId) => withReturnTo(`/plan/tasks/${taskId}`, currentPlanHref)}
             />
           ) : (
             <>
@@ -280,7 +280,7 @@ export function PlanRollingClient(props: {
                         {day.tasks.map((task) => (
                           <li key={task.id} className="rounded-md border border-white/5 bg-black/10 p-2">
                             <ListDetailLink
-                              href={withReturnTo(`/today/tasks/${task.id}`, currentPlanHref)}
+                              href={withReturnTo(`/plan/tasks/${task.id}`, currentPlanHref)}
                               desktopHref={desktopTaskHref(task.id)}
                               focusId={`plan-task-desktop-${day.date}-${task.id}`}
                               className="block break-words text-sm text-white hover:text-teal-300"
@@ -301,7 +301,7 @@ export function PlanRollingClient(props: {
                   tasks={selectedDayTasks}
                   detailTaskId={props.detailTaskId}
                   desktopHref={desktopTaskHref}
-                  mobileHref={(taskId) => withReturnTo(`/today/tasks/${taskId}`, currentPlanHref)}
+                  mobileHref={(taskId) => withReturnTo(`/plan/tasks/${taskId}`, currentPlanHref)}
                   onCreate={() => setCreateOpen(true)}
                 />
               </div>
@@ -318,7 +318,7 @@ export function PlanRollingClient(props: {
                 {props.initial.debt.map((task) => (
                   <li key={task.id} className="py-2 first:pt-0 last:pb-0">
                     <ListDetailLink
-                      href={withReturnTo(`/today/tasks/${task.id}`, currentPlanHref)}
+                      href={withReturnTo(`/plan/tasks/${task.id}`, currentPlanHref)}
                       desktopHref={desktopTaskHref(task.id)}
                       focusId={`plan-debt-${task.id}`}
                       className="block text-sm text-white hover:text-teal-300"
@@ -441,7 +441,7 @@ export function PlanRollingClient(props: {
     for (const [key, value] of Object.entries(merged)) {
       if (value) params.set(key, value);
     }
-    return `/today/plan?${params.toString()}`;
+    return `/plan?${params.toString()}`;
   }
 }
 

@@ -32,7 +32,7 @@
 
 ## 当前实现
 
-- `/syllabus` 节点卡片展示任务、计时、笔记、错题证据计数和最近证据时间。
+- `/knowledge/syllabus` 节点卡片展示任务、计时、笔记、错题证据计数和最近证据时间。
 - 用户可以在节点上选择目标掌握等级，并勾选已完成的掌握条件；条件会持久化到 `MasteryConditionRecord`。
 - `PATCH /api/syllabus/nodes/:id` 会写入条件记录，并调用 `packages/core/src/mastery-proof.ts` 校验。
 - `POST /api/syllabus/nodes/:id/mastery-evidence` 可把同一节点下的任务、计时、笔记、错题或复测记录引用为显式 `MasteryEvidence`；跨节点引用会被拒绝。

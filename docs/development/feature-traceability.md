@@ -28,10 +28,10 @@
 | 专注计时模式 | 已完成 | 首页 `FocusTimer` 与 active session 恢复 | 后续 UX 打磨 |
 | 打卡 | 已完成 | `evaluateDailyCheckIn`、`CheckIn` 日快照、首页 `dashboard.checkIn`、analytics/reports 逐日快照优先和缺失日期 fallback；不把打开应用算作打卡，active session 时长只实时展示、结束后固化 | 连续性已接入长期风险/主题只读联动；未来自动应用另行确认 |
 | 每晚复盘 | 已完成 | `DailyReview`、`/review/daily`、`/api/daily-reviews*`、`/api/reviews/today`；页面展示当天真实时长、任务、低转化、科目和证据摘要，保存后直达原子生成的明日最低行动 Inbox 项，Inbox 转换成功进入正式任务详情 | AI 真实建议和更细粒度历史统计继续增强 |
-| 考纲进度树 | 已完成 | `/syllabus`、`/api/syllabus/*`、Markdown 导入 | 附件和自动状态更新后增强 |
-| 知识点掌握状态 | 已完成 | `SyllabusNode.status`、`masteryLevel`、`/syllabus` 状态筛选、节点卡片和最近证据时间；Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`，显式证据优先并保留 `_count` fallback；Package D Batch D4 已接入长期风险只读 DTO | 更细结构化复习历史或自动计划应用需单独确认 |
-| 知识点掌握证明基础版 | 已完成 | `packages/core/src/mastery-proof.ts`；`/syllabus` 节点可选择目标掌握等级、勾选并保存掌握条件；`PATCH /api/syllabus/nodes/:id` 用显式证据或 `_count` fallback 校验，失败返回 `MASTERY_PROOF_REQUIRED`，成功写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent`；`POST /api/syllabus/nodes/:id/mastery-evidence` 写入证据引用；`POST /api/syllabus/nodes/:id/mastery-retests` 写入复测记录，`failed/partial` 不自动降级；Package B Batch 4 已完成 | 更复杂证据图谱和复习历史分析后续增强 |
-| 笔记与资料上传 | 已完成 | 笔记 API/UI 已有；按科目、节点、掌握状态和复习提醒筛选已有；Package A 已完成 noteId 绑定 PDF/PNG/JPEG/WebP 上传、`UPLOAD_DIR` 私有落盘、metadata/hash/URI 写入、鉴权下载、`/notes` 附件 UI 和补偿/对账烟测 | `tasks/done/0004-mvp-syllabus-notes-upload.md` |
+| 考纲进度树 | 已完成 | `/knowledge/syllabus`、`/api/syllabus/*`、Markdown 导入 | 附件和自动状态更新后增强 |
+| 知识点掌握状态 | 已完成 | `SyllabusNode.status`、`masteryLevel`、`/knowledge/syllabus` 状态筛选、节点卡片和最近证据时间；Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`，显式证据优先并保留 `_count` fallback；Package D Batch D4 已接入长期风险只读 DTO | 更细结构化复习历史或自动计划应用需单独确认 |
+| 知识点掌握证明基础版 | 已完成 | `packages/core/src/mastery-proof.ts`；`/knowledge/syllabus` 节点可选择目标掌握等级、勾选并保存掌握条件；`PATCH /api/syllabus/nodes/:id` 用显式证据或 `_count` fallback 校验，失败返回 `MASTERY_PROOF_REQUIRED`，成功写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent`；`POST /api/syllabus/nodes/:id/mastery-evidence` 写入证据引用；`POST /api/syllabus/nodes/:id/mastery-retests` 写入复测记录，`failed/partial` 不自动降级；Package B Batch 4 已完成 | 更复杂证据图谱和复习历史分析后续增强 |
+| 笔记与资料上传 | 已完成 | 笔记 API/UI 已有；按科目、节点、掌握状态和复习提醒筛选已有；Package A 已完成 noteId 绑定 PDF/PNG/JPEG/WebP 上传、`UPLOAD_DIR` 私有落盘、metadata/hash/URI 写入、鉴权下载、`/knowledge/notes` 附件 UI 和补偿/对账烟测 | `tasks/done/0004-mvp-syllabus-notes-upload.md` |
 | 情绪与状态记录基础版 | 已完成 | `tasks/done/0010-motivation-emotion-stage.md` | 完整情绪历史表暂不做 |
 | 恢复模式基础版 | 已完成 | `createRecoveryPlan`、`rankRecoveryTaskCandidates`、首页 `visibleRecoveryTasks` 和恢复原因；Package B Batch 3 已新增 `RecoveryState`、`POST /api/recovery-states/manual`、完成/取消恢复 API、dashboard active 状态优先和规则触发幂等记录；首页计时器聚焦恢复候选，任务面板保留完整任务列表；Package D D4 已把恢复/主题信号纳入长期风险只读闭环 | 未来若自动应用恢复任务或阶段调整，需单独确认 |
 | 反假学习检查基础版 | 已完成 | 计时结束写 `isEffective`、`isLowConversion`、反假学习原因、补产出要求、最小产出、下一步动作和文本 note；Batch 0 已结构化收口字段；Batch 1 已把低转化次数写入 `CheckIn` 日快照；Batch 2 已把有效自动完成任务写入债务事件账本 | 历史 note 不解析；长期风险/主题只读闭环已完成，未来自动应用另行确认 |
@@ -41,21 +41,21 @@
 | 鞭策文案 | 已完成 | Package C 已接入 OpenAI-compatible provider；`/api/ai/discipline` 在 `AI_ENABLED=true` 且配置完整时可显式外呼，失败回退本地规则；首页仍展示本地规则以避免普通 SSR 成本 | 长期阶段 AI 草稿显式入口已由 Package D Batch D3 完成；历史保存、费用账本或更大上下文另行确认 |
 | AI 复盘建议 | 已完成 | Package C 已接入 `/api/ai/daily-review` 真实 provider 第一版；只发送聚合字段，不发送完整复盘正文、动机档案、完整情绪记录或附件内容；输出 schema 校验失败回退 | `tasks/done/0005-mvp-ai-discipline.md` |
 | AI 明日任务建议 | 已完成 | Package C 已接入 `/api/ai/tomorrow-plan` 真实 provider 第一版；任务标题默认脱敏，`task title may contain private content` 不进入外呼；失败回退本地规则 | `tasks/done/0005-mvp-ai-discipline.md` |
-| 基础统计 | 已完成 | `tasks/done/0011-analytics-map.md`、`/analytics`；Package B `CheckIn` 快照和 Package D 长期风险 DTO 已接入 | 更细趋势分析可后续增强 |
+| 基础统计 | 已完成 | `tasks/done/0011-analytics-map.md`、`/plan/stages/analytics`；Package B `CheckIn` 快照和 Package D 长期风险 DTO 已接入 | 更细趋势分析可后续增强 |
 | 数据持久化 | 已完成 | PostgreSQL + Prisma + migration；Package E 已完成生产备份、恢复演练、发布和回滚证据 | 未来生产策略或迁移变更另行确认 |
 
 ## 第二阶段增强
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 全真模拟考试模式完整实现 | 已完成 | Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、`/api/simulation/exams`、`/api/simulation/exams/:id/results` 和 `/simulation` 结构化主写入路径；旧 `StudyTask.type = "simulation_exam"` 只读兼容；Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft` 和持久草稿确认边界；Package D Batch D3 已完成长期 AI 阶段草稿显式入口 | 报告驱动自动阶段应用不进入当前范围，未来需单独确认 |
-| 2026 年 12 月同步自测专题流程 | 已完成 | `/simulation` 固定 2026 同步全真自测节点、第一次自测阶段日记、结构化模拟考试 `isFirstSynchronized` 标记、考后本地重校准草稿；Batch 6 后可把本地重校准草稿持久化为需确认的 `StageAdjustmentDraft`；Package D Batch D1 后报告可确认、驳回并只读回放 | 更深自动应用流不进入当前范围，未来需单独确认 |
+| 全真模拟考试模式完整实现 | 已完成 | Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、`/api/simulation/exams`、`/api/simulation/exams/:id/results` 和 `/test/simulations` 结构化主写入路径；旧 `StudyTask.type = "simulation_exam"` 只读兼容；Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft` 和持久草稿确认边界；Package D Batch D3 已完成长期 AI 阶段草稿显式入口 | 报告驱动自动阶段应用不进入当前范围，未来需单独确认 |
+| 2026 年 12 月同步自测专题流程 | 已完成 | `/test/simulations` 固定 2026 同步全真自测节点、第一次自测阶段日记、结构化模拟考试 `isFirstSynchronized` 标记、考后本地重校准草稿；Batch 6 后可把本地重校准草稿持久化为需确认的 `StageAdjustmentDraft`；Package D Batch D1 后报告可确认、驳回并只读回放 | 更深自动应用流不进入当前范围，未来需单独确认 |
 | 周审判报告 | 已完成 | `/review/reports` 周报返回时长、有效时长、科目占比、完成率、欠账、低转化、错题复盘、最大短板、下周期问题和 `decisionPreview`；页面区分事实/规则判断/待确认草稿/冻结结果，确认后先接计划收件箱，再独立审阅阶段建议；`PeriodicReportDecision` 保留审计和只读回放 | 报告驱动自动改任务或阶段计划不进入当前范围，未来需单独确认 |
 | 月复盘报告 | 已完成 | `/review/reports` 月报展示阶段策略、长期短板、科目投入、低转化和待确认动作；确认/驳回固定 `canAutoApply=false` / `requiresUserConfirmation=true`，历史页只读回放入箱汇总；阶段概览区分生效计划、待确认建议与最近结果 | 月报驱动自动任务重排或阶段应用不进入当前范围，未来需单独确认 |
 | 任务债务自动重排建议 | 已完成 | `GET /api/tasks/debt-reorder` 和首页任务区已展示保留、补做、延期、拆小、放弃、改复习建议；建议透传 `canAutoApply=false` / `requiresUserConfirmation=true`；Package D Batch D2 后支持对所选建议确认、驳回和显式应用所选，复用 `TaskDebtEvent` 与 `AuditEvent`，不自动应用全部建议 | 更长期的任务/阶段自动联动需单独确认 |
-| 知识点遗忘风险提醒 | 已完成 | `/analytics`、`/reports` 和 `/syllabus` 基于错题集中、最近证据时间、错题记录更新趋势、笔记到期、节点状态和 Batch 4 显式复测记录派生遗忘/复习风险；Package D Batch D4 已把遗忘风险纳入 `GET /api/analytics/long-term-risks` 和同源 `LongTermRiskPanel`，展示来源、窗口、证据新鲜度和下一步动作 | 更细结构化复习历史如未来需要，另走单独确认 |
-| 笔记复习提醒 | 已完成 | `Note.nextReviewAt`、`/notes` 复习提醒筛选、`/analytics` 到期笔记风险和 `/reports` 到期笔记计数；Package D Batch D4 已把笔记复习提醒接入长期风险 DTO；附件上传已由 Package A 完成 | 后续可继续做更细复习策略 |
-| 作战地图高级可视化 | 已完成 | `/syllabus` 已展示分科摘要、地图状态分布、优先节点、推荐筛选、地图状态筛选、行动类型筛选和 Batch 4 显式掌握证明记录；Package D Batch D4 后，作战地图风险与报告、统计、笔记、模拟和首页状态主题读取同一长期风险 DTO | 更细结构化复习历史如未来需要，另走单独确认 |
+| 知识点遗忘风险提醒 | 已完成 | `/plan/stages/analytics`、`/review/reports` 和 `/knowledge/syllabus` 基于错题集中、最近证据时间、错题记录更新趋势、笔记到期、节点状态和 Batch 4 显式复测记录派生遗忘/复习风险；Package D Batch D4 已把遗忘风险纳入 `GET /api/analytics/long-term-risks` 和同源 `LongTermRiskPanel`，展示来源、窗口、证据新鲜度和下一步动作 | 更细结构化复习历史如未来需要，另走单独确认 |
+| 笔记复习提醒 | 已完成 | `Note.nextReviewAt`、`/knowledge/notes` 复习提醒筛选、`/plan/stages/analytics` 到期笔记风险和 `/review/reports` 到期笔记计数；Package D Batch D4 已把笔记复习提醒接入长期风险 DTO；附件上传已由 Package A 完成 | 后续可继续做更细复习策略 |
+| 作战地图高级可视化 | 已完成 | `/knowledge/syllabus` 已展示分科摘要、地图状态分布、优先节点、推荐筛选、地图状态筛选、行动类型筛选和 Batch 4 显式掌握证明记录；Package D Batch D4 后，作战地图风险与报告、统计、笔记、模拟和首页状态主题读取同一长期风险 DTO | 更细结构化复习历史如未来需要，另走单独确认 |
 | 状态主题深度联动 | 已完成 | `determineThemeState` 基于冲刺窗口、风险状态和连续性生成主题；首页根据 `themeState` 切换外壳，并展示正常推进、锻造、警报、恢复、冲刺的状态主题面板、触发信号和行动焦点；恢复主题联动最小任务裁剪，冲刺主题前置倒计时与阶段压强；Batch 6 已提供持久阶段计划基础；Package D Batch D4 已把首页状态主题接入长期风险 DTO，任务面板明确状态主题不隐藏完整任务列表、不自动修改任务或阶段计划；Package D Batch D5 已完成证据收口 | 未来若让主题自动应用任务或阶段变更，需单独确认 |
 | 动机唤醒机制 | 已完成 | `evaluateMotivationWake` 覆盖未封存、断签、危险期、自测窗口、重大复盘和重情绪；首页只展示唤醒信号，不进入 AI 默认上下文 | 更细粒度历史策略可后续增强 |
 | AI 根据长期数据生成阶段调整建议 | 已完成 | Package D Batch D3 已新增显式鉴权 `POST /api/simulation/stage-adjustment-drafts/ai` 和 `/simulation` 的“生成 AI 草稿”入口；长期 AI 上下文只发送周期范围、阶段目标摘要、有效时长、完成率、复盘完成率、低转化次数、科目占比、薄弱节点摘要、模拟考试汇总、阶段计划模式/状态、距阶段结束天数和风险标签；成功只写 `StageAdjustmentDraft.source="ai"` 结构化草稿和 `AI_STAGE_ADJUSTMENT_DRAFT_CREATED` 审计摘要，失败回退本地规则；不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不保存完整 prompt/raw response，不自动应用阶段计划；Package D Batch D4 后，长期风险 DTO 为阶段草稿提供一致风险原因但不触发 AI 外呼；Package D Batch D5 已完成证据收口 | 报告驱动的自动阶段应用不进入当前范围 |
@@ -66,10 +66,10 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 五工作台 App Shell 与稳定路由 | 已完成 | `/today`、`/knowledge/*`、`/review/*`、`/stage/*`、`/settings/*`；旧 `/reports`、`/simulation` 兼容跳转；当前源码候选将 `/settings` 收敛为真实配置总览，并统一设置二级导航与页面外壳；r38 current-bound browser evidence 覆盖主要工作台路径；`docs/development/v11-special-acceptance-20260802.md` 补齐设置中心与首次使用证据 | 旧工作台与当前可见能力的收敛差异仍需产品/架构整改，不改变既有 Release/生产事实 |
+| 八入口 App Shell 与稳定路由 | 已完成 | `/focus`、`/today`、`/plan/*`、`/knowledge/*`、`/test/*`、`/review/*`、`/confirmations/*`、`/settings/*`；根级旧业务页、`/today/*`、`/stage/*` 已移除并由 canonical-only smoke 断言 404；r38 current-bound browser evidence 覆盖主要工作台路径；`docs/development/v11-special-acceptance-20260802.md` 补齐设置中心与首次使用证据 | 继续收敛视觉层级和自动应用边界，不改变既有 Release/生产事实 |
 | 考试工作区 / 自定义科目 / 408 分组 | 已完成 | `/settings/workspace` 与鉴权 API；首次设置按考试目标与科目、已有数据处理两步推进；保留接管、科目/分组编辑、排序、归档、恢复；专项验收已实际创建首个工作区、首科目和 408 四科并刷新复核 | 物理删除、完整账户导出等数据生命周期仍不在范围，不改变既有 Release/生产事实 |
 | 今日行动中心与科目快捷计时 | 已完成 | `/today` + `GET /api/action-center/today`；推荐/队列进入任务或复习时保留今日来源，任务详情继续把来源传给 `/focus`；专注完成主接力回到今日下一行动，并保留非今日原页面次操作 | 当前工作树继续收敛视觉层级 |
-| PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/today/inbox*`、`/today/plan`、`/today/tasks/[taskId]`、`/stage/overview` 与鉴权 API；Inbox 转换、已转换列表、每日复盘任务均携带来源 `returnTo`，任务详情按今日/计划/收件箱/复盘/阶段/知识显示正确返回语义；空状态提供可执行出口；`docs/development/v11-special-acceptance-20260802.md` 已覆盖批量转换、硬依赖、revision 冲突、返回路径和幂等重放 | 继续收敛旧工作台和自动应用边界，不改变既有 Release/生产事实 |
+| PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/plan/inbox*`、`/plan`、`/plan/tasks/[taskId]`、`/plan/stages` 与鉴权 API；旧 `/today/*`、`/stage/*` 页面已移除并由 canonical-only smoke 断言 404。Inbox 转换、已转换列表、每日复盘任务均携带来源 `returnTo`，任务详情按今日/计划/收件箱/复盘/阶段/知识显示正确返回语义；空状态提供可执行出口；`docs/development/v11-special-acceptance-20260802.md` 已覆盖批量转换、硬依赖、revision 冲突、返回路径和幂等重放 | 继续收敛视觉层级和自动应用边界，不改变既有 Release/生产事实 |
 | 学习树 V1 preview / confirm | 已完成 | `/knowledge/imports`；preview、confirm/history/export；`AF-RISK-DATA-001` residual 未关 | 物理删除与完整账户导出仍不在范围 |
 | 全局关联画布 | 已完成 | `GET/PUT/DELETE /api/knowledge-canvas*` + `/knowledge/canvas`（`@xyflow/react`）；r38 的 CANVAS-01/02/03 与 24 项无障碍证据已 current-bound | 继续保留节点关系编辑的产品体验打磨，不改变既有 Release/生产事实 |
 | StudyResource FILE/LINK | 已完成 | `/knowledge/resources` 与鉴权 CRUD/上传/下载/归档 API | 不支持物理删除 |

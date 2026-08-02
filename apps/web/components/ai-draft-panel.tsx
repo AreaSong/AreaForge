@@ -229,7 +229,7 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       });
       setDraft(generatedDraft);
       setOperation(nextOperation);
-      await acknowledgeResult(nextOperation, "生成结果已保留；服务端确认失败，采用时将再次确认。");
+      setSaveNotice("草稿已生成，仍需你明确采用或放弃；确认中心会保留待处理状态。");
     } catch {
       setError("网络不可用，AI 输入草稿已保留；恢复网络后请重新预览并显式重试。");
     }

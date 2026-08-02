@@ -1166,7 +1166,7 @@ export function KnowledgeCanvasClient(props: {
           <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/knowledge/resources">
             创建资料
           </Link>
-          <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/today/plan">
+          <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/plan">
             创建任务
           </Link>
         </div>

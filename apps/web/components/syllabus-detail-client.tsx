@@ -293,7 +293,7 @@ function NextAction(props: {
   reviewDue: boolean;
   returnHref: string;
 }) {
-  const taskHref = `/today/plan?createMinimum=1&subjectId=${encodeURIComponent(props.node.subjectId)}&syllabusNodeId=${encodeURIComponent(props.node.id)}`;
+  const taskHref = `/plan?createMinimum=1&subjectId=${encodeURIComponent(props.node.subjectId)}&syllabusNodeId=${encodeURIComponent(props.node.id)}`;
   const scheduleHref = props.schedule
     ? `/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`
     : null;

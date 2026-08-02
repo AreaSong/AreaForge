@@ -5,42 +5,34 @@ export interface AppNavigationItem {
   children?: readonly AppNavigationItem[];
 }
 
-export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
-  {
-    href: "/today",
-    label: "今日",
-    match: (path: string) => path === "/today" || path.startsWith("/today/inbox"),
-  },
-  {
-    href: "/today/plan",
-    label: "计划",
-    match: (path: string) => path.startsWith("/today/plan") || path.startsWith("/today/tasks"),
-  },
-  {
-    href: "/knowledge/overview",
-    label: "知识",
-    match: (path: string) => path === "/knowledge" || path.startsWith("/knowledge/"),
-  },
-  { href: "/review/daily", label: "复盘", match: (path: string) => path === "/review" || path.startsWith("/review/") },
-  { href: "/stage/overview", label: "阶段", match: (path: string) => path.startsWith("/stage/") },
+const PLAN_NAV_ITEMS: readonly AppNavigationItem[] = [
+  { href: "/plan", label: "滚动计划", match: (path: string) => path === "/plan" || path.startsWith("/plan/tasks") },
+  { href: "/plan/stages", label: "阶段安排", match: (path: string) => path.startsWith("/plan/stages") },
+  { href: "/plan/inbox", label: "计划收件箱", match: (path: string) => path.startsWith("/plan/inbox") },
 ] as const;
 
-export const BATCH8_NAV_ITEMS = BATCH10_NAV_ITEMS;
+const TEST_NAV_ITEMS: readonly AppNavigationItem[] = [
+  { href: "/test/retests", label: "专项复测", match: (path: string) => path.startsWith("/test/retests") },
+  { href: "/test/simulations", label: "模拟考试", match: (path: string) => path.startsWith("/test/simulations") },
+] as const;
 
-/** @deprecated Use BATCH8_NAV_ITEMS */
-export const BATCH7_NAV_ITEMS = BATCH8_NAV_ITEMS;
+const CONFIRMATION_NAV_ITEMS: readonly AppNavigationItem[] = [
+  { href: "/confirmations", label: "待确认", match: (path: string) => path === "/confirmations" },
+  { href: "/confirmations/history", label: "已处理", match: (path: string) => path.startsWith("/confirmations/history") },
+] as const;
 
 export const KNOWLEDGE_TAB_ITEMS = [
-  { href: "/knowledge/overview", label: "概览" },
+  { href: "/knowledge/points", label: "知识点" },
   { href: "/knowledge/syllabus", label: "考纲" },
-  { href: "/knowledge/notes", label: "卡片" },
+  { href: "/knowledge/resources", label: "学习资料" },
+  { href: "/knowledge/notes", label: "笔记" },
   { href: "/knowledge/mistakes", label: "错题" },
-  { href: "/knowledge/resources", label: "资料" },
   { href: "/knowledge/reviews", label: "复习" },
 ] as const;
 
 export const KNOWLEDGE_TOOL_ITEMS = [
-  { href: "/knowledge/canvas", label: "画布" },
+  { href: "/knowledge/overview", label: "概览" },
+  { href: "/knowledge/canvas", label: "关系图" },
   { href: "/knowledge/imports", label: "导入" },
 ] as const;
 
@@ -50,9 +42,9 @@ export const REVIEW_TAB_ITEMS = [
 ] as const;
 
 export const STAGE_TAB_ITEMS = [
-  { href: "/stage/overview", label: "概览" },
-  { href: "/stage/simulation", label: "模拟考试" },
-  { href: "/stage/analytics", label: "趋势" },
+  { href: "/plan/stages", label: "概览" },
+  { href: "/test/simulations", label: "模拟考试" },
+  { href: "/plan/stages/analytics", label: "趋势" },
 ] as const;
 
 export const SETTINGS_TAB_ITEMS = [
@@ -63,6 +55,56 @@ export const SETTINGS_TAB_ITEMS = [
   { href: "/settings/experience", label: "体验" },
   { href: "/settings/system", label: "系统" },
 ] as const;
+
+export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
+  { href: "/focus", label: "开始学习", match: (path: string) => path === "/focus" || path.startsWith("/focus/") },
+  {
+    href: "/today",
+    label: "今日",
+    match: (path: string) => path === "/today",
+  },
+  {
+    href: "/plan",
+    label: "计划",
+    match: (path: string) => PLAN_NAV_ITEMS.some((item) => item.match(path)),
+    children: PLAN_NAV_ITEMS,
+  },
+  {
+    href: "/knowledge/points",
+    label: "知识",
+    match: (path: string) => path === "/knowledge" || path.startsWith("/knowledge/"),
+    children: KNOWLEDGE_TAB_ITEMS.map((item) => ({ ...item, match: (path: string) => path === item.href || path.startsWith(`${item.href}/`) })),
+  },
+  {
+    href: "/test",
+    label: "检验",
+    match: (path: string) => path === "/test" || TEST_NAV_ITEMS.some((item) => item.match(path)),
+    children: TEST_NAV_ITEMS,
+  },
+  {
+    href: "/review/daily",
+    label: "复盘",
+    match: (path: string) => path === "/review" || path.startsWith("/review/"),
+    children: REVIEW_TAB_ITEMS.map((item) => ({ ...item, match: (path: string) => path === item.href || path.startsWith(`${item.href}/`) })),
+  },
+  {
+    href: "/confirmations",
+    label: "确认中心",
+    match: (path: string) => path === "/confirmations" || path.startsWith("/confirmations/"),
+    children: CONFIRMATION_NAV_ITEMS,
+  },
+  {
+    href: "/settings/workspace",
+    label: "设置",
+    match: (path: string) => path === "/settings" || path.startsWith("/settings/"),
+    children: SETTINGS_TAB_ITEMS.map((item) => ({ ...item, match: (path: string) => path === item.href || path.startsWith(`${item.href}/`) })),
+  },
+] as const;
+
+export const BATCH8_NAV_ITEMS = BATCH10_NAV_ITEMS;
+
+/** @deprecated Use BATCH8_NAV_ITEMS */
+export const BATCH7_NAV_ITEMS = BATCH8_NAV_ITEMS;
 
 interface RegisteredRoute {
   pattern: RegExp;
@@ -75,13 +117,26 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/login$/, title: "登录" },
   { pattern: /^\/setup$/, title: "初始化" },
   { pattern: /^\/today$/, title: "今日行动中心" },
-  { pattern: /^\/today\/plan$/, title: "计划", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum", "resourceId", "taskId"] },
-  { pattern: /^\/today\/inbox$/, title: "收件箱", returnQueryKeys: ["status", "stableRef", "returnTo"] },
-  { pattern: /^\/today\/inbox\/[^/]+$/, title: "收件箱详情", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/today\/tasks\/[^/]+$/, title: "任务详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/focus$/, title: "开始学习" },
+  { pattern: /^\/plan$/, title: "滚动计划", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum", "resourceId", "syllabusNodeId", "taskId"] },
+  { pattern: /^\/plan\/stages$/, title: "阶段安排" },
+  { pattern: /^\/plan\/stages\/analytics$/, title: "阶段趋势" },
+  { pattern: /^\/plan\/inbox$/, title: "计划收件箱", returnQueryKeys: ["status", "stableRef", "returnTo"] },
+  { pattern: /^\/plan\/inbox\/[^/]+$/, title: "计划草稿详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/plan\/tasks\/[^/]+$/, title: "任务详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/test$/, title: "检验中心" },
+  { pattern: /^\/test\/retests$/, title: "专项复测" },
+  { pattern: /^\/test\/retests\/new$/, title: "安排专项复测" },
+  { pattern: /^\/test\/retests\/[^/]+$/, title: "专项复测详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/test\/simulations$/, title: "模拟考试" },
+  { pattern: /^\/test\/simulations\/[^/]+$/, title: "模拟考试详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/confirmations$/, title: "确认中心" },
+  { pattern: /^\/confirmations\/history$/, title: "确认记录" },
   { pattern: /^\/focus\/[^/]+$/, title: "专注计时", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/quick-review\/[^/]+$/, title: "快速复习", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge$/, title: "知识工作台" },
+  { pattern: /^\/knowledge\/points$/, title: "知识点" },
+  { pattern: /^\/knowledge\/points\/[^/]+$/, title: "知识点详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/canvas$/, title: "关联画布", returnQueryKeys: ["workspaceId", "subjectId", "syllabusNodeId", "focus", "q"] },
   { pattern: /^\/knowledge\/overview$/, title: "知识概览" },
   { pattern: /^\/knowledge\/imports$/, title: "学习树导入", returnQueryKeys: ["mode"] },
@@ -101,11 +156,6 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/review\/daily$/, title: "晚间复盘" },
   { pattern: /^\/review\/reports$/, title: "周期报告", returnQueryKeys: ["tab", "period"] },
   { pattern: /^\/review\/reports\/history\/[^/]+$/, title: "冻结报告", returnQueryKeys: ["period"] },
-  { pattern: /^\/stage$/, title: "阶段" },
-  { pattern: /^\/stage\/overview$/, title: "阶段概览", returnQueryKeys: ["createMilestone", "returnTo"] },
-  { pattern: /^\/stage\/simulation$/, title: "模拟考试" },
-  { pattern: /^\/stage\/simulation\/[^/]+$/, title: "模拟考试详情" },
-  { pattern: /^\/stage\/analytics$/, title: "阶段趋势", returnQueryKeys: ["window"] },
   { pattern: /^\/settings$/, title: "设置" },
   { pattern: /^\/settings\/workspace$/, title: "工作区设置", returnQueryKeys: ["setup"] },
   { pattern: /^\/settings\/profile$/, title: "个人档案与动机" },
@@ -137,8 +187,9 @@ function normalizeReturnPath(value: string | null | undefined, remainingReturnDe
   try {
     const url = new URL(value, "https://areaforge.invalid");
     if (url.origin !== "https://areaforge.invalid" || url.hash) return "/today";
-    const route = REGISTERED_ROUTES.find((candidate) => candidate.pattern.test(url.pathname));
-    if (!route || url.pathname === "/login" || url.pathname === "/setup") return "/today";
+    const pathname = url.pathname;
+    const route = REGISTERED_ROUTES.find((candidate) => candidate.pattern.test(pathname));
+    if (!route || pathname === "/login" || pathname === "/setup") return "/today";
 
     const allowedKeys = new Set(route.returnQueryKeys ?? []);
     const normalized = new URLSearchParams();
@@ -152,7 +203,7 @@ function normalizeReturnPath(value: string | null | undefined, remainingReturnDe
       normalized.set(key, entry);
     }
     const query = normalized.toString();
-    return `${url.pathname}${query ? `?${query}` : ""}`;
+    return `${pathname}${query ? `?${query}` : ""}`;
   } catch {
     return "/today";
   }
@@ -161,14 +212,19 @@ function normalizeReturnPath(value: string | null | undefined, remainingReturnDe
 export function isBatch8OpenPath(pathname: string): boolean {
   return (
     pathname === "/today" ||
-    pathname.startsWith("/today/") ||
+    pathname === "/focus" ||
     pathname.startsWith("/focus/") ||
+    pathname === "/plan" ||
+    pathname.startsWith("/plan/") ||
+    pathname === "/test" ||
+    pathname.startsWith("/test/") ||
+    pathname === "/confirmations" ||
+    pathname.startsWith("/confirmations/") ||
     pathname.startsWith("/quick-review/") ||
     pathname === "/knowledge" ||
     pathname.startsWith("/knowledge/") ||
     pathname.startsWith("/settings")
     || pathname.startsWith("/review/")
-    || pathname.startsWith("/stage/")
   );
 }
 

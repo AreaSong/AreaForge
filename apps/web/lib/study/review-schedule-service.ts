@@ -246,7 +246,7 @@ export async function listBridgedReviewSchedules(actorId: string): Promise<Bridg
       id: task.id,
       title: task.title,
       status: task.status as "TODO" | "IN_PROGRESS" | "DEFERRED",
-      href: `/today/tasks/${task.id}`,
+      href: `/plan/tasks/${task.id}`,
     },
   })));
 }

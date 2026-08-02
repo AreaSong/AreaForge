@@ -929,7 +929,7 @@ async function verifyPlanInboxWriteBoundaries(): Promise<void> {
       assert.equal(error.code, "PLAN_MILESTONE_IDEMPOTENCY_CONFLICT");
       assert.equal(error.status, 409);
       assert.deepEqual(error.details?.conflictFields, ["idempotencyKey", "requestFingerprint"]);
-      assert.equal(error.details?.workbench, "/stage/overview");
+      assert.equal(error.details?.workbench, "/plan/stages");
       const latest = error.details?.latest as { kind?: unknown; milestone?: { id?: unknown }; stagePlan?: { id?: unknown } } | undefined;
       assert.equal(latest?.kind, "plan-milestone");
       assert.equal(latest?.milestone?.id, milestone.id);
@@ -946,7 +946,7 @@ async function verifyPlanInboxWriteBoundaries(): Promise<void> {
       assert.ok(error instanceof ApiError);
       assert.equal(error.code, "PLAN_MILESTONE_REVISION_CONFLICT");
       assert.deepEqual(error.details?.conflictFields, ["revision"]);
-      assert.equal(error.details?.workbench, "/stage/overview");
+      assert.equal(error.details?.workbench, "/plan/stages");
       const latest = error.details?.latest as { kind?: unknown; milestone?: { id?: unknown; revision?: unknown } } | undefined;
       assert.equal(latest?.kind, "plan-milestone");
       assert.equal(latest?.milestone?.id, milestone.id);
@@ -1197,7 +1197,7 @@ function assertPlanInboxConflict(
   return latest?.id === itemId
     && typeof latest.revision === "number"
     && typeof latest.status === "string"
-    && error.details?.workbench === "/today/inbox"
+    && error.details?.workbench === "/plan/inbox"
     && expectedFields.every((field) => error.details?.conflictFields?.includes(field));
 }
 

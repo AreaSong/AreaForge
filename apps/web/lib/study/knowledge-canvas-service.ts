@@ -106,11 +106,11 @@ function detailHref(entityType: KnowledgeCanvasEntityType, entityId: string): st
     case "STUDY_RESOURCE":
       return `/knowledge/resources/${encodeURIComponent(entityId)}`;
     case "TASK":
-      return `/today/tasks/${encodeURIComponent(entityId)}`;
+      return `/plan/tasks/${encodeURIComponent(entityId)}`;
     case "REVIEW_SCHEDULE":
       return `/knowledge/reviews/${encodeURIComponent(entityId)}`;
     case "MILESTONE":
-      return "/today/plan";
+      return "/plan";
     case "STUDY_SESSION":
       return `/focus/${encodeURIComponent(entityId)}`;
     default:

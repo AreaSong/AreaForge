@@ -171,7 +171,11 @@ export function ReportDecisionActions({ report, returnTo = "/review/reports" }: 
   }
 
   return (
-    <section className="border-b border-white/10 pb-7" aria-labelledby="report-decision-heading">
+    <section
+      className="border-b border-white/10 pb-7"
+      aria-labelledby="report-decision-heading"
+      data-confirmation-boundary="不会修改现有任务或 StagePlan"
+    >
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -181,16 +185,16 @@ export function ReportDecisionActions({ report, returnTo = "/review/reports" }: 
             </Badge>
           </div>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">
-            确认会冻结当前报告，并将下周期动作作为草稿送入收件箱；阶段建议仍需独立确认，不会直接修改现有任务或当前阶段。
+            确认本报告会冻结当前事实，并将下周期动作作为草稿送入收件箱；阶段建议仍需独立确认，不会直接修改现有任务或当前阶段。
           </p>
         </div>
         {!decision ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" size="lg" loading={isDeciding && command?.action === "confirm"} disabled={disabled} onClick={() => void decide("confirm")} type="button">
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />确认并送入收件箱
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />确认本报告并送入收件箱
             </Button>
             <Button variant="danger" size="lg" disabled={disabled} onClick={() => setRejectConfirmOpen(true)} type="button">
-              <XCircle className="h-4 w-4" aria-hidden="true" />驳回
+              <XCircle className="h-4 w-4" aria-hidden="true" />驳回本报告
             </Button>
           </div>
         ) : null}
@@ -214,10 +218,10 @@ export function ReportDecisionActions({ report, returnTo = "/review/reports" }: 
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/today/inbox", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
-            {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/today/inbox", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
-            {decision.stageDraftId ? <ButtonLink href="/stage/overview" variant="secondary">审阅阶段建议<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
-            {decision.status === "rejected" ? <ButtonLink href="/stage/overview" variant="secondary">前往阶段概览<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
+            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/plan/inbox", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
+            {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/plan/inbox", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
+            {decision.stageDraftId ? <ButtonLink href="/plan/stages" variant="secondary">审阅阶段建议<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
+            {decision.status === "rejected" ? <ButtonLink href="/plan/stages" variant="secondary">前往阶段安排<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
           </div>
         </div>
       ) : null}

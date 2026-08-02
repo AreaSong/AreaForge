@@ -1031,6 +1031,8 @@ export async function getActiveStudySession(actorId: string): Promise<StudySessi
   const workspace = await resolveActiveWorkspace(actorId);
   const session = await prisma.studySession.findFirst({
     where: {
+      userId: actorId,
+      workspaceId: workspace.id,
       subject: { workspaceId: workspace.id },
       status: {
         in: ["RUNNING", "PAUSED"],
@@ -1044,6 +1046,15 @@ export async function getActiveStudySession(actorId: string): Promise<StudySessi
     orderBy: { startedAt: "desc" },
   });
 
+  return session ? serializeSession(session) : null;
+}
+
+export async function getStudySessionById(id: string, actorId: string): Promise<StudySessionDto | null> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const session = await prisma.studySession.findFirst({
+    where: { id, userId: actorId, workspaceId: workspace.id },
+    include: { subject: true, task: true, syllabusNode: true },
+  });
   return session ? serializeSession(session) : null;
 }
 
@@ -1067,7 +1078,7 @@ export async function startStudySession(
           throw new ApiError("TASK_SUBJECT_MISMATCH", 409, {
             latest: { taskId: task.id, subjectId: task.subjectId },
             conflictFields: ["subjectId", "taskId"],
-            workbench: `/today/tasks/${task.id}`,
+        workbench: `/plan/tasks/${task.id}`,
           });
         }
         await lockWorkspaceDependencyGraph(tx, workspace.id);
@@ -1101,6 +1112,8 @@ export async function startStudySession(
 
       const createdSession = await tx.studySession.create({
         data: {
+          userId: actorId,
+          workspaceId: workspace.id,
           subjectId,
           taskId: task?.id,
           syllabusNodeId,
@@ -1875,7 +1888,7 @@ async function taskUpdateConflict(
   return new ApiError("TASK_STATE_CONFLICT", 409, {
     latest,
     conflictFields: Array.from(new Set(conflictFields)),
-    workbench: "/today/plan",
+    workbench: "/plan",
   });
 }
 

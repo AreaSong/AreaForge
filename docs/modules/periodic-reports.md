@@ -56,6 +56,12 @@
 - 已冻结结果按 `inboxCreatedCount`、`inboxReusedCount` 区分后续动作：有新增时处理新草稿，仅复用时查看当前收件箱，二者均为零时不显示收件箱入口；阶段最近结果遵循同一语义。
 - 历史报告只回放冻结快照、当时决策和入箱汇总，不允许再次应用；入箱汇总不代表每条草稿当前仍处于相同状态。
 
+## 统一确认协议
+
+周期报告与阶段建议、模拟考试、专项复测、AI 草稿共用确认中心投影。投影字段固定为 `kind`、`sourceId`、`revision`、`status`、`requiresUserConfirmation`、`confirmedAt`、`frozenAt` 和 `href`；状态统一为 `PENDING`、`CONFIRMED`、`REJECTED`、`FROZEN`。确认中心只聚合和回放，不替代各业务页面的确认 API。
+
+AI 草稿生成只创建待确认结果，`consumedAt` 只在用户采用/确认时写入；生成本身不会把草稿标记为已确认，也不会自动修改报告、阶段或任务。
+
 实现进度与批次证据见 [功能追踪矩阵](../development/feature-traceability.md)。
 
 ## 学习行动中心扩展

@@ -53,7 +53,11 @@ export default async function ReviewReportsPage({
         </section>
       ) : (
         <div className="space-y-7">
-          <section className="grid gap-6 border-b border-white/10 pb-7 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)] lg:items-start">
+          <section
+            className="grid gap-6 border-b border-white/10 pb-7 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)] lg:items-start"
+            data-confirmation-fields="report.strategy.canAutoApply report.strategy.requiresUserConfirmation report.aiDraft.canAutoApply report.aiDraft.requiresUserConfirmation report.decisionPreview.canAutoApply report.decisionPreview.requiresUserConfirmation"
+            data-risk-surface="长期风险"
+          >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                 <CalendarRange size={15} aria-hidden="true" />

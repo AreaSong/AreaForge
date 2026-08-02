@@ -140,7 +140,7 @@ try {
       assert.equal(error.code, "STAGE_PLAN_BASE_REVISION_CONFLICT");
       assert.equal(error.status, 409);
       assert.deepEqual(error.details?.conflictFields, ["baseRevision", "plan.revision"]);
-      assert.equal(error.details?.workbench, "/stage/overview");
+      assert.equal(error.details?.workbench, "/plan/stages");
       const latest = error.details?.latest as { kind?: unknown; plan?: { id?: unknown; revision?: unknown } } | undefined;
       assert.equal(latest?.kind, "stage-plan");
       assert.equal(latest?.plan?.id, stagePlan.id);
@@ -753,7 +753,7 @@ try {
       assert.ok(error instanceof ApiError);
       assert.equal(error.code, "STAGE_ADJUSTMENT_DRAFT_REJECTED");
       assert.deepEqual(error.details?.conflictFields, ["draft.status"]);
-      assert.equal(error.details?.workbench, "/stage/overview");
+      assert.equal(error.details?.workbench, "/plan/stages");
       const latest = error.details?.latest as { kind?: unknown; draft?: { id?: unknown; status?: unknown }; stagePlan?: { id?: unknown } } | undefined;
       assert.equal(latest?.kind, "stage-adjustment-decision");
       assert.equal(latest?.draft?.id, rejectedStage.id);
@@ -793,7 +793,7 @@ try {
       assert.equal(error.code, "STAGE_ADJUSTMENT_DRAFT_SUPERSEDED");
       assert.equal(error.status, 409);
       assert.deepEqual(error.details?.conflictFields, ["draft.id", "draft.originVersion"]);
-      assert.equal(error.details?.workbench, "/stage/overview");
+      assert.equal(error.details?.workbench, "/plan/stages");
       const latest = error.details?.latest as { kind?: unknown; draft?: { id?: unknown }; stagePlan?: { id?: unknown } } | undefined;
       assert.equal(latest?.kind, "stage-adjustment-decision");
       assert.equal(latest?.draft?.id, stageDraft.id);

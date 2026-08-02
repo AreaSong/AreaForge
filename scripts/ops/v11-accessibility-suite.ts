@@ -863,7 +863,7 @@ async function runNativeZoomCheck(
     { journey: "notes", path: "/knowledge/notes" },
     { journey: "syllabus", path: "/knowledge/syllabus" },
     { journey: "reports", path: "/review/reports?tab=current&period=week" },
-    { journey: "simulation", path: "/stage/simulation" },
+    { journey: "simulation", path: "/test/simulations" },
     { journey: "update-center", path: "/settings/system" },
   ] as const;
   const routeMetrics: Array<Awaited<ReturnType<typeof nativeRouteMetrics>>> = [];

@@ -23,7 +23,7 @@ import {
 } from "./persistent-idempotency";
 
 const defaultStageGoal = "2026 年 12 月同步全真自测";
-const stageWorkbench = "/stage/overview";
+const stageWorkbench = "/plan/stages";
 
 type StageDbClient = PrismaClient | Prisma.TransactionClient;
 

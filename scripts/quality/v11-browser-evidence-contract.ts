@@ -250,8 +250,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   simulation: {
-    startPath: "/stage/simulation",
-    terminalPath: "/stage/simulation/:examId",
+    startPath: "/test/simulations",
+    terminalPath: "/test/simulations/:examId",
     mutation: { method: "POST", path: "/api/simulation/exams", status: 201, requestCount: 1 },
     oraclePath: "/api/simulation/exams", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [

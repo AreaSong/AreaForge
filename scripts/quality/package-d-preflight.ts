@@ -197,7 +197,7 @@ function checkD1ImplementationIfDone(): void {
   const route = read("apps/web/app/api/reports/periodic/decisions/route.ts");
   const service = read("apps/web/lib/study/report-decisions-service.ts");
   const reportsService = read("apps/web/lib/study/reports-service.ts");
-  const reportsPage = read("apps/web/app/reports/page.tsx");
+  const reportsPage = read("apps/web/app/(app)/review/reports/page.tsx");
   const reportDecisionActions = read("apps/web/components/report-decision-actions.tsx");
   const exportedMethods = getExportedRouteMethods(route);
   const unexpectedMethods = exportedMethods.filter((method) => !["GET", "POST"].includes(method));
@@ -381,16 +381,14 @@ function checkD4ImplementationIfDone(): void {
   const syllabusPage = readExistingFiles([
     "apps/web/app/(app)/knowledge/syllabus/page.tsx",
     "apps/web/components/syllabus-manager.tsx",
-    "apps/web/app/syllabus/page.tsx",
     "apps/web/components/syllabus-panel.tsx",
   ]);
   const notesPage = readExistingFiles([
     "apps/web/app/(app)/knowledge/notes/page.tsx",
     "apps/web/components/note-library.tsx",
-    "apps/web/app/notes/page.tsx",
     "apps/web/components/notes-panel.tsx",
   ]);
-  const reportsPage = readIfExists("apps/web/app/reports/page.tsx");
+  const reportsPage = readIfExists("apps/web/app/(app)/review/reports/page.tsx");
   const taskPanel = readIfExists("apps/web/components/task-panel.tsx");
   const routeMethods = riskRoute ? getExportedRouteMethods(riskRoute) : [];
   const forbiddenMethods = routeMethods.filter((method) => method !== "GET").map((method) => `risk-route:${method}`);

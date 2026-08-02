@@ -37,6 +37,6 @@
 - 空队列：三队列皆空时主动作为「创建今天最小任务」。
 - 五个全局状态灯（活动、复习、欠账、阶段、今日闭环）；移动端合并为单一最高优先级状态按钮。
 - 恢复三阶与 expired；页面主内容最多一条状态栏与一个主动作，说明进入 Popover/Drawer/Modal。
-- 稳定路由以 `/today` 为入口，任务详情 canonical 为 `/today/tasks/[taskId]`。
+- 稳定路由以 `/today` 为行动中心入口，独立开始学习入口为 `/focus`，任务详情 canonical 为 `/plan/tasks/[taskId]`。
 
 权威 UX 矩阵见 `workflow/versions/v1.1-learning-action-center.md`。

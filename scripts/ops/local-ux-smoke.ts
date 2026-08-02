@@ -423,8 +423,8 @@ async function main(): Promise<void> {
 
   for (const page of [
     "/today",
-    "/today/plan",
-    "/today/inbox",
+    "/plan",
+    "/plan/inbox",
     "/settings",
     "/settings/workspace",
     "/knowledge/canvas",
@@ -432,9 +432,9 @@ async function main(): Promise<void> {
     "/knowledge/notes",
     "/knowledge/syllabus",
     "/knowledge/reviews",
-    "/analytics",
-    "/reports",
-    "/simulation",
+    "/plan/stages",
+    "/plan/stages/analytics",
+    "/test/simulations",
   ]) {
     await check(`page ${page}`, async () => {
       const response = await requestRaw(page, { cookie });
@@ -448,18 +448,47 @@ async function main(): Promise<void> {
     });
   }
 
+  for (const legacyPage of [
+    "/today/plan",
+    "/today/inbox",
+    "/today/tasks/missing",
+    "/stage",
+    "/stage/overview",
+    "/stage/analytics",
+    "/stage/simulation",
+    "/stage/simulation/missing",
+    "/analytics",
+    "/reports",
+    "/simulation",
+    "/syllabus",
+    "/notes",
+    "/mistakes",
+    "/motivation",
+  ]) {
+    await check(`canonical-only route ${legacyPage}`, async () => {
+      const response = await requestRaw(legacyPage, { cookie });
+      const text = await response.text();
+      if (response.status !== 404) {
+        throw new Error(`${legacyPage} must be absent with status 404, received ${response.status}`);
+      }
+      if (text.includes("NEXT_REDIRECT")) {
+        throw new Error(`${legacyPage} must not redirect to a canonical route`);
+      }
+    });
+  }
+
   await check("batch10 app shell nav isolation", async () => {
     const response = await requestRaw("/today", { cookie });
     const text = await response.text();
     if (text.includes("NEXT_REDIRECT;replace;/login")) {
       throw new Error("authenticated /today redirected to login");
     }
-    for (const label of ["今日", "计划", "知识", "复盘", "阶段", "设置"]) {
+    for (const label of ["开始学习", "今日", "计划", "知识", "检验", "复盘", "确认中心", "设置"]) {
       if (!text.includes(label)) {
         throw new Error(`Batch 10 nav missing label: ${label}`);
       }
     }
-    for (const href of ['href="/knowledge/canvas"', 'href="/review/reports"', 'href="/stage/overview"']) {
+    for (const href of ['href="/knowledge/canvas"', 'href="/review/reports"', 'href="/plan/stages"']) {
       if (!text.includes(href)) {
         throw new Error(`Batch 10 App Shell must expose ${href}`);
       }
@@ -468,12 +497,18 @@ async function main(): Promise<void> {
       'href="/analytics"',
       'href="/reports"',
       'href="/simulation"',
+      'href="/stage/overview"',
+      'href="/stage/analytics"',
+      'href="/stage/simulation"',
+      'href="/today/plan"',
+      'href="/today/inbox"',
+      'href="/today/tasks/',
       'href="/motivation"',
       'href="/dashboard"',
     ];
     for (const href of forbiddenHrefs) {
       if (text.includes(href)) {
-        throw new Error(`Batch 10 App Shell must not expose legacy ${href}`);
+        throw new Error(`Batch 10 App Shell must not expose removed ${href}`);
       }
     }
   });
@@ -553,10 +588,10 @@ async function main(): Promise<void> {
     schemaVersion: "v11-browser-fixture-manifest-v1",
     routes: {
       today: "/today",
-      todayPlan: "/today/plan",
-      taskDetail: `/today/tasks/${taskId}`,
-      todayInbox: "/today/inbox",
-      inboxDetail: `/today/inbox/${inboxItemId}`,
+      todayPlan: "/plan",
+      taskDetail: `/plan/tasks/${taskId}`,
+      todayInbox: "/plan/inbox",
+      inboxDetail: `/plan/inbox/${inboxItemId}`,
       canvas: "/knowledge/canvas",
       knowledgeOverview: "/knowledge/overview",
       imports: "/knowledge/imports",
@@ -575,10 +610,10 @@ async function main(): Promise<void> {
       dailyReview: "/review/daily",
       reports: "/review/reports",
       reportHistory: `/review/reports/history/${reportDecisionId}`,
-      stageOverview: "/stage/overview",
-      simulations: "/stage/simulation",
-      simulationDetail: `/stage/simulation/${examId}`,
-      analytics: "/stage/analytics",
+      stageOverview: "/plan/stages",
+      simulations: "/test/simulations",
+      simulationDetail: `/test/simulations/${examId}`,
+      analytics: "/plan/stages/analytics",
       profile: "/settings/profile",
       workspace: "/settings/workspace",
       ai: "/settings/ai",

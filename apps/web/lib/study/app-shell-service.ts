@@ -76,7 +76,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         severe: false,
         recoveryBlocked: false,
         arrangedComplete: false,
-        debtHref: "/today/plan",
+        debtHref: "/plan",
       },
       stage: {
         hasStage: false,
@@ -84,7 +84,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         milestoneHealthy: false,
         milestoneNearOrDraftPending: false,
         conflictOrBlocked: false,
-        stageHref: "/stage/overview",
+        stageHref: "/plan/stages",
       },
       todayClosure: {
         inReminderWindow: false,
@@ -254,7 +254,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       severe: severeDebt > 0,
       recoveryBlocked: false,
       arrangedComplete: debtTasks.length === 0,
-      debtHref: "/today/plan",
+        debtHref: "/plan",
     },
     stage: {
       hasStage: Boolean(stagePlan) || Boolean(workspace.stageSummary),
@@ -262,7 +262,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       milestoneHealthy: Boolean(stagePlan) && !["draft", "DRAFT"].includes(stagePlan?.status ?? ""),
       milestoneNearOrDraftPending: ["draft", "DRAFT"].includes(stagePlan?.status ?? ""),
       conflictOrBlocked: false,
-      stageHref: "/stage/overview",
+        stageHref: "/plan/stages",
     },
     todayClosure: {
       inReminderWindow,

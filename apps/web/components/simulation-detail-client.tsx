@@ -241,7 +241,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
         body: JSON.stringify({
           expectedRevision: examRevision,
           mindset,
-          summary: summary || "已保存分科结果",
+          summary,
           lossReasons: [],
           subjectResults: subjectDrafts.map(toSubjectResultPayload),
         }),
@@ -275,6 +275,10 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
     setNotice(null);
     if (hasPendingPersistedLossEdits(subjectDrafts)) {
       setError("仍有未保存的失分条目，请先逐项处理后再确认模拟结果。");
+      return;
+    }
+    if (!summary.trim()) {
+      setError("每次模拟考试都必须写下整场复盘，再确认考试事实。");
       return;
     }
     setSubmitting(true);
@@ -386,7 +390,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
     }
     if (status === 404) {
       setError("失分条目或分科结果已不存在；当前输入仍保留，正在返回模拟工作台。");
-      router.replace(body.workbench === "/stage/simulation" ? body.workbench : "/stage/simulation");
+    router.replace(body.workbench === "/test/simulations" ? body.workbench : "/test/simulations");
       return;
     }
     if (status === 409 && isSimulationLossItemDto(body.latest)) {
@@ -500,7 +504,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
         return;
       }
       if (response.status === 404) {
-        router.replace("/stage/simulation");
+        router.replace("/test/simulations");
         return;
       }
       if (!response.ok) {
@@ -525,7 +529,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
     }
     if (status === 404) {
       setError("模拟记录已不存在或不可访问；当前草稿仍保留，正在返回模拟工作台。");
-      router.replace(body.workbench === "/stage/simulation" ? body.workbench : "/stage/simulation");
+        router.replace(body.workbench === "/test/simulations" ? body.workbench : "/test/simulations");
       return;
     }
     if (status === 409 && isSimulationExamDto(body.latest)) {
@@ -618,20 +622,20 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
             <Alert tone="success" title="没有待安排的结构化补救">考试事实已完成，可回到阶段概览判断是否需要调整下一阶段。</Alert>
           )}
           {remediationReceipt ? (
-            <Alert tone="success" title="补救已送入计划收件箱" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/today/inbox", props.returnTo)} variant="primary" size="sm">处理收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/stage/overview", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
+            <Alert tone="success" title="补救已送入计划收件箱" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/plan/inbox", props.returnTo)} variant="primary" size="sm">处理收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/plan/stages", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
               新建 {remediationReceipt.created} 项，复用已有 {remediationReceipt.reused} 项；仍需在收件箱中补全日期并显式转为任务。
             </Alert>
           ) : pendingRemediations.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="primary" size="lg" loading={busy} loadingLabel="送入中..." disabled={selectedOriginKeys.length === 0} onClick={() => void addRemediations()}>将选中补救送入收件箱</Button>
-              <ButtonLink href={withReturnTo("/stage/overview", props.returnTo)} variant="ghost" size="lg">返回阶段概览</ButtonLink>
+              <ButtonLink href={withReturnTo("/plan/stages", props.returnTo)} variant="ghost" size="lg">返回阶段安排</ButtonLink>
             </div>
           ) : props.remediations.length > 0 ? (
-            <Alert tone="success" title="补救均已处理" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/today/inbox", props.returnTo)} variant="primary" size="sm">查看计划收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/stage/overview", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
+            <Alert tone="success" title="补救均已处理" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/plan/inbox", props.returnTo)} variant="primary" size="sm">查看计划收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/plan/stages", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
               已入箱、已忽略或已转换的补救不会重复提交。
             </Alert>
           ) : (
-            <ButtonLink href={withReturnTo("/stage/overview", props.returnTo)} variant="ghost" size="lg">返回阶段概览</ButtonLink>
+            <ButtonLink href={withReturnTo("/plan/stages", props.returnTo)} variant="ghost" size="lg">返回阶段安排</ButtonLink>
           )}
         </section>
       ) : (
@@ -970,6 +974,7 @@ function labelLossItemError(error: string | undefined): string {
     return "考试或分科已在其他页面更新；失分操作未执行，请先处理父版本差异。";
   }
   if (error === "SIMULATION_EXAM_CONFIRMED") return "这场模拟已确认，失分条目已只读。";
+  if (error === "SIMULATION_REVIEW_REQUIRED") return "请先保存整场复盘，再确认模拟考试。";
   if (error === "SUBJECT_ARCHIVED") return "相关科目已归档，失分操作未执行。";
   return error ?? "失分操作失败，当前输入仍保留。";
 }

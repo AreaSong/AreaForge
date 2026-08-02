@@ -246,7 +246,7 @@ function MissingMilestones({ preview, onLeave }: { preview: LearningTreePreviewD
   return (
     <Alert tone="warning" title="存在未创建的阶段里程碑">
       <div className="flex flex-wrap gap-2">
-        {missingMilestoneKeys(preview).map((key) => <Link key={key} href={`/stage/overview?createMilestone=${encodeURIComponent(key)}&returnTo=${encodeURIComponent("/knowledge/imports?mode=import")}`} className="inline-flex h-9 items-center rounded-md border border-amber-200/30 px-3 text-amber-100 hover:bg-amber-300/10" onClick={onLeave}>创建“{key}”并返回</Link>)}
+        {missingMilestoneKeys(preview).map((key) => <Link key={key} href={`/plan/stages?createMilestone=${encodeURIComponent(key)}&returnTo=${encodeURIComponent("/knowledge/imports?mode=import")}`} className="inline-flex h-9 items-center rounded-md border border-amber-200/30 px-3 text-amber-100 hover:bg-amber-300/10" onClick={onLeave}>创建“{key}”并返回</Link>)}
       </div>
     </Alert>
   );

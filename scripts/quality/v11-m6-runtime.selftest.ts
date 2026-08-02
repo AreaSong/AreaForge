@@ -386,7 +386,7 @@ async function verifyTaskCanonicalRelations(
     (error: unknown) => error instanceof ApiError
       && error.code === "TASK_STATE_CONFLICT"
       && error.status === 409
-      && error.details?.workbench === "/today/plan"
+      && error.details?.workbench === "/plan"
       && (error.details.latest as { updatedAt?: string } | undefined)?.updatedAt === latest.updatedAt,
   );
   pass("task_canonical_relations_and_cas", {
@@ -561,7 +561,7 @@ async function verifyResourceTaskAndShortcutSession(
     }, seed.user.id),
     (error: unknown) => error instanceof ApiError
       && error.code === "TASK_SUBJECT_MISMATCH"
-      && error.details?.workbench === `/today/tasks/${created.id}`,
+      && error.details?.workbench === `/plan/tasks/${created.id}`,
   );
   assert.equal(await prisma.studySession.count({ where: { status: { in: ["RUNNING", "PAUSED"] } } }), 0);
 

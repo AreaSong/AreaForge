@@ -33,6 +33,28 @@ export const createSyllabusNodeSchema = z.object({
   targetMinutes: z.number().int().min(0).max(100000).default(0),
 });
 
+export const createKnowledgePointSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  subjectId: z.string().min(1),
+  primaryGroupId: z.string().min(1).nullable().optional(),
+  stableKey: z.string().trim().min(1).max(120).optional(),
+  title: z.string().trim().min(1).max(180),
+  boundary: z.string().trim().max(3000).nullable().optional(),
+  relatedSubjectIds: z.array(z.string().min(1)).max(20).default([]),
+});
+
+export const updateKnowledgePointSchema = z.object({
+  expectedRevision: z.number().int().positive(),
+  title: z.string().trim().min(1).max(180).optional(),
+  boundary: z.string().trim().max(3000).nullable().optional(),
+  primaryGroupId: z.string().min(1).nullable().optional(),
+  masteryState: z.enum(["UNTOUCHED", "LEARNING", "INITIAL_MASTERY", "STABLE_MASTERY", "NEEDS_RETEST"]).optional(),
+  nextRetestAt: z.string().datetime().nullable().optional(),
+}).refine(
+  (value) => Object.entries(value).some(([key, item]) => key !== "expectedRevision" && item !== undefined),
+  { message: "至少提供一个要更新的知识点字段" },
+);
+
 export const importSyllabusMarkdownSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   subjectId: z.string().min(1),
@@ -476,6 +498,35 @@ export const linkSessionEvidenceSchema = z.object({
   evidenceType: z.enum(["note", "mistake", "retest"]),
   evidenceId: z.string().min(1),
 });
+
+export const createKnowledgeRetestSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  title: z.string().trim().min(1).max(160),
+  method: z.string().trim().min(1).max(120),
+  scheduledAt: z.string().datetime().nullable().optional(),
+  knowledgePointIds: z.array(z.string().min(1)).min(1).max(100),
+});
+
+const knowledgeRetestCommandSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  expectedRevision: z.number().int().positive(),
+});
+
+export const startKnowledgeRetestSchema = knowledgeRetestCommandSchema;
+
+export const submitKnowledgeRetestSchema = knowledgeRetestCommandSchema.extend({
+  points: z.array(z.object({
+    pointId: z.string().min(1),
+    result: z.enum(["PASSED", "PARTIAL", "FAILED"]),
+    score: z.number().min(0).max(100).nullable().optional(),
+    understanding: z.number().int().min(1).max(4).nullable().optional(),
+    note: z.string().trim().max(2000).nullable().optional(),
+  })).min(1).max(100),
+  summary: z.string().trim().min(1).max(4000),
+  reviewText: z.string().trim().min(1).max(4000),
+});
+
+export const confirmKnowledgeRetestSchema = knowledgeRetestCommandSchema;
 
 const reviewContentSchema = z.object({
   summary: z.string().trim().min(1).max(2000),

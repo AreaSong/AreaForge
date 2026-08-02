@@ -489,6 +489,11 @@ export async function confirmSimulationExam(
     if (existing.subjectResults.length === 0) {
       throw new ApiError("SIMULATION_SUBJECT_RESULTS_REQUIRED", 400);
     }
+    if (!existing.summary?.trim() || !existing.reviewText?.trim()) {
+      throw new ApiError("SIMULATION_REVIEW_REQUIRED", 400, {
+        conflictFields: ["summary", "reviewText"],
+      });
+    }
     const confirmedAt = new Date();
     const changed = await tx.simulationExam.updateMany({
       where: { id, workspaceId: workspace.id, status: "DRAFT", revision: expectedRevision },
@@ -757,7 +762,7 @@ async function assertLossParentRevisions(
     {
       latest: await loadSimulationExamDto(client, result.simulationExamId, workspaceId),
       conflictFields,
-      workbench: "/stage/simulation",
+      workbench: "/test/simulations",
     },
   );
 }

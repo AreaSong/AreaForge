@@ -89,8 +89,8 @@ export default async function ReportHistoryPage({
           <Metric label="被替代" value={`${decision.inboxResult.supersededCount} 项`} />
         </dl>
         <div className="flex flex-wrap gap-2">
-          {decision.inboxResult.createdCount + decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/today/inbox", historyHref)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看当前收件箱</ButtonLink> : null}
-          {decision.stageDraftId ? <ButtonLink href="/stage/overview" variant="secondary"><Milestone size={15} aria-hidden="true" />查看当前阶段</ButtonLink> : null}
+          {decision.inboxResult.createdCount + decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/plan/inbox", historyHref)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看当前收件箱</ButtonLink> : null}
+          {decision.stageDraftId ? <ButtonLink href="/plan/stages" variant="secondary"><Milestone size={15} aria-hidden="true" />查看当前阶段</ButtonLink> : null}
         </div>
       </section>
     </PageFrame>

@@ -7,8 +7,9 @@
 - `Subject`：数学、英语、政治、408 各子科目。`legacyCode`（可空，原 `code`）保留默认科目兼容；`stableKey` 必填；可空 `workspaceId`/`groupId`；未接管行以 `workspaceId IS NULL` 作为 legacy 只读范围。自定义科目不伪造 enum code。
 - `ExamWorkspace` / `SubjectGroup`：考试工作区与 408 分组；同一用户最多一个 ACTIVE 工作区（partial unique）。工作区、科目与分组通过 `/settings/workspace` 管理。
 - `SyllabusNode`：考纲进度树节点，包含当前掌握状态和掌握等级；掌握证明优先读取显式条件、证据引用和复测记录，缺失显式证据时继续 fallback 到现有任务、计时、笔记和错题 `_count`。
+- `KnowledgePoint`：独立知识点核心对象，拥有自己的掌握状态、版本和复测时间；通过 `KnowledgeSyllabusLink`、`StageKnowledgeTarget`、学习安排和多次复测关联考纲与阶段，因此同一知识点可以跨阶段、跨考纲和跨检验重复出现。
 - `StudyTask`：每日任务；`parentTaskId` 自关联记录拆小任务的父子关系。旧任务没有父子关系时保持 `null`，不做猜测回填。当前已支持可空 `planMilestoneId`、相关考纲关联表，以及可空 `reviewScheduleId`（复习任务桥接；同一 Schedule 最多一个未完成桥接任务）。
-- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与计划收件箱。含原子 `convert`，页面入口位于 `/stage/overview`、`/today/plan`、`/today/inbox` 与任务详情。
+- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与计划收件箱。含原子 `convert`，页面入口位于 `/plan/stages`、`/plan`、`/plan/inbox` 与 `/plan/tasks/:taskId`。
 - `StudySession`：学习计时记录；结构化收口字段包括理解程度、最小产出、下一步动作、是否产生笔记/错题、低转化标记、反假学习原因、补产出要求和收口版本，同时保留旧 `note` 文本可读。OPS-006 使用 PostgreSQL partial unique index `StudySession_one_active_idx` 保证全局最多一个 `RUNNING/PAUSED` session；该索引由 additive SQL migration 管理，不在 Prisma schema 中伪装成 `status` 全值唯一。当前已支持可空 `goalMinutes` / `startSource`。
 - `DailyReview`：每日复盘；当前已支持可空 `workspaceId`，并以 partial unique 区分 legacy 与 workspace 复合唯一。
 - `CheckIn`：每日打卡快照；按学习日唯一，记录最低动作、总/有效时长、有效 session 数、任务完成率、复盘状态、低效标记、低转化次数和来源版本。当前支持 CheckIn v2 字段（`reviewCount`/`reviewSeconds`/结果计数/`minimumActionSource`）；触达日原子升级 `sourceVersion=2`，不批量回填历史。新写路径维护快照，历史无快照日期由读取侧 fallback 派生；同一学习日刷新在事务内先获取 `pg_advisory_xact_lock(1095123785, YYYYMMDD)`，再读取聚合并写入，避免旧快照覆盖新提交。当前已支持可空 `workspaceId` 与 partial unique。

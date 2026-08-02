@@ -453,7 +453,7 @@ export function NoteDetailClient(props: {
               )) : "未关联"}
             </RelationRow>
             <RelationRow label="任务">
-              {note.taskId ? <Link className="text-teal-300 hover:underline" href={`/today/tasks/${note.taskId}`}>{note.taskTitle}</Link> : "未关联"}
+              {note.taskId ? <Link className="text-teal-300 hover:underline" href={`/plan/tasks/${note.taskId}`}>{note.taskTitle}</Link> : "未关联"}
             </RelationRow>
             <RelationRow label="资料">
               {note.linkedResources.length > 0 ? note.linkedResources.map((resource) => (

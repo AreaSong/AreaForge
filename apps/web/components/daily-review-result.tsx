@@ -33,16 +33,16 @@ export function DailyReviewResult(props: {
         <div className="flex shrink-0 flex-wrap gap-2">
           <ButtonLink href="/today" variant="secondary">返回今日</ButtonLink>
           {convertedTaskId ? (
-            <ButtonLink href={withReturnTo(`/today/tasks/${convertedTaskId}`, returnTo)} variant="primary">
+            <ButtonLink href={withReturnTo(`/plan/tasks/${convertedTaskId}`, returnTo)} variant="primary">
               打开明日任务 <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </ButtonLink>
           ) : props.inboxItem ? (
-            <ButtonLink href={withReturnTo(`/today/inbox/${props.inboxItem.id}`, returnTo)} variant="primary">
+      <ButtonLink href={withReturnTo(`/plan/inbox/${props.inboxItem.id}`, returnTo)} variant="primary">
               {props.inboxItem.status === "DISMISSED" ? "查看计划草稿" : "补全明日任务"}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </ButtonLink>
           ) : (
-            <ButtonLink href={withReturnTo("/today/inbox", returnTo)} variant="primary">查看计划收件箱</ButtonLink>
+      <ButtonLink href={withReturnTo("/plan/inbox", returnTo)} variant="primary">查看计划收件箱</ButtonLink>
           )}
         </div>
       </div>

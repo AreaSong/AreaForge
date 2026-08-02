@@ -12,7 +12,7 @@ import {
   type SubjectTimerSummary,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
-import { getStudyDayRange } from "./date";
+import { getStudyDayRange, parseStudyDayKey } from "./date";
 import {
   findActiveWorkspaceOrNull,
   type ExamWorkspaceDto,
@@ -33,6 +33,8 @@ export interface SubjectShortcutTaskOptionDto {
 }
 
 export interface ActionCenterTodayDto {
+  studyDate: string;
+  isToday: boolean;
   setupRequired: boolean;
   workspace: ExamWorkspaceDto | null;
   recommendation: ActionCenterRecommendation | null;
@@ -54,6 +56,17 @@ export interface ActionCenterTodayDto {
     | null;
   primaryActionLabel: string;
   primaryActionHref: string;
+  learningLoop: {
+    plannedTaskCount: number;
+    completedTaskCount: number;
+    deferredTaskCount: number;
+    effectiveMinutes: number;
+    totalMinutes: number;
+    effectiveSessionCount: number;
+    lowConversionCount: number;
+    reviewSubmitted: boolean;
+    nextAction: string | null;
+  };
 }
 
 const REVIEW_CANDIDATE_TITLES = {
@@ -93,10 +106,14 @@ function serializeWorkspace(row: {
   };
 }
 
-export async function getActionCenterToday(actorId: string): Promise<ActionCenterTodayDto> {
+export async function getActionCenterToday(actorId: string, requestedStudyDate?: string | null): Promise<ActionCenterTodayDto> {
+  const todayRange = getStudyDayRange();
+  const selectedDate = parseStudyDayKey(requestedStudyDate) ?? todayRange.start;
   const workspace = await findActiveWorkspaceOrNull(actorId);
   if (!workspace) {
     return {
+      studyDate: getStudyDayRange(selectedDate).key,
+      isToday: getStudyDayRange(selectedDate).key === todayRange.key,
       setupRequired: true,
       workspace: null,
       recommendation: null,
@@ -110,13 +127,24 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
       statusBar: "setup",
       primaryActionLabel: "设置考试目标",
       primaryActionHref: "/settings/workspace?setup=1",
+      learningLoop: {
+        plannedTaskCount: 0,
+        completedTaskCount: 0,
+        deferredTaskCount: 0,
+        effectiveMinutes: 0,
+        totalMinutes: 0,
+        effectiveSessionCount: 0,
+        lowConversionCount: 0,
+        reviewSubmitted: false,
+        nextAction: null,
+      },
     };
   }
 
-  const day = getStudyDayRange();
+  const day = getStudyDayRange(selectedDate);
   const last7Start = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-  const [activeSession, subjects, groups, tasks, shortcutTasks, syllabusOptions, schedules, checkIns, recovery] =
+  const [activeSession, subjects, groups, tasks, dayTasks, shortcutTasks, syllabusOptions, schedules, checkIns, recovery, completedSessions] =
     await Promise.all([
       getActiveStudySession(actorId),
       prisma.subject.findMany({
@@ -145,6 +173,13 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
       prisma.studyTask.findMany({
         where: {
           subject: { workspaceId: workspace.id, archivedAt: null },
+          plannedDate: { gte: day.start, lt: day.end },
+        },
+        select: { status: true },
+      }),
+      prisma.studyTask.findMany({
+        where: {
+          subject: { workspaceId: workspace.id, archivedAt: null },
           status: { in: ["TODO", "IN_PROGRESS"] },
         },
         include: {
@@ -167,6 +202,20 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
       }),
       listWorkspaceCheckIns(workspace.id, day.start, day.end),
       getActiveRecoveryV2(actorId).catch(() => null),
+      prisma.studySession.findMany({
+        where: {
+          subject: { workspaceId: workspace.id, archivedAt: null },
+          startedAt: { gte: day.start, lt: day.end },
+          status: "COMPLETED",
+        },
+        orderBy: { endedAt: "desc" },
+        select: {
+          nextAction: true,
+          effectiveMinutes: true,
+          isEffective: true,
+          isLowConversion: true,
+        },
+      }),
     ]);
 
   const sessionsLast7 = await prisma.studySession.findMany({
@@ -324,7 +373,7 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
       bridgedReviewScheduleId: task.reviewScheduleId,
       reviewObjectKind: null,
       taskPriority: priority,
-      href: `/today/tasks/${task.id}`,
+      href: `/plan/tasks/${task.id}`,
     });
   }
 
@@ -362,11 +411,11 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
   else if (recovery?.effectiveStatus === "ACTIVE") statusBar = "recovery_minimum";
   else {
     const hourShanghai = new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCHours();
-    if (hourShanghai >= 20 && !(checkIn?.completedMinimumAction)) statusBar = "evening_review";
+    if (day.key === todayRange.key && hourShanghai >= 20 && !(checkIn?.completedMinimumAction)) statusBar = "evening_review";
   }
 
   let primaryActionLabel = "创建今天最小任务";
-  let primaryActionHref = "/today/plan?createMinimum=1";
+  let primaryActionHref = "/plan?createMinimum=1";
   if (recommendation) {
     primaryActionLabel =
       recommendation.kind === "activity"
@@ -379,10 +428,23 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
     primaryActionHref = recommendation.href;
   } else if (empty) {
     primaryActionLabel = "创建今天最小任务";
-    primaryActionHref = "/today/plan?createMinimum=1";
+    primaryActionHref = "/plan?createMinimum=1";
   }
 
+  const snapshot = checkIn ?? null;
+  const completedTaskCount = dayTasks.filter((task) => task.status === "DONE").length;
+  const deferredTaskCount = dayTasks.filter((task) => task.status === "DEFERRED" || task.status === "SKIPPED").length;
+  const fallbackTotalMinutes = completedSessions.reduce((sum, session) => sum + session.effectiveMinutes, 0);
+  const fallbackEffectiveMinutes = completedSessions.reduce(
+    (sum, session) => sum + (session.isEffective ? session.effectiveMinutes : 0),
+    0,
+  );
+  const fallbackEffectiveSessionCount = completedSessions.filter((session) => session.isEffective).length;
+  const fallbackLowConversionCount = completedSessions.filter((session) => session.isLowConversion).length;
+
   return {
+    studyDate: day.key,
+    isToday: day.key === todayRange.key,
     setupRequired: false,
     workspace: serializeWorkspace(workspace),
     recommendation,
@@ -396,5 +458,16 @@ export async function getActionCenterToday(actorId: string): Promise<ActionCente
     statusBar,
     primaryActionLabel,
     primaryActionHref,
+    learningLoop: {
+      plannedTaskCount: dayTasks.length,
+      completedTaskCount,
+      deferredTaskCount,
+      effectiveMinutes: snapshot?.effectiveMinutes ?? fallbackEffectiveMinutes,
+      totalMinutes: snapshot?.totalMinutes ?? fallbackTotalMinutes,
+      effectiveSessionCount: snapshot?.effectiveSessionCount ?? fallbackEffectiveSessionCount,
+      lowConversionCount: snapshot?.lowConversionCount ?? fallbackLowConversionCount,
+      reviewSubmitted: snapshot?.reviewSubmitted ?? false,
+      nextAction: completedSessions.find((session) => session.nextAction?.trim())?.nextAction?.trim() ?? null,
+    },
   };
 }

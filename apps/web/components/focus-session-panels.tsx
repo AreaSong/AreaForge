@@ -215,7 +215,7 @@ export function LowConversionWorkspace(props: {
         <div className="mt-7 flex flex-wrap gap-3">
           <Button type="button" variant="primary" size="lg" onClick={props.onSupplement}>补一个最小产出</Button>
           {props.addedToInbox ? (
-            <Link href={withReturnTo("/today/inbox", props.returnTo)} className={buttonClassName({size:"lg"})}>查看计划收件箱</Link>
+            <Link href={withReturnTo("/plan/inbox", props.returnTo)} className={buttonClassName({size:"lg"})}>查看计划收件箱</Link>
           ) : (
             <Button type="button" size="lg" onClick={props.onAddToInbox}>加入计划收件箱</Button>
           )}

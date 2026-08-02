@@ -57,7 +57,7 @@ const startPaths: Record<JourneyId, string> = {
   notes: "/knowledge/notes",
   syllabus: "/knowledge/syllabus",
   reports: "/review/reports?tab=current&period=week",
-  simulation: "/stage/simulation",
+  simulation: "/test/simulations",
   "update-center": "/settings/system",
 };
 
@@ -425,7 +425,7 @@ async function runSimulationJourney(input: ScenarioContext) {
     expectedStatus: 201,
   }, () => input.page.getByRole("button", { name: "创建考试" }).click());
   const examId = stringField(asRecord(mutation.body).exam, "id");
-  await input.page.waitForURL((url) => url.pathname.startsWith("/stage/simulation/"));
+  await input.page.waitForURL((url) => url.pathname.startsWith("/test/simulations/"));
   const after = await captureOracle(input.context, input.config, "/api/simulation/exams", (status, body) => {
     const exams = arrayRecords(asRecord(body).exams);
     return [
@@ -440,7 +440,7 @@ async function runSimulationJourney(input: ScenarioContext) {
     mutation,
     after,
     terminalAssertions: await terminalAssertions(input.page, [
-      ["simulation-detail-route", () => Promise.resolve(currentPath(input.page).startsWith("/stage/simulation/"))],
+      ["simulation-detail-route", () => Promise.resolve(currentPath(input.page).startsWith("/test/simulations/"))],
       ["simulation-detail-heading", () => input.page.getByRole("heading", { level: 1 }).isVisible()],
     ]),
   };

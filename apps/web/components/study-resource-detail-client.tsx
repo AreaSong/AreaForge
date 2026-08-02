@@ -316,9 +316,9 @@ export function StudyResourceDetailClient(props: {
         description={archived ? "资料已归档，当前只保留查看、预览和历史，不会继续进入学习计划。" : resource.taskIds[0] ? "打开关联任务继续学习，资料会保留为本次学习的上下文。" : "关联一个已有任务，或先创建一条最小学习任务。"}
         status={archived ? <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-400">已归档 · 只读</span> : null}
         action={!archived && resource.taskIds[0] ? (
-          <Link href={withReturnTo(`/today/tasks/${resource.taskIds[0]}`, objectHref)} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-100 hover:bg-teal-300/10"><CalendarCheck size={16} aria-hidden />开始关联任务<ArrowRight size={16} aria-hidden /></Link>
+          <Link href={withReturnTo(`/plan/tasks/${resource.taskIds[0]}`, objectHref)} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-100 hover:bg-teal-300/10"><CalendarCheck size={16} aria-hidden />开始关联任务<ArrowRight size={16} aria-hidden /></Link>
         ) : !archived ? (
-          <Link href={`/today/plan?subjectId=${encodeURIComponent(resource.subjectId ?? "")}&resourceId=${encodeURIComponent(resource.id)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300"><CalendarCheck size={16} aria-hidden />创建学习任务<ArrowRight size={16} aria-hidden /></Link>
+          <Link href={`/plan?subjectId=${encodeURIComponent(resource.subjectId ?? "")}&resourceId=${encodeURIComponent(resource.id)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300"><CalendarCheck size={16} aria-hidden />创建学习任务<ArrowRight size={16} aria-hidden /></Link>
         ) : null}
       />
 
@@ -418,7 +418,7 @@ function ResourceFacts(props: {
       <section className="space-y-4 border-t border-white/10 pt-5" aria-labelledby="resource-associations-heading">
         <h2 id="resource-associations-heading" className="text-lg font-medium text-white">学习关联</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <AssociationLinks label="任务" ids={props.resource.taskIds} options={props.options.tasks} hrefFor={(id) => withReturnTo(`/today/tasks/${id}`, props.objectHref)} />
+          <AssociationLinks label="任务" ids={props.resource.taskIds} options={props.options.tasks} hrefFor={(id) => withReturnTo(`/plan/tasks/${id}`, props.objectHref)} />
           <AssociationLinks label="知识卡片" ids={props.resource.noteIds} options={props.options.notes} hrefFor={(id) => withReturnTo(`/knowledge/notes/${id}`, props.objectHref)} />
           <AssociationLinks label="错题" ids={props.resource.mistakeIds} options={props.options.mistakes} hrefFor={(id) => withReturnTo(`/knowledge/mistakes/${id}`, props.objectHref)} />
           <AssociationLinks label="考纲节点" ids={props.resource.syllabusNodeIds} options={props.options.syllabusNodes} hrefFor={(id) => withReturnTo(`/knowledge/syllabus/${id}`, props.objectHref)} />

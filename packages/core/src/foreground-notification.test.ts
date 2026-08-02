@@ -60,7 +60,7 @@ test("equal notification window means all day while equal quiet hours are disabl
 
 test("canonical notification payloads use the action-center routes", () => {
   assert.deepEqual(buildForegroundNotificationPayload("review").data, { route: "/knowledge/reviews" });
-  assert.deepEqual(buildForegroundNotificationPayload("plan").data, { route: "/today/plan" });
+  assert.deepEqual(buildForegroundNotificationPayload("plan").data, { route: "/plan" });
   assert.deepEqual(buildForegroundNotificationPayload("evening").data, { route: "/review/daily" });
 });
 

@@ -1,11 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { FocusSessionClient } from "@/components/focus-session-client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getActiveStudySession, listStudySessionEvidenceReceipts } from "@/lib/study/service";
-import { prisma } from "@areaforge/db";
+import { getActiveStudySession, getStudySessionById, listStudySessionEvidenceReceipts } from "@/lib/study/service";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
-import { resolveActiveWorkspace } from "@/lib/study/exam-workspace-service";
-import type { TaskStatusDto } from "@/lib/study/types";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/focus/session");
@@ -23,53 +20,18 @@ export default async function FocusSessionPage({
   const query = await searchParams;
   const returnTo = sanitizeReturnPath(query.returnTo);
 
-  const workspace = await resolveActiveWorkspace(user.id);
-  const session = await prisma.studySession.findFirst({
-    where: { id: sessionId, subject: { workspaceId: workspace.id } },
-    include: { subject: true, task: true, syllabusNode: true },
-  });
+  const session = await getStudySessionById(sessionId, user.id);
   if (!session) {
     notFound();
   }
 
   const active = await getActiveStudySession(user.id);
-  const dto = {
-    id: session.id,
-    subjectId: session.subjectId,
-    subjectName: session.subject.name,
-    taskId: session.taskId,
-    taskTitle: session.task?.title ?? null,
-    taskStatus: session.task ? session.task.status.toLowerCase() as TaskStatusDto : null,
-    syllabusNodeId: session.syllabusNodeId,
-    syllabusNodeTitle: session.syllabusNode?.title ?? null,
-    status: session.status.toLowerCase() as "running" | "paused" | "completed" | "canceled",
-    startedAt: session.startedAt.toISOString(),
-    updatedAt: session.updatedAt.toISOString(),
-    pausedAt: session.pausedAt?.toISOString() ?? null,
-    endedAt: session.endedAt?.toISOString() ?? null,
-    accumulatedPauseSeconds: session.accumulatedPauseSeconds,
-    effectiveMinutes: session.effectiveMinutes,
-    qualityScore: session.qualityScore,
-    isEffective: session.isEffective,
-    understandingLevel: session.understandingLevel,
-    minimalOutput: session.minimalOutput,
-    nextAction: session.nextAction,
-    producedNote: session.producedNote,
-    producedMistake: session.producedMistake,
-    isLowConversion: session.isLowConversion,
-    antiFakeReason: session.antiFakeReason,
-    requiredOutput: session.requiredOutput,
-    closeoutVersion: session.closeoutVersion,
-    note: session.note,
-    goalMinutes: session.goalMinutes,
-    startSource: session.startSource,
-  };
   const evidenceReceipts = await listStudySessionEvidenceReceipts(session.id, user.id);
 
   return (
     <FocusSessionClient
       userId={user.id}
-      session={dto}
+      session={session}
       activeConflictId={active && active.id !== sessionId ? active.id : null}
       returnTo={returnTo}
       initialNow={new Date().toISOString()}

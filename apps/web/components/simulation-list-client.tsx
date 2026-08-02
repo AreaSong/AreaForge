@@ -37,7 +37,7 @@ export function SimulationListClient() {
         return;
       }
       completeIdempotentCommand(commandScope);
-      startTransition(() => router.push(`/stage/simulation/${body.exam!.id}`));
+      startTransition(() => router.push(`/test/simulations/${body.exam!.id}`));
     } catch {
       setError("网络不可用，模拟考试输入仍保留；恢复网络后请显式重试。");
     } finally {

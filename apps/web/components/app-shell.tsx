@@ -7,6 +7,8 @@ import {
   Activity,
   BookOpen,
   CalendarCheck2,
+  CalendarRange,
+  CheckCheck,
   ClipboardCheck,
   FilePlus2,
   Flag,
@@ -17,6 +19,7 @@ import {
   PanelLeftOpen,
   Plus,
   Settings,
+  Timer,
   TriangleAlert,
 } from "lucide-react";
 import {
@@ -40,6 +43,8 @@ import {
   subscribeQuickReviewActivity,
   type QuickReviewActivityClaim,
 } from "@/lib/client/quick-review-activity";
+import { syncFocusOfflineQueue } from "@/lib/client/focus-offline-store";
+import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { BATCH10_NAV_ITEMS } from "@/lib/navigation/batch7";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
 
@@ -77,6 +82,19 @@ export function AppShell(props: {
   const displayStatus = projectLocalQuickReviewStatus(status, quickReviewClaim);
 
   useEffect(() => subscribeQuickReviewActivity(props.userId, setQuickReviewClaim), [props.userId]);
+
+  useEffect(() => {
+    const sync = () => {
+      void syncFocusOfflineQueue(props.userId);
+    };
+    sync();
+    window.addEventListener("online", sync);
+    const interval = window.setInterval(sync, 15_000);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.clearInterval(interval);
+    };
+  }, [props.userId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -322,15 +340,6 @@ export function AppShell(props: {
             })}
           </nav>
           <div className={`mt-auto space-y-2 pt-6 text-xs text-zinc-500 ${sidebarCollapsed ? "grid justify-items-center" : "px-2"}`}>
-            <Link
-              href="/settings/workspace"
-              aria-current={pathname.startsWith("/settings") ? "location" : undefined}
-              title={sidebarCollapsed ? "设置" : undefined}
-              className={`flex h-9 items-center rounded-md text-zinc-400 hover:bg-white/[0.06] hover:text-white ${sidebarCollapsed ? "w-9 justify-center" : "gap-3 px-2"}`}
-            >
-              <Settings size={16} aria-hidden="true" />
-              <span className={sidebarCollapsed ? "sr-only" : undefined}>设置</span>
-            </Link>
             <p className={sidebarCollapsed ? "sr-only" : undefined}>{props.email}</p>
             <LogoutButton compact={sidebarCollapsed} />
           </div>
@@ -420,7 +429,7 @@ export function AppShell(props: {
             className="af-shell-nav z-20 shrink-0 border-t border-white/10 bg-[#0d1117]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
             aria-label="移动导航"
           >
-            <div className="mx-auto grid max-w-lg grid-cols-5 items-center">
+            <div className="mx-auto grid max-w-lg grid-cols-4 items-center sm:grid-cols-8">
               {BATCH10_NAV_ITEMS.map((item) => {
                 const active = item.match(pathname);
                 return (
@@ -451,7 +460,7 @@ export function AppShell(props: {
       />
       <Drawer open={quickCreateOpen} title="快捷创建" onClose={() => setQuickCreateOpen(false)}>
         <nav className="grid gap-2" aria-label="创建对象">
-          <QuickCreateLink href="/today/plan?createMinimum=1" label="任务" onSelect={() => setQuickCreateOpen(false)} icon={<CalendarCheck2 size={18} aria-hidden="true" />} />
+          <QuickCreateLink href="/plan?createMinimum=1" label="任务" onSelect={() => setQuickCreateOpen(false)} icon={<CalendarCheck2 size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/notes?create=1" label="知识卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/mistakes?create=1" label="错题" onSelect={() => setQuickCreateOpen(false)} icon={<TriangleAlert size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/resources?create=1" label="资料" onSelect={() => setQuickCreateOpen(false)} icon={<FilePlus2 size={18} aria-hidden="true" />} />
@@ -476,6 +485,7 @@ export function AppShell(props: {
           ))}
         </div>
       </Drawer>
+      <GlobalAiAssistant userId={props.userId} />
     </div>
   );
 }
@@ -519,15 +529,25 @@ function navigationAriaCurrent(
 }
 
 function NavigationIcon({ href }: { href: string }) {
-  const Icon = href === "/today"
+  const Icon = href === "/focus"
+    ? Timer
+    : href === "/today"
     ? CalendarCheck2
-    : href === "/today/plan"
+    : href === "/plan"
+      ? CalendarRange
+    : href === "/knowledge/points"
+      ? BookOpen
+    : href === "/test"
+      ? CheckCheck
+    : href === "/review/daily"
+      ? ClipboardCheck
+    : href === "/confirmations"
+      ? CheckCheck
+    : href === "/settings/workspace"
+      ? Settings
+    : href === "/plan"
       ? ListTodo
-      : href === "/knowledge/overview"
-        ? BookOpen
-        : href === "/review/daily"
-        ? ClipboardCheck
-        : href === "/stage/overview"
+        : href === "/plan/stages"
           ? Flag
           : Settings;
   return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;

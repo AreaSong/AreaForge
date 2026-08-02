@@ -37,7 +37,7 @@
 
 - `/api/exam-workspaces/**`：工作区列表/创建、激活切换、接管 preview/apply、科目分组读取、自定义科目创建
 - `/api/plan-milestones/**`：里程碑列表/创建/编辑
-- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（原子转换；`/today/inbox`）
+- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（原子转换；`/plan/inbox`）
 - `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
 - `/api/learning-tree/templates|export|imports/preview|imports/confirm`、`/api/learning-tree/imports`、`/api/learning-tree/imports/:id`、`/api/learning-tree/imports/:id/export`（preview 零业务写入；confirm 原子；`/knowledge/imports`）
 - `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（`/knowledge/resources`）
@@ -62,6 +62,8 @@
 - `/api/simulation/exams/:id/remediations`：补救候选读取与显式逐项入箱。
 - `/api/reports/periodic/decisions`：冻结报告、原子入箱并生成独立阶段草稿。
 - `/api/simulation/stage-adjustment-drafts/:id/confirm|reject`：阶段终态决策；确认更新 StagePlan 并原子入箱，不改现有任务。
+
+确认中心由服务端 `listConfirmationItems` 统一聚合周期报告、阶段建议、模拟考试、专项复测和 AI 草稿；各业务仍通过自己的 confirm/reject API 写入事实。统一投影状态为 `PENDING`、`CONFIRMED`、`REJECTED`、`FROZEN`，并携带 `sourceId`、`revision`、`requiresUserConfirmation`、`confirmedAt`、`frozenAt` 和安全 `href`。
 
 已落地：
 
@@ -100,7 +102,7 @@
 
 `GET /api/reports/periodic` 实时派生周审判和月复盘数据报告、规则策略、本地规则复盘草稿和 `decisionPreview` 下周期决策预览；`decisionPreview` 只包含聚合指标、最大短板摘要、策略、下一周期草稿和确认边界，不包含任务标题列表、完整复盘正文、附件内容或阶段计划应用结果。默认不把长期记录、情绪记录或动机档案发送给 AI。
 
-每日复盘写入口 `POST /api/daily-reviews`、`PATCH /api/daily-reviews/:id` 与兼容入口 `POST /api/reviews/today` 在复盘和明日最低行动原子入箱成功后，同时返回 `review` 与对应的 `inboxItem`。客户端必须使用该项目 ID 进入 `/today/inbox/:itemId`，不得通过标题猜测或退回无上下文的收件箱总列表；复盘页面的客观事实摘要由服务端按当前用户、ACTIVE 工作区和上海学习日只读派生。
+每日复盘写入口 `POST /api/daily-reviews`、`PATCH /api/daily-reviews/:id` 与兼容入口 `POST /api/reviews/today` 在复盘和明日最低行动原子入箱成功后，同时返回 `review` 与对应的 `inboxItem`。客户端必须使用该项目 ID 进入 `/plan/inbox/:itemId`，不得通过标题猜测或退回无上下文的收件箱总列表；复盘页面的客观事实摘要由服务端按当前用户、ACTIVE 工作区和上海学习日只读派生。
 
 `POST /api/reports/periodic/decisions` 允许对当前周/月报告做确认或驳回。服务端会重新计算当前报告范围，拒绝过期页面提交；同向重复提交返回已处理，反向提交返回冲突。确认会保存冻结 `reportSnapshot` 和 `nextCycleDraft`，驳回只保存冻结快照；两者都写入 `AuditEvent`，且只记录报告决策，不批量修改任务、不应用阶段计划、不外呼长期 AI。`GET /api/reports/periodic/decisions` 返回最近报告决策用于只读回放。
 
@@ -129,6 +131,17 @@
 - `POST /api/study-sessions/:id/resume`
 - `POST /api/study-sessions/:id/end`
 - `POST /api/study-sessions/:id/evidence`
+
+开始学习入口 `/focus` 使用浏览器本地优先队列：IndexedDB 是首选，`localStorage` 是回退；联网后按顺序重放开始/暂停/继续/结束命令，并用单飞锁避免多标签页并发同步。断网结束只先保存本地快照，待真实 session 建立后再进入证据接力，证据接口拒绝本地 session ID。
+
+专项复测接口：
+
+- `GET|POST /api/knowledge-retests`
+- `POST /api/knowledge-retests/:id/start`
+- `POST /api/knowledge-retests/:id/submit`
+- `POST /api/knowledge-retests/:id/confirm`
+
+开始、提交和确认都必须携带 `idempotencyKey` 与 `expectedRevision`；服务端以审计事件保存幂等命令结果，重复请求 replay，不重复写掌握状态或证据。
 
 计时写入原则：
 
@@ -205,7 +218,7 @@ Markdown 导入只解析标题和列表，创建新的 `SyllabusNode`，不删�
 - `POST /api/simulation/stage-adjustment-drafts/:id/reject`
 - `POST /api/simulation/first-diary`
 
-新建模拟考试和保存模拟结果优先写入 `SimulationExam` / `SimulationSubjectResult`。`/simulation` 页面优先读取结构化模拟考试，并只读展示旧 `StudyTask.type = "simulation_exam"` 记录作为 fallback；旧任务型模拟不会被自动迁移、解析或删除。
+新建模拟考试和保存模拟结果优先写入 `SimulationExam` / `SimulationSubjectResult`。`/test/simulations` 页面优先读取结构化模拟考试，并只读展示旧 `StudyTask.type = "simulation_exam"` 记录作为 fallback；旧任务型模拟不会被自动迁移、解析或删除。
 
 `GET /api/simulation/tasks` 保留为旧任务型模拟只读兼容面。旧 `POST /api/simulation/tasks` 和 `POST /api/simulation/tasks/:id/complete` 路由保留但返回 `LEGACY_SIMULATION_TASK_WRITE_DISABLED`，不再创建或完成旧任务型模拟。
 

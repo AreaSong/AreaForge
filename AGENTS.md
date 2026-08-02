@@ -9,7 +9,7 @@
 ## 当前状态
 
 - 最新稳定 GitHub Release 与生产基线均为 `v1.1.1`（commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`）；Release 于 2026-07-31 发布并包含 manifest、SBOM、provenance、checksum 和签名资产，annotated tag 本身没有 GPG signature，不能写成“签名 tag”。2026-08-01 已通过 Web 版本中心受控请求完成 production apply，远端 `https://forge.areasong.top/api/health` 报告 `1.1.1` 与 verified production runtime identity。
-- 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`）；发布后产品化修复已通过受保护 PR #27/#28 合并到 `main`，`v1.1.1` Release 与 production apply 均已完成。首次设置与接管冲突、无工作区引导、科目/分组完整管理、App Shell 以及今日/计划/知识/复盘/阶段/设置的信息层级已通过门禁与桌面/移动验收。2026-07-31 已在双备份和单事务下完成生产 5 组重复科目与 `[AF_SMOKE]` 清理，并完成 22/22 静态入口桌面/移动复验；审计事件批准计数为 14、实际删除 22，额外 8 条属于同批合成对象且偏差已记录。2026-08-01 updater 旧 processing claim 已在保留原始审计记录后完成状态投影重建，随后更新记录为 `APPLY_COMPLETED`，Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；`AREAFORGE_AUTO_APPLY=none` 与 residual 状态均未改变。`AF-RISK-DATA-001` 保持 deferred-work。阶段索引见 `docs/development/v11-phase-packages.md`。
+- 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`）；开始学习、今日、计划、知识、检验、复盘、确认中心和设置构成当前信息层级。`/focus` 是独立一级入口，知识点是可跨阶段/考纲/检验复用的核心对象，报告、阶段建议、模拟考试、专项复测和 AI 草稿统一进入确认中心。当前只保留一套 canonical 路由，旧 `/today/*`、`/stage/*` 和根级旧业务页面已移除，不再提供兼容重定向。本地优先计时在真实 session 同步后才进入证据接力。发布与 production apply 状态仍以本文件前述稳定基线和对应 evidence 文档为准。阶段索引见 `docs/development/v11-phase-packages.md`。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。学习行动中心规划能力不计入该完成声明。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
@@ -66,7 +66,7 @@
 - 依赖、GitHub Actions、Docker base image、PR 模板、安全政策或公开仓库治理变更，遵循 `docs/development/dependency-policy.md` 并运行 `pnpm governance:preflight`。
 - 外部能力、自动化、MCP、subagent、浏览器控制、部署插件或远程运维工具的准入与扩大，遵循 `docs/development/external-capability-admission.md`；它们不得绕过 Web runtime 服务器命令禁区或生产高风险确认。
 - 发布、生产运维或长期运营状态变化，更新 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 的相关入口，并运行 `pnpm ops:readiness`；进入 release/update/交接证据时先看 `pnpm ops:handoff`，再补跑 `pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`。
-- 第一版围绕“计划任务 -> 专注计时 -> 关联大纲 -> 产出笔记/错题 -> 晚间复盘 -> AI 鞭策 -> 明日调整”闭环。
+- 当前学习闭环围绕“开始学习（选科目） -> 专注计时 -> 收口 -> 证据/复测 -> 今日闭环 -> 周期报告与阶段调整”展开；任务和考纲是可选上下文，学习是否真正学进去才是主要结果。
 - `packages/core` 放平台无关业务规则，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量。
 - `packages/db` 集中数据库访问；页面和组件不直接调用 Prisma。
 - `packages/ai` 只生成建议或草稿，不直接覆盖用户记录。

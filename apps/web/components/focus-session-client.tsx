@@ -23,6 +23,16 @@ import {
 import { Alert } from "@/components/ui/feedback";
 import { isFocusEvidenceFlowOpen, linkFocusSessionEvidence, setFocusEvidenceFlowOpen } from "@/lib/client/focus-evidence";
 import { focusRequestErrorMessage, formatFocusElapsed } from "@/lib/client/focus-session";
+import {
+  FOCUS_OFFLINE_SYNC_EVENT,
+  applyLocalFocusCommand,
+  enqueueFocusCommand,
+  isLocalFocusSessionId,
+  removeFocusCommand,
+  saveFocusOfflineSnapshot,
+  syncFocusOfflineQueue,
+  type FocusOfflineSyncState,
+} from "@/lib/client/focus-offline-store";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type { StudySessionDto } from "@/lib/study/types";
 
@@ -114,6 +124,7 @@ export function FocusSessionClient(props: {
   returnTo: string;
   initialNow: string;
   initialEvidenceReceipts: FocusEvidenceReceipt[];
+  offlineOnly?: boolean;
 }) {
   const router = useRouter();
   const [session, setSession] = useState(props.session);
@@ -134,6 +145,8 @@ export function FocusSessionClient(props: {
   const [evidenceReceipts, setEvidenceReceipts] = useState(props.initialEvidenceReceipts);
   const [draft, setDraft] = useState<FocusCloseoutDraft>(defaultFocusCloseoutDraft);
   const [draftReady, setDraftReady] = useState(false);
+  const [syncState, setSyncState] = useState<FocusOfflineSyncState>(props.offlineOnly ? "pending" : "current");
+  const queuedOfflineRef = useRef(Boolean(props.offlineOnly));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -162,6 +175,44 @@ export function FocusSessionClient(props: {
       ...draft,
     }));
   }, [draft, draftReady, props.userId, session.id]);
+
+  useEffect(() => {
+    const onSync = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string; state?: FocusOfflineSyncState; session?: StudySessionDto | null }>).detail;
+      if (detail?.userId !== props.userId) return;
+      if (detail.state) setSyncState(detail.state);
+      if (!detail.session) return;
+      if (detail.session.id === session.id || (isLocalFocusSessionId(session.id) && detail.session.subjectId === session.subjectId)) {
+        setSession(detail.session);
+        if (detail.session.status === "completed" && isFocusEvidenceFlowOpen(props.userId, detail.session.id)) {
+          setPhase("evidence");
+        }
+        if (isLocalFocusSessionId(session.id) && !isLocalFocusSessionId(detail.session.id)) {
+          if (detail.session.status === "completed" && isFocusEvidenceFlowOpen(props.userId, session.id)) {
+            setFocusEvidenceFlowOpen(props.userId, detail.session.id, true);
+            setFocusEvidenceFlowOpen(props.userId, session.id, false);
+          }
+          queuedOfflineRef.current = false;
+          router.replace(`/focus/${detail.session.id}`);
+        }
+      }
+    };
+    const onOnline = () => {
+      void syncFocusOfflineQueue(props.userId);
+    };
+    window.addEventListener(FOCUS_OFFLINE_SYNC_EVENT, onSync);
+    window.addEventListener("online", onOnline);
+    void syncFocusOfflineQueue(props.userId).catch(() => undefined);
+    return () => {
+      window.removeEventListener(FOCUS_OFFLINE_SYNC_EVENT, onSync);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [props.userId, router, session.id, session.subjectId]);
+
+  useEffect(() => {
+    if (session.status !== "running" && session.status !== "paused" && !queuedOfflineRef.current) return;
+    void saveFocusOfflineSnapshot(props.userId, session, syncState);
+  }, [props.userId, session, syncState]);
 
   useEffect(() => {
     if (session.status !== "running") return;
@@ -201,26 +252,65 @@ export function FocusSessionClient(props: {
   async function mutate(path: string, body: unknown, action: "pause" | "resume" | "end") {
     if (conflict) throw new Error("请先处理活动状态冲突，再提交新的状态命令。");
     setError(null);
-    const response = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+    const commandBody = body as Record<string, unknown>;
+    const localSession = isLocalFocusSessionId(session.id);
+    const queuedCommand = await enqueueFocusCommand({
+      userId: props.userId,
+      localSessionId: session.id,
+      serverSessionId: localSession ? null : session.id,
+      action,
+      body: commandBody,
     });
-    const data = (await response.json().catch(() => null)) as { session?: StudySessionDto; error?: string; latest?: StudySessionDto; conflictFields?: string[] } | null;
-    if (!response.ok) {
-      if (response.status === 401) {
-        redirectToLoginWithCurrentLocation();
-        throw new Error("登录已过期，收口草稿已保留。重新登录后请显式重试。");
-      }
-      if (response.status === 409) {
-        setConflict({ latest: data?.latest, conflictFields: data?.conflictFields ?? ["status", "updatedAt"], action });
-        setConflictOpen(true);
-        throw new Error("活动状态已变化，草稿与命令键已保留。请先比较差异并人工选择新基线。");
-      }
-      throw new Error(data?.error ?? "请求失败");
+    if (localSession) {
+      queuedOfflineRef.current = true;
+      const projected = applyLocalFocusCommand(session, action, commandBody);
+      setSyncState("pending");
+      setSession(projected);
+      await saveFocusOfflineSnapshot(props.userId, projected, "pending");
+      return projected;
     }
-    if (data?.session) setSession(data.session);
-    return data?.session ?? null;
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await response.json().catch(() => null)) as { session?: StudySessionDto; error?: string; latest?: StudySessionDto; conflictFields?: string[] } | null;
+      if (!response.ok) {
+        if (response.status === 401) {
+          redirectToLoginWithCurrentLocation();
+          throw new Error("登录已过期，收口草稿已保留。重新登录后请显式重试。");
+        }
+        if (response.status === 409) {
+          await removeFocusCommand(queuedCommand.id);
+          setConflict({ latest: data?.latest, conflictFields: data?.conflictFields ?? ["status", "updatedAt"], action });
+          setConflictOpen(true);
+          throw new Error("活动状态已变化，草稿与命令键已保留。请先比较差异并人工选择新基线。");
+        }
+        if (response.status < 500) await removeFocusCommand(queuedCommand.id);
+        if (response.status >= 500) {
+          throw new TypeError("服务暂时不可用");
+        }
+        throw new Error(data?.error ?? "请求失败");
+      }
+      const completed = data?.session ?? null;
+      queuedOfflineRef.current = false;
+      await removeFocusCommand(queuedCommand.id);
+      setSyncState("current");
+      if (completed) {
+        setSession(completed);
+        await saveFocusOfflineSnapshot(props.userId, completed, "current");
+      }
+      return completed;
+    } catch (error) {
+      if (!(error instanceof TypeError) && (typeof navigator === "undefined" || navigator.onLine)) throw error;
+      queuedOfflineRef.current = true;
+      const projected = applyLocalFocusCommand(session, action, commandBody);
+      setSession(projected);
+      setSyncState(typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline");
+      await saveFocusOfflineSnapshot(props.userId, projected, typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline");
+      return projected;
+    }
   }
 
   function commandInput(action: "pause" | "resume" | "end") {
@@ -283,6 +373,11 @@ export function FocusSessionClient(props: {
         setPhase("low-conversion");
         return;
       }
+      if (queuedOfflineRef.current || isLocalFocusSessionId(session.id)) {
+        if (completed?.status === "completed") setFocusEvidenceFlowOpen(props.userId, completed.id, true);
+        setPhase("complete");
+        return;
+      }
       openEvidenceFlow();
     } catch (err) {
       setError(focusRequestErrorMessage(err, "结束失败"));
@@ -342,6 +437,12 @@ export function FocusSessionClient(props: {
   }
 
   function openEvidenceFlow() {
+    if (isLocalFocusSessionId(session.id)) {
+      setFocusEvidenceFlowOpen(props.userId, session.id, true);
+      setError("当前收口仍在本机，联网同步后会自动进入证据接力；当前不会伪造服务端证据。");
+      setPhase("complete");
+      return;
+    }
     setFocusEvidenceFlowOpen(props.userId, session.id, true);
     setPhase("evidence");
   }
@@ -375,6 +476,11 @@ export function FocusSessionClient(props: {
   return (
     <section className="min-h-screen w-full bg-[var(--af-canvas)]">
       <FocusHeader returnTo={props.returnTo} status={session.status} phaseLabel={phaseLabel(phase)} />
+      {syncState !== "current" ? (
+        <div className="border-b border-amber-400/20 bg-amber-400/5 px-4 py-2 text-center text-xs text-amber-100" role="status">
+          {syncState === "offline" ? "当前离线：计时和操作已保存在本机，恢复网络后自动同步。" : syncState === "blocked" ? "同步遇到状态冲突：请回到当前活动比较后再继续。" : "本机有待同步的计时操作，服务端确认前不会伪造完成。"}
+        </div>
+      ) : null}
       {error ? <div className="px-4 pt-4 sm:px-6 lg:px-8"><Alert tone="danger">{error}</Alert></div> : null}
       {phase === "focus" && (session.status === "running" || session.status === "paused") ? (
         <FocusTimerWorkspace

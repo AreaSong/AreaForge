@@ -42,7 +42,7 @@ export function PlanInboxOriginSummary({ item, returnTo }: { item: Pick<PlanInbo
       <p className="mt-1 text-sm text-zinc-400">
         {lostScore == null ? "已记录失分" : `${lostScore} 分失分`} · {reason ? (lossReasonLabels[reason] ?? reason) : "未标注原因"}
       </p>
-      {examId ? <Link href={withReturnTo(`/stage/simulation/${encodeURIComponent(examId)}`, returnTo)} className="mt-3 inline-flex text-sm text-teal-300 hover:underline">查看来源考试</Link> : null}
+      {examId ? <Link href={withReturnTo(`/test/simulations/${encodeURIComponent(examId)}`, returnTo)} className="mt-3 inline-flex text-sm text-teal-300 hover:underline">查看来源考试</Link> : null}
     </section>
   );
 }

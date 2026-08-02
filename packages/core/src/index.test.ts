@@ -1549,7 +1549,7 @@ test("action-center recommendation order and bridged review filter", () => {
       bridgedReviewScheduleId: "sched-1",
       reviewObjectKind: null,
       taskPriority: "high" as const,
-      href: "/today/tasks/task-bridge",
+      href: "/plan/tasks/task-bridge",
     },
     {
       id: "sched-1",
@@ -1600,7 +1600,7 @@ test("action-center recommendation order and bridged review filter", () => {
       bridgedReviewScheduleId: null,
       reviewObjectKind: null,
       taskPriority: "medium" as const,
-      href: "/today/tasks/blocked-task",
+      href: "/plan/tasks/blocked-task",
     },
   ];
 
@@ -1638,7 +1638,7 @@ test("app-shell lights and mobile top priority", () => {
       severe: false,
       recoveryBlocked: false,
       arrangedComplete: false,
-      debtHref: "/today/plan",
+      debtHref: "/plan",
     },
     stage: {
       hasStage: true,
@@ -1646,7 +1646,7 @@ test("app-shell lights and mobile top priority", () => {
       milestoneHealthy: false,
       milestoneNearOrDraftPending: false,
       conflictOrBlocked: false,
-      stageHref: "/stage/overview",
+      stageHref: "/plan/stages",
     },
     todayClosure: {
       inReminderWindow: true,
@@ -1663,8 +1663,8 @@ test("app-shell lights and mobile top priority", () => {
   assert.notEqual(status.lights.find((light) => light.kind === "todayClosure")?.tone, "red");
   assert.equal(status.lights.find((light) => light.kind === "activity")?.action?.href, "/focus/s1");
   assert.equal(status.lights.find((light) => light.kind === "review")?.action?.href, "/knowledge/reviews");
-  assert.equal(status.lights.find((light) => light.kind === "debt")?.action?.href, "/today/plan");
-  assert.equal(status.lights.find((light) => light.kind === "stage")?.action?.href, "/stage/overview");
+  assert.equal(status.lights.find((light) => light.kind === "debt")?.action?.href, "/plan");
+  assert.equal(status.lights.find((light) => light.kind === "stage")?.action?.href, "/plan/stages");
   assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.action?.href, "/review/daily");
   assert.equal(status.mobileTop.kind, "activity");
 
@@ -1689,7 +1689,7 @@ test("app-shell lights and mobile top priority", () => {
       severe: true,
       recoveryBlocked: false,
       arrangedComplete: false,
-      debtHref: "/today/plan",
+      debtHref: "/plan",
     },
     stage: {
       hasStage: false,
@@ -1697,7 +1697,7 @@ test("app-shell lights and mobile top priority", () => {
       milestoneHealthy: false,
       milestoneNearOrDraftPending: false,
       conflictOrBlocked: false,
-      stageHref: "/stage/overview",
+      stageHref: "/plan/stages",
     },
     todayClosure: {
       inReminderWindow: false,
@@ -1734,7 +1734,7 @@ test("app-shell lights and mobile top priority", () => {
         severe: true,
         recoveryBlocked: false,
         arrangedComplete: false,
-        debtHref: "/today/plan",
+        debtHref: "/plan",
       },
       stage: {
         hasStage: false,
@@ -1742,7 +1742,7 @@ test("app-shell lights and mobile top priority", () => {
         milestoneHealthy: false,
         milestoneNearOrDraftPending: false,
         conflictOrBlocked: false,
-        stageHref: "/stage/overview",
+        stageHref: "/plan/stages",
       },
       todayClosure: {
         inReminderWindow: false,

@@ -35,7 +35,7 @@ export async function getPlanRolling(
       tasks: [],
       debt: [],
       openInboxCount: 0,
-      inboxEntryPath: "/today/inbox",
+      inboxEntryPath: "/plan/inbox",
       setupRequired: true,
       workspaceId: null,
     };
@@ -106,7 +106,7 @@ export async function getPlanRolling(
     tasks,
     debt,
     openInboxCount: inboxCount,
-    inboxEntryPath: "/today/inbox",
+    inboxEntryPath: "/plan/inbox",
     setupRequired: false,
     workspaceId: workspace.id,
   };
