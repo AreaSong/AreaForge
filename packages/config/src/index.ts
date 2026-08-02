@@ -25,6 +25,10 @@ export const serverEnvSchema = z.object({
   AI_MAX_RETRIES: intFromString.default(2),
   AI_LOG_PROMPTS: booleanFromString.default(false),
   AI_ALLOW_SENSITIVE_CONTEXT: booleanFromString.default(false),
+  AI_CREDENTIALS_ENCRYPTION_KEY: z.preprocess(
+    (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
+    z.string().min(32).optional(),
+  ),
   AI_PAYLOAD_BINDING_SECRET: z.preprocess(
     (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
     z.string().min(32).optional(),

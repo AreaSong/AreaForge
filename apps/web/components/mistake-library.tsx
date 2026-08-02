@@ -1,11 +1,16 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, Pencil, Plus } from "lucide-react";
+import { AlertCircle, ArrowRight, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
+import { Button } from "@/components/ui/button";
+import { Badge, EmptyState } from "@/components/ui/feedback";
+import { Drawer } from "@/components/ui/overlays";
+import { Toolbar } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
+import { withReturnTo } from "@/lib/navigation/batch7";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -22,6 +27,9 @@ interface MistakeLibraryProps {
   mistakes: MistakeDto[];
   initialSubjectId?: string;
   initialSyllabusNodeId?: string;
+  initialCauseFilter?: string;
+  initialReviewFilter?: string;
+  initialQuery?: string;
   initialCreate?: boolean;
 }
 
@@ -42,7 +50,7 @@ interface FlatNode {
   depth: number;
 }
 
-export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubjectId, initialSyllabusNodeId, initialCreate }: MistakeLibraryProps) {
+export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubjectId, initialSyllabusNodeId, initialCauseFilter, initialReviewFilter, initialQuery, initialCreate }: MistakeLibraryProps) {
   const router = useRouter();
   const createTitleRef = useRef<HTMLInputElement>(null);
   const formDraftKey = `areaforge.mistake.draft.${userId}.create`;
@@ -56,24 +64,23 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
   const [cause, setCause] = useState<MistakeCauseDto>("unknown");
   const [correctIdea, setCorrectIdea] = useState("");
   const [nextReviewAt, setNextReviewAt] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editCorrectIdea, setEditCorrectIdea] = useState("");
-  const [editNextReviewAt, setEditNextReviewAt] = useState("");
-  const [editCause, setEditCause] = useState<MistakeCauseDto>("unknown");
-  const [editRecoveryId, setEditRecoveryId] = useState<string | null>(null);
+  const [mistakeSubjectFilter, setMistakeSubjectFilter] = useState(initialSubjectId && subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId : "all");
+  const [mistakeNodeFilter, setMistakeNodeFilter] = useState(initialNode || "all");
+  const [mistakeCauseFilter, setMistakeCauseFilter] = useState<"all" | MistakeCauseDto>(() => isMistakeCauseFilter(initialCauseFilter) ? initialCauseFilter : "all");
+  const [mistakeReviewFilter, setMistakeReviewFilter] = useState<"all" | "due" | "scheduled" | "none">(() => isMistakeReviewFilter(initialReviewFilter) ? initialReviewFilter : "all");
   const [error, setError] = useState<string | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [createOpen, setCreateOpen] = useState(Boolean(initialCreate));
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (!initialCreate) return;
+    if (!createOpen) return;
     const timer = window.setTimeout(() => {
-      createTitleRef.current?.scrollIntoView({ block: "center" });
       createTitleRef.current?.focus();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [initialCreate]);
+  }, [createOpen]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -111,6 +118,47 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
 
   const flatNodes = useMemo(() => flattenNodes(nodes), [nodes]);
   const nodeOptions = flatNodes.filter((node) => node.subjectId === subjectId);
+  const filterNodeOptions = useMemo(
+    () => flatNodes.filter((node) => mistakeSubjectFilter === "all" || node.subjectId === mistakeSubjectFilter),
+    [flatNodes, mistakeSubjectFilter],
+  );
+  const filteredMistakes = useMemo(
+    () => mistakes.filter((mistake) =>
+      (mistakeSubjectFilter === "all" || mistake.subjectId === mistakeSubjectFilter)
+      && (mistakeNodeFilter === "all" || (mistakeNodeFilter === "none" ? mistake.syllabusNodeId === null : mistake.syllabusNodeId === mistakeNodeFilter))
+      && (mistakeCauseFilter === "all" || mistake.cause === mistakeCauseFilter)
+      && matchesMistakeReview(mistake, mistakeReviewFilter)),
+    [mistakeCauseFilter, mistakeNodeFilter, mistakeReviewFilter, mistakeSubjectFilter, mistakes],
+  );
+  const hasListFilters = mistakeSubjectFilter !== "all" || mistakeNodeFilter !== "all" || mistakeCauseFilter !== "all" || mistakeReviewFilter !== "all";
+  const currentListHref = buildMistakeListHref({
+    query: initialQuery,
+    subject: mistakeSubjectFilter,
+    node: mistakeNodeFilter,
+    cause: mistakeCauseFilter,
+    review: mistakeReviewFilter,
+  });
+
+  function applyListFilters(next: Partial<{
+    subject: string;
+    node: string;
+    cause: "all" | MistakeCauseDto;
+    review: "all" | "due" | "scheduled" | "none";
+  }>) {
+    const subject = next.subject ?? mistakeSubjectFilter;
+    const node = next.node ?? mistakeNodeFilter;
+    const nextCause = next.cause ?? mistakeCauseFilter;
+    const review = next.review ?? mistakeReviewFilter;
+    setMistakeSubjectFilter(subject);
+    setMistakeNodeFilter(node);
+    setMistakeCauseFilter(nextCause);
+    setMistakeReviewFilter(review);
+    updateKnowledgeContext({
+      subjectId: subject === "all" ? null : subject,
+      syllabusNodeId: node === "all" || node === "none" ? null : node,
+    });
+    startTransition(() => router.replace(buildMistakeListHref({ query: initialQuery, subject, node, cause: nextCause, review })));
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -126,6 +174,7 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
       nextReviewAt: nextReviewAt ? new Date(nextReviewAt).toISOString() : null,
     };
     const commandScope = `mistake:create:${userId}`;
+    let createdMistake: MistakeDto | null = null;
     setSaving(true);
 
     try {
@@ -147,6 +196,12 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
         setError(body?.error ?? "保存错题失败，草稿已保留");
         return;
       }
+      const body = (await response.json().catch(() => null)) as { mistake?: MistakeDto } | null;
+      if (!body?.mistake) {
+        setError("服务端未返回已创建错题，当前草稿与重试标识仍保留");
+        return;
+      }
+      createdMistake = body.mistake;
     } catch {
       setError("网络不可用，错题草稿已保留；恢复网络后请显式重试。");
       return;
@@ -154,6 +209,7 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
       setSaving(false);
     }
 
+    if (!createdMistake) return;
     completeIdempotentCommand(commandScope);
     setTitle("");
     setSource("");
@@ -161,89 +217,14 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
     setNextReviewAt("");
     setSyllabusNodeId("");
     removePrivateBusinessDraft(formDraftKey);
-    startTransition(() => router.refresh());
-  }
-
-  function startEdit(mistake: MistakeDto) {
-    setEditingId(mistake.id);
-    setEditRecoveryId(null);
-    setEditCorrectIdea(mistake.correctIdea ?? "");
-    setEditCause(mistake.cause);
-    setEditNextReviewAt(toDatetimeLocalValue(mistake.reviewSchedule?.dueDate ?? mistake.nextReviewAt));
-  }
-
-  async function saveEdit(id: string) {
-    if (saving) return;
-    const mistake = mistakes.find((item) => item.id === id);
-    if (!mistake) return;
-    const detailEditDraftKey = `areaforge.mistake.draft.detail.edit.${userId}.${id}`;
-    const detailScheduleDraftKey = `areaforge.mistake.draft.detail.schedule.${userId}.${id}`;
-    const wasComplete = isCompleteMistake(mistake);
-    savePrivateBusinessDraft(detailEditDraftKey, {
-      baseUpdatedAt: mistake.updatedAt,
-      title: mistake.title,
-      source: mistake.source ?? "",
-      cause: editCause,
-      correctIdea: editCorrectIdea,
-    });
-    if (wasComplete && !mistake.reviewSchedule) {
-      savePrivateBusinessDraft(detailScheduleDraftKey, { reviewDate: editNextReviewAt.slice(0, 10) });
-    } else {
-      removePrivateBusinessDraft(detailScheduleDraftKey);
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/mistakes/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expectedUpdatedAt: mistake.updatedAt,
-          cause: editCause,
-          correctIdea: editCorrectIdea || null,
-          ...(wasComplete && !mistake.reviewSchedule
-            ? { nextReviewAt: editNextReviewAt ? new Date(editNextReviewAt).toISOString() : null }
-            : {}),
-        }),
-      });
-      if (response.status === 401) {
-        window.location.assign(`/login?returnTo=${encodeURIComponent(`/knowledge/mistakes/${id}`)}`);
-        return;
-      }
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null;
-        if (response.status === 409) {
-          setEditRecoveryId(id);
-          setError("错题已在其他页面或设备变化，本地输入仍保留。请转到详情页检查差异后再显式保存。");
-        } else {
-          setError(data?.error ?? "更新错题失败，本地输入仍保留");
-        }
-        return;
-      }
-    } catch {
-      setEditRecoveryId(id);
-      setError("网络不可用，本地编辑仍保留；恢复网络后请显式重试。");
-      return;
-    } finally {
-      setSaving(false);
-    }
-
-    setEditingId(null);
-    setEditRecoveryId(null);
-    removePrivateBusinessDraft(detailEditDraftKey);
-    removePrivateBusinessDraft(detailScheduleDraftKey);
-    startTransition(() => router.refresh());
+    setCreateOpen(false);
+    startTransition(() => router.push(withReturnTo(`/knowledge/mistakes/${createdMistake.id}`, currentListHref)));
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-      <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
-        <div className="flex items-center gap-2">
-          <Plus className="h-5 w-5 text-teal-300" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-white">新增错题</h2>
-        </div>
-
-        <form className="mt-5 grid gap-3" onSubmit={submit}>
+    <>
+      <Drawer open={createOpen} title="新增错题" onClose={() => setCreateOpen(false)}>
+        <form className="grid gap-3" onSubmit={submit}>
           <div className="grid gap-3 sm:grid-cols-2">
             <select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
@@ -323,102 +304,88 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
         </form>
 
         {error ? <p className="mt-4 text-sm text-red-200">{error}</p> : null}
-      </section>
+      </Drawer>
 
+      {!createOpen && error ? <p className="text-sm text-red-200">{error}</p> : null}
       <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm text-zinc-400">掌握证据</p>
             <h2 className="mt-1 text-xl font-semibold text-white">错题与薄弱点</h2>
           </div>
-          <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">{mistakes.length} 条</span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">{filteredMistakes.length} / {mistakes.length} 条</span>
+            <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              新增错题
+            </Button>
+          </div>
         </div>
 
-        <div className="mt-5 grid gap-3">
-          {mistakes.length === 0 ? (
-            <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
-              还没有错题。这里会成为考纲节点“薄弱”和“掌握证明”的证据来源。
-            </p>
-          ) : null}
-          {mistakes.map((mistake) => (
-            <article key={mistake.id} className="rounded-md border border-white/10 bg-[#151a20] p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm text-zinc-400">{mistake.subjectName}</p>
-                  <h3 className="mt-1 font-medium text-white">{mistake.title}</h3>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {mistake.syllabusNodeTitle ?? "未关联考纲"} / {labelCause(mistake.cause)}
-                  </p>
-                  {mistake.archivedAt ? <p className="mt-2 text-xs text-zinc-400">已归档 · 只读</p> : null}
-                  {mistake.cause === "unknown" || !mistake.correctIdea?.trim() ? <p className="mt-2 text-xs text-amber-200">待补全：选择明确错因并填写正确思路后，才能加入新的快速复习或确认复习。</p> : null}
-                </div>
-                {reviewSummary(mistake) ? (
-                  <span className="rounded-md border border-amber-300/25 px-2 py-1 text-xs text-amber-100">
-                    {reviewSummary(mistake)}
-                  </span>
-                ) : null}
-              </div>
-              <ListDetailLink href={`/knowledge/mistakes/${mistake.id}`} focusId={`mistake-${mistake.id}`} className="mt-3 inline-flex text-sm text-teal-300 hover:underline">
-                打开错题详情
-              </ListDetailLink>
+        <Toolbar className="mt-5" label="错题筛选">
+          <select aria-label="筛选错题科目" className="h-10 min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100" value={mistakeSubjectFilter} onChange={(event) => applyListFilters({ subject: event.target.value, node: "all" })}>
+            <option value="all">全部科目</option>
+            {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+          </select>
+          <select aria-label="筛选错题考纲节点" className="h-10 min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100" value={mistakeNodeFilter} onChange={(event) => applyListFilters({ node: event.target.value })}>
+            <option value="all">全部节点</option>
+            <option value="none">未关联节点</option>
+            {filterNodeOptions.map((node) => <option key={node.id} value={node.id}>{"  ".repeat(node.depth)}{node.title}</option>)}
+          </select>
+          <select aria-label="筛选错题错因" className="h-10 min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100" value={mistakeCauseFilter} onChange={(event) => applyListFilters({ cause: event.target.value as "all" | MistakeCauseDto })}>
+            <option value="all">全部错因</option>
+            <CauseOptions />
+          </select>
+          <select aria-label="筛选错题复习状态" className="h-10 min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100" value={mistakeReviewFilter} onChange={(event) => applyListFilters({ review: event.target.value as "all" | "due" | "scheduled" | "none" })}>
+            <option value="all">全部复习状态</option>
+            <option value="due">已到期</option>
+            <option value="scheduled">已设置</option>
+            <option value="none">未设置</option>
+          </select>
+          {initialQuery ? <Badge tone="info">搜索：{initialQuery}</Badge> : null}
+          {hasListFilters ? <Button type="button" size="sm" variant="ghost" onClick={() => applyListFilters({ subject: "all", node: "all", cause: "all", review: "all" })}>清除筛选</Button> : null}
+        </Toolbar>
 
-              {editingId === mistake.id ? (
-                <div className="mt-4 grid gap-3">
-                  <select
-                    className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
-                    value={editCause}
-                    onChange={(event) => setEditCause(event.target.value as MistakeCauseDto)}
-                  >
-                    <CauseOptions />
-                  </select>
-                  <textarea
-                    className="min-h-24 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
-                    value={editCorrectIdea}
-                    onChange={(event) => setEditCorrectIdea(event.target.value)}
-                  />
-                  {!mistake.reviewSchedule && isCompleteMistake(mistake) ? <input
-                    className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
-                    type="datetime-local"
-                    value={editNextReviewAt}
-                    onChange={(event) => setEditNextReviewAt(event.target.value)}
-                    aria-label="编辑下次复习时间"
-                  /> : <p className="text-xs text-zinc-400">{mistake.reviewSchedule ? "已使用统一复习排期；日期调整请在详情页完成。" : "先补全错因和正确思路；保存后再到详情页设置复习日期。"}</p>}
-                  <button
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
-                    type="button"
-                    disabled={saving || isPending || editCause === "unknown" || !editCorrectIdea.trim()}
-                    onClick={() => saveEdit(mistake.id)}
-                  >
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                    保存更新
-                  </button>
-                  {editRecoveryId === mistake.id ? (
-                    <ListDetailLink href={`/knowledge/mistakes/${mistake.id}`} focusId={`mistake-${mistake.id}`} className="text-sm text-amber-200 underline">
-                      转到详情页恢复草稿并检查状态
-                    </ListDetailLink>
-                  ) : null}
+        <div className="mt-5">
+          {mistakes.length === 0 ? (
+            <EmptyState title={initialQuery ? "没有匹配的错题" : "还没有错题"} description={initialQuery ? "尝试修改搜索词或清除筛选。" : "这里会成为考纲节点“薄弱”和“掌握证明”的证据来源。"} />
+          ) : null}
+          {mistakes.length > 0 && filteredMistakes.length === 0 ? <EmptyState title="当前筛选没有结果" description="调整筛选条件，或清除筛选查看全部错题。" action={<Button type="button" size="sm" onClick={() => applyListFilters({ subject: "all", node: "all", cause: "all", review: "all" })}>清除筛选</Button>} /> : null}
+          {filteredMistakes.length > 0 ? <div className="divide-y divide-white/10 border-y border-white/10">{filteredMistakes.map((mistake) => (
+            <article key={mistake.id} className="min-w-0 py-4">
+              <div className="flex min-w-0 items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs text-zinc-500">{mistake.subjectName}</p>
+                    <Badge tone={mistake.cause === "unknown" ? "warning" : "info"}>{labelCause(mistake.cause)}</Badge>
+                    {reviewSummary(mistake) ? <Badge tone="warning">复习 {reviewSummary(mistake)}</Badge> : null}
+                    {mistake.archivedAt ? <Badge>已归档</Badge> : null}
+                  </div>
+                  <h3 className="mt-2 break-words font-medium text-white">{mistake.title}</h3>
+                  <p className="mt-1 text-xs text-zinc-500">{mistake.syllabusNodeTitle ?? "未关联考纲"}</p>
                 </div>
-              ) : (
-                <>
-                  {mistake.source ? <p className="mt-3 text-sm text-zinc-400">来源：{mistake.source}</p> : null}
-                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">
-                    {mistake.correctIdea || "还没有写正确思路。"}
-                  </p>
-                  {!mistake.archivedAt ? <button
-                    className="mt-4 inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/25 px-3 text-sm text-teal-100 hover:bg-teal-400/10"
-                    type="button"
-                    onClick={() => startEdit(mistake)}
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                    更新复盘
-                  </button> : null}
-                </>
-              )}
+                <ListDetailLink
+                  href={`/knowledge/mistakes/${mistake.id}`}
+                  focusId={`mistake-${mistake.id}`}
+                  className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05]"
+                >
+                  打开详情
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </ListDetailLink>
+              </div>
+              <p className="mt-3 max-h-12 overflow-hidden whitespace-pre-wrap text-sm leading-6 text-zinc-300">
+                {mistake.correctIdea || "还没有写正确思路。"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
+                {mistake.source ? <span>来源：{mistake.source}</span> : null}
+                <span>更新：{new Date(mistake.updatedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</span>
+              </div>
+              {mistake.cause === "unknown" || !mistake.correctIdea?.trim() ? <p className="mt-3 text-xs text-amber-200">待补全错因和正确思路后才能进入快速复习。</p> : null}
             </article>
-          ))}
+          ))}</div> : null}
         </div>
       </section>
-    </div>
+    </>
   );
 }
 
@@ -488,14 +455,35 @@ function reviewSummary(mistake: MistakeDto): string | null {
     : null;
 }
 
-function isCompleteMistake(mistake: Pick<MistakeDto, "cause" | "correctIdea">): boolean {
-  return mistake.cause !== "unknown" && Boolean(mistake.correctIdea?.trim());
+function matchesMistakeReview(mistake: MistakeDto, filter: "all" | "due" | "scheduled" | "none"): boolean {
+  if (filter === "all") return true;
+  const dueAt = mistake.reviewSchedule?.dueDate ?? mistake.nextReviewAt;
+  if (filter === "none") return !dueAt;
+  if (!dueAt) return false;
+  if (filter === "scheduled") return true;
+  return new Date(dueAt).getTime() <= Date.now();
 }
 
-function toDatetimeLocalValue(value: string | null): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
-  return local.toISOString().slice(0, 16);
+function isMistakeCauseFilter(value: string | undefined): value is "all" | MistakeCauseDto {
+  return value === "all" || value === "unknown" || value === "concept_confusion" || value === "formula_unfamiliar" || value === "wrong_approach" || value === "careless" || value === "time_pressure" || value === "unfamiliar_pattern";
+}
+
+function isMistakeReviewFilter(value: string | undefined): value is "all" | "due" | "scheduled" | "none" {
+  return value === "all" || value === "due" || value === "scheduled" || value === "none";
+}
+
+function buildMistakeListHref(input: {
+  query?: string;
+  subject: string;
+  node: string;
+  cause: "all" | MistakeCauseDto;
+  review: "all" | "due" | "scheduled" | "none";
+}): string {
+  const params = new URLSearchParams();
+  if (input.query) params.set("q", input.query);
+  if (input.subject !== "all") params.set("subjectId", input.subject);
+  if (input.node !== "all") params.set("syllabusNodeId", input.node);
+  if (input.cause !== "all") params.set("cause", input.cause);
+  if (input.review !== "all") params.set("review", input.review);
+  return `/knowledge/mistakes${params.size ? `?${params}` : ""}`;
 }

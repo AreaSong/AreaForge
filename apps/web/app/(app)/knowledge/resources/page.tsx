@@ -15,7 +15,7 @@ export default async function KnowledgeResourcesPage({ searchParams }: { searchP
   if (!user) redirect("/login");
   const query = await searchParams;
   const [resources, options] = await Promise.all([
-    listStudyResources(user.id, { includeArchived: true, q: query.q }),
+    listStudyResources(user.id, { includeArchived: true, subjectId: query.subjectId, q: query.q }),
     getStudyResourceEditorOptions(user.id),
   ]);
 
@@ -27,6 +27,7 @@ export default async function KnowledgeResourcesPage({ searchParams }: { searchP
       options={options}
       initialSubjectId={query.subjectId}
       initialCreate={query.create === "1"}
+      initialQuery={query.q}
     />
   );
 }

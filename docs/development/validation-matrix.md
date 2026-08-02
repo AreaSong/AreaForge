@@ -273,7 +273,7 @@
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
 - Provider 测试：`AI_ENABLED=false` fallback；配置缺失 fallback；mock 成功；超时、429、401、5xx、invalid JSON 和 schema invalid fallback；敏感字段拦截时 provider 不被调用。
-- 安全扫描：客户端 bundle 搜不到 `AI_API_KEY`；日志不包含完整 prompt、完整模型响应、API Key、动机档案、完整复盘正文、完整情绪正文或附件内容。
+- 安全扫描：客户端 bundle 搜不到 `AI_API_KEY`、`AI_CREDENTIALS_ENCRYPTION_KEY`；日志不包含完整 prompt、完整模型响应、API Key、密文、动机档案、完整复盘正文、完整情绪正文或附件内容。Provider API 需覆盖当前账户隔离、密钥不回显、更新保留旧密钥、删除和 `AI_ENABLED=false` 测试阻断。
 - 标题隐私烟测：构造任务标题为 `task title may contain private content`，确认 mock provider 请求体不包含该原文；真实 provider 第一版只允许发送任务类型、科目、风险类别或脱敏占位标签。
 - 成本边界烟测：首页普通 SSR 不触发真实 provider；真实外呼只能来自明确允许的 AI API 或用户显式触发入口。
 

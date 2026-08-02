@@ -34,7 +34,10 @@ import { prisma, type Prisma } from "@areaforge/db";
 import { getAuthEnv } from "@/lib/auth/env";
 import { ApiError } from "@/lib/api/responses";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
-import { resolveAiProviderPrerequisites, resolveConfiguredAiProvider } from "./ai-service";
+import {
+  resolveAiProviderPrerequisitesForUser,
+  resolveConfiguredAiProviderForUser,
+} from "./ai-service";
 
 export interface AiDraftPreviewResponse {
   phase: "preview";
@@ -147,7 +150,7 @@ export async function previewAiDraft(
 
     const workspace = await resolveActiveWorkspace(actorId);
     await expireStaleAiDraftOperations(actorId, workspace.id);
-    const providerPrerequisites = resolveAiProviderPrerequisites({
+    const providerPrerequisites = await resolveAiProviderPrerequisitesForUser({
       allowExternalProvider: options.allowExternalProvider,
       provider: options.provider,
       userId: actorId,
@@ -311,7 +314,7 @@ export async function generateAiDraft(
 
     const kind = mapEndpointToKind(endpoint);
     const context = buildProviderContext(input);
-    const provider = resolveConfiguredAiProvider(kind, {
+    const provider = await resolveConfiguredAiProviderForUser(kind, {
       allowExternalProvider: options.allowExternalProvider,
       provider: options.provider,
       maxProviderRetries: 0,

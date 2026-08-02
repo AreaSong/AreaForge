@@ -1,13 +1,35 @@
 "use client";
 
-import { FileUp, Link2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { ConflictResolutionModal, type ConflictComparison } from "@/components/conflict-resolution-modal";
-import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
+import { useEffect, useState } from "react";
+import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { useRestoreListReturn } from "@/components/list-return-context";
+import { StudyResourceCreateDrawer } from "@/components/study-resource-create-drawer";
+import { StudyResourceList } from "@/components/study-resource-list";
+import {
+  isResourceFormDraft,
+  isUploadResolutionLatest,
+  loadPendingUploads,
+  mergePendingUploads,
+  restoreServerPendingUpload,
+  safeResourceWorkbench,
+  splitTags,
+  uploadResolutionComparisons,
+  type BatchStagingResponseItem,
+  type PendingUploadDraft,
+  type ResourceFormDraft,
+  type UploadItem,
+  type UploadResolutionConflict,
+  type UploadResolutionRequest,
+} from "@/components/study-resource-workbench-support";
+import { Button } from "@/components/ui/button";
+import { Alert, Badge } from "@/components/ui/feedback";
 import { Drawer } from "@/components/ui/overlays";
+import { PageFrame, PageHeader, Toolbar } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
+import { withReturnTo } from "@/lib/navigation/batch7";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -17,76 +39,6 @@ import {
 } from "@/lib/client/private-business-drafts";
 import type { StudyResourceDto, StudyResourceEditorOptionsDto, StagingUploadResult } from "@/lib/study/study-resource-service";
 
-type UploadItem = {
-  key: string;
-  file?: File;
-  originalName: string;
-  status: "ready" | "staging" | "duplicate" | "done" | "failed";
-  staging?: StagingUploadResult;
-  decision?: "reuse" | "copy" | "skip";
-  reuseResourceId?: string;
-  resultTitle?: string;
-  error?: string;
-  submittedSnapshot?: UploadResolutionRequest;
-};
-
-type UploadResolutionRequest = {
-  attachmentId: string;
-  decision: "reuse" | "copy" | "skip";
-  reuseResourceId?: string;
-  title: string;
-  subjectId: string | null;
-  category: string;
-  tags: string[];
-};
-
-type UploadResolutionLatest = {
-  attachmentId: string;
-  decision: "reuse" | "copy" | "skip";
-  resourceId: string | null;
-  resource: StudyResourceDto | null;
-  request: UploadResolutionRequest | null;
-};
-
-type UploadResolutionConflict = {
-  itemKey: string;
-  submitted: UploadResolutionRequest;
-  latest: UploadResolutionLatest;
-  conflictFields: string[];
-  workbench: string;
-};
-
-type BatchStagingResponseItem = {
-  index: number;
-  originalName: string;
-  staging: StagingUploadResult | null;
-  error: string | null;
-};
-
-type PendingUploadDraft = {
-  key: string;
-  fileName: string;
-  staging: StagingUploadResult;
-  decision: "reuse" | "copy" | "skip";
-  reuseResourceId?: string;
-  submittedSnapshot?: UploadResolutionRequest;
-};
-
-type ResourceFormDraft = {
-  mode: "files" | "link";
-  subjectId: string;
-  category: string;
-  tags: string;
-  linkTitle: string;
-  linkUrl: string;
-};
-
-const categories = [
-  ["TEXTBOOK", "教材/讲义"], ["COURSE", "课程资料"], ["EXERCISE", "习题/题集"],
-  ["PAST_PAPER", "真题/模拟"], ["SOLUTION", "题解/解析"], ["SUMMARY", "总结/速查"],
-  ["IMAGE", "截图/图片"], ["OTHER", "其他"],
-] as const;
-
 export function StudyResourceWorkbench(props: {
   userId: string;
   resources: StudyResourceDto[];
@@ -94,9 +46,9 @@ export function StudyResourceWorkbench(props: {
   options: StudyResourceEditorOptionsDto;
   initialSubjectId?: string;
   initialCreate?: boolean;
+  initialQuery?: string;
 }) {
   const router = useRouter();
-  const createModeRef = useRef<HTMLButtonElement>(null);
   const pendingUploadDraftKey = `areaforge.resource.draft.upload-pending.${props.userId}`;
   const formDraftKey = `areaforge.resource.draft.form.${props.userId}`;
   useRestoreListReturn();
@@ -114,15 +66,7 @@ export function StudyResourceWorkbench(props: {
   const [conflictOpen, setConflictOpen] = useState(false);
   const [recoveredPending, setRecoveredPending] = useState(() => loadPendingUploads(pendingUploadDraftKey).some((item) => item.status === "duplicate"));
   const [formDraftReady, setFormDraftReady] = useState(false);
-
-  useEffect(() => {
-    if (!props.initialCreate) return;
-    const timer = window.setTimeout(() => {
-      createModeRef.current?.scrollIntoView({ block: "center" });
-      createModeRef.current?.focus();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [props.initialCreate]);
+  const [createOpen, setCreateOpen] = useState(Boolean(props.initialCreate));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -134,6 +78,7 @@ export function StudyResourceWorkbench(props: {
         setTags(draft.tags);
         setLinkTitle(draft.linkTitle);
         setLinkUrl(draft.linkUrl);
+        setCreateOpen(true);
       }
       setFormDraftReady(true);
     }, 0);
@@ -291,7 +236,10 @@ export function StudyResourceWorkbench(props: {
     setUploads(results);
     setPending(false);
     if (results.some((item) => item.status === "done")) router.refresh();
-    if (results.some((item) => item.status === "duplicate")) setDuplicateDrawerOpen(true);
+    if (results.some((item) => item.status === "duplicate")) {
+      setCreateOpen(false);
+      setDuplicateDrawerOpen(true);
+    }
   }
 
   async function resolveItem(
@@ -449,6 +397,7 @@ export function StudyResourceWorkbench(props: {
     }
     setConflictOpen(false);
     setResolutionConflict(null);
+    setCreateOpen(false);
     setDuplicateDrawerOpen(true);
   }
 
@@ -460,7 +409,7 @@ export function StudyResourceWorkbench(props: {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: linkTitle, url: linkUrl, subjectId: subjectId || null, category, tags: splitTags(tags) }),
       });
-      const body = await response.json().catch(() => null) as { error?: string } | null;
+      const body = await response.json().catch(() => null) as { resource?: StudyResourceDto; error?: string } | null;
       if (response.status === 401) {
         redirectToLoginWithCurrentLocation();
         return;
@@ -469,9 +418,18 @@ export function StudyResourceWorkbench(props: {
         setError(body?.error ?? "外链资料创建失败，草稿已保留");
         return;
       }
+      if (!body?.resource?.id) {
+        setError("服务端未返回已创建资料，当前草稿已保留，请刷新后确认状态。");
+        return;
+      }
       setLinkTitle(""); setLinkUrl(""); setTags("");
       removePrivateBusinessDraft(formDraftKey);
-      router.refresh();
+      setCreateOpen(false);
+      const listQuery = new URLSearchParams();
+      if (props.initialSubjectId) listQuery.set("subjectId", props.initialSubjectId);
+      if (props.initialQuery) listQuery.set("q", props.initialQuery);
+      const listHref = `/knowledge/resources${listQuery.size ? `?${listQuery}` : ""}`;
+      router.push(withReturnTo(`/knowledge/resources/${body.resource.id}`, listHref));
     } catch {
       setError("网络不可用，外链资料草稿已保留；恢复网络后请显式重试。");
     } finally {
@@ -485,39 +443,90 @@ export function StudyResourceWorkbench(props: {
   const localConflictRequest = conflictItem?.staging && conflictItem.decision
     ? buildResolutionRequest(conflictItem)
     : resolutionConflict?.submitted;
+  const unresolvedUploads = uploads.filter((item) => item.status !== "done");
+
+  function updateSubjectFilter(value: string) {
+    const query = new URLSearchParams();
+    if (value) query.set("subjectId", value);
+    if (props.initialQuery) query.set("q", props.initialQuery);
+    updateKnowledgeContext({ subjectId: value || null, syllabusNodeId: null });
+    router.push(`/knowledge/resources${query.size ? `?${query.toString()}` : ""}`);
+  }
+
+  function clearSubjectFilter() {
+    updateKnowledgeContext({ subjectId: null, syllabusNodeId: null });
+    const query = new URLSearchParams();
+    if (props.initialQuery) query.set("q", props.initialQuery);
+    router.push(`/knowledge/resources${query.size ? `?${query}` : ""}`);
+  }
+
+  function continuePendingUpload() {
+    if (uploads.some((item) => item.status === "duplicate")) {
+      setCreateOpen(false);
+      setDuplicateDrawerOpen(true);
+      return;
+    }
+    setCreateOpen(true);
+  }
 
   return (
-    <div className="space-y-7">
-      <header><h1 className="text-2xl font-semibold text-white">资料</h1></header>
-      <section className="space-y-4 border-b border-white/10 pb-7">
-        <div className="inline-flex rounded-md border border-white/10 p-1" role="group" aria-label="资料创建方式">
-          <button ref={createModeRef} type="button" aria-pressed={mode === "files"} onClick={() => setMode("files")} className={`h-8 rounded px-3 text-sm ${mode === "files" ? "bg-white/10 text-white" : "text-zinc-400"}`}>文件批次</button>
-          <button type="button" aria-pressed={mode === "link"} onClick={() => setMode("link")} className={`h-8 rounded px-3 text-sm ${mode === "link" ? "bg-white/10 text-white" : "text-zinc-400"}`}>HTTPS 外链</button>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <select aria-label="资料科目" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm" value={subjectId} onChange={(event) => { setSubjectId(event.target.value); updateKnowledgeContext({ subjectId: event.target.value || null, syllabusNodeId: null }); }}><option value="">暂不选择科目</option>{props.options.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select>
-          <select aria-label="资料类型" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-          <input aria-label="资料标签" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="标签，逗号分隔" />
-        </div>
-        {mode === "files" ? (
-          <div className="space-y-3">
-            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-white/10 px-3 text-sm"><FileUp size={16} aria-hidden />选择 1-5 个文件<input className="sr-only" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.zip,.md,application/pdf,image/png,image/jpeg,image/webp,application/zip,text/markdown" onChange={(event) => selectFiles(event.target.files)} /></label>
-            {uploads.length ? <ul className="space-y-2">{uploads.map((item) => <UploadResult key={item.key} item={item} />)}</ul> : null}
-            {uploads.some((item) => item.status === "ready") ? <button type="button" disabled={pending} onClick={() => void uploadBatch()} className="h-11 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-50">上传并逐项检查</button> : null}
-            {uploads.some((item) => item.status === "duplicate") ? <button type="button" disabled={pending} onClick={() => setDuplicateDrawerOpen(true)} className="h-10 rounded-md border border-amber-400/40 px-3 text-sm text-amber-200 disabled:opacity-50">处理重复项</button> : null}
-          </div>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
-            <input aria-label="外链资料标题" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm" value={linkTitle} onChange={(event) => setLinkTitle(event.target.value)} placeholder="资料标题" />
-            <input aria-label="HTTPS 地址" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm" value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} placeholder="https://" />
-            <button type="button" disabled={pending || !linkTitle.trim() || !linkUrl.trim()} onClick={() => void createLink()} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-50"><Link2 size={16} aria-hidden />创建</button>
-          </div>
-        )}
-        {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : null}
-        {recoveredPending ? <p role="status" className="text-sm text-amber-200">已恢复上次未完成的重复处理，请在本页确认复用、副本或跳过；不会自动重新上传文件。</p> : null}
-      </section>
-      <ResourceList title="当前资料" resources={props.resources} />
-      {props.archivedResources.length ? <details className="border-t border-white/10 pt-5"><summary className="cursor-pointer text-sm text-zinc-300">已归档资料（{props.archivedResources.length}）</summary><ResourceList title="已归档" resources={props.archivedResources} /></details> : null}
+    <PageFrame variant="dashboard-wide" className="space-y-5">
+      <PageHeader
+        title="资料"
+        eyebrow="知识工作台"
+        description={`${props.resources.length} 份当前资料${props.archivedResources.length ? ` · ${props.archivedResources.length} 份已归档` : ""}`}
+        action={<Button type="button" variant="primary" onClick={() => setCreateOpen(true)}><Plus size={16} aria-hidden />添加资料</Button>}
+      />
+      {unresolvedUploads.length ? (
+        <Alert
+          tone="warning"
+          title={recoveredPending ? "已恢复未完成的资料处理" : "有未完成的资料处理"}
+          action={<Button type="button" size="sm" onClick={continuePendingUpload}>继续处理</Button>}
+        >
+          {uploads.some((item) => item.status === "duplicate") ? "需要确认复用、保留副本或跳过。" : `${unresolvedUploads.length} 个文件仍待完成。`}
+        </Alert>
+      ) : null}
+      <Toolbar label="资料筛选">
+        <label className="flex min-w-0 items-center gap-2 text-sm text-zinc-400">
+          <span className="shrink-0">科目</span>
+          <select aria-label="筛选资料科目" className="h-10 min-w-0 rounded-md border border-white/10 bg-[#151a20] px-3 text-sm text-zinc-200" value={props.initialSubjectId ?? ""} onChange={(event) => updateSubjectFilter(event.target.value)}>
+            <option value="">全部科目</option>
+            {props.options.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+          </select>
+        </label>
+        {props.initialQuery ? <Badge tone="info">搜索：{props.initialQuery}</Badge> : null}
+        {props.initialSubjectId ? <Button type="button" size="sm" variant="ghost" onClick={clearSubjectFilter}>清除筛选</Button> : null}
+      </Toolbar>
+      <StudyResourceList
+        title="当前资料"
+        resources={props.resources}
+        subjects={props.options.subjects}
+      />
+      {props.archivedResources.length ? <details className="border-t border-white/10 pt-5"><summary className="cursor-pointer text-sm text-zinc-300">已归档资料（{props.archivedResources.length}）</summary><div className="mt-4"><StudyResourceList title="已归档" resources={props.archivedResources} subjects={props.options.subjects} /></div></details> : null}
+      <StudyResourceCreateDrawer
+        open={createOpen}
+        mode={mode}
+        subjects={props.options.subjects}
+        subjectId={subjectId}
+        category={category}
+        tags={tags}
+        linkTitle={linkTitle}
+        linkUrl={linkUrl}
+        uploads={uploads}
+        pending={pending}
+        error={error}
+        onClose={() => setCreateOpen(false)}
+        onModeChange={setMode}
+        onSubjectChange={(value) => { setSubjectId(value); updateKnowledgeContext({ subjectId: value || null, syllabusNodeId: null }); }}
+        onCategoryChange={setCategory}
+        onTagsChange={setTags}
+        onLinkTitleChange={setLinkTitle}
+        onLinkUrlChange={setLinkUrl}
+        onSelectFiles={selectFiles}
+        onUpload={() => void uploadBatch()}
+        onOpenDuplicates={() => { setCreateOpen(false); setDuplicateDrawerOpen(true); }}
+        onCreateLink={() => void createLink()}
+      />
       <Drawer open={duplicateDrawerOpen} title="处理重复资料" onClose={() => setDuplicateDrawerOpen(false)}>
         <div className="space-y-4">
           <p className="text-sm text-zinc-400">同一批次的重复项在这里一次处理；跳过会清理本次上传的临时文件。</p>
@@ -565,134 +574,6 @@ export function StudyResourceWorkbench(props: {
         adoptLabel="接受服务端已完成终态"
         mergeLabel="以服务端终态为基线再检查"
       />
-    </div>
+    </PageFrame>
   );
-}
-
-function UploadResult(props: { item: UploadItem }) {
-  const { item } = props;
-  return <li className="rounded-md border border-white/10 p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><span className="truncate text-zinc-200">{item.originalName}</span><span className={item.status === "failed" ? "text-rose-300" : item.status === "done" ? "text-emerald-300" : item.status === "duplicate" ? "text-amber-200" : "text-zinc-500"}>{statusLabel(item)}</span></div>{item.status === "duplicate" ? <p className="mt-2 text-xs text-amber-200">待在右侧面板决定复用、副本或跳过</p> : null}{item.error ? <p className="mt-2 text-xs text-rose-300">{item.error}</p> : null}</li>;
-}
-
-function ResourceList({ title, resources }: { title: string; resources: StudyResourceDto[] }) {
-  return <section className="space-y-3"><h2 className="text-lg font-medium text-white">{title}</h2><ul className="divide-y divide-white/10 rounded-md border border-white/10">{resources.length ? resources.map((resource) => <li key={resource.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"><div><p className="text-zinc-100">{resource.title}</p><p className="text-xs text-zinc-500">{resource.sourceType} · {resource.organizeStatus}{resource.displayHost ? ` · ${resource.displayHost}` : ""}</p></div><ListDetailLink className="text-teal-300 hover:underline" href={`/knowledge/resources/${resource.id}`} focusId={`resource-${resource.id}`}>打开</ListDetailLink></li>) : <li className="px-4 py-8 text-sm text-zinc-500">暂无资料。</li>}</ul></section>;
-}
-
-function statusLabel(item: UploadItem) { if (item.status === "ready") return "待上传"; if (item.status === "staging") return "检查中"; if (item.status === "duplicate") return "待重复决策"; if (item.status === "failed") return "失败"; return item.resultTitle ?? "完成"; }
-function splitTags(value: string) { return value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean).slice(0, 20); }
-
-function loadPendingUploads(key: string): UploadItem[] {
-  if (typeof window === "undefined") return [];
-  const raw = loadPrivateBusinessDraft(key, LONG_PRIVATE_DRAFT_TTL_MS, isPendingUploadDraftArray);
-  if (!raw) return [];
-  return raw.slice(0, 5).flatMap((value): UploadItem[] => {
-      if (!isPendingUploadDraft(value)) return [];
-      return [{
-        key: value.key,
-        file: createRecoveryFile(value.fileName),
-        originalName: value.fileName,
-        status: "duplicate",
-        staging: value.staging,
-        decision: value.decision,
-        reuseResourceId: value.reuseResourceId,
-        submittedSnapshot: value.submittedSnapshot,
-      }];
-    });
-}
-
-function restoreServerPendingUpload(staging: StagingUploadResult): UploadItem {
-  const originalName = staging.attachment.originalName || "attachment";
-  return {
-    key: `attachment-${staging.attachment.id}`,
-    file: createRecoveryFile(originalName),
-    originalName,
-    status: "duplicate",
-    staging,
-    decision: staging.duplicates.length ? "reuse" : "copy",
-    reuseResourceId: staging.duplicates[0]?.resourceId,
-  };
-}
-
-function mergePendingUploads(current: UploadItem[], restored: UploadItem[]): UploadItem[] {
-  const merged = [...current];
-  for (const item of restored) {
-    const attachmentId = item.staging?.attachment.id;
-    if (!attachmentId || merged.some((row) => row.staging?.attachment.id === attachmentId)) continue;
-    merged.push(item);
-  }
-  return merged.slice(0, 5);
-}
-
-function createRecoveryFile(name: string): File {
-  if (typeof File !== "undefined") return new File([], name);
-  return { name } as File;
-}
-
-function isPendingUploadDraft(value: unknown): value is PendingUploadDraft {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<PendingUploadDraft>;
-  const staging = candidate.staging;
-  return typeof candidate.key === "string" && typeof candidate.fileName === "string" &&
-    (candidate.decision === "reuse" || candidate.decision === "copy" || candidate.decision === "skip") &&
-    (candidate.submittedSnapshot === undefined || isUploadResolutionRequest(candidate.submittedSnapshot)) &&
-    Boolean(staging && typeof staging === "object" && staging.attachment && typeof staging.attachment.id === "string" && Array.isArray(staging.duplicates));
-}
-
-function isPendingUploadDraftArray(value: unknown): value is PendingUploadDraft[] {
-  return Array.isArray(value) && value.every(isPendingUploadDraft);
-}
-
-function isResourceFormDraft(value: unknown): value is ResourceFormDraft {
-  if (!value || typeof value !== "object") return false;
-  const draft = value as Partial<ResourceFormDraft>;
-  return (draft.mode === "files" || draft.mode === "link")
-    && [draft.subjectId, draft.category, draft.tags, draft.linkTitle, draft.linkUrl]
-      .every((field) => typeof field === "string");
-}
-
-function isUploadResolutionRequest(value: unknown): value is UploadResolutionRequest {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<UploadResolutionRequest>;
-  return typeof candidate.attachmentId === "string" &&
-    (candidate.decision === "reuse" || candidate.decision === "copy" || candidate.decision === "skip") &&
-    (candidate.reuseResourceId === undefined || typeof candidate.reuseResourceId === "string") &&
-    typeof candidate.title === "string" &&
-    (candidate.subjectId === null || typeof candidate.subjectId === "string") &&
-    typeof candidate.category === "string" &&
-    Array.isArray(candidate.tags) && candidate.tags.every((tag) => typeof tag === "string");
-}
-
-function isUploadResolutionLatest(value: unknown): value is UploadResolutionLatest {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<UploadResolutionLatest>;
-  return typeof candidate.attachmentId === "string" &&
-    (candidate.decision === "reuse" || candidate.decision === "copy" || candidate.decision === "skip") &&
-    (candidate.resourceId === null || typeof candidate.resourceId === "string") &&
-    (candidate.resource === null || isStudyResourceDto(candidate.resource)) &&
-    (candidate.request === null || isUploadResolutionRequest(candidate.request));
-}
-
-function isStudyResourceDto(value: unknown): value is StudyResourceDto {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<StudyResourceDto>;
-  return typeof candidate.id === "string" && typeof candidate.revision === "number" && typeof candidate.title === "string";
-}
-
-function safeResourceWorkbench(value: unknown): string {
-  return value === "/knowledge/resources" ? value : "/knowledge/resources";
-}
-
-function uploadResolutionComparisons(
-  conflict: UploadResolutionConflict,
-  local: UploadResolutionRequest,
-): ConflictComparison[] {
-  const server = conflict.latest.request;
-  return [
-    { field: "decision", label: "处理决策", baseline: conflict.submitted.decision, local: local.decision, server: server?.decision ?? conflict.latest.decision },
-    { field: "reuseResourceId", label: "复用目标", baseline: conflict.submitted.reuseResourceId, local: local.reuseResourceId, server: server?.reuseResourceId ?? conflict.latest.resourceId },
-    { field: "title", label: "资料标题", baseline: conflict.submitted.title, local: local.title, server: server?.title },
-    { field: "subjectId", label: "科目", baseline: conflict.submitted.subjectId, local: local.subjectId, server: server?.subjectId },
-    { field: "category", label: "资料类型", baseline: conflict.submitted.category, local: local.category, server: server?.category },
-    { field: "tags", label: "标签", baseline: conflict.submitted.tags, local: local.tags, server: server?.tags },
-  ];
 }

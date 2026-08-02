@@ -33,7 +33,7 @@ export default async function QuickReviewPage({
     schedule = await getReviewSchedule(user.id, scheduleId);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      redirect("/knowledge/reviews");
+      redirect(returnTo);
     }
     throw error;
   }
@@ -43,7 +43,7 @@ export default async function QuickReviewPage({
     target = await getReviewTarget(user.id, schedule.id);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      redirect("/knowledge/reviews");
+      redirect(returnTo);
     }
     throw error;
   }

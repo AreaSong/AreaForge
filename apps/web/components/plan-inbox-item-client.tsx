@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ConflictResolutionModal, type ConflictComparison } from "@/components/conflict-resolution-modal";
 import { DetailHeading } from "@/components/detail-heading";
+import { PlanInboxOriginSummary, planInboxOriginLabel } from "@/components/plan-inbox-origin";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -12,6 +13,7 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
+import { withReturnTo } from "@/lib/navigation/batch7";
 import type { PlanInboxFormOptions, PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
 
 type DependencyType = "SOFT" | "HARD";
@@ -52,11 +54,15 @@ interface PlanInboxStoredDraft {
 }
 
 function dateInput(value: string | null) {
-  return value ? value.slice(0, 10) : "";
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-export function PlanInboxItemClient({ userId, item: initialItem, options }: { userId: string; item: PlanInboxItemDto; options: PlanInboxFormOptions }) {
+export function PlanInboxItemClient({ userId, item: initialItem, options, returnTo: initialReturnTo }: { userId: string; item: PlanInboxItemDto; options: PlanInboxFormOptions; returnTo?: string }) {
   const router = useRouter();
+  const returnTo = initialReturnTo ?? "/today/inbox";
   const formDraftKey = `areaforge.plan-inbox.draft.${userId}.${initialItem.id}`;
   const savedBaseline = useRef(toPlanInboxFormDraft(initialItem));
   const [item, setItem] = useState(initialItem);
@@ -207,7 +213,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
       }
       if (response.status === 404) {
         setError("这条 Inbox 草稿已不可用，本地输入仍保留；正在返回计划收件箱。");
-        router.replace(planInboxWorkbench(body));
+        router.replace(returnTo);
         return null;
       }
       if (!response.ok || !body?.item || !isPlanInboxItemDto(body.item)) {
@@ -299,7 +305,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
       if (response.status === 404) {
         clearPendingConvert(command);
         setError("这条 Inbox 草稿已不可用；正在返回计划收件箱。");
-        router.replace(planInboxWorkbench(body));
+        router.replace(returnTo);
         return;
       }
       if (!response.ok || !body?.item || !isPlanInboxItemDto(body.item)) {
@@ -324,7 +330,9 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
       setPendingConvert(null);
       setFirstSubmissionSnapshot(null);
       removePrivateBusinessDraft(formDraftKey);
-      router.replace("/today/inbox?status=CONVERTED");
+      router.replace(body.item.convertedTaskId
+        ? withReturnTo(`/today/tasks/${body.item.convertedTaskId}`, returnTo)
+        : withInboxStatus(returnTo, "CONVERTED"));
     } catch {
       setError("转换请求的结果未知。命令身份已持久保留；恢复网络后请显式确认结果，系统不会自动重放。");
     }
@@ -348,7 +356,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
         return;
       }
       if (response.status === 404) {
-        router.replace(planInboxWorkbench(body));
+        router.replace(returnTo);
         return;
       }
       if (!response.ok || !body?.item || !isPlanInboxItemDto(body.item)) {
@@ -430,7 +438,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
     setConflict(null);
     setConflictOpen(false);
     setError(`已明确采用服务端 r${latest.revision}，没有自动提交任何写入。`);
-    if (latest.id !== initialItem.id) router.replace(`/today/inbox/${latest.id}`);
+    if (latest.id !== initialItem.id) router.replace(withReturnTo(`/today/inbox/${latest.id}`, returnTo));
   }
 
   function adoptLatestRevisionForManualMerge(latest: PlanInboxItemDto): void {
@@ -441,7 +449,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
       persistStoredDraft(localDraft, latest.revision, true, null, null, successorKey);
       setDraftReady(false);
       removePrivateBusinessDraft(formDraftKey);
-      router.replace(`/today/inbox/${latest.id}`);
+      router.replace(withReturnTo(`/today/inbox/${latest.id}`, returnTo));
     }
     setItem(latest);
     setBaseRevision(latest.revision);
@@ -486,9 +494,17 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
 
   return (
     <section className="space-y-5">
-      <Link href="/today/inbox" className="text-sm text-zinc-400 hover:text-zinc-200">返回收件箱</Link>
-      <header><p className="text-sm text-teal-300">{item.originType} · {item.originKey}@{item.originVersion}</p><DetailHeading className="mt-1 text-3xl font-semibold text-white">计划草稿</DetailHeading><p className="mt-2 text-sm text-zinc-500">状态 {item.status} · rev {item.revision}{dirty ? " · 有未保存修改" : ""}</p></header>
-      {item.supersededByItemId ? <p className="rounded-md border border-amber-300/20 bg-amber-400/5 p-3 text-sm text-amber-200">已被新版本取代。<Link href={`/today/inbox/${item.supersededByItemId}`} className="ml-2 text-teal-300 hover:underline">查看最新</Link></p> : null}
+      <Link href={returnTo} className="text-sm text-zinc-400 hover:text-zinc-200">返回收件箱</Link>
+      <header>
+        <p className="text-sm text-teal-300">{planInboxOriginLabel(item.originType)}</p>
+        <DetailHeading className="mt-1 text-3xl font-semibold text-white">
+          {item.originType === "DAILY_REVIEW_MINIMUM" ? "补全明日任务" : "计划草稿"}
+        </DetailHeading>
+        <p className="mt-2 text-sm text-zinc-500">
+          {planInboxStatusLabel(item.status)} · 版本 {item.revision}{dirty ? " · 有未保存修改" : ""}
+        </p>
+      </header>
+      {item.supersededByItemId ? <p className="rounded-md border border-amber-300/20 bg-amber-400/5 p-3 text-sm text-amber-200">已被新版本取代。<Link href={withReturnTo(`/today/inbox/${item.supersededByItemId}`, detailHref(item.id, returnTo))} className="ml-2 text-teal-300 hover:underline">查看最新</Link></p> : null}
       {pendingConvert ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300/20 bg-amber-400/5 p-3 text-sm text-amber-100">
           <span>上次转换结果未知；草稿、revision 与命令身份均已保留，不会自动重放。</span>
@@ -496,13 +512,22 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
         </div>
       ) : null}
 
-      <details className="rounded-md border border-white/10 bg-[#101419] p-4"><summary className="cursor-pointer text-sm font-medium text-white">来源快照</summary><pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap text-xs text-zinc-400">{JSON.stringify(item.originSnapshot, null, 2)}</pre></details>
+      <PlanInboxOriginSummary item={item} returnTo={detailHref(item.id, returnTo)} />
+      <details className="border-y border-white/10 py-3"><summary className="cursor-pointer text-sm text-zinc-400">高级来源信息</summary><pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap text-xs text-zinc-500">{JSON.stringify(item.originSnapshot, null, 2)}</pre></details>
 
       <div className="space-y-4 rounded-md border border-white/10 bg-[#101419] p-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm sm:col-span-2">标题<input disabled={readOnly} className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 disabled:opacity-60" value={title} onChange={(event) => setTitle(event.target.value)} /></label>
           <label className="block text-sm">科目<select disabled={readOnly} className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={subjectId} onChange={(event) => { setSubjectId(event.target.value); setPrimaryNodeId(""); setRelatedNodeIds([]); }}><option value="">请选择</option>{options.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
-          <label className="block text-sm">计划日期<input disabled={readOnly} type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={plannedDate} onChange={(event) => setPlannedDate(event.target.value)} /></label>
+          <div className="text-sm">
+            <label className="block">计划日期<input disabled={readOnly} type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={plannedDate} onChange={(event) => setPlannedDate(event.target.value)} /></label>
+            {!readOnly ? (
+              <div className="mt-2 flex gap-2" aria-label="快捷安排日期">
+                <button type="button" className="text-xs text-teal-300 hover:text-teal-200" onClick={() => setPlannedDate(shanghaiDateOffset(0))}>今天</button>
+                <button type="button" className="text-xs text-teal-300 hover:text-teal-200" onClick={() => setPlannedDate(shanghaiDateOffset(1))}>明天</button>
+              </div>
+            ) : null}
+          </div>
           <label className="block text-sm">预计时长（分钟）<input disabled={readOnly} type="number" min="1" max="1440" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={estimatedMinutes} onChange={(event) => setEstimatedMinutes(event.target.value)} /></label>
           <label className="block text-sm">优先级<select disabled={readOnly} className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={priority} onChange={(event) => setPriority(event.target.value)}><option value="LOW">低</option><option value="MEDIUM">中</option><option value="HIGH">高</option><option value="CRITICAL">关键</option></select></label>
           <label className="block text-sm">类型<input disabled={readOnly} className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={type} onChange={(event) => setType(event.target.value)} /></label>
@@ -511,7 +536,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
         </div>
         <fieldset className="min-w-0" disabled={readOnly}><legend className="text-sm font-medium text-white">相关考纲节点</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{nodes.filter((node) => node.id !== primaryNodeId).map((node) => <label key={node.id} className="flex min-w-0 items-center gap-2 text-sm text-zinc-300"><input type="checkbox" checked={relatedNodeIds.includes(node.id)} onChange={() => toggleRelated(node.id)} /><span className="min-w-0 flex-1 truncate">{node.title}</span></label>)}{nodes.length === 0 ? <p className="text-sm text-zinc-500">选择科目后显示节点。</p> : null}</div></fieldset>
         <fieldset className="min-w-0" disabled={readOnly}><legend className="text-sm font-medium text-white">现有任务前置依赖</legend><div className="mt-2 space-y-2">{tasks.map((task) => { const entry = predecessors.find((value) => value.taskId === task.id); return <div key={task.id} className="flex min-w-0 flex-wrap items-center gap-2 text-sm"><label className="flex min-w-0 flex-1 items-center gap-2"><input type="checkbox" checked={Boolean(entry)} onChange={() => togglePredecessor(task.id)} /><span className="min-w-0 flex-1 truncate">{task.subjectName} · {task.title}</span></label>{entry ? <select aria-label={`${task.title} 依赖类型`} className="h-9 rounded-md border border-white/10 bg-[#151a20] px-2" value={entry.dependencyType} onChange={(event) => setPredecessors((current) => current.map((value) => value.taskId === task.id ? { ...value, dependencyType: event.target.value as DependencyType } : value))}><option value="SOFT">软依赖</option><option value="HARD">硬依赖（阻止开始）</option></select> : null}</div>; })}{tasks.length === 0 ? <p className="text-sm text-zinc-500">当前工作区没有可用前置任务。</p> : null}</div></fieldset>
-        {item.dependencyRefs.filter((ref) => ref.targetType === "INBOX_STABLE_REF").map((ref) => <p key={ref.id} className="text-sm text-amber-200">前置计划 <Link className="text-teal-300 hover:underline" href={`/today/inbox?stableRef=${encodeURIComponent(`${ref.planStableKey ?? ""}@${ref.planOriginVersion ?? ""}`)}`}>{ref.planStableKey}@{ref.planOriginVersion ?? "?"}</Link> 必须先转换（{ref.dependencyType}）。</p>)}
+        {item.dependencyRefs.filter((ref) => ref.targetType === "INBOX_STABLE_REF").map((ref) => <p key={ref.id} className="text-sm text-amber-200">前置计划 <Link className="text-teal-300 hover:underline" href={withReturnTo(`/today/inbox?stableRef=${encodeURIComponent(`${ref.planStableKey ?? ""}@${ref.planOriginVersion ?? ""}`)}`, detailHref(item.id, returnTo))}>{ref.planStableKey}@{ref.planOriginVersion ?? "?"}</Link> 必须先转换（{ref.dependencyType}）。</p>)}
       </div>
 
       <section className="rounded-md border border-white/10 bg-[#101419] p-4"><h2 className="font-medium text-white">转换预览</h2><p className="mt-2 text-sm text-zinc-400">将创建 1 个正式任务、{relatedNodeIds.length} 个相关节点关系、{predecessors.length + item.dependencyRefs.filter((ref) => ref.targetType === "INBOX_STABLE_REF").length} 条前置依赖。</p>{localMissing.length ? <p className="mt-2 text-sm text-amber-200">尚缺：{localMissing.join("、")}</p> : <p className="mt-2 text-sm text-emerald-300">必填字段完整。</p>}</section>
@@ -519,10 +544,10 @@ export function PlanInboxItemClient({ userId, item: initialItem, options }: { us
       <div className="flex flex-wrap gap-2">
         {item.status === "OPEN" && !readOnly ? <><button type="button" disabled={busy || !dirty} className="h-11 rounded-md border border-white/10 px-4 text-sm disabled:opacity-50" onClick={() => void save()}>{busy ? "处理中..." : "保存草稿"}</button><button type="button" disabled={busy || localMissing.length > 0} className="h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black disabled:cursor-not-allowed disabled:opacity-40" onClick={() => void convert()}>{busy ? "保存并转换中..." : "转换为任务"}</button><button type="button" disabled={busy} className="h-11 rounded-md border border-white/10 px-4 text-sm text-zinc-300 disabled:opacity-50" onClick={() => void transition("dismiss")}>忽略</button></> : null}
         {item.status === "DISMISSED" && !item.supersededByItemId ? <button type="button" disabled={busy || Boolean(pendingConvert)} className="h-11 rounded-md border border-white/10 px-4 text-sm text-teal-300 disabled:opacity-50" onClick={() => void transition("reopen")}>恢复 / Undo</button> : null}
-        {item.convertedTaskId ? <Link href={`/today/tasks/${item.convertedTaskId}`} className="h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium leading-[44px] text-black">打开任务</Link> : null}
+        {item.convertedTaskId ? <Link href={withReturnTo(`/today/tasks/${item.convertedTaskId}`, returnTo)} className="h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium leading-[44px] text-black">打开任务</Link> : null}
       </div>
       {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
-      {item.requiredMilestoneKey && !item.planMilestoneId ? <div className="flex flex-wrap items-center gap-2 text-sm text-amber-200"><span>此草稿引用 canonical 里程碑 {item.requiredMilestoneKey}。</span><button type="button" className="text-teal-300 hover:underline disabled:opacity-50" disabled={busy || Boolean(pendingConvert) || !options.stagePlans.length} onClick={() => void createRequiredMilestone()}>创建并选中</button>{!options.stagePlans.length ? <Link className="text-teal-300 hover:underline" href="/stage/overview">先创建阶段计划</Link> : null}</div> : null}
+      {item.requiredMilestoneKey && !item.planMilestoneId ? <div className="flex flex-wrap items-center gap-2 text-sm text-amber-200"><span>此草稿引用 canonical 里程碑 {item.requiredMilestoneKey}。</span><button type="button" className="text-teal-300 hover:underline disabled:opacity-50" disabled={busy || Boolean(pendingConvert) || !options.stagePlans.length} onClick={() => void createRequiredMilestone()}>创建并选中</button>{!options.stagePlans.length ? <Link className="text-teal-300 hover:underline" href={withReturnTo("/stage/overview", detailHref(item.id, returnTo))}>先创建阶段计划</Link> : null}</div> : null}
       {conflict ? <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>存在尚未处理的版本冲突</button> : null}
       <ConflictResolutionModal
         open={conflictOpen && Boolean(conflict)}
@@ -554,6 +579,24 @@ function toPlanInboxFormDraft(item: PlanInboxItemDto): PlanInboxFormDraft {
       .filter((ref) => ref.targetType === "TASK" && ref.taskId)
       .map((ref) => ({ taskId: ref.taskId as string, dependencyType: ref.dependencyType })),
   };
+}
+
+function planInboxStatusLabel(status: PlanInboxItemDto["status"]): string {
+  if (status === "OPEN") return "待补全";
+  if (status === "CONVERTED") return "已转为任务";
+  return "已忽略";
+}
+
+function shanghaiDateOffset(days: number): string {
+  const date = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
 }
 
 function buildPlanInboxConflictComparisons(
@@ -697,6 +740,17 @@ function isPlanInboxItemDto(value: unknown): value is PlanInboxItemDto {
     && Array.isArray(item.dependencyRefs);
 }
 
-function planInboxWorkbench(body: PlanInboxApiBody | null): string {
-  return body?.workbench === "/today/inbox" ? body.workbench : "/today/inbox";
+function detailHref(itemId: string, returnTo: string): string {
+  return withReturnTo(`/today/inbox/${itemId}`, returnTo);
+}
+
+function withInboxStatus(returnTo: string, status: "OPEN" | "DISMISSED" | "CONVERTED"): string {
+  try {
+    const url = new URL(returnTo, "https://areaforge.invalid");
+    if (url.pathname !== "/today/inbox") return `/today/inbox?status=${status}`;
+    url.searchParams.set("status", status);
+    return `${url.pathname}?${url.searchParams.toString()}`;
+  } catch {
+    return `/today/inbox?status=${status}`;
+  }
 }

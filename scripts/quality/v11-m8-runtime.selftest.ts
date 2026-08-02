@@ -170,6 +170,11 @@ try {
   const originalSensitiveContext = process.env.AI_ALLOW_SENSITIVE_CONTEXT;
   const originalAuthSessionSecret = process.env.AUTH_SESSION_SECRET;
   process.env.AI_ENABLED = "true";
+  await prisma.aiRuntimeSetting.upsert({
+    where: { id: "global" },
+    update: { enabled: true },
+    create: { id: "global", enabled: true },
+  });
   process.env.AI_ALLOW_SENSITIVE_CONTEXT = "false";
   process.env.AUTH_SESSION_SECRET = "v11-m8-isolated-auth-session-secret-20260729";
   let aiStageDraft: Awaited<ReturnType<typeof createAiStageAdjustmentDraft>>;

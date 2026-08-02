@@ -10,7 +10,7 @@ import { filterSyllabusTreeByQuery, getSyllabusMapOverviewShared } from "@/lib/s
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/knowledge/syllabus");
 
-export default async function KnowledgeSyllabusPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; q?: string }> }) {
+export default async function KnowledgeSyllabusPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; q?: string; status?: string; map?: string; action?: string; create?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const query = await searchParams;
@@ -25,17 +25,23 @@ export default async function KnowledgeSyllabusPage({ searchParams }: { searchPa
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold text-white">考纲</h1>
-      <LongTermRiskPanel
-        summary={longTermRisks}
-        title="考纲遗忘风险"
-        description="考纲节点与画布共用同一掌握与风险信号。"
-      />
       <SyllabusManager
         subjects={subjects}
         nodes={nodes}
         summary={overview.summary}
         summaryBySubject={overview.summaryBySubject}
         initialSubjectId={query.subjectId ?? nodes[0]?.subjectId}
+        initialQuery={query.q}
+        initialStatusFilter={query.status}
+        initialMapStatusFilter={query.map}
+        initialActionFilter={query.action}
+        initialCreate={query.create === "1"}
+      />
+      <LongTermRiskPanel
+        summary={longTermRisks}
+        title="考纲遗忘风险"
+        description="考纲节点与画布共用同一掌握与风险信号。"
+        compact
       />
     </div>
   );

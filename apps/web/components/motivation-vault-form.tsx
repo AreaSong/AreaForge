@@ -1,9 +1,12 @@
 "use client";
 
-import { Archive, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/feedback";
+import { SectionHeader } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
@@ -157,14 +160,13 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
 
   return (
     <>
-    <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-      <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
-        <div className="flex items-center gap-2">
-          <Archive className="h-5 w-5 text-teal-300" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-white">动机封存</h2>
-        </div>
-
-        <form className="mt-5 grid gap-3" onSubmit={submit}>
+    <section className="space-y-5">
+      <SectionHeader
+        title="动机封存"
+        description="这些内容只在关键节点由你主动使用。未保存的输入会保留在当前浏览器，发生版本冲突时不会自动覆盖。"
+        meta={savedAt ? <span className="text-xs text-zinc-500">上次保存 {new Date(savedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</span> : null}
+      />
+      <form className="grid gap-4 lg:grid-cols-2" onSubmit={submit}>
           <MotivationTextarea
             label="为什么开始"
             value={whyStarted}
@@ -199,34 +201,34 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
             onChange={setFirstSimulationDiary}
             placeholder="第一次全真自测后再回来补这一段"
             disabled={saving}
+            className="lg:col-span-2"
           />
-          <button
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
+          <Button
             type="submit"
+            variant="primary"
+            size="lg"
+            loading={saving || isPending}
+            loadingLabel="正在保存"
             disabled={isPending || saving}
+            className="w-full sm:w-fit lg:col-span-2"
           >
             <Save className="h-4 w-4" aria-hidden="true" />
             保存封存内容
-          </button>
-        </form>
+          </Button>
+      </form>
 
-        {error ? <p role="alert" className="mt-4 text-sm text-red-200">{error}</p> : null}
-        {savedAt ? (
-          <p className="mt-4 text-sm text-zinc-500">上次封存：{new Date(savedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</p>
-        ) : null}
-      </section>
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
-        <p className="text-sm text-zinc-400">唤醒原则</p>
-        <h2 className="mt-1 text-xl font-semibold text-white">只在关键节点出现</h2>
-        <div className="mt-5 grid gap-3">
+      <details className="border-t border-white/10 pt-4">
+        <summary className="cursor-pointer text-sm font-medium text-zinc-300">查看动机内容的唤醒原则</summary>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Principle title="连续失守" body="当连续性断裂时，只短暂回看一次原因，然后回到恢复任务。" />
           <Principle title="重大复盘" body="当复盘暴露结构性问题时，用动机校准方向，不用它替代行动。" />
           <Principle title="全真自测" body="第一次全真自测前后，用它确认这次模拟的意义和下一阶段压力。" />
           <Principle title="危险期" body="风险等级升高时唤醒底层理由，但不把敏感内容放到首页常驻展示。" />
         </div>
-      </section>
-    </div>
+      </details>
+    </section>
     <ConflictResolutionModal
       open={conflict !== null}
       title="动机档案已在其他页面更新"
@@ -317,15 +319,17 @@ function MotivationTextarea({
   onChange,
   placeholder,
   disabled,
+  className,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   disabled: boolean;
+  className?: string;
 }) {
   return (
-    <label className="grid gap-2 text-sm text-zinc-300">
+    <label className={`grid gap-2 text-sm text-zinc-300 ${className ?? ""}`}>
       <span>{label}</span>
       <textarea
         className="min-h-24 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
@@ -340,7 +344,7 @@ function MotivationTextarea({
 
 function Principle({ title, body }: { title: string; body: string }) {
   return (
-    <article className="rounded-md border border-white/10 bg-[#151a20] p-4">
+    <article className="border-l-2 border-teal-400/30 pl-3">
       <h3 className="font-medium text-white">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-zinc-400">{body}</p>
     </article>

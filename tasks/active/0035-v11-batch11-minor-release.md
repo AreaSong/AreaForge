@@ -59,3 +59,16 @@ releaseRequired: true
 - package version 与候选 commit 身份一致，且本地 Release train / governance 门禁通过。
 
 当前代码、完整迁移隔离库 M1-M3 runtime、生产清理、生产 22 入口复验、current-bound browser/compatibility、matching CI、SC-002/SC-004、最终 Release admission、受保护 PR 合并、`v1.1.1` GitHub Release 和 Web 受控 production apply 均已完成。Release workflow run `30643386103` 成功，Release 资产 checksum 与签名验证通过；annotated tag 本身没有 GPG signature。2026-08-01 更新后生产为 `1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；未执行 restore、rollback 或 residual ledger update。
+
+## 2026-08-02 当前 checkout 验收收口
+
+- 重新计算当前 checkout 的体验源指纹：`sha256:d3095ee604934724a3ffcb34e9ee793ad6644347b0d9dd503499fe0ff49902cf`；隔离 production-build runtime identity 已绑定 `c8133b5b9fe4f492b087a5ca746bbf2908b6812b` / `1.1.1`。
+- 在临时 PostgreSQL 16 数据库 `areaforge_v11browser_current28` 上重新创建空库并顺序应用 24 条 migration；官方 runner r42 通过 18/18 桌面/移动旅程、24/24 无障碍检查和两个正式 evidence validator。
+- 当前证据：`output/playwright/v11-browser-evidence-current-20260802-r42/`；体验记录：`docs/development/product-experience-review-v1.1.1-c8133b5-20260802.md`；无障碍记录：`docs/development/v11-accessibility-review-v1.1.1-20260802.md`。
+- 本轮只触碰隔离数据库和本地验收容器，没有停止或修改用户 `3102` 服务；不改变已发布 `v1.1.1`、production apply 或 residual 状态。工作树中的后续 UI/交互改动若要进入线上，仍需单独 Release admission 和受控发布。
+
+## 2026-08-02 专项验收补充
+
+- `docs/development/v11-special-acceptance-20260802.md` 已补齐当前 checkout 的复习桥接 UI（完成/延期/放弃/幂等重放）、PlanInbox 批量转换与依赖编辑/冲突、设置中心七入口以及无工作区首次使用（桌面/390x844 移动）证据。
+- 本轮专项通过项仅绑定 `http://127.0.0.1:3257` 隔离 runtime；真实 AI Provider key、生产写入、restore、rollback、updater apply、物理删除和完整账户导出仍明确未执行。
+- 静态产品/架构/安全审计发现的整改项不因专项页面通过而关闭，继续由独立产品体验、架构和安全任务承接。

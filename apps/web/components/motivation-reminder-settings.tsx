@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/feedback";
+import { SectionHeader } from "@/components/ui/page";
 import {
   DEFAULT_MOTIVATION_REMINDER_PREFERENCE,
   readMotivationReminderPreference,
@@ -27,8 +30,11 @@ export function MotivationReminderSettings({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-white/10 p-4">
-      <h2 className="text-base font-medium text-white">自动动机提醒</h2>
+    <section className="space-y-5 border-t border-white/10 pt-6">
+      <SectionHeader
+        title="当前设备提醒"
+        description="只控制这台设备的展示时间窗；关闭时不会发起自动提醒请求。"
+      />
       <label className="flex items-center gap-2 text-sm text-zinc-300">
         <input
           type="checkbox"
@@ -52,17 +58,17 @@ export function MotivationReminderSettings({ userId }: { userId: string }) {
           setPreference((current) => ({ ...current, windowEnd }));
         }} />
       </div>
-      <p className="text-xs text-zinc-500">仅保存在当前设备；未启用时不会发起自动提醒请求。</p>
-      {saved ? <p className="text-sm text-emerald-300" role="status">当前设备偏好已保存</p> : null}
-      <button
+      <p className="text-xs text-zinc-500">偏好仅保存在当前浏览器，不会同步到其他设备。</p>
+      {saved ? <Alert tone="success">当前设备偏好已保存。</Alert> : null}
+      <Button
         type="button"
         disabled={!ready}
-        className="h-10 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black disabled:opacity-50"
+        variant="secondary"
         onClick={save}
       >
         保存当前设备偏好
-      </button>
-    </div>
+      </Button>
+    </section>
   );
 }
 

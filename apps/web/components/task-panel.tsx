@@ -3,6 +3,7 @@
 import { Check, FastForward, Plus, RotateCcw, Scissors, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type { StudyTaskDto, SubjectDto, SyllabusOptionNodeDto, TaskDebtReorderDto } from "@/lib/study/types";
@@ -35,6 +36,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
   const [isDebtActionPending, setDebtActionPending] = useState(false);
   const [isCreating, setCreating] = useState(false);
   const [pendingTaskActions, setPendingTaskActions] = useState<Record<string, boolean>>({});
+  const [taskToDrop, setTaskToDrop] = useState<StudyTaskDto | null>(null);
   const [isPending, startTransition] = useTransition();
   const flatNodes = useMemo(() => flattenNodes(syllabusNodes), [syllabusNodes]);
   const nodeOptions = flatNodes.filter((node) => node.subjectId === subjectId);
@@ -420,9 +422,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-red-300/25 px-3 text-sm text-red-100 hover:bg-red-400/10"
                 type="button"
                 disabled={pendingTaskActions[task.id]}
-                onClick={() => {
-                  if (window.confirm("确认放弃这个任务？该操作会记录为任务状态变化。")) act(`/api/tasks/${task.id}/drop`, undefined, task.id);
-                }}
+                onClick={() => setTaskToDrop(task)}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
                 放弃
@@ -431,6 +431,21 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
           </article>
         ))}
       </div>
+      <ConfirmationDialog
+        open={taskToDrop !== null}
+        title="放弃这个任务？"
+        description={<>任务“{taskToDrop?.title}”会进入已放弃状态并记录任务债务事件。之后仍可通过补做恢复。</>}
+        confirmLabel="确认放弃任务"
+        pending={Boolean(taskToDrop && pendingTaskActions[taskToDrop.id])}
+        pendingLabel="正在放弃"
+        onClose={() => setTaskToDrop(null)}
+        onConfirm={() => {
+          if (!taskToDrop) return;
+          const task = taskToDrop;
+          setTaskToDrop(null);
+          void act(`/api/tasks/${task.id}/drop`, undefined, task.id);
+        }}
+      />
     </div>
   );
 }

@@ -17,7 +17,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import { getStudyDayRange } from "./date";
+import { getStudyDayKey, getStudyDayRange } from "./date";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { getBridgableReviewScheduleInTx } from "./review-schedule-service";
@@ -285,6 +285,26 @@ export async function listPlanInboxItems(
     orderBy: [{ createdAt: "desc" }],
   });
   return rows.map(serialize);
+}
+
+export async function getDailyReviewMinimumInboxItem(
+  actorId: string,
+  review: { reviewDate: string; revision: number },
+): Promise<PlanInboxItemDto | null> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const reviewDate = new Date(review.reviewDate);
+  if (Number.isNaN(reviewDate.getTime())) return null;
+  const originKey = `daily-review:${getStudyDayKey(reviewDate)}:minimum`;
+  const row = await prisma.planInboxItem.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      stableKey: `${originKey}:v${review.revision}`,
+      originType: "DAILY_REVIEW_MINIMUM",
+      originVersion: review.revision,
+    },
+    include: { dependencyRefs: true },
+  });
+  return row ? serialize(row) : null;
 }
 
 export async function createPlanInboxItem(

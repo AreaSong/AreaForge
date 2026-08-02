@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { planInboxOriginLabel } from "@/components/plan-inbox-origin";
+import { buttonClassName } from "@/components/ui/button";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { withReturnTo } from "@/lib/navigation/batch7";
 import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
 
 type Status = "OPEN" | "DISMISSED" | "CONVERTED";
@@ -17,8 +20,9 @@ interface PlanInboxListConflict {
   conflictFields: string[];
 }
 
-export function PlanInboxClient({ items: initialItems, status }: { items: PlanInboxItemDto[]; status: Status }) {
+export function PlanInboxClient({ items: initialItems, status, returnTo = "/today/inbox" }: { items: PlanInboxItemDto[]; status: Status; returnTo?: string }) {
   const router = useRouter();
+  const sourceReturnTo = getSourceReturnTo(returnTo);
   const [items, setItems] = useState(initialItems);
   const [error, setError] = useState<string | null>(null);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
@@ -43,7 +47,7 @@ export function PlanInboxClient({ items: initialItems, status }: { items: PlanIn
         return;
       }
       if (response.status === 404) {
-        router.replace(body?.workbench === "/today/inbox" ? body.workbench : "/today/inbox");
+        router.replace(returnTo);
         return;
       }
       if (!response.ok || !isPlanInboxItemDto(body?.item)) {
@@ -81,23 +85,36 @@ export function PlanInboxClient({ items: initialItems, status }: { items: PlanIn
   return (
     <section className="space-y-4">
       <div><h1 className="text-2xl font-semibold text-white">计划收件箱</h1><p className="mt-1 text-sm text-zinc-400">补全草稿后，由你确认转换为正式任务。</p></div>
+      {sourceReturnTo ? <Link href={sourceReturnTo} className="inline-flex text-sm text-zinc-400 hover:text-zinc-200">返回当前草稿</Link> : null}
       <nav aria-label="收件箱状态" className="flex flex-wrap gap-2">
-        {(["OPEN", "DISMISSED", "CONVERTED"] as const).map((value) => <Link key={value} href={`/today/inbox?status=${value}`} aria-current={status === value ? "page" : undefined} className={`h-10 rounded-md border px-3 text-sm leading-10 ${status === value ? "border-teal-400/50 bg-teal-400/10 text-teal-200" : "border-white/10 text-zinc-300"}`}>{value === "OPEN" ? "待处理" : value === "DISMISSED" ? "已忽略" : "已转换"}</Link>)}
+        {(["OPEN", "DISMISSED", "CONVERTED"] as const).map((value) => <Link key={value} href={withInboxStatus(returnTo, value)} aria-current={status === value ? "page" : undefined} className={`h-10 rounded-md border px-3 text-sm leading-10 ${status === value ? "border-teal-400/50 bg-teal-400/10 text-teal-200" : "border-white/10 text-zinc-300"}`}>{value === "OPEN" ? "待处理" : value === "DISMISSED" ? "已忽略" : "已转换"}</Link>)}
       </nav>
-      {items.length === 0 ? <p className="text-sm text-zinc-500">此状态下没有项目。</p> : (
+      {items.length === 0 ? (
+        <div className="border-y border-white/10 py-6">
+          <p className="text-sm text-zinc-400">{status === "OPEN" ? "当前没有待处理草稿。" : "此状态下没有项目。"}</p>
+          <Link href={status === "OPEN" ? "/today" : withInboxStatus(returnTo, "OPEN")} className="mt-3 inline-flex h-10 items-center text-sm text-teal-300 hover:text-teal-200">
+            {status === "OPEN" ? "回到今日，查看下一行动" : "返回待处理草稿"}
+          </Link>
+        </div>
+      ) : (
         <ul className="space-y-2">
           {items.map((item) => (
             <li key={item.id} className="rounded-md border border-white/10 bg-[#101419] p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><Link href={`/today/inbox/${item.id}`} className="font-medium text-white hover:text-teal-300">{item.title || "未命名草稿"}</Link><p className="mt-1 text-xs text-zinc-500">{item.originType} · v{item.originVersion} · rev {item.revision}</p></div>
+                <div><p className="font-medium text-white">{item.title || "未命名草稿"}</p><p className="mt-1 text-xs text-zinc-500">{planInboxOriginLabel(item.originType)} · {new Date(item.updatedAt).toLocaleDateString("zh-CN")}</p></div>
                 <span className={`rounded-sm px-2 py-1 text-xs ${item.missingFields.length ? "bg-amber-400/10 text-amber-200" : "bg-emerald-400/10 text-emerald-200"}`}>{item.missingFields.length ? `缺 ${item.missingFields.length} 项` : "字段完整"}</span>
               </div>
               {item.supersededByItemId ? <p className="mt-2 text-xs text-amber-200">此版本已被替代，只能查看历史。</p> : null}
-              <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                <Link href={`/today/inbox/${item.id}`} className="text-teal-300 hover:underline">查看与转换</Link>
-                {item.status === "OPEN" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className="text-zinc-400 hover:text-white disabled:opacity-50" onClick={() => void transition(item, "dismiss")}>忽略</button> : null}
-                {item.status === "DISMISSED" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className="text-teal-300 hover:underline disabled:opacity-50" onClick={() => void transition(item, "reopen")}>{status === "OPEN" ? "Undo" : "恢复"}</button> : null}
-                {item.convertedTaskId ? <Link href={`/today/tasks/${item.convertedTaskId}`} className="text-teal-300 hover:underline">打开任务</Link> : null}
+              <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                {item.status === "OPEN" && !item.supersededByItemId ? (
+                  <Link href={withReturnTo(`/today/inbox/${item.id}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>
+                    {item.missingFields.length ? "补全并转换" : "确认并转换"}
+                  </Link>
+                ) : null}
+                {item.status === "OPEN" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className={buttonClassName({ variant: "ghost", size: "sm" })} onClick={() => void transition(item, "dismiss")}>忽略</button> : null}
+                {item.status === "DISMISSED" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className={buttonClassName({ variant: "secondary", size: "sm" })} onClick={() => void transition(item, "reopen")}>恢复草稿</button> : null}
+                {item.convertedTaskId ? <Link href={withReturnTo(`/today/tasks/${item.convertedTaskId}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>打开任务</Link> : null}
+                {item.status !== "OPEN" || item.supersededByItemId ? <Link href={withReturnTo(`/today/inbox/${item.id}`, returnTo)} className={buttonClassName({ variant: "ghost", size: "sm" })}>查看记录</Link> : null}
               </div>
             </li>
           ))}
@@ -124,6 +141,26 @@ export function PlanInboxClient({ items: initialItems, status }: { items: PlanIn
       />
     </section>
   );
+}
+
+function withInboxStatus(returnTo: string, status: Status): string {
+  try {
+    const url = new URL(returnTo, "https://areaforge.invalid");
+    if (url.pathname !== "/today/inbox") return `/today/inbox?status=${status}`;
+    url.searchParams.set("status", status);
+    return `${url.pathname}?${url.searchParams.toString()}`;
+  } catch {
+    return `/today/inbox?status=${status}`;
+  }
+}
+
+function getSourceReturnTo(returnTo: string): string | null {
+  try {
+    const source = new URL(returnTo, "https://areaforge.invalid").searchParams.get("returnTo");
+    return source && source.startsWith("/") && !source.startsWith("//") ? source : null;
+  } catch {
+    return null;
+  }
 }
 
 function replacePlanInboxListItem(items: PlanInboxItemDto[], previousId: string, latest: PlanInboxItemDto): PlanInboxItemDto[] {

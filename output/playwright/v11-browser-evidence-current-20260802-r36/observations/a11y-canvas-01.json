@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-01T18:39:26.367Z",
+  "checkId": "CANVAS-01",
+  "checkKey": "canvas-api-list-parity",
+  "route": "/knowledge/canvas?view=list",
+  "target": "canvas-equivalent-list",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "api",
+  "assertions": [
+    {
+      "id": "equivalent-list-named",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "equivalent-list-nonempty",
+      "predicate": "gte",
+      "expected": 1,
+      "actual": 5,
+      "passed": true
+    },
+    {
+      "id": "equivalent-list-matches-api",
+      "predicate": "equals",
+      "expected": 5,
+      "actual": 5,
+      "passed": true
+    },
+    {
+      "id": "equivalent-list-has-open-link",
+      "predicate": "gte",
+      "expected": 1,
+      "actual": 3,
+      "passed": true
+    },
+    {
+      "id": "relation-filter-kind-selected",
+      "predicate": "equals",
+      "expected": "contains",
+      "actual": "contains",
+      "passed": true
+    },
+    {
+      "id": "relation-filter-matches-api-edges",
+      "predicate": "equals",
+      "expected": 5,
+      "actual": 5,
+      "passed": true
+    },
+    {
+      "id": "subject-filter-request-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "subject-filter-has-two-subjects",
+      "predicate": "equals",
+      "expected": 2,
+      "actual": 2,
+      "passed": true
+    },
+    {
+      "id": "subject-filter-matches-api",
+      "predicate": "equals",
+      "expected": 3,
+      "actual": 3,
+      "passed": true
+    },
+    {
+      "id": "subject-filter-reduces-list",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "subject-filter-bound-in-url",
+      "predicate": "equals",
+      "expected": "4d7dac00-46f6-466b-a57c-b5484f3e43d7",
+      "actual": "4d7dac00-46f6-466b-a57c-b5484f3e43d7",
+      "passed": true
+    }
+  ]
+}

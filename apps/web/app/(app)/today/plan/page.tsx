@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { PlanRollingClient } from "@/components/plan-rolling-client";
+import { TaskDetailClient } from "@/components/task-detail-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPlanRolling } from "@/lib/study/plan-rolling-service";
 import { listPlanMilestones } from "@/lib/study/plan-milestone-service";
@@ -10,6 +11,7 @@ import { findActiveWorkspaceOrNull, listWorkspaceSubjects } from "@/lib/study/ex
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { ApiError } from "@/lib/api/responses";
 import { getStudyResource, type StudyResourceDto } from "@/lib/study/study-resource-service";
+import { loadTaskPageData } from "@/lib/study/task-page-data";
 import type { SyllabusOptionNodeDto } from "@/lib/study/types";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ export const metadata = getRouteMetadata("/today/plan");
 export default async function TodayPlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; subjectId?: string; status?: string; q?: string; createMinimum?: string; resourceId?: string }>;
+  searchParams: Promise<{ date?: string; subjectId?: string; status?: string; q?: string; createMinimum?: string; resourceId?: string; syllabusNodeId?: string; taskId?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -60,6 +62,16 @@ export default async function TodayPlanPage({
   const sourceNodeIds = sourceResource?.syllabusNodeIds.filter((nodeId) =>
     flattenSyllabusOptions(syllabusNodes).some((node) => node.id === nodeId && node.subjectId === sourceResource?.subjectId),
   ) ?? [];
+  let selectedTaskData: Awaited<ReturnType<typeof loadTaskPageData>> | null = null;
+  if (params.taskId) {
+    try {
+      selectedTaskData = await loadTaskPageData(user.id, params.taskId);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) notFound();
+      throw error;
+    }
+  }
+  const closeDetailHref = buildPlanHref(params);
 
   return (
     <div className="space-y-4">
@@ -82,7 +94,22 @@ export default async function TodayPlanPage({
           status: params.status,
           q: params.q,
           resourceId: params.resourceId,
+          syllabusNodeId: params.syllabusNodeId,
         }}
+        detailTaskId={params.taskId}
+        closeDetailHref={closeDetailHref}
+        detailPanel={selectedTaskData ? (
+          <TaskDetailClient
+            detail={selectedTaskData.detail}
+            dependencies={selectedTaskData.dependencies}
+            subjects={selectedTaskData.subjects}
+            syllabusNodes={selectedTaskData.syllabusNodes}
+            milestones={selectedTaskData.milestones}
+            dependencyCandidates={selectedTaskData.dependencyCandidates}
+            embedded
+            closeHref={closeDetailHref}
+          />
+        ) : null}
       />
       <details className="border-t border-white/10 pt-4">
         <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300">AI 计划草稿</summary>
@@ -90,6 +117,23 @@ export default async function TodayPlanPage({
       </details>
     </div>
   );
+}
+
+function buildPlanHref(params: {
+  date?: string;
+  subjectId?: string;
+  status?: string;
+  q?: string;
+  createMinimum?: string;
+  resourceId?: string;
+  syllabusNodeId?: string;
+}): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value && key !== "createMinimum" && key !== "taskId") query.set(key, value);
+  }
+  const serialized = query.toString();
+  return `/today/plan${serialized ? `?${serialized}` : ""}`;
 }
 
 function flattenSyllabusOptions(nodes: SyllabusOptionNodeDto[]): SyllabusOptionNodeDto[] {

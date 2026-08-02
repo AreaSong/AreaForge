@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 
-export function ReviewScheduleActions(props: { id: string; status: "ACTIVE" | "PAUSED"; revision: number }) {
+export function ReviewScheduleActions(props: { id: string; status: "ACTIVE" | "PAUSED"; revision: number; returnTo: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export function ReviewScheduleActions(props: { id: string; status: "ACTIVE" | "P
       const body = await response.json().catch(() => null) as { error?: string } | null;
       if (response.status === 401) return redirectToLoginWithCurrentLocation();
       if (response.status === 404) {
-        router.replace("/knowledge/reviews");
+        router.replace(props.returnTo);
         return;
       }
       if (!response.ok) {
@@ -60,7 +60,7 @@ export function ReviewScheduleActions(props: { id: string; status: "ACTIVE" | "P
           />
         </label>
       ) : null}
-      <button ref={actionRef} type="button" disabled={pending || (props.status === "PAUSED" && !resumeDate)} onClick={() => void submit()} className="h-10 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60">
+      <button ref={actionRef} type="button" disabled={pending || (props.status === "PAUSED" && !resumeDate)} onClick={() => void submit()} className="h-10 rounded-md border border-white/10 px-4 text-sm font-medium text-zinc-200 hover:bg-white/[0.06] disabled:opacity-60">
         {pending ? "处理中..." : props.status === "ACTIVE" ? "暂停排期" : "恢复排期"}
       </button>
       <p className="sr-only" aria-live="polite">{pending ? (props.status === "ACTIVE" ? "正在暂停排期" : "正在恢复排期") : ""}</p>

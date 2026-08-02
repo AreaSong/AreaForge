@@ -93,6 +93,13 @@ export interface StudyTaskDto {
 }
 
 export type StudySessionStartSourceDto = "TASK" | "SUBJECT_SHORTCUT" | "RECOVERY";
+export type StudySessionEvidenceTypeDto = "note" | "mistake" | "retest";
+
+export interface StudySessionEvidenceReceiptDto {
+  evidenceType: StudySessionEvidenceTypeDto;
+  evidenceId: string;
+  label: string;
+}
 
 export interface StudySessionDto {
   id: string;
@@ -100,6 +107,7 @@ export interface StudySessionDto {
   subjectName: string;
   taskId: string | null;
   taskTitle: string | null;
+  taskStatus: TaskStatusDto | null;
   syllabusNodeId: string | null;
   syllabusNodeTitle: string | null;
   status: StudySessionStatusDto;

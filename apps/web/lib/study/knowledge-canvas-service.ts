@@ -586,9 +586,16 @@ export async function getKnowledgeOverview(actorId: string) {
     nextWeakNode,
     nextPendingResource,
     latestImport,
+    recentNotes,
+    recentMistakes,
   ] = await Promise.all([
     prisma.reviewSchedule.count({
-      where: { workspaceId: workspace.id, status: "ACTIVE", dueDate: { lte: new Date() } },
+      where: {
+        workspaceId: workspace.id,
+        status: "ACTIVE",
+        dueDate: { lte: new Date() },
+        bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
+      },
     }),
     prisma.syllabusNode.count({
       where: {
@@ -602,7 +609,12 @@ export async function getKnowledgeOverview(actorId: string) {
     prisma.note.count({ where: { subject: { workspaceId: workspace.id }, archivedAt: null } }),
     prisma.mistake.count({ where: { subject: { workspaceId: workspace.id }, archivedAt: null } }),
     prisma.reviewSchedule.findFirst({
-      where: { workspaceId: workspace.id, status: "ACTIVE", dueDate: { lte: new Date() } },
+      where: {
+        workspaceId: workspace.id,
+        status: "ACTIVE",
+        dueDate: { lte: new Date() },
+        bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
+      },
       include: { note: true, mistake: true, studyResource: true, syllabusNode: true },
       orderBy: [{ dueDate: "asc" }, { updatedAt: "asc" }],
     }),
@@ -625,13 +637,25 @@ export async function getKnowledgeOverview(actorId: string) {
       select: { id: true },
       orderBy: { confirmedAt: "desc" },
     }),
+    prisma.note.findMany({
+      where: { subject: { workspaceId: workspace.id }, archivedAt: null },
+      select: { id: true, title: true, updatedAt: true, subject: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+    }),
+    prisma.mistake.findMany({
+      where: { subject: { workspaceId: workspace.id }, archivedAt: null },
+      select: { id: true, title: true, updatedAt: true, subject: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+    }),
   ]);
 
   const nextAction = nextReview
     ? {
         kind: "review" as const,
         label: nextReview.note?.title ?? nextReview.mistake?.title ?? nextReview.studyResource?.title ?? nextReview.syllabusNode?.title ?? "到期复习",
-        href: `/knowledge/reviews/${nextReview.id}`,
+        href: `/quick-review/${nextReview.id}?returnTo=${encodeURIComponent("/knowledge/reviews")}`,
       }
     : nextWeakNode
       ? { kind: "weak_node" as const, label: nextWeakNode.title, href: `/knowledge/syllabus/${nextWeakNode.id}` }
@@ -649,6 +673,26 @@ export async function getKnowledgeOverview(actorId: string) {
     pendingResources,
     recentImports: importCount,
     nextAction,
+    recentEvidence: [
+      ...recentNotes.map((note) => ({
+        id: note.id,
+        type: "note" as const,
+        label: "知识卡片",
+        title: note.title,
+        subjectName: note.subject.name,
+        href: `/knowledge/notes/${note.id}`,
+        updatedAt: note.updatedAt.toISOString(),
+      })),
+      ...recentMistakes.map((mistake) => ({
+        id: mistake.id,
+        type: "mistake" as const,
+        label: "错题",
+        title: mistake.title,
+        subjectName: mistake.subject.name,
+        href: `/knowledge/mistakes/${mistake.id}`,
+        updatedAt: mistake.updatedAt.toISOString(),
+      })),
+    ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)).slice(0, 6),
     canvasSummary: {
       noteCount,
       mistakeCount,

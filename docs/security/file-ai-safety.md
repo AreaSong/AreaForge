@@ -44,7 +44,7 @@ AI 第一版只允许生成：
 
 阶段调整草稿属于第二阶段长期闭环。Package D Batch D3 已完成长期阶段 AI 草稿显式触发路径：只允许用户主动调用鉴权 `POST /api/simulation/stage-adjustment-drafts/ai`，只发送最小聚合字段和阶段目标摘要，成功只写 `StageAdjustmentDraft.source="ai"` 草稿和审计摘要，失败回退本地规则。D3 仍不得发送动机档案、完整情绪记录、完整复盘正文、附件内容、文件路径或完整任务标题，不得保存完整 prompt/raw response，也不得自动应用阶段计划或批量修改任务。
 
-外部 Provider 默认关闭。三条建议、四类文本草稿和一条长期阶段草稿共八条鉴权显式 POST 路径，必须同时满足当前浏览器明确 opt-in、`AI_ENABLED=true` 和服务端 Provider 配置完整；偏好缺失、清除、关闭或畸形时一律回退本地规则。当前浏览器偏好使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的 Cookie，不写数据库，也不包含用户标识、Provider 配置、模型、密钥、prompt、正文或内容 hash。`/settings/ai` 只允许切换外呼偏好，不允许查看或编辑服务端 Provider key。
+外部 Provider 默认关闭。三条建议、四类文本草稿和一条长期阶段草稿共八条鉴权显式 POST 路径，必须同时满足当前浏览器明确 opt-in、Web 全局 AI 运行开关开启、`AI_ENABLED=true` 服务端硬闸门和服务端 Provider 配置完整；任一条件缺失、清除、关闭或畸形时一律回退本地规则。Web 全局开关存储在单例 `AiRuntimeSetting`，仅通过鉴权 `GET|PATCH /api/ai/runtime` 更新，启停动作写入 `AuditEvent`，不接受或返回密钥；`AI_ENABLED=false` 仍是部署层的紧急硬关闭，网页不能绕过。当前浏览器偏好使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的 Cookie，不写数据库，也不包含用户标识、Provider 配置、模型、密钥、prompt、正文或内容 hash。`/settings/ai` 允许当前账户更新、删除和测试 Provider 配置，但 API Key 只接受提交，不回显；服务端使用 `AI_CREDENTIALS_ENCRYPTION_KEY` 的 AES-256-GCM 密文和 SHA-256 fingerprint 保存，账户配置优先于环境变量回退。
 
 AI 不允许：
 
@@ -63,7 +63,9 @@ AI 不允许：
 - 校验失败回退本地规则文案。
 - 失败不影响任务、计时、复盘等核心流程。
 - 日志不记录 API Key、完整 prompt、动机档案、情绪正文和复盘正文。
-- 外部 Provider 偏好缺失、清除、关闭、畸形或保存失败时保持 fail closed；保存失败不得改变已保存策略或触发外呼。
+- Provider 凭据表只保存 base URL、model、密文、fingerprint 和 revision；审计 metadata 只记录 action/status，不记录密钥、密文、prompt、模型响应或请求体。
+- 删除账户 Provider 配置只删除当前数据库记录；数据库备份中的历史密文按备份保留策略处理，不宣称立即物理清除。
+- 外部 Provider 偏好或 Web 全局开关缺失、清除、关闭、畸形或保存失败时保持 fail closed；保存失败不得改变已保存策略或触发外呼。服务端硬闸门关闭时，Web 启用请求拒绝保存。
 
 ## 高风险确认
 
@@ -72,7 +74,7 @@ AI 不允许：
 - 默认把动机档案发给 AI。
 - 默认把完整情绪记录发给 AI。
 - 默认把复盘正文发给 AI。
-- 将当前浏览器外部 Provider 偏好从默认关闭改为默认开启，或允许客户端编辑 Provider key。
+- 将当前浏览器外部 Provider 偏好从默认关闭改为默认开启，允许客户端编辑 Provider key，或改变密钥加密/删除/备份边界。
 - 删除附件或迁移上传目录。
 - 修改备份、恢复或保留策略。
 - 网页内直接触发部署或服务器命令。

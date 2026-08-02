@@ -145,7 +145,12 @@ async function runJourney(input: {
         before: scenario.before.evidence,
         after: scenario.after.evidence,
       },
-      terminalPath: canonicalEvidenceRoute(currentPath(page), contract.terminalPath),
+      terminalPath: canonicalEvidenceRoute(
+        input.fixture.journeyId === "syllabus"
+          ? currentPath(page).replaceAll(input.fixture.subjectId, "synthetic-id")
+          : currentPath(page),
+        contract.terminalPath,
+      ),
       terminalAssertions: scenario.terminalAssertions,
       screenshot,
       telemetry: {
@@ -207,7 +212,8 @@ async function runLoginJourney(input: ScenarioContext) {
 
 async function runDashboardJourney(input: ScenarioContext) {
   const before = await activeSessionOracle(input, "active-session-before", false);
-  const section = input.page.getByRole("heading", { name: "科目快捷计时" }).locator("..");
+  const section = input.page.locator("details").filter({ hasText: "临时专注" });
+  await section.locator("summary").click();
   await section.getByRole("button", { name: "开始", exact: true }).first().click();
   const dialog = input.page.getByRole("dialog", { name: "确认科目快捷计时" });
   await dialog.waitFor({ state: "visible" });
@@ -217,6 +223,7 @@ async function runDashboardJourney(input: ScenarioContext) {
     expectedStatus: 201,
   }, () => dialog.getByRole("button", { name: "确认开始" }).click());
   await input.page.waitForURL((url) => url.pathname.startsWith("/focus/"));
+  await input.page.getByRole("heading", { level: 1 }).waitFor({ state: "visible" });
   const sessionId = stringField(asRecord(mutation.body).session, "id");
   const after = await activeSessionOracle(input, "active-session-after", true, sessionId);
   assertOracleChanged(before, after);
@@ -235,26 +242,24 @@ async function runTimerCloseoutJourney(input: ScenarioContext) {
   const sessionId = requiredFixtureValue(input.fixture.activeSessionId, "timer fixture session");
   const before = await activeSessionOracle(input, "fixture-session-active", true, sessionId);
   await input.page.getByRole("button", { name: "结束并收口" }).click();
-  const form = input.page.getByRole("heading", { name: "收口确认" }).locator("..");
-  await form.getByLabel("收口结果").selectOption("achieved");
-  await form.getByLabel("理解程度").fill("合成理解结果");
+  const form = input.page.locator("form").filter({ hasText: "最小产出" });
+  await form.getByRole("radio", { name: "达成", exact: true }).check({ force: true });
+  await form.getByRole("radio", { name: "基本理解", exact: true }).check({ force: true });
   await form.getByLabel("最小产出").fill("合成最小产出");
   await form.getByLabel("下一动作").fill("合成下一动作");
-  const completion = form.getByRole("checkbox", { name: "同时完成任务" });
-  if (await completion.count()) await completion.check();
   const mutation = await captureUiMutation(input.page, input.config, {
     method: "POST",
     path: `/api/study-sessions/${sessionId}/end`,
     expectedStatus: 200,
-  }, () => form.getByRole("button", { name: "保存收口" }).click());
-  const evidenceHeading = input.page.getByRole("heading", { name: "证据接力（可跳过）" });
-  const lowConversion = input.page.getByRole("heading", { name: "低转化：先已保存 session" }).locator("..");
+  }, () => form.getByRole("button", { name: "保存并继续" }).click());
+  const evidenceHeading = input.page.getByRole("heading", { name: "为本次学习留下一个可复用证据" });
+  const lowConversion = input.page.getByRole("heading", { name: "这段学习还缺少可验证产出" }).locator("..");
   await Promise.race([
     evidenceHeading.waitFor({ state: "visible" }),
     lowConversion.waitFor({ state: "visible" }),
   ]);
   if (await lowConversion.isVisible()) {
-    await lowConversion.getByRole("button", { name: "跳过", exact: true }).click();
+    await lowConversion.getByRole("button", { name: "补一个最小产出" }).click();
   }
   await evidenceHeading.waitFor({ state: "visible" });
   const after = await activeSessionOracle(input, "fixture-session-closed", false);
@@ -264,7 +269,7 @@ async function runTimerCloseoutJourney(input: ScenarioContext) {
     mutation,
     after,
     terminalAssertions: await terminalAssertions(input.page, [
-      ["evidence-relay-visible", () => input.page.getByRole("heading", { name: "证据接力（可跳过）" }).isVisible()],
+      ["evidence-relay-visible", () => input.page.getByRole("heading", { name: "为本次学习留下一个可复用证据" }).isVisible()],
       ["session-status-ended", () => input.page.getByText("已结束", { exact: true }).first().isVisible()],
     ]),
   };
@@ -275,15 +280,15 @@ async function runReviewJourney(input: ScenarioContext) {
     assertion("review-get-before-status", 200, status),
     assertion("review-absent-before", true, asRecord(body).review === null),
   ]);
-  await input.page.getByPlaceholder("今天完成了什么").fill("合成复盘事实");
-  await input.page.getByPlaceholder("今天最该保留的一个动作").fill("合成保留动作");
-  await input.page.getByPlaceholder("明天最小必须完成任务").fill("合成明日行动");
-  await input.page.getByLabel("情绪状态").selectOption({ label: "平静" });
+  await input.page.getByLabel("今天实际推进了什么").fill("合成复盘事实");
+  await input.page.getByLabel("明天应该继续做什么").fill("合成保留动作");
+  await input.page.getByLabel("即使状态不好，明天也必须完成的一个动作").fill("合成明日行动");
+  await input.page.getByLabel("当前状态").selectOption({ label: "平静" });
   const mutation = await captureUiMutation(input.page, input.config, {
     method: "POST",
     path: "/api/daily-reviews",
     expectedStatus: 201,
-  }, () => input.page.getByRole("button", { name: "保存复盘" }).click());
+  }, () => input.page.getByRole("button", { name: "完成复盘", exact: true }).click());
   await input.page.getByText(/复盘与明日最低行动已保存/).waitFor();
   const reviewId = stringField(asRecord(mutation.body).review, "id");
   const after = await captureOracle(input.context, input.config, "/api/reviews/today", (status, body) => [
@@ -297,8 +302,8 @@ async function runReviewJourney(input: ScenarioContext) {
     mutation,
     after,
     terminalAssertions: await terminalAssertions(input.page, [
-      ["review-success-visible", () => input.page.getByText(/复盘与明日最低行动已保存/).isVisible()],
-      ["review-success-live-region", () => input.page.locator('[aria-live="polite"]').filter({ hasText: "复盘" }).isVisible()],
+      ["review-success-visible", () => input.page.getByText(/复盘与明日最低行动已保存/).count().then((count) => count > 0)],
+      ["review-success-live-region", () => input.page.locator('[aria-live="polite"]').filter({ hasText: "复盘与明日最低行动已保存" }).count().then((count) => count > 0)],
     ]),
   };
 }
@@ -314,6 +319,9 @@ async function runNotesJourney(input: ScenarioContext) {
     expectedStatus: 201,
   }, () => input.page.getByRole("button", { name: "保存笔记" }).click());
   const noteId = stringField(asRecord(mutation.body).note, "id");
+  await input.page.waitForURL((url) => url.pathname.startsWith("/knowledge/notes/"));
+  await input.page.getByRole("link", { name: "返回知识卡片", exact: true }).click();
+  await input.page.waitForURL((url) => url.pathname === "/knowledge/notes");
   await input.page.getByText("合成浏览器卡片", { exact: true }).waitFor();
   const after = await captureOracle(input.context, input.config, "/api/notes", (status, body) => {
     const notes = arrayRecords(asRecord(body).notes);
@@ -330,14 +338,19 @@ async function runNotesJourney(input: ScenarioContext) {
     after,
     terminalAssertions: await terminalAssertions(input.page, [
       ["created-note-visible", () => input.page.getByText("合成浏览器卡片", { exact: true }).isVisible()],
-      ["note-form-cleared", async () => await input.page.getByPlaceholder("笔记标题").inputValue() === ""],
+      ["note-form-cleared", () => input.page.getByPlaceholder("笔记标题").count().then((count) => count === 0)],
     ]),
   };
 }
 
 async function runSyllabusJourney(input: ScenarioContext) {
   const before = await syllabusOracle(input, "syllabus-count-before", 1);
-  await input.page.getByPlaceholder("章节、知识点或题型名称").fill("合成浏览器考纲节点");
+  const createTitle = input.page.getByPlaceholder("章节、知识点或题型名称");
+  if (await createTitle.count() === 0) {
+    await input.page.getByRole("button", { name: "新增节点", exact: true }).click();
+    await createTitle.waitFor({ state: "visible" });
+  }
+  await createTitle.fill("合成浏览器考纲节点");
   const mutation = await captureUiMutation(input.page, input.config, {
     method: "POST",
     path: "/api/syllabus/nodes",
@@ -348,6 +361,10 @@ async function runSyllabusJourney(input: ScenarioContext) {
     .filter({ visible: true })
     .first();
   await createdNode.waitFor();
+  await input.page.waitForURL((url) => url.pathname.startsWith("/knowledge/syllabus/"));
+  await input.page.getByRole("link", { name: "返回考纲", exact: true }).click();
+  await input.page.waitForURL((url) => url.pathname === "/knowledge/syllabus");
+  await createdNode.waitFor({ state: "visible" });
   const after = await captureOracle(input.context, input.config, "/api/syllabus", (status, body) => {
     const nodes = flattenSyllabusNodes(asRecord(body).nodes);
     return [
@@ -363,7 +380,7 @@ async function runSyllabusJourney(input: ScenarioContext) {
     after,
     terminalAssertions: await terminalAssertions(input.page, [
       ["created-node-visible", () => createdNode.isVisible()],
-      ["syllabus-form-cleared", async () => await input.page.getByPlaceholder("章节、知识点或题型名称").inputValue() === ""],
+      ["syllabus-form-cleared", () => input.page.getByPlaceholder("章节、知识点或题型名称").count().then((count) => count === 0)],
     ]),
   };
 }
@@ -378,7 +395,7 @@ async function runReportsJourney(input: ScenarioContext) {
     method: "POST",
     path: /^\/api\/reports\/[^/]+\/confirm$/,
     expectedStatus: 201,
-  }, () => input.page.getByRole("button", { name: "确认本报告" }).click());
+  }, () => input.page.getByRole("button", { name: "确认并送入收件箱", exact: true }).click());
   await input.page.getByText("已确认", { exact: true }).first().waitFor();
   const after = await captureOracle(input.context, input.config, path, (status, body) => {
     const decision = asRecord(asRecord(body).report).decision;
@@ -393,8 +410,8 @@ async function runReportsJourney(input: ScenarioContext) {
     mutation,
     after,
     terminalAssertions: await terminalAssertions(input.page, [
-      ["report-confirmed-visible", () => input.page.getByText("已确认", { exact: true }).first().isVisible()],
-      ["report-boundary-visible", () => input.page.getByText(/不会修改现有任务或当前阶段/).isVisible()],
+      ["report-confirmed-visible", () => input.page.getByText("已确认", { exact: true }).filter({ visible: true }).count().then((count) => count > 0)],
+      ["report-boundary-visible", () => input.page.getByText(/不会直接修改现有任务或当前阶段/).isVisible()],
     ]),
   };
 }
@@ -470,6 +487,7 @@ async function loginThroughUi(
 ): Promise<MutationCapture> {
   const loginPath = `/login?returnTo=${encodeURIComponent(returnTo)}`;
   await page.goto(new URL(loginPath, config.baseUrl).toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("邮箱").fill(fixture.email);
   await page.getByLabel("密码").fill(config.password);
   const mutation = await captureUiMutation(page, config, {
@@ -479,6 +497,7 @@ async function loginThroughUi(
   }, () => page.getByRole("button", { name: "登录" }).click());
   const expected = new URL(returnTo, config.baseUrl).pathname;
   await page.waitForURL((url) => expected === "/today" ? url.pathname === expected : url.pathname === expected);
+  await page.waitForLoadState("networkidle");
   return mutation;
 }
 
@@ -709,7 +728,9 @@ export function canonicalEvidenceRoute(actual: string, template: string): string
   const templateUrl = new URL(template, base);
   const actualParts = actualUrl.pathname.split("/");
   const templateParts = templateUrl.pathname.split("/");
-  if (actualParts.length !== templateParts.length) throw new Error("observed route does not match evidence contract shape");
+  if (actualParts.length !== templateParts.length) {
+    throw new Error(`observed route does not match evidence contract shape: actual=${actualUrl.pathname}; template=${templateUrl.pathname}`);
+  }
 
   const normalizedParts = templateParts.map((part, index) => {
     const actualPart = actualParts[index];

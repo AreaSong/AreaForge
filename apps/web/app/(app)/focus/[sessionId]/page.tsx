@@ -1,10 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { FocusSessionClient } from "@/components/focus-session-client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getActiveStudySession } from "@/lib/study/service";
+import { getActiveStudySession, listStudySessionEvidenceReceipts } from "@/lib/study/service";
 import { prisma } from "@areaforge/db";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { resolveActiveWorkspace } from "@/lib/study/exam-workspace-service";
+import type { TaskStatusDto } from "@/lib/study/types";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/focus/session");
@@ -38,6 +39,7 @@ export default async function FocusSessionPage({
     subjectName: session.subject.name,
     taskId: session.taskId,
     taskTitle: session.task?.title ?? null,
+    taskStatus: session.task ? session.task.status.toLowerCase() as TaskStatusDto : null,
     syllabusNodeId: session.syllabusNodeId,
     syllabusNodeTitle: session.syllabusNode?.title ?? null,
     status: session.status.toLowerCase() as "running" | "paused" | "completed" | "canceled",
@@ -62,6 +64,7 @@ export default async function FocusSessionPage({
     goalMinutes: session.goalMinutes,
     startSource: session.startSource,
   };
+  const evidenceReceipts = await listStudySessionEvidenceReceipts(session.id, user.id);
 
   return (
     <FocusSessionClient
@@ -70,6 +73,7 @@ export default async function FocusSessionPage({
       activeConflictId={active && active.id !== sessionId ? active.id : null}
       returnTo={returnTo}
       initialNow={new Date().toISOString()}
+      initialEvidenceReceipts={evidenceReceipts}
     />
   );
 }

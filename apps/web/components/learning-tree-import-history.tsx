@@ -158,14 +158,14 @@ export function LearningTreeImportHistory({
         {imports.length ? imports.map((item) => (
           <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
             <div>
-              <p className="text-zinc-100">{item.scope} · {item.protocolVersion}</p>
+              <p className="text-zinc-100">{scopeLabel(item.scope)}导入</p>
               <p className="text-xs text-zinc-500">
                 {item.itemCount} 项 · {new Date(item.confirmedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
               </p>
             </div>
             <div className="flex gap-2">
               <Link className="h-9 px-2 leading-9 text-teal-300 hover:underline" href={`/knowledge/imports/${item.id}`}>
-                详情
+                查看结果
               </Link>
               <LearningTreeBatchArchiveButton
                 batchId={item.id}
@@ -181,4 +181,11 @@ export function LearningTreeImportHistory({
       </ul>
     </section>
   );
+}
+
+function scopeLabel(value: string): string {
+  if (value === "global") return "全局";
+  if (value === "subject") return "单科";
+  if (value === "branch") return "分支";
+  return "自定义范围";
 }

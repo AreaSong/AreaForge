@@ -754,7 +754,7 @@ export async function addMasteryRetest(
   syllabusNodeId: string,
   input: CreateMasteryRetestInput,
   actorId: string,
-): Promise<SyllabusNodeDto> {
+): Promise<SyllabusNodeDto & { recordedRetestId?: string }> {
   const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const testedAt = input.testedAt ? new Date(input.testedAt) : new Date();
   const nextReviewAt = input.nextReviewAt ? new Date(input.nextReviewAt) : null;
@@ -810,7 +810,10 @@ export async function addMasteryRetest(
       });
     }
 
-    const result = serializeNode(await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true), []);
+    const result = {
+      ...serializeNode(await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true), []),
+      recordedRetestId: retest.id,
+    };
     await recordPersistentCreateResult(tx, command, syllabusNodeId, {
       retestId: retest.id,
       result: input.result,

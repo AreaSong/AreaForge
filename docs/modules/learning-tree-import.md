@@ -8,6 +8,8 @@
 
 - 协议 `AREAFORGE_LEARNING_TREE_V1`；模板分全局、单科与分支。
 - API 与页面：模板、作用域导出、无业务写入 preview、原子 confirm、导入历史与一次性 canonical 导出；页面入口位于 `/knowledge/imports`。
+- 页面默认是批次总览，唯一主操作进入导入工作态；导出使用独立工作态。模板和 AI 草稿只在导入工作态出现，草稿恢复会直接回到未完成导入。
+- 导入工作态按内容、差异、显式确认推进；中断、登录失效和 confirm 冲突均保留 Markdown 与映射，但必须重新 preview。成功后进入批次结果，以中文应用/跳过摘要和考纲核验为主，协议、哈希与规范化源降为折叠技术信息。
 - preview 不写考纲、卡片、资料、任务、Schedule 或 AuditEvent；confirm 成功后才创建 `LearningTreeImportBatch/Item`。
 - 学习树 Markdown 内资料指令仅允许 HTTPS LINK；不内嵌二进制、不触发服务端抓取。
 - StudyResource FILE/LINK CRUD、ZIP/Markdown 存储策略与重复三选一已落地，页面入口位于 `/knowledge/resources`。

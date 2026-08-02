@@ -1672,3 +1672,38 @@ pnpm ops:ops-001:preflight
 明确确认句（已确认，画布栈）：
 
 > 允许按 docs/development/dependency-policy.md 对 @xyflow/react 做依赖准入与 lockfile 变更；不引入远程内容上传、客户端密钥、telemetry SaaS 或服务端 URL 抓取。
+
+### 当前账户 AI Provider 凭据配置确认包
+
+- 影响：将 `/settings/ai` 从只读 Provider 状态扩展为当前账户级 Provider 配置。新增 `AiProviderCredential` 表和一条 additive migration；账户配置优先于旧环境变量回退。
+- 持久化：服务端使用 `AI_CREDENTIALS_ENCRYPTION_KEY` 派生 AES-256-GCM 密钥，数据库只保存 base URL、model、密文、SHA-256 fingerprint、revision 和时间字段；API Key 不进入客户端、响应、审计 metadata、prompt、raw response 或普通日志。
+- Web 操作：鉴权 `GET|PATCH|DELETE /api/ai/provider` 和 `POST /api/ai/provider/test`。PATCH 首次必须提供 API Key，已有配置更新地址或模型时留空保留原密钥；DELETE 只删除当前账户记录；测试只发送合成连接上下文，不保存或返回模型响应。
+- 全局 gate：`AI_ENABLED` 保留全局总开关；关闭时真实外呼和连接测试都阻止。已有当前浏览器 HttpOnly 外部 Provider 偏好继续默认关闭，并且八条既有显式 AI POST 路径仍共享该 gate。
+- URL 边界：生产要求 HTTPS，并拒绝 loopback、私网、link-local 和云元数据地址；开发环境允许显式本地 Provider。账户配置解密失败时 fail closed，不回退到另一个账户或暴露密文。
+- 风险：数据库备份会包含凭据密文；删除当前记录不等于历史备份立即物理删除。加密主密钥丢失会使账户配置不可解密，需要重新保存配置；轮换主密钥需另行设计迁移和回滚。
+- 验证：crypto 单测、schema/DB validate、隔离 PostgreSQL migration、鉴权 API 401/owner isolation、保存/更新保留旧密钥、删除、合成测试、`AI_ENABLED=false` 阻断、客户端 bundle 搜索、Web typecheck/lint/build 和浏览器设置页验收。真实 Provider key smoke 仍需用户提供配置后单独执行。
+- 回滚：先设置 `AI_ENABLED=false` 阻止外呼，再回滚 Web/API 代码；保留 additive 表以兼容旧版本，必要时删除当前账户记录。任何生产 migration、备份恢复、密钥轮换或历史备份清理另行确认。
+- 不授权：把密钥返回 Web、默认开启外呼、保存 prompt/raw response/history/token/cost/provider trace、后台/GET 外呼、自动覆盖任务/阶段计划、附件/OCR/完整复盘或动机正文外发、生产 apply、Release 或 residual 关闭。
+
+**确认状态（2026-08-02）**：用户已明确确认以下范围，进入实现与本地验收；真实 Provider key smoke、生产 migration/apply、Release 和备份清理仍未确认。
+
+明确确认句（已确认）：
+
+> 确认按当前账户独立配置 Provider，服务端加密存储，Web 只允许更新、删除和测试，密钥不回显，AI_ENABLED 保留为全局总开关。
+
+### Web 全局 AI 运行开关确认包
+
+- 影响：`/settings/ai` 增加全局 AI Web 运行开关；新增 `AiRuntimeSetting` 单例和 additive migration；启停动作写入 `AuditEvent`，影响所有账户和浏览器的显式 AI 外呼资格。
+- 闸门：`AI_ENABLED=false` 继续作为服务端硬关闭，网页不能绕过；只有服务端硬闸门开启、Web 全局开关开启、当前浏览器偏好开启且 Provider 配置完整时，八条显式 AI POST 路径才可外呼。
+- Web 操作：鉴权 `GET|PATCH /api/ai/runtime`；PATCH 只接收 `enabled` 与可选 `expectedRevision`，响应不含密钥。服务端硬闸门关闭时，开启请求返回 `AI_RUNTIME_SERVER_DISABLED`。
+- 密钥边界：`AI_PAYLOAD_BINDING_SECRET` 和 `AI_CREDENTIALS_ENCRYPTION_KEY` 仍只在服务端配置或生成，不由 Web 输入、不回显；本次不扩大 payload，不保存 prompt/raw response/history/token/cost/provider trace。
+- 风险：误开启会允许已授权浏览器把既有最小化上下文发送到账户 Provider；并发设置更新可能产生 revision 冲突；旧应用回滚前若不关闭服务端硬闸门，旧版本可能不识别 Web 开关。
+- 验证：`pnpm db:validate`、`pnpm db:generate`、本地 additive migration、runtime API 401/读写/冲突/硬闸门阻断、启停审计、八条路由 gate、AI selftest、Web typecheck/lint、客户端密钥扫描和设置页浏览器烟测。
+- 回滚：先关闭 Web 全局开关；必要时设置 `AI_ENABLED=false` 立即阻断外呼，再回滚应用。保留 additive 表以兼容旧版本，不删除 Provider 密文，不执行生产 migration/apply、Release 或备份清理。
+- 不授权：将服务端根密钥或 binding secret 暴露到 Web、默认开启外呼、扩大 AI 字段、后台/GET/SSR 外呼、自动应用业务对象、真实生产 key smoke、生产 apply 或 residual 关闭。
+
+**确认状态（2026-08-02）**：用户明确确认按上述范围实现本地 Web 全局 AI 开关；本轮只执行本地代码、当前本地测试库 additive migration 和固定测试账号 smoke，不执行生产 migration/apply、Release 或真实生产 key smoke。
+
+明确确认句（已确认）：
+
+> 确认按上述范围实现本地 Web AI 全局开关；保留 `AI_ENABLED` 服务端硬闸门，不暴露服务端密钥，不执行生产部署。

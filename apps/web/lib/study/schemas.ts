@@ -470,6 +470,13 @@ export const endSessionSchema = sessionCommandSchema.extend({
   completeTask: z.boolean().default(false),
 });
 
+export const linkSessionEvidenceSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  expectedCloseoutVersion: z.number().int().positive(),
+  evidenceType: z.enum(["note", "mistake", "retest"]),
+  evidenceId: z.string().min(1),
+});
+
 const reviewContentSchema = z.object({
   summary: z.string().trim().min(1).max(2000),
   lostControl: z.string().trim().max(2000).optional(),
@@ -553,6 +560,20 @@ export const patchNotificationPreferencesSchema = z.object({
 export const patchAiProviderPreferenceSchema = z.object({
   externalProviderEnabled: z.boolean(),
 }).strict();
+
+export const patchAiProviderCredentialSchema = z.object({
+  baseUrl: z.string().trim().min(1).max(2048),
+  model: z.string().trim().min(1).max(200),
+  apiKey: z.string().max(4096).optional(),
+  expectedRevision: z.number().int().positive().optional(),
+}).strict();
+
+export const patchAiRuntimeSettingSchema = z.object({
+  enabled: z.boolean(),
+  expectedRevision: z.number().int().min(0).optional(),
+}).strict();
+
+export const testAiProviderSchema = z.object({}).strict();
 
 export const testNotificationSchema = z.object({
   category: z.enum(["review", "plan", "evening"]).default("review"),

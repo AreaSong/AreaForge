@@ -1,11 +1,14 @@
 "use client";
 
-import { Archive, ArchiveRestore, Plus, Save, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { Archive, ArchiveRestore, ArrowRight, Check, Plus, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { Alert, Badge } from "@/components/ui/feedback";
+import { SectionHeader } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { withReturnTo } from "@/lib/navigation/batch7";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -97,6 +100,7 @@ interface SimulationDetailClientProps {
   subjects: Array<{ id: string; name: string }>;
   syllabus: SyllabusOptionNodeDto[];
   remediations: SimulationRemediationDto[];
+  returnTo: string;
 }
 
 export function SimulationDetailClient(props: SimulationDetailClientProps) {
@@ -113,8 +117,8 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [examRevision, setExamRevision] = useState(initialEditorDraft.baseRevision);
   const [examStatus, setExamStatus] = useState(props.exam.status);
-  const [hasStructuredResults, setHasStructuredResults] = useState(props.exam.totalsSource === "subject_sum");
-  const [selectedOriginKeys, setSelectedOriginKeys] = useState<string[]>(props.remediations.map((item) => item.originKey));
+  const [hasStructuredResults, setHasStructuredResults] = useState(hasPersistedSubjectResults(props.exam));
+  const [selectedOriginKeys, setSelectedOriginKeys] = useState<string[]>(props.remediations.filter((item) => !item.inboxItemId).map((item) => item.originKey));
   const [subjectDrafts, setSubjectDrafts] = useState(initialEditorDraft.subjectDrafts);
   const [draftReady, setDraftReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -122,6 +126,8 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
   const [conflictOpen, setConflictOpen] = useState(false);
   const [lossConflict, setLossConflict] = useState<LossItemConflict | null>(null);
   const [lossConflictOpen, setLossConflictOpen] = useState(false);
+  const [remediationReceipt, setRemediationReceipt] = useState<{ created: number; reused: number } | null>(null);
+  const pendingRemediations = props.remediations.filter((item) => !item.inboxItemId);
   const active = subjectDrafts.find((draft) => draft.subjectId === selectedSubjectId) ?? subjectDrafts[0];
   const conflictedLossItem = lossConflict
     ? subjectDrafts
@@ -501,7 +507,9 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
         setError(body?.error ?? "加入收件箱失败；当前选择仍保留。");
         return;
       }
-      setNotice(`已加入 ${body?.created ?? 0} 项，复用 ${body?.reused ?? 0} 项。`);
+      const receipt = { created: body?.created ?? 0, reused: body?.reused ?? 0 };
+      setRemediationReceipt(receipt);
+      setNotice(`已加入 ${receipt.created} 项，复用 ${receipt.reused} 项。`);
     } catch {
       setError("网络不可用，补救选择仍保留；恢复网络后请显式重试。");
     } finally {
@@ -531,7 +539,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
     const next = toSimulationEditorDraft(exam, props.subjects);
     setExamRevision(next.baseRevision);
     setExamStatus(exam.status);
-    setHasStructuredResults(exam.totalsSource === "subject_sum");
+    setHasStructuredResults(hasPersistedSubjectResults(exam));
     setSummary(next.summary);
     setMindset(next.mindset);
     setSubjectDrafts(next.subjectDrafts);
@@ -560,7 +568,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
       return;
     }
     setExamRevision(latest.revision);
-    setHasStructuredResults(latest.totalsSource === "subject_sum");
+    setHasStructuredResults(hasPersistedSubjectResults(latest));
     setSubjectDrafts((items) => items.map((item) => ({
       ...item,
       expectedRevision: latest.subjectResults.find((result) => result.subjectId === item.subjectId)?.revision,
@@ -575,8 +583,64 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
   if (!active) return <p className="text-sm text-amber-200">当前工作区没有可用科目。</p>;
   const activeLossItems = active.lossItems.filter((item) => !item.archivedAt);
   const archivedLossItems = active.lossItems.filter((item) => Boolean(item.archivedAt));
+  const currentStep = examStatus === "CONFIRMED" ? 3 : hasStructuredResults ? 2 : 1;
   return (
     <div className="space-y-5">
+      <ol className="grid border-y border-white/10 sm:grid-cols-3" aria-label="模拟考试处理进度">
+        {[
+          [1, "录入成绩", "记录分科事实"],
+          [2, "分析失分", "核对并确认考试"],
+          [3, "安排补救", "送入计划收件箱"],
+        ].map(([step, title, description]) => {
+          const stepNumber = Number(step);
+          const completed = stepNumber < currentStep;
+          const activeStep = stepNumber === currentStep;
+          return (
+            <li key={stepNumber} aria-current={activeStep ? "step" : undefined} className={`flex min-h-20 items-center gap-3 px-4 py-3 ${activeStep ? "bg-white/[0.04]" : ""}`}>
+              <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs ${completed ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : activeStep ? "border-teal-400/50 text-teal-200" : "border-white/10 text-zinc-600"}`}>{completed ? <Check size={14} /> : stepNumber}</span>
+              <span className="min-w-0"><span className={`block text-sm font-medium ${activeStep || completed ? "text-white" : "text-zinc-500"}`}>{title}</span><span className="block text-xs text-zinc-500">{description}</span></span>
+            </li>
+          );
+        })}
+      </ol>
+
+      {examStatus === "CONFIRMED" ? (
+        <section className="space-y-4 border-b border-white/10 pb-5">
+          <SectionHeader title="选择补救动作" description="考试事实已经冻结。只选择需要进入计划的补救，系统不会自动创建正式任务。" meta={<Badge tone="success">事实已确认</Badge>} />
+          {props.remediations.length > 0 ? (
+            <div className="grid gap-2 lg:grid-cols-2">{props.remediations.map((item) => (
+              <label key={item.originKey} className="flex min-w-0 items-start gap-3 border border-white/10 p-3 text-sm hover:border-white/20">
+                <input type="checkbox" className="mt-1" disabled={Boolean(item.inboxItemId)} checked={Boolean(item.inboxItemId) || selectedOriginKeys.includes(item.originKey)} onChange={(event) => setSelectedOriginKeys((keys) => event.target.checked ? Array.from(new Set([...keys, item.originKey])) : keys.filter((key) => key !== item.originKey))} />
+                <span className="min-w-0"><span className="flex flex-wrap items-center gap-2 text-white">{item.subjectName} · {reasons.find((reason) => reason.value === item.reason)?.label}{item.inboxStatus ? <Badge tone={item.inboxStatus === "CONVERTED" ? "success" : item.inboxStatus === "DISMISSED" ? "neutral" : "info"}>{remediationInboxStatusLabel(item.inboxStatus)}</Badge> : null}</span><span className="mt-1 block text-xs text-zinc-500">{item.lostScore} 分{item.syllabusNodeTitle ? ` · ${item.syllabusNodeTitle}` : ""}</span></span>
+              </label>
+            ))}</div>
+          ) : (
+            <Alert tone="success" title="没有待安排的结构化补救">考试事实已完成，可回到阶段概览判断是否需要调整下一阶段。</Alert>
+          )}
+          {remediationReceipt ? (
+            <Alert tone="success" title="补救已送入计划收件箱" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/today/inbox", props.returnTo)} variant="primary" size="sm">处理收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/stage/overview", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
+              新建 {remediationReceipt.created} 项，复用已有 {remediationReceipt.reused} 项；仍需在收件箱中补全日期并显式转为任务。
+            </Alert>
+          ) : pendingRemediations.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="primary" size="lg" loading={busy} loadingLabel="送入中..." disabled={selectedOriginKeys.length === 0} onClick={() => void addRemediations()}>将选中补救送入收件箱</Button>
+              <ButtonLink href={withReturnTo("/stage/overview", props.returnTo)} variant="ghost" size="lg">返回阶段概览</ButtonLink>
+            </div>
+          ) : props.remediations.length > 0 ? (
+            <Alert tone="success" title="补救均已处理" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/today/inbox", props.returnTo)} variant="primary" size="sm">查看计划收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/stage/overview", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
+              已入箱、已忽略或已转换的补救不会重复提交。
+            </Alert>
+          ) : (
+            <ButtonLink href={withReturnTo("/stage/overview", props.returnTo)} variant="ghost" size="lg">返回阶段概览</ButtonLink>
+          )}
+        </section>
+      ) : (
+        <Alert tone="warning" title={hasStructuredResults ? "下一步：核对失分并确认考试事实" : "下一步：录入分科成绩"}>
+          {hasStructuredResults ? "确认后成绩与失分将变为只读，之后才会进入补救安排。" : "先保存分科结果；每项分数按 0.5 分步进。"}
+        </Alert>
+      )}
+
+      <SectionHeader title={examStatus === "CONFIRMED" ? "考试事实" : "录分与失分分析"} description={examStatus === "CONFIRMED" ? "以下内容已确认，只读保留。" : "按科目切换并记录成绩、用时和结构化失分。"} />
       <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="模拟科目">
         {props.subjects.map((subject) => (
           <button
@@ -595,7 +659,6 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           </button>
         ))}
       </div>
-      {examStatus === "CONFIRMED" ? <p className="rounded-md border border-teal-400/20 bg-teal-500/5 p-3 text-sm text-teal-100">这场模拟已确认，成绩与失分只读。</p> : null}
       <fieldset disabled={examStatus === "CONFIRMED" || busy} className="contents disabled:opacity-70">
         <div
           id={`${subjectTabsId}-panel-${active.subjectId}`}
@@ -603,7 +666,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           aria-labelledby={`${subjectTabsId}-tab-${active.subjectId}`}
           className="space-y-5"
         >
-        <section className="rounded-md border border-white/10 bg-[#101419] p-4">
+        <section className="border-y border-white/10 py-4">
           <h2 className="font-medium text-white">{props.subjects.find((item) => item.id === active.subjectId)?.name}分科结果</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {(["paperFullScore", "targetScore", "actualScore", "durationMinutes", "blankQuestionCount"] as const).map((key) => (
@@ -615,7 +678,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           </div>
           <label className="mt-3 block text-sm text-zinc-400">分科总结<textarea value={active.summary} onChange={(event) => updateActive({ summary: event.target.value })} className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] p-3 text-white" /></label>
         </section>
-        <section className="rounded-md border border-white/10 bg-[#101419] p-4">
+        <section className="border-y border-white/10 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-medium text-white">结构化失分</h2>
             <button type="button" onClick={addLossItem} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200">
@@ -666,30 +729,25 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           ) : null}
         </section>
         </div>
-        <section className="rounded-md border border-white/10 bg-[#101419] p-4">
-          <label className="block text-sm text-zinc-400">心态<textarea value={mindset} onChange={(event) => setMindset(event.target.value)} className="mt-1 min-h-16 w-full rounded-md bg-[#151a20] p-3 text-white" /></label>
+        <section className="border-y border-white/10 py-4">
+          <h2 className="font-medium text-white">完成分析</h2>
+          <p className="mt-1 text-sm text-zinc-500">记录整场状态与结论，作为确认前的最后核对。</p>
+          <label className="mt-3 block text-sm text-zinc-400">心态<textarea value={mindset} onChange={(event) => setMindset(event.target.value)} className="mt-1 min-h-16 w-full rounded-md bg-[#151a20] p-3 text-white" /></label>
           <label className="mt-3 block text-sm text-zinc-400">整场总结<textarea value={summary} onChange={(event) => setSummary(event.target.value)} className="mt-1 min-h-20 w-full rounded-md bg-[#151a20] p-3 text-white" /></label>
         </section>
       </fieldset>
-      {props.remediations.length > 0 ? (
-        <section className="rounded-md border border-white/10 bg-[#101419] p-4">
-          <h2 className="font-medium text-white">补救候选</h2>
-          <div className="mt-3 space-y-2">{props.remediations.map((item) => (
-            <label key={item.originKey} className="flex items-start gap-3 rounded-md border border-white/10 p-3 text-sm">
-              <input type="checkbox" className="mt-1" checked={selectedOriginKeys.includes(item.originKey)} onChange={(event) => setSelectedOriginKeys((keys) => event.target.checked ? [...keys, item.originKey] : keys.filter((key) => key !== item.originKey))} />
-              <span><span className="text-white">{item.subjectName} · {reasons.find((reason) => reason.value === item.reason)?.label}</span><span className="mt-1 block text-xs text-zinc-500">{item.lostScore} 分{item.syllabusNodeTitle ? ` · ${item.syllabusNodeTitle}` : ""}</span></span>
-            </label>
-          ))}</div>
+      {examStatus === "DRAFT" ? (
+        <section className="flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-sm font-medium text-white">保存后再确认</p><p className="mt-1 text-xs text-zinc-500">保存用于保留编辑结果；确认会冻结考试事实，不能直接撤销。</p></div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="primary" size="lg" loading={busy} loadingLabel="保存中..." onClick={() => void save()}>{hasStructuredResults ? "保存模拟结果" : "补齐并升级分科记录"}</Button>
+            {hasStructuredResults ? <Button type="button" variant="secondary" size="lg" disabled={busy} onClick={() => void confirm()}>确认考试事实</Button> : null}
+          </div>
         </section>
       ) : null}
-      {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
-      {notice ? <p role="status" className="text-sm text-teal-200">{notice}</p> : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
+      {notice && !remediationReceipt ? <Alert tone="success">{notice}</Alert> : null}
       {conflict && !conflictOpen ? <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理模拟版本冲突</button> : null}
-      <div className="flex flex-wrap gap-3">
-        {examStatus === "DRAFT" ? <><button type="button" disabled={busy} onClick={() => void save()} className="h-11 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60">{hasStructuredResults ? "保存模拟结果" : "补齐并升级分科记录"}</button>{hasStructuredResults ? <button type="button" disabled={busy} onClick={() => void confirm()} className="h-11 rounded-md border border-teal-300/30 px-4 text-sm text-teal-200 disabled:opacity-50">确认模拟结果</button> : null}</> : null}
-        <button type="button" disabled={busy || props.remediations.length === 0} onClick={() => void addRemediations()} className="h-11 rounded-md border border-white/10 px-4 text-sm disabled:opacity-50">将选中补救加入收件箱</button>
-        <Link href="/today/inbox" className="h-11 px-3 text-sm leading-[2.75rem] text-teal-300">查看收件箱</Link>
-      </div>
       <ConflictResolutionModal
         open={conflictOpen && Boolean(conflict)}
         title="合并模拟结果冲突"
@@ -735,6 +793,10 @@ async function readSimulationResponse(response: Response): Promise<SimulationErr
 
 function flattenNodes(nodes: SyllabusOptionNodeDto[]): SyllabusOptionNodeDto[] {
   return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
+}
+
+function hasPersistedSubjectResults(exam: SimulationExamDto): boolean {
+  return exam.totalsSource === "subject_sum" && exam.subjectResults.length > 0;
 }
 
 function buildSubjectDrafts(exam: SimulationExamDto, subjects: Array<{ id: string }>): SubjectDraft[] {
@@ -892,6 +954,12 @@ function lossMutationNotice(action: "create" | LossItemAction): string {
   if (action === "archive") return "失分条目已归档，可在当前分科中恢复。";
   if (action === "restore") return "失分条目已恢复。";
   return "失分条目已保存。";
+}
+
+function remediationInboxStatusLabel(status: NonNullable<SimulationRemediationDto["inboxStatus"]>): string {
+  if (status === "CONVERTED") return "已转任务";
+  if (status === "DISMISSED") return "已忽略";
+  return "已入收件箱";
 }
 
 function labelLossItemError(error: string | undefined): string {

@@ -14,7 +14,7 @@ export interface PlanRollingDto {
   days: PlanRollingDayDto[];
   tasks: StudyTaskDto[];
   debt: StudyTaskDto[];
-  datedInboxCount: number;
+  openInboxCount: number;
   inboxEntryPath: string;
   setupRequired: boolean;
   workspaceId: string | null;
@@ -34,7 +34,7 @@ export async function getPlanRolling(
       days: [],
       tasks: [],
       debt: [],
-      datedInboxCount: 0,
+      openInboxCount: 0,
       inboxEntryPath: "/today/inbox",
       setupRequired: true,
       workspaceId: null,
@@ -80,7 +80,6 @@ export async function getPlanRolling(
       where: {
         workspaceId: workspace.id,
         status: "OPEN",
-        plannedDate: { not: null },
         supersededByItemId: null,
       },
     }),
@@ -106,7 +105,7 @@ export async function getPlanRolling(
     days,
     tasks,
     debt,
-    datedInboxCount: inboxCount,
+    openInboxCount: inboxCount,
     inboxEntryPath: "/today/inbox",
     setupRequired: false,
     workspaceId: workspace.id,

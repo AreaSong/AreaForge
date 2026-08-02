@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-01T18:43:06.860Z",
+  "checkId": "ZOOM-03",
+  "checkKey": "landscape-reflow-844",
+  "route": "/settings/system",
+  "target": "system-settings-route",
+  "profile": {
+    "id": "mobile-landscape",
+    "kind": "emulated-viewport",
+    "width": 844,
+    "height": 390,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "viewport",
+  "assertions": [
+    {
+      "id": "landscape-width-observed",
+      "predicate": "equals",
+      "expected": 844,
+      "actual": 844,
+      "passed": true
+    },
+    {
+      "id": "landscape-height-observed",
+      "predicate": "equals",
+      "expected": 390,
+      "actual": 390,
+      "passed": true
+    },
+    {
+      "id": "landscape-no-horizontal-overflow",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "landscape-controls-reachable",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

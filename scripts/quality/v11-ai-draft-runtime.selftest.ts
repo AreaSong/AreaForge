@@ -125,6 +125,11 @@ try {
   }
 
   process.env.AI_ENABLED = "true";
+  await prisma.aiRuntimeSetting.upsert({
+    where: { id: "global" },
+    update: { enabled: true },
+    create: { id: "global", enabled: true },
+  });
   process.env.AI_ALLOW_SENSITIVE_CONTEXT = "false";
   let providerCallCount = 0;
   const provider: AiJsonProvider = {

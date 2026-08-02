@@ -1,13 +1,18 @@
 "use client";
 
+import { ArrowLeft, ArrowRight, BookOpen, History } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { DetailHeading } from "@/components/detail-heading";
+import { KnowledgeNextAction } from "@/components/knowledge-next-action";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { SafeMarkdownView } from "@/components/safe-markdown-view";
+import { ButtonLink } from "@/components/ui/button";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { withReturnTo } from "@/lib/navigation/batch7";
+import { getCompletionReturnLabel, getReturnContextLabel } from "@/lib/navigation/return-context";
 import {
   acquireQuickReviewDraftWriter,
   type QuickReviewDraftWriterLease,
@@ -259,8 +264,8 @@ export function QuickReviewClient(props: {
     return (
       <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-3 px-4">
         <DetailHeading className="text-2xl font-semibold text-white">排期已暂停</DetailHeading>
-        <p className="text-sm text-zinc-400">暂停的 Schedule 不能开始快速复习。</p>
-        <Link href={props.returnTo} className="text-teal-300 hover:underline">返回</Link>
+        <p className="text-sm text-zinc-400">暂停的复习排期不能开始快速复习。</p>
+        <Link href={props.returnTo} className="text-teal-300 hover:underline">{getReturnContextLabel(props.returnTo, "返回复习队列")}</Link>
       </section>
     );
   }
@@ -271,35 +276,49 @@ export function QuickReviewClient(props: {
         <DetailHeading className="text-2xl font-semibold text-white">错题需要先补全</DetailHeading>
         <p className="text-sm leading-6 text-zinc-400">这条旧错题缺少明确错因或正确思路，当前不能开始或确认快速复习。</p>
         <div className="flex flex-wrap gap-3">
-          <Link href={props.target.canonicalHref} className="inline-flex h-11 items-center rounded-md bg-teal-500 px-4 text-sm font-medium text-black">打开错题详情</Link>
-          <Link href={props.returnTo} className="inline-flex h-11 items-center text-sm text-teal-300 hover:underline">返回原位置</Link>
+          <Link href={withReturnTo(props.target.canonicalHref, props.returnTo)} className="inline-flex h-11 items-center rounded-md bg-teal-500 px-4 text-sm font-medium text-black">打开错题详情</Link>
+          <Link href={props.returnTo} className="inline-flex h-11 items-center text-sm text-teal-300 hover:underline">{getReturnContextLabel(props.returnTo, "返回原位置")}</Link>
         </div>
       </section>
     );
   }
 
   if (done) {
+    const completionActionLabel = done.nextScheduleId ? "继续下一项" : getCompletionReturnLabel(props.returnTo);
+    const completionActionHref = done.nextScheduleId
+      ? withReturnTo(`/quick-review/${done.nextScheduleId}`, props.returnTo)
+      : props.returnTo;
     return (
-      <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 px-4">
+      <section className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-5 px-4 py-8">
         <DetailHeading className="text-2xl font-semibold text-white">本次复习已确认</DetailHeading>
+        <KnowledgeNextAction
+          title={done.nextScheduleId ? "继续下一项复习" : completionActionLabel}
+          description={done.nextScheduleId
+            ? "当前结果已经写入复习历史，继续下一项会沿用本次来源。"
+            : "当前结果已经写入复习历史，回到来源后可以继续处理下一行动。"}
+          status={<span className="rounded-md border border-teal-300/30 bg-teal-300/10 px-3 py-2 text-sm text-teal-100">结果已保存</span>}
+          action={
+            <ButtonLink href={completionActionHref} variant="primary" size="md">
+              {done.nextScheduleId ? <ArrowRight size={16} aria-hidden /> : <ArrowLeft size={16} aria-hidden />}
+              {completionActionLabel}
+            </ButtonLink>
+          }
+        />
         <dl className="grid grid-cols-2 gap-3 rounded-md border border-white/10 bg-[#101419] p-4 text-sm">
-          <div><dt className="text-zinc-500">结果</dt><dd className="mt-1 text-white">{done.event.result}</dd></div>
+          <div><dt className="text-zinc-500">本次结果</dt><dd className="mt-1 text-white">{reviewResultLabel(done.event.result)}</dd></div>
           <div><dt className="text-zinc-500">有效时长</dt><dd className="mt-1 text-white">{formatDuration(done.event.durationSeconds)}</dd></div>
           <div><dt className="text-zinc-500">下次复习</dt><dd className="mt-1 text-white">{new Date(done.event.nextDueDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}</dd></div>
-          <div><dt className="text-zinc-500">排期版本</dt><dd className="mt-1 text-white">r{done.schedule.revision}{done.reused ? "（重试复用）" : ""}</dd></div>
+          <div><dt className="text-zinc-500">掌握变化</dt><dd className="mt-1 text-white">{masteryChangeLabel(props.schedule.consecutivePassCount, done.schedule.consecutivePassCount)}</dd></div>
         </dl>
         <section className="space-y-2 rounded-md border border-white/10 bg-[#101419] p-4">
           <p className="text-xs text-zinc-500">本次复习对象</p>
           <h2 className="text-lg font-medium text-white">{props.target.title}</h2>
           <p className="text-sm text-zinc-400">{props.target.subtitle}</p>
-          <Link className="text-sm text-teal-300 hover:underline" href={props.target.canonicalHref}>查看对象详情</Link>
         </section>
-        <p className="text-sm text-zinc-400">结果页不会自动跳转，由你决定下一步。</p>
+        <p className="text-sm text-zinc-400">结果已经写入复习历史{done.reused ? "，本次为幂等重试复用" : ""}。</p>
         <div className="flex flex-wrap gap-3">
-          {done.nextScheduleId ? <Link href={`/quick-review/${done.nextScheduleId}?returnTo=${encodeURIComponent(props.returnTo)}`} className="text-teal-300 hover:underline">开始下一项</Link> : null}
-          <Link href={props.returnTo} className="text-teal-300 hover:underline">返回原位置</Link>
-          <Link href="/today" className="text-teal-300 hover:underline">回今日</Link>
-          <Link href={`/knowledge/reviews/${done.schedule.id}?returnTo=${encodeURIComponent(props.returnTo)}`} className="text-teal-300 hover:underline">查看排期详情</Link>
+          <Link href={withReturnTo(props.target.canonicalHref, props.returnTo)} className="inline-flex h-10 items-center gap-2 px-2 text-sm text-teal-300 hover:underline"><BookOpen size={16} aria-hidden />查看对象详情</Link>
+          <Link href={withReturnTo(`/knowledge/reviews/${done.schedule.id}`, props.returnTo)} className="inline-flex h-10 items-center gap-2 px-2 text-sm text-zinc-300 hover:text-white"><History size={16} aria-hidden />查看复习历史</Link>
         </div>
       </section>
     );
@@ -537,7 +556,7 @@ export function QuickReviewClient(props: {
       <section className="space-y-3 rounded-md border border-white/10 bg-[#101419] p-4" aria-labelledby="quick-review-target">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div><p className="text-xs text-zinc-500">复习对象</p><h2 id="quick-review-target" className="mt-1 text-xl font-medium text-white">{props.target.title}</h2></div>
-          <Link className="text-sm text-teal-300 hover:underline" href={props.target.canonicalHref}>打开详情</Link>
+          <Link className="text-sm text-teal-300 hover:underline" href={withReturnTo(props.target.canonicalHref, props.returnTo)}>打开详情</Link>
         </div>
         <SafeMarkdownView nodes={props.target.body} />
         {props.schedule.targetType === "MISTAKE" && draft.revealed && props.target.revealBody.length ? (
@@ -647,4 +666,14 @@ function failureWorkbench(body: ConflictBody | ConfirmResponse | null, fallback:
 
 function safeConflictWorkbench(value: string | undefined): string | null {
   return value?.startsWith("/focus/") || value === "/knowledge/reviews" ? value : null;
+}
+
+function reviewResultLabel(value: ReviewEventDto["result"]) {
+  return value === "PASSED" ? "通过" : value === "PARTIAL" ? "部分掌握" : "未通过";
+}
+
+function masteryChangeLabel(before: number, after: number) {
+  if (after > before) return `连续通过 ${before} → ${after} 次`;
+  if (after < before) return `连续通过已重置为 ${after} 次`;
+  return `连续通过保持 ${after} 次`;
 }
