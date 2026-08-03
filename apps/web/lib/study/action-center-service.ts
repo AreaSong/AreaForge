@@ -18,7 +18,7 @@ import {
   type ExamWorkspaceDto,
 } from "./exam-workspace-service";
 import { listWorkspaceCheckIns, type CheckInV2Dto } from "./check-in-service";
-import { getActiveRecoveryV2, type RecoveryV2Dto } from "./recovery-v2-service";
+import { getActiveRecoveryV2, startRecoveryV2, type RecoveryV2Dto } from "./recovery-v2-service";
 import { getActiveStudySession } from "./service";
 import { listSyllabusOptions } from "./syllabus-service";
 import type { StudySessionDto, SyllabusOptionNodeDto } from "./types";
@@ -106,7 +106,11 @@ function serializeWorkspace(row: {
   };
 }
 
-export async function getActionCenterToday(actorId: string, requestedStudyDate?: string | null): Promise<ActionCenterTodayDto> {
+export async function getActionCenterToday(
+  actorId: string,
+  requestedStudyDate?: string | null,
+  options: { recordRecoveryRule?: boolean } = {},
+): Promise<ActionCenterTodayDto> {
   const todayRange = getStudyDayRange();
   const selectedDate = parseStudyDayKey(requestedStudyDate) ?? todayRange.start;
   const workspace = await findActiveWorkspaceOrNull(actorId);
@@ -290,6 +294,25 @@ export async function getActionCenterToday(actorId: string, requestedStudyDate?:
     };
   });
 
+  const fallbackEffectiveMinutes = completedSessions.reduce(
+    (sum, session) => sum + (session.isEffective ? session.effectiveMinutes : 0),
+    0,
+  );
+  let resolvedRecovery = recovery;
+  if (
+    !resolvedRecovery
+    && options.recordRecoveryRule
+    && day.key === todayRange.key
+    && (fallbackEffectiveMinutes < 30 || tasks.filter((task) => task.plannedDate < day.start).length >= 6)
+  ) {
+    resolvedRecovery = await startRecoveryV2(actorId, {
+      triggerType: "rule",
+      reason: fallbackEffectiveMinutes < 30
+        ? "规则触发恢复：今日有效学习不足 30 分钟，先完成一个最小行动。"
+        : "规则触发恢复：待处理欠账已达到恢复阈值，先收窄到一个最小行动。",
+    });
+  }
+
   const candidates: ActionCenterCandidate[] = [];
 
   if (activeSession) {
@@ -312,17 +335,17 @@ export async function getActionCenterToday(actorId: string, requestedStudyDate?:
     });
   }
 
-  if (recovery?.effectiveStatus === "ACTIVE") {
+  if (resolvedRecovery?.effectiveStatus === "ACTIVE") {
     candidates.push({
-      id: recovery.id,
+      id: resolvedRecovery.id,
       kind: "recovery",
-      title: `恢复第 ${recovery.currentStage} 阶 · ${recovery.targetMinutes} 分钟`,
-      reason: recovery.reason || "当前处于恢复模式，先完成一个最小行动",
+      title: `恢复第 ${resolvedRecovery.currentStage} 阶 · ${resolvedRecovery.targetMinutes} 分钟`,
+      reason: resolvedRecovery.reason || "当前处于恢复模式，先完成一个最小行动",
       priorityBand: "recovery_candidate",
       riskScore: 80,
       overdueDays: 0,
-      estimatedMinutes: recovery.targetMinutes,
-      createdAtMs: new Date(recovery.startedAt).getTime(),
+      estimatedMinutes: resolvedRecovery.targetMinutes,
+      createdAtMs: new Date(resolvedRecovery.startedAt).getTime(),
       hardBlocked: false,
       softDependencyHint: null,
       bridgedReviewScheduleId: null,
@@ -408,7 +431,7 @@ export async function getActionCenterToday(actorId: string, requestedStudyDate?:
 
   let statusBar: ActionCenterTodayDto["statusBar"] = null;
   if (activeSession?.status === "paused") statusBar = "paused_activity";
-  else if (recovery?.effectiveStatus === "ACTIVE") statusBar = "recovery_minimum";
+  else if (resolvedRecovery?.effectiveStatus === "ACTIVE") statusBar = "recovery_minimum";
   else {
     const hourShanghai = new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCHours();
     if (day.key === todayRange.key && hourShanghai >= 20 && !(checkIn?.completedMinimumAction)) statusBar = "evening_review";
@@ -435,10 +458,6 @@ export async function getActionCenterToday(actorId: string, requestedStudyDate?:
   const completedTaskCount = dayTasks.filter((task) => task.status === "DONE").length;
   const deferredTaskCount = dayTasks.filter((task) => task.status === "DEFERRED" || task.status === "SKIPPED").length;
   const fallbackTotalMinutes = completedSessions.reduce((sum, session) => sum + session.effectiveMinutes, 0);
-  const fallbackEffectiveMinutes = completedSessions.reduce(
-    (sum, session) => sum + (session.isEffective ? session.effectiveMinutes : 0),
-    0,
-  );
   const fallbackEffectiveSessionCount = completedSessions.filter((session) => session.isEffective).length;
   const fallbackLowConversionCount = completedSessions.filter((session) => session.isLowConversion).length;
 
@@ -452,7 +471,7 @@ export async function getActionCenterToday(actorId: string, requestedStudyDate?:
     queuesEmpty: empty,
     subjectTimers,
     activity: activeSession,
-    recovery,
+    recovery: resolvedRecovery,
     checkIn,
     shortcutOptions: { tasks: shortcutTaskOptions, syllabusNodes: syllabusOptions },
     statusBar,

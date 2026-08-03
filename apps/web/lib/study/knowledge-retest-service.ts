@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { masteryStateForRetest } from "./knowledge-mastery";
 import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
@@ -70,7 +71,7 @@ export interface KnowledgeRetestCommandInput {
 }
 
 const pointInclude = {
-  knowledgePoint: { select: { id: true, title: true } },
+  knowledgePoint: { select: { id: true, title: true, masteryState: true } },
 } satisfies Prisma.KnowledgeRetestPointInclude;
 
 export async function listKnowledgeRetests(actorId: string): Promise<KnowledgeRetestListItemDto[]> {
@@ -150,7 +151,7 @@ export async function createKnowledgeRetest(actorId: string, input: CreateKnowle
         title,
         method,
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
-        points: { create: pointIds.map((knowledgePointId) => ({ knowledgePointId, result: "PARTIAL" })) },
+        points: { create: pointIds.map((knowledgePointId) => ({ knowledgePointId, result: null })) },
       },
       include: { points: { include: pointInclude, orderBy: { id: "asc" } }, _count: { select: { points: true } } },
     });
@@ -205,6 +206,20 @@ export async function submitKnowledgeRetest(actorId: string, id: string, input: 
     const submitted = new Map(input.points.map((point) => [point.pointId, point]));
     if (submitted.size !== existing.points.length || existing.points.some((point) => !submitted.has(point.id))) {
       throw new ApiError("KNOWLEDGE_RETEST_RESULT_INCOMPLETE", 400, { conflictFields: ["points"] });
+    }
+    const incompletePointIds = existing.points
+      .filter((point) => {
+        const result = submitted.get(point.id);
+        return !result
+          || !result.result
+          || result.score == null
+          || !result.note?.trim();
+      })
+      .map((point) => point.id);
+    if (incompletePointIds.length > 0) {
+      throw new ApiError("KNOWLEDGE_RETEST_POINT_FEEDBACK_REQUIRED", 400, {
+        conflictFields: ["points", "points.score", "points.note"],
+      });
     }
     for (const point of existing.points) {
       const result = submitted.get(point.id)!;
@@ -261,8 +276,21 @@ export async function confirmKnowledgeRetest(
       throw new ApiError("KNOWLEDGE_RETEST_CONFIRM_REQUIRES_REVIEW", 409, { latest: serializeDetail(existing), conflictFields: ["status", "reviewText"] });
     }
     const nextDueAt = new Date(Date.now() + dueDays(existing.result));
+    const testedAt = existing.testedAt ? new Date(existing.testedAt) : new Date();
+    const pointIds = existing.points.map((point) => point.knowledgePointId);
+    const previousEvidence = await tx.knowledgeEvidence.findMany({
+      where: { workspaceId: workspace.id, sourceType: "RETEST", knowledgePointId: { in: pointIds } },
+      select: { knowledgePointId: true, occurredAt: true, dimensions: true },
+    });
     for (const point of existing.points) {
-      const state = masteryStateForResult(point.result);
+      const evidence = previousEvidence.filter((item) => item.knowledgePointId === point.knowledgePointId);
+      const state = masteryStateForRetest({
+        result: point.result,
+        currentState: point.knowledgePoint.masteryState,
+        testedAt,
+        previousEvidence: evidence,
+        method: existing.method,
+      });
       await tx.knowledgePoint.update({
         where: { id: point.knowledgePointId },
         data: { masteryState: state, nextRetestAt: nextDueAt, revision: { increment: 1 } },
@@ -280,9 +308,10 @@ export async function confirmKnowledgeRetest(
             score: point.score,
             understanding: point.understanding,
             retestId: existing.id,
+            method: existing.method,
           } as Prisma.InputJsonObject,
           confidence: confidenceForResult(point.result),
-          occurredAt: existing.testedAt ? new Date(existing.testedAt) : new Date(),
+          occurredAt: testedAt,
         },
       });
     }
@@ -294,11 +323,43 @@ export async function confirmKnowledgeRetest(
   });
 }
 
+export async function voidKnowledgeRetest(
+  actorId: string,
+  id: string,
+  input: KnowledgeRetestCommandInput,
+): Promise<KnowledgeRetestDetailDto> {
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const fingerprint = buildPersistentCreateFingerprint("knowledge-retest-void-v1", { id, expectedRevision: input.expectedRevision });
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const command = retestCommand(actorId, workspace.id, id, "VOIDED", idempotencyKey, fingerprint);
+    const replay = await findPersistentCreateReplay(tx, command);
+    if (replay) return replayRetest(tx, replay.resultId, actorId, workspace.id, replay.resultSnapshot);
+    const existing = await findDetail(tx, id, actorId, workspace.id);
+    assertExpectedRevision(existing, input.expectedRevision, "KNOWLEDGE_RETEST_VOID_REVISION_CONFLICT");
+    if (existing.status === "VOIDED") return serializeDetail(existing);
+    if (existing.status === "CLOSED") {
+      throw new ApiError("KNOWLEDGE_RETEST_VOID_INVALID_STATE", 409, {
+        latest: serializeDetail(existing),
+        conflictFields: ["status"],
+      });
+    }
+    await tx.knowledgeRetest.update({
+      where: { id },
+      data: { status: "VOIDED", revision: { increment: 1 } },
+    });
+    await tx.auditEvent.create({ data: { actorId, action: "KNOWLEDGE_RETEST_VOIDED", entityType: "KnowledgeRetest", entityId: id } });
+    const result = serializeDetail(await findDetail(tx, id, actorId, workspace.id));
+    await recordPersistentCreateResult(tx, command, id, { resultSnapshot: result as unknown as Prisma.InputJsonObject });
+    return result;
+  });
+}
+
 function retestCommand(
   actorId: string,
   workspaceId: string,
   entityId: string,
-  action: "STARTED" | "SUBMITTED" | "CONFIRMED",
+  action: "STARTED" | "SUBMITTED" | "CONFIRMED" | "VOIDED",
   idempotencyKey: string,
   requestFingerprint: string,
 ) {
@@ -364,7 +425,7 @@ function serializeDetail(row: {
   summary: string | null;
   reviewText: string | null;
   revision: number;
-  points: Array<{ id: string; knowledgePointId: string; result: string; score: number | null; understanding: number | null; note: string | null; knowledgePoint: { id: string; title: string } }>;
+  points: Array<{ id: string; knowledgePointId: string; result: string | null; score: number | null; understanding: number | null; note: string | null; knowledgePoint: { id: string; title: string; masteryState: string } }>;
   _count: { points: number };
 }): KnowledgeRetestDetailDto {
   return {
@@ -391,12 +452,6 @@ function serializeDetail(row: {
       note: point.note,
     })),
   };
-}
-
-function masteryStateForResult(result: KnowledgeRetestResultDto | null): "INITIAL_MASTERY" | "STABLE_MASTERY" | "NEEDS_RETEST" {
-  if (result === "PASSED") return "STABLE_MASTERY";
-  if (result === "PARTIAL") return "INITIAL_MASTERY";
-  return "NEEDS_RETEST";
 }
 
 function confidenceForResult(result: KnowledgeRetestResultDto | null): number {

@@ -164,7 +164,10 @@ async function keyboardLogin(
   const responsePromise = page.waitForResponse((response) =>
     new URL(response.url()).pathname === "/api/auth/login" && response.request().method() === "POST");
   const [response] = await Promise.all([responsePromise, page.keyboard.press("Enter")]);
-  await page.waitForURL((candidate) => candidate.pathname === "/today");
+  await page.waitForURL((candidate) => candidate.pathname === "/focus");
+  await page.getByRole("heading", { name: "今天先学什么？", level: 1 }).waitFor();
+  const loginTerminalPath = pathname(page);
+  await page.goto(url(config, "/today"), { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "今日", level: 1 }).waitFor();
   record(checks, {
     id: "KBD-01",
@@ -176,7 +179,7 @@ async function keyboardLogin(
       assertion("email-reached-by-tab", true, emailFocused),
       assertion("password-reached-by-tab", true, passwordFocused),
       assertion("enter-submitted-login", 200, response.status()),
-      assertion("keyboard-login-terminal-route", "/today", pathname(page)),
+      assertion("keyboard-login-terminal-route", "/focus", loginTerminalPath),
     ],
   });
 }
@@ -648,7 +651,7 @@ async function canvasDesktopChecks(
   await backLink.focus();
   await page.keyboard.press("Enter");
   await page.waitForURL((candidate) => candidate.pathname === "/knowledge/canvas" && candidate.searchParams.get("view") === "list");
-  const restoredDetailLink = page.locator(`a[href="${detailPath}"]`);
+  const restoredDetailLink = list.locator(`a[href="${detailPath}"]`);
   await waitForElementFocus(restoredDetailLink);
   record(checks, {
     id: "FOCUS-04",
@@ -1131,10 +1134,38 @@ function layoutMutationResponse(page: Page): Promise<PlaywrightResponse> {
 }
 
 async function getJson(context: BrowserContext, config: BrowserEvidenceConfig, path: string) {
-  const response = await context.request.get(url(config, path), { headers: { accept: "application/json" } });
+  const target = new URL(url(config, path));
+  const cookies = await context.cookies();
+  const cookieHeader = cookies
+    .filter((cookie) => cookieMatchesUrl(cookie, target))
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
+  const response = await context.request.get(target.toString(), {
+    headers: {
+      accept: "application/json",
+      ...(cookieHeader ? { cookie: cookieHeader } : {}),
+    },
+  });
   const bytes = await response.body();
   return { status: response.status(), sha256: sha256(bytes), body: parseJson(bytes) };
 }
+
+function cookieMatchesUrl(
+  cookie: { domain: string; path: string; secure: boolean },
+  target: URL,
+): boolean {
+  const domain = cookie.domain.replace(/^\./, "").toLowerCase();
+  const host = target.hostname.toLowerCase();
+  const domainMatches = host === domain || host.endsWith(`.${domain}`);
+  const pathMatches = target.pathname === cookie.path
+    || target.pathname.startsWith(`${cookie.path.replace(/\/$/, "")}/`);
+  const secureMatches = !cookie.secure
+    || target.protocol === "https:"
+    || (target.protocol === "http:" && localHosts.has(host));
+  return domainMatches && pathMatches && secureMatches;
+}
+
+const localHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 async function pollJson(
   context: BrowserContext,

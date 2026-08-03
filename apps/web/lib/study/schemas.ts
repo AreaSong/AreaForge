@@ -8,6 +8,8 @@ export const createTaskSchema = z.object({
   syllabusNodeId: z.string().min(1).nullable().optional(),
   relatedSyllabusNodeIds: z.array(z.string().min(1)).max(20).optional(),
   planMilestoneId: z.string().min(1).nullable().optional(),
+  stagePlanIds: z.array(z.string().min(1)).max(20).optional(),
+  knowledgePointIds: z.array(z.string().min(1)).max(50).optional(),
   sourceResourceId: z.string().min(1).optional(),
   title: z.string().trim().min(1).max(120),
   type: z.string().trim().min(1).max(40).default("study"),
@@ -417,6 +419,8 @@ export const updateTaskSchema = z.object({
   syllabusNodeId: z.string().min(1).nullable().optional(),
   relatedSyllabusNodeIds: z.array(z.string().min(1)).max(20).optional(),
   planMilestoneId: z.string().min(1).nullable().optional(),
+  stagePlanIds: z.array(z.string().min(1)).max(20).optional(),
+  knowledgePointIds: z.array(z.string().min(1)).max(50).optional(),
   title: z.string().trim().min(1).max(120).optional(),
   type: z.string().trim().min(1).max(40).optional(),
   priority: z.enum(["low", "medium", "high", "critical"]).optional(),
@@ -464,32 +468,73 @@ export const convertTaskToReviewSchema = z.object({
 
 export const startSessionSchema = z
   .object({
+    idempotencyKey: idempotencyKeySchema,
+    startedAt: z.string().datetime().optional(),
     subjectId: z.string().min(1).optional(),
     taskId: z.string().min(1).optional(),
     syllabusNodeId: z.string().min(1).nullable().optional(),
     goalMinutes: z.number().int().min(5).max(720).nullable().optional(),
     startSource: z.enum(["TASK", "SUBJECT_SHORTCUT", "RECOVERY"]).optional(),
+    clientDeviceId: z.string().trim().min(8).max(100).regex(/^[A-Za-z0-9:_-]+$/).optional(),
+    clientDeviceLabel: z.string().trim().min(1).max(80).optional(),
   })
   .refine((value) => value.subjectId || value.taskId, {
     message: "subjectId or taskId is required",
   });
 
 export const sessionCommandSchema = z.object({
-  expectedStatus: z.enum(["running", "paused"]),
+  expectedStatus: z.enum(["running", "paused", "closing"]),
   expectedUpdatedAt: z.string().datetime(),
   idempotencyKey: z.string().min(8).max(200),
 });
 
+const sessionLowReasonSchema = z.enum([
+  "NOT_UNDERSTOOD",
+  "DISTRACTED",
+  "MATERIAL_BLOCKED",
+  "FATIGUE",
+  "METHOD_MISMATCH",
+  "TIME_FRAGMENTED",
+  "OTHER",
+]);
+
+export const updateSessionContextSchema = sessionCommandSchema.extend({
+  taskId: z.string().min(1).nullable().optional(),
+  syllabusNodeId: z.string().min(1).nullable().optional(),
+  knowledgePointIds: z.array(z.string().min(1)).max(50).optional(),
+}).refine((value) => value.taskId !== undefined || value.syllabusNodeId !== undefined || value.knowledgePointIds !== undefined, {
+  message: "taskId, syllabusNodeId or knowledgePointIds is required",
+});
+
+export const studySessionHeartbeatSchema = z.object({
+  clientDeviceId: z.string().trim().min(8).max(100).regex(/^[A-Za-z0-9:_-]+$/).optional(),
+  clientDeviceLabel: z.string().trim().min(1).max(80).optional(),
+});
+
 export const endSessionSchema = sessionCommandSchema.extend({
-  qualityScore: z.number().int().min(1).max(5),
-  isEffective: z.boolean(),
-  understandingLevel: z.string().trim().min(1).max(80),
-  minimalOutput: z.string().trim().min(1).max(1000),
-  nextAction: z.string().trim().min(1).max(500),
+  mode: z.enum(["prepare", "complete"]).default("complete"),
+  qualityScore: z.number().int().min(1).max(5).optional(),
+  isEffective: z.boolean().optional(),
+  understandingLevel: z.string().trim().min(1).max(80).optional(),
+  minimalOutput: z.string().trim().min(1).max(1000).optional(),
+  nextAction: z.string().trim().min(1).max(500).optional(),
   producedNote: z.boolean().default(false),
   producedMistake: z.boolean().default(false),
   note: z.string().trim().max(2000).optional(),
   completeTask: z.boolean().default(false),
+  lowReasons: z.array(sessionLowReasonSchema).max(7).default([]),
+  focusLevel: z.number().int().min(1).max(5).optional(),
+  energyLevel: z.number().int().min(1).max(5).optional(),
+  nextDisposition: z.string().trim().max(500).optional(),
+}).superRefine((value, context) => {
+  if (value.mode === "complete") {
+    for (const field of ["qualityScore", "isEffective", "understandingLevel", "minimalOutput", "nextAction"] as const) {
+      if (value[field] === undefined) context.addIssue({ code: "custom", path: [field], message: `${field} is required when completing a closeout` });
+    }
+    if (value.isEffective === false && value.lowReasons.length === 0) {
+      context.addIssue({ code: "custom", path: ["lowReasons"], message: "lowReasons is required for low-conversion closeout" });
+    }
+  }
 });
 
 export const linkSessionEvidenceSchema = z.object({

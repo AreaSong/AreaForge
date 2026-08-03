@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { FocusSessionClient } from "@/components/focus-session-client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getActiveStudySession, getStudySessionById, listStudySessionEvidenceReceipts } from "@/lib/study/service";
+import { getActiveStudySession, getStudySessionById, listStudySessionEvidenceReceipts, listStudyTasks } from "@/lib/study/service";
+import { listSyllabusOptions } from "@/lib/study/syllabus-service";
+import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +27,13 @@ export default async function FocusSessionPage({
     notFound();
   }
 
-  const active = await getActiveStudySession(user.id);
-  const evidenceReceipts = await listStudySessionEvidenceReceipts(session.id, user.id);
+  const [active, evidenceReceipts, tasks, syllabusNodes, knowledgePoints] = await Promise.all([
+    getActiveStudySession(user.id),
+    listStudySessionEvidenceReceipts(session.id, user.id),
+    listStudyTasks(user.id),
+    listSyllabusOptions(user.id),
+    listKnowledgePoints(user.id),
+  ]);
 
   return (
     <FocusSessionClient
@@ -36,6 +43,7 @@ export default async function FocusSessionPage({
       returnTo={returnTo}
       initialNow={new Date().toISOString()}
       initialEvidenceReceipts={evidenceReceipts}
+      contextOptions={{ tasks, syllabusNodes, knowledgePoints }}
     />
   );
 }

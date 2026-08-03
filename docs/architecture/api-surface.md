@@ -63,7 +63,7 @@
 - `/api/reports/periodic/decisions`：冻结报告、原子入箱并生成独立阶段草稿。
 - `/api/simulation/stage-adjustment-drafts/:id/confirm|reject`：阶段终态决策；确认更新 StagePlan 并原子入箱，不改现有任务。
 
-确认中心由服务端 `listConfirmationItems` 统一聚合周期报告、阶段建议、模拟考试、专项复测和 AI 草稿；各业务仍通过自己的 confirm/reject API 写入事实。统一投影状态为 `PENDING`、`CONFIRMED`、`REJECTED`、`FROZEN`，并携带 `sourceId`、`revision`、`requiresUserConfirmation`、`confirmedAt`、`frozenAt` 和安全 `href`。
+确认中心由服务端 `listConfirmationItems` 统一聚合周期报告、阶段建议、模拟考试、专项复测和 AI 草稿；各业务仍通过自己的 confirm/reject API 写入事实。统一投影状态为 `PENDING`、`CONFIRMED`、`REJECTED`、`FROZEN`，并携带 `sourceId`、`revision`、`requiresUserConfirmation`、`confirmedAt`、`frozenAt` 和安全 `href`。周期报告使用 `report:<week|month>:<rangeEnd>` 稳定确认 ID；模拟考试只有科目结果、考后总结、复盘和个人反馈齐全时才进入待确认；`DRAFT`/`IN_PROGRESS` 专项复测不进入待确认。AI 事项在确认中心只读展示，`canExecute=false`，必须回来源页提交原始 `resultProof`。
 
 已落地：
 
@@ -72,7 +72,11 @@
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
 - `GET|POST /api/exam-workspaces/:id/subjects`：工作区科目列表与创建；创建只接受当前未归档分组。
 - `PATCH /api/exam-workspaces/:id/subjects/:subjectId` 与 `PATCH /api/exam-workspaces/:id/subject-groups/:groupId`：名称、颜色、归属、归档/恢复和 `move=UP|DOWN` 相邻换位；move 不与其他字段混用，边界移动不增加 workspace revision 或审计事件。
-- `POST /api/study-sessions/start`：支持 `goalMinutes` / `startSource`（含 `SUBJECT_SHORTCUT`），并校验 ACTIVE 工作区科目。
+- `POST /api/study-sessions/start`：支持 `idempotencyKey`、`goalMinutes` / `startSource`（含 `SUBJECT_SHORTCUT`），并校验 ACTIVE 工作区科目；请求可携带粗粒度 `x-areaforge-device-id` / `x-areaforge-device-label`，用于跨设备状态。相同用户、工作区、启动参数和幂等键会回放同一个 session；网络响应丢失后可安全显式重试。不同启动参数复用同一键会返回幂等冲突；已有其他活动 session 时返回其最新状态，客户端只跳转到该活动，不创建第二个计时器。
+- `GET /api/study-sessions/active`：返回当前用户唯一的 `RUNNING`、`PAUSED` 或 `CLOSING` session。
+- `POST /api/study-sessions/:id/pause|resume|end|context`：使用 `expectedStatus`、`expectedUpdatedAt` 和幂等键执行 CAS 状态命令；`end` 先进入 `CLOSING` 再提交完整收口。在线请求与 IndexedDB/localStorage 离线队列复用同一命令键，恢复联网后按序重放；冲突不会静默合并。
+- `POST /api/study-sessions/:id/heartbeat`：只更新活动 session 的设备心跳字段，不改写 `updatedAt`，避免使暂停/收口命令产生伪冲突。
+- `POST /api/knowledge-retests/:id/void`：作废未关闭的专项复测，保留原始结果和审计记录，不更新知识点掌握状态。
 - Note API：创建支持 `kind` / `studyDate` / `stableKey` / `relatedSyllabusNodeIds` / `revision` 字段（画布快捷创建复用）。
 
 权威路由与错误契约见 `workflow/versions/v1.1-learning-action-center.md`。旧 `POST /api/syllabus/import-markdown` 在切换前保留 append-only legacy 行为。
@@ -121,6 +125,8 @@
 - `POST /api/tasks/:id/split`
 - `POST /api/tasks/:id/convert-review`
 
+创建和更新任务请求可传 `knowledgePointIds`（最多 50 个），响应的 `StudyTaskDto` 返回 `knowledgePointIds` 与 `knowledgePointTitles`。服务端会拒绝重复 ID、跨工作区知识点、归档知识点和与任务主科目/关联科目不匹配的知识点；更新是关系集合替换并受任务状态/更新时间 CAS 约束。`split` 创建的子任务继承父任务的 `planMilestoneId`、主/相关考纲节点、`stagePlanIds` 和 `knowledgePointIds`，并写入 `parentTaskId`。
+
 `complete/defer/drop/recover/split/convert-review` 会写现有 `AuditEvent`，并在同一事务内写入 `TaskDebtEvent` 事件账本；`split` 创建的子任务会写入 `parentTaskId`，同时继续保留 `reviewText` 说明。旧任务没有债务事件时，页面和统计仍按 `StudyTask.status/debtStatus/plannedDate` fallback。`GET /api/tasks/debt-reorder` 仍只读返回重排建议，`canAutoApply=false`、`requiresUserConfirmation=true`，不会自动改任务。`POST /api/tasks/debt-reorder/decisions` 只记录用户对所选建议的确认或驳回，写 `TaskDebtEvent.action=reorder_suggested` 和 `AuditEvent`；`POST /api/tasks/debt-reorder/applications` 会重新计算当前建议、复用 `previewTaskDebtReorderApplication` 校验所选项和小批量上限，仅在用户显式提交所选项且无跳过项时应用，并写 `TaskDebtEvent.action=reorder_applied` 和 `AuditEvent`。重排路径不提供自动应用全部建议入口，不修改 `StagePlan` / `StageAdjustmentDraft`，也不外呼长期 AI。
 
 ### Timer
@@ -132,7 +138,7 @@
 - `POST /api/study-sessions/:id/end`
 - `POST /api/study-sessions/:id/evidence`
 
-开始学习入口 `/focus` 使用浏览器本地优先队列：IndexedDB 是首选，`localStorage` 是回退；联网后按顺序重放开始/暂停/继续/结束命令，并用单飞锁避免多标签页并发同步。断网结束只先保存本地快照，待真实 session 建立后再进入证据接力，证据接口拒绝本地 session ID。
+开始学习入口 `/focus` 使用浏览器本地优先队列：IndexedDB 是首选，`localStorage` 是回退；联网后按顺序重放开始/暂停/继续/结束/上下文命令，并用单飞锁避免重复重放。`BroadcastChannel` 将本地事件和在线服务端快照传播到其他标签页；活动页与 App Shell 通过 heartbeat 维护当前设备/另一设备状态。断网结束只先保存本地快照，待真实 session 建立后再进入证据接力，证据接口拒绝本地 session ID。
 
 专项复测接口：
 

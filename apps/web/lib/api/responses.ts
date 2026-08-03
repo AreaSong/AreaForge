@@ -35,10 +35,12 @@ export function apiErrorResponse(error: unknown): NextResponse {
   }
 
   const errorId = randomUUID();
-  console.error("API internal error", {
-    errorId,
-    errorType: error instanceof Error ? error.constructor.name : typeof error,
-  });
+  const errorMessage = error instanceof Error ? error.message : "unknown error";
+  console.error(
+    process.env.NODE_ENV === "production"
+      ? `API internal error ${errorId} (${error instanceof Error ? error.constructor.name : typeof error})`
+      : `API internal error ${errorId} (${error instanceof Error ? error.constructor.name : typeof error}): ${errorMessage}`,
+  );
   return NextResponse.json({ error: "INTERNAL_ERROR", errorId }, { status: 500 });
 }
 

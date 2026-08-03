@@ -20,7 +20,7 @@ export default async function SimulationExamPage({ params, searchParams }: { par
   if (!user) redirect("/login");
   const { examId } = await params;
   const query = await searchParams;
-  const returnTo = query.returnTo ? sanitizeReturnPath(query.returnTo) : `/test/simulations/${encodeURIComponent(examId)}`;
+  const returnTo = query.returnTo ? sanitizeReturnPath(query.returnTo) : "/test/simulations";
   const data = await loadPageData(examId, user.id);
   const activeLossItems = data.exam.subjectResults.flatMap((result) => result.lossItems).filter((item) => !item.archivedAt);
   const lostScore = activeLossItems.reduce((total, item) => total + item.lostScore, 0);

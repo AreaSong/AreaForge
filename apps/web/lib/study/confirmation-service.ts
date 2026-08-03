@@ -4,10 +4,32 @@ import { listSimulationExams } from "./simulation-service";
 import { listStageAdjustmentDrafts } from "./stage-service";
 import { listKnowledgeRetests } from "./knowledge-retest-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+import {
+  aiConfirmationCapability,
+  isSimulationReadyForConfirmation,
+  periodicReportConfirmationId,
+  retestConfirmationActionReady,
+  retestConfirmationStatus,
+  simulationConfirmationActionReady,
+} from "./confirmation-rules";
 
 export type ConfirmationFilter = "pending" | "history";
 export type ConfirmationKind = "periodic_report" | "stage_adjustment" | "simulation" | "knowledge_retest" | "ai_draft";
 export type ConfirmationStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "FROZEN";
+
+export type ConfirmationActionDto =
+  | {
+      kind: "periodic_report";
+      reportId: string;
+      reportKind: "week" | "month";
+      expectedRevision: number;
+      rangeStart: string;
+      rangeEnd: string;
+    }
+  | { kind: "stage_adjustment"; draftId: string; expectedRevision: number }
+  | { kind: "simulation"; examId: string; expectedRevision: number; ready: boolean }
+  | { kind: "knowledge_retest"; retestId: string; expectedRevision: number; ready: boolean }
+  | { kind: "ai_draft"; endpoint: string; operationId: string; canExecute: false };
 
 export interface ConfirmationItemDto {
   id: string;
@@ -21,8 +43,10 @@ export interface ConfirmationItemDto {
   title: string;
   summary: string;
   href: string;
+  sourceHref: string;
   sourceLabel: string;
   createdAt: string;
+  action: ConfirmationActionDto | null;
   /** @deprecated Consumers should derive this from status/frozenAt. */
   frozen: boolean;
 }
@@ -36,10 +60,19 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
     listSimulationExams(actorId),
     listKnowledgeRetests(actorId),
     prisma.aiDraftOperation.findMany({
-      where: { actorId, workspaceId: workspace.id, status: "SUCCEEDED" },
+      where: { actorId, workspaceId: workspace.id, status: { in: ["SUCCEEDED", "REJECTED"] } },
       orderBy: { updatedAt: "desc" },
       take: 50,
-      select: { operationId: true, endpoint: true, createdAt: true, consumedAt: true, revision: true },
+      select: {
+        operationId: true,
+        endpoint: true,
+        createdAt: true,
+        updatedAt: true,
+        consumedAt: true,
+        revision: true,
+        status: true,
+        resultReference: true,
+      },
     }),
   ]);
 
@@ -74,9 +107,10 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
     const decision = report.decision;
     const status = decision ? (decision.status === "confirmed" ? "CONFIRMED" : "REJECTED") : "PENDING";
     const frozenAt = decision?.decidedAt ?? null;
+    const confirmationId = periodicReportConfirmationId(report.kind, report.range.end);
     return confirmationItem({
-      id: decision?.id ?? `report-${report.kind}-${report.range.end}`,
-      sourceId: decision?.id ?? `report:${report.kind}:${report.range.end}`,
+      id: confirmationId,
+      sourceId: decision?.id ?? report.id,
       kind: "periodic_report",
       revision: report.revision,
       status,
@@ -85,9 +119,18 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       frozenAt,
       title: `${report.kind === "week" ? "周" : "月"}期报告：${report.weakness.title}`,
       summary: report.strategy.mustPressIssue,
-      href: `/review/reports?period=${report.kind}`,
+      href: confirmationHref(confirmationId),
+      sourceHref: `/review/reports?period=${report.kind}`,
       sourceLabel: "周期报告",
       createdAt: report.range.end,
+      action: {
+        kind: "periodic_report",
+        reportId: report.id,
+        reportKind: report.kind,
+        expectedRevision: report.revision,
+        rangeStart: report.range.start,
+        rangeEnd: report.range.end,
+      },
     });
   });
 
@@ -105,13 +148,23 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       frozenAt: decidedAt,
       title: "阶段调整建议",
       summary: draft.riskConclusion,
-      href: "/plan/stages#pending-stage-draft",
+      href: confirmationHref(draft.id),
+      sourceHref: "/plan/stages#pending-stage-draft",
       sourceLabel: draft.source === "ai" ? "AI 阶段建议" : "规则阶段建议",
       createdAt: draft.createdAt,
+      action: draft.status === "draft"
+        ? { kind: "stage_adjustment", draftId: draft.id, expectedRevision: draft.revision }
+        : null,
     });
   });
 
-  const simulationItems = simulations.map((exam): ConfirmationItemDto => {
+  const simulationItems = simulations.filter((exam) => isSimulationReadyForConfirmation({
+    status: exam.status,
+    subjectResultCount: exam.subjectResults.length,
+    summary: exam.summary,
+    reviewText: exam.reviewText,
+    mindset: exam.mindset,
+  })).map((exam): ConfirmationItemDto => {
     const status = exam.status === "DRAFT" ? "PENDING" : "FROZEN";
     return confirmationItem({
       id: exam.id,
@@ -124,14 +177,29 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       frozenAt: exam.confirmedAt,
       title: `模拟考试：${exam.name}`,
       summary: exam.status === "DRAFT" ? "完成评分、失分分析、个人反馈和复盘后再确认。" : exam.reviewText ?? "已确认的模拟考试记录。",
-      href: `/test/simulations/${exam.id}`,
+      href: confirmationHref(exam.id),
+      sourceHref: `/test/simulations/${exam.id}`,
       sourceLabel: "模拟考试",
       createdAt: exam.updatedAt,
+      action: exam.status === "DRAFT"
+        ? {
+            kind: "simulation",
+            examId: exam.id,
+            expectedRevision: exam.revision,
+            ready: simulationConfirmationActionReady({
+              status: exam.status,
+              subjectResultCount: exam.subjectResults.length,
+              summary: exam.summary,
+              reviewText: exam.reviewText,
+              mindset: exam.mindset,
+            }),
+          }
+        : null,
     });
   });
 
-  const retestItems = retests.map((retest): ConfirmationItemDto => {
-    const status = retest.status === "CLOSED" ? "FROZEN" : retest.status === "VOIDED" ? "REJECTED" : "PENDING";
+  const retestItems = retests.filter((retest) => retestConfirmationStatus(retest.status) !== null).map((retest): ConfirmationItemDto => {
+    const status = retestConfirmationStatus(retest.status)!;
     const decidedAt = terminalAt.get(retest.id) ?? null;
     return confirmationItem({
       id: retest.id,
@@ -144,14 +212,25 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       frozenAt: decidedAt,
       title: `专项复测：${retest.title}`,
       summary: retest.status === "PENDING_REVIEW" ? "复测结果和个人复盘已写入，确认后才会更新知识点掌握状态。" : retest.summary ?? "专项复测记录。",
-      href: `/test/retests/${retest.id}`,
+      href: confirmationHref(retest.id),
+      sourceHref: `/test/retests/${retest.id}`,
       sourceLabel: "专项复测",
       createdAt: retest.testedAt ?? retest.scheduledAt ?? new Date().toISOString(),
+      action: retest.status === "PENDING_REVIEW"
+        ? { kind: "knowledge_retest", retestId: retest.id, expectedRevision: retest.revision, ready: retestConfirmationActionReady(retest.status) }
+        : null,
     });
   });
 
   const aiItems = aiOperations.map((operation): ConfirmationItemDto => {
-    const status = operation.consumedAt ? "CONFIRMED" : "PENDING";
+    const status = operation.status === "REJECTED"
+      ? "REJECTED"
+      : operation.consumedAt
+        ? "CONFIRMED"
+        : "PENDING";
+    const frozenAt = operation.status === "REJECTED"
+      ? (operation.consumedAt ?? operation.updatedAt).toISOString()
+      : operation.consumedAt?.toISOString() ?? null;
     return confirmationItem({
       id: operation.operationId,
       sourceId: operation.operationId,
@@ -159,13 +238,21 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       revision: operation.revision,
       status,
       requiresUserConfirmation: true,
-      confirmedAt: operation.consumedAt?.toISOString() ?? null,
-      frozenAt: operation.consumedAt?.toISOString() ?? null,
+      confirmedAt: operation.status === "SUCCEEDED" && operation.consumedAt
+        ? operation.consumedAt.toISOString()
+        : null,
+      frozenAt,
       title: `AI 草稿：${aiEndpointLabel(operation.endpoint)}`,
-      summary: operation.consumedAt ? "草稿结果已采用，可回到原页面查看当时输入。" : "AI 只生成建议，不会直接修改记录；请回到原页面采用或放弃。",
-      href: aiEndpointHref(operation.endpoint),
-      sourceLabel: "AI 建议",
+      summary: operation.status === "REJECTED"
+        ? "草稿已驳回；生成历史、原 AI 入口和生成时间仍保留。"
+        : operation.consumedAt
+          ? "草稿结果已采用，可回到原页面查看当时输入。"
+          : "AI 只生成建议，不会直接修改记录；请回到原页面采用或放弃。",
+      href: confirmationHref(operation.operationId),
+      sourceHref: aiEndpointHref(operation.endpoint),
+      sourceLabel: `AI 建议 · ${aiEndpointLabel(operation.endpoint)}`,
       createdAt: operation.createdAt.toISOString(),
+      action: { kind: "ai_draft", endpoint: operation.endpoint, operationId: operation.operationId, ...aiConfirmationCapability() },
     });
   });
 
@@ -174,8 +261,24 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
+export async function getConfirmationItem(actorId: string, id: string): Promise<ConfirmationItemDto | null> {
+  const [pending, history] = await Promise.all([
+    listConfirmationItems(actorId, "pending"),
+    listConfirmationItems(actorId, "history"),
+  ]);
+  return [...pending, ...history].find((item) => item.id === id) ?? null;
+}
+
+export function getConfirmationSourceHref(item: ConfirmationItemDto): string {
+  return item.sourceHref;
+}
+
 function confirmationItem(input: Omit<ConfirmationItemDto, "frozen">): ConfirmationItemDto {
   return { ...input, frozen: input.status === "FROZEN" || input.frozenAt !== null };
+}
+
+function confirmationHref(id: string): string {
+  return `/confirmations/${encodeURIComponent(id)}`;
 }
 
 function aiEndpointLabel(endpoint: string): string {

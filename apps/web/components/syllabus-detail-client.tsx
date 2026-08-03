@@ -11,6 +11,7 @@ import { SyllabusRetestForm } from "@/components/syllabus-retest-form";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import { withReturnTo } from "@/lib/navigation/batch7";
+import { masteryStatusLabel } from "@/lib/study/mastery-status";
 import type { ReviewScheduleDto } from "@/lib/study/review-schedule-service";
 import type { SyllabusNodeDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
@@ -148,7 +149,8 @@ export function SyllabusDetailClient(props: {
         eyebrow={`${props.node.subjectName} · ${kindLabel(props.node.kind)} · r${props.node.revision}`}
         title={props.node.title}
         description={<>
-            {statusLabel(props.node.status)} · 掌握等级 {masteryLabel(props.node.masteryLevel)}
+            {statusLabel(props.node.status)} · 掌握状态 {masteryStatusLabel(props.node.masteryStatus)}
+            {props.node.needsRetest ? " · 待复测" : ""}
             {archived ? " · 已归档" : ""}
           </>}
         actions={<>
@@ -366,7 +368,6 @@ function Metric({ label, value }: { label: string; value: string }) { return <di
 function shanghaiDateToIso(value: string): string { return new Date(`${value}T00:00:00+08:00`).toISOString(); }
 function kindLabel(value: SyllabusNodeDto["kind"]): string { return ({ subject: "科目", chapter: "章节", topic: "知识点", problem_type: "题型专题" })[value]; }
 function statusLabel(value: SyllabusNodeDto["status"]): string { return ({ not_started: "未开始", learning: "学习中", covered: "已覆盖", needs_review: "待复习", mastered: "已掌握", weak: "薄弱", deferred: "延期" })[value]; }
-function masteryLabel(value: SyllabusNodeDto["masteryLevel"]): string { return value ? ({ seen: "见过", learned: "已学习", basic_exercises: "基础题", can_explain: "能讲解", retest_passed: "复测通过", exam_stable: "考试稳定" })[value] : "未记录"; }
 function riskLabel(value: SyllabusNodeDto["masteryProof"]["risk"]): string { return ({ no_evidence: "无证据", thin_evidence: "证据偏少", stale_evidence: "证据过旧", ready: "证据就绪" })[value]; }
 function retestLabel(value: SyllabusNodeDto["masteryRetests"][number]["result"]): string { return ({ passed: "通过", partial: "部分通过", failed: "未通过" })[value]; }
 

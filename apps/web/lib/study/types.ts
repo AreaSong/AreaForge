@@ -9,10 +9,11 @@ import type {
   TaskDebtReorderAction,
   TaskDebtReorderPressure,
 } from "@areaforge/core";
+import type { MasteryStatus } from "./mastery-status";
 
 export type TaskStatusDto = "todo" | "in_progress" | "done" | "skipped" | "deferred";
 export type TaskPriorityDto = "low" | "medium" | "high" | "critical";
-export type StudySessionStatusDto = "running" | "paused" | "completed" | "canceled";
+export type StudySessionStatusDto = "running" | "paused" | "closing" | "completed" | "canceled";
 export type SyllabusNodeKindDto = "subject" | "chapter" | "topic" | "problem_type";
 export type SyllabusNodeStatusDto =
   | "not_started"
@@ -29,6 +30,7 @@ export type MasteryLevelDto =
   | "can_explain"
   | "retest_passed"
   | "exam_stable";
+export type MasteryStatusDto = MasteryStatus;
 export type NoteMasteryStatusDto = "understood" | "partial" | "unknown" | "relearn" | "before_exam";
 export type MistakeCauseDto =
   | "unknown"
@@ -90,15 +92,41 @@ export interface StudyTaskDto {
   actualMinutes: number;
   reviewText: string | null;
   completedAt: string | null;
+  /** 一个任务可以同时服务多个阶段；planMilestoneId 仍表示主要计划里程碑。 */
+  stagePlanIds: string[];
+  stagePlanNames: string[];
+  knowledgePointIds: string[];
+  knowledgePointTitles: string[];
 }
 
 export type StudySessionStartSourceDto = "TASK" | "SUBJECT_SHORTCUT" | "RECOVERY";
 export type StudySessionEvidenceTypeDto = "note" | "mistake" | "retest";
+export type StudySessionLowReasonDto =
+  | "NOT_UNDERSTOOD"
+  | "DISTRACTED"
+  | "MATERIAL_BLOCKED"
+  | "FATIGUE"
+  | "METHOD_MISMATCH"
+  | "TIME_FRAGMENTED"
+  | "OTHER";
 
 export interface StudySessionEvidenceReceiptDto {
   evidenceType: StudySessionEvidenceTypeDto;
   evidenceId: string;
   label: string;
+}
+
+export interface StudySessionDevicePresenceDto {
+  deviceId: string;
+  deviceLabel: string;
+  lastSeenAt: string;
+  isCurrentDevice: boolean;
+}
+
+export interface StudySessionKnowledgePointDto {
+  id: string;
+  title: string;
+  masteryState: "UNTOUCHED" | "LEARNING" | "INITIAL_MASTERY" | "STABLE_MASTERY" | "NEEDS_RETEST";
 }
 
 export interface StudySessionDto {
@@ -110,6 +138,7 @@ export interface StudySessionDto {
   taskStatus: TaskStatusDto | null;
   syllabusNodeId: string | null;
   syllabusNodeTitle: string | null;
+  knowledgePoints: StudySessionKnowledgePointDto[];
   status: StudySessionStatusDto;
   startedAt: string;
   updatedAt: string;
@@ -131,6 +160,14 @@ export interface StudySessionDto {
   note: string | null;
   goalMinutes: number | null;
   startSource: StudySessionStartSourceDto | null;
+  lowReasons: StudySessionLowReasonDto[];
+  focusLevel: number | null;
+  energyLevel: number | null;
+  nextDisposition: string | null;
+  clientDeviceId: string | null;
+  clientDeviceLabel: string | null;
+  lastHeartbeatAt: string | null;
+  devicePresences: StudySessionDevicePresenceDto[];
 }
 
 export interface MasteryConditionRecordDto {
@@ -196,6 +233,9 @@ export interface SyllabusNodeDto {
   kind: SyllabusNodeKindDto;
   status: SyllabusNodeStatusDto;
   masteryLevel: MasteryLevelDto | null;
+  masteryStatus: MasteryStatusDto;
+  needsRetest: boolean;
+  masteryConfidence: number;
   sortOrder: number;
   targetMinutes: number;
   actualMinutes: number;

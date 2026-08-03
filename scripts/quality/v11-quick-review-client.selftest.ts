@@ -438,7 +438,6 @@ throttledLease.release();
 const quickReviewClientSource = readFileSync("apps/web/components/quick-review-client.tsx", "utf8");
 const guardSource = readFileSync("apps/web/components/quick-review-activity-guard.tsx", "utf8");
 const activitySource = readFileSync("apps/web/lib/client/quick-review-activity.ts", "utf8");
-const focusSource = readFileSync("apps/web/components/focus-timer.tsx", "utf8");
 const focusSessionSource = readFileSync("apps/web/components/focus-session-client.tsx", "utf8");
 const focusPanelsSource = readFileSync("apps/web/components/focus-session-panels.tsx", "utf8");
 const focusEvidenceFormsSource = readFileSync("apps/web/components/focus-evidence-forms.tsx", "utf8");
@@ -464,8 +463,10 @@ assert.match(guardSource, /await readActiveStudySession\(\)/);
 assert.match(guardSource, /await request\.operation\(\)/);
 assert.match(guardSource, /requestQuickReviewCommand/);
 assert.doesNotMatch(activitySource, /sessionStorage|TAB_ID_KEY/);
-assert.doesNotMatch(focusSource, /useState\(\(\) => new Date\(\)\)/);
-assert.match(focusSource, /new Date\(activeSession\?\.updatedAt \?\? activeSession\?\.startedAt \?\? 0\)/);
+assert.match(focusSessionSource, /useState\(\(\) => new Date\(props\.initialNow\)\)/);
+assert.match(focusSessionSource, /getTimerElapsedSeconds\(/);
+assert.match(focusSessionSource, /publishFocusSyncEvent/);
+assert.match(focusSessionSource, /syncFocusOfflineQueue/);
 assert.doesNotMatch(focusSessionSource, /minimalOutput:\s*draft\.minimalOutput\s*\|\|/);
 assert.doesNotMatch(focusSessionSource, /本次最小产出/);
 assert.match(focusSessionSource, /minimalOutput\.length < 4/);
@@ -502,7 +503,6 @@ assert.match(planInboxOriginSource, /来自今日复盘/);
 assert.match(planInboxOriginSource, /来自模拟考试补救/);
 
 for (const path of [
-  "apps/web/components/focus-timer.tsx",
   "apps/web/components/task-detail-client.tsx",
   "apps/web/components/action-center-today.tsx",
   "apps/web/components/recovery-action-drawer.tsx",

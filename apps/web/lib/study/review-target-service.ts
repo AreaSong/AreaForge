@@ -2,6 +2,7 @@ import { parseSafeMarkdown, type SafeMarkdownNode } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { masteryStatusForSyllabusLevel, masteryStatusLabel, type SyllabusMasteryPersistenceLevel } from "./mastery-status";
 
 export interface ReviewTargetDto {
   id: string;
@@ -110,7 +111,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       title: node.title,
       subtitle: `${node.subject.name} · ${syllabusKindLabel(node.kind)}`,
       canonicalHref: `/knowledge/syllabus/${node.id}`,
-      body: parseSafeMarkdown(`当前状态：${syllabusStatusLabel(node.status)}\n\n掌握等级：${masteryLevelLabel(node.masteryLevel)}`),
+      body: parseSafeMarkdown(`当前状态：${syllabusStatusLabel(node.status)}\n\n掌握状态：${masteryStatusLabel(masteryStatusForSyllabusLevel(node.masteryLevel ? node.masteryLevel.toLowerCase() as SyllabusMasteryPersistenceLevel : null))}`),
       revealTitle: null,
       revealBody: [],
       canPass: true,
@@ -134,9 +135,4 @@ function syllabusKindLabel(value: string) {
 
 function syllabusStatusLabel(value: string) {
   return ({ NOT_STARTED: "未开始", LEARNING: "学习中", COVERED: "已覆盖", NEEDS_REVIEW: "待复习", MASTERED: "已掌握", WEAK: "薄弱", DEFERRED: "延期", not_started: "未开始", learning: "学习中", covered: "已覆盖", needs_review: "待复习", mastered: "已掌握", weak: "薄弱", deferred: "延期" } as Record<string, string>)[value] ?? "未记录";
-}
-
-function masteryLevelLabel(value: string | null) {
-  if (!value) return "尚未记录";
-  return ({ SEEN: "见过", LEARNED: "已学习", BASIC_EXERCISES: "基础题", CAN_EXPLAIN: "能讲解", RETEST_PASSED: "复测通过", EXAM_STABLE: "考试稳定", seen: "见过", learned: "已学习", basic_exercises: "基础题", can_explain: "能讲解", retest_passed: "复测通过", exam_stable: "考试稳定" } as Record<string, string>)[value] ?? "尚未记录";
 }

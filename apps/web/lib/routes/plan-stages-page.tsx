@@ -51,7 +51,7 @@ export default async function StageOverviewPage({
     <PageFrame variant="dashboard-wide">
       <PageHeader
         eyebrow="阶段"
-        title="阶段概览"
+        title="阶段总览"
         description="区分当前生效计划、待确认建议和已经处理的结果，持续跟踪下一周期。"
         status={plan ? <Badge tone={plan.status === "active" ? "success" : "neutral"}>{plan.status === "active" ? "当前计划生效中" : "历史阶段"}</Badge> : <Badge tone="warning">尚未建立阶段</Badge>}
       />

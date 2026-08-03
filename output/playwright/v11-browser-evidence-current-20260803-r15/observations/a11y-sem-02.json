@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-03T07:00:24.178Z",
+  "checkId": "SEM-02",
+  "checkKey": "dialog-accessible-name",
+  "route": "/today",
+  "target": "subject-shortcut-modal",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "cdp",
+  "assertions": [
+    {
+      "id": "dialog-is-modal",
+      "predicate": "equals",
+      "expected": "true",
+      "actual": "true",
+      "passed": true
+    },
+    {
+      "id": "dialog-has-label-reference",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "single-dialog-in-accessibility-tree",
+      "predicate": "equals",
+      "expected": 1,
+      "actual": 1,
+      "passed": true
+    },
+    {
+      "id": "dialog-accessible-name-resolves",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

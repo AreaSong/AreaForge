@@ -18,13 +18,16 @@ import {
 } from "@/lib/client/private-business-drafts";
 import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
 import type { PlanRollingDto } from "@/lib/study/plan-rolling-service";
-import type { SyllabusOptionNodeDto, TaskPriorityDto } from "@/lib/study/types";
+import type { StagePlanDto, SyllabusOptionNodeDto, TaskPriorityDto } from "@/lib/study/types";
+import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 import { withReturnTo } from "@/lib/navigation/batch7";
 
 interface TaskCreateDraft {
   subjectId: string;
   syllabusNodeId: string;
   relatedSyllabusNodeIds: string[];
+  stagePlanIds: string[];
+  knowledgePointIds: string[];
   planMilestoneId: string;
   title: string;
   type: string;
@@ -37,6 +40,8 @@ export function PlanRollingClient(props: {
   subjects: Array<{ id: string; name: string }>;
   syllabusNodes: SyllabusOptionNodeDto[];
   milestones: PlanMilestoneDto[];
+  stagePlans: StagePlanDto[];
+  knowledgePoints: KnowledgePointDto[];
   createMinimum: boolean;
   sourceResource: {
     id: string;
@@ -57,6 +62,8 @@ export function PlanRollingClient(props: {
   const [subjectId, setSubjectId] = useState(props.sourceResource?.subjectId ?? props.query.subjectId ?? props.subjects[0]?.id ?? "");
   const [syllabusNodeId, setSyllabusNodeId] = useState(props.sourceResource?.syllabusNodeId ?? props.query.syllabusNodeId ?? "");
   const [relatedSyllabusNodeIds, setRelatedSyllabusNodeIds] = useState<string[]>([]);
+  const [stagePlanIds, setStagePlanIds] = useState<string[]>([]);
+  const [knowledgePointIds, setKnowledgePointIds] = useState<string[]>([]);
   const [planMilestoneId, setPlanMilestoneId] = useState("");
   const [taskType, setTaskType] = useState("study");
   const [priority, setPriority] = useState<TaskPriorityDto>(props.createMinimum ? "high" : "medium");
@@ -81,6 +88,7 @@ export function PlanRollingClient(props: {
   const availableMilestones = props.milestones.filter((milestone) =>
     !milestone.archivedAt && (!milestone.subjectId || milestone.subjectId === subjectId),
   );
+  const availableStagePlans = props.stagePlans.filter((stagePlan) => stagePlan.status === "draft" || stagePlan.status === "active");
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -89,6 +97,8 @@ export function PlanRollingClient(props: {
         setSubjectId(draft.subjectId);
         setSyllabusNodeId(draft.syllabusNodeId);
         setRelatedSyllabusNodeIds(draft.relatedSyllabusNodeIds);
+        setStagePlanIds(draft.stagePlanIds);
+        setKnowledgePointIds(draft.knowledgePointIds);
         setPlanMilestoneId(draft.planMilestoneId);
         setTitle(draft.title);
         setTaskType(draft.type);
@@ -102,13 +112,13 @@ export function PlanRollingClient(props: {
 
   useEffect(() => {
     if (!draftReady) return;
-    const draft = createDraftSnapshot({ subjectId, syllabusNodeId, relatedSyllabusNodeIds, planMilestoneId, title, taskType, priority, estimatedMinutes });
-    if (!title.trim() && !syllabusNodeId && relatedSyllabusNodeIds.length === 0 && !planMilestoneId) {
+    const draft = createDraftSnapshot({ subjectId, syllabusNodeId, relatedSyllabusNodeIds, stagePlanIds, knowledgePointIds, planMilestoneId, title, taskType, priority, estimatedMinutes });
+    if (!title.trim() && !syllabusNodeId && relatedSyllabusNodeIds.length === 0 && stagePlanIds.length === 0 && !planMilestoneId) {
       removePrivateBusinessDraft(draftKey);
       return;
     }
     savePrivateBusinessDraft(draftKey, draft);
-  }, [draftKey, draftReady, estimatedMinutes, planMilestoneId, priority, relatedSyllabusNodeIds, subjectId, syllabusNodeId, taskType, title]);
+  }, [draftKey, draftReady, estimatedMinutes, knowledgePointIds, planMilestoneId, priority, relatedSyllabusNodeIds, subjectId, syllabusNodeId, stagePlanIds, taskType, title]);
 
   const selectedDayTasks = useMemo(() => {
     return props.initial.days.find((day) => day.date === selectedDate)?.tasks ?? props.initial.tasks;
@@ -123,6 +133,12 @@ export function PlanRollingClient(props: {
     startTransition(() => router.push(`/plan?${params.toString()}`));
   }
 
+  function toggleStagePlan(stagePlanId: string) {
+    setStagePlanIds((current) => current.includes(stagePlanId)
+      ? current.filter((id) => id !== stagePlanId)
+      : current.length < 20 ? [...current, stagePlanId] : current);
+  }
+
   async function createTask() {
     if (creatingTask) return;
     setError(null);
@@ -135,6 +151,8 @@ export function PlanRollingClient(props: {
       subjectId,
       syllabusNodeId: syllabusNodeId || null,
       relatedSyllabusNodeIds,
+      stagePlanIds,
+      knowledgePointIds,
       planMilestoneId: planMilestoneId || null,
       sourceResourceId: props.sourceResource?.id,
       title: title.trim(),
@@ -169,6 +187,8 @@ export function PlanRollingClient(props: {
       setTitle("");
       setSyllabusNodeId("");
       setRelatedSyllabusNodeIds([]);
+      setStagePlanIds([]);
+      setKnowledgePointIds([]);
       setPlanMilestoneId("");
       setCreateOpen(false);
       startTransition(() => router.push(withReturnTo(`/plan/tasks/${createdTaskId}`, currentPlanHref)));
@@ -183,8 +203,8 @@ export function PlanRollingClient(props: {
     <PageFrame variant="dashboard-wide" className="space-y-5">
       <PageHeader
         title="计划"
-        eyebrow="七日滚动"
-        description="安排任务，处理欠账与待确认计划"
+        eyebrow="长期计划"
+        description="把长期目标落到当前执行窗口，处理欠账与待确认计划"
         action={(
           <div className="flex items-center gap-2">
             <Link href={props.initial.inboxEntryPath} className={buttonClassName({ variant: "secondary" })}>
@@ -359,6 +379,8 @@ export function PlanRollingClient(props: {
                 setSubjectId(event.target.value);
                 setSyllabusNodeId("");
                 setRelatedSyllabusNodeIds([]);
+                setKnowledgePointIds([]);
+                setStagePlanIds([]);
                 setPlanMilestoneId("");
               }}
             >
@@ -377,12 +399,12 @@ export function PlanRollingClient(props: {
             </select>
           </label>
           <label className="text-sm">
-            <span className="text-zinc-400">主要知识点</span>
+            <span className="text-zinc-400">主考纲节点</span>
             <select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={syllabusNodeId} onChange={(event) => {
               setSyllabusNodeId(event.target.value);
               setRelatedSyllabusNodeIds((current) => current.filter((id) => id !== event.target.value));
             }}>
-              <option value="">不关联知识点</option>
+              <option value="">不关联考纲节点</option>
               {availableNodes.map((node) => <option key={node.id} value={node.id}>{`${"  ".repeat(node.depth)}${node.title}`}</option>)}
             </select>
           </label>
@@ -411,7 +433,7 @@ export function PlanRollingClient(props: {
           </label>
         </div>
         <fieldset className="mt-3 space-y-2">
-          <legend className="text-sm text-zinc-400">其他相关知识点（最多 20 个）</legend>
+          <legend className="text-sm text-zinc-400">其他相关考纲节点（最多 20 个）</legend>
           <div className="grid max-h-44 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
             {availableNodes.filter((node) => node.id !== syllabusNodeId).map((node) => (
               <label key={node.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-300">
@@ -420,6 +442,35 @@ export function PlanRollingClient(props: {
               </label>
             ))}
             {availableNodes.length === 0 ? <p className="text-sm text-zinc-500">该科目暂无可关联节点</p> : null}
+          </div>
+        </fieldset>
+        <fieldset className="mt-3 space-y-2">
+          <legend className="text-sm text-zinc-400">关联知识点（可多选，最多 50 个）</legend>
+          <div className="grid max-h-44 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
+            {props.knowledgePoints.filter((point) => point.subject.id === subjectId || point.relatedSubjects.some((subject) => subject.id === subjectId)).map((point) => (
+              <label key={point.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-300">
+                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-400" checked={knowledgePointIds.includes(point.id)} onChange={() => setKnowledgePointIds((current) => current.includes(point.id) ? current.filter((id) => id !== point.id) : current.length < 50 ? [...current, point.id] : current)} />
+                <span className="min-w-0 break-words">{point.title}</span>
+              </label>
+            ))}
+            {props.knowledgePoints.length === 0 ? <p className="text-sm text-zinc-500">当前还没有知识点</p> : null}
+          </div>
+        </fieldset>
+        <fieldset className="mt-3 space-y-2">
+          <legend className="text-sm text-zinc-400">所属阶段（可多选，最多 20 个）</legend>
+          <div className="grid max-h-44 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
+            {availableStagePlans.map((stagePlan) => (
+              <label key={stagePlan.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 accent-teal-400"
+                  checked={stagePlanIds.includes(stagePlan.id)}
+                  onChange={() => toggleStagePlan(stagePlan.id)}
+                />
+                <span className="min-w-0 break-words">{stagePlan.name}</span>
+              </label>
+            ))}
+            {availableStagePlans.length === 0 ? <p className="text-sm text-zinc-500">当前没有可关联的阶段</p> : null}
           </div>
         </fieldset>
         {error ? <p className="mt-2 text-sm text-red-300" role="alert">{error}</p> : null}
@@ -521,6 +572,8 @@ function createDraftSnapshot(input: {
   subjectId: string;
   syllabusNodeId: string;
   relatedSyllabusNodeIds: string[];
+  stagePlanIds: string[];
+  knowledgePointIds: string[];
   planMilestoneId: string;
   title: string;
   taskType: string;
@@ -531,6 +584,8 @@ function createDraftSnapshot(input: {
     subjectId: input.subjectId,
     syllabusNodeId: input.syllabusNodeId,
     relatedSyllabusNodeIds: input.relatedSyllabusNodeIds,
+    stagePlanIds: input.stagePlanIds,
+    knowledgePointIds: input.knowledgePointIds,
     planMilestoneId: input.planMilestoneId,
     title: input.title,
     type: input.taskType,
@@ -546,6 +601,10 @@ function isTaskCreateDraft(value: unknown): value is TaskCreateDraft {
     && typeof draft.syllabusNodeId === "string"
     && Array.isArray(draft.relatedSyllabusNodeIds)
     && draft.relatedSyllabusNodeIds.every((id) => typeof id === "string")
+    && Array.isArray(draft.stagePlanIds)
+    && draft.stagePlanIds.every((id) => typeof id === "string")
+    && Array.isArray(draft.knowledgePointIds)
+    && draft.knowledgePointIds.every((id) => typeof id === "string")
     && typeof draft.planMilestoneId === "string"
     && typeof draft.title === "string"
     && typeof draft.type === "string"

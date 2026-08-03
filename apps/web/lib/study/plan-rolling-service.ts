@@ -61,6 +61,8 @@ export async function getPlanRolling(
       include: {
         subject: true,
         syllabusNode: true,
+        stageLinks: { include: { stagePlan: { select: { name: true } } } },
+        knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
       },
       orderBy: [{ plannedDate: "asc" }, { createdAt: "asc" }],
     }),
@@ -73,6 +75,8 @@ export async function getPlanRolling(
       include: {
         subject: true,
         syllabusNode: true,
+        stageLinks: { include: { stagePlan: { select: { name: true } } } },
+        knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
       },
       orderBy: [{ plannedDate: "asc" }, { createdAt: "asc" }],
     }),
@@ -122,6 +126,8 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
     include: {
       subject: true,
       syllabusNode: true,
+      stageLinks: { include: { stagePlan: { select: { name: true } } } },
+      knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
     },
   });
   if (!task) throw new ApiError("TASK_NOT_FOUND", 404);

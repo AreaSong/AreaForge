@@ -70,6 +70,7 @@ interface ReorderTaskRecord extends TaskCasPreimage {
   subjectId: string;
   syllabusNodeId: string | null;
   parentTaskId: string | null;
+  stageLinks: Array<{ stagePlanId: string }>;
   title: string;
   priority: DbTaskPriority;
   estimatedMinutes: number;
@@ -302,6 +303,7 @@ async function getReorderTasksById(
       reviewText: true,
       completedAt: true,
       updatedAt: true,
+      stageLinks: { select: { stagePlanId: true }, orderBy: { createdAt: "asc" } },
     },
   });
   return new Map(tasks.map((task) => [task.id, task]));
@@ -458,6 +460,11 @@ async function mutateTaskForDebtReorderItem(
           plannedDate: true,
         },
       });
+      if (task.stageLinks.length > 0) {
+        await tx.studyTaskStageLink.createMany({
+          data: task.stageLinks.map(({ stagePlanId }) => ({ taskId: child.id, stagePlanId })),
+        });
+      }
       return {
         task: await updateReorderTask(tx, task, {
           status: "DEFERRED",
@@ -510,6 +517,7 @@ async function updateReorderTask(
       reviewText: true,
       completedAt: true,
       updatedAt: true,
+      stageLinks: { select: { stagePlanId: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!updatedTask) throw new ApiError("TASK_STATE_CONFLICT", 409);

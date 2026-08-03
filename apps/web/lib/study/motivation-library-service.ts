@@ -369,7 +369,7 @@ export async function getMotivationNext(
     const workspace = await tx.examWorkspace.findFirst({ where: { userId, status: "ACTIVE" }, select: { id: true } });
     if (!workspace) return blockedMotivationNext("no_trigger");
     const activeSession = await tx.studySession.findFirst({
-      where: { subject: { workspaceId: workspace.id }, status: { in: ["RUNNING", "PAUSED"] } },
+      where: { subject: { workspaceId: workspace.id }, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
       select: { id: true },
     });
     if (activeSession) return blockedMotivationNext("active_activity");

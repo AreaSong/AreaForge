@@ -7,21 +7,28 @@ import { Alert } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { FocusSessionClient } from "@/components/focus-session-client";
 import {
-  FOCUS_OFFLINE_SYNC_EVENT,
   createLocalFocusSession,
+  createFocusStartIdempotencyKey,
+  clearFocusOfflineSnapshot,
   enqueueFocusCommand,
   isLocalFocusSessionId,
+  publishFocusSyncEvent,
   readFocusOfflineSnapshot,
   removeFocusCommand,
   saveFocusOfflineSnapshot,
+  subscribeFocusOfflineSync,
   syncFocusOfflineQueue,
   type FocusOfflineSnapshot,
 } from "@/lib/client/focus-offline-store";
-import type { StudySessionDto, SubjectDto } from "@/lib/study/types";
+import { readActiveStudySession } from "@/lib/client/active-study-session";
+import { getClientDeviceHeaders, getClientDeviceIdentity } from "@/lib/client/device-identity";
+import { shouldUseOfflineFocusSnapshot } from "@/lib/client/focus-launcher-state";
+import type { StudySessionDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 
-export function FocusLauncher({ subjects, userId }: { subjects: SubjectDto[]; userId: string }) {
+export function FocusLauncher({ subjects, userId, contextOptions }: { subjects: SubjectDto[]; userId: string; contextOptions: { tasks: StudyTaskDto[]; syllabusNodes: SyllabusOptionNodeDto[]; knowledgePoints: KnowledgePointDto[] } }) {
   const router = useRouter();
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
+  const [subjectId, setSubjectId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [offlineSnapshot, setOfflineSnapshot] = useState<FocusOfflineSnapshot | null>(null);
@@ -30,11 +37,41 @@ export function FocusLauncher({ subjects, userId }: { subjects: SubjectDto[]; us
     let cancelled = false;
     const load = async () => {
       const snapshot = await readFocusOfflineSnapshot(userId);
-      if (!cancelled && snapshot && (snapshot.session.status === "running" || snapshot.session.status === "paused" || isLocalFocusSessionId(snapshot.session.id))) {
-        if (!isLocalFocusSessionId(snapshot.session.id) && snapshot.session.status !== "completed") {
-          router.replace(`/focus/${snapshot.session.id}`);
-          return;
+      if (cancelled) return;
+
+      // A server snapshot can outlive the real session after a completed
+      // closeout. When online, the authoritative activity endpoint must win;
+      // otherwise a stale closing snapshot traps the user on the old detail
+      // page and prevents a fresh focus session from starting.
+      if (navigator.onLine && snapshot && !isLocalFocusSessionId(snapshot.session.id)) {
+        try {
+          const active = await readActiveStudySession();
+          if (cancelled) return;
+          const snapshotDecision = shouldUseOfflineFocusSnapshot({
+            online: true,
+            snapshotSessionId: snapshot.session.id,
+            snapshotStatus: snapshot.session.status,
+            activeSessionId: active?.id ?? null,
+          });
+          if (snapshotDecision === "redirect-active" && active) {
+            router.replace(`/focus/${active.id}`);
+            return;
+          }
+          if (snapshotDecision === "clear-stale") await clearFocusOfflineSnapshot(userId);
+        } catch {
+          // Keep the snapshot as a best-effort recovery path if the activity
+          // endpoint is temporarily unavailable.
+          if (snapshot.session.status !== "completed") {
+            router.replace(`/focus/${snapshot.session.id}`);
+            return;
+          }
         }
+      }
+
+      if (!cancelled && snapshot && (
+        isLocalFocusSessionId(snapshot.session.id)
+        || (!navigator.onLine && (snapshot.session.status === "running" || snapshot.session.status === "paused" || snapshot.session.status === "closing"))
+      )) {
         setOfflineSnapshot(snapshot);
       }
       void syncFocusOfflineQueue(userId);
@@ -45,16 +82,16 @@ export function FocusLauncher({ subjects, userId }: { subjects: SubjectDto[]; us
       if (detail?.userId !== userId || !detail.session) return;
       if (isLocalFocusSessionId(detail.session.id)) {
         setOfflineSnapshot((current) => current ? { ...current, session: detail.session! } : current);
-      } else if (detail.session.status === "running" || detail.session.status === "paused") {
+      } else if (detail.session.status === "running" || detail.session.status === "paused" || detail.session.status === "closing") {
         router.replace(`/focus/${detail.session.id}`);
       } else {
         setOfflineSnapshot(null);
       }
     };
-    window.addEventListener(FOCUS_OFFLINE_SYNC_EVENT, onSync);
+    const unsubscribe = subscribeFocusOfflineSync(onSync);
     return () => {
       cancelled = true;
-      window.removeEventListener(FOCUS_OFFLINE_SYNC_EVENT, onSync);
+      unsubscribe();
     };
   }, [router, userId]);
 
@@ -67,6 +104,7 @@ export function FocusLauncher({ subjects, userId }: { subjects: SubjectDto[]; us
         returnTo="/focus"
         initialNow={new Date().toISOString()}
         initialEvidenceReceipts={[]}
+        contextOptions={contextOptions}
         offlineOnly
       />
     );
@@ -81,22 +119,33 @@ export function FocusLauncher({ subjects, userId }: { subjects: SubjectDto[]; us
     startTransition(async () => {
       const subject = subjects.find((item) => item.id === subjectId);
       if (!subject) return;
+      const device = getClientDeviceIdentity();
       const localSession = createLocalFocusSession({
         userId,
         subjectId: subject.id,
         subjectName: subject.name,
+        clientDeviceId: device.id,
+        clientDeviceLabel: device.label,
       });
+      const startBody = {
+        idempotencyKey: createFocusStartIdempotencyKey(),
+        startedAt: localSession.startedAt,
+        subjectId,
+        startSource: "SUBJECT_SHORTCUT",
+        clientDeviceId: device.id,
+        clientDeviceLabel: device.label,
+      };
       const queuedStart = await enqueueFocusCommand({
         userId,
         localSessionId: localSession.id,
         action: "start",
-        body: { subjectId, startSource: "SUBJECT_SHORTCUT" },
+        body: startBody,
       });
       try {
         const response = await fetch("/api/study-sessions/start", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subjectId, startSource: "SUBJECT_SHORTCUT" }),
+          headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+          body: JSON.stringify(queuedStart.body),
         });
         const body = await response.json().catch(() => null) as { session?: StudySessionDto; latest?: StudySessionDto; error?: string } | null;
         if (!response.ok) {
@@ -116,6 +165,7 @@ export function FocusLauncher({ subjects, userId }: { subjects: SubjectDto[]; us
         if (body?.session?.id) {
           await removeFocusCommand(queuedStart.id);
           setOfflineSnapshot(null);
+          publishFocusSyncEvent(userId, "current", body.session);
           router.replace(`/focus/${body.session.id}`);
           return;
         }
@@ -125,8 +175,9 @@ export function FocusLauncher({ subjects, userId }: { subjects: SubjectDto[]; us
           setError("无法开始学习，请稍后重试。");
           return;
         }
-        await saveFocusOfflineSnapshot(userId, localSession, typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline", 1);
-        setOfflineSnapshot({ userId, session: localSession, savedAt: new Date().toISOString(), syncState: "offline", pendingCount: 1 });
+        const syncState = typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline";
+        await saveFocusOfflineSnapshot(userId, localSession, syncState, 1);
+        setOfflineSnapshot({ userId, session: localSession, savedAt: new Date().toISOString(), syncState, pendingCount: 1 });
       }
     });
   }
@@ -150,7 +201,7 @@ export function FocusLauncher({ subjects, userId }: { subjects: SubjectDto[]; us
             <label className="grid gap-2 text-sm text-zinc-300">科目<select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="h-12 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" disabled={!subjects.length}><option value="">选择科目</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
             {!subjects.length ? <Alert tone="warning" title="还没有可用科目">先到设置 → 工作区添加至少一个科目。</Alert> : null}
             {error ? <Alert tone="danger">{error}</Alert> : null}
-            <Button type="button" variant="primary" size="lg" className="w-full" onClick={start} loading={isPending} disabled={!subjects.length}><Play size={17} aria-hidden />开始学习</Button>
+            <Button type="button" variant="primary" size="lg" className="w-full" onClick={start} loading={isPending} disabled={!subjects.length || !subjectId}><Play size={17} aria-hidden />开始学习</Button>
             <p className="text-xs leading-5 text-zinc-600">同一用户无论打开多少个计时器页，都会回到当前唯一的活动计时。</p>
           </div>
         </aside>

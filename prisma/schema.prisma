@@ -48,6 +48,7 @@ enum TaskDebtStatus {
 enum StudySessionStatus {
   RUNNING
   PAUSED
+  CLOSING
   COMPLETED
   CANCELED
 }
@@ -223,6 +224,7 @@ model User {
   knowledgeRetests        KnowledgeRetest[]
   knowledgeEvidence       KnowledgeEvidence[]
   studySessions           StudySession[]
+  studySessionDevicePresences StudySessionDevicePresence[]
 }
 
 model AuthSession {
@@ -275,6 +277,7 @@ model ExamWorkspace {
   knowledgePoints   KnowledgePoint[]
   learningArrangements LearningArrangement[]
   studySessions     StudySession[]
+  studySessionDevicePresences StudySessionDevicePresence[]
   knowledgeRetests  KnowledgeRetest[]
   knowledgeEvidence KnowledgeEvidence[]
 
@@ -407,6 +410,8 @@ model StudyTask {
   convertedFromInboxItems PlanInboxItem[]
   inboxDependencyRefs     PlanInboxDependencyRef[]
   studyResourceLinks      StudyResourceTaskLink[]
+  stageLinks        StudyTaskStageLink[]
+  knowledgePointLinks StudyTaskKnowledgePoint[]
 
   @@index([plannedDate])
   @@index([subjectId])
@@ -426,6 +431,32 @@ model StudyTaskRelatedSyllabusNode {
 
   @@unique([taskId, syllabusNodeId])
   @@index([syllabusNodeId])
+}
+
+model StudyTaskStageLink {
+  id          String       @id @default(cuid())
+  taskId      String
+  stagePlanId String
+  createdAt   DateTime     @default(now())
+  task        StudyTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  stagePlan   StagePlan    @relation(fields: [stagePlanId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, stagePlanId])
+  @@index([stagePlanId])
+  @@index([taskId])
+}
+
+model StudyTaskKnowledgePoint {
+  id              String        @id @default(cuid())
+  taskId          String
+  knowledgePointId String
+  createdAt       DateTime      @default(now())
+  task            StudyTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  knowledgePoint  KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, knowledgePointId])
+  @@index([knowledgePointId])
+  @@index([taskId])
 }
 
 model StudySession {
@@ -453,6 +484,9 @@ model StudySession {
   note                    String?
   goalMinutes             Int?
   startSource             StudySessionStartSource?
+  clientDeviceId         String?
+  clientDeviceLabel      String?
+  lastHeartbeatAt        DateTime?
   userId                  String?
   workspaceId             String?
   createdAt               DateTime                  @default(now())
@@ -466,11 +500,33 @@ model StudySession {
   closeout                StudySessionCloseout?
   knowledgeLinks          StudySessionKnowledgePoint[]
   knowledgeEvidence       KnowledgeEvidence[]
+  devicePresences         StudySessionDevicePresence[]
 
   @@index([status])
   @@index([startedAt])
   @@index([subjectId])
   @@index([userId, workspaceId, status])
+  @@index([userId, clientDeviceId, lastHeartbeatAt])
+}
+
+model StudySessionDevicePresence {
+  id          String         @id @default(cuid())
+  sessionId   String
+  userId      String
+  workspaceId String?
+  deviceId    String
+  deviceLabel String?
+  lastSeenAt  DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  session     StudySession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, deviceId])
+  @@index([sessionId, lastSeenAt])
+  @@index([userId, lastSeenAt])
+  @@index([workspaceId, lastSeenAt])
 }
 
 model DailyReview {
@@ -886,6 +942,7 @@ model StagePlan {
   goalLinks        StageGoalLink[]
   knowledgeTargets StageKnowledgeTarget[]
   learningArrangements LearningArrangement[]
+  taskLinks        StudyTaskStageLink[]
 
   @@index([status])
   @@index([startDate])
@@ -1274,6 +1331,7 @@ enum AiDraftOperationStatus {
   SUCCEEDED
   FAILED
   EXPIRED
+  REJECTED
 }
 
 enum KnowledgeCanvasEntityType {
@@ -1495,6 +1553,7 @@ model KnowledgePoint {
   sessionLinks       StudySessionKnowledgePoint[]
   retestLinks        KnowledgeRetestPoint[]
   evidence           KnowledgeEvidence[]
+  taskLinks           StudyTaskKnowledgePoint[]
 
   @@unique([workspaceId, stableKey])
   @@index([workspaceId, masteryState, archivedAt])
@@ -1673,7 +1732,7 @@ model KnowledgeRetestPoint {
   id             String               @id @default(cuid())
   retestId       String
   knowledgePointId String
-  result         KnowledgeRetestResult
+  result         KnowledgeRetestResult?
   score          Float?
   understanding  Int?
   note           String?

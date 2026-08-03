@@ -292,7 +292,7 @@ export const V11_JOURNEY_CONTRACTS = {
 export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
   "KBD-01": {
     checkKey: "login-tab-enter", category: "keyboard", route: "/login", target: "login-form", profile: "desktop", mechanism: "keyboard",
-    assertions: [equalsAssertion("email-reached-by-tab", true), equalsAssertion("password-reached-by-tab", true), equalsAssertion("enter-submitted-login", 200), equalsAssertion("keyboard-login-terminal-route", "/today")],
+    assertions: [equalsAssertion("email-reached-by-tab", true), equalsAssertion("password-reached-by-tab", true), equalsAssertion("enter-submitted-login", 200), equalsAssertion("keyboard-login-terminal-route", "/focus")],
   },
   "KBD-02": {
     checkKey: "main-navigation-enter", category: "keyboard", route: "/today", target: "main-navigation", profile: "desktop", mechanism: "keyboard",

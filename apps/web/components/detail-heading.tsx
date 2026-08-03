@@ -12,5 +12,5 @@ export function DetailHeading(props: { children: React.ReactNode; className?: st
   if (props.level === 2) {
     return <h2 ref={headingRef} id={props.id} tabIndex={-1} className={props.className}>{props.children}</h2>;
   }
-  return <h1 ref={headingRef} id={props.id} tabIndex={-1} className={props.className}>{props.children}</h1>;
+  return <h1 ref={headingRef} id={props.id} tabIndex={-1} data-ai-current-object="true" data-ai-selectable className={props.className}>{props.children}</h1>;
 }

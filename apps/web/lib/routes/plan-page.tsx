@@ -6,6 +6,7 @@ import { TaskDetailClient } from "@/components/task-detail-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPlanRolling } from "@/lib/study/plan-rolling-service";
 import { listPlanMilestones } from "@/lib/study/plan-milestone-service";
+import { listStagePlans } from "@/lib/study/stage-service";
 import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 import { findActiveWorkspaceOrNull, listWorkspaceSubjects } from "@/lib/study/exam-workspace-service";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
@@ -13,6 +14,7 @@ import { ApiError } from "@/lib/api/responses";
 import { getStudyResource, type StudyResourceDto } from "@/lib/study/study-resource-service";
 import { loadTaskPageData } from "@/lib/study/task-page-data";
 import type { SyllabusOptionNodeDto } from "@/lib/study/types";
+import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/plan");
@@ -45,11 +47,13 @@ export default async function TodayPlanPage({
   }
 
   const workspace = await findActiveWorkspaceOrNull(user.id);
-  const [subjects, syllabusNodes, milestones] = workspace ? await Promise.all([
+  const [subjects, syllabusNodes, milestones, stagePlans, knowledgePoints] = workspace ? await Promise.all([
     listWorkspaceSubjects(user.id, workspace.id),
     listSyllabusOptionsShared(user.id),
     listPlanMilestones(user.id),
-  ]) : [[], [], []];
+    listStagePlans(user.id),
+    listKnowledgePoints(user.id),
+  ]) : [[], [], [], [], []];
   let sourceResource: StudyResourceDto | null = null;
   if (params.resourceId) {
     try {
@@ -80,6 +84,8 @@ export default async function TodayPlanPage({
         subjects={subjects.filter((subject) => !subject.archivedAt).map((subject) => ({ id: subject.id, name: subject.name }))}
         syllabusNodes={syllabusNodes}
         milestones={milestones}
+        stagePlans={stagePlans}
+        knowledgePoints={knowledgePoints}
         createMinimum={params.createMinimum === "1"}
         sourceResource={sourceResource ? {
           id: sourceResource.id,
@@ -105,6 +111,8 @@ export default async function TodayPlanPage({
             subjects={selectedTaskData.subjects}
             syllabusNodes={selectedTaskData.syllabusNodes}
             milestones={selectedTaskData.milestones}
+            stagePlans={selectedTaskData.stagePlans}
+            knowledgePoints={selectedTaskData.knowledgePoints}
             dependencyCandidates={selectedTaskData.dependencyCandidates}
             embedded
             closeHref={closeDetailHref}

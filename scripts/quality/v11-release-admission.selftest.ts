@@ -504,7 +504,7 @@ function compatibilityRuntime() {
     manifests: {
       legacy: { count: 12, sha256: "90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368" },
       floor: { count: 15, sha256: "e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d" },
-      current: { count: 24, sha256: "f5d083da94fc883b5a2428cdb5d565b7a3df20745f3b197d7d777625fd966419" },
+      current: { count: 33, sha256: "b2d04b442d666be93dea324ae5e8648ca133e767655cd4fd153c8ba3f450432d" },
     },
     fingerprintExcludedPaths: [evidencePaths.compatibilityFloorEvidence],
     candidateFingerprint,
@@ -515,7 +515,7 @@ function compatibilityRuntime() {
     finalValidation: {
       status: "pass",
       databaseName: "areaforge_v11compat_fixture",
-      migrationCount: 24,
+      migrationCount: 33,
       candidateFingerprintStable: true,
       repeatDeployLedgerStable: true,
     },
@@ -553,8 +553,8 @@ function writeCompatibilityRecord(runtimePath: string = evidencePaths.compatibil
     "legacyMigrationManifestSha256: sha256:90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368",
     "floorMigrationCount: 15",
     "floorMigrationManifestSha256: sha256:e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d",
-    "repositoryMigrationCount: 24",
-    "repositoryMigrationManifestSha256: sha256:f5d083da94fc883b5a2428cdb5d565b7a3df20745f3b197d7d777625fd966419",
+    "repositoryMigrationCount: 33",
+    "repositoryMigrationManifestSha256: sha256:b2d04b442d666be93dea324ae5e8648ca133e767655cd4fd153c8ba3f450432d",
     "migrationReplayStatus: pass",
     "candidateSeedStatus: pass",
     "floorProductionBuildStatus: pass",

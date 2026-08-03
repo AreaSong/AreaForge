@@ -9,10 +9,25 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const user = await requireApiUser(request);
-    const parsed = startSessionSchema.safeParse(await readJson(request));
+    const rawBody = await readJson(request);
+    const body = rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
+      ? {
+          ...rawBody,
+          idempotencyKey: (rawBody as Record<string, unknown>).idempotencyKey
+            ?? request.headers.get("idempotency-key")
+            ?? undefined,
+        }
+      : rawBody;
+    const parsed = startSessionSchema.safeParse(body);
     if (!parsed.success) return zodErrorResponse(parsed.error);
 
-    return NextResponse.json({ session: await startStudySession(parsed.data, user.id) }, { status: 201 });
+    return NextResponse.json({
+      session: await startStudySession({
+        ...parsed.data,
+        clientDeviceId: request.headers.get("x-areaforge-device-id") ?? parsed.data.clientDeviceId,
+        clientDeviceLabel: request.headers.get("x-areaforge-device-label") ?? parsed.data.clientDeviceLabel,
+      }, user.id),
+    }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }

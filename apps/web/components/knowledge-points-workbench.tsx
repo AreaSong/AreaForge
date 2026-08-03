@@ -7,34 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { withReturnTo } from "@/lib/navigation/batch7";
 import type { SubjectDto } from "@/lib/study/types";
-import type { KnowledgeMasteryStateDto, KnowledgePointDto } from "@/lib/study/knowledge-point-service";
-
-const masteryLabels: Record<KnowledgeMasteryStateDto, string> = {
-  UNTOUCHED: "未接触",
-  LEARNING: "学习中",
-  INITIAL_MASTERY: "初步掌握",
-  STABLE_MASTERY: "稳定掌握",
-  NEEDS_RETEST: "待复测",
-};
-
-const masteryTones: Record<KnowledgeMasteryStateDto, "neutral" | "info" | "success" | "warning"> = {
-  UNTOUCHED: "neutral",
-  LEARNING: "info",
-  INITIAL_MASTERY: "warning",
-  STABLE_MASTERY: "success",
-  NEEDS_RETEST: "warning",
-};
+import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
+import {
+  MASTERY_STATUS_OPTIONS,
+  masteryStatusLabel,
+  masteryStatusTone,
+  type MasteryStatus,
+} from "@/lib/study/mastery-status";
 
 export function KnowledgePointsWorkbench(props: {
   subjects: SubjectDto[];
   knowledgePoints: KnowledgePointDto[];
   initialSubjectId?: string;
   initialQuery?: string;
-  initialMasteryState?: KnowledgeMasteryStateDto;
+  initialMasteryStatus?: MasteryStatus;
 }) {
   const [subjectId, setSubjectId] = useState(props.initialSubjectId ?? "");
-  const [masteryState, setMasteryState] = useState<KnowledgeMasteryStateDto | "">(props.initialMasteryState ?? "");
+  const [masteryStatus, setMasteryStatus] = useState<MasteryStatus | "">(props.initialMasteryStatus ?? "");
   const [query, setQuery] = useState(props.initialQuery ?? "");
   const [title, setTitle] = useState("");
   const [boundary, setBoundary] = useState("");
@@ -82,10 +73,15 @@ export function KnowledgePointsWorkbench(props: {
 
   const filteredPoints = points.filter((point) => {
     if (subjectId && point.subject.id !== subjectId) return false;
-    if (masteryState && point.masteryState !== masteryState) return false;
+    if (masteryStatus && point.masteryStatus !== masteryStatus) return false;
     if (query.trim() && !point.title.toLocaleLowerCase("zh-CN").includes(query.trim().toLocaleLowerCase("zh-CN"))) return false;
     return true;
   });
+  const currentListHref = `/knowledge/points${new URLSearchParams(
+    Object.entries({ subjectId, q: query, masteryStatus }).filter(([, value]) => Boolean(value)),
+  ).toString() ? `?${new URLSearchParams(
+    Object.entries({ subjectId, q: query, masteryStatus }).filter(([, value]) => Boolean(value)),
+  ).toString()}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -109,11 +105,11 @@ export function KnowledgePointsWorkbench(props: {
 
       <Toolbar label="知识点筛选">
         <label className="flex items-center gap-2 text-xs text-zinc-500">科目<select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="h-9 rounded-md border border-white/10 bg-[#0b0e12] px-2 text-xs text-zinc-200"><option value="">全部科目</option>{props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
-        <label className="flex items-center gap-2 text-xs text-zinc-500">状态<select value={masteryState} onChange={(event) => setMasteryState(event.target.value as KnowledgeMasteryStateDto | "")} className="h-9 rounded-md border border-white/10 bg-[#0b0e12] px-2 text-xs text-zinc-200"><option value="">全部状态</option>{Object.entries(masteryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label className="flex items-center gap-2 text-xs text-zinc-500">状态<select value={masteryStatus} onChange={(event) => setMasteryStatus(event.target.value as MasteryStatus | "")} className="h-9 rounded-md border border-white/10 bg-[#0b0e12] px-2 text-xs text-zinc-200"><option value="">全部状态</option>{MASTERY_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{masteryStatusLabel(status)}</option>)}</select></label>
         <label className="ml-auto flex min-w-48 flex-1 items-center gap-2 border-l border-white/10 pl-2 text-xs text-zinc-500 sm:max-w-xs"><Search size={15} aria-hidden /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索知识点" className="h-9 min-w-0 flex-1 bg-transparent text-sm text-zinc-100 outline-none" /></label>
       </Toolbar>
 
-      {filteredPoints.length ? <ul className="divide-y divide-white/10 border-y border-white/10">{filteredPoints.map((point) => <li key={point.id} className="flex min-w-0 items-center gap-4 py-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Link href={`/knowledge/points/${point.id}`} className="truncate font-medium text-zinc-100 hover:text-teal-200">{point.title}</Link><Badge tone={masteryTones[point.masteryState]}>{masteryLabels[point.masteryState]}</Badge></div><p className="mt-1 truncate text-xs text-zinc-500">{point.subject.name}{point.primaryGroup ? ` · ${point.primaryGroup.title}` : ""}{point.boundary ? ` · ${point.boundary}` : ""}</p><p className="mt-2 text-xs text-zinc-600">{point.counts.evidence} 条证据 · {point.counts.sessions} 次学习 · {point.counts.retests} 次复测</p></div><Link href={`/knowledge/points/${point.id}`} aria-label={`打开 ${point.title}`} title="打开知识点" className="grid size-9 shrink-0 place-items-center rounded-md text-teal-300 hover:bg-white/[0.06]"><ArrowRight size={16} aria-hidden /></Link></li>)}</ul> : <EmptyState title="还没有匹配的知识点" description="从一个具体、可解释边界的知识点开始，后续学习与复测证据会持续汇聚到这里。" />}
+      {filteredPoints.length ? <ul className="divide-y divide-white/10 border-y border-white/10">{filteredPoints.map((point) => { const detailHref = withReturnTo(`/knowledge/points/${point.id}`, currentListHref); return <li key={point.id} className="flex min-w-0 items-center gap-4 py-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Link href={detailHref} className="truncate font-medium text-zinc-100 hover:text-teal-200">{point.title}</Link><Badge tone={masteryStatusTone(point.masteryStatus)}>{masteryStatusLabel(point.masteryStatus)}</Badge>{point.needsRetest ? <Badge tone="warning">待复测</Badge> : null}</div><p className="mt-1 truncate text-xs text-zinc-500">{point.subject.name}{point.primaryGroup ? ` · ${point.primaryGroup.title}` : ""}{point.boundary ? ` · ${point.boundary}` : ""}</p><p className="mt-2 text-xs text-zinc-600">{point.counts.evidence} 条证据 · {point.counts.sessions} 次学习 · {point.counts.retests} 次复测 · 量化可信度 {point.masteryConfidence}%</p></div><Link href={detailHref} aria-label={`打开 ${point.title}`} title="打开知识点" className="grid size-9 shrink-0 place-items-center rounded-md text-teal-300 hover:bg-white/[0.06]"><ArrowRight size={16} aria-hidden /></Link></li>; })}</ul> : <EmptyState title="还没有匹配的知识点" description="从一个具体、可解释边界的知识点开始，后续学习与复测证据会持续汇聚到这里。" />}
     </div>
   );
 }

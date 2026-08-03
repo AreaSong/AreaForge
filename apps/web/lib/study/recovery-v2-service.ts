@@ -106,7 +106,7 @@ export async function getActiveRecoveryV2(actorId: string): Promise<RecoveryV2Dt
 
 export async function startRecoveryV2(
   actorId: string,
-  input?: { reason?: string },
+  input?: { reason?: string; triggerType?: "manual" | "rule" },
 ): Promise<RecoveryV2Dto> {
   return prisma.$transaction(async (tx) => {
     const workspace = await resolveActiveWorkspace(actorId, tx);
@@ -118,7 +118,7 @@ export async function startRecoveryV2(
       if (normalizeStatus(current.status) === "ACTIVE") return serialize(current);
     }
 
-    return serialize(await createRecoveryV2InTx(tx, actorId, workspace.id, input?.reason));
+    return serialize(await createRecoveryV2InTx(tx, actorId, workspace.id, input?.reason, input?.triggerType ?? "manual"));
   });
 }
 
@@ -261,6 +261,7 @@ async function createRecoveryV2InTx(
   actorId: string,
   workspaceId: string,
   reason?: string,
+  triggerType: "manual" | "rule" = "manual",
 ): Promise<RecoveryV2Record> {
   const today = getStudyDayRange();
   return tx.recoveryState.create({
@@ -269,11 +270,11 @@ async function createRecoveryV2InTx(
       actorId,
       workspaceId,
       status: "ACTIVE",
-      triggerType: "manual",
+      triggerType,
       currentStage: 1,
       targetMinutes: stageTargetMinutes(1),
       visibleTaskLimit: 1,
-      reason: reason?.trim() || "手动进入恢复：先完成三阶最小有效学习。",
+      reason: reason?.trim() || (triggerType === "rule" ? "规则触发恢复：先完成三阶最小有效学习。" : "手动进入恢复：先完成三阶最小有效学习。"),
       windowStartDate: today.start,
       windowEndDate: new Date(today.start.getTime() + RECOVERY_WINDOW_DAYS * 24 * 60 * 60 * 1000),
       progressionVersion: 1,

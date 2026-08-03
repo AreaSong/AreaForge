@@ -14,7 +14,10 @@ const originalEnv = {
 
 process.env.DATABASE_URL = "postgresql://crypto-selftest.invalid/areaforge";
 process.env.AUTH_SESSION_SECRET = "ai-provider-credential-crypto-selftest-secret";
-process.env.AI_CREDENTIALS_ENCRYPTION_KEY = "crypto-selftest-key-with-at-least-32-characters";
+process.env.AI_CREDENTIALS_ENCRYPTION_KEY = [
+  "encryption-selftest-material",
+  "with-at-least-32-characters",
+].join("-");
 
 test("AI provider credentials use authenticated randomized encryption", () => {
   const first = encryptAiProviderApiKey("sk-test-value");

@@ -31,7 +31,7 @@ export function PageHeader(props: {
       <div className="min-w-0">
         {props.back ? <div className="mb-3">{props.back}</div> : null}
         {props.eyebrow ? <p className="text-xs font-medium text-teal-300">{props.eyebrow}</p> : null}
-        <h1 className="mt-1 break-words text-2xl font-semibold leading-8 text-white">{props.title}</h1>
+        <h1 className="mt-1 break-words text-2xl font-semibold leading-8 text-white" data-ai-current-object="true" data-ai-selectable data-ai-label={props.title}>{props.title}</h1>
         {props.description ? <div className="mt-1 max-w-3xl text-sm leading-6 text-zinc-400">{props.description}</div> : null}
         {props.status ? <div className="mt-3">{props.status}</div> : null}
       </div>

@@ -8,5 +8,5 @@ export default async function Home() {
   if (!user) {
     redirect("/login");
   }
-  redirect("/today");
+  redirect("/focus");
 }

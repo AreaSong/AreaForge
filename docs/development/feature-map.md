@@ -46,7 +46,7 @@
 | `module.tasks` | 每日任务 | done | `/api/tasks`、`StudyTask` | 今日任务表单写入已有 `StudyTask.type` |
 | `module.task-debt` | 任务债务 | done | `StudyTask.debtStatus`、`TaskDebtEvent`、complete/defer/drop/recover/split/convert-review API | 自动阶段联动/批量应用需另行确认 |
 | `module.timer` | 学习计时 | done | `/api/study-sessions/*`、`StudySession` | 结构化收口字段；并发一致性生产证据见 `ops.concurrency` |
-| `module.focus-timer` | 专注计时模式 | done | `components/focus-timer.tsx` | active session 跨刷新恢复；恢复模式下聚焦恢复候选 |
+| `module.focus-timer` | 专注计时模式 | done | `components/focus-launcher.tsx`、`components/focus-session-client.tsx`、`components/focus-session-panels.tsx` | `/focus` 独立入口；active session 跨刷新恢复；本地优先离线队列、多标签页/多设备复用；结束后必须完成收口 |
 | `module.check-in` | 打卡与连续性 | done | `packages/core` `evaluateDailyCheckIn`、`CheckIn` 日快照 | 打开应用不算打卡；active 时长实时展示、结束固化 |
 | `module.review` | 每晚复盘 | done | `DailyReview`、`/api/reviews/today` | AI 建议与结构化统计持续增强 |
 | `module.syllabus` | 考纲进度树 | done | `/api/syllabus/*`、`packages/core/syllabus-import.ts` | 仅受限 Markdown 导入；PDF 解析见 `ai.pdf-syllabus` |

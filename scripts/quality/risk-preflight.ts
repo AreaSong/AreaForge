@@ -1843,7 +1843,7 @@ function checkPackageBBatchBoundaries(): void {
     {
       label: "dashboard records rule trigger explicitly",
       ok: dashboardRoute.includes("recordRecoveryRule: true")
-        && (homePage.includes("recordRecoveryRule: true") || homeRedirectsToToday),
+        && (homePage.includes("recordRecoveryRule: true") || homeRedirectsToToday || todayPage.includes("recordRecoveryRule: true")),
     },
     {
       label: "RecoveryState DTO exposes source and state fields",
@@ -1866,8 +1866,7 @@ function checkPackageBBatchBoundaries(): void {
           && homePage.includes("tasks={dashboard.tasks}")
           && homePage.includes("tasks={focusTasks}")
       ) || (
-        homeRedirectsToToday
-          && todayPage.includes("<ActionCenterToday")
+        todayPage.includes("<ActionCenterToday")
           && actionCenterToday.includes("today.recovery")
           && actionCenterToday.includes("today.queues.formalTasks")
       ),

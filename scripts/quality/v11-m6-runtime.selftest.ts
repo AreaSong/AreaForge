@@ -44,6 +44,7 @@ import {
   completeStudyTask,
   createStudyTask,
   endStudySession,
+  splitStudyTask,
   startStudySession,
   updateStudyTask,
 } from "../../apps/web/lib/study/service";
@@ -332,6 +333,81 @@ async function verifyTaskCanonicalRelations(
       status: "active",
     },
   });
+  const secondaryStagePlan = await prisma.stagePlan.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `task-stage-secondary-${randomUUID()}`,
+      name: "Task secondary stage",
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      goal: "Validate multi-stage task inheritance",
+      mode: "strengthen",
+      status: "active",
+    },
+  });
+  const primaryKnowledgePoint = await prisma.knowledgePoint.create({
+    data: {
+      userId: seed.user.id,
+      workspaceId: seed.workspace.id,
+      primarySubjectId: seed.subject.id,
+      stableKey: `task-knowledge-primary-${randomUUID()}`,
+      title: "Task knowledge point",
+    },
+  });
+  const replacementKnowledgePoint = await prisma.knowledgePoint.create({
+    data: {
+      userId: seed.user.id,
+      workspaceId: seed.workspace.id,
+      primarySubjectId: seed.subject.id,
+      stableKey: `task-knowledge-replacement-${randomUUID()}`,
+      title: "Replacement knowledge point",
+    },
+  });
+  const mismatchedSubject = await prisma.subject.create({
+    data: {
+      workspaceId: seed.workspace.id,
+      stableKey: `task-knowledge-mismatch-${randomUUID()}`,
+      name: "Mismatched subject",
+      color: "#222222",
+    },
+  });
+  const mismatchedKnowledgePoint = await prisma.knowledgePoint.create({
+    data: {
+      userId: seed.user.id,
+      workspaceId: seed.workspace.id,
+      primarySubjectId: mismatchedSubject.id,
+      stableKey: `task-knowledge-mismatch-point-${randomUUID()}`,
+      title: "Mismatched subject point",
+    },
+  });
+  const foreignUser = await prisma.user.create({
+    data: { email: `task-knowledge-foreign-${randomUUID()}@example.com`, passwordHash: "x" },
+  });
+  const foreignWorkspace = await prisma.examWorkspace.create({
+    data: {
+      userId: foreignUser.id,
+      stableKey: `task-knowledge-foreign-workspace-${randomUUID()}`,
+      name: "Foreign workspace",
+      status: "ACTIVE",
+    },
+  });
+  const foreignSubject = await prisma.subject.create({
+    data: {
+      workspaceId: foreignWorkspace.id,
+      stableKey: "foreign-subject",
+      name: "Foreign subject",
+      color: "#333333",
+    },
+  });
+  const foreignKnowledgePoint = await prisma.knowledgePoint.create({
+    data: {
+      userId: foreignUser.id,
+      workspaceId: foreignWorkspace.id,
+      primarySubjectId: foreignSubject.id,
+      stableKey: `task-knowledge-foreign-point-${randomUUID()}`,
+      title: "Foreign workspace point",
+    },
+  });
   const milestone = await prisma.planMilestone.create({
     data: {
       workspaceId: seed.workspace.id,
@@ -348,6 +424,8 @@ async function verifyTaskCanonicalRelations(
     syllabusNodeId: primaryNode.id,
     relatedSyllabusNodeIds: [relatedNode.id],
     planMilestoneId: milestone.id,
+    stagePlanIds: [stagePlan.id, secondaryStagePlan.id],
+    knowledgePointIds: [primaryKnowledgePoint.id],
     title: "Canonical task",
     type: "study",
     priority: "high" as const,
@@ -358,11 +436,38 @@ async function verifyTaskCanonicalRelations(
   assert.equal(replay.id, created.id);
   const persisted = await prisma.studyTask.findUniqueOrThrow({
     where: { id: created.id },
-    include: { relatedSyllabusNodes: true },
+    include: { relatedSyllabusNodes: true, stageLinks: true, knowledgePointLinks: true },
   });
   assert.equal(persisted.planMilestoneId, milestone.id);
   assert.equal(persisted.syllabusNodeId, primaryNode.id);
   assert.deepEqual(persisted.relatedSyllabusNodes.map((relation) => relation.syllabusNodeId), [relatedNode.id]);
+  assert.deepEqual(
+    persisted.stageLinks.map((relation) => relation.stagePlanId).sort(),
+    [stagePlan.id, secondaryStagePlan.id].sort(),
+  );
+  assert.deepEqual(
+    persisted.knowledgePointLinks.map((relation) => relation.knowledgePointId),
+    [primaryKnowledgePoint.id],
+  );
+
+  await assert.rejects(
+    () => createStudyTask({ ...createInput, idempotencyKey: `task-knowledge-duplicate-${randomUUID()}`, knowledgePointIds: [primaryKnowledgePoint.id, primaryKnowledgePoint.id] }, seed.user.id),
+    (error: unknown) => error instanceof ApiError
+      && error.code === "TASK_KNOWLEDGE_POINT_DUPLICATE"
+      && error.status === 400,
+  );
+  await assert.rejects(
+    () => createStudyTask({ ...createInput, idempotencyKey: `task-knowledge-mismatch-${randomUUID()}`, knowledgePointIds: [mismatchedKnowledgePoint.id] }, seed.user.id),
+    (error: unknown) => error instanceof ApiError
+      && error.code === "TASK_KNOWLEDGE_POINT_RELATION_INVALID"
+      && error.status === 409,
+  );
+  await assert.rejects(
+    () => createStudyTask({ ...createInput, idempotencyKey: `task-knowledge-foreign-${randomUUID()}`, knowledgePointIds: [foreignKnowledgePoint.id] }, seed.user.id),
+    (error: unknown) => error instanceof ApiError
+      && error.code === "TASK_KNOWLEDGE_POINT_RELATION_INVALID"
+      && error.status === 409,
+  );
 
   const baseline = await getTaskUpdateSnapshot(seed.user.id, created.id);
   await updateStudyTask(created.id, {
@@ -370,12 +475,31 @@ async function verifyTaskCanonicalRelations(
     expectedUpdatedAt: baseline.updatedAt,
     syllabusNodeId: relatedNode.id,
     relatedSyllabusNodeIds: [replacementNode.id],
+    knowledgePointIds: [replacementKnowledgePoint.id],
     title: "Canonical task updated",
   }, seed.user.id);
   const latest = await getTaskUpdateSnapshot(seed.user.id, created.id);
   assert.equal(latest.syllabusNodeId, relatedNode.id);
   assert.deepEqual(latest.relatedSyllabusNodeIds, [replacementNode.id]);
+  assert.deepEqual(latest.stagePlanIds.sort(), [stagePlan.id, secondaryStagePlan.id].sort());
+  assert.deepEqual(latest.knowledgePointIds, [replacementKnowledgePoint.id]);
   assert.notEqual(latest.updatedAt, baseline.updatedAt);
+
+  const split = await splitStudyTask(created.id, {
+    title: "Canonical child task",
+    estimatedMinutes: 15,
+  }, seed.user.id);
+  assert.deepEqual(split.task.stagePlanIds.sort(), [stagePlan.id, secondaryStagePlan.id].sort());
+  assert.equal(split.task.syllabusNodeId, latest.syllabusNodeId);
+  assert.deepEqual(split.task.knowledgePointIds, [replacementKnowledgePoint.id]);
+  const childPersisted = await prisma.studyTask.findUniqueOrThrow({
+    where: { id: split.task.id },
+    include: { relatedSyllabusNodes: true, stageLinks: true, knowledgePointLinks: true },
+  });
+  assert.equal(childPersisted.planMilestoneId, milestone.id);
+  assert.deepEqual(childPersisted.relatedSyllabusNodes.map((relation) => relation.syllabusNodeId), [replacementNode.id]);
+  assert.deepEqual(childPersisted.knowledgePointLinks.map((relation) => relation.knowledgePointId), [replacementKnowledgePoint.id]);
+  const latestAfterSplit = await getTaskUpdateSnapshot(seed.user.id, created.id);
 
   await assert.rejects(
     () => updateStudyTask(created.id, {
@@ -387,12 +511,16 @@ async function verifyTaskCanonicalRelations(
       && error.code === "TASK_STATE_CONFLICT"
       && error.status === 409
       && error.details?.workbench === "/plan"
-      && (error.details.latest as { updatedAt?: string } | undefined)?.updatedAt === latest.updatedAt,
+      && (error.details.latest as { updatedAt?: string } | undefined)?.updatedAt === latestAfterSplit.updatedAt,
   );
   pass("task_canonical_relations_and_cas", {
     taskId: created.id,
     replayed: replay.id === created.id,
     relatedNodeCount: latest.relatedSyllabusNodeIds.length,
+    inheritedStageCount: split.task.stagePlanIds.length,
+    inheritedKnowledgePointCount: split.task.knowledgePointIds.length,
+    inheritedMilestone: childPersisted.planMilestoneId === milestone.id,
+    relationValidationCases: 3,
     staleRejected: true,
   });
 }
@@ -1646,10 +1774,19 @@ async function verifyRecoveryStages(seed: Awaited<ReturnType<typeof seedWorkspac
     data: { startedAt: new Date(Date.now() - 31 * 60_000) },
   });
   const sessionPreimage = await prisma.studySession.findUniqueOrThrow({ where: { id: running.id } });
-  await endStudySession(running.id, {
+  const closing = await endStudySession(running.id, {
+    mode: "prepare",
     expectedStatus: "running",
     expectedUpdatedAt: sessionPreimage.updatedAt.toISOString(),
-    idempotencyKey: `recovery-session-${running.id}`,
+    idempotencyKey: `recovery-session-${running.id}:prepare`,
+    producedNote: false,
+    producedMistake: false,
+    completeTask: false,
+  }, seed.user.id);
+  await endStudySession(running.id, {
+    expectedStatus: "closing",
+    expectedUpdatedAt: closing.updatedAt,
+    idempotencyKey: `recovery-session-${running.id}:complete`,
     qualityScore: 4,
     isEffective: true,
     understandingLevel: "清晰",

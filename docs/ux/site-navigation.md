@@ -4,9 +4,9 @@
 
 ## 导航拓扑
 
-登录后默认进入今日行动中心。当前一级导航为开始学习/今日/计划/知识/检验/复盘/确认中心/设置；开始学习是独立沉浸入口，不承载二级导航。计划、知识、检验、复盘和确认中心各自承载二级业务入口；设置位于侧栏底部或账户入口。桌面优先，移动端只压缩层级，不改变 canonical 路由。当前只保留一套路由，旧根级业务页、`/today/*` 和 `/stage/*` 均已移除，访问应返回 404。功能实现差异以 `docs/development/feature-traceability.md` 为准。
+登录后默认进入开始学习 `/focus`。当前一级导航为开始学习/今日/计划/知识/检验/阶段/复盘/确认中心/设置；开始学习是独立入口，不承载二级导航，进入后直接显示唯一活动计时器。计划、知识、检验、阶段、复盘和确认中心各自承载二级业务入口；设置提供工作区、档案、通知、AI、体验和系统入口。桌面优先，移动端只压缩层级，不改变 canonical 路由。当前只保留一套路由，旧根级业务页、`/today/*` 和旧阶段路径均已移除，访问应返回 404。功能实现差异以 `docs/development/feature-traceability.md` 为准。
 
-跨工作台详情统一使用安全 `returnTo`：来源路径、允许的筛选参数和最多三跳的逐级来源都经过注册路由归一化；页面按实际来源展示明确返回文案。专注完成始终以“回到今日，查看下一行动”为主接力，同时保留具体来源作为次操作；快速复习无后续项时直接回到具体来源。每日复盘、周期报告、阶段处理结果和模拟补救进入计划收件箱时保留当前结果页（及其合法筛选参数），处理完成后可回到原判断上下文。
+跨工作台详情统一使用安全 `returnTo`：来源路径、允许的筛选参数和最多三跳的逐级来源都经过注册路由归一化；页面按实际来源展示明确返回文案。专注完成始终以“回到今日，查看下一行动”为主接力，同时保留具体来源作为次操作；快速复习无后续项时直接回到具体来源。每日复盘、周期报告、阶段处理结果和模拟补救进入计划收件箱时保留当前结果页（及其合法筛选参数），处理完成后可回到原判断上下文。确认历史 `/confirmations/history` 是确认中心二级页面，不是三级对象详情，因此保留确认中心二级导航；只有 `/confirmations/[confirmationId]` 隐藏二级栏并展示当前确认对象。
 
 登录后页面共用工作台级 `loading` 与 `error` 边界：页面切换时 Shell 保持稳定；异常重试失败后按当前路由返回所属工作台。知识、今日、复盘与阶段的动态详情继续使用各自 `not-found` 出口，不把局部内容不存在误报成全站 404。
 
@@ -24,8 +24,8 @@
 
 ```mermaid
 flowchart TB
-  login["/login 登录"] --> today["/today 行动中心"]
-  login --> focusEntry["/focus 开始学习"]
+  login["/login 登录"] --> focusEntry["/focus 开始学习"]
+  login --> today["/today 行动中心"]
   today --> plan["/plan 计划"]
   today --> inbox["/plan/inbox"]
   focusEntry --> focus["/focus/sessionId"]
@@ -59,8 +59,8 @@ flowchart TB
 
 | 路由 | 名称 | 职责 | 入口文件 |
 |---|---|---|---|
-| `/` | 根入口 | 按会话状态重定向到 `/login` 或 `/today`，不承载独立业务页面 | `apps/web/app/page.tsx` |
-| `/knowledge` | 知识索引 | 重定向到知识点工作台 `/knowledge/points` | `apps/web/app/(app)/knowledge/page.tsx` |
+| `/` | 根入口 | 按会话状态重定向到 `/login` 或 `/focus`，不承载独立业务页面 | `apps/web/app/page.tsx` |
+| `/knowledge` | 知识索引 | 重定向到知识概览 `/knowledge/overview` | `apps/web/app/(app)/knowledge/page.tsx` |
 | `/review` | 复盘索引 | 重定向到今日复盘 `/review/daily` | `apps/web/app/(app)/review/page.tsx` |
 | `/test` | 检验中心 | 汇总专项复测与模拟考试，分别进入两条检验路径 | `apps/web/app/(app)/test/page.tsx` |
 | `/today` | 今日行动中心 | 推荐、任务/复习/错题单一分段队列、今日完成摘要、科目快捷计时、首次工作区 CTA | `apps/web/app/(app)/today/page.tsx` |
@@ -106,10 +106,11 @@ flowchart TB
 | `/test/retests/new` | 新建专项复测 | 选择多个知识点并安排一次复测；提交后进入复测详情 | `apps/web/app/(app)/test/retests/new/page.tsx` |
 | `/test/retests/[retestId]` | 专项复测详情 | 逐知识点量化结果、个人反馈和完整复盘；确认后更新掌握状态并安排下一次复测 | `apps/web/app/(app)/test/retests/[retestId]/page.tsx` |
 | `/confirmations` | 确认中心 | 聚合周期报告、阶段建议、模拟考试、专项复测和 AI 草稿的统一待确认状态 | `apps/web/app/(app)/confirmations/page.tsx` |
+| `/confirmations/[confirmationId]` | 确认事项详情 | 统一展示来源、快照、版本和确认入口，再进入原业务表单执行最终决定 | `apps/web/app/(app)/confirmations/[confirmationId]/page.tsx` |
 | `/confirmations/history` | 确认历史 | 已确认或已驳回事项的冻结只读回放 | `apps/web/app/(app)/confirmations/history/page.tsx` |
-| `/login` | 登录 | 单管理员登录；已登录重定向 `/today` | `apps/web/app/login/page.tsx` |
+| `/login` | 登录 | 单管理员登录；已登录重定向 `/focus` | `apps/web/app/login/page.tsx` |
 
-`/` 登录后重定向到 `/today`；`/knowledge`、`/review` 分别重定向到所属工作台的默认入口，`/test` 进入检验中心。
+`/` 登录后重定向到 `/focus`；`/knowledge`、`/review` 分别重定向到所属工作台的默认入口，`/test` 进入检验中心。
 
 ## 已移除的旧路由
 
@@ -123,8 +124,8 @@ flowchart TB
 ## 鉴权环
 
 - App Shell 业务页在 `(app)/layout.tsx` 校验会话，未登录重定向 `/login`。
-- `/login` 已登录访问时重定向 `/today`。
-- 深链白名单见 `apps/web/lib/navigation/batch7.ts`；非法目标回 `/today`。
+- `/login` 已登录访问时重定向 `/focus`。
+- 深链白名单见 `apps/web/lib/navigation/batch7.ts`；非法目标回 `/focus`。
 
 ## 主导航入口
 
@@ -135,11 +136,12 @@ flowchart TB
 | 计划 | `/plan` |
 | 知识 | `/knowledge/overview` |
 | 检验 | `/test` |
+| 阶段 | `/plan/stages` |
 | 复盘 | `/review/daily` |
 | 确认中心 | `/confirmations` |
 | 设置 | `/settings/workspace` |
 
-开始学习没有二级导航，进入后中间直接显示大计时器。移动端底部只保留开始学习、今日、知识、检验、复盘五个高频入口；计划、确认中心和设置从侧栏或账户入口进入，收件箱从计划二级导航进入。
+开始学习没有二级导航，进入后中间直接显示大计时器。一级侧栏和当前业务的二级侧栏可分别折叠；折叠后保留图标、tooltip 和可访问名称。内容页只展示当前对象，不重复渲染二级导航。底部共享工具栏显示活动计时、当前页面、上一页面、同步状态和跨设备状态。开始计时、在线响应丢失和离线恢复均使用同一启动幂等键；多开页面只跳回同一活动 session。移动端仍只做压缩布局，不作为独立重构目标。
 
 设置桌面端使用左侧纵向二级导航，移动端使用横向滚动二级入口。首次进入且尚无工作区时，从 `/settings` 进入 `/settings/workspace?setup=1`，完成考试目标、首个科目和已有数据处理后返回 `/today`；档案、通知、AI、体验与系统设置均为按需配置，不阻断主学习闭环。
 

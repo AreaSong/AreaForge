@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-03T23:23:52.697Z",
+  "checkId": "ZOOM-02",
+  "checkKey": "portrait-reflow-390",
+  "route": "/today",
+  "target": "today-route",
+  "profile": {
+    "id": "mobile-portrait",
+    "kind": "emulated-viewport",
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "viewport",
+  "assertions": [
+    {
+      "id": "mobile-css-width",
+      "predicate": "equals",
+      "expected": 390,
+      "actual": 390,
+      "passed": true
+    },
+    {
+      "id": "mobile-no-horizontal-overflow",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "mobile-controls-reachable",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

@@ -8,7 +8,7 @@ export const metadata = getRouteMetadata("/login");
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
   const query = await searchParams;
-  const returnTo = sanitizeReturnPath(query.returnTo);
+  const returnTo = sanitizeReturnPath(query.returnTo ?? "/focus");
   const user = await getCurrentUser();
   if (user) {
     redirect(returnTo);

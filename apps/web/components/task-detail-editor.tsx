@@ -15,13 +15,17 @@ import {
 } from "@/lib/client/private-business-drafts";
 import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
 import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
+import type { StagePlanDto } from "@/lib/study/types";
 import type { TaskUpdateSnapshotDto } from "@/lib/study/task-detail-service";
 import type { SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 
 interface TaskEditValues {
   subjectId: string;
   syllabusNodeId: string;
   relatedSyllabusNodeIds: string[];
+  knowledgePointIds: string[];
+  stagePlanIds: string[];
   planMilestoneId: string;
   title: string;
   type: string;
@@ -48,6 +52,8 @@ export function TaskDetailEditor(props: {
   subjects: SubjectDto[];
   syllabusNodes: SyllabusOptionNodeDto[];
   milestones: PlanMilestoneDto[];
+  stagePlans: StagePlanDto[];
+  knowledgePoints: KnowledgePointDto[];
   onCancel: () => void;
   onSaved: () => void;
 }) {
@@ -65,6 +71,7 @@ export function TaskDetailEditor(props: {
   const availableMilestones = props.milestones.filter((milestone) =>
     !milestone.archivedAt && (!milestone.subjectId || milestone.subjectId === values.subjectId),
   );
+  const availableStagePlans = props.stagePlans.filter((stagePlan) => stagePlan.status === "draft" || stagePlan.status === "active");
   const dirty = !editValuesEqual(values, valuesFromSnapshot(baseline));
 
   useEffect(() => {
@@ -110,6 +117,28 @@ export function TaskDetailEditor(props: {
     }));
   }
 
+  function toggleStagePlan(stagePlanId: string) {
+    setValues((current) => ({
+      ...current,
+      stagePlanIds: current.stagePlanIds.includes(stagePlanId)
+        ? current.stagePlanIds.filter((id) => id !== stagePlanId)
+        : current.stagePlanIds.length < 20
+          ? [...current.stagePlanIds, stagePlanId]
+          : current.stagePlanIds,
+    }));
+  }
+
+  function toggleKnowledgePoint(pointId: string) {
+    setValues((current) => ({
+      ...current,
+      knowledgePointIds: current.knowledgePointIds.includes(pointId)
+        ? current.knowledgePointIds.filter((id) => id !== pointId)
+        : current.knowledgePointIds.length < 50
+          ? [...current.knowledgePointIds, pointId]
+          : current.knowledgePointIds,
+    }));
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
@@ -129,6 +158,8 @@ export function TaskDetailEditor(props: {
           subjectId: values.subjectId,
           syllabusNodeId: values.syllabusNodeId || null,
           relatedSyllabusNodeIds: values.relatedSyllabusNodeIds,
+          knowledgePointIds: values.knowledgePointIds,
+          stagePlanIds: values.stagePlanIds,
           planMilestoneId: values.planMilestoneId || null,
           title: values.title,
           type: values.type,
@@ -303,6 +334,39 @@ export function TaskDetailEditor(props: {
           </div>
         </fieldset>
 
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium text-zinc-200">关联知识点（最多 50 个）</legend>
+          <div className="grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
+            {props.knowledgePoints
+              .filter((point) => point.subject.id === values.subjectId || point.relatedSubjects.some((subject) => subject.id === values.subjectId))
+              .map((point) => (
+                <label key={point.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-400">
+                  <input className="mt-1 h-4 w-4 accent-teal-400" type="checkbox" checked={values.knowledgePointIds.includes(point.id)} onChange={() => toggleKnowledgePoint(point.id)} />
+                  <span className="min-w-0 break-words">{point.title}</span>
+                </label>
+              ))}
+            {props.knowledgePoints.length === 0 ? <p className="text-sm text-zinc-500">当前还没有知识点</p> : null}
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium text-zinc-200">所属阶段（可多选，最多 20 个）</legend>
+          <div className="grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
+            {availableStagePlans.map((stagePlan) => (
+              <label key={stagePlan.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-400">
+                <input
+                  className="mt-1 h-4 w-4 accent-teal-400"
+                  type="checkbox"
+                  checked={values.stagePlanIds.includes(stagePlan.id)}
+                  onChange={() => toggleStagePlan(stagePlan.id)}
+                />
+                <span className="min-w-0 break-words">{stagePlan.name}</span>
+              </label>
+            ))}
+            {availableStagePlans.length === 0 ? <p className="text-sm text-zinc-500">当前没有可关联的阶段</p> : null}
+          </div>
+        </fieldset>
+
         <label className="grid gap-2 text-sm text-zinc-300">
           任务复盘
           <textarea
@@ -387,6 +451,8 @@ function valuesFromSnapshot(snapshot: TaskUpdateSnapshotDto): TaskEditValues {
     subjectId: snapshot.subjectId,
     syllabusNodeId: snapshot.syllabusNodeId ?? "",
     relatedSyllabusNodeIds: snapshot.relatedSyllabusNodeIds,
+    knowledgePointIds: snapshot.knowledgePointIds,
+    stagePlanIds: snapshot.stagePlanIds,
     planMilestoneId: snapshot.planMilestoneId ?? "",
     title: snapshot.title,
     type: snapshot.type,
@@ -414,6 +480,8 @@ function taskFieldLabel(field: keyof TaskEditValues): string {
     subjectId: "科目",
     syllabusNodeId: "主考纲节点",
     relatedSyllabusNodeIds: "相关考纲节点",
+    knowledgePointIds: "关联知识点",
+    stagePlanIds: "所属阶段",
     planMilestoneId: "里程碑",
     title: "标题",
     type: "类型",
@@ -451,6 +519,10 @@ function isTaskEditValues(value: unknown): value is TaskEditValues {
     && typeof record.syllabusNodeId === "string"
     && Array.isArray(record.relatedSyllabusNodeIds)
     && record.relatedSyllabusNodeIds.every((id) => typeof id === "string")
+    && Array.isArray(record.knowledgePointIds)
+    && record.knowledgePointIds.every((id) => typeof id === "string")
+    && Array.isArray(record.stagePlanIds)
+    && record.stagePlanIds.every((id) => typeof id === "string")
     && typeof record.planMilestoneId === "string"
     && typeof record.title === "string"
     && typeof record.type === "string"
@@ -475,6 +547,8 @@ function isTaskUpdateSnapshot(value: unknown): value is TaskUpdateSnapshotDto {
     && typeof record.subjectId === "string"
     && (record.syllabusNodeId === null || typeof record.syllabusNodeId === "string")
     && Array.isArray(record.relatedSyllabusNodeIds)
+    && Array.isArray(record.knowledgePointIds)
+    && Array.isArray(record.stagePlanIds)
     && (record.planMilestoneId === null || typeof record.planMilestoneId === "string")
     && typeof record.title === "string"
     && typeof record.updatedAt === "string";

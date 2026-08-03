@@ -9,6 +9,7 @@ import { findActiveWorkspaceOrNull } from "./exam-workspace-service";
 import { listWorkspaceCheckIns } from "./check-in-service";
 import { getActiveStudySession } from "./service";
 import { getNotificationPreferences, type NotificationPreferenceDto } from "./notification-preferences-service";
+import type { StudySessionDto } from "./types";
 
 export interface AppShellStatusDto extends AppShellStatusProjection {
   serverTime: string;
@@ -27,6 +28,7 @@ export interface AppShellStatusDto extends AppShellStatusProjection {
     trigger: "RECOVERY" | "LOW_CONVERSION" | null;
     blockedByActiveActivity: boolean;
   };
+  activeSession: StudySessionDto | null;
 }
 
 function serializeStatus(
@@ -41,6 +43,7 @@ function serializeStatus(
     notificationPreference: NotificationPreferenceDto;
     notificationCandidates: AppShellStatusDto["notificationCandidates"];
     motivationReminderCandidate: AppShellStatusDto["motivationReminderCandidate"];
+    activeSession: StudySessionDto | null;
   },
 ): AppShellStatusDto {
   return {
@@ -104,6 +107,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       notificationPreference,
       notificationCandidates: { reviewDue: false, planStart: false, eveningReview: false },
       motivationReminderCandidate: { trigger: null, blockedByActiveActivity: false },
+      activeSession: null,
     });
   }
 
@@ -290,6 +294,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       trigger: activeRecovery ? "RECOVERY" : lowConversionInbox ? "LOW_CONVERSION" : null,
       blockedByActiveActivity: Boolean(activeSession),
     },
+    activeSession,
   });
 }
 

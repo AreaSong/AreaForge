@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/api/responses";
 
 export type TaskStatusValue = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 export type TaskDebtStatusValue = "NONE" | "ACCEPTABLE" | "NEEDS_RECOVERY" | "STAGE_IMPACT" | "PLAN_BREAKING";
-export type SessionStatusValue = "RUNNING" | "PAUSED" | "COMPLETED" | "CANCELED";
+export type SessionStatusValue = "RUNNING" | "PAUSED" | "CLOSING" | "COMPLETED" | "CANCELED";
 
 export interface TaskCasPreimage {
   id: string;
@@ -47,7 +47,7 @@ export async function applyTaskCas(
 export async function applySessionCas(
   tx: Prisma.TransactionClient,
   expected: SessionCasPreimage,
-  data: Prisma.StudySessionUpdateManyMutationInput,
+  data: Prisma.StudySessionUncheckedUpdateManyInput,
 ): Promise<void> {
   const result = await tx.studySession.updateMany({
     where: {

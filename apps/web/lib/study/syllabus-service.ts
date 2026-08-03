@@ -20,6 +20,7 @@ import {
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
+import { calculateMasteryConfidence, syllabusMasteryStatusView } from "./mastery-status";
 import type {
   MasteryEvidenceTypeDto,
   MasteryLevelDto,
@@ -1205,6 +1206,12 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
   const masteryConditions = getCompletedMasteryConditions(node, masteryLevel);
   const proof = createMasteryProof(node, masteryLevel ?? "learned", masteryConditions);
   const evidence = createMasteryEvidenceSummary(node, proof.evidence);
+  const latestRetest = node.masteryRetests?.[0] ?? null;
+  const masteryView = syllabusMasteryStatusView({
+    level: masteryLevel,
+    nextRetestAt: latestRetest?.nextReviewAt,
+    proofRisk: proof.summary.risk,
+  });
 
   return {
     id: node.id,
@@ -1219,6 +1226,16 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
     kind: fromDbKind(node.kind),
     status,
     masteryLevel,
+    masteryStatus: masteryView.status,
+    needsRetest: masteryView.needsRetest,
+    masteryConfidence: calculateMasteryConfidence({
+      evidenceCount: evidence.taskCount + evidence.sessionCount + evidence.noteCount + evidence.mistakeCount,
+      sessionCount: evidence.sessionCount,
+      noteCount: evidence.noteCount,
+      mistakeCount: evidence.mistakeCount,
+      passedRetestCount: countPassedRetests(node),
+      daysSinceLastEvidence: evidence.daysSinceLastEvidence,
+    }),
     sortOrder: node.sortOrder,
     targetMinutes: node.targetMinutes,
     actualMinutes: node.actualMinutes,

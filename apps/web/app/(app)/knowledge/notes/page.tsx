@@ -25,7 +25,7 @@ export default async function KnowledgeNotesPage({ searchParams }: { searchParam
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-white">知识卡片</h1>
+      <h1 data-ai-current-object="true" data-ai-selectable data-ai-label="知识卡片" className="text-xl font-semibold text-white">知识卡片</h1>
       <p className="text-sm text-zinc-500">
         整理自己的理解、题解和复盘产出。
         <Link className="ml-2 text-teal-300 hover:underline" href="/knowledge/canvas">

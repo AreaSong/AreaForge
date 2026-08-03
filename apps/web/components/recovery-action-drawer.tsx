@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Drawer } from "@/components/ui/overlays";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type { StudyTaskDto, SubjectDto } from "@/lib/study/types";
 
@@ -182,10 +183,15 @@ export function RecoveryActionDrawer(props: {
   }
 
   async function postStartSession(payload: Record<string, unknown>): Promise<string> {
+    const commandScope = `recovery:focus-start:${String(payload.subjectId ?? "subject")}:${String(payload.goalMinutes ?? "none")}`;
+    const requestBody = {
+      idempotencyKey: getOrCreateIdempotencyKey(commandScope, "study-session-start", payload),
+      ...payload,
+    };
     const response = await fetch("/api/study-sessions/start", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+      body: JSON.stringify(requestBody),
     });
     if (response.status === 401) {
       redirectToLoginWithCurrentLocation();
@@ -195,6 +201,7 @@ export function RecoveryActionDrawer(props: {
     const sessionId = body?.session?.id ?? (response.status === 409 ? body?.latest?.id : undefined);
     if (!response.ok && !sessionId) throw new Error(body?.error ?? "无法启动专注活动。");
     if (!sessionId) throw new Error("服务端未返回可继续的活动。");
+    completeIdempotentCommand(commandScope);
     return sessionId;
   }
 

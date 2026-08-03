@@ -11,6 +11,7 @@ import {
   resolveLearningTreeArchiveCapability,
 } from "@/lib/client/learning-tree-archive-capability";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { withReturnTo } from "@/lib/navigation/batch7";
 import type { LearningTreeImportBatchSummaryDto } from "@/lib/study/learning-tree-service";
 
 const deniedArchiveCapabilities = new Set<string>();
@@ -146,10 +147,12 @@ export function LearningTreeImportHistory({
   title,
   imports,
   archived,
+  returnTo = "/knowledge/imports",
 }: {
   title: string;
   imports: LearningTreeImportBatchSummaryDto[];
   archived: boolean;
+  returnTo?: string;
 }) {
   return (
     <section className="space-y-3 border-t border-white/10 pt-6">
@@ -164,7 +167,7 @@ export function LearningTreeImportHistory({
               </p>
             </div>
             <div className="flex gap-2">
-              <Link className="h-9 px-2 leading-9 text-teal-300 hover:underline" href={`/knowledge/imports/${item.id}`}>
+              <Link className="h-9 px-2 leading-9 text-teal-300 hover:underline" href={withReturnTo(`/knowledge/imports/${item.id}`, returnTo)}>
                 查看结果
               </Link>
               <LearningTreeBatchArchiveButton

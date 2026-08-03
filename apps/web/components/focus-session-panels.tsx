@@ -2,14 +2,26 @@ import { AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Clock3, FileText, Pau
 import Link from "next/link";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/feedback";
+import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { withReturnTo } from "@/lib/navigation/batch7";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
-import type { TaskStatusDto } from "@/lib/study/types";
+import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
+import type { StudySessionLowReasonDto, SyllabusOptionNodeDto, StudyTaskDto, TaskStatusDto } from "@/lib/study/types";
 
 export type CloseoutOutcome = "achieved" | "partial" | "not-achieved";
 export type UnderstandingLevel = "清晰" | "基本理解" | "模糊" | "不会";
 export type TaskDisposition = "complete" | "continue" | "blocked";
 export type FocusEvidenceType = "note" | "mistake" | "retest";
+
+const LOW_REASON_OPTIONS: Array<{ value: StudySessionLowReasonDto; label: string }> = [
+  { value: "NOT_UNDERSTOOD", label: "没有真正理解" },
+  { value: "DISTRACTED", label: "注意力分散" },
+  { value: "MATERIAL_BLOCKED", label: "材料或资料卡住" },
+  { value: "FATIGUE", label: "疲劳" },
+  { value: "METHOD_MISMATCH", label: "方法不匹配" },
+  { value: "TIME_FRAGMENTED", label: "时间被切碎" },
+  { value: "OTHER", label: "其他原因" },
+];
 
 export interface FocusEvidenceReceipt {
   evidenceType: FocusEvidenceType;
@@ -18,29 +30,49 @@ export interface FocusEvidenceReceipt {
 }
 
 export interface FocusContext {
+  subjectId: string;
   subjectName: string;
+  taskId: string | null;
   taskTitle: string | null;
+  syllabusNodeId: string | null;
   syllabusNodeTitle: string | null;
+  knowledgePoints: Array<{ id: string; title: string; masteryState: string }>;
   goalMinutes: number | null;
 }
 
+export interface FocusContextOptions {
+  tasks: StudyTaskDto[];
+  syllabusNodes: SyllabusOptionNodeDto[];
+  knowledgePoints: KnowledgePointDto[];
+}
+
 export function FocusHeader(props: {
+  userId: string;
   returnTo: string;
-  status: "running" | "paused" | "completed" | "canceled";
+  status: "running" | "paused" | "closing" | "completed" | "canceled";
   phaseLabel: string;
 }) {
+  const canLeave = props.status !== "closing";
   return (
     <header className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-6 lg:px-8">
-      <Link href={props.returnTo} className="inline-flex h-10 items-center gap-2 text-sm text-zinc-400 hover:text-white">
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        {getReturnContextLabel(props.returnTo, "返回来源")}
-        {props.status === "running" || props.status === "paused" ? " · 计时继续" : ""}
-      </Link>
+      {canLeave ? (
+        <Link href={props.returnTo} className="inline-flex h-10 items-center gap-2 text-sm text-zinc-400 hover:text-white">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {getReturnContextLabel(props.returnTo, "返回来源")}
+          {props.status === "running" || props.status === "paused" ? " · 计时继续" : ""}
+        </Link>
+      ) : (
+        <span className="inline-flex h-10 items-center gap-2 text-sm text-amber-200" role="status">
+          <ArrowLeft className="h-4 w-4 opacity-50" aria-hidden="true" />
+          收口未完成，暂不能离开
+        </span>
+      )}
       <div className="flex items-center gap-2">
-        <Badge tone={props.status === "paused" ? "warning" : props.status === "completed" ? "success" : "info"}>
+        <Badge tone={props.status === "paused" || props.status === "closing" ? "warning" : props.status === "completed" ? "success" : "info"}>
           {statusLabel(props.status)}
         </Badge>
         <span className="text-xs text-zinc-500">{props.phaseLabel}</span>
+        <GlobalAiAssistant userId={props.userId} placement="breadcrumb" />
       </div>
     </header>
   );
@@ -48,7 +80,10 @@ export function FocusHeader(props: {
 
 export function FocusTimerWorkspace(props: {
   context: FocusContext;
+  options: FocusContextOptions;
+  onContextChange: (context: { taskId: string | null; syllabusNodeId: string | null; knowledgePointIds: string[] }) => void;
   elapsedLabel: string;
+  elapsedSeconds: number;
   timerLabel: string;
   goalReached: boolean;
   status: "running" | "paused";
@@ -62,9 +97,25 @@ export function FocusTimerWorkspace(props: {
         <p className="text-sm text-teal-300" aria-live="assertive" aria-atomic="true">
           {props.timerLabel}
         </p>
-        <p className="mt-5 font-mono text-6xl font-semibold tabular-nums text-white sm:text-7xl lg:text-8xl">
-          {props.elapsedLabel}
-        </p>
+        <div className="relative mt-5 grid size-64 place-items-center sm:size-72" aria-label={`已学习 ${props.elapsedLabel}`}>
+          <div className="absolute inset-2 rounded-full border border-teal-300/20 bg-teal-300/[0.03] shadow-[0_0_70px_rgba(45,212,191,0.08)]" aria-hidden="true">
+            {[0, 90, 180, 270].map((angle) => (
+              <span
+                key={angle}
+                className="absolute left-1/2 top-1/2 h-2 w-px origin-bottom bg-teal-200/60"
+                style={{ transform: `translate(-50%, -100%) rotate(${angle}deg) translateY(-116px)` }}
+              />
+            ))}
+            <span
+              className="absolute left-1/2 top-1/2 h-24 w-0.5 origin-bottom rounded-full bg-teal-200 shadow-[0_0_12px_rgba(153,246,228,0.7)]"
+              style={{ transform: `translate(-50%, -100%) rotate(${(props.elapsedSeconds % 3600) / 10}deg)` }}
+            />
+            <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0b1114] bg-teal-200" />
+          </div>
+          <p className="relative z-10 font-mono text-5xl font-semibold tabular-nums text-white sm:text-6xl">
+            {props.elapsedLabel}
+          </p>
+        </div>
         {props.context.goalMinutes ? (
           <p className={`mt-4 text-sm ${props.goalReached ? "text-amber-200" : "text-zinc-500"}`}>
             目标 {props.context.goalMinutes} 分钟{props.goalReached ? " · 已到点，不会自动结束" : ""}
@@ -85,25 +136,35 @@ export function FocusTimerWorkspace(props: {
           </Button>
         </div>
       </section>
-      <FocusContextPanel context={props.context} />
+      <FocusContextPanel context={props.context} options={props.options} onContextChange={props.onContextChange} />
     </main>
   );
 }
 
 export function CloseoutWorkspace(props: {
   context: FocusContext;
+  options: FocusContextOptions;
+  onContextChange: (context: { taskId: string | null; syllabusNodeId: string | null; knowledgePointIds: string[] }) => void;
   elapsedLabel: string;
   outcome: CloseoutOutcome;
   understandingLevel: UnderstandingLevel;
+  lowReasons: StudySessionLowReasonDto[];
+  focusLevel: string;
+  energyLevel: string;
   minimalOutput: string;
   nextAction: string;
+  nextDisposition: string;
   taskDisposition: TaskDisposition;
   validationError: string | null;
   submitting: boolean;
   onOutcomeChange: (value: CloseoutOutcome) => void;
   onUnderstandingChange: (value: UnderstandingLevel) => void;
+  onLowReasonsChange: (value: StudySessionLowReasonDto[]) => void;
+  onFocusLevelChange: (value: string) => void;
+  onEnergyLevelChange: (value: string) => void;
   onMinimalOutputChange: (value: string) => void;
   onNextActionChange: (value: string) => void;
+  onNextDispositionChange: (value: string) => void;
   onTaskDispositionChange: (value: TaskDisposition) => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -113,13 +174,14 @@ export function CloseoutWorkspace(props: {
     <main className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(18rem,0.65fr)_minmax(0,1.35fr)]">
       <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 lg:border-b-0 lg:border-r lg:px-8 lg:py-10">
         <p className="text-xs font-medium text-teal-300">本次学习</p>
-        <h1 className="mt-2 break-words text-2xl font-semibold text-white">{props.context.taskTitle ?? "科目快捷专注"}</h1>
+        <h1 data-ai-current-object="true" data-ai-selectable data-ai-label={props.context.taskTitle ?? "科目快捷专注"} className="mt-2 break-words text-2xl font-semibold text-white">{props.context.taskTitle ?? "科目快捷专注"}</h1>
         <p className="mt-2 text-sm text-zinc-400">{props.context.subjectName}</p>
         <dl className="mt-8 grid gap-5 text-sm sm:grid-cols-3 lg:grid-cols-1">
           <ContextFact icon={<Clock3 />} label="实际时长" value={props.elapsedLabel} />
           <ContextFact icon={<Target />} label="目标时长" value={props.context.goalMinutes ? `${props.context.goalMinutes} 分钟` : "未设置"} />
           <ContextFact icon={<BookOpen />} label="考纲节点" value={props.context.syllabusNodeTitle ?? "未关联"} />
         </dl>
+        <FocusContextSelector context={props.context} options={props.options} onContextChange={props.onContextChange} />
       </aside>
       <section className="px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
         <div className="mx-auto max-w-3xl">
@@ -147,6 +209,38 @@ export function CloseoutWorkspace(props: {
               ]}
               onChange={(value) => props.onUnderstandingChange(value as UnderstandingLevel)}
             />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <SegmentedField
+                legend="专注度（1-5）"
+                value={props.focusLevel}
+                options={ratingOptions()}
+                onChange={props.onFocusLevelChange}
+              />
+              <SegmentedField
+                legend="精力（1-5）"
+                value={props.energyLevel}
+                options={ratingOptions()}
+                onChange={props.onEnergyLevelChange}
+              />
+            </div>
+            {props.outcome === "not-achieved" ? (
+              <fieldset>
+                <legend className="text-sm text-zinc-300">低效原因（至少选择一项）</legend>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {LOW_REASON_OPTIONS.map((reason) => (
+                    <label key={reason.value} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm ${props.lowReasons.includes(reason.value) ? "border-amber-300/60 bg-amber-400/10 text-amber-100" : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]"}`}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 shrink-0 accent-amber-300"
+                        checked={props.lowReasons.includes(reason.value)}
+                        onChange={() => props.onLowReasonsChange(toggleReason(props.lowReasons, reason.value))}
+                      />
+                      <span>{reason.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
             <label className="block text-sm text-zinc-300">
               最小产出
               <textarea
@@ -181,6 +275,16 @@ export function CloseoutWorkspace(props: {
                 placeholder={props.taskDisposition === "blocked" ? "说明卡在哪里，下一次从哪里恢复" : "下一次打开时要继续做什么"}
                 value={props.nextAction}
                 onChange={(event) => props.onNextActionChange(event.target.value)}
+              />
+            </label>
+            <label className="block text-sm text-zinc-300">
+              收口后的处置
+              <input
+                maxLength={500}
+                className="mt-2 h-11 w-full rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 text-sm text-white placeholder:text-zinc-600"
+                placeholder="例如：补做两道题、安排复测、明天继续"
+                value={props.nextDisposition}
+                onChange={(event) => props.onNextDispositionChange(event.target.value)}
               />
             </label>
             {props.validationError ? <Alert tone="danger">{props.validationError}</Alert> : null}
@@ -313,19 +417,100 @@ export function CompleteWorkspace(props: {
   );
 }
 
-function FocusContextPanel({ context }: { context: FocusContext }) {
+function FocusContextPanel(props: {
+  context: FocusContext;
+  options: FocusContextOptions;
+  onContextChange: (context: { taskId: string | null; syllabusNodeId: string | null; knowledgePointIds: string[] }) => void;
+}) {
   return (
     <aside className="bg-[var(--af-surface-subtle)] px-5 py-8 sm:px-6 lg:px-8 lg:py-10">
       <p className="text-xs font-medium text-teal-300">当前上下文</p>
-      <h1 className="mt-2 break-words text-2xl font-semibold text-white">{context.taskTitle ?? "科目快捷专注"}</h1>
-      <p className="mt-2 text-sm text-zinc-400">{context.subjectName}</p>
+      <h1 data-ai-current-object="true" data-ai-selectable data-ai-label={props.context.taskTitle ?? "科目快捷专注"} className="mt-2 break-words text-2xl font-semibold text-white">{props.context.taskTitle ?? "科目快捷专注"}</h1>
+      <p className="mt-2 text-sm text-zinc-400">{props.context.subjectName}</p>
       <dl className="mt-8 space-y-5 text-sm">
-        <ContextFact icon={<BookOpen />} label="考纲节点" value={context.syllabusNodeTitle ?? "未关联"} />
-        <ContextFact icon={<Target />} label="目标时长" value={context.goalMinutes ? `${context.goalMinutes} 分钟` : "未设置"} />
+        <ContextFact icon={<BookOpen />} label="考纲节点" value={props.context.syllabusNodeTitle ?? "未关联"} />
+        <ContextFact icon={<Target />} label="目标时长" value={props.context.goalMinutes ? `${props.context.goalMinutes} 分钟` : "未设置"} />
       </dl>
+      <FocusContextSelector context={props.context} options={props.options} onContextChange={props.onContextChange} />
       <p className="mt-10 border-t border-white/10 pt-5 text-xs leading-5 text-zinc-500">离开视图不会自动暂停或结束活动。</p>
     </aside>
   );
+}
+
+function FocusContextSelector(props: {
+  context: FocusContext;
+  options: FocusContextOptions;
+  onContextChange: (context: { taskId: string | null; syllabusNodeId: string | null; knowledgePointIds: string[] }) => void;
+}) {
+  const tasks = props.options.tasks.filter((task) => task.subjectId === props.context.subjectId && !["done", "skipped"].includes(task.status));
+  const nodes = flattenSyllabusOptions(props.options.syllabusNodes).filter((node) => node.subjectId === props.context.subjectId);
+  const points = props.options.knowledgePoints.filter((point) => point.subject.id === props.context.subjectId || point.relatedSubjects.some((subject) => subject.id === props.context.subjectId));
+  const selectedPointIds = new Set(props.context.knowledgePoints.map((point) => point.id));
+  return (
+    <div className="mt-8 border-t border-white/10 pt-5">
+      <p className="text-xs font-medium text-zinc-400">可选关联</p>
+      <div className="mt-3 grid gap-3">
+        <label className="grid gap-1.5 text-xs text-zinc-500">
+          任务
+          <select
+            value={props.context.taskId ?? ""}
+            onChange={(event) => props.onContextChange({ taskId: event.target.value || null, syllabusNodeId: props.context.syllabusNodeId, knowledgePointIds: [...selectedPointIds] })}
+            className="h-10 min-w-0 rounded-md border border-white/10 bg-[#0b0e12] px-2 text-xs text-zinc-200"
+          >
+            <option value="">不关联任务</option>
+            {tasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
+          </select>
+        </label>
+        <fieldset className="grid gap-1.5 text-xs text-zinc-500">
+          <legend>知识点（可多选）</legend>
+          <div className="max-h-44 space-y-1 overflow-auto rounded-md border border-white/10 bg-[#0b0e12] p-2">
+            {points.length === 0 ? <p className="px-1 py-2 text-[11px] text-zinc-600">该科目还没有独立知识点</p> : points.map((point) => (
+              <label key={point.id} className="flex min-h-9 items-center gap-2 rounded px-2 text-xs text-zinc-300 hover:bg-white/[0.05]">
+                <input
+                  type="checkbox"
+                  checked={selectedPointIds.has(point.id)}
+                  onChange={() => {
+                    const next = new Set(selectedPointIds);
+                    if (next.has(point.id)) next.delete(point.id); else next.add(point.id);
+                    props.onContextChange({ taskId: props.context.taskId, syllabusNodeId: props.context.syllabusNodeId, knowledgePointIds: [...next] });
+                  }}
+                  className="h-4 w-4 accent-teal-300"
+                />
+                <span className="min-w-0 truncate">{point.title}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label className="grid gap-1.5 text-xs text-zinc-500">
+          考纲节点
+          <select
+            value={props.context.syllabusNodeId ?? ""}
+            onChange={(event) => props.onContextChange({ taskId: props.context.taskId, syllabusNodeId: event.target.value || null, knowledgePointIds: [...selectedPointIds] })}
+            className="h-10 min-w-0 rounded-md border border-white/10 bg-[#0b0e12] px-2 text-xs text-zinc-200"
+          >
+            <option value="">不关联考纲节点</option>
+            {nodes.map((node) => <option key={node.id} value={node.id}>{`${"  ".repeat(node.depth)}${node.title}`}</option>)}
+          </select>
+        </label>
+      </div>
+      <p className="mt-2 text-[11px] leading-5 text-zinc-600">关联只记录上下文，不改变学习时长；可以在学习中或收口前再补。</p>
+    </div>
+  );
+}
+
+function flattenSyllabusOptions(nodes: SyllabusOptionNodeDto[], depth = 0): Array<SyllabusOptionNodeDto & { depth: number }> {
+  return nodes.flatMap((node) => [
+    { ...node, depth },
+    ...flattenSyllabusOptions(node.children, depth + 1),
+  ]);
+}
+
+function ratingOptions(): Array<{ value: string; label: string }> {
+  return [1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }));
+}
+
+function toggleReason(current: StudySessionLowReasonDto[], value: StudySessionLowReasonDto): StudySessionLowReasonDto[] {
+  return current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
 }
 
 function SegmentedField(props: {
@@ -376,9 +561,10 @@ function SummaryFact(props: { label: string; value: string }) {
   return <div><dt className="text-zinc-500">{props.label}</dt><dd className="mt-1 font-medium text-zinc-100">{props.value}</dd></div>;
 }
 
-function statusLabel(status: "running" | "paused" | "completed" | "canceled") {
+function statusLabel(status: "running" | "paused" | "closing" | "completed" | "canceled") {
   if (status === "running") return "进行中";
   if (status === "paused") return "已暂停";
+  if (status === "closing") return "待收口";
   if (status === "completed") return "已结束";
   return "已取消";
 }

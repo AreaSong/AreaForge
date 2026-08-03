@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Modal } from "@/components/ui/overlays";
 import { clearPrivateBusinessDrafts } from "@/lib/client/private-business-drafts";
+import { clearFocusOfflineData } from "@/lib/client/focus-offline-store";
 
-export function LogoutButton({ compact = false }: { compact?: boolean }) {
+export function LogoutButton({ compact = false, userId }: { compact?: boolean; userId: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +20,7 @@ export function LogoutButton({ compact = false }: { compact?: boolean }) {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error("logout_failed");
       clearPrivateBusinessDrafts();
+      await clearFocusOfflineData(userId);
       setConfirmOpen(false);
       router.replace("/login");
       router.refresh();

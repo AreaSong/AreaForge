@@ -35,6 +35,8 @@ export default async function TaskDetailPage({ params, searchParams }: {
       subjects={pageData.subjects}
       syllabusNodes={pageData.syllabusNodes}
       milestones={pageData.milestones}
+      stagePlans={pageData.stagePlans}
+      knowledgePoints={pageData.knowledgePoints}
       dependencyCandidates={pageData.dependencyCandidates}
       returnTo={returnTo}
     />

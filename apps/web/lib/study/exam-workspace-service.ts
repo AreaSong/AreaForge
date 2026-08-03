@@ -598,7 +598,7 @@ async function findWorkspaceSwitchBlockingSession(
 ) {
   return tx.studySession.findFirst({
     where: {
-      status: { in: ["RUNNING", "PAUSED"] },
+      status: { in: ["RUNNING", "PAUSED", "CLOSING"] },
       subject: { workspace: { userId: actorId, status: "ACTIVE" } },
     },
     select: { id: true },
@@ -777,7 +777,7 @@ export async function updateWorkspaceSubject(
       });
       if (remaining === 0) throw new ApiError("WORKSPACE_ACTIVE_SUBJECT_REQUIRED", 409);
       const activeSession = await tx.studySession.findFirst({
-        where: { subjectId: subject.id, status: { in: ["RUNNING", "PAUSED"] } },
+        where: { subjectId: subject.id, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
         select: { id: true },
       });
       if (activeSession) throw new ApiError("ACTIVE_SESSION_BLOCKS_SUBJECT_ARCHIVE", 409);

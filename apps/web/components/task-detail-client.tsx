@@ -10,11 +10,14 @@ import { BackToListLink } from "@/components/list-return-context";
 import { TaskDetailEditor } from "@/components/task-detail-editor";
 import { ReviewBridgeTaskActions } from "@/components/review-bridge-task-actions";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { withReturnTo } from "@/lib/navigation/batch7";
 import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
 import type { TaskDependencyDto } from "@/lib/study/task-dependency-service";
 import type { StudyTaskDetailDto, TaskDependencyCandidateDto } from "@/lib/study/task-detail-service";
-import type { SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import type { StagePlanDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 
 export function TaskDetailClient(props: {
   detail: StudyTaskDetailDto;
@@ -22,6 +25,8 @@ export function TaskDetailClient(props: {
   subjects: SubjectDto[];
   syllabusNodes: SyllabusOptionNodeDto[];
   milestones: PlanMilestoneDto[];
+  stagePlans: StagePlanDto[];
+  knowledgePoints: KnowledgePointDto[];
   dependencyCandidates: TaskDependencyCandidateDto[];
   embedded?: boolean;
   closeHref?: string;
@@ -61,11 +66,13 @@ export function TaskDetailClient(props: {
     setPendingAction("start");
     setError(null);
     setNotice(null);
+    const payload = { taskId: task.id, subjectId: task.subjectId, startSource: "TASK" as const };
+    const commandScope = `task-start:${task.id}`;
     try {
       const response = await fetch("/api/study-sessions/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId: task.id, subjectId: task.subjectId, startSource: "TASK" }),
+        headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+        body: JSON.stringify({ idempotencyKey: getOrCreateIdempotencyKey(commandScope, "study-session-start", payload), ...payload }),
       });
       const body = (await response.json().catch(() => null)) as
         | { session?: { id: string }; error?: string; latest?: { id?: string } }
@@ -76,13 +83,17 @@ export function TaskDetailClient(props: {
       }
       if (!response.ok) {
         if (response.status === 409 && body?.latest?.id) {
+          completeIdempotentCommand(commandScope);
           router.push(`/focus/${body.latest.id}?returnTo=${encodeURIComponent(focusReturnTo)}`);
           return;
         }
         setError(startErrorLabel(body?.error));
         return;
       }
-      if (body?.session?.id) router.push(`/focus/${body.session.id}?returnTo=${encodeURIComponent(focusReturnTo)}`);
+      if (body?.session?.id) {
+        completeIdempotentCommand(commandScope);
+        router.push(`/focus/${body.session.id}?returnTo=${encodeURIComponent(focusReturnTo)}`);
+      }
     } catch {
       setError("网络不可用，未确认是否已开始；请刷新活动状态后再操作。");
     } finally {
@@ -238,6 +249,8 @@ export function TaskDetailClient(props: {
           subjects={props.subjects}
           syllabusNodes={props.syllabusNodes}
           milestones={props.milestones}
+          stagePlans={props.stagePlans}
+          knowledgePoints={props.knowledgePoints}
           onCancel={() => setEditing(false)}
           onSaved={() => {
             setEditing(false);
@@ -266,6 +279,9 @@ export function TaskDetailClient(props: {
             ) : "未关联"}
           </RelationItem>
           <RelationItem label="里程碑">{props.detail.planMilestone?.title ?? "未关联"}</RelationItem>
+          <RelationItem label="所属阶段">
+            {task.stagePlanNames.length > 0 ? task.stagePlanNames.join("、") : "未关联"}
+          </RelationItem>
           <RelationItem label="计划日期">{formatDate(task.plannedDate)}</RelationItem>
           <RelationItem label="优先级">{priorityLabel(task.priority)}</RelationItem>
           <RelationItem label="父任务">
@@ -292,6 +308,20 @@ export function TaskDetailClient(props: {
                     : <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={withReturnTo(`/knowledge/syllabus/${node.id}`, sourceHref)}>
                         {node.title}{node.archivedAt ? "（已归档）" : ""}
                       </Link>}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-zinc-400">未关联</p>}
+        </div>
+        <div className="space-y-2 text-sm">
+          <p className="text-zinc-500">关联知识点</p>
+          {props.detail.knowledgePoints.length ? (
+            <ul className="flex flex-wrap gap-2">
+              {props.detail.knowledgePoints.map((point) => (
+                <li key={point.id}>
+                  <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={withReturnTo(`/knowledge/points/${point.id}`, sourceHref)}>
+                    {point.title}
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -3,6 +3,11 @@ import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import {
+  calculateMasteryConfidence,
+  knowledgeMasteryStatusView,
+  type MasteryStatus,
+} from "./mastery-status";
+import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
   normalizeIdempotencyKey,
@@ -17,6 +22,9 @@ export interface KnowledgePointDto {
   title: string;
   boundary: string | null;
   masteryState: KnowledgeMasteryStateDto;
+  masteryStatus: MasteryStatus;
+  needsRetest: boolean;
+  masteryConfidence: number;
   nextRetestAt: string | null;
   revision: number;
   subject: { id: string; name: string; color: string; stableKey: string };
@@ -103,7 +111,7 @@ type DetailRow = Prisma.KnowledgePointGetPayload<{ include: typeof detailInclude
 
 export async function listKnowledgePoints(
   actorId: string,
-  options?: { subjectId?: string; q?: string; masteryState?: KnowledgeMasteryStateDto },
+  options?: { subjectId?: string; q?: string; masteryState?: KnowledgeMasteryStateDto; masteryStatus?: MasteryStatus },
 ): Promise<KnowledgePointDto[]> {
   const workspace = await resolveActiveWorkspace(actorId);
   const query = options?.q?.trim().slice(0, 120) || undefined;
@@ -112,7 +120,11 @@ export async function listKnowledgePoints(
       workspaceId: workspace.id,
       archivedAt: null,
       ...(options?.subjectId ? { primarySubjectId: options.subjectId } : {}),
-      ...(options?.masteryState ? { masteryState: options.masteryState } : {}),
+      ...(options?.masteryStatus
+        ? { masteryState: { in: persistenceStatesForStatus(options.masteryStatus) } }
+        : options?.masteryState
+          ? { masteryState: options.masteryState }
+          : {}),
       ...(query ? { title: { contains: query, mode: "insensitive" as const } } : {}),
     },
     include: baseInclude,
@@ -262,12 +274,20 @@ function normalizeStableKey(value: string | undefined, subjectId: string, title:
 }
 
 function serializeBase(row: BaseRow): KnowledgePointDto {
+  const masteryView = knowledgeMasteryStatusView(row.masteryState as KnowledgeMasteryStateDto, row.nextRetestAt);
   return {
     id: row.id,
     stableKey: row.stableKey,
     title: row.title,
     boundary: row.boundary,
     masteryState: row.masteryState as KnowledgeMasteryStateDto,
+    masteryStatus: masteryView.status,
+    needsRetest: masteryView.needsRetest,
+    masteryConfidence: calculateMasteryConfidence({
+      evidenceCount: row._count.evidence,
+      sessionCount: row._count.sessionLinks,
+      passedRetestCount: row._count.retestLinks,
+    }),
     nextRetestAt: row.nextRetestAt?.toISOString() ?? null,
     revision: row.revision,
     subject: row.primarySubject,
@@ -299,6 +319,20 @@ function serializeDetail(row: DetailRow): KnowledgePointDetailDto {
 
 function parsePointSnapshot(value: Prisma.JsonValue | undefined): KnowledgePointDto | null {
   return value && typeof value === "object" && !Array.isArray(value) && typeof value.id === "string" && typeof value.title === "string"
+    && typeof value.masteryStatus === "string" && typeof value.masteryConfidence === "number"
     ? value as unknown as KnowledgePointDto
     : null;
+}
+
+function persistenceStatesForStatus(status: MasteryStatus): KnowledgeMasteryStateDto[] {
+  switch (status) {
+    case "UNTOUCHED":
+      return ["UNTOUCHED"];
+    case "LEARNING":
+      return ["LEARNING", "NEEDS_RETEST"];
+    case "INDEPENDENT":
+      return ["INITIAL_MASTERY"];
+    case "STABLE":
+      return ["STABLE_MASTERY"];
+  }
 }

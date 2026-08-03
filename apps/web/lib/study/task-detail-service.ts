@@ -11,6 +11,8 @@ export interface TaskUpdateSnapshotDto {
   subjectId: string;
   syllabusNodeId: string | null;
   relatedSyllabusNodeIds: string[];
+  stagePlanIds: string[];
+  knowledgePointIds: string[];
   planMilestoneId: string | null;
   title: string;
   type: string;
@@ -48,6 +50,7 @@ export interface StudyTaskDetailDto {
     title: string;
     archivedAt: string | null;
   }>;
+  knowledgePoints: Array<{ id: string; title: string; masteryState: string }>;
   parentTask: TaskRelationSummaryDto | null;
   childTasks: TaskRelationSummaryDto[];
   sessions: Array<{
@@ -99,6 +102,8 @@ interface TaskUpdateSnapshotRow {
   reviewText: string | null;
   updatedAt: Date;
   relatedSyllabusNodes: Array<{ syllabusNodeId: string }>;
+  stageLinks: Array<{ stagePlanId: string }>;
+  knowledgePointLinks: Array<{ knowledgePointId: string }>;
 }
 
 export async function getStudyTaskDetail(actorId: string, taskId: string): Promise<StudyTaskDetailDto> {
@@ -114,6 +119,14 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
         syllabusNode: true,
         relatedSyllabusNodes: {
           include: { syllabusNode: { select: { id: true, title: true, archivedAt: true } } },
+          orderBy: { createdAt: "asc" },
+        },
+        stageLinks: {
+          select: { stagePlanId: true },
+          orderBy: { createdAt: "asc" },
+        },
+        knowledgePointLinks: {
+          include: { knowledgePoint: { select: { id: true, title: true, masteryState: true } } },
           orderBy: { createdAt: "asc" },
         },
         planMilestone: { select: { id: true, title: true, status: true, archivedAt: true } },
@@ -190,6 +203,7 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
       title: syllabusNode.title,
       archivedAt: syllabusNode.archivedAt?.toISOString() ?? null,
     })),
+    knowledgePoints: task.knowledgePointLinks.map(({ knowledgePoint }) => knowledgePoint),
     parentTask: task.parent ? serializeTaskRelation(task.parent) : null,
     childTasks: task.children.map(serializeTaskRelation),
     sessions: task.sessions.map((session) => ({
@@ -249,6 +263,14 @@ export async function loadTaskUpdateSnapshotForWorkspace(
         select: { syllabusNodeId: true },
         orderBy: { createdAt: "asc" },
       },
+      stageLinks: {
+        select: { stagePlanId: true },
+        orderBy: { createdAt: "asc" },
+      },
+      knowledgePointLinks: {
+        select: { knowledgePointId: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   return task ? serializeTaskUpdateSnapshot(task) : null;
@@ -260,6 +282,8 @@ export function serializeTaskUpdateSnapshot(task: TaskUpdateSnapshotRow): TaskUp
     subjectId: task.subjectId,
     syllabusNodeId: task.syllabusNodeId,
     relatedSyllabusNodeIds: task.relatedSyllabusNodes.map((relation) => relation.syllabusNodeId),
+    stagePlanIds: task.stageLinks.map((relation) => relation.stagePlanId),
+    knowledgePointIds: task.knowledgePointLinks.map((relation) => relation.knowledgePointId),
     planMilestoneId: task.planMilestoneId,
     title: task.title,
     type: task.type,

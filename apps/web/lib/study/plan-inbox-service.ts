@@ -894,6 +894,13 @@ export async function convertPlanInboxItem(
       subjectId,
     );
 
+    const milestone = existing.planMilestoneId
+      ? await tx.planMilestone.findFirst({
+          where: { id: existing.planMilestoneId, workspaceId: workspace.id },
+          select: { stagePlanId: true },
+        })
+      : null;
+
     const normalizedPriority = existing.priority?.toUpperCase();
     const priority = normalizedPriority === "LOW" || normalizedPriority === "MEDIUM" || normalizedPriority === "HIGH" || normalizedPriority === "CRITICAL"
       ? normalizedPriority
@@ -916,6 +923,7 @@ export async function convertPlanInboxItem(
         plannedDate,
         estimatedMinutes,
         reviewScheduleId,
+        stageLinks: milestone ? { create: { stagePlanId: milestone.stagePlanId } } : undefined,
         relatedSyllabusNodes: parseStringArray(existing.relatedNodeIds).length ? {
           createMany: { data: parseStringArray(existing.relatedNodeIds).map((syllabusNodeId) => ({ syllabusNodeId })) },
         } : undefined,

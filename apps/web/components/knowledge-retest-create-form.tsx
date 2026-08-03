@@ -7,9 +7,11 @@ import { useState, useTransition } from "react";
 import { Alert } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
 import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
+import { masteryStatusLabel } from "@/lib/study/mastery-status";
 
-export function KnowledgeRetestCreateForm({ points }: { points: KnowledgePointDto[] }) {
+export function KnowledgeRetestCreateForm({ points, returnTo = "/test/retests" }: { points: KnowledgePointDto[]; returnTo?: string }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
   const [title, setTitle] = useState("专项复测");
@@ -42,19 +44,19 @@ export function KnowledgeRetestCreateForm({ points }: { points: KnowledgePointDt
         setError(body?.error ?? "无法安排复测，请稍后显式重试。");
         return;
       }
-      router.push(`/test/retests/${body.retest.id}`);
+      router.push(withReturnTo(`/test/retests/${body.retest.id}`, sanitizeReturnPath(returnTo)));
     });
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
-        <Link href="/test/retests" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />返回专项复测</Link>
+        <Link href={returnTo} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />返回专项复测</Link>
         <span className="inline-flex items-center gap-2 text-xs text-zinc-500"><ClipboardCheck size={15} aria-hidden="true" />{selected.length} 个知识点</span>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2 text-sm text-zinc-300">复测名称<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} className="h-11 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 text-white" /></label>
-        <label className="grid gap-2 text-sm text-zinc-300">复测方法<input value={method} onChange={(event) => setMethod(event.target.value)} maxLength={120} className="h-11 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 text-white" /></label>
+        <label className="grid gap-2 text-sm text-zinc-300">复测方法<select value={method} onChange={(event) => setMethod(event.target.value)} className="h-11 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 text-white"><option>主动回忆 + 讲解</option><option>基础题</option><option>变式应用</option><option>限时综合应用</option></select></label>
       </div>
       <div>
         <p className="text-sm font-medium text-white">选择知识点</p>
@@ -62,7 +64,7 @@ export function KnowledgeRetestCreateForm({ points }: { points: KnowledgePointDt
           {points.map((point) => (
             <label key={point.id} className="flex cursor-pointer items-start gap-3 py-3">
               <input type="checkbox" checked={selected.includes(point.id)} onChange={() => toggle(point.id)} className="mt-1 size-4 accent-teal-300" />
-              <span className="min-w-0"><span className="block text-sm text-white">{point.title}</span><span className="mt-1 block text-xs text-zinc-500">{point.subject.name} · {masteryLabel(point.masteryState)}</span></span>
+              <span className="min-w-0"><span className="block text-sm text-white">{point.title}</span><span className="mt-1 block text-xs text-zinc-500">{point.subject.name} · {masteryStatusLabel(point.masteryStatus)}{point.needsRetest ? " · 待复测" : ""}</span></span>
             </label>
           ))}
         </div>
@@ -72,8 +74,4 @@ export function KnowledgeRetestCreateForm({ points }: { points: KnowledgePointDt
       <Button type="button" variant="primary" size="lg" onClick={submit} loading={pending} disabled={!points.length}>安排并开始复测</Button>
     </div>
   );
-}
-
-function masteryLabel(value: string): string {
-  return ({ UNTOUCHED: "未开始", LEARNING: "学习中", INITIAL_MASTERY: "初步掌握", STABLE_MASTERY: "稳定掌握", NEEDS_RETEST: "需要复测" } as Record<string, string>)[value] ?? value;
 }

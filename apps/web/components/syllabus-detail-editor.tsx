@@ -15,8 +15,13 @@ import {
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
 import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
+import {
+  MASTERY_STATUS_OPTIONS,
+  masteryStatusLabel,
+  syllabusLevelForMasteryStatus,
+  type MasteryStatus,
+} from "@/lib/study/mastery-status";
 import type {
-  MasteryLevelDto,
   SyllabusNodeDto,
   SyllabusNodeKindDto,
   SyllabusNodeStatusDto,
@@ -28,7 +33,7 @@ interface SyllabusEditValues {
   title: string;
   kind: SyllabusNodeKindDto;
   status: SyllabusNodeStatusDto;
-  masteryLevel: MasteryLevelDto | "";
+  masteryStatus: MasteryStatus | "";
   masteryConditions: MasteryProofCondition[];
   sortOrder: number;
   targetMinutes: number;
@@ -125,7 +130,7 @@ export function SyllabusDetailEditor(props: {
           title: values.title,
           kind: values.kind,
           status: values.status,
-          masteryLevel: values.masteryLevel || null,
+          masteryLevel: values.masteryStatus ? syllabusLevelForMasteryStatus(values.masteryStatus) : null,
           masteryConditions: values.masteryConditions,
           sortOrder: values.sortOrder,
           targetMinutes: values.targetMinutes,
@@ -195,9 +200,10 @@ export function SyllabusDetailEditor(props: {
             </select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
-            掌握等级
-            <select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.masteryLevel} onChange={(event) => setValues((current) => ({ ...current, masteryLevel: event.target.value as MasteryLevelDto | "" }))}>
-              <option value="">未记录</option><option value="seen">见过</option><option value="learned">已学习</option><option value="basic_exercises">基础题</option><option value="can_explain">能讲解</option><option value="retest_passed">复测通过</option><option value="exam_stable">考试稳定</option>
+            掌握状态
+            <select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.masteryStatus} onChange={(event) => setValues((current) => ({ ...current, masteryStatus: event.target.value as MasteryStatus | "" }))}>
+              <option value="">未记录</option>
+              {MASTERY_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{masteryStatusLabel(status)}</option>)}
             </select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
@@ -275,7 +281,7 @@ export function SyllabusDetailEditor(props: {
 }
 
 function valuesFromNode(node: SyllabusNodeDto): SyllabusEditValues {
-  return { parentId: node.parentId ?? "", title: node.title, kind: node.kind, status: node.status, masteryLevel: node.masteryLevel ?? "", masteryConditions: node.masteryConditions, sortOrder: node.sortOrder, targetMinutes: node.targetMinutes };
+  return { parentId: node.parentId ?? "", title: node.title, kind: node.kind, status: node.status, masteryStatus: node.masteryStatus, masteryConditions: node.masteryConditions, sortOrder: node.sortOrder, targetMinutes: node.targetMinutes };
 }
 
 function flattenParentOptions(nodes: SyllabusOptionNodeDto[], excludedId: string, depth = 0): Array<SyllabusOptionNodeDto & { depth: number }> {
@@ -298,7 +304,7 @@ function isSyllabusEditDraft(value: unknown): value is SyllabusEditDraft {
 function isSyllabusEditValues(value: unknown): value is SyllabusEditValues {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const values = value as Partial<SyllabusEditValues>;
-  return typeof values.parentId === "string" && typeof values.title === "string" && typeof values.kind === "string" && typeof values.status === "string" && typeof values.masteryLevel === "string" && Array.isArray(values.masteryConditions) && typeof values.sortOrder === "number" && typeof values.targetMinutes === "number";
+  return typeof values.parentId === "string" && typeof values.title === "string" && typeof values.kind === "string" && typeof values.status === "string" && typeof values.masteryStatus === "string" && Array.isArray(values.masteryConditions) && typeof values.sortOrder === "number" && typeof values.targetMinutes === "number";
 }
 
 function isSyllabusNodeDto(value: unknown): value is SyllabusNodeDto {

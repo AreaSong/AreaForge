@@ -21,8 +21,12 @@ interface ConflictResolutionModalProps {
   onClose?: () => void;
   onAdoptServer: () => void;
   onManualMerge: () => void;
+  onDefer?: () => void;
+  onDiscard?: () => void;
   adoptLabel?: string;
   mergeLabel?: string;
+  deferLabel?: string;
+  discardLabel?: string;
 }
 
 export function ConflictResolutionModal(props: ConflictResolutionModalProps) {
@@ -52,6 +56,26 @@ export function ConflictResolutionModal(props: ConflictResolutionModalProps) {
             查看本地与服务端差异
           </button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {props.onDiscard ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-rose-200 hover:bg-rose-400/10 sm:mr-auto sm:w-auto"
+                onClick={props.onDiscard}
+              >
+                {props.discardLabel ?? "放弃旧记录"}
+              </Button>
+            ) : null}
+            {props.onDefer ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={props.onDefer}
+              >
+                {props.deferLabel ?? "保留并稍后对账"}
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="secondary"

@@ -7,12 +7,13 @@ import { useState, useTransition } from "react";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import type { KnowledgeRetestDetailDto, KnowledgeRetestResultDto } from "@/lib/study/knowledge-retest-service";
 
-export function KnowledgeRetestDetailClient({ initial }: { initial: KnowledgeRetestDetailDto }) {
+export function KnowledgeRetestDetailClient({ initial, returnTo = "/test/retests" }: { initial: KnowledgeRetestDetailDto; returnTo?: string }) {
   const router = useRouter();
   const [retest, setRetest] = useState(initial);
-  const [points, setPoints] = useState(() => initial.points.map((point) => ({ ...point, result: point.result ?? "PARTIAL" as KnowledgeRetestResultDto })));
+  const [points, setPoints] = useState(() => initial.points.map((point) => ({ ...point, result: point.result })));
   const [summary, setSummary] = useState(initial.summary ?? "");
   const [reviewText, setReviewText] = useState(initial.reviewText ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -39,12 +40,17 @@ export function KnowledgeRetestDetailClient({ initial }: { initial: KnowledgeRet
       setError("完成每个知识点结果后，还必须写复测总结和复盘。");
       return;
     }
+    const incomplete = points.filter((point) => !point.result || point.score == null || !point.note?.trim());
+    if (incomplete.length > 0) {
+      setError("每个知识点都必须填写通过情况、量化分数和个人反馈后才能提交。");
+      return;
+    }
     startTransition(async () => {
       const payload = {
         expectedRevision: retest.revision,
         summary,
         reviewText,
-        points: points.map((point) => ({ pointId: point.id, result: point.result, score: point.score, understanding: point.understanding, note: point.note })),
+        points: points.map((point) => ({ pointId: point.id, result: point.result as KnowledgeRetestResultDto, score: point.score, understanding: point.understanding, note: point.note })),
       };
       const scope = `knowledge-retest:${retest.id}:submit`;
       const response = await fetch(`/api/knowledge-retests/${retest.id}/submit`, {
@@ -79,7 +85,7 @@ export function KnowledgeRetestDetailClient({ initial }: { initial: KnowledgeRet
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
-        <Link href="/test/retests" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />返回专项复测</Link>
+        <Link href={returnTo} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />{getReturnContextLabel(returnTo, "返回专项复测")}</Link>
         <Badge tone={retest.status === "CLOSED" ? "success" : retest.status === "PENDING_REVIEW" ? "warning" : "info"}>{statusLabel(retest.status, retest.result)}</Badge>
       </div>
       <div><h1 className="text-2xl font-semibold text-white">{retest.title}</h1><p className="mt-2 text-sm text-zinc-400">{retest.method} · {retest.pointCount} 个知识点</p></div>
@@ -91,8 +97,8 @@ export function KnowledgeRetestDetailClient({ initial }: { initial: KnowledgeRet
           {points.map((point, index) => (
             <div key={point.id} className="grid gap-3 py-4 lg:grid-cols-[minmax(0,1fr)_12rem_10rem] lg:items-start">
               <div><p className="text-sm font-medium text-white">{index + 1}. {point.title}</p><textarea value={point.note ?? ""} onChange={(event) => updatePoint(point.id, { note: event.target.value })} placeholder="个人反馈：哪里清楚、哪里仍然卡住" maxLength={2000} className="mt-2 min-h-20 w-full rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 py-2 text-sm text-white placeholder:text-zinc-600" disabled={retest.status !== "IN_PROGRESS"} /></div>
-              <select value={point.result} onChange={(event) => updatePoint(point.id, { result: event.target.value as KnowledgeRetestResultDto })} className="h-10 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-2 text-sm text-white" disabled={retest.status !== "IN_PROGRESS"}><option value="PASSED">通过</option><option value="PARTIAL">部分掌握</option><option value="FAILED">未通过</option></select>
-              <input type="number" min={0} max={100} value={point.score ?? ""} onChange={(event) => updatePoint(point.id, { score: event.target.value ? Number(event.target.value) : null })} placeholder="量化分数" className="h-10 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-2 text-sm text-white placeholder:text-zinc-600" disabled={retest.status !== "IN_PROGRESS"} />
+              <select value={point.result ?? ""} onChange={(event) => updatePoint(point.id, { result: (event.target.value || null) as KnowledgeRetestResultDto | null })} className="h-10 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-2 text-sm text-white" disabled={retest.status !== "IN_PROGRESS"}><option value="">选择结果</option><option value="PASSED">通过</option><option value="PARTIAL">部分掌握</option><option value="FAILED">未通过</option></select>
+              <input type="number" min={0} max={100} value={point.score ?? ""} onChange={(event) => updatePoint(point.id, { score: event.target.value ? Number(event.target.value) : null })} placeholder="量化分数" aria-label={`${point.title}量化分数`} className="h-10 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-2 text-sm text-white placeholder:text-zinc-600" disabled={retest.status !== "IN_PROGRESS"} />
             </div>
           ))}
         </div>

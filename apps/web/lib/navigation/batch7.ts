@@ -6,9 +6,8 @@ export interface AppNavigationItem {
 }
 
 const PLAN_NAV_ITEMS: readonly AppNavigationItem[] = [
-  { href: "/plan", label: "滚动计划", match: (path: string) => path === "/plan" || path.startsWith("/plan/tasks") },
-  { href: "/plan/stages", label: "阶段安排", match: (path: string) => path.startsWith("/plan/stages") },
-  { href: "/plan/inbox", label: "计划收件箱", match: (path: string) => path.startsWith("/plan/inbox") },
+  { href: "/plan", label: "长期计划", match: (path: string) => path === "/plan" || path.startsWith("/plan/tasks") },
+  { href: "/plan/inbox", label: "任务收件箱", match: (path: string) => path.startsWith("/plan/inbox") },
 ] as const;
 
 const TEST_NAV_ITEMS: readonly AppNavigationItem[] = [
@@ -17,23 +16,24 @@ const TEST_NAV_ITEMS: readonly AppNavigationItem[] = [
 ] as const;
 
 const CONFIRMATION_NAV_ITEMS: readonly AppNavigationItem[] = [
-  { href: "/confirmations", label: "待确认", match: (path: string) => path === "/confirmations" },
+  {
+    href: "/confirmations",
+    label: "待确认",
+    match: (path: string) => path === "/confirmations" || (path.startsWith("/confirmations/") && !path.startsWith("/confirmations/history")),
+  },
   { href: "/confirmations/history", label: "已处理", match: (path: string) => path.startsWith("/confirmations/history") },
 ] as const;
 
 export const KNOWLEDGE_TAB_ITEMS = [
+  { href: "/knowledge/overview", label: "概览" },
   { href: "/knowledge/points", label: "知识点" },
   { href: "/knowledge/syllabus", label: "考纲" },
   { href: "/knowledge/resources", label: "学习资料" },
   { href: "/knowledge/notes", label: "笔记" },
   { href: "/knowledge/mistakes", label: "错题" },
   { href: "/knowledge/reviews", label: "复习" },
-] as const;
-
-export const KNOWLEDGE_TOOL_ITEMS = [
-  { href: "/knowledge/overview", label: "概览" },
-  { href: "/knowledge/canvas", label: "关系图" },
-  { href: "/knowledge/imports", label: "导入" },
+  { href: "/knowledge/canvas", label: "关联图谱" },
+  { href: "/knowledge/imports", label: "学习树导入" },
 ] as const;
 
 export const REVIEW_TAB_ITEMS = [
@@ -41,10 +41,9 @@ export const REVIEW_TAB_ITEMS = [
   { href: "/review/reports", label: "周期报告" },
 ] as const;
 
-export const STAGE_TAB_ITEMS = [
-  { href: "/plan/stages", label: "概览" },
-  { href: "/test/simulations", label: "模拟考试" },
-  { href: "/plan/stages/analytics", label: "趋势" },
+export const STAGE_NAV_ITEMS: readonly AppNavigationItem[] = [
+  { href: "/plan/stages", label: "阶段总览", match: (path: string) => path === "/plan/stages" },
+  { href: "/plan/stages/analytics", label: "阶段趋势", match: (path: string) => path.startsWith("/plan/stages/analytics") },
 ] as const;
 
 export const SETTINGS_TAB_ITEMS = [
@@ -70,16 +69,27 @@ export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
     children: PLAN_NAV_ITEMS,
   },
   {
-    href: "/knowledge/points",
+    href: "/knowledge/overview",
     label: "知识",
-    match: (path: string) => path === "/knowledge" || path.startsWith("/knowledge/"),
-    children: KNOWLEDGE_TAB_ITEMS.map((item) => ({ ...item, match: (path: string) => path === item.href || path.startsWith(`${item.href}/`) })),
+    match: (path: string) => path === "/knowledge" || path.startsWith("/knowledge/") || path.startsWith("/quick-review/"),
+    children: KNOWLEDGE_TAB_ITEMS.map((item) => ({
+      ...item,
+      match: (path: string) => item.href === "/knowledge/reviews"
+        ? path === item.href || path.startsWith(`${item.href}/`) || path.startsWith("/quick-review/")
+        : path === item.href || path.startsWith(`${item.href}/`),
+    })),
   },
   {
     href: "/test",
     label: "检验",
     match: (path: string) => path === "/test" || TEST_NAV_ITEMS.some((item) => item.match(path)),
     children: TEST_NAV_ITEMS,
+  },
+  {
+    href: "/plan/stages",
+    label: "阶段",
+    match: (path: string) => STAGE_NAV_ITEMS.some((item) => item.match(path)),
+    children: STAGE_NAV_ITEMS,
   },
   {
     href: "/review/daily",
@@ -116,10 +126,10 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/$/, title: "AreaForge" },
   { pattern: /^\/login$/, title: "登录" },
   { pattern: /^\/setup$/, title: "初始化" },
-  { pattern: /^\/today$/, title: "今日行动中心" },
+  { pattern: /^\/today$/, title: "今日行动中心", returnQueryKeys: ["date"] },
   { pattern: /^\/focus$/, title: "开始学习" },
-  { pattern: /^\/plan$/, title: "滚动计划", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum", "resourceId", "syllabusNodeId", "taskId"] },
-  { pattern: /^\/plan\/stages$/, title: "阶段安排" },
+  { pattern: /^\/plan$/, title: "长期计划", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum", "resourceId", "syllabusNodeId", "taskId"] },
+  { pattern: /^\/plan\/stages$/, title: "阶段总览" },
   { pattern: /^\/plan\/stages\/analytics$/, title: "阶段趋势" },
   { pattern: /^\/plan\/inbox$/, title: "计划收件箱", returnQueryKeys: ["status", "stableRef", "returnTo"] },
   { pattern: /^\/plan\/inbox\/[^/]+$/, title: "计划草稿详情", returnQueryKeys: ["returnTo"] },
@@ -132,15 +142,16 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/test\/simulations\/[^/]+$/, title: "模拟考试详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/confirmations$/, title: "确认中心" },
   { pattern: /^\/confirmations\/history$/, title: "确认记录" },
+  { pattern: /^\/confirmations\/[^/]+$/, title: "确认事项详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/focus\/[^/]+$/, title: "专注计时", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/quick-review\/[^/]+$/, title: "快速复习", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge$/, title: "知识工作台" },
-  { pattern: /^\/knowledge\/points$/, title: "知识点" },
+  { pattern: /^\/knowledge\/points$/, title: "知识点", returnQueryKeys: ["subjectId", "q", "masteryStatus", "masteryState"] },
   { pattern: /^\/knowledge\/points\/[^/]+$/, title: "知识点详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/canvas$/, title: "关联画布", returnQueryKeys: ["workspaceId", "subjectId", "syllabusNodeId", "focus", "q"] },
-  { pattern: /^\/knowledge\/overview$/, title: "知识概览" },
+  { pattern: /^\/knowledge\/overview$/, title: "知识概览", returnQueryKeys: ["q"] },
   { pattern: /^\/knowledge\/imports$/, title: "学习树导入", returnQueryKeys: ["mode"] },
-  { pattern: /^\/knowledge\/imports\/[^/]+$/, title: "导入批次" },
+  { pattern: /^\/knowledge\/imports\/[^/]+$/, title: "导入批次", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/syllabus$/, title: "考纲", returnQueryKeys: ["subjectId", "q", "status", "map", "action"] },
   { pattern: /^\/knowledge\/syllabus\/[^/]+$/, title: "考纲节点详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/notes$/, title: "知识卡片", returnQueryKeys: ["subjectId", "syllabusNodeId", "taskId", "q", "mastery", "review"] },
@@ -150,7 +161,7 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/knowledge\/resources$/, title: "资料", returnQueryKeys: ["subjectId", "q", "create"] },
   { pattern: /^\/knowledge\/resources\/[^/]+\/preview$/, title: "资料预览", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/resources\/[^/]+$/, title: "资料详情", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/knowledge\/reviews$/, title: "统一复习" },
+  { pattern: /^\/knowledge\/reviews$/, title: "统一复习", returnQueryKeys: ["status", "q"] },
   { pattern: /^\/knowledge\/reviews\/[^/]+$/, title: "复习排期详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/review$/, title: "复盘" },
   { pattern: /^\/review\/daily$/, title: "晚间复盘" },
@@ -169,6 +180,78 @@ export function getRouteTitle(pathname: string): string {
   return REGISTERED_ROUTES.find((route) => route.pattern.test(pathname))?.title ?? "页面不存在";
 }
 
+/**
+ * Detail pages are the third navigation level: the current object is the
+ * content, so rendering the workbench's secondary rail again only duplicates
+ * the breadcrumb context. List/workbench pages continue to render the rail.
+ */
+export function isContentDetailPath(pathname: string): boolean {
+  return [
+    /^\/plan\/tasks\/[^/]+$/,
+    /^\/plan\/inbox\/[^/]+$/,
+    /^\/knowledge\/points\/[^/]+$/,
+    /^\/knowledge\/syllabus\/[^/]+$/,
+    /^\/knowledge\/resources\/[^/]+(?:\/preview)?$/,
+    /^\/knowledge\/notes\/[^/]+$/,
+    /^\/knowledge\/mistakes\/[^/]+$/,
+    /^\/knowledge\/reviews\/[^/]+$/,
+    /^\/knowledge\/imports\/[^/]+$/,
+    /^\/test\/retests\/new$/,
+    /^\/test\/retests\/[^/]+$/,
+    /^\/test\/simulations\/[^/]+$/,
+    /^\/review\/reports\/history\/[^/]+$/,
+    // `/confirmations/history` is the confirmation center's secondary view,
+    // not an object detail page. Keep this explicit exclusion next to the
+    // generic detail matcher so future route additions do not hide its rail.
+    /^\/confirmations\/(?!history$)[^/]+$/,
+  ].some((pattern) => pattern.test(pathname));
+}
+
+export function isWorkbenchHomePath(pathname: string): boolean {
+  return pathname === "/today"
+    || pathname === "/plan"
+    || pathname === "/knowledge"
+    || pathname === "/knowledge/overview"
+    || pathname === "/test"
+    || pathname === "/plan/stages"
+    || pathname === "/review"
+    || pathname === "/review/daily"
+    || pathname === "/confirmations"
+    || pathname === "/settings"
+    || pathname === "/settings/workspace";
+}
+
+/**
+ * Resolve the visible three-level trail from the canonical navigation tree.
+ * List pages end at the secondary item; object/detail routes add one content
+ * segment so the shell never invents a fourth navigation rail.
+ */
+export function getNavigationTrail(pathname: string): Array<{ href: string; label: string }> {
+  const primary = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
+  if (!primary) return [{ href: "/focus", label: "开始学习" }, { href: pathname, label: getRouteTitle(pathname) }];
+
+  const trail: Array<{ href: string; label: string }> = [{ href: primary.href, label: primary.label }];
+  const secondary = primary.children?.find((item) => item.match(pathname));
+  if (!secondary) {
+    const routeTitle = getRouteTitle(pathname);
+    if (pathname !== primary.href && routeTitle && routeTitle !== primary.label) {
+      trail.push({ href: pathname, label: routeTitle });
+    }
+    return trail;
+  }
+
+  // A secondary item may intentionally reuse the primary route (for example
+  // /plan and /confirmations). Keep its label so the visible hierarchy still
+  // communicates the business area and the current view.
+  if (secondary.label !== primary.label) trail.push({ href: secondary.href, label: secondary.label });
+  const routeTitle = getRouteTitle(pathname);
+  const isSecondaryPage = pathname === secondary.href;
+  if (!isSecondaryPage && routeTitle && routeTitle !== secondary.label) {
+    trail.push({ href: pathname, label: routeTitle });
+  }
+  return trail;
+}
+
 export function getRouteMetadata(pathname: string): { title: string } {
   return { title: getRouteTitle(pathname) };
 }
@@ -183,13 +266,13 @@ export function withReturnTo(href: string, returnTo: string): string {
 }
 
 function normalizeReturnPath(value: string | null | undefined, remainingReturnDepth: number): string {
-  if (!value || value.length > 2_048 || !value.startsWith("/") || value.startsWith("//")) return "/today";
+  if (!value || value.length > 2_048 || !value.startsWith("/") || value.startsWith("//")) return "/focus";
   try {
     const url = new URL(value, "https://areaforge.invalid");
-    if (url.origin !== "https://areaforge.invalid" || url.hash) return "/today";
+    if (url.origin !== "https://areaforge.invalid" || url.hash) return "/focus";
     const pathname = url.pathname;
     const route = REGISTERED_ROUTES.find((candidate) => candidate.pattern.test(pathname));
-    if (!route || pathname === "/login" || pathname === "/setup") return "/today";
+    if (!route || pathname === "/login" || pathname === "/setup") return "/focus";
 
     const allowedKeys = new Set(route.returnQueryKeys ?? []);
     const normalized = new URLSearchParams();
@@ -205,7 +288,7 @@ function normalizeReturnPath(value: string | null | undefined, remainingReturnDe
     const query = normalized.toString();
     return `${pathname}${query ? `?${query}` : ""}`;
   } catch {
-    return "/today";
+    return "/focus";
   }
 }
 

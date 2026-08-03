@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-03T20:26:47.582Z",
+  "checkId": "ZOOM-01",
+  "checkKey": "native-browser-zoom-200",
+  "route": "/today",
+  "target": "nine-journey-routes",
+  "profile": {
+    "id": "native-zoom-200",
+    "kind": "native-window",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": null,
+    "zoomPercent": 200
+  },
+  "mechanism": "viewport",
+  "assertions": [
+    {
+      "id": "native-zoom-setting-before",
+      "predicate": "equals",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    },
+    {
+      "id": "native-zoom-setting-after",
+      "predicate": "equals",
+      "expected": "2",
+      "actual": "2",
+      "passed": true
+    },
+    {
+      "id": "native-window-width-fixed",
+      "predicate": "equals",
+      "expected": 1440,
+      "actual": 1440,
+      "passed": true
+    },
+    {
+      "id": "native-window-height-fixed",
+      "predicate": "equals",
+      "expected": 1000,
+      "actual": 1000,
+      "passed": true
+    },
+    {
+      "id": "native-visual-scale-remains-one",
+      "predicate": "equals",
+      "expected": 1,
+      "actual": 1,
+      "passed": true
+    },
+    {
+      "id": "native-css-viewport-ratio-is-two",
+      "predicate": "between-inclusive",
+      "expected": {
+        "min": 1.9,
+        "max": 2.1
+      },
+      "actual": 2,
+      "passed": true
+    },
+    {
+      "id": "native-device-pixel-ratio-doubles",
+      "predicate": "between-inclusive",
+      "expected": {
+        "min": 1.9,
+        "max": 2.1
+      },
+      "actual": 2,
+      "passed": true
+    },
+    {
+      "id": "nine-journey-routes-covered",
+      "predicate": "equals",
+      "expected": 9,
+      "actual": 9,
+      "passed": true
+    },
+    {
+      "id": "native-zoom-route-reflow",
+      "predicate": "equals",
+      "expected": {
+        "routeCount": 9,
+        "failures": []
+      },
+      "actual": {
+        "routeCount": 9,
+        "failures": []
+      },
+      "passed": true
+    },
+    {
+      "id": "native-zoom-metrics-captured",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

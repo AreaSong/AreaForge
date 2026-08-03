@@ -3,21 +3,22 @@ import { KnowledgePointsWorkbench } from "@/components/knowledge-points-workbenc
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { listSubjects } from "@/lib/study/service";
-import { listKnowledgePoints, type KnowledgeMasteryStateDto } from "@/lib/study/knowledge-point-service";
+import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
+import { MASTERY_STATUS_OPTIONS, type MasteryStatus } from "@/lib/study/mastery-status";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/knowledge/points");
 
-const masteryStates: KnowledgeMasteryStateDto[] = ["UNTOUCHED", "LEARNING", "INITIAL_MASTERY", "STABLE_MASTERY", "NEEDS_RETEST"];
-
-export default async function KnowledgePointsPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; q?: string; masteryState?: string }> }) {
+export default async function KnowledgePointsPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; q?: string; masteryStatus?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const query = await searchParams;
-  const masteryState = masteryStates.includes(query.masteryState as KnowledgeMasteryStateDto) ? query.masteryState as KnowledgeMasteryStateDto : undefined;
+  const masteryStatus = MASTERY_STATUS_OPTIONS.includes(query.masteryStatus as MasteryStatus)
+    ? query.masteryStatus as MasteryStatus
+    : undefined;
   const [subjects, knowledgePoints] = await Promise.all([
     listSubjects(user.id),
-    listKnowledgePoints(user.id, { subjectId: query.subjectId, q: query.q, masteryState }),
+    listKnowledgePoints(user.id, { subjectId: query.subjectId, q: query.q, masteryStatus }),
   ]);
 
   return (
@@ -26,7 +27,7 @@ export default async function KnowledgePointsPage({ searchParams }: { searchPara
       knowledgePoints={knowledgePoints}
       initialSubjectId={query.subjectId}
       initialQuery={query.q}
-      initialMasteryState={masteryState}
+      initialMasteryStatus={masteryStatus}
     />
   );
 }

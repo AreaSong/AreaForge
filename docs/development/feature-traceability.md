@@ -24,8 +24,8 @@
 | 双节点倒计时 | 已完成 | 首页和阶段规则使用 2026/2027 节点 | 后续与冲刺模式联动 |
 | 每日任务 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/tasks`；今日任务表单支持写入已有 `StudyTask.type` | `tasks/backlog/0015-structured-state-migration.md` |
 | 任务债务基础版 | 已完成 | `StudyTask.status/debtStatus`、任务面板、complete/defer/drop/recover/split/convert-review API；Package B Batch 2 已新增 `TaskDebtEvent` 事件账本和 `StudyTask.parentTaskId`，债务动作继续写 `AuditEvent` 并同步写事件账本；Package D Batch D2 已完成重排建议确认、驳回和所选项应用记录 | 更长期的自动阶段联动或批量应用需单独确认 |
-| 学习计时 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/study-sessions/*`；结构化收口、反假学习、CheckIn 刷新和有效任务完成债务事件均已接入；专注收口内嵌创建知识卡片、错题、复测，并通过 `POST /api/study-sessions/:id/evidence` 校验上下文、幂等回写产出标志与证据回执 | 长期风险/主题只读联动已完成；更深自动应用另行确认 |
-| 专注计时模式 | 已完成 | 首页 `FocusTimer` 与 active session 恢复 | 后续 UX 打磨 |
+| 学习计时 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/focus` 默认入口；`/api/study-sessions/*`；科目必选、任务/考纲/目标时长后补、`CLOSING` 冻结收口、结构化低效原因、本地 IndexedDB/`localStorage` 队列、BroadcastChannel 跨标签页、设备心跳和单活动约束均已接入；专注收口内嵌创建知识卡片、错题、复测，并通过 `POST /api/study-sessions/:id/evidence` 校验上下文、幂等回写产出标志与证据回执 | 长期风险/主题只读联动已完成；更深自动应用另行确认 |
+| 专注计时模式 | 已完成 | `/focus` 大型数字计时器与指针式秒表视觉、active session 恢复、跨页面/设备状态工具栏 | 后续 UX 打磨 |
 | 打卡 | 已完成 | `evaluateDailyCheckIn`、`CheckIn` 日快照、首页 `dashboard.checkIn`、analytics/reports 逐日快照优先和缺失日期 fallback；不把打开应用算作打卡，active session 时长只实时展示、结束后固化 | 连续性已接入长期风险/主题只读联动；未来自动应用另行确认 |
 | 每晚复盘 | 已完成 | `DailyReview`、`/review/daily`、`/api/daily-reviews*`、`/api/reviews/today`；页面展示当天真实时长、任务、低转化、科目和证据摘要，保存后直达原子生成的明日最低行动 Inbox 项，Inbox 转换成功进入正式任务详情 | AI 真实建议和更细粒度历史统计继续增强 |
 | 考纲进度树 | 已完成 | `/knowledge/syllabus`、`/api/syllabus/*`、Markdown 导入 | 附件和自动状态更新后增强 |
@@ -66,7 +66,7 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 八入口 App Shell 与稳定路由 | 已完成 | `/focus`、`/today`、`/plan/*`、`/knowledge/*`、`/test/*`、`/review/*`、`/confirmations/*`、`/settings/*`；根级旧业务页、`/today/*`、`/stage/*` 已移除并由 canonical-only smoke 断言 404；r38 current-bound browser evidence 覆盖主要工作台路径；`docs/development/v11-special-acceptance-20260802.md` 补齐设置中心与首次使用证据 | 继续收敛视觉层级和自动应用边界，不改变既有 Release/生产事实 |
+| 九入口 App Shell 与稳定路由 | 已完成 | `/focus`、`/today`、`/plan/*`、`/knowledge/*`、`/test/*`、`/plan/stages/*`、`/review/*`、`/confirmations/*`、`/settings/*`；根级旧业务页、`/today/*`、`/stage/*` 已移除并由 canonical-only smoke 断言 404；r38 current-bound browser evidence 覆盖主要工作台路径；`docs/development/v11-special-acceptance-20260802.md` 补齐设置中心与首次使用证据 | 继续收敛视觉层级和自动应用边界，不改变既有 Release/生产事实 |
 | 考试工作区 / 自定义科目 / 408 分组 | 已完成 | `/settings/workspace` 与鉴权 API；首次设置按考试目标与科目、已有数据处理两步推进；保留接管、科目/分组编辑、排序、归档、恢复；专项验收已实际创建首个工作区、首科目和 408 四科并刷新复核 | 物理删除、完整账户导出等数据生命周期仍不在范围，不改变既有 Release/生产事实 |
 | 今日行动中心与科目快捷计时 | 已完成 | `/today` + `GET /api/action-center/today`；推荐/队列进入任务或复习时保留今日来源，任务详情继续把来源传给 `/focus`；专注完成主接力回到今日下一行动，并保留非今日原页面次操作 | 当前工作树继续收敛视觉层级 |
 | PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/plan/inbox*`、`/plan`、`/plan/tasks/[taskId]`、`/plan/stages` 与鉴权 API；旧 `/today/*`、`/stage/*` 页面已移除并由 canonical-only smoke 断言 404。Inbox 转换、已转换列表、每日复盘任务均携带来源 `returnTo`，任务详情按今日/计划/收件箱/复盘/阶段/知识显示正确返回语义；空状态提供可执行出口；`docs/development/v11-special-acceptance-20260802.md` 已覆盖批量转换、硬依赖、revision 冲突、返回路径和幂等重放 | 继续收敛视觉层级和自动应用边界，不改变既有 Release/生产事实 |

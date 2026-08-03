@@ -494,6 +494,11 @@ export async function confirmSimulationExam(
         conflictFields: ["summary", "reviewText"],
       });
     }
+    if (!existing.mindset?.trim()) {
+      throw new ApiError("SIMULATION_PERSONAL_FEEDBACK_REQUIRED", 400, {
+        conflictFields: ["mindset"],
+      });
+    }
     const confirmedAt = new Date();
     const changed = await tx.simulationExam.updateMany({
       where: { id, workspaceId: workspace.id, status: "DRAFT", revision: expectedRevision },
@@ -987,6 +992,8 @@ export async function listSimulationTasks(actorId: string): Promise<StudyTaskDto
     include: {
       subject: true,
       syllabusNode: true,
+      stageLinks: { include: { stagePlan: { select: { name: true } } } },
+      knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
     },
     orderBy: [{ plannedDate: "asc" }, { createdAt: "desc" }],
     take: 100,
@@ -1018,6 +1025,8 @@ export async function createSimulationTask(
       include: {
         subject: true,
         syllabusNode: true,
+        stageLinks: { include: { stagePlan: { select: { name: true } } } },
+        knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
       },
     });
 
@@ -1078,6 +1087,8 @@ export async function completeSimulationTask(
       include: {
         subject: true,
         syllabusNode: true,
+        stageLinks: { include: { stagePlan: { select: { name: true } } } },
+        knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
       },
     });
     if (!updatedTask) throw new ApiError("TASK_STATE_CONFLICT", 409);

@@ -67,6 +67,17 @@ export interface AiDraftGenerateResponse {
   };
 }
 
+export interface AiDraftRejectResponse {
+  phase: "reject";
+  endpoint: AiDraftEndpoint;
+  operationId: string;
+  projectionVersion: string;
+  status: "REJECTED";
+  resultProof: string;
+  resultReference: string;
+  rejectedAt: string;
+}
+
 interface AiDraftGenerateOptions {
   allowExternalProvider?: boolean;
   provider?: AiJsonProvider;
@@ -504,6 +515,116 @@ export async function acknowledgeAiDraftResultInTx(
   return { ...verified, workspaceId };
 }
 
+/**
+ * 驳回只改变草稿操作的终态，不重新读取或调用 provider；结果证明仍用于
+ * 绑定原始草稿，避免客户端用 operationId 伪造一条历史记录。
+ */
+export async function rejectAiDraftResult(
+  actorId: string,
+  endpoint: AiDraftEndpoint,
+  resultProof: string,
+): Promise<AiDraftRejectResponse> {
+  const rejected = await prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    return rejectAiDraftResultInTx(tx, actorId, workspace.id, endpoint, resultProof);
+  });
+  return rejected.response;
+}
+
+export async function rejectAiDraftResultInTx(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  workspaceId: string,
+  endpoint: AiDraftEndpoint,
+  resultProof: string,
+  expected: { operationId?: string; projectionVersion?: string } = {},
+): Promise<{ response: AiDraftRejectResponse; workspaceId: string }> {
+  const verified = verifyAiDraftResultForActor(actorId, workspaceId, endpoint, resultProof, expected);
+  const operation = await tx.aiDraftOperation.findUnique({
+    where: { workspaceId_operationId: { workspaceId, operationId: verified.response.operationId } },
+  });
+  if (
+    !operation
+    || operation.actorId !== actorId
+    || operation.endpoint !== endpoint
+    || operation.projectionVersion !== verified.response.projectionVersion
+  ) {
+    throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
+  }
+
+  const resultReference = buildAiDraftDecisionReference(endpoint, operation.operationId, "rejected");
+  if (operation.status === "REJECTED" && operation.resultReference === resultReference) {
+    return {
+      workspaceId,
+      response: {
+        phase: "reject",
+        endpoint,
+        operationId: operation.operationId,
+        projectionVersion: operation.projectionVersion,
+        status: "REJECTED",
+        resultProof,
+        resultReference,
+        rejectedAt: (operation.consumedAt ?? operation.updatedAt).toISOString(),
+      },
+    };
+  }
+
+  // 已采用或任何非成功状态都不能再被驳回；特别是不能把已确认历史回滚。
+  if (operation.status !== "SUCCEEDED" || operation.consumedAt) {
+    throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
+  }
+
+  const rejectedAt = new Date();
+  const updated = await tx.aiDraftOperation.updateMany({
+    where: {
+      id: operation.id,
+      status: "SUCCEEDED",
+      consumedAt: null,
+      revision: operation.revision,
+    },
+    data: {
+      status: "REJECTED",
+      resultReference,
+      consumedAt: rejectedAt,
+      revision: { increment: 1 },
+    },
+  });
+  if (updated.count !== 1) {
+    const latest = await tx.aiDraftOperation.findUnique({ where: { id: operation.id } });
+    if (latest?.status === "REJECTED" && latest.resultReference === resultReference) {
+      return {
+        workspaceId,
+        response: {
+          phase: "reject",
+          endpoint,
+          operationId: latest.operationId,
+          projectionVersion: latest.projectionVersion,
+          status: "REJECTED",
+          resultProof,
+          resultReference,
+          rejectedAt: (latest.consumedAt ?? latest.updatedAt).toISOString(),
+        },
+      };
+    }
+    throw new ApiError("AI_DRAFT_OPERATION_CONFLICT", 409);
+  }
+
+  deleteCachedAiDraftResult(workspaceId, operation.operationId);
+  return {
+    workspaceId,
+    response: {
+      phase: "reject",
+      endpoint,
+      operationId: operation.operationId,
+      projectionVersion: operation.projectionVersion,
+      status: "REJECTED",
+      resultProof,
+      resultReference,
+      rejectedAt: rejectedAt.toISOString(),
+    },
+  };
+}
+
 function verifyAiDraftResultForActor(
   actorId: string,
   workspaceId: string,
@@ -621,6 +742,14 @@ function buildAiDraftResultReference(
   return `draft:${endpoint}:${operationId}:${status}`;
 }
 
+function buildAiDraftDecisionReference(
+  endpoint: AiDraftEndpoint,
+  operationId: string,
+  decision: "rejected",
+): string {
+  return `draft:${endpoint}:${operationId}:${decision}`;
+}
+
 function readCachedAiDraftResult(workspaceId: string, operationId: string): AiDraftGenerateResponse | null {
   const key = aiDraftResultCacheKey(workspaceId, operationId);
   const entry = aiDraftResultCache.get(key);
@@ -670,7 +799,7 @@ export async function handleAiDraftRequest(
   endpoint: AiDraftEndpoint,
   body: Record<string, unknown>,
   options: AiDraftGenerateOptions = {},
-): Promise<AiDraftPreviewResponse | AiDraftGenerateResponse> {
+): Promise<AiDraftPreviewResponse | AiDraftGenerateResponse | AiDraftRejectResponse> {
   const phase = body.phase;
   if (phase === "preview") {
     return previewAiDraft(actorId, endpoint, body, options);
@@ -690,6 +819,16 @@ export async function handleAiDraftRequest(
       throw new ApiError("AI_DRAFT_RESULT_PROOF_INVALID", 400);
     }
     return acknowledgeAiDraftResult(actorId, endpoint, body.resultProof);
+  }
+  if (phase === "reject") {
+    if (
+      Object.keys(body).some((key) => key !== "phase" && key !== "resultProof")
+      || typeof body.resultProof !== "string"
+      || !isAiDraftResultProofLengthAllowed(body.resultProof)
+    ) {
+      throw new ApiError("AI_DRAFT_RESULT_PROOF_INVALID", 400);
+    }
+    return rejectAiDraftResult(actorId, endpoint, body.resultProof);
   }
   throw new ApiError("AI_DRAFT_INVALID_ENUM", 400);
 }

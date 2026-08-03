@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { getLearningTreeImport } from "@/lib/study/learning-tree-service";
 
 export const dynamic = "force-dynamic";
@@ -14,12 +14,16 @@ export const metadata = getRouteMetadata("/knowledge/imports/import");
 
 export default async function KnowledgeImportDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ importId: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { importId } = await params;
+  const query = await searchParams;
+  const returnTo = query.returnTo ? sanitizeReturnPath(query.returnTo) : "/knowledge/imports";
   const batch = await getLearningTreeImport(user.id, importId).catch((error: unknown) => {
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
@@ -33,7 +37,7 @@ export default async function KnowledgeImportDetailPage({
         eyebrow="学习树导入结果"
         title="导入批次"
         description={`${scopeLabel(batch.scope)} · ${new Date(batch.confirmedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`}
-        back={<ButtonLink href="/knowledge/imports" variant="ghost" size="sm"><ArrowLeft size={16} aria-hidden />返回导入历史</ButtonLink>}
+        back={<ButtonLink href={returnTo} variant="ghost" size="sm"><ArrowLeft size={16} aria-hidden />返回导入历史</ButtonLink>}
         status={<div className="flex flex-wrap gap-2"><Badge tone="success">已应用 {appliedCount}</Badge><Badge>已跳过 {skippedCount}</Badge><Badge>共 {batch.items.length} 项</Badge></div>}
         action={<ButtonLink href="/knowledge/syllabus" variant="primary"><BookOpen size={16} aria-hidden />查看考纲结果</ButtonLink>}
       />

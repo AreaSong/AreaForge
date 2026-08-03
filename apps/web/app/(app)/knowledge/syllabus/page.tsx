@@ -24,7 +24,7 @@ export default async function KnowledgeSyllabusPage({ searchParams }: { searchPa
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-white">考纲</h1>
+      <h1 data-ai-current-object="true" data-ai-selectable data-ai-label="考纲" className="text-2xl font-semibold text-white">考纲</h1>
       <SyllabusManager
         subjects={subjects}
         nodes={nodes}

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata, withReturnTo } from "@/lib/navigation/batch7";
 import { listKnowledgeRetests } from "@/lib/study/knowledge-retest-service";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export default async function KnowledgeRetestsPage() {
 
   return (
     <PageFrame variant="dashboard-wide">
-      <PageHeader eyebrow="检验 · 专项复测" title="专项复测" description="复测才知道是否稳定掌握；每次复测都留下结果和个人反馈。" action={<Link href="/test/retests/new" className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300"><ClipboardCheck size={16} aria-hidden="true" />安排复测</Link>} />
+      <PageHeader eyebrow="检验 · 专项复测" title="专项复测" description="复测才知道是否稳定掌握；每次复测都留下结果和个人反馈。" action={<Link href={withReturnTo("/test/retests/new", "/test/retests")} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300"><ClipboardCheck size={16} aria-hidden="true" />安排复测</Link>} />
       <section className="space-y-3">
         <SectionHeader title="待处理复测" description="优先处理已到期或仍未收口的复测。" meta={<Badge tone={open.length ? "warning" : "neutral"}>{open.length} 项</Badge>} />
         {open.length ? <div className="divide-y divide-white/10 border-y border-white/10">{open.map((item) => <RetestRow key={item.id} item={item} />)}</div> : <EmptyState title="当前没有待处理复测" description="从知识点详情安排下一次复测，或继续学习后再安排。" />}
@@ -34,7 +34,7 @@ export default async function KnowledgeRetestsPage() {
 
 function RetestRow({ item }: { item: Awaited<ReturnType<typeof listKnowledgeRetests>>[number] }) {
   return (
-    <Link href={`/test/retests/${item.id}`} className="group grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <Link href={withReturnTo(`/test/retests/${item.id}`, "/test/retests")} className="group grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2"><span className="font-medium text-white group-hover:text-teal-200">{item.title}</span><Badge tone={item.result === "PASSED" ? "success" : item.status === "CLOSED" ? "neutral" : "warning"}>{retestStatusLabel(item.status, item.result)}</Badge></div>
         <p className="mt-1 text-sm text-zinc-400">{item.method} · {item.pointCount} 个知识点{item.nextDueAt ? ` · 下次 ${formatDate(item.nextDueAt)}` : ""}</p>

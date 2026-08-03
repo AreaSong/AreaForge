@@ -395,7 +395,7 @@ async function runReportsJourney(input: ScenarioContext) {
     method: "POST",
     path: /^\/api\/reports\/[^/]+\/confirm$/,
     expectedStatus: 201,
-  }, () => input.page.getByRole("button", { name: "确认并送入收件箱", exact: true }).click());
+  }, () => input.page.getByRole("button", { name: "确认本报告并送入收件箱", exact: true }).click());
   await input.page.getByText("已确认", { exact: true }).first().waitFor();
   const after = await captureOracle(input.context, input.config, path, (status, body) => {
     const decision = asRecord(asRecord(body).report).decision;
@@ -549,12 +549,37 @@ async function captureOracle(
   oraclePath: string,
   assertions: (status: number, body: unknown) => V11Assertion[],
 ): Promise<OracleCapture> {
-  const response = await context.request.get(new URL(oraclePath, config.baseUrl).toString(), {
+  const target = new URL(oraclePath, config.baseUrl);
+  const cookies = await context.cookies();
+  const cookieHeader = cookies
+    .filter((cookie) => cookieMatchesUrl(cookie, target))
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
+  const response = await context.request.get(target.toString(), {
     failOnStatusCode: false,
     timeout: config.timeoutMs,
-    headers: { accept: "application/json" },
+    headers: {
+      accept: "application/json",
+      ...(cookieHeader ? { cookie: cookieHeader } : {}),
+    },
   });
   return oracleCapture(response, oraclePath, assertions);
+}
+
+function cookieMatchesUrl(
+  cookie: { domain: string; path: string; secure: boolean },
+  target: URL,
+): boolean {
+  const host = target.hostname.toLowerCase();
+  const domain = cookie.domain.replace(/^\./, "").toLowerCase();
+  const domainMatches = host === domain || host.endsWith(`.${domain}`);
+  const pathMatches = target.pathname === cookie.path || target.pathname.startsWith(`${cookie.path.replace(/\/$/, "")}/`);
+  const secureMatches = !cookie.secure
+    || target.protocol === "https:"
+    // Chromium treats loopback origins as secure contexts, and the app's
+    // Secure session cookie is consequently sent over the local HTTP test URL.
+    || ["localhost", "127.0.0.1", "::1", "[::1]"].includes(target.hostname);
+  return domainMatches && pathMatches && secureMatches;
 }
 
 async function pollOracle(

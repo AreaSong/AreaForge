@@ -10,6 +10,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type { ActionCenterTodayDto } from "@/lib/study/action-center-service";
 
@@ -19,7 +20,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
   const today = initial;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [subjectId, setSubjectId] = useState(today.subjectTimers.subjects[0]?.subjectId ?? "");
-  const [goalMinutes, setGoalMinutes] = useState("25");
+  const [goalMinutes, setGoalMinutes] = useState("");
   const [shortcutTaskId, setShortcutTaskId] = useState("");
   const [shortcutNodeId, setShortcutNodeId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,17 +50,19 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
 
   async function runStartShortcut() {
     setStartingShortcut(true);
+    const payload = {
+      subjectId,
+      taskId: shortcutTaskId || undefined,
+      syllabusNodeId: shortcutNodeId || null,
+      goalMinutes: goalMinutes ? Number(goalMinutes) : null,
+      startSource: "SUBJECT_SHORTCUT" as const,
+    };
+    const commandScope = "action-center:focus-start";
     try {
       const response = await fetch("/api/study-sessions/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subjectId,
-          taskId: shortcutTaskId || undefined,
-          syllabusNodeId: shortcutNodeId || null,
-          goalMinutes: goalMinutes ? Number(goalMinutes) : null,
-          startSource: "SUBJECT_SHORTCUT",
-        }),
+        headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+        body: JSON.stringify({ idempotencyKey: getOrCreateIdempotencyKey(commandScope, "study-session-start", payload), ...payload }),
       });
       const body = (await response.json().catch(() => null)) as
         | { session?: { id: string }; error?: string; latest?: { id?: string } }
@@ -67,6 +70,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       if (response.status === 401) return redirectToLoginWithCurrentLocation();
       if (!response.ok) {
         if (response.status === 409 && body?.latest?.id) {
+          completeIdempotentCommand(commandScope);
           router.push(`/focus/${body.latest.id}?returnTo=%2Ftoday`);
           return;
         }
@@ -74,6 +78,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
         return;
       }
       if (body?.session?.id) {
+        completeIdempotentCommand(commandScope);
         setConfirmOpen(false);
         router.push(`/focus/${body.session.id}?returnTo=%2Ftoday`);
         return;
@@ -113,7 +118,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
     try {
       const response = await fetch("/api/tasks", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
         body: JSON.stringify({
           idempotencyKey: getOrCreateIdempotencyKey(commandScope, "task-create", payload),
           ...payload,
@@ -131,8 +136,13 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       }
       const startResponse = await fetch("/api/study-sessions/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId: body.task.id, goalMinutes: 25, startSource: "TASK" }),
+        headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+        body: JSON.stringify({
+          idempotencyKey: getOrCreateIdempotencyKey(`${commandScope}:start`, "study-session-start", { taskId: body.task.id, goalMinutes: null, startSource: "TASK" }),
+          taskId: body.task.id,
+          goalMinutes: null,
+          startSource: "TASK",
+        }),
       });
       const startBody = await startResponse.json().catch(() => null) as {
         session?: { id?: string };

@@ -13,6 +13,12 @@ import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/clie
 import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
 import { withReturnTo } from "@/lib/navigation/batch7";
 import {
+  MASTERY_STATUS_OPTIONS,
+  masteryStatusLabel,
+  syllabusLevelForMasteryStatus,
+  type MasteryStatus,
+} from "@/lib/study/mastery-status";
+import {
   loadPrivateBusinessDraft,
   redirectToLoginWithCurrentLocation,
   removePrivateBusinessDraft,
@@ -21,7 +27,6 @@ import {
 } from "@/lib/client/private-business-drafts";
 import type {
   MasteryEvidenceTypeDto,
-  MasteryLevelDto,
   MasteryRetestResultDto,
   SubjectDto,
   SyllabusMapOverviewDto,
@@ -58,7 +63,7 @@ type MasteryEvidenceType = MasteryEvidenceTypeDto;
 type MasteryRetestResult = MasteryRetestResultDto;
 type UpdateNodeBody = Partial<{
   status: SyllabusNodeStatusDto;
-  masteryLevel: MasteryLevelDto | null;
+  masteryLevel: SyllabusNodeDto["masteryLevel"];
   masteryConditions: MasteryCondition[];
   targetMinutes: number;
 }>;
@@ -895,7 +900,7 @@ function labelSyllabusConflictField(field: string): string {
     title: "标题",
     kind: "类型",
     status: "状态",
-    masteryLevel: "掌握等级",
+    masteryLevel: "掌握状态",
     masteryConditions: "掌握条件",
     sortOrder: "排序",
     targetMinutes: "目标分钟",
@@ -1045,15 +1050,6 @@ function buildSyllabusWorkbenchHref(input: {
   return `/knowledge/syllabus${params.size ? `?${params}` : ""}`;
 }
 
-const masteryLevelOptions: MasteryLevelDto[] = [
-  "seen",
-  "learned",
-  "basic_exercises",
-  "can_explain",
-  "retest_passed",
-  "exam_stable",
-];
-
 const masteryConditionOptions: MasteryCondition[] = [
   "course_or_textbook",
   "own_explanation",
@@ -1183,8 +1179,9 @@ function SyllabusTreeNode({
   const progress = node.targetMinutes === 0 ? 0 : Math.min(100, Math.round((node.actualMinutes / node.targetMinutes) * 100));
   const evidenceCount = node.masteryProof.evidenceCount;
   const canSubmitProof = evidenceCount > 0;
-  const [targetMasteryLevel, setTargetMasteryLevel] = useState<MasteryLevelDto>(node.masteryLevel ?? "learned");
+  const [targetMasteryStatus, setTargetMasteryStatus] = useState<MasteryStatus>(node.masteryStatus);
   const [selectedConditions, setSelectedConditions] = useState<MasteryCondition[]>(node.masteryConditions);
+  const targetMasteryLevel = syllabusLevelForMasteryStatus(targetMasteryStatus);
   const [evidenceType, setEvidenceType] = useState<MasteryEvidenceType>("task");
   const [evidenceReferenceId, setEvidenceReferenceId] = useState(node.masteryEvidenceCandidates.task[0]?.id ?? "");
   const [evidenceSummary, setEvidenceSummary] = useState("");
@@ -1394,16 +1391,16 @@ function SyllabusTreeNode({
         <div className="mt-3 rounded-md border border-white/10 bg-[#0d1117] p-3">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
           <label className="grid min-w-0 gap-2 text-xs text-zinc-400">
-            目标等级
+            目标掌握状态
             <select
               className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
-              value={targetMasteryLevel}
-              onChange={(event) => setTargetMasteryLevel(event.target.value as MasteryLevelDto)}
+              value={targetMasteryStatus}
+              onChange={(event) => setTargetMasteryStatus(event.target.value as MasteryStatus)}
               disabled={pending}
             >
-              {masteryLevelOptions.map((level) => (
-                <option key={level} value={level}>
-                  {labelMastery(level)}
+              {MASTERY_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {masteryStatusLabel(status)}
                 </option>
               ))}
             </select>
@@ -1870,23 +1867,6 @@ function labelKind(kind: SyllabusNodeKindDto): string {
       return "知识点";
     case "problem_type":
       return "题型专题";
-  }
-}
-
-function labelMastery(level: MasteryLevelDto): string {
-  switch (level) {
-    case "seen":
-      return "见过";
-    case "learned":
-      return "学过";
-    case "basic_exercises":
-      return "会做基础题";
-    case "can_explain":
-      return "能独立讲清";
-    case "retest_passed":
-      return "复测通过";
-    case "exam_stable":
-      return "考前稳定";
   }
 }
 

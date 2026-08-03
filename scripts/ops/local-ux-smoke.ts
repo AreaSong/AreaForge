@@ -13,6 +13,7 @@ type RequestOptions = {
   rawBody?: BodyInit;
   cookie?: string;
   headers?: HeadersInit;
+  allowStatuses?: readonly number[];
 };
 
 type BrowserFixtureManifest = {
@@ -119,7 +120,7 @@ async function main(): Promise<void> {
 
   const sessionBody = await checkedJson("start session", "/api/study-sessions/start", cookie, {
     method: "POST",
-    body: { taskId },
+    body: { taskId, idempotencyKey: `ux-smoke-start-${tag}` },
   });
   const startedSession = asRecord(sessionBody.session);
   const sessionId = stringField(startedSession, "id");
@@ -128,12 +129,26 @@ async function main(): Promise<void> {
 
   await assertActiveSession("active session after start", cookie);
 
-  await checkedJson("end session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
+  const preparedCloseout = await checkedJson("prepare session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
     method: "POST",
     body: {
       expectedStatus: "running",
       expectedUpdatedAt: sessionUpdatedAt,
+      idempotencyKey: `ux-smoke-prepare-${sessionId}-${crypto.randomUUID()}`,
+      mode: "prepare",
+    },
+  });
+  const preparedSession = asRecord(preparedCloseout.session);
+  const preparedUpdatedAt = stringField(preparedSession, "updatedAt");
+  if (!preparedUpdatedAt) throw new Error("prepare session closeout response missing updatedAt");
+
+  await checkedJson("complete session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
+    method: "POST",
+    body: {
+      expectedStatus: "closing",
+      expectedUpdatedAt: preparedUpdatedAt,
       idempotencyKey: `ux-smoke-end-${sessionId}-${crypto.randomUUID()}`,
+      mode: "complete",
       qualityScore: 4,
       isEffective: true,
       understandingLevel: "能独立复述主链路",
@@ -466,7 +481,7 @@ async function main(): Promise<void> {
     "/motivation",
   ]) {
     await check(`canonical-only route ${legacyPage}`, async () => {
-      const response = await requestRaw(legacyPage, { cookie });
+      const response = await requestRaw(legacyPage, { cookie, allowStatuses: [404] });
       const text = await response.text();
       if (response.status !== 404) {
         throw new Error(`${legacyPage} must be absent with status 404, received ${response.status}`);
@@ -488,11 +503,6 @@ async function main(): Promise<void> {
         throw new Error(`Batch 10 nav missing label: ${label}`);
       }
     }
-    for (const href of ['href="/knowledge/canvas"', 'href="/review/reports"', 'href="/plan/stages"']) {
-      if (!text.includes(href)) {
-        throw new Error(`Batch 10 App Shell must expose ${href}`);
-      }
-    }
     const forbiddenHrefs = [
       'href="/analytics"',
       'href="/reports"',
@@ -509,6 +519,19 @@ async function main(): Promise<void> {
     for (const href of forbiddenHrefs) {
       if (text.includes(href)) {
         throw new Error(`Batch 10 App Shell must not expose removed ${href}`);
+      }
+    }
+
+    const workbenchSecondaryEntrypoints: Array<{ path: string; href: string }> = [
+      { path: "/knowledge/overview", href: 'href="/knowledge/canvas"' },
+      { path: "/review/daily", href: 'href="/review/reports"' },
+      { path: "/plan", href: 'href="/plan/stages"' },
+    ];
+    for (const entrypoint of workbenchSecondaryEntrypoints) {
+      const entryResponse = await requestRaw(entrypoint.path, { cookie });
+      const entryText = await entryResponse.text();
+      if (!entryText.includes(entrypoint.href)) {
+        throw new Error(`Batch 10 workbench must expose ${entrypoint.href} on ${entrypoint.path}`);
       }
     }
   });
@@ -546,6 +569,7 @@ async function main(): Promise<void> {
     method: "POST",
     body: {
       subjectId,
+      idempotencyKey: `ux-smoke-shortcut-start-${tag}`,
       goalMinutes: 25,
       startSource: "SUBJECT_SHORTCUT",
     },
@@ -566,12 +590,26 @@ async function main(): Promise<void> {
     }
   });
 
-  await checkedJson("end subject shortcut session", `/api/study-sessions/${encodeURIComponent(shortcutSessionId)}/end`, cookie, {
+  const preparedShortcutCloseout = await checkedJson("prepare subject shortcut closeout", `/api/study-sessions/${encodeURIComponent(shortcutSessionId)}/end`, cookie, {
     method: "POST",
     body: {
       expectedStatus: "running",
       expectedUpdatedAt: shortcutUpdatedAt,
+      idempotencyKey: `ux-smoke-shortcut-prepare-${shortcutSessionId}-${crypto.randomUUID()}`,
+      mode: "prepare",
+    },
+  });
+  const preparedShortcutSession = asRecord(preparedShortcutCloseout.session);
+  const preparedShortcutUpdatedAt = stringField(preparedShortcutSession, "updatedAt");
+  if (!preparedShortcutUpdatedAt) throw new Error("subject shortcut prepare response missing updatedAt");
+
+  await checkedJson("complete subject shortcut closeout", `/api/study-sessions/${encodeURIComponent(shortcutSessionId)}/end`, cookie, {
+    method: "POST",
+    body: {
+      expectedStatus: "closing",
+      expectedUpdatedAt: preparedShortcutUpdatedAt,
       idempotencyKey: `ux-smoke-shortcut-end-${shortcutSessionId}-${crypto.randomUUID()}`,
+      mode: "complete",
       qualityScore: 3,
       isEffective: true,
       understandingLevel: "能独立复述主链路",
@@ -774,7 +812,8 @@ async function requestRaw(path: string, options: RequestOptions = {}): Promise<R
       signal: controller.signal,
       redirect: "manual",
     });
-    if (!response.ok) {
+    const allowedStatus = options.allowStatuses?.includes(response.status) ?? false;
+    if (!response.ok && !allowedStatus) {
       const text = await response.text().catch(() => "");
       throw new Error(`HTTP ${response.status} for ${path}: ${text.slice(0, 200)}`);
     }

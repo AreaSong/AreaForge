@@ -2,12 +2,14 @@
 
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, FileText, Plus, Upload } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import type { LearningTreeImportSelection } from "@areaforge/core";
 import { LearningTreeImportHistory } from "@/components/learning-tree-import-history";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
+import { sanitizeReturnPath } from "@/lib/navigation/batch7";
 import type {
   LearningTreeExportOptionsDto,
   LearningTreeImportBatchSummaryDto,
@@ -80,16 +82,19 @@ export function LearningTreeImportWorkbenchView({
   state: WorkbenchState;
   actions: WorkbenchActions;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const returnTo = sanitizeReturnPath(`${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`);
   return (
     <PageFrame variant="dashboard-wide" className="space-y-5">
-      {state.view === "overview" ? <ImportOverview state={state} actions={actions} /> : null}
+      {state.view === "overview" ? <ImportOverview state={state} actions={actions} returnTo={returnTo} /> : null}
       {state.view === "import" ? <ImportWorkspace state={state} actions={actions} /> : null}
       {state.view === "export" ? <ExportWorkspace state={state} actions={actions} /> : null}
     </PageFrame>
   );
 }
 
-function ImportOverview({ state, actions }: { state: WorkbenchState; actions: WorkbenchActions }) {
+function ImportOverview({ state, actions, returnTo }: { state: WorkbenchState; actions: WorkbenchActions; returnTo: string }) {
   return (
     <>
       <PageHeader
@@ -102,11 +107,11 @@ function ImportOverview({ state, actions }: { state: WorkbenchState; actions: Wo
         <Button type="button" variant="secondary" onClick={() => actions.changeView("export")}><Download size={16} aria-hidden />导出当前学习树</Button>
         {state.draftRestored || state.aiDraftLoaded ? <Badge tone="warning">存在可恢复草稿</Badge> : null}
       </Toolbar>
-      <LearningTreeImportHistory title="导入历史" imports={state.imports} archived={false} />
+      <LearningTreeImportHistory title="导入历史" imports={state.imports} archived={false} returnTo={returnTo} />
       {state.archivedImports.length ? (
         <details className="border-t border-white/10 pt-5">
           <summary className="cursor-pointer text-sm text-zinc-300">已归档历史（{state.archivedImports.length}）</summary>
-          <LearningTreeImportHistory title="已归档批次" imports={state.archivedImports} archived />
+          <LearningTreeImportHistory title="已归档批次" imports={state.archivedImports} archived returnTo={returnTo} />
         </details>
       ) : null}
     </>

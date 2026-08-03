@@ -3,10 +3,10 @@ import { sanitizeReturnPath, withReturnTo } from "../../apps/web/lib/navigation/
 import { getCompletionReturnLabel, getReturnContextLabel } from "../../apps/web/lib/navigation/return-context";
 import { getWorkbenchFallback } from "../../apps/web/lib/navigation/workbench-context";
 
-assert.equal(sanitizeReturnPath("https://example.com/steal"), "/today");
-assert.equal(sanitizeReturnPath("//example.com/steal"), "/today");
+assert.equal(sanitizeReturnPath("https://example.com/steal"), "/focus");
+assert.equal(sanitizeReturnPath("//example.com/steal"), "/focus");
 assert.equal(sanitizeReturnPath("/plan?subjectId=math&unsafe=1"), "/plan?subjectId=math");
-assert.equal(sanitizeReturnPath("/today/plan?subjectId=math"), "/today");
+assert.equal(sanitizeReturnPath("/today/plan?subjectId=math"), "/focus");
 assert.equal(
   sanitizeReturnPath("/knowledge/reviews/schedule-1?returnTo=%2Fplan%3FsubjectId%3Dmath"),
   "/knowledge/reviews/schedule-1?returnTo=%2Fplan%3FsubjectId%3Dmath",
@@ -19,14 +19,14 @@ assert.equal(
   withReturnTo("/plan?status=TODO", "/plan/inbox?status=CONVERTED"),
   "/plan?status=TODO&returnTo=%2Fplan%2Finbox%3Fstatus%3DCONVERTED",
 );
-assert.equal(withReturnTo("/plan/tasks/task-1", "https://example.com/steal"), "/plan/tasks/task-1?returnTo=%2Ftoday");
+assert.equal(withReturnTo("/plan/tasks/task-1", "https://example.com/steal"), "/plan/tasks/task-1?returnTo=%2Ffocus");
 assert.equal(
   withReturnTo("/plan/inbox", "/review/reports?tab=current&period=week"),
   "/plan/inbox?returnTo=%2Freview%2Freports%3Ftab%3Dcurrent%26period%3Dweek",
 );
 assert.equal(
   sanitizeReturnPath("/stage/overview?createMilestone=milestone-1&returnTo=%2Freview%2Freports%3Ftab%3Dcurrent%26period%3Dmonth"),
-  "/today",
+  "/focus",
 );
 assert.equal(
   withReturnTo("/plan/inbox", "/test/simulations/exam-1"),
@@ -58,12 +58,12 @@ assert.equal(getCompletionReturnLabel("/knowledge/reviews"), "返回复习队列
 
 assert.deepEqual(getWorkbenchFallback("/knowledge/resources/resource-1"), { href: "/knowledge/overview", label: "返回知识工作台" });
 assert.deepEqual(getWorkbenchFallback("/review/reports"), { href: "/review/daily", label: "返回复盘工作台" });
-assert.deepEqual(getWorkbenchFallback("/test/simulations/exam-1"), { href: "/plan/stages", label: "返回阶段工作台" });
+assert.deepEqual(getWorkbenchFallback("/test/simulations/exam-1"), { href: "/test", label: "返回检验工作台" });
 assert.deepEqual(getWorkbenchFallback("/settings/ai"), { href: "/settings", label: "返回设置总览" });
 assert.deepEqual(getWorkbenchFallback("/plan?status=TODO"), { href: "/plan", label: "返回计划" });
 assert.deepEqual(getWorkbenchFallback("/plan/inbox/item-1"), { href: "/plan/inbox", label: "返回收件箱" });
-assert.deepEqual(getWorkbenchFallback("/today/plan?status=TODO"), { href: "/today", label: "返回今日行动" });
-assert.deepEqual(getWorkbenchFallback("/stage/simulation/exam-1"), { href: "/today", label: "返回今日行动" });
-assert.deepEqual(getWorkbenchFallback("/focus/session-1"), { href: "/today", label: "返回今日行动" });
+assert.deepEqual(getWorkbenchFallback("/today/plan?status=TODO"), { href: "/focus", label: "返回开始学习" });
+assert.deepEqual(getWorkbenchFallback("/stage/simulation/exam-1"), { href: "/focus", label: "返回开始学习" });
+assert.deepEqual(getWorkbenchFallback("/focus/session-1"), { href: "/focus", label: "返回开始学习" });
 
 console.log("navigation return context selftest passed");

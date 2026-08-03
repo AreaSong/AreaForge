@@ -1,8 +1,8 @@
 "use client";
 
-import { Eye, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { Ban, Eye, Sparkles } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
@@ -72,9 +72,13 @@ const emptyProjectionValues: ProjectionValues = {
   defaultDurationMinutes: "",
 };
 
-export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaultText?: string }) {
+export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaultText?: string; draftContextKey?: string }) {
   const router = useRouter();
-  const formDraftKey = `areaforge.ai-draft.form.${props.endpoint}.${props.userId}`;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routeContextKey = `${pathname}?${searchParams.toString()}`;
+  const draftScope = hashDraftContext(props.draftContextKey ?? routeContextKey);
+  const formDraftKey = `areaforge.ai-draft.form.${props.endpoint}.${props.userId}.${draftScope}`;
   const [selectedText, setSelectedText] = useState(props.defaultText ?? "");
   const [tone, setTone] = useState<"CALM" | "DIRECT" | "BRIEF">("CALM");
   const [scope, setScope] = useState<"global" | "subject" | "branch">("global");
@@ -91,9 +95,23 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
   const [savingResult, setSavingResult] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const [pending, startTransition] = useTransition();
+  const loadedDraftKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    loadedDraftKeyRef.current = null;
     const timer = window.setTimeout(() => {
+      setDraftReady(false);
+      setSelectedText(props.defaultText ?? "");
+      setTone("CALM");
+      setScope("global");
+      setKind("GENERAL");
+      setChecked({});
+      setValues(emptyProjectionValues);
+      setPreview(null);
+      setPreviewNote(null);
+      setToken(null);
+      setDraft(null);
+      setOperation(null);
       const saved = loadPrivateBusinessDraft(formDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isAiFormDraft);
       if (saved) {
         setSelectedText(saved.selectedText);
@@ -105,13 +123,14 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
         setDraft(saved.generatedDraft);
         setOperation(saved.operation);
       }
+      loadedDraftKeyRef.current = formDraftKey;
       setDraftReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [formDraftKey]);
+  }, [formDraftKey, props.defaultText]);
 
   useEffect(() => {
-    if (!draftReady) return;
+    if (!draftReady || loadedDraftKeyRef.current !== formDraftKey) return;
     if (!selectedText.trim() && !draft) {
       removePrivateBusinessDraft(formDraftKey);
       return;
@@ -317,6 +336,42 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
     }
   }
 
+  async function rejectDraft() {
+    if (!draft || !operation?.id || savingResult) return;
+    setError(null);
+    setSaveNotice(null);
+    setSavingResult(true);
+    try {
+      const response = await postDraft(props.endpoint, {
+        phase: "reject",
+        resultProof: operation.resultProof,
+      });
+      if (response.status === 401) {
+        setError("登录已过期，AI 草稿已保留。重新登录后请显式重试放弃。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        setError(readError(response.payload, response.status === 409 ? "草稿状态已变化，请刷新确认" : "放弃草稿失败"));
+        return;
+      }
+      if (
+        response.payload?.operationId !== operation.id
+        || response.payload?.projectionVersion !== operation.projectionVersion
+        || response.payload?.status !== "REJECTED"
+      ) {
+        setError("驳回结果身份不一致，草稿仍保留，请重新检查。");
+        return;
+      }
+      clearAdoptedDraft();
+      setSaveNotice("草稿已放弃；服务端保留了这次 AI 生成历史。");
+    } catch {
+      setError("网络不可用，草稿仍保留；恢复网络后请显式重试放弃。");
+    } finally {
+      setSavingResult(false);
+    }
+  }
+
   async function acknowledgeResult(
     currentOperation: NonNullable<AiFormDraft["operation"]>,
     failureMessage: string,
@@ -407,9 +462,15 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       {preview ? <PayloadPreview title="本次生成输入预览" value={preview} /> : null}
       {draft ? <PayloadPreview title="草稿结果" value={draft} accent /> : null}
       {draft ? (
-        <button type="button" disabled={savingResult} className="h-10 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200 disabled:opacity-60" onClick={() => void adoptDraft()}>
-          {savingResult ? "处理中..." : adoptDraftLabel(props.endpoint)}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={savingResult} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200 disabled:opacity-60" onClick={() => void adoptDraft()}>
+            {savingResult ? "处理中..." : adoptDraftLabel(props.endpoint)}
+          </button>
+          <button type="button" disabled={savingResult} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 disabled:opacity-60" onClick={() => void rejectDraft()}>
+            <Ban aria-hidden="true" size={15} />
+            放弃草稿
+          </button>
+        </div>
       ) : null}
       {saveNotice ? <p role="status" className="text-sm text-teal-200">{saveNotice}</p> : null}
     </div>
@@ -613,6 +674,12 @@ function isAiFormDraft(value: unknown): value is AiFormDraft {
     || !value.operation.resultProof
   )) return false;
   return true;
+}
+
+function hashDraftContext(value: string): string {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+  return Math.abs(hash).toString(36);
 }
 
 function isProjectionValues(value: unknown): value is ProjectionValues {

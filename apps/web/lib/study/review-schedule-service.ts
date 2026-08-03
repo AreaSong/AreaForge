@@ -607,7 +607,7 @@ async function confirmReviewEventInTx(
   const activeSession = await tx.studySession.findFirst({
     where: {
       subject: { workspaceId },
-      status: { in: ["RUNNING", "PAUSED"] },
+      status: { in: ["RUNNING", "PAUSED", "CLOSING"] },
     },
     select: { id: true, status: true },
   });
