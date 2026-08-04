@@ -18,7 +18,7 @@ export function ReportHistoryList(props: {
       {props.history.map((decision) => (
         <ListDetailLink
           key={decision.id}
-          href={`/roadmap/reports/history/${decision.id}?period=${props.period}`}
+          href={`/roadmap/reviews/history/${decision.id}?period=${props.period}`}
           focusId={`report-history-${decision.id}`}
           className="flex items-center justify-between gap-4 py-4"
         >

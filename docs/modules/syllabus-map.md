@@ -57,7 +57,7 @@
 
 ## 当前行为
 
-- `packages/core` 提供 `evaluateSyllabusMapSignal` 单节点规则和 `summarizeSyllabusMap` 聚合规则；`/knowledge/syllabus` 页面与 `/api/syllabus/*` 展示分科聚合摘要、地图状态分布、推荐筛选、优先处理节点、行动类型筛选和节点下一步动作。
+- `packages/core` 提供 `evaluateSyllabusMapSignal` 单节点规则和 `summarizeSyllabusMap` 聚合规则；`/knowledge/syllabi` 页面与 `/api/syllabus/*` 展示分科聚合摘要、地图状态分布、推荐筛选、优先处理节点、行动类型筛选和节点下一步动作。
 - 考纲服务读取已有任务、计时、笔记和错题的最近更新时间，向作战地图和掌握证明传入证据新鲜度，用于提示遗忘风险和证据过旧。
 - 聚合规则统计覆盖率、验证率、风险等级，推荐错题高发、薄弱、遗忘风险等筛选项。
 - 作战地图风险接入 `GET /api/analytics/long-term-risks` 和同源页面面板。

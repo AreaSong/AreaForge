@@ -175,8 +175,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   review: {
-    startPath: "/roadmap/reports/daily",
-    terminalPath: "/roadmap/reports/daily",
+    startPath: "/roadmap/reviews/daily",
+    terminalPath: "/roadmap/reviews/daily",
     mutation: { method: "POST", path: "/api/daily-reviews", status: 201, requestCount: 1 },
     oraclePath: "/api/reviews/today", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -213,8 +213,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   syllabus: {
-    startPath: "/knowledge/syllabus",
-    terminalPath: "/knowledge/syllabus?subjectId=synthetic-id",
+    startPath: "/knowledge/syllabi",
+    terminalPath: "/knowledge/syllabi?subjectId=synthetic-id",
     mutation: { method: "POST", path: "/api/syllabus/nodes", status: 201, requestCount: 1 },
     oraclePath: "/api/syllabus", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -232,8 +232,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   reports: {
-    startPath: "/roadmap/reports?tab=current&period=week",
-    terminalPath: "/roadmap/reports?tab=current&period=week",
+    startPath: "/roadmap/reviews?tab=current&period=week",
+    terminalPath: "/roadmap/reviews?tab=current&period=week",
     mutation: { method: "POST", path: "/api/reports/:reportId/confirm", status: 201, requestCount: 1 },
     oraclePath: "/api/reports/current?period=week", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -347,7 +347,7 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
     assertions: [equalsAssertion("pause-ui-mutation-status", 200), equalsAssertion("pause-announced", true), equalsAssertion("pause-terminal-control-visible", true)],
   },
   "LIVE-04": {
-    checkKey: "notification-fallback-polite", category: "live", route: "/settings/preferences", target: "notification-test-fallback", profile: "desktop", mechanism: "dom",
+    checkKey: "notification-fallback-polite", category: "live", route: "/settings/learning", target: "notification-test-fallback", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("notification-test-status", 200), equalsAssertion("notification-fallback-visible", true), equalsAssertion("notification-fallback-polite", "polite"), equalsAssertion("notification-fallback-atomic", "true")],
   },
   "LIVE-05": {
@@ -355,7 +355,7 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
     assertions: [gteAssertion("layout-announcement-present", 1), equalsAssertion("layout-announcement-polite", "polite")],
   },
   "LIVE-06": {
-    checkKey: "review-save-and-recovery-live", category: "live", route: "/roadmap/reports/daily", target: "daily-review-save-and-recovery", profile: "desktop", mechanism: "dom",
+    checkKey: "review-save-and-recovery-live", category: "live", route: "/roadmap/reviews/daily", target: "daily-review-save-and-recovery", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("review-save-status", 201), equalsAssertion("review-success-live-region", true), equalsAssertion("review-success-polite", "polite"), equalsAssertion("network-error-alert-visible", true), equalsAssertion("network-error-has-message", true), gteAssertion("failed-review-draft-retained", 1)],
   },
   "COLOR-01": {

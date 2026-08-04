@@ -1157,7 +1157,7 @@ export function KnowledgeCanvasClient(props: {
       <Drawer open={createOpen} onClose={() => setCreateOpen(false)} title="快捷创建">
         <div className="space-y-3 text-sm">
           <p className="text-zinc-400">创建后进入对应工作台表单；对象写入真实表，画布重新派生。</p>
-          <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/knowledge/notes">
+          <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/knowledge/cards">
             创建知识卡片
           </Link>
           <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/knowledge/mistakes">
@@ -1166,7 +1166,7 @@ export function KnowledgeCanvasClient(props: {
           <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/knowledge/resources">
             创建资料
           </Link>
-          <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/roadmap/arrangements">
+          <Link className="block rounded-md border border-white/10 px-3 py-2 hover:bg-white/5" href="/roadmap/allocation">
             创建任务
           </Link>
         </div>

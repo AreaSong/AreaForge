@@ -11,7 +11,7 @@ import { listPeriodicReportDecisions } from "@/lib/study/report-decisions-servic
 import { getPeriodicReport, type PeriodicReportKind } from "@/lib/study/reports-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/roadmap/reports");
+export const metadata = getRouteMetadata("/roadmap/reviews");
 
 export default async function ReviewReportsPage({
   searchParams,
@@ -23,7 +23,7 @@ export default async function ReviewReportsPage({
   const query = await searchParams;
   const tab = query.tab === "history" ? "history" : "current";
   const period: PeriodicReportKind = query.period === "month" ? "month" : "week";
-  const currentReportHref = `/roadmap/reports?tab=current&period=${period}`;
+  const currentReportHref = `/roadmap/reviews?tab=current&period=${period}`;
   const [report, history] = await Promise.all([
     getPeriodicReport(period, new Date(), user.id),
     listPeriodicReportDecisions(period, user.id),
@@ -33,17 +33,17 @@ export default async function ReviewReportsPage({
     <PageFrame variant="dashboard-wide">
       <PageHeader
         eyebrow="复盘"
-        title="周期报告"
-        description="先核对本周期事实，再决定是否把下一周期策略送入计划收件箱。"
+        title="周期复盘"
+        description="先核对本周期事实，再决定是否把下一周期策略送入投入草稿。"
         status={<Badge tone={decisionTone(report.decision?.status)}>{decisionLabel(report.decision?.status)}</Badge>}
       />
 
       <Toolbar label="报告视图与周期">
-        <ReportFilter href={`/roadmap/reports?tab=current&period=${period}`} active={tab === "current"}>当前报告</ReportFilter>
-        <ReportFilter href={`/roadmap/reports?tab=history&period=${period}`} active={tab === "history"}>历史回放</ReportFilter>
+        <ReportFilter href={`/roadmap/reviews?tab=current&period=${period}`} active={tab === "current"}>当前报告</ReportFilter>
+        <ReportFilter href={`/roadmap/reviews?tab=history&period=${period}`} active={tab === "history"}>历史回放</ReportFilter>
         <span className="mx-1 h-6 w-px bg-white/10" aria-hidden="true" />
-        <ReportFilter href={`/roadmap/reports?tab=${tab}&period=week`} active={period === "week"}>周</ReportFilter>
-        <ReportFilter href={`/roadmap/reports?tab=${tab}&period=month`} active={period === "month"}>月</ReportFilter>
+        <ReportFilter href={`/roadmap/reviews?tab=${tab}&period=week`} active={period === "week"}>周</ReportFilter>
+        <ReportFilter href={`/roadmap/reviews?tab=${tab}&period=month`} active={period === "month"}>月</ReportFilter>
       </Toolbar>
 
       {tab === "history" ? (
@@ -93,7 +93,7 @@ export default async function ReviewReportsPage({
             <div className="space-y-4">
               <SectionHeader
                 title={report.decisionPreview.nextCycleDraft.title}
-                description="本地规则生成的待确认草稿；确认报告后逐项进入计划收件箱，仍不会直接变成正式任务。"
+                description="本地规则生成的待确认草稿；确认报告后逐项进入投入草稿，仍不会直接变成正式任务。"
                 meta={<Badge tone="warning">待确认草稿</Badge>}
               />
               <ol className="divide-y divide-white/10 border-y border-white/10">

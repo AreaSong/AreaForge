@@ -35,8 +35,9 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
         initialNow={new Date().toISOString()}
         initialEvidenceReceipts={evidenceReceipts}
         contextOptions={{ tasks, syllabusNodes, knowledgePoints }}
+        embeddedInWorkbench
       />
     );
   }
-  return <FocusLauncher subjects={subjects} userId={user.id} contextOptions={{ tasks, syllabusNodes, knowledgePoints }} />;
+  return <FocusLauncher subjects={subjects} userId={user.id} returnTo={returnTo} contextOptions={{ tasks, syllabusNodes, knowledgePoints }} />;
 }

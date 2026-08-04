@@ -311,7 +311,7 @@ try {
     () => saveTodayReview({ ...createReviewInput, summary: "同键不同请求不得覆盖" }, own.userId),
     (error: unknown) => error instanceof ApiError
       && error.code === "DAILY_REVIEW_IDEMPOTENCY_CONFLICT"
-      && error.details?.workbench === "/review/daily"
+      && error.details?.workbench === "/roadmap/reviews/daily"
       && error.details?.conflictFields?.includes("idempotencyKey") === true
       && (error.details.latest as { id?: string } | undefined)?.id === review.id,
   );

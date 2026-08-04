@@ -20,7 +20,7 @@ interface PlanInboxListConflict {
   conflictFields: string[];
 }
 
-export function PlanInboxClient({ items: initialItems, status, returnTo = "/roadmap/arrangements/drafts" }: { items: PlanInboxItemDto[]; status: Status; returnTo?: string }) {
+export function PlanInboxClient({ items: initialItems, status, returnTo = "/roadmap/allocation/drafts" }: { items: PlanInboxItemDto[]; status: Status; returnTo?: string }) {
   const router = useRouter();
   const sourceReturnTo = getSourceReturnTo(returnTo);
   const [items, setItems] = useState(initialItems);
@@ -84,7 +84,7 @@ export function PlanInboxClient({ items: initialItems, status, returnTo = "/road
 
   return (
     <section className="space-y-4">
-      <div><h1 className="text-2xl font-semibold text-white">计划收件箱</h1><p className="mt-1 text-sm text-zinc-400">补全草稿后，由你确认转换为正式任务。</p></div>
+      <div><h1 className="text-2xl font-semibold text-white">投入草稿</h1><p className="mt-1 text-sm text-zinc-400">补全草稿后，由你确认转换为正式行动。</p></div>
       {sourceReturnTo ? <Link href={sourceReturnTo} className="inline-flex text-sm text-zinc-400 hover:text-zinc-200">返回当前草稿</Link> : null}
       <nav aria-label="收件箱状态" className="flex flex-wrap gap-2">
         {(["OPEN", "DISMISSED", "CONVERTED"] as const).map((value) => <Link key={value} href={withInboxStatus(returnTo, value)} aria-current={status === value ? "page" : undefined} className={`h-10 rounded-md border px-3 text-sm leading-10 ${status === value ? "border-teal-400/50 bg-teal-400/10 text-teal-200" : "border-white/10 text-zinc-300"}`}>{value === "OPEN" ? "待处理" : value === "DISMISSED" ? "已忽略" : "已转换"}</Link>)}
@@ -107,14 +107,14 @@ export function PlanInboxClient({ items: initialItems, status, returnTo = "/road
               {item.supersededByItemId ? <p className="mt-2 text-xs text-amber-200">此版本已被替代，只能查看历史。</p> : null}
               <div className="mt-3 flex flex-wrap gap-2 text-sm">
                 {item.status === "OPEN" && !item.supersededByItemId ? (
-                  <Link href={withReturnTo(`/roadmap/arrangements/drafts/${item.id}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>
+                  <Link href={withReturnTo(`/roadmap/allocation/drafts/${item.id}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>
                     {item.missingFields.length ? "补全并转换" : "确认并转换"}
                   </Link>
                 ) : null}
                 {item.status === "OPEN" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className={buttonClassName({ variant: "ghost", size: "sm" })} onClick={() => void transition(item, "dismiss")}>忽略</button> : null}
                 {item.status === "DISMISSED" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className={buttonClassName({ variant: "secondary", size: "sm" })} onClick={() => void transition(item, "reopen")}>恢复草稿</button> : null}
-                {item.convertedTaskId ? <Link href={withReturnTo(`/roadmap/arrangements/tasks/${item.convertedTaskId}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>打开任务</Link> : null}
-                {item.status !== "OPEN" || item.supersededByItemId ? <Link href={withReturnTo(`/roadmap/arrangements/drafts/${item.id}`, returnTo)} className={buttonClassName({ variant: "ghost", size: "sm" })}>查看记录</Link> : null}
+                {item.convertedTaskId ? <Link href={withReturnTo(`/roadmap/allocation/tasks/${item.convertedTaskId}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>打开任务</Link> : null}
+                {item.status !== "OPEN" || item.supersededByItemId ? <Link href={withReturnTo(`/roadmap/allocation/drafts/${item.id}`, returnTo)} className={buttonClassName({ variant: "ghost", size: "sm" })}>查看记录</Link> : null}
               </div>
             </li>
           ))}
@@ -146,11 +146,11 @@ export function PlanInboxClient({ items: initialItems, status, returnTo = "/road
 function withInboxStatus(returnTo: string, status: Status): string {
   try {
     const url = new URL(returnTo, "https://areaforge.invalid");
-    if (url.pathname !== "/roadmap/arrangements/drafts") return `/roadmap/arrangements/drafts?status=${status}`;
+    if (url.pathname !== "/roadmap/allocation/drafts") return `/roadmap/allocation/drafts?status=${status}`;
     url.searchParams.set("status", status);
     return `${url.pathname}?${url.searchParams.toString()}`;
   } catch {
-    return `/roadmap/arrangements/drafts?status=${status}`;
+    return `/roadmap/allocation/drafts?status=${status}`;
   }
 }
 

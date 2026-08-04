@@ -1,6 +1,6 @@
 # AreaForge Web
 
-`apps/web` 是 AreaForge 的 Next.js 私有 Web 应用。它承载开始学习、今日、计划、知识、检验、复盘、确认中心、设置以及版本中心 UI。
+`apps/web` 是 AreaForge 的 Next.js 私有 Web 应用。它承载开始学习、今日、知识、检验、路线、确认中心、设置以及版本中心 UI。
 
 最新稳定 GitHub Release 与公网 `https://forge.areasong.top/` 生产基线均为 `v1.1.1`。2026-08-01 已通过 Web 版本中心提交受控更新请求，并由服务器侧 root update-agent/updater 完成 production apply；Web 运行时仍只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
 
@@ -69,10 +69,10 @@ pnpm experience:review:validate <product-experience-review-record.md|txt>
 - 首页作战台：`app/page.tsx`
 - 登录：`app/login/page.tsx`
 - 开始学习：`app/(app)/focus/page.tsx`
-- 今日与计划：`app/(app)/today/page.tsx`、`app/(app)/plan/page.tsx`
-- 知识与考纲：`app/(app)/knowledge/page.tsx`
+- 今日与投入安排：`app/(app)/today/page.tsx`、`app/(app)/roadmap/allocation/page.tsx`
+- 知识与考纲：`app/(app)/knowledge/page.tsx`、`app/(app)/knowledge/syllabi/page.tsx`
 - 检验与模拟：`app/(app)/test/page.tsx`
-- 报告与确认中心：`app/(app)/review/reports/page.tsx`、`app/(app)/confirmations/page.tsx`
+- 报告与确认中心：`app/(app)/roadmap/reviews/page.tsx`、`app/(app)/confirmations/page.tsx`
 - 设置和版本中心：`app/settings/page.tsx`
 - 系统更新 API：`app/api/system/**`
 

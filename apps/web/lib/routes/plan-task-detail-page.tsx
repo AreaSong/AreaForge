@@ -6,7 +6,7 @@ import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { loadTaskPageData } from "@/lib/study/task-page-data";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/roadmap/arrangements/tasks/task");
+export const metadata = getRouteMetadata("/roadmap/allocation/tasks/task");
 
 export default async function TaskDetailPage({ params, searchParams }: {
   params: Promise<{ taskId: string }>;
@@ -16,7 +16,7 @@ export default async function TaskDetailPage({ params, searchParams }: {
   if (!user) redirect("/login");
   const { taskId } = await params;
   const query = await searchParams;
-  const returnTo = sanitizeReturnPath(query.returnTo || "/roadmap/arrangements");
+  const returnTo = sanitizeReturnPath(query.returnTo || "/roadmap/allocation");
 
   let pageData: Awaited<ReturnType<typeof loadTaskPageData>>;
   try {

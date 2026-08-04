@@ -23,18 +23,18 @@ const notificationDetails: Record<ForegroundNotificationCategory, ForegroundNoti
     body: "今日计划窗口已到。",
     tag: "af-plan-start",
     actionLabel: "打开计划",
-    route: "/plan",
+    route: "/roadmap/allocation",
   },
   evening: {
     title: "复盘提醒",
     body: "晚间复盘窗口已到。",
     tag: "af-evening-review",
     actionLabel: "打开复盘",
-    route: "/review/daily",
+    route: "/roadmap/reviews/daily",
   },
 };
 
-const safeNotificationRoutes = new Set(["/knowledge/reviews", "/plan", "/review/daily"]);
+const safeNotificationRoutes = new Set(["/knowledge/reviews", "/roadmap/allocation", "/roadmap/reviews/daily"]);
 
 /** Keeps notification click navigation within the known application routes. */
 export function sanitizeForegroundNotificationRoute(route: string | null | undefined): string {

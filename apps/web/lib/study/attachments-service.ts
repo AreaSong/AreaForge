@@ -100,7 +100,7 @@ export async function createNoteAttachment(
     throw new ApiError("NOTE_ATTACHMENT_UPLOAD_IN_PROGRESS", 409, {
       latest: { state: "pending" },
       conflictFields: ["idempotencyKey"],
-      workbench: "/knowledge/notes",
+      workbench: "/knowledge/cards",
     });
   }
   if (claim.state === "replayed") {
@@ -168,7 +168,7 @@ export async function stageWorkspaceAttachment(
     throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409, {
       latest: { workspaceId: workspace.id },
       conflictFields: ["workspaceId"],
-      workbench: "/settings/workspace",
+      workbench: "/settings/exams",
     });
   }
   const policy = createStudyResourceUploadPolicy(STUDY_RESOURCE_MAX_UPLOAD_MB);
@@ -436,7 +436,7 @@ async function finalizeNoteAttachmentReady(
       return rejectNoteAttachmentBeforeReady(tx, staged, new ApiError("ACTIVE_WORKSPACE_CHANGED", 409, {
         latest: { workspaceId: workspace.id },
         conflictFields: ["workspaceId"],
-        workbench: "/settings/workspace",
+        workbench: "/settings/exams",
       }), "ACTIVE_WORKSPACE_CHANGED");
     }
 
@@ -766,7 +766,7 @@ async function loadReplayedNoteAttachment(
     throw new ApiError("NOTE_ATTACHMENT_UPLOAD_RESULT_UNAVAILABLE", 409, {
       latest: { state: "completed", attachmentId },
       conflictFields: ["idempotencyKey"],
-      workbench: "/knowledge/notes",
+      workbench: "/knowledge/cards",
     });
   }
   return serializeAttachment(attachment);
@@ -783,7 +783,7 @@ async function claimNoteAttachmentCommand(
       throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409, {
         latest: { workspaceId: workspace.id },
         conflictFields: ["workspaceId"],
-        workbench: "/settings/workspace",
+        workbench: "/settings/exams",
       });
     }
     const note = await tx.note.findFirst({
@@ -962,7 +962,7 @@ function noteArchivedError(note: { id: string; revision: number; archivedAt: Dat
       archivedAt: note.archivedAt?.toISOString() ?? null,
     },
     conflictFields: ["archivedAt"],
-    workbench: "/knowledge/notes",
+    workbench: "/knowledge/cards",
   });
 }
 

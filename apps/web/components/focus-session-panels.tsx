@@ -90,9 +90,10 @@ export function FocusTimerWorkspace(props: {
   onPause: () => void;
   onResume: () => void;
   onEnd: () => void;
+  embeddedInWorkbench?: boolean;
 }) {
   return (
-    <main className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.45fr)]">
+    <div className={`${props.embeddedInWorkbench ? "grid h-full min-h-0" : "grid min-h-[calc(100vh-3.5rem)]"} lg:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.45fr)]`}>
       <section className="flex min-h-[32rem] flex-col items-center justify-center border-b border-white/10 px-4 py-12 text-center lg:border-b-0 lg:border-r">
         <p className="text-sm text-teal-300" aria-live="assertive" aria-atomic="true">
           {props.timerLabel}
@@ -137,7 +138,7 @@ export function FocusTimerWorkspace(props: {
         </div>
       </section>
       <FocusContextPanel context={props.context} options={props.options} onContextChange={props.onContextChange} />
-    </main>
+    </div>
   );
 }
 
@@ -171,7 +172,7 @@ export function CloseoutWorkspace(props: {
 }) {
   const nextActionLabel = props.taskDisposition === "blocked" ? "阻塞原因" : "下一动作";
   return (
-    <main className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(18rem,0.65fr)_minmax(0,1.35fr)]">
+    <div className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(18rem,0.65fr)_minmax(0,1.35fr)]">
       <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 lg:border-b-0 lg:border-r lg:px-8 lg:py-10">
         <p className="text-xs font-medium text-teal-300">本次学习</p>
         <h1 data-ai-current-object="true" data-ai-selectable data-ai-label={props.context.taskTitle ?? "科目快捷专注"} className="mt-2 break-words text-2xl font-semibold text-white">{props.context.taskTitle ?? "科目快捷专注"}</h1>
@@ -297,7 +298,7 @@ export function CloseoutWorkspace(props: {
           </form>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -310,7 +311,7 @@ export function LowConversionWorkspace(props: {
   onAccept: () => void;
 }) {
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl items-center px-4 py-10 sm:px-6">
+    <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl items-center px-4 py-10 sm:px-6">
       <section className="w-full border-y border-amber-400/25 py-8 sm:py-10">
         <AlertTriangle className="h-7 w-7 text-amber-300" aria-hidden="true" />
         <p className="mt-5 text-xs font-medium text-amber-300">低转化记录已保存</p>
@@ -319,14 +320,14 @@ export function LowConversionWorkspace(props: {
         <div className="mt-7 flex flex-wrap gap-3">
           <Button type="button" variant="primary" size="lg" onClick={props.onSupplement}>补一个最小产出</Button>
           {props.addedToInbox ? (
-            <Link href={withReturnTo("/roadmap/arrangements/drafts", props.returnTo)} className={buttonClassName({size:"lg"})}>查看计划收件箱</Link>
+            <Link href={withReturnTo("/roadmap/allocation/drafts", props.returnTo)} className={buttonClassName({size:"lg"})}>查看投入草稿</Link>
           ) : (
-            <Button type="button" size="lg" onClick={props.onAddToInbox}>加入计划收件箱</Button>
+            <Button type="button" size="lg" onClick={props.onAddToInbox}>加入投入草稿</Button>
           )}
           <Button type="button" variant="ghost" size="lg" onClick={props.onAccept}>承认低转化并结束</Button>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -339,7 +340,7 @@ export function EvidenceWorkspace(props: {
   children: React.ReactNode;
 }) {
   return (
-    <main className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(18rem,0.6fr)_minmax(0,1.4fr)]">
+    <div className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(18rem,0.6fr)_minmax(0,1.4fr)]">
       <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 lg:border-b-0 lg:border-r lg:px-8 lg:py-10">
         <p className="text-xs font-medium text-teal-300">证据接力</p>
         <h1 className="mt-2 text-2xl font-semibold text-white">为本次学习留下一个可复用证据</h1>
@@ -370,7 +371,7 @@ export function EvidenceWorkspace(props: {
           </Button>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -382,7 +383,7 @@ export function CompleteWorkspace(props: {
   receipts: FocusEvidenceReceipt[];
 }) {
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl items-center px-4 py-10 sm:px-6">
+    <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl items-center px-4 py-10 sm:px-6">
       <section className="w-full border-y border-white/10 py-9">
         <CheckCircle2 className={`h-8 w-8 ${props.lowConversion ? "text-amber-300" : "text-emerald-300"}`} aria-hidden="true" />
         <p className="mt-5 text-xs font-medium text-teal-300">本次学习已收口</p>
@@ -413,7 +414,7 @@ export function CompleteWorkspace(props: {
           ) : null}
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 

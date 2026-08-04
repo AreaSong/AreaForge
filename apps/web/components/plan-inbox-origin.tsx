@@ -8,7 +8,7 @@ const originLabels: Record<string, string> = {
   AI_PLAN: "来自 AI 计划草稿",
   LOW_CONVERSION: "来自低转化补救",
   SIMULATION_LOSS: "来自模拟考试补救",
-  PERIODIC_REPORT: "来自周期报告决策",
+  PERIODIC_REPORT: "来自周期复盘决策",
   STAGE_ADJUSTMENT: "来自阶段调整",
 };
 
@@ -26,7 +26,7 @@ const lossReasonLabels: Record<string, string> = {
 };
 
 export function planInboxOriginLabel(originType: string): string {
-  return originLabels[originType] ?? "计划收件箱";
+  return originLabels[originType] ?? "投入草稿";
 }
 
 export function PlanInboxOriginSummary({ item, returnTo }: { item: Pick<PlanInboxItemDto, "originType" | "originSnapshot">; returnTo: string }) {

@@ -53,10 +53,10 @@ const startPaths: Record<JourneyId, string> = {
   login: "/login",
   dashboard: "/today",
   "timer-closeout": "/focus",
-  review: "/roadmap/reports/daily",
+  review: "/roadmap/reviews/daily",
   notes: "/knowledge/notes",
-  syllabus: "/knowledge/syllabus",
-  reports: "/roadmap/reports?tab=current&period=week",
+  syllabus: "/knowledge/syllabi",
+  reports: "/roadmap/reviews?tab=current&period=week",
   simulation: "/test/simulations",
   "update-center": "/settings/system",
 };
@@ -361,9 +361,9 @@ async function runSyllabusJourney(input: ScenarioContext) {
     .filter({ visible: true })
     .first();
   await createdNode.waitFor();
-  await input.page.waitForURL((url) => url.pathname.startsWith("/knowledge/syllabus/"));
+  await input.page.waitForURL((url) => url.pathname.startsWith("/knowledge/syllabi/"));
   await input.page.getByRole("link", { name: "返回考纲", exact: true }).click();
-  await input.page.waitForURL((url) => url.pathname === "/knowledge/syllabus");
+  await input.page.waitForURL((url) => url.pathname === "/knowledge/syllabi");
   await createdNode.waitFor({ state: "visible" });
   const after = await captureOracle(input.context, input.config, "/api/syllabus", (status, body) => {
     const nodes = flattenSyllabusNodes(asRecord(body).nodes);

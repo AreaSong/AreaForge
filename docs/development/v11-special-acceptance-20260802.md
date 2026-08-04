@@ -21,8 +21,8 @@
 | PlanInbox 依赖与 revision | `/today/inbox/cmsbaib8h0006c5rtr7ta479f` | 硬依赖可见；保存标题后 revision `1 -> 2`；制造服务端更新后，保存触发 `PLAN_INBOX_REVISION_CONFLICT`，本地草稿保留并出现合并对话框 | `output/playwright/acceptance-plan-inbox-conflict-desktop-final.png` |
 | PlanInbox 转换 | `/today/inbox` 两条合成 Inbox | 两条 Inbox 均转换为正式任务；转换后的任务详情显示硬前置依赖，返回链接保留 `/today/inbox` | `output/playwright/acceptance-plan-inbox-converted-desktop-final.png` |
 | PlanInbox 幂等重放 | `/api/plan-inbox/cmsbaib8h0006c5rtr7ta479f/convert` | 同一 `idempotencyKey` 重放返回 200，`convertedTaskId` 不变，未重复创建正式任务 | 同一隔离数据库审计事件与 API 响应 |
-| 设置中心 | `/settings`、`/settings/workspace`、`/settings/profile`、`/settings/notifications`、`/settings/ai`、`/settings/experience`、`/settings/system` | 七个入口均可达；设置二级导航完整；AI 浏览器开关保持关闭，系统页明确 Web 不执行 migration/deploy/updater apply | 当前 Playwright snapshots |
-| 首次使用 | 无工作区合成账号 `/today -> /settings/workspace?setup=1` | 无工作区时不展示伪造统计；两步创建考试工作区、首科目和 408 四科；完成后进入 `/today`；刷新后工作区仍存在；桌面与 `390x844` 移动布局均可见 | `output/playwright/acceptance-first-use-desktop-final.png`、`output/playwright/acceptance-first-use-mobile-final.png` |
+| 设置中心 | `/settings`、`/settings/exams`、`/settings/profile`、`/settings/learning`、`/settings/ai`、`/settings/data`、`/settings/system` | 七个入口均可达；设置二级导航完整；AI 浏览器开关保持关闭，系统页明确 Web 不执行 migration/deploy/updater apply | 当前 Playwright snapshots |
+| 首次使用 | 无工作区合成账号 `/today -> /settings/exams?setup=1` | 无工作区时不展示伪造统计；两步创建考试工作区、首科目和 408 四科；完成后进入 `/today`；刷新后工作区仍存在；桌面与 `390x844` 移动布局均可见 | `output/playwright/acceptance-first-use-desktop-final.png`、`output/playwright/acceptance-first-use-mobile-final.png` |
 
 ## 仍未验收或不在本轮范围
 

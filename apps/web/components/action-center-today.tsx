@@ -200,7 +200,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
           尚未设置考试工作区。不展示伪造统计。
         </Alert>
         <Link
-          href="/settings/workspace?setup=1"
+          href="/settings/exams?setup=1"
           className={buttonClassName({ variant: "primary", size: "lg", className: "w-fit" })}
         >
           设置考试目标
@@ -386,7 +386,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
               </button>
             </div>
           ) : null}
-          <Link href="/roadmap/arrangements" className="mt-2 inline-flex text-teal-300 hover:underline">
+          <Link href="/roadmap/allocation" className="mt-2 inline-flex text-teal-300 hover:underline">
             打开计划
           </Link>
         </details>
@@ -477,7 +477,7 @@ function withTodayReturnTo(href: string): string {
   if (
     !href.startsWith("/knowledge/reviews/")
     && href !== "/focus"
-    && !href.startsWith("/roadmap/arrangements/tasks/")
+    && !href.startsWith("/roadmap/allocation/tasks/")
   ) return href;
   const separator = href.includes("?") ? "&" : "?";
   return `${href}${separator}returnTo=${encodeURIComponent("/today")}`;

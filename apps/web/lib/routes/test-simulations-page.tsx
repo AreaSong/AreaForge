@@ -24,7 +24,7 @@ export default async function TestSimulationPage() {
       <PageHeader
         eyebrow="检验"
         title="模拟考试"
-        description="录入考试事实，冻结失分分析，再把明确的补救动作送入计划收件箱。"
+        description="录入考试事实，冻结失分分析，再把明确的补救动作送入投入草稿。"
         action={latestDraft
           ? <ButtonLink href={`/test/simulations/${latestDraft.id}`} variant="primary"><ArrowRight size={16} />继续未完成模拟</ButtonLink>
           : <ButtonLink href="#create-simulation" variant="primary"><Plus size={16} />创建新模拟</ButtonLink>}

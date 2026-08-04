@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { WorkspaceSettingsClient } from "@/components/workspace-settings-client";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
 import {
   findActiveWorkspaceOrNull,
   listExamWorkspaces,
@@ -10,11 +9,12 @@ import {
   listWorkspaceSubjects,
   previewWorkspaceTakeover,
 } from "@/lib/study/exam-workspace-service";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/settings/workspace");
+export const metadata = getRouteMetadata("/settings/exams");
 
-export default async function WorkspaceSettingsPage({
+export default async function SettingsExamsPage({
   searchParams,
 }: {
   searchParams: Promise<{ setup?: string }>;

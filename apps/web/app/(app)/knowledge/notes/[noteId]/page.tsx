@@ -6,7 +6,7 @@ import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { getNoteEditorOptions, getOwnedNoteDetail } from "@/lib/study/notes-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/knowledge/notes/note");
+export const metadata = getRouteMetadata("/knowledge/cards/note");
 
 export default async function KnowledgeNoteDetailPage({
   params,
@@ -20,7 +20,7 @@ export default async function KnowledgeNoteDetailPage({
   const returnTo = query.returnTo ? sanitizeReturnPath(query.returnTo) : undefined;
   const user = await getCurrentUser();
   if (!user) {
-    const currentPath = `/knowledge/notes/${encodeURIComponent(noteId)}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`;
+    const currentPath = `/knowledge/cards/${encodeURIComponent(noteId)}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`;
     redirect(`/login?returnTo=${encodeURIComponent(currentPath)}`);
   }
   const detail = await getOwnedNoteDetail(noteId, user.id);

@@ -92,25 +92,25 @@ function nodeKey(entityType: KnowledgeCanvasEntityType, entityId: string): strin
 function detailHref(entityType: KnowledgeCanvasEntityType, entityId: string): string | null {
   switch (entityType) {
     case "WORKSPACE":
-      return "/settings/workspace";
+      return "/settings/exams";
     case "SUBJECT_GROUP":
-      return "/settings/workspace";
+      return "/settings/exams";
     case "SUBJECT":
       return `/knowledge?subjectId=${encodeURIComponent(entityId)}`;
     case "SYLLABUS_NODE":
-      return `/knowledge/syllabus/${encodeURIComponent(entityId)}`;
+      return `/knowledge/syllabi/${encodeURIComponent(entityId)}`;
     case "NOTE":
-      return `/knowledge/notes/${encodeURIComponent(entityId)}`;
+      return `/knowledge/cards/${encodeURIComponent(entityId)}`;
     case "MISTAKE":
       return `/knowledge/mistakes/${encodeURIComponent(entityId)}`;
     case "STUDY_RESOURCE":
       return `/knowledge/resources/${encodeURIComponent(entityId)}`;
     case "TASK":
-      return `/roadmap/arrangements/tasks/${encodeURIComponent(entityId)}`;
+      return `/roadmap/allocation/tasks/${encodeURIComponent(entityId)}`;
     case "REVIEW_SCHEDULE":
       return `/knowledge/reviews/${encodeURIComponent(entityId)}`;
     case "MILESTONE":
-      return "/roadmap/arrangements";
+      return "/roadmap/allocation";
     case "STUDY_SESSION":
       return `/focus`;
     default:
@@ -658,7 +658,7 @@ export async function getKnowledgeOverview(actorId: string) {
         href: `/knowledge/reviews/${nextReview.id}/run?returnTo=${encodeURIComponent("/knowledge/reviews")}`,
       }
     : nextWeakNode
-      ? { kind: "weak_node" as const, label: nextWeakNode.title, href: `/knowledge/syllabus/${nextWeakNode.id}` }
+      ? { kind: "weak_node" as const, label: nextWeakNode.title, href: `/knowledge/syllabi/${nextWeakNode.id}` }
       : nextPendingResource
         ? { kind: "resource" as const, label: nextPendingResource.title, href: `/knowledge/resources/${nextPendingResource.id}` }
         : latestImport
@@ -680,7 +680,7 @@ export async function getKnowledgeOverview(actorId: string) {
         label: "知识卡片",
         title: note.title,
         subjectName: note.subject.name,
-        href: `/knowledge/notes/${note.id}`,
+        href: `/knowledge/cards/${note.id}`,
         updatedAt: note.updatedAt.toISOString(),
       })),
       ...recentMistakes.map((mistake) => ({

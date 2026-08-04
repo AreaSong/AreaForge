@@ -60,12 +60,12 @@ test("equal notification window means all day while equal quiet hours are disabl
 
 test("canonical notification payloads use the action-center routes", () => {
   assert.deepEqual(buildForegroundNotificationPayload("review").data, { route: "/knowledge/reviews" });
-  assert.deepEqual(buildForegroundNotificationPayload("plan").data, { route: "/plan" });
-  assert.deepEqual(buildForegroundNotificationPayload("evening").data, { route: "/review/daily" });
+  assert.deepEqual(buildForegroundNotificationPayload("plan").data, { route: "/roadmap/allocation" });
+  assert.deepEqual(buildForegroundNotificationPayload("evening").data, { route: "/roadmap/reviews/daily" });
 });
 
 test("notification payload routes reject non-canonical navigation", () => {
   assert.equal(sanitizeForegroundNotificationRoute("javascript:alert(1)"), "/today");
-  assert.equal(buildForegroundNotificationPayload("review", "/settings/workspace").data.route, "/today");
-  assert.equal(sanitizeForegroundNotificationRoute("/review/daily"), "/review/daily");
+  assert.equal(buildForegroundNotificationPayload("review", "/settings/exams").data.route, "/today");
+  assert.equal(sanitizeForegroundNotificationRoute("/roadmap/reviews/daily"), "/roadmap/reviews/daily");
 });

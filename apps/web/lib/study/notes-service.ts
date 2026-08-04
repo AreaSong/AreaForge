@@ -293,7 +293,7 @@ export async function updateNote(noteId: string, input: UpdateNoteInput, actorId
       throw new ApiError("NOTE_ARCHIVED", 409, {
         latest,
         conflictFields: ["archivedAt"],
-        workbench: "/knowledge/notes",
+        workbench: "/knowledge/cards",
       });
     }
 
@@ -398,14 +398,14 @@ async function setNoteArchived(
       throw new ApiError("SUBJECT_ARCHIVED", 409, {
         latest,
         conflictFields: ["subject.archivedAt"],
-        workbench: "/knowledge/notes",
+        workbench: "/knowledge/cards",
       });
     }
     if (existing.revision !== expectedRevision) {
       throw new ApiError("NOTE_REVISION_CONFLICT", 409, {
         latest,
         conflictFields: ["revision", "archivedAt"],
-        workbench: "/knowledge/notes",
+        workbench: "/knowledge/cards",
       });
     }
     if (Boolean(existing.archivedAt) === archived) return latest;
@@ -425,7 +425,7 @@ async function setNoteArchived(
       throw new ApiError("NOTE_REVISION_CONFLICT", 409, {
         latest: serializeNote(await loadNote(workspace.id, noteId, tx)),
         conflictFields: ["revision", "archivedAt"],
-        workbench: "/knowledge/notes",
+        workbench: "/knowledge/cards",
       });
     }
     if (archived) await pauseScheduleOnTargetArchive(tx, { noteId });
@@ -446,7 +446,7 @@ function throwNoteRevisionConflict(input: UpdateNoteInput, latest: NoteDto): nev
   throw new ApiError("NOTE_REVISION_CONFLICT", 409, {
     latest,
     conflictFields: collectNoteConflictFields(input, latest),
-    workbench: "/knowledge/notes",
+    workbench: "/knowledge/cards",
   });
 }
 
@@ -519,7 +519,7 @@ async function assertNoteNodeSelection(input: {
     throw new ApiError("NOTE_SYLLABUS_NODE_ARCHIVED", 409, {
       latest: serializeNote(input.existing),
       conflictFields: ["syllabusNodeId", "relatedSyllabusNodeIds"],
-      workbench: "/knowledge/notes",
+      workbench: "/knowledge/cards",
     });
   }
 }
@@ -541,7 +541,7 @@ async function assertNoteResourcesSelectable(
     throw new ApiError("NOTE_RESOURCE_ARCHIVED", 409, {
       latest: serializeNote(existing),
       conflictFields: ["resourceIds"],
-      workbench: "/knowledge/notes",
+      workbench: "/knowledge/cards",
     });
   }
 }

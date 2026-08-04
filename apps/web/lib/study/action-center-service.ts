@@ -130,7 +130,7 @@ export async function getActionCenterToday(
       shortcutOptions: { tasks: [], syllabusNodes: [] },
       statusBar: "setup",
       primaryActionLabel: "设置考试目标",
-      primaryActionHref: "/settings/workspace?setup=1",
+      primaryActionHref: "/settings/exams?setup=1",
       learningLoop: {
         plannedTaskCount: 0,
         completedTaskCount: 0,
@@ -396,7 +396,7 @@ export async function getActionCenterToday(
       bridgedReviewScheduleId: task.reviewScheduleId,
       reviewObjectKind: null,
       taskPriority: priority,
-      href: `/roadmap/arrangements/tasks/${task.id}`,
+      href: `/roadmap/allocation/tasks/${task.id}`,
     });
   }
 
@@ -438,7 +438,7 @@ export async function getActionCenterToday(
   }
 
   let primaryActionLabel = "创建今天最小任务";
-  let primaryActionHref = "/roadmap/arrangements?createMinimum=1";
+  let primaryActionHref = "/roadmap/allocation?createMinimum=1";
   if (recommendation) {
     primaryActionLabel =
       recommendation.kind === "activity"
@@ -451,7 +451,7 @@ export async function getActionCenterToday(
     primaryActionHref = recommendation.href;
   } else if (empty) {
     primaryActionLabel = "创建今天最小任务";
-    primaryActionHref = "/roadmap/arrangements?createMinimum=1";
+    primaryActionHref = "/roadmap/allocation?createMinimum=1";
   }
 
   const snapshot = checkIn ?? null;

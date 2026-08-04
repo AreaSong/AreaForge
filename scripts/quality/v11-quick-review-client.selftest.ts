@@ -493,7 +493,7 @@ assert.match(dailyReviewFactsSource, /STUDY_SESSION_EVIDENCE_LINKED/);
 assert.match(dailyReviewApiSource, /\{ review, inboxItem \}/);
 assert.match(
   planInboxItemSource,
-  /withReturnTo\(`\/roadmap\/arrangements\/tasks\/\$\{body\.item\.convertedTaskId\}`, returnTo\)/,
+  /withReturnTo\(`\/roadmap\/allocation\/tasks\/\$\{body\.item\.convertedTaskId\}`, returnTo\)/,
 );
 assert.match(planInboxItemSource, /withInboxStatus\(returnTo, "CONVERTED"\)/);
 assert.match(planInboxItemSource, /<Link href=\{returnTo\}/);

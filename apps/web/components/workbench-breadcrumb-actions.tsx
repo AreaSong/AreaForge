@@ -38,36 +38,32 @@ interface BreadcrumbAction {
 }
 
 const ACTIONS_BY_ROUTE: Record<string, readonly BreadcrumbAction[]> = {
-  "/test": [
-    { href: "/test/retests/new", label: "安排专项复测", description: "选择知识点并检查是否稳定掌握", icon: Repeat2 },
-    { href: "/test/simulations", label: "模拟考试", description: "进入整场检验与复盘", icon: TestTube2 },
+  "/roadmap/allocation": [
+    { href: "/roadmap/allocation?createMinimum=1", label: "新建投入", description: "把下一步行动放入长期计划", icon: Plus },
+    { href: "/roadmap/allocation/drafts", label: "投入草稿", description: "处理待确认的计划草稿", icon: Inbox },
   ],
-  "/roadmap/arrangements": [
-    { href: "/roadmap/arrangements?createMinimum=1", label: "新建任务", description: "把下一步行动放入长期计划", icon: Plus },
-    { href: "/roadmap/arrangements/drafts", label: "计划收件箱", description: "处理待确认的计划草稿", icon: Inbox },
-  ],
-  "/roadmap/arrangements/drafts": [
-    { href: "/roadmap/arrangements?createMinimum=1", label: "新建任务", description: "直接创建一个正式任务", icon: Plus },
-    { href: "/roadmap/arrangements", label: "长期计划", description: "回到滚动计划与欠账", icon: Goal },
+  "/roadmap/allocation/drafts": [
+    { href: "/roadmap/allocation?createMinimum=1", label: "新建投入", description: "直接创建一个正式投入", icon: Plus },
+    { href: "/roadmap/allocation", label: "投入安排", description: "回到滚动投入与欠账", icon: Goal },
   ],
   "/knowledge": [
-    { href: "/knowledge/notes?create=1", label: "新建知识卡片", description: "留下可复核的学习证据", icon: NotebookPen },
+    { href: "/knowledge/cards?create=1", label: "新建知识卡片", description: "留下可复核的学习证据", icon: NotebookPen },
     { href: "/knowledge/canvas", label: "打开关联图谱", description: "查看知识点之间的关系", icon: Network },
   ],
   "/knowledge/points": [
     { href: "/test/retests/new", label: "安排专项复测", description: "选择知识点并检查是否稳定掌握", icon: Repeat2 },
-    { href: "/knowledge/syllabus", label: "查看考纲", description: "从考试范围定位知识点", icon: ListTree },
+    { href: "/knowledge/syllabi", label: "查看考纲", description: "从考试范围定位知识点", icon: ListTree },
   ],
-  "/knowledge/syllabus": [
-    { href: "/knowledge/syllabus?create=1", label: "新建考纲节点", description: "补充当前学习范围", icon: Plus },
+  "/knowledge/syllabi": [
+    { href: "/knowledge/syllabi?create=1", label: "新建考纲节点", description: "补充当前学习范围", icon: Plus },
     { href: "/knowledge/imports?mode=import", label: "导入学习树", description: "预览并确认一批学习结构", icon: FileInput },
   ],
   "/knowledge/resources": [
     { href: "/knowledge/resources?create=1", label: "添加学习资料", description: "上传文件或保存外部资料", icon: FilePlus2 },
     { href: "/knowledge/imports?mode=import", label: "导入学习树", description: "从结构化内容建立知识范围", icon: FileInput },
   ],
-  "/knowledge/notes": [
-    { href: "/knowledge/notes?create=1", label: "新建知识卡片", description: "记录理解、边界和例子", icon: NotebookPen },
+  "/knowledge/cards": [
+    { href: "/knowledge/cards?create=1", label: "新建知识卡片", description: "记录理解、边界和例子", icon: NotebookPen },
     { href: "/knowledge/reviews", label: "打开统一复习", description: "处理已经到期的复习证据", icon: ClipboardCheck },
   ],
   "/knowledge/mistakes": [
@@ -91,7 +87,7 @@ const ACTIONS_BY_ROUTE: Record<string, readonly BreadcrumbAction[]> = {
     { href: "/knowledge/reviews", label: "统一复习", description: "先处理已经到期的复习证据", icon: ClipboardCheck },
   ],
   "/test/simulations": [
-    { href: "/test", label: "检验中心", description: "查看两条检验路径", icon: TestTube2 },
+    { href: "/test/retests", label: "检验中心", description: "查看两条检验路径", icon: TestTube2 },
     { href: "/roadmap/stages", label: "阶段总览", description: "把考试结果放回长期阶段", icon: Milestone },
   ],
   "/roadmap/stages": [
@@ -100,33 +96,33 @@ const ACTIONS_BY_ROUTE: Record<string, readonly BreadcrumbAction[]> = {
   ],
   "/roadmap/stages/trend": [
     { href: "/roadmap/stages", label: "阶段总览", description: "回到当前计划与里程碑", icon: Flag },
-    { href: "/roadmap/reports", label: "周期报告", description: "用周期事实重新判断下一步", icon: BarChart3 },
+    { href: "/roadmap/reviews", label: "周期复盘", description: "用周期事实重新判断下一步", icon: BarChart3 },
   ],
-  "/roadmap/reports/daily": [
-    { href: "/roadmap/reports", label: "周期报告", description: "把每日事实放进周/月判断", icon: BarChart3 },
+  "/roadmap/reviews/daily": [
+    { href: "/roadmap/reviews", label: "周期复盘", description: "把每日事实放进周/月判断", icon: BarChart3 },
     { href: "/today", label: "今日行动", description: "回到今天的下一步", icon: CalendarPlus },
   ],
-  "/roadmap/reports": [
+  "/roadmap/reviews": [
     { href: "/today", label: "今日行动", description: "回到今天的下一步", icon: CalendarPlus },
-    { href: "/roadmap/arrangements/drafts", label: "计划收件箱", description: "处理确认后生成的计划草稿", icon: Inbox },
+    { href: "/roadmap/allocation/drafts", label: "投入草稿", description: "处理确认后生成的投入草稿", icon: Inbox },
   ],
   "/confirmations": [
     { href: "/confirmations/history", label: "已处理记录", description: "回放已经冻结的决定", icon: Archive },
-    { href: "/roadmap/reports", label: "周期报告", description: "回到报告来源核对事实", icon: BarChart3 },
+    { href: "/roadmap/reviews", label: "周期复盘", description: "回到复盘来源核对事实", icon: BarChart3 },
   ],
   "/confirmations/history": [
     { href: "/confirmations", label: "待确认", description: "处理仍需要你决定的事项", icon: ClipboardCheck },
-    { href: "/roadmap/reports", label: "周期报告", description: "回到报告来源核对事实", icon: BarChart3 },
+    { href: "/roadmap/reviews", label: "周期复盘", description: "回到复盘来源核对事实", icon: BarChart3 },
   ],
-  "/settings/workspace": [
+  "/settings/exams": [
     { href: "/today", label: "今日行动", description: "返回当前学习闭环", icon: CalendarPlus },
     { href: "/settings", label: "设置总览", description: "查看其他配置状态", icon: Settings },
   ],
   "/settings/profile": [
-    { href: "/settings/workspace", label: "工作区", description: "管理考试目标与科目", icon: BriefcaseBusiness },
+    { href: "/settings/exams", label: "考试与科目", description: "管理考试目标与科目", icon: BriefcaseBusiness },
     { href: "/settings/ai", label: "AI 设置", description: "管理 Provider 和数据边界", icon: Sparkles },
   ],
-  "/settings/preferences": [
+  "/settings/learning": [
     { href: "/settings/profile", label: "档案与动机", description: "管理恢复内容和提醒来源", icon: UserRound },
     { href: "/today", label: "今日行动", description: "返回当前学习闭环", icon: CalendarPlus },
   ],
@@ -135,7 +131,7 @@ const ACTIONS_BY_ROUTE: Record<string, readonly BreadcrumbAction[]> = {
     { href: "/settings/system", label: "系统", description: "查看版本与运行状态", icon: Settings },
   ],
   "/settings/system": [
-    { href: "/settings/workspace", label: "工作区", description: "管理考试目标与科目", icon: BriefcaseBusiness },
+    { href: "/settings/exams", label: "考试与科目", description: "管理考试目标与科目", icon: BriefcaseBusiness },
     { href: "/today", label: "今日行动", description: "返回当前学习闭环", icon: CalendarPlus },
   ],
 };

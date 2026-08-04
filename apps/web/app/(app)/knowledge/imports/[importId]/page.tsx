@@ -39,7 +39,7 @@ export default async function KnowledgeImportDetailPage({
         description={`${scopeLabel(batch.scope)} · ${new Date(batch.confirmedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`}
         back={<ButtonLink href={returnTo} variant="ghost" size="sm"><ArrowLeft size={16} aria-hidden />返回导入历史</ButtonLink>}
         status={<div className="flex flex-wrap gap-2"><Badge tone="success">已应用 {appliedCount}</Badge><Badge>已跳过 {skippedCount}</Badge><Badge>共 {batch.items.length} 项</Badge></div>}
-        action={<ButtonLink href="/knowledge/syllabus" variant="primary"><BookOpen size={16} aria-hidden />查看考纲结果</ButtonLink>}
+        action={<ButtonLink href="/knowledge/syllabi" variant="primary"><BookOpen size={16} aria-hidden />查看考纲结果</ButtonLink>}
       />
       <Toolbar label="导入批次操作">
         <a className={buttonClassName({ variant: "secondary", size: "sm" })} href={`/api/learning-tree/imports/${batch.id}/export`}>

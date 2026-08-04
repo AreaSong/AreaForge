@@ -8,9 +8,9 @@ import { listSubjects } from "@/lib/study/service";
 import { filterSyllabusTreeByQuery, getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/knowledge/syllabus");
+export const metadata = getRouteMetadata("/knowledge/syllabi");
 
-export default async function KnowledgeSyllabusPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; q?: string; status?: string; map?: string; action?: string; create?: string }> }) {
+export default async function KnowledgeSyllabiPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; q?: string; status?: string; map?: string; action?: string; create?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const query = await searchParams;

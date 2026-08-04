@@ -145,7 +145,7 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
       if (response.status === 404) {
         completeIdempotentCommand(commandScope);
         setError("这份复盘已不可用，草稿仍保留；正在返回复盘工作台。");
-        router.replace("/roadmap/reports/daily");
+        router.replace("/roadmap/reviews/daily");
         return;
       }
       if (response.status === 409 && isDailyReviewDto(body?.latest)) {
@@ -258,7 +258,7 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
                 required
               />
             </label>
-            <p className="mt-2 text-xs leading-5 text-zinc-400">保存后会进入计划收件箱，由你补全科目和预计时长，再转为正式任务。</p>
+            <p className="mt-2 text-xs leading-5 text-zinc-400">保存后会进入投入草稿，由你补全科目和预计时长，再转为正式任务。</p>
           </fieldset>
 
           <EditorActionBar

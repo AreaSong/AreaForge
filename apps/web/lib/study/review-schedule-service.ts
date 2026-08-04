@@ -246,7 +246,7 @@ export async function listBridgedReviewSchedules(actorId: string): Promise<Bridg
       id: task.id,
       title: task.title,
       status: task.status as "TODO" | "IN_PROGRESS" | "DEFERRED",
-      href: `/roadmap/arrangements/tasks/${task.id}`,
+      href: `/roadmap/allocation/tasks/${task.id}`,
     },
   })));
 }
@@ -281,7 +281,7 @@ function serializeQueueTarget(row: {
   syllabusNode: { id: string; title: string; kind: string; subject: { name: string } } | null;
 }): ReviewQueueTargetDto {
   if (row.targetType === "NOTE" && row.note) {
-    return { title: row.note.title, subtitle: `${row.note.subject.name} · 知识卡片`, canonicalHref: `/knowledge/notes/${row.note.id}` };
+    return { title: row.note.title, subtitle: `${row.note.subject.name} · 知识卡片`, canonicalHref: `/knowledge/cards/${row.note.id}` };
   }
   if (row.targetType === "MISTAKE" && row.mistake) {
     return { title: row.mistake.title, subtitle: `${row.mistake.subject.name} · 错题复测`, canonicalHref: `/knowledge/mistakes/${row.mistake.id}` };
@@ -290,7 +290,7 @@ function serializeQueueTarget(row: {
     return { title: row.studyResource.title, subtitle: `${row.studyResource.subject?.name ?? "未分科"} · 学习资料`, canonicalHref: `/knowledge/resources/${row.studyResource.id}` };
   }
   if (row.targetType === "SYLLABUS_NODE" && row.syllabusNode) {
-    return { title: row.syllabusNode.title, subtitle: `${row.syllabusNode.subject.name} · 考纲节点`, canonicalHref: `/knowledge/syllabus/${row.syllabusNode.id}` };
+    return { title: row.syllabusNode.title, subtitle: `${row.syllabusNode.subject.name} · 考纲节点`, canonicalHref: `/knowledge/syllabi/${row.syllabusNode.id}` };
   }
   return { title: "复习对象不可用", subtitle: "对象可能已归档或移除", canonicalHref: "/knowledge/reviews" };
 }

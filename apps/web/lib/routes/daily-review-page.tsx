@@ -11,7 +11,7 @@ import { getDailyReviewMinimumInboxItem } from "@/lib/study/plan-inbox-service";
 import { getTodayReview } from "@/lib/study/service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/roadmap/reports/daily");
+export const metadata = getRouteMetadata("/roadmap/reviews/daily");
 
 export default async function DailyReviewPage() {
   const user = await getCurrentUser();

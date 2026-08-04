@@ -95,9 +95,9 @@ export default async function StageOverviewPage({
               {draft.focusSubjects.length ? <p className="mt-2 text-sm text-zinc-500">重点科目：{draft.focusSubjects.join("、")}</p> : null}
             </div>
             <div className="border-t border-white/10 pt-4 text-xs leading-5 text-zinc-500 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-              <p>确认后更新当前阶段，并把任务调整写入计划收件箱。</p>
+              <p>确认后更新当前阶段，并把任务调整写入投入草稿。</p>
               <p className="mt-2">现有任务不会被直接修改，入箱草稿仍需逐项转为正式任务。</p>
-              <p className="mt-2">来源：{draft.sourceReportDecisionId ? `周期报告 ${draft.sourceReportDecisionId.slice(0, 8)}` : "当前工作区规则"}</p>
+              <p className="mt-2">来源：{draft.sourceReportDecisionId ? `周期复盘 ${draft.sourceReportDecisionId.slice(0, 8)}` : "当前工作区规则"}</p>
             </div>
           </div>
           <StageDraftActions draft={draft} />
@@ -126,7 +126,7 @@ export default async function StageOverviewPage({
         <nav className="grid divide-y divide-white/10 border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0" aria-label="阶段相关入口">
           <StageLink href="/test/simulations" label="模拟与失分" icon={<ClipboardList size={17} aria-hidden="true" />} />
           <StageLink href="/roadmap/stages/trend?window=7" label="学习趋势" icon={<BarChart3 size={17} aria-hidden="true" />} />
-          <StageLink href="/roadmap/reports" label="周期报告" icon={<FileChartColumn size={17} aria-hidden="true" />} />
+          <StageLink href="/roadmap/reviews" label="周期复盘" icon={<FileChartColumn size={17} aria-hidden="true" />} />
         </nav>
       </section>
     </PageFrame>
@@ -146,8 +146,8 @@ function LatestStageDecision({ result, returnTo }: { result: StageAdjustmentDeci
             {inbox ? ` · 入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}` : ""}
           </p>
         </div>
-        {result.status === "applied" && inbox && inbox.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="primary"><ClipboardList size={15} aria-hidden="true" />处理入箱草稿</ButtonLink> : null}
-        {result.status === "applied" && inbox && inbox.createdCount === 0 && inbox.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
+        {result.status === "applied" && inbox && inbox.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary"><ClipboardList size={15} aria-hidden="true" />处理入箱草稿</ButtonLink> : null}
+        {result.status === "applied" && inbox && inbox.createdCount === 0 && inbox.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看投入草稿</ButtonLink> : null}
       </div>
     </section>
   );

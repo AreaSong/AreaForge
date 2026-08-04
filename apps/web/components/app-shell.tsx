@@ -97,7 +97,8 @@ export function AppShell(props: {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
-  const immersive = pathname === "/focus" || pathname.endsWith("/run");
+  const immersive = pathname.endsWith("/run");
+  const suppressDistractions = immersive || pathname === "/focus";
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
   const secondaryNavigationItems = activeNavigationItem?.children ?? [];
@@ -241,7 +242,7 @@ export function AppShell(props: {
   }, [pathname]);
 
   useEffect(() => {
-    if (immersive || document.visibilityState !== "visible" || !("Notification" in window)) return;
+    if (suppressDistractions || document.visibilityState !== "visible" || !("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
     const shanghaiNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
     const categories = selectForegroundNotifications({
@@ -269,10 +270,10 @@ export function AppShell(props: {
       router.push(sanitizeForegroundNotificationRoute(payload.data.route));
       notification.close();
     };
-  }, [immersive, router, status]);
+  }, [suppressDistractions, router, status]);
 
   useEffect(() => {
-    if (immersive || !status.workspaceId) return;
+    if (suppressDistractions || !status.workspaceId) return;
     let cancelled = false;
     const cooldownKey = `af.motivation.auto.next.${status.workspaceId}`;
 
@@ -285,7 +286,7 @@ export function AppShell(props: {
         windowStart: preference.windowStart,
         windowEnd: preference.windowEnd,
         visible: document.visibilityState === "visible",
-        immersive,
+        immersive: suppressDistractions,
         hasActiveActivity: status.motivationReminderCandidate.blockedByActiveActivity,
         trigger: status.motivationReminderCandidate.trigger,
       });
@@ -339,7 +340,7 @@ export function AppShell(props: {
       window.removeEventListener(MOTIVATION_REMINDER_PREFERENCE_EVENT, onPreferenceChange);
       window.removeEventListener("storage", onStorage);
     };
-  }, [immersive, props.userId, status.motivationReminderCandidate, status.workspaceId]);
+  }, [suppressDistractions, props.userId, status.motivationReminderCandidate, status.workspaceId]);
 
   async function openMotivationHelp() {
     setRecoveryError(null);
@@ -406,10 +407,10 @@ export function AppShell(props: {
         跳到主要内容
       </a>
       <div className="flex h-full w-full">
-        <aside
+          <aside
           aria-label="一级导航"
           data-navigation-level="primary"
-          className={`hidden shrink-0 flex-col border-r border-white/10 bg-[var(--af-surface-subtle)] px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-16" : "w-56"}`}
+            className={`hidden shrink-0 flex-col border-r border-white/10 bg-[var(--af-surface-subtle)] px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-[60px]" : "w-[184px]"}`}
         >
           <div className={`mb-6 flex items-center text-teal-300 ${sidebarCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
             <div className="flex min-w-0 items-center gap-2">
@@ -552,7 +553,7 @@ export function AppShell(props: {
               <aside
                 aria-label={`${activeNavigationItem.label}二级导航`}
                 data-navigation-level="secondary"
-                className={`hidden min-h-0 shrink-0 flex-col border-r border-white/[0.07] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] lg:flex ${secondaryCollapsed ? "w-16 px-2" : "w-52 px-3"}`}
+                className={`hidden min-h-0 shrink-0 flex-col border-r border-white/[0.07] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] lg:flex ${secondaryCollapsed ? "w-[52px] px-1.5" : "w-[216px] px-3"}`}
               >
                 <div className={`mb-5 flex items-center ${secondaryCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
                   <div className={secondaryCollapsed ? "sr-only" : "min-w-0 border-l-2 border-teal-300/40 pl-2 text-xs font-medium text-zinc-500"}>
@@ -636,11 +637,10 @@ export function AppShell(props: {
       />
       <Drawer open={quickCreateOpen} title="快捷创建" onClose={() => setQuickCreateOpen(false)}>
         <nav className="grid gap-2" aria-label="创建对象">
-          <QuickCreateLink href="/roadmap/arrangements?createMinimum=1" label="任务" onSelect={() => setQuickCreateOpen(false)} icon={<CalendarCheck2 size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/notes?create=1" label="知识卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
+          <QuickCreateLink href="/knowledge/points?create=1" label="知识点" onSelect={() => setQuickCreateOpen(false)} icon={<Goal size={18} aria-hidden="true" />} />
+          <QuickCreateLink href="/knowledge/cards?create=1" label="知识卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/mistakes?create=1" label="错题" onSelect={() => setQuickCreateOpen(false)} icon={<TriangleAlert size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/resources?create=1" label="资料" onSelect={() => setQuickCreateOpen(false)} icon={<FilePlus2 size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/syllabus?create=1" label="考纲节点" onSelect={() => setQuickCreateOpen(false)} icon={<ListTree size={18} aria-hidden="true" />} />
         </nav>
       </Drawer>
       <Drawer open={lightOpen} title="今日状态" onClose={() => setLightOpen(false)}>
@@ -733,29 +733,30 @@ const PRIMARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
   "/focus": Timer,
   "/today": CalendarCheck2,
   "/knowledge": BookOpen,
-  "/test": FileCheck2,
+  "/test/retests": FileCheck2,
   "/roadmap": Route,
-  "/settings": Settings,
+  "/settings/exams": Settings,
 };
 
 const SECONDARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
   "/roadmap": Goal,
-  "/roadmap/arrangements": Inbox,
+  "/roadmap/allocation": Inbox,
   "/roadmap/stages": Milestone,
-  "/roadmap/reports": ChartSpline,
+  "/roadmap/reviews": ChartSpline,
   "/knowledge": LayoutDashboard,
   "/knowledge/points": ListTodo,
-  "/knowledge/syllabus": ListTree,
+  "/knowledge/syllabi": ListTree,
   "/knowledge/resources": FilePlus2,
-  "/knowledge/notes": NotebookPen,
+  "/knowledge/cards": NotebookPen,
   "/knowledge/mistakes": TriangleAlert,
   "/knowledge/reviews": ClipboardCheck,
   "/test/retests": Repeat2,
   "/test/simulations": ScrollText,
-  "/settings": BriefcaseBusiness,
+  "/settings/exams": BriefcaseBusiness,
   "/settings/profile": UserRound,
-  "/settings/preferences": SlidersHorizontal,
+  "/settings/learning": SlidersHorizontal,
   "/settings/ai": Sparkles,
+  "/settings/data": ListTree,
   "/settings/system": MonitorCog,
 };
 

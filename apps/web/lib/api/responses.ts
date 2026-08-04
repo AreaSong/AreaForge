@@ -45,22 +45,22 @@ export function apiErrorResponse(error: unknown): NextResponse {
 }
 
 function workbenchForError(code: string): string {
-  if (code.includes("PLAN_INBOX")) return "/roadmap/arrangements/drafts";
+  if (code.includes("PLAN_INBOX")) return "/roadmap/allocation/drafts";
   if (code.includes("TASK") || code.includes("SESSION") || code.includes("RECOVERY")) return "/today";
-  if (code.includes("REPORT")) return "/roadmap/reports";
+  if (code.includes("REPORT")) return "/roadmap/reviews";
   if (code.includes("SIMULATION")) return "/test/simulations";
   if (code.includes("STAGE") || code.includes("MILESTONE")) return "/roadmap/stages";
   if (code.includes("REVIEW_EVENT") || code.includes("REVIEW_SCHEDULE") || code.includes("REVIEW_TARGET")) {
     return "/knowledge/reviews";
   }
   if (code.includes("LEARNING_TREE") || code.includes("ROOT_NODE")) return "/knowledge/imports";
-  if (code.includes("SYLLABUS")) return "/knowledge/syllabus";
+  if (code.includes("SYLLABUS")) return "/knowledge/syllabi";
   if (code.includes("MISTAKE")) return "/knowledge/mistakes";
-  if (code.includes("NOTE")) return "/knowledge/notes";
+  if (code.includes("NOTE")) return "/knowledge/cards";
   if (code.includes("RESOURCE") || code.includes("ATTACHMENT")) return "/knowledge/resources";
   if (code.includes("CANVAS")) return "/knowledge/canvas";
   if (code.includes("MOTIVATION") || code.includes("VAULT")) return "/settings/profile";
-  if (code.includes("NOTIFICATION")) return "/settings/preferences";
-  if (code.includes("WORKSPACE") || code.includes("SUBJECT") || code.includes("GROUP")) return "/settings/workspace";
+  if (code.includes("NOTIFICATION")) return "/settings/learning";
+  if (code.includes("WORKSPACE") || code.includes("SUBJECT") || code.includes("GROUP")) return "/settings/exams";
   return "/today";
 }

@@ -638,7 +638,7 @@ async function canvasDesktopChecks(
     ],
   });
 
-  const detailPath = `/knowledge/syllabus/${fixture.syllabusNodeId}`;
+  const detailPath = `/knowledge/syllabi/${fixture.syllabusNodeId}`;
   const detailLink = list.locator(`a[href="${detailPath}"]`);
   await detailLink.waitFor();
   await detailLink.focus();
@@ -689,7 +689,7 @@ async function noteFocusCheck(
     tabIndex: document.activeElement instanceof HTMLElement ? document.activeElement.tabIndex : 0,
   }));
 
-  await page.goto(url(config, `/knowledge/syllabus/${fixture.syllabusNodeId}`), { waitUntil: "domcontentloaded" });
+  await page.goto(url(config, `/knowledge/syllabi/${fixture.syllabusNodeId}`), { waitUntil: "domcontentloaded" });
   const editButton = page.getByRole("button", { name: "编辑节点" });
   await editButton.focus();
   await page.keyboard.press("Enter");
@@ -772,7 +772,7 @@ async function reviewLiveChecks(
   config: BrowserEvidenceConfig,
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
-  await page.goto(url(config, "/roadmap/reports/daily"), { waitUntil: "domcontentloaded" });
+  await page.goto(url(config, "/roadmap/reviews/daily"), { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
   await page.getByLabel("今天实际推进了什么").fill("合成无障碍复盘");
   await page.getByLabel("明天应该继续做什么").fill("合成无障碍保留动作");
@@ -800,7 +800,7 @@ async function reviewLiveChecks(
   record(checks, {
     id: "LIVE-06",
     category: "live",
-    route: "/roadmap/reports/daily",
+    route: "/roadmap/reviews/daily",
     viewport: viewport("desktop"),
     mechanism: "dom",
     assertions: [
@@ -820,7 +820,7 @@ async function notificationFallbackLiveCheck(
   config: BrowserEvidenceConfig,
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
-  await page.goto(url(config, "/settings/preferences"), { waitUntil: "domcontentloaded" });
+  await page.goto(url(config, "/settings/learning"), { waitUntil: "domcontentloaded" });
   const response = await clickAndWaitForResponse(page, config, "/api/notifications/test", 200, () =>
     page.getByRole("button", { name: "测试通知" }).click());
   const status = page.getByRole("status").filter({ hasText: "已降级为应用内提示" });
@@ -828,7 +828,7 @@ async function notificationFallbackLiveCheck(
   record(checks, {
     id: "LIVE-04",
     category: "live",
-    route: "/settings/preferences",
+    route: "/settings/learning",
     viewport: viewport("desktop"),
     mechanism: "dom",
     assertions: [
@@ -862,10 +862,10 @@ async function runNativeZoomCheck(
   const authenticatedRoutes = [
     { journey: "dashboard", path: "/today" },
     { journey: "timer-closeout", path: "/focus" },
-    { journey: "review", path: "/roadmap/reports/daily" },
+    { journey: "review", path: "/roadmap/reviews/daily" },
     { journey: "notes", path: "/knowledge/notes" },
-    { journey: "syllabus", path: "/knowledge/syllabus" },
-    { journey: "reports", path: "/roadmap/reports?tab=current&period=week" },
+    { journey: "syllabus", path: "/knowledge/syllabi" },
+    { journey: "reports", path: "/roadmap/reviews?tab=current&period=week" },
     { journey: "simulation", path: "/test/simulations" },
     { journey: "update-center", path: "/settings/system" },
   ] as const;
@@ -959,7 +959,7 @@ async function runMobileChecks(
     await page.keyboard.press("Enter");
     const list = page.getByRole("list", { name: "画布等价列表" });
     await list.waitFor();
-    const detailPath = `/knowledge/syllabus/${input.fixture.syllabusNodeId}`;
+    const detailPath = `/knowledge/syllabi/${input.fixture.syllabusNodeId}`;
     const open = list.locator(`a[href="${detailPath}"]`);
     const linkCount = await list.getByRole("link", { name: "打开" }).count();
     await open.waitFor();

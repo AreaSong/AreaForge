@@ -79,7 +79,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         severe: false,
         recoveryBlocked: false,
         arrangedComplete: false,
-        debtHref: "/roadmap/arrangements",
+        debtHref: "/roadmap/allocation",
       },
       stage: {
         hasStage: false,
@@ -94,7 +94,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         minimumActionDone: false,
         dailyReviewDone: false,
         minimumActionHref: "/today",
-        reviewHref: "/roadmap/reports/daily",
+        reviewHref: "/roadmap/reviews/daily",
       },
     });
     return serializeStatus(empty, {
@@ -258,7 +258,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       severe: severeDebt > 0,
       recoveryBlocked: false,
       arrangedComplete: debtTasks.length === 0,
-        debtHref: "/roadmap/arrangements",
+        debtHref: "/roadmap/allocation",
     },
     stage: {
       hasStage: Boolean(stagePlan) || Boolean(workspace.stageSummary),
@@ -273,7 +273,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       minimumActionDone: todayCheckIn?.completedMinimumAction ?? false,
       dailyReviewDone: Boolean(dailyReview?.summary),
       minimumActionHref: "/today",
-      reviewHref: "/roadmap/reports/daily",
+      reviewHref: "/roadmap/reviews/daily",
     },
   });
 

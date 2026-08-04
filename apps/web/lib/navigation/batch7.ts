@@ -7,9 +7,9 @@ export interface AppNavigationItem {
 
 const ROADMAP_NAV_ITEMS: readonly AppNavigationItem[] = [
   { href: "/roadmap", label: "路线总览", match: (path: string) => path === "/roadmap" },
-  { href: "/roadmap/arrangements", label: "学习安排", match: (path: string) => path.startsWith("/roadmap/arrangements") },
+  { href: "/roadmap/allocation", label: "投入安排", match: (path: string) => path.startsWith("/roadmap/allocation") },
   { href: "/roadmap/stages", label: "阶段", match: (path: string) => path.startsWith("/roadmap/stages") },
-  { href: "/roadmap/reports", label: "周期复盘", match: (path: string) => path.startsWith("/roadmap/reports") },
+  { href: "/roadmap/reviews", label: "周期复盘", match: (path: string) => path.startsWith("/roadmap/reviews") },
 ] as const;
 
 const TEST_NAV_ITEMS: readonly AppNavigationItem[] = [
@@ -20,19 +20,20 @@ const TEST_NAV_ITEMS: readonly AppNavigationItem[] = [
 export const KNOWLEDGE_TAB_ITEMS = [
   { href: "/knowledge", label: "概览" },
   { href: "/knowledge/points", label: "知识点" },
-  { href: "/knowledge/syllabus", label: "考纲" },
+  { href: "/knowledge/syllabi", label: "考纲" },
   { href: "/knowledge/resources", label: "学习资料" },
-  { href: "/knowledge/notes", label: "笔记" },
+  { href: "/knowledge/cards", label: "知识卡片" },
   { href: "/knowledge/mistakes", label: "错题" },
-  { href: "/knowledge/reviews", label: "到期复习" },
+  { href: "/knowledge/reviews", label: "复习" },
 ] as const;
 
 export const SETTINGS_TAB_ITEMS = [
-  { href: "/settings/workspace", label: "工作区" },
-  { href: "/settings/profile", label: "档案与动机" },
-  { href: "/settings/preferences", label: "偏好" },
-  { href: "/settings/ai", label: "AI" },
-  { href: "/settings/system", label: "系统" },
+  { href: "/settings/exams", label: "考试与科目" },
+  { href: "/settings/profile", label: "个人与恢复" },
+  { href: "/settings/learning", label: "学习与提醒" },
+  { href: "/settings/ai", label: "AI 与隐私" },
+  { href: "/settings/data", label: "数据与安全" },
+  { href: "/settings/system", label: "系统与更新" },
 ] as const;
 
 export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
@@ -56,9 +57,9 @@ export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
     })),
   },
   {
-    href: "/test",
+    href: "/test/retests",
     label: "检验",
-    match: (path: string) => path === "/test" || TEST_NAV_ITEMS.some((item) => item.match(path)),
+    match: (path: string) => TEST_NAV_ITEMS.some((item) => item.match(path)),
     children: TEST_NAV_ITEMS,
   },
   {
@@ -68,7 +69,7 @@ export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
     children: ROADMAP_NAV_ITEMS,
   },
   {
-    href: "/settings",
+    href: "/settings/exams",
     label: "设置",
     match: (path: string) => path === "/settings" || path.startsWith("/settings/"),
     children: SETTINGS_TAB_ITEMS.map((item) => ({ ...item, match: (path: string) => path === item.href || path.startsWith(`${item.href}/`) })),
@@ -77,8 +78,8 @@ export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
 
 export const BATCH8_NAV_ITEMS = BATCH10_NAV_ITEMS;
 
-export const PRIMARY_WORKBENCH_ITEMS = BATCH10_NAV_ITEMS.filter((item) => item.href !== "/settings");
-export const UTILITY_NAV_ITEM = BATCH10_NAV_ITEMS.find((item) => item.href === "/settings")!;
+export const PRIMARY_WORKBENCH_ITEMS = BATCH10_NAV_ITEMS.filter((item) => item.label !== "设置");
+export const UTILITY_NAV_ITEM = BATCH10_NAV_ITEMS.find((item) => item.label === "设置")!;
 
 /** @deprecated Use BATCH8_NAV_ITEMS */
 export const BATCH7_NAV_ITEMS = BATCH8_NAV_ITEMS;
@@ -96,16 +97,15 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/today$/, title: "今日行动中心", returnQueryKeys: ["date"] },
   { pattern: /^\/focus$/, title: "开始学习" },
   { pattern: /^\/roadmap$/, title: "路线总览" },
-  { pattern: /^\/roadmap\/arrangements$/, title: "学习安排", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum", "resourceId", "syllabusNodeId", "taskId"] },
-  { pattern: /^\/roadmap\/arrangements\/drafts$/, title: "计划收件箱", returnQueryKeys: ["status", "stableRef", "returnTo"] },
-  { pattern: /^\/roadmap\/arrangements\/drafts\/[^/]+$/, title: "学习安排草稿详情", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/roadmap\/arrangements\/tasks\/[^/]+$/, title: "任务详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/roadmap\/allocation$/, title: "投入安排", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum", "resourceId", "syllabusNodeId", "taskId"] },
+  { pattern: /^\/roadmap\/allocation\/drafts$/, title: "投入草稿", returnQueryKeys: ["status", "stableRef", "returnTo"] },
+  { pattern: /^\/roadmap\/allocation\/drafts\/[^/]+$/, title: "投入草稿详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/roadmap\/allocation\/tasks\/[^/]+$/, title: "行动详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/roadmap\/stages$/, title: "阶段", returnQueryKeys: ["createMilestone", "returnTo"] },
   { pattern: /^\/roadmap\/stages\/trend$/, title: "阶段趋势", returnQueryKeys: ["window", "returnTo"] },
-  { pattern: /^\/roadmap\/reports$/, title: "周期复盘", returnQueryKeys: ["tab", "period"] },
-  { pattern: /^\/roadmap\/reports\/daily$/, title: "每日复盘" },
-  { pattern: /^\/roadmap\/reports\/history\/[^/]+$/, title: "冻结报告", returnQueryKeys: ["period"] },
-  { pattern: /^\/test$/, title: "检验中心" },
+  { pattern: /^\/roadmap\/reviews$/, title: "周期复盘", returnQueryKeys: ["tab", "period"] },
+  { pattern: /^\/roadmap\/reviews\/daily$/, title: "每日复盘" },
+  { pattern: /^\/roadmap\/reviews\/history\/[^/]+$/, title: "冻结报告", returnQueryKeys: ["period"] },
   { pattern: /^\/test\/retests$/, title: "专项复测" },
   { pattern: /^\/test\/retests\/new$/, title: "安排专项复测" },
   { pattern: /^\/test\/retests\/[^/]+$/, title: "专项复测详情", returnQueryKeys: ["returnTo"] },
@@ -121,23 +121,24 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/knowledge\/canvas$/, title: "关联画布", returnQueryKeys: ["workspaceId", "subjectId", "syllabusNodeId", "focus", "q"] },
   { pattern: /^\/knowledge\/imports$/, title: "学习树导入", returnQueryKeys: ["mode"] },
   { pattern: /^\/knowledge\/imports\/[^/]+$/, title: "导入批次", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/knowledge\/syllabus$/, title: "考纲", returnQueryKeys: ["subjectId", "q", "status", "map", "action"] },
-  { pattern: /^\/knowledge\/syllabus\/[^/]+$/, title: "考纲节点详情", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/knowledge\/notes$/, title: "知识卡片", returnQueryKeys: ["subjectId", "syllabusNodeId", "taskId", "q", "mastery", "review"] },
-  { pattern: /^\/knowledge\/notes\/[^/]+$/, title: "知识卡片详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/knowledge\/syllabi$/, title: "考纲", returnQueryKeys: ["subjectId", "q", "status", "map", "action"] },
+  { pattern: /^\/knowledge\/syllabi\/[^/]+$/, title: "考纲节点详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/knowledge\/cards$/, title: "知识卡片", returnQueryKeys: ["subjectId", "syllabusNodeId", "taskId", "q", "mastery", "review"] },
+  { pattern: /^\/knowledge\/cards\/[^/]+$/, title: "知识卡片详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/mistakes$/, title: "错题", returnQueryKeys: ["subjectId", "syllabusNodeId", "q", "cause", "review"] },
   { pattern: /^\/knowledge\/mistakes\/[^/]+$/, title: "错题详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/resources$/, title: "资料", returnQueryKeys: ["subjectId", "q", "create"] },
   { pattern: /^\/knowledge\/resources\/[^/]+\/preview$/, title: "资料预览", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/resources\/[^/]+$/, title: "资料详情", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/knowledge\/reviews$/, title: "统一复习", returnQueryKeys: ["status", "q"] },
+  { pattern: /^\/knowledge\/reviews$/, title: "复习", returnQueryKeys: ["status", "q"] },
   { pattern: /^\/knowledge\/reviews\/[^/]+$/, title: "复习排期详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/settings$/, title: "设置" },
-  { pattern: /^\/settings\/workspace$/, title: "工作区设置", returnQueryKeys: ["setup"] },
-  { pattern: /^\/settings\/profile$/, title: "个人档案与动机" },
-  { pattern: /^\/settings\/preferences$/, title: "偏好设置" },
-  { pattern: /^\/settings\/ai$/, title: "AI 设置" },
-  { pattern: /^\/settings\/system$/, title: "系统设置" },
+  { pattern: /^\/settings\/exams$/, title: "考试与科目", returnQueryKeys: ["setup"] },
+  { pattern: /^\/settings\/profile$/, title: "个人与恢复" },
+  { pattern: /^\/settings\/learning$/, title: "学习与提醒" },
+  { pattern: /^\/settings\/ai$/, title: "AI 与隐私" },
+  { pattern: /^\/settings\/data$/, title: "数据与安全" },
+  { pattern: /^\/settings\/system$/, title: "系统与更新" },
 ] as const;
 
 export function getRouteTitle(pathname: string): string {
@@ -152,19 +153,18 @@ export function getRouteTitle(pathname: string): string {
  */
 export function isContentDetailPath(pathname: string): boolean {
   return [
-    /^\/roadmap\/arrangements\/drafts\/[^/]+$/,
-    /^\/roadmap\/arrangements\/tasks\/[^/]+$/,
-    /^\/roadmap\/reports\/[^/]+$/,
-    /^\/roadmap\/reports\/history\/[^/]+$/,
+    /^\/roadmap\/allocation\/drafts\/[^/]+$/,
+    /^\/roadmap\/allocation\/tasks\/[^/]+$/,
+    /^\/roadmap\/reviews\/[^/]+$/,
+    /^\/roadmap\/reviews\/history\/[^/]+$/,
     /^\/knowledge\/points\/[^/]+$/,
-    /^\/knowledge\/syllabus\/[^/]+$/,
+    /^\/knowledge\/syllabi\/[^/]+$/,
     /^\/knowledge\/resources\/[^/]+(?:\/preview)?$/,
-    /^\/knowledge\/notes\/[^/]+$/,
+    /^\/knowledge\/cards\/[^/]+$/,
     /^\/knowledge\/mistakes\/[^/]+$/,
     /^\/knowledge\/reviews\/[^/]+$/,
     /^\/knowledge\/reviews\/[^/]+\/run$/,
     /^\/knowledge\/imports\/[^/]+$/,
-    /^\/test\/retests\/new$/,
     /^\/test\/retests\/[^/]+$/,
     /^\/test\/simulations\/[^/]+$/,
     // `/confirmations/history` is the confirmation center's secondary view,
@@ -177,13 +177,14 @@ export function isContentDetailPath(pathname: string): boolean {
 export function isWorkbenchHomePath(pathname: string): boolean {
   return pathname === "/today"
     || pathname === "/roadmap"
-    || pathname === "/roadmap/arrangements"
+    || pathname === "/roadmap/allocation"
     || pathname === "/roadmap/stages"
-    || pathname === "/roadmap/reports"
+    || pathname === "/roadmap/reviews"
     || pathname === "/knowledge"
-    || pathname === "/test"
+    || pathname === "/test/retests"
     || pathname === "/confirmations"
-    || pathname === "/settings";
+    || pathname === "/settings"
+    || pathname === "/settings/exams";
 }
 
 /**
@@ -199,7 +200,7 @@ export function getNavigationTrail(pathname: string): Array<{ href: string; labe
     return trail;
   }
   const primary = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
-  if (!primary) return [{ href: "/focus", label: "开始学习" }, { href: pathname, label: getRouteTitle(pathname) }];
+  if (!primary) return [{ href: pathname, label: getRouteTitle(pathname) }];
 
   const trail: Array<{ href: string; label: string }> = [{ href: primary.href, label: primary.label }];
   const secondary = primary.children?.find((item) => item.match(pathname));
@@ -269,7 +270,7 @@ export function isBatch8OpenPath(pathname: string): boolean {
     pathname === "/focus" ||
     pathname === "/roadmap" ||
     pathname.startsWith("/roadmap/") ||
-    pathname === "/test" ||
+    pathname === "/test/retests" ||
     pathname.startsWith("/test/") ||
     pathname === "/confirmations" ||
     pathname.startsWith("/confirmations/") ||

@@ -172,7 +172,7 @@ export function NoteDetailClient(props: {
         return;
       }
       if (response.status === 404) {
-        router.replace("/knowledge/notes");
+        router.replace("/knowledge/cards");
         return;
       }
       if (!response.ok) {
@@ -217,7 +217,7 @@ export function NoteDetailClient(props: {
         return;
       }
       if (response.status === 404) {
-        router.replace("/knowledge/notes");
+        router.replace("/knowledge/cards");
         return;
       }
       if (!response.ok) {
@@ -323,8 +323,8 @@ export function NoteDetailClient(props: {
     note.reviewSchedule.status === "PAUSED" && note.reviewSchedule.pausedReason === "TARGET_ARCHIVED"
   );
   const objectHref = props.returnTo
-    ? withReturnTo(`/knowledge/notes/${note.id}`, props.returnTo)
-    : `/knowledge/notes/${note.id}`;
+    ? withReturnTo(`/knowledge/cards/${note.id}`, props.returnTo)
+    : `/knowledge/cards/${note.id}`;
   const scheduleHref = note.reviewSchedule
     ? `/knowledge/reviews/${note.reviewSchedule.id}?returnTo=${encodeURIComponent(objectHref)}`
     : null;
@@ -333,7 +333,7 @@ export function NoteDetailClient(props: {
   return (
     <article className="space-y-6" aria-busy={Boolean(pending)}>
       <KnowledgeObjectDetailHeader
-        fallbackHref="/knowledge/notes"
+        fallbackHref="/knowledge/cards"
         fallbackLabel="返回卡片列表"
         returnTo={props.returnTo}
         eyebrow={`${kindLabel(note.kind)} · ${note.subjectName} · r${note.revision}`}
@@ -442,18 +442,18 @@ export function NoteDetailClient(props: {
               {note.syllabusNodeId
                 ? props.readOnly
                   ? note.syllabusNodeTitle
-                  : <Link className="text-teal-300 hover:underline" href={`/knowledge/syllabus/${note.syllabusNodeId}`}>{note.syllabusNodeTitle}</Link>
+                  : <Link className="text-teal-300 hover:underline" href={`/knowledge/syllabi/${note.syllabusNodeId}`}>{note.syllabusNodeTitle}</Link>
                 : "未关联"}
             </RelationRow>
             <RelationRow label="相关考纲">
               {note.relatedSyllabusNodes.length > 0 ? note.relatedSyllabusNodes.map((node) => (
                 props.readOnly
                   ? <span key={node.id} className="mr-3 inline-block">{node.title}{node.archivedAt ? "（已归档）" : ""}</span>
-                  : <Link key={node.id} className="mr-3 inline-block text-teal-300 hover:underline" href={`/knowledge/syllabus/${node.id}`}>{node.title}{node.archivedAt ? "（已归档）" : ""}</Link>
+                  : <Link key={node.id} className="mr-3 inline-block text-teal-300 hover:underline" href={`/knowledge/syllabi/${node.id}`}>{node.title}{node.archivedAt ? "（已归档）" : ""}</Link>
               )) : "未关联"}
             </RelationRow>
             <RelationRow label="任务">
-              {note.taskId ? <Link className="text-teal-300 hover:underline" href={`/roadmap/arrangements/tasks/${note.taskId}`}>{note.taskTitle}</Link> : "未关联"}
+              {note.taskId ? <Link className="text-teal-300 hover:underline" href={`/roadmap/allocation/tasks/${note.taskId}`}>{note.taskTitle}</Link> : "未关联"}
             </RelationRow>
             <RelationRow label="资料">
               {note.linkedResources.length > 0 ? note.linkedResources.map((resource) => (

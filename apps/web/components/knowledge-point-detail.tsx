@@ -65,7 +65,7 @@ function RelationSection(props: { title: string; empty: string; children: React.
 }
 
 function countLabel(key: string): string {
-  return ({ syllabusLinks: "考纲关联", stageTargets: "阶段目标", arrangements: "学习安排", sessions: "学习记录", retests: "复测次数", evidence: "掌握证据" } as Record<string, string>)[key] ?? key;
+  return ({ syllabusLinks: "考纲关联", stageTargets: "阶段目标", arrangements: "投入安排", sessions: "学习记录", retests: "复测次数", evidence: "掌握证据" } as Record<string, string>)[key] ?? key;
 }
 
 function formatDate(value: string): string {

@@ -174,7 +174,7 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
   ]);
 
   if (!task?.subject.workspace) {
-    throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/arrangements" });
+    throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/allocation" });
   }
 
   return {
@@ -235,7 +235,7 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
 export async function getTaskUpdateSnapshot(actorId: string, taskId: string): Promise<TaskUpdateSnapshotDto> {
   const workspace = await resolveActiveWorkspace(actorId);
   const snapshot = await loadTaskUpdateSnapshotForWorkspace(prisma, workspace.id, taskId);
-  if (!snapshot) throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/arrangements" });
+  if (!snapshot) throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/allocation" });
   return snapshot;
 }
 

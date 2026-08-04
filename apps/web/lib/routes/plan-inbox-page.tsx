@@ -7,7 +7,7 @@ import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/naviga
 import { listPlanInboxItems, matchesPlanInboxStableRef } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/roadmap/arrangements/drafts");
+export const metadata = getRouteMetadata("/roadmap/allocation/drafts");
 
 export default async function TodayInboxPage({ searchParams }: { searchParams: Promise<{ status?: string; stableRef?: string; returnTo?: string }> }) {
   const user = await getCurrentUser();
@@ -17,7 +17,7 @@ export default async function TodayInboxPage({ searchParams }: { searchParams: P
     return (
       <section className="space-y-3">
         <h1 className="text-2xl font-semibold text-white">收件箱</h1>
-        <Link href="/settings/workspace?setup=1" className="text-teal-300 hover:underline">
+        <Link href="/settings/exams?setup=1" className="text-teal-300 hover:underline">
           先设置考试目标
         </Link>
       </section>
@@ -48,6 +48,6 @@ function buildPlanInboxHref(input: {
   const params = new URLSearchParams();
   if (input.includeStatus) params.set("status", input.status);
   if (input.stableRef) params.set("stableRef", input.stableRef);
-  const href = `/roadmap/arrangements/drafts${params.size ? `?${params.toString()}` : ""}`;
+  const href = `/roadmap/allocation/drafts${params.size ? `?${params.toString()}` : ""}`;
   return input.sourceReturnTo ? withReturnTo(href, input.sourceReturnTo) : href;
 }

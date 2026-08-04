@@ -33,7 +33,7 @@ import {
 
 type PlanInboxRow = Prisma.PlanInboxItemGetPayload<{ include: { dependencyRefs: true } }>;
 
-const planInboxWorkbench = "/roadmap/arrangements/drafts";
+const planInboxWorkbench = "/roadmap/allocation/drafts";
 
 export interface PlanInboxWriteResult {
   item: PlanInboxItemDto;

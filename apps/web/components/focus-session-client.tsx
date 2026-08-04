@@ -148,6 +148,7 @@ export function FocusSessionClient(props: {
   initialEvidenceReceipts: FocusEvidenceReceipt[];
   contextOptions: FocusContextOptions;
   offlineOnly?: boolean;
+  embeddedInWorkbench?: boolean;
 }) {
   const router = useRouter();
   const [session, setSession] = useState(props.session);
@@ -249,7 +250,6 @@ export function FocusSessionClient(props: {
             setFocusEvidenceFlowOpen(props.userId, session.id, false);
           }
           queuedOfflineRef.current = false;
-          router.replace("/focus");
         }
       }
     };
@@ -697,8 +697,10 @@ export function FocusSessionClient(props: {
   }
 
   return (
-    <section className="min-h-screen w-full bg-[var(--af-canvas)]">
-      <FocusHeader userId={props.userId} returnTo={props.returnTo} status={session.status} phaseLabel={phaseLabel(phase)} />
+    <section className={`${props.embeddedInWorkbench ? "h-full min-h-0" : "min-h-screen"} w-full bg-[var(--af-canvas)]`}>
+      {!props.embeddedInWorkbench ? (
+        <FocusHeader userId={props.userId} returnTo={props.returnTo} status={session.status} phaseLabel={phaseLabel(phase)} />
+      ) : null}
       {syncState !== "current" ? (
         <div className="border-b border-amber-400/20 bg-amber-400/5 px-4 py-2 text-center text-xs text-amber-100" role="status">
           {syncState === "offline"
@@ -729,6 +731,7 @@ export function FocusSessionClient(props: {
           onPause={() => void pause()}
           onResume={() => void resume()}
           onEnd={() => void beginCloseout()}
+          embeddedInWorkbench={props.embeddedInWorkbench}
         />
       ) : null}
       {phase === "closeout" ? (

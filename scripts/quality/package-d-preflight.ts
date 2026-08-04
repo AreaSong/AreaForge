@@ -379,7 +379,7 @@ function checkD4ImplementationIfDone(): void {
   const riskService = readIfExists("apps/web/lib/study/long-term-risk-service.ts");
   const riskRoute = readIfExists("apps/web/app/api/analytics/long-term-risks/route.ts");
   const syllabusPage = readExistingFiles([
-    "apps/web/app/(app)/knowledge/syllabus/page.tsx",
+    "apps/web/app/(app)/knowledge/syllabi/page.tsx",
     "apps/web/components/syllabus-manager.tsx",
     "apps/web/components/syllabus-panel.tsx",
   ]);

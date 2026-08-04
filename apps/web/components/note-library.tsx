@@ -260,7 +260,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
     setTaskId("");
     setNextReviewAt("");
     setCreateOpen(false);
-    startTransition(() => router.push(withReturnTo(`/knowledge/notes/${createdNote.id}`, currentListHref)));
+    startTransition(() => router.push(withReturnTo(`/knowledge/cards/${createdNote.id}`, currentListHref)));
   }
 
   async function uploadAttachment(noteId: string, file: File | undefined) {
@@ -497,7 +497,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
                   <p className="mt-1 text-xs text-zinc-500">{note.syllabusNodeTitle ?? "未关联考纲"}</p>
                 </div>
                 <ListDetailLink
-                  href={`/knowledge/notes/${note.id}`}
+                  href={`/knowledge/cards/${note.id}`}
                   focusId={`note-${note.id}`}
                   className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05]"
                 >
@@ -686,5 +686,5 @@ function buildNoteListHref(input: {
   if (input.node !== "all") params.set("syllabusNodeId", input.node);
   if (input.mastery !== "all") params.set("mastery", input.mastery);
   if (input.review !== "all") params.set("review", input.review);
-  return `/knowledge/notes${params.size ? `?${params}` : ""}`;
+  return `/knowledge/cards${params.size ? `?${params}` : ""}`;
 }

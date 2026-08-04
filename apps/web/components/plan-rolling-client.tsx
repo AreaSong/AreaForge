@@ -78,7 +78,7 @@ export function PlanRollingClient(props: {
     for (const [key, value] of Object.entries(props.query)) {
       if (value) params.set(key, value);
     }
-    return `/roadmap/arrangements${params.size ? `?${params.toString()}` : ""}`;
+    return `/roadmap/allocation${params.size ? `?${params.toString()}` : ""}`;
   }, [props.query]);
   const draftKey = `areaforge.task.draft.create.${selectedDate ?? "undated"}.${props.sourceResource?.id ?? props.query.syllabusNodeId ?? (props.createMinimum ? "minimum" : "direct")}`;
   useRestoreListReturn();
@@ -130,7 +130,7 @@ export function PlanRollingClient(props: {
     for (const [key, value] of Object.entries(merged)) {
       if (value) params.set(key, value);
     }
-    startTransition(() => router.push(`/roadmap/arrangements?${params.toString()}`));
+    startTransition(() => router.push(`/roadmap/allocation?${params.toString()}`));
   }
 
   function toggleStagePlan(stagePlanId: string) {
@@ -191,7 +191,7 @@ export function PlanRollingClient(props: {
       setKnowledgePointIds([]);
       setPlanMilestoneId("");
       setCreateOpen(false);
-      startTransition(() => router.push(withReturnTo(`/roadmap/arrangements/tasks/${createdTaskId}`, currentPlanHref)));
+      startTransition(() => router.push(withReturnTo(`/roadmap/allocation/tasks/${createdTaskId}`, currentPlanHref)));
     } catch {
       setError("网络不可用，任务输入仍保留；恢复网络后请显式重试。");
     } finally {
@@ -202,14 +202,14 @@ export function PlanRollingClient(props: {
   return (
     <PageFrame variant="dashboard-wide" className="space-y-5">
       <PageHeader
-        title="计划"
+        title="投入安排"
         eyebrow="长期计划"
         description="把长期目标落到当前执行窗口，处理欠账与待确认计划"
         action={(
           <div className="flex items-center gap-2">
             <Link href={props.initial.inboxEntryPath} className={buttonClassName({ variant: "secondary" })}>
               <Inbox className="h-4 w-4" aria-hidden="true" />
-              计划草稿 {props.initial.openInboxCount}
+              投入草稿 {props.initial.openInboxCount}
             </Link>
             <button type="button" className={buttonClassName({ variant: "primary" })} onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" aria-hidden="true" />
@@ -284,7 +284,7 @@ export function PlanRollingClient(props: {
               tasks={selectedDayTasks}
               detailTaskId={props.detailTaskId}
               desktopHref={desktopTaskHref}
-              mobileHref={(taskId) => withReturnTo(`/roadmap/arrangements/tasks/${taskId}`, currentPlanHref)}
+              mobileHref={(taskId) => withReturnTo(`/roadmap/allocation/tasks/${taskId}`, currentPlanHref)}
             />
           ) : (
             <>
@@ -300,7 +300,7 @@ export function PlanRollingClient(props: {
                         {day.tasks.map((task) => (
                           <li key={task.id} className="rounded-md border border-white/5 bg-black/10 p-2">
                             <ListDetailLink
-                              href={withReturnTo(`/roadmap/arrangements/tasks/${task.id}`, currentPlanHref)}
+                              href={withReturnTo(`/roadmap/allocation/tasks/${task.id}`, currentPlanHref)}
                               desktopHref={desktopTaskHref(task.id)}
                               focusId={`plan-task-desktop-${day.date}-${task.id}`}
                               className="block break-words text-sm text-white hover:text-teal-300"
@@ -321,7 +321,7 @@ export function PlanRollingClient(props: {
                   tasks={selectedDayTasks}
                   detailTaskId={props.detailTaskId}
                   desktopHref={desktopTaskHref}
-                  mobileHref={(taskId) => withReturnTo(`/roadmap/arrangements/tasks/${taskId}`, currentPlanHref)}
+                  mobileHref={(taskId) => withReturnTo(`/roadmap/allocation/tasks/${taskId}`, currentPlanHref)}
                   onCreate={() => setCreateOpen(true)}
                 />
               </div>
@@ -338,7 +338,7 @@ export function PlanRollingClient(props: {
                 {props.initial.debt.map((task) => (
                   <li key={task.id} className="py-2 first:pt-0 last:pb-0">
                     <ListDetailLink
-                      href={withReturnTo(`/roadmap/arrangements/tasks/${task.id}`, currentPlanHref)}
+                      href={withReturnTo(`/roadmap/allocation/tasks/${task.id}`, currentPlanHref)}
                       desktopHref={desktopTaskHref(task.id)}
                       focusId={`plan-debt-${task.id}`}
                       className="block text-sm text-white hover:text-teal-300"
@@ -492,7 +492,7 @@ export function PlanRollingClient(props: {
     for (const [key, value] of Object.entries(merged)) {
       if (value) params.set(key, value);
     }
-    return `/roadmap/arrangements?${params.toString()}`;
+    return `/roadmap/allocation?${params.toString()}`;
   }
 }
 

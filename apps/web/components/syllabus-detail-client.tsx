@@ -48,8 +48,8 @@ export function SyllabusDetailClient(props: {
     && Boolean(props.schedule.dueDate)
     && Date.parse(props.schedule.dueDate as string) <= Date.parse(props.renderedAt);
   const objectHref = props.returnTo
-    ? withReturnTo(`/knowledge/syllabus/${props.node.id}`, props.returnTo)
-    : `/knowledge/syllabus/${props.node.id}`;
+    ? withReturnTo(`/knowledge/syllabi/${props.node.id}`, props.returnTo)
+    : `/knowledge/syllabi/${props.node.id}`;
 
   useEffect(() => {
     if (editing || !restoreEditFocusRef.current) return;
@@ -76,7 +76,7 @@ export function SyllabusDetailClient(props: {
         return;
       }
       if (response.status === 404) {
-        router.replace("/knowledge/syllabus");
+        router.replace("/knowledge/syllabi");
         return;
       }
       if (!response.ok) {
@@ -143,7 +143,7 @@ export function SyllabusDetailClient(props: {
   return (
     <article className="space-y-6" aria-busy={Boolean(pending)}>
       <KnowledgeObjectDetailHeader
-        fallbackHref="/knowledge/syllabus"
+        fallbackHref="/knowledge/syllabi"
         fallbackLabel="返回考纲树"
         returnTo={props.returnTo}
         eyebrow={`${props.node.subjectName} · ${kindLabel(props.node.kind)} · r${props.node.revision}`}
@@ -295,7 +295,7 @@ function NextAction(props: {
   reviewDue: boolean;
   returnHref: string;
 }) {
-  const taskHref = `/roadmap/arrangements?createMinimum=1&subjectId=${encodeURIComponent(props.node.subjectId)}&syllabusNodeId=${encodeURIComponent(props.node.id)}`;
+  const taskHref = `/roadmap/allocation?createMinimum=1&subjectId=${encodeURIComponent(props.node.subjectId)}&syllabusNodeId=${encodeURIComponent(props.node.id)}`;
   const scheduleHref = props.schedule
     ? `/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`
     : null;

@@ -893,7 +893,7 @@ function checkPackageDCompletedBatchEvidence(
     const riskService = readIfExists("apps/web/lib/study/long-term-risk-service.ts");
     const riskRoutePath = "apps/web/app/api/analytics/long-term-risks/route.ts";
     const riskRoute = readIfExists(riskRoutePath);
-    const syllabusSurface = readIfExists("apps/web/app/(app)/knowledge/syllabus/page.tsx")
+    const syllabusSurface = readIfExists("apps/web/app/(app)/knowledge/syllabi/page.tsx")
       + readIfExists("apps/web/components/syllabus-panel.tsx")
       + readIfExists("apps/web/components/syllabus-manager.tsx");
     const notesSurface = readIfExists("apps/web/app/(app)/knowledge/notes/page.tsx")

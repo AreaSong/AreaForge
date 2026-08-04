@@ -120,7 +120,7 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       title: `${report.kind === "week" ? "周" : "月"}期报告：${report.weakness.title}`,
       summary: report.strategy.mustPressIssue,
       href: confirmationHref(confirmationId),
-      sourceHref: `/roadmap/reports?period=${report.kind}`,
+      sourceHref: `/roadmap/reviews?period=${report.kind}`,
       sourceLabel: "周期报告",
       createdAt: report.range.end,
       action: {
@@ -293,8 +293,8 @@ function aiEndpointLabel(endpoint: string): string {
 function aiEndpointHref(endpoint: string): string {
   return ({
     "learning-tree": "/knowledge/imports",
-    "knowledge-card": "/knowledge/notes",
-    plan: "/roadmap/arrangements",
+    "knowledge-card": "/knowledge/cards",
+    plan: "/roadmap/allocation",
     motivation: "/settings/profile",
   } as Record<string, string>)[endpoint] ?? "/confirmations";
 }

@@ -284,7 +284,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && body?.workbench === "/knowledge/syllabus") router.replace(body.workbench);
+        else if (response.status === 404 && body?.workbench === "/knowledge/syllabi") router.replace(body.workbench);
         setError(body?.error ?? "创建考纲节点失败，草稿与重试标识已保留");
         return;
       }
@@ -302,7 +302,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       setTitle("");
       setParentId("");
       setCreateOpen(false);
-      router.push(withReturnTo(`/knowledge/syllabus/${responseBody.node.id}`, currentWorkbenchHref));
+      router.push(withReturnTo(`/knowledge/syllabi/${responseBody.node.id}`, currentWorkbenchHref));
     } catch {
       setError("网络中断，创建草稿与同一重试标识已保留，请明确重试");
     } finally {
@@ -336,7 +336,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && body?.workbench === "/knowledge/syllabus") router.replace(body.workbench);
+        else if (response.status === 404 && body?.workbench === "/knowledge/syllabi") router.replace(body.workbench);
         setError(body?.error ?? "导入考纲失败，Markdown 与重试标识已保留");
         return;
       }
@@ -385,7 +385,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabi") router.replace(data.workbench);
         else if (response.status === 409 && isSyllabusNodeDto(data?.latest)) {
           setConflict({
             baseline,
@@ -447,7 +447,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabi") router.replace(data.workbench);
         setError(data?.error ?? "新增掌握证据失败，输入草稿已保留");
         return false;
       }
@@ -477,7 +477,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabi") router.replace(data.workbench);
         setError(data?.error ?? "新增复测记录失败，输入草稿与重试标识已保留");
         return false;
       }
@@ -1047,7 +1047,7 @@ function buildSyllabusWorkbenchHref(input: {
   if (input.status !== "all") params.set("status", input.status);
   if (input.map !== "all") params.set("map", input.map);
   if (input.action !== "all") params.set("action", input.action);
-  return `/knowledge/syllabus${params.size ? `?${params}` : ""}`;
+  return `/knowledge/syllabi${params.size ? `?${params}` : ""}`;
 }
 
 const masteryConditionOptions: MasteryCondition[] = [
@@ -1375,7 +1375,7 @@ function SyllabusTreeNode({
             <StatusOptions />
           </select>
           <ListDetailLink
-            href={`/knowledge/syllabus/${node.id}`}
+            href={`/knowledge/syllabi/${node.id}`}
             focusId={`syllabus-${node.id}`}
             className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05]"
           >

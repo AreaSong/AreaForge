@@ -18,7 +18,7 @@ export default async function KnowledgeOverviewPage() {
 
   const signals = [
     { label: "待复习", value: overview.dueReviews, href: "/knowledge/reviews", note: "已到期" },
-    { label: "薄弱节点", value: overview.weakNodes, href: "/knowledge/syllabus", note: "需要补强" },
+    { label: "薄弱节点", value: overview.weakNodes, href: "/knowledge/syllabi", note: "需要补强" },
     { label: "待整理资料", value: overview.pendingResources, href: "/knowledge/resources", note: "尚未关联" },
     { label: "知识资产", value: overview.canvasSummary.noteCount + overview.canvasSummary.mistakeCount, href: "/knowledge/canvas", note: "卡片与错题" },
   ];

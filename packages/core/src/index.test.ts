@@ -1549,7 +1549,7 @@ test("action-center recommendation order and bridged review filter", () => {
       bridgedReviewScheduleId: "sched-1",
       reviewObjectKind: null,
       taskPriority: "high" as const,
-      href: "/plan/tasks/task-bridge",
+      href: "/roadmap/allocation/tasks/task-bridge",
     },
     {
       id: "sched-1",
@@ -1566,7 +1566,7 @@ test("action-center recommendation order and bridged review filter", () => {
       bridgedReviewScheduleId: null,
       reviewObjectKind: "NOTE" as const,
       taskPriority: null,
-      href: "/quick-review/sched-1",
+      href: "/knowledge/reviews/sched-1/run",
     },
     {
       id: "activity-1",
@@ -1583,7 +1583,7 @@ test("action-center recommendation order and bridged review filter", () => {
       bridgedReviewScheduleId: null,
       reviewObjectKind: null,
       taskPriority: null,
-      href: "/focus/session-1",
+      href: "/focus",
     },
     {
       id: "blocked-task",
@@ -1600,7 +1600,7 @@ test("action-center recommendation order and bridged review filter", () => {
       bridgedReviewScheduleId: null,
       reviewObjectKind: null,
       taskPriority: "medium" as const,
-      href: "/plan/tasks/blocked-task",
+      href: "/roadmap/allocation/tasks/blocked-task",
     },
   ];
 
@@ -1623,7 +1623,7 @@ test("app-shell lights and mobile top priority", () => {
       isPaused: false,
       justCompleted: false,
       conflictOrUnknown: false,
-      continueHref: "/focus/s1",
+      continueHref: "/focus",
     },
     review: {
       executableCount: 2,
@@ -1638,7 +1638,7 @@ test("app-shell lights and mobile top priority", () => {
       severe: false,
       recoveryBlocked: false,
       arrangedComplete: false,
-      debtHref: "/plan",
+      debtHref: "/roadmap/allocation",
     },
     stage: {
       hasStage: true,
@@ -1646,14 +1646,14 @@ test("app-shell lights and mobile top priority", () => {
       milestoneHealthy: false,
       milestoneNearOrDraftPending: false,
       conflictOrBlocked: false,
-      stageHref: "/plan/stages",
+      stageHref: "/roadmap/stages",
     },
     todayClosure: {
       inReminderWindow: true,
       minimumActionDone: true,
       dailyReviewDone: false,
       minimumActionHref: "/today",
-      reviewHref: "/review/daily",
+      reviewHref: "/roadmap/reviews/daily",
     },
   });
 
@@ -1661,11 +1661,11 @@ test("app-shell lights and mobile top priority", () => {
   assert.equal(status.lights.find((light) => light.kind === "review")?.tone, "amber");
   assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.tone, "amber");
   assert.notEqual(status.lights.find((light) => light.kind === "todayClosure")?.tone, "red");
-  assert.equal(status.lights.find((light) => light.kind === "activity")?.action?.href, "/focus/s1");
+  assert.equal(status.lights.find((light) => light.kind === "activity")?.action?.href, "/focus");
   assert.equal(status.lights.find((light) => light.kind === "review")?.action?.href, "/knowledge/reviews");
-  assert.equal(status.lights.find((light) => light.kind === "debt")?.action?.href, "/plan");
-  assert.equal(status.lights.find((light) => light.kind === "stage")?.action?.href, "/plan/stages");
-  assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.action?.href, "/review/daily");
+  assert.equal(status.lights.find((light) => light.kind === "debt")?.action?.href, "/roadmap/allocation");
+  assert.equal(status.lights.find((light) => light.kind === "stage")?.action?.href, "/roadmap/stages");
+  assert.equal(status.lights.find((light) => light.kind === "todayClosure")?.action?.href, "/roadmap/reviews/daily");
   assert.equal(status.mobileTop.kind, "activity");
 
   const quickReviewStatus = projectAppShellStatus({
@@ -1682,14 +1682,14 @@ test("app-shell lights and mobile top priority", () => {
       overdueLearningDays: 4,
       blocked: true,
       inQuickReview: true,
-      nextHref: "/quick-review/review-1",
+      nextHref: "/knowledge/reviews/review-1/run",
     },
     debt: {
       countable: 4,
       severe: true,
       recoveryBlocked: false,
       arrangedComplete: false,
-      debtHref: "/plan",
+      debtHref: "/roadmap/allocation",
     },
     stage: {
       hasStage: false,
@@ -1697,20 +1697,20 @@ test("app-shell lights and mobile top priority", () => {
       milestoneHealthy: false,
       milestoneNearOrDraftPending: false,
       conflictOrBlocked: false,
-      stageHref: "/plan/stages",
+      stageHref: "/roadmap/stages",
     },
     todayClosure: {
       inReminderWindow: false,
       minimumActionDone: false,
       dailyReviewDone: false,
       minimumActionHref: "/today",
-      reviewHref: "/review/daily",
+      reviewHref: "/roadmap/reviews/daily",
     },
   });
   assert.equal(quickReviewStatus.lights.find((light) => light.kind === "review")?.tone, "blue");
   assert.equal(quickReviewStatus.lights.find((light) => light.kind === "debt")?.tone, "red");
   assert.equal(quickReviewStatus.mobileTop.kind, "review");
-  assert.equal(quickReviewStatus.mobileTop.action?.href, "/quick-review/review-1");
+  assert.equal(quickReviewStatus.mobileTop.action?.href, "/knowledge/reviews/review-1/run");
 
   const noQuickReviewStatus = projectAppShellStatus({
     ...{
@@ -1734,7 +1734,7 @@ test("app-shell lights and mobile top priority", () => {
         severe: true,
         recoveryBlocked: false,
         arrangedComplete: false,
-        debtHref: "/plan",
+        debtHref: "/roadmap/allocation",
       },
       stage: {
         hasStage: false,
@@ -1742,14 +1742,14 @@ test("app-shell lights and mobile top priority", () => {
         milestoneHealthy: false,
         milestoneNearOrDraftPending: false,
         conflictOrBlocked: false,
-        stageHref: "/plan/stages",
+        stageHref: "/roadmap/stages",
       },
       todayClosure: {
         inReminderWindow: false,
         minimumActionDone: false,
         dailyReviewDone: false,
         minimumActionHref: "/today",
-        reviewHref: "/review/daily",
+        reviewHref: "/roadmap/reviews/daily",
       },
     },
   });

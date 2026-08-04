@@ -270,7 +270,7 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       if (props.endpoint === "knowledge-card" && isKnowledgeCardDraft(draft)) {
         saveLocalAiDraft(props.userId, "knowledge-card", draft);
         clearAdoptedDraft();
-        router.push("/knowledge/notes");
+        router.push("/knowledge/cards");
         return;
       }
       if (props.endpoint === "plan" && isPlanDraft(draft)) {
@@ -478,7 +478,7 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
 }
 
 function adoptDraftLabel(endpoint: Endpoint): string {
-  return ({ "learning-tree": "送往学习树校验", "knowledge-card": "转到知识卡片表单", plan: "加入计划收件箱", motivation: "保存到动机内容库" })[endpoint];
+  return ({ "learning-tree": "送往学习树校验", "knowledge-card": "转到知识卡片表单", plan: "加入投入草稿", motivation: "保存到动机内容库" })[endpoint];
 }
 
 function saveLocalAiDraft(userId: string, endpoint: "learning-tree" | "knowledge-card", value: unknown) {

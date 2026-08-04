@@ -37,7 +37,7 @@
 
 - `/api/exam-workspaces/**`：工作区列表/创建、激活切换、接管 preview/apply、科目分组读取、自定义科目创建
 - `/api/plan-milestones/**`：里程碑列表/创建/编辑
-- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（原子转换；`/roadmap/arrangements/drafts`）
+- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（原子转换；`/roadmap/allocation/drafts`）
 - `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
 - `/api/learning-tree/templates|export|imports/preview|imports/confirm`、`/api/learning-tree/imports`、`/api/learning-tree/imports/:id`、`/api/learning-tree/imports/:id/export`（preview 零业务写入；confirm 原子；`/knowledge/imports`）
 - `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（`/knowledge/resources`）
@@ -106,7 +106,7 @@
 
 `GET /api/reports/periodic` 实时派生周审判和月复盘数据报告、规则策略、本地规则复盘草稿和 `decisionPreview` 下周期决策预览；`decisionPreview` 只包含聚合指标、最大短板摘要、策略、下一周期草稿和确认边界，不包含任务标题列表、完整复盘正文、附件内容或阶段计划应用结果。默认不把长期记录、情绪记录或动机档案发送给 AI。
 
-每日复盘写入口 `POST /api/daily-reviews`、`PATCH /api/daily-reviews/:id` 与兼容入口 `POST /api/reviews/today` 在复盘和明日最低行动原子入箱成功后，同时返回 `review` 与对应的 `inboxItem`。客户端必须使用该项目 ID 进入 `/roadmap/arrangements/drafts/:itemId`，不得通过标题猜测或退回无上下文的收件箱总列表；复盘页面的客观事实摘要由服务端按当前用户、ACTIVE 工作区和上海学习日只读派生。
+每日复盘写入口 `POST /api/daily-reviews`、`PATCH /api/daily-reviews/:id` 与兼容入口 `POST /api/reviews/today` 在复盘和明日最低行动原子入箱成功后，同时返回 `review` 与对应的 `inboxItem`。客户端必须使用该项目 ID 进入 `/roadmap/allocation/drafts/:itemId`，不得通过标题猜测或退回无上下文的投入草稿总列表；复盘页面的客观事实摘要由服务端按当前用户、ACTIVE 工作区和上海学习日只读派生。
 
 `POST /api/reports/periodic/decisions` 允许对当前周/月报告做确认或驳回。服务端会重新计算当前报告范围，拒绝过期页面提交；同向重复提交返回已处理，反向提交返回冲突。确认会保存冻结 `reportSnapshot` 和 `nextCycleDraft`，驳回只保存冻结快照；两者都写入 `AuditEvent`，且只记录报告决策，不批量修改任务、不应用阶段计划、不外呼长期 AI。`GET /api/reports/periodic/decisions` 返回最近报告决策用于只读回放。
 

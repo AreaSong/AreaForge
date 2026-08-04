@@ -10,7 +10,7 @@ import { getRouteMetadata, withReturnTo } from "@/lib/navigation/batch7";
 import { getPeriodicReportDecision } from "@/lib/study/report-decisions-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/roadmap/reports/history/decision");
+export const metadata = getRouteMetadata("/roadmap/reviews/history/decision");
 
 export default async function ReportHistoryPage({
   params,
@@ -29,7 +29,7 @@ export default async function ReportHistoryPage({
     throw error;
   });
   const snapshot = decision.reportSnapshot;
-  const historyHref = `/roadmap/reports/history/${decision.id}?period=${period}`;
+  const historyHref = `/roadmap/reviews/history/${decision.id}?period=${period}`;
 
   return (
     <PageFrame variant="content-focus">
@@ -38,7 +38,7 @@ export default async function ReportHistoryPage({
         title="冻结报告回放"
         description={`${formatDateRange(decision.range.start, decision.range.end)} · ${new Date(decision.decidedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`}
         back={(
-          <BackToListLink fallbackHref={`/roadmap/reports?tab=history&period=${period}`} className="inline-flex items-center gap-2 text-sm text-teal-300">
+          <BackToListLink fallbackHref={`/roadmap/reviews?tab=history&period=${period}`} className="inline-flex items-center gap-2 text-sm text-teal-300">
             <ArrowLeft size={15} aria-hidden="true" />返回报告历史
           </BackToListLink>
         )}
@@ -89,7 +89,7 @@ export default async function ReportHistoryPage({
           <Metric label="被替代" value={`${decision.inboxResult.supersededCount} 项`} />
         </dl>
         <div className="flex flex-wrap gap-2">
-          {decision.inboxResult.createdCount + decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", historyHref)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看当前收件箱</ButtonLink> : null}
+          {decision.inboxResult.createdCount + decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", historyHref)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看当前收件箱</ButtonLink> : null}
           {decision.stageDraftId ? <ButtonLink href="/roadmap/stages" variant="secondary"><Milestone size={15} aria-hidden="true" />查看当前阶段</ButtonLink> : null}
         </div>
       </section>

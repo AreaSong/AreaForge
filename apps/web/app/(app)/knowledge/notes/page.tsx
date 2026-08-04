@@ -9,7 +9,7 @@ import { listStudyTasks, listSubjects } from "@/lib/study/service";
 import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/knowledge/notes");
+export const metadata = getRouteMetadata("/knowledge/cards");
 
 export default async function KnowledgeNotesPage({ searchParams }: { searchParams: Promise<{ subjectId?: string; syllabusNodeId?: string; taskId?: string; mastery?: string; review?: string; create?: string; q?: string }> }) {
   const user = await getCurrentUser();

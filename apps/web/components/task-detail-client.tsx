@@ -37,7 +37,7 @@ export function TaskDetailClient(props: {
   const task = props.detail.task;
   const sourceHref = props.embedded && props.closeHref
     ? props.closeHref
-    : props.returnTo ?? "/roadmap/arrangements";
+    : props.returnTo ?? "/roadmap/allocation";
   const focusReturnTo = sourceHref;
   const terminal = task.status === "done" || task.status === "skipped";
   const editable = !props.detail.readOnly && !terminal && !props.detail.subjectArchived;
@@ -275,7 +275,7 @@ export function TaskDetailClient(props: {
             {task.syllabusNodeId ? (
               props.detail.readOnly
                 ? task.syllabusNodeTitle
-                : <Link className="text-teal-300 hover:underline" href={withReturnTo(`/knowledge/syllabus/${task.syllabusNodeId}`, sourceHref)}>{task.syllabusNodeTitle}</Link>
+                : <Link className="text-teal-300 hover:underline" href={withReturnTo(`/knowledge/syllabi/${task.syllabusNodeId}`, sourceHref)}>{task.syllabusNodeTitle}</Link>
             ) : "未关联"}
           </RelationItem>
           <RelationItem label="里程碑">{props.detail.planMilestone?.title ?? "未关联"}</RelationItem>
@@ -305,7 +305,7 @@ export function TaskDetailClient(props: {
                 <li key={node.id}>
                   {props.detail.readOnly
                     ? <span className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300">{node.title}{node.archivedAt ? "（已归档）" : ""}</span>
-                    : <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={withReturnTo(`/knowledge/syllabus/${node.id}`, sourceHref)}>
+                    : <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={withReturnTo(`/knowledge/syllabi/${node.id}`, sourceHref)}>
                         {node.title}{node.archivedAt ? "（已归档）" : ""}
                       </Link>}
                 </li>
@@ -413,7 +413,7 @@ function RelationItem(props: { label: string; children: React.ReactNode }) {
 }
 
 function TaskLink({ task, returnTo }: { task: { id: string; title: string; status: string }; returnTo: string }) {
-  return <Link className="text-teal-300 hover:underline" href={withReturnTo(`/roadmap/arrangements/tasks/${task.id}`, returnTo)}>{task.title} · {taskStatusLabel(task.status)}</Link>;
+  return <Link className="text-teal-300 hover:underline" href={withReturnTo(`/roadmap/allocation/tasks/${task.id}`, returnTo)}>{task.title} · {taskStatusLabel(task.status)}</Link>;
 }
 
 function DependencyList(props: {
@@ -443,7 +443,7 @@ function DependencyList(props: {
             const linkedStatus = incoming ? dependency.predecessorStatus : dependency.successorStatus;
             return (
               <li key={dependency.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
-                <Link className="min-w-0 break-words text-teal-300 hover:underline" href={withReturnTo(`/roadmap/arrangements/tasks/${linkedId}`, props.returnTo)}>
+                <Link className="min-w-0 break-words text-teal-300 hover:underline" href={withReturnTo(`/roadmap/allocation/tasks/${linkedId}`, props.returnTo)}>
                   {linkedTitle ?? `任务 ${linkedId.slice(0, 8)}`} · {taskStatusLabel(linkedStatus ?? "unknown")}
                 </Link>
                 <div className="flex items-center gap-2">
@@ -494,7 +494,7 @@ function DependencyList(props: {
 }
 
 function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
-  const returnTo = `/roadmap/arrangements/tasks/${detail.task.id}`;
+  const returnTo = `/roadmap/allocation/tasks/${detail.task.id}`;
   return (
     <section aria-labelledby="task-history-heading" className="space-y-4 border-t border-white/10 pt-5">
       <h2 id="task-history-heading" className="text-lg font-semibold text-white">行动历史</h2>
@@ -527,10 +527,10 @@ function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
 
 function taskSourceLabel(sourceHref: string): string {
   if (sourceHref === "/today") return "返回今日";
-  if (sourceHref.startsWith("/roadmap/arrangements/drafts")) return "返回收件箱";
+  if (sourceHref.startsWith("/roadmap/allocation/drafts")) return "返回收件箱";
   if (sourceHref.startsWith("/roadmap/stages")) return "返回阶段";
-  if (sourceHref.startsWith("/roadmap/arrangements")) return "返回计划";
-  if (sourceHref.startsWith("/roadmap/reports/daily/")) return "返回复盘";
+  if (sourceHref.startsWith("/roadmap/allocation")) return "返回计划";
+  if (sourceHref.startsWith("/roadmap/reviews/daily/")) return "返回复盘";
   if (sourceHref.startsWith("/knowledge/")) return "返回知识";
   return "返回来源";
 }

@@ -7,29 +7,29 @@ import { getSourceContextLabel } from "@/lib/navigation/return-context";
 import { getWorkbenchFallback } from "@/lib/navigation/workbench-context";
 
 test("navigation trails keep reused secondary labels and object depth", () => {
-  assert.deepEqual(getNavigationTrail("/roadmap/arrangements"), [
+  assert.deepEqual(getNavigationTrail("/roadmap/allocation"), [
     { href: "/roadmap", label: "路线" },
-    { href: "/roadmap/arrangements", label: "学习安排" },
+    { href: "/roadmap/allocation", label: "投入安排" },
   ]);
   assert.deepEqual(getNavigationTrail("/roadmap/stages"), [
     { href: "/roadmap", label: "路线" },
     { href: "/roadmap/stages", label: "阶段" },
   ]);
-  assert.deepEqual(getNavigationTrail("/roadmap/reports/daily"), [
+  assert.deepEqual(getNavigationTrail("/roadmap/reviews/daily"), [
     { href: "/roadmap", label: "路线" },
-    { href: "/roadmap/reports", label: "周期复盘" },
-    { href: "/roadmap/reports/daily", label: "每日复盘" },
+    { href: "/roadmap/reviews", label: "周期复盘" },
+    { href: "/roadmap/reviews/daily", label: "每日复盘" },
   ]);
-  assert.deepEqual(getNavigationTrail("/roadmap/reports/history/decision-1"), [
+  assert.deepEqual(getNavigationTrail("/roadmap/reviews/history/decision-1"), [
     { href: "/roadmap", label: "路线" },
-    { href: "/roadmap/reports", label: "周期复盘" },
-    { href: "/roadmap/reports/history/decision-1", label: "冻结报告" },
+    { href: "/roadmap/reviews", label: "周期复盘" },
+    { href: "/roadmap/reviews/history/decision-1", label: "冻结报告" },
   ]);
   assert.deepEqual(getNavigationTrail("/confirmations"), [
     { href: "/confirmations", label: "确认中心" },
   ]);
   assert.deepEqual(getNavigationTrail("/test/simulations"), [
-    { href: "/test", label: "检验" },
+    { href: "/test/retests", label: "检验" },
     { href: "/test/simulations", label: "模拟考试" },
   ]);
   assert.deepEqual(getNavigationTrail("/knowledge/points/point-1"), [
@@ -42,7 +42,7 @@ test("navigation trails keep reused secondary labels and object depth", () => {
   ]);
   assert.deepEqual(getNavigationTrail("/knowledge/reviews/review-1"), [
     { href: "/knowledge", label: "知识" },
-    { href: "/knowledge/reviews", label: "到期复习" },
+    { href: "/knowledge/reviews", label: "复习" },
     { href: "/knowledge/reviews/review-1", label: "复习排期详情" },
   ]);
   assert.deepEqual(getNavigationTrail("/confirmations/confirmation-1"), [
@@ -77,13 +77,13 @@ test("source context labels identify the originating workbench", () => {
 });
 
 test("content detail routes remain third-level object paths", () => {
-  assert.equal(isContentDetailPath("/roadmap/arrangements/tasks/task-1"), true);
+  assert.equal(isContentDetailPath("/roadmap/allocation/tasks/task-1"), true);
   assert.equal(isContentDetailPath("/knowledge/resources/resource-1/preview"), true);
   assert.equal(isContentDetailPath("/test/retests/new"), true);
-  assert.equal(isContentDetailPath("/roadmap/reports/history/decision-1"), true);
+  assert.equal(isContentDetailPath("/roadmap/reviews/history/decision-1"), true);
   assert.equal(isContentDetailPath("/confirmations/confirmation-1"), true);
   assert.equal(isContentDetailPath("/confirmations/history"), false);
-  assert.equal(isContentDetailPath("/roadmap/arrangements"), false);
+  assert.equal(isContentDetailPath("/roadmap/allocation"), false);
   assert.equal(isContentDetailPath("/knowledge/points"), false);
   assert.equal(isContentDetailPath("/settings/ai"), false);
 });
@@ -92,13 +92,13 @@ test("workbench errors return to the canonical owner for every primary entry", (
   const cases = [
     ["/focus", "/focus", "返回开始学习"],
     ["/today", "/today", "返回今日"],
-    ["/roadmap/arrangements/tasks/task-1", "/roadmap/arrangements", "返回学习安排"],
+    ["/roadmap/allocation/tasks/task-1", "/roadmap/allocation", "返回投入安排"],
     ["/knowledge/points/point-1", "/knowledge", "返回知识工作台"],
-    ["/test/simulations/exam-1", "/test", "返回检验工作台"],
+    ["/test/simulations/exam-1", "/test/retests", "返回检验工作台"],
     ["/roadmap/stages/trend", "/roadmap/stages", "返回阶段工作台"],
-    ["/roadmap/reports/history/report-1", "/roadmap/reports", "返回周期复盘"],
+    ["/roadmap/reviews/history/report-1", "/roadmap/reviews", "返回周期复盘"],
     ["/confirmations/history", "/confirmations", "返回确认中心"],
-    ["/settings/ai", "/settings", "返回设置总览"],
+    ["/settings/ai", "/settings/exams", "返回设置"],
     ["/knowledge/reviews/review-1", "/knowledge", "返回知识工作台"],
   ] as const;
 
@@ -113,8 +113,8 @@ test("registered list routes preserve only their safe filter query", () => {
     "/knowledge/points?subjectId=math&q=matrix&masteryStatus=weak",
   );
   assert.equal(
-    sanitizeReturnPath("/roadmap/arrangements?date=2026-08-04&subjectId=math&status=open&q=limits&unsafe=drop"),
-    "/roadmap/arrangements?date=2026-08-04&subjectId=math&status=open&q=limits",
+    sanitizeReturnPath("/roadmap/allocation?date=2026-08-04&subjectId=math&status=open&q=limits&unsafe=drop"),
+    "/roadmap/allocation?date=2026-08-04&subjectId=math&status=open&q=limits",
   );
   assert.equal(sanitizeReturnPath("/today?date=2026-08-04&unsafe=drop"), "/today?date=2026-08-04");
 });

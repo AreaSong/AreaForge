@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/roadmap");
 
 const WORKBENCHS = [
-  { href: "/roadmap/arrangements", title: "学习安排", description: "把长期方向落成可开始的行动，任务只是上下文，不替代学习结果。", icon: ClipboardList },
-  { href: "/roadmap/arrangements/drafts", title: "计划收件箱", description: "处理复盘、考试和 AI 生成的待确认草稿。", icon: Inbox },
+  { href: "/roadmap/allocation", title: "投入安排", description: "把长期方向落成可开始的投入，任务只是上下文，不替代学习结果。", icon: ClipboardList },
+  { href: "/roadmap/allocation/drafts", title: "投入草稿", description: "处理复盘、考试和 AI 生成的待确认投入草稿。", icon: Inbox },
   { href: "/roadmap/stages", title: "阶段", description: "观察当前阶段、里程碑和待确认调整。", icon: Flag },
-  { href: "/roadmap/reports", title: "周期复盘", description: "按周/月回看事实，再决定下一周期的动作。", icon: BarChart3 },
+  { href: "/roadmap/reviews", title: "周期复盘", description: "按周/月回看事实，再决定下一周期的动作。", icon: BarChart3 },
 ] as const;
 
 export default function RoadmapOverviewPage() {

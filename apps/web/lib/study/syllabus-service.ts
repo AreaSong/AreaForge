@@ -589,7 +589,7 @@ export async function updateSyllabusNode(
       throw new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
         latest: latestDto,
         conflictFields: collectSyllabusNodeConflictFields(input, latestDto),
-        workbench: "/knowledge/syllabus",
+        workbench: "/knowledge/syllabi",
       });
     }
     if (input.parentId !== undefined) {
@@ -630,7 +630,7 @@ export async function updateSyllabusNode(
       throw new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
         latest: latestDto,
         conflictFields: collectSyllabusNodeConflictFields(input, latestDto),
-        workbench: "/knowledge/syllabus",
+        workbench: "/knowledge/syllabi",
       });
     }
 
@@ -719,7 +719,7 @@ function syllabusArchiveConflict(latest: SyllabusNodeDto): ApiError {
   return new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
     latest,
     conflictFields: ["revision", "archivedAt"],
-    workbench: "/knowledge/syllabus",
+    workbench: "/knowledge/syllabi",
   });
 }
 
@@ -885,7 +885,7 @@ async function assertSubjectExists(
         archivedAt: subject.archivedAt.toISOString(),
       },
       conflictFields: ["subject.archivedAt"],
-      workbench: "/knowledge/syllabus",
+      workbench: "/knowledge/syllabi",
     });
   }
 }
@@ -942,7 +942,7 @@ async function findSyllabusNodeForProof(
     throw new ApiError("SUBJECT_ARCHIVED", 409, {
       latest: serializeNode({ ...node, subject: node.subject }, []),
       conflictFields: ["subject.archivedAt"],
-      workbench: "/knowledge/syllabus",
+      workbench: "/knowledge/syllabi",
     });
   }
 

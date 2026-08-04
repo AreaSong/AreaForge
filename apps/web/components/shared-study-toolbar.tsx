@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CloudOff, ExternalLink, Timer, Wifi } from "lucide-react";
+import { ArrowLeft, CloudOff, Timer, Wifi } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { getTimerElapsedSeconds } from "@areaforge/core";
@@ -99,8 +99,6 @@ export function SharedStudyToolbar(props: {
     getServerPreviousPageSnapshot,
   );
   const currentHref = props.currentHref ?? props.pathname;
-  const trail = useMemo(() => getNavigationTrail(props.pathname), [props.pathname]);
-  const showCurrentPage = trail.at(-1)?.label !== "开始学习";
 
   useEffect(() => {
     publishPreviousPage(currentHref);
@@ -151,11 +149,7 @@ export function SharedStudyToolbar(props: {
             <span className="font-mono tabular-nums">{formatDuration(elapsed)}</span>
             <span className="text-zinc-500">{active.status === "running" ? "学习中" : active.status === "paused" ? "已暂停" : "待收口"}</span>
           </Link>
-        ) : (
-          <Link href="/focus" className="inline-flex items-center gap-2 text-zinc-400 hover:text-teal-200" title="开始一段没有预设时长的学习">
-            <Timer size={14} aria-hidden="true" />开始学习
-          </Link>
-        )}
+        ) : null}
         {active ? (
           <span
             className={`inline-flex min-w-0 items-center gap-1.5 ${otherDeviceOnline || fallbackSourceDeviceOnline ? "text-amber-200" : "text-zinc-500"}`}
@@ -167,15 +161,6 @@ export function SharedStudyToolbar(props: {
               {presenceText}
             </span>
           </span>
-        ) : null}
-        {showCurrentPage ? (
-          <>
-            <span className="hidden h-4 w-px bg-white/10 sm:block" aria-hidden="true" />
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500" title="当前内容页">
-              <span className="hidden text-zinc-600 sm:inline">当前</span>
-              <span className="max-w-48 truncate text-zinc-300">{trail.at(-1)?.label ?? "工作台"}</span>
-            </span>
-          </>
         ) : null}
         {previousPage && previousPage.href !== currentHref && !navigationLocked ? (
           <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面">
@@ -193,9 +178,6 @@ export function SharedStudyToolbar(props: {
           {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
           {syncLabel}
         </span>
-        <Link href={props.activeSession ? `/focus` : "/focus"} className="hidden items-center gap-1 text-zinc-600 hover:text-zinc-300 sm:inline-flex" title="打开开始学习">
-          <ExternalLink size={12} aria-hidden="true" />
-        </Link>
       </div>
     </div>
   );

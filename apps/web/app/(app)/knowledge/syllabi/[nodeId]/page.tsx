@@ -7,9 +7,9 @@ import { listReviewSchedules } from "@/lib/study/review-schedule-service";
 import { getSyllabusNode, listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/knowledge/syllabus/node");
+export const metadata = getRouteMetadata("/knowledge/syllabi/node");
 
-export default async function SyllabusNodeDetailPage({ params, searchParams }: { params: Promise<{ nodeId: string }>; searchParams: Promise<{ returnTo?: string }> }) {
+export default async function KnowledgeSyllabiDetailPage({ params, searchParams }: { params: Promise<{ nodeId: string }>; searchParams: Promise<{ returnTo?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { nodeId } = await params;

@@ -6,6 +6,6 @@ export async function WorkspaceRequiredLayout({ children }: { children: React.Re
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const workspace = await findActiveWorkspaceOrNull(user.id);
-  if (!workspace) redirect("/settings/workspace?setup=1");
+  if (!workspace) redirect("/settings/exams?setup=1");
   return children;
 }

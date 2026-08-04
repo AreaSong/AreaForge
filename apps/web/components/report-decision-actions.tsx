@@ -51,7 +51,7 @@ interface ReportDecisionResponse {
   workbench?: string;
 }
 
-export function ReportDecisionActions({ report, returnTo = "/roadmap/reports" }: { report: PeriodicReportDto; returnTo?: string }) {
+export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }: { report: PeriodicReportDto; returnTo?: string }) {
   const router = useRouter();
   const [baselineOverride, setBaselineOverride] = useState<PeriodicReportDto | null>(null);
   const [command, setCommand] = useState<ReportDecisionCommand | null>(null);
@@ -132,7 +132,7 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reports" }:
       const inbox = body?.decision?.inboxResult;
       const counts = inbox ? `入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}，替代 ${inbox.supersededCount}` : "";
       setNotice(body?.decision?.alreadyDecided
-        ? "该周期报告已经处理，正在刷新回放。"
+        ? "该周期复盘已经处理，正在刷新回放。"
         : action === "confirm" ? `报告已冻结，${counts}；阶段建议仍需独立确认。` : "报告版本已不可逆驳回。");
       startTransition(() => router.refresh());
     } catch {
@@ -218,8 +218,8 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reports" }:
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
-            {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
+            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
+            {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看投入草稿</ButtonLink> : null}
             {decision.stageDraftId ? <ButtonLink href="/roadmap/stages" variant="secondary">审阅阶段建议<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
             {decision.status === "rejected" ? <ButtonLink href="/roadmap/stages" variant="secondary">前往阶段总览<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
           </div>
@@ -312,7 +312,7 @@ function isReportDecisionCommand(value: unknown): value is ReportDecisionCommand
 function labelDecisionError(error?: string): string {
   switch (error) {
     case "PERIODIC_REPORT_DECISION_CONFLICT":
-      return "该周期报告已经做过相反决策，不能静默覆盖。";
+      return "该周期复盘已经做过相反决策，不能静默覆盖。";
     case "PERIODIC_REPORT_RANGE_STALE":
     case "PERIODIC_REPORT_REVISION_CONFLICT":
       return "页面中的报告版本已过期，请处理冲突后再决定。";

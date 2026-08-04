@@ -17,7 +17,7 @@ import type { SyllabusOptionNodeDto } from "@/lib/study/types";
 import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/roadmap/arrangements");
+export const metadata = getRouteMetadata("/roadmap/allocation");
 
 export default async function TodayPlanPage({
   searchParams,
@@ -37,9 +37,9 @@ export default async function TodayPlanPage({
   if (plan.setupRequired) {
     return (
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold text-white">计划</h1>
+        <h1 className="text-2xl font-semibold text-white">投入安排</h1>
         <p className="text-sm text-zinc-400">需要先设置考试工作区。</p>
-        <Link href="/settings/workspace?setup=1" className="text-teal-300 hover:underline">
+        <Link href="/settings/exams?setup=1" className="text-teal-300 hover:underline">
           设置考试目标
         </Link>
       </section>
@@ -120,7 +120,7 @@ export default async function TodayPlanPage({
         ) : null}
       />
       <details className="border-t border-white/10 pt-4">
-        <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300">AI 计划草稿</summary>
+        <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300">AI 投入草稿</summary>
         <div className="mt-3"><AiDraftPanel endpoint="plan" userId={user.id} /></div>
       </details>
     </div>
@@ -141,7 +141,7 @@ function buildPlanHref(params: {
     if (value && key !== "createMinimum" && key !== "taskId") query.set(key, value);
   }
   const serialized = query.toString();
-  return `/roadmap/arrangements${serialized ? `?${serialized}` : ""}`;
+  return `/roadmap/allocation${serialized ? `?${serialized}` : ""}`;
 }
 
 function flattenSyllabusOptions(nodes: SyllabusOptionNodeDto[]): SyllabusOptionNodeDto[] {

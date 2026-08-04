@@ -44,11 +44,11 @@ export default async function StageAnalyticsPage({
             {primaryRisk ? "当前最高风险" : "当前判断"}
           </p>
           <h2 className="mt-2 text-2xl font-semibold leading-9 text-white">{primaryRisk?.title ?? "当前周期没有需要升级处理的风险"}</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{primaryRisk?.detail ?? "继续按当前节奏执行，并在周期报告中确认下一阶段是否需要调整。"}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{primaryRisk?.detail ?? "继续按当前节奏执行，并在周期复盘中确认下一阶段是否需要调整。"}</p>
           <p className="mt-3 text-sm text-zinc-500">建议：{primaryRisk?.action ?? analytics.actions[0] ?? "保持当前行动节奏。"}</p>
         </div>
-        <ButtonLink href={primaryRisk ? riskHref(primaryRisk) : "/roadmap/reports"} variant="primary" size="lg" className="w-full lg:w-auto">
-          {primaryRisk ? riskActionLabel(primaryRisk) : "查看周期报告"}<ArrowRight size={16} aria-hidden="true" />
+        <ButtonLink href={primaryRisk ? riskHref(primaryRisk) : "/roadmap/reviews"} variant="primary" size="lg" className="w-full lg:w-auto">
+          {primaryRisk ? riskActionLabel(primaryRisk) : "查看周期复盘"}<ArrowRight size={16} aria-hidden="true" />
         </ButtonLink>
       </section>
 
@@ -126,7 +126,7 @@ function WindowLink({ days, active }: { days: 7 | 30; active: boolean }) { retur
 function Metric({ label, value }: { label: string; value: string }) { return <div className="min-w-0 px-3 py-4"><dt className="text-xs text-zinc-500">{label}</dt><dd className="mt-1 break-words text-xl font-medium text-white">{value}</dd></div>; }
 function formatDay(value: string) { return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", timeZone: "Asia/Shanghai" }).format(new Date(value)); }
 function formatDateRange(start: string, end: string) { return `${new Date(start).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })} 至 ${new Date(end).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}`; }
-function riskHref(risk: AnalyticsRiskItemDto) { if (risk.type === "weak_node" && risk.syllabusNodeId) return `/knowledge/syllabus/${risk.syllabusNodeId}`; if (risk.type === "note_review" || risk.type === "mistake_review") return "/knowledge/reviews"; if (risk.type === "review_gap") return "/roadmap/reports/daily"; if (risk.type === "low_completion") return "/roadmap/arrangements"; return "/today"; }
+function riskHref(risk: AnalyticsRiskItemDto) { if (risk.type === "weak_node" && risk.syllabusNodeId) return `/knowledge/syllabi/${risk.syllabusNodeId}`; if (risk.type === "note_review" || risk.type === "mistake_review") return "/knowledge/reviews"; if (risk.type === "review_gap") return "/roadmap/reviews/daily"; if (risk.type === "low_completion") return "/roadmap/allocation"; return "/today"; }
 function riskActionLabel(risk: AnalyticsRiskItemDto) { if (risk.type === "weak_node") return "处理薄弱节点"; if (risk.type === "note_review" || risk.type === "mistake_review") return "开始复习"; if (risk.type === "review_gap") return "完成今日复盘"; if (risk.type === "low_completion") return "调整七日计划"; return "返回今日行动"; }
 function riskTone(severity: AnalyticsRiskItemDto["severity"]) { if (severity === "danger") return "text-sm font-medium text-rose-200"; if (severity === "warning") return "text-sm font-medium text-amber-200"; return "text-sm font-medium text-zinc-200"; }
 function severityTone(severity: AnalyticsRiskItemDto["severity"]): "danger" | "warning" | "info" { return severity === "danger" ? "danger" : severity === "warning" ? "warning" : "info"; }

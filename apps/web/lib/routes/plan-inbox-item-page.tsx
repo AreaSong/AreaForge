@@ -5,7 +5,7 @@ import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { getPlanInboxFormOptions, listPlanInboxItems } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/roadmap/arrangements/drafts/item");
+export const metadata = getRouteMetadata("/roadmap/allocation/drafts/item");
 
 export default async function TodayInboxItemPage({ params, searchParams }: { params: Promise<{ itemId: string }>; searchParams: Promise<{ returnTo?: string }> }) {
   const user = await getCurrentUser();
