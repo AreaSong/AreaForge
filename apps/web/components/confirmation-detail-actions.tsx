@@ -12,7 +12,7 @@ import { Modal } from "@/components/ui/overlays";
 
 type Decision = "confirm" | "reject";
 
-export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref }: { item: ConfirmationItemDto; sourceHref?: string }) {
+export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, onCompleted }: { item: ConfirmationItemDto; sourceHref?: string; onCompleted?: () => void | Promise<void> }) {
   const router = useRouter();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [pending, setPending] = useState<Decision | "confirm_retest" | "void_retest" | null>(null);
@@ -67,6 +67,7 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref }
         return;
       }
       setNotice(decision === "confirm" ? "已确认并冻结该事项。" : "已驳回该事项，未自动修改正式数据。");
+      void onCompleted?.();
       router.refresh();
     } catch {
       setError("网络结果未知。请先刷新确认中心核对状态，再显式重试，不会自动重放命令。");
@@ -102,6 +103,7 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref }
         return;
       }
       setNotice(isConfirm ? "复测已确认，知识点掌握状态已更新。" : "复测已作废，未更新知识点掌握状态。");
+      void onCompleted?.();
       router.refresh();
     } catch {
       setError("网络结果未知。请刷新确认中心核对复测状态，再显式重试。");

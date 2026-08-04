@@ -72,7 +72,7 @@ pnpm experience:review:validate <product-experience-review-record.md|txt>
 - 今日与投入安排：`app/(app)/today/page.tsx`、`app/(app)/roadmap/allocation/page.tsx`
 - 知识与考纲：`app/(app)/knowledge/page.tsx`、`app/(app)/knowledge/syllabi/page.tsx`
 - 检验与模拟：`app/(app)/test/page.tsx`
-- 报告与确认中心：`app/(app)/roadmap/reviews/page.tsx`、`app/(app)/confirmations/page.tsx`
+- 报告与确认中心：`app/(app)/roadmap/reviews/page.tsx`、`app/(app)/confirmations/page.tsx`、`components/global-confirmation-center.tsx`
 - 设置和版本中心：`app/settings/page.tsx`
 - 系统更新 API：`app/api/system/**`
 

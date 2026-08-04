@@ -68,6 +68,7 @@
 已落地：
 
 - `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
+- `GET /api/confirmations?filter=pending|history`：鉴权后只读返回统一确认投影；公共工具栏 Drawer 使用 `pending`，`/confirmations` 完整页和历史页继续复用同一确认服务。该接口不提供绕过来源页面安全边界的写入能力。
 - `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影；无 ACTIVE 工作区时返回 `setupRequired`。
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
 - `GET|POST /api/exam-workspaces/:id/subjects`：工作区科目列表与创建；创建只接受当前未归档分组。

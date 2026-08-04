@@ -1,9 +1,8 @@
 "use client";
 
-import { ArrowLeft, CloudOff, Timer, Wifi } from "lucide-react";
+import { ArrowLeft, CloudOff, Wifi } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { getTimerElapsedSeconds } from "@areaforge/core";
 import { getClientDeviceIdentity } from "@/lib/client/device-identity";
 import { getNavigationTrail, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import type { StudySessionDto } from "@/lib/study/types";
@@ -106,14 +105,6 @@ export function SharedStudyToolbar(props: {
 
   const active = props.activeSession;
   const navigationLocked = active?.status === "closing";
-  const elapsed = active ? getTimerElapsedSeconds({
-    status: active.status === "running" ? "running" : active.status === "paused" ? "paused" : "completed",
-    startedAt: new Date(active.startedAt),
-    pausedAt: active.pausedAt ? new Date(active.pausedAt) : undefined,
-    endedAt: active.endedAt ? new Date(active.endedAt) : undefined,
-    accumulatedPauseSeconds: active.accumulatedPauseSeconds,
-    now,
-  }) : 0;
   const syncLabel = props.syncState === "offline" ? "离线" : props.syncState === "unavailable" ? "同步异常" : "已同步";
   const otherDevices = useMemo(() => {
     if (!active) return [];
@@ -142,14 +133,6 @@ export function SharedStudyToolbar(props: {
   return (
     <div className="af-shared-toolbar shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-4 py-2 text-xs sm:px-6 xl:px-8" data-global-ai-ui="true">
       <div className="mx-auto flex min-w-0 max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-2">
-        {active ? (
-          <Link href={`/focus`} className="inline-flex min-w-0 items-center gap-2 text-teal-200 hover:text-teal-100" title="回到当前唯一活动计时">
-            <Timer size={14} aria-hidden="true" />
-            <span className="max-w-32 truncate">{active.subjectName}</span>
-            <span className="font-mono tabular-nums">{formatDuration(elapsed)}</span>
-            <span className="text-zinc-500">{active.status === "running" ? "学习中" : active.status === "paused" ? "已暂停" : "待收口"}</span>
-          </Link>
-        ) : null}
         {active ? (
           <span
             className={`inline-flex min-w-0 items-center gap-1.5 ${otherDeviceOnline || fallbackSourceDeviceOnline ? "text-amber-200" : "text-zinc-500"}`}
@@ -189,12 +172,4 @@ function getPathname(value: string): string {
   } catch {
     return value.split("?", 1)[0].split("#", 1)[0];
   }
-}
-
-function formatDuration(seconds: number): string {
-  const safe = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(safe / 3_600);
-  const minutes = Math.floor((safe % 3_600) / 60);
-  const remaining = safe % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
 }

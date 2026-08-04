@@ -94,7 +94,7 @@ export function FocusTimerWorkspace(props: {
 }) {
   return (
     <div className={`${props.embeddedInWorkbench ? "grid h-full min-h-0" : "grid min-h-[calc(100vh-3.5rem)]"} lg:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.45fr)]`}>
-      <section className="flex min-h-[32rem] flex-col items-center justify-center border-b border-white/10 px-4 py-12 text-center lg:border-b-0 lg:border-r">
+      <section className={`flex flex-col items-center justify-center border-b border-white/10 px-4 py-12 text-center ${props.embeddedInWorkbench ? "min-h-[36rem] lg:min-h-0" : "min-h-[32rem]"} lg:border-b-0 lg:border-r`}>
         <p className="text-sm text-teal-300" aria-live="assertive" aria-atomic="true">
           {props.timerLabel}
         </p>

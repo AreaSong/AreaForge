@@ -222,6 +222,7 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions }: { 
         offlineSnapshotRef.current = nextSnapshot;
         setInlineSession(null);
         setOfflineSnapshot(nextSnapshot);
+        publishFocusSyncEvent(userId, syncState, localSession);
       }
     });
   }

@@ -139,3 +139,22 @@ test("simulation detail falls back to its list instead of itself", () => {
   assert.match(source, /query\.returnTo \? sanitizeReturnPath\(query\.returnTo\) : "\/test\/simulations"/);
   assert.doesNotMatch(source, /: `\/test\/simulations\/\$\{encodeURIComponent\(examId\)\}`/);
 });
+
+test("shared toolbar owns the single activity slot and confirmation drawer", () => {
+  const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
+  const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
+  const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
+  const confirmationRoute = readFileSync(resolve(process.cwd(), "app/api/confirmations/route.ts"), "utf8");
+  const focusLauncher = readFileSync(resolve(process.cwd(), "components/focus-launcher.tsx"), "utf8");
+  const focusSession = readFileSync(resolve(process.cwd(), "components/focus-session-client.tsx"), "utf8");
+  assert.match(shell, /<GlobalActivitySlot/);
+  assert.match(shell, /readFocusOfflineSnapshot/);
+  assert.match(shell, /offlineSession=\{offlineFocusSession\}/);
+  assert.match(shell, /<GlobalConfirmationCenter/);
+  assert.doesNotMatch(toolbar, /font-mono tabular-nums/);
+  assert.match(confirmation, /\/api\/confirmations\?filter=pending/);
+  assert.match(confirmation, /\/confirmations\/history/);
+  assert.match(confirmationRoute, /listConfirmationItems\(user\.id, filter\)/);
+  assert.match(focusLauncher, /publishFocusSyncEvent\(userId, syncState, localSession\)/);
+  assert.match(focusSession, /publishFocusSyncEvent\(props\.userId, "pending", projected\)/);
+});

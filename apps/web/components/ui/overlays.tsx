@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 
 const focusableSelector = [
   "a[href]",
@@ -37,9 +38,9 @@ export function Modal(props: {
     returnFocusRef,
   });
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-2 sm:items-center sm:p-4" role="presentation">
       <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={allowEscape && dismissible ? onClose : undefined} />
       <div
@@ -64,7 +65,8 @@ export function Modal(props: {
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -85,9 +87,9 @@ export function Drawer(props: {
 
   useOverlayFocus({ open, panelRef, allowEscape: true, onClose: () => onCloseRef.current() });
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50" role="presentation">
       <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={onClose} />
       <aside
@@ -110,7 +112,8 @@ export function Drawer(props: {
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

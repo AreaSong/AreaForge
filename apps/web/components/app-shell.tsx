@@ -57,9 +57,16 @@ import {
   subscribeQuickReviewActivity,
   type QuickReviewActivityClaim,
 } from "@/lib/client/quick-review-activity";
-import { subscribeFocusOfflineSync, syncFocusOfflineQueue } from "@/lib/client/focus-offline-store";
+import {
+  isLocalFocusSessionId,
+  readFocusOfflineSnapshot,
+  subscribeFocusOfflineSync,
+  syncFocusOfflineQueue,
+} from "@/lib/client/focus-offline-store";
 import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { GlobalAiAssistant } from "@/components/global-ai-assistant";
+import { GlobalActivitySlot } from "@/components/global-activity-slot";
+import { GlobalConfirmationCenter } from "@/components/global-confirmation-center";
 import { WorkbenchBreadcrumb } from "@/components/workbench-breadcrumb";
 import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
 import { SharedStudyToolbar } from "@/components/shared-study-toolbar";
@@ -97,17 +104,19 @@ export function AppShell(props: {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
+  const [offlineFocusSession, setOfflineFocusSession] = useState<AppShellStatusDto["activeSession"]>(null);
   const immersive = pathname.endsWith("/run");
   const suppressDistractions = immersive || pathname === "/focus";
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
   const secondaryNavigationItems = activeNavigationItem?.children ?? [];
   const showSecondaryNavigation = secondaryNavigationItems.length > 0;
-  const displayStatus = projectLocalQuickReviewStatus(status, quickReviewClaim);
+  const displayStatus = projectLocalFocusStatus(projectLocalQuickReviewStatus(status, quickReviewClaim), offlineFocusSession);
   const activeSessionId = status.activeSession?.id;
   const activeSessionStatus = status.activeSession?.status;
-  const closeoutPath = activeSessionId ? "/focus" : null;
-  const outsideCloseout = activeSessionStatus === "closing" && closeoutPath !== null && pathname !== closeoutPath;
+  const currentActivitySession = status.activeSession ?? offlineFocusSession;
+  const closeoutPath = currentActivitySession ? "/focus" : null;
+  const outsideCloseout = currentActivitySession?.status === "closing" && closeoutPath !== null && pathname !== closeoutPath;
 
   useEffect(() => {
     if (!outsideCloseout || !closeoutPath) return;
@@ -115,6 +124,24 @@ export function AppShell(props: {
   }, [closeoutPath, outsideCloseout, router]);
 
   useEffect(() => subscribeQuickReviewActivity(props.userId, setQuickReviewClaim), [props.userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refreshOfflineSession = async () => {
+      const session = await readRenderableOfflineFocusSession(props.userId);
+      if (cancelled) return;
+      setOfflineFocusSession(session);
+    };
+    void refreshOfflineSession();
+    const onConnectivityChange = () => void refreshOfflineSession();
+    window.addEventListener("online", onConnectivityChange);
+    window.addEventListener("offline", onConnectivityChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", onConnectivityChange);
+      window.removeEventListener("offline", onConnectivityChange);
+    };
+  }, [props.userId]);
 
   useEffect(() => {
     const sync = () => {
@@ -133,10 +160,20 @@ export function AppShell(props: {
     const unsubscribe = subscribeFocusOfflineSync((event: Event) => {
       const detail = (event as CustomEvent<{ userId?: string; session?: AppShellStatusDto["activeSession"] | null }>).detail;
       if (detail?.userId !== props.userId || detail.session === undefined) return;
+      const session = detail.session;
+      if (session && isLocalFocusSessionId(session.id)) {
+        setOfflineFocusSession(isRenderableFocusSession(session) ? session : null);
+        return;
+      }
+      if (!session) {
+        void readRenderableOfflineFocusSession(props.userId).then(setOfflineFocusSession);
+        return;
+      }
+      setOfflineFocusSession(null);
       setStatus((current) => ({
         ...current,
-        activeSession: detail.session && ["running", "paused", "closing"].includes(detail.session.status)
-          ? detail.session
+        activeSession: isRenderableFocusSession(session)
+          ? session
           : null,
       }));
     });
@@ -464,11 +501,11 @@ export function AppShell(props: {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <header className="af-shell-header z-20 shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/95 px-4 py-3 backdrop-blur sm:px-6 xl:px-8">
-            <div className="flex items-center justify-between gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-2">
               <div className="flex min-w-0 items-center gap-2">
                 <div className="flex shrink-0 items-center gap-2 lg:hidden">
                   <BrandMark size={20} />
-                  <span className="text-sm text-teal-300">AreaForge</span>
+                  <span className="hidden text-sm text-teal-300 min-[360px]:inline">AreaForge</span>
                 </div>
                 <button
                   type="button"
@@ -482,7 +519,7 @@ export function AppShell(props: {
                   <span className="max-w-52 truncate text-zinc-500">{displayStatus.mobileTop.summary}</span>
                 </button>
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:col-start-3 sm:row-start-1 sm:gap-1.5">
                 <button
                   type="button"
                   className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-2 text-xs md:hidden ${toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray}`}
@@ -491,8 +528,9 @@ export function AppShell(props: {
                   aria-expanded={lightOpen}
                 >
                   <Activity size={15} aria-hidden="true" />
-                  状态
+                  <span className="hidden min-[360px]:inline">状态</span>
                 </button>
+                <GlobalConfirmationCenter pathname={pathname} userId={props.userId} />
                 <GlobalAiAssistant userId={props.userId} placement="header" />
                 <button
                   type="button"
@@ -513,6 +551,9 @@ export function AppShell(props: {
                   <TriangleAlert size={16} aria-hidden="true" />
                   <span className="hidden sm:inline">我学不下去了</span>
                 </button>
+              </div>
+              <div className="col-span-2 min-w-0 justify-self-center sm:col-span-1 sm:col-start-2 sm:row-start-1">
+                <GlobalActivitySlot activeSession={status.activeSession} offlineSession={offlineFocusSession} quickReviewClaim={quickReviewClaim} />
               </div>
             </div>
             <p
@@ -604,7 +645,7 @@ export function AppShell(props: {
             className="af-shell-nav z-20 shrink-0 overflow-x-auto border-t border-white/10 bg-[#0d1117]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
             aria-label="移动导航"
           >
-            <div className="mx-auto flex min-w-max items-center sm:grid sm:max-w-lg sm:min-w-0 sm:grid-cols-6">
+            <div className="mx-auto grid w-full max-w-lg grid-cols-6 items-center">
               {[...PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM].map((item) => {
                 const active = item.match(pathname);
                 return (
@@ -613,7 +654,7 @@ export function AppShell(props: {
                     href={item.href}
                     aria-current={navigationAriaCurrent(pathname, item)}
                     title={item.label}
-                    className={`flex min-h-11 min-w-16 flex-col items-center gap-1 rounded-md px-2 py-2 text-center text-xs ${active ? "text-teal-300" : "text-zinc-400"}`}
+                    className={`flex min-h-11 min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-center text-xs ${active ? "text-teal-300" : "text-zinc-400"}`}
                   >
                     <NavigationIcon href={item.href} />
                     {item.label}
@@ -679,6 +720,36 @@ function projectLocalQuickReviewStatus(
       }
     : light);
   return { lights, mobileTop: selectMobileTopLight(lights) };
+}
+
+function projectLocalFocusStatus(
+  status: Pick<AppShellStatusDto, "lights" | "mobileTop">,
+  session: AppShellStatusDto["activeSession"],
+): Pick<AppShellStatusDto, "lights" | "mobileTop"> {
+  if (!session) return status;
+  const lights = status.lights.map((light) => light.kind === "activity"
+    ? {
+        ...light,
+        tone: session.status === "closing" ? "amber" as const : session.status === "paused" ? "blue" as const : "green" as const,
+        summary: session.status === "closing" ? "学习已冻结，等待收口" : session.status === "paused" ? "学习已暂停，可继续" : "正在学习",
+        action: { label: session.status === "closing" ? "完成收口" : "继续学习", href: "/focus" },
+      }
+    : light);
+  return { lights, mobileTop: selectMobileTopLight(lights) };
+}
+
+function isRenderableFocusSession(
+  session: AppShellStatusDto["activeSession"],
+): session is NonNullable<AppShellStatusDto["activeSession"]> {
+  return Boolean(session && ["running", "paused", "closing"].includes(session.status));
+}
+
+async function readRenderableOfflineFocusSession(
+  userId: string,
+): Promise<AppShellStatusDto["activeSession"]> {
+  const snapshot = await readFocusOfflineSnapshot(userId);
+  const session = snapshot?.session ?? null;
+  return isRenderableFocusSession(session) && (isLocalFocusSessionId(session.id) || !navigator.onLine) ? session : null;
 }
 
 function readLocalStorage(key: string): string | null {

@@ -387,6 +387,7 @@ export function FocusSessionClient(props: {
       setSyncState("pending");
       setSession(projected);
       await saveFocusOfflineSnapshot(props.userId, projected, "pending");
+      publishFocusSyncEvent(props.userId, "pending", projected);
       return projected;
     }
     try {
@@ -428,8 +429,10 @@ export function FocusSessionClient(props: {
       queuedOfflineRef.current = true;
       const projected = applyLocalFocusCommand(session, action, commandBody);
       setSession(projected);
-      setSyncState(typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline");
-      await saveFocusOfflineSnapshot(props.userId, projected, typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline");
+      const nextSyncState = typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline";
+      setSyncState(nextSyncState);
+      await saveFocusOfflineSnapshot(props.userId, projected, nextSyncState);
+      publishFocusSyncEvent(props.userId, nextSyncState, projected);
       return projected;
     }
   }
