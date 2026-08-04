@@ -1,4 +1,4 @@
-import { ArrowRight, Bot, CheckCheck, ClipboardCheck, FileCheck2, Flag } from "lucide-react";
+import { ArrowRight, Bot, ClipboardCheck, FileCheck2, Flag, Repeat2 } from "lucide-react";
 import Link from "next/link";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { withReturnTo } from "@/lib/navigation/batch7";
@@ -16,7 +16,7 @@ export function ConfirmationCenter({ items, filter }: { items: ConfirmationItemD
 }
 
 function ConfirmationRow({ item }: { item: ConfirmationItemDto }) {
-  const Icon = item.kind === "periodic_report" ? ClipboardCheck : item.kind === "stage_adjustment" ? Flag : item.kind === "knowledge_retest" ? CheckCheck : item.kind === "ai_draft" ? Bot : FileCheck2;
+  const Icon = item.kind === "periodic_report" ? ClipboardCheck : item.kind === "stage_adjustment" ? Flag : item.kind === "knowledge_retest" ? Repeat2 : item.kind === "ai_draft" ? Bot : FileCheck2;
   const statusTone = item.status === "PENDING" ? "warning" : item.status === "CONFIRMED" || item.status === "FROZEN" ? "success" : "neutral";
   const statusLabel = item.status === "PENDING" ? "需要决定" : item.status === "FROZEN" ? "已确认 · 已冻结" : item.status === "CONFIRMED" ? (item.frozen ? "已确认 · 已冻结" : "已确认") : "已驳回 · 已冻结";
   const listHref = item.status === "PENDING" ? "/confirmations" : "/confirmations/history";

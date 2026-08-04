@@ -1,4 +1,4 @@
-import StageSimulationPage from "@/lib/routes/test-simulations-page";
+import TestSimulationPage from "@/lib/routes/test-simulations-page";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export default async function TestSimulationsPage() {
       data-confirmation-fields="workspace.stage.draft.canAutoApply workspace.stage.draft.requiresUserConfirmation"
       data-risk-surface="阶段计划"
     >
-      {await StageSimulationPage()}
+      {await TestSimulationPage()}
     </div>
   );
 }

@@ -16,7 +16,7 @@ interface SelectionItem {
   rect: { top: number; left: number; width: number; height: number } | null;
 }
 
-export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: string; placement?: "floating" | "breadcrumb" }) {
+export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: string; placement?: "floating" | "header" }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const pageContextKey = `${pathname}?${searchParams.toString()}`;
@@ -203,15 +203,15 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       <button
         type="button"
         data-global-ai-ui="true"
-        className={placement === "breadcrumb"
-          ? "inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/40 px-3 text-xs text-teal-200 hover:bg-teal-300/10"
-          : "fixed bottom-20 right-4 z-40 inline-flex size-11 items-center justify-center rounded-full border border-teal-300/50 bg-[#0d1117] text-teal-200 shadow-lg hover:bg-teal-400/10 lg:bottom-6 lg:right-6"}
+        className={placement === "floating"
+          ? "fixed bottom-20 right-4 z-40 inline-flex size-11 items-center justify-center rounded-full border border-teal-300/50 bg-[#0d1117] text-teal-200 shadow-lg hover:bg-teal-400/10 lg:bottom-6 lg:right-6"
+          : "inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/40 px-2.5 text-xs text-teal-200 hover:bg-teal-300/10 sm:px-3"}
         onClick={openAssistant}
         aria-label="打开 AI 助手"
         title="AI 助手"
       >
         <Sparkles size={18} aria-hidden="true" />
-        {placement === "breadcrumb" ? <span>AI 助手</span> : null}
+        {placement === "header" ? <span className="hidden sm:inline">AI 助手</span> : null}
       </button>
       <Drawer open={open} title="AI 助手" onClose={() => { setOpen(false); setSelecting(false); }}>
         <div data-global-ai-ui="true" className="space-y-4">

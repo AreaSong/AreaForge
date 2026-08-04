@@ -19,6 +19,10 @@ test("navigation trails keep reused secondary labels and object depth", () => {
     { href: "/confirmations", label: "确认中心" },
     { href: "/confirmations", label: "待确认" },
   ]);
+  assert.deepEqual(getNavigationTrail("/test/simulations"), [
+    { href: "/test", label: "检验" },
+    { href: "/test/simulations", label: "模拟考试" },
+  ]);
   assert.deepEqual(getNavigationTrail("/knowledge/points/point-1"), [
     { href: "/knowledge/overview", label: "知识" },
     { href: "/knowledge/points", label: "知识点" },
@@ -44,6 +48,14 @@ test("navigation trails keep reused secondary labels and object depth", () => {
   ]);
 });
 
+test("simulation workbench copy stays under the test workbench", () => {
+  const pageSource = readFileSync(resolve(process.cwd(), "lib/routes/test-simulations-page.tsx"), "utf8");
+  const formSource = readFileSync(resolve(process.cwd(), "components/simulation-list-client.tsx"), "utf8");
+  assert.match(pageSource, /eyebrow="检验"/);
+  assert.doesNotMatch(pageSource, /eyebrow="阶段"/);
+  assert.match(formSource, /useState\("模拟考试"\)/);
+});
+
 test("invalid return paths fall back to the independent focus entry", () => {
   assert.equal(sanitizeReturnPath("https://outside.example/path"), "/focus");
   assert.equal(sanitizeReturnPath("/not-registered"), "/focus");
@@ -57,7 +69,7 @@ test("source context labels identify the originating workbench", () => {
   assert.equal(getSourceContextLabel(undefined), "来源页面");
 });
 
-test("content detail routes hide the reusable secondary rail", () => {
+test("content detail routes remain third-level object paths", () => {
   assert.equal(isContentDetailPath("/plan/tasks/task-1"), true);
   assert.equal(isContentDetailPath("/knowledge/resources/resource-1/preview"), true);
   assert.equal(isContentDetailPath("/test/retests/new"), true);

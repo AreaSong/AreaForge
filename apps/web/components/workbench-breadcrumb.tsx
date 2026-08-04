@@ -37,7 +37,7 @@ export function WorkbenchBreadcrumb({ children }: { children?: React.ReactNode }
           </>
         ) : null}
       </nav>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <div className="flex max-w-[58%] shrink-0 flex-wrap items-center justify-end gap-1.5 sm:max-w-[68%]">{children}</div>
     </div>
   );
 }

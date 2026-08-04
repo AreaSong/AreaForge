@@ -5,25 +5,47 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Activity,
+  Archive,
+  BadgeCheck,
+  Bell,
   BookOpen,
+  BriefcaseBusiness,
   CalendarCheck2,
   CalendarRange,
-  CheckCheck,
+  ChartNoAxesColumn,
+  ChartSpline,
   ClipboardCheck,
+  ClipboardPen,
+  FileCheck2,
+  FileInput,
   FilePlus2,
   Flag,
+  Goal,
+  History,
+  Inbox,
+  LayoutDashboard,
   ListTree,
+  ListChecks,
   ListTodo,
+  Milestone,
+  MonitorCog,
+  Network,
   NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Plus,
+  Repeat2,
   Settings,
+  ScrollText,
+  SlidersHorizontal,
+  Sparkles,
   Timer,
   TriangleAlert,
+  UserRound,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   buildForegroundNotificationPayload,
   evaluateAutomaticMotivationGate,
@@ -49,8 +71,9 @@ import { subscribeFocusOfflineSync, syncFocusOfflineQueue } from "@/lib/client/f
 import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { WorkbenchBreadcrumb } from "@/components/workbench-breadcrumb";
+import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
 import { SharedStudyToolbar } from "@/components/shared-study-toolbar";
-import { BATCH10_NAV_ITEMS, isContentDetailPath } from "@/lib/navigation/batch7";
+import { BATCH10_NAV_ITEMS } from "@/lib/navigation/batch7";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
 
 const toneClass: Record<string, string> = {
@@ -88,7 +111,7 @@ export function AppShell(props: {
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
   const secondaryNavigationItems = activeNavigationItem?.children ?? [];
-  const showSecondaryNavigation = secondaryNavigationItems.length > 0 && !isContentDetailPath(pathname);
+  const showSecondaryNavigation = secondaryNavigationItems.length > 0;
   const displayStatus = projectLocalQuickReviewStatus(status, quickReviewClaim);
   const activeSessionId = status.activeSession?.id;
   const activeSessionStatus = status.activeSession?.status;
@@ -386,9 +409,16 @@ export function AppShell(props: {
 
   return (
     <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100">
+      <a
+        href="#main-content"
+        className="sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:inline-flex focus:h-10 focus:items-center focus:rounded-md focus:bg-teal-300 focus:px-3 focus:text-sm focus:font-medium focus:text-slate-950"
+      >
+        跳到主要内容
+      </a>
       <div className="flex h-full w-full">
         <aside
           aria-label="一级导航"
+          data-navigation-level="primary"
           className={`hidden shrink-0 flex-col border-r border-white/10 bg-[var(--af-surface-subtle)] px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-16" : "w-56"}`}
         >
           <div className={`mb-6 flex items-center text-teal-300 ${sidebarCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
@@ -402,11 +432,13 @@ export function AppShell(props: {
               onClick={toggleSidebar}
               aria-label={sidebarCollapsed ? "展开侧栏" : "折叠侧栏"}
               title={sidebarCollapsed ? "展开侧栏" : "折叠侧栏"}
+              aria-expanded={!sidebarCollapsed}
+              aria-controls="primary-navigation"
             >
               {sidebarCollapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
             </button>
           </div>
-          <nav className="flex flex-col gap-1" aria-label="主导航">
+          <nav id="primary-navigation" className="flex flex-col gap-1" aria-label="主导航">
             {BATCH10_NAV_ITEMS.map((item) => {
               const active = item.match(pathname);
               const activeChild = item.children?.some((child) => child.match(pathname)) ?? false;
@@ -414,9 +446,9 @@ export function AppShell(props: {
                 <Link
                   key={item.href}
                   href={item.href}
-                  aria-current={active && !activeChild ? navigationAriaCurrent(pathname, item) : undefined}
+                  aria-current={active ? (activeChild ? "location" : navigationAriaCurrent(pathname, item)) : undefined}
                   title={sidebarCollapsed ? item.label : undefined}
-                  className={`flex min-w-0 items-center rounded-md py-2 text-sm ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${active ? "bg-white/10 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
+                  className={`flex min-w-0 items-center rounded-md border-l-2 py-2 text-sm transition-colors ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${active ? "border-teal-300 bg-white/[0.08] text-white" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
                 >
                   <NavigationIcon href={item.href} />
                   <span className={sidebarCollapsed ? "sr-only" : "truncate"}>{item.label}</span>
@@ -430,44 +462,7 @@ export function AppShell(props: {
           </div>
         </aside>
 
-        {showSecondaryNavigation && activeNavigationItem ? (
-          <aside
-            aria-label={`${activeNavigationItem.label}二级导航`}
-            className={`hidden shrink-0 flex-col border-r border-white/10 bg-[#0b0f14] py-5 transition-[width] lg:flex ${secondaryCollapsed ? "w-16 px-2" : "w-56 px-3"}`}
-          >
-            <div className={`mb-5 flex items-center ${secondaryCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
-              <p className={secondaryCollapsed ? "sr-only" : "truncate text-xs font-medium uppercase tracking-[0.12em] text-zinc-500"}>{activeNavigationItem.label}</p>
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white"
-                onClick={toggleSecondary}
-                aria-label={secondaryCollapsed ? "展开二级导航" : "收起二级导航"}
-                title={secondaryCollapsed ? "展开二级导航" : "收起二级导航"}
-              >
-                {secondaryCollapsed ? <PanelRightOpen size={17} aria-hidden="true" /> : <PanelRightClose size={17} aria-hidden="true" />}
-              </button>
-            </div>
-            <nav className="flex flex-col gap-1" aria-label={`${activeNavigationItem.label}业务导航`}>
-              {secondaryNavigationItems.map((child) => {
-                const active = child.match(pathname);
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    aria-current={navigationAriaCurrent(pathname, child)}
-                    title={secondaryCollapsed ? child.label : undefined}
-                    className={`flex min-w-0 items-center rounded-md py-2.5 text-sm ${secondaryCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${active ? "bg-teal-400/10 text-teal-200" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
-                  >
-                    <SecondaryNavigationIcon href={child.href} />
-                    <span className={secondaryCollapsed ? "sr-only" : "truncate"}>{child.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </aside>
-        ) : null}
-
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-screen">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <header className="af-shell-header z-20 shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/95 px-4 py-3 backdrop-blur sm:px-6 xl:px-8">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2">
@@ -498,6 +493,7 @@ export function AppShell(props: {
                   <Activity size={15} aria-hidden="true" />
                   状态
                 </button>
+                <GlobalAiAssistant userId={props.userId} placement="header" />
                 <button
                   type="button"
                   className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/5"
@@ -547,12 +543,60 @@ export function AppShell(props: {
             ) : null}
             {!immersive ? (
               <WorkbenchBreadcrumb>
-                <GlobalAiAssistant userId={props.userId} placement="breadcrumb" />
+                <WorkbenchBreadcrumbActions pathname={pathname} />
               </WorkbenchBreadcrumb>
             ) : null}
           </header>
 
-          <main className="af-shell-main min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6" data-ai-page-context="true">{props.children}</main>
+          <div className="flex min-h-0 min-w-0 flex-1">
+            {showSecondaryNavigation && activeNavigationItem ? (
+              <aside
+                aria-label={`${activeNavigationItem.label}二级导航`}
+                data-navigation-level="secondary"
+                className={`hidden min-h-0 shrink-0 flex-col border-r border-white/[0.07] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] lg:flex ${secondaryCollapsed ? "w-16 px-2" : "w-52 px-3"}`}
+              >
+                <div className={`mb-5 flex items-center ${secondaryCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
+                  <div className={secondaryCollapsed ? "sr-only" : "min-w-0 border-l-2 border-teal-300/40 pl-2 text-xs font-medium text-zinc-500"}>
+                    <span className="truncate">{activeNavigationItem.label}内容</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200"
+                    onClick={toggleSecondary}
+                    aria-label={secondaryCollapsed ? "展开二级导航" : "收起二级导航"}
+                    title={secondaryCollapsed ? "展开二级导航" : "收起二级导航"}
+                    aria-expanded={!secondaryCollapsed}
+                    aria-controls="secondary-navigation"
+                  >
+                    {secondaryCollapsed ? <PanelRightOpen size={16} aria-hidden="true" /> : <PanelRightClose size={16} aria-hidden="true" />}
+                  </button>
+                </div>
+                <nav id="secondary-navigation" className="min-h-0 overflow-y-auto" aria-label={`${activeNavigationItem.label}业务导航`}>
+                  <div className="flex flex-col gap-1">
+                    {secondaryNavigationItems.map((child) => {
+                      const active = child.match(pathname);
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          aria-current={navigationAriaCurrent(pathname, child)}
+                          title={secondaryCollapsed ? child.label : undefined}
+                          className={`flex min-w-0 items-center rounded-md border-l-2 py-2.5 text-sm transition-colors ${secondaryCollapsed ? "justify-center px-2" : "gap-2.5 px-3"} ${active ? "border-teal-300/80 bg-teal-300/[0.07] text-teal-200" : "border-transparent text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}
+                        >
+                          <SecondaryNavigationIcon href={child.href} />
+                          <span className={secondaryCollapsed ? "sr-only" : "truncate"}>{child.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </nav>
+              </aside>
+            ) : null}
+
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <main id="main-content" className="af-shell-main min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6" data-ai-page-context="true">{props.children}</main>
+            </div>
+          </div>
 
           <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={status.activeSession} syncState={syncState} />
 
@@ -568,8 +612,10 @@ export function AppShell(props: {
                     key={item.href}
                     href={item.href}
                     aria-current={navigationAriaCurrent(pathname, item)}
-                    className={`min-w-16 truncate rounded-md px-2 py-2 text-center text-xs ${active ? "text-teal-300" : "text-zinc-400"}`}
+                    title={item.label}
+                    className={`flex min-h-11 min-w-16 flex-col items-center gap-1 rounded-md px-2 py-2 text-center text-xs ${active ? "text-teal-300" : "text-zinc-400"}`}
                   >
+                    <NavigationIcon href={item.href} />
                     {item.label}
                   </Link>
                 );
@@ -675,58 +721,54 @@ function navigationAriaCurrent(
 }
 
 function NavigationIcon({ href }: { href: string }) {
-  const Icon = href === "/focus"
-    ? Timer
-    : href === "/today"
-    ? CalendarCheck2
-    : href === "/plan"
-      ? CalendarRange
-    : href === "/plan/stages"
-      ? Flag
-    : href === "/knowledge/overview"
-      ? BookOpen
-    : href === "/test"
-      ? CheckCheck
-    : href === "/review/daily"
-      ? ClipboardCheck
-    : href === "/confirmations"
-      ? CheckCheck
-    : href === "/settings/workspace"
-      ? Settings
-      : Settings;
+  const Icon = PRIMARY_NAVIGATION_ICONS[href] ?? Settings;
   return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
 }
 
 function SecondaryNavigationIcon({ href }: { href: string }) {
-  const Icon = href === "/plan/stages"
-    ? Flag
-    : href === "/plan/inbox"
-      ? ListTodo
-      : href === "/plan"
-        ? CalendarRange
-        : href === "/knowledge/overview"
-          ? BookOpen
-          : href === "/knowledge/points" || href === "/knowledge/syllabus"
-            ? ListTree
-            : href === "/knowledge/resources" || href === "/knowledge/imports"
-              ? FilePlus2
-              : href === "/knowledge/notes"
-                ? NotebookPen
-                : href === "/knowledge/mistakes"
-                  ? TriangleAlert
-                  : href === "/knowledge/reviews" || href === "/review/daily"
-                    ? ClipboardCheck
-                    : href === "/knowledge/canvas"
-                      ? Activity
-                      : href === "/test/retests"
-                        ? ClipboardCheck
-                        : href === "/test/simulations"
-                          ? CheckCheck
-                          : href === "/review/reports"
-                            ? CalendarRange
-                            : CheckCheck;
+  const Icon = SECONDARY_NAVIGATION_ICONS[href] ?? Settings;
   return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
 }
+
+const PRIMARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
+  "/focus": Timer,
+  "/today": CalendarCheck2,
+  "/plan": CalendarRange,
+  "/knowledge/overview": BookOpen,
+  "/test": FileCheck2,
+  "/plan/stages": Flag,
+  "/review/daily": History,
+  "/confirmations": BadgeCheck,
+  "/settings/workspace": Settings,
+};
+
+const SECONDARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
+  "/plan": Goal,
+  "/plan/inbox": Inbox,
+  "/knowledge/overview": LayoutDashboard,
+  "/knowledge/points": ListTodo,
+  "/knowledge/syllabus": ListTree,
+  "/knowledge/resources": FilePlus2,
+  "/knowledge/notes": NotebookPen,
+  "/knowledge/mistakes": TriangleAlert,
+  "/knowledge/reviews": ClipboardCheck,
+  "/knowledge/canvas": Network,
+  "/knowledge/imports": FileInput,
+  "/test/retests": Repeat2,
+  "/test/simulations": ScrollText,
+  "/plan/stages": Milestone,
+  "/plan/stages/analytics": ChartSpline,
+  "/review/daily": ClipboardPen,
+  "/review/reports": ChartNoAxesColumn,
+  "/confirmations": ListChecks,
+  "/confirmations/history": Archive,
+  "/settings/workspace": BriefcaseBusiness,
+  "/settings/profile": UserRound,
+  "/settings/notifications": Bell,
+  "/settings/ai": Sparkles,
+  "/settings/experience": SlidersHorizontal,
+  "/settings/system": MonitorCog,
+};
 
 function QuickCreateLink(props: {
   href: string;

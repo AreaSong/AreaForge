@@ -182,8 +182,9 @@ export function getRouteTitle(pathname: string): string {
 
 /**
  * Detail pages are the third navigation level: the current object is the
- * content, so rendering the workbench's secondary rail again only duplicates
- * the breadcrumb context. List/workbench pages continue to render the rail.
+ * content area, while the shared secondary rail remains the active
+ * workbench's context. The content page must not invent another navigation
+ * rail that duplicates the secondary labels.
  */
 export function isContentDetailPath(pathname: string): boolean {
   return [

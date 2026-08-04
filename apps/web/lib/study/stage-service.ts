@@ -674,7 +674,7 @@ function isStageAdjustmentConflictLatest(value: unknown): value is StageAdjustme
 }
 
 function labelStageInboxAction(action: string): string {
-  return ({ split: "拆分过大任务", defer: "延期低优先级任务", drop: "移出低价值任务", convert_review: "转为复习行动", simulate: "安排阶段模拟", retest: "安排薄弱节点复测" } as Record<string, string>)[action] ?? action;
+  return ({ split: "拆分过大任务", defer: "延期低优先级任务", drop: "移出低价值任务", convert_review: "转为复习行动", simulate: "安排模拟考试", retest: "安排薄弱节点复测" } as Record<string, string>)[action] ?? action;
 }
 
 function emptyInboxResult(): PlanInboxWriteSummaryDto {

@@ -100,6 +100,7 @@ export function SharedStudyToolbar(props: {
   );
   const currentHref = props.currentHref ?? props.pathname;
   const trail = useMemo(() => getNavigationTrail(props.pathname), [props.pathname]);
+  const showCurrentPage = trail.at(-1)?.label !== "开始学习";
 
   useEffect(() => {
     publishPreviousPage(currentHref);
@@ -167,11 +168,15 @@ export function SharedStudyToolbar(props: {
             </span>
           </span>
         ) : null}
-        <span className="hidden h-4 w-px bg-white/10 sm:block" aria-hidden="true" />
-        <span className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500" title="当前内容页">
-          <span className="hidden text-zinc-600 sm:inline">当前</span>
-          <span className="max-w-48 truncate text-zinc-300">{trail.at(-1)?.label ?? "工作台"}</span>
-        </span>
+        {showCurrentPage ? (
+          <>
+            <span className="hidden h-4 w-px bg-white/10 sm:block" aria-hidden="true" />
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500" title="当前内容页">
+              <span className="hidden text-zinc-600 sm:inline">当前</span>
+              <span className="max-w-48 truncate text-zinc-300">{trail.at(-1)?.label ?? "工作台"}</span>
+            </span>
+          </>
+        ) : null}
         {previousPage && previousPage.href !== currentHref && !navigationLocked ? (
           <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面">
             <ArrowLeft size={13} aria-hidden="true" />

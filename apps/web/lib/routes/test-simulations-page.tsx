@@ -12,7 +12,7 @@ import { listSimulationExams } from "@/lib/study/simulation-service";
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/test/simulations");
 
-export default async function StageSimulationPage() {
+export default async function TestSimulationPage() {
   const user = await getCurrentUser(); if (!user) redirect("/login");
   const exams = await listSimulationExams(user.id);
   const drafts = exams.filter((exam) => exam.status === "DRAFT");
@@ -22,7 +22,7 @@ export default async function StageSimulationPage() {
   return (
     <PageFrame variant="dashboard-wide">
       <PageHeader
-        eyebrow="阶段"
+        eyebrow="检验"
         title="模拟考试"
         description="录入考试事实，冻结失分分析，再把明确的补救动作送入计划收件箱。"
         action={latestDraft

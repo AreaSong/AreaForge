@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCheck } from "lucide-react";
+import { ArrowLeft, BadgeCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -104,7 +104,7 @@ export function KnowledgeRetestDetailClient({ initial, returnTo = "/test/retests
         </div>
       </section>
       {retest.status === "IN_PROGRESS" ? <section className="space-y-3"><label className="grid gap-2 text-sm text-zinc-300">复测总结<textarea value={summary} onChange={(event) => setSummary(event.target.value)} maxLength={4000} className="min-h-24 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 py-2 text-white" /></label><label className="grid gap-2 text-sm text-zinc-300">复盘<textarea value={reviewText} onChange={(event) => setReviewText(event.target.value)} maxLength={4000} className="min-h-28 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 py-2 text-white" /></label><Button type="button" variant="primary" onClick={submit} loading={pending}>提交复测，进入确认</Button></section> : null}
-      {retest.status === "PENDING_REVIEW" ? <section className="space-y-3 border border-amber-300/20 bg-amber-400/5 p-4"><p className="text-sm text-amber-100">结果、总结和复盘已保存。确认后才会更新知识点掌握状态，并安排下一次复测。</p><Button type="button" variant="primary" onClick={confirm} loading={pending}><CheckCheck size={16} aria-hidden="true" />确认并更新掌握状态</Button></section> : null}
+      {retest.status === "PENDING_REVIEW" ? <section className="space-y-3 border border-amber-300/20 bg-amber-400/5 p-4"><p className="text-sm text-amber-100">结果、总结和复盘已保存。确认后才会更新知识点掌握状态，并安排下一次复测。</p><Button type="button" variant="primary" onClick={confirm} loading={pending}><BadgeCheck size={16} aria-hidden="true" />确认并更新掌握状态</Button></section> : null}
       {retest.status === "CLOSED" ? <Alert tone="success">已确认。下一次复测：{retest.nextDueAt ? formatDate(retest.nextDueAt) : "待安排"}。</Alert> : null}
     </div>
   );

@@ -72,7 +72,7 @@ export function FocusHeader(props: {
           {statusLabel(props.status)}
         </Badge>
         <span className="text-xs text-zinc-500">{props.phaseLabel}</span>
-        <GlobalAiAssistant userId={props.userId} placement="breadcrumb" />
+        <GlobalAiAssistant userId={props.userId} placement="header" />
       </div>
     </header>
   );
