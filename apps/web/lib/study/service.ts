@@ -1299,7 +1299,7 @@ export async function startStudySession(
           throw new ApiError("TASK_SUBJECT_MISMATCH", 409, {
             latest: { taskId: task.id, subjectId: task.subjectId },
             conflictFields: ["subjectId", "taskId"],
-        workbench: `/plan/tasks/${task.id}`,
+        workbench: `/roadmap/arrangements/tasks/${task.id}`,
           });
         }
         await lockWorkspaceDependencyGraph(tx, workspace.id);
@@ -2029,7 +2029,7 @@ export async function createDailyReview(
       throw new ApiError("DAILY_REVIEW_ALREADY_EXISTS", 409, {
         latest: serializeReview(existing),
         conflictFields: ["reviewDate"],
-        workbench: "/review/daily",
+        workbench: "/roadmap/reports/daily",
       });
     }
     const metrics = await getTodaySessionMetrics(day.start, day.end, workspace.id, tx);
@@ -2064,12 +2064,12 @@ export async function updateDailyReview(
     });
     if (replay) return replay;
     const existing = await tx.dailyReview.findFirst({ where: { id, workspaceId: workspace.id } });
-    if (!existing) throw new ApiError("DAILY_REVIEW_NOT_FOUND", 404, { workbench: "/review/daily" });
+    if (!existing) throw new ApiError("DAILY_REVIEW_NOT_FOUND", 404, { workbench: "/roadmap/reports/daily" });
     if (existing.revision !== input.expectedRevision) {
       throw new ApiError("DAILY_REVIEW_REVISION_CONFLICT", 409, {
         latest: serializeReview(existing),
         conflictFields: ["revision"],
-        workbench: "/review/daily",
+        workbench: "/roadmap/reports/daily",
       });
     }
     const day = getStudyDayRange(existing.reviewDate);
@@ -2083,7 +2083,7 @@ export async function updateDailyReview(
       throw new ApiError("DAILY_REVIEW_REVISION_CONFLICT", 409, {
         latest: latest ? serializeReview(latest) : undefined,
         conflictFields: ["revision"],
-        workbench: "/review/daily",
+        workbench: "/roadmap/reports/daily",
       });
     }
     const savedReview = await tx.dailyReview.findUniqueOrThrow({ where: { id } });
@@ -2326,7 +2326,7 @@ async function taskUpdateConflict(
   return new ApiError("TASK_STATE_CONFLICT", 409, {
     latest,
     conflictFields: Array.from(new Set(conflictFields)),
-    workbench: "/plan",
+    workbench: "/roadmap/arrangements",
   });
 }
 
@@ -2687,7 +2687,7 @@ async function replayDailyReviewCommand(
     throw new ApiError(error.code, 409, {
       latest: await readLatest(),
       conflictFields: error.details?.conflictFields ?? ["idempotencyKey"],
-      workbench: "/review/daily",
+      workbench: "/roadmap/reports/daily",
     });
   }
 }
@@ -2708,7 +2708,7 @@ async function updateTodayReview(
     throw new ApiError("DAILY_REVIEW_REVISION_CONFLICT", 409, {
       latest: latest ? serializeReview(latest) : null,
       conflictFields: ["revision"],
-      workbench: "/review/daily",
+      workbench: "/roadmap/reports/daily",
     });
   }
   return tx.dailyReview.findUniqueOrThrow({ where: { id: existing.id } });

@@ -331,7 +331,7 @@ export async function getActionCenterToday(
       bridgedReviewScheduleId: null,
       reviewObjectKind: null,
       taskPriority: null,
-      href: `/focus/${activeSession.id}`,
+      href: `/focus`,
     });
   }
 
@@ -396,7 +396,7 @@ export async function getActionCenterToday(
       bridgedReviewScheduleId: task.reviewScheduleId,
       reviewObjectKind: null,
       taskPriority: priority,
-      href: `/plan/tasks/${task.id}`,
+      href: `/roadmap/arrangements/tasks/${task.id}`,
     });
   }
 
@@ -420,7 +420,7 @@ export async function getActionCenterToday(
       bridgedReviewScheduleId: null,
       reviewObjectKind: objectKind,
       taskPriority: null,
-      href: `/quick-review/${schedule.id}`,
+      href: `/knowledge/reviews/${schedule.id}/run`,
     });
   }
 
@@ -438,7 +438,7 @@ export async function getActionCenterToday(
   }
 
   let primaryActionLabel = "创建今天最小任务";
-  let primaryActionHref = "/plan?createMinimum=1";
+  let primaryActionHref = "/roadmap/arrangements?createMinimum=1";
   if (recommendation) {
     primaryActionLabel =
       recommendation.kind === "activity"
@@ -451,7 +451,7 @@ export async function getActionCenterToday(
     primaryActionHref = recommendation.href;
   } else if (empty) {
     primaryActionLabel = "创建今天最小任务";
-    primaryActionHref = "/plan?createMinimum=1";
+    primaryActionHref = "/roadmap/arrangements?createMinimum=1";
   }
 
   const snapshot = checkIn ?? null;

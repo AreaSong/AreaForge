@@ -138,7 +138,7 @@ export const V11_JOURNEY_CONTRACTS = {
   },
   dashboard: {
     startPath: "/today",
-    terminalPath: "/focus/:sessionId?returnTo=%2Ftoday",
+    terminalPath: "/focus?returnTo=%2Ftoday",
     mutation: { method: "POST", path: "/api/study-sessions/start", status: 201, requestCount: 1 },
     oraclePath: "/api/study-sessions/active", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -156,8 +156,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   "timer-closeout": {
-    startPath: "/focus/:sessionId?returnTo=%2Ftoday",
-    terminalPath: "/focus/:sessionId?returnTo=%2Ftoday",
+    startPath: "/focus",
+    terminalPath: "/focus",
     mutation: { method: "POST", path: "/api/study-sessions/:sessionId/end", status: 200, requestCount: 1 },
     oraclePath: "/api/study-sessions/active", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -175,8 +175,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   review: {
-    startPath: "/review/daily",
-    terminalPath: "/review/daily",
+    startPath: "/roadmap/reports/daily",
+    terminalPath: "/roadmap/reports/daily",
     mutation: { method: "POST", path: "/api/daily-reviews", status: 201, requestCount: 1 },
     oraclePath: "/api/reviews/today", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -232,8 +232,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   reports: {
-    startPath: "/review/reports?tab=current&period=week",
-    terminalPath: "/review/reports?tab=current&period=week",
+    startPath: "/roadmap/reports?tab=current&period=week",
+    terminalPath: "/roadmap/reports?tab=current&period=week",
     mutation: { method: "POST", path: "/api/reports/:reportId/confirm", status: 201, requestCount: 1 },
     oraclePath: "/api/reports/current?period=week", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -296,7 +296,7 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
   },
   "KBD-02": {
     checkKey: "main-navigation-enter", category: "keyboard", route: "/today", target: "main-navigation", profile: "desktop", mechanism: "keyboard",
-    assertions: [equalsAssertion("quick-create-trigger-focused", true), equalsAssertion("quick-create-opened-by-enter", true), equalsAssertion("quick-create-exposes-five-actions", 5), equalsAssertion("quick-create-escape-returned-focus", true), equalsAssertion("nav-link-focused", true), equalsAssertion("enter-activated-navigation", "/knowledge/overview")],
+    assertions: [equalsAssertion("quick-create-trigger-focused", true), equalsAssertion("quick-create-opened-by-enter", true), equalsAssertion("quick-create-exposes-five-actions", 5), equalsAssertion("quick-create-escape-returned-focus", true), equalsAssertion("nav-link-focused", true), equalsAssertion("enter-activated-navigation", "/knowledge")],
   },
   "KBD-03": {
     checkKey: "modal-open-keyboard", category: "keyboard", route: "/today", target: "subject-shortcut-modal", profile: "desktop", mechanism: "keyboard",
@@ -339,15 +339,15 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
     assertions: [equalsAssertion("invalid-login-status", 401), equalsAssertion("alert-is-assertive", "assertive"), equalsAssertion("alert-is-atomic", "true"), equalsAssertion("alert-has-message", true)],
   },
   "LIVE-02": {
-    checkKey: "timer-status-assertive", category: "live", route: "/focus/:sessionId", target: "focus-timer-status", profile: "desktop", mechanism: "dom",
+    checkKey: "timer-status-assertive", category: "live", route: "/focus", target: "focus-timer-status", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("timer-status-has-text", true), equalsAssertion("timer-status-assertive", "assertive"), equalsAssertion("timer-status-atomic", "true")],
   },
   "LIVE-03": {
-    checkKey: "timer-transition-assertive", category: "live", route: "/focus/:sessionId", target: "focus-timer-transition", profile: "desktop", mechanism: "dom",
+    checkKey: "timer-transition-assertive", category: "live", route: "/focus", target: "focus-timer-transition", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("pause-ui-mutation-status", 200), equalsAssertion("pause-announced", true), equalsAssertion("pause-terminal-control-visible", true)],
   },
   "LIVE-04": {
-    checkKey: "notification-fallback-polite", category: "live", route: "/settings/notifications", target: "notification-test-fallback", profile: "desktop", mechanism: "dom",
+    checkKey: "notification-fallback-polite", category: "live", route: "/settings/preferences", target: "notification-test-fallback", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("notification-test-status", 200), equalsAssertion("notification-fallback-visible", true), equalsAssertion("notification-fallback-polite", "polite"), equalsAssertion("notification-fallback-atomic", "true")],
   },
   "LIVE-05": {
@@ -355,7 +355,7 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
     assertions: [gteAssertion("layout-announcement-present", 1), equalsAssertion("layout-announcement-polite", "polite")],
   },
   "LIVE-06": {
-    checkKey: "review-save-and-recovery-live", category: "live", route: "/review/daily", target: "daily-review-save-and-recovery", profile: "desktop", mechanism: "dom",
+    checkKey: "review-save-and-recovery-live", category: "live", route: "/roadmap/reports/daily", target: "daily-review-save-and-recovery", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("review-save-status", 201), equalsAssertion("review-success-live-region", true), equalsAssertion("review-success-polite", "polite"), equalsAssertion("network-error-alert-visible", true), equalsAssertion("network-error-has-message", true), gteAssertion("failed-review-draft-retained", 1)],
   },
   "COLOR-01": {

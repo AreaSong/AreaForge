@@ -120,7 +120,7 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       title: `${report.kind === "week" ? "周" : "月"}期报告：${report.weakness.title}`,
       summary: report.strategy.mustPressIssue,
       href: confirmationHref(confirmationId),
-      sourceHref: `/review/reports?period=${report.kind}`,
+      sourceHref: `/roadmap/reports?period=${report.kind}`,
       sourceLabel: "周期报告",
       createdAt: report.range.end,
       action: {
@@ -149,7 +149,7 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       title: "阶段调整建议",
       summary: draft.riskConclusion,
       href: confirmationHref(draft.id),
-      sourceHref: "/plan/stages#pending-stage-draft",
+      sourceHref: "/roadmap/stages#pending-stage-draft",
       sourceLabel: draft.source === "ai" ? "AI 阶段建议" : "规则阶段建议",
       createdAt: draft.createdAt,
       action: draft.status === "draft"
@@ -294,7 +294,7 @@ function aiEndpointHref(endpoint: string): string {
   return ({
     "learning-tree": "/knowledge/imports",
     "knowledge-card": "/knowledge/notes",
-    plan: "/plan",
+    plan: "/roadmap/arrangements",
     motivation: "/settings/profile",
   } as Record<string, string>)[endpoint] ?? "/confirmations";
 }

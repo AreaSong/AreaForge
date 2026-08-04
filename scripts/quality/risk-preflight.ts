@@ -441,7 +441,7 @@ function checkSecondStageStillBeforePackageD(): void {
   const stageService = readIfExists("apps/web/lib/study/stage-service.ts");
   const simulationPage = readIfExists("apps/web/app/(app)/test/simulations/page.tsx");
   const reportsService = readIfExists("apps/web/lib/study/reports-service.ts");
-  const reportsPage = readIfExists("apps/web/app/(app)/review/reports/page.tsx");
+  const reportsPage = readIfExists("apps/web/lib/routes/review-reports-page.tsx");
   const taskPanel = readIfExists("apps/web/components/task-panel.tsx");
   const taskDebtDocs = readIfExists("docs/modules/task-debt.md");
   const apiSurface = readIfExists("docs/architecture/api-surface.md");
@@ -2090,7 +2090,7 @@ function checkPackageBBatchBoundaries(): void {
     ].some((token) => content.includes(token));
   });
   const reportsService = readIfExists("apps/web/lib/study/reports-service.ts");
-  const reportsPage = readIfExists("apps/web/app/(app)/review/reports/page.tsx");
+  const reportsPage = readIfExists("apps/web/lib/routes/review-reports-page.tsx");
   const batch6RuntimeSignals = [
     {
       label: "StagePlan additive migration",

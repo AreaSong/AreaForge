@@ -96,7 +96,7 @@ function detailHref(entityType: KnowledgeCanvasEntityType, entityId: string): st
     case "SUBJECT_GROUP":
       return "/settings/workspace";
     case "SUBJECT":
-      return `/knowledge/overview?subjectId=${encodeURIComponent(entityId)}`;
+      return `/knowledge?subjectId=${encodeURIComponent(entityId)}`;
     case "SYLLABUS_NODE":
       return `/knowledge/syllabus/${encodeURIComponent(entityId)}`;
     case "NOTE":
@@ -106,13 +106,13 @@ function detailHref(entityType: KnowledgeCanvasEntityType, entityId: string): st
     case "STUDY_RESOURCE":
       return `/knowledge/resources/${encodeURIComponent(entityId)}`;
     case "TASK":
-      return `/plan/tasks/${encodeURIComponent(entityId)}`;
+      return `/roadmap/arrangements/tasks/${encodeURIComponent(entityId)}`;
     case "REVIEW_SCHEDULE":
       return `/knowledge/reviews/${encodeURIComponent(entityId)}`;
     case "MILESTONE":
-      return "/plan";
+      return "/roadmap/arrangements";
     case "STUDY_SESSION":
-      return `/focus/${encodeURIComponent(entityId)}`;
+      return `/focus`;
     default:
       return null;
   }
@@ -655,7 +655,7 @@ export async function getKnowledgeOverview(actorId: string) {
     ? {
         kind: "review" as const,
         label: nextReview.note?.title ?? nextReview.mistake?.title ?? nextReview.studyResource?.title ?? nextReview.syllabusNode?.title ?? "到期复习",
-        href: `/quick-review/${nextReview.id}?returnTo=${encodeURIComponent("/knowledge/reviews")}`,
+        href: `/knowledge/reviews/${nextReview.id}/run?returnTo=${encodeURIComponent("/knowledge/reviews")}`,
       }
     : nextWeakNode
       ? { kind: "weak_node" as const, label: nextWeakNode.title, href: `/knowledge/syllabus/${nextWeakNode.id}` }

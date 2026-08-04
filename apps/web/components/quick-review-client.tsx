@@ -286,7 +286,7 @@ export function QuickReviewClient(props: {
   if (done) {
     const completionActionLabel = done.nextScheduleId ? "继续下一项" : getCompletionReturnLabel(props.returnTo);
     const completionActionHref = done.nextScheduleId
-      ? withReturnTo(`/quick-review/${done.nextScheduleId}`, props.returnTo)
+      ? withReturnTo(`/knowledge/reviews/${done.nextScheduleId}/run`, props.returnTo)
       : props.returnTo;
     return (
       <section className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-5 px-4 py-8">
@@ -665,7 +665,7 @@ function failureWorkbench(body: ConflictBody | ConfirmResponse | null, fallback:
 }
 
 function safeConflictWorkbench(value: string | undefined): string | null {
-  return value?.startsWith("/focus/") || value === "/knowledge/reviews" ? value : null;
+  return value === "/focus" || value === "/knowledge/reviews" ? value : null;
 }
 
 function reviewResultLabel(value: ReviewEventDto["result"]) {

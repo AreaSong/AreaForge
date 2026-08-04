@@ -13,7 +13,7 @@
   - `POST /api/review-schedules/:id/events` 确认
   - `POST /api/review-events/:id/corrections`
   - bridge：`/api/review-schedules/:id/bridge` 与 `/api/study-tasks/:id/bridge-*`
-- UI：`/quick-review/[scheduleId]` 单对象快速复习；`/knowledge/reviews` 统一复习列表。
+- UI：`/knowledge/reviews/[scheduleId]/run` 单对象快速复习；`/knowledge/reviews` 统一复习列表。
 - 确认事务：Event → CAS Schedule →（考纲）Retest/Evidence → CheckIn v2 → Audit。
 - 临时库验证：`AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest`
 - 上述能力已进入当前产品；后续源码变化仍须按目标 commit 重做对应 runtime、体验与 Release admission 验证。

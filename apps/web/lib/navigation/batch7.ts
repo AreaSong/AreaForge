@@ -5,9 +5,11 @@ export interface AppNavigationItem {
   children?: readonly AppNavigationItem[];
 }
 
-const PLAN_NAV_ITEMS: readonly AppNavigationItem[] = [
-  { href: "/plan", label: "长期计划", match: (path: string) => path === "/plan" || path.startsWith("/plan/tasks") },
-  { href: "/plan/inbox", label: "任务收件箱", match: (path: string) => path.startsWith("/plan/inbox") },
+const ROADMAP_NAV_ITEMS: readonly AppNavigationItem[] = [
+  { href: "/roadmap", label: "路线总览", match: (path: string) => path === "/roadmap" },
+  { href: "/roadmap/arrangements", label: "学习安排", match: (path: string) => path.startsWith("/roadmap/arrangements") },
+  { href: "/roadmap/stages", label: "阶段", match: (path: string) => path.startsWith("/roadmap/stages") },
+  { href: "/roadmap/reports", label: "周期复盘", match: (path: string) => path.startsWith("/roadmap/reports") },
 ] as const;
 
 const TEST_NAV_ITEMS: readonly AppNavigationItem[] = [
@@ -15,68 +17,42 @@ const TEST_NAV_ITEMS: readonly AppNavigationItem[] = [
   { href: "/test/simulations", label: "模拟考试", match: (path: string) => path.startsWith("/test/simulations") },
 ] as const;
 
-const CONFIRMATION_NAV_ITEMS: readonly AppNavigationItem[] = [
-  {
-    href: "/confirmations",
-    label: "待确认",
-    match: (path: string) => path === "/confirmations" || (path.startsWith("/confirmations/") && !path.startsWith("/confirmations/history")),
-  },
-  { href: "/confirmations/history", label: "已处理", match: (path: string) => path.startsWith("/confirmations/history") },
-] as const;
-
 export const KNOWLEDGE_TAB_ITEMS = [
-  { href: "/knowledge/overview", label: "概览" },
+  { href: "/knowledge", label: "概览" },
   { href: "/knowledge/points", label: "知识点" },
   { href: "/knowledge/syllabus", label: "考纲" },
   { href: "/knowledge/resources", label: "学习资料" },
   { href: "/knowledge/notes", label: "笔记" },
   { href: "/knowledge/mistakes", label: "错题" },
-  { href: "/knowledge/reviews", label: "复习" },
-  { href: "/knowledge/canvas", label: "关联图谱" },
-  { href: "/knowledge/imports", label: "学习树导入" },
-] as const;
-
-export const REVIEW_TAB_ITEMS = [
-  { href: "/review/daily", label: "今日复盘" },
-  { href: "/review/reports", label: "周期报告" },
-] as const;
-
-export const STAGE_NAV_ITEMS: readonly AppNavigationItem[] = [
-  { href: "/plan/stages", label: "阶段总览", match: (path: string) => path === "/plan/stages" },
-  { href: "/plan/stages/analytics", label: "阶段趋势", match: (path: string) => path.startsWith("/plan/stages/analytics") },
+  { href: "/knowledge/reviews", label: "到期复习" },
 ] as const;
 
 export const SETTINGS_TAB_ITEMS = [
   { href: "/settings/workspace", label: "工作区" },
-  { href: "/settings/profile", label: "档案" },
-  { href: "/settings/notifications", label: "通知" },
+  { href: "/settings/profile", label: "档案与动机" },
+  { href: "/settings/preferences", label: "偏好" },
   { href: "/settings/ai", label: "AI" },
-  { href: "/settings/experience", label: "体验" },
   { href: "/settings/system", label: "系统" },
 ] as const;
 
 export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
-  { href: "/focus", label: "开始学习", match: (path: string) => path === "/focus" || path.startsWith("/focus/") },
+  { href: "/focus", label: "开始学习", match: (path: string) => path === "/focus" },
   {
     href: "/today",
     label: "今日",
     match: (path: string) => path === "/today",
   },
   {
-    href: "/plan",
-    label: "计划",
-    match: (path: string) => PLAN_NAV_ITEMS.some((item) => item.match(path)),
-    children: PLAN_NAV_ITEMS,
-  },
-  {
-    href: "/knowledge/overview",
+    href: "/knowledge",
     label: "知识",
-    match: (path: string) => path === "/knowledge" || path.startsWith("/knowledge/") || path.startsWith("/quick-review/"),
+    match: (path: string) => path === "/knowledge" || path.startsWith("/knowledge/"),
     children: KNOWLEDGE_TAB_ITEMS.map((item) => ({
       ...item,
       match: (path: string) => item.href === "/knowledge/reviews"
-        ? path === item.href || path.startsWith(`${item.href}/`) || path.startsWith("/quick-review/")
-        : path === item.href || path.startsWith(`${item.href}/`),
+        ? path === item.href || path.startsWith(`${item.href}/`)
+        : item.href === "/knowledge"
+          ? path === "/knowledge"
+          : path === item.href || path.startsWith(`${item.href}/`),
     })),
   },
   {
@@ -86,25 +62,13 @@ export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
     children: TEST_NAV_ITEMS,
   },
   {
-    href: "/plan/stages",
-    label: "阶段",
-    match: (path: string) => STAGE_NAV_ITEMS.some((item) => item.match(path)),
-    children: STAGE_NAV_ITEMS,
+    href: "/roadmap",
+    label: "路线",
+    match: (path: string) => path === "/roadmap" || ROADMAP_NAV_ITEMS.some((item) => item.match(path)),
+    children: ROADMAP_NAV_ITEMS,
   },
   {
-    href: "/review/daily",
-    label: "复盘",
-    match: (path: string) => path === "/review" || path.startsWith("/review/"),
-    children: REVIEW_TAB_ITEMS.map((item) => ({ ...item, match: (path: string) => path === item.href || path.startsWith(`${item.href}/`) })),
-  },
-  {
-    href: "/confirmations",
-    label: "确认中心",
-    match: (path: string) => path === "/confirmations" || path.startsWith("/confirmations/"),
-    children: CONFIRMATION_NAV_ITEMS,
-  },
-  {
-    href: "/settings/workspace",
+    href: "/settings",
     label: "设置",
     match: (path: string) => path === "/settings" || path.startsWith("/settings/"),
     children: SETTINGS_TAB_ITEMS.map((item) => ({ ...item, match: (path: string) => path === item.href || path.startsWith(`${item.href}/`) })),
@@ -112,6 +76,9 @@ export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
 ] as const;
 
 export const BATCH8_NAV_ITEMS = BATCH10_NAV_ITEMS;
+
+export const PRIMARY_WORKBENCH_ITEMS = BATCH10_NAV_ITEMS.filter((item) => item.href !== "/settings");
+export const UTILITY_NAV_ITEM = BATCH10_NAV_ITEMS.find((item) => item.href === "/settings")!;
 
 /** @deprecated Use BATCH8_NAV_ITEMS */
 export const BATCH7_NAV_ITEMS = BATCH8_NAV_ITEMS;
@@ -128,12 +95,16 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/setup$/, title: "初始化" },
   { pattern: /^\/today$/, title: "今日行动中心", returnQueryKeys: ["date"] },
   { pattern: /^\/focus$/, title: "开始学习" },
-  { pattern: /^\/plan$/, title: "长期计划", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum", "resourceId", "syllabusNodeId", "taskId"] },
-  { pattern: /^\/plan\/stages$/, title: "阶段总览" },
-  { pattern: /^\/plan\/stages\/analytics$/, title: "阶段趋势" },
-  { pattern: /^\/plan\/inbox$/, title: "计划收件箱", returnQueryKeys: ["status", "stableRef", "returnTo"] },
-  { pattern: /^\/plan\/inbox\/[^/]+$/, title: "计划草稿详情", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/plan\/tasks\/[^/]+$/, title: "任务详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/roadmap$/, title: "路线总览" },
+  { pattern: /^\/roadmap\/arrangements$/, title: "学习安排", returnQueryKeys: ["date", "subjectId", "status", "q", "createMinimum", "resourceId", "syllabusNodeId", "taskId"] },
+  { pattern: /^\/roadmap\/arrangements\/drafts$/, title: "计划收件箱", returnQueryKeys: ["status", "stableRef", "returnTo"] },
+  { pattern: /^\/roadmap\/arrangements\/drafts\/[^/]+$/, title: "学习安排草稿详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/roadmap\/arrangements\/tasks\/[^/]+$/, title: "任务详情", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/roadmap\/stages$/, title: "阶段", returnQueryKeys: ["createMilestone", "returnTo"] },
+  { pattern: /^\/roadmap\/stages\/trend$/, title: "阶段趋势", returnQueryKeys: ["window", "returnTo"] },
+  { pattern: /^\/roadmap\/reports$/, title: "周期复盘", returnQueryKeys: ["tab", "period"] },
+  { pattern: /^\/roadmap\/reports\/daily$/, title: "每日复盘" },
+  { pattern: /^\/roadmap\/reports\/history\/[^/]+$/, title: "冻结报告", returnQueryKeys: ["period"] },
   { pattern: /^\/test$/, title: "检验中心" },
   { pattern: /^\/test\/retests$/, title: "专项复测" },
   { pattern: /^\/test\/retests\/new$/, title: "安排专项复测" },
@@ -143,13 +114,11 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/confirmations$/, title: "确认中心" },
   { pattern: /^\/confirmations\/history$/, title: "确认记录" },
   { pattern: /^\/confirmations\/[^/]+$/, title: "确认事项详情", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/focus\/[^/]+$/, title: "专注计时", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/quick-review\/[^/]+$/, title: "快速复习", returnQueryKeys: ["returnTo"] },
+  { pattern: /^\/knowledge\/reviews\/[^/]+\/run$/, title: "快速复习", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge$/, title: "知识工作台" },
   { pattern: /^\/knowledge\/points$/, title: "知识点", returnQueryKeys: ["subjectId", "q", "masteryStatus", "masteryState"] },
   { pattern: /^\/knowledge\/points\/[^/]+$/, title: "知识点详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/canvas$/, title: "关联画布", returnQueryKeys: ["workspaceId", "subjectId", "syllabusNodeId", "focus", "q"] },
-  { pattern: /^\/knowledge\/overview$/, title: "知识概览", returnQueryKeys: ["q"] },
   { pattern: /^\/knowledge\/imports$/, title: "学习树导入", returnQueryKeys: ["mode"] },
   { pattern: /^\/knowledge\/imports\/[^/]+$/, title: "导入批次", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/syllabus$/, title: "考纲", returnQueryKeys: ["subjectId", "q", "status", "map", "action"] },
@@ -163,16 +132,11 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/knowledge\/resources\/[^/]+$/, title: "资料详情", returnQueryKeys: ["returnTo"] },
   { pattern: /^\/knowledge\/reviews$/, title: "统一复习", returnQueryKeys: ["status", "q"] },
   { pattern: /^\/knowledge\/reviews\/[^/]+$/, title: "复习排期详情", returnQueryKeys: ["returnTo"] },
-  { pattern: /^\/review$/, title: "复盘" },
-  { pattern: /^\/review\/daily$/, title: "晚间复盘" },
-  { pattern: /^\/review\/reports$/, title: "周期报告", returnQueryKeys: ["tab", "period"] },
-  { pattern: /^\/review\/reports\/history\/[^/]+$/, title: "冻结报告", returnQueryKeys: ["period"] },
   { pattern: /^\/settings$/, title: "设置" },
   { pattern: /^\/settings\/workspace$/, title: "工作区设置", returnQueryKeys: ["setup"] },
   { pattern: /^\/settings\/profile$/, title: "个人档案与动机" },
-  { pattern: /^\/settings\/notifications$/, title: "通知偏好" },
+  { pattern: /^\/settings\/preferences$/, title: "偏好设置" },
   { pattern: /^\/settings\/ai$/, title: "AI 设置" },
-  { pattern: /^\/settings\/experience$/, title: "体验设置" },
   { pattern: /^\/settings\/system$/, title: "系统设置" },
 ] as const;
 
@@ -188,19 +152,21 @@ export function getRouteTitle(pathname: string): string {
  */
 export function isContentDetailPath(pathname: string): boolean {
   return [
-    /^\/plan\/tasks\/[^/]+$/,
-    /^\/plan\/inbox\/[^/]+$/,
+    /^\/roadmap\/arrangements\/drafts\/[^/]+$/,
+    /^\/roadmap\/arrangements\/tasks\/[^/]+$/,
+    /^\/roadmap\/reports\/[^/]+$/,
+    /^\/roadmap\/reports\/history\/[^/]+$/,
     /^\/knowledge\/points\/[^/]+$/,
     /^\/knowledge\/syllabus\/[^/]+$/,
     /^\/knowledge\/resources\/[^/]+(?:\/preview)?$/,
     /^\/knowledge\/notes\/[^/]+$/,
     /^\/knowledge\/mistakes\/[^/]+$/,
     /^\/knowledge\/reviews\/[^/]+$/,
+    /^\/knowledge\/reviews\/[^/]+\/run$/,
     /^\/knowledge\/imports\/[^/]+$/,
     /^\/test\/retests\/new$/,
     /^\/test\/retests\/[^/]+$/,
     /^\/test\/simulations\/[^/]+$/,
-    /^\/review\/reports\/history\/[^/]+$/,
     // `/confirmations/history` is the confirmation center's secondary view,
     // not an object detail page. Keep this explicit exclusion next to the
     // generic detail matcher so future route additions do not hide its rail.
@@ -210,16 +176,14 @@ export function isContentDetailPath(pathname: string): boolean {
 
 export function isWorkbenchHomePath(pathname: string): boolean {
   return pathname === "/today"
-    || pathname === "/plan"
+    || pathname === "/roadmap"
+    || pathname === "/roadmap/arrangements"
+    || pathname === "/roadmap/stages"
+    || pathname === "/roadmap/reports"
     || pathname === "/knowledge"
-    || pathname === "/knowledge/overview"
     || pathname === "/test"
-    || pathname === "/plan/stages"
-    || pathname === "/review"
-    || pathname === "/review/daily"
     || pathname === "/confirmations"
-    || pathname === "/settings"
-    || pathname === "/settings/workspace";
+    || pathname === "/settings";
 }
 
 /**
@@ -228,6 +192,12 @@ export function isWorkbenchHomePath(pathname: string): boolean {
  * segment so the shell never invents a fourth navigation rail.
  */
 export function getNavigationTrail(pathname: string): Array<{ href: string; label: string }> {
+  if (pathname.startsWith("/confirmations")) {
+    const trail: Array<{ href: string; label: string }> = [{ href: "/confirmations", label: "确认中心" }];
+    if (pathname === "/confirmations/history") trail.push({ href: pathname, label: "已处理" });
+    else if (pathname !== "/confirmations") trail.push({ href: pathname, label: getRouteTitle(pathname) });
+    return trail;
+  }
   const primary = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
   if (!primary) return [{ href: "/focus", label: "开始学习" }, { href: pathname, label: getRouteTitle(pathname) }];
 
@@ -242,7 +212,7 @@ export function getNavigationTrail(pathname: string): Array<{ href: string; labe
   }
 
   // A secondary item may intentionally reuse the primary route (for example
-  // /plan and /confirmations). Keep its label so the visible hierarchy still
+  // A reused secondary route keeps its label so the visible hierarchy still
   // communicates the business area and the current view.
   if (secondary.label !== primary.label) trail.push({ href: secondary.href, label: secondary.label });
   const routeTitle = getRouteTitle(pathname);
@@ -297,18 +267,15 @@ export function isBatch8OpenPath(pathname: string): boolean {
   return (
     pathname === "/today" ||
     pathname === "/focus" ||
-    pathname.startsWith("/focus/") ||
-    pathname === "/plan" ||
-    pathname.startsWith("/plan/") ||
+    pathname === "/roadmap" ||
+    pathname.startsWith("/roadmap/") ||
     pathname === "/test" ||
     pathname.startsWith("/test/") ||
     pathname === "/confirmations" ||
     pathname.startsWith("/confirmations/") ||
-    pathname.startsWith("/quick-review/") ||
     pathname === "/knowledge" ||
     pathname.startsWith("/knowledge/") ||
     pathname.startsWith("/settings")
-    || pathname.startsWith("/review/")
   );
 }
 

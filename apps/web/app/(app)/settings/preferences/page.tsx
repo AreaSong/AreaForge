@@ -1,0 +1,25 @@
+import { redirect } from "next/navigation";
+import { ExperienceSettingsClient } from "@/components/experience-settings-client";
+import { NotificationSettingsClient } from "@/components/notification-settings-client";
+import { ButtonLink } from "@/components/ui/button";
+import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getNotificationPreferences } from "@/lib/study/notification-preferences-service";
+
+export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/settings/preferences");
+
+export default async function SettingsPreferencesPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const notificationPreferences = await getNotificationPreferences(user.id);
+
+  return (
+    <PageFrame variant="dashboard-wide" className="space-y-10">
+      <PageHeader eyebrow="设置 / 偏好" title="偏好设置" description="把当前设备的提醒与界面偏好放在一个地方管理，不影响学习记录。" action={<ButtonLink href="/today" variant="secondary">返回今日行动</ButtonLink>} />
+      <section className="space-y-4"><SectionHeader title="提醒" description="浏览器通知只在页面打开时发送；权限拒绝只降级，不循环请求。" /><NotificationSettingsClient userId={user.id} initial={notificationPreferences} /></section>
+      <section className="space-y-4 border-t border-white/10 pt-8"><SectionHeader title="界面" description="这些设置只影响当前设备的显示与交互。" /><ExperienceSettingsClient /></section>
+    </PageFrame>
+  );
+}

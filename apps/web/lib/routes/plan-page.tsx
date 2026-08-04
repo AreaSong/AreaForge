@@ -17,7 +17,7 @@ import type { SyllabusOptionNodeDto } from "@/lib/study/types";
 import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/plan");
+export const metadata = getRouteMetadata("/roadmap/arrangements");
 
 export default async function TodayPlanPage({
   searchParams,
@@ -141,7 +141,7 @@ function buildPlanHref(params: {
     if (value && key !== "createMinimum" && key !== "taskId") query.set(key, value);
   }
   const serialized = query.toString();
-  return `/plan${serialized ? `?${serialized}` : ""}`;
+  return `/roadmap/arrangements${serialized ? `?${serialized}` : ""}`;
 }
 
 function flattenSyllabusOptions(nodes: SyllabusOptionNodeDto[]): SyllabusOptionNodeDto[] {

@@ -65,7 +65,7 @@ export function ReviewScheduleQueue(props: {
           </div>
         </section>
       ) : (
-        <EmptyState title="当前复习已清空" description="没有到期且可执行的复习对象。可以查看近期结果，或回到知识概览继续整理证据。" action={<ButtonLink href="/knowledge/overview" variant="secondary">返回知识概览</ButtonLink>} />
+        <EmptyState title="当前复习已清空" description="没有到期且可执行的复习对象。可以查看近期结果，或回到知识概览继续整理证据。" action={<ButtonLink href="/knowledge" variant="secondary">返回知识概览</ButtonLink>} />
       )}
 
       <section className="space-y-4">
@@ -129,7 +129,7 @@ function Metric({ label, value, tone = "neutral" }: { label: string; value: stri
 }
 
 function quickReviewHref(scheduleId: string) {
-  return withReturnTo(`/quick-review/${scheduleId}`, returnTo);
+  return withReturnTo(`/knowledge/reviews/${scheduleId}`, returnTo);
 }
 
 function detailHref(scheduleId: string) {

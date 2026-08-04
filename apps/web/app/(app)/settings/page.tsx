@@ -1,4 +1,4 @@
-import { Bell, Bot, BriefcaseBusiness, MonitorCog, SlidersHorizontal, UserRound } from "lucide-react";
+import { Bot, BriefcaseBusiness, MonitorCog, SlidersHorizontal, UserRound } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -38,9 +38,8 @@ export default async function SettingsIndexPage() {
   const items = [
     { href: "/settings/workspace", title: "工作区", description: "考试目标、科目与分组", status: activeWorkspace ? `${activeWorkspace.name} · ${subjects.filter((item) => !item.archivedAt).length} 个科目` : "尚未建立", tone: activeWorkspace ? "success" : "warning", icon: BriefcaseBusiness },
     { href: "/settings/profile", title: "档案与动机", description: "封存长期动机并管理恢复内容", status: vaultFieldCount || motivationItems.length ? `${vaultFieldCount} 项封存 · ${motivationItems.filter((item) => !item.archivedAt).length} 条内容` : "可选配置", tone: vaultFieldCount ? "success" : "neutral", icon: UserRound },
-    { href: "/settings/notifications", title: "通知", description: "复习、计划与晚间复盘提醒", status: `${enabledNotificationCount} / 3 类提醒启用`, tone: enabledNotificationCount ? "info" : "neutral", icon: Bell },
+    { href: "/settings/preferences", title: "偏好", description: "提醒、主题、密度与当前设备界面偏好", status: `${enabledNotificationCount} / 3 类提醒启用`, tone: enabledNotificationCount ? "info" : "neutral", icon: SlidersHorizontal },
     { href: "/settings/ai", title: "AI", description: "外部 Provider 与草稿数据边界", status: !aiStatus.effectiveEnabled ? (aiStatus.serverEnabled ? "Web 全局开关已关闭" : "服务端未启用") : aiPreference.externalProviderEnabled ? "当前浏览器已启用" : "当前浏览器已关闭", tone: aiStatus.effectiveEnabled && aiPreference.externalProviderEnabled ? "success" : "neutral", icon: Bot },
-    { href: "/settings/experience", title: "体验", description: "主题、密度与界面偏好", status: "当前设备偏好", tone: "neutral", icon: SlidersHorizontal },
     { href: "/settings/system", title: "系统", description: "版本、更新与运行状态", status: version, tone: updateStatus.blocker ? "warning" : "success", icon: MonitorCog },
   ] as const;
 

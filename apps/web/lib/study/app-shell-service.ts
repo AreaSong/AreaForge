@@ -79,7 +79,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         severe: false,
         recoveryBlocked: false,
         arrangedComplete: false,
-        debtHref: "/plan",
+        debtHref: "/roadmap/arrangements",
       },
       stage: {
         hasStage: false,
@@ -87,14 +87,14 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
         milestoneHealthy: false,
         milestoneNearOrDraftPending: false,
         conflictOrBlocked: false,
-        stageHref: "/plan/stages",
+        stageHref: "/roadmap/stages",
       },
       todayClosure: {
         inReminderWindow: false,
         minimumActionDone: false,
         dailyReviewDone: false,
         minimumActionHref: "/today",
-        reviewHref: "/review/daily",
+        reviewHref: "/roadmap/reports/daily",
       },
     });
     return serializeStatus(empty, {
@@ -243,7 +243,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       isPaused: activeSession?.status === "paused",
       justCompleted: Boolean(justCompleted) && !activeSession,
       conflictOrUnknown: false,
-      continueHref: activeSession ? `/focus/${activeSession.id}` : "/today",
+      continueHref: activeSession ? `/focus` : "/today",
     },
     review: {
       executableCount,
@@ -258,7 +258,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       severe: severeDebt > 0,
       recoveryBlocked: false,
       arrangedComplete: debtTasks.length === 0,
-        debtHref: "/plan",
+        debtHref: "/roadmap/arrangements",
     },
     stage: {
       hasStage: Boolean(stagePlan) || Boolean(workspace.stageSummary),
@@ -266,14 +266,14 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       milestoneHealthy: Boolean(stagePlan) && !["draft", "DRAFT"].includes(stagePlan?.status ?? ""),
       milestoneNearOrDraftPending: ["draft", "DRAFT"].includes(stagePlan?.status ?? ""),
       conflictOrBlocked: false,
-        stageHref: "/plan/stages",
+        stageHref: "/roadmap/stages",
     },
     todayClosure: {
       inReminderWindow,
       minimumActionDone: todayCheckIn?.completedMinimumAction ?? false,
       dailyReviewDone: Boolean(dailyReview?.summary),
       minimumActionHref: "/today",
-      reviewHref: "/review/daily",
+      reviewHref: "/roadmap/reports/daily",
     },
   });
 

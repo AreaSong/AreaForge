@@ -9,7 +9,7 @@
 - Schema：`PlanInboxItem` / `PlanInboxDependencyRef` / `PlanMilestone` / `TaskDependency`。
 - API：`/api/plan-inbox/**`（列表、创建、编辑、dismiss、reopen、convert）；`/api/plan-milestones/**`；`/api/tasks/:id/dependencies/**`；`GET /api/plan/rolling`（仅计数，不泄正文）。
 - 已开放隔离原子 convert：同事务创建 `StudyTask`、置 `CONVERTED`、写审计；可选绑定 `reviewScheduleId` 桥接。
-- UI：`/plan/inbox`、`/plan/inbox/[itemId]`、`/plan` Inbox 数量入口。
+- UI：`/roadmap/arrangements/drafts`、`/roadmap/arrangements/drafts/[itemId]`、`/roadmap/arrangements` 收件箱数量入口。
 
 ## 规划行为
 

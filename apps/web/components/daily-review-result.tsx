@@ -16,7 +16,7 @@ export function DailyReviewResult(props: {
       : props.inboxItem
         ? "已进入计划收件箱，补全科目和时长后即可转为正式任务。"
         : "已保存，正在等待收件箱结果同步。";
-  const returnTo = "/review/daily";
+  const returnTo = "/roadmap/reports/daily";
   return (
     <section className="border-y border-emerald-400/25 bg-emerald-500/[0.05] py-5" aria-label="复盘完成结果">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -33,16 +33,16 @@ export function DailyReviewResult(props: {
         <div className="flex shrink-0 flex-wrap gap-2">
           <ButtonLink href="/today" variant="secondary">返回今日</ButtonLink>
           {convertedTaskId ? (
-            <ButtonLink href={withReturnTo(`/plan/tasks/${convertedTaskId}`, returnTo)} variant="primary">
+            <ButtonLink href={withReturnTo(`/roadmap/arrangements/tasks/${convertedTaskId}`, returnTo)} variant="primary">
               打开明日任务 <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </ButtonLink>
           ) : props.inboxItem ? (
-      <ButtonLink href={withReturnTo(`/plan/inbox/${props.inboxItem.id}`, returnTo)} variant="primary">
+      <ButtonLink href={withReturnTo(`/roadmap/arrangements/drafts/${props.inboxItem.id}`, returnTo)} variant="primary">
               {props.inboxItem.status === "DISMISSED" ? "查看计划草稿" : "补全明日任务"}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </ButtonLink>
           ) : (
-      <ButtonLink href={withReturnTo("/plan/inbox", returnTo)} variant="primary">查看计划收件箱</ButtonLink>
+      <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="primary">查看计划收件箱</ButtonLink>
           )}
         </div>
       </div>

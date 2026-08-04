@@ -438,18 +438,32 @@ async function main(): Promise<void> {
 
   for (const page of [
     "/today",
-    "/plan",
-    "/plan/inbox",
+    "/focus",
+    "/roadmap",
+    "/roadmap/arrangements",
+    "/roadmap/arrangements/drafts",
+    "/roadmap/stages",
+    "/roadmap/stages/trend",
+    "/roadmap/reports",
+    "/roadmap/reports/daily",
+    "/test",
+    "/test/retests",
+    "/test/simulations",
+    "/confirmations",
+    "/confirmations/history",
     "/settings",
     "/settings/workspace",
+    "/settings/preferences",
+    "/settings/ai",
+    "/settings/system",
+    "/knowledge",
     "/knowledge/canvas",
-    "/knowledge/overview",
+    "/knowledge/imports",
     "/knowledge/notes",
     "/knowledge/syllabus",
     "/knowledge/reviews",
-    "/plan/stages",
-    "/plan/stages/analytics",
-    "/test/simulations",
+    "/knowledge/resources",
+    "/knowledge/mistakes",
   ]) {
     await check(`page ${page}`, async () => {
       const response = await requestRaw(page, { cookie });
@@ -467,6 +481,19 @@ async function main(): Promise<void> {
     "/today/plan",
     "/today/inbox",
     "/today/tasks/missing",
+    "/plan",
+    "/plan/inbox",
+    "/plan/inbox/missing",
+    "/plan/tasks/missing",
+    "/plan/stages",
+    "/plan/stages/analytics",
+    "/review",
+    "/review/daily",
+    "/review/reports",
+    "/review/reports/history/missing",
+    "/quick-review/missing",
+    "/focus/missing",
+    "/knowledge/overview",
     "/stage",
     "/stage/overview",
     "/stage/analytics",
@@ -479,6 +506,8 @@ async function main(): Promise<void> {
     "/notes",
     "/mistakes",
     "/motivation",
+    "/settings/experience",
+    "/settings/notifications",
   ]) {
     await check(`canonical-only route ${legacyPage}`, async () => {
       const response = await requestRaw(legacyPage, { cookie, allowStatuses: [404] });
@@ -498,7 +527,7 @@ async function main(): Promise<void> {
     if (text.includes("NEXT_REDIRECT;replace;/login")) {
       throw new Error("authenticated /today redirected to login");
     }
-    for (const label of ["开始学习", "今日", "计划", "知识", "检验", "复盘", "确认中心", "设置"]) {
+    for (const label of ["开始学习", "今日", "知识", "检验", "路线", "设置"]) {
       if (!text.includes(label)) {
         throw new Error(`Batch 10 nav missing label: ${label}`);
       }
@@ -523,9 +552,9 @@ async function main(): Promise<void> {
     }
 
     const workbenchSecondaryEntrypoints: Array<{ path: string; href: string }> = [
-      { path: "/knowledge/overview", href: 'href="/knowledge/canvas"' },
-      { path: "/review/daily", href: 'href="/review/reports"' },
-      { path: "/plan", href: 'href="/plan/stages"' },
+      { path: "/knowledge", href: 'href="/knowledge/canvas"' },
+      { path: "/roadmap", href: 'href="/roadmap/stages"' },
+      { path: "/roadmap/reports/daily", href: 'href="/roadmap/reports"' },
     ];
     for (const entrypoint of workbenchSecondaryEntrypoints) {
       const entryResponse = await requestRaw(entrypoint.path, { cookie });
@@ -537,7 +566,7 @@ async function main(): Promise<void> {
   });
 
   await check("batch9 settings openings", async () => {
-    for (const path of ["/settings/profile", "/settings/notifications", "/settings/ai"]) {
+    for (const path of ["/settings/profile", "/settings/preferences", "/settings/ai"]) {
       const response = await requestRaw(path, { cookie });
       const text = await response.text();
       if (text.includes("NEXT_REDIRECT;replace;/login")) {
@@ -579,8 +608,8 @@ async function main(): Promise<void> {
   const shortcutUpdatedAt = stringField(shortcutSession, "updatedAt");
   if (!shortcutSessionId || !shortcutUpdatedAt) throw new Error("subject shortcut start missing id or updatedAt");
 
-  await check("page /focus/[sessionId]", async () => {
-    const response = await requestRaw(`/focus/${encodeURIComponent(shortcutSessionId)}`, { cookie });
+  await check("canonical unique focus page", async () => {
+    const response = await requestRaw("/focus", { cookie });
     const text = await response.text();
     if (text.includes("NEXT_REDIRECT;replace;/login")) {
       throw new Error("authenticated focus page redirected to login");
@@ -626,12 +655,12 @@ async function main(): Promise<void> {
     schemaVersion: "v11-browser-fixture-manifest-v1",
     routes: {
       today: "/today",
-      todayPlan: "/plan",
-      taskDetail: `/plan/tasks/${taskId}`,
-      todayInbox: "/plan/inbox",
-      inboxDetail: `/plan/inbox/${inboxItemId}`,
+      todayPlan: "/roadmap/arrangements",
+      taskDetail: `/roadmap/arrangements/tasks/${taskId}`,
+      todayInbox: "/roadmap/arrangements/drafts",
+      inboxDetail: `/roadmap/arrangements/drafts/${inboxItemId}`,
       canvas: "/knowledge/canvas",
-      knowledgeOverview: "/knowledge/overview",
+      knowledgeOverview: "/knowledge",
       imports: "/knowledge/imports",
       importDetail: `/knowledge/imports/${importId}`,
       syllabus: "/knowledge/syllabus",
@@ -645,21 +674,20 @@ async function main(): Promise<void> {
       resourcePreview: `/knowledge/resources/${resourceId}/preview`,
       reviews: "/knowledge/reviews",
       reviewDetail: `/knowledge/reviews/${reviewScheduleId}`,
-      dailyReview: "/review/daily",
-      reports: "/review/reports",
-      reportHistory: `/review/reports/history/${reportDecisionId}`,
-      stageOverview: "/plan/stages",
+      dailyReview: "/roadmap/reports/daily",
+      reports: "/roadmap/reports",
+      reportHistory: `/roadmap/reports/history/${reportDecisionId}`,
+      stageOverview: "/roadmap/stages",
       simulations: "/test/simulations",
       simulationDetail: `/test/simulations/${examId}`,
-      analytics: "/plan/stages/analytics",
+      analytics: "/roadmap/stages/trend",
       profile: "/settings/profile",
       workspace: "/settings/workspace",
       ai: "/settings/ai",
-      experience: "/settings/experience",
-      notifications: "/settings/notifications",
+      preferences: "/settings/preferences",
       system: "/settings/system",
-      focus: `/focus/${sessionId}`,
-      quickReview: `/quick-review/${reviewScheduleId}`,
+      focus: "/focus",
+      quickReview: `/knowledge/reviews/${reviewScheduleId}/run`,
     },
   };
 

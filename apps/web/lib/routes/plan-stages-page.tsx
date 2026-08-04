@@ -18,7 +18,7 @@ import {
 } from "@/lib/study/stage-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/plan/stages");
+export const metadata = getRouteMetadata("/roadmap/stages");
 
 export default async function StageOverviewPage({
   searchParams,
@@ -45,7 +45,7 @@ export default async function StageOverviewPage({
       ? { label: "创建当前阶段", href: "#create-stage-plan", detail: "先建立目标和日期，后续报告才有明确的阶段落点。" }
       : activeMilestones.length > 0
         ? { label: "检查最近里程碑", href: "#stage-milestones-heading", detail: "当前没有待确认建议，继续沿生效计划推进最近的检查点。" }
-        : { label: "查看周期趋势", href: "/plan/stages/analytics?window=7", detail: "当前没有待确认建议或进行中里程碑，先用趋势判断是否需要调整。" };
+        : { label: "查看周期趋势", href: "/roadmap/stages/trend?window=7", detail: "当前没有待确认建议或进行中里程碑，先用趋势判断是否需要调整。" };
 
   return (
     <PageFrame variant="dashboard-wide">
@@ -125,8 +125,8 @@ export default async function StageOverviewPage({
         <SectionHeader title="继续判断阶段状态" description="趋势和报告提供证据，模拟考试提供结构化失分；它们不会自动改写当前计划。" />
         <nav className="grid divide-y divide-white/10 border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0" aria-label="阶段相关入口">
           <StageLink href="/test/simulations" label="模拟与失分" icon={<ClipboardList size={17} aria-hidden="true" />} />
-          <StageLink href="/plan/stages/analytics?window=7" label="学习趋势" icon={<BarChart3 size={17} aria-hidden="true" />} />
-          <StageLink href="/review/reports" label="周期报告" icon={<FileChartColumn size={17} aria-hidden="true" />} />
+          <StageLink href="/roadmap/stages/trend?window=7" label="学习趋势" icon={<BarChart3 size={17} aria-hidden="true" />} />
+          <StageLink href="/roadmap/reports" label="周期报告" icon={<FileChartColumn size={17} aria-hidden="true" />} />
         </nav>
       </section>
     </PageFrame>
@@ -146,8 +146,8 @@ function LatestStageDecision({ result, returnTo }: { result: StageAdjustmentDeci
             {inbox ? ` · 入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}` : ""}
           </p>
         </div>
-        {result.status === "applied" && inbox && inbox.createdCount > 0 ? <ButtonLink href={withReturnTo("/plan/inbox", returnTo)} variant="primary"><ClipboardList size={15} aria-hidden="true" />处理入箱草稿</ButtonLink> : null}
-        {result.status === "applied" && inbox && inbox.createdCount === 0 && inbox.reusedCount > 0 ? <ButtonLink href={withReturnTo("/plan/inbox", returnTo)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
+        {result.status === "applied" && inbox && inbox.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="primary"><ClipboardList size={15} aria-hidden="true" />处理入箱草稿</ButtonLink> : null}
+        {result.status === "applied" && inbox && inbox.createdCount === 0 && inbox.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
       </div>
     </section>
   );
@@ -166,5 +166,5 @@ function stageOverviewHref(query: { createMilestone?: string; returnTo?: string 
   const nestedReturnTo = safeReturnTo(query.returnTo);
   if (nestedReturnTo) params.set("returnTo", nestedReturnTo);
   const search = params.toString();
-  return `/plan/stages${search ? `?${search}` : ""}`;
+  return `/roadmap/stages${search ? `?${search}` : ""}`;
 }

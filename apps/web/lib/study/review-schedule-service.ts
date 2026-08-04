@@ -246,7 +246,7 @@ export async function listBridgedReviewSchedules(actorId: string): Promise<Bridg
       id: task.id,
       title: task.title,
       status: task.status as "TODO" | "IN_PROGRESS" | "DEFERRED",
-      href: `/plan/tasks/${task.id}`,
+      href: `/roadmap/arrangements/tasks/${task.id}`,
     },
   })));
 }
@@ -615,7 +615,7 @@ async function confirmReviewEventInTx(
     throw new ApiError("ACTIVE_SESSION_BLOCKS_QUICK_REVIEW", 409, {
       latest: activeSession,
       conflictFields: ["activity"],
-      workbench: `/focus/${activeSession.id}`,
+      workbench: `/focus`,
     });
   }
 

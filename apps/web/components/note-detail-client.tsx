@@ -345,7 +345,7 @@ export function NoteDetailClient(props: {
               <RotateCcw size={16} aria-hidden />恢复卡片
             </button>
           ) : editing ? null : reviewDue && note.reviewSchedule ? (
-            <Link href={`/quick-review/${note.reviewSchedule.id}?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black">
+            <Link href={`/knowledge/reviews/${note.reviewSchedule.id}/run?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black">
               <BookOpenCheck size={16} aria-hidden />开始复习
             </Link>
           ) : (
@@ -453,7 +453,7 @@ export function NoteDetailClient(props: {
               )) : "未关联"}
             </RelationRow>
             <RelationRow label="任务">
-              {note.taskId ? <Link className="text-teal-300 hover:underline" href={`/plan/tasks/${note.taskId}`}>{note.taskTitle}</Link> : "未关联"}
+              {note.taskId ? <Link className="text-teal-300 hover:underline" href={`/roadmap/arrangements/tasks/${note.taskId}`}>{note.taskTitle}</Link> : "未关联"}
             </RelationRow>
             <RelationRow label="资料">
               {note.linkedResources.length > 0 ? note.linkedResources.map((resource) => (

@@ -54,7 +54,7 @@ export function FocusLauncher({ subjects, userId, contextOptions }: { subjects: 
             activeSessionId: active?.id ?? null,
           });
           if (snapshotDecision === "redirect-active" && active) {
-            router.replace(`/focus/${active.id}`);
+            router.replace("/focus");
             return;
           }
           if (snapshotDecision === "clear-stale") await clearFocusOfflineSnapshot(userId);
@@ -62,7 +62,7 @@ export function FocusLauncher({ subjects, userId, contextOptions }: { subjects: 
           // Keep the snapshot as a best-effort recovery path if the activity
           // endpoint is temporarily unavailable.
           if (snapshot.session.status !== "completed") {
-            router.replace(`/focus/${snapshot.session.id}`);
+            router.replace("/focus");
             return;
           }
         }
@@ -83,7 +83,7 @@ export function FocusLauncher({ subjects, userId, contextOptions }: { subjects: 
       if (isLocalFocusSessionId(detail.session.id)) {
         setOfflineSnapshot((current) => current ? { ...current, session: detail.session! } : current);
       } else if (detail.session.status === "running" || detail.session.status === "paused" || detail.session.status === "closing") {
-        router.replace(`/focus/${detail.session.id}`);
+        router.replace("/focus");
       } else {
         setOfflineSnapshot(null);
       }
@@ -152,7 +152,7 @@ export function FocusLauncher({ subjects, userId, contextOptions }: { subjects: 
           const active = body?.latest;
           if (response.status === 409 && active?.id) {
             await removeFocusCommand(queuedStart.id);
-            router.replace(`/focus/${active.id}`);
+            router.replace("/focus");
             return;
           }
           if (response.status < 500 && typeof navigator !== "undefined" && navigator.onLine) {
@@ -166,7 +166,7 @@ export function FocusLauncher({ subjects, userId, contextOptions }: { subjects: 
           await removeFocusCommand(queuedStart.id);
           setOfflineSnapshot(null);
           publishFocusSyncEvent(userId, "current", body.session);
-          router.replace(`/focus/${body.session.id}`);
+          router.replace("/focus");
           return;
         }
         throw new TypeError("开始响应缺少活动");

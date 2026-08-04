@@ -159,7 +159,7 @@ export function SyllabusDetailClient(props: {
               <RotateCcw size={16} aria-hidden />{pending === "restore" ? "恢复中" : "恢复节点"}
             </button>
           ) : editing || retesting ? null : reviewDue && props.schedule ? (
-            <Link href={`/quick-review/${props.schedule.id}?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black">
+            <Link href={`/knowledge/reviews/${props.schedule.id}/run?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black">
               <BookOpenCheck size={16} aria-hidden />开始复测
             </Link>
           ) : (
@@ -295,7 +295,7 @@ function NextAction(props: {
   reviewDue: boolean;
   returnHref: string;
 }) {
-  const taskHref = `/plan?createMinimum=1&subjectId=${encodeURIComponent(props.node.subjectId)}&syllabusNodeId=${encodeURIComponent(props.node.id)}`;
+  const taskHref = `/roadmap/arrangements?createMinimum=1&subjectId=${encodeURIComponent(props.node.subjectId)}&syllabusNodeId=${encodeURIComponent(props.node.id)}`;
   const scheduleHref = props.schedule
     ? `/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`
     : null;

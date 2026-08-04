@@ -71,7 +71,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       if (!response.ok) {
         if (response.status === 409 && body?.latest?.id) {
           completeIdempotentCommand(commandScope);
-          router.push(`/focus/${body.latest.id}?returnTo=%2Ftoday`);
+          router.push(`/focus?returnTo=%2Ftoday`);
           return;
         }
         setError(body?.error ?? "无法开始计时，当前选择仍保留；请显式重试。");
@@ -80,7 +80,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       if (body?.session?.id) {
         completeIdempotentCommand(commandScope);
         setConfirmOpen(false);
-        router.push(`/focus/${body.session.id}?returnTo=%2Ftoday`);
+        router.push(`/focus?returnTo=%2Ftoday`);
         return;
       }
       setError("未返回 session，当前选择仍保留；请显式重试。");
@@ -161,7 +161,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       }
       completeIdempotentCommand(commandScope);
       startTransition(() => router.refresh());
-      router.push(`/focus/${sessionId}?returnTo=%2Ftoday`);
+      router.push(`/focus?returnTo=%2Ftoday`);
     } catch {
       setError("网络不可用，未创建最小任务；恢复网络后请显式重试。");
     } finally {
@@ -386,7 +386,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
               </button>
             </div>
           ) : null}
-          <Link href="/plan" className="mt-2 inline-flex text-teal-300 hover:underline">
+          <Link href="/roadmap/arrangements" className="mt-2 inline-flex text-teal-300 hover:underline">
             打开计划
           </Link>
         </details>
@@ -475,9 +475,9 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
 
 function withTodayReturnTo(href: string): string {
   if (
-    !href.startsWith("/quick-review/")
-    && !href.startsWith("/focus/")
-    && !href.startsWith("/plan/tasks/")
+    !href.startsWith("/knowledge/reviews/")
+    && href !== "/focus"
+    && !href.startsWith("/roadmap/arrangements/tasks/")
   ) return href;
   const separator = href.includes("?") ? "&" : "?";
   return `${href}${separator}returnTo=${encodeURIComponent("/today")}`;

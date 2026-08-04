@@ -597,20 +597,20 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
             <Alert tone="success" title="没有待安排的结构化补救">考试事实已完成，可回到阶段概览判断是否需要调整下一阶段。</Alert>
           )}
           {remediationReceipt ? (
-            <Alert tone="success" title="补救已送入计划收件箱" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/plan/inbox", props.returnTo)} variant="primary" size="sm">处理收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/plan/stages", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
+            <Alert tone="success" title="补救已送入计划收件箱" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", props.returnTo)} variant="primary" size="sm">处理收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
               新建 {remediationReceipt.created} 项，复用已有 {remediationReceipt.reused} 项；仍需在收件箱中补全日期并显式转为任务。
             </Alert>
           ) : pendingRemediations.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="primary" size="lg" loading={busy} loadingLabel="送入中..." disabled={selectedOriginKeys.length === 0} onClick={() => void addRemediations()}>将选中补救送入收件箱</Button>
-              <ButtonLink href={withReturnTo("/plan/stages", props.returnTo)} variant="ghost" size="lg">返回阶段总览</ButtonLink>
+              <ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="ghost" size="lg">返回阶段总览</ButtonLink>
             </div>
           ) : props.remediations.length > 0 ? (
-            <Alert tone="success" title="补救均已处理" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/plan/inbox", props.returnTo)} variant="primary" size="sm">查看计划收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/plan/stages", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
+            <Alert tone="success" title="补救均已处理" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", props.returnTo)} variant="primary" size="sm">查看计划收件箱<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
               已入箱、已忽略或已转换的补救不会重复提交。
             </Alert>
           ) : (
-            <ButtonLink href={withReturnTo("/plan/stages", props.returnTo)} variant="ghost" size="lg">返回阶段总览</ButtonLink>
+            <ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="ghost" size="lg">返回阶段总览</ButtonLink>
           )}
         </section>
       ) : (

@@ -41,7 +41,7 @@ export default async function ReviewScheduleDetailPage({
   const latestEffectiveEvent = events.find((event) => !correctedIds.has(event.id));
   const scheduleHref = withReturnTo(`/knowledge/reviews/${schedule.id}`, returnTo);
 
-  const quickReviewHref = withReturnTo(`/quick-review/${schedule.id}`, scheduleHref);
+  const quickReviewHref = withReturnTo(`/knowledge/reviews/${schedule.id}/run`, scheduleHref);
 
   return (
     <article className="space-y-6">

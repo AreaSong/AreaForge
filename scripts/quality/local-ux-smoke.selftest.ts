@@ -86,8 +86,8 @@ assert(
   "Batch 9 AI draft UI must revoke the preview token after form changes",
 );
 assert(source.includes('href="/knowledge/canvas"'), "Batch 8 must require knowledge canvas nav href");
-assert(source.includes('href="/review/reports"') && source.includes('href="/plan/stages"'),
-  "Batch 10 must require reports and plan stages App Shell navigation");
+assert(source.includes('href="/roadmap/reports"') && source.includes('href="/roadmap/stages"'),
+  "Batch 10 must require canonical reports and stages App Shell navigation");
 assert(source.includes('canonical-only route ${legacyPage}') && source.includes("response.status !== 404"),
   "local UX smoke must prove removed business routes are absent instead of redirected");
 assert(source.includes("batch8 knowledge canvas api"), "Batch 8 knowledge canvas API smoke must remain");

@@ -145,7 +145,7 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
       if (response.status === 404) {
         completeIdempotentCommand(commandScope);
         setError("这份复盘已不可用，草稿仍保留；正在返回复盘工作台。");
-        router.replace("/review/daily");
+        router.replace("/roadmap/reports/daily");
         return;
       }
       if (response.status === 409 && isDailyReviewDto(body?.latest)) {

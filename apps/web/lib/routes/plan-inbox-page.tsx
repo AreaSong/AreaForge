@@ -7,7 +7,7 @@ import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/naviga
 import { listPlanInboxItems, matchesPlanInboxStableRef } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";
-export const metadata = getRouteMetadata("/plan/inbox");
+export const metadata = getRouteMetadata("/roadmap/arrangements/drafts");
 
 export default async function TodayInboxPage({ searchParams }: { searchParams: Promise<{ status?: string; stableRef?: string; returnTo?: string }> }) {
   const user = await getCurrentUser();
@@ -48,6 +48,6 @@ function buildPlanInboxHref(input: {
   const params = new URLSearchParams();
   if (input.includeStatus) params.set("status", input.status);
   if (input.stableRef) params.set("stableRef", input.stableRef);
-  const href = `/plan/inbox${params.size ? `?${params.toString()}` : ""}`;
+  const href = `/roadmap/arrangements/drafts${params.size ? `?${params.toString()}` : ""}`;
   return input.sourceReturnTo ? withReturnTo(href, input.sourceReturnTo) : href;
 }

@@ -10,7 +10,7 @@ import {
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
 
-const milestoneWorkbench = "/plan/stages";
+const milestoneWorkbench = "/roadmap/stages";
 
 export interface PlanMilestoneDto {
   id: string;

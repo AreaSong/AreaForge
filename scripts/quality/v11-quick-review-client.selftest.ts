@@ -445,7 +445,7 @@ const focusEvidenceClientSource = readFileSync("apps/web/lib/client/focus-eviden
 const studyServiceSource = readFileSync("apps/web/lib/study/service.ts", "utf8");
 const appShellSource = readFileSync("apps/web/components/app-shell.tsx", "utf8");
 const overlaysSource = readFileSync("apps/web/components/ui/overlays.tsx", "utf8");
-const dailyReviewPageSource = readFileSync("apps/web/app/(app)/review/daily/page.tsx", "utf8");
+const dailyReviewPageSource = readFileSync("apps/web/lib/routes/daily-review-page.tsx", "utf8");
 const dailyReviewFormSource = readFileSync("apps/web/components/review-form.tsx", "utf8");
 const dailyReviewResultSource = readFileSync("apps/web/components/daily-review-result.tsx", "utf8");
 const dailyReviewFactsSource = readFileSync("apps/web/lib/study/daily-review-facts-service.ts", "utf8");
@@ -493,7 +493,7 @@ assert.match(dailyReviewFactsSource, /STUDY_SESSION_EVIDENCE_LINKED/);
 assert.match(dailyReviewApiSource, /\{ review, inboxItem \}/);
 assert.match(
   planInboxItemSource,
-  /withReturnTo\(`\/plan\/tasks\/\$\{body\.item\.convertedTaskId\}`, returnTo\)/,
+  /withReturnTo\(`\/roadmap\/arrangements\/tasks\/\$\{body\.item\.convertedTaskId\}`, returnTo\)/,
 );
 assert.match(planInboxItemSource, /withInboxStatus\(returnTo, "CONVERTED"\)/);
 assert.match(planInboxItemSource, /<Link href=\{returnTo\}/);

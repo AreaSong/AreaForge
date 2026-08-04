@@ -7,16 +7,19 @@ const root = process.cwd();
 const canonicalFiles = [
   "apps/web/app/(app)/focus/page.tsx",
   "apps/web/app/(app)/today/page.tsx",
-  "apps/web/app/(app)/plan/page.tsx",
+  "apps/web/app/(app)/roadmap/page.tsx",
+  "apps/web/app/(app)/roadmap/arrangements/page.tsx",
   "apps/web/app/(app)/knowledge/points/page.tsx",
+  "apps/web/app/(app)/knowledge/page.tsx",
   "apps/web/app/(app)/test/page.tsx",
-  "apps/web/app/(app)/review/daily/page.tsx",
+  "apps/web/app/(app)/roadmap/reports/daily/page.tsx",
   "apps/web/app/(app)/confirmations/page.tsx",
   "apps/web/app/(app)/settings/page.tsx",
-  "apps/web/app/(app)/plan/inbox/page.tsx",
+  "apps/web/app/(app)/roadmap/arrangements/drafts/page.tsx",
   "apps/web/app/(app)/knowledge/syllabus/page.tsx",
   "apps/web/app/(app)/test/simulations/page.tsx",
-  "apps/web/app/(app)/review/reports/page.tsx",
+  "apps/web/app/(app)/roadmap/reports/page.tsx",
+  "apps/web/app/(app)/roadmap/stages/page.tsx",
 ] as const;
 
 const removedFiles = [

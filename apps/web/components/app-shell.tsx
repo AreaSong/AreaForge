@@ -5,31 +5,20 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Activity,
-  Archive,
-  BadgeCheck,
-  Bell,
   BookOpen,
   BriefcaseBusiness,
   CalendarCheck2,
-  CalendarRange,
-  ChartNoAxesColumn,
   ChartSpline,
   ClipboardCheck,
-  ClipboardPen,
   FileCheck2,
-  FileInput,
   FilePlus2,
-  Flag,
   Goal,
-  History,
   Inbox,
   LayoutDashboard,
   ListTree,
-  ListChecks,
   ListTodo,
   Milestone,
   MonitorCog,
-  Network,
   NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
@@ -37,6 +26,7 @@ import {
   PanelRightOpen,
   Plus,
   Repeat2,
+  Route,
   Settings,
   ScrollText,
   SlidersHorizontal,
@@ -73,7 +63,7 @@ import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { WorkbenchBreadcrumb } from "@/components/workbench-breadcrumb";
 import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
 import { SharedStudyToolbar } from "@/components/shared-study-toolbar";
-import { BATCH10_NAV_ITEMS } from "@/lib/navigation/batch7";
+import { BATCH10_NAV_ITEMS, PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM } from "@/lib/navigation/batch7";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
 
 const toneClass: Record<string, string> = {
@@ -107,7 +97,7 @@ export function AppShell(props: {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
-  const immersive = pathname.startsWith("/focus/") || pathname.startsWith("/quick-review/");
+  const immersive = pathname === "/focus" || pathname.endsWith("/run");
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
   const secondaryNavigationItems = activeNavigationItem?.children ?? [];
@@ -115,7 +105,7 @@ export function AppShell(props: {
   const displayStatus = projectLocalQuickReviewStatus(status, quickReviewClaim);
   const activeSessionId = status.activeSession?.id;
   const activeSessionStatus = status.activeSession?.status;
-  const closeoutPath = activeSessionId ? `/focus/${activeSessionId}` : null;
+  const closeoutPath = activeSessionId ? "/focus" : null;
   const outsideCloseout = activeSessionStatus === "closing" && closeoutPath !== null && pathname !== closeoutPath;
 
   useEffect(() => {
@@ -411,7 +401,7 @@ export function AppShell(props: {
     <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100">
       <a
         href="#main-content"
-        className="sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:inline-flex focus:h-10 focus:items-center focus:rounded-md focus:bg-teal-300 focus:px-3 focus:text-sm focus:font-medium focus:text-slate-950"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[1000] focus:inline-flex focus:h-10 focus:items-center focus:rounded-md focus:bg-teal-300 focus:px-3 focus:text-sm focus:font-medium focus:text-slate-950"
       >
         跳到主要内容
       </a>
@@ -439,7 +429,7 @@ export function AppShell(props: {
             </button>
           </div>
           <nav id="primary-navigation" className="flex flex-col gap-1" aria-label="主导航">
-            {BATCH10_NAV_ITEMS.map((item) => {
+            {PRIMARY_WORKBENCH_ITEMS.map((item) => {
               const active = item.match(pathname);
               const activeChild = item.children?.some((child) => child.match(pathname)) ?? false;
               return (
@@ -457,6 +447,15 @@ export function AppShell(props: {
             })}
           </nav>
           <div className={`mt-auto space-y-2 pt-6 text-xs text-zinc-500 ${sidebarCollapsed ? "grid justify-items-center" : "px-2"}`}>
+            <Link
+              href={UTILITY_NAV_ITEM.href}
+              aria-current={UTILITY_NAV_ITEM.match(pathname) ? "page" : undefined}
+              title={sidebarCollapsed ? UTILITY_NAV_ITEM.label : undefined}
+              className={`flex min-w-0 items-center rounded-md border-l-2 py-2 text-sm transition-colors ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${UTILITY_NAV_ITEM.match(pathname) ? "border-teal-300 bg-white/[0.08] text-white" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
+            >
+              <NavigationIcon href={UTILITY_NAV_ITEM.href} />
+              <span className={sidebarCollapsed ? "sr-only" : "truncate"}>{UTILITY_NAV_ITEM.label}</span>
+            </Link>
             <p className={sidebarCollapsed ? "sr-only" : undefined}>{props.email}</p>
             <LogoutButton compact={sidebarCollapsed} userId={props.userId} />
           </div>
@@ -604,8 +603,8 @@ export function AppShell(props: {
             className="af-shell-nav z-20 shrink-0 overflow-x-auto border-t border-white/10 bg-[#0d1117]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
             aria-label="移动导航"
           >
-            <div className="mx-auto flex min-w-max items-center sm:grid sm:max-w-lg sm:min-w-0 sm:grid-cols-9">
-              {BATCH10_NAV_ITEMS.map((item) => {
+            <div className="mx-auto flex min-w-max items-center sm:grid sm:max-w-lg sm:min-w-0 sm:grid-cols-6">
+              {[...PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM].map((item) => {
                 const active = item.match(pathname);
                 return (
                   <Link
@@ -637,7 +636,7 @@ export function AppShell(props: {
       />
       <Drawer open={quickCreateOpen} title="快捷创建" onClose={() => setQuickCreateOpen(false)}>
         <nav className="grid gap-2" aria-label="创建对象">
-          <QuickCreateLink href="/plan?createMinimum=1" label="任务" onSelect={() => setQuickCreateOpen(false)} icon={<CalendarCheck2 size={18} aria-hidden="true" />} />
+          <QuickCreateLink href="/roadmap/arrangements?createMinimum=1" label="任务" onSelect={() => setQuickCreateOpen(false)} icon={<CalendarCheck2 size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/notes?create=1" label="知识卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/mistakes?create=1" label="错题" onSelect={() => setQuickCreateOpen(false)} icon={<TriangleAlert size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/resources?create=1" label="资料" onSelect={() => setQuickCreateOpen(false)} icon={<FilePlus2 size={18} aria-hidden="true" />} />
@@ -733,40 +732,30 @@ function SecondaryNavigationIcon({ href }: { href: string }) {
 const PRIMARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
   "/focus": Timer,
   "/today": CalendarCheck2,
-  "/plan": CalendarRange,
-  "/knowledge/overview": BookOpen,
+  "/knowledge": BookOpen,
   "/test": FileCheck2,
-  "/plan/stages": Flag,
-  "/review/daily": History,
-  "/confirmations": BadgeCheck,
-  "/settings/workspace": Settings,
+  "/roadmap": Route,
+  "/settings": Settings,
 };
 
 const SECONDARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
-  "/plan": Goal,
-  "/plan/inbox": Inbox,
-  "/knowledge/overview": LayoutDashboard,
+  "/roadmap": Goal,
+  "/roadmap/arrangements": Inbox,
+  "/roadmap/stages": Milestone,
+  "/roadmap/reports": ChartSpline,
+  "/knowledge": LayoutDashboard,
   "/knowledge/points": ListTodo,
   "/knowledge/syllabus": ListTree,
   "/knowledge/resources": FilePlus2,
   "/knowledge/notes": NotebookPen,
   "/knowledge/mistakes": TriangleAlert,
   "/knowledge/reviews": ClipboardCheck,
-  "/knowledge/canvas": Network,
-  "/knowledge/imports": FileInput,
   "/test/retests": Repeat2,
   "/test/simulations": ScrollText,
-  "/plan/stages": Milestone,
-  "/plan/stages/analytics": ChartSpline,
-  "/review/daily": ClipboardPen,
-  "/review/reports": ChartNoAxesColumn,
-  "/confirmations": ListChecks,
-  "/confirmations/history": Archive,
-  "/settings/workspace": BriefcaseBusiness,
+  "/settings": BriefcaseBusiness,
   "/settings/profile": UserRound,
-  "/settings/notifications": Bell,
+  "/settings/preferences": SlidersHorizontal,
   "/settings/ai": Sparkles,
-  "/settings/experience": SlidersHorizontal,
   "/settings/system": MonitorCog,
 };
 

@@ -52,11 +52,11 @@ interface ScenarioContext {
 const startPaths: Record<JourneyId, string> = {
   login: "/login",
   dashboard: "/today",
-  "timer-closeout": "/focus/:sessionId?returnTo=%2Ftoday",
-  review: "/review/daily",
+  "timer-closeout": "/focus",
+  review: "/roadmap/reports/daily",
   notes: "/knowledge/notes",
   syllabus: "/knowledge/syllabus",
-  reports: "/review/reports?tab=current&period=week",
+  reports: "/roadmap/reports?tab=current&period=week",
   simulation: "/test/simulations",
   "update-center": "/settings/system",
 };
@@ -222,7 +222,7 @@ async function runDashboardJourney(input: ScenarioContext) {
     path: "/api/study-sessions/start",
     expectedStatus: 201,
   }, () => dialog.getByRole("button", { name: "确认开始" }).click());
-  await input.page.waitForURL((url) => url.pathname.startsWith("/focus/"));
+  await input.page.waitForURL((url) => url.pathname === "/focus");
   await input.page.getByRole("heading", { level: 1 }).waitFor({ state: "visible" });
   const sessionId = stringField(asRecord(mutation.body).session, "id");
   const after = await activeSessionOracle(input, "active-session-after", true, sessionId);
@@ -232,7 +232,7 @@ async function runDashboardJourney(input: ScenarioContext) {
     mutation,
     after,
     terminalAssertions: await terminalAssertions(input.page, [
-      ["focus-route", () => Promise.resolve(currentPath(input.page).startsWith("/focus/"))],
+      ["focus-route", () => Promise.resolve(currentPath(input.page) === "/focus?returnTo=%2Ftoday")],
       ["focus-heading", () => input.page.getByRole("heading", { level: 1 }).isVisible()],
     ]),
   };

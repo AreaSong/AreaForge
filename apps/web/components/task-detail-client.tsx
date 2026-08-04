@@ -37,7 +37,7 @@ export function TaskDetailClient(props: {
   const task = props.detail.task;
   const sourceHref = props.embedded && props.closeHref
     ? props.closeHref
-    : props.returnTo ?? "/plan";
+    : props.returnTo ?? "/roadmap/arrangements";
   const focusReturnTo = sourceHref;
   const terminal = task.status === "done" || task.status === "skipped";
   const editable = !props.detail.readOnly && !terminal && !props.detail.subjectArchived;
@@ -84,7 +84,7 @@ export function TaskDetailClient(props: {
       if (!response.ok) {
         if (response.status === 409 && body?.latest?.id) {
           completeIdempotentCommand(commandScope);
-          router.push(`/focus/${body.latest.id}?returnTo=${encodeURIComponent(focusReturnTo)}`);
+          router.push(`/focus?returnTo=${encodeURIComponent(focusReturnTo)}`);
           return;
         }
         setError(startErrorLabel(body?.error));
@@ -92,7 +92,7 @@ export function TaskDetailClient(props: {
       }
       if (body?.session?.id) {
         completeIdempotentCommand(commandScope);
-        router.push(`/focus/${body.session.id}?returnTo=${encodeURIComponent(focusReturnTo)}`);
+        router.push(`/focus?returnTo=${encodeURIComponent(focusReturnTo)}`);
       }
     } catch {
       setError("网络不可用，未确认是否已开始；请刷新活动状态后再操作。");
@@ -413,7 +413,7 @@ function RelationItem(props: { label: string; children: React.ReactNode }) {
 }
 
 function TaskLink({ task, returnTo }: { task: { id: string; title: string; status: string }; returnTo: string }) {
-  return <Link className="text-teal-300 hover:underline" href={withReturnTo(`/plan/tasks/${task.id}`, returnTo)}>{task.title} · {taskStatusLabel(task.status)}</Link>;
+  return <Link className="text-teal-300 hover:underline" href={withReturnTo(`/roadmap/arrangements/tasks/${task.id}`, returnTo)}>{task.title} · {taskStatusLabel(task.status)}</Link>;
 }
 
 function DependencyList(props: {
@@ -443,7 +443,7 @@ function DependencyList(props: {
             const linkedStatus = incoming ? dependency.predecessorStatus : dependency.successorStatus;
             return (
               <li key={dependency.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
-                <Link className="min-w-0 break-words text-teal-300 hover:underline" href={withReturnTo(`/plan/tasks/${linkedId}`, props.returnTo)}>
+                <Link className="min-w-0 break-words text-teal-300 hover:underline" href={withReturnTo(`/roadmap/arrangements/tasks/${linkedId}`, props.returnTo)}>
                   {linkedTitle ?? `任务 ${linkedId.slice(0, 8)}`} · {taskStatusLabel(linkedStatus ?? "unknown")}
                 </Link>
                 <div className="flex items-center gap-2">
@@ -494,7 +494,7 @@ function DependencyList(props: {
 }
 
 function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
-  const returnTo = `/plan/tasks/${detail.task.id}`;
+  const returnTo = `/roadmap/arrangements/tasks/${detail.task.id}`;
   return (
     <section aria-labelledby="task-history-heading" className="space-y-4 border-t border-white/10 pt-5">
       <h2 id="task-history-heading" className="text-lg font-semibold text-white">行动历史</h2>
@@ -503,7 +503,7 @@ function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
           <li key={session.id} className="py-2 text-sm text-zinc-300">
             {detail.readOnly
               ? <span>{formatDateTime(session.startedAt)}</span>
-              : <Link className="text-teal-300 hover:underline" href={`/focus/${session.id}?returnTo=${encodeURIComponent(returnTo)}`}>{formatDateTime(session.startedAt)}</Link>}
+              : <Link className="text-teal-300 hover:underline" href={`/focus?returnTo=${encodeURIComponent(returnTo)}`}>{formatDateTime(session.startedAt)}</Link>}
             {` · ${session.status} · ${session.effectiveMinutes} 分钟`}
             {session.minimalOutput ? <p className="mt-1 break-words text-zinc-500">{session.minimalOutput}</p> : null}
           </li>
@@ -527,10 +527,10 @@ function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
 
 function taskSourceLabel(sourceHref: string): string {
   if (sourceHref === "/today") return "返回今日";
-  if (sourceHref.startsWith("/plan/inbox")) return "返回收件箱";
-  if (sourceHref.startsWith("/plan/stages")) return "返回阶段";
-  if (sourceHref.startsWith("/plan")) return "返回计划";
-  if (sourceHref.startsWith("/review/")) return "返回复盘";
+  if (sourceHref.startsWith("/roadmap/arrangements/drafts")) return "返回收件箱";
+  if (sourceHref.startsWith("/roadmap/stages")) return "返回阶段";
+  if (sourceHref.startsWith("/roadmap/arrangements")) return "返回计划";
+  if (sourceHref.startsWith("/roadmap/reports/daily/")) return "返回复盘";
   if (sourceHref.startsWith("/knowledge/")) return "返回知识";
   return "返回来源";
 }

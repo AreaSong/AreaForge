@@ -84,7 +84,7 @@ export function RecoveryActionDrawer(props: {
         return;
       }
       close();
-      router.push(`/focus/${sessionId}?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/focus?returnTo=${encodeURIComponent(pathname)}`);
     } catch (message) {
       setError(message instanceof Error ? message.message : "无法读取当前活动。");
     } finally {
@@ -112,7 +112,7 @@ export function RecoveryActionDrawer(props: {
       const activeSessionId = await readActiveSessionId();
       if (activeSessionId) {
         close();
-        router.push(`/focus/${activeSessionId}?returnTo=${encodeURIComponent(pathname)}`);
+        router.push(`/focus?returnTo=${encodeURIComponent(pathname)}`);
         return;
       }
       let taskId = taskChoice;
@@ -141,10 +141,10 @@ export function RecoveryActionDrawer(props: {
         if (!response.ok || !body?.task?.id) throw new Error(body?.error ?? "创建最小任务失败，当前输入仍保留。");
         taskId = body.task.id;
       }
-      const started = await postStartSession({ taskId, goalMinutes: 25, startSource: "RECOVERY" });
+      await postStartSession({ taskId, goalMinutes: 25, startSource: "RECOVERY" });
       completeIdempotentCommand(commandScope);
       close();
-      router.push(`/focus/${started}?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/focus?returnTo=${encodeURIComponent(pathname)}`);
     } catch (message) {
       setError(message instanceof Error ? message.message : "最小任务启动失败，请显式重试。");
     } finally {
@@ -161,9 +161,9 @@ export function RecoveryActionDrawer(props: {
     setError(null);
     try {
       const activeSessionId = await readActiveSessionId();
-      const sessionId = activeSessionId ?? await postStartSession(payload);
+      await (activeSessionId ?? postStartSession(payload));
       close();
-      router.push(`/focus/${sessionId}?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/focus?returnTo=${encodeURIComponent(pathname)}`);
     } catch (message) {
       setError(message instanceof Error ? message.message : "启动失败，请显式重试。");
     } finally {

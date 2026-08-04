@@ -9,7 +9,7 @@
 ## 当前状态
 
 - 最新稳定 GitHub Release 与生产基线均为 `v1.1.1`（commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`）；Release 于 2026-07-31 发布并包含 manifest、SBOM、provenance、checksum 和签名资产，annotated tag 本身没有 GPG signature，不能写成“签名 tag”。2026-08-01 已通过 Web 版本中心受控请求完成 production apply，远端 `https://forge.areasong.top/api/health` 报告 `1.1.1` 与 verified production runtime identity。
-- 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`）；开始学习、今日、计划、知识、检验、复盘、确认中心和设置构成当前信息层级。`/focus` 是独立一级入口，知识点是可跨阶段/考纲/检验复用的核心对象，报告、阶段建议、模拟考试、专项复测和 AI 草稿统一进入确认中心。当前只保留一套 canonical 路由，旧 `/today/*`、`/stage/*` 和根级旧业务页面已移除，不再提供兼容重定向。本地优先计时在真实 session 同步后才进入证据接力。发布与 production apply 状态仍以本文件前述稳定基线和对应 evidence 文档为准。阶段索引见 `docs/development/v11-phase-packages.md`。
+- 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`）；开始学习、今日、知识、检验、路线构成五个一级业务入口，设置位于侧栏底部工具区，确认中心作为共享工作流入口。`/focus` 是独立一级入口，知识点是可跨阶段/考纲/检验复用的核心对象，报告、阶段建议、模拟考试、专项复测和 AI 草稿统一进入确认中心。当前只保留一套 canonical 路由，旧 `/plan/*`、`/review/*`、`/quick-review/*`、计时详情、重复设置路径、`/today/*`、`/stage/*` 和根级旧业务页面已移除，不再提供兼容重定向。本地优先计时在真实 session 同步后才进入证据接力。发布与 production apply 状态仍以本文件前述稳定基线和对应 evidence 文档为准。阶段索引见 `docs/development/v11-phase-packages.md`。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。学习行动中心规划能力不计入该完成声明。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。

@@ -145,7 +145,7 @@ export function SharedStudyToolbar(props: {
     <div className="af-shared-toolbar shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-4 py-2 text-xs sm:px-6 xl:px-8" data-global-ai-ui="true">
       <div className="mx-auto flex min-w-0 max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-2">
         {active ? (
-          <Link href={`/focus/${active.id}`} className="inline-flex min-w-0 items-center gap-2 text-teal-200 hover:text-teal-100" title="回到当前唯一活动计时">
+          <Link href={`/focus`} className="inline-flex min-w-0 items-center gap-2 text-teal-200 hover:text-teal-100" title="回到当前唯一活动计时">
             <Timer size={14} aria-hidden="true" />
             <span className="max-w-32 truncate">{active.subjectName}</span>
             <span className="font-mono tabular-nums">{formatDuration(elapsed)}</span>
@@ -193,7 +193,7 @@ export function SharedStudyToolbar(props: {
           {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
           {syncLabel}
         </span>
-        <Link href={props.activeSession ? `/focus/${props.activeSession.id}` : "/focus"} className="hidden items-center gap-1 text-zinc-600 hover:text-zinc-300 sm:inline-flex" title="打开开始学习">
+        <Link href={props.activeSession ? `/focus` : "/focus"} className="hidden items-center gap-1 text-zinc-600 hover:text-zinc-300 sm:inline-flex" title="打开开始学习">
           <ExternalLink size={12} aria-hidden="true" />
         </Link>
       </div>

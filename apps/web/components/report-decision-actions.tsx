@@ -51,7 +51,7 @@ interface ReportDecisionResponse {
   workbench?: string;
 }
 
-export function ReportDecisionActions({ report, returnTo = "/review/reports" }: { report: PeriodicReportDto; returnTo?: string }) {
+export function ReportDecisionActions({ report, returnTo = "/roadmap/reports" }: { report: PeriodicReportDto; returnTo?: string }) {
   const router = useRouter();
   const [baselineOverride, setBaselineOverride] = useState<PeriodicReportDto | null>(null);
   const [command, setCommand] = useState<ReportDecisionCommand | null>(null);
@@ -218,10 +218,10 @@ export function ReportDecisionActions({ report, returnTo = "/review/reports" }: 
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/plan/inbox", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
-            {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/plan/inbox", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
-            {decision.stageDraftId ? <ButtonLink href="/plan/stages" variant="secondary">审阅阶段建议<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
-            {decision.status === "rejected" ? <ButtonLink href="/plan/stages" variant="secondary">前往阶段总览<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
+            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
+            {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/arrangements/drafts", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看计划收件箱</ButtonLink> : null}
+            {decision.stageDraftId ? <ButtonLink href="/roadmap/stages" variant="secondary">审阅阶段建议<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
+            {decision.status === "rejected" ? <ButtonLink href="/roadmap/stages" variant="secondary">前往阶段总览<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
           </div>
         </div>
       ) : null}

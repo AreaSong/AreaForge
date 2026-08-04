@@ -249,7 +249,7 @@ export function FocusSessionClient(props: {
             setFocusEvidenceFlowOpen(props.userId, session.id, false);
           }
           queuedOfflineRef.current = false;
-          router.replace(`/focus/${detail.session.id}`);
+          router.replace("/focus");
         }
       }
     };
@@ -689,7 +689,7 @@ export function FocusSessionClient(props: {
       <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 px-4">
         <h1 className="text-2xl font-semibold text-white">活动冲突</h1>
         <p className="text-sm text-zinc-400">已有其他活动，只能继续当前活动。</p>
-        <Link href={`/focus/${props.activeConflictId}`} className="text-teal-300 hover:underline">
+        <Link href="/focus" className="text-teal-300 hover:underline">
           继续当前活动
         </Link>
       </section>

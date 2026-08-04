@@ -311,7 +311,7 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
       const request: PendingGuard = {
         claim,
         scheduleId,
-        href: claim?.href ?? `/quick-review/${encodeURIComponent(scheduleId)}`,
+        href: claim?.href ?? `/knowledge/reviews/${encodeURIComponent(scheduleId)}/run`,
         allowDiscard: options.allowDiscard !== false,
         operation,
         resolve,

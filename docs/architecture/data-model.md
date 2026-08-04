@@ -10,7 +10,7 @@
 - `KnowledgePoint`：独立知识点核心对象，拥有自己的掌握状态、版本和复测时间；通过 `KnowledgeSyllabusLink`、`StageKnowledgeTarget`、学习安排和多次复测关联考纲与阶段，因此同一知识点可以跨阶段、跨考纲和跨检验重复出现。
 - `StudyTask`：每日任务；`parentTaskId` 自关联记录拆小任务的父子关系。旧任务没有父子关系时保持 `null`，不做猜测回填。当前已支持可空 `planMilestoneId`、相关考纲关联表、`StudyTaskStageLink` 多阶段关联和 `StudyTaskKnowledgePoint` 多知识点关联，以及可空 `reviewScheduleId`（复习任务桥接；同一 Schedule 最多一个未完成桥接任务）。拆小任务继承父任务的里程碑、主/相关考纲、阶段和知识点关系；创建与更新会校验工作区、科目、归档状态和重复 ID。
 - `StudyTaskKnowledgePoint`：任务与独立知识点的多对多关系表；同一知识点可被多个任务、阶段、考纲和检验复用，关系删除随任务或知识点级联，不复制知识点本体。
-- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与计划收件箱。含原子 `convert`，页面入口位于 `/plan/stages`、`/plan`、`/plan/inbox` 与 `/plan/tasks/:taskId`。
+- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与计划收件箱。含原子 `convert`，页面入口位于 `/roadmap/stages`、`/roadmap/arrangements`、`/roadmap/arrangements/drafts` 与 `/roadmap/arrangements/tasks/:taskId`。
 - `StudySession`：学习计时记录；结构化收口字段包括理解程度、最小产出、下一步动作、是否产生笔记/错题、低转化标记、反假学习原因、补产出要求和收口版本，同时保留旧 `note` 文本可读。当前状态包含 `RUNNING/PAUSED/CLOSING/COMPLETED/CANCELED`，`CLOSING` 冻结结束时刻并要求完整收口。PostgreSQL partial unique index `StudySession_one_active_per_user_idx` 保证全局最多一个活动 session；该索引由 additive SQL migration 管理。`goalMinutes` / `startSource` / `clientDeviceId` / `clientDeviceLabel` / `lastHeartbeatAt` 均可空，设备字段只用于跨标签页、跨设备状态提示，不构成浏览器指纹。
 - `DailyReview`：每日复盘；当前已支持可空 `workspaceId`，并以 partial unique 区分 legacy 与 workspace 复合唯一。
 - `CheckIn`：每日打卡快照；按学习日唯一，记录最低动作、总/有效时长、有效 session 数、任务完成率、复盘状态、低效标记、低转化次数和来源版本。当前支持 CheckIn v2 字段（`reviewCount`/`reviewSeconds`/结果计数/`minimumActionSource`）；触达日原子升级 `sourceVersion=2`，不批量回填历史。新写路径维护快照，历史无快照日期由读取侧 fallback 派生；同一学习日刷新在事务内先获取 `pg_advisory_xact_lock(1095123785, YYYYMMDD)`，再读取聚合并写入，避免旧快照覆盖新提交。当前已支持可空 `workspaceId` 与 partial unique。
@@ -37,7 +37,7 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `SyllabusNode.stableKey` / `revision` / `archivedAt`：Migration 5；`(subjectId, stableKey)` unique；无键旧节点按兼容规则在首次 confirm/export 补键，不批量回填。
 - `LearningTreeImportBatch` / `LearningTreeImportItem`：仅 confirm 成功时创建；规范化 Markdown、hash、`(workspaceId, idempotencyKey)` unique、request fingerprint、软归档；preview 不写领域表。
 - `StudyResource`：FILE（READY Attachment）或 LINK（HTTPS）exactly-one；支持 CRUD、上传、重复三选一和归档，页面入口位于 `/knowledge/resources`；不物理删除。
-- `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；页面入口位于 `/knowledge/reviews` 与 `/quick-review/[scheduleId]`。
+- `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；页面入口位于 `/knowledge/reviews` 与 `/knowledge/reviews/[scheduleId]/run`。
 - `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：每用户每工作区唯一布局；节点仅 x/y/折叠/固定/隐藏；业务边实时派生。隔离验收已开放 `/knowledge/canvas` 与 layout API。
 - `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema + 隔离 API/设置页已落地。
 - `AiRuntimeSetting`：全局 AI Web 运行开关单例；保存 enabled、revision 和时间字段。启停由鉴权 Web API 修改并写入 `AuditEvent`；`AI_ENABLED=false` 仍是服务端硬闸门，网页不能绕过。

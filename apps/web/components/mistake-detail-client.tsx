@@ -351,7 +351,7 @@ export function MistakeDetailClient(props: {
           {archived ? (
             <button type="button" disabled={pending} onClick={() => void toggleArchive()} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50"><RotateCcw size={16} aria-hidden />恢复错题</button>
           ) : editing ? null : reviewDue && schedule && complete ? (
-            <Link href={`/quick-review/${schedule.id}?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black"><Play size={16} aria-hidden />开始复习</Link>
+            <Link href={`/knowledge/reviews/${schedule.id}/run?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black"><Play size={16} aria-hidden />开始复习</Link>
           ) : complete ? (
             <button type="button" onClick={startEditing} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black"><Pencil size={16} aria-hidden />编辑错题</button>
           ) : null}

@@ -376,7 +376,7 @@ async function keyboardNavigationCheck(
   await knowledgeLink.focus();
   const focused = await knowledgeLink.evaluate((element) => element === document.activeElement);
   await page.keyboard.press("Enter");
-  await page.waitForURL((candidate) => candidate.pathname === "/knowledge/overview");
+  await page.waitForURL((candidate) => candidate.pathname === "/knowledge");
   record(checks, {
     id: "KBD-02",
     category: "keyboard",
@@ -389,7 +389,7 @@ async function keyboardNavigationCheck(
       assertion("quick-create-exposes-five-actions", 5, quickCreateLinks),
       assertion("quick-create-escape-returned-focus", true, quickCreateFocusReturned),
       assertion("nav-link-focused", true, focused),
-      assertion("enter-activated-navigation", "/knowledge/overview", pathname(page)),
+      assertion("enter-activated-navigation", "/knowledge", pathname(page)),
     ],
   });
   await page.goto(new URL("/knowledge/canvas", page.url()).toString(), { waitUntil: "domcontentloaded" });
@@ -727,7 +727,7 @@ async function focusLiveChecks(
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
   const sessionId = required(fixture.activeSessionId, "accessibility fixture session");
-  await page.goto(url(config, `/focus/${sessionId}?returnTo=%2Ftoday`), { waitUntil: "domcontentloaded" });
+  await page.goto(url(config, "/focus"), { waitUntil: "domcontentloaded" });
   const live = page.locator('[aria-live="assertive"][aria-atomic="true"]').first();
   const initial = await live.evaluate((element) => ({
     hasText: Boolean(element.textContent?.trim()),
@@ -737,7 +737,7 @@ async function focusLiveChecks(
   record(checks, {
     id: "LIVE-02",
     category: "live",
-    route: `/focus/${sessionId}`,
+    route: "/focus",
     viewport: viewport("desktop"),
     mechanism: "dom",
     assertions: [
@@ -756,7 +756,7 @@ async function focusLiveChecks(
   record(checks, {
     id: "LIVE-03",
     category: "live",
-    route: `/focus/${sessionId}`,
+    route: "/focus",
     viewport: viewport("desktop"),
     mechanism: "dom",
     assertions: [
@@ -772,7 +772,7 @@ async function reviewLiveChecks(
   config: BrowserEvidenceConfig,
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
-  await page.goto(url(config, "/review/daily"), { waitUntil: "domcontentloaded" });
+  await page.goto(url(config, "/roadmap/reports/daily"), { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
   await page.getByLabel("今天实际推进了什么").fill("合成无障碍复盘");
   await page.getByLabel("明天应该继续做什么").fill("合成无障碍保留动作");
@@ -800,7 +800,7 @@ async function reviewLiveChecks(
   record(checks, {
     id: "LIVE-06",
     category: "live",
-    route: "/review/daily",
+    route: "/roadmap/reports/daily",
     viewport: viewport("desktop"),
     mechanism: "dom",
     assertions: [
@@ -820,7 +820,7 @@ async function notificationFallbackLiveCheck(
   config: BrowserEvidenceConfig,
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
-  await page.goto(url(config, "/settings/notifications"), { waitUntil: "domcontentloaded" });
+  await page.goto(url(config, "/settings/preferences"), { waitUntil: "domcontentloaded" });
   const response = await clickAndWaitForResponse(page, config, "/api/notifications/test", 200, () =>
     page.getByRole("button", { name: "测试通知" }).click());
   const status = page.getByRole("status").filter({ hasText: "已降级为应用内提示" });
@@ -828,7 +828,7 @@ async function notificationFallbackLiveCheck(
   record(checks, {
     id: "LIVE-04",
     category: "live",
-    route: "/settings/notifications",
+    route: "/settings/preferences",
     viewport: viewport("desktop"),
     mechanism: "dom",
     assertions: [
@@ -861,11 +861,11 @@ async function runNativeZoomCheck(
   const zoomed = await nativeWindowMetrics(page);
   const authenticatedRoutes = [
     { journey: "dashboard", path: "/today" },
-    { journey: "timer-closeout", path: `/focus/${required(input.fixture.activeSessionId, "accessibility fixture session")}?returnTo=%2Ftoday` },
-    { journey: "review", path: "/review/daily" },
+    { journey: "timer-closeout", path: "/focus" },
+    { journey: "review", path: "/roadmap/reports/daily" },
     { journey: "notes", path: "/knowledge/notes" },
     { journey: "syllabus", path: "/knowledge/syllabus" },
-    { journey: "reports", path: "/review/reports?tab=current&period=week" },
+    { journey: "reports", path: "/roadmap/reports?tab=current&period=week" },
     { journey: "simulation", path: "/test/simulations" },
     { journey: "update-center", path: "/settings/system" },
   ] as const;
