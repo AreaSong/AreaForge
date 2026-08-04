@@ -342,7 +342,7 @@ try {
   assert.ok(tailFocus.nodes.some((node) => node.id === `SUBJECT:${subject.id}`));
   assert.equal(
     tailFocus.nodes.find((node) => node.id === `NOTE:${tailNote.id}`)?.href,
-    `/knowledge/notes/${tailNote.id}`,
+    `/knowledge/cards/${tailNote.id}`,
   );
 
   const leafFocus = await getKnowledgeCanvas(user.id, {
@@ -367,7 +367,7 @@ try {
   assert.equal(leafFocus.nodes.find((node) => node.id === `REVIEW_SCHEDULE:${schedule.id}`)?.contextOnly, true);
   assert.equal(
     leafFocus.nodes.find((node) => node.id === `NOTE:${relatedNote.id}`)?.href,
-    `/knowledge/notes/${relatedNote.id}`,
+    `/knowledge/cards/${relatedNote.id}`,
   );
 
   const taskFocus = await getKnowledgeCanvas(user.id, {

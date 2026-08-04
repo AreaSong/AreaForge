@@ -194,8 +194,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   notes: {
-    startPath: "/knowledge/notes",
-    terminalPath: "/knowledge/notes",
+    startPath: "/knowledge/cards",
+    terminalPath: "/knowledge/cards",
     mutation: { method: "POST", path: "/api/notes", status: 201, requestCount: 1 },
     oraclePath: "/api/notes", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -319,7 +319,7 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
     assertions: [equalsAssertion("escape-closed-modal", 0), equalsAssertion("focus-returned-to-trigger", true)],
   },
   "FOCUS-03": {
-    checkKey: "detail-and-save-focus", category: "focus", route: "/knowledge/notes/:noteId", target: "detail-heading-and-save-result", profile: "desktop", mechanism: "keyboard",
+    checkKey: "detail-and-save-focus", category: "focus", route: "/knowledge/cards/:noteId", target: "detail-heading-and-save-result", profile: "desktop", mechanism: "keyboard",
     assertions: [equalsAssertion("detail-link-focused-before-enter", true), equalsAssertion("detail-heading-received-focus", "H1"), equalsAssertion("detail-heading-programmatic-tabindex", -1), equalsAssertion("syllabus-save-status", 200), equalsAssertion("syllabus-save-result-is-live", true), equalsAssertion("syllabus-save-returned-to-edit", true)],
   },
   "FOCUS-04": {

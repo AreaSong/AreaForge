@@ -54,7 +54,7 @@ const startPaths: Record<JourneyId, string> = {
   dashboard: "/today",
   "timer-closeout": "/focus",
   review: "/roadmap/reviews/daily",
-  notes: "/knowledge/notes",
+  notes: "/knowledge/cards",
   syllabus: "/knowledge/syllabi",
   reports: "/roadmap/reviews?tab=current&period=week",
   simulation: "/test/simulations",
@@ -319,9 +319,9 @@ async function runNotesJourney(input: ScenarioContext) {
     expectedStatus: 201,
   }, () => input.page.getByRole("button", { name: "保存笔记" }).click());
   const noteId = stringField(asRecord(mutation.body).note, "id");
-  await input.page.waitForURL((url) => url.pathname.startsWith("/knowledge/notes/"));
+  await input.page.waitForURL((url) => url.pathname.startsWith("/knowledge/cards/"));
   await input.page.getByRole("link", { name: "返回知识卡片", exact: true }).click();
-  await input.page.waitForURL((url) => url.pathname === "/knowledge/notes");
+  await input.page.waitForURL((url) => url.pathname === "/knowledge/cards");
   await input.page.getByText("合成浏览器卡片", { exact: true }).waitFor();
   const after = await captureOracle(input.context, input.config, "/api/notes", (status, body) => {
     const notes = arrayRecords(asRecord(body).notes);

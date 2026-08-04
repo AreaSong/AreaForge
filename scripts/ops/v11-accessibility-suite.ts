@@ -677,12 +677,12 @@ async function noteFocusCheck(
   checks: Map<V11AccessibilityCheckId, V11AccessibilityCheck>,
 ): Promise<void> {
   const noteId = required(fixture.noteId, "accessibility fixture note");
-  await page.goto(new URL(`/knowledge/notes`, page.url()).toString(), { waitUntil: "domcontentloaded" });
+  await page.goto(new URL(`/knowledge/cards`, page.url()).toString(), { waitUntil: "domcontentloaded" });
   const link = page.getByRole("link", { name: "打开详情" }).first();
   await link.focus();
   const focusedBefore = await link.evaluate((element) => element === document.activeElement);
   await page.keyboard.press("Enter");
-  await page.waitForURL((candidate) => candidate.pathname === `/knowledge/notes/${noteId}`);
+  await page.waitForURL((candidate) => candidate.pathname === `/knowledge/cards/${noteId}`);
   await page.waitForFunction(() => document.activeElement?.tagName === "H1");
   const detailFocus = await page.evaluate(() => ({
     tag: document.activeElement?.tagName ?? "",
@@ -706,7 +706,7 @@ async function noteFocusCheck(
   record(checks, {
     id: "FOCUS-03",
     category: "focus",
-    route: `/knowledge/notes/${noteId}`,
+    route: `/knowledge/cards/${noteId}`,
     viewport: viewport("desktop"),
     mechanism: "keyboard",
     assertions: [
@@ -863,7 +863,7 @@ async function runNativeZoomCheck(
     { journey: "dashboard", path: "/today" },
     { journey: "timer-closeout", path: "/focus" },
     { journey: "review", path: "/roadmap/reviews/daily" },
-    { journey: "notes", path: "/knowledge/notes" },
+    { journey: "notes", path: "/knowledge/cards" },
     { journey: "syllabus", path: "/knowledge/syllabi" },
     { journey: "reports", path: "/roadmap/reviews?tab=current&period=week" },
     { journey: "simulation", path: "/test/simulations" },

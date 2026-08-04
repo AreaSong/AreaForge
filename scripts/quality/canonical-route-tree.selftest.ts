@@ -14,6 +14,8 @@ const canonicalFiles = [
   "apps/web/app/(app)/roadmap/reviews/daily/page.tsx",
   "apps/web/app/(app)/knowledge/points/page.tsx",
   "apps/web/app/(app)/knowledge/page.tsx",
+  "apps/web/app/(app)/knowledge/cards/page.tsx",
+  "apps/web/app/(app)/knowledge/cards/[noteId]/page.tsx",
   "apps/web/app/(app)/test/page.tsx",
   "apps/web/app/(app)/knowledge/syllabi/page.tsx",
   "apps/web/app/(app)/confirmations/page.tsx",
@@ -53,6 +55,8 @@ const removedFiles = [
   "apps/web/app/(app)/roadmap/reports/history/[decisionId]/page.tsx",
   "apps/web/app/(app)/knowledge/syllabus/page.tsx",
   "apps/web/app/(app)/knowledge/syllabus/[nodeId]/page.tsx",
+  "apps/web/app/(app)/knowledge/notes/page.tsx",
+  "apps/web/app/(app)/knowledge/notes/[noteId]/page.tsx",
   "apps/web/app/(app)/settings/workspace/page.tsx",
   "apps/web/app/(app)/settings/preferences/page.tsx",
 ] as const;

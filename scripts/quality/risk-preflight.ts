@@ -896,7 +896,7 @@ function checkPackageDCompletedBatchEvidence(
     const syllabusSurface = readIfExists("apps/web/app/(app)/knowledge/syllabi/page.tsx")
       + readIfExists("apps/web/components/syllabus-panel.tsx")
       + readIfExists("apps/web/components/syllabus-manager.tsx");
-    const notesSurface = readIfExists("apps/web/app/(app)/knowledge/notes/page.tsx")
+    const notesSurface = readIfExists("apps/web/app/(app)/knowledge/cards/page.tsx")
       + readIfExists("apps/web/components/notes-panel.tsx")
       + readIfExists("apps/web/components/note-library.tsx");
     const simulationSurface = readIfExists("apps/web/app/(app)/test/simulations/page.tsx");

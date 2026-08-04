@@ -384,7 +384,7 @@ function checkD4ImplementationIfDone(): void {
     "apps/web/components/syllabus-panel.tsx",
   ]);
   const notesPage = readExistingFiles([
-    "apps/web/app/(app)/knowledge/notes/page.tsx",
+    "apps/web/app/(app)/knowledge/cards/page.tsx",
     "apps/web/components/note-library.tsx",
     "apps/web/components/notes-panel.tsx",
   ]);
