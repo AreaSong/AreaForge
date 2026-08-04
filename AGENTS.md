@@ -65,6 +65,7 @@
 - 验证选择遵循 `docs/development/validation-matrix.md`。
 - 依赖、GitHub Actions、Docker base image、PR 模板、安全政策或公开仓库治理变更，遵循 `docs/development/dependency-policy.md` 并运行 `pnpm governance:preflight`。
 - 外部能力、自动化、MCP、subagent、浏览器控制、部署插件或远程运维工具的准入与扩大，遵循 `docs/development/external-capability-admission.md`；它们不得绕过 Web runtime 服务器命令禁区或生产高风险确认。
+- 本地容器化 UI 验证统一使用 `areaforge-dev-test` 测试池：普通迭代执行 `pnpm dev:test:refresh` 复用最新槽位，只有明确需要保留旧版本比较时才执行 `pnpm dev:test:snapshot`；最多保留三个 Web 实例，不得绕过测试池创建递增命名的长期残留容器。
 - 发布、生产运维或长期运营状态变化，更新 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 的相关入口，并运行 `pnpm ops:readiness`；进入 release/update/交接证据时先看 `pnpm ops:handoff`，再补跑 `pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`。
 - 当前学习闭环围绕“开始学习（选科目） -> 专注计时 -> 收口 -> 证据/复测 -> 今日闭环 -> 周期报告与阶段调整”展开；任务和考纲是可选上下文，学习是否真正学进去才是主要结果。
 - `packages/core` 放平台无关业务规则，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量。

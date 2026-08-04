@@ -119,6 +119,16 @@ pnpm dev
 
 默认访问地址是 `http://localhost:3000`，默认开发数据库是 `postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge`。完整说明见 [开发设置](docs/development/setup.md)。
 
+需要保留 production-build UI 进行浏览器验证或版本对比时，使用固定的本地测试池，不要手工创建递增命名的容器：
+
+```bash
+pnpm dev:test:refresh -- --note "当前迭代"
+pnpm dev:test:snapshot -- --note "保留用于比较"
+pnpm dev:test:list
+```
+
+测试池使用 `areaforge-dev-test-1/2/3` 和 `127.0.0.1:43171/43172/43173`。`refresh` 默认替换最新槽位，`snapshot` 在第四个候选进入时按 FIFO（先进先出）淘汰最老实例；候选构建或健康检查失败时恢复旧实例。它只读取 `apps/web/.env.local` 的本地 allowlist 配置，共享本地测试数据库与 uploads volume，不运行 migration、不删除数据库或 volume，也不触碰生产。完整边界见 [Docker Compose 部署](docs/deployment/docker-compose.md)。
+
 ## 常用验证入口
 
 | 场景 | 入口 |
