@@ -11,6 +11,6 @@
     "test": "tsx --test src/index.test.ts src/bounded-multipart.test.ts"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   }
 }
