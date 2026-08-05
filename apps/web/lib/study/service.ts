@@ -55,6 +55,8 @@ import type {
   MotivationVaultDto,
   RecoveryStateDto,
   StudySessionDto,
+  StudySessionActivityKindDto,
+  StudySessionActivityModeDto,
   StudySessionEvidenceReceiptDto,
   StudySessionEvidenceTypeDto,
   StudySessionKnowledgePointDto,
@@ -73,6 +75,8 @@ const recoveryStateLockKey = 2026070703;
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type DbStudySessionStatus = "RUNNING" | "PAUSED" | "CLOSING" | "COMPLETED" | "CANCELED";
+type DbStudySessionActivityKind = "STUDY" | "REVIEW" | "TEST";
+type DbStudySessionActivityMode = "FREE_STUDY" | "KNOWLEDGE_REVIEW" | "RETEST" | "SIMULATION";
 type StudyDbClient = PrismaClient | Prisma.TransactionClient;
 
 type DbRecoveryStateStatus = "active" | "completed" | "canceled";
@@ -1256,6 +1260,11 @@ export async function startStudySession(
     syllabusNodeId?: string | null;
     goalMinutes?: number | null;
     startSource?: StudySessionStartSourceDto;
+    activityKind?: StudySessionActivityKindDto;
+    activityMode?: StudySessionActivityModeDto;
+    reviewScheduleId?: string | null;
+    knowledgeRetestId?: string | null;
+    simulationExamId?: string | null;
     clientDeviceId?: string;
     clientDeviceLabel?: string;
   },
@@ -1269,6 +1278,11 @@ export async function startStudySession(
     syllabusNodeId: input.syllabusNodeId ?? null,
     goalMinutes: input.goalMinutes ?? null,
     startSource: input.startSource ?? null,
+    activityKind: input.activityKind ?? "STUDY",
+    activityMode: input.activityMode ?? "FREE_STUDY",
+    reviewScheduleId: input.reviewScheduleId ?? null,
+    knowledgeRetestId: input.knowledgeRetestId ?? null,
+    simulationExamId: input.simulationExamId ?? null,
     clientDeviceId: normalizeDeviceId(input.clientDeviceId),
   });
   try {
@@ -1330,6 +1344,23 @@ export async function startStudySession(
 
       const startSource: StudySessionStartSourceDto =
         input.startSource ?? (task ? "TASK" : "SUBJECT_SHORTCUT");
+      const activityKind: DbStudySessionActivityKind = input.activityKind ?? "STUDY";
+      const activityMode: DbStudySessionActivityMode = input.activityMode ?? "FREE_STUDY";
+      validateActivityStart({
+        activityKind,
+        activityMode,
+        reviewScheduleId: input.reviewScheduleId ?? null,
+        knowledgeRetestId: input.knowledgeRetestId ?? null,
+        simulationExamId: input.simulationExamId ?? null,
+        taskId: task?.id ?? null,
+        syllabusNodeId,
+      });
+      await assertActivitySourceBelongsToWorkspace(tx, actorId, workspace.id, {
+        activityMode,
+        reviewScheduleId: input.reviewScheduleId ?? null,
+        knowledgeRetestId: input.knowledgeRetestId ?? null,
+        simulationExamId: input.simulationExamId ?? null,
+      });
       const startedAt = input.startedAt ? new Date(input.startedAt) : new Date();
       if (!Number.isFinite(startedAt.getTime())) {
         throw new ApiError("START_TIME_INVALID", 400);
@@ -1349,6 +1380,11 @@ export async function startStudySession(
           subjectId,
           taskId: task?.id,
           syllabusNodeId,
+          activityKind,
+          activityMode,
+          reviewScheduleId: input.reviewScheduleId ?? null,
+          knowledgeRetestId: input.knowledgeRetestId ?? null,
+          simulationExamId: input.simulationExamId ?? null,
           status: "RUNNING",
           startedAt,
           goalMinutes: input.goalMinutes ?? null,
@@ -1519,6 +1555,160 @@ export async function resumeStudySession(id: string, actorId: string, input?: Se
   });
 
   return serializeSession(session);
+}
+
+/**
+ * Cancel an activity that was started by mistake. Cancellation deliberately
+ * keeps the session row and audit trail, but it must never create a learning
+ * or check-in fact.
+ */
+export async function cancelStudySession(
+  id: string,
+  actorId: string,
+  input?: SessionCommandInput,
+): Promise<StudySessionDto> {
+  const session = await prisma.$transaction(async (tx) => {
+    const existing = await getSessionCommandPreimage(tx, id, actorId);
+    const fingerprint = input ? sessionCommandFingerprint("cancel", input) : undefined;
+    if (input && await isReusedSessionCommand(tx, id, "STUDY_SESSION_CANCELED", input.idempotencyKey, fingerprint!)) {
+      return getUpdatedSessionForResponse(tx, id);
+    }
+    await assertSessionCommandExpectation(tx, id, existing, input);
+    if (!["RUNNING", "PAUSED", "CLOSING"].includes(existing.status)) {
+      throw await sessionConflict(tx, id, ["status"]);
+    }
+    await applySessionCas(tx, existing, {
+      status: "CANCELED",
+      endedAt: new Date(),
+      pausedAt: null,
+    });
+    await tx.studySessionDevicePresence.deleteMany({ where: { sessionId: id } });
+    await auditSessionCommand(tx, actorId, id, "STUDY_SESSION_CANCELED", input, "cancel", fingerprint);
+    return getUpdatedSessionForResponse(tx, id);
+  });
+  return serializeSession(session);
+}
+
+/**
+ * Completes a configured review/test timer after its source page has collected
+ * the activity-specific result and feedback. The timer must already be in
+ * CLOSING; this keeps the timer fact separate from the business result while
+ * still closing both in the same source-page transaction.
+ */
+export async function completeConfiguredActivitySessionInTx(
+  tx: Prisma.TransactionClient,
+  input: {
+    actorId: string;
+    workspaceId: string;
+    sessionId: string;
+    activityMode: Extract<DbStudySessionActivityMode, "KNOWLEDGE_REVIEW" | "RETEST" | "SIMULATION">;
+    minimalOutput: string;
+    nextAction: string;
+  },
+): Promise<void> {
+  const existing = await tx.studySession.findFirst({
+    where: {
+      id: input.sessionId,
+      userId: input.actorId,
+      workspaceId: input.workspaceId,
+      activityMode: input.activityMode,
+      status: { in: ["RUNNING", "PAUSED", "CLOSING"] },
+    },
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      endedAt: true,
+      accumulatedPauseSeconds: true,
+      updatedAt: true,
+    },
+  });
+  if (!existing) {
+    const alreadyCompleted = await tx.studySession.findFirst({
+      where: {
+        id: input.sessionId,
+        userId: input.actorId,
+        workspaceId: input.workspaceId,
+        activityMode: input.activityMode,
+        status: "COMPLETED",
+      },
+      select: { id: true },
+    });
+    if (alreadyCompleted) return;
+    throw new ApiError("ACTIVITY_SESSION_NOT_FOUND", 404);
+  }
+  if (existing.status !== "CLOSING") {
+    throw new ApiError("ACTIVITY_TIMER_NOT_CLOSED", 409, { conflictFields: ["status"] });
+  }
+
+  const now = new Date();
+  const endedAt = existing.endedAt ?? now;
+  const effectiveSeconds = getTimerElapsedSeconds({
+    status: "completed",
+    startedAt: existing.startedAt,
+    endedAt,
+    accumulatedPauseSeconds: existing.accumulatedPauseSeconds,
+  });
+  const effectiveMinutes = Math.max(0, Math.floor(effectiveSeconds / 60));
+  const changed = await tx.studySession.updateMany({
+    where: {
+      id: existing.id,
+      userId: input.actorId,
+      workspaceId: input.workspaceId,
+      status: "CLOSING",
+      updatedAt: existing.updatedAt,
+    },
+    data: {
+      status: "COMPLETED",
+      endedAt,
+      pausedAt: null,
+      effectiveMinutes,
+      isEffective: true,
+      understandingLevel: "SPECIAL_ACTIVITY",
+      minimalOutput: input.minimalOutput.trim().slice(0, 1000),
+      nextAction: input.nextAction.trim().slice(0, 500),
+      isLowConversion: false,
+      closeoutVersion: { increment: 1 },
+    },
+  });
+  if (changed.count !== 1) {
+    throw new ApiError("ACTIVITY_SESSION_REVISION_CONFLICT", 409, { conflictFields: ["status", "updatedAt"] });
+  }
+
+  await tx.studySessionCloseout.upsert({
+    where: { sessionId: existing.id },
+    update: {
+      understanding: "UNDERSTOOD",
+      efficiency: "NORMAL",
+      lowReasons: [],
+      summary: input.minimalOutput.trim().slice(0, 2000),
+      nextDisposition: input.nextAction.trim().slice(0, 500),
+      revision: { increment: 1 },
+      submittedAt: now,
+      actorId: input.actorId,
+    },
+    create: {
+      sessionId: existing.id,
+      understanding: "UNDERSTOOD",
+      efficiency: "NORMAL",
+      lowReasons: [],
+      summary: input.minimalOutput.trim().slice(0, 2000),
+      nextDisposition: input.nextAction.trim().slice(0, 500),
+      actorId: input.actorId,
+      submittedAt: now,
+    },
+  });
+  await tx.studySessionDevicePresence.deleteMany({ where: { sessionId: existing.id } });
+  await tx.auditEvent.create({
+    data: {
+      actorId: input.actorId,
+      action: `STUDY_ACTIVITY_${input.activityMode}_COMPLETED`,
+      entityType: "StudySession",
+      entityId: existing.id,
+      metadata: { activityMode: input.activityMode, effectiveMinutes } as Prisma.InputJsonValue,
+    },
+  });
+  await refreshWorkspaceCheckInsForDates(input.actorId, [existing.startedAt], tx);
 }
 
 export async function endStudySession(id: string, input: EndSessionInput, actorId: string): Promise<StudySessionDto> {
@@ -2435,6 +2625,86 @@ function sameStringSet(left: string[], right: string[]): boolean {
   return left.every((value) => rightSet.has(value));
 }
 
+function validateActivityStart(input: {
+  activityKind: DbStudySessionActivityKind;
+  activityMode: DbStudySessionActivityMode;
+  reviewScheduleId: string | null;
+  knowledgeRetestId: string | null;
+  simulationExamId: string | null;
+  taskId: string | null;
+  syllabusNodeId: string | null;
+}): void {
+  const sourceCount = [input.reviewScheduleId, input.knowledgeRetestId, input.simulationExamId].filter(Boolean).length;
+  if (input.activityMode === "FREE_STUDY") {
+    if (input.activityKind !== "STUDY" || sourceCount > 0) {
+      throw new ApiError("ACTIVITY_SOURCE_INVALID", 400, { conflictFields: ["activityKind", "activityMode"] });
+    }
+    return;
+  }
+  if (input.taskId || input.syllabusNodeId) {
+    throw new ApiError("ACTIVITY_CONTEXT_MUST_BE_PRECONFIGURED", 400, { conflictFields: ["taskId", "syllabusNodeId"] });
+  }
+  if (sourceCount !== 1) {
+    throw new ApiError("ACTIVITY_SOURCE_REQUIRED", 400, { conflictFields: ["reviewScheduleId", "knowledgeRetestId", "simulationExamId"] });
+  }
+  const expectedKind = input.activityMode === "KNOWLEDGE_REVIEW" || input.activityMode === "RETEST"
+    ? "REVIEW"
+    : "TEST";
+  if (input.activityKind !== expectedKind) {
+    throw new ApiError("ACTIVITY_KIND_MODE_MISMATCH", 400, { conflictFields: ["activityKind", "activityMode"] });
+  }
+  if (input.activityMode === "KNOWLEDGE_REVIEW" && !input.reviewScheduleId) {
+    throw new ApiError("REVIEW_SCHEDULE_REQUIRED", 400, { conflictFields: ["reviewScheduleId"] });
+  }
+  if (input.activityMode === "RETEST" && !input.knowledgeRetestId) {
+    throw new ApiError("KNOWLEDGE_RETEST_REQUIRED", 400, { conflictFields: ["knowledgeRetestId"] });
+  }
+  if (input.activityMode === "SIMULATION" && !input.simulationExamId) {
+    throw new ApiError("SIMULATION_EXAM_REQUIRED", 400, { conflictFields: ["simulationExamId"] });
+  }
+}
+
+async function assertActivitySourceBelongsToWorkspace(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  workspaceId: string,
+  input: {
+    activityMode: DbStudySessionActivityMode;
+    reviewScheduleId: string | null;
+    knowledgeRetestId: string | null;
+    simulationExamId: string | null;
+  },
+): Promise<void> {
+  if (input.activityMode === "FREE_STUDY") return;
+  if (input.activityMode === "KNOWLEDGE_REVIEW") {
+    const schedule = await tx.reviewSchedule.findFirst({
+      where: { id: input.reviewScheduleId ?? "", workspaceId, OR: [{ actorId: null }, { actorId }] },
+      select: { id: true },
+    });
+    if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
+    return;
+  }
+  if (input.activityMode === "RETEST") {
+    const retest = await tx.knowledgeRetest.findFirst({
+      where: { id: input.knowledgeRetestId ?? "", userId: actorId, workspaceId },
+      select: { id: true, status: true },
+    });
+    if (!retest) throw new ApiError("KNOWLEDGE_RETEST_NOT_FOUND", 404);
+    if (retest.status !== "DRAFT" && retest.status !== "IN_PROGRESS") {
+      throw new ApiError("KNOWLEDGE_RETEST_START_INVALID_STATE", 409, { conflictFields: ["status"] });
+    }
+    return;
+  }
+  const exam = await tx.simulationExam.findFirst({
+    where: { id: input.simulationExamId ?? "", workspaceId },
+    select: { id: true, status: true },
+  });
+  if (!exam) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
+  if (exam.status !== "DRAFT" && exam.status !== "IN_PROGRESS") {
+    throw new ApiError("SIMULATION_EXAM_START_INVALID_STATE", 409, { conflictFields: ["status"] });
+  }
+}
+
 function nextTaskUpdatedAt(current: Date): Date {
   return new Date(Math.max(Date.now(), current.getTime() + 1));
 }
@@ -3054,6 +3324,11 @@ function getDaysOverdue(plannedDate: string, dayStart: Date): number {
 function serializeSession(session: {
   id: string;
   subjectId: string;
+  activityKind: DbStudySessionActivityKind;
+  activityMode: DbStudySessionActivityMode;
+  reviewScheduleId: string | null;
+  knowledgeRetestId: string | null;
+  simulationExamId: string | null;
   taskId: string | null;
   syllabusNodeId: string | null;
   status: DbStudySessionStatus;
@@ -3107,6 +3382,11 @@ function serializeSession(session: {
     id: session.id,
     subjectId: session.subjectId,
     subjectName: session.subject.name,
+    activityKind: session.activityKind,
+    activityMode: session.activityMode,
+    reviewScheduleId: session.reviewScheduleId,
+    knowledgeRetestId: session.knowledgeRetestId,
+    simulationExamId: session.simulationExamId,
     taskId: session.taskId,
     taskTitle: session.task?.title ?? null,
     taskStatus: session.task ? fromDbTaskStatus(session.task.status) : null,

@@ -124,10 +124,11 @@ pnpm dev
 ```bash
 pnpm dev:test:refresh -- --note "当前迭代"
 pnpm dev:test:snapshot -- --note "保留用于比较"
+pnpm dev:test:latest
 pnpm dev:test:list
 ```
 
-测试池使用 `areaforge-dev-test-1/2/3` 和 `127.0.0.1:43171/43172/43173`。`refresh` 默认替换最新槽位，`snapshot` 在第四个候选进入时按 FIFO（先进先出）淘汰最老实例；候选构建或健康检查失败时恢复旧实例。它只读取 `apps/web/.env.local` 的本地 allowlist 配置，共享本地测试数据库与 uploads volume，不运行 migration、不删除数据库或 volume，也不触碰生产。完整边界见 [Docker Compose 部署](docs/deployment/docker-compose.md)。
+测试池使用 `areaforge-dev-test-1/2/3` 和 `127.0.0.1:43171/43172/43173`。`refresh` 默认替换最新槽位，`snapshot` 在第四个候选进入时按 FIFO（先进先出）淘汰最老实例；`latest` 按最后一次成功部署标记唯一最新槽位和访问地址，不能用槽位数字猜测。候选构建或健康检查失败时恢复旧实例且不改变 latest。它只读取 `apps/web/.env.local` 的本地 allowlist 配置，共享本地测试数据库与 uploads volume，不运行 migration、不删除数据库或 volume，也不触碰生产。完整边界见 [Docker Compose 部署](docs/deployment/docker-compose.md)。
 
 ## 常用验证入口
 

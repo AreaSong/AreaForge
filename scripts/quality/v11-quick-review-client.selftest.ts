@@ -471,7 +471,7 @@ assert.doesNotMatch(focusSessionSource, /minimalOutput:\s*draft\.minimalOutput\s
 assert.doesNotMatch(focusSessionSource, /本次最小产出/);
 assert.match(focusSessionSource, /minimalOutput\.length < 4/);
 assert.match(focusPanelsSource, /<form noValidate/);
-assert.match(focusPanelsSource, /不会自动生成占位产出/);
+assert.match(focusPanelsSource, /至少 4 个字符/);
 assert.match(focusEvidenceFormsSource, /fetch\("\/api\/notes"/);
 assert.match(focusEvidenceFormsSource, /fetch\("\/api\/mistakes"/);
 assert.match(focusEvidenceFormsSource, /SyllabusRetestForm/);

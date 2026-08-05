@@ -7,7 +7,7 @@
 export type ConfirmationProjectionStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "FROZEN";
 
 export interface SimulationConfirmationInput {
-  status: "DRAFT" | "CONFIRMED";
+  status: "DRAFT" | "IN_PROGRESS" | "CONFIRMED";
   subjectResultCount: number;
   summary: string | null | undefined;
   reviewText: string | null | undefined;
@@ -29,7 +29,7 @@ export function isSimulationReadyForConfirmation(input: SimulationConfirmationIn
 }
 
 export function simulationConfirmationActionReady(input: SimulationConfirmationInput): boolean {
-  return input.status === "DRAFT" && isSimulationReadyForConfirmation(input);
+  return (input.status === "DRAFT" || input.status === "IN_PROGRESS") && isSimulationReadyForConfirmation(input);
 }
 
 export function retestConfirmationStatus(status: RetestConfirmationInputStatus): ConfirmationProjectionStatus | null {

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Repeat2, Timer } from "lucide-react";
+import { BookOpen, ClipboardCheck, FileCheck2, Repeat2, Timer } from "lucide-react";
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { getTimerElapsedSeconds } from "@areaforge/core";
@@ -51,11 +51,11 @@ export function GlobalActivitySlot(props: {
       {activity ? (
         <Link
           href={activity.href}
-          className="inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-teal-300/35 bg-teal-300/[0.06] px-2 text-xs text-teal-100 hover:border-teal-300/60 hover:bg-teal-300/[0.1] sm:min-w-[13rem] sm:gap-2 sm:px-3"
+          className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-white/[0.06] sm:min-w-[13rem] sm:gap-2 sm:px-3 ${activity.themeClass}`}
           aria-label={`${activity.kindLabel}：${activity.subjectLabel}，${formatDuration(activity.elapsedSeconds)}，${activity.statusLabel}`}
           title="打开当前唯一活动"
         >
-          <activity.Icon size={15} className="shrink-0 text-teal-300" aria-hidden="true" />
+          <activity.Icon size={15} className={`shrink-0 ${activity.iconClass}`} aria-hidden="true" />
           <span className="hidden max-w-20 truncate sm:inline">{activity.kindLabel}</span>
           <span className="max-w-24 truncate text-zinc-200 sm:max-w-32">{activity.subjectLabel}</span>
           <span className="font-mono tabular-nums text-teal-200">{formatDuration(activity.elapsedSeconds)}</span>
@@ -79,6 +79,8 @@ type Activity = {
   statusLabel: string;
   elapsedSeconds: number;
   Icon: typeof Timer;
+  iconClass: string;
+  themeClass: string;
 };
 
 function getActivity(
@@ -97,12 +99,14 @@ function getActivity(
       now: new Date(now),
     });
     return {
-      href: "/focus",
-      kindLabel: "学习",
+      href: activityHref(activeSession),
+      kindLabel: activityLabel(activeSession),
       subjectLabel: activeSession.subjectName,
       statusLabel: activeSession.status === "running" ? "进行中" : activeSession.status === "paused" ? "已暂停" : "待收口",
       elapsedSeconds,
-      Icon: BookOpen,
+      Icon: activityIcon(activeSession),
+      iconClass: activityIconClass(activeSession),
+      themeClass: activityTheme(activeSession),
     };
   }
   if (offlineSession) {
@@ -121,6 +125,8 @@ function getActivity(
         now: new Date(now),
       }),
       Icon: BookOpen,
+      iconClass: "text-teal-300",
+      themeClass: "border-teal-300/35 bg-teal-300/[0.06] text-teal-100",
     };
   }
   if (!quickReviewClaim) return null;
@@ -131,7 +137,44 @@ function getActivity(
     statusLabel: quickReviewClaim.phase === "running" ? "进行中" : "待收口",
     elapsedSeconds: Math.max(0, Math.floor((now - quickReviewClaim.startedAt) / 1_000)),
     Icon: Repeat2,
+    iconClass: "text-sky-300",
+    themeClass: "border-sky-300/35 bg-sky-300/[0.06] text-sky-100",
   };
+}
+
+function activityLabel(session: StudySessionDto): string {
+  if (session.activityMode === "SIMULATION") return "模拟考试";
+  if (session.activityMode === "RETEST") return "专项复测";
+  if (session.activityMode === "KNOWLEDGE_REVIEW") return "复习";
+  return "学习";
+}
+
+function activityHref(session: StudySessionDto): string {
+  if (session.activityMode === "SIMULATION" && session.simulationExamId) return `/test/simulations/${encodeURIComponent(session.simulationExamId)}`;
+  if (session.activityMode === "RETEST" && session.knowledgeRetestId) return `/test/retests/${encodeURIComponent(session.knowledgeRetestId)}`;
+  if (session.activityMode === "KNOWLEDGE_REVIEW" && session.reviewScheduleId) return `/knowledge/reviews/${encodeURIComponent(session.reviewScheduleId)}`;
+  return "/focus";
+}
+
+function activityIcon(session: StudySessionDto): typeof Timer {
+  if (session.activityMode === "SIMULATION") return FileCheck2;
+  if (session.activityMode === "RETEST") return ClipboardCheck;
+  if (session.activityMode === "KNOWLEDGE_REVIEW") return Repeat2;
+  return BookOpen;
+}
+
+function activityIconClass(session: StudySessionDto): string {
+  if (session.activityMode === "SIMULATION") return "text-amber-300";
+  if (session.activityMode === "RETEST") return "text-orange-300";
+  if (session.activityMode === "KNOWLEDGE_REVIEW") return "text-sky-300";
+  return "text-teal-300";
+}
+
+function activityTheme(session: StudySessionDto): string {
+  if (session.activityMode === "SIMULATION") return "border-amber-300/40 bg-amber-300/[0.08] text-amber-100";
+  if (session.activityMode === "RETEST") return "border-orange-300/40 bg-orange-300/[0.08] text-orange-100";
+  if (session.activityMode === "KNOWLEDGE_REVIEW") return "border-sky-300/40 bg-sky-300/[0.08] text-sky-100";
+  return "border-teal-300/35 bg-teal-300/[0.06] text-teal-100";
 }
 
 function formatDuration(seconds: number): string {

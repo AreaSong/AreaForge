@@ -6,6 +6,7 @@ import { masteryStatusForSyllabusLevel, masteryStatusLabel, type SyllabusMastery
 
 export interface ReviewTargetDto {
   id: string;
+  subjectId: string | null;
   type: "NOTE" | "MISTAKE" | "STUDY_RESOURCE" | "SYLLABUS_NODE";
   title: string;
   subtitle: string;
@@ -33,11 +34,12 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   if (schedule.targetType === "NOTE" && schedule.noteId) {
     const note = await prisma.note.findFirst({
       where: { id: schedule.noteId, subject: { workspaceId: workspace.id } },
-      include: { subject: { select: { name: true } } },
+      include: { subject: { select: { id: true, name: true } } },
     });
     if (!note) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     return {
       id: note.id,
+      subjectId: note.subjectId,
       type: "NOTE",
       title: note.title,
       subtitle: `${note.subject.name} · ${noteKindLabel(note.kind)}`,
@@ -52,7 +54,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   if (schedule.targetType === "MISTAKE" && schedule.mistakeId) {
     const mistake = await prisma.mistake.findFirst({
       where: { id: schedule.mistakeId, subject: { workspaceId: workspace.id } },
-      include: { subject: { select: { name: true } } },
+      include: { subject: { select: { id: true, name: true } } },
     });
     if (!mistake) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     const revealText = [
@@ -61,6 +63,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
     ].join("");
     return {
       id: mistake.id,
+      subjectId: mistake.subjectId,
       type: "MISTAKE",
       title: mistake.title,
       subtitle: `${mistake.subject.name} · 错题复测`,
@@ -76,7 +79,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
     const resource = await prisma.studyResource.findFirst({
       where: { id: schedule.studyResourceId, workspaceId: workspace.id },
       include: {
-        subject: { select: { name: true } },
+        subject: { select: { id: true, name: true } },
         attachment: { select: { mimeType: true, originalName: true } },
         tags: { select: { tagDisplay: true } },
       },
@@ -88,6 +91,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
     const tags = resource.tags.length ? `\n\n标签：${resource.tags.map((tag) => tag.tagDisplay).join("、")}` : "";
     return {
       id: resource.id,
+      subjectId: resource.subjectId,
       type: "STUDY_RESOURCE",
       title: resource.title,
       subtitle: `${resource.subject?.name ?? "未分科"} · ${resourceCategoryLabel(resource.category)}`,
@@ -102,11 +106,12 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   if (schedule.targetType === "SYLLABUS_NODE" && schedule.syllabusNodeId) {
     const node = await prisma.syllabusNode.findFirst({
       where: { id: schedule.syllabusNodeId, subject: { workspaceId: workspace.id } },
-      include: { subject: { select: { name: true } } },
+      include: { subject: { select: { id: true, name: true } } },
     });
     if (!node) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     return {
       id: node.id,
+      subjectId: node.subjectId,
       type: "SYLLABUS_NODE",
       title: node.title,
       subtitle: `${node.subject.name} · ${syllabusKindLabel(node.kind)}`,

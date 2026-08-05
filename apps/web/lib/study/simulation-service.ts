@@ -17,7 +17,8 @@ import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { applyTaskCas } from "./concurrency";
 import { daysUntil } from "./date";
 import { finalExamDate, simulationDate } from "./exam-dates";
-import { getMotivationVault, getMotivationVaultShared, saveMotivationVault } from "./service";
+import { completeConfiguredActivitySessionInTx, getMotivationVault, getMotivationVaultShared, saveMotivationVault } from "./service";
+import { activeTimerSessionId } from "./activity-session-state";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
@@ -41,6 +42,19 @@ import type {
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type SimulationDbClient = PrismaClient | Prisma.TransactionClient;
+
+const simulationExamInclude = {
+  studySessions: {
+    where: { status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
+    select: { id: true, status: true },
+    orderBy: { startedAt: "desc" },
+    take: 1,
+  },
+  subjectResults: {
+    include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
+    orderBy: { subjectId: "asc" },
+  },
+} satisfies Prisma.SimulationExamInclude;
 
 export interface CreateSimulationTaskInput {
   subjectId: string;
@@ -97,6 +111,7 @@ export interface SaveSimulationExamResultsInput {
   lossReasons: string[];
   mindset?: string;
   summary: string;
+  reviewText: string;
   subjectResults: SimulationSubjectResultInput[];
 }
 
@@ -168,12 +183,7 @@ export async function listSimulationExams(actorId?: string): Promise<SimulationE
   const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
   const exams = await prisma.simulationExam.findMany({
     where: workspace ? { workspaceId: workspace.id } : undefined,
-    include: {
-      subjectResults: {
-        include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-        orderBy: { subjectId: "asc" },
-      },
-    },
+    include: simulationExamInclude,
     orderBy: [{ examDate: "desc" }, { createdAt: "desc" }],
     take: 100,
   });
@@ -185,12 +195,7 @@ export async function getSimulationExam(id: string, actorId: string): Promise<Si
   const workspace = await resolveActiveWorkspace(actorId);
   const exam = await prisma.simulationExam.findFirst({
     where: { id, workspaceId: workspace.id },
-    include: {
-      subjectResults: {
-        include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-        orderBy: { subjectId: "asc" },
-      },
-    },
+    include: simulationExamInclude,
   });
   if (!exam) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
   return serializeSimulationExam(exam);
@@ -226,12 +231,7 @@ export async function createSimulationExam(
       if (snapshot) return snapshot;
       const storedExam = await tx.simulationExam.findFirst({
         where: { id: replay.resultId, workspaceId: workspace.id },
-        include: {
-          subjectResults: {
-            include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-            orderBy: { subjectId: "asc" },
-          },
-        },
+        include: simulationExamInclude,
       });
       if (!storedExam) throw new ApiError("SIMULATION_EXAM_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
       return serializeSimulationExam(storedExam);
@@ -246,12 +246,7 @@ export async function createSimulationExam(
         targetDurationMinutes: input.targetDurationMinutes,
         targetScore: input.targetScore,
       },
-      include: {
-        subjectResults: {
-          include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-          orderBy: { subjectId: "asc" },
-        },
-      },
+      include: simulationExamInclude,
     });
 
     const result = serializeSimulationExam(created);
@@ -259,6 +254,83 @@ export async function createSimulationExam(
       examDate: created.examDate.toISOString(),
       resultSnapshot: result as unknown as Prisma.InputJsonObject,
     });
+    return result;
+  });
+}
+
+export interface StartSimulationExamInput {
+  idempotencyKey: string;
+  expectedRevision: number;
+}
+
+export async function startSimulationExam(
+  id: string,
+  input: StartSimulationExamInput,
+  actorId: string,
+): Promise<SimulationExamDto> {
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  const requestFingerprint = buildPersistentCreateFingerprint("simulation-exam-start-v1", {
+    id,
+    expectedRevision: input.expectedRevision,
+  });
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const command = {
+      actorId,
+      workspaceId: workspace.id,
+      action: "SIMULATION_EXAM_STARTED",
+      entityType: "SimulationExam",
+      idempotencyKey,
+      requestFingerprint,
+      conflictCode: "SIMULATION_EXAM_START_IDEMPOTENCY_CONFLICT",
+    };
+    const replay = await findPersistentCreateReplay(tx, command);
+    if (replay) {
+      const snapshot = parseSimulationExamSnapshot(replay.resultSnapshot);
+      if (snapshot) return snapshot;
+    }
+    const existing = await tx.simulationExam.findFirst({
+      where: { id, workspaceId: workspace.id },
+      include: simulationExamInclude,
+    });
+    if (!existing) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
+    if (existing.status === "IN_PROGRESS" && existing.studySessions.length > 0) return serializeSimulationExam(existing);
+    if (existing.status !== "DRAFT" && existing.status !== "IN_PROGRESS") {
+      throw new ApiError("SIMULATION_EXAM_START_INVALID_STATE", 409, { conflictFields: ["status"] });
+    }
+    if (existing.revision !== input.expectedRevision) {
+      throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, {
+        latest: serializeSimulationExam(existing),
+        conflictFields: ["revision"],
+      });
+    }
+    const firstSubject = existing.subjectResults.find((result) => !result.subject.archivedAt);
+    if (!firstSubject) throw new ApiError("SIMULATION_SUBJECT_RESULTS_REQUIRED", 400);
+    const active = await tx.studySession.findFirst({
+      where: { userId: actorId, workspaceId: workspace.id, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
+      select: { id: true },
+    });
+    if (active) throw new ApiError("ACTIVE_SESSION_EXISTS", 409, { conflictFields: ["status"] });
+    const now = new Date();
+    await tx.studySession.create({
+      data: {
+        userId: actorId,
+        workspaceId: workspace.id,
+        subjectId: firstSubject.subjectId,
+        activityKind: "TEST",
+        activityMode: "SIMULATION",
+        simulationExamId: id,
+        status: "RUNNING",
+        startedAt: now,
+        goalMinutes: existing.targetDurationMinutes,
+        startSource: "SIMULATION_EXAM",
+        lastHeartbeatAt: now,
+      },
+    });
+    await tx.simulationExam.update({ where: { id }, data: { status: "IN_PROGRESS", revision: { increment: 1 } } });
+    await audit(actorId, "SIMULATION_EXAM_STARTED", "SimulationExam", id, tx);
+    const result = serializeSimulationExam(await tx.simulationExam.findUniqueOrThrow({ where: { id }, include: simulationExamInclude }));
+    await recordPersistentCreateResult(tx, command, id, { resultSnapshot: result as unknown as Prisma.InputJsonObject });
     return result;
   });
 }
@@ -272,21 +344,24 @@ export async function saveSimulationExamResults(
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const existing = await tx.simulationExam.findFirst({
       where: { id, workspaceId: workspace.id },
-      include: {
-        subjectResults: {
-          include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-          orderBy: { subjectId: "asc" },
-        },
-      },
+      include: simulationExamInclude,
     });
     if (!existing) {
       throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
     }
-    if (existing.status !== "DRAFT") {
+    if (existing.status !== "DRAFT" && existing.status !== "IN_PROGRESS") {
       throw new ApiError("SIMULATION_EXAM_CONFIRMED", 409, {
         latest: serializeSimulationExam(existing),
         conflictFields: ["status"],
       });
+    }
+    const timerSession = existing.studySessions[0] ?? null;
+    if (timerSession && timerSession.status !== "CLOSING") {
+      throw new ApiError("SIMULATION_TIMER_NOT_CLOSED", 409, { conflictFields: ["timerSessionId"] });
+    }
+    const reviewText = normalizeOptionalText(input.reviewText);
+    if (timerSession && !reviewText) {
+      throw new ApiError("SIMULATION_REVIEW_REQUIRED", 400, { conflictFields: ["reviewText"] });
     }
     if (input.expectedRevision !== existing.revision) {
       throw new ApiError("SIMULATION_EXAM_REVISION_CONFLICT", 409, {
@@ -335,17 +410,6 @@ export async function saveSimulationExamResults(
       ...input.lossReasons,
       ...input.subjectResults.flatMap((result) => result.lossReasons),
     ]);
-    const resultSummary = summarizeStructuredSimulationResult({
-      targetScore,
-      actualScore,
-      targetDurationMinutes,
-      actualDurationMinutes,
-      blankQuestionCount,
-      lossReasons,
-      mindset: input.mindset,
-      isFirstSynchronizedSimulation: existing.isFirstSynchronized,
-    });
-
     const examUpdate = await tx.simulationExam.updateMany({
       where: { id, workspaceId: workspace.id, revision: input.expectedRevision },
       data: {
@@ -357,14 +421,7 @@ export async function saveSimulationExamResults(
         lossReasons,
         mindset: normalizeOptionalText(input.mindset),
         summary: input.summary,
-        reviewText: composeStructuredSimulationReview(input, resultSummary, {
-          targetScore,
-          actualScore,
-          targetDurationMinutes,
-          actualDurationMinutes,
-          blankQuestionCount,
-          lossReasons,
-        }),
+        reviewText,
         revision: { increment: 1 },
       },
     });
@@ -434,6 +491,17 @@ export async function saveSimulationExamResults(
       }
     }
 
+    if (timerSession) {
+      await completeConfiguredActivitySessionInTx(tx, {
+        actorId,
+        workspaceId: workspace.id,
+        sessionId: timerSession.id,
+        activityMode: "SIMULATION",
+        minimalOutput: `模拟考试「${existing.name}」成绩与失分已提交。`,
+        nextAction: "进入确认中心确认模拟考试结果",
+      });
+    }
+
     await audit(actorId, "SIMULATION_EXAM_RESULTS_SAVED", "SimulationExam", id, tx);
     const upgradedLegacy = currentSubjectResults.length === 0 && (
       existing.targetScore != null || existing.actualScore != null || existing.lossReasons != null
@@ -444,12 +512,7 @@ export async function saveSimulationExamResults(
 
     return tx.simulationExam.findUniqueOrThrow({
       where: { id },
-      include: {
-        subjectResults: {
-          include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-          orderBy: { subjectId: "asc" },
-        },
-      },
+      include: simulationExamInclude,
     });
   });
 
@@ -465,12 +528,7 @@ export async function confirmSimulationExam(
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const existing = await tx.simulationExam.findFirst({
       where: { id, workspaceId: workspace.id },
-      include: {
-        subjectResults: {
-          include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-          orderBy: { subjectId: "asc" },
-        },
-      },
+      include: simulationExamInclude,
     });
     if (!existing) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
     if (existing.subjectResults.some((result) => result.subject.archivedAt)) {
@@ -501,7 +559,7 @@ export async function confirmSimulationExam(
     }
     const confirmedAt = new Date();
     const changed = await tx.simulationExam.updateMany({
-      where: { id, workspaceId: workspace.id, status: "DRAFT", revision: expectedRevision },
+      where: { id, workspaceId: workspace.id, status: { in: ["DRAFT", "IN_PROGRESS"] }, revision: expectedRevision },
       data: { status: "CONFIRMED", confirmedAt, revision: { increment: 1 } },
     });
     if (changed.count !== 1) {
@@ -513,12 +571,7 @@ export async function confirmSimulationExam(
     await audit(actorId, "SIMULATION_EXAM_CONFIRMED", "SimulationExam", id, tx);
     return tx.simulationExam.findUniqueOrThrow({
       where: { id },
-      include: {
-        subjectResults: {
-          include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-          orderBy: { subjectId: "asc" },
-        },
-      },
+      include: simulationExamInclude,
     });
   });
   return serializeSimulationExam(exam);
@@ -728,18 +781,13 @@ async function loadSimulationExamDto(
 ): Promise<SimulationExamDto | undefined> {
   const exam = await client.simulationExam.findFirst({
     where: { id: examId, workspaceId },
-    include: {
-      subjectResults: {
-        include: { subject: true, lossItems: { include: { syllabusNode: true }, orderBy: { createdAt: "asc" } } },
-        orderBy: { subjectId: "asc" },
-      },
-    },
+    include: simulationExamInclude,
   });
   return exam ? serializeSimulationExam(exam) : undefined;
 }
 
 function assertSimulationDraft(status: string) {
-  if (status !== "DRAFT") throw new ApiError("SIMULATION_EXAM_CONFIRMED", 409);
+  if (status !== "DRAFT" && status !== "IN_PROGRESS") throw new ApiError("SIMULATION_EXAM_CONFIRMED", 409);
 }
 
 async function assertLossParentRevisions(
@@ -1221,36 +1269,6 @@ function composeSimulationReview(
     .join("\n");
 }
 
-function composeStructuredSimulationReview(
-  input: SaveSimulationExamResultsInput,
-  resultSummary: SimulationResultSummary | null,
-  aggregate: {
-    targetScore?: number | null;
-    actualScore?: number | null;
-    targetDurationMinutes?: number | null;
-    actualDurationMinutes?: number | null;
-    blankQuestionCount: number;
-    lossReasons: string[];
-  },
-): string {
-  const lines = [
-    ["目标分", formatMaybeNumber(aggregate.targetScore)],
-    ["实际分", formatMaybeNumber(aggregate.actualScore)],
-    ["目标用时", aggregate.targetDurationMinutes ? `${aggregate.targetDurationMinutes} 分钟` : undefined],
-    ["实际用时", aggregate.actualDurationMinutes ? `${aggregate.actualDurationMinutes} 分钟` : undefined],
-    ["空题数量", `${aggregate.blankQuestionCount}`],
-    ["失分原因", aggregate.lossReasons.join("、")],
-    ["心态记录", input.mindset],
-    ["规则复盘", resultSummary ? formatSimulationResultSummary(resultSummary) : undefined],
-    ["考后总结", input.summary],
-  ];
-
-  return lines
-    .filter(([, value]) => value !== undefined && `${value}`.trim().length > 0)
-    .map(([label, value]) => `${label}：${value}`)
-    .join("\n");
-}
-
 function maybeSummarizeSimulationResult(
   input: CompleteSimulationTaskInput,
   targetDurationMinutes: number,
@@ -1269,30 +1287,6 @@ function maybeSummarizeSimulationResult(
     lossReasons: splitLossReasons(input.lossReason),
     mood: input.mindset,
     isFirstSynchronizedSimulation,
-  });
-}
-
-function summarizeStructuredSimulationResult(input: {
-  targetScore?: number | null;
-  actualScore?: number | null;
-  targetDurationMinutes?: number | null;
-  actualDurationMinutes?: number | null;
-  blankQuestionCount: number;
-  lossReasons: string[];
-  mindset?: string;
-  isFirstSynchronizedSimulation: boolean;
-}): SimulationResultSummary | null {
-  if (input.targetScore == null || input.actualScore == null) return null;
-
-  return summarizeSimulationResult({
-    targetScore: input.targetScore,
-    actualScore: input.actualScore,
-    targetDurationMinutes: input.targetDurationMinutes ?? input.actualDurationMinutes ?? 180,
-    actualDurationMinutes: input.actualDurationMinutes ?? input.targetDurationMinutes ?? 180,
-    blankQuestionCount: input.blankQuestionCount,
-    lossReasons: input.lossReasons,
-    mood: input.mindset,
-    isFirstSynchronizedSimulation: input.isFirstSynchronizedSimulation,
   });
 }
 
@@ -1484,6 +1478,7 @@ function serializeSimulationExam(exam: {
   createdAt: Date;
   updatedAt: Date;
   revision: number;
+  studySessions: Array<{ id: string; status: string }>;
   subjectResults: Array<{
     id: string;
     simulationExamId: string;
@@ -1512,6 +1507,7 @@ function serializeSimulationExam(exam: {
     };
   }>;
 }): SimulationExamDto {
+  const timerSession = exam.studySessions[0] ?? null;
   const hasLegacyTotals = exam.targetScore != null || exam.actualScore != null || exam.lossReasons != null;
   const totalsSource = exam.subjectResults.length > 0 || !hasLegacyTotals ? "subject_sum" : "legacy_fallback";
   const scoreSummary = totalsSource === "subject_sum"
@@ -1547,6 +1543,8 @@ function serializeSimulationExam(exam: {
     summary: exam.summary,
     reviewText: exam.reviewText,
     status: exam.status as SimulationExamDto["status"],
+    timerSessionId: activeTimerSessionId(exam.studySessions),
+    timerSessionStatus: timerSession ? timerSession.status as SimulationExamDto["timerSessionStatus"] : null,
     confirmedAt: exam.confirmedAt?.toISOString() ?? null,
     createdAt: exam.createdAt.toISOString(),
     updatedAt: exam.updatedAt.toISOString(),
@@ -1627,11 +1625,6 @@ function parseLossReasons(value: unknown): string[] {
 function normalizeOptionalText(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
-}
-
-function formatMaybeNumber(value: number | null | undefined): string | undefined {
-  if (value == null) return undefined;
-  return Number.isInteger(value) ? `${value}` : `${Math.round(value * 10) / 10}`;
 }
 
 function toTaskDebtEventState(task: {

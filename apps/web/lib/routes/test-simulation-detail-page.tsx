@@ -32,7 +32,7 @@ export default async function SimulationExamPage({ params, searchParams }: { par
         title={data.exam.name}
         back={<ButtonLink href={returnTo} variant="ghost" size="sm"><ArrowLeft size={16} />{query.returnTo ? getReturnContextLabel(returnTo, "返回模拟列表") : "返回模拟列表"}</ButtonLink>}
         description={`${new Date(data.exam.examDate).toLocaleDateString("zh-CN")} · ${data.exam.subjectResults.length} 科 · ${lostScore} 分结构化失分`}
-        status={<div className="flex flex-wrap gap-2"><Badge tone={data.exam.status === "DRAFT" ? "warning" : "success"}>{data.exam.status === "DRAFT" ? "事实待确认" : "事实已确认"}</Badge><Badge>{activeLossItems.length} 条失分</Badge></div>}
+        status={<div className="flex flex-wrap gap-2"><Badge tone={data.exam.status === "CONFIRMED" ? "success" : data.exam.timerSessionStatus === "RUNNING" || data.exam.timerSessionStatus === "PAUSED" ? "info" : data.exam.timerSessionStatus === "CLOSING" ? "warning" : "warning"}>{data.exam.status === "CONFIRMED" ? "事实已确认" : data.exam.timerSessionStatus === "RUNNING" || data.exam.timerSessionStatus === "PAUSED" ? "计时进行中" : data.exam.timerSessionStatus === "CLOSING" ? "待收口" : data.exam.status === "IN_PROGRESS" ? "待确认" : "事实待开始"}</Badge><Badge>{activeLossItems.length} 条失分</Badge></div>}
       />
       {data.exam.totalsSource === "legacy_fallback" ? (
         <Alert tone="warning" title="这是无分科的旧记录">

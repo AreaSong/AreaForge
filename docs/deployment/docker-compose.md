@@ -49,6 +49,7 @@ docker compose up -d --build
 ```bash
 pnpm dev:test:refresh -- --note "当前迭代"
 pnpm dev:test:snapshot -- --note "比较候选"
+pnpm dev:test:latest
 pnpm dev:test:list
 pnpm dev:test:logs -- --slot 2
 pnpm dev:test:stop -- --slot 2
@@ -64,6 +65,8 @@ pnpm dev:test:doctor
 | 3 | `areaforge-dev-test-3` | `http://127.0.0.1:43173` |
 
 `refresh` 默认重新构建并事务替换最新槽位，也可通过 `--slot 1|2|3` 指定槽位；没有实例时创建槽位 1。`snapshot` 优先使用空槽位，三个槽位已满时按候选进入池的时间淘汰最老实例。新镜像先完成构建，交换槽位时才加锁；旧容器在新实例通过 `/api/health` 的 commit、source fingerprint 和 build ID 校验后删除，失败则恢复旧容器。`--dry-run` 只显示将使用或淘汰的槽位，不构建镜像或修改 Docker 资源。
+
+`pnpm dev:test:latest -- --json` 是“最新测试实例”的机器源事实：latest 按最后一次成功进入池的 generation、容器创建时间和 ID 确定，与槽位数字大小无关。`list`、`doctor`、`refresh`、`snapshot` 和 `stop` 使用同一选择函数并返回同一 `latest` 对象；健康检查失败并回滚的候选不会成为 latest，删除当前 latest 后则回退到剩余实例中最后成功的一个。任务收尾必须区分“本次已更新测试池”和“本次未更新、仅报告既有 latest”，并在已更新时明确报告 slot、port 和 URL。
 
 候选构建先使用宿主机已安装的锁定依赖生成 Next.js standalone production build，再通过 `infra/docker/web.dev-test.Dockerfile` 封装运行产物；测试镜像不会在每次刷新时重新从 registry 下载整个 workspace 依赖。正式 Release 仍只使用 `infra/docker/web.Dockerfile`，测试池不改变生产构建链。
 

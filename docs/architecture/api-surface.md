@@ -141,12 +141,23 @@
 
 开始学习入口 `/focus` 使用浏览器本地优先队列：IndexedDB 是首选，`localStorage` 是回退；联网后按顺序重放开始/暂停/继续/结束/上下文命令，并用单飞锁避免重复重放。`BroadcastChannel` 将本地事件和在线服务端快照传播到其他标签页；活动页与 App Shell 通过 heartbeat 维护当前设备/另一设备状态。断网结束只先保存本地快照，待真实 session 建立后再进入证据接力，证据接口拒绝本地 session ID。
 
+活动启动边界：`POST /api/study-sessions/start` 的默认模式只能创建自由学习 (`STUDY + FREE_STUDY`)；`REVIEW` 和 `TEST` 必须由对应的复测、复习排期或模拟考试服务创建，并携带唯一来源对象。服务端拒绝把任务、考纲或任意上下文伪装成特殊活动来源。
+
 专项复测接口：
 
 - `GET|POST /api/knowledge-retests`
 - `POST /api/knowledge-retests/:id/start`
 - `POST /api/knowledge-retests/:id/submit`
 - `POST /api/knowledge-retests/:id/confirm`
+
+专项复测启动时创建 `REVIEW + RETEST` session；模拟考试接口：
+
+- `GET|POST /api/simulation-exams`
+- `POST /api/simulation-exams/:id/start`
+- `PATCH /api/simulation-exams/:id`（兼容 `POST /api/simulation-exams/:id/results`）
+- `POST /api/simulation-exams/:id/confirm`
+
+模拟考试启动时创建 `TEST + SIMULATION` session。计时结束先进入 `CLOSING`，结果保存事务必须完成对应活动收口；模拟考试缺少用户显式复盘时返回 `SIMULATION_REVIEW_REQUIRED`，不能进入确认中心。复测和模拟结果都通过同一确认中心投影，但事实仍由各自来源 API 写入。
 
 开始、提交和确认都必须携带 `idempotencyKey` 与 `expectedRevision`；服务端以审计事件保存幂等命令结果，重复请求 replay，不重复写掌握状态或证据。
 

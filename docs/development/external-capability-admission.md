@@ -25,7 +25,7 @@ purpose: 复用或保留最多三个 AreaForge production-build Web 测试实例
 owner: areaforge-enterprise-governance / areaforge-sre-ops
 capability: fixture_only，本地 Docker 容器和测试池专属镜像写入
 allowedInputs: 当前仓库构建上下文、Git/worktree fingerprint、apps/web/.env.local 中明确 allowlist 的本地配置、固定 loopback 端口
-allowedOutputs: areaforge-dev-test-1/2/3 容器、带 ownership label 的候选镜像、共享测试 uploads volume、脱敏槽位/URL/commit/fingerprint 状态
+allowedOutputs: areaforge-dev-test-1/2/3 容器、带 ownership label 的候选镜像、共享测试 uploads volume、脱敏槽位/URL/commit/fingerprint 状态、唯一 latest 槽位/端口/URL 投影
 forbiddenInputs: 生产 .env、生产数据库 URL、备份、上传文件内容、签名私钥、生产 token、远程 Docker context
 forbiddenOutputs: secret 值、完整环境文件、用户学习内容、生产状态变更、Release 或 residual 关闭记录
 writeScope: 仅本机 Docker 中带 com.areaforge.dev-test.pool=areaforge-dev-test label 的测试池容器/镜像和固定共享测试 volume
@@ -37,7 +37,7 @@ rollbackOrDisable: 删除 dev:test:* package scripts 和 scripts/dev/dev-test-*�
 residualRiskId: none；本地 BuildKit cache 不自动回收，由 doctor 暴露状态并保留人工清理边界
 ```
 
-测试池的 `refresh` 只替换最新或明确指定的槽位；`snapshot` 在第四个候选进入时按 FIFO 淘汰最老 Web 实例。候选镜像必须先构建成功，槽位交换必须持锁，健康或 runtime identity 校验失败时恢复旧实例。同名异主、label 缺失、端口不一致或重复槽位一律 fail closed。测试池不得成为 Web API、CI deploy、服务器 updater 或生产 Docker 的入口。
+测试池的 `refresh` 只替换最新或明确指定的槽位；`snapshot` 在第四个候选进入时按 FIFO 淘汰最老 Web 实例。`dev:test:latest`、list、doctor 和部署结果必须从 Docker ownership labels 中派生同一个 latest 实例，不能把 slot 1 固定解释为最新。候选镜像必须先构建成功，槽位交换必须持锁，健康或 runtime identity 校验失败时恢复旧实例且不改变 latest。同名异主、label 缺失、端口不一致或重复槽位一律 fail closed。测试池不得成为 Web API、CI deploy、服务器 updater 或生产 Docker 的入口。
 
 ### 提交级 Secret Scan 准入
 

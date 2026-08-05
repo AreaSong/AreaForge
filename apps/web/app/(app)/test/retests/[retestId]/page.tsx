@@ -16,5 +16,5 @@ export default async function KnowledgeRetestDetailPage({ params, searchParams }
   if (!retest) notFound();
   const query = await searchParams;
   const returnTo = sanitizeReturnPath(query.returnTo ?? "/test/retests");
-  return <PageFrame variant="content-focus"><KnowledgeRetestDetailClient initial={retest} returnTo={returnTo} /></PageFrame>;
+  return <PageFrame variant="content-focus"><KnowledgeRetestDetailClient initial={retest} userId={user.id} returnTo={returnTo} /></PageFrame>;
 }

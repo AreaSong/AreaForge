@@ -154,7 +154,7 @@ export function QuickReviewClient(props: {
         if (!current || !canStart) return;
 
         if (!current.suspended) {
-          const recovered = await startQuickReviewActivity(props.schedule.id, current.draftId);
+          const recovered = await startQuickReviewActivity(props.schedule.id, current.draftId, props.target.subjectId ?? "");
           if (cancelled) return;
           if (!recovered) {
             writer.release();
@@ -166,9 +166,9 @@ export function QuickReviewClient(props: {
         }
 
         if (created) {
-          const started = await startQuickReviewActivity(props.schedule.id, current.draftId);
+          const started = await startQuickReviewActivity(props.schedule.id, current.draftId, props.target.subjectId ?? "");
           if (cancelled) {
-            if (started) finishQuickReviewActivity(props.schedule.id, current.draftId);
+            if (started) void finishQuickReviewActivity(props.schedule.id, current.draftId);
             return;
           }
           if (!started) {
@@ -177,7 +177,7 @@ export function QuickReviewClient(props: {
           }
           const resumed = compareAndSwapQuickReviewDraft(current, resumeQuickReviewDraft(current));
           if (!resumed.ok) {
-            finishQuickReviewActivity(props.schedule.id, current.draftId);
+            void finishQuickReviewActivity(props.schedule.id, current.draftId);
             markStale(resumed.latest);
             return;
           }
@@ -196,6 +196,7 @@ export function QuickReviewClient(props: {
     finishQuickReviewActivity,
     props.schedule,
     props.target.canPass,
+    props.target.subjectId,
     props.userId,
     markStale,
     publishAccess,
@@ -365,14 +366,14 @@ export function QuickReviewClient(props: {
     const timestamp = Date.now();
     setNow(timestamp);
     if (current.suspended) {
-      const started = await startQuickReviewActivity(props.schedule.id, current.draftId);
+      const started = await startQuickReviewActivity(props.schedule.id, current.draftId, props.target.subjectId ?? "");
       if (!started) {
         setError({ error: "存在普通专注、另一项快速复习，或无法安全取得活动锁，不能继续本项。" });
         return;
       }
       const resumed = compareAndSwapQuickReviewDraft(current, resumeQuickReviewDraft(current, timestamp), window.localStorage, timestamp);
       if (!resumed.ok) {
-        finishQuickReviewActivity(props.schedule.id, current.draftId);
+        void finishQuickReviewActivity(props.schedule.id, current.draftId);
         markStale(resumed.latest);
         return;
       }
@@ -401,7 +402,7 @@ export function QuickReviewClient(props: {
       setError({ error: "复习计时尚未产生有效秒数，请至少完成 1 秒后再确认。" });
       return;
     }
-    const started = await startQuickReviewActivity(props.schedule.id, currentDraft.draftId);
+    const started = await startQuickReviewActivity(props.schedule.id, currentDraft.draftId, props.target.subjectId ?? "");
     if (!started) {
       setError({ error: "存在普通专注、另一项快速复习，或无法安全取得活动锁，不能确认结果。" });
       return;
@@ -416,7 +417,7 @@ export function QuickReviewClient(props: {
         submittedDurationSeconds,
       });
       if (!frozen.ok) {
-        finishQuickReviewActivity(props.schedule.id, currentDraft.draftId);
+        void finishQuickReviewActivity(props.schedule.id, currentDraft.draftId);
         markStale(frozen.latest);
         return;
       }
@@ -476,7 +477,7 @@ export function QuickReviewClient(props: {
       setError({ error: "网络不可用，复习草稿已保留；恢复网络后请显式重试。" });
     } finally {
       setSubmitting(false);
-      finishQuickReviewActivity(props.schedule.id, currentDraft.draftId);
+      void finishQuickReviewActivity(props.schedule.id, currentDraft.draftId);
     }
   }
 

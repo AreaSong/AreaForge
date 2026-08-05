@@ -281,6 +281,10 @@ const simulationExamSchema = z.object({
 });
 
 export const createSimulationExamSchema = simulationExamSchema;
+export const simulationExamCommandSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  expectedRevision: z.number().int().min(1),
+});
 
 export const saveSimulationExamResultsSchema = z
   .object({
@@ -292,7 +296,10 @@ export const saveSimulationExamResultsSchema = z
     blankQuestionCount: z.number().int().min(0).max(300).optional(),
     lossReasons: simulationLossReasonsSchema,
     mindset: z.string().trim().max(2000).optional(),
-    summary: z.string().trim().min(1).max(4000),
+    // A DRAFT simulation may be saved only to persist its selected subjects;
+    // the full summary and review are required after the timer before confirmation.
+    summary: z.string().trim().max(4000),
+    reviewText: z.string().trim().max(4000),
     subjectResults: z.array(simulationSubjectResultSchema).min(1).max(8),
   })
   .superRefine((value, context) => {
@@ -474,7 +481,12 @@ export const startSessionSchema = z
     taskId: z.string().min(1).optional(),
     syllabusNodeId: z.string().min(1).nullable().optional(),
     goalMinutes: z.number().int().min(5).max(720).nullable().optional(),
-    startSource: z.enum(["TASK", "SUBJECT_SHORTCUT", "RECOVERY"]).optional(),
+    startSource: z.enum(["TASK", "SUBJECT_SHORTCUT", "RECOVERY", "KNOWLEDGE_REVIEW", "KNOWLEDGE_RETEST", "SIMULATION_EXAM"]).optional(),
+    activityKind: z.enum(["STUDY", "REVIEW", "TEST"]).optional(),
+    activityMode: z.enum(["FREE_STUDY", "KNOWLEDGE_REVIEW", "RETEST", "SIMULATION"]).optional(),
+    reviewScheduleId: z.string().min(1).nullable().optional(),
+    knowledgeRetestId: z.string().min(1).nullable().optional(),
+    simulationExamId: z.string().min(1).nullable().optional(),
     clientDeviceId: z.string().trim().min(8).max(100).regex(/^[A-Za-z0-9:_-]+$/).optional(),
     clientDeviceLabel: z.string().trim().min(1).max(80).optional(),
   })

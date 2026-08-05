@@ -8,6 +8,7 @@
     "dev": "pnpm --filter @areaforge/web dev",
     "dev:test:refresh": "tsx scripts/dev/dev-test-pool.ts refresh",
     "dev:test:snapshot": "tsx scripts/dev/dev-test-pool.ts snapshot",
+    "dev:test:latest": "tsx scripts/dev/dev-test-pool.ts latest",
     "dev:test:list": "tsx scripts/dev/dev-test-pool.ts list",
     "dev:test:logs": "tsx scripts/dev/dev-test-pool.ts logs",
     "dev:test:stop": "tsx scripts/dev/dev-test-pool.ts stop",

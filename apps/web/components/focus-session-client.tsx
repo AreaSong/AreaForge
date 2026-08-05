@@ -40,7 +40,7 @@ import {
   type FocusOfflineSyncState,
 } from "@/lib/client/focus-offline-store";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import type { StudySessionDto, StudySessionLowReasonDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import type { StudySessionDto, StudySessionLowReasonDto } from "@/lib/study/types";
 
 const DRAFT_PREFIX = "areaforge.focus.closeout.";
 const DRAFT_VERSION = 3;
@@ -352,8 +352,6 @@ export function FocusSessionClient(props: {
     [now, session, timerStatus],
   );
 
-  const goalReached =
-    typeof session.goalMinutes === "number" && Math.floor(elapsedSeconds / 60) >= session.goalMinutes;
   const timerLabel = session.status === "running" ? "正计时" : session.status === "paused" ? "已暂停" : session.status === "closing" ? "已冻结，待收口" : "已结束";
   const closeoutOutcome: CloseoutOutcome = draft.isEffective === "false"
     ? "not-achieved"
@@ -446,25 +444,6 @@ export function FocusSessionClient(props: {
       expectedUpdatedAt: session.updatedAt,
       idempotencyKey: key,
     };
-  }
-
-  async function updateContext(selection: { taskId: string | null; syllabusNodeId: string | null; knowledgePointIds: string[] }) {
-    const task = props.contextOptions.tasks.find((item) => item.id === selection.taskId);
-    const node = flattenContextNodes(props.contextOptions.syllabusNodes).find((item) => item.id === selection.syllabusNodeId);
-    try {
-      await mutate(`/api/study-sessions/${session.id}/context`, {
-        ...commandInput("context"),
-        taskId: selection.taskId,
-        syllabusNodeId: selection.syllabusNodeId,
-        knowledgePointIds: selection.knowledgePointIds,
-        taskTitle: task?.title ?? null,
-        syllabusNodeTitle: node?.title ?? null,
-        knowledgePoints: props.contextOptions.knowledgePoints.filter((point) => selection.knowledgePointIds.includes(point.id)).map((point) => ({ id: point.id, title: point.title, masteryState: point.masteryState })),
-      }, "context");
-      delete commandKeys.current["context:default"];
-    } catch (err) {
-      setError(focusRequestErrorMessage(err, "更新学习上下文失败"));
-    }
   }
 
   async function pause() {
@@ -723,13 +702,9 @@ export function FocusSessionClient(props: {
       {error ? <div className="px-4 pt-4 sm:px-6 lg:px-8"><Alert tone="danger">{error}</Alert></div> : null}
       {phase === "focus" && (session.status === "running" || session.status === "paused") ? (
         <FocusTimerWorkspace
-          context={context}
-          options={props.contextOptions}
-          onContextChange={(selection) => void updateContext(selection)}
           elapsedLabel={formatFocusElapsed(elapsedSeconds)}
           elapsedSeconds={elapsedSeconds}
           timerLabel={timerLabel}
-          goalReached={goalReached}
           status={session.status}
           onPause={() => void pause()}
           onResume={() => void resume()}
@@ -740,8 +715,6 @@ export function FocusSessionClient(props: {
       {phase === "closeout" ? (
         <CloseoutWorkspace
           context={context}
-          options={props.contextOptions}
-          onContextChange={(selection) => void updateContext(selection)}
           elapsedLabel={formatFocusElapsed(elapsedSeconds)}
           outcome={closeoutOutcome}
           understandingLevel={draft.understandingLevel}
@@ -879,11 +852,4 @@ function phaseLabel(phase: FocusPhase): string {
   if (phase === "low-conversion") return "低转化补救";
   if (phase === "evidence") return "证据接力";
   return "完成摘要";
-}
-
-function flattenContextNodes(nodes: SyllabusOptionNodeDto): SyllabusOptionNodeDto[];
-function flattenContextNodes(nodes: SyllabusOptionNodeDto[]): SyllabusOptionNodeDto[];
-function flattenContextNodes(nodes: SyllabusOptionNodeDto | SyllabusOptionNodeDto[]): SyllabusOptionNodeDto[] {
-  const roots = Array.isArray(nodes) ? nodes : [nodes];
-  return roots.flatMap((node) => [node, ...flattenContextNodes(node.children)]);
 }

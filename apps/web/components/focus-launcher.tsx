@@ -242,7 +242,7 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions }: { 
         </section>
         <aside className="flex items-start px-5 py-10 sm:px-8 lg:items-center">
           <div className="w-full max-w-md space-y-6">
-            <div><BookOpen className="size-6 text-teal-300" aria-hidden="true" /><h1 className="mt-4 text-2xl font-semibold text-white">今天先学什么？</h1><p className="mt-2 text-sm leading-6 text-zinc-400">科目是开始学习的唯一必选项，任务和考纲可以在学习过程中或收口时再补。</p></div>
+            <div><BookOpen className="size-6 text-teal-300" aria-hidden="true" /><h1 className="mt-4 text-2xl font-semibold text-white">今天先学什么？</h1><p className="mt-2 text-sm leading-6 text-zinc-400">科目是开始学习的唯一必选项。具体学了什么，结束后再按实际情况记录。</p></div>
             <label className="grid gap-2 text-sm text-zinc-300">科目<select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="h-12 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" disabled={!subjects.length}><option value="">选择科目</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
             {!subjects.length ? <Alert tone="warning" title="还没有可用科目">先到设置 → 考试与科目添加至少一个科目。</Alert> : null}
             {error ? <Alert tone="danger">{error}</Alert> : null}

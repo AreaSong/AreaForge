@@ -19,6 +19,8 @@
 scope:
 environment: local | production
 url:
+test pool updated: yes | no | not-applicable
+latest slot/port/source fingerprint:
 account:
 viewport:
 steps:

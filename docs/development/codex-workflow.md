@@ -156,3 +156,4 @@ mainAgentMustReview:
 - 跑了哪些验证。
 - 哪些没有验证。
 - 还有哪些风险或后续任务。
+- 本地 Docker 可用时运行 `pnpm dev:test:latest -- --json` 并说明本次是否更新本地测试池；若执行过成功的 `refresh` 或 `snapshot`，必须逐项报告 latest 的槽位、端口和访问地址。若未更新，不得把既有 latest 写成本次优化结果，也不得让维护者依次尝试三个端口；Docker 不可用时明确 latest 未核验。

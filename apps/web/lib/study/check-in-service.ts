@@ -9,6 +9,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { getStudyDayRange } from "./date";
+import { activityBucket } from "./activity-metrics";
 
 type CheckInDbClient = PrismaClient | Prisma.TransactionClient;
 type CheckInWriteClient = Prisma.TransactionClient;
@@ -72,6 +73,8 @@ export async function refreshCheckInSnapshotForDate(
       effectiveMinutes: true,
       isEffective: true,
       isLowConversion: true,
+      activityKind: true,
+      activityMode: true,
     },
   });
   const tasks = await client.studyTask.findMany({
@@ -96,7 +99,7 @@ export async function refreshCheckInSnapshotForDate(
   });
   const snapshot = buildDailyCheckInSnapshot({
     studyDate: day.key,
-    sessions: sessions.map((session) => ({
+    sessions: sessions.filter((session) => activityBucket(session) === "study").map((session) => ({
       effectiveMinutes: session.effectiveMinutes,
       isEffective: session.isEffective,
       isLowConversion: session.isLowConversion,
@@ -174,6 +177,8 @@ export async function refreshWorkspaceCheckInSnapshotForDate(
           effectiveMinutes: true,
           isEffective: true,
           isLowConversion: true,
+          activityKind: true,
+          activityMode: true,
         },
       })
     : [];
@@ -208,7 +213,7 @@ export async function refreshWorkspaceCheckInSnapshotForDate(
 
   const sessionSnapshot = buildDailyCheckInSnapshot({
     studyDate: day.key,
-    sessions: sessions.map((session) => ({
+    sessions: sessions.filter((session) => activityBucket(session) === "study").map((session) => ({
       effectiveMinutes: session.effectiveMinutes,
       isEffective: session.isEffective,
       isLowConversion: session.isLowConversion,

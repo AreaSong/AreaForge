@@ -47,7 +47,7 @@ const ACTIONS_BY_ROUTE: Record<string, readonly BreadcrumbAction[]> = {
     { href: "/roadmap/allocation", label: "投入安排", description: "回到滚动投入与欠账", icon: Goal },
   ],
   "/knowledge": [
-    { href: "/knowledge/cards?create=1", label: "新建知识卡片", description: "留下可复核的学习证据", icon: NotebookPen },
+    { href: "/knowledge/cards?create=1", label: "新建卡片", description: "留下可复核的学习证据", icon: NotebookPen },
     { href: "/knowledge/canvas", label: "打开关联图谱", description: "查看知识点之间的关系", icon: Network },
   ],
   "/knowledge/points": [
@@ -63,7 +63,7 @@ const ACTIONS_BY_ROUTE: Record<string, readonly BreadcrumbAction[]> = {
     { href: "/knowledge/imports?mode=import", label: "导入学习树", description: "从结构化内容建立知识范围", icon: FileInput },
   ],
   "/knowledge/cards": [
-    { href: "/knowledge/cards?create=1", label: "新建知识卡片", description: "记录理解、边界和例子", icon: NotebookPen },
+    { href: "/knowledge/cards?create=1", label: "新建卡片", description: "记录理解、边界和例子", icon: NotebookPen },
     { href: "/knowledge/reviews", label: "打开统一复习", description: "处理已经到期的复习证据", icon: ClipboardCheck },
   ],
   "/knowledge/mistakes": [

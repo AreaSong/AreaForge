@@ -2,11 +2,13 @@
 
 import { Archive, ArchiveRestore, ArrowRight, Check, Plus, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { SectionHeader } from "@/components/ui/page";
+import { StudyActivityTimer } from "@/components/study-activity-timer";
+import { publishActivityStatus } from "@/lib/client/activity-status";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { withReturnTo } from "@/lib/navigation/batch7";
 import {
@@ -56,10 +58,11 @@ interface SubjectDraft {
 }
 
 interface SimulationEditorDraft {
-  schemaVersion: 2;
+  schemaVersion: 3;
   baseRevision: number;
   summary: string;
   mindset: string;
+  reviewText: string;
   subjectDrafts: SubjectDraft[];
 }
 
@@ -83,6 +86,10 @@ interface SimulationErrorBody {
   latest?: unknown;
   conflictFields?: string[];
   workbench?: string;
+  details?: {
+    formErrors?: string[];
+    fieldErrors?: Record<string, string[]>;
+  };
 }
 
 interface LossItemMutationBody extends SimulationErrorBody {
@@ -113,12 +120,18 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
   const [selectedSubjectId, setSelectedSubjectId] = useState(props.subjects[0]?.id ?? "");
   const [summary, setSummary] = useState(initialEditorDraft.summary);
   const [mindset, setMindset] = useState(initialEditorDraft.mindset);
+  const [reviewText, setReviewText] = useState(initialEditorDraft.reviewText);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [examRevision, setExamRevision] = useState(initialEditorDraft.baseRevision);
   const [examStatus, setExamStatus] = useState(props.exam.status);
+  const [timerSessionId, setTimerSessionId] = useState<string | null>(props.exam.timerSessionId);
+  const [timerCloseoutPending, setTimerCloseoutPending] = useState(props.exam.timerSessionStatus === "CLOSING");
   const [hasStructuredResults, setHasStructuredResults] = useState(hasPersistedSubjectResults(props.exam));
   const [hasReviewText, setHasReviewText] = useState(Boolean(props.exam.reviewText?.trim()));
+  const initialSubjectIds = initialSimulationSubjectIds(props.exam, props.subjects);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>(initialSubjectIds);
+  const [savedSubjectIds, setSavedSubjectIds] = useState<string[]>(initialSubjectIds);
   const [selectedOriginKeys, setSelectedOriginKeys] = useState<string[]>(props.remediations.filter((item) => !item.inboxItemId).map((item) => item.originKey));
   const [subjectDrafts, setSubjectDrafts] = useState(initialEditorDraft.subjectDrafts);
   const [draftReady, setDraftReady] = useState(false);
@@ -129,16 +142,15 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
   const [lossConflictOpen, setLossConflictOpen] = useState(false);
   const [remediationReceipt, setRemediationReceipt] = useState<{ created: number; reused: number } | null>(null);
   const pendingRemediations = props.remediations.filter((item) => !item.inboxItemId);
-  const active = subjectDrafts.find((draft) => draft.subjectId === selectedSubjectId) ?? subjectDrafts[0];
+  const configuredSubjectDrafts = subjectDrafts.filter((draft) => selectedSubjectIds.includes(draft.subjectId));
+  const active = configuredSubjectDrafts.find((draft) => draft.subjectId === selectedSubjectId) ?? configuredSubjectDrafts[0];
   const conflictedLossItem = lossConflict
     ? subjectDrafts
         .find((draft) => draft.subjectId === lossConflict.subjectId)
         ?.lossItems.find((item) => item.clientKey === lossConflict.clientKey)
     : undefined;
-  const nodes = useMemo(
-    () => flattenNodes(props.syllabus).filter((node) => node.subjectId === active?.subjectId),
-    [active?.subjectId, props.syllabus],
-  );
+  const activeSubjectId = active?.subjectId;
+  const nodes = flattenNodes(props.syllabus).filter((node) => node.subjectId === activeSubjectId);
   const busy = submitting || refreshPending;
 
   function handleSubjectTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
@@ -167,6 +179,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
       if (saved) {
         setSummary(saved.summary);
         setMindset(saved.mindset);
+        setReviewText(saved.reviewText ?? "");
         setExamRevision(saved.baseRevision);
         setSubjectDrafts(saved.subjectDrafts);
       }
@@ -181,13 +194,13 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
       removePrivateBusinessDraft(draftKey);
       return;
     }
-    const current = buildEditorDraft(examRevision, summary, mindset, subjectDrafts);
+    const current = buildEditorDraft(examRevision, summary, mindset, reviewText, subjectDrafts);
     if (editorDraftsEqual(current, savedBaseline)) {
       removePrivateBusinessDraft(draftKey);
       return;
     }
     savePrivateBusinessDraft(draftKey, current);
-  }, [draftKey, draftReady, examRevision, examStatus, mindset, savedBaseline, subjectDrafts, summary]);
+  }, [draftKey, draftReady, examRevision, examStatus, mindset, reviewText, savedBaseline, subjectDrafts, summary]);
 
   function updateActive(patch: Partial<SubjectDraft>) {
     if (!active) return;
@@ -229,12 +242,16 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
     if (busy) return;
     setError(null);
     setNotice(null);
-    if (hasPendingPersistedLossEdits(subjectDrafts)) {
+    if (hasPendingPersistedLossEdits(configuredSubjectDrafts)) {
       setError("已有分科仍有未保存的失分条目，请先逐项创建或保存，再保存整场结果。");
       return;
     }
     setSubmitting(true);
+    const completingTimer = timerCloseoutPending;
     const upgradingLegacy = !hasStructuredResults;
+    const configuringBeforeStart = props.exam.status === "DRAFT"
+      && props.exam.subjectResults.length === 0
+      && !props.exam.timerSessionId;
     try {
       const response = await fetch(`/api/simulation-exams/${props.exam.id}`, {
         method: "PATCH",
@@ -243,8 +260,9 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           expectedRevision: examRevision,
           mindset,
           summary,
+          reviewText,
           lossReasons: [],
-          subjectResults: subjectDrafts.map(toSubjectResultPayload),
+          subjectResults: configuredSubjectDrafts.map(toSubjectResultPayload),
         }),
       });
       const body = await readSimulationResponse(response);
@@ -257,8 +275,11 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
         return;
       }
       adoptExam(body.exam, true);
+      if (completingTimer) publishActivityStatus(props.userId, null);
       setNotice(body.exam.warnings.length
         ? body.exam.warnings.join("；")
+        : configuringBeforeStart
+          ? "本场科目配置已保存，可以开始模拟考试；成绩、心态和复盘在计时结束后填写。"
         : upgradingLegacy
           ? "旧记录已补齐分科并升级；原历史总分不再参与当前统计。"
           : isReadyForConfirmation(body.exam)
@@ -267,6 +288,40 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
       startTransition(() => router.refresh());
     } catch {
       setError("网络不可用，模拟结果草稿已保留；恢复网络后请显式重试。");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function startExam() {
+    if (busy || timerSessionId) return;
+    if (!hasStructuredResults || hasPendingEditorChanges) {
+      setError("请先保存完整的分科配置，再开始模拟考试。");
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setSubmitting(true);
+    const payload = { expectedRevision: examRevision };
+    try {
+      const response = await fetch(`/api/simulation-exams/${props.exam.id}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          idempotencyKey: getOrCreateIdempotencyKey(`simulation:${props.exam.id}:start`, "simulation-start", payload),
+        }),
+      });
+      const body = await readSimulationResponse(response);
+      if (!response.ok || !body.exam) {
+        handleWriteFailure(response.status, body, "无法开始模拟考试");
+        return;
+      }
+      completeIdempotentCommand(`simulation:${props.exam.id}:start`);
+      adoptExam(body.exam, false);
+      setNotice("模拟考试已开始。完成计时后，再录入成绩和复盘。");
+    } catch {
+      setError("网络不可用，模拟考试尚未开始；请恢复网络后重试。");
     } finally {
       setSubmitting(false);
     }
@@ -501,17 +556,23 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
       setConflict({ latest: body.latest, conflictFields: body.conflictFields ?? ["revision"] });
       setConflictOpen(true);
     }
-    setError(labelSaveError(body.error, fallback));
+    setError(labelSaveError(body.error, fallback, body.details));
   }
 
   function adoptExam(exam: SimulationExamDto, clearDraft: boolean) {
     const next = toSimulationEditorDraft(exam, props.subjects);
+    const nextSubjectIds = initialSimulationSubjectIds(exam, props.subjects);
     setExamRevision(next.baseRevision);
     setExamStatus(exam.status);
+    setTimerSessionId(exam.timerSessionId);
+    setTimerCloseoutPending(exam.timerSessionStatus === "CLOSING");
     setHasStructuredResults(hasPersistedSubjectResults(exam));
     setHasReviewText(Boolean(exam.reviewText?.trim()));
+    setSelectedSubjectIds(nextSubjectIds);
+    setSavedSubjectIds(nextSubjectIds);
     setSummary(next.summary);
     setMindset(next.mindset);
+    setReviewText(next.reviewText);
     setSubjectDrafts(next.subjectDrafts);
     setSavedBaseline(next);
     if (clearDraft) removePrivateBusinessDraft(draftKey);
@@ -530,7 +591,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
   function mergeOntoLatest() {
     if (!conflict) return;
     const latest = conflict.latest;
-    if (latest.status !== "DRAFT") {
+    if (latest.status === "CONFIRMED") {
       adoptExam(latest, true);
       setConflict(null);
       setConflictOpen(false);
@@ -539,6 +600,9 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
     }
     setExamRevision(latest.revision);
     setHasStructuredResults(hasPersistedSubjectResults(latest));
+    const latestSubjectIds = initialSimulationSubjectIds(latest, props.subjects);
+    setSelectedSubjectIds(latestSubjectIds);
+    setSavedSubjectIds(latestSubjectIds);
     setSubjectDrafts((items) => items.map((item) => ({
       ...item,
       expectedRevision: latest.subjectResults.find((result) => result.subjectId === item.subjectId)?.revision,
@@ -550,14 +614,36 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
     setNotice(`本地输入已改为基于服务端 r${latest.revision}；请检查差异后显式保存，不会自动重放旧请求。`);
   }
 
+  function toggleSubject(subjectId: string, checked: boolean) {
+    setError(null);
+    if (checked) {
+      if (selectedSubjectIds.length >= 8) {
+        setError("一场模拟考试最多选择 8 个科目。");
+        return;
+      }
+      setSelectedSubjectIds((current) => current.includes(subjectId) ? current : [...current, subjectId]);
+      setSelectedSubjectId(subjectId);
+      return;
+    }
+    if (selectedSubjectIds.length <= 1) {
+      setError("一场模拟考试至少需要保留一个科目。");
+      return;
+    }
+    const next = selectedSubjectIds.filter((id) => id !== subjectId);
+    setSelectedSubjectIds(next);
+    if (selectedSubjectId === subjectId) setSelectedSubjectId(next[0] ?? "");
+  }
+
   if (!active) return <p className="text-sm text-amber-200">当前工作区没有可用科目。</p>;
   const activeLossItems = active.lossItems.filter((item) => !item.archivedAt);
   const archivedLossItems = active.lossItems.filter((item) => Boolean(item.archivedAt));
-  const currentEditorDraft = buildEditorDraft(examRevision, summary, mindset, subjectDrafts);
+  const currentEditorDraft = buildEditorDraft(examRevision, summary, mindset, reviewText, subjectDrafts);
   const hasUnsavedChanges = !editorDraftsEqual(currentEditorDraft, savedBaseline);
-  const readyForConfirmation = examStatus === "DRAFT"
+  const subjectSelectionChanged = !sameStringSet(selectedSubjectIds, savedSubjectIds);
+  const hasPendingEditorChanges = hasUnsavedChanges || subjectSelectionChanged;
+  const readyForConfirmation = examStatus !== "CONFIRMED"
     && draftReady
-    && !hasUnsavedChanges
+    && !hasPendingEditorChanges
     && hasStructuredResults
     && hasReviewText
     && summary.trim().length > 0
@@ -623,9 +709,44 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
         </Alert>
       )}
 
+      {timerSessionId ? (
+        <StudyActivityTimer
+          userId={props.userId}
+          sessionId={timerSessionId}
+          theme="test"
+          label="模拟考试计时"
+          onFinished={() => {
+            setTimerSessionId(null);
+            setTimerCloseoutPending(true);
+          }}
+        />
+      ) : null}
+
       <SectionHeader title={examStatus === "CONFIRMED" ? "考试事实" : "录分与失分分析"} description={examStatus === "CONFIRMED" ? "以下内容已确认，只读保留。" : "按科目切换并记录成绩、用时和结构化失分。"} />
+      {examStatus !== "CONFIRMED" ? (
+        <fieldset disabled={busy || Boolean(timerSessionId)} className="space-y-3 border-y border-white/10 py-4 disabled:opacity-70">
+          <legend className="text-sm font-medium text-white">本场科目</legend>
+          <p className="text-xs text-zinc-500">选择本次实际参加的科目，至少 1 个，最多 8 个；未选择的科目不会写入本场模拟。</p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label="本场科目选择">
+            {props.subjects.map((subject) => (
+              <label key={subject.id} className="flex min-w-0 items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300 hover:border-white/20">
+                <input
+                  type="checkbox"
+                  aria-label={`本场科目 ${subject.name}`}
+                  checked={selectedSubjectIds.includes(subject.id)}
+                  onChange={(event) => toggleSubject(subject.id, event.target.checked)}
+                />
+                <span className="truncate">{subject.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
       <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="模拟科目">
-        {props.subjects.map((subject) => (
+        {configuredSubjectDrafts.map((draft) => {
+          const subject = props.subjects.find((item) => item.id === draft.subjectId);
+          if (!subject) return null;
+          return (
           <button
             key={subject.id}
             id={`${subjectTabsId}-tab-${subject.id}`}
@@ -640,9 +761,10 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           >
             {subject.name}
           </button>
-        ))}
+          );
+        })}
       </div>
-      <fieldset disabled={examStatus === "CONFIRMED" || busy} className="contents disabled:opacity-70">
+      <fieldset disabled={examStatus === "CONFIRMED" || busy || Boolean(timerSessionId)} className="contents disabled:opacity-70">
         <div
           id={`${subjectTabsId}-panel-${active.subjectId}`}
           role="tabpanel"
@@ -717,13 +839,15 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           <p className="mt-1 text-sm text-zinc-500">记录整场状态与结论，作为确认前的最后核对。</p>
           <label className="mt-3 block text-sm text-zinc-400">心态<textarea value={mindset} onChange={(event) => setMindset(event.target.value)} className="mt-1 min-h-16 w-full rounded-md bg-[#151a20] p-3 text-white" /></label>
           <label className="mt-3 block text-sm text-zinc-400">整场总结<textarea value={summary} onChange={(event) => setSummary(event.target.value)} className="mt-1 min-h-20 w-full rounded-md bg-[#151a20] p-3 text-white" /></label>
+          <label className="mt-3 block text-sm text-zinc-400">复盘<textarea value={reviewText} onChange={(event) => setReviewText(event.target.value)} placeholder="这次考试为什么得到这个结果，下一次具体如何调整" className="mt-1 min-h-24 w-full rounded-md bg-[#151a20] p-3 text-white placeholder:text-zinc-600" /></label>
         </section>
       </fieldset>
-      {examStatus === "DRAFT" ? (
+      {examStatus !== "CONFIRMED" ? (
         <section className="flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-sm font-medium text-white">保存后再确认</p><p className="mt-1 text-xs text-zinc-500">保存用于保留编辑结果；确认会冻结考试事实，不能直接撤销。</p></div>
+          <div><p className="text-sm font-medium text-white">先配置，再计时</p><p className="mt-1 text-xs text-zinc-500">保存分科配置后开始模拟；计时结束再填写成绩、失分和完整复盘。</p></div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="primary" size="lg" loading={busy} loadingLabel="保存中..." onClick={() => void save()}>{hasStructuredResults ? "保存模拟结果" : "补齐并升级分科记录"}</Button>
+            {examStatus === "DRAFT" && !timerSessionId && hasStructuredResults && !hasPendingEditorChanges ? <Button type="button" variant="secondary" size="lg" loading={busy} onClick={() => void startExam()}>开始模拟考试</Button> : null}
             {readyForConfirmation ? <ButtonLink href="/confirmations" variant="secondary" size="lg"><ArrowRight size={16} aria-hidden="true" />进入确认中心</ButtonLink> : null}
           </div>
         </section>
@@ -782,8 +906,19 @@ function hasPersistedSubjectResults(exam: SimulationExamDto): boolean {
   return exam.totalsSource === "subject_sum" && exam.subjectResults.length > 0;
 }
 
+function initialSimulationSubjectIds(exam: SimulationExamDto, subjects: Array<{ id: string }>): string[] {
+  const persisted = exam.subjectResults.map((result) => result.subjectId).filter((id) => subjects.some((subject) => subject.id === id));
+  return (persisted.length > 0 ? persisted : subjects.slice(0, 1).map((subject) => subject.id)).slice(0, 8);
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((value) => rightSet.has(value));
+}
+
 function isReadyForConfirmation(exam: SimulationExamDto): boolean {
-  return exam.status === "DRAFT"
+  return exam.status !== "CONFIRMED"
     && hasPersistedSubjectResults(exam)
     && Boolean(exam.summary?.trim())
     && Boolean(exam.reviewText?.trim())
@@ -809,16 +944,17 @@ function buildSubjectDrafts(exam: SimulationExamDto, subjects: Array<{ id: strin
 }
 
 function toSimulationEditorDraft(exam: SimulationExamDto, subjects: Array<{ id: string }>): SimulationEditorDraft {
-  return buildEditorDraft(exam.revision, exam.summary ?? "", exam.mindset ?? "", buildSubjectDrafts(exam, subjects));
+  return buildEditorDraft(exam.revision, exam.summary ?? "", exam.mindset ?? "", exam.reviewText ?? "", buildSubjectDrafts(exam, subjects));
 }
 
 function buildEditorDraft(
   baseRevision: number,
   summary: string,
   mindset: string,
+  reviewText: string,
   subjectDrafts: SubjectDraft[],
 ): SimulationEditorDraft {
-  return { schemaVersion: 2, baseRevision, summary, mindset, subjectDrafts };
+  return { schemaVersion: 3, baseRevision, summary, mindset, reviewText, subjectDrafts };
 }
 
 function editorDraftsEqual(left: SimulationEditorDraft, right: SimulationEditorDraft): boolean {
@@ -828,7 +964,8 @@ function editorDraftsEqual(left: SimulationEditorDraft, right: SimulationEditorD
 function isSimulationEditorDraft(value: unknown): value is SimulationEditorDraft {
   if (!value || typeof value !== "object") return false;
   const draft = value as Partial<SimulationEditorDraft>;
-  return draft.schemaVersion === 2
+  const schemaVersion = (value as { schemaVersion?: unknown }).schemaVersion;
+  return (schemaVersion === 2 || schemaVersion === 3)
     && typeof draft.baseRevision === "number"
     && typeof draft.summary === "string"
     && typeof draft.mindset === "string"
@@ -971,11 +1108,15 @@ function isSimulationExamDto(value: unknown): value is SimulationExamDto {
   const exam = value as Partial<SimulationExamDto>;
   return typeof exam.id === "string"
     && typeof exam.revision === "number"
-    && (exam.status === "DRAFT" || exam.status === "CONFIRMED")
+    && (exam.status === "DRAFT" || exam.status === "IN_PROGRESS" || exam.status === "CONFIRMED")
     && Array.isArray(exam.subjectResults);
 }
 
-function labelSaveError(error: string | undefined, fallback: string): string {
+function labelSaveError(
+  error: string | undefined,
+  fallback: string,
+  details?: SimulationErrorBody["details"],
+): string {
   if (error === "SIMULATION_EXAM_REVISION_CONFLICT" || error === "SIMULATION_SUBJECT_REVISION_CONFLICT") {
     return "其他页面已更新这场模拟；当前输入已保留，请先处理差异再显式提交。";
   }
@@ -984,6 +1125,13 @@ function labelSaveError(error: string | undefined, fallback: string): string {
   }
   if (error === "SUBJECT_ARCHIVED") {
     return "相关科目已归档；当前输入已保留，请先处理服务端最新状态。";
+  }
+  if (error === "INVALID_REQUEST" && details) {
+    const fields = Object.entries(details.fieldErrors ?? {})
+      .flatMap(([field, messages]) => messages.map((message) => `${field}: ${message}`));
+    const formErrors = details.formErrors ?? [];
+    const reason = [...fields, ...formErrors].join("；");
+    if (reason) return `输入校验未通过：${reason}`;
   }
   return error ?? `${fallback}；当前输入已保留。`;
 }

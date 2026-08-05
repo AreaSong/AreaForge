@@ -609,9 +609,9 @@ async function confirmReviewEventInTx(
       subject: { workspaceId },
       status: { in: ["RUNNING", "PAUSED", "CLOSING"] },
     },
-    select: { id: true, status: true },
+    select: { id: true, status: true, reviewScheduleId: true },
   });
-  if (activeSession) {
+  if (activeSession && activeSession.reviewScheduleId !== scheduleId) {
     throw new ApiError("ACTIVE_SESSION_BLOCKS_QUICK_REVIEW", 409, {
       latest: activeSession,
       conflictFields: ["activity"],

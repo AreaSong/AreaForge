@@ -80,7 +80,7 @@ export function SharedStudyToolbar(props: {
   pathname: string;
   currentHref?: string;
   activeSession: StudySessionDto | null;
-  syncState: "current" | "offline" | "unavailable";
+  syncState: "current" | "pending" | "offline" | "blocked" | "deferred" | "unavailable";
 }) {
   const now = useSyncExternalStore(
     subscribeNow,
@@ -105,7 +105,17 @@ export function SharedStudyToolbar(props: {
 
   const active = props.activeSession;
   const navigationLocked = active?.status === "closing";
-  const syncLabel = props.syncState === "offline" ? "离线" : props.syncState === "unavailable" ? "同步异常" : "已同步";
+  const syncLabel = props.syncState === "offline"
+    ? "离线"
+    : props.syncState === "pending"
+      ? "待同步"
+      : props.syncState === "blocked"
+        ? "需要对账"
+        : props.syncState === "deferred"
+          ? "同步已暂缓"
+          : props.syncState === "unavailable"
+            ? "同步异常"
+            : "已同步";
   const otherDevices = useMemo(() => {
     if (!active) return [];
     return active.devicePresences.filter((presence) => !deviceId || presence.deviceId !== deviceId);

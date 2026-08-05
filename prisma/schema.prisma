@@ -53,10 +53,26 @@ enum StudySessionStatus {
   CANCELED
 }
 
+enum StudySessionActivityKind {
+  STUDY
+  REVIEW
+  TEST
+}
+
+enum StudySessionActivityMode {
+  FREE_STUDY
+  KNOWLEDGE_REVIEW
+  RETEST
+  SIMULATION
+}
+
 enum StudySessionStartSource {
   TASK
   SUBJECT_SHORTCUT
   RECOVERY
+  KNOWLEDGE_REVIEW
+  KNOWLEDGE_RETEST
+  SIMULATION_EXAM
 }
 
 enum SyllabusNodeKind {
@@ -464,6 +480,11 @@ model StudySession {
   subjectId               String
   taskId                  String?
   syllabusNodeId          String?
+  activityKind            StudySessionActivityKind  @default(STUDY)
+  activityMode            StudySessionActivityMode  @default(FREE_STUDY)
+  reviewScheduleId        String?
+  knowledgeRetestId       String?
+  simulationExamId        String?
   status                  StudySessionStatus        @default(RUNNING)
   startedAt               DateTime
   pausedAt                DateTime?
@@ -494,6 +515,9 @@ model StudySession {
   subject                 Subject                   @relation(fields: [subjectId], references: [id])
   task                    StudyTask?                @relation(fields: [taskId], references: [id])
   syllabusNode            SyllabusNode?             @relation(fields: [syllabusNodeId], references: [id])
+  reviewSchedule          ReviewSchedule?           @relation(fields: [reviewScheduleId], references: [id], onDelete: SetNull)
+  knowledgeRetest         KnowledgeRetest?          @relation(fields: [knowledgeRetestId], references: [id], onDelete: SetNull)
+  simulationExam          SimulationExam?           @relation(fields: [simulationExamId], references: [id], onDelete: SetNull)
   masteryEvidence         MasteryEvidence[]
   user                    User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
   workspace               ExamWorkspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
@@ -505,6 +529,11 @@ model StudySession {
   @@index([status])
   @@index([startedAt])
   @@index([subjectId])
+  @@index([activityKind, startedAt])
+  @@index([activityMode, startedAt])
+  @@index([reviewScheduleId])
+  @@index([knowledgeRetestId])
+  @@index([simulationExamId])
   @@index([userId, workspaceId, status])
   @@index([userId, clientDeviceId, lastHeartbeatAt])
 }
@@ -877,6 +906,7 @@ model SimulationExam {
   updatedAt             DateTime                  @updatedAt
   workspace             ExamWorkspace?            @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   subjectResults        SimulationSubjectResult[]
+  studySessions         StudySession[]
 
   @@index([examDate])
   @@index([isFirstSynchronized])
@@ -1284,6 +1314,7 @@ model ReviewSchedule {
   actor                User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
   events               ReviewEvent[]
   bridgeTasks          StudyTask[]
+  studySessions        StudySession[]
 
   @@index([workspaceId, status, dueDate])
   @@index([actorId])
@@ -1723,6 +1754,7 @@ model KnowledgeRetest {
   user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace      ExamWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   points         KnowledgeRetestPoint[]
+  studySessions  StudySession[]
 
   @@index([workspaceId, status, scheduledAt])
   @@index([nextDueAt])

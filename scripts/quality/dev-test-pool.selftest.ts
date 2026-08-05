@@ -8,6 +8,7 @@ import {
   compareOldest,
   containerName,
   parseConfiguredPorts,
+  selectLatestInstance,
   selectSlot,
   validatePool,
   type PoolInstance,
@@ -21,6 +22,7 @@ try {
   testPorts();
   testRefreshSelection();
   testSnapshotFifo();
+  testLatestSelection();
   testPoolValidation();
   testRealLockContention();
   testStaleLockRecovery();
@@ -68,6 +70,20 @@ function testSnapshotFifo(): void {
   assert.throws(() => selectSlot("snapshot", [first], [...DEFAULT_DEV_TEST_PORTS], 1), /does not accept --slot/);
 }
 
+function testLatestSelection(): void {
+  const first = instance(1, 100);
+  const second = instance(2, 300);
+  const third = instance(3, 200);
+  assert.equal(selectLatestInstance([]), null);
+  assert.equal(selectLatestInstance([third, first, second])?.id, second.id);
+
+  const fifoReplacement = { ...first, id: "replacement", generation: 400, createdAt: new Date(400).toISOString() };
+  assert.equal(selectLatestInstance([fifoReplacement, second, third])?.id, fifoReplacement.id);
+  assert.equal(selectLatestInstance([first, third])?.id, third.id, "removing the latest slot must reveal the next latest instance");
+  assert.equal(selectLatestInstance([first, second, third])?.id, second.id,
+    "a failed candidate omitted by rollback must not change the latest instance");
+}
+
 function testPoolValidation(): void {
   const first = instance(1, 100);
   assert.throws(() => validatePool([first, { ...first, id: "duplicate" }], [...DEFAULT_DEV_TEST_PORTS]), /duplicate/);
@@ -107,6 +123,7 @@ function testSourceGuardrails(): void {
     "the pool must not run global prune or delete volumes");
   assert(cliSource.includes('path.join(root, "apps/web/.env.local")'), "only the local Web env file may configure the pool");
   assert(cliSource.includes('AI_ENABLED: "false"'), "test-pool AI external calls must stay disabled");
+  assert(cliSource.includes('command === "latest"'), "the pool must expose one machine-readable latest instance");
   assert(dockerSource.includes('pnpm", ["--filter", "@areaforge/web", "build"]'),
     "the pool must build the host standalone output before packaging it");
   assert(dockerSource.includes("verbatimSymlinks: true"), "pnpm standalone links must remain container-relative");

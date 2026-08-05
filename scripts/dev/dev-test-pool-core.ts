@@ -92,13 +92,17 @@ export function compareOldest(left: PoolInstance, right: PoolInstance): number {
     || left.id.localeCompare(right.id);
 }
 
+export function selectLatestInstance(instances: PoolInstance[]): PoolInstance | null {
+  return [...instances].sort((left, right) => compareOldest(right, left))[0] ?? null;
+}
+
 function selectRefreshSlot(instances: PoolInstance[], ports: number[], requestedSlot?: SlotNumber): SlotSelection {
   if (requestedSlot) {
     const existing = instances.find((instance) => instance.slot === requestedSlot) ?? null;
     return selection(requestedSlot, ports, existing, "refresh-selected");
   }
   if (instances.length === 0) return selection(1, ports, null, "empty-pool");
-  const latest = [...instances].sort((left, right) => compareOldest(right, left))[0];
+  const latest = selectLatestInstance(instances);
   if (!latest) throw new Error("unable to choose the latest test instance");
   return selection(latest.slot, ports, latest, "refresh-latest");
 }

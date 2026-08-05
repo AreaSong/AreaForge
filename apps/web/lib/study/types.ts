@@ -14,6 +14,8 @@ import type { MasteryStatus } from "./mastery-status";
 export type TaskStatusDto = "todo" | "in_progress" | "done" | "skipped" | "deferred";
 export type TaskPriorityDto = "low" | "medium" | "high" | "critical";
 export type StudySessionStatusDto = "running" | "paused" | "closing" | "completed" | "canceled";
+export type StudySessionActivityKindDto = "STUDY" | "REVIEW" | "TEST";
+export type StudySessionActivityModeDto = "FREE_STUDY" | "KNOWLEDGE_REVIEW" | "RETEST" | "SIMULATION";
 export type SyllabusNodeKindDto = "subject" | "chapter" | "topic" | "problem_type";
 export type SyllabusNodeStatusDto =
   | "not_started"
@@ -99,7 +101,13 @@ export interface StudyTaskDto {
   knowledgePointTitles: string[];
 }
 
-export type StudySessionStartSourceDto = "TASK" | "SUBJECT_SHORTCUT" | "RECOVERY";
+export type StudySessionStartSourceDto =
+  | "TASK"
+  | "SUBJECT_SHORTCUT"
+  | "RECOVERY"
+  | "KNOWLEDGE_REVIEW"
+  | "KNOWLEDGE_RETEST"
+  | "SIMULATION_EXAM";
 export type StudySessionEvidenceTypeDto = "note" | "mistake" | "retest";
 export type StudySessionLowReasonDto =
   | "NOT_UNDERSTOOD"
@@ -133,6 +141,11 @@ export interface StudySessionDto {
   id: string;
   subjectId: string;
   subjectName: string;
+  activityKind: StudySessionActivityKindDto;
+  activityMode: StudySessionActivityModeDto;
+  reviewScheduleId: string | null;
+  knowledgeRetestId: string | null;
+  simulationExamId: string | null;
   taskId: string | null;
   taskTitle: string | null;
   taskStatus: TaskStatusDto | null;
@@ -442,7 +455,9 @@ export interface SimulationExamDto {
   mindset: string | null;
   summary: string | null;
   reviewText: string | null;
-  status: "DRAFT" | "CONFIRMED";
+  status: "DRAFT" | "IN_PROGRESS" | "CONFIRMED";
+  timerSessionId: string | null;
+  timerSessionStatus: "RUNNING" | "PAUSED" | "CLOSING" | null;
   confirmedAt: string | null;
   createdAt: string;
   updatedAt: string;

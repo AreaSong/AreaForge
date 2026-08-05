@@ -1,6 +1,8 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { completeConfiguredActivitySessionInTx } from "./service";
+import { activeTimerSessionId } from "./activity-session-state";
 import { masteryStateForRetest } from "./knowledge-mastery";
 import {
   buildPersistentCreateFingerprint,
@@ -35,6 +37,7 @@ export interface KnowledgeRetestListItemDto {
   summary: string | null;
   pointCount: number;
   pointTitles: string[];
+  timerSessionId: string | null;
 }
 
 export interface KnowledgeRetestDetailDto extends KnowledgeRetestListItemDto {
@@ -78,7 +81,11 @@ export async function listKnowledgeRetests(actorId: string): Promise<KnowledgeRe
   const workspace = await resolveActiveWorkspace(actorId);
   const rows = await prisma.knowledgeRetest.findMany({
     where: { userId: actorId, workspaceId: workspace.id },
-    include: { points: { include: pointInclude, orderBy: { id: "asc" }, take: 12 }, _count: { select: { points: true } } },
+    include: {
+      points: { include: pointInclude, orderBy: { id: "asc" }, take: 12 },
+      studySessions: { where: { status: { in: ["RUNNING", "PAUSED", "CLOSING"] } }, select: { id: true, status: true }, orderBy: { startedAt: "desc" }, take: 1 },
+      _count: { select: { points: true } },
+    },
     orderBy: [{ scheduledAt: "asc" }, { updatedAt: "desc" }],
     take: 100,
   });
@@ -96,6 +103,7 @@ export async function listKnowledgeRetests(actorId: string): Promise<KnowledgeRe
     summary: row.summary,
     pointCount: row._count.points,
     pointTitles: row.points.map((point) => point.knowledgePoint.title),
+    timerSessionId: activeTimerSessionId(row.studySessions),
   }));
 }
 
@@ -103,7 +111,11 @@ export async function getKnowledgeRetest(actorId: string, id: string): Promise<K
   const workspace = await resolveActiveWorkspace(actorId);
   const row = await prisma.knowledgeRetest.findFirst({
     where: { id, userId: actorId, workspaceId: workspace.id },
-    include: { points: { include: pointInclude, orderBy: { id: "asc" } }, _count: { select: { points: true } } },
+    include: {
+      points: { include: pointInclude, orderBy: { id: "asc" } },
+      studySessions: { where: { status: { in: ["RUNNING", "PAUSED", "CLOSING"] } }, select: { id: true, status: true }, orderBy: { startedAt: "desc" }, take: 1 },
+      _count: { select: { points: true } },
+    },
   });
   return row ? serializeDetail(row) : null;
 }
@@ -153,7 +165,11 @@ export async function createKnowledgeRetest(actorId: string, input: CreateKnowle
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
         points: { create: pointIds.map((knowledgePointId) => ({ knowledgePointId, result: null })) },
       },
-      include: { points: { include: pointInclude, orderBy: { id: "asc" } }, _count: { select: { points: true } } },
+      include: {
+        points: { include: pointInclude, orderBy: { id: "asc" } },
+        studySessions: { where: { status: { in: ["RUNNING", "PAUSED", "CLOSING"] } }, select: { id: true, status: true }, orderBy: { startedAt: "desc" }, take: 1 },
+        _count: { select: { points: true } },
+      },
     });
     await recordPersistentCreateResult(tx, command, created.id, { pointCount: pointIds.length });
     return serializeDetail(created);
@@ -174,9 +190,33 @@ export async function startKnowledgeRetest(
     if (replay) return replayRetest(tx, replay.resultId, actorId, workspace.id, replay.resultSnapshot);
     const existing = await findDetail(tx, id, actorId, workspace.id);
     assertExpectedRevision(existing, input.expectedRevision, "KNOWLEDGE_RETEST_START_REVISION_CONFLICT");
-    if (existing.status !== "DRAFT") {
+    if (existing.status === "IN_PROGRESS" && existing.studySessions.length > 0) {
+      return serializeDetail(existing);
+    }
+    if (existing.status !== "DRAFT" && existing.status !== "IN_PROGRESS") {
       throw new ApiError("KNOWLEDGE_RETEST_START_INVALID_STATE", 409, { latest: serializeDetail(existing), conflictFields: ["status"] });
     }
+    const firstPoint = await tx.knowledgeRetestPoint.findFirst({
+      where: { retestId: id },
+      include: { knowledgePoint: { select: { primarySubjectId: true } } },
+      orderBy: { id: "asc" },
+    });
+    if (!firstPoint) throw new ApiError("KNOWLEDGE_RETEST_POINTS_REQUIRED", 400);
+    const now = new Date();
+    await tx.studySession.create({
+      data: {
+        userId: actorId,
+        workspaceId: workspace.id,
+        subjectId: firstPoint.knowledgePoint.primarySubjectId,
+        activityKind: "REVIEW",
+        activityMode: "RETEST",
+        knowledgeRetestId: id,
+        status: "RUNNING",
+        startedAt: now,
+        startSource: "KNOWLEDGE_RETEST",
+        lastHeartbeatAt: now,
+      },
+    });
     await tx.knowledgeRetest.update({ where: { id }, data: { status: "IN_PROGRESS", revision: { increment: 1 } } });
     await tx.auditEvent.create({ data: { actorId, action: "KNOWLEDGE_RETEST_STARTED", entityType: "KnowledgeRetest", entityId: id } });
     const result = serializeDetail(await findDetail(tx, id, actorId, workspace.id));
@@ -202,6 +242,10 @@ export async function submitKnowledgeRetest(actorId: string, id: string, input: 
     const existing = await findDetail(tx, id, actorId, workspace.id);
     assertExpectedRevision(existing, input.expectedRevision, "KNOWLEDGE_RETEST_SUBMIT_REVISION_CONFLICT");
     if (existing.status !== "IN_PROGRESS") throw new ApiError("KNOWLEDGE_RETEST_SUBMIT_INVALID_STATE", 409, { latest: serializeDetail(existing), conflictFields: ["status"] });
+    const timerSession = existing.studySessions[0] ?? null;
+    if (timerSession && timerSession.status !== "CLOSING") {
+      throw new ApiError("KNOWLEDGE_RETEST_TIMER_NOT_CLOSED", 409, { conflictFields: ["timerSessionId"] });
+    }
     if (!input.summary.trim() || !input.reviewText.trim()) throw new ApiError("KNOWLEDGE_RETEST_REVIEW_REQUIRED", 400);
     const submitted = new Map(input.points.map((point) => [point.pointId, point]));
     if (submitted.size !== existing.points.length || existing.points.some((point) => !submitted.has(point.id))) {
@@ -250,6 +294,16 @@ export async function submitKnowledgeRetest(actorId: string, id: string, input: 
         revision: { increment: 1 },
       },
     });
+    if (timerSession) {
+      await completeConfiguredActivitySessionInTx(tx, {
+        actorId,
+        workspaceId: workspace.id,
+        sessionId: timerSession.id,
+        activityMode: "RETEST",
+        minimalOutput: `专项复测「${existing.title}」结果已提交。`,
+        nextAction: "进入确认中心确认复测结果",
+      });
+    }
     await tx.auditEvent.create({ data: { actorId, action: "KNOWLEDGE_RETEST_SUBMITTED", entityType: "KnowledgeRetest", entityId: id } });
     const result = serializeDetail(await findDetail(tx, id, actorId, workspace.id));
     await recordPersistentCreateResult(tx, command, id, { resultSnapshot: result as unknown as Prisma.InputJsonObject });
@@ -407,7 +461,11 @@ function parseRetestSnapshot(value: Prisma.JsonValue | undefined): KnowledgeRete
 async function findDetail(tx: Prisma.TransactionClient, id: string, actorId: string, workspaceId: string) {
   const row = await tx.knowledgeRetest.findFirst({
     where: { id, userId: actorId, workspaceId },
-    include: { points: { include: pointInclude, orderBy: { id: "asc" } }, _count: { select: { points: true } } },
+    include: {
+      points: { include: pointInclude, orderBy: { id: "asc" } },
+      studySessions: { where: { status: { in: ["RUNNING", "PAUSED", "CLOSING"] } }, select: { id: true, status: true }, orderBy: { startedAt: "desc" }, take: 1 },
+      _count: { select: { points: true } },
+    },
   });
   if (!row) throw new ApiError("KNOWLEDGE_RETEST_NOT_FOUND", 404);
   return row;
@@ -426,6 +484,7 @@ function serializeDetail(row: {
   reviewText: string | null;
   revision: number;
   points: Array<{ id: string; knowledgePointId: string; result: string | null; score: number | null; understanding: number | null; note: string | null; knowledgePoint: { id: string; title: string; masteryState: string } }>;
+  studySessions: Array<{ id: string; status: string }>;
   _count: { points: number };
 }): KnowledgeRetestDetailDto {
   return {
@@ -442,6 +501,7 @@ function serializeDetail(row: {
     revision: row.revision,
     pointCount: row._count.points,
     pointTitles: row.points.map((point) => point.knowledgePoint.title),
+    timerSessionId: activeTimerSessionId(row.studySessions),
     points: row.points.map((point) => ({
       id: point.id,
       knowledgePointId: point.knowledgePointId,

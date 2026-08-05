@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   BookOpen,
@@ -70,6 +70,7 @@ import { GlobalConfirmationCenter } from "@/components/global-confirmation-cente
 import { WorkbenchBreadcrumb } from "@/components/workbench-breadcrumb";
 import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
 import { SharedStudyToolbar } from "@/components/shared-study-toolbar";
+import { subscribeActivityStatus } from "@/lib/client/activity-status";
 import { BATCH10_NAV_ITEMS, PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM } from "@/lib/navigation/batch7";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
 
@@ -81,7 +82,7 @@ const toneClass: Record<string, string> = {
   red: "border-red-400/50 text-red-200",
 };
 
-type ShellSyncState = "current" | "offline" | "unavailable";
+type ShellSyncState = "current" | "pending" | "offline" | "blocked" | "deferred" | "unavailable";
 
 export function AppShell(props: {
   children: React.ReactNode;
@@ -105,17 +106,19 @@ export function AppShell(props: {
   const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
   const [offlineFocusSession, setOfflineFocusSession] = useState<AppShellStatusDto["activeSession"]>(null);
+  const serverActiveSessionRef = useRef<AppShellStatusDto["activeSession"]>(props.initialStatus.activeSession);
   const immersive = pathname.endsWith("/run");
   const suppressDistractions = immersive || pathname === "/focus";
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
   const secondaryNavigationItems = activeNavigationItem?.children ?? [];
   const showSecondaryNavigation = secondaryNavigationItems.length > 0;
-  const displayStatus = projectLocalFocusStatus(projectLocalQuickReviewStatus(status, quickReviewClaim), offlineFocusSession);
+  const displaySession = status.activeSession ?? offlineFocusSession;
+  const displayStatus = projectLocalFocusStatus(projectLocalQuickReviewStatus(status, quickReviewClaim), displaySession);
   const activeSessionId = status.activeSession?.id;
   const activeSessionStatus = status.activeSession?.status;
   const currentActivitySession = status.activeSession ?? offlineFocusSession;
-  const closeoutPath = currentActivitySession ? "/focus" : null;
+  const closeoutPath = currentActivitySession ? activityPath(currentActivitySession) : null;
   const outsideCloseout = currentActivitySession?.status === "closing" && closeoutPath !== null && pathname !== closeoutPath;
 
   useEffect(() => {
@@ -128,9 +131,21 @@ export function AppShell(props: {
   useEffect(() => {
     let cancelled = false;
     const refreshOfflineSession = async () => {
-      const session = await readRenderableOfflineFocusSession(props.userId);
+      const snapshot = await readFocusOfflineSnapshot(props.userId);
+      const session = snapshot?.session && isRenderableFocusSession(snapshot.session)
+        && (isLocalFocusSessionId(snapshot.session.id) || !navigator.onLine)
+        ? snapshot.session
+        : null;
       if (cancelled) return;
+      // A server result wins over an earlier local read. This prevents a slow
+      // IndexedDB callback from resurrecting an activity that the server has
+      // already replaced or completed.
+      if (serverActiveSessionRef.current !== null) {
+        setOfflineFocusSession(null);
+        return;
+      }
       setOfflineFocusSession(session);
+      if (snapshot && snapshot.syncState !== "current") setSyncState(toShellSyncState(snapshot.syncState));
     };
     void refreshOfflineSession();
     const onConnectivityChange = () => void refreshOfflineSession();
@@ -144,13 +159,19 @@ export function AppShell(props: {
   }, [props.userId]);
 
   useEffect(() => {
+    let cancelled = false;
     const sync = () => {
-      void syncFocusOfflineQueue(props.userId);
+      void syncFocusOfflineQueue(props.userId).then((result) => {
+        if (!cancelled) setSyncState(toShellSyncState(result.state));
+      }).catch(() => {
+        if (!cancelled) setSyncState(navigator.onLine ? "unavailable" : "offline");
+      });
     };
     sync();
     window.addEventListener("online", sync);
     const interval = window.setInterval(sync, 15_000);
     return () => {
+      cancelled = true;
       window.removeEventListener("online", sync);
       window.clearInterval(interval);
     };
@@ -158,17 +179,23 @@ export function AppShell(props: {
 
   useEffect(() => {
     const unsubscribe = subscribeFocusOfflineSync((event: Event) => {
-      const detail = (event as CustomEvent<{ userId?: string; session?: AppShellStatusDto["activeSession"] | null }>).detail;
+      const detail = (event as CustomEvent<{ userId?: string; state?: string; session?: AppShellStatusDto["activeSession"] | null }>).detail;
       if (detail?.userId !== props.userId || detail.session === undefined) return;
+      if (detail.state) setSyncState(toShellSyncState(detail.state));
       const session = detail.session;
       if (session && isLocalFocusSessionId(session.id)) {
+        if (serverActiveSessionRef.current !== null) return;
         setOfflineFocusSession(isRenderableFocusSession(session) ? session : null);
         return;
       }
       if (!session) {
-        void readRenderableOfflineFocusSession(props.userId).then(setOfflineFocusSession);
+        if (serverActiveSessionRef.current !== null) return;
+        void readRenderableOfflineFocusSession(props.userId).then((localSession) => {
+          if (serverActiveSessionRef.current === null) setOfflineFocusSession(localSession);
+        });
         return;
       }
+      serverActiveSessionRef.current = isRenderableFocusSession(session) ? session : null;
       setOfflineFocusSession(null);
       setStatus((current) => ({
         ...current,
@@ -176,6 +203,18 @@ export function AppShell(props: {
           ? session
           : null,
       }));
+    });
+    return unsubscribe;
+  }, [props.userId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeActivityStatus((event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string; session?: AppShellStatusDto["activeSession"] | null }>).detail;
+      if (detail?.userId !== props.userId || detail.session === undefined) return;
+      const session = detail.session && isRenderableFocusSession(detail.session) ? detail.session : null;
+      serverActiveSessionRef.current = session;
+      setStatus((current) => ({ ...current, activeSession: session }));
+      if (session) setOfflineFocusSession(null);
     });
     return unsubscribe;
   }, [props.userId]);
@@ -193,6 +232,7 @@ export function AppShell(props: {
         });
         const body = await response.json().catch(() => null) as { session?: AppShellStatusDto["activeSession"] } | null;
         if (!cancelled && response.ok && body && body.session !== undefined) {
+          serverActiveSessionRef.current = body.session ?? null;
           setStatus((current) => ({ ...current, activeSession: body.session ?? null }));
         }
       } catch {
@@ -253,8 +293,13 @@ export function AppShell(props: {
         if (!response.ok) throw new Error("APP_SHELL_STATUS_UNAVAILABLE");
         const body = (await response.json()) as { status: AppShellStatusDto };
         if (!cancelled) {
+          serverActiveSessionRef.current = body.status.activeSession;
           setStatus(body.status);
-          setSyncState("current");
+          if (body.status.activeSession) {
+            // 服务端活动是权威状态，不能被过期的本地展示快照覆盖。
+            setOfflineFocusSession(null);
+          }
+          setSyncState((current) => current === "pending" || current === "blocked" || current === "deferred" ? current : "current");
         }
       } catch {
         if (!cancelled) setSyncState(navigator.onLine ? "unavailable" : "offline");
@@ -414,7 +459,7 @@ export function AppShell(props: {
     return (
       <main className="flex min-h-screen flex-col bg-[#080b0f] text-zinc-100">
         <div className="min-h-0 flex-1">{props.children}</div>
-        <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={status.activeSession} syncState={syncState} />
+        <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} syncState={syncState} />
       </main>
     );
   }
@@ -430,7 +475,7 @@ export function AppShell(props: {
             返回学习收口
           </Link>
         </section>
-        <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={status.activeSession} syncState={syncState} />
+        <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} syncState={syncState} />
       </main>
     );
   }
@@ -564,7 +609,7 @@ export function AppShell(props: {
             >
               {syncState === "current"
                 ? `状态同步于 ${formatServerTime(status.serverTime)}`
-                : `${syncState === "offline" ? "当前离线" : "状态刷新失败"}；显示上次服务端状态（${formatServerTime(status.serverTime)}）`}
+                : `${shellSyncStateLabel(syncState)}；显示上次服务端状态（${formatServerTime(status.serverTime)}）`}
             </p>
             {showSecondaryNavigation && activeNavigationItem ? (
               <nav className="mt-3 overflow-x-auto pb-1 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`}>
@@ -639,7 +684,7 @@ export function AppShell(props: {
             </div>
           </div>
 
-          <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={status.activeSession} syncState={syncState} />
+          <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} syncState={syncState} />
 
           <nav
             className="af-shell-nav z-20 shrink-0 overflow-x-auto border-t border-white/10 bg-[#0d1117]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
@@ -679,7 +724,7 @@ export function AppShell(props: {
       <Drawer open={quickCreateOpen} title="快捷创建" onClose={() => setQuickCreateOpen(false)}>
         <nav className="grid gap-2" aria-label="创建对象">
           <QuickCreateLink href="/knowledge/points?create=1" label="知识点" onSelect={() => setQuickCreateOpen(false)} icon={<Goal size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/cards?create=1" label="知识卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
+          <QuickCreateLink href="/knowledge/cards?create=1" label="笔记与卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/mistakes?create=1" label="错题" onSelect={() => setQuickCreateOpen(false)} icon={<TriangleAlert size={18} aria-hidden="true" />} />
           <QuickCreateLink href="/knowledge/resources?create=1" label="资料" onSelect={() => setQuickCreateOpen(false)} icon={<FilePlus2 size={18} aria-hidden="true" />} />
         </nav>
@@ -731,8 +776,8 @@ function projectLocalFocusStatus(
     ? {
         ...light,
         tone: session.status === "closing" ? "amber" as const : session.status === "paused" ? "blue" as const : "green" as const,
-        summary: session.status === "closing" ? "学习已冻结，等待收口" : session.status === "paused" ? "学习已暂停，可继续" : "正在学习",
-        action: { label: session.status === "closing" ? "完成收口" : "继续学习", href: "/focus" },
+        summary: session.status === "closing" ? `${activityLabel(session)}已冻结，等待收口` : session.status === "paused" ? `${activityLabel(session)}已暂停，可继续` : `正在${activityLabel(session)}`,
+        action: { label: session.status === "closing" ? "完成收口" : `继续${activityLabel(session)}`, href: activityPath(session) },
       }
     : light);
   return { lights, mobileTop: selectMobileTopLight(lights) };
@@ -744,12 +789,39 @@ function isRenderableFocusSession(
   return Boolean(session && ["running", "paused", "closing"].includes(session.status));
 }
 
+function activityLabel(session: NonNullable<AppShellStatusDto["activeSession"]>): string {
+  if (session.activityMode === "SIMULATION") return "模拟考试";
+  if (session.activityMode === "RETEST") return "专项复测";
+  if (session.activityMode === "KNOWLEDGE_REVIEW") return "复习";
+  return "学习";
+}
+
+function activityPath(session: NonNullable<AppShellStatusDto["activeSession"]>): string {
+  if (session.activityMode === "SIMULATION" && session.simulationExamId) return `/test/simulations/${encodeURIComponent(session.simulationExamId)}`;
+  if (session.activityMode === "RETEST" && session.knowledgeRetestId) return `/test/retests/${encodeURIComponent(session.knowledgeRetestId)}`;
+  if (session.activityMode === "KNOWLEDGE_REVIEW" && session.reviewScheduleId) return `/knowledge/reviews/${encodeURIComponent(session.reviewScheduleId)}`;
+  return "/focus";
+}
+
 async function readRenderableOfflineFocusSession(
   userId: string,
 ): Promise<AppShellStatusDto["activeSession"]> {
   const snapshot = await readFocusOfflineSnapshot(userId);
   const session = snapshot?.session ?? null;
   return isRenderableFocusSession(session) && (isLocalFocusSessionId(session.id) || !navigator.onLine) ? session : null;
+}
+
+function toShellSyncState(value: string): ShellSyncState {
+  if (value === "pending" || value === "offline" || value === "blocked" || value === "deferred") return value;
+  return value === "unavailable" ? "unavailable" : "current";
+}
+
+function shellSyncStateLabel(value: ShellSyncState): string {
+  if (value === "offline") return "当前离线";
+  if (value === "pending") return "本地操作待同步";
+  if (value === "blocked") return "同步需要人工对账";
+  if (value === "deferred") return "同步已暂缓";
+  return "状态刷新失败";
 }
 
 function readLocalStorage(key: string): string | null {

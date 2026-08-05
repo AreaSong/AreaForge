@@ -10,6 +10,7 @@ import {
   containerName,
   parseConfiguredPorts,
   parseSlot,
+  selectLatestInstance,
   selectSlot,
   validatePool,
   type PoolInstance,
@@ -18,7 +19,7 @@ import {
   type SlotSelection,
 } from "./dev-test-pool-core";
 
-type Command = PoolMode | "list" | "logs" | "stop" | "doctor";
+type Command = PoolMode | "latest" | "list" | "logs" | "stop" | "doctor";
 type Options = { slot?: SlotNumber; note: string; json: boolean; dryRun: boolean };
 type HealthPayload = {
   ok?: boolean;
@@ -41,6 +42,7 @@ process.on("SIGTERM", () => { interrupted = true; });
 async function main(): Promise<void> {
   const { command, options } = parseArguments(process.argv.slice(2));
   docker.assertAvailable();
+  if (command === "latest") return printLatest(loadPool(), options.json);
   if (command === "list") return printInstances(loadPool(), options.json);
   if (command === "doctor") return runDoctor(options.json);
   if (command === "logs") return showLogs(requiredSlot(options));
@@ -156,7 +158,9 @@ function stopSlot(slot: SlotNumber, json: boolean): void {
     if (!instance) throw new Error(`slot ${slot} is already empty`);
     docker.remove(instance.name);
     docker.removeOwnedImageIfUnused(instance.imageId);
-    printValue({ action: "stop", slot, removed: instance.name }, json);
+    const instances = loadPool();
+    printValue({ action: "stop", slot, removed: instance.name,
+      latest: summarizeLatest(instances), instances: summarize(instances) }, json);
   } finally {
     release();
   }
@@ -172,7 +176,8 @@ function runDoctor(json: boolean): void {
   try {
     const instances = loadPool();
     const dockerDiskUsage = docker.diskUsage();
-    printValue({ ok: true, pool: DEV_TEST_POOL, ports, instances: summarize(instances), dockerDiskUsage }, json);
+    printValue({ ok: true, pool: DEV_TEST_POOL, ports, latest: summarizeLatest(instances),
+      instances: summarize(instances), dockerDiskUsage }, json);
   } catch (error) {
     printValue({ ok: false, pool: DEV_TEST_POOL, ports, error: message(error) }, json);
     process.exitCode = 1;
@@ -250,7 +255,7 @@ function parseEnvFile(contents: string): Record<string, string> {
 
 function parseArguments(args: string[]): { command: Command; options: Options } {
   const command = args.shift() as Command | undefined;
-  if (!command || !["refresh", "snapshot", "list", "logs", "stop", "doctor"].includes(command)) throw new Error(usage());
+  if (!command || !["refresh", "snapshot", "latest", "list", "logs", "stop", "doctor"].includes(command)) throw new Error(usage());
   const options: Options = { note: "", json: false, dryRun: false };
   while (args.length > 0) {
     const argument = args.shift();
@@ -271,20 +276,29 @@ function printPlan(mode: PoolMode, selection: SlotSelection, identity: BuildIden
 
 function printResult(mode: PoolMode, selection: SlotSelection, identity: BuildIdentity, instances: PoolInstance[], json: boolean): void {
   printValue({ action: mode, slot: selection.slot, url: `http://127.0.0.1:${selection.port}`,
-    evicted: selection.replacing?.name ?? null, sourceFingerprint: identity.sourceFingerprint, instances: summarize(instances) }, json);
+    evicted: selection.replacing?.name ?? null, sourceFingerprint: identity.sourceFingerprint,
+    latest: summarizeLatest(instances), instances: summarize(instances) }, json);
 }
 
 function printInstances(instances: PoolInstance[], json: boolean): void {
-  printValue({ pool: DEV_TEST_POOL, instances: summarize(instances) }, json);
+  printValue({ pool: DEV_TEST_POOL, latest: summarizeLatest(instances), instances: summarize(instances) }, json);
+}
+
+function printLatest(instances: PoolInstance[], json: boolean): void {
+  const latest = summarizeLatest(instances);
+  if (json) return void console.log(JSON.stringify({ pool: DEV_TEST_POOL, latest }, null, 2));
+  printLatestSummary(latest);
 }
 
 function printValue(value: unknown, json: boolean): void {
   if (json) return void console.log(JSON.stringify(value, null, 2));
   if (typeof value === "object" && value && "instances" in value) {
-    const record = value as { instances: ReturnType<typeof summarize>; dockerDiskUsage?: ReturnType<DockerClient["diskUsage"]>; [key: string]: unknown };
+    const record = value as { instances: ReturnType<typeof summarize>; latest?: ReturnType<typeof summarizeLatest>;
+      dockerDiskUsage?: ReturnType<DockerClient["diskUsage"]>; [key: string]: unknown };
     for (const [key, item] of Object.entries(record)) {
-      if (key !== "instances" && key !== "dockerDiskUsage") console.log(`${key}: ${String(item)}`);
+      if (key !== "instances" && key !== "latest" && key !== "dockerDiskUsage") console.log(`${key}: ${String(item)}`);
     }
+    if (record.latest !== undefined) printLatestSummary(record.latest);
     console.table(record.instances);
     if (record.dockerDiskUsage) {
       console.log("Docker disk usage:");
@@ -296,12 +310,33 @@ function printValue(value: unknown, json: boolean): void {
 }
 
 function summarize(instances: PoolInstance[]) {
+  const latest = selectLatestInstance(instances);
   return [1, 2, 3].map((slot) => {
     const instance = instances.find((item) => item.slot === slot);
     return instance ? { slot, url: `http://127.0.0.1:${instance.port}`, status: instance.running ? "running" : "stopped",
-      note: instance.note || "-", commit: instance.gitCommit.slice(0, 7), source: instance.sourceFingerprint.slice(7, 19) }
+      latest: instance.id === latest?.id ? "LATEST" : "-", note: instance.note || "-",
+      commit: instance.gitCommit.slice(0, 7), source: instance.sourceFingerprint.slice(7, 19) }
       : { slot, url: `http://127.0.0.1:${ports[slot - 1]}`, status: "empty", note: "-", commit: "-", source: "-" };
   });
+}
+
+function summarizeLatest(instances: PoolInstance[]) {
+  const latest = selectLatestInstance(instances);
+  if (!latest) return null;
+  return { slot: latest.slot, container: latest.name, port: latest.port, url: `http://127.0.0.1:${latest.port}`,
+    status: latest.running ? "running" : "stopped", note: latest.note || "-", generation: latest.generation,
+    commit: latest.gitCommit, sourceFingerprint: latest.sourceFingerprint, buildId: latest.buildId };
+}
+
+function printLatestSummary(latest: ReturnType<typeof summarizeLatest>): void {
+  if (!latest) return void console.log("latest: none");
+  console.log(`latest slot: ${latest.slot}`);
+  console.log(`latest container: ${latest.container}`);
+  console.log(`latest port: ${latest.port}`);
+  console.log(`latest url: ${latest.url}`);
+  console.log(`latest status: ${latest.status}`);
+  console.log(`latest note: ${latest.note}`);
+  console.log(`latest source: ${latest.sourceFingerprint}`);
 }
 
 function requiredSlot(options: Options): SlotNumber {
@@ -335,7 +370,7 @@ function message(error: unknown): string {
 }
 
 function usage(): string {
-  return "Usage: dev-test-pool <refresh|snapshot|list|logs|stop|doctor> [--slot 1|2|3] [--note text] [--dry-run] [--json]";
+  return "Usage: dev-test-pool <refresh|snapshot|latest|list|logs|stop|doctor> [--slot 1|2|3] [--note text] [--dry-run] [--json]";
 }
 
 main().catch((error) => {

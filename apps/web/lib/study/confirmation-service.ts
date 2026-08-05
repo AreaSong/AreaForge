@@ -165,7 +165,7 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
     reviewText: exam.reviewText,
     mindset: exam.mindset,
   })).map((exam): ConfirmationItemDto => {
-    const status = exam.status === "DRAFT" ? "PENDING" : "FROZEN";
+    const status = exam.status === "CONFIRMED" ? "FROZEN" : "PENDING";
     return confirmationItem({
       id: exam.id,
       sourceId: exam.id,
@@ -176,12 +176,12 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       confirmedAt: exam.confirmedAt,
       frozenAt: exam.confirmedAt,
       title: `模拟考试：${exam.name}`,
-      summary: exam.status === "DRAFT" ? "完成评分、失分分析、个人反馈和复盘后再确认。" : exam.reviewText ?? "已确认的模拟考试记录。",
+      summary: exam.status === "CONFIRMED" ? exam.reviewText ?? "已确认的模拟考试记录。" : "完成评分、失分分析、个人反馈和复盘后再确认。",
       href: confirmationHref(exam.id),
       sourceHref: `/test/simulations/${exam.id}`,
       sourceLabel: "模拟考试",
       createdAt: exam.updatedAt,
-      action: exam.status === "DRAFT"
+      action: exam.status !== "CONFIRMED"
         ? {
             kind: "simulation",
             examId: exam.id,
