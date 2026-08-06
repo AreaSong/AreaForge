@@ -72,6 +72,8 @@ pnpm dev:test:doctor
 
 测试池只管理同时具有 `com.areaforge.dev-test.pool=areaforge-dev-test` ownership label 和固定槽位名的容器及镜像。同名但无 label 的容器会阻断操作，不会被删除。Web 端口只绑定 `127.0.0.1`；默认端口可通过 `AREAFORGE_DEV_TEST_PORTS=<port1>,<port2>,<port3>` 整体覆盖，但三个端口必须固定、唯一且位于 `1024-65535`。
 
+浏览器/Playwright 验收必须复用 `pnpm dev:test:latest -- --json` 返回的 URL，不得为每个对话、页面或截图创建新的 Web 容器。若外部验收工具创建 `areaforge-v11browser-runtime-*` 一次性 runtime，必须在验收结束时清理；测试池不会接管这类容器，也不会把它们算入三个 slot。
+
 三个 Web 实例共享 `apps/web/.env.local` 指向的本地 PostgreSQL 和 `areaforge-dev-test-uploads` volume，以相同数据比较 UI。管理器只接受 loopback PostgreSQL 地址和 `areaforge` dev/test/local 数据库名，强制 `AI_ENABLED=false`，不读取生产 `.env`，不运行 migration，不清空数据库，不删除 uploads volume，也不执行全局 Docker prune。共享 PostgreSQL 不计入三个 Web 实例名额。历史 `areaforge-v11*` 容器和镜像不由测试池自动接管或清理。
 
 ## 生产建议

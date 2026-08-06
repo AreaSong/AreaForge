@@ -1,4 +1,4 @@
 interface:
   display_name: "AreaForge QA Smoke"
   short_description: "End-to-end user smoke evidence"
-  default_prompt: "Use $areaforge-qa-smoke to verify the AreaForge user journey and smoke evidence at the machine-reported latest local test-pool URL when applicable."
+  default_prompt: "Use $areaforge-qa-smoke to verify the AreaForge user journey at the machine-reported latest local test-pool URL, reusing one runtime and cleaning any one-shot browser container when applicable."

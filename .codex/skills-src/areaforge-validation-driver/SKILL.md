@@ -43,7 +43,7 @@ Choose validation from risk and touched paths, then report evidence honestly.
 5. Run checks after the final relevant edit.
 6. If a command fails, classify whether the failure is caused by the change, environment, stale generated files, or an unrelated dirty worktree.
 7. Report commands, result, evidence class, scope covered, skipped checks, blockers, release requirement, and residual unverified risk.
-8. When the local test pool is in scope, validate `pnpm dev:test:latest -- --json` after the final pool operation. Report whether this task updated the pool; only a successful task-owned `refresh` or `snapshot` may be called the latest optimized instance.
+8. When the local test pool is in scope, validate `pnpm dev:test:latest -- --json` after the final pool operation. Report whether this task updated the pool; only a successful task-owned `refresh` or `snapshot` may be called the latest optimized instance. Browser validation must reuse that URL; do not multiply Web containers, and clean up any one-shot `areaforge-v11browser-runtime-*` runtime before closeout.
 
 ## Guardrails
 

@@ -130,6 +130,8 @@ pnpm dev:test:list
 
 测试池使用 `areaforge-dev-test-1/2/3` 和 `127.0.0.1:43171/43172/43173`。`refresh` 默认替换最新槽位，`snapshot` 在第四个候选进入时按 FIFO（先进先出）淘汰最老实例；`latest` 按最后一次成功部署标记唯一最新槽位和访问地址，不能用槽位数字猜测。候选构建或健康检查失败时恢复旧实例且不改变 latest。它只读取 `apps/web/.env.local` 的本地 allowlist 配置，共享本地测试数据库与 uploads volume，不运行 migration、不删除数据库或 volume，也不触碰生产。完整边界见 [Docker Compose 部署](docs/deployment/docker-compose.md)。
 
+浏览器/Playwright 验收只访问 latest 返回的地址，不为每个任务或页面创建新的 Web 容器。历史上可能出现的 `areaforge-v11browser-runtime-*` 只能作为一次性验收 runtime，验收结束必须删除；它们不属于测试池，也不得作为长期服务保留。
+
 ## 常用验证入口
 
 | 场景 | 入口 |
