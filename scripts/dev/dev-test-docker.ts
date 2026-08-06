@@ -72,7 +72,11 @@ export class DockerClient {
       "ps", "-aq", "--filter", `label=${DEV_TEST_LABELS.pool}=${DEV_TEST_POOL}`,
     ]).split(/\s+/).filter(Boolean);
     if (ids.length === 0) return [];
-    return this.inspectContainers(ids).map((container) => this.toPoolInstance(container));
+    // The pool label is also used by isolated browser-runtime containers. Only
+    // canonical slot names are managed as replaceable test instances.
+    return this.inspectContainers(ids)
+      .filter((container) => isCanonicalSlotContainer(container.Name))
+      .map((container) => this.toPoolInstance(container));
   }
 
   diskUsage(): DockerDiskUsage[] {
@@ -262,6 +266,11 @@ export class DockerClient {
     if (!output) return null;
     return JSON.parse(output) as T;
   }
+}
+
+function isCanonicalSlotContainer(name: string): boolean {
+  const normalized = name.replace(/^\//, "");
+  return [1, 2, 3].some((slot) => normalized === containerName(slot as SlotNumber));
 }
 
 function requiredLabel(labels: Record<string, string>, key: string): string {

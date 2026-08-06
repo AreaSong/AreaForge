@@ -5,17 +5,22 @@ import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { getTimerElapsedSeconds } from "@areaforge/core";
 import { isLocalFocusSessionId } from "@/lib/client/focus-offline-store";
+import { activityLabel, activitySourcePath } from "@/lib/study/activity-route";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
 import type { StudySessionDto } from "@/lib/study/types";
 
-let nowSnapshot = Date.now();
 const serverNowSnapshot = 0;
+// Keep the first client snapshot identical to the server snapshot. The real
+// clock is installed once the external-store subscription is mounted.
+let nowSnapshot = serverNowSnapshot;
 let nowTimer: number | null = null;
 const nowListeners = new Set<() => void>();
 
 function subscribeNow(listener: () => void): () => void {
   nowListeners.add(listener);
   if (nowTimer === null && typeof window !== "undefined") {
+    nowSnapshot = Date.now();
+    listener();
     nowTimer = window.setInterval(() => {
       nowSnapshot = Date.now();
       for (const currentListener of nowListeners) currentListener();
@@ -99,7 +104,7 @@ function getActivity(
       now: new Date(now),
     });
     return {
-      href: activityHref(activeSession),
+      href: activitySourcePath(activeSession),
       kindLabel: activityLabel(activeSession),
       subjectLabel: activeSession.subjectName,
       statusLabel: activeSession.status === "running" ? "进行中" : activeSession.status === "paused" ? "已暂停" : "待收口",
@@ -140,20 +145,6 @@ function getActivity(
     iconClass: "text-sky-300",
     themeClass: "border-sky-300/35 bg-sky-300/[0.06] text-sky-100",
   };
-}
-
-function activityLabel(session: StudySessionDto): string {
-  if (session.activityMode === "SIMULATION") return "模拟考试";
-  if (session.activityMode === "RETEST") return "专项复测";
-  if (session.activityMode === "KNOWLEDGE_REVIEW") return "复习";
-  return "学习";
-}
-
-function activityHref(session: StudySessionDto): string {
-  if (session.activityMode === "SIMULATION" && session.simulationExamId) return `/test/simulations/${encodeURIComponent(session.simulationExamId)}`;
-  if (session.activityMode === "RETEST" && session.knowledgeRetestId) return `/test/retests/${encodeURIComponent(session.knowledgeRetestId)}`;
-  if (session.activityMode === "KNOWLEDGE_REVIEW" && session.reviewScheduleId) return `/knowledge/reviews/${encodeURIComponent(session.reviewScheduleId)}`;
-  return "/focus";
 }
 
 function activityIcon(session: StudySessionDto): typeof Timer {

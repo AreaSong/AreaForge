@@ -24,6 +24,7 @@ import {
 import { Alert } from "@/components/ui/feedback";
 import { isFocusEvidenceFlowOpen, linkFocusSessionEvidence, setFocusEvidenceFlowOpen } from "@/lib/client/focus-evidence";
 import { getClientDeviceHeaders, getClientDeviceIdentity } from "@/lib/client/device-identity";
+import { publishActivityStatus } from "@/lib/client/activity-status";
 import { focusRequestErrorMessage, formatFocusElapsed } from "@/lib/client/focus-session";
 import {
   applyLocalFocusCommand,
@@ -177,6 +178,14 @@ export function FocusSessionClient(props: {
   const [syncState, setSyncState] = useState<FocusOfflineSyncState>(props.offlineOnly ? "pending" : "current");
   const queuedOfflineRef = useRef(Boolean(props.offlineOnly));
 
+  useEffect(() => {
+    if (isLocalFocusSessionId(session.id)) return;
+    publishActivityStatus(
+      props.userId,
+      session.status === "running" || session.status === "paused" || session.status === "closing" ? session : null,
+    );
+  }, [props.userId, session]);
+
   const loadOfflineConflict = useCallback(async (open: boolean, latestOverride?: StudySessionDto | null) => {
     const record = await getFocusOfflineConflict(props.userId);
     if (!record) return;
@@ -305,32 +314,6 @@ export function FocusSessionClient(props: {
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, [session.status]);
-
-  useEffect(() => {
-    // The closeout is a state-changing boundary: browser back, refresh, and
-    // closing the tab must not silently discard the required closeout step.
-    const guarded = session.status === "closing" && phase === "closeout";
-    if (!guarded) return;
-
-    const guardState = { ...(window.history.state ?? {}), __areaforgeCloseoutGuard: true };
-    window.history.pushState(guardState, "", window.location.href);
-
-    const onPopState = () => {
-      window.history.pushState(guardState, "", window.location.href);
-      setCloseoutError("收口未完成，当前页面不能离开；请完成收口或保留本次记录后再离开。");
-    };
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("popstate", onPopState);
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => {
-      window.removeEventListener("popstate", onPopState);
-      window.removeEventListener("beforeunload", onBeforeUnload);
-    };
-  }, [phase, session.status]);
 
   const timerStatus: TimerStatus =
     session.status === "running" || session.status === "paused"
@@ -681,7 +664,7 @@ export function FocusSessionClient(props: {
   return (
     <section className={`${props.embeddedInWorkbench ? "h-full min-h-0" : "min-h-screen"} w-full bg-[var(--af-canvas)]`}>
       {!props.embeddedInWorkbench ? (
-        <FocusHeader userId={props.userId} returnTo={props.returnTo} status={session.status} phaseLabel={phaseLabel(phase)} />
+        <FocusHeader returnTo={props.returnTo} status={session.status} phaseLabel={phaseLabel(phase)} />
       ) : null}
       {syncState !== "current" ? (
         <div className="border-b border-amber-400/20 bg-amber-400/5 px-4 py-2 text-center text-xs text-amber-100" role="status">
@@ -702,6 +685,7 @@ export function FocusSessionClient(props: {
       {error ? <div className="px-4 pt-4 sm:px-6 lg:px-8"><Alert tone="danger">{error}</Alert></div> : null}
       {phase === "focus" && (session.status === "running" || session.status === "paused") ? (
         <FocusTimerWorkspace
+          heading={`开始学习 · ${session.subjectName}`}
           elapsedLabel={formatFocusElapsed(elapsedSeconds)}
           elapsedSeconds={elapsedSeconds}
           timerLabel={timerLabel}

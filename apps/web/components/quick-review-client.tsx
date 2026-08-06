@@ -63,6 +63,7 @@ export function QuickReviewClient(props: {
   schedule: ReviewScheduleDto;
   target: ReviewTargetDto;
   returnTo: string;
+  initialNow: string;
 }) {
   const router = useRouter();
   const {
@@ -77,7 +78,7 @@ export function QuickReviewClient(props: {
   const accessRef = useRef<DraftAccess>("loading");
   const [access, setAccess] = useState<DraftAccess>("loading");
   const [remoteDraft, setRemoteDraft] = useState<QuickReviewDraft | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => parseInitialNow(props.initialNow));
   const [error, setError] = useState<ConflictBody | null>(null);
   const [conflict, setConflict] = useState<ConflictBody | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
@@ -417,7 +418,7 @@ export function QuickReviewClient(props: {
         submittedDurationSeconds,
       });
       if (!frozen.ok) {
-        void finishQuickReviewActivity(props.schedule.id, currentDraft.draftId);
+        void resolveQuickReviewActivity(props.schedule.id, currentDraft.draftId, "suspend");
         markStale(frozen.latest);
         return;
       }
@@ -426,6 +427,7 @@ export function QuickReviewClient(props: {
     }
     setError(null);
     setSubmitting(true);
+    let eventSaved = false;
     try {
       const response = await fetch(`/api/review-schedules/${props.schedule.id}/events`, {
         method: "POST",
@@ -465,6 +467,12 @@ export function QuickReviewClient(props: {
         }
         return;
       }
+      eventSaved = true;
+      const closed = await finishQuickReviewActivity(props.schedule.id, currentDraft.draftId);
+      if (!closed) {
+        setError({ error: "复习结果已保存，但活动尚未完成收口。请再次点击确认，重试完成收口。" });
+        return;
+      }
       const removed = removeQuickReviewDraftCas(submittedDraft);
       if (!removed.ok) {
         markStale(removed.latest);
@@ -477,7 +485,9 @@ export function QuickReviewClient(props: {
       setError({ error: "网络不可用，复习草稿已保留；恢复网络后请显式重试。" });
     } finally {
       setSubmitting(false);
-      void finishQuickReviewActivity(props.schedule.id, currentDraft.draftId);
+      if (!eventSaved) {
+        void resolveQuickReviewActivity(props.schedule.id, currentDraft.draftId, "suspend");
+      }
     }
   }
 
@@ -633,6 +643,11 @@ export function QuickReviewClient(props: {
       />
     </section>
   );
+}
+
+function parseInitialNow(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function readLatestRevision(value: unknown): number | null {

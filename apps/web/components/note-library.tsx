@@ -224,23 +224,23 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
       });
 
       if (response.status === 401) {
-        setError("登录已过期，笔记草稿已保留。重新登录后请显式重试。");
+        setError("登录已过期，卡片草稿已保留。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? "保存笔记失败，草稿已保留");
+        setError(body?.error ?? "保存卡片失败，草稿已保留");
         return;
       }
       const body = (await response.json().catch(() => null)) as { note?: NoteDto } | null;
       if (!body?.note) {
-        setError("服务端未返回已创建笔记，当前草稿与重试标识仍保留");
+        setError("服务端未返回已创建卡片，当前草稿与重试标识仍保留");
         return;
       }
       createdNote = body.note;
     } catch {
-      setError("网络不可用，笔记草稿已保留；恢复网络后请显式重试。");
+      setError("网络不可用，卡片草稿已保留；恢复网络后请显式重试。");
       return;
     } finally {
       setSaving(false);
@@ -371,7 +371,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
             className="h-11 w-full min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="笔记标题"
+            placeholder="卡片标题"
             required
           />
           <textarea
@@ -394,7 +394,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
             disabled={isPending || saving || !subjectId}
           >
             <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
-            保存笔记
+            保存卡片
           </button>
         </form>
 

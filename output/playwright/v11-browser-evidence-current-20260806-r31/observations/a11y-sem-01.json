@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-05T22:04:14.186Z",
+  "checkId": "SEM-01",
+  "checkKey": "route-landmark-heading",
+  "route": "/today",
+  "target": "main-heading-navigation",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "cdp",
+  "assertions": [
+    {
+      "id": "unique-dom-main",
+      "predicate": "equals",
+      "expected": 1,
+      "actual": 1,
+      "passed": true
+    },
+    {
+      "id": "unique-page-h1",
+      "predicate": "equals",
+      "expected": 1,
+      "actual": 1,
+      "passed": true
+    },
+    {
+      "id": "unique-ax-main",
+      "predicate": "equals",
+      "expected": 1,
+      "actual": 1,
+      "passed": true
+    },
+    {
+      "id": "named-navigation-present",
+      "predicate": "gte",
+      "expected": 1,
+      "actual": 2,
+      "passed": true
+    }
+  ]
+}

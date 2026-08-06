@@ -171,7 +171,7 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
     terminalAssertions: [
       equalsAssertion("evidence-relay-visible", true),
-      equalsAssertion("session-status-ended", true),
+      equalsAssertion("evidence-completion-action-visible", true),
     ],
   },
   review: {

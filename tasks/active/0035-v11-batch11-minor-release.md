@@ -65,6 +65,12 @@ releaseRequired: true
 - 重新计算当前 checkout 的体验源指纹：`sha256:d3095ee604934724a3ffcb34e9ee793ad6644347b0d9dd503499fe0ff49902cf`；隔离 production-build runtime identity 已绑定 `c8133b5b9fe4f492b087a5ca746bbf2908b6812b` / `1.1.1`。
 - 在临时 PostgreSQL 16 数据库 `areaforge_v11browser_current28` 上重新创建空库并顺序应用 24 条 migration；官方 runner r42 通过 18/18 桌面/移动旅程、24/24 无障碍检查和两个正式 evidence validator。
 - 当前证据：`output/playwright/v11-browser-evidence-current-20260802-r42/`；体验记录：`docs/development/product-experience-review-v1.1.1-c8133b5-20260802.md`；无障碍记录：`docs/development/v11-accessibility-review-v1.1.1-20260802.md`。
+
+## 2026-08-06 当前重构 checkout 验证
+
+- 当前本地重构源码已刷新测试池 slot 1：`http://127.0.0.1:43171`，源码指纹为 `sha256:e859623a46426a0a879bd35664b5f6d309ea35d09c29d0257fb8bd2e234de10f`。
+- 当前隔离 production-build runtime 为 `http://127.0.0.1:43206`；新鲜浏览器证据位于 `output/playwright/v11-browser-evidence-current-20260806-r41/`，18/18 旅程和 24/24 无障碍检查通过。
+- 当前体验记录为 `docs/development/product-experience-review-20260806-current.md`，已通过 current-bound validator。该证据只证明本地 checkout 的重构体验，不替代新的 Release admission、生产 migration、部署或 production smoke。
 - 本轮只触碰隔离数据库和本地验收容器，没有停止或修改用户 `3102` 服务；不改变已发布 `v1.1.1`、production apply 或 residual 状态。工作树中的后续 UI/交互改动若要进入线上，仍需单独 Release admission 和受控发布。
 
 ## 2026-08-02 专项验收补充

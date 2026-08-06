@@ -1,11 +1,15 @@
 "use client";
 
-import { ArrowLeft, CloudOff, Wifi } from "lucide-react";
+import { ArrowLeft, CloudOff, Timer, Wifi } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { getTimerElapsedSeconds } from "@areaforge/core";
 import { getClientDeviceIdentity } from "@/lib/client/device-identity";
 import { getNavigationTrail, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import type { StudySessionDto } from "@/lib/study/types";
+import { isActivitySourcePath } from "@/lib/study/activity-route";
+import { WindowDock, useWindowSystem } from "@/components/window-system";
+import { activityLabel, activitySourcePath } from "@/lib/study/activity-route";
 
 const RECENT_PAGE_KEY = "af.navigation.previous";
 
@@ -13,13 +17,17 @@ type PreviousPage = { href: string; label: string } | null;
 const previousPageListeners = new Set<() => void>();
 let previousPageSnapshot: PreviousPage = null;
 const serverNowSnapshot = new Date(0);
-let nowSnapshot = new Date();
+// Keep the first client snapshot identical to the server snapshot. The real
+// clock is installed once the external-store subscription is mounted.
+let nowSnapshot = serverNowSnapshot;
 let nowTimer: number | null = null;
 const nowListeners = new Set<() => void>();
 
 function subscribeNow(listener: () => void): () => void {
   nowListeners.add(listener);
   if (nowTimer === null && typeof window !== "undefined") {
+    nowSnapshot = new Date();
+    listener();
     nowTimer = window.setInterval(() => {
       nowSnapshot = new Date();
       for (const currentListener of nowListeners) currentListener();
@@ -82,16 +90,13 @@ export function SharedStudyToolbar(props: {
   activeSession: StudySessionDto | null;
   syncState: "current" | "pending" | "offline" | "blocked" | "deferred" | "unavailable";
 }) {
+  const { windows, openWindow } = useWindowSystem();
   const now = useSyncExternalStore(
     subscribeNow,
     getNowSnapshot,
     getServerNowSnapshot,
   );
-  const deviceId = useSyncExternalStore(
-    () => () => undefined,
-    () => getClientDeviceIdentity().id,
-    () => null,
-  );
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const previousPage = useSyncExternalStore(
     subscribePreviousPage,
     getPreviousPageSnapshot,
@@ -100,11 +105,35 @@ export function SharedStudyToolbar(props: {
   const currentHref = props.currentHref ?? props.pathname;
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDeviceId(getClientDeviceIdentity().id), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     publishPreviousPage(currentHref);
   }, [currentHref]);
 
   const active = props.activeSession;
-  const navigationLocked = active?.status === "closing";
+  const closeoutNeeded = Boolean(active?.status === "closing" && !isActivitySourcePath(props.pathname, active));
+
+  useEffect(() => {
+    if (!closeoutNeeded || windows.some((window) => window.key === "session-closeout")) return;
+    // The toolbar is mounted before the global closeout definition. The
+    // window system queues this request when necessary and consumes it when
+    // the definition registers, eliminating the first-load race.
+    openWindow("session-closeout");
+  }, [closeoutNeeded, openWindow, windows]);
+
+  const elapsedSeconds = active
+    ? getTimerElapsedSeconds({
+        status: active.status === "running" ? "running" : active.status === "paused" ? "paused" : "completed",
+        startedAt: new Date(active.startedAt),
+        pausedAt: active.pausedAt ? new Date(active.pausedAt) : undefined,
+        endedAt: active.endedAt ? new Date(active.endedAt) : undefined,
+        accumulatedPauseSeconds: active.accumulatedPauseSeconds,
+        now,
+      })
+    : 0;
   const syncLabel = props.syncState === "offline"
     ? "离线"
     : props.syncState === "pending"
@@ -155,18 +184,31 @@ export function SharedStudyToolbar(props: {
             </span>
           </span>
         ) : null}
-        {previousPage && previousPage.href !== currentHref && !navigationLocked ? (
+        {previousPage && previousPage.href !== currentHref ? (
           <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面">
             <ArrowLeft size={13} aria-hidden="true" />
             <span className="max-w-40 truncate">刚才：{previousPage.label}</span>
           </Link>
         ) : null}
-        {navigationLocked ? (
+        {active?.status === "closing" ? (
           <span className="inline-flex items-center gap-1.5 text-amber-200" role="status">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />
-            收口完成前暂不离开
+            {isActivitySourcePath(props.pathname, active) ? "正在完成收口" : "收口窗口已保留在后台"}
           </span>
         ) : null}
+        {active ? (
+          <Link
+            href={activitySourcePath(active)}
+            className="inline-flex min-w-0 items-center gap-1.5 text-zinc-300 hover:text-white"
+            title="打开当前唯一活动"
+            aria-label={`${activityLabel(active)}：${active.subjectName}，${formatDuration(elapsedSeconds)}`}
+          >
+            <Timer size={13} className="shrink-0 text-teal-300" aria-hidden="true" />
+            <span className="max-w-28 truncate">{activityLabel(active)} · {active.subjectName}</span>
+            <span className="font-mono tabular-nums text-teal-200">{formatDuration(elapsedSeconds)}</span>
+          </Link>
+        ) : null}
+        <WindowDock />
         <span className="ml-auto inline-flex items-center gap-1.5 text-zinc-500" role="status" aria-live="polite">
           {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
           {syncLabel}
@@ -174,6 +216,14 @@ export function SharedStudyToolbar(props: {
       </div>
     </div>
   );
+}
+
+function formatDuration(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(safe / 3_600);
+  const minutes = Math.floor((safe % 3_600) / 60);
+  const remaining = safe % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
 }
 
 function getPathname(value: string): string {

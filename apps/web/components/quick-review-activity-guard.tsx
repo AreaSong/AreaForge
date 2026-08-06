@@ -430,7 +430,10 @@ async function ensureReviewSession(scheduleId: string, draftId: string, subjectI
   const active = await readActiveStudySession();
   if (active) {
     if (active.activityMode !== "KNOWLEDGE_REVIEW" || active.reviewScheduleId !== scheduleId) return false;
-    if (active.status === "closing") return false;
+    // A review result may already be persisted while the configured activity
+    // is still closing. Keep ownership of the same schedule so the source page
+    // can retry the final closeout without starting a second activity.
+    if (active.status === "closing") return true;
     if (active.status === "paused") return Boolean(await postReviewSessionCommand(active, "resume"));
     return true;
   }

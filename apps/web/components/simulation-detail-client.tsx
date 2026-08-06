@@ -108,6 +108,8 @@ interface SimulationDetailClientProps {
   syllabus: SyllabusOptionNodeDto[];
   remediations: SimulationRemediationDto[];
   returnTo: string;
+  initialNow: string;
+  embeddedInWorkbench?: boolean;
 }
 
 export function SimulationDetailClient(props: SimulationDetailClientProps) {
@@ -689,7 +691,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           ) : pendingRemediations.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="primary" size="lg" loading={busy} loadingLabel="送入中..." disabled={selectedOriginKeys.length === 0} onClick={() => void addRemediations()}>将选中补救送入收件箱</Button>
-              <ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="ghost" size="lg">返回阶段总览</ButtonLink>
+              {!props.embeddedInWorkbench ? <ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="ghost" size="lg">返回阶段总览</ButtonLink> : null}
             </div>
           ) : props.remediations.length > 0 ? (
             <Alert tone="success" title="补救均已处理" action={<div className="flex flex-wrap gap-2"><ButtonLink href={withReturnTo("/roadmap/allocation/drafts", props.returnTo)} variant="primary" size="sm">查看投入草稿<ArrowRight size={15} /></ButtonLink><ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink></div>}>
@@ -715,6 +717,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           sessionId={timerSessionId}
           theme="test"
           label="模拟考试计时"
+          initialNow={props.initialNow}
           onFinished={() => {
             setTimerSessionId(null);
             setTimerCloseoutPending(true);
@@ -848,7 +851,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="primary" size="lg" loading={busy} loadingLabel="保存中..." onClick={() => void save()}>{hasStructuredResults ? "保存模拟结果" : "补齐并升级分科记录"}</Button>
             {examStatus === "DRAFT" && !timerSessionId && hasStructuredResults && !hasPendingEditorChanges ? <Button type="button" variant="secondary" size="lg" loading={busy} onClick={() => void startExam()}>开始模拟考试</Button> : null}
-            {readyForConfirmation ? <ButtonLink href="/confirmations" variant="secondary" size="lg"><ArrowRight size={16} aria-hidden="true" />进入确认中心</ButtonLink> : null}
+            {readyForConfirmation && !props.embeddedInWorkbench ? <ButtonLink href="/confirmations" variant="secondary" size="lg"><ArrowRight size={16} aria-hidden="true" />进入确认中心</ButtonLink> : null}
           </div>
         </section>
       ) : null}

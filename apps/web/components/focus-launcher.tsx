@@ -25,7 +25,7 @@ import { shouldUseOfflineFocusSnapshot } from "@/lib/client/focus-launcher-state
 import type { StudySessionDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 
-export function FocusLauncher({ subjects, userId, returnTo, contextOptions }: { subjects: SubjectDto[]; userId: string; returnTo: string; contextOptions: { tasks: StudyTaskDto[]; syllabusNodes: SyllabusOptionNodeDto[]; knowledgePoints: KnowledgePointDto[] } }) {
+export function FocusLauncher({ subjects, userId, returnTo, contextOptions, initialNow }: { subjects: SubjectDto[]; userId: string; returnTo: string; initialNow: string; contextOptions: { tasks: StudyTaskDto[]; syllabusNodes: SyllabusOptionNodeDto[]; knowledgePoints: KnowledgePointDto[] } }) {
   const [subjectId, setSubjectId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -124,7 +124,7 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions }: { 
         session={inlineSession}
         activeConflictId={null}
         returnTo={returnTo}
-        initialNow={new Date().toISOString()}
+        initialNow={initialNow}
         initialEvidenceReceipts={[]}
         contextOptions={contextOptions}
         embeddedInWorkbench
@@ -139,7 +139,7 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions }: { 
         session={offlineSnapshot.session}
         activeConflictId={null}
         returnTo={returnTo}
-        initialNow={new Date().toISOString()}
+        initialNow={initialNow}
         initialEvidenceReceipts={[]}
         contextOptions={contextOptions}
         offlineOnly

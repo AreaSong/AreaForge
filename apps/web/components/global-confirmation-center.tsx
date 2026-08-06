@@ -2,61 +2,119 @@
 
 import { ArrowLeft, Bot, ClipboardCheck, ExternalLink, FileCheck2, Flag, RefreshCw, Repeat2 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmationDetailActions } from "@/components/confirmation-detail-actions";
 import { Badge, EmptyState } from "@/components/ui/feedback";
-import { Drawer } from "@/components/ui/overlays";
 import type { ConfirmationItemDto } from "@/lib/study/confirmation-service";
+import { useWindowSystem } from "@/components/window-system";
+
+export const CONFIRMATION_WINDOW_EVENT = "areaforge:open-confirmation-window";
+const PENDING_CONFIRMATIONS_URL = "/api/confirmations?filter=pending";
 
 export function GlobalConfirmationCenter(props: { pathname: string; userId: string }) {
-  const [open, setOpen] = useState(false);
   const [items, setItems] = useState<ConfirmationItemDto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"pending" | "history">("pending");
+  const { openWindow, registerWindow, refreshWindow, windows } = useWindowSystem();
+  const selected = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
+  const isOpen = windows.some((window) => window.key === "confirmation-center" && !window.minimized);
 
-  const loadItems = useCallback(async (signal?: AbortSignal) => {
+  const loadItems = useCallback(async (nextFilter: "pending" | "history" | "all" = filter, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/confirmations?filter=pending", { cache: "no-store", signal });
-      if (response.status === 401) return;
-      if (!response.ok) throw new Error("CONFIRMATIONS_UNAVAILABLE");
-      const body = await response.json() as { items?: ConfirmationItemDto[] };
-      setItems(Array.isArray(body.items) ? body.items : []);
+      const filters = nextFilter === "all" ? ["pending", "history"] as const : [nextFilter];
+      const responses = await Promise.all(filters.map((value) => fetch(value === "pending" ? PENDING_CONFIRMATIONS_URL : `/api/confirmations?filter=${value}`, { cache: "no-store", signal })));
+      if (responses.some((response) => response.status === 401)) return;
+      if (responses.some((response) => !response.ok)) throw new Error("CONFIRMATIONS_UNAVAILABLE");
+      const bodies = await Promise.all(responses.map((response) => response.json() as Promise<{ items?: ConfirmationItemDto[] }>));
+      setItems(bodies.flatMap((body) => Array.isArray(body.items) ? body.items : []));
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
       setError("确认事项暂时无法加载，请稍后重试。");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [filter]);
+
+  const handleCompleted = useCallback(async () => {
+    setSelectedId(null);
+    await loadItems();
+  }, [loadItems]);
+
+  const content = useMemo(() => (
+    <ConfirmationWindowContent
+      selected={selected}
+      items={items}
+      loading={loading}
+      error={error}
+      filter={filter}
+      onFilterChange={(nextFilter) => {
+        setFilter(nextFilter);
+        setSelectedId(null);
+        void loadItems(nextFilter);
+      }}
+      onSelect={setSelectedId}
+      onBack={() => setSelectedId(null)}
+      onRetry={() => void loadItems()}
+      onCompleted={handleCompleted}
+    />
+  ), [error, filter, handleCompleted, items, loadItems, loading, selected]);
+
+  // Keep the registered window identity stable while list loading/filter state
+  // changes. Re-registering the whole definition replaces the live dialog DOM
+  // and can make a just-resolved control lose its connection before click.
+  const contentRef = useRef(content);
+  useEffect(() => {
+    contentRef.current = content;
+    refreshWindow("confirmation-center");
+  }, [content, refreshWindow]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => void loadItems(controller.signal), 0);
+    const timer = window.setTimeout(() => void loadItems(filter, controller.signal), 0);
     return () => {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [loadItems, props.pathname, props.userId]);
+  }, [filter, loadItems, props.pathname, props.userId]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const interval = window.setInterval(() => void loadItems(), 60_000);
     return () => window.clearInterval(interval);
-  }, [loadItems, open]);
+  }, [loadItems, isOpen]);
 
-  const selected = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
+  useEffect(() => registerWindow({
+    key: "confirmation-center",
+    kind: "confirmation-center",
+    title: "确认中心",
+    closePolicy: "free",
+    render: () => contentRef.current,
+  }), [registerWindow]);
+
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<{ filter?: "pending" | "history"; confirmationId?: string }>).detail;
+      const requestedFilter = detail?.filter ?? "pending";
+      setFilter(requestedFilter);
+      setSelectedId(detail?.confirmationId ?? null);
+      openWindow("confirmation-center");
+      void loadItems(detail?.confirmationId ? "all" : requestedFilter).then(() => {
+        if (detail?.confirmationId) setSelectedId(detail.confirmationId);
+      });
+    };
+    window.addEventListener(CONFIRMATION_WINDOW_EVENT, onOpen);
+    return () => window.removeEventListener(CONFIRMATION_WINDOW_EVENT, onOpen);
+  }, [loadItems, openWindow]);
 
   function openCenter() {
-    setOpen(true);
-    void loadItems();
-  }
-
-  async function handleCompleted() {
+    setFilter("pending");
     setSelectedId(null);
-    await loadItems();
+    openWindow("confirmation-center");
+    void loadItems("pending");
   }
 
   return (
@@ -66,52 +124,72 @@ export function GlobalConfirmationCenter(props: { pathname: string; userId: stri
         className="relative inline-flex h-9 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/5 sm:px-3"
         onClick={openCenter}
         aria-label={`确认中心${items.length ? `，${items.length} 项待确认` : "，当前没有待确认事项"}`}
-        aria-expanded={open}
+        aria-expanded={false}
         title="打开确认中心"
       >
         <ClipboardCheck size={16} aria-hidden="true" />
-        <span className="hidden sm:inline">确认</span>
+        <span className="hidden min-[900px]:inline">确认</span>
         {items.length > 0 ? <span className="min-w-4 rounded-full bg-amber-300 px-1 text-center text-[10px] font-semibold text-slate-950">{items.length > 99 ? "99+" : items.length}</span> : null}
       </button>
-      <Drawer open={open} title={selected ? "确认事项" : "确认中心"} onClose={() => { setOpen(false); setSelectedId(null); }}>
-        {selected ? (
-          <ConfirmationDetail item={selected} onBack={() => setSelectedId(null)} onCompleted={handleCompleted} />
-        ) : (
-          <ConfirmationList
-            items={items}
-            loading={loading}
-            error={error}
-            onSelect={setSelectedId}
-            onRetry={() => void loadItems()}
-          />
-        )}
-      </Drawer>
     </>
   );
+}
+
+function ConfirmationWindowContent(props: {
+  selected: ConfirmationItemDto | null;
+  items: ConfirmationItemDto[];
+  loading: boolean;
+  error: string | null;
+  filter: "pending" | "history";
+  onFilterChange: (filter: "pending" | "history") => void;
+  onSelect: (id: string) => void;
+  onBack: () => void;
+  onRetry: () => void;
+  onCompleted: () => Promise<void>;
+}) {
+  if (props.selected) {
+    return <ConfirmationDetail item={props.selected} onBack={props.onBack} onCompleted={props.onCompleted} />;
+  }
+  return <ConfirmationList items={props.items} loading={props.loading} error={props.error} filter={props.filter} onFilterChange={props.onFilterChange} onSelect={props.onSelect} onRetry={props.onRetry} />;
 }
 
 function ConfirmationList(props: {
   items: ConfirmationItemDto[];
   loading: boolean;
   error: string | null;
+  filter: "pending" | "history";
+  onFilterChange: (filter: "pending" | "history") => void;
   onSelect: (id: string) => void;
   onRetry: () => void;
 }) {
   return (
     <div className="space-y-4">
+      <nav className="flex items-center gap-1 border-b border-white/10" aria-label="确认中心视图">
+        {([['pending', '待确认'], ['history', '已处理']] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={`border-b-2 px-3 py-2 text-sm ${props.filter === value ? "border-teal-300 text-teal-200" : "border-transparent text-zinc-500 hover:text-zinc-200"}`}
+            aria-current={props.filter === value ? "page" : undefined}
+            onClick={() => props.onFilterChange(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-zinc-400">需要你决定的报告、建议和检验结果会集中在这里。</p>
+        <p className="text-sm text-zinc-400">{props.filter === "pending" ? "需要你决定的报告、建议和检验结果会集中在这里。" : "已经确认或驳回的决定会保留在这里，便于回放。"}</p>
         <button type="button" className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200" onClick={props.onRetry} aria-label="刷新确认事项" title="刷新">
           <RefreshCw size={15} aria-hidden="true" />
         </button>
       </div>
       {props.error ? <div className="space-y-2 rounded-md border border-red-400/30 bg-red-400/[0.06] p-3 text-sm text-red-200"><p>{props.error}</p><button type="button" className="text-teal-200 hover:underline" onClick={props.onRetry}>重试</button></div> : null}
       {props.loading && props.items.length === 0 ? <p className="py-8 text-center text-sm text-zinc-500">正在加载确认事项...</p> : null}
-      {!props.loading && !props.error && props.items.length === 0 ? <EmptyState title="当前没有待确认事项" description="完成学习、复盘或检验后，需要你决定的结果会出现在这里。" /> : null}
+      {!props.loading && !props.error && props.items.length === 0 ? <EmptyState title={props.filter === "pending" ? "当前没有待确认事项" : "还没有已处理记录"} description={props.filter === "pending" ? "完成学习、复盘或检验后，需要你决定的结果会出现在这里。" : "确认或驳回事项后，记录会出现在这里。"} /> : null}
       {props.items.length > 0 ? <div className="divide-y divide-white/10 border-y border-white/10">{props.items.map((item) => <ConfirmationListRow key={`${item.kind}-${item.id}`} item={item} onSelect={props.onSelect} />)}</div> : null}
       <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-white/10 pt-4 text-sm">
         <Link href="/confirmations" className="inline-flex items-center gap-1.5 text-teal-300 hover:text-teal-200"><ExternalLink size={14} aria-hidden="true" />打开完整确认中心</Link>
-        <Link href="/confirmations/history" className="text-zinc-500 hover:text-zinc-200">查看已处理</Link>
+        <Link href={props.filter === "pending" ? "/confirmations/history" : "/confirmations"} className="text-zinc-500 hover:text-zinc-200">{props.filter === "pending" ? "查看已处理" : "回到待确认"}</Link>
       </div>
     </div>
   );
@@ -119,10 +197,12 @@ function ConfirmationList(props: {
 
 function ConfirmationListRow(props: { item: ConfirmationItemDto; onSelect: (id: string) => void }) {
   const Icon = props.item.kind === "periodic_report" ? ClipboardCheck : props.item.kind === "stage_adjustment" ? Flag : props.item.kind === "knowledge_retest" ? Repeat2 : props.item.kind === "ai_draft" ? Bot : FileCheck2;
+  const statusLabel = props.item.status === "PENDING" ? "待确认" : props.item.status === "REJECTED" ? "已驳回" : "已确认并冻结";
+  const statusTone = props.item.status === "PENDING" ? "warning" : props.item.status === "REJECTED" ? "neutral" : "success";
   return (
     <button type="button" className="grid w-full gap-2 py-4 text-left hover:bg-white/[0.03] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center" onClick={() => props.onSelect(props.item.id)}>
       <span className="hidden size-8 place-items-center rounded-md border border-white/10 text-teal-300 sm:grid"><Icon size={15} aria-hidden="true" /></span>
-      <span className="min-w-0"><span className="flex flex-wrap items-center gap-2"><span className="truncate font-medium text-zinc-100">{props.item.title}</span><Badge tone="warning">待确认</Badge></span><span className="mt-1 block line-clamp-2 text-sm leading-5 text-zinc-500">{props.item.summary}</span></span>
+      <span className="min-w-0"><span className="flex flex-wrap items-center gap-2"><span className="truncate font-medium text-zinc-100">{props.item.title}</span><Badge tone={statusTone}>{statusLabel}</Badge></span><span className="mt-1 block line-clamp-2 text-sm leading-5 text-zinc-500">{props.item.summary}</span></span>
       <span className="text-xs text-teal-300">查看</span>
     </button>
   );

@@ -50,9 +50,13 @@ export default async function TestSimulationPage() {
           : <EmptyState title="还没有已确认的模拟考试" description="完成一场模拟并确认事实后，会在这里形成可追溯记录。" />}
       </section>
 
-      <SimulationListClient />
+      <SimulationListClient initialExamDate={toDateInput(new Date())} />
     </PageFrame>
   );
+}
+
+function toDateInput(value: Date): string {
+  return value.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
 }
 
 type Exam = Awaited<ReturnType<typeof listSimulationExams>>[number];

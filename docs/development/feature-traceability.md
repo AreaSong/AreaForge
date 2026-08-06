@@ -67,6 +67,8 @@
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
 | 五入口 App Shell 与稳定路由 | 已完成 | `/focus`、`/today`、`/knowledge/*`、`/test/*`、`/roadmap/*`；设置位于侧栏底部工具区，确认中心作为共享工作流入口；旧 `/plan/*`、`/review/*`、`/quick-review/*`、计时详情和重复设置路径已移除并由 canonical-only smoke 断言 404；r38 current-bound browser evidence 覆盖主要工作台路径 | 继续收敛视觉层级和自动应用边界，不改变既有 Release/生产事实 |
+| 公共窗口、活动槽与 Dock | 已完成 | `WindowSystemProvider`、`WindowDock`、`GlobalActivitySlot`、`GlobalConfirmationCenter`、`GlobalAiAssistant`、`GlobalQuickCreate`、`GlobalRecoveryHelp` 和 `GlobalSessionCloseout`；固定尺寸、单一前台、最小化/关闭策略、动态“更多窗口”、本地持久化与跨标签页合并均有 `window-system-state.test.ts` 和导航契约覆盖 | 继续补充真实浏览器多窗口与窄宽度证据 |
+| 三类活动来源与独立收口 | 已完成 | `/focus` 只承载自由学习；快速复习、专项复测和模拟考试由各自工作台启动；`activity-route.ts` 统一回源；特殊活动不复用 `FocusSessionClient` 收口；快速复习确认失败保留活动和草稿，事件保存且专属收口成功后才完成 | 继续补充真实浏览器的跨页面/跨设备恢复证据 |
 | 考试工作区 / 自定义科目 / 408 分组 | 已完成 | `/settings/exams` 与鉴权 API；首次设置按考试目标与科目、已有数据处理两步推进；保留接管、科目/分组编辑、排序、归档、恢复；专项验收已实际创建首个工作区、首科目和 408 四科并刷新复核 | 物理删除、完整账户导出等数据生命周期仍不在范围，不改变既有 Release/生产事实 |
 | 今日行动中心与科目快捷计时 | 已完成 | `/today` + `GET /api/action-center/today`；推荐/队列进入任务或复习时保留今日来源，任务详情继续把来源传给 `/focus`；专注完成主接力回到今日下一行动，并保留非今日原页面次操作 | 当前工作树继续收敛视觉层级 |
 | PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/roadmap/allocation/drafts*`、`/roadmap/allocation`、`/roadmap/allocation/tasks/[taskId]`、`/roadmap/stages` 与鉴权 API；旧 `/today/*`、`/stage/*` 和旧路线壳已移除并由 canonical-only smoke 断言 404。Inbox 转换、已转换列表、每日复盘任务均携带来源 `returnTo`，任务详情按今日/投入安排/投入草稿/复盘/阶段/知识显示正确返回语义；空状态提供可执行出口 | 继续收敛视觉层级和自动应用边界，不改变既有 Release/生产事实 |

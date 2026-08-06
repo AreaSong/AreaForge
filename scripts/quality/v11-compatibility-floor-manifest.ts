@@ -47,6 +47,7 @@ const currentEntries = [
   ["20260803104500_ai_confirmation_rejection", "9dcb2e15dce0a380033cfc60a1947c72e8910ac83c33155ef12ed4a42539a1c7"],
   ["20260803110000_reconcile_device_presence_table", "aa0f9275fa0fc3023b1c9ae7e63c7953dd211cbf69266e692afef06435e31143"],
   ["20260803120000_task_knowledge_point_links", "9b4ba41c9b9d9f0505657c796cffb1bef15a28ca372cb4a11ead2c04ddf3b646"],
+  ["20260805090000_unified_activity_sessions", "63b4c39b5a942b2632659ff0a9dee3ed1526759684bbd38bab3bd621daf1ac75"],
 ] as const;
 
 export const currentMigrationManifest: readonly MigrationManifestEntry[] = currentEntries.map(([name, sha256]) => ({ name, sha256 }));
@@ -56,13 +57,13 @@ export const floorMigrationManifest = currentMigrationManifest.slice(0, 15);
 const expectedManifestDigests = {
   legacy: "90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368",
   floor: "e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d",
-  current: "c750e38859d56f57ed2ba77d46dde0318c77d7c06241f39585bbf1f99beea0f0",
+  current: "deb4e1ae466ad84e5821a81541721b45f218c369ffe6d052af083d7f9e884875",
 } as const;
 
 export function assertEmbeddedMigrationManifests(): void {
   assert.equal(legacyMigrationManifest.length, 12);
   assert.equal(floorMigrationManifest.length, 15);
-  assert.equal(currentMigrationManifest.length, 34);
+  assert.equal(currentMigrationManifest.length, 35);
   assert.equal(migrationManifestDigest(legacyMigrationManifest), expectedManifestDigests.legacy);
   assert.equal(migrationManifestDigest(floorMigrationManifest), expectedManifestDigests.floor);
   assert.equal(migrationManifestDigest(currentMigrationManifest), expectedManifestDigests.current);

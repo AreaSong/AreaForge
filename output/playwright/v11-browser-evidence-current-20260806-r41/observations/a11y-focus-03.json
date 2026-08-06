@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-05T22:57:15.790Z",
+  "checkId": "FOCUS-03",
+  "checkKey": "detail-and-save-focus",
+  "route": "/knowledge/cards/d7150633-0406-49f8-9d30-a8a51d485e68",
+  "target": "detail-heading-and-save-result",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "keyboard",
+  "assertions": [
+    {
+      "id": "detail-link-focused-before-enter",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "detail-heading-received-focus",
+      "predicate": "equals",
+      "expected": "H1",
+      "actual": "H1",
+      "passed": true
+    },
+    {
+      "id": "detail-heading-programmatic-tabindex",
+      "predicate": "equals",
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "syllabus-save-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "syllabus-save-result-is-live",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "syllabus-save-returned-to-edit",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

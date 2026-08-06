@@ -21,6 +21,19 @@ export function RecoveryActionDrawer(props: {
   defaultSubjectId: string | null;
   onClose: () => void;
 }) {
+  return <Drawer open={props.open} title={props.title} onClose={props.onClose}><RecoveryActionContent {...props} /></Drawer>;
+}
+
+export function RecoveryActionContent(props: {
+  open: boolean;
+  title: string;
+  motivationLine: string | null;
+  motivationUrl: string | null;
+  motivationError: string | null;
+  workspaceId: string | null;
+  defaultSubjectId: string | null;
+  onClose: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { withActivityBarrier } = useQuickReviewActivityGuard();
@@ -206,7 +219,7 @@ export function RecoveryActionDrawer(props: {
   }
 
   return (
-    <Drawer open={props.open} title={props.title} onClose={close}>
+    <>
       {props.motivationLine ? <p className="rounded-md border border-white/10 p-3 text-sm text-zinc-200">{props.motivationLine}</p> : null}
       {props.motivationUrl ? (
         <a
@@ -244,7 +257,7 @@ export function RecoveryActionDrawer(props: {
           <div className="flex gap-2"><BackButton onClick={() => setMode("menu")} /><PrimaryButton disabled={pending || !taskChoice} onClick={() => void startMinimumTask()}>开始最小任务</PrimaryButton></div>
         </div>
       ) : null}
-    </Drawer>
+    </>
   );
 }
 

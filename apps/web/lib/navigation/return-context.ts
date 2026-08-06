@@ -10,7 +10,7 @@ const RETURN_CONTEXTS: ReadonlyArray<{ prefix: string; label: string }> = [
   { prefix: "/focus", label: "返回专注计时" },
   { prefix: "/knowledge/reviews", label: "返回复习队列" },
   { prefix: "/knowledge/points", label: "返回知识点" },
-  { prefix: "/knowledge/cards", label: "返回笔记与卡片" },
+  { prefix: "/knowledge/cards", label: "返回知识卡片" },
   { prefix: "/knowledge/mistakes", label: "返回错题" },
   { prefix: "/knowledge/resources", label: "返回资料" },
   { prefix: "/knowledge/syllabi", label: "返回考纲" },

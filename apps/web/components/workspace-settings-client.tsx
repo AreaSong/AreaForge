@@ -306,7 +306,7 @@ export function WorkspaceSettingsClient(props: {
 
       {props.setupMode && step === "goal" ? (
         <section className="space-y-4 border-b border-white/10 pb-5">
-          <SectionHeader title="考试目标与首批科目" description="这些信息决定后续任务、知识和复盘的数据归属。" />
+          <SectionHeader title="考试目标与首批科目" description="这些信息决定后续任务、知识和复盘的数据归属。公共课、408 和专业课都在这里管理。" />
           <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm sm:col-span-2">
             <span className="text-zinc-400">工作区名称</span>
@@ -390,7 +390,13 @@ export function WorkspaceSettingsClient(props: {
       ) : null}
 
       {activeWorkspace && !props.setupMode ? (
-        <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
+        <div className="space-y-3">
+          <div className="rounded-md border border-teal-300/20 bg-teal-300/[0.04] px-3 py-2 text-xs leading-5 text-zinc-400">
+            <span className="font-medium text-teal-200">科目管理入口：</span>
+            公共课直接添加到当前考试工作区；408 使用预置分组；专业课请新建自定义分组并在其中添加科目。分组和科目均可编辑、排序、归档和恢复。
+          </div>
+          <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
+        </div>
       ) : null}
 
       <section className="space-y-3 border-t border-white/10 pt-5 text-sm">

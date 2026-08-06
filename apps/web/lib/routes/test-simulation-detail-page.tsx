@@ -42,7 +42,7 @@ export default async function SimulationExamPage({ params, searchParams }: { par
           </p>
         </Alert>
       ) : null}
-      <SimulationDetailClient userId={user.id} exam={data.exam} subjects={data.subjects} syllabus={data.syllabus} remediations={data.remediations} returnTo={returnTo} />
+      <SimulationDetailClient userId={user.id} exam={data.exam} subjects={data.subjects} syllabus={data.syllabus} remediations={data.remediations} returnTo={returnTo} initialNow={new Date().toISOString()} />
     </PageFrame>
   );
 }

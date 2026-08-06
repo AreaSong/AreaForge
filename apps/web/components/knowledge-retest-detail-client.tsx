@@ -12,13 +12,13 @@ import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/clie
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import type { KnowledgeRetestDetailDto, KnowledgeRetestResultDto } from "@/lib/study/knowledge-retest-service";
 
-export function KnowledgeRetestDetailClient({ initial, userId, returnTo = "/test/retests" }: { initial: KnowledgeRetestDetailDto; userId: string; returnTo?: string }) {
+export function KnowledgeRetestDetailClient({ initial, userId, returnTo = "/test/retests", initialNow, embeddedInWorkbench = false }: { initial: KnowledgeRetestDetailDto; userId: string; returnTo?: string; initialNow: string; embeddedInWorkbench?: boolean }) {
   const router = useRouter();
   const [retest, setRetest] = useState(initial);
   const [points, setPoints] = useState(() => initial.points.map((point) => ({ ...point, result: point.result })));
   const [summary, setSummary] = useState(initial.summary ?? "");
   const [reviewText, setReviewText] = useState(initial.reviewText ?? "");
-  const [timerCloseoutPending, setTimerCloseoutPending] = useState(false);
+  const [timerCloseoutPending, setTimerCloseoutPending] = useState(initial.status === "IN_PROGRESS" && !initial.timerSessionId);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -95,7 +95,7 @@ export function KnowledgeRetestDetailClient({ initial, userId, returnTo = "/test
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
-        <Link href={returnTo} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />{getReturnContextLabel(returnTo, "返回专项复测")}</Link>
+        {embeddedInWorkbench ? <span className="text-xs text-zinc-500">公共窗口 · 专项复测</span> : <Link href={returnTo} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />{getReturnContextLabel(returnTo, "返回专项复测")}</Link>}
         <Badge tone={retest.status === "CLOSED" ? "success" : retest.status === "PENDING_REVIEW" ? "warning" : "info"}>{statusLabel(retest.status, retest.result)}</Badge>
       </div>
       <div><h1 className="text-2xl font-semibold text-white">{retest.title}</h1><p className="mt-2 text-sm text-zinc-400">{retest.method} · {retest.pointCount} 个知识点</p></div>
@@ -107,6 +107,7 @@ export function KnowledgeRetestDetailClient({ initial, userId, returnTo = "/test
           sessionId={retest.timerSessionId}
           theme="review"
           label="专项复测计时"
+          initialNow={initialNow}
           onFinished={() => {
             setRetest((current) => ({ ...current, timerSessionId: null }));
             setTimerCloseoutPending(true);

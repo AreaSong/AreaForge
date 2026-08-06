@@ -58,11 +58,11 @@
 
 ## 统一确认协议
 
-周期报告与阶段建议、模拟考试、专项复测、AI 草稿共用确认中心投影。投影字段固定为 `kind`、`sourceId`、`revision`、`status`、`requiresUserConfirmation`、`confirmedAt`、`frozenAt` 和 `href`；状态统一为 `PENDING`、`CONFIRMED`、`REJECTED`、`FROZEN`。周期报告确认 ID 固定为 `report:<kind>:<rangeEnd>`，同一报告刷新或跨页面返回不会产生重复事项。确认中心只聚合和回放，不替代各业务页面的确认 API。
+周期报告与阶段建议、模拟考试、专项复测、AI 草稿共用确认中心投影。确认中心内容在公共固定尺寸窗口中展示，窗口内部保留待确认、已处理和详情导航；`/confirmations` 及其详情路由只作为深链入口。投影字段固定为 `kind`、`sourceId`、`revision`、`status`、`requiresUserConfirmation`、`confirmedAt`、`frozenAt` 和 `href`；状态统一为 `PENDING`、`CONFIRMED`、`REJECTED`、`FROZEN`。周期报告确认 ID 固定为 `report:<kind>:<rangeEnd>`，同一报告刷新或跨页面返回不会产生重复事项。确认中心只聚合和回放，不替代各业务页面的确认 API。
 
 模拟考试只有在至少有一条科目结果、考后总结、结构化复盘和个人反馈全部非空时才投影为 `PENDING`；未完成的 `DRAFT` 保持在模拟考试来源页，不进入确认中心。专项复测只有 `PENDING_REVIEW` 才进入待确认，`DRAFT` 与 `IN_PROGRESS` 不显示为可处理事项；`CLOSED` / `VOIDED` 分别进入冻结或驳回历史。
 
-AI 草稿生成只创建待确认结果，`consumedAt` 只在用户采用/确认时写入；生成本身不会把草稿标记为已确认，也不会自动修改报告、阶段或任务。确认中心对 AI 始终返回 `canExecute=false`，用户必须回到原始来源页并提交服务端签发的 `resultProof`，不能从聚合详情伪造确认。
+AI 草稿生成只创建待确认结果，`consumedAt` 只在用户采用/确认时写入；生成本身不会把草稿标记为已确认，也不会自动修改报告、阶段或任务。确认中心对 AI 始终返回 `canExecute=false`，公共确认窗口只展示状态和来源入口；用户必须在生成草稿的业务窗口中提交服务端签发的 `resultProof`，不能从聚合详情伪造确认。
 
 实现进度与批次证据见 [功能追踪矩阵](../development/feature-traceability.md)。
 

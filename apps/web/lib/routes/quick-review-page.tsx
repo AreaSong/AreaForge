@@ -6,6 +6,7 @@ import { getActiveStudySession } from "@/lib/study/service";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { ApiError } from "@/lib/api/responses";
 import { getReviewTarget } from "@/lib/study/review-target-service";
+import { isKnowledgeReviewActivityForSchedule } from "@/lib/study/activity-route";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/knowledge/reviews/schedule/run");
@@ -23,11 +24,6 @@ export default async function QuickReviewPage({
   const query = await searchParams;
   const returnTo = sanitizeReturnPath(query.returnTo ?? "/today");
 
-  const active = await getActiveStudySession(user.id);
-  if (active) {
-    redirect(`/focus?returnTo=${encodeURIComponent(returnTo)}`);
-  }
-
   let schedule: ReviewScheduleDto;
   try {
     schedule = await getReviewSchedule(user.id, scheduleId);
@@ -36,6 +32,11 @@ export default async function QuickReviewPage({
       redirect(returnTo);
     }
     throw error;
+  }
+
+  const active = await getActiveStudySession(user.id);
+  if (active && !isKnowledgeReviewActivityForSchedule(active, schedule.id)) {
+    redirect(`/focus?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
   let target;
@@ -47,5 +48,5 @@ export default async function QuickReviewPage({
     }
     throw error;
   }
-  return <QuickReviewClient userId={user.id} schedule={schedule} target={target} returnTo={returnTo} />;
+  return <QuickReviewClient userId={user.id} schedule={schedule} target={target} returnTo={returnTo} initialNow={new Date().toISOString()} />;
 }

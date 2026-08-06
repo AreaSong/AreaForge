@@ -31,6 +31,7 @@ export default async function KnowledgeMistakeDetailPage({
       subjectArchived={detail.subjectArchived}
       workspaceName={detail.workspaceName}
       returnTo={returnTo}
+      renderedAt={new Date().toISOString()}
     />
   );
 }

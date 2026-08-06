@@ -21,10 +21,11 @@ export function StudyActivityTimer(props: {
   theme: ActivityTheme;
   label: string;
   onFinished: () => void;
+  initialNow: string;
 }) {
   const theme = themeClasses[props.theme];
   const [session, setSession] = useState<StudySessionDto | null>(null);
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => parseInitialNow(props.initialNow));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,6 +155,11 @@ export function StudyActivityTimer(props: {
       ) : null}
     </section>
   );
+}
+
+function parseInitialNow(value: string): Date {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
 }
 
 function formatDuration(seconds: number): string {

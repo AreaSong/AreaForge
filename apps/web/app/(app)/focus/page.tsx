@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { FocusLauncher } from "@/components/focus-launcher";
 import { FocusSessionClient } from "@/components/focus-session-client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
+import { activitySourcePath } from "@/lib/study/activity-route";
 import { getActiveStudySession, getStudySessionById, listStudySessionEvidenceReceipts, listSubjects, listStudyTasks } from "@/lib/study/service";
 import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
 import { listSyllabusOptions } from "@/lib/study/syllabus-service";
@@ -22,6 +23,9 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
     listSyllabusOptions(user.id),
     listKnowledgePoints(user.id),
   ]);
+  if (activeSession && activeSession.activityMode !== "FREE_STUDY") {
+    redirect(withReturnTo(activitySourcePath(activeSession), returnTo));
+  }
   if (activeSession) {
     const session = await getStudySessionById(activeSession.id, user.id);
     if (!session) redirect("/focus");
@@ -39,5 +43,5 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
       />
     );
   }
-  return <FocusLauncher subjects={subjects} userId={user.id} returnTo={returnTo} contextOptions={{ tasks, syllabusNodes, knowledgePoints }} />;
+  return <FocusLauncher subjects={subjects} userId={user.id} returnTo={returnTo} initialNow={new Date().toISOString()} contextOptions={{ tasks, syllabusNodes, knowledgePoints }} />;
 }

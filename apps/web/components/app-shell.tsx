@@ -2,40 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
-  BookOpen,
-  BriefcaseBusiness,
-  CalendarCheck2,
-  ChartSpline,
-  ClipboardCheck,
-  FileCheck2,
-  FilePlus2,
-  Goal,
-  Inbox,
-  LayoutDashboard,
-  ListTree,
-  ListTodo,
-  Milestone,
-  MonitorCog,
-  NotebookPen,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
-  Plus,
-  Repeat2,
-  Route,
-  Settings,
-  ScrollText,
-  SlidersHorizontal,
-  Sparkles,
-  Timer,
   TriangleAlert,
-  UserRound,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import {
   buildForegroundNotificationPayload,
   evaluateAutomaticMotivationGate,
@@ -43,10 +14,8 @@ import {
   selectMobileTopLight,
   selectForegroundNotifications,
 } from "@areaforge/core";
+import { GlobalRecoveryHelp } from "@/components/global-recovery-help";
 import { BrandMark } from "@/components/brand-logo";
-import { LogoutButton } from "@/components/logout-button";
-import { RecoveryActionDrawer } from "@/components/recovery-action-drawer";
-import { Drawer } from "@/components/ui/overlays";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import {
   MOTIVATION_REMINDER_PREFERENCE_EVENT,
@@ -67,11 +36,18 @@ import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { GlobalActivitySlot } from "@/components/global-activity-slot";
 import { GlobalConfirmationCenter } from "@/components/global-confirmation-center";
+import { GlobalQuickCreate } from "@/components/global-quick-create";
+import { GlobalSessionCloseout } from "@/components/global-session-closeout";
+import { useWindowSystem } from "@/components/window-system";
 import { WorkbenchBreadcrumb } from "@/components/workbench-breadcrumb";
 import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
 import { SharedStudyToolbar } from "@/components/shared-study-toolbar";
+import { PrimaryNavigation } from "@/components/primary-navigation";
+import { SecondaryNavigation } from "@/components/secondary-navigation";
+import { SharedMobileNavigation } from "@/components/shared-mobile-navigation";
 import { subscribeActivityStatus } from "@/lib/client/activity-status";
-import { BATCH10_NAV_ITEMS, PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM } from "@/lib/navigation/batch7";
+import { activityLabel, activitySourcePath } from "@/lib/study/activity-route";
+import { BATCH10_NAV_ITEMS } from "@/lib/navigation/batch7";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
 
 const toneClass: Record<string, string> = {
@@ -95,18 +71,18 @@ export function AppShell(props: {
   const router = useRouter();
   const [status, setStatus] = useState(props.initialStatus);
   const [syncState, setSyncState] = useState<ShellSyncState>("current");
-  const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [motivationDrawerSource, setMotivationDrawerSource] = useState<"manual" | "automatic">("manual");
   const [lightOpen, setLightOpen] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [motivationLine, setMotivationLine] = useState<string | null>(null);
   const [motivationUrl, setMotivationUrl] = useState<string | null>(null);
-  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
   const [offlineFocusSession, setOfflineFocusSession] = useState<AppShellStatusDto["activeSession"]>(null);
+  const { openWindow } = useWindowSystem();
   const serverActiveSessionRef = useRef<AppShellStatusDto["activeSession"]>(props.initialStatus.activeSession);
+  const statusRefreshRevisionRef = useRef(0);
   const immersive = pathname.endsWith("/run");
   const suppressDistractions = immersive || pathname === "/focus";
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
@@ -118,13 +94,31 @@ export function AppShell(props: {
   const activeSessionId = status.activeSession?.id;
   const activeSessionStatus = status.activeSession?.status;
   const currentActivitySession = status.activeSession ?? offlineFocusSession;
-  const closeoutPath = currentActivitySession ? activityPath(currentActivitySession) : null;
-  const outsideCloseout = currentActivitySession?.status === "closing" && closeoutPath !== null && pathname !== closeoutPath;
 
-  useEffect(() => {
-    if (!outsideCloseout || !closeoutPath) return;
-    router.replace(closeoutPath);
-  }, [closeoutPath, outsideCloseout, router]);
+  const refreshShellStatus = useCallback(async () => {
+    const revision = ++statusRefreshRevisionRef.current;
+    try {
+      const response = await fetch("/api/app-shell/status", { headers: getClientDeviceHeaders(), cache: "no-store" });
+      if (response.status === 401) {
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) throw new Error("APP_SHELL_STATUS_UNAVAILABLE");
+      const body = (await response.json()) as { status: AppShellStatusDto };
+      if (revision !== statusRefreshRevisionRef.current) return;
+      serverActiveSessionRef.current = body.status.activeSession;
+      setStatus(body.status);
+      if (body.status.activeSession) {
+        // 服务端活动是权威状态，不能被过期的本地展示快照覆盖。
+        setOfflineFocusSession(null);
+      }
+      setSyncState((current) => current === "pending" || current === "blocked" || current === "deferred" ? current : "current");
+    } catch {
+      if (revision === statusRefreshRevisionRef.current) {
+        setSyncState(navigator.onLine ? "unavailable" : "offline");
+      }
+    }
+  }, []);
 
   useEffect(() => subscribeQuickReviewActivity(props.userId, setQuickReviewClaim), [props.userId]);
 
@@ -214,10 +208,28 @@ export function AppShell(props: {
       const session = detail.session && isRenderableFocusSession(detail.session) ? detail.session : null;
       serverActiveSessionRef.current = session;
       setStatus((current) => ({ ...current, activeSession: session }));
-      if (session) setOfflineFocusSession(null);
+      if (session) {
+        setOfflineFocusSession(null);
+      } else {
+        // An activity completion event must clear the derived activity light as
+        // well as the session slot; the next server projection supplies any
+        // just-completed or recovery state that may apply.
+        setStatus((current) => ({
+          ...current,
+          activeSession: null,
+          lights: current.lights.map((light) => light.kind === "activity"
+            ? { ...light, tone: "gray", summary: "无活动", action: null }
+            : light),
+          mobileTop: selectMobileTopLight(current.lights.map((light) => light.kind === "activity"
+            ? { ...light, tone: "gray", summary: "无活动", action: null }
+            : light)),
+        }));
+        setOfflineFocusSession(null);
+      }
+      void refreshShellStatus();
     });
     return unsubscribe;
-  }, [props.userId]);
+  }, [props.userId, refreshShellStatus]);
 
   useEffect(() => {
     if (!activeSessionId || (activeSessionStatus !== "running" && activeSessionStatus !== "paused" && activeSessionStatus !== "closing")) return;
@@ -261,6 +273,15 @@ export function AppShell(props: {
     return () => window.clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (!lightOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightOpen]);
+
   function toggleSidebar() {
     setSidebarCollapsed((current) => {
       const next = !current;
@@ -283,33 +304,14 @@ export function AppShell(props: {
 
   useEffect(() => {
     let cancelled = false;
-    async function refresh() {
-      try {
-        const response = await fetch("/api/app-shell/status", { headers: getClientDeviceHeaders(), cache: "no-store" });
-        if (response.status === 401) {
-          redirectToLoginWithCurrentLocation();
-          return;
-        }
-        if (!response.ok) throw new Error("APP_SHELL_STATUS_UNAVAILABLE");
-        const body = (await response.json()) as { status: AppShellStatusDto };
-        if (!cancelled) {
-          serverActiveSessionRef.current = body.status.activeSession;
-          setStatus(body.status);
-          if (body.status.activeSession) {
-            // 服务端活动是权威状态，不能被过期的本地展示快照覆盖。
-            setOfflineFocusSession(null);
-          }
-          setSyncState((current) => current === "pending" || current === "blocked" || current === "deferred" ? current : "current");
-        }
-      } catch {
-        if (!cancelled) setSyncState(navigator.onLine ? "unavailable" : "offline");
-      }
-    }
-    const onOnline = () => void refresh();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") void refresh();
+    const refresh = () => {
+      if (!cancelled) void refreshShellStatus();
     };
-    void refresh();
+    const onOnline = () => refresh();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    refresh();
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, 60_000);
@@ -321,7 +323,7 @@ export function AppShell(props: {
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [pathname]);
+  }, [pathname, refreshShellStatus]);
 
   useEffect(() => {
     if (suppressDistractions || document.visibilityState !== "visible" || !("Notification" in window)) return;
@@ -397,7 +399,7 @@ export function AppShell(props: {
         setMotivationLine(body.item.body ?? body.item.title ?? null);
         setMotivationUrl(body.item.externalUrl ?? null);
         setMotivationDrawerSource("automatic");
-        setRecoveryOpen(true);
+        openWindow("recovery-help");
       } catch {
         // An automatic reminder must never interrupt the current page on failure.
       }
@@ -422,14 +424,14 @@ export function AppShell(props: {
       window.removeEventListener(MOTIVATION_REMINDER_PREFERENCE_EVENT, onPreferenceChange);
       window.removeEventListener("storage", onStorage);
     };
-  }, [suppressDistractions, props.userId, status.motivationReminderCandidate, status.workspaceId]);
+  }, [openWindow, suppressDistractions, props.userId, status.motivationReminderCandidate, status.workspaceId]);
 
   async function openMotivationHelp() {
     setRecoveryError(null);
     setMotivationLine(null);
     setMotivationUrl(null);
     setMotivationDrawerSource("manual");
-    setRecoveryOpen(true);
+    openWindow("recovery-help");
     try {
       const response = await fetch("/api/motivation/next", {
         method: "POST",
@@ -464,22 +466,6 @@ export function AppShell(props: {
     );
   }
 
-  if (outsideCloseout && closeoutPath) {
-    return (
-      <main className="flex min-h-screen flex-col bg-[var(--af-canvas)] text-zinc-100">
-        <section className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-4 px-6 py-16">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-amber-300">学习收口</p>
-          <h1 className="text-2xl font-semibold text-white">这段学习还没有完成收口</h1>
-          <p className="text-sm leading-6 text-zinc-400">计时已经冻结。完成收口或明确保留本次记录后，才能继续访问其他页面。</p>
-          <Link href={closeoutPath} className="inline-flex h-11 w-fit items-center rounded-md bg-teal-300 px-4 text-sm font-medium text-slate-950 hover:bg-teal-200">
-            返回学习收口
-          </Link>
-        </section>
-        <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} syncState={syncState} />
-      </main>
-    );
-  }
-
   return (
     <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100">
       <a
@@ -489,60 +475,7 @@ export function AppShell(props: {
         跳到主要内容
       </a>
       <div className="flex h-full w-full">
-          <aside
-          aria-label="一级导航"
-          data-navigation-level="primary"
-            className={`hidden shrink-0 flex-col border-r border-white/10 bg-[var(--af-surface-subtle)] px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-[60px]" : "w-[184px]"}`}
-        >
-          <div className={`mb-6 flex items-center text-teal-300 ${sidebarCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
-            <div className="flex min-w-0 items-center gap-2">
-              <BrandMark size={22} />
-              <span className={sidebarCollapsed ? "sr-only" : "truncate text-sm font-medium"}>AreaForge</span>
-            </div>
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white"
-              onClick={toggleSidebar}
-              aria-label={sidebarCollapsed ? "展开侧栏" : "折叠侧栏"}
-              title={sidebarCollapsed ? "展开侧栏" : "折叠侧栏"}
-              aria-expanded={!sidebarCollapsed}
-              aria-controls="primary-navigation"
-            >
-              {sidebarCollapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
-            </button>
-          </div>
-          <nav id="primary-navigation" className="flex flex-col gap-1" aria-label="主导航">
-            {PRIMARY_WORKBENCH_ITEMS.map((item) => {
-              const active = item.match(pathname);
-              const activeChild = item.children?.some((child) => child.match(pathname)) ?? false;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? (activeChild ? "location" : navigationAriaCurrent(pathname, item)) : undefined}
-                  title={sidebarCollapsed ? item.label : undefined}
-                  className={`flex min-w-0 items-center rounded-md border-l-2 py-2 text-sm transition-colors ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${active ? "border-teal-300 bg-white/[0.08] text-white" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
-                >
-                  <NavigationIcon href={item.href} />
-                  <span className={sidebarCollapsed ? "sr-only" : "truncate"}>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-          <div className={`mt-auto space-y-2 pt-6 text-xs text-zinc-500 ${sidebarCollapsed ? "grid justify-items-center" : "px-2"}`}>
-            <Link
-              href={UTILITY_NAV_ITEM.href}
-              aria-current={UTILITY_NAV_ITEM.match(pathname) ? "page" : undefined}
-              title={sidebarCollapsed ? UTILITY_NAV_ITEM.label : undefined}
-              className={`flex min-w-0 items-center rounded-md border-l-2 py-2 text-sm transition-colors ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${UTILITY_NAV_ITEM.match(pathname) ? "border-teal-300 bg-white/[0.08] text-white" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
-            >
-              <NavigationIcon href={UTILITY_NAV_ITEM.href} />
-              <span className={sidebarCollapsed ? "sr-only" : "truncate"}>{UTILITY_NAV_ITEM.label}</span>
-            </Link>
-            <p className={sidebarCollapsed ? "sr-only" : undefined}>{props.email}</p>
-            <LogoutButton compact={sidebarCollapsed} userId={props.userId} />
-          </div>
-        </aside>
+        <PrimaryNavigation pathname={pathname} collapsed={sidebarCollapsed} email={props.email} userId={props.userId} onToggle={toggleSidebar} />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <header className="af-shell-header z-20 shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/95 px-4 py-3 backdrop-blur sm:px-6 xl:px-8">
@@ -556,7 +489,7 @@ export function AppShell(props: {
                   type="button"
                   className="hidden h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 text-xs text-zinc-200 hover:bg-white/[0.07] md:inline-flex"
                   onClick={openStatusLight}
-                  aria-label={`今日状态：${displayStatus.mobileTop.summary}`}
+                  aria-label={`今日状态：${statusAccessibleSummary(displayStatus.mobileTop.summary)}`}
                   aria-expanded={lightOpen}
                 >
                   <Activity size={15} className={toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray} aria-hidden="true" />
@@ -573,19 +506,11 @@ export function AppShell(props: {
                   aria-expanded={lightOpen}
                 >
                   <Activity size={15} aria-hidden="true" />
-                  <span className="hidden min-[360px]:inline">状态</span>
+                  <span className="hidden min-[900px]:inline">状态</span>
                 </button>
                 <GlobalConfirmationCenter pathname={pathname} userId={props.userId} />
                 <GlobalAiAssistant userId={props.userId} placement="header" />
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/5"
-                  onClick={() => setQuickCreateOpen(true)}
-                  aria-label="快捷创建"
-                  title="快捷创建"
-                >
-                  <Plus size={17} aria-hidden="true" />
-                </button>
+                <GlobalQuickCreate />
                 <button
                   type="button"
                   className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/5 sm:px-3"
@@ -594,7 +519,7 @@ export function AppShell(props: {
                   title="我学不下去了"
                 >
                   <TriangleAlert size={16} aria-hidden="true" />
-                  <span className="hidden sm:inline">我学不下去了</span>
+                  <span className="hidden min-[900px]:inline">我学不下去了</span>
                 </button>
               </div>
               <div className="col-span-2 min-w-0 justify-self-center sm:col-span-1 sm:col-start-2 sm:row-start-1">
@@ -618,7 +543,7 @@ export function AppShell(props: {
                     <Link
                       key={child.href}
                       href={child.href}
-                      aria-current={navigationAriaCurrent(pathname, child)}
+                      aria-current={pathname === child.href ? "page" : child.match(pathname) ? "location" : undefined}
                       className={`rounded-md border px-3 py-1.5 text-xs ${child.match(pathname) ? "border-teal-400/50 text-teal-200" : "border-white/10 text-zinc-400"}`}
                     >
                       {child.label}
@@ -635,49 +560,7 @@ export function AppShell(props: {
           </header>
 
           <div className="flex min-h-0 min-w-0 flex-1">
-            {showSecondaryNavigation && activeNavigationItem ? (
-              <aside
-                aria-label={`${activeNavigationItem.label}二级导航`}
-                data-navigation-level="secondary"
-                className={`hidden min-h-0 shrink-0 flex-col border-r border-white/[0.07] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] lg:flex ${secondaryCollapsed ? "w-[52px] px-1.5" : "w-[216px] px-3"}`}
-              >
-                <div className={`mb-5 flex items-center ${secondaryCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
-                  <div className={secondaryCollapsed ? "sr-only" : "min-w-0 border-l-2 border-teal-300/40 pl-2 text-xs font-medium text-zinc-500"}>
-                    <span className="truncate">{activeNavigationItem.label}内容</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200"
-                    onClick={toggleSecondary}
-                    aria-label={secondaryCollapsed ? "展开二级导航" : "收起二级导航"}
-                    title={secondaryCollapsed ? "展开二级导航" : "收起二级导航"}
-                    aria-expanded={!secondaryCollapsed}
-                    aria-controls="secondary-navigation"
-                  >
-                    {secondaryCollapsed ? <PanelRightOpen size={16} aria-hidden="true" /> : <PanelRightClose size={16} aria-hidden="true" />}
-                  </button>
-                </div>
-                <nav id="secondary-navigation" className="min-h-0 overflow-y-auto" aria-label={`${activeNavigationItem.label}业务导航`}>
-                  <div className="flex flex-col gap-1">
-                    {secondaryNavigationItems.map((child) => {
-                      const active = child.match(pathname);
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          aria-current={navigationAriaCurrent(pathname, child)}
-                          title={secondaryCollapsed ? child.label : undefined}
-                          className={`flex min-w-0 items-center rounded-md border-l-2 py-2.5 text-sm transition-colors ${secondaryCollapsed ? "justify-center px-2" : "gap-2.5 px-3"} ${active ? "border-teal-300/80 bg-teal-300/[0.07] text-teal-200" : "border-transparent text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}
-                        >
-                          <SecondaryNavigationIcon href={child.href} />
-                          <span className={secondaryCollapsed ? "sr-only" : "truncate"}>{child.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </nav>
-              </aside>
-            ) : null}
+            {showSecondaryNavigation && activeNavigationItem ? <SecondaryNavigation pathname={pathname} workbench={activeNavigationItem} collapsed={secondaryCollapsed} onToggle={toggleSecondary} /> : null}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <main id="main-content" className="af-shell-main min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6" data-ai-page-context="true">{props.children}</main>
@@ -686,67 +569,49 @@ export function AppShell(props: {
 
           <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} syncState={syncState} />
 
-          <nav
-            className="af-shell-nav z-20 shrink-0 overflow-x-auto border-t border-white/10 bg-[#0d1117]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
-            aria-label="移动导航"
-          >
-            <div className="mx-auto grid w-full max-w-lg grid-cols-6 items-center">
-              {[...PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM].map((item) => {
-                const active = item.match(pathname);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={navigationAriaCurrent(pathname, item)}
-                    title={item.label}
-                    className={`flex min-h-11 min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-center text-xs ${active ? "text-teal-300" : "text-zinc-400"}`}
-                  >
-                    <NavigationIcon href={item.href} />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
+          <SharedMobileNavigation pathname={pathname} />
         </div>
       </div>
 
-      <RecoveryActionDrawer
-        open={recoveryOpen}
+      <GlobalRecoveryHelp
         title={motivationDrawerSource === "automatic" ? "行动提醒" : "我学不下去了"}
         motivationLine={motivationLine}
         motivationUrl={motivationUrl}
         motivationError={recoveryError}
         workspaceId={status.workspaceId}
         defaultSubjectId={status.defaultSubjectId}
-        onClose={() => setRecoveryOpen(false)}
+        onClose={() => undefined}
       />
-      <Drawer open={quickCreateOpen} title="快捷创建" onClose={() => setQuickCreateOpen(false)}>
-        <nav className="grid gap-2" aria-label="创建对象">
-          <QuickCreateLink href="/knowledge/points?create=1" label="知识点" onSelect={() => setQuickCreateOpen(false)} icon={<Goal size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/cards?create=1" label="笔记与卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/mistakes?create=1" label="错题" onSelect={() => setQuickCreateOpen(false)} icon={<TriangleAlert size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/resources?create=1" label="资料" onSelect={() => setQuickCreateOpen(false)} icon={<FilePlus2 size={18} aria-hidden="true" />} />
-        </nav>
-      </Drawer>
-      <Drawer open={lightOpen} title="今日状态" onClose={() => setLightOpen(false)}>
-        <div className="divide-y divide-white/10" aria-label="今日状态详情">
-          {displayStatus.lights.map((light) => (
-            <div key={light.kind} className="py-4 first:pt-0">
-              <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full border ${toneClass[light.tone] ?? toneClass.gray}`} aria-hidden="true" />
-                <p className="text-sm font-medium text-zinc-200">{light.label}</p>
-              </div>
-              <p className="mt-1 text-sm leading-6 text-zinc-500">{light.summary}</p>
-              {light.action ? (
-                <Link href={light.action.href} className="mt-2 inline-flex text-sm text-teal-300 hover:underline" onClick={() => setLightOpen(false)}>
-                  {light.action.label}
-                </Link>
-              ) : null}
+      <GlobalSessionCloseout
+        userId={props.userId}
+        activeSession={currentActivitySession}
+        returnTo={currentHref}
+        initialNow={status.serverTime}
+        pathname={pathname}
+      />
+      {lightOpen ? (
+        <div className="fixed inset-0 z-[70] grid place-items-start bg-black/40 p-4 pt-20" role="presentation" onClick={() => setLightOpen(false)}>
+          <section className="w-full max-w-md rounded-lg border border-white/15 bg-[#101419] p-5 shadow-2xl" role="dialog" aria-modal="false" aria-label="今日状态" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold text-white">今日状态</h2><button type="button" className="text-sm text-zinc-400 hover:text-white" onClick={() => setLightOpen(false)}>关闭</button></div>
+            <div className="divide-y divide-white/10" aria-label="今日状态详情">
+              {displayStatus.lights.map((light) => (
+                <div key={light.kind} className="py-4 first:pt-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full border ${toneClass[light.tone] ?? toneClass.gray}`} aria-hidden="true" />
+                    <p className="text-sm font-medium text-zinc-200">{light.label}</p>
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-zinc-500">{light.summary}</p>
+                  {light.action ? (
+                    <Link href={light.action.href} className="mt-2 inline-flex text-sm text-teal-300 hover:underline" onClick={() => setLightOpen(false)}>
+                      {light.action.label}
+                    </Link>
+                  ) : null}
+                </div>
+              ))}
             </div>
-          ))}
+          </section>
         </div>
-      </Drawer>
+      ) : null}
     </div>
   );
 }
@@ -767,6 +632,10 @@ function projectLocalQuickReviewStatus(
   return { lights, mobileTop: selectMobileTopLight(lights) };
 }
 
+function statusAccessibleSummary(summary: string): string {
+  return summary.replace(/，可继续$/, "");
+}
+
 function projectLocalFocusStatus(
   status: Pick<AppShellStatusDto, "lights" | "mobileTop">,
   session: AppShellStatusDto["activeSession"],
@@ -777,7 +646,7 @@ function projectLocalFocusStatus(
         ...light,
         tone: session.status === "closing" ? "amber" as const : session.status === "paused" ? "blue" as const : "green" as const,
         summary: session.status === "closing" ? `${activityLabel(session)}已冻结，等待收口` : session.status === "paused" ? `${activityLabel(session)}已暂停，可继续` : `正在${activityLabel(session)}`,
-        action: { label: session.status === "closing" ? "完成收口" : `继续${activityLabel(session)}`, href: activityPath(session) },
+        action: { label: session.status === "closing" ? "完成收口" : `继续${activityLabel(session)}`, href: activitySourcePath(session) },
       }
     : light);
   return { lights, mobileTop: selectMobileTopLight(lights) };
@@ -787,20 +656,6 @@ function isRenderableFocusSession(
   session: AppShellStatusDto["activeSession"],
 ): session is NonNullable<AppShellStatusDto["activeSession"]> {
   return Boolean(session && ["running", "paused", "closing"].includes(session.status));
-}
-
-function activityLabel(session: NonNullable<AppShellStatusDto["activeSession"]>): string {
-  if (session.activityMode === "SIMULATION") return "模拟考试";
-  if (session.activityMode === "RETEST") return "专项复测";
-  if (session.activityMode === "KNOWLEDGE_REVIEW") return "复习";
-  return "学习";
-}
-
-function activityPath(session: NonNullable<AppShellStatusDto["activeSession"]>): string {
-  if (session.activityMode === "SIMULATION" && session.simulationExamId) return `/test/simulations/${encodeURIComponent(session.simulationExamId)}`;
-  if (session.activityMode === "RETEST" && session.knowledgeRetestId) return `/test/retests/${encodeURIComponent(session.knowledgeRetestId)}`;
-  if (session.activityMode === "KNOWLEDGE_REVIEW" && session.reviewScheduleId) return `/knowledge/reviews/${encodeURIComponent(session.reviewScheduleId)}`;
-  return "/focus";
 }
 
 async function readRenderableOfflineFocusSession(
@@ -852,71 +707,4 @@ function formatServerTime(value: string): string {
     second: "2-digit",
     hour12: false,
   }).format(date);
-}
-
-function navigationAriaCurrent(
-  pathname: string,
-  item: { href: string; match: (path: string) => boolean },
-): "page" | "location" | undefined {
-  if (!item.match(pathname)) return undefined;
-  return pathname === item.href ? "page" : "location";
-}
-
-function NavigationIcon({ href }: { href: string }) {
-  const Icon = PRIMARY_NAVIGATION_ICONS[href] ?? Settings;
-  return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
-}
-
-function SecondaryNavigationIcon({ href }: { href: string }) {
-  const Icon = SECONDARY_NAVIGATION_ICONS[href] ?? Settings;
-  return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
-}
-
-const PRIMARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
-  "/focus": Timer,
-  "/today": CalendarCheck2,
-  "/knowledge": BookOpen,
-  "/test/retests": FileCheck2,
-  "/roadmap": Route,
-  "/settings/exams": Settings,
-};
-
-const SECONDARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
-  "/roadmap": Goal,
-  "/roadmap/allocation": Inbox,
-  "/roadmap/stages": Milestone,
-  "/roadmap/reviews": ChartSpline,
-  "/knowledge": LayoutDashboard,
-  "/knowledge/points": ListTodo,
-  "/knowledge/syllabi": ListTree,
-  "/knowledge/resources": FilePlus2,
-  "/knowledge/cards": NotebookPen,
-  "/knowledge/mistakes": TriangleAlert,
-  "/knowledge/reviews": ClipboardCheck,
-  "/test/retests": Repeat2,
-  "/test/simulations": ScrollText,
-  "/settings/exams": BriefcaseBusiness,
-  "/settings/profile": UserRound,
-  "/settings/learning": SlidersHorizontal,
-  "/settings/ai": Sparkles,
-  "/settings/data": ListTree,
-  "/settings/system": MonitorCog,
-};
-
-function QuickCreateLink(props: {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-  onSelect: () => void;
-}) {
-  return (
-    <Link
-      href={props.href}
-      className="flex h-11 items-center gap-3 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/5"
-      onClick={props.onSelect}
-    >
-      {props.icon}
-      {props.label}
-    </Link>
-  );
 }

@@ -428,6 +428,19 @@ test("normalizeStudyCloseout preserves mistake review as conversion evidence", (
   assert.match(closeout.closeoutText, /产生错题：是/);
 });
 
+test("normalizeStudyCloseout does not impose a duration gate on free study", () => {
+  const closeout = normalizeStudyCloseout({
+    minutes: 1,
+    userMarkedEffective: true,
+    understandingLevel: "基本理解",
+    minimalOutput: "理解一元函数定义，完成一道基础例题并记录一个卡点",
+    nextAction: "下次继续函数极限",
+  });
+
+  assert.equal(closeout.isEffective, true);
+  assert.equal(closeout.isLowConversion, false);
+});
+
 test("summarizeCheckInHistory derives streak and missed dates from snapshots", () => {
   const summary = summarizeCheckInHistory([
     { studyDate: "2026-07-01", completedMinimumAction: true, lowEfficiency: false, effectiveMinutes: 60 },

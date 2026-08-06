@@ -242,10 +242,10 @@ async function runTimerCloseoutJourney(input: ScenarioContext) {
   const sessionId = requiredFixtureValue(input.fixture.activeSessionId, "timer fixture session");
   const before = await activeSessionOracle(input, "fixture-session-active", true, sessionId);
   await input.page.getByRole("button", { name: "结束并收口" }).click();
-  const form = input.page.locator("form").filter({ hasText: "最小产出" });
+  const form = input.page.locator("form").filter({ hasText: "实际学习内容与产出" });
   await form.getByRole("radio", { name: "达成", exact: true }).check({ force: true });
   await form.getByRole("radio", { name: "基本理解", exact: true }).check({ force: true });
-  await form.getByLabel("最小产出").fill("合成最小产出");
+  await form.getByLabel("实际学习内容与产出").fill("合成最小产出");
   await form.getByLabel("下一动作").fill("合成下一动作");
   const mutation = await captureUiMutation(input.page, input.config, {
     method: "POST",
@@ -270,7 +270,7 @@ async function runTimerCloseoutJourney(input: ScenarioContext) {
     after,
     terminalAssertions: await terminalAssertions(input.page, [
       ["evidence-relay-visible", () => input.page.getByRole("heading", { name: "为本次学习留下一个可复用证据" }).isVisible()],
-      ["session-status-ended", () => input.page.getByText("已结束", { exact: true }).first().isVisible()],
+      ["evidence-completion-action-visible", () => input.page.getByRole("button", { name: /完成证据接力|暂不沉淀，完成收口/ }).isVisible()],
     ]),
   };
 }
@@ -311,13 +311,13 @@ async function runReviewJourney(input: ScenarioContext) {
 async function runNotesJourney(input: ScenarioContext) {
   const before = await listOracle(input, "/api/notes", "notes", "notes-before", 0);
   await input.page.getByText("新增卡片", { exact: true }).click();
-  await input.page.getByPlaceholder("笔记标题").fill("合成浏览器卡片");
+  await input.page.getByPlaceholder("卡片标题").fill("合成浏览器卡片");
   await input.page.getByPlaceholder("写下自己的理解、题解或复盘产出").fill("合成浏览器卡片正文");
   const mutation = await captureUiMutation(input.page, input.config, {
     method: "POST",
     path: "/api/notes",
     expectedStatus: 201,
-  }, () => input.page.getByRole("button", { name: "保存笔记" }).click());
+  }, () => input.page.getByRole("button", { name: "保存卡片" }).click());
   const noteId = stringField(asRecord(mutation.body).note, "id");
   await input.page.waitForURL((url) => url.pathname.startsWith("/knowledge/cards/"));
   await input.page.getByRole("link", { name: "返回知识卡片", exact: true }).click();
@@ -338,7 +338,7 @@ async function runNotesJourney(input: ScenarioContext) {
     after,
     terminalAssertions: await terminalAssertions(input.page, [
       ["created-note-visible", () => input.page.getByText("合成浏览器卡片", { exact: true }).isVisible()],
-      ["note-form-cleared", () => input.page.getByPlaceholder("笔记标题").count().then((count) => count === 0)],
+      ["note-form-cleared", () => input.page.getByPlaceholder("卡片标题").count().then((count) => count === 0)],
     ]),
   };
 }

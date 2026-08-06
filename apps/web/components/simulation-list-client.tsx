@@ -7,11 +7,11 @@ import { SectionHeader } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 
-export function SimulationListClient() {
+export function SimulationListClient(props: { initialExamDate: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState("模拟考试");
-  const [examDate, setExamDate] = useState(new Date().toISOString().slice(0, 10));
+  const [examDate, setExamDate] = useState(props.initialExamDate);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 

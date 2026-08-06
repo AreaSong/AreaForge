@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-05T22:39:03.967Z",
+  "checkId": "LIVE-06",
+  "checkKey": "review-save-and-recovery-live",
+  "route": "/roadmap/reviews/daily",
+  "target": "daily-review-save-and-recovery",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "dom",
+  "assertions": [
+    {
+      "id": "review-save-status",
+      "predicate": "equals",
+      "expected": 201,
+      "actual": 201,
+      "passed": true
+    },
+    {
+      "id": "review-success-live-region",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "review-success-polite",
+      "predicate": "equals",
+      "expected": "polite",
+      "actual": "polite",
+      "passed": true
+    },
+    {
+      "id": "network-error-alert-visible",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "network-error-has-message",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "failed-review-draft-retained",
+      "predicate": "gte",
+      "expected": 1,
+      "actual": 1,
+      "passed": true
+    }
+  ]
+}

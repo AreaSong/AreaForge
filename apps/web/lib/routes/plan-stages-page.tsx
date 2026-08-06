@@ -81,7 +81,7 @@ export default async function StageOverviewPage({
       ) : (
         <section id="create-stage-plan" className="space-y-4 scroll-mt-24">
           <SectionHeader title="创建当前阶段" description="建立目标、日期和模式后，再把阶段拆成里程碑。" />
-          <StagePlanCreateForm />
+          <StagePlanCreateForm initialStartDate={toDateInput(new Date())} initialEndDate={toDateInput(addDays(new Date(), 90))} />
         </section>
       )}
 
@@ -167,4 +167,14 @@ function stageOverviewHref(query: { createMilestone?: string; returnTo?: string 
   if (nestedReturnTo) params.set("returnTo", nestedReturnTo);
   const search = params.toString();
   return `/roadmap/stages${search ? `?${search}` : ""}`;
+}
+
+function addDays(value: Date, days: number): Date {
+  const next = new Date(value);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function toDateInput(value: Date): string {
+  return value.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
 }

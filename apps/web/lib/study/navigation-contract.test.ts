@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { getNavigationTrail, isContentDetailPath, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
 import { getSourceContextLabel } from "@/lib/navigation/return-context";
 import { getWorkbenchFallback } from "@/lib/navigation/workbench-context";
+import { activitySourcePath, isKnowledgeReviewActivityForSchedule } from "@/lib/study/activity-route";
 
 test("navigation trails keep reused secondary labels and object depth", () => {
   assert.deepEqual(getNavigationTrail("/roadmap/allocation"), [
@@ -140,7 +141,7 @@ test("simulation detail falls back to its list instead of itself", () => {
   assert.doesNotMatch(source, /: `\/test\/simulations\/\$\{encodeURIComponent\(examId\)\}`/);
 });
 
-test("shared toolbar owns the single activity slot and confirmation drawer", () => {
+test("shared toolbar owns the single activity slot, shared timer, and confirmation drawer", () => {
   const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
   const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
   const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
@@ -151,10 +152,37 @@ test("shared toolbar owns the single activity slot and confirmation drawer", () 
   assert.match(shell, /readFocusOfflineSnapshot/);
   assert.match(shell, /offlineSession=\{offlineFocusSession\}/);
   assert.match(shell, /<GlobalConfirmationCenter/);
-  assert.doesNotMatch(toolbar, /font-mono tabular-nums/);
+  assert.match(toolbar, /font-mono tabular-nums/);
+  assert.match(toolbar, /activitySourcePath\(active\)/);
   assert.match(confirmation, /\/api\/confirmations\?filter=pending/);
   assert.match(confirmation, /\/confirmations\/history/);
   assert.match(confirmationRoute, /listConfirmationItems\(user\.id, filter\)/);
   assert.match(focusLauncher, /publishFocusSyncEvent\(userId, syncState, localSession\)/);
   assert.match(focusSession, /publishFocusSyncEvent\(props\.userId, "pending", projected\)/);
+});
+
+test("activity source paths keep each timer in its own workbench", () => {
+  assert.equal(activitySourcePath({ activityMode: "FREE_STUDY", reviewScheduleId: null, knowledgeRetestId: null, simulationExamId: null }), "/focus");
+  assert.equal(activitySourcePath({ activityMode: "RETEST", reviewScheduleId: null, knowledgeRetestId: "retest-1", simulationExamId: null }), "/test/retests/retest-1");
+  assert.equal(activitySourcePath({ activityMode: "SIMULATION", reviewScheduleId: null, knowledgeRetestId: null, simulationExamId: "exam-1" }), "/test/simulations/exam-1");
+  assert.equal(activitySourcePath({ activityMode: "KNOWLEDGE_REVIEW", reviewScheduleId: "schedule-1", knowledgeRetestId: null, simulationExamId: null }), "/knowledge/reviews/schedule-1/run");
+});
+
+test("the current quick-review activity stays on its own source page", () => {
+  assert.equal(isKnowledgeReviewActivityForSchedule({ activityMode: "KNOWLEDGE_REVIEW", reviewScheduleId: "schedule-1" }, "schedule-1"), true);
+  assert.equal(isKnowledgeReviewActivityForSchedule({ activityMode: "KNOWLEDGE_REVIEW", reviewScheduleId: "schedule-2" }, "schedule-1"), false);
+  assert.equal(isKnowledgeReviewActivityForSchedule({ activityMode: "FREE_STUDY", reviewScheduleId: null }, "schedule-1"), false);
+});
+
+test("quick-review page only redirects activities owned by another source", () => {
+  const source = readFileSync(resolve(process.cwd(), "lib/routes/quick-review-page.tsx"), "utf8");
+  assert.match(source, /isKnowledgeReviewActivityForSchedule\(active, schedule\.id\)/);
+  assert.match(source, /if \(active && !isKnowledgeReviewActivityForSchedule/);
+});
+
+test("quick-review confirmation keeps the timer open until the event is saved", () => {
+  const source = readFileSync(resolve(process.cwd(), "components/quick-review-client.tsx"), "utf8");
+  assert.match(source, /await finishQuickReviewActivity\(props\.schedule\.id, currentDraft\.draftId\)/);
+  assert.match(source, /resolveQuickReviewActivity\(props\.schedule\.id, currentDraft\.draftId, "suspend"\)/);
+  assert.doesNotMatch(source, /finally \{[\s\S]*void finishQuickReviewActivity\(props\.schedule\.id, currentDraft\.draftId\)/);
 });

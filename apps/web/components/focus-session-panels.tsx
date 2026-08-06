@@ -2,7 +2,6 @@ import { AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Clock3, FileText, Pau
 import Link from "next/link";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/feedback";
-import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { withReturnTo } from "@/lib/navigation/batch7";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
@@ -48,7 +47,6 @@ export interface FocusContextOptions {
 }
 
 export function FocusHeader(props: {
-  userId: string;
   returnTo: string;
   status: "running" | "paused" | "closing" | "completed" | "canceled";
   phaseLabel: string;
@@ -73,13 +71,13 @@ export function FocusHeader(props: {
           {statusLabel(props.status)}
         </Badge>
         <span className="text-xs text-zinc-500">{props.phaseLabel}</span>
-        <GlobalAiAssistant userId={props.userId} placement="header" />
       </div>
     </header>
   );
 }
 
 export function FocusTimerWorkspace(props: {
+  heading: string;
   elapsedLabel: string;
   elapsedSeconds: number;
   timerLabel: string;
@@ -92,6 +90,7 @@ export function FocusTimerWorkspace(props: {
   return (
     <div className={`${props.embeddedInWorkbench ? "flex h-full min-h-0" : "flex min-h-[calc(100vh-3.5rem)]"}`}>
       <section className={`flex min-w-0 flex-1 flex-col items-center justify-center px-4 py-12 text-center ${props.embeddedInWorkbench ? "min-h-[36rem] lg:min-h-0" : "min-h-[32rem]"}`}>
+        <h1 className="text-2xl font-semibold text-white">{props.heading}</h1>
         <p className="text-sm text-teal-300" aria-live="assertive" aria-atomic="true">
           {props.timerLabel}
         </p>

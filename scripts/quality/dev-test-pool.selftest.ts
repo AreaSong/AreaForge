@@ -117,6 +117,8 @@ function testSourceGuardrails(): void {
   assert(dockerSource.includes("host.docker.internal:host-gateway"), "Linux host gateway compatibility must remain");
   assert(dockerSource.includes('this.run(["system", "df", "--format", "{{json .}}"]'),
     "doctor must expose Docker disk usage without mutating Docker resources");
+  assert(dockerSource.includes("isCanonicalSlotContainer(container.Name)"),
+    "only canonical slot containers may participate in pool selection");
   assert(!dockerSource.includes('`label=${DEV_TEST_LABELS.pool}=${DEV_TEST_POOL}`,\n    ], { allowFailure: true })'),
     "pool enumeration failures must not be treated as an empty pool");
   assert(!dockerSource.includes("system\", \"prune") && !dockerSource.includes("volume\", \"rm"),
@@ -124,6 +126,10 @@ function testSourceGuardrails(): void {
   assert(cliSource.includes('path.join(root, "apps/web/.env.local")'), "only the local Web env file may configure the pool");
   assert(cliSource.includes('AI_ENABLED: "false"'), "test-pool AI external calls must stay disabled");
   assert(cliSource.includes('command === "latest"'), "the pool must expose one machine-readable latest instance");
+  assert(cliSource.includes("computeProductExperienceSourceHash"),
+    "runtime identity must bind to the shipped product experience source, not the whole dirty worktree");
+  assert(cliSource.includes("fingerprint.digest"),
+    "full worktree validation fingerprint must still contribute to build identity uniqueness");
   assert(dockerSource.includes('pnpm", ["--filter", "@areaforge/web", "build"]'),
     "the pool must build the host standalone output before packaging it");
   assert(dockerSource.includes("verbatimSymlinks: true"), "pnpm standalone links must remain container-relative");

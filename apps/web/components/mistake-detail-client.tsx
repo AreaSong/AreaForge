@@ -61,6 +61,7 @@ export function MistakeDetailClient(props: {
   subjectArchived: boolean;
   workspaceName: string;
   returnTo?: string;
+  renderedAt: string;
 }) {
   const router = useRouter();
   const answerDraftKey = `areaforge.mistake.draft.detail.answer.${props.userId}.${props.mistake.id}`;
@@ -79,7 +80,6 @@ export function MistakeDetailClient(props: {
   const [editing, setEditing] = useState(false);
   const [reviewDate, setReviewDate] = useState(initialReviewDate);
   const [savedReviewDate, setSavedReviewDate] = useState(initialReviewDate);
-  const [renderedAt] = useState(() => Date.now());
   const [draftReady, setDraftReady] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -329,7 +329,7 @@ export function MistakeDetailClient(props: {
   }
 
   const schedule = mistake.reviewSchedule;
-  const reviewDue = schedule?.status === "ACTIVE" && Boolean(schedule.dueDate) && new Date(schedule.dueDate as string).getTime() <= renderedAt;
+  const reviewDue = schedule?.status === "ACTIVE" && Boolean(schedule.dueDate) && new Date(schedule.dueDate as string).getTime() <= Date.parse(props.renderedAt);
   const correctedIds = useMemo(
     () => new Set(mistake.reviewHistory.flatMap((event) => event.correctedEventId ? [event.correctedEventId] : [])),
     [mistake.reviewHistory],

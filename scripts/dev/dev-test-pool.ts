@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { buildWorktreeValidationFingerprint } from "../quality/worktree-validation-fingerprint";
+import { computeProductExperienceSourceHash } from "../quality/product-experience-source";
 import { DockerClient, type BuildIdentity } from "./dev-test-docker";
 import { acquirePoolLock } from "./dev-test-pool-lock";
 import {
@@ -186,15 +187,19 @@ function runDoctor(json: boolean): void {
 
 function createBuildIdentity(note: string): BuildIdentity {
   const fingerprint = buildWorktreeValidationFingerprint(root, "dev-test-pool", "custom");
+  // The runtime identity must describe the product source shipped in the image.
+  // Keep the full worktree fingerprint for build uniqueness, but do not bind UX
+  // evidence to unrelated docs, evidence, or operator-only changes.
+  const sourceFingerprint = computeProductExperienceSourceHash(root);
   const generation = Date.now();
-  const buildId = sha256(`${fingerprint.worktreeHash}:${generation}:${randomUUID()}`);
-  const short = fingerprint.worktreeHash.replace("sha256:", "").slice(0, 12);
+  const buildId = sha256(`${fingerprint.digest}:${sourceFingerprint}:${generation}:${randomUUID()}`);
+  const short = sourceFingerprint.replace("sha256:", "").slice(0, 12);
   const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version: string };
   return {
     imageTag: `${DEV_TEST_POOL}:candidate-${short}-${generation}`,
     appVersion: packageJson.version,
     gitCommit: fingerprint.gitHead,
-    sourceFingerprint: fingerprint.worktreeHash,
+    sourceFingerprint,
     buildId,
     generation,
     note: normalizeNote(note),

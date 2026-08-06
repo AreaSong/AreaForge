@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { QuickReviewActivityGuardProvider } from "@/components/quick-review-activity-guard";
+import { WindowSystemProvider } from "@/components/window-system";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getAppShellStatus } from "@/lib/study/app-shell-service";
 
@@ -16,9 +17,11 @@ export default async function ProtectedAppLayout({ children }: { children: React
 
   return (
     <QuickReviewActivityGuardProvider userId={user.id}>
-      <AppShell initialStatus={status} email={user.email} userId={user.id}>
-        {children}
-      </AppShell>
+      <WindowSystemProvider userId={user.id}>
+        <AppShell initialStatus={status} email={user.email} userId={user.id}>
+          {children}
+        </AppShell>
+      </WindowSystemProvider>
     </QuickReviewActivityGuardProvider>
   );
 }
