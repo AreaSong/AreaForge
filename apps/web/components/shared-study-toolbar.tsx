@@ -171,48 +171,52 @@ export function SharedStudyToolbar(props: {
 
   return (
     <div className="af-shared-toolbar shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-4 py-2 text-xs sm:px-6 xl:px-8" data-global-ai-ui="true">
-      <div className="mx-auto flex min-w-0 max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-2">
-        {active ? (
-          <span
-            className={`inline-flex min-w-0 items-center gap-1.5 ${otherDeviceOnline || fallbackSourceDeviceOnline ? "text-amber-200" : "text-zinc-500"}`}
-            role="status"
-            title={otherDevices.length > 0 ? `其他设备：${otherDevices.map((presence) => presence.deviceLabel).join("、")}` : fallbackSourceDevice ? `活动来自${fallbackSourceDevice}` : "活动来自当前设备"}
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${otherDeviceOnline || fallbackSourceDeviceOnline ? "bg-amber-300" : "bg-zinc-600"}`} aria-hidden="true" />
-            <span className="max-w-40 truncate">
-              {presenceText}
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          {active ? (
+            <span
+              className={`inline-flex min-w-0 items-center gap-1.5 ${otherDeviceOnline || fallbackSourceDeviceOnline ? "text-amber-200" : "text-zinc-500"}`}
+              role="status"
+              title={otherDevices.length > 0 ? `其他设备：${otherDevices.map((presence) => presence.deviceLabel).join("、")}` : fallbackSourceDevice ? `活动来自${fallbackSourceDevice}` : "活动来自当前设备"}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${otherDeviceOnline || fallbackSourceDeviceOnline ? "bg-amber-300" : "bg-zinc-600"}`} aria-hidden="true" />
+              <span className="max-w-40 truncate">
+                {presenceText}
+              </span>
             </span>
+          ) : null}
+          {previousPage && previousPage.href !== currentHref ? (
+            <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面">
+              <ArrowLeft size={13} aria-hidden="true" />
+              <span className="max-w-40 truncate">刚才：{previousPage.label}</span>
+            </Link>
+          ) : null}
+          {active?.status === "closing" ? (
+            <span className="inline-flex items-center gap-1.5 text-amber-200" role="status">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />
+              {isActivitySourcePath(props.pathname, active) ? "正在完成收口" : "收口窗口已保留在后台"}
+            </span>
+          ) : null}
+          {active ? (
+            <Link
+              href={activitySourcePath(active)}
+              className="inline-flex min-w-0 items-center gap-1.5 text-zinc-300 hover:text-white"
+              title="打开当前唯一活动"
+              aria-label={`${activityLabel(active)}：${active.subjectName}，${formatDuration(elapsedSeconds)}`}
+            >
+              <Timer size={13} className="shrink-0 text-teal-300" aria-hidden="true" />
+              <span className="max-w-28 truncate">{activityLabel(active)} · {active.subjectName}</span>
+              <span className="font-mono tabular-nums text-teal-200">{formatDuration(elapsedSeconds)}</span>
+            </Link>
+          ) : null}
+        </div>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+          <WindowDock />
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-zinc-500" role="status" aria-live="polite">
+            {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
+            {syncLabel}
           </span>
-        ) : null}
-        {previousPage && previousPage.href !== currentHref ? (
-          <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面">
-            <ArrowLeft size={13} aria-hidden="true" />
-            <span className="max-w-40 truncate">刚才：{previousPage.label}</span>
-          </Link>
-        ) : null}
-        {active?.status === "closing" ? (
-          <span className="inline-flex items-center gap-1.5 text-amber-200" role="status">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />
-            {isActivitySourcePath(props.pathname, active) ? "正在完成收口" : "收口窗口已保留在后台"}
-          </span>
-        ) : null}
-        {active ? (
-          <Link
-            href={activitySourcePath(active)}
-            className="inline-flex min-w-0 items-center gap-1.5 text-zinc-300 hover:text-white"
-            title="打开当前唯一活动"
-            aria-label={`${activityLabel(active)}：${active.subjectName}，${formatDuration(elapsedSeconds)}`}
-          >
-            <Timer size={13} className="shrink-0 text-teal-300" aria-hidden="true" />
-            <span className="max-w-28 truncate">{activityLabel(active)} · {active.subjectName}</span>
-            <span className="font-mono tabular-nums text-teal-200">{formatDuration(elapsedSeconds)}</span>
-          </Link>
-        ) : null}
-        <WindowDock />
-        <span className="ml-auto inline-flex items-center gap-1.5 text-zinc-500" role="status" aria-live="polite">
-          {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
-          {syncLabel}
-        </span>
+        </div>
       </div>
     </div>
   );

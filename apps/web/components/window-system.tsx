@@ -495,7 +495,7 @@ export function WindowDock() {
 
   useEffect(() => {
     const update = () => {
-      const width = dockRef.current?.clientWidth ?? 0;
+      const width = measureAvailableDockWidth(dockRef.current);
       setVisibleCount(visibleWindowCount(width));
     };
     update();
@@ -503,7 +503,13 @@ export function WindowDock() {
     const observer = typeof ResizeObserver === "undefined"
       ? null
       : new ResizeObserver(update);
-    if (dockRef.current) observer?.observe(dockRef.current);
+    const dock = dockRef.current;
+    const parent = dock?.parentElement ?? null;
+    if (dock) observer?.observe(dock);
+    if (parent) {
+      observer?.observe(parent);
+      for (const child of Array.from(parent.children)) observer?.observe(child);
+    }
     return () => {
       window.removeEventListener("resize", update);
       observer?.disconnect();
@@ -511,18 +517,21 @@ export function WindowDock() {
   }, []);
 
   if (background.length === 0) return null;
-  const visible = background.slice(0, visibleCount);
-  const hidden = background.slice(visibleCount);
+  const inlineCount = background.length - visibleCount === 1 && visibleCount > 1
+    ? visibleCount + 1
+    : visibleCount;
+  const visible = background.slice(0, inlineCount);
+  const hidden = background.slice(inlineCount);
 
   return (
-    <div ref={dockRef} className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden" data-window-dock="true">
+    <div ref={dockRef} className="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-visible" data-window-dock="true">
       {visible.map((window) => <DockItem key={window.key} window={window} onOpen={() => focusWindow(window.key)} onClose={() => requestCloseWindow(window.key)} />)}
       {hidden.length > 0 ? (
         <div className="relative">
           <button type="button" className="inline-flex h-8 items-center gap-1 rounded-md border border-white/10 px-2 text-xs text-zinc-400 hover:bg-white/10 hover:text-zinc-100" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
             <ChevronDown size={14} aria-hidden="true" />更多窗口 {hidden.length}
           </button>
-          {expanded ? <div className="absolute bottom-10 left-0 z-[90] min-w-64 rounded-md border border-white/15 bg-[#101419] p-2 shadow-xl">{hidden.map((window) => <DockItem key={window.key} window={window} onOpen={() => { setExpanded(false); focusWindow(window.key); }} onClose={() => requestCloseWindow(window.key)} />)}</div> : null}
+          {expanded ? <div className="absolute right-0 bottom-10 z-[90] min-w-64 rounded-md border border-white/15 bg-[#101419] p-2 shadow-xl">{hidden.map((window) => <DockItem key={window.key} window={window} onOpen={() => { setExpanded(false); focusWindow(window.key); }} onClose={() => requestCloseWindow(window.key)} />)}</div> : null}
         </div>
       ) : null}
     </div>
@@ -536,4 +545,22 @@ function DockItem(props: { window: WindowInstance; onOpen: () => void; onClose: 
       <button type="button" className="inline-flex size-5 items-center justify-center rounded text-zinc-600 hover:bg-white/10 hover:text-zinc-200" onClick={props.onClose} aria-label={`关闭${props.window.title}`} title="关闭"><X size={12} aria-hidden="true" /></button>
     </div>
   );
+}
+
+function measureAvailableDockWidth(dock: HTMLElement | null): number {
+  if (!dock) return 0;
+  const ownWidth = dock.clientWidth;
+  const parent = dock.parentElement;
+  if (!parent) return ownWidth;
+
+  const siblingWidth = Array.from(parent.children)
+    .filter((child) => child !== dock)
+    .reduce((sum, child) => sum + child.getBoundingClientRect().width, 0);
+  const style = window.getComputedStyle(parent);
+  const parsedGap = Number.parseFloat(style.columnGap || style.gap || "0");
+  const gap = Number.isFinite(parsedGap) ? parsedGap : 0;
+  const gapWidth = Math.max(0, parent.children.length - 1) * gap;
+  const availableWidth = parent.clientWidth - siblingWidth - gapWidth;
+
+  return Math.max(0, ownWidth, availableWidth);
 }

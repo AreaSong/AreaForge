@@ -85,7 +85,7 @@ export function nextForegroundKey(current: WindowInstance[], closedKey?: string)
     .sort((left, right) => right.updatedAt - left.updatedAt)[0]?.key ?? null;
 }
 
-export function visibleWindowCount(containerWidth: number, itemWidth = 180, reservedWidth = 180): number {
+export function visibleWindowCount(containerWidth: number, itemWidth = 180, reservedWidth = 0): number {
   if (!Number.isFinite(containerWidth) || containerWidth <= 0) return 1;
   return Math.max(1, Math.floor((containerWidth - reservedWidth) / itemWidth));
 }

@@ -85,7 +85,9 @@ test("restoring persistence keeps a window opened during hydration", () => {
   assert.equal(restored.find((window) => window.key === "session-closeout")?.minimized, false);
 });
 
-test("visible window count always leaves room for more menu", () => {
-  assert.equal(visibleWindowCount(720), 3);
+test("visible window count uses the full dock width", () => {
+  assert.equal(visibleWindowCount(720), 4);
+  assert.equal(visibleWindowCount(540), 3);
+  assert.equal(visibleWindowCount(360), 2);
   assert.equal(visibleWindowCount(200), 1);
 });
