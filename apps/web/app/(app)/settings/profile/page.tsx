@@ -3,7 +3,6 @@ import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { MotivationVaultForm } from "@/components/motivation-vault-form";
 import { MotivationLibraryClient } from "@/components/motivation-library-client";
 import { MotivationReminderSettings } from "@/components/motivation-reminder-settings";
-import { ButtonLink } from "@/components/ui/button";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
@@ -28,7 +27,6 @@ export default async function SettingsProfilePage() {
         eyebrow="设置 / 档案与动机"
         title="档案与动机"
         description="封存长期备考的底层理由，并决定哪些内容可以在关键节点被再次展示。动机封存正文默认不进入 AI。"
-        action={<ButtonLink href="/today" variant="secondary">返回今日行动</ButtonLink>}
       />
       <MotivationVaultForm userId={user.id} vault={vault} />
       <MotivationReminderSettings userId={user.id} />

@@ -28,6 +28,7 @@ export function PrimaryNavigation(props: {
     <aside
       aria-label="一级导航"
       data-navigation-level="primary"
+      data-layout-region="primary-navigation"
       className={`hidden shrink-0 flex-col border-r border-white/10 bg-[var(--af-surface-subtle)] px-3 py-5 transition-[width] lg:flex ${props.collapsed ? "w-[60px]" : "w-[184px]"}`}
     >
       <div className={`mb-6 flex items-center text-teal-300 ${props.collapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>

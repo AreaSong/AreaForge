@@ -17,6 +17,7 @@ export function SharedMobileNavigation({ pathname }: { pathname: string }) {
     <nav
       className="af-shell-nav z-20 shrink-0 overflow-x-auto border-t border-white/10 bg-[#0d1117]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
       aria-label="移动导航"
+      data-layout-region="mobile-primary-navigation"
     >
       <div className="mx-auto grid w-full max-w-lg grid-cols-6 items-center">
         {[...PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM].map((item) => {

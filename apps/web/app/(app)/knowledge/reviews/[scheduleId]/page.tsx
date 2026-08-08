@@ -7,6 +7,7 @@ import { ReviewScheduleDetailHeading } from "@/components/review-schedule-detail
 import { ReviewEventCorrection } from "@/components/review-event-correction";
 import { SafeMarkdownView } from "@/components/safe-markdown-view";
 import { ButtonLink } from "@/components/ui/button";
+import { PageFrame } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
@@ -44,7 +45,8 @@ export default async function ReviewScheduleDetailPage({
   const quickReviewHref = withReturnTo(`/knowledge/reviews/${schedule.id}/run`, scheduleHref);
 
   return (
-    <article className="space-y-6">
+    <PageFrame variant="content-focus">
+      <article className="space-y-6">
       <Link className="text-sm text-teal-300 hover:underline" href={returnTo}>{getReturnContextLabel(returnTo, "返回复习队列")}</Link>
       <header className="border-b border-white/10 pb-5">
         <p className="text-sm text-teal-300">{target.subtitle}</p>
@@ -92,7 +94,8 @@ export default async function ReviewScheduleDetailPage({
           {events.length === 0 ? <li className="text-sm text-zinc-500">尚无复习事件。</li> : null}
         </ul>
       </section>
-    </article>
+      </article>
+    </PageFrame>
   );
 }
 

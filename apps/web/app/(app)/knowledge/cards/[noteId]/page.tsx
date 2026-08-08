@@ -1,6 +1,7 @@
 import { parseSafeMarkdown } from "@areaforge/core";
 import { notFound, redirect } from "next/navigation";
 import { NoteDetailClient } from "@/components/note-detail-client";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { getNoteEditorOptions, getOwnedNoteDetail } from "@/lib/study/notes-service";
@@ -31,17 +32,19 @@ export default async function KnowledgeCardDetailPage({
   const { note } = detail;
 
   return (
-    <NoteDetailClient
-      key={`${note.id}:${note.revision}`}
-      userId={user.id}
-      note={note}
-      options={options}
-      readOnly={detail.readOnly}
-      subjectArchived={detail.subjectArchived}
-      workspaceName={detail.workspaceName}
-      markdownNodes={parseSafeMarkdown(note.content)}
-      renderedAt={new Date().toISOString()}
-      returnTo={returnTo}
-    />
+    <PageFrame variant="content-focus">
+      <NoteDetailClient
+        key={`${note.id}:${note.revision}`}
+        userId={user.id}
+        note={note}
+        options={options}
+        readOnly={detail.readOnly}
+        subjectArchived={detail.subjectArchived}
+        workspaceName={detail.workspaceName}
+        markdownNodes={parseSafeMarkdown(note.content)}
+        renderedAt={new Date().toISOString()}
+        returnTo={returnTo}
+      />
+    </PageFrame>
   );
 }

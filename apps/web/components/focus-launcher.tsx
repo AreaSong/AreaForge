@@ -25,7 +25,8 @@ import { shouldUseOfflineFocusSnapshot } from "@/lib/client/focus-launcher-state
 import type { StudySessionDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 
-export function FocusLauncher({ subjects, userId, returnTo, contextOptions, initialNow }: { subjects: SubjectDto[]; userId: string; returnTo: string; initialNow: string; contextOptions: { tasks: StudyTaskDto[]; syllabusNodes: SyllabusOptionNodeDto[]; knowledgePoints: KnowledgePointDto[] } }) {
+export function FocusLauncher({ subjects, userId, returnTo, contextOptions, initialNow, commandMode, commandText }: { subjects: SubjectDto[]; userId: string; returnTo: string; initialNow: string; commandMode?: "now"; commandText?: string; contextOptions: { tasks: StudyTaskDto[]; syllabusNodes: SyllabusOptionNodeDto[]; knowledgePoints: KnowledgePointDto[] } }) {
+  const subjectRef = useRef<HTMLSelectElement>(null);
   const [subjectId, setSubjectId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -36,6 +37,12 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions, init
   useEffect(() => {
     offlineSnapshotRef.current = offlineSnapshot;
   }, [offlineSnapshot]);
+
+  useEffect(() => {
+    if (commandMode !== "now") return;
+    const timer = window.setTimeout(() => subjectRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [commandMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,8 +249,8 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions, init
         </section>
         <aside className="flex items-start px-5 py-10 sm:px-8 lg:items-center">
           <div className="w-full max-w-md space-y-6">
-            <div><BookOpen className="size-6 text-teal-300" aria-hidden="true" /><h1 className="mt-4 text-2xl font-semibold text-white">今天先学什么？</h1><p className="mt-2 text-sm leading-6 text-zinc-400">科目是开始学习的唯一必选项。具体学了什么，结束后再按实际情况记录。</p></div>
-            <label className="grid gap-2 text-sm text-zinc-300">科目<select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="h-12 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" disabled={!subjects.length}><option value="">选择科目</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
+            <div><BookOpen className="size-6 text-teal-300" aria-hidden="true" /><h1 className="mt-4 text-2xl font-semibold text-white">今天先学什么？</h1><p className="mt-2 text-sm leading-6 text-zinc-400">科目是开始学习的唯一必选项。具体学了什么，结束后再按实际情况记录。</p>{commandMode === "now" ? <p className="mt-3 text-xs text-teal-200">已识别“立即开始”命令{commandText ? `：${commandText}` : ""}，选择科目后启动计时。</p> : null}</div>
+            <label className="grid gap-2 text-sm text-zinc-300">科目<select ref={subjectRef} value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="h-12 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" disabled={!subjects.length}><option value="">选择科目</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
             {!subjects.length ? <Alert tone="warning" title="还没有可用科目">先到设置 → 考试与科目添加至少一个科目。</Alert> : null}
             {error ? <Alert tone="danger">{error}</Alert> : null}
             <Button type="button" variant="primary" size="lg" className="w-full" onClick={start} loading={isPending} disabled={!subjects.length || !subjectId}><Play size={17} aria-hidden />开始学习</Button>

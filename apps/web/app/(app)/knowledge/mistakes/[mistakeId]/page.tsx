@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { MistakeDetailClient } from "@/components/mistake-detail-client";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { getOwnedMistakeDetail } from "@/lib/study/mistakes-service";
@@ -23,15 +24,17 @@ export default async function KnowledgeMistakeDetailPage({
   if (!detail) notFound();
 
   return (
-    <MistakeDetailClient
-      key={detail.mistake.id}
-      userId={user.id}
-      mistake={detail.mistake}
-      readOnly={detail.readOnly}
-      subjectArchived={detail.subjectArchived}
-      workspaceName={detail.workspaceName}
-      returnTo={returnTo}
-      renderedAt={new Date().toISOString()}
-    />
+    <PageFrame variant="content-focus">
+      <MistakeDetailClient
+        key={detail.mistake.id}
+        userId={user.id}
+        mistake={detail.mistake}
+        readOnly={detail.readOnly}
+        subjectArchived={detail.subjectArchived}
+        workspaceName={detail.workspaceName}
+        returnTo={returnTo}
+        renderedAt={new Date().toISOString()}
+      />
+    </PageFrame>
   );
 }

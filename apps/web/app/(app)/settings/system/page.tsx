@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { SettingsWorkbench } from "@/components/settings-workbench";
-import { ButtonLink } from "@/components/ui/button";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
@@ -20,7 +19,6 @@ export default async function SettingsSystemPage() {
         eyebrow="设置 / 系统"
         title="系统设置"
         description="查看版本与健康只读状态。Web 不执行 migration、deploy 或 updater apply。"
-        action={<ButtonLink href="/today" variant="secondary">返回今日行动</ButtonLink>}
       />
       <SettingsWorkbench userEmail={user.email} initialStatus={updateStatus} />
     </PageFrame>

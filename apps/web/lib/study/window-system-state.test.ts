@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   closeOrMinimizeWindow,
+  calculateVisibleWindowCount,
   focusWindow,
   mergeExternalWindows,
   mergeRestoredWindows,
@@ -9,7 +10,6 @@ import {
   normalizePersistedWindows,
   minimizeWindow,
   upsertWindow,
-  visibleWindowCount,
   type WindowInstance,
 } from "./window-system-state";
 
@@ -85,9 +85,14 @@ test("restoring persistence keeps a window opened during hydration", () => {
   assert.equal(restored.find((window) => window.key === "session-closeout")?.minimized, false);
 });
 
-test("visible window count uses the full dock width", () => {
-  assert.equal(visibleWindowCount(720), 4);
-  assert.equal(visibleWindowCount(540), 3);
-  assert.equal(visibleWindowCount(360), 2);
-  assert.equal(visibleWindowCount(200), 1);
+test("Dock only reserves the more affordance when an item is actually hidden", () => {
+  assert.equal(calculateVisibleWindowCount(720, [170, 170, 170, 170], new Map([[1, 100], [2, 100], [3, 100]])), 4);
+  assert.equal(calculateVisibleWindowCount(540, [170, 170, 170, 170], new Map([[1, 100], [2, 100], [3, 100]])), 2);
+  assert.equal(calculateVisibleWindowCount(360, [170, 170], new Map([[1, 100]])), 2);
+  assert.equal(calculateVisibleWindowCount(270, [170, 170], new Map([[1, 90]])), 1);
+});
+
+test("Dock does not collapse one item into more when it fits", () => {
+  assert.equal(calculateVisibleWindowCount(260, [170], new Map([[1, 120]])), 1);
+  assert.equal(calculateVisibleWindowCount(150, [170], new Map([[1, 120]])), 0);
 });

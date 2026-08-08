@@ -1,4 +1,4 @@
-import { ArrowRight, ClipboardCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge, EmptyState } from "@/components/ui/feedback";
@@ -19,7 +19,7 @@ export default async function KnowledgeRetestsPage() {
 
   return (
     <PageFrame variant="dashboard-wide">
-      <PageHeader eyebrow="检验 · 专项复测" title="专项复测" description="复测才知道是否稳定掌握；每次复测都留下结果和个人反馈。" action={<Link href={withReturnTo("/test/retests/new", "/test/retests")} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300"><ClipboardCheck size={16} aria-hidden="true" />安排复测</Link>} />
+      <PageHeader eyebrow="检验 · 专项复测" title="专项复测" description="复测才知道是否稳定掌握；每次复测都留下结果和个人反馈。" />
       <section className="space-y-3">
         <SectionHeader title="待处理复测" description="优先处理已到期或仍未收口的复测。" meta={<Badge tone={open.length ? "warning" : "neutral"}>{open.length} 项</Badge>} />
         {open.length ? <div className="divide-y divide-white/10 border-y border-white/10">{open.map((item) => <RetestRow key={item.id} item={item} />)}</div> : <EmptyState title="当前没有待处理复测" description="从知识点详情安排下一次复测，或继续学习后再安排。" />}

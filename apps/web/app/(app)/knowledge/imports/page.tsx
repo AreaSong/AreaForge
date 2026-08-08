@@ -25,12 +25,14 @@ export default async function KnowledgeImportsPage({
     listLearningTreeExportOptions(user.id),
   ]);
 
-  return <LearningTreeImportClient
-    userId={user.id}
-    imports={allImports.filter((item) => !item.archivedAt)}
-    archivedImports={allImports.filter((item) => Boolean(item.archivedAt))}
-    exportOptions={exportOptions}
-    initialView={initialView}
-    aiDraftPanel={<AiDraftPanel endpoint="learning-tree" userId={user.id} />}
-  />;
+  return (
+    <LearningTreeImportClient
+      userId={user.id}
+      imports={allImports.filter((item) => !item.archivedAt)}
+      archivedImports={allImports.filter((item) => Boolean(item.archivedAt))}
+      exportOptions={exportOptions}
+      initialView={initialView}
+      aiDraftPanel={<AiDraftPanel endpoint="learning-tree" userId={user.id} />}
+    />
+  );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { NoteLibrary } from "@/components/note-library";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { listNotes } from "@/lib/study/notes-service";
@@ -24,7 +25,7 @@ export default async function KnowledgeCardsPage({ searchParams }: { searchParam
   ]);
 
   return (
-    <div className="space-y-4">
+    <PageFrame variant="split-view" className="space-y-4">
       <h1 data-ai-current-object="true" data-ai-selectable data-ai-label="知识卡片" className="text-xl font-semibold text-white">知识卡片</h1>
       <p className="text-sm text-zinc-500">
         整理自己的理解、题解和复盘产出。
@@ -50,6 +51,6 @@ export default async function KnowledgeCardsPage({ searchParams }: { searchParam
         <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300">AI 卡片草稿</summary>
         <div className="mt-3"><AiDraftPanel endpoint="knowledge-card" userId={user.id} /></div>
       </details>
-    </div>
+    </PageFrame>
   );
 }

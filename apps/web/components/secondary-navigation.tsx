@@ -37,6 +37,7 @@ export function SecondaryNavigation(props: {
     <aside
       aria-label={`${props.workbench.label}二级导航`}
       data-navigation-level="secondary"
+      data-layout-region="secondary-navigation"
       className={`hidden min-h-0 shrink-0 flex-col border-r border-white/[0.07] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] lg:flex ${props.collapsed ? "w-[52px] px-1.5" : "w-[216px] px-3"}`}
     >
       <div className={`mb-5 flex items-center ${props.collapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>

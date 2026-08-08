@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { StudyResourceDetailClient } from "@/components/study-resource-detail-client";
+import { PageFrame } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
@@ -30,5 +31,9 @@ export default async function KnowledgeResourceDetailPage({
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
   });
-  return <StudyResourceDetailClient userId={user.id} resource={resource} options={options} returnTo={returnTo} />;
+  return (
+    <PageFrame variant="content-focus">
+      <StudyResourceDetailClient userId={user.id} resource={resource} options={options} returnTo={returnTo} />
+    </PageFrame>
+  );
 }

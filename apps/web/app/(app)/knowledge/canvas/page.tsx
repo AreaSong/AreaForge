@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { KnowledgeCanvasClient } from "@/components/knowledge-canvas-client";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { getKnowledgeCanvas } from "@/lib/study/knowledge-canvas-service";
@@ -26,14 +27,16 @@ export default async function KnowledgeCanvasPage({ searchParams }: { searchPara
     limit: 80,
   });
   return (
-    <KnowledgeCanvasClient
-      initial={canvas}
-      initialQuery={query.q}
-      initialEntityType={query.entityType}
-      initialSubjectId={query.subjectId}
-      initialRelationKind={query.relation}
-      initialStatus={query.status === "all" ? "all" : "active"}
-      initialView={query.view === "list" ? "list" : "canvas"}
-    />
+    <PageFrame variant="workspace-full">
+      <KnowledgeCanvasClient
+        initial={canvas}
+        initialQuery={query.q}
+        initialEntityType={query.entityType}
+        initialSubjectId={query.subjectId}
+        initialRelationKind={query.relation}
+        initialStatus={query.status === "all" ? "all" : "active"}
+        initialView={query.view === "list" ? "list" : "canvas"}
+      />
+    </PageFrame>
   );
 }

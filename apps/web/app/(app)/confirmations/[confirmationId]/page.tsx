@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ConfirmationWindowEntry } from "@/components/confirmation-window-entry";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 
@@ -12,5 +13,9 @@ export default async function ConfirmationDetailPage({ params }: {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { confirmationId } = await params;
-  return <ConfirmationWindowEntry filter="pending" confirmationId={decodeURIComponent(confirmationId)} />;
+  return (
+    <PageFrame variant="content-focus">
+      <ConfirmationWindowEntry filter="pending" confirmationId={decodeURIComponent(confirmationId)} />
+    </PageFrame>
+  );
 }

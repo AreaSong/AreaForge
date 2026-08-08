@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Inbox, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
 import { buttonClassName } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/overlays";
@@ -205,18 +204,6 @@ export function PlanRollingClient(props: {
         title="投入安排"
         eyebrow="长期计划"
         description="把长期目标落到当前执行窗口，处理欠账与待确认计划"
-        action={(
-          <div className="flex items-center gap-2">
-            <Link href={props.initial.inboxEntryPath} className={buttonClassName({ variant: "secondary" })}>
-              <Inbox className="h-4 w-4" aria-hidden="true" />
-              投入草稿 {props.initial.openInboxCount}
-            </Link>
-            <button type="button" className={buttonClassName({ variant: "primary" })} onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              新建任务
-            </button>
-          </div>
-        )}
       />
       {props.sourceResource ? (
         <p className={`rounded-md border px-3 py-2 text-sm ${props.sourceResource.archived ? "border-red-400/30 text-red-200" : "border-teal-400/20 text-teal-100"}`}>

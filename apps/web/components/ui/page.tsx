@@ -6,7 +6,7 @@ const frameClass: Record<PageFrameVariant, string> = {
   "dashboard-wide": "w-full space-y-6",
   "split-view": "min-h-0 w-full",
   "content-focus": "mx-auto w-full max-w-4xl space-y-6",
-  "workspace-full": "min-h-0 w-full",
+  "workspace-full": "h-full min-h-0 w-full",
 };
 
 export function PageFrame(props: {
@@ -14,7 +14,15 @@ export function PageFrame(props: {
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={`${frameClass[props.variant]} ${props.className ?? ""}`}>{props.children}</div>;
+  return (
+    <div
+      className={`${frameClass[props.variant]} ${props.className ?? ""}`}
+      data-layout-region="page-frame"
+      data-page-template={props.variant}
+    >
+      {props.children}
+    </div>
+  );
 }
 
 export function PageHeader(props: {

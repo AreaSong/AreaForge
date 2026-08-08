@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { parseSafeMarkdown } from "@areaforge/core";
 import { DetailHeading } from "@/components/detail-heading";
 import { SafeMarkdownView } from "@/components/safe-markdown-view";
+import { PageFrame } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
@@ -43,7 +44,8 @@ export default async function StudyResourcePreviewPage({
     : null;
 
   return (
-    <article className="space-y-4">
+    <PageFrame variant="workspace-full">
+      <article className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div><p className="text-sm text-teal-300">私有鉴权预览</p><DetailHeading className="mt-1 text-xl font-semibold text-white">{resource.title}</DetailHeading></div>
         <div className="flex gap-2"><Link className="h-10 rounded-md border border-white/10 px-3 text-sm leading-10 text-zinc-200" href={returnTo}>返回资料详情</Link><a className="h-10 rounded-md bg-teal-500 px-3 text-sm font-medium leading-10 text-black" href={`/api/study-resources/${resource.id}/download?disposition=attachment`}>下载资料</a></div>
@@ -60,6 +62,7 @@ export default async function StudyResourcePreviewPage({
           <p><span className="text-zinc-500">标签</span><br /><span className="text-zinc-200">{resource.tags.join("、") || "无"}</span></p>
         </aside>
       </div>
-    </article>
+      </article>
+    </PageFrame>
   );
 }

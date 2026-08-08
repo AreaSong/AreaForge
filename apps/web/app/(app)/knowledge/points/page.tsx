@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { KnowledgePointsWorkbench } from "@/components/knowledge-points-workbench";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 import { listSubjects } from "@/lib/study/service";
@@ -22,12 +23,14 @@ export default async function KnowledgePointsPage({ searchParams }: { searchPara
   ]);
 
   return (
-    <KnowledgePointsWorkbench
-      subjects={subjects}
-      knowledgePoints={knowledgePoints}
-      initialSubjectId={query.subjectId}
-      initialQuery={query.q}
-      initialMasteryStatus={masteryStatus}
-    />
+    <PageFrame variant="split-view">
+      <KnowledgePointsWorkbench
+        subjects={subjects}
+        knowledgePoints={knowledgePoints}
+        initialSubjectId={query.subjectId}
+        initialQuery={query.q}
+        initialMasteryStatus={masteryStatus}
+      />
+    </PageFrame>
   );
 }

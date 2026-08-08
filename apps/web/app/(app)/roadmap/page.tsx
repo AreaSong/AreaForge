@@ -1,4 +1,4 @@
-import { ArrowRight, BarChart3, ClipboardList, Flag, Inbox, Route } from "lucide-react";
+import { ArrowRight, BarChart3, ClipboardList, Flag, Inbox } from "lucide-react";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
@@ -21,7 +21,6 @@ export default function RoadmapOverviewPage() {
         eyebrow="路线"
         title="长期路线"
         description="从当前事实判断下一步，不把计划本身当成学习成果。"
-        action={<ButtonLink href="/focus" variant="primary"><Route size={16} aria-hidden="true" />开始学习</ButtonLink>}
       />
       <section className="space-y-4">
         <SectionHeader title="路线工作台" description="四个视图共享同一套路线状态，详情页沿用这里的二级导航。" />

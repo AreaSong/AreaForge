@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { AiSettingsClient } from "@/components/ai-settings-client";
-import { ButtonLink } from "@/components/ui/button";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
@@ -27,7 +26,6 @@ export default async function SettingsAiPage() {
         eyebrow="设置 / AI"
         title="AI 设置"
         description="仅显式提交触发；四类草稿需选中文本并预览。密钥与 binding secret 不进入客户端。"
-        action={<ButtonLink href="/today" variant="secondary">返回今日行动</ButtonLink>}
       />
       <AiSettingsClient
         userId={user.id}

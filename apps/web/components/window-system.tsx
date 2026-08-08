@@ -10,12 +10,14 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
 } from "react";
 import {
   closeOrMinimizeWindow,
+  calculateVisibleWindowCount,
   closeWindow as removeWindow,
   focusWindow as focusWindowState,
   minimizeWindow as minimizeWindowState,
@@ -24,7 +26,6 @@ import {
   nextForegroundKey,
   normalizePersistedWindows,
   upsertWindow,
-  visibleWindowCount,
   type WindowClosePolicy,
   type WindowInstance,
   type WindowWorkState,
@@ -432,7 +433,7 @@ function WindowHost(props: { definitionsRef: React.MutableRefObject<Map<string, 
   if (!foreground || foreground.minimized || !definition) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[80]" aria-live="polite">
+    <div className="pointer-events-none fixed inset-0 z-[80]">
       <section
         ref={panelRef}
         role="dialog"
@@ -445,6 +446,29 @@ function WindowHost(props: { definitionsRef: React.MutableRefObject<Map<string, 
           if (event.key === "Escape") {
             event.preventDefault();
             requestCloseWindow(foreground.key);
+            return;
+          }
+          if (event.key !== "Tab") return;
+          const focusable = Array.from(panelRef.current?.querySelectorAll<HTMLElement>([
+            "button:not([disabled])",
+            "a[href]",
+            "input:not([disabled])",
+            "select:not([disabled])",
+            "textarea:not([disabled])",
+            '[tabindex]:not([tabindex="-1"])',
+          ].join(",")) ?? []);
+          if (focusable.length === 0) {
+            event.preventDefault();
+            panelRef.current?.focus({ preventScroll: true });
+            return;
+          }
+          const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+          if (event.shiftKey && currentIndex <= 0) {
+            event.preventDefault();
+            focusable[focusable.length - 1]?.focus({ preventScroll: true });
+          } else if (!event.shiftKey && currentIndex === focusable.length - 1) {
+            event.preventDefault();
+            focusable[0]?.focus({ preventScroll: true });
           }
         }}
       >
@@ -489,16 +513,60 @@ function createSourceId(): string {
 export function WindowDock() {
   const { windows, foregroundKey, focusWindow, requestCloseWindow } = useWindowSystem();
   const [expanded, setExpanded] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(3);
+  const [visibleCount, setVisibleCount] = useState(windows.length);
   const dockRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const moreTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
   const background = windows.filter((window) => window.key !== foregroundKey);
+  const backgroundSignature = background.map((window) => `${window.key}:${window.title}`).join("|");
 
   useEffect(() => {
+    if (!expanded) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && dockRef.current?.contains(target)) return;
+      setExpanded(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [expanded]);
+
+  const visible = background.slice(0, visibleCount);
+  const hidden = background.slice(visibleCount);
+  const menuOpen = expanded && hidden.length > 0;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
+  }, [menuOpen]);
+
+  useEffect(() => {
+    const measurement = measureRef.current;
     const update = () => {
       const width = measureAvailableDockWidth(dockRef.current);
-      setVisibleCount(visibleWindowCount(width));
+      const itemWidths = measurement
+        ? Array.from(measurement.querySelectorAll<HTMLElement>("[data-window-measure-item]")).map((item) => item.getBoundingClientRect().width)
+        : [];
+      if (itemWidths.length !== background.length) return;
+      const moreWidths = new Map<number, number>();
+      measurement?.querySelectorAll<HTMLElement>("[data-window-measure-more]").forEach((item) => {
+        const hiddenCount = Number(item.dataset.windowMeasureMore);
+        if (Number.isFinite(hiddenCount)) moreWidths.set(hiddenCount, item.getBoundingClientRect().width);
+      });
+      if (moreWidths.size === 0) moreWidths.set(1, 112);
+      setVisibleCount(calculateVisibleWindowCount(width, itemWidths, moreWidths));
     };
     update();
+    const frame = window.requestAnimationFrame(update);
     window.addEventListener("resize", update);
     const observer = typeof ResizeObserver === "undefined"
       ? null
@@ -506,42 +574,84 @@ export function WindowDock() {
     const dock = dockRef.current;
     const parent = dock?.parentElement ?? null;
     if (dock) observer?.observe(dock);
+    if (measurement) observer?.observe(measurement);
     if (parent) {
       observer?.observe(parent);
       for (const child of Array.from(parent.children)) observer?.observe(child);
     }
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", update);
       observer?.disconnect();
     };
-  }, []);
+  }, [background.length, backgroundSignature]);
 
   if (background.length === 0) return null;
-  const inlineCount = background.length - visibleCount === 1 && visibleCount > 1
-    ? visibleCount + 1
-    : visibleCount;
-  const visible = background.slice(0, inlineCount);
-  const hidden = background.slice(inlineCount);
 
   return (
-    <div ref={dockRef} className="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-visible" data-window-dock="true">
+    <div ref={dockRef} className="relative flex min-w-0 flex-1 items-center justify-end gap-2 overflow-visible" data-window-dock="true" aria-label="后台窗口">
+      <div ref={measureRef} className="pointer-events-none invisible absolute left-0 top-0 flex h-0 w-max gap-2 overflow-hidden" aria-hidden="true">
+        {background.map((window) => <DockMeasureItem key={window.key} window={window} />)}
+        {Array.from({ length: Math.max(1, background.length) }, (_, index) => index + 1).map((hiddenCount) => (
+          <span key={hiddenCount} data-window-measure-more={hiddenCount} className="inline-flex h-8 items-center gap-1 rounded-md border border-white/10 px-2 text-xs">更多窗口 {hiddenCount}</span>
+        ))}
+      </div>
       {visible.map((window) => <DockItem key={window.key} window={window} onOpen={() => focusWindow(window.key)} onClose={() => requestCloseWindow(window.key)} />)}
       {hidden.length > 0 ? (
         <div className="relative">
-          <button type="button" className="inline-flex h-8 items-center gap-1 rounded-md border border-white/10 px-2 text-xs text-zinc-400 hover:bg-white/10 hover:text-zinc-100" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
+          <button
+            ref={moreTriggerRef}
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-white/10 px-2 text-xs text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+            onClick={() => setExpanded((current) => !current)}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            aria-controls={menuId}
+          >
             <ChevronDown size={14} aria-hidden="true" />更多窗口 {hidden.length}
           </button>
-          {expanded ? <div className="absolute right-0 bottom-10 z-[90] min-w-64 rounded-md border border-white/15 bg-[#101419] p-2 shadow-xl">{hidden.map((window) => <DockItem key={window.key} window={window} onOpen={() => { setExpanded(false); focusWindow(window.key); }} onClose={() => requestCloseWindow(window.key)} />)}</div> : null}
+          {menuOpen ? (
+            <div ref={menuRef} id={menuId} role="menu" aria-label="更多后台窗口" className="absolute right-0 bottom-10 z-[90] min-w-64 rounded-md border border-white/15 bg-[#101419] p-2 shadow-xl" onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setExpanded(false);
+                moreTriggerRef.current?.focus({ preventScroll: true });
+                return;
+              }
+              if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+              const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+              if (items.length === 0) return;
+              event.preventDefault();
+              const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+              const nextIndex = event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? items.length - 1
+                  : (currentIndex + (event.key === "ArrowUp" ? -1 : 1) + items.length) % items.length;
+              items[nextIndex]?.focus({ preventScroll: true });
+            }}>
+              {hidden.map((window) => <DockItem key={window.key} window={window} menuItem onOpen={() => { setExpanded(false); focusWindow(window.key); }} onClose={() => requestCloseWindow(window.key)} />)}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
   );
 }
 
-function DockItem(props: { window: WindowInstance; onOpen: () => void; onClose: () => void }) {
+function DockMeasureItem({ window }: { window: WindowInstance }) {
   return (
-    <div className="flex max-w-48 items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2 py-1 text-xs text-zinc-300">
-      <button type="button" className="min-w-0 flex-1 truncate text-left hover:text-white" onClick={props.onOpen} title={`打开${props.window.title}`}>{props.window.title}</button>
+    <span data-window-measure-item className="flex max-w-48 items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2 py-1 text-xs">
+      <span className="min-w-0 truncate">{window.title}</span>
+      <span className="inline-flex size-5 shrink-0" aria-hidden="true"><X size={12} /></span>
+    </span>
+  );
+}
+
+function DockItem(props: { window: WindowInstance; onOpen: () => void; onClose: () => void; menuItem?: boolean }) {
+  return (
+    <div role={props.menuItem ? "none" : undefined} className="flex max-w-48 items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2 py-1 text-xs text-zinc-300">
+      <button type="button" role={props.menuItem ? "menuitem" : undefined} className="min-w-0 flex-1 truncate text-left hover:text-white" onClick={props.onOpen} title={`打开${props.window.title}`}>{props.window.title}</button>
       <button type="button" className="inline-flex size-5 items-center justify-center rounded text-zinc-600 hover:bg-white/10 hover:text-zinc-200" onClick={props.onClose} aria-label={`关闭${props.window.title}`} title="关闭"><X size={12} aria-hidden="true" /></button>
     </div>
   );

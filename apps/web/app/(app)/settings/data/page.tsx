@@ -1,7 +1,6 @@
 import { Download, FileInput, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ButtonLink } from "@/components/ui/button";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
@@ -19,7 +18,6 @@ export default async function SettingsDataPage() {
         eyebrow="设置 / 数据与安全"
         title="数据与安全"
         description="管理学习树的导入导出入口，了解数据边界和恢复原则。删除、迁移与生产备份仍由受控运维流程处理。"
-        action={<ButtonLink href="/today" variant="secondary">返回今日行动</ButtonLink>}
       />
       <section className="space-y-4">
         <SectionHeader title="学习树数据" description="导入和导出都先预览范围，再由你明确确认。" />

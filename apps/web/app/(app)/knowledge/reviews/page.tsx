@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ReviewScheduleQueue } from "@/components/review-schedule-queue";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/batch7";
 import {
@@ -26,7 +27,7 @@ export default async function KnowledgeReviewsPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <PageFrame variant="split-view" className="space-y-6">
       <ReviewScheduleQueue
         dueItems={dueItems}
         pausedItems={pausedItems}
@@ -34,6 +35,6 @@ export default async function KnowledgeReviewsPage() {
         recentEvents={recentEvents}
         summary={summary}
       />
-    </div>
+    </PageFrame>
   );
 }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { FocusLauncher } from "@/components/focus-launcher";
 import { FocusSessionClient } from "@/components/focus-session-client";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
 import { activitySourcePath } from "@/lib/study/activity-route";
@@ -11,7 +12,7 @@ import { listSyllabusOptions } from "@/lib/study/syllabus-service";
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/focus");
 
-export default async function FocusLandingPage({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
+export default async function FocusLandingPage({ searchParams }: { searchParams: Promise<{ returnTo?: string; mode?: string; command?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const query = await searchParams;
@@ -31,17 +32,23 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
     if (!session) redirect("/focus");
     const evidenceReceipts = await listStudySessionEvidenceReceipts(session.id, user.id);
     return (
-      <FocusSessionClient
-        userId={user.id}
-        session={session}
-        activeConflictId={null}
-        returnTo={returnTo}
-        initialNow={new Date().toISOString()}
-        initialEvidenceReceipts={evidenceReceipts}
-        contextOptions={{ tasks, syllabusNodes, knowledgePoints }}
-        embeddedInWorkbench
-      />
+      <PageFrame variant="workspace-full">
+        <FocusSessionClient
+          userId={user.id}
+          session={session}
+          activeConflictId={null}
+          returnTo={returnTo}
+          initialNow={new Date().toISOString()}
+          initialEvidenceReceipts={evidenceReceipts}
+          contextOptions={{ tasks, syllabusNodes, knowledgePoints }}
+          embeddedInWorkbench
+        />
+      </PageFrame>
     );
   }
-  return <FocusLauncher subjects={subjects} userId={user.id} returnTo={returnTo} initialNow={new Date().toISOString()} contextOptions={{ tasks, syllabusNodes, knowledgePoints }} />;
+  return (
+    <PageFrame variant="workspace-full">
+      <FocusLauncher subjects={subjects} userId={user.id} returnTo={returnTo} initialNow={new Date().toISOString()} contextOptions={{ tasks, syllabusNodes, knowledgePoints }} commandMode={query.mode === "now" ? "now" : undefined} commandText={query.command} />
+    </PageFrame>
+  );
 }

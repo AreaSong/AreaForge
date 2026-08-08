@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/feedback";
-import { PageHeader, SectionHeader } from "@/components/ui/page";
+import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, withReturnTo } from "@/lib/navigation/batch7";
 import { getKnowledgeOverview } from "@/lib/study/knowledge-canvas-service";
@@ -24,7 +24,7 @@ export default async function KnowledgeOverviewPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <PageFrame variant="dashboard-wide">
       <PageHeader
         eyebrow={overview.workspaceName}
         title="知识概览"
@@ -64,7 +64,7 @@ export default async function KnowledgeOverviewPage() {
       </div>
 
       <section className="space-y-4">
-        <SectionHeader title="最近学习证据" description="专注收口产生的卡片与错题会在这里继续进入复习。" action={<ButtonLink href="/knowledge/canvas" variant="ghost" size="sm"><Network size={15} aria-hidden />查看关联</ButtonLink>} />
+        <SectionHeader title="最近学习证据" description="专注收口产生的卡片与错题会在这里继续进入复习。" />
         {overview.recentEvidence.length ? (
           <ul className="divide-y divide-white/10 border-y border-white/10">
             {overview.recentEvidence.map((item) => (
@@ -81,7 +81,7 @@ export default async function KnowledgeOverviewPage() {
       </section>
 
       {overview.weakNodes > 0 ? <p className="flex items-center gap-2 border-l-2 border-amber-400/60 pl-3 text-sm text-amber-100"><CircleAlert size={16} aria-hidden />还有 {overview.weakNodes} 个薄弱节点，完成到期复习后再处理。</p> : null}
-    </div>
+    </PageFrame>
   );
 }
 

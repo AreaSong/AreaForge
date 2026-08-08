@@ -1,6 +1,5 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
@@ -475,7 +474,6 @@ export function StudyResourceWorkbench(props: {
         title="资料"
         eyebrow="知识工作台"
         description={`${props.resources.length} 份当前资料${props.archivedResources.length ? ` · ${props.archivedResources.length} 份已归档` : ""}`}
-        action={<Button type="button" variant="primary" onClick={() => setCreateOpen(true)}><Plus size={16} aria-hidden />添加资料</Button>}
       />
       {unresolvedUploads.length ? (
         <Alert

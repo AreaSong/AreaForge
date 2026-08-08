@@ -47,25 +47,29 @@ export function GlobalActivitySlot(props: {
   activeSession: StudySessionDto | null;
   offlineSession: StudySessionDto | null;
   quickReviewClaim: QuickReviewActivityClaim | null;
+  interactive?: boolean;
 }) {
   const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getServerNowSnapshot);
   const activity = getActivity(props.activeSession, props.offlineSession, props.quickReviewClaim, now);
+  const interactive = props.interactive ?? true;
 
   return (
-    <div className="flex min-w-0 justify-center" aria-live="polite">
+    <span className="flex min-w-0 justify-center" aria-live="polite">
       {activity ? (
-        <Link
-          href={activity.href}
-          className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-white/[0.06] sm:min-w-[13rem] sm:gap-2 sm:px-3 ${activity.themeClass}`}
-          aria-label={`${activity.kindLabel}：${activity.subjectLabel}，${formatDuration(activity.elapsedSeconds)}，${activity.statusLabel}`}
-          title="打开当前唯一活动"
-        >
-          <activity.Icon size={15} className={`shrink-0 ${activity.iconClass}`} aria-hidden="true" />
-          <span className="hidden max-w-20 truncate sm:inline">{activity.kindLabel}</span>
-          <span className="max-w-24 truncate text-zinc-200 sm:max-w-32">{activity.subjectLabel}</span>
-          <span className="font-mono tabular-nums text-teal-200">{formatDuration(activity.elapsedSeconds)}</span>
-          <span className="hidden text-zinc-500 sm:inline">{activity.statusLabel}</span>
-        </Link>
+        interactive ? (
+          <Link
+            href={activity.href}
+            className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-white/[0.06] sm:min-w-[13rem] sm:gap-2 sm:px-3 ${activity.themeClass}`}
+            aria-label={`${activity.kindLabel}：${activity.subjectLabel}，${formatDuration(activity.elapsedSeconds)}，${activity.statusLabel}`}
+            title="打开当前唯一活动"
+          >
+            <ActivityContent activity={activity} />
+          </Link>
+        ) : (
+          <span className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 border-transparent px-0 text-xs sm:min-w-[13rem] sm:justify-center sm:gap-2 sm:px-3 ${activity.themeClass}`}>
+            <ActivityContent activity={activity} />
+          </span>
+        )
       ) : (
         <span className="inline-flex h-9 min-w-0 items-center gap-1.5 rounded-md border border-white/10 px-2 text-xs text-zinc-600 sm:min-w-[13rem] sm:justify-center sm:px-3">
           <Timer size={14} aria-hidden="true" />
@@ -73,7 +77,19 @@ export function GlobalActivitySlot(props: {
           <span className="sm:hidden">未计时</span>
         </span>
       )}
-    </div>
+    </span>
+  );
+}
+
+function ActivityContent({ activity }: { activity: Activity }) {
+  return (
+    <>
+      <activity.Icon size={15} className={`shrink-0 ${activity.iconClass}`} aria-hidden="true" />
+      <span className="hidden max-w-20 truncate sm:inline">{activity.kindLabel}</span>
+      <span className="max-w-24 truncate text-zinc-200 sm:max-w-32">{activity.subjectLabel}</span>
+      <span className="font-mono tabular-nums text-teal-200">{formatDuration(activity.elapsedSeconds)}</span>
+      <span className="hidden text-zinc-500 sm:inline">{activity.statusLabel}</span>
+    </>
   );
 }
 

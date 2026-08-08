@@ -59,7 +59,7 @@ export const BATCH10_NAV_ITEMS: readonly AppNavigationItem[] = [
   {
     href: "/test/retests",
     label: "检验",
-    match: (path: string) => TEST_NAV_ITEMS.some((item) => item.match(path)),
+    match: (path: string) => path === "/test" || TEST_NAV_ITEMS.some((item) => item.match(path)),
     children: TEST_NAV_ITEMS,
   },
   {
@@ -106,6 +106,7 @@ const REGISTERED_ROUTES: readonly RegisteredRoute[] = [
   { pattern: /^\/roadmap\/reviews$/, title: "周期复盘", returnQueryKeys: ["tab", "period"] },
   { pattern: /^\/roadmap\/reviews\/daily$/, title: "每日复盘" },
   { pattern: /^\/roadmap\/reviews\/history\/[^/]+$/, title: "冻结报告", returnQueryKeys: ["period"] },
+  { pattern: /^\/test$/, title: "检验中心" },
   { pattern: /^\/test\/retests$/, title: "专项复测" },
   { pattern: /^\/test\/retests\/new$/, title: "安排专项复测" },
   { pattern: /^\/test\/retests\/[^/]+$/, title: "专项复测详情", returnQueryKeys: ["returnTo"] },
@@ -181,6 +182,7 @@ export function isWorkbenchHomePath(pathname: string): boolean {
     || pathname === "/roadmap/stages"
     || pathname === "/roadmap/reviews"
     || pathname === "/knowledge"
+    || pathname === "/test"
     || pathname === "/test/retests"
     || pathname === "/confirmations"
     || pathname === "/settings"

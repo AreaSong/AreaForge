@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, FileText, Plus, Upload } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, FileText, Upload } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
@@ -87,24 +87,22 @@ export function LearningTreeImportWorkbenchView({
   const returnTo = sanitizeReturnPath(`${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`);
   return (
     <PageFrame variant="dashboard-wide" className="space-y-5">
-      {state.view === "overview" ? <ImportOverview state={state} actions={actions} returnTo={returnTo} /> : null}
+      {state.view === "overview" ? <ImportOverview state={state} returnTo={returnTo} /> : null}
       {state.view === "import" ? <ImportWorkspace state={state} actions={actions} /> : null}
       {state.view === "export" ? <ExportWorkspace state={state} actions={actions} /> : null}
     </PageFrame>
   );
 }
 
-function ImportOverview({ state, actions, returnTo }: { state: WorkbenchState; actions: WorkbenchActions; returnTo: string }) {
+function ImportOverview({ state, returnTo }: { state: WorkbenchState; returnTo: string }) {
   return (
     <>
       <PageHeader
         eyebrow="知识工作台"
         title="学习树导入"
         description={`${state.imports.length} 个当前批次${state.archivedImports.length ? ` · ${state.archivedImports.length} 个已归档` : ""}`}
-        action={<Button type="button" variant="primary" onClick={() => actions.changeView("import")}><Plus size={16} aria-hidden />开始导入</Button>}
       />
       <Toolbar label="学习树工具">
-        <Button type="button" variant="secondary" onClick={() => actions.changeView("export")}><Download size={16} aria-hidden />导出当前学习树</Button>
         {state.draftRestored || state.aiDraftLoaded ? <Badge tone="warning">存在可恢复草稿</Badge> : null}
       </Toolbar>
       <LearningTreeImportHistory title="导入历史" imports={state.imports} archived={false} returnTo={returnTo} />
@@ -125,7 +123,6 @@ function ImportWorkspace({ state, actions }: { state: WorkbenchState; actions: W
         eyebrow="学习树工作台"
         title="导入学习树"
         description={state.preview ? `${state.preview.objectCount} 个对象 · ${state.preview.items.length} 项差异` : "Markdown 草稿会在本设备保留 24 小时"}
-        back={<Button type="button" variant="ghost" size="sm" onClick={() => actions.changeView("overview")}><ArrowLeft size={16} aria-hidden />返回导入历史</Button>}
         status={<div className="flex flex-wrap gap-2"><Badge tone={state.preview ? "success" : "info"}>{state.preview ? "差异已生成" : "准备内容"}</Badge>{state.hasConflict ? <Badge tone="warning">需要重新预览</Badge> : null}</div>}
       />
       {state.draftRestored || state.aiDraftLoaded ? (
@@ -180,7 +177,6 @@ function ExportWorkspace({ state, actions }: { state: WorkbenchState; actions: W
         eyebrow="学习树工作台"
         title="导出当前学习树"
         description="先核对导出范围和敏感内容摘要，再显式确认下载。"
-        back={<Button type="button" variant="ghost" size="sm" onClick={() => actions.changeView("overview")}><ArrowLeft size={16} aria-hidden />返回导入历史</Button>}
       />
       <section className="space-y-3 border-t border-white/10 pt-6">
         <SectionHeader title="导出范围" />

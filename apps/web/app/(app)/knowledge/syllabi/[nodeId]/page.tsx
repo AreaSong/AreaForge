@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { SyllabusDetailClient } from "@/components/syllabus-detail-client";
+import { PageFrame } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
@@ -24,5 +25,9 @@ export default async function KnowledgeSyllabiDetailPage({ params, searchParams 
     listReviewSchedules(user.id),
   ]);
 
-  return <SyllabusDetailClient node={node} parentOptions={parentOptions} schedule={schedules.find((item) => item.syllabusNodeId === node.id) ?? null} renderedAt={new Date().toISOString()} returnTo={returnTo} />;
+  return (
+    <PageFrame variant="content-focus">
+      <SyllabusDetailClient node={node} parentOptions={parentOptions} schedule={schedules.find((item) => item.syllabusNodeId === node.id) ?? null} renderedAt={new Date().toISOString()} returnTo={returnTo} />
+    </PageFrame>
+  );
 }

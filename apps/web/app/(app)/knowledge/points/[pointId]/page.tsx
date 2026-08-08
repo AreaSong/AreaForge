@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { ButtonLink } from "@/components/ui/button";
 import { KnowledgePointDetail } from "@/components/knowledge-point-detail";
-import { PageHeader } from "@/components/ui/page";
+import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
 import { getKnowledgePoint } from "@/lib/study/knowledge-point-service";
@@ -20,7 +20,7 @@ export default async function KnowledgePointDetailPage({ params, searchParams }:
   if (!knowledgePoint) notFound();
 
   return (
-    <div className="space-y-6">
+    <PageFrame variant="content-focus">
       <PageHeader
         eyebrow={`${knowledgePoint.subject.name} · 知识点`}
         title={knowledgePoint.title}
@@ -28,6 +28,6 @@ export default async function KnowledgePointDetailPage({ params, searchParams }:
         back={<ButtonLink href={returnTo} variant="ghost" size="sm"><ArrowLeft size={15} aria-hidden />返回知识点</ButtonLink>}
       />
       <KnowledgePointDetail knowledgePoint={knowledgePoint} />
-    </div>
+    </PageFrame>
   );
 }

@@ -85,9 +85,45 @@ export function nextForegroundKey(current: WindowInstance[], closedKey?: string)
     .sort((left, right) => right.updatedAt - left.updatedAt)[0]?.key ?? null;
 }
 
-export function visibleWindowCount(containerWidth: number, itemWidth = 180, reservedWidth = 0): number {
-  if (!Number.isFinite(containerWidth) || containerWidth <= 0) return 1;
-  return Math.max(1, Math.floor((containerWidth - reservedWidth) / itemWidth));
+/**
+ * Calculate how many background windows can remain inline in the Dock.
+ *
+ * The Dock must reserve the actual width of the "more" affordance only when
+ * at least one item is hidden. The old fixed-item-count calculation could
+ * collapse a window even though the measured row still had room.
+ */
+export function calculateVisibleWindowCount(
+  availableWidth: number,
+  itemWidths: readonly number[],
+  moreWidthByHiddenCount: ReadonlyMap<number, number> | Readonly<Record<number, number>> = new Map(),
+  gap = 8,
+): number {
+  if (!Number.isFinite(availableWidth) || availableWidth <= 0 || itemWidths.length === 0) return 0;
+
+  const widthForHiddenCount = (hiddenCount: number): number => {
+    if (moreWidthByHiddenCount instanceof Map) {
+      return moreWidthByHiddenCount.get(hiddenCount) ?? moreWidthByHiddenCount.get(1) ?? 0;
+    }
+    const record = moreWidthByHiddenCount as Readonly<Record<number, number>>;
+    return record[hiddenCount] ?? record[1] ?? 0;
+  };
+
+  const allWidth = itemWidths.reduce((sum, width) => sum + Math.max(0, width), 0)
+    + gap * Math.max(0, itemWidths.length - 1);
+  if (allWidth <= availableWidth) return itemWidths.length;
+
+  let usedWidth = 0;
+  let visibleCount = 0;
+  for (const rawWidth of itemWidths) {
+    const width = Math.max(0, rawWidth);
+    const nextWidth = usedWidth + (visibleCount > 0 ? gap : 0) + width;
+    const hiddenCount = itemWidths.length - visibleCount - 1;
+    const moreWidth = hiddenCount > 0 ? gap + widthForHiddenCount(hiddenCount) : 0;
+    if (nextWidth + moreWidth > availableWidth) break;
+    usedWidth = nextWidth;
+    visibleCount += 1;
+  }
+  return visibleCount;
 }
 
 export function normalizePersistedWindows(value: unknown): WindowInstance[] {

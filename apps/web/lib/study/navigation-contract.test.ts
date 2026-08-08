@@ -33,6 +33,10 @@ test("navigation trails keep reused secondary labels and object depth", () => {
     { href: "/test/retests", label: "检验" },
     { href: "/test/simulations", label: "模拟考试" },
   ]);
+  assert.deepEqual(getNavigationTrail("/test"), [
+    { href: "/test/retests", label: "检验" },
+    { href: "/test", label: "检验中心" },
+  ]);
   assert.deepEqual(getNavigationTrail("/knowledge/points/point-1"), [
     { href: "/knowledge", label: "知识" },
     { href: "/knowledge/points", label: "知识点" },
@@ -141,24 +145,43 @@ test("simulation detail falls back to its list instead of itself", () => {
   assert.doesNotMatch(source, /: `\/test\/simulations\/\$\{encodeURIComponent\(examId\)\}`/);
 });
 
-test("shared toolbar owns the single activity slot, shared timer, and confirmation drawer", () => {
+test("global shell owns the activity slot, command palette, status bar, and confirmation drawer", () => {
   const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
   const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
+  const topbar = readFileSync(resolve(process.cwd(), "components/global-top-bar.tsx"), "utf8");
   const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
   const confirmationRoute = readFileSync(resolve(process.cwd(), "app/api/confirmations/route.ts"), "utf8");
   const focusLauncher = readFileSync(resolve(process.cwd(), "components/focus-launcher.tsx"), "utf8");
   const focusSession = readFileSync(resolve(process.cwd(), "components/focus-session-client.tsx"), "utf8");
-  assert.match(shell, /<GlobalActivitySlot/);
+  assert.match(shell, /<GlobalTopBar/);
   assert.match(shell, /readFocusOfflineSnapshot/);
+  assert.match(topbar, /<GlobalActivitySlot/);
+  assert.match(topbar, /<GlobalCommandPalette/);
   assert.match(shell, /offlineSession=\{offlineFocusSession\}/);
-  assert.match(shell, /<GlobalConfirmationCenter/);
-  assert.match(toolbar, /font-mono tabular-nums/);
-  assert.match(toolbar, /activitySourcePath\(active\)/);
+  assert.match(topbar, /<GlobalConfirmationCenter/);
+  assert.match(toolbar, /data-layout-region="global-context-status-bar"/);
+  assert.doesNotMatch(toolbar, /activitySourcePath\(active\)/);
   assert.match(confirmation, /\/api\/confirmations\?filter=pending/);
   assert.match(confirmation, /\/confirmations\/history/);
   assert.match(confirmationRoute, /listConfirmationItems\(user\.id, filter\)/);
   assert.match(focusLauncher, /publishFocusSyncEvent\(userId, syncState, localSession\)/);
   assert.match(focusSession, /publishFocusSyncEvent\(props\.userId, "pending", projected\)/);
+});
+
+test("page templates and immersive pages retain stable layout contracts", () => {
+  const page = readFileSync(resolve(process.cwd(), "components/ui/page.tsx"), "utf8");
+  const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
+  assert.match(page, /data-layout-region="page-frame"/);
+  assert.match(page, /data-page-template=\{props\.variant\}/);
+  assert.match(shell, /<PageToolbar \/>/);
+  assert.match(shell, /data-layout-region="immersive-content"/);
+});
+
+test("composite workbenches own their single page frame", () => {
+  const importsPage = readFileSync(resolve(process.cwd(), "app/(app)/knowledge/imports/page.tsx"), "utf8");
+  const importsView = readFileSync(resolve(process.cwd(), "components/learning-tree-import-workbench-view.tsx"), "utf8");
+  assert.doesNotMatch(importsPage, /PageFrame/);
+  assert.match(importsView, /<PageFrame variant="dashboard-wide"/);
 });
 
 test("activity source paths keep each timer in its own workbench", () => {

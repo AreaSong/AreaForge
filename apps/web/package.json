@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test lib/study/*.test.ts",
+    "test": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test lib/study/*.test.ts lib/navigation/*.test.ts",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },

@@ -4,10 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity,
-  TriangleAlert,
-} from "lucide-react";
-import {
   buildForegroundNotificationPayload,
   evaluateAutomaticMotivationGate,
   sanitizeForegroundNotificationRoute,
@@ -15,7 +11,6 @@ import {
   selectForegroundNotifications,
 } from "@areaforge/core";
 import { GlobalRecoveryHelp } from "@/components/global-recovery-help";
-import { BrandMark } from "@/components/brand-logo";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import {
   MOTIVATION_REMINDER_PREFERENCE_EVENT,
@@ -33,15 +28,12 @@ import {
   syncFocusOfflineQueue,
 } from "@/lib/client/focus-offline-store";
 import { getClientDeviceHeaders } from "@/lib/client/device-identity";
-import { GlobalAiAssistant } from "@/components/global-ai-assistant";
-import { GlobalActivitySlot } from "@/components/global-activity-slot";
-import { GlobalConfirmationCenter } from "@/components/global-confirmation-center";
-import { GlobalQuickCreate } from "@/components/global-quick-create";
 import { GlobalSessionCloseout } from "@/components/global-session-closeout";
 import { useWindowSystem } from "@/components/window-system";
-import { WorkbenchBreadcrumb } from "@/components/workbench-breadcrumb";
 import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
-import { SharedStudyToolbar } from "@/components/shared-study-toolbar";
+import { GlobalContextStatusBar } from "@/components/shared-study-toolbar";
+import { GlobalTopBar } from "@/components/global-top-bar";
+import { PageToolbar } from "@/components/page-toolbar";
 import { PrimaryNavigation } from "@/components/primary-navigation";
 import { SecondaryNavigation } from "@/components/secondary-navigation";
 import { SharedMobileNavigation } from "@/components/shared-mobile-navigation";
@@ -84,6 +76,7 @@ export function AppShell(props: {
   const serverActiveSessionRef = useRef<AppShellStatusDto["activeSession"]>(props.initialStatus.activeSession);
   const statusRefreshRevisionRef = useRef(0);
   const immersive = pathname.endsWith("/run");
+  const fullCanvasPage = !immersive && (pathname === "/focus" || pathname === "/knowledge/canvas" || pathname.endsWith("/preview"));
   const suppressDistractions = immersive || pathname === "/focus";
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
@@ -460,14 +453,15 @@ export function AppShell(props: {
   if (immersive) {
     return (
       <main className="flex min-h-screen flex-col bg-[#080b0f] text-zinc-100">
-        <div className="min-h-0 flex-1">{props.children}</div>
-        <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} syncState={syncState} />
+        <PageToolbar />
+        <div className="min-h-0 flex-1" data-layout-region="immersive-content">{props.children}</div>
+        <GlobalContextStatusBar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} statusLights={displayStatus.lights} syncState={syncState} serverTime={status.serverTime} />
       </main>
     );
   }
 
   return (
-    <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100">
+    <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100" data-layout-region="app-shell">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[1000] focus:inline-flex focus:h-10 focus:items-center focus:rounded-md focus:bg-teal-300 focus:px-3 focus:text-sm focus:font-medium focus:text-slate-950"
@@ -478,96 +472,52 @@ export function AppShell(props: {
         <PrimaryNavigation pathname={pathname} collapsed={sidebarCollapsed} email={props.email} userId={props.userId} onToggle={toggleSidebar} />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="af-shell-header z-20 shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/95 px-4 py-3 backdrop-blur sm:px-6 xl:px-8">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex shrink-0 items-center gap-2 lg:hidden">
-                  <BrandMark size={20} />
-                  <span className="hidden text-sm text-teal-300 min-[360px]:inline">AreaForge</span>
-                </div>
-                <button
-                  type="button"
-                  className="hidden h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 text-xs text-zinc-200 hover:bg-white/[0.07] md:inline-flex"
-                  onClick={openStatusLight}
-                  aria-label={`今日状态：${statusAccessibleSummary(displayStatus.mobileTop.summary)}`}
-                  aria-expanded={lightOpen}
-                >
-                  <Activity size={15} className={toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray} aria-hidden="true" />
-                  <span>今日状态</span>
-                  <span className="max-w-52 truncate text-zinc-500">{displayStatus.mobileTop.summary}</span>
-                </button>
+          <GlobalTopBar
+            pathname={pathname}
+            userId={props.userId}
+            statusTone={displayStatus.mobileTop.tone}
+            statusSummary={displayStatus.mobileTop.summary}
+            activeSession={status.activeSession}
+            offlineSession={offlineFocusSession}
+            quickReviewClaim={quickReviewClaim}
+            onOpenStatus={openStatusLight}
+            statusOpen={lightOpen}
+            onOpenMotivationHelp={() => void openMotivationHelp()}
+          />
+          {showSecondaryNavigation && activeNavigationItem ? (
+            <nav className="shrink-0 overflow-x-auto px-4 pt-3 pb-1 sm:px-6 xl:px-8 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`} data-layout-region="secondary-mobile-navigation">
+              <div className="flex min-w-max gap-2 whitespace-nowrap">
+                {secondaryNavigationItems.map((child) => (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    aria-current={pathname === child.href ? "page" : child.match(pathname) ? "location" : undefined}
+                    className={`rounded-md border px-3 py-1.5 text-xs ${child.match(pathname) ? "border-teal-400/50 text-teal-200" : "border-white/10 text-zinc-400"}`}
+                  >
+                    {child.label}
+                  </Link>
+                ))}
               </div>
-              <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:col-start-3 sm:row-start-1 sm:gap-1.5">
-                <button
-                  type="button"
-                  className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-2 text-xs md:hidden ${toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray}`}
-                  onClick={openStatusLight}
-                  aria-label={`状态：${displayStatus.mobileTop.summary}`}
-                  aria-expanded={lightOpen}
-                >
-                  <Activity size={15} aria-hidden="true" />
-                  <span className="hidden min-[900px]:inline">状态</span>
-                </button>
-                <GlobalConfirmationCenter pathname={pathname} userId={props.userId} />
-                <GlobalAiAssistant userId={props.userId} placement="header" />
-                <GlobalQuickCreate />
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/5 sm:px-3"
-                  onClick={() => void openMotivationHelp()}
-                  aria-label="我学不下去了"
-                  title="我学不下去了"
-                >
-                  <TriangleAlert size={16} aria-hidden="true" />
-                  <span className="hidden min-[900px]:inline">我学不下去了</span>
-                </button>
-              </div>
-              <div className="col-span-2 min-w-0 justify-self-center sm:col-span-1 sm:col-start-2 sm:row-start-1">
-                <GlobalActivitySlot activeSession={status.activeSession} offlineSession={offlineFocusSession} quickReviewClaim={quickReviewClaim} />
-              </div>
-            </div>
-            <p
-              className={`${syncState === "current" ? "sr-only md:mt-2 md:block md:text-xs md:text-zinc-500" : "mt-2 text-xs text-amber-200"}`}
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {syncState === "current"
-                ? `状态同步于 ${formatServerTime(status.serverTime)}`
-                : `${shellSyncStateLabel(syncState)}；显示上次服务端状态（${formatServerTime(status.serverTime)}）`}
-            </p>
-            {showSecondaryNavigation && activeNavigationItem ? (
-              <nav className="mt-3 overflow-x-auto pb-1 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`}>
-                <div className="flex min-w-max gap-2 whitespace-nowrap">
-                  {secondaryNavigationItems.map((child) => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      aria-current={pathname === child.href ? "page" : child.match(pathname) ? "location" : undefined}
-                      className={`rounded-md border px-3 py-1.5 text-xs ${child.match(pathname) ? "border-teal-400/50 text-teal-200" : "border-white/10 text-zinc-400"}`}
-                    >
-                      {child.label}
-                    </Link>
-                  ))}
-                </div>
-              </nav>
-            ) : null}
-            {!immersive ? (
-              <WorkbenchBreadcrumb>
-                <WorkbenchBreadcrumbActions pathname={pathname} />
-              </WorkbenchBreadcrumb>
-            ) : null}
-          </header>
+            </nav>
+          ) : null}
+          <PageToolbar>
+            <WorkbenchBreadcrumbActions pathname={pathname} currentHref={currentHref} />
+          </PageToolbar>
 
           <div className="flex min-h-0 min-w-0 flex-1">
             {showSecondaryNavigation && activeNavigationItem ? <SecondaryNavigation pathname={pathname} workbench={activeNavigationItem} collapsed={secondaryCollapsed} onToggle={toggleSecondary} /> : null}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <main id="main-content" className="af-shell-main min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6" data-ai-page-context="true">{props.children}</main>
+              <main
+                id="main-content"
+                className={`af-shell-main min-h-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6"}`}
+                data-ai-page-context="true"
+                data-layout-region="page-content"
+              >{props.children}</main>
             </div>
           </div>
 
-          <SharedStudyToolbar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} syncState={syncState} />
+          <GlobalContextStatusBar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} statusLights={displayStatus.lights} syncState={syncState} serverTime={status.serverTime} />
 
           <SharedMobileNavigation pathname={pathname} />
         </div>
@@ -632,10 +582,6 @@ function projectLocalQuickReviewStatus(
   return { lights, mobileTop: selectMobileTopLight(lights) };
 }
 
-function statusAccessibleSummary(summary: string): string {
-  return summary.replace(/，可继续$/, "");
-}
-
 function projectLocalFocusStatus(
   status: Pick<AppShellStatusDto, "lights" | "mobileTop">,
   session: AppShellStatusDto["activeSession"],
@@ -671,14 +617,6 @@ function toShellSyncState(value: string): ShellSyncState {
   return value === "unavailable" ? "unavailable" : "current";
 }
 
-function shellSyncStateLabel(value: ShellSyncState): string {
-  if (value === "offline") return "当前离线";
-  if (value === "pending") return "本地操作待同步";
-  if (value === "blocked") return "同步需要人工对账";
-  if (value === "deferred") return "同步已暂缓";
-  return "状态刷新失败";
-}
-
 function readLocalStorage(key: string): string | null {
   try {
     return window.localStorage.getItem(key);
@@ -693,18 +631,4 @@ function writeLocalStorage(key: string, value: string): void {
   } catch {
     // Optional shell preferences must not block the main workflow.
   }
-}
-
-function formatServerTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "未知时间";
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(date);
 }

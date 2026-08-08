@@ -1,15 +1,14 @@
 "use client";
 
-import { ArrowLeft, CloudOff, Timer, Wifi } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CloudOff, Monitor, Wifi, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { getTimerElapsedSeconds } from "@areaforge/core";
-import { getClientDeviceIdentity } from "@/lib/client/device-identity";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { AppShellLight } from "@areaforge/core";
+import { getClientDeviceIdentity, type ClientDeviceIdentity } from "@/lib/client/device-identity";
 import { getNavigationTrail, sanitizeReturnPath } from "@/lib/navigation/batch7";
-import type { StudySessionDto } from "@/lib/study/types";
+import type { StudySessionDevicePresenceDto, StudySessionDto } from "@/lib/study/types";
 import { isActivitySourcePath } from "@/lib/study/activity-route";
 import { WindowDock, useWindowSystem } from "@/components/window-system";
-import { activityLabel, activitySourcePath } from "@/lib/study/activity-route";
 
 const RECENT_PAGE_KEY = "af.navigation.previous";
 
@@ -84,11 +83,15 @@ function publishPreviousPage(currentHref: string): void {
   for (const listener of previousPageListeners) listener();
 }
 
-export function SharedStudyToolbar(props: {
+export type SharedToolbarSyncState = "current" | "pending" | "offline" | "blocked" | "deferred" | "unavailable";
+
+export function GlobalContextStatusBar(props: {
   pathname: string;
   currentHref?: string;
   activeSession: StudySessionDto | null;
-  syncState: "current" | "pending" | "offline" | "blocked" | "deferred" | "unavailable";
+  syncState: SharedToolbarSyncState;
+  serverTime?: string;
+  statusLights?: readonly AppShellLight[];
 }) {
   const { windows, openWindow } = useWindowSystem();
   const now = useSyncExternalStore(
@@ -96,7 +99,11 @@ export function SharedStudyToolbar(props: {
     getNowSnapshot,
     getServerNowSnapshot,
   );
-  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [deviceIdentity, setDeviceIdentity] = useState<ClientDeviceIdentity | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsRef = useRef<HTMLDivElement>(null);
+  const detailsTriggerRef = useRef<HTMLButtonElement>(null);
+  const detailsId = useId();
   const previousPage = useSyncExternalStore(
     subscribePreviousPage,
     getPreviousPageSnapshot,
@@ -105,7 +112,7 @@ export function SharedStudyToolbar(props: {
   const currentHref = props.currentHref ?? props.pathname;
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDeviceId(getClientDeviceIdentity().id), 0);
+    const timer = window.setTimeout(() => setDeviceIdentity(getClientDeviceIdentity()), 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -124,16 +131,6 @@ export function SharedStudyToolbar(props: {
     openWindow("session-closeout");
   }, [closeoutNeeded, openWindow, windows]);
 
-  const elapsedSeconds = active
-    ? getTimerElapsedSeconds({
-        status: active.status === "running" ? "running" : active.status === "paused" ? "paused" : "completed",
-        startedAt: new Date(active.startedAt),
-        pausedAt: active.pausedAt ? new Date(active.pausedAt) : undefined,
-        endedAt: active.endedAt ? new Date(active.endedAt) : undefined,
-        accumulatedPauseSeconds: active.accumulatedPauseSeconds,
-        now,
-      })
-    : 0;
   const syncLabel = props.syncState === "offline"
     ? "离线"
     : props.syncState === "pending"
@@ -147,9 +144,9 @@ export function SharedStudyToolbar(props: {
             : "已同步";
   const otherDevices = useMemo(() => {
     if (!active) return [];
-    return active.devicePresences.filter((presence) => !deviceId || presence.deviceId !== deviceId);
-  }, [active, deviceId]);
-  const fallbackSourceDevice = active?.clientDeviceId && deviceId && active.clientDeviceId !== deviceId
+    return active.devicePresences.filter((presence) => !deviceIdentity || presence.deviceId !== deviceIdentity.id);
+  }, [active, deviceIdentity]);
+  const fallbackSourceDevice = active?.clientDeviceId && deviceIdentity && active.clientDeviceId !== deviceIdentity.id
     ? active.clientDeviceLabel ?? "其他设备"
     : null;
   const heartbeatAge = active?.lastHeartbeatAt ? Math.max(0, now.getTime() - Date.parse(active.lastHeartbeatAt)) : null;
@@ -168,66 +165,153 @@ export function SharedStudyToolbar(props: {
     : fallbackSourceDevice
       ? `${fallbackSourceDevice}${fallbackSourceDeviceOnline ? " · 在线" : " · 最近活动"}`
       : "本设备";
+  const attentionLights = (props.statusLights ?? []).filter((light) => light.tone === "amber" || light.tone === "red");
+  const hasContextDetails = attentionLights.length > 0 || otherDevices.length > 0 || fallbackSourceDevice !== null || props.syncState !== "current";
+
+  useEffect(() => {
+    if (!detailsOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && detailsRef.current?.contains(target)) return;
+      setDetailsOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setDetailsOpen(false);
+        detailsTriggerRef.current?.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [detailsOpen]);
 
   return (
-    <div className="af-shared-toolbar shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-4 py-2 text-xs sm:px-6 xl:px-8" data-global-ai-ui="true">
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-          {active ? (
-            <span
-              className={`inline-flex min-w-0 items-center gap-1.5 ${otherDeviceOnline || fallbackSourceDeviceOnline ? "text-amber-200" : "text-zinc-500"}`}
-              role="status"
-              title={otherDevices.length > 0 ? `其他设备：${otherDevices.map((presence) => presence.deviceLabel).join("、")}` : fallbackSourceDevice ? `活动来自${fallbackSourceDevice}` : "活动来自当前设备"}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${otherDeviceOnline || fallbackSourceDeviceOnline ? "bg-amber-300" : "bg-zinc-600"}`} aria-hidden="true" />
-              <span className="max-w-40 truncate">
-                {presenceText}
-              </span>
-            </span>
-          ) : null}
+    <footer
+      className="af-shared-toolbar relative z-[90] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-4 py-2 text-xs sm:px-6 xl:px-8"
+      data-layout-region="global-context-status-bar"
+      data-global-ai-ui="true"
+    >
+      <div className="grid min-h-7 min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] sm:gap-3">
+        <div className="flex min-w-0 items-center gap-2">
           {previousPage && previousPage.href !== currentHref ? (
             <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面">
               <ArrowLeft size={13} aria-hidden="true" />
               <span className="max-w-40 truncate">刚才：{previousPage.label}</span>
             </Link>
-          ) : null}
+          ) : <span className="truncate text-zinc-700">当前页面</span>}
+        </div>
+
+        <div className="flex min-w-0 items-center justify-center gap-3 sm:col-start-2">
           {active?.status === "closing" ? (
-            <span className="inline-flex items-center gap-1.5 text-amber-200" role="status">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />
-              {isActivitySourcePath(props.pathname, active) ? "正在完成收口" : "收口窗口已保留在后台"}
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-amber-200" role="status">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" aria-hidden="true" />
+              <span className="max-w-48 truncate">{isActivitySourcePath(props.pathname, active) ? "正在完成收口" : "收口窗口已保留在后台"}</span>
             </span>
           ) : null}
-          {active ? (
-            <Link
-              href={activitySourcePath(active)}
-              className="inline-flex min-w-0 items-center gap-1.5 text-zinc-300 hover:text-white"
-              title="打开当前唯一活动"
-              aria-label={`${activityLabel(active)}：${active.subjectName}，${formatDuration(elapsedSeconds)}`}
+          {attentionLights.length > 0 ? (
+            <button
+              type="button"
+              className="hidden min-w-0 max-w-56 items-center gap-1.5 rounded-md px-1.5 text-amber-200 hover:bg-amber-300/[0.08] sm:inline-flex"
+              onClick={() => setDetailsOpen((current) => !current)}
+              aria-label={`查看状态提醒：${attentionLights[0].summary}`}
+              aria-expanded={detailsOpen}
+              aria-controls={detailsId}
             >
-              <Timer size={13} className="shrink-0 text-teal-300" aria-hidden="true" />
-              <span className="max-w-28 truncate">{activityLabel(active)} · {active.subjectName}</span>
-              <span className="font-mono tabular-nums text-teal-200">{formatDuration(elapsedSeconds)}</span>
-            </Link>
+              <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
+              <span className="truncate">{attentionLights[0].summary}</span>
+            </button>
           ) : null}
-        </div>
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
           <WindowDock />
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-zinc-500" role="status" aria-live="polite">
+        </div>
+
+        <div className="flex min-w-0 items-center justify-end gap-2.5 text-zinc-500">
+          {hasContextDetails ? (
+            <button
+              ref={detailsTriggerRef}
+              type="button"
+              className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-white/10 px-2 text-xs text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200"
+              onClick={() => setDetailsOpen((current) => !current)}
+              aria-label="查看系统状态详情"
+              aria-expanded={detailsOpen}
+              aria-controls={detailsId}
+            >
+              <AlertTriangle size={13} className={attentionLights.length > 0 ? "text-amber-300" : "text-zinc-500"} aria-hidden="true" />
+              <span>状态</span>
+            </button>
+          ) : null}
+          <span className="inline-flex min-w-0 items-center gap-1.5" role="status" title="当前设备">
+            <Monitor size={13} aria-hidden="true" />
+            <span className="max-w-28 truncate">{deviceIdentity?.label ?? "当前设备"}</span>
+          </span>
+          {active && (otherDevices.length > 0 || fallbackSourceDevice) ? (
+            <span
+              className={`hidden min-w-0 items-center gap-1.5 sm:inline-flex ${otherDeviceOnline || fallbackSourceDeviceOnline ? "text-amber-200" : "text-zinc-500"}`}
+              role="status"
+              title={otherDevices.length > 0 ? `其他设备：${otherDevices.map((presence) => presence.deviceLabel).join("、")}` : `活动来自${fallbackSourceDevice}`}
+            >
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${otherDeviceOnline || fallbackSourceDeviceOnline ? "bg-amber-300" : "bg-zinc-600"}`} aria-hidden="true" />
+              <span className="max-w-44 truncate">{presenceText}</span>
+            </span>
+          ) : null}
+          <span className={`inline-flex shrink-0 items-center gap-1.5 ${props.syncState === "current" ? "text-zinc-500" : "text-amber-200"}`} role="status" aria-live="polite">
             {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
-            {syncLabel}
+            <span>{syncLabel}</span>
+            {props.serverTime ? <span className="hidden text-zinc-700 md:inline">· {formatServerTime(props.serverTime)}</span> : null}
           </span>
         </div>
       </div>
-    </div>
+      {detailsOpen && hasContextDetails ? (
+        <div ref={detailsRef} id={detailsId} className="absolute bottom-[calc(100%+0.5rem)] right-4 z-[95] w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-white/15 bg-[#101419] p-4 text-sm shadow-2xl" role="dialog" aria-modal="false" aria-labelledby={`${detailsId}-title`}>
+          <div className="flex items-center gap-3">
+            <h2 id={`${detailsId}-title`} className="min-w-0 flex-1 font-medium text-zinc-100">系统状态</h2>
+            <button type="button" className="inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200" onClick={() => { setDetailsOpen(false); detailsTriggerRef.current?.focus({ preventScroll: true }); }} aria-label="关闭系统状态详情">
+              <X size={15} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="mt-3 space-y-3">
+            {attentionLights.map((light) => (
+              <div key={light.kind} className="rounded-md border border-amber-300/20 bg-amber-300/[0.05] p-3">
+                <p className="text-xs font-medium text-amber-200">{light.label}</p>
+                <p className="mt-1 leading-5 text-zinc-300">{light.summary}</p>
+                {light.action ? <Link href={light.action.href} className="mt-2 inline-flex text-xs text-teal-200 hover:underline" onClick={() => setDetailsOpen(false)}>{light.action.label}</Link> : null}
+              </div>
+            ))}
+            <div className="grid gap-2 border-t border-white/10 pt-3 text-xs text-zinc-400">
+              <p><span className="text-zinc-600">当前设备：</span>{deviceIdentity?.label ?? "当前设备"}</p>
+              <p><span className="text-zinc-600">同步：</span>{syncLabel}{props.serverTime ? ` · ${formatServerTime(props.serverTime)}` : ""}</p>
+              <div>
+                <p className="text-zinc-600">其他设备：</p>
+                {otherDevices.length > 0 ? (
+                  <ul className="mt-1 space-y-1 text-zinc-300">
+                    {otherDevices.map((presence) => <li key={presence.deviceId}>{presence.deviceLabel} · {presenceTextForPresence(presence, now)}</li>)}
+                  </ul>
+                ) : fallbackSourceDevice ? <p className="mt-1 text-zinc-300">{fallbackSourceDevice} · {fallbackSourceDeviceOnline ? "在线" : "最近活动"}</p> : <p className="mt-1 text-zinc-500">当前没有正在接力的其他设备</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </footer>
   );
 }
 
-function formatDuration(seconds: number): string {
-  const safe = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(safe / 3_600);
-  const minutes = Math.floor((safe % 3_600) / 60);
-  const remaining = safe % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
+/** Compatibility alias for page-level imports that still use the old name. */
+export const SharedStudyToolbar = GlobalContextStatusBar;
+
+function formatServerTime(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(parsed);
+}
+
+function presenceTextForPresence(presence: StudySessionDevicePresenceDto, now: Date): string {
+  const age = now.getTime() - Date.parse(presence.lastSeenAt);
+  return Number.isFinite(age) && age <= 45_000 ? "在线" : "最近活动";
 }
 
 function getPathname(value: string): string {
