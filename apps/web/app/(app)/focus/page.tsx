@@ -3,7 +3,7 @@ import { FocusLauncher } from "@/components/focus-launcher";
 import { FocusSessionClient } from "@/components/focus-session-client";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
 import { activitySourcePath } from "@/lib/study/activity-route";
 import { getActiveStudySession, getStudySessionById, listStudySessionEvidenceReceipts, listSubjects, listStudyTasks } from "@/lib/study/service";
 import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";

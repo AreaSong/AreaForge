@@ -6,6 +6,7 @@ import { FocusSessionClient } from "@/components/focus-session-client";
 import { GlobalConfiguredCloseout } from "@/components/global-configured-closeout";
 import { useWindowSystem } from "@/components/window-system";
 import { subscribeActivityStatus } from "@/lib/client/activity-status";
+import { isConfirmationWindowPath } from "@/lib/navigation/confirmation-route";
 import { activityLabel, isActivitySourcePath } from "@/lib/study/activity-route";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
 import type { StudySessionDto } from "@/lib/study/types";
@@ -17,7 +18,7 @@ export function GlobalSessionCloseout(props: {
   initialNow: string;
   pathname: string;
 }) {
-  const { registerWindow, ensureWindow, refreshWindow, updateWindowMetadata, closeWindow, openWindow, windows } = useWindowSystem();
+  const { registerWindow, ensureWindow, refreshWindow, updateWindowMetadata, closeWindow, minimizeWindow, openWindow, windows } = useWindowSystem();
   const session = props.activeSession;
   const content = useMemo(() => session ? renderCloseoutContent({
     session,
@@ -52,10 +53,11 @@ export function GlobalSessionCloseout(props: {
       window.clearTimeout(autoOpenTimerRef.current);
       autoOpenTimerRef.current = null;
     }
-    if (!shouldShowCloseout || !props.activeSession) {
+    if (!props.activeSession || props.activeSession.status !== "closing") {
       autoOpenedRef.current = null;
       return;
     }
+    if (!shouldShowCloseout) return;
 
     // Ensure the definition and instance in the same effect before asking the
     // provider to focus it. This keeps a persisted/minimized closeout
@@ -63,17 +65,21 @@ export function GlobalSessionCloseout(props: {
     // the closeout host mount in different effect turns.
     ensureWindow(windowDefinition);
 
-    // A persisted closeout may still be minimized from a previous page load.
-    // Open it once for each activity/page entry, then leave subsequent focus
-    // changes (including an explicit minimize) to the user.
-    const entryKey = `${props.activeSession.id}:${props.pathname}`;
+    // A confirmation deep link explicitly owns this tab's foreground. Keep
+    // closeout recoverable in the Dock without covering the requested item.
+    if (isConfirmationWindowPath(props.pathname)) return;
+
+    // Open each activity once in this tab, then preserve an explicit minimize
+    // across client-side navigation until the user restores it from the Dock.
+    const entryKey = props.activeSession.id;
     if (autoOpenedRef.current === entryKey) return;
-    autoOpenedRef.current = entryKey;
     // Window persistence is restored asynchronously by the provider. Defer
     // the foreground request one macrotask so a stale minimized snapshot
-    // cannot overwrite the first-load closeout intent.
+    // cannot overwrite the first-load closeout intent. Mark the entry only
+    // when the timer actually runs; a dependency refresh may cancel it first.
     autoOpenTimerRef.current = window.setTimeout(() => {
       autoOpenTimerRef.current = null;
+      autoOpenedRef.current = entryKey;
       openWindow("session-closeout");
     }, 100);
     return () => {
@@ -97,13 +103,22 @@ export function GlobalSessionCloseout(props: {
     // `/focus` renders the active session as its primary content. Keeping a
     // second global window there would duplicate the closeout form and make
     // unsaved input appear to split between two surfaces.
-    const hasCloseoutWindow = windows.some((window) => window.key === "session-closeout");
+    const closeoutWindow = windows.find((window) => window.key === "session-closeout");
+    const hasCloseoutWindow = Boolean(closeoutWindow);
     if (delayedCloseRef.current !== null) {
       window.clearTimeout(delayedCloseRef.current);
       delayedCloseRef.current = null;
     }
     if (props.activeSession && isActivitySourcePath(props.pathname, props.activeSession)) {
-      if (hasCloseoutWindow) closeWindow("session-closeout");
+      // The source page renders its own closeout form, so the shared instance
+      // must stay out of this tab's foreground. It must not be deleted here:
+      // window state is shared across tabs, and another page may need to bring
+      // the same closeout into its foreground.
+      if (closeoutWindow && !closeoutWindow.minimized) minimizeWindow("session-closeout");
+      return;
+    }
+    if (isConfirmationWindowPath(props.pathname)) {
+      if (closeoutWindow && !closeoutWindow.minimized) minimizeWindow("session-closeout");
       return;
     }
     if (props.activeSession?.status === "closing") {
@@ -133,7 +148,7 @@ export function GlobalSessionCloseout(props: {
         delayedCloseRef.current = null;
       }
     };
-  }, [closeWindow, props.activeSession, props.pathname, windows]);
+  }, [closeWindow, minimizeWindow, props.activeSession, props.pathname, windows]);
 
   useEffect(() => subscribeActivityStatus((event: Event) => {
     const detail = (event as CustomEvent<{ userId?: string; session?: StudySessionDto | null }>).detail;

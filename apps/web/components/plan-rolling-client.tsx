@@ -19,7 +19,7 @@ import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
 import type { PlanRollingDto } from "@/lib/study/plan-rolling-service";
 import type { StagePlanDto, SyllabusOptionNodeDto, TaskPriorityDto } from "@/lib/study/types";
 import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 
 interface TaskCreateDraft {
   subjectId: string;

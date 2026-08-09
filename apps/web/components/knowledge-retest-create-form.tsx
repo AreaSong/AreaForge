@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { Alert } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
-import { sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
+import { sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
 import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 import { masteryStatusLabel } from "@/lib/study/mastery-status";
 

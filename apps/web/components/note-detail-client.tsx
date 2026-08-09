@@ -31,7 +31,7 @@ import {
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
 import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { NoteEditorOptionsDto } from "@/lib/study/notes-service";
 import type { NoteDto, NoteMasteryStatusDto } from "@/lib/study/types";
 

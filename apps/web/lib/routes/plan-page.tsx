@@ -9,7 +9,7 @@ import { listPlanMilestones } from "@/lib/study/plan-milestone-service";
 import { listStagePlans } from "@/lib/study/stage-service";
 import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 import { findActiveWorkspaceOrNull, listWorkspaceSubjects } from "@/lib/study/exam-workspace-service";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { ApiError } from "@/lib/api/responses";
 import { getStudyResource, type StudyResourceDto } from "@/lib/study/study-resource-service";
 import { loadTaskPageData } from "@/lib/study/task-page-data";

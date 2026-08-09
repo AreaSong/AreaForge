@@ -114,7 +114,7 @@
     "ops:v11:quick-review-client:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-quick-review-client.selftest.ts",
     "ops:v11:workspace-first-use:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/workspace-first-use.selftest.ts",
     "ops:v11:navigation-return-context:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/navigation-return-context.selftest.ts",
-    "ops:v11:canonical-routes:selftest": "tsx scripts/quality/canonical-route-tree.selftest.ts",
+    "ops:v11:canonical-routes:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/canonical-route-tree.selftest.ts",
     "ops:v11:browser-evidence": "tsx scripts/ops/v11-browser-evidence.ts",
     "ops:v11:browser-evidence:validate": "tsx scripts/quality/v11-browser-evidence-validate.ts",
     "ops:v11:browser-evidence:selftest": "tsx scripts/quality/v11-browser-evidence-validate.selftest.ts && tsx scripts/quality/v11-browser-evidence-runner.selftest.ts",

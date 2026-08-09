@@ -59,19 +59,19 @@ export function GlobalActivitySlot(props: {
         interactive ? (
           <Link
             href={activity.href}
-            className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-white/[0.06] sm:min-w-[13rem] sm:gap-2 sm:px-3 ${activity.themeClass}`}
+            className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-white/[0.06] sm:gap-2 sm:px-3 lg:min-w-[13rem] ${activity.themeClass}`}
             aria-label={`${activity.kindLabel}：${activity.subjectLabel}，${formatDuration(activity.elapsedSeconds)}，${activity.statusLabel}`}
             title="打开当前唯一活动"
           >
             <ActivityContent activity={activity} />
           </Link>
         ) : (
-          <span className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 border-transparent px-0 text-xs sm:min-w-[13rem] sm:justify-center sm:gap-2 sm:px-3 ${activity.themeClass}`}>
+          <span className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 border-transparent px-0 text-xs sm:justify-center sm:gap-2 sm:px-3 lg:min-w-[13rem] ${activity.themeClass}`}>
             <ActivityContent activity={activity} />
           </span>
         )
       ) : (
-        <span className="inline-flex h-9 min-w-0 items-center gap-1.5 rounded-md border border-white/10 px-2 text-xs text-zinc-600 sm:min-w-[13rem] sm:justify-center sm:px-3">
+        <span className="inline-flex h-9 min-w-0 items-center gap-1.5 rounded-md border border-white/10 px-2 text-xs text-zinc-600 sm:justify-center sm:px-3 lg:min-w-[13rem]">
           <Timer size={14} aria-hidden="true" />
           <span className="hidden sm:inline">当前没有活动计时</span>
           <span className="sm:hidden">未计时</span>

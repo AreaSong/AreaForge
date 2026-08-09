@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
 
 const originLabels: Record<string, string> = {

@@ -3,7 +3,7 @@ import { QuickReviewClient } from "@/components/quick-review-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getReviewSchedule, type ReviewScheduleDto } from "@/lib/study/review-schedule-service";
 import { getActiveStudySession } from "@/lib/study/service";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { ApiError } from "@/lib/api/responses";
 import { getReviewTarget } from "@/lib/study/review-target-service";
 import { isKnowledgeReviewActivityForSchedule } from "@/lib/study/activity-route";

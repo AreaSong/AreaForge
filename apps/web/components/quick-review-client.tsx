@@ -11,7 +11,7 @@ import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-
 import { SafeMarkdownView } from "@/components/safe-markdown-view";
 import { ButtonLink } from "@/components/ui/button";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import { getCompletionReturnLabel, getReturnContextLabel } from "@/lib/navigation/return-context";
 import {
   acquireQuickReviewDraftWriter,

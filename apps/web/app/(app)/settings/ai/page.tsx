@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { AiSettingsClient } from "@/components/ai-settings-client";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getAiDraftRuntimeStatus } from "@/lib/study/ai-draft-status";
 import { getAiProviderCredentialStatus } from "@/lib/study/ai-provider-credential-service";
 import { readAiProviderPreference } from "@/lib/study/ai-provider-preference";

@@ -3,7 +3,7 @@ import { LongTermRiskPanel } from "@/components/long-term-risk-panel";
 import { SyllabusManager } from "@/components/syllabus-manager";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
 import { listSubjects } from "@/lib/study/service";
 import { filterSyllabusTreeByQuery, getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";

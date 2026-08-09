@@ -23,6 +23,7 @@ test("command palette exposes a small extensible initial registry", () => {
     "recovery-help",
     "quick-create",
   ]);
+  assert.equal(GLOBAL_COMMANDS.find((command) => command.id === "settings")?.href, "/settings");
   assert.equal(filterGlobalCommands("不存在").length, 0);
 });
 

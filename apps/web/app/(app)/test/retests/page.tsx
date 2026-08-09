@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, withReturnTo } from "@/lib/navigation/batch7";
+import { getRouteMetadata, withReturnTo } from "@/lib/navigation/app-navigation";
 import { listKnowledgeRetests } from "@/lib/study/knowledge-retest-service";
 
 export const dynamic = "force-dynamic";

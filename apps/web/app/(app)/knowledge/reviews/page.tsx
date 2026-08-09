@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { ReviewScheduleQueue } from "@/components/review-schedule-queue";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import {
   getReviewWorkbenchSummary,
   listBridgedReviewSchedules,

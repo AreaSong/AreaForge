@@ -7,7 +7,7 @@ import { SafeMarkdownView } from "@/components/safe-markdown-view";
 import { PageFrame } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
 import { downloadStudyResource, getStudyResource } from "@/lib/study/study-resource-service";
 
 export const dynamic = "force-dynamic";

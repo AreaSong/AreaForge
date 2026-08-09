@@ -4,10 +4,16 @@ import { MousePointer2, Sparkles, X } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
-import { getRouteTitle } from "@/lib/navigation/batch7";
-import { useWindowSystem } from "@/components/window-system";
-
-type AiEndpoint = "learning-tree" | "knowledge-card" | "plan" | "motivation";
+import {
+  loadAiAssistantContext,
+  removeAiAssistantContext,
+  saveAiAssistantContext,
+  type AiAssistantEndpoint,
+} from "@/lib/client/ai-assistant-context";
+import { getAiDraftFormStorageKey } from "@/lib/client/ai-draft-form-key";
+import { removePrivateBusinessDraft } from "@/lib/client/private-business-drafts";
+import { getRouteTitle } from "@/lib/navigation/app-navigation";
+import { useWindowSystem, type WindowWorkState } from "@/components/window-system";
 
 interface SelectionItem {
   id: string;
@@ -20,8 +26,10 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const pageContextKey = `${pathname}?${searchParams.toString()}`;
+  const [assistantContextKey, setAssistantContextKey] = useState(pageContextKey);
+  const [assistantContextReady, setAssistantContextReady] = useState(false);
   const [selecting, setSelecting] = useState(false);
-  const [endpoint, setEndpoint] = useState<AiEndpoint>("knowledge-card");
+  const [endpoint, setEndpoint] = useState<AiAssistantEndpoint>("knowledge-card");
   const [items, setItems] = useState<SelectionItem[]>([]);
   const [dragRect, setDragRect] = useState<SelectionItem["rect"]>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
@@ -30,29 +38,87 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
   const textSelectionCaptured = useRef(false);
   const pageContextKeyRef = useRef(pageContextKey);
   const mountedContextKeyRef = useRef<string | null>(null);
-  const { openWindow, registerWindow, refreshWindow, requestCloseWindow, windows } = useWindowSystem();
-  const isOpen = windows.some((window) => window.key === "ai-assistant" && !window.minimized);
+  const discardWindowRef = useRef<() => void>(() => undefined);
+  const {
+    closeWindow,
+    foregroundKey,
+    hasWindow,
+    minimizeWindow,
+    openWindow,
+    registerWindow,
+    refreshWindow,
+    setWindowWorkState,
+    windows,
+  } = useWindowSystem();
+  const isForeground = foregroundKey === "ai-assistant";
+  const assistantWindow = windows.find((window) => window.key === "ai-assistant") ?? null;
 
   const selectedText = useMemo(() => items.map((item) => item.text).join("\n\n").slice(0, 10_000), [items]);
+  const draftContextKey = `${assistantContextKey}:${selectedText}`;
+  const contextIsCurrent = assistantContextKey === pageContextKey;
   const contentRef = useRef<React.ReactNode>(null);
+
+  const stopSelecting = useCallback(() => {
+    setSelecting(false);
+    setDragRect(null);
+    dragStart.current = null;
+    dragMoved.current = false;
+    suppressClick.current = false;
+    textSelectionCaptured.current = false;
+  }, []);
+
+  const resetAssistantContext = useCallback((contextKey: string) => {
+    stopSelecting();
+    setItems([]);
+    setAssistantContextKey(contextKey);
+  }, [stopSelecting]);
+
+  const clearAssistantContext = useCallback((contextKey: string) => {
+    removeAiAssistantContext(userId);
+    resetAssistantContext(contextKey);
+  }, [resetAssistantContext, userId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const persisted = loadAiAssistantContext(userId);
+      if (persisted) {
+        setAssistantContextKey(persisted.contextKey);
+        setEndpoint(persisted.endpoint);
+        setItems(persisted.items.map((item) => ({ ...item, rect: null })));
+      }
+      setAssistantContextReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!assistantContextReady || !assistantWindow) return;
+    saveAiAssistantContext(userId, {
+      contextKey: assistantContextKey,
+      endpoint,
+      items: items.map(({ id, label, text }) => ({ id, label, text })),
+    });
+  }, [assistantContextKey, assistantContextReady, assistantWindow, endpoint, items, userId]);
 
   useEffect(() => {
     const previousContextKey = mountedContextKeyRef.current;
     mountedContextKeyRef.current = pageContextKey;
     pageContextKeyRef.current = pageContextKey;
     if (previousContextKey === null || previousContextKey === pageContextKey) return;
+    const preserveDraft = assistantWindow
+      && assistantWindow.workState !== "clean"
+      && assistantWindow.workState !== "completed";
     const resetTimer = window.setTimeout(() => {
-      requestCloseWindow("ai-assistant");
-      setSelecting(false);
-      setItems([]);
-      setDragRect(null);
-      dragStart.current = null;
-      dragMoved.current = false;
-      suppressClick.current = false;
-      textSelectionCaptured.current = false;
+      if (preserveDraft) {
+        minimizeWindow("ai-assistant");
+        stopSelecting();
+        return;
+      }
+      if (assistantWindow) closeWindow("ai-assistant");
+      clearAssistantContext(pageContextKey);
     }, 0);
     return () => window.clearTimeout(resetTimer);
-  }, [pageContextKey, requestCloseWindow]);
+  }, [assistantWindow, clearAssistantContext, closeWindow, minimizeWindow, pageContextKey, stopSelecting]);
 
   const addCurrentObject = useCallback(() => {
     const target = document.querySelector("[data-ai-current-object]")
@@ -63,17 +129,16 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
   }, [pathname]);
 
   function openAssistant() {
-    openWindow("ai-assistant");
-    if (!items.length) {
-      const openedContext = pageContextKey;
-      window.setTimeout(() => {
-        if (pageContextKeyRef.current === openedContext) addCurrentObject();
-      }, 0);
+    const startingFresh = !hasWindow("ai-assistant");
+    if (startingFresh && items.length === 0) {
+      if (assistantContextReady) clearAssistantContext(pageContextKey);
+      else resetAssistantContext(pageContextKey);
     }
+    openWindow("ai-assistant");
   }
 
   useEffect(() => {
-    if (!selecting || !isOpen) return;
+    if (!selecting || !isForeground) return;
     const onClick = (event: MouseEvent) => {
       if (suppressClick.current) {
         suppressClick.current = false;
@@ -192,7 +257,25 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       textSelectionCaptured.current = false;
       setDragRect(null);
     };
-  }, [isOpen, selecting]);
+  }, [isForeground, selecting]);
+
+  const handleWorkStateChange = useCallback((state: WindowWorkState) => {
+    setWindowWorkState("ai-assistant", state);
+  }, [setWindowWorkState]);
+
+  const handleNavigate = useCallback(() => {
+    closeWindow("ai-assistant");
+    clearAssistantContext(pageContextKeyRef.current);
+  }, [clearAssistantContext, closeWindow]);
+
+  const discardAssistantDraft = useCallback(() => {
+    removePrivateBusinessDraft(getAiDraftFormStorageKey(endpoint, userId, draftContextKey));
+    clearAssistantContext(pageContextKeyRef.current);
+  }, [clearAssistantContext, draftContextKey, endpoint, userId]);
+
+  useEffect(() => {
+    discardWindowRef.current = discardAssistantDraft;
+  }, [discardAssistantDraft]);
 
   const removeItem = useCallback((id: string) => {
     setItems((current) => current.filter((item) => item.id !== id));
@@ -200,11 +283,16 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
 
   const content = useMemo(() => (
     <div className="space-y-4" data-global-ai-ui="true">
+      {!contextIsCurrent ? (
+        <p role="status" className="rounded-md border border-amber-300/20 bg-amber-300/[0.06] px-3 py-2 text-xs leading-5 text-amber-100">
+          当前保留的是“{getRouteTitle(assistantContextKey.split("?")[0] ?? "/focus")}”中的未完成草稿。完成或放弃后，才能改选本页内容。
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/[0.05]" onClick={addCurrentObject}>
+        <button type="button" disabled={!contextIsCurrent} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40" onClick={addCurrentObject}>
           <Sparkles size={15} aria-hidden="true" />加入当前对象
         </button>
-        <button type="button" className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm ${selecting ? "border-teal-300/60 text-teal-200" : "border-white/10 text-zinc-300"}`} onClick={() => setSelecting((current) => !current)}>
+        <button type="button" disabled={!contextIsCurrent} className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${selecting ? "border-teal-300/60 text-teal-200" : "border-white/10 text-zinc-300"}`} onClick={() => setSelecting((current) => !current)}>
           <MousePointer2 size={15} aria-hidden="true" />{selecting ? "结束框选" : "框选内容"}
         </button>
         {selecting ? <span className="text-xs text-zinc-500">点击元素或拖选文本，可连续添加多个。</span> : null}
@@ -221,13 +309,13 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
         </div>
       ) : <p className="border-y border-white/10 py-3 text-sm text-zinc-500">还没有上下文。打开框选后选择任意页面元素或文本。</p>}
       <label className="grid gap-2 text-sm text-zinc-300">草稿用途
-        <select value={endpoint} onChange={(event) => setEndpoint(event.target.value as AiEndpoint)} className="h-10 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-2 text-white">
+        <select value={endpoint} onChange={(event) => setEndpoint(event.target.value as AiAssistantEndpoint)} className="h-10 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-2 text-white">
           <option value="knowledge-card">知识卡片</option><option value="learning-tree">学习树</option><option value="plan">计划草稿</option><option value="motivation">动机内容</option>
         </select>
       </label>
-      <div className="border-t border-white/10 pt-4"><AiDraftPanel key={`${endpoint}:${pageContextKey}:${selectedText}`} endpoint={endpoint} userId={userId} defaultText={selectedText} draftContextKey={`${pageContextKey}:${selectedText}`} /></div>
+      <div className="border-t border-white/10 pt-4"><AiDraftPanel key={`${endpoint}:${draftContextKey}`} endpoint={endpoint} userId={userId} defaultText={selectedText} draftContextKey={draftContextKey} onWorkStateChange={handleWorkStateChange} onNavigate={handleNavigate} /></div>
     </div>
-  ), [addCurrentObject, endpoint, items, pageContextKey, removeItem, selecting, selectedText, userId]);
+  ), [addCurrentObject, assistantContextKey, contextIsCurrent, draftContextKey, endpoint, handleNavigate, handleWorkStateChange, items, removeItem, selecting, selectedText, userId]);
 
   useEffect(() => {
     contentRef.current = content;
@@ -239,25 +327,27 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
     kind: "ai-assistant",
     title: "AI 助手",
     closePolicy: "confirmDiscard",
+    onDiscard: () => discardWindowRef.current(),
     render: () => contentRef.current,
   }), [registerWindow]);
 
   return (
     <>
-      {selecting ? items.map((item) => item.rect ? <div key={item.id} className="pointer-events-none fixed z-40 border-2 border-teal-300/80 bg-teal-300/10" style={{ top: item.rect.top, left: item.rect.left, width: item.rect.width, height: item.rect.height }} aria-hidden="true" /> : null) : null}
-      {selecting && dragRect ? <div className="pointer-events-none fixed z-[60] border-2 border-dashed border-amber-300 bg-amber-300/10" style={{ top: dragRect.top, left: dragRect.left, width: dragRect.width, height: dragRect.height }} aria-hidden="true" /> : null}
+      {selecting && isForeground ? items.map((item) => item.rect ? <div key={item.id} className="pointer-events-none fixed z-[var(--af-layer-selection)] border-2 border-teal-300/80 bg-teal-300/10" style={{ top: item.rect.top, left: item.rect.left, width: item.rect.width, height: item.rect.height }} aria-hidden="true" /> : null) : null}
+      {selecting && isForeground && dragRect ? <div className="pointer-events-none fixed z-[var(--af-layer-workspace-window)] border-2 border-dashed border-amber-300 bg-amber-300/10" style={{ top: dragRect.top, left: dragRect.left, width: dragRect.width, height: dragRect.height }} aria-hidden="true" /> : null}
       <button
         type="button"
         data-global-ai-ui="true"
         className={placement === "floating"
-          ? "fixed bottom-20 right-4 z-40 inline-flex size-11 items-center justify-center rounded-full border border-teal-300/50 bg-[#0d1117] text-teal-200 shadow-lg hover:bg-teal-400/10 lg:bottom-6 lg:right-6"
-          : "inline-flex h-9 items-center gap-2 rounded-md border border-teal-300/40 px-2.5 text-xs text-teal-200 hover:bg-teal-300/10 sm:px-3"}
+          ? "fixed bottom-20 right-4 z-[var(--af-layer-selection)] inline-flex size-11 items-center justify-center rounded-full border border-teal-300/50 bg-[#0d1117] text-teal-200 shadow-lg hover:bg-teal-400/10 lg:bottom-6 lg:right-6"
+          : "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-teal-300/40 px-2.5 text-xs text-teal-200 hover:bg-teal-300/10 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0 sm:px-3"}
         onClick={openAssistant}
         aria-label="打开 AI 助手"
+        aria-expanded={isForeground}
         title="AI 助手"
       >
         <Sparkles size={18} aria-hidden="true" />
-        {placement === "header" ? <span className="hidden min-[900px]:inline">AI 助手</span> : null}
+        {placement === "header" ? <span className="hidden xl:inline">AI 助手</span> : null}
       </button>
     </>
   );

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { StudyResourceWorkbench } from "@/components/study-resource-workbench";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import {
   getStudyResourceEditorOptions,
   listStudyResources,

@@ -1,7 +1,7 @@
 import { ArrowRight, Bot, ClipboardCheck, FileCheck2, Flag, Repeat2 } from "lucide-react";
 import Link from "next/link";
 import { Badge, EmptyState } from "@/components/ui/feedback";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { ConfirmationItemDto } from "@/lib/study/confirmation-service";
 
 export function ConfirmationCenter({ items, filter }: { items: ConfirmationItemDto[]; filter: "pending" | "history" }) {

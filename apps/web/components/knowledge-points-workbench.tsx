@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { SubjectDto } from "@/lib/study/types";
 import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 import {

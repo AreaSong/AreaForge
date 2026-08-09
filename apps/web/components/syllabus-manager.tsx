@@ -11,7 +11,7 @@ import { Drawer } from "@/components/ui/overlays";
 import { Toolbar } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import {
   MASTERY_STATUS_OPTIONS,
   masteryStatusLabel,

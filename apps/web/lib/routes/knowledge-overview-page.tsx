@@ -5,7 +5,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, withReturnTo } from "@/lib/navigation/batch7";
+import { getRouteMetadata, withReturnTo } from "@/lib/navigation/app-navigation";
 import { getKnowledgeOverview } from "@/lib/study/knowledge-canvas-service";
 
 export const dynamic = "force-dynamic";

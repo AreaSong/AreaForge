@@ -3,7 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { getNavigationTrail, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getNavigationTrail, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getSourceContextLabel } from "@/lib/navigation/return-context";
 
 /** Stable page-level action region. It remains mounted even when a page has no actions yet. */

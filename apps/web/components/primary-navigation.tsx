@@ -14,8 +14,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { BrandMark } from "@/components/brand-logo";
 import { LogoutButton } from "@/components/logout-button";
-import { PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM } from "@/lib/navigation/batch7";
-import type { AppNavigationItem } from "@/lib/navigation/batch7";
+import { PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM } from "@/lib/navigation/app-navigation";
+import type { AppNavigationItem } from "@/lib/navigation/app-navigation";
 
 export function PrimaryNavigation(props: {
   pathname: string;

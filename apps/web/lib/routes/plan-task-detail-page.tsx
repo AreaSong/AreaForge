@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { TaskDetailClient } from "@/components/task-detail-client";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { loadTaskPageData } from "@/lib/study/task-page-data";
 
 export const dynamic = "force-dynamic";

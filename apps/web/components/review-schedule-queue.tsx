@@ -7,7 +7,7 @@ import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-c
 import { ButtonLink } from "@/components/ui/button";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { PageHeader, SectionHeader } from "@/components/ui/page";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type {
   BridgedReviewScheduleDto,
   RecentReviewEventDto,

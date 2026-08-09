@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getLearningTreeImport } from "@/lib/study/learning-tree-service";
 
 export const dynamic = "force-dynamic";

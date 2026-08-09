@@ -5,18 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildForegroundNotificationPayload,
-  evaluateAutomaticMotivationGate,
   sanitizeForegroundNotificationRoute,
   selectMobileTopLight,
   selectForegroundNotifications,
 } from "@areaforge/core";
 import { GlobalRecoveryHelp } from "@/components/global-recovery-help";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import {
-  MOTIVATION_REMINDER_PREFERENCE_EVENT,
-  motivationReminderPreferenceKey,
-  readMotivationReminderPreference,
-} from "@/lib/client/motivation-reminder-preference";
 import {
   subscribeQuickReviewActivity,
   type QuickReviewActivityClaim,
@@ -30,6 +24,8 @@ import {
 import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { GlobalSessionCloseout } from "@/components/global-session-closeout";
 import { useWindowSystem } from "@/components/window-system";
+import { WindowDiscardDialog, WindowLayer } from "@/components/window-layer";
+import { useShellRecovery } from "@/components/use-shell-recovery";
 import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
 import { GlobalContextStatusBar } from "@/components/shared-study-toolbar";
 import { GlobalTopBar } from "@/components/global-top-bar";
@@ -37,10 +33,18 @@ import { PageToolbar } from "@/components/page-toolbar";
 import { PrimaryNavigation } from "@/components/primary-navigation";
 import { SecondaryNavigation } from "@/components/secondary-navigation";
 import { SharedMobileNavigation } from "@/components/shared-mobile-navigation";
+import { Modal } from "@/components/ui/overlays";
 import { subscribeActivityStatus } from "@/lib/client/activity-status";
-import { activityLabel, activitySourcePath } from "@/lib/study/activity-route";
-import { BATCH10_NAV_ITEMS } from "@/lib/navigation/batch7";
+import { APP_NAVIGATION_ITEMS } from "@/lib/navigation/app-navigation";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
+import {
+  isRenderableFocusSession,
+  projectLocalFocusStatus,
+  projectLocalQuickReviewStatus,
+  readRenderableOfflineFocusSession,
+  toShellSyncState,
+  type ShellSyncState,
+} from "@/lib/study/app-shell-projection";
 
 const toneClass: Record<string, string> = {
   gray: "border-zinc-600 text-zinc-400",
@@ -49,8 +53,6 @@ const toneClass: Record<string, string> = {
   amber: "border-amber-400/50 text-amber-200",
   red: "border-red-400/50 text-red-200",
 };
-
-type ShellSyncState = "current" | "pending" | "offline" | "blocked" | "deferred" | "unavailable";
 
 export function AppShell(props: {
   children: React.ReactNode;
@@ -63,11 +65,7 @@ export function AppShell(props: {
   const router = useRouter();
   const [status, setStatus] = useState(props.initialStatus);
   const [syncState, setSyncState] = useState<ShellSyncState>("current");
-  const [motivationDrawerSource, setMotivationDrawerSource] = useState<"manual" | "automatic">("manual");
   const [lightOpen, setLightOpen] = useState(false);
-  const [recoveryError, setRecoveryError] = useState<string | null>(null);
-  const [motivationLine, setMotivationLine] = useState<string | null>(null);
-  const [motivationUrl, setMotivationUrl] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
@@ -76,12 +74,22 @@ export function AppShell(props: {
   const serverActiveSessionRef = useRef<AppShellStatusDto["activeSession"]>(props.initialStatus.activeSession);
   const statusRefreshRevisionRef = useRef(0);
   const immersive = pathname.endsWith("/run");
-  const fullCanvasPage = !immersive && (pathname === "/focus" || pathname === "/knowledge/canvas" || pathname.endsWith("/preview"));
+  const fullCanvasPage = immersive || pathname === "/focus" || pathname === "/knowledge/canvas" || pathname.endsWith("/preview");
   const suppressDistractions = immersive || pathname === "/focus";
+  const recovery = useShellRecovery({
+    userId: props.userId,
+    workspaceId: status.workspaceId,
+    suppressDistractions,
+    reminderCandidate: status.motivationReminderCandidate,
+    openWindow,
+  });
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-  const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
+  const activeNavigationItem = APP_NAVIGATION_ITEMS.find((item) => item.match(pathname));
   const secondaryNavigationItems = activeNavigationItem?.children ?? [];
-  const showSecondaryNavigation = secondaryNavigationItems.length > 0;
+  // Immersive review keeps the global shell, but removes the module rail so
+  // the review task remains focused without losing global recovery and window
+  // controls.
+  const showSecondaryNavigation = !immersive && secondaryNavigationItems.length > 0;
   const displaySession = status.activeSession ?? offlineFocusSession;
   const displayStatus = projectLocalFocusStatus(projectLocalQuickReviewStatus(status, quickReviewClaim), displaySession);
   const activeSessionId = status.activeSession?.id;
@@ -266,15 +274,6 @@ export function AppShell(props: {
     return () => window.clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    if (!lightOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setLightOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [lightOpen]);
-
   function toggleSidebar() {
     setSidebarCollapsed((current) => {
       const next = !current;
@@ -349,117 +348,6 @@ export function AppShell(props: {
     };
   }, [suppressDistractions, router, status]);
 
-  useEffect(() => {
-    if (suppressDistractions || !status.workspaceId) return;
-    let cancelled = false;
-    const cooldownKey = `af.motivation.auto.next.${status.workspaceId}`;
-
-    async function showAutomaticReminder() {
-      const preference = readMotivationReminderPreference(props.userId);
-      const shanghaiNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
-      const clientGate = evaluateAutomaticMotivationGate({
-        enabled: preference.enabled,
-        hour: shanghaiNow.getUTCHours(),
-        windowStart: preference.windowStart,
-        windowEnd: preference.windowEnd,
-        visible: document.visibilityState === "visible",
-        immersive: suppressDistractions,
-        hasActiveActivity: status.motivationReminderCandidate.blockedByActiveActivity,
-        trigger: status.motivationReminderCandidate.trigger,
-      });
-      if (!clientGate.allowed) return;
-      const nextEligibleAt = Number(readLocalStorage(cooldownKey) ?? "0");
-      if (Number.isFinite(nextEligibleAt) && nextEligibleAt > Date.now()) return;
-
-      try {
-        const response = await fetch("/api/motivation/next", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "automatic" }),
-        });
-        const body = (await response.json().catch(() => null)) as
-          | { item?: { title?: string; body?: string | null; externalUrl?: string | null } | null; reminderAllowed?: boolean }
-          | null;
-        if (!response.ok || cancelled) return;
-
-        // The server is authoritative for the four-hour and daily limits. A local
-        // cooldown avoids repeated fetches during ordinary route changes.
-        const cooldown = body?.reminderAllowed ? 4 * 60 * 60 * 1000 : 15 * 60 * 1000;
-        writeLocalStorage(cooldownKey, String(Date.now() + cooldown));
-        if (!body?.reminderAllowed || !body.item) return;
-
-        setRecoveryError(null);
-        setMotivationLine(body.item.body ?? body.item.title ?? null);
-        setMotivationUrl(body.item.externalUrl ?? null);
-        setMotivationDrawerSource("automatic");
-        openWindow("recovery-help");
-      } catch {
-        // An automatic reminder must never interrupt the current page on failure.
-      }
-    }
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") void showAutomaticReminder();
-    };
-    const onPreferenceChange = () => void showAutomaticReminder();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === motivationReminderPreferenceKey(props.userId)) void showAutomaticReminder();
-    };
-    void showAutomaticReminder();
-    const interval = window.setInterval(() => void showAutomaticReminder(), 60_000);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener(MOTIVATION_REMINDER_PREFERENCE_EVENT, onPreferenceChange);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener(MOTIVATION_REMINDER_PREFERENCE_EVENT, onPreferenceChange);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, [openWindow, suppressDistractions, props.userId, status.motivationReminderCandidate, status.workspaceId]);
-
-  async function openMotivationHelp() {
-    setRecoveryError(null);
-    setMotivationLine(null);
-    setMotivationUrl(null);
-    setMotivationDrawerSource("manual");
-    openWindow("recovery-help");
-    try {
-      const response = await fetch("/api/motivation/next", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "manual" }),
-      });
-      const body = (await response.json().catch(() => null)) as
-        | { item?: { title?: string; body?: string | null; externalUrl?: string | null }; error?: string }
-        | null;
-      if (!response.ok) {
-        setRecoveryError(body?.error ?? "无法加载动机内容");
-        return;
-      }
-      if (body?.item) {
-        const line = body.item.body ?? body.item.title ?? null;
-        setMotivationLine(line);
-        setMotivationUrl(body.item.externalUrl ?? null);
-      } else {
-        setMotivationLine("内容库为空。可到设置 → 档案添加语录。");
-      }
-    } catch {
-      setRecoveryError("无法加载动机内容");
-    }
-  }
-
-  if (immersive) {
-    return (
-      <main className="flex min-h-screen flex-col bg-[#080b0f] text-zinc-100">
-        <PageToolbar />
-        <div className="min-h-0 flex-1" data-layout-region="immersive-content">{props.children}</div>
-        <GlobalContextStatusBar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} statusLights={displayStatus.lights} syncState={syncState} serverTime={status.serverTime} />
-      </main>
-    );
-  }
-
   return (
     <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100" data-layout-region="app-shell">
       <a
@@ -482,7 +370,7 @@ export function AppShell(props: {
             quickReviewClaim={quickReviewClaim}
             onOpenStatus={openStatusLight}
             statusOpen={lightOpen}
-            onOpenMotivationHelp={() => void openMotivationHelp()}
+            onOpenMotivationHelp={() => void recovery.open()}
           />
           {showSecondaryNavigation && activeNavigationItem ? (
             <nav className="shrink-0 overflow-x-auto px-4 pt-3 pb-1 sm:px-6 xl:px-8 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`} data-layout-region="secondary-mobile-navigation">
@@ -507,30 +395,31 @@ export function AppShell(props: {
           <div className="flex min-h-0 min-w-0 flex-1">
             {showSecondaryNavigation && activeNavigationItem ? <SecondaryNavigation pathname={pathname} workbench={activeNavigationItem} collapsed={secondaryCollapsed} onToggle={toggleSecondary} /> : null}
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col">
               <main
                 id="main-content"
                 className={`af-shell-main min-h-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6"}`}
                 data-ai-page-context="true"
                 data-layout-region="page-content"
+                data-immersive-content={immersive ? "true" : undefined}
               >{props.children}</main>
+              <WindowLayer />
             </div>
           </div>
 
           <GlobalContextStatusBar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} statusLights={displayStatus.lights} syncState={syncState} serverTime={status.serverTime} />
 
-          <SharedMobileNavigation pathname={pathname} />
+          <SharedMobileNavigation pathname={pathname} email={props.email} userId={props.userId} />
         </div>
       </div>
 
       <GlobalRecoveryHelp
-        title={motivationDrawerSource === "automatic" ? "行动提醒" : "我学不下去了"}
-        motivationLine={motivationLine}
-        motivationUrl={motivationUrl}
-        motivationError={recoveryError}
+        title={recovery.source === "automatic" ? "行动提醒" : "我学不下去了"}
+        motivationLine={recovery.line}
+        motivationUrl={recovery.url}
+        motivationError={recovery.error}
         workspaceId={status.workspaceId}
         defaultSubjectId={status.defaultSubjectId}
-        onClose={() => undefined}
       />
       <GlobalSessionCloseout
         userId={props.userId}
@@ -539,82 +428,27 @@ export function AppShell(props: {
         initialNow={status.serverTime}
         pathname={pathname}
       />
-      {lightOpen ? (
-        <div className="fixed inset-0 z-[70] grid place-items-start bg-black/40 p-4 pt-20" role="presentation" onClick={() => setLightOpen(false)}>
-          <section className="w-full max-w-md rounded-lg border border-white/15 bg-[#101419] p-5 shadow-2xl" role="dialog" aria-modal="false" aria-label="今日状态" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold text-white">今日状态</h2><button type="button" className="text-sm text-zinc-400 hover:text-white" onClick={() => setLightOpen(false)}>关闭</button></div>
-            <div className="divide-y divide-white/10" aria-label="今日状态详情">
-              {displayStatus.lights.map((light) => (
-                <div key={light.kind} className="py-4 first:pt-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full border ${toneClass[light.tone] ?? toneClass.gray}`} aria-hidden="true" />
-                    <p className="text-sm font-medium text-zinc-200">{light.label}</p>
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-zinc-500">{light.summary}</p>
-                  {light.action ? (
-                    <Link href={light.action.href} className="mt-2 inline-flex text-sm text-teal-300 hover:underline" onClick={() => setLightOpen(false)}>
-                      {light.action.label}
-                    </Link>
-                  ) : null}
-                </div>
-              ))}
+      <WindowDiscardDialog />
+      <Modal open={lightOpen} title="今日状态" onClose={() => setLightOpen(false)}>
+        <div className="divide-y divide-white/10" aria-label="今日状态详情">
+          {displayStatus.lights.map((light) => (
+            <div key={light.kind} className="py-4 first:pt-0">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full border ${toneClass[light.tone] ?? toneClass.gray}`} aria-hidden="true" />
+                <p className="text-sm font-medium text-zinc-200">{light.label}</p>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-zinc-500">{light.summary}</p>
+              {light.action ? (
+                <Link href={light.action.href} className="mt-2 inline-flex text-sm text-teal-300 hover:underline" onClick={() => setLightOpen(false)}>
+                  {light.action.label}
+                </Link>
+              ) : null}
             </div>
-          </section>
+          ))}
         </div>
-      ) : null}
+      </Modal>
     </div>
   );
-}
-
-function projectLocalQuickReviewStatus(
-  status: AppShellStatusDto,
-  claim: QuickReviewActivityClaim | null,
-): Pick<AppShellStatusDto, "lights" | "mobileTop"> {
-  if (!claim) return status;
-  const lights = status.lights.map((light) => light.kind === "review"
-    ? {
-        ...light,
-        tone: "blue" as const,
-        summary: "正在快速复习",
-        action: { label: "继续复习", href: claim.href },
-      }
-    : light);
-  return { lights, mobileTop: selectMobileTopLight(lights) };
-}
-
-function projectLocalFocusStatus(
-  status: Pick<AppShellStatusDto, "lights" | "mobileTop">,
-  session: AppShellStatusDto["activeSession"],
-): Pick<AppShellStatusDto, "lights" | "mobileTop"> {
-  if (!session) return status;
-  const lights = status.lights.map((light) => light.kind === "activity"
-    ? {
-        ...light,
-        tone: session.status === "closing" ? "amber" as const : session.status === "paused" ? "blue" as const : "green" as const,
-        summary: session.status === "closing" ? `${activityLabel(session)}已冻结，等待收口` : session.status === "paused" ? `${activityLabel(session)}已暂停，可继续` : `正在${activityLabel(session)}`,
-        action: { label: session.status === "closing" ? "完成收口" : `继续${activityLabel(session)}`, href: activitySourcePath(session) },
-      }
-    : light);
-  return { lights, mobileTop: selectMobileTopLight(lights) };
-}
-
-function isRenderableFocusSession(
-  session: AppShellStatusDto["activeSession"],
-): session is NonNullable<AppShellStatusDto["activeSession"]> {
-  return Boolean(session && ["running", "paused", "closing"].includes(session.status));
-}
-
-async function readRenderableOfflineFocusSession(
-  userId: string,
-): Promise<AppShellStatusDto["activeSession"]> {
-  const snapshot = await readFocusOfflineSnapshot(userId);
-  const session = snapshot?.session ?? null;
-  return isRenderableFocusSession(session) && (isLocalFocusSessionId(session.id) || !navigator.onLine) ? session : null;
-}
-
-function toShellSyncState(value: string): ShellSyncState {
-  if (value === "pending" || value === "offline" || value === "blocked" || value === "deferred") return value;
-  return value === "unavailable" ? "unavailable" : "current";
 }
 
 function readLocalStorage(key: string): string | null {

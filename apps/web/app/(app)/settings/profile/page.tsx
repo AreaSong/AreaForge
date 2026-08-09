@@ -5,7 +5,7 @@ import { MotivationLibraryClient } from "@/components/motivation-library-client"
 import { MotivationReminderSettings } from "@/components/motivation-reminder-settings";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listMotivationItems } from "@/lib/study/motivation-library-service";
 import { getMotivationVault } from "@/lib/study/service";
 

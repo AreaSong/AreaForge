@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
 import type { DailyReviewDto } from "@/lib/study/types";
 

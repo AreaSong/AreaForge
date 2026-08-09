@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { SettingsWorkbench } from "@/components/settings-workbench";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getUpdateCenterStatus } from "@/lib/system/update-center";
 
 export const dynamic = "force-dynamic";

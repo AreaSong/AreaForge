@@ -25,7 +25,7 @@ import {
   UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { AppNavigationItem } from "@/lib/navigation/batch7";
+import type { AppNavigationItem } from "@/lib/navigation/app-navigation";
 
 export function SecondaryNavigation(props: {
   pathname: string;
@@ -103,6 +103,7 @@ const SECONDARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {
   "/knowledge/reviews": ClipboardCheck,
   "/test/retests": Repeat2,
   "/test/simulations": ScrollText,
+  "/settings": LayoutDashboard,
   "/settings/exams": BriefcaseBusiness,
   "/settings/profile": UserRound,
   "/settings/learning": SlidersHorizontal,

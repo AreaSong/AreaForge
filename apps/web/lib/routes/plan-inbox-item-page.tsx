@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PlanInboxItemClient } from "@/components/plan-inbox-item-client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getPlanInboxFormOptions, listPlanInboxItems } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";

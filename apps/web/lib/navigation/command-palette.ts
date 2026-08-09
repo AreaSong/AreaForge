@@ -90,7 +90,7 @@ export const GLOBAL_COMMANDS: readonly GlobalCommandDefinition[] = [
     label: "打开设置",
     description: "管理考试工作区、偏好、AI 和系统",
     aliases: ["settings", "设置"],
-    href: "/settings/exams",
+    href: "/settings",
   },
   {
     id: "settings-ai",

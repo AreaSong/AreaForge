@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { PlanInboxClient } from "@/components/plan-inbox-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { findActiveWorkspaceOrNull } from "@/lib/study/exam-workspace-service";
-import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
 import { listPlanInboxItems, matchesPlanInboxStableRef } from "@/lib/study/plan-inbox-service";
 
 export const dynamic = "force-dynamic";

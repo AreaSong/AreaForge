@@ -10,7 +10,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { PageFrame } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import { getReviewSchedule, listReviewEvents } from "@/lib/study/review-schedule-service";
 import { getReviewTarget } from "@/lib/study/review-target-service";

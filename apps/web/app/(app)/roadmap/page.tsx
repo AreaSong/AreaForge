@@ -2,7 +2,7 @@ import { ArrowRight, BarChart3, ClipboardList, Flag, Inbox } from "lucide-react"
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/roadmap");

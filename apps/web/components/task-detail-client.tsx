@@ -12,7 +12,7 @@ import { ReviewBridgeTaskActions } from "@/components/review-bridge-task-actions
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
 import type { TaskDependencyDto } from "@/lib/study/task-dependency-service";
 import type { StudyTaskDetailDto, TaskDependencyCandidateDto } from "@/lib/study/task-detail-service";

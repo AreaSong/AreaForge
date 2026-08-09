@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { MistakeDetailClient } from "@/components/mistake-detail-client";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getOwnedMistakeDetail } from "@/lib/study/mistakes-service";
 
 export const dynamic = "force-dynamic";

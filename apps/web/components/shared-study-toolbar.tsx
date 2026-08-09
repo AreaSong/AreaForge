@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { AppShellLight } from "@areaforge/core";
 import { getClientDeviceIdentity, type ClientDeviceIdentity } from "@/lib/client/device-identity";
-import { getNavigationTrail, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getNavigationTrail, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import type { StudySessionDevicePresenceDto, StudySessionDto } from "@/lib/study/types";
 import { isActivitySourcePath } from "@/lib/study/activity-route";
-import { WindowDock, useWindowSystem } from "@/components/window-system";
+import { WindowDock } from "@/components/window-dock";
+import { useWindowSystem } from "@/components/window-system";
 
-const RECENT_PAGE_KEY = "af.navigation.previous";
+const RECENT_PAGE_KEY = "af.navigation.previous.v2";
 
 type PreviousPage = { href: string; label: string } | null;
 const previousPageListeners = new Set<() => void>();
@@ -68,15 +69,16 @@ function publishPreviousPage(currentHref: string): void {
   const current = sanitizeReturnPath(currentHref);
   let raw: string | null = null;
   try {
-    raw = window.localStorage.getItem(RECENT_PAGE_KEY);
+    raw = window.sessionStorage.getItem(RECENT_PAGE_KEY);
   } catch {
     previousPageSnapshot = null;
   }
-  const previousTrail = raw && raw !== current ? getNavigationTrail(getPathname(raw)) : [];
+  const previousHref = normalizePreviousHref(raw);
+  const previousTrail = previousHref && previousHref !== current ? getNavigationTrail(getPathname(previousHref)) : [];
   const previous = previousTrail.at(-1);
-  previousPageSnapshot = previous ? { href: raw as string, label: previous.label } : null;
+  previousPageSnapshot = previous && previousHref ? { href: previousHref, label: previous.label } : null;
   try {
-    window.localStorage.setItem(RECENT_PAGE_KEY, current);
+    window.sessionStorage.setItem(RECENT_PAGE_KEY, current);
   } catch {
     // The toolbar remains usable without a recent-page hint.
   }
@@ -93,7 +95,7 @@ export function GlobalContextStatusBar(props: {
   serverTime?: string;
   statusLights?: readonly AppShellLight[];
 }) {
-  const { windows, openWindow } = useWindowSystem();
+  const { foregroundKey } = useWindowSystem();
   const now = useSyncExternalStore(
     subscribeNow,
     getNowSnapshot,
@@ -103,6 +105,7 @@ export function GlobalContextStatusBar(props: {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsRef = useRef<HTMLDivElement>(null);
   const detailsTriggerRef = useRef<HTMLButtonElement>(null);
+  const lastDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const detailsId = useId();
   const previousPage = useSyncExternalStore(
     subscribePreviousPage,
@@ -121,16 +124,6 @@ export function GlobalContextStatusBar(props: {
   }, [currentHref]);
 
   const active = props.activeSession;
-  const closeoutNeeded = Boolean(active?.status === "closing" && !isActivitySourcePath(props.pathname, active));
-
-  useEffect(() => {
-    if (!closeoutNeeded || windows.some((window) => window.key === "session-closeout")) return;
-    // The toolbar is mounted before the global closeout definition. The
-    // window system queues this request when necessary and consumes it when
-    // the definition registers, eliminating the first-load race.
-    openWindow("session-closeout");
-  }, [closeoutNeeded, openWindow, windows]);
-
   const syncLabel = props.syncState === "offline"
     ? "离线"
     : props.syncState === "pending"
@@ -167,6 +160,13 @@ export function GlobalContextStatusBar(props: {
       : "本设备";
   const attentionLights = (props.statusLights ?? []).filter((light) => light.tone === "amber" || light.tone === "red");
   const hasContextDetails = attentionLights.length > 0 || otherDevices.length > 0 || fallbackSourceDevice !== null || props.syncState !== "current";
+  const closeoutStatusLabel = active?.status !== "closing"
+    ? null
+    : isActivitySourcePath(props.pathname, active)
+      ? "正在完成收口"
+      : foregroundKey === "session-closeout"
+        ? "收口窗口正在前台"
+        : "收口窗口已保留在后台";
 
   useEffect(() => {
     if (!detailsOpen) return;
@@ -179,7 +179,7 @@ export function GlobalContextStatusBar(props: {
       if (event.key === "Escape") {
         event.preventDefault();
         setDetailsOpen(false);
-        detailsTriggerRef.current?.focus({ preventScroll: true });
+        lastDetailsTriggerRef.current?.focus({ preventScroll: true });
       }
     };
     document.addEventListener("pointerdown", onPointerDown);
@@ -192,32 +192,35 @@ export function GlobalContextStatusBar(props: {
 
   return (
     <footer
-      className="af-shared-toolbar relative z-[90] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-4 py-2 text-xs sm:px-6 xl:px-8"
+      className="af-shared-toolbar relative z-[var(--af-layer-shell-chrome)] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-2 py-1 text-xs sm:px-6 xl:px-8"
       data-layout-region="global-context-status-bar"
       data-global-ai-ui="true"
     >
-      <div className="grid min-h-7 min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] sm:gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="flex h-8 min-w-0 flex-nowrap items-center gap-2">
+        <div className="flex min-w-0 shrink-0 items-center gap-2">
           {previousPage && previousPage.href !== currentHref ? (
-            <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面">
+            <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面" aria-label={`返回刚才的页面：${previousPage.label}`}>
               <ArrowLeft size={13} aria-hidden="true" />
-              <span className="max-w-40 truncate">刚才：{previousPage.label}</span>
+              <span className="hidden max-w-40 truncate min-[420px]:inline">刚才：{previousPage.label}</span>
             </Link>
-          ) : <span className="truncate text-zinc-700">当前页面</span>}
+          ) : <span className="hidden truncate text-zinc-700 min-[420px]:inline">当前页面</span>}
         </div>
 
-        <div className="flex min-w-0 items-center justify-center gap-3 sm:col-start-2">
-          {active?.status === "closing" ? (
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-amber-200" role="status">
+        <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 overflow-visible">
+          {closeoutStatusLabel ? (
+            <span className="hidden min-w-0 shrink items-center gap-1.5 text-amber-200 min-[480px]:inline-flex" role="status">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" aria-hidden="true" />
-              <span className="max-w-48 truncate">{isActivitySourcePath(props.pathname, active) ? "正在完成收口" : "收口窗口已保留在后台"}</span>
+              <span className="max-w-48 truncate">{closeoutStatusLabel}</span>
             </span>
           ) : null}
           {attentionLights.length > 0 ? (
             <button
               type="button"
-              className="hidden min-w-0 max-w-56 items-center gap-1.5 rounded-md px-1.5 text-amber-200 hover:bg-amber-300/[0.08] sm:inline-flex"
-              onClick={() => setDetailsOpen((current) => !current)}
+              className="hidden min-w-0 max-w-56 items-center gap-1.5 rounded-md px-1.5 text-amber-200 hover:bg-amber-300/[0.08] xl:inline-flex"
+              onClick={(event) => {
+                lastDetailsTriggerRef.current = event.currentTarget;
+                setDetailsOpen((current) => !current);
+              }}
               aria-label={`查看状态提醒：${attentionLights[0].summary}`}
               aria-expanded={detailsOpen}
               aria-controls={detailsId}
@@ -229,28 +232,31 @@ export function GlobalContextStatusBar(props: {
           <WindowDock />
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-2.5 text-zinc-500">
+        <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 text-zinc-500">
           {hasContextDetails ? (
             <button
               ref={detailsTriggerRef}
               type="button"
               className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-white/10 px-2 text-xs text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200"
-              onClick={() => setDetailsOpen((current) => !current)}
+              onClick={(event) => {
+                lastDetailsTriggerRef.current = event.currentTarget;
+                setDetailsOpen((current) => !current);
+              }}
               aria-label="查看系统状态详情"
               aria-expanded={detailsOpen}
               aria-controls={detailsId}
             >
               <AlertTriangle size={13} className={attentionLights.length > 0 ? "text-amber-300" : "text-zinc-500"} aria-hidden="true" />
-              <span>状态</span>
+              <span className="hidden sm:inline">状态</span>
             </button>
           ) : null}
-          <span className="inline-flex min-w-0 items-center gap-1.5" role="status" title="当前设备">
+          <span className="hidden min-w-0 items-center gap-1.5 md:inline-flex" role="status" title="当前设备">
             <Monitor size={13} aria-hidden="true" />
             <span className="max-w-28 truncate">{deviceIdentity?.label ?? "当前设备"}</span>
           </span>
           {active && (otherDevices.length > 0 || fallbackSourceDevice) ? (
             <span
-              className={`hidden min-w-0 items-center gap-1.5 sm:inline-flex ${otherDeviceOnline || fallbackSourceDeviceOnline ? "text-amber-200" : "text-zinc-500"}`}
+              className={`hidden min-w-0 items-center gap-1.5 lg:inline-flex ${otherDeviceOnline || fallbackSourceDeviceOnline ? "text-amber-200" : "text-zinc-500"}`}
               role="status"
               title={otherDevices.length > 0 ? `其他设备：${otherDevices.map((presence) => presence.deviceLabel).join("、")}` : `活动来自${fallbackSourceDevice}`}
             >
@@ -260,16 +266,16 @@ export function GlobalContextStatusBar(props: {
           ) : null}
           <span className={`inline-flex shrink-0 items-center gap-1.5 ${props.syncState === "current" ? "text-zinc-500" : "text-amber-200"}`} role="status" aria-live="polite">
             {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
-            <span>{syncLabel}</span>
-            {props.serverTime ? <span className="hidden text-zinc-700 md:inline">· {formatServerTime(props.serverTime)}</span> : null}
+            <span className="hidden min-[360px]:inline">{syncLabel}</span>
+            {props.serverTime ? <span className="hidden text-zinc-700 xl:inline">· {formatServerTime(props.serverTime)}</span> : null}
           </span>
         </div>
       </div>
       {detailsOpen && hasContextDetails ? (
-        <div ref={detailsRef} id={detailsId} className="absolute bottom-[calc(100%+0.5rem)] right-4 z-[95] w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-white/15 bg-[#101419] p-4 text-sm shadow-2xl" role="dialog" aria-modal="false" aria-labelledby={`${detailsId}-title`}>
+        <div ref={detailsRef} id={detailsId} className="absolute bottom-[calc(100%+0.5rem)] right-4 z-[var(--af-layer-shell-popover)] w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-white/15 bg-[#101419] p-4 text-sm shadow-2xl" role="dialog" aria-modal="false" aria-labelledby={`${detailsId}-title`}>
           <div className="flex items-center gap-3">
             <h2 id={`${detailsId}-title`} className="min-w-0 flex-1 font-medium text-zinc-100">系统状态</h2>
-            <button type="button" className="inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200" onClick={() => { setDetailsOpen(false); detailsTriggerRef.current?.focus({ preventScroll: true }); }} aria-label="关闭系统状态详情">
+            <button type="button" className="inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200" onClick={() => { setDetailsOpen(false); lastDetailsTriggerRef.current?.focus({ preventScroll: true }); }} aria-label="关闭系统状态详情">
               <X size={15} aria-hidden="true" />
             </button>
           </div>
@@ -320,4 +326,9 @@ function getPathname(value: string): string {
   } catch {
     return value.split("?", 1)[0].split("#", 1)[0];
   }
+}
+
+function normalizePreviousHref(value: string | null): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+  return sanitizeReturnPath(value);
 }

@@ -12,7 +12,7 @@ import { Modal } from "@/components/ui/overlays";
 
 type Decision = "confirm" | "reject";
 
-export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, onCompleted }: { item: ConfirmationItemDto; sourceHref?: string; onCompleted?: () => void | Promise<void> }) {
+export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, onCompleted, onNavigate }: { item: ConfirmationItemDto; sourceHref?: string; onCompleted?: () => void | Promise<void>; onNavigate?: () => void }) {
   const router = useRouter();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [pending, setPending] = useState<Decision | "confirm_retest" | "void_retest" | null>(null);
@@ -36,7 +36,9 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
         </div>
         <Alert tone="info">
           <span>请在来源页面使用原始 <code>resultProof</code> 完成采用或放弃。</span>{" "}
-          <Link href={sourceHref} className="font-medium text-teal-300 underline underline-offset-4">打开来源页面</Link>
+          <Link href={sourceHref} className="font-medium text-teal-300 underline underline-offset-4" onClick={(event) => {
+            if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) onNavigate?.();
+          }}>打开来源页面</Link>
         </Alert>
       </section>
     );

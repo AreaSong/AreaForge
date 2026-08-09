@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmationDetailActions } from "@/components/confirmation-detail-actions";
 import { Badge, EmptyState } from "@/components/ui/feedback";
+import { getConfirmationWindowRouteRequest } from "@/lib/navigation/confirmation-route";
 import type { ConfirmationItemDto } from "@/lib/study/confirmation-service";
 import { useWindowSystem } from "@/components/window-system";
 
@@ -13,36 +14,42 @@ const PENDING_CONFIRMATIONS_URL = "/api/confirmations?filter=pending";
 
 export function GlobalConfirmationCenter(props: { pathname: string; userId: string }) {
   const [items, setItems] = useState<ConfirmationItemDto[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"pending" | "history">("pending");
-  const { openWindow, registerWindow, refreshWindow, windows } = useWindowSystem();
+  const { closeWindow, foregroundKey, openWindow, registerWindow, refreshWindow } = useWindowSystem();
   const selected = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
-  const isOpen = windows.some((window) => window.key === "confirmation-center" && !window.minimized);
+  const isOpen = foregroundKey === "confirmation-center";
 
-  const loadItems = useCallback(async (nextFilter: "pending" | "history" | "all" = filter, signal?: AbortSignal) => {
+  const loadItems = useCallback(async (nextFilter: "pending" | "history" | "all", signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const filters = nextFilter === "all" ? ["pending", "history"] as const : [nextFilter];
+      const filters = nextFilter === "pending" ? ["pending"] as const : ["pending", "history"] as const;
       const responses = await Promise.all(filters.map((value) => fetch(value === "pending" ? PENDING_CONFIRMATIONS_URL : `/api/confirmations?filter=${value}`, { cache: "no-store", signal })));
       if (responses.some((response) => response.status === 401)) return;
       if (responses.some((response) => !response.ok)) throw new Error("CONFIRMATIONS_UNAVAILABLE");
       const bodies = await Promise.all(responses.map((response) => response.json() as Promise<{ items?: ConfirmationItemDto[] }>));
-      setItems(bodies.flatMap((body) => Array.isArray(body.items) ? body.items : []));
+      const byFilter = new Map(filters.map((value, index) => [value, Array.isArray(bodies[index]?.items) ? bodies[index]!.items! : []]));
+      const pendingItems = byFilter.get("pending") ?? [];
+      setPendingCount(pendingItems.length);
+      setItems(nextFilter === "all"
+        ? [...pendingItems, ...(byFilter.get("history") ?? [])]
+        : byFilter.get(nextFilter) ?? []);
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
       setError("确认事项暂时无法加载，请稍后重试。");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   const handleCompleted = useCallback(async () => {
     setSelectedId(null);
-    await loadItems();
-  }, [loadItems]);
+    await loadItems(filter);
+  }, [filter, loadItems]);
 
   const content = useMemo(() => (
     <ConfirmationWindowContent
@@ -58,10 +65,11 @@ export function GlobalConfirmationCenter(props: { pathname: string; userId: stri
       }}
       onSelect={setSelectedId}
       onBack={() => setSelectedId(null)}
-      onRetry={() => void loadItems()}
+      onRetry={() => void loadItems(filter)}
       onCompleted={handleCompleted}
+      onNavigate={() => closeWindow("confirmation-center")}
     />
-  ), [error, filter, handleCompleted, items, loadItems, loading, selected]);
+  ), [closeWindow, error, filter, handleCompleted, items, loadItems, loading, selected]);
 
   // Keep the registered window identity stable while list loading/filter state
   // changes. Re-registering the whole definition replaces the live dialog DOM
@@ -73,19 +81,30 @@ export function GlobalConfirmationCenter(props: { pathname: string; userId: stri
   }, [content, refreshWindow]);
 
   useEffect(() => {
+    const request = getConfirmationWindowRouteRequest(props.pathname);
     const controller = new AbortController();
-    const timer = window.setTimeout(() => void loadItems(filter, controller.signal), 0);
+    const timer = window.setTimeout(() => {
+      const requestedFilter = request?.filter ?? "pending";
+      if (request) {
+        setFilter(requestedFilter);
+        setSelectedId(request.confirmationId ?? null);
+        openWindow("confirmation-center");
+      }
+      void loadItems(request?.confirmationId ? "all" : requestedFilter, controller.signal).then(() => {
+        if (request?.confirmationId && !controller.signal.aborted) setSelectedId(request.confirmationId);
+      });
+    }, 0);
     return () => {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [filter, loadItems, props.pathname, props.userId]);
+  }, [loadItems, openWindow, props.pathname, props.userId]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const interval = window.setInterval(() => void loadItems(), 60_000);
+    const interval = window.setInterval(() => void loadItems(filter), 60_000);
     return () => window.clearInterval(interval);
-  }, [loadItems, isOpen]);
+  }, [filter, loadItems, isOpen]);
 
   useEffect(() => registerWindow({
     key: "confirmation-center",
@@ -121,15 +140,15 @@ export function GlobalConfirmationCenter(props: { pathname: string; userId: stri
     <>
       <button
         type="button"
-        className="relative inline-flex h-9 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/5 sm:px-3"
+        className="relative inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/5 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0 sm:px-3"
         onClick={openCenter}
-        aria-label={`确认中心${items.length ? `，${items.length} 项待确认` : "，当前没有待确认事项"}`}
-        aria-expanded={false}
+        aria-label={`确认中心${pendingCount ? `，${pendingCount} 项待确认` : "，当前没有待确认事项"}`}
+        aria-expanded={isOpen}
         title="打开确认中心"
       >
         <ClipboardCheck size={16} aria-hidden="true" />
-        <span className="hidden min-[900px]:inline">确认</span>
-        {items.length > 0 ? <span className="min-w-4 rounded-full bg-amber-300 px-1 text-center text-[10px] font-semibold text-slate-950">{items.length > 99 ? "99+" : items.length}</span> : null}
+        <span className="hidden xl:inline">确认</span>
+        {pendingCount > 0 ? <span className="min-w-4 rounded-full bg-amber-300 px-1 text-center text-[10px] font-semibold text-slate-950 max-[359px]:absolute max-[359px]:-right-1 max-[359px]:-top-1">{pendingCount > 99 ? "99+" : pendingCount}</span> : null}
       </button>
     </>
   );
@@ -146,11 +165,12 @@ function ConfirmationWindowContent(props: {
   onBack: () => void;
   onRetry: () => void;
   onCompleted: () => Promise<void>;
+  onNavigate: () => void;
 }) {
   if (props.selected) {
-    return <ConfirmationDetail item={props.selected} onBack={props.onBack} onCompleted={props.onCompleted} />;
+    return <ConfirmationDetail item={props.selected} onBack={props.onBack} onCompleted={props.onCompleted} onNavigate={props.onNavigate} />;
   }
-  return <ConfirmationList items={props.items} loading={props.loading} error={props.error} filter={props.filter} onFilterChange={props.onFilterChange} onSelect={props.onSelect} onRetry={props.onRetry} />;
+  return <ConfirmationList items={props.items} loading={props.loading} error={props.error} filter={props.filter} onFilterChange={props.onFilterChange} onSelect={props.onSelect} onRetry={props.onRetry} onNavigate={props.onNavigate} />;
 }
 
 function ConfirmationList(props: {
@@ -161,6 +181,7 @@ function ConfirmationList(props: {
   onFilterChange: (filter: "pending" | "history") => void;
   onSelect: (id: string) => void;
   onRetry: () => void;
+  onNavigate: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -188,8 +209,8 @@ function ConfirmationList(props: {
       {!props.loading && !props.error && props.items.length === 0 ? <EmptyState title={props.filter === "pending" ? "当前没有待确认事项" : "还没有已处理记录"} description={props.filter === "pending" ? "完成学习、复盘或检验后，需要你决定的结果会出现在这里。" : "确认或驳回事项后，记录会出现在这里。"} /> : null}
       {props.items.length > 0 ? <div className="divide-y divide-white/10 border-y border-white/10">{props.items.map((item) => <ConfirmationListRow key={`${item.kind}-${item.id}`} item={item} onSelect={props.onSelect} />)}</div> : null}
       <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-white/10 pt-4 text-sm">
-        <Link href="/confirmations" className="inline-flex items-center gap-1.5 text-teal-300 hover:text-teal-200"><ExternalLink size={14} aria-hidden="true" />打开完整确认中心</Link>
-        <Link href={props.filter === "pending" ? "/confirmations/history" : "/confirmations"} className="text-zinc-500 hover:text-zinc-200">{props.filter === "pending" ? "查看已处理" : "回到待确认"}</Link>
+        <Link href="/confirmations" className="inline-flex items-center gap-1.5 text-teal-300 hover:text-teal-200" onClick={(event) => handleWindowNavigation(event, props.onNavigate)}><ExternalLink size={14} aria-hidden="true" />打开完整确认中心</Link>
+        <Link href={props.filter === "pending" ? "/confirmations/history" : "/confirmations"} className="text-zinc-500 hover:text-zinc-200" onClick={(event) => handleWindowNavigation(event, props.onNavigate)}>{props.filter === "pending" ? "查看已处理" : "回到待确认"}</Link>
       </div>
     </div>
   );
@@ -208,15 +229,19 @@ function ConfirmationListRow(props: { item: ConfirmationItemDto; onSelect: (id: 
   );
 }
 
-function ConfirmationDetail(props: { item: ConfirmationItemDto; onBack: () => void; onCompleted: () => Promise<void> }) {
+function ConfirmationDetail(props: { item: ConfirmationItemDto; onBack: () => void; onCompleted: () => Promise<void>; onNavigate: () => void }) {
   const statusLabel = props.item.status === "PENDING" ? "待确认" : props.item.status === "REJECTED" ? "已驳回" : "已确认并冻结";
   return (
     <div className="space-y-5">
       <button type="button" className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-200" onClick={props.onBack}><ArrowLeft size={15} aria-hidden="true" />返回列表</button>
       <div className="space-y-2"><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-semibold text-white">{props.item.title}</h3><Badge tone={props.item.status === "PENDING" ? "warning" : props.item.status === "REJECTED" ? "neutral" : "success"}>{statusLabel}</Badge></div><p className="text-sm leading-6 text-zinc-400">{props.item.summary}</p></div>
       <dl className="grid gap-3 border-y border-white/10 py-4 text-sm sm:grid-cols-2"><div><dt className="text-zinc-500">类型</dt><dd className="mt-1 text-zinc-200">{props.item.sourceLabel}</dd></div><div><dt className="text-zinc-500">版本</dt><dd className="mt-1 text-zinc-200">v{props.item.revision}</dd></div></dl>
-      <div className="flex flex-wrap gap-3"><Link href={props.item.sourceHref} className="inline-flex items-center gap-1.5 text-sm text-teal-300 hover:text-teal-200"><ExternalLink size={15} aria-hidden="true" />打开来源页面</Link></div>
-      <ConfirmationDetailActions item={props.item} sourceHref={props.item.sourceHref} onCompleted={props.onCompleted} />
+      <div className="flex flex-wrap gap-3"><Link href={props.item.sourceHref} className="inline-flex items-center gap-1.5 text-sm text-teal-300 hover:text-teal-200" onClick={(event) => handleWindowNavigation(event, props.onNavigate)}><ExternalLink size={15} aria-hidden="true" />打开来源页面</Link></div>
+      <ConfirmationDetailActions item={props.item} sourceHref={props.item.sourceHref} onCompleted={props.onCompleted} onNavigate={props.onNavigate} />
     </div>
   );
+}
+
+function handleWindowNavigation(event: React.MouseEvent, onNavigate: () => void): void {
+  if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) onNavigate();
 }

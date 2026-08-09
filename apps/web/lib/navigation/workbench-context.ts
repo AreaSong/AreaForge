@@ -1,27 +1,30 @@
+import { getCanonicalRoute } from "@/lib/navigation/app-navigation";
+
 export interface WorkbenchFallback {
   href: string;
   label: string;
 }
 
+const FALLBACK_LABELS: Record<string, string> = {
+  "/focus": "返回开始学习",
+  "/today": "返回今日",
+  "/knowledge": "返回知识工作台",
+  "/test/retests": "返回检验工作台",
+  "/roadmap": "返回路线总览",
+  "/roadmap/allocation": "返回投入安排",
+  "/roadmap/allocation/drafts": "返回收件箱",
+  "/roadmap/stages": "返回阶段工作台",
+  "/roadmap/reviews": "返回周期复盘",
+  "/roadmap/reviews/daily": "返回复盘工作台",
+  "/confirmations": "返回确认中心",
+  "/settings": "返回设置",
+};
+
 export function getWorkbenchFallback(pathname: string | null | undefined): WorkbenchFallback {
   const path = normalizePathname(pathname);
-  if (isPathUnder(path, "/knowledge")) {
-    return { href: "/knowledge", label: "返回知识工作台" };
-  }
-  if (isPathUnder(path, "/roadmap/reviews/daily")) return { href: "/roadmap/reviews/daily", label: "返回复盘工作台" };
-  if (isPathUnder(path, "/roadmap/reviews")) return { href: "/roadmap/reviews", label: "返回周期复盘" };
-  if (isPathUnder(path, "/test")) return { href: "/test/retests", label: "返回检验工作台" };
-  if (isPathUnder(path, "/roadmap/stages")) return { href: "/roadmap/stages", label: "返回阶段工作台" };
-  if (isPathUnder(path, "/settings")) return { href: "/settings/exams", label: "返回设置" };
-  if (isPathUnder(path, "/roadmap/allocation/drafts")) return { href: "/roadmap/allocation/drafts", label: "返回收件箱" };
-  if (isPathUnder(path, "/roadmap/allocation")) return { href: "/roadmap/allocation", label: "返回投入安排" };
-  if (path === "/today") return { href: "/today", label: "返回今日" };
-  if (isPathUnder(path, "/confirmations")) return { href: "/confirmations", label: "返回确认中心" };
-  return { href: "/focus", label: "返回开始学习" };
-}
-
-function isPathUnder(pathname: string, root: string): boolean {
-  return pathname === root || pathname?.startsWith(`${root}/`) === true;
+  const route = getCanonicalRoute(path);
+  const href = route?.shell === "app" ? route.returnFallback : "/focus";
+  return { href, label: FALLBACK_LABELS[href] ?? "返回开始学习" };
 }
 
 function normalizePathname(value: string | null | undefined): string {

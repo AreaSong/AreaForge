@@ -10,7 +10,7 @@ import { SectionHeader } from "@/components/ui/page";
 import { StudyActivityTimer } from "@/components/study-activity-timer";
 import { publishActivityStatus } from "@/lib/client/activity-status";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,

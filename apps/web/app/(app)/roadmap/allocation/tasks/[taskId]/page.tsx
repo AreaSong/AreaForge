@@ -1,6 +1,6 @@
 import PlanTaskDetailPage from "@/lib/routes/plan-task-detail-page";
 import { PageFrame } from "@/components/ui/page";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/roadmap/allocation/tasks/task");

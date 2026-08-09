@@ -1,6 +1,6 @@
 import { ActionCenterToday } from "@/components/action-center-today";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getActionCenterToday } from "@/lib/study/action-center-service";
 import { redirect } from "next/navigation";
 

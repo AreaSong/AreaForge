@@ -6,7 +6,7 @@ import { Alert, Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ApiError } from "@/lib/api/responses";
-import { getRouteMetadata, withReturnTo } from "@/lib/navigation/batch7";
+import { getRouteMetadata, withReturnTo } from "@/lib/navigation/app-navigation";
 import { getPeriodicReportDecision } from "@/lib/study/report-decisions-service";
 
 export const dynamic = "force-dynamic";

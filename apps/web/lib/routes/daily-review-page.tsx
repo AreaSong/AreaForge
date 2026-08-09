@@ -3,7 +3,7 @@ import { DailyReviewFacts } from "@/components/daily-review-facts";
 import { ReviewForm } from "@/components/review-form";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getStudyDayRange } from "@/lib/study/date";
 import { getDailyReviewFacts } from "@/lib/study/daily-review-facts-service";
 import { resolveActiveWorkspace } from "@/lib/study/exam-workspace-service";

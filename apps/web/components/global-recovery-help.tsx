@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { RecoveryActionContent } from "@/components/recovery-action-drawer";
 import { useWindowSystem } from "@/components/window-system";
 
@@ -11,11 +11,13 @@ export function GlobalRecoveryHelp(props: {
   motivationError: string | null;
   workspaceId: string | null;
   defaultSubjectId: string | null;
-  onClose: () => void;
 }) {
-  const { registerWindow, updateWindowMetadata, requestCloseWindow } = useWindowSystem();
-  const { title, motivationLine, motivationUrl, motivationError, workspaceId, defaultSubjectId, onClose } = props;
-  const content = useMemo(() => <RecoveryActionContent open title={title} motivationLine={motivationLine} motivationUrl={motivationUrl} motivationError={motivationError} workspaceId={workspaceId} defaultSubjectId={defaultSubjectId} onClose={() => { requestCloseWindow("recovery-help"); onClose(); }} />, [defaultSubjectId, motivationError, motivationLine, motivationUrl, onClose, title, workspaceId, requestCloseWindow]);
+  const { registerWindow, refreshWindow, updateWindowMetadata, requestCloseWindow } = useWindowSystem();
+  const { title, motivationLine, motivationUrl, motivationError, workspaceId, defaultSubjectId } = props;
+  const closeRecoveryHelp = useCallback(() => {
+    requestCloseWindow("recovery-help");
+  }, [requestCloseWindow]);
+  const content = useMemo(() => <RecoveryActionContent open title={title} motivationLine={motivationLine} motivationUrl={motivationUrl} motivationError={motivationError} workspaceId={workspaceId} defaultSubjectId={defaultSubjectId} onClose={closeRecoveryHelp} />, [closeRecoveryHelp, defaultSubjectId, motivationError, motivationLine, motivationUrl, title, workspaceId]);
   const contentRef = useRef<React.ReactNode>(content);
 
   useEffect(() => registerWindow({
@@ -28,7 +30,8 @@ export function GlobalRecoveryHelp(props: {
 
   useEffect(() => {
     contentRef.current = content;
-  }, [content]);
+    refreshWindow("recovery-help");
+  }, [content, refreshWindow]);
 
   useEffect(() => {
     updateWindowMetadata("recovery-help", { kind: "recovery-help", title, closePolicy: "free" });

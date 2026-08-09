@@ -23,6 +23,14 @@
   --af-control-sm: 2.25rem;
   --af-control-md: 2.5rem;
   --af-control-lg: 2.75rem;
+  --af-layer-shell-base: 20;
+  --af-layer-selection: 40;
+  --af-layer-page-popover: 50;
+  --af-layer-workspace-window: 60;
+  --af-layer-shell-chrome: 70;
+  --af-layer-shell-popover: 90;
+  --af-layer-modal: 120;
+  --af-layer-critical: 140;
   --brand-ink-950: #06191f;
   --brand-ink-900: #09272d;
   --brand-teal-600: #18aaa6;

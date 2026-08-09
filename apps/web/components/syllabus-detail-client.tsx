@@ -10,7 +10,7 @@ import { SyllabusDetailEditor } from "@/components/syllabus-detail-editor";
 import { SyllabusRetestForm } from "@/components/syllabus-retest-form";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import { masteryStatusLabel } from "@/lib/study/mastery-status";
 import type { ReviewScheduleDto } from "@/lib/study/review-schedule-service";
 import type { SyllabusNodeDto, SyllabusOptionNodeDto } from "@/lib/study/types";

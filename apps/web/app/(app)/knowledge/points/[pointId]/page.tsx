@@ -4,7 +4,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { KnowledgePointDetail } from "@/components/knowledge-point-detail";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getKnowledgePoint } from "@/lib/study/knowledge-point-service";
 
 export const dynamic = "force-dynamic";

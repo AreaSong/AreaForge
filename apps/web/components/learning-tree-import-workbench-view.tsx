@@ -9,7 +9,7 @@ import { LearningTreeImportHistory } from "@/components/learning-tree-import-his
 import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
-import { sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import type {
   LearningTreeExportOptionsDto,
   LearningTreeImportBatchSummaryDto,

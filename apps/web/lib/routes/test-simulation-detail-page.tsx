@@ -6,7 +6,7 @@ import { Alert, Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import { listWorkspaceSubjects, resolveActiveWorkspace } from "@/lib/study/exam-workspace-service";
 import { getSimulationExam, listSimulationRemediations } from "@/lib/study/simulation-service";

@@ -11,7 +11,7 @@ import {
   resolveLearningTreeArchiveCapability,
 } from "@/lib/client/learning-tree-archive-capability";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { LearningTreeImportBatchSummaryDto } from "@/lib/study/learning-tree-service";
 
 const deniedArchiveCapabilities = new Set<string>();

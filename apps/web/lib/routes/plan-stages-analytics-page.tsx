@@ -5,7 +5,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getAnalyticsSummary, type AnalyticsRiskItemDto } from "@/lib/study/analytics-service";
 
 export const dynamic = "force-dynamic";

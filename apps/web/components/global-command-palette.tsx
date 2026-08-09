@@ -18,6 +18,7 @@ export function GlobalCommandPalette(props: {
   triggerLabel: string;
   onOpenAction: (action: GlobalCommandAction) => void;
   commands?: readonly GlobalCommandDefinition[];
+  compactOnNarrow?: boolean;
 }) {
   const router = useRouter();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -117,6 +118,7 @@ export function GlobalCommandPalette(props: {
 
   const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getServerNowSnapshot);
   const timeLabel = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -128,13 +130,13 @@ export function GlobalCommandPalette(props: {
       <button
         type="button"
         ref={triggerRef}
-        className="group flex h-9 min-w-0 max-w-[42rem] flex-1 items-center justify-between gap-3 rounded-md border border-white/10 bg-[#0b0f14] px-3 text-left text-xs text-zinc-400 hover:border-teal-300/35 hover:bg-white/[0.04]"
+        className={`group flex h-9 min-w-0 max-w-[42rem] flex-1 items-center justify-between gap-3 rounded-md border border-white/10 bg-[#0b0f14] px-3 text-left text-xs text-zinc-400 hover:border-teal-300/35 hover:bg-white/[0.04] ${props.compactOnNarrow ? "max-[359px]:w-9 max-[359px]:flex-none max-[359px]:justify-center max-[359px]:px-0" : ""}`}
         onClick={openPalette}
         aria-label={props.triggerLabel}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">
           <Search size={15} className="shrink-0 text-zinc-600 group-hover:text-teal-300" aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate">{props.trigger}</span>
+          <span className={`min-w-0 flex-1 truncate ${props.compactOnNarrow ? "max-[359px]:hidden" : ""}`}>{props.trigger}</span>
         </span>
         <span className="hidden shrink-0 items-center gap-1 text-[10px] text-zinc-600 sm:inline-flex">
           <Command size={12} aria-hidden="true" />K
@@ -142,7 +144,7 @@ export function GlobalCommandPalette(props: {
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-[120] bg-black/55 p-4 sm:p-8" role="presentation" onMouseDown={close}>
+        <div className="fixed inset-0 z-[var(--af-layer-modal)] bg-black/55 p-4 sm:p-8" role="presentation" onMouseDown={close}>
           <section
             ref={dialogRef}
             className="mx-auto mt-[8vh] w-full max-w-2xl overflow-hidden rounded-lg border border-white/15 bg-[#101419] shadow-2xl shadow-black/60"

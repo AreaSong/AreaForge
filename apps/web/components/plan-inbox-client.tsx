@@ -7,7 +7,7 @@ import { ConflictResolutionModal } from "@/components/conflict-resolution-modal"
 import { planInboxOriginLabel } from "@/components/plan-inbox-origin";
 import { buttonClassName } from "@/components/ui/button";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
 
 type Status = "OPEN" | "DISMISSED" | "CONVERTED";
@@ -101,7 +101,7 @@ export function PlanInboxClient({ items: initialItems, status, returnTo = "/road
           {items.map((item) => (
             <li key={item.id} className="rounded-md border border-white/10 bg-[#101419] p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><p className="font-medium text-white">{item.title || "未命名草稿"}</p><p className="mt-1 text-xs text-zinc-500">{planInboxOriginLabel(item.originType)} · {new Date(item.updatedAt).toLocaleDateString("zh-CN")}</p></div>
+                <div><p className="font-medium text-white">{item.title || "未命名草稿"}</p><p className="mt-1 text-xs text-zinc-500">{planInboxOriginLabel(item.originType)} · {new Date(item.updatedAt).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}</p></div>
                 <span className={`rounded-sm px-2 py-1 text-xs ${item.missingFields.length ? "bg-amber-400/10 text-amber-200" : "bg-emerald-400/10 text-emerald-200"}`}>{item.missingFields.length ? `缺 ${item.missingFields.length} 项` : "字段完整"}</span>
               </div>
               {item.supersededByItemId ? <p className="mt-2 text-xs text-amber-200">此版本已被替代，只能查看历史。</p> : null}

@@ -9,7 +9,7 @@ import {
   listWorkspaceSubjects,
   previewWorkspaceTakeover,
 } from "@/lib/study/exam-workspace-service";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/settings/exams");

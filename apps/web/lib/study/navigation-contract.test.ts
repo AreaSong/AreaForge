@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { resolve } from "node:path";
-import { getNavigationTrail, isContentDetailPath, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/batch7";
+import { CANONICAL_ROUTES } from "@/lib/navigation/canonical-routes";
+import { getCanonicalRoute, getNavigationTrail, isContentDetailPath, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
+import { getConfirmationWindowRouteRequest } from "@/lib/navigation/confirmation-route";
 import { getSourceContextLabel } from "@/lib/navigation/return-context";
 import { getWorkbenchFallback } from "@/lib/navigation/workbench-context";
 import { activitySourcePath, isKnowledgeReviewActivityForSchedule } from "@/lib/study/activity-route";
@@ -103,7 +105,7 @@ test("workbench errors return to the canonical owner for every primary entry", (
     ["/roadmap/stages/trend", "/roadmap/stages", "返回阶段工作台"],
     ["/roadmap/reviews/history/report-1", "/roadmap/reviews", "返回周期复盘"],
     ["/confirmations/history", "/confirmations", "返回确认中心"],
-    ["/settings/ai", "/settings/exams", "返回设置"],
+    ["/settings/ai", "/settings", "返回设置"],
     ["/knowledge/reviews/review-1", "/knowledge", "返回知识工作台"],
   ] as const;
 
@@ -168,13 +170,148 @@ test("global shell owns the activity slot, command palette, status bar, and conf
   assert.match(focusSession, /publishFocusSyncEvent\(props\.userId, "pending", projected\)/);
 });
 
+test("global top bar keeps activity on the left and the command trigger content-only", () => {
+  const topbar = readFileSync(resolve(process.cwd(), "components/global-top-bar.tsx"), "utf8");
+  const activitySlot = readFileSync(resolve(process.cwd(), "components/global-activity-slot.tsx"), "utf8");
+  const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
+  const assistant = readFileSync(resolve(process.cwd(), "components/global-ai-assistant.tsx"), "utf8");
+  assert.match(topbar, /hasActivity = Boolean\(props\.activeSession \|\| props\.offlineSession \|\| props\.quickReviewClaim\)/);
+  assert.match(topbar, /hasActivity \? \(\s*<GlobalActivitySlot/);
+  assert.match(topbar, /trigger=\{<span className="text-zinc-500">搜索或输入命令…<\/span>\}/);
+  assert.doesNotMatch(topbar, /trigger=\{<GlobalActivitySlot/);
+  assert.match(topbar, /lg:grid-cols-\[minmax\(13rem,1fr\)_minmax\(14rem,2fr\)_auto\]/);
+  assert.doesNotMatch(topbar, /sm:grid-cols-\[minmax\(0,1fr\)_minmax\(14rem,42rem\)_auto\]/);
+  assert.doesNotMatch(activitySlot, /sm:min-w-\[13rem\]/);
+  assert.match(activitySlot, /lg:min-w-\[13rem\]/);
+  assert.match(confirmation, /<span className="hidden xl:inline">确认<\/span>/);
+  assert.match(assistant, /<span className="hidden xl:inline">AI 助手<\/span>/);
+  assert.match(topbar, /<span className="hidden xl:inline">我学不下去了<\/span>/);
+  const recoveryIndex = topbar.indexOf('aria-label="我学不下去了"');
+  const quickCreateIndex = topbar.indexOf("<GlobalQuickCreate />");
+  assert.ok(recoveryIndex >= 0 && quickCreateIndex > recoveryIndex, "快捷创建必须是顶栏最右侧入口");
+});
+
+test("mobile tools drawer reuses canonical settings navigation and exposes the account exit", () => {
+  const navigation = readFileSync(resolve(process.cwd(), "components/shared-mobile-navigation.tsx"), "utf8");
+  assert.match(navigation, /UTILITY_NAV_ITEM\.children/);
+  assert.match(navigation, /aria-current=\{navigationAriaCurrent\(props\.pathname, item\)\}/);
+  assert.match(navigation, /\{props\.email\}/);
+  assert.match(navigation, /<LogoutButton userId=\{props\.userId\} \/>/);
+  assert.match(navigation, /shrink-0 overflow-hidden/);
+  assert.match(navigation, /flex w-full min-w-0 items-center/);
+  assert.match(navigation, /h-12 min-w-0 flex-1 basis-0/);
+  assert.match(navigation, /max-\[279px\]:sr-only/);
+  assert.doesNotMatch(navigation, /min-w-max|w-16 shrink-0/);
+  assert.doesNotMatch(navigation, /pathname\.startsWith\(item\.href\)/);
+});
+
+test("source activity pages keep the shared closeout recoverable for other tabs", () => {
+  const closeout = readFileSync(resolve(process.cwd(), "components/global-session-closeout.tsx"), "utf8");
+  const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
+  assert.match(closeout, /isActivitySourcePath\(props\.pathname, props\.activeSession\)/);
+  assert.match(closeout, /closeoutWindow && !closeoutWindow\.minimized\) minimizeWindow\("session-closeout"\)/);
+  assert.match(closeout, /const entryKey = props\.activeSession\.id/);
+  assert.match(closeout, /if \(!props\.activeSession \|\| props\.activeSession\.status !== "closing"\) \{\s*autoOpenedRef\.current = null/);
+  assert.match(closeout, /if \(!shouldShowCloseout\) return/);
+  assert.doesNotMatch(closeout, /const entryKey = `\$\{props\.activeSession\.id\}:\$\{props\.pathname\}`/);
+  assert.doesNotMatch(closeout, /if \(!shouldShowCloseout \|\| !props\.activeSession\) \{\s*autoOpenedRef\.current = null/);
+  assert.doesNotMatch(
+    closeout,
+    /if \(props\.activeSession && isActivitySourcePath\(props\.pathname, props\.activeSession\)\) \{\s*if \(hasCloseoutWindow\) closeWindow\("session-closeout"\)/,
+  );
+  assert.match(toolbar, /const \{ foregroundKey \} = useWindowSystem\(\)/);
+  assert.match(
+    toolbar,
+    /isActivitySourcePath\(props\.pathname, active\)\s*\? "正在完成收口"\s*: foregroundKey === "session-closeout"\s*\? "收口窗口正在前台"\s*: "收口窗口已保留在后台"/,
+  );
+});
+
 test("page templates and immersive pages retain stable layout contracts", () => {
   const page = readFileSync(resolve(process.cwd(), "components/ui/page.tsx"), "utf8");
   const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
   assert.match(page, /data-layout-region="page-frame"/);
   assert.match(page, /data-page-template=\{props\.variant\}/);
-  assert.match(shell, /<PageToolbar \/>/);
-  assert.match(shell, /data-layout-region="immersive-content"/);
+  assert.match(shell, /<PageToolbar(?:\s|>)/);
+  assert.match(shell, /const fullCanvasPage = immersive \|\|/);
+  assert.match(shell, /const showSecondaryNavigation = !immersive/);
+  assert.match(shell, /data-immersive-content=\{immersive \? "true" : undefined\}/);
+  assert.match(shell, /<GlobalTopBar/);
+  assert.match(shell, /<GlobalRecoveryHelp/);
+  assert.match(shell, /<WindowLayer \/>/);
+  assert.match(shell, /relative isolate flex min-h-0 min-w-0 flex-1 flex-col/);
+  assert.doesNotMatch(shell, /if \(immersive\) \{\s*return/);
+});
+
+test("recovery window refresh uses a stable close callback", () => {
+  const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
+  const recovery = readFileSync(resolve(process.cwd(), "components/global-recovery-help.tsx"), "utf8");
+  assert.match(recovery, /const closeRecoveryHelp = useCallback/);
+  assert.match(recovery, /onClose=\{closeRecoveryHelp\}/);
+  assert.doesNotMatch(recovery, /onClose:\s*\(\) => void/);
+  const recoveryUsage = shell.match(/<GlobalRecoveryHelp[\s\S]*?\/>/)?.[0];
+  assert.ok(recoveryUsage);
+  assert.doesNotMatch(recoveryUsage, /onClose=/);
+});
+
+test("status and page-action surfaces keep narrow viewport boundaries", () => {
+  const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
+  const dock = readFileSync(resolve(process.cwd(), "components/window-dock.tsx"), "utf8");
+  const pageActions = readFileSync(resolve(process.cwd(), "components/workbench-breadcrumb-actions.tsx"), "utf8");
+  assert.match(toolbar, /window\.sessionStorage\.getItem\(RECENT_PAGE_KEY\)/);
+  assert.match(toolbar, /flex h-8 min-w-0 flex-nowrap items-center/);
+  assert.match(pageActions, /w-72 min-w-0 max-w-\[calc\(100vw-2rem\)\]/);
+  assert.match(pageActions, /\["ArrowDown", "ArrowUp", "Home", "End"\]/);
+  assert.match(pageActions, /data-page-action-more-measure[\s\S]*hidden sm:inline/);
+  assert.match(toolbar, /hover:bg-amber-300\/\[0\.08\] xl:inline-flex/);
+  assert.match(dock, /fixed right-4 bottom-\[calc\(6\.5rem\+env\(safe-area-inset-bottom\)\)\]/);
+  assert.match(dock, /lg:absolute lg:right-0 lg:bottom-10/);
+});
+
+test("canonical app routes carry the complete shared-shell contract", () => {
+  const templates = new Set(["dashboard-wide", "split-view", "content-focus", "workspace-full"]);
+  for (const route of CANONICAL_ROUTES) {
+    if (route.shell === "public") continue;
+    assert.ok(route.workbench, `${route.path} must declare its workbench`);
+    assert.ok(["primary", "secondary", "content"].includes(route.navigationLevel), `${route.path} must declare its navigation level`);
+    assert.ok(templates.has(route.template), `${route.path} must declare its PageFrame template`);
+    assert.equal(route.toolbar, "standard", `${route.path} must retain the shared PageToolbar`);
+    assert.equal(getCanonicalRoute(route.returnFallback)?.shell, "app", `${route.path} must return to a canonical app route`);
+  }
+
+  const settings = readFileSync(resolve(process.cwd(), "app/(app)/settings/page.tsx"), "utf8");
+  assert.match(settings, /<PageFrame variant="dashboard-wide"/);
+  assert.match(settings, /title="设置总览"/);
+  assert.doesNotMatch(settings, /redirect\("\/settings\/exams"\)/);
+});
+
+test("confirmation deep links own the foreground while closeout stays recoverable", () => {
+  assert.deepEqual(getConfirmationWindowRouteRequest("/confirmations"), { filter: "pending" });
+  assert.deepEqual(getConfirmationWindowRouteRequest("/confirmations/history"), { filter: "history" });
+  assert.deepEqual(getConfirmationWindowRouteRequest("/confirmations/item%201"), { filter: "pending", confirmationId: "item 1" });
+  assert.equal(getConfirmationWindowRouteRequest("/confirmations/a/b"), null);
+
+  const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
+  const entry = readFileSync(resolve(process.cwd(), "components/confirmation-window-entry.tsx"), "utf8");
+  const closeout = readFileSync(resolve(process.cwd(), "components/global-session-closeout.tsx"), "utf8");
+  const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
+  assert.match(confirmation, /getConfirmationWindowRouteRequest\(props\.pathname\)/);
+  assert.doesNotMatch(entry, /dispatchEvent|CONFIRMATION_WINDOW_EVENT/);
+  assert.match(closeout, /if \(isConfirmationWindowPath\(props\.pathname\)\) return/);
+  assert.match(closeout, /isConfirmationWindowPath\(props\.pathname\)[\s\S]*minimizeWindow\("session-closeout"\)/);
+  assert.doesNotMatch(toolbar, /openWindow\("session-closeout"\)/);
+});
+
+test("global windows refresh async content and hand navigation back to the page", () => {
+  const recovery = readFileSync(resolve(process.cwd(), "components/global-recovery-help.tsx"), "utf8");
+  const quickCreate = readFileSync(resolve(process.cwd(), "components/global-quick-create.tsx"), "utf8");
+  const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
+  const assistant = readFileSync(resolve(process.cwd(), "components/global-ai-assistant.tsx"), "utf8");
+  assert.match(recovery, /refreshWindow\("recovery-help"\)/);
+  assert.match(quickCreate, /closeWindow\("quick-create"\)/);
+  assert.match(confirmation, /pendingCount/);
+  assert.match(confirmation, /aria-expanded=\{isOpen\}/);
+  assert.match(assistant, /foregroundKey === "ai-assistant"/);
+  assert.match(assistant, /onWorkStateChange=\{handleWorkStateChange\}/);
 });
 
 test("composite workbenches own their single page frame", () => {

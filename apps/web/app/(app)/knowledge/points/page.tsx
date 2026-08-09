@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { KnowledgePointsWorkbench } from "@/components/knowledge-points-workbench";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listSubjects } from "@/lib/study/service";
 import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
 import { MASTERY_STATUS_OPTIONS, type MasteryStatus } from "@/lib/study/mastery-status";

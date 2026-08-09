@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { KnowledgeCanvasClient } from "@/components/knowledge-canvas-client";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getKnowledgeCanvas } from "@/lib/study/knowledge-canvas-service";
 
 export const dynamic = "force-dynamic";

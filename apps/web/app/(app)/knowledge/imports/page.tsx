@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { LearningTreeImportClient } from "@/components/learning-tree-import-client";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import {
   listLearningTreeExportOptions,
   listLearningTreeImports,

@@ -13,7 +13,7 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { PlanInboxFormOptions, PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
 
 type DependencyType = "SOFT" | "HARD";

@@ -11,6 +11,8 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
+import { getAiDraftFormStorageKey } from "@/lib/client/ai-draft-form-key";
+import type { WindowWorkState } from "@/lib/study/window-system-state";
 
 type Endpoint = "learning-tree" | "knowledge-card" | "plan" | "motivation";
 type ProjectionKey =
@@ -72,13 +74,24 @@ const emptyProjectionValues: ProjectionValues = {
   defaultDurationMinutes: "",
 };
 
-export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaultText?: string; draftContextKey?: string }) {
+export function AiDraftPanel(props: {
+  endpoint: Endpoint;
+  userId: string;
+  defaultText?: string;
+  draftContextKey?: string;
+  onWorkStateChange?: (state: WindowWorkState) => void;
+  onNavigate?: () => void;
+}) {
+  const onWorkStateChange = props.onWorkStateChange;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const routeContextKey = `${pathname}?${searchParams.toString()}`;
-  const draftScope = hashDraftContext(props.draftContextKey ?? routeContextKey);
-  const formDraftKey = `areaforge.ai-draft.form.${props.endpoint}.${props.userId}.${draftScope}`;
+  const formDraftKey = getAiDraftFormStorageKey(
+    props.endpoint,
+    props.userId,
+    props.draftContextKey ?? routeContextKey,
+  );
   const [selectedText, setSelectedText] = useState(props.defaultText ?? "");
   const [tone, setTone] = useState<"CALM" | "DIRECT" | "BRIEF">("CALM");
   const [scope, setScope] = useState<"global" | "subject" | "branch">("global");
@@ -96,6 +109,16 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
   const [draftReady, setDraftReady] = useState(false);
   const [pending, startTransition] = useTransition();
   const loadedDraftKeyRef = useRef<string | null>(null);
+
+  const workState: WindowWorkState = pending || savingResult
+    ? "submitting"
+    : hasDraftWork({ selectedText, tone, scope, kind, checked, values, preview, token, draft, operation })
+      ? "dirty"
+      : "clean";
+
+  useEffect(() => {
+    onWorkStateChange?.(workState);
+  }, [onWorkStateChange, workState]);
 
   useEffect(() => {
     loadedDraftKeyRef.current = null;
@@ -264,12 +287,14 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       if (props.endpoint === "learning-tree" && isLearningTreeDraft(draft)) {
         saveLocalAiDraft(props.userId, "learning-tree", { markdownDraft: draft.markdownDraft, scope });
         clearAdoptedDraft();
+        props.onNavigate?.();
         router.push("/knowledge/imports");
         return;
       }
       if (props.endpoint === "knowledge-card" && isKnowledgeCardDraft(draft)) {
         saveLocalAiDraft(props.userId, "knowledge-card", draft);
         clearAdoptedDraft();
+        props.onNavigate?.();
         router.push("/knowledge/cards");
         return;
       }
@@ -481,6 +506,32 @@ function adoptDraftLabel(endpoint: Endpoint): string {
   return ({ "learning-tree": "送往学习树校验", "knowledge-card": "转到知识卡片表单", plan: "加入投入草稿", motivation: "保存到动机内容库" })[endpoint];
 }
 
+function hasDraftWork(input: {
+  selectedText: string;
+  tone: AiFormDraft["tone"];
+  scope: AiFormDraft["scope"];
+  kind: AiFormDraft["kind"];
+  checked: AiFormDraft["checked"];
+  values: ProjectionValues;
+  preview: Record<string, unknown> | null;
+  token: string | null;
+  draft: unknown;
+  operation: AiFormDraft["operation"];
+}): boolean {
+  return Boolean(
+    input.selectedText.trim()
+    || input.tone !== "CALM"
+    || input.scope !== "global"
+    || input.kind !== "GENERAL"
+    || Object.values(input.checked).some(Boolean)
+    || Object.values(input.values).some((value) => value.trim())
+    || input.preview
+    || input.token
+    || input.draft
+    || input.operation,
+  );
+}
+
 function saveLocalAiDraft(userId: string, endpoint: "learning-tree" | "knowledge-card", value: unknown) {
   window.localStorage.setItem(`areaforge.ai-draft.${endpoint}.${userId}`, JSON.stringify({ version: 1, userId, updatedAt: Date.now(), value }));
 }
@@ -674,12 +725,6 @@ function isAiFormDraft(value: unknown): value is AiFormDraft {
     || !value.operation.resultProof
   )) return false;
   return true;
-}
-
-function hashDraftContext(value: string): string {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
-  return Math.abs(hash).toString(36);
 }
 
 function isProjectionValues(value: unknown): value is ProjectionValues {

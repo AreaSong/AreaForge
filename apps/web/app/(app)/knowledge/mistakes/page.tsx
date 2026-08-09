@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { MistakeLibrary } from "@/components/mistake-library";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listMistakes } from "@/lib/study/mistakes-service";
 import { listSubjects } from "@/lib/study/service";
 import { listSyllabusOptions } from "@/lib/study/syllabus-service";

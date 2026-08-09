@@ -41,7 +41,7 @@ export function Modal(props: {
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-2 sm:items-center sm:p-4" role="presentation">
+    <div className="fixed inset-0 z-[var(--af-layer-modal)] flex items-end justify-center bg-black/60 p-2 sm:items-center sm:p-4" role="presentation">
       <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={allowEscape && dismissible ? onClose : undefined} />
       <div
         ref={panelRef}
@@ -90,7 +90,7 @@ export function Drawer(props: {
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50" role="presentation">
+    <div className="fixed inset-0 z-[var(--af-layer-modal)] flex justify-end bg-black/50" role="presentation">
       <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={onClose} />
       <aside
         ref={panelRef}

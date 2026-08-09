@@ -4,7 +4,7 @@ import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { NoteLibrary } from "@/components/note-library";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listNotes } from "@/lib/study/notes-service";
 import { listStudyTasks, listSubjects } from "@/lib/study/service";
 import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";

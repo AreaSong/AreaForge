@@ -2,7 +2,7 @@ import { AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Clock3, FileText, Pau
 import Link from "next/link";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/feedback";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 import type { StudySessionLowReasonDto, TaskStatusDto } from "@/lib/study/types";

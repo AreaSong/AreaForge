@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { NoteDetailClient } from "@/components/note-detail-client";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getNoteEditorOptions, getOwnedNoteDetail } from "@/lib/study/notes-service";
 
 export const dynamic = "force-dynamic";

@@ -3,7 +3,7 @@ import { SyllabusDetailClient } from "@/components/syllabus-detail-client";
 import { PageFrame } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { listReviewSchedules } from "@/lib/study/review-schedule-service";
 import { getSyllabusNode, listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 

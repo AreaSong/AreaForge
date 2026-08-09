@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { KnowledgeRetestDetailClient } from "@/components/knowledge-retest-detail-client";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/batch7";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getKnowledgeRetest } from "@/lib/study/knowledge-retest-service";
 
 export const dynamic = "force-dynamic";

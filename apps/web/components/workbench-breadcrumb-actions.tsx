@@ -30,7 +30,7 @@ import {
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { BATCH10_NAV_ITEMS } from "@/lib/navigation/batch7";
+import { APP_NAVIGATION_ITEMS } from "@/lib/navigation/app-navigation";
 
 interface BreadcrumbAction {
   href: string;
@@ -155,7 +155,7 @@ export function WorkbenchBreadcrumbActions({ currentHref, pathname }: { currentH
 }
 
 function getContextLabel(pathname: string): string {
-  return BATCH10_NAV_ITEMS.find((item) => item.match(pathname))?.label
+  return APP_NAVIGATION_ITEMS.find((item) => item.match(pathname))?.label
     ?? (pathname.startsWith("/confirmations") ? "确认中心" : "当前工作台");
 }
 
@@ -222,10 +222,10 @@ function ResponsiveBreadcrumbActionGroup(props: { actions: readonly BreadcrumbAc
   const overflowActions = props.actions.slice(visibleCount);
 
   return (
-    <div ref={groupRef} className="relative flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5" data-global-ai-ui="true">
+    <div ref={groupRef} className="relative flex min-w-0 max-w-full flex-nowrap items-center justify-end gap-1.5" data-global-ai-ui="true">
       <div ref={measureRef} className="pointer-events-none invisible absolute left-0 top-0 flex h-0 w-max gap-1.5 overflow-hidden" aria-hidden="true">
         {props.actions.map((action) => <InlineActionLink key={`${action.href}:${action.label}`} action={action} measure />)}
-        <span data-page-action-more-measure className="inline-flex h-9 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-xs"><MoreHorizontal size={16} aria-hidden="true" />更多</span>
+        <span data-page-action-more-measure className="inline-flex h-9 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-xs"><MoreHorizontal size={16} aria-hidden="true" /><span className="hidden sm:inline">更多</span></span>
       </div>
       {visibleActions.map((action) => <InlineActionLink key={`${action.href}:${action.label}`} action={action} />)}
       {overflowActions.length > 0 ? (
@@ -249,13 +249,25 @@ function ResponsiveBreadcrumbActionGroup(props: { actions: readonly BreadcrumbAc
               id={moreMenuId}
               role="menu"
               aria-label={`更多${props.contextLabel}功能`}
-              className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-72 rounded-md border border-white/10 bg-[#101419] p-2 shadow-xl"
+              className="absolute right-0 top-[calc(100%+0.5rem)] z-[var(--af-layer-page-popover)] w-72 min-w-0 max-w-[calc(100vw-2rem)] rounded-md border border-white/10 bg-[#101419] p-2 shadow-xl"
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
                   event.preventDefault();
                   setMoreOpen(false);
                   moreTriggerRef.current?.focus({ preventScroll: true });
+                  return;
                 }
+                if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+                const items = Array.from(moreRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+                if (items.length === 0) return;
+                event.preventDefault();
+                const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+                const nextIndex = event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? items.length - 1
+                    : (currentIndex + (event.key === "ArrowUp" ? -1 : 1) + items.length) % items.length;
+                items[nextIndex]?.focus({ preventScroll: true });
               }}
             >
               <p className="px-2 py-1 text-xs text-zinc-500">更多{props.contextLabel}功能</p>
@@ -316,7 +328,7 @@ export function getWorkbenchBreadcrumbActions(pathname: string, currentHref?: st
     ];
   }
   const actions = ACTIONS_BY_ROUTE[routeKey] ?? [];
-  const primary = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
+  const primary = APP_NAVIGATION_ITEMS.find((item) => item.match(pathname));
   const secondaryHrefs = new Set(primary?.children?.map((item) => item.href) ?? []);
   return actions.filter((action) => action.href.includes("?") || !secondaryHrefs.has(action.href));
 }
@@ -364,7 +376,7 @@ function resolveRouteKey(pathname: string): string | null {
     .sort((left, right) => right.length - left.length)[0];
   if (explicitRouteKey) return explicitRouteKey;
 
-  const primary = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
+  const primary = APP_NAVIGATION_ITEMS.find((item) => item.match(pathname));
   const secondary = primary?.children?.find((item) => item.match(pathname));
   if (secondary && ACTIONS_BY_ROUTE[secondary.href]) return secondary.href;
   if (primary && ACTIONS_BY_ROUTE[primary.href]) return primary.href;

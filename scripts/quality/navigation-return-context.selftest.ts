@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { sanitizeReturnPath, withReturnTo } from "../../apps/web/lib/navigation/batch7";
+import { sanitizeReturnPath, withReturnTo } from "../../apps/web/lib/navigation/app-navigation";
 import { getCompletionReturnLabel, getReturnContextLabel } from "../../apps/web/lib/navigation/return-context";
 import { getWorkbenchFallback } from "../../apps/web/lib/navigation/workbench-context";
 
@@ -59,7 +59,7 @@ assert.equal(getCompletionReturnLabel("/knowledge/reviews"), "返回复习队列
 assert.deepEqual(getWorkbenchFallback("/knowledge/resources/resource-1"), { href: "/knowledge", label: "返回知识工作台" });
 assert.deepEqual(getWorkbenchFallback("/roadmap/reviews"), { href: "/roadmap/reviews", label: "返回周期复盘" });
 assert.deepEqual(getWorkbenchFallback("/test/simulations/exam-1"), { href: "/test/retests", label: "返回检验工作台" });
-assert.deepEqual(getWorkbenchFallback("/settings/ai"), { href: "/settings/exams", label: "返回设置" });
+assert.deepEqual(getWorkbenchFallback("/settings/ai"), { href: "/settings", label: "返回设置" });
 assert.deepEqual(getWorkbenchFallback("/roadmap/allocation?status=TODO"), { href: "/roadmap/allocation", label: "返回投入安排" });
 assert.deepEqual(getWorkbenchFallback("/roadmap/allocation/drafts/item-1"), { href: "/roadmap/allocation/drafts", label: "返回收件箱" });
 assert.deepEqual(getWorkbenchFallback("/today/plan?status=TODO"), { href: "/focus", label: "返回开始学习" });

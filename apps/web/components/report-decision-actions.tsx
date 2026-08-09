@@ -15,7 +15,7 @@ import {
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
 import { selectReportDecisionBaseline } from "@/lib/client/versioned-conflict-baseline";
-import { withReturnTo } from "@/lib/navigation/batch7";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { ReportDecisionConflictLatest } from "@/lib/study/report-decisions-service";
 import type {
   PeriodicReportDecisionDto,

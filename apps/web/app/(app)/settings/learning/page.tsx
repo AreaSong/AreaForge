@@ -3,7 +3,7 @@ import { ExperienceSettingsClient } from "@/components/experience-settings-clien
 import { NotificationSettingsClient } from "@/components/notification-settings-client";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getNotificationPreferences } from "@/lib/study/notification-preferences-service";
 
 export const dynamic = "force-dynamic";

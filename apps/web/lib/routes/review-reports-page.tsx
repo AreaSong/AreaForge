@@ -6,7 +6,7 @@ import { ReportHistoryList } from "@/components/report-history-list";
 import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listPeriodicReportDecisions } from "@/lib/study/report-decisions-service";
 import { getPeriodicReport, type PeriodicReportKind } from "@/lib/study/reports-service";
 
