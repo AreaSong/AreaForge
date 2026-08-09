@@ -42,6 +42,18 @@ pnpm db:migrate:deploy
 
 确认前不要对生产数据库运行该命令；本地或临时库验证应显式指定 `DATABASE_URL`。
 
+## 完整本地测试数据
+
+需要重建全流程测试数据时，先单独备份数据库，再显式确认运行：
+
+```bash
+DATABASE_URL=postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge \
+AREAFORGE_CONFIRM_FULL_TEST_RESET=true \
+pnpm db:seed:complete-test
+```
+
+该命令只接受上述 loopback 数据库 URL，会清空除 Prisma migration ledger 外的全部业务表，并重建单管理员合成数据。固定测试账号的用户名和密码均为 `admin@areasong.local`。数据覆盖学习、知识、任务、计时、复盘、检验、阶段调整与确认场景；不会创建磁盘附件、AI Provider 密钥或生产证据。命令本身不创建备份，也不得用于生产数据库。
+
 ## 启动 Web
 
 ```bash
