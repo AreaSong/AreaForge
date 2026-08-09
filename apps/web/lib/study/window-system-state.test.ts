@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   calculateVisibleWindowCount,
+  calculateWindowDockLayout,
   deleteRegistryWindow,
   emptyWindowRegistry,
   materializeWindowInstances,
@@ -9,6 +10,7 @@ import {
   migrateLegacyWindowRegistry,
   minimizeForegroundWindow,
   normalizeWindowRegistry,
+  touchRegistryWindow,
   updateRegistryWindowMetadata,
   upsertRegistryWindow,
   type WindowInstance,
@@ -143,4 +145,33 @@ test("Dock reserves overflow only when two or more items remain hidden", () => {
   assert.equal(calculateVisibleWindowCount(270, [170, 170], new Map([[1, 90]])), 2);
   assert.equal(calculateVisibleWindowCount(150, [170], new Map([[1, 120]])), 1);
   assert.equal(calculateVisibleWindowCount(0, [170], new Map([[1, 120]])), 1);
+});
+
+test("Dock moves from full labels to compact labels before batching overflow", () => {
+  const more = new Map([[2, 96], [3, 96], [4, 96]]);
+  assert.deepEqual(
+    calculateWindowDockLayout(620, [180, 180, 180], [112, 112, 112], more),
+    { mode: "full", visibleCount: 3 },
+  );
+  assert.deepEqual(
+    calculateWindowDockLayout(420, [180, 180, 180], [112, 112, 112], more),
+    { mode: "compact", visibleCount: 3 },
+  );
+  assert.deepEqual(
+    calculateWindowDockLayout(250, [180, 180, 180, 180], [112, 112, 112, 112], more),
+    { mode: "compact", visibleCount: 1 },
+  );
+  assert.deepEqual(
+    calculateWindowDockLayout(80, [180], [112], more),
+    { mode: "compact", visibleCount: 1 },
+  );
+});
+
+test("touching a window updates Dock recency without changing its business state", () => {
+  const opened = registryWindow("shared", stamp(1), "共享窗口");
+  const touched = touchRegistryWindow(opened, "shared", 99, stamp(2));
+  const window = materializeWindowInstances(touched, null)[0];
+  assert.equal(window?.updatedAt, 99);
+  assert.equal(window?.title, "共享窗口");
+  assert.equal(window?.workState, "clean");
 });

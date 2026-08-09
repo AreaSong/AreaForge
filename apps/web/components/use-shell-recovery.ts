@@ -14,9 +14,9 @@ export function useShellRecovery(input: {
   workspaceId: string | null;
   suppressDistractions: boolean;
   reminderCandidate: AppShellStatusDto["motivationReminderCandidate"];
-  openWindow: (key: string) => void;
+  openTool: (key: "recovery-help") => void;
 }) {
-  const { userId, workspaceId, suppressDistractions, reminderCandidate, openWindow } = input;
+  const { userId, workspaceId, suppressDistractions, reminderCandidate, openTool } = input;
   const [source, setSource] = useState<"manual" | "automatic">("manual");
   const [error, setError] = useState<string | null>(null);
   const [line, setLine] = useState<string | null>(null);
@@ -63,7 +63,8 @@ export function useShellRecovery(input: {
         setLine(body.item.body ?? body.item.title ?? null);
         setUrl(body.item.externalUrl ?? null);
         setSource("automatic");
-        openWindow("recovery-help");
+        // Automatic motivation stays non-blocking. The toolbar marks the
+        // available reminder; only an explicit user action opens the tool.
       } catch {
         // Automatic recovery remains non-blocking when its content is unavailable.
       }
@@ -88,14 +89,14 @@ export function useShellRecovery(input: {
       window.removeEventListener(MOTIVATION_REMINDER_PREFERENCE_EVENT, onPreferenceChange);
       window.removeEventListener("storage", onStorage);
     };
-  }, [openWindow, reminderCandidate, suppressDistractions, userId, workspaceId]);
+  }, [reminderCandidate, suppressDistractions, userId, workspaceId]);
 
   const open = useCallback(async () => {
     setError(null);
     setLine(null);
     setUrl(null);
     setSource("manual");
-    openWindow("recovery-help");
+    openTool("recovery-help");
     try {
       const response = await fetch("/api/motivation/next", {
         method: "POST",
@@ -118,9 +119,9 @@ export function useShellRecovery(input: {
     } catch {
       setError("无法加载动机内容");
     }
-  }, [openWindow]);
+  }, [openTool]);
 
-  return { source, error, line, url, open };
+  return { source, error, line, url, open, hasAutomaticReminder: source === "automatic" && Boolean(line || url) };
 }
 
 function readLocalStorage(key: string): string | null {

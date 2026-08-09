@@ -130,7 +130,7 @@ export function GlobalCommandPalette(props: {
       <button
         type="button"
         ref={triggerRef}
-        className={`group flex h-9 min-w-0 max-w-[42rem] flex-1 items-center justify-between gap-3 rounded-md border border-white/10 bg-[#0b0f14] px-3 text-left text-xs text-zinc-400 hover:border-teal-300/35 hover:bg-white/[0.04] ${props.compactOnNarrow ? "max-[359px]:w-9 max-[359px]:flex-none max-[359px]:justify-center max-[359px]:px-0" : ""}`}
+        className={`group mx-auto flex h-9 w-full min-w-0 max-w-[42rem] flex-1 items-center justify-between gap-3 rounded-md border border-white/10 bg-[#0b0f14] px-3 text-left text-xs text-zinc-400 hover:border-teal-300/35 hover:bg-white/[0.04] ${props.compactOnNarrow ? "max-[359px]:w-9 max-[359px]:flex-none max-[359px]:justify-center max-[359px]:px-0" : ""}`}
         onClick={openPalette}
         aria-label={props.triggerLabel}
       >

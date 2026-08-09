@@ -10,6 +10,7 @@ import {
   selectForegroundNotifications,
 } from "@areaforge/core";
 import { GlobalRecoveryHelp } from "@/components/global-recovery-help";
+import { GlobalToolLayer, useGlobalTools } from "@/components/global-tool-system";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import {
   subscribeQuickReviewActivity,
@@ -23,7 +24,6 @@ import {
 } from "@/lib/client/focus-offline-store";
 import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { GlobalSessionCloseout } from "@/components/global-session-closeout";
-import { useWindowSystem } from "@/components/window-system";
 import { WindowDiscardDialog, WindowLayer } from "@/components/window-layer";
 import { useShellRecovery } from "@/components/use-shell-recovery";
 import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
@@ -35,7 +35,7 @@ import { SecondaryNavigation } from "@/components/secondary-navigation";
 import { SharedMobileNavigation } from "@/components/shared-mobile-navigation";
 import { Modal } from "@/components/ui/overlays";
 import { subscribeActivityStatus } from "@/lib/client/activity-status";
-import { APP_NAVIGATION_ITEMS } from "@/lib/navigation/app-navigation";
+import { APP_NAVIGATION_ITEMS, getCanonicalRoute } from "@/lib/navigation/app-navigation";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
 import {
   isRenderableFocusSession,
@@ -70,7 +70,7 @@ export function AppShell(props: {
   const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
   const [offlineFocusSession, setOfflineFocusSession] = useState<AppShellStatusDto["activeSession"]>(null);
-  const { openWindow } = useWindowSystem();
+  const { openTool } = useGlobalTools();
   const serverActiveSessionRef = useRef<AppShellStatusDto["activeSession"]>(props.initialStatus.activeSession);
   const statusRefreshRevisionRef = useRef(0);
   const immersive = pathname.endsWith("/run");
@@ -81,10 +81,12 @@ export function AppShell(props: {
     workspaceId: status.workspaceId,
     suppressDistractions,
     reminderCandidate: status.motivationReminderCandidate,
-    openWindow,
+    openTool,
   });
   const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const activeNavigationItem = APP_NAVIGATION_ITEMS.find((item) => item.match(pathname));
+  const canonicalRoute = getCanonicalRoute(pathname);
+  const showPageToolbar = canonicalRoute?.shell !== "app" || canonicalRoute.toolbar !== "none";
   const secondaryNavigationItems = activeNavigationItem?.children ?? [];
   // Immersive review keeps the global shell, but removes the module rail so
   // the review task remains focused without losing global recovery and window
@@ -371,6 +373,7 @@ export function AppShell(props: {
             onOpenStatus={openStatusLight}
             statusOpen={lightOpen}
             onOpenMotivationHelp={() => void recovery.open()}
+            hasMotivationReminder={recovery.hasAutomaticReminder}
           />
           {showSecondaryNavigation && activeNavigationItem ? (
             <nav className="shrink-0 overflow-x-auto px-4 pt-3 pb-1 sm:px-6 xl:px-8 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`} data-layout-region="secondary-mobile-navigation">
@@ -388,9 +391,11 @@ export function AppShell(props: {
               </div>
             </nav>
           ) : null}
-          <PageToolbar>
-            <WorkbenchBreadcrumbActions pathname={pathname} currentHref={currentHref} />
-          </PageToolbar>
+          {showPageToolbar ? (
+            <PageToolbar>
+              <WorkbenchBreadcrumbActions pathname={pathname} currentHref={currentHref} />
+            </PageToolbar>
+          ) : null}
 
           <div className="flex min-h-0 min-w-0 flex-1">
             {showSecondaryNavigation && activeNavigationItem ? <SecondaryNavigation pathname={pathname} workbench={activeNavigationItem} collapsed={secondaryCollapsed} onToggle={toggleSecondary} /> : null}
@@ -403,7 +408,6 @@ export function AppShell(props: {
                 data-layout-region="page-content"
                 data-immersive-content={immersive ? "true" : undefined}
               >{props.children}</main>
-              <WindowLayer />
             </div>
           </div>
 
@@ -428,6 +432,8 @@ export function AppShell(props: {
         initialNow={status.serverTime}
         pathname={pathname}
       />
+      <GlobalToolLayer />
+      <WindowLayer />
       <WindowDiscardDialog />
       <Modal open={lightOpen} title="今日状态" onClose={() => setLightOpen(false)}>
         <div className="divide-y divide-white/10" aria-label="今日状态详情">

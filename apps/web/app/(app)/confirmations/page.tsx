@@ -1,18 +1,17 @@
 import { redirect } from "next/navigation";
 import { ConfirmationWindowEntry } from "@/components/confirmation-window-entry";
-import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/app-navigation";
+import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/confirmations");
 
-export default async function ConfirmationsPage() {
+export default async function ConfirmationsPage({ searchParams }: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  return (
-    <PageFrame variant="content-focus">
-      <ConfirmationWindowEntry filter="pending" />
-    </PageFrame>
-  );
+  const query = await searchParams;
+  const returnTo = query.returnTo ? sanitizeReturnPath(query.returnTo) : "/today";
+  return <ConfirmationWindowEntry filter="pending" returnTo={returnTo.startsWith("/confirmations") ? "/today" : returnTo} />;
 }

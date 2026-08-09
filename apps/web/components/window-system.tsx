@@ -20,6 +20,7 @@ import {
   migrateLegacyWindowRegistry,
   minimizeForegroundWindow,
   normalizeWindowRegistry,
+  touchRegistryWindow,
   updateRegistryWindowMetadata,
   updateRegistryWindowWorkState,
   upsertRegistryWindow,
@@ -32,12 +33,14 @@ import {
 } from "@/lib/study/window-system-state";
 
 export type { WindowClosePolicy, WindowInstance, WindowWorkState } from "@/lib/study/window-system-state";
+export type WindowSizePreset = "medium" | "large" | "wide";
 
 export interface WindowDefinition {
   key: string;
   kind: string;
   title: string;
   closePolicy?: WindowClosePolicy;
+  size?: WindowSizePreset;
   onDiscard?: () => void;
   render: () => React.ReactNode;
 }
@@ -67,6 +70,7 @@ const WindowSystemContext = createContext<WindowSystemValue | null>(null);
 const PERSISTENCE_PREFIX = "af.window-system.v2";
 const LEGACY_PERSISTENCE_PREFIX = "af.window-system.v1";
 const WINDOW_CHANNEL = "areaforge-window-system-v2";
+const LEGACY_TOOL_WINDOW_KEYS = ["quick-create", "recovery-help"] as const;
 
 function storageKey(userId: string): string {
   return `${PERSISTENCE_PREFIX}:${userId}`;
@@ -199,6 +203,16 @@ function WindowSystemProviderState(props: { userId: string; children: React.Reac
   }, [installRegistry, props.userId]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      commitRegistry((current, stamp) => LEGACY_TOOL_WINDOW_KEYS.reduce(
+        (next, key) => deleteRegistryWindow(next, key, stamp),
+        current,
+      ));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [commitRegistry]);
+
+  useEffect(() => {
     const onExternalRegistry = (incoming: unknown, sourceId?: string) => {
       if (sourceId && sourceId === sourceIdRef.current) return;
       if (!isV2RegistryShape(incoming)) return;
@@ -274,15 +288,20 @@ function WindowSystemProviderState(props: { userId: string; children: React.Reac
       pendingOpenKeysRef.current.add(key);
       return;
     }
-    commitRegistry((current, stamp) => upsertRegistryWindow(current, definition, Date.now(), stamp));
+    commitRegistry((current, stamp) => {
+      const now = Date.now();
+      const opened = upsertRegistryWindow(current, definition, now, stamp);
+      return touchRegistryWindow(opened, key, now, stamp);
+    });
     setForegroundKey(key);
   }, [commitRegistry, rememberFocus, setForegroundKey]);
 
   const focusWindow = useCallback((key: string) => {
     if (!hasRegistryWindow(registryRef.current, key)) return;
     rememberFocus(key);
+    commitRegistry((current, stamp) => touchRegistryWindow(current, key, Date.now(), stamp));
     setForegroundKey(key);
-  }, [rememberFocus, setForegroundKey]);
+  }, [commitRegistry, rememberFocus, setForegroundKey]);
 
   const minimizeWindow = useCallback((key: string) => {
     const next = minimizeForegroundWindow(foregroundKeyRef.current, key);

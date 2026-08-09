@@ -1,11 +1,15 @@
 "use client";
 
 const DEVICE_ID_KEY = "areaforge.client-device-id.v1";
+const DEVICE_LABEL_KEY = "areaforge.client-device-label.v1";
+const DEVICE_IDENTITY_CHANGED_EVENT = "areaforge:device-identity-changed";
 let volatileDeviceId: string | null = null;
+let volatileDeviceLabel: string | null = null;
 
 export interface ClientDeviceIdentity {
   id: string;
   label: string;
+  detectedLabel: string;
 }
 
 /**
@@ -13,7 +17,7 @@ export interface ClientDeviceIdentity {
  * client owns the shared timer, not to fingerprint the browser.
  */
 export function getClientDeviceIdentity(): ClientDeviceIdentity {
-  if (typeof window === "undefined") return { id: "server", label: "当前设备" };
+  if (typeof window === "undefined") return { id: "server", label: "当前设备", detectedLabel: "当前设备" };
 
   let id: string | null = null;
   try {
@@ -35,7 +39,8 @@ export function getClientDeviceIdentity(): ClientDeviceIdentity {
     volatileDeviceId = id;
   }
 
-  return { id, label: detectDeviceLabel() };
+  const detectedLabel = detectDeviceLabel();
+  return { id, label: readDeviceLabel() ?? detectedLabel, detectedLabel };
 }
 
 export function getClientDeviceHeaders(): Record<string, string> {
@@ -46,6 +51,39 @@ export function getClientDeviceHeaders(): Record<string, string> {
   };
 }
 
+export function setClientDeviceLabel(value: string): ClientDeviceIdentity {
+  const label = normalizeClientDeviceLabel(value);
+  volatileDeviceLabel = label;
+  try {
+    if (label) window.localStorage.setItem(DEVICE_LABEL_KEY, label);
+    else window.localStorage.removeItem(DEVICE_LABEL_KEY);
+  } catch {
+    // Keep the user-selected name for the current page lifecycle.
+  }
+  window.dispatchEvent(new Event(DEVICE_IDENTITY_CHANGED_EVENT));
+  return getClientDeviceIdentity();
+}
+
+export function subscribeClientDeviceIdentity(listener: () => void): () => void {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === DEVICE_ID_KEY || event.key === DEVICE_LABEL_KEY) listener();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(DEVICE_IDENTITY_CHANGED_EVENT, listener);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(DEVICE_IDENTITY_CHANGED_EVENT, listener);
+  };
+}
+
+export function normalizeClientDeviceLabel(value: string): string | null {
+  const normalized = value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized ? [...normalized].slice(0, 40).join("") : null;
+}
+
 function createDeviceId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -53,6 +91,16 @@ function createDeviceId(): string {
 
 function isSafeDeviceId(value: string): boolean {
   return value.length >= 8 && value.length <= 100 && /^[A-Za-z0-9:_-]+$/.test(value);
+}
+
+function readDeviceLabel(): string | null {
+  try {
+    const stored = normalizeClientDeviceLabel(window.localStorage.getItem(DEVICE_LABEL_KEY) ?? "");
+    if (stored) volatileDeviceLabel = stored;
+    return stored ?? volatileDeviceLabel;
+  } catch {
+    return volatileDeviceLabel;
+  }
 }
 
 function detectDeviceLabel(): string {

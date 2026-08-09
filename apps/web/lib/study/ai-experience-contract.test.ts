@@ -17,27 +17,32 @@ test("global AI keeps a dirty draft bound to its opening route", () => {
   assert.match(source, /usePathname, useSearchParams/);
   assert.match(source, /const pageContextKey = `\$\{pathname\}\?\$\{searchParams\.toString\(\)\}`/);
   assert.match(source, /const \[assistantContextKey, setAssistantContextKey\] = useState\(pageContextKey\)/);
-  assert.match(source, /const preserveDraft = assistantWindow[\s\S]*assistantWindow\.workState !== "clean"[\s\S]*assistantWindow\.workState !== "completed"/);
+  assert.match(source, /const workState = assistantWindow\?\.workState \?\? assistantWorkState/);
+  assert.match(source, /const preserveDraft = \(assistantWindow \|\| isQuickOpen\)[\s\S]*workState !== "clean"[\s\S]*workState !== "completed"/);
   assert.match(source, /if \(preserveDraft\) \{[\s\S]*minimizeWindow\("ai-assistant"\)/);
   assert.match(source, /draftContextKey=\{draftContextKey\}/);
   assert.match(source, /onDiscard: \(\) => discardWindowRef\.current\(\)/);
   assert.match(source, /loadAiAssistantContext\(userId\)/);
   assert.match(source, /saveAiAssistantContext\(userId/);
-  assert.match(source, /if \(!assistantContextReady \|\| !assistantWindow\) return/);
+  assert.match(source, /if \(!assistantContextReady \|\| \(!assistantWindow && !isQuickOpen\)\) return/);
   assert.match(source, /removeAiAssistantContext\(userId\)/);
   assert.match(source, /function isAiAssistantUiTarget/);
 });
 
 test("opening global AI never collects page context automatically", () => {
   const source = readComponent("global-ai-assistant.tsx");
-  const openStart = source.indexOf("function openAssistant()");
-  const openEnd = source.indexOf("useEffect(() => {", openStart);
+  const openStart = source.indexOf("function openAssistant(trigger");
+  const openEnd = source.indexOf("const beginSelecting", openStart);
   const openAssistant = source.slice(openStart, openEnd);
 
   assert.ok(openStart >= 0 && openEnd > openStart);
-  assert.match(openAssistant, /openWindow\("ai-assistant"\)/);
+  assert.match(openAssistant, /toggleTool\("ai-assistant", trigger\)/);
   assert.doesNotMatch(openAssistant, /addCurrentObject/);
   assert.match(source, /onClick=\{addCurrentObject\}>/);
+  assert.match(source, /closeTool\(false\)/);
+  assert.match(source, /minimizeWindow\("ai-assistant"\)/);
+  assert.match(source, /if \(target === "window"\) focusWindow\("ai-assistant"\)/);
+  assert.match(source, /if \(target === "tool"\) openTool\("ai-assistant"\)/);
 });
 
 test("global AI persists only bounded route and selection context", () => {
@@ -89,7 +94,7 @@ test("window content refresh does not steal focus from its active control", () =
   const layer = readComponent("window-layer.tsx");
   const system = readComponent("window-system.tsx");
   assert.match(layer, /const hasDefinition = definition !== null/);
-  assert.match(layer, /\}, \[foregroundWindowKey, hasDefinition\]\)/);
+  assert.match(layer, /\}, \[foregroundWindowKey, hasDefinition, minimizeWindow\]\)/);
   assert.doesNotMatch(layer, /definitionVersion/);
   assert.match(system, /definitionsRef\.current\.get\(key\)\?\.onDiscard\?\.\(\)/);
 });

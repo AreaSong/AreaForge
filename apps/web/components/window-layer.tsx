@@ -1,9 +1,10 @@
 "use client";
 
-import { Minimize2, X } from "lucide-react";
+import { Bot, ClipboardCheck, Minimize2, TimerReset, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useWindowSystem } from "@/components/window-system";
+import type { WindowSizePreset } from "@/components/window-system";
 
 const focusableSelector = [
   "a[href]",
@@ -13,6 +14,21 @@ const focusableSelector = [
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
+
+const windowSizeClass: Record<WindowSizePreset, string> = {
+  medium: "sm:max-w-2xl sm:h-[min(42rem,calc(100dvh-2rem))]",
+  large: "sm:max-w-4xl sm:h-[min(46rem,calc(100dvh-2rem))]",
+  wide: "sm:max-w-5xl sm:h-[min(50rem,calc(100dvh-2rem))]",
+};
+
+const workStateLabel = {
+  clean: "已保存",
+  dirty: "未保存",
+  submitting: "正在提交",
+  syncPending: "等待同步",
+  conflict: "需要处理冲突",
+  completed: "已完成",
+} as const;
 
 export function WindowLayer() {
   const {
@@ -37,33 +53,61 @@ export function WindowLayer() {
       target.focus({ preventScroll: true });
       if (!panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
     }, 0);
-    return () => window.clearTimeout(timer);
-  }, [foregroundWindowKey, hasDefinition]);
+    const onFocusIn = (event: FocusEvent) => {
+      if (event.target instanceof Element && event.target.closest("[data-window-backdrop]")) {
+        minimizeWindow(foregroundWindowKey);
+        return;
+      }
+      if (!panel.contains(event.target as Node)) target.focus({ preventScroll: true });
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        minimizeWindow(foregroundWindowKey);
+        return;
+      }
+      if (event.key === "Tab") trapWindowFocus(event, panel);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [foregroundWindowKey, hasDefinition, minimizeWindow]);
 
-  if (!foreground || !definition) return null;
+  if (!foreground || !definition || typeof document === "undefined") return null;
+  const size = definition.size ?? "large";
 
-  return (
-    <div className="pointer-events-none absolute inset-0 z-[var(--af-layer-workspace-window)] overflow-hidden" data-layout-region="window-layer">
+  return createPortal(
+    <div className="fixed inset-0 z-[var(--af-layer-workspace-window)] flex items-center justify-center overflow-hidden bg-black/50 p-2 backdrop-blur-[2px] sm:p-4" data-layout-region="global-window-portal" data-global-ai-ui="true" role="presentation">
+      <button
+        type="button"
+        data-window-backdrop="true"
+        className="absolute inset-0 cursor-default"
+        tabIndex={-1}
+        aria-label="返回页面并最小化窗口"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          minimizeWindow(foreground.key);
+        }}
+        onClick={() => minimizeWindow(foreground.key)}
+      />
       <section
         ref={panelRef}
         role="dialog"
-        aria-modal="false"
+        aria-modal="true"
         aria-label={foreground.title}
         tabIndex={-1}
-        className="pointer-events-auto absolute inset-0 flex min-h-0 min-w-0 flex-col overflow-hidden border-white/15 bg-[#101419] shadow-2xl shadow-black/50 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(760px,calc(100%-2rem))] sm:w-[min(920px,calc(100%-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            requestCloseWindow(foreground.key);
-            return;
-          }
-          if (event.key !== "Tab") return;
-          trapWindowFocus(event, panelRef.current);
-        }}
+        className={`relative z-10 flex h-[calc(100dvh-1rem)] w-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-white/15 bg-[#101419] shadow-2xl shadow-black/60 sm:w-[calc(100vw-2rem)] ${windowSizeClass[size]}`}
       >
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-white/10 bg-[#0d1117] px-4">
-          <span className="size-2 rounded-full bg-teal-300" aria-hidden="true" />
+          <WindowKindIcon kind={foreground.kind} />
           <h2 className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-100">{foreground.title}</h2>
+          <span className={`hidden shrink-0 text-xs sm:inline ${foreground.workState === "conflict" ? "text-red-200" : foreground.workState === "dirty" || foreground.workState === "syncPending" ? "text-amber-200" : "text-zinc-500"}`} role="status">
+            {workStateLabel[foreground.workState]}
+          </span>
           <button
             type="button"
             className="inline-flex size-8 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white"
@@ -88,7 +132,8 @@ export function WindowLayer() {
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">{definition.render()}</div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -149,4 +194,13 @@ function trapWindowFocus(event: React.KeyboardEvent | KeyboardEvent, panel: HTML
     event.preventDefault();
     focusable[0]?.focus({ preventScroll: true });
   }
+}
+
+function WindowKindIcon({ kind }: { kind: string }) {
+  const Icon = kind === "confirmation-center"
+    ? ClipboardCheck
+    : kind === "ai-assistant"
+      ? Bot
+      : TimerReset;
+  return <Icon size={16} className="shrink-0 text-teal-300" aria-hidden="true" />;
 }

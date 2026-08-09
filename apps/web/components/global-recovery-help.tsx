@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useGlobalTools } from "@/components/global-tool-system";
 import { RecoveryActionContent } from "@/components/recovery-action-drawer";
-import { useWindowSystem } from "@/components/window-system";
 
 export function GlobalRecoveryHelp(props: {
   title: string;
@@ -12,30 +12,25 @@ export function GlobalRecoveryHelp(props: {
   workspaceId: string | null;
   defaultSubjectId: string | null;
 }) {
-  const { registerWindow, refreshWindow, updateWindowMetadata, requestCloseWindow } = useWindowSystem();
+  const { registerTool, refreshTool, closeTool } = useGlobalTools();
   const { title, motivationLine, motivationUrl, motivationError, workspaceId, defaultSubjectId } = props;
   const closeRecoveryHelp = useCallback(() => {
-    requestCloseWindow("recovery-help");
-  }, [requestCloseWindow]);
+    closeTool();
+  }, [closeTool]);
   const content = useMemo(() => <RecoveryActionContent open title={title} motivationLine={motivationLine} motivationUrl={motivationUrl} motivationError={motivationError} workspaceId={workspaceId} defaultSubjectId={defaultSubjectId} onClose={closeRecoveryHelp} />, [closeRecoveryHelp, defaultSubjectId, motivationError, motivationLine, motivationUrl, title, workspaceId]);
   const contentRef = useRef<React.ReactNode>(content);
 
-  useEffect(() => registerWindow({
+  useEffect(() => registerTool({
     key: "recovery-help",
-    kind: "recovery-help",
-    title: "我学不下去了",
-    closePolicy: "free",
+    title,
+    size: "medium",
     render: () => contentRef.current,
-  }), [registerWindow]);
+  }), [registerTool, title]);
 
   useEffect(() => {
     contentRef.current = content;
-    refreshWindow("recovery-help");
-  }, [content, refreshWindow]);
-
-  useEffect(() => {
-    updateWindowMetadata("recovery-help", { kind: "recovery-help", title, closePolicy: "free" });
-  }, [title, updateWindowMetadata]);
+    refreshTool("recovery-help");
+  }, [content, refreshTool]);
 
   return null;
 }

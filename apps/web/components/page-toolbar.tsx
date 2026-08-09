@@ -16,7 +16,7 @@ export function PageToolbar({ children }: { children?: React.ReactNode }) {
 
   return (
     <div
-      className="mt-3 flex min-h-12 min-w-0 flex-wrap items-center gap-3 border-t border-white/10 px-4 pt-3 sm:flex-nowrap sm:px-6 xl:px-8"
+      className="flex min-h-14 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-white/10 px-4 py-2 sm:flex-nowrap sm:px-6 xl:px-8"
       data-layout-region="page-toolbar"
       data-global-ai-ui="true"
     >

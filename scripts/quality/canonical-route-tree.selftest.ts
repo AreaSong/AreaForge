@@ -7,6 +7,13 @@ import { getRouteTitle } from "../../apps/web/lib/navigation/app-navigation";
 const root = process.cwd();
 
 const canonicalFiles = CANONICAL_ROUTES.map((route) => canonicalPageFile(route.path));
+const toolbarlessRoutes = new Set([
+  "/confirmations",
+  "/confirmations/[confirmationId]",
+  "/confirmations/history",
+  "/focus",
+  "/today",
+]);
 
 const removedFiles = [
   "apps/web/app/(app)/today/plan/page.tsx",
@@ -59,11 +66,20 @@ for (const route of CANONICAL_ROUTES) {
     assert(route.workbench, `${route.path} must declare a workbench`);
     assert(["primary", "secondary", "content"].includes(route.navigationLevel), `${route.path} must declare its navigation level`);
     assert(["dashboard-wide", "split-view", "content-focus", "workspace-full"].includes(route.template), `${route.path} must declare a PageFrame template`);
-    assert.equal(route.toolbar, "standard", `${route.path} must retain the shared PageToolbar`);
+    assert.equal(
+      route.toolbar,
+      toolbarlessRoutes.has(route.path) ? "none" : "standard",
+      `${route.path} must declare the expected PageToolbar mode`,
+    );
     const fallback = CANONICAL_ROUTES.find((candidate) => candidate.path === route.returnFallback);
     assert(fallback?.shell === "app", `${route.path} must have a canonical app return fallback`);
   }
 }
+assert.deepEqual(
+  CANONICAL_ROUTES.filter((route) => route.shell === "app" && route.toolbar === "none").map((route) => route.path).sort(),
+  [...toolbarlessRoutes].sort(),
+  "only action roots and invisible confirmation window entries may omit the shared PageToolbar",
+);
 assert.equal(getRouteTitle("/setup"), "页面不存在", "/setup must not remain registered after its page was removed");
 
 const presentRemoved = removedFiles.filter((file) => existsSync(resolve(file)));

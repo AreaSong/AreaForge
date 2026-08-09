@@ -4,6 +4,8 @@ export type CanonicalPageTemplate = "dashboard-wide" | "split-view" | "content-f
 
 export type CanonicalNavigationLevel = "primary" | "secondary" | "content";
 
+export type CanonicalToolbar = "standard" | "none";
+
 interface PublicRouteDefinition {
   path: string;
   title: string;
@@ -19,7 +21,7 @@ interface AppRouteDefinition {
   secondary?: string;
   navigationLevel: CanonicalNavigationLevel;
   template: CanonicalPageTemplate;
-  toolbar: "standard";
+  toolbar: CanonicalToolbar;
   returnFallback: string;
   returnQueryKeys?: readonly string[];
 }
@@ -30,8 +32,14 @@ export const CANONICAL_ROUTES = [
   { path: "/", title: "AreaForge", shell: "public" },
   { path: "/login", title: "登录", shell: "public", returnQueryKeys: ["returnTo"] },
 
-  appRoute("/today", "今日行动中心", "today", "primary", "dashboard-wide", "/today", { returnQueryKeys: ["date"] }),
-  appRoute("/focus", "开始学习", "focus", "primary", "workspace-full", "/focus", { returnQueryKeys: ["returnTo"] }),
+  appRoute("/today", "今日行动中心", "today", "primary", "dashboard-wide", "/today", {
+    toolbar: "none",
+    returnQueryKeys: ["date"],
+  }),
+  appRoute("/focus", "开始学习", "focus", "primary", "workspace-full", "/focus", {
+    toolbar: "none",
+    returnQueryKeys: ["returnTo"],
+  }),
 
   appRoute("/roadmap", "路线总览", "roadmap", "secondary", "dashboard-wide", "/roadmap", { secondary: "overview" }),
   appRoute("/roadmap/allocation", "投入安排", "roadmap", "secondary", "dashboard-wide", "/roadmap/allocation", {
@@ -84,9 +92,10 @@ export const CANONICAL_ROUTES = [
     returnQueryKeys: ["returnTo"],
   }),
 
-  appRoute("/confirmations", "确认中心", "confirmations", "secondary", "content-focus", "/confirmations"),
-  appRoute("/confirmations/history", "确认记录", "confirmations", "secondary", "content-focus", "/confirmations"),
-  appRoute("/confirmations/[confirmationId]", "确认事项详情", "confirmations", "content", "content-focus", "/confirmations", {
+  appRoute("/confirmations", "确认中心", "confirmations", "secondary", "content-focus", "/today", { toolbar: "none", returnQueryKeys: ["returnTo"] }),
+  appRoute("/confirmations/history", "确认记录", "confirmations", "secondary", "content-focus", "/today", { toolbar: "none", returnQueryKeys: ["returnTo"] }),
+  appRoute("/confirmations/[confirmationId]", "确认事项详情", "confirmations", "content", "content-focus", "/today", {
+    toolbar: "none",
     returnQueryKeys: ["returnTo"],
   }),
 
@@ -184,6 +193,7 @@ function appRoute(
   returnFallback: string,
   options: {
     secondary?: string;
+    toolbar?: CanonicalToolbar;
     returnQueryKeys?: readonly string[];
   } = {},
 ): AppRouteDefinition {
@@ -194,9 +204,9 @@ function appRoute(
     workbench,
     navigationLevel,
     template,
-    toolbar: "standard",
     returnFallback,
     ...options,
+    toolbar: options.toolbar ?? "standard",
   };
 }
 

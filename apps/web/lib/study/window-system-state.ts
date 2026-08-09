@@ -133,6 +133,21 @@ export function updateRegistryWindowWorkState(
   });
 }
 
+export function touchRegistryWindow(
+  current: WindowRegistryState,
+  key: string,
+  now: number,
+  stamp: WindowVersionStamp,
+): WindowRegistryState {
+  const existing = getActiveRegistryRecord(current, key);
+  if (!existing?.value) return current;
+  return replaceRegistryRecord(current, {
+    key,
+    stamp,
+    value: { ...existing.value, updatedAt: now },
+  });
+}
+
 export function deleteRegistryWindow(
   current: WindowRegistryState,
   key: string,
@@ -281,6 +296,38 @@ export function calculateVisibleWindowCount(
   }
 
   return visibleCount === itemWidths.length - 1 ? itemWidths.length : visibleCount;
+}
+
+export interface WindowDockLayout {
+  mode: "full" | "compact";
+  visibleCount: number;
+}
+
+/** Full labels are preferred, then compact items, then overflow in batches. */
+export function calculateWindowDockLayout(
+  availableWidth: number,
+  fullWidths: readonly number[],
+  compactWidths: readonly number[],
+  moreWidthByHiddenCount: ReadonlyMap<number, number> | Readonly<Record<number, number>> = new Map(),
+  gap = 8,
+): WindowDockLayout {
+  const itemCount = Math.min(fullWidths.length, compactWidths.length);
+  if (itemCount === 0) return { mode: "full", visibleCount: 0 };
+  const totalWidth = (widths: readonly number[]) => widths.slice(0, itemCount)
+    .reduce((sum, width) => sum + Math.max(0, width), 0) + gap * Math.max(0, itemCount - 1);
+  if (totalWidth(fullWidths) <= availableWidth) return { mode: "full", visibleCount: itemCount };
+  if (itemCount === 1 || totalWidth(compactWidths) <= availableWidth) {
+    return { mode: "compact", visibleCount: itemCount };
+  }
+  return {
+    mode: "compact",
+    visibleCount: calculateVisibleWindowCount(
+      availableWidth,
+      compactWidths.slice(0, itemCount),
+      moreWidthByHiddenCount,
+      gap,
+    ),
+  };
 }
 
 export function isWindowInstance(value: unknown): value is WindowInstance {

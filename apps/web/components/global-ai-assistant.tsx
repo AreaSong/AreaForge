@@ -4,6 +4,7 @@ import { MousePointer2, Sparkles, X } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
+import { useGlobalTools } from "@/components/global-tool-system";
 import {
   loadAiAssistantContext,
   removeAiAssistantContext,
@@ -29,6 +30,8 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
   const [assistantContextKey, setAssistantContextKey] = useState(pageContextKey);
   const [assistantContextReady, setAssistantContextReady] = useState(false);
   const [selecting, setSelecting] = useState(false);
+  const [selectionReturnTarget, setSelectionReturnTarget] = useState<"tool" | "window" | null>(null);
+  const [assistantWorkState, setAssistantWorkState] = useState<WindowWorkState>("clean");
   const [endpoint, setEndpoint] = useState<AiAssistantEndpoint>("knowledge-card");
   const [items, setItems] = useState<SelectionItem[]>([]);
   const [dragRect, setDragRect] = useState<SelectionItem["rect"]>(null);
@@ -39,8 +42,10 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
   const pageContextKeyRef = useRef(pageContextKey);
   const mountedContextKeyRef = useRef<string | null>(null);
   const discardWindowRef = useRef<() => void>(() => undefined);
+  const assistantWorkStateRef = useRef<WindowWorkState>("clean");
   const {
     closeWindow,
+    focusWindow,
     foregroundKey,
     hasWindow,
     minimizeWindow,
@@ -50,7 +55,16 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
     setWindowWorkState,
     windows,
   } = useWindowSystem();
+  const {
+    activeKey,
+    closeTool,
+    openTool,
+    registerTool,
+    refreshTool,
+    toggleTool,
+  } = useGlobalTools();
   const isForeground = foregroundKey === "ai-assistant";
+  const isQuickOpen = activeKey === "ai-assistant";
   const assistantWindow = windows.find((window) => window.key === "ai-assistant") ?? null;
 
   const selectedText = useMemo(() => items.map((item) => item.text).join("\n\n").slice(0, 10_000), [items]);
@@ -65,6 +79,7 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
     dragMoved.current = false;
     suppressClick.current = false;
     textSelectionCaptured.current = false;
+    setSelectionReturnTarget(null);
   }, []);
 
   const resetAssistantContext = useCallback((contextKey: string) => {
@@ -92,33 +107,36 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
   }, [userId]);
 
   useEffect(() => {
-    if (!assistantContextReady || !assistantWindow) return;
+    if (!assistantContextReady || (!assistantWindow && !isQuickOpen)) return;
     saveAiAssistantContext(userId, {
       contextKey: assistantContextKey,
       endpoint,
       items: items.map(({ id, label, text }) => ({ id, label, text })),
     });
-  }, [assistantContextKey, assistantContextReady, assistantWindow, endpoint, items, userId]);
+  }, [assistantContextKey, assistantContextReady, assistantWindow, endpoint, isQuickOpen, items, userId]);
 
   useEffect(() => {
     const previousContextKey = mountedContextKeyRef.current;
     mountedContextKeyRef.current = pageContextKey;
     pageContextKeyRef.current = pageContextKey;
     if (previousContextKey === null || previousContextKey === pageContextKey) return;
-    const preserveDraft = assistantWindow
-      && assistantWindow.workState !== "clean"
-      && assistantWindow.workState !== "completed";
+    const workState = assistantWindow?.workState ?? assistantWorkState;
+    const preserveDraft = (assistantWindow || isQuickOpen)
+      && workState !== "clean"
+      && workState !== "completed";
     const resetTimer = window.setTimeout(() => {
       if (preserveDraft) {
         minimizeWindow("ai-assistant");
+        if (isQuickOpen) closeTool(false);
         stopSelecting();
         return;
       }
       if (assistantWindow) closeWindow("ai-assistant");
+      if (isQuickOpen) closeTool(false);
       clearAssistantContext(pageContextKey);
     }, 0);
     return () => window.clearTimeout(resetTimer);
-  }, [assistantWindow, clearAssistantContext, closeWindow, minimizeWindow, pageContextKey, stopSelecting]);
+  }, [assistantWindow, assistantWorkState, clearAssistantContext, closeTool, closeWindow, isQuickOpen, minimizeWindow, pageContextKey, stopSelecting]);
 
   const addCurrentObject = useCallback(() => {
     const target = document.querySelector("[data-ai-current-object]")
@@ -128,17 +146,50 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
     setItems((current) => current.some((entry) => entry.id === item.id) ? current : [...current, item]);
   }, [pathname]);
 
-  function openAssistant() {
+  const prepareAssistant = useCallback(() => {
     const startingFresh = !hasWindow("ai-assistant");
     if (startingFresh && items.length === 0) {
       if (assistantContextReady) clearAssistantContext(pageContextKey);
       else resetAssistantContext(pageContextKey);
     }
-    openWindow("ai-assistant");
+  }, [assistantContextReady, clearAssistantContext, hasWindow, items.length, pageContextKey, resetAssistantContext]);
+
+  function openAssistant(trigger: HTMLButtonElement) {
+    if (hasWindow("ai-assistant")) {
+      focusWindow("ai-assistant");
+      return;
+    }
+    toggleTool("ai-assistant", trigger);
   }
 
+  const beginSelecting = useCallback(() => {
+    if (isForeground) {
+      setSelectionReturnTarget("window");
+      minimizeWindow("ai-assistant");
+    } else if (isQuickOpen) {
+      setSelectionReturnTarget("tool");
+      closeTool(false);
+    } else {
+      return;
+    }
+    setSelecting(true);
+  }, [closeTool, isForeground, isQuickOpen, minimizeWindow]);
+
+  const finishSelecting = useCallback(() => {
+    const target = selectionReturnTarget;
+    setSelecting(false);
+    setDragRect(null);
+    dragStart.current = null;
+    dragMoved.current = false;
+    suppressClick.current = false;
+    textSelectionCaptured.current = false;
+    setSelectionReturnTarget(null);
+    if (target === "window") focusWindow("ai-assistant");
+    if (target === "tool") openTool("ai-assistant");
+  }, [focusWindow, openTool, selectionReturnTarget]);
+
   useEffect(() => {
-    if (!selecting || !isForeground) return;
+    if (!selecting) return;
     const onClick = (event: MouseEvent) => {
       if (suppressClick.current) {
         suppressClick.current = false;
@@ -257,9 +308,11 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       textSelectionCaptured.current = false;
       setDragRect(null);
     };
-  }, [isForeground, selecting]);
+  }, [selecting]);
 
   const handleWorkStateChange = useCallback((state: WindowWorkState) => {
+    assistantWorkStateRef.current = state;
+    setAssistantWorkState(state);
     setWindowWorkState("ai-assistant", state);
   }, [setWindowWorkState]);
 
@@ -292,10 +345,9 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
         <button type="button" disabled={!contextIsCurrent} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40" onClick={addCurrentObject}>
           <Sparkles size={15} aria-hidden="true" />加入当前对象
         </button>
-        <button type="button" disabled={!contextIsCurrent} className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${selecting ? "border-teal-300/60 text-teal-200" : "border-white/10 text-zinc-300"}`} onClick={() => setSelecting((current) => !current)}>
-          <MousePointer2 size={15} aria-hidden="true" />{selecting ? "结束框选" : "框选内容"}
+        <button type="button" disabled={!contextIsCurrent} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 disabled:cursor-not-allowed disabled:opacity-40" onClick={beginSelecting}>
+          <MousePointer2 size={15} aria-hidden="true" />框选内容
         </button>
-        {selecting ? <span className="text-xs text-zinc-500">点击元素或拖选文本，可连续添加多个。</span> : null}
       </div>
       {items.length ? (
         <div className="space-y-2">
@@ -315,39 +367,59 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       </label>
       <div className="border-t border-white/10 pt-4"><AiDraftPanel key={`${endpoint}:${draftContextKey}`} endpoint={endpoint} userId={userId} defaultText={selectedText} draftContextKey={draftContextKey} onWorkStateChange={handleWorkStateChange} onNavigate={handleNavigate} /></div>
     </div>
-  ), [addCurrentObject, assistantContextKey, contextIsCurrent, draftContextKey, endpoint, handleNavigate, handleWorkStateChange, items, removeItem, selecting, selectedText, userId]);
+  ), [addCurrentObject, assistantContextKey, beginSelecting, contextIsCurrent, draftContextKey, endpoint, handleNavigate, handleWorkStateChange, items, removeItem, selectedText, userId]);
 
   useEffect(() => {
     contentRef.current = content;
     refreshWindow("ai-assistant");
-  }, [content, refreshWindow]);
+    refreshTool("ai-assistant");
+  }, [content, refreshTool, refreshWindow]);
 
   useEffect(() => registerWindow({
     key: "ai-assistant",
     kind: "ai-assistant",
     title: "AI 助手",
     closePolicy: "confirmDiscard",
+    size: "wide",
     onDiscard: () => discardWindowRef.current(),
     render: () => contentRef.current,
   }), [registerWindow]);
 
+  useEffect(() => registerTool({
+    key: "ai-assistant",
+    title: "AI 助手",
+    size: "wide",
+    onOpen: prepareAssistant,
+    onExpand: () => {
+      openWindow("ai-assistant");
+      setWindowWorkState("ai-assistant", assistantWorkStateRef.current);
+    },
+    render: () => contentRef.current,
+  }), [openWindow, prepareAssistant, registerTool, setWindowWorkState]);
+
   return (
     <>
-      {selecting && isForeground ? items.map((item) => item.rect ? <div key={item.id} className="pointer-events-none fixed z-[var(--af-layer-selection)] border-2 border-teal-300/80 bg-teal-300/10" style={{ top: item.rect.top, left: item.rect.left, width: item.rect.width, height: item.rect.height }} aria-hidden="true" /> : null) : null}
-      {selecting && isForeground && dragRect ? <div className="pointer-events-none fixed z-[var(--af-layer-workspace-window)] border-2 border-dashed border-amber-300 bg-amber-300/10" style={{ top: dragRect.top, left: dragRect.left, width: dragRect.width, height: dragRect.height }} aria-hidden="true" /> : null}
+      {selecting ? items.map((item) => item.rect ? <div key={item.id} className="pointer-events-none fixed z-[var(--af-layer-selection)] border-2 border-teal-300/80 bg-teal-300/10" style={{ top: item.rect.top, left: item.rect.left, width: item.rect.width, height: item.rect.height }} aria-hidden="true" /> : null) : null}
+      {selecting && dragRect ? <div className="pointer-events-none fixed z-[var(--af-layer-selection)] border-2 border-dashed border-amber-300 bg-amber-300/10" style={{ top: dragRect.top, left: dragRect.left, width: dragRect.width, height: dragRect.height }} aria-hidden="true" /> : null}
+      {selecting ? (
+        <div className="fixed left-1/2 top-4 z-[var(--af-layer-selection)] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-md border border-teal-300/40 bg-[#101419] px-3 py-2 shadow-xl" data-global-ai-ui="true" role="status">
+          <span className="truncate text-xs text-zinc-300">选择页面内容，已选 {items.length} 项</span>
+          <button type="button" className="h-8 shrink-0 rounded-md bg-teal-300 px-3 text-xs font-medium text-slate-950 hover:bg-teal-200" onClick={finishSelecting}>完成框选</button>
+        </div>
+      ) : null}
       <button
         type="button"
         data-global-ai-ui="true"
         className={placement === "floating"
           ? "fixed bottom-20 right-4 z-[var(--af-layer-selection)] inline-flex size-11 items-center justify-center rounded-full border border-teal-300/50 bg-[#0d1117] text-teal-200 shadow-lg hover:bg-teal-400/10 lg:bottom-6 lg:right-6"
-          : "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-teal-300/40 px-2.5 text-xs text-teal-200 hover:bg-teal-300/10 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0 sm:px-3"}
-        onClick={openAssistant}
+          : "inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-teal-300/40 px-2.5 text-xs text-teal-200 hover:bg-teal-300/10 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0 sm:px-3"}
+        onClick={(event) => openAssistant(event.currentTarget)}
         aria-label="打开 AI 助手"
-        aria-expanded={isForeground}
+        aria-expanded={isForeground || isQuickOpen}
         title="AI 助手"
       >
         <Sparkles size={18} aria-hidden="true" />
-        {placement === "header" ? <span className="hidden xl:inline">AI 助手</span> : null}
+        {placement === "header" ? <span className="hidden min-[1720px]:inline">AI 助手</span> : null}
       </button>
     </>
   );

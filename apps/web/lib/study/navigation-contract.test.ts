@@ -104,7 +104,7 @@ test("workbench errors return to the canonical owner for every primary entry", (
     ["/test/simulations/exam-1", "/test/retests", "返回检验工作台"],
     ["/roadmap/stages/trend", "/roadmap/stages", "返回阶段工作台"],
     ["/roadmap/reviews/history/report-1", "/roadmap/reviews", "返回周期复盘"],
-    ["/confirmations/history", "/confirmations", "返回确认中心"],
+    ["/confirmations/history", "/today", "返回今日"],
     ["/settings/ai", "/settings", "返回设置"],
     ["/knowledge/reviews/review-1", "/knowledge", "返回知识工作台"],
   ] as const;
@@ -147,7 +147,7 @@ test("simulation detail falls back to its list instead of itself", () => {
   assert.doesNotMatch(source, /: `\/test\/simulations\/\$\{encodeURIComponent\(examId\)\}`/);
 });
 
-test("global shell owns the activity slot, command palette, status bar, and confirmation drawer", () => {
+test("global shell owns the activity slot, command palette, status bar, and confirmation window", () => {
   const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
   const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
   const topbar = readFileSync(resolve(process.cwd(), "components/global-top-bar.tsx"), "utf8");
@@ -164,7 +164,9 @@ test("global shell owns the activity slot, command palette, status bar, and conf
   assert.match(toolbar, /data-layout-region="global-context-status-bar"/);
   assert.doesNotMatch(toolbar, /activitySourcePath\(active\)/);
   assert.match(confirmation, /\/api\/confirmations\?filter=pending/);
-  assert.match(confirmation, /\/confirmations\/history/);
+  assert.match(confirmation, /aria-label="确认中心视图"/);
+  assert.match(confirmation, /onFilterChange/);
+  assert.doesNotMatch(confirmation, /打开完整确认中心/);
   assert.match(confirmationRoute, /listConfirmationItems\(user\.id, filter\)/);
   assert.match(focusLauncher, /publishFocusSyncEvent\(userId, syncState, localSession\)/);
   assert.match(focusSession, /publishFocusSyncEvent\(props\.userId, "pending", projected\)/);
@@ -173,19 +175,21 @@ test("global shell owns the activity slot, command palette, status bar, and conf
 test("global top bar keeps activity on the left and the command trigger content-only", () => {
   const topbar = readFileSync(resolve(process.cwd(), "components/global-top-bar.tsx"), "utf8");
   const activitySlot = readFileSync(resolve(process.cwd(), "components/global-activity-slot.tsx"), "utf8");
+  const commandPalette = readFileSync(resolve(process.cwd(), "components/global-command-palette.tsx"), "utf8");
   const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
   const assistant = readFileSync(resolve(process.cwd(), "components/global-ai-assistant.tsx"), "utf8");
   assert.match(topbar, /hasActivity = Boolean\(props\.activeSession \|\| props\.offlineSession \|\| props\.quickReviewClaim\)/);
   assert.match(topbar, /hasActivity \? \(\s*<GlobalActivitySlot/);
   assert.match(topbar, /trigger=\{<span className="text-zinc-500">搜索或输入命令…<\/span>\}/);
   assert.doesNotMatch(topbar, /trigger=\{<GlobalActivitySlot/);
-  assert.match(topbar, /lg:grid-cols-\[minmax\(13rem,1fr\)_minmax\(14rem,2fr\)_auto\]/);
+  assert.match(topbar, /lg:grid-cols-\[minmax\(13rem,1fr\)_minmax\(14rem,42rem\)_minmax\(13rem,1fr\)\]/);
   assert.doesNotMatch(topbar, /sm:grid-cols-\[minmax\(0,1fr\)_minmax\(14rem,42rem\)_auto\]/);
+  assert.match(commandPalette, /group mx-auto flex h-9 w-full min-w-0 max-w-\[42rem\]/);
   assert.doesNotMatch(activitySlot, /sm:min-w-\[13rem\]/);
   assert.match(activitySlot, /lg:min-w-\[13rem\]/);
-  assert.match(confirmation, /<span className="hidden xl:inline">确认<\/span>/);
-  assert.match(assistant, /<span className="hidden xl:inline">AI 助手<\/span>/);
-  assert.match(topbar, /<span className="hidden xl:inline">我学不下去了<\/span>/);
+  assert.match(confirmation, /<span className="hidden min-\[1720px\]:inline">确认<\/span>/);
+  assert.match(assistant, /<span className="hidden min-\[1720px\]:inline">AI 助手<\/span>/);
+  assert.match(topbar, /<span className="hidden min-\[1720px\]:inline">我学不下去了<\/span>/);
   const recoveryIndex = topbar.indexOf('aria-label="我学不下去了"');
   const quickCreateIndex = topbar.indexOf("<GlobalQuickCreate />");
   assert.ok(recoveryIndex >= 0 && quickCreateIndex > recoveryIndex, "快捷创建必须是顶栏最右侧入口");
@@ -220,18 +224,27 @@ test("source activity pages keep the shared closeout recoverable for other tabs"
     /if \(props\.activeSession && isActivitySourcePath\(props\.pathname, props\.activeSession\)\) \{\s*if \(hasCloseoutWindow\) closeWindow\("session-closeout"\)/,
   );
   assert.match(toolbar, /const \{ foregroundKey \} = useWindowSystem\(\)/);
-  assert.match(
-    toolbar,
-    /isActivitySourcePath\(props\.pathname, active\)\s*\? "正在完成收口"\s*: foregroundKey === "session-closeout"\s*\? "收口窗口正在前台"\s*: "收口窗口已保留在后台"/,
-  );
+  assert.match(toolbar, /const isActivitySource = Boolean\(active\?\.status === "closing" && isActivitySourcePath\(props\.pathname, active\)\)/);
+  assert.match(toolbar, /isActivitySource\s*\? "正在收口"\s*: foregroundKey === "session-closeout"\s*\? "收口中"\s*: null/);
+  assert.match(toolbar, /<WindowDock excludeKeys=\{isActivitySource \? \["session-closeout"\] : undefined\} \/>/);
+  assert.match(toolbar, /active\?\.status === "closing" && light\.kind === "activity"/);
+  assert.doesNotMatch(toolbar, /收口窗口已保留在后台|学习已冻结，等待收口/);
 });
 
 test("page templates and immersive pages retain stable layout contracts", () => {
   const page = readFileSync(resolve(process.cwd(), "components/ui/page.tsx"), "utf8");
   const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
+  const pageToolbar = readFileSync(resolve(process.cwd(), "components/page-toolbar.tsx"), "utf8");
   assert.match(page, /data-layout-region="page-frame"/);
   assert.match(page, /data-page-template=\{props\.variant\}/);
   assert.match(shell, /<PageToolbar(?:\s|>)/);
+  assert.match(shell, /const canonicalRoute = getCanonicalRoute\(pathname\)/);
+  assert.match(shell, /const showPageToolbar = canonicalRoute\?\.shell !== "app" \|\| canonicalRoute\.toolbar !== "none"/);
+  assert.match(shell, /\{showPageToolbar \? \([\s\S]*?<PageToolbar>[\s\S]*?<WorkbenchBreadcrumbActions/);
+  assert.match(pageToolbar, /min-h-14/);
+  assert.match(pageToolbar, /border-b border-white\/10/);
+  assert.match(pageToolbar, /px-4 py-2/);
+  assert.doesNotMatch(pageToolbar, /\bmt-3\b|\bborder-t\b|\bpt-3\b/);
   assert.match(shell, /const fullCanvasPage = immersive \|\|/);
   assert.match(shell, /const showSecondaryNavigation = !immersive/);
   assert.match(shell, /data-immersive-content=\{immersive \? "true" : undefined\}/);
@@ -258,25 +271,70 @@ test("status and page-action surfaces keep narrow viewport boundaries", () => {
   const dock = readFileSync(resolve(process.cwd(), "components/window-dock.tsx"), "utf8");
   const pageActions = readFileSync(resolve(process.cwd(), "components/workbench-breadcrumb-actions.tsx"), "utf8");
   assert.match(toolbar, /window\.sessionStorage\.getItem\(RECENT_PAGE_KEY\)/);
-  assert.match(toolbar, /flex h-8 min-w-0 flex-nowrap items-center/);
+  assert.match(toolbar, /grid h-8 min-w-0 grid-cols-\[minmax\(0,auto\)_minmax\(0,1fr\)_auto\]/);
+  assert.match(toolbar, /data-status-region="persistent"/);
+  assert.match(toolbar, /data-status-region="work"/);
+  assert.match(toolbar, /data-status-region="system"/);
+  assert.match(toolbar, /本机 · \{deviceIdentity\?\.label/);
+  assert.match(toolbar, /其他设备 \{otherDeviceCount\}/);
+  assert.match(toolbar, /hidden h-7 min-w-0 shrink items-center[\s\S]*lg:inline-flex[\s\S]*其他设备 \{otherDeviceCount\}/);
+  const persistentRegionIndex = toolbar.indexOf('data-status-region="persistent"');
+  const localDeviceIndex = toolbar.indexOf('aria-label={`本机：');
+  const otherDeviceIndex = toolbar.indexOf('aria-label={`其他设备');
+  const previousPageIndex = toolbar.indexOf('aria-label={`返回刚才的页面：');
+  const workRegionIndex = toolbar.indexOf('data-status-region="work"');
+  const systemRegionIndex = toolbar.indexOf('data-status-region="system"');
+  assert.ok(persistentRegionIndex < localDeviceIndex);
+  assert.ok(localDeviceIndex < otherDeviceIndex);
+  assert.ok(otherDeviceIndex < previousPageIndex);
+  assert.ok(previousPageIndex < workRegionIndex);
+  assert.ok(workRegionIndex < systemRegionIndex);
+  assert.match(toolbar, /setDetailsSide\("left"\)/);
+  assert.match(toolbar, /setDetailsSide\("right"\)/);
+  assert.match(toolbar, /detailsSide === "left" \? "left-4" : "right-4"/);
+  assert.match(toolbar, /function LiveMillisecondClock/);
+  assert.match(toolbar, /data-live-clock="millisecond"/);
+  assert.match(toolbar, /window\.requestAnimationFrame\(update\)/);
+  assert.match(toolbar, /fractionalSecondDigits: 3/);
+  assert.match(toolbar, /font-mono tabular-nums/);
   assert.match(pageActions, /w-72 min-w-0 max-w-\[calc\(100vw-2rem\)\]/);
   assert.match(pageActions, /\["ArrowDown", "ArrowUp", "Home", "End"\]/);
   assert.match(pageActions, /data-page-action-more-measure[\s\S]*hidden sm:inline/);
-  assert.match(toolbar, /hover:bg-amber-300\/\[0\.08\] xl:inline-flex/);
-  assert.match(dock, /fixed right-4 bottom-\[calc\(6\.5rem\+env\(safe-area-inset-bottom\)\)\]/);
-  assert.match(dock, /lg:absolute lg:right-0 lg:bottom-10/);
+  assert.match(dock, /!props\.excludeKeys\?\.includes\(window\.key\)/);
+  assert.match(dock, /md:hidden/);
+  assert.match(dock, /后台 \{background\.length\}/);
+  assert.match(dock, /calculateWindowDockLayout/);
+  assert.match(dock, /data-window-measure-full/);
+  assert.match(dock, /data-window-measure-compact/);
+  assert.match(dock, /hidden\.length >= 2/);
 });
 
 test("canonical app routes carry the complete shared-shell contract", () => {
   const templates = new Set(["dashboard-wide", "split-view", "content-focus", "workspace-full"]);
+  const toolbarlessRoutes = new Set([
+    "/confirmations",
+    "/confirmations/[confirmationId]",
+    "/confirmations/history",
+    "/focus",
+    "/today",
+  ]);
   for (const route of CANONICAL_ROUTES) {
     if (route.shell === "public") continue;
     assert.ok(route.workbench, `${route.path} must declare its workbench`);
     assert.ok(["primary", "secondary", "content"].includes(route.navigationLevel), `${route.path} must declare its navigation level`);
     assert.ok(templates.has(route.template), `${route.path} must declare its PageFrame template`);
-    assert.equal(route.toolbar, "standard", `${route.path} must retain the shared PageToolbar`);
+    assert.equal(
+      route.toolbar,
+      toolbarlessRoutes.has(route.path) ? "none" : "standard",
+      `${route.path} must declare the expected PageToolbar mode`,
+    );
     assert.equal(getCanonicalRoute(route.returnFallback)?.shell, "app", `${route.path} must return to a canonical app route`);
   }
+
+  assert.deepEqual(
+    CANONICAL_ROUTES.filter((route) => route.shell === "app" && route.toolbar === "none").map((route) => route.path).sort(),
+    [...toolbarlessRoutes].sort(),
+  );
 
   const settings = readFileSync(resolve(process.cwd(), "app/(app)/settings/page.tsx"), "utf8");
   assert.match(settings, /<PageFrame variant="dashboard-wide"/);
@@ -301,17 +359,52 @@ test("confirmation deep links own the foreground while closeout stays recoverabl
   assert.doesNotMatch(toolbar, /openWindow\("session-closeout"\)/);
 });
 
-test("global windows refresh async content and hand navigation back to the page", () => {
+test("global tools refresh async content while only durable work enters the window system", () => {
   const recovery = readFileSync(resolve(process.cwd(), "components/global-recovery-help.tsx"), "utf8");
   const quickCreate = readFileSync(resolve(process.cwd(), "components/global-quick-create.tsx"), "utf8");
   const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
+  const confirmationEntry = readFileSync(resolve(process.cwd(), "components/confirmation-window-entry.tsx"), "utf8");
+  const topbar = readFileSync(resolve(process.cwd(), "components/global-top-bar.tsx"), "utf8");
   const assistant = readFileSync(resolve(process.cwd(), "components/global-ai-assistant.tsx"), "utf8");
-  assert.match(recovery, /refreshWindow\("recovery-help"\)/);
-  assert.match(quickCreate, /closeWindow\("quick-create"\)/);
+  assert.match(recovery, /refreshTool\("recovery-help"\)/);
+  assert.match(recovery, /registerTool/);
+  assert.doesNotMatch(recovery, /registerWindow|openWindow/);
+  assert.match(quickCreate, /closeTool\(\)/);
+  assert.match(quickCreate, /registerTool/);
+  assert.doesNotMatch(quickCreate, /registerWindow|openWindow/);
   assert.match(confirmation, /pendingCount/);
   assert.match(confirmation, /aria-expanded=\{isOpen\}/);
   assert.match(assistant, /foregroundKey === "ai-assistant"/);
   assert.match(assistant, /onWorkStateChange=\{handleWorkStateChange\}/);
+  assert.match(confirmation, /registerWindow/);
+  assert.match(confirmation, /openWindow\("confirmation-center"\)/);
+  assert.match(confirmation, /refreshWindow\("confirmation-center"\)/);
+  assert.doesNotMatch(confirmation, /registerTool|refreshTool|toggleTool/);
+  assert.match(topbar, /CONFIRMATION_WINDOW_EVENT/);
+  assert.match(confirmationEntry, /router\.replace\(props\.returnTo\)/);
+  assert.match(confirmationEntry, /return null/);
+  assert.doesNotMatch(confirmationEntry, /确认中心窗口正在打开/);
+  assert.match(assistant, /registerTool/);
+  assert.match(assistant, /onExpand:/);
+});
+
+test("work windows render through a global modal portal instead of the L3 content container", () => {
+  const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
+  const layer = readFileSync(resolve(process.cwd(), "components/window-layer.tsx"), "utf8");
+  const tools = readFileSync(resolve(process.cwd(), "components/global-tool-system.tsx"), "utf8");
+  assert.match(shell, /<GlobalToolLayer \/>/);
+  assert.match(shell, /<WindowLayer \/>/);
+  assert.match(layer, /createPortal\(/);
+  assert.match(layer, /fixed inset-0/);
+  assert.match(layer, /backdrop-blur-\[2px\]/);
+  assert.match(layer, /event\.target\.closest\("\[data-window-backdrop\]"\)[\s\S]*minimizeWindow\(foregroundWindowKey\)/);
+  assert.match(layer, /data-window-backdrop="true"/);
+  assert.match(layer, /aria-label="返回页面并最小化窗口"/);
+  assert.match(layer, /onPointerDown=\{\(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*minimizeWindow\(foreground\.key\)/);
+  assert.match(layer, /onClick=\{\(\) => minimizeWindow\(foreground\.key\)\}/);
+  assert.match(layer, /event\.key === "Escape"[\s\S]*minimizeWindow\(foregroundWindowKey\)/);
+  assert.match(tools, /GlobalToolProvider/);
+  assert.match(tools, /data-layout-region="global-tool-layer"/);
 });
 
 test("composite workbenches own their single page frame", () => {

@@ -3,25 +3,25 @@
 import { FilePlus2, ListTree, NotebookPen, Plus, SquareCheckBig, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
-import { useWindowSystem } from "@/components/window-system";
+import { useGlobalTools } from "@/components/global-tool-system";
 
 export function GlobalQuickCreate() {
-  const { closeWindow, openWindow, registerWindow } = useWindowSystem();
+  const { activeKey, closeTool, registerTool, toggleTool } = useGlobalTools();
 
-  useEffect(() => registerWindow({
+  useEffect(() => registerTool({
     key: "quick-create",
-    kind: "quick-create",
     title: "快捷创建",
-    closePolicy: "free",
-    render: () => <QuickCreateContent onNavigate={() => closeWindow("quick-create")} />,
-  }), [closeWindow, registerWindow]);
+    size: "compact",
+    render: () => <QuickCreateContent onNavigate={() => closeTool()} />,
+  }), [closeTool, registerTool]);
 
   return (
     <button
       type="button"
-      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/5"
-      onClick={() => openWindow("quick-create")}
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/5"
+      onClick={(event) => toggleTool("quick-create", event.currentTarget)}
       aria-label="快捷创建"
+      aria-expanded={activeKey === "quick-create"}
       title="快捷创建"
     >
       <Plus size={17} aria-hidden="true" />

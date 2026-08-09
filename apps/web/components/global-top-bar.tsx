@@ -1,13 +1,13 @@
 "use client";
 
 import { Activity, TriangleAlert } from "lucide-react";
-import { useWindowSystem } from "@/components/window-system";
 import { BrandMark } from "@/components/brand-logo";
 import { GlobalActivitySlot } from "@/components/global-activity-slot";
 import { GlobalAiAssistant } from "@/components/global-ai-assistant";
-import { GlobalConfirmationCenter } from "@/components/global-confirmation-center";
+import { CONFIRMATION_WINDOW_EVENT, GlobalConfirmationCenter } from "@/components/global-confirmation-center";
 import { GlobalQuickCreate } from "@/components/global-quick-create";
 import { GlobalCommandPalette } from "@/components/global-command-palette";
+import { useGlobalTools } from "@/components/global-tool-system";
 import type { GlobalCommandAction } from "@/lib/navigation/command-palette";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
 import type { StudySessionDto } from "@/lib/study/types";
@@ -31,17 +31,22 @@ export function GlobalTopBar(props: {
   onOpenStatus: () => void;
   statusOpen: boolean;
   onOpenMotivationHelp: () => void;
+  hasMotivationReminder: boolean;
 }) {
-  const { openWindow } = useWindowSystem();
+  const { openTool } = useGlobalTools();
   const statusToneClass = toneClass[props.statusTone] ?? toneClass.gray;
   const hasActivity = Boolean(props.activeSession || props.offlineSession || props.quickReviewClaim);
 
   function handleGlobalAction(action: GlobalCommandAction) {
+    if (action === "confirmation-center") {
+      window.dispatchEvent(new CustomEvent(CONFIRMATION_WINDOW_EVENT, { detail: { filter: "pending" } }));
+      return;
+    }
     if (action === "recovery-help") {
       props.onOpenMotivationHelp();
       return;
     }
-    openWindow(actionToWindowKey(action));
+    openTool(action);
   }
 
   return (
@@ -50,7 +55,7 @@ export function GlobalTopBar(props: {
       data-layout-region="global-top-bar"
       data-global-ai-ui="true"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(13rem,1fr)_minmax(14rem,2fr)_auto]">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(13rem,1fr)_minmax(14rem,42rem)_minmax(13rem,1fr)]">
         <div className="flex min-w-0 items-center gap-2 max-[359px]:col-span-2 max-[359px]:row-start-1">
           <div className="flex shrink-0 items-center gap-2 lg:hidden max-[359px]:hidden">
             <BrandMark size={20} />
@@ -93,13 +98,14 @@ export function GlobalTopBar(props: {
           <GlobalAiAssistant userId={props.userId} placement="header" />
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/5 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0 sm:px-3"
+            className={`relative inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border px-2.5 text-xs hover:bg-white/5 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0 sm:px-3 ${props.hasMotivationReminder ? "border-amber-300/35 text-amber-100" : "border-white/10 text-zinc-300"}`}
             onClick={props.onOpenMotivationHelp}
             aria-label="我学不下去了"
             title="我学不下去了"
           >
             <TriangleAlert size={16} aria-hidden="true" />
-            <span className="hidden xl:inline">我学不下去了</span>
+            {props.hasMotivationReminder ? <span className="absolute right-1 top-1 size-1.5 rounded-full bg-amber-300" aria-hidden="true" /> : null}
+            <span className="hidden min-[1720px]:inline">我学不下去了</span>
           </button>
           {/* 快捷创建固定为全局工具组的最后一个入口。 */}
           <GlobalQuickCreate />
@@ -107,12 +113,6 @@ export function GlobalTopBar(props: {
       </div>
     </header>
   );
-}
-
-function actionToWindowKey(action: Exclude<GlobalCommandAction, "recovery-help">): string {
-  if (action === "confirmation-center") return "confirmation-center";
-  if (action === "ai-assistant") return "ai-assistant";
-  return "quick-create";
 }
 
 function accessibleSummary(summary: string): string {

@@ -18,7 +18,7 @@ export function GlobalSessionCloseout(props: {
   initialNow: string;
   pathname: string;
 }) {
-  const { registerWindow, ensureWindow, refreshWindow, updateWindowMetadata, closeWindow, minimizeWindow, openWindow, windows } = useWindowSystem();
+  const { registerWindow, ensureWindow, refreshWindow, updateWindowMetadata, closeWindow, foregroundKey, minimizeWindow, openWindow, windows } = useWindowSystem();
   const session = props.activeSession;
   const content = useMemo(() => session ? renderCloseoutContent({
     session,
@@ -42,6 +42,7 @@ export function GlobalSessionCloseout(props: {
     kind: "session-closeout",
     title: "活动收口",
     closePolicy: "minimizeOnly" as const,
+    size: "medium" as const,
     render: () => contentRef.current,
   }), []);
 
@@ -69,6 +70,10 @@ export function GlobalSessionCloseout(props: {
     // closeout recoverable in the Dock without covering the requested item.
     if (isConfirmationWindowPath(props.pathname)) return;
 
+    // A window the user explicitly brought forward owns the foreground.
+    // Closeout remains recoverable in the Dock until that work is minimized.
+    if (foregroundKey && foregroundKey !== "session-closeout") return;
+
     // Open each activity once in this tab, then preserve an explicit minimize
     // across client-side navigation until the user restores it from the Dock.
     const entryKey = props.activeSession.id;
@@ -88,7 +93,7 @@ export function GlobalSessionCloseout(props: {
         autoOpenTimerRef.current = null;
       }
     };
-  }, [ensureWindow, openWindow, props.activeSession, props.pathname, windowDefinition]);
+  }, [ensureWindow, foregroundKey, openWindow, props.activeSession, props.pathname, windowDefinition]);
 
   useEffect(() => {
     contentRef.current = content;
