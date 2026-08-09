@@ -21,4 +21,3 @@ test("session start rejects future timestamps beyond clock skew", () => {
 test("session start rejects timestamps older than the offline retention window", () => {
   assert.equal(getStudySessionStartTimeError(new Date(now.getTime() - SESSION_START_MAX_AGE_MS - 1), now), "too_old");
 });
-
