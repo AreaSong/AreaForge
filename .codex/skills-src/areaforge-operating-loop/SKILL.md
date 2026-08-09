@@ -63,6 +63,8 @@ Use this skill as the light orchestration layer for AreaForge. It routes work th
 10. Use `pnpm ops:status` for an offline AreaFlow-style status projection when a maintainer needs the current control-plane/residual snapshot before live evidence collection.
 11. Use `pnpm ops:handoff` at maintenance, release, or thread handoff boundaries when the maintainer needs a compact read-only summary of claim boundaries, due residuals, release-relevant residuals, and next evidence commands.
 12. Keep evidence words distinct: `health`, `readiness`, `doctor`, `gate`, `smoke`, `record`, and `apply` 不能互相替代。
+13. Before every final closeout, run `pnpm dev:test:latest -- --json` when local Docker is available. If this task successfully ran `refresh` or `snapshot`, report the returned latest slot, port, and URL as this task's latest optimized instance. Otherwise state that the pool was not updated and label the returned latest as an existing instance, never as evidence for this task. If Docker is unavailable, report latest as unverified instead of guessing a slot.
+14. Browser evidence must reuse the reported latest URL. Do not create a container per conversation, page, or screenshot; any one-shot `areaforge-v11browser-runtime-*` runtime must be removed before closeout.
 
 ## Guardrails
 

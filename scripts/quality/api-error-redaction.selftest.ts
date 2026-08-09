@@ -2,8 +2,10 @@ import { apiErrorResponse } from "../../apps/web/lib/api/responses";
 
 async function main(): Promise<void> {
   const originalError = console.error;
+  const originalNodeEnv = process.env.NODE_ENV;
   const logs: unknown[] = [];
   console.error = (...args: unknown[]) => logs.push(args);
+  process.env.NODE_ENV = "production";
   try {
     const response = apiErrorResponse(new Error("DATABASE_URL=postgresql://user:pass@example.test/db token=secret private review body"));
     const body = await response.json() as Record<string, unknown>;
@@ -17,6 +19,8 @@ async function main(): Promise<void> {
     if (!serializedLogs.includes(body.errorId)) throw new Error("redacted log must include the response errorId");
   } finally {
     console.error = originalError;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
   }
   console.log("API error redaction selftest passed.");
 }

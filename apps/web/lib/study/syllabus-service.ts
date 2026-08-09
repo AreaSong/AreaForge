@@ -20,6 +20,7 @@ import {
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
+import { calculateMasteryConfidence, syllabusMasteryStatusView } from "./mastery-status";
 import type {
   MasteryEvidenceTypeDto,
   MasteryLevelDto,
@@ -588,7 +589,7 @@ export async function updateSyllabusNode(
       throw new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
         latest: latestDto,
         conflictFields: collectSyllabusNodeConflictFields(input, latestDto),
-        workbench: "/knowledge/syllabus",
+        workbench: "/knowledge/syllabi",
       });
     }
     if (input.parentId !== undefined) {
@@ -629,7 +630,7 @@ export async function updateSyllabusNode(
       throw new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
         latest: latestDto,
         conflictFields: collectSyllabusNodeConflictFields(input, latestDto),
-        workbench: "/knowledge/syllabus",
+        workbench: "/knowledge/syllabi",
       });
     }
 
@@ -718,7 +719,7 @@ function syllabusArchiveConflict(latest: SyllabusNodeDto): ApiError {
   return new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
     latest,
     conflictFields: ["revision", "archivedAt"],
-    workbench: "/knowledge/syllabus",
+    workbench: "/knowledge/syllabi",
   });
 }
 
@@ -754,7 +755,7 @@ export async function addMasteryRetest(
   syllabusNodeId: string,
   input: CreateMasteryRetestInput,
   actorId: string,
-): Promise<SyllabusNodeDto> {
+): Promise<SyllabusNodeDto & { recordedRetestId?: string }> {
   const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const testedAt = input.testedAt ? new Date(input.testedAt) : new Date();
   const nextReviewAt = input.nextReviewAt ? new Date(input.nextReviewAt) : null;
@@ -810,7 +811,10 @@ export async function addMasteryRetest(
       });
     }
 
-    const result = serializeNode(await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true), []);
+    const result = {
+      ...serializeNode(await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true), []),
+      recordedRetestId: retest.id,
+    };
     await recordPersistentCreateResult(tx, command, syllabusNodeId, {
       retestId: retest.id,
       result: input.result,
@@ -881,7 +885,7 @@ async function assertSubjectExists(
         archivedAt: subject.archivedAt.toISOString(),
       },
       conflictFields: ["subject.archivedAt"],
-      workbench: "/knowledge/syllabus",
+      workbench: "/knowledge/syllabi",
     });
   }
 }
@@ -938,7 +942,7 @@ async function findSyllabusNodeForProof(
     throw new ApiError("SUBJECT_ARCHIVED", 409, {
       latest: serializeNode({ ...node, subject: node.subject }, []),
       conflictFields: ["subject.archivedAt"],
-      workbench: "/knowledge/syllabus",
+      workbench: "/knowledge/syllabi",
     });
   }
 
@@ -1202,6 +1206,12 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
   const masteryConditions = getCompletedMasteryConditions(node, masteryLevel);
   const proof = createMasteryProof(node, masteryLevel ?? "learned", masteryConditions);
   const evidence = createMasteryEvidenceSummary(node, proof.evidence);
+  const latestRetest = node.masteryRetests?.[0] ?? null;
+  const masteryView = syllabusMasteryStatusView({
+    level: masteryLevel,
+    nextRetestAt: latestRetest?.nextReviewAt,
+    proofRisk: proof.summary.risk,
+  });
 
   return {
     id: node.id,
@@ -1216,6 +1226,16 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
     kind: fromDbKind(node.kind),
     status,
     masteryLevel,
+    masteryStatus: masteryView.status,
+    needsRetest: masteryView.needsRetest,
+    masteryConfidence: calculateMasteryConfidence({
+      evidenceCount: evidence.taskCount + evidence.sessionCount + evidence.noteCount + evidence.mistakeCount,
+      sessionCount: evidence.sessionCount,
+      noteCount: evidence.noteCount,
+      mistakeCount: evidence.mistakeCount,
+      passedRetestCount: countPassedRetests(node),
+      daysSinceLastEvidence: evidence.daysSinceLastEvidence,
+    }),
     sortOrder: node.sortOrder,
     targetMinutes: node.targetMinutes,
     actualMinutes: node.actualMinutes,

@@ -1,8 +1,8 @@
 "use client";
 
-import { Eye, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { Ban, Eye, Sparkles } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
@@ -11,6 +11,8 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
+import { getAiDraftFormStorageKey } from "@/lib/client/ai-draft-form-key";
+import type { WindowWorkState } from "@/lib/study/window-system-state";
 
 type Endpoint = "learning-tree" | "knowledge-card" | "plan" | "motivation";
 type ProjectionKey =
@@ -72,9 +74,24 @@ const emptyProjectionValues: ProjectionValues = {
   defaultDurationMinutes: "",
 };
 
-export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaultText?: string }) {
+export function AiDraftPanel(props: {
+  endpoint: Endpoint;
+  userId: string;
+  defaultText?: string;
+  draftContextKey?: string;
+  onWorkStateChange?: (state: WindowWorkState) => void;
+  onNavigate?: () => void;
+}) {
+  const onWorkStateChange = props.onWorkStateChange;
   const router = useRouter();
-  const formDraftKey = `areaforge.ai-draft.form.${props.endpoint}.${props.userId}`;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routeContextKey = `${pathname}?${searchParams.toString()}`;
+  const formDraftKey = getAiDraftFormStorageKey(
+    props.endpoint,
+    props.userId,
+    props.draftContextKey ?? routeContextKey,
+  );
   const [selectedText, setSelectedText] = useState(props.defaultText ?? "");
   const [tone, setTone] = useState<"CALM" | "DIRECT" | "BRIEF">("CALM");
   const [scope, setScope] = useState<"global" | "subject" | "branch">("global");
@@ -91,9 +108,33 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
   const [savingResult, setSavingResult] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const [pending, startTransition] = useTransition();
+  const loadedDraftKeyRef = useRef<string | null>(null);
+
+  const workState: WindowWorkState = pending || savingResult
+    ? "submitting"
+    : hasDraftWork({ selectedText, tone, scope, kind, checked, values, preview, token, draft, operation })
+      ? "dirty"
+      : "clean";
 
   useEffect(() => {
+    onWorkStateChange?.(workState);
+  }, [onWorkStateChange, workState]);
+
+  useEffect(() => {
+    loadedDraftKeyRef.current = null;
     const timer = window.setTimeout(() => {
+      setDraftReady(false);
+      setSelectedText(props.defaultText ?? "");
+      setTone("CALM");
+      setScope("global");
+      setKind("GENERAL");
+      setChecked({});
+      setValues(emptyProjectionValues);
+      setPreview(null);
+      setPreviewNote(null);
+      setToken(null);
+      setDraft(null);
+      setOperation(null);
       const saved = loadPrivateBusinessDraft(formDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isAiFormDraft);
       if (saved) {
         setSelectedText(saved.selectedText);
@@ -105,13 +146,14 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
         setDraft(saved.generatedDraft);
         setOperation(saved.operation);
       }
+      loadedDraftKeyRef.current = formDraftKey;
       setDraftReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [formDraftKey]);
+  }, [formDraftKey, props.defaultText]);
 
   useEffect(() => {
-    if (!draftReady) return;
+    if (!draftReady || loadedDraftKeyRef.current !== formDraftKey) return;
     if (!selectedText.trim() && !draft) {
       removePrivateBusinessDraft(formDraftKey);
       return;
@@ -229,7 +271,7 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       });
       setDraft(generatedDraft);
       setOperation(nextOperation);
-      await acknowledgeResult(nextOperation, "生成结果已保留；服务端确认失败，采用时将再次确认。");
+      setSaveNotice("草稿已生成，仍需你明确采用或放弃；确认中心会保留待处理状态。");
     } catch {
       setError("网络不可用，AI 输入草稿已保留；恢复网络后请重新预览并显式重试。");
     }
@@ -245,13 +287,15 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       if (props.endpoint === "learning-tree" && isLearningTreeDraft(draft)) {
         saveLocalAiDraft(props.userId, "learning-tree", { markdownDraft: draft.markdownDraft, scope });
         clearAdoptedDraft();
+        props.onNavigate?.();
         router.push("/knowledge/imports");
         return;
       }
       if (props.endpoint === "knowledge-card" && isKnowledgeCardDraft(draft)) {
         saveLocalAiDraft(props.userId, "knowledge-card", draft);
         clearAdoptedDraft();
-        router.push("/knowledge/notes");
+        props.onNavigate?.();
+        router.push("/knowledge/cards");
         return;
       }
       if (props.endpoint === "plan" && isPlanDraft(draft)) {
@@ -312,6 +356,42 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       throw new Error("草稿结构与当前用途不匹配，请重新生成。");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "采用草稿失败");
+    } finally {
+      setSavingResult(false);
+    }
+  }
+
+  async function rejectDraft() {
+    if (!draft || !operation?.id || savingResult) return;
+    setError(null);
+    setSaveNotice(null);
+    setSavingResult(true);
+    try {
+      const response = await postDraft(props.endpoint, {
+        phase: "reject",
+        resultProof: operation.resultProof,
+      });
+      if (response.status === 401) {
+        setError("登录已过期，AI 草稿已保留。重新登录后请显式重试放弃。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) {
+        setError(readError(response.payload, response.status === 409 ? "草稿状态已变化，请刷新确认" : "放弃草稿失败"));
+        return;
+      }
+      if (
+        response.payload?.operationId !== operation.id
+        || response.payload?.projectionVersion !== operation.projectionVersion
+        || response.payload?.status !== "REJECTED"
+      ) {
+        setError("驳回结果身份不一致，草稿仍保留，请重新检查。");
+        return;
+      }
+      clearAdoptedDraft();
+      setSaveNotice("草稿已放弃；服务端保留了这次 AI 生成历史。");
+    } catch {
+      setError("网络不可用，草稿仍保留；恢复网络后请显式重试放弃。");
     } finally {
       setSavingResult(false);
     }
@@ -407,9 +487,15 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
       {preview ? <PayloadPreview title="本次生成输入预览" value={preview} /> : null}
       {draft ? <PayloadPreview title="草稿结果" value={draft} accent /> : null}
       {draft ? (
-        <button type="button" disabled={savingResult} className="h-10 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200 disabled:opacity-60" onClick={() => void adoptDraft()}>
-          {savingResult ? "处理中..." : adoptDraftLabel(props.endpoint)}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={savingResult} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200 disabled:opacity-60" onClick={() => void adoptDraft()}>
+            {savingResult ? "处理中..." : adoptDraftLabel(props.endpoint)}
+          </button>
+          <button type="button" disabled={savingResult} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 disabled:opacity-60" onClick={() => void rejectDraft()}>
+            <Ban aria-hidden="true" size={15} />
+            放弃草稿
+          </button>
+        </div>
       ) : null}
       {saveNotice ? <p role="status" className="text-sm text-teal-200">{saveNotice}</p> : null}
     </div>
@@ -417,7 +503,33 @@ export function AiDraftPanel(props: { endpoint: Endpoint; userId: string; defaul
 }
 
 function adoptDraftLabel(endpoint: Endpoint): string {
-  return ({ "learning-tree": "送往学习树校验", "knowledge-card": "转到知识卡片表单", plan: "加入计划收件箱", motivation: "保存到动机内容库" })[endpoint];
+  return ({ "learning-tree": "送往学习树校验", "knowledge-card": "转到知识卡片表单", plan: "加入投入草稿", motivation: "保存到动机内容库" })[endpoint];
+}
+
+function hasDraftWork(input: {
+  selectedText: string;
+  tone: AiFormDraft["tone"];
+  scope: AiFormDraft["scope"];
+  kind: AiFormDraft["kind"];
+  checked: AiFormDraft["checked"];
+  values: ProjectionValues;
+  preview: Record<string, unknown> | null;
+  token: string | null;
+  draft: unknown;
+  operation: AiFormDraft["operation"];
+}): boolean {
+  return Boolean(
+    input.selectedText.trim()
+    || input.tone !== "CALM"
+    || input.scope !== "global"
+    || input.kind !== "GENERAL"
+    || Object.values(input.checked).some(Boolean)
+    || Object.values(input.values).some((value) => value.trim())
+    || input.preview
+    || input.token
+    || input.draft
+    || input.operation,
+  );
 }
 
 function saveLocalAiDraft(userId: string, endpoint: "learning-tree" | "knowledge-card", value: unknown) {

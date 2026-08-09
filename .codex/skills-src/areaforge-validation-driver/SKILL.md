@@ -1,6 +1,6 @@
 ---
 name: areaforge-validation-driver
-description: "Use when Codex needs to choose, run, or report the smallest sufficient AreaForge validation set for docs-only changes, web changes, Prisma migrations, core rules, AI provider changes, uploads, security changes, supply-chain changes, observability or incident workflows, release/update work, production ops, or mixed changes. This skill owns validation selection and evidence reporting; it does not own product semantics and hands failures back to the surface owner skill."
+description: "Use when Codex needs to choose, run, or report the smallest sufficient AreaForge validation set for docs-only changes, web changes, local test-pool latest reporting, Prisma migrations, core rules, AI provider changes, uploads, security changes, supply-chain changes, observability or incident workflows, release/update work, production ops, or mixed changes. This skill owns validation selection and evidence reporting; it does not own product semantics and hands failures back to the surface owner skill."
 ---
 
 # AreaForge Validation Driver
@@ -43,6 +43,7 @@ Choose validation from risk and touched paths, then report evidence honestly.
 5. Run checks after the final relevant edit.
 6. If a command fails, classify whether the failure is caused by the change, environment, stale generated files, or an unrelated dirty worktree.
 7. Report commands, result, evidence class, scope covered, skipped checks, blockers, release requirement, and residual unverified risk.
+8. When the local test pool is in scope, validate `pnpm dev:test:latest -- --json` after the final pool operation. Report whether this task updated the pool; only a successful task-owned `refresh` or `snapshot` may be called the latest optimized instance. Browser validation must reuse that URL; do not multiply Web containers, and clean up any one-shot `areaforge-v11browser-runtime-*` runtime before closeout.
 
 ## Guardrails
 

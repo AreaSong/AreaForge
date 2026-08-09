@@ -4,7 +4,7 @@
 
 本文件最初用于 `tasks/done/0005-mvp-ai-discipline.md` 和 `tasks/backlog/0017-ai-stage-privacy-cost.md` 的实现前确认。当前 `tasks/done/0005-mvp-ai-discipline.md` 已完成 Package C 真实 AI Provider 第一版，Package D Batch D3 已完成长期阶段 AI 草稿显式触发路径；本文继续作为 provider 边界和后续长期 AI 扩展的约束说明。
 
-Package C 已允许三条鉴权 AI POST route 显式触发真实 provider，Package D Batch D3 额外允许 `POST /api/simulation/stage-adjustment-drafts/ai` 显式生成长期阶段 AI 草稿，v1.1 四类草稿提供四条独立鉴权 POST route。当前八条路径还必须同时满足当前浏览器偏好开启、`AI_ENABLED=true` 且服务端配置完整；默认、缺失、关闭或畸形偏好都 fail closed 到本地规则。真实 key 生产烟测、保存调用历史、费用统计、自动应用阶段计划或发送更完整私密上下文，仍必须等用户后续明确确认后再做。
+Package C 已允许三条鉴权 AI POST route 显式触发真实 provider，Package D Batch D3 额外允许 `POST /api/simulation/stage-adjustment-drafts/ai` 显式生成长期阶段 AI 草稿，v1.1 四类草稿提供四条独立鉴权 POST route。当前八条路径还必须同时满足 Web 全局 AI 运行开关开启、当前浏览器偏好开启、`AI_ENABLED=true` 且服务端配置完整；默认、缺失、关闭或畸形的任一闸门都 fail closed 到本地规则。Web 全局开关通过鉴权 `GET|PATCH /api/ai/runtime` 管理并写入 `AiRuntimeSetting` 与 `AuditEvent`，`AI_ENABLED=false` 仍是服务端硬关闭。当前账户 Provider 配置已通过鉴权 Web API 接入：账户配置优先于环境变量回退，API Key 只提交、不回显，服务端 AES-256-GCM 加密保存。真实 key 生产烟测、保存调用历史、费用统计、自动应用阶段计划或发送更完整私密上下文，仍必须等用户后续明确确认后再做。
 
 ## 当前基线
 
@@ -25,8 +25,9 @@ Package C 已允许三条鉴权 AI POST route 显式触发真实 provider，Pack
   - `POST /api/ai/drafts/knowledge-card`
   - `POST /api/ai/drafts/plan`
   - `POST /api/ai/drafts/motivation`
-- 当前浏览器偏好 API 已有：`GET|PATCH /api/ai/preferences`；PATCH 只接受严格布尔值，使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的 Cookie，不提供 Provider key 编辑。
-- Web 服务已接入 env 驱动 provider 创建；上述八条鉴权 POST route 都从请求读取同一偏好并传入 `allowExternalProvider: preference.externalProviderEnabled`。未明确开启时 provider gate 先于注入或配置 provider 执行。
+- 当前浏览器偏好 API 已有：`GET|PATCH /api/ai/preferences`；PATCH 只接受严格布尔值，使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的 Cookie。
+- 当前账户 Provider API 已有：`GET|PATCH|DELETE /api/ai/provider` 与 `POST /api/ai/provider/test`；PATCH 首次必须有 API Key，更新地址或模型时可留空保留旧密钥；测试只发送合成上下文，不保存响应。
+- Web 服务按“账户密文配置 -> 环境变量回退”顺序创建 provider；上述八条鉴权 POST route 都从请求读取同一偏好并传入 `allowExternalProvider: preference.externalProviderEnabled`。未明确开启时 provider gate 先于注入或配置 provider 执行。
 - 首页普通 SSR 不传 `allowExternalProvider`，仍展示 `local_rule_fallback`，不会因为普通打开首页产生真实外呼成本。
 
 仍待单独确认：
@@ -94,7 +95,7 @@ Provider config：
 - 缺少必要变量时，不外呼，返回本地 fallback，并在服务端记录脱敏配置错误。
 - 不把 `AI_API_KEY` 暴露给客户端；客户端只接收 `meta.status/externalCall/reason`。
 - 当前浏览器偏好默认关闭；只有鉴权偏好 API 可以保存开关，偏好缺失、清除、关闭或畸形时不外呼。
-- `/settings/ai` 只读展示 Provider/Payload Binding 配置状态，策略变化经确认 Modal 保存；客户端不能查看或编辑服务端 key。
+- `/settings/ai` 展示全局开关、账户 Provider 状态和 Payload Binding 状态；账户 Provider 更新、删除和测试均为显式操作，API Key 使用密码输入且客户端不回填、不回显。
 - 普通首页 SSR 不传 `allowExternalProvider`；真实 provider 第一版只由鉴权 AI POST route 显式触发。
 - 三条 AI POST route 传入 `userId`，Web 服务按用户和建议类型做轻量内存限流；超限时回退本地规则，不调用 provider。
 

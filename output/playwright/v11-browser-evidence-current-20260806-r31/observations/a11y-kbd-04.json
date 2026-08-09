@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-05T22:04:14.346Z",
+  "checkId": "KBD-04",
+  "checkKey": "modal-focus-trap",
+  "route": "/today",
+  "target": "subject-shortcut-modal",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "keyboard",
+  "assertions": [
+    {
+      "id": "modal-has-focusable-controls",
+      "predicate": "gte",
+      "expected": 2,
+      "actual": 6,
+      "passed": true
+    },
+    {
+      "id": "modal-initial-focus-first",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "shift-tab-wraps-to-last",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "tab-wraps-to-first",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

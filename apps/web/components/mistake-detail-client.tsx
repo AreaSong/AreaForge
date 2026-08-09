@@ -1,12 +1,15 @@
 "use client";
 
-import { Archive, Eye, Pencil, Play, RotateCcw, Save, Undo2 } from "lucide-react";
+import { Archive, ArrowRight, CalendarCheck, Eye, Pencil, Play, RotateCcw, Save, Undo2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
-import { DetailHeading } from "@/components/detail-heading";
-import { BackToListLink } from "@/components/list-return-context";
+import { KnowledgeObjectDetailHeader } from "@/components/knowledge-object-detail-header";
+import { KnowledgeNextAction } from "@/components/knowledge-next-action";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { EditorActionBar } from "@/components/ui/editor-actions";
+import { Alert, PersistenceStatus } from "@/components/ui/feedback";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -14,6 +17,8 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
+import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { MistakeCauseDto, MistakeDto } from "@/lib/study/types";
 
 interface MistakeAnswerDraft {
@@ -55,6 +60,8 @@ export function MistakeDetailClient(props: {
   readOnly: boolean;
   subjectArchived: boolean;
   workspaceName: string;
+  returnTo?: string;
+  renderedAt: string;
 }) {
   const router = useRouter();
   const answerDraftKey = `areaforge.mistake.draft.detail.answer.${props.userId}.${props.mistake.id}`;
@@ -73,17 +80,18 @@ export function MistakeDetailClient(props: {
   const [editing, setEditing] = useState(false);
   const [reviewDate, setReviewDate] = useState(initialReviewDate);
   const [savedReviewDate, setSavedReviewDate] = useState(initialReviewDate);
-  const [renderedAt] = useState(() => Date.now());
   const [draftReady, setDraftReady] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<MistakeConflict | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<"archive" | "discard" | null>(null);
 
   const archived = Boolean(mistake.archivedAt);
   const complete = isCompleteMistake(mistake);
   const localEdit = { baseUpdatedAt, title, source, cause, correctIdea };
   const dirty = !editDraftsEqual(localEdit, savedBaseline);
+  useUnsavedChangesWarning(editing && dirty);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -310,29 +318,72 @@ export function MistakeDetailClient(props: {
     setError(null);
   }
 
+  function requestCancelEdit() {
+    if (dirty) setConfirmation("discard");
+    else cancelEdit();
+  }
+
+  function startEditing() {
+    setRevealed(true);
+    setEditing(true);
+  }
+
   const schedule = mistake.reviewSchedule;
-  const reviewDue = schedule?.status === "ACTIVE" && Boolean(schedule.dueDate) && new Date(schedule.dueDate as string).getTime() <= renderedAt;
+  const reviewDue = schedule?.status === "ACTIVE" && Boolean(schedule.dueDate) && new Date(schedule.dueDate as string).getTime() <= Date.parse(props.renderedAt);
   const correctedIds = useMemo(
     () => new Set(mistake.reviewHistory.flatMap((event) => event.correctedEventId ? [event.correctedEventId] : [])),
     [mistake.reviewHistory],
   );
+  const objectHref = props.returnTo
+    ? withReturnTo(`/knowledge/mistakes/${mistake.id}`, props.returnTo)
+    : `/knowledge/mistakes/${mistake.id}`;
 
   return (
     <article className="space-y-6">
-      <BackToListLink className="text-sm text-teal-300 hover:underline" fallbackHref="/knowledge/mistakes">返回错题列表</BackToListLink>
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs text-zinc-500">{mistake.subjectName} · {mistake.syllabusNodeTitle ?? "未关联考纲"}</p>
-          <DetailHeading className="mt-1 text-2xl font-semibold text-white">{mistake.title}</DetailHeading>
-          {mistake.source ? <p className="mt-2 text-sm text-zinc-400">来源：{mistake.source}</p> : null}
-        </div>
-        {!props.readOnly ? <button type="button" disabled={pending} onClick={() => void toggleArchive()} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm disabled:opacity-50">
-          {archived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}
-          {archived ? "恢复错题" : "归档错题"}
-        </button> : null}
-      </header>
+      <KnowledgeObjectDetailHeader
+        fallbackHref="/knowledge/mistakes"
+        fallbackLabel="返回错题列表"
+        returnTo={props.returnTo}
+        eyebrow={`${mistake.subjectName} · ${mistake.syllabusNodeTitle ?? "未关联考纲"}`}
+        title={mistake.title}
+        description={mistake.source ? `来源：${mistake.source}` : "来源尚未记录"}
+        actions={!props.readOnly ? <>
+          {archived ? (
+            <button type="button" disabled={pending} onClick={() => void toggleArchive()} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50"><RotateCcw size={16} aria-hidden />恢复错题</button>
+          ) : editing ? null : reviewDue && schedule && complete ? (
+            <Link href={`/knowledge/reviews/${schedule.id}/run?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black"><Play size={16} aria-hidden />开始复习</Link>
+          ) : complete ? (
+            <button type="button" onClick={startEditing} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black"><Pencil size={16} aria-hidden />编辑错题</button>
+          ) : null}
+          {!archived && reviewDue && complete ? <button type="button" title="编辑错题" aria-label="编辑错题" onClick={startEditing} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-200"><Pencil size={16} aria-hidden /></button> : null}
+          {!archived && !editing ? <button type="button" title="归档错题" aria-label="归档错题" disabled={pending} onClick={() => setConfirmation("archive")} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-50"><Archive size={16} aria-hidden /></button> : null}
+        </> : null}
+      />
 
       {props.readOnly ? <p role="status" className="border-l-2 border-zinc-500 pl-3 text-sm leading-6 text-zinc-300">{props.subjectArchived ? `“${mistake.subjectName}”科目已归档` : `“${props.workspaceName}”工作区已归档`}，本页只读保留错题与复习历史；不会进入当前排期或写事务。</p> : archived ? <p role="status" className="rounded-md border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">错题已归档，当前只读；相关复习排期已暂停。恢复错题后仍需重新选择复习日期。</p> : !complete ? <p role="status" className="rounded-md border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">待补全：这条旧错题缺少明确错因或正确思路。补全前不能新增或开始复习。</p> : null}
+
+      <KnowledgeNextAction
+        title={props.readOnly || archived ? "保留错题内容与复习历史" : !complete ? "先补全错因与正确思路" : !revealed ? "先独立重做这道错题" : reviewDue ? "完成这道错题的到期复习" : schedule?.status === "ACTIVE" ? "按排期继续复习这道错题" : "安排这道错题的首次复习"}
+        description={props.readOnly || archived
+          ? "当前对象只读，仍可查看题面、正确思路和历史。"
+          : !complete
+            ? "补全后才能建立或开始统一复习排期。"
+            : !revealed
+              ? "写下关键步骤后再查看正确思路；本次作答只保存在当前设备。"
+              : reviewDue
+                ? "到期复习由页头主操作承接，确认结果后会写入复习历史。"
+                : schedule?.status === "ACTIVE"
+                  ? `下一次复习：${schedule.dueDate ? formatDate(schedule.dueDate) : "未设置日期"}。`
+                  : "先选择一个日期建立统一复习排期，之后会出现在复习队列中。"}
+        status={props.readOnly ? <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-400">只读</span> : archived ? <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-400">已归档</span> : reviewDue ? <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">已到期 · 从页头开始</span> : null}
+        action={!props.readOnly && !archived && !complete ? (
+          <button type="button" onClick={startEditing} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300"><Pencil size={16} aria-hidden />补全错题<ArrowRight size={16} aria-hidden /></button>
+        ) : !props.readOnly && !archived && complete && revealed && !reviewDue && schedule?.status === "ACTIVE" ? (
+          <Link href={`/knowledge/reviews/${schedule.id}?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-100 hover:bg-teal-300/10"><CalendarCheck size={16} aria-hidden />查看复习排期<ArrowRight size={16} aria-hidden /></Link>
+        ) : !props.readOnly && !archived && complete && revealed && !reviewDue ? (
+          <a href="#mistake-schedule-section" className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300"><CalendarCheck size={16} aria-hidden />设置首次复习<ArrowRight size={16} aria-hidden /></a>
+        ) : null}
+      />
 
       <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="mistake-answer-heading">
         <div><p className="text-xs text-zinc-500">本次作答</p><h2 id="mistake-answer-heading" className="mt-1 text-lg font-medium text-white">先独立重做</h2></div>
@@ -347,20 +398,30 @@ export function MistakeDetailClient(props: {
 
       {revealed ? <>
         <section className="space-y-4 border-t border-white/10 pt-5" aria-labelledby="mistake-review-heading">
-          <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="mistake-review-heading" className="text-lg font-medium text-white">错因与正确思路</h2>{!props.readOnly && !archived && !editing ? <button type="button" onClick={() => setEditing(true)} className="inline-flex h-9 items-center gap-2 text-sm text-teal-300"><Pencil size={15} aria-hidden />{complete ? "编辑错题" : "补全错题"}</button> : null}</div>
+          <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-3"><h2 id="mistake-review-heading" className="text-lg font-medium text-white">错因与正确思路</h2>{editing ? <PersistenceStatus state={conflict ? "conflict" : pending ? "saving" : dirty ? "local-draft" : "clean"} /> : null}</div>{!props.readOnly && !archived && !editing ? <button type="button" onClick={startEditing} className="inline-flex h-9 items-center gap-2 text-sm text-teal-300"><Pencil size={15} aria-hidden />{complete ? "编辑错题" : "补全错题"}</button> : null}</div>
           {editing && !archived && !props.readOnly ? <div className="grid gap-3">
             {complete ? <><label className="text-sm text-zinc-400">题面<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-100" value={title} onChange={(event) => setTitle(event.target.value)} /></label><label className="text-sm text-zinc-400">来源<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-100" value={source} onChange={(event) => setSource(event.target.value)} /></label></> : null}
             <label className="text-sm text-zinc-400">错因<select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-100" value={cause} onChange={(event) => setCause(event.target.value as MistakeCauseDto)}>{causeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <label className="text-sm text-zinc-400">正确思路<textarea className="mt-1 min-h-32 w-full rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-zinc-100" value={correctIdea} onChange={(event) => setCorrectIdea(event.target.value)} /></label>
-            <div className="flex flex-wrap gap-2"><button type="button" disabled={pending || !title.trim() || cause === "unknown" || !correctIdea.trim()} onClick={() => void saveEdit()} className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-40"><Save size={16} aria-hidden />保存</button><button type="button" disabled={pending} onClick={cancelEdit} className="h-11 rounded-md border border-white/10 px-4 text-sm">取消</button></div>
+            <EditorActionBar
+              primaryLabel={complete ? "保存错题" : "补全错题"}
+              primaryIcon={<Save size={16} aria-hidden />}
+              primaryDisabled={Boolean(conflict) || !title.trim() || cause === "unknown" || !correctIdea.trim()}
+              loading={pending}
+              onPrimary={() => void saveEdit()}
+              secondaryLabel="放弃编辑"
+              secondaryIcon={<X size={16} aria-hidden />}
+              secondaryDisabled={pending}
+              onSecondary={requestCancelEdit}
+              hint="保存后更新错因与正确思路；放弃编辑会清除本机草稿。"
+            />
           </div> : <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-xs text-zinc-500">错因</dt><dd className="mt-1 text-sm text-zinc-200">{labelCause(mistake.cause)}</dd></div><div><dt className="text-xs text-zinc-500">正确思路</dt><dd className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{mistake.correctIdea || "待补全"}</dd></div></dl>}
         </section>
 
-        <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="mistake-schedule-heading">
-          <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="mistake-schedule-heading" className="text-lg font-medium text-white">复习排期</h2>{schedule && !props.readOnly ? <Link href={`/knowledge/reviews/${schedule.id}?returnTo=${encodeURIComponent(`/knowledge/mistakes/${mistake.id}`)}`} className="text-sm text-teal-300 hover:underline">查看排期详情</Link> : null}</div>
+        <section id="mistake-schedule-section" className="scroll-mt-6 space-y-3 border-t border-white/10 pt-5" aria-labelledby="mistake-schedule-heading">
+          <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="mistake-schedule-heading" className="text-lg font-medium text-white">复习排期</h2>{schedule && !props.readOnly ? <Link href={`/knowledge/reviews/${schedule.id}?returnTo=${encodeURIComponent(objectHref)}`} className="text-sm text-teal-300 hover:underline">查看排期详情</Link> : null}</div>
           {schedule ? <p className="text-sm text-zinc-300">{schedule.status === "ACTIVE" ? `下次复习：${formatDate(schedule.dueDate)}` : `排期已暂停${schedule.pausedReason ? `：${schedule.pausedReason}` : ""}`} · 连续通过 {schedule.consecutivePassCount} 次</p> : mistake.nextReviewAt ? <p className="text-sm text-amber-100">旧复习日期：{formatDate(mistake.nextReviewAt)}。选择日期后会物化为统一复习排期。</p> : <p className="text-sm text-zinc-400">尚未设置统一复习排期。</p>}
           {!props.readOnly && !archived && complete ? <div className="flex flex-wrap gap-2"><input aria-label="复习日期" type="date" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-3 text-sm" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} /><button type="button" disabled={pending || !reviewDate} onClick={() => void scheduleReview()} className="h-10 rounded-md border border-white/10 px-3 text-sm disabled:opacity-40">{!schedule ? "设置首次复习日期" : schedule.status === "PAUSED" ? "选择日期并恢复排期" : "调整复习日期"}</button></div> : null}
-          {reviewDue && complete && !props.readOnly && !archived && schedule ? <Link href={`/quick-review/${schedule.id}?returnTo=${encodeURIComponent(`/knowledge/mistakes/${mistake.id}`)}`} className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-500 px-4 text-sm font-medium text-black"><Play size={16} aria-hidden />开始复习</Link> : null}
         </section>
 
         <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="mistake-history-heading">
@@ -369,8 +430,28 @@ export function MistakeDetailClient(props: {
         </section>
       </> : <p className="border-t border-white/10 pt-5 text-sm text-zinc-400">完成本次作答后查看错因、正确思路、排期和历史。</p>}
 
-      {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
       {conflict && !conflictOpen ? <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理错题状态冲突</button> : null}
+      <ConfirmationDialog
+        open={confirmation !== null}
+        title={confirmation === "archive" ? "归档这道错题？" : "放弃本机编辑？"}
+        description={confirmation === "archive"
+          ? "归档后错题变为只读，活动复习排期会暂停。恢复错题不会自动恢复排期。"
+          : "当前未提交的错因、题面和正确思路会被清除，服务端已保存内容不会改变。"}
+        confirmLabel={confirmation === "archive" ? "确认归档" : "放弃并清除草稿"}
+        pending={pending && confirmation === "archive"}
+        pendingLabel="正在归档"
+        onClose={() => setConfirmation(null)}
+        onConfirm={() => {
+          if (confirmation === "archive") {
+            setConfirmation(null);
+            void toggleArchive();
+          } else {
+            cancelEdit();
+            setConfirmation(null);
+          }
+        }}
+      />
       <ConflictResolutionModal open={conflictOpen && Boolean(conflict)} title="处理错题状态冲突" description="服务端错题已变化。本地作答与编辑草稿仍保留，系统不会强制覆盖或自动重放。" conflictFields={conflict?.conflictFields ?? []} comparisons={conflictComparisons(localEdit, mistake, conflict?.latest)} onClose={() => setConflictOpen(false)} onAdoptServer={adoptLatestConflict} onManualMerge={mergeOntoLatest} mergeLabel="保留本地输入并采用最新基线" />
     </article>
   );

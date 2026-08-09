@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { ReviewScheduleQueue } from "@/components/review-schedule-queue";
+import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import {
+  getReviewWorkbenchSummary,
   listBridgedReviewSchedules,
   listRecentReviewEvents,
-  listReviewSchedules,
+  listReviewQueueItems,
 } from "@/lib/study/review-schedule-service";
 import { getStudyDayRange } from "@/lib/study/date";
 
@@ -16,23 +18,23 @@ export default async function KnowledgeReviewsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const today = getStudyDayRange();
-  const [dueSchedules, pausedSchedules, bridgedSchedules, recentEvents] = await Promise.all([
-    listReviewSchedules(user.id, { status: "ACTIVE", dueBefore: today.end, excludeBridged: true }),
-    listReviewSchedules(user.id, { status: "PAUSED", excludeBridged: true }),
+  const [dueItems, pausedItems, bridgedSchedules, recentEvents, summary] = await Promise.all([
+    listReviewQueueItems(user.id, { status: "ACTIVE", dueBefore: today.end, excludeBridged: true }),
+    listReviewQueueItems(user.id, { status: "PAUSED", excludeBridged: true }),
     listBridgedReviewSchedules(user.id),
     listRecentReviewEvents(user.id),
+    getReviewWorkbenchSummary(user.id),
   ]);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-white">统一复习</h1>
-      <p className="text-sm text-zinc-500">统一复习队列，按当前可执行状态与近期闭环分区。</p>
+    <PageFrame variant="split-view" className="space-y-6">
       <ReviewScheduleQueue
-        dueSchedules={dueSchedules}
-        pausedSchedules={pausedSchedules}
+        dueItems={dueItems}
+        pausedItems={pausedItems}
         bridgedSchedules={bridgedSchedules}
         recentEvents={recentEvents}
+        summary={summary}
       />
-    </div>
+    </PageFrame>
   );
 }

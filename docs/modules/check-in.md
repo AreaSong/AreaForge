@@ -42,6 +42,7 @@
 - 正在运行的 active session 可以用于首页实时展示，但未结束 session 不能写入 `CheckIn`，只有结束计时后才固化到日快照；若开始计时把关联任务从 `TODO` 改为 `IN_PROGRESS`，只刷新任务计划日快照中的任务状态口径。
 - 任务计划日变化时需要刷新旧计划日和新计划日；同一天重复刷新必须幂等。
 - 历史日期不推断用户没有实际记录过的打卡状态，也不做不可靠回填。
+- 断网计时先保存在浏览器本地队列；只有命令同步到真实 `StudySession` 并完成收口后，才刷新对应学习日的 `CheckIn`，本地快照不会直接制造打卡事实。
 
 ## 快照演进（CheckIn v2）
 
@@ -53,6 +54,6 @@
 - 复习秒数计入复习指标，不计入有效学习分钟。
 - `GET /api/check-ins?from=&to=` 只读；刷新只由 session / review / task / Inbox 事务触发。
 - 恢复模式演进为 30/60/90 三阶（`/api/recovery/**`），按用户+工作区最多一个 active 状态；保留既有 `/api/recovery-states/**`。
-- 今日行动中心与 App Shell 消费 CheckIn/Recovery 摘要；「我学不下去了」仅开 Recovery Drawer，不开放动机内容库。
+- 今日行动中心与 App Shell 消费 CheckIn/Recovery 摘要；「我学不下去了」打开公共恢复窗口，不改变当前页面；动机内容仍只作为恢复行动的辅助，不替代学习记录。
 
 权威规则见 `workflow/versions/v1.1-learning-action-center.md`；实现状态见 `docs/development/feature-traceability.md`。

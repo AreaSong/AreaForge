@@ -3,6 +3,34 @@
 :root {
   --background: #080b0f;
   --foreground: #f4f4f5;
+  --af-canvas: #080b0f;
+  --af-surface-subtle: #0d1117;
+  --af-surface: #101419;
+  --af-surface-raised: #151a20;
+  --af-border: rgba(255, 255, 255, 0.1);
+  --af-border-strong: rgba(255, 255, 255, 0.18);
+  --af-text-primary: #f4f4f5;
+  --af-text-secondary: #a1a1aa;
+  --af-text-muted: #71717a;
+  --af-accent: #2dd4bf;
+  --af-accent-strong: #14b8a6;
+  --af-info: #38bdf8;
+  --af-success: #34d399;
+  --af-warning: #fbbf24;
+  --af-danger: #f87171;
+  --af-radius-control: 6px;
+  --af-radius-surface: 8px;
+  --af-control-sm: 2.25rem;
+  --af-control-md: 2.5rem;
+  --af-control-lg: 2.75rem;
+  --af-layer-shell-base: 20;
+  --af-layer-selection: 110;
+  --af-layer-page-popover: 50;
+  --af-layer-workspace-window: 100;
+  --af-layer-shell-chrome: 70;
+  --af-layer-shell-popover: 90;
+  --af-layer-modal: 120;
+  --af-layer-critical: 140;
   --brand-ink-950: #06191f;
   --brand-ink-900: #09272d;
   --brand-teal-600: #18aaa6;
@@ -26,6 +54,17 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-area-sans);
+  letter-spacing: 0;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--af-accent) 30%, transparent);
+  color: var(--af-text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--af-accent);
+  outline-offset: 2px;
 }
 
 html[data-af-text-scale="112"] {
@@ -64,4 +103,9 @@ html[data-af-motion="reduce"] *::after {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }

@@ -119,13 +119,7 @@ try {
     /layoutConflictReturnFocusRef\.current = activeElement/,
     "canvas layout mutations must capture their initiating control before an async conflict",
   );
-  assert.equal(
-    canonicalEvidenceRoute(
-      "/focus/55a3c28f-ff5a-407f-94d7-20ef90d886a2?returnTo=%2Ftoday",
-      "/focus/:sessionId?returnTo=%2Ftoday",
-    ),
-    "/focus/synthetic-id?returnTo=%2Ftoday",
-  );
+  assert.equal(canonicalEvidenceRoute("/focus", "/focus"), "/focus");
   assert.equal(
     canonicalEvidenceRoute(
       "/api/reports/period:week:2026-07-30/confirm",
@@ -133,13 +127,7 @@ try {
     ),
     "/api/reports/synthetic-id/confirm",
   );
-  assert.throws(
-    () => canonicalEvidenceRoute(
-      "/focus/55a3c28f-ff5a-407f-94d7-20ef90d886a2?returnTo=%2Freports",
-      "/focus/:sessionId?returnTo=%2Ftoday",
-    ),
-    /query does not match/,
-  );
+  assert.throws(() => canonicalEvidenceRoute("/focus?returnTo=%2Freports", "/focus"), /query does not match/);
 
   const sampleContract = [{
     id: "sample-check",

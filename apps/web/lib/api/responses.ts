@@ -35,30 +35,32 @@ export function apiErrorResponse(error: unknown): NextResponse {
   }
 
   const errorId = randomUUID();
-  console.error("API internal error", {
-    errorId,
-    errorType: error instanceof Error ? error.constructor.name : typeof error,
-  });
+  const errorMessage = error instanceof Error ? error.message : "unknown error";
+  console.error(
+    process.env.NODE_ENV === "production"
+      ? `API internal error ${errorId} (${error instanceof Error ? error.constructor.name : typeof error})`
+      : `API internal error ${errorId} (${error instanceof Error ? error.constructor.name : typeof error}): ${errorMessage}`,
+  );
   return NextResponse.json({ error: "INTERNAL_ERROR", errorId }, { status: 500 });
 }
 
 function workbenchForError(code: string): string {
-  if (code.includes("PLAN_INBOX")) return "/today/inbox";
+  if (code.includes("PLAN_INBOX")) return "/roadmap/allocation/drafts";
   if (code.includes("TASK") || code.includes("SESSION") || code.includes("RECOVERY")) return "/today";
-  if (code.includes("REPORT")) return "/review/reports";
-  if (code.includes("SIMULATION")) return "/stage/simulation";
-  if (code.includes("STAGE") || code.includes("MILESTONE")) return "/stage/overview";
+  if (code.includes("REPORT")) return "/roadmap/reviews";
+  if (code.includes("SIMULATION")) return "/test/simulations";
+  if (code.includes("STAGE") || code.includes("MILESTONE")) return "/roadmap/stages";
   if (code.includes("REVIEW_EVENT") || code.includes("REVIEW_SCHEDULE") || code.includes("REVIEW_TARGET")) {
     return "/knowledge/reviews";
   }
   if (code.includes("LEARNING_TREE") || code.includes("ROOT_NODE")) return "/knowledge/imports";
-  if (code.includes("SYLLABUS")) return "/knowledge/syllabus";
+  if (code.includes("SYLLABUS")) return "/knowledge/syllabi";
   if (code.includes("MISTAKE")) return "/knowledge/mistakes";
-  if (code.includes("NOTE")) return "/knowledge/notes";
+  if (code.includes("NOTE")) return "/knowledge/cards";
   if (code.includes("RESOURCE") || code.includes("ATTACHMENT")) return "/knowledge/resources";
   if (code.includes("CANVAS")) return "/knowledge/canvas";
   if (code.includes("MOTIVATION") || code.includes("VAULT")) return "/settings/profile";
-  if (code.includes("NOTIFICATION")) return "/settings/notifications";
-  if (code.includes("WORKSPACE") || code.includes("SUBJECT") || code.includes("GROUP")) return "/settings/workspace";
+  if (code.includes("NOTIFICATION")) return "/settings/learning";
+  if (code.includes("WORKSPACE") || code.includes("SUBJECT") || code.includes("GROUP")) return "/settings/exams";
   return "/today";
 }

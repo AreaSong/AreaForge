@@ -14,9 +14,6 @@ import {
 import type { StagePlanConflictLatest } from "@/lib/study/stage-service";
 import type { StagePlanDto } from "@/lib/study/types";
 
-const today = new Date();
-const defaultEndDate = new Date(today);
-defaultEndDate.setDate(defaultEndDate.getDate() + 90);
 const commandScope = "stage-plan:create";
 const formDraftKey = "areaforge.command.stage-plan.create-draft";
 
@@ -54,15 +51,15 @@ interface StagePlanResponse {
   workbench?: string;
 }
 
-export function StagePlanCreateForm() {
+export function StagePlanCreateForm(props: { initialStartDate: string; initialEndDate: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
   const [baseRevision, setBaseRevision] = useState<number | null>(null);
   const [name, setName] = useState("当前备考阶段");
   const [goal, setGoal] = useState("完成当前阶段核心目标");
-  const [startDate, setStartDate] = useState(toDateInput(today));
-  const [endDate, setEndDate] = useState(toDateInput(defaultEndDate));
+  const [startDate, setStartDate] = useState(props.initialStartDate);
+  const [endDate, setEndDate] = useState(props.initialEndDate);
   const [mode, setMode] = useState<StagePlanDto["mode"]>("maintain");
   const [firstSubmittedPayload, setFirstSubmittedPayload] = useState<StagePlanPayload | null>(null);
   const [draftReady, setDraftReady] = useState(false);
@@ -285,10 +282,6 @@ function isStagePlanPayload(value: unknown): value is StagePlanPayload {
 
 function samePayload(left: StagePlanPayload, right: StagePlanPayload): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function toDateInput(date: Date): string {
-  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
 }
 
 function toIsoDate(value: string): string {

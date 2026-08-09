@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "baseUrl": "http://127.0.0.1:3124",
+  "observedAt": "2026-08-03T21:01:40.087Z",
+  "runtimeIdentity": {
+    "schemaVersion": 1,
+    "status": "verified",
+    "appVersion": "1.1.1",
+    "gitCommit": "d90d3596e36ebc7bf347d4b4c8b9a08530587482",
+    "sourceFingerprintSchema": "ux-source-v2",
+    "productExperienceSourceHash": "sha256:0269d16e36cbedfb8aa4725e6bc6c11397ee34365edf488dd15d973260ef8e5c",
+    "buildId": "sha256:9fb6b129a58ff3e522ed9c7d661c705ccacd22bdca0e2b1fd756e6acd86ef460",
+    "runtimeMode": "production-build",
+    "identityHash": "sha256:c4f93c3b18ae82bf9807fd287ce78d19fe3998ec7d044751dd133403c5e0c6e9",
+    "observedAt": "2026-08-03T21:01:40.069Z",
+    "reasonCode": "NONE"
+  },
+  "responseHash": "sha256:c381c00ff406789814b70f2a51f60474446e1d5d3edbdf47639fdb8c9f83ccc3",
+  "safetyFacts": {
+    "requestMethod": "GET",
+    "productionWriteAttempted": false,
+    "serverCommandAttempted": false,
+    "secretValueIncluded": false
+  }
+}

@@ -5,12 +5,26 @@ import { useState } from "react";
 import { Drawer } from "@/components/ui/overlays";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type { StudyTaskDto, SubjectDto } from "@/lib/study/types";
 
 type RecoveryMode = "menu" | "five-minute" | "minimum-task";
 
 export function RecoveryActionDrawer(props: {
+  open: boolean;
+  title: string;
+  motivationLine: string | null;
+  motivationUrl: string | null;
+  motivationError: string | null;
+  workspaceId: string | null;
+  defaultSubjectId: string | null;
+  onClose: () => void;
+}) {
+  return <Drawer open={props.open} title={props.title} onClose={props.onClose}><RecoveryActionContent {...props} /></Drawer>;
+}
+
+export function RecoveryActionContent(props: {
   open: boolean;
   title: string;
   motivationLine: string | null;
@@ -83,7 +97,7 @@ export function RecoveryActionDrawer(props: {
         return;
       }
       close();
-      router.push(`/focus/${sessionId}?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/focus?returnTo=${encodeURIComponent(pathname)}`);
     } catch (message) {
       setError(message instanceof Error ? message.message : "无法读取当前活动。");
     } finally {
@@ -111,7 +125,7 @@ export function RecoveryActionDrawer(props: {
       const activeSessionId = await readActiveSessionId();
       if (activeSessionId) {
         close();
-        router.push(`/focus/${activeSessionId}?returnTo=${encodeURIComponent(pathname)}`);
+        router.push(`/focus?returnTo=${encodeURIComponent(pathname)}`);
         return;
       }
       let taskId = taskChoice;
@@ -140,10 +154,10 @@ export function RecoveryActionDrawer(props: {
         if (!response.ok || !body?.task?.id) throw new Error(body?.error ?? "创建最小任务失败，当前输入仍保留。");
         taskId = body.task.id;
       }
-      const started = await postStartSession({ taskId, goalMinutes: 25, startSource: "RECOVERY" });
+      await postStartSession({ taskId, goalMinutes: 25, startSource: "RECOVERY" });
       completeIdempotentCommand(commandScope);
       close();
-      router.push(`/focus/${started}?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/focus?returnTo=${encodeURIComponent(pathname)}`);
     } catch (message) {
       setError(message instanceof Error ? message.message : "最小任务启动失败，请显式重试。");
     } finally {
@@ -160,9 +174,9 @@ export function RecoveryActionDrawer(props: {
     setError(null);
     try {
       const activeSessionId = await readActiveSessionId();
-      const sessionId = activeSessionId ?? await postStartSession(payload);
+      await (activeSessionId ?? postStartSession(payload));
       close();
-      router.push(`/focus/${sessionId}?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/focus?returnTo=${encodeURIComponent(pathname)}`);
     } catch (message) {
       setError(message instanceof Error ? message.message : "启动失败，请显式重试。");
     } finally {
@@ -182,10 +196,15 @@ export function RecoveryActionDrawer(props: {
   }
 
   async function postStartSession(payload: Record<string, unknown>): Promise<string> {
+    const commandScope = `recovery:focus-start:${String(payload.subjectId ?? "subject")}:${String(payload.goalMinutes ?? "none")}`;
+    const requestBody = {
+      idempotencyKey: getOrCreateIdempotencyKey(commandScope, "study-session-start", payload),
+      ...payload,
+    };
     const response = await fetch("/api/study-sessions/start", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+      body: JSON.stringify(requestBody),
     });
     if (response.status === 401) {
       redirectToLoginWithCurrentLocation();
@@ -195,11 +214,12 @@ export function RecoveryActionDrawer(props: {
     const sessionId = body?.session?.id ?? (response.status === 409 ? body?.latest?.id : undefined);
     if (!response.ok && !sessionId) throw new Error(body?.error ?? "无法启动专注活动。");
     if (!sessionId) throw new Error("服务端未返回可继续的活动。");
+    completeIdempotentCommand(commandScope);
     return sessionId;
   }
 
   return (
-    <Drawer open={props.open} title={props.title} onClose={close}>
+    <>
       {props.motivationLine ? <p className="rounded-md border border-white/10 p-3 text-sm text-zinc-200">{props.motivationLine}</p> : null}
       {props.motivationUrl ? (
         <a
@@ -237,7 +257,7 @@ export function RecoveryActionDrawer(props: {
           <div className="flex gap-2"><BackButton onClick={() => setMode("menu")} /><PrimaryButton disabled={pending || !taskChoice} onClick={() => void startMinimumTask()}>开始最小任务</PrimaryButton></div>
         </div>
       ) : null}
-    </Drawer>
+    </>
   );
 }
 

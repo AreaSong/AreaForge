@@ -53,10 +53,10 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
           </button>
           <Link
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-4 text-sm text-zinc-100 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-teal-300/70 focus:ring-offset-2 focus:ring-offset-[#101419]"
-            href="/today"
+            href="/focus"
           >
             <House className="h-4 w-4" aria-hidden="true" />
-            返回今日
+            返回开始学习
           </Link>
           <a
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-4 text-sm text-zinc-300 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-teal-300/70 focus:ring-offset-2 focus:ring-offset-[#101419]"

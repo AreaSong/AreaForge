@@ -9,7 +9,7 @@ import {
 } from "@areaforge/ai";
 import { prisma, type Prisma } from "@areaforge/db";
 import { getAnalyticsSummary } from "./analytics-service";
-import { resolveConfiguredAiProvider } from "./ai-service";
+import { resolveConfiguredAiProviderForUser } from "./ai-service";
 import { ApiError } from "@/lib/api/responses";
 import { daysUntil } from "./date";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
@@ -81,7 +81,7 @@ export async function createAiStageAdjustmentDraft(
     return replayAiStageAdjustmentDraft(claim.replay, context.workspaceId);
   }
 
-  const provider = resolveConfiguredAiProvider("stage_adjustment", {
+  const provider = await resolveConfiguredAiProviderForUser("stage_adjustment", {
     allowExternalProvider: options.allowExternalProvider,
     provider: options.provider,
     userId: options.userId ?? actorId,

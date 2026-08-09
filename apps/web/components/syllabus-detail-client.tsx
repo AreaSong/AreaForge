@@ -1,15 +1,17 @@
 "use client";
 
-import { Archive, BookOpenCheck, Pencil, RotateCcw } from "lucide-react";
+import { Archive, ArrowRight, BookOpenCheck, CalendarCheck, Pencil, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
-import { DetailHeading } from "@/components/detail-heading";
-import { BackToListLink } from "@/components/list-return-context";
+import { KnowledgeObjectDetailHeader } from "@/components/knowledge-object-detail-header";
 import { SyllabusDetailEditor } from "@/components/syllabus-detail-editor";
 import { SyllabusRetestForm } from "@/components/syllabus-retest-form";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
+import { masteryStatusLabel } from "@/lib/study/mastery-status";
 import type { ReviewScheduleDto } from "@/lib/study/review-schedule-service";
 import type { SyllabusNodeDto, SyllabusOptionNodeDto } from "@/lib/study/types";
 
@@ -27,6 +29,7 @@ export function SyllabusDetailClient(props: {
   parentOptions: SyllabusOptionNodeDto[];
   schedule: ReviewScheduleDto | null;
   renderedAt: string;
+  returnTo?: string;
 }) {
   const router = useRouter();
   const [view, setView] = useState<DetailView>("overview");
@@ -36,6 +39,7 @@ export function SyllabusDetailClient(props: {
   const [reviewDate, setReviewDate] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ArchiveConflict | null>(null);
+  const [archiveConfirmationOpen, setArchiveConfirmationOpen] = useState(false);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const messageRef = useRef<HTMLParagraphElement>(null);
   const restoreEditFocusRef = useRef(false);
@@ -43,6 +47,9 @@ export function SyllabusDetailClient(props: {
   const reviewDue = props.schedule?.status === "ACTIVE"
     && Boolean(props.schedule.dueDate)
     && Date.parse(props.schedule.dueDate as string) <= Date.parse(props.renderedAt);
+  const objectHref = props.returnTo
+    ? withReturnTo(`/knowledge/syllabi/${props.node.id}`, props.returnTo)
+    : `/knowledge/syllabi/${props.node.id}`;
 
   useEffect(() => {
     if (editing || !restoreEditFocusRef.current) return;
@@ -55,7 +62,6 @@ export function SyllabusDetailClient(props: {
 
   async function changeArchiveState(intent: ArchiveIntent) {
     if (pending) return;
-    if (intent === "archive" && !window.confirm("归档后节点变为只读，活动复习排期会同时暂停。确认归档？")) return;
     setPending(intent);
     setMessage(null);
     try {
@@ -70,7 +76,7 @@ export function SyllabusDetailClient(props: {
         return;
       }
       if (response.status === 404) {
-        router.replace("/knowledge/syllabus");
+        router.replace("/knowledge/syllabi");
         return;
       }
       if (!response.ok) {
@@ -136,26 +142,24 @@ export function SyllabusDetailClient(props: {
 
   return (
     <article className="space-y-6" aria-busy={Boolean(pending)}>
-      <BackToListLink className="text-sm text-teal-300 hover:underline" fallbackHref="/knowledge/syllabus">
-        返回考纲树
-      </BackToListLink>
-
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5">
-        <div className="min-w-0">
-          <p className="text-xs text-zinc-500">{props.node.subjectName} · {kindLabel(props.node.kind)} · r{props.node.revision}</p>
-          <DetailHeading className="mt-1 break-words text-2xl font-semibold text-white">{props.node.title}</DetailHeading>
-          <p className="mt-2 text-sm text-zinc-400">
-            {statusLabel(props.node.status)} · 掌握等级 {masteryLabel(props.node.masteryLevel)}
+      <KnowledgeObjectDetailHeader
+        fallbackHref="/knowledge/syllabi"
+        fallbackLabel="返回考纲树"
+        returnTo={props.returnTo}
+        eyebrow={`${props.node.subjectName} · ${kindLabel(props.node.kind)} · r${props.node.revision}`}
+        title={props.node.title}
+        description={<>
+            {statusLabel(props.node.status)} · 掌握状态 {masteryStatusLabel(props.node.masteryStatus)}
+            {props.node.needsRetest ? " · 待复测" : ""}
             {archived ? " · 已归档" : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+          </>}
+        actions={<>
           {archived ? (
             <button type="button" disabled={Boolean(pending)} onClick={() => void changeArchiveState("restore")} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50">
               <RotateCcw size={16} aria-hidden />{pending === "restore" ? "恢复中" : "恢复节点"}
             </button>
-          ) : reviewDue && props.schedule ? (
-            <Link href={`/quick-review/${props.schedule.id}?returnTo=${encodeURIComponent(`/knowledge/syllabus/${props.node.id}`)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black">
+          ) : editing || retesting ? null : reviewDue && props.schedule ? (
+            <Link href={`/knowledge/reviews/${props.schedule.id}/run?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black">
               <BookOpenCheck size={16} aria-hidden />开始复测
             </Link>
           ) : (
@@ -163,20 +167,30 @@ export function SyllabusDetailClient(props: {
               <Pencil size={16} aria-hidden />编辑节点
             </button>
           )}
-          {!archived && !reviewDue ? (
+          {!archived && !reviewDue && !editing && !retesting ? (
             <button type="button" title="记录复测" aria-label="记录复测" onClick={() => { setView("retests"); setRetesting(true); setEditing(false); }} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-200">
               <BookOpenCheck size={16} aria-hidden />
             </button>
           ) : null}
-          {!archived ? (
-            <button type="button" title="归档节点" aria-label="归档节点" disabled={Boolean(pending)} onClick={() => void changeArchiveState("archive")} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-50">
+          {!archived && !editing && !retesting ? (
+            <button type="button" title="归档节点" aria-label="归档节点" disabled={Boolean(pending)} onClick={() => setArchiveConfirmationOpen(true)} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-50">
               <Archive size={16} aria-hidden />
             </button>
           ) : null}
-        </div>
-      </header>
+        </>}
+      />
 
       {message ? <p ref={messageRef} role="status" tabIndex={-1} className="rounded-md border border-white/10 bg-[#101419] px-3 py-2 text-sm text-zinc-300">{message}</p> : null}
+
+      {!editing && !retesting ? (
+        <NextAction
+          node={props.node}
+          schedule={props.schedule}
+          archived={archived}
+          reviewDue={reviewDue}
+          returnHref={objectHref}
+        />
+      ) : null}
 
       {editing && !archived ? (
         <SyllabusDetailEditor
@@ -195,7 +209,7 @@ export function SyllabusDetailClient(props: {
         ))}
       </nav>
 
-      {view === "overview" ? <Overview node={props.node} schedule={props.schedule} archived={archived} reviewDate={reviewDate} pending={Boolean(pending)} onReviewDateChange={setReviewDate} onSchedule={() => void scheduleReview()} /> : null}
+      {view === "overview" ? <Overview node={props.node} schedule={props.schedule} archived={archived} reviewDate={reviewDate} pending={Boolean(pending)} returnHref={objectHref} onReviewDateChange={setReviewDate} onSchedule={() => void scheduleReview()} /> : null}
       {view === "evidence" ? <EvidenceView node={props.node} /> : null}
       {view === "retests" ? (
         <section className="space-y-4">
@@ -204,6 +218,20 @@ export function SyllabusDetailClient(props: {
           <RetestHistory items={props.node.masteryRetests} />
         </section>
       ) : null}
+
+      <ConfirmationDialog
+        open={archiveConfirmationOpen}
+        title="归档这个考纲节点？"
+        description="归档后节点变为只读，活动复习排期会暂停。恢复节点不会自动恢复排期。"
+        confirmLabel="确认归档"
+        pending={pending === "archive"}
+        pendingLabel="正在归档"
+        onClose={() => setArchiveConfirmationOpen(false)}
+        onConfirm={() => {
+          setArchiveConfirmationOpen(false);
+          void changeArchiveState("archive");
+        }}
+      />
 
       <ConflictResolutionModal
         open={Boolean(conflict)}
@@ -228,6 +256,7 @@ function Overview(props: {
   archived: boolean;
   reviewDate: string;
   pending: boolean;
+  returnHref: string;
   onReviewDateChange: (value: string) => void;
   onSchedule: () => void;
 }) {
@@ -238,17 +267,12 @@ function Overview(props: {
         <Metric label="实际投入" value={`${props.node.actualMinutes} 分钟`} />
         <Metric label="风险" value={riskLabel(props.node.masteryProof.risk)} />
       </section>
-      <section className="border-t border-white/10 pt-5">
-        <h2 className="font-medium text-white">下一行动</h2>
-        <p className="mt-2 text-sm text-zinc-300">{props.node.mapSignal.nextAction}</p>
-        <p className="mt-1 text-sm text-zinc-500">{props.node.masteryProof.nextAction}</p>
-      </section>
       <section className="space-y-3 border-t border-white/10 pt-5">
         <h2 className="font-medium text-white">统一复习</h2>
         {props.schedule ? (
           <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
             <span>{props.schedule.status === "ACTIVE" ? "活动排期" : "已暂停"} · {props.schedule.dueDate ? new Date(props.schedule.dueDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }) : "未设置日期"}</span>
-            <Link className="text-teal-300 hover:underline" href={`/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(`/knowledge/syllabus/${props.node.id}`)}`}>管理排期</Link>
+            <Link className="text-teal-300 hover:underline" href={`/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`}>管理排期</Link>
             {props.schedule.status === "PAUSED" && props.schedule.pausedReason === "TARGET_ARCHIVED" ? <span className="text-amber-200">恢复节点不会自动恢复排期，请在排期页重新选择日期。</span> : null}
           </div>
         ) : props.archived ? (
@@ -261,6 +285,50 @@ function Overview(props: {
         )}
       </section>
     </div>
+  );
+}
+
+function NextAction(props: {
+  node: SyllabusNodeDto;
+  schedule: ReviewScheduleDto | null;
+  archived: boolean;
+  reviewDue: boolean;
+  returnHref: string;
+}) {
+  const taskHref = `/roadmap/allocation?createMinimum=1&subjectId=${encodeURIComponent(props.node.subjectId)}&syllabusNodeId=${encodeURIComponent(props.node.id)}`;
+  const scheduleHref = props.schedule
+    ? `/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`
+    : null;
+
+  return (
+    <section className="rounded-lg border border-teal-300/20 bg-teal-300/5 p-4 sm:p-5" aria-labelledby="syllabus-next-action-heading">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-teal-200">下一行动</p>
+          <h2 id="syllabus-next-action-heading" className="mt-1 text-lg font-semibold text-white">{props.node.mapSignal.nextAction}</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-300">{props.node.masteryProof.nextAction}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {props.archived ? (
+            <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-400">已归档 · 只读</span>
+          ) : props.reviewDue ? (
+            <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">已到期 · 待复测</span>
+          ) : scheduleHref ? (
+            <Link href={scheduleHref} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-100 hover:bg-teal-300/10">
+              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+              查看复习排期
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          ) : (
+            <Link href={taskHref} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300">
+              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+              安排最小学习任务
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -300,7 +368,6 @@ function Metric({ label, value }: { label: string; value: string }) { return <di
 function shanghaiDateToIso(value: string): string { return new Date(`${value}T00:00:00+08:00`).toISOString(); }
 function kindLabel(value: SyllabusNodeDto["kind"]): string { return ({ subject: "科目", chapter: "章节", topic: "知识点", problem_type: "题型专题" })[value]; }
 function statusLabel(value: SyllabusNodeDto["status"]): string { return ({ not_started: "未开始", learning: "学习中", covered: "已覆盖", needs_review: "待复习", mastered: "已掌握", weak: "薄弱", deferred: "延期" })[value]; }
-function masteryLabel(value: SyllabusNodeDto["masteryLevel"]): string { return value ? ({ seen: "见过", learned: "已学习", basic_exercises: "基础题", can_explain: "能讲解", retest_passed: "复测通过", exam_stable: "考试稳定" })[value] : "未记录"; }
 function riskLabel(value: SyllabusNodeDto["masteryProof"]["risk"]): string { return ({ no_evidence: "无证据", thin_evidence: "证据偏少", stale_evidence: "证据过旧", ready: "证据就绪" })[value]; }
 function retestLabel(value: SyllabusNodeDto["masteryRetests"][number]["result"]): string { return ({ passed: "通过", partial: "部分通过", failed: "未通过" })[value]; }
 

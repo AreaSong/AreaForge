@@ -22,6 +22,7 @@ interface SimulationWorkbenchProps {
   stagePlans: StagePlanDto[];
   stageAdjustmentDrafts: StageAdjustmentDraftRecordDto[];
   motivationVault: MotivationVaultDto | null;
+  initialNow?: string;
 }
 
 export function SimulationWorkbench({
@@ -32,6 +33,7 @@ export function SimulationWorkbench({
   stagePlans,
   stageAdjustmentDrafts,
   motivationVault,
+  initialNow,
 }: SimulationWorkbenchProps) {
   const router = useRouter();
   const [examName, setExamName] = useState("2026 同步全真自测");
@@ -51,7 +53,7 @@ export function SimulationWorkbench({
   const [firstSimulationDiary, setFirstSimulationDiary] = useState(motivationVault?.firstSimulationDiary ?? "");
   const [stagePlanName, setStagePlanName] = useState("2026 同步全真自测准备期");
   const [stagePlanGoal, setStagePlanGoal] = useState("2026 年 12 月同步全真自测");
-  const [stagePlanStartDate, setStagePlanStartDate] = useState(toDatetimeLocal(new Date().toISOString()));
+  const [stagePlanStartDate, setStagePlanStartDate] = useState(toDatetimeLocal(initialNow ?? stage.simulationNode.date));
   const [stagePlanEndDate, setStagePlanEndDate] = useState(toDatetimeLocal(stage.simulationNode.date));
   const [stagePlanMode, setStagePlanMode] = useState<StagePlanDto["mode"]>("maintain");
   const [stagePlanStatus, setStagePlanStatus] = useState<StagePlanDto["status"]>("active");

@@ -108,7 +108,7 @@ const legacyCommit = "749692ba719d801f14186a94af97b96350380141";
 const manifestContracts = {
   legacy: { count: 12, sha256: "90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368" },
   floor: { count: 15, sha256: "e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d" },
-  current: { count: 24, sha256: "f5d083da94fc883b5a2428cdb5d565b7a3df20745f3b197d7d777625fd966419" },
+  current: { count: 33, sha256: "b2d04b442d666be93dea324ae5e8648ca133e767655cd4fd153c8ba3f450432d" },
 } as const;
 
 export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions = {}): V11ReleaseAdmissionResult {
@@ -885,7 +885,7 @@ function parseCompatibilityRuntime(
   if (finalValidation) {
     expectJson(finalValidation, "status", "pass", "runtime.finalValidation", issues);
     expectJson(finalValidation, "databaseName", databaseName, "runtime.finalValidation", issues);
-    expectJson(finalValidation, "migrationCount", 24, "runtime.finalValidation", issues);
+    expectJson(finalValidation, "migrationCount", 33, "runtime.finalValidation", issues);
     expectJson(finalValidation, "candidateFingerprintStable", true, "runtime.finalValidation", issues);
     expectJson(finalValidation, "repeatDeployLedgerStable", true, "runtime.finalValidation", issues);
   }

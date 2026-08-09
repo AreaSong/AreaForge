@@ -642,7 +642,7 @@ function checkCurrentProductionEvidenceBoundary(): void {
     0,
   );
   const currentProductSurfaces =
-    ["/settings/workspace", "/knowledge/resources", "/knowledge/reviews"].every((route) => dataModel.includes(route)) &&
+    ["/settings/exams", "/knowledge/resources", "/knowledge/reviews"].every((route) => dataModel.includes(route)) &&
     apiSurface.includes("学习行动中心已落地并提供生产导航入口") &&
     learningTreeImport.includes("/knowledge/imports") &&
     featureTraceability.includes("## 学习行动中心（已进入生产）") &&

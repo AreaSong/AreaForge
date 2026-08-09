@@ -25,6 +25,7 @@
 | 改动范围 | 最小验证 |
 |---|---|
 | `docs/**`、`README.md`、`AGENTS.md` | `rg` 检查旧引用和入口路径，`pnpm docs:readiness`，`pnpm docs:links`，`pnpm docs:evergreen`，`git diff --check`；若涉及完成声明、运行时写边界、release/ops/UX 残余项，补跑对应专项预检或记录校验；若新增完成声明记录，运行 `pnpm completion:evidence:validate <record>` |
+| `scripts/dev/dev-test-*`、`scripts/quality/dev-test-pool.selftest.ts`、`infra/docker/web.dev-test.Dockerfile`、`package.json` 中 `dev:test:*`、本地测试池文档 | `pnpm dev:test:selftest`、`pnpm dev:test:typecheck`、`pnpm dev:test:latest -- --json`、`pnpm dev:test:doctor -- --json`、`pnpm dev:test:snapshot -- --dry-run --json`、`pnpm package-e:preflight`、`pnpm governance:preflight`、`pnpm docs:readiness`、`pnpm risk:preflight`、`pnpm check`、`git diff --check`；selftest 必须覆盖固定三槽、refresh 复用、snapshot FIFO、latest 不依赖槽位数字、FIFO 后 latest、失败候选不改变 latest、删除 latest 后回退、重复槽位/异名/端口拒绝、真实锁竞争和陈旧锁恢复，源码护栏必须保持 loopback bind、AI 外呼关闭、宿主机 standalone build 先于交换锁、测试镜像不重复安装依赖、失败回滚且无全局 prune/volume 删除。latest/doctor/dry-run 只证明当前本地池投影与选择计划，不证明真实镜像已构建、页面体验通过或生产状态变化 |
 | `scripts/quality/arch-layer-boundary.ts`、`scripts/quality/docs-link-integrity.ts`、`scripts/quality/docs-evergreen-check.ts` 及对应 selftest | `pnpm arch:boundary`、`pnpm arch:boundary:selftest`、`pnpm docs:links`、`pnpm docs:links:selftest`、`pnpm docs:evergreen`、`pnpm docs:evergreen:selftest`、`git diff --check`；三者已并入 `pnpm check`。分层检查只做静态 import/用法扫描，不证明运行时行为；链接检查只验证仓库内相对路径存在，不校验外部 URL 可达性；evergreen 检查只做长期文档的禁用模式扫描，白名单见脚本内注释 |
 | `assets/brand/**`、`scripts/brand/**`、`scripts/quality/brand-assets-validate.ts`、`docs/ux/brand-assets.md` | 运行 `pnpm brand:validate`；SVG 运行 `xmllint --noout`；PDF 用 `pdfinfo` 并渲染抽查；检查没有 `.DS_Store` 等元数据文件；运行 `pnpm docs:readiness` 和 `git diff --check`；若接入 Web favicon、PWA manifest 或 UI，再按 `apps/web/**` 运行 typecheck、lint、build 和桌面/移动截图验证 |
 | `docs/deployment/operator-onboarding.md`、`scripts/quality/operator-onboarding-preflight.ts`、自托管上手入口 | `pnpm operator:onboarding:preflight`，`pnpm docs:readiness`，`pnpm ops:readiness`，`pnpm skills:validate`，`git diff --check` |
@@ -116,7 +117,7 @@
 - `pnpm check`
 - API 烟测：结束计时、保存复盘、任务 `create/update/complete/defer/drop/recover/split/convert-review` 后当日 `CheckIn` 被 upsert；计划日变化必须刷新旧学习日和新学习日；dashboard、analytics、reports 优先读快照，缺失日期 fallback 正常。
 - active session 烟测：无关联任务开始计时但未结束时，首页可以实时展示正在运行的时长，但不得创建或改写 `CheckIn`；若关联任务从 `TODO` 改为 `IN_PROGRESS`，只允许刷新任务计划日的任务状态口径，不得写入未结束 session 时长；结束计时后才固化到日快照。
-- 页面烟测：首页、`/analytics`、`/reports` 刷新后连续性、低效天和低转化提示保持一致。
+- 页面烟测：首页、`/roadmap/stages/trend`、`/roadmap/reviews` 刷新后连续性、低效天和低转化提示保持一致。
 
 注意：Batch 1 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model CheckIn` 在 schema 中出现，也必须阻止 `prisma.checkIn` / `tx.checkIn` 读写路径提前出现；Batch 1 完成并更新台账后，门禁应要求 `model CheckIn` 存在，并继续阻止 Batch 2-6 未确认模型越界。
 
@@ -138,7 +139,7 @@
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
 - API 烟测：complete、defer、drop、recover、split、convert-review、end-session 自动完成路径和模拟考试完成路径同时写入 `AuditEvent` 与 `TaskDebtEvent`；拆小任务写入 `parentTaskId`；旧任务仍按 `StudyTask.status/debtStatus/plannedDate` fallback。
-- 页面烟测：首页任务区、欠账预览和 `/reports` 对旧数据与新事件账本展示一致。
+- 页面烟测：首页任务区、欠账预览和 `/roadmap/reviews` 对旧数据与新事件账本展示一致。
 
 注意：Batch 2 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `parentTaskId` 和 `model TaskDebtEvent` 在 schema 中出现；Batch 2 完成并更新台账后，门禁应要求 Batch 2 字段/模型存在。Batch 6 完成前，门禁继续阻止 Batch 6 未确认模型越界。
 
@@ -182,7 +183,7 @@
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
 - API 烟测：条件勾选、证据引用、复测 passed/failed/partial、标记 mastered 的 `evaluateMasteryProof` 拦截、无显式证据 fallback 到现有 `_count`。
-- 页面烟测：`/syllabus` 条件、证据、复测、刷新后节点状态和历史 fallback 展示一致。
+- 页面烟测：`/knowledge/syllabi` 条件、证据、复测、刷新后节点状态和历史 fallback 展示一致。
 
 注意：Batch 4 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model MasteryConditionRecord`、`model MasteryEvidence` 和 `model MasteryRetest` 在 schema 中出现；Batch 4 完成并更新台账后，门禁应要求 Batch 4 模型存在。Batch 5 和 Batch 6 分别由各自批次台账解锁对应模型；复测失败或部分通过不能自动降低节点状态。
 
@@ -204,7 +205,7 @@
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
 - API 烟测：创建结构化模拟考试、保存科目结果、同一场同一科唯一性、旧 `StudyTask.type = "simulation_exam"` 只读兼容。
-- 页面烟测：`/simulation` 列表、结果保存、刷新和第一次同步自测标记保持一致。
+- 页面烟测：`/test/simulations` 列表、结果保存、刷新和第一次同步自测标记保持一致。
 
 注意：Batch 5 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model SimulationExam` 和 `model SimulationSubjectResult` 在 schema 中出现；Batch 5 完成并更新台账后，门禁应要求这些模型存在，并在 Batch 6 完成前继续阻止 Batch 6 未确认模型越界；本批不自动迁移旧任务型模拟，也不自动调整阶段计划。
 
@@ -226,7 +227,7 @@
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
 - API 烟测：阶段计划创建/更新、草稿生成、驳回、确认应用、重复提交、审计记录、`canAutoApply=false`、`requiresUserConfirmation=true`、Batch 6 范围内不触发长期阶段 AI 外呼。
-- 页面烟测：`/simulation` 和 `/reports` 中阶段计划、草稿边界和确认状态展示一致。
+- 页面烟测：`/test/simulations` 和 `/roadmap/reviews` 中阶段计划、草稿边界和确认状态展示一致。
 
 注意：Batch 6 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model StagePlan` 和 `model StageAdjustmentDraft` 在 schema 中出现；Batch 6 完成并更新台账后，门禁应要求这些模型、migration、service、API、DTO、UI 和确认边界证据存在。Batch 6 只狭窄允许阶段草稿 `confirm/reject` 写路由，用于用户显式确认后更新关联 `StagePlan` 和写审计；任何自动任务重排、批量修改任务、报告决策应用、长期 AI 外呼或生产 migration deploy 都不属于本批。
 
@@ -243,7 +244,7 @@
 - 人工扫描：`rg 'attachment\.uri|upload://attachment' apps/web/app apps/web/components` 不应出现 UI 直链内部 metadata。
 - 人工扫描：`rg 'type=\"file\"|multipart/form-data|FormData|downloadUrl|/api/attachments' apps/web/app apps/web/components apps/web/lib` 不应出现附件上传 UI、提前下载 URL 或上传调用。
 
-用户明确确认 Package A 后，才允许新增上传/下载 route、附件服务、`/notes` 上传 UI 和真实 `UPLOAD_DIR` 写入。实现后至少运行：
+用户明确确认 Package A 后，才允许新增上传/下载 route、附件服务、`/knowledge/cards` 上传 UI 和真实 `UPLOAD_DIR` 写入。实现后至少运行：
 
 - `pnpm --filter @areaforge/storage test`
 - `pnpm --filter @areaforge/web typecheck`
@@ -251,10 +252,10 @@
 - `pnpm check`
 - API 烟测：未登录上传/下载 `401`；允许类型成功；超大、伪造 MIME、路径穿越、软链接逃逸失败；DB 写入失败补偿删除本次文件；文件写入失败不创建 metadata。
 - API 状态码矩阵：多个 `file` 字段 `400`；空文件 `400`；畸形 multipart `400`；非法 `disposition` `400`；未登录 `401`；笔记不存在或文件缺失 `404`；metadata/hash 不一致 `409`；超大文件 `413`；不安全上传目录、文件写入失败或 metadata 写入失败 `500`，且响应不包含内部路径。
-- 页面烟测：`/notes` 上传、刷新后附件列表、鉴权下载和响应头。
+- 页面烟测：`/knowledge/cards` 上传、刷新后附件列表、鉴权下载和响应头。
 - 对账烟测：metadata hash/size 与文件 hash/size 一致；只读对账报告 `action=report_only`。
 
-注意：Package A 完成后，`pnpm risk:preflight` 必须改为要求上传/下载 route、`attachments-service.ts`、`/notes` 上传 UI、鉴权 `downloadApiPath` 和附件专项证据存在，同时继续阻止 public 暴露、内部 `uri` / `storedName` / 上传绝对路径泄露，以及 Package A 范围外的删除、跨对象附件、AI 解析和生产发布。
+注意：Package A 完成后，`pnpm risk:preflight` 必须改为要求上传/下载 route、`attachments-service.ts`、`/knowledge/cards` 上传 UI、鉴权 `downloadApiPath` 和附件专项证据存在，同时继续阻止 public 暴露、内部 `uri` / `storedName` / 上传绝对路径泄露，以及 Package A 范围外的删除、跨对象附件、AI 解析和生产发布。
 
 ## Package C 专项验证
 
@@ -273,7 +274,7 @@
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
 - Provider 测试：`AI_ENABLED=false` fallback；配置缺失 fallback；mock 成功；超时、429、401、5xx、invalid JSON 和 schema invalid fallback；敏感字段拦截时 provider 不被调用。
-- 安全扫描：客户端 bundle 搜不到 `AI_API_KEY`；日志不包含完整 prompt、完整模型响应、API Key、动机档案、完整复盘正文、完整情绪正文或附件内容。
+- 安全扫描：客户端 bundle 搜不到 `AI_API_KEY`、`AI_CREDENTIALS_ENCRYPTION_KEY`；日志不包含完整 prompt、完整模型响应、API Key、密文、动机档案、完整复盘正文、完整情绪正文或附件内容。Provider API 需覆盖当前账户隔离、密钥不回显、更新保留旧密钥、删除和 `AI_ENABLED=false` 测试阻断。
 - 标题隐私烟测：构造任务标题为 `task title may contain private content`，确认 mock provider 请求体不包含该原文；真实 provider 第一版只允许发送任务类型、科目、风险类别或脱敏占位标签。
 - 成本边界烟测：首页普通 SSR 不触发真实 provider；真实外呼只能来自明确允许的 AI API 或用户显式触发入口。
 
@@ -299,7 +300,7 @@
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
 - API 烟测：债务重排确认/驳回/应用、重复提交、部分失败摘要和审计记录；阶段草稿确认/驳回/应用；报告策略确认/驳回。
-- 页面烟测：首页、`/reports`、`/analytics`、`/syllabus`、`/simulation` 展示确认边界和应用结果。
+- 页面烟测：首页、`/roadmap/reviews`、`/roadmap/stages/trend`、`/knowledge/syllabi`、`/test/simulations` 展示确认边界和应用结果。
 - 边界烟测：用户确认前不应用；D3 显式入口之外长期阶段 AI 外呼关闭；Package B 结构化模型缺失时仍有只读 fallback。
 
 推荐批次验证：
@@ -309,7 +310,7 @@
 | Batch D1 报告决策入口 | `pnpm db:generate`、`pnpm db:validate`、临时库 `pnpm db:migrate:deploy`；周/月报告确认、驳回、重复提交、审计摘要、冻结 `reportSnapshot`、下一周期草稿和只读回放；确认/驳回前后 `StudyTask`、`TaskDebtEvent`、`StagePlan`、`StageAdjustmentDraft` 不变 |
 | Batch D2 债务重排确认流 | 不新增 migration；建议确认/驳回/应用、只处理所选项、`TaskDebtEvent` 和 `AuditEvent` 双证据、部分失败停止或返回跳过摘要、重复提交幂等、不自动延期/删除全部欠账 |
 | Batch D3 长期阶段 AI 草稿 | 已完成：鉴权 POST-only `/api/simulation/stage-adjustment-drafts/ai`；长期 AI 最小字段清单和阶段目标摘要；禁止字段扫描；`AI_ENABLED=false` 本地规则；配置缺失 fallback；mock provider 成功写 `source="ai"`；schema invalid fallback；敏感字段拦截；客户端密钥扫描；草稿不自动应用；前后 `StudyTask`、`TaskDebtEvent` 和 `StagePlan` 不变 |
-| Batch D4 长期风险和主题闭环 | 已完成：`GET /api/analytics/long-term-risks` 鉴权 GET-only；`long-term-risk-service` 调用 `summarizeLongTermRisks` 并保留 `evidenceFreshness`、`nextAction`、`canAutoApply=false`、`requiresUserConfirmation=true`；`/reports`、`/analytics`、`/syllabus`、`/notes`、`/simulation` 和首页状态主题共用同一长期风险 DTO；service/route smoke 证明业务表不变 |
+| Batch D4 长期风险和主题闭环 | 已完成：`GET /api/analytics/long-term-risks` 鉴权 GET-only；`long-term-risk-service` 调用 `summarizeLongTermRisks` 并保留 `evidenceFreshness`、`nextAction`、`canAutoApply=false`、`requiresUserConfirmation=true`；`/roadmap/reviews`、`/roadmap/stages/trend`、`/knowledge/syllabi`、`/knowledge/cards`、`/test/simulations` 和首页状态主题共用同一长期风险 DTO；service/route smoke 证明业务表不变 |
 | Batch D5 收口 | 已完成：`pnpm check`、`pnpm package-d:preflight`、`pnpm risk:preflight`、`pnpm docs:readiness` 通过；`pnpm docs:completion` 在 Package E E1-E4 收口后一并通过 |
 
 注意：Package D 全部完成前，`pnpm risk:preflight` 必须继续阻止未确认批次的长期 AI 外呼和跨模块应用路径越界。Package B Batch 6 完成后，仅 `/api/simulation/stage-adjustment-drafts/:id/confirm|reject` 属于已确认的阶段草稿状态写入；Package D Batch D1 完成后，仅 `/api/reports/periodic/decisions` 属于已确认报告决策入口；Package D Batch D2 完成后，仅 `/api/tasks/debt-reorder/decisions` 和 `/api/tasks/debt-reorder/applications` 属于已确认债务重排所选项写入口；Package D Batch D3 完成后，仅 `/api/simulation/stage-adjustment-drafts/ai` 属于已确认长期 AI 草稿显式触发入口。其他 `apply/confirm/reject` 写路由、自动阶段应用、长期 AI 历史持久化和费用账本仍必须拦截。
@@ -336,7 +337,7 @@
 - 发布记录：git commit、release tag、`AREAFORGE_IMAGE`、镜像 digest、compose hash、Nginx 配置 hash、操作者和时间。
 - 备份证据：PostgreSQL dump、上传目录归档、生产 `.env` 权限收紧备份、当前 compose/Nginx 配置副本。
 - 恢复演练：临时库导入、临时上传目录恢复、登录、首页、任务、计时、复盘、附件 metadata/hash 对账。
-- 发布后烟测：`GET /api/health`、登录、首页、任务、计时、复盘、`/syllabus`、`/notes`、`/analytics`、`/reports`；附件和真实 AI 若启用，只用小测试文件和最小测试数据。
+- 发布后烟测：`GET /api/health`、登录、首页、任务、计时、复盘、`/knowledge/syllabi`、`/knowledge/cards`、`/roadmap/stages/trend`、`/roadmap/reviews`；附件和真实 AI 若启用，只用小测试文件和最小测试数据。
 - 回滚记录：上一镜像 tag、是否恢复数据库/上传目录、恢复耗时、失败原因、残余风险和后续修复任务。
 - 发布证据记录校验：`pnpm release:evidence:validate <release-record.md|txt> <attachment-reconciliation.csv> <attachment-reconciliation-summary.json>` 通过；该命令只读发布记录、CSV 和双向 summary。CSV `action` 必须全部为 `report_only`，summary 必须覆盖 `fileOnlyCount`、`unsafeEntryCount`、非法 URI、重复引用和 hash/size mismatch，并由发布记录中的 CSV SHA256、summary canonical hash、路径和状态绑定。
 - 对账三态：`yes` 要求至少一条附件且全匹配；`no` 要求 summary=`mismatch`；`not-applicable` 要求仅表头 CSV、`databaseRecordCount=0`、`uploadFileCount=0`。任何状态都不能省略 CSV 或 summary。
@@ -438,7 +439,7 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - 临时库：`DATABASE_URL=<临时库> pnpm db:migrate:deploy`（库名含 `v11m6`）
 - `AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest`
 - `pnpm --filter @areaforge/core test`（含间隔 / CheckIn v2 / Recovery 三阶规则）
-- 覆盖：exactly-one Schedule、confirm 幂等/fingerprint 409、correction 单 successor、CheckIn v2 升级、Recovery 三阶、桥接 partial unique、Inbox convert；硬验收 fixture：零时长拒绝、Event 不可变、correction CAS、sourceVersion 1→2、桥接完成须有 ReviewEvent.result；页面入口为 `/knowledge/reviews`、`/quick-review/[scheduleId]` 与 `/today/inbox`；不跑生产 migration；不关闭 residual
+- 覆盖：exactly-one Schedule、confirm 幂等/fingerprint 409、correction 单 successor、CheckIn v2 升级、Recovery 三阶、桥接 partial unique、Inbox convert；硬验收 fixture：零时长拒绝、Event 不可变、correction CAS、sourceVersion 1→2、桥接完成须有 ReviewEvent.result；页面入口为 `/knowledge/reviews`、`/knowledge/reviews/[scheduleId]/run` 与 `/roadmap/allocation/drafts`；不跑生产 migration；不关闭 residual
 - 注意：勿与 Package B Batch 6（`StagePlan` / `StageAdjustmentDraft`，已完成）混淆
 
 #### Batch 7（App Shell + 今日行动中心）专项

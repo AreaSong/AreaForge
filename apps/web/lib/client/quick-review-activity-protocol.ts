@@ -43,7 +43,7 @@ export interface QuickReviewCommandReceipt extends QuickReviewActivityIdentity {
 }
 
 export function quickReviewClaimHref(scheduleId: string): string {
-  return `/quick-review/${encodeURIComponent(scheduleId)}`;
+  return `/knowledge/reviews/${encodeURIComponent(scheduleId)}/run`;
 }
 
 export function createQuickReviewActivityClaim(input: QuickReviewActivityIdentity & {

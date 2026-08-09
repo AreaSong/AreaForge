@@ -138,7 +138,7 @@ export const V11_JOURNEY_CONTRACTS = {
   },
   dashboard: {
     startPath: "/today",
-    terminalPath: "/focus/:sessionId?returnTo=%2Ftoday",
+    terminalPath: "/focus?returnTo=%2Ftoday",
     mutation: { method: "POST", path: "/api/study-sessions/start", status: 201, requestCount: 1 },
     oraclePath: "/api/study-sessions/active", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -156,8 +156,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   "timer-closeout": {
-    startPath: "/focus/:sessionId?returnTo=%2Ftoday",
-    terminalPath: "/focus/:sessionId?returnTo=%2Ftoday",
+    startPath: "/focus",
+    terminalPath: "/focus",
     mutation: { method: "POST", path: "/api/study-sessions/:sessionId/end", status: 200, requestCount: 1 },
     oraclePath: "/api/study-sessions/active", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -171,12 +171,12 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
     terminalAssertions: [
       equalsAssertion("evidence-relay-visible", true),
-      equalsAssertion("session-status-ended", true),
+      equalsAssertion("evidence-completion-action-visible", true),
     ],
   },
   review: {
-    startPath: "/review/daily",
-    terminalPath: "/review/daily",
+    startPath: "/roadmap/reviews/daily",
+    terminalPath: "/roadmap/reviews/daily",
     mutation: { method: "POST", path: "/api/daily-reviews", status: 201, requestCount: 1 },
     oraclePath: "/api/reviews/today", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -194,8 +194,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   notes: {
-    startPath: "/knowledge/notes",
-    terminalPath: "/knowledge/notes",
+    startPath: "/knowledge/cards",
+    terminalPath: "/knowledge/cards",
     mutation: { method: "POST", path: "/api/notes", status: 201, requestCount: 1 },
     oraclePath: "/api/notes", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -213,8 +213,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   syllabus: {
-    startPath: "/knowledge/syllabus",
-    terminalPath: "/knowledge/syllabus",
+    startPath: "/knowledge/syllabi",
+    terminalPath: "/knowledge/syllabi?subjectId=synthetic-id",
     mutation: { method: "POST", path: "/api/syllabus/nodes", status: 201, requestCount: 1 },
     oraclePath: "/api/syllabus", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -232,8 +232,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   reports: {
-    startPath: "/review/reports?tab=current&period=week",
-    terminalPath: "/review/reports?tab=current&period=week",
+    startPath: "/roadmap/reviews?tab=current&period=week",
+    terminalPath: "/roadmap/reviews?tab=current&period=week",
     mutation: { method: "POST", path: "/api/reports/:reportId/confirm", status: 201, requestCount: 1 },
     oraclePath: "/api/reports/current?period=week", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -250,8 +250,8 @@ export const V11_JOURNEY_CONTRACTS = {
     ],
   },
   simulation: {
-    startPath: "/stage/simulation",
-    terminalPath: "/stage/simulation/:examId",
+    startPath: "/test/simulations",
+    terminalPath: "/test/simulations/:examId",
     mutation: { method: "POST", path: "/api/simulation/exams", status: 201, requestCount: 1 },
     oraclePath: "/api/simulation/exams", beforeStatus: 200, afterStatus: 200,
     beforeAssertions: [
@@ -292,11 +292,11 @@ export const V11_JOURNEY_CONTRACTS = {
 export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
   "KBD-01": {
     checkKey: "login-tab-enter", category: "keyboard", route: "/login", target: "login-form", profile: "desktop", mechanism: "keyboard",
-    assertions: [equalsAssertion("email-reached-by-tab", true), equalsAssertion("password-reached-by-tab", true), equalsAssertion("enter-submitted-login", 200), equalsAssertion("keyboard-login-terminal-route", "/today")],
+    assertions: [equalsAssertion("email-reached-by-tab", true), equalsAssertion("password-reached-by-tab", true), equalsAssertion("enter-submitted-login", 200), equalsAssertion("keyboard-login-terminal-route", "/focus")],
   },
   "KBD-02": {
     checkKey: "main-navigation-enter", category: "keyboard", route: "/today", target: "main-navigation", profile: "desktop", mechanism: "keyboard",
-    assertions: [equalsAssertion("quick-create-trigger-focused", true), equalsAssertion("quick-create-opened-by-enter", true), equalsAssertion("quick-create-exposes-four-actions", 4), equalsAssertion("quick-create-escape-returned-focus", true), equalsAssertion("nav-link-focused", true), equalsAssertion("enter-activated-navigation", "/knowledge/canvas")],
+    assertions: [equalsAssertion("quick-create-trigger-focused", true), equalsAssertion("quick-create-opened-by-enter", true), equalsAssertion("quick-create-exposes-five-actions", 5), equalsAssertion("quick-create-escape-returned-focus", true), equalsAssertion("nav-link-focused", true), equalsAssertion("enter-activated-navigation", "/knowledge")],
   },
   "KBD-03": {
     checkKey: "modal-open-keyboard", category: "keyboard", route: "/today", target: "subject-shortcut-modal", profile: "desktop", mechanism: "keyboard",
@@ -319,7 +319,7 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
     assertions: [equalsAssertion("escape-closed-modal", 0), equalsAssertion("focus-returned-to-trigger", true)],
   },
   "FOCUS-03": {
-    checkKey: "detail-and-save-focus", category: "focus", route: "/knowledge/notes/:noteId", target: "detail-heading-and-save-result", profile: "desktop", mechanism: "keyboard",
+    checkKey: "detail-and-save-focus", category: "focus", route: "/knowledge/cards/:noteId", target: "detail-heading-and-save-result", profile: "desktop", mechanism: "keyboard",
     assertions: [equalsAssertion("detail-link-focused-before-enter", true), equalsAssertion("detail-heading-received-focus", "H1"), equalsAssertion("detail-heading-programmatic-tabindex", -1), equalsAssertion("syllabus-save-status", 200), equalsAssertion("syllabus-save-result-is-live", true), equalsAssertion("syllabus-save-returned-to-edit", true)],
   },
   "FOCUS-04": {
@@ -339,15 +339,15 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
     assertions: [equalsAssertion("invalid-login-status", 401), equalsAssertion("alert-is-assertive", "assertive"), equalsAssertion("alert-is-atomic", "true"), equalsAssertion("alert-has-message", true)],
   },
   "LIVE-02": {
-    checkKey: "timer-status-assertive", category: "live", route: "/focus/:sessionId", target: "focus-timer-status", profile: "desktop", mechanism: "dom",
+    checkKey: "timer-status-assertive", category: "live", route: "/focus", target: "focus-timer-status", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("timer-status-has-text", true), equalsAssertion("timer-status-assertive", "assertive"), equalsAssertion("timer-status-atomic", "true")],
   },
   "LIVE-03": {
-    checkKey: "timer-transition-assertive", category: "live", route: "/focus/:sessionId", target: "focus-timer-transition", profile: "desktop", mechanism: "dom",
+    checkKey: "timer-transition-assertive", category: "live", route: "/focus", target: "focus-timer-transition", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("pause-ui-mutation-status", 200), equalsAssertion("pause-announced", true), equalsAssertion("pause-terminal-control-visible", true)],
   },
   "LIVE-04": {
-    checkKey: "notification-fallback-polite", category: "live", route: "/settings/notifications", target: "notification-test-fallback", profile: "desktop", mechanism: "dom",
+    checkKey: "notification-fallback-polite", category: "live", route: "/settings/learning", target: "notification-test-fallback", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("notification-test-status", 200), equalsAssertion("notification-fallback-visible", true), equalsAssertion("notification-fallback-polite", "polite"), equalsAssertion("notification-fallback-atomic", "true")],
   },
   "LIVE-05": {
@@ -355,7 +355,7 @@ export const V11_ACCESSIBILITY_CHECK_CONTRACTS = {
     assertions: [gteAssertion("layout-announcement-present", 1), equalsAssertion("layout-announcement-polite", "polite")],
   },
   "LIVE-06": {
-    checkKey: "review-save-and-recovery-live", category: "live", route: "/review/daily", target: "daily-review-save-and-recovery", profile: "desktop", mechanism: "dom",
+    checkKey: "review-save-and-recovery-live", category: "live", route: "/roadmap/reviews/daily", target: "daily-review-save-and-recovery", profile: "desktop", mechanism: "dom",
     assertions: [equalsAssertion("review-save-status", 201), equalsAssertion("review-success-live-region", true), equalsAssertion("review-success-polite", "polite"), equalsAssertion("network-error-alert-visible", true), equalsAssertion("network-error-has-message", true), gteAssertion("failed-review-draft-retained", 1)],
   },
   "COLOR-01": {

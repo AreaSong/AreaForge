@@ -1,11 +1,16 @@
 "use client";
 
+import { CalendarDays, TimerReset } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/overlays";
+import { Alert } from "@/components/ui/feedback";
+import { buttonClassName } from "@/components/ui/button";
+import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type { ActionCenterTodayDto } from "@/lib/study/action-center-service";
 
@@ -15,7 +20,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
   const today = initial;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [subjectId, setSubjectId] = useState(today.subjectTimers.subjects[0]?.subjectId ?? "");
-  const [goalMinutes, setGoalMinutes] = useState("25");
+  const [goalMinutes, setGoalMinutes] = useState("");
   const [shortcutTaskId, setShortcutTaskId] = useState("");
   const [shortcutNodeId, setShortcutNodeId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +28,15 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
   const [startingShortcut, setStartingShortcut] = useState(false);
   const [creatingMinimumTask, setCreatingMinimumTask] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [mobileQueue, setMobileQueue] = useState<"tasks" | "reviews" | "mistakes">("tasks");
+  const [mobileQueue, setMobileQueue] = useState<"tasks" | "reviews" | "mistakes">(() =>
+    hasRemainingAction(today.queues.formalTasks, today.primaryActionHref)
+      ? "tasks"
+      : hasRemainingAction(today.queues.noteResourceSyllabusReviews, today.primaryActionHref)
+        ? "reviews"
+        : hasRemainingAction(today.queues.mistakeReviews, today.primaryActionHref)
+          ? "mistakes"
+          : "tasks",
+  );
 
   async function startShortcut() {
     if (startingShortcut) return;
@@ -37,17 +50,19 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
 
   async function runStartShortcut() {
     setStartingShortcut(true);
+    const payload = {
+      subjectId,
+      taskId: shortcutTaskId || undefined,
+      syllabusNodeId: shortcutNodeId || null,
+      goalMinutes: goalMinutes ? Number(goalMinutes) : null,
+      startSource: "SUBJECT_SHORTCUT" as const,
+    };
+    const commandScope = "action-center:focus-start";
     try {
       const response = await fetch("/api/study-sessions/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subjectId,
-          taskId: shortcutTaskId || undefined,
-          syllabusNodeId: shortcutNodeId || null,
-          goalMinutes: goalMinutes ? Number(goalMinutes) : null,
-          startSource: "SUBJECT_SHORTCUT",
-        }),
+        headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+        body: JSON.stringify({ idempotencyKey: getOrCreateIdempotencyKey(commandScope, "study-session-start", payload), ...payload }),
       });
       const body = (await response.json().catch(() => null)) as
         | { session?: { id: string }; error?: string; latest?: { id?: string } }
@@ -55,15 +70,17 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       if (response.status === 401) return redirectToLoginWithCurrentLocation();
       if (!response.ok) {
         if (response.status === 409 && body?.latest?.id) {
-          router.push(`/focus/${body.latest.id}?returnTo=%2Ftoday`);
+          completeIdempotentCommand(commandScope);
+          router.push(`/focus?returnTo=%2Ftoday`);
           return;
         }
         setError(body?.error ?? "无法开始计时，当前选择仍保留；请显式重试。");
         return;
       }
       if (body?.session?.id) {
+        completeIdempotentCommand(commandScope);
         setConfirmOpen(false);
-        router.push(`/focus/${body.session.id}?returnTo=%2Ftoday`);
+        router.push(`/focus?returnTo=%2Ftoday`);
         return;
       }
       setError("未返回 session，当前选择仍保留；请显式重试。");
@@ -101,7 +118,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
     try {
       const response = await fetch("/api/tasks", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
         body: JSON.stringify({
           idempotencyKey: getOrCreateIdempotencyKey(commandScope, "task-create", payload),
           ...payload,
@@ -119,8 +136,13 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       }
       const startResponse = await fetch("/api/study-sessions/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId: body.task.id, goalMinutes: 25, startSource: "TASK" }),
+        headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+        body: JSON.stringify({
+          idempotencyKey: getOrCreateIdempotencyKey(`${commandScope}:start`, "study-session-start", { taskId: body.task.id, goalMinutes: null, startSource: "TASK" }),
+          taskId: body.task.id,
+          goalMinutes: null,
+          startSource: "TASK",
+        }),
       });
       const startBody = await startResponse.json().catch(() => null) as {
         session?: { id?: string };
@@ -139,7 +161,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
       }
       completeIdempotentCommand(commandScope);
       startTransition(() => router.refresh());
-      router.push(`/focus/${sessionId}?returnTo=%2Ftoday`);
+      router.push(`/focus?returnTo=%2Ftoday`);
     } catch {
       setError("网络不可用，未创建最小任务；恢复网络后请显式重试。");
     } finally {
@@ -172,152 +194,176 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
 
   if (today.setupRequired) {
     return (
-      <section className="space-y-4">
-        <h1 className="text-xl font-semibold text-white">今日</h1>
-        <div className="rounded-md border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+      <PageFrame variant="content-focus">
+        <PageHeader title="今日" eyebrow="行动中心" description="先设置考试目标，AreaForge 才能生成真实的学习行动。" />
+        <Alert tone="warning">
           尚未设置考试工作区。不展示伪造统计。
-        </div>
+        </Alert>
         <Link
-          href="/settings/workspace?setup=1"
-          className="inline-flex h-11 items-center rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black hover:bg-teal-400"
+          href="/settings/exams?setup=1"
+          className={buttonClassName({ variant: "primary", size: "lg", className: "w-fit" })}
         >
           设置考试目标
         </Link>
-      </section>
+      </PageFrame>
     );
   }
 
+  const queueTabs = [
+    { key: "tasks" as const, label: "任务", items: today.queues.formalTasks, actionLabel: "查看任务" },
+    { key: "reviews" as const, label: "复习", items: today.queues.noteResourceSyllabusReviews, actionLabel: "开始复习" },
+    { key: "mistakes" as const, label: "错题", items: today.queues.mistakeReviews, actionLabel: "开始复习" },
+  ].map((queue) => ({
+    ...queue,
+    items: queue.items.filter((item) => !isSameActionTarget(item.href, today.primaryActionHref)),
+  }));
+  const activeQueue = queueTabs.find((queue) => queue.key === mobileQueue) ?? queueTabs[0]!;
+
   return (
-    <section className="space-y-6">
-      <header className="border-b border-white/10 pb-4">
-        <h1 className="text-xl font-semibold text-white">今日</h1>
-        <p className="mt-1 text-sm text-zinc-500">{today.workspace?.name}</p>
-      </header>
+    <PageFrame variant="dashboard-wide">
+      <PageHeader
+        title={today.isToday ? "今日" : today.studyDate}
+        eyebrow="行动中心"
+        description={today.workspace?.name}
+        action={(
+          <form action="/today" method="get" className="flex flex-wrap items-center gap-2" aria-label="选择学习日期">
+            <label htmlFor="today-date" className="sr-only">学习日期</label>
+            <span className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 text-xs text-zinc-400">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+              <input id="today-date" name="date" type="date" defaultValue={today.studyDate} className="bg-transparent text-sm text-zinc-100 outline-none" />
+            </span>
+            <button type="submit" className={buttonClassName({ variant: "secondary", size: "sm" })}>查看日期</button>
+          </form>
+        )}
+      />
 
       {today.statusBar ? (
-        <div className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200">
+        <Alert tone={today.statusBar === "recovery_minimum" ? "warning" : "info"}>
           {today.statusBar === "paused_activity"
             ? "活动已暂停，可继续当前行动。"
             : today.statusBar === "recovery_minimum"
               ? "恢复模式：先完成一个最小行动。"
               : "晚间提醒：最低行动或复盘尚未闭环。"}
-        </div>
+        </Alert>
       ) : null}
 
-      <div className="rounded-lg border border-white/10 bg-[#101419] p-4">
-        <p className="text-xs uppercase tracking-wide text-zinc-500">当前推荐</p>
-        {today.recommendation ? (
-          <>
-            <h2 className="mt-2 text-xl font-medium text-white">{today.recommendation.title}</h2>
-            <p className="mt-1 text-sm text-zinc-400">{today.recommendation.reason}</p>
-            {today.recommendation.softDependencyHint ? (
-              <p className="mt-1 text-sm text-amber-200">{today.recommendation.softDependencyHint}</p>
-            ) : null}
-          </>
-        ) : (
-          <p className="mt-2 text-sm text-zinc-400">暂无推荐。可以创建今天最小任务。</p>
-        )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href={withTodayReviewReturnTo(today.primaryActionHref)}
-            className="inline-flex h-11 items-center rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black hover:bg-teal-400"
-          >
-            {today.primaryActionLabel}
-          </Link>
-          {today.queuesEmpty ? (
-            <button
-              type="button"
-              disabled={creatingMinimumTask}
-              className="h-11 rounded-md border border-white/10 px-4 text-sm text-zinc-200 hover:bg-white/5"
-              onClick={() => void createMinimumTask()}
-            >
-              {creatingMinimumTask ? "创建中..." : "创建今天最小任务"}
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-medium text-white">科目快捷计时</h2>
-        <div className="divide-y divide-white/10 border-y border-white/10">
-          {today.subjectTimers.subjects.map((subject) => (
-            <div key={subject.subjectId} className="py-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-medium text-white">{subject.title}</p>
-                  {subject.groupTitle ? <p className="text-xs text-zinc-500">{subject.groupTitle}</p> : null}
-                  <p className="mt-2 text-xs text-zinc-400">
-                    今日 {subject.todayEffectiveMinutes} 分 · 近 7 日 {subject.last7EffectiveMinutes} 分
-                  </p>
-                  {subject.contextSummary ? <p className="mt-1 text-xs text-zinc-500">{subject.contextSummary}</p> : null}
-                </div>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+        <div className="min-w-0 space-y-6">
+          <div className="rounded-lg border border-white/10 bg-[var(--af-surface)] p-5 sm:p-6">
+            <p className="text-xs font-medium text-teal-300">当前推荐</p>
+            {today.recommendation ? (
+              <>
+                <h2 className="mt-2 text-xl font-medium text-white">{today.recommendation.title}</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{today.recommendation.reason}</p>
+                {today.recommendation.softDependencyHint ? (
+                  <p className="mt-2 text-sm text-amber-200">{today.recommendation.softDependencyHint}</p>
+                ) : null}
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-zinc-400">暂无推荐。可以创建今天最小任务。</p>
+            )}
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link
+                href={withTodayReturnTo(today.primaryActionHref)}
+                className={buttonClassName({ variant: "primary", size: "lg" })}
+              >
+                {today.primaryActionLabel}
+              </Link>
+              {today.queuesEmpty ? (
                 <button
                   type="button"
-                  disabled={!subject.canStart}
-                  className="rounded-md border border-teal-400/40 px-3 py-1.5 text-xs text-teal-200 disabled:opacity-40"
-                  onClick={() => {
-                    setSubjectId(subject.subjectId);
-                    setConfirmOpen(true);
-                  }}
+                  disabled={creatingMinimumTask}
+                  className={buttonClassName({ variant: "secondary", size: "lg" })}
+                  onClick={() => void createMinimumTask()}
                 >
-                  开始
+                  {creatingMinimumTask ? "创建并启动中..." : "直接开始 25 分钟"}
                 </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-medium text-white">后续队列</h2>
+              <div className="flex rounded-md border border-white/10 p-1" role="tablist" aria-label="待办类型">
+                {queueTabs.map((queue) => (
+                  <button
+                    key={queue.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={mobileQueue === queue.key}
+                    className={`h-8 rounded px-3 text-xs ${mobileQueue === queue.key ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-200"}`}
+                    onClick={() => setMobileQueue(queue.key)}
+                  >
+                    {queue.label} {queue.items.length}
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
+            <QueueList items={activeQueue.items} actionLabel={activeQueue.actionLabel} />
+          </div>
         </div>
-        {today.subjectTimers.groups.length > 0 ? (
-          <div className="divide-y divide-white/10 border-b border-white/10">
-            {today.subjectTimers.groups.map((group) => (
-              <div key={group.groupId} className="py-2 text-xs text-zinc-500">
-                {group.title}合计 · 今日 {group.todayEffectiveMinutes} 分
+
+        <div className="space-y-5 border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+        <section aria-labelledby="today-summary-heading">
+          <SectionHeader title={today.isToday ? "今日学习闭环" : `${today.studyDate} 学习闭环`} description="先看实际投入和有效产出，再看计划状态。" />
+          <dl className="mt-3 grid grid-cols-2 divide-x divide-y divide-white/10 border-y border-white/10 py-3 sm:grid-cols-4 sm:divide-y-0">
+            <TodayMetric label="实际投入" value={`${today.learningLoop.totalMinutes} 分`} />
+            <TodayMetric label="有效学习" value={`${today.learningLoop.effectiveMinutes} 分`} />
+            <TodayMetric label="有效段数" value={`${today.learningLoop.effectiveSessionCount} 段`} />
+            <TodayMetric label="低效补充" value={`${today.learningLoop.lowConversionCount} 次`} />
+          </dl>
+          <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-3">
+            <p>计划 {today.learningLoop.plannedTaskCount} 项 · 已完成 {today.learningLoop.completedTaskCount} 项</p>
+            <p>搁置/跳过 {today.learningLoop.deferredTaskCount} 项 · 复盘 {today.learningLoop.reviewSubmitted ? "已收口" : "未收口"}</p>
+            <p className="sm:text-right">下一动作：{today.learningLoop.nextAction ?? "本日尚未留下下一动作"}</p>
+          </div>
+        </section>
+        <details className="border-y border-white/10 py-3">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm text-zinc-200">
+            <span className="inline-flex items-center gap-2">
+              <TimerReset className="h-4 w-4 text-zinc-400" aria-hidden="true" />
+              临时专注
+            </span>
+            <span className="text-xs text-zinc-500">不建任务时使用</span>
+          </summary>
+          <div className="mt-3 divide-y divide-white/10 border-t border-white/10">
+            {today.subjectTimers.subjects.map((subject) => (
+              <div key={subject.subjectId} className="py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-white">{subject.title}</p>
+                    {subject.groupTitle ? <p className="text-xs text-zinc-500">{subject.groupTitle}</p> : null}
+                    <p className="mt-2 text-xs text-zinc-400">
+                      {today.studyDate} {subject.todayEffectiveMinutes} 分 · 近 7 日 {subject.last7EffectiveMinutes} 分
+                    </p>
+                    {subject.contextSummary ? <p className="mt-1 text-xs text-zinc-500">{subject.contextSummary}</p> : null}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!subject.canStart}
+                    className="rounded-md border border-teal-400/40 px-3 py-1.5 text-xs text-teal-200 disabled:opacity-40"
+                    onClick={() => {
+                      setSubjectId(subject.subjectId);
+                      setConfirmOpen(true);
+                    }}
+                  >
+                    开始
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-        ) : null}
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-medium text-white">待办队列</h2>
-          <div className="flex gap-1 md:hidden">
-            {(
-              [
-                ["tasks", "任务"],
-                ["reviews", "复习"],
-                ["mistakes", "错题"],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={`rounded-md px-2 py-1 text-xs ${mobileQueue === key ? "bg-white/10 text-white" : "text-zinc-500"}`}
-                onClick={() => setMobileQueue(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          <QueueCard
-            title="正式任务"
-            hidden={false}
-            mobileHidden={mobileQueue !== "tasks"}
-            items={today.queues.formalTasks}
-          />
-          <QueueCard
-            title="笔记/资料/考纲"
-            hidden={false}
-            mobileHidden={mobileQueue !== "reviews"}
-            items={today.queues.noteResourceSyllabusReviews}
-          />
-          <QueueCard
-            title="错题复习"
-            hidden={false}
-            mobileHidden={mobileQueue !== "mistakes"}
-            items={today.queues.mistakeReviews}
-          />
+          {today.subjectTimers.groups.length > 0 ? (
+            <div className="divide-y divide-white/10 border-t border-white/10">
+              {today.subjectTimers.groups.map((group) => (
+                <div key={group.groupId} className="py-2 text-xs text-zinc-500">
+                  {group.title}合计 · {today.studyDate} {group.todayEffectiveMinutes} 分
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </details>
         </div>
       </div>
 
@@ -340,7 +386,7 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
               </button>
             </div>
           ) : null}
-          <Link href="/today/plan" className="mt-2 inline-flex text-teal-300 hover:underline">
+          <Link href="/roadmap/allocation" className="mt-2 inline-flex text-teal-300 hover:underline">
             打开计划
           </Link>
         </details>
@@ -423,13 +469,29 @@ export function ActionCenterToday({ initial }: { initial: ActionCenterTodayDto }
           </button>
         </div>
       </Modal>
-    </section>
+    </PageFrame>
   );
 }
 
-function withTodayReviewReturnTo(href: string): string {
-  if (!href.startsWith("/quick-review/")) return href;
-  return `${href}?returnTo=${encodeURIComponent("/today")}`;
+function withTodayReturnTo(href: string): string {
+  if (
+    !href.startsWith("/knowledge/reviews/")
+    && href !== "/focus"
+    && !href.startsWith("/roadmap/allocation/tasks/")
+  ) return href;
+  const separator = href.includes("?") ? "&" : "?";
+  return `${href}${separator}returnTo=${encodeURIComponent("/today")}`;
+}
+
+function isSameActionTarget(left: string, right: string): boolean {
+  return left.split("?", 1)[0] === right.split("?", 1)[0];
+}
+
+function hasRemainingAction(
+  items: Array<{ href: string }>,
+  primaryActionHref: string,
+): boolean {
+  return items.some((item) => !isSameActionTarget(item.href, primaryActionHref));
 }
 
 function flattenShortcutNodes(
@@ -442,31 +504,37 @@ function flattenShortcutNodes(
   ]);
 }
 
-function QueueCard(props: {
-  title: string;
+function QueueList(props: {
   items: Array<{ id: string; title: string; reason: string; href: string; softDependencyHint: string | null }>;
-  hidden: boolean;
-  mobileHidden: boolean;
+  actionLabel: string;
 }) {
   return (
-    <div className={`rounded-md border border-white/10 bg-[#101419] p-3 ${props.mobileHidden ? "hidden md:block" : ""} ${props.hidden ? "hidden" : ""}`}>
-      <h3 className="text-sm font-medium text-zinc-200">{props.title}</h3>
-      {props.items.length === 0 ? (
-        <p className="mt-2 text-xs text-zinc-500">空</p>
-      ) : (
-        <ul className="mt-2 space-y-2">
-          {props.items.map((item) => (
-            <li key={item.id} className="rounded border border-white/5 p-2">
-              <p className="text-sm text-white">{item.title}</p>
-              <p className="text-xs text-zinc-500">{item.reason}</p>
-              {item.softDependencyHint ? <p className="text-xs text-amber-200">{item.softDependencyHint}</p> : null}
-              <Link href={withTodayReviewReturnTo(item.href)} className="mt-1 inline-flex text-xs text-teal-300 hover:underline">
-                开始
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+    props.items.length === 0 ? (
+      <div className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-500">当前推荐之外没有待办</div>
+    ) : (
+      <ul className="divide-y divide-white/10 border-y border-white/10">
+        {props.items.map((item) => (
+          <li key={item.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="break-words text-sm font-medium text-white">{item.title}</p>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">{item.reason}</p>
+              {item.softDependencyHint ? <p className="mt-1 text-xs text-amber-200">{item.softDependencyHint}</p> : null}
+            </div>
+            <Link href={withTodayReturnTo(item.href)} className={buttonClassName({ variant: "secondary", size: "sm" })}>
+              {props.actionLabel}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    )
+  );
+}
+
+function TodayMetric(props: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 px-3 first:pl-0 last:pr-0">
+      <dt className="text-xs text-zinc-500">{props.label}</dt>
+      <dd className="mt-1 break-words text-sm font-medium text-zinc-200">{props.value}</dd>
     </div>
   );
 }

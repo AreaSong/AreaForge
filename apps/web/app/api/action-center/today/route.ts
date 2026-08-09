@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const user = await requireApiUser(request);
-    return NextResponse.json({ today: await getActionCenterToday(user.id) });
+    return NextResponse.json({ today: await getActionCenterToday(user.id, request.nextUrl.searchParams.get("date"), { recordRecoveryRule: true }) });
   } catch (error) {
     return apiErrorResponse(error);
   }

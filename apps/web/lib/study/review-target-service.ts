@@ -2,9 +2,11 @@ import { parseSafeMarkdown, type SafeMarkdownNode } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { masteryStatusForSyllabusLevel, masteryStatusLabel, type SyllabusMasteryPersistenceLevel } from "./mastery-status";
 
 export interface ReviewTargetDto {
   id: string;
+  subjectId: string | null;
   type: "NOTE" | "MISTAKE" | "STUDY_RESOURCE" | "SYLLABUS_NODE";
   title: string;
   subtitle: string;
@@ -32,15 +34,16 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   if (schedule.targetType === "NOTE" && schedule.noteId) {
     const note = await prisma.note.findFirst({
       where: { id: schedule.noteId, subject: { workspaceId: workspace.id } },
-      include: { subject: { select: { name: true } } },
+      include: { subject: { select: { id: true, name: true } } },
     });
     if (!note) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     return {
       id: note.id,
+      subjectId: note.subjectId,
       type: "NOTE",
       title: note.title,
-      subtitle: `${note.subject.name} · ${note.kind}`,
-      canonicalHref: `/knowledge/notes/${note.id}`,
+      subtitle: `${note.subject.name} · ${noteKindLabel(note.kind)}`,
+      canonicalHref: `/knowledge/cards/${note.id}`,
       body: parseSafeMarkdown(note.content),
       revealTitle: null,
       revealBody: [],
@@ -51,7 +54,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   if (schedule.targetType === "MISTAKE" && schedule.mistakeId) {
     const mistake = await prisma.mistake.findFirst({
       where: { id: schedule.mistakeId, subject: { workspaceId: workspace.id } },
-      include: { subject: { select: { name: true } } },
+      include: { subject: { select: { id: true, name: true } } },
     });
     if (!mistake) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     const revealText = [
@@ -60,6 +63,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
     ].join("");
     return {
       id: mistake.id,
+      subjectId: mistake.subjectId,
       type: "MISTAKE",
       title: mistake.title,
       subtitle: `${mistake.subject.name} · 错题复测`,
@@ -75,7 +79,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
     const resource = await prisma.studyResource.findFirst({
       where: { id: schedule.studyResourceId, workspaceId: workspace.id },
       include: {
-        subject: { select: { name: true } },
+        subject: { select: { id: true, name: true } },
         attachment: { select: { mimeType: true, originalName: true } },
         tags: { select: { tagDisplay: true } },
       },
@@ -87,9 +91,10 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
     const tags = resource.tags.length ? `\n\n标签：${resource.tags.map((tag) => tag.tagDisplay).join("、")}` : "";
     return {
       id: resource.id,
+      subjectId: resource.subjectId,
       type: "STUDY_RESOURCE",
       title: resource.title,
-      subtitle: `${resource.subject?.name ?? "未分科"} · ${resource.category}`,
+      subtitle: `${resource.subject?.name ?? "未分科"} · ${resourceCategoryLabel(resource.category)}`,
       canonicalHref: `/knowledge/resources/${resource.id}`,
       body: parseSafeMarkdown(`${source}${tags}`),
       revealTitle: null,
@@ -101,16 +106,17 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   if (schedule.targetType === "SYLLABUS_NODE" && schedule.syllabusNodeId) {
     const node = await prisma.syllabusNode.findFirst({
       where: { id: schedule.syllabusNodeId, subject: { workspaceId: workspace.id } },
-      include: { subject: { select: { name: true } } },
+      include: { subject: { select: { id: true, name: true } } },
     });
     if (!node) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     return {
       id: node.id,
+      subjectId: node.subjectId,
       type: "SYLLABUS_NODE",
       title: node.title,
-      subtitle: `${node.subject.name} · ${node.kind}`,
-      canonicalHref: `/knowledge/syllabus/${node.id}`,
-      body: parseSafeMarkdown(`当前状态：${node.status}\n\n掌握等级：${node.masteryLevel ?? "尚未记录"}`),
+      subtitle: `${node.subject.name} · ${syllabusKindLabel(node.kind)}`,
+      canonicalHref: `/knowledge/syllabi/${node.id}`,
+      body: parseSafeMarkdown(`当前状态：${syllabusStatusLabel(node.status)}\n\n掌握状态：${masteryStatusLabel(masteryStatusForSyllabusLevel(node.masteryLevel ? node.masteryLevel.toLowerCase() as SyllabusMasteryPersistenceLevel : null))}`),
       revealTitle: null,
       revealBody: [],
       canPass: true,
@@ -118,4 +124,20 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   }
 
   throw new ApiError("REVIEW_TARGET_INVALID", 409);
+}
+
+function noteKindLabel(value: string) {
+  return ({ GENERAL: "通用卡片", CONCEPT: "概念卡片", METHOD: "方法卡片", EXAMPLE: "例题卡片", JOURNAL: "学习记录", SUMMARY: "总结卡片" } as Record<string, string>)[value] ?? "知识卡片";
+}
+
+function resourceCategoryLabel(value: string) {
+  return ({ BOOK: "书籍", COURSE: "课程", ARTICLE: "文章", PAPER: "试卷", VIDEO: "视频", OTHER: "学习资料" } as Record<string, string>)[value] ?? "学习资料";
+}
+
+function syllabusKindLabel(value: string) {
+  return ({ SUBJECT: "科目", CHAPTER: "章节", TOPIC: "知识点", PROBLEM_TYPE: "题型专题", subject: "科目", chapter: "章节", topic: "知识点", problem_type: "题型专题" } as Record<string, string>)[value] ?? "考纲节点";
+}
+
+function syllabusStatusLabel(value: string) {
+  return ({ NOT_STARTED: "未开始", LEARNING: "学习中", COVERED: "已覆盖", NEEDS_REVIEW: "待复习", MASTERED: "已掌握", WEAK: "薄弱", DEFERRED: "延期", not_started: "未开始", learning: "学习中", covered: "已覆盖", needs_review: "待复习", mastered: "已掌握", weak: "薄弱", deferred: "延期" } as Record<string, string>)[value] ?? "未记录";
 }

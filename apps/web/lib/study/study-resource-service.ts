@@ -463,7 +463,7 @@ async function stageStudyResourceUploadItem(
     throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409, {
       latest: { workspaceId: workspace.id },
       conflictFields: ["workspaceId"],
-      workbench: "/settings/workspace",
+      workbench: "/settings/exams",
     });
   }
   const policy = createStudyResourceUploadPolicy();
@@ -1200,7 +1200,7 @@ async function assertResolutionWorkspace(
     throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409, {
       latest: { workspaceId: workspace.id },
       conflictFields: ["workspaceId"],
-      workbench: "/settings/workspace",
+      workbench: "/settings/exams",
     });
   }
   return workspace;
@@ -1258,7 +1258,7 @@ async function resolvePriorStudyResourceUpload(
     throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409, {
       latest: { workspaceId: prior.workspaceId },
       conflictFields: ["workspaceId"],
-      workbench: "/settings/workspace",
+      workbench: "/settings/exams",
     });
   }
   if (requestChanged) throwStudyResourceResolutionConflict(input.attachmentId, prior, latestResource, requestSnapshot);

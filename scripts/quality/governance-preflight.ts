@@ -285,6 +285,9 @@ function checkSecretScanGate(): void {
     "forbiddenOutputs: 匹配值、原始报告、SARIF 上传、PR 评论、secret 内容",
     "fd2cca12d7fb4aa945b1a9a5e39f5f4ce1021f7a:scripts/quality/update-production-state-lock.selftest.ts:generic-api-key:284",
     "03653fc4004181b4971103729a63717a43f7542b:scripts/quality/v11-compatibility-floor-manifest.ts:generic-api-key:17",
+    "4d01f92b37ad347b8af1e5126164fe6b16818ce6:apps/web/lib/study/ai-provider-credential-crypto.test.ts:generic-api-key:17",
+    "21e395a685ea809ba76c4c04b63a1b337ac3e3b8:apps/web/components/shared-study-toolbar.tsx:generic-api-key:14",
+    "af12bb8d1dd510ee9e8704d3b375348696622c52:scripts/quality/v11-compatibility-floor-manifest.ts:generic-api-key:40",
   ];
   const combined = `${packageJson}\n${script}\n${workflows}\n${admission}\n${ignores}`;
   const missing = requiredTerms.filter((term) => !combined.includes(term));
@@ -305,6 +308,9 @@ function checkSecretScanExceptions(): void {
     .filter((line) => line && !line.startsWith("#"));
   const expectedFingerprints = [
     "03653fc4004181b4971103729a63717a43f7542b:scripts/quality/v11-compatibility-floor-manifest.ts:generic-api-key:17",
+    "21e395a685ea809ba76c4c04b63a1b337ac3e3b8:apps/web/components/shared-study-toolbar.tsx:generic-api-key:14",
+    "4d01f92b37ad347b8af1e5126164fe6b16818ce6:apps/web/lib/study/ai-provider-credential-crypto.test.ts:generic-api-key:17",
+    "af12bb8d1dd510ee9e8704d3b375348696622c52:scripts/quality/v11-compatibility-floor-manifest.ts:generic-api-key:40",
     "fd2cca12d7fb4aa945b1a9a5e39f5f4ce1021f7a:scripts/quality/update-production-state-lock.selftest.ts:generic-api-key:284",
   ];
   const markers: string[] = [];
@@ -327,7 +333,7 @@ function checkSecretScanExceptions(): void {
     name: "secret scan exceptions",
     ok: fingerprintsOk && Boolean(markerOk),
     detail: fingerprintsOk && markerOk
-      ? "secret scan exceptions are limited to two reviewed historical fingerprints and one synthetic fixture line"
+      ? "secret scan exceptions are limited to five reviewed historical fingerprints and one synthetic fixture line"
       : `unexpected fingerprints=${ignoreLines.length}; inline markers=${markers.length}`,
   });
 }

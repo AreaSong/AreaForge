@@ -1,6 +1,6 @@
 "use client";
 
-import { Link2, Pencil, Play, RotateCcw, Trash2 } from "lucide-react";
+import { Link2, Pencil, Play, RotateCcw, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -8,11 +8,16 @@ import { DetailHeading } from "@/components/detail-heading";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { BackToListLink } from "@/components/list-return-context";
 import { TaskDetailEditor } from "@/components/task-detail-editor";
+import { ReviewBridgeTaskActions } from "@/components/review-bridge-task-actions";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
 import type { TaskDependencyDto } from "@/lib/study/task-dependency-service";
 import type { StudyTaskDetailDto, TaskDependencyCandidateDto } from "@/lib/study/task-detail-service";
-import type { SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import type { StagePlanDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
 
 export function TaskDetailClient(props: {
   detail: StudyTaskDetailDto;
@@ -20,11 +25,20 @@ export function TaskDetailClient(props: {
   subjects: SubjectDto[];
   syllabusNodes: SyllabusOptionNodeDto[];
   milestones: PlanMilestoneDto[];
+  stagePlans: StagePlanDto[];
+  knowledgePoints: KnowledgePointDto[];
   dependencyCandidates: TaskDependencyCandidateDto[];
+  embedded?: boolean;
+  closeHref?: string;
+  returnTo?: string;
 }) {
   const router = useRouter();
   const { withActivityBarrier } = useQuickReviewActivityGuard();
   const task = props.detail.task;
+  const sourceHref = props.embedded && props.closeHref
+    ? props.closeHref
+    : props.returnTo ?? "/roadmap/allocation";
+  const focusReturnTo = sourceHref;
   const terminal = task.status === "done" || task.status === "skipped";
   const editable = !props.detail.readOnly && !terminal && !props.detail.subjectArchived;
   const [editing, setEditing] = useState(false);
@@ -52,11 +66,13 @@ export function TaskDetailClient(props: {
     setPendingAction("start");
     setError(null);
     setNotice(null);
+    const payload = { taskId: task.id, subjectId: task.subjectId, startSource: "TASK" as const };
+    const commandScope = `task-start:${task.id}`;
     try {
       const response = await fetch("/api/study-sessions/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId: task.id, subjectId: task.subjectId, startSource: "TASK" }),
+        headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+        body: JSON.stringify({ idempotencyKey: getOrCreateIdempotencyKey(commandScope, "study-session-start", payload), ...payload }),
       });
       const body = (await response.json().catch(() => null)) as
         | { session?: { id: string }; error?: string; latest?: { id?: string } }
@@ -67,13 +83,17 @@ export function TaskDetailClient(props: {
       }
       if (!response.ok) {
         if (response.status === 409 && body?.latest?.id) {
-          router.push(`/focus/${body.latest.id}`);
+          completeIdempotentCommand(commandScope);
+          router.push(`/focus?returnTo=${encodeURIComponent(focusReturnTo)}`);
           return;
         }
         setError(startErrorLabel(body?.error));
         return;
       }
-      if (body?.session?.id) router.push(`/focus/${body.session.id}`);
+      if (body?.session?.id) {
+        completeIdempotentCommand(commandScope);
+        router.push(`/focus?returnTo=${encodeURIComponent(focusReturnTo)}`);
+      }
     } catch {
       setError("网络不可用，未确认是否已开始；请刷新活动状态后再操作。");
     } finally {
@@ -159,25 +179,57 @@ export function TaskDetailClient(props: {
   return (
     <section className="space-y-6 pb-4">
       <div className="space-y-3">
-        <BackToListLink fallbackHref="/today/plan" className="text-sm text-zinc-400 hover:text-zinc-200">
-          返回计划
-        </BackToListLink>
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        {props.embedded && props.closeHref ? (
+          <Link href={props.closeHref} className="inline-flex h-9 items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200">
+            <X className="h-4 w-4" aria-hidden="true" />
+            关闭详情
+          </Link>
+        ) : (
+          <BackToListLink fallbackHref={sourceHref} className="text-sm text-zinc-400 hover:text-zinc-200">
+            {taskSourceLabel(sourceHref)}
+          </BackToListLink>
+        )}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-2">
-            <DetailHeading className="break-words text-3xl font-semibold text-white">{task.title}</DetailHeading>
+            <DetailHeading level={props.embedded ? 2 : 1} className={`break-words font-semibold text-white ${props.embedded ? "text-2xl" : "text-3xl"}`}>{task.title}</DetailHeading>
             <p className="text-sm text-zinc-400">
               {task.subjectName} · {taskStatusLabel(task.status)} · 预计 {task.estimatedMinutes} 分钟 · 已投入 {task.actualMinutes} 分钟
             </p>
           </div>
-          {editable && !editing ? (
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil className="h-4 w-4" aria-hidden="true" />
-              编辑任务
-            </button>
+          {editable ? (
+            <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+              {task.status === "deferred" ? (
+                <button
+                  type="button"
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:opacity-50 sm:flex-none"
+                  disabled={pendingAction !== null}
+                  onClick={() => void recoverTask()}
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  恢复到今天
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:opacity-50 sm:flex-none"
+                  disabled={pendingAction !== null}
+                  onClick={() => void startTask()}
+                >
+                  <Play className="h-4 w-4" aria-hidden="true" />
+                  {task.status === "in_progress" ? "继续专注" : "开始专注"}
+                </button>
+              )}
+              {!editing ? (
+                <button
+                  type="button"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                  编辑
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
         {props.detail.readOnly || terminal || props.detail.subjectArchived ? (
@@ -197,12 +249,22 @@ export function TaskDetailClient(props: {
           subjects={props.subjects}
           syllabusNodes={props.syllabusNodes}
           milestones={props.milestones}
+          stagePlans={props.stagePlans}
+          knowledgePoints={props.knowledgePoints}
           onCancel={() => setEditing(false)}
           onSaved={() => {
             setEditing(false);
             setNotice("任务已保存");
             router.refresh();
           }}
+        />
+      ) : null}
+
+      {editable && props.detail.reviewSchedule ? (
+        <ReviewBridgeTaskActions
+          taskId={task.id}
+          estimatedMinutes={task.estimatedMinutes}
+          reviewSchedule={props.detail.reviewSchedule}
         />
       ) : null}
 
@@ -213,20 +275,23 @@ export function TaskDetailClient(props: {
             {task.syllabusNodeId ? (
               props.detail.readOnly
                 ? task.syllabusNodeTitle
-                : <Link className="text-teal-300 hover:underline" href={`/knowledge/syllabus/${task.syllabusNodeId}`}>{task.syllabusNodeTitle}</Link>
+                : <Link className="text-teal-300 hover:underline" href={withReturnTo(`/knowledge/syllabi/${task.syllabusNodeId}`, sourceHref)}>{task.syllabusNodeTitle}</Link>
             ) : "未关联"}
           </RelationItem>
           <RelationItem label="里程碑">{props.detail.planMilestone?.title ?? "未关联"}</RelationItem>
+          <RelationItem label="所属阶段">
+            {task.stagePlanNames.length > 0 ? task.stagePlanNames.join("、") : "未关联"}
+          </RelationItem>
           <RelationItem label="计划日期">{formatDate(task.plannedDate)}</RelationItem>
           <RelationItem label="优先级">{priorityLabel(task.priority)}</RelationItem>
           <RelationItem label="父任务">
-            {props.detail.parentTask ? <TaskLink task={props.detail.parentTask} /> : "无"}
+            {props.detail.parentTask ? <TaskLink task={props.detail.parentTask} returnTo={sourceHref} /> : "无"}
           </RelationItem>
           <RelationItem label="复习桥接">
             {props.detail.reviewSchedule ? (
               props.detail.readOnly
                 ? `${props.detail.reviewSchedule.status} · ${props.detail.reviewSchedule.dueDate ? formatDate(props.detail.reviewSchedule.dueDate) : "未排期"}`
-                : <Link className="text-teal-300 hover:underline" href={`/knowledge/reviews/${props.detail.reviewSchedule.id}`}>
+                : <Link className="text-teal-300 hover:underline" href={withReturnTo(`/knowledge/reviews/${props.detail.reviewSchedule.id}`, sourceHref)}>
                     {props.detail.reviewSchedule.status} · {props.detail.reviewSchedule.dueDate ? formatDate(props.detail.reviewSchedule.dueDate) : "未排期"}
                   </Link>
             ) : "无"}
@@ -240,9 +305,23 @@ export function TaskDetailClient(props: {
                 <li key={node.id}>
                   {props.detail.readOnly
                     ? <span className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300">{node.title}{node.archivedAt ? "（已归档）" : ""}</span>
-                    : <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={`/knowledge/syllabus/${node.id}`}>
+                    : <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={withReturnTo(`/knowledge/syllabi/${node.id}`, sourceHref)}>
                         {node.title}{node.archivedAt ? "（已归档）" : ""}
                       </Link>}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-zinc-400">未关联</p>}
+        </div>
+        <div className="space-y-2 text-sm">
+          <p className="text-zinc-500">关联知识点</p>
+          {props.detail.knowledgePoints.length ? (
+            <ul className="flex flex-wrap gap-2">
+              {props.detail.knowledgePoints.map((point) => (
+                <li key={point.id}>
+                  <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={withReturnTo(`/knowledge/points/${point.id}`, sourceHref)}>
+                    {point.title}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -251,7 +330,7 @@ export function TaskDetailClient(props: {
         {props.detail.childTasks.length ? (
           <div className="space-y-2 text-sm">
             <p className="text-zinc-500">拆分子任务</p>
-            <ul className="space-y-1">{props.detail.childTasks.map((child) => <li key={child.id}><TaskLink task={child} /></li>)}</ul>
+            <ul className="space-y-1">{props.detail.childTasks.map((child) => <li key={child.id}><TaskLink task={child} returnTo={sourceHref} /></li>)}</ul>
           </div>
         ) : null}
       </section>
@@ -265,6 +344,7 @@ export function TaskDetailClient(props: {
           label="前置任务"
           dependencies={incomingDependencies}
           taskId={task.id}
+          returnTo={sourceHref}
           editable={editable}
           pendingAction={pendingAction}
           onMutate={mutateDependency}
@@ -273,6 +353,7 @@ export function TaskDetailClient(props: {
           label="后继任务"
           dependencies={outgoingDependencies}
           taskId={task.id}
+          returnTo={sourceHref}
           editable={editable}
           pendingAction={pendingAction}
           onMutate={mutateDependency}
@@ -323,31 +404,6 @@ export function TaskDetailClient(props: {
       {error ? <p role="alert" className="text-sm text-red-200">{error}</p> : null}
       {notice ? <p role="status" className="text-sm text-teal-200">{notice}</p> : null}
 
-      {editable ? (
-        <div className="sticky bottom-0 z-10 -mx-2 border-t border-white/10 bg-[#0d1117]/95 px-2 py-3 backdrop-blur">
-          {task.status === "deferred" ? (
-            <button
-              type="button"
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:opacity-50 sm:w-auto"
-              disabled={pendingAction !== null}
-              onClick={() => void recoverTask()}
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              恢复到今天
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:opacity-50 sm:w-auto"
-              disabled={pendingAction !== null}
-              onClick={() => void startTask()}
-            >
-              <Play className="h-4 w-4" aria-hidden="true" />
-              开始或继续任务
-            </button>
-          )}
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -356,14 +412,15 @@ function RelationItem(props: { label: string; children: React.ReactNode }) {
   return <div><dt className="text-zinc-500">{props.label}</dt><dd className="mt-1 break-words text-zinc-300">{props.children}</dd></div>;
 }
 
-function TaskLink({ task }: { task: { id: string; title: string; status: string } }) {
-  return <Link className="text-teal-300 hover:underline" href={`/today/tasks/${task.id}`}>{task.title} · {taskStatusLabel(task.status)}</Link>;
+function TaskLink({ task, returnTo }: { task: { id: string; title: string; status: string }; returnTo: string }) {
+  return <Link className="text-teal-300 hover:underline" href={withReturnTo(`/roadmap/allocation/tasks/${task.id}`, returnTo)}>{task.title} · {taskStatusLabel(task.status)}</Link>;
 }
 
 function DependencyList(props: {
   label: string;
   dependencies: TaskDependencyDto[];
   taskId: string;
+  returnTo: string;
   editable: boolean;
   pendingAction: string | null;
   onMutate: (
@@ -386,7 +443,7 @@ function DependencyList(props: {
             const linkedStatus = incoming ? dependency.predecessorStatus : dependency.successorStatus;
             return (
               <li key={dependency.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
-                <Link className="min-w-0 break-words text-teal-300 hover:underline" href={`/today/tasks/${linkedId}`}>
+                <Link className="min-w-0 break-words text-teal-300 hover:underline" href={withReturnTo(`/roadmap/allocation/tasks/${linkedId}`, props.returnTo)}>
                   {linkedTitle ?? `任务 ${linkedId.slice(0, 8)}`} · {taskStatusLabel(linkedStatus ?? "unknown")}
                 </Link>
                 <div className="flex items-center gap-2">
@@ -437,6 +494,7 @@ function DependencyList(props: {
 }
 
 function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
+  const returnTo = `/roadmap/allocation/tasks/${detail.task.id}`;
   return (
     <section aria-labelledby="task-history-heading" className="space-y-4 border-t border-white/10 pt-5">
       <h2 id="task-history-heading" className="text-lg font-semibold text-white">行动历史</h2>
@@ -445,7 +503,7 @@ function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
           <li key={session.id} className="py-2 text-sm text-zinc-300">
             {detail.readOnly
               ? <span>{formatDateTime(session.startedAt)}</span>
-              : <Link className="text-teal-300 hover:underline" href={`/focus/${session.id}`}>{formatDateTime(session.startedAt)}</Link>}
+              : <Link className="text-teal-300 hover:underline" href={`/focus?returnTo=${encodeURIComponent(returnTo)}`}>{formatDateTime(session.startedAt)}</Link>}
             {` · ${session.status} · ${session.effectiveMinutes} 分钟`}
             {session.minimalOutput ? <p className="mt-1 break-words text-zinc-500">{session.minimalOutput}</p> : null}
           </li>
@@ -465,6 +523,16 @@ function TaskHistory({ detail }: { detail: StudyTaskDetailDto }) {
       </HistoryGroup>
     </section>
   );
+}
+
+function taskSourceLabel(sourceHref: string): string {
+  if (sourceHref === "/today") return "返回今日";
+  if (sourceHref.startsWith("/roadmap/allocation/drafts")) return "返回收件箱";
+  if (sourceHref.startsWith("/roadmap/stages")) return "返回阶段";
+  if (sourceHref.startsWith("/roadmap/allocation")) return "返回计划";
+  if (sourceHref.startsWith("/roadmap/reviews/daily/")) return "返回复盘";
+  if (sourceHref.startsWith("/knowledge/")) return "返回知识";
+  return "返回来源";
 }
 
 function HistoryGroup(props: { label: string; empty: boolean; children: React.ReactNode }) {

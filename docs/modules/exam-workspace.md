@@ -8,7 +8,7 @@
 
 - Schema：`ExamWorkspace` / `SubjectGroup`；`Subject.legacyCode` 可空；legacy 行 `workspaceId IS NULL`。
 - API：`/api/exam-workspaces/**`（创建、激活、接管 preview/apply、科目与分组读取/创建/编辑/相邻排序/归档/恢复）；所有修改使用 workspace revision，归档分组不能接收新科目。
-- UI：`/settings/workspace` 首次设置两步流（目标与科目 → 旧数据接管）；取消不创建 ACTIVE。已有工作区可直接管理科目和分组，关联到已归档分组的科目会标明历史状态，编辑时默认回落为不分组。
+- UI：`/settings/exams` 首次设置两步流（目标与科目 → 旧数据接管）；取消不创建 ACTIVE。已有工作区可直接管理科目和分组，关联到已归档分组的科目会标明历史状态，编辑时默认回落为不分组。
 - 当前产品默认导航已经按考试工作区组织；状态见 `docs/development/feature-traceability.md`。
 
 ## 规划行为

@@ -140,7 +140,7 @@ try {
       assert.equal(error.code, "STAGE_PLAN_BASE_REVISION_CONFLICT");
       assert.equal(error.status, 409);
       assert.deepEqual(error.details?.conflictFields, ["baseRevision", "plan.revision"]);
-      assert.equal(error.details?.workbench, "/stage/overview");
+      assert.equal(error.details?.workbench, "/roadmap/stages");
       const latest = error.details?.latest as { kind?: unknown; plan?: { id?: unknown; revision?: unknown } } | undefined;
       assert.equal(latest?.kind, "stage-plan");
       assert.equal(latest?.plan?.id, stagePlan.id);
@@ -170,6 +170,11 @@ try {
   const originalSensitiveContext = process.env.AI_ALLOW_SENSITIVE_CONTEXT;
   const originalAuthSessionSecret = process.env.AUTH_SESSION_SECRET;
   process.env.AI_ENABLED = "true";
+  await prisma.aiRuntimeSetting.upsert({
+    where: { id: "global" },
+    update: { enabled: true },
+    create: { id: "global", enabled: true },
+  });
   process.env.AI_ALLOW_SENSITIVE_CONTEXT = "false";
   process.env.AUTH_SESSION_SECRET = "v11-m8-isolated-auth-session-secret-20260729";
   let aiStageDraft: Awaited<ReturnType<typeof createAiStageAdjustmentDraft>>;
@@ -632,7 +637,7 @@ try {
       assert.ok(error instanceof ApiError);
       assert.equal(error.code, "PERIODIC_REPORT_REVISION_CONFLICT");
       assert.deepEqual(error.details?.conflictFields, ["revision"]);
-      assert.equal(error.details?.workbench, "/review/reports");
+      assert.equal(error.details?.workbench, "/roadmap/reviews");
       const latest = error.details?.latest as { kind?: unknown; report?: { id?: unknown; revision?: unknown }; decision?: unknown } | undefined;
       assert.equal(latest?.kind, "periodic-report-decision");
       assert.equal(latest?.report?.id, report.id);
@@ -720,7 +725,7 @@ try {
       assert.equal(error.code, "PERIODIC_REPORT_DECISION_CONFLICT");
       assert.equal(error.status, 409);
       assert.deepEqual(error.details?.conflictFields, ["decision.status"]);
-      assert.equal(error.details?.workbench, "/review/reports");
+      assert.equal(error.details?.workbench, "/roadmap/reviews");
       const latest = error.details?.latest as { kind?: unknown; report?: { id?: unknown }; decision?: { status?: unknown } } | undefined;
       assert.equal(latest?.kind, "periodic-report-decision");
       assert.equal(latest?.report?.id, monthlyReport.id);
@@ -748,7 +753,7 @@ try {
       assert.ok(error instanceof ApiError);
       assert.equal(error.code, "STAGE_ADJUSTMENT_DRAFT_REJECTED");
       assert.deepEqual(error.details?.conflictFields, ["draft.status"]);
-      assert.equal(error.details?.workbench, "/stage/overview");
+      assert.equal(error.details?.workbench, "/roadmap/stages");
       const latest = error.details?.latest as { kind?: unknown; draft?: { id?: unknown; status?: unknown }; stagePlan?: { id?: unknown } } | undefined;
       assert.equal(latest?.kind, "stage-adjustment-decision");
       assert.equal(latest?.draft?.id, rejectedStage.id);
@@ -788,7 +793,7 @@ try {
       assert.equal(error.code, "STAGE_ADJUSTMENT_DRAFT_SUPERSEDED");
       assert.equal(error.status, 409);
       assert.deepEqual(error.details?.conflictFields, ["draft.id", "draft.originVersion"]);
-      assert.equal(error.details?.workbench, "/stage/overview");
+      assert.equal(error.details?.workbench, "/roadmap/stages");
       const latest = error.details?.latest as { kind?: unknown; draft?: { id?: unknown }; stagePlan?: { id?: unknown } } | undefined;
       assert.equal(latest?.kind, "stage-adjustment-decision");
       assert.equal(latest?.draft?.id, stageDraft.id);

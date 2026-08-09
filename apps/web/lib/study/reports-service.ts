@@ -14,6 +14,7 @@ import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { aggregateActivityBreakdown, activityBucket, type ActivityBreakdown } from "./activity-metrics";
 import type { PlanInboxWriteSummaryDto, StageAdjustmentDraftRecordDto, StagePlanDto } from "./types";
 
 const shanghaiOffsetMs = 8 * 60 * 60 * 1000;
@@ -30,6 +31,7 @@ export interface PeriodicSubjectShareDto {
   share: number;
   debtCount: number;
   mistakeCount: number;
+  activity: ActivityBreakdown;
 }
 
 type PeriodicNextCycleDraftDto = ReturnType<typeof createPeriodicNextCycleDraft>;
@@ -78,6 +80,7 @@ export interface PeriodicReportDto {
     mistakeReviewUpdateCount: number;
     dueNoteCount: number;
     weakNodeCount: number;
+    activity: ActivityBreakdown;
   };
   subjectShares: PeriodicSubjectShareDto[];
   debtPreview: Array<{
@@ -185,6 +188,8 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
         effectiveMinutes: true,
         isEffective: true,
         isLowConversion: true,
+        activityKind: true,
+        activityMode: true,
       },
     }),
     prisma.studyTask.findMany({
@@ -317,6 +322,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
   const mistakesCreatedCount = mistakes.filter((mistake) => isWithin(mistake.createdAt, range.start, range.end)).length;
   const mistakeReviewUpdateCount = mistakes.filter((mistake) => isReviewUpdate(mistake, range.start, range.end)).length;
   const subjectShares = buildSubjectShares(subjects, sessions, debtTasks, mistakes);
+  const activity = aggregateActivityBreakdown(sessions);
   let weakness = choosePeriodicWeakness({
     subjectShares: subjectShares.map((subject) => ({
       subjectName: subject.subjectName,
@@ -392,6 +398,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     lowConversionCount,
     reviewCompletionRate,
     reviewCount: reviews.length,
+    activity,
     mistakesCreatedCount,
     mistakeReviewUpdateCount,
     dueNoteCount,
@@ -564,6 +571,8 @@ function buildPeriodicDailySnapshots(
     effectiveMinutes: number;
     isEffective: boolean | null;
     isLowConversion?: boolean | null;
+    activityKind?: string | null;
+    activityMode?: string | null;
   }>,
   tasks: Array<{
     plannedDate: Date;
@@ -588,7 +597,7 @@ function buildPeriodicDailySnapshots(
 
     return buildDailyCheckInSnapshot({
       studyDate: day.key,
-      sessions: daySessions.map((session) => ({
+      sessions: daySessions.filter((session) => activityBucket(session) === "study").map((session) => ({
         effectiveMinutes: session.effectiveMinutes,
         isEffective: session.isEffective,
         isLowConversion: session.isLowConversion,
@@ -610,6 +619,8 @@ function buildSubjectShares(
     effectiveMinutes: number;
     isEffective: boolean | null;
     isLowConversion?: boolean | null;
+    activityKind?: string | null;
+    activityMode?: string | null;
   }>,
   debtTasks: Array<{
     subjectId: string;
@@ -619,23 +630,26 @@ function buildSubjectShares(
     createdAt: Date;
   }>,
 ): PeriodicSubjectShareDto[] {
-  const totalMinutes = sessions.reduce((total, session) => total + session.effectiveMinutes, 0);
+  const studySessions = sessions.filter((session) => activityBucket(session) === "study");
+  const totalMinutes = studySessions.reduce((total, session) => total + session.effectiveMinutes, 0);
 
   return subjects.map((subject) => {
     const subjectSessions = sessions.filter((session) => session.subjectId === subject.id);
-    const subjectTotal = subjectSessions.reduce((total, session) => total + session.effectiveMinutes, 0);
+    const subjectStudySessions = subjectSessions.filter((session) => activityBucket(session) === "study");
+    const subjectTotal = subjectStudySessions.reduce((total, session) => total + session.effectiveMinutes, 0);
 
     return {
       subjectId: subject.id,
       subjectName: subject.name,
       subjectColor: subject.color,
       totalMinutes: subjectTotal,
-      effectiveMinutes: subjectSessions
+      effectiveMinutes: subjectStudySessions
         .filter((session) => session.isEffective)
         .reduce((total, session) => total + session.effectiveMinutes, 0),
       share: totalMinutes === 0 ? 0 : Math.round((subjectTotal / totalMinutes) * 100),
       debtCount: debtTasks.filter((task) => task.subjectId === subject.id).length,
       mistakeCount: mistakes.filter((mistake) => mistake.subjectId === subject.id).length,
+      activity: aggregateActivityBreakdown(subjectSessions),
     };
   });
 }

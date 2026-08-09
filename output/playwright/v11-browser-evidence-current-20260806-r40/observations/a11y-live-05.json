@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-05T22:39:00.961Z",
+  "checkId": "LIVE-05",
+  "checkKey": "canvas-layout-polite",
+  "route": "/knowledge/canvas",
+  "target": "canvas-layout-status",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "dom",
+  "assertions": [
+    {
+      "id": "layout-announcement-present",
+      "predicate": "gte",
+      "expected": 1,
+      "actual": 21,
+      "passed": true
+    },
+    {
+      "id": "layout-announcement-polite",
+      "predicate": "equals",
+      "expected": "polite",
+      "actual": "polite",
+      "passed": true
+    }
+  ]
+}

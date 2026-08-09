@@ -156,3 +156,5 @@ mainAgentMustReview:
 - 跑了哪些验证。
 - 哪些没有验证。
 - 还有哪些风险或后续任务。
+- 本地 Docker 可用时运行 `pnpm dev:test:latest -- --json` 并说明本次是否更新本地测试池；若执行过成功的 `refresh` 或 `snapshot`，必须逐项报告 latest 的槽位、端口和访问地址。若未更新，不得把既有 latest 写成本次优化结果，也不得让维护者依次尝试三个端口；Docker 不可用时明确 latest 未核验。
+- 浏览器验收沿用同一个 latest URL；禁止按对话、页面或截图启动新的长期 Web 容器。一次性 `areaforge-v11browser-runtime-*` 只允许在验收期间存在，结束后必须删除并在收尾报告中说明清理结果。

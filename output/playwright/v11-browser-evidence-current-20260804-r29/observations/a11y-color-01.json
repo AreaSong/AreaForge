@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-03T20:26:37.533Z",
+  "checkId": "COLOR-01",
+  "checkKey": "status-not-color-only",
+  "route": "/today",
+  "target": "global-status-indicators",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "dom",
+  "assertions": [
+    {
+      "id": "five-status-indicators",
+      "predicate": "equals",
+      "expected": 5,
+      "actual": 5,
+      "passed": true
+    },
+    {
+      "id": "all-statuses-have-text",
+      "predicate": "equals",
+      "expected": 5,
+      "actual": 5,
+      "passed": true
+    },
+    {
+      "id": "all-statuses-have-accessible-name",
+      "predicate": "equals",
+      "expected": 5,
+      "actual": 5,
+      "passed": true
+    },
+    {
+      "id": "computed-colors-observed",
+      "predicate": "gte",
+      "expected": 1,
+      "actual": 2,
+      "passed": true
+    }
+  ]
+}

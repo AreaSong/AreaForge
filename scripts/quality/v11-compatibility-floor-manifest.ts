@@ -37,6 +37,17 @@ const currentEntries = [
   ["20260722160000_v11_versioned_stage_simulation", "cecc92bc1199ac4b17455ad4d4d84e04c7be60c6093214bbbe843da9fc45e05e"],
   ["20260722170000_v11_learning_tree_export_grants", "ad52c20c685babb0be18ce92994295d0791fd9fcc203b4e75dfad214a5e5d7dd"],
   ["20260723100000_v11_report_stage_lineage", "c70fccb3699751ce32169efe4876d8330a500fe6c12f82256d3f8ff61c209190"],
+  ["20260802120000_ai_provider_credentials", "0253dd9556a34f7509db223713ac16dfb093c48771d7f0202d05be756c661986"],
+  ["20260802140000_ai_runtime_setting", "866ae03b000bcfd93ad4fc39ea56271344568a67192a3021dfe9d9ae57d2c489"],
+  ["20260802162211_v2_knowledge_center_foundation", "a72cb2789c317b45b3f6219d6ed8c04be198336022008c523b471c392b6834d8"],
+  ["20260803090000_study_session_closing", "95b763f406feb7d04ffcfc121c8f77d2e901aaec2948b050cd1625a4ce885315"],
+  ["20260803093000_study_session_device_presence", "0ecab6334a98e1594fd174f610f6966991c43ec0aa99bab608bcdd8c415da9e1"],
+  ["20260803100000_retest_requires_explicit_results", "2c8aecb3ab10fdc8dde3136a88755999f4a01698d99585b31c982a300d6def8f"],
+  ["20260803103000_task_stage_links", "981df8e8aacbf0646fa9ae8a165b518537635d5146fa7662f129a1439a55270d"],
+  ["20260803104500_ai_confirmation_rejection", "9dcb2e15dce0a380033cfc60a1947c72e8910ac83c33155ef12ed4a42539a1c7"],
+  ["20260803110000_reconcile_device_presence_table", "aa0f9275fa0fc3023b1c9ae7e63c7953dd211cbf69266e692afef06435e31143"],
+  ["20260803120000_task_knowledge_point_links", "9b4ba41c9b9d9f0505657c796cffb1bef15a28ca372cb4a11ead2c04ddf3b646"],
+  ["20260805090000_unified_activity_sessions", "63b4c39b5a942b2632659ff0a9dee3ed1526759684bbd38bab3bd621daf1ac75"],
 ] as const;
 
 export const currentMigrationManifest: readonly MigrationManifestEntry[] = currentEntries.map(([name, sha256]) => ({ name, sha256 }));
@@ -46,13 +57,13 @@ export const floorMigrationManifest = currentMigrationManifest.slice(0, 15);
 const expectedManifestDigests = {
   legacy: "90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368",
   floor: "e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d",
-  current: "f5d083da94fc883b5a2428cdb5d565b7a3df20745f3b197d7d777625fd966419",
+  current: "deb4e1ae466ad84e5821a81541721b45f218c369ffe6d052af083d7f9e884875",
 } as const;
 
 export function assertEmbeddedMigrationManifests(): void {
   assert.equal(legacyMigrationManifest.length, 12);
   assert.equal(floorMigrationManifest.length, 15);
-  assert.equal(currentMigrationManifest.length, 24);
+  assert.equal(currentMigrationManifest.length, 35);
   assert.equal(migrationManifestDigest(legacyMigrationManifest), expectedManifestDigests.legacy);
   assert.equal(migrationManifestDigest(floorMigrationManifest), expectedManifestDigests.floor);
   assert.equal(migrationManifestDigest(currentMigrationManifest), expectedManifestDigests.current);

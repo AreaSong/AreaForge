@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-03T12:33:29.980Z",
+  "checkId": "KBD-01",
+  "checkKey": "login-tab-enter",
+  "route": "/login",
+  "target": "login-form",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "keyboard",
+  "assertions": [
+    {
+      "id": "email-reached-by-tab",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "password-reached-by-tab",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "enter-submitted-login",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "keyboard-login-terminal-route",
+      "predicate": "equals",
+      "expected": "/focus",
+      "actual": "/focus",
+      "passed": true
+    }
+  ]
+}

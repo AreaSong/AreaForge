@@ -1,0 +1,1697 @@
+{
+  "schemaVersion": "v11-accessibility-evidence-v1",
+  "generatedAt": "2026-08-03T12:33:41.624Z",
+  "environment": {
+    "kind": "local-production-mode",
+    "baseUrl": "http://127.0.0.1:3112",
+    "browserName": "chrome",
+    "browserVersion": "150.0.7871.187",
+    "playwrightVersion": "1.62.0"
+  },
+  "runtimeIdentityEvidence": {
+    "request": {
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200
+    },
+    "runtimeIdentity": {
+      "schemaVersion": 1,
+      "status": "verified",
+      "appVersion": "1.1.1",
+      "gitCommit": "d90d3596e36ebc7bf347d4b4c8b9a08530587482",
+      "sourceFingerprintSchema": "ux-source-v2",
+      "productExperienceSourceHash": "sha256:36efb4caf03fc57e4035343031271e0977f19d632f2fd076f55419607beb7c93",
+      "buildId": "sha256:13b85f3f841254893811ab394ed5b5787ec3c587f94f2e2c5a89fb83805f6e92",
+      "runtimeMode": "production-build",
+      "identityHash": "sha256:4e1167a4b679790884f2b9ea3b61db443352bf65df47970b11b7a070b98cb1a1",
+      "observedAt": "2026-08-03T12:33:41.614Z",
+      "reasonCode": "NONE"
+    },
+    "responseSha256": "sha256:b393b039a6ad1fe428235d97a97e66a0086999c43ca8299275a6e5083247dafc"
+  },
+  "fixtureEvidence": {
+    "schemaVersion": "v11-browser-fixture-manifest-v1",
+    "fixtureSetId": "v11-msd7mcz1-0fc61a87356b",
+    "generatedAt": "2026-08-03T12:32:56.365Z",
+    "contentClassification": "synthetic-only",
+    "isolation": "one-user-per-viewport-journey",
+    "journeyAccountCount": 18,
+    "accessibilityAccountCount": 1,
+    "accounts": [
+      {
+        "accountRef": "sha256:7ace56a87d9a5c5a2a0aabb7848f0ac498285c8963582ea697ee272f4b18dca7",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "login"
+      },
+      {
+        "accountRef": "sha256:db152bce10d32bc4a07e22cdbf5a27f119e89b5c0260532c67476f170f17d7f3",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "dashboard"
+      },
+      {
+        "accountRef": "sha256:b5ceca294baddbdd106154adc57b6e15143b4a6d2e68baced1adeea79226d208",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "timer-closeout"
+      },
+      {
+        "accountRef": "sha256:d393c487d5ed71e49a8077eac56e7712f09763727ea61dea37641d1428d86cad",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "review"
+      },
+      {
+        "accountRef": "sha256:261fb6b77d282f4109d72731e5992e58f6f26348cdb089ae5cedf32bc29653cf",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "notes"
+      },
+      {
+        "accountRef": "sha256:7f7a180a0b43ebe84e9b62533e3e9280fb80403ef03ec7a94a8eafbe7c86b29f",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "syllabus"
+      },
+      {
+        "accountRef": "sha256:b516ff0b8086e1824ceee47049190d7b4cd07706003dcef28ae65ba18b01f2b4",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "reports"
+      },
+      {
+        "accountRef": "sha256:e9d90bde37f46b529fb39c0c2467b19b74b939de731844f5963b573a78f581ff",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "simulation"
+      },
+      {
+        "accountRef": "sha256:043151e8d23489be8839b6b19e5d3fb988f8e7553e1a6c91c38084307c49eb7a",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "update-center"
+      },
+      {
+        "accountRef": "sha256:5479bef6acf7d00f323a86b60c88af134db5c459aefb63b012ed30535fe12b20",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "login"
+      },
+      {
+        "accountRef": "sha256:28d185df9ce47cec7802c055e46fb71fcc9ced87b95147aaa5b66379eada20f8",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "dashboard"
+      },
+      {
+        "accountRef": "sha256:3f90ea3db9c047a6d1f4d08c288a5a3b4c751b9a9e513a672ad9264bf07afcae",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "timer-closeout"
+      },
+      {
+        "accountRef": "sha256:fc7a66dfd49a6e0df139b047c81fd87d9fa636ca4a8410d56d2b43103cd6f921",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "review"
+      },
+      {
+        "accountRef": "sha256:45da8c725b48a3e12003228d0a5108fda8367fefcba0004c6d2dedeb1afc8576",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "notes"
+      },
+      {
+        "accountRef": "sha256:59a67738bdad8b8ce415d3a152ff446d7df6ce26a6cae6fcea0bc6f3fb047748",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "syllabus"
+      },
+      {
+        "accountRef": "sha256:b3e96a8aecd4791b2cd00714e62499f623376a943017045d327e8d1686efaf87",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "reports"
+      },
+      {
+        "accountRef": "sha256:ac45c92f1b7f2edfab38bdcc5d1b0aebebb0d01476d9ed5f8865d58d38af8c30",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "simulation"
+      },
+      {
+        "accountRef": "sha256:3a07f681c915bfab707dfd6b45dc443f3dec63ddba37c58c3438b21450da8537",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "update-center"
+      },
+      {
+        "accountRef": "sha256:ea941fe5a1e04d99969ca6a0c6ee1314aedf37309e179263be5b3047f63f3f4b",
+        "purpose": "accessibility",
+        "viewport": "suite",
+        "journeyId": null
+      }
+    ],
+    "manifestSha256": "sha256:dfaacc88b6a7252c43983e8aa3d053b2ace2866d1b47edc40083a27e9f11cf75"
+  },
+  "summary": {
+    "total": 24,
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0,
+    "categories": [
+      {
+        "category": "keyboard",
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "category": "focus",
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "category": "semantics",
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "category": "live",
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "category": "color",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "category": "zoom",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "category": "canvas",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "KBD-01",
+      "category": "keyboard",
+      "route": "/login",
+      "mechanism": "keyboard",
+      "assertions": [
+        {
+          "id": "email-reached-by-tab",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "password-reached-by-tab",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "enter-submitted-login",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "keyboard-login-terminal-route",
+          "predicate": "equals",
+          "expected": "/focus",
+          "actual": "/focus",
+          "passed": true
+        }
+      ],
+      "checkKey": "login-tab-enter",
+      "target": "login-form",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "keyboard-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-kbd-01.json",
+        "sha256": "sha256:8a175d828b85b37dbe7b23dc6bf9e0bc8d378ff3f8ee81d7ded54760fdf78e56",
+        "observationCount": 4
+      },
+      "result": "pass"
+    },
+    {
+      "id": "KBD-02",
+      "category": "keyboard",
+      "route": "/today",
+      "mechanism": "keyboard",
+      "assertions": [
+        {
+          "id": "quick-create-trigger-focused",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "quick-create-opened-by-enter",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "quick-create-exposes-five-actions",
+          "predicate": "equals",
+          "expected": 5,
+          "actual": 5,
+          "passed": true
+        },
+        {
+          "id": "quick-create-escape-returned-focus",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "nav-link-focused",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "enter-activated-navigation",
+          "predicate": "equals",
+          "expected": "/knowledge/overview",
+          "actual": "/knowledge/overview",
+          "passed": true
+        }
+      ],
+      "checkKey": "main-navigation-enter",
+      "target": "main-navigation",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "keyboard-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-kbd-02.json",
+        "sha256": "sha256:67f53f6b065c1887a13237162b9806771bbabf7f6184e7837451da4debbc789d",
+        "observationCount": 6
+      },
+      "result": "pass"
+    },
+    {
+      "id": "KBD-03",
+      "category": "keyboard",
+      "route": "/today",
+      "mechanism": "keyboard",
+      "assertions": [
+        {
+          "id": "trigger-focused",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "enter-opened-modal",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "modal-open-keyboard",
+      "target": "subject-shortcut-modal",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "keyboard-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-kbd-03.json",
+        "sha256": "sha256:b5e1302f9401e7350ec66cc66b9f97ec4aa3b7dbe0140989c64c91f6a757aca1",
+        "observationCount": 2
+      },
+      "result": "pass"
+    },
+    {
+      "id": "KBD-04",
+      "category": "keyboard",
+      "route": "/today",
+      "mechanism": "keyboard",
+      "assertions": [
+        {
+          "id": "modal-has-focusable-controls",
+          "predicate": "gte",
+          "expected": 2,
+          "actual": 6,
+          "passed": true
+        },
+        {
+          "id": "modal-initial-focus-first",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "shift-tab-wraps-to-last",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "tab-wraps-to-first",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "modal-focus-trap",
+      "target": "subject-shortcut-modal",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "keyboard-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-kbd-04.json",
+        "sha256": "sha256:9bf1e617b99981392ffa96dfea644ee779d03c2fba0864c2001d00ef63185f66",
+        "observationCount": 4
+      },
+      "result": "pass"
+    },
+    {
+      "id": "KBD-05",
+      "category": "keyboard",
+      "route": "/knowledge/canvas",
+      "mechanism": "keyboard",
+      "assertions": [
+        {
+          "id": "arrow-command-saved-layout",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "arrow-command-focused-operated-node",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "canvas-arrow-command",
+      "target": "canvas-layout-command",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "keyboard-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-kbd-05.json",
+        "sha256": "sha256:c934f5c113f95343ace4d7fd38238f6a203c3b004be8ecf373a82045bfba18f0",
+        "observationCount": 2
+      },
+      "result": "pass"
+    },
+    {
+      "id": "FOCUS-01",
+      "category": "focus",
+      "route": "/today",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "modal-received-focus",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "modal-initial-focus",
+      "target": "subject-shortcut-modal",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "focus-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-focus-01.json",
+        "sha256": "sha256:78bdfa007530acd225ab41c483f5fbe3fdc5a2106102ca732849a68543962a2a",
+        "observationCount": 1
+      },
+      "result": "pass"
+    },
+    {
+      "id": "FOCUS-02",
+      "category": "focus",
+      "route": "/today",
+      "mechanism": "keyboard",
+      "assertions": [
+        {
+          "id": "escape-closed-modal",
+          "predicate": "equals",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "id": "focus-returned-to-trigger",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "modal-trigger-return",
+      "target": "subject-shortcut-trigger",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "focus-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-focus-02.json",
+        "sha256": "sha256:31db29a38e3399a6f0610c1bd94a1beb2e3ada6c36e43fa8e1648d24d0fba2f4",
+        "observationCount": 2
+      },
+      "result": "pass"
+    },
+    {
+      "id": "FOCUS-03",
+      "category": "focus",
+      "route": "/knowledge/notes/7ba83575-4b27-4bca-b768-33f8a7bd83e4",
+      "mechanism": "keyboard",
+      "assertions": [
+        {
+          "id": "detail-link-focused-before-enter",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "detail-heading-received-focus",
+          "predicate": "equals",
+          "expected": "H1",
+          "actual": "H1",
+          "passed": true
+        },
+        {
+          "id": "detail-heading-programmatic-tabindex",
+          "predicate": "equals",
+          "expected": -1,
+          "actual": -1,
+          "passed": true
+        },
+        {
+          "id": "syllabus-save-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "syllabus-save-result-is-live",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "syllabus-save-returned-to-edit",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "detail-and-save-focus",
+      "target": "detail-heading-and-save-result",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "focus-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-focus-03.json",
+        "sha256": "sha256:3823f5105ad54831e87896037bf8db817ac7646c399126730fd171f0141b680e",
+        "observationCount": 6
+      },
+      "result": "pass"
+    },
+    {
+      "id": "FOCUS-04",
+      "category": "focus",
+      "route": "/knowledge/canvas?view=list",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "canvas-operation-focus-retained",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "hide-focus-used-deterministic-exception",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "canvas-list-link-focused-before-enter",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "canvas-detail-heading-focused",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "canvas-return-url-restored",
+          "predicate": "equals",
+          "expected": "/knowledge/canvas?workspaceId=0bc1a815-2521-4609-bdb3-23f1dfd84394&focus=WORKSPACE%3A0bc1a815-2521-4609-bdb3-23f1dfd84394&depth=2&view=list&subjectId=0eb22cb2-54a9-452b-bfec-c3c91b815e4b",
+          "actual": "/knowledge/canvas?workspaceId=0bc1a815-2521-4609-bdb3-23f1dfd84394&focus=WORKSPACE%3A0bc1a815-2521-4609-bdb3-23f1dfd84394&depth=2&view=list&subjectId=0eb22cb2-54a9-452b-bfec-c3c91b815e4b",
+          "passed": true
+        },
+        {
+          "id": "canvas-list-row-focus-restored",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "canvas-operation-and-return-focus",
+      "target": "canvas-node-and-list-row",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "focus-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-focus-04.json",
+        "sha256": "sha256:75fb64f9c21fd4e6ef0f7ea5a76880e931367f7adb1b22d211ca317b897a52b4",
+        "observationCount": 6
+      },
+      "result": "pass"
+    },
+    {
+      "id": "SEM-01",
+      "category": "semantics",
+      "route": "/today",
+      "mechanism": "cdp",
+      "assertions": [
+        {
+          "id": "unique-dom-main",
+          "predicate": "equals",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        },
+        {
+          "id": "unique-page-h1",
+          "predicate": "equals",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        },
+        {
+          "id": "unique-ax-main",
+          "predicate": "equals",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        },
+        {
+          "id": "named-navigation-present",
+          "predicate": "gte",
+          "expected": 1,
+          "actual": 2,
+          "passed": true
+        }
+      ],
+      "checkKey": "route-landmark-heading",
+      "target": "main-heading-navigation",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "accessibility-tree",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-sem-01.json",
+        "sha256": "sha256:ae1c265140329ddd7f447f3792be8c7268ca6eb38b3e397c9091960f95a59531",
+        "observationCount": 4
+      },
+      "result": "pass"
+    },
+    {
+      "id": "SEM-02",
+      "category": "semantics",
+      "route": "/today",
+      "mechanism": "cdp",
+      "assertions": [
+        {
+          "id": "dialog-is-modal",
+          "predicate": "equals",
+          "expected": "true",
+          "actual": "true",
+          "passed": true
+        },
+        {
+          "id": "dialog-has-label-reference",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "single-dialog-in-accessibility-tree",
+          "predicate": "equals",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        },
+        {
+          "id": "dialog-accessible-name-resolves",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "dialog-accessible-name",
+      "target": "subject-shortcut-modal",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "accessibility-tree",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-sem-02.json",
+        "sha256": "sha256:38c6f9940e12b264736e0543906234e2f44797d6ef316c35375fe3bf2a47e068",
+        "observationCount": 4
+      },
+      "result": "pass"
+    },
+    {
+      "id": "LIVE-01",
+      "category": "live",
+      "route": "/login",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "invalid-login-status",
+          "predicate": "equals",
+          "expected": 401,
+          "actual": 401,
+          "passed": true
+        },
+        {
+          "id": "alert-is-assertive",
+          "predicate": "equals",
+          "expected": "assertive",
+          "actual": "assertive",
+          "passed": true
+        },
+        {
+          "id": "alert-is-atomic",
+          "predicate": "equals",
+          "expected": "true",
+          "actual": "true",
+          "passed": true
+        },
+        {
+          "id": "alert-has-message",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "login-error-assertive",
+      "target": "login-error",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "live-region-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-live-01.json",
+        "sha256": "sha256:4cb6d3443fced91d9c5e8f9684f90d41fc28c6085db570f01147372a044f74fb",
+        "observationCount": 4
+      },
+      "result": "pass"
+    },
+    {
+      "id": "LIVE-02",
+      "category": "live",
+      "route": "/focus/5cdf5124-5738-4116-b573-cc9bd88cec83",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "timer-status-has-text",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "timer-status-assertive",
+          "predicate": "equals",
+          "expected": "assertive",
+          "actual": "assertive",
+          "passed": true
+        },
+        {
+          "id": "timer-status-atomic",
+          "predicate": "equals",
+          "expected": "true",
+          "actual": "true",
+          "passed": true
+        }
+      ],
+      "checkKey": "timer-status-assertive",
+      "target": "focus-timer-status",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "live-region-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-live-02.json",
+        "sha256": "sha256:aa973d7dd37e4daca18cf0c5082eb267caca3620bc91068d55c30568d6428019",
+        "observationCount": 3
+      },
+      "result": "pass"
+    },
+    {
+      "id": "LIVE-03",
+      "category": "live",
+      "route": "/focus/5cdf5124-5738-4116-b573-cc9bd88cec83",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "pause-ui-mutation-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "pause-announced",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "pause-terminal-control-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "timer-transition-assertive",
+      "target": "focus-timer-transition",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "live-region-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-live-03.json",
+        "sha256": "sha256:e372094e7c68845107921335bdf2403df660b75028e6a555e147e163abf92067",
+        "observationCount": 3
+      },
+      "result": "pass"
+    },
+    {
+      "id": "LIVE-04",
+      "category": "live",
+      "route": "/settings/notifications",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "notification-test-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "notification-fallback-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "notification-fallback-polite",
+          "predicate": "equals",
+          "expected": "polite",
+          "actual": "polite",
+          "passed": true
+        },
+        {
+          "id": "notification-fallback-atomic",
+          "predicate": "equals",
+          "expected": "true",
+          "actual": "true",
+          "passed": true
+        }
+      ],
+      "checkKey": "notification-fallback-polite",
+      "target": "notification-test-fallback",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "live-region-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-live-04.json",
+        "sha256": "sha256:434bf0b45256e2d6b38e74bff70a5cde44d8b5728616bdc3eb1370288d92446d",
+        "observationCount": 4
+      },
+      "result": "pass"
+    },
+    {
+      "id": "LIVE-05",
+      "category": "live",
+      "route": "/knowledge/canvas",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "layout-announcement-present",
+          "predicate": "gte",
+          "expected": 1,
+          "actual": 21,
+          "passed": true
+        },
+        {
+          "id": "layout-announcement-polite",
+          "predicate": "equals",
+          "expected": "polite",
+          "actual": "polite",
+          "passed": true
+        }
+      ],
+      "checkKey": "canvas-layout-polite",
+      "target": "canvas-layout-status",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "live-region-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-live-05.json",
+        "sha256": "sha256:9d6310087736b82ed8f80cd0de13ff998423b1c82847e771b4910ea1ff41eee2",
+        "observationCount": 2
+      },
+      "result": "pass"
+    },
+    {
+      "id": "LIVE-06",
+      "category": "live",
+      "route": "/review/daily",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "review-save-status",
+          "predicate": "equals",
+          "expected": 201,
+          "actual": 201,
+          "passed": true
+        },
+        {
+          "id": "review-success-live-region",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "review-success-polite",
+          "predicate": "equals",
+          "expected": "polite",
+          "actual": "polite",
+          "passed": true
+        },
+        {
+          "id": "network-error-alert-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "network-error-has-message",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "failed-review-draft-retained",
+          "predicate": "gte",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "checkKey": "review-save-and-recovery-live",
+      "target": "daily-review-save-and-recovery",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "live-region-trace",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-live-06.json",
+        "sha256": "sha256:7d25c9688c069f4f0ad505e3df7e9561d7ef390d5f5ae9319abdac9f6fa62038",
+        "observationCount": 6
+      },
+      "result": "pass"
+    },
+    {
+      "id": "COLOR-01",
+      "category": "color",
+      "route": "/today",
+      "mechanism": "dom",
+      "assertions": [
+        {
+          "id": "five-status-indicators",
+          "predicate": "equals",
+          "expected": 5,
+          "actual": 5,
+          "passed": true
+        },
+        {
+          "id": "all-statuses-have-text",
+          "predicate": "equals",
+          "expected": 5,
+          "actual": 5,
+          "passed": true
+        },
+        {
+          "id": "all-statuses-have-accessible-name",
+          "predicate": "equals",
+          "expected": 5,
+          "actual": 5,
+          "passed": true
+        },
+        {
+          "id": "computed-colors-observed",
+          "predicate": "gte",
+          "expected": 1,
+          "actual": 3,
+          "passed": true
+        }
+      ],
+      "checkKey": "status-not-color-only",
+      "target": "global-status-indicators",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "computed-style",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-color-01.json",
+        "sha256": "sha256:bd200f9f74fa5e9970a90ba0d7d65b4e9e143768079a807ff0be944475601410",
+        "observationCount": 4
+      },
+      "result": "pass"
+    },
+    {
+      "id": "ZOOM-01",
+      "category": "zoom",
+      "route": "/today",
+      "mechanism": "viewport",
+      "assertions": [
+        {
+          "id": "native-zoom-setting-before",
+          "predicate": "equals",
+          "expected": "1",
+          "actual": "1",
+          "passed": true
+        },
+        {
+          "id": "native-zoom-setting-after",
+          "predicate": "equals",
+          "expected": "2",
+          "actual": "2",
+          "passed": true
+        },
+        {
+          "id": "native-window-width-fixed",
+          "predicate": "equals",
+          "expected": 1440,
+          "actual": 1440,
+          "passed": true
+        },
+        {
+          "id": "native-window-height-fixed",
+          "predicate": "equals",
+          "expected": 1000,
+          "actual": 1000,
+          "passed": true
+        },
+        {
+          "id": "native-visual-scale-remains-one",
+          "predicate": "equals",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        },
+        {
+          "id": "native-css-viewport-ratio-is-two",
+          "predicate": "between-inclusive",
+          "expected": {
+            "min": 1.9,
+            "max": 2.1
+          },
+          "actual": 2,
+          "passed": true
+        },
+        {
+          "id": "native-device-pixel-ratio-doubles",
+          "predicate": "between-inclusive",
+          "expected": {
+            "min": 1.9,
+            "max": 2.1
+          },
+          "actual": 2,
+          "passed": true
+        },
+        {
+          "id": "nine-journey-routes-covered",
+          "predicate": "equals",
+          "expected": 9,
+          "actual": 9,
+          "passed": true
+        },
+        {
+          "id": "native-zoom-route-reflow",
+          "predicate": "equals",
+          "expected": {
+            "routeCount": 9,
+            "failures": []
+          },
+          "actual": {
+            "routeCount": 9,
+            "failures": []
+          },
+          "passed": true
+        },
+        {
+          "id": "native-zoom-metrics-captured",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "native-browser-zoom-200",
+      "target": "nine-journey-routes",
+      "profile": {
+        "id": "native-zoom-200",
+        "kind": "native-window",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": null,
+        "zoomPercent": 200
+      },
+      "artifact": {
+        "kind": "reflow-measurement",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-zoom-01.json",
+        "sha256": "sha256:053601ee674e22e9cc05e4bbc76efd97abafcbae89cb24c760d96c2bd2274ce4",
+        "observationCount": 10
+      },
+      "result": "pass"
+    },
+    {
+      "id": "ZOOM-02",
+      "category": "zoom",
+      "route": "/today",
+      "mechanism": "viewport",
+      "assertions": [
+        {
+          "id": "mobile-css-width",
+          "predicate": "equals",
+          "expected": 390,
+          "actual": 390,
+          "passed": true
+        },
+        {
+          "id": "mobile-no-horizontal-overflow",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "mobile-controls-reachable",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "portrait-reflow-390",
+      "target": "today-route",
+      "profile": {
+        "id": "mobile-portrait",
+        "kind": "emulated-viewport",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "reflow-measurement",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-zoom-02.json",
+        "sha256": "sha256:130935c14558e7493e95a86bc22877e1574d1ebcd133c373eaee3bbd808ad7b0",
+        "observationCount": 3
+      },
+      "result": "pass"
+    },
+    {
+      "id": "ZOOM-03",
+      "category": "zoom",
+      "route": "/settings/system",
+      "mechanism": "viewport",
+      "assertions": [
+        {
+          "id": "landscape-width-observed",
+          "predicate": "equals",
+          "expected": 844,
+          "actual": 844,
+          "passed": true
+        },
+        {
+          "id": "landscape-height-observed",
+          "predicate": "equals",
+          "expected": 390,
+          "actual": 390,
+          "passed": true
+        },
+        {
+          "id": "landscape-no-horizontal-overflow",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "landscape-controls-reachable",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "landscape-reflow-844",
+      "target": "system-settings-route",
+      "profile": {
+        "id": "mobile-landscape",
+        "kind": "emulated-viewport",
+        "width": 844,
+        "height": 390,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "reflow-measurement",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-zoom-03.json",
+        "sha256": "sha256:40cd579d60bee7128bbe0084720f02b64acbee8b77e6913dd7ca39ba4144a8ff",
+        "observationCount": 4
+      },
+      "result": "pass"
+    },
+    {
+      "id": "CANVAS-01",
+      "category": "canvas",
+      "route": "/knowledge/canvas?view=list",
+      "mechanism": "api",
+      "assertions": [
+        {
+          "id": "equivalent-list-named",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "equivalent-list-nonempty",
+          "predicate": "gte",
+          "expected": 1,
+          "actual": 5,
+          "passed": true
+        },
+        {
+          "id": "equivalent-list-matches-api",
+          "predicate": "equals",
+          "expected": 5,
+          "actual": 5,
+          "passed": true
+        },
+        {
+          "id": "equivalent-list-has-open-link",
+          "predicate": "gte",
+          "expected": 1,
+          "actual": 3,
+          "passed": true
+        },
+        {
+          "id": "relation-filter-kind-selected",
+          "predicate": "equals",
+          "expected": "contains",
+          "actual": "contains",
+          "passed": true
+        },
+        {
+          "id": "relation-filter-matches-api-edges",
+          "predicate": "equals",
+          "expected": 5,
+          "actual": 5,
+          "passed": true
+        },
+        {
+          "id": "subject-filter-request-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "subject-filter-has-two-subjects",
+          "predicate": "equals",
+          "expected": 2,
+          "actual": 2,
+          "passed": true
+        },
+        {
+          "id": "subject-filter-matches-api",
+          "predicate": "equals",
+          "expected": 3,
+          "actual": 3,
+          "passed": true
+        },
+        {
+          "id": "subject-filter-reduces-list",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "subject-filter-bound-in-url",
+          "predicate": "equals",
+          "expected": "0eb22cb2-54a9-452b-bfec-c3c91b815e4b",
+          "actual": "0eb22cb2-54a9-452b-bfec-c3c91b815e4b",
+          "passed": true
+        }
+      ],
+      "checkKey": "canvas-api-list-parity",
+      "target": "canvas-equivalent-list",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "canvas-equivalence",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-canvas-01.json",
+        "sha256": "sha256:d94ce64700d18f5fd0600e40f302e229f4f9281344a097c04b4eac5e797ac36e",
+        "observationCount": 11
+      },
+      "result": "pass"
+    },
+    {
+      "id": "CANVAS-02",
+      "category": "canvas",
+      "route": "/knowledge/canvas?view=list",
+      "mechanism": "keyboard",
+      "assertions": [
+        {
+          "id": "mobile-layout-buttons-disabled",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "mobile-reset-layout-absent",
+          "predicate": "equals",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "id": "mobile-equivalent-list-open-link",
+          "predicate": "gte",
+          "expected": 1,
+          "actual": 6,
+          "passed": true
+        },
+        {
+          "id": "mobile-list-opened-canonical-detail",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "mobile-detail-heading-focused",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "canvas-mobile-equivalent-list",
+      "target": "canvas-equivalent-list",
+      "profile": {
+        "id": "mobile-portrait",
+        "kind": "emulated-viewport",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "canvas-equivalence",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-canvas-02.json",
+        "sha256": "sha256:8658ff2e65d22f4ee0e92946641bf4323c974138ab8da2da82946d9bebf62dc4",
+        "observationCount": 5
+      },
+      "result": "pass"
+    },
+    {
+      "id": "CANVAS-03",
+      "category": "canvas",
+      "route": "/knowledge/canvas",
+      "mechanism": "api",
+      "assertions": [
+        {
+          "id": "second-keyboard-layout-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "layout-get-before-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "layout-get-after-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "layout-get-oracle-changed",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "keyboard-operation-focus-still-retained",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "hide-layout-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "hide-focus-moved-to-restore-control",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "hide-announcement-names-focus-destination",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "restore-layout-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "reset-layout-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "reset-layout-get-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "reset-layout-get-oracle-changed",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "reset-layout-announced",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "reset-layout-focus-returned",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "conflict-baseline-layout-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "stale-layout-conflict-status",
+          "predicate": "equals",
+          "expected": 409,
+          "actual": 409,
+          "passed": true
+        },
+        {
+          "id": "conflict-modal-received-focus",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "conflict-modal-retained-local-copy",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "conflict-modal-blocked-escape",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "conflict-explicit-retry-status",
+          "predicate": "equals",
+          "expected": 200,
+          "actual": 200,
+          "passed": true
+        },
+        {
+          "id": "conflict-focus-returned-to-trigger",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "checkKey": "canvas-layout-and-return-oracle",
+      "target": "canvas-layout-and-detail-return",
+      "profile": {
+        "id": "desktop",
+        "kind": "emulated-viewport",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1,
+        "zoomPercent": 100
+      },
+      "artifact": {
+        "kind": "canvas-equivalence",
+        "path": "output/playwright/v11-browser-evidence-current-20260803-r26-debug/observations/a11y-canvas-03.json",
+        "sha256": "sha256:f2836a79cb10e79aabf8065b8dcbc866538ec22dfd970ddee2f8f02c4a359a94",
+        "observationCount": 21
+      },
+      "result": "pass"
+    }
+  ],
+  "doesNotProve": [
+    "signed Release",
+    "production apply",
+    "residual closure"
+  ],
+  "safetyFacts": {
+    "localBaseUrl": true,
+    "localDatabase": true,
+    "explicitWriteOptIn": true,
+    "passwordSource": "restricted-file",
+    "productionWriteAttempted": false,
+    "serverCommandAttempted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "destructiveActionAttempted": false,
+    "updaterApplyAttempted": false,
+    "releaseCreated": false,
+    "secretValuePrinted": false,
+    "realStudyContentIncluded": false,
+    "residualLedgerUpdated": false
+  }
+}

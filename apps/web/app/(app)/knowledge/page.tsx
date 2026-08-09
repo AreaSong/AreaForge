@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import KnowledgeOverviewPage from "@/lib/routes/knowledge-overview-page";
 
 export const dynamic = "force-dynamic";
 
-export default function KnowledgeIndexPage() {
-  redirect("/knowledge/canvas");
-}
+export { metadata } from "@/lib/routes/knowledge-overview-page";
+
+export default KnowledgeOverviewPage;

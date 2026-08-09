@@ -48,14 +48,31 @@ enum TaskDebtStatus {
 enum StudySessionStatus {
   RUNNING
   PAUSED
+  CLOSING
   COMPLETED
   CANCELED
+}
+
+enum StudySessionActivityKind {
+  STUDY
+  REVIEW
+  TEST
+}
+
+enum StudySessionActivityMode {
+  FREE_STUDY
+  KNOWLEDGE_REVIEW
+  RETEST
+  SIMULATION
 }
 
 enum StudySessionStartSource {
   TASK
   SUBJECT_SHORTCUT
   RECOVERY
+  KNOWLEDGE_REVIEW
+  KNOWLEDGE_RETEST
+  SIMULATION_EXAM
 }
 
 enum SyllabusNodeKind {
@@ -135,6 +152,56 @@ enum StudyResourceCategory {
   OTHER
 }
 
+enum KnowledgeMasteryState {
+  UNTOUCHED
+  LEARNING
+  INITIAL_MASTERY
+  STABLE_MASTERY
+  NEEDS_RETEST
+}
+
+enum KnowledgeRelationType {
+  PREREQUISITE
+  COMPOSES
+  RELATED
+  CONFUSABLE
+  APPLIES_TO
+}
+
+enum LearningArrangementStatus {
+  PLANNED
+  OCCURRED
+  ADJUSTED
+  CANCELED
+}
+
+enum KnowledgeRetestStatus {
+  DRAFT
+  IN_PROGRESS
+  PENDING_REVIEW
+  CLOSED
+  VOIDED
+}
+
+enum KnowledgeRetestResult {
+  PASSED
+  PARTIAL
+  FAILED
+}
+
+enum SessionUnderstanding {
+  NO_PROGRESS
+  SOME_PROGRESS
+  UNDERSTOOD
+  CAN_APPLY
+}
+
+enum SessionEfficiency {
+  LOW
+  NORMAL
+  HIGH
+}
+
 model User {
   id                      String                   @id @default(cuid())
   email                   String                   @unique
@@ -163,6 +230,17 @@ model User {
   motivationReminderState MotivationReminderState?
   notificationPreference  NotificationPreference?
   aiDraftOperations       AiDraftOperation[]
+  aiProviderCredential    AiProviderCredential?
+  terminalGoals           TerminalGoal[]
+  knowledgeGroups         KnowledgeGroup[]
+  knowledgePoints         KnowledgePoint[]
+  knowledgeRelations      KnowledgePointRelation[] @relation("KnowledgeRelationActor")
+  learningArrangements    LearningArrangement[]
+  studySessionCloseouts   StudySessionCloseout[]
+  knowledgeRetests        KnowledgeRetest[]
+  knowledgeEvidence       KnowledgeEvidence[]
+  studySessions           StudySession[]
+  studySessionDevicePresences StudySessionDevicePresence[]
 }
 
 model AuthSession {
@@ -210,6 +288,14 @@ model ExamWorkspace {
   reviewSchedules  ReviewSchedule[]
   knowledgeCanvasLayouts KnowledgeCanvasLayout[]
   aiDraftOperations AiDraftOperation[]
+  terminalGoals     TerminalGoal[]
+  knowledgeGroups   KnowledgeGroup[]
+  knowledgePoints   KnowledgePoint[]
+  learningArrangements LearningArrangement[]
+  studySessions     StudySession[]
+  studySessionDevicePresences StudySessionDevicePresence[]
+  knowledgeRetests  KnowledgeRetest[]
+  knowledgeEvidence KnowledgeEvidence[]
 
   @@unique([userId, stableKey])
   @@index([userId])
@@ -254,6 +340,10 @@ model Subject {
   simulationSubjectResults SimulationSubjectResult[]
   planMilestones           PlanMilestone[]
   studyResources           StudyResource[]
+  primaryKnowledgePoints   KnowledgePoint[] @relation("KnowledgePointPrimarySubject")
+  relatedKnowledgePoints    KnowledgePointSubject[]
+  knowledgeGroups           KnowledgeGroup[]
+  learningArrangements      LearningArrangement[]
 
   @@index([workspaceId])
   @@index([groupId])
@@ -292,6 +382,7 @@ model SyllabusNode {
   studyResourceLinks StudyResourceSyllabusNodeLink[]
   reviewSchedules   ReviewSchedule[]
   simulationLossItems SimulationLossItem[]
+  knowledgeLinks      KnowledgeSyllabusLink[]
 
   @@unique([subjectId, stableKey])
   @@index([subjectId])
@@ -335,6 +426,8 @@ model StudyTask {
   convertedFromInboxItems PlanInboxItem[]
   inboxDependencyRefs     PlanInboxDependencyRef[]
   studyResourceLinks      StudyResourceTaskLink[]
+  stageLinks        StudyTaskStageLink[]
+  knowledgePointLinks StudyTaskKnowledgePoint[]
 
   @@index([plannedDate])
   @@index([subjectId])
@@ -356,11 +449,42 @@ model StudyTaskRelatedSyllabusNode {
   @@index([syllabusNodeId])
 }
 
+model StudyTaskStageLink {
+  id          String       @id @default(cuid())
+  taskId      String
+  stagePlanId String
+  createdAt   DateTime     @default(now())
+  task        StudyTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  stagePlan   StagePlan    @relation(fields: [stagePlanId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, stagePlanId])
+  @@index([stagePlanId])
+  @@index([taskId])
+}
+
+model StudyTaskKnowledgePoint {
+  id              String        @id @default(cuid())
+  taskId          String
+  knowledgePointId String
+  createdAt       DateTime      @default(now())
+  task            StudyTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  knowledgePoint  KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, knowledgePointId])
+  @@index([knowledgePointId])
+  @@index([taskId])
+}
+
 model StudySession {
   id                      String                    @id @default(cuid())
   subjectId               String
   taskId                  String?
   syllabusNodeId          String?
+  activityKind            StudySessionActivityKind  @default(STUDY)
+  activityMode            StudySessionActivityMode  @default(FREE_STUDY)
+  reviewScheduleId        String?
+  knowledgeRetestId       String?
+  simulationExamId        String?
   status                  StudySessionStatus        @default(RUNNING)
   startedAt               DateTime
   pausedAt                DateTime?
@@ -381,16 +505,57 @@ model StudySession {
   note                    String?
   goalMinutes             Int?
   startSource             StudySessionStartSource?
+  clientDeviceId         String?
+  clientDeviceLabel      String?
+  lastHeartbeatAt        DateTime?
+  userId                  String?
+  workspaceId             String?
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
   subject                 Subject                   @relation(fields: [subjectId], references: [id])
   task                    StudyTask?                @relation(fields: [taskId], references: [id])
   syllabusNode            SyllabusNode?             @relation(fields: [syllabusNodeId], references: [id])
+  reviewSchedule          ReviewSchedule?           @relation(fields: [reviewScheduleId], references: [id], onDelete: SetNull)
+  knowledgeRetest         KnowledgeRetest?          @relation(fields: [knowledgeRetestId], references: [id], onDelete: SetNull)
+  simulationExam          SimulationExam?           @relation(fields: [simulationExamId], references: [id], onDelete: SetNull)
   masteryEvidence         MasteryEvidence[]
+  user                    User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  workspace               ExamWorkspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  closeout                StudySessionCloseout?
+  knowledgeLinks          StudySessionKnowledgePoint[]
+  knowledgeEvidence       KnowledgeEvidence[]
+  devicePresences         StudySessionDevicePresence[]
 
   @@index([status])
   @@index([startedAt])
   @@index([subjectId])
+  @@index([activityKind, startedAt])
+  @@index([activityMode, startedAt])
+  @@index([reviewScheduleId])
+  @@index([knowledgeRetestId])
+  @@index([simulationExamId])
+  @@index([userId, workspaceId, status])
+  @@index([userId, clientDeviceId, lastHeartbeatAt])
+}
+
+model StudySessionDevicePresence {
+  id          String         @id @default(cuid())
+  sessionId   String
+  userId      String
+  workspaceId String?
+  deviceId    String
+  deviceLabel String?
+  lastSeenAt  DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  session     StudySession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   ExamWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, deviceId])
+  @@index([sessionId, lastSeenAt])
+  @@index([userId, lastSeenAt])
+  @@index([workspaceId, lastSeenAt])
 }
 
 model DailyReview {
@@ -741,6 +906,7 @@ model SimulationExam {
   updatedAt             DateTime                  @updatedAt
   workspace             ExamWorkspace?            @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   subjectResults        SimulationSubjectResult[]
+  studySessions         StudySession[]
 
   @@index([examDate])
   @@index([isFirstSynchronized])
@@ -803,6 +969,10 @@ model StagePlan {
   workspace        ExamWorkspace?         @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   adjustmentDrafts StageAdjustmentDraft[]
   planMilestones   PlanMilestone[]
+  goalLinks        StageGoalLink[]
+  knowledgeTargets StageKnowledgeTarget[]
+  learningArrangements LearningArrangement[]
+  taskLinks        StudyTaskStageLink[]
 
   @@index([status])
   @@index([startDate])
@@ -1144,6 +1314,7 @@ model ReviewSchedule {
   actor                User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
   events               ReviewEvent[]
   bridgeTasks          StudyTask[]
+  studySessions        StudySession[]
 
   @@index([workspaceId, status, dueDate])
   @@index([actorId])
@@ -1191,6 +1362,7 @@ enum AiDraftOperationStatus {
   SUCCEEDED
   FAILED
   EXPIRED
+  REJECTED
 }
 
 enum KnowledgeCanvasEntityType {
@@ -1322,4 +1494,316 @@ model AiDraftOperation {
   @@unique([workspaceId, endpoint, nonce])
   @@index([actorId])
   @@index([status, expiresAt])
+}
+
+model AiProviderCredential {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  baseUrl            String
+  model              String
+  apiKeyCiphertext   String
+  apiKeyFingerprint  String
+  revision           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TerminalGoal {
+  id             String        @id @default(cuid())
+  userId         String
+  workspaceId    String
+  stableKey      String
+  title          String
+  outcome        String
+  targetDate     DateTime?
+  status         String        @default("ACTIVE")
+  revision       Int           @default(1)
+  archivedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      ExamWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stageLinks     StageGoalLink[]
+
+  @@unique([workspaceId, stableKey])
+  @@index([userId, status])
+  @@index([workspaceId, status])
+}
+
+model KnowledgeGroup {
+  id              String         @id @default(cuid())
+  userId          String
+  workspaceId     String
+  subjectId       String?
+  parentId        String?
+  stableKey       String
+  title           String
+  sortOrder       Int            @default(0)
+  revision        Int            @default(1)
+  archivedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace       ExamWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subject         Subject?       @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  parent          KnowledgeGroup? @relation("KnowledgeGroupTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children        KnowledgeGroup[] @relation("KnowledgeGroupTree")
+  points          KnowledgePoint[]
+
+  @@unique([workspaceId, stableKey])
+  @@index([workspaceId, archivedAt])
+  @@index([parentId])
+}
+
+model KnowledgePoint {
+  id                 String                @id @default(cuid())
+  userId             String
+  workspaceId        String
+  primarySubjectId   String
+  primaryGroupId     String?
+  stableKey          String
+  title              String
+  boundary           String?
+  masteryState       KnowledgeMasteryState @default(UNTOUCHED)
+  nextRetestAt       DateTime?
+  revision           Int                   @default(1)
+  archivedAt         DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace          ExamWorkspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  primarySubject     Subject               @relation("KnowledgePointPrimarySubject", fields: [primarySubjectId], references: [id])
+  primaryGroup       KnowledgeGroup?       @relation(fields: [primaryGroupId], references: [id], onDelete: SetNull)
+  relatedSubjects    KnowledgePointSubject[]
+  outgoingRelations  KnowledgePointRelation[] @relation("KnowledgeRelationFrom")
+  incomingRelations  KnowledgePointRelation[] @relation("KnowledgeRelationTo")
+  syllabusLinks      KnowledgeSyllabusLink[]
+  stageTargets       StageKnowledgeTarget[]
+  arrangementLinks   LearningArrangementKnowledgePoint[]
+  sessionLinks       StudySessionKnowledgePoint[]
+  retestLinks        KnowledgeRetestPoint[]
+  evidence           KnowledgeEvidence[]
+  taskLinks           StudyTaskKnowledgePoint[]
+
+  @@unique([workspaceId, stableKey])
+  @@index([workspaceId, masteryState, archivedAt])
+  @@index([primarySubjectId])
+  @@index([primaryGroupId])
+  @@index([nextRetestAt])
+}
+
+model KnowledgePointSubject {
+  id              String        @id @default(cuid())
+  knowledgePointId String
+  subjectId       String
+  role            String        @default("RELATED")
+  createdAt       DateTime      @default(now())
+  knowledgePoint  KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+  subject         Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([knowledgePointId, subjectId])
+  @@index([subjectId])
+}
+
+model KnowledgePointRelation {
+  id             String                @id @default(cuid())
+  fromPointId    String
+  toPointId      String
+  type           KnowledgeRelationType
+  actorId        String?
+  createdAt      DateTime              @default(now())
+  fromPoint      KnowledgePoint        @relation("KnowledgeRelationFrom", fields: [fromPointId], references: [id], onDelete: Cascade)
+  toPoint        KnowledgePoint        @relation("KnowledgeRelationTo", fields: [toPointId], references: [id], onDelete: Cascade)
+  actor          User?                 @relation("KnowledgeRelationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([fromPointId, toPointId, type])
+  @@index([toPointId, type])
+}
+
+model KnowledgeSyllabusLink {
+  id             String        @id @default(cuid())
+  knowledgePointId String
+  syllabusNodeId String
+  role           String        @default("REQUIRED")
+  createdAt      DateTime      @default(now())
+  knowledgePoint KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+  syllabusNode   SyllabusNode  @relation(fields: [syllabusNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([knowledgePointId, syllabusNodeId])
+  @@index([syllabusNodeId])
+}
+
+model StageGoalLink {
+  id            String       @id @default(cuid())
+  stagePlanId   String
+  terminalGoalId String
+  role          String       @default("SUPPORTING")
+  createdAt     DateTime     @default(now())
+  stagePlan     StagePlan    @relation(fields: [stagePlanId], references: [id], onDelete: Cascade)
+  terminalGoal  TerminalGoal @relation(fields: [terminalGoalId], references: [id], onDelete: Cascade)
+
+  @@unique([stagePlanId, terminalGoalId])
+  @@index([terminalGoalId, role])
+}
+
+model StageKnowledgeTarget {
+  id             String                @id @default(cuid())
+  stagePlanId    String
+  knowledgePointId String
+  targetState    KnowledgeMasteryState
+  importance     Int                   @default(3)
+  feedback       String?
+  revision       Int                   @default(1)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  stagePlan      StagePlan             @relation(fields: [stagePlanId], references: [id], onDelete: Cascade)
+  knowledgePoint KnowledgePoint        @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@unique([stagePlanId, knowledgePointId])
+  @@index([knowledgePointId, targetState])
+}
+
+model LearningArrangement {
+  id             String                   @id @default(cuid())
+  userId         String
+  workspaceId    String
+  stagePlanId    String?
+  subjectId      String?
+  title          String
+  intent         String?
+  startDate      DateTime
+  endDate        DateTime
+  status         LearningArrangementStatus @default(PLANNED)
+  estimatedMin   Int?
+  estimatedMax   Int?
+  revision       Int                    @default(1)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      ExamWorkspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stagePlan      StagePlan?             @relation(fields: [stagePlanId], references: [id], onDelete: SetNull)
+  subject        Subject?               @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  knowledgeLinks LearningArrangementKnowledgePoint[]
+
+  @@index([workspaceId, startDate, endDate])
+  @@index([stagePlanId, status])
+}
+
+model LearningArrangementKnowledgePoint {
+  id                  String              @id @default(cuid())
+  arrangementId       String
+  knowledgePointId    String
+  createdAt           DateTime            @default(now())
+  arrangement         LearningArrangement @relation(fields: [arrangementId], references: [id], onDelete: Cascade)
+  knowledgePoint      KnowledgePoint     @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@unique([arrangementId, knowledgePointId])
+  @@index([knowledgePointId])
+}
+
+model StudySessionCloseout {
+  id             String              @id @default(cuid())
+  sessionId      String              @unique
+  understanding  SessionUnderstanding
+  efficiency     SessionEfficiency
+  lowReasons     Json?
+  focusLevel     Int?
+  energyLevel    Int?
+  summary        String?
+  nextDisposition String?
+  revision       Int                 @default(1)
+  submittedAt    DateTime            @default(now())
+  actorId        String?
+  session        StudySession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  actor          User?               @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, submittedAt])
+}
+
+model StudySessionKnowledgePoint {
+  id             String              @id @default(cuid())
+  sessionId      String
+  knowledgePointId String
+  understanding  SessionUnderstanding?
+  note           String?
+  createdAt      DateTime            @default(now())
+  session        StudySession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  knowledgePoint KnowledgePoint       @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, knowledgePointId])
+  @@index([knowledgePointId])
+}
+
+model KnowledgeRetest {
+  id             String               @id @default(cuid())
+  userId         String
+  workspaceId    String
+  title          String
+  method         String
+  status         KnowledgeRetestStatus @default(DRAFT)
+  result         KnowledgeRetestResult?
+  scheduledAt    DateTime?
+  testedAt       DateTime?
+  nextDueAt      DateTime?
+  summary        String?
+  reviewText     String?
+  revision       Int                  @default(1)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      ExamWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  points         KnowledgeRetestPoint[]
+  studySessions  StudySession[]
+
+  @@index([workspaceId, status, scheduledAt])
+  @@index([nextDueAt])
+}
+
+model KnowledgeRetestPoint {
+  id             String               @id @default(cuid())
+  retestId       String
+  knowledgePointId String
+  result         KnowledgeRetestResult?
+  score          Float?
+  understanding  Int?
+  note           String?
+  retest         KnowledgeRetest       @relation(fields: [retestId], references: [id], onDelete: Cascade)
+  knowledgePoint KnowledgePoint        @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+  evidence       KnowledgeEvidence[]
+
+  @@unique([retestId, knowledgePointId])
+  @@index([knowledgePointId, result])
+}
+
+model KnowledgeEvidence {
+  id             String                @id @default(cuid())
+  userId         String
+  workspaceId    String
+  knowledgePointId String
+  sourceType     String
+  sessionId      String?
+  retestPointId  String?
+  summary        String?
+  dimensions     Json?
+  confidence     Float?
+  occurredAt     DateTime              @default(now())
+  createdAt      DateTime              @default(now())
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      ExamWorkspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  knowledgePoint KnowledgePoint        @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+  session        StudySession?         @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  retestPoint    KnowledgeRetestPoint? @relation(fields: [retestPointId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, knowledgePointId, occurredAt])
+  @@index([sessionId])
+  @@index([retestPointId])
+}
+
+model AiRuntimeSetting {
+  id        String   @id @default("global")
+  enabled   Boolean  @default(false)
+  revision  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

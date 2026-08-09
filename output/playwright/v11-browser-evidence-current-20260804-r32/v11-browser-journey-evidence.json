@@ -1,0 +1,2058 @@
+{
+  "schemaVersion": "v11-browser-journey-evidence-v1",
+  "generatedAt": "2026-08-03T23:23:56.833Z",
+  "environment": {
+    "kind": "local-production-mode",
+    "baseUrl": "http://127.0.0.1:3012",
+    "browserName": "chrome",
+    "browserVersion": "150.0.7871.187",
+    "playwrightVersion": "1.62.0"
+  },
+  "runtimeIdentityEvidence": {
+    "request": {
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200
+    },
+    "runtimeIdentity": {
+      "schemaVersion": 1,
+      "status": "verified",
+      "appVersion": "1.1.1",
+      "gitCommit": "d90d3596e36ebc7bf347d4b4c8b9a08530587482",
+      "sourceFingerprintSchema": "ux-source-v2",
+      "productExperienceSourceHash": "sha256:203d03f15b25f158a2d179cd9d2e5175686e7c9f781850d4f4ea7ff52d2a425d",
+      "buildId": "sha256:4ef55b4a50c7d05e2fed76a298627b35fe951d67627c8309250f46465ac248ca",
+      "runtimeMode": "production-build",
+      "identityHash": "sha256:b3cf14a61897a2a356ef4ef9f9dd76f45c502c37faf62b74f9a9a13084f95c67",
+      "observedAt": "2026-08-03T23:23:56.831Z",
+      "reasonCode": "NONE"
+    },
+    "responseSha256": "sha256:387f1a7764534e6b3496d91d28b64d66325928d3db04bfeb57c557e5c4db254d"
+  },
+  "fixtureEvidence": {
+    "schemaVersion": "v11-browser-fixture-manifest-v1",
+    "fixtureSetId": "v11-msduumxs-2d2e64571204",
+    "generatedAt": "2026-08-03T23:23:13.696Z",
+    "contentClassification": "synthetic-only",
+    "isolation": "one-user-per-viewport-journey",
+    "journeyAccountCount": 18,
+    "accessibilityAccountCount": 1,
+    "accounts": [
+      {
+        "accountRef": "sha256:1acc4977374c56d660653569e53b9d2c587836dce0d5fbd8b88811f7b89d9a83",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "login"
+      },
+      {
+        "accountRef": "sha256:8d393a01348070758bfd6a70d6be67e3002dd4216ccae8ca0b549bdeca8525c7",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "dashboard"
+      },
+      {
+        "accountRef": "sha256:87e4c7cd8051392ffa8d8bda22ad2fbb6520de7ce28fb94ca056a2d32cc9064a",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "timer-closeout"
+      },
+      {
+        "accountRef": "sha256:db74a8d99b1d81ffcca2b550f0cb1ec7b691211568fba833a13be39a9f7c0823",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "review"
+      },
+      {
+        "accountRef": "sha256:06f1b7877b3b3e82937c059a9723d24f7e1704ee7531f256c19bdf1aac9a8eae",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "notes"
+      },
+      {
+        "accountRef": "sha256:b9d16d6f815e2d72e4842e0eaf7aa670b4534050cab33aa3f3a5e84555ea9c2f",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "syllabus"
+      },
+      {
+        "accountRef": "sha256:d8d2c68143e1ef3929cc3e41e748eaf83e2167928881844869fdd151f9f1fdb5",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "reports"
+      },
+      {
+        "accountRef": "sha256:4ce0aa611a04d56d66cb5e934ed80e5f6e2f2a5f74a7324d893dd304e4372a73",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "simulation"
+      },
+      {
+        "accountRef": "sha256:01f3e85592846783fc0efb3f5f375ce40e9af3037510ab2ec632d074b6545b89",
+        "purpose": "journey",
+        "viewport": "desktop",
+        "journeyId": "update-center"
+      },
+      {
+        "accountRef": "sha256:f863c8aece392d752ed4035770462592a46e5771fbb1c9b69b62670a07dfd639",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "login"
+      },
+      {
+        "accountRef": "sha256:ee9e2cc2798ea3f1f2d3b1c445d2e2d325afa79100e07e423465e383c916c21c",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "dashboard"
+      },
+      {
+        "accountRef": "sha256:76ba0211062b6992acc11c0278cd61d40758ee25b50951175d32a41aad25ba9c",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "timer-closeout"
+      },
+      {
+        "accountRef": "sha256:4eb9db135604a23696dabaefe86632ed9f505f8b76fe6d4d9a07e03acdf14d07",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "review"
+      },
+      {
+        "accountRef": "sha256:5487ef43f11cb8a12d4f7c61eaadc45ab979aeb0d467992c1cd8b5f6dd1025a4",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "notes"
+      },
+      {
+        "accountRef": "sha256:ff0a7ea4efb59610428d02f1acf5ac44df516a0d4ea6127b1992f5428ee4f46e",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "syllabus"
+      },
+      {
+        "accountRef": "sha256:080cda9fcb88f0268506e83197f25f7f5b6d80f09e4cce9cb4fffb5ee5238bc8",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "reports"
+      },
+      {
+        "accountRef": "sha256:d24f9c6135329be9322caaf2fd96d3a27d3ef94d5b0c500618372496bae51a00",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "simulation"
+      },
+      {
+        "accountRef": "sha256:175a9ca6d593830086305b0c7a9f1388fad3de347d002e104743cd3d87885854",
+        "purpose": "journey",
+        "viewport": "mobile",
+        "journeyId": "update-center"
+      },
+      {
+        "accountRef": "sha256:394582e7251447614171900bdb1f3a42539183c869cdda9046b87587da36e7a1",
+        "purpose": "accessibility",
+        "viewport": "suite",
+        "journeyId": null
+      }
+    ],
+    "manifestSha256": "sha256:e0610d176504c761dcefc07f3ebe3a6b140030864013f4ec428a291eeb39f9ea"
+  },
+  "summary": {
+    "total": 18,
+    "passed": 18,
+    "failed": 0,
+    "skipped": 0,
+    "desktop": 9,
+    "mobile": 9,
+    "uiOriginatedMutations": 18,
+    "getOnlyOracles": 18,
+    "unexplainedFailureCount": 0
+  },
+  "journeys": [
+    {
+      "id": "desktop-login",
+      "journey": "login",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:1acc4977374c56d660653569e53b9d2c587836dce0d5fbd8b88811f7b89d9a83",
+      "startPath": "/login",
+      "startedAt": "2026-08-03T23:23:13.959Z",
+      "finishedAt": "2026-08-03T23:23:16.367Z",
+      "durationMs": 2408,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/auth/login",
+        "status": 200,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/dashboard/today",
+        "before": {
+          "status": 401,
+          "responseSha256": "sha256:a1d55d2c2c14a6a8d1c08977059aa62ea671af14dbb076c3ecb00d1f31e74389",
+          "assertions": [
+            {
+              "id": "unauthenticated-before",
+              "predicate": "equals",
+              "expected": 401,
+              "actual": 401,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:c4b3df3ab2570b05f04f915bd36a88a1e21bb1c0f3fbac60b0488145d01ccfa1",
+          "assertions": [
+            {
+              "id": "authenticated-after",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "dashboard-present",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/today",
+      "terminalAssertions": [
+        {
+          "id": "today-heading",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "authenticated-route",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-login.png",
+        "sha256": "sha256:3c9fcf17c3429a9466945f073b55dafac95df992ac85f62ab00b72b8fcdff3b2",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "desktop-dashboard",
+      "journey": "dashboard",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:8d393a01348070758bfd6a70d6be67e3002dd4216ccae8ca0b549bdeca8525c7",
+      "startPath": "/today",
+      "startedAt": "2026-08-03T23:23:16.500Z",
+      "finishedAt": "2026-08-03T23:23:18.361Z",
+      "durationMs": 1861,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/study-sessions/start",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/study-sessions/active",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:bda339da8bd567ff70e6c0353b141536dd5b18d603e699a479305f4b17f3a3fd",
+          "assertions": [
+            {
+              "id": "active-session-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "active-session-before",
+              "predicate": "equals",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:ba76f126b6083904017ad2bdb69881f1e4d6ce6dfe306d3783906d9901f68ae7",
+          "assertions": [
+            {
+              "id": "active-session-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "active-session-after",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            },
+            {
+              "id": "active-session-after-identity",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/focus/synthetic-id?returnTo=%2Ftoday",
+      "terminalAssertions": [
+        {
+          "id": "focus-route",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "focus-heading",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-dashboard.png",
+        "sha256": "sha256:f8fed30e5b75c3c3c1e66a72f405923adbe12d8d2ca03805043029ac9ad8d0ca",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "desktop-timer-closeout",
+      "journey": "timer-closeout",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:87e4c7cd8051392ffa8d8bda22ad2fbb6520de7ce28fb94ca056a2d32cc9064a",
+      "startPath": "/focus/synthetic-id?returnTo=%2Ftoday",
+      "startedAt": "2026-08-03T23:23:18.483Z",
+      "finishedAt": "2026-08-03T23:23:20.149Z",
+      "durationMs": 1666,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/study-sessions/synthetic-id/end",
+        "status": 200,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/study-sessions/active",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:12ce8025009a753d61a2bdca21295491d7fe0e47486560da58e5d215c908245a",
+          "assertions": [
+            {
+              "id": "fixture-session-active-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "fixture-session-active",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            },
+            {
+              "id": "fixture-session-active-identity",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:bda339da8bd567ff70e6c0353b141536dd5b18d603e699a479305f4b17f3a3fd",
+          "assertions": [
+            {
+              "id": "fixture-session-closed-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "fixture-session-closed",
+              "predicate": "equals",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/focus/synthetic-id?returnTo=%2Ftoday",
+      "terminalAssertions": [
+        {
+          "id": "evidence-relay-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "session-status-ended",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-timer-closeout.png",
+        "sha256": "sha256:f9298d0dab93252a33089522057e83032314c16033875433adb3c730c8a5dad2",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "desktop-review",
+      "journey": "review",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:db74a8d99b1d81ffcca2b550f0cb1ec7b691211568fba833a13be39a9f7c0823",
+      "startPath": "/review/daily",
+      "startedAt": "2026-08-03T23:23:20.255Z",
+      "finishedAt": "2026-08-03T23:23:21.807Z",
+      "durationMs": 1552,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/daily-reviews",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/reviews/today",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:b4c560442c7d92d3e297fd07331542fdd903d27b264895907ddb2e07065c353c",
+          "assertions": [
+            {
+              "id": "review-get-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "review-absent-before",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:34b77675293f01d0dd29071af0525eb9f936901f65d9b0348bd2d326c02d7d64",
+          "assertions": [
+            {
+              "id": "review-get-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "review-created",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            },
+            {
+              "id": "review-identity-matches",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/review/daily",
+      "terminalAssertions": [
+        {
+          "id": "review-success-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "review-success-live-region",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-review.png",
+        "sha256": "sha256:bf5943dd931a0a784c8cc7da17a1d98b904874fe4ea00269d45db36f921b4af3",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "desktop-notes",
+      "journey": "notes",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:06f1b7877b3b3e82937c059a9723d24f7e1704ee7531f256c19bdf1aac9a8eae",
+      "startPath": "/knowledge/notes",
+      "startedAt": "2026-08-03T23:23:21.923Z",
+      "finishedAt": "2026-08-03T23:23:23.578Z",
+      "durationMs": 1655,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/notes",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/notes",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:bfce066ba420e00d28312534e1ce05216738af779961c3f303f42a05113ba5b1",
+          "assertions": [
+            {
+              "id": "notes-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "notes-before",
+              "predicate": "equals",
+              "expected": 0,
+              "actual": 0,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:56cb49511e7d9f33f70193b51ab6fe5baece7c2e5fd7783945bd21ae05637b7e",
+          "assertions": [
+            {
+              "id": "notes-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "notes-count-after",
+              "predicate": "equals",
+              "expected": 1,
+              "actual": 1,
+              "passed": true
+            },
+            {
+              "id": "created-note-present",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/knowledge/notes",
+      "terminalAssertions": [
+        {
+          "id": "created-note-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "note-form-cleared",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-notes.png",
+        "sha256": "sha256:14b9d2a10a4f0b0d7d2db37f47ada6e07737d6a5d4b350ff45ac87008141cb90",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "desktop-syllabus",
+      "journey": "syllabus",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:b9d16d6f815e2d72e4842e0eaf7aa670b4534050cab33aa3f3a5e84555ea9c2f",
+      "startPath": "/knowledge/syllabus",
+      "startedAt": "2026-08-03T23:23:23.688Z",
+      "finishedAt": "2026-08-03T23:23:25.296Z",
+      "durationMs": 1608,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/syllabus/nodes",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/syllabus",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:4d19c5b78dc086fc6824c3b00dda942d9ef60aae9e2f14702fd68c5a747795a3",
+          "assertions": [
+            {
+              "id": "syllabus-count-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "syllabus-count-before",
+              "predicate": "equals",
+              "expected": 1,
+              "actual": 1,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:35bb7f8542a25ee223e4bf646955b4fa94dc0fec9d3d2eb158beb86a621e8184",
+          "assertions": [
+            {
+              "id": "syllabus-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "syllabus-count-after",
+              "predicate": "equals",
+              "expected": 2,
+              "actual": 2,
+              "passed": true
+            },
+            {
+              "id": "created-syllabus-node-present",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/knowledge/syllabus?subjectId=synthetic-id",
+      "terminalAssertions": [
+        {
+          "id": "created-node-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "syllabus-form-cleared",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-syllabus.png",
+        "sha256": "sha256:2aa9b151a9b1e1831f424ae6442d1917f887dcf7aee13e9591f9e59dce836b1a",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "desktop-reports",
+      "journey": "reports",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:d8d2c68143e1ef3929cc3e41e748eaf83e2167928881844869fdd151f9f1fdb5",
+      "startPath": "/review/reports?tab=current&period=week",
+      "startedAt": "2026-08-03T23:23:25.405Z",
+      "finishedAt": "2026-08-03T23:23:26.956Z",
+      "durationMs": 1551,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/reports/synthetic-id/confirm",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/reports/current?period=week",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:355f44d39739cd7f3b955d8c04400f8c44e06a027eb1cce587caa17c9a82e900",
+          "assertions": [
+            {
+              "id": "report-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "report-undecided-before",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:eb5bf6dfd0af29604302df6f1dc340326c69e1884871c902bc8cda4e807353df",
+          "assertions": [
+            {
+              "id": "report-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "report-confirmed-after",
+              "predicate": "equals",
+              "expected": "confirmed",
+              "actual": "confirmed",
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/review/reports?tab=current&period=week",
+      "terminalAssertions": [
+        {
+          "id": "report-confirmed-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "report-boundary-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-reports.png",
+        "sha256": "sha256:db06cf0e42f490719ba8f9c72711a29e9fa55690176ab4347cd641af69e68180",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "desktop-simulation",
+      "journey": "simulation",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:4ce0aa611a04d56d66cb5e934ed80e5f6e2f2a5f74a7324d893dd304e4372a73",
+      "startPath": "/test/simulations",
+      "startedAt": "2026-08-03T23:23:27.072Z",
+      "finishedAt": "2026-08-03T23:23:28.545Z",
+      "durationMs": 1473,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/simulation/exams",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/simulation/exams",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:100760fef2cb301ddaf137c0c55c558361011e0f15dba38086d5ced75972684b",
+          "assertions": [
+            {
+              "id": "exams-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "exams-before",
+              "predicate": "equals",
+              "expected": 0,
+              "actual": 0,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:d259a5763eece194d497e128053937e92b4d7150d9467be06b7e028d66584d64",
+          "assertions": [
+            {
+              "id": "exams-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "exams-count-after",
+              "predicate": "equals",
+              "expected": 1,
+              "actual": 1,
+              "passed": true
+            },
+            {
+              "id": "created-exam-present",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/test/simulations/synthetic-id",
+      "terminalAssertions": [
+        {
+          "id": "simulation-detail-route",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "simulation-detail-heading",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-simulation.png",
+        "sha256": "sha256:31207a60c1e159a9c505ee948d10b191e27cc749a6dbd3b20c51785815c46eec",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "desktop-update-center",
+      "journey": "update-center",
+      "viewport": {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:01f3e85592846783fc0efb3f5f375ce40e9af3037510ab2ec632d074b6545b89",
+      "startPath": "/settings/system",
+      "startedAt": "2026-08-03T23:23:28.660Z",
+      "finishedAt": "2026-08-03T23:23:30.151Z",
+      "durationMs": 1491,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/system/update-requests",
+        "status": 202,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/system/update-status",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:f163c55e9c4767bf97c4b1ba0a6d83970b21e3e0beb6db03b2798a3e500bbfbd",
+          "assertions": [
+            {
+              "id": "update-status-before",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "queue-count-known-before",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:7b591d2a35ecd5a5a6b28e553079f5cffcf64d33f66f219584aa60789e2ce1d1",
+          "assertions": [
+            {
+              "id": "update-status-after",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "queue-count-increased",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/settings/system",
+      "terminalAssertions": [
+        {
+          "id": "system-settings-route",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "version-center-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "check-request-notice-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/desktop-update-center.png",
+        "sha256": "sha256:3b8eb8487f85ec1e881a5aaa476856117ddd4bd945017cb4e4a6d21230b867e7",
+        "width": 1440,
+        "height": 1000,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-login",
+      "journey": "login",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:f863c8aece392d752ed4035770462592a46e5771fbb1c9b69b62670a07dfd639",
+      "startPath": "/login",
+      "startedAt": "2026-08-03T23:23:30.257Z",
+      "finishedAt": "2026-08-03T23:23:32.087Z",
+      "durationMs": 1830,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/auth/login",
+        "status": 200,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/dashboard/today",
+        "before": {
+          "status": 401,
+          "responseSha256": "sha256:a1d55d2c2c14a6a8d1c08977059aa62ea671af14dbb076c3ecb00d1f31e74389",
+          "assertions": [
+            {
+              "id": "unauthenticated-before",
+              "predicate": "equals",
+              "expected": 401,
+              "actual": 401,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:3ff10e30d02dc16c013583398689587f605f462cbffcd8d41b75cd4ec51a342f",
+          "assertions": [
+            {
+              "id": "authenticated-after",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "dashboard-present",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/today",
+      "terminalAssertions": [
+        {
+          "id": "today-heading",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "authenticated-route",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-login.png",
+        "sha256": "sha256:b71a9b55be48050d1f89ecf3097d64d43afd37fd293f7a36754da0694ad74737",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-dashboard",
+      "journey": "dashboard",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:ee9e2cc2798ea3f1f2d3b1c445d2e2d325afa79100e07e423465e383c916c21c",
+      "startPath": "/today",
+      "startedAt": "2026-08-03T23:23:32.199Z",
+      "finishedAt": "2026-08-03T23:23:34.552Z",
+      "durationMs": 2353,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/study-sessions/start",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/study-sessions/active",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:bda339da8bd567ff70e6c0353b141536dd5b18d603e699a479305f4b17f3a3fd",
+          "assertions": [
+            {
+              "id": "active-session-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "active-session-before",
+              "predicate": "equals",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:763e964edc27aa78a7ba7b731561b41a05d871604a4083f5c6762da2773f2a37",
+          "assertions": [
+            {
+              "id": "active-session-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "active-session-after",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            },
+            {
+              "id": "active-session-after-identity",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/focus/synthetic-id?returnTo=%2Ftoday",
+      "terminalAssertions": [
+        {
+          "id": "focus-route",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "focus-heading",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-dashboard.png",
+        "sha256": "sha256:e31ae0e1649360a66a055e3987c283739210423228300db9c889e1fd6462a2e8",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-timer-closeout",
+      "journey": "timer-closeout",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:76ba0211062b6992acc11c0278cd61d40758ee25b50951175d32a41aad25ba9c",
+      "startPath": "/focus/synthetic-id?returnTo=%2Ftoday",
+      "startedAt": "2026-08-03T23:23:34.683Z",
+      "finishedAt": "2026-08-03T23:23:36.289Z",
+      "durationMs": 1606,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/study-sessions/synthetic-id/end",
+        "status": 200,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/study-sessions/active",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:f6816c8485060911cbec6dd6d6eae479c54cf278c395bf7c17855e60a1f20866",
+          "assertions": [
+            {
+              "id": "fixture-session-active-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "fixture-session-active",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            },
+            {
+              "id": "fixture-session-active-identity",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:bda339da8bd567ff70e6c0353b141536dd5b18d603e699a479305f4b17f3a3fd",
+          "assertions": [
+            {
+              "id": "fixture-session-closed-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "fixture-session-closed",
+              "predicate": "equals",
+              "expected": false,
+              "actual": false,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/focus/synthetic-id?returnTo=%2Ftoday",
+      "terminalAssertions": [
+        {
+          "id": "evidence-relay-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "session-status-ended",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-timer-closeout.png",
+        "sha256": "sha256:e2887b542b89aca3df9c83e0174282158c7e22be47e3a17cba7d92998a154d7d",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-review",
+      "journey": "review",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:4eb9db135604a23696dabaefe86632ed9f505f8b76fe6d4d9a07e03acdf14d07",
+      "startPath": "/review/daily",
+      "startedAt": "2026-08-03T23:23:36.410Z",
+      "finishedAt": "2026-08-03T23:23:37.873Z",
+      "durationMs": 1463,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/daily-reviews",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/reviews/today",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:b4c560442c7d92d3e297fd07331542fdd903d27b264895907ddb2e07065c353c",
+          "assertions": [
+            {
+              "id": "review-get-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "review-absent-before",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:06ba1f8ea20528cb8f940ef45c5ce2dfe4b47f9fe86b4f4e138929694e04b846",
+          "assertions": [
+            {
+              "id": "review-get-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "review-created",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            },
+            {
+              "id": "review-identity-matches",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/review/daily",
+      "terminalAssertions": [
+        {
+          "id": "review-success-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "review-success-live-region",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-review.png",
+        "sha256": "sha256:3176cf7e361cb3babc68d864acc2a679cd6b6bee6a429b6e7fc4da7a231f0ff6",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-notes",
+      "journey": "notes",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:5487ef43f11cb8a12d4f7c61eaadc45ab979aeb0d467992c1cd8b5f6dd1025a4",
+      "startPath": "/knowledge/notes",
+      "startedAt": "2026-08-03T23:23:37.977Z",
+      "finishedAt": "2026-08-03T23:23:39.520Z",
+      "durationMs": 1543,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/notes",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/notes",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:bfce066ba420e00d28312534e1ce05216738af779961c3f303f42a05113ba5b1",
+          "assertions": [
+            {
+              "id": "notes-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "notes-before",
+              "predicate": "equals",
+              "expected": 0,
+              "actual": 0,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:406066112b027de3515b3bc5eb6f1101e532d959d6ab67a21ae99e488af89d4e",
+          "assertions": [
+            {
+              "id": "notes-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "notes-count-after",
+              "predicate": "equals",
+              "expected": 1,
+              "actual": 1,
+              "passed": true
+            },
+            {
+              "id": "created-note-present",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/knowledge/notes",
+      "terminalAssertions": [
+        {
+          "id": "created-note-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "note-form-cleared",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-notes.png",
+        "sha256": "sha256:f23cba49d798266e434abf6ce4afc1092b491bb8c74512f416a1c81b9a097405",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-syllabus",
+      "journey": "syllabus",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:ff0a7ea4efb59610428d02f1acf5ac44df516a0d4ea6127b1992f5428ee4f46e",
+      "startPath": "/knowledge/syllabus",
+      "startedAt": "2026-08-03T23:23:39.639Z",
+      "finishedAt": "2026-08-03T23:23:41.201Z",
+      "durationMs": 1562,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/syllabus/nodes",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/syllabus",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:a176a6e59c559218027a1178e4127d9f667d39b936485ff6ee7c1743086de1eb",
+          "assertions": [
+            {
+              "id": "syllabus-count-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "syllabus-count-before",
+              "predicate": "equals",
+              "expected": 1,
+              "actual": 1,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:4ce8d4814158e272397ff29a7b8e6fdaacfaa8f4e7161dfb77297a34e282fa40",
+          "assertions": [
+            {
+              "id": "syllabus-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "syllabus-count-after",
+              "predicate": "equals",
+              "expected": 2,
+              "actual": 2,
+              "passed": true
+            },
+            {
+              "id": "created-syllabus-node-present",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/knowledge/syllabus?subjectId=synthetic-id",
+      "terminalAssertions": [
+        {
+          "id": "created-node-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "syllabus-form-cleared",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-syllabus.png",
+        "sha256": "sha256:2865d2904eecbf452d3e27f772ea06f3d938bd9e5065c6bd0635b8d0c62af0d5",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-reports",
+      "journey": "reports",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:080cda9fcb88f0268506e83197f25f7f5b6d80f09e4cce9cb4fffb5ee5238bc8",
+      "startPath": "/review/reports?tab=current&period=week",
+      "startedAt": "2026-08-03T23:23:41.321Z",
+      "finishedAt": "2026-08-03T23:23:42.836Z",
+      "durationMs": 1515,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/reports/synthetic-id/confirm",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/reports/current?period=week",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:1a6f6a7fea49f1047d91a0fdba7201d350785ab2ddd94bede0509281361cadd7",
+          "assertions": [
+            {
+              "id": "report-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "report-undecided-before",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:f3ff26f633dc6f51d56bc7e6dc0d4be25507c9db3353dd9328f865f5a96e2269",
+          "assertions": [
+            {
+              "id": "report-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "report-confirmed-after",
+              "predicate": "equals",
+              "expected": "confirmed",
+              "actual": "confirmed",
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/review/reports?tab=current&period=week",
+      "terminalAssertions": [
+        {
+          "id": "report-confirmed-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "report-boundary-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-reports.png",
+        "sha256": "sha256:a715701abd35c805097828a89f7b4ef0e67cba9c7cc31b0186ea84738ff5016e",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-simulation",
+      "journey": "simulation",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:d24f9c6135329be9322caaf2fd96d3a27d3ef94d5b0c500618372496bae51a00",
+      "startPath": "/test/simulations",
+      "startedAt": "2026-08-03T23:23:42.941Z",
+      "finishedAt": "2026-08-03T23:23:44.353Z",
+      "durationMs": 1412,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/simulation/exams",
+        "status": 201,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/simulation/exams",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:100760fef2cb301ddaf137c0c55c558361011e0f15dba38086d5ced75972684b",
+          "assertions": [
+            {
+              "id": "exams-before-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "exams-before",
+              "predicate": "equals",
+              "expected": 0,
+              "actual": 0,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:a57aced2e253a5122f1b3dfad46d6b74cb632f5d2dab29d19782e614cac780bb",
+          "assertions": [
+            {
+              "id": "exams-after-status",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "exams-count-after",
+              "predicate": "equals",
+              "expected": 1,
+              "actual": 1,
+              "passed": true
+            },
+            {
+              "id": "created-exam-present",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/test/simulations/synthetic-id",
+      "terminalAssertions": [
+        {
+          "id": "simulation-detail-route",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "simulation-detail-heading",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-simulation.png",
+        "sha256": "sha256:1319ccbb46344eed8bda02ed4ec266a241f10c5ea35ee75b8ad18ae56b76651d",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    },
+    {
+      "id": "mobile-update-center",
+      "journey": "update-center",
+      "viewport": {
+        "id": "mobile",
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 1
+      },
+      "accountRef": "sha256:175a9ca6d593830086305b0c7a9f1388fad3de347d002e104743cd3d87885854",
+      "startPath": "/settings/system",
+      "startedAt": "2026-08-03T23:23:44.467Z",
+      "finishedAt": "2026-08-03T23:23:45.889Z",
+      "durationMs": 1422,
+      "mutation": {
+        "initiatedBy": "page-ui",
+        "uiOriginatedMutation": true,
+        "method": "POST",
+        "path": "/api/system/update-requests",
+        "status": 202,
+        "requestCount": 1
+      },
+      "oracle": {
+        "method": "GET",
+        "path": "/api/system/update-status",
+        "before": {
+          "status": 200,
+          "responseSha256": "sha256:7b591d2a35ecd5a5a6b28e553079f5cffcf64d33f66f219584aa60789e2ce1d1",
+          "assertions": [
+            {
+              "id": "update-status-before",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "queue-count-known-before",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        },
+        "after": {
+          "status": 200,
+          "responseSha256": "sha256:e1031cf8671a2405ccabcd2bab454750eb5bb2c9fb5f25029943f32b447d14bd",
+          "assertions": [
+            {
+              "id": "update-status-after",
+              "predicate": "equals",
+              "expected": 200,
+              "actual": 200,
+              "passed": true
+            },
+            {
+              "id": "queue-count-increased",
+              "predicate": "equals",
+              "expected": true,
+              "actual": true,
+              "passed": true
+            }
+          ]
+        }
+      },
+      "terminalPath": "/settings/system",
+      "terminalAssertions": [
+        {
+          "id": "system-settings-route",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "version-center-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "check-request-notice-visible",
+          "predicate": "equals",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "screenshot": {
+        "path": "output/playwright/v11-browser-evidence-current-20260804-r32/screenshots/mobile-update-center.png",
+        "sha256": "sha256:b7f751c5c62a8c9cbd3933fbdc3232215dbdc4057e0a0dd2a71ffa665538ddb9",
+        "width": 390,
+        "height": 844,
+        "syntheticContent": true
+      },
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "requestFailures": [],
+        "httpFailures": [],
+        "unexplainedFailureCount": 0
+      },
+      "result": "pass"
+    }
+  ],
+  "doesNotProve": [
+    "signed Release",
+    "production apply",
+    "residual closure"
+  ],
+  "safetyFacts": {
+    "localBaseUrl": true,
+    "localDatabase": true,
+    "explicitWriteOptIn": true,
+    "passwordSource": "restricted-file",
+    "productionWriteAttempted": false,
+    "serverCommandAttempted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "destructiveActionAttempted": false,
+    "updaterApplyAttempted": false,
+    "releaseCreated": false,
+    "secretValuePrinted": false,
+    "realStudyContentIncluded": false,
+    "residualLedgerUpdated": false
+  }
+}

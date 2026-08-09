@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       throw new ApiError("PERIODIC_REPORT_REVISION_CONFLICT", 409, {
         latest: { kind: "periodic-report-decision", report: current, decision: current.decision },
         conflictFields: ["id", "revision"],
-        workbench: "/review/reports",
+        workbench: "/roadmap/reviews",
       });
     }
     const decision = await decidePeriodicReport({ ...parsed.data, action: "confirm" }, user.id);

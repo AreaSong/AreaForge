@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 const storageKey = "areaforge.list-return.v2";
@@ -17,17 +18,26 @@ interface ListReturnRecord {
 
 export function ListDetailLink(props: {
   href: string;
+  desktopHref?: string;
   focusId: string;
   children: React.ReactNode;
   className?: string;
 }) {
+  const router = useRouter();
   return (
     <Link
       href={props.href}
       data-return-focus={props.focusId}
       className={props.className}
-      onClick={() => {
-        const destination = new URL(props.href, window.location.href);
+      onClick={(event) => {
+        const useDesktopDestination = Boolean(props.desktopHref && window.matchMedia("(min-width: 1024px)").matches);
+        const targetHref = useDesktopDestination ? props.desktopHref! : props.href;
+        if (useDesktopDestination && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+          event.preventDefault();
+          router.push(targetHref);
+          return;
+        }
+        const destination = new URL(targetHref, window.location.href);
         if (destination.origin !== window.location.origin) return;
         const record: ListReturnRecord = {
           sourceUrl: currentUrl(),

@@ -5,19 +5,21 @@
 - `User`：单管理员账号。
 - `AuthSession`：登录会话，只保存 session token 哈希、过期时间和用户关联。
 - `Subject`：数学、英语、政治、408 各子科目。`legacyCode`（可空，原 `code`）保留默认科目兼容；`stableKey` 必填；可空 `workspaceId`/`groupId`；未接管行以 `workspaceId IS NULL` 作为 legacy 只读范围。自定义科目不伪造 enum code。
-- `ExamWorkspace` / `SubjectGroup`：考试工作区与 408 分组；同一用户最多一个 ACTIVE 工作区（partial unique）。工作区、科目与分组通过 `/settings/workspace` 管理。
+- `ExamWorkspace` / `SubjectGroup`：考试工作区与 408 分组；同一用户最多一个 ACTIVE 工作区（partial unique）。工作区、科目与分组通过 `/settings/exams` 管理。
 - `SyllabusNode`：考纲进度树节点，包含当前掌握状态和掌握等级；掌握证明优先读取显式条件、证据引用和复测记录，缺失显式证据时继续 fallback 到现有任务、计时、笔记和错题 `_count`。
-- `StudyTask`：每日任务；`parentTaskId` 自关联记录拆小任务的父子关系。旧任务没有父子关系时保持 `null`，不做猜测回填。当前已支持可空 `planMilestoneId`、相关考纲关联表，以及可空 `reviewScheduleId`（复习任务桥接；同一 Schedule 最多一个未完成桥接任务）。
-- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与计划收件箱。含原子 `convert`，页面入口位于 `/stage/overview`、`/today/plan`、`/today/inbox` 与任务详情。
-- `StudySession`：学习计时记录；结构化收口字段包括理解程度、最小产出、下一步动作、是否产生笔记/错题、低转化标记、反假学习原因、补产出要求和收口版本，同时保留旧 `note` 文本可读。OPS-006 使用 PostgreSQL partial unique index `StudySession_one_active_idx` 保证全局最多一个 `RUNNING/PAUSED` session；该索引由 additive SQL migration 管理，不在 Prisma schema 中伪装成 `status` 全值唯一。当前已支持可空 `goalMinutes` / `startSource`。
+- `KnowledgePoint`：独立知识点核心对象，拥有自己的掌握状态、版本和复测时间；通过 `KnowledgeSyllabusLink`、`StageKnowledgeTarget`、学习安排和多次复测关联考纲与阶段，因此同一知识点可以跨阶段、跨考纲和跨检验重复出现。
+- `StudyTask`：每日任务；`parentTaskId` 自关联记录拆小任务的父子关系。旧任务没有父子关系时保持 `null`，不做猜测回填。当前已支持可空 `planMilestoneId`、相关考纲关联表、`StudyTaskStageLink` 多阶段关联和 `StudyTaskKnowledgePoint` 多知识点关联，以及可空 `reviewScheduleId`（复习任务桥接；同一 Schedule 最多一个未完成桥接任务）。拆小任务继承父任务的里程碑、主/相关考纲、阶段和知识点关系；创建与更新会校验工作区、科目、归档状态和重复 ID。
+- `StudyTaskKnowledgePoint`：任务与独立知识点的多对多关系表；同一知识点可被多个任务、阶段、考纲和检验复用，关系删除随任务或知识点级联，不复制知识点本体。
+- `PlanMilestone` / `TaskDependency` / `PlanInboxItem`：阶段里程碑、软硬依赖与投入草稿。含原子 `convert`，页面入口位于 `/roadmap/stages`、`/roadmap/allocation`、`/roadmap/allocation/drafts` 与 `/roadmap/allocation/tasks/:taskId`。
+- `StudySession`：统一活动计时记录；`activityKind` 为 `STUDY/REVIEW/TEST`，`activityMode` 为 `FREE_STUDY/KNOWLEDGE_REVIEW/RETEST/SIMULATION`，并通过 `reviewScheduleId`、`knowledgeRetestId` 或 `simulationExamId` 绑定已配置的特殊活动。自由学习只允许 `STUDY + FREE_STUDY`，专项复测属于 `REVIEW + RETEST`，模拟考试属于 `TEST + SIMULATION`。结构化收口字段包括理解程度、最小产出、下一步动作、是否产生笔记/错题、低转化标记、反假学习原因、补产出要求和收口版本，同时保留旧 `note` 文本可读。当前状态包含 `RUNNING/PAUSED/CLOSING/COMPLETED/CANCELED`，`CLOSING` 冻结结束时刻并要求完整收口。PostgreSQL partial unique index `StudySession_one_active_per_user_idx` 保证全局最多一个活动 session；该索引由 additive SQL migration 管理。`goalMinutes` / `startSource` / `clientDeviceId` / `clientDeviceLabel` / `lastHeartbeatAt` 均可空，设备字段只用于跨标签页、跨设备状态提示，不构成浏览器指纹。
 - `DailyReview`：每日复盘；当前已支持可空 `workspaceId`，并以 partial unique 区分 legacy 与 workspace 复合唯一。
 - `CheckIn`：每日打卡快照；按学习日唯一，记录最低动作、总/有效时长、有效 session 数、任务完成率、复盘状态、低效标记、低转化次数和来源版本。当前支持 CheckIn v2 字段（`reviewCount`/`reviewSeconds`/结果计数/`minimumActionSource`）；触达日原子升级 `sourceVersion=2`，不批量回填历史。新写路径维护快照，历史无快照日期由读取侧 fallback 派生；同一学习日刷新在事务内先获取 `pg_advisory_xact_lock(1095123785, YYYYMMDD)`，再读取聚合并写入，避免旧快照覆盖新提交。当前已支持可空 `workspaceId` 与 partial unique。
 - `TaskDebtEvent`：任务债务事件账本；记录补做、延期、放弃、拆小、改复习和完成动作的前后状态、债务状态、关联任务、原因、metadata 和操作者。旧任务没有事件时继续按 `StudyTask.status/debtStatus/plannedDate` fallback。
 - `RecoveryState`：恢复模式状态；记录状态、触发类型、开始/结束时间、目标分钟、聚焦任务数量、原因、退出条件、metadata 和操作者。当前支持 Recovery v2（`userId`/`currentStage`/窗口学习日/`progressionVersion`/`revision`；`(userId, workspaceId)` active partial unique；30/60/90 三阶）。规则触发和手动触发只写恢复状态，不批量修改历史欠账，不隐藏或删除任务。当前已支持可空 `workspaceId`。
 - `MasteryConditionRecord`：掌握条件记录；按 `syllabusNodeId + condition` 唯一，保存条件是否勾选、勾选时间和操作者。
 - `MasteryEvidence`：掌握证据引用；可引用同一考纲节点下的任务、计时、笔记、错题或已通过复测记录，并记录证据类型、摘要和操作者。
-- `MasteryRetest`：复测记录；保存复测时间、`passed/failed/partial` 结果、分数、摘要和下次复习时间；可空唯一 `reviewEventId` 关联统一复习事件。只有 `passed` 计入复测通过证明，失败或部分通过不会自动降低 `SyllabusNode.status/masteryLevel`。
-- `SimulationExam`：结构化模拟考试记录；保存考试名称、日期、是否 2026 同步自测、目标/实际用时、目标/实际总分、空题数量、失分原因、心态、总结和规则复盘文本。新建模拟考试优先写入该模型。当前已支持可空 `workspaceId`。
+- `MasteryRetest`：专项复测记录；保存复测时间、`passed/failed/partial` 结果、分数、摘要、显式复盘和下次复测时间，并通过 `StudySession.activityMode=RETEST` 关联专用计时。可空唯一 `reviewEventId` 关联统一复习事件。只有 `passed` 计入复测通过证明，失败或部分通过不会自动降低 `SyllabusNode.status/masteryLevel`。
+- `SimulationExam`：结构化模拟考试记录；保存考试名称、日期、是否 2026 同步自测、目标/实际用时、目标/实际总分、空题数量、失分原因、心态、总结、用户显式复盘和规则复盘文本，并通过 `StudySession.activityMode=SIMULATION` 关联专用计时。新建模拟考试优先写入该模型。当前已支持可空 `workspaceId`。
 - `SimulationSubjectResult`：模拟考试科目结果；按 `simulationExamId + subjectId` 唯一，保存科目目标分、实际分、用时、空题数量、失分原因和总结。同一场同一科再次保存会更新，不新增重复结果。
 - `StagePlan`：阶段计划记录；保存阶段名称、开始/结束时间、阶段目标、模式和状态。阶段计划可被模拟考试和周期报告读取，用作长期调整草稿的目标边界。当前已支持可空 `workspaceId`/`stableKey`/`revision`。
 - `StageAdjustmentDraft`：阶段调整草稿；保存来源、本地规则模式、风险结论、重点科目、任务强度、建议动作、下一阶段重点和确认状态。草稿固定 `canAutoApply=false`、`requiresUserConfirmation=true`，只有用户显式确认后才会更新关联 `StagePlan` 并写入审计。当前已支持可空 `workspaceId`。
@@ -35,9 +37,11 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `SyllabusNode.stableKey` / `revision` / `archivedAt`：Migration 5；`(subjectId, stableKey)` unique；无键旧节点按兼容规则在首次 confirm/export 补键，不批量回填。
 - `LearningTreeImportBatch` / `LearningTreeImportItem`：仅 confirm 成功时创建；规范化 Markdown、hash、`(workspaceId, idempotencyKey)` unique、request fingerprint、软归档；preview 不写领域表。
 - `StudyResource`：FILE（READY Attachment）或 LINK（HTTPS）exactly-one；支持 CRUD、上传、重复三选一和归档，页面入口位于 `/knowledge/resources`；不物理删除。
-- `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；页面入口位于 `/knowledge/reviews` 与 `/quick-review/[scheduleId]`。
+- `ReviewSchedule` / `ReviewEvent`：统一复习排期与不可变确认事件；exactly-one 目标、幂等确认、correction 链、桥接任务；页面入口位于 `/knowledge/reviews` 与 `/knowledge/reviews/[scheduleId]/run`。
 - `KnowledgeCanvasLayout` / `KnowledgeCanvasNodeLayout`：每用户每工作区唯一布局；节点仅 x/y/折叠/固定/隐藏；业务边实时派生。隔离验收已开放 `/knowledge/canvas` 与 layout API。
 - `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema + 隔离 API/设置页已落地。
+- `AiRuntimeSetting`：全局 AI Web 运行开关单例；保存 enabled、revision 和时间字段。启停由鉴权 Web API 修改并写入 `AuditEvent`；`AI_ENABLED=false` 仍是服务端硬闸门，网页不能绕过。
+- `AiProviderCredential`：当前账户 Provider 配置；服务端保存 base URL、model、API Key 密文、fingerprint、revision 和时间字段，API Key 不进入 Web 响应或审计 metadata。
 - `SimulationLossItem`：直接归属分科结果，固定原因、可选考纲节点、0.5 分 lostScore、revision 与软归档；模拟与分科根保留 revision CAS。
 
 ## 规划扩展模型

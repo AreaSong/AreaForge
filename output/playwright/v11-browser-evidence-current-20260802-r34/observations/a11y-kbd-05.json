@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-01T18:31:41.302Z",
+  "checkId": "KBD-05",
+  "checkKey": "canvas-arrow-command",
+  "route": "/knowledge/canvas",
+  "target": "canvas-layout-command",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "keyboard",
+  "assertions": [
+    {
+      "id": "arrow-command-saved-layout",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "arrow-command-focused-operated-node",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

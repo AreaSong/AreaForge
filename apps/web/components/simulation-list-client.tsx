@@ -2,14 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { SectionHeader } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 
-export function SimulationListClient() {
+export function SimulationListClient(props: { initialExamDate: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [name, setName] = useState("阶段模拟");
-  const [examDate, setExamDate] = useState(new Date().toISOString().slice(0, 10));
+  const [name, setName] = useState("模拟考试");
+  const [examDate, setExamDate] = useState(props.initialExamDate);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -35,7 +37,7 @@ export function SimulationListClient() {
         return;
       }
       completeIdempotentCommand(commandScope);
-      startTransition(() => router.push(`/stage/simulation/${body.exam!.id}`));
+      startTransition(() => router.push(`/test/simulations/${body.exam!.id}`));
     } catch {
       setError("网络不可用，模拟考试输入仍保留；恢复网络后请显式重试。");
     } finally {
@@ -44,8 +46,8 @@ export function SimulationListClient() {
   }
 
   return (
-    <form onSubmit={createExam} className="rounded-md border border-white/10 bg-[#101419] p-4">
-      <h2 className="text-sm font-medium text-white">创建模拟</h2>
+    <form id="create-simulation" onSubmit={createExam} className="border-t border-white/10 pt-5">
+      <SectionHeader title="创建新模拟" description="先建立一场考试，再进入详情录入分科成绩与失分事实。" />
       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_12rem_auto]">
         <label className="text-sm text-zinc-400">名称
           <input className="mt-1 h-11 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-white" value={name} onChange={(event) => setName(event.target.value)} />
@@ -53,7 +55,7 @@ export function SimulationListClient() {
         <label className="text-sm text-zinc-400">日期
           <input type="date" className="mt-1 h-11 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-white" value={examDate} onChange={(event) => setExamDate(event.target.value)} />
         </label>
-        <button disabled={pending || saving} className="self-end h-11 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60">{saving ? "创建中..." : "创建考试"}</button>
+        <Button type="submit" variant="primary" size="lg" loading={pending || saving} loadingLabel="创建中..." className="self-end">创建考试</Button>
       </div>
       {error ? <p role="alert" className="mt-2 text-sm text-red-300">{error}</p> : null}
     </form>

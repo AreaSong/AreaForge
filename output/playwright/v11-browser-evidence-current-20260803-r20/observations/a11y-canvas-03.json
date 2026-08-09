@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-03T07:19:25.682Z",
+  "checkId": "CANVAS-03",
+  "checkKey": "canvas-layout-and-return-oracle",
+  "route": "/knowledge/canvas",
+  "target": "canvas-layout-and-detail-return",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "api",
+  "assertions": [
+    {
+      "id": "second-keyboard-layout-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "layout-get-before-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "layout-get-after-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "layout-get-oracle-changed",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "keyboard-operation-focus-still-retained",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "hide-layout-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "hide-focus-moved-to-restore-control",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "hide-announcement-names-focus-destination",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "restore-layout-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "reset-layout-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "reset-layout-get-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "reset-layout-get-oracle-changed",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "reset-layout-announced",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "reset-layout-focus-returned",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "conflict-baseline-layout-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "stale-layout-conflict-status",
+      "predicate": "equals",
+      "expected": 409,
+      "actual": 409,
+      "passed": true
+    },
+    {
+      "id": "conflict-modal-received-focus",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "conflict-modal-retained-local-copy",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "conflict-modal-blocked-escape",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "conflict-explicit-retry-status",
+      "predicate": "equals",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "id": "conflict-focus-returned-to-trigger",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

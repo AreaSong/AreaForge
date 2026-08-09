@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-05T22:11:05.617Z",
+  "checkId": "KBD-02",
+  "checkKey": "main-navigation-enter",
+  "route": "/today",
+  "target": "main-navigation",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "keyboard",
+  "assertions": [
+    {
+      "id": "quick-create-trigger-focused",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "quick-create-opened-by-enter",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "quick-create-exposes-five-actions",
+      "predicate": "equals",
+      "expected": 5,
+      "actual": 6,
+      "passed": false
+    },
+    {
+      "id": "quick-create-escape-returned-focus",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "nav-link-focused",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "enter-activated-navigation",
+      "predicate": "equals",
+      "expected": "/knowledge",
+      "actual": "/knowledge",
+      "passed": true
+    }
+  ]
+}

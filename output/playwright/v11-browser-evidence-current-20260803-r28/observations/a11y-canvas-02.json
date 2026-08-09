@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-03T14:23:50.319Z",
+  "checkId": "CANVAS-02",
+  "checkKey": "canvas-mobile-equivalent-list",
+  "route": "/knowledge/canvas?view=list",
+  "target": "canvas-equivalent-list",
+  "profile": {
+    "id": "mobile-portrait",
+    "kind": "emulated-viewport",
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "keyboard",
+  "assertions": [
+    {
+      "id": "mobile-layout-buttons-disabled",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "mobile-reset-layout-absent",
+      "predicate": "equals",
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "mobile-equivalent-list-open-link",
+      "predicate": "gte",
+      "expected": 1,
+      "actual": 6,
+      "passed": true
+    },
+    {
+      "id": "mobile-list-opened-canonical-detail",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "mobile-detail-heading-focused",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

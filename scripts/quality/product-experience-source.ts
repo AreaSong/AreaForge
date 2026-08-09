@@ -31,7 +31,7 @@ export function computeProductExperienceSourceHash(root = findWorkspaceRoot()): 
     "git",
     ["ls-files", "--cached", "--others", "--exclude-standard", "--", ...productExperienceSourcePaths],
     { cwd: root, encoding: "utf8" },
-  ).split(/\r?\n/).filter(Boolean).sort();
+  ).split(/\r?\n/).filter((file) => file && existsSync(path.resolve(root, file))).sort();
   const hash = createHash("sha256");
   for (const file of files) {
     hash.update(file).update("\0").update(readFileSync(path.resolve(root, file))).update("\0");

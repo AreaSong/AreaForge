@@ -1,9 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { Alert, Badge } from "@/components/ui/feedback";
+import { PageHeader, SectionHeader } from "@/components/ui/page";
 import { WorkspaceSubjectManager } from "@/components/workspace-subject-manager";
 import {
   loadPrivateBusinessDraft,
@@ -105,7 +107,6 @@ export function WorkspaceSettingsClient(props: {
       setEditTargetDate(restored.targetExamDate);
       setEditStageSummary(restored.stageSummary);
       setWorkspaceDraftBaseRevision(restored.baseRevision);
-      setWorkspaceMergeNotice(null);
       if (draft && draft.baseRevision !== activeWorkspace.revision) {
         setWorkspaceConflict({ latest: activeWorkspace, conflictFields: ["revision"] });
         setError("工作区已在其他页面更新；本地草稿仍保留，请比较后选择如何合并。");
@@ -225,6 +226,7 @@ export function WorkspaceSettingsClient(props: {
       setWorkspaceDraftBaseRevision(baseline.baseRevision);
       setWorkspaceConflict(null);
       if (workspaceEditDraftKey) removePrivateBusinessDraft(workspaceEditDraftKey);
+      setWorkspaceMergeNotice("工作区目标已保存。");
       router.refresh();
     } catch {
       setError("网络不可用，工作区输入仍保留；恢复网络后请显式重试。");
@@ -285,32 +287,30 @@ export function WorkspaceSettingsClient(props: {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
-        <div>
-          <h1 className="text-xl font-semibold text-white">工作区</h1>
-          <p className="mt-1 text-sm text-zinc-500">考试目标、科目与分组</p>
-        </div>
-        <Link href="/settings" className="text-xs text-zinc-500 hover:text-zinc-200">
-          版本中心
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow={props.setupMode || !props.activeId ? "首次配置" : "设置"}
+        title={props.setupMode || !props.activeId ? "建立考试工作区" : "工作区与科目"}
+        description={props.setupMode || !props.activeId ? "确认考试目标和首批科目，再决定是否沿用已有学习数据。" : "管理当前考试目标、科目归属和可切换的工作区。"}
+        status={activeWorkspace && !props.setupMode ? <div className="flex flex-wrap gap-2"><Badge tone="success">当前：{activeWorkspace.name}</Badge><Badge>{props.subjects.filter((item) => !item.archivedAt).length} 个科目</Badge></div> : undefined}
+      />
 
       {props.setupMode || !props.activeId ? (
-        <div className="rounded-md border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          先确认考试目标，再决定是否沿用已有学习数据。取消不会创建工作区。
-        </div>
+        <>
+          <ol className="grid border-y border-white/10 sm:grid-cols-2" aria-label="工作区设置进度">
+            <SetupStep number={1} title="考试目标与科目" description="确定工作区和首批科目" active={step === "goal"} complete={step === "takeover"} />
+            <SetupStep number={2} title="已有数据处理" description="确认沿用或全新开始" active={step === "takeover"} complete={false} />
+          </ol>
+          <Alert tone="warning">完成前不会创建工作区，也不会移动任何已有学习数据。</Alert>
+        </>
       ) : null}
 
       {props.setupMode && step === "goal" ? (
-        <div className="space-y-3 border-b border-white/10 pb-5">
-          <h2 className="text-sm font-medium text-white">1. 考试目标与科目</h2>
-          <label className="block text-sm">
+        <section className="space-y-4 border-b border-white/10 pb-5">
+          <SectionHeader title="考试目标与首批科目" description="这些信息决定后续任务、知识和复盘的数据归属。公共课、408 和专业课都在这里管理。" />
+          <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm sm:col-span-2">
             <span className="text-zinc-400">工作区名称</span>
             <input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label className="flex items-start gap-3 rounded-md border border-white/10 p-3 text-sm text-zinc-300">
-            <input type="checkbox" className="mt-1" checked={include408} onChange={(event) => setInclude408(event.target.checked)} />
-            <span>同时创建 408 四科并归入 408 分组</span>
           </label>
           <label className="block text-sm">
             <span className="text-zinc-400">目标考试日</span>
@@ -320,6 +320,11 @@ export function WorkspaceSettingsClient(props: {
             <span className="text-zinc-400">首个科目</span>
             <input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={subjectName} onChange={(e) => setSubjectName(e.target.value)} />
           </label>
+          </div>
+          <label className="flex items-start gap-3 border-y border-white/10 px-1 py-3 text-sm text-zinc-300">
+            <input type="checkbox" className="mt-1" checked={include408} onChange={(event) => setInclude408(event.target.checked)} />
+            <span><span className="block text-white">同时创建 408 四科</span><span className="mt-1 block text-xs text-zinc-500">数据结构、计算机组成原理、操作系统和计算机网络会自动归入 408 分组。</span></span>
+          </label>
           <details className="text-sm text-zinc-500">
             <summary className="cursor-pointer">高级选项</summary>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -328,19 +333,15 @@ export function WorkspaceSettingsClient(props: {
             </div>
           </details>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black" onClick={() => setStep("takeover")}>
-              继续预览旧数据
-            </button>
-            <Link href="/today" className="h-11 rounded-md border border-white/10 px-4 text-sm leading-[2.75rem] text-zinc-300">
-              取消
-            </Link>
+            <Button type="button" variant="primary" size="lg" onClick={() => setStep("takeover")}>下一步：检查已有数据</Button>
+            <ButtonLink href="/today" variant="ghost" size="lg">取消</ButtonLink>
           </div>
-        </div>
+        </section>
       ) : step === "takeover" ? (
-        <div className="space-y-3 rounded-md border border-white/10 bg-[#101419] p-4">
-          <h2 className="text-sm font-medium text-white">2. 旧数据处理</h2>
+        <section className="space-y-4 border-b border-white/10 pb-5">
+          <SectionHeader title="确认已有数据处理方式" description="沿用只会接管预览中允许的科目；归属冲突项不会移动。" />
           {props.takeover ? (
-            <div className="space-y-2 text-sm text-zinc-400">
+            <div className="space-y-2 border-y border-white/10 py-4 text-sm text-zinc-400">
               <p>可沿用 {props.takeover.eligibleCount} 个已有科目：{props.takeover.eligibleSubjects.map((subject) => subject.name).join("、") || "无"}。</p>
               {props.takeover.unresolvedCount > 0 || props.takeover.crossOwnerBlockedCount > 0 ? (
                 <p className="text-amber-200">另有 {props.takeover.unresolvedCount} 个待确认，{props.takeover.crossOwnerBlockedCount} 个因归属冲突被阻止，本次不会移动。</p>
@@ -353,27 +354,23 @@ export function WorkspaceSettingsClient(props: {
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={pending || !canUseTakeoverPreview(props.takeover)} className="h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black disabled:opacity-60" onClick={() => void completeFirstUseSetup(true)}>
-              沿用已有数据并完成
-            </button>
-            <button type="button" className="h-11 rounded-md border border-white/10 px-4 text-sm text-zinc-200" onClick={() => void completeFirstUseSetup(false)}>
-              新建工作区，不沿用
-            </button>
-            <button type="button" className="h-11 rounded-md border border-white/10 px-4 text-sm text-zinc-300" onClick={() => setStep("goal")}>返回修改</button>
-            <Link href="/today" className="h-11 rounded-md border border-white/10 px-4 text-sm leading-[2.75rem] text-zinc-300">取消</Link>
+            <Button type="button" variant="primary" size="lg" loading={pending} loadingLabel="创建中..." disabled={!canUseTakeoverPreview(props.takeover)} onClick={() => void completeFirstUseSetup(true)}>沿用已有数据并完成</Button>
+            <Button type="button" variant="secondary" size="lg" disabled={pending} onClick={() => void completeFirstUseSetup(false)}>全新建立，不沿用</Button>
+            <Button type="button" variant="ghost" size="lg" disabled={pending} onClick={() => setStep("goal")}>返回修改</Button>
+            <ButtonLink href="/today" variant="ghost" size="lg">取消</ButtonLink>
           </div>
-        </div>
+        </section>
       ) : null}
 
       {activeWorkspace && !props.setupMode ? (
-        <div className="space-y-3 border-b border-white/10 pb-5">
-          <h2 className="text-sm font-medium text-white">当前考试目标</h2>
+        <section className="space-y-4 border-b border-white/10 pb-5">
+          <SectionHeader title="当前考试目标" description="调整名称、目标日期和当前阶段摘要。" />
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-sm text-zinc-400">名称<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-white" value={editName} onChange={(event) => setEditName(event.target.value)} /></label>
             <label className="text-sm text-zinc-400">目标考试日<input type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-white" value={editTargetDate} onChange={(event) => setEditTargetDate(event.target.value)} /></label>
           </div>
           <label className="block text-sm text-zinc-400">阶段摘要<textarea className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] p-2 text-white" value={editStageSummary} onChange={(event) => setEditStageSummary(event.target.value)} /></label>
-          <button type="button" disabled={pending} onClick={() => void saveWorkspace()} className="h-10 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60">保存工作区</button>
+          <Button type="button" variant="primary" loading={pending} loadingLabel="保存中..." onClick={() => void saveWorkspace()}>保存考试目标</Button>
           {workspaceConflict ? (
             <div className="space-y-2 border-l-2 border-amber-300 pl-3 text-sm text-amber-100" role="status">
               <p>服务端最新版本为 r{workspaceConflict.latest.revision}；冲突字段：{workspaceConflict.conflictFields.join("、")}。</p>
@@ -389,27 +386,42 @@ export function WorkspaceSettingsClient(props: {
             </div>
           ) : null}
           {workspaceMergeNotice ? <p className="text-sm text-teal-200" role="status">{workspaceMergeNotice}</p> : null}
-        </div>
+        </section>
       ) : null}
 
       {activeWorkspace && !props.setupMode ? (
-        <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
+        <div className="space-y-3">
+          <div className="rounded-md border border-teal-300/20 bg-teal-300/[0.04] px-3 py-2 text-xs leading-5 text-zinc-400">
+            <span className="font-medium text-teal-200">科目管理入口：</span>
+            公共课直接添加到当前考试工作区；408 使用预置分组；专业课请新建自定义分组并在其中添加科目。分组和科目均可编辑、排序、归档和恢复。
+          </div>
+          <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
+        </div>
       ) : null}
 
-      <div className="border-t border-white/10 pt-4 text-sm">
-        <h2 className="font-medium text-white">工作区列表</h2>
+      <section className="space-y-3 border-t border-white/10 pt-5 text-sm">
+        <SectionHeader title="其他工作区" description="切换后会返回今日行动中心；已有活动保护仍然生效。" meta={<Badge>{props.workspaces.length} 个</Badge>} />
         <ul className="mt-2 space-y-1 text-zinc-400">
           {props.workspaces.map((workspace) => (
             <li key={workspace.id} className="flex items-center justify-between gap-3 rounded-md border border-white/10 p-2">
               <span>{workspace.name}{workspace.id === props.activeId ? " · 当前使用" : workspace.status === "ARCHIVED" ? " · 已归档" : ""}</span>
-              {workspace.id !== props.activeId ? <button type="button" disabled={pending} className="h-8 rounded-md border border-white/10 px-2 text-xs text-teal-300" onClick={() => void activateWorkspace(workspace)}>设为当前</button> : null}
+              {workspace.id !== props.activeId ? <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => void activateWorkspace(workspace)}>设为当前</Button> : <Badge tone="success">当前使用</Badge>}
             </li>
           ))}
         </ul>
-      </div>
+      </section>
 
-      {error ? <p className="text-sm text-red-300" role="alert">{error}</p> : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
     </section>
+  );
+}
+
+function SetupStep(props: { number: number; title: string; description: string; active: boolean; complete: boolean }) {
+  return (
+    <li aria-current={props.active ? "step" : undefined} className={`flex min-h-20 items-center gap-3 px-4 py-3 ${props.active ? "bg-white/[0.04]" : ""}`}>
+      <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs ${props.complete ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : props.active ? "border-teal-400/50 text-teal-200" : "border-white/10 text-zinc-600"}`}>{props.complete ? "✓" : props.number}</span>
+      <span><span className={`block text-sm font-medium ${props.active || props.complete ? "text-white" : "text-zinc-500"}`}>{props.title}</span><span className="block text-xs text-zinc-500">{props.description}</span></span>
+    </li>
   );
 }
 

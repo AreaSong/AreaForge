@@ -154,7 +154,7 @@ export async function assertBrowserEvidenceDatabasePreflight(
      ORDER BY started_at ASC, id ASC
   `;
   if (ledger.length !== currentMigrationManifest.length) {
-    throw new Error("browser evidence database migration ledger must contain exactly 24 rows");
+    throw new Error(`browser evidence database migration ledger must contain exactly ${currentMigrationManifest.length} rows`);
   }
   ledger.forEach((row, index) => {
     const expected = currentMigrationManifest[index];
@@ -321,6 +321,8 @@ export async function prepareFixtureActiveSession(fixture: FixtureAccount): Prom
   await prisma.studySession.create({
     data: {
       id: fixture.activeSessionId,
+      userId: fixture.userId,
+      workspaceId: fixture.workspaceId,
       subjectId: fixture.subjectId,
       taskId: fixture.taskId,
       syllabusNodeId: fixture.syllabusNodeId,

@@ -20,13 +20,13 @@
 |---|---|---|---|---|
 | `page.dashboard` | 今日作战台首页 | done | `apps/web/app/page.tsx`、`GET /api/dashboard/today` | 状态主题外壳、专注计时、任务面板、长期风险面板同屏 |
 | `page.login` | 登录页 | done | `apps/web/app/login/page.tsx` | 单管理员登录，含限速与错误态 |
-| `page.syllabus` | 考纲进度树/作战地图页 | done | `apps/web/app/syllabus/page.tsx`、`components/syllabus-manager.tsx` | 状态筛选、掌握证明操作、地图摘要一体 |
-| `page.notes` | 笔记与资料库页 | done | `apps/web/app/notes/page.tsx`、`components/note-library.tsx` | 科目/节点/掌握状态/复习提醒筛选，含附件 UI |
-| `page.mistakes` | 错题库页 | done | `apps/web/app/mistakes/page.tsx`、`components/mistake-library.tsx` | 关联科目与考纲节点轻量选项树 |
-| `page.analytics` | 数据统计页 | done | `apps/web/app/analytics/page.tsx` | 长期风险面板、逐日快照优先 |
-| `page.reports` | 周报/月报页 | done | `apps/web/app/reports/page.tsx` | 报告确认/驳回/只读回放入口 |
-| `page.simulation` | 模拟考试工作台页 | done | `apps/web/app/simulation/page.tsx`、`components/simulation-workbench.tsx` | 阶段计划与 AI 草稿生成入口 |
-| `page.motivation` | 动机封存页 | done | `apps/web/app/motivation/page.tsx` | 封存与唤醒信号展示 |
+| `page.syllabus` | 考纲进度树/作战地图页 | done | `apps/web/app/(app)/knowledge/syllabi/page.tsx`、`components/syllabus-manager.tsx` | 状态筛选、掌握证明操作、地图摘要一体 |
+| `page.notes` | 知识卡片与资料库页 | done | `apps/web/app/(app)/knowledge/cards/page.tsx`、`components/note-library.tsx` | 科目/节点/掌握状态/复习提醒筛选，含附件 UI |
+| `page.mistakes` | 错题库页 | done | `apps/web/app/(app)/knowledge/mistakes/page.tsx`、`components/mistake-library.tsx` | 关联科目与考纲节点轻量选项树 |
+| `page.analytics` | 数据统计页 | done | `apps/web/app/(app)/roadmap/stages/trend/page.tsx` | 长期风险面板、逐日快照优先 |
+| `page.reports` | 周报/月报页 | done | `apps/web/app/(app)/roadmap/reviews/page.tsx` | 报告确认/驳回/只读回放入口 |
+| `page.simulation` | 模拟考试工作台页 | done | `apps/web/app/(app)/test/simulations/page.tsx`、`components/simulation-workbench.tsx` | 阶段计划与 AI 草稿生成入口 |
+| `page.motivation` | 动机封存页 | done | `apps/web/app/(app)/settings/profile/page.tsx` | 封存与唤醒信号展示 |
 | `page.settings` | 设置/版本中心页 | done | `apps/web/app/settings/page.tsx`、`components/update-version-popover.tsx` | 受控更新请求工作台，含全局版本弹窗 |
 | `page.error-fallback` | 错误/404/加载兜底 | done | `apps/web/app/error.tsx`、`not-found.tsx`、`loading.tsx` | 配套 `error-recovery-matrix.md` |
 | `page.pwa-manifest` | Web App Manifest | partial | `apps/web/app/manifest.ts` | manifest 与 maskable 图标已有；无 Service Worker/离线缓存，完整 PWA 未排期 |
@@ -46,7 +46,7 @@
 | `module.tasks` | 每日任务 | done | `/api/tasks`、`StudyTask` | 今日任务表单写入已有 `StudyTask.type` |
 | `module.task-debt` | 任务债务 | done | `StudyTask.debtStatus`、`TaskDebtEvent`、complete/defer/drop/recover/split/convert-review API | 自动阶段联动/批量应用需另行确认 |
 | `module.timer` | 学习计时 | done | `/api/study-sessions/*`、`StudySession` | 结构化收口字段；并发一致性生产证据见 `ops.concurrency` |
-| `module.focus-timer` | 专注计时模式 | done | `components/focus-timer.tsx` | active session 跨刷新恢复；恢复模式下聚焦恢复候选 |
+| `module.focus-timer` | 专注计时模式 | done | `components/focus-launcher.tsx`、`components/focus-session-client.tsx`、`components/focus-session-panels.tsx` | `/focus` 独立入口；active session 跨刷新恢复；本地优先离线队列、多标签页/多设备复用；结束后必须完成收口 |
 | `module.check-in` | 打卡与连续性 | done | `packages/core` `evaluateDailyCheckIn`、`CheckIn` 日快照 | 打开应用不算打卡；active 时长实时展示、结束固化 |
 | `module.review` | 每晚复盘 | done | `DailyReview`、`/api/reviews/today` | AI 建议与结构化统计持续增强 |
 | `module.syllabus` | 考纲进度树 | done | `/api/syllabus/*`、`packages/core/syllabus-import.ts` | 仅受限 Markdown 导入；PDF 解析见 `ai.pdf-syllabus` |
@@ -77,8 +77,8 @@
 | `loop.report-decision` | 报告确认/驳回/只读回放 | done | `PeriodicReportDecision`、`/api/reports/periodic/decisions` | 冻结 `reportSnapshot`；固定 `canAutoApply=false` |
 | `loop.debt-reorder` | 任务债务自动重排建议 | done | `GET /api/tasks/debt-reorder` + decisions/applications | 只应用用户所选项，不自动应用全部 |
 | `loop.forget-risk` | 知识点遗忘风险提醒 | done | `/api/analytics/long-term-risks`、`packages/core/long-term-risk.ts` | 报告/统计/笔记/模拟/首页读同一风险 DTO |
-| `loop.note-review-reminder` | 笔记复习提醒 | done | `Note.nextReviewAt`、`/notes` 筛选 | 到期笔记用 `count` 查询 |
-| `loop.map-advanced` | 作战地图高级可视化 | done | `/syllabus` 分科摘要/状态分布/优先节点 | 与显式掌握证明记录联动 |
+| `loop.note-review-reminder` | 知识卡片复习提醒 | done | `Note.nextReviewAt`、`/knowledge/cards` 筛选 | 到期笔记用 `count` 查询 |
+| `loop.map-advanced` | 作战地图高级可视化 | done | `/knowledge/syllabi` 分科摘要/状态分布/优先节点 | 与显式掌握证明记录联动 |
 | `loop.theme-state` | 状态主题深度联动 | done | `packages/core` `determineThemeState` | 不隐藏任务列表、不自动修改任务或阶段计划 |
 | `loop.motivation-wake` | 动机唤醒机制 | done | `packages/core` `evaluateMotivationWake` | 只展示唤醒信号，不进 AI 默认上下文 |
 | `loop.stage-plan` | 持久阶段计划与调整草稿 | done | `StagePlan/StageAdjustmentDraft`、confirm/reject API | 草稿确认边界持久化 |

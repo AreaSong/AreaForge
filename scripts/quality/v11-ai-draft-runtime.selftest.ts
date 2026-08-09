@@ -5,6 +5,7 @@ import {
   mintAiDraftResultProof,
 } from "../../packages/auth/src/index";
 import { prisma } from "../../packages/db/src/index";
+import { listConfirmationItems } from "../../apps/web/lib/study/confirmation-service";
 import {
   acknowledgeAiDraftResult,
   clearAiDraftResultCacheForTesting,
@@ -12,6 +13,7 @@ import {
   hasCachedAiDraftResultForTesting,
   handleAiDraftRequest,
   previewAiDraft,
+  rejectAiDraftResult,
 } from "../../apps/web/lib/study/ai-draft-service";
 import { bindAiLearningTreeDraftMarkdown } from "../../apps/web/lib/client/ai-learning-tree-draft";
 import { createFallbackLearningTreeDraftAdvice, type AiJsonProvider } from "../../packages/ai/src/index";
@@ -124,7 +126,55 @@ try {
     );
   }
 
+  const rejectInput = { phase: "preview", selectedText: "驳回草稿路径", tone: "CALM" };
+  const rejectPreview = await previewAiDraft(user.id, "motivation", rejectInput);
+  const rejectGenerated = await generateAiDraft(
+    user.id,
+    "motivation",
+    rejectPreview.previewToken,
+    { ...rejectInput, phase: "generate", previewToken: rejectPreview.previewToken },
+  );
+  const rejected = await rejectAiDraftResult(user.id, "motivation", rejectGenerated.resultProof);
+  assert.equal(rejected.status, "REJECTED");
+  assert.equal(rejected.operationId, rejectGenerated.operationId);
+  assert.equal(rejected.resultProof, rejectGenerated.resultProof);
+  const rejectedOperation = await prisma.aiDraftOperation.findFirstOrThrow({
+    where: { actorId: user.id, operationId: rejectGenerated.operationId },
+  });
+  assert.equal(rejectedOperation.status, "REJECTED");
+  assert.equal(rejectedOperation.consumedAt !== null, true);
+  assert.equal(
+    rejectedOperation.resultReference,
+    `draft:motivation:${rejectGenerated.operationId}:rejected`,
+  );
+  const rejectedAgain = await rejectAiDraftResult(user.id, "motivation", rejectGenerated.resultProof);
+  assert.deepEqual(rejectedAgain, rejected);
+  await assert.rejects(
+    () => acknowledgeAiDraftResult(user.id, "motivation", rejectGenerated.resultProof),
+    (error: unknown) => error instanceof Error && error.message === "AI_DRAFT_OPERATION_CONFLICT",
+  );
+  const routedRejected = await handleAiDraftRequest(user.id, "motivation", {
+    phase: "reject",
+    resultProof: rejectGenerated.resultProof,
+  });
+  assert.deepEqual(routedRejected, rejected);
+  const pendingAfterReject = await listConfirmationItems(user.id, "pending");
+  const historyAfterReject = await listConfirmationItems(user.id, "history");
+  const rejectedConfirmation = historyAfterReject.find((item) => item.sourceId === rejectGenerated.operationId);
+  assert.ok(rejectedConfirmation);
+  assert.equal(rejectedConfirmation.status, "REJECTED");
+  assert.equal(rejectedConfirmation.frozenAt !== null, true);
+  assert.equal(rejectedConfirmation.confirmedAt, null);
+  assert.equal(rejectedConfirmation.href, `/confirmations/${rejectGenerated.operationId}`);
+  assert.equal(rejectedConfirmation.sourceHref, "/settings/profile");
+  assert.equal(rejectedConfirmation.sourceLabel, "AI 建议 · 动机内容");
+  assert.equal(pendingAfterReject.some((item) => item.sourceId === rejectGenerated.operationId), false);
   process.env.AI_ENABLED = "true";
+  await prisma.aiRuntimeSetting.upsert({
+    where: { id: "global" },
+    update: { enabled: true },
+    create: { id: "global", enabled: true },
+  });
   process.env.AI_ALLOW_SENSITIVE_CONTEXT = "false";
   let providerCallCount = 0;
   const provider: AiJsonProvider = {
@@ -452,7 +502,7 @@ try {
   );
 
   const operations = await prisma.aiDraftOperation.findMany({ orderBy: { createdAt: "asc" } });
-  assert.equal(operations.length, cases.length + 6);
+  assert.equal(operations.length, cases.length + 7);
   const successfulOperations = operations.filter((operation) => operation.status === "SUCCEEDED");
   assert.equal(successfulOperations.length, cases.length + 3);
   assert.ok(successfulOperations.every((operation) => operation.status === "SUCCEEDED" && operation.consumedAt));
@@ -499,6 +549,7 @@ try {
       tamperedCrossActorExpiredProofRejected: "pass",
       digestAndContentNotPersisted: "pass",
       learningTreeDraftCanonicalBinding: "pass",
+      rejectedConfirmationProjection: "pass",
     },
   }, null, 2));
   console.log("PASS v1.1 AI draft isolated PostgreSQL runtime selftest");

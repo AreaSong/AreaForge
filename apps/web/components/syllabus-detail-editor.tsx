@@ -4,6 +4,8 @@ import { Save, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { MasteryProofCondition } from "@areaforge/core";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { EditorActionBar } from "@/components/ui/editor-actions";
+import { Alert, PersistenceStatus } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
 import {
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -12,8 +14,14 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
+import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
+import {
+  MASTERY_STATUS_OPTIONS,
+  masteryStatusLabel,
+  syllabusLevelForMasteryStatus,
+  type MasteryStatus,
+} from "@/lib/study/mastery-status";
 import type {
-  MasteryLevelDto,
   SyllabusNodeDto,
   SyllabusNodeKindDto,
   SyllabusNodeStatusDto,
@@ -25,7 +33,7 @@ interface SyllabusEditValues {
   title: string;
   kind: SyllabusNodeKindDto;
   status: SyllabusNodeStatusDto;
-  masteryLevel: MasteryLevelDto | "";
+  masteryStatus: MasteryStatus | "";
   masteryConditions: MasteryProofCondition[];
   sortOrder: number;
   targetMinutes: number;
@@ -92,12 +100,7 @@ export function SyllabusDetailEditor(props: {
     savePrivateBusinessDraft<SyllabusEditDraft>(draftKey, { baseRevision: baseline.revision, values });
   }, [baseline.revision, dirty, draftKey, hydrated, values]);
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  useUnsavedChangesWarning(dirty);
 
   function toggleCondition(condition: MasteryProofCondition) {
     setValues((current) => ({
@@ -127,7 +130,7 @@ export function SyllabusDetailEditor(props: {
           title: values.title,
           kind: values.kind,
           status: values.status,
-          masteryLevel: values.masteryLevel || null,
+          masteryLevel: values.masteryStatus ? syllabusLevelForMasteryStatus(values.masteryStatus) : null,
           masteryConditions: values.masteryConditions,
           sortOrder: values.sortOrder,
           targetMinutes: values.targetMinutes,
@@ -166,11 +169,10 @@ export function SyllabusDetailEditor(props: {
     <>
       <form className="space-y-5 border-y border-white/10 py-5" onSubmit={submit}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">编辑考纲节点</h2>
-          <button type="button" className="inline-flex h-10 items-center gap-2 px-2 text-sm text-zinc-300" onClick={() => dirty ? setCloseConfirmationOpen(true) : props.onCancel()}>
-            <X className="h-4 w-4" aria-hidden="true" />
-            关闭编辑
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold text-white">编辑考纲节点</h2>
+            <PersistenceStatus state={conflict || draftNeedsRebase ? "conflict" : saving ? "saving" : dirty ? "local-draft" : "clean"} />
+          </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2 text-sm text-zinc-300 md:col-span-2">
@@ -198,9 +200,10 @@ export function SyllabusDetailEditor(props: {
             </select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
-            掌握等级
-            <select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.masteryLevel} onChange={(event) => setValues((current) => ({ ...current, masteryLevel: event.target.value as MasteryLevelDto | "" }))}>
-              <option value="">未记录</option><option value="seen">见过</option><option value="learned">已学习</option><option value="basic_exercises">基础题</option><option value="can_explain">能讲解</option><option value="retest_passed">复测通过</option><option value="exam_stable">考试稳定</option>
+            掌握状态
+            <select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.masteryStatus} onChange={(event) => setValues((current) => ({ ...current, masteryStatus: event.target.value as MasteryStatus | "" }))}>
+              <option value="">未记录</option>
+              {MASTERY_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{masteryStatusLabel(status)}</option>)}
             </select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
@@ -241,10 +244,18 @@ export function SyllabusDetailEditor(props: {
             </div>
           </div>
         ) : null}
-        {error ? <p role="alert" className="text-sm text-red-200">{error}</p> : null}
-        <button type="submit" className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:opacity-50" disabled={saving || draftNeedsRebase || !values.title.trim()}>
-          <Save className="h-4 w-4" aria-hidden="true" />{saving ? "保存中" : "保存节点"}
-        </button>
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+        <EditorActionBar
+          primaryType="submit"
+          primaryLabel="保存节点"
+          primaryIcon={<Save className="h-4 w-4" aria-hidden="true" />}
+          primaryDisabled={draftNeedsRebase || !values.title.trim()}
+          loading={saving}
+          secondaryLabel="关闭编辑"
+          secondaryIcon={<X className="h-4 w-4" aria-hidden="true" />}
+          onSecondary={() => dirty ? setCloseConfirmationOpen(true) : props.onCancel()}
+          hint="保存后更新节点结构；关闭编辑不会写入服务端。"
+        />
       </form>
 
       <Modal open={closeConfirmationOpen} title="保留未保存的节点编辑？" onClose={() => setCloseConfirmationOpen(false)}>
@@ -270,7 +281,7 @@ export function SyllabusDetailEditor(props: {
 }
 
 function valuesFromNode(node: SyllabusNodeDto): SyllabusEditValues {
-  return { parentId: node.parentId ?? "", title: node.title, kind: node.kind, status: node.status, masteryLevel: node.masteryLevel ?? "", masteryConditions: node.masteryConditions, sortOrder: node.sortOrder, targetMinutes: node.targetMinutes };
+  return { parentId: node.parentId ?? "", title: node.title, kind: node.kind, status: node.status, masteryStatus: node.masteryStatus, masteryConditions: node.masteryConditions, sortOrder: node.sortOrder, targetMinutes: node.targetMinutes };
 }
 
 function flattenParentOptions(nodes: SyllabusOptionNodeDto[], excludedId: string, depth = 0): Array<SyllabusOptionNodeDto & { depth: number }> {
@@ -293,7 +304,7 @@ function isSyllabusEditDraft(value: unknown): value is SyllabusEditDraft {
 function isSyllabusEditValues(value: unknown): value is SyllabusEditValues {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const values = value as Partial<SyllabusEditValues>;
-  return typeof values.parentId === "string" && typeof values.title === "string" && typeof values.kind === "string" && typeof values.status === "string" && typeof values.masteryLevel === "string" && Array.isArray(values.masteryConditions) && typeof values.sortOrder === "number" && typeof values.targetMinutes === "number";
+  return typeof values.parentId === "string" && typeof values.title === "string" && typeof values.kind === "string" && typeof values.status === "string" && typeof values.masteryStatus === "string" && Array.isArray(values.masteryConditions) && typeof values.sortOrder === "number" && typeof values.targetMinutes === "number";
 }
 
 function isSyllabusNodeDto(value: unknown): value is SyllabusNodeDto {

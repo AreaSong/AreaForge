@@ -9,6 +9,7 @@ import { cache } from "react";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayKey, getStudyDayRange } from "./date";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { aggregateActivityBreakdown, emptyActivityBreakdown, type ActivityBreakdown } from "./activity-metrics";
 import type { SyllabusNodeStatusDto } from "./types";
 
 const dayMs = 24 * 60 * 60 * 1000;
@@ -20,6 +21,7 @@ export interface AnalyticsDailyPointDto {
   effectiveMinutes: number;
   taskCompletionRate: number;
   reviewSubmitted: boolean;
+  activity: ActivityBreakdown;
 }
 
 export interface AnalyticsSubjectShareDto {
@@ -29,6 +31,7 @@ export interface AnalyticsSubjectShareDto {
   totalMinutes: number;
   effectiveMinutes: number;
   share: number;
+  activity: ActivityBreakdown;
 }
 
 export interface AnalyticsRiskItemDto {
@@ -65,6 +68,7 @@ export interface AnalyticsSummaryDto {
     dueNotes: number;
     weakNodeCount: number;
     lowConversionCount: number;
+    activity: ActivityBreakdown;
   };
   daily: AnalyticsDailyPointDto[];
   subjects: AnalyticsSubjectShareDto[];
@@ -215,17 +219,23 @@ export async function getAnalyticsSummary(
   ]);
 
   const dailySnapshots = buildDailySnapshots(start, sessions, tasks, reviews, checkInSnapshots, windowDays);
-  const daily = dailySnapshots.map((snapshot) => ({
-    dayKey: snapshot.studyDate,
-    totalMinutes: snapshot.totalMinutes,
-    effectiveMinutes: snapshot.effectiveMinutes,
-    taskCompletionRate: snapshot.taskCompletionRate,
-    reviewSubmitted: snapshot.reviewSubmitted,
-  }));
+  const daily = dailySnapshots.map((snapshot) => {
+    const day = getStudyDayRange(new Date(`${snapshot.studyDate}T00:00:00+08:00`));
+    const activity = aggregateActivityBreakdown(sessions.filter((session) => session.startedAt >= day.start && session.startedAt < day.end));
+    return {
+      dayKey: snapshot.studyDate,
+      totalMinutes: snapshot.totalMinutes,
+      effectiveMinutes: snapshot.effectiveMinutes,
+      taskCompletionRate: snapshot.taskCompletionRate,
+      reviewSubmitted: snapshot.reviewSubmitted,
+      activity,
+    };
+  });
   const todayPoint = daily[daily.length - 1] ?? {
     totalMinutes: 0,
     effectiveMinutes: 0,
     taskCompletionRate: 0,
+    activity: emptyActivityBreakdown(),
   };
   const weekMinutes = daily.reduce((total, point) => total + point.totalMinutes, 0);
   const weekEffectiveMinutes = daily.reduce((total, point) => total + point.effectiveMinutes, 0);
@@ -295,6 +305,21 @@ export async function getAnalyticsSummary(
       dueNotes: dueNotes.length,
       weakNodeCount: weakNodeMap.size,
       lowConversionCount,
+      activity: daily.reduce((total, point) => {
+        const next = point.activity;
+        return {
+          studyMinutes: total.studyMinutes + next.studyMinutes,
+          reviewMinutes: total.reviewMinutes + next.reviewMinutes,
+          testMinutes: total.testMinutes + next.testMinutes,
+          totalMinutes: total.totalMinutes + next.totalMinutes,
+          effectiveStudyMinutes: total.effectiveStudyMinutes + next.effectiveStudyMinutes,
+          effectiveReviewMinutes: total.effectiveReviewMinutes + next.effectiveReviewMinutes,
+          effectiveTestMinutes: total.effectiveTestMinutes + next.effectiveTestMinutes,
+          studySessionCount: total.studySessionCount + next.studySessionCount,
+          reviewSessionCount: total.reviewSessionCount + next.reviewSessionCount,
+          testSessionCount: total.testSessionCount + next.testSessionCount,
+        };
+      }, emptyActivityBreakdown()),
     },
     daily,
     subjects: buildSubjectShares(subjects, sessions),
@@ -305,11 +330,13 @@ export async function getAnalyticsSummary(
 
 function buildDailySnapshots(
   start: Date,
-  sessions: Array<{
-    startedAt: Date;
-    effectiveMinutes: number;
-    isEffective: boolean | null;
-    isLowConversion?: boolean | null;
+    sessions: Array<{
+      startedAt: Date;
+      effectiveMinutes: number;
+      isEffective: boolean | null;
+      isLowConversion?: boolean | null;
+      activityKind?: string | null;
+      activityMode?: string | null;
   }>,
   tasks: Array<{
     plannedDate: Date;
@@ -356,12 +383,15 @@ function buildSubjectShares(
     effectiveMinutes: number;
     isEffective: boolean | null;
     isLowConversion?: boolean | null;
+    activityKind?: string | null;
+    activityMode?: string | null;
   }>,
 ): AnalyticsSubjectShareDto[] {
   const totalMinutes = sessions.reduce((total, session) => total + session.effectiveMinutes, 0);
 
   return subjects.map((subject) => {
     const subjectSessions = sessions.filter((session) => session.subjectId === subject.id);
+    const activity = aggregateActivityBreakdown(subjectSessions);
     const subjectMinutes = subjectSessions.reduce((total, session) => total + session.effectiveMinutes, 0);
 
     return {
@@ -373,6 +403,7 @@ function buildSubjectShares(
         .filter((session) => session.isEffective)
         .reduce((total, session) => total + session.effectiveMinutes, 0),
       share: totalMinutes === 0 ? 0 : Math.round((subjectMinutes / totalMinutes) * 100),
+      activity,
     };
   });
 }

@@ -11,6 +11,8 @@ export interface TaskUpdateSnapshotDto {
   subjectId: string;
   syllabusNodeId: string | null;
   relatedSyllabusNodeIds: string[];
+  stagePlanIds: string[];
+  knowledgePointIds: string[];
   planMilestoneId: string | null;
   title: string;
   type: string;
@@ -41,12 +43,14 @@ export interface StudyTaskDetailDto {
     id: string;
     status: string;
     dueDate: string | null;
+    revision: number;
   } | null;
   relatedSyllabusNodes: Array<{
     id: string;
     title: string;
     archivedAt: string | null;
   }>;
+  knowledgePoints: Array<{ id: string; title: string; masteryState: string }>;
   parentTask: TaskRelationSummaryDto | null;
   childTasks: TaskRelationSummaryDto[];
   sessions: Array<{
@@ -98,6 +102,8 @@ interface TaskUpdateSnapshotRow {
   reviewText: string | null;
   updatedAt: Date;
   relatedSyllabusNodes: Array<{ syllabusNodeId: string }>;
+  stageLinks: Array<{ stagePlanId: string }>;
+  knowledgePointLinks: Array<{ knowledgePointId: string }>;
 }
 
 export async function getStudyTaskDetail(actorId: string, taskId: string): Promise<StudyTaskDetailDto> {
@@ -115,8 +121,16 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
           include: { syllabusNode: { select: { id: true, title: true, archivedAt: true } } },
           orderBy: { createdAt: "asc" },
         },
+        stageLinks: {
+          select: { stagePlanId: true },
+          orderBy: { createdAt: "asc" },
+        },
+        knowledgePointLinks: {
+          include: { knowledgePoint: { select: { id: true, title: true, masteryState: true } } },
+          orderBy: { createdAt: "asc" },
+        },
         planMilestone: { select: { id: true, title: true, status: true, archivedAt: true } },
-        reviewSchedule: { select: { id: true, status: true, dueDate: true } },
+        reviewSchedule: { select: { id: true, status: true, dueDate: true, revision: true } },
         parent: { select: { id: true, title: true, status: true } },
         children: {
           select: { id: true, title: true, status: true },
@@ -160,7 +174,7 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
   ]);
 
   if (!task?.subject.workspace) {
-    throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/today/plan" });
+    throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/allocation" });
   }
 
   return {
@@ -182,12 +196,14 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
       id: task.reviewSchedule.id,
       status: task.reviewSchedule.status,
       dueDate: task.reviewSchedule.dueDate?.toISOString() ?? null,
+      revision: task.reviewSchedule.revision,
     } : null,
     relatedSyllabusNodes: task.relatedSyllabusNodes.map(({ syllabusNode }) => ({
       id: syllabusNode.id,
       title: syllabusNode.title,
       archivedAt: syllabusNode.archivedAt?.toISOString() ?? null,
     })),
+    knowledgePoints: task.knowledgePointLinks.map(({ knowledgePoint }) => knowledgePoint),
     parentTask: task.parent ? serializeTaskRelation(task.parent) : null,
     childTasks: task.children.map(serializeTaskRelation),
     sessions: task.sessions.map((session) => ({
@@ -219,7 +235,7 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
 export async function getTaskUpdateSnapshot(actorId: string, taskId: string): Promise<TaskUpdateSnapshotDto> {
   const workspace = await resolveActiveWorkspace(actorId);
   const snapshot = await loadTaskUpdateSnapshotForWorkspace(prisma, workspace.id, taskId);
-  if (!snapshot) throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/today/plan" });
+  if (!snapshot) throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/allocation" });
   return snapshot;
 }
 
@@ -247,6 +263,14 @@ export async function loadTaskUpdateSnapshotForWorkspace(
         select: { syllabusNodeId: true },
         orderBy: { createdAt: "asc" },
       },
+      stageLinks: {
+        select: { stagePlanId: true },
+        orderBy: { createdAt: "asc" },
+      },
+      knowledgePointLinks: {
+        select: { knowledgePointId: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   return task ? serializeTaskUpdateSnapshot(task) : null;
@@ -258,6 +282,8 @@ export function serializeTaskUpdateSnapshot(task: TaskUpdateSnapshotRow): TaskUp
     subjectId: task.subjectId,
     syllabusNodeId: task.syllabusNodeId,
     relatedSyllabusNodeIds: task.relatedSyllabusNodes.map((relation) => relation.syllabusNodeId),
+    stagePlanIds: task.stageLinks.map((relation) => relation.stagePlanId),
+    knowledgePointIds: task.knowledgePointLinks.map((relation) => relation.knowledgePointId),
     planMilestoneId: task.planMilestoneId,
     title: task.title,
     type: task.type,

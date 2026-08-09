@@ -35,6 +35,13 @@ export function getStudyDayKey(value: Date): string {
   return getStudyDayRange(value).key;
 }
 
+export function parseStudyDayKey(value: string | null | undefined): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00+08:00`);
+  if (Number.isNaN(parsed.getTime()) || getStudyDayRange(parsed).key !== value) return null;
+  return parsed;
+}
+
 function formatDayKey(year: number, month: number, date: number): string {
   return [year, month, date].map((part, index) => (index === 0 ? String(part) : String(part).padStart(2, "0"))).join("-");
 }

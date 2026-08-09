@@ -35,7 +35,7 @@ Dependabot PR 仍需要普通验证。不能因为来自 Dependabot 就跳过 re
 - 外部 `uses:` 必须 pin 到 40 位 commit SHA，并用行内注释保留原始主版本，例如 `# v5`，方便 Dependabot 或人工升级时追溯来源。
 - 所有 `actions/checkout` 步骤必须设置 `persist-credentials: false`；需要发布 Release 或推送 GHCR 的步骤通过最小 job permission 和显式 action/token 输入完成，不把 Git 凭据留给后续任意 shell 步骤。
 - CI 和 Release workflow 都必须运行 `pnpm audit:all`，覆盖运行时与构建/开发工具链的 high/critical 漏洞；`pnpm audit:prod` 保留为生产依赖单独报告。moderate 或 low 结果不阻断发布，但需要在依赖治理或残余风险里评估。
-- CI 和 Release workflow 都必须运行 `pnpm secrets:scan`。扫描器固定为 Gitleaks CLI `8.30.1`，下载的 Linux release archive 必须通过官方 SHA-256 `551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb` 校验；扫描结果只输出 rule ID、仓库相对路径和行号，不输出匹配值、不上传报告、不评论 PR，也不读取 Actions secrets。已核验的历史测试 fixture 误报只能用 `.gitleaksignore` 的单条 fingerprint 放行，禁止按整个文件、目录或规则放行。
+- CI 和 Release workflow 都必须运行 `pnpm secrets:scan`。扫描器固定为 Gitleaks CLI `8.30.1`，下载的 Linux release archive 必须通过官方 SHA-256 `551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb` 校验；扫描结果只输出 rule ID、仓库相对路径和行号，不输出匹配值、不上传报告、不评论 PR，也不读取 Actions secrets。已核验的历史测试 fixture 误报只能按具体提交、文件、规则和行号逐条写入 `.gitleaksignore` 放行，禁止按整个文件、目录或规则放行。
 - CI 除 pull request 和受控分支 push 外，每周执行一次只读完整门禁，避免仓库长期无提交时漏掉新披露的高危依赖问题。
 - `pnpm governance:preflight` 会扫描 `.github/workflows/ci.yml` 和 `.github/workflows/release.yml` 的外部 `uses:`，发现非 SHA pinning 时失败。
 - GitHub Actions 升级应同时更新 SHA、行内版本注释、Dependabot/Release 证据和本文件需要的验证结果。
@@ -79,7 +79,7 @@ pnpm ops:readiness
 
 ## 残余风险
 
-当前 Web 运行时和 lint 配置固定为 `next@16.2.11` / `eslint-config-next@16.2.11`。lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.18`、Prisma dev 工具链的可选传递依赖 `@hono/node-server` 固定为 `2.0.10`、Prisma/ajv 传递依赖 `fast-uri` 固定为 `3.1.4`、Next 可选图像依赖 `sharp` 固定为 `0.35.3`、eslint/minimatch 传递依赖 `brace-expansion` 固定为 `5.0.8`，用于修复对应 advisory，同时避免升级 Next/Prisma/eslint 主版本。`minimatch@3.1.5` 仍按旧 CommonJS 函数导出调用 `brace-expansion`，因此 workspace 使用 hash 绑定的 `patches/minimatch@3.1.5.patch` 同时兼容旧函数导出与 `5.0.8` 的 `{ expand }` 导出；该补丁只恢复调用契约，不改变 glob 语义或放宽安全上限。根工具依赖 `sharp` 同样固定到 `0.35.3`；后续升级 Next、Prisma、eslint、minimatch 或 sharp 上游时应优先移除已不再需要的 override/patch，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
+当前 Web 运行时和 lint 配置固定为 `next@16.2.11` / `eslint-config-next@16.2.11`。lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.18`、`nanoid` 固定为 `3.3.17`，Prisma dev 工具链的可选传递依赖 `@hono/node-server` 固定为 `2.0.10`、Prisma/ajv 传递依赖 `fast-uri` 固定为 `3.1.5`、Next 可选图像依赖 `sharp` 固定为 `0.35.3`、eslint 工具链传递依赖 `js-yaml` 固定为 `4.3.1`、eslint/minimatch 传递依赖 `brace-expansion` 固定为 `5.0.9`，用于修复对应 advisory，同时避免升级 Next/Prisma/eslint 主版本。`minimatch@3.1.5` 仍按旧 CommonJS 函数导出调用 `brace-expansion`，因此 workspace 使用 hash 绑定的 `patches/minimatch@3.1.5.patch` 同时兼容旧函数导出与 `5.0.9` 的 `{ expand }` 导出；该补丁只恢复调用契约，不改变 glob 语义或放宽安全上限。根工具依赖 `sharp` 同样固定到 `0.35.3`；后续升级 Next、Prisma、eslint、minimatch、postcss、nanoid、js-yaml 或 sharp 上游时应优先移除已不再需要的 override/patch，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
 
 当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。`v0.1.7` 已产生真实签名 Release 的 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据，并已由服务器侧 updater 应用到生产；残余项 `AF-RISK-SC-001` 仍保持打开，是因为关闭台账需要维护者人工复核，生产 apply 不自动关闭 residual。
 

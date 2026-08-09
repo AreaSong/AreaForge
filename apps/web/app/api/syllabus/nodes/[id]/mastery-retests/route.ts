@@ -13,7 +13,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const parsed = createMasteryRetestSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
 
-    return NextResponse.json({ node: await addMasteryRetest(id, parsed.data, user.id) }, { status: 201 });
+    const node = await addMasteryRetest(id, parsed.data, user.id);
+    return NextResponse.json({ node, retestId: node.recordedRetestId }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }

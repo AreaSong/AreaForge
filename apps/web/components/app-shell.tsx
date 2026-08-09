@@ -1,44 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import {
-  CalendarCheck2,
-  ClipboardCheck,
-  FilePlus2,
-  Flag,
-  Network,
-  NotebookPen,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plus,
-  Settings,
-  TriangleAlert,
-} from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildForegroundNotificationPayload,
-  evaluateAutomaticMotivationGate,
   sanitizeForegroundNotificationRoute,
   selectMobileTopLight,
   selectForegroundNotifications,
 } from "@areaforge/core";
-import { BrandMark } from "@/components/brand-logo";
-import { LogoutButton } from "@/components/logout-button";
-import { RecoveryActionDrawer } from "@/components/recovery-action-drawer";
-import { Drawer } from "@/components/ui/overlays";
+import { GlobalRecoveryHelp } from "@/components/global-recovery-help";
+import { GlobalToolLayer, useGlobalTools } from "@/components/global-tool-system";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import {
-  MOTIVATION_REMINDER_PREFERENCE_EVENT,
-  motivationReminderPreferenceKey,
-  readMotivationReminderPreference,
-} from "@/lib/client/motivation-reminder-preference";
 import {
   subscribeQuickReviewActivity,
   type QuickReviewActivityClaim,
 } from "@/lib/client/quick-review-activity";
-import { BATCH10_NAV_ITEMS } from "@/lib/navigation/batch7";
+import {
+  isLocalFocusSessionId,
+  readFocusOfflineSnapshot,
+  subscribeFocusOfflineSync,
+  syncFocusOfflineQueue,
+} from "@/lib/client/focus-offline-store";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
+import { GlobalSessionCloseout } from "@/components/global-session-closeout";
+import { WindowDiscardDialog, WindowLayer } from "@/components/window-layer";
+import { useShellRecovery } from "@/components/use-shell-recovery";
+import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
+import { GlobalContextStatusBar } from "@/components/shared-study-toolbar";
+import { GlobalTopBar } from "@/components/global-top-bar";
+import { PageToolbar } from "@/components/page-toolbar";
+import { PrimaryNavigation } from "@/components/primary-navigation";
+import { SecondaryNavigation } from "@/components/secondary-navigation";
+import { SharedMobileNavigation } from "@/components/shared-mobile-navigation";
+import { Modal } from "@/components/ui/overlays";
+import { subscribeActivityStatus } from "@/lib/client/activity-status";
+import { APP_NAVIGATION_ITEMS, getCanonicalRoute } from "@/lib/navigation/app-navigation";
 import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
+import {
+  isRenderableFocusSession,
+  projectLocalFocusStatus,
+  projectLocalQuickReviewStatus,
+  readRenderableOfflineFocusSession,
+  toShellSyncState,
+  type ShellSyncState,
+} from "@/lib/study/app-shell-projection";
 
 const toneClass: Record<string, string> = {
   gray: "border-zinc-600 text-zinc-400",
@@ -48,8 +54,6 @@ const toneClass: Record<string, string> = {
   red: "border-red-400/50 text-red-200",
 };
 
-type ShellSyncState = "current" | "offline" | "unavailable";
-
 export function AppShell(props: {
   children: React.ReactNode;
   initialStatus: AppShellStatusDto;
@@ -57,40 +61,217 @@ export function AppShell(props: {
   userId: string;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState(props.initialStatus);
   const [syncState, setSyncState] = useState<ShellSyncState>("current");
-  const [recoveryOpen, setRecoveryOpen] = useState(false);
-  const [motivationDrawerSource, setMotivationDrawerSource] = useState<"manual" | "automatic">("manual");
-  const [lightOpen, setLightOpen] = useState<string | null>(null);
-  const [recoveryError, setRecoveryError] = useState<string | null>(null);
-  const [motivationLine, setMotivationLine] = useState<string | null>(null);
-  const [motivationUrl, setMotivationUrl] = useState<string | null>(null);
-  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [lightOpen, setLightOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
-  const lastLightTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const immersive = pathname.startsWith("/focus/") || pathname.startsWith("/quick-review/");
-  const activeNavigationItem = BATCH10_NAV_ITEMS.find((item) => item.match(pathname));
-  const displayStatus = projectLocalQuickReviewStatus(status, quickReviewClaim);
+  const [offlineFocusSession, setOfflineFocusSession] = useState<AppShellStatusDto["activeSession"]>(null);
+  const { openTool } = useGlobalTools();
+  const serverActiveSessionRef = useRef<AppShellStatusDto["activeSession"]>(props.initialStatus.activeSession);
+  const statusRefreshRevisionRef = useRef(0);
+  const immersive = pathname.endsWith("/run");
+  const fullCanvasPage = immersive || pathname === "/focus" || pathname === "/knowledge/canvas" || pathname.endsWith("/preview");
+  const suppressDistractions = immersive || pathname === "/focus";
+  const recovery = useShellRecovery({
+    userId: props.userId,
+    workspaceId: status.workspaceId,
+    suppressDistractions,
+    reminderCandidate: status.motivationReminderCandidate,
+    openTool,
+  });
+  const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  const activeNavigationItem = APP_NAVIGATION_ITEMS.find((item) => item.match(pathname));
+  const canonicalRoute = getCanonicalRoute(pathname);
+  const showPageToolbar = canonicalRoute?.shell !== "app" || canonicalRoute.toolbar !== "none";
+  const secondaryNavigationItems = activeNavigationItem?.children ?? [];
+  // Immersive review keeps the global shell, but removes the module rail so
+  // the review task remains focused without losing global recovery and window
+  // controls.
+  const showSecondaryNavigation = !immersive && secondaryNavigationItems.length > 0;
+  const displaySession = status.activeSession ?? offlineFocusSession;
+  const displayStatus = projectLocalFocusStatus(projectLocalQuickReviewStatus(status, quickReviewClaim), displaySession);
+  const activeSessionId = status.activeSession?.id;
+  const activeSessionStatus = status.activeSession?.status;
+  const currentActivitySession = status.activeSession ?? offlineFocusSession;
+
+  const refreshShellStatus = useCallback(async () => {
+    const revision = ++statusRefreshRevisionRef.current;
+    try {
+      const response = await fetch("/api/app-shell/status", { headers: getClientDeviceHeaders(), cache: "no-store" });
+      if (response.status === 401) {
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok) throw new Error("APP_SHELL_STATUS_UNAVAILABLE");
+      const body = (await response.json()) as { status: AppShellStatusDto };
+      if (revision !== statusRefreshRevisionRef.current) return;
+      serverActiveSessionRef.current = body.status.activeSession;
+      setStatus(body.status);
+      if (body.status.activeSession) {
+        // 服务端活动是权威状态，不能被过期的本地展示快照覆盖。
+        setOfflineFocusSession(null);
+      }
+      setSyncState((current) => current === "pending" || current === "blocked" || current === "deferred" ? current : "current");
+    } catch {
+      if (revision === statusRefreshRevisionRef.current) {
+        setSyncState(navigator.onLine ? "unavailable" : "offline");
+      }
+    }
+  }, []);
 
   useEffect(() => subscribeQuickReviewActivity(props.userId, setQuickReviewClaim), [props.userId]);
 
   useEffect(() => {
-    if (!lightOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setLightOpen(null);
-      window.requestAnimationFrame(() => lastLightTriggerRef.current?.focus());
+    let cancelled = false;
+    const refreshOfflineSession = async () => {
+      const snapshot = await readFocusOfflineSnapshot(props.userId);
+      const session = snapshot?.session && isRenderableFocusSession(snapshot.session)
+        && (isLocalFocusSessionId(snapshot.session.id) || !navigator.onLine)
+        ? snapshot.session
+        : null;
+      if (cancelled) return;
+      // A server result wins over an earlier local read. This prevents a slow
+      // IndexedDB callback from resurrecting an activity that the server has
+      // already replaced or completed.
+      if (serverActiveSessionRef.current !== null) {
+        setOfflineFocusSession(null);
+        return;
+      }
+      setOfflineFocusSession(session);
+      if (snapshot && snapshot.syncState !== "current") setSyncState(toShellSyncState(snapshot.syncState));
     };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [lightOpen]);
+    void refreshOfflineSession();
+    const onConnectivityChange = () => void refreshOfflineSession();
+    window.addEventListener("online", onConnectivityChange);
+    window.addEventListener("offline", onConnectivityChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", onConnectivityChange);
+      window.removeEventListener("offline", onConnectivityChange);
+    };
+  }, [props.userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const sync = () => {
+      void syncFocusOfflineQueue(props.userId).then((result) => {
+        if (!cancelled) setSyncState(toShellSyncState(result.state));
+      }).catch(() => {
+        if (!cancelled) setSyncState(navigator.onLine ? "unavailable" : "offline");
+      });
+    };
+    sync();
+    window.addEventListener("online", sync);
+    const interval = window.setInterval(sync, 15_000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", sync);
+      window.clearInterval(interval);
+    };
+  }, [props.userId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeFocusOfflineSync((event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string; state?: string; session?: AppShellStatusDto["activeSession"] | null }>).detail;
+      if (detail?.userId !== props.userId || detail.session === undefined) return;
+      if (detail.state) setSyncState(toShellSyncState(detail.state));
+      const session = detail.session;
+      if (session && isLocalFocusSessionId(session.id)) {
+        if (serverActiveSessionRef.current !== null) return;
+        setOfflineFocusSession(isRenderableFocusSession(session) ? session : null);
+        return;
+      }
+      if (!session) {
+        if (serverActiveSessionRef.current !== null) return;
+        void readRenderableOfflineFocusSession(props.userId).then((localSession) => {
+          if (serverActiveSessionRef.current === null) setOfflineFocusSession(localSession);
+        });
+        return;
+      }
+      serverActiveSessionRef.current = isRenderableFocusSession(session) ? session : null;
+      setOfflineFocusSession(null);
+      setStatus((current) => ({
+        ...current,
+        activeSession: isRenderableFocusSession(session)
+          ? session
+          : null,
+      }));
+    });
+    return unsubscribe;
+  }, [props.userId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeActivityStatus((event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string; session?: AppShellStatusDto["activeSession"] | null }>).detail;
+      if (detail?.userId !== props.userId || detail.session === undefined) return;
+      const session = detail.session && isRenderableFocusSession(detail.session) ? detail.session : null;
+      serverActiveSessionRef.current = session;
+      setStatus((current) => ({ ...current, activeSession: session }));
+      if (session) {
+        setOfflineFocusSession(null);
+      } else {
+        // An activity completion event must clear the derived activity light as
+        // well as the session slot; the next server projection supplies any
+        // just-completed or recovery state that may apply.
+        setStatus((current) => ({
+          ...current,
+          activeSession: null,
+          lights: current.lights.map((light) => light.kind === "activity"
+            ? { ...light, tone: "gray", summary: "无活动", action: null }
+            : light),
+          mobileTop: selectMobileTopLight(current.lights.map((light) => light.kind === "activity"
+            ? { ...light, tone: "gray", summary: "无活动", action: null }
+            : light)),
+        }));
+        setOfflineFocusSession(null);
+      }
+      void refreshShellStatus();
+    });
+    return unsubscribe;
+  }, [props.userId, refreshShellStatus]);
+
+  useEffect(() => {
+    if (!activeSessionId || (activeSessionStatus !== "running" && activeSessionStatus !== "paused" && activeSessionStatus !== "closing")) return;
+    let cancelled = false;
+    const heartbeat = async () => {
+      try {
+        const response = await fetch(`/api/study-sessions/${encodeURIComponent(activeSessionId)}/heartbeat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+          body: "{}",
+          cache: "no-store",
+        });
+        const body = await response.json().catch(() => null) as { session?: AppShellStatusDto["activeSession"] } | null;
+        if (!cancelled && response.ok && body && body.session !== undefined) {
+          serverActiveSessionRef.current = body.session ?? null;
+          setStatus((current) => ({ ...current, activeSession: body.session ?? null }));
+        }
+      } catch {
+        // The shell's status refresh remains the fallback when the heartbeat is unavailable.
+      }
+    };
+    void heartbeat();
+    const interval = window.setInterval(heartbeat, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activeSessionId, activeSessionStatus]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setSidebarCollapsed(window.localStorage.getItem("af.sidebar.collapsed") === "1");
+      setSidebarCollapsed(readLocalStorage("af.sidebar.collapsed") === "1");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSecondaryCollapsed(readLocalStorage("af.sidebar.secondary.collapsed") === "1");
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -98,45 +279,33 @@ export function AppShell(props: {
   function toggleSidebar() {
     setSidebarCollapsed((current) => {
       const next = !current;
-      window.localStorage.setItem("af.sidebar.collapsed", next ? "1" : "0");
+      writeLocalStorage("af.sidebar.collapsed", next ? "1" : "0");
       return next;
     });
   }
 
-  function openStatusLight(kind: string, trigger: HTMLButtonElement) {
-    lastLightTriggerRef.current = trigger;
-    setLightOpen(kind);
+  function toggleSecondary() {
+    setSecondaryCollapsed((current) => {
+      const next = !current;
+      writeLocalStorage("af.sidebar.secondary.collapsed", next ? "1" : "0");
+      return next;
+    });
   }
 
-  function closeStatusLight() {
-    setLightOpen(null);
-    window.requestAnimationFrame(() => lastLightTriggerRef.current?.focus());
+  function openStatusLight() {
+    setLightOpen((current) => !current);
   }
 
   useEffect(() => {
     let cancelled = false;
-    async function refresh() {
-      try {
-        const response = await fetch("/api/app-shell/status");
-        if (response.status === 401) {
-          redirectToLoginWithCurrentLocation();
-          return;
-        }
-        if (!response.ok) throw new Error("APP_SHELL_STATUS_UNAVAILABLE");
-        const body = (await response.json()) as { status: AppShellStatusDto };
-        if (!cancelled) {
-          setStatus(body.status);
-          setSyncState("current");
-        }
-      } catch {
-        if (!cancelled) setSyncState(navigator.onLine ? "unavailable" : "offline");
-      }
-    }
-    const onOnline = () => void refresh();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") void refresh();
+    const refresh = () => {
+      if (!cancelled) void refreshShellStatus();
     };
-    void refresh();
+    const onOnline = () => refresh();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    refresh();
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, 60_000);
@@ -148,10 +317,10 @@ export function AppShell(props: {
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [pathname]);
+  }, [pathname, refreshShellStatus]);
 
   useEffect(() => {
-    if (immersive || document.visibilityState !== "visible" || !("Notification" in window)) return;
+    if (suppressDistractions || document.visibilityState !== "visible" || !("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
     const shanghaiNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
     const categories = selectForegroundNotifications({
@@ -162,406 +331,144 @@ export function AppShell(props: {
     const date = shanghaiNow.toISOString().slice(0, 10);
     const category = categories.find((candidate) => {
       const key = `af.notification.sent.${status.workspaceId ?? "setup"}.${date}.${candidate}`;
-      return window.localStorage.getItem(key) !== "1";
+      return readLocalStorage(key) !== "1";
     });
     if (!category) return;
     const dedupeKey = `af.notification.sent.${status.workspaceId ?? "setup"}.${date}.${category}`;
     const payload = buildForegroundNotificationPayload(category);
-    const showSpecificTitle = window.localStorage.getItem("af.notification.showSpecificTitle") === "1";
+    const showSpecificTitle = readLocalStorage("af.notification.showSpecificTitle") === "1";
     const notification = new Notification(showSpecificTitle ? payload.title : "AreaForge 提醒", {
       body: payload.body,
       tag: payload.tag,
       data: payload.data,
     });
-    window.localStorage.setItem(dedupeKey, "1");
+    writeLocalStorage(dedupeKey, "1");
     notification.onclick = () => {
       window.focus();
       router.push(sanitizeForegroundNotificationRoute(payload.data.route));
       notification.close();
     };
-  }, [immersive, router, status]);
-
-  useEffect(() => {
-    if (immersive || !status.workspaceId) return;
-    let cancelled = false;
-    const cooldownKey = `af.motivation.auto.next.${status.workspaceId}`;
-
-    async function showAutomaticReminder() {
-      const preference = readMotivationReminderPreference(props.userId);
-      const shanghaiNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
-      const clientGate = evaluateAutomaticMotivationGate({
-        enabled: preference.enabled,
-        hour: shanghaiNow.getUTCHours(),
-        windowStart: preference.windowStart,
-        windowEnd: preference.windowEnd,
-        visible: document.visibilityState === "visible",
-        immersive,
-        hasActiveActivity: status.motivationReminderCandidate.blockedByActiveActivity,
-        trigger: status.motivationReminderCandidate.trigger,
-      });
-      if (!clientGate.allowed) return;
-      const nextEligibleAt = Number(window.localStorage.getItem(cooldownKey) ?? "0");
-      if (Number.isFinite(nextEligibleAt) && nextEligibleAt > Date.now()) return;
-
-      try {
-        const response = await fetch("/api/motivation/next", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "automatic" }),
-        });
-        const body = (await response.json().catch(() => null)) as
-          | { item?: { title?: string; body?: string | null; externalUrl?: string | null } | null; reminderAllowed?: boolean }
-          | null;
-        if (!response.ok || cancelled) return;
-
-        // The server is authoritative for the four-hour and daily limits. A local
-        // cooldown avoids repeated fetches during ordinary route changes.
-        const cooldown = body?.reminderAllowed ? 4 * 60 * 60 * 1000 : 15 * 60 * 1000;
-        window.localStorage.setItem(cooldownKey, String(Date.now() + cooldown));
-        if (!body?.reminderAllowed || !body.item) return;
-
-        setRecoveryError(null);
-        setMotivationLine(body.item.body ?? body.item.title ?? null);
-        setMotivationUrl(body.item.externalUrl ?? null);
-        setMotivationDrawerSource("automatic");
-        setRecoveryOpen(true);
-      } catch {
-        // An automatic reminder must never interrupt the current page on failure.
-      }
-    }
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") void showAutomaticReminder();
-    };
-    const onPreferenceChange = () => void showAutomaticReminder();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === motivationReminderPreferenceKey(props.userId)) void showAutomaticReminder();
-    };
-    void showAutomaticReminder();
-    const interval = window.setInterval(() => void showAutomaticReminder(), 60_000);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener(MOTIVATION_REMINDER_PREFERENCE_EVENT, onPreferenceChange);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener(MOTIVATION_REMINDER_PREFERENCE_EVENT, onPreferenceChange);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, [immersive, props.userId, status.motivationReminderCandidate, status.workspaceId]);
-
-  async function openMotivationHelp() {
-    setRecoveryError(null);
-    setMotivationLine(null);
-    setMotivationUrl(null);
-    setMotivationDrawerSource("manual");
-    setRecoveryOpen(true);
-    try {
-      const response = await fetch("/api/motivation/next", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "manual" }),
-      });
-      const body = (await response.json().catch(() => null)) as
-        | { item?: { title?: string; body?: string | null; externalUrl?: string | null }; error?: string }
-        | null;
-      if (!response.ok) {
-        setRecoveryError(body?.error ?? "无法加载动机内容");
-        return;
-      }
-      if (body?.item) {
-        const line = body.item.body ?? body.item.title ?? null;
-        setMotivationLine(line);
-        setMotivationUrl(body.item.externalUrl ?? null);
-      } else {
-        setMotivationLine("内容库为空。可到设置 → 档案添加语录。");
-      }
-    } catch {
-      setRecoveryError("无法加载动机内容");
-    }
-  }
-
-  if (immersive) {
-    return <main className="min-h-screen bg-[#080b0f] text-zinc-100">{props.children}</main>;
-  }
+  }, [suppressDistractions, router, status]);
 
   return (
-    <div className="af-app-shell h-dvh overflow-hidden bg-[#080b0f] text-zinc-100 lg:h-auto lg:min-h-screen lg:overflow-visible">
-      <div className="mx-auto flex h-full w-full max-w-7xl lg:min-h-screen">
-        <aside
-          aria-label="桌面应用侧栏"
-          className={`hidden shrink-0 flex-col border-r border-white/10 px-3 py-5 transition-[width] lg:flex ${sidebarCollapsed ? "w-16" : "w-56"}`}
-        >
-          <div className={`mb-6 flex items-center text-teal-300 ${sidebarCollapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
-            <div className="flex min-w-0 items-center gap-2">
-              <BrandMark size={22} />
-              <span className={sidebarCollapsed ? "sr-only" : "truncate text-sm font-medium"}>AreaForge</span>
-            </div>
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white"
-              onClick={toggleSidebar}
-              aria-label={sidebarCollapsed ? "展开侧栏" : "折叠侧栏"}
-              title={sidebarCollapsed ? "展开侧栏" : "折叠侧栏"}
-            >
-              {sidebarCollapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
-            </button>
-          </div>
-          <nav className="flex flex-col gap-1" aria-label="主导航">
-            {BATCH10_NAV_ITEMS.map((item) => {
-              const active = item.match(pathname);
-              const activeChild = item.children?.some((child) => child.match(pathname)) ?? false;
-              return (
-                <div key={item.href}>
-                  <Link
-                    href={item.href}
-                    aria-current={active && !activeChild ? navigationAriaCurrent(pathname, item) : undefined}
-                    title={sidebarCollapsed ? item.label : undefined}
-                    className={`flex items-center rounded-md py-2 text-sm ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${active ? "bg-white/10 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
-                  >
-                    <NavigationIcon href={item.href} />
-                    <span className={sidebarCollapsed ? "sr-only" : undefined}>{item.label}</span>
-                  </Link>
-                  {!sidebarCollapsed ? item.children?.map((child) => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      aria-current={navigationAriaCurrent(pathname, child)}
-                      className={`mt-1 block rounded-md py-1.5 pl-7 pr-3 text-xs ${child.match(pathname) ? "text-teal-300" : "text-zinc-500 hover:text-zinc-200"}`}
-                    >
-                      {child.label}
-                    </Link>
-                  )) : null}
-                </div>
-              );
-            })}
-          </nav>
-          <div className={`mt-auto space-y-2 pt-6 text-xs text-zinc-500 ${sidebarCollapsed ? "grid justify-items-center" : "px-2"}`}>
-            <p className={sidebarCollapsed ? "sr-only" : undefined}>{props.email}</p>
-            <LogoutButton compact={sidebarCollapsed} />
-          </div>
-        </aside>
+    <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100" data-layout-region="app-shell">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[1000] focus:inline-flex focus:h-10 focus:items-center focus:rounded-md focus:bg-teal-300 focus:px-3 focus:text-sm focus:font-medium focus:text-slate-950"
+      >
+        跳到主要内容
+      </a>
+      <div className="flex h-full w-full">
+        <PrimaryNavigation pathname={pathname} collapsed={sidebarCollapsed} email={props.email} userId={props.userId} onToggle={toggleSidebar} />
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-screen">
-          <header className="af-shell-header sticky top-0 z-20 shrink-0 border-b border-white/10 bg-[#080b0f]/95 px-4 py-3 backdrop-blur">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex shrink-0 items-center gap-2 lg:hidden">
-                  <BrandMark size={20} />
-                  <span className="text-sm text-teal-300">AreaForge</span>
-                </div>
-                <div className="hidden items-center gap-2 md:flex" aria-label="状态灯">
-                {displayStatus.lights.map((light) => (
-                  <button
-                    key={light.kind}
-                    type="button"
-                    className={`rounded-md border px-2 py-1 text-xs ${toneClass[light.tone] ?? toneClass.gray}`}
-                    onClick={(event) => openStatusLight(light.kind, event.currentTarget)}
-                    aria-label={`${light.label}：${light.summary}`}
-                    aria-expanded={lightOpen === light.kind}
-                    aria-controls="status-light-panel"
-                  >
-                    {light.label}
-                  </button>
-                ))}
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  className={`rounded-md border px-2 py-1 text-xs md:hidden ${toneClass[displayStatus.mobileTop.tone] ?? toneClass.gray}`}
-                  onClick={(event) => openStatusLight(displayStatus.mobileTop.kind, event.currentTarget)}
-                  aria-label={`状态：${displayStatus.mobileTop.summary}`}
-                  aria-expanded={lightOpen === displayStatus.mobileTop.kind}
-                  aria-controls="status-light-panel"
-                >
-                  {displayStatus.mobileTop.label}
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/5"
-                  onClick={() => setQuickCreateOpen(true)}
-                  aria-label="快捷创建"
-                  title="快捷创建"
-                >
-                  <Plus size={17} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/5 sm:px-3"
-                  onClick={() => void openMotivationHelp()}
-                  aria-label="我学不下去了"
-                  title="我学不下去了"
-                >
-                  <TriangleAlert size={16} aria-hidden="true" />
-                  <span className="hidden sm:inline">我学不下去了</span>
-                </button>
-              </div>
-            </div>
-            <p
-              className={`${syncState === "current" ? "sr-only md:mt-2 md:block md:text-xs md:text-zinc-500" : "mt-2 text-xs text-amber-200"}`}
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {syncState === "current"
-                ? `状态同步于 ${formatServerTime(status.serverTime)}`
-                : `${syncState === "offline" ? "当前离线" : "状态刷新失败"}；显示上次服务端状态（${formatServerTime(status.serverTime)}）`}
-            </p>
-            {lightOpen ? (
-              <div
-                id="status-light-panel"
-                role="region"
-                aria-label="状态详情"
-                className="mt-3 rounded-md border border-white/10 bg-[#101419] p-3 text-sm"
-              >
-                {displayStatus.lights
-                  .filter((light) => light.kind === lightOpen)
-                  .map((light) => (
-                    <div key={light.kind} className="space-y-2">
-                      <p className="font-medium text-white">{light.label}</p>
-                      <p className="text-zinc-400">{light.summary}</p>
-                      {light.action ? (
-                        <Link href={light.action.href} className="inline-flex text-teal-300 hover:underline" onClick={() => setLightOpen(null)}>
-                          {light.action.label}
-                        </Link>
-                      ) : null}
-                      <button type="button" className="block text-xs text-zinc-500" onClick={closeStatusLight}>
-                        收起
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            ) : null}
-            {activeNavigationItem?.children?.length ? (
-              <nav className="mt-3 flex gap-2 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`}>
-                {activeNavigationItem.children.map((child) => (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <GlobalTopBar
+            pathname={pathname}
+            userId={props.userId}
+            statusTone={displayStatus.mobileTop.tone}
+            statusSummary={displayStatus.mobileTop.summary}
+            activeSession={status.activeSession}
+            offlineSession={offlineFocusSession}
+            quickReviewClaim={quickReviewClaim}
+            onOpenStatus={openStatusLight}
+            statusOpen={lightOpen}
+            onOpenMotivationHelp={() => void recovery.open()}
+            hasMotivationReminder={recovery.hasAutomaticReminder}
+          />
+          {showSecondaryNavigation && activeNavigationItem ? (
+            <nav className="shrink-0 overflow-x-auto px-4 pt-3 pb-1 sm:px-6 xl:px-8 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`} data-layout-region="secondary-mobile-navigation">
+              <div className="flex min-w-max gap-2 whitespace-nowrap">
+                {secondaryNavigationItems.map((child) => (
                   <Link
                     key={child.href}
                     href={child.href}
-                    aria-current={navigationAriaCurrent(pathname, child)}
+                    aria-current={pathname === child.href ? "page" : child.match(pathname) ? "location" : undefined}
                     className={`rounded-md border px-3 py-1.5 text-xs ${child.match(pathname) ? "border-teal-400/50 text-teal-200" : "border-white/10 text-zinc-400"}`}
                   >
                     {child.label}
                   </Link>
                 ))}
-              </nav>
-            ) : null}
-          </header>
+              </div>
+            </nav>
+          ) : null}
+          {showPageToolbar ? (
+            <PageToolbar>
+              <WorkbenchBreadcrumbActions pathname={pathname} currentHref={currentHref} />
+            </PageToolbar>
+          ) : null}
 
-          <main className="af-shell-main min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:overflow-visible lg:pb-6">{props.children}</main>
+          <div className="flex min-h-0 min-w-0 flex-1">
+            {showSecondaryNavigation && activeNavigationItem ? <SecondaryNavigation pathname={pathname} workbench={activeNavigationItem} collapsed={secondaryCollapsed} onToggle={toggleSecondary} /> : null}
 
-          <nav
-            className="af-shell-nav z-20 shrink-0 border-t border-white/10 bg-[#0d1117]/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
-            aria-label="移动导航"
-          >
-            <div className="mx-auto grid max-w-lg grid-cols-5 items-center">
-              {BATCH10_NAV_ITEMS.map((item) => {
-                const active = item.match(pathname);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={navigationAriaCurrent(pathname, item)}
-                    className={`min-w-0 truncate rounded-md px-1 py-2 text-center text-xs ${active ? "text-teal-300" : "text-zinc-400"}`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+            <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col">
+              <main
+                id="main-content"
+                className={`af-shell-main min-h-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6"}`}
+                data-ai-page-context="true"
+                data-layout-region="page-content"
+                data-immersive-content={immersive ? "true" : undefined}
+              >{props.children}</main>
             </div>
-          </nav>
+          </div>
+
+          <GlobalContextStatusBar pathname={pathname} currentHref={currentHref} activeSession={currentActivitySession} statusLights={displayStatus.lights} syncState={syncState} serverTime={status.serverTime} />
+
+          <SharedMobileNavigation pathname={pathname} email={props.email} userId={props.userId} />
         </div>
       </div>
 
-      <RecoveryActionDrawer
-        open={recoveryOpen}
-        title={motivationDrawerSource === "automatic" ? "行动提醒" : "我学不下去了"}
-        motivationLine={motivationLine}
-        motivationUrl={motivationUrl}
-        motivationError={recoveryError}
+      <GlobalRecoveryHelp
+        title={recovery.source === "automatic" ? "行动提醒" : "我学不下去了"}
+        motivationLine={recovery.line}
+        motivationUrl={recovery.url}
+        motivationError={recovery.error}
         workspaceId={status.workspaceId}
         defaultSubjectId={status.defaultSubjectId}
-        onClose={() => setRecoveryOpen(false)}
       />
-      <Drawer open={quickCreateOpen} title="快捷创建" onClose={() => setQuickCreateOpen(false)}>
-        <nav className="grid gap-2" aria-label="创建对象">
-          <QuickCreateLink href="/today/plan?createMinimum=1" label="任务" onSelect={() => setQuickCreateOpen(false)} icon={<CalendarCheck2 size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/notes?create=1" label="知识卡片" onSelect={() => setQuickCreateOpen(false)} icon={<NotebookPen size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/mistakes?create=1" label="错题" onSelect={() => setQuickCreateOpen(false)} icon={<TriangleAlert size={18} aria-hidden="true" />} />
-          <QuickCreateLink href="/knowledge/resources?create=1" label="资料" onSelect={() => setQuickCreateOpen(false)} icon={<FilePlus2 size={18} aria-hidden="true" />} />
-        </nav>
-      </Drawer>
+      <GlobalSessionCloseout
+        userId={props.userId}
+        activeSession={currentActivitySession}
+        returnTo={currentHref}
+        initialNow={status.serverTime}
+        pathname={pathname}
+      />
+      <GlobalToolLayer />
+      <WindowLayer />
+      <WindowDiscardDialog />
+      <Modal open={lightOpen} title="今日状态" onClose={() => setLightOpen(false)}>
+        <div className="divide-y divide-white/10" aria-label="今日状态详情">
+          {displayStatus.lights.map((light) => (
+            <div key={light.kind} className="py-4 first:pt-0">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full border ${toneClass[light.tone] ?? toneClass.gray}`} aria-hidden="true" />
+                <p className="text-sm font-medium text-zinc-200">{light.label}</p>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-zinc-500">{light.summary}</p>
+              {light.action ? (
+                <Link href={light.action.href} className="mt-2 inline-flex text-sm text-teal-300 hover:underline" onClick={() => setLightOpen(false)}>
+                  {light.action.label}
+                </Link>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }
 
-function projectLocalQuickReviewStatus(
-  status: AppShellStatusDto,
-  claim: QuickReviewActivityClaim | null,
-): Pick<AppShellStatusDto, "lights" | "mobileTop"> {
-  if (!claim) return status;
-  const lights = status.lights.map((light) => light.kind === "review"
-    ? {
-        ...light,
-        tone: "blue" as const,
-        summary: "正在快速复习",
-        action: { label: "继续复习", href: claim.href },
-      }
-    : light);
-  return { lights, mobileTop: selectMobileTopLight(lights) };
+function readLocalStorage(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
-function formatServerTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "未知时间";
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(date);
-}
-
-function navigationAriaCurrent(
-  pathname: string,
-  item: { href: string; match: (path: string) => boolean },
-): "page" | "location" | undefined {
-  if (!item.match(pathname)) return undefined;
-  return pathname === item.href ? "page" : "location";
-}
-
-function NavigationIcon({ href }: { href: string }) {
-  const Icon = href === "/today"
-    ? CalendarCheck2
-    : href === "/knowledge/canvas"
-      ? Network
-      : href === "/review/reports"
-        ? ClipboardCheck
-        : href === "/stage/overview"
-          ? Flag
-          : Settings;
-  return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
-}
-
-function QuickCreateLink(props: {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-  onSelect: () => void;
-}) {
-  return (
-    <Link
-      href={props.href}
-      className="flex h-11 items-center gap-3 rounded-md border border-white/10 px-3 text-sm text-zinc-100 hover:bg-white/5"
-      onClick={props.onSelect}
-    >
-      {props.icon}
-      {props.label}
-    </Link>
-  );
+function writeLocalStorage(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Optional shell preferences must not block the main workflow.
+  }
 }

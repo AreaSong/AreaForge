@@ -26,6 +26,8 @@ export interface SerializableTaskRecord {
   syllabusNode?: {
     title: string;
   } | null;
+  stageLinks?: Array<{ stagePlanId: string; stagePlan?: { name: string } | null }>;
+  knowledgePointLinks?: Array<{ knowledgePointId: string; knowledgePoint?: { title: string } | null }>;
 }
 
 export function serializeTask(task: SerializableTaskRecord): StudyTaskDto {
@@ -47,6 +49,10 @@ export function serializeTask(task: SerializableTaskRecord): StudyTaskDto {
     actualMinutes: task.actualMinutes,
     reviewText: task.reviewText,
     completedAt: task.completedAt?.toISOString() ?? null,
+    stagePlanIds: task.stageLinks?.map((link) => link.stagePlanId) ?? [],
+    stagePlanNames: task.stageLinks?.flatMap((link) => link.stagePlan?.name ? [link.stagePlan.name] : []) ?? [],
+    knowledgePointIds: task.knowledgePointLinks?.map((link) => link.knowledgePointId) ?? [],
+    knowledgePointTitles: task.knowledgePointLinks?.flatMap((link) => link.knowledgePoint?.title ? [link.knowledgePoint.title] : []) ?? [],
   };
 }
 

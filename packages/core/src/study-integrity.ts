@@ -373,18 +373,10 @@ export function previewTaskDebtReorderApplication(
  * 避免规则文案与阈值出现双副本漂移。
  */
 export function evaluateAntiFakeStudy(input: AntiFakeStudyInput): AntiFakeStudyResult {
-  if (input.minutes < 25) {
-    return {
-      isLowConversion: true,
-      reason: "学习时间太短，还不足以证明一次有效推进。",
-      requiredOutput: "补一条 3 句话总结，再结束这次记录。",
-    };
-  }
-
   if (!input.hasOutput) {
     return {
       isLowConversion: true,
-      reason: "只有投入时长，没有留下可检查的产出。",
+      reason: "这次收口没有留下可检查的产出。",
       requiredOutput: "写下本次学到的一个概念、一个例题或一个错因。",
     };
   }

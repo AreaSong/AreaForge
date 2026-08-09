@@ -85,7 +85,7 @@ export async function patchNotificationPreferences(
     throw new ApiError("NOTIFICATION_PREFERENCE_REVISION_CONFLICT", 409, {
       latest: existing ? toDto(existing) : { ...DEFAULT_PREFERENCE },
       conflictFields: collectNotificationConflictFields(input, existing ? toDto(existing) : { ...DEFAULT_PREFERENCE }),
-      workbench: "/settings/notifications",
+      workbench: "/settings/learning",
     });
   }
 

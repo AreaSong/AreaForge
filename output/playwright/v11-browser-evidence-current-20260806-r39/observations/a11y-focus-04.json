@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "v11-accessibility-observation-v1",
+  "recordedAt": "2026-08-05T22:33:03.491Z",
+  "checkId": "FOCUS-04",
+  "checkKey": "canvas-operation-and-return-focus",
+  "route": "/knowledge/canvas?view=list",
+  "target": "canvas-node-and-list-row",
+  "profile": {
+    "id": "desktop",
+    "kind": "emulated-viewport",
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1,
+    "zoomPercent": 100
+  },
+  "mechanism": "dom",
+  "assertions": [
+    {
+      "id": "canvas-operation-focus-retained",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "hide-focus-used-deterministic-exception",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "canvas-list-link-focused-before-enter",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "canvas-detail-heading-focused",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "id": "canvas-return-url-restored",
+      "predicate": "equals",
+      "expected": "/knowledge/canvas?workspaceId=1fe2751b-5c84-4ca4-bce7-16dba79177ef&focus=WORKSPACE%3A1fe2751b-5c84-4ca4-bce7-16dba79177ef&depth=2&view=list&subjectId=528e94c1-55e3-4767-8a32-c9cf44e8a357",
+      "actual": "/knowledge/canvas?workspaceId=1fe2751b-5c84-4ca4-bce7-16dba79177ef&focus=WORKSPACE%3A1fe2751b-5c84-4ca4-bce7-16dba79177ef&depth=2&view=list&subjectId=528e94c1-55e3-4767-8a32-c9cf44e8a357",
+      "passed": true
+    },
+    {
+      "id": "canvas-list-row-focus-restored",
+      "predicate": "equals",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    }
+  ]
+}

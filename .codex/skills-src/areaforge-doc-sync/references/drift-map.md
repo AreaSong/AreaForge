@@ -38,9 +38,9 @@ When syncing README, docs, workflow, tasks, skills, or release records, check th
 
 ## Current-State Facts
 
-- Current repository and production version: `0.1.7`.
+- Current repository and production version: `v1.1.1`.
 - Online URL: `https://forge.areasong.top/`.
-- GitHub Release evidence: historical production baseline `v0.1.5`; current signed production Release `v0.1.7`.
+- GitHub Release evidence: current production baseline `v1.1.1`; the Release includes signed checksum/provenance assets, while the annotated tag itself is not GPG-signed.
 - Package A-E complete for current docs 100%.
 - Web update center writes controlled requests only.
 - Server-side update-agent/updater performs signature verification, backup, migration, switch, smoke, and rollback.

@@ -439,9 +439,9 @@ function checkSecondStageStillBeforePackageD(): void {
   const periodicReportCore = readIfExists("packages/core/src/periodic-report.ts");
   const simulationService = readIfExists("apps/web/lib/study/simulation-service.ts");
   const stageService = readIfExists("apps/web/lib/study/stage-service.ts");
-  const simulationPage = readIfExists("apps/web/app/simulation/page.tsx");
+  const simulationPage = readIfExists("apps/web/app/(app)/test/simulations/page.tsx");
   const reportsService = readIfExists("apps/web/lib/study/reports-service.ts");
-  const reportsPage = readIfExists("apps/web/app/reports/page.tsx");
+  const reportsPage = readIfExists("apps/web/lib/routes/review-reports-page.tsx");
   const taskPanel = readIfExists("apps/web/components/task-panel.tsx");
   const taskDebtDocs = readIfExists("docs/modules/task-debt.md");
   const apiSurface = readIfExists("docs/architecture/api-surface.md");
@@ -586,7 +586,7 @@ function checkSecondStageStillBeforePackageD(): void {
     name: "Package D long-term apply route boundary",
     ok: forbiddenLongTermWriteRoutes.length === 0,
     detail: forbiddenLongTermWriteRoutes.length === 0
-      ? "no report/debt/stage/simulation apply-confirm-reject routes exist before confirmation"
+      ? "no report/debt/plan/test apply-confirm-reject routes exist before confirmation"
       : `found long-term write routes before confirmation: ${forbiddenLongTermWriteRoutes.join(", ")}`,
   });
 
@@ -893,13 +893,13 @@ function checkPackageDCompletedBatchEvidence(
     const riskService = readIfExists("apps/web/lib/study/long-term-risk-service.ts");
     const riskRoutePath = "apps/web/app/api/analytics/long-term-risks/route.ts";
     const riskRoute = readIfExists(riskRoutePath);
-    const syllabusSurface = readIfExists("apps/web/app/syllabus/page.tsx")
+    const syllabusSurface = readIfExists("apps/web/app/(app)/knowledge/syllabi/page.tsx")
       + readIfExists("apps/web/components/syllabus-panel.tsx")
       + readIfExists("apps/web/components/syllabus-manager.tsx");
-    const notesSurface = readIfExists("apps/web/app/notes/page.tsx")
+    const notesSurface = readIfExists("apps/web/app/(app)/knowledge/cards/page.tsx")
       + readIfExists("apps/web/components/notes-panel.tsx")
       + readIfExists("apps/web/components/note-library.tsx");
-    const simulationSurface = readIfExists("apps/web/app/simulation/page.tsx");
+    const simulationSurface = readIfExists("apps/web/app/(app)/test/simulations/page.tsx");
     const riskRouteMethods = getExportedRouteMethods(riskRoute);
     const unexpectedRiskRouteMethods = riskRouteMethods.filter((method) => method !== "GET").map((method) => `${riskRoutePath}:${method}`);
     const requiredTerms = [
@@ -1843,7 +1843,7 @@ function checkPackageBBatchBoundaries(): void {
     {
       label: "dashboard records rule trigger explicitly",
       ok: dashboardRoute.includes("recordRecoveryRule: true")
-        && (homePage.includes("recordRecoveryRule: true") || homeRedirectsToToday),
+        && (homePage.includes("recordRecoveryRule: true") || homeRedirectsToToday || todayPage.includes("recordRecoveryRule: true")),
     },
     {
       label: "RecoveryState DTO exposes source and state fields",
@@ -1866,8 +1866,7 @@ function checkPackageBBatchBoundaries(): void {
           && homePage.includes("tasks={dashboard.tasks}")
           && homePage.includes("tasks={focusTasks}")
       ) || (
-        homeRedirectsToToday
-          && todayPage.includes("<ActionCenterToday")
+        todayPage.includes("<ActionCenterToday")
           && actionCenterToday.includes("today.recovery")
           && actionCenterToday.includes("today.queues.formalTasks")
       ),
@@ -2007,7 +2006,7 @@ function checkPackageBBatchBoundaries(): void {
   const studyTypes = readIfExists("apps/web/lib/study/types.ts");
   const studySchemas = readIfExists("apps/web/lib/study/schemas.ts");
   const simulationWorkbench = readIfExists("apps/web/components/simulation-workbench.tsx");
-  const simulationPage = readIfExists("apps/web/app/simulation/page.tsx");
+  const simulationPage = readIfExists("apps/web/app/(app)/test/simulations/page.tsx");
   const batch5RuntimeSignals = [
     {
       label: "SimulationExam additive migration",
@@ -2091,7 +2090,7 @@ function checkPackageBBatchBoundaries(): void {
     ].some((token) => content.includes(token));
   });
   const reportsService = readIfExists("apps/web/lib/study/reports-service.ts");
-  const reportsPage = readIfExists("apps/web/app/reports/page.tsx");
+  const reportsPage = readIfExists("apps/web/lib/routes/review-reports-page.tsx");
   const batch6RuntimeSignals = [
     {
       label: "StagePlan additive migration",

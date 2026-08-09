@@ -3,8 +3,9 @@ import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { MotivationVaultForm } from "@/components/motivation-vault-form";
 import { MotivationLibraryClient } from "@/components/motivation-library-client";
 import { MotivationReminderSettings } from "@/components/motivation-reminder-settings";
+import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listMotivationItems } from "@/lib/study/motivation-library-service";
 import { getMotivationVault } from "@/lib/study/service";
 
@@ -21,20 +22,25 @@ export default async function SettingsProfilePage() {
   ]);
 
   return (
-    <section className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold text-white">个人档案与动机</h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          动机封存正文默认不进入 AI。内容库可保存语录、HTTPS 视频链接或显式摘录。
-        </p>
-      </div>
-      <details className="rounded-md border border-white/10 p-3">
-        <summary className="cursor-pointer text-sm text-teal-300">动机 AI 草稿</summary>
-        <div className="mt-3"><AiDraftPanel endpoint="motivation" userId={user.id} /></div>
-      </details>
+    <PageFrame variant="dashboard-wide" className="space-y-10">
+      <PageHeader
+        eyebrow="设置 / 档案与动机"
+        title="档案与动机"
+        description="封存长期备考的底层理由，并决定哪些内容可以在关键节点被再次展示。动机封存正文默认不进入 AI。"
+      />
       <MotivationVaultForm userId={user.id} vault={vault} />
       <MotivationReminderSettings userId={user.id} />
       <MotivationLibraryClient userId={user.id} initialItems={items} vault={vault} />
-    </section>
+      <section className="border-t border-white/10 pt-6">
+        <SectionHeader
+          title="AI 草稿"
+          description="低频辅助入口。仅在你主动展开并提交时生成建议，不会自动读取动机封存正文。"
+        />
+        <details className="mt-4 rounded-md border border-white/10 bg-white/[0.02] px-4 py-3">
+          <summary className="cursor-pointer text-sm font-medium text-teal-300">展开动机 AI 草稿</summary>
+          <div className="mt-4"><AiDraftPanel endpoint="motivation" userId={user.id} /></div>
+        </details>
+      </section>
+    </PageFrame>
   );
 }

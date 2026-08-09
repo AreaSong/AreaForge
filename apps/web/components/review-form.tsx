@@ -1,10 +1,13 @@
 "use client";
 
-import { NotebookPen } from "lucide-react";
-import Link from "next/link";
+import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { DailyReviewResult } from "@/components/daily-review-result";
+import { EditorActionBar } from "@/components/ui/editor-actions";
+import { Alert, PersistenceStatus } from "@/components/ui/feedback";
+import { SectionHeader } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
@@ -13,6 +16,8 @@ import {
   savePrivateBusinessDraft,
   SHORT_PRIVATE_DRAFT_TTL_MS,
 } from "@/lib/client/private-business-drafts";
+import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
+import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
 import type { DailyReviewDto } from "@/lib/study/types";
 
 interface ReviewFormProps {
@@ -20,6 +25,7 @@ interface ReviewFormProps {
   workspaceId: string;
   studyDayKey: string;
   review: DailyReviewDto | null;
+  inboxItem: PlanInboxItemDto | null;
 }
 
 interface ReviewFields {
@@ -46,11 +52,13 @@ interface ReviewConflict {
 }
 
 const moodOptions = ["焦虑", "麻木", "想她", "自责", "有斗志", "很累", "平静", "失控"] as const;
+const fieldClass = "mt-2 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100 outline-none transition focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/10";
 
-export function ReviewForm({ userId, workspaceId, studyDayKey, review }: ReviewFormProps) {
+export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem: initialInboxItem }: ReviewFormProps) {
   const router = useRouter();
   const draftKey = `areaforge.daily-review.draft.${userId}.${workspaceId}.${studyDayKey}`;
   const [baseline, setBaseline] = useState(review);
+  const [inboxItem, setInboxItem] = useState(initialInboxItem);
   const [fields, setFields] = useState<ReviewFields>(() => fieldsFromReview(review));
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -60,7 +68,10 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review }: ReviewF
   const [conflictOpen, setConflictOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const currentMood = fields.mood;
+  const dirty = !reviewFieldsEqual(fields, fieldsFromReview(baseline));
   const hasLegacyMood = currentMood.length > 0 && !moodOptions.includes(currentMood as (typeof moodOptions)[number]);
+
+  useUnsavedChangesWarning(dirty);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -134,7 +145,7 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review }: ReviewF
       if (response.status === 404) {
         completeIdempotentCommand(commandScope);
         setError("这份复盘已不可用，草稿仍保留；正在返回复盘工作台。");
-        router.replace("/review/daily");
+        router.replace("/roadmap/reviews/daily");
         return;
       }
       if (response.status === 409 && isDailyReviewDto(body?.latest)) {
@@ -159,6 +170,7 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review }: ReviewF
 
       completeIdempotentCommand(commandScope);
       setBaseline(body.review);
+      setInboxItem(isPlanInboxItemDto(body.inboxItem) ? body.inboxItem : null);
       setFields(fieldsFromReview(body.review));
       removePrivateBusinessDraft(draftKey);
       setSaved(true);
@@ -172,85 +184,102 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review }: ReviewF
 
   return (
     <>
-    <div className="rounded-lg border border-white/10 bg-[#101419] p-5">
-      <div className="flex items-center gap-2">
-        <NotebookPen className="h-5 w-5 text-teal-300" aria-hidden="true" />
-        <h2 className="text-lg font-semibold text-white">晚间复盘</h2>
-      </div>
-      <form onSubmit={submit} className="mt-4 grid gap-3">
-        <textarea
-          className="min-h-20 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm text-zinc-100"
-          name="summary"
-          placeholder="今天完成了什么"
-          value={fields.summary}
-          onChange={(event) => setFields((current) => ({ ...current, summary: event.target.value }))}
-          required
+      {baseline ? <DailyReviewResult review={baseline} inboxItem={inboxItem} /> : null}
+      <section className="space-y-5" aria-labelledby="review-judgement-heading">
+        <SectionHeader
+          title={baseline ? "调整今天的判断" : "留下今天的判断"}
+          description="事实已经由系统记录；这里保留你的判断，不让数据替你下结论。"
+          meta={<PersistenceStatus state={conflict ? "conflict" : saving || isPending ? "saving" : dirty ? "local-draft" : saved ? "saved" : "clean"} />}
         />
-        <textarea
-          className="min-h-16 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm text-zinc-100"
-          name="lostControl"
-          placeholder="今天哪里失控了"
-          value={fields.lostControl}
-          onChange={(event) => setFields((current) => ({ ...current, lostControl: event.target.value }))}
-        />
-        <input
-          className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
-          name="keepAction"
-          placeholder="今天最该保留的一个动作"
-          value={fields.keepAction}
-          onChange={(event) => setFields((current) => ({ ...current, keepAction: event.target.value }))}
-          required
-        />
-        <input
-          className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
-          name="tomorrowMinimum"
-          placeholder="明天最小必须完成任务"
-          value={fields.tomorrowMinimum}
-          onChange={(event) => setFields((current) => ({ ...current, tomorrowMinimum: event.target.value }))}
-          required
-        />
-        <select
-          className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
-          name="mood"
-          value={fields.mood}
-          onChange={(event) => setFields((current) => ({ ...current, mood: event.target.value }))}
-          aria-label="情绪状态"
-        >
-          <option value="">不记录情绪状态</option>
-          {hasLegacyMood ? <option value={currentMood}>当前记录：{currentMood}</option> : null}
-          {moodOptions.map((mood) => (
-            <option key={mood} value={mood}>
-              {mood}
-            </option>
-          ))}
-        </select>
-        <button
-          className="h-11 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
-          type="submit"
-          disabled={isPending || saving || conflict !== null}
-        >
-          {saving ? "保存中..." : baseline ? "更新复盘" : "保存复盘"}
-        </button>
-      </form>
-      {baseline ? (
-        <p className="mt-3 text-sm text-zinc-400">
-          已记录 {baseline.totalMinutes} 分钟学习，其中有效 {baseline.effectiveMinutes} 分钟。
-        </p>
-      ) : null}
-      <div aria-live="polite">
-        {saved ? (
-          <p className="mt-3 text-sm text-emerald-200">
-            复盘与明日最低行动已保存。<Link className="ml-2 underline" href="/today/inbox">查看收件箱</Link>
-          </p>
+        <form onSubmit={submit} className="space-y-6">
+          <fieldset className="grid gap-4 border-b border-white/10 pb-6 sm:grid-cols-2">
+            <legend id="review-judgement-heading" className="mb-3 text-sm font-medium text-teal-300">1. 推进与偏差</legend>
+            <label className="block text-sm text-zinc-200">
+              今天实际推进了什么
+              <textarea
+                className={`${fieldClass} min-h-28 py-2`}
+                name="summary"
+                placeholder="用自己的话概括真正推进的内容"
+                value={fields.summary}
+                onChange={(event) => setFields((current) => ({ ...current, summary: event.target.value }))}
+                required
+              />
+            </label>
+            <label className="block text-sm text-zinc-200">
+              哪里偏离了计划
+              <textarea
+                className={`${fieldClass} min-h-28 py-2`}
+                name="lostControl"
+                placeholder="没有明显偏差可以留空"
+                value={fields.lostControl}
+                onChange={(event) => setFields((current) => ({ ...current, lostControl: event.target.value }))}
+              />
+            </label>
+          </fieldset>
+
+          <fieldset className="grid gap-4 border-b border-white/10 pb-6 sm:grid-cols-[minmax(0,1fr)_220px]">
+            <legend className="mb-3 text-sm font-medium text-teal-300">2. 保留有效动作</legend>
+            <label className="block text-sm text-zinc-200">
+              明天应该继续做什么
+              <input
+                className={`${fieldClass} h-11`}
+                name="keepAction"
+                placeholder="只保留一个真正有效的动作"
+                value={fields.keepAction}
+                onChange={(event) => setFields((current) => ({ ...current, keepAction: event.target.value }))}
+                required
+              />
+            </label>
+            <label className="block text-sm text-zinc-200">
+              当前状态
+              <select
+                className={`${fieldClass} h-11`}
+                name="mood"
+                value={fields.mood}
+                onChange={(event) => setFields((current) => ({ ...current, mood: event.target.value }))}
+              >
+                <option value="">不记录</option>
+                {hasLegacyMood ? <option value={currentMood}>当前记录：{currentMood}</option> : null}
+                {moodOptions.map((mood) => <option key={mood} value={mood}>{mood}</option>)}
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset className="rounded-md border border-teal-400/25 bg-teal-400/[0.05] p-4">
+            <legend className="px-1 text-sm font-medium text-teal-200">3. 确定明日最低行动</legend>
+            <label className="mt-1 block text-sm text-zinc-200">
+              即使状态不好，明天也必须完成的一个动作
+              <input
+                className={`${fieldClass} h-12 text-base`}
+                name="tomorrowMinimum"
+                placeholder="例如：完成极限基础练习 20 题"
+                value={fields.tomorrowMinimum}
+                onChange={(event) => setFields((current) => ({ ...current, tomorrowMinimum: event.target.value }))}
+                required
+              />
+            </label>
+            <p className="mt-2 text-xs leading-5 text-zinc-400">保存后会进入投入草稿，由你补全科目和预计时长，再转为正式任务。</p>
+          </fieldset>
+
+          <EditorActionBar
+            primaryType="submit"
+            primaryLabel={baseline ? "更新复盘与明日行动" : "完成复盘"}
+            primaryIcon={<Save size={16} aria-hidden />}
+            primaryDisabled={conflict !== null}
+            loading={saving || isPending}
+            hint="复盘和明日行动会一起保存，不会出现半份结果。"
+          />
+        </form>
+        <div aria-live="polite">
+          {saved ? <p className="sr-only">复盘与明日最低行动已保存。</p> : null}
+          {error ? <Alert tone="danger">{error}</Alert> : null}
+        </div>
+        {conflict && !conflictOpen ? (
+          <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>
+            处理复盘版本冲突
+          </button>
         ) : null}
-        {error ? <p role="alert" className="mt-3 text-sm text-red-200">{error}</p> : null}
-      </div>
-      {conflict && !conflictOpen ? (
-        <button type="button" className="mt-3 text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>
-          处理复盘版本冲突
-        </button>
-      ) : null}
-    </div>
+      </section>
     <ConflictResolutionModal
       open={conflictOpen && conflict !== null}
       title="复盘已在其他页面更新"
@@ -281,6 +310,7 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review }: ReviewF
 
 interface ReviewResponseBody {
   review?: unknown;
+  inboxItem?: unknown;
   error?: string;
   latest?: unknown;
   conflictFields?: string[];
@@ -345,6 +375,17 @@ function isDailyReviewDto(value: unknown): value is DailyReviewDto {
     && typeof value.id === "string"
     && typeof value.revision === "number"
     && typeof value.reviewDate === "string";
+}
+
+function isPlanInboxItemDto(value: unknown): value is PlanInboxItemDto {
+  if (!isObject(value)) return false;
+  return typeof value.id === "string"
+    && typeof value.originKey === "string"
+    && typeof value.originVersion === "number"
+    && (value.status === "OPEN" || value.status === "DISMISSED" || value.status === "CONVERTED")
+    && typeof value.revision === "number"
+    && Array.isArray(value.missingFields)
+    && Array.isArray(value.dependencyRefs);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

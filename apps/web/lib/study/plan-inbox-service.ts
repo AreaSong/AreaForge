@@ -17,7 +17,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import { getStudyDayRange } from "./date";
+import { getStudyDayKey, getStudyDayRange } from "./date";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { getBridgableReviewScheduleInTx } from "./review-schedule-service";
@@ -33,7 +33,7 @@ import {
 
 type PlanInboxRow = Prisma.PlanInboxItemGetPayload<{ include: { dependencyRefs: true } }>;
 
-const planInboxWorkbench = "/today/inbox";
+const planInboxWorkbench = "/roadmap/allocation/drafts";
 
 export interface PlanInboxWriteResult {
   item: PlanInboxItemDto;
@@ -285,6 +285,26 @@ export async function listPlanInboxItems(
     orderBy: [{ createdAt: "desc" }],
   });
   return rows.map(serialize);
+}
+
+export async function getDailyReviewMinimumInboxItem(
+  actorId: string,
+  review: { reviewDate: string; revision: number },
+): Promise<PlanInboxItemDto | null> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const reviewDate = new Date(review.reviewDate);
+  if (Number.isNaN(reviewDate.getTime())) return null;
+  const originKey = `daily-review:${getStudyDayKey(reviewDate)}:minimum`;
+  const row = await prisma.planInboxItem.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      stableKey: `${originKey}:v${review.revision}`,
+      originType: "DAILY_REVIEW_MINIMUM",
+      originVersion: review.revision,
+    },
+    include: { dependencyRefs: true },
+  });
+  return row ? serialize(row) : null;
 }
 
 export async function createPlanInboxItem(
@@ -874,6 +894,13 @@ export async function convertPlanInboxItem(
       subjectId,
     );
 
+    const milestone = existing.planMilestoneId
+      ? await tx.planMilestone.findFirst({
+          where: { id: existing.planMilestoneId, workspaceId: workspace.id },
+          select: { stagePlanId: true },
+        })
+      : null;
+
     const normalizedPriority = existing.priority?.toUpperCase();
     const priority = normalizedPriority === "LOW" || normalizedPriority === "MEDIUM" || normalizedPriority === "HIGH" || normalizedPriority === "CRITICAL"
       ? normalizedPriority
@@ -896,6 +923,7 @@ export async function convertPlanInboxItem(
         plannedDate,
         estimatedMinutes,
         reviewScheduleId,
+        stageLinks: milestone ? { create: { stagePlanId: milestone.stagePlanId } } : undefined,
         relatedSyllabusNodes: parseStringArray(existing.relatedNodeIds).length ? {
           createMany: { data: parseStringArray(existing.relatedNodeIds).map((syllabusNodeId) => ({ syllabusNodeId })) },
         } : undefined,

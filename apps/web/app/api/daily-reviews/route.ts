@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { ApiError, apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
+import { getDailyReviewMinimumInboxItem } from "@/lib/study/plan-inbox-service";
 import { saveReviewSchema } from "@/lib/study/schemas";
 import { createDailyReview, getDailyReview } from "@/lib/study/service";
 
@@ -20,7 +21,9 @@ export async function POST(request: NextRequest) {
     const user = await requireApiUser(request);
     const parsed = saveReviewSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
-    return NextResponse.json({ review: await createDailyReview(parsed.data, user.id) }, { status: 201 });
+    const review = await createDailyReview(parsed.data, user.id);
+    const inboxItem = await getDailyReviewMinimumInboxItem(user.id, review);
+    return NextResponse.json({ review, inboxItem }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }

@@ -40,7 +40,7 @@
 ## AI
 
 **AI 建议按钮不可用？**
-`AI_ENABLED` 默认是 `false`。启用需要管理员在服务端同时配置 `AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`（OpenAI-compatible），并由当前浏览器在 `/settings/ai` 明确开启“允许显式 AI 操作调用外部 Provider”后保存。任一条件不满足都会使用本地规则，见 [配置参考](configuration.md)。
+`AI_ENABLED` 默认是 `false`，是服务端硬闸门；日常全局启停可在 `/settings/ai` Web 管理，但不能绕过该硬闸门。Provider 可以由部署环境变量提供兼容回退，也可以登录后在 `/settings/ai` 为当前账户填写 Base URL、模型和 API Key；账户配置优先，密钥由服务端加密保存且不会回显。要真实外呼，还必须先开启 Web 全局 AI，再由当前浏览器明确开启“允许显式 AI 操作调用外部 Provider”。任一条件不满足都会使用本地规则，见 [配置参考](configuration.md)。
 
 **AI 调用失败或很慢？**
 超时（`AI_TIMEOUT_MS`）和重试（`AI_MAX_RETRIES`）用尽后会自动回退本地规则，功能不中断。持续失败先检查 base URL 连通性、key 有效性和模型名。

@@ -49,6 +49,7 @@ export interface ReviewEventDto {
 
 export interface BridgedReviewScheduleDto {
   schedule: ReviewScheduleDto;
+  target: ReviewQueueTargetDto;
   canonicalTask: {
     id: string;
     title: string;
@@ -59,6 +60,25 @@ export interface BridgedReviewScheduleDto {
 
 export interface RecentReviewEventDto extends ReviewEventDto {
   schedule: Pick<ReviewScheduleDto, "id" | "targetType">;
+  target: ReviewQueueTargetDto;
+}
+
+export interface ReviewQueueTargetDto {
+  title: string;
+  subtitle: string;
+  canonicalHref: string;
+}
+
+export interface ReviewQueueItemDto {
+  schedule: ReviewScheduleDto;
+  target: ReviewQueueTargetDto;
+}
+
+export interface ReviewWorkbenchSummaryDto {
+  overdueCount: number;
+  dueTodayCount: number;
+  completedTodayCount: number;
+  completedTodaySeconds: number;
 }
 
 type Tx = Prisma.TransactionClient;
@@ -150,6 +170,57 @@ export async function listReviewSchedules(
   return rows.map(serializeSchedule);
 }
 
+export async function listReviewQueueItems(
+  actorId: string,
+  options?: { status?: "ACTIVE" | "PAUSED"; dueBefore?: Date; excludeBridged?: boolean },
+): Promise<ReviewQueueItemDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const rows = await prisma.reviewSchedule.findMany({
+    where: {
+      workspaceId: workspace.id,
+      ...(options?.status ? { status: options.status } : {}),
+      ...(options?.dueBefore ? { dueDate: { lte: options.dueBefore }, status: "ACTIVE" } : {}),
+      ...(options?.excludeBridged
+        ? { bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } } }
+        : {}),
+    },
+    include: reviewQueueTargetInclude,
+    orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map((row) => ({ schedule: serializeSchedule(row), target: serializeQueueTarget(row) }));
+}
+
+export async function getReviewWorkbenchSummary(
+  actorId: string,
+  now = new Date(),
+): Promise<ReviewWorkbenchSummaryDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const today = getStudyDayRange(now);
+  const executableWhere: Prisma.ReviewScheduleWhereInput = {
+    workspaceId: workspace.id,
+    status: "ACTIVE",
+    bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
+  };
+  const [overdueCount, dueTodayCount, completed] = await Promise.all([
+    prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { lt: today.start } } }),
+    prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { gte: today.start, lte: today.end } } }),
+    prisma.reviewEvent.aggregate({
+      where: {
+        reviewSchedule: { workspaceId: workspace.id },
+        confirmedAt: { gte: today.start, lte: today.end },
+      },
+      _count: { id: true },
+      _sum: { durationSeconds: true },
+    }),
+  ]);
+  return {
+    overdueCount,
+    dueTodayCount,
+    completedTodayCount: completed._count.id,
+    completedTodaySeconds: completed._sum.durationSeconds ?? 0,
+  };
+}
+
 export async function listBridgedReviewSchedules(actorId: string): Promise<BridgedReviewScheduleDto[]> {
   const workspace = await resolveActiveWorkspace(actorId);
   const rows = await prisma.reviewSchedule.findMany({
@@ -158,6 +229,7 @@ export async function listBridgedReviewSchedules(actorId: string): Promise<Bridg
       bridgeTasks: { some: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
     },
     include: {
+      ...reviewQueueTargetInclude,
       bridgeTasks: {
         where: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } },
         select: { id: true, title: true, status: true },
@@ -169,11 +241,12 @@ export async function listBridgedReviewSchedules(actorId: string): Promise<Bridg
 
   return rows.flatMap((row) => row.bridgeTasks.map((task) => ({
     schedule: serializeSchedule(row),
+    target: serializeQueueTarget(row),
     canonicalTask: {
       id: task.id,
       title: task.title,
       status: task.status as "TODO" | "IN_PROGRESS" | "DEFERRED",
-      href: `/today/tasks/${task.id}`,
+      href: `/roadmap/allocation/tasks/${task.id}`,
     },
   })));
 }
@@ -182,14 +255,44 @@ export async function listRecentReviewEvents(actorId: string, limit = 12): Promi
   const workspace = await resolveActiveWorkspace(actorId);
   const rows = await prisma.reviewEvent.findMany({
     where: { reviewSchedule: { workspaceId: workspace.id } },
-    include: { reviewSchedule: true },
+    include: { reviewSchedule: { include: reviewQueueTargetInclude } },
     orderBy: [{ confirmedAt: "desc" }, { id: "desc" }],
     take: Math.max(1, Math.min(limit, 30)),
   });
   return rows.map((row) => ({
     ...serializeEvent(row),
     schedule: { id: row.reviewSchedule.id, targetType: row.reviewSchedule.targetType as ReviewScheduleDto["targetType"] },
+    target: serializeQueueTarget(row.reviewSchedule),
   }));
+}
+
+const reviewQueueTargetInclude = {
+  note: { select: { id: true, title: true, kind: true, subject: { select: { name: true } } } },
+  mistake: { select: { id: true, title: true, subject: { select: { name: true } } } },
+  studyResource: { select: { id: true, title: true, category: true, subject: { select: { name: true } } } },
+  syllabusNode: { select: { id: true, title: true, kind: true, subject: { select: { name: true } } } },
+} as const;
+
+function serializeQueueTarget(row: {
+  targetType: string;
+  note: { id: string; title: string; kind: string; subject: { name: string } } | null;
+  mistake: { id: string; title: string; subject: { name: string } } | null;
+  studyResource: { id: string; title: string; category: string; subject: { name: string } | null } | null;
+  syllabusNode: { id: string; title: string; kind: string; subject: { name: string } } | null;
+}): ReviewQueueTargetDto {
+  if (row.targetType === "NOTE" && row.note) {
+    return { title: row.note.title, subtitle: `${row.note.subject.name} · 知识卡片`, canonicalHref: `/knowledge/cards/${row.note.id}` };
+  }
+  if (row.targetType === "MISTAKE" && row.mistake) {
+    return { title: row.mistake.title, subtitle: `${row.mistake.subject.name} · 错题复测`, canonicalHref: `/knowledge/mistakes/${row.mistake.id}` };
+  }
+  if (row.targetType === "STUDY_RESOURCE" && row.studyResource) {
+    return { title: row.studyResource.title, subtitle: `${row.studyResource.subject?.name ?? "未分科"} · 学习资料`, canonicalHref: `/knowledge/resources/${row.studyResource.id}` };
+  }
+  if (row.targetType === "SYLLABUS_NODE" && row.syllabusNode) {
+    return { title: row.syllabusNode.title, subtitle: `${row.syllabusNode.subject.name} · 考纲节点`, canonicalHref: `/knowledge/syllabi/${row.syllabusNode.id}` };
+  }
+  return { title: "复习对象不可用", subtitle: "对象可能已归档或移除", canonicalHref: "/knowledge/reviews" };
 }
 
 export async function getNextDueReviewScheduleId(
@@ -504,15 +607,15 @@ async function confirmReviewEventInTx(
   const activeSession = await tx.studySession.findFirst({
     where: {
       subject: { workspaceId },
-      status: { in: ["RUNNING", "PAUSED"] },
+      status: { in: ["RUNNING", "PAUSED", "CLOSING"] },
     },
-    select: { id: true, status: true },
+    select: { id: true, status: true, reviewScheduleId: true },
   });
-  if (activeSession) {
+  if (activeSession && activeSession.reviewScheduleId !== scheduleId) {
     throw new ApiError("ACTIVE_SESSION_BLOCKS_QUICK_REVIEW", 409, {
       latest: activeSession,
       conflictFields: ["activity"],
-      workbench: `/focus/${activeSession.id}`,
+      workbench: `/focus`,
     });
   }
 
@@ -857,7 +960,7 @@ export async function completeBridgeTaskWithReview(
   actorId: string,
   taskId: string,
   input: ConfirmReviewInput,
-): Promise<{ schedule: ReviewScheduleDto; event: ReviewEventDto; taskId: string }> {
+): Promise<{ schedule: ReviewScheduleDto; event: ReviewEventDto; taskId: string; reused: boolean }> {
   if (validateReviewDurationSeconds(input.durationSeconds) !== "ok") {
     throw new ApiError("REVIEW_INVALID_DURATION", 400);
   }
@@ -873,10 +976,18 @@ export async function completeBridgeTaskWithReview(
     if (task.reviewSchedule.workspaceId !== workspace.id) {
       throw new ApiError("STUDY_TASK_NOT_FOUND", 404);
     }
-    if (task.status === "DONE") {
+    const existingEvent = await tx.reviewEvent.findUnique({
+      where: {
+        reviewScheduleId_idempotencyKey: {
+          reviewScheduleId: task.reviewScheduleId,
+          idempotencyKey: input.idempotencyKey,
+        },
+      },
+    });
+    if (task.status === "DONE" && !existingEvent) {
       throw new ApiError("STUDY_TASK_ALREADY_DONE", 409);
     }
-    if (!["TODO", "IN_PROGRESS", "DEFERRED"].includes(task.status)) {
+    if (task.status !== "DONE" && !["TODO", "IN_PROGRESS", "DEFERRED"].includes(task.status)) {
       throw new ApiError("TASK_STATE_CONFLICT", 409);
     }
 
@@ -890,6 +1001,13 @@ export async function completeBridgeTaskWithReview(
 
     if (!confirmed.event.result) {
       throw new ApiError("REVIEW_BRIDGE_COMPLETE_REQUIRES_RESULT", 409);
+    }
+
+    if (task.status === "DONE") {
+      if (!confirmed.reused) {
+        throw new ApiError("STUDY_TASK_ALREADY_DONE", 409);
+      }
+      return { ...confirmed, taskId: task.id };
     }
 
     const cas = await tx.studyTask.updateMany({

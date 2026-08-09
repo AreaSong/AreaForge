@@ -1,11 +1,23 @@
 "use client";
 
-import { ChevronRight, ClipboardCheck, Plus, RotateCcw, Save } from "lucide-react";
+import { ArrowRight, ChevronRight, ClipboardCheck, Plus, RotateCcw, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { ConflictResolutionModal, type ConflictComparison } from "@/components/conflict-resolution-modal";
+import { ListDetailLink } from "@/components/list-return-context";
+import { Button } from "@/components/ui/button";
+import { Badge, EmptyState } from "@/components/ui/feedback";
+import { Drawer } from "@/components/ui/overlays";
+import { Toolbar } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { updateKnowledgeContext } from "@/lib/client/knowledge-context";
+import { withReturnTo } from "@/lib/navigation/app-navigation";
+import {
+  MASTERY_STATUS_OPTIONS,
+  masteryStatusLabel,
+  syllabusLevelForMasteryStatus,
+  type MasteryStatus,
+} from "@/lib/study/mastery-status";
 import {
   loadPrivateBusinessDraft,
   redirectToLoginWithCurrentLocation,
@@ -15,7 +27,6 @@ import {
 } from "@/lib/client/private-business-drafts";
 import type {
   MasteryEvidenceTypeDto,
-  MasteryLevelDto,
   MasteryRetestResultDto,
   SubjectDto,
   SyllabusMapOverviewDto,
@@ -30,6 +41,11 @@ interface SyllabusManagerProps {
   summary: SyllabusMapOverviewDto["summary"];
   summaryBySubject: SyllabusMapOverviewDto["summaryBySubject"];
   initialSubjectId?: string;
+  initialQuery?: string;
+  initialStatusFilter?: string;
+  initialMapStatusFilter?: string;
+  initialActionFilter?: string;
+  initialCreate?: boolean;
 }
 
 interface FlatNode {
@@ -47,7 +63,7 @@ type MasteryEvidenceType = MasteryEvidenceTypeDto;
 type MasteryRetestResult = MasteryRetestResultDto;
 type UpdateNodeBody = Partial<{
   status: SyllabusNodeStatusDto;
-  masteryLevel: MasteryLevelDto | null;
+  masteryLevel: SyllabusNodeDto["masteryLevel"];
   masteryConditions: MasteryCondition[];
   targetMinutes: number;
 }>;
@@ -102,7 +118,7 @@ type MasteryRetestFormDraft = {
   nextReviewDate: string;
 };
 
-export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, initialSubjectId }: SyllabusManagerProps) {
+export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, initialSubjectId, initialQuery, initialStatusFilter, initialMapStatusFilter, initialActionFilter, initialCreate }: SyllabusManagerProps) {
   const router = useRouter();
   const [createdNodes, setCreatedNodes] = useState<SyllabusNodeDto[]>([]);
   const displayNodes = useMemo(
@@ -114,9 +130,9 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<SyllabusNodeKindDto>("topic");
   const [status, setStatus] = useState<SyllabusNodeStatusDto>("not_started");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [mapStatusFilter, setMapStatusFilter] = useState<MapStatusFilter>("all");
-  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => isStatusFilter(initialStatusFilter) ? initialStatusFilter : "all");
+  const [mapStatusFilter, setMapStatusFilter] = useState<MapStatusFilter>(() => isMapStatusFilter(initialMapStatusFilter) ? initialMapStatusFilter : "all");
+  const [actionFilter, setActionFilter] = useState<ActionFilter>(() => isActionFilter(initialActionFilter) ? initialActionFilter : "all");
   const [targetMinutes, setTargetMinutes] = useState(45);
   const [importMarkdown, setImportMarkdown] = useState("");
   const [importNotice, setImportNotice] = useState<string | null>(null);
@@ -126,6 +142,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
   const [revisionOverrides, setRevisionOverrides] = useState<Record<string, number>>({});
   const [restoredSubmission, setRestoredSubmission] = useState<SyllabusUpdateSubmission | null>(null);
   const [draftsLoaded, setDraftsLoaded] = useState(false);
+  const [createOpen, setCreateOpen] = useState(Boolean(initialCreate));
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -218,6 +235,26 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
     [subjectNodes, statusFilter, mapStatusFilter, actionFilter],
   );
   const filteredNodeCount = useMemo(() => flattenTree(filteredSubjectNodes).length, [filteredSubjectNodes]);
+  const hasWorkbenchFilters = statusFilter !== "all" || mapStatusFilter !== "all" || actionFilter !== "all";
+  const currentWorkbenchHref = buildSyllabusWorkbenchHref({ query: initialQuery, subject: subjectId, status: statusFilter, map: mapStatusFilter, action: actionFilter });
+
+  function applyWorkbenchFilters(next: Partial<{
+    subject: string;
+    status: StatusFilter;
+    map: MapStatusFilter;
+    action: ActionFilter;
+  }>) {
+    const nextSubject = next.subject ?? subjectId;
+    const nextStatus = next.status ?? statusFilter;
+    const nextMap = next.map ?? mapStatusFilter;
+    const nextAction = next.action ?? actionFilter;
+    setSubjectId(nextSubject);
+    setStatusFilter(nextStatus);
+    setMapStatusFilter(nextMap);
+    setActionFilter(nextAction);
+    updateKnowledgeContext({ subjectId: nextSubject || null, syllabusNodeId: null });
+    startTransition(() => router.replace(buildSyllabusWorkbenchHref({ query: initialQuery, subject: nextSubject, status: nextStatus, map: nextMap, action: nextAction })));
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -247,7 +284,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && body?.workbench === "/knowledge/syllabus") router.replace(body.workbench);
+        else if (response.status === 404 && body?.workbench === "/knowledge/syllabi") router.replace(body.workbench);
         setError(body?.error ?? "创建考纲节点失败，草稿与重试标识已保留");
         return;
       }
@@ -264,7 +301,8 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
         : [...current, responseBody.node as SyllabusNodeDto]);
       setTitle("");
       setParentId("");
-      router.refresh();
+      setCreateOpen(false);
+      router.push(withReturnTo(`/knowledge/syllabi/${responseBody.node.id}`, currentWorkbenchHref));
     } catch {
       setError("网络中断，创建草稿与同一重试标识已保留，请明确重试");
     } finally {
@@ -298,7 +336,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && body?.workbench === "/knowledge/syllabus") router.replace(body.workbench);
+        else if (response.status === 404 && body?.workbench === "/knowledge/syllabi") router.replace(body.workbench);
         setError(body?.error ?? "导入考纲失败，Markdown 与重试标识已保留");
         return;
       }
@@ -347,7 +385,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabi") router.replace(data.workbench);
         else if (response.status === 409 && isSyllabusNodeDto(data?.latest)) {
           setConflict({
             baseline,
@@ -409,7 +447,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabi") router.replace(data.workbench);
         setError(data?.error ?? "新增掌握证据失败，输入草稿已保留");
         return false;
       }
@@ -439,7 +477,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as ApiFailure | null;
         if (response.status === 401) redirectToLoginWithCurrentLocation();
-        else if (response.status === 404 && data?.workbench === "/knowledge/syllabus") router.replace(data.workbench);
+        else if (response.status === 404 && data?.workbench === "/knowledge/syllabi") router.replace(data.workbench);
         setError(data?.error ?? "新增复测记录失败，输入草稿与重试标识已保留");
         return false;
       }
@@ -461,14 +499,8 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
 
   return (
     <>
-    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
-      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
-        <div className="flex items-center gap-2">
-          <Plus className="h-5 w-5 text-teal-300" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-white">新增考纲节点</h2>
-        </div>
-
-        <form className="mt-5 grid min-w-0 gap-3" onSubmit={submit}>
+      <Drawer open={createOpen} title="新增考纲节点" onClose={() => setCreateOpen(false)}>
+        <form className="grid min-w-0 gap-3" onSubmit={submit}>
           <label className="grid min-w-0 gap-2 text-sm text-zinc-300">
             科目
             <select
@@ -583,8 +615,16 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
           </form>
           {importNotice ? <p className="mt-3 text-sm text-teal-200">{importNotice}</p> : null}
         </div>
-      </section>
+      </Drawer>
 
+      {!createOpen && error ? <p className="text-sm text-red-200">{error}</p> : null}
+      <Toolbar label="考纲筛选">
+        <select aria-label="筛选考纲科目" className="h-10 min-w-0 rounded-md border border-white/10 bg-[#151a20] px-3 text-sm text-zinc-200" value={subjectId} onChange={(event) => applyWorkbenchFilters({ subject: event.target.value })}>
+          {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+        </select>
+        {initialQuery ? <Badge tone="info">搜索：{initialQuery}</Badge> : null}
+        {hasWorkbenchFilters ? <Button type="button" size="sm" variant="ghost" onClick={() => applyWorkbenchFilters({ status: "all", map: "all", action: "all" })}>清除筛选</Button> : null}
+      </Toolbar>
       <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -593,9 +633,15 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               {subjects.find((subject) => subject.id === subjectId)?.name ?? "未选择科目"}
             </h2>
           </div>
-          <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
-            {filteredNodeCount} / {subjectFlatNodeCount} 个节点
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
+              {filteredNodeCount} / {subjectFlatNodeCount} 个节点
+            </span>
+            <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              新增节点
+            </Button>
+          </div>
         </div>
 
         <div className="mt-5 border-y border-white/10 py-4">
@@ -615,7 +661,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
                       : "border-teal-300/20 text-teal-100 hover:bg-teal-400/10"
                   }`}
                   type="button"
-                  onClick={() => setMapStatusFilter(mapStatusFilter === filter ? "all" : filter)}
+                  onClick={() => applyWorkbenchFilters({ map: mapStatusFilter === filter ? "all" : filter })}
                 >
                   {labelMapCell(filter)} {mapStatusCounts[filter] ?? 0}
                 </button>
@@ -629,7 +675,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               <button
                 className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/10"
                 type="button"
-                onClick={() => setMapStatusFilter("all")}
+                onClick={() => applyWorkbenchFilters({ map: "all" })}
               >
                 清除地图筛选
               </button>
@@ -647,7 +693,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
                 active={mapStatusFilter === option}
                 count={mapStatusCounts[option]}
                 label={labelMapCell(option)}
-                onClick={() => setMapStatusFilter(mapStatusFilter === option ? "all" : option)}
+                onClick={() => applyWorkbenchFilters({ map: mapStatusFilter === option ? "all" : option })}
               />
             ))}
           </div>
@@ -658,7 +704,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
                 active={actionFilter === option.value}
                 count={actionCounts[option.value]}
                 label={option.label}
-                onClick={() => setActionFilter(actionFilter === option.value ? "all" : option.value)}
+                onClick={() => applyWorkbenchFilters({ action: actionFilter === option.value ? "all" : option.value })}
               />
             ))}
           </div>
@@ -666,7 +712,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
             <button
               className="mt-3 rounded-md border border-white/10 px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/10"
               type="button"
-              onClick={() => setActionFilter("all")}
+              onClick={() => applyWorkbenchFilters({ action: "all" })}
             >
               清除行动筛选
             </button>
@@ -679,7 +725,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
                   key={node.id}
                   className="rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-left hover:bg-white/10"
                   type="button"
-                  onClick={() => setMapStatusFilter(node.mapSignal.cellStatus)}
+                  onClick={() => applyWorkbenchFilters({ map: node.mapSignal.cellStatus })}
                 >
                   <span className="block text-sm text-zinc-100">{node.title}</span>
                   <span className="mt-1 block text-xs leading-5 text-zinc-400">
@@ -696,7 +742,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
             active={statusFilter === "all"}
             count={subjectFlatNodeCount}
             label="全部"
-            onClick={() => setStatusFilter("all")}
+            onClick={() => applyWorkbenchFilters({ status: "all" })}
           />
           {statusFilterOptions.map((option) => (
             <StatusFilterButton
@@ -704,7 +750,7 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
               active={statusFilter === option}
               count={statusCounts[option]}
               label={labelStatus(option)}
-              onClick={() => setStatusFilter(option)}
+              onClick={() => applyWorkbenchFilters({ status: option })}
             />
           ))}
         </div>
@@ -737,14 +783,10 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
             </div>
           ) : null}
           {subjectNodes.length === 0 ? (
-            <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
-              这个科目还没有考纲节点，先建立第一个章节或知识点。
-            </p>
+            <EmptyState title={initialQuery ? "没有匹配的考纲节点" : "这个科目还没有考纲节点"} description={initialQuery ? "尝试修改搜索词或切换科目。" : "先建立第一个章节或知识点。"} />
           ) : null}
           {subjectNodes.length > 0 && filteredSubjectNodes.length === 0 ? (
-            <p className="rounded-md border border-dashed border-white/10 px-4 py-6 text-sm text-zinc-400">
-              当前筛选下没有节点。
-            </p>
+            <EmptyState title="当前筛选没有结果" description="调整状态、地图或行动筛选，或清除筛选查看全部节点。" action={<Button type="button" size="sm" onClick={() => applyWorkbenchFilters({ status: "all", map: "all", action: "all" })}>清除筛选</Button>} />
           ) : null}
           {filteredSubjectNodes.map((node) => (
             <SyllabusTreeNode
@@ -758,7 +800,6 @@ export function SyllabusManager({ subjects, nodes, summary, summaryBySubject, in
           ))}
         </div>
       </section>
-    </div>
     <ConflictResolutionModal
       open={conflict !== null}
       title="考纲节点已被其他页面更新"
@@ -859,7 +900,7 @@ function labelSyllabusConflictField(field: string): string {
     title: "标题",
     kind: "类型",
     status: "状态",
-    masteryLevel: "掌握等级",
+    masteryLevel: "掌握状态",
     masteryConditions: "掌握条件",
     sortOrder: "排序",
     targetMinutes: "目标分钟",
@@ -981,14 +1022,33 @@ const actionFilterOptions: Array<{ value: Exclude<ActionFilter, "all">; label: s
   { value: "deferred", label: "暂缓确认" },
 ];
 
-const masteryLevelOptions: MasteryLevelDto[] = [
-  "seen",
-  "learned",
-  "basic_exercises",
-  "can_explain",
-  "retest_passed",
-  "exam_stable",
-];
+function isStatusFilter(value: string | undefined): value is StatusFilter {
+  return value === "all" || syllabusNodeStatuses.includes(value as SyllabusNodeStatusDto);
+}
+
+function isMapStatusFilter(value: string | undefined): value is MapStatusFilter {
+  return value === "all" || mapStatusOptions.includes(value as SyllabusNodeDto["mapSignal"]["cellStatus"]);
+}
+
+function isActionFilter(value: string | undefined): value is ActionFilter {
+  return value === "all" || actionFilterOptions.some((option) => option.value === value);
+}
+
+function buildSyllabusWorkbenchHref(input: {
+  query?: string;
+  subject: string;
+  status: StatusFilter;
+  map: MapStatusFilter;
+  action: ActionFilter;
+}): string {
+  const params = new URLSearchParams();
+  if (input.query) params.set("q", input.query);
+  if (input.subject) params.set("subjectId", input.subject);
+  if (input.status !== "all") params.set("status", input.status);
+  if (input.map !== "all") params.set("map", input.map);
+  if (input.action !== "all") params.set("action", input.action);
+  return `/knowledge/syllabi${params.size ? `?${params}` : ""}`;
+}
 
 const masteryConditionOptions: MasteryCondition[] = [
   "course_or_textbook",
@@ -1119,8 +1179,9 @@ function SyllabusTreeNode({
   const progress = node.targetMinutes === 0 ? 0 : Math.min(100, Math.round((node.actualMinutes / node.targetMinutes) * 100));
   const evidenceCount = node.masteryProof.evidenceCount;
   const canSubmitProof = evidenceCount > 0;
-  const [targetMasteryLevel, setTargetMasteryLevel] = useState<MasteryLevelDto>(node.masteryLevel ?? "learned");
+  const [targetMasteryStatus, setTargetMasteryStatus] = useState<MasteryStatus>(node.masteryStatus);
   const [selectedConditions, setSelectedConditions] = useState<MasteryCondition[]>(node.masteryConditions);
+  const targetMasteryLevel = syllabusLevelForMasteryStatus(targetMasteryStatus);
   const [evidenceType, setEvidenceType] = useState<MasteryEvidenceType>("task");
   const [evidenceReferenceId, setEvidenceReferenceId] = useState(node.masteryEvidenceCandidates.task[0]?.id ?? "");
   const [evidenceSummary, setEvidenceSummary] = useState("");
@@ -1280,33 +1341,21 @@ function SyllabusTreeNode({
     <article className="min-w-0 rounded-md border border-white/10 bg-[#151a20] p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ChevronRight className="h-4 w-4 text-teal-300" aria-hidden="true" />
-            <h3 className="min-w-0 break-words font-medium text-white">{node.title}</h3>
+            <Badge tone="info">{labelKind(node.kind)}</Badge>
+            <Badge tone={node.status === "weak" || node.status === "needs_review" ? "warning" : node.status === "mastered" ? "success" : "neutral"}>{labelStatus(node.status)}</Badge>
+            {labelMapCell(node.mapSignal.cellStatus) !== labelStatus(node.status) ? <Badge>{labelMapCell(node.mapSignal.cellStatus)}</Badge> : null}
           </div>
+          <h3 className="mt-2 min-w-0 break-words font-medium text-white">{node.title}</h3>
           <p className="mt-1 text-xs text-zinc-500">
-            {labelKind(node.kind)} / {node.actualMinutes} of {node.targetMinutes} 分钟
+            进度 {node.actualMinutes} / {node.targetMinutes} 分钟 · 证据 {evidenceCount} 条 · 最近证据 {labelEvidenceFreshness(node.evidence.daysSinceLastEvidence)}
           </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            证据：任务 {node.evidence.taskCount} / 计时 {node.evidence.sessionCount} / 笔记 {node.evidence.noteCount} / 错题 {node.evidence.mistakeCount}
-            {" / "}
-            {labelEvidenceSource(node.evidence.source)}
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            最近证据：{labelEvidenceFreshness(node.evidence.daysSinceLastEvidence)}
-          </p>
-          {node.masteryLevel ? <p className="mt-1 text-xs text-teal-200">掌握等级：{labelMastery(node.masteryLevel)}</p> : null}
-          <p className="mt-1 text-xs text-zinc-400">
-            地图：{labelMapCell(node.mapSignal.cellStatus)} / 标记：{node.mapSignal.markers.map(labelMapMarker).join("、") || "无"}
-          </p>
-          <p className="mt-2 text-xs text-zinc-400">{node.mapSignal.nextAction}</p>
-          <p className="mt-1 text-xs text-zinc-500">{node.masteryProof.nextAction}</p>
-          <p className="mt-1 text-xs text-zinc-500">
-            显式条件 {explicitConditionCount} / {masteryConditionOptions.length}，显式证据 {node.masteryEvidence.length}，复测 {node.masteryRetests.length}
-          </p>
+          <p className="mt-2 text-sm leading-6 text-zinc-300">{node.mapSignal.nextAction}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <select
+            aria-label={`更新 ${node.title} 状态`}
             className="h-9 max-w-full rounded-md border border-white/10 bg-[#0d1117] px-2 text-sm text-zinc-100"
             value={node.status}
             onChange={(event) => {
@@ -1325,21 +1374,33 @@ function SyllabusTreeNode({
           >
             <StatusOptions />
           </select>
+          <ListDetailLink
+            href={`/knowledge/syllabi/${node.id}`}
+            focusId={`syllabus-${node.id}`}
+            className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05]"
+          >
+            打开详情
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </ListDetailLink>
         </div>
       </div>
-      <div className="mt-3 rounded-md border border-white/10 bg-[#0d1117] p-3">
+      <details className="mt-3 border-t border-white/10 pt-3">
+        <summary className="cursor-pointer text-sm text-zinc-400 hover:text-zinc-200">
+          管理掌握证明与复测
+        </summary>
+        <div className="mt-3 rounded-md border border-white/10 bg-[#0d1117] p-3">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
           <label className="grid min-w-0 gap-2 text-xs text-zinc-400">
-            目标等级
+            目标掌握状态
             <select
               className="h-9 min-w-0 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100"
-              value={targetMasteryLevel}
-              onChange={(event) => setTargetMasteryLevel(event.target.value as MasteryLevelDto)}
+              value={targetMasteryStatus}
+              onChange={(event) => setTargetMasteryStatus(event.target.value as MasteryStatus)}
               disabled={pending}
             >
-              {masteryLevelOptions.map((level) => (
-                <option key={level} value={level}>
-                  {labelMastery(level)}
+              {MASTERY_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {masteryStatusLabel(status)}
                 </option>
               ))}
             </select>
@@ -1386,8 +1447,8 @@ function SyllabusTreeNode({
             保存证明
           </button>
         </div>
-      </div>
-      <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
+        </div>
+        <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
         <form className="min-w-0 rounded-md border border-white/10 bg-[#0d1117] p-3" onSubmit={submitEvidence}>
           <div className="flex items-center gap-2">
             <ClipboardCheck className="h-4 w-4 text-teal-300" aria-hidden="true" />
@@ -1502,18 +1563,18 @@ function SyllabusTreeNode({
           </button>
         </form>
       </div>
-      {node.masteryEvidence.length > 0 || node.masteryRetests.length > 0 ? (
+        {node.masteryEvidence.length > 0 || node.masteryRetests.length > 0 ? (
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           <MasteryEvidenceList items={node.masteryEvidence} />
           <MasteryRetestList items={node.masteryRetests} />
         </div>
       ) : null}
-      {evidenceCount === 0 ? (
+        {evidenceCount === 0 ? (
         <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
           还没有掌握证据，不能直接标记掌握。
         </p>
       ) : null}
-      {evidenceCount > 0 && !node.masteryProof.canMarkRequestedLevel ? (
+        {evidenceCount > 0 && !node.masteryProof.canMarkRequestedLevel ? (
         <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
           当前已记录证明还缺：{[
             ...node.masteryProof.missingConditions.map(labelMasteryCondition),
@@ -1521,14 +1582,18 @@ function SyllabusTreeNode({
           ].join("、")}
         </p>
       ) : null}
-      <div className="mt-3 grid gap-1 text-xs text-zinc-500">
+        <div className="mt-3 grid gap-1 text-xs text-zinc-500">
         {node.mapSignal.reasons.slice(0, 2).map((reason) => (
           <p key={reason}>{reason}</p>
         ))}
-      </div>
-      <div className="mt-3 h-2 rounded-md bg-white/10">
-        <div className="h-2 rounded-md bg-teal-400" style={{ width: `${progress}%` }} />
-      </div>
+        </div>
+        <div className="mt-3 h-2 rounded-md bg-white/10">
+          <div className="h-2 rounded-md bg-teal-400" style={{ width: `${progress}%` }} />
+        </div>
+        <p className="mt-3 text-xs text-zinc-500">
+          显式条件 {explicitConditionCount} / {masteryConditionOptions.length} · 显式证据 {node.masteryEvidence.length} · 复测 {node.masteryRetests.length} · {labelEvidenceSource(node.evidence.source)}
+        </p>
+      </details>
       {node.children.length > 0 ? (
         <div className="mt-3 grid gap-3 border-l border-white/10 pl-3">
           {node.children.map((child) => (
@@ -1805,23 +1870,6 @@ function labelKind(kind: SyllabusNodeKindDto): string {
   }
 }
 
-function labelMastery(level: MasteryLevelDto): string {
-  switch (level) {
-    case "seen":
-      return "见过";
-    case "learned":
-      return "学过";
-    case "basic_exercises":
-      return "会做基础题";
-    case "can_explain":
-      return "能独立讲清";
-    case "retest_passed":
-      return "复测通过";
-    case "exam_stable":
-      return "考前稳定";
-  }
-}
-
 function labelStatus(status: SyllabusNodeStatusDto): string {
   switch (status) {
     case "not_started":
@@ -1872,19 +1920,6 @@ function labelMapRisk(risk: SyllabusMapOverviewDto["summary"]["riskLevel"]): str
       return "高风险";
     case "critical":
       return "紧急";
-  }
-}
-
-function labelMapMarker(marker: SyllabusNodeDto["mapSignal"]["markers"][number]): string {
-  switch (marker) {
-    case "check":
-      return "打勾";
-    case "cross":
-      return "打叉";
-    case "star":
-      return "星标";
-    case "warning":
-      return "警告";
   }
 }
 

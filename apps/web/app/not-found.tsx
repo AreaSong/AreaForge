@@ -15,7 +15,7 @@ export default function NotFound() {
             <p className="text-sm font-medium text-amber-200">404</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">找不到这个页面</h1>
             <p className="mt-3 text-sm leading-6 text-zinc-400">
-              地址可能已经变更，或者你访问的内容并不存在。回到今日行动中心即可继续工作。
+              地址可能已经变更，或者你访问的内容并不存在。回到开始学习即可继续工作。
             </p>
           </div>
         </div>
@@ -27,10 +27,10 @@ export default function NotFound() {
         <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Link
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 text-sm font-medium text-[#071011] transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-300/70 focus:ring-offset-2 focus:ring-offset-[#101419]"
-            href="/today"
+            href="/focus"
           >
             <House className="h-4 w-4" aria-hidden="true" />
-            返回今日
+            返回开始学习
           </Link>
           <a
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-4 text-sm text-zinc-300 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-teal-300/70 focus:ring-offset-2 focus:ring-offset-[#101419]"

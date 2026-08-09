@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/overlays";
 import { readActiveStudySession } from "@/lib/client/active-study-session";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import {
   acquireQuickReviewActivity,
   acquireQuickReviewActivityBarrier,
@@ -46,13 +47,13 @@ type GuardedOperation = () => Promise<void>;
 
 interface GuardContextValue {
   withActivityBarrier: (operation: GuardedOperation, options?: GuardOptions) => Promise<boolean>;
-  startQuickReviewActivity: (scheduleId: string, draftId: string) => Promise<boolean>;
+  startQuickReviewActivity: (scheduleId: string, draftId: string, subjectId: string) => Promise<boolean>;
   resolveQuickReviewActivity: (
     scheduleId: string,
     draftId: string,
     action: QuickReviewActivityCommand,
   ) => Promise<boolean>;
-  finishQuickReviewActivity: (scheduleId: string, draftId: string) => void;
+  finishQuickReviewActivity: (scheduleId: string, draftId: string) => Promise<boolean>;
   registerQuickReviewDraftHandler: (
     scheduleId: string,
     draftId: string,
@@ -72,6 +73,7 @@ interface PendingGuard {
 interface PendingAcquire {
   scheduleId: string;
   draftId: string;
+  subjectId: string;
   promise: Promise<boolean>;
 }
 
@@ -88,13 +90,13 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const startQuickReviewActivity = useCallback((scheduleId: string, draftId: string): Promise<boolean> => {
+  const startQuickReviewActivity = useCallback((scheduleId: string, draftId: string, subjectId: string): Promise<boolean> => {
     const current = leaseRef.current;
     if (current) {
       if (current.claim.phase !== "running" || current.claim.scheduleId !== scheduleId || current.claim.draftId !== draftId) {
         return Promise.resolve(false);
       }
-      return readActiveStudySession().then((activeSession) => !activeSession).catch(() => false);
+      return ensureReviewSession(scheduleId, draftId, subjectId).catch(() => false);
     }
     const pendingAcquire = acquireRef.current;
     if (pendingAcquire) {
@@ -107,8 +109,8 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
       .then(async (lease) => {
         if (!lease) return false;
         try {
-          const activeSession = await readActiveStudySession();
-          if (activeSession || !mountedRef.current) {
+          const activeSession = await ensureReviewSession(scheduleId, draftId, subjectId);
+          if (!activeSession || !mountedRef.current) {
             lease.release();
             return false;
           }
@@ -122,7 +124,7 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
       .finally(() => {
         if (acquireRef.current?.promise === promise) acquireRef.current = null;
       });
-    acquireRef.current = { scheduleId, draftId, promise };
+    acquireRef.current = { scheduleId, draftId, subjectId, promise };
     return promise;
   }, [props.userId]);
 
@@ -133,6 +135,13 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
   ): Promise<QuickReviewCommandApplication | null> => {
     if (leaseRef.current !== lease || lease.claim.phase !== "running") return null;
     if (!lease.markReleasing(commandId, action)) return null;
+
+    const serverResolved = await resolveReviewSessionAction(lease.claim.scheduleId, action);
+    if (!serverResolved) {
+      lease.release();
+      if (leaseRef.current === lease) leaseRef.current = null;
+      return null;
+    }
 
     const key = draftHandlerKey(lease.claim.scheduleId, lease.claim.draftId);
     const handler = draftHandlersRef.current.get(key);
@@ -185,11 +194,14 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
     return true;
   }, [prepareOwnedCommand]);
 
-  const finishQuickReviewActivity = useCallback((scheduleId: string, draftId: string) => {
+  const finishQuickReviewActivity = useCallback(async (scheduleId: string, draftId: string): Promise<boolean> => {
     const current = leaseRef.current;
-    if (!current || current.claim.scheduleId !== scheduleId || current.claim.draftId !== draftId) return;
+    if (!current || current.claim.scheduleId !== scheduleId || current.claim.draftId !== draftId) return false;
+    const closed = await finishReviewSession(scheduleId);
+    if (!closed) return false;
     current.release();
     if (leaseRef.current === current) leaseRef.current = null;
+    return true;
   }, []);
 
   const registerQuickReviewDraftHandler = useCallback((
@@ -217,18 +229,13 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
       },
     });
 
-    const runningDraft = findRunningQuickReviewDraft(props.userId);
-    if (runningDraft) {
-      void startQuickReviewActivity(runningDraft.scheduleId, runningDraft.draftId);
-    }
-
     return () => {
       mountedRef.current = false;
       unsubscribe();
       leaseRef.current?.release();
       leaseRef.current = null;
     };
-  }, [props.userId, prepareOwnedCommand, startQuickReviewActivity]);
+  }, [props.userId, prepareOwnedCommand]);
 
   const executeBarrier = useCallback(async (
     request: Omit<PendingGuard, "resolve">,
@@ -311,7 +318,7 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
       const request: PendingGuard = {
         claim,
         scheduleId,
-        href: claim?.href ?? `/quick-review/${encodeURIComponent(scheduleId)}`,
+        href: claim?.href ?? `/knowledge/reviews/${encodeURIComponent(scheduleId)}/run`,
         allowDiscard: options.allowDiscard !== false,
         operation,
         resolve,
@@ -417,4 +424,100 @@ export function useQuickReviewActivityGuard(): GuardContextValue {
 
 function draftHandlerKey(scheduleId: string, draftId: string): string {
   return `${scheduleId}:${draftId}`;
+}
+
+async function ensureReviewSession(scheduleId: string, draftId: string, subjectId: string): Promise<boolean> {
+  const active = await readActiveStudySession();
+  if (active) {
+    if (active.activityMode !== "KNOWLEDGE_REVIEW" || active.reviewScheduleId !== scheduleId) return false;
+    // A review result may already be persisted while the configured activity
+    // is still closing. Keep ownership of the same schedule so the source page
+    // can retry the final closeout without starting a second activity.
+    if (active.status === "closing") return true;
+    if (active.status === "paused") return Boolean(await postReviewSessionCommand(active, "resume"));
+    return true;
+  }
+
+  const idempotencyKey = `quick-review-session-${scheduleId}-${draftId}`;
+  const response = await fetch("/api/study-sessions/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+    body: JSON.stringify({
+      idempotencyKey,
+      subjectId,
+      activityKind: "REVIEW",
+      activityMode: "KNOWLEDGE_REVIEW",
+      reviewScheduleId: scheduleId,
+      startSource: "KNOWLEDGE_REVIEW",
+    }),
+  });
+  if (response.ok) return true;
+  if (response.status === 409) {
+    const latest = await readActiveStudySession().catch(() => null);
+    return Boolean(latest && latest.activityMode === "KNOWLEDGE_REVIEW" && latest.reviewScheduleId === scheduleId);
+  }
+  return false;
+}
+
+async function resolveReviewSessionAction(
+  scheduleId: string,
+  action: QuickReviewActivityCommand,
+): Promise<boolean> {
+  const active = await readActiveStudySession();
+  if (!active) return true;
+  if (active.activityMode !== "KNOWLEDGE_REVIEW" || active.reviewScheduleId !== scheduleId) return false;
+  if (action === "suspend") {
+    if (active.status === "paused" || active.status === "closing") return true;
+    return Boolean(await postReviewSessionCommand(active, "pause"));
+  }
+  return Boolean(await postReviewSessionCommand(active, "cancel"));
+}
+
+async function finishReviewSession(scheduleId: string): Promise<boolean> {
+  let active = await readActiveStudySession();
+  if (!active) return true;
+  if (active.activityMode !== "KNOWLEDGE_REVIEW" || active.reviewScheduleId !== scheduleId) return false;
+  if (active.status === "running" || active.status === "paused") {
+    const prepared = await postReviewSessionCommand(active, "end", { mode: "prepare" });
+    if (!prepared) return false;
+    active = prepared;
+  }
+  if (active.status !== "closing") return false;
+  return Boolean(await postReviewSessionCommand(active, "end", {
+    mode: "complete",
+    qualityScore: 3,
+    isEffective: true,
+    understandingLevel: "基本理解",
+    minimalOutput: "快速复习计时完成，结果已记录在复习事件中。",
+    nextAction: "继续按复习排期处理下一项",
+    producedNote: false,
+    producedMistake: false,
+    completeTask: false,
+    nextDisposition: "复习结果已提交",
+  }));
+}
+
+async function postReviewSessionCommand(
+  session: NonNullable<Awaited<ReturnType<typeof readActiveStudySession>>>,
+  endpoint: "pause" | "resume" | "cancel" | "end",
+  extra: Record<string, unknown> = {},
+): Promise<NonNullable<Awaited<ReturnType<typeof readActiveStudySession>>> | null> {
+  const response = await fetch(`/api/study-sessions/${encodeURIComponent(session.id)}/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
+    body: JSON.stringify({
+      expectedStatus: session.status,
+      expectedUpdatedAt: session.updatedAt,
+      idempotencyKey: `quick-review-${session.id}-${endpoint}-${crypto.randomUUID()}`,
+      ...extra,
+    }),
+  });
+  const body = await response.json().catch(() => null) as { session?: NonNullable<Awaited<ReturnType<typeof readActiveStudySession>>> } | null;
+  if (response.ok && body?.session) return body.session;
+  if (response.status === 409) {
+    const latest = await readActiveStudySession().catch(() => null);
+    if (endpoint === "pause" && latest?.status === "paused") return latest;
+    if (endpoint === "cancel" || endpoint === "end") return !latest ? null : latest.status === "completed" || latest.status === "canceled" ? latest : null;
+  }
+  return null;
 }

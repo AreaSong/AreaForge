@@ -12,7 +12,7 @@
 - 给未来自己的话。
 - 第一次全真自测后的阶段日记。
 
-入口：`/settings/profile`（legacy `/motivation` 重定向）；封存正文默认不进入 AI。
+入口：`/settings/profile`；旧 `/motivation` 页面已移除并返回 404。封存正文默认不进入 AI。
 
 ## 内容库
 

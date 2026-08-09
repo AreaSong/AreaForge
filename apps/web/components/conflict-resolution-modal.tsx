@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Drawer, Modal } from "@/components/ui/overlays";
 
 export interface ConflictComparison {
@@ -20,8 +21,12 @@ interface ConflictResolutionModalProps {
   onClose?: () => void;
   onAdoptServer: () => void;
   onManualMerge: () => void;
+  onDefer?: () => void;
+  onDiscard?: () => void;
   adoptLabel?: string;
   mergeLabel?: string;
+  deferLabel?: string;
+  discardLabel?: string;
 }
 
 export function ConflictResolutionModal(props: ConflictResolutionModalProps) {
@@ -50,21 +55,43 @@ export function ConflictResolutionModal(props: ConflictResolutionModalProps) {
           >
             查看本地与服务端差异
           </button>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {props.onDiscard ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-rose-200 hover:bg-rose-400/10 sm:mr-auto sm:w-auto"
+                onClick={props.onDiscard}
+              >
+                {props.discardLabel ?? "放弃旧记录"}
+              </Button>
+            ) : null}
+            {props.onDefer ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={props.onDefer}
+              >
+                {props.deferLabel ?? "保留并稍后对账"}
+              </Button>
+            ) : null}
+            <Button
               type="button"
-              className="h-10 rounded-md border border-white/10 px-3"
+              variant="secondary"
+              className="w-full sm:w-auto"
               onClick={props.onAdoptServer}
             >
               {props.adoptLabel ?? "采用服务端版本"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="h-10 rounded-md bg-teal-500 px-3 font-medium text-black"
+              variant="primary"
+              className="w-full sm:w-auto"
               onClick={props.onManualMerge}
             >
               {props.mergeLabel ?? "保留本地输入并人工合并"}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

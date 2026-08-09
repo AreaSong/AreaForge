@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { SettingsWorkbench } from "@/components/settings-workbench";
+import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRouteMetadata } from "@/lib/navigation/batch7";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getUpdateCenterStatus } from "@/lib/system/update-center";
 
 export const dynamic = "force-dynamic";
@@ -13,12 +14,13 @@ export default async function SettingsSystemPage() {
   const updateStatus = await getUpdateCenterStatus();
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-white">系统设置</h1>
-        <p className="mt-1 text-sm text-zinc-400">版本与健康只读状态。Web 不执行 migration、deploy 或 updater apply。</p>
-      </div>
+    <PageFrame variant="dashboard-wide">
+      <PageHeader
+        eyebrow="设置 / 系统"
+        title="系统设置"
+        description="查看版本与健康只读状态。Web 不执行 migration、deploy 或 updater apply。"
+      />
       <SettingsWorkbench userEmail={user.email} initialStatus={updateStatus} />
-    </section>
+    </PageFrame>
   );
 }

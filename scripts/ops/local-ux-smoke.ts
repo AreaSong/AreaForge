@@ -13,6 +13,7 @@ type RequestOptions = {
   rawBody?: BodyInit;
   cookie?: string;
   headers?: HeadersInit;
+  allowStatuses?: readonly number[];
 };
 
 type BrowserFixtureManifest = {
@@ -119,7 +120,7 @@ async function main(): Promise<void> {
 
   const sessionBody = await checkedJson("start session", "/api/study-sessions/start", cookie, {
     method: "POST",
-    body: { taskId },
+    body: { taskId, idempotencyKey: `ux-smoke-start-${tag}` },
   });
   const startedSession = asRecord(sessionBody.session);
   const sessionId = stringField(startedSession, "id");
@@ -128,12 +129,26 @@ async function main(): Promise<void> {
 
   await assertActiveSession("active session after start", cookie);
 
-  await checkedJson("end session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
+  const preparedCloseout = await checkedJson("prepare session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
     method: "POST",
     body: {
       expectedStatus: "running",
       expectedUpdatedAt: sessionUpdatedAt,
+      idempotencyKey: `ux-smoke-prepare-${sessionId}-${crypto.randomUUID()}`,
+      mode: "prepare",
+    },
+  });
+  const preparedSession = asRecord(preparedCloseout.session);
+  const preparedUpdatedAt = stringField(preparedSession, "updatedAt");
+  if (!preparedUpdatedAt) throw new Error("prepare session closeout response missing updatedAt");
+
+  await checkedJson("complete session closeout", `/api/study-sessions/${encodeURIComponent(sessionId)}/end`, cookie, {
+    method: "POST",
+    body: {
+      expectedStatus: "closing",
+      expectedUpdatedAt: preparedUpdatedAt,
       idempotencyKey: `ux-smoke-end-${sessionId}-${crypto.randomUUID()}`,
+      mode: "complete",
       qualityScore: 4,
       isEffective: true,
       understandingLevel: "能独立复述主链路",
@@ -423,18 +438,33 @@ async function main(): Promise<void> {
 
   for (const page of [
     "/today",
-    "/today/plan",
-    "/today/inbox",
+    "/focus",
+    "/roadmap",
+    "/roadmap/allocation",
+    "/roadmap/allocation/drafts",
+    "/roadmap/stages",
+    "/roadmap/stages/trend",
+    "/roadmap/reviews",
+    "/roadmap/reviews/daily",
+    "/test",
+    "/test/retests",
+    "/test/simulations",
+    "/confirmations",
+    "/confirmations/history",
     "/settings",
-    "/settings/workspace",
+    "/settings/exams",
+    "/settings/learning",
+    "/settings/ai",
+    "/settings/data",
+    "/settings/system",
+    "/knowledge",
     "/knowledge/canvas",
-    "/knowledge/overview",
-    "/knowledge/notes",
-    "/knowledge/syllabus",
+    "/knowledge/imports",
+    "/knowledge/cards",
+    "/knowledge/syllabi",
     "/knowledge/reviews",
-    "/analytics",
-    "/reports",
-    "/simulation",
+    "/knowledge/resources",
+    "/knowledge/mistakes",
   ]) {
     await check(`page ${page}`, async () => {
       const response = await requestRaw(page, { cookie });
@@ -448,38 +478,109 @@ async function main(): Promise<void> {
     });
   }
 
+  for (const legacyPage of [
+    "/roadmap/arrangements",
+    "/roadmap/arrangements/drafts",
+    "/roadmap/arrangements/drafts/missing",
+    "/roadmap/arrangements/tasks/missing",
+    "/roadmap/reports",
+    "/roadmap/reports/daily",
+    "/roadmap/reports/history/missing",
+    "/knowledge/syllabus",
+    "/knowledge/syllabus/missing",
+    "/knowledge/notes",
+    "/knowledge/notes/missing",
+    "/settings/workspace",
+    "/settings/preferences",
+    "/today/plan",
+    "/today/inbox",
+    "/today/tasks/missing",
+    "/plan",
+    "/plan/inbox",
+    "/plan/inbox/missing",
+    "/plan/tasks/missing",
+    "/plan/stages",
+    "/plan/stages/analytics",
+    "/review",
+    "/review/daily",
+    "/review/reports",
+    "/review/reports/history/missing",
+    "/quick-review/missing",
+    "/focus/missing",
+    "/knowledge/overview",
+    "/stage",
+    "/stage/overview",
+    "/stage/analytics",
+    "/stage/simulation",
+    "/stage/simulation/missing",
+    "/analytics",
+    "/reports",
+    "/simulation",
+    "/syllabus",
+    "/notes",
+    "/mistakes",
+    "/motivation",
+    "/settings/experience",
+    "/settings/notifications",
+  ]) {
+    await check(`canonical-only route ${legacyPage}`, async () => {
+      const response = await requestRaw(legacyPage, { cookie, allowStatuses: [404] });
+      const text = await response.text();
+      if (response.status !== 404) {
+        throw new Error(`${legacyPage} must be absent with status 404, received ${response.status}`);
+      }
+      if (text.includes("NEXT_REDIRECT")) {
+        throw new Error(`${legacyPage} must not redirect to a canonical route`);
+      }
+    });
+  }
+
   await check("batch10 app shell nav isolation", async () => {
     const response = await requestRaw("/today", { cookie });
     const text = await response.text();
     if (text.includes("NEXT_REDIRECT;replace;/login")) {
       throw new Error("authenticated /today redirected to login");
     }
-    for (const label of ["今日", "计划", "知识", "复盘", "阶段", "设置"]) {
+    for (const label of ["开始学习", "今日", "知识", "检验", "路线", "设置"]) {
       if (!text.includes(label)) {
         throw new Error(`Batch 10 nav missing label: ${label}`);
-      }
-    }
-    for (const href of ['href="/knowledge/canvas"', 'href="/review/reports"', 'href="/stage/overview"']) {
-      if (!text.includes(href)) {
-        throw new Error(`Batch 10 App Shell must expose ${href}`);
       }
     }
     const forbiddenHrefs = [
       'href="/analytics"',
       'href="/reports"',
       'href="/simulation"',
+      'href="/stage/overview"',
+      'href="/stage/analytics"',
+      'href="/stage/simulation"',
+      'href="/today/plan"',
+      'href="/today/inbox"',
+      'href="/today/tasks/',
       'href="/motivation"',
       'href="/dashboard"',
     ];
     for (const href of forbiddenHrefs) {
       if (text.includes(href)) {
-        throw new Error(`Batch 10 App Shell must not expose legacy ${href}`);
+        throw new Error(`Batch 10 App Shell must not expose removed ${href}`);
+      }
+    }
+
+    const workbenchSecondaryEntrypoints: Array<{ path: string; href: string }> = [
+      { path: "/knowledge", href: 'href="/knowledge/canvas"' },
+      { path: "/roadmap", href: 'href="/roadmap/stages"' },
+      { path: "/roadmap/reviews/daily", href: 'href="/roadmap/reviews"' },
+    ];
+    for (const entrypoint of workbenchSecondaryEntrypoints) {
+      const entryResponse = await requestRaw(entrypoint.path, { cookie });
+      const entryText = await entryResponse.text();
+      if (!entryText.includes(entrypoint.href)) {
+        throw new Error(`Batch 10 workbench must expose ${entrypoint.href} on ${entrypoint.path}`);
       }
     }
   });
 
   await check("batch9 settings openings", async () => {
-    for (const path of ["/settings/profile", "/settings/notifications", "/settings/ai"]) {
+    for (const path of ["/settings/profile", "/settings/learning", "/settings/ai"]) {
       const response = await requestRaw(path, { cookie });
       const text = await response.text();
       if (text.includes("NEXT_REDIRECT;replace;/login")) {
@@ -511,6 +612,7 @@ async function main(): Promise<void> {
     method: "POST",
     body: {
       subjectId,
+      idempotencyKey: `ux-smoke-shortcut-start-${tag}`,
       goalMinutes: 25,
       startSource: "SUBJECT_SHORTCUT",
     },
@@ -520,8 +622,8 @@ async function main(): Promise<void> {
   const shortcutUpdatedAt = stringField(shortcutSession, "updatedAt");
   if (!shortcutSessionId || !shortcutUpdatedAt) throw new Error("subject shortcut start missing id or updatedAt");
 
-  await check("page /focus/[sessionId]", async () => {
-    const response = await requestRaw(`/focus/${encodeURIComponent(shortcutSessionId)}`, { cookie });
+  await check("canonical unique focus page", async () => {
+    const response = await requestRaw("/focus", { cookie });
     const text = await response.text();
     if (text.includes("NEXT_REDIRECT;replace;/login")) {
       throw new Error("authenticated focus page redirected to login");
@@ -531,12 +633,26 @@ async function main(): Promise<void> {
     }
   });
 
-  await checkedJson("end subject shortcut session", `/api/study-sessions/${encodeURIComponent(shortcutSessionId)}/end`, cookie, {
+  const preparedShortcutCloseout = await checkedJson("prepare subject shortcut closeout", `/api/study-sessions/${encodeURIComponent(shortcutSessionId)}/end`, cookie, {
     method: "POST",
     body: {
       expectedStatus: "running",
       expectedUpdatedAt: shortcutUpdatedAt,
+      idempotencyKey: `ux-smoke-shortcut-prepare-${shortcutSessionId}-${crypto.randomUUID()}`,
+      mode: "prepare",
+    },
+  });
+  const preparedShortcutSession = asRecord(preparedShortcutCloseout.session);
+  const preparedShortcutUpdatedAt = stringField(preparedShortcutSession, "updatedAt");
+  if (!preparedShortcutUpdatedAt) throw new Error("subject shortcut prepare response missing updatedAt");
+
+  await checkedJson("complete subject shortcut closeout", `/api/study-sessions/${encodeURIComponent(shortcutSessionId)}/end`, cookie, {
+    method: "POST",
+    body: {
+      expectedStatus: "closing",
+      expectedUpdatedAt: preparedShortcutUpdatedAt,
       idempotencyKey: `ux-smoke-shortcut-end-${shortcutSessionId}-${crypto.randomUUID()}`,
+      mode: "complete",
       qualityScore: 3,
       isEffective: true,
       understandingLevel: "能独立复述主链路",
@@ -553,18 +669,18 @@ async function main(): Promise<void> {
     schemaVersion: "v11-browser-fixture-manifest-v1",
     routes: {
       today: "/today",
-      todayPlan: "/today/plan",
-      taskDetail: `/today/tasks/${taskId}`,
-      todayInbox: "/today/inbox",
-      inboxDetail: `/today/inbox/${inboxItemId}`,
+      todayPlan: "/roadmap/allocation",
+      taskDetail: `/roadmap/allocation/tasks/${taskId}`,
+      todayInbox: "/roadmap/allocation/drafts",
+      inboxDetail: `/roadmap/allocation/drafts/${inboxItemId}`,
       canvas: "/knowledge/canvas",
-      knowledgeOverview: "/knowledge/overview",
+      knowledgeOverview: "/knowledge",
       imports: "/knowledge/imports",
       importDetail: `/knowledge/imports/${importId}`,
-      syllabus: "/knowledge/syllabus",
-      syllabusDetail: `/knowledge/syllabus/${syllabusNodeId}`,
-      notes: "/knowledge/notes",
-      noteDetail: `/knowledge/notes/${noteId}`,
+      syllabus: "/knowledge/syllabi",
+      syllabusDetail: `/knowledge/syllabi/${syllabusNodeId}`,
+      notes: "/knowledge/cards",
+      noteDetail: `/knowledge/cards/${noteId}`,
       mistakes: "/knowledge/mistakes",
       mistakeDetail: `/knowledge/mistakes/${mistakeId}`,
       resources: "/knowledge/resources",
@@ -572,21 +688,20 @@ async function main(): Promise<void> {
       resourcePreview: `/knowledge/resources/${resourceId}/preview`,
       reviews: "/knowledge/reviews",
       reviewDetail: `/knowledge/reviews/${reviewScheduleId}`,
-      dailyReview: "/review/daily",
-      reports: "/review/reports",
-      reportHistory: `/review/reports/history/${reportDecisionId}`,
-      stageOverview: "/stage/overview",
-      simulations: "/stage/simulation",
-      simulationDetail: `/stage/simulation/${examId}`,
-      analytics: "/stage/analytics",
+      dailyReview: "/roadmap/reviews/daily",
+      reports: "/roadmap/reviews",
+      reportHistory: `/roadmap/reviews/history/${reportDecisionId}`,
+      stageOverview: "/roadmap/stages",
+      simulations: "/test/simulations",
+      simulationDetail: `/test/simulations/${examId}`,
+      analytics: "/roadmap/stages/trend",
       profile: "/settings/profile",
-      workspace: "/settings/workspace",
+      workspace: "/settings/exams",
       ai: "/settings/ai",
-      experience: "/settings/experience",
-      notifications: "/settings/notifications",
+      preferences: "/settings/learning",
       system: "/settings/system",
-      focus: `/focus/${sessionId}`,
-      quickReview: `/quick-review/${reviewScheduleId}`,
+      focus: "/focus",
+      quickReview: `/knowledge/reviews/${reviewScheduleId}/run`,
     },
   };
 
@@ -739,7 +854,8 @@ async function requestRaw(path: string, options: RequestOptions = {}): Promise<R
       signal: controller.signal,
       redirect: "manual",
     });
-    if (!response.ok) {
+    const allowedStatus = options.allowStatuses?.includes(response.status) ?? false;
+    if (!response.ok && !allowedStatus) {
       const text = await response.text().catch(() => "");
       throw new Error(`HTTP ${response.status} for ${path}: ${text.slice(0, 200)}`);
     }

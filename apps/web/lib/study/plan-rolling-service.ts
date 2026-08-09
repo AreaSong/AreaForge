@@ -14,7 +14,7 @@ export interface PlanRollingDto {
   days: PlanRollingDayDto[];
   tasks: StudyTaskDto[];
   debt: StudyTaskDto[];
-  datedInboxCount: number;
+  openInboxCount: number;
   inboxEntryPath: string;
   setupRequired: boolean;
   workspaceId: string | null;
@@ -34,8 +34,8 @@ export async function getPlanRolling(
       days: [],
       tasks: [],
       debt: [],
-      datedInboxCount: 0,
-      inboxEntryPath: "/today/inbox",
+      openInboxCount: 0,
+      inboxEntryPath: "/roadmap/allocation/drafts",
       setupRequired: true,
       workspaceId: null,
     };
@@ -61,6 +61,8 @@ export async function getPlanRolling(
       include: {
         subject: true,
         syllabusNode: true,
+        stageLinks: { include: { stagePlan: { select: { name: true } } } },
+        knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
       },
       orderBy: [{ plannedDate: "asc" }, { createdAt: "asc" }],
     }),
@@ -73,6 +75,8 @@ export async function getPlanRolling(
       include: {
         subject: true,
         syllabusNode: true,
+        stageLinks: { include: { stagePlan: { select: { name: true } } } },
+        knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
       },
       orderBy: [{ plannedDate: "asc" }, { createdAt: "asc" }],
     }),
@@ -80,7 +84,6 @@ export async function getPlanRolling(
       where: {
         workspaceId: workspace.id,
         status: "OPEN",
-        plannedDate: { not: null },
         supersededByItemId: null,
       },
     }),
@@ -106,8 +109,8 @@ export async function getPlanRolling(
     days,
     tasks,
     debt,
-    datedInboxCount: inboxCount,
-    inboxEntryPath: "/today/inbox",
+    openInboxCount: inboxCount,
+    inboxEntryPath: "/roadmap/allocation/drafts",
     setupRequired: false,
     workspaceId: workspace.id,
   };
@@ -123,6 +126,8 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
     include: {
       subject: true,
       syllabusNode: true,
+      stageLinks: { include: { stagePlan: { select: { name: true } } } },
+      knowledgePointLinks: { include: { knowledgePoint: { select: { title: true } } } },
     },
   });
   if (!task) throw new ApiError("TASK_NOT_FOUND", 404);

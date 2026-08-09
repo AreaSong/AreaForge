@@ -14,7 +14,7 @@ import type { PlanInboxWriteSummaryDto } from "./types";
 
 type ReportDecisionClient = PrismaClient | Prisma.TransactionClient;
 
-const reportWorkbench = "/review/reports";
+const reportWorkbench = "/roadmap/reviews";
 
 export interface ReportDecisionConflictLatest {
   kind: "periodic-report-decision";

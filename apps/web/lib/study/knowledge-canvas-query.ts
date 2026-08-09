@@ -246,7 +246,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
           ELSE CONCAT('SUBJECT:', ss."subjectId")
         END,
         '进行中会话', ss."subjectId",
-        (${input.includeAllStatuses} OR ss."status"::text IN ('RUNNING', 'PAUSED'))
+        (${input.includeAllStatuses} OR ss."status"::text IN ('RUNNING', 'PAUSED', 'CLOSING'))
       FROM "StudySession" ss
       JOIN "Subject" s ON s."id" = ss."subjectId"
       WHERE s."workspaceId" = ${input.workspaceId}
