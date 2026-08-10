@@ -156,7 +156,7 @@ async function validateWithCandidate(): Promise<void> {
     };
     writeState(stateFile, finalState);
     console.log(JSON.stringify({ mode: "candidate-final-validate", status: "pass", ...finalState }, null, 2));
-    console.log("PASS v1.1 compatibility floor 24-migration final validation");
+    console.log(`PASS v1.1 compatibility floor ${currentMigrationManifest.length}-migration final validation`);
   } finally {
     await prisma.$disconnect();
   }

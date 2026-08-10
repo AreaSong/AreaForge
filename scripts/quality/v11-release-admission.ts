@@ -29,6 +29,14 @@ import {
   type V11EvidenceValidationResult,
 } from "./v11-browser-evidence-contract";
 import { validateV11BrowserEvidenceFile } from "./v11-browser-evidence-validate";
+import {
+  currentMigrationManifest,
+  floorCommit,
+  floorMigrationManifest,
+  legacyCommit,
+  legacyMigrationManifest,
+  migrationManifestDigest,
+} from "./v11-compatibility-floor-manifest";
 
 export type V11ReleaseAdmissionStatus = "ready_for_signed_release" | "not_ready" | "invalid";
 type CheckStatus = "ready" | "not_ready" | "invalid";
@@ -103,12 +111,10 @@ const evidenceSections = [
 ] as const;
 const ops006RuntimePath = "docs/development/ops-006-production-evidence-v0.1.9-20260721/ops-006-production-evidence-v0.1.9-20260721.txt";
 const ops007RuntimePath = "docs/development/ops-007-production-protocol-v0.1.9-20260721.txt";
-const floorCommit = "c30fe8f59e9e9a64ed0ee9d2ef115a0ed5214dd4";
-const legacyCommit = "749692ba719d801f14186a94af97b96350380141";
 const manifestContracts = {
-  legacy: { count: 12, sha256: "90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368" },
-  floor: { count: 15, sha256: "e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d" },
-  current: { count: 33, sha256: "b2d04b442d666be93dea324ae5e8648ca133e767655cd4fd153c8ba3f450432d" },
+  legacy: { count: legacyMigrationManifest.length, sha256: migrationManifestDigest(legacyMigrationManifest) },
+  floor: { count: floorMigrationManifest.length, sha256: migrationManifestDigest(floorMigrationManifest) },
+  current: { count: currentMigrationManifest.length, sha256: migrationManifestDigest(currentMigrationManifest) },
 } as const;
 
 export function evaluateV11ReleaseAdmission(options: V11ReleaseAdmissionOptions = {}): V11ReleaseAdmissionResult {
@@ -775,7 +781,11 @@ function validateCompatibilityFloor(
     if (!doesNotProve.includes(term)) issues.push(`doesNotProve must include ${term}`);
   }
   return issues.length === 0
-    ? ready("compatibility_floor", "compatibility markdown and runtime JSON satisfy the 12/15/24 contract", reference)
+    ? ready(
+      "compatibility_floor",
+      `compatibility markdown and runtime JSON satisfy the ${manifestContracts.legacy.count}/${manifestContracts.floor.count}/${manifestContracts.current.count} contract`,
+      reference,
+    )
     : invalid("compatibility_floor", issues.slice(0, 8).join("; "));
 }
 
@@ -885,7 +895,13 @@ function parseCompatibilityRuntime(
   if (finalValidation) {
     expectJson(finalValidation, "status", "pass", "runtime.finalValidation", issues);
     expectJson(finalValidation, "databaseName", databaseName, "runtime.finalValidation", issues);
-    expectJson(finalValidation, "migrationCount", 33, "runtime.finalValidation", issues);
+    expectJson(
+      finalValidation,
+      "migrationCount",
+      manifestContracts.current.count,
+      "runtime.finalValidation",
+      issues,
+    );
     expectJson(finalValidation, "candidateFingerprintStable", true, "runtime.finalValidation", issues);
     expectJson(finalValidation, "repeatDeployLedgerStable", true, "runtime.finalValidation", issues);
   }

@@ -16,4 +16,6 @@ assertSourceMigrationManifest(root, currentMigrationManifest, "candidate source"
 assertGitCommitMigrationManifest(root, legacyCommit, legacyMigrationManifest, "legacy commit");
 assertGitCommitMigrationManifest(root, floorCommit, floorMigrationManifest, "floor commit");
 
-console.log("PASS v1.1 compatibility floor 12/15/24 migration manifests");
+console.log(
+  `PASS v1.1 compatibility floor ${legacyMigrationManifest.length}/${floorMigrationManifest.length}/${currentMigrationManifest.length} migration manifests`,
+);

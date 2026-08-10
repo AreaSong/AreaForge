@@ -18,6 +18,10 @@ import {
   V11_VIEWPORTS,
   type V11EvidenceValidationResult,
 } from "./v11-browser-evidence-contract";
+import {
+  currentMigrationManifest,
+  migrationManifestDigest,
+} from "./v11-compatibility-floor-manifest";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "scripts/quality/v11-release-admission.ts");
@@ -504,7 +508,10 @@ function compatibilityRuntime() {
     manifests: {
       legacy: { count: 12, sha256: "90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368" },
       floor: { count: 15, sha256: "e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d" },
-      current: { count: 33, sha256: "b2d04b442d666be93dea324ae5e8648ca133e767655cd4fd153c8ba3f450432d" },
+      current: {
+        count: currentMigrationManifest.length,
+        sha256: migrationManifestDigest(currentMigrationManifest),
+      },
     },
     fingerprintExcludedPaths: [evidencePaths.compatibilityFloorEvidence],
     candidateFingerprint,
@@ -515,7 +522,7 @@ function compatibilityRuntime() {
     finalValidation: {
       status: "pass",
       databaseName: "areaforge_v11compat_fixture",
-      migrationCount: 33,
+      migrationCount: currentMigrationManifest.length,
       candidateFingerprintStable: true,
       repeatDeployLedgerStable: true,
     },
@@ -553,8 +560,8 @@ function writeCompatibilityRecord(runtimePath: string = evidencePaths.compatibil
     "legacyMigrationManifestSha256: sha256:90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368",
     "floorMigrationCount: 15",
     "floorMigrationManifestSha256: sha256:e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d",
-    "repositoryMigrationCount: 33",
-    "repositoryMigrationManifestSha256: sha256:b2d04b442d666be93dea324ae5e8648ca133e767655cd4fd153c8ba3f450432d",
+    `repositoryMigrationCount: ${currentMigrationManifest.length}`,
+    `repositoryMigrationManifestSha256: sha256:${migrationManifestDigest(currentMigrationManifest)}`,
     "migrationReplayStatus: pass",
     "candidateSeedStatus: pass",
     "floorProductionBuildStatus: pass",

@@ -113,7 +113,7 @@ doesNotProve: signed Release, production apply, residual closure
 
 ## Compatibility Floor 契约
 
-24-migration Markdown 记录必须为本次候选新鲜重采，并严格使用以下字段：
+35-migration Markdown 记录必须为本次候选新鲜重采，并严格使用以下字段：
 
 ```text
 schemaVersion: 1
@@ -127,8 +127,8 @@ legacyMigrationCount: 12
 legacyMigrationManifestSha256: sha256:90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368
 floorMigrationCount: 15
 floorMigrationManifestSha256: sha256:e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d
-repositoryMigrationCount: 24
-repositoryMigrationManifestSha256: sha256:f5d083da94fc883b5a2428cdb5d565b7a3df20745f3b197d7d777625fd966419
+repositoryMigrationCount: 35
+repositoryMigrationManifestSha256: sha256:deb4e1ae466ad84e5821a81541721b45f218c369ffe6d052af083d7f9e884875
 migrationReplayStatus: pass
 candidateSeedStatus: pass
 floorProductionBuildStatus: pass
@@ -144,11 +144,11 @@ runtime JSON 必须是 `AREAFORGE_V11_COMPATIBILITY_RESULT_FILE` 保存的
 - `candidateCommit=sourceGitCommit`、`legacyCommit=749692ba719d801f14186a94af97b96350380141`、
   `floorCommit=c30fe8f59e9e9a64ed0ee9d2ef115a0ed5214dd4`。
 - PostgreSQL server version 为 16.x，`floorPackageVersion=0.1.9`。
-- `manifests.legacy/floor/current` 分别严格绑定上述 `12/15/24` count 和 digest。
+- `manifests.legacy/floor/current` 分别严格绑定上述 `12/15/35` count 和 digest。
 - `fingerprintExcludedPaths` 只能包含 compatibility Markdown 路径；candidate/floor fingerprint 必须为
   clean、无 changed paths、内部 digest 一致，并分别绑定 source/floor commit。
 - `seedChecks`、`probeChecks` 的 legacy/custom/workspace/唯一性断言全部为预期通过值；
-  `finalValidation.status=pass`、`migrationCount=24`、`candidateFingerprintStable=true`、
+  `finalValidation.status=pass`、`migrationCount=35`、`candidateFingerprintStable=true`、
   `repeatDeployLedgerStable=true`。
 
 历史 20-migration 记录、手写摘要或只记录 Markdown 而不保存 runtime JSON 均不能进入 admission。
