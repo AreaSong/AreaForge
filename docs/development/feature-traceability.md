@@ -62,7 +62,7 @@
 
 ## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；`v1.1.1` 已发布并完成受控 production apply。当前 checkout 的 UI/交互收敛属于 Release 后工作树，r38 只证明本地 current-bound 验收，不改变既有生产事实；该版本状态不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；`v1.1.1` 已发布并完成受控 production apply。当前 checkout 正在准备 `v1.1.2` 签名 Release 候选；候选证据和 Release 不改变既有生产事实，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|

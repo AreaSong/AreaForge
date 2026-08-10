@@ -8,6 +8,27 @@
 
 暂无。
 
+## [1.1.2] - 2026-08-10
+
+本版本是学习行动中心的完整收口候选；创建稳定 GitHub Release 不表示生产已更新，生产仍保持 `v1.1.1`，且 `AREAFORGE_AUTO_APPLY=none` 不变。
+
+### Added
+
+- 增加统一的五入口 App Shell、全局工具与工作窗口、确认中心、活动槽和跨页面学习收口。
+- 增加知识卡片、学习树导入、资料工作台、统一复习、专项复测、模拟考试、阶段与计划收件箱的完整闭环。
+- 增加本地固定测试池和完整测试数据生成入口，便于复用 production build 进行桌面与移动验收。
+
+### Changed
+
+- 数据模型新增 11 条有序 migration，覆盖 AI Provider 配置、知识中心、学习会话收口、设备 presence、复测结果、任务阶段/知识点关联与统一活动会话。
+- Next.js 升级到 `16.3.0`、React 升级到 `19.2.8`、Prisma 升级到 `7.9.1`、yaml 升级到 `2.9.0`。
+- 全部 AreaForge workspace package version 统一提升到 `1.1.2`。
+
+### Security
+
+- 保持 AI 当前浏览器显式授权、Provider 凭据服务端加密、附件鉴权访问和 Web runtime 禁止服务器命令等边界。
+- Release 继续要求不可变镜像 digest、SBOM、provenance、SHA256SUMS 与 cosign 签名；本次不授权 production apply。
+
 ## [1.1.1] - 2026-07-31
 
 稳定 GitHub Release `v1.1.1` 已发布；生产仍运行 `v1.1.0`，本条 Release 记录不表示 production apply 已执行。
@@ -135,7 +156,8 @@
 - 恢复模式：规则触发与手动触发的最小任务恢复流程。
 - 私有交付：Docker Compose 生产编排、备份与恢复流程、GitHub Release 服务器侧自动更新器。
 
-[Unreleased]: https://github.com/AreaSong/AreaForge/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/AreaSong/AreaForge/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/AreaSong/AreaForge/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/AreaSong/AreaForge/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/AreaSong/AreaForge/compare/v0.1.9...v1.1.0
 [0.1.9]: https://github.com/AreaSong/AreaForge/compare/v0.1.7...v0.1.9

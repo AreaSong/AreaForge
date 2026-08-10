@@ -57,7 +57,7 @@
 - `modules/simulation-exam.md`：全真模拟。
 - `modules/periodic-reports.md`：周审判与月复盘。
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
-- `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；首次设置与科目管理体验修复已随 `v1.1.1` Release 发布，尚未 production apply）。
+- `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；首次设置与科目管理体验修复已随 `v1.1.1` Release 发布并完成 production apply）。
 - `modules/plan-inbox.md`：计划收件箱（`v1.1.0` 已进入生产）。
 - `modules/unified-review.md`：统一复习（`v1.1.0` 已进入生产）。
 - `modules/learning-tree-import.md`：学习树导入（preview、原子 confirm、历史与一次性导出已随 `v1.1.0` 进入生产）。
@@ -92,9 +92,9 @@
 - `development/long-term-operability-control-plane.md`：长期运营控制面，统一 release 决策、维护窗口、真实体验、残余风险、供应链和 skill 增减规则。
 - `development/governance-register.md` / `development/governance-register.json`：治理权威路径、唯一 accountable owner、已有执行门禁和复审触发器的中央只读索引；不复制 lifecycle、residual 或生产激活状态。
 - `development/operations-lifecycle.md` / `development/operations-lifecycle.json`：active/draft SLO、incident transition 与 capability lifecycle 的只读机器契约；使用 `pnpm ops:lifecycle:selftest`、`pnpm ops:lifecycle:validate` 和 `pnpm ops:lifecycle:typecheck` 校验，不证明生产 SLO 已达成。
-- `development/post-release-observation-template.json` / `development/post-release-observation-v0.1.7.json`：Release 后 D14 technical/incident/error-budget gate 与 D30 product-review gate 的独立观察记录；绑定 release identity 和 release record `{path,sha256}`，使用 `pnpm release:post-observation:validate` / `status` 校验与投影。现有 `v0.1.7` 文件仅是历史观察记录，不能冒充当前生产 `v1.1.0` 的 observation；不改写历史发布记录、不关闭 residual。
+- `development/post-release-observation-template.json` / `development/post-release-observation-v0.1.7.json`：Release 后 D14 technical/incident/error-budget gate 与 D30 product-review gate 的独立观察记录；绑定 release identity 和 release record `{path,sha256}`，使用 `pnpm release:post-observation:validate` / `status` 校验与投影。现有 `v0.1.7` 文件仅是历史观察记录，不能冒充当前生产 `v1.1.1` 的 observation；不改写历史发布记录、不关闭 residual。
 - `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、OPS-005、OPS-006 production evidence、与 OPS-006 after-doctor 同 SHA/hash 的 data-integrity record、可校验 Release 发布记录、strict 签名 Release 供应链和新鲜 UX 记录。
-- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：schema v3 只读长期运营证据快照；当前生产事实为 `v1.1.0`，但该工具仍默认读取 `v0.1.9` 历史证据，因此在默认输入更新前只能显示历史缺口，不能证明当前生产；历史归档使用 `--shape-only`，不替代 live gate、生产 smoke 或 residual 人工关闭。
+- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：schema v3 只读长期运营证据快照；当前生产事实为 `v1.1.1`，但该工具仍默认读取 `v0.1.9` 历史证据，因此在默认输入更新前只能显示历史缺口，不能证明当前生产；历史归档使用 `--shape-only`，不替代 live gate、生产 smoke 或 residual 人工关闭。
 - `development/long-term-evidence-snapshot-v0.1.7-20260712.json`：`schemaVersion=1` 的历史非 ready 快照，状态为 `needs_live_evidence`；schema v2 也只保留为 OPS-006 doctor 接入前的历史非 ready 格式，当前格式为 schema v3。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
 - `pnpm release:closeout:audit -- --version <X.Y.Z>`：版本级只读 closeout 交叉审计，校验 Release、供应链、运行证据、rollback target 与 residual 台账的一致性；输出需再用 `pnpm release:closeout:audit:validate <audit.json>` 校验。
