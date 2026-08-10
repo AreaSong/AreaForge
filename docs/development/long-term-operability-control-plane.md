@@ -181,9 +181,9 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 
 维护者形成 residual close / keep-open / downgrade / reopen 结论时，先用 `docs/development/residual-closure-review-template.md` 保存人工复核记录，并运行 `pnpm residuals:closure:validate <record>`。该记录只证明复核结论、证据 URI、validator 摘要、重新打开条件和 `doesNotProve` 完整；它必须保持 `closesResidual=no`，不自动修改 `docs/development/residual-risk-ledger.md` 或 `docs/development/residual-risk-ledger.json`。
 
-`pnpm ops:long-term:gate` 是完成声明前的严格 live evidence gate。默认 OPS-001/004、Release 和供应链输入仍来自 `v0.1.9` 历史记录，checkout/UX binding 针对 `package.json` 的当前 `1.1.1`；因此当前默认运行必须保持 `needs_live_evidence`，但这表示工具证据未迁移，不表示 `v1.1.1` 尚未发布或应用。显式 `dataIntegrityRecord` 必须绑定与 OPS-006 after-doctor 相同 SHA/hash 的新鲜只读记录；其 UX freshness、只读和 residual 边界保持不变。
+`pnpm ops:long-term:gate` 是完成声明前的严格 live evidence gate。默认 OPS-001/004、Release 和供应链输入仍来自 `v0.1.9` 历史记录，checkout/UX binding 针对 `package.json` 的当前 `1.1.2` 候选；因此当前默认运行必须保持 `needs_live_evidence`，但这表示工具证据未迁移，不表示 `v1.1.1` 尚未发布或应用。显式 `dataIntegrityRecord` 必须绑定与 OPS-006 after-doctor 相同 SHA/hash 的新鲜只读记录；其 UX freshness、只读和 residual 边界保持不变。
 
-`pnpm ops:long-term:snapshot` 是长期运营证据的只读快照入口。默认生产证据仍读取 `v0.1.9` 历史记录，checkout/UX/current-source binding 读取当前 `1.1.1` 候选，所以当前默认结果必须保持 `needs_live_evidence`，并明确视为历史输入迁移缺口。schema v3、data-integrity、UX evaluator、current binding 与无联网/无生产写入边界保持不变；validator 通过也不证明当前生产健康或 residual 状态变化。
+`pnpm ops:long-term:snapshot` 是长期运营证据的只读快照入口。默认生产证据仍读取 `v0.1.9` 历史记录，checkout/UX/current-source binding 读取当前 `1.1.2` 候选，所以当前默认结果必须保持 `needs_live_evidence`，并明确视为历史输入迁移缺口。schema v3、data-integrity、UX evaluator、current binding 与无联网/无生产写入边界保持不变；validator 通过也不证明当前生产健康或 residual 状态变化。
 
 `pnpm ops:support:bundle-preview` 输出 metadata-only 支持包预览，把公开支持可用的版本、文档、命令名、residual ID、关闭条件、claim boundary 和 redaction/safety facts 聚合为可校验 JSON。它不导出支持包、不包含用户内容、不联网、不写生产；公开 issue 或自托管排障优先使用该预览，release/incident 证据冻结仍使用 `pnpm ops:evidence:bundle`。
 

@@ -2,7 +2,7 @@
 
 ```yaml
 status: in-progress
-phase: complete
+phase: awaiting-signed-release
 blockers: []
 risk: high
 ownerSkill: areaforge-release-operator
@@ -29,6 +29,8 @@ releaseRequired: true
 ## 目标
 
 完成 `v1.1.0` 发布后的产品化修复、生产合成数据收口和 22 个主要入口复验，并形成不可覆盖既有 Release 的 `v1.1.1` 修复 Release。`v1.1.1` Release 与受控 production apply 均已完成；不自动关闭 residual。
+
+当前追加目标是把 `v1.1.1` 之后已经合并到 `main` 的学习行动中心收口、测试数据能力和依赖升级冻结为 `v1.1.2` 签名 Release。该候选必须重新绑定当前 commit 的浏览器、无障碍、migration compatibility、CI/供应链和 main protection 证据；发布不等于 production apply，回滚目标保持 `v1.1.1`。
 
 ## 当前执行范围
 
