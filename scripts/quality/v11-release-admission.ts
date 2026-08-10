@@ -544,9 +544,9 @@ function evaluateSc004Check(
     }
     const status = String(result.status ?? "invalid");
     if (status === "ready_for_human_review") {
-      return readJsonString(controlledPr.raw, "headSha") === sourceGitCommit
+      return isSc004SourceBound(root, sourceGitCommit, readJsonString(controlledPr.raw, "headSha"))
         ? ready("sc004", "SC-004 readback and controlled PR are fresh and target-bound")
-        : invalid("sc004", "SC-004 controlled PR headSha must match sourceGitCommit");
+        : invalid("sc004", "SC-004 controlled PR headSha must match sourceGitCommit or its merge-commit PR parent");
     }
     if (status === "needs_remote_readback" || status === "needs_controlled_pr") {
       return notReady("sc004", `SC-004 evaluator returned ${status}`);
@@ -555,6 +555,22 @@ function evaluateSc004Check(
   } catch (error) {
     return invalid("sc004", safeError(error));
   }
+}
+
+export function isSc004SourceBound(root: string, sourceGitCommit: string, controlledPrHeadSha: string | null): boolean {
+  if (!controlledPrHeadSha || !/^[a-f0-9]{40}$/.test(controlledPrHeadSha)) return false;
+  if (controlledPrHeadSha === sourceGitCommit) return true;
+  if (!/^[a-f0-9]{40}$/.test(sourceGitCommit)) return false;
+
+  const result = spawnSync("git", ["rev-list", "--parents", "-n", "1", sourceGitCommit], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (result.status !== 0) return false;
+  const [commit, _baseParent, prHeadParent, ...extraParents] = result.stdout.trim().split(/\s+/);
+  return commit === sourceGitCommit
+    && extraParents.length === 0
+    && prHeadParent === controlledPrHeadSha;
 }
 
 export function exitCodeForV11ReleaseAdmission(status: V11ReleaseAdmissionStatus): 0 | 1 | 2 {
