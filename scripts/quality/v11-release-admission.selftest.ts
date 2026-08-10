@@ -7,6 +7,7 @@ import path from "node:path";
 import {
   evaluateV11ReleaseAdmission,
   exitCodeForV11ReleaseAdmission,
+  isSc004SourceBound,
   type V11ReleaseAdmissionDependencies,
 } from "./v11-release-admission";
 import { computeProductExperienceSourceHash } from "./product-experience-source";
@@ -250,6 +251,20 @@ try {
   assert.equal(cliMissing.status, 1, cliMissing.stderr);
   assert.equal(JSON.parse(cliMissing.stdout).releaseTag, "v1.1.1");
   assert.equal(JSON.parse(cliMissing.stdout).status, "not_ready");
+
+  assert.equal(isSc004SourceBound(tempRoot, sourceCommit, sourceCommit), true, "exact SC-004 source binding must pass");
+  const baseBranch = git(["branch", "--show-current"]).trim();
+  git(["switch", "-q", "-c", "controlled-pr-head", sourceCommit]);
+  writeEvidence("apps/controlled-pr.ts", "export const controlled = true;\n");
+  commit("controlled PR head");
+  const controlledPrHead = git(["rev-parse", "HEAD"]).trim();
+  git(["switch", "-q", baseBranch]);
+  git(["merge", "-q", "--no-ff", "controlled-pr-head", "-m", "merge controlled PR"]);
+  const mergeCommit = git(["rev-parse", "HEAD"]).trim();
+  assert.equal(isSc004SourceBound(tempRoot, mergeCommit, controlledPrHead), true, "merge commit must bind its PR-head second parent");
+  assert.equal(isSc004SourceBound(tempRoot, mergeCommit, currentCommit), false, "merge commit must reject its base parent");
+  assert.equal(isSc004SourceBound(tempRoot, mergeCommit, sourceCommit), false, "merge commit must reject an arbitrary ancestor");
+  assert.fail("SC-004 controlled required-check failure probe");
 
   console.log("PASS v1.1 release admission selftest");
 } finally {

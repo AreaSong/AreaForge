@@ -85,6 +85,9 @@ admission 不只依赖 Product Experience evaluator 的汇总结论；它会再�
 Markdown 内 hash、validator 读取结果和最终 admission 重读必须保持一致。旅程名称、七个 `pass` 汇总字段、
 旧截图目录或 validator 命令名都不能替代结构化 JSON。
 
+SC-004 受控 PR 的 `headSha` 必须等于 `sourceGitCommit`；若源码由 GitHub 双亲 merge commit 进入 `main`，
+则必须精确等于该 merge commit 的第二父提交（PR head）。第一父提交、普通祖先或无关 commit 均不接受。
+
 ## 独立无障碍记录契约
 
 `accessibilityEvidence.path` 指向的记录至少包含以下顶层字段。它必须来自独立的 production-mode local 或
