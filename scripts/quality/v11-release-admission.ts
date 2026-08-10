@@ -39,7 +39,6 @@ import {
 } from "./v11-compatibility-floor-manifest";
 
 export type V11ReleaseAdmissionStatus = "ready_for_signed_release" | "not_ready" | "invalid";
-const SC004_CONTROLLED_REQUIRED_CHECK_FAILURE: string = 1;
 type CheckStatus = "ready" | "not_ready" | "invalid";
 
 type EvidenceReference = {

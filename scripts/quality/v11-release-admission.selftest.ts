@@ -264,7 +264,6 @@ try {
   assert.equal(isSc004SourceBound(tempRoot, mergeCommit, controlledPrHead), true, "merge commit must bind its PR-head second parent");
   assert.equal(isSc004SourceBound(tempRoot, mergeCommit, currentCommit), false, "merge commit must reject its base parent");
   assert.equal(isSc004SourceBound(tempRoot, mergeCommit, sourceCommit), false, "merge commit must reject an arbitrary ancestor");
-  assert.fail("SC-004 controlled required-check failure probe");
 
   console.log("PASS v1.1 release admission selftest");
 } finally {

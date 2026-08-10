@@ -270,7 +270,6 @@
     "db:seed:complete-test": "tsx scripts/db/seed-complete-test.ts"
   },
   "devDependencies": {
-    "sc004-controlled-required-check-failure": "0.0.0",
     "@types/node": "^20.19.43",
     "dotenv": "^17.2.3",
     "playwright-core": "1.62.0",
