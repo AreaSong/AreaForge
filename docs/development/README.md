@@ -89,6 +89,7 @@
 
 发布与供应链记录：
 
+- `release-v1.1.2-artifact-record.md`、`release-supply-chain-v1.1.2.md`
 - `release-v1.1.1-artifact-record.md`、`release-supply-chain-v1.1.1.md`
 - `release-v0.1.7-record.md`、`release-supply-chain-v0.1.7.md`
 - `package-e-e1-release-record-draft.md`、`package-e-e2-restore-drill-record.md`、`package-e-e3-local-release-record.md`、`package-e-e3-prod-local-release-record.md`、`package-e-e4-local-rollback-record.md`、`package-e-e4-prod-local-rollback-record.md`、`package-e-remote-github-release-record.md`

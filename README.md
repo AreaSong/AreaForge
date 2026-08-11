@@ -46,10 +46,10 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 
 | 层级 | 当前事实 |
 |---|---|
-| 仓库状态 | `main` 正在准备 `v1.1.2` 签名 Release 候选；最新稳定 GitHub Release 与生产基线仍为 `v1.1.1`（commit `f995310`） |
+| 仓库状态 | 最新稳定 GitHub Release 为 `v1.1.2`（commit `5df3841`）；Release workflow、不可变镜像 digest、SBOM、provenance、checksum 与签名资产已严格验证 |
 | 线上基线 | `1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，公网 health 与 verified production runtime identity 已验证 |
 | 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
-| 当前收口 | 产品化修复已通过全量检查、桌面/移动验收、current-bound admission、受保护 PR、稳定 `v1.1.1` Release 与 Web 受控 production apply；生产重复科目与 `[AF_SMOKE]` 数据已在备份和单事务下清理，22 个静态入口已完成桌面/移动只读复验。2026-08-01 更新后 Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；residual 状态未改变 |
+| 当前收口 | `v1.1.2` 已完成全量检查、桌面/移动验收、current-bound admission、受保护 PR、稳定 Release 与严格资产校验；本次未执行 production apply，生产和回滚目标仍为 `v1.1.1`，`AREAFORGE_AUTO_APPLY=none` 与 residual 状态均未改变 |
 | 状态详情 | 只读快照用 `pnpm ops:status --summary`；其中旧版本默认绑定只能作为历史证据，当前生产事实以公网 health、服务器 updater 状态与 [运营 readiness](docs/development/operational-readiness.md) 为准，剩余缺口见 [残余风险台账](docs/development/residual-risk-ledger.md) |
 
 深入的状态证据入口：[长期运营控制面](docs/development/long-term-operability-control-plane.md)、[治理登记册](docs/development/governance-register.md)、[Operations lifecycle](docs/development/operations-lifecycle.md)、[docs 100% 完成记录](docs/development/docs-100-completion-record.md)、[版本历史](CHANGELOG.md)。
