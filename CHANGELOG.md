@@ -8,9 +8,9 @@
 
 暂无。
 
-## [1.1.2] - 2026-08-10
+## [1.1.2] - 2026-08-11
 
-本版本是学习行动中心的完整收口候选；创建稳定 GitHub Release 不表示生产已更新，生产仍保持 `v1.1.1`，且 `AREAFORGE_AUTO_APPLY=none` 不变。
+本版本完成学习行动中心的完整收口并已形成稳定 GitHub Release；发布不表示生产已更新，生产与回滚目标仍保持 `v1.1.1`，且 `AREAFORGE_AUTO_APPLY=none` 不变。
 
 ### Added
 

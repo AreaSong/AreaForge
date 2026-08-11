@@ -4,15 +4,16 @@
 
 本文件是 AreaForge 的只读运营证据聚合入口。它不替代生产 runbook，也不授予 Web runtime 服务器命令能力；它只定义长期运营时应收集哪些证据、多久视为新鲜、缺失时如何降级。
 
-当前生产身份以 `https://forge.areasong.top/api/health` 的 verified runtime identity、GitHub `v1.1.1` Release/tag 和服务器 updater 状态交叉确认。2026-08-01 已通过 Web 版本中心受控请求完成 production apply；Release 资产本身仍不能替代生产证据。仓库内 `docs/development/release-v0.1.9-record.md`、`github-0.1.9-20260721050738/update-record.txt` 及旧版 OPS/供应链 closeout 均为历史证据，不能替代当前 `v1.1.1` 生产证据。
+当前生产身份以 `https://forge.areasong.top/api/health` 的 verified runtime identity、已应用的 GitHub `v1.1.1` Release/tag 和服务器 updater 状态交叉确认。最新稳定 GitHub Release 为 `v1.1.2`，但本次未执行 production apply；Release 资产本身仍不能替代生产证据。仓库内 `docs/development/release-v0.1.9-record.md`、`github-0.1.9-20260721050738/update-record.txt` 及旧版 OPS/供应链 closeout 均为历史证据，不能替代当前 `v1.1.1` 生产证据。
 
 ## 当前基线
 
-- 当前 checkout：package version 为 `1.1.2` Release 候选；稳定 `v1.1.1` Release 与生产仍指向 commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，候选尚未形成 Release，也未执行 production apply。
+- 当前 checkout：package version 为 `1.1.2`；稳定 GitHub Release `v1.1.2` 指向 commit `5df38417b701f3511d06db235c5b94755ca03aba`，workflow run `31459420245` 成功，严格供应链资产校验通过。本次未执行 production apply。
 - 线上地址：`https://forge.areasong.top/`
 - 生产基线：`1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；公网 health 已于 2026-08-01 只读验证。
 - 生产 Web 镜像：`ghcr.io/areasong/areaforge-web:v1.1.1@sha256:46f32025693d3d7a16585984d77c9c6c4b6a2603456bad92c223dd1147a9daeb`。
-- compatibility floor：应用写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；本次更新前回滚目标为 `v1.1.0` / Web digest `sha256:ae2d515db11feff673d9b1721c73d51c0d4e31feea59174fc750eb02e6eb130c`。
+- compatibility floor：应用写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；当前生产与 `v1.1.2` 后续受控更新的回滚目标均为 `v1.1.1`。
+- `v1.1.2` Release 资产：Web digest `sha256:81b4f5ea6980e078d69f1c69ca9458eb1a015a9488df3c77d950f6f74e9074a8`；migration digest `sha256:8bcc3ad5edc3ebb05047587bc744cd2cbd2755e2e4e655a3c3195015040bcab8`；strict 供应链证据哈希 `sha256:6f17abc390ad721ca93be88fa1717819b1783ed50ffefb455edcd4a86165b1ac`。
 - 2026-08-01 Web 受控更新：旧 `v1.1.0` processing claim 在 root-only 控制状态备份后完成隔离，原始 `NEEDS_RECONCILIATION / MIGRATION_STATE_UNCERTAIN` 审计记录保留，状态投影重建后解除 blocker。随后 Web 请求完成 `v1.1.1` apply；最近操作为 `SUCCEEDED / APPLY_COMPLETED`，队列 0、blocker null、Web/PostgreSQL healthy、migration `24 finished / 0 unfinished / 0 rolled back / 24 total`、health/extra smoke PASS、journal clean。更新流程创建并校验数据库、上传目录和环境配置备份，未执行 restore、rollback、业务数据修复或 residual 状态变化；`AREAFORGE_AUTO_APPLY=none` 保持不变。
 - 2026-07-31 生产数据收口：已创建并校验 `manual-data-fix-20260731T112330Z` 数据库与上传目录备份（数据库 SHA-256 `094c3e3e1946951ab4ae03ab28e61daffd39f98d8cb768f36882eae7fe7f3abc`；上传归档 SHA-256 `934aa349f1377648376ead64bcde39e5a6dd9b7099d3fdb41128ea85d75c010d`）。单事务将 workspace revision `4 -> 5`、12 个活动科目收敛为 7 个，将新高等数学的 1 次真实 session 和 1 张真实 note 迁移至保留的 legacy `MATH`，保留并重命名数学及四个 408 科目，删除 5 个重复科目；同时删除已盘点的合成业务数据、22 条对应审计事件、2 条附件 metadata 和 2 个已备份合成文件。审计事件的批准计数为 14，实际删除 22；额外 8 条均属于同批合成对象，具体为 2 条 `attachment-created`、3 条 `session-start` 和 3 条 `session-end`。这不涉及真实学习记录，但违反了批准的严格计数门禁；双备份继续保留，可用于受控恢复决策。
 - 清理后只读复核：正式 doctor 等价的 repeatable-read/read-only 聚合查询 12 项均为 0；附件双向扫描为 1 条 metadata / 1 个文件，db-only、file-only、hash/size mismatch、非法 URI、重复引用、unsafe/unexpected entry 均为 0。生产镜像没有仓库脚本与正式 doctor runtime，因此本次没有生成 `ops:data-integrity:doctor` JSON/validator 记录；该限制不得扩写成正式 doctor 证据。

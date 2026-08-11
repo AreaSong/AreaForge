@@ -13,7 +13,7 @@
 当前进度快照（逐任务状态以各任务文件 frontmatter 为准）：
 
 - 各任务的真实状态、阻塞点和等待条件写在任务文件的 `status`、`phase` 和 `blockers` 字段里，用 `pnpm tasks:doctor` 校验；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。
-- 学习行动中心阶段包见 `docs/development/v11-phase-packages.md`；Batch 0 任务 `tasks/active/0025-v11-batch0-doc-sync.md`，Batch 3–10 已完成见 `tasks/done/0027-*` 至 `0034-*`，`v1.1.0` 与 Batch 11 的 `v1.1.1` 修复 Release/production apply 均已完成。`tasks/active/0035-v11-batch11-minor-release.md` 当前承接 `v1.1.2` Release 候选证据与签名发布，Batch 1–2 历史复核入口保留在 `tasks/backlog/0026-*`。
+- 学习行动中心阶段包见 `docs/development/v11-phase-packages.md`；Batch 0 任务 `tasks/active/0025-v11-batch0-doc-sync.md`，Batch 3–10 已完成见 `tasks/done/0027-*` 至 `0034-*`，`v1.1.0` 与 Batch 11 的 `v1.1.1` 修复 Release/production apply 均已完成。`tasks/active/0035-v11-batch11-minor-release.md` 已完成 `v1.1.2` 稳定 Release，继续保留 production apply 的独立确认边界；Batch 1–2 历史复核入口保留在 `tasks/backlog/0026-*`。
 - 长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准，task-facing 视图见 `indexes/residuals.md`；current blocker、accepted exception 和逐项证据状态以台账为源事实。
 - 仓库候选版本与生产基线见根 README 状态节和 `docs/development/operational-readiness.md`。
 
