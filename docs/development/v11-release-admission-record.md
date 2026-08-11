@@ -1,32 +1,32 @@
 schemaVersion: 1
-releaseTag: v1.1.1
-releaseVersion: 1.1.1
-sourceGitCommit: b3a0002291abb40dead66f36103d91867254d95a
+releaseTag: v1.1.2
+releaseVersion: 1.1.2
+sourceGitCommit: 8df823c3711c2ca944378f3765844c0698d230f1
 bindingPolicy: source-or-evidence-only
 completionEvidence:
-  path: docs/development/release-v1.1.1-candidate-record.md
-  sha256: sha256:077a302d11dfe6d746465288ed925a78372e85f308fb3449896f076ef69d260b
+  path: docs/development/release-v1.1.2-candidate-record.md
+  sha256: sha256:4e6006c6451c8e1f62b57db0790892444d76d577dec1db87e6fb0148b4381554
 productExperienceEvidence:
-  path: docs/development/product-experience-review-v1.1.1-20260731.md
-  sha256: sha256:1162bd3006d2b153773f85e746911430b66c13cf3f9c0cc9e8233c9ff7227bd4
+  path: docs/development/product-experience-review-v1.1.2-20260811.md
+  sha256: sha256:f207dbdc5e7a7ff5fee92e06c1b747e70efa379235b3897fea34f02208ea0ca1
 accessibilityEvidence:
-  path: docs/development/v11-accessibility-review-v1.1.1-20260731.md
-  sha256: sha256:629043b5fc996b858ce03e8be4342e8077bba9d692ed4a345ce52632322fe449
+  path: docs/development/v11-accessibility-review-v1.1.2-20260811.md
+  sha256: sha256:87e061cbfa9177c23fcbe193a34953f160b5bded32f574d73f103004fa80f27d
 compatibilityFloorEvidence:
-  path: docs/development/v11-compatibility-floor-evidence-v1.1.1-20260731.md
-  sha256: sha256:5e327ac4c8d9f6ecf7ed11123a3a2d0282e58994e7e9a1cf64f924c140841834
+  path: docs/development/v11-compatibility-floor-evidence-v1.1.2-20260810.md
+  sha256: sha256:c1edfd3385c8a791c6ff27580040cfa98a98cbc4753b9e3f0fae5b796277230d
 compatibilityRuntimeEvidence:
-  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.1-20260731-b3a0002.json
-  sha256: sha256:2626e2bc5c791df294c2d20c13e12993547c42f0c08b7367de38341fd5f5ebf7
+  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.2-20260810-8df823c.json
+  sha256: sha256:2585dbee3c51c8fa719cbd10bc2695bfb0c3dfa38039c9a2cdce0bfe30a55355
 ops006007ReviewEvidence:
   path: docs/development/v11-s2-ops006-007-gate-review.md
-  sha256: sha256:5ab39c4bce39f95f3c9e370d0c6a2c6a30c5038e20d6fa5875657889b4da58f5
+  sha256: sha256:efd8571c7c923a85370a277d6f70a3063e6fcbacec73f5f8c96d7d87cdf46517
 sc002Evidence:
-  path: output/supply-chain/ci-supply-chain-v1.1.1-20260731-b3a0002.txt
-  sha256: sha256:34d921c6af01e8ef862fcc4cebdfadf90f55e7d862a5dbb84b3482d4363ff106
+  path: output/supply-chain/ci-supply-chain-v1.1.2-20260811-8df823c.txt
+  sha256: sha256:27cfb0897df99cb314380b61a2825abc73b64fc3ec346121ede9e1cf184ae38e
 sc004ReadbackEvidence:
-  path: output/supply-chain/sc004-main-protection-readback-v1.1.1-20260731-b3a0002.json
-  sha256: sha256:0d70101c1a0df40fff0a5e4c3ae329db0ac7831154f6ca02c1997e96ffdb441e
+  path: output/supply-chain/sc004-main-protection-readback-v1.1.2-20260811-8df823c.json
+  sha256: sha256:a2974fccd2435cd26b50c4cf243ade5edd1a7db2e41bf0b152085c2dfc1db4ba
 sc004ControlledPrEvidence:
-  path: output/supply-chain/sc004-controlled-pr-v1.1.1-20260731-b3a0002.json
-  sha256: sha256:904813ff177fe52f2439c9869aeadc25eca950dba52f44a55483005406161bb7
+  path: output/supply-chain/sc004-controlled-pr-v1.1.2-20260811-8df823c.json
+  sha256: sha256:1634f4fad9ab1af97001c7612bf452e2d55ea156f81c2b86b7a6f41ea64b9912

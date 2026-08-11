@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "v11-compatibility-floor-runtime-v2",
+  "expectedDatabaseName": "areaforge_v11compat_20260810_8df823c",
+  "postgresServerVersionNum": 160011,
+  "candidateCommit": "8df823c3711c2ca944378f3765844c0698d230f1",
+  "legacyCommit": "749692ba719d801f14186a94af97b96350380141",
+  "floorCommit": "c30fe8f59e9e9a64ed0ee9d2ef115a0ed5214dd4",
+  "manifests": {
+    "legacy": {
+      "count": 12,
+      "sha256": "90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368"
+    },
+    "floor": {
+      "count": 15,
+      "sha256": "e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d"
+    },
+    "current": {
+      "count": 35,
+      "sha256": "deb4e1ae466ad84e5821a81541721b45f218c369ffe6d052af083d7f9e884875"
+    }
+  },
+  "fingerprintExcludedPaths": [
+    "docs/development/v11-compatibility-floor-evidence-v1.1.2-20260810.md"
+  ],
+  "candidateFingerprint": {
+    "algorithm": "sha256",
+    "gitHead": "8df823c3711c2ca944378f3765844c0698d230f1",
+    "worktreeState": "clean",
+    "worktreeHash": "sha256:5e5a71dc06df0be8f737d81120b0b79d452afa110fe658a5ef1052a2aba307b6",
+    "changedPaths": [],
+    "commands": [
+      "pnpm ops:v11:compatibility-floor:orchestrate"
+    ],
+    "profile": "custom",
+    "digest": "sha256:b3d8419c69450868c6404069bb76cdda76a78d9a5dce082a1735da10943a03bc"
+  },
+  "seedChecks": {
+    "legacySubjectWritten": true,
+    "secondWorkspaceWritten": true,
+    "customSubjectsWithNullLegacyCode": 2,
+    "workspaceCompositeRowsWritten": 6,
+    "sameWorkspaceCompositeDuplicatesRejected": 3
+  },
+  "floorPackageVersion": "0.1.9",
+  "floorFingerprint": {
+    "algorithm": "sha256",
+    "gitHead": "c30fe8f59e9e9a64ed0ee9d2ef115a0ed5214dd4",
+    "worktreeState": "clean",
+    "worktreeHash": "sha256:5e5a71dc06df0be8f737d81120b0b79d452afa110fe658a5ef1052a2aba307b6",
+    "changedPaths": [],
+    "commands": [
+      "pnpm ops:v11:compatibility-floor:orchestrate"
+    ],
+    "profile": "custom",
+    "digest": "sha256:7bd2ffdc1a77f1b31ad418c2eda5dc64044aef52919ddd59527c8319953d8d65"
+  },
+  "probeChecks": {
+    "legacySubjectWritten": true,
+    "secondWorkspaceWritten": true,
+    "customSubjectsWithNullLegacyCode": 2,
+    "workspaceCompositeRowsWritten": 6,
+    "sameWorkspaceCompositeDuplicatesRejected": 3
+  },
+  "finalValidation": {
+    "status": "pass",
+    "databaseName": "areaforge_v11compat_20260810_8df823c",
+    "migrationCount": 35,
+    "candidateFingerprintStable": true,
+    "repeatDeployLedgerStable": true
+  }
+}

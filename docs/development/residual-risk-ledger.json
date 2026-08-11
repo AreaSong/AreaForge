@@ -37,7 +37,7 @@
     {
       "id": "AF-RISK-REL-001",
       "type": "accepted-exception",
-      "reviewAt": "2026-08-10",
+      "reviewAt": "2026-09-10",
       "currentImpact": "AREAFORGE_AUTO_APPLY=none 是当前安全默认；patch 自动应用尚未启用",
       "executableNow": false,
       "closeCondition": "用户明确确认 patch 自动应用，且签名、备份、extra smoke、rollback target 和 manifest policy 同时满足",
@@ -53,15 +53,15 @@
         "scope": "保持 AREAFORGE_AUTO_APPLY=none 作为当前安全默认，不启用 patch 自动应用",
         "reason": "patch 自动应用尚未获用户明确确认，且签名、备份、extra smoke、rollback target 和 manifest policy 尚未作为同一启用门禁完成确认",
         "acceptedBy": "AreaSong",
-        "acceptedAt": "2026-07-10T19:40:59+08:00",
-        "expiresAt": "2026-08-10",
+        "acceptedAt": "2026-08-11T12:12:00+08:00",
+        "expiresAt": "2026-09-10",
         "reopenConditions": [
           "用户明确确认启用 patch 自动应用",
           "AREAFORGE_AUTO_APPLY 不再为 none",
           "签名、备份、extra smoke、rollback target 或 manifest policy 任一边界发生变化"
         ],
         "basisHash": "sha256:2d699ca83b7f9f1cf4003bc9e6999311aab7e32ce83ac89d4685a81de74042ae",
-        "sourceRef": "git:4a76627add00e6fa07f5194e4252cec12a7b4e28",
+        "sourceRef": "conversation:2026-08-11-v1.1.2-release-confirmation",
         "revokedBy": null,
         "revokedAt": null,
         "revocationReason": null,
