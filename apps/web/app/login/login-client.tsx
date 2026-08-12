@@ -5,6 +5,12 @@ import Image from "next/image";
 import { LoginForm } from "@/components/login-form";
 import { Target, Clock, BrainCircuit, CheckCircle2, LineChart, Workflow, Hexagon } from "lucide-react";
 
+import { NeuralPulse } from "./components/neural-pulse";
+import { RadarEngine } from "./components/radar-engine";
+import { DataMatrix } from "./components/data-matrix";
+import { SystemNetwork } from "./components/system-network";
+import { TrendLine } from "./components/trend-line";
+
 const LEARNING_LOOP_NODES = [
   {
     id: "overview",
@@ -17,21 +23,7 @@ const LEARNING_LOOP_NODES = [
     lineClass: "bg-teal-400",
     borderClass: "border-teal-500",
     textClass: "text-teal-400",
-    icon: Hexagon,
-    metrics: [
-      { label: "系统状态", value: "在线运行" },
-      { label: "AI 引擎", value: "全功率" },
-      { label: "数据加密", value: "已开启" },
-      { label: "本地同步", value: "实时互联" }
-    ],
-    hudTopLeftLabel: "SYS",
-    hudTopLeftValue: "MEM: 0x7F9A",
-    hudRightText: "SYS.OVERRIDE : OK",
-    features: [
-      "[架构] 核心引擎常驻运行，进程免打扰",
-      "[加密] 端到端离线安全壳，护城河协议",
-      "[链路] 跨节点事件流双向通信机制"
-    ]
+    icon: Hexagon
   },
   {
     id: "plan",
@@ -44,21 +36,7 @@ const LEARNING_LOOP_NODES = [
     lineClass: "bg-blue-400",
     borderClass: "border-blue-400",
     textClass: "text-blue-400",
-    icon: Target,
-    metrics: [
-      { label: "本轮目标", value: "已锁定" },
-      { label: "任务边界", value: "绝对隔离" },
-      { label: "预估耗时", value: "精密测算" },
-      { label: "执行级别", value: "最高 (P0)" }
-    ],
-    hudTopLeftLabel: "LOCK",
-    hudTopLeftValue: "TRG: 0x2A1B",
-    hudRightText: "TARGET.LOCK : ACTIVE",
-    features: [
-      "[域锁定] 强行划定本次专注区间与靶向目标",
-      "[资源流] 预加载知识锚点，切断非必要内存",
-      "[强制力] 无明确目标则系统拒绝启动心流引擎"
-    ]
+    icon: Target
   },
   {
     id: "focus",
@@ -71,21 +49,7 @@ const LEARNING_LOOP_NODES = [
     lineClass: "bg-cyan-400",
     borderClass: "border-cyan-400",
     textClass: "text-cyan-400",
-    icon: Clock,
-    metrics: [
-      { label: "心流深度", value: "极度沉浸" },
-      { label: "外部干扰", value: "全面屏蔽" },
-      { label: "状态追踪", value: "本地优先" },
-      { label: "当前模态", value: "绝对心流" }
-    ],
-    hudTopLeftLabel: "FLOW",
-    hudTopLeftValue: "ISL: 0x9F4C",
-    hudRightText: "DISTRACTION : BLOCKED",
-    features: [
-      "[隔离舱] 阻隔网页跳转与无关上下文切换",
-      "[原子针] 毫秒级防休眠本地硬核计时器",
-      "[心流态] 绘制极度沉浸深度与精力消耗图谱"
-    ]
+    icon: Clock
   },
   {
     id: "retest",
@@ -98,21 +62,7 @@ const LEARNING_LOOP_NODES = [
     lineClass: "bg-blue-400",
     borderClass: "border-blue-400",
     textClass: "text-blue-400",
-    icon: BrainCircuit,
-    metrics: [
-      { label: "掌握验证", value: "严苛标准" },
-      { label: "客观证据", value: "强制提取" },
-      { label: "知识提取", value: "动态测算" },
-      { label: "知识幻觉", value: "无情打破" }
-    ],
-    hudTopLeftLabel: "SCAN",
-    hudTopLeftValue: "EXT: 0x4B2D",
-    hudRightText: "DATA.EXTRACT : IN_PROGRESS",
-    features: [
-      "[反幻觉] 废除选择题错觉，强制冷启动默写提取",
-      "[突触网] 随机抽测72小时前历史遗留盲区",
-      "[纠缠态] 根据答题延迟重新计算记忆衰减指数"
-    ]
+    icon: BrainCircuit
   },
   {
     id: "closeout",
@@ -125,21 +75,7 @@ const LEARNING_LOOP_NODES = [
     lineClass: "bg-emerald-400",
     borderClass: "border-emerald-400",
     textClass: "text-emerald-400",
-    icon: CheckCircle2,
-    metrics: [
-      { label: "学习债务", value: "等待清算" },
-      { label: "终极对账", value: "强制执行" },
-      { label: "今日评分", value: "核算中" },
-      { label: "系统模态", value: "准备休眠" }
-    ],
-    hudTopLeftLabel: "SYNC",
-    hudTopLeftValue: "REC: 0x8C3E",
-    hudRightText: "DEBT.CLEAR : REQUIRED",
-    features: [
-      "[清算场] 扫描全天候碎片数据与悬而未决任务",
-      "[零宽容] 延期债务红牌警告与信誉扣除协议",
-      "[安全锁] 必须确认所有微服模块完结方可休眠"
-    ]
+    icon: CheckCircle2
   },
   {
     id: "adjust",
@@ -152,23 +88,104 @@ const LEARNING_LOOP_NODES = [
     lineClass: "bg-fuchsia-400",
     borderClass: "border-fuchsia-400",
     textClass: "text-fuchsia-400",
-    icon: LineChart,
-    metrics: [
-      { label: "周期报告", value: "已生成" },
-      { label: "宏观视角", value: "全面展开" },
-      { label: "战略调整", value: "引擎建议" },
-      { label: "进化路线", value: "持续重塑" }
-    ],
-    hudTopLeftLabel: "EVAL",
-    hudTopLeftValue: "ANL: 0x5D8F",
-    hudRightText: "STRATEGY.EVOLVE : READY",
-    features: [
-      "[微观距] 分析近30天投入产出比与情绪波动差",
-      "[预测机] 识别长期疲劳与路线偏离风险警报",
-      "[自进化] 动态重构下周战略计划与兵力部署"
-    ]
+    icon: LineChart
   }
 ];
+
+// 巨型舞台动画组件 (Showcase Stage Animations)
+const ShowcaseStage = ({ node, isActive }: { node: any, isActive: boolean }) => {
+  const isOverview = node.id === 'overview';
+
+  return (
+    <div className={`w-full h-full relative overflow-hidden flex transition-opacity duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${isActive ? 'opacity-100 z-10' : 'opacity-0 -z-10'}`}>
+      
+      {/* 极简氛围装饰 */}
+      <div className={`absolute left-8 top-[30%] bottom-[30%] w-1.5 rounded-full ${node.lineClass} shadow-[0_0_25px_currentColor] opacity-90 transition-opacity duration-500 ${isOverview ? 'opacity-100' : 'opacity-0'}`}></div>
+      <div className={`absolute inset-0 bg-gradient-to-br ${node.colorClass} opacity-[0.03]`}></div>
+
+      {/* ==================== 首页/系统核心态 (文字主导) ==================== */}
+      {isOverview && (
+        <div className="w-full h-full flex items-center justify-between px-8 xl:px-12 py-6 relative">
+          
+          {/* 全局居中的巨大背景 Logo (氛围装饰) */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-[0.12] pointer-events-none">
+            <node.icon className={`w-[400px] h-[400px] xl:w-[480px] xl:h-[480px] ${node.textClass} animate-[spin_60s_linear_infinite] drop-shadow-[0_0_30px_currentColor]`} />
+          </div>
+
+          {/* 左侧：核心系统描述 (w-[45%]) */}
+          <div className="w-[45%] flex flex-col justify-center pl-6 z-20 relative">
+            <div className="mb-4 inline-flex items-center gap-3 font-mono text-[11px] xl:text-[13px] font-bold tracking-[0.2em] text-zinc-400 uppercase">
+              <span className={`h-2 w-2 rounded-full ${node.lineClass} animate-pulse shadow-[0_0_12px_currentColor]`}></span>
+              [ SYS.MODULE : {node.id.toUpperCase()} ]
+            </div>
+
+            <h1 className="mb-6 text-3xl md:text-4xl xl:text-5xl font-black leading-tight tracking-tight text-white drop-shadow-md">
+              {node.title1}<br />
+              <span className={`text-transparent bg-clip-text bg-gradient-to-r drop-shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-colors duration-1000 ${node.colorClass}`}>
+                {node.title2}
+              </span>
+            </h1>
+            
+            <p className="text-sm xl:text-lg leading-relaxed text-zinc-300 font-mono max-w-xl border-l-2 border-zinc-800/80 pl-5 py-2">
+              {node.desc}
+            </p>
+          </div>
+
+          {/* 右侧：HUD 数据终端风格模块 (w-[45%]) */}
+          <div className="w-[45%] h-full flex items-center justify-end z-20 relative">
+            <div className="flex flex-col justify-center gap-6 xl:gap-8 w-full max-w-sm border-l border-white/5 pl-8 lg:pl-10">
+              {[
+                 { title: '硬核计时引擎', desc: '隔绝干扰记录纯净心流' },
+                 { title: '强制证据对账', desc: '冷启动默写打破知识幻觉' },
+                 { title: '今日债务清算', desc: '绝不将未决任务留给明天' },
+                 { title: '周期战略重塑', desc: '基于微观数据动态纠正偏差' }
+              ].map((item, i) => (
+                <div key={i} className="flex flex-col gap-1.5 group cursor-default">
+                   <div className="flex items-center gap-3">
+                     <div className="w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_8px_#2dd4bf] group-hover:animate-ping"></div>
+                     <div className="font-mono text-sm md:text-base font-bold text-teal-400/90 tracking-widest">{item.title}</div>
+                   </div>
+                   <div className="text-xs text-zinc-500 font-mono pl-4 border-l-2 border-transparent ml-[2px] py-0.5 group-hover:border-teal-500/30 group-hover:text-zinc-400 transition-colors">{item.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ==================== 路线图节点态 (纯动态全景内容) ==================== */}
+      {!isOverview && (
+        <div className="w-full h-full relative flex items-center justify-center p-8">
+           {/* 全局小标签 */}
+           <div className="absolute top-8 left-10 z-50 pointer-events-none">
+             <div className="inline-flex items-center gap-3 font-mono text-xs font-bold tracking-[0.2em] text-zinc-500 uppercase">
+                <span className={`h-2 w-2 rounded-full ${node.lineClass} shadow-[0_0_12px_currentColor] animate-pulse`}></span>
+                {node.title1}
+                <span className={node.textClass}>{node.title2}</span>
+             </div>
+           </div>
+           
+           {/* 超大全景画布 */}
+           <div className={`w-full h-full flex items-center justify-center relative transition-all duration-1000 ${isActive ? 'scale-100 opacity-100' : 'scale-110 opacity-0'}`}>
+              
+              {node.id === 'focus' && <NeuralPulse colorClass={node.colorClass} textClass={node.textClass} />}
+
+              {node.id === 'plan' && <RadarEngine lineClass={node.lineClass} textClass={node.textClass} />}
+
+              {node.id === 'retest' && <DataMatrix colorClass={node.colorClass} textClass={node.textClass} />}
+
+              {node.id === 'closeout' && <SystemNetwork textClass={node.textClass} />}
+
+              {node.id === 'adjust' && <TrendLine textClass={node.textClass} />}
+           </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
+
 
 export function LoginClient({ returnTo }: { returnTo: string }) {
   const [activeNodeIndex, setActiveNodeIndex] = useState(0);
@@ -222,8 +239,8 @@ export function LoginClient({ returnTo }: { returnTo: string }) {
       <div 
         className="absolute inset-0 z-0 pointer-events-none mix-blend-overlay opacity-[0.04]"
         style={{ 
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-        }}
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+  }}
       ></div>
 
 
@@ -244,299 +261,21 @@ export function LoginClient({ returnTo }: { returnTo: string }) {
             </div>
           </div>
 
-          {/* 核心内容区 (绝对定位实现交叉渐变) */}
-          <div className="relative flex-1 w-full min-h-[450px] opacity-0 animate-slide-up-fade" style={{ animationDelay: '300ms', animationFillMode: 'forwards' }}>
+          {/* ================= 聚光灯舞台与卡片网格重构区域 (Showcase Stage & Feature Cards) ================= */}
+          <div className="relative flex-1 w-full min-h-[500px] flex flex-col pt-4">
             {LEARNING_LOOP_NODES.map((node, index) => {
               const isActive = index === activeNodeIndex;
               return (
                 <div 
                   key={node.id}
-                  className={`absolute inset-0 flex flex-col justify-center transition-all duration-700 ease-in-out ${isActive ? 'opacity-100 translate-y-0 z-10 pointer-events-auto' : 'opacity-0 translate-y-8 z-0 pointer-events-none'}`}
+                  className={`absolute inset-0 flex flex-col justify-between transition-all duration-[800ms] cubic-bezier(0.16, 1, 0.3, 1) ${isActive ? 'opacity-100 translate-x-0 z-10 pointer-events-auto' : 'opacity-0 -translate-x-12 z-0 pointer-events-none'}`}
                 >
-                  <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 items-center h-full">
-                    {/* 左侧文字叙述 */}
-                    <div className="max-w-xl 2xl:max-w-2xl relative pl-6 xl:pl-8">
-                      {/* 左侧发光修饰线 */}
-                      <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-full ${node.lineClass} shadow-[0_0_15px_currentColor] opacity-80`}></div>
-                      
-                      {/* 终端系统头 (Terminal Header) */}
-                      <div className="mb-3 inline-flex items-center gap-2 font-mono text-[10px] xl:text-xs font-bold tracking-widest text-zinc-500 uppercase">
-                        <span className={`h-1.5 w-1.5 rounded-full ${node.lineClass} animate-pulse shadow-[0_0_8px_currentColor]`}></span>
-                        [ SYS.MODULE : {node.id.toUpperCase()} ]
-                      </div>
-
-                      {/* 降维精细化标题 (Compact Module Title) */}
-                      <h1 className="mb-4 text-2xl md:text-3xl xl:text-4xl font-bold leading-tight tracking-tight text-white drop-shadow-sm">
-                        {node.title1}<br />
-                        <span className={`text-transparent bg-clip-text bg-gradient-to-r drop-shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-colors duration-700 ${node.colorClass}`}>
-                          {node.title2}
-                        </span>
-                      </h1>
-                      
-                      {/* 终端日志式说明 (Terminal Log Description) */}
-                      <p className="text-sm xl:text-[15px] leading-relaxed text-zinc-400/80 font-mono mb-8 max-w-[95%]">
-                        <span className="text-zinc-600 mr-2 font-bold">&gt;</span>{node.desc}
-                      </p>
-
-                      {/* 动态核心监控指标 (Metrics Dashboard) */}
-                      <div className="grid grid-cols-2 gap-3 xl:gap-4 animate-slide-up-fade" style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}>
-                        {node.metrics.map((metric, i) => (
-                          <div key={i} className={`relative flex flex-col justify-center p-3 xl:p-4 bg-zinc-900/30 border border-white/5 backdrop-blur-md overflow-hidden ${node.glowClass}`}>
-                            {/* 极客风格四角装饰 */}
-                            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/20"></div>
-                            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/20"></div>
-                            
-                            {/* 微型进度条装饰 */}
-                            <div className={`absolute bottom-0 left-0 h-[1px] w-[30%] opacity-50 ${node.lineClass}`}></div>
-                            
-                            <span className="font-mono text-[9px] xl:text-[10px] text-zinc-500 tracking-widest uppercase mb-1">{metric.label}</span>
-                            <span className={`font-mono text-xs xl:text-sm font-semibold tracking-wide ${node.textClass}`}>{metric.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* 极客终端负载说明模块 (Payload Features List) */}
-                      <div className="mt-6 xl:mt-8 animate-slide-up-fade" style={{ animationDelay: '300ms', animationFillMode: 'forwards' }}>
-                        <div className="text-[10px] xl:text-xs font-mono text-zinc-600 uppercase tracking-widest mb-3 border-b border-zinc-800 pb-2">
-                          [ SYSTEM CAPABILITIES_ ]
-                        </div>
-                        <ul className="space-y-2 xl:space-y-3">
-                          {node.features.map((feature, idx) => (
-                            <li key={idx} className="flex items-start text-xs xl:text-sm font-mono text-zinc-400/90 tracking-tight group">
-                              <span className={`mr-2 mt-0.5 text-[9px] xl:text-[10px] opacity-70 group-hover:opacity-100 transition-opacity ${node.textClass}`}>&gt;&gt;</span>
-                              <span className="leading-relaxed group-hover:text-white transition-colors">{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* 右侧巨大视觉组件化表达 */}
-                    <div className="hidden lg:flex items-center justify-center relative w-[250px] xl:w-[400px] h-[250px] xl:h-[400px] shrink-0">
-                      <div className="relative w-full h-full flex items-center justify-center">
-                        
-                        {/* ================= HUD 全局视窗边框与数据层 ================= */}
-                        {/* 1. 底层战术坐标点阵网格 */}
-                        <div className="absolute inset-[-20px] xl:inset-[-40px] pointer-events-none opacity-20" 
-                             style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
-                        
-                        {/* 2. 四角机械外装甲边框 (L形) */}
-                        <div className="absolute inset-[-10px] xl:inset-[-20px] pointer-events-none border border-white/5">
-                          <div className="absolute top-0 left-0 w-6 h-6 xl:w-10 xl:h-10 border-t-2 border-l-2 border-zinc-500/50"></div>
-                          <div className="absolute top-0 right-0 w-6 h-6 xl:w-10 xl:h-10 border-t-2 border-r-2 border-zinc-500/50"></div>
-                          <div className="absolute bottom-0 left-0 w-6 h-6 xl:w-10 xl:h-10 border-b-2 border-l-2 border-zinc-500/50"></div>
-                          <div className="absolute bottom-0 right-0 w-6 h-6 xl:w-10 xl:h-10 border-b-2 border-r-2 border-zinc-500/50"></div>
-                        </div>
-
-                        {/* 3. 瞄准十字线 */}
-                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-10">
-                          <div className="w-[120%] h-[1px] bg-white absolute"></div>
-                          <div className="h-[120%] w-[1px] bg-white absolute"></div>
-                        </div>
-
-                        {/* 4. 左上角：悬浮遥测面板 - 状态指示 */}
-                        <div className="absolute top-[-25px] left-[-10px] xl:top-[-40px] xl:left-[-20px] flex items-center space-x-2 pointer-events-none transition-all duration-500">
-                          <div className="h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                          <span className="font-mono text-[10px] xl:text-xs font-bold text-zinc-400">{LEARNING_LOOP_NODES[activeNodeIndex].hudTopLeftLabel}</span>
-                          <span className="font-mono text-[10px] xl:text-xs text-zinc-600 ml-4 hidden xl:inline-block">{LEARNING_LOOP_NODES[activeNodeIndex].hudTopLeftValue}</span>
-                        </div>
-
-                        {/* 5. 右下角：微型动态均衡器 */}
-                        <div className="absolute bottom-[-25px] right-[-10px] xl:bottom-[-40px] xl:right-[-20px] flex items-end space-x-1 xl:space-x-1.5 pointer-events-none opacity-40 h-4 xl:h-6">
-                          <div className="w-1 xl:w-1.5 bg-zinc-400 h-[40%] animate-pulse" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                          <div className="w-1 xl:w-1.5 bg-zinc-400 h-[80%] animate-pulse" style={{ animationDuration: '0.7s', animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                          <div className="w-1 xl:w-1.5 bg-zinc-400 h-[60%] animate-pulse" style={{ animationDuration: '1.2s', animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                          <div className="w-1 xl:w-1.5 bg-zinc-400 h-[100%] animate-pulse" style={{ animationDuration: '0.8s', animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                          <div className="w-1 xl:w-1.5 bg-zinc-400 h-[30%] animate-pulse" style={{ animationDuration: '1.5s', animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                        </div>
-
-                        {/* 6. 右侧边缘：垂直状态读数 */}
-                        <div className="absolute top-1/4 right-[-30px] xl:right-[-50px] w-4 pointer-events-none flex flex-col items-center opacity-30 transition-all duration-500">
-                          <span className="font-mono text-[8px] xl:text-[10px] text-zinc-400 rotate-90 whitespace-nowrap origin-left mt-8 tracking-widest">{LEARNING_LOOP_NODES[activeNodeIndex].hudRightText}</span>
-                          <div className="h-16 w-[1px] bg-zinc-600 mt-16"></div>
-                        </div>
-                        {/* ================= HUD 全局视窗边框 结束 ================= */}
-
-                        {node.id === "overview" && (
-                          <div className="relative flex h-full w-full items-center justify-center">
-                            {/* 强力背景环境光斑 */}
-                            <div className="absolute inset-0 rounded-full bg-teal-500/10 blur-3xl animate-pulse" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                            
-                            {/* SVG 雷达刻度网格 */}
-                            <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full opacity-30 animate-[spin_60s_linear_infinite]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}>
-                              <circle cx="200" cy="200" r="190" stroke="currentColor" strokeWidth="1" fill="none" className="text-teal-500" strokeDasharray="4 8" />
-                              <circle cx="200" cy="200" r="140" stroke="currentColor" strokeWidth="1" fill="none" className="text-cyan-500" strokeDasharray="1 4" />
-                              <path d="M 200 10 L 200 390 M 10 200 L 390 200" stroke="currentColor" strokeWidth="1" className="text-teal-500/50" />
-                              {/* 细密刻度 */}
-                              {[...Array(36)].map((_, i) => (
-                                <line key={i} x1="200" y1="10" x2="200" y2="20" stroke="currentColor" strokeWidth="2" className="text-teal-400" transform={`rotate(${i * 10} 200 200)`} />
-                              ))}
-                            </svg>
-
-                            {/* 外环: 战术护盾 */}
-                            <div className="absolute h-[80%] w-[80%] rounded-full border-y-[3px] border-x-[1px] border-teal-500/60 animate-[spin_15s_ease-in-out_infinite_alternate]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                            
-                            {/* 中环: 流光粗轨 (反向) */}
-                            <div className="absolute h-[60%] w-[60%] rounded-full border-[6px] border-cyan-500/10 border-l-cyan-400 shadow-[0_0_40px_rgba(34,211,238,0.4)] animate-[spin_8s_linear_infinite_reverse]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                            
-                            {/* 内环: 高强度核心防护环 */}
-                            <div className="absolute h-[35%] w-[35%] rounded-full border-[12px] border-blue-500/30 border-t-blue-400 shadow-[0_0_60px_rgba(59,130,246,0.8)] animate-[spin_3s_linear_infinite]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                            
-                            {/* 核心: 发光六边形 */}
-                            <div className="absolute h-[25%] w-[25%] bg-teal-500/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-teal-300/50 shadow-[0_0_30px_rgba(45,212,191,1)] z-20 animate-pulse">
-                              <Hexagon className="h-2/3 w-2/3 text-white drop-shadow-[0_0_10px_white]" fill="currentColor" fillOpacity={0.8} />
-                            </div>
-                            
-                            {/* 轨道粒子群 */}
-                            <div className="absolute h-[85%] w-[85%] animate-[spin_12s_linear_infinite]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}>
-                              <div className="absolute top-[15%] right-[15%] h-2 w-2 xl:h-3 xl:w-3 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(103,232,249,1)]"></div>
-                              <div className="absolute bottom-[5%] left-[45%] h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full bg-teal-300 shadow-[0_0_15px_rgba(45,212,191,1)]"></div>
-                            </div>
-                          </div>
-                        )}
-
-                        {node.id === "plan" && (
-                          <div className="relative flex h-[85%] w-[85%] items-center justify-center">
-                            {/* 战术锁定框 */}
-                            <div className="absolute inset-0 border-2 border-blue-500/30">
-                              <div className="absolute top-[-2px] left-[-2px] w-8 h-8 border-t-4 border-l-4 border-blue-400"></div>
-                              <div className="absolute top-[-2px] right-[-2px] w-8 h-8 border-t-4 border-r-4 border-blue-400"></div>
-                              <div className="absolute bottom-[-2px] left-[-2px] w-8 h-8 border-b-4 border-l-4 border-blue-400"></div>
-                              <div className="absolute bottom-[-2px] right-[-2px] w-8 h-8 border-b-4 border-r-4 border-blue-400"></div>
-                            </div>
-                            
-                            {/* 雷达扇区扫描 */}
-                            <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full animate-[spin_4s_linear_infinite]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}>
-                              <path d="M 100 100 L 100 0 A 100 100 0 0 1 170.7 29.3 Z" fill="url(#radar-gradient)" className="opacity-40" />
-                              <defs>
-                                <radialGradient id="radar-gradient" cx="50%" cy="50%" r="50%">
-                                  <stop offset="0%" stopColor="rgba(59,130,246,1)" />
-                                  <stop offset="100%" stopColor="rgba(59,130,246,0)" />
-                                </radialGradient>
-                              </defs>
-                            </svg>
-
-                            <Target className="absolute h-[60%] w-[60%] text-blue-400/80 stroke-1 drop-shadow-[0_0_30px_rgba(59,130,246,0.6)] animate-pulse" />
-                            <div className="absolute h-[55%] w-[55%] rounded-full border-[3px] border-blue-400/80 border-dashed animate-[spin_15s_linear_infinite_reverse]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                            <div className="absolute h-[25%] w-[25%] rounded-full border-[4px] border-indigo-400 shadow-[0_0_40px_rgba(99,102,241,0.8)]"></div>
-                            <div className="absolute h-[6%] w-[6%] rounded-full bg-white shadow-[0_0_30px_rgba(255,255,255,1)] animate-ping" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                          </div>
-                        )}
-
-                        {node.id === "focus" && (
-                          <div className="relative flex h-[95%] w-[95%] items-center justify-center rounded-full border-[6px] xl:border-[8px] border-zinc-800/90 shadow-[0_0_80px_rgba(45,212,191,0.3)] bg-zinc-900/30 backdrop-blur-sm">
-                            <svg viewBox="0 0 380 380" className="absolute inset-0 h-full w-full -rotate-90 overflow-visible">
-                              {/* 内侧精细秒表刻度 */}
-                              {[...Array(60)].map((_, i) => (
-                                <line key={i} x1="190" y1="35" x2="190" y2={i % 5 === 0 ? "45" : "40"} stroke="currentColor" strokeWidth={i % 5 === 0 ? "3" : "1"} className={i % 5 === 0 ? "text-cyan-400" : "text-zinc-600"} transform={`rotate(${i * 6} 190 190)`} />
-                              ))}
-                              
-                              <circle cx="190" cy="190" r="174" stroke="currentColor" strokeWidth="12" fill="none" className="text-teal-400 stroke-[12px] drop-shadow-[0_0_20px_rgba(45,212,191,0.8)]" strokeDasharray="1093" strokeDashoffset="250" strokeLinecap="round" />
-                              
-                              {/* 旋转雷达指针 */}
-                              <g className="animate-[spin_2s_linear_infinite]" style={{ transformOrigin: '190px 190px', animationPlayState: isWindowFocused ? 'running' : 'paused' }}>
-                                <line x1="190" y1="190" x2="190" y2="40" stroke="rgba(34,211,238,0.5)" strokeWidth="2" />
-                                <polygon points="187,40 193,40 190,30" fill="rgba(34,211,238,0.8)" />
-                              </g>
-                            </svg>
-                            <span className="text-5xl xl:text-[72px] font-black tracking-tighter text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.6)] z-10">45:00</span>
-                          </div>
-                        )}
-
-                        {node.id === "retest" && (
-                          <div className="relative h-[90%] w-[90%] flex items-center justify-center">
-                            {/* 复杂的神经突触底层连线 */}
-                            <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full opacity-90 overflow-visible" stroke="currentColor" strokeWidth="3" fill="none">
-                              <path id="path1" d="M 50 200 C 100 100, 150 200, 200 200" className="text-cyan-500/40" />
-                              <path id="path2" d="M 200 200 C 250 200, 300 300, 350 200" className="text-blue-500/40" />
-                              <path id="path3" d="M 100 300 L 200 200 L 300 100" className="text-teal-500/40 stroke-dashed" strokeDasharray="6,6" />
-                              
-                              {/* 光梭游走动画 */}
-                              <circle r="6" fill="currentColor" className="text-cyan-300 drop-shadow-[0_0_15px_rgba(103,232,249,1)]">
-                                <animateMotion dur="3s" repeatCount="indefinite">
-                                  <mpath href="#path1" />
-                                </animateMotion>
-                              </circle>
-                              <circle r="6" fill="currentColor" className="text-blue-300 drop-shadow-[0_0_15px_rgba(147,197,253,1)]">
-                                <animateMotion dur="4s" repeatCount="indefinite">
-                                  <mpath href="#path2" />
-                                </animateMotion>
-                              </circle>
-                              <circle r="6" fill="currentColor" className="text-teal-300 drop-shadow-[0_0_15px_rgba(94,234,212,1)]">
-                                <animateMotion dur="2.5s" repeatCount="indefinite">
-                                  <mpath href="#path3" />
-                                </animateMotion>
-                              </circle>
-                            </svg>
-                            
-                            {/* 中心突触核心 */}
-                            <div className="relative h-[30%] w-[30%] rounded-full bg-zinc-900/80 border-[4px] border-cyan-400 shadow-[0_0_60px_rgba(34,211,238,0.5)] z-10 flex items-center justify-center backdrop-blur-md">
-                              <BrainCircuit className="h-1/2 w-1/2 text-cyan-400 animate-pulse" />
-                            </div>
-                            
-                            {/* 外围漂浮的记忆碎片 */}
-                            <div className="absolute left-[10%] top-[20%] h-[12%] w-[12%] rounded-sm border-2 border-blue-400 bg-blue-500/20 backdrop-blur-sm z-10 shadow-[0_0_30px_rgba(59,130,246,0.6)] animate-[bounce_4s_infinite]"></div>
-                            <div className="absolute right-[15%] bottom-[25%] h-[8%] w-[8%] rounded-full bg-teal-400/80 z-10 shadow-[0_0_20px_rgba(45,212,191,0.8)] animate-[bounce_3s_infinite_0.5s]"></div>
-                          </div>
-                        )}
-
-                        {node.id === "closeout" && (
-                          <div className="relative flex h-[90%] w-[90%] items-center justify-center">
-                            {/* 数据封锁保险闸门动画 */}
-                            <div className="absolute inset-0 rounded-full border-[10px] border-emerald-500/20 bg-emerald-900/20 shadow-[inset_0_0_50px_rgba(16,185,129,0.3)] backdrop-blur-sm"></div>
-                            
-                            <div className="absolute h-[80%] w-[80%] rounded-full border-t-[8px] border-b-[8px] border-emerald-400 animate-[spin_6s_ease-in-out_infinite]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                            <div className="absolute h-[65%] w-[65%] rounded-full border-l-[6px] border-r-[6px] border-teal-300 animate-[spin_4s_ease-in-out_infinite_reverse]" style={{ animationPlayState: isWindowFocused ? 'running' : 'paused' }}></div>
-                            
-                            {/* 中心确认印章 */}
-                            <div className="relative h-[40%] w-[40%] rounded-full bg-emerald-500 shadow-[0_0_80px_rgba(16,185,129,0.8)] z-10 flex items-center justify-center border-4 border-white/20">
-                              <CheckCircle2 className="h-2/3 w-2/3 text-white drop-shadow-[0_0_15px_rgba(255,255,255,1)]" strokeWidth="2.5" />
-                            </div>
-                            
-                            {/* 成功粒子向外发射 */}
-                            <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full opacity-60">
-                              {[...Array(8)].map((_, i) => (
-                                <line key={i} x1="100" y1="100" x2="100" y2="10" stroke="currentColor" strokeWidth="3" className="text-emerald-300" strokeDasharray="10 20" transform={`rotate(${i * 45} 100 100)`}>
-                                  <animate attributeName="stroke-dashoffset" from="30" to="0" dur="1s" repeatCount="indefinite" />
-                                </line>
-                              ))}
-                            </svg>
-                          </div>
-                        )}
-
-                        {node.id === "adjust" && (
-                          <div className="relative flex h-[90%] w-[90%] items-center justify-center">
-                            {/* 全息三维投影网格底座 */}
-                            <div className="absolute bottom-[10%] w-[120%] h-[30%] bg-fuchsia-500/10 rounded-full blur-xl animate-pulse"></div>
-                            
-                            <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full overflow-visible">
-                              {/* 投影光束 */}
-                              <polygon points="200,350 50,150 350,150" fill="url(#beam-gradient)" className="opacity-40" />
-                              <defs>
-                                <linearGradient id="beam-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
-                                  <stop offset="0%" stopColor="rgba(232,121,249,0.5)" />
-                                  <stop offset="100%" stopColor="rgba(232,121,249,0)" />
-                                </linearGradient>
-                              </defs>
-                              
-                              {/* 动态折线图数据趋势 */}
-                              <polyline points="50,250 150,180 250,220 350,100" fill="none" stroke="currentColor" strokeWidth="6" className="text-violet-400 drop-shadow-[0_0_15px_rgba(139,92,246,0.8)] stroke-dasharray-[1000] stroke-dashoffset-[1000]">
-                                <animate attributeName="stroke-dashoffset" from="1000" to="0" dur="3s" fill="freeze" />
-                              </polyline>
-                              
-                              {/* 数据节点发光球 */}
-                              <circle cx="150" cy="180" r="8" fill="white" className="drop-shadow-[0_0_10px_white] animate-pulse" />
-                              <circle cx="250" cy="220" r="8" fill="white" className="drop-shadow-[0_0_10px_white] animate-pulse" />
-                              <circle cx="350" cy="100" r="12" fill="white" className="text-fuchsia-300 drop-shadow-[0_0_20px_rgba(232,121,249,1)]" />
-                            </svg>
-                            
-                            {/* 主控图标悬浮 */}
-                            <LineChart className="absolute top-[10%] right-[10%] h-[25%] w-[25%] text-fuchsia-300 drop-shadow-[0_0_30px_rgba(232,121,249,0.8)] animate-bounce" style={{ animationDuration: '3s' }} strokeWidth="2" />
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
+                  
+                  {/* 上半部分：巨幅动画与展示舞台 (Showcase Stage) */}
+                  <div className="flex-1 w-full relative rounded-2xl bg-gradient-to-b from-black/20 to-black/60 border border-white/5 backdrop-blur-md overflow-hidden shadow-2xl">
+                    {/* 微光底纹 */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${node.colorClass} opacity-5`}></div>
+                    <ShowcaseStage node={node} isActive={isActive} />
                   </div>
                 </div>
               );
@@ -547,7 +286,6 @@ export function LoginClient({ returnTo }: { returnTo: string }) {
           <div 
             className="mt-8 md:mt-16 mb-8 relative w-full opacity-0 animate-fade-in-up" 
             style={{ animationDelay: '600ms', animationFillMode: 'forwards' }}
-            onMouseLeave={() => setActiveNodeIndex(0)}
           >
              {/* 轨道层 */}
              <div className="absolute top-1/2 left-[20px] right-[20px] h-1 -translate-y-1/2">
