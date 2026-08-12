@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { LoginForm } from "@/components/login-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
+import { LoginClient } from "./login-client";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/login");
@@ -14,9 +14,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     redirect(returnTo);
   }
 
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#080b0f] px-4 py-8 text-zinc-100">
-      <LoginForm returnTo={returnTo} />
-    </main>
-  );
+  return <LoginClient returnTo={returnTo} />;
 }

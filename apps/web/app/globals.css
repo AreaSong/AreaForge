@@ -51,6 +51,10 @@
   
   --animate-fade-in-up: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-scale-in: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in: fade-in 0.2s ease-out forwards;
+  --animate-slide-in-right: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-up-fade: slide-up-fade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-glow-pulse: glow-pulse 4s ease-in-out infinite alternate;
   
   @keyframes fade-in-up {
     0% { opacity: 0; transform: translateY(8px); }
@@ -59,6 +63,22 @@
   @keyframes scale-in {
     0% { opacity: 0; transform: scale(0.96); }
     100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes slide-in-right {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(0); }
+  }
+  @keyframes slide-up-fade {
+    0% { opacity: 0; transform: translateY(24px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes glow-pulse {
+    0% { opacity: 0.1; }
+    100% { opacity: 0.4; }
   }
 }
 
@@ -120,4 +140,14 @@ a {
 button:disabled,
 [aria-disabled="true"] {
   cursor: not-allowed;
+}
+
+/* Fix WebKit autofill styles in dark mode */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active{
+    -webkit-box-shadow: 0 0 0 30px #091015 inset !important;
+    -webkit-text-fill-color: var(--af-text-primary) !important;
+    transition: background-color 5000s ease-in-out 0s;
 }

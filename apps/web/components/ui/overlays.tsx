@@ -41,7 +41,7 @@ export function Modal(props: {
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[var(--af-layer-modal)] flex items-end justify-center bg-black/60 p-2 sm:items-center sm:p-4" role="presentation">
+    <div className="fixed inset-0 z-[var(--af-layer-modal)] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-2 sm:items-center sm:p-4" role="presentation">
       <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={allowEscape && dismissible ? onClose : undefined} />
       <div
         ref={panelRef}
@@ -49,7 +49,7 @@ export function Modal(props: {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col rounded-lg border border-white/10 bg-[#101419] p-4 shadow-xl sm:max-h-[calc(100dvh-2rem)]"
+        className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col rounded-lg border border-white/10 bg-[#101419] p-4 shadow-xl sm:max-h-[calc(100dvh-2rem)] animate-scale-in"
       >
         <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
           <h2 id={titleId} className="text-lg font-semibold text-white">{title}</h2>
@@ -90,7 +90,7 @@ export function Drawer(props: {
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[var(--af-layer-modal)] flex justify-end bg-black/50" role="presentation">
+    <div className="fixed inset-0 z-[var(--af-layer-modal)] flex justify-end bg-black/50 backdrop-blur-sm animate-fade-in" role="presentation">
       <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={onClose} />
       <aside
         ref={panelRef}
@@ -98,7 +98,7 @@ export function Drawer(props: {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#0d1117] p-4 shadow-xl"
+        className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#0d1117] p-4 shadow-xl animate-slide-in-right"
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 id={titleId} className="text-lg font-semibold text-white">{title}</h2>
