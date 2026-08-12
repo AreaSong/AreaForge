@@ -51,7 +51,7 @@ export function GlobalTopBar(props: {
 
   return (
     <header
-      className="af-shell-header z-[var(--af-layer-shell-base)] shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/95 px-4 py-3 backdrop-blur max-[359px]:px-2 max-[359px]:py-2 sm:px-6 xl:px-8"
+      className="af-shell-header z-[var(--af-layer-shell-base)] shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/75 px-4 py-3 backdrop-blur-md max-[359px]:px-2 max-[359px]:py-2 sm:px-6 xl:px-8"
       data-layout-region="global-top-bar"
       data-global-ai-ui="true"
     >

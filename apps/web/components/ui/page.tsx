@@ -16,7 +16,7 @@ export function PageFrame(props: {
 }) {
   return (
     <div
-      className={`${frameClass[props.variant]} ${props.className ?? ""}`}
+      className={`${frameClass[props.variant]} animate-fade-in-up ${props.className ?? ""}`}
       data-layout-region="page-frame"
       data-page-template={props.variant}
     >

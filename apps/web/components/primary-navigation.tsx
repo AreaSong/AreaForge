@@ -70,7 +70,7 @@ function PrimaryLink(props: { item: AppNavigationItem; pathname: string; collaps
       href={props.item.href}
       aria-current={active ? (activeChild ? "location" : navigationAriaCurrent(props.pathname, props.item)) : undefined}
       title={props.collapsed ? props.item.label : undefined}
-      className={`flex min-w-0 items-center rounded-md border-l-2 py-2 text-sm transition-colors ${props.collapsed ? "justify-center px-2" : "gap-3 px-3"} ${active ? "border-teal-300 bg-white/[0.08] text-white" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
+      className={`group flex min-w-0 items-center rounded-md border-l-2 py-2 text-sm transition-all duration-300 ease-out ${props.collapsed ? "justify-center px-2" : "gap-3 px-3"} ${active ? "border-teal-300 shadow-[-2px_0_12px_rgba(45,212,191,0.25)] bg-gradient-to-r from-teal-400/[0.08] to-transparent text-white" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
     >
       <NavigationIcon href={props.item.href} />
       <span className={props.collapsed ? "sr-only" : "truncate"}>{props.item.label}</span>
@@ -85,7 +85,7 @@ function navigationAriaCurrent(pathname: string, item: { href: string; match: (p
 
 function NavigationIcon({ href }: { href: string }) {
   const Icon = PRIMARY_NAVIGATION_ICONS[href] ?? Settings;
-  return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
+  return <Icon className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" aria-hidden="true" />;
 }
 
 const PRIMARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {

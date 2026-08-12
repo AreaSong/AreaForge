@@ -202,7 +202,7 @@ export function GlobalContextStatusBar(props: {
 
   return (
     <footer
-      className="af-shared-toolbar relative z-[var(--af-layer-shell-chrome)] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-2 py-1 text-xs sm:px-6 xl:px-8"
+      className="af-shared-toolbar relative z-[var(--af-layer-shell-chrome)] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)]/75 px-2 py-1 text-xs backdrop-blur-md sm:px-6 xl:px-8"
       data-layout-region="global-context-status-bar"
       data-global-ai-ui="true"
     >
