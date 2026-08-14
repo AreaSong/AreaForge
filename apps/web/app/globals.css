@@ -288,15 +288,37 @@ input:-webkit-autofill:active{
   to { stroke-dashoffset: 0; }
 }
 
+@keyframes af-glint-sweep {
+  0% { transform: rotate(-45deg) translateX(-180%); }
+  45%, 100% { transform: rotate(-45deg) translateX(180%); }
+}
+
+@keyframes af-shake {
+  0%, 100% { transform: translateX(0); }
+  15%, 45%, 75% { transform: translateX(-6px); }
+  30%, 60%, 90% { transform: translateX(6px); }
+}
+
+@keyframes af-timeline-flow {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+.af-shake-error {
+  animation: af-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .af-learning-route *,
   .af-learning-route *::before,
   .af-learning-route *::after,
   .af-route-progress,
   .af-route-runner,
-  .af-node-pulse {
+  .af-node-pulse,
+  .af-shake-error {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
+
