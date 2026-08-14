@@ -12,6 +12,13 @@ export type LearningLoopId = "plan" | "focus" | "closeout" | "retest" | "today" 
 export type LearningLoopScene = "select" | "timer" | "capture" | "proof" | "summary" | "trend";
 export type TrackMode = "mastery" | "remedial";
 
+export interface MetricItem {
+  label: string;
+  value: string;
+  unit?: string;
+  change?: string;
+}
+
 export interface SubjectTelemetry {
   id: string;
   name: string;
@@ -25,11 +32,49 @@ export interface SubjectTelemetry {
   active: boolean;
 }
 
-export interface MetricItem {
+export interface RetrievalFlashcard {
+  id: string;
+  discipline: "Higher Mathematics" | "CS 408 Comprehensive" | "Academic English";
+  code: string;
+  frontTitle: string;
+  frontQuestion: string;
+  frontPrompt: string;
+  backTitle: string;
+  backProof: string;
+  formula: string;
+  masteryRating: "GRADE S" | "GRADE A" | "GRADE B+";
+  estimatedSeconds: number;
+  accuracyDelta: string;
+}
+
+export interface RingMetric {
+  id: string;
   label: string;
+  progress: number;
+  current: string;
+  target: string;
+  color: string;
+  numericScore: number;
+}
+
+export interface SplineData {
+  subject: string;
+  color: string;
+  delta: string;
+  points: [
+    number, number, number, number,
+    number, number, number, number,
+    number, number, number, number,
+    number, number
+  ];
+}
+
+export interface EvidenceStream {
+  name: string;
   value: string;
-  unit?: string;
-  change?: string;
+  color: string;
+  rgb: string;
+  status: "VERIFIED" | "COMMITTED" | "SEALED" | "ROUTED" | "QUEUED";
 }
 
 export interface TrackTelemetry {
@@ -46,6 +91,10 @@ export interface TrackTelemetry {
   advice: string;
   nextStep: string;
   subjects?: SubjectTelemetry[];
+  flashcard?: RetrievalFlashcard;
+  rings?: RingMetric[];
+  splines?: SplineData[];
+  streams?: EvidenceStream[];
   telemetry?: Record<string, unknown>;
 }
 
@@ -92,10 +141,10 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
     title: "先选清楚，再开始",
     subtitle: "锁定研读科目与考点范围",
     desc: "从科目进入学习，任务与考纲作为可选上下文。本次研读必须先有清晰的认知边界与攻坚目标。",
-    statusPill: "高等数学 · 极限论与连续性",
+    statusPill: "高等数学 · 极限论与多元微分",
     statusPillType: "locked",
     inputLabel: "当前目标",
-    inputValue: "高等数学 · 极限定义",
+    inputValue: "高等数学 · 极限定义与微积分",
     actionLabel: "选择科目与边界",
     outputLabel: "形成",
     outputValue: "学习意图",
@@ -109,7 +158,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
     glowClass: "bg-blue-500/15",
     icon: Target,
     metrics: [
-      { label: "目标考点", value: "ε-δ 极限论", unit: "L1" },
+      { label: "目标考点", value: "泰勒定理与高阶余项", unit: "L1" },
       { label: "预估时长", value: "45", unit: "min" },
       { label: "意图状态", value: "已锁定", unit: "100%" },
     ],
@@ -121,7 +170,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       focusMode: "深度研读模式",
       metrics: [
         { label: "攻坚科目", value: "高等数学", unit: "MATH-01" },
-        { label: "目标考点", value: "多元微分与级数综合", unit: "高阶" },
+        { label: "目标考点", value: "多元微分与极值判定", unit: "高阶" },
         { label: "目标强度", value: "综合大题", unit: "95%" },
       ],
       primaryArtifact: "高阶证明题集 · 母题模型",
@@ -136,11 +185,11 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           name: "高等数学",
           enName: "ADVANCED MATH",
           code: "MATH-01",
-          topic: "多元微分学极值判定与级数收敛综合证明",
+          topic: "多元微分学极值判定与 Hessian 矩阵二次型证明",
           tier: "高阶攻坚 · 压轴综合",
           targetDuration: "60 MIN",
           confidence: "92%",
-          formula: "f(x,y) = f(x₀,y₀) + df + \\frac{1}{2!}d^2f + R_n, \\quad \\mathbf{H} \\succ 0 \\Rightarrow \\text{极小值}",
+          formula: "f(x,y) = f(x_0,y_0) + df + \\frac{1}{2!}d^2f + R_n, \\quad \\mathbf{H} \\succ 0 \\Rightarrow \\text{Min}",
           active: true,
         },
         {
@@ -152,7 +201,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           tier: "数据结构 · 算法核心",
           targetDuration: "60 MIN",
           confidence: "88%",
-          formula: "RB-Insert-Fixup(T, z): Case 1/2/3 变色与左/右旋平衡",
+          formula: "RB-Insert-Fixup(T, z): Case 1/2/3 Recolor and Rotations",
           active: false,
         },
         {
@@ -160,14 +209,28 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           name: "考研英语",
           enName: "ENGLISH ACADEMIC",
           code: "ENG-01",
-          topic: "外刊学术社论超长难句多层嵌套主干抽离",
+          topic: "学术社论超长难句多层嵌套从句主干剖析与修辞解构",
           tier: "英语精读 · 深度剖析",
           targetDuration: "45 MIN",
           confidence: "90%",
-          formula: "Clause(Matrix) ⊕ Relative[that/which] ⇒ Core Proposition",
+          formula: "Clause(Matrix) \\oplus Relative[that/which] \\Rightarrow Core Proposition",
           active: false,
         },
       ],
+      flashcard: {
+        id: "fc-m1-mastery",
+        discipline: "Higher Mathematics",
+        code: "MATH-2024-T17",
+        frontTitle: "目标锁定检测 · 高阶极值分析",
+        frontQuestion: "在多元函数极值判定中，若二阶导数 Hessian 矩阵行列式为 0，如何通过构造高阶微分路径反例证明鞍点？",
+        frontPrompt: "考虑沿抛物线方向展开更高阶 Taylor 项",
+        backTitle: "核心证明解析 · PROOF RIGOR",
+        backProof: "沿 y = kx^2 抛物线方向展开 Taylor 多项式，代入检验符号变动，证得原点去心邻域内无确定符号，故为鞍点。",
+        formula: "\\mathbf{H} f(x_0, y_0) = \\begin{bmatrix} f_{xx} & f_{xy} \\\\ f_{yx} & f_{yy} \\end{bmatrix}, \\quad \\det(\\mathbf{H}) = 0",
+        masteryRating: "GRADE S",
+        estimatedSeconds: 180,
+        accuracyDelta: "+24%",
+      },
     },
     remedialTrack: {
       trackName: "暴露断层 · 补救路线",
@@ -196,7 +259,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           tier: "概念突破 · 基础骨架",
           targetDuration: "35 MIN",
           confidence: "68%",
-          formula: "∀ε > 0, ∃δ = min{1, ε / (2|x₀| + 1)}, s.t. 0 < |x-x₀| < δ ⇒ |f(x)-L| < ε",
+          formula: "\\forall \\varepsilon > 0, \\exists \\delta = \\min\\{1, \\varepsilon / (2|x_0| + 1)\\}, \\text{s.t. } 0 < |x-x_0| < \\delta \\Rightarrow |f(x)-L| < \\varepsilon",
           active: true,
         },
         {
@@ -204,11 +267,11 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           name: "408 计算机学科",
           enName: "CS 408 COMPREHENSIVE",
           code: "CS-408",
-          topic: "二叉树非递归遍历栈模拟与线索化前驱判定",
+          topic: "二叉树非递归遍历与中序线索化前驱/后继判定",
           tier: "数据结构 · 断层攻坚",
           targetDuration: "40 MIN",
           confidence: "65%",
-          formula: "Thread(P) = {left: ltag==1 ? pred : lchild, right: rtag==1 ? succ : rchild}",
+          formula: "Thread(P) = \\{left: ltag==1 ? pred : lchild, right: rtag==1 ? succ : rchild\\}",
           active: false,
         },
         {
@@ -220,10 +283,24 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           tier: "语法断层 · 结构精修",
           targetDuration: "30 MIN",
           confidence: "70%",
-          formula: "Noun + [that ... 完整] ⇒ 同位语; [that ... 缺成分] ⇒ 定语",
+          formula: "Noun + [that ... 完整] \\Rightarrow 同位语; [that ... 缺成分] \\Rightarrow 定语",
           active: false,
         },
       ],
+      flashcard: {
+        id: "fc-m1-remedial",
+        discipline: "Higher Mathematics",
+        code: "MATH-BASE-01",
+        frontTitle: "概念诊断检测 · 极限定义",
+        frontQuestion: "在 ε-δ 极限证明中，为什么 δ 的选择必须先通过 min{1, ...} 限制去心邻域边界？",
+        frontPrompt: "注意分析待消因式在邻域内的有界性条件",
+        backTitle: "核心证明解析 · PROOF RIGOR",
+        backProof: "因待消因式 |x + x_0| 随 x 变动，必须先预设 δ_1 = 1 使得 |x + x_0| < 2|x_0| + 1 有确定上界，方可解出 δ_2 = ε / (2|x_0| + 1)。",
+        formula: "\\delta = \\min\\left\\{1, \\frac{\\varepsilon}{2|x_0| + 1}\\right\\}",
+        masteryRating: "GRADE A",
+        estimatedSeconds: 120,
+        accuracyDelta: "+32%",
+      },
     },
     telemetry: {
       subjects: [
@@ -236,7 +313,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           tier: "核心考点 · 基础骨架",
           targetDuration: "45 MIN",
           confidence: "88%",
-          formula: "∀ε > 0, ∃δ > 0, s.t. 0 < |x-x₀| < δ ⇒ |f(x)-L| < ε",
+          formula: "\\forall \\varepsilon > 0, \\exists \\delta > 0, \\text{s.t. } 0 < |x-x_0| < \\delta \\Rightarrow |f(x)-L| < \\varepsilon",
           active: true,
         },
         {
@@ -248,7 +325,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           tier: "数据结构 · 核心算法",
           targetDuration: "60 MIN",
           confidence: "74%",
-          formula: "Thread(P) = {left: ltag==1 ? pred : lchild, right: rtag==1 ? succ : rchild}",
+          formula: "Thread(P) = \\{left: ltag==1 ? pred : lchild, right: rtag==1 ? succ : rchild\\}",
           active: false,
         },
         {
@@ -260,7 +337,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
           tier: "英语精读 · 深度剖析",
           targetDuration: "30 MIN",
           confidence: "82%",
-          formula: "Clause(Sub + Pred) ⊕ Relative[that/which] ⇒ Core Meaning",
+          formula: "Clause(Sub + Pred) \\oplus Relative[that/which] \\Rightarrow Core Meaning",
           active: false,
         },
       ] as SubjectTelemetry[],
@@ -312,8 +389,22 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       artifactStatus: "SYNCED_ACTIVE",
       retentionScore: { before: 88, after: 96, grade: "GRADE S" },
       reconciliationStatus: "单任务会话受控保护中",
-      advice: "连续沉浸 42 分钟，当前解题节奏极佳，建议一气呵成完成压轴证明推导。",
+      advice: "连续沉浸 42 分钟，当前解题节奏极佳，建议一气呵成完成泰勒余项严格推导。",
       nextStep: "把完整心流时间送入学习收口",
+      flashcard: {
+        id: "fc-m2-mastery",
+        discipline: "Higher Mathematics",
+        code: "MATH-TAYLOR-PROVE",
+        frontTitle: "心流推导检测 · 泰勒余项",
+        frontQuestion: "推导拉格朗日余项 R_n(x) 时，所构造柯西中值定理辅助函数 F(t) 的一阶导数形式是什么？",
+        frontPrompt: "注意对 t 求导时乘积法则产生的正负项相消",
+        backTitle: "核心证明解析 · PROOF RIGOR",
+        backProof: "F'(t) = -\\frac{f^{(n+1)}(t)}{n!}(x-t)^n。中间项 \\frac{f^{(k)}(t)}{(k-1)!}(x-t)^{k-1} 与 -\\frac{f^{(k)}(t)}{(k-1)!}(x-t)^{k-1} 逐项抵消，仅余最高阶项。",
+        formula: "F(t) = f(x) - \\sum_{k=0}^n \\frac{f^{(k)}(t)}{k!}(x-t)^k, \\quad F'(t) = -\\frac{f^{(n+1)}(t)}{n!}(x-t)^n",
+        masteryRating: "GRADE S",
+        estimatedSeconds: 150,
+        accuracyDelta: "+26%",
+      },
     },
     remedialTrack: {
       trackName: "暴露断层 · 补救路线",
@@ -332,12 +423,26 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "分段检查点正常运行",
       advice: "遇到推导卡点可点击「标记断层」，无需中断计时，收口时统一归档排期。",
       nextStep: "把断层攻坚记录送入学习收口",
+      flashcard: {
+        id: "fc-m2-remedial",
+        discipline: "CS 408 Comprehensive",
+        code: "CS408-DS-TREE",
+        frontTitle: "分段诊断检测 · 线索二叉树",
+        frontQuestion: "在中序线索二叉树中，当节点 p 的 rtag == 0 时，其直接后继节点如何确定？",
+        frontPrompt: "rtag == 0 表示有真实右孩子",
+        backTitle: "核心证明解析 · PROOF RIGOR",
+        backProof: "以 p->right 为根节点，沿其左指针链一路向下寻找 ltag == 1 的最左下子节点，该节点即为 p 的中序直接后继。",
+        formula: "q = p\\to\\text{right}; \\quad \\text{while}(q\\to\\text{ltag} == 0) \\; q = q\\to\\text{left};",
+        masteryRating: "GRADE A",
+        estimatedSeconds: 90,
+        accuracyDelta: "+28%",
+      },
     },
     telemetry: {
       timerString: "42:18",
       subSeconds: "84",
       progressRatio: 0.705,
-      frequencyOctaves: 28,
+      frequencyOctaves: 32,
       entropyIndex: "0.02 (STABLE)",
       sessionMode: "LOCAL_FIRST_SYNCED",
     },
@@ -390,14 +495,14 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "已归入高阶母题库",
       advice: "解题逻辑严谨，母题模型已提取，建议进入盲测冲顶验证巩固掌握。",
       nextStep: "用高阶凭据进入盲测验证",
+      streams: [
+        { name: "净投入时长", value: "60 min 满额投入", color: "#2dd4bf", rgb: "45, 212, 191", status: "VERIFIED" },
+        { name: "核心产出", value: "3 道压轴大题证明", color: "#34d399", rgb: "52, 211, 153", status: "COMMITTED" },
+        { name: "图谱升级", value: "级数与多元微分升至 Grade S", color: "#60a5fa", rgb: "96, 165, 250", status: "SEALED" },
+      ],
       telemetry: {
         serialNumber: "AF-EVID-ADV-8921",
-        hashDigest: "SHA-256: 8f9b4c2e...7d12a9c3",
-        streams: [
-          { name: "净投入时长", value: "60 min 满额投入", color: "#2dd4bf", rgb: "45, 212, 191", status: "VERIFIED" },
-          { name: "核心产出", value: "3 道压轴大题证明", color: "#34d399", rgb: "52, 211, 153", status: "COMMITTED" },
-          { name: "图谱升级", value: "级数审敛升至 Grade S", color: "#60a5fa", rgb: "96, 165, 250", status: "SEALED" },
-        ],
+        hashDigest: "SHA-256: 8f9b4c2e5a1b3d6e7f8a9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
       },
     },
     remedialTrack: {
@@ -417,14 +522,14 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "定向排入专项复测池",
       advice: "去心邻域边界不等式放大卡点已提取，立即生成阶梯复测诊断卡。",
       nextStep: "用断层凭据安排专项复测",
+      streams: [
+        { name: "净投入时长", value: "35 min 净投入", color: "#2dd4bf", rgb: "45, 212, 191", status: "VERIFIED" },
+        { name: "暴露断层", value: "2 处反常积分审敛卡点", color: "#fbbf24", rgb: "251, 191, 36", status: "ROUTED" },
+        { name: "归因标记", value: "忽略端点奇点性质", color: "#f87171", rgb: "248, 113, 113", status: "QUEUED" },
+      ],
       telemetry: {
         serialNumber: "AF-EVID-GAP-4102",
-        hashDigest: "SHA-256: 3a7c1f8d...9e42b651",
-        streams: [
-          { name: "净投入时长", value: "35 min 净投入", color: "#2dd4bf", rgb: "45, 212, 191", status: "VERIFIED" },
-          { name: "暴露断层", value: "2 处反常积分审敛卡点", color: "#fbbf24", rgb: "251, 191, 36", status: "ROUTED" },
-          { name: "归因标记", value: "忽略端点奇点性质", color: "#f87171", rgb: "248, 113, 113", status: "QUEUED" },
-        ],
+        hashDigest: "SHA-256: 3a7c1f8d4e9b2c5a6f0e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a",
       },
     },
     telemetry: {
@@ -434,7 +539,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
         { name: "有效时长", value: "42 min 净投入", color: "#2dd4bf", rgb: "45, 212, 191", status: "VERIFIED" },
         { name: "解题成果", value: "3 道极限定理证明", color: "#34d399", rgb: "52, 211, 153", status: "COMMITTED" },
         { name: "遗留断层", value: "ε-δ 边界选取不稳定", color: "#fbbf24", rgb: "251, 191, 36", status: "ROUTED" },
-      ],
+      ] as EvidenceStream[],
     },
   },
   {
@@ -447,7 +552,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
     title: "不看笔记，再证明一次",
     subtitle: "艾宾浩斯主动回忆与真实掌握度校准",
     desc: "复测承接刚刚暴露的知识断层或进阶考点，以主动回忆作答校准真实掌握度，而非依赖时长假象。",
-    statusPill: "主动回忆 · 68% → 92%",
+    statusPill: "主动回忆 · 68% -> 94%",
     statusPillType: "verified",
     inputLabel: "承接",
     inputValue: "学习证据",
@@ -465,8 +570,8 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
     icon: BrainCircuit,
     metrics: [
       { label: "基线掌握", value: "68%", unit: "START" },
-      { label: "复测掌握", value: "92%", unit: "+24%" },
-      { label: "置信级别", value: "HIGH", unit: "GRADE A" },
+      { label: "复测掌握", value: "94%", unit: "+26%" },
+      { label: "置信级别", value: "HIGH", unit: "GRADE S" },
     ],
     masteryTrack: {
       trackName: "掌握良好 · 进阶路线",
@@ -485,13 +590,21 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "7 天长效固化节点已激活",
       advice: "综合变式推导完全正确，知识点迁移稳固，免除近期基础复测。",
       nextStep: "把掌握突破并入今日闭环",
+      flashcard: {
+        id: "fc-m4-mastery",
+        discipline: "Higher Mathematics",
+        code: "MATH-2024-T17",
+        frontTitle: "主动回忆检测 · 综合变式",
+        frontQuestion: "在多元函数极值判定中，若 Hessian 矩阵行列式为 0，如何构造高阶微元反例证明鞍点？",
+        frontPrompt: "考虑沿抛物线 y = kx^2 方向展开高阶 Taylor 项",
+        backTitle: "核心证明解析 · PROOF RIGOR",
+        backProof: "沿 y = kx^2 抛物线方向展开 Taylor 多项式，代入检验符号变动，证得原点去心邻域内无极值。",
+        formula: "\\mathbf{H} f(x_0, y_0) = \\begin{bmatrix} f_{xx} & f_{xy} \\\\ f_{yx} & f_{yy} \\end{bmatrix}, \\quad \\det(\\mathbf{H}) = 0",
+        masteryRating: "GRADE S",
+        estimatedSeconds: 180,
+        accuracyDelta: "+11%",
+      },
       telemetry: {
-        retrievalCard: {
-          frontTitle: "主动回忆检测 · 综合变式",
-          frontQuestion: "在多元函数极值判定中，若 Hessian 矩阵行列式为 0，如何构造高阶微元反例证明鞍点？",
-          backTitle: "核心证明解析 · PROOF RIGOR",
-          backProof: "沿 y = kx² 抛物线方向展开 Taylor 多项式，代入检验符号变动，证得原点去心邻域内无极值。",
-        },
         initialMastery: 85,
         targetMastery: 96,
       },
@@ -513,31 +626,33 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "24 小时衰减拐点首轮拦截",
       advice: "边界条件放大不等式已自主推导成功，断层成功闭合，按计划并入今日核销。",
       nextStep: "把补救成果并入今日闭环",
+      flashcard: {
+        id: "fc-m4-remedial",
+        discipline: "Higher Mathematics",
+        code: "MATH-BASE-01",
+        frontTitle: "主动回忆检测 · 概念诊断",
+        frontQuestion: "为什么在 ε-δ 极限定义证明中，δ 的取值不仅取决于 ε，还必须受限于去心邻域边界？",
+        frontPrompt: "分析二次项与一次项交叉相乘时待消公因式的有界性",
+        backTitle: "核心证明解析 · PROOF RIGOR",
+        backProof: "必须限制 |x - x_0| < 1 使待消公因式 |x + x_0| < 2|x_0| + 1 有确定上界，故取 δ = min{1, ε / (2|x_0| + 1)}。",
+        formula: "\\delta = \\min\\left\\{1, \\frac{\\varepsilon}{2|x_0| + 1}\\right\\}",
+        masteryRating: "GRADE A",
+        estimatedSeconds: 120,
+        accuracyDelta: "+30%",
+      },
       telemetry: {
-        retrievalCard: {
-          frontTitle: "主动回忆检测 · 概念诊断",
-          frontQuestion: "为什么在 ε-δ 极限定义证明中，δ 的取值不仅取决于 ε，还必须受限于去心邻域边界？",
-          backTitle: "核心证明解析 · PROOF RIGOR",
-          backProof: "必须限制 |x - x₀| < 1 使待消公因式 |x + x₀| < 2|x₀| + 1 有确定上界，故取 δ = min{1, ε / (2|x₀| + 1)}。",
-        },
         initialMastery: 58,
         targetMastery: 88,
       },
     },
     telemetry: {
-      retrievalCard: {
-        frontTitle: "主动回忆检测 · ACTIVE RECALL",
-        frontQuestion: "为什么在极限定义中，δ 的取值不仅取决于 ε，还必须受限于去心邻域边界？",
-        backTitle: "核心证明解析 · PROOF DECOMPOSITION",
-        backProof: "δ 必须保证函数在邻域内有界，故取 δ = min{1, ε / (2|x₀| + 1)}，以此消除二次项干扰。",
-      },
       ebbinghausNodes: [
         { label: "即时记忆", rate: "100%", offset: "0m" },
         { label: "衰减拐点", rate: "58%", offset: "20m" },
-        { label: "复测激活", rate: "92%", offset: "1d" },
+        { label: "复测激活", rate: "94%", offset: "1d" },
       ],
       initialMastery: 68,
-      targetMastery: 92,
+      targetMastery: 94,
     },
   },
   {
@@ -588,12 +703,12 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "今日无遗留欠账，超前解锁明日级数专题",
       advice: "今日任务与复测全部高标准完成，明日可按计划进入下一阶段攻坚。",
       nextStep: "让日证据快照进入周期趋势",
+      rings: [
+        { id: "duration", label: "投入时长环", progress: 1.04, current: "5.2h", target: "5.0h", color: "#2dd4bf", numericScore: 100 },
+        { id: "gaps", label: "断层闭合环", progress: 1.0, current: "4/4 清零", target: "4 总量", color: "#34d399", numericScore: 100 },
+        { id: "tasks", label: "任务达成环", progress: 1.0, current: "5 达标", target: "5 计划", color: "#60a5fa", numericScore: 100 },
+      ],
       telemetry: {
-        rings: [
-          { id: "duration", label: "投入时长环", progress: 1.04, current: "5.2h", target: "5.0h", color: "#2dd4bf" },
-          { id: "gaps", label: "断层闭合环", progress: 1.0, current: "4/4 清零", target: "4 总量", color: "#34d399" },
-          { id: "tasks", label: "任务达成环", progress: 1.0, current: "5 达标", target: "5 计划", color: "#60a5fa" },
-        ],
         closureStatus: "100% RECONCILED · 零欠账超前闭环",
         residualItems: [{ title: "高等数学级数专题", status: "明日已解锁" }],
       },
@@ -615,22 +730,22 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "未决断层已精准排入明日 08:30 专项复测池",
       advice: "欠账已建立追踪凭据，不焦虑不放弃，明日首要任务优先攻关结转项。",
       nextStep: "让带欠账快照进入周期趋势",
+      rings: [
+        { id: "duration", label: "投入时长环", progress: 0.84, current: "4.2h", target: "5.0h", color: "#2dd4bf", numericScore: 84 },
+        { id: "gaps", label: "断层闭合环", progress: 0.75, current: "3 闭合", target: "4 总量", color: "#fbbf24", numericScore: 75 },
+        { id: "tasks", label: "任务达成环", progress: 0.8, current: "4 达成", target: "5 计划", color: "#34d399", numericScore: 80 },
+      ],
       telemetry: {
-        rings: [
-          { id: "duration", label: "投入时长环", progress: 0.84, current: "4.2h", target: "5.0h", color: "#2dd4bf" },
-          { id: "gaps", label: "断层闭合环", progress: 0.75, current: "3 闭合", target: "4 总量", color: "#fbbf24" },
-          { id: "tasks", label: "任务达成环", progress: 0.8, current: "4 达成", target: "5 计划", color: "#34d399" },
-        ],
         closureStatus: "RECONCILED · 债务受控已结转",
         residualItems: [{ title: "泰勒展开余项证明", status: "排入明日 08:30" }],
       },
     },
     telemetry: {
       rings: [
-        { id: "duration", label: "投入时长环", progress: 0.84, current: "4.2h", target: "5.0h", color: "#2dd4bf" },
-        { id: "gaps", label: "断层闭合环", progress: 0.75, current: "3 闭合", target: "4 总量", color: "#fbbf24" },
-        { id: "tasks", label: "任务达成环", progress: 1.0, current: "5 达标", target: "5 计划", color: "#34d399" },
-      ],
+        { id: "duration", label: "投入时长环", progress: 0.84, current: "4.2h", target: "5.0h", color: "#2dd4bf", numericScore: 84 },
+        { id: "gaps", label: "断层闭合环", progress: 0.75, current: "3 闭合", target: "4 总量", color: "#fbbf24", numericScore: 75 },
+        { id: "tasks", label: "任务达成环", progress: 1.0, current: "5 达标", target: "5 计划", color: "#34d399", numericScore: 100 },
+      ] as RingMetric[],
       closureStatus: "TODAY RECONCILED · 今日闭环已锁存",
       residualItems: [{ title: "泰勒展开余项证明", status: "已排入明日复测池" }],
     },
@@ -670,7 +785,7 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       trackName: "掌握良好 · 进阶路线",
       badge: "优势扩展",
       leadTitle: "优势扩展 · 提速冲刺与真题难度升级",
-      subLead: "14 日高等数学掌握度稳步提升 (+23%) · 置信走廊持续收窄",
+      subLead: "14 日高等数学掌握度稳步提升 (+23.4%) · 置信走廊持续收窄",
       focusMode: "攻坚权重调优",
       metrics: [
         { label: "14日趋势", value: "+23.4%", unit: "稳步跃升" },
@@ -683,12 +798,27 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "确认后立即重构下周计划并回流",
       advice: "高数基础模块掌握扎实，建议将 40% 时间倾斜至「真题综合压轴题组」，加速冲顶。",
       nextStep: "确认后回到 STEP 01 开始新一轮攻坚",
+      splines: [
+        {
+          subject: "高等数学",
+          color: "#60a5fa",
+          delta: "+23.4%",
+          points: [45, 48, 52, 58, 63, 67, 72, 75, 80, 83, 86, 89, 92, 96],
+        },
+        {
+          subject: "408 计算机",
+          color: "#2dd4bf",
+          delta: "+18.2%",
+          points: [50, 52, 56, 60, 62, 66, 70, 73, 76, 80, 82, 85, 88, 92],
+        },
+        {
+          subject: "考研英语",
+          color: "#c084fc",
+          delta: "+15.0%",
+          points: [58, 60, 62, 65, 68, 70, 73, 76, 78, 81, 84, 86, 89, 93],
+        },
+      ],
       telemetry: {
-        splines: [
-          { subject: "高等数学", color: "#60a5fa", delta: "+23.4%", points: [45, 52, 65, 72, 80, 86, 94] },
-          { subject: "408 计算机", color: "#2dd4bf", delta: "+15.2%", points: [50, 58, 62, 70, 78, 82, 88] },
-          { subject: "考研英语", color: "#c084fc", delta: "+11.5%", points: [60, 64, 68, 72, 76, 80, 86] },
-        ],
         currentProposal: "建议在下一周期将「真题综合大题与反常积分证明」权重提升至 40%，实现高分冲顶。",
         loopbackTarget: "STEP 01: 开始学习 · 锁定新一轮攻坚目标",
       },
@@ -710,22 +840,52 @@ export const LEARNING_LOOP_NODES: readonly LearningLoopNode[] = [
       reconciliationStatus: "确认后自动生成补强专题包并回流",
       advice: "检测到反常积分审敛存在复测反复，建议下阶段增加 35% 专项复测权重，插入 3 天补强冲刺。",
       nextStep: "确认后回到 STEP 01 开始靶向补强",
+      splines: [
+        {
+          subject: "高等数学",
+          color: "#60a5fa",
+          delta: "+12.5%",
+          points: [35, 36, 38, 40, 42, 45, 48, 50, 52, 55, 57, 60, 63, 68],
+        },
+        {
+          subject: "408 计算机",
+          color: "#2dd4bf",
+          delta: "+14.0%",
+          points: [40, 42, 43, 46, 48, 50, 53, 56, 59, 62, 65, 68, 71, 75],
+        },
+        {
+          subject: "考研英语",
+          color: "#c084fc",
+          delta: "+11.2%",
+          points: [48, 50, 51, 53, 55, 58, 60, 62, 65, 67, 70, 72, 75, 78],
+        },
+      ],
       telemetry: {
-        splines: [
-          { subject: "高等数学", color: "#60a5fa", delta: "+8.2%", points: [35, 38, 42, 45, 52, 55, 60] },
-          { subject: "408 计算机", color: "#2dd4bf", delta: "+10.1%", points: [40, 45, 48, 55, 60, 65, 72] },
-          { subject: "考研英语", color: "#c084fc", delta: "+7.4%", points: [50, 52, 55, 58, 62, 64, 68] },
-        ],
         currentProposal: "检测到「反常积分与极限存在性」存在周期性反复断层，建议下阶段增加 35% 专项复测权重。",
         loopbackTarget: "STEP 01: 开始学习 · 启动专项补强专题",
       },
     },
     telemetry: {
       splines: [
-        { subject: "高等数学", color: "#60a5fa", delta: "+16.4%", points: [35, 42, 58, 62, 70, 78, 88] },
-        { subject: "408 计算机", color: "#2dd4bf", delta: "+12.1%", points: [40, 48, 52, 60, 68, 72, 80] },
-        { subject: "考研英语", color: "#c084fc", delta: "+9.8%", points: [55, 58, 64, 66, 72, 75, 82] },
-      ],
+        {
+          subject: "高等数学",
+          color: "#60a5fa",
+          delta: "+16.4%",
+          points: [35, 42, 58, 62, 70, 78, 88, 89, 90, 91, 92, 93, 94, 95],
+        },
+        {
+          subject: "408 计算机",
+          color: "#2dd4bf",
+          delta: "+12.1%",
+          points: [40, 48, 52, 60, 68, 72, 80, 81, 82, 83, 84, 85, 86, 88],
+        },
+        {
+          subject: "考研英语",
+          color: "#c084fc",
+          delta: "+9.8%",
+          points: [55, 58, 64, 66, 72, 75, 82, 83, 84, 85, 86, 87, 88, 90],
+        },
+      ] as SplineData[],
       currentProposal: "建议在下一周期将「极限定理与连续性」的复测权重提升至 35%，保持稳态攻坚。",
       loopbackTarget: "STEP 01: 开始学习 · 锁定新一轮目标",
     },

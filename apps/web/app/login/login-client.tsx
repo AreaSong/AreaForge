@@ -62,33 +62,20 @@ export function LoginClient({ returnTo }: { returnTo: string }) {
           </div>
         </header>
 
-        {/* Panoramic Full-Height Main Grid */}
+        {/* 1. Top Section: Showcase Stage (Left) & Frosted Glass Login Center Console (Right) */}
         <div className="my-1 sm:my-2 flex-1 grid w-full items-stretch gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_440px] lg:gap-6 xl:gap-8 min-h-0">
-          {/* Main Hero Animation Stage (Allocation >= 75%) */}
-          <div className="order-2 flex h-full min-w-0 flex-col justify-between gap-3 sm:gap-4 lg:order-1">
-            <div className="flex-1 flex flex-col min-h-0">
-              <ShowcaseStage
-                activeNode={activeNode}
-                activeStageIndex={activeStageIndex}
-                globalProgress={globalProgress}
-                localProgress={localProgress}
-                paused={isPaused}
-              />
-            </div>
-
-            <JourneyTimeline
-              activeNodeIndex={activeStageIndex}
+          {/* Main Hero Animation Stage (Left) */}
+          <div className="order-2 flex h-full min-w-0 flex-col min-h-0 lg:order-1">
+            <ShowcaseStage
+              activeNode={activeNode}
+              activeStageIndex={activeStageIndex}
               globalProgress={globalProgress}
-              isPlaying={isPlaying}
-              onAutoPlayChange={togglePlay}
-              onNodeSelect={(idx) => seekToStage(idx, true)}
-              onProgressScrub={(p) => seekToProgress(p)}
+              localProgress={localProgress}
               paused={isPaused}
-              reducedMotion={reducedMotion}
             />
           </div>
 
-          {/* Frosted Glass Login Center Console (Allocation <= 25%) */}
+          {/* Frosted Glass Login Center Console (Right) */}
           <aside
             aria-label="登录 AreaForge"
             className="order-1 flex items-center justify-center mx-auto w-full max-w-[420px] lg:order-2"
@@ -104,6 +91,20 @@ export function LoginClient({ returnTo }: { returnTo: string }) {
               <LoginForm returnTo={returnTo} />
             </div>
           </aside>
+        </div>
+
+        {/* 2. Full-Width Bottom Section: Continuous 6-Stage Journey Timeline */}
+        <div className="w-full mt-2 sm:mt-3">
+          <JourneyTimeline
+            activeNodeIndex={activeStageIndex}
+            globalProgress={globalProgress}
+            isPlaying={isPlaying}
+            onAutoPlayChange={togglePlay}
+            onNodeSelect={(idx) => seekToStage(idx, true)}
+            onProgressScrub={(p) => seekToProgress(p)}
+            paused={isPaused}
+            reducedMotion={reducedMotion}
+          />
         </div>
 
         {/* Footer info */}

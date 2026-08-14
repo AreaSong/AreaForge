@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import React, { useRef } from "react";
-import { Check, Sparkles } from "lucide-react";
+import { Check, RotateCcw, Sparkles } from "lucide-react";
 import { LEARNING_LOOP_NODES } from "../constants/learning-loop";
 
 interface JourneyTimelineProps {
@@ -40,7 +40,7 @@ export function JourneyTimeline({
   return (
     <nav
       aria-label="学习闭环连续时间轴"
-      className="relative mt-5 rounded-xl border border-white/[0.08] bg-[#18191c]/80 p-4 backdrop-blur-md transition-all sm:p-5 shadow-lg"
+      className="relative rounded-xl border border-white/[0.08] bg-[#18191c]/80 p-4 backdrop-blur-md transition-all sm:p-5 shadow-lg"
     >
       {/* Top Status & Controls Row */}
       <div className="mb-4 flex items-center justify-between gap-4">
@@ -157,7 +157,7 @@ export function JourneyTimeline({
         </span>
         <div className="flex items-center gap-1.5 text-zinc-400">
           <span>STEP 06 阶段调整</span>
-          <span>↺</span>
+          <RotateCcw className="size-3 text-zinc-400" />
           <span className="text-blue-400">STEP 01 开始学习</span>
         </div>
       </div>
