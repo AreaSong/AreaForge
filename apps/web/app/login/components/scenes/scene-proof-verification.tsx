@@ -37,7 +37,6 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
   const isMastery = currentTrack === "mastery";
   const idPrefix = useId();
 
-  // Kinematic calculations
   const cardRotateY = motionReduced ? 180 : interpolateCardRotateY(p, 0, 180, 0.25, 0.7);
   const isCardFlipped = cardRotateY >= 90;
 
@@ -50,7 +49,6 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
 
   const latencySecs = interpolateCounterValue(p, 3.42, 0.0, 0.1, 0.55).toFixed(2);
   const stamp = getStampTransform(p, 0.65, 0.85);
-
   const waveOffset = interpolateStrokeDashoffset(p, 400, 0.05, 0.6);
 
   return (
@@ -60,7 +58,7 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
       data-track={currentTrack}
       data-testid="scene-proof-verification"
     >
-      {/* Ambient Background Grid & Noise Watermark */}
+      {/* Background Watermark & Atmosphere */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-20 -top-20 size-80 rounded-full bg-sky-600/10 blur-[90px]" />
         <div className="absolute -right-20 -bottom-20 size-80 rounded-full bg-indigo-600/10 blur-[90px]" />
@@ -69,9 +67,9 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
         </div>
       </div>
 
-      {/* Main 3-Wing Panoramic Horizon */}
+      {/* Main 3-Wing Horizon */}
       <div className="relative z-10 grid flex-1 grid-cols-1 items-stretch gap-3 sm:gap-4 lg:grid-cols-[28%_44%_28%] min-h-0">
-        {/* WING 1: LEFT CONTEXT WING (28%) - Ebbinghaus Decay & Interval Nodes */}
+        {/* WING 1: LEFT CONTEXT WING (28%) - Ebbinghaus Decay & Retention */}
         <section
           aria-label="艾宾浩斯记忆衰减与复测拦截模型"
           className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0c141c]/80 p-3.5 sm:p-4 shadow-lg backdrop-blur-md"
@@ -91,7 +89,7 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
               主动回忆检测 · 拦截自然遗忘拐点
             </div>
 
-            {/* SVG Ebbinghaus Retention Curve */}
+            {/* SVG Ebbinghaus Curve */}
             <div className="my-3 relative h-20 w-full rounded-lg border border-sky-500/20 bg-black/40 p-1.5 overflow-hidden">
               <svg className="h-full w-full" viewBox="0 0 200 60">
                 <defs>
@@ -101,9 +99,7 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
                     <stop offset="100%" stopColor="#34d399" />
                   </linearGradient>
                 </defs>
-                {/* Baseline grid line */}
                 <line x1="0" y1="45" x2="200" y2="45" stroke="rgba(255,255,255,0.08)" strokeDasharray="3,3" />
-                {/* Decay and recovery path */}
                 <path
                   d="M 5 10 Q 50 48 90 45 T 150 15 T 195 12"
                   stroke={`url(#${idPrefix}-waveGrad)`}
@@ -113,7 +109,6 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
                   strokeDashoffset={motionReduced ? 0 : waveOffset}
                   className="transition-all duration-150"
                 />
-                {/* Node dots */}
                 <circle cx="5" cy="10" r="3" fill="#38bdf8" />
                 <circle cx="90" cy="45" r="3" fill="#f59e0b" />
                 <circle cx="150" cy="15" r="3.5" fill="#34d399" />
@@ -123,7 +118,6 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
               <div className="absolute top-1 right-2 font-mono text-[8px] text-emerald-400">复测激活 94%</div>
             </div>
 
-            {/* Intervals Breakdown */}
             <div className="space-y-1.5 font-mono text-[10px]">
               <div className="flex items-center justify-between rounded bg-white/[0.02] px-2 py-1 text-zinc-300">
                 <span className="text-zinc-400">20 分钟衰减拐点</span>
@@ -155,7 +149,6 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
           className="relative flex flex-col items-center justify-between rounded-xl border border-sky-500/20 bg-[#09131d]/90 p-4 shadow-inner min-h-[280px] overflow-hidden"
           style={{ perspective: "1000px" }}
         >
-          {/* Background Subtle HUD Grid */}
           <div className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:20px_20px] opacity-10 pointer-events-none" />
 
           {/* 3D Perspective Card Container */}
@@ -259,7 +252,7 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
           </div>
         </section>
 
-        {/* WING 3: RIGHT METRICS WING (28%) - Quantum Mastery Leap & Stamp */}
+        {/* WING 3: RIGHT METRICS WING (28%) - Quantum Mastery Leap */}
         <section
           aria-label="掌握度量子跃升与固化印章"
           className="relative flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0c141c]/80 p-3.5 sm:p-4 shadow-lg backdrop-blur-md overflow-hidden"
@@ -273,7 +266,6 @@ export const SceneProofVerification: React.FC<StageSceneProps> = ({
               <span className="text-[10px] text-zinc-400">LEAP</span>
             </div>
 
-            {/* Big Quantum Leap Display */}
             <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-950/25 p-3">
               <div className="flex items-center justify-between font-mono text-[10px] text-zinc-400">
                 <span>前序基线 → 复测核准</span>

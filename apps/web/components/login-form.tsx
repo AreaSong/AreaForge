@@ -3,6 +3,7 @@
 import React, { FormEvent, useState } from "react";
 import {
   ArrowRight,
+  Check,
   Eye,
   EyeOff,
   Github,
@@ -18,7 +19,12 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export function LoginForm({ returnTo = "/today" }: { returnTo?: string }) {
+export interface LoginFormProps {
+  returnTo?: string;
+  className?: string;
+}
+
+export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -120,7 +126,7 @@ export function LoginForm({ returnTo = "/today" }: { returnTo?: string }) {
       onMouseMove={handleMouseMove}
       className={`group/card relative w-full max-w-[400px] mx-auto select-none rounded-2xl border border-white/[0.08] bg-[#18191c]/90 p-6 sm:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.65)] backdrop-blur-2xl transition-all duration-300 ${
         shakeError ? "af-shake-error ring-2 ring-red-500/50" : ""
-      }`}
+      } ${className}`.trim()}
     >
       {/* Mouse Spotlight Layer */}
       <div
@@ -156,8 +162,15 @@ export function LoginForm({ returnTo = "/today" }: { returnTo?: string }) {
             <Sparkles className="size-3.5 text-teal-400" />
             一键填入演示账号 (Demo)
           </span>
-          <span className="font-mono text-[10px] text-teal-400 font-bold">
-            {autofillSuccess ? "✓ 已就绪" : "admin@local"}
+          <span className="font-mono text-[10px] text-teal-400 font-bold inline-flex items-center">
+            {autofillSuccess ? (
+              <>
+                <Check className="size-3.5 inline mr-1 text-emerald-400" />
+                <span>已就绪</span>
+              </>
+            ) : (
+              "admin@local"
+            )}
           </span>
         </button>
       </div>

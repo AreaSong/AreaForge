@@ -42,7 +42,6 @@ export interface StageSceneProps {
 interface ConstellationNode {
   id: string;
   name: string;
-  enName: string;
   category: string;
   x: number;
   y: number;
@@ -52,25 +51,25 @@ interface ConstellationNode {
 
 const CONSTELLATION_DATA: Record<string, ConstellationNode[]> = {
   math: [
-    { id: "k1", name: "ε-δ 极限定义", enName: "Epsilon-Delta", category: "基础理论", x: 22, y: 28, weight: "15%" },
-    { id: "k2", name: "泰勒中值定理", enName: "Taylor Theorem", category: "核心攻坚", x: 74, y: 26, weight: "28%", isTarget: true },
-    { id: "k3", name: "柯西中值定理", enName: "Cauchy MVT", category: "辅助构造", x: 80, y: 72, weight: "18%" },
-    { id: "k4", name: "二重积分极坐标", enName: "Polar Integral", category: "对称代换", x: 20, y: 74, weight: "20%" },
-    { id: "k5", name: "齐次微分方程", enName: "Homogeneous ODE", category: "特征根系", x: 48, y: 16, weight: "19%" },
+    { id: "k1", name: "ε-δ 极限定义", category: "基础理论", x: 22, y: 28, weight: "15%" },
+    { id: "k2", name: "泰勒中值定理", category: "核心攻坚", x: 74, y: 26, weight: "28%", isTarget: true },
+    { id: "k3", name: "柯西中值定理", category: "辅助构造", x: 80, y: 72, weight: "18%" },
+    { id: "k4", name: "二重积分极坐标", category: "对称代换", x: 20, y: 74, weight: "20%" },
+    { id: "k5", name: "齐次微分方程", category: "特征根系", x: 48, y: 16, weight: "19%" },
   ],
   cs408: [
-    { id: "k1", name: "红黑树不变式", enName: "Red-Black Tree", category: "核心算法", x: 74, y: 26, weight: "28%", isTarget: true },
-    { id: "k2", name: "线索二叉树", enName: "Threaded Tree", category: "数据结构", x: 22, y: 28, weight: "20%" },
-    { id: "k3", name: "虚拟内存页表", enName: "Page Table", category: "操作系统", x: 80, y: 72, weight: "18%" },
-    { id: "k4", name: "TCP 拥塞控制", enName: "Congestion Ctrl", category: "网络协议", x: 20, y: 74, weight: "19%" },
-    { id: "k5", name: "拓扑排序关键路径", enName: "Critical Path", category: "图论算法", x: 48, y: 16, weight: "15%" },
+    { id: "k1", name: "红黑树不变式", category: "核心算法", x: 74, y: 26, weight: "28%", isTarget: true },
+    { id: "k2", name: "线索二叉树", category: "数据结构", x: 22, y: 28, weight: "20%" },
+    { id: "k3", name: "虚拟内存页表", category: "操作系统", x: 80, y: 72, weight: "18%" },
+    { id: "k4", name: "TCP 拥塞控制", category: "网络协议", x: 20, y: 74, weight: "19%" },
+    { id: "k5", name: "拓扑排序关键路径", category: "图论算法", x: 48, y: 16, weight: "15%" },
   ],
   english: [
-    { id: "k1", name: "长难句主干剖析", enName: "Matrix Clause", category: "深度精读", x: 74, y: 26, weight: "30%", isTarget: true },
-    { id: "k2", name: "同位语与定语判别", enName: "Appositive Clause", category: "语法结构", x: 22, y: 28, weight: "22%" },
-    { id: "k3", name: "倒装与强调句型", enName: "Inversion Pattern", category: "句法修辞", x: 80, y: 72, weight: "18%" },
-    { id: "k4", name: "熟词生义解构", enName: "Semantic Nuance", category: "词汇突破", x: 20, y: 74, weight: "15%" },
-    { id: "k5", name: "篇章代词指代", enName: "Discourse Cohesion", category: "逻辑推断", x: 48, y: 16, weight: "15%" },
+    { id: "k1", name: "长难句主干剖析", category: "深度精读", x: 74, y: 26, weight: "30%", isTarget: true },
+    { id: "k2", name: "同位语与定语判别", category: "语法结构", x: 22, y: 28, weight: "22%" },
+    { id: "k3", name: "倒装与强调句型", category: "句法修辞", x: 80, y: 72, weight: "18%" },
+    { id: "k4", name: "熟词生义解构", category: "词汇突破", x: 20, y: 74, weight: "15%" },
+    { id: "k5", name: "篇章代词指代", category: "逻辑推断", x: 48, y: 16, weight: "15%" },
   ],
 };
 
@@ -129,7 +128,6 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
   const p = isMotionReduced ? 1.0 : clamp(localProgress, 0, 1);
   const maskId = useId();
 
-  // Dual track telemetry source
   const trackData = currentTrack === "remedial" ? node.remedialTrack : node.masteryTrack;
   const subjects: SubjectTelemetry[] =
     trackData?.subjects && trackData.subjects.length > 0
@@ -145,13 +143,11 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
   const targetNode =
     constellationNodes.find((n) => n.isTarget) || constellationNodes[1];
 
-  // Kinematic calculations
   const loadIndex = interpolateCounterValue(p, 0.78, 0.0, 0.15, 0.65).toFixed(2);
   const intensityVal = Math.round(interpolateCounterValue(p, 95, 40, 0.1, 0.6));
   const activeNodeCount = Math.round(interpolateCounterValue(p, 5, 1, 0.05, 0.45));
   const stamp = getStampTransform(p, 0.65, 0.85);
 
-  // Reticle scale and lock
   const reticleProgress = segmentProgress(p, 0.15, 0.55);
   const reticleScale = isMotionReduced ? 1.0 : lerp(1.6, 1.0, easeOutBack(reticleProgress, 1.2));
   const isLocked = p >= 0.55 || isMotionReduced;
@@ -169,7 +165,7 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
       data-track={currentTrack}
       data-testid="scene-target-intent"
     >
-      {/* Ambient Background Grid & Noise Watermark */}
+      {/* Background Watermark & Atmosphere */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-20 -top-20 size-80 rounded-full bg-blue-600/10 blur-[90px]" />
         <div className="absolute -right-20 -bottom-20 size-80 rounded-full bg-indigo-600/10 blur-[90px]" />
@@ -178,7 +174,7 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
         </div>
       </div>
 
-      {/* Main 3-Wing Panoramic Horizon */}
+      {/* Main 3-Wing Horizon */}
       <div className="relative z-10 grid flex-1 grid-cols-1 items-stretch gap-3 sm:gap-4 lg:grid-cols-[28%_44%_28%] min-h-0">
         {/* WING 1: LEFT CONTEXT WING (28%) */}
         <section
@@ -199,7 +195,7 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
                     key={tab.id}
                     type="button"
                     onClick={() => handleSubjectClick(tab.id)}
-                    className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 font-mono text-[11px] font-bold transition-all ${
+                    className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 font-mono text-[11px] font-bold transition-all cursor-pointer ${
                       isSelected
                         ? "border border-blue-400/40 bg-blue-500/20 text-blue-200 shadow-[0_0_12px_rgba(59,130,246,0.3)]"
                         : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
@@ -380,7 +376,7 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
               </span>
             </div>
 
-            <div className="mt-3 space-y-3">
+            <div className="mt-3 space-y-2.5">
               <div className="rounded-lg border border-white/[0.05] bg-black/30 p-2.5">
                 <div className="flex items-center justify-between font-mono text-[11px] text-zinc-400">
                   <span>认知负荷指数</span>
@@ -411,7 +407,7 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
           </div>
 
           {/* Holographic Metal Stamp [TARGET_LOCKED] */}
-          <div className="relative my-2 flex items-center justify-center py-2 min-h-[56px]">
+          <div className="relative my-2 flex items-center justify-center py-1 min-h-[56px]">
             <div
               className="flex items-center gap-2 rounded-lg border-2 border-blue-400/90 bg-gradient-to-br from-blue-950/90 via-[#0e172a] to-blue-900/90 px-3.5 py-2 shadow-[0_0_25px_rgba(59,130,246,0.6)] backdrop-blur-md will-change-transform"
               style={{

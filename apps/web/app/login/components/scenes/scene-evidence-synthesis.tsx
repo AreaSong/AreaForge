@@ -41,7 +41,6 @@ export const SceneEvidenceSynthesis: React.FC<StageSceneProps> = ({
   const isMastery = currentTrack === "mastery";
   const idPrefix = useId();
 
-  // Kinematic calculations
   const rayProgress = segmentProgress(p, 0.05, 0.55);
   const glintProgress = segmentProgress(p, 0.45, 0.85);
   const hashLength = Math.round(interpolateCounterValue(p, 32, 0, 0.35, 0.75));
@@ -63,7 +62,7 @@ export const SceneEvidenceSynthesis: React.FC<StageSceneProps> = ({
       data-track={currentTrack}
       data-testid="scene-evidence-synthesis"
     >
-      {/* Ambient Background Grid & Noise Watermark */}
+      {/* Background Watermark & Atmosphere */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-20 -top-20 size-80 rounded-full bg-amber-600/10 blur-[90px]" />
         <div className="absolute -right-20 -bottom-20 size-80 rounded-full bg-yellow-600/10 blur-[90px]" />
@@ -72,7 +71,7 @@ export const SceneEvidenceSynthesis: React.FC<StageSceneProps> = ({
         </div>
       </div>
 
-      {/* Main 3-Wing Panoramic Horizon */}
+      {/* Main 3-Wing Horizon */}
       <div className="relative z-10 grid flex-1 grid-cols-1 items-stretch gap-3 sm:gap-4 lg:grid-cols-[28%_44%_28%] min-h-0">
         {/* WING 1: LEFT CONTEXT WING (28%) - Three Inflow Streams */}
         <section
@@ -123,7 +122,7 @@ export const SceneEvidenceSynthesis: React.FC<StageSceneProps> = ({
                 </div>
               </div>
 
-              {/* Stream 3: Gaps /图谱升级 */}
+              {/* Stream 3: Gaps / Knowledge Grade */}
               <div className="rounded-lg border border-purple-500/30 bg-purple-950/20 p-2.5">
                 <div className="flex items-center justify-between font-mono text-[10px] font-bold text-purple-300">
                   <span className="flex items-center gap-1">

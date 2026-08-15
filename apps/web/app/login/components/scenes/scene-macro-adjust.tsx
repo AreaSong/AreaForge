@@ -37,7 +37,6 @@ export const SceneMacroAdjust: React.FC<StageSceneProps> = ({
   const isMastery = currentTrack === "mastery";
   const idPrefix = useId();
 
-  // Kinematic calculations
   const curveProgress = interpolateStrokeDashoffset(p, 450, 0.05, 0.7);
   const mathSurge = interpolateCounterValue(p, isMastery ? 23.4 : 8.2, 0.0, 0.1, 0.65).toFixed(1);
   const csSurge = interpolateCounterValue(p, isMastery ? 15.2 : 10.1, 0.0, 0.15, 0.7).toFixed(1);
@@ -46,7 +45,6 @@ export const SceneMacroAdjust: React.FC<StageSceneProps> = ({
   const indexValue = interpolateCounterValue(p, 92.4, 75.0, 0.2, 0.8).toFixed(1);
   const stamp = getStampTransform(p, 0.65, 0.85);
 
-  // Loopback ray kinematic position
   const ray = getLoopbackRayPosition(
     p,
     { x: 340, y: 15 },
@@ -64,7 +62,7 @@ export const SceneMacroAdjust: React.FC<StageSceneProps> = ({
       data-track={currentTrack}
       data-testid="scene-macro-adjust"
     >
-      {/* Ambient Background Grid & Noise Watermark */}
+      {/* Background Watermark & Atmosphere */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-20 -top-20 size-80 rounded-full bg-purple-600/10 blur-[90px]" />
         <div className="absolute -right-20 -bottom-20 size-80 rounded-full bg-indigo-600/10 blur-[90px]" />
@@ -73,7 +71,7 @@ export const SceneMacroAdjust: React.FC<StageSceneProps> = ({
         </div>
       </div>
 
-      {/* Main 3-Wing Panoramic Horizon */}
+      {/* Main 3-Wing Horizon */}
       <div className="relative z-10 grid flex-1 grid-cols-1 items-stretch gap-3 sm:gap-4 lg:grid-cols-[28%_44%_28%] min-h-0">
         {/* WING 1: LEFT CONTEXT WING (28%) - 14-Day Multi-Subject Corridor */}
         <section
@@ -284,7 +282,7 @@ export const SceneMacroAdjust: React.FC<StageSceneProps> = ({
             </div>
           </div>
 
-          {/* Holographic Stamp: [ADJUST_READY] */}
+          {/* Holographic Stamp: [PROPOSAL_READY] */}
           <div className="relative my-2 flex items-center justify-center py-1 min-h-[56px]">
             <div
               className="flex items-center gap-2 rounded-lg border-2 border-purple-400/90 bg-gradient-to-br from-purple-950/90 via-[#1a0f26] to-indigo-950/90 px-3.5 py-2 shadow-[0_0_25px_rgba(192,132,252,0.6)] backdrop-blur-md will-change-transform"

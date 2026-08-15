@@ -116,8 +116,7 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
   const isMastery = currentTrack === "mastery";
   const steps = isMastery ? TAYLOR_MASTERY_STEPS : CS408_REMEDIAL_STEPS;
 
-  // 1. Digital Timer Formatting (00:00 -> 42:18 / 2538 seconds)
-  const targetSeconds = isMastery ? 2538 : 1125; // 42:18 vs 18:45
+  const targetSeconds = isMastery ? 2538 : 1125;
   const currentTotalSeconds = Math.floor(
     interpolateCounterValue(p, targetSeconds, 0, 0.05, 0.85)
   );
@@ -127,11 +126,9 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
   const timerString = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   const subSecString = String(Math.floor((p * 1000) % 100)).padStart(2, "0");
 
-  // 2. Chrono-Sphere Arc Offset & Rotation
   const arcDashoffset = interpolateStrokeDashoffset(p, 600, 0.05, 0.88);
   const clockHandAngle = lerp(0, 360, p);
 
-  // 3. Equalizer Bar Heights (32 Columns)
   const bars = Array.from({ length: 32 }, (_, i) => {
     if (motionReduced || !isActive) {
       return 20 + Math.round(50 * Math.sin((Math.PI * i) / 31));
@@ -146,11 +143,8 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
     return Math.round(clamp(wave, 10, 100));
   });
 
-  // 4. Telemetry Stability Calculation
   const stabilityValue = interpolateCounterValue(p, 98.6, 72.0, 0.1, 0.8);
   const stabilityFormatted = `${stabilityValue.toFixed(1)}%`;
-
-  // 5. Holographic Stamp Transform
   const stamp = getStampTransform(p, 0.65, 0.85);
 
   return (
@@ -160,7 +154,7 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
       data-track={currentTrack}
       data-testid="scene-deep-focus"
     >
-      {/* Ambient Background Grid & Noise Watermark */}
+      {/* Background Watermark & Atmosphere */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-20 -top-20 size-80 rounded-full bg-teal-600/10 blur-[90px]" />
         <div className="absolute -right-20 -bottom-20 size-80 rounded-full bg-emerald-600/10 blur-[90px]" />
@@ -169,9 +163,9 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
         </div>
       </div>
 
-      {/* 3-Wing Spatial Main Viewport */}
+      {/* 3-Wing Horizon */}
       <div className="relative z-10 grid flex-1 grid-cols-1 items-stretch gap-3 sm:gap-4 lg:grid-cols-[28%_44%_28%] min-h-0">
-        {/* LEFT WING (28%): Academic Derivation & Step-by-Step Proof Context */}
+        {/* LEFT WING (28%): Academic Derivation */}
         <section
           aria-label="学术推导与证明上下文"
           className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0c1316]/80 p-3.5 sm:p-4 shadow-lg backdrop-blur-md"
@@ -248,12 +242,12 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
         >
           <div className="absolute inset-0 bg-[radial-gradient(#2dd4bf_1px,transparent_1px)] [background-size:20px_20px] opacity-10 pointer-events-none" />
 
-          {/* 3D Chrono-Sphere Perspective Representation */}
+          {/* 3D Chrono-Sphere Viewport */}
           <div className="relative flex flex-1 w-full items-center justify-center min-h-[200px]">
             <div className="relative flex size-52 sm:size-60 lg:size-68 items-center justify-center">
               <div className="absolute inset-0 rounded-full bg-teal-500/10 blur-2xl animate-pulse" />
 
-              {/* Concentric Dashed Celestial Orbit */}
+              {/* Concentric Dashed Orbit */}
               <div
                 className="absolute inset-0 rounded-full border border-dashed border-teal-500/25 will-change-transform"
                 style={{ transform: `rotate(${clockHandAngle * 0.5}deg)` }}
@@ -330,7 +324,7 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
             </div>
           </div>
 
-          {/* 32-Column Dynamic Acoustic Equalizer Waveform */}
+          {/* 32-Column Equalizer Spectrum */}
           <div className="w-full mt-2">
             <div className="flex items-center justify-between font-mono text-[9px] text-zinc-500 mb-1 px-1">
               <span>20 Hz</span>
@@ -349,7 +343,7 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
           </div>
         </section>
 
-        {/* RIGHT WING (28%): Real-Time Telemetry & Holographic Stamp */}
+        {/* RIGHT WING (28%): Real-Time Telemetry & Stamp */}
         <section
           aria-label="实时专注遥测与固化印章"
           className="relative flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0c1316]/80 p-3.5 sm:p-4 shadow-lg backdrop-blur-md overflow-hidden"
@@ -363,7 +357,6 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
               <span className="text-[10px] text-zinc-400">TELEMETRY</span>
             </div>
 
-            {/* Gauge 1: Focus Stability (98.6%) */}
             <div className="mt-3 rounded-lg border border-teal-500/25 bg-teal-950/20 p-2.5">
               <div className="flex items-center justify-between font-mono text-[10px] text-zinc-400">
                 <span>专注稳定性</span>
@@ -383,7 +376,6 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
               </div>
             </div>
 
-            {/* Gauge 2: CAS Single-Session Lock */}
             <div className="mt-2.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5 font-mono text-[10px]">
               <div className="flex items-center justify-between text-zinc-300">
                 <div className="flex items-center gap-1.5">
@@ -399,7 +391,6 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
               </div>
             </div>
 
-            {/* Gauge 3: Local-First Storage */}
             <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5 font-mono text-[10px]">
               <div className="flex items-center justify-between text-zinc-300">
                 <div className="flex items-center gap-1.5">
