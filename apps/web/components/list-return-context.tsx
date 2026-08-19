@@ -30,7 +30,7 @@ export function ListDetailLink(props: {
       data-return-focus={props.focusId}
       className={props.className}
       onClick={(event) => {
-        const useDesktopDestination = Boolean(props.desktopHref && window.matchMedia("(min-width: 1024px)").matches);
+        const useDesktopDestination = Boolean(props.desktopHref && window.matchMedia("(min-width: 1200px)").matches);
         const targetHref = useDesktopDestination ? props.desktopHref! : props.href;
         if (useDesktopDestination && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
           event.preventDefault();

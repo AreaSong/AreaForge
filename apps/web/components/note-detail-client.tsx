@@ -434,7 +434,7 @@ export function NoteDetailClient(props: {
         </section>
       )}
 
-      <section className="grid gap-6 border-t border-white/10 pt-5 lg:grid-cols-2" aria-labelledby="note-relations-heading">
+      <section className="af-content-grid-two grid min-w-0 gap-6 border-t border-white/10 pt-5" aria-labelledby="note-relations-heading">
         <div>
           <h2 id="note-relations-heading" className="text-lg font-medium text-white">学习关联</h2>
           <dl className="mt-3 space-y-3 text-sm">

@@ -1,155 +1,21 @@
-import { Flame, Clock, Target, TrendingUp, History, ListTodo, Minus, Plus, Sparkles, Infinity as InfinityIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Clock, Minus, Plus, Sparkles, Infinity as InfinityIcon } from "lucide-react";
+import { useCallback, useRef } from "react";
 import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/study/types";
+import {
+  FOCUS_DURATION_PRESETS,
+  useAnimatedMinutes,
+  TodayMomentumBar,
+  SubjectIntelCard,
+  SubjectTileGrid,
+} from "./focus-launcher-subcomponents";
 
-export const FOCUS_DURATION_PRESETS: Array<{ label: string; value: number }> = [
-  { label: "自由心流", value: 0 },
-  { label: "25m 番茄", value: 25 },
-  { label: "45m 专项", value: 45 },
-  { label: "60m 强化", value: 60 },
-  { label: "90m 深度", value: 90 },
-];
-
-function useAnimatedMinutes(targetMinutes: number) {
-  const [displayMinutes, setDisplayMinutes] = useState(targetMinutes);
-  const prevRef = useRef(targetMinutes);
-
-  useEffect(() => {
-    const startVal = prevRef.current;
-    const endVal = targetMinutes;
-    if (startVal === endVal) return;
-
-    const duration = 240; // 240ms smooth rolling interpolation
-    const startTime = performance.now();
-
-    let animId: number;
-    const tick = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(1, elapsed / duration);
-      // easeOutCubic
-      const ease = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(startVal + (endVal - startVal) * ease);
-      setDisplayMinutes(current);
-
-      if (progress < 1) {
-        animId = requestAnimationFrame(tick);
-      } else {
-        setDisplayMinutes(endVal);
-        prevRef.current = endVal;
-      }
-    };
-
-    animId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animId);
-  }, [targetMinutes]);
-
-  return displayMinutes;
-}
-
-export function TodayMomentumBar({ summary }: { summary?: FocusLauncherSummaryDto | null }) {
-  const streak = summary?.streakDays ?? 1;
-  const todayMinutes = summary?.todayMinutes ?? 0;
-  const sessionsCount = summary?.todaySessionsCount ?? 0;
-
-  const hours = Math.floor(todayMinutes / 60);
-  const mins = todayMinutes % 60;
-  const timeDisplay = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-
-  return (
-    <div className="relative z-10 flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs font-medium text-zinc-300">
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1 text-orange-300 transition-transform hover:scale-105">
-        <Flame className="size-3.5 fill-current" aria-hidden="true" />
-        <span>连续备考 {streak} 天</span>
-      </div>
-
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/20 bg-teal-500/10 px-3 py-1 text-teal-300 transition-transform hover:scale-105">
-        <Clock className="size-3.5" aria-hidden="true" />
-        <span>今日已专注 {timeDisplay}</span>
-      </div>
-
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-indigo-300 transition-transform hover:scale-105">
-        <Target className="size-3.5" aria-hidden="true" />
-        <span>{sessionsCount} 次沉淀</span>
-      </div>
-    </div>
-  );
-}
-
-export function SubjectIntelCard({
-  selectedSubject,
-  summary,
-  tasks,
-}: {
-  selectedSubject: SubjectDto | null;
-  summary?: FocusLauncherSummaryDto | null;
-  tasks: StudyTaskDto[];
-}) {
-  if (!selectedSubject) {
-    return (
-      <div className="relative z-10 flex h-[112px] w-full max-w-lg shrink-0 flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] p-3.5 text-center transition-all animate-[fade-in_0.2s_ease-out]">
-        <p className="text-xs text-zinc-500">
-          👈 在右侧选择科目，即刻载入该科目的投入战况与专属配置
-        </p>
-      </div>
-    );
-  }
-
-  const accentColor = selectedSubject.color || "#2dd4bf";
-  const stat = summary?.subjectWeeklyStats?.[selectedSubject.id];
-  const weeklyMins = stat?.weeklyMinutes ?? 0;
-  const weeklyH = Math.floor(weeklyMins / 60);
-  const weeklyM = weeklyMins % 60;
-  const weeklyDisplay = weeklyH > 0 ? `${weeklyH}h ${weeklyM}m` : `${weeklyM}m`;
-  const lastAgo = stat?.lastSessionAgo ?? "本周暂无记录";
-  const pendingTasks = tasks.filter((t) => t.subjectId === selectedSubject.id && t.status !== "done");
-
-  return (
-    <div
-      key={selectedSubject.id}
-      className="relative z-10 flex h-[112px] w-full max-w-lg shrink-0 flex-col justify-between rounded-xl border p-3 text-left transition-all duration-300 animate-[fade-in-up_0.25s_cubic-bezier(0.16,1,0.3,1)]"
-      style={{
-        borderColor: `${accentColor}33`,
-        background: `linear-gradient(135deg, ${accentColor}08 0%, rgba(255,255,255,0.02) 100%)`,
-      }}
-    >
-      <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-        <div className="flex items-center gap-2 truncate">
-          <span className="size-2 shrink-0 rounded-full ring-2 ring-white/10" style={{ backgroundColor: accentColor }} />
-          <span className="truncate text-xs font-semibold text-white">【{selectedSubject.name}】战况速览</span>
-        </div>
-        <span className="shrink-0 text-[11px] font-mono text-zinc-400">
-          {pendingTasks.length > 0 ? `${pendingTasks.length} 项待攻克` : "暂无待办"}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-lg bg-black/20 px-2 py-1.5 transition-colors hover:bg-black/35">
-          <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400">
-            <TrendingUp className="size-3" style={{ color: accentColor }} />
-            <span>本周投入</span>
-          </div>
-          <p className="mt-0.5 font-mono text-xs font-semibold text-zinc-200">{weeklyDisplay}</p>
-        </div>
-
-        <div className="rounded-lg bg-black/20 px-2 py-1.5 transition-colors hover:bg-black/35">
-          <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400">
-            <History className="size-3" style={{ color: accentColor }} />
-            <span>上次学习</span>
-          </div>
-          <p className="mt-0.5 font-mono text-xs font-semibold text-zinc-200">{lastAgo}</p>
-        </div>
-
-        <div className="rounded-lg bg-black/20 px-2 py-1.5 transition-colors hover:bg-black/35">
-          <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-400">
-            <ListTodo className="size-3" style={{ color: accentColor }} />
-            <span>待办任务</span>
-          </div>
-          <p className="mt-0.5 font-mono text-xs font-semibold text-zinc-200">{pendingTasks.length} 项</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+export {
+  FOCUS_DURATION_PRESETS,
+  useAnimatedMinutes,
+  TodayMomentumBar,
+  SubjectIntelCard,
+  SubjectTileGrid,
+};
 
 export function FocusHeroDial({
   selectedSubject,
@@ -168,99 +34,105 @@ export function FocusHeroDial({
   const dialRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
-  // Animated numbers for smooth transitions
+  // Animated smooth minutes interpolation
   const animatedMinutes = useAnimatedMinutes(durationPreset);
 
-  // Continuous Seamless Ring Parameters (Radius = 42, Circumference ≈ 263.89)
-  const radius = 42;
+  // Circular gauge math based on 120min standard dial scale
+  const maxMinutes = 120;
+  const progressRatio = durationPreset <= 0 ? 0 : Math.min(durationPreset / maxMinutes, 1);
+  const radius = 40;
   const circumference = 2 * Math.PI * radius;
-  const progressRatio = durationPreset === 0 ? 0 : Math.min(1, durationPreset / 60);
-  const strokeDashoffset = circumference * (1 - progressRatio);
-  const needleAngle = durationPreset === 0 ? 0 : (durationPreset / 60) * 360;
+  const strokeDashoffset = circumference - progressRatio * circumference;
 
-  // Expected Completion Time Calculation (Updated dynamically every 10s)
-  const [expectedTimeStr, setExpectedTimeStr] = useState("");
-  useEffect(() => {
-    const updateExpected = () => {
-      if (durationPreset === 0) {
-        setExpectedTimeStr("正向心流 · 无上限");
-        return;
-      }
-      const targetDate = new Date(Date.now() + durationPreset * 60 * 1000);
-      const hh = String(targetDate.getHours()).padStart(2, "0");
-      const mm = String(targetDate.getMinutes()).padStart(2, "0");
-      setExpectedTimeStr(`预计将在 ${hh}:${mm} 完成`);
-    };
-    updateExpected();
-    const interval = setInterval(updateExpected, 10000);
-    return () => clearInterval(interval);
+  // Mechanical pointer angle (0 min = 0 deg / 12 o'clock, 120 min = 360 deg)
+  const needleAngle = durationPreset <= 0 ? 0 : (durationPreset / 120) * 360;
+
+  // Calculate dynamic expected completion time string (e.g. 14:35)
+  const calculateExpectedTime = useCallback(() => {
+    if (durationPreset <= 0) return "正向心流 · 无上限";
+    const now = new Date();
+    const target = new Date(now.getTime() + durationPreset * 60 * 1000);
+    const hh = String(target.getHours()).padStart(2, "0");
+    const mm = String(target.getMinutes()).padStart(2, "0");
+    return `预计将在 ${hh}:${mm} 完成`;
   }, [durationPreset]);
 
-  // Direct Dial Scrubbing & Drag Handler
-  const handlePointerScrub = useCallback((clientX: number, clientY: number) => {
-    const el = dialRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const dx = clientX - cx;
-    const dy = clientY - cy;
+  const expectedTimeStr = calculateExpectedTime();
 
-    // Angle starting from 12 o'clock (0° / 360°)
-    let angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-    if (angleDeg < 0) angleDeg += 360;
+  // Helper to convert mouse/touch angle into 5-minute stepped duration
+  const updateDurationFromAngle = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!dialRef.current) return;
+      const rect = dialRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = clientX - centerX;
+      const dy = clientY - centerY;
 
-    // Map 360° to 60 minutes, snap to 5m increments
-    let mins = Math.round((angleDeg / 360) * 60);
-    mins = Math.round(mins / 5) * 5;
-    if (mins === 0 && angleDeg > 330) mins = 60;
-    onPresetChange(mins);
-  }, [onPresetChange]);
+      // Distance from center to avoid tiny jitters at absolute center
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 18) return;
 
-  const handlePointerDown = (e: React.PointerEvent) => {
+      // Compute angle in radians where top (12 o'clock) is 0 deg
+      let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+      if (deg < 0) deg += 360;
+
+      // Map 360 deg to 120 mins -> 1 deg = 1/3 min
+      const rawMinutes = (deg / 360) * 120;
+
+      // Snap to nearest 5 minutes
+      let steppedMinutes = Math.round(rawMinutes / 5) * 5;
+      if (steppedMinutes < 0) steppedMinutes = 0;
+      if (steppedMinutes > 120) steppedMinutes = 120;
+
+      onPresetChange(steppedMinutes);
+    },
+    [onPresetChange]
+  );
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingRef.current = true;
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    handlePointerScrub(e.clientX, e.clientY);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    updateDurationFromAngle(e.clientX, e.clientY);
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
-    handlePointerScrub(e.clientX, e.clientY);
+    updateDurationFromAngle(e.clientX, e.clientY);
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingRef.current = false;
-    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
   };
-
-  // Native non-passive wheel handler to prevent page scroll while wheeling over clock
-  useEffect(() => {
-    const el = dialRef.current;
-    if (!el) return;
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 5 : -5;
-      onPresetChange(Math.max(0, Math.min(180, durationPreset + delta)));
-    };
-
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [durationPreset, onPresetChange]);
 
   const handleMinus = () => {
-    onPresetChange(Math.max(0, durationPreset - 5));
+    if (durationPreset <= 0) return;
+    if (durationPreset <= 5) {
+      onPresetChange(0);
+    } else {
+      onPresetChange(durationPreset - 5);
+    }
   };
 
   const handlePlus = () => {
-    onPresetChange(Math.min(180, durationPreset + 5));
+    if (durationPreset >= 180) return;
+    if (durationPreset === 0) {
+      onPresetChange(25);
+    } else {
+      onPresetChange(durationPreset + 5);
+    }
   };
 
   return (
-    <section className="relative flex h-full min-h-0 flex-col items-center justify-between overflow-y-auto lg:overflow-hidden rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 sm:p-5 lg:p-6 text-center lg:col-span-7 select-none">
+    <section className="relative flex min-h-[34rem] flex-col items-center justify-between overflow-y-auto rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 text-center select-none sm:p-5 lg:p-6 min-[1200px]:col-span-7 min-[1200px]:h-full min-[1200px]:min-h-0 min-[1200px]:overflow-hidden">
       {/* Ambient decorative background glow with breathing pulse */}
       <div
-        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 size-[36rem] rounded-full blur-[100px] transition-all duration-700 animate-[glow-pulse_4s_ease-in-out_infinite_alternate]"
+        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 size-[36rem] rounded-full blur-[100px] animate-[glow-pulse_4s_ease-in-out_infinite_alternate]"
         style={{
           background: selectedSubject
             ? `radial-gradient(circle, ${accentColor} 0%, transparent 70%)`
@@ -294,7 +166,7 @@ export function FocusHeroDial({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
-            className="group/dial relative grid size-48 sm:size-56 md:size-64 lg:size-68 xl:size-72 place-items-center rounded-full border bg-[var(--af-surface)] transition-all duration-500 cursor-grab active:cursor-grabbing overflow-visible touch-none"
+            className="group/dial relative grid size-48 sm:size-56 md:size-64 lg:size-68 xl:size-72 place-items-center rounded-full border bg-[var(--af-surface)] transition-all duration-300 cursor-grab active:cursor-grabbing overflow-visible touch-none"
             style={{
               borderColor: selectedSubject ? `${accentColor}33` : "rgba(255,255,255,0.1)",
               boxShadow: selectedSubject
@@ -497,77 +369,5 @@ export function FocusHeroDial({
       {/* Bottom Subject Intel Card */}
       <SubjectIntelCard selectedSubject={selectedSubject} summary={summary} tasks={tasks} />
     </section>
-  );
-}
-
-export function SubjectTileGrid({
-  subjects,
-  subjectId,
-  onSelect,
-  tasks,
-}: {
-  subjects: SubjectDto[];
-  subjectId: string;
-  onSelect: (id: string) => void;
-  tasks: StudyTaskDto[];
-}) {
-  if (!subjects.length) return null;
-  return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      {subjects.map((subject, idx) => {
-        const isSelected = subject.id === subjectId;
-        const pendingCount = tasks.filter((t) => t.subjectId === subject.id && t.status !== "done").length;
-        const color = subject.color || "#2dd4bf";
-        const isLastOdd = idx === subjects.length - 1 && subjects.length % 2 !== 0;
-
-        return (
-          <button
-            key={subject.id}
-            type="button"
-            onClick={() => onSelect(subject.id)}
-            className={`group relative flex flex-col items-start justify-between rounded-xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] ${
-              isLastOdd ? "sm:col-span-2" : ""
-            } ${
-              isSelected
-                ? "border-teal-400 bg-teal-500/10 shadow-[0_0_20px_rgba(45,212,191,0.18)] ring-1 ring-teal-400/50"
-                : "border-white/10 bg-[var(--af-surface)] hover:border-white/20 hover:bg-[var(--af-surface-raised)] hover:shadow-md"
-            }`}
-          >
-            <div className="flex w-full items-center justify-between gap-1.5">
-              <span className="flex items-center gap-2 truncate">
-                <span className="relative flex size-2 shrink-0 items-center justify-center">
-                  {isSelected ? (
-                    <span
-                      className="absolute inline-flex size-full animate-ping rounded-full opacity-75"
-                      style={{ backgroundColor: color }}
-                    />
-                  ) : null}
-                  <span
-                    className="relative inline-flex size-2 rounded-full ring-2 ring-white/10"
-                    style={{ backgroundColor: color }}
-                    aria-hidden="true"
-                  />
-                </span>
-                <span className={`truncate text-sm font-medium transition-colors ${isSelected ? "text-white font-semibold" : "text-zinc-200 group-hover:text-white"}`}>
-                  {subject.name}
-                </span>
-              </span>
-              {idx < 9 ? (
-                <kbd className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] transition-all group-hover:scale-110 ${isSelected ? "border-teal-400/40 bg-teal-500/20 text-teal-200" : "border-white/10 bg-white/5 text-zinc-400"}`}>
-                  {idx + 1}
-                </kbd>
-              ) : null}
-            </div>
-            {pendingCount > 0 ? (
-              <span className="mt-1.5 text-[11px] text-zinc-400">
-                {pendingCount} 个待办任务
-              </span>
-            ) : (
-              <span className="mt-1.5 text-[11px] text-zinc-500">自由专注</span>
-            )}
-          </button>
-        );
-      })}
-    </div>
   );
 }

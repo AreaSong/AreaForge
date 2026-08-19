@@ -19,7 +19,7 @@ export function StudyResourceList(props: {
       {props.resources.length ? (
         <ul className="divide-y divide-white/10 border-y border-white/10">
           {props.resources.map((resource) => (
-            <li key={resource.id} className="flex min-w-0 items-start justify-between gap-4 py-4 text-sm">
+            <li key={resource.id} className="flex min-w-0 flex-col gap-3 py-4 text-sm sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-zinc-500">{subjectById.get(resource.subjectId ?? "") ?? "未分科"}</span>
@@ -32,7 +32,7 @@ export function StudyResourceList(props: {
                   {resource.displayHost ? ` · ${resource.displayHost}` : ""}
                 </p>
               </div>
-              <ListDetailLink className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-2 text-teal-300 hover:bg-white/[0.05]" href={`/knowledge/resources/${resource.id}`} focusId={`resource-${resource.id}`}>打开详情<ArrowRight size={15} aria-hidden /></ListDetailLink>
+              <ListDetailLink className="inline-flex h-10 shrink-0 items-center gap-1 self-end rounded-md px-2 text-teal-300 hover:bg-white/[0.05] sm:self-auto" href={`/knowledge/resources/${resource.id}`} focusId={`resource-${resource.id}`}>打开详情<ArrowRight size={15} aria-hidden /></ListDetailLink>
             </li>
           ))}
         </ul>

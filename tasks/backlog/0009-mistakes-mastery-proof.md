@@ -73,7 +73,10 @@
 - 模拟失分未关联时显示“转为错题”，预填对话框要求补齐题面和正确思路后才能保存；已关联和 dirty 失分项保持正确边界。
 - 错题掌握趋势第一版已接入：列表概览总数/今日到期/最近通过率/最近失败，详情汇总最近通过率、连续通过、最近失败和最近结果。
 - 复习排期第一版已接入：明天、3 天后、自定义日期快捷选择，必须显式点击确认才写入统一 `ReviewSchedule`。
-- `pnpm dev:test:latest -- --json`：latest 为 slot 1、端口 43171、source fingerprint `sha256:84491497cab72795a81986d66f6783e59f172c564f2fec1527da76bf177b4367`。
+- 错题练习与复习队列增强已接入：`/knowledge/mistakes/practice` 按到期、最近未通过、其他完整错题混合抽题，逐题持久化 `MistakeAttempt` 且练习不改排期；`/knowledge/reviews` 支持对象/最近结果筛选和“跳过今天（延期到明天）/延期 3 天”确认，均复用现有排期与 revision CAS。
+- 移动端练习完成态已复位共享滚动容器，进入汇总时标题不会被全局顶栏遮挡；390px 视口下题面、汇总和复习筛选均无横向溢出。
+- 本轮新增规则单测：`apps/web/lib/study/mistake-practice.test.ts` 覆盖排序、筛选、题量上限、完整性及归档排除；生产 migration、部署和 Release 仍未执行。
+- `pnpm dev:test:latest -- --json`：当前 latest 为 slot 1、端口 43171、source fingerprint `sha256:0efdc48c96c2454fcddb467e23c3b5da9669dc2498c67a58d2ee15ad821dbcf1`；该实例包含工作区后续的响应式布局改动，本任务页面已在同一地址做只读复核。
 
 ## 风险
 

@@ -302,7 +302,7 @@ function NextAction(props: {
 
   return (
     <section className="rounded-lg border border-teal-300/20 bg-teal-300/5 p-4 sm:p-5" aria-labelledby="syllabus-next-action-heading">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="af-toolbar-split flex min-w-0 gap-4">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-teal-200">下一行动</p>
           <h2 id="syllabus-next-action-heading" className="mt-1 text-lg font-semibold text-white">{props.node.mapSignal.nextAction}</h2>
@@ -335,7 +335,7 @@ function NextAction(props: {
 function EvidenceView({ node }: { node: SyllabusNodeDto }) {
   return (
     <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="af-metric-grid-four grid gap-3">
         <Metric label="任务" value={`${node.evidence.taskCount}`} />
         <Metric label="计时" value={`${node.evidence.sessionCount}`} />
         <Metric label="卡片" value={`${node.evidence.noteCount}`} />

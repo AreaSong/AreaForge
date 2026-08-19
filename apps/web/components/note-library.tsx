@@ -403,11 +403,11 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
 
       {!createOpen && error ? <p className="text-sm text-red-200">{error}</p> : null}
       <section className="min-w-0 border-y border-white/10 py-5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">我的卡片</h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">
               {filteredNotes.length} / {visibleNotes.length} 条
             </span>
@@ -486,7 +486,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
           ) : null}
           {filteredNotes.length > 0 ? <div className="divide-y divide-white/10 border-y border-white/10">{filteredNotes.map((note) => (
             <article key={note.id} className="min-w-0 py-4">
-              <div className="flex min-w-0 items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-xs text-zinc-500">{note.subjectName}</p>
@@ -499,7 +499,7 @@ export function NoteLibrary({ userId, subjects, tasks, nodes, notes, initialSubj
                 <ListDetailLink
                   href={`/knowledge/cards/${note.id}`}
                   focusId={`note-${note.id}`}
-                  className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05]"
+                  className="inline-flex h-10 shrink-0 items-center gap-1 self-end rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05] sm:self-auto"
                 >
                   打开详情
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />

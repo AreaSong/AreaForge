@@ -405,7 +405,7 @@ function ResourceFacts(props: {
     <>
       <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="resource-facts-heading">
         <h2 id="resource-facts-heading" className="text-lg font-medium text-white">资料事实</h2>
-        <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+        <dl className="af-detail-facts-grid grid min-w-0 gap-x-6 gap-y-4 text-sm">
           <Fact label="来源" value={sourceTypeLabel(props.resource.sourceType)} />
           <Fact label="整理状态" value={organizeStatusLabel(props.resource.organizeStatus)} />
           <Fact label="资料类型" value={categoryLabel(props.resource.category)} />

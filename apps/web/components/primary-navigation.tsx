@@ -29,12 +29,12 @@ export function PrimaryNavigation(props: {
       aria-label="一级导航"
       data-navigation-level="primary"
       data-layout-region="primary-navigation"
-      className={`hidden shrink-0 flex-col border-r border-white/10 bg-[var(--af-surface-subtle)] px-3 py-5 transition-[width] lg:flex ${props.collapsed ? "w-[60px]" : "w-[184px]"}`}
+      className={`af-primary-navigation-rail hidden shrink-0 flex-col border-r border-white/10 bg-[var(--af-surface-subtle)] px-3 py-5 transition-[width] min-[1024px]:flex ${props.collapsed ? "w-[60px]" : "w-[184px]"}`}
     >
       <div className={`mb-6 flex items-center text-teal-300 ${props.collapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
         <div className="flex min-w-0 items-center gap-2">
           <BrandMark size={22} />
-          <span className={props.collapsed ? "sr-only" : "truncate text-sm font-medium"}>AreaForge</span>
+          <span data-primary-label className={props.collapsed ? "sr-only" : "truncate text-sm font-medium"}>AreaForge</span>
         </div>
         <button
           type="button"
@@ -55,7 +55,7 @@ export function PrimaryNavigation(props: {
       </nav>
       <div className={`mt-auto space-y-2 pt-6 text-xs text-zinc-500 ${props.collapsed ? "grid justify-items-center" : "px-2"}`}>
         <PrimaryLink item={UTILITY_NAV_ITEM} pathname={props.pathname} collapsed={props.collapsed} />
-        <p className={props.collapsed ? "sr-only" : undefined}>{props.email}</p>
+      <p data-primary-email className={props.collapsed ? "sr-only" : undefined}>{props.email}</p>
         <LogoutButton compact={props.collapsed} userId={props.userId} />
       </div>
     </aside>
@@ -73,7 +73,7 @@ function PrimaryLink(props: { item: AppNavigationItem; pathname: string; collaps
       className={`group flex min-w-0 items-center rounded-md border-l-2 py-2 text-sm transition-all duration-300 ease-out ${props.collapsed ? "justify-center px-2" : "gap-3 px-3"} ${active ? "border-teal-300 shadow-[-2px_0_12px_rgba(45,212,191,0.25)] bg-gradient-to-r from-teal-400/[0.08] to-transparent text-white" : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100"}`}
     >
       <NavigationIcon href={props.item.href} />
-      <span className={props.collapsed ? "sr-only" : "truncate"}>{props.item.label}</span>
+      <span data-primary-label className={props.collapsed ? "sr-only" : "truncate"}>{props.item.label}</span>
     </Link>
   );
 }

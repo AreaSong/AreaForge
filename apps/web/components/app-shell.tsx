@@ -33,6 +33,7 @@ import { PageToolbar } from "@/components/page-toolbar";
 import { PrimaryNavigation } from "@/components/primary-navigation";
 import { SecondaryNavigation } from "@/components/secondary-navigation";
 import { SharedMobileNavigation } from "@/components/shared-mobile-navigation";
+import { TabletNavigationDrawer } from "@/components/tablet-navigation-drawer";
 import { Modal } from "@/components/ui/overlays";
 import { subscribeActivityStatus } from "@/lib/client/activity-status";
 import { APP_NAVIGATION_ITEMS, getCanonicalRoute } from "@/lib/navigation/app-navigation";
@@ -68,6 +69,7 @@ export function AppShell(props: {
   const [lightOpen, setLightOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
+  const [tabletNavigationOpen, setTabletNavigationOpen] = useState(false);
   const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
   const [offlineFocusSession, setOfflineFocusSession] = useState<AppShellStatusDto["activeSession"]>(null);
   const { openTool } = useGlobalTools();
@@ -374,9 +376,17 @@ export function AppShell(props: {
             statusOpen={lightOpen}
             onOpenMotivationHelp={() => void recovery.open()}
             hasMotivationReminder={recovery.hasAutomaticReminder}
+            onOpenNavigation={() => setTabletNavigationOpen(true)}
+          />
+          <TabletNavigationDrawer
+            open={tabletNavigationOpen}
+            pathname={pathname}
+            email={props.email}
+            userId={props.userId}
+            onClose={() => setTabletNavigationOpen(false)}
           />
           {showSecondaryNavigation && activeNavigationItem ? (
-            <nav className="shrink-0 overflow-x-auto px-4 pt-3 pb-1 sm:px-6 xl:px-8 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`} data-layout-region="secondary-mobile-navigation">
+            <nav className="af-secondary-compact-navigation shrink-0 overflow-x-auto px-4 pt-3 pb-1 sm:px-6 xl:px-8" tabIndex={0} aria-label={`${activeNavigationItem.label}子导航`} data-layout-region="secondary-mobile-navigation">
               <div className="flex min-w-max gap-2 whitespace-nowrap">
                 {secondaryNavigationItems.map((child) => (
                   <Link
@@ -403,7 +413,7 @@ export function AppShell(props: {
             <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col">
               <main
                 id="main-content"
-                className={`af-shell-main min-h-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6"}`}
+                className={`af-shell-main min-h-0 min-w-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-4 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-6 xl:px-8 xl:py-6"}`}
                 data-ai-page-context="true"
                 data-layout-region="page-content"
                 data-immersive-content={immersive ? "true" : undefined}

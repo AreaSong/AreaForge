@@ -17,7 +17,7 @@ import {
   WandSparkles,
   WifiOff,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from "react";
 import Link from "next/link";
 import {
   Background,
@@ -70,16 +70,22 @@ function syncOptionalSearchParam(url: URL, key: string, value: string): void {
   else url.searchParams.delete(key);
 }
 
-function useIsDesktop() {
-  const [desktop, setDesktop] = useState(false);
+function useHasCanvasLayoutSpace(containerRef: RefObject<HTMLElement | null>) {
+  const [available, setAvailable] = useState(false);
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 1024px)");
-    const update = () => setDesktop(media.matches);
+    const container = containerRef.current;
+    if (!container) return;
+    const update = () => setAvailable(container.getBoundingClientRect().width >= 960);
     update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  return desktop;
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", update);
+      return () => window.removeEventListener("resize", update);
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [containerRef]);
+  return available;
 }
 
 function toFlowNodes(data: KnowledgeCanvasQueryDto, desktop: boolean): Node[] {
@@ -227,7 +233,8 @@ export function KnowledgeCanvasClient(props: {
   initialView?: "canvas" | "list";
 }) {
   useRestoreListReturn();
-  const desktop = useIsDesktop();
+  const canvasRootRef = useRef<HTMLDivElement>(null);
+  const desktop = useHasCanvasLayoutSpace(canvasRootRef);
   const [canvas, setCanvas] = useState(props.initial);
   const [query, setQuery] = useState(props.initialQuery ?? "");
   const [entityTypeFilter, setEntityTypeFilter] = useState(props.initialEntityType ?? "");
@@ -880,13 +887,13 @@ export function KnowledgeCanvasClient(props: {
   }, [visibleCanvas.edges]);
 
   return (
-    <div className="space-y-4">
+    <div ref={canvasRootRef} className="min-w-0 space-y-4">
       <h1 className="text-2xl font-semibold text-white">关联画布</h1>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="af-toolbar-split flex min-w-0 gap-3">
         <div className="flex flex-1 flex-wrap gap-2">
           <input
             aria-label="搜索画布节点"
-            className="min-w-[12rem] flex-1 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+            className="min-w-0 basis-full flex-1 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm sm:basis-auto sm:min-w-[12rem]"
             placeholder="搜索节点"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -976,7 +983,7 @@ export function KnowledgeCanvasClient(props: {
         </div>
       </div>
 
-      <section className="grid min-w-0 gap-3 rounded-md border border-white/10 bg-[#101419] p-3 lg:grid-cols-[minmax(14rem,1fr)_auto_minmax(14rem,1fr)]" aria-label="画布布局命令">
+      <section className="af-canvas-command-grid grid min-w-0 gap-3 rounded-md border border-white/10 bg-[#101419] p-3" aria-label="画布布局命令">
         <p className="sr-only" role="status" aria-live="polite">{layoutAnnouncement}</p>
         <label className="grid min-w-0 gap-1 text-xs text-zinc-400">
           画布焦点对象
@@ -985,7 +992,7 @@ export function KnowledgeCanvasClient(props: {
           </select>
         </label>
         <div
-          className="grid grid-cols-3 gap-1 self-end justify-self-start rounded-md border border-white/10 p-1 lg:justify-self-center"
+          className="grid grid-cols-3 gap-1 self-end justify-self-start rounded-md border border-white/10 p-1"
           tabIndex={0}
           aria-label="画布布局键盘命令"
           onKeyDown={(event) => {
@@ -1002,7 +1009,7 @@ export function KnowledgeCanvasClient(props: {
           <button type="button" title="向下微调" aria-label="向下微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(0, 24)}><ArrowDown size={16} aria-hidden="true" /></button>
           <button type="button" title="向右微调" aria-label="向右微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!desktop || !selectedNode} onClick={() => void nudgeSelected(24, 0)}><ArrowRight size={16} aria-hidden="true" /></button>
         </div>
-        <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+        <div className="af-canvas-secondary-grid grid min-w-0 gap-2">
           <label className="grid min-w-0 gap-1 text-xs text-zinc-400">
             移动到真实分组
             <select aria-label="移动到真实分组" className="h-10 w-full min-w-0 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100" value={groupTargetId} onChange={(event) => setGroupTargetId(event.target.value)} disabled={!desktop || subjectGroups.length === 0}>
@@ -1118,7 +1125,7 @@ export function KnowledgeCanvasClient(props: {
           {listRows.length === 0 ? <li className="px-3 py-6 text-sm text-zinc-500">当前筛选无节点。</li> : null}
         </ul>
       ) : (
-        <div className="h-[min(70vh,640px)] overflow-hidden rounded-md border border-white/10 bg-[#0b1017]">
+        <div className="h-[clamp(28rem,60dvh,40rem)] overflow-hidden rounded-md border border-white/10 bg-[#0b1017]">
           <ReactFlow
             nodes={nodes}
             edges={edges}

@@ -23,7 +23,7 @@ export function SharedMobileNavigation(props: { pathname: string; email: string;
   return (
     <>
       <nav
-        className="af-shell-nav z-[var(--af-layer-shell-base)] shrink-0 overflow-hidden border-t border-white/10 bg-[#0d1117]/95 px-1 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
+        className="af-mobile-primary-navigation af-shell-nav z-[var(--af-layer-shell-base)] shrink-0 overflow-hidden border-t border-white/10 bg-[#0d1117]/95 px-1 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur"
         aria-label="移动导航"
         data-layout-region="mobile-primary-navigation"
       >

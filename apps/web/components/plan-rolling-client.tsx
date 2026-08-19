@@ -212,7 +212,7 @@ export function PlanRollingClient(props: {
       ) : null}
 
       <form
-        className="grid gap-2 border-y border-white/10 py-3 sm:grid-cols-[minmax(14rem,1fr)_minmax(9rem,0.35fr)_minmax(8rem,0.3fr)_auto]"
+        className="grid min-w-0 gap-2 border-y border-white/10 py-3 min-[900px]:grid-cols-[minmax(14rem,1fr)_minmax(9rem,0.35fr)_minmax(8rem,0.3fr)_auto]"
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
@@ -250,9 +250,9 @@ export function PlanRollingClient(props: {
         <button type="submit" className={buttonClassName({ variant: "secondary" })}>搜索</button>
       </form>
 
-      <div className={props.detailPanel ? "grid min-h-0 gap-5 lg:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.28fr)]" : "space-y-5"}>
+      <div className={props.detailPanel ? "grid min-h-0 min-w-0 gap-5 min-[1200px]:grid-cols-[minmax(18rem,0.72fr)_minmax(28rem,1.28fr)]" : "space-y-5"}>
         <div className="min-w-0 space-y-5">
-          <div className={`gap-2 overflow-x-auto pb-1 ${props.detailPanel ? "flex" : "flex lg:hidden"}`} aria-label="日期条">
+          <div className={`af-horizontal-scroll gap-2 overflow-x-auto pb-2 ${props.detailPanel ? "flex" : "flex min-[1200px]:hidden"}`} tabIndex={0} aria-label="日期条" data-horizontal-scroll="date-strip">
             {props.initial.days.map((day) => (
               <button
                 key={day.date}
@@ -275,9 +275,9 @@ export function PlanRollingClient(props: {
             />
           ) : (
             <>
-              <div className="hidden gap-3 overflow-x-auto lg:flex xl:grid xl:grid-cols-7 xl:overflow-visible" aria-label="七天列">
+              <div className="af-horizontal-scroll hidden gap-3 overflow-x-auto pb-2 min-[1200px]:flex min-[1440px]:grid min-[1440px]:grid-cols-7 min-[1440px]:overflow-visible min-[1440px]:pb-0" tabIndex={0} aria-label="七天列" data-horizontal-scroll="seven-day-plan">
                 {props.initial.days.map((day) => (
-                  <section key={day.date} className="min-w-[10rem] flex-1 rounded-md border border-white/10 bg-[#101419] p-3 xl:min-w-0">
+                  <section key={day.date} className="min-w-[10rem] flex-1 rounded-md border border-white/10 bg-[#101419] p-3 min-[1440px]:min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <h2 className="text-sm font-medium text-zinc-200">{formatPlanDay(day.date)}</h2>
                       <span className="text-xs text-zinc-600">{day.tasks.length}</span>
@@ -302,7 +302,7 @@ export function PlanRollingClient(props: {
                   </section>
                 ))}
               </div>
-              <div className="lg:hidden">
+              <div className="min-[1200px]:hidden">
                 <DayTaskList
                   date={selectedDate}
                   tasks={selectedDayTasks}
@@ -341,11 +341,17 @@ export function PlanRollingClient(props: {
         </div>
 
         {props.detailPanel ? (
-          <aside className="hidden max-h-[calc(100dvh-12rem)] min-h-[32rem] overflow-y-auto border-l border-white/10 pl-5 lg:block" aria-label="任务详情">
+          <aside className="hidden max-h-[calc(100dvh-12rem)] min-h-[32rem] overflow-y-auto border-l border-white/10 pl-5 min-[1200px]:block" aria-label="任务详情">
             {props.detailPanel}
           </aside>
         ) : null}
       </div>
+
+      {props.detailPanel ? (
+        <section className="border-t border-white/10 pt-5 min-[1200px]:hidden" aria-label="任务详情">
+          {props.detailPanel}
+        </section>
+      ) : null}
 
       <Drawer open={createOpen} title={`新建任务 · ${selectedDate ?? "未排期"}`} onClose={() => setCreateOpen(false)}>
         <div className="grid gap-3 sm:grid-cols-2">

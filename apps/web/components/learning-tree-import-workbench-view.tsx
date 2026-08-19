@@ -224,7 +224,7 @@ function ImportDiff({ state, actions }: { state: WorkbenchState; actions: Workbe
           const selection = state.selections[item.stableKey] ?? { choice: "apply" as const };
           const fixedSkip = item.diffType === "UNCHANGED" || item.diffType === "SKIP";
           return (
-            <li key={`${item.objectType}:${item.stableKey}`} className="grid gap-2 rounded-md border border-white/10 p-3 text-sm md:grid-cols-[8rem_1fr_9rem]">
+            <li key={`${item.objectType}:${item.stableKey}`} className="af-import-diff-grid grid min-w-0 gap-2 rounded-md border border-white/10 p-3 text-sm">
               <div><span className="font-medium text-teal-300">{diffTypeLabel(item.diffType)}</span><p className="text-xs text-zinc-500">{objectTypeLabel(item.objectType)} · 第 {item.sourceLine ?? "?"} 行</p></div>
               <div><p className="text-zinc-100">{item.title}</p><p className="break-all text-xs text-zinc-500">{item.stableKey}{item.reason ? ` · ${item.reason}` : ""}</p></div>
               <div className="space-y-2">

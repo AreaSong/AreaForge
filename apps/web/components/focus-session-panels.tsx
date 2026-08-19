@@ -76,61 +76,7 @@ export function FocusHeader(props: {
   );
 }
 
-export function FocusTimerWorkspace(props: {
-  heading: string;
-  elapsedLabel: string;
-  elapsedSeconds: number;
-  timerLabel: string;
-  status: "running" | "paused";
-  onPause: () => void;
-  onResume: () => void;
-  onEnd: () => void;
-  embeddedInWorkbench?: boolean;
-}) {
-  return (
-    <div className={`${props.embeddedInWorkbench ? "flex h-full min-h-0" : "flex min-h-[calc(100vh-3.5rem)]"}`}>
-      <section className={`flex min-w-0 flex-1 flex-col items-center justify-center px-4 py-12 text-center ${props.embeddedInWorkbench ? "min-h-[36rem] lg:min-h-0" : "min-h-[32rem]"}`}>
-        <h1 className="text-2xl font-semibold text-white">{props.heading}</h1>
-        <p className="text-sm text-teal-300" aria-live="assertive" aria-atomic="true">
-          {props.timerLabel}
-        </p>
-        <div className="relative mt-5 grid size-64 place-items-center sm:size-72" aria-label={`已学习 ${props.elapsedLabel}`}>
-          <div className="absolute inset-2 rounded-full border border-teal-300/20 bg-teal-300/[0.03] shadow-[0_0_70px_rgba(45,212,191,0.08)]" aria-hidden="true">
-            {[0, 90, 180, 270].map((angle) => (
-              <span
-                key={angle}
-                className="absolute left-1/2 top-1/2 h-2 w-px origin-bottom bg-teal-200/60"
-                style={{ transform: `translate(-50%, -100%) rotate(${angle}deg) translateY(-116px)` }}
-              />
-            ))}
-            <span
-              className="absolute left-1/2 top-1/2 h-24 w-0.5 origin-bottom rounded-full bg-teal-200 shadow-[0_0_12px_rgba(153,246,228,0.7)]"
-              style={{ transform: `translate(-50%, -100%) rotate(${(props.elapsedSeconds % 3600) / 10}deg)` }}
-            />
-            <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0b1114] bg-teal-200" />
-          </div>
-          <p className="relative z-10 font-mono text-5xl font-semibold tabular-nums text-white sm:text-6xl">
-            {props.elapsedLabel}
-          </p>
-        </div>
-        <div className="mt-9 flex flex-wrap justify-center gap-3">
-          {props.status === "running" ? (
-            <Button type="button" size="lg" onClick={props.onPause}>
-              <Pause className="h-4 w-4" aria-hidden="true" />暂停
-            </Button>
-          ) : (
-            <Button type="button" size="lg" onClick={props.onResume}>
-              <Play className="h-4 w-4" aria-hidden="true" />继续
-            </Button>
-          )}
-          <Button type="button" variant="primary" size="lg" onClick={props.onEnd}>
-            <Square className="h-4 w-4" aria-hidden="true" />结束并收口
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-}
+export { FocusTimerWorkspace } from "./focus-timer-workspace";
 
 export function CloseoutWorkspace(props: {
   context: FocusContext;
@@ -160,17 +106,17 @@ export function CloseoutWorkspace(props: {
 }) {
   const nextActionLabel = props.taskDisposition === "blocked" ? "阻塞原因" : "下一动作";
   return (
-    <div className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(18rem,0.65fr)_minmax(0,1.35fr)]">
-      <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 lg:border-b-0 lg:border-r lg:px-8 lg:py-10">
+    <div className="grid min-h-full min-w-0 min-[1200px]:grid-cols-[minmax(18rem,0.65fr)_minmax(0,1.35fr)]">
+      <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 min-[1200px]:border-r min-[1200px]:border-b-0 min-[1200px]:px-8 min-[1200px]:py-10">
         <p className="text-xs font-medium text-teal-300">本次学习</p>
         <h1 data-ai-current-object="true" data-ai-selectable data-ai-label={props.context.taskTitle ?? "科目快捷专注"} className="mt-2 break-words text-2xl font-semibold text-white">{props.context.taskTitle ?? "科目快捷专注"}</h1>
         <p className="mt-2 text-sm text-zinc-400">{props.context.subjectName}</p>
-        <dl className="mt-8 grid gap-5 text-sm sm:grid-cols-3 lg:grid-cols-1">
+        <dl className="mt-8 grid gap-5 text-sm sm:grid-cols-3 min-[1200px]:grid-cols-1">
           <ContextFact icon={<Clock3 />} label="实际时长" value={props.elapsedLabel} />
           <ContextFact icon={<BookOpen />} label="学习方式" value="自由学习" />
         </dl>
       </aside>
-      <section className="px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+      <section className="px-4 py-8 sm:px-6 min-[1200px]:px-10 min-[1200px]:py-10">
         <div className="mx-auto max-w-3xl">
           <p className="text-xs font-medium text-teal-300">学习收口</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">把这段时间转化为真实记录</h2>
@@ -297,7 +243,7 @@ export function LowConversionWorkspace(props: {
   onAccept: () => void;
 }) {
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl items-center px-4 py-10 sm:px-6">
+    <div className="mx-auto flex min-h-full w-full max-w-4xl items-center px-4 py-10 sm:px-6">
       <section className="w-full border-y border-amber-400/25 py-8 sm:py-10">
         <AlertTriangle className="h-7 w-7 text-amber-300" aria-hidden="true" />
         <p className="mt-5 text-xs font-medium text-amber-300">低转化记录已保存</p>
@@ -326,8 +272,8 @@ export function EvidenceWorkspace(props: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid min-h-[calc(100vh-3.5rem)] lg:grid-cols-[minmax(18rem,0.6fr)_minmax(0,1.4fr)]">
-      <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 lg:border-b-0 lg:border-r lg:px-8 lg:py-10">
+    <div className="grid min-h-full min-w-0 min-[1200px]:grid-cols-[minmax(18rem,0.6fr)_minmax(0,1.4fr)]">
+      <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 min-[1200px]:border-r min-[1200px]:border-b-0 min-[1200px]:px-8 min-[1200px]:py-10">
         <p className="text-xs font-medium text-teal-300">证据接力</p>
         <h1 className="mt-2 text-2xl font-semibold text-white">为本次学习留下一个可复用证据</h1>
         <div className="mt-7 grid gap-2">
@@ -349,7 +295,7 @@ export function EvidenceWorkspace(props: {
           ) : null}
         </div>
       </aside>
-      <section className="px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+      <section className="px-4 py-8 sm:px-6 min-[1200px]:px-10 min-[1200px]:py-10">
         <div className="mx-auto max-w-3xl">{props.children}</div>
         <div className="mx-auto mt-8 flex max-w-3xl justify-end border-t border-white/10 pt-5">
           <Button type="button" variant="primary" size="lg" onClick={props.onComplete}>
@@ -369,7 +315,7 @@ export function CompleteWorkspace(props: {
   receipts: FocusEvidenceReceipt[];
 }) {
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl items-center px-4 py-10 sm:px-6">
+    <div className="mx-auto flex min-h-full w-full max-w-4xl items-center px-4 py-10 sm:px-6">
       <section className="w-full border-y border-white/10 py-9">
         <CheckCircle2 className={`h-8 w-8 ${props.lowConversion ? "text-amber-300" : "text-emerald-300"}`} aria-hidden="true" />
         <p className="mt-5 text-xs font-medium text-teal-300">本次学习已收口</p>

@@ -68,6 +68,8 @@ export interface ReviewQueueTargetDto {
   title: string;
   subtitle: string;
   canonicalHref: string;
+  latestResult?: ReviewResult | null;
+  latestAttemptAt?: string | null;
 }
 
 export interface ReviewQueueItemDto {
@@ -160,7 +162,7 @@ export async function listReviewSchedules(
       workspaceId: workspace.id,
       ...(options?.status ? { status: options.status } : {}),
       ...(options?.dueBefore
-        ? { dueDate: { lte: options.dueBefore }, status: "ACTIVE" }
+        ? { dueDate: { lt: options.dueBefore }, status: "ACTIVE" }
         : {}),
       ...(options?.excludeBridged
         ? { bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } } }
@@ -180,7 +182,7 @@ export async function listReviewQueueItems(
     where: {
       workspaceId: workspace.id,
       ...(options?.status ? { status: options.status } : {}),
-      ...(options?.dueBefore ? { dueDate: { lte: options.dueBefore }, status: "ACTIVE" } : {}),
+      ...(options?.dueBefore ? { dueDate: { lt: options.dueBefore }, status: "ACTIVE" } : {}),
       ...(options?.excludeBridged
         ? { bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } } }
         : {}),
@@ -204,7 +206,7 @@ export async function getReviewWorkbenchSummary(
   };
   const [overdueCount, dueTodayCount, completed] = await Promise.all([
     prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { lt: today.start } } }),
-    prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { gte: today.start, lte: today.end } } }),
+    prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { gte: today.start, lt: today.end } } }),
     prisma.reviewEvent.aggregate({
       where: {
         reviewSchedule: { workspaceId: workspace.id },
@@ -269,15 +271,15 @@ export async function listRecentReviewEvents(actorId: string, limit = 12): Promi
 
 const reviewQueueTargetInclude = {
   note: { select: { id: true, title: true, kind: true, subject: { select: { name: true } } } },
-  mistake: { select: { id: true, title: true, subject: { select: { name: true } } } },
+  mistake: { select: { id: true, title: true, subject: { select: { name: true } }, attempts: { select: { result: true, attemptedAt: true }, orderBy: [{ attemptedAt: "desc" }, { id: "desc" }], take: 1 } } },
   studyResource: { select: { id: true, title: true, category: true, subject: { select: { name: true } } } },
   syllabusNode: { select: { id: true, title: true, kind: true, subject: { select: { name: true } } } },
-} as const;
+} satisfies Prisma.ReviewScheduleInclude;
 
 function serializeQueueTarget(row: {
   targetType: string;
   note: { id: string; title: string; kind: string; subject: { name: string } } | null;
-  mistake: { id: string; title: string; subject: { name: string } } | null;
+  mistake: { id: string; title: string; subject: { name: string }; attempts?: Array<{ result: string; attemptedAt: Date }> } | null;
   studyResource: { id: string; title: string; category: string; subject: { name: string } | null } | null;
   syllabusNode: { id: string; title: string; kind: string; subject: { name: string } } | null;
 }): ReviewQueueTargetDto {
@@ -285,7 +287,14 @@ function serializeQueueTarget(row: {
     return { title: row.note.title, subtitle: `${row.note.subject.name} · 知识卡片`, canonicalHref: `/knowledge/cards/${row.note.id}` };
   }
   if (row.targetType === "MISTAKE" && row.mistake) {
-    return { title: row.mistake.title, subtitle: `${row.mistake.subject.name} · 错题复测`, canonicalHref: `/knowledge/mistakes/${row.mistake.id}` };
+    const latestAttempt = row.mistake.attempts?.[0];
+    return {
+      title: row.mistake.title,
+      subtitle: `${row.mistake.subject.name} · 错题复测`,
+      canonicalHref: `/knowledge/mistakes/${row.mistake.id}`,
+      latestResult: latestAttempt?.result as ReviewResult | undefined ?? null,
+      latestAttemptAt: latestAttempt?.attemptedAt.toISOString() ?? null,
+    };
   }
   if (row.targetType === "STUDY_RESOURCE" && row.studyResource) {
     return { title: row.studyResource.title, subtitle: `${row.studyResource.subject?.name ?? "未分科"} · 学习资料`, canonicalHref: `/knowledge/resources/${row.studyResource.id}` };
@@ -307,7 +316,7 @@ export async function getNextDueReviewScheduleId(
       workspaceId: workspace.id,
       id: { not: currentScheduleId },
       status: "ACTIVE",
-      dueDate: { lte: today.end },
+      dueDate: { lt: today.end },
       bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
     },
     orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],

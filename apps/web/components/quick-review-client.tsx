@@ -264,7 +264,7 @@ export function QuickReviewClient(props: {
 
   if (props.schedule.status === "PAUSED") {
     return (
-      <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-3 px-4">
+      <section className="mx-auto flex min-h-full max-w-xl flex-col justify-center gap-3 px-4 py-8">
         <DetailHeading className="text-2xl font-semibold text-white">排期已暂停</DetailHeading>
         <p className="text-sm text-zinc-400">暂停的复习排期不能开始快速复习。</p>
         <Link href={props.returnTo} className="text-teal-300 hover:underline">{getReturnContextLabel(props.returnTo, "返回复习队列")}</Link>
@@ -274,7 +274,7 @@ export function QuickReviewClient(props: {
 
   if (!props.target.canPass) {
     return (
-      <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 px-4">
+      <section className="mx-auto flex min-h-full max-w-xl flex-col justify-center gap-4 px-4 py-8">
         <DetailHeading className="text-2xl font-semibold text-white">错题需要先补全</DetailHeading>
         <p className="text-sm leading-6 text-zinc-400">这条旧错题缺少明确错因或正确思路，当前不能开始或确认快速复习。</p>
         <div className="flex flex-wrap gap-3">
@@ -291,7 +291,7 @@ export function QuickReviewClient(props: {
       ? withReturnTo(`/knowledge/reviews/${done.nextScheduleId}/run`, props.returnTo)
       : props.returnTo;
     return (
-      <section className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-5 px-4 py-8">
+      <section className="mx-auto flex min-h-full max-w-2xl flex-col justify-center gap-5 px-4 py-8">
         <DetailHeading className="text-2xl font-semibold text-white">本次复习已确认</DetailHeading>
         <KnowledgeNextAction
           title={done.nextScheduleId ? "继续下一项复习" : completionActionLabel}
@@ -555,7 +555,7 @@ export function QuickReviewClient(props: {
   }
 
   return (
-    <section className="mx-auto flex min-h-screen max-w-xl flex-col gap-5 px-4 py-8">
+    <section className="mx-auto flex min-h-full max-w-xl flex-col gap-5 px-4 py-8">
       <Link href={props.returnTo} className="text-sm text-zinc-400 hover:text-zinc-200" onClick={(event) => {
         event.preventDefault();
         void leaveQuickReview();

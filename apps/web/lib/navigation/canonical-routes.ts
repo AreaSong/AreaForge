@@ -137,6 +137,10 @@ export const CANONICAL_ROUTES = [
     secondary: "mistakes",
     returnQueryKeys: ["subjectId", "syllabusNodeId", "q", "cause", "review"],
   }),
+  appRoute("/knowledge/mistakes/practice", "错题练习", "knowledge", "content", "workspace-full", "/knowledge/mistakes", {
+    secondary: "mistakes",
+    returnQueryKeys: ["returnTo"],
+  }),
   appRoute("/knowledge/mistakes/[mistakeId]", "错题详情", "knowledge", "content", "content-focus", "/knowledge", {
     secondary: "mistakes",
     returnQueryKeys: ["returnTo"],

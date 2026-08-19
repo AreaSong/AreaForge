@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, TriangleAlert } from "lucide-react";
+import { Activity, Menu, TriangleAlert } from "lucide-react";
 import { BrandMark } from "@/components/brand-logo";
 import { GlobalActivitySlot } from "@/components/global-activity-slot";
 import { GlobalAiAssistant } from "@/components/global-ai-assistant";
@@ -32,6 +32,7 @@ export function GlobalTopBar(props: {
   statusOpen: boolean;
   onOpenMotivationHelp: () => void;
   hasMotivationReminder: boolean;
+  onOpenNavigation: () => void;
 }) {
   const { openTool } = useGlobalTools();
   const statusToneClass = toneClass[props.statusTone] ?? toneClass.gray;
@@ -57,6 +58,15 @@ export function GlobalTopBar(props: {
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(13rem,1fr)_minmax(14rem,42rem)_minmax(13rem,1fr)]">
         <div className="flex min-w-0 items-center gap-2 max-[359px]:col-span-2 max-[359px]:row-start-1">
+          <button
+            type="button"
+            className="af-tablet-navigation-trigger inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/[0.06]"
+            onClick={props.onOpenNavigation}
+            aria-label="打开导航"
+            title="打开导航"
+          >
+            <Menu size={17} aria-hidden="true" />
+          </button>
           <div className="flex shrink-0 items-center gap-2 lg:hidden max-[359px]:hidden">
             <BrandMark size={20} />
             <span className="hidden text-sm text-teal-300 min-[360px]:inline">AreaForge</span>

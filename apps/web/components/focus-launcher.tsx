@@ -152,7 +152,9 @@ export function FocusLauncher({
     setError(null);
     startTransition(async () => {
       const subject = subjects.find((item) => item.id === subjectId);
-      if (!subject) return;
+      if (!subject) {
+        return;
+      }
       const device = getClientDeviceIdentity();
       const localSession = createLocalFocusSession({
         userId,
@@ -249,38 +251,42 @@ export function FocusLauncher({
 
   if (inlineSession) {
     return (
-      <FocusSessionClient
-        userId={userId}
-        session={inlineSession}
-        activeConflictId={null}
-        returnTo={returnTo}
-        initialNow={initialNow}
-        initialEvidenceReceipts={[]}
-        contextOptions={contextOptions}
-        embeddedInWorkbench
-      />
+      <div className="h-full min-h-0 w-full animate-[fade-in_0.25s_ease-out]">
+        <FocusSessionClient
+          userId={userId}
+          session={inlineSession}
+          activeConflictId={null}
+          returnTo={returnTo}
+          initialNow={initialNow}
+          initialEvidenceReceipts={[]}
+          contextOptions={contextOptions}
+          embeddedInWorkbench
+        />
+      </div>
     );
   }
 
   if (offlineSnapshot && isLocalFocusSessionId(offlineSnapshot.session.id)) {
     return (
-      <FocusSessionClient
-        userId={userId}
-        session={offlineSnapshot.session}
-        activeConflictId={null}
-        returnTo={returnTo}
-        initialNow={initialNow}
-        initialEvidenceReceipts={[]}
-        contextOptions={contextOptions}
-        offlineOnly
-        embeddedInWorkbench
-      />
+      <div className="h-full min-h-0 w-full animate-[fade-in_0.25s_ease-out]">
+        <FocusSessionClient
+          userId={userId}
+          session={offlineSnapshot.session}
+          activeConflictId={null}
+          returnTo={returnTo}
+          initialNow={initialNow}
+          initialEvidenceReceipts={[]}
+          contextOptions={contextOptions}
+          offlineOnly
+          embeddedInWorkbench
+        />
+      </div>
     );
   }
 
   return (
-    <div className="h-full min-h-0 w-full overflow-y-auto lg:overflow-hidden p-2.5 sm:p-4 lg:p-5">
-      <div className="grid h-full min-h-0 w-full gap-4 sm:gap-5 lg:grid-cols-12 lg:gap-5">
+    <div className="h-full min-h-0 w-full overflow-y-auto p-2.5 sm:p-4 lg:p-5 min-[1200px]:overflow-hidden">
+      <div className="grid min-h-full w-full gap-4 sm:gap-5 min-[1200px]:h-full min-[1200px]:min-h-0 min-[1200px]:grid-cols-12 min-[1200px]:gap-5">
         {/* Main Hero Focus Cockpit */}
         <FocusHeroDial
           selectedSubject={selectedSubject}
@@ -291,7 +297,7 @@ export function FocusLauncher({
         />
 
         {/* Action & Configuration Panel */}
-        <aside className="flex h-full min-h-0 flex-col justify-between rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 sm:p-5 lg:p-6 lg:col-span-5 overflow-hidden">
+        <aside className="flex min-h-[32rem] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 sm:p-5 lg:p-6 min-[1200px]:col-span-5 min-[1200px]:h-full min-[1200px]:min-h-0">
           <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 focus-scrollbar">
             <div>
               <div className="flex items-center gap-2 text-teal-300">
@@ -392,7 +398,9 @@ export function FocusLauncher({
               disabled={!subjects.length || !subjectId}
             >
               <Play className="size-4 fill-current transition-transform group-hover:scale-110" aria-hidden="true" />
-              {selectedSubject ? `开始【${selectedSubject.name}】专注` : "开始学习"}
+              {selectedSubject
+                ? `开始【${selectedSubject.name}】专注`
+                : "开始学习"}
             </Button>
             <p className="text-center text-[11px] sm:text-xs leading-normal text-zinc-500">
               多标签页与设备自动单实例互斥 · 离开页面计时后台继续

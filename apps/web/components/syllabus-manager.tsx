@@ -1448,7 +1448,7 @@ function SyllabusTreeNode({
           </button>
         </div>
         </div>
-        <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
+        <div className="af-content-grid-two mt-3 grid min-w-0 gap-3">
         <form className="min-w-0 rounded-md border border-white/10 bg-[#0d1117] p-3" onSubmit={submitEvidence}>
           <div className="flex items-center gap-2">
             <ClipboardCheck className="h-4 w-4 text-teal-300" aria-hidden="true" />
@@ -1564,7 +1564,7 @@ function SyllabusTreeNode({
         </form>
       </div>
         {node.masteryEvidence.length > 0 || node.masteryRetests.length > 0 ? (
-        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <div className="af-content-grid-two mt-3 grid min-w-0 gap-3">
           <MasteryEvidenceList items={node.masteryEvidence} />
           <MasteryRetestList items={node.masteryRetests} />
         </div>

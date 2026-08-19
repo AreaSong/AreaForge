@@ -75,8 +75,9 @@ export function Drawer(props: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  side?: "left" | "right";
 }) {
-  const { open, onClose, title, children } = props;
+  const { open, onClose, title, children, side = "right" } = props;
   const titleId = useId();
   const panelRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
@@ -90,7 +91,7 @@ export function Drawer(props: {
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[var(--af-layer-modal)] flex justify-end bg-black/50 backdrop-blur-sm animate-fade-in" role="presentation">
+    <div className={`fixed inset-0 z-[var(--af-layer-modal)] flex bg-black/50 backdrop-blur-sm animate-fade-in ${side === "left" ? "justify-start" : "justify-end"}`} role="presentation">
       <button type="button" className="absolute inset-0 cursor-default" aria-hidden="true" tabIndex={-1} onClick={onClose} />
       <aside
         ref={panelRef}
@@ -98,7 +99,7 @@ export function Drawer(props: {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#0d1117] p-4 shadow-xl animate-slide-in-right"
+        className={`relative z-10 flex h-full w-full max-w-md flex-col bg-[#0d1117] p-4 shadow-xl ${side === "left" ? "border-r border-white/10 animate-slide-in-left" : "border-l border-white/10 animate-slide-in-right"}`}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 id={titleId} className="text-lg font-semibold text-white">{title}</h2>

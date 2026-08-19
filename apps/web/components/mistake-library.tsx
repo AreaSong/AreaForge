@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertCircle, ArrowRight, Plus } from "lucide-react";
+import { AlertCircle, ArrowRight, Play, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { Drawer } from "@/components/ui/overlays";
 import { Toolbar } from "@/components/ui/page";
@@ -356,26 +356,27 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
       </Drawer>
 
       {!createOpen && error ? <p className="text-sm text-red-200">{error}</p> : null}
-      <section className="rounded-lg border border-white/10 bg-[#101419] p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-4 sm:p-5">
+        <div className="flex flex-col gap-4 min-[700px]:flex-row min-[700px]:items-start min-[700px]:justify-between">
+          <div className="min-w-0">
             <p className="text-sm text-zinc-400">掌握证据</p>
             <h2 className="mt-1 text-xl font-semibold text-white">错题与薄弱点</h2>
           </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="错题掌握概览">
-          <OverviewMetric label="错题总数" value={`${mistakes.length}`} />
-          <OverviewMetric label="今日到期" value={`${mistakes.filter((mistake) => matchesMistakeReview(mistake, "due")).length}`} />
-          <OverviewMetric label="最近通过" value={`${recentPassRate(mistakes)}%`} />
-          <OverviewMetric label="最近失败" value={`${recentFailures(mistakes)}`} />
-        </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 min-[700px]:w-auto min-[700px]:justify-end">
             <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">{filteredMistakes.length} / {mistakes.length} 条</span>
+            <ButtonLink href="/knowledge/mistakes/practice" variant="secondary"><Play className="h-4 w-4" aria-hidden="true" />开始练习</ButtonLink>
             <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               新增错题
             </Button>
           </div>
+        </div>
+
+        <div className="af-metric-grid-four mt-5 grid gap-2" aria-label="错题掌握概览">
+          <OverviewMetric label="错题总数" value={`${mistakes.length}`} />
+          <OverviewMetric label="今日到期" value={`${mistakes.filter((mistake) => matchesMistakeReview(mistake, "due")).length}`} />
+          <OverviewMetric label="最近通过" value={`${recentPassRate(mistakes)}%`} />
+          <OverviewMetric label="最近失败" value={`${recentFailures(mistakes)}`} />
         </div>
 
         <Toolbar className="mt-5" label="错题筛选">
@@ -409,7 +410,7 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
           {mistakes.length > 0 && filteredMistakes.length === 0 ? <EmptyState title="当前筛选没有结果" description="调整筛选条件，或清除筛选查看全部错题。" action={<Button type="button" size="sm" onClick={() => applyListFilters({ subject: "all", node: "all", cause: "all", review: "all" })}>清除筛选</Button>} /> : null}
           {filteredMistakes.length > 0 ? <div className="divide-y divide-white/10 border-y border-white/10">{filteredMistakes.map((mistake) => (
             <article key={mistake.id} className="min-w-0 py-4">
-              <div className="flex min-w-0 items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-xs text-zinc-500">{mistake.subjectName}</p>
@@ -423,7 +424,7 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
                 <ListDetailLink
                   href={`/knowledge/mistakes/${mistake.id}`}
                   focusId={`mistake-${mistake.id}`}
-                  className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05]"
+                  className="inline-flex h-10 shrink-0 items-center gap-1 self-end rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05] sm:self-auto"
                 >
                   打开详情
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />

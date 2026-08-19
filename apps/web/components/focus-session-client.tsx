@@ -651,7 +651,7 @@ export function FocusSessionClient(props: {
 
   if (props.activeConflictId) {
     return (
-      <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 px-4">
+      <section className="mx-auto flex min-h-full max-w-xl flex-col justify-center gap-4 px-4 py-8">
         <h1 className="text-2xl font-semibold text-white">活动冲突</h1>
         <p className="text-sm text-zinc-400">已有其他活动，只能继续当前活动。</p>
         <Link href="/focus" className="text-teal-300 hover:underline">
@@ -662,7 +662,7 @@ export function FocusSessionClient(props: {
   }
 
   return (
-    <section className={`${props.embeddedInWorkbench ? "h-full min-h-0" : "min-h-screen"} w-full bg-[var(--af-canvas)]`}>
+    <section className={`${props.embeddedInWorkbench ? "h-full min-h-0" : "min-h-full"} w-full bg-[var(--af-canvas)]`}>
       {!props.embeddedInWorkbench ? (
         <FocusHeader returnTo={props.returnTo} status={session.status} phaseLabel={phaseLabel(phase)} />
       ) : null}

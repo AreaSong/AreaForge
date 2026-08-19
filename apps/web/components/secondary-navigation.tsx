@@ -38,7 +38,7 @@ export function SecondaryNavigation(props: {
       aria-label={`${props.workbench.label}二级导航`}
       data-navigation-level="secondary"
       data-layout-region="secondary-navigation"
-      className={`hidden min-h-0 shrink-0 flex-col border-r border-l border-r-white/[0.07] border-l-black/40 shadow-[-4px_0_12px_rgba(0,0,0,0.3)_inset] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] lg:flex ${props.collapsed ? "w-[52px] px-1.5" : "w-[216px] px-3"}`}
+      className={`af-secondary-navigation-rail hidden min-h-0 shrink-0 flex-col border-r border-l border-r-white/[0.07] border-l-black/40 shadow-[-4px_0_12px_rgba(0,0,0,0.3)_inset] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] min-[1440px]:flex ${props.collapsed ? "w-[52px] px-1.5" : "w-[216px] px-3"}`}
     >
       <div className={`mb-5 flex items-center ${props.collapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
         <div className={props.collapsed ? "sr-only" : "min-w-0 border-l-2 border-teal-300/40 pl-2 text-xs font-medium text-zinc-500"}>
