@@ -7,7 +7,8 @@ import { prisma } from "../../packages/db/src/index";
 import { ApiError } from "../../apps/web/lib/api/responses";
 import { listWorkspaceCheckIns } from "../../apps/web/lib/study/check-in-service";
 import { activateExamWorkspace } from "../../apps/web/lib/study/exam-workspace-service";
-import { createMistake } from "../../apps/web/lib/study/mistakes-service";
+import { createMistakeAttempt } from "../../apps/web/lib/study/mistake-attempt-service";
+import { archiveMistake, createMistake, getOwnedMistakeDetail, updateMistakeLinks } from "../../apps/web/lib/study/mistakes-service";
 import {
   adoptAiPlanDraftToInbox,
   convertPlanInboxItem,
@@ -79,6 +80,7 @@ try {
   await resetTables();
   const seed = await seedWorkspace();
   await verifyMistakeCompletenessGate(seed);
+  await verifyMistakeV2AttemptsAndLinks(seed);
   await verifyTaskCanonicalRelations(seed);
   await verifyResourceTaskAndShortcutSession(seed);
   await verifyScheduleConstraints(seed);
@@ -231,6 +233,7 @@ async function seedWorkspace() {
     data: {
       subjectId: subject.id,
       title: "Mistake 1",
+      questionText: "在约束条件变化后，应如何选择正确方法？",
       cause: "WRONG_APPROACH",
       correctIdea: "先识别约束，再选择正确方法。",
       nextReviewAt: getStudyDayRange().start,
@@ -247,6 +250,7 @@ async function verifyMistakeCompletenessGate(
       idempotencyKey: `m6-incomplete-cause-${randomUUID()}`,
       subjectId: seed.subject.id,
       title: "Missing explicit cause",
+      questionText: "Question with missing explicit cause",
       cause: "unknown",
       correctIdea: "已有正确思路",
     }, seed.user.id),
@@ -257,6 +261,7 @@ async function verifyMistakeCompletenessGate(
       idempotencyKey: `m6-incomplete-idea-${randomUUID()}`,
       subjectId: seed.subject.id,
       title: "Missing correct idea",
+      questionText: "Question with missing correct idea",
       cause: "wrong_approach",
     }, seed.user.id),
     (error: unknown) => error instanceof ApiError && error.code === "MISTAKE_INCOMPLETE" && error.status === 400,
@@ -311,6 +316,53 @@ async function verifyMistakeCompletenessGate(
     legacyScheduleId: legacySchedule.id,
     canPass: target.canPass,
   });
+}
+
+async function verifyMistakeV2AttemptsAndLinks(
+  seed: Awaited<ReturnType<typeof seedWorkspace>>,
+): Promise<void> {
+  const mistake = await createMistake({
+    idempotencyKey: `mistake-v2-${randomUUID()}`,
+    subjectId: seed.subject.id,
+    title: "Mistake v2 evidence",
+    questionText: "证明这道题的关键约束。",
+    cause: "wrong_approach",
+    causeNote: "忽略了边界条件",
+    correctAnswer: "边界条件成立时结论成立。",
+    correctIdea: "先列出边界条件，再逐项验证。",
+  }, seed.user.id);
+  const key = `mistake-attempt-${randomUUID()}`;
+  const command = {
+    idempotencyKey: key,
+    answerMode: "TEXT" as const,
+    answerText: "先验证边界条件。",
+    result: "PARTIAL" as const,
+    note: "遗漏一个分支",
+  };
+  const first = await createMistakeAttempt(mistake.id, command, seed.user.id);
+  const replay = await createMistakeAttempt(mistake.id, command, seed.user.id);
+  assert.equal(replay.id, first.id);
+  await assert.rejects(
+    () => createMistakeAttempt(mistake.id, { ...command, result: "FAILED" }, seed.user.id),
+    (error: unknown) => error instanceof ApiError && error.code === "MISTAKE_ATTEMPT_IDEMPOTENCY_CONFLICT" && error.status === 409,
+  );
+  assert.equal(await prisma.mistakeAttempt.count({ where: { mistakeId: mistake.id } }), 1);
+
+  const note = await prisma.note.create({ data: { subjectId: seed.subject.id, title: "Mistake v2 note", content: "linked note" } });
+  const resource = await prisma.studyResource.create({ data: { workspaceId: seed.workspace.id, subjectId: seed.subject.id, stableKey: `mistake-v2-resource-${randomUUID()}`, title: "Mistake v2 resource", sourceType: "LINK", externalUrl: "https://example.com/mistake-v2" } });
+  const linked = await updateMistakeLinks(mistake.id, { expectedUpdatedAt: mistake.updatedAt, noteIds: [note.id], resourceIds: [resource.id] }, seed.user.id);
+  assert.deepEqual(linked.noteLinks.map((item) => item.noteId), [note.id]);
+  assert.deepEqual(linked.resourceLinks.map((item) => item.resourceId), [resource.id]);
+
+  const archived = await archiveMistake(mistake.id, linked.updatedAt, seed.user.id);
+  await assert.rejects(
+    () => createMistakeAttempt(mistake.id, { ...command, idempotencyKey: `archived-${randomUUID()}` }, seed.user.id),
+    (error: unknown) => error instanceof ApiError && error.code === "MISTAKE_ARCHIVED" && error.status === 409,
+  );
+  const detail = await getOwnedMistakeDetail(mistake.id, seed.user.id);
+  assert.equal(detail?.mistake.attemptCount, 1);
+  assert.ok(archived.archivedAt);
+  pass("mistake_v2_attempts_links", { attemptId: first.id, idempotentReplay: true, archivedWriteRejected: true });
 }
 
 async function verifyTaskCanonicalRelations(
@@ -823,15 +875,22 @@ async function verifyConfirmIdempotencyAndCheckIn(
     expectedRevision: schedule.revision,
     result: "PASSED",
     durationSeconds: 320,
+    answerMode: "TEXT",
+    answerText: "先识别约束，再选择方法。",
   });
   assert.equal(first.reused, false);
   assert.equal(first.event.durationSeconds, 320);
+  const persistedAttempt = await prisma.mistakeAttempt.findUnique({ where: { reviewEventId: first.event.id } });
+  assert.equal(persistedAttempt?.mistakeId, seed.mistake.id);
+  assert.equal(persistedAttempt?.answerText, "先识别约束，再选择方法。");
 
   const reused = await confirmReviewEvent(seed.user.id, schedule.id, {
     idempotencyKey: key,
     expectedRevision: schedule.revision,
     result: "PASSED",
     durationSeconds: 320,
+    answerMode: "TEXT",
+    answerText: "先识别约束，再选择方法。",
   });
   assert.equal(reused.reused, true);
   assert.equal(reused.event.id, first.event.id);
@@ -842,6 +901,8 @@ async function verifyConfirmIdempotencyAndCheckIn(
       expectedRevision: schedule.revision,
       result: "FAILED",
       durationSeconds: 320,
+      answerMode: "TEXT",
+      answerText: "先识别约束，再选择方法。",
     });
     assert.fail("expected idempotency conflict");
   } catch (error) {
@@ -856,6 +917,7 @@ async function verifyConfirmIdempotencyAndCheckIn(
       expectedRevision: schedule.revision,
       result: "PARTIAL",
       durationSeconds: 60,
+      answerMode: "PAPER_OR_ORAL",
     });
     assert.fail("expected revision conflict");
   } catch (error) {
@@ -905,7 +967,7 @@ async function verifyQuickReviewActivityExclusion(
     () => confirmReviewEvent(seed.user.id, schedule.id, command),
     (error: unknown) => error instanceof ApiError
       && error.code === "ACTIVE_SESSION_BLOCKS_QUICK_REVIEW"
-      && error.details?.workbench === `/focus/${running.id}`,
+      && error.details?.workbench === "/focus",
   );
   assert.equal(await prisma.reviewEvent.count({ where: { reviewScheduleId: schedule.id } }), 0);
   await prisma.studySession.update({

@@ -15,6 +15,7 @@ import { getStudyDayRange } from "./date";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { applyRecoveryV2CheckInProgressInTx } from "./recovery-v2-service";
+import { persistMistakeAttemptInTx } from "./mistake-attempt-service";
 
 export interface ReviewScheduleDto {
   id: string;
@@ -542,6 +543,8 @@ type ConfirmReviewInput = {
   durationSeconds: number;
   nextDueDate?: string;
   note?: string | null;
+  answerMode?: "TEXT" | "PAPER_OR_ORAL";
+  answerText?: string | null;
 };
 
 async function confirmReviewEventInTx(
@@ -573,12 +576,15 @@ async function confirmReviewEventInTx(
   const nextDueDate = input.nextDueDate
     ? getStudyDayRange(new Date(input.nextDueDate)).start
     : addShanghaiLearningDays(learningDay.start, suggestedDays);
-  const fingerprint = buildReviewRequestFingerprint({
+  const baseFingerprint = buildReviewRequestFingerprint({
     result: input.result,
     durationSeconds: input.durationSeconds,
     nextDueDateKey: input.nextDueDate ? getStudyDayRange(nextDueDate).key : "AUTO",
     note: input.note,
   });
+  const fingerprint = schedule.targetType === "MISTAKE"
+    ? `${baseFingerprint}|attempt:${createHash("sha256").update(JSON.stringify({ answerMode: input.answerMode ?? null, answerText: input.answerText?.trim() || null })).digest("hex")}`
+    : baseFingerprint;
 
   const existingEvent = await tx.reviewEvent.findUnique({
     where: {
@@ -638,6 +644,12 @@ async function confirmReviewEventInTx(
     });
   }
   await assertReviewTargetComplete(tx, schedule);
+  if (schedule.targetType === "MISTAKE") {
+    if (!input.answerMode) throw new ApiError("MISTAKE_ATTEMPT_MODE_REQUIRED", 400);
+    if (input.answerMode === "TEXT" && !input.answerText?.trim()) throw new ApiError("MISTAKE_ATTEMPT_ANSWER_REQUIRED", 400);
+  } else if (input.answerMode || input.answerText) {
+    throw new ApiError("REVIEW_ATTEMPT_TARGET_MISMATCH", 400);
+  }
 
   const event = await tx.reviewEvent.create({
     data: {
@@ -656,6 +668,17 @@ async function confirmReviewEventInTx(
       actorId,
     },
   });
+
+  if (schedule.targetType === "MISTAKE" && schedule.mistakeId && input.answerMode) {
+    await persistMistakeAttemptInTx(tx, actorId, workspaceId, schedule.mistakeId, {
+      idempotencyKey: input.idempotencyKey,
+      answerMode: input.answerMode,
+      answerText: input.answerText,
+      result: input.result,
+      durationSeconds: input.durationSeconds,
+      note: input.note,
+    }, event.id);
+  }
 
   const updated = await tx.reviewSchedule.update({
     where: { id: schedule.id },
@@ -1201,6 +1224,7 @@ async function assertTargetOwned(
       where: { id: input.mistakeId, subject: { workspaceId } },
       select: {
         archivedAt: true,
+        questionText: true,
         cause: true,
         correctIdea: true,
         subject: { select: { archivedAt: true } },
@@ -1208,8 +1232,8 @@ async function assertTargetOwned(
     });
     if (!mistake || mistake.archivedAt) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     if (mistake.subject.archivedAt) throw subjectArchivedReviewError();
-    if (mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
-      throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, { conflictFields: ["cause", "correctIdea"] });
+    if (!mistake.questionText?.trim() || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
+      throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, { conflictFields: ["questionText", "cause", "correctIdea"] });
     }
     return;
   }
@@ -1295,15 +1319,15 @@ async function assertReviewTargetComplete(
   if (!schedule.mistakeId) return;
   const mistake = await tx.mistake.findUnique({
     where: { id: schedule.mistakeId },
-    select: { cause: true, correctIdea: true },
+    select: { questionText: true, cause: true, correctIdea: true },
   });
-  if (!mistake || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
+  if (!mistake || !mistake.questionText?.trim() || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
     throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, {
       latest: {
         schedule: serializeSchedule(schedule),
         target: { targetType: "MISTAKE", canPass: false },
       },
-      conflictFields: ["cause", "correctIdea"],
+      conflictFields: ["questionText", "cause", "correctIdea"],
     });
   }
 }

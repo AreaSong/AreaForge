@@ -131,13 +131,16 @@ function FocusNoteForm(props: EvidenceContext & {
 
 interface MistakeDraft {
   title: string;
+  questionText: string;
   source: string;
   cause: Exclude<MistakeCauseDto, "unknown">;
+  causeNote: string;
+  correctAnswer: string;
   correctIdea: string;
   nextReviewAt: string;
 }
 
-const emptyMistakeDraft: MistakeDraft = { title: "", source: "", cause: "concept_confusion", correctIdea: "", nextReviewAt: "" };
+const emptyMistakeDraft: MistakeDraft = { title: "", questionText: "", source: "", cause: "concept_confusion", causeNote: "", correctAnswer: "", correctIdea: "", nextReviewAt: "" };
 
 function FocusMistakeForm(props: EvidenceContext & {
   onEvidenceSaved: (input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) => Promise<void>;
@@ -159,8 +162,11 @@ function FocusMistakeForm(props: EvidenceContext & {
       subjectId: props.subjectId,
       syllabusNodeId: props.syllabusNodeId,
       title: draft.title.trim(),
+      questionText: draft.questionText.trim(),
       source: draft.source.trim() || null,
       cause: draft.cause,
+      causeNote: draft.causeNote.trim() || null,
+      correctAnswer: draft.correctAnswer.trim() || null,
       correctIdea: draft.correctIdea.trim(),
       nextReviewAt: draft.nextReviewAt ? new Date(draft.nextReviewAt).toISOString() : null,
     };
@@ -192,14 +198,17 @@ function FocusMistakeForm(props: EvidenceContext & {
       <EvidenceHeading icon={<Bug />} title="记录错题" context={contextLabel(props)} />
       <form noValidate className="mt-6 grid gap-4" onSubmit={submit}>
         <Field label="错题标题"><input required maxLength={180} className={inputClass} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="哪一步或哪类题出了问题" /></Field>
+        <Field label="题目正文"><textarea required maxLength={10000} className={`${inputClass} min-h-36 py-3`} value={draft.questionText} onChange={(event) => setDraft({ ...draft, questionText: event.target.value })} placeholder="记录完整题面、条件和问题" /></Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="错因"><select className={inputClass} value={draft.cause} onChange={(event) => setDraft({ ...draft, cause: event.target.value as MistakeDraft["cause"] })}><option value="concept_confusion">概念混淆</option><option value="formula_unfamiliar">公式不熟</option><option value="wrong_approach">思路错误</option><option value="careless">粗心</option><option value="time_pressure">时间压力</option><option value="unfamiliar_pattern">题型陌生</option></select></Field>
           <Field label="来源（可选）"><input maxLength={500} className={inputClass} value={draft.source} onChange={(event) => setDraft({ ...draft, source: event.target.value })} placeholder="教材、题号或试卷" /></Field>
         </div>
+        <Field label="错因补充"><textarea maxLength={2000} className={`${inputClass} min-h-24 py-3`} value={draft.causeNote} onChange={(event) => setDraft({ ...draft, causeNote: event.target.value })} placeholder="具体错在哪一步" /></Field>
+        <Field label="标准答案（可选）"><textarea maxLength={5000} className={`${inputClass} min-h-24 py-3`} value={draft.correctAnswer} onChange={(event) => setDraft({ ...draft, correctAnswer: event.target.value })} placeholder="没有唯一答案时可留空" /></Field>
         <Field label="正确思路"><textarea required maxLength={3000} className={`${inputClass} min-h-36 py-3`} value={draft.correctIdea} onChange={(event) => setDraft({ ...draft, correctIdea: event.target.value })} placeholder="写清错误发生在哪里，以及下一次如何识别" /></Field>
         <Field label="下次复习时间（可选）"><input type="datetime-local" className={inputClass} value={draft.nextReviewAt} onChange={(event) => setDraft({ ...draft, nextReviewAt: event.target.value })} /></Field>
         {error ? <Alert tone="danger">{error}</Alert> : null}
-        <Button type="submit" variant="primary" size="lg" loading={saving} loadingLabel="保存并回写中" disabled={!draft.title.trim() || !draft.correctIdea.trim()}><BookOpenCheck className="h-4 w-4" aria-hidden="true" />保存错题并关联本次学习</Button>
+        <Button type="submit" variant="primary" size="lg" loading={saving} loadingLabel="保存并回写中" disabled={!draft.title.trim() || !draft.questionText.trim() || !draft.correctIdea.trim()}><BookOpenCheck className="h-4 w-4" aria-hidden="true" />保存错题并关联本次学习</Button>
       </form>
     </div>
   );
@@ -255,7 +264,7 @@ function isNoteDraft(value: unknown): value is NoteDraft {
 function isMistakeDraft(value: unknown): value is MistakeDraft {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const draft = value as Partial<MistakeDraft>;
-  return typeof draft.title === "string" && typeof draft.source === "string" && typeof draft.correctIdea === "string" && typeof draft.nextReviewAt === "string" && ["concept_confusion", "formula_unfamiliar", "wrong_approach", "careless", "time_pressure", "unfamiliar_pattern"].includes(draft.cause ?? "");
+  return [draft.title, draft.questionText, draft.source, draft.causeNote, draft.correctAnswer, draft.correctIdea, draft.nextReviewAt].every((field) => typeof field === "string") && ["concept_confusion", "formula_unfamiliar", "wrong_approach", "careless", "time_pressure", "unfamiliar_pattern"].includes(draft.cause ?? "");
 }
 
 const inputClass = "h-11 w-full rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 text-sm text-white placeholder:text-zinc-600";

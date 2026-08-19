@@ -171,6 +171,7 @@ export const createMistakeSchema = z.object({
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(180),
+  questionText: z.string().trim().min(1).max(10000),
   source: z.string().trim().max(500).nullable().optional(),
   cause: z
     .enum([
@@ -183,8 +184,11 @@ export const createMistakeSchema = z.object({
       "unfamiliar_pattern",
     ])
     .refine((value) => value !== "unknown", { message: "新错题必须选择明确错因" }),
+  causeNote: z.string().trim().max(2000).nullable().optional(),
+  correctAnswer: z.string().trim().max(5000).nullable().optional(),
   correctIdea: z.string().trim().min(1).max(3000),
   nextReviewAt: z.string().datetime().nullable().optional(),
+  simulationLossItemId: z.string().min(1).nullable().optional(),
 });
 
 export const updateMistakeSchema = z.object({
@@ -192,6 +196,7 @@ export const updateMistakeSchema = z.object({
   subjectId: z.string().min(1).optional(),
   syllabusNodeId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(180).optional(),
+  questionText: z.string().trim().min(1).max(10000).optional(),
   source: z.string().trim().max(500).nullable().optional(),
   cause: z
     .enum([
@@ -204,6 +209,8 @@ export const updateMistakeSchema = z.object({
       "unfamiliar_pattern",
     ])
     .optional(),
+  causeNote: z.string().trim().max(2000).nullable().optional(),
+  correctAnswer: z.string().trim().max(5000).nullable().optional(),
   correctIdea: z.string().trim().max(3000).nullable().optional(),
   nextReviewAt: z.string().datetime().nullable().optional(),
 }).refine(
@@ -213,6 +220,25 @@ export const updateMistakeSchema = z.object({
 
 export const mistakeArchiveCommandSchema = z.object({
   expectedUpdatedAt: z.string().datetime(),
+});
+
+export const mistakeAttemptSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  answerMode: z.enum(["TEXT", "PAPER_OR_ORAL"]),
+  answerText: z.string().trim().max(10000).nullable().optional(),
+  result: z.enum(["PASSED", "PARTIAL", "FAILED"]),
+  durationSeconds: z.number().int().min(1).max(14400).nullable().optional(),
+  note: z.string().trim().max(2000).nullable().optional(),
+}).superRefine((value, context) => {
+  if (value.answerMode === "TEXT" && !value.answerText?.trim()) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["answerText"], message: "文字作答需要填写答案" });
+  }
+});
+
+export const mistakeLinksSchema = z.object({
+  expectedUpdatedAt: z.string().datetime(),
+  noteIds: z.array(z.string().min(1)).max(100),
+  resourceIds: z.array(z.string().min(1)).max(100),
 });
 
 const motivationTextSchema = z.string().trim().max(3000).optional();

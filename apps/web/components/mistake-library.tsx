@@ -19,6 +19,7 @@ import {
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
 import type { MistakeCauseDto, MistakeDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import type { MistakeCreatePrefillDto } from "@/lib/study/mistakes-service";
 
 interface MistakeLibraryProps {
   userId: string;
@@ -31,14 +32,18 @@ interface MistakeLibraryProps {
   initialReviewFilter?: string;
   initialQuery?: string;
   initialCreate?: boolean;
+  createPrefill?: MistakeCreatePrefillDto | null;
 }
 
 interface MistakeFormDraft {
   subjectId: string;
   syllabusNodeId: string;
   title: string;
+  questionText: string;
   source: string;
   cause: MistakeCauseDto;
+  causeNote: string;
+  correctAnswer: string;
   correctIdea: string;
   nextReviewAt: string;
 }
@@ -50,18 +55,21 @@ interface FlatNode {
   depth: number;
 }
 
-export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubjectId, initialSyllabusNodeId, initialCauseFilter, initialReviewFilter, initialQuery, initialCreate }: MistakeLibraryProps) {
+export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubjectId, initialSyllabusNodeId, initialCauseFilter, initialReviewFilter, initialQuery, initialCreate, createPrefill }: MistakeLibraryProps) {
   const router = useRouter();
   const createTitleRef = useRef<HTMLInputElement>(null);
-  const formDraftKey = `areaforge.mistake.draft.${userId}.create`;
+  const formDraftKey = `areaforge.mistake.draft.${userId}.create.${createPrefill?.simulationLossItemId ?? "manual"}`;
   useRestoreListReturn();
   const initialSubject = subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId as string : subjects[0]?.id ?? "";
   const initialNode = flattenNodes(nodes).some((node) => node.id === initialSyllabusNodeId && node.subjectId === initialSubject) ? initialSyllabusNodeId as string : "";
-  const [subjectId, setSubjectId] = useState(initialSubject);
-  const [syllabusNodeId, setSyllabusNodeId] = useState(initialNode);
-  const [title, setTitle] = useState("");
-  const [source, setSource] = useState("");
-  const [cause, setCause] = useState<MistakeCauseDto>("unknown");
+  const [subjectId, setSubjectId] = useState(createPrefill?.subjectId ?? initialSubject);
+  const [syllabusNodeId, setSyllabusNodeId] = useState(createPrefill?.syllabusNodeId ?? initialNode);
+  const [title, setTitle] = useState(createPrefill?.title ?? "");
+  const [questionText, setQuestionText] = useState(createPrefill?.questionText ?? "");
+  const [source, setSource] = useState(createPrefill?.source ?? "");
+  const [cause, setCause] = useState<MistakeCauseDto>(createPrefill?.cause ?? "unknown");
+  const [causeNote, setCauseNote] = useState(createPrefill?.causeNote ?? "");
+  const [correctAnswer, setCorrectAnswer] = useState("");
   const [correctIdea, setCorrectIdea] = useState("");
   const [nextReviewAt, setNextReviewAt] = useState("");
   const [mistakeSubjectFilter, setMistakeSubjectFilter] = useState(initialSubjectId && subjects.some((subject) => subject.id === initialSubjectId) ? initialSubjectId : "all");
@@ -89,8 +97,11 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
         setSubjectId(draft.subjectId);
         setSyllabusNodeId(draft.syllabusNodeId);
         setTitle(draft.title);
+        setQuestionText(draft.questionText);
         setSource(draft.source);
         setCause(draft.cause);
+        setCauseNote(draft.causeNote);
+        setCorrectAnswer(draft.correctAnswer);
         setCorrectIdea(draft.correctIdea);
         setNextReviewAt(draft.nextReviewAt);
       }
@@ -101,7 +112,7 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
 
   useEffect(() => {
     if (!draftReady) return;
-    if (!title && !source && !correctIdea) {
+    if (!title && !questionText && !source && !correctAnswer && !correctIdea) {
       removePrivateBusinessDraft(formDraftKey);
       return;
     }
@@ -109,12 +120,15 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
       subjectId,
       syllabusNodeId,
       title,
+      questionText,
       source,
       cause,
+      causeNote,
+      correctAnswer,
       correctIdea,
       nextReviewAt,
     });
-  }, [cause, correctIdea, draftReady, formDraftKey, nextReviewAt, source, subjectId, syllabusNodeId, title]);
+  }, [cause, causeNote, correctAnswer, correctIdea, draftReady, formDraftKey, nextReviewAt, questionText, source, subjectId, syllabusNodeId, title]);
 
   const flatNodes = useMemo(() => flattenNodes(nodes), [nodes]);
   const nodeOptions = flatNodes.filter((node) => node.subjectId === subjectId);
@@ -168,12 +182,16 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
       subjectId,
       syllabusNodeId: syllabusNodeId || null,
       title,
+      questionText,
       source: source || null,
       cause,
+      causeNote: causeNote || null,
+      correctAnswer: correctAnswer || null,
       correctIdea: correctIdea || null,
       nextReviewAt: nextReviewAt ? new Date(nextReviewAt).toISOString() : null,
+      simulationLossItemId: createPrefill?.simulationLossItemId ?? null,
     };
-    const commandScope = `mistake:create:${userId}`;
+    const commandScope = `mistake:create:${userId}:${createPrefill?.simulationLossItemId ?? "manual"}`;
     let createdMistake: MistakeDto | null = null;
     setSaving(true);
 
@@ -212,7 +230,10 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
     if (!createdMistake) return;
     completeIdempotentCommand(commandScope);
     setTitle("");
+    setQuestionText("");
     setSource("");
+    setCauseNote("");
+    setCorrectAnswer("");
     setCorrectIdea("");
     setNextReviewAt("");
     setSyllabusNodeId("");
@@ -225,6 +246,7 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
     <>
       <Drawer open={createOpen} title="新增错题" onClose={() => setCreateOpen(false)}>
         <form className="grid gap-3" onSubmit={submit}>
+          {createPrefill ? <p className="rounded-md border border-teal-300/20 bg-teal-300/10 px-3 py-2 text-sm text-teal-100">已从模拟失分带入科目、来源和错因。补齐题面与正确思路后再创建。</p> : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
@@ -271,6 +293,16 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="错题标题或最短题干"
+            aria-label="错题标题"
+            required
+          />
+          <textarea
+            className="min-h-36 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
+            value={questionText}
+            onChange={(event) => setQuestionText(event.target.value)}
+            placeholder="完整题面、条件和问题"
+            aria-label="题目正文"
+            maxLength={10000}
             required
           />
           <input
@@ -278,6 +310,23 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
             value={source}
             onChange={(event) => setSource(event.target.value)}
             placeholder="来源：真题、练习册、课程、页码"
+            aria-label="错题来源"
+          />
+          <textarea
+            className="min-h-24 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
+            value={causeNote}
+            onChange={(event) => setCauseNote(event.target.value)}
+            placeholder="错因补充：具体错在哪一步"
+            aria-label="错因补充"
+            maxLength={2000}
+          />
+          <textarea
+            className="min-h-24 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
+            value={correctAnswer}
+            onChange={(event) => setCorrectAnswer(event.target.value)}
+            placeholder="标准答案（可选）"
+            aria-label="标准答案"
+            maxLength={5000}
           />
           <textarea
             className="min-h-32 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
@@ -296,7 +345,7 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50"
             type="submit"
-            disabled={isPending || saving || !subjectId || cause === "unknown" || !correctIdea.trim()}
+            disabled={isPending || saving || !subjectId || !title.trim() || !questionText.trim() || cause === "unknown" || !correctIdea.trim()}
           >
             <AlertCircle className="h-4 w-4" aria-hidden="true" />
             保存错题
@@ -313,6 +362,13 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
             <p className="text-sm text-zinc-400">掌握证据</p>
             <h2 className="mt-1 text-xl font-semibold text-white">错题与薄弱点</h2>
           </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="错题掌握概览">
+          <OverviewMetric label="错题总数" value={`${mistakes.length}`} />
+          <OverviewMetric label="今日到期" value={`${mistakes.filter((mistake) => matchesMistakeReview(mistake, "due")).length}`} />
+          <OverviewMetric label="最近通过" value={`${recentPassRate(mistakes)}%`} />
+          <OverviewMetric label="最近失败" value={`${recentFailures(mistakes)}`} />
+        </div>
           <div className="flex items-center gap-2">
             <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300">{filteredMistakes.length} / {mistakes.length} 条</span>
             <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}>
@@ -374,10 +430,11 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
                 </ListDetailLink>
               </div>
               <p className="mt-3 max-h-12 overflow-hidden whitespace-pre-wrap text-sm leading-6 text-zinc-300">
-                {mistake.correctIdea || "还没有写正确思路。"}
+                {mistake.questionText || "这条历史错题还没有完整题面。"}
               </p>
               <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
                 {mistake.source ? <span>来源：{mistake.source}</span> : null}
+                <span>作答 {mistake.attemptCount} 次{mistake.attempts[0] ? ` · 最近${labelResult(mistake.attempts[0].result)}` : ""}</span>
                 <span>更新：{new Date(mistake.updatedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</span>
               </div>
               {mistake.cause === "unknown" || !mistake.correctIdea?.trim() ? <p className="mt-3 text-xs text-amber-200">待补全错因和正确思路后才能进入快速复习。</p> : null}
@@ -387,6 +444,20 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
       </section>
     </>
   );
+}
+
+function OverviewMetric({ label, value }: { label: string; value: string }) {
+  return <div className="border-l border-white/10 pl-3"><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-lg font-semibold text-white">{value}</p></div>;
+}
+
+function recentPassRate(mistakes: MistakeDto[]) {
+  const attempts = mistakes.flatMap((mistake) => mistake.attempts.slice(0, 5));
+  if (attempts.length === 0) return 0;
+  return Math.round((attempts.filter((attempt) => attempt.result === "PASSED").length / attempts.length) * 100);
+}
+
+function recentFailures(mistakes: MistakeDto[]) {
+  return mistakes.reduce((total, mistake) => total + mistake.attempts.slice(0, 5).filter((attempt) => attempt.result === "FAILED").length, 0);
 }
 
 function CauseOptions() {
@@ -406,10 +477,14 @@ function CauseOptions() {
 function isMistakeFormDraft(value: unknown): value is MistakeFormDraft {
   if (!value || typeof value !== "object") return false;
   const draft = value as Partial<MistakeFormDraft>;
-  return [draft.subjectId, draft.syllabusNodeId, draft.title, draft.source, draft.correctIdea, draft.nextReviewAt]
+  return [draft.subjectId, draft.syllabusNodeId, draft.title, draft.questionText, draft.source, draft.causeNote, draft.correctAnswer, draft.correctIdea, draft.nextReviewAt]
     .every((field) => typeof field === "string")
     && ["unknown", "concept_confusion", "formula_unfamiliar", "wrong_approach", "careless", "time_pressure", "unfamiliar_pattern"]
       .includes(String(draft.cause));
+}
+
+function labelResult(result: "PASSED" | "PARTIAL" | "FAILED"): string {
+  return result === "PASSED" ? "通过" : result === "PARTIAL" ? "部分掌握" : "未通过";
 }
 
 function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): FlatNode[] {

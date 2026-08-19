@@ -1497,6 +1497,7 @@ function serializeSimulationExam(exam: {
       syllabusNodeId: string | null;
       lostScore: number;
       note: string | null;
+      mistakeId: string | null;
       revision: number;
       archivedAt: Date | null;
       syllabusNode: { title: string } | null;
@@ -1577,6 +1578,7 @@ function serializeLossItem(item: {
   syllabusNodeId: string | null;
   lostScore: number;
   note: string | null;
+  mistakeId: string | null;
   revision: number;
   archivedAt: Date | null;
   syllabusNode: { title: string } | null;
@@ -1588,6 +1590,7 @@ function serializeLossItem(item: {
     syllabusNodeTitle: item.syllabusNode?.title ?? null,
     lostScore: item.lostScore,
     note: item.note,
+    mistakeId: item.mistakeId,
     revision: item.revision,
     archivedAt: item.archivedAt?.toISOString() ?? null,
   };

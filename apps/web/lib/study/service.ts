@@ -68,6 +68,7 @@ import type {
   TaskDebtReorderDto,
   SyllabusOverviewDto,
   TodayDashboardDto,
+  FocusLauncherSummaryDto,
 } from "./types";
 
 const recoveryStateLockKey = 2026070703;
@@ -3746,3 +3747,94 @@ async function audit(
     },
   });
 }
+
+export async function getFocusLauncherSummary(
+  actorId: string,
+  now = new Date(),
+): Promise<FocusLauncherSummaryDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const day = getStudyDayRange(now);
+  const weeklyStart = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const recentStart = new Date(day.start.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+  const [todaySessions, weeklySessions, checkInSnapshots] = await Promise.all([
+    prisma.studySession.findMany({
+      where: {
+        subject: { workspaceId: workspace.id, archivedAt: null },
+        startedAt: { gte: day.start, lt: day.end },
+        status: "COMPLETED",
+      },
+      select: {
+        id: true,
+        subjectId: true,
+        effectiveMinutes: true,
+        startedAt: true,
+      },
+      orderBy: { startedAt: "asc" },
+    }),
+    prisma.studySession.findMany({
+      where: {
+        subject: { workspaceId: workspace.id, archivedAt: null },
+        startedAt: { gte: weeklyStart, lt: day.end },
+        status: "COMPLETED",
+      },
+      select: {
+        id: true,
+        subjectId: true,
+        effectiveMinutes: true,
+        startedAt: true,
+      },
+      orderBy: { startedAt: "desc" },
+    }),
+    listCheckInSnapshotsInRange(recentStart, day.end, prisma, workspace.id),
+  ]);
+
+  const todayMinutes = todaySessions.reduce(
+    (acc, s) => acc + (s.effectiveMinutes || 0),
+    0,
+  );
+  const todaySessionsCount = todaySessions.length;
+  const streakDays = getEffectiveStudyStreak(
+    weeklySessions.map((s) => ({ startedAt: s.startedAt })),
+    checkInSnapshots,
+    now,
+  );
+
+  const subjectWeeklyStats: Record<
+    string,
+    {
+      weeklyMinutes: number;
+      lastSessionMinutes: number | null;
+      lastSessionAgo: string | null;
+    }
+  > = {};
+
+  for (const session of weeklySessions) {
+    if (!subjectWeeklyStats[session.subjectId]) {
+      const diffHours = Math.round(
+        (now.getTime() - session.startedAt.getTime()) / (1000 * 60 * 60),
+      );
+      const agoText =
+        diffHours < 1
+          ? "刚刚"
+          : diffHours < 24
+            ? `${diffHours} 小时前`
+            : `${Math.floor(diffHours / 24)} 天前`;
+      subjectWeeklyStats[session.subjectId] = {
+        weeklyMinutes: 0,
+        lastSessionMinutes: session.effectiveMinutes || null,
+        lastSessionAgo: agoText,
+      };
+    }
+    subjectWeeklyStats[session.subjectId].weeklyMinutes +=
+      session.effectiveMinutes || 0;
+  }
+
+  return {
+    todayMinutes,
+    todaySessionsCount,
+    streakDays,
+    subjectWeeklyStats,
+  };
+}
+

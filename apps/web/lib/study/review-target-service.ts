@@ -59,6 +59,8 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
     if (!mistake) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     const revealText = [
       `错因：${mistake.cause}`,
+      mistake.causeNote ? `\n\n错因说明：${mistake.causeNote}` : "",
+      mistake.correctAnswer ? `\n\n标准答案：${mistake.correctAnswer}` : "",
       mistake.correctIdea ? `\n\n正确思路：${mistake.correctIdea}` : "\n\n正确思路尚未记录。",
     ].join("");
     return {
@@ -68,10 +70,10 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       title: mistake.title,
       subtitle: `${mistake.subject.name} · 错题复测`,
       canonicalHref: `/knowledge/mistakes/${mistake.id}`,
-      body: parseSafeMarkdown(mistake.source || mistake.title),
-      revealTitle: "错因与正确思路",
+      body: parseSafeMarkdown(mistake.questionText || mistake.title),
+      revealTitle: "标准答案、错因与正确思路",
       revealBody: parseSafeMarkdown(revealText),
-      canPass: mistake.cause !== "UNKNOWN" && Boolean(mistake.correctIdea?.trim()),
+      canPass: Boolean(mistake.questionText?.trim()) && mistake.cause !== "UNKNOWN" && Boolean(mistake.correctIdea?.trim()),
     };
   }
 

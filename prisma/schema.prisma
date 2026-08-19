@@ -225,6 +225,7 @@ model User {
   recoveryStatesAsUser    RecoveryState[]          @relation("RecoveryStateUser")
   reviewSchedules         ReviewSchedule[]
   reviewEvents            ReviewEvent[]
+  mistakeAttempts         MistakeAttempt[]
   knowledgeCanvasLayouts  KnowledgeCanvasLayout[]
   motivationItems         MotivationItem[]
   motivationReminderState MotivationReminderState?
@@ -682,6 +683,7 @@ model Note {
   attachments    Attachment[]
   masteryEvidence MasteryEvidence[]
   relatedSyllabusNodes NoteRelatedSyllabusNode[]
+  mistakeLinks    NoteMistakeLink[]
   studyResourceLinks StudyResourceNoteLink[]
   reviewSchedules ReviewSchedule[]
 
@@ -744,8 +746,11 @@ model Mistake {
   subjectId      String
   syllabusNodeId String?
   title          String
+  questionText   String?
   source         String?
   cause          MistakeCause  @default(UNKNOWN)
+  causeNote      String?
+  correctAnswer  String?
   correctIdea    String?
   nextReviewAt   DateTime?
   archivedAt     DateTime?
@@ -755,6 +760,9 @@ model Mistake {
   syllabusNode   SyllabusNode? @relation(fields: [syllabusNodeId], references: [id])
   masteryEvidence MasteryEvidence[]
   studyResourceLinks StudyResourceMistakeLink[]
+  noteLinks      NoteMistakeLink[]
+  attempts       MistakeAttempt[]
+  simulationLossItems SimulationLossItem[]
   reviewSchedules ReviewSchedule[]
 
   @@index([subjectId])
@@ -943,14 +951,17 @@ model SimulationLossItem {
   note                      String?
   revision                  Int                     @default(1)
   archivedAt                DateTime?
+  mistakeId                 String?
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
   simulationSubjectResult   SimulationSubjectResult @relation(fields: [simulationSubjectResultId], references: [id], onDelete: Cascade)
   syllabusNode              SyllabusNode?           @relation(fields: [syllabusNodeId], references: [id], onDelete: SetNull)
+  mistake                   Mistake?                @relation(fields: [mistakeId], references: [id], onDelete: SetNull)
 
   @@index([simulationSubjectResultId, archivedAt])
   @@index([reason, archivedAt])
   @@index([syllabusNodeId, archivedAt])
+  @@index([mistakeId])
 }
 
 model StagePlan {
@@ -1192,6 +1203,18 @@ model StudyResourceNoteLink {
   @@index([noteId])
 }
 
+model NoteMistakeLink {
+  id         String   @id @default(cuid())
+  noteId     String
+  mistakeId  String
+  createdAt  DateTime @default(now())
+  note       Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  mistake    Mistake  @relation(fields: [mistakeId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, mistakeId])
+  @@index([mistakeId])
+}
+
 model StudyResourceMistakeLink {
   id         String        @id @default(cuid())
   resourceId String
@@ -1342,11 +1365,34 @@ model ReviewEvent {
   corrections          ReviewEvent[]  @relation("ReviewEventCorrection")
   actor                User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
   masteryRetest        MasteryRetest?
+  mistakeAttempt       MistakeAttempt?
 
   @@unique([reviewScheduleId, idempotencyKey])
   @@index([reviewScheduleId, confirmedAt])
   @@index([learningDate])
   @@index([correctedEventId])
+  @@index([actorId])
+}
+
+model MistakeAttempt {
+  id                 String       @id @default(cuid())
+  mistakeId          String
+  reviewEventId      String?      @unique
+  idempotencyKey     String
+  requestFingerprint String
+  answerMode         String
+  answerText         String?
+  result             String
+  durationSeconds    Int?
+  note               String?
+  attemptedAt        DateTime     @default(now())
+  actorId            String?
+  mistake            Mistake      @relation(fields: [mistakeId], references: [id], onDelete: Cascade)
+  reviewEvent        ReviewEvent? @relation(fields: [reviewEventId], references: [id], onDelete: SetNull)
+  actor              User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([mistakeId, idempotencyKey])
+  @@index([mistakeId, attemptedAt])
   @@index([actorId])
 }
 

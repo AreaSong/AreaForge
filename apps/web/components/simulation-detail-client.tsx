@@ -1,6 +1,7 @@
 "use client";
 
 import { Archive, ArchiveRestore, ArrowRight, Check, Plus, Save, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
@@ -37,6 +38,7 @@ interface SimulationLossItemDraft {
   id: string | null;
   revision: number | null;
   archivedAt: string | null;
+  mistakeId: string | null;
   dirty: boolean;
   reason: SimulationLossReasonDto;
   syllabusNodeId: string | null;
@@ -217,6 +219,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
         id: null,
         revision: null,
         archivedAt: null,
+        mistakeId: null,
         dirty: true,
         reason: "CONCEPT_GAP",
         syllabusNodeId: null,
@@ -804,6 +807,7 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
                 <div className="flex min-h-11 flex-wrap items-center justify-end gap-1 sm:col-span-2 lg:col-span-1">
                   {item.id ? (
                     <>
+                      {!item.dirty ? item.mistakeId ? <Link href={`/knowledge/mistakes/${item.mistakeId}?returnTo=${encodeURIComponent(`/test/simulations/${props.exam.id}`)}`} className="inline-flex h-10 items-center gap-1 px-2 text-xs text-teal-200">打开错题<ArrowRight aria-hidden="true" size={14} /></Link> : <Link href={`/knowledge/mistakes?create=1&simulationLossItemId=${item.id}`} className="inline-flex h-10 items-center gap-1 px-2 text-xs text-teal-200">转为错题<ArrowRight aria-hidden="true" size={14} /></Link> : null}
                       <button type="button" disabled={busy || !item.dirty} aria-label="保存失分" title="保存失分" onClick={() => void mutateLossItem(active, item, "save")} className="grid h-10 w-10 place-items-center rounded-md text-teal-300 disabled:opacity-40"><Save aria-hidden="true" size={17} /></button>
                       <button type="button" disabled={busy || item.dirty} aria-label="归档失分" title={item.dirty ? "请先保存修改" : "归档失分"} onClick={() => void mutateLossItem(active, item, "archive")} className="grid h-10 w-10 place-items-center rounded-md text-red-300 disabled:opacity-40"><Archive aria-hidden="true" size={17} /></button>
                     </>
@@ -996,6 +1000,7 @@ function isSimulationLossItemDraft(value: unknown): value is SimulationLossItemD
     && (item.id === null || typeof item.id === "string")
     && (item.revision === null || typeof item.revision === "number")
     && (item.archivedAt === null || typeof item.archivedAt === "string")
+    && (item.mistakeId === undefined || item.mistakeId === null || typeof item.mistakeId === "string")
     && typeof item.dirty === "boolean"
     && reasons.some((reason) => reason.value === item.reason)
     && (item.syllabusNodeId === null || typeof item.syllabusNodeId === "string")
@@ -1036,6 +1041,7 @@ function toLossItemDraft(item: SimulationLossItemDto): SimulationLossItemDraft {
     id: item.id,
     revision: item.revision,
     archivedAt: item.archivedAt,
+    mistakeId: item.mistakeId,
     dirty: false,
     reason: item.reason,
     syllabusNodeId: item.syllabusNodeId,

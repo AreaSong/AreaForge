@@ -440,6 +440,7 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - `AREAFORGE_V11_M6_ISOLATED_DB=1 pnpm ops:v11:m6:runtime:selftest`
 - `pnpm --filter @areaforge/core test`（含间隔 / CheckIn v2 / Recovery 三阶规则）
 - 覆盖：exactly-one Schedule、confirm 幂等/fingerprint 409、correction 单 successor、CheckIn v2 升级、Recovery 三阶、桥接 partial unique、Inbox convert；硬验收 fixture：零时长拒绝、Event 不可变、correction CAS、sourceVersion 1→2、桥接完成须有 ReviewEvent.result；页面入口为 `/knowledge/reviews`、`/knowledge/reviews/[scheduleId]/run` 与 `/roadmap/allocation/drafts`；不跑生产 migration；不关闭 residual
+- 错题 v2 在同一隔离门禁追加验证：独立 `MistakeAttempt` 幂等重放与 fingerprint 409、归档拒写、统一复习 `ReviewEvent`/`MistakeAttempt` 一对一事务双写、笔记/资料关系 CAS 和 owner isolation；additive migration 只在全新临时库执行。
 - 注意：勿与 Package B Batch 6（`StagePlan` / `StageAdjustmentDraft`，已完成）混淆
 
 #### Batch 7（App Shell + 今日行动中心）专项

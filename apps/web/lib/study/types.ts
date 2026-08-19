@@ -355,15 +355,46 @@ export interface MistakeDto {
   syllabusNodeId: string | null;
   syllabusNodeTitle: string | null;
   title: string;
+  questionText: string | null;
   source: string | null;
   cause: MistakeCauseDto;
+  causeNote: string | null;
+  correctAnswer: string | null;
   correctIdea: string | null;
   nextReviewAt: string | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  attemptCount: number;
+  lastAttemptAt: string | null;
+  attempts: MistakeAttemptDto[];
+  noteLinks: MistakeNoteLinkDto[];
+  resourceLinks: MistakeResourceLinkDto[];
   reviewSchedule: MistakeReviewScheduleDto | null;
   reviewHistory: MistakeReviewEventDto[];
+}
+
+export interface MistakeAttemptDto {
+  id: string;
+  reviewEventId: string | null;
+  answerMode: "TEXT" | "PAPER_OR_ORAL";
+  answerText: string | null;
+  result: "PASSED" | "PARTIAL" | "FAILED";
+  durationSeconds: number | null;
+  note: string | null;
+  attemptedAt: string;
+}
+
+export interface MistakeNoteLinkDto {
+  id: string;
+  noteId: string;
+  title: string;
+}
+
+export interface MistakeResourceLinkDto {
+  id: string;
+  resourceId: string;
+  title: string;
 }
 
 export interface MistakeReviewScheduleDto {
@@ -437,6 +468,7 @@ export interface SimulationLossItemDto {
   syllabusNodeTitle: string | null;
   lostScore: number;
   note: string | null;
+  mistakeId: string | null;
   revision: number;
   archivedAt: string | null;
 }
@@ -608,3 +640,18 @@ export interface TodayDashboardDto {
     ai: string;
   };
 }
+
+export interface FocusLauncherSummaryDto {
+  todayMinutes: number;
+  todaySessionsCount: number;
+  streakDays: number;
+  subjectWeeklyStats: Record<
+    string,
+    {
+      weeklyMinutes: number;
+      lastSessionMinutes: number | null;
+      lastSessionAgo: string | null;
+    }
+  >;
+}
+

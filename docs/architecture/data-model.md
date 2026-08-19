@@ -26,7 +26,9 @@
 - `PeriodicReportDecision`：周/月报告决策记录；保存确认或驳回状态、冻结 `reportSnapshot`、确认时的 `nextCycleDraft`、`canAutoApply=false`、`requiresUserConfirmation=true`、操作者和决策时间。当前已支持可空 `workspaceId`，并以 partial unique 区分 legacy `(kind, rangeStart, rangeEnd)` 与 workspace 复合唯一。它只用于报告回放和审计，不批量修改任务，不应用阶段计划。
 - `Note`：文字笔记和自己的理解；当前已支持六类 `kind`、`studyDate`/`stableKey`/`revision`、相关考纲关联表与可空 `archivedAt`。
 - `Attachment`：图片、PDF、拍照笔记等文件 metadata；附件绑定 `noteId`，文件本体写入私有 `UPLOAD_DIR`，数据库只保存原始名、随机存储名、MIME、size、hash 和内部 URI，UI/API 不暴露 `uri`、`storedName` 或上传绝对路径。
-- `Mistake`：错题与错因；支持可空 `archivedAt`。
+- `Mistake`：可反复作答的错题对象；`questionText` 对历史数据可空，新建必填，另保存可选 `correctAnswer`、`causeNote`、正确思路与归档状态。
+- `MistakeAttempt`：不可回写的单次错题作答证据，保存文字或纸上/口头模式、答案、自评结果、可选时长与复盘备注；`(mistakeId, idempotencyKey)` 唯一。统一复习产生的作答与 `ReviewEvent` 可选一对一，独立作答不改变 `ReviewSchedule`。
+- `NoteMistakeLink` / `StudyResourceMistakeLink`：错题到知识卡片和学习资料的直接关系。文件本体仍只由资料/附件既有鉴权链路承载。
 - `MotivationVault`：动机封存内容。
 - `AuditEvent`：关键写操作审计；债务任务动作保留 `AuditEvent` 并额外写入 `TaskDebtEvent`；掌握证明、证据引用、复测记录、结构化模拟考试创建与结果保存、阶段计划创建与更新、阶段调整草稿创建/驳回/确认应用、报告确认与驳回都写入审计摘要。不保存完整 prompt、附件内容或生产运维信息。
 
@@ -42,7 +44,7 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `MotivationItem` / `MotivationReminderState` / `NotificationPreference` / `AiDraftOperation`：schema + 隔离 API/设置页已落地。
 - `AiRuntimeSetting`：全局 AI Web 运行开关单例；保存 enabled、revision 和时间字段。启停由鉴权 Web API 修改并写入 `AuditEvent`；`AI_ENABLED=false` 仍是服务端硬闸门，网页不能绕过。
 - `AiProviderCredential`：当前账户 Provider 配置；服务端保存 base URL、model、API Key 密文、fingerprint、revision 和时间字段，API Key 不进入 Web 响应或审计 metadata。
-- `SimulationLossItem`：直接归属分科结果，固定原因、可选考纲节点、0.5 分 lostScore、revision 与软归档；模拟与分科根保留 revision CAS。
+- `SimulationLossItem`：直接归属分科结果，固定原因、可选考纲节点、0.5 分 lostScore、revision 与软归档；可选 `mistakeId` 记录“转为错题”来源，一个失分项最多关联一条错题。
 
 ## 规划扩展模型
 

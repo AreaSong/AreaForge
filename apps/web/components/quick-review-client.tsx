@@ -437,6 +437,8 @@ export function QuickReviewClient(props: {
           durationSeconds: submittedDurationSeconds,
           nextDueDate: submittedDraft.nextDueDate || undefined,
           note: submittedDraft.note || undefined,
+          answerMode: props.schedule.targetType === "MISTAKE" ? submittedDraft.answerMode : undefined,
+          answerText: props.schedule.targetType === "MISTAKE" && submittedDraft.answerMode === "TEXT" ? submittedDraft.answerText : undefined,
           expectedRevision: submittedDraft.baseRevision,
           idempotencyKey: submittedDraft.idempotencyKey,
         }),

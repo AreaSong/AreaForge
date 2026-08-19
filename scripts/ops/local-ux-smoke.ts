@@ -239,6 +239,7 @@ async function main(): Promise<void> {
       subjectId,
       syllabusNodeId,
       title: `UX smoke 错题 ${tag}`,
+      questionText: "为什么这个概念在反例条件下不成立？",
       source: "本地 smoke",
       cause: "concept_confusion",
       correctIdea: "把定义、例题和反例串起来。",

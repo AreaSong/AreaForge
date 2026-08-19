@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { KnowledgeObjectDetailHeader } from "@/components/knowledge-object-detail-header";
 import { KnowledgeNextAction } from "@/components/knowledge-next-action";
+import { MistakeLinksPanel } from "@/components/mistake-links-panel";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { EditorActionBar } from "@/components/ui/editor-actions";
 import { Alert, PersistenceStatus } from "@/components/ui/feedback";
@@ -19,18 +20,26 @@ import {
 } from "@/lib/client/private-business-drafts";
 import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
+import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import type { MistakeCauseDto, MistakeDto } from "@/lib/study/types";
 
 interface MistakeAnswerDraft {
+  answerMode: "TEXT" | "PAPER_OR_ORAL";
   answerText: string;
+  paperOrOralCompleted: boolean;
   revealed: boolean;
+  result: "PASSED" | "PARTIAL" | "FAILED";
+  note: string;
 }
 
 interface MistakeEditDraft {
   baseUpdatedAt: string;
   title: string;
+  questionText: string;
   source: string;
   cause: MistakeCauseDto;
+  causeNote: string;
+  correctAnswer: string;
   correctIdea: string;
 }
 
@@ -60,6 +69,8 @@ export function MistakeDetailClient(props: {
   readOnly: boolean;
   subjectArchived: boolean;
   workspaceName: string;
+  noteOptions: Array<{ id: string; title: string }>;
+  resourceOptions: Array<{ id: string; title: string }>;
   returnTo?: string;
   renderedAt: string;
 }) {
@@ -72,24 +83,33 @@ export function MistakeDetailClient(props: {
   const [mistake, setMistake] = useState(props.mistake);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(props.mistake.updatedAt);
   const [title, setTitle] = useState(props.mistake.title);
+  const [questionText, setQuestionText] = useState(props.mistake.questionText ?? "");
   const [source, setSource] = useState(props.mistake.source ?? "");
   const [cause, setCause] = useState(props.mistake.cause);
+  const [causeNote, setCauseNote] = useState(props.mistake.causeNote ?? "");
+  const [correctAnswer, setCorrectAnswer] = useState(props.mistake.correctAnswer ?? "");
   const [correctIdea, setCorrectIdea] = useState(props.mistake.correctIdea ?? "");
+  const [answerMode, setAnswerMode] = useState<"TEXT" | "PAPER_OR_ORAL">("TEXT");
   const [answerText, setAnswerText] = useState("");
+  const [paperOrOralCompleted, setPaperOrOralCompleted] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [attemptResult, setAttemptResult] = useState<"PASSED" | "PARTIAL" | "FAILED">("PARTIAL");
+  const [attemptNote, setAttemptNote] = useState("");
+  const [attemptSaved, setAttemptSaved] = useState(false);
   const [editing, setEditing] = useState(false);
   const [reviewDate, setReviewDate] = useState(initialReviewDate);
   const [savedReviewDate, setSavedReviewDate] = useState(initialReviewDate);
   const [draftReady, setDraftReady] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [conflict, setConflict] = useState<MistakeConflict | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<"archive" | "discard" | null>(null);
 
   const archived = Boolean(mistake.archivedAt);
   const complete = isCompleteMistake(mistake);
-  const localEdit = { baseUpdatedAt, title, source, cause, correctIdea };
+  const localEdit = { baseUpdatedAt, title, questionText, source, cause, causeNote, correctAnswer, correctIdea };
   const dirty = !editDraftsEqual(localEdit, savedBaseline);
   useUnsavedChangesWarning(editing && dirty);
 
@@ -97,16 +117,23 @@ export function MistakeDetailClient(props: {
     const timer = window.setTimeout(() => {
       const answerDraft = loadPrivateBusinessDraft(answerDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isAnswerDraft);
       if (answerDraft) {
+        setAnswerMode(answerDraft.answerMode);
         setAnswerText(answerDraft.answerText);
+        setPaperOrOralCompleted(answerDraft.paperOrOralCompleted);
         setRevealed(answerDraft.revealed);
+        setAttemptResult(answerDraft.result);
+        setAttemptNote(answerDraft.note);
       }
       if (!props.readOnly) {
         const editDraft = loadPrivateBusinessDraft(editDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isEditDraft);
         if (editDraft) {
           setBaseUpdatedAt(editDraft.baseUpdatedAt);
           setTitle(editDraft.title);
+          setQuestionText(editDraft.questionText);
           setSource(editDraft.source);
           setCause(editDraft.cause);
+          setCauseNote(editDraft.causeNote);
+          setCorrectAnswer(editDraft.correctAnswer);
           setCorrectIdea(editDraft.correctIdea);
           setEditing(true);
         }
@@ -120,22 +147,26 @@ export function MistakeDetailClient(props: {
 
   useEffect(() => {
     if (!draftReady) return;
-    if (!answerText && !revealed) {
+    if (attemptSaved) {
       removePrivateBusinessDraft(answerDraftKey);
       return;
     }
-    savePrivateBusinessDraft<MistakeAnswerDraft>(answerDraftKey, { answerText, revealed });
-  }, [answerDraftKey, answerText, draftReady, revealed]);
+    if (!answerText && !paperOrOralCompleted && !revealed && !attemptNote) {
+      removePrivateBusinessDraft(answerDraftKey);
+      return;
+    }
+    savePrivateBusinessDraft<MistakeAnswerDraft>(answerDraftKey, { answerMode, answerText, paperOrOralCompleted, revealed, result: attemptResult, note: attemptNote });
+  }, [answerDraftKey, answerMode, answerText, attemptNote, attemptResult, attemptSaved, draftReady, paperOrOralCompleted, revealed]);
 
   useEffect(() => {
     if (!draftReady || archived || props.readOnly) return;
-    const draft = { baseUpdatedAt, title, source, cause, correctIdea };
+    const draft = { baseUpdatedAt, title, questionText, source, cause, causeNote, correctAnswer, correctIdea };
     if (editDraftsEqual(draft, savedBaseline)) {
       removePrivateBusinessDraft(editDraftKey);
       return;
     }
     savePrivateBusinessDraft<MistakeEditDraft>(editDraftKey, draft);
-  }, [archived, baseUpdatedAt, cause, correctIdea, draftReady, editDraftKey, props.readOnly, savedBaseline, source, title]);
+  }, [archived, baseUpdatedAt, cause, causeNote, correctAnswer, correctIdea, draftReady, editDraftKey, props.readOnly, questionText, savedBaseline, source, title]);
 
   useEffect(() => {
     if (!draftReady || props.readOnly) return;
@@ -148,13 +179,19 @@ export function MistakeDetailClient(props: {
 
   async function saveEdit() {
     if (pending || archived || props.readOnly) return;
-    if (!title.trim() || cause === "unknown" || !correctIdea.trim()) {
+    if (!title.trim() || !questionText.trim() || cause === "unknown" || !correctIdea.trim()) {
       setError("请填写题面、明确错因和正确思路后再保存。");
       return;
     }
-    const payload = complete
-      ? { title, source: source.trim() || null, cause, correctIdea, expectedUpdatedAt: baseUpdatedAt }
-      : { cause, correctIdea, expectedUpdatedAt: baseUpdatedAt };
+    const completionFields = {
+      questionText: questionText.trim(),
+      cause,
+      causeNote: causeNote.trim() || null,
+      correctAnswer: correctAnswer.trim() || null,
+      correctIdea,
+      expectedUpdatedAt: baseUpdatedAt,
+    };
+    const payload = complete ? { ...completionFields, title, source: source.trim() || null } : completionFields;
     setPending(true);
     setError(null);
     try {
@@ -182,6 +219,64 @@ export function MistakeDetailClient(props: {
     } finally {
       setPending(false);
     }
+  }
+
+  async function saveAttempt() {
+    if (pending || archived || props.readOnly || attemptSaved) return;
+    if (answerMode === "TEXT" && !answerText.trim()) return setError("请先填写本次答案或关键步骤。");
+    if (answerMode === "PAPER_OR_ORAL" && !paperOrOralCompleted) return setError("请先确认已完成纸上或口头作答。");
+    const payload = {
+      answerMode,
+      answerText: answerMode === "TEXT" ? answerText.trim() : null,
+      result: attemptResult,
+      durationSeconds: null,
+      note: attemptNote.trim() || null,
+    };
+    const commandScope = `mistake-attempt:${props.userId}:${mistake.id}`;
+    setPending(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/mistakes/${mistake.id}/attempts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idempotencyKey: getOrCreateIdempotencyKey(commandScope, "mistake-attempt", payload), ...payload }),
+      });
+      const body = await response.json().catch(() => null) as { attempt?: MistakeDto["attempts"][number]; error?: string } | null;
+      if (response.status === 401) {
+        setError("登录已过期，本次作答草稿已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!response.ok || !body?.attempt) throw new Error(body?.error ?? "保存本次作答失败，草稿已保留。");
+      const attempt = body.attempt;
+      setMistake((current) => ({
+        ...current,
+        attemptCount: current.attemptCount + 1,
+        lastAttemptAt: attempt.attemptedAt,
+        attempts: [attempt, ...current.attempts.filter((item) => item.id !== attempt.id)],
+      }));
+      completeIdempotentCommand(commandScope);
+      setAttemptSaved(true);
+      setNotice("本次作答已保存到历史；独立作答不会改变现有复习排期。");
+      removePrivateBusinessDraft(answerDraftKey);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "保存本次作答失败，草稿已保留。");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function resetAttempt() {
+    setAnswerMode("TEXT");
+    setAnswerText("");
+    setPaperOrOralCompleted(false);
+    setRevealed(false);
+    setAttemptResult("PARTIAL");
+    setAttemptNote("");
+    setAttemptSaved(false);
+    setNotice(null);
+    removePrivateBusinessDraft(answerDraftKey);
   }
 
   async function toggleArchive() {
@@ -278,8 +373,11 @@ export function MistakeDetailClient(props: {
       const next = toEditDraft(latest);
       setSavedBaseline(next);
       setTitle(next.title);
+      setQuestionText(next.questionText);
       setSource(next.source);
       setCause(next.cause);
+      setCauseNote(next.causeNote);
+      setCorrectAnswer(next.correctAnswer);
       setCorrectIdea(next.correctIdea);
       removePrivateBusinessDraft(editDraftKey);
     } else {
@@ -310,8 +408,11 @@ export function MistakeDetailClient(props: {
     const saved = savedBaseline;
     setBaseUpdatedAt(saved.baseUpdatedAt);
     setTitle(saved.title);
+    setQuestionText(saved.questionText);
     setSource(saved.source);
     setCause(saved.cause);
+    setCauseNote(saved.causeNote);
+    setCorrectAnswer(saved.correctAnswer);
     setCorrectIdea(saved.correctIdea);
     removePrivateBusinessDraft(editDraftKey);
     setEditing(false);
@@ -369,7 +470,7 @@ export function MistakeDetailClient(props: {
           : !complete
             ? "补全后才能建立或开始统一复习排期。"
             : !revealed
-              ? "写下关键步骤后再查看正确思路；本次作答只保存在当前设备。"
+              ? "先选择作答方式并完成答案，再揭示标准答案和正确思路。"
               : reviewDue
                 ? "到期复习由页头主操作承接，确认结果后会写入复习历史。"
                 : schedule?.status === "ACTIVE"
@@ -387,12 +488,16 @@ export function MistakeDetailClient(props: {
 
       <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="mistake-answer-heading">
         <div><p className="text-xs text-zinc-500">本次作答</p><h2 id="mistake-answer-heading" className="mt-1 text-lg font-medium text-white">先独立重做</h2></div>
+        <div className="whitespace-pre-wrap rounded-md border border-white/10 bg-[#101419] p-4 text-sm leading-7 text-zinc-100">{mistake.questionText || "这条历史错题还没有完整题面，请先补全后再作答。"}</div>
         {!revealed ? <>
-          <textarea aria-label="本次作答" className="min-h-32 w-full rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-sm leading-6" value={answerText} onChange={(event) => setAnswerText(event.target.value)} placeholder="写下本次答案或关键步骤" />
-          <button type="button" disabled={!answerText.trim()} onClick={() => setRevealed(true)} className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:cursor-not-allowed disabled:opacity-40"><Eye size={16} aria-hidden />提交本次作答</button>
+          <fieldset className="flex flex-wrap gap-2"><legend className="mb-2 text-sm text-zinc-400">作答方式</legend>{([['TEXT', '文字作答'], ['PAPER_OR_ORAL', '纸上 / 口头']] as const).map(([value, label]) => <label key={value} className={`flex h-10 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm ${answerMode === value ? 'border-teal-300/50 bg-teal-300/10 text-teal-100' : 'border-white/10 text-zinc-300'}`}><input type="radio" name="answer-mode" value={value} checked={answerMode === value} onChange={() => setAnswerMode(value)} />{label}</label>)}</fieldset>
+          {answerMode === "TEXT" ? <textarea aria-label="本次作答" className="min-h-32 w-full rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-sm leading-6" value={answerText} onChange={(event) => setAnswerText(event.target.value)} placeholder="写下本次答案或关键步骤" /> : <label className="flex items-center gap-3 rounded-md border border-white/10 p-4 text-sm text-zinc-200"><input type="checkbox" checked={paperOrOralCompleted} onChange={(event) => setPaperOrOralCompleted(event.target.checked)} />我已在纸上或口头完成独立作答</label>}
+          <button type="button" disabled={archived || props.readOnly || !complete || (answerMode === "TEXT" ? !answerText.trim() : !paperOrOralCompleted)} onClick={() => setRevealed(true)} className="inline-flex h-11 items-center gap-2 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:cursor-not-allowed disabled:opacity-40"><Eye size={16} aria-hidden />查看答案与思路</button>
         </> : <div className="space-y-3">
-          <p className="whitespace-pre-wrap rounded-md border border-white/10 bg-black/20 p-4 text-sm leading-6 text-zinc-200">{answerText}</p>
-          <div className="flex flex-wrap items-center gap-3"><span className="text-xs text-zinc-500">本次答案仅保存在当前设备，不计入复习历史。</span><button type="button" className="inline-flex h-9 items-center gap-2 text-sm text-teal-300" onClick={() => setRevealed(false)}><Undo2 size={15} aria-hidden />重新作答</button></div>
+          <div><p className="text-xs text-zinc-500">你的作答</p><p className="mt-1 whitespace-pre-wrap rounded-md border border-white/10 bg-black/20 p-4 text-sm leading-6 text-zinc-200">{answerMode === "TEXT" ? answerText : "已完成纸上或口头作答"}</p></div>
+          <div className="grid gap-3 sm:grid-cols-2"><div><p className="text-xs text-zinc-500">标准答案</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{mistake.correctAnswer || "未记录标准答案"}</p></div><div><p className="text-xs text-zinc-500">正确思路</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{mistake.correctIdea || "待补全"}</p></div></div>
+          {!attemptSaved && !props.readOnly && !archived ? <div className="space-y-3 border-t border-white/10 pt-3"><fieldset><legend className="mb-2 text-sm text-zinc-400">本次结果</legend><div className="flex flex-wrap gap-2">{([['PASSED', '通过'], ['PARTIAL', '部分掌握'], ['FAILED', '未通过']] as const).map(([value, label]) => <label key={value} className={`flex h-10 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm ${attemptResult === value ? 'border-teal-300/50 bg-teal-300/10 text-teal-100' : 'border-white/10 text-zinc-300'}`}><input type="radio" name="attempt-result" checked={attemptResult === value} onChange={() => setAttemptResult(value)} />{label}</label>)}</div></fieldset><label className="block text-sm text-zinc-400">复盘备注<textarea value={attemptNote} onChange={(event) => setAttemptNote(event.target.value)} maxLength={2000} className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-zinc-100" placeholder="记录卡点、遗漏或下次注意事项" /></label><div className="flex flex-wrap gap-3"><button type="button" disabled={pending} onClick={() => void saveAttempt()} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-40"><Save size={16} aria-hidden />{pending ? "保存中" : "保存本次作答"}</button><button type="button" className="inline-flex h-10 items-center gap-2 text-sm text-teal-300" onClick={() => setRevealed(false)}><Undo2 size={15} aria-hidden />返回修改</button></div></div> : null}
+          {attemptSaved ? <button type="button" className="inline-flex h-10 items-center gap-2 text-sm text-teal-300" onClick={resetAttempt}><RotateCcw size={15} aria-hidden />再做一次</button> : null}
         </div>}
       </section>
 
@@ -400,13 +505,17 @@ export function MistakeDetailClient(props: {
         <section className="space-y-4 border-t border-white/10 pt-5" aria-labelledby="mistake-review-heading">
           <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-3"><h2 id="mistake-review-heading" className="text-lg font-medium text-white">错因与正确思路</h2>{editing ? <PersistenceStatus state={conflict ? "conflict" : pending ? "saving" : dirty ? "local-draft" : "clean"} /> : null}</div>{!props.readOnly && !archived && !editing ? <button type="button" onClick={startEditing} className="inline-flex h-9 items-center gap-2 text-sm text-teal-300"><Pencil size={15} aria-hidden />{complete ? "编辑错题" : "补全错题"}</button> : null}</div>
           {editing && !archived && !props.readOnly ? <div className="grid gap-3">
-            {complete ? <><label className="text-sm text-zinc-400">题面<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-100" value={title} onChange={(event) => setTitle(event.target.value)} /></label><label className="text-sm text-zinc-400">来源<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-100" value={source} onChange={(event) => setSource(event.target.value)} /></label></> : null}
+            <label className="text-sm text-zinc-400">标题<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-100" value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+            <label className="text-sm text-zinc-400">题目正文<textarea className="mt-1 min-h-32 w-full rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-zinc-100" value={questionText} onChange={(event) => setQuestionText(event.target.value)} /></label>
+            <label className="text-sm text-zinc-400">来源<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-100" value={source} onChange={(event) => setSource(event.target.value)} /></label>
             <label className="text-sm text-zinc-400">错因<select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-100" value={cause} onChange={(event) => setCause(event.target.value as MistakeCauseDto)}>{causeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="text-sm text-zinc-400">错因补充说明<textarea className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-zinc-100" value={causeNote} onChange={(event) => setCauseNote(event.target.value)} /></label>
+            <label className="text-sm text-zinc-400">标准答案（可选）<textarea className="mt-1 min-h-24 w-full rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-zinc-100" value={correctAnswer} onChange={(event) => setCorrectAnswer(event.target.value)} /></label>
             <label className="text-sm text-zinc-400">正确思路<textarea className="mt-1 min-h-32 w-full rounded-md border border-white/10 bg-[#151a20] px-3 py-2 text-zinc-100" value={correctIdea} onChange={(event) => setCorrectIdea(event.target.value)} /></label>
             <EditorActionBar
               primaryLabel={complete ? "保存错题" : "补全错题"}
               primaryIcon={<Save size={16} aria-hidden />}
-              primaryDisabled={Boolean(conflict) || !title.trim() || cause === "unknown" || !correctIdea.trim()}
+              primaryDisabled={Boolean(conflict) || !title.trim() || !questionText.trim() || cause === "unknown" || !correctIdea.trim()}
               loading={pending}
               onPrimary={() => void saveEdit()}
               secondaryLabel="放弃编辑"
@@ -415,13 +524,17 @@ export function MistakeDetailClient(props: {
               onSecondary={requestCancelEdit}
               hint="保存后更新错因与正确思路；放弃编辑会清除本机草稿。"
             />
-          </div> : <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-xs text-zinc-500">错因</dt><dd className="mt-1 text-sm text-zinc-200">{labelCause(mistake.cause)}</dd></div><div><dt className="text-xs text-zinc-500">正确思路</dt><dd className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{mistake.correctIdea || "待补全"}</dd></div></dl>}
+          </div> : <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-xs text-zinc-500">错因</dt><dd className="mt-1 text-sm text-zinc-200">{labelCause(mistake.cause)}{mistake.causeNote ? <span className="mt-1 block whitespace-pre-wrap text-zinc-400">{mistake.causeNote}</span> : null}</dd></div><div><dt className="text-xs text-zinc-500">标准答案</dt><dd className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{mistake.correctAnswer || "未记录"}</dd></div><div className="sm:col-span-2"><dt className="text-xs text-zinc-500">正确思路</dt><dd className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{mistake.correctIdea || "待补全"}</dd></div></dl>}
         </section>
+
+        <MistakeLinksPanel key={`${mistake.id}:${mistake.updatedAt}`} mistake={mistake} noteOptions={props.noteOptions} resourceOptions={props.resourceOptions} readOnly={props.readOnly || archived} onSaved={(saved) => { adoptMistake(saved, true); setNotice("关联已保存。"); }} />
+
+        <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="mistake-attempt-history-heading"><div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs text-zinc-500">掌握趋势</p><h2 id="mistake-attempt-history-heading" className="mt-1 text-lg font-medium text-white">作答历史</h2></div><span className="text-sm text-zinc-400">累计 {mistake.attemptCount} 次</span></div><MistakeTrendSummary mistake={mistake} />{mistake.attempts.length === 0 ? <p className="text-sm text-zinc-400">暂无已保存的作答记录。</p> : <ol className="grid gap-2">{mistake.attempts.map((attempt) => <li key={attempt.id} className="rounded-md border border-white/10 bg-[#101419] p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium text-zinc-100">{labelResult(attempt.result)} · {attempt.answerMode === "TEXT" ? "文字作答" : "纸上 / 口头"}{attempt.reviewEventId ? " · 统一复习" : " · 独立重做"}</span><time className="text-xs text-zinc-500" dateTime={attempt.attemptedAt}>{formatDateTime(attempt.attemptedAt)}</time></div>{attempt.answerText ? <p className="mt-2 whitespace-pre-wrap text-zinc-300">{attempt.answerText}</p> : null}{attempt.note ? <p className="mt-2 whitespace-pre-wrap text-zinc-400">复盘：{attempt.note}</p> : null}</li>)}</ol>}{mistake.attemptCount > mistake.attempts.length ? <p className="text-xs text-zinc-500">当前展示最近 {mistake.attempts.length} 次。</p> : null}</section>
 
         <section id="mistake-schedule-section" className="scroll-mt-6 space-y-3 border-t border-white/10 pt-5" aria-labelledby="mistake-schedule-heading">
           <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="mistake-schedule-heading" className="text-lg font-medium text-white">复习排期</h2>{schedule && !props.readOnly ? <Link href={`/knowledge/reviews/${schedule.id}?returnTo=${encodeURIComponent(objectHref)}`} className="text-sm text-teal-300 hover:underline">查看排期详情</Link> : null}</div>
           {schedule ? <p className="text-sm text-zinc-300">{schedule.status === "ACTIVE" ? `下次复习：${formatDate(schedule.dueDate)}` : `排期已暂停${schedule.pausedReason ? `：${schedule.pausedReason}` : ""}`} · 连续通过 {schedule.consecutivePassCount} 次</p> : mistake.nextReviewAt ? <p className="text-sm text-amber-100">旧复习日期：{formatDate(mistake.nextReviewAt)}。选择日期后会物化为统一复习排期。</p> : <p className="text-sm text-zinc-400">尚未设置统一复习排期。</p>}
-          {!props.readOnly && !archived && complete ? <div className="flex flex-wrap gap-2"><input aria-label="复习日期" type="date" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-3 text-sm" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} /><button type="button" disabled={pending || !reviewDate} onClick={() => void scheduleReview()} className="h-10 rounded-md border border-white/10 px-3 text-sm disabled:opacity-40">{!schedule ? "设置首次复习日期" : schedule.status === "PAUSED" ? "选择日期并恢复排期" : "调整复习日期"}</button></div> : null}
+          {!props.readOnly && !archived && complete ? <div className="space-y-2"><p className="text-xs text-zinc-500">排期建议只在你确认后生效。</p><div className="flex flex-wrap gap-2"><button type="button" disabled={pending} onClick={() => { setReviewDate(addStudyDays(1)); }} className="h-9 rounded-md border border-white/10 px-3 text-sm text-zinc-200 disabled:opacity-40">明天</button><button type="button" disabled={pending} onClick={() => { setReviewDate(addStudyDays(3)); }} className="h-9 rounded-md border border-white/10 px-3 text-sm text-zinc-200 disabled:opacity-40">3 天后</button><input aria-label="复习日期" type="date" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-3 text-sm" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} /><button type="button" disabled={pending || !reviewDate} onClick={() => void scheduleReview()} className="h-10 rounded-md border border-teal-300/30 px-3 text-sm text-teal-100 disabled:opacity-40">{!schedule ? "确认首次复习" : schedule.status === "PAUSED" ? "确认恢复排期" : "确认调整日期"}</button></div></div> : null}
         </section>
 
         <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="mistake-history-heading">
@@ -430,6 +543,7 @@ export function MistakeDetailClient(props: {
         </section>
       </> : <p className="border-t border-white/10 pt-5 text-sm text-zinc-400">完成本次作答后查看错因、正确思路、排期和历史。</p>}
 
+      {notice ? <Alert tone="success">{notice}</Alert> : null}
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {conflict && !conflictOpen ? <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理错题状态冲突</button> : null}
       <ConfirmationDialog
@@ -464,11 +578,11 @@ async function readMistakeResponse(response: Response): Promise<MistakeResponse 
   return response.json().catch(() => null) as Promise<MistakeResponse | null>;
 }
 
-function toEditDraft(mistake: MistakeDto): MistakeEditDraft { return { baseUpdatedAt: mistake.updatedAt, title: mistake.title, source: mistake.source ?? "", cause: mistake.cause, correctIdea: mistake.correctIdea ?? "" }; }
+function toEditDraft(mistake: MistakeDto): MistakeEditDraft { return { baseUpdatedAt: mistake.updatedAt, title: mistake.title, questionText: mistake.questionText ?? "", source: mistake.source ?? "", cause: mistake.cause, causeNote: mistake.causeNote ?? "", correctAnswer: mistake.correctAnswer ?? "", correctIdea: mistake.correctIdea ?? "" }; }
 function editDraftsEqual(left: MistakeEditDraft, right: MistakeEditDraft) { return JSON.stringify(left) === JSON.stringify(right); }
-function isCompleteMistake(mistake: Pick<MistakeDto, "cause" | "correctIdea">) { return mistake.cause !== "unknown" && Boolean(mistake.correctIdea?.trim()); }
-function isAnswerDraft(value: unknown): value is MistakeAnswerDraft { if (!value || typeof value !== "object") return false; const draft = value as Partial<MistakeAnswerDraft>; return typeof draft.answerText === "string" && typeof draft.revealed === "boolean"; }
-function isEditDraft(value: unknown): value is MistakeEditDraft { if (!value || typeof value !== "object") return false; const draft = value as Partial<MistakeEditDraft>; return [draft.baseUpdatedAt, draft.title, draft.source, draft.correctIdea].every((field) => typeof field === "string") && causeOptions.some(([cause]) => cause === draft.cause); }
+function isCompleteMistake(mistake: Pick<MistakeDto, "questionText" | "cause" | "correctIdea">) { return Boolean(mistake.questionText?.trim()) && mistake.cause !== "unknown" && Boolean(mistake.correctIdea?.trim()); }
+function isAnswerDraft(value: unknown): value is MistakeAnswerDraft { if (!value || typeof value !== "object") return false; const draft = value as Partial<MistakeAnswerDraft>; return (draft.answerMode === "TEXT" || draft.answerMode === "PAPER_OR_ORAL") && typeof draft.answerText === "string" && typeof draft.paperOrOralCompleted === "boolean" && typeof draft.revealed === "boolean" && (draft.result === "PASSED" || draft.result === "PARTIAL" || draft.result === "FAILED") && typeof draft.note === "string"; }
+function isEditDraft(value: unknown): value is MistakeEditDraft { if (!value || typeof value !== "object") return false; const draft = value as Partial<MistakeEditDraft>; return [draft.baseUpdatedAt, draft.title, draft.questionText, draft.source, draft.causeNote, draft.correctAnswer, draft.correctIdea].every((field) => typeof field === "string") && causeOptions.some(([cause]) => cause === draft.cause); }
 function isScheduleDraft(value: unknown): value is MistakeScheduleDraft { return Boolean(value && typeof value === "object" && typeof (value as Partial<MistakeScheduleDraft>).reviewDate === "string"); }
 function isMistakeDto(value: unknown): value is MistakeDto { if (!value || typeof value !== "object") return false; const row = value as Partial<MistakeDto>; return typeof row.id === "string" && typeof row.updatedAt === "string" && typeof row.title === "string" && Array.isArray(row.reviewHistory); }
 function toMistakeReviewSchedule(schedule: NonNullable<MistakeDto["reviewSchedule"]>) { return schedule; }
@@ -478,6 +592,9 @@ function formatDateTime(value: string) { return new Date(value).toLocaleString("
 function formatDuration(seconds: number) { const minutes = Math.floor(seconds / 60); const remainder = seconds % 60; return minutes > 0 ? `${minutes} 分 ${remainder} 秒` : `${remainder} 秒`; }
 function labelCause(cause: MistakeCauseDto) { return causeOptions.find(([value]) => value === cause)?.[1] ?? cause; }
 function labelResult(result: "PASSED" | "PARTIAL" | "FAILED") { return result === "PASSED" ? "通过" : result === "PARTIAL" ? "部分掌握" : "未通过"; }
+function addStudyDays(days: number) { const date = new Date(); date.setHours(0, 0, 0, 0); date.setDate(date.getDate() + days); return toDateInput(date.toISOString()); }
+function MistakeTrendSummary({ mistake }: { mistake: MistakeDto }) { const recent = mistake.attempts.slice(0, 5); const passed = recent.filter((attempt) => attempt.result === "PASSED").length; const failed = recent.filter((attempt) => attempt.result === "FAILED").length; const rate = recent.length ? Math.round((passed / recent.length) * 100) : 0; const latest = recent[0]; return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><TrendMetric label="最近通过率" value={`${rate}%`} /><TrendMetric label="连续通过" value={`${mistake.reviewSchedule?.consecutivePassCount ?? 0} 次`} /><TrendMetric label="最近失败" value={`${failed} 次`} /><TrendMetric label="最近结果" value={latest ? labelResult(latest.result) : "暂无"} /></div>; }
+function TrendMetric({ label, value }: { label: string; value: string }) { return <div className="rounded-md border border-white/10 bg-[#101419] px-3 py-2"><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-sm font-medium text-zinc-100">{value}</p></div>; }
 function conflictComparisons(local: MistakeEditDraft, baseline: MistakeDto, latest?: MistakeDto) { return [
   { field: "updatedAt", label: "更新时间", baseline: baseline.updatedAt, local: local.baseUpdatedAt, server: latest?.updatedAt },
   { field: "archivedAt", label: "归档状态", local: baseline.archivedAt, server: latest?.archivedAt },
