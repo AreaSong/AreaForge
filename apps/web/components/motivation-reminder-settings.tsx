@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox, Select } from "@/components/ui/field";
 import { Alert } from "@/components/ui/feedback";
 import { SectionHeader } from "@/components/ui/page";
 import {
@@ -36,8 +37,7 @@ export function MotivationReminderSettings({ userId }: { userId: string }) {
         description="只控制这台设备的展示时间窗；关闭时不会发起自动提醒请求。"
       />
       <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={preference.enabled}
           disabled={!ready}
           onChange={(event) => {
@@ -47,7 +47,7 @@ export function MotivationReminderSettings({ userId }: { userId: string }) {
         />
         在当前设备启用
       </label>
-      <div className="grid gap-2 sm:grid-cols-[minmax(9rem,1fr)_8rem_8rem] sm:items-center">
+      <div className="af-time-window-grid grid gap-2">
         <span className="text-sm text-zinc-400">允许展示时间窗</span>
         <HourSelect label="动机提醒开始" value={preference.windowStart} onChange={(windowStart) => {
           setSaved(false);
@@ -74,7 +74,7 @@ export function MotivationReminderSettings({ userId }: { userId: string }) {
 
 function HourSelect(props: { label: string; value: number; onChange: (value: number) => void }) {
   return (
-    <select
+    <Select
       aria-label={props.label}
       className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-200"
       value={props.value}
@@ -83,6 +83,6 @@ function HourSelect(props: { label: string; value: number; onChange: (value: num
       {Array.from({ length: 24 }, (_, hour) => (
         <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>
       ))}
-    </select>
+    </Select>
   );
 }

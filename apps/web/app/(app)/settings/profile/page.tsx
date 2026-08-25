@@ -7,7 +7,7 @@ import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listMotivationItems } from "@/lib/study/motivation-library-service";
-import { getMotivationVault } from "@/lib/study/service";
+import { getMotivationVault } from "@/lib/study/motivation-vault-service";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/settings/profile");

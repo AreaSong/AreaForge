@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, IconButton } from "@/components/ui/button";
 import { Bot, ChevronDown, ClipboardCheck, PanelsTopLeft, TimerReset, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -7,7 +8,9 @@ import { useWindowSystem, type WindowInstance } from "@/components/window-system
 import {
   calculateWindowDockLayout,
   type WindowDockLayout,
-} from "@/lib/study/window-system-state";
+} from "@/lib/client/window-system-state";
+
+const dockFocusableSelector = "a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])";
 
 export function WindowDock(props: { excludeKeys?: readonly string[] }) {
   const { windows, foregroundKey, focusWindow, requestCloseWindow } = useWindowSystem();
@@ -19,6 +22,7 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
   const measureRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
   const background = useMemo(() => windows
     .filter((window) => window.key !== foregroundKey && !props.excludeKeys?.includes(window.key))
@@ -27,6 +31,10 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
   const visible = background.slice(0, layout.visibleCount);
   const hidden = background.slice(layout.visibleCount);
   const menuOpen = expanded && hidden.length >= 2;
+
+  const focusDockReturnTarget = () => {
+    document.querySelector<HTMLElement>("[data-window-focus-fallback]")?.focus({ preventScroll: true });
+  };
 
   useEffect(() => {
     if (hidden.length >= 2) return;
@@ -85,7 +93,8 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
 
   return (
     <div ref={dockRef} className="relative flex min-w-0 flex-1 items-center justify-end overflow-visible" data-window-dock="true" aria-label="后台窗口">
-      <button
+      <Button
+        ref={mobileTriggerRef}
         type="button"
         className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.06] md:hidden"
         onClick={() => setMobileOpen(true)}
@@ -94,7 +103,7 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
       >
         <PanelsTopLeft size={13} aria-hidden="true" />
         <span>后台 {background.length}</span>
-      </button>
+      </Button>
 
       <div ref={desktopRef} className="hidden min-w-0 flex-1 items-center justify-end gap-2 overflow-visible md:flex">
         <div ref={measureRef} className="pointer-events-none invisible absolute left-0 top-0 flex h-0 w-max gap-2 overflow-hidden" aria-hidden="true">
@@ -109,14 +118,20 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
             key={window.key}
             window={window}
             compact={layout.mode === "compact"}
-            onOpen={() => focusWindow(window.key)}
-            onClose={() => requestCloseWindow(window.key)}
+            onOpen={() => {
+              focusDockReturnTarget();
+              focusWindow(window.key);
+            }}
+            onClose={() => {
+              focusDockReturnTarget();
+              requestCloseWindow(window.key);
+            }}
           />
         ))}
 
         {hidden.length >= 2 ? (
           <div className="relative shrink-0">
-            <button
+            <Button
               ref={moreTriggerRef}
               type="button"
               className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border border-white/10 px-2 text-xs text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
@@ -126,7 +141,7 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
               aria-controls={menuId}
             >
               <ChevronDown size={13} aria-hidden="true" />更多窗口 {hidden.length}
-            </button>
+            </Button>
             {menuOpen ? (
               <div
                 ref={menuRef}
@@ -142,10 +157,12 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
                     window={window}
                     menuItem
                     onOpen={() => {
+                      focusDockReturnTarget();
                       setExpanded(false);
                       focusWindow(window.key);
                     }}
                     onClose={() => {
+                      focusDockReturnTarget();
                       setExpanded(false);
                       requestCloseWindow(window.key);
                     }}
@@ -162,10 +179,12 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
         windows={background}
         onClose={() => setMobileOpen(false)}
         onOpenWindow={(key) => {
+          focusDockReturnTarget();
           setMobileOpen(false);
           focusWindow(key);
         }}
         onCloseWindow={(key) => {
+          focusDockReturnTarget();
           setMobileOpen(false);
           requestCloseWindow(key);
         }}
@@ -197,12 +216,12 @@ function DockItem(props: {
 }) {
   return (
     <div role={props.menuItem ? "none" : undefined} className={`flex min-w-0 shrink items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2 text-xs text-zinc-300 ${props.menuItem ? "h-9 w-full" : `h-7 ${props.compact ? "max-w-32" : "max-w-48"}`}`}>
-      <button type="button" role={props.menuItem ? "menuitem" : undefined} className="flex min-w-0 flex-1 items-center gap-1.5 text-left hover:text-white" onClick={props.onOpen} title={`打开${props.window.title}`}>
+      <Button type="button" role={props.menuItem ? "menuitem" : undefined} className="flex min-w-0 flex-1 items-center gap-1.5 text-left hover:text-white" onClick={props.onOpen} title={`打开${props.window.title}`}>
         <WindowDockIcon kind={props.window.kind} />
         <span className="truncate">{props.window.title}</span>
-      </button>
+      </Button>
       {!props.compact && props.window.closePolicy !== "minimizeOnly" ? (
-        <button type="button" className="inline-flex size-5 shrink-0 items-center justify-center rounded text-zinc-600 hover:bg-white/10 hover:text-zinc-200" onClick={props.onClose} aria-label={`关闭${props.window.title}`} title="关闭"><X size={12} aria-hidden="true" /></button>
+        <IconButton type="button" label={`关闭${props.window.title}`} className="!size-5 text-zinc-600 hover:bg-white/10 hover:text-zinc-200" onClick={props.onClose} title="关闭"><X size={12} aria-hidden="true" /></IconButton>
       ) : null}
     </div>
   );
@@ -223,15 +242,24 @@ function MobileDockSheet(props: {
     if (!open) return;
     const returnTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const panel = panelRef.current;
-    panel?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    const focusInitial = () => (panel?.querySelector<HTMLElement>(dockFocusableSelector) ?? panel)?.focus({ preventScroll: true });
+    focusInitial();
+    const onFocusIn = (event: FocusEvent) => {
+      if (panel?.contains(event.target as Node)) return;
+      focusInitial();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
+        return;
       }
+      if (event.key === "Tab" && panel) trapDockFocus(event, panel);
     };
+    document.addEventListener("focusin", onFocusIn);
     document.addEventListener("keydown", onKeyDown);
     return () => {
+      document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("keydown", onKeyDown);
       if (returnTarget?.isConnected) returnTarget.focus({ preventScroll: true });
     };
@@ -240,11 +268,11 @@ function MobileDockSheet(props: {
   if (!open || typeof document === "undefined") return null;
   return createPortal(
     <div className="fixed inset-0 z-[var(--af-layer-modal)] bg-black/55" role="presentation">
-      <button type="button" className="absolute inset-0 cursor-default" tabIndex={-1} aria-hidden="true" onClick={onClose} />
-      <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="absolute inset-x-0 bottom-0 z-10 max-h-[70dvh] overflow-y-auto rounded-t-lg border-t border-white/15 bg-[#101419] px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl">
+      <Button type="button" className="absolute inset-0 !h-auto !w-auto !border-0 !p-0 cursor-default" tabIndex={-1} aria-hidden="true" onClick={onClose} />
+      <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="af-bottom-sheet af-responsive-surface absolute inset-x-0 bottom-0 z-10 overflow-y-auto overscroll-contain rounded-t-lg border-t border-white/15 bg-[#101419] pt-4 shadow-2xl">
         <div className="mb-3 flex items-center gap-3">
           <h2 id={titleId} className="min-w-0 flex-1 text-base font-semibold text-white">后台窗口</h2>
-          <button type="button" className="inline-flex size-9 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white" onClick={onClose} aria-label="关闭后台窗口列表"><X size={16} aria-hidden="true" /></button>
+          <IconButton type="button" label="关闭后台窗口列表" className="!size-9 text-zinc-400 hover:bg-white/10 hover:text-white" onClick={onClose}><X size={16} aria-hidden="true" /></IconButton>
         </div>
         <div className="grid gap-2">
           {windows.map((window) => <DockItem key={window.key} window={window} menuItem onOpen={() => onOpenWindow(window.key)} onClose={() => onCloseWindow(window.key)} />)}
@@ -253,6 +281,23 @@ function MobileDockSheet(props: {
     </div>,
     document.body,
   );
+}
+
+function trapDockFocus(event: KeyboardEvent, panel: HTMLElement): void {
+  const focusable = Array.from(panel.querySelectorAll<HTMLElement>(dockFocusableSelector));
+  if (focusable.length === 0) {
+    event.preventDefault();
+    panel.focus({ preventScroll: true });
+    return;
+  }
+  const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
+  if (event.shiftKey && activeIndex <= 0) {
+    event.preventDefault();
+    focusable.at(-1)?.focus({ preventScroll: true });
+  } else if (!event.shiftKey && activeIndex === focusable.length - 1) {
+    event.preventDefault();
+    focusable[0]?.focus({ preventScroll: true });
+  }
 }
 
 function compareDockWindows(left: WindowInstance, right: WindowInstance): number {

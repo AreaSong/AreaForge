@@ -13,6 +13,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { login } from "@/lib/api/auth-browser";
+import { isUnauthorized } from "@/lib/client/api-errors";
+import { Button, IconButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
 
 export interface LoginFormProps {
   returnTo?: string;
@@ -59,26 +63,19 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
 
     setPending(true);
 
-    let response: Response;
     try {
-      response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const result = await login(email, password);
+      setPending(false);
+      if (!result.ok) {
+        if (isUnauthorized(result)) setError("邮箱或密码不正确。");
+        else if (result.status === 429) setError("失败次数过多，请稍后再试。");
+        else if (result.status >= 500) setError("系统暂时不可用，请稍后重试。");
+        else setError("暂时无法登录，请检查凭证后重试。");
+        return;
+      }
     } catch {
       setPending(false);
       setError("服务暂时不可用，请检查网络后重试。");
-      return;
-    }
-
-    setPending(false);
-
-    if (!response.ok) {
-      if (response.status === 401) setError("邮箱或密码不正确。");
-      else if (response.status === 429) setError("失败次数过多，请稍后再试。");
-      else if (response.status >= 500) setError("系统暂时不可用，请稍后重试。");
-      else setError("暂时无法登录，请检查凭证后重试。");
       return;
     }
 
@@ -106,7 +103,7 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
           </label>
           <div className="group relative">
             <Mail aria-hidden className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-zinc-500 transition-colors group-focus-within:text-teal-300" />
-            <input
+            <Input
               aria-describedby={error ? "login-error" : undefined}
               aria-invalid={Boolean(error)}
               autoComplete="email"
@@ -132,7 +129,7 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
           </label>
           <div className="group relative">
             <LockKeyhole aria-hidden className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-zinc-500 transition-colors group-focus-within:text-teal-300" />
-            <input
+            <Input
               aria-describedby={error ? "login-error" : undefined}
               aria-invalid={Boolean(error)}
               autoComplete="current-password"
@@ -151,7 +148,8 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
               type={showPassword ? "text" : "password"}
               value={password}
             />
-            <button
+            <IconButton
+              label={showPassword ? "隐藏密码" : "显示密码"}
               aria-label={showPassword ? "隐藏密码" : "显示密码"}
               className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300 focus-visible:ring-2 focus-visible:ring-teal-300 disabled:opacity-50"
               disabled={pending}
@@ -159,7 +157,7 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
               type="button"
             >
               {showPassword ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
-            </button>
+            </IconButton>
           </div>
 
           {isCapsLockOn ? (
@@ -191,7 +189,7 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
           )}
         </div>
 
-        <button
+        <Button
           className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-teal-300 font-medium text-[#06211d] shadow-[0_12px_30px_rgba(45,212,191,0.12)] transition-colors hover:bg-teal-200 focus-visible:ring-2 focus-visible:ring-teal-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#121817] disabled:cursor-not-allowed disabled:opacity-55"
           disabled={pending}
           type="submit"
@@ -199,18 +197,18 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
           {pending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
           <span>{pending ? "正在登录…" : "登录并继续学习"}</span>
           {!pending ? <ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" /> : null}
-        </button>
+        </Button>
       </form>
 
       <div className="mt-6 border-t border-white/[0.07] pt-5">
-        <button
+        <Button
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.1] px-3 py-2.5 text-xs text-zinc-500 transition-colors hover:border-teal-200/25 hover:bg-teal-200/[0.035] hover:text-teal-100 focus-visible:ring-2 focus-visible:ring-teal-300"
           onClick={handleAutofillDemo}
           type="button"
         >
           <Sparkles aria-hidden className="size-3.5" />
           {autofillSuccess ? "演示账号已填入" : "填入本地演示账号"}
-        </button>
+        </Button>
       </div>
     </div>
   );

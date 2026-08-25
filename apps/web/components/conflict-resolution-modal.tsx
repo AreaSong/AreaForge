@@ -48,13 +48,15 @@ export function ConflictResolutionModal(props: ConflictResolutionModalProps) {
           <p>
             冲突字段：{props.conflictFields.length > 0 ? props.conflictFields.join("、") : "服务端状态"}
           </p>
-          <button
+          <Button
             type="button"
-            className="h-10 text-teal-300 underline underline-offset-4"
+            variant="ghost"
+            size="sm"
+            className="!h-auto !min-h-0 !px-0 !py-0 !text-teal-300 !font-normal underline underline-offset-4 hover:!bg-transparent"
             onClick={() => setDetailsOpen(true)}
           >
             查看本地与服务端差异
-          </button>
+          </Button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             {props.onDiscard ? (
               <Button

@@ -76,17 +76,17 @@ import {
 } from "../../apps/web/lib/study/exam-workspace-service";
 import {
   createStudyTask,
-  getActiveStudySession,
-  getTodayReview,
-  getTodayDashboard,
-  listStudyTasks,
-  listSubjects,
-  pauseStudySession,
-  saveTodayReview,
-  startStudySession,
-  updateDailyReview,
   updateStudyTask,
-} from "../../apps/web/lib/study/service";
+} from "../../apps/web/lib/study/task-command-service";
+import { getTodayDashboard } from "../../apps/web/lib/study/dashboard-query-service";
+import {
+  getTodayReview,
+  saveTodayReview,
+  updateDailyReview,
+} from "../../apps/web/lib/study/daily-review-service";
+import { pauseStudySession, startStudySession } from "../../apps/web/lib/study/session-lifecycle-service";
+import { getActiveStudySession } from "../../apps/web/lib/study/session-query-service";
+import { listStudyTasks, listSubjects } from "../../apps/web/lib/study/study-query-service";
 import { getStudyTaskDetail } from "../../apps/web/lib/study/task-detail-service";
 
 const checks: string[] = [];

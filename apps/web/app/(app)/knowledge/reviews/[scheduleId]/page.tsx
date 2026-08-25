@@ -10,6 +10,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { PageFrame } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
+import { formatDate as formatDateValue, formatDateTime } from "@/lib/formatters";
 import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import { getReviewSchedule, listReviewEvents } from "@/lib/study/review-schedule-service";
@@ -100,7 +101,6 @@ export default async function ReviewScheduleDetailPage({
 }
 
 function resultLabel(value: "PASSED" | "PARTIAL" | "FAILED") { return value === "PASSED" ? "通过" : value === "PARTIAL" ? "部分掌握" : "未通过"; }
-function formatDate(value: string | null) { return value ? new Date(value).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }) : "未设置"; }
-function formatDateTime(value: string) { return new Date(value).toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" }); }
+function formatDate(value: string | null) { return value ? formatDateValue(value) : "未设置"; }
 function formatDuration(seconds: number) { const minutes = Math.floor(seconds / 60); const remainder = seconds % 60; return minutes ? `${minutes} 分 ${remainder} 秒` : `${remainder} 秒`; }
 function formatDelta(value: number) { return value > 0 ? `+${value}` : `${value}`; }

@@ -8,7 +8,7 @@ import { getStudyDayRange } from "@/lib/study/date";
 import { getDailyReviewFacts } from "@/lib/study/daily-review-facts-service";
 import { resolveActiveWorkspace } from "@/lib/study/exam-workspace-service";
 import { getDailyReviewMinimumInboxItem } from "@/lib/study/plan-inbox-service";
-import { getTodayReview } from "@/lib/study/service";
+import { getTodayReview } from "@/lib/study/daily-review-service";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/roadmap/reviews/daily");

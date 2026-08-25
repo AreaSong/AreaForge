@@ -22,7 +22,7 @@ import {
   type EffectiveAiProviderConfig,
 } from "./ai-provider-credential-service";
 import { getAiRuntimeSettingStatus } from "./ai-runtime-setting-service";
-import { getTodayDashboardShared } from "./service";
+import { getTodayDashboardShared } from "./dashboard-query-service";
 
 export interface SafeAiAdviceEnvelope<TAdvice> {
   advice: TAdvice;

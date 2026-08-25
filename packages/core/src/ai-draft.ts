@@ -9,6 +9,50 @@ export type AiDraftScope = (typeof AI_DRAFT_SCOPES)[number];
 export const AI_DRAFT_MOTIVATION_TONES = ["CALM", "DIRECT", "BRIEF"] as const;
 export type AiDraftMotivationTone = (typeof AI_DRAFT_MOTIVATION_TONES)[number];
 
+export const AI_ADVICE_STATUSES = [
+  "local_rule_fallback",
+  "ai_generated",
+  "ai_invalid_fallback",
+  "ai_error_fallback",
+] as const;
+export type AiAdviceStatus = (typeof AI_ADVICE_STATUSES)[number];
+
+export interface LearningTreeDraftAdvice {
+  status: AiAdviceStatus;
+  schemaVersion: "learning-tree-draft-v1";
+  markdownDraft: string;
+  notes: string[];
+  reason: string;
+}
+
+export interface KnowledgeCardDraftAdvice {
+  status: AiAdviceStatus;
+  schemaVersion: "knowledge-card-draft-v1";
+  title: string;
+  body: string;
+  kindHint: NoteKind;
+  reason: string;
+}
+
+export interface PlanDraftAdvice {
+  status: AiAdviceStatus;
+  schemaVersion: "plan-draft-v1";
+  title: string;
+  tasks: Array<{
+    title: string;
+    estimatedMinutes: number;
+  }>;
+  reason: string;
+}
+
+export interface MotivationDraftAdvice {
+  status: AiAdviceStatus;
+  schemaVersion: "motivation-draft-v1";
+  line: string;
+  recoveryHint: string;
+  reason: string;
+}
+
 export const AI_PAYLOAD_BINDING_PURPOSES = ["selection:v1", "preview:v1", "provider:v1"] as const;
 export type AiPayloadBindingPurpose = (typeof AI_PAYLOAD_BINDING_PURPOSES)[number];
 

@@ -4,13 +4,31 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import {
+  decideConfirmation,
+  decideKnowledgeRetestConfirmation,
+  type ConfirmationDecisionCommand,
+} from "@/lib/api/confirmation";
 import { getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
-import type { ConfirmationActionDto, ConfirmationItemDto } from "@/lib/study/confirmation-service";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import type { ConfirmationActionDto, ConfirmationItemDto } from "@/lib/contracts";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
 
 type Decision = "confirm" | "reject";
+
+type ConfirmationMutationCommand =
+  | { kind: "decision"; command: ConfirmationDecisionCommand }
+  | { kind: "retest"; retestId: string; decision: "confirm" | "void"; input: { idempotencyKey: string; expectedRevision: number } };
+
+interface ConfirmationConflict {
+  command: ConfirmationMutationCommand;
+  latest: unknown;
+  conflictFields: string[];
+}
 
 export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, onCompleted, onNavigate }: { item: ConfirmationItemDto; sourceHref?: string; onCompleted?: () => void | Promise<void>; onNavigate?: () => void }) {
   const router = useRouter();
@@ -18,6 +36,8 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
   const [pending, setPending] = useState<Decision | "confirm_retest" | "void_retest" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<ConfirmationConflict | null>(null);
+  const [conflictOpen, setConflictOpen] = useState(false);
 
   if (item.status !== "PENDING") {
     return <Alert tone="neutral">该事项已经处理，当前页面只展示冻结结果，不会重复执行。</Alert>;
@@ -49,8 +69,8 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
     if (pending) return;
     setError(null);
     setNotice(null);
-    const request = buildRequest(actionable, decision);
-    if (!request) {
+    const command = buildConfirmationCommand(actionable, decision);
+    if (!command) {
       setError(actionable.kind === "simulation"
         ? "模拟考试只能在结果、复盘和个人反馈完整后确认；如需修改，请回到来源页面。"
         : "AI 草稿必须回到生成它的页面，并使用原始结果证明完成确认。");
@@ -58,14 +78,22 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
     }
     setPending(decision);
     try {
-      const response = await fetch(request.href, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request.body),
-      });
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) {
-        setError(labelConfirmationError(body?.error));
+      const result = await decideConfirmation(command);
+      if (isUnauthorized(result)) {
+        setError("登录已过期，确认命令已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!result.ok) {
+        if (isConflict(result)) {
+          setConflict({
+            command: { kind: "decision", command },
+            latest: result.body?.latest,
+            conflictFields: result.body?.conflictFields ?? ["revision", "status"],
+          });
+          setConflictOpen(true);
+        }
+        setError(labelConfirmationError(result.body?.error));
         return;
       }
       setNotice(decision === "confirm" ? "已确认并冻结该事项。" : "已驳回该事项，未自动修改正式数据。");
@@ -91,17 +119,37 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
     const scope = `knowledge-retest:${actionable.retestId}:${isConfirm ? "confirm" : "void"}`;
     const payload = { expectedRevision: actionable.expectedRevision };
     try {
-      const response = await fetch(`/api/knowledge-retests/${encodeURIComponent(actionable.retestId)}/${isConfirm ? "confirm" : "void"}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const result = await decideKnowledgeRetestConfirmation(
+        actionable.retestId,
+        isConfirm ? "confirm" : "void",
+        {
           idempotencyKey: getOrCreateIdempotencyKey(scope, `knowledge-retest-${isConfirm ? "confirm" : "void"}`, payload),
           ...payload,
-        }),
-      });
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) {
-        setError(labelConfirmationError(body?.error));
+        },
+      );
+      if (isUnauthorized(result)) {
+        setError("登录已过期，复测确认命令已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!result.ok) {
+        if (isConflict(result)) {
+          setConflict({
+            command: {
+              kind: "retest",
+              retestId: actionable.retestId,
+              decision: isConfirm ? "confirm" : "void",
+              input: {
+                idempotencyKey: getOrCreateIdempotencyKey(scope, `knowledge-retest-${isConfirm ? "confirm" : "void"}`, payload),
+                ...payload,
+              },
+            },
+            latest: result.body?.latest,
+            conflictFields: result.body?.conflictFields ?? ["revision", "status"],
+          });
+          setConflictOpen(true);
+        }
+        setError(labelConfirmationError(result.body?.error));
         return;
       }
       setNotice(isConfirm ? "复测已确认，知识点掌握状态已更新。" : "复测已作废，未更新知识点掌握状态。");
@@ -121,7 +169,7 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
         <p className="mt-1 text-sm leading-6 text-zinc-500">确认会冻结当前事实；驳回或作废不会静默删除来源记录。</p>
       </div>
       {action.kind === "knowledge_retest" ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="af-action-cluster">
           <Button type="button" variant="primary" size="lg" loading={pending === "confirm_retest"} disabled={pending !== null || !action.ready} onClick={() => void executeRetest("confirm_retest")}>
             <CheckCircle2 size={16} aria-hidden="true" />确认复测并更新掌握
           </Button>
@@ -130,7 +178,7 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
           </Button>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="af-action-cluster">
           <Button type="button" variant="primary" size="lg" loading={pending === "confirm"} disabled={pending !== null || (action.kind === "simulation" && !action.ready)} onClick={() => void execute("confirm")}>
             <CheckCircle2 size={16} aria-hidden="true" />确认并冻结
           </Button>
@@ -158,32 +206,95 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
           </div>
         </div>
       </Modal>
+      <ConflictResolutionModal
+        open={conflictOpen && Boolean(conflict)}
+        title="处理确认版本冲突"
+        description="服务端确认版本已变化。当前命令已保留，系统不会自动覆盖或重放。"
+        conflictFields={conflict?.conflictFields ?? []}
+        comparisons={conflict ? confirmationConflictComparisons(conflict) : []}
+        onClose={() => setConflictOpen(false)}
+        onAdoptServer={() => void adoptConflictServerVersion()}
+        onManualMerge={() => void retryConflict()}
+        adoptLabel="采用服务端版本"
+        mergeLabel="保留命令并重试"
+      />
     </section>
   );
+
+  async function adoptConflictServerVersion() {
+    if (!conflict) return;
+    setConflict(null);
+    setConflictOpen(false);
+    setError(conflict.latest ? "已采用服务端最新确认状态，原命令未重放。" : "服务端没有可采用版本，已保留原命令；请刷新后再显式重试。");
+    router.refresh();
+  }
+
+  async function retryConflict() {
+    if (!conflict) return;
+    const command = conflict.command;
+    setConflict(null);
+    setConflictOpen(false);
+    setError("已保留本地确认命令，正在执行你明确触发的重试。");
+    if (command.kind === "decision") {
+      await execute(command.command.decision);
+      return;
+    }
+    await executeRetestCommand(command);
+  }
+
+  async function executeRetestCommand(command: Extract<ConfirmationMutationCommand, { kind: "retest" }>) {
+    if (pending) return;
+    setPending(command.decision === "confirm" ? "confirm_retest" : "void_retest");
+    try {
+      const result = await decideKnowledgeRetestConfirmation(command.retestId, command.decision, command.input);
+      if (isUnauthorized(result)) {
+        setError("登录已过期，复测确认命令已保留。重新登录后请显式重试。");
+        redirectToLoginWithCurrentLocation();
+        return;
+      }
+      if (!result.ok) {
+        if (isConflict(result)) {
+          setConflict({
+            command,
+            latest: result.body?.latest,
+            conflictFields: result.body?.conflictFields ?? ["revision", "status"],
+          });
+          setConflictOpen(true);
+        }
+        setError(labelConfirmationError(result.body?.error));
+        return;
+      }
+      setNotice(command.decision === "confirm" ? "复测已确认，知识点掌握状态已更新。" : "复测已作废，未更新知识点掌握状态。");
+      void onCompleted?.();
+      router.refresh();
+    } catch {
+      setError("网络结果未知。请刷新确认中心核对复测状态，再显式重试。");
+    } finally {
+      setPending(null);
+    }
+  }
 }
 
-function buildRequest(action: ConfirmationActionDto, decision: Decision): { href: string; body: Record<string, unknown> } | null {
+function buildConfirmationCommand(
+  action: ConfirmationActionDto,
+  decision: Decision,
+): ConfirmationDecisionCommand | null {
   if (action.kind === "periodic_report") {
     return {
-      href: `/api/reports/${encodeURIComponent(action.reportId)}/${decision}`,
-      body: {
-        kind: action.reportKind,
-        expectedRevision: action.expectedRevision,
-        rangeStart: action.rangeStart,
-        rangeEnd: action.rangeEnd,
-      },
+      ...action,
+      decision,
     };
   }
   if (action.kind === "stage_adjustment") {
     return {
-      href: `/api/stage-adjustment-drafts/${encodeURIComponent(action.draftId)}/${decision}`,
-      body: { expectedRevision: action.expectedRevision },
+      ...action,
+      decision,
     };
   }
   if (action.kind === "simulation" && decision === "confirm") {
     return {
-      href: `/api/simulation-exams/${encodeURIComponent(action.examId)}/confirm`,
-      body: { expectedRevision: action.expectedRevision },
+      ...action,
+      decision,
     };
   }
   return null;
@@ -206,4 +317,27 @@ function labelConfirmationError(error?: string): string {
     default:
       return error ?? "确认操作失败，请先核对来源页面状态。";
   }
+}
+
+function confirmationConflictComparisons(conflict: ConfirmationConflict) {
+  const command = conflict.command.kind === "decision" ? conflict.command.command : conflict.command.input;
+  const localDecision = conflict.command.kind === "decision" ? conflict.command.command.decision : conflict.command.decision;
+  return [
+    { field: "revision", label: "本地 revision", local: expectedRevision(command), server: latestRevision(conflict.latest) ?? "无服务端版本" },
+    { field: "status", label: "本地命令", local: localDecision, server: readRecord(conflict.latest)?.status ?? "服务端已变化" },
+  ];
+}
+
+function expectedRevision(command: ConfirmationDecisionCommand | { expectedRevision: number }): number {
+  return "expectedRevision" in command ? command.expectedRevision : 0;
+}
+
+function latestRevision(value: unknown): number | null {
+  const record = readRecord(value);
+  const candidates = [record?.revision, readRecord(record?.report)?.revision, readRecord(record?.draft)?.revision];
+  return candidates.find((candidate): candidate is number => typeof candidate === "number") ?? null;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }

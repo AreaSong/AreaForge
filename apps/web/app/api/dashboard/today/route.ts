@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { apiErrorResponse } from "@/lib/api/responses";
-import { getTodayDashboard } from "@/lib/study/service";
+import { getTodayDashboard } from "@/lib/study/dashboard-query-service";
 
 export const dynamic = "force-dynamic";
 

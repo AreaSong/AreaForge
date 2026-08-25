@@ -1,38 +1,38 @@
 "use client";
 
+import { isUnauthorized } from "@/lib/client/api-errors";
+import { mutationFeedback } from "@/lib/client/mutation-feedback";
+
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
-import { buttonClassName } from "@/components/ui/button";
-import { Drawer } from "@/components/ui/overlays";
+import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/field";
 import { PageFrame, PageHeader } from "@/components/ui/page";
+import { createTask as createStudyTask } from "@/lib/api/tasks";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   LONG_PRIVATE_DRAFT_TTL_MS,
-  loadPrivateBusinessDraft,
+  loadPrivateBusinessDraftEnvelope,
   redirectToLoginWithCurrentLocation,
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
-import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
-import type { PlanRollingDto } from "@/lib/study/plan-rolling-service";
-import type { StagePlanDto, SyllabusOptionNodeDto, TaskPriorityDto } from "@/lib/study/types";
-import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
+import type { PlanMilestoneDto } from "@/lib/contracts";
+import type { PlanRollingDto } from "@/lib/contracts";
+import type { StagePlanDto, SyllabusOptionNodeDto, TaskPriorityDto } from "@/lib/contracts";
+import type { KnowledgePointDto } from "@/lib/contracts";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-
-interface TaskCreateDraft {
-  subjectId: string;
-  syllabusNodeId: string;
-  relatedSyllabusNodeIds: string[];
-  stagePlanIds: string[];
-  knowledgePointIds: string[];
-  planMilestoneId: string;
-  title: string;
-  type: string;
-  priority: TaskPriorityDto;
-  estimatedMinutes: number;
-}
+import { useKeyedDraftHydration } from "@/lib/client/use-keyed-draft-hydration";
+import { PlanRollingCreateDrawer } from "@/components/plan-rolling-create-drawer";
+import { DayTaskList, formatPlanDay, formatShortDate } from "@/components/plan-rolling-day-list";
+import {
+  createDraftSnapshot,
+  flattenSyllabusNodes,
+  isTaskCreateDraft,
+} from "@/components/plan-rolling-utils";
+import { isShanghaiDateInputError, shanghaiDateInputToIso } from "@/lib/formatters";
 
 export function PlanRollingClient(props: {
   initial: PlanRollingDto;
@@ -67,7 +67,6 @@ export function PlanRollingClient(props: {
   const [taskType, setTaskType] = useState("study");
   const [priority, setPriority] = useState<TaskPriorityDto>(props.createMinimum ? "high" : "medium");
   const [estimatedMinutes, setEstimatedMinutes] = useState(props.createMinimum ? 25 : 45);
-  const [draftReady, setDraftReady] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [createOpen, setCreateOpen] = useState(props.createMinimum || Boolean(props.sourceResource));
   const [searchQuery, setSearchQuery] = useState(props.query.q ?? "");
@@ -80,7 +79,14 @@ export function PlanRollingClient(props: {
     return `/roadmap/allocation${params.size ? `?${params.toString()}` : ""}`;
   }, [props.query]);
   const draftKey = `areaforge.task.draft.create.${selectedDate ?? "undated"}.${props.sourceResource?.id ?? props.query.syllabusNodeId ?? (props.createMinimum ? "minimum" : "direct")}`;
-  useRestoreListReturn();
+  const {
+    ready: draftReady,
+    begin: beginDraftHydration,
+    isCurrent: isDraftHydrationCurrent,
+    complete: completeDraftHydration,
+    cancel: cancelDraftHydration,
+  } = useKeyedDraftHydration(draftKey);
+  useRestoreListReturn(props.detailTaskId ?? "list");
 
   const flatSyllabusNodes = useMemo(() => flattenSyllabusNodes(props.syllabusNodes), [props.syllabusNodes]);
   const availableNodes = flatSyllabusNodes.filter((node) => node.subjectId === subjectId);
@@ -90,24 +96,51 @@ export function PlanRollingClient(props: {
   const availableStagePlans = props.stagePlans.filter((stagePlan) => stagePlan.status === "draft" || stagePlan.status === "active");
 
   useEffect(() => {
+    const token = beginDraftHydration();
     const timer = window.setTimeout(() => {
-      const draft = loadPrivateBusinessDraft(draftKey, LONG_PRIVATE_DRAFT_TTL_MS, isTaskCreateDraft);
-      if (draft && props.subjects.some((subject) => subject.id === draft.subjectId)) {
-        setSubjectId(draft.subjectId);
-        setSyllabusNodeId(draft.syllabusNodeId);
-        setRelatedSyllabusNodeIds(draft.relatedSyllabusNodeIds);
-        setStagePlanIds(draft.stagePlanIds);
-        setKnowledgePointIds(draft.knowledgePointIds);
-        setPlanMilestoneId(draft.planMilestoneId);
-        setTitle(draft.title);
-        setTaskType(draft.type);
-        setPriority(draft.priority);
-        setEstimatedMinutes(draft.estimatedMinutes);
-      }
-      setDraftReady(true);
+      const stored = loadPrivateBusinessDraftEnvelope(
+        draftKey,
+        LONG_PRIVATE_DRAFT_TTL_MS,
+        isTaskCreateDraft,
+      );
+      if (!isDraftHydrationCurrent(token)) return;
+      const fallbackSubjectId = props.sourceResource?.subjectId
+        ?? props.query.subjectId
+        ?? props.subjects[0]?.id
+        ?? "";
+      const draft = stored && props.subjects.some((subject) => subject.id === stored.value.subjectId)
+        ? stored.value
+        : createDraftSnapshot({
+            subjectId: fallbackSubjectId,
+            syllabusNodeId: props.sourceResource?.syllabusNodeId ?? props.query.syllabusNodeId ?? "",
+            relatedSyllabusNodeIds: [],
+            stagePlanIds: [],
+            knowledgePointIds: [],
+            planMilestoneId: "",
+            title: props.createMinimum
+              ? "今天最小任务"
+              : props.sourceResource ? `学习：${props.sourceResource.title}` : "",
+            taskType: "study",
+            priority: props.createMinimum ? "high" : "medium",
+            estimatedMinutes: props.createMinimum ? 25 : 45,
+          });
+      setSubjectId(draft.subjectId);
+      setSyllabusNodeId(draft.syllabusNodeId);
+      setRelatedSyllabusNodeIds(draft.relatedSyllabusNodeIds);
+      setStagePlanIds(draft.stagePlanIds);
+      setKnowledgePointIds(draft.knowledgePointIds);
+      setPlanMilestoneId(draft.planMilestoneId);
+      setTitle(draft.title);
+      setTaskType(draft.type);
+      setPriority(draft.priority);
+      setEstimatedMinutes(draft.estimatedMinutes);
+      completeDraftHydration(token);
     }, 0);
-    return () => window.clearTimeout(timer);
-  }, [draftKey, props.subjects]);
+    return () => {
+      window.clearTimeout(timer);
+      cancelDraftHydration(token);
+    };
+  }, [beginDraftHydration, cancelDraftHydration, completeDraftHydration, draftKey, isDraftHydrationCurrent, props.createMinimum, props.query.subjectId, props.query.syllabusNodeId, props.sourceResource, props.subjects]);
 
   useEffect(() => {
     if (!draftReady) return;
@@ -138,6 +171,32 @@ export function PlanRollingClient(props: {
       : current.length < 20 ? [...current, stagePlanId] : current);
   }
 
+  function changeCreateSubject(nextSubjectId: string) {
+    setSubjectId(nextSubjectId);
+    setSyllabusNodeId("");
+    setRelatedSyllabusNodeIds([]);
+    setKnowledgePointIds([]);
+    setStagePlanIds([]);
+    setPlanMilestoneId("");
+  }
+
+  function changePrimarySyllabusNode(nodeId: string) {
+    setSyllabusNodeId(nodeId);
+    setRelatedSyllabusNodeIds((current) => current.filter((id) => id !== nodeId));
+  }
+
+  function toggleRelatedSyllabusNode(nodeId: string) {
+    setRelatedSyllabusNodeIds((current) => current.includes(nodeId)
+      ? current.filter((id) => id !== nodeId)
+      : current.length < 20 ? [...current, nodeId] : current);
+  }
+
+  function toggleKnowledgePoint(pointId: string) {
+    setKnowledgePointIds((current) => current.includes(pointId)
+      ? current.filter((id) => id !== pointId)
+      : current.length < 50 ? [...current, pointId] : current);
+  }
+
   async function createTask() {
     if (creatingTask) return;
     setError(null);
@@ -146,34 +205,30 @@ export function PlanRollingClient(props: {
       return;
     }
     setCreatingTask(true);
-    const payload = {
-      subjectId,
-      syllabusNodeId: syllabusNodeId || null,
-      relatedSyllabusNodeIds,
-      stagePlanIds,
-      knowledgePointIds,
-      planMilestoneId: planMilestoneId || null,
-      sourceResourceId: props.sourceResource?.id,
-      title: title.trim(),
-      estimatedMinutes,
-      type: taskType,
-      priority,
-      plannedDate: selectedDate ? new Date(`${selectedDate}T08:00:00+08:00`).toISOString() : undefined,
-    };
     const commandScope = `plan:create:${selectedDate ?? "undated"}:${props.sourceResource?.id ?? "direct"}`;
     try {
-      const response = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "task-create", payload),
-          ...payload,
-        }),
+      const payload = {
+        subjectId,
+        syllabusNodeId: syllabusNodeId || null,
+        relatedSyllabusNodeIds,
+        stagePlanIds,
+        knowledgePointIds,
+        planMilestoneId: planMilestoneId || null,
+        sourceResourceId: props.sourceResource?.id,
+        title: title.trim(),
+        estimatedMinutes,
+        type: taskType,
+        priority,
+        plannedDate: selectedDate ? shanghaiDateInputToIso(selectedDate) : undefined,
+      };
+      const result = await createStudyTask({
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "task-create", payload),
+        ...payload,
       });
-      const body = (await response.json().catch(() => null)) as { task?: { id: string }; error?: string } | null;
-      if (response.status === 401) return redirectToLoginWithCurrentLocation();
-      if (!response.ok) {
-        setError(body?.error ?? "创建失败，当前输入仍保留；请显式重试。");
+      const body = result.body;
+      if (isUnauthorized(result)) return redirectToLoginWithCurrentLocation();
+      if (!result.ok) {
+        setError(mutationFeedback(result, "创建失败，当前输入仍保留；请显式重试。").message);
         return;
       }
       if (!body?.task?.id) {
@@ -191,8 +246,10 @@ export function PlanRollingClient(props: {
       setPlanMilestoneId("");
       setCreateOpen(false);
       startTransition(() => router.push(withReturnTo(`/roadmap/allocation/tasks/${createdTaskId}`, currentPlanHref)));
-    } catch {
-      setError("网络不可用，任务输入仍保留；恢复网络后请显式重试。");
+    } catch (caught) {
+      setError(isShanghaiDateInputError(caught)
+        ? "计划日期无效，请重新选择；任务输入仍保留。"
+        : "网络不可用，任务输入仍保留；恢复网络后请显式重试。");
     } finally {
       setCreatingTask(false);
     }
@@ -212,7 +269,7 @@ export function PlanRollingClient(props: {
       ) : null}
 
       <form
-        className="grid min-w-0 gap-2 border-y border-white/10 py-3 min-[900px]:grid-cols-[minmax(14rem,1fr)_minmax(9rem,0.35fr)_minmax(8rem,0.3fr)_auto]"
+        className="af-plan-filter-grid grid min-w-0 gap-2 border-y border-white/10 py-3"
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
@@ -222,7 +279,7 @@ export function PlanRollingClient(props: {
         <label className="relative min-w-0">
           <span className="sr-only">搜索任务</span>
           <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-zinc-500" aria-hidden="true" />
-          <input
+          <Input
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -232,36 +289,38 @@ export function PlanRollingClient(props: {
         </label>
         <label>
           <span className="sr-only">科目筛选</span>
-          <select className="h-10 w-full rounded-md border border-white/10 bg-[#101419] px-3 text-sm text-zinc-200" value={props.query.subjectId ?? ""} onChange={(event) => pushQuery({ subjectId: event.target.value || undefined })}>
+          <Select className="h-10 w-full rounded-md border border-white/10 bg-[#101419] px-3 text-sm text-zinc-200" value={props.query.subjectId ?? ""} onChange={(event) => pushQuery({ subjectId: event.target.value || undefined })}>
             <option value="">全部科目</option>
             {props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-          </select>
+          </Select>
         </label>
         <label>
           <span className="sr-only">状态筛选</span>
-          <select className="h-10 w-full rounded-md border border-white/10 bg-[#101419] px-3 text-sm text-zinc-200" value={props.query.status ?? ""} onChange={(event) => pushQuery({ status: event.target.value || undefined })}>
+          <Select className="h-10 w-full rounded-md border border-white/10 bg-[#101419] px-3 text-sm text-zinc-200" value={props.query.status ?? ""} onChange={(event) => pushQuery({ status: event.target.value || undefined })}>
             <option value="">全部状态</option>
             <option value="todo">待开始</option>
             <option value="in_progress">进行中</option>
             <option value="deferred">已延期</option>
             <option value="done">已完成</option>
-          </select>
+          </Select>
         </label>
-        <button type="submit" className={buttonClassName({ variant: "secondary" })}>搜索</button>
+        <Button type="submit" variant="secondary">搜索</Button>
       </form>
 
-      <div className={props.detailPanel ? "grid min-h-0 min-w-0 gap-5 min-[1200px]:grid-cols-[minmax(18rem,0.72fr)_minmax(28rem,1.28fr)]" : "space-y-5"}>
+      <div className={props.detailPanel ? "af-plan-layout-grid grid min-h-0 min-w-0 gap-5" : "space-y-5"}>
         <div className="min-w-0 space-y-5">
-          <div className={`af-horizontal-scroll gap-2 overflow-x-auto pb-2 ${props.detailPanel ? "flex" : "flex min-[1200px]:hidden"}`} tabIndex={0} aria-label="日期条" data-horizontal-scroll="date-strip">
+          <div className={`af-horizontal-scroll gap-2 overflow-x-auto pb-2 ${props.detailPanel ? "flex" : "af-plan-date-strip-wide-hidden flex"}`} tabIndex={0} aria-label="日期条" data-horizontal-scroll="date-strip">
             {props.initial.days.map((day) => (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 key={day.date}
                 type="button"
-                className={`shrink-0 rounded-md border px-3 py-2 text-xs ${selectedDate === day.date ? "border-teal-400/50 bg-teal-400/5 text-teal-200" : "border-white/10 text-zinc-400"}`}
+                className={`!h-auto shrink-0 rounded-md border px-3 py-2 text-xs ${selectedDate === day.date ? "border-teal-400/50 bg-teal-400/5 text-teal-200" : "border-white/10 text-zinc-400"}`}
                 onClick={() => pushQuery({ date: day.date })}
               >
                 {formatPlanDay(day.date)} · {day.tasks.length}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -275,9 +334,9 @@ export function PlanRollingClient(props: {
             />
           ) : (
             <>
-              <div className="af-horizontal-scroll hidden gap-3 overflow-x-auto pb-2 min-[1200px]:flex min-[1440px]:grid min-[1440px]:grid-cols-7 min-[1440px]:overflow-visible min-[1440px]:pb-0" tabIndex={0} aria-label="七天列" data-horizontal-scroll="seven-day-plan">
+              <div className="af-horizontal-scroll af-plan-seven-day gap-3 overflow-x-auto pb-2" tabIndex={0} aria-label="七天列" data-horizontal-scroll="seven-day-plan">
                 {props.initial.days.map((day) => (
-                  <section key={day.date} className="min-w-[10rem] flex-1 rounded-md border border-white/10 bg-[#101419] p-3 min-[1440px]:min-w-0">
+                  <section key={day.date} className="af-plan-day-column flex-1 rounded-md border border-white/10 bg-[#101419] p-3">
                     <div className="flex items-center justify-between gap-2">
                       <h2 className="text-sm font-medium text-zinc-200">{formatPlanDay(day.date)}</h2>
                       <span className="text-xs text-zinc-600">{day.tasks.length}</span>
@@ -302,7 +361,7 @@ export function PlanRollingClient(props: {
                   </section>
                 ))}
               </div>
-              <div className="min-[1200px]:hidden">
+              <div className="af-plan-day-list">
                 <DayTaskList
                   date={selectedDate}
                   tasks={selectedDayTasks}
@@ -341,141 +400,47 @@ export function PlanRollingClient(props: {
         </div>
 
         {props.detailPanel ? (
-          <aside className="hidden max-h-[calc(100dvh-12rem)] min-h-[32rem] overflow-y-auto border-l border-white/10 pl-5 min-[1200px]:block" aria-label="任务详情">
+          <aside className="af-plan-detail-host min-w-0" aria-label="任务详情">
             {props.detailPanel}
           </aside>
         ) : null}
       </div>
 
-      {props.detailPanel ? (
-        <section className="border-t border-white/10 pt-5 min-[1200px]:hidden" aria-label="任务详情">
-          {props.detailPanel}
-        </section>
-      ) : null}
-
-      <Drawer open={createOpen} title={`新建任务 · ${selectedDate ?? "未排期"}`} onClose={() => setCreateOpen(false)}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="text-zinc-400">标题</span>
-            <input
-              className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </label>
-          <label className="text-sm">
-            <span className="text-zinc-400">科目</span>
-            <select
-              className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2"
-              value={subjectId}
-              onChange={(event) => {
-                setSubjectId(event.target.value);
-                setSyllabusNodeId("");
-                setRelatedSyllabusNodeIds([]);
-                setKnowledgePointIds([]);
-                setStagePlanIds([]);
-                setPlanMilestoneId("");
-              }}
-            >
-              {props.subjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="text-zinc-400">里程碑</span>
-            <select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={planMilestoneId} onChange={(event) => setPlanMilestoneId(event.target.value)}>
-              <option value="">不关联里程碑</option>
-              {availableMilestones.map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.title}</option>)}
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="text-zinc-400">主考纲节点</span>
-            <select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={syllabusNodeId} onChange={(event) => {
-              setSyllabusNodeId(event.target.value);
-              setRelatedSyllabusNodeIds((current) => current.filter((id) => id !== event.target.value));
-            }}>
-              <option value="">不关联考纲节点</option>
-              {availableNodes.map((node) => <option key={node.id} value={node.id}>{`${"  ".repeat(node.depth)}${node.title}`}</option>)}
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="text-zinc-400">预计分钟</span>
-            <input
-              type="number"
-              min={5}
-              max={720}
-              className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2"
-              value={estimatedMinutes}
-              onChange={(event) => setEstimatedMinutes(Number(event.target.value) || 25)}
-            />
-          </label>
-          <label className="text-sm">
-            <span className="text-zinc-400">任务类型</span>
-            <select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={taskType} onChange={(event) => setTaskType(event.target.value)}>
-              <option value="study">学习</option><option value="review">复习</option><option value="practice">刷题</option><option value="mistake">错题</option><option value="simulation_exam">模拟</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="text-zinc-400">优先级</span>
-            <select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={priority} onChange={(event) => setPriority(event.target.value as TaskPriorityDto)}>
-              <option value="critical">最高</option><option value="high">高</option><option value="medium">中</option><option value="low">低</option>
-            </select>
-          </label>
-        </div>
-        <fieldset className="mt-3 space-y-2">
-          <legend className="text-sm text-zinc-400">其他相关考纲节点（最多 20 个）</legend>
-          <div className="grid max-h-44 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
-            {availableNodes.filter((node) => node.id !== syllabusNodeId).map((node) => (
-              <label key={node.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-300">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-400" checked={relatedSyllabusNodeIds.includes(node.id)} onChange={() => setRelatedSyllabusNodeIds((current) => current.includes(node.id) ? current.filter((id) => id !== node.id) : current.length < 20 ? [...current, node.id] : current)} />
-                <span className="min-w-0 break-words">{`${"  ".repeat(node.depth)}${node.title}`}</span>
-              </label>
-            ))}
-            {availableNodes.length === 0 ? <p className="text-sm text-zinc-500">该科目暂无可关联节点</p> : null}
-          </div>
-        </fieldset>
-        <fieldset className="mt-3 space-y-2">
-          <legend className="text-sm text-zinc-400">关联知识点（可多选，最多 50 个）</legend>
-          <div className="grid max-h-44 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
-            {props.knowledgePoints.filter((point) => point.subject.id === subjectId || point.relatedSubjects.some((subject) => subject.id === subjectId)).map((point) => (
-              <label key={point.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-300">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-400" checked={knowledgePointIds.includes(point.id)} onChange={() => setKnowledgePointIds((current) => current.includes(point.id) ? current.filter((id) => id !== point.id) : current.length < 50 ? [...current, point.id] : current)} />
-                <span className="min-w-0 break-words">{point.title}</span>
-              </label>
-            ))}
-            {props.knowledgePoints.length === 0 ? <p className="text-sm text-zinc-500">当前还没有知识点</p> : null}
-          </div>
-        </fieldset>
-        <fieldset className="mt-3 space-y-2">
-          <legend className="text-sm text-zinc-400">所属阶段（可多选，最多 20 个）</legend>
-          <div className="grid max-h-44 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
-            {availableStagePlans.map((stagePlan) => (
-              <label key={stagePlan.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-300">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 accent-teal-400"
-                  checked={stagePlanIds.includes(stagePlan.id)}
-                  onChange={() => toggleStagePlan(stagePlan.id)}
-                />
-                <span className="min-w-0 break-words">{stagePlan.name}</span>
-              </label>
-            ))}
-            {availableStagePlans.length === 0 ? <p className="text-sm text-zinc-500">当前没有可关联的阶段</p> : null}
-          </div>
-        </fieldset>
-        {error ? <p className="mt-2 text-sm text-red-300" role="alert">{error}</p> : null}
-        <button
-          type="button"
-          disabled={pending || creatingTask || props.sourceResource?.archived}
-          className="mt-3 h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black disabled:opacity-60"
-          onClick={() => void createTask()}
-        >
-          {creatingTask ? "创建中..." : "新建任务"}
-        </button>
-      </Drawer>
+      <PlanRollingCreateDrawer
+        open={createOpen}
+        selectedDate={selectedDate}
+        title={title}
+        subjectId={subjectId}
+        subjects={props.subjects}
+        planMilestoneId={planMilestoneId}
+        availableMilestones={availableMilestones}
+        syllabusNodeId={syllabusNodeId}
+        availableNodes={availableNodes}
+        estimatedMinutes={estimatedMinutes}
+        taskType={taskType}
+        priority={priority}
+        relatedSyllabusNodeIds={relatedSyllabusNodeIds}
+        knowledgePointIds={knowledgePointIds}
+        knowledgePoints={props.knowledgePoints}
+        stagePlanIds={stagePlanIds}
+        availableStagePlans={availableStagePlans}
+        error={error}
+        pending={pending}
+        creatingTask={creatingTask}
+        sourceResourceArchived={Boolean(props.sourceResource?.archived)}
+        onClose={() => setCreateOpen(false)}
+        onTitleChange={setTitle}
+        onSubjectChange={changeCreateSubject}
+        onPlanMilestoneChange={setPlanMilestoneId}
+        onSyllabusNodeChange={changePrimarySyllabusNode}
+        onEstimatedMinutesChange={setEstimatedMinutes}
+        onTaskTypeChange={setTaskType}
+        onPriorityChange={setPriority}
+        onRelatedSyllabusNodeToggle={toggleRelatedSyllabusNode}
+        onKnowledgePointToggle={toggleKnowledgePoint}
+        onStagePlanToggle={toggleStagePlan}
+        onCreate={() => void createTask()}
+      />
     </PageFrame>
   );
 
@@ -487,120 +452,4 @@ export function PlanRollingClient(props: {
     }
     return `/roadmap/allocation?${params.toString()}`;
   }
-}
-
-function DayTaskList(props: {
-  date?: string;
-  tasks: PlanRollingDto["tasks"];
-  detailTaskId?: string;
-  desktopHref: (taskId: string) => string;
-  mobileHref: (taskId: string) => string;
-  onCreate?: () => void;
-}) {
-  return (
-    <section className="border-y border-white/10 py-4" aria-labelledby="selected-day-heading">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 id="selected-day-heading" className="text-sm font-medium text-zinc-200">{props.date ? formatPlanDay(props.date) : "当日"}任务</h2>
-          <p className="mt-1 text-xs text-zinc-500">{props.tasks.length} 项正式任务</p>
-        </div>
-        {props.tasks.length === 0 && props.onCreate ? (
-          <button type="button" className={buttonClassName({ variant: "ghost", size: "sm" })} onClick={props.onCreate}>
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            安排任务
-          </button>
-        ) : null}
-      </div>
-      {props.tasks.length ? (
-        <ul className="mt-3 divide-y divide-white/10">
-          {props.tasks.map((task) => (
-            <li key={task.id} className={`py-3 first:pt-0 last:pb-0 ${props.detailTaskId === task.id ? "border-l-2 border-teal-400 pl-3" : ""}`}>
-              <ListDetailLink
-                href={props.mobileHref(task.id)}
-                desktopHref={props.desktopHref(task.id)}
-                focusId={`plan-task-${props.date ?? "undated"}-${task.id}`}
-                className="block break-words text-sm font-medium text-white hover:text-teal-300"
-              >
-                {task.title}
-              </ListDetailLink>
-              <p className="mt-1 text-xs text-zinc-500">{task.subjectName} · {task.estimatedMinutes} 分 · {taskStatusLabel(task.status)}</p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-md border border-dashed border-white/10 px-3 py-4">
-          <p className="text-sm text-zinc-500">这一天还没有任务</p>
-          {props.onCreate ? <button type="button" className="text-sm text-teal-300" onClick={props.onCreate}>安排任务</button> : null}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function formatPlanDay(value: string): string {
-  const date = new Date(`${value}T12:00:00+08:00`);
-  const weekday = new Intl.DateTimeFormat("zh-CN", { weekday: "short", timeZone: "Asia/Shanghai" }).format(date);
-  return `${value.slice(5)} ${weekday}`;
-}
-
-function formatShortDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "未知";
-  return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", timeZone: "Asia/Shanghai" }).format(date);
-}
-
-function taskStatusLabel(status: string): string {
-  if (status === "in_progress") return "进行中";
-  if (status === "done") return "已完成";
-  if (status === "deferred") return "已延期";
-  if (status === "skipped") return "已跳过";
-  return "待开始";
-}
-
-function flattenSyllabusNodes(nodes: SyllabusOptionNodeDto[], depth = 0): Array<SyllabusOptionNodeDto & { depth: number }> {
-  return nodes.flatMap((node) => [{ ...node, depth }, ...flattenSyllabusNodes(node.children, depth + 1)]);
-}
-
-function createDraftSnapshot(input: {
-  subjectId: string;
-  syllabusNodeId: string;
-  relatedSyllabusNodeIds: string[];
-  stagePlanIds: string[];
-  knowledgePointIds: string[];
-  planMilestoneId: string;
-  title: string;
-  taskType: string;
-  priority: TaskPriorityDto;
-  estimatedMinutes: number;
-}): TaskCreateDraft {
-  return {
-    subjectId: input.subjectId,
-    syllabusNodeId: input.syllabusNodeId,
-    relatedSyllabusNodeIds: input.relatedSyllabusNodeIds,
-    stagePlanIds: input.stagePlanIds,
-    knowledgePointIds: input.knowledgePointIds,
-    planMilestoneId: input.planMilestoneId,
-    title: input.title,
-    type: input.taskType,
-    priority: input.priority,
-    estimatedMinutes: input.estimatedMinutes,
-  };
-}
-
-function isTaskCreateDraft(value: unknown): value is TaskCreateDraft {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const draft = value as Partial<TaskCreateDraft>;
-  return typeof draft.subjectId === "string"
-    && typeof draft.syllabusNodeId === "string"
-    && Array.isArray(draft.relatedSyllabusNodeIds)
-    && draft.relatedSyllabusNodeIds.every((id) => typeof id === "string")
-    && Array.isArray(draft.stagePlanIds)
-    && draft.stagePlanIds.every((id) => typeof id === "string")
-    && Array.isArray(draft.knowledgePointIds)
-    && draft.knowledgePointIds.every((id) => typeof id === "string")
-    && typeof draft.planMilestoneId === "string"
-    && typeof draft.title === "string"
-    && typeof draft.type === "string"
-    && ["low", "medium", "high", "critical"].includes(draft.priority ?? "")
-    && typeof draft.estimatedMinutes === "number";
 }

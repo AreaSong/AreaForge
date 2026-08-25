@@ -6,7 +6,7 @@ import {
   normalizeIdempotencyKey,
 } from "./persistent-idempotency";
 import { lockActiveWorkspaceForWrite } from "./exam-workspace-service";
-import type { MistakeAttemptDto } from "./types";
+import type { MistakeAttemptDto } from "@/lib/contracts";
 
 export interface CreateMistakeAttemptInput {
   idempotencyKey: string;

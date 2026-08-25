@@ -6,22 +6,14 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type { TaskDependencyDto } from "@/lib/contracts/task";
+import { fromDbTaskStatus, type DbTaskStatus } from "./task-serializer";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+
+export type { TaskDependencyDto } from "@/lib/contracts/task";
 
 const dependencyGraphLockNamespace = 2026072113;
 type DependencyReadClient = Pick<Prisma.TransactionClient, "studyTask" | "taskDependency">;
-
-export interface TaskDependencyDto {
-  id: string;
-  predecessorId: string;
-  successorId: string;
-  type: TaskDependencyType;
-  revision: number;
-  predecessorTitle: string | null;
-  predecessorStatus: string | null;
-  successorTitle: string | null;
-  successorStatus: string | null;
-}
 
 function serialize(row: {
   id: string;
@@ -29,8 +21,8 @@ function serialize(row: {
   successorId: string;
   type: TaskDependencyType;
   revision: number;
-  predecessor?: { title: string; status: string };
-  successor?: { title: string; status: string };
+  predecessor?: { title: string; status: DbTaskStatus };
+  successor?: { title: string; status: DbTaskStatus };
 }): TaskDependencyDto {
   return {
     id: row.id,
@@ -39,9 +31,9 @@ function serialize(row: {
     type: row.type,
     revision: row.revision,
     predecessorTitle: row.predecessor?.title ?? null,
-    predecessorStatus: row.predecessor?.status ?? null,
+    predecessorStatus: row.predecessor ? fromDbTaskStatus(row.predecessor.status) : null,
     successorTitle: row.successor?.title ?? null,
-    successorStatus: row.successor?.status ?? null,
+    successorStatus: row.successor ? fromDbTaskStatus(row.successor.status) : null,
   };
 }
 

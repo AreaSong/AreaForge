@@ -16,73 +16,26 @@ import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-work
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { applyRecoveryV2CheckInProgressInTx } from "./recovery-v2-service";
 import { persistMistakeAttemptInTx } from "./mistake-attempt-service";
+import { fromDbTaskStatus } from "./task-serializer";
+import type {
+  BridgedReviewScheduleDto,
+  RecentReviewEventDto,
+  ReviewEventDto,
+  ReviewQueueItemDto,
+  ReviewQueueTargetDto,
+  ReviewScheduleDto,
+  ReviewWorkbenchSummaryDto,
+} from "@/lib/contracts/review";
 
-export interface ReviewScheduleDto {
-  id: string;
-  workspaceId: string;
-  targetType: ReviewTargetType;
-  noteId: string | null;
-  mistakeId: string | null;
-  studyResourceId: string | null;
-  syllabusNodeId: string | null;
-  status: "ACTIVE" | "PAUSED";
-  dueDate: string | null;
-  pausedReason: string | null;
-  consecutivePassCount: number;
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ReviewEventDto {
-  id: string;
-  reviewScheduleId: string;
-  result: ReviewResult;
-  durationSeconds: number;
-  confirmedAt: string;
-  learningDate: string;
-  nextDueDate: string;
-  consecutivePassDelta: number;
-  correctedEventId: string | null;
-  note: string | null;
-  appliedRevision: number;
-}
-
-export interface BridgedReviewScheduleDto {
-  schedule: ReviewScheduleDto;
-  target: ReviewQueueTargetDto;
-  canonicalTask: {
-    id: string;
-    title: string;
-    status: "TODO" | "IN_PROGRESS" | "DEFERRED";
-    href: string;
-  };
-}
-
-export interface RecentReviewEventDto extends ReviewEventDto {
-  schedule: Pick<ReviewScheduleDto, "id" | "targetType">;
-  target: ReviewQueueTargetDto;
-}
-
-export interface ReviewQueueTargetDto {
-  title: string;
-  subtitle: string;
-  canonicalHref: string;
-  latestResult?: ReviewResult | null;
-  latestAttemptAt?: string | null;
-}
-
-export interface ReviewQueueItemDto {
-  schedule: ReviewScheduleDto;
-  target: ReviewQueueTargetDto;
-}
-
-export interface ReviewWorkbenchSummaryDto {
-  overdueCount: number;
-  dueTodayCount: number;
-  completedTodayCount: number;
-  completedTodaySeconds: number;
-}
+export type {
+  BridgedReviewScheduleDto,
+  RecentReviewEventDto,
+  ReviewEventDto,
+  ReviewQueueItemDto,
+  ReviewQueueTargetDto,
+  ReviewScheduleDto,
+  ReviewWorkbenchSummaryDto,
+} from "@/lib/contracts/review";
 
 type Tx = Prisma.TransactionClient;
 
@@ -248,10 +201,25 @@ export async function listBridgedReviewSchedules(actorId: string): Promise<Bridg
     canonicalTask: {
       id: task.id,
       title: task.title,
-      status: task.status as "TODO" | "IN_PROGRESS" | "DEFERRED",
+      status: fromDbBridgeTaskStatus(task.status),
       href: `/roadmap/allocation/tasks/${task.id}`,
     },
   })));
+}
+
+function fromDbBridgeTaskStatus(
+  status: Parameters<typeof fromDbTaskStatus>[0],
+): BridgedReviewScheduleDto["canonicalTask"]["status"] {
+  const normalized = fromDbTaskStatus(status);
+  switch (normalized) {
+    case "todo":
+    case "in_progress":
+    case "deferred":
+      return normalized;
+    case "done":
+    case "skipped":
+      throw new Error(`Inactive task ${status} leaked into the active review bridge query`);
+  }
 }
 
 export async function listRecentReviewEvents(actorId: string, limit = 12): Promise<RecentReviewEventDto[]> {

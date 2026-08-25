@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   getAiAssistantContextStorageKey,
   isPersistedAiAssistantContext,
+  normalizeAiAssistantContext,
 } from "@/lib/client/ai-assistant-context";
 import { getAiDraftFormStorageKey } from "@/lib/client/ai-draft-form-key";
 
@@ -53,6 +54,12 @@ test("global AI persists only bounded route and selection context", () => {
     items: [{ id: "selection-1", label: "选中文本", text: "操作系统调度" }],
   }), true);
   assert.equal(isPersistedAiAssistantContext({
+    schemaVersion: 2,
+    contextKey: "/knowledge?",
+    endpoint: "knowledge-card",
+    items: [{ identity: "selection-1", fingerprint: "element:one", label: "选中文本", text: "操作系统调度" }],
+  }), true);
+  assert.equal(isPersistedAiAssistantContext({
     contextKey: "/focus?",
     endpoint: "knowledge-card",
     items: [],
@@ -67,6 +74,18 @@ test("global AI persists only bounded route and selection context", () => {
     endpoint: "knowledge-card",
     items: [{ id: "selection-1", label: "选中文本", text: "" }],
   }), false);
+  const migrated = normalizeAiAssistantContext({
+    contextKey: "/knowledge?",
+    endpoint: "knowledge-card",
+    items: [
+      { id: "collision", label: "标题", text: "Aa" },
+      { id: "collision", label: "标题", text: "BB" },
+    ],
+  });
+  assert.equal(migrated?.schemaVersion, 2);
+  assert.equal(migrated?.items.length, 2);
+  assert.notEqual(migrated?.items[0]?.identity, migrated?.items[1]?.identity);
+  assert.notEqual(migrated?.items[0]?.fingerprint, migrated?.items[1]?.fingerprint);
 });
 
 test("closeout auto-open only records an entry after its timer runs", () => {
@@ -76,10 +95,14 @@ test("closeout auto-open only records an entry after its timer runs", () => {
 });
 
 test("AI draft persistence keys include an optional page context scope", () => {
-  const source = readComponent("ai-draft-panel.tsx");
-  assert.match(source, /draftContextKey\?: string/);
-  assert.match(source, /getAiDraftFormStorageKey\([\s\S]*props\.draftContextKey \?\? routeContextKey/);
-  assert.match(source, /loadedDraftKeyRef\.current !== formDraftKey/);
+  const panel = readComponent("ai-draft-panel.tsx");
+  const workflow = readComponent("use-ai-draft-workflow.ts");
+  assert.match(panel, /draftContextKey\?: string/);
+  assert.match(panel, /const routeContextKey = `\$\{pathname\}\?\$\{searchParams\.toString\(\)\}`/);
+  assert.match(panel, /useAiDraftWorkflow\(\{ \.\.\.props, routeContextKey \}\)/);
+  assert.match(workflow, /const contextKey = options\.draftContextKey \?\? options\.routeContextKey/);
+  assert.match(workflow, /getAiDraftFormStorageKey\(options\.endpoint, options\.userId, contextKey\)/);
+  assert.match(workflow, /loadedDraftKeyRef\.current !== formDraftKey/);
   assert.equal(
     getAiDraftFormStorageKey("knowledge-card", "user-1", "/knowledge?:selection"),
     getAiDraftFormStorageKey("knowledge-card", "user-1", "/knowledge?:selection"),
@@ -92,9 +115,12 @@ test("AI draft persistence keys include an optional page context scope", () => {
 
 test("window content refresh does not steal focus from its active control", () => {
   const layer = readComponent("window-layer.tsx");
+  const focusScope = readComponent("ui/focus-scope.ts");
   const system = readComponent("window-system.tsx");
   assert.match(layer, /const hasDefinition = definition !== null/);
-  assert.match(layer, /\}, \[foregroundWindowKey, hasDefinition, minimizeWindow\]\)/);
+  assert.match(layer, /const active = foregroundWindowKey !== null && hasDefinition && portalReady/);
+  assert.match(layer, /useFocusScope\(\{[\s\S]*active,[\s\S]*panelRef,[\s\S]*onEscape: foregroundWindowKey \? \(\) => minimizeWindow\(foregroundWindowKey\)/);
+  assert.match(focusScope, /\[\s*input\.active,[\s\S]*input\.panelRef,[\s\S]*input\.returnFocusRef/);
   assert.doesNotMatch(layer, /definitionVersion/);
   assert.match(system, /definitionsRef\.current\.get\(key\)\?\.onDiscard\?\.\(\)/);
 });

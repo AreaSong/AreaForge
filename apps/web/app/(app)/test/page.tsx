@@ -28,7 +28,7 @@ export default async function TestPage() {
         title="检验中心"
         description="专项复测判断知识点是否稳定掌握，模拟考试判断整体结果；两条证据分别记录，不互相替代。"
       />
-      <section className="grid gap-4 border-b border-white/10 pb-7 md:grid-cols-2">
+      <section className="af-content-grid-two grid gap-4 border-b border-white/10 pb-7">
         <TestEntry
           href="/test/retests"
           title="专项复测"

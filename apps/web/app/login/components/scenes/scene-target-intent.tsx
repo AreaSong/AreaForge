@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import React, { useId, useState } from "react";
 import {
   Activity,
@@ -191,7 +192,7 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
                 const isSelected = selectedSubjectId === tab.id;
                 const IconComponent = tab.icon;
                 return (
-                  <button
+                  <Button
                     key={tab.id}
                     type="button"
                     onClick={() => handleSubjectClick(tab.id)}
@@ -203,7 +204,7 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
                   >
                     <IconComponent className="size-3 text-blue-400" />
                     <span>{tab.label}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/field";
 import { MousePointer2, Sparkles, X } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,16 +14,17 @@ import {
   type AiAssistantEndpoint,
 } from "@/lib/client/ai-assistant-context";
 import { getAiDraftFormStorageKey } from "@/lib/client/ai-draft-form-key";
+import {
+  appendSelectionItem,
+  createAiSelectionItem,
+  getElementSelectionSource,
+  getRangeSelectionSource,
+  mergeSelectionItems,
+  type AiSelectionItem,
+} from "@/lib/client/ai-assistant-selection";
 import { removePrivateBusinessDraft } from "@/lib/client/private-business-drafts";
 import { getRouteTitle } from "@/lib/navigation/app-navigation";
 import { useWindowSystem, type WindowWorkState } from "@/components/window-system";
-
-interface SelectionItem {
-  id: string;
-  label: string;
-  text: string;
-  rect: { top: number; left: number; width: number; height: number } | null;
-}
 
 export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: string; placement?: "floating" | "header" }) {
   const pathname = usePathname();
@@ -33,8 +36,8 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
   const [selectionReturnTarget, setSelectionReturnTarget] = useState<"tool" | "window" | null>(null);
   const [assistantWorkState, setAssistantWorkState] = useState<WindowWorkState>("clean");
   const [endpoint, setEndpoint] = useState<AiAssistantEndpoint>("knowledge-card");
-  const [items, setItems] = useState<SelectionItem[]>([]);
-  const [dragRect, setDragRect] = useState<SelectionItem["rect"]>(null);
+  const [items, setItems] = useState<AiSelectionItem[]>([]);
+  const [dragRect, setDragRect] = useState<AiSelectionItem["rect"]>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const dragMoved = useRef(false);
   const suppressClick = useRef(false);
@@ -109,9 +112,10 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
   useEffect(() => {
     if (!assistantContextReady || (!assistantWindow && !isQuickOpen)) return;
     saveAiAssistantContext(userId, {
+      schemaVersion: 2,
       contextKey: assistantContextKey,
       endpoint,
-      items: items.map(({ id, label, text }) => ({ id, label, text })),
+      items: items.map(({ identity, fingerprint, label, text }) => ({ identity, fingerprint, label, text })),
     });
   }, [assistantContextKey, assistantContextReady, assistantWindow, endpoint, isQuickOpen, items, userId]);
 
@@ -143,7 +147,7 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       ?? document.querySelector("[data-ai-page-context]");
     const item = target instanceof Element ? selectionFromElement(target, target === document.querySelector("[data-ai-page-context]") ? getRouteTitle(pathname) : undefined) : null;
     if (!item) return;
-    setItems((current) => current.some((entry) => entry.id === item.id) ? current : [...current, item]);
+    setItems((current) => appendSelectionItem(current, item));
   }, [pathname]);
 
   const prepareAssistant = useCallback(() => {
@@ -202,7 +206,7 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       event.preventDefault();
       event.stopPropagation();
       const item = selectionFromElement(target);
-      if (item) setItems((current) => current.some((entry) => entry.id === item.id) ? current : [...current, item]);
+      if (item) setItems((current) => appendSelectionItem(current, item));
     };
     const onMouseUp = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target : null;
@@ -220,13 +224,8 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       if (!text) return;
       const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
       const rect = range?.getBoundingClientRect();
-      const item: SelectionItem = {
-        id: `text:${hashText(text)}`,
-        label: "选中文本",
-        text: text.slice(0, 3_000),
-        rect: rect ? rectToValue(rect) : null,
-      };
-      setItems((current) => current.some((entry) => entry.id === item.id) ? current : [...current, item]);
+      const item = selectionFromText(text, range, target, rect ? rectToValue(rect) : null);
+      setItems((current) => appendSelectionItem(current, item));
     };
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target instanceof Element ? event.target : null;
@@ -263,13 +262,13 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
         const selection = window.getSelection();
         const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
         const rangeRect = range?.getBoundingClientRect();
-        const item: SelectionItem = {
-          id: `text:${hashText(selectedText)}`,
-          label: "选中文本",
-          text: selectedText.slice(0, 3_000),
-          rect: rangeRect ? rectToValue(rangeRect) : null,
-        };
-        setItems((current) => current.some((entry) => entry.id === item.id) ? current : [...current, item]);
+        const item = selectionFromText(
+          selectedText,
+          range,
+          target,
+          rangeRect ? rectToValue(rangeRect) : null,
+        );
+        setItems((current) => appendSelectionItem(current, item));
         textSelectionCaptured.current = true;
         suppressClick.current = true;
         setDragRect(null);
@@ -284,7 +283,7 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       const selected = Array.from(document.querySelectorAll("[data-ai-selectable]"))
         .filter((element) => intersects(rect, element.getBoundingClientRect()))
         .map((element) => selectionFromElement(element))
-        .filter((item): item is SelectionItem => Boolean(item));
+        .filter((item): item is AiSelectionItem => Boolean(item));
       if (selected.length) {
         setItems((current) => mergeSelectionItems(current, selected));
       }
@@ -330,8 +329,8 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
     discardWindowRef.current = discardAssistantDraft;
   }, [discardAssistantDraft]);
 
-  const removeItem = useCallback((id: string) => {
-    setItems((current) => current.filter((item) => item.id !== id));
+  const removeItem = useCallback((identity: string) => {
+    setItems((current) => current.filter((item) => item.identity !== identity));
   }, []);
 
   const content = useMemo(() => (
@@ -342,28 +341,28 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={!contextIsCurrent} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40" onClick={addCurrentObject}>
+        <Button type="button" disabled={!contextIsCurrent} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40" onClick={addCurrentObject}>
           <Sparkles size={15} aria-hidden="true" />加入当前对象
-        </button>
-        <button type="button" disabled={!contextIsCurrent} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 disabled:cursor-not-allowed disabled:opacity-40" onClick={beginSelecting}>
+        </Button>
+        <Button type="button" disabled={!contextIsCurrent} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-300 disabled:cursor-not-allowed disabled:opacity-40" onClick={beginSelecting}>
           <MousePointer2 size={15} aria-hidden="true" />框选内容
-        </button>
+        </Button>
       </div>
       {items.length ? (
         <div className="space-y-2">
-          <div className="flex items-center justify-between"><p className="text-xs font-medium text-zinc-400">已选 {items.length} 项</p><button type="button" className="text-xs text-zinc-500 hover:text-white" onClick={() => setItems([])}>清空</button></div>
+          <div className="flex items-center justify-between"><p className="text-xs font-medium text-zinc-400">已选 {items.length} 项</p><Button type="button" className="text-xs text-zinc-500 hover:text-white" onClick={() => setItems([])}>清空</Button></div>
           <div className="space-y-2">{items.map((item) => (
-            <div key={item.id} className="flex items-start gap-2 rounded-md border border-white/10 p-2">
+            <div key={item.identity} className="flex items-start gap-2 rounded-md border border-white/10 p-2">
               <div className="min-w-0 flex-1"><p className="text-xs text-teal-200">{item.label}</p><p className="mt-1 line-clamp-3 text-xs leading-5 text-zinc-400">{item.text}</p></div>
-              <button type="button" className="text-zinc-500 hover:text-white" onClick={() => removeItem(item.id)} aria-label={`移除${item.label}`} title="移除"><X size={14} aria-hidden="true" /></button>
+              <Button type="button" className="text-zinc-500 hover:text-white" onClick={() => removeItem(item.identity)} aria-label={`移除${item.label}`} title="移除"><X size={14} aria-hidden="true" /></Button>
             </div>
           ))}</div>
         </div>
       ) : <p className="border-y border-white/10 py-3 text-sm text-zinc-500">还没有上下文。打开框选后选择任意页面元素或文本。</p>}
       <label className="grid gap-2 text-sm text-zinc-300">草稿用途
-        <select value={endpoint} onChange={(event) => setEndpoint(event.target.value as AiAssistantEndpoint)} className="h-10 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-2 text-white">
+        <Select value={endpoint} onChange={(event) => setEndpoint(event.target.value as AiAssistantEndpoint)} className="h-10 rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-2 text-white">
           <option value="knowledge-card">知识卡片</option><option value="learning-tree">学习树</option><option value="plan">计划草稿</option><option value="motivation">动机内容</option>
-        </select>
+        </Select>
       </label>
       <div className="border-t border-white/10 pt-4"><AiDraftPanel key={`${endpoint}:${draftContextKey}`} endpoint={endpoint} userId={userId} defaultText={selectedText} draftContextKey={draftContextKey} onWorkStateChange={handleWorkStateChange} onNavigate={handleNavigate} /></div>
     </div>
@@ -399,15 +398,15 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
 
   return (
     <>
-      {selecting ? items.map((item) => item.rect ? <div key={item.id} className="pointer-events-none fixed z-[var(--af-layer-selection)] border-2 border-teal-300/80 bg-teal-300/10" style={{ top: item.rect.top, left: item.rect.left, width: item.rect.width, height: item.rect.height }} aria-hidden="true" /> : null) : null}
+      {selecting ? items.map((item) => item.rect ? <div key={item.identity} className="pointer-events-none fixed z-[var(--af-layer-selection)] border-2 border-teal-300/80 bg-teal-300/10" style={{ top: item.rect.top, left: item.rect.left, width: item.rect.width, height: item.rect.height }} aria-hidden="true" /> : null) : null}
       {selecting && dragRect ? <div className="pointer-events-none fixed z-[var(--af-layer-selection)] border-2 border-dashed border-amber-300 bg-amber-300/10" style={{ top: dragRect.top, left: dragRect.left, width: dragRect.width, height: dragRect.height }} aria-hidden="true" /> : null}
       {selecting ? (
         <div className="fixed left-1/2 top-4 z-[var(--af-layer-selection)] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-md border border-teal-300/40 bg-[#101419] px-3 py-2 shadow-xl" data-global-ai-ui="true" role="status">
           <span className="truncate text-xs text-zinc-300">选择页面内容，已选 {items.length} 项</span>
-          <button type="button" className="h-8 shrink-0 rounded-md bg-teal-300 px-3 text-xs font-medium text-slate-950 hover:bg-teal-200" onClick={finishSelecting}>完成框选</button>
+          <Button type="button" className="h-8 shrink-0 rounded-md bg-teal-300 px-3 text-xs font-medium text-slate-950 hover:bg-teal-200" onClick={finishSelecting}>完成框选</Button>
         </div>
       ) : null}
-      <button
+      <Button
         type="button"
         data-global-ai-ui="true"
         className={placement === "floating"
@@ -420,7 +419,7 @@ export function GlobalAiAssistant({ userId, placement = "floating" }: { userId: 
       >
         <Sparkles size={18} aria-hidden="true" />
         {placement === "header" ? <span className="hidden min-[1720px]:inline">AI 助手</span> : null}
-      </button>
+      </Button>
     </>
   );
 }
@@ -429,20 +428,41 @@ function isAiAssistantUiTarget(target: Element): boolean {
   return Boolean(target.closest("[data-global-ai-ui=\"true\"]") || target.closest('[role="dialog"]'));
 }
 
-function selectionFromElement(target: Element, explicitLabel?: string): SelectionItem | null {
+function selectionFromElement(target: Element, explicitLabel?: string): AiSelectionItem | null {
   const element = target.closest("[data-ai-selectable]") ?? target;
   const text = element.textContent?.replace(/\s+/g, " ").trim().slice(0, 3_000) ?? "";
   if (!text) return null;
   const rect = element.getBoundingClientRect();
   const label = explicitLabel ?? (element.getAttribute("aria-label") || element.getAttribute("data-ai-label") || element.tagName.toLowerCase());
-  return { id: `element:${hashText(`${label}:${text}`)}`, label, text, rect: rectToValue(rect) };
+  return createAiSelectionItem({
+    kind: "element",
+    source: getElementSelectionSource(element),
+    label,
+    text,
+    rect: rectToValue(rect),
+  });
 }
 
-function rectToValue(rect: DOMRect): SelectionItem["rect"] {
+function selectionFromText(
+  text: string,
+  range: Range | null,
+  target: Element,
+  rect: AiSelectionItem["rect"],
+): AiSelectionItem {
+  return createAiSelectionItem({
+    kind: "text",
+    source: getRangeSelectionSource(range, target),
+    label: "选中文本",
+    text,
+    rect,
+  });
+}
+
+function rectToValue(rect: DOMRect): AiSelectionItem["rect"] {
   return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
 }
 
-function makeRect(startX: number, startY: number, endX: number, endY: number): NonNullable<SelectionItem["rect"]> {
+function makeRect(startX: number, startY: number, endX: number, endY: number): NonNullable<AiSelectionItem["rect"]> {
   return {
     top: Math.min(startY, endY),
     left: Math.min(startX, endX),
@@ -451,21 +471,9 @@ function makeRect(startX: number, startY: number, endX: number, endY: number): N
   };
 }
 
-function intersects(rect: NonNullable<SelectionItem["rect"]>, target: DOMRect): boolean {
+function intersects(rect: NonNullable<AiSelectionItem["rect"]>, target: DOMRect): boolean {
   return rect.left < target.right
     && rect.left + rect.width > target.left
     && rect.top < target.bottom
     && rect.top + rect.height > target.top;
-}
-
-function mergeSelectionItems(current: SelectionItem[], additions: SelectionItem[]): SelectionItem[] {
-  const byId = new Map(current.map((item) => [item.id, item]));
-  for (const item of additions) byId.set(item.id, item);
-  return [...byId.values()];
-}
-
-function hashText(value: string): string {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
-  return Math.abs(hash).toString(36);
 }

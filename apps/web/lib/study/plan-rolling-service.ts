@@ -1,24 +1,12 @@
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type { PlanRollingDayDto, PlanRollingDto } from "@/lib/contracts/planning";
+import type { StudyTaskDto } from "@/lib/contracts/task";
 import { getStudyDayRange } from "./date";
 import { findActiveWorkspaceOrNull, resolveActiveWorkspace } from "./exam-workspace-service";
 import { serializeTask } from "./task-serializer";
-import type { StudyTaskDto } from "./types";
 
-export interface PlanRollingDayDto {
-  date: string;
-  tasks: StudyTaskDto[];
-}
-
-export interface PlanRollingDto {
-  days: PlanRollingDayDto[];
-  tasks: StudyTaskDto[];
-  debt: StudyTaskDto[];
-  openInboxCount: number;
-  inboxEntryPath: string;
-  setupRequired: boolean;
-  workspaceId: string | null;
-}
+export type { PlanRollingDayDto, PlanRollingDto } from "@/lib/contracts/planning";
 
 function addDays(start: Date, days: number): Date {
   return new Date(start.getTime() + days * 24 * 60 * 60 * 1000);

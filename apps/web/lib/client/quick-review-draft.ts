@@ -1,3 +1,5 @@
+import { getBrowserStoragePortOrMemory, listStorageKeys, type EnumerableStoragePort } from "@/lib/client/storage-port";
+
 export const QUICK_REVIEW_DRAFT_PREFIX = "areaforge.quick-review.v2.";
 export const QUICK_REVIEW_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -36,13 +38,7 @@ export interface QuickReviewDraftSchedule {
   targetType: string;
 }
 
-export interface QuickReviewDraftStorage {
-  readonly length: number;
-  key(index: number): string | null;
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+export type QuickReviewDraftStorage = EnumerableStoragePort;
 
 export type QuickReviewDraftCasResult =
   | { ok: true; draft: QuickReviewDraft }
@@ -92,7 +88,7 @@ export function createQuickReviewDraft(
 export function readQuickReviewDraft(
   userId: string,
   schedule: QuickReviewDraftSchedule,
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
   now = Date.now(),
 ): QuickReviewDraft | null {
   return readStoredQuickReviewDraft(userId, schedule.id, null, storage, now);
@@ -102,7 +98,7 @@ export function readStoredQuickReviewDraft(
   userId: string,
   scheduleId: string,
   fallbackRevision: number | null,
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
   now = Date.now(),
 ): QuickReviewDraft | null {
   const raw = storage.getItem(quickReviewDraftKey(userId, scheduleId));
@@ -117,7 +113,7 @@ export function readStoredQuickReviewDraft(
 // Caller must hold draftLock(userId, scheduleId) for all three mutation helpers below.
 export function createQuickReviewDraftIfAbsent(
   created: QuickReviewDraft,
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
   now = Date.now(),
 ): { created: boolean; draft: QuickReviewDraft } {
   const existing = readStoredQuickReviewDraft(created.userId, created.scheduleId, null, storage, now);
@@ -130,7 +126,7 @@ export function createQuickReviewDraftIfAbsent(
 export function compareAndSwapQuickReviewDraft(
   expected: QuickReviewDraft,
   next: QuickReviewDraft,
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
   now = Date.now(),
 ): QuickReviewDraftCasResult {
   const current = readStoredQuickReviewDraft(expected.userId, expected.scheduleId, null, storage, now);
@@ -150,7 +146,7 @@ export function compareAndSwapQuickReviewDraft(
 
 export function removeQuickReviewDraftCas(
   expected: QuickReviewDraft,
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
   now = Date.now(),
 ): QuickReviewDraftCasResult {
   const current = readStoredQuickReviewDraft(expected.userId, expected.scheduleId, null, storage, now);
@@ -162,7 +158,7 @@ export function removeQuickReviewDraftCas(
 export function bindQuickReviewDraftToSchedule(
   draft: QuickReviewDraft,
   schedule: QuickReviewDraftSchedule,
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
   now = Date.now(),
 ): QuickReviewDraftCasResult {
   if (draft.baseRevision !== null) return { ok: true, draft };
@@ -175,7 +171,7 @@ export function bindQuickReviewDraftToSchedule(
 
 export function upgradeQuickReviewDraftStorage(
   draft: QuickReviewDraft,
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
   now = Date.now(),
 ): QuickReviewDraftCasResult {
   if (draft.draftRevision > 0) return { ok: true, draft };
@@ -215,7 +211,7 @@ export function applyQuickReviewDraftCommand(
     action: QuickReviewDraftCommand;
     now?: number;
   },
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
 ): QuickReviewDraftCommandResult {
   const now = input.now ?? Date.now();
   const draft = readStoredQuickReviewDraft(input.userId, input.scheduleId, null, storage, now);
@@ -234,13 +230,12 @@ export function applyQuickReviewDraftCommand(
 
 export function findRunningQuickReviewDraft(
   userId: string,
-  storage: QuickReviewDraftStorage = window.localStorage,
+  storage: QuickReviewDraftStorage = getBrowserStoragePortOrMemory("local"),
   now = Date.now(),
 ): QuickReviewDraft | null {
   const prefix = `${QUICK_REVIEW_DRAFT_PREFIX}${userId}.`;
   const candidates: QuickReviewDraft[] = [];
-  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index))
-    .filter((key): key is string => Boolean(key?.startsWith(prefix)));
+  const keys = listStorageKeys(storage).filter((key) => key.startsWith(prefix));
   for (const key of keys) {
     const scheduleId = key.slice(prefix.length);
     if (!scheduleId) continue;
@@ -258,7 +253,7 @@ export function subscribeQuickReviewDraft(
   const key = quickReviewDraftKey(userId, scheduleId);
   const onStorage = (event: StorageEvent) => {
     if (event.key !== key) return;
-    onExternalChange(readStoredQuickReviewDraft(userId, scheduleId, null, window.localStorage));
+    onExternalChange(readStoredQuickReviewDraft(userId, scheduleId, null, getBrowserStoragePortOrMemory("local")));
   };
   window.addEventListener("storage", onStorage);
   return () => window.removeEventListener("storage", onStorage);

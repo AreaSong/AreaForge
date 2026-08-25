@@ -4,7 +4,7 @@ import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getMistakeCreatePrefill, listMistakes } from "@/lib/study/mistakes-service";
-import { listSubjects } from "@/lib/study/service";
+import { listSubjects } from "@/lib/study/study-query-service";
 import { listSyllabusOptions } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";

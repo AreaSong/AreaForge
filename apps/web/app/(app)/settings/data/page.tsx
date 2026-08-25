@@ -21,7 +21,7 @@ export default async function SettingsDataPage() {
       />
       <section className="space-y-4">
         <SectionHeader title="学习树数据" description="导入和导出都先预览范围，再由你明确确认。" />
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="af-content-grid-two grid gap-3">
           <Link href="/knowledge/imports?mode=export" className="group flex min-h-32 items-start gap-3 rounded-md border border-white/10 bg-white/[0.02] p-4 hover:border-teal-300/40 hover:bg-white/[0.04]">
             <Download className="mt-0.5 h-5 w-5 shrink-0 text-teal-300" aria-hidden="true" />
             <span><strong className="font-medium text-white group-hover:text-teal-200">导出学习树</strong><span className="mt-1 block text-sm leading-6 text-zinc-400">下载当前可见的科目、考纲和知识对象副本。</span></span>

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { AppNavigationItem } from "@/lib/navigation/app-navigation";
+import { IconButton } from "@/components/ui/button";
 
 export function SecondaryNavigation(props: {
   pathname: string;
@@ -44,17 +45,18 @@ export function SecondaryNavigation(props: {
         <div className={props.collapsed ? "sr-only" : "min-w-0 border-l-2 border-teal-300/40 pl-2 text-xs font-medium text-zinc-500"}>
           <span className="truncate">{props.workbench.label}内容</span>
         </div>
-        <button
+        <IconButton
+          label={props.collapsed ? "展开二级导航" : "收起二级导航"}
           type="button"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200"
+          size="sm"
+          className="inline-flex !size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200"
           onClick={props.onToggle}
-          aria-label={props.collapsed ? "展开二级导航" : "收起二级导航"}
           title={props.collapsed ? "展开二级导航" : "收起二级导航"}
           aria-expanded={!props.collapsed}
           aria-controls="secondary-navigation"
         >
           {props.collapsed ? <PanelRightOpen size={16} aria-hidden="true" /> : <PanelRightClose size={16} aria-hidden="true" />}
-        </button>
+        </IconButton>
       </div>
       <nav id="secondary-navigation" className="min-h-0 overflow-y-auto" aria-label={`${props.workbench.label}业务导航`}>
         <div className="flex flex-col gap-1">

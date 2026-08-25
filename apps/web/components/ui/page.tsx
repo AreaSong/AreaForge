@@ -35,7 +35,7 @@ export function PageHeader(props: {
   className?: string;
 }) {
   return (
-    <header className={`flex min-w-0 flex-col gap-4 border-b border-white/10 pb-5 min-[900px]:flex-row min-[900px]:items-end min-[900px]:justify-between ${props.className ?? ""}`}>
+    <header className={`af-page-header flex min-w-0 gap-4 border-b border-white/10 pb-5 ${props.className ?? ""}`}>
       <div className="min-w-0">
         {props.back ? <div className="mb-3">{props.back}</div> : null}
         {props.eyebrow ? <p className="text-xs font-medium text-teal-300">{props.eyebrow}</p> : null}
@@ -43,7 +43,7 @@ export function PageHeader(props: {
         {props.description ? <div className="mt-1 max-w-3xl text-sm leading-6 text-zinc-400">{props.description}</div> : null}
         {props.status ? <div className="mt-3">{props.status}</div> : null}
       </div>
-      {props.action ? <div className="flex w-full min-w-0 flex-wrap items-center gap-2 min-[900px]:w-auto min-[900px]:shrink-0">{props.action}</div> : null}
+      {props.action ? <div className="af-page-header-action flex min-w-0 flex-wrap items-center gap-2">{props.action}</div> : null}
     </header>
   );
 }

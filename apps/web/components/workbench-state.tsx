@@ -44,7 +44,7 @@ export function WorkbenchLoading(props: { standalone?: boolean }) {
           <Skeleton className="mt-3 h-8 w-48 max-w-full" />
           <Skeleton className="mt-3 h-4 w-full max-w-xl" />
         </header>
-        <section className="grid gap-4 border-b border-white/10 pb-6 sm:grid-cols-3">
+        <section className="af-metric-grid-three grid gap-4 border-b border-white/10 pb-6">
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />

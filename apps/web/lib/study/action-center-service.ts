@@ -7,67 +7,21 @@ import {
   queuesAreEmpty,
   selectActionCenterRecommendation,
   type ActionCenterCandidate,
-  type ActionCenterQueues,
-  type ActionCenterRecommendation,
-  type SubjectTimerSummary,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
+import { quickReviewRunRoute, studyTaskDetailRoute } from "@/lib/navigation/route-helpers";
 import { getStudyDayRange, parseStudyDayKey } from "./date";
 import {
   findActiveWorkspaceOrNull,
-  type ExamWorkspaceDto,
 } from "./exam-workspace-service";
-import { listWorkspaceCheckIns, type CheckInV2Dto } from "./check-in-service";
-import { getActiveRecoveryV2, startRecoveryV2, type RecoveryV2Dto } from "./recovery-v2-service";
-import { getActiveStudySession } from "./service";
+import { listWorkspaceCheckIns } from "./check-in-service";
+import { getActiveRecoveryV2, startRecoveryV2 } from "./recovery-v2-service";
+import { getActiveStudySession } from "./session-query-service";
 import { listSyllabusOptions } from "./syllabus-service";
-import type { StudySessionDto, SyllabusOptionNodeDto } from "./types";
+import type { ActionCenterTodayDto, SubjectShortcutTaskOptionDto } from "@/lib/contracts/action-center";
+import type { ExamWorkspaceDto } from "@/lib/contracts/workspace";
 
-export interface SubjectShortcutTaskOptionDto {
-  id: string;
-  subjectId: string;
-  title: string;
-  syllabusNodeId: string | null;
-  syllabusNodeTitle: string | null;
-  disabledReason: string | null;
-}
-
-export interface ActionCenterTodayDto {
-  studyDate: string;
-  isToday: boolean;
-  setupRequired: boolean;
-  workspace: ExamWorkspaceDto | null;
-  recommendation: ActionCenterRecommendation | null;
-  queues: ActionCenterQueues;
-  queuesEmpty: boolean;
-  subjectTimers: SubjectTimerSummary;
-  activity: StudySessionDto | null;
-  recovery: RecoveryV2Dto | null;
-  checkIn: CheckInV2Dto | null;
-  shortcutOptions: {
-    tasks: SubjectShortcutTaskOptionDto[];
-    syllabusNodes: SyllabusOptionNodeDto[];
-  };
-  statusBar:
-    | "setup"
-    | "paused_activity"
-    | "recovery_minimum"
-    | "evening_review"
-    | null;
-  primaryActionLabel: string;
-  primaryActionHref: string;
-  learningLoop: {
-    plannedTaskCount: number;
-    completedTaskCount: number;
-    deferredTaskCount: number;
-    effectiveMinutes: number;
-    totalMinutes: number;
-    effectiveSessionCount: number;
-    lowConversionCount: number;
-    reviewSubmitted: boolean;
-    nextAction: string | null;
-  };
-}
+export type { ActionCenterTodayDto, SubjectShortcutTaskOptionDto } from "@/lib/contracts/action-center";
 
 const REVIEW_CANDIDATE_TITLES = {
   NOTE: "卡片复习",
@@ -396,7 +350,7 @@ export async function getActionCenterToday(
       bridgedReviewScheduleId: task.reviewScheduleId,
       reviewObjectKind: null,
       taskPriority: priority,
-      href: `/roadmap/allocation/tasks/${task.id}`,
+      href: studyTaskDetailRoute(task.id),
     });
   }
 
@@ -420,7 +374,7 @@ export async function getActionCenterToday(
       bridgedReviewScheduleId: null,
       reviewObjectKind: objectKind,
       taskPriority: null,
-      href: `/knowledge/reviews/${schedule.id}/run`,
+      href: quickReviewRunRoute(schedule.id),
     });
   }
 

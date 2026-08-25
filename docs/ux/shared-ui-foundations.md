@@ -62,6 +62,32 @@
 - 内置业务文案、权限判断或路由目标。
 - 为单一页面提前抽象复杂配置系统。
 
+## 公共能力与解耦边界
+
+公共能力只承载稳定、可复用且可独立测试的语义；页面不得复制已经登记的稳定语义，也不得用兼容门面绕过 owner 边界：
+
+| 能力 | canonical 实现 | 责任 | 明确不负责 |
+|---|---|---|---|
+| UI 原语 | `apps/web/components/ui/**`（含 `Field`、`Input`、`Select`、`Textarea`、`Metric`、`Button`、Overlay） | 尺寸、可访问性、响应式排列、焦点与状态呈现 | 业务 API、权限、领域文案与路由决定；业务 TSX 不得重新声明非豁免 raw 控件 |
+| 纯格式化 | `apps/web/lib/formatters.ts` | 日期、时长、数字和展示标签的纯函数 | 读取浏览器或服务端状态 |
+| API transport（传输层） | `apps/web/lib/api/client.ts` 与 `apps/web/lib/api/*.ts` | 统一请求、JSON 解析、结果类型、幂等头和 domain endpoint path | 浏览器组件或 client adapter 直接调用 `fetch`、解析 `response.json()` 或自行拼接领域端点 |
+| API 错误边界 | `apps/web/lib/client/api-errors.ts` | 统一识别 `401`、`409`、字段错误和服务端错误码 | 自动覆盖用户输入、绕过确认或替领域决定冲突恢复动作 |
+| 本机草稿与存储端口 | `apps/web/lib/client/draft-store.ts` + `storage-port.ts` | TTL、版本 envelope、校验、清理和存储不可用时的内存回退 | 把本机草稿当成服务端成功，或允许组件直接访问浏览器 storage global |
+| 客户端操作门 | `apps/web/lib/client/operation-gates.ts` | latest-wins 请求代际和同步互斥批次 identity；拒绝迟到响应、重复启动与过期释放 | 取消服务端事务、替领域冻结提交快照，或用 ref 状态直接驱动渲染 |
+| 领域契约 | `apps/web/lib/contracts/**` | 浏览器/服务端共享 DTO 与 confirm-only 字段 | 引入 React、Next、Prisma、浏览器 API 或 legacy service |
+| 领域服务 | `apps/web/lib/study/*-service.ts` | 鉴权后的业务读写、CAS、幂等和审计边界 | 依赖组件、client 状态或直接决定页面布局 |
+| 组件复杂度策略 | `scripts/quality/web-component-complexity.ts` | 非测试 TSX 文件的 500 行硬上限和超长函数观察输出 | 把 50 行函数 observation 当成硬门禁，或用 legacy budget 永久容纳超大组件 |
+
+依赖方向固定为：`页面/组件 -> API adapter -> route -> domain service -> canonical DTO`；共享 UI 原语只能被页面和领域组件消费，不能反向依赖 API 或领域服务。`401` 统一进入登录回跳，`409` 必须保留用户输入并提供采用服务端版本或重试路径，字段错误就地绑定到 `Field`。组件和 client 不能直接访问 `window/globalThis.localStorage`、`sessionStorage`，也不能显式比较 response `status` 的 `401/409`。
+
+`apps/web/lib/contracts/study.ts`、`apps/web/lib/study/service.ts` 和 `apps/web/lib/study/types.ts` 是已移除的旧兼容门面，不得恢复、重新导入或登记为公共能力。能力清单见 `docs/architecture/web-shared-capability-inventory.json`；清单使用父范围归档，避免同一目录及其子文件重复登记。新增公共能力必须先证明至少三个稳定消费者，并补充单测与边界门禁。
+
+异步工作流必须把“显示 pending”和“接受响应”分开：按钮禁用由 React state 驱动，同步操作门只在事件入口和响应提交点判定 identity。AI 预览/生成、手动恢复内容加载使用 latest-wins；资料上传/重复处理使用互斥批次。请求开始后冻结输入、token、context/storage key 或上传 metadata 快照；输入、路由 context、表单 key 或批次变化会使旧响应失效，迟到响应不得写入新上下文或释放新批次。
+
+带 CAS revision 的编辑草稿必须持久化 `schemaVersion`、`baseRevision` 和字段值。恢复时 revision 不一致进入显式冲突，旧无版本草稿可以读取但不能直接提交；采用服务端版本或人工合并更新基线后，用户仍需再次显式保存。列表选择项的 React identity、删除 identity 与去重 fingerprint 分离，短哈希只能用于展示或索引，不能单独决定对象等价。
+
+静态治理使用 `pnpm web:shared-boundary`、`pnpm web:api-parser-boundary`、`pnpm web:ui-primitives-boundary`、`pnpm web:client-boundary` 和 `pnpm web:component-complexity`。前三类 legacy debt budget 保持为空；非测试 TSX 的 500 行上限是硬门禁，单函数超过 50 行只产生 observation/warning，作为继续拆分的审查信号，不单独阻断验证。
+
 ### `packages/ui`
 
 `packages/ui` 只保留平台无关的稳定 token 和类型，不在只有一个 Web 消费者时迁入 React 组件。出现 PWA、桌面端或其他真实消费者后，再评估提取无 Next.js 依赖的共享组件。

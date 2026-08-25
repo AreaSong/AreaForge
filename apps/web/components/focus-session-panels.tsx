@@ -1,12 +1,14 @@
-import { AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Clock3, FileText, Pause, Play, Square, Target } from "lucide-react";
+import { AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Clock3, FileText, Target } from "lucide-react";
 import Link from "next/link";
 import { Button, buttonClassName } from "@/components/ui/button";
+import { Checkbox, Input, Radio, Textarea } from "@/components/ui/field";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
-import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
-import type { StudySessionLowReasonDto, TaskStatusDto } from "@/lib/study/types";
-import type { SyllabusOptionNodeDto, StudyTaskDto } from "@/lib/study/types";
+import type { KnowledgePointDto } from "@/lib/contracts";
+import type { StudySessionLowReasonDto, TaskStatusDto } from "@/lib/contracts";
+import type { SyllabusOptionNodeDto, StudyTaskDto } from "@/lib/contracts";
+import { formatTaskStatus } from "@/lib/formatters";
 
 export type CloseoutOutcome = "achieved" | "partial" | "not-achieved";
 export type UnderstandingLevel = "清晰" | "基本理解" | "模糊" | "不会";
@@ -106,17 +108,17 @@ export function CloseoutWorkspace(props: {
 }) {
   const nextActionLabel = props.taskDisposition === "blocked" ? "阻塞原因" : "下一动作";
   return (
-    <div className="grid min-h-full min-w-0 min-[1200px]:grid-cols-[minmax(18rem,0.65fr)_minmax(0,1.35fr)]">
-      <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 min-[1200px]:border-r min-[1200px]:border-b-0 min-[1200px]:px-8 min-[1200px]:py-10">
+    <div className="af-focus-workspace-grid grid min-h-full min-w-0">
+      <aside className="af-workspace-aside bg-[var(--af-surface-subtle)] px-5 py-8">
         <p className="text-xs font-medium text-teal-300">本次学习</p>
         <h1 data-ai-current-object="true" data-ai-selectable data-ai-label={props.context.taskTitle ?? "科目快捷专注"} className="mt-2 break-words text-2xl font-semibold text-white">{props.context.taskTitle ?? "科目快捷专注"}</h1>
         <p className="mt-2 text-sm text-zinc-400">{props.context.subjectName}</p>
-        <dl className="mt-8 grid gap-5 text-sm sm:grid-cols-3 min-[1200px]:grid-cols-1">
+        <dl className="af-content-grid-two mt-8 grid gap-5 text-sm">
           <ContextFact icon={<Clock3 />} label="实际时长" value={props.elapsedLabel} />
           <ContextFact icon={<BookOpen />} label="学习方式" value="自由学习" />
         </dl>
       </aside>
-      <section className="px-4 py-8 sm:px-6 min-[1200px]:px-10 min-[1200px]:py-10">
+      <section className="af-workspace-main px-4 py-8 sm:px-6">
         <div className="mx-auto max-w-3xl">
           <p className="text-xs font-medium text-teal-300">学习收口</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">把这段时间转化为真实记录</h2>
@@ -142,7 +144,7 @@ export function CloseoutWorkspace(props: {
               ]}
               onChange={(value) => props.onUnderstandingChange(value as UnderstandingLevel)}
             />
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="af-content-grid-two grid gap-5">
               <SegmentedField
                 legend="专注度（1-5）"
                 value={props.focusLevel}
@@ -159,11 +161,10 @@ export function CloseoutWorkspace(props: {
             {props.outcome === "not-achieved" ? (
               <fieldset>
                 <legend className="text-sm text-zinc-300">低效原因（至少选择一项）</legend>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div className="af-content-grid-two mt-2 grid gap-2">
                   {LOW_REASON_OPTIONS.map((reason) => (
                     <label key={reason.value} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm ${props.lowReasons.includes(reason.value) ? "border-amber-300/60 bg-amber-400/10 text-amber-100" : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]"}`}>
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         className="h-4 w-4 shrink-0 accent-amber-300"
                         checked={props.lowReasons.includes(reason.value)}
                         onChange={() => props.onLowReasonsChange(toggleReason(props.lowReasons, reason.value))}
@@ -176,11 +177,12 @@ export function CloseoutWorkspace(props: {
             ) : null}
             <label className="block text-sm text-zinc-300">
               实际学习内容与产出
-              <textarea
+              <Textarea
                 required
                 minLength={4}
                 maxLength={1000}
-                className="mt-2 min-h-28 w-full rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 py-3 text-sm text-white placeholder:text-zinc-600"
+                controlHeight="lg"
+                className="mt-2 min-h-28 bg-[var(--af-surface-raised)] py-3 text-sm text-white placeholder:text-zinc-600"
                 placeholder="例如：一元函数理解了定义，学到函数极限例题 3"
                 value={props.minimalOutput}
                 onChange={(event) => props.onMinimalOutputChange(event.target.value)}
@@ -201,10 +203,10 @@ export function CloseoutWorkspace(props: {
             ) : null}
             <label className="block text-sm text-zinc-300">
               {nextActionLabel}
-              <input
+              <Input
                 required
                 maxLength={500}
-                className="mt-2 h-11 w-full rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 text-sm text-white placeholder:text-zinc-600"
+                className="mt-2 h-11 bg-[var(--af-surface-raised)] text-sm text-white placeholder:text-zinc-600"
                 placeholder={props.taskDisposition === "blocked" ? "说明卡在哪里，下一次从哪里恢复" : "下一次打开时要继续做什么"}
                 value={props.nextAction}
                 onChange={(event) => props.onNextActionChange(event.target.value)}
@@ -212,9 +214,9 @@ export function CloseoutWorkspace(props: {
             </label>
             <label className="block text-sm text-zinc-300">
               收口后的处置
-              <input
+              <Input
                 maxLength={500}
-                className="mt-2 h-11 w-full rounded-md border border-white/10 bg-[var(--af-surface-raised)] px-3 text-sm text-white placeholder:text-zinc-600"
+                className="mt-2 h-11 bg-[var(--af-surface-raised)] text-sm text-white placeholder:text-zinc-600"
                 placeholder="例如：补做两道题、安排复测、明天继续"
                 value={props.nextDisposition}
                 onChange={(event) => props.onNextDispositionChange(event.target.value)}
@@ -272,8 +274,8 @@ export function EvidenceWorkspace(props: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid min-h-full min-w-0 min-[1200px]:grid-cols-[minmax(18rem,0.6fr)_minmax(0,1.4fr)]">
-      <aside className="border-b border-white/10 bg-[var(--af-surface-subtle)] px-5 py-8 min-[1200px]:border-r min-[1200px]:border-b-0 min-[1200px]:px-8 min-[1200px]:py-10">
+    <div className="af-focus-workspace-grid grid min-h-full min-w-0">
+      <aside className="af-workspace-aside bg-[var(--af-surface-subtle)] px-5 py-8">
         <p className="text-xs font-medium text-teal-300">证据接力</p>
         <h1 className="mt-2 text-2xl font-semibold text-white">为本次学习留下一个可复用证据</h1>
         <div className="mt-7 grid gap-2">
@@ -295,7 +297,7 @@ export function EvidenceWorkspace(props: {
           ) : null}
         </div>
       </aside>
-      <section className="px-4 py-8 sm:px-6 min-[1200px]:px-10 min-[1200px]:py-10">
+      <section className="af-workspace-main px-4 py-8 sm:px-6">
         <div className="mx-auto max-w-3xl">{props.children}</div>
         <div className="mx-auto mt-8 flex max-w-3xl justify-end border-t border-white/10 pt-5">
           <Button type="button" variant="primary" size="lg" onClick={props.onComplete}>
@@ -320,7 +322,7 @@ export function CompleteWorkspace(props: {
         <CheckCircle2 className={`h-8 w-8 ${props.lowConversion ? "text-amber-300" : "text-emerald-300"}`} aria-hidden="true" />
         <p className="mt-5 text-xs font-medium text-teal-300">本次学习已收口</p>
         <h1 className="mt-2 text-2xl font-semibold text-white">记录已经保存，可以离开专注流程</h1>
-        <dl className="mt-7 grid gap-4 text-sm sm:grid-cols-3">
+        <dl className="af-metric-grid-three mt-7 grid gap-4 text-sm">
           <SummaryFact label="实际时长" value={props.elapsedLabel} />
           <SummaryFact label="转化结果" value={props.lowConversion ? "低转化" : "有效学习"} />
           <SummaryFact label="任务状态" value={taskStatusLabel(props.taskStatus)} />
@@ -367,10 +369,10 @@ function SegmentedField(props: {
   return (
     <fieldset>
       <legend className="text-sm text-zinc-300">{props.legend}</legend>
-      <div className="mt-2 grid gap-2 sm:grid-flow-col sm:auto-cols-fr">
+      <div className="af-segmented-options mt-2 grid gap-2">
         {props.options.map((option) => (
           <label key={option.value} className={`flex h-11 cursor-pointer items-center justify-center rounded-md border px-3 text-sm ${props.value === option.value ? "border-teal-300/60 bg-teal-400/10 text-teal-100" : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]"}`}>
-            <input className="sr-only" type="radio" name={props.legend} value={option.value} checked={props.value === option.value} onChange={() => props.onChange(option.value)} />
+            <Radio className="sr-only" name={props.legend} value={option.value} checked={props.value === option.value} onChange={() => props.onChange(option.value)} />
             {option.label}
           </label>
         ))}
@@ -390,9 +392,17 @@ function ContextFact(props: { icon: React.ReactNode; label: string; value: strin
 
 function EvidenceTypeButton(props: { active: boolean; disabled?: boolean; icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <button type="button" disabled={props.disabled} onClick={props.onClick} className={`flex min-h-11 w-full items-center gap-3 rounded-md border px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-45 ${props.active ? "border-teal-300/50 bg-teal-400/10 text-teal-100" : "border-white/10 text-zinc-300 hover:bg-white/[0.05]"}`}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="lg"
+      aria-pressed={props.active}
+      disabled={props.disabled}
+      onClick={props.onClick}
+      className={`w-full !justify-start !gap-3 !px-3 !text-left !font-normal ${props.active ? "!border-teal-300/50 !bg-teal-400/10 !text-teal-100" : "!border-white/10 !bg-transparent !text-zinc-300 hover:!bg-white/[0.05]"} disabled:!cursor-not-allowed disabled:!opacity-45`}
+    >
       <span className="[&>svg]:h-4 [&>svg]:w-4" aria-hidden="true">{props.icon}</span>{props.label}
-    </button>
+    </Button>
   );
 }
 
@@ -415,10 +425,6 @@ function statusLabel(status: "running" | "paused" | "closing" | "completed" | "c
 }
 
 function taskStatusLabel(value: TaskStatusDto | null) {
-  if (value === "done") return "已完成";
   if (value === "in_progress") return "继续推进";
-  if (value === "deferred") return "已延期";
-  if (value === "skipped") return "已放弃";
-  if (value === "todo") return "待开始";
-  return "未关联任务";
+  return value ? formatTaskStatus(value) : "未关联任务";
 }

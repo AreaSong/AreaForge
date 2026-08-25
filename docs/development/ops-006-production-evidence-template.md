@@ -89,10 +89,12 @@ safetyFacts:
 
 - `apps/web/lib/study/check-in-service.ts`
 - `apps/web/lib/study/concurrency.ts`
-- `apps/web/lib/study/service.ts`
+- `apps/web/lib/study/session-command-service.ts`
+- `apps/web/lib/study/session-lifecycle-service.ts`
 - `apps/web/lib/study/simulation-service.ts`
 - `apps/web/lib/study/syllabus-service.ts`
 - `apps/web/lib/study/task-debt-reorder-service.ts`
+- `apps/web/lib/study/task-command-service.ts`
 
 validator 必须用 `git show <release-commit>:<path>` 重算这些值，不得读取脏工作树代替 Release source。
 

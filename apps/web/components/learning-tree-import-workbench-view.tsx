@@ -6,15 +6,17 @@ import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import type { LearningTreeImportSelection } from "@areaforge/core";
 import { LearningTreeImportHistory } from "@/components/learning-tree-import-history";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
+import { Select, Textarea } from "@/components/ui/field";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import type {
   LearningTreeExportOptionsDto,
   LearningTreeImportBatchSummaryDto,
   LearningTreePreviewDto,
-} from "@/lib/study/learning-tree-service";
+} from "@/lib/contracts";
 
 export type LearningTreeScopeView = "global" | "subject" | "branch";
 export type LearningTreeWorkbenchView = "overview" | "import" | "export";
@@ -160,11 +162,11 @@ function ImportWorkspace({ state, actions }: { state: WorkbenchState; actions: W
           <Upload size={16} aria-hidden />选择 Markdown
           <input disabled={state.pending} className="sr-only" type="file" accept=".md,text/markdown,text/plain" onChange={(event) => actions.loadFile(event.target.files?.[0])} />
         </label>
-        <textarea disabled={state.pending} aria-label="学习树 Markdown" className="min-h-64 w-full rounded-md border border-white/10 bg-[#101419] p-3 font-mono text-sm text-zinc-200 disabled:opacity-60" value={state.markdown} onChange={(event) => actions.changeMarkdown(event.target.value)} placeholder="粘贴 AREAFORGE_LEARNING_TREE_V1 Markdown" />
+        <Textarea controlHeight="lg" disabled={state.pending} aria-label="学习树 Markdown" className="min-h-64 bg-[#101419] font-mono text-sm text-zinc-200" value={state.markdown} onChange={(event) => actions.changeMarkdown(event.target.value)} placeholder="粘贴 AREAFORGE_LEARNING_TREE_V1 Markdown" />
         {!state.preview ? <Button type="button" size="lg" variant="primary" disabled={state.pending || !state.markdown.trim() || (state.aiDraftLoaded && state.scope !== "global" && !state.subjectKey) || (state.aiDraftLoaded && state.scope === "branch" && !state.rootNodeKey)} onClick={actions.previewImport}>解析并预览</Button> : null}
         {state.preview ? <ImportDiff state={state} actions={actions} /> : null}
         {state.error ? <p role="alert" className="text-sm text-rose-300">{state.error}</p> : null}
-        {state.hasConflict && !state.conflictOpen ? <button type="button" className="text-sm text-amber-200 underline underline-offset-4" onClick={actions.openConflict}>处理导入冲突</button> : null}
+        {state.hasConflict && !state.conflictOpen ? <Button type="button" variant="ghost" size="sm" className="text-amber-200 underline underline-offset-4" onClick={actions.openConflict}>处理导入冲突</Button> : null}
       </section>
     </>
   );
@@ -182,15 +184,15 @@ function ExportWorkspace({ state, actions }: { state: WorkbenchState; actions: W
         <SectionHeader title="导出范围" />
         <ScopeControls scope={state.scope} disabled={state.pending} onChange={actions.changeScope} />
         {state.scope !== "global" ? (
-          <select aria-label="导出科目" disabled={state.pending} className="h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-sm disabled:opacity-50 sm:max-w-md" value={state.subjectKey} onChange={(event) => actions.changeSubject(event.target.value)}>
+          <Select aria-label="导出科目" disabled={state.pending} className="sm:max-w-md" value={state.subjectKey} onChange={(event) => actions.changeSubject(event.target.value)}>
             {state.subjects.map((subject) => <option key={subject.id} value={subject.stableKey}>{subject.name}</option>)}
-          </select>
+          </Select>
         ) : null}
         {state.scope === "branch" ? (
-          <select aria-label="导出分支根节点" disabled={state.pending} className="h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-sm disabled:opacity-50 sm:max-w-md" value={state.rootNodeKey} onChange={(event) => actions.changeRootNode(event.target.value)}>
+          <Select aria-label="导出分支根节点" disabled={state.pending} className="sm:max-w-md" value={state.rootNodeKey} onChange={(event) => actions.changeRootNode(event.target.value)}>
             <option value="">选择分支根节点</option>
             {state.selectedSubject?.nodes.map((node) => <option key={node.stableKey} value={node.stableKey}>{node.title}</option>)}
-          </select>
+          </Select>
         ) : null}
         <Button type="button" disabled={state.pending || (state.scope !== "global" && !state.subjectKey) || (state.scope === "branch" && !state.rootNodeKey)} onClick={actions.previewExport}>预览导出范围</Button>
         {state.exportPreview ? (
@@ -215,8 +217,8 @@ function ImportDiff({ state, actions }: { state: WorkbenchState; actions: Workbe
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
         <span>差异 {preview.items.length} 项 · 第 {state.diffPage + 1}/{state.diffPageCount} 页</span>
         <div className="flex gap-1">
-          <button type="button" aria-label="上一页差异" title="上一页" disabled={state.diffPage === 0} onClick={() => actions.changeDiffPage(Math.max(0, state.diffPage - 1))} className="grid size-9 place-items-center rounded-md border border-white/10 disabled:opacity-40"><ChevronLeft size={16} aria-hidden /></button>
-          <button type="button" aria-label="下一页差异" title="下一页" disabled={state.diffPage + 1 >= state.diffPageCount} onClick={() => actions.changeDiffPage(Math.min(state.diffPageCount - 1, state.diffPage + 1))} className="grid size-9 place-items-center rounded-md border border-white/10 disabled:opacity-40"><ChevronRight size={16} aria-hidden /></button>
+          <IconButton label="上一页差异" type="button" aria-label="上一页差异" title="上一页" size="sm" variant="ghost" disabled={state.diffPage === 0} onClick={() => actions.changeDiffPage(Math.max(0, state.diffPage - 1))} className="!size-9 !p-0"><ChevronLeft size={16} aria-hidden /></IconButton>
+          <IconButton label="下一页差异" type="button" aria-label="下一页差异" title="下一页" size="sm" variant="ghost" disabled={state.diffPage + 1 >= state.diffPageCount} onClick={() => actions.changeDiffPage(Math.min(state.diffPageCount - 1, state.diffPage + 1))} className="!size-9 !p-0"><ChevronRight size={16} aria-hidden /></IconButton>
         </div>
       </div>
       <ul className="space-y-2">
@@ -228,8 +230,8 @@ function ImportDiff({ state, actions }: { state: WorkbenchState; actions: Workbe
               <div><span className="font-medium text-teal-300">{diffTypeLabel(item.diffType)}</span><p className="text-xs text-zinc-500">{objectTypeLabel(item.objectType)} · 第 {item.sourceLine ?? "?"} 行</p></div>
               <div><p className="text-zinc-100">{item.title}</p><p className="break-all text-xs text-zinc-500">{item.stableKey}{item.reason ? ` · ${item.reason}` : ""}</p></div>
               <div className="space-y-2">
-                <select aria-label={`${item.title}处理方式`} disabled={fixedSkip || state.pending || state.hasConflict} className="h-9 w-full rounded-md border border-white/10 bg-[#151a20] px-2 disabled:opacity-60" value={fixedSkip ? "skip" : selection.choice} onChange={(event) => actions.changeSelection(item.stableKey, { ...selection, choice: event.target.value as Selection["choice"] })}>{fixedSkip ? null : <option value="apply">应用</option>}<option value="skip">跳过</option></select>
-                {item.diffType === "CONFLICT" && selection.choice === "apply" ? <select disabled={state.pending || state.hasConflict} aria-label={`${item.title}映射目标`} className="h-9 w-full rounded-md border border-white/10 bg-[#151a20] px-2 disabled:opacity-60" value={selection.mappedTargetId ?? ""} onChange={(event) => actions.changeSelection(item.stableKey, { ...selection, mappedTargetId: event.target.value || undefined })}><option value="">选择目标</option>{item.candidateMatches.map((candidate) => <option key={candidate.entityId ?? candidate.title} value={candidate.entityId}>{candidate.title}</option>)}</select> : null}
+                <Select aria-label={`${item.title}处理方式`} disabled={fixedSkip || state.pending || state.hasConflict} className="h-9 px-2" value={fixedSkip ? "skip" : selection.choice} onChange={(event) => actions.changeSelection(item.stableKey, { ...selection, choice: event.target.value as Selection["choice"] })}>{fixedSkip ? null : <option value="apply">应用</option>}<option value="skip">跳过</option></Select>
+                {item.diffType === "CONFLICT" && selection.choice === "apply" ? <Select disabled={state.pending || state.hasConflict} aria-label={`${item.title}映射目标`} className="h-9 px-2" value={selection.mappedTargetId ?? ""} onChange={(event) => actions.changeSelection(item.stableKey, { ...selection, mappedTargetId: event.target.value || undefined })}><option value="">选择目标</option>{item.candidateMatches.map((candidate) => <option key={candidate.entityId ?? candidate.title} value={candidate.entityId}>{candidate.title}</option>)}</Select> : null}
               </div>
             </li>
           );
@@ -254,11 +256,22 @@ function MissingMilestones({ preview, onLeave }: { preview: LearningTreePreviewD
 }
 
 function LabeledSelect(props: { label: string; value: string; disabled: boolean; onChange: (value: string) => void; children: ReactNode }) {
-  return <label className="block space-y-1 text-sm text-zinc-400"><span>{props.label}</span><select disabled={props.disabled} aria-label={props.label} className="h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-sm disabled:opacity-50 sm:max-w-md" value={props.value} onChange={(event) => props.onChange(event.target.value)}>{props.children}</select></label>;
+  return <label className="block space-y-1 text-sm text-zinc-400"><span>{props.label}</span><Select disabled={props.disabled} aria-label={props.label} className="sm:max-w-md" value={props.value} onChange={(event) => props.onChange(event.target.value)}>{props.children}</Select></label>;
 }
 
 function ScopeControls({ scope, disabled, onChange }: { scope: LearningTreeScopeView; disabled: boolean; onChange: (scope: LearningTreeScopeView) => void }) {
-  return <div className="inline-flex rounded-md border border-white/10 p-1" role="group" aria-label="学习树作用域">{(["global", "subject", "branch"] as const).map((value) => <button type="button" key={value} disabled={disabled} aria-pressed={scope === value} onClick={() => onChange(value)} className={`h-8 rounded px-3 text-sm disabled:opacity-50 ${scope === value ? "bg-white/10 text-white" : "text-zinc-400"}`}>{scopeLabel(value)}</button>)}</div>;
+  return (
+    <SegmentedControl
+      value={scope}
+      options={(["global", "subject", "branch"] as const).map((value) => ({
+        value,
+        label: scopeLabel(value),
+        disabled,
+      }))}
+      onChange={onChange}
+      label="学习树作用域"
+    />
+  );
 }
 
 function missingMilestoneKeys(preview: LearningTreePreviewDto): string[] {

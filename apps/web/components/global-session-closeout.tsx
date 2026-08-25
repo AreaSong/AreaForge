@@ -7,9 +7,9 @@ import { GlobalConfiguredCloseout } from "@/components/global-configured-closeou
 import { useWindowSystem } from "@/components/window-system";
 import { subscribeActivityStatus } from "@/lib/client/activity-status";
 import { isConfirmationWindowPath } from "@/lib/navigation/confirmation-route";
-import { activityLabel, isActivitySourcePath } from "@/lib/study/activity-route";
-import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
-import type { StudySessionDto } from "@/lib/study/types";
+import { activityLabel, isActivitySourcePath } from "@/lib/navigation/activity-route";
+import type { AppShellStatusDto } from "@/lib/contracts";
+import type { StudySessionDto } from "@/lib/contracts";
 
 export function GlobalSessionCloseout(props: {
   userId: string;

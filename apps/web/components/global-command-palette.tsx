@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
 import { Command, CornerDownLeft, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
@@ -12,6 +14,7 @@ import {
   type GlobalCommandDefinition,
   resolveGlobalCommand,
 } from "@/lib/navigation/command-palette";
+import { formatClockTime } from "@/lib/formatters";
 
 export function GlobalCommandPalette(props: {
   trigger: ReactNode;
@@ -117,17 +120,11 @@ export function GlobalCommandPalette(props: {
   }
 
   const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getServerNowSnapshot);
-  const timeLabel = new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(now);
+  const timeLabel = formatClockTime(now);
 
   return (
     <>
-      <button
+      <Button
         type="button"
         ref={triggerRef}
         className={`group mx-auto flex h-9 w-full min-w-0 max-w-[42rem] flex-1 items-center justify-between gap-3 rounded-md border border-white/10 bg-[#0b0f14] px-3 text-left text-xs text-zinc-400 hover:border-teal-300/35 hover:bg-white/[0.04] ${props.compactOnNarrow ? "max-[359px]:w-9 max-[359px]:flex-none max-[359px]:justify-center max-[359px]:px-0" : ""}`}
@@ -141,7 +138,7 @@ export function GlobalCommandPalette(props: {
         <span className="hidden shrink-0 items-center gap-1 text-[10px] text-zinc-600 sm:inline-flex">
           <Command size={12} aria-hidden="true" />K
         </span>
-      </button>
+      </Button>
 
       {open ? (
         <div className="fixed inset-0 z-[var(--af-layer-modal)] bg-black/55 p-4 sm:p-8" role="presentation" onMouseDown={close}>
@@ -156,7 +153,7 @@ export function GlobalCommandPalette(props: {
           >
             <div className="flex items-center gap-3 border-b border-white/10 px-4">
               <Search size={17} className="shrink-0 text-teal-300" aria-hidden="true" />
-              <input
+              <Input
                 ref={inputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -176,12 +173,12 @@ export function GlobalCommandPalette(props: {
                   <p className="mt-3 text-sm text-zinc-500">搜索页面、对象或输入命令</p>
                   <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs text-zinc-400">
                     {["$today", "/start_to_learn now", "打开知识", "设置 AI"].map((hint) => (
-                      <button key={hint} type="button" className="rounded-md border border-white/10 px-2.5 py-1.5 hover:border-teal-300/35 hover:text-teal-200" onClick={() => setQuery(hint)}>{hint}</button>
+                      <Button key={hint} type="button" className="rounded-md border border-white/10 px-2.5 py-1.5 hover:border-teal-300/35 hover:text-teal-200" onClick={() => setQuery(hint)}>{hint}</Button>
                     ))}
                   </div>
                 </div>
               ) : commands.length > 0 ? commands.map((command, index) => (
-                <button
+                <Button
                   key={command.id}
                   type="button"
                   className={`flex w-full items-start gap-3 rounded-md px-3 py-3 text-left ${index === selectedIndex ? "bg-teal-300/[0.08]" : "hover:bg-white/[0.04]"}`}
@@ -194,7 +191,7 @@ export function GlobalCommandPalette(props: {
                     <span className="mt-0.5 block truncate text-xs text-zinc-500">{command.description}</span>
                   </span>
                   <span className="hidden shrink-0 text-[10px] text-zinc-600 sm:block">{command.aliases[0]}</span>
-                </button>
+                </Button>
               )) : <p className="px-3 py-10 text-center text-sm text-zinc-500">没有匹配的命令</p>}
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/10 px-4 py-2 text-[10px] text-zinc-600">

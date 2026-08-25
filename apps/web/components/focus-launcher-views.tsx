@@ -1,6 +1,7 @@
-import { Clock, Minus, Plus, Sparkles, Infinity as InfinityIcon } from "lucide-react";
+import { Button, IconButton } from "@/components/ui/button";
+import { Clock, Minus, Plus, Infinity as InfinityIcon } from "lucide-react";
 import { useCallback, useRef } from "react";
-import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/study/types";
+import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/contracts";
 import {
   FOCUS_DURATION_PRESETS,
   useAnimatedMinutes,
@@ -129,7 +130,7 @@ export function FocusHeroDial({
   };
 
   return (
-    <section className="relative flex min-h-[34rem] flex-col items-center justify-between overflow-y-auto rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 text-center select-none sm:p-5 lg:p-6 min-[1200px]:col-span-7 min-[1200px]:h-full min-[1200px]:min-h-0 min-[1200px]:overflow-hidden">
+    <section className="af-focus-hero relative flex min-h-[34rem] flex-col items-center justify-between overflow-y-auto rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 text-center select-none sm:p-5 lg:p-6">
       {/* Ambient decorative background glow with breathing pulse */}
       <div
         className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 size-[36rem] rounded-full blur-[100px] animate-[glow-pulse_4s_ease-in-out_infinite_alternate]"
@@ -148,7 +149,8 @@ export function FocusHeroDial({
       <div className="relative z-10 my-auto flex flex-col items-center justify-center py-2">
         <div className="flex items-center justify-center gap-3 sm:gap-5 md:gap-6">
           {/* Left Stepper Button: -5m */}
-          <button
+          <IconButton
+            label="减少 5 分钟"
             type="button"
             onClick={handleMinus}
             disabled={durationPreset <= 0}
@@ -157,7 +159,7 @@ export function FocusHeroDial({
             aria-label="减少 5 分钟"
           >
             <Minus className="size-4 transition-transform group-hover:scale-110" />
-          </button>
+          </IconButton>
 
           {/* Dial Container (Supports Wheel & Direct Drag/Click Scrubbing) */}
           <div
@@ -317,7 +319,8 @@ export function FocusHeroDial({
           </div>
 
           {/* Right Stepper Button: +5m */}
-          <button
+          <IconButton
+            label="增加 5 分钟"
             type="button"
             onClick={handlePlus}
             disabled={durationPreset >= 180}
@@ -326,7 +329,7 @@ export function FocusHeroDial({
             aria-label="增加 5 分钟"
           >
             <Plus className="size-4 transition-transform group-hover:scale-110" />
-          </button>
+          </IconButton>
         </div>
 
         {/* Focus Duration Preset Selector */}
@@ -334,7 +337,7 @@ export function FocusHeroDial({
           {FOCUS_DURATION_PRESETS.map((preset) => {
             const isSelected = durationPreset === preset.value;
             return (
-              <button
+              <Button
                 key={preset.value}
                 type="button"
                 onClick={() => onPresetChange(preset.value)}
@@ -345,7 +348,7 @@ export function FocusHeroDial({
                 }`}
               >
                 {preset.label}
-              </button>
+              </Button>
             );
           })}
         </div>

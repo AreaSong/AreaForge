@@ -11,8 +11,11 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/overlays";
-import { readActiveStudySession } from "@/lib/client/active-study-session";
-import { getClientDeviceHeaders } from "@/lib/client/device-identity";
+import {
+  ensureReviewSession,
+  finishReviewSession,
+  resolveReviewSessionAction,
+} from "@/lib/client/quick-review-activity-session";
 import {
   acquireQuickReviewActivity,
   acquireQuickReviewActivityBarrier,
@@ -34,6 +37,7 @@ import {
   applyQuickReviewDraftCommand,
   findRunningQuickReviewDraft,
 } from "@/lib/client/quick-review-draft";
+import { Button } from "@/components/ui/button";
 
 interface GuardOptions {
   allowDiscard?: boolean;
@@ -406,10 +410,10 @@ export function QuickReviewActivityGuardProvider(props: { userId: string; childr
         <div className="space-y-3 text-sm text-zinc-300">
           <p>开始新的专注或切换工作区前，需要先处理当前浏览器中的快速复习。</p>
           {error ? <p role="alert" className="text-red-300">{error}</p> : null}
-          <button type="button" disabled={busy} className="h-10 w-full rounded-md bg-teal-500 px-3 font-medium text-black disabled:opacity-50" onClick={() => { if (!pending) return; router.push(pending.href); finish(false); }}>返回继续</button>
-          <button type="button" disabled={busy} className="h-10 w-full rounded-md border border-white/10 px-3 disabled:opacity-50" onClick={() => void release("suspend")}>挂起后继续当前操作</button>
-          {pending?.allowDiscard ? <button type="button" disabled={busy} className="h-10 w-full rounded-md border border-red-400/30 px-3 text-red-200 disabled:opacity-50" onClick={() => void release("discard")}>丢弃后继续当前操作</button> : null}
-          <button type="button" disabled={busy} className="h-10 w-full text-zinc-500" onClick={() => finish(false)}>取消</button>
+          <Button type="button" variant="primary" disabled={busy} className="h-10 w-full" onClick={() => { if (!pending) return; router.push(pending.href); finish(false); }}>返回继续</Button>
+          <Button type="button" disabled={busy} className="h-10 w-full" onClick={() => void release("suspend")}>挂起后继续当前操作</Button>
+          {pending?.allowDiscard ? <Button type="button" variant="danger" disabled={busy} className="h-10 w-full" onClick={() => void release("discard")}>丢弃后继续当前操作</Button> : null}
+          <Button type="button" variant="ghost" disabled={busy} className="h-10 w-full text-zinc-500" onClick={() => finish(false)}>取消</Button>
         </div>
       </Modal>
     </GuardContext.Provider>
@@ -424,100 +428,4 @@ export function useQuickReviewActivityGuard(): GuardContextValue {
 
 function draftHandlerKey(scheduleId: string, draftId: string): string {
   return `${scheduleId}:${draftId}`;
-}
-
-async function ensureReviewSession(scheduleId: string, draftId: string, subjectId: string): Promise<boolean> {
-  const active = await readActiveStudySession();
-  if (active) {
-    if (active.activityMode !== "KNOWLEDGE_REVIEW" || active.reviewScheduleId !== scheduleId) return false;
-    // A review result may already be persisted while the configured activity
-    // is still closing. Keep ownership of the same schedule so the source page
-    // can retry the final closeout without starting a second activity.
-    if (active.status === "closing") return true;
-    if (active.status === "paused") return Boolean(await postReviewSessionCommand(active, "resume"));
-    return true;
-  }
-
-  const idempotencyKey = `quick-review-session-${scheduleId}-${draftId}`;
-  const response = await fetch("/api/study-sessions/start", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
-    body: JSON.stringify({
-      idempotencyKey,
-      subjectId,
-      activityKind: "REVIEW",
-      activityMode: "KNOWLEDGE_REVIEW",
-      reviewScheduleId: scheduleId,
-      startSource: "KNOWLEDGE_REVIEW",
-    }),
-  });
-  if (response.ok) return true;
-  if (response.status === 409) {
-    const latest = await readActiveStudySession().catch(() => null);
-    return Boolean(latest && latest.activityMode === "KNOWLEDGE_REVIEW" && latest.reviewScheduleId === scheduleId);
-  }
-  return false;
-}
-
-async function resolveReviewSessionAction(
-  scheduleId: string,
-  action: QuickReviewActivityCommand,
-): Promise<boolean> {
-  const active = await readActiveStudySession();
-  if (!active) return true;
-  if (active.activityMode !== "KNOWLEDGE_REVIEW" || active.reviewScheduleId !== scheduleId) return false;
-  if (action === "suspend") {
-    if (active.status === "paused" || active.status === "closing") return true;
-    return Boolean(await postReviewSessionCommand(active, "pause"));
-  }
-  return Boolean(await postReviewSessionCommand(active, "cancel"));
-}
-
-async function finishReviewSession(scheduleId: string): Promise<boolean> {
-  let active = await readActiveStudySession();
-  if (!active) return true;
-  if (active.activityMode !== "KNOWLEDGE_REVIEW" || active.reviewScheduleId !== scheduleId) return false;
-  if (active.status === "running" || active.status === "paused") {
-    const prepared = await postReviewSessionCommand(active, "end", { mode: "prepare" });
-    if (!prepared) return false;
-    active = prepared;
-  }
-  if (active.status !== "closing") return false;
-  return Boolean(await postReviewSessionCommand(active, "end", {
-    mode: "complete",
-    qualityScore: 3,
-    isEffective: true,
-    understandingLevel: "基本理解",
-    minimalOutput: "快速复习计时完成，结果已记录在复习事件中。",
-    nextAction: "继续按复习排期处理下一项",
-    producedNote: false,
-    producedMistake: false,
-    completeTask: false,
-    nextDisposition: "复习结果已提交",
-  }));
-}
-
-async function postReviewSessionCommand(
-  session: NonNullable<Awaited<ReturnType<typeof readActiveStudySession>>>,
-  endpoint: "pause" | "resume" | "cancel" | "end",
-  extra: Record<string, unknown> = {},
-): Promise<NonNullable<Awaited<ReturnType<typeof readActiveStudySession>>> | null> {
-  const response = await fetch(`/api/study-sessions/${encodeURIComponent(session.id)}/${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
-    body: JSON.stringify({
-      expectedStatus: session.status,
-      expectedUpdatedAt: session.updatedAt,
-      idempotencyKey: `quick-review-${session.id}-${endpoint}-${crypto.randomUUID()}`,
-      ...extra,
-    }),
-  });
-  const body = await response.json().catch(() => null) as { session?: NonNullable<Awaited<ReturnType<typeof readActiveStudySession>>> } | null;
-  if (response.ok && body?.session) return body.session;
-  if (response.status === 409) {
-    const latest = await readActiveStudySession().catch(() => null);
-    if (endpoint === "pause" && latest?.status === "paused") return latest;
-    if (endpoint === "cancel" || endpoint === "end") return !latest ? null : latest.status === "completed" || latest.status === "canceled" ? latest : null;
-  }
-  return null;
 }

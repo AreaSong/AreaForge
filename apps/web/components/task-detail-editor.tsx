@@ -1,51 +1,40 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Checkbox, Select, Textarea, Input } from "@/components/ui/field";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
 import { Save, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { EditorActionBar } from "@/components/ui/editor-actions";
 import { Alert, PersistenceStatus } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
+import { updateTask } from "@/lib/api/tasks";
 import {
   LONG_PRIVATE_DRAFT_TTL_MS,
   loadPrivateBusinessDraft,
   redirectToLoginWithCurrentLocation,
   removePrivateBusinessDraft,
-  savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
 import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
-import type { PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
-import type { StagePlanDto } from "@/lib/study/types";
-import type { TaskUpdateSnapshotDto } from "@/lib/study/task-detail-service";
-import type { SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
-import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
-
-interface TaskEditValues {
-  subjectId: string;
-  syllabusNodeId: string;
-  relatedSyllabusNodeIds: string[];
-  knowledgePointIds: string[];
-  stagePlanIds: string[];
-  planMilestoneId: string;
-  title: string;
-  type: string;
-  priority: TaskUpdateSnapshotDto["priority"];
-  plannedDate: string;
-  estimatedMinutes: number;
-  reviewText: string;
-}
-
-interface TaskEditConflict {
-  baseline: TaskUpdateSnapshotDto;
-  latest: TaskUpdateSnapshotDto;
-  conflictFields: string[];
-}
-
-interface TaskEditDraft {
-  expectedStatus: TaskUpdateSnapshotDto["status"];
-  expectedUpdatedAt: string;
-  values: TaskEditValues;
-}
+import type { PlanMilestoneDto } from "@/lib/contracts";
+import type { StagePlanDto } from "@/lib/contracts";
+import type { TaskUpdateSnapshotDto } from "@/lib/contracts";
+import type { SubjectDto, SyllabusOptionNodeDto } from "@/lib/contracts";
+import type { KnowledgePointDto } from "@/lib/contracts";
+import {
+  editValuesEqual,
+  flattenNodes,
+  isTaskEditDraft,
+  isTaskUpdateSnapshot,
+  saveTaskDraft,
+  studyDateToIso,
+  taskConflictComparisons,
+  valuesFromSnapshot,
+  type TaskEditConflict,
+  type TaskEditValues,
+} from "@/components/task-detail-editor-utils";
 
 export function TaskDetailEditor(props: {
   snapshot: TaskUpdateSnapshotDto;
@@ -149,38 +138,30 @@ export function TaskDetailEditor(props: {
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch(`/api/tasks/${props.snapshot.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expectedStatus: baseline.status,
-          expectedUpdatedAt: baseline.updatedAt,
-          subjectId: values.subjectId,
-          syllabusNodeId: values.syllabusNodeId || null,
-          relatedSyllabusNodeIds: values.relatedSyllabusNodeIds,
-          knowledgePointIds: values.knowledgePointIds,
-          stagePlanIds: values.stagePlanIds,
-          planMilestoneId: values.planMilestoneId || null,
-          title: values.title,
-          type: values.type,
-          priority: values.priority,
-          plannedDate: studyDateToIso(values.plannedDate),
-          estimatedMinutes: values.estimatedMinutes,
-          reviewText: values.reviewText.trim() || null,
-        }),
+      const result = await updateTask(props.snapshot.id, {
+        expectedStatus: baseline.status,
+        expectedUpdatedAt: baseline.updatedAt,
+        subjectId: values.subjectId,
+        syllabusNodeId: values.syllabusNodeId || null,
+        relatedSyllabusNodeIds: values.relatedSyllabusNodeIds,
+        knowledgePointIds: values.knowledgePointIds,
+        stagePlanIds: values.stagePlanIds,
+        planMilestoneId: values.planMilestoneId || null,
+        title: values.title,
+        type: values.type,
+        priority: values.priority,
+        plannedDate: studyDateToIso(values.plannedDate),
+        estimatedMinutes: values.estimatedMinutes,
+        reviewText: values.reviewText.trim() || null,
       });
-      const body = (await response.json().catch(() => null)) as {
-        error?: string;
-        latest?: unknown;
-        conflictFields?: string[];
-      } | null;
+      const body = result.body;
 
-      if (response.status === 401) {
+      if (isUnauthorized(result)) {
         saveTaskDraft(draftKey, baseline, values);
         redirectToLoginWithCurrentLocation();
         return;
       }
-      if (response.status === 409 && isTaskUpdateSnapshot(body?.latest)) {
+      if (isConflict(result) && isTaskUpdateSnapshot(body?.latest)) {
         saveTaskDraft(draftKey, baseline, values);
         setConflict({
           baseline,
@@ -189,7 +170,7 @@ export function TaskDetailEditor(props: {
         });
         return;
       }
-      if (!response.ok) {
+      if (!result.ok) {
         setError(body?.error ?? "保存失败，本地输入仍保留");
         return;
       }
@@ -219,10 +200,10 @@ export function TaskDetailEditor(props: {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2 text-sm text-zinc-300 md:col-span-2">
+        <div className="af-content-grid-two grid gap-4">
+          <label className="af-content-span-all grid gap-2 text-sm text-zinc-300">
             标题
-            <input
+            <Input
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               value={values.title}
               maxLength={120}
@@ -232,28 +213,28 @@ export function TaskDetailEditor(props: {
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             科目
-            <select
+            <Select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               value={values.subjectId}
               onChange={(event) => changeSubject(event.target.value)}
             >
               {props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             里程碑
-            <select
+            <Select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               value={values.planMilestoneId}
               onChange={(event) => setValues((current) => ({ ...current, planMilestoneId: event.target.value }))}
             >
               <option value="">不关联里程碑</option>
               {availableMilestones.map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.title}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             主考纲节点
-            <select
+            <Select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               value={values.syllabusNodeId}
               onChange={(event) => setValues((current) => ({
@@ -264,11 +245,11 @@ export function TaskDetailEditor(props: {
             >
               <option value="">不关联主节点</option>
               {availableNodes.map((node) => <option key={node.id} value={node.id}>{`${"  ".repeat(node.depth)}${node.title}`}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             计划日期
-            <input
+            <Input
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               type="date"
               value={values.plannedDate}
@@ -278,7 +259,7 @@ export function TaskDetailEditor(props: {
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             类型
-            <select
+            <Select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               value={values.type}
               onChange={(event) => setValues((current) => ({ ...current, type: event.target.value }))}
@@ -288,11 +269,11 @@ export function TaskDetailEditor(props: {
               <option value="practice">刷题</option>
               <option value="mistake">错题</option>
               <option value="simulation_exam">模拟</option>
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             优先级
-            <select
+            <Select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               value={values.priority}
               onChange={(event) => setValues((current) => ({ ...current, priority: event.target.value as TaskEditValues["priority"] }))}
@@ -301,11 +282,11 @@ export function TaskDetailEditor(props: {
               <option value="high">高</option>
               <option value="medium">中</option>
               <option value="low">低</option>
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             预计分钟
-            <input
+            <Input
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               type="number"
               min={5}
@@ -318,12 +299,11 @@ export function TaskDetailEditor(props: {
 
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium text-zinc-200">相关考纲节点（最多 20 个）</legend>
-          <div className="grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
+          <div className="af-content-grid-two grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3">
             {availableNodes.filter((node) => node.id !== values.syllabusNodeId).map((node) => (
               <label key={node.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-400">
-                <input
-                  className="mt-1 h-4 w-4 accent-teal-400"
-                  type="checkbox"
+                <Checkbox
+                  className="mt-1"
                   checked={values.relatedSyllabusNodeIds.includes(node.id)}
                   onChange={() => toggleRelatedNode(node.id)}
                 />
@@ -336,12 +316,12 @@ export function TaskDetailEditor(props: {
 
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium text-zinc-200">关联知识点（最多 50 个）</legend>
-          <div className="grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
+          <div className="af-content-grid-two grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3">
             {props.knowledgePoints
               .filter((point) => point.subject.id === values.subjectId || point.relatedSubjects.some((subject) => subject.id === values.subjectId))
               .map((point) => (
                 <label key={point.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-400">
-                  <input className="mt-1 h-4 w-4 accent-teal-400" type="checkbox" checked={values.knowledgePointIds.includes(point.id)} onChange={() => toggleKnowledgePoint(point.id)} />
+                  <Checkbox className="mt-1" checked={values.knowledgePointIds.includes(point.id)} onChange={() => toggleKnowledgePoint(point.id)} />
                   <span className="min-w-0 break-words">{point.title}</span>
                 </label>
               ))}
@@ -351,12 +331,11 @@ export function TaskDetailEditor(props: {
 
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium text-zinc-200">所属阶段（可多选，最多 20 个）</legend>
-          <div className="grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3 sm:grid-cols-2">
+          <div className="af-content-grid-two grid max-h-52 gap-2 overflow-y-auto border-l border-white/10 pl-3">
             {availableStagePlans.map((stagePlan) => (
               <label key={stagePlan.id} className="flex min-w-0 items-start gap-2 text-sm text-zinc-400">
-                <input
-                  className="mt-1 h-4 w-4 accent-teal-400"
-                  type="checkbox"
+                <Checkbox
+                  className="mt-1"
                   checked={values.stagePlanIds.includes(stagePlan.id)}
                   onChange={() => toggleStagePlan(stagePlan.id)}
                 />
@@ -369,7 +348,7 @@ export function TaskDetailEditor(props: {
 
         <label className="grid gap-2 text-sm text-zinc-300">
           任务复盘
-          <textarea
+          <Textarea
             className="min-h-28 rounded-md border border-white/10 bg-[#0d1117] p-3 text-white"
             value={values.reviewText}
             maxLength={2000}
@@ -381,17 +360,17 @@ export function TaskDetailEditor(props: {
           <div className="space-y-3 rounded-md border border-amber-300/20 bg-amber-300/10 p-3 text-sm text-amber-100">
             <p>服务端任务已在草稿保存后更新。请核对输入，再明确选择是否基于最新版本继续。</p>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="h-10 rounded-md border border-amber-200/30 px-3" onClick={() => {
+              <Button type="button" className="h-10 rounded-md border border-amber-200/30 px-3" onClick={() => {
                 setDraftNeedsRebase(false);
                 setError(null);
                 saveTaskDraft(draftKey, baseline, values);
-              }}>以最新版本为基线</button>
-              <button type="button" className="h-10 px-3" onClick={() => {
+              }}>以最新版本为基线</Button>
+              <Button type="button" className="h-10 px-3" onClick={() => {
                 setValues(valuesFromSnapshot(baseline));
                 setDraftNeedsRebase(false);
                 setError(null);
                 removePrivateBusinessDraft(draftKey);
-              }}>放弃旧草稿</button>
+              }}>放弃旧草稿</Button>
             </div>
           </div>
         ) : null}
@@ -414,8 +393,8 @@ export function TaskDetailEditor(props: {
         <div className="space-y-4 text-sm text-zinc-300">
           <p>当前输入已保存在本设备。关闭编辑不会写入服务端。</p>
           <div className="flex flex-wrap justify-end gap-2">
-            <button type="button" className="h-10 px-3 text-zinc-300" onClick={() => setCloseConfirmationOpen(false)}>继续编辑</button>
-            <button type="button" className="h-10 rounded-md border border-white/10 px-3" onClick={props.onCancel}>关闭并保留草稿</button>
+            <Button type="button" className="h-10 px-3 text-zinc-300" onClick={() => setCloseConfirmationOpen(false)}>继续编辑</Button>
+            <Button type="button" className="h-10 rounded-md border border-white/10 px-3" onClick={props.onCancel}>关闭并保留草稿</Button>
           </div>
         </div>
       </Modal>
@@ -444,112 +423,4 @@ export function TaskDetailEditor(props: {
       />
     </>
   );
-}
-
-function valuesFromSnapshot(snapshot: TaskUpdateSnapshotDto): TaskEditValues {
-  return {
-    subjectId: snapshot.subjectId,
-    syllabusNodeId: snapshot.syllabusNodeId ?? "",
-    relatedSyllabusNodeIds: snapshot.relatedSyllabusNodeIds,
-    knowledgePointIds: snapshot.knowledgePointIds,
-    stagePlanIds: snapshot.stagePlanIds,
-    planMilestoneId: snapshot.planMilestoneId ?? "",
-    title: snapshot.title,
-    type: snapshot.type,
-    priority: snapshot.priority,
-    plannedDate: snapshot.plannedDate.slice(0, 10),
-    estimatedMinutes: snapshot.estimatedMinutes,
-    reviewText: snapshot.reviewText ?? "",
-  };
-}
-
-function taskConflictComparisons(conflict: TaskEditConflict, local: TaskEditValues) {
-  const server = valuesFromSnapshot(conflict.latest);
-  const baseline = valuesFromSnapshot(conflict.baseline);
-  return (Object.keys(local) as Array<keyof TaskEditValues>).map((field) => ({
-    field,
-    label: taskFieldLabel(field),
-    baseline: baseline[field],
-    local: local[field],
-    server: server[field],
-  }));
-}
-
-function taskFieldLabel(field: keyof TaskEditValues): string {
-  return ({
-    subjectId: "科目",
-    syllabusNodeId: "主考纲节点",
-    relatedSyllabusNodeIds: "相关考纲节点",
-    knowledgePointIds: "关联知识点",
-    stagePlanIds: "所属阶段",
-    planMilestoneId: "里程碑",
-    title: "标题",
-    type: "类型",
-    priority: "优先级",
-    plannedDate: "计划日期",
-    estimatedMinutes: "预计分钟",
-    reviewText: "任务复盘",
-  })[field];
-}
-
-function flattenNodes(nodes: SyllabusOptionNodeDto[], depth = 0): Array<SyllabusOptionNodeDto & { depth: number }> {
-  return nodes.flatMap((node) => [{ ...node, depth }, ...flattenNodes(node.children, depth + 1)]);
-}
-
-function studyDateToIso(value: string): string {
-  return new Date(`${value}T00:00:00+08:00`).toISOString();
-}
-
-function editValuesEqual(left: TaskEditValues, right: TaskEditValues): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function isTaskEditDraft(value: unknown): value is TaskEditDraft {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Partial<TaskEditDraft>;
-  return ["todo", "in_progress", "done", "skipped", "deferred"].includes(record.expectedStatus ?? "")
-    && typeof record.expectedUpdatedAt === "string"
-    && isTaskEditValues(record.values);
-}
-
-function isTaskEditValues(value: unknown): value is TaskEditValues {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Partial<TaskEditValues>;
-  return typeof record.subjectId === "string"
-    && typeof record.syllabusNodeId === "string"
-    && Array.isArray(record.relatedSyllabusNodeIds)
-    && record.relatedSyllabusNodeIds.every((id) => typeof id === "string")
-    && Array.isArray(record.knowledgePointIds)
-    && record.knowledgePointIds.every((id) => typeof id === "string")
-    && Array.isArray(record.stagePlanIds)
-    && record.stagePlanIds.every((id) => typeof id === "string")
-    && typeof record.planMilestoneId === "string"
-    && typeof record.title === "string"
-    && typeof record.type === "string"
-    && ["low", "medium", "high", "critical"].includes(record.priority ?? "")
-    && typeof record.plannedDate === "string"
-    && typeof record.estimatedMinutes === "number"
-    && typeof record.reviewText === "string";
-}
-
-function saveTaskDraft(key: string, baseline: TaskUpdateSnapshotDto, values: TaskEditValues): void {
-  savePrivateBusinessDraft<TaskEditDraft>(key, {
-    expectedStatus: baseline.status,
-    expectedUpdatedAt: baseline.updatedAt,
-    values,
-  });
-}
-
-function isTaskUpdateSnapshot(value: unknown): value is TaskUpdateSnapshotDto {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Partial<TaskUpdateSnapshotDto>;
-  return typeof record.id === "string"
-    && typeof record.subjectId === "string"
-    && (record.syllabusNodeId === null || typeof record.syllabusNodeId === "string")
-    && Array.isArray(record.relatedSyllabusNodeIds)
-    && Array.isArray(record.knowledgePointIds)
-    && Array.isArray(record.stagePlanIds)
-    && (record.planMilestoneId === null || typeof record.planMilestoneId === "string")
-    && typeof record.title === "string"
-    && typeof record.updatedAt === "string";
 }

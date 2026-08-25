@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useRef, type KeyboardEvent } from "react";
 import {
   CalendarCheck2,
@@ -83,7 +84,7 @@ export function JourneyTimeline({ activeStep, onStepChange }: JourneyTimelinePro
 
           return (
             <li key={step.id} role="presentation">
-              <button
+              <Button
                 aria-controls="learning-loop-panel"
                 aria-selected={isActive}
                 className={`group grid min-h-[4.25rem] w-full place-items-center rounded-xl border px-2 py-2.5 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-teal-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1515] sm:min-h-[4.75rem] sm:px-1 ${
@@ -111,7 +112,7 @@ export function JourneyTimeline({ activeStep, onStepChange }: JourneyTimelinePro
                     {step.detail}
                   </span>
                 </span>
-              </button>
+              </Button>
             </li>
           );
         })}

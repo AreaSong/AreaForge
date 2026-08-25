@@ -1,3 +1,5 @@
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
+
 export const EXPERIENCE_PREFERENCES_KEY = "areaforge.experience.preferences.v1";
 
 export interface ExperiencePreferences {
@@ -18,7 +20,7 @@ export const defaultExperiencePreferences: ExperiencePreferences = {
 
 export function loadExperiencePreferences(): ExperiencePreferences {
   try {
-    const value = JSON.parse(window.localStorage.getItem(EXPERIENCE_PREFERENCES_KEY) ?? "null");
+    const value = JSON.parse(getBrowserStoragePort("local")?.getItem(EXPERIENCE_PREFERENCES_KEY) ?? "null");
     return isExperiencePreferences(value) ? value : defaultExperiencePreferences;
   } catch {
     return defaultExperiencePreferences;
@@ -26,7 +28,7 @@ export function loadExperiencePreferences(): ExperiencePreferences {
 }
 
 export function saveExperiencePreferences(preferences: ExperiencePreferences): void {
-  window.localStorage.setItem(EXPERIENCE_PREFERENCES_KEY, JSON.stringify(preferences));
+  getBrowserStoragePort("local")?.setItem(EXPERIENCE_PREFERENCES_KEY, JSON.stringify(preferences));
   applyExperiencePreferences(preferences);
 }
 

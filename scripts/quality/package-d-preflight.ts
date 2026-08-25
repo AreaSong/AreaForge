@@ -298,7 +298,6 @@ function checkD3ImplementationIfDone(): void {
       "apps/web/lib/study/reports-service.ts",
       "apps/web/lib/study/simulation-service.ts",
       "apps/web/lib/study/stage-service.ts",
-      "apps/web/lib/study/service.ts",
       "apps/web/lib/study/analytics-service.ts",
     ];
     const forbiddenTerms = [
@@ -381,11 +380,14 @@ function checkD4ImplementationIfDone(): void {
   const syllabusPage = readExistingFiles([
     "apps/web/app/(app)/knowledge/syllabi/page.tsx",
     "apps/web/components/syllabus-manager.tsx",
+    "apps/web/components/syllabus-manager-labels.tsx",
+    "apps/web/components/syllabus-manager-view.tsx",
     "apps/web/components/syllabus-panel.tsx",
   ]);
   const notesPage = readExistingFiles([
     "apps/web/app/(app)/knowledge/cards/page.tsx",
     "apps/web/components/note-library.tsx",
+    "apps/web/components/note-library-view.tsx",
     "apps/web/components/notes-panel.tsx",
   ]);
   const reportsPage = readIfExists("apps/web/lib/routes/review-reports-page.tsx");
@@ -534,7 +536,6 @@ function checkLongTermAiBoundary(): void {
     "apps/web/lib/study/reports-service.ts",
     "apps/web/lib/study/simulation-service.ts",
     "apps/web/lib/study/stage-service.ts",
-    "apps/web/lib/study/service.ts",
     "apps/web/lib/study/analytics-service.ts",
   ];
   const forbiddenTerms = [

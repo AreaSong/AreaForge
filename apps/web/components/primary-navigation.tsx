@@ -16,6 +16,7 @@ import { BrandMark } from "@/components/brand-logo";
 import { LogoutButton } from "@/components/logout-button";
 import { PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM } from "@/lib/navigation/app-navigation";
 import type { AppNavigationItem } from "@/lib/navigation/app-navigation";
+import { IconButton } from "@/components/ui/button";
 
 export function PrimaryNavigation(props: {
   pathname: string;
@@ -36,17 +37,18 @@ export function PrimaryNavigation(props: {
           <BrandMark size={22} />
           <span data-primary-label className={props.collapsed ? "sr-only" : "truncate text-sm font-medium"}>AreaForge</span>
         </div>
-        <button
+        <IconButton
+          label={props.collapsed ? "展开一级导航" : "收起一级导航"}
+          size="sm"
           type="button"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white"
           onClick={props.onToggle}
-          aria-label={props.collapsed ? "展开一级导航" : "收起一级导航"}
           title={props.collapsed ? "展开一级导航" : "收起一级导航"}
           aria-expanded={!props.collapsed}
           aria-controls="primary-navigation"
         >
           {props.collapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
-        </button>
+        </IconButton>
       </div>
       <nav id="primary-navigation" className="flex flex-col gap-1" aria-label="主导航">
         {PRIMARY_WORKBENCH_ITEMS.map((item) => (

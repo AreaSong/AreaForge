@@ -3,7 +3,8 @@
 import { ArrowRight, CalendarRange } from "lucide-react";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
 import { EmptyState, Badge } from "@/components/ui/feedback";
-import type { PeriodicReportDecisionDto } from "@/lib/study/reports-service";
+import type { PeriodicReportDecisionDto } from "@/lib/contracts";
+import { formatDate } from "@/lib/formatters";
 
 export function ReportHistoryList(props: {
   history: PeriodicReportDecisionDto[];
@@ -29,7 +30,7 @@ export function ReportHistoryList(props: {
             </div>
             <p className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
               <CalendarRange size={14} aria-hidden="true" />
-              {new Date(decision.range.start).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })} 至 {new Date(decision.range.end).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}
+              {formatDate(decision.range.start)} 至 {formatDate(decision.range.end)}
             </p>
           </div>
           <ArrowRight className="size-4 shrink-0 text-zinc-600" aria-hidden="true" />

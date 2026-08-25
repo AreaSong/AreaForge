@@ -112,8 +112,8 @@ Batch 0 是 Package B 的第一步，只把结束计时时已经存在于请求�
 代码范围：
 
 - `prisma/schema.prisma` 和对应 additive migration。
-- `apps/web/lib/study/service.ts` 的 `endStudySession` 写路径：写入结构化字段，同时继续写 `note = closeout.closeoutText`。
-- `apps/web/lib/study/types.ts` 和 `serializeSession`：允许 API 返回结构化收口字段。
+- `apps/web/lib/study/session-command-service.ts` 的 `endStudySession` 写路径：写入结构化字段，同时继续写 `note = closeout.closeoutText`。
+- `apps/web/lib/study/session-serializer.ts` 和 `apps/web/lib/contracts/study-session.ts`：允许 API 返回结构化收口字段。
 - 首页、统计和报告仍可优先兼容旧 `isEffective/note`，不在本批强制切换所有历史口径。
 - 文档同步 `docs/architecture/data-model.md`、`docs/architecture/api-surface.md`、`docs/development/docs-100-completion-record.md` 和本任务状态。
 
@@ -174,9 +174,9 @@ Batch 1 只新增每日打卡快照，用于把当前由 session/task/review 实
 代码范围：
 
 - `prisma/schema.prisma` 和对应 additive migration。
-- `apps/web/lib/study/service.ts`：结束计时、任务状态变化和每日复盘保存后 upsert 当日 `CheckIn`。
+- `apps/web/lib/study/session-command-service.ts`、`apps/web/lib/study/task-command-service.ts`、`apps/web/lib/study/daily-review-service.ts` 和 `apps/web/lib/study/check-in-service.ts`：结束计时、任务状态变化和每日复盘保存后 upsert 当日 `CheckIn`。
 - `apps/web/lib/study/analytics-service.ts` 和 `apps/web/lib/study/reports-service.ts`：优先读取 `CheckIn` 快照；没有快照的日期 fallback 到现有 session/task/review 派生逻辑。
-- `apps/web/lib/study/types.ts`：必要时暴露 dashboard/check-in DTO 的快照来源字段。
+- `apps/web/lib/contracts/dashboard.ts` 和 `apps/web/lib/contracts/check-in.ts`：暴露 dashboard/check-in DTO 的快照来源字段。
 - 文档同步 `docs/architecture/data-model.md`、`docs/architecture/api-surface.md`、`docs/development/docs-100-completion-record.md` 和本任务状态。
 
 影响：

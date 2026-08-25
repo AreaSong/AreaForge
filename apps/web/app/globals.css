@@ -82,6 +82,21 @@
   }
 }
 
+/* Primitive defaults consume the shared control scale while utility classes remain able to override them. */
+@layer components {
+  .af-control-height-sm {
+    height: var(--af-control-sm);
+  }
+
+  .af-control-height-md {
+    height: var(--af-control-md);
+  }
+
+  .af-control-height-lg {
+    height: var(--af-control-lg);
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -199,7 +214,8 @@ input:-webkit-autofill:active{
 }
 
 .af-tablet-navigation-trigger,
-.af-secondary-compact-navigation {
+.af-secondary-compact-navigation,
+.af-mobile-primary-navigation {
   display: none;
 }
 
@@ -258,13 +274,11 @@ input:-webkit-autofill:active{
     display: none;
   }
 
-  .af-shell-main [class*="md:grid-cols-"],
-  .af-shell-main [class*="lg:grid-cols-"] {
+  .af-shell-main .af-tablet-stack-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
-  .af-shell-main [class*="md:col-span-"],
-  .af-shell-main [class*="lg:col-span-"] {
+  .af-shell-main .af-tablet-stack-span {
     grid-column: auto !important;
   }
 }
@@ -274,11 +288,11 @@ input:-webkit-autofill:active{
     display: flex;
   }
 
-  .af-shell-main [class*="lg:grid-cols-"] {
+  .af-shell-main .af-tablet-stack-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
-  .af-shell-main [class*="lg:col-span-"] {
+  .af-shell-main .af-tablet-stack-span {
     grid-column: auto !important;
   }
 }
@@ -320,15 +334,79 @@ input:-webkit-autofill:active{
 /* Content tracks switch from their actual page-frame width, not the viewport. */
 .af-review-summary-grid,
 .af-content-grid-two,
+.af-content-grid-three,
+.af-content-grid-four,
+.af-content-grid-primary,
+.af-focus-launcher-grid,
+.af-focus-workspace-grid,
+.af-plan-layout-grid,
+.af-plan-filter-grid,
+.af-simulation-workbench-grid,
 .af-content-grid-sidebar,
 .af-content-grid-inspector,
 .af-content-grid-form,
+.af-form-action-grid,
+.af-action-grid,
+.af-content-grid-settings,
+.af-retest-entry-grid,
+.af-content-grid-bar,
+.af-content-grid-compact,
+.af-time-window-grid,
+.af-confirmation-row,
+.af-five-field-grid,
+.af-loss-entry-grid,
+.af-subject-choice-grid,
+.af-divided-grid-two,
+.af-divided-grid-three,
 .af-canvas-command-grid,
 .af-canvas-secondary-grid,
 .af-detail-facts-grid,
 .af-metric-grid-three,
 .af-metric-grid-four,
+.af-metric-grid-six,
 .af-import-diff-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.af-content-span-all {
+  grid-column: 1 / -1;
+}
+
+.af-content-grid-primary,
+.af-focus-launcher-grid,
+.af-focus-workspace-grid,
+.af-plan-layout-grid,
+.af-plan-filter-grid,
+.af-simulation-workbench-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.af-focus-launcher-scroll {
+  overflow-y: auto;
+}
+
+.af-plan-seven-day {
+  display: none;
+}
+
+.af-plan-detail-host {
+  border-top: 1px solid var(--af-border);
+  padding-top: 1.25rem;
+}
+
+.af-plan-day-column {
+  min-width: 10rem;
+}
+
+.af-workspace-aside {
+  border-bottom: 1px solid var(--af-border);
+}
+
+.af-workspace-main {
+  min-width: 0;
+}
+
+.af-segmented-options {
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -340,6 +418,69 @@ input:-webkit-autofill:active{
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.af-metric-grid-six {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.af-container-action {
+  width: 100%;
+}
+
+.af-action-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.af-action-cluster > * {
+  width: 100%;
+}
+
+.af-divided-grid-two > * + *,
+.af-divided-grid-three > * + * {
+  border-top: 1px solid var(--af-border);
+}
+
+.af-confirmation-row-icon {
+  display: none;
+}
+
+.af-responsive-surface {
+  container-type: inline-size;
+  container-name: af-page;
+}
+
+.af-overlay-viewport,
+.af-window-portal {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+}
+
+.af-drawer-panel {
+  height: 100dvh;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+.af-global-tool-panel {
+  right: max(0.5rem, env(safe-area-inset-right));
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  left: max(0.5rem, env(safe-area-inset-left));
+  max-height: min(72dvh, 44rem, calc(100dvh - 7rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+}
+
+.af-bottom-sheet {
+  max-height: min(70dvh, calc(100dvh - env(safe-area-inset-top)));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
 .af-responsive-aside {
   border-top: 1px solid var(--af-border);
   padding-top: 1rem;
@@ -348,6 +489,15 @@ input:-webkit-autofill:active{
 .af-toolbar-split {
   flex-direction: column;
   align-items: stretch;
+}
+
+.af-page-header {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.af-page-header-action {
+  width: 100%;
 }
 
 @container af-page (min-width: 28rem) {
@@ -364,6 +514,31 @@ input:-webkit-autofill:active{
   .af-detail-facts-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .af-action-cluster {
+    flex-flow: row wrap;
+    align-items: center;
+  }
+
+  .af-action-cluster > * {
+    width: auto;
+  }
+
+  .af-confirmation-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .af-confirmation-row-icon {
+    display: grid;
+  }
+}
+
+@container af-page (min-width: 36rem) {
+  .af-time-window-grid {
+    grid-template-columns: minmax(9rem, 1fr) 8rem 8rem;
+    align-items: center;
+  }
 }
 
 @container af-page (min-width: 42rem) {
@@ -375,6 +550,34 @@ input:-webkit-autofill:active{
   .af-metric-grid-four {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .af-metric-grid-six,
+  .af-five-field-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .af-loss-entry-grid,
+  .af-subject-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .af-divided-grid-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .af-divided-grid-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .af-divided-grid-two > * + *,
+  .af-divided-grid-three > * + * {
+    border-top: 0;
+    border-left: 1px solid var(--af-border);
+  }
+
+  .af-content-grid-compact {
+    grid-template-columns: minmax(0, 1fr) 13.75rem;
+  }
 }
 
 @container af-page (min-width: 48rem) {
@@ -382,11 +585,52 @@ input:-webkit-autofill:active{
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .af-content-grid-three,
+  .af-content-grid-four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .af-action-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .af-content-grid-primary,
+  .af-simulation-workbench-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.72fr);
+  }
+
+  .af-plan-filter-grid {
+    grid-template-columns: minmax(14rem, 1fr) minmax(9rem, 0.35fr) minmax(8rem, 0.3fr) auto;
+    align-items: center;
+  }
+
+  .af-container-action {
+    width: auto;
+    justify-self: end;
+  }
+
+  .af-retest-entry-grid {
+    grid-template-columns: minmax(0, 1fr) 12rem 10rem;
+    align-items: start;
+  }
+
+  .af-content-grid-bar {
+    grid-template-columns: 9rem minmax(0, 1fr) 7rem;
+    align-items: center;
+  }
+
   .af-content-grid-form {
     grid-template-columns: 12rem minmax(0, 1fr) minmax(0, 1.3fr) auto;
   }
 
-  .af-content-grid-form > :last-child {
+  .af-form-action-grid {
+    grid-template-columns: minmax(0, 1fr) 12rem auto;
+    align-items: end;
+  }
+
+  .af-content-grid-form > :last-child,
+  .af-form-action-grid > :last-child {
     width: auto;
   }
 
@@ -394,14 +638,26 @@ input:-webkit-autofill:active{
     grid-template-columns: 8rem minmax(0, 1fr) 9rem;
   }
 
-  .af-content-span-all {
-    grid-column: 1 / -1;
+  .af-form-span-main {
+    grid-column: 1 / 3;
   }
 }
 
 @container af-page (min-width: 56rem) {
   .af-content-grid-sidebar {
     grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+
+  .af-content-grid-settings {
+    grid-template-columns: minmax(16rem, 0.72fr) minmax(0, 1.28fr);
+  }
+
+  .af-content-grid-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .af-content-grid-four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .af-content-grid-inspector {
@@ -419,10 +675,135 @@ input:-webkit-autofill:active{
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .af-metric-grid-four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .af-five-field-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .af-loss-entry-grid {
+    grid-template-columns: minmax(9rem, 1fr) minmax(10rem, 1fr) 7rem minmax(10rem, 1fr) auto;
+    align-items: center;
+  }
+
+  .af-subject-choice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .af-toolbar-split {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .af-page-header {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .af-page-header-action {
+    width: auto;
+    flex-shrink: 0;
+  }
+}
+
+@container af-page (min-width: 60rem) {
+  .af-focus-launcher-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 1fr);
+    align-items: stretch;
+  }
+
+  .af-focus-launcher-scroll {
+    overflow: hidden;
+  }
+
+  .af-focus-hero,
+  .af-focus-config,
+  .af-focus-launcher-grid {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .af-focus-hero {
+    overflow: hidden;
+  }
+
+  .af-focus-workspace-grid {
+    grid-template-columns: minmax(18rem, 0.65fr) minmax(0, 1.35fr);
+    align-items: stretch;
+  }
+
+  .af-workspace-aside {
+    border-right: 1px solid var(--af-border);
+    border-bottom: 0;
+    padding: 2.5rem 2rem;
+  }
+
+  .af-workspace-main {
+    padding: 2.5rem;
+  }
+
+  .af-plan-layout-grid {
+    grid-template-columns: minmax(18rem, 0.72fr) minmax(28rem, 1.28fr);
+  }
+
+  .af-plan-date-strip-wide-hidden,
+  .af-plan-day-list {
+    display: none;
+  }
+
+  .af-plan-seven-day {
+    display: flex;
+  }
+
+  .af-plan-detail-host {
+    max-height: calc(100dvh - 12rem);
+    overflow-y: auto;
+    border-top: 0;
+    border-left: 1px solid var(--af-border);
+    padding-top: 0;
+    padding-left: 1.25rem;
+  }
+
+  .af-segmented-options {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+}
+
+@container af-page (min-width: 72rem) {
+  .af-plan-seven-day {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .af-plan-day-column {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 640px) {
+  .af-overlay-viewport,
+  .af-window-portal {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+}
+
+@media (min-width: 768px) {
+  .af-global-tool-panel {
+    top: 4.75rem;
+    right: max(1.5rem, env(safe-area-inset-right));
+    bottom: auto;
+    left: auto;
+    max-height: min(76dvh, 48rem, calc(100dvh - 5.75rem - env(safe-area-inset-bottom)));
   }
 }
 
@@ -433,6 +814,10 @@ input:-webkit-autofill:active{
 
   .af-canvas-secondary-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .af-metric-grid-six {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 

@@ -2,7 +2,7 @@ import { ArrowRight, Bot, ClipboardCheck, FileCheck2, Flag, Repeat2 } from "luci
 import Link from "next/link";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-import type { ConfirmationItemDto } from "@/lib/study/confirmation-service";
+import type { ConfirmationItemDto } from "@/lib/contracts";
 
 export function ConfirmationCenter({ items, filter }: { items: ConfirmationItemDto[]; filter: "pending" | "history" }) {
   if (items.length === 0) {
@@ -21,13 +21,13 @@ function ConfirmationRow({ item }: { item: ConfirmationItemDto }) {
   const statusLabel = item.status === "PENDING" ? "需要决定" : item.status === "FROZEN" ? "已确认 · 已冻结" : item.status === "CONFIRMED" ? (item.frozen ? "已确认 · 已冻结" : "已确认") : "已驳回 · 已冻结";
   const listHref = item.status === "PENDING" ? "/confirmations" : "/confirmations/history";
   return (
-    <Link href={withReturnTo(item.href, listHref)} className="group grid gap-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
-      <span className="hidden size-9 place-items-center rounded-md border border-white/10 text-teal-300 sm:grid"><Icon size={17} aria-hidden="true" /></span>
+    <Link href={withReturnTo(item.href, listHref)} className="af-confirmation-row group grid gap-3 py-4">
+      <span className="af-confirmation-row-icon size-9 place-items-center rounded-md border border-white/10 text-teal-300"><Icon size={17} aria-hidden="true" /></span>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2"><span className="font-medium text-white group-hover:text-teal-200">{item.title}</span><Badge tone={statusTone}>{statusLabel}</Badge><span className="text-xs text-zinc-600">{item.sourceLabel}</span></div>
         <p className="mt-1 text-sm leading-6 text-zinc-400">{item.summary}</p>
       </div>
-      <span className="inline-flex items-center gap-2 text-sm text-teal-300">{item.status === "PENDING" ? "打开并确认" : "查看冻结记录"}<ArrowRight size={16} aria-hidden="true" /></span>
+      <span className="af-container-action inline-flex items-center gap-2 text-sm text-teal-300">{item.status === "PENDING" ? "打开并确认" : "查看冻结记录"}<ArrowRight size={16} aria-hidden="true" /></span>
     </Link>
   );
 }

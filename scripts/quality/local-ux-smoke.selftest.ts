@@ -75,10 +75,20 @@ const aiDraftPanel = readFileSync(
   path.join(process.cwd(), "apps/web/components/ai-draft-panel.tsx"),
   "utf8",
 );
+const aiDraftPanelView = readFileSync(
+  path.join(process.cwd(), "apps/web/components/ai-draft-panel-view.tsx"),
+  "utf8",
+);
+const aiDraftPanelModel = readFileSync(
+  path.join(process.cwd(), "apps/web/components/ai-draft-panel-model.ts"),
+  "utf8",
+);
 assert(
-  aiDraftPanel.includes("可选上下文（默认不发送）") &&
-    aiDraftPanel.includes('type="checkbox"') &&
-    aiDraftPanel.includes("body.checkedProjection = buildCheckedProjection"),
+  aiDraftPanelView.includes("可选上下文（默认不发送）") &&
+    aiDraftPanelView.includes("<Checkbox") &&
+    aiDraftPanelModel.includes("checkedProjection: buildLearningTreeProjection") &&
+    aiDraftPanelModel.includes("checkedProjection: buildKnowledgeCardProjection") &&
+    aiDraftPanelModel.includes("checkedProjection: buildPlanProjection"),
   "Batch 9 AI draft UI must keep optional projections unchecked by default and send only checked fields",
 );
 assert(
@@ -125,12 +135,21 @@ const canvasClientSource = readFileSync(
   path.join(repositoryRoot, "apps/web/components/knowledge-canvas-client.tsx"),
   "utf8",
 );
+const canvasViewSource = readFileSync(
+  path.join(repositoryRoot, "apps/web/components/knowledge-canvas-view.tsx"),
+  "utf8",
+);
+const canvasLayoutControllerSource = readFileSync(
+  path.join(repositoryRoot, "apps/web/components/knowledge-canvas-layout-controller.ts"),
+  "utf8",
+);
+const canvasBehaviorSource = [canvasClientSource, canvasViewSource, canvasLayoutControllerSource].join("\n");
 assert(
-  canvasClientSource.includes("canMutateKnowledgeCanvasLayout"),
+  canvasBehaviorSource.includes("canMutateKnowledgeCanvasLayout"),
   "Batch 8 canvas client must gate layout mutation via canMutateKnowledgeCanvasLayout",
 );
 assert(
-  canvasClientSource.includes("布局编辑仅桌面可用"),
+  canvasBehaviorSource.includes("布局编辑仅桌面可用"),
   "Batch 8 canvas client must keep mobile read-only layout copy",
 );
 assert(

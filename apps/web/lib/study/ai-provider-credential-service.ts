@@ -1,6 +1,10 @@
 import { prisma } from "@areaforge/db";
 import { getAuthEnv } from "@/lib/auth/env";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  AiProviderCredentialSource,
+  AiProviderCredentialStatus,
+} from "@/lib/contracts/ai";
 import {
   AiProviderCredentialCryptoError,
   decryptAiProviderApiKey,
@@ -9,20 +13,7 @@ import {
   isAiProviderCredentialEncryptionConfigured,
 } from "./ai-provider-credential-crypto";
 
-export type AiProviderCredentialSource = "account" | "environment" | "none";
-
-export interface AiProviderCredentialStatus {
-  accountConfigured: boolean;
-  effectiveConfigured: boolean;
-  source: AiProviderCredentialSource;
-  baseUrl: string | null;
-  model: string | null;
-  apiKeyConfigured: boolean;
-  encryptionConfigured: boolean;
-  globalEnabled: boolean;
-  revision: number | null;
-  updatedAt: string | null;
-}
+export type { AiProviderCredentialSource, AiProviderCredentialStatus } from "@/lib/contracts/ai";
 
 export interface EffectiveAiProviderConfig {
   baseUrl: string;

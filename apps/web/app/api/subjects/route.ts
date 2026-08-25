@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { apiErrorResponse } from "@/lib/api/responses";
-import { listSubjects } from "@/lib/study/service";
+import { listSubjects } from "@/lib/study/study-query-service";
 
 export const dynamic = "force-dynamic";
 

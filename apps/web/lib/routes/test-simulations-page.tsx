@@ -6,6 +6,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
+import { formatDate, formatDateKey } from "@/lib/formatters";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listSimulationExams } from "@/lib/study/simulation-service";
 
@@ -56,7 +57,7 @@ export default async function TestSimulationPage() {
 }
 
 function toDateInput(value: Date): string {
-  return value.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+  return formatDateKey(value);
 }
 
 type Exam = Awaited<ReturnType<typeof listSimulationExams>>[number];
@@ -65,18 +66,18 @@ function ExamRow({ exam, primary = false }: { exam: Exam; primary?: boolean }) {
   const lossCount = exam.subjectResults.reduce((total, result) => total + result.lossItems.filter((item) => !item.archivedAt).length, 0);
   const nextAction = exam.status === "DRAFT" ? (exam.subjectResults.length > 0 ? "核对并确认" : "录入分科成绩") : (lossCount > 0 ? "选择补救" : "查看考试事实");
   return (
-    <Link href={`/test/simulations/${exam.id}`} className={`group grid gap-3 border px-4 py-4 transition-colors sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${primary ? "border-teal-400/30 bg-teal-500/[0.06]" : "border-white/10 bg-white/[0.02] hover:border-white/20"}`}>
+    <Link href={`/test/simulations/${exam.id}`} className={`af-action-grid group grid gap-3 border px-4 py-4 transition-colors ${primary ? "border-teal-400/30 bg-teal-500/[0.06]" : "border-white/10 bg-white/[0.02] hover:border-white/20"}`}>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium text-white group-hover:text-teal-200">{exam.name}</span>
           <Badge tone={exam.status === "DRAFT" ? "warning" : "success"}>{exam.status === "DRAFT" ? "未确认" : "已确认"}</Badge>
         </div>
         <p className="mt-1 text-sm text-zinc-400">
-          {new Date(exam.examDate).toLocaleDateString("zh-CN")} · {exam.totalsSource === "legacy_fallback" ? "旧版总分记录" : `${exam.actualScore ?? 0} / ${exam.targetScore ?? 0} 分`} · {exam.subjectResults.length} 科 · {lossCount} 条失分
+          {formatDate(exam.examDate)} · {exam.totalsSource === "legacy_fallback" ? "旧版总分记录" : `${exam.actualScore ?? 0} / ${exam.targetScore ?? 0} 分`} · {exam.subjectResults.length} 科 · {lossCount} 条失分
         </p>
         {exam.warnings[0] ? <p className="mt-1 text-xs text-amber-200">{exam.warnings[0]}</p> : null}
       </div>
-      <span className="inline-flex items-center gap-2 text-sm text-teal-300">{nextAction}<ArrowRight size={16} /></span>
+      <span className="af-container-action inline-flex items-center gap-2 text-sm text-teal-300">{nextAction}<ArrowRight size={16} /></span>
     </Link>
   );
 }

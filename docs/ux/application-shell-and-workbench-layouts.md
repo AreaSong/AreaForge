@@ -304,6 +304,10 @@ Shell 使用视口宽度决定公共导航形态，页面使用扣除公共导�
 - 页面异常、业务校验失败和保存成功是三种不同状态：路由异常由 error boundary 处理，业务反馈使用页内 `Alert`，按钮进行中状态保持原尺寸并禁止重复提交。
 - 任务、考纲、卡片、错题、资料与晚间复盘的编辑状态统一区分“与服务端一致 / 未提交且已保存在本机 / 正在保存到服务端 / 已保存到服务端 / 需要处理版本冲突”。本机草稿不是服务端成功，不能使用成功色或“已保存”短句混淆。
 - 上述编辑器存在本机草稿时，浏览器关闭或刷新使用原生离开提醒；站内离开后重新进入会恢复受 TTL 和用户/工作区范围约束的私密草稿。编辑器内显式关闭或放弃仍使用现有确认与清理流程。
+- 这些状态由共享 client 原语承接：`apps/web/lib/client/draft-store.ts` 只负责版本 envelope、TTL 和校验，`apps/web/lib/client/storage-port.ts` 隔离浏览器 storage，`apps/web/lib/client/api-errors.ts` 只负责识别 `401`、`409`、字段错误和服务端错误码；领域组件决定何时保存、恢复或清理，不复制 localStorage、sessionStorage 或状态码分支。
+- 多请求与批处理由 `apps/web/lib/client/operation-gates.ts` 提供 latest-wins 和同步互斥 identity；pending 仍由 React state 呈现。输入、路由 context、草稿 key 或批次变化后，旧响应不得覆盖新状态；上传和生成在请求开始时冻结提交快照，过期 `finally` 不能释放新批次。
+- 资料详情等带 revision 的草稿必须绑定保存时的 `baseRevision`；stale 或 legacy 无版本草稿先进入显式冲突，不能借用页面最新 revision 直接提交。AI 选区的唯一 identity 与完整来源 fingerprint 分离，同文不同元素及短哈希碰撞不能被错误合并。
+- 页面写操作统一通过 `apps/web/lib/api/*.ts` domain adapter；浏览器组件和 client adapter 不直接调用 `fetch`、不解析 `response.json()`，服务端 DTO 统一从 `apps/web/lib/contracts/**` 消费。窄屏切换 Drawer/详情路由时，保存状态、冲突基线和返回上下文不得因布局换型而丢失。
 - 核心编辑器共用底部操作区：每次只突出一个服务端提交动作，取消、关闭或放弃位于次级位置；移动端操作按钮纵向全宽排列，主动作保持第一视觉优先级。
 - 卡片、错题和资料进入编辑状态后，页头不再同时展示保存与归档。归档、恢复等生命周期动作只在非编辑状态出现；版本冲突存在时普通保存禁用，用户必须先采用服务端版本或保留本地输入并人工合并。
 - 操作区左侧只说明本次提交的原子边界或放弃后果；业务失败统一显示页内错误反馈，进行中按钮保持尺寸并禁止重复提交。

@@ -22,7 +22,7 @@ import {
   type PersistentCreateReplay,
 } from "./persistent-idempotency";
 import { createStageAdjustmentDraft, type CreateStageAdjustmentDraftInput } from "./stage-service";
-import type { StageAdjustmentDraftRecordDto } from "./types";
+import type { StageAdjustmentDraftRecordDto } from "@/lib/contracts";
 
 const defaultStageGoal = "2026 年 12 月同步全真自测";
 const stageGoalSummaryMaxLength = 120;

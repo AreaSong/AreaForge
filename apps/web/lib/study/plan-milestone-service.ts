@@ -1,8 +1,12 @@
 import { assertExpectedRevision } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  PlanMilestoneConflictLatest,
+  PlanMilestoneDto,
+} from "@/lib/contracts/planning";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
-import type { StagePlanDto } from "./types";
+import type { StagePlanDto } from "@/lib/contracts";
 import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
@@ -10,29 +14,12 @@ import {
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
 
+export type {
+  PlanMilestoneConflictLatest,
+  PlanMilestoneDto,
+} from "@/lib/contracts/planning";
+
 const milestoneWorkbench = "/roadmap/stages";
-
-export interface PlanMilestoneDto {
-  id: string;
-  workspaceId: string;
-  stagePlanId: string;
-  subjectId: string | null;
-  stableKey: string;
-  title: string;
-  targetDate: string | null;
-  sortOrder: number;
-  status: string;
-  revision: number;
-  archivedAt: string | null;
-}
-
-export interface PlanMilestoneConflictLatest {
-  kind: "plan-milestone";
-  milestone: PlanMilestoneDto | null;
-  stagePlan?: StagePlanDto | null;
-  commandState?: "conflict" | "result_unavailable";
-  sourceConflict?: unknown;
-}
 
 function serialize(row: {
   id: string;

@@ -30,6 +30,34 @@ pnpm ops:v11:ai-provider-preference:selftest
 pnpm check
 ```
 
+## 共享能力边界
+
+- UI 原语归口 `components/ui/**`；业务 TSX 不新增非豁免 raw `input/select/textarea/button`。
+- 浏览器请求归口 `lib/api/**`，共享 DTO 归口 `lib/contracts/**`；浏览器组件和 client adapter 不直接 `fetch` 或解析 `response.json()`。
+- 浏览器 storage 通过 `lib/client/storage-port.ts` / `draft-store.ts` 访问，`401/409` 通过 `lib/client/api-errors.ts` 识别；组件不直接访问 storage global 或显式比较这两个状态码。
+- latest-wins 请求和互斥批次统一使用 `lib/client/operation-gates.ts`；React state 负责 pending 呈现，操作门只负责拒绝迟到响应、重复启动和过期释放。
+- 带 revision 的本机草稿必须保存 `baseRevision`，stale/legacy 草稿不能直接提交；列表选择的唯一 identity 与去重 fingerprint 不得复用短哈希。
+- `lib/contracts/study.ts`、`lib/study/service.ts`、`lib/study/types.ts` 已移除，不得恢复为兼容门面或重新导入。
+- 非测试 TSX 文件不得超过 500 行；单函数超过 50 行只作为 observation/warning，不是硬门禁。
+
+专项治理验证：
+
+```bash
+pnpm web:shared-boundary
+pnpm web:api-parser-boundary
+pnpm web:ui-primitives-boundary
+pnpm web:client-boundary
+pnpm web:component-complexity
+pnpm web:shared-boundary:selftest
+pnpm web:api-parser-boundary:selftest
+pnpm web:ui-primitives-boundary:selftest
+pnpm web:client-boundary:selftest
+pnpm web:component-complexity:selftest
+pnpm web:governance:typecheck
+```
+
+机器清单与长期契约见 `docs/architecture/web-shared-capability-inventory.json`、`docs/ux/shared-ui-foundations.md` 和 `docs/development/validation-matrix.md`。
+
 ## 本地真实体验 Smoke
 
 仓库提供写入型本地 UX smoke，用于验证登录、任务、计时收口、每日复盘、笔记附件、错题、大纲、模拟考试、阶段草稿、版本中心请求和主要页面 SSR。它只允许打到 `localhost` / `127.0.0.1` / `[::1]`，任何非本地 URL 和 `AREAFORGE_SMOKE_ALLOW_NON_LOCAL` 配置都会直接失败；同时必须显式设置 `AREAFORGE_SMOKE_ALLOW_WRITES=true`，避免误跑到生产。脚本会在首个合成写入前检查不存在活跃计时，并要求 `AREAFORGE_SMOKE_PASSWORD_FILE` 是绝对路径、单一普通文件、仅 owner 可读（`0400`/`0600`）；不接受 `AREAFORGE_SMOKE_PASSWORD` 明文环境变量。
@@ -60,6 +88,7 @@ pnpm experience:review:validate <product-experience-review-record.md|txt>
 ## 运行边界
 
 - 页面和组件不直接调用 Prisma，数据库访问集中在 `packages/db` 和 Web service 层。
+- 页面和浏览器 client 通过 canonical contract、API adapter 与具体 domain service 协作，不依赖已删除的 study facade。
 - AI 只生成建议或草稿，不直接覆盖用户记录；普通首页 SSR 不触发真实 provider 外呼。八条显式 AI POST 路径还要求当前浏览器在 `/settings/ai` 明确开启偏好，缺失或畸形时默认使用本地规则；Provider key 只存在于服务端环境。
 - 附件不从 `public/` 暴露，下载必须走鉴权 API。
 - `/api/system/update-requests` 只写入受控请求；真正的更新由服务器侧 update-agent/updater 执行。

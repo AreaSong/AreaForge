@@ -1,4 +1,9 @@
 import { prisma } from "@areaforge/db";
+import {
+  confirmationDetailRoute,
+  knowledgeRetestDetailRoute,
+  simulationExamDetailRoute,
+} from "@/lib/navigation/route-helpers";
 import { getPeriodicReport } from "./reports-service";
 import { listSimulationExams } from "./simulation-service";
 import { listStageAdjustmentDrafts } from "./stage-service";
@@ -12,44 +17,18 @@ import {
   retestConfirmationStatus,
   simulationConfirmationActionReady,
 } from "./confirmation-rules";
+import type {
+  ConfirmationFilter,
+  ConfirmationItemDto,
+} from "@/lib/contracts/confirmation";
 
-export type ConfirmationFilter = "pending" | "history";
-export type ConfirmationKind = "periodic_report" | "stage_adjustment" | "simulation" | "knowledge_retest" | "ai_draft";
-export type ConfirmationStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "FROZEN";
-
-export type ConfirmationActionDto =
-  | {
-      kind: "periodic_report";
-      reportId: string;
-      reportKind: "week" | "month";
-      expectedRevision: number;
-      rangeStart: string;
-      rangeEnd: string;
-    }
-  | { kind: "stage_adjustment"; draftId: string; expectedRevision: number }
-  | { kind: "simulation"; examId: string; expectedRevision: number; ready: boolean }
-  | { kind: "knowledge_retest"; retestId: string; expectedRevision: number; ready: boolean }
-  | { kind: "ai_draft"; endpoint: string; operationId: string; canExecute: false };
-
-export interface ConfirmationItemDto {
-  id: string;
-  kind: ConfirmationKind;
-  sourceId: string;
-  revision: number;
-  status: ConfirmationStatus;
-  requiresUserConfirmation: boolean;
-  confirmedAt: string | null;
-  frozenAt: string | null;
-  title: string;
-  summary: string;
-  href: string;
-  sourceHref: string;
-  sourceLabel: string;
-  createdAt: string;
-  action: ConfirmationActionDto | null;
-  /** @deprecated Consumers should derive this from status/frozenAt. */
-  frozen: boolean;
-}
+export type {
+  ConfirmationActionDto,
+  ConfirmationFilter,
+  ConfirmationItemDto,
+  ConfirmationKind,
+  ConfirmationStatus,
+} from "@/lib/contracts/confirmation";
 
 export async function listConfirmationItems(actorId: string, filter: ConfirmationFilter): Promise<ConfirmationItemDto[]> {
   const workspace = await resolveActiveWorkspace(actorId);
@@ -119,7 +98,7 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       frozenAt,
       title: `${report.kind === "week" ? "周" : "月"}期报告：${report.weakness.title}`,
       summary: report.strategy.mustPressIssue,
-      href: confirmationHref(confirmationId),
+      href: confirmationDetailRoute(confirmationId),
       sourceHref: `/roadmap/reviews?period=${report.kind}`,
       sourceLabel: "周期报告",
       createdAt: report.range.end,
@@ -148,7 +127,7 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       frozenAt: decidedAt,
       title: "阶段调整建议",
       summary: draft.riskConclusion,
-      href: confirmationHref(draft.id),
+      href: confirmationDetailRoute(draft.id),
       sourceHref: "/roadmap/stages#pending-stage-draft",
       sourceLabel: draft.source === "ai" ? "AI 阶段建议" : "规则阶段建议",
       createdAt: draft.createdAt,
@@ -177,8 +156,8 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       frozenAt: exam.confirmedAt,
       title: `模拟考试：${exam.name}`,
       summary: exam.status === "CONFIRMED" ? exam.reviewText ?? "已确认的模拟考试记录。" : "完成评分、失分分析、个人反馈和复盘后再确认。",
-      href: confirmationHref(exam.id),
-      sourceHref: `/test/simulations/${exam.id}`,
+      href: confirmationDetailRoute(exam.id),
+      sourceHref: simulationExamDetailRoute(exam.id),
       sourceLabel: "模拟考试",
       createdAt: exam.updatedAt,
       action: exam.status !== "CONFIRMED"
@@ -212,8 +191,8 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
       frozenAt: decidedAt,
       title: `专项复测：${retest.title}`,
       summary: retest.status === "PENDING_REVIEW" ? "复测结果和个人复盘已写入，确认后才会更新知识点掌握状态。" : retest.summary ?? "专项复测记录。",
-      href: confirmationHref(retest.id),
-      sourceHref: `/test/retests/${retest.id}`,
+      href: confirmationDetailRoute(retest.id),
+      sourceHref: knowledgeRetestDetailRoute(retest.id),
       sourceLabel: "专项复测",
       createdAt: retest.testedAt ?? retest.scheduledAt ?? new Date().toISOString(),
       action: retest.status === "PENDING_REVIEW"
@@ -248,7 +227,7 @@ export async function listConfirmationItems(actorId: string, filter: Confirmatio
         : operation.consumedAt
           ? "草稿结果已采用，可回到原页面查看当时输入。"
           : "AI 只生成建议，不会直接修改记录；请回到原页面采用或放弃。",
-      href: confirmationHref(operation.operationId),
+      href: confirmationDetailRoute(operation.operationId),
       sourceHref: aiEndpointHref(operation.endpoint),
       sourceLabel: `AI 建议 · ${aiEndpointLabel(operation.endpoint)}`,
       createdAt: operation.createdAt.toISOString(),
@@ -275,10 +254,6 @@ export function getConfirmationSourceHref(item: ConfirmationItemDto): string {
 
 function confirmationItem(input: Omit<ConfirmationItemDto, "frozen">): ConfirmationItemDto {
   return { ...input, frozen: input.status === "FROZEN" || input.frozenAt !== null };
-}
-
-function confirmationHref(id: string): string {
-  return `/confirmations/${encodeURIComponent(id)}`;
 }
 
 function aiEndpointLabel(endpoint: string): string {

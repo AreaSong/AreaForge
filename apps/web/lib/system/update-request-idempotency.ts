@@ -1,3 +1,5 @@
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
+
 const UPDATE_REQUEST_IDEMPOTENCY_STORAGE_KEY = "areaforge.update-request.pending.v2";
 
 export interface UpdateRequestIdempotencyStorage {
@@ -155,12 +157,7 @@ export function acknowledgeUpdateRequestIdempotencyKey(
 }
 
 function browserSessionStorage(): UpdateRequestIdempotencyStorage | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
+  return getBrowserStoragePort("session");
 }
 
 function readPersistedIdempotency(

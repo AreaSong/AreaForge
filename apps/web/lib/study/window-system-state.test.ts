@@ -16,7 +16,7 @@ import {
   type WindowInstance,
   type WindowRegistryState,
   type WindowVersionStamp,
-} from "./window-system-state";
+} from "@/lib/client/window-system-state";
 
 function stamp(counter: number, actorId = "tab-a"): WindowVersionStamp {
   return { counter, actorId };

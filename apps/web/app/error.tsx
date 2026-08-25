@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { AlertTriangle, House, LifeBuoy, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -43,14 +44,14 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
         </p>
 
         <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <button
+          <Button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 text-sm font-medium text-[#071011] transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-300/70 focus:ring-offset-2 focus:ring-offset-[#101419]"
             type="button"
             onClick={reset}
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
             重试
-          </button>
+          </Button>
           <Link
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-4 text-sm text-zinc-100 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-teal-300/70 focus:ring-offset-2 focus:ring-offset-[#101419]"
             href="/focus"

@@ -1,11 +1,20 @@
 "use client";
 
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
 import { useEffect, useMemo, useState } from "react";
 import { Archive, ArrowDown, ArrowUp, Pencil, Power } from "lucide-react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
+import { Input, Select, Textarea } from "@/components/ui/field";
 import { Alert } from "@/components/ui/feedback";
 import { SectionHeader } from "@/components/ui/page";
+import {
+  archiveMotivationItem,
+  createMotivationItem,
+  reorderMotivationItems,
+  updateMotivationItem,
+} from "@/lib/api/motivation";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
@@ -17,19 +26,21 @@ import {
 import type {
   MotivationItemDto,
   MotivationVaultField,
-} from "@/lib/study/motivation-library-service";
-import type { MotivationVaultDto } from "@/lib/study/types";
-
-type MotivationType = MotivationItemDto["type"];
-
-interface MotivationLibraryDraft {
-  type: MotivationType;
-  title: string;
-  body: string;
-  externalUrl: string;
-  vaultField: MotivationVaultField | "";
-  tags: string;
-}
+} from "@/lib/contracts";
+import type { MotivationVaultDto } from "@/lib/contracts";
+import {
+  compareItems,
+  emptyDraft,
+  isEmptyDraft,
+  isHttpsUrl,
+  isMotivationItem,
+  isMotivationLibraryDraft,
+  motivationVaultOptions,
+  parseTags,
+  typeLabels,
+  type MotivationLibraryDraft,
+  type MotivationType,
+} from "@/components/motivation-library-support";
 
 interface MutationConflict {
   action: "patch" | "archive";
@@ -49,29 +60,6 @@ interface ReorderConflict {
   submittedIds: string[];
   latest: MotivationItemDto[];
 }
-
-const emptyDraft: MotivationLibraryDraft = {
-  type: "QUOTE",
-  title: "",
-  body: "",
-  externalUrl: "",
-  vaultField: "",
-  tags: "",
-};
-
-const typeLabels: Record<MotivationType, string> = {
-  QUOTE: "语录",
-  VIDEO_LINK: "HTTPS 视频链接",
-  VAULT_EXCERPT: "动机封存摘录",
-};
-
-const vaultFieldLabels: Record<MotivationVaultField, string> = {
-  whyStarted: "为什么开始",
-  neverReturnTo: "不想回去的状态",
-  futureSelf: "未来的自己",
-  messageToFuture: "给未来的话",
-  firstSimulationDiary: "首次模考日记",
-};
 
 export function MotivationLibraryClient(props: {
   userId: string;
@@ -134,16 +122,12 @@ export function MotivationLibraryClient(props: {
     const commandScope = `motivation-item:${props.userId}:create`;
     setCreating(true);
     try {
-      const response = await fetch("/api/motivation/items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...commandPayload,
-          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "motivation-item", commandPayload),
-        }),
+      const response = await createMotivationItem({
+        ...commandPayload,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "motivation-item", commandPayload),
       });
-      const payload = await readItemResponse(response);
-      if (response.status === 401) {
+      const payload = response.body ?? {};
+      if (isUnauthorized(response)) {
         redirectToLoginWithCurrentLocation();
         return;
       }
@@ -168,18 +152,14 @@ export function MotivationLibraryClient(props: {
     setMessage(null);
     setBusyItemId(item.id);
     try {
-      const response = await fetch(`/api/motivation/items/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedRevision: item.revision, ...changes }),
-      });
-      const payload = await readItemResponse(response);
-      if (response.status === 401) {
+      const response = await updateMotivationItem(item.id, { expectedRevision: item.revision, ...changes });
+      const payload = response.body ?? {};
+      if (isUnauthorized(response)) {
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok || !payload.item) {
-        if (response.status === 409 && isMotivationItem(payload.latest)) {
+        if (isConflict(response) && isMotivationItem(payload.latest)) {
           setConflict({
             action: "patch",
             baseline: item,
@@ -208,18 +188,14 @@ export function MotivationLibraryClient(props: {
     setMessage(null);
     setBusyItemId(item.id);
     try {
-      const response = await fetch(`/api/motivation/items/${item.id}/archive`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedRevision: item.revision }),
-      });
-      const payload = await readItemResponse(response);
-      if (response.status === 401) {
+      const response = await archiveMotivationItem(item.id, { expectedRevision: item.revision });
+      const payload = response.body ?? {};
+      if (isUnauthorized(response)) {
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok || !payload.item) {
-        if (response.status === 409 && isMotivationItem(payload.latest)) {
+        if (isConflict(response) && isMotivationItem(payload.latest)) {
           setConflict({
             action: "archive",
             baseline: item,
@@ -255,22 +231,16 @@ export function MotivationLibraryClient(props: {
     setMessage(null);
     setBusyItemId("reorder");
     try {
-      const response = await fetch("/api/motivation/items/reorder", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order: order.map((item) => ({ id: item.id, expectedRevision: item.revision })) }),
+      const response = await reorderMotivationItems({
+        order: order.map((item) => ({ id: item.id, expectedRevision: item.revision })),
       });
-      const payload = await response.json().catch(() => null) as {
-        items?: MotivationItemDto[];
-        latest?: MotivationItemDto[];
-        error?: string;
-      } | null;
-      if (response.status === 401) {
+      const payload = response.body;
+      if (isUnauthorized(response)) {
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok || !payload?.items) {
-        if (response.status === 409 && Array.isArray(payload?.latest)) {
+        if (isConflict(response) && Array.isArray(payload?.latest)) {
           setReorderConflict({ submittedIds, latest: payload.latest.filter(isMotivationItem) });
           return;
         }
@@ -328,37 +298,37 @@ export function MotivationLibraryClient(props: {
           description="管理可在提醒和关键节点展示的语录、HTTPS 视频链接或你明确选择的封存摘录。"
           meta={<span className="text-xs text-zinc-500">{activeItems.length} 条启用内容</span>}
         />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="af-content-grid-two grid gap-3">
           <label className="space-y-1 text-sm">
             <span className="text-zinc-400">内容类型</span>
-            <select className="h-10 w-full rounded-md border border-white/10 bg-[#0d1117] px-3" value={draft.type} onChange={(event) => setDraft((current) => ({ ...current, type: event.target.value as MotivationType }))}>
+            <Select className="h-10 w-full rounded-md border border-white/10 bg-[#0d1117] px-3" value={draft.type} onChange={(event) => setDraft((current) => ({ ...current, type: event.target.value as MotivationType }))}>
               {Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
+            </Select>
           </label>
           <TextInput label="标题" value={draft.title} onChange={(title) => setDraft((current) => ({ ...current, title }))} />
           {draft.type === "QUOTE" ? <TextArea label="语录正文" value={draft.body} onChange={(body) => setDraft((current) => ({ ...current, body }))} /> : null}
           {draft.type === "VIDEO_LINK" ? <TextInput label="HTTPS 链接" value={draft.externalUrl} onChange={(externalUrl) => setDraft((current) => ({ ...current, externalUrl }))} /> : null}
           {draft.type === "VAULT_EXCERPT" ? (
-            <label className="space-y-1 text-sm sm:col-span-2">
+            <label className="af-content-span-all space-y-1 text-sm">
               <span className="text-zinc-400">显式选择封存内容</span>
-              <select className="h-10 w-full rounded-md border border-white/10 bg-[#0d1117] px-3" value={draft.vaultField} onChange={(event) => setDraft((current) => ({ ...current, vaultField: event.target.value as MotivationVaultField | "" }))}>
+              <Select className="h-10 w-full rounded-md border border-white/10 bg-[#0d1117] px-3" value={draft.vaultField} onChange={(event) => setDraft((current) => ({ ...current, vaultField: event.target.value as MotivationVaultField | "" }))}>
                 <option value="">请选择非空字段</option>
                 {vaultOptions.map((entry) => <option key={entry.field} value={entry.field}>{entry.label}</option>)}
-              </select>
+              </Select>
             </label>
           ) : null}
           <TextInput label="标签（逗号分隔）" value={draft.tags} onChange={(tags) => setDraft((current) => ({ ...current, tags }))} />
         </div>
         {error ? <Alert tone="danger">{error}</Alert> : null}
         {message ? <Alert tone="success">{message}</Alert> : null}
-        <Button type="button" disabled={creating || !canCreate} variant="primary" loading={creating} loadingLabel="正在添加" onClick={() => void createItem()}>
+        <Button className="af-container-action" type="button" disabled={creating || !canCreate} variant="primary" loading={creating} loadingLabel="正在添加" onClick={() => void createItem()}>
           添加内容
         </Button>
 
         {retryMutation ? (
           <div className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-50">
             <p>已加载服务端最新基线并保留本地操作，不会自动重放。</p>
-            <button type="button" className="mt-2 h-9 rounded-md bg-amber-200 px-3 text-black" onClick={() => retryMutation.action === "archive" ? void archiveItem(retryMutation.item) : void patchItem(retryMutation.item, retryMutation.changes)}>再次提交</button>
+            <Button type="button" variant="primary" size="sm" className="mt-2 h-9 rounded-md bg-amber-200 px-3 text-black" onClick={() => retryMutation.action === "archive" ? void archiveItem(retryMutation.item) : void patchItem(retryMutation.item, retryMutation.changes)}>再次提交</Button>
           </div>
         ) : null}
 
@@ -366,8 +336,8 @@ export function MotivationLibraryClient(props: {
           <div className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-50">
             <p>内容顺序已在其他页面变化。请选择服务端顺序，或按本地顺序重新基于最新版本提交。</p>
             <div className="mt-2 flex gap-2">
-              <button type="button" className="h-9 rounded-md border border-white/10 px-3" onClick={() => { setItems((current) => [...reorderConflict.latest, ...current.filter((item) => item.archivedAt)]); setReorderConflict(null); }}>采用服务端</button>
-              <button type="button" className="h-9 rounded-md bg-amber-200 px-3 text-black" onClick={() => { const desired = reorderConflict.submittedIds.map((id) => reorderConflict.latest.find((item) => item.id === id)).filter(isMotivationItem); void submitOrder(desired, reorderConflict.submittedIds); }}>重新提交本地顺序</button>
+              <Button type="button" variant="secondary" size="sm" className="h-9 rounded-md border border-white/10 px-3" onClick={() => { setItems((current) => [...reorderConflict.latest, ...current.filter((item) => item.archivedAt)]); setReorderConflict(null); }}>采用服务端</Button>
+              <Button type="button" variant="primary" size="sm" className="h-9 rounded-md bg-amber-200 px-3 text-black" onClick={() => { const desired = reorderConflict.submittedIds.map((id) => reorderConflict.latest.find((item) => item.id === id)).filter(isMotivationItem); void submitOrder(desired, reorderConflict.submittedIds); }}>重新提交本地顺序</Button>
             </div>
           </div>
         ) : null}
@@ -447,17 +417,17 @@ function ItemList(props: {
                 {item.type === "QUOTE" ? <TextArea label="正文" value={props.editDraft.body} onChange={(body) => props.onEditDraft({ ...props.editDraft, body })} /> : null}
                 {item.type === "VIDEO_LINK" ? <TextInput label="HTTPS 链接" value={props.editDraft.externalUrl} onChange={(externalUrl) => props.onEditDraft({ ...props.editDraft, externalUrl })} /> : null}
                 <TextInput label="标签（逗号分隔）" value={props.editDraft.tags} onChange={(tags) => props.onEditDraft({ ...props.editDraft, tags })} />
-                <div className="flex gap-2"><button type="button" className="h-9 rounded-md bg-teal-500 px-3 text-sm text-black" disabled={props.busyItemId !== null} onClick={() => props.onSaveEdit(item)}>保存</button><button type="button" className="h-9 rounded-md border border-white/10 px-3 text-sm" onClick={props.onCancelEdit}>取消</button></div>
+                <div className="flex gap-2"><Button type="button" variant="primary" size="sm" className="h-9 rounded-md bg-teal-500 px-3 text-sm text-black" disabled={props.busyItemId !== null} onClick={() => props.onSaveEdit(item)}>保存</Button><Button type="button" variant="secondary" size="sm" className="h-9 rounded-md border border-white/10 px-3 text-sm" onClick={props.onCancelEdit}>取消</Button></div>
               </div>
             ) : (
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="af-action-grid grid min-w-0 gap-3">
                 <div className="min-w-0"><ReadOnlyContent item={item} /></div>
-                <div className="flex flex-wrap gap-1 sm:shrink-0 sm:justify-end">
-                  <IconButton label="上移" disabled={index === 0 || props.busyItemId !== null} onClick={() => props.onMove(index, -1)}><ArrowUp size={16} /></IconButton>
-                  <IconButton label="下移" disabled={index === props.items.length - 1 || props.busyItemId !== null} onClick={() => props.onMove(index, 1)}><ArrowDown size={16} /></IconButton>
-                  <IconButton label="编辑" disabled={props.busyItemId !== null} onClick={() => props.onBeginEdit(item)}><Pencil size={16} /></IconButton>
-                  <IconButton label={item.enabled ? "停用" : "启用"} disabled={props.busyItemId !== null} onClick={() => props.onToggle(item)}><Power size={16} /></IconButton>
-                  <IconButton label="归档" disabled={props.busyItemId !== null} onClick={() => props.onArchive(item)}><Archive size={16} /></IconButton>
+                <div className="flex shrink-0 flex-wrap gap-1 justify-end">
+                  <IconButton label="上移" type="button" size="sm" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-40" disabled={index === 0 || props.busyItemId !== null} onClick={() => props.onMove(index, -1)}><ArrowUp size={16} /></IconButton>
+                  <IconButton label="下移" type="button" size="sm" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-40" disabled={index === props.items.length - 1 || props.busyItemId !== null} onClick={() => props.onMove(index, 1)}><ArrowDown size={16} /></IconButton>
+                  <IconButton label="编辑" type="button" size="sm" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-40" disabled={props.busyItemId !== null} onClick={() => props.onBeginEdit(item)}><Pencil size={16} /></IconButton>
+                  <IconButton label={item.enabled ? "停用" : "启用"} type="button" size="sm" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-40" disabled={props.busyItemId !== null} onClick={() => props.onToggle(item)}><Power size={16} /></IconButton>
+                  <IconButton label="归档" type="button" size="sm" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-40" disabled={props.busyItemId !== null} onClick={() => props.onArchive(item)}><Archive size={16} /></IconButton>
                 </div>
               </div>
             )}
@@ -477,56 +447,10 @@ function ReadOnlyContent({ item }: { item: MotivationItemDto }) {
   return <><p className="break-words text-sm font-medium text-white">{item.title}</p><p className="mt-1 text-xs text-zinc-500">{typeLabels[item.type]} · {item.enabled ? "启用" : "停用"}</p>{item.body ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-300">{item.body}</p> : null}{item.externalUrl ? <a className="mt-2 block break-all text-sm text-teal-300 hover:underline" href={item.externalUrl} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">打开 HTTPS 视频链接</a> : null}{item.tags.length ? <p className="mt-2 text-xs text-zinc-500">{item.tags.join(" · ")}</p> : null}</>;
 }
 
-function IconButton(props: { label: string; disabled: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" aria-label={props.label} title={props.label} disabled={props.disabled} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-40" onClick={props.onClick}>{props.children}</button>;
-}
-
 function TextInput(props: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="space-y-1 text-sm"><span className="text-zinc-400">{props.label}</span><input className="h-10 w-full rounded-md border border-white/10 bg-transparent px-3 text-white" value={props.value} onChange={(event) => props.onChange(event.target.value)} /></label>;
+  return <label className="space-y-1 text-sm"><span className="text-zinc-400">{props.label}</span><Input className="h-10 w-full rounded-md border border-white/10 bg-transparent px-3 text-white" value={props.value} onChange={(event) => props.onChange(event.target.value)} /></label>;
 }
 
 function TextArea(props: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="space-y-1 text-sm sm:col-span-2"><span className="text-zinc-400">{props.label}</span><textarea className="min-h-24 w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-white" value={props.value} onChange={(event) => props.onChange(event.target.value)} /></label>;
-}
-
-async function readItemResponse(response: Response): Promise<{ item?: MotivationItemDto; latest?: MotivationItemDto; conflictFields?: string[]; error?: string }> {
-  return await response.json().catch(() => ({})) as { item?: MotivationItemDto; latest?: MotivationItemDto; conflictFields?: string[]; error?: string };
-}
-
-function motivationVaultOptions(vault: MotivationVaultDto | null): Array<{ field: MotivationVaultField; label: string; text: string }> {
-  if (!vault) return [];
-  return (Object.keys(vaultFieldLabels) as MotivationVaultField[]).flatMap((field) => {
-    const text = vault[field]?.trim();
-    return text ? [{ field, label: vaultFieldLabels[field], text }] : [];
-  });
-}
-
-function parseTags(value: string): string[] {
-  return [...new Set(value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean))].slice(0, 12);
-}
-
-function compareItems(left: MotivationItemDto, right: MotivationItemDto): number {
-  return left.sortOrder - right.sortOrder || right.updatedAt.localeCompare(left.updatedAt);
-}
-
-function isHttpsUrl(value: string): boolean {
-  try { return new URL(value).protocol === "https:"; } catch { return false; }
-}
-
-function isEmptyDraft(draft: MotivationLibraryDraft): boolean {
-  return !draft.title && !draft.body && !draft.externalUrl && !draft.vaultField && !draft.tags && draft.type === "QUOTE";
-}
-
-function isMotivationLibraryDraft(value: unknown): value is MotivationLibraryDraft {
-  if (!value || typeof value !== "object") return false;
-  const draft = value as Partial<MotivationLibraryDraft>;
-  return ["QUOTE", "VIDEO_LINK", "VAULT_EXCERPT"].includes(draft.type ?? "")
-    && [draft.title, draft.body, draft.externalUrl, draft.tags].every((entry) => typeof entry === "string")
-    && (draft.vaultField === "" || Object.hasOwn(vaultFieldLabels, draft.vaultField ?? ""));
-}
-
-function isMotivationItem(value: unknown): value is MotivationItemDto {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<MotivationItemDto>;
-  return typeof item.id === "string" && typeof item.title === "string" && Number.isInteger(item.revision);
+  return <label className="af-content-span-all space-y-1 text-sm"><span className="text-zinc-400">{props.label}</span><Textarea controlHeight="md" className="min-h-24 w-full rounded-md border border-white/10 bg-transparent px-3 py-2 text-white" value={props.value} onChange={(event) => props.onChange(event.target.value)} /></label>;
 }

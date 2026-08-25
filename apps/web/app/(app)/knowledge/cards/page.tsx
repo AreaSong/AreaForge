@@ -6,7 +6,7 @@ import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listNotes } from "@/lib/study/notes-service";
-import { listStudyTasks, listSubjects } from "@/lib/study/service";
+import { listStudyTasks, listSubjects } from "@/lib/study/study-query-service";
 import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";

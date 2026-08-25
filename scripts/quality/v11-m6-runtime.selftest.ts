@@ -44,11 +44,11 @@ import { getReviewTarget } from "../../apps/web/lib/study/review-target-service"
 import {
   completeStudyTask,
   createStudyTask,
-  endStudySession,
   splitStudyTask,
-  startStudySession,
   updateStudyTask,
-} from "../../apps/web/lib/study/service";
+} from "../../apps/web/lib/study/task-command-service";
+import { endStudySession } from "../../apps/web/lib/study/session-command-service";
+import { startStudySession } from "../../apps/web/lib/study/session-lifecycle-service";
 import { getTaskUpdateSnapshot } from "../../apps/web/lib/study/task-detail-service";
 import { getStudyDayRange } from "../../apps/web/lib/study/date";
 

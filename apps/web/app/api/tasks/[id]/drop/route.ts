@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { apiErrorResponse } from "@/lib/api/responses";
-import { dropStudyTask } from "@/lib/study/service";
+import { dropStudyTask } from "@/lib/study/task-command-service";
 
 export const dynamic = "force-dynamic";
 

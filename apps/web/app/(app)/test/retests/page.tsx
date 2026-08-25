@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
+import { formatDateMonthDayPadded } from "@/lib/formatters";
 import { getRouteMetadata, withReturnTo } from "@/lib/navigation/app-navigation";
 import { listKnowledgeRetests } from "@/lib/study/knowledge-retest-service";
 
@@ -34,13 +35,13 @@ export default async function KnowledgeRetestsPage() {
 
 function RetestRow({ item }: { item: Awaited<ReturnType<typeof listKnowledgeRetests>>[number] }) {
   return (
-    <Link href={withReturnTo(`/test/retests/${item.id}`, "/test/retests")} className="group grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <Link href={withReturnTo(`/test/retests/${item.id}`, "/test/retests")} className="af-action-grid group grid gap-3 py-4">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2"><span className="font-medium text-white group-hover:text-teal-200">{item.title}</span><Badge tone={item.result === "PASSED" ? "success" : item.status === "CLOSED" ? "neutral" : "warning"}>{retestStatusLabel(item.status, item.result)}</Badge></div>
-        <p className="mt-1 text-sm text-zinc-400">{item.method} · {item.pointCount} 个知识点{item.nextDueAt ? ` · 下次 ${formatDate(item.nextDueAt)}` : ""}</p>
-        {item.pointTitles.length ? <p className="mt-1 truncate text-xs text-zinc-500">{item.pointTitles.join("、")}</p> : null}
+        <p className="mt-1 text-sm text-zinc-400">{item.method} · {item.pointCount} 个知识点{item.nextDueAt ? ` · 下次 ${formatDateMonthDayPadded(item.nextDueAt)}` : ""}</p>
+        {item.pointTitles.length ? <p className="mt-1 break-words text-xs leading-5 text-zinc-500">{item.pointTitles.join("、")}</p> : null}
       </div>
-      <span className="inline-flex items-center gap-2 text-sm text-teal-300">打开复测<ArrowRight size={16} aria-hidden="true" /></span>
+      <span className="af-container-action inline-flex items-center gap-2 text-sm text-teal-300">打开复测<ArrowRight size={16} aria-hidden="true" /></span>
     </Link>
   );
 }
@@ -50,8 +51,4 @@ function retestStatusLabel(status: string, result: string | null): string {
   if (status === "PENDING_REVIEW") return "待复盘";
   if (status === "IN_PROGRESS") return "进行中";
   return "待开始";
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", timeZone: "Asia/Shanghai" }).format(new Date(value));
 }

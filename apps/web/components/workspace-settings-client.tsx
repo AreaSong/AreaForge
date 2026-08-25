@@ -1,5 +1,9 @@
 "use client";
 
+import { Checkbox, Textarea, Input } from "@/components/ui/field";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+import { mutationFeedback } from "@/lib/client/mutation-feedback";
+
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
@@ -19,12 +23,22 @@ import type {
   SubjectGroupDto,
   TakeoverPreviewDto,
   WorkspaceSubjectDto,
-} from "@/lib/study/exam-workspace-service";
+} from "@/lib/contracts";
 import {
   buildFirstUseSubjects,
   canUseTakeoverPreview,
   workspaceSetupErrorMessage,
-} from "@/lib/study/workspace-first-use";
+} from "@/lib/workspace/first-use";
+import {
+  activateExamWorkspace,
+  createExamWorkspace,
+  updateExamWorkspace,
+} from "@/lib/api/workspace";
+import {
+  isoToShanghaiDateInput,
+  isShanghaiDateInputError,
+  shanghaiDateInputToIso,
+} from "@/lib/formatters";
 
 export function WorkspaceSettingsClient(props: {
   userId: string;
@@ -53,7 +67,9 @@ export function WorkspaceSettingsClient(props: {
   const [subjectKey, setSubjectKey] = useState("advanced-math");
   const [include408, setInclude408] = useState(true);
   const [editName, setEditName] = useState(activeWorkspace?.name ?? "");
-  const [editTargetDate, setEditTargetDate] = useState(activeWorkspace?.targetExamDate?.slice(0, 10) ?? "");
+  const [editTargetDate, setEditTargetDate] = useState(
+    activeWorkspace?.targetExamDate ? isoToShanghaiDateInput(activeWorkspace.targetExamDate) : "",
+  );
   const [editStageSummary, setEditStageSummary] = useState(activeWorkspace?.stageSummary ?? "");
   const [workspaceDraftBaseRevision, setWorkspaceDraftBaseRevision] = useState(activeWorkspace?.revision ?? 1);
   const [workspaceDraftSourceKey, setWorkspaceDraftSourceKey] = useState<string | null>(null);
@@ -157,35 +173,30 @@ export function WorkspaceSettingsClient(props: {
         include408,
         takeoverSubjects: takeover ? props.takeover?.eligibleSubjects ?? [] : [],
       });
-      const createResponse = await fetch("/api/exam-workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stableKey,
-          name,
-          targetExamDate: targetExamDate ? new Date(`${targetExamDate}T00:00:00+08:00`).toISOString() : null,
-          activate: true,
-          subjects: subjects.length > 0 ? subjects : undefined,
-          takeoverSubjectIds: takeover ? props.takeover?.eligibleSubjectIds ?? [] : [],
-        }),
+      const createResult = await createExamWorkspace({
+        stableKey,
+        name,
+        targetExamDate: targetExamDate ? shanghaiDateInputToIso(targetExamDate) : null,
+        activate: true,
+        subjects: subjects.length > 0 ? subjects : undefined,
+        takeoverSubjectIds: takeover ? props.takeover?.eligibleSubjectIds ?? [] : [],
       });
-      const createBody = (await createResponse.json().catch(() => null)) as
-        | { workspace?: ExamWorkspaceDto; error?: string }
-        | null;
-      if (createResponse.status === 401) {
+      if (isUnauthorized(createResult)) {
         setError("登录已过期，首次设置草稿已保留。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
       }
-      if (!createResponse.ok || !createBody?.workspace) {
-        setError(workspaceSetupErrorMessage(createBody?.error));
+      if (!createResult.ok || !createResult.body?.workspace) {
+        setError(workspaceSetupErrorMessage(createResult.body?.error));
         return;
       }
       removePrivateBusinessDraft(setupDraftKey);
       router.replace("/today");
       router.refresh();
-    } catch {
-      setError("网络不可用，设置尚未保存，请恢复网络后重试");
+    } catch (caught) {
+      setError(isShanghaiDateInputError(caught)
+        ? "目标考试日期无效，请重新选择。"
+        : "网络不可用，设置尚未保存，请恢复网络后重试");
     } finally {
       setPending(false);
     }
@@ -195,27 +206,23 @@ export function WorkspaceSettingsClient(props: {
     if (!activeWorkspace || pending) return;
     setPending(true); setError(null); setWorkspaceMergeNotice(null);
     try {
-      const response = await fetch(`/api/exam-workspaces/${activeWorkspace.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expectedRevision: workspaceDraftBaseRevision,
-          name: editName,
-          targetExamDate: editTargetDate ? new Date(`${editTargetDate}T00:00:00+08:00`).toISOString() : null,
-          stageSummary: editStageSummary || null,
-        }),
+      const result = await updateExamWorkspace(activeWorkspace.id, {
+        expectedRevision: workspaceDraftBaseRevision,
+        name: editName,
+        targetExamDate: editTargetDate ? shanghaiDateInputToIso(editTargetDate) : null,
+        stageSummary: editStageSummary || null,
       });
-      if (response.status === 401) return redirectToLoginWithCurrentLocation();
-      const body = await response.json().catch(() => null) as WorkspaceUpdateResponse | null;
-      if (!response.ok) {
-        if (response.status === 409 && isExamWorkspaceDto(body?.latest)) {
-          setWorkspaceConflict({ latest: body.latest, conflictFields: body.conflictFields ?? ["revision"] });
+      if (isUnauthorized(result)) return redirectToLoginWithCurrentLocation();
+      if (!result.ok) {
+        if (isConflict(result) && isExamWorkspaceDto(result.body?.latest)) {
+          setWorkspaceConflict({ latest: result.body.latest, conflictFields: result.body.conflictFields ?? ["revision"] });
           setError("工作区已在其他页面更新；本地草稿仍保留，请比较后选择如何合并。");
         } else {
-          setError(body?.error ?? "工作区保存失败，本地输入仍保留");
+          setError(mutationFeedback(result, "工作区保存失败，本地输入仍保留").message);
         }
         return;
       }
-      const saved = isExamWorkspaceDto(body?.workspace) ? body.workspace : null;
+      const saved = isExamWorkspaceDto(result.body?.workspace) ? result.body.workspace : null;
       const baseline: WorkspaceEditDraft = {
         name: editName,
         targetExamDate: editTargetDate,
@@ -228,8 +235,10 @@ export function WorkspaceSettingsClient(props: {
       if (workspaceEditDraftKey) removePrivateBusinessDraft(workspaceEditDraftKey);
       setWorkspaceMergeNotice("工作区目标已保存。");
       router.refresh();
-    } catch {
-      setError("网络不可用，工作区输入仍保留；恢复网络后请显式重试。");
+    } catch (caught) {
+      setError(isShanghaiDateInputError(caught)
+        ? "目标考试日期无效，请重新选择；当前输入仍保留。"
+        : "网络不可用，工作区输入仍保留；恢复网络后请显式重试。");
     } finally {
       setPending(false);
     }
@@ -268,14 +277,10 @@ export function WorkspaceSettingsClient(props: {
   async function runActivateWorkspace(workspace: ExamWorkspaceDto) {
     setPending(true); setError(null);
     try {
-      const response = await fetch(`/api/exam-workspaces/${workspace.id}/activate`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedRevision: workspace.revision }),
-      });
-      if (response.status === 401) return redirectToLoginWithCurrentLocation();
-      if (!response.ok) {
-        const body = await response.json().catch(() => null) as { error?: string } | null;
-        setError(body?.error ?? "切换工作区失败"); return;
+      const result = await activateExamWorkspace(workspace.id, workspace.revision);
+      if (isUnauthorized(result)) return redirectToLoginWithCurrentLocation();
+      if (!result.ok) {
+        setError(mutationFeedback(result, "切换工作区失败").message); return;
       }
       router.replace("/today"); router.refresh();
     } catch {
@@ -296,7 +301,7 @@ export function WorkspaceSettingsClient(props: {
 
       {props.setupMode || !props.activeId ? (
         <>
-          <ol className="grid border-y border-white/10 sm:grid-cols-2" aria-label="工作区设置进度">
+          <ol className="af-divided-grid-two grid border-y border-white/10" aria-label="工作区设置进度">
             <SetupStep number={1} title="考试目标与科目" description="确定工作区和首批科目" active={step === "goal"} complete={step === "takeover"} />
             <SetupStep number={2} title="已有数据处理" description="确认沿用或全新开始" active={step === "takeover"} complete={false} />
           </ol>
@@ -307,32 +312,32 @@ export function WorkspaceSettingsClient(props: {
       {props.setupMode && step === "goal" ? (
         <section className="space-y-4 border-b border-white/10 pb-5">
           <SectionHeader title="考试目标与首批科目" description="这些信息决定后续任务、知识和复盘的数据归属。公共课、408 和专业课都在这里管理。" />
-          <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm sm:col-span-2">
+          <div className="af-content-grid-two grid gap-4">
+          <label className="af-content-span-all block text-sm">
             <span className="text-zinc-400">工作区名称</span>
-            <input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           <label className="block text-sm">
             <span className="text-zinc-400">目标考试日</span>
-            <input type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={targetExamDate} onChange={(e) => setTargetExamDate(e.target.value)} />
+            <Input type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={targetExamDate} onChange={(e) => setTargetExamDate(e.target.value)} />
           </label>
           <label className="block text-sm">
             <span className="text-zinc-400">首个科目</span>
-            <input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={subjectName} onChange={(e) => setSubjectName(e.target.value)} />
+            <Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={subjectName} onChange={(e) => setSubjectName(e.target.value)} />
           </label>
           </div>
           <label className="flex items-start gap-3 border-y border-white/10 px-1 py-3 text-sm text-zinc-300">
-            <input type="checkbox" className="mt-1" checked={include408} onChange={(event) => setInclude408(event.target.checked)} />
+            <Checkbox className="mt-1" checked={include408} onChange={(event) => setInclude408(event.target.checked)} />
             <span><span className="block text-white">同时创建 408 四科</span><span className="mt-1 block text-xs text-zinc-500">数据结构、计算机组成原理、操作系统和计算机网络会自动归入 408 分组。</span></span>
           </label>
           <details className="text-sm text-zinc-500">
             <summary className="cursor-pointer">高级选项</summary>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <label>工作区内部标识<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-zinc-300" value={stableKey} onChange={(event) => setStableKey(event.target.value)} /></label>
-              <label>首个科目内部标识<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-zinc-300" value={subjectKey} onChange={(event) => setSubjectKey(event.target.value)} /></label>
+            <div className="af-content-grid-two mt-2 grid gap-3">
+              <label>工作区内部标识<Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-zinc-300" value={stableKey} onChange={(event) => setStableKey(event.target.value)} /></label>
+              <label>首个科目内部标识<Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-zinc-300" value={subjectKey} onChange={(event) => setSubjectKey(event.target.value)} /></label>
             </div>
           </details>
-          <div className="flex flex-wrap gap-2">
+          <div className="af-action-cluster">
             <Button type="button" variant="primary" size="lg" onClick={() => setStep("takeover")}>下一步：检查已有数据</Button>
             <ButtonLink href="/today" variant="ghost" size="lg">取消</ButtonLink>
           </div>
@@ -353,7 +358,7 @@ export function WorkspaceSettingsClient(props: {
               旧数据预览暂时不可用。刷新后再沿用，或明确选择新建工作区且不移动旧数据。
             </p>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="af-action-cluster">
             <Button type="button" variant="primary" size="lg" loading={pending} loadingLabel="创建中..." disabled={!canUseTakeoverPreview(props.takeover)} onClick={() => void completeFirstUseSetup(true)}>沿用已有数据并完成</Button>
             <Button type="button" variant="secondary" size="lg" disabled={pending} onClick={() => void completeFirstUseSetup(false)}>全新建立，不沿用</Button>
             <Button type="button" variant="ghost" size="lg" disabled={pending} onClick={() => setStep("goal")}>返回修改</Button>
@@ -365,23 +370,23 @@ export function WorkspaceSettingsClient(props: {
       {activeWorkspace && !props.setupMode ? (
         <section className="space-y-4 border-b border-white/10 pb-5">
           <SectionHeader title="当前考试目标" description="调整名称、目标日期和当前阶段摘要。" />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm text-zinc-400">名称<input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-white" value={editName} onChange={(event) => setEditName(event.target.value)} /></label>
-            <label className="text-sm text-zinc-400">目标考试日<input type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-white" value={editTargetDate} onChange={(event) => setEditTargetDate(event.target.value)} /></label>
+          <div className="af-content-grid-two grid gap-3">
+            <label className="text-sm text-zinc-400">名称<Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-white" value={editName} onChange={(event) => setEditName(event.target.value)} /></label>
+            <label className="text-sm text-zinc-400">目标考试日<Input type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-white" value={editTargetDate} onChange={(event) => setEditTargetDate(event.target.value)} /></label>
           </div>
-          <label className="block text-sm text-zinc-400">阶段摘要<textarea className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] p-2 text-white" value={editStageSummary} onChange={(event) => setEditStageSummary(event.target.value)} /></label>
+          <label className="block text-sm text-zinc-400">阶段摘要<Textarea className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] p-2 text-white" value={editStageSummary} onChange={(event) => setEditStageSummary(event.target.value)} /></label>
           <Button type="button" variant="primary" loading={pending} loadingLabel="保存中..." onClick={() => void saveWorkspace()}>保存考试目标</Button>
           {workspaceConflict ? (
             <div className="space-y-2 border-l-2 border-amber-300 pl-3 text-sm text-amber-100" role="status">
               <p>服务端最新版本为 r{workspaceConflict.latest.revision}；冲突字段：{workspaceConflict.conflictFields.join("、")}。</p>
               <dl className="grid gap-1 text-xs text-zinc-300">
                 <div><dt className="inline text-zinc-500">服务端名称：</dt><dd className="inline">{workspaceConflict.latest.name}</dd></div>
-                <div><dt className="inline text-zinc-500">服务端目标日：</dt><dd className="inline">{workspaceConflict.latest.targetExamDate?.slice(0, 10) ?? "未设置"}</dd></div>
+                <div><dt className="inline text-zinc-500">服务端目标日：</dt><dd className="inline">{workspaceConflict.latest.targetExamDate ? isoToShanghaiDateInput(workspaceConflict.latest.targetExamDate) : "未设置"}</dd></div>
                 <div><dt className="inline text-zinc-500">服务端阶段摘要：</dt><dd className="inline">{workspaceConflict.latest.stageSummary || "未设置"}</dd></div>
               </dl>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className="h-9 rounded-md border border-white/10 px-3 text-xs" onClick={adoptLatestWorkspace}>采用服务端最新状态</button>
-                <button type="button" className="h-9 rounded-md border border-amber-300/50 px-3 text-xs" onClick={keepLocalWorkspaceDraft}>保留本地输入并重新确认</button>
+                <Button type="button" className="h-9 rounded-md border border-white/10 px-3 text-xs" onClick={adoptLatestWorkspace}>采用服务端最新状态</Button>
+                <Button type="button" className="h-9 rounded-md border border-amber-300/50 px-3 text-xs" onClick={keepLocalWorkspaceDraft}>保留本地输入并重新确认</Button>
               </div>
             </div>
           ) : null}
@@ -403,8 +408,8 @@ export function WorkspaceSettingsClient(props: {
         <SectionHeader title="其他工作区" description="切换后会返回今日行动中心；已有活动保护仍然生效。" meta={<Badge>{props.workspaces.length} 个</Badge>} />
         <ul className="mt-2 space-y-1 text-zinc-400">
           {props.workspaces.map((workspace) => (
-            <li key={workspace.id} className="flex items-center justify-between gap-3 rounded-md border border-white/10 p-2">
-              <span>{workspace.name}{workspace.id === props.activeId ? " · 当前使用" : workspace.status === "ARCHIVED" ? " · 已归档" : ""}</span>
+            <li key={workspace.id} className="af-action-grid grid gap-3 rounded-md border border-white/10 p-2">
+              <span className="min-w-0 break-words">{workspace.name}{workspace.id === props.activeId ? " · 当前使用" : workspace.status === "ARCHIVED" ? " · 已归档" : ""}</span>
               {workspace.id !== props.activeId ? <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => void activateWorkspace(workspace)}>设为当前</Button> : <Badge tone="success">当前使用</Badge>}
             </li>
           ))}
@@ -447,13 +452,6 @@ interface WorkspaceConflict {
   conflictFields: string[];
 }
 
-interface WorkspaceUpdateResponse {
-  workspace?: unknown;
-  latest?: unknown;
-  conflictFields?: string[];
-  error?: string;
-}
-
 function isWorkspaceSetupDraft(value: unknown): value is WorkspaceSetupDraft {
   if (!value || typeof value !== "object") return false;
   const draft = value as Partial<WorkspaceSetupDraft>;
@@ -469,7 +467,7 @@ function isWorkspaceSetupDraft(value: unknown): value is WorkspaceSetupDraft {
 function toWorkspaceEditDraft(workspace: ExamWorkspaceDto): WorkspaceEditDraft {
   return {
     name: workspace.name,
-    targetExamDate: workspace.targetExamDate?.slice(0, 10) ?? "",
+    targetExamDate: workspace.targetExamDate ? isoToShanghaiDateInput(workspace.targetExamDate) : "",
     stageSummary: workspace.stageSummary ?? "",
     baseRevision: workspace.revision,
   };

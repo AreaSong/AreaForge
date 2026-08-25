@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -12,9 +12,9 @@ const variantClass: Record<ButtonVariant, string> = {
 };
 
 const sizeClass: Record<ButtonSize, string> = {
-  sm: "h-9 px-3 text-xs",
-  md: "h-10 px-3.5 text-sm",
-  lg: "h-11 px-4 text-sm",
+  sm: "af-control-height-sm px-3 text-xs",
+  md: "af-control-height-md px-3.5 text-sm",
+  lg: "af-control-height-lg px-4 text-sm",
 };
 
 export function buttonClassName(input: {
@@ -32,7 +32,14 @@ export function buttonClassName(input: {
   ].filter(Boolean).join(" ");
 }
 
-export function Button({
+export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+  loadingLabel?: string;
+};
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   variant,
   size,
   loading = false,
@@ -41,15 +48,11 @@ export function Button({
   children,
   disabled,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  loading?: boolean;
-  loadingLabel?: string;
-}) {
+}, ref) {
   return (
     <button
       {...props}
+      ref={ref}
       disabled={disabled || loading}
       className={buttonClassName({ variant, size, className })}
     >
@@ -57,7 +60,7 @@ export function Button({
       {loading ? loadingLabel : children}
     </button>
   );
-}
+});
 
 export function ButtonLink(props: {
   href: string;
@@ -77,6 +80,47 @@ export function ButtonLink(props: {
     </Link>
   );
 }
+
+/**
+ * Stable square command surface for familiar icon-only actions.
+ * The visible label remains available to assistive technology and as a tooltip.
+ */
+export type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string;
+  title?: string;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+};
+
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({
+  label,
+  title = label,
+  variant = "ghost",
+  size = "md",
+  className,
+  children,
+  "aria-label": ariaLabel,
+  ...props
+}, ref) {
+  return (
+    <button
+      {...props}
+      ref={ref}
+      type={props.type ?? "button"}
+      aria-label={ariaLabel ?? label}
+      title={title}
+      className={buttonClassName({
+        variant,
+        size,
+        className: `aspect-square !px-0 ${className ?? ""}`,
+      })}
+    >
+      {children}
+    </button>
+  );
+});
+
+IconButton.displayName = "IconButton";
 
 function Spinner() {
   return <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true" />;

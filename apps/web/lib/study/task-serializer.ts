@@ -1,6 +1,6 @@
-import type { StudyTaskDto } from "./types";
+import type { StudyTaskDto } from "@/lib/contracts";
 
-type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
+export type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 /** StudyTask 序列化所需的最小数据库行形状（任务服务与模拟服务共用）。 */

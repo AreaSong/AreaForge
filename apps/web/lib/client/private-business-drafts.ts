@@ -1,3 +1,6 @@
+import { createDraftStore, type LoadedDraft } from "@/lib/client/draft-store";
+import { getBrowserStoragePort, type EnumerableStoragePort, type StoragePort } from "@/lib/client/storage-port";
+
 export const PRIVATE_BUSINESS_DRAFT_PREFIXES = [
   "areaforge.command.",
   "areaforge.quick-review.",
@@ -22,20 +25,10 @@ export const PRIVATE_BUSINESS_DRAFT_PREFIXES = [
 export const SHORT_PRIVATE_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 export const LONG_PRIVATE_DRAFT_TTL_MS = 7 * SHORT_PRIVATE_DRAFT_TTL_MS;
 
-interface PrivateDraftEnvelope<T> {
-  version: 1;
-  updatedAt: number;
-  value: T;
-}
-
 export function savePrivateBusinessDraft<T>(key: string, value: T): void {
-  if (typeof window === "undefined") return;
-  try {
-    const envelope: PrivateDraftEnvelope<T> = { version: 1, updatedAt: Date.now(), value };
-    window.localStorage.setItem(key, JSON.stringify(envelope));
-  } catch {
-    // Storage can be unavailable or full. The form state remains in memory.
-  }
+  const storage = browserStorage("local");
+  if (!storage) return;
+  createDraftStore(storage).save(key, value);
 }
 
 export function loadPrivateBusinessDraft<T>(
@@ -43,30 +36,22 @@ export function loadPrivateBusinessDraft<T>(
   ttlMs: number,
   isValue: (value: unknown) => value is T,
 ): T | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(key) ?? "null") as Partial<PrivateDraftEnvelope<unknown>> | null;
-    if (!parsed || parsed.version !== 1 || typeof parsed.updatedAt !== "number" || !isValue(parsed.value)) {
-      return null;
-    }
-    if (Date.now() - parsed.updatedAt > ttlMs) {
-      window.localStorage.removeItem(key);
-      return null;
-    }
-    return parsed.value;
-  } catch {
-    removePrivateBusinessDraft(key);
-    return null;
-  }
+  const storage = browserStorage("local");
+  return storage ? createDraftStore(storage).load(key, { ttlMs, isValue }) : null;
+}
+
+export function loadPrivateBusinessDraftEnvelope<T>(
+  key: string,
+  ttlMs: number,
+  isValue: (value: unknown) => value is T,
+): LoadedDraft<T> | null {
+  const storage = browserStorage("local");
+  return storage ? createDraftStore(storage).loadEnvelope(key, { ttlMs, isValue }) : null;
 }
 
 export function removePrivateBusinessDraft(key: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // Storage can be unavailable. There is no further recovery action here.
-  }
+  const storage = browserStorage("local");
+  if (storage) createDraftStore(storage).remove(key);
 }
 
 export function redirectToLoginWithCurrentLocation(): void {
@@ -76,12 +61,12 @@ export function redirectToLoginWithCurrentLocation(): void {
 }
 
 export function clearPrivateBusinessDrafts() {
-  if (typeof window === "undefined") return;
-  clearMatchingKeys(window.localStorage);
-  clearMatchingKeys(window.sessionStorage);
+  clearMatchingKeys(getBrowserStoragePort("local"));
+  clearMatchingKeys(getBrowserStoragePort("session"));
 }
 
-function clearMatchingKeys(storage: Storage) {
+function clearMatchingKeys(storage: EnumerableStoragePort | null) {
+  if (!storage) return;
   try {
     const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
       (key): key is string => Boolean(key),
@@ -94,4 +79,8 @@ function clearMatchingKeys(storage: Storage) {
   } catch {
     // A failed storage backend must not prevent a successful logout.
   }
+}
+
+function browserStorage(kind: "local" | "session"): StoragePort | null {
+  return getBrowserStoragePort(kind);
 }

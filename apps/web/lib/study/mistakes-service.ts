@@ -1,5 +1,9 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  MistakeCreatePrefillDto,
+  OwnedMistakeDetailDto,
+} from "@/lib/contracts/knowledge-library";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import {
@@ -9,7 +13,12 @@ import {
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
-import type { MistakeAttemptDto, MistakeCauseDto, MistakeDto } from "./types";
+import type { MistakeAttemptDto, MistakeCauseDto, MistakeDto } from "@/lib/contracts";
+
+export type {
+  MistakeCreatePrefillDto,
+  OwnedMistakeDetailDto,
+} from "@/lib/contracts/knowledge-library";
 
 type DbMistakeCause =
   | "UNKNOWN"
@@ -49,25 +58,6 @@ export interface UpdateMistakeInput {
   nextReviewAt?: string | null;
 }
 
-
-export interface OwnedMistakeDetailDto {
-  mistake: MistakeDto;
-  readOnly: boolean;
-  subjectArchived: boolean;
-  workspaceName: string;
-}
-
-export interface MistakeCreatePrefillDto {
-  simulationLossItemId: string;
-  linkedMistakeId: string | null;
-  subjectId: string;
-  syllabusNodeId: string | null;
-  title: string;
-  questionText: string;
-  source: string;
-  cause: Exclude<MistakeCauseDto, "unknown">;
-  causeNote: string;
-}
 
 const mistakeDetailInclude = {
   _count: { select: { attempts: true } },

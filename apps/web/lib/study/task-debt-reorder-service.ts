@@ -10,9 +10,9 @@ import { ApiError } from "@/lib/api/responses";
 import { applyTaskCas, type TaskCasPreimage } from "./concurrency";
 import { getNextStudyDayStart, getStudyDayRange } from "./date";
 import { refreshCheckInSnapshotsForDates } from "./check-in-service";
-import { getTaskDebtReorderSuggestion } from "./service";
+import { getTaskDebtReorderSuggestion } from "./dashboard-query-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
-import type { TaskDebtReorderDto, TaskDebtReorderSuggestionDto } from "./types";
+import type { TaskDebtReorderDto, TaskDebtReorderSuggestionDto } from "@/lib/contracts";
 
 type TaskDebtReorderClient = PrismaClient | Prisma.TransactionClient;
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";

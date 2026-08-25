@@ -1,4 +1,5 @@
 import { stableStringify } from "@areaforge/core";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
 
 const commandStoragePrefix = "areaforge.command.";
 const commandTtlMs = 24 * 60 * 60 * 1000;
@@ -21,9 +22,10 @@ export function getOrCreateIdempotencyKey(scope: string, prefix: string, payload
 }
 
 export function completeIdempotentCommand(scope: string): void {
-  if (typeof window === "undefined") return;
+  const storage = getBrowserStoragePort("session");
+  if (!storage) return;
   try {
-    window.sessionStorage.removeItem(commandStorageKey(scope));
+    storage.removeItem(commandStorageKey(scope));
   } catch {
     // The server remains authoritative when browser storage is unavailable.
   }
@@ -34,9 +36,10 @@ function commandStorageKey(scope: string): string {
 }
 
 function readStoredCommand(storageKey: string): StoredCommandIdentity | null {
-  if (typeof window === "undefined") return null;
+  const storage = getBrowserStoragePort("session");
+  if (!storage) return null;
   try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null") as Partial<StoredCommandIdentity> | null;
+    const parsed = JSON.parse(storage.getItem(storageKey) ?? "null") as Partial<StoredCommandIdentity> | null;
     if (
       !parsed ||
       typeof parsed.fingerprint !== "string" ||
@@ -44,7 +47,7 @@ function readStoredCommand(storageKey: string): StoredCommandIdentity | null {
       typeof parsed.updatedAt !== "number" ||
       Date.now() - parsed.updatedAt > commandTtlMs
     ) {
-      window.sessionStorage.removeItem(storageKey);
+      storage.removeItem(storageKey);
       return null;
     }
     return parsed as StoredCommandIdentity;
@@ -54,9 +57,10 @@ function readStoredCommand(storageKey: string): StoredCommandIdentity | null {
 }
 
 function writeStoredCommand(storageKey: string, value: StoredCommandIdentity): void {
-  if (typeof window === "undefined") return;
+  const storage = getBrowserStoragePort("session");
+  if (!storage) return;
   try {
-    window.sessionStorage.setItem(storageKey, JSON.stringify(value));
+    storage.setItem(storageKey, JSON.stringify(value));
   } catch {
     // In-memory submission still works; only cross-navigation replay protection degrades.
   }

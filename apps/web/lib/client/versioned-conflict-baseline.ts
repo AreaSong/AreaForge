@@ -1,5 +1,5 @@
-import type { PeriodicReportDto } from "@/lib/study/reports-service";
-import type { StageAdjustmentDraftRecordDto } from "@/lib/study/types";
+import type { PeriodicReportDto } from "@/lib/contracts";
+import type { StageAdjustmentDraftRecordDto } from "@/lib/contracts";
 
 export function selectReportDecisionBaseline(
   current: PeriodicReportDto,

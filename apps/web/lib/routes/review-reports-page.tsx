@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { ReportDecisionActions } from "@/components/report-decision-actions";
 import { ReportHistoryList } from "@/components/report-history-list";
 import { Badge } from "@/components/ui/feedback";
+import { Metric } from "@/components/ui/metric";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
+import { formatDateRange, formatPercent } from "@/lib/formatters";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { listPeriodicReportDecisions } from "@/lib/study/report-decisions-service";
 import { getPeriodicReport, type PeriodicReportKind } from "@/lib/study/reports-service";
@@ -54,7 +56,7 @@ export default async function ReviewReportsPage({
       ) : (
         <div className="space-y-7">
           <section
-            className="grid gap-6 border-b border-white/10 pb-7 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)] lg:items-start"
+            className="af-content-grid-sidebar grid gap-6 border-b border-white/10 pb-7"
             data-confirmation-fields="report.strategy.canAutoApply report.strategy.requiresUserConfirmation report.aiDraft.canAutoApply report.aiDraft.requiresUserConfirmation report.decisionPreview.canAutoApply report.decisionPreview.requiresUserConfirmation"
             data-risk-surface="长期风险"
           >
@@ -68,7 +70,7 @@ export default async function ReviewReportsPage({
               <h2 className="mt-2 max-w-4xl break-words text-2xl font-semibold leading-9 text-white">{report.weakness.title}</h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-zinc-400">{report.weakness.detail}</p>
             </div>
-            <div className="border-t border-white/10 pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+            <div className="af-responsive-aside">
               <p className="flex items-center gap-2 text-xs font-medium text-teal-300"><Target size={15} aria-hidden="true" />下周期只压这一件事</p>
               <p className="mt-2 text-base font-medium leading-7 text-zinc-100">{report.strategy.mustPressIssue}</p>
               <p className="mt-3 text-sm leading-6 text-zinc-500">{report.strategy.calmConclusion}</p>
@@ -79,17 +81,17 @@ export default async function ReviewReportsPage({
 
           <section className="space-y-4" aria-labelledby="report-facts-heading">
             <SectionHeader title="执行事实" description="以下数据来自本周期任务、专注与复盘记录，不是建议。" />
-            <dl id="report-facts-heading" className="grid grid-cols-2 divide-x divide-y divide-white/10 border-y border-white/10 sm:grid-cols-3 lg:grid-cols-6">
-              <Metric label="有效学习" value={`${report.metrics.effectiveMinutes} 分`} />
-              <Metric label="任务完成" value={formatPercent(report.metrics.taskCompletionRate)} note={`${report.metrics.completedTaskCount}/${report.metrics.taskCount} 项`} />
-              <Metric label="复盘完成" value={formatPercent(report.metrics.reviewCompletionRate)} note={`${report.metrics.reviewCount} 次`} />
-              <Metric label="欠账" value={`${report.metrics.debtCount} 项`} />
-              <Metric label="低转化" value={`${report.metrics.lowConversionCount} 次`} />
-              <Metric label="待复习证据" value={`${report.metrics.dueNoteCount} 项`} note={`${report.metrics.weakNodeCount} 个薄弱节点`} />
+            <dl id="report-facts-heading" className="af-metric-grid-six grid divide-x divide-y divide-white/10 border-y border-white/10">
+              <Metric label="有效学习" value={`${report.metrics.effectiveMinutes} 分`} valueSize="lg" />
+              <Metric label="任务完成" value={formatPercent(report.metrics.taskCompletionRate)} note={`${report.metrics.completedTaskCount}/${report.metrics.taskCount} 项`} valueSize="lg" />
+              <Metric label="复盘完成" value={formatPercent(report.metrics.reviewCompletionRate)} note={`${report.metrics.reviewCount} 次`} valueSize="lg" />
+              <Metric label="欠账" value={`${report.metrics.debtCount} 项`} valueSize="lg" />
+              <Metric label="低转化" value={`${report.metrics.lowConversionCount} 次`} valueSize="lg" />
+              <Metric label="待复习证据" value={`${report.metrics.dueNoteCount} 项`} note={`${report.metrics.weakNodeCount} 个薄弱节点`} valueSize="lg" />
             </dl>
           </section>
 
-          <section className="grid gap-7 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+          <section className="af-content-grid-inspector grid gap-7">
             <div className="space-y-4">
               <SectionHeader
                 title={report.decisionPreview.nextCycleDraft.title}
@@ -110,7 +112,7 @@ export default async function ReviewReportsPage({
               </div>
             </div>
 
-            <div className="space-y-4 border-t border-white/10 pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+            <div className="af-responsive-aside space-y-4">
               <SectionHeader title="判断依据" description="规则为何把它选为当前最大短板。" />
               <ul className="space-y-3 text-sm leading-6 text-zinc-400">
                 {report.weakness.reasons.map((reason) => <li key={reason} className="flex gap-2"><CheckCircle2 className="mt-1 size-4 shrink-0 text-zinc-600" aria-hidden="true" /><span>{reason}</span></li>)}
@@ -123,10 +125,10 @@ export default async function ReviewReportsPage({
             {report.subjectShares.length ? (
               <div className="divide-y divide-white/10 border-y border-white/10">
                 {report.subjectShares.map((subject) => (
-                  <div key={subject.subjectId} className="grid gap-2 py-3 sm:grid-cols-[10rem_1fr_9rem] sm:items-center">
-                    <span className="truncate text-sm text-zinc-200">{subject.subjectName}</span>
+                  <div key={subject.subjectId} className="af-content-grid-bar grid gap-2 py-3">
+                    <span className="break-words text-sm text-zinc-200">{subject.subjectName}</span>
                     <div className="h-2 overflow-hidden rounded bg-white/10" aria-hidden="true"><div className="h-full rounded" style={{ width: `${subject.share}%`, backgroundColor: subject.subjectColor }} /></div>
-                    <span className="text-xs text-zinc-500 sm:text-right">{subject.effectiveMinutes} 分 · {subject.share}%</span>
+                    <span className="text-xs text-zinc-500">{subject.effectiveMinutes} 分 · {subject.share}%</span>
                   </div>
                 ))}
               </div>
@@ -142,11 +144,5 @@ function ReportFilter({ href, active, children }: { href: string; active: boolea
   return <Link href={href} aria-current={active ? "page" : undefined} className={`rounded-md px-3 py-2 text-sm ${active ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-200"}`}>{children}</Link>;
 }
 
-function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
-  return <div className="min-w-0 px-3 py-4"><dt className="text-xs text-zinc-500">{label}</dt><dd className="mt-1 break-words text-lg font-medium text-zinc-100">{value}</dd>{note ? <p className="mt-1 text-xs text-zinc-600">{note}</p> : null}</div>;
-}
-
-function formatPercent(value: number) { return `${Math.round(value * 100)}%`; }
-function formatDateRange(start: string, end: string) { return `${new Date(start).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })} 至 ${new Date(end).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}`; }
 function decisionLabel(status?: "confirmed" | "rejected") { return status === "confirmed" ? "已确认并冻结" : status === "rejected" ? "已驳回" : "等待你的决定"; }
 function decisionTone(status?: "confirmed" | "rejected"): "success" | "neutral" | "warning" { return status === "confirmed" ? "success" : status === "rejected" ? "neutral" : "warning"; }

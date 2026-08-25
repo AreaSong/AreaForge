@@ -3,10 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
 
 const storageKey = "areaforge.list-return.v2";
 const maxRecordAgeMs = 30 * 60 * 1000;
 const maxRecords = 20;
+/** The split-view container starts at the same 60rem budget as the page CSS. */
+export const desktopListContainerMinWidth = 60 * 16;
+
+export function isDesktopListContainerWide(width: number): boolean {
+  return Number.isFinite(width) && width >= desktopListContainerMinWidth;
+}
 
 interface ListReturnRecord {
   sourceUrl: string;
@@ -30,13 +37,10 @@ export function ListDetailLink(props: {
       data-return-focus={props.focusId}
       className={props.className}
       onClick={(event) => {
-        const useDesktopDestination = Boolean(props.desktopHref && window.matchMedia("(min-width: 1200px)").matches);
-        const targetHref = useDesktopDestination ? props.desktopHref! : props.href;
-        if (useDesktopDestination && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-          event.preventDefault();
-          router.push(targetHref);
-          return;
-        }
+        const hasDesktopContainer = Boolean(props.desktopHref && shouldUseDesktopListDestination(event.currentTarget));
+        const useClientNavigation = hasDesktopContainer
+          && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+        const targetHref = hasDesktopContainer ? props.desktopHref! : props.href;
         const destination = new URL(targetHref, window.location.href);
         if (destination.origin !== window.location.origin) return;
         const record: ListReturnRecord = {
@@ -47,6 +51,10 @@ export function ListDetailLink(props: {
           createdAt: Date.now(),
         };
         writeRecord(record);
+        if (useClientNavigation) {
+          event.preventDefault();
+          router.push(targetHref);
+        }
       }}
     >
       {props.children}
@@ -54,7 +62,23 @@ export function ListDetailLink(props: {
   );
 }
 
+/**
+ * Resolve the desktop detail target from the nearest content budget.  The
+ * shell viewport is intentionally ignored because side rails and embedded
+ * workbench panels can leave a much smaller usable width.
+ */
+export function shouldUseDesktopListDestination(element: Element): boolean {
+  const container = element.closest<HTMLElement>(
+    '[data-layout-region="page-frame"], [data-layout-region="page-content"]',
+  );
+  if (!container) return false;
+  const rectWidth = container.getBoundingClientRect().width;
+  const width = Math.max(container.clientWidth, Number.isFinite(rectWidth) ? rectWidth : 0);
+  return isDesktopListContainerWide(width);
+}
+
 export function BackToListLink(props: { fallbackHref: string; children: React.ReactNode; className?: string }) {
+  const router = useRouter();
   return (
     <Link
       href={props.fallbackHref}
@@ -63,7 +87,7 @@ export function BackToListLink(props: { fallbackHref: string; children: React.Re
         const record = readRecordForDestination(currentUrl());
         if (!record || !sourceIsSameOrigin(record.sourceUrl) || window.history.length <= 1) return;
         event.preventDefault();
-        window.location.replace(record.sourceUrl);
+        router.replace(record.sourceUrl);
       }}
     >
       {props.children}
@@ -71,7 +95,7 @@ export function BackToListLink(props: { fallbackHref: string; children: React.Re
   );
 }
 
-export function useRestoreListReturn() {
+export function useRestoreListReturn(navigationKey?: string) {
   useEffect(() => {
     const record = readRecordForSource(currentUrl());
     if (!record) return;
@@ -83,7 +107,7 @@ export function useRestoreListReturn() {
       removeRecord(record.destinationUrl);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [navigationKey]);
 }
 
 function currentUrl(): string {
@@ -110,7 +134,7 @@ function sourceIsSameOrigin(sourceUrl: string): boolean {
 function writeRecord(record: ListReturnRecord) {
   const records = [record, ...readRecords().filter((entry) => entry.destinationUrl !== record.destinationUrl)].slice(0, maxRecords);
   try {
-    window.sessionStorage.setItem(storageKey, JSON.stringify(records));
+    getBrowserStoragePort("session")?.setItem(storageKey, JSON.stringify(records));
   } catch {
     // Navigation still works when private storage is unavailable.
   }
@@ -118,7 +142,7 @@ function writeRecord(record: ListReturnRecord) {
 
 function removeRecord(destinationUrl: string) {
   try {
-    window.sessionStorage.setItem(storageKey, JSON.stringify(readRecords().filter((record) => record.destinationUrl !== destinationUrl)));
+    getBrowserStoragePort("session")?.setItem(storageKey, JSON.stringify(readRecords().filter((record) => record.destinationUrl !== destinationUrl)));
   } catch {
     // Nothing else needs cleanup when private storage is unavailable.
   }
@@ -126,12 +150,12 @@ function removeRecord(destinationUrl: string) {
 
 function readRecords(): ListReturnRecord[] {
   try {
-    const value = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "[]") as unknown;
+    const value = JSON.parse(getBrowserStoragePort("session")?.getItem(storageKey) ?? "[]") as unknown;
     if (!Array.isArray(value)) return [];
     const now = Date.now();
     return value.filter((entry): entry is ListReturnRecord => isRecord(entry) && now - entry.createdAt <= maxRecordAgeMs);
   } catch {
-    window.sessionStorage.removeItem(storageKey);
+    getBrowserStoragePort("session")?.removeItem(storageKey);
     return [];
   }
 }

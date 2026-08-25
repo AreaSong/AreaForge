@@ -1,11 +1,16 @@
 "use client";
 
+import { createSimulationExam } from "@/lib/api/simulation";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/feedback";
+import { Field, Input } from "@/components/ui/field";
 import { SectionHeader } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { classifyApiFailure } from "@/lib/client/api-errors";
+import { isShanghaiDateInputError, shanghaiDateInputToIso } from "@/lib/formatters";
 
 export function SimulationListClient(props: { initialExamDate: string }) {
   const router = useRouter();
@@ -20,26 +25,24 @@ export function SimulationListClient(props: { initialExamDate: string }) {
     setError(null);
     setSaving(true);
     try {
-      const payload = { name, examDate: new Date(`${examDate}T08:00:00+08:00`).toISOString() };
+      const payload = { name, examDate: shanghaiDateInputToIso(examDate) };
       const commandScope = "simulation-exam:create";
-      const response = await fetch("/api/simulation/exams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...payload,
-          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "simulation-exam", payload),
-        }),
+      const response = await createSimulationExam({
+        ...payload,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "simulation-exam", payload),
       });
-      const body = (await response.json().catch(() => null)) as { exam?: { id: string }; error?: string } | null;
-      if (response.status === 401) return redirectToLoginWithCurrentLocation();
+      const body = response.body;
+      if (classifyApiFailure(response).kind === "unauthorized") return redirectToLoginWithCurrentLocation();
       if (!response.ok || !body?.exam) {
         setError(body?.error ?? "创建模拟失败，当前输入仍保留");
         return;
       }
       completeIdempotentCommand(commandScope);
       startTransition(() => router.push(`/test/simulations/${body.exam!.id}`));
-    } catch {
-      setError("网络不可用，模拟考试输入仍保留；恢复网络后请显式重试。");
+    } catch (caught) {
+      setError(isShanghaiDateInputError(caught)
+        ? "考试日期无效，请重新选择；当前输入仍保留。"
+        : "网络不可用，模拟考试输入仍保留；恢复网络后请显式重试。");
     } finally {
       setSaving(false);
     }
@@ -48,16 +51,16 @@ export function SimulationListClient(props: { initialExamDate: string }) {
   return (
     <form id="create-simulation" onSubmit={createExam} className="border-t border-white/10 pt-5">
       <SectionHeader title="创建新模拟" description="先建立一场考试，再进入详情录入分科成绩与失分事实。" />
-      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_12rem_auto]">
-        <label className="text-sm text-zinc-400">名称
-          <input className="mt-1 h-11 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-white" value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label className="text-sm text-zinc-400">日期
-          <input type="date" className="mt-1 h-11 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-white" value={examDate} onChange={(event) => setExamDate(event.target.value)} />
-        </label>
+      <div className="af-form-action-grid mt-3 grid gap-3">
+        <Field label="名称" htmlFor="simulation-name">
+          <Input id="simulation-name" className="mt-1 h-11 bg-[#151a20] text-white" value={name} onChange={(event) => setName(event.target.value)} />
+        </Field>
+        <Field label="日期" htmlFor="simulation-exam-date">
+          <Input id="simulation-exam-date" type="date" className="mt-1 h-11 bg-[#151a20] text-white" value={examDate} onChange={(event) => setExamDate(event.target.value)} />
+        </Field>
         <Button type="submit" variant="primary" size="lg" loading={pending || saving} loadingLabel="创建中..." className="self-end">创建考试</Button>
       </div>
-      {error ? <p role="alert" className="mt-2 text-sm text-red-300">{error}</p> : null}
+      {error ? <Alert tone="danger" className="mt-2">{error}</Alert> : null}
     </form>
   );
 }

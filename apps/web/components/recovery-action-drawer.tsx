@@ -3,11 +3,21 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Drawer } from "@/components/ui/overlays";
+import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/field";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import type { StudyTaskDto, SubjectDto } from "@/lib/study/types";
+import type { StudyTaskDto, SubjectDto } from "@/lib/contracts";
+import {
+  createRecoveryTask,
+  getActiveStudySession,
+  listRecoverySubjects,
+  listRecoveryTasks,
+  startRecoverySession,
+} from "@/lib/api/recovery";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
 
 type RecoveryMode = "menu" | "five-minute" | "minimum-task";
 
@@ -57,18 +67,18 @@ export function RecoveryActionContent(props: {
     setError(null);
     try {
       const [subjectResponse, taskResponse] = await Promise.all([
-        fetch("/api/subjects", { cache: "no-store" }),
-        nextMode === "minimum-task" ? fetch("/api/tasks", { cache: "no-store" }) : null,
+        listRecoverySubjects(),
+        nextMode === "minimum-task" ? listRecoveryTasks() : null,
       ]);
-      if (subjectResponse.status === 401 || taskResponse?.status === 401) {
+      if (isUnauthorized(subjectResponse) || isUnauthorized(taskResponse)) {
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!subjectResponse.ok || (taskResponse && !taskResponse.ok)) throw new Error("RECOVERY_OPTIONS_UNAVAILABLE");
-      const subjectBody = await subjectResponse.json() as { subjects?: SubjectDto[] };
-      const activeSubjects = (subjectBody.subjects ?? []).filter((subject) => !subject.archivedAt && !subject.legacyScope);
+      const subjectBody = subjectResponse.body;
+      const activeSubjects = (subjectBody?.subjects ?? []).filter((subject) => !subject.archivedAt && !subject.legacyScope);
       const allowedSubjectIds = new Set(activeSubjects.map((subject) => subject.id));
-      const taskBody = taskResponse ? await taskResponse.json() as { tasks?: StudyTaskDto[] } : null;
+      const taskBody = taskResponse?.body ?? null;
       const activeTasks = (taskBody?.tasks ?? [])
         .filter((task) => allowedSubjectIds.has(task.subjectId) && (task.status === "todo" || task.status === "in_progress"))
         .sort((left, right) => left.estimatedMinutes - right.estimatedMinutes);
@@ -141,16 +151,12 @@ export function RecoveryActionContent(props: {
           type: "study",
           priority: "high",
         };
-        const response = await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            idempotencyKey: getOrCreateIdempotencyKey(commandScope, "task-create", payload),
-            ...payload,
-          }),
+        const response = await createRecoveryTask({
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "task-create", payload),
+          ...payload,
         });
-        if (response.status === 401) return redirectToLoginWithCurrentLocation();
-        const body = await response.json().catch(() => null) as { task?: { id: string }; error?: string } | null;
+        if (isUnauthorized(response)) return redirectToLoginWithCurrentLocation();
+        const body = response.body;
         if (!response.ok || !body?.task?.id) throw new Error(body?.error ?? "创建最小任务失败，当前输入仍保留。");
         taskId = body.task.id;
       }
@@ -185,12 +191,12 @@ export function RecoveryActionContent(props: {
   }
 
   async function readActiveSessionId(): Promise<string | null> {
-    const response = await fetch("/api/study-sessions/active", { cache: "no-store" });
-    if (response.status === 401) {
+    const response = await getActiveStudySession();
+    if (isUnauthorized(response)) {
       redirectToLoginWithCurrentLocation();
       throw new Error("登录已过期，重新登录后请显式重试。");
     }
-    const body = await response.json().catch(() => null) as { session?: { id?: string } | null; error?: string } | null;
+    const body = response.body;
     if (!response.ok) throw new Error(body?.error ?? "无法读取当前活动。");
     return body?.session?.id ?? null;
   }
@@ -201,17 +207,13 @@ export function RecoveryActionContent(props: {
       idempotencyKey: getOrCreateIdempotencyKey(commandScope, "study-session-start", payload),
       ...payload,
     };
-    const response = await fetch("/api/study-sessions/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
-      body: JSON.stringify(requestBody),
-    });
-    if (response.status === 401) {
+    const response = await startRecoverySession(requestBody, getClientDeviceHeaders());
+    if (isUnauthorized(response)) {
       redirectToLoginWithCurrentLocation();
       throw new Error("登录已过期，重新登录后请显式重试。");
     }
-    const body = await response.json().catch(() => null) as { session?: { id?: string }; latest?: { id?: string }; error?: string } | null;
-    const sessionId = body?.session?.id ?? (response.status === 409 ? body?.latest?.id : undefined);
+    const body = response.body;
+    const sessionId = body?.session?.id ?? (isConflict(response) ? body?.latest?.id : undefined);
     if (!response.ok && !sessionId) throw new Error(body?.error ?? "无法启动专注活动。");
     if (!sessionId) throw new Error("服务端未返回可继续的活动。");
     completeIdempotentCommand(commandScope);
@@ -239,7 +241,7 @@ export function RecoveryActionContent(props: {
         <div className="mt-4 flex flex-col gap-2">
           <ActionButton disabled={pending} onClick={() => void continueCurrentAction()}>继续当前</ActionButton>
           <ActionButton disabled={pending} onClick={() => void prepare("five-minute")}>启动 5 分钟</ActionButton>
-          <button type="button" disabled={pending} className="h-11 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60" onClick={() => void prepare("minimum-task")}>切换到最小任务</button>
+          <Button type="button" variant="primary" disabled={pending} className="h-11 px-4" onClick={() => void prepare("minimum-task")}>切换到最小任务</Button>
         </div>
       ) : null}
 
@@ -252,8 +254,8 @@ export function RecoveryActionContent(props: {
 
       {mode === "minimum-task" ? (
         <div className="mt-4 grid gap-3">
-          <label className="grid gap-2 text-sm text-zinc-300">最小任务<select className="h-11 rounded-md border border-white/10 bg-[#151a20] px-3" value={taskChoice} onChange={(event) => setTaskChoice(event.target.value)}>{tasks.map((task) => <option key={task.id} value={task.id}>{task.title} · {task.estimatedMinutes} 分</option>)}<option value="new">新建最小任务</option></select></label>
-          {taskChoice === "new" ? <><SubjectSelect subjects={subjects} value={subjectId} onChange={setSubjectId} /><label className="grid gap-2 text-sm text-zinc-300">任务标题<input className="h-11 rounded-md border border-white/10 bg-[#151a20] px-3" value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} /></label></> : null}
+          <label className="grid gap-2 text-sm text-zinc-300">最小任务<Select className="h-11 px-3" value={taskChoice} onChange={(event) => setTaskChoice(event.target.value)}>{tasks.map((task) => <option key={task.id} value={task.id}>{task.title} · {task.estimatedMinutes} 分</option>)}<option value="new">新建最小任务</option></Select></label>
+          {taskChoice === "new" ? <><SubjectSelect subjects={subjects} value={subjectId} onChange={setSubjectId} /><label className="grid gap-2 text-sm text-zinc-300">任务标题<Input className="h-11 px-3" value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} /></label></> : null}
           <div className="flex gap-2"><BackButton onClick={() => setMode("menu")} /><PrimaryButton disabled={pending || !taskChoice} onClick={() => void startMinimumTask()}>开始最小任务</PrimaryButton></div>
         </div>
       ) : null}
@@ -262,17 +264,17 @@ export function RecoveryActionContent(props: {
 }
 
 function SubjectSelect(props: { subjects: SubjectDto[]; value: string; onChange: (value: string) => void }) {
-  return <label className="grid gap-2 text-sm text-zinc-300">科目<select className="h-11 rounded-md border border-white/10 bg-[#151a20] px-3" value={props.value} onChange={(event) => props.onChange(event.target.value)}><option value="">请选择科目</option>{props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>;
+  return <label className="grid gap-2 text-sm text-zinc-300">科目<Select className="h-11 px-3" value={props.value} onChange={(event) => props.onChange(event.target.value)}><option value="">请选择科目</option>{props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</Select></label>;
 }
 
 function ActionButton(props: { disabled: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" disabled={props.disabled} className="h-11 rounded-md border border-white/10 px-4 text-sm text-zinc-200 disabled:opacity-60" onClick={props.onClick}>{props.children}</button>;
+  return <Button type="button" disabled={props.disabled} className="h-11 px-4 text-zinc-200" onClick={props.onClick}>{props.children}</Button>;
 }
 
 function BackButton({ onClick }: { onClick: () => void }) {
-  return <button type="button" className="h-11 rounded-md border border-white/10 px-4 text-sm" onClick={onClick}>返回</button>;
+  return <Button type="button" className="h-11 px-4" onClick={onClick}>返回</Button>;
 }
 
 function PrimaryButton(props: { disabled: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" disabled={props.disabled} className="h-11 flex-1 rounded-md bg-teal-500 px-4 text-sm font-medium text-black disabled:opacity-60" onClick={props.onClick}>{props.children}</button>;
+  return <Button type="button" variant="primary" disabled={props.disabled} className="h-11 flex-1 px-4" onClick={props.onClick}>{props.children}</Button>;
 }

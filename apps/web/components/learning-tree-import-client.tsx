@@ -1,7 +1,11 @@
 "use client";
 
+import {
+  confirmLearningTreeImport,
+  previewLearningTreeImport,
+} from "@/lib/api/learning-tree";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   createLearningTreeImportSelectionSnapshot,
   restoreLearningTreeImportSelections,
@@ -12,14 +16,13 @@ import { bindAiLearningTreeDraftMarkdown } from "@/lib/client/ai-learning-tree-d
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import {
   LearningTreeImportWorkbenchView,
-  type LearningTreeExportPreview as ExportPreview,
   type LearningTreeScopeView as Scope,
   type LearningTreeWorkbenchView as WorkbenchView,
 } from "@/components/learning-tree-import-workbench-view";
+import { useLearningTreeExportWorkflow } from "@/components/use-learning-tree-export-workflow";
 import {
   aiLearningTreeDraftKey,
   createLearningTreeConfirmSnapshot,
-  isLearningTreeSelectionSnapshot,
   learningTreeConfirmCommandScope,
   learningTreeConflictComparisons,
   learningTreeImportDraftKey,
@@ -30,22 +33,31 @@ import {
   type LearningTreeConfirmSnapshot,
 } from "@/components/learning-tree-import-workbench-support";
 import { completeIdempotentCommand } from "@/lib/client/idempotent-command";
+import { subscribeAiDraftHandoff } from "@/lib/client/ai-draft-handoff";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
+import { isDraftAtLeastAsNew } from "@/lib/client/draft-store";
 import type {
   LearningTreeExportOptionsDto,
   LearningTreeImportBatchSummaryDto,
   LearningTreePreviewDto,
-} from "@/lib/study/learning-tree-service";
+} from "@/lib/contracts";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+import {
+  restoreAiLearningTreeDraft,
+  restoreLearningTreeImportDraft,
+  isAiLearningTreeHandoff,
+  removeAiLearningTreeDraft,
+  removeLearningTreeImportDraft,
+} from "@/components/learning-tree-import-drafts";
+import {
+  beginLearningTreeRequest,
+  endLearningTreeRequest,
+  learningTreeImportDiffPageSize,
+  type LearningTreeErrorBody,
+} from "@/components/learning-tree-import-request";
 
 type Selection = LearningTreeImportSelection;
-const importDiffPageSize = 100;
-
-interface LearningTreeErrorBody {
-  error?: string;
-  latest?: unknown;
-  conflictFields?: string[];
-  workbench?: string;
-}
 
 
 export function LearningTreeImportClient(props: {
@@ -65,7 +77,6 @@ export function LearningTreeImportClient(props: {
   const [error, setError] = useState<string | null>(null);
   const [subjectKey, setSubjectKey] = useState(props.exportOptions.subjects[0]?.stableKey ?? "");
   const [rootNodeKey, setRootNodeKey] = useState("");
-  const [exportPreview, setExportPreview] = useState<ExportPreview | null>(null);
   const [aiDraftLoaded, setAiDraftLoaded] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [diffPage, setDiffPage] = useState(0);
@@ -77,79 +88,82 @@ export function LearningTreeImportClient(props: {
   const [view, setView] = useState<WorkbenchView>(props.initialView);
   const [draftRestored, setDraftRestored] = useState(false);
   const requestInFlightRef = useRef(false);
+  const fileReadGenerationRef = useRef(0);
+  const { exportPreview, clearExportPreview, previewExport, downloadExport } =
+    useLearningTreeExportWorkflow({
+      requestInFlightRef,
+      setPending,
+      setError,
+      scope,
+      subjectKey,
+      rootNodeKey,
+      persistCurrentDraft,
+      recoverFromNotFound,
+    });
+
+  const applyAiDraft = useCallback((draft: { markdownDraft?: string; scope?: Scope }) => {
+    if (typeof draft.markdownDraft !== "string") return;
+    fileReadGenerationRef.current += 1;
+    setMarkdown(draft.markdownDraft);
+    if (draft.scope) setScope(draft.scope);
+    setAiDraftLoaded(true);
+    setDraftRestored(false);
+    setPreview(null);
+    clearExportPreview();
+    setSelections({});
+    setSavedSelectionSnapshot(null);
+    setConfirmSnapshot(null);
+    setConflict(null);
+    setConflictOpen(false);
+    setView("import");
+  }, [clearExportPreview]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const key = aiLearningTreeDraftKey(props.userId);
-      const raw = window.localStorage.getItem(key);
-      if (!raw) return;
-      try {
-        const envelope = JSON.parse(raw) as { version?: number; userId?: string; updatedAt?: number; value?: { markdownDraft?: string; scope?: Scope } };
-        if (envelope.version !== 1 || envelope.userId !== props.userId || typeof envelope.updatedAt !== "number" || Date.now() - envelope.updatedAt > 7 * 24 * 60 * 60 * 1000) {
-          window.localStorage.removeItem(key);
-          return;
-        }
-        if (typeof envelope.value?.markdownDraft === "string") {
-          setMarkdown(envelope.value.markdownDraft);
-          setAiDraftLoaded(true);
-          setView("import");
-        }
-        if (["global", "subject", "branch"].includes(envelope.value?.scope ?? "")) setScope(envelope.value?.scope as Scope);
-      } catch {
-        window.localStorage.removeItem(key);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [props.userId]);
+      const aiDraft = restoreAiLearningTreeDraft(props.userId);
+      const localDraft = restoreLearningTreeImportDraft(props.userId);
+      const shouldUseAi = Boolean(
+        aiDraft?.markdownDraft?.trim()
+        && (!localDraft?.markdown?.trim() || isDraftAtLeastAsNew(aiDraft, localDraft)),
+      );
 
-  useEffect(() => {
-    const key = learningTreeImportDraftKey(props.userId);
-    const timer = window.setTimeout(() => {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) {
-        setDraftLoaded(true);
-        return;
-      }
-      try {
-        const envelope = JSON.parse(raw) as {
-          version?: number;
-          userId?: string;
-          updatedAt?: number;
-          value?: {
-            markdown?: string;
-            scope?: Scope;
-            subjectKey?: string;
-            rootNodeKey?: string;
-            selectionSnapshot?: LearningTreeImportSelectionSnapshot;
-          };
-        };
-        if ((envelope.version !== 1 && envelope.version !== 2) || envelope.userId !== props.userId || typeof envelope.updatedAt !== "number" || Date.now() - envelope.updatedAt > 24 * 60 * 60 * 1000) {
-          window.localStorage.removeItem(key);
-          setDraftLoaded(true);
-          return;
-        }
-        if (typeof envelope.value?.markdown === "string" && envelope.value.markdown.trim()) {
-          setMarkdown(envelope.value.markdown);
+      if (localDraft) {
+        if (localDraft.markdown?.trim()) {
+          setMarkdown(localDraft.markdown);
           setDraftRestored(true);
           setView("import");
         }
-        if (["global", "subject", "branch"].includes(envelope.value?.scope ?? "")) setScope(envelope.value?.scope as Scope);
-        if (typeof envelope.value?.subjectKey === "string") setSubjectKey(envelope.value.subjectKey);
-        if (typeof envelope.value?.rootNodeKey === "string") setRootNodeKey(envelope.value.rootNodeKey);
-        if (isLearningTreeSelectionSnapshot(envelope.value?.selectionSnapshot)) {
-          setSavedSelectionSnapshot(envelope.value.selectionSnapshot);
-        }
-      } catch {
-        window.localStorage.removeItem(key);
-      } finally {
-        setDraftLoaded(true);
+        if (localDraft.scope) setScope(localDraft.scope);
+        if (typeof localDraft.subjectKey === "string") setSubjectKey(localDraft.subjectKey);
+        if (typeof localDraft.rootNodeKey === "string") setRootNodeKey(localDraft.rootNodeKey);
+        if (localDraft.selectionSnapshot) setSavedSelectionSnapshot(localDraft.selectionSnapshot);
       }
+      if (shouldUseAi && aiDraft) {
+        applyAiDraft(aiDraft);
+      } else if (localDraft?.markdown?.trim()) {
+        setAiDraftLoaded(false);
+        if (aiDraft) removeAiLearningTreeDraft(props.userId);
+      }
+      setDraftLoaded(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [props.userId]);
+  }, [applyAiDraft, props.userId]);
 
   useEffect(() => {
-    if (!draftLoaded || !markdown.trim()) return;
+    return subscribeAiDraftHandoff({
+      endpoint: "learning-tree",
+      userId: props.userId,
+      isValue: isAiLearningTreeHandoff,
+      onValue: applyAiDraft,
+    });
+  }, [applyAiDraft, props.userId]);
+
+  useEffect(() => {
+    if (!draftLoaded) return;
+    if (!markdown.trim()) {
+      removeLearningTreeImportDraft(props.userId);
+      return;
+    }
     const timer = window.setTimeout(() => {
       persistLearningTreeImportDraft(props.userId, {
         markdown,
@@ -164,9 +178,10 @@ export function LearningTreeImportClient(props: {
             })
           : savedSelectionSnapshot,
       });
+      if (aiDraftLoaded) removeAiLearningTreeDraft(props.userId);
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [draftLoaded, markdown, preview, props.userId, rootNodeKey, savedSelectionSnapshot, scope, selections, subjectKey]);
+  }, [aiDraftLoaded, draftLoaded, markdown, preview, props.userId, rootNodeKey, savedSelectionSnapshot, scope, selections, subjectKey]);
 
   const selectedSubject = props.exportOptions.subjects.find((subject) => subject.stableKey === subjectKey);
   const unresolved = useMemo(() => {
@@ -179,18 +194,6 @@ export function LearningTreeImportClient(props: {
       return !(item.diffType === "CONFLICT" && selection?.choice === "apply" && selection.mappedTargetId);
     });
   }, [preview, selections]);
-
-  function beginRequest(): boolean {
-    if (requestInFlightRef.current) return false;
-    requestInFlightRef.current = true;
-    setPending(true);
-    return true;
-  }
-
-  function endRequest() {
-    requestInFlightRef.current = false;
-    setPending(false);
-  }
 
   function persistCurrentDraft(markdownOverride = markdown) {
     persistLearningTreeImportDraft(props.userId, {
@@ -232,7 +235,7 @@ export function LearningTreeImportClient(props: {
     if (requestInFlightRef.current) return;
     setScope(next);
     setPreview(null);
-    setExportPreview(null);
+    clearExportPreview();
     invalidateConfirmCommand();
     if (next === "global") setRootNodeKey("");
   }
@@ -247,11 +250,15 @@ export function LearningTreeImportClient(props: {
 
   async function loadFile(file: File | undefined) {
     if (requestInFlightRef.current) return;
+    const generation = fileReadGenerationRef.current + 1;
+    fileReadGenerationRef.current = generation;
     setError(null);
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".md")) return setError("请选择 .md 文件");
     if (file.size > 2 * 1024 * 1024) return setError("Markdown 文件不能超过 2 MiB");
-    setMarkdown(await file.text());
+    const contents = await file.text();
+    if (fileReadGenerationRef.current !== generation) return;
+    setMarkdown(contents);
     setAiDraftLoaded(false);
     setPreview(null);
     invalidateConfirmCommand();
@@ -275,7 +282,7 @@ export function LearningTreeImportClient(props: {
       importMarkdown = bound.markdown;
       setMarkdown(importMarkdown);
     }
-    if (!beginRequest()) return;
+    if (!beginLearningTreeRequest(requestInFlightRef, setPending)) return;
     setError(null);
     const previousSelectionSnapshot = preview
       ? createLearningTreeImportSelectionSnapshot({
@@ -286,14 +293,9 @@ export function LearningTreeImportClient(props: {
       : savedSelectionSnapshot;
     persistCurrentDraft(importMarkdown);
     try {
-      const response = await fetch("/api/learning-tree/imports/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markdown: importMarkdown, scope }),
-      });
-      const body = (await response.json().catch(() => null)) as
-        (LearningTreeErrorBody & { preview?: LearningTreePreviewDto }) | null;
-      if (response.status === 401) {
+      const response = await previewLearningTreeImport({ markdown: importMarkdown, scope });
+      const body = response.body;
+      if (isUnauthorized(response)) {
         setError("登录已过期，Markdown 与映射已保留；重新登录后请显式预览。");
         redirectToLoginWithCurrentLocation();
         return;
@@ -328,19 +330,19 @@ export function LearningTreeImportClient(props: {
     } catch {
       setError("网络不可用，Markdown 草稿已保留；恢复网络后请显式重试。");
     } finally {
-      endRequest();
+      endLearningTreeRequest(requestInFlightRef, setPending);
     }
   }
 
-  const diffPageCount = Math.max(1, Math.ceil((preview?.items.length ?? 0) / importDiffPageSize));
+  const diffPageCount = Math.max(1, Math.ceil((preview?.items.length ?? 0) / learningTreeImportDiffPageSize));
   const visibleDiffItems = preview?.items.slice(
-    diffPage * importDiffPageSize,
-    (diffPage + 1) * importDiffPageSize,
+    diffPage * learningTreeImportDiffPageSize,
+    (diffPage + 1) * learningTreeImportDiffPageSize,
   ) ?? [];
 
   async function confirmImport() {
     if (!preview || unresolved || conflict) return;
-    if (!beginRequest()) return;
+    if (!beginLearningTreeRequest(requestInFlightRef, setPending)) return;
     setError(null);
     persistCurrentDraft();
     const submission = confirmSnapshot ?? createLearningTreeConfirmSnapshot(
@@ -350,14 +352,9 @@ export function LearningTreeImportClient(props: {
     );
     if (!confirmSnapshot) setConfirmSnapshot(submission);
     try {
-      const response = await fetch("/api/learning-tree/imports/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(submission.payload),
-      });
-      const body = (await response.json().catch(() => null)) as
-        (LearningTreeErrorBody & { result?: { batchId: string } }) | null;
-      if (response.status === 401) {
+      const response = await confirmLearningTreeImport(submission.payload);
+      const body = response.body;
+      if (isUnauthorized(response)) {
         setError("登录已过期，Markdown 与映射已保留；重新登录后请显式预览并确认。");
         redirectToLoginWithCurrentLocation();
         return;
@@ -366,7 +363,7 @@ export function LearningTreeImportClient(props: {
         recoverFromNotFound(body);
         return;
       }
-      if (response.status === 409) {
+      if (isConflict(response)) {
         setConflict({
           submission,
           latest: body?.latest ?? { state: "CONFLICT" },
@@ -382,8 +379,9 @@ export function LearningTreeImportClient(props: {
         return;
       }
       completeIdempotentCommand(learningTreeConfirmCommandScope(props.userId));
-      window.localStorage.removeItem(aiLearningTreeDraftKey(props.userId));
-      window.localStorage.removeItem(learningTreeImportDraftKey(props.userId));
+      const storage = getBrowserStoragePort("local");
+      storage?.removeItem(aiLearningTreeDraftKey(props.userId));
+      storage?.removeItem(learningTreeImportDraftKey(props.userId));
       setConfirmSnapshot(null);
       setConflict(null);
       router.push(`/knowledge/imports/${body.result.batchId}`);
@@ -391,87 +389,7 @@ export function LearningTreeImportClient(props: {
     } catch {
       setError("网络不可用，Markdown 与映射仍保留；恢复网络后请显式重试。");
     } finally {
-      endRequest();
-    }
-  }
-
-  function exportUrl() {
-    const params = new URLSearchParams({ scope });
-    if (scope !== "global") params.set("subjectKey", subjectKey);
-    if (scope === "branch") params.set("rootNodeKey", rootNodeKey);
-    params.set("preview", "1");
-    return `/api/learning-tree/export?${params.toString()}`;
-  }
-
-  async function previewExport() {
-    if (!beginRequest()) return;
-    setError(null);
-    try {
-      const response = await fetch(exportUrl());
-      const body = (await response.json().catch(() => null)) as
-        (LearningTreeErrorBody & { preview?: ExportPreview }) | null;
-      if (response.status === 401) {
-        persistCurrentDraft();
-        redirectToLoginWithCurrentLocation();
-        return;
-      }
-      if (response.status === 404) {
-        recoverFromNotFound(body);
-        return;
-      }
-      if (!response.ok || !body?.preview) {
-        setError(body?.error ?? "导出预览失败，请显式重试。");
-        return;
-      }
-      setExportPreview(body.preview);
-    } catch {
-      setError("网络不可用，导出范围仍保留；恢复网络后请显式重试。");
-    } finally {
-      endRequest();
-    }
-  }
-
-  async function downloadExport() {
-    if (!exportPreview || !beginRequest()) return;
-    setError(null);
-    try {
-      const response = await fetch("/api/learning-tree/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scope,
-          subjectKey: scope === "global" ? undefined : subjectKey,
-          rootNodeKey: scope === "branch" ? rootNodeKey : undefined,
-          exportToken: exportPreview.exportToken,
-        }),
-      });
-      if (response.status === 401) {
-        persistCurrentDraft();
-        redirectToLoginWithCurrentLocation();
-        return;
-      }
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as LearningTreeErrorBody | null;
-        if (response.status === 404) {
-          recoverFromNotFound(body);
-          return;
-        }
-        setExportPreview(null);
-        setError(body?.error ?? "导出授权已失效，请重新预览");
-        return;
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `areaforge-learning-tree-export-${scope}.md`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      setExportPreview(null);
-    } catch {
-      setError("网络不可用，导出授权仍保留；恢复网络后请显式重试。");
-    } finally {
-      endRequest();
+      endLearningTreeRequest(requestInFlightRef, setPending);
     }
   }
 
@@ -509,20 +427,29 @@ export function LearningTreeImportClient(props: {
           changeSubject: (value) => {
             setSubjectKey(value);
             setRootNodeKey("");
-            setExportPreview(null);
+            clearExportPreview();
             setPreview(null);
             invalidateConfirmCommand();
           },
           changeRootNode: (value) => {
             setRootNodeKey(value);
-            setExportPreview(null);
+            clearExportPreview();
             setPreview(null);
             invalidateConfirmCommand();
           },
           loadFile: (file) => void loadFile(file),
           changeMarkdown: (value) => {
+            fileReadGenerationRef.current += 1;
             setMarkdown(value);
             setPreview(null);
+            if (!value.trim()) {
+              setAiDraftLoaded(false);
+              setDraftRestored(false);
+              setSelections({});
+              setSavedSelectionSnapshot(null);
+              removeAiLearningTreeDraft(props.userId);
+              removeLearningTreeImportDraft(props.userId);
+            }
             invalidateConfirmCommand();
           },
           previewImport: () => void runPreview(),

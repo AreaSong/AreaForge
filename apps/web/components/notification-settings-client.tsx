@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { sanitizeForegroundNotificationRoute } from "@areaforge/core";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { sendNotificationTest, updateNotificationPreferences } from "@/lib/api/notification";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -10,7 +11,11 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
-import type { NotificationPreferenceDto } from "@/lib/study/notification-preferences-service";
+import { classifyApiFailure } from "@/lib/client/api-errors";
+import type { NotificationPreferenceDto } from "@/lib/contracts";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
+import { Button } from "@/components/ui/button";
+import { Checkbox, Select } from "@/components/ui/field";
 
 const SHOW_TITLE_KEY = "af.notification.showSpecificTitle";
 
@@ -27,7 +32,7 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
   const [savedPref, setSavedPref] = useState(props.initial);
   const [showSpecificTitle, setShowSpecificTitle] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(SHOW_TITLE_KEY) === "1";
+    return getBrowserStoragePort("local")?.getItem(SHOW_TITLE_KEY) === "1";
   });
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [message, setMessage] = useState<string | null>(null);
@@ -78,44 +83,43 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
     setConflict(null);
     const submitted = structuredClone(pref);
     try {
-      const response = await fetch("/api/notification-preferences", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expectedRevision: submitted.revision,
-          reviewDueEnabled: submitted.reviewDueEnabled,
-          planStartEnabled: submitted.planStartEnabled,
-          eveningReviewEnabled: submitted.eveningReviewEnabled,
-          reviewDueWindowStart: submitted.reviewDueWindowStart,
-          reviewDueWindowEnd: submitted.reviewDueWindowEnd,
-          planStartWindowStart: submitted.planStartWindowStart,
-          planStartWindowEnd: submitted.planStartWindowEnd,
-          eveningReviewWindowStart: submitted.eveningReviewWindowStart,
-          eveningReviewWindowEnd: submitted.eveningReviewWindowEnd,
-          quietHoursStart: submitted.quietHoursStart,
-          quietHoursEnd: submitted.quietHoursEnd,
-        }),
+      const response = await updateNotificationPreferences({
+        expectedRevision: submitted.revision,
+        reviewDueEnabled: submitted.reviewDueEnabled,
+        planStartEnabled: submitted.planStartEnabled,
+        eveningReviewEnabled: submitted.eveningReviewEnabled,
+        reviewDueWindowStart: submitted.reviewDueWindowStart,
+        reviewDueWindowEnd: submitted.reviewDueWindowEnd,
+        planStartWindowStart: submitted.planStartWindowStart,
+        planStartWindowEnd: submitted.planStartWindowEnd,
+        eveningReviewWindowStart: submitted.eveningReviewWindowStart,
+        eveningReviewWindowEnd: submitted.eveningReviewWindowEnd,
+        quietHoursStart: submitted.quietHoursStart,
+        quietHoursEnd: submitted.quietHoursEnd,
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { preference?: NotificationPreferenceDto; latest?: NotificationPreferenceDto; conflictFields?: string[]; error?: string; workbench?: string }
-        | null;
-      if (response.status === 401) {
-        setError("登录已过期，本地修改已保留。重新登录后请显式重试。");
-        redirectToLoginWithCurrentLocation();
+      const payload = response.body;
+      if (!response.ok) {
+        const failure = classifyApiFailure(response);
+        if (failure.kind === "unauthorized") {
+          setError("登录已过期，本地修改已保留。重新登录后请显式重试。");
+          redirectToLoginWithCurrentLocation();
+          return;
+        }
+        if (failure.kind === "conflict" && payload?.latest && isNotificationPreference(payload.latest)) {
+          setConflict({
+            baseline: savedPref,
+            submitted,
+            latest: payload.latest,
+            conflictFields: failure.conflictFields.length > 0 ? failure.conflictFields : ["revision"],
+          });
+          setError("提醒偏好已在其他页面更新。本地修改仍保留，请查看最新状态后决定如何合并。");
+          return;
+        }
+        setError(failure.code ?? Object.values(failure.fieldErrors).flat()[0] ?? "保存失败，本地修改已保留");
         return;
       }
-      if (response.status === 409 && payload?.latest && isNotificationPreference(payload.latest)) {
-        setConflict({
-          baseline: savedPref,
-          submitted,
-          latest: payload.latest,
-          conflictFields: payload.conflictFields ?? ["revision"],
-        });
-        setError("提醒偏好已在其他页面更新。本地修改仍保留，请查看最新状态后决定如何合并。");
-        return;
-      }
-      if (!response.ok || !payload?.preference) {
-        setError(payload?.error ?? "保存失败，本地修改已保留");
+      if (!payload?.preference) {
+        setError("保存失败，本地修改已保留");
         return;
       }
       setPref((current) => notificationPreferencesEqual(current, submitted)
@@ -145,20 +149,19 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch("/api/notifications/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category: testCategory }),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | { payload?: { title: string; body: string; tag: string; data: { route: string } }; error?: string }
-        | null;
-      if (response.status === 401) {
-        redirectToLoginWithCurrentLocation();
+      const response = await sendNotificationTest(testCategory);
+      const payload = response.body;
+      if (!response.ok) {
+        const failure = classifyApiFailure(response);
+        if (failure.kind === "unauthorized") {
+          redirectToLoginWithCurrentLocation();
+          return;
+        }
+        setError(failure.code ?? Object.values(failure.fieldErrors).flat()[0] ?? "测试失败");
         return;
       }
-      if (!response.ok || !payload?.payload) {
-        setError(payload?.error ?? "测试失败");
+      if (!payload?.payload) {
+        setError("测试失败");
         return;
       }
       if (!("Notification" in window) || Notification.permission !== "granted") {
@@ -182,24 +185,21 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
     <>
     <div className="space-y-4 rounded-lg border border-white/10 p-4">
       <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={pref.reviewDueEnabled}
           onChange={(event) => setPref((prev) => ({ ...prev, reviewDueEnabled: event.target.checked }))}
         />
         复习到期提醒
       </label>
       <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={pref.planStartEnabled}
           onChange={(event) => setPref((prev) => ({ ...prev, planStartEnabled: event.target.checked }))}
         />
         计划开始提醒
       </label>
       <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={pref.eveningReviewEnabled}
           onChange={(event) => setPref((prev) => ({ ...prev, eveningReviewEnabled: event.target.checked }))}
         />
@@ -210,8 +210,7 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
         <NotificationWindowRow label="计划开始时间窗" start={pref.planStartWindowStart} end={pref.planStartWindowEnd} onChange={(start, end) => setPref((current) => ({ ...current, planStartWindowStart: start, planStartWindowEnd: end }))}/>
         <NotificationWindowRow label="晚间复盘时间窗" start={pref.eveningReviewWindowStart} end={pref.eveningReviewWindowEnd} onChange={(start, end) => setPref((current) => ({ ...current, eveningReviewWindowStart: start, eveningReviewWindowEnd: end }))}/>
         <label className="flex items-center gap-2 text-sm text-zinc-300">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={pref.quietHoursStart !== null && pref.quietHoursEnd !== null}
             onChange={(event) => setPref((current) => ({
               ...current,
@@ -226,13 +225,12 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
         ) : null}
       </div>
       <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={showSpecificTitle}
           onChange={(event) => {
             const next = event.target.checked;
             setShowSpecificTitle(next);
-            window.localStorage.setItem(SHOW_TITLE_KEY, next ? "1" : "0");
+            getBrowserStoragePort("local")?.setItem(SHOW_TITLE_KEY, next ? "1" : "0");
           }}
         />
         当前设备显示具体标题（本地偏好，不跨设备）
@@ -251,33 +249,36 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
+          variant="primary"
           type="button"
           disabled={pending}
           className="h-10 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black disabled:opacity-50"
           onClick={() => startTransition(() => void save())}
         >
           保存提醒偏好
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="secondary"
           type="button"
           className="h-10 rounded-md border border-white/10 px-4 text-sm text-zinc-200"
           onClick={() => void requestPermissionOnce()}
         >
           请求通知权限
-        </button>
-        <select aria-label="测试通知类别" className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-200" value={testCategory} onChange={(event) => setTestCategory(event.target.value as typeof testCategory)}>
+        </Button>
+        <Select aria-label="测试通知类别" className="h-10 !w-auto rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-200" value={testCategory} onChange={(event) => setTestCategory(event.target.value as typeof testCategory)}>
           <option value="review">复习到期</option>
           <option value="plan">计划开始</option>
           <option value="evening">晚间复盘</option>
-        </select>
-        <button
+        </Select>
+        <Button
+          variant="secondary"
           type="button"
           className="h-10 rounded-md border border-white/10 px-4 text-sm text-zinc-200"
           onClick={() => void sendTest()}
         >
           测试通知
-        </button>
+        </Button>
       </div>
     </div>
     <ConflictResolutionModal
@@ -308,7 +309,7 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
 
 function NotificationWindowRow(props: { label: string; start: number; end: number; onChange: (start: number, end: number) => void }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(9rem,1fr)_8rem_8rem] sm:items-center">
+    <div className="af-time-window-grid grid gap-2">
       <span className="text-sm text-zinc-400">{props.label}</span>
       <HourSelect label={`${props.label}开始`} value={props.start} onChange={(value) => props.onChange(value, props.end)}/>
       <HourSelect label={`${props.label}结束`} value={props.end} onChange={(value) => props.onChange(props.start, value)}/>
@@ -318,9 +319,9 @@ function NotificationWindowRow(props: { label: string; start: number; end: numbe
 
 function HourSelect(props: { label: string; value: number; onChange: (value: number) => void }) {
   return (
-    <select aria-label={props.label} className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-200" value={props.value} onChange={(event) => props.onChange(Number(event.target.value))}>
+    <Select aria-label={props.label} className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-200" value={props.value} onChange={(event) => props.onChange(Number(event.target.value))}>
       {Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
-    </select>
+    </Select>
   );
 }
 

@@ -4,8 +4,9 @@ import { FocusSessionClient } from "@/components/focus-session-client";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
-import { activitySourcePath } from "@/lib/study/activity-route";
-import { getActiveStudySession, getFocusLauncherSummary, getStudySessionById, listStudySessionEvidenceReceipts, listSubjects, listStudyTasks } from "@/lib/study/service";
+import { activitySourcePath } from "@/lib/navigation/activity-route";
+import { getActiveStudySession, getStudySessionById, listStudySessionEvidenceReceipts } from "@/lib/study/session-query-service";
+import { getFocusLauncherSummary, listStudyTasks, listSubjects } from "@/lib/study/study-query-service";
 import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
 import { listSyllabusOptions } from "@/lib/study/syllabus-service";
 
@@ -62,4 +63,3 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
     </PageFrame>
   );
 }
-

@@ -1,18 +1,27 @@
 import { z } from "zod";
+import { AI_ADVICE_STATUSES } from "@areaforge/core";
+import type {
+  AiAdviceStatus,
+  KnowledgeCardDraftAdvice,
+  LearningTreeDraftAdvice,
+  MotivationDraftAdvice,
+  PlanDraftAdvice,
+} from "@areaforge/core";
+
+export type {
+  AiAdviceStatus,
+  KnowledgeCardDraftAdvice,
+  LearningTreeDraftAdvice,
+  MotivationDraftAdvice,
+  PlanDraftAdvice,
+} from "@areaforge/core";
 
 export const localFallbackStatus = "local_rule_fallback" as const;
 export const aiGeneratedStatus = "ai_generated" as const;
 export const aiInvalidFallbackStatus = "ai_invalid_fallback" as const;
 export const aiErrorFallbackStatus = "ai_error_fallback" as const;
 
-export const aiAdviceStatusSchema = z.enum([
-  localFallbackStatus,
-  aiGeneratedStatus,
-  aiInvalidFallbackStatus,
-  aiErrorFallbackStatus,
-]);
-
-export type AiAdviceStatus = z.infer<typeof aiAdviceStatusSchema>;
+export const aiAdviceStatusSchema = z.enum(AI_ADVICE_STATUSES);
 
 export type AiAdviceKind =
   | "discipline"
@@ -101,8 +110,7 @@ export const learningTreeDraftAdviceSchema = z.object({
   markdownDraft: z.string().min(1).max(32_000),
   notes: z.array(z.string().min(1).max(300)).max(5),
   reason: z.string().min(1).max(800),
-});
-export type LearningTreeDraftAdvice = z.infer<typeof learningTreeDraftAdviceSchema>;
+}) satisfies z.ZodType<LearningTreeDraftAdvice>;
 
 export const knowledgeCardDraftAdviceSchema = z.object({
   status: aiAdviceStatusSchema.default(localFallbackStatus),
@@ -111,8 +119,7 @@ export const knowledgeCardDraftAdviceSchema = z.object({
   body: z.string().min(1).max(12_000),
   kindHint: z.enum(["GENERAL", "CONCEPT", "METHOD", "EXAMPLE", "JOURNAL", "SUMMARY"]),
   reason: z.string().min(1).max(800),
-});
-export type KnowledgeCardDraftAdvice = z.infer<typeof knowledgeCardDraftAdviceSchema>;
+}) satisfies z.ZodType<KnowledgeCardDraftAdvice>;
 
 export const planDraftAdviceSchema = z.object({
   status: aiAdviceStatusSchema.default(localFallbackStatus),
@@ -128,8 +135,7 @@ export const planDraftAdviceSchema = z.object({
     .min(1)
     .max(8),
   reason: z.string().min(1).max(800),
-});
-export type PlanDraftAdvice = z.infer<typeof planDraftAdviceSchema>;
+}) satisfies z.ZodType<PlanDraftAdvice>;
 
 export const motivationDraftAdviceSchema = z.object({
   status: aiAdviceStatusSchema.default(localFallbackStatus),
@@ -137,8 +143,7 @@ export const motivationDraftAdviceSchema = z.object({
   line: z.string().min(1).max(500),
   recoveryHint: z.string().min(1).max(300),
   reason: z.string().min(1).max(800),
-});
-export type MotivationDraftAdvice = z.infer<typeof motivationDraftAdviceSchema>;
+}) satisfies z.ZodType<MotivationDraftAdvice>;
 
 export interface DisciplineContext {
   phase: string;

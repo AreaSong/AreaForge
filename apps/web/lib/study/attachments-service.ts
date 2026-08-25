@@ -20,7 +20,7 @@ import {
 import { getAuthEnv } from "@/lib/auth/env";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import type { AttachmentDto } from "./types";
+import type { AttachmentDto } from "@/lib/contracts";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import {
   buildPersistentCreateFingerprint,

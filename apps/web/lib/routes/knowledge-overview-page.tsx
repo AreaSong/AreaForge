@@ -3,8 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/feedback";
+import { Metric } from "@/components/ui/metric";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
+import { formatDate } from "@/lib/formatters";
 import { getRouteMetadata, withReturnTo } from "@/lib/navigation/app-navigation";
 import { getKnowledgeOverview } from "@/lib/study/knowledge-canvas-service";
 
@@ -31,7 +33,7 @@ export default async function KnowledgeOverviewPage() {
         description="从学习证据进入到期复习，完成后把结果写回掌握状态。"
       />
 
-      <section className="grid gap-4 border-b border-white/10 pb-6 sm:grid-cols-[minmax(0,1.4fr)_minmax(14rem,0.6fr)] sm:items-center">
+      <section className="af-action-grid grid gap-4 border-b border-white/10 pb-6">
         <div className="min-w-0">
           <p className="text-xs font-medium text-teal-300">当前下一行动</p>
           <h2 className="mt-1 break-words text-xl font-medium text-white">{overview.nextAction?.label ?? "当前没有必须处理的知识项"}</h2>
@@ -49,16 +51,14 @@ export default async function KnowledgeOverviewPage() {
         )}
       </section>
 
-      <div className="grid gap-4 border-b border-white/10 pb-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="af-metric-grid-four grid gap-4 border-b border-white/10 pb-6">
         {signals.map((signal) => (
           <Link
             key={signal.label}
             href={signal.href}
-            className="border-l border-white/10 pl-3 hover:border-teal-400/50"
+            className="border-l border-[var(--af-border)] hover:border-teal-400/50"
           >
-            <p className="text-xs text-zinc-500">{signal.label}</p>
-            <p className="mt-1 text-2xl font-semibold text-white">{signal.value}</p>
-            <p className="mt-1 text-xs text-zinc-500">{signal.note}</p>
+            <dl><Metric label={signal.label} value={signal.value} detail={signal.note} layout="compact" valueSize="2xl" className="px-3" /></dl>
           </Link>
         ))}
       </div>
@@ -99,5 +99,3 @@ function nextActionLabel(kind: "review" | "weak_node" | "resource" | "import") {
   if (kind === "resource") return "整理这份资料";
   return "检查导入结果";
 }
-
-function formatDate(value: string) { return new Date(value).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }); }

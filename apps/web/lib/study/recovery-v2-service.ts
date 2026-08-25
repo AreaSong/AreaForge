@@ -11,32 +11,12 @@ import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getStudyDayRange } from "./date";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
+import type { RecoveryV2Dto } from "@/lib/contracts/recovery";
 
 const recoveryV2LockNamespace = 2026072122;
 type Tx = Prisma.TransactionClient;
 
-export interface RecoveryV2Dto {
-  id: string;
-  workspaceId: string | null;
-  userId: string | null;
-  status: RecoveryV2Status;
-  /** GET 可投影到期状态，不在只读路径写回数据库。 */
-  effectiveStatus: RecoveryV2Status;
-  effectiveReason: string;
-  restartAvailable: boolean;
-  triggerType: string;
-  currentStage: number;
-  targetMinutes: number;
-  visibleTaskLimit: number;
-  reason: string;
-  windowStartDate: string | null;
-  windowEndDate: string | null;
-  lastProgressDate: string | null;
-  progressionVersion: number;
-  revision: number;
-  startedAt: string;
-  endedAt: string | null;
-}
+export type { RecoveryV2Dto } from "@/lib/contracts/recovery";
 
 function serialize(row: {
   id: string;

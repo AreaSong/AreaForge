@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { apiErrorResponse } from "@/lib/api/responses";
-import { getTaskDebtReorderSuggestion } from "@/lib/study/service";
+import { getTaskDebtReorderSuggestion } from "@/lib/study/dashboard-query-service";
 
 export const dynamic = "force-dynamic";
 

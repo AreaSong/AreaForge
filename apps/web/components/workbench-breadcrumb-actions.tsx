@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import {
   Archive,
   BarChart3,
@@ -230,7 +231,7 @@ function ResponsiveBreadcrumbActionGroup(props: { actions: readonly BreadcrumbAc
       {visibleActions.map((action) => <InlineActionLink key={`${action.href}:${action.label}`} action={action} />)}
       {overflowActions.length > 0 ? (
         <div ref={moreRef} className="relative shrink-0">
-          <button
+          <Button
             ref={moreTriggerRef}
             type="button"
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-xs text-zinc-300 hover:bg-white/[0.06]"
@@ -243,7 +244,7 @@ function ResponsiveBreadcrumbActionGroup(props: { actions: readonly BreadcrumbAc
           >
             <MoreHorizontal size={16} aria-hidden="true" />
             <span className="hidden sm:inline">更多</span>
-          </button>
+          </Button>
           {moreOpen ? (
             <div
               id={moreMenuId}

@@ -37,6 +37,8 @@ export const productExperienceSourcePaths = [
   "scripts/ops/v11-browser-journeys.ts",
   "scripts/ops/v11-accessibility-suite.ts",
   "scripts/ops/v11-browser-evidence.ts",
+  "scripts/ops/responsive-layout-browser-matrix.ts",
+  "scripts/ops/web-governance-browser-interactions.ts",
   "scripts/quality/product-experience-source.ts",
   "scripts/quality/product-experience-review-validate.ts",
   "scripts/quality/product-experience-review-validate.selftest.ts",
@@ -45,6 +47,12 @@ export const productExperienceSourcePaths = [
   "scripts/quality/v11-browser-evidence-validate.ts",
   "scripts/quality/v11-browser-evidence-validate.selftest.ts",
   "scripts/quality/v11-browser-evidence-runner.selftest.ts",
+  "scripts/quality/web-governance-preflight.ts",
+  "scripts/quality/web-governance-preflight.selftest.ts",
+  "scripts/quality/g8-browser-evidence-validate.ts",
+  "scripts/quality/g8-browser-evidence-validate.selftest.ts",
+  "scripts/quality/g8-browser-evidence-pair-validate.ts",
+  "scripts/quality/g8-browser-evidence-pair-validate.selftest.ts",
   "docs/development/product-experience-review-record-template.md",
 ] as const;
 

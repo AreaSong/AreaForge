@@ -1,4 +1,4 @@
-import type { StudySessionStatusDto } from "@/lib/study/types";
+import type { StudySessionStatusDto } from "@/lib/contracts";
 
 export type FocusSnapshotDecision = "redirect-active" | "keep-local" | "keep-offline" | "clear-stale";
 

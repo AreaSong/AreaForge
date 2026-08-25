@@ -1,8 +1,8 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
-import type { DailyReviewDto } from "@/lib/study/types";
+import type { PlanInboxItemDto } from "@/lib/contracts";
+import type { DailyReviewDto } from "@/lib/contracts";
 
 export function DailyReviewResult(props: {
   review: DailyReviewDto;
@@ -19,7 +19,7 @@ export function DailyReviewResult(props: {
   const returnTo = "/roadmap/reviews/daily";
   return (
     <section className="border-y border-emerald-400/25 bg-emerald-500/[0.05] py-5" aria-label="复盘完成结果">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="af-action-grid grid gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-emerald-200">
             <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
@@ -30,7 +30,7 @@ export function DailyReviewResult(props: {
             {resultCopy}
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
+        <div className="af-action-cluster">
           <ButtonLink href="/today" variant="secondary">返回今日</ButtonLink>
           {convertedTaskId ? (
             <ButtonLink href={withReturnTo(`/roadmap/allocation/tasks/${convertedTaskId}`, returnTo)} variant="primary">

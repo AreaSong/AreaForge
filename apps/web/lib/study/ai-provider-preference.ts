@@ -1,10 +1,8 @@
 import type { NextRequest } from "next/server";
 import { getAuthEnv } from "@/lib/auth/env";
+import type { AiProviderPreferenceDto } from "@/lib/contracts/ai";
 
-export interface AiProviderPreferenceDto {
-  externalProviderEnabled: boolean;
-  scope: "current_browser";
-}
+export type { AiProviderPreferenceDto } from "@/lib/contracts/ai";
 
 export const aiProviderPreferenceMaxAgeSeconds = 60 * 60 * 24 * 180;
 const enabledValue = "enabled";

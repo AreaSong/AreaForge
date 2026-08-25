@@ -1,6 +1,7 @@
+import { Button } from "@/components/ui/button";
 import { Flame, Clock, Target, TrendingUp, History, ListTodo } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/study/types";
+import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/contracts";
 
 export const FOCUS_DURATION_PRESETS: Array<{ label: string; value: number }> = [
   { label: "自由心流", value: 0 },
@@ -163,7 +164,7 @@ export function SubjectTileGrid({
 }) {
   if (!subjects.length) return null;
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="af-content-grid-two grid gap-2">
       {subjects.map((subject, idx) => {
         const isSelected = subject.id === subjectId;
         const pendingCount = tasks.filter((t) => t.subjectId === subject.id && t.status !== "done").length;
@@ -171,12 +172,12 @@ export function SubjectTileGrid({
         const isLastOdd = idx === subjects.length - 1 && subjects.length % 2 !== 0;
 
         return (
-          <button
+          <Button
             key={subject.id}
             type="button"
             onClick={() => onSelect(subject.id)}
             className={`group relative flex flex-col items-start justify-between rounded-xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] ${
-              isLastOdd ? "sm:col-span-2" : ""
+              isLastOdd ? "af-content-span-all" : ""
             } ${
               isSelected
                 ? "border-teal-400 bg-teal-500/10 shadow-[0_0_20px_rgba(45,212,191,0.18)] ring-1 ring-teal-400/50"
@@ -215,7 +216,7 @@ export function SubjectTileGrid({
             ) : (
               <span className="mt-1.5 text-[11px] text-zinc-500">自由专注</span>
             )}
-          </button>
+          </Button>
         );
       })}
     </div>

@@ -6,7 +6,11 @@ import { getTimerElapsedSeconds } from "@areaforge/core";
 import { Alert } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { publishActivityStatus } from "@/lib/client/activity-status";
-import type { StudySessionDto } from "@/lib/study/types";
+import { formatClockDuration } from "@/lib/formatters";
+import { getActiveStudySession, postStudySessionCommand } from "@/lib/api/session";
+import type { StudySessionDto } from "@/lib/contracts";
+import { mutationFeedback } from "@/lib/client/mutation-feedback";
+import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 
 type ActivityTheme = "review" | "test";
 
@@ -34,11 +38,11 @@ export function StudyActivityTimer(props: {
       return;
     }
     let cancelled = false;
-    void fetch("/api/study-sessions/active", { cache: "no-store" })
-      .then(async (response) => {
-        const body = await response.json().catch(() => null) as { session?: StudySessionDto | null } | null;
+    void getActiveStudySession()
+      .then((result) => {
+        const body = result.body;
         if (cancelled) return;
-        if (!response.ok) {
+        if (!result.ok) {
           setError("无法恢复当前活动，请刷新后重试。");
           return;
         }
@@ -109,16 +113,15 @@ export function StudyActivityTimer(props: {
   }
 
   async function postSession(endpoint: string, payload: Record<string, unknown>): Promise<StudySessionDto | null> {
-    const response = await fetch(`/api/study-sessions/${encodeURIComponent(props.sessionId!)}/${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, idempotencyKey: `activity-${props.sessionId}-${endpoint}-${crypto.randomUUID()}` }),
+    const result = await postStudySessionCommand(props.sessionId!, endpoint as "pause" | "resume" | "end", {
+      ...payload,
+      idempotencyKey: `activity-${props.sessionId}-${endpoint}-${crypto.randomUUID()}`,
     });
-    const body = await response.json().catch(() => null) as { session?: StudySessionDto; latest?: StudySessionDto; error?: string } | null;
-    if (!response.ok || !body?.session) {
-      if (body?.latest) setSession(body.latest);
-      if (body?.latest) publishActivityStatus(props.userId, body.latest);
-      setError(body?.error ?? "活动状态已变化，请刷新后重试。");
+    const body = result.body;
+    if (!result.ok || !body?.session) {
+      const feedback = mutationFeedback(result, "活动状态已变化，请刷新后重试。");
+      if (feedback.kind === "unauthorized") redirectToLoginWithCurrentLocation();
+      setError(feedback.message);
       return null;
     }
     publishActivityStatus(props.userId, body.session);
@@ -138,7 +141,7 @@ export function StudyActivityTimer(props: {
       </div>
       <div className="text-center">
         <p className={`font-mono text-6xl font-semibold tabular-nums sm:text-7xl ${theme.accent}`}>
-          {formatDuration(elapsedSeconds)}
+          {formatClockDuration(elapsedSeconds)}
         </p>
       </div>
       {error ? <Alert tone="warning">{error}</Alert> : null}
@@ -160,12 +163,4 @@ export function StudyActivityTimer(props: {
 function parseInitialNow(value: string): Date {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
-}
-
-function formatDuration(seconds: number): string {
-  const safe = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(safe / 3_600);
-  const minutes = Math.floor((safe % 3_600) / 60);
-  const remaining = safe % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
 }

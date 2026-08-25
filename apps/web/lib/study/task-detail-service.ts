@@ -1,92 +1,23 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  StudyTaskDetailDto,
+  TaskDependencyCandidateDto,
+  TaskRelationSummaryDto,
+  TaskUpdateSnapshotDto,
+} from "@/lib/contracts/task";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
-import { serializeTask } from "./task-serializer";
-import type { StudyTaskDto, TaskPriorityDto, TaskStatusDto } from "./types";
+import { fromDbTaskStatus, serializeTask, type DbTaskStatus } from "./task-serializer";
+import type { TaskPriorityDto } from "@/lib/contracts";
+
+export type {
+  StudyTaskDetailDto,
+  TaskDependencyCandidateDto,
+  TaskRelationSummaryDto,
+  TaskUpdateSnapshotDto,
+} from "@/lib/contracts/task";
 
 type TaskDetailReadClient = Pick<Prisma.TransactionClient, "studyTask">;
-
-export interface TaskUpdateSnapshotDto {
-  id: string;
-  subjectId: string;
-  syllabusNodeId: string | null;
-  relatedSyllabusNodeIds: string[];
-  stagePlanIds: string[];
-  knowledgePointIds: string[];
-  planMilestoneId: string | null;
-  title: string;
-  type: string;
-  status: TaskStatusDto;
-  priority: TaskPriorityDto;
-  plannedDate: string;
-  estimatedMinutes: number;
-  reviewText: string | null;
-  updatedAt: string;
-}
-
-export interface StudyTaskDetailDto {
-  task: StudyTaskDto;
-  workspaceId: string;
-  workspaceName: string;
-  readOnly: boolean;
-  createdAt: string;
-  updatedAt: string;
-  subjectArchived: boolean;
-  updateSnapshot: TaskUpdateSnapshotDto;
-  planMilestone: {
-    id: string;
-    title: string;
-    status: string;
-    archivedAt: string | null;
-  } | null;
-  reviewSchedule: {
-    id: string;
-    status: string;
-    dueDate: string | null;
-    revision: number;
-  } | null;
-  relatedSyllabusNodes: Array<{
-    id: string;
-    title: string;
-    archivedAt: string | null;
-  }>;
-  knowledgePoints: Array<{ id: string; title: string; masteryState: string }>;
-  parentTask: TaskRelationSummaryDto | null;
-  childTasks: TaskRelationSummaryDto[];
-  sessions: Array<{
-    id: string;
-    status: string;
-    startedAt: string;
-    endedAt: string | null;
-    effectiveMinutes: number;
-    isEffective: boolean | null;
-    minimalOutput: string | null;
-  }>;
-  debtEvents: Array<{
-    id: string;
-    action: string;
-    fromStatus: string | null;
-    toStatus: string | null;
-    reason: string | null;
-    relatedTask: { id: string; title: string } | null;
-    createdAt: string;
-  }>;
-  auditEvents: Array<{
-    id: string;
-    action: string;
-    createdAt: string;
-  }>;
-}
-
-export interface TaskRelationSummaryDto {
-  id: string;
-  title: string;
-  status: TaskStatusDto;
-}
-
-export interface TaskDependencyCandidateDto extends TaskRelationSummaryDto {
-  subjectName: string;
-}
 
 interface TaskUpdateSnapshotRow {
   id: string;
@@ -95,7 +26,7 @@ interface TaskUpdateSnapshotRow {
   planMilestoneId: string | null;
   title: string;
   type: string;
-  status: string;
+  status: DbTaskStatus;
   priority: string;
   plannedDate: Date;
   estimatedMinutes: number;
@@ -318,10 +249,6 @@ export async function listTaskDependencyCandidates(
   }));
 }
 
-function serializeTaskRelation(task: { id: string; title: string; status: string }): TaskRelationSummaryDto {
+function serializeTaskRelation(task: { id: string; title: string; status: DbTaskStatus }): TaskRelationSummaryDto {
   return { id: task.id, title: task.title, status: fromDbTaskStatus(task.status) };
-}
-
-function fromDbTaskStatus(status: string): TaskStatusDto {
-  return status.toLowerCase() as TaskStatusDto;
 }

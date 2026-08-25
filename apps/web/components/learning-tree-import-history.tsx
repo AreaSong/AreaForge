@@ -1,5 +1,12 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
+import {
+  getLearningTreeImport,
+  setLearningTreeImportArchived,
+} from "@/lib/api/learning-tree";
 import { Archive, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,8 +18,10 @@ import {
   resolveLearningTreeArchiveCapability,
 } from "@/lib/client/learning-tree-archive-capability";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-import type { LearningTreeImportBatchSummaryDto } from "@/lib/study/learning-tree-service";
+import type { LearningTreeImportBatchSummaryDto } from "@/lib/contracts";
+import { formatDateTime } from "@/lib/formatters";
 
 const deniedArchiveCapabilities = new Set<string>();
 
@@ -46,14 +55,12 @@ export function LearningTreeBatchArchiveButton({
       if (workspaceStatus) return workspaceStatus === "ACTIVE";
 
       try {
-        const response = await fetch(`/api/learning-tree/imports/${batchId}`);
-        if (response.status === 401) {
+        const response = await getLearningTreeImport(batchId);
+        if (isUnauthorized(response)) {
           redirectToLoginWithCurrentLocation();
           return null;
         }
-        const body = (await response.json().catch(() => null)) as {
-          import?: LearningTreeImportBatchSummaryDto;
-        } | null;
+        const body = response.body;
         return response.ok ? body?.import?.workspaceStatus === "ACTIVE" : false;
       } catch {
         return false;
@@ -77,15 +84,11 @@ export function LearningTreeBatchArchiveButton({
     setPending(true);
     setError(null);
     try {
-      const response = await fetch(`/api/learning-tree/imports/${batchId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: !archived }),
-      });
-      if (response.status === 401) return redirectToLoginWithCurrentLocation();
+      const response = await setLearningTreeImportArchived(batchId, !archived);
+      if (isUnauthorized(response)) return redirectToLoginWithCurrentLocation();
       if (response.ok) {
         router.refresh();
-      } else if (response.status === 404 || response.status === 409) {
+      } else if (response.status === 404 || isConflict(response)) {
         rememberArchiveCapabilityDenial(capabilitySourceKey);
         setCapability((current) => resolveLearningTreeArchiveCapability(
           reconcileLearningTreeArchiveCapability(current, capabilitySource),
@@ -105,7 +108,7 @@ export function LearningTreeBatchArchiveButton({
   const Icon = archived ? RotateCcw : Archive;
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
+      <Button
         type="button"
         disabled={pending}
         onClick={() => void update()}
@@ -113,7 +116,7 @@ export function LearningTreeBatchArchiveButton({
       >
         <Icon size={14} aria-hidden />
         {pending ? "处理中" : archived ? "恢复" : "归档"}
-      </button>
+      </Button>
       {error ? <p className="max-w-72 text-right text-xs text-red-300" role="alert">{error}</p> : null}
     </div>
   );
@@ -122,7 +125,7 @@ export function LearningTreeBatchArchiveButton({
 function archiveCapabilityWasDenied(sourceKey: string): boolean {
   if (deniedArchiveCapabilities.has(sourceKey)) return true;
   try {
-    const denied = window.sessionStorage.getItem(archiveCapabilityStorageKey(sourceKey)) === "1";
+    const denied = getBrowserStoragePort("session")?.getItem(archiveCapabilityStorageKey(sourceKey)) === "1";
     if (denied) deniedArchiveCapabilities.add(sourceKey);
     return denied;
   } catch {
@@ -133,7 +136,7 @@ function archiveCapabilityWasDenied(sourceKey: string): boolean {
 function rememberArchiveCapabilityDenial(sourceKey: string): void {
   deniedArchiveCapabilities.add(sourceKey);
   try {
-    window.sessionStorage.setItem(archiveCapabilityStorageKey(sourceKey), "1");
+    getBrowserStoragePort("session")?.setItem(archiveCapabilityStorageKey(sourceKey), "1");
   } catch {
     // The in-memory fallback still prevents remount resurrection in this tab.
   }
@@ -163,7 +166,7 @@ export function LearningTreeImportHistory({
             <div>
               <p className="text-zinc-100">{scopeLabel(item.scope)}导入</p>
               <p className="text-xs text-zinc-500">
-                {item.itemCount} 项 · {new Date(item.confirmedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
+                {item.itemCount} 项 · {formatDateTime(item.confirmedAt)}
               </p>
             </div>
             <div className="flex gap-2">

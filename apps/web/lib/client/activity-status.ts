@@ -1,4 +1,4 @@
-import type { StudySessionDto } from "@/lib/study/types";
+import type { StudySessionDto } from "@/lib/contracts";
 
 export const ACTIVITY_STATUS_EVENT = "areaforge:activity-status";
 const ACTIVITY_STATUS_CHANNEL = "areaforge-activity-status-v1";

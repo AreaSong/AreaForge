@@ -1,10 +1,18 @@
 "use client";
 
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
+import {
+  createStageMilestone,
+  updateStageMilestone,
+} from "@/lib/api/stage";
 import { Archive, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
@@ -13,8 +21,14 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
-import type { PlanMilestoneConflictLatest, PlanMilestoneDto } from "@/lib/study/plan-milestone-service";
-import type { StagePlanDto } from "@/lib/study/types";
+import type { PlanMilestoneConflictLatest, PlanMilestoneDto } from "@/lib/contracts";
+import type { StagePlanDto } from "@/lib/contracts";
+import {
+  formatDate,
+  isShanghaiDateInputError,
+  isValidShanghaiDateInput,
+  shanghaiDateInputToIso,
+} from "@/lib/formatters";
 
 interface MilestoneCreatePayload {
   stagePlanId: string;
@@ -44,14 +58,6 @@ interface MilestoneArchiveCommand {
 type MilestoneConflict =
   | { type: "create"; latest: PlanMilestoneConflictLatest; fields: string[]; submitted: MilestoneCreatePayload }
   | { type: "archive"; latest: PlanMilestoneConflictLatest; fields: string[]; command: MilestoneArchiveCommand };
-
-interface MilestoneResponse {
-  milestone?: PlanMilestoneDto;
-  error?: string;
-  latest?: unknown;
-  conflictFields?: string[];
-  workbench?: string;
-}
 
 export function StageMilestoneManager({ plan, milestones, initialStableKey, returnTo }: {
   plan: StagePlanDto;
@@ -154,30 +160,26 @@ export function StageMilestoneManager({ plan, milestones, initialStableKey, retu
     setSaving(true);
     setError(null);
     setNotice(null);
-    const payload = currentCreatePayload();
-    const submitted = firstSubmittedPayload && samePayload(firstSubmittedPayload, payload)
-      ? firstSubmittedPayload
-      : payload;
-    setFirstSubmittedPayload(submitted);
-    setDirty(true);
-    savePrivateBusinessDraft<MilestoneFormDraft>(createDraftKey, currentFormDraft(submitted));
     try {
-      const response = await fetch("/api/plan-milestones", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...submitted,
-          idempotencyKey: getOrCreateIdempotencyKey(createCommandScope, "plan-milestone", submitted),
-        }),
+      const payload = currentCreatePayload();
+      const submitted = firstSubmittedPayload && samePayload(firstSubmittedPayload, payload)
+        ? firstSubmittedPayload
+        : payload;
+      setFirstSubmittedPayload(submitted);
+      setDirty(true);
+      savePrivateBusinessDraft<MilestoneFormDraft>(createDraftKey, currentFormDraft(submitted));
+      const response = await createStageMilestone({
+        ...submitted,
+        idempotencyKey: getOrCreateIdempotencyKey(createCommandScope, "plan-milestone", submitted),
       });
-      const body = await response.json().catch(() => null) as MilestoneResponse | null;
-      if (response.status === 401) {
+      const body = response.body;
+      if (isUnauthorized(response)) {
         setError("登录已过期，里程碑草稿与创建命令已保留。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok || !body?.milestone) {
-        if (response.status === 409 && isMilestoneConflictLatest(body?.latest)) {
+        if (isConflict(response) && isMilestoneConflictLatest(body?.latest)) {
           setConflict({ type: "create", latest: body.latest, fields: body.conflictFields ?? [], submitted });
           setConflictOpen(true);
         }
@@ -194,8 +196,10 @@ export function StageMilestoneManager({ plan, milestones, initialStableKey, retu
       setTargetDate("");
       setFirstSubmittedPayload(null);
       setDirty(false);
-    } catch {
-      setError("网络结果未知，里程碑草稿与创建命令已保留；请先核对服务端状态，再显式重试。");
+    } catch (caught) {
+      setError(isShanghaiDateInputError(caught)
+        ? "里程碑目标日期无效，请重新选择。"
+        : "网络结果未知，里程碑草稿与创建命令已保留；请先核对服务端状态，再显式重试。");
     } finally {
       setSaving(false);
     }
@@ -224,19 +228,15 @@ export function StageMilestoneManager({ plan, milestones, initialStableKey, retu
     setError(null);
     setNotice(null);
     try {
-      const response = await fetch(`/api/plan-milestones/${row.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(activeCommand.firstSubmittedPayload),
-      });
-      const body = await response.json().catch(() => null) as MilestoneResponse | null;
-      if (response.status === 401) {
+      const response = await updateStageMilestone(row.id, activeCommand.firstSubmittedPayload);
+      const body = response.body;
+      if (isUnauthorized(response)) {
         setError("登录已过期，里程碑状态命令已保留。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok || !body?.milestone) {
-        if (response.status === 409 && isMilestoneConflictLatest(body?.latest)) {
+        if (isConflict(response) && isMilestoneConflictLatest(body?.latest)) {
           setConflict({ type: "archive", latest: body.latest, fields: body.conflictFields ?? [], command: activeCommand });
           setConflictOpen(true);
         }
@@ -260,7 +260,7 @@ export function StageMilestoneManager({ plan, milestones, initialStableKey, retu
       expectedStagePlanRevision: baseRevision,
       stableKey: stableKey.trim(),
       title: title.trim(),
-      targetDate: targetDate ? new Date(`${targetDate}T00:00:00+08:00`).toISOString() : null,
+      targetDate: targetDate ? shanghaiDateInputToIso(targetDate) : null,
       sortOrder: rows.length,
     };
   }
@@ -334,16 +334,16 @@ export function StageMilestoneManager({ plan, milestones, initialStableKey, retu
       <ul className="divide-y divide-white/10 border-y border-white/10">
         {rows.length ? rows.map((row) => (
           <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
-            <div><p className={row.archivedAt ? "text-zinc-500 line-through" : "text-zinc-100"}>{row.title}</p><p className="text-xs text-zinc-500">{row.targetDate ? new Date(row.targetDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }) : "未设置目标日期"}{row.archivedAt ? " · 已归档" : ""}</p></div>
-            <button type="button" disabled={saving} onClick={() => void toggleArchive(row)} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-xs text-zinc-200 disabled:opacity-50">{row.archivedAt ? <RotateCcw size={14} aria-hidden /> : <Archive size={14} aria-hidden />}{row.archivedAt ? "恢复" : "归档"}</button>
+            <div><p className={row.archivedAt ? "text-zinc-500 line-through" : "text-zinc-100"}>{row.title}</p><p className="text-xs text-zinc-500">{row.targetDate ? formatDate(row.targetDate) : "未设置目标日期"}{row.archivedAt ? " · 已归档" : ""}</p></div>
+            <Button type="button" size="sm" variant="secondary" disabled={saving} onClick={() => void toggleArchive(row)}>{row.archivedAt ? <RotateCcw size={14} aria-hidden /> : <Archive size={14} aria-hidden />}{row.archivedAt ? "恢复" : "归档"}</Button>
           </li>
         )) : <li className="text-sm text-zinc-500">当前阶段还没有里程碑。</li>}
       </ul>
-      <form className="grid gap-3 sm:grid-cols-2" onSubmit={create}>
-        <label className="grid gap-1 text-sm text-zinc-300">标题<input className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-2" maxLength={200} required value={title} onChange={(event) => { setTitle(event.target.value); markFormEdited(); }} placeholder="例如：完成高数基础复习" /></label>
-        <label className="grid gap-1 text-sm text-zinc-300">目标日期<input className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-2" type="date" value={targetDate} onChange={(event) => { setTargetDate(event.target.value); markFormEdited(); }} /></label>
-        <details className="text-xs text-zinc-500 sm:col-span-2"><summary className="cursor-pointer">高级选项</summary><label className="mt-2 grid max-w-md gap-1">内部标识<input className="h-9 rounded-md border border-white/10 bg-[#0d1117] px-2" maxLength={80} required value={stableKey} onChange={(event) => { setStableKey(event.target.value); markFormEdited(); }} /></label></details>
-        <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><button type="submit" disabled={saving} className="h-10 rounded-md bg-teal-400 px-4 text-sm font-medium text-[#071011] disabled:opacity-50">{saving ? "保存中..." : "创建里程碑"}</button>{returnTo ? <Link href={returnTo} className="text-sm text-teal-300 hover:underline">返回并重新预览导入</Link> : null}</div>
+      <form className="af-content-grid-two grid gap-3" onSubmit={create}>
+        <Field label="标题" htmlFor="milestone-title"><Input id="milestone-title" className="bg-[#0d1117]" maxLength={200} required value={title} onChange={(event) => { setTitle(event.target.value); markFormEdited(); }} placeholder="例如：完成高数基础复习" /></Field>
+        <Field label="目标日期" htmlFor="milestone-target-date"><Input id="milestone-target-date" className="bg-[#0d1117]" type="date" value={targetDate} onChange={(event) => { setTargetDate(event.target.value); markFormEdited(); }} /></Field>
+        <details className="af-content-span-all text-xs text-zinc-500"><summary className="cursor-pointer">高级选项</summary><Field className="mt-2 max-w-md" label="内部标识" htmlFor="milestone-stable-key"><Input id="milestone-stable-key" className="bg-[#0d1117]" maxLength={80} required value={stableKey} onChange={(event) => { setStableKey(event.target.value); markFormEdited(); }} /></Field></details>
+        <div className="af-action-cluster af-content-span-all"><Button type="submit" variant="primary" disabled={saving}>{saving ? "保存中..." : "创建里程碑"}</Button>{returnTo ? <Link href={returnTo} className="text-sm text-teal-300 hover:underline">返回并重新预览导入</Link> : null}</div>
       </form>
       {notice ? <p role="status" className="text-sm text-teal-200">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : null}
@@ -378,7 +378,7 @@ function formPayload(draft: MilestoneFormDraft, stagePlanId: string, sortOrder: 
     expectedStagePlanRevision: draft.baseRevision,
     stableKey: draft.stableKey.trim(),
     title: draft.title.trim(),
-    targetDate: draft.targetDate ? new Date(`${draft.targetDate}T00:00:00+08:00`).toISOString() : null,
+    targetDate: draft.targetDate ? shanghaiDateInputToIso(draft.targetDate) : null,
     sortOrder,
   };
 }
@@ -425,6 +425,7 @@ function isMilestoneFormDraft(value: unknown): value is MilestoneFormDraft {
     && typeof draft.stableKey === "string"
     && typeof draft.title === "string"
     && typeof draft.targetDate === "string"
+    && (!draft.targetDate || isValidShanghaiDateInput(draft.targetDate))
     && (draft.firstSubmittedPayload === null || isMilestoneCreatePayload(draft.firstSubmittedPayload));
 }
 

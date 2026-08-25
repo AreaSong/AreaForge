@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/field";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Pause, Play, Square, Maximize2, Minimize2, StickyNote, X, CornerDownLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ export interface FocusTimerWorkspaceProps {
   elapsedSeconds: number;
   timerLabel: string;
   status: "running" | "paused";
+  commandBusy?: boolean;
   onPause: () => void;
   onResume: () => void;
   onEnd: () => void;
@@ -22,6 +24,7 @@ export function FocusTimerWorkspace({
   elapsedSeconds,
   timerLabel,
   status,
+  commandBusy = false,
   onPause,
   onResume,
   onEnd,
@@ -64,6 +67,7 @@ export function FocusTimerWorkspace({
 
       if (e.code === "Space") {
         e.preventDefault();
+        if (commandBusy) return;
         if (status === "running") {
           onPause();
         } else {
@@ -71,6 +75,7 @@ export function FocusTimerWorkspace({
         }
       } else if (e.key === "Enter") {
         e.preventDefault();
+        if (commandBusy) return;
         onEnd();
       } else if (e.key === "f" || e.key === "F") {
         e.preventDefault();
@@ -87,7 +92,7 @@ export function FocusTimerWorkspace({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [status, onPause, onResume, onEnd, isZenMode, showScratchpad, toggleZenMode]);
+  }, [status, commandBusy, onPause, onResume, onEnd, isZenMode, showScratchpad, toggleZenMode]);
 
   const handleSaveNote = useCallback(() => {
     if (!noteInput.trim()) return;
@@ -107,7 +112,7 @@ export function FocusTimerWorkspace({
     <div
       className={`relative flex w-full transition-all duration-500 ease-out select-none ${
         isZenMode
-          ? "fixed inset-0 z-[999] bg-[#070b0d] h-screen w-screen overflow-hidden p-6 sm:p-10"
+          ? "af-overlay-viewport fixed inset-0 z-[999] overflow-hidden bg-[#070b0d]"
           : embeddedInWorkbench
           ? "h-full min-h-0 flex-1"
           : "min-h-full"
@@ -115,7 +120,7 @@ export function FocusTimerWorkspace({
     >
       {/* Zen Mode Exit / Fullscreen Toggle button */}
       <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
-        <button
+        <Button
           type="button"
           onClick={() => {
             setShowScratchpad((prev) => !prev);
@@ -135,9 +140,9 @@ export function FocusTimerWorkspace({
               {savedNotes.length}
             </span>
           ) : null}
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
           onClick={() => setIsZenMode((prev) => !prev)}
           className="flex size-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:border-white/20 hover:text-white"
@@ -145,7 +150,7 @@ export function FocusTimerWorkspace({
           aria-label={isZenMode ? "退出全屏" : "进入全屏"}
         >
           {isZenMode ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-        </button>
+        </Button>
       </div>
 
       <section className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden px-4 py-8 text-center min-h-[34rem]">
@@ -303,6 +308,7 @@ export function FocusTimerWorkspace({
                   type="button"
                   variant="secondary"
                   size="lg"
+                  disabled={commandBusy}
                   onClick={onPause}
                   className="h-11 px-6 text-sm font-medium border-white/10 hover:border-white/20 hover:bg-white/5 active:scale-95 transition-all group"
                   title="暂停计时 (Space)"
@@ -318,6 +324,7 @@ export function FocusTimerWorkspace({
                   type="button"
                   variant="primary"
                   size="lg"
+                  disabled={commandBusy}
                   onClick={onResume}
                   className="h-11 px-6 text-sm font-medium shadow-[0_0_24px_rgba(45,212,191,0.3)] hover:scale-105 active:scale-95 transition-all group"
                   title="继续计时 (Space)"
@@ -334,6 +341,7 @@ export function FocusTimerWorkspace({
                 type="button"
                 variant={status === "running" ? "primary" : "secondary"}
                 size="lg"
+                disabled={commandBusy}
                 onClick={onEnd}
                 className={`h-11 px-6 text-sm font-medium transition-all group ${
                   status === "running"
@@ -363,16 +371,16 @@ export function FocusTimerWorkspace({
                 <span className="flex items-center gap-1 text-teal-300 font-medium">
                   <StickyNote className="size-3.5" /> 闪念随手记（不打断专注）
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() => setShowScratchpad(false)}
                   className="rounded p-0.5 hover:bg-white/10 hover:text-white"
                 >
                   <X className="size-3.5" />
-                </button>
+                </Button>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <input
+                <Input
                   ref={inputRef}
                   type="text"
                   value={noteInput}
@@ -383,14 +391,14 @@ export function FocusTimerWorkspace({
                   placeholder="记下突发想法，回车即存..."
                   className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-teal-400 focus:outline-none"
                 />
-                <button
+                <Button
                   type="button"
                   onClick={handleSaveNote}
                   className="flex items-center gap-1 rounded-lg bg-teal-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-teal-400 transition-colors"
                 >
                   <CornerDownLeft className="size-3" />
                   <span>存</span>
-                </button>
+                </Button>
               </div>
               {savedNotes.length > 0 ? (
                 <ul className="mt-2.5 max-h-24 overflow-y-auto space-y-1 text-left focus-scrollbar">
@@ -400,13 +408,13 @@ export function FocusTimerWorkspace({
                       className="flex items-center justify-between text-[11px] text-zinc-300 bg-white/5 rounded px-2 py-1"
                     >
                       <span className="truncate pr-2">• {note}</span>
-                      <button
+                      <Button
                         type="button"
                         onClick={() => setSavedNotes((prev) => prev.filter((_, i) => i !== idx))}
                         className="text-zinc-500 hover:text-red-400 shrink-0"
                       >
                         <X className="size-3" />
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>

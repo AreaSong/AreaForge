@@ -24,7 +24,7 @@ export default function RoadmapOverviewPage() {
       />
       <section className="space-y-4">
         <SectionHeader title="路线工作台" description="四个视图共享同一套路线状态，详情页沿用这里的二级导航。" />
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="af-content-grid-two grid gap-3">
           {WORKBENCHS.map((item) => {
             const Icon = item.icon;
             return (
@@ -39,9 +39,9 @@ export default function RoadmapOverviewPage() {
           })}
         </div>
       </section>
-      <section className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6">
+      <section className="af-action-grid grid gap-3 border-t border-white/10 pt-6">
         <div><h2 className="font-medium text-white">统一确认中心</h2><p className="mt-1 text-sm text-zinc-500">报告、阶段建议、模拟考试、专项复测和 AI 草稿都在这里完成最终决定。</p></div>
-        <ButtonLink href="/confirmations" variant="secondary">打开确认中心<ArrowRight size={15} aria-hidden="true" /></ButtonLink>
+        <ButtonLink className="af-container-action" href="/confirmations" variant="secondary">打开确认中心<ArrowRight size={15} aria-hidden="true" /></ButtonLink>
       </section>
     </PageFrame>
   );

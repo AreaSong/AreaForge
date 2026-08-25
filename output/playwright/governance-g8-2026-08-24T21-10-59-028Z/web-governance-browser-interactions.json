@@ -1,0 +1,319 @@
+{
+  "schemaVersion": "web-governance-browser-interactions-v2",
+  "runId": "governance-g8-2026-08-24T21-10-59-028Z",
+  "generatedAt": "2026-08-24T21:11:10.407Z",
+  "environment": {
+    "baseUrl": "http://127.0.0.1:43171",
+    "browser": "chromium",
+    "mode": "local-production-build",
+    "pool": {
+      "slot": 1,
+      "container": "areaforge-dev-test-1",
+      "port": 43171,
+      "generation": 1787605525780,
+      "url": "http://127.0.0.1:43171",
+      "status": "running",
+      "commit": "45901f7743996a7b0243807d2e878abd10415ebc",
+      "sourceFingerprint": "sha256:7817152ed81edcd67079067dc835d1c20899b660512abaacec76e20f3080efcc",
+      "buildId": "sha256:6afa25de0e30b477acb7a4f3fa4653e0c624dcba6cd6be43fc488fca15606adc",
+      "observedAt": "2026-08-24T21:10:39.000Z"
+    }
+  },
+  "binding": {
+    "commit": "45901f7743996a7b0243807d2e878abd10415ebc",
+    "sourceFingerprint": "sha256:7817152ed81edcd67079067dc835d1c20899b660512abaacec76e20f3080efcc",
+    "capturePhase": "after-collection"
+  },
+  "runtimeIdentity": {
+    "schemaVersion": 1,
+    "status": "verified",
+    "appVersion": "1.1.2",
+    "gitCommit": "45901f7743996a7b0243807d2e878abd10415ebc",
+    "sourceFingerprintSchema": "ux-source-v2",
+    "productExperienceSourceHash": "sha256:7817152ed81edcd67079067dc835d1c20899b660512abaacec76e20f3080efcc",
+    "buildId": "sha256:6afa25de0e30b477acb7a4f3fa4653e0c624dcba6cd6be43fc488fca15606adc",
+    "runtimeMode": "production-build",
+    "identityHash": "sha256:94fee6768cc0cc174d31806e975abc14d2ba543c42989d16c937094246097122",
+    "observedAt": "2026-08-24T21:11:10.405Z",
+    "reasonCode": "NONE"
+  },
+  "safety": {
+    "loopbackOnly": true,
+    "authentication": "local-demo-button",
+    "businessWrites": false,
+    "mutationRequests": "route-intercepted",
+    "migration": false,
+    "productionTouched": false
+  },
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "failedRequestCount": 0,
+    "unexpectedErrorResponseCount": 0,
+    "expectedErrorResponseCount": 1,
+    "result": "PASS"
+  },
+  "results": [
+    {
+      "id": "overlay-escape-focus",
+      "viewport": "820x1180",
+      "facts": {
+        "drawerEscapeClosed": true,
+        "drawerFocusRestored": true,
+        "windowEscapeMinimized": true,
+        "windowFocusRestored": true,
+        "dockVisible": true
+      },
+      "screenshots": [
+        {
+          "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/overlay-window-open.png",
+          "sha256": "sha256:feda73af9aaa50054dad6daafd883cde32420f048de515ec3eb89d16dbe9c5a2",
+          "width": 820,
+          "height": 1180
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "errorResponses": [],
+      "expectedErrorResponses": [],
+      "passed": true,
+      "failure": null
+    },
+    {
+      "id": "draft-current",
+      "viewport": "390x844",
+      "facts": {
+        "status": "current",
+        "storageKeyPrefix": "areaforge.resource.draft.detail.",
+        "restoredValue": "G8-current-draft",
+        "baseRevision": 1,
+        "conflictRequired": false,
+        "submitLockedBeforeResolution": false
+      },
+      "screenshots": [
+        {
+          "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/resource-draft-current.png",
+          "sha256": "sha256:b06fb228c197fba3349129f29ceda507f0c1c0c8f41f7a4c149c131f8d6cd7a0",
+          "width": 390,
+          "height": 844
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "errorResponses": [],
+      "expectedErrorResponses": [],
+      "passed": true,
+      "failure": null
+    },
+    {
+      "id": "draft-stale",
+      "viewport": "390x844",
+      "facts": {
+        "status": "stale",
+        "storageKeyPrefix": "areaforge.resource.draft.detail.",
+        "restoredValue": "G8-stale-draft",
+        "baseRevision": 1,
+        "conflictRequired": true,
+        "submitLockedBeforeResolution": true
+      },
+      "screenshots": [
+        {
+          "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/resource-draft-stale.png",
+          "sha256": "sha256:0e0aa5aaedf2a8281c20be3ce53dae33060343dbedf748c6b1110b269cbdbd39",
+          "width": 390,
+          "height": 844
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "errorResponses": [],
+      "expectedErrorResponses": [],
+      "passed": true,
+      "failure": null
+    },
+    {
+      "id": "draft-legacy",
+      "viewport": "390x844",
+      "facts": {
+        "status": "legacy",
+        "storageKeyPrefix": "areaforge.resource.draft.detail.",
+        "restoredValue": "G8-legacy-draft",
+        "baseRevision": 1,
+        "conflictRequired": true,
+        "submitLockedBeforeResolution": true
+      },
+      "screenshots": [
+        {
+          "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/resource-draft-legacy.png",
+          "sha256": "sha256:18dd96355ca89f0c5f8b40e2c29dbf1af5b90b861c11c7975bd24f252172cc6e",
+          "width": 390,
+          "height": 844
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "errorResponses": [],
+      "expectedErrorResponses": [],
+      "passed": true,
+      "failure": null
+    },
+    {
+      "id": "resource-409-input-retention",
+      "viewport": "390x844",
+      "facts": {
+        "interceptedStatus": 409,
+        "submittedTitle": "G8 本机冲突输入必须保留",
+        "retainedTitle": "G8 本机冲突输入必须保留",
+        "conflictFields": [
+          "revision",
+          "title"
+        ],
+        "automaticOverwrite": false
+      },
+      "screenshots": [
+        {
+          "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/resource-409-conflict.png",
+          "sha256": "sha256:83d0831aeb35eb69edc1b452113b832b7f6528afc558ed0a7ea8cc92fb033163",
+          "width": 390,
+          "height": 844
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "errorResponses": [],
+      "expectedErrorResponses": [
+        "409 PATCH http://127.0.0.1:43171/api/study-resources/test-resource-link"
+      ],
+      "passed": true,
+      "failure": null
+    },
+    {
+      "id": "ai-latest-wins",
+      "viewport": "820x1180",
+      "facts": {
+        "previewRequestCount": 2,
+        "duplicateClickRequestCount": 1,
+        "requestTexts": [
+          "G8 FIRST",
+          "G8 SECOND"
+        ],
+        "visiblePreview": "G8_SECOND_PREVIEW",
+        "stalePreviewVisible": false,
+        "pendingLocked": true
+      },
+      "screenshots": [
+        {
+          "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/ai-latest-wins.png",
+          "sha256": "sha256:fc942ca46e932724de145837aa69befdcac69572f8700b6782b80f095d7f1987",
+          "width": 820,
+          "height": 1180
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "errorResponses": [],
+      "expectedErrorResponses": [],
+      "passed": true,
+      "failure": null
+    },
+    {
+      "id": "upload-batch-lock",
+      "viewport": "820x1180",
+      "facts": {
+        "stageRequestCount": 1,
+        "resolveRequestCount": 1,
+        "originalFileName": "governance-original.md",
+        "pendingControlsLocked": true,
+        "pendingSubmitControl": "unmounted",
+        "duplicateClickSuppressed": true,
+        "resolvedSnapshot": {
+          "attachmentId": "g8-staged-attachment",
+          "decision": "copy",
+          "title": "governance-original.md",
+          "subjectId": null,
+          "category": "COURSE",
+          "tags": [
+            "alpha",
+            "beta"
+          ]
+        }
+      },
+      "screenshots": [
+        {
+          "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/upload-batch-pending-lock.png",
+          "sha256": "sha256:6e4ca8bb481e6c93b9e8d52f20b739b1fe367ef05a746efb2b401b1005c03812",
+          "width": 820,
+          "height": 1180
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "errorResponses": [],
+      "expectedErrorResponses": [],
+      "passed": true,
+      "failure": null
+    }
+  ],
+  "screenshotEvidence": [
+    {
+      "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/overlay-window-open.png",
+      "sha256": "sha256:feda73af9aaa50054dad6daafd883cde32420f048de515ec3eb89d16dbe9c5a2",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/resource-draft-current.png",
+      "sha256": "sha256:b06fb228c197fba3349129f29ceda507f0c1c0c8f41f7a4c149c131f8d6cd7a0",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/resource-draft-stale.png",
+      "sha256": "sha256:0e0aa5aaedf2a8281c20be3ce53dae33060343dbedf748c6b1110b269cbdbd39",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/resource-draft-legacy.png",
+      "sha256": "sha256:18dd96355ca89f0c5f8b40e2c29dbf1af5b90b861c11c7975bd24f252172cc6e",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/resource-409-conflict.png",
+      "sha256": "sha256:83d0831aeb35eb69edc1b452113b832b7f6528afc558ed0a7ea8cc92fb033163",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/ai-latest-wins.png",
+      "sha256": "sha256:fc942ca46e932724de145837aa69befdcac69572f8700b6782b80f095d7f1987",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "path": "output/playwright/governance-g8-2026-08-24T21-10-59-028Z/screenshots/upload-batch-pending-lock.png",
+      "sha256": "sha256:6e4ca8bb481e6c93b9e8d52f20b739b1fe367ef05a746efb2b401b1005c03812",
+      "width": 820,
+      "height": 1180
+    }
+  ],
+  "doesNotProve": [
+    "GitHub Release exists for this checkout",
+    "production apply completed",
+    "production health or production UX",
+    "real AI provider behavior",
+    "real upload persistence or attachment storage",
+    "multi-device concurrency against a live server writer"
+  ]
+}

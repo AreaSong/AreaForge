@@ -5,7 +5,7 @@ import { ListDetailLink } from "@/components/list-return-context";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { SectionHeader } from "@/components/ui/page";
 import { resourceCategories } from "@/components/study-resource-workbench-support";
-import type { StudyResourceDto } from "@/lib/study/study-resource-service";
+import type { StudyResourceDto } from "@/lib/contracts";
 
 export function StudyResourceList(props: {
   title: string;

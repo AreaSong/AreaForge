@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, IconButton } from "@/components/ui/button";
 import { Activity, Menu, TriangleAlert } from "lucide-react";
 import { BrandMark } from "@/components/brand-logo";
 import { GlobalActivitySlot } from "@/components/global-activity-slot";
@@ -10,7 +11,7 @@ import { GlobalCommandPalette } from "@/components/global-command-palette";
 import { useGlobalTools } from "@/components/global-tool-system";
 import type { GlobalCommandAction } from "@/lib/navigation/command-palette";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
-import type { StudySessionDto } from "@/lib/study/types";
+import type { StudySessionDto } from "@/lib/contracts";
 
 const toneClass: Record<string, string> = {
   gray: "border-zinc-600 text-zinc-400",
@@ -58,7 +59,8 @@ export function GlobalTopBar(props: {
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(13rem,1fr)_minmax(14rem,42rem)_minmax(13rem,1fr)]">
         <div className="flex min-w-0 items-center gap-2 max-[359px]:col-span-2 max-[359px]:row-start-1">
-          <button
+          <IconButton
+            label="打开导航"
             type="button"
             className="af-tablet-navigation-trigger inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/[0.06]"
             onClick={props.onOpenNavigation}
@@ -66,7 +68,7 @@ export function GlobalTopBar(props: {
             title="打开导航"
           >
             <Menu size={17} aria-hidden="true" />
-          </button>
+          </IconButton>
           <div className="flex shrink-0 items-center gap-2 lg:hidden max-[359px]:hidden">
             <BrandMark size={20} />
             <span className="hidden text-sm text-teal-300 min-[360px]:inline">AreaForge</span>
@@ -79,7 +81,7 @@ export function GlobalTopBar(props: {
                 quickReviewClaim={props.quickReviewClaim}
               />
             ) : (
-              <button
+              <Button
                 type="button"
                 className="inline-flex h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 text-xs text-zinc-200 hover:bg-white/[0.07] sm:px-3"
                 onClick={props.onOpenStatus}
@@ -89,7 +91,7 @@ export function GlobalTopBar(props: {
                 <Activity size={15} className={statusToneClass} aria-hidden="true" />
                 <span className="shrink-0">今日状态</span>
                 <span className="max-w-52 truncate text-zinc-500">{props.statusSummary}</span>
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -106,7 +108,7 @@ export function GlobalTopBar(props: {
         <div className="col-start-2 row-start-1 flex min-w-0 shrink-0 items-center justify-end gap-1 max-[359px]:col-span-1 max-[359px]:col-start-2 max-[359px]:row-start-2 sm:gap-1.5 lg:col-start-3 lg:row-start-1">
           <GlobalConfirmationCenter pathname={props.pathname} userId={props.userId} />
           <GlobalAiAssistant userId={props.userId} placement="header" />
-          <button
+          <Button
             type="button"
             className={`relative inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border px-2.5 text-xs hover:bg-white/5 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0 sm:px-3 ${props.hasMotivationReminder ? "border-amber-300/35 text-amber-100" : "border-white/10 text-zinc-300"}`}
             onClick={props.onOpenMotivationHelp}
@@ -116,7 +118,7 @@ export function GlobalTopBar(props: {
             <TriangleAlert size={16} aria-hidden="true" />
             {props.hasMotivationReminder ? <span className="absolute right-1 top-1 size-1.5 rounded-full bg-amber-300" aria-hidden="true" /> : null}
             <span className="hidden min-[1720px]:inline">我学不下去了</span>
-          </button>
+          </Button>
           {/* 快捷创建固定为全局工具组的最后一个入口。 */}
           <GlobalQuickCreate />
         </div>
