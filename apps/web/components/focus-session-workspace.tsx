@@ -86,7 +86,6 @@ export function FocusSessionWorkspace(props: FocusSessionWorkspaceProps) {
   return (
     <section className={`${props.embeddedInWorkbench ? "h-full min-h-0" : "min-h-full"} w-full bg-[var(--af-canvas)]`}>
       {!props.embeddedInWorkbench ? <FocusHeader returnTo={props.returnTo} status={props.session.status} phaseLabel={focusPhaseLabel(props.phase)} /> : null}
-      <SyncNotice syncState={props.syncState} onRetry={props.onRetryDeferredConflict} />
       {props.error ? <div className="px-4 pt-4 sm:px-6 lg:px-8"><Alert tone="danger">{props.error}</Alert></div> : null}
       {props.phase === "focus" && (props.session.status === "running" || props.session.status === "paused") ? (
         <FocusTimerWorkspace
@@ -208,23 +207,5 @@ function FocusCloseout(props: FocusSessionWorkspaceProps & { elapsedLabel: strin
       onCancel={props.onCancelCloseout}
       onSubmit={props.onSubmitCloseout}
     />
-  );
-}
-
-function SyncNotice(props: { syncState: FocusOfflineSyncState; onRetry: () => void }) {
-  if (props.syncState === "current") return null;
-  return (
-    <div className="border-b border-amber-400/20 bg-amber-400/5 px-4 py-2 text-center text-xs text-amber-100" role="status">
-      {props.syncState === "offline"
-        ? "当前离线：计时和操作已保存在本机，恢复网络后自动同步。"
-        : props.syncState === "blocked"
-          ? "同步遇到状态冲突：请先选择如何处理本地离线记录。"
-          : props.syncState === "deferred"
-            ? "离线记录已保留：等待你显式重新对账，不会自动覆盖当前活动。"
-            : "本机有待同步的计时操作，服务端确认前不会伪造完成。"}
-      {props.syncState === "deferred" ? (
-        <Button type="button" variant="ghost" size="sm" className="ml-2 underline underline-offset-2" onClick={props.onRetry}>重新对账</Button>
-      ) : null}
-    </div>
   );
 }

@@ -161,8 +161,7 @@ test("global shell owns the activity slot, command palette, status bar, and conf
   assert.match(shell, /<GlobalTopBar/);
   assert.match(shell, /useShellActivityStatus/);
   assert.match(shellActivity, /readFocusOfflineSnapshot/);
-  assert.match(topbar, /<GlobalActivitySlot/);
-  assert.match(topbar, /<GlobalCommandPalette/);
+  assert.match(topbar, /<DynamicIsland/);
   assert.match(shell, /offlineSession=\{offlineFocusSession\}/);
   assert.match(topbar, /<GlobalConfirmationCenter/);
   assert.match(toolbar, /data-layout-region="global-context-status-bar"/);
@@ -182,15 +181,15 @@ test("global shell owns the activity slot, command palette, status bar, and conf
   assert.match(focusCommand, /dependencies\.publish\(userId, syncState, projected\)/);
 });
 
-test("global top bar keeps activity on the left and the command trigger content-only", () => {
+test("global top bar keeps activity in the dynamic island and status summary on the left", () => {
   const topbar = readFileSync(resolve(process.cwd(), "components/global-top-bar.tsx"), "utf8");
+  const island = readFileSync(resolve(process.cwd(), "components/dynamic-island.tsx"), "utf8");
   const activitySlot = readFileSync(resolve(process.cwd(), "components/global-activity-slot.tsx"), "utf8");
   const commandPalette = readFileSync(resolve(process.cwd(), "components/global-command-palette.tsx"), "utf8");
   const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
   const assistant = readFileSync(resolve(process.cwd(), "components/global-ai-assistant.tsx"), "utf8");
-  assert.match(topbar, /hasActivity = Boolean\(props\.activeSession \|\| props\.offlineSession \|\| props\.quickReviewClaim\)/);
-  assert.match(topbar, /hasActivity \? \(\s*<GlobalActivitySlot/);
-  assert.match(topbar, /trigger=\{<span className="text-zinc-500">搜索或输入命令…<\/span>\}/);
+  assert.match(topbar, /<DynamicIsland/);
+  assert.match(island, /trigger=\{<span className="text-zinc-500">搜索或输入命令…<\/span>\}/);
   assert.doesNotMatch(topbar, /trigger=\{<GlobalActivitySlot/);
   assert.match(topbar, /lg:grid-cols-\[minmax\(13rem,1fr\)_minmax\(14rem,42rem\)_minmax\(13rem,1fr\)\]/);
   assert.doesNotMatch(topbar, /sm:grid-cols-\[minmax\(0,1fr\)_minmax\(14rem,42rem\)_auto\]/);

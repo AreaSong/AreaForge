@@ -8,6 +8,7 @@ import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { CONFIRMATION_WINDOW_EVENT, GlobalConfirmationCenter } from "@/components/global-confirmation-center";
 import { GlobalQuickCreate } from "@/components/global-quick-create";
 import { GlobalCommandPalette } from "@/components/global-command-palette";
+import { DynamicIsland } from "@/components/dynamic-island";
 import { useGlobalTools } from "@/components/global-tool-system";
 import type { GlobalCommandAction } from "@/lib/navigation/command-palette";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
@@ -74,32 +75,26 @@ export function GlobalTopBar(props: {
             <span className="hidden text-sm text-teal-300 min-[360px]:inline">AreaForge</span>
           </div>
           <div className="min-w-0 flex-1 lg:flex lg:items-center">
-            {hasActivity ? (
-              <GlobalActivitySlot
-                activeSession={props.activeSession}
-                offlineSession={props.offlineSession}
-                quickReviewClaim={props.quickReviewClaim}
-              />
-            ) : (
-              <Button
-                type="button"
-                className="inline-flex h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 text-xs text-zinc-200 hover:bg-white/[0.07] sm:px-3"
-                onClick={props.onOpenStatus}
-                aria-label={`今日状态：${accessibleSummary(props.statusSummary)}`}
-                aria-expanded={props.statusOpen}
-              >
-                <Activity size={15} className={statusToneClass} aria-hidden="true" />
-                <span className="shrink-0">今日状态</span>
-                <span className="max-w-52 truncate text-zinc-500">{props.statusSummary}</span>
-              </Button>
-            )}
+            <Button
+              type="button"
+              className="inline-flex h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 text-xs text-zinc-200 hover:bg-white/[0.07] sm:px-3"
+              onClick={props.onOpenStatus}
+              aria-label={`今日状态：${accessibleSummary(props.statusSummary)}`}
+              aria-expanded={props.statusOpen}
+            >
+              <Activity size={15} className={statusToneClass} aria-hidden="true" />
+              <span className="shrink-0">今日状态</span>
+              <span className="max-w-52 truncate text-zinc-500">{props.statusSummary}</span>
+            </Button>
           </div>
         </div>
 
         <div className="col-span-2 row-start-2 min-w-0 max-[359px]:col-span-1 max-[359px]:col-start-1 max-[359px]:row-start-2 max-[359px]:w-9 lg:col-span-1 lg:col-start-2 lg:row-start-1">
-          <GlobalCommandPalette
-            trigger={<span className="text-zinc-500">搜索或输入命令…</span>}
-            triggerLabel="打开全局搜索和命令面板"
+          <DynamicIsland
+            userId={props.userId}
+            activeSession={props.activeSession}
+            offlineSession={props.offlineSession}
+            quickReviewClaim={props.quickReviewClaim}
             onOpenAction={handleGlobalAction}
             compactOnNarrow
           />
