@@ -84,7 +84,7 @@ export function FocusSessionWorkspace(props: FocusSessionWorkspaceProps) {
 
   const elapsedLabel = formatFocusElapsed(props.elapsedSeconds);
   return (
-    <section className={`${props.embeddedInWorkbench ? "h-full min-h-0" : "min-h-full"} w-full bg-[var(--af-canvas)]`}>
+    <section className={`${props.embeddedInWorkbench ? "h-full min-h-0" : "min-h-full"} w-full bg-[var(--af-canvas)] flex flex-col`}>
       {!props.embeddedInWorkbench ? <FocusHeader returnTo={props.returnTo} status={props.session.status} phaseLabel={focusPhaseLabel(props.phase)} /> : null}
       {props.error ? <div className="px-4 pt-4 sm:px-6 lg:px-8"><Alert tone="danger">{props.error}</Alert></div> : null}
       {props.phase === "focus" && (props.session.status === "running" || props.session.status === "paused") ? (

@@ -148,7 +148,7 @@ export const SceneDailyOrbit: React.FC<StageSceneProps> = ({
           {/* SVG Concentric Rings */}
           <div className="relative flex flex-1 w-full items-center justify-center min-h-[220px]">
             <div className="relative flex size-56 sm:size-64 lg:size-72 items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-emerald-500/15 blur-2xl animate-pulse" />
+              <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-2xl" />
 
               {/* Outer Dashed Orbit */}
               <div

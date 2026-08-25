@@ -189,7 +189,7 @@ test("global top bar keeps activity in the dynamic island and status summary on 
   const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
   const assistant = readFileSync(resolve(process.cwd(), "components/global-ai-assistant.tsx"), "utf8");
   assert.match(topbar, /<DynamicIsland/);
-  assert.match(island, /trigger=\{<span className="text-zinc-500">搜索或输入命令…<\/span>\}/);
+  assert.match(island, /搜索或输入命令/);
   assert.doesNotMatch(topbar, /trigger=\{<GlobalActivitySlot/);
   assert.match(topbar, /lg:grid-cols-\[minmax\(13rem,1fr\)_minmax\(14rem,42rem\)_minmax\(13rem,1fr\)\]/);
   assert.doesNotMatch(topbar, /sm:grid-cols-\[minmax\(0,1fr\)_minmax\(14rem,42rem\)_auto\]/);

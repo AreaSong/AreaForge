@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { getTimerElapsedSeconds, type TimerStatus } from "@areaforge/core";
 import type {
   CloseoutOutcome,
@@ -76,6 +76,17 @@ export function FocusSessionClient(props: {
   const commandOperations = useEntityOperationMap<"session">();
   const [activeCommand, setActiveCommand] = useState<FocusSessionCommandAction | null>(null);
 
+  // Monotonic elapsed time guard to prevent any backward time jump
+  const monotonicMaxElapsedRef = useRef(0);
+  const prevSessionIdRef = useRef(session.id);
+
+  useEffect(() => {
+    if (prevSessionIdRef.current !== session.id) {
+      monotonicMaxElapsedRef.current = 0;
+      prevSessionIdRef.current = session.id;
+    }
+  }, [session.id]);
+
   const loadOfflineConflict = useCallback(async (open: boolean, latestOverride?: StudySessionDto | null) => {
     const record = await getFocusOfflineConflict(props.userId);
     if (!record) return;
@@ -114,18 +125,22 @@ export function FocusSessionClient(props: {
         ? "completed"
         : "idle";
 
-  const elapsedSeconds = useMemo(
-    () =>
-      getTimerElapsedSeconds({
-        status: timerStatus,
-        startedAt: new Date(session.startedAt),
-        pausedAt: session.pausedAt ? new Date(session.pausedAt) : undefined,
-        endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
-        accumulatedPauseSeconds: session.accumulatedPauseSeconds,
-        now,
-      }),
-    [now, session, timerStatus],
-  );
+  const elapsedSeconds = useMemo(() => {
+    const computed = getTimerElapsedSeconds({
+      status: timerStatus,
+      startedAt: new Date(session.startedAt),
+      pausedAt: session.pausedAt ? new Date(session.pausedAt) : undefined,
+      endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
+      accumulatedPauseSeconds: session.accumulatedPauseSeconds,
+      now,
+    });
+
+    if (timerStatus === "running" || timerStatus === "paused") {
+      monotonicMaxElapsedRef.current = Math.max(monotonicMaxElapsedRef.current, computed);
+      return monotonicMaxElapsedRef.current;
+    }
+    return computed;
+  }, [now, session, timerStatus]);
 
   const timerLabel = session.status === "running" ? "正计时" : session.status === "paused" ? "已暂停" : session.status === "closing" ? "已冻结，待收口" : "已结束";
   const closeoutOutcome: CloseoutOutcome = draft.isEffective === "false"
@@ -172,7 +187,10 @@ export function FocusSessionClient(props: {
       if (outcome.kind === "rejected") throw new Error(outcome.message);
       queuedOfflineRef.current = outcome.queuedOffline;
       setSyncState(outcome.syncState);
-      if (outcome.session) setSession(outcome.session);
+      if (outcome.session) {
+        setSession(outcome.session);
+        setNow(new Date());
+      }
       return outcome.session;
     } finally {
       commandOperations.succeed("session", generation);
@@ -192,9 +210,11 @@ export function FocusSessionClient(props: {
   }
 
   async function pause() {
+    setNow(new Date());
     try {
       const result = await mutate(commandInput("pause"), "pause");
       if (result === undefined) return;
+      setNow(new Date());
       delete commandKeys.current["pause:default"];
     } catch (err) {
       setError(focusRequestErrorMessage(err, "暂停失败"));
@@ -202,9 +222,11 @@ export function FocusSessionClient(props: {
   }
 
   async function resume() {
+    setNow(new Date());
     try {
       const result = await mutate(commandInput("resume"), "resume");
       if (result === undefined) return;
+      setNow(new Date());
       delete commandKeys.current["resume:default"];
     } catch (err) {
       setError(focusRequestErrorMessage(err, "继续失败"));
@@ -214,6 +236,7 @@ export function FocusSessionClient(props: {
   async function beginCloseout() {
     setError(null);
     setCloseoutError(null);
+    setNow(new Date());
     try {
       const frozen = await mutate({
         ...commandInput("end", "prepare"),
@@ -272,6 +295,7 @@ export function FocusSessionClient(props: {
       });
     }
     setSession(conflict.latest);
+    setNow(new Date());
     clearCommandKeys(conflict.action);
     if (conflict.latest.status === "completed") setPhase(initialFocusPhase(conflict.latest));
     setConflict(null);
@@ -302,7 +326,10 @@ export function FocusSessionClient(props: {
       commandId: conflict.commandId,
       resolution: "abandon",
     });
-    if (latest) setSession(latest);
+    if (latest) {
+      setSession(latest);
+      setNow(new Date());
+    }
     setConflict(null);
     setConflictOpen(false);
     queuedOfflineRef.current = false;
@@ -325,6 +352,7 @@ export function FocusSessionClient(props: {
   function mergeDraftOntoLatestSession() {
     if (!conflict?.latest) return;
     setSession(conflict.latest);
+    setNow(new Date());
     clearCommandKeys(conflict.action);
     setConflict(null);
     setConflictOpen(false);
@@ -377,6 +405,7 @@ export function FocusSessionClient(props: {
   async function linkEvidence(input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) {
     const body = await linkFocusSessionEvidence(session, input);
     setSession(body.session);
+    setNow(new Date());
     setEvidenceReceipts((current) => current.some((receipt) =>
       receipt.evidenceType === body.receipt.evidenceType && receipt.evidenceId === body.receipt.evidenceId)
       ? current

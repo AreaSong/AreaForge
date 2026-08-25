@@ -131,17 +131,6 @@ export function FocusHeroDial({
 
   return (
     <section className="af-focus-hero relative flex min-h-[34rem] flex-col items-center justify-between overflow-y-auto rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 text-center select-none sm:p-5 lg:p-6">
-      {/* Ambient decorative background glow with breathing pulse */}
-      <div
-        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 size-[36rem] rounded-full blur-[100px] animate-[glow-pulse_4s_ease-in-out_infinite_alternate]"
-        style={{
-          background: selectedSubject
-            ? `radial-gradient(circle, ${accentColor} 0%, transparent 70%)`
-            : "radial-gradient(circle, rgba(45,212,191,0.3) 0%, transparent 70%)",
-        }}
-        aria-hidden="true"
-      />
-
       {/* Top Momentum Metrics Bar */}
       <TodayMomentumBar summary={summary} />
 
@@ -178,7 +167,7 @@ export function FocusHeroDial({
             title="可滑动滚轮、左右按键或直接在表盘上拖动划选设定时长"
           >
             {/* SVG Dial: 100% Pure Circular Vectors */}
-            <svg className="absolute inset-0 size-full -rotate-90 p-4 text-white/20 pointer-events-none overflow-visible" viewBox="0 0 100 100" aria-hidden="true">
+            <svg className="absolute inset-0 size-full p-4 text-white/20 pointer-events-none overflow-visible" viewBox="0 0 100 100" aria-hidden="true">
               {/* 1. Continuous Base Track Circle */}
               <circle
                 cx="50"
@@ -215,7 +204,7 @@ export function FocusHeroDial({
                   strokeDasharray={circumference}
                   strokeDashoffset={strokeDashoffset}
                   strokeLinecap="round"
-                  className="transition-all duration-500 ease-out"
+                  className="transition-all duration-500 ease-out origin-center -rotate-90"
                   style={{
                     opacity: 0.25,
                   }}
@@ -233,15 +222,16 @@ export function FocusHeroDial({
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
-                className="transition-all duration-500 ease-out"
+                className="transition-all duration-500 ease-out origin-center -rotate-90"
                 style={{
                   opacity: durationPreset > 0 ? 1 : 0,
                 }}
               />
 
-              {/* 5. Inner Hour Ticks */}
+              {/* 5. Inner Hour Ticks (12 o'clock = 0 deg) */}
               {Array.from({ length: 12 }).map((_, i) => {
-                const angle = (i * 30 * Math.PI) / 180;
+                const angleDeg = i * 30 - 90;
+                const angle = (angleDeg * Math.PI) / 180;
                 const x1 = 50 + 35 * Math.cos(angle);
                 const y1 = 50 + 35 * Math.sin(angle);
                 const x2 = 50 + (i % 3 === 0 ? 30 : 32) * Math.cos(angle);
@@ -261,7 +251,7 @@ export function FocusHeroDial({
                 );
               })}
 
-              {/* 6. Mechanical Pointer (Hidden in 0m flow state) */}
+              {/* 6. Mechanical Pointer (starts at 12 o'clock, perfectly aligned) */}
               <line
                 x1="50"
                 y1="50"

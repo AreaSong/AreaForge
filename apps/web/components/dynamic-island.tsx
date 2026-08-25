@@ -1,24 +1,34 @@
 "use client";
 
-import { useState, useRef, useEffect, useSyncExternalStore } from "react";
+import { useState, useRef, useEffect, useMemo, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
   Clock3, 
-  ChevronDown, 
+  Command, 
+  CornerDownLeft, 
   Flame, 
   Maximize2, 
   RefreshCw, 
+  Search, 
   Square, 
   X 
 } from "lucide-react";
 import { formatClockDuration } from "@/lib/formatters";
 import { getTimerElapsedSeconds } from "@areaforge/core";
 import { activitySourcePath } from "@/lib/navigation/activity-route";
-import type { GlobalCommandAction } from "@/lib/navigation/command-palette";
+import { 
+  clampCommandIndex,
+  GLOBAL_COMMANDS,
+  filterGlobalCommands,
+  getGlobalCommandHref,
+  resolveGlobalCommand,
+  type GlobalCommandAction,
+  type GlobalCommandDefinition 
+} from "@/lib/navigation/command-palette";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
 import type { StudySessionDto } from "@/lib/contracts";
 import type { FocusOfflineSyncState } from "@/lib/client/focus-offline-store";
-import { GlobalCommandPalette } from "./global-command-palette";
 
 const serverNowSnapshot = 0;
 let nowSnapshot = serverNowSnapshot;
@@ -61,15 +71,22 @@ export interface DynamicIslandProps {
   onRetrySync?: () => void;
   onOpenAction: (action: GlobalCommandAction) => void;
   compactOnNarrow?: boolean;
+  commands?: readonly GlobalCommandDefinition[];
 }
 
 export function DynamicIsland(props: DynamicIslandProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getServerNowSnapshot);
 
   const session = props.activeSession || props.offlineSession;
   const hasSyncIssue = props.syncState && props.syncState !== "current";
+  const isFocusing = Boolean(session && (session.status === "running" || session.status === "paused" || session.status === "closing"));
 
   // Calculate elapsed time
   const elapsedSeconds = session
@@ -83,78 +100,113 @@ export function DynamicIsland(props: DynamicIslandProps) {
       })
     : 0;
 
-  // Close popover on outside click or escape
+  // Filter commands
+  const commands = useMemo(() => filterGlobalCommands(query, props.commands ?? GLOBAL_COMMANDS), [props.commands, query]);
+  const selectedIndex = clampCommandIndex(activeIndex, commands.length);
+
+  // Global shortcut Command+K & Escape
   useEffect(() => {
-    if (!menuOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
-    };
-    const handleClickOutside = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setIsOpen(true);
+      }
+      if (e.key === "Escape" && isOpen) {
+        e.preventDefault();
+        setIsOpen(false);
+        inputRef.current?.blur();
+        setQuery("");
       }
     };
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [menuOpen]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
 
-  // Determine Island Mode
-  const isFocusing = Boolean(session && (session.status === "running" || session.status === "paused" || session.status === "closing"));
+  // Close when clicked outside
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  function executeCommand(command: GlobalCommandDefinition) {
+    const resolved = resolveGlobalCommand(query, props.commands ?? GLOBAL_COMMANDS);
+    const execution = resolved?.definition.id === command.id
+      ? resolved.execution
+      : { rawQuery: query, argumentText: "", args: [], namedArgs: {} };
+    const href = getGlobalCommandHref(command, execution);
+    if (href) router.push(href);
+    if (command.action) props.onOpenAction(command.action);
+    setIsOpen(false);
+    setQuery("");
+    inputRef.current?.blur();
+  }
+
+  function handleInputKeyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((prev) => (commands.length ? (prev + 1) % commands.length : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => (commands.length ? (prev - 1 + commands.length) % commands.length : 0));
+    } else if (e.key === "Enter" && commands[selectedIndex]) {
+      e.preventDefault();
+      executeCommand(commands[selectedIndex]);
+    }
+  }
+
+  function triggerFocusAndOpen() {
+    setIsOpen(true);
+    inputRef.current?.focus();
+  }
+
+  const isTypingSearch = Boolean(query.trim());
 
   return (
-    <div className="relative mx-auto flex w-full min-w-0 max-w-[42rem] items-center justify-center" ref={popoverRef}>
-      {/* Dynamic Pill Container */}
-      <div className="flex w-full min-w-0 items-center justify-center transition-all duration-300 ease-out">
-        {/* State A: Sync Issue / Notice Alert */}
-        {hasSyncIssue && !isFocusing ? (
-          <div className="flex h-9 w-full min-w-0 items-center justify-between gap-2.5 rounded-full border border-amber-400/35 bg-[#14120a] px-3.5 text-xs text-amber-100 shadow-[0_0_16px_rgba(251,191,36,0.12)] transition-all">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="flex size-2 shrink-0 rounded-full bg-amber-400 animate-pulse" />
-              <span className="truncate text-xs font-medium text-amber-200">
-                {props.syncState === "offline"
-                  ? "当前离线：计时已保存在本地，联网自动同步"
-                  : props.syncState === "blocked"
-                  ? "状态冲突：请先比较差异处理离线记录"
-                  : props.syncState === "deferred"
-                  ? "离线记录已保留：等待你显式重新对账"
-                  : "待同步操作：服务端确认前不会伪造完成"}
-              </span>
-            </div>
-            {props.syncState === "deferred" && props.onRetrySync ? (
-              <button
-                type="button"
-                onClick={props.onRetrySync}
-                className="flex shrink-0 items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-1 text-[11px] font-semibold text-amber-100 hover:bg-amber-400/30 transition-colors"
-              >
-                <RefreshCw size={11} className="animate-spin" />
-                <span>重新对账</span>
-              </button>
-            ) : null}
-          </div>
-        ) : isFocusing && session ? (
-          /* State B: Active Focus Heartbeat Island (High Focus State) */
-          <div
-            className={`group relative flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-full border px-3 text-xs shadow-lg transition-all duration-300 ${
-              session.status === "running"
-                ? "border-teal-400/50 bg-[#071314]/90 text-teal-100 shadow-[0_0_20px_rgba(45,212,191,0.18)]"
-                : session.status === "closing"
-                ? "border-emerald-400/50 bg-[#081512]/90 text-emerald-100 shadow-[0_0_16px_rgba(52,211,153,0.15)]"
-                : "border-amber-400/45 bg-[#15120a]/90 text-amber-100 shadow-[0_0_16px_rgba(251,191,36,0.15)]"
-            }`}
-          >
-            {/* Left: Status Dot + Subject Badge */}
-            <button
-              type="button"
-              onClick={() => setMenuOpen((prev) => !prev)}
-              className="flex min-w-0 items-center gap-2 text-left focus:outline-none"
-              title="点击展开专注控制微岛"
+    /* Top fixed anchor: Guarantees 36px height & 32rem width stability */
+    <div
+      ref={containerRef}
+      className="relative mx-auto flex h-9 w-full min-w-0 max-w-[32rem] items-center justify-center z-[var(--af-layer-modal)]"
+    >
+      {/* 
+        Ultra-Smooth Morphing Drawer Shell:
+        - Completely seamless obsidian glass body
+        - Zero conflicting internal divider lines
+      */}
+      <div
+        className={`absolute top-0 left-0 right-0 overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isOpen
+            ? "rounded-[20px] border-teal-500/40 shadow-[0_0_32px_rgba(45,212,191,0.18)] ring-1 ring-white/10"
+            : `rounded-[18px] cursor-pointer ${
+                isFocusing
+                  ? "border-teal-500/35 shadow-[0_0_16px_rgba(45,212,191,0.12)] hover:border-teal-400/50"
+                  : hasSyncIssue
+                  ? "border-amber-400/35 shadow-[0_0_16px_rgba(251,191,36,0.12)] hover:border-amber-400/50"
+                  : "border-white/10 hover:border-teal-400/30 hover:bg-white/[0.04]"
+              }`
+        }`}
+        onClick={!isOpen ? triggerFocusAndOpen : undefined}
+      >
+        {/* 
+          1. PERMANENT TOP CAPSULE ROW
+        */}
+        <div className="flex h-9 w-full min-w-0 items-center justify-between gap-2 px-3 text-xs">
+          {/* Left Segment: Task Subject Pill */}
+          {isFocusing && session ? (
+            <div
+              onClick={triggerFocusAndOpen}
+              className="flex shrink-0 items-center gap-1.5 pr-2.5 text-xs text-white hover:text-teal-200 transition-colors border-r border-white/10 cursor-pointer select-none"
+              title="点击聚焦搜索"
             >
               <span
-                className={`flex size-2 shrink-0 rounded-full ${
+                className={`size-2 shrink-0 rounded-full ${
                   session.status === "running"
                     ? "bg-teal-400 animate-pulse"
                     : session.status === "closing"
@@ -162,121 +214,201 @@ export function DynamicIsland(props: DynamicIslandProps) {
                     : "bg-amber-400"
                 }`}
               />
-              <span className="hidden sm:inline text-[11px] font-medium opacity-80">
-                {session.status === "running" ? "心流" : session.status === "closing" ? "待收口" : "暂停"}
-              </span>
-              <span className="max-w-28 sm:max-w-40 truncate font-semibold text-white tracking-tight">
+              <span className="font-semibold text-teal-100 max-w-24 truncate">
                 {session.subjectName}
               </span>
-            </button>
-
-            {/* Center: Live Tabular Clock Duration */}
-            <Link
-              href={activitySourcePath(session)}
-              className="flex items-center gap-1.5 font-mono text-xs sm:text-sm font-bold tracking-tight text-white hover:text-teal-300 transition-colors"
-              title="进入全屏专注工作区"
+            </div>
+          ) : hasSyncIssue ? (
+            <div 
+              onClick={triggerFocusAndOpen}
+              className="flex shrink-0 items-center gap-1.5 pr-2.5 text-xs text-amber-200 border-r border-white/10 cursor-pointer select-none"
             >
-              <span className="tabular-nums">{formatClockDuration(elapsedSeconds)}</span>
-              {session.status === "running" ? (
-                <span className="flex gap-0.5 items-end h-2.5" aria-hidden="true">
-                  <span className="w-0.5 bg-teal-400 rounded-full animate-[sound-bar_0.8s_ease-in-out_infinite_alternate]" />
-                  <span className="w-0.5 bg-teal-400 rounded-full animate-[sound-bar_0.6s_ease-in-out_0.2s_infinite_alternate]" />
-                  <span className="w-0.5 bg-teal-400 rounded-full animate-[sound-bar_0.9s_ease-in-out_0.4s_infinite_alternate]" />
-                </span>
-              ) : null}
-            </Link>
+              <span className="size-2 shrink-0 rounded-full bg-amber-400 animate-pulse" />
+              <span className="max-w-24 truncate">离线待对账</span>
+            </div>
+          ) : null}
 
-            {/* Right: Quick Actions */}
-            <div className="flex items-center gap-1 shrink-0">
-              <Link
-                href={activitySourcePath(session)}
-                className="flex size-7 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-white transition-colors"
-                title="回到大表盘视图"
-              >
-                <Maximize2 size={13} />
-              </Link>
+          {/* Center Segment: Real Persistent Input without any internal box */}
+          <div className="flex flex-1 min-w-0 items-center gap-2 px-1.5">
+            <Search size={14} className="shrink-0 text-zinc-500" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onFocus={() => setIsOpen(true)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setActiveIndex(0);
+                if (!isOpen) setIsOpen(true);
+              }}
+              onKeyDown={handleInputKeyDown}
+              placeholder="搜索或输入命令…"
+              className="af-island-input w-full bg-transparent text-xs text-white placeholder-zinc-500 border-none outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 selection:bg-teal-500/30"
+              style={{ outline: "none", boxShadow: "none", border: "none" }}
+              aria-label="全局灵动岛搜索与命令输入框"
+            />
+            {query ? (
               <button
                 type="button"
-                onClick={() => setMenuOpen((prev) => !prev)}
-                className="flex size-7 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-white transition-colors"
-                title="展开微控制台"
-                aria-expanded={menuOpen}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setQuery("");
+                  inputRef.current?.focus();
+                }}
+                className="rounded p-0.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
-                <ChevronDown size={14} className={`transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`} />
+                <X size={13} />
               </button>
-            </div>
+            ) : (
+              <span className="inline-flex items-center gap-0.5 rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 shrink-0">
+                <Command size={11} />K
+              </span>
+            )}
           </div>
-        ) : (
-          /* State C: Default Idle Search Capsule */
-          <GlobalCommandPalette
-            trigger={<span className="text-zinc-500">搜索或输入命令…</span>}
-            triggerLabel="打开全局搜索和命令面板"
-            onOpenAction={props.onOpenAction}
-            compactOnNarrow={props.compactOnNarrow}
-          />
-        )}
-      </div>
 
-      {/* Expanded Island Popover Micro-Console */}
-      {menuOpen && session ? (
-        <div className="absolute top-11 z-[var(--af-layer-shell-popover)] w-full max-w-md animate-[scale-in_0.2s_cubic-bezier(0.16,1,0.3,1)] rounded-2xl border border-white/15 bg-[#0b1014]/95 p-5 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-lg bg-teal-500/15 text-teal-300">
-                <Flame size={15} />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-white">{session.subjectName}</p>
-                <p className="text-[11px] text-zinc-400">{session.taskTitle ?? "自由沉浸学习"}</p>
-              </div>
+          {/* Right Segment */}
+          {isFocusing && session ? (
+            <div
+              onClick={triggerFocusAndOpen}
+              className="flex shrink-0 items-center gap-1.5 pl-2.5 text-xs font-medium border-l border-white/10 hover:text-teal-100 transition-colors cursor-pointer select-none"
+              title={isOpen ? "当前学习状态" : "点击聚焦搜索"}
+            >
+              {isOpen ? (
+                /* Expanded state: Status Label */
+                <span className="inline-flex items-center gap-1.5 text-teal-300 font-semibold">
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      session.status === "running"
+                        ? "bg-teal-400 animate-pulse"
+                        : session.status === "closing"
+                        ? "bg-emerald-400"
+                        : "bg-amber-400"
+                    }`}
+                  />
+                  <span>
+                    {session.status === "running" ? "正在学习" : session.status === "closing" ? "待收口" : "已暂停"}
+                  </span>
+                </span>
+              ) : (
+                /* Collapsed state: Real-time clock duration */
+                <span className="inline-flex items-center gap-1.5 font-mono font-bold text-teal-300 tabular-nums">
+                  <Clock3 size={13} className="text-teal-400 shrink-0" />
+                  <span>{formatClockDuration(elapsedSeconds)}</span>
+                </span>
+              )}
             </div>
+          ) : hasSyncIssue && props.syncState === "deferred" && props.onRetrySync ? (
             <button
               type="button"
-              onClick={() => setMenuOpen(false)}
-              className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                props.onRetrySync?.();
+              }}
+              className="flex shrink-0 items-center gap-1 rounded bg-amber-400/20 px-2 py-0.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-400/30 border-l border-white/10 cursor-pointer"
             >
-              <X size={14} />
+              <RefreshCw size={11} className="animate-spin" />
+              <span>对账</span>
             </button>
-          </div>
+          ) : null}
+        </div>
 
-          {/* Time & Session Fact Highlight */}
-          <div className="mt-4 rounded-xl border border-teal-500/20 bg-teal-500/5 p-3.5 text-center">
-            <p className="text-[11px] font-medium text-teal-300">已专注时长</p>
-            <p className="mt-0.5 font-mono text-3xl font-bold text-white tabular-nums tracking-tight">
-              {formatClockDuration(elapsedSeconds)}
-            </p>
-            <div className="mt-2 flex items-center justify-center gap-4 text-[11px] text-zinc-400">
-              <span className="flex items-center gap-1">
-                <Clock3 size={12} /> 状态：{session.status === "running" ? "正向心流" : session.status === "closing" ? "待收口" : "已暂停"}
-              </span>
-              {props.syncState && props.syncState !== "current" ? (
-                <span className="text-amber-300">· 离线记录待同步</span>
-              ) : null}
+        {/* 
+          2. PULL-DOWN CONTENT DRAWER
+          - Removed harsh border-t to eliminate misalignment with top bar's bottom border
+        */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 pointer-events-none"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div
+              className={`px-3 pb-3 pt-2 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isOpen ? "translate-y-0" : "-translate-y-2"
+              }`}
+            >
+              {!isTypingSearch && isFocusing && session ? (
+                /* Sub-case 1: Pulled-down Hero Focus Card (Untyped) */
+                <div className="flex flex-col gap-2.5">
+                  {/* Clean Big Time Display */}
+                  <div className="flex flex-col items-center justify-center py-2 text-center">
+                    <div className="font-mono text-3xl font-bold tracking-tight text-white tabular-nums drop-shadow-[0_0_16px_rgba(45,212,191,0.3)]">
+                      {formatClockDuration(elapsedSeconds)}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-400">
+                      <span className="font-medium text-teal-400">
+                        {session.status === "running" ? "🟢 深度专注中" : session.status === "closing" ? "🏁 待收口沉淀" : "🟡 已暂停"}
+                      </span>
+                      <span>·</span>
+                      <span>⏱️ 正向心流计时</span>
+                    </div>
+                  </div>
+
+                  {/* Clean Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link
+                      href={activitySourcePath(session)}
+                      onClick={() => setIsOpen(false)}
+                      className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-xs font-medium text-zinc-200 hover:bg-white/10 hover:text-white transition-all"
+                    >
+                      <Maximize2 size={13} />
+                      <span>全屏专注视图</span>
+                    </Link>
+                    <Link
+                      href={activitySourcePath(session)}
+                      onClick={() => setIsOpen(false)}
+                      className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-teal-400/50 bg-teal-400 text-[#071011] px-3 text-xs font-semibold shadow-[0_0_12px_rgba(45,212,191,0.25)] hover:bg-teal-300 transition-all"
+                    >
+                      <Square size={13} className="fill-current" />
+                      <span>前往结束收口</span>
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                /* Sub-case 2: Pulled-down Search Results List (Typed or Idle) */
+                <div className="max-h-60 overflow-y-auto space-y-0.5 focus-scrollbar pt-1">
+                  {commands.length > 0 ? (
+                    commands.map((cmd, idx) => {
+                      const isSelected = idx === selectedIndex;
+                      return (
+                        <div
+                          key={cmd.id}
+                          onClick={() => executeCommand(cmd)}
+                          onMouseEnter={() => setActiveIndex(idx)}
+                          className={`flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
+                            isSelected
+                              ? "bg-teal-500/15 text-teal-200 ring-1 ring-teal-400/30"
+                              : "text-zinc-300 hover:bg-white/5"
+                          }`}
+                          role="option"
+                          aria-selected={isSelected}
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="font-medium text-white truncate">{cmd.label}</span>
+                            <span className="hidden sm:inline text-[11px] text-zinc-500 truncate">
+                              {cmd.description}
+                            </span>
+                          </div>
+                          {isSelected ? (
+                            <span className="flex items-center gap-1 text-[10px] font-mono text-teal-400 shrink-0">
+                              <span>跳转</span>
+                              <CornerDownLeft size={11} />
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="py-5 text-center text-xs text-zinc-500">
+                      未找到匹配的结果或命令
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Quick Actions Grid */}
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Link
-              href={activitySourcePath(session)}
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-medium text-white hover:bg-white/10 transition-colors"
-            >
-              <Maximize2 size={13} />
-              <span>全屏专注视图</span>
-            </Link>
-
-            <Link
-              href={activitySourcePath(session)}
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-teal-400 py-2.5 text-xs font-bold text-[#061012] shadow-[0_0_16px_rgba(45,212,191,0.3)] hover:bg-teal-300 transition-colors"
-            >
-              <Square size={13} className="fill-current" />
-              <span>前往结束收口</span>
-            </Link>
-          </div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

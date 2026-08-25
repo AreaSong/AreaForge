@@ -192,18 +192,6 @@ export function FocusTimerWorkspace({
       </div>
 
       <section className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden px-4 py-8 text-center min-h-[34rem]">
-        {/* Soft Ambient Background Breathing Glow */}
-        <div
-          className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[110px] transition-all duration-1000 ${
-            isZenMode ? "size-[44rem]" : "size-[32rem]"
-          } ${
-            status === "running"
-              ? "bg-teal-500/15 animate-[glow-pulse_5s_ease-in-out_infinite_alternate]"
-              : "bg-amber-500/10"
-          }`}
-          aria-hidden="true"
-        />
-
         <div className="relative z-10 flex flex-col items-center animate-[scale-in_0.3s_cubic-bezier(0.16,1,0.3,1)]">
           {/* Header & Mode Badge */}
           <div className="flex flex-col items-center space-y-1.5">
@@ -247,7 +235,7 @@ export function FocusTimerWorkspace({
 
             {/* High-Precision Circular SVG Dial */}
             <svg
-              className="absolute inset-0 size-full -rotate-90 p-4 text-white/20 pointer-events-none overflow-visible"
+              className="absolute inset-0 size-full p-4 text-white/20 pointer-events-none overflow-visible"
               viewBox="0 0 100 100"
               aria-hidden="true"
             >
@@ -261,9 +249,10 @@ export function FocusTimerWorkspace({
                 strokeWidth="1.5"
               />
 
-              {/* 60 Precision Second Ticks */}
+              {/* 60 Precision Second Ticks (12 o'clock = 0s) */}
               {Array.from({ length: 60 }).map((_, i) => {
-                const angle = (i * 6 * Math.PI) / 180;
+                const angleDeg = i * 6 - 90;
+                const angle = (angleDeg * Math.PI) / 180;
                 const isMajor = i % 5 === 0;
                 const isPassed = status === "running" && i <= currentSecond;
                 const tickLength = isMajor ? 4 : 2;
@@ -296,7 +285,7 @@ export function FocusTimerWorkspace({
                 );
               })}
 
-              {/* Sweeping Second Hand */}
+              {/* Sweeping Second Hand (starts at 12 o'clock, perfectly aligned with ticks) */}
               <line
                 x1="50"
                 y1="50"

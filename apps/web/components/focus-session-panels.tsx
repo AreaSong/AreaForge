@@ -108,83 +108,80 @@ export function CloseoutWorkspace(props: {
 }) {
   const nextActionLabel = props.taskDisposition === "blocked" ? "阻塞原因" : "下一动作";
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-10 animate-[fade-in_0.25s_ease-out]">
-      <div className="grid gap-8 lg:grid-cols-12">
-        {/* Left Side: Session Battle Report Recap Card */}
-        <aside className="flex flex-col gap-5 lg:col-span-4">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-6 shadow-2xl backdrop-blur-md">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-teal-300">
-              <span className="flex size-2 rounded-full bg-teal-400 animate-pulse" />
-              专注战报 · 已记录
-            </div>
-
-            <div className="mt-4">
-              <span className="inline-flex items-center rounded-md border border-teal-500/20 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-300">
-                {props.context.subjectName || "未指定科目"}
-              </span>
-              <h1
-                data-ai-current-object="true"
-                data-ai-selectable
-                data-ai-label={props.context.taskTitle ?? "科目快捷专注"}
-                className="mt-2.5 break-words text-xl sm:text-2xl font-bold tracking-tight text-white"
-              >
-                {props.context.taskTitle ?? "科目快捷专注"}
-              </h1>
-            </div>
-
-            {/* Big Highlight Elapsed Time Card */}
-            <div className="mt-5 rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 text-center shadow-[inset_0_0_24px_rgba(45,212,191,0.08)]">
-              <p className="text-xs font-medium text-teal-200/80">本次有效专注投入</p>
-              <p className="mt-1 font-mono text-4xl sm:text-5xl font-bold tracking-tight text-white tabular-nums">
-                {props.elapsedLabel}
-              </p>
-              <p className="mt-1 text-[11px] text-teal-300/70">时长已冻结，待完成收口沉淀</p>
-            </div>
-
-            <dl className="mt-5 space-y-3 border-t border-white/10 pt-4 text-xs">
-              <ContextFact icon={<BookOpen />} label="学习方式" value="自主沉浸学习" />
-              <ContextFact icon={<Clock3 />} label="记录状态" value="待保存为永久成长事实" />
-            </dl>
-
-            <div className="mt-5 rounded-xl border border-white/5 bg-white/[0.03] p-3.5 text-xs leading-relaxed text-zinc-400">
-              <p className="font-medium text-zinc-300">💡 为什么需要收口？</p>
-              <p className="mt-1 text-[11px] text-zinc-400">
-                花 1 分钟复盘产出与理解盲点，能将本次零散的专注时间沉淀为真实的认知掌控力，避免盲目刷时长的假装努力。
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={props.onCancel}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-medium text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
-            >
-              <ArrowLeft className="size-3.5" />
-              <span>点错了？返回继续计时</span>
-            </button>
+    <div className="flex h-full min-h-0 w-full flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-white/10 bg-[var(--af-canvas)] animate-[fade-in_0.2s_ease-out]">
+      {/* Left Column: Responsive 30% Context & Stats Sidebar */}
+      <aside className="w-full lg:w-84 xl:w-96 shrink-0 bg-white/[0.015] p-6 sm:p-8 flex flex-col justify-between h-full overflow-y-auto">
+        <div className="space-y-4 sm:space-y-5">
+          <div className="flex items-center gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-teal-300">
+            <span className="flex size-2 rounded-full bg-teal-400" />
+            专注战报 · 成就已锁定
           </div>
-        </aside>
 
-        {/* Right Side: Structured Closeout Form */}
-        <section className="lg:col-span-8">
-          <div className="rounded-2xl border border-white/10 bg-[#0d1317]/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-teal-300">成果沉淀</p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">把这段时间转化为真实记录</h2>
-              <p className="mt-1 text-xs sm:text-sm text-zinc-400">
-                记录真实的理解深度与产出断点，为下一次学习快速切入提供锚点。
-              </p>
+          <div>
+            <span className="inline-flex items-center rounded-md border border-teal-500/20 bg-teal-500/10 px-2 py-0.5 text-xs font-medium text-teal-300">
+              {props.context.subjectName || "未指定科目"}
+            </span>
+            <h1
+              data-ai-current-object="true"
+              data-ai-selectable
+              data-ai-label={props.context.taskTitle ?? "科目快捷专注"}
+              className="mt-2 break-words text-lg sm:text-xl xl:text-2xl font-bold tracking-tight text-white line-clamp-2"
+            >
+              {props.context.taskTitle ?? "科目快捷专注"}
+            </h1>
+          </div>
+
+          {/* Highlight Elapsed Time Card with Flow Badge */}
+          <div className="rounded-2xl border border-teal-500/30 bg-teal-500/10 p-4 sm:p-5 text-center shadow-[inset_0_0_24px_rgba(45,212,191,0.08)]">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-xs font-medium text-teal-200/90">本次有效专注投入</span>
+              <span className="rounded-full bg-teal-400/20 px-2 py-0.5 text-[10px] font-semibold text-teal-300">🔥 心流饱满</span>
+            </div>
+            <p className="mt-1 sm:mt-1.5 font-mono text-3xl sm:text-4xl xl:text-5xl font-bold tracking-tight text-white tabular-nums">
+              {props.elapsedLabel}
+            </p>
+            <p className="mt-1 text-[11px] sm:text-xs text-teal-300/70">计时已冻结 · 待保存为成长事实</p>
+          </div>
+
+          <div className="space-y-2.5 rounded-2xl border border-white/5 bg-white/[0.02] p-3.5 sm:p-4 text-xs">
+            <ContextFact icon={<BookOpen />} label="学习方式" value="自主沉浸学习" />
+            <ContextFact icon={<Clock3 />} label="记录状态" value="待保存为成长事实" />
+          </div>
+        </div>
+
+        <div className="mt-4 sm:mt-6 rounded-xl border border-teal-500/15 bg-teal-500/5 p-3.5 text-xs text-teal-200/80 leading-relaxed">
+          <p className="font-semibold text-teal-300 flex items-center gap-1.5 mb-1">
+            <span>💡</span> 为何必须收口？
+          </p>
+          花 1 分钟沉淀盲点与产出断点，能将零散时间转化为真实掌控力，杜绝假装努力。
+        </div>
+      </aside>
+
+      {/* Right Column: Responsive Full-Width Rich Dashboard Form */}
+      <section className="flex-1 p-6 sm:p-8 flex flex-col justify-between h-full overflow-y-auto">
+        <div className="w-full flex flex-col justify-between h-full">
+          <div>
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 sm:pb-3.5">
+              <div>
+                <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-teal-300">成果沉淀</p>
+                <h2 className="mt-0.5 text-lg sm:text-xl font-bold tracking-tight text-white">把这段时间转化为真实记录</h2>
+                <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">记录真实的理解深度与产出断点，为下一次学习快速切入提供锚点。</p>
+              </div>
+              <span className="hidden sm:inline-block rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-400 font-mono">
+                ⏱️ 1 分钟极速收口
+              </span>
             </div>
 
             <form
               noValidate
-              className="mt-7 space-y-6"
+              className="mt-3.5 sm:mt-4 space-y-2.5 sm:space-y-3"
               onSubmit={(event) => {
                 event.preventDefault();
                 props.onSubmit();
               }}
             >
-              {/* Outcome & Understanding Level */}
-              <div className="space-y-5 rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-5">
+              {/* Row 1: Outcome & Understanding Level */}
+              <div className="grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
                 <SegmentedField
                   legend="收口结果"
                   value={props.outcome}
@@ -200,147 +197,149 @@ export function CloseoutWorkspace(props: {
                   legend="理解程度"
                   value={props.understandingLevel}
                   options={[
-                    { value: "清晰", label: "清晰透彻" },
-                    { value: "基本理解", label: "基本理解" },
-                    { value: "模糊", label: "略有模糊" },
-                    { value: "不会", label: "尚未掌握" },
+                    { value: "清晰", label: "清晰" },
+                    { value: "基本理解", label: "理解" },
+                    { value: "模糊", label: "模糊" },
+                    { value: "不会", label: "不会" },
                   ]}
                   onChange={(value) => props.onUnderstandingChange(value as UnderstandingLevel)}
                 />
               </div>
 
-              {/* Focus & Energy Rating */}
-              <div className="space-y-5 rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-5">
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <SegmentedField
-                    legend="专注度（1-5 分）"
-                    value={props.focusLevel}
-                    options={ratingOptions()}
-                    onChange={props.onFocusLevelChange}
-                  />
-                  <SegmentedField
-                    legend="精力状态（1-5 分）"
-                    value={props.energyLevel}
-                    options={ratingOptions()}
-                    onChange={props.onEnergyLevelChange}
-                  />
-                </div>
+              {/* Row 2: Focus & Energy Rating */}
+              <div className="grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
+                <SegmentedField
+                  legend="专注度（1-5 分）"
+                  value={props.focusLevel}
+                  options={ratingOptions()}
+                  onChange={props.onFocusLevelChange}
+                />
+                <SegmentedField
+                  legend="精力状态（1-5 分）"
+                  value={props.energyLevel}
+                  options={ratingOptions()}
+                  onChange={props.onEnergyLevelChange}
+                />
               </div>
 
               {/* Low reason checkbox if not achieved */}
               {props.outcome === "not-achieved" ? (
-                <fieldset className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 sm:p-5">
-                  <legend className="text-sm font-medium text-amber-200">低效或受阻原因（至少勾选一项）</legend>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <fieldset className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 sm:p-4 shadow-lg">
+                  <legend className="text-xs font-medium text-amber-200">低效或受阻原因（至少勾选一项）</legend>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     {LOW_REASON_OPTIONS.map((reason) => (
                       <label
                         key={reason.value}
-                        className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border px-3 text-xs sm:text-sm transition-colors ${
+                        className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-xl border px-3 text-xs transition-colors ${
                           props.lowReasons.includes(reason.value)
                             ? "border-amber-400/60 bg-amber-400/15 text-amber-100 font-medium"
                             : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]"
                         }`}
                       >
                         <Checkbox
-                          className="h-4 w-4 shrink-0 accent-amber-300"
+                          className="h-3.5 w-3.5 shrink-0 accent-amber-300"
                           checked={props.lowReasons.includes(reason.value)}
                           onChange={() => props.onLowReasonsChange(toggleReason(props.lowReasons, reason.value))}
                         />
-                        <span>{reason.label}</span>
+                        <span className="truncate">{reason.label}</span>
                       </label>
                     ))}
                   </div>
                 </fieldset>
               ) : null}
 
-              {/* Output & Takeaways */}
-              <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-5">
-                <label className="block text-sm font-medium text-zinc-200">
-                  实际学习内容与产出
+              {/* Row 3: Output & Takeaways */}
+              <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
+                <label className="block text-xs font-medium text-zinc-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs sm:text-sm font-semibold text-zinc-100">实际学习内容与产出</span>
+                    <span className="text-[11px] text-zinc-500">（至少 4 个字符）</span>
+                  </div>
                   <Textarea
                     required
                     minLength={4}
                     maxLength={1000}
-                    controlHeight="lg"
-                    className="mt-2 min-h-24 rounded-xl border-white/10 bg-white/5 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
+                    controlHeight="sm"
+                    className="mt-2 h-18 sm:h-22 min-h-18 rounded-xl border-white/10 bg-white/5 p-2.5 sm:p-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none resize-none leading-relaxed"
                     placeholder="例如：一元函数微分学理解了极值定理，做完了例题 3-5，整理了 1 个错题"
                     value={props.minimalOutput}
                     onChange={(event) => props.onMinimalOutputChange(event.target.value)}
                   />
-                  <span className="mt-1.5 block text-xs text-zinc-500">
-                    记录具体学到的知识点、页码、题号或思维断点（至少 4 个字符）。
-                  </span>
                 </label>
               </div>
 
-              {/* Next Actions & Task Disposition */}
-              <div className="space-y-4 rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-5">
-                {props.context.taskTitle ? (
-                  <SegmentedField
-                    legend="关联任务去向"
-                    value={props.taskDisposition}
-                    options={[
-                      { value: "complete", label: "✅ 完成该任务" },
-                      { value: "continue", label: "🔄 继续推进" },
-                      { value: "blocked", label: "🛑 遇到阻塞" },
-                    ]}
-                    onChange={(value) => props.onTaskDispositionChange(value as TaskDisposition)}
-                  />
-                ) : null}
+              {/* Row 4: Next Actions & Task Disposition */}
+              <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {props.context.taskTitle ? (
+                    <SegmentedField
+                      legend="关联任务去向"
+                      value={props.taskDisposition}
+                      options={[
+                        { value: "complete", label: "✅ 完成" },
+                        { value: "continue", label: "🔄 继续" },
+                        { value: "blocked", label: "🛑 阻塞" },
+                      ]}
+                      onChange={(value) => props.onTaskDispositionChange(value as TaskDisposition)}
+                    />
+                  ) : null}
 
-                <label className="block text-sm font-medium text-zinc-200">
-                  {nextActionLabel}
-                  <Input
-                    required
-                    maxLength={500}
-                    className="mt-2 h-11 rounded-xl border-white/10 bg-white/5 text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
-                    placeholder={
-                      props.taskDisposition === "blocked"
-                        ? "说明卡在哪里，下一次从哪里恢复"
-                        : "下一次打开时要继续做什么"
-                    }
-                    value={props.nextAction}
-                    onChange={(event) => props.onNextActionChange(event.target.value)}
-                  />
-                </label>
+                  <label className={`block text-xs font-medium text-zinc-200 ${!props.context.taskTitle ? "sm:col-span-1" : ""}`}>
+                    <span className="text-xs sm:text-sm font-semibold text-zinc-100">{nextActionLabel}</span>
+                    <Input
+                      required
+                      maxLength={500}
+                      className="mt-1.5 h-8.5 sm:h-9 rounded-xl border-white/10 bg-white/5 px-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
+                      placeholder={
+                        props.taskDisposition === "blocked"
+                          ? "说明卡在哪里，下一次从哪里恢复"
+                          : "下一次打开时要继续做什么"
+                      }
+                      value={props.nextAction}
+                      onChange={(event) => props.onNextActionChange(event.target.value)}
+                    />
+                  </label>
 
-                <label className="block text-sm font-medium text-zinc-200">
-                  收口后处置与备忘（可选）
-                  <Input
-                    maxLength={500}
-                    className="mt-2 h-11 rounded-xl border-white/10 bg-white/5 text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
-                    placeholder="例如：补做两道题、安排复测、明天继续"
-                    value={props.nextDisposition}
-                    onChange={(event) => props.onNextDispositionChange(event.target.value)}
-                  />
-                </label>
+                  {!props.context.taskTitle ? (
+                    <label className="block text-xs font-medium text-zinc-200">
+                      <span className="text-xs sm:text-sm font-semibold text-zinc-100">收口后处置与备忘（可选）</span>
+                      <Input
+                        maxLength={500}
+                        className="mt-1.5 h-8.5 sm:h-9 rounded-xl border-white/10 bg-white/5 px-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
+                        placeholder="例如：补做两道题、安排复测"
+                        value={props.nextDisposition}
+                        onChange={(event) => props.onNextDispositionChange(event.target.value)}
+                      />
+                    </label>
+                  ) : null}
+                </div>
               </div>
 
               {props.validationError ? <Alert tone="danger">{props.validationError}</Alert> : null}
 
               {/* Bottom Actions */}
-              <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 border-t border-white/10 pt-5">
+              <div className="flex items-center justify-between gap-3 sm:gap-4 border-t border-white/10 pt-3">
                 <button
                   type="button"
                   onClick={props.onCancel}
-                  className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 text-sm font-medium text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 text-xs sm:text-sm font-medium text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
                 >
-                  <ArrowLeft className="size-4" />
+                  <ArrowLeft className="size-3.5 sm:size-4" />
                   <span>返回继续计时</span>
                 </button>
 
                 <button
                   type="submit"
                   disabled={props.submitting}
-                  className="inline-flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-teal-400 px-8 text-sm font-semibold text-[#061012] shadow-[0_0_24px_rgba(45,212,191,0.35)] transition-all hover:bg-teal-300 hover:shadow-[0_0_32px_rgba(45,212,191,0.5)] active:scale-[0.98] disabled:opacity-50"
+                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-xl bg-teal-400 px-6 sm:px-8 text-xs sm:text-sm font-semibold text-[#061012] shadow-[0_0_20px_rgba(45,212,191,0.35)] transition-all hover:bg-teal-300 hover:shadow-[0_0_28px_rgba(45,212,191,0.5)] active:scale-[0.98] disabled:opacity-50"
                 >
                   {props.submitting ? "正在保存..." : "保存并沉淀本次学习"}
                 </button>
               </div>
             </form>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -354,20 +353,20 @@ export function LowConversionWorkspace(props: {
   onAccept: () => void;
 }) {
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-4xl items-center px-4 py-10 sm:px-6">
-      <section className="w-full border-y border-amber-400/25 py-8 sm:py-10">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col justify-center px-4 py-4 sm:px-6">
+      <section className="w-full rounded-2xl border border-amber-400/25 bg-[#14120e]/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
         <AlertTriangle className="h-7 w-7 text-amber-300" aria-hidden="true" />
-        <p className="mt-5 text-xs font-medium text-amber-300">低转化记录已保存</p>
-        <h1 className="mt-2 text-2xl font-semibold text-white">这段学习还缺少可验证产出</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">{props.reason}</p>
-        <div className="mt-7 flex flex-wrap gap-3">
-          <Button type="button" variant="primary" size="lg" onClick={props.onSupplement}>补一个最小产出</Button>
+        <p className="mt-4 text-xs font-medium text-amber-300">低转化记录已保存</p>
+        <h1 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">这段学习还缺少可验证产出</h1>
+        <p className="mt-2 max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-400">{props.reason}</p>
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          <Button type="button" variant="primary" size="md" onClick={props.onSupplement}>补一个最小产出</Button>
           {props.addedToInbox ? (
-            <Link href={withReturnTo("/roadmap/allocation/drafts", props.returnTo)} className={buttonClassName({size:"lg"})}>查看投入草稿</Link>
+            <Link href={withReturnTo("/roadmap/allocation/drafts", props.returnTo)} className={buttonClassName({ size: "md" })}>查看投入草稿</Link>
           ) : (
-            <Button type="button" size="lg" onClick={props.onAddToInbox}>加入投入草稿</Button>
+            <Button type="button" size="md" onClick={props.onAddToInbox}>加入投入草稿</Button>
           )}
-          <Button type="button" variant="ghost" size="lg" onClick={props.onAccept}>承认低转化并结束</Button>
+          <Button type="button" variant="ghost" size="md" onClick={props.onAccept}>承认低转化并结束</Button>
         </div>
       </section>
     </div>
@@ -383,22 +382,22 @@ export function EvidenceWorkspace(props: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="af-focus-workspace-grid grid min-h-full min-w-0">
-      <aside className="af-workspace-aside bg-[var(--af-surface-subtle)] px-5 py-8">
+    <div className="af-focus-workspace-grid grid h-full min-h-0 min-w-0">
+      <aside className="af-workspace-aside bg-[var(--af-surface-subtle)] px-5 py-6 overflow-y-auto">
         <p className="text-xs font-medium text-teal-300">证据接力</p>
-        <h1 className="mt-2 text-2xl font-semibold text-white">为本次学习留下一个可复用证据</h1>
-        <div className="mt-7 grid gap-2">
+        <h1 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">为本次学习留下可复用证据</h1>
+        <div className="mt-5 grid gap-2">
           <EvidenceTypeButton active={props.activeType === "note"} icon={<FileText />} label="知识卡片" onClick={() => props.onTypeChange("note")} />
           <EvidenceTypeButton active={props.activeType === "mistake"} icon={<AlertTriangle />} label="错题" onClick={() => props.onTypeChange("mistake")} />
           <EvidenceTypeButton active={props.activeType === "retest"} disabled={!props.canRetest} icon={<Target />} label={props.canRetest ? "复测" : "复测 · 未关联考纲"} onClick={() => props.onTypeChange("retest")} />
         </div>
-        <div className="mt-8 border-t border-white/10 pt-5">
+        <div className="mt-6 border-t border-white/10 pt-4">
           <p className="text-xs text-zinc-500">本次已保存 {props.receipts.length} 条证据</p>
           {props.receipts.length > 0 ? (
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-2.5 space-y-1.5">
               {props.receipts.map((receipt) => (
-                <li key={`${receipt.evidenceType}:${receipt.evidenceId}`} className="flex items-start gap-2 text-sm text-zinc-300">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" aria-hidden="true" />
+                <li key={`${receipt.evidenceType}:${receipt.evidenceId}`} className="flex items-start gap-2 text-xs text-zinc-300">
+                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
                   <span className="break-words">{evidenceTypeLabel(receipt.evidenceType)} · {receipt.label}</span>
                 </li>
               ))}
@@ -406,10 +405,10 @@ export function EvidenceWorkspace(props: {
           ) : null}
         </div>
       </aside>
-      <section className="af-workspace-main px-4 py-8 sm:px-6">
-        <div className="mx-auto max-w-3xl">{props.children}</div>
-        <div className="mx-auto mt-8 flex max-w-3xl justify-end border-t border-white/10 pt-5">
-          <Button type="button" variant="primary" size="lg" onClick={props.onComplete}>
+      <section className="af-workspace-main px-4 py-6 sm:px-6 overflow-y-auto flex flex-col justify-between">
+        <div className="mx-auto w-full max-w-3xl">{props.children}</div>
+        <div className="mx-auto mt-6 flex w-full max-w-3xl justify-end border-t border-white/10 pt-4">
+          <Button type="button" variant="primary" size="md" onClick={props.onComplete}>
             {props.receipts.length > 0 ? "完成证据接力" : "暂不沉淀，完成收口"}
           </Button>
         </div>
@@ -426,12 +425,12 @@ export function CompleteWorkspace(props: {
   receipts: FocusEvidenceReceipt[];
 }) {
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-4xl items-center px-4 py-10 sm:px-6">
-      <section className="w-full border-y border-white/10 py-9">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col justify-center px-4 py-4 sm:px-6">
+      <section className="w-full rounded-2xl border border-white/10 bg-[#0d1317]/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
         <CheckCircle2 className={`h-8 w-8 ${props.lowConversion ? "text-amber-300" : "text-emerald-300"}`} aria-hidden="true" />
-        <p className="mt-5 text-xs font-medium text-teal-300">本次学习已收口</p>
-        <h1 className="mt-2 text-2xl font-semibold text-white">记录已经保存，可以离开专注流程</h1>
-        <dl className="af-metric-grid-three mt-7 grid gap-4 text-sm">
+        <p className="mt-4 text-xs font-medium text-teal-300">本次学习已收口</p>
+        <h1 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">记录已经保存，可以离开专注流程</h1>
+        <dl className="af-metric-grid-three mt-5 grid gap-3 text-xs sm:text-sm">
           <SummaryFact label="实际时长" value={props.elapsedLabel} />
           <SummaryFact label="转化结果" value={props.lowConversion ? "低转化" : "有效学习"} />
           <SummaryFact label="任务状态" value={taskStatusLabel(props.taskStatus)} />
@@ -477,16 +476,16 @@ function SegmentedField(props: {
 }) {
   return (
     <fieldset>
-      <legend className="text-xs sm:text-sm font-medium text-zinc-300">{props.legend}</legend>
-      <div className="af-segmented-options mt-2.5 grid grid-cols-2 sm:grid-flow-col sm:auto-cols-fr gap-2">
+      <legend className="text-xs font-medium text-zinc-300">{props.legend}</legend>
+      <div className="af-segmented-options mt-1.5 grid grid-cols-2 sm:grid-flow-col sm:auto-cols-fr gap-1.5">
         {props.options.map((option) => {
           const active = props.value === option.value;
           return (
             <label
               key={option.value}
-              className={`relative flex h-10 cursor-pointer items-center justify-center rounded-xl border px-3 text-xs sm:text-sm font-medium transition-all select-none ${
+              className={`relative flex h-8 cursor-pointer items-center justify-center rounded-lg border px-2 text-xs font-medium transition-all select-none ${
                 active
-                  ? "border-teal-400/80 bg-teal-500/20 text-teal-100 shadow-[0_0_16px_rgba(45,212,191,0.2)]"
+                  ? "border-teal-400/80 bg-teal-500/20 text-teal-100 shadow-[0_0_12px_rgba(45,212,191,0.2)]"
                   : "border-white/10 bg-white/[0.03] text-zinc-400 hover:border-white/20 hover:bg-white/[0.07] hover:text-zinc-200"
               }`}
             >

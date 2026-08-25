@@ -300,10 +300,9 @@ export const SceneTargetIntent: React.FC<StageSceneProps> = ({
           {/* Center Hub Core */}
           <div className="relative z-10 flex flex-col items-center justify-center">
             <div className="relative flex size-20 sm:size-24 items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-blue-500/20 animate-ping opacity-25" />
-              <div className="absolute -inset-2 rounded-full border border-blue-400/40 animate-pulse" />
+              <div className="absolute -inset-2 rounded-full border border-blue-400/30" />
               <div className="relative flex size-16 sm:size-20 flex-col items-center justify-center rounded-full border border-blue-400/60 bg-[#121826] shadow-[0_0_30px_rgba(59,130,246,0.45)] backdrop-blur-md">
-                <Target className="size-5 sm:size-6 text-blue-400 animate-pulse" />
+                <Target className="size-5 sm:size-6 text-blue-400" />
                 <span className="mt-0.5 font-mono text-[10px] font-black tracking-tight text-blue-200">{activeSubject.code}</span>
                 <span className="text-[8px] font-mono text-blue-400/80 uppercase">INTENT HUB</span>
               </div>

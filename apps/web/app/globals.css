@@ -54,7 +54,6 @@
   --animate-fade-in: fade-in 0.2s ease-out forwards;
   --animate-slide-in-right: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-slide-up-fade: slide-up-fade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-glow-pulse: glow-pulse 4s ease-in-out infinite alternate;
   
   @keyframes fade-in-up {
     0% { opacity: 0; transform: translateY(8px); }
@@ -75,10 +74,6 @@
   @keyframes slide-up-fade {
     0% { opacity: 0; transform: translateY(24px); }
     100% { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes glow-pulse {
-    0% { opacity: 0.1; }
-    100% { opacity: 0.4; }
   }
 }
 
@@ -112,6 +107,14 @@ body {
 :focus-visible {
   outline: 2px solid var(--af-accent);
   outline-offset: 2px;
+}
+
+.af-island-input:focus,
+.af-island-input:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 html[data-af-text-scale="112"] {
@@ -177,8 +180,8 @@ input:-webkit-autofill:active{
 }
 
 @keyframes af-login-ambient-drift {
-  from { opacity: 0.55; transform: translate3d(-2%, -1%, 0) scale(0.96); }
-  to { opacity: 0.85; transform: translate3d(3%, 2%, 0) scale(1.04); }
+  from { opacity: 0.65; transform: translate3d(-1%, -1%, 0); }
+  to { opacity: 0.75; transform: translate3d(1%, 1%, 0); }
 }
 
 @keyframes af-login-focus-orbit {

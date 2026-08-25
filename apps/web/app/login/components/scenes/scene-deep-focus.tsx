@@ -245,7 +245,7 @@ export const SceneDeepFocus: React.FC<StageSceneProps> = ({
           {/* 3D Chrono-Sphere Viewport */}
           <div className="relative flex flex-1 w-full items-center justify-center min-h-[200px]">
             <div className="relative flex size-52 sm:size-60 lg:size-68 items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-teal-500/10 blur-2xl animate-pulse" />
+              <div className="absolute inset-0 rounded-full bg-teal-500/10 blur-2xl" />
 
               {/* Concentric Dashed Orbit */}
               <div

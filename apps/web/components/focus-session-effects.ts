@@ -182,6 +182,7 @@ export function useFocusSessionEffects(options: FocusSessionEffectsOptions) {
 
   useEffect(() => {
     if (session.status !== "running") return;
+    setNow(new Date());
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, [session.status, setNow]);
