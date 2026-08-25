@@ -407,15 +407,17 @@ export async function resumeStudySession(id: string, actorId: string, input?: Se
       return getUpdatedSessionForResponse(tx, id);
     }
     await assertSessionCommandExpectation(tx, id, existing, input);
-    if (!existing || existing.status !== "PAUSED" || !existing.pausedAt) {
-      throw await sessionConflict(tx, id, ["status", "pausedAt"]);
+    if (!existing || !["PAUSED", "CLOSING"].includes(existing.status)) {
+      throw await sessionConflict(tx, id, ["status"]);
     }
 
     const now = new Date();
-    const extraPauseSeconds = Math.max(0, Math.floor((now.getTime() - existing.pausedAt.getTime()) / 1000));
+    const pauseOrigin = existing.status === "PAUSED" ? existing.pausedAt : existing.endedAt;
+    const extraPauseSeconds = pauseOrigin ? Math.max(0, Math.floor((now.getTime() - pauseOrigin.getTime()) / 1000)) : 0;
     await applySessionCas(tx, existing, {
       status: "RUNNING",
       pausedAt: null,
+      endedAt: null,
       accumulatedPauseSeconds: existing.accumulatedPauseSeconds + extraPauseSeconds,
     });
     await auditSessionCommand(tx, actorId, id, "STUDY_SESSION_RESUMED", input, "resume");

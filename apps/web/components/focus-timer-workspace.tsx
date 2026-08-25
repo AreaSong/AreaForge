@@ -32,9 +32,11 @@ export function FocusTimerWorkspace({
 }: FocusTimerWorkspaceProps) {
   const [isZenMode, setIsZenMode] = useState(false);
   const [showScratchpad, setShowScratchpad] = useState(false);
+  const [confirmEndOpen, setConfirmEndOpen] = useState(false);
   const [noteInput, setNoteInput] = useState("");
   const [savedNotes, setSavedNotes] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wasRunningBeforeConfirmRef = useRef(false);
 
   const toggleZenMode = useCallback(() => {
     setIsZenMode((prev) => {
@@ -52,11 +54,48 @@ export function FocusTimerWorkspace({
     });
   }, []);
 
-  // Keyboard blind-controls: Space = Pause/Resume, Enter = End, F = Zen, N = Note
+  const handleRequestEnd = useCallback(() => {
+    if (commandBusy) return;
+    if (status === "running") {
+      wasRunningBeforeConfirmRef.current = true;
+      onPause();
+    } else {
+      wasRunningBeforeConfirmRef.current = false;
+    }
+    setConfirmEndOpen(true);
+  }, [commandBusy, onPause, status]);
+
+  const handleCancelEnd = useCallback(() => {
+    setConfirmEndOpen(false);
+    if (wasRunningBeforeConfirmRef.current) {
+      wasRunningBeforeConfirmRef.current = false;
+      onResume();
+    }
+  }, [onResume]);
+
+  const handleConfirmEnd = useCallback(() => {
+    setConfirmEndOpen(false);
+    wasRunningBeforeConfirmRef.current = false;
+    onEnd();
+  }, [onEnd]);
+
+  // Keyboard blind-controls: Space = Pause/Resume, Enter = End (with pause & confirm), F = Zen, N = Note
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const isInputActive = target && ["INPUT", "TEXTAREA"].includes(target.tagName);
+
+      if (confirmEndOpen) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          handleCancelEnd();
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          if (commandBusy) return;
+          handleConfirmEnd();
+        }
+        return;
+      }
 
       if (isInputActive) {
         if (e.key === "Escape") {
@@ -75,8 +114,7 @@ export function FocusTimerWorkspace({
         }
       } else if (e.key === "Enter") {
         e.preventDefault();
-        if (commandBusy) return;
-        onEnd();
+        handleRequestEnd();
       } else if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         toggleZenMode();
@@ -92,7 +130,7 @@ export function FocusTimerWorkspace({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [status, commandBusy, onPause, onResume, onEnd, isZenMode, showScratchpad, toggleZenMode]);
+  }, [status, commandBusy, onPause, onResume, handleRequestEnd, handleCancelEnd, handleConfirmEnd, isZenMode, showScratchpad, confirmEndOpen, toggleZenMode]);
 
   const handleSaveNote = useCallback(() => {
     if (!noteInput.trim()) return;
@@ -342,7 +380,7 @@ export function FocusTimerWorkspace({
                 variant={status === "running" ? "primary" : "secondary"}
                 size="lg"
                 disabled={commandBusy}
-                onClick={onEnd}
+                onClick={handleRequestEnd}
                 className={`h-11 px-6 text-sm font-medium transition-all group ${
                   status === "running"
                     ? "shadow-[0_0_24px_rgba(45,212,191,0.35)] hover:scale-105 active:scale-95"
@@ -423,6 +461,55 @@ export function FocusTimerWorkspace({
           ) : null}
         </div>
       </section>
+
+      {/* Confirm End Focus Modal */}
+      {confirmEndOpen ? (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-[fade-in_0.15s_ease-out]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-end-title"
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-[#0f1519] p-6 shadow-2xl animate-[scale-in_0.2s_cubic-bezier(0.16,1,0.3,1)] text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-teal-500/30 bg-teal-500/10 text-teal-300">
+                <Square className="size-5 fill-current" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 id="confirm-end-title" className="text-lg font-semibold text-white">
+                  结束本次专注？
+                </h2>
+                <p className="text-xs text-zinc-400">
+                  当前已专注 <span className="font-mono font-semibold text-teal-300">{elapsedLabel}</span> · 计时已自动暂停
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm leading-relaxed text-zinc-300">
+              结束计时后将冻结本次学习时长，并进入收口成果沉淀与复盘环节。
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={handleCancelEnd}
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                继续专注
+              </button>
+              <button
+                type="button"
+                autoFocus
+                disabled={commandBusy}
+                onClick={handleConfirmEnd}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-teal-400 px-5 text-sm font-semibold text-[#071011] shadow-[0_0_20px_rgba(45,212,191,0.3)] transition-all hover:bg-teal-300 hover:shadow-[0_0_28px_rgba(45,212,191,0.5)] active:scale-[0.98]"
+              >
+                确认结束
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

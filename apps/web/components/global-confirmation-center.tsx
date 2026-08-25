@@ -202,15 +202,15 @@ function ConfirmationList(props: {
     <div className="space-y-4">
       <nav className="flex items-center gap-1 border-b border-white/10" aria-label="确认中心视图">
         {([['pending', '待确认'], ['history', '已处理']] as const).map(([value, label]) => (
-          <Button
+          <button
             key={value}
             type="button"
-            className={`border-b-2 px-3 py-2 text-sm ${props.filter === value ? "border-teal-300 text-teal-200" : "border-transparent text-zinc-500 hover:text-zinc-200"}`}
+            className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${props.filter === value ? "border-teal-300 text-teal-200" : "border-transparent text-zinc-500 hover:text-zinc-200"}`}
             aria-current={props.filter === value ? "page" : undefined}
             onClick={() => props.onFilterChange(value)}
           >
             {label}
-          </Button>
+          </button>
         ))}
       </nav>
       <div className="flex items-center justify-between gap-3">
@@ -219,7 +219,7 @@ function ConfirmationList(props: {
           <RefreshCw size={15} aria-hidden="true" />
         </IconButton>
       </div>
-      {props.error ? <div className="space-y-2 rounded-md border border-red-400/30 bg-red-400/[0.06] p-3 text-sm text-red-200"><p>{props.error}</p><Button type="button" className="text-teal-200 hover:underline" onClick={props.onRetry}>重试</Button></div> : null}
+      {props.error ? <div className="space-y-2 rounded-md border border-red-400/30 bg-red-400/[0.06] p-3 text-sm text-red-200"><p>{props.error}</p><button type="button" className="text-teal-200 hover:underline" onClick={props.onRetry}>重试</button></div> : null}
       {props.loading && props.items.length === 0 ? <p className="py-8 text-center text-sm text-zinc-500">正在加载确认事项...</p> : null}
       {!props.loading && !props.error && props.items.length === 0 ? <EmptyState title={props.filter === "pending" ? "当前没有待确认事项" : "还没有已处理记录"} description={props.filter === "pending" ? "完成学习、复盘或检验后，需要你决定的结果会出现在这里。" : "确认或驳回事项后，记录会出现在这里。"} /> : null}
       {props.items.length > 0 ? <div className="divide-y divide-white/10 border-y border-white/10">{props.items.map((item) => <ConfirmationListRow key={`${item.kind}-${item.id}`} item={item} onSelect={props.onSelect} />)}</div> : null}
@@ -232,11 +232,29 @@ function ConfirmationListRow(props: { item: ConfirmationItemDto; onSelect: (id: 
   const statusLabel = props.item.status === "PENDING" ? "待确认" : props.item.status === "REJECTED" ? "已驳回" : "已确认并冻结";
   const statusTone = props.item.status === "PENDING" ? "warning" : props.item.status === "REJECTED" ? "neutral" : "success";
   return (
-    <Button type="button" className="af-confirmation-row grid w-full gap-2 py-4 text-left hover:bg-white/[0.03]" onClick={() => props.onSelect(props.item.id)}>
-      <span className="af-confirmation-row-icon size-8 place-items-center rounded-md border border-white/10 text-teal-300"><Icon size={15} aria-hidden="true" /></span>
-      <span className="min-w-0"><span className="flex flex-wrap items-center gap-2"><span className="break-words font-medium text-zinc-100">{props.item.title}</span><Badge tone={statusTone}>{statusLabel}</Badge></span><span className="mt-1 block break-words text-sm leading-5 text-zinc-500">{props.item.summary}</span></span>
-      <span className="af-container-action text-xs text-teal-300">查看</span>
-    </Button>
+    <button
+      type="button"
+      className="group flex w-full items-start gap-3 rounded-lg px-2 py-3.5 text-left transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-400"
+      onClick={() => props.onSelect(props.item.id)}
+    >
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-white/10 text-teal-300">
+        <Icon size={15} aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="break-words font-medium text-zinc-100 group-hover:text-teal-200">
+            {props.item.title}
+          </span>
+          <Badge tone={statusTone}>{statusLabel}</Badge>
+        </div>
+        <p className="mt-1 break-words text-xs leading-relaxed text-zinc-400">
+          {props.item.summary}
+        </p>
+      </div>
+      <span className="shrink-0 pt-0.5 text-xs text-teal-300 group-hover:underline">
+        查看
+      </span>
+    </button>
   );
 }
 
@@ -244,7 +262,7 @@ function ConfirmationDetail(props: { item: ConfirmationItemDto; onBack: () => vo
   const statusLabel = props.item.status === "PENDING" ? "待确认" : props.item.status === "REJECTED" ? "已驳回" : "已确认并冻结";
   return (
     <div className="space-y-5">
-      <Button type="button" className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-200" onClick={props.onBack}><ArrowLeft size={15} aria-hidden="true" />返回列表</Button>
+      <button type="button" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors" onClick={props.onBack}><ArrowLeft size={15} aria-hidden="true" />返回列表</button>
       <div className="space-y-2"><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-semibold text-white">{props.item.title}</h3><Badge tone={props.item.status === "PENDING" ? "warning" : props.item.status === "REJECTED" ? "neutral" : "success"}>{statusLabel}</Badge></div><p className="text-sm leading-6 text-zinc-400">{props.item.summary}</p></div>
       <dl className="af-content-grid-two grid gap-3 border-y border-white/10 py-4 text-sm"><div><dt className="text-zinc-500">类型</dt><dd className="mt-1 break-words text-zinc-200">{props.item.sourceLabel}</dd></div><div><dt className="text-zinc-500">版本</dt><dd className="mt-1 break-words text-zinc-200">v{props.item.revision}</dd></div></dl>
       <div className="flex flex-wrap gap-3"><Link href={props.item.sourceHref} className="inline-flex items-center gap-1.5 text-sm text-teal-300 hover:text-teal-200" onClick={(event) => handleWindowNavigation(event, props.onNavigate)}><ExternalLink size={15} aria-hidden="true" />打开来源页面</Link></div>

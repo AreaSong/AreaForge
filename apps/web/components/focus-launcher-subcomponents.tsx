@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { Flame, Clock, Target, TrendingUp, History, ListTodo } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/contracts";
@@ -172,11 +171,11 @@ export function SubjectTileGrid({
         const isLastOdd = idx === subjects.length - 1 && subjects.length % 2 !== 0;
 
         return (
-          <Button
+          <button
             key={subject.id}
             type="button"
             onClick={() => onSelect(subject.id)}
-            className={`group relative flex flex-col items-start justify-between rounded-xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] ${
+            className={`group relative flex flex-col items-start justify-between rounded-xl border p-2.5 sm:p-3 text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] ${
               isLastOdd ? "af-content-span-all" : ""
             } ${
               isSelected
@@ -185,7 +184,7 @@ export function SubjectTileGrid({
             }`}
           >
             <div className="flex w-full items-center justify-between gap-1.5">
-              <span className="flex items-center gap-2 truncate">
+              <span className="flex items-center gap-2 min-w-0">
                 <span className="relative flex size-2 shrink-0 items-center justify-center">
                   {isSelected ? (
                     <span
@@ -209,14 +208,16 @@ export function SubjectTileGrid({
                 </kbd>
               ) : null}
             </div>
-            {pendingCount > 0 ? (
-              <span className="mt-1.5 text-[11px] text-zinc-400">
-                {pendingCount} 个待办任务
-              </span>
-            ) : (
-              <span className="mt-1.5 text-[11px] text-zinc-500">自由专注</span>
-            )}
-          </Button>
+            <div className="mt-1.5 flex items-center">
+              {pendingCount > 0 ? (
+                <span className="text-[11px] text-zinc-400">
+                  {pendingCount} 个待办任务
+                </span>
+              ) : (
+                <span className="text-[11px] text-zinc-500">自由专注</span>
+              )}
+            </div>
+          </button>
         );
       })}
     </div>

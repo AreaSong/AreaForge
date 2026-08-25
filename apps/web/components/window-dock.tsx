@@ -1,6 +1,5 @@
 "use client";
 
-import { Button, IconButton } from "@/components/ui/button";
 import { Bot, ChevronDown, ClipboardCheck, PanelsTopLeft, TimerReset, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -93,17 +92,17 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
 
   return (
     <div ref={dockRef} className="relative flex min-w-0 flex-1 items-center justify-end overflow-visible" data-window-dock="true" aria-label="后台窗口">
-      <Button
+      <button
         ref={mobileTriggerRef}
         type="button"
-        className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.06] md:hidden"
+        className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-white/10 px-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white md:hidden focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-400"
         onClick={() => setMobileOpen(true)}
         aria-expanded={mobileOpen}
         aria-label={`打开后台窗口，共 ${background.length} 个`}
       >
         <PanelsTopLeft size={13} aria-hidden="true" />
         <span>后台 {background.length}</span>
-      </Button>
+      </button>
 
       <div ref={desktopRef} className="hidden min-w-0 flex-1 items-center justify-end gap-2 overflow-visible md:flex">
         <div ref={measureRef} className="pointer-events-none invisible absolute left-0 top-0 flex h-0 w-max gap-2 overflow-hidden" aria-hidden="true">
@@ -131,17 +130,17 @@ export function WindowDock(props: { excludeKeys?: readonly string[] }) {
 
         {hidden.length >= 2 ? (
           <div className="relative shrink-0">
-            <Button
+            <button
               ref={moreTriggerRef}
               type="button"
-              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border border-white/10 px-2 text-xs text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border border-white/10 px-2 text-xs font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-teal-400"
               onClick={() => setExpanded((current) => !current)}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
               aria-controls={menuId}
             >
               <ChevronDown size={13} aria-hidden="true" />更多窗口 {hidden.length}
-            </Button>
+            </button>
             {menuOpen ? (
               <div
                 ref={menuRef}
@@ -215,13 +214,32 @@ function DockItem(props: {
   menuItem?: boolean;
 }) {
   return (
-    <div role={props.menuItem ? "none" : undefined} className={`flex min-w-0 shrink items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2 text-xs text-zinc-300 ${props.menuItem ? "h-9 w-full" : `h-7 ${props.compact ? "max-w-32" : "max-w-48"}`}`}>
-      <Button type="button" role={props.menuItem ? "menuitem" : undefined} className="flex min-w-0 flex-1 items-center gap-1.5 text-left hover:text-white" onClick={props.onOpen} title={`打开${props.window.title}`}>
+    <div
+      role={props.menuItem ? "none" : undefined}
+      className={`group/dock flex min-w-0 shrink items-center gap-1 rounded-md border border-white/10 bg-white/[0.03] px-2 text-xs text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white ${
+        props.menuItem ? "h-9 w-full" : `h-7 ${props.compact ? "max-w-32" : "max-w-48"}`
+      }`}
+    >
+      <button
+        type="button"
+        role={props.menuItem ? "menuitem" : undefined}
+        className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-medium text-zinc-300 transition-colors group-hover/dock:text-white focus-visible:outline-none"
+        onClick={props.onOpen}
+        title={`打开${props.window.title}`}
+      >
         <WindowDockIcon kind={props.window.kind} />
         <span className="truncate">{props.window.title}</span>
-      </Button>
+      </button>
       {!props.compact && props.window.closePolicy !== "minimizeOnly" ? (
-        <IconButton type="button" label={`关闭${props.window.title}`} className="!size-5 text-zinc-600 hover:bg-white/10 hover:text-zinc-200" onClick={props.onClose} title="关闭"><X size={12} aria-hidden="true" /></IconButton>
+        <button
+          type="button"
+          aria-label={`关闭${props.window.title}`}
+          className="flex size-4 shrink-0 items-center justify-center rounded text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-200 focus-visible:outline-none"
+          onClick={props.onClose}
+          title="关闭"
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
       ) : null}
     </div>
   );
@@ -268,11 +286,11 @@ function MobileDockSheet(props: {
   if (!open || typeof document === "undefined") return null;
   return createPortal(
     <div className="fixed inset-0 z-[var(--af-layer-modal)] bg-black/55" role="presentation">
-      <Button type="button" className="absolute inset-0 !h-auto !w-auto !border-0 !p-0 cursor-default" tabIndex={-1} aria-hidden="true" onClick={onClose} />
+      <button type="button" className="absolute inset-0 h-full w-full border-0 p-0 cursor-default bg-transparent" tabIndex={-1} aria-hidden="true" onClick={onClose} />
       <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="af-bottom-sheet af-responsive-surface absolute inset-x-0 bottom-0 z-10 overflow-y-auto overscroll-contain rounded-t-lg border-t border-white/15 bg-[#101419] pt-4 shadow-2xl">
         <div className="mb-3 flex items-center gap-3">
           <h2 id={titleId} className="min-w-0 flex-1 text-base font-semibold text-white">后台窗口</h2>
-          <IconButton type="button" label="关闭后台窗口列表" className="!size-9 text-zinc-400 hover:bg-white/10 hover:text-white" onClick={onClose}><X size={16} aria-hidden="true" /></IconButton>
+          <button type="button" aria-label="关闭后台窗口列表" className="flex size-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-white/10 hover:text-white" onClick={onClose}><X size={16} aria-hidden="true" /></button>
         </div>
         <div className="grid gap-2">
           {windows.map((window) => <DockItem key={window.key} window={window} menuItem onOpen={() => onOpenWindow(window.key)} onClose={() => onCloseWindow(window.key)} />)}

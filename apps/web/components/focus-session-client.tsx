@@ -414,11 +414,11 @@ export function FocusSessionClient(props: {
       onClearCloseoutError={() => setCloseoutError(null)}
       onCancelCloseout={() => {
         setCloseoutError(null);
-        if (session.status === "closing") {
-          setError("计时已经冻结，必须完成或保留本次收口后才能离开。");
-        } else {
-          setPhase("focus");
+        setError(null);
+        if (session.status === "closing" || session.status === "paused") {
+          void resume();
         }
+        setPhase("focus");
       }}
       onSubmitCloseout={() => void end()}
       onOpenEvidence={openEvidenceFlow}

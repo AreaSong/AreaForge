@@ -142,14 +142,16 @@ export function applyLocalFocusCommand(
   if (action === "pause" && session.status === "running") {
     return { ...session, status: "paused", pausedAt: timestamp, updatedAt: timestamp };
   }
-  if (action === "resume" && session.status === "paused") {
-    const pauseSeconds = session.pausedAt
-      ? Math.max(0, Math.floor((now.getTime() - new Date(session.pausedAt).getTime()) / 1000))
+  if (action === "resume" && (session.status === "paused" || session.status === "closing")) {
+    const pauseOrigin = session.status === "paused" ? session.pausedAt : session.endedAt;
+    const pauseSeconds = pauseOrigin
+      ? Math.max(0, Math.floor((now.getTime() - new Date(pauseOrigin).getTime()) / 1000))
       : 0;
     return {
       ...session,
       status: "running",
       pausedAt: null,
+      endedAt: null,
       accumulatedPauseSeconds: session.accumulatedPauseSeconds + pauseSeconds,
       updatedAt: timestamp,
     };
