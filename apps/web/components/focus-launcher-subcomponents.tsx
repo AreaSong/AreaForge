@@ -1,5 +1,6 @@
 import { Flame, Clock, Target, TrendingUp, History, ListTodo } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/contracts";
 
 export const FOCUS_DURATION_PRESETS: Array<{ label: string; value: number }> = [
@@ -171,16 +172,17 @@ export function SubjectTileGrid({
         const isLastOdd = idx === subjects.length - 1 && subjects.length % 2 !== 0;
 
         return (
-          <button
+          <Button
             key={subject.id}
             type="button"
+            variant="subtle"
             onClick={() => onSelect(subject.id)}
-            className={`group relative flex flex-col items-start justify-between rounded-xl border p-2.5 sm:p-3 text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] ${
+            className={`group relative flex flex-col items-start justify-between !h-auto !p-2.5 sm:!p-3 text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] ${
               isLastOdd ? "af-content-span-all" : ""
             } ${
               isSelected
-                ? "border-teal-400 bg-teal-500/10 shadow-[0_0_20px_rgba(45,212,191,0.18)] ring-1 ring-teal-400/50"
-                : "border-white/10 bg-[var(--af-surface)] hover:border-white/20 hover:bg-[var(--af-surface-raised)] hover:shadow-md"
+                ? "!border-teal-400 !bg-teal-500/10 shadow-[0_0_20px_rgba(45,212,191,0.18)] ring-1 ring-teal-400/50"
+                : "!border-white/10 !bg-[var(--af-surface)] hover:!border-white/20 hover:!bg-[var(--af-surface-raised)] hover:shadow-md"
             }`}
           >
             <div className="flex w-full items-center justify-between gap-1.5">
@@ -217,7 +219,7 @@ export function SubjectTileGrid({
                 <span className="text-[11px] text-zinc-500">自由专注</span>
               )}
             </div>
-          </button>
+          </Button>
         );
       })}
     </div>

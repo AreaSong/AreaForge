@@ -1,14 +1,13 @@
-import { AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Clock3, FileText, Target } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock3 } from "lucide-react";
 import Link from "next/link";
-import { Button, buttonClassName } from "@/components/ui/button";
-import { Checkbox, Input, Radio, Textarea } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { Checkbox, Input, Textarea } from "@/components/ui/field";
+import { SegmentedField } from "@/components/ui/segmented-control";
 import { Alert, Badge } from "@/components/ui/feedback";
-import { withReturnTo } from "@/lib/navigation/app-navigation";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import type { KnowledgePointDto } from "@/lib/contracts";
-import type { StudySessionLowReasonDto, TaskStatusDto } from "@/lib/contracts";
+import type { StudySessionLowReasonDto } from "@/lib/contracts";
 import type { SyllabusOptionNodeDto, StudyTaskDto } from "@/lib/contracts";
-import { formatTaskStatus } from "@/lib/formatters";
 
 export type CloseoutOutcome = "achieved" | "partial" | "not-achieved";
 export type UnderstandingLevel = "清晰" | "基本理解" | "模糊" | "不会";
@@ -158,9 +157,16 @@ export function CloseoutWorkspace(props: {
       </aside>
 
       {/* Right Column: Responsive Full-Width Rich Dashboard Form */}
-      <section className="flex-1 p-6 sm:p-8 flex flex-col justify-between h-full overflow-y-auto">
-        <div className="w-full flex flex-col justify-between h-full">
-          <div>
+      <section className="flex-1 p-6 sm:p-8 flex flex-col h-full overflow-y-auto">
+        <form noValidate
+          className="w-full flex-1 flex flex-col justify-between h-full"
+          onSubmit={(event) => {
+            event.preventDefault();
+            props.onSubmit();
+          }}
+        >
+          {/* Upper Cards Area */}
+          <div className="space-y-3 sm:space-y-3.5">
             <div className="flex items-center justify-between border-b border-white/10 pb-3 sm:pb-3.5">
               <div>
                 <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-teal-300">成果沉淀</p>
@@ -172,293 +178,177 @@ export function CloseoutWorkspace(props: {
               </span>
             </div>
 
-            <form
-              noValidate
-              className="mt-3.5 sm:mt-4 space-y-2.5 sm:space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                props.onSubmit();
-              }}
-            >
-              {/* Row 1: Outcome & Understanding Level */}
-              <div className="grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
-                <SegmentedField
-                  legend="收口结果"
-                  value={props.outcome}
-                  options={[
-                    { value: "achieved", label: "🎯 达成" },
-                    { value: "partial", label: "⚡ 部分达成" },
-                    { value: "not-achieved", label: "🚧 未达成" },
-                  ]}
-                  onChange={(value) => props.onOutcomeChange(value as CloseoutOutcome)}
-                />
+            {/* Row 1: Outcome & Understanding Level */}
+            <div className="grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
+              <SegmentedField
+                legend="收口结果"
+                value={props.outcome}
+                options={[
+                  { value: "achieved", label: "🎯 达成" },
+                  { value: "partial", label: "⚡ 部分达成" },
+                  { value: "not-achieved", label: "🚧 未达成" },
+                ]}
+                onChange={(value) => props.onOutcomeChange(value as CloseoutOutcome)}
+              />
 
-                <SegmentedField
-                  legend="理解程度"
-                  value={props.understandingLevel}
-                  options={[
-                    { value: "清晰", label: "清晰" },
-                    { value: "基本理解", label: "理解" },
-                    { value: "模糊", label: "模糊" },
-                    { value: "不会", label: "不会" },
-                  ]}
-                  onChange={(value) => props.onUnderstandingChange(value as UnderstandingLevel)}
-                />
-              </div>
+              <SegmentedField
+                legend="理解程度"
+                value={props.understandingLevel}
+                options={[
+                  { value: "清晰", label: "清晰" },
+                  { value: "基本理解", label: "理解" },
+                  { value: "模糊", label: "模糊" },
+                  { value: "不会", label: "不会" },
+                ]}
+                onChange={(value) => props.onUnderstandingChange(value as UnderstandingLevel)}
+              />
+            </div>
 
-              {/* Row 2: Focus & Energy Rating */}
-              <div className="grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
-                <SegmentedField
-                  legend="专注度（1-5 分）"
-                  value={props.focusLevel}
-                  options={ratingOptions()}
-                  onChange={props.onFocusLevelChange}
-                />
-                <SegmentedField
-                  legend="精力状态（1-5 分）"
-                  value={props.energyLevel}
-                  options={ratingOptions()}
-                  onChange={props.onEnergyLevelChange}
-                />
-              </div>
+            {/* Row 2: Focus & Energy Rating */}
+            <div className="grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
+              <SegmentedField
+                legend="专注度（1-5 分）"
+                value={props.focusLevel}
+                options={ratingOptions()}
+                onChange={props.onFocusLevelChange}
+              />
+              <SegmentedField
+                legend="精力状态（1-5 分）"
+                value={props.energyLevel}
+                options={ratingOptions()}
+                onChange={props.onEnergyLevelChange}
+              />
+            </div>
 
-              {/* Low reason checkbox if not achieved */}
-              {props.outcome === "not-achieved" ? (
-                <fieldset className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 sm:p-4 shadow-lg">
-                  <legend className="text-xs font-medium text-amber-200">低效或受阻原因（至少勾选一项）</legend>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {LOW_REASON_OPTIONS.map((reason) => (
-                      <label
-                        key={reason.value}
-                        className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-xl border px-3 text-xs transition-colors ${
-                          props.lowReasons.includes(reason.value)
-                            ? "border-amber-400/60 bg-amber-400/15 text-amber-100 font-medium"
-                            : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]"
-                        }`}
-                      >
-                        <Checkbox
-                          className="h-3.5 w-3.5 shrink-0 accent-amber-300"
-                          checked={props.lowReasons.includes(reason.value)}
-                          onChange={() => props.onLowReasonsChange(toggleReason(props.lowReasons, reason.value))}
-                        />
-                        <span className="truncate">{reason.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              ) : null}
+            {/* Low reason checkbox if not achieved */}
+            {props.outcome === "not-achieved" ? (
+              <fieldset className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 sm:p-4 shadow-lg">
+                <legend className="text-xs font-medium text-amber-200">低效或受阻原因（至少勾选一项）</legend>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {LOW_REASON_OPTIONS.map((reason) => (
+                    <label
+                      key={reason.value}
+                      className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-xl border px-3 text-xs transition-colors ${
+                        props.lowReasons.includes(reason.value)
+                          ? "border-amber-400/60 bg-amber-400/15 text-amber-100 font-medium"
+                          : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]"
+                      }`}
+                    >
+                      <Checkbox
+                        className="h-3.5 w-3.5 shrink-0 accent-amber-300"
+                        checked={props.lowReasons.includes(reason.value)}
+                        onChange={() => props.onLowReasonsChange(toggleReason(props.lowReasons, reason.value))}
+                      />
+                      <span className="truncate">{reason.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
 
-              {/* Row 3: Output & Takeaways */}
-              <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
-                <label className="block text-xs font-medium text-zinc-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-semibold text-zinc-100">实际学习内容与产出</span>
-                    <span className="text-[11px] text-zinc-500">（至少 4 个字符）</span>
-                  </div>
-                  <Textarea
+            {/* Row 3: Output & Takeaways */}
+            <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
+              <label className="block text-xs font-medium text-zinc-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs sm:text-sm font-semibold text-zinc-100">实际学习内容与产出</span>
+                  <span className="text-[11px] text-zinc-500">（至少 4 个字符）</span>
+                </div>
+                <Textarea
+                  required
+                  minLength={4}
+                  maxLength={1000}
+                  controlHeight="sm"
+                  className="mt-2 h-18 sm:h-22 min-h-18 rounded-xl border-white/10 bg-white/5 p-2.5 sm:p-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none resize-none leading-relaxed"
+                  placeholder="例如：一元函数微分学理解了极值定理，做完了例题 3-5，整理了 1 个错题"
+                  value={props.minimalOutput}
+                  onChange={(event) => props.onMinimalOutputChange(event.target.value)}
+                />
+              </label>
+            </div>
+
+            {/* Row 4: Next Actions & Task Disposition */}
+            <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {props.context.taskTitle ? (
+                  <SegmentedField
+                    legend="关联任务去向"
+                    value={props.taskDisposition}
+                    options={[
+                      { value: "complete", label: "✅ 完成" },
+                      { value: "continue", label: "🔄 继续" },
+                      { value: "blocked", label: "🛑 阻塞" },
+                    ]}
+                    onChange={(value) => props.onTaskDispositionChange(value as TaskDisposition)}
+                  />
+                ) : null}
+
+                <label className={`block text-xs font-medium text-zinc-200 ${!props.context.taskTitle ? "sm:col-span-1" : ""}`}>
+                  <span className="text-xs sm:text-sm font-semibold text-zinc-100">{nextActionLabel}</span>
+                  <Input
                     required
-                    minLength={4}
-                    maxLength={1000}
-                    controlHeight="sm"
-                    className="mt-2 h-18 sm:h-22 min-h-18 rounded-xl border-white/10 bg-white/5 p-2.5 sm:p-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none resize-none leading-relaxed"
-                    placeholder="例如：一元函数微分学理解了极值定理，做完了例题 3-5，整理了 1 个错题"
-                    value={props.minimalOutput}
-                    onChange={(event) => props.onMinimalOutputChange(event.target.value)}
+                    maxLength={500}
+                    className="mt-1.5 h-8.5 sm:h-9 rounded-xl border-white/10 bg-white/5 px-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
+                    placeholder={
+                      props.taskDisposition === "blocked"
+                        ? "说明卡在哪里，下一次从哪里恢复"
+                        : "下一次打开时要继续做什么"
+                    }
+                    value={props.nextAction}
+                    onChange={(event) => props.onNextActionChange(event.target.value)}
                   />
                 </label>
-              </div>
 
-              {/* Row 4: Next Actions & Task Disposition */}
-              <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {props.context.taskTitle ? (
-                    <SegmentedField
-                      legend="关联任务去向"
-                      value={props.taskDisposition}
-                      options={[
-                        { value: "complete", label: "✅ 完成" },
-                        { value: "continue", label: "🔄 继续" },
-                        { value: "blocked", label: "🛑 阻塞" },
-                      ]}
-                      onChange={(value) => props.onTaskDispositionChange(value as TaskDisposition)}
-                    />
-                  ) : null}
-
-                  <label className={`block text-xs font-medium text-zinc-200 ${!props.context.taskTitle ? "sm:col-span-1" : ""}`}>
-                    <span className="text-xs sm:text-sm font-semibold text-zinc-100">{nextActionLabel}</span>
+                {!props.context.taskTitle ? (
+                  <label className="block text-xs font-medium text-zinc-200">
+                    <span className="text-xs sm:text-sm font-semibold text-zinc-100">收口后处置与备忘（可选）</span>
                     <Input
-                      required
                       maxLength={500}
                       className="mt-1.5 h-8.5 sm:h-9 rounded-xl border-white/10 bg-white/5 px-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
-                      placeholder={
-                        props.taskDisposition === "blocked"
-                          ? "说明卡在哪里，下一次从哪里恢复"
-                          : "下一次打开时要继续做什么"
-                      }
-                      value={props.nextAction}
-                      onChange={(event) => props.onNextActionChange(event.target.value)}
+                      placeholder="例如：补做两道题、安排复测"
+                      value={props.nextDisposition}
+                      onChange={(event) => props.onNextDispositionChange(event.target.value)}
                     />
                   </label>
-
-                  {!props.context.taskTitle ? (
-                    <label className="block text-xs font-medium text-zinc-200">
-                      <span className="text-xs sm:text-sm font-semibold text-zinc-100">收口后处置与备忘（可选）</span>
-                      <Input
-                        maxLength={500}
-                        className="mt-1.5 h-8.5 sm:h-9 rounded-xl border-white/10 bg-white/5 px-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
-                        placeholder="例如：补做两道题、安排复测"
-                        value={props.nextDisposition}
-                        onChange={(event) => props.onNextDispositionChange(event.target.value)}
-                      />
-                    </label>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
+            </div>
 
-              {props.validationError ? <Alert tone="danger">{props.validationError}</Alert> : null}
-
-              {/* Bottom Actions */}
-              <div className="flex items-center justify-between gap-3 sm:gap-4 border-t border-white/10 pt-3">
-                <button
-                  type="button"
-                  onClick={props.onCancel}
-                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 text-xs sm:text-sm font-medium text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
-                >
-                  <ArrowLeft className="size-3.5 sm:size-4" />
-                  <span>返回继续计时</span>
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={props.submitting}
-                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-xl bg-teal-400 px-6 sm:px-8 text-xs sm:text-sm font-semibold text-[#061012] shadow-[0_0_20px_rgba(45,212,191,0.35)] transition-all hover:bg-teal-300 hover:shadow-[0_0_28px_rgba(45,212,191,0.5)] active:scale-[0.98] disabled:opacity-50"
-                >
-                  {props.submitting ? "正在保存..." : "保存并沉淀本次学习"}
-                </button>
-              </div>
-            </form>
+            {props.validationError ? <Alert tone="danger">{props.validationError}</Alert> : null}
           </div>
-        </div>
-      </section>
-    </div>
-  );
-}
 
-export function LowConversionWorkspace(props: {
-  reason: string;
-  addedToInbox: boolean;
-  returnTo: string;
-  onSupplement: () => void;
-  onAddToInbox: () => void;
-  onAccept: () => void;
-}) {
-  return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col justify-center px-4 py-4 sm:px-6">
-      <section className="w-full rounded-2xl border border-amber-400/25 bg-[#14120e]/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-        <AlertTriangle className="h-7 w-7 text-amber-300" aria-hidden="true" />
-        <p className="mt-4 text-xs font-medium text-amber-300">低转化记录已保存</p>
-        <h1 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">这段学习还缺少可验证产出</h1>
-        <p className="mt-2 max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-400">{props.reason}</p>
-        <div className="mt-6 flex flex-wrap gap-2.5">
-          <Button type="button" variant="primary" size="md" onClick={props.onSupplement}>补一个最小产出</Button>
-          {props.addedToInbox ? (
-            <Link href={withReturnTo("/roadmap/allocation/drafts", props.returnTo)} className={buttonClassName({ size: "md" })}>查看投入草稿</Link>
-          ) : (
-            <Button type="button" size="md" onClick={props.onAddToInbox}>加入投入草稿</Button>
-          )}
-          <Button type="button" variant="ghost" size="md" onClick={props.onAccept}>承认低转化并结束</Button>
-        </div>
-      </section>
-    </div>
-  );
-}
+          {/* Bottom Actions: Strictly pinned to bottom */}
+          <div className="flex items-center justify-between gap-3 sm:gap-4 border-t border-white/10 pt-3.5 mt-auto">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={props.onCancel}
+              leftIcon={<ArrowLeft className="size-4" />}
+            >
+              <span>返回继续计时</span>
+            </Button>
 
-export function EvidenceWorkspace(props: {
-  activeType: FocusEvidenceType;
-  canRetest: boolean;
-  receipts: FocusEvidenceReceipt[];
-  onTypeChange: (value: FocusEvidenceType) => void;
-  onComplete: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="af-focus-workspace-grid grid h-full min-h-0 min-w-0">
-      <aside className="af-workspace-aside bg-[var(--af-surface-subtle)] px-5 py-6 overflow-y-auto">
-        <p className="text-xs font-medium text-teal-300">证据接力</p>
-        <h1 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">为本次学习留下可复用证据</h1>
-        <div className="mt-5 grid gap-2">
-          <EvidenceTypeButton active={props.activeType === "note"} icon={<FileText />} label="知识卡片" onClick={() => props.onTypeChange("note")} />
-          <EvidenceTypeButton active={props.activeType === "mistake"} icon={<AlertTriangle />} label="错题" onClick={() => props.onTypeChange("mistake")} />
-          <EvidenceTypeButton active={props.activeType === "retest"} disabled={!props.canRetest} icon={<Target />} label={props.canRetest ? "复测" : "复测 · 未关联考纲"} onClick={() => props.onTypeChange("retest")} />
-        </div>
-        <div className="mt-6 border-t border-white/10 pt-4">
-          <p className="text-xs text-zinc-500">本次已保存 {props.receipts.length} 条证据</p>
-          {props.receipts.length > 0 ? (
-            <ul className="mt-2.5 space-y-1.5">
-              {props.receipts.map((receipt) => (
-                <li key={`${receipt.evidenceType}:${receipt.evidenceId}`} className="flex items-start gap-2 text-xs text-zinc-300">
-                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
-                  <span className="break-words">{evidenceTypeLabel(receipt.evidenceType)} · {receipt.label}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      </aside>
-      <section className="af-workspace-main px-4 py-6 sm:px-6 overflow-y-auto flex flex-col justify-between">
-        <div className="mx-auto w-full max-w-3xl">{props.children}</div>
-        <div className="mx-auto mt-6 flex w-full max-w-3xl justify-end border-t border-white/10 pt-4">
-          <Button type="button" variant="primary" size="md" onClick={props.onComplete}>
-            {props.receipts.length > 0 ? "完成证据接力" : "暂不沉淀，完成收口"}
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export function CompleteWorkspace(props: {
-  elapsedLabel: string;
-  lowConversion: boolean;
-  taskStatus: TaskStatusDto | null;
-  returnTo: string;
-  receipts: FocusEvidenceReceipt[];
-}) {
-  return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col justify-center px-4 py-4 sm:px-6">
-      <section className="w-full rounded-2xl border border-white/10 bg-[#0d1317]/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-        <CheckCircle2 className={`h-8 w-8 ${props.lowConversion ? "text-amber-300" : "text-emerald-300"}`} aria-hidden="true" />
-        <p className="mt-4 text-xs font-medium text-teal-300">本次学习已收口</p>
-        <h1 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">记录已经保存，可以离开专注流程</h1>
-        <dl className="af-metric-grid-three mt-5 grid gap-3 text-xs sm:text-sm">
-          <SummaryFact label="实际时长" value={props.elapsedLabel} />
-          <SummaryFact label="转化结果" value={props.lowConversion ? "低转化" : "有效学习"} />
-          <SummaryFact label="任务状态" value={taskStatusLabel(props.taskStatus)} />
-        </dl>
-        {props.receipts.length > 0 ? (
-          <div className="mt-7 border-t border-white/10 pt-5">
-            <p className="text-xs text-zinc-500">本次学习证据</p>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {props.receipts.map((receipt) => (
-                <li key={`${receipt.evidenceType}:${receipt.evidenceId}`}><Badge tone="success">{evidenceTypeLabel(receipt.evidenceType)} · {receipt.label}</Badge></li>
-              ))}
-            </ul>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={props.submitting}
+              loading={props.submitting}
+              loadingLabel="正在保存..."
+            >
+              保存并沉淀本次学习
+            </Button>
           </div>
-        ) : null}
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/today" className={buttonClassName({ variant: "primary", size: "lg" })}>
-            回到今日，查看下一行动
-          </Link>
-          {props.returnTo !== "/today" ? (
-            <Link href={props.returnTo} className={buttonClassName({ variant: "secondary", size: "lg" })}>
-              {getReturnContextLabel(props.returnTo, "返回原位置")}
-            </Link>
-          ) : null}
-        </div>
+        </form>
       </section>
     </div>
   );
 }
+
+export { LowConversionWorkspace } from "./focus-session-low-conversion";
+
+export {
+  EvidenceWorkspace,
+  CompleteWorkspace,
+} from "./focus-session-evidence";
 
 function ratingOptions(): Array<{ value: string; label: string }> {
   return [1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }));
@@ -466,43 +356,6 @@ function ratingOptions(): Array<{ value: string; label: string }> {
 
 function toggleReason(current: StudySessionLowReasonDto[], value: StudySessionLowReasonDto): StudySessionLowReasonDto[] {
   return current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
-}
-
-function SegmentedField(props: {
-  legend: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <fieldset>
-      <legend className="text-xs font-medium text-zinc-300">{props.legend}</legend>
-      <div className="af-segmented-options mt-1.5 grid grid-cols-2 sm:grid-flow-col sm:auto-cols-fr gap-1.5">
-        {props.options.map((option) => {
-          const active = props.value === option.value;
-          return (
-            <label
-              key={option.value}
-              className={`relative flex h-8 cursor-pointer items-center justify-center rounded-lg border px-2 text-xs font-medium transition-all select-none ${
-                active
-                  ? "border-teal-400/80 bg-teal-500/20 text-teal-100 shadow-[0_0_12px_rgba(45,212,191,0.2)]"
-                  : "border-white/10 bg-white/[0.03] text-zinc-400 hover:border-white/20 hover:bg-white/[0.07] hover:text-zinc-200"
-              }`}
-            >
-              <Radio
-                className="sr-only"
-                name={props.legend}
-                value={option.value}
-                checked={active}
-                onChange={() => props.onChange(option.value)}
-              />
-              <span className="truncate">{option.label}</span>
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
 }
 
 function ContextFact(props: { icon: React.ReactNode; label: string; value: string }) {
@@ -519,32 +372,6 @@ function ContextFact(props: { icon: React.ReactNode; label: string; value: strin
   );
 }
 
-function EvidenceTypeButton(props: { active: boolean; disabled?: boolean; icon: React.ReactNode; label: string; onClick: () => void }) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="lg"
-      aria-pressed={props.active}
-      disabled={props.disabled}
-      onClick={props.onClick}
-      className={`w-full !justify-start !gap-3 !px-3 !text-left !font-normal ${props.active ? "!border-teal-300/50 !bg-teal-400/10 !text-teal-100" : "!border-white/10 !bg-transparent !text-zinc-300 hover:!bg-white/[0.05]"} disabled:!cursor-not-allowed disabled:!opacity-45`}
-    >
-      <span className="[&>svg]:h-4 [&>svg]:w-4" aria-hidden="true">{props.icon}</span>{props.label}
-    </Button>
-  );
-}
-
-function evidenceTypeLabel(value: FocusEvidenceType) {
-  if (value === "note") return "知识卡片";
-  if (value === "mistake") return "错题";
-  return "复测";
-}
-
-function SummaryFact(props: { label: string; value: string }) {
-  return <div><dt className="text-zinc-500">{props.label}</dt><dd className="mt-1 font-medium text-zinc-100">{props.value}</dd></div>;
-}
-
 function statusLabel(status: "running" | "paused" | "closing" | "completed" | "canceled") {
   if (status === "running") return "进行中";
   if (status === "paused") return "已暂停";
@@ -553,7 +380,3 @@ function statusLabel(status: "running" | "paused" | "closing" | "completed" | "c
   return "已取消";
 }
 
-function taskStatusLabel(value: TaskStatusDto | null) {
-  if (value === "in_progress") return "继续推进";
-  return value ? formatTaskStatus(value) : "未关联任务";
-}

@@ -50,7 +50,7 @@ try {
   expectInvalidPair(sameRunId, "run IDs must be distinct", "pair.runId");
 
   const oldCapture = cloneFixture(fixture.governance);
-  oldCapture.generatedAt = "2026-08-26T00:00:00.000Z";
+  oldCapture.generatedAt = new Date(Date.parse(String(fixture.responsive.generatedAt)) - 48 * 60 * 60 * 1000).toISOString();
   expectInvalidPair(oldCapture, "captures must be temporally close", "within 24 hours");
 
   const differentPoolUrl = cloneFixture(fixture.governance);

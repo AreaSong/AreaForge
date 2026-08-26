@@ -1,4 +1,4 @@
-import { IconButton } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { Clock, Minus, Plus, Infinity as InfinityIcon } from "lucide-react";
 import { useCallback, useRef } from "react";
 import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/contracts";
@@ -327,18 +327,20 @@ export function FocusHeroDial({
           {FOCUS_DURATION_PRESETS.map((preset) => {
             const isSelected = durationPreset === preset.value;
             return (
-              <button
+              <Button
                 key={preset.value}
                 type="button"
+                size="sm"
+                variant={isSelected ? "primary" : "secondary"}
                 onClick={() => onPresetChange(preset.value)}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`!rounded-full !h-7 !px-2.5 !py-1 !text-xs font-medium ${
                   isSelected
-                    ? "border border-teal-400/40 bg-teal-500/15 text-teal-200 font-semibold shadow-sm"
-                    : "border border-white/5 bg-white/5 text-zinc-400 hover:border-white/15 hover:text-zinc-200"
+                    ? "!border-teal-400/40 !bg-teal-500/15 !text-teal-200 font-semibold shadow-sm"
+                    : "!border-white/5 !bg-white/5 !text-zinc-400 hover:!border-white/15 hover:!text-zinc-200"
                 }`}
               >
                 {preset.label}
-              </button>
+              </Button>
             );
           })}
         </div>

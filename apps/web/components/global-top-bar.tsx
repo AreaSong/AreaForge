@@ -3,11 +3,9 @@
 import { Button, IconButton } from "@/components/ui/button";
 import { Activity, Menu, TriangleAlert } from "lucide-react";
 import { BrandMark } from "@/components/brand-logo";
-import { GlobalActivitySlot } from "@/components/global-activity-slot";
 import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { CONFIRMATION_WINDOW_EVENT, GlobalConfirmationCenter } from "@/components/global-confirmation-center";
 import { GlobalQuickCreate } from "@/components/global-quick-create";
-import { GlobalCommandPalette } from "@/components/global-command-palette";
 import { DynamicIsland } from "@/components/dynamic-island";
 import { useGlobalTools } from "@/components/global-tool-system";
 import type { GlobalCommandAction } from "@/lib/navigation/command-palette";
@@ -38,7 +36,6 @@ export function GlobalTopBar(props: {
 }) {
   const { openTool } = useGlobalTools();
   const statusToneClass = toneClass[props.statusTone] ?? toneClass.gray;
-  const hasActivity = Boolean(props.activeSession || props.offlineSession || props.quickReviewClaim);
 
   function handleGlobalAction(action: GlobalCommandAction) {
     if (action === "confirmation-center") {

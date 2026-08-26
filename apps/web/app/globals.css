@@ -1,28 +1,45 @@
 @import "tailwindcss";
+@source "../../../packages/ui/src";
 
 :root {
   --background: #080b0f;
   --foreground: #f4f4f5;
   --af-canvas: #080b0f;
-  --af-surface-subtle: #0d1117;
+  --af-surface-card: #0e1619;
+  --af-surface-card-alpha: rgba(14, 22, 25, 0.90);
+  --af-surface-subtle: rgba(255, 255, 255, 0.02);
+  --af-surface-panel: #0d1117;
   --af-surface: #101419;
   --af-surface-raised: #151a20;
+  --af-border-subtle: rgba(255, 255, 255, 0.05);
   --af-border: rgba(255, 255, 255, 0.1);
   --af-border-strong: rgba(255, 255, 255, 0.18);
   --af-text-primary: #f4f4f5;
   --af-text-secondary: #a1a1aa;
   --af-text-muted: #71717a;
+  --af-text-inverse: #061012;
   --af-accent: #2dd4bf;
+  --af-accent-hover: #5eead4;
   --af-accent-strong: #14b8a6;
+  --af-accent-active-bg: rgba(20, 184, 166, 0.20);
   --af-info: #38bdf8;
   --af-success: #34d399;
   --af-warning: #fbbf24;
   --af-danger: #f87171;
-  --af-radius-control: 6px;
-  --af-radius-surface: 8px;
+  --af-radius-sm: 6px;
+  --af-radius-md: 8px;
+  --af-radius-control: 0.75rem;
+  --af-radius-card: 1rem;
+  --af-radius-surface: 1rem;
+  --af-shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --af-shadow-teal-glow: 0 0 20px rgba(45, 212, 191, 0.35);
+  --af-shadow-teal-glow-hover: 0 0 28px rgba(45, 212, 191, 0.50);
+  --af-shadow-teal-glow-subtle: 0 0 12px rgba(45, 212, 191, 0.20);
+  --af-shadow-teal-glow-accent: 0 0 16px rgba(45, 212, 191, 0.15);
   --af-control-sm: 2.25rem;
   --af-control-md: 2.5rem;
   --af-control-lg: 2.75rem;
+  --af-control-xl: 3rem;
   --af-layer-shell-base: 20;
   --af-layer-selection: 110;
   --af-layer-page-popover: 50;
@@ -46,6 +63,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-af-canvas: var(--af-canvas);
+  --color-af-surface-card: var(--af-surface-card);
+  --color-af-surface-subtle: var(--af-surface-subtle);
+  --color-af-surface: var(--af-surface);
+  --color-af-surface-raised: var(--af-surface-raised);
+  --color-af-accent: var(--af-accent);
+  --color-af-accent-hover: var(--af-accent-hover);
+  --color-af-accent-strong: var(--af-accent-strong);
+  --radius-af-card: var(--af-radius-card);
+  --radius-af-control: var(--af-radius-control);
+  --radius-af-surface: var(--af-radius-surface);
+  --shadow-af-teal-glow: var(--af-shadow-teal-glow);
+  --shadow-af-teal-glow-hover: var(--af-shadow-teal-glow-hover);
   --font-sans: var(--font-area-sans);
   --font-mono: var(--font-area-mono);
   
@@ -89,6 +119,10 @@
 
   .af-control-height-lg {
     height: var(--af-control-lg);
+  }
+
+  .af-control-height-xl {
+    height: var(--af-control-xl);
   }
 }
 

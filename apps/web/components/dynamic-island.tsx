@@ -7,7 +7,6 @@ import {
   Clock3, 
   Command, 
   CornerDownLeft, 
-  Flame, 
   Maximize2, 
   RefreshCw, 
   Search, 
@@ -16,6 +15,8 @@ import {
 } from "lucide-react";
 import { formatClockDuration } from "@/lib/formatters";
 import { getTimerElapsedSeconds } from "@areaforge/core";
+import { Button, IconButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
 import { activitySourcePath } from "@/lib/navigation/activity-route";
 import { 
   clampCommandIndex,
@@ -96,7 +97,7 @@ export function DynamicIsland(props: DynamicIslandProps) {
         pausedAt: session.pausedAt ? new Date(session.pausedAt) : undefined,
         endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
         accumulatedPauseSeconds: session.accumulatedPauseSeconds,
-        now: new Date(now || Date.now()),
+        now: new Date(now),
       })
     : 0;
 
@@ -231,7 +232,7 @@ export function DynamicIsland(props: DynamicIslandProps) {
           {/* Center Segment: Real Persistent Input without any internal box */}
           <div className="flex flex-1 min-w-0 items-center gap-2 px-1.5">
             <Search size={14} className="shrink-0 text-zinc-500" />
-            <input
+            <Input
               ref={inputRef}
               type="text"
               value={query}
@@ -243,22 +244,25 @@ export function DynamicIsland(props: DynamicIslandProps) {
               }}
               onKeyDown={handleInputKeyDown}
               placeholder="搜索或输入命令…"
-              className="af-island-input w-full bg-transparent text-xs text-white placeholder-zinc-500 border-none outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 selection:bg-teal-500/30"
+              className="af-island-input !h-auto !min-h-0 !border-0 !bg-transparent !p-0 text-xs text-white placeholder:text-zinc-500 !ring-0 !shadow-none !outline-none focus:!border-0 focus:!ring-0 focus-visible:!outline-none selection:bg-teal-500/30"
               style={{ outline: "none", boxShadow: "none", border: "none" }}
               aria-label="全局灵动岛搜索与命令输入框"
             />
             {query ? (
-              <button
+              <IconButton
+                label="清除搜索输入"
                 type="button"
+                size="sm"
+                variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
                   setQuery("");
                   inputRef.current?.focus();
                 }}
-                className="rounded p-0.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="!h-5 !w-5 !p-0.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X size={13} />
-              </button>
+              </IconButton>
             ) : (
               <span className="inline-flex items-center gap-0.5 rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 shrink-0">
                 <Command size={11} />K
@@ -298,17 +302,19 @@ export function DynamicIsland(props: DynamicIslandProps) {
               )}
             </div>
           ) : hasSyncIssue && props.syncState === "deferred" && props.onRetrySync ? (
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="secondary"
               onClick={(e) => {
                 e.stopPropagation();
                 props.onRetrySync?.();
               }}
-              className="flex shrink-0 items-center gap-1 rounded bg-amber-400/20 px-2 py-0.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-400/30 border-l border-white/10 cursor-pointer"
+              className="flex shrink-0 items-center !gap-1 !h-auto rounded bg-amber-400/20 !px-2 !py-0.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-400/30 !border-0 border-l border-white/10 cursor-pointer"
+              leftIcon={<RefreshCw size={11} className="animate-spin" />}
             >
-              <RefreshCw size={11} className="animate-spin" />
               <span>对账</span>
-            </button>
+            </Button>
           ) : null}
         </div>
 

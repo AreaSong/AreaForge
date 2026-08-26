@@ -55,9 +55,9 @@ export function PrimaryNavigation(props: {
           <PrimaryLink key={item.href} item={item} pathname={props.pathname} collapsed={props.collapsed} />
         ))}
       </nav>
-      <div className={`mt-auto space-y-2 pt-6 text-xs text-zinc-500 ${props.collapsed ? "grid justify-items-center" : "px-2"}`}>
+      <div className={`mt-auto space-y-2 border-t border-white/10 pt-4 text-xs text-zinc-500 ${props.collapsed ? "grid justify-items-center" : "px-2"}`}>
         <PrimaryLink item={UTILITY_NAV_ITEM} pathname={props.pathname} collapsed={props.collapsed} />
-      <p data-primary-email className={props.collapsed ? "sr-only" : undefined}>{props.email}</p>
+        <p data-primary-email className={props.collapsed ? "sr-only" : undefined}>{props.email}</p>
         <LogoutButton compact={props.collapsed} userId={props.userId} />
       </div>
     </aside>
