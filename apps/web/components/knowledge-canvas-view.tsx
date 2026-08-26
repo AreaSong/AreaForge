@@ -4,6 +4,7 @@ import type {
   LayoutConflictState,
 } from "@/components/knowledge-canvas-layout-controller";
 import { Button, IconButton } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
 import { Drawer, Modal } from "@/components/ui/overlays";
 import { formatDateTime } from "@/lib/formatters";
@@ -210,16 +211,16 @@ export function KnowledgeCanvasView({
         </div>
       </div>
 
-      <section className="af-canvas-command-grid grid min-w-0 gap-3 rounded-md border border-white/10 bg-[#101419] p-3" aria-label="画布布局命令">
+      <Card variant="master" className="af-canvas-command-grid grid min-w-0 gap-3 p-4" aria-label="画布布局命令">
         <p className="sr-only" role="status" aria-live="polite">{state.layoutAnnouncement}</p>
         <label className="grid min-w-0 gap-1 text-xs text-zinc-400">
           画布焦点对象
-          <Select aria-label="画布焦点对象" className="h-10 w-full min-w-0 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100" value={state.effectiveSelectedNodeId} onChange={(event) => actions.setSelectedNodeId(event.target.value)} disabled={state.layoutPending || visibleCanvas.nodes.length === 0}>
+          <Select aria-label="画布焦点对象" className="h-10 w-full min-w-0 rounded-xl border border-white/10 bg-[#151a20] px-3 text-sm text-zinc-100" value={state.effectiveSelectedNodeId} onChange={(event) => actions.setSelectedNodeId(event.target.value)} disabled={state.layoutPending || visibleCanvas.nodes.length === 0}>
             {visibleCanvas.nodes.map((node) => <option key={node.id} value={node.id}>{node.label} · {node.entityType}</option>)}
           </Select>
         </label>
         <div
-          className="grid grid-cols-3 gap-1 self-end justify-self-start rounded-md border border-white/10 p-1"
+          className="grid grid-cols-3 gap-1 self-end justify-self-start rounded-xl border border-white/10 bg-white/[0.02] p-1.5"
           tabIndex={0}
           aria-label="画布布局键盘命令"
           onKeyDown={(event) => {
@@ -230,36 +231,36 @@ export function KnowledgeCanvasView({
           }}
         >
           <span />
-          <IconButton label="向上微调" type="button" title="向上微调" aria-label="向上微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!state.desktop || !selectedNode} onClick={() => actions.nudgeSelected(0, -24)}><ArrowUp size={16} aria-hidden="true" /></IconButton>
+          <IconButton label="向上微调" type="button" title="向上微调" aria-label="向上微调" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10" disabled={!state.desktop || !selectedNode} onClick={() => actions.nudgeSelected(0, -24)}><ArrowUp size={16} aria-hidden="true" /></IconButton>
           <span />
-          <IconButton label="向左微调" type="button" title="向左微调" aria-label="向左微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!state.desktop || !selectedNode} onClick={() => actions.nudgeSelected(-24, 0)}><ArrowLeft size={16} aria-hidden="true" /></IconButton>
-          <IconButton label="向下微调" type="button" title="向下微调" aria-label="向下微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!state.desktop || !selectedNode} onClick={() => actions.nudgeSelected(0, 24)}><ArrowDown size={16} aria-hidden="true" /></IconButton>
-          <IconButton label="向右微调" type="button" title="向右微调" aria-label="向右微调" className="grid h-9 w-9 place-items-center rounded border border-white/10" disabled={!state.desktop || !selectedNode} onClick={() => actions.nudgeSelected(24, 0)}><ArrowRight size={16} aria-hidden="true" /></IconButton>
+          <IconButton label="向左微调" type="button" title="向左微调" aria-label="向左微调" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10" disabled={!state.desktop || !selectedNode} onClick={() => actions.nudgeSelected(-24, 0)}><ArrowLeft size={16} aria-hidden="true" /></IconButton>
+          <IconButton label="向下微调" type="button" title="向下微调" aria-label="向下微调" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10" disabled={!state.desktop || !selectedNode} onClick={() => actions.nudgeSelected(0, 24)}><ArrowDown size={16} aria-hidden="true" /></IconButton>
+          <IconButton label="向右微调" type="button" title="向右微调" aria-label="向右微调" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10" disabled={!state.desktop || !selectedNode} onClick={() => actions.nudgeSelected(24, 0)}><ArrowRight size={16} aria-hidden="true" /></IconButton>
         </div>
         <div className="af-canvas-secondary-grid grid min-w-0 gap-2">
           <label className="grid min-w-0 gap-1 text-xs text-zinc-400">
             移动到真实分组
-            <Select aria-label="移动到真实分组" className="h-10 w-full min-w-0 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100" value={state.groupTargetId} onChange={(event) => actions.setGroupTargetId(event.target.value)} disabled={!state.desktop || subjectGroups.length === 0}>
+            <Select aria-label="移动到真实分组" className="h-10 w-full min-w-0 rounded-xl border border-white/10 bg-[#151a20] px-3 text-sm text-zinc-100" value={state.groupTargetId} onChange={(event) => actions.setGroupTargetId(event.target.value)} disabled={!state.desktop || subjectGroups.length === 0}>
               <option value="">选择分组</option>
               {subjectGroups.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
             </Select>
           </label>
           <div className="flex flex-wrap gap-2 self-end">
-            <Button type="button" title="自动布局" aria-label="自动布局" className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm" disabled={!state.desktop || canvas.nodes.length === 0} onClick={actions.autoLayout}><WandSparkles size={16} aria-hidden="true" />自动布局</Button>
-            <Button type="button" title={selectedNode?.pinned ? "取消固定" : "固定对象"} aria-label={selectedNode?.pinned ? "取消固定" : "固定对象"} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm" disabled={!state.desktop || !selectedNode} onClick={actions.toggleSelectedPinned}>{selectedNode?.pinned ? <PinOff size={16} aria-hidden="true" /> : <Pin size={16} aria-hidden="true" />}{selectedNode?.pinned ? "取消固定" : "固定"}</Button>
-            <Button type="button" title="移动到真实分组" aria-label="移动到真实分组" className="h-10 rounded-md border border-white/10 px-3 text-sm" disabled={!state.desktop || !selectedNode || !state.groupTargetId} onClick={actions.moveSelectedToGroup}>移动</Button>
-            <IconButton label="隐藏对象" type="button" title="隐藏对象" aria-label="隐藏对象" className="grid h-10 w-10 place-items-center rounded-md border border-white/10" disabled={!state.desktop || !selectedNode} onClick={actions.hideSelectedNode}><EyeOff size={16} aria-hidden="true" /></IconButton>
+            <Button type="button" title="自动布局" aria-label="自动布局" className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-sm hover:bg-white/5" disabled={!state.desktop || canvas.nodes.length === 0} onClick={actions.autoLayout}><WandSparkles size={16} aria-hidden="true" />自动布局</Button>
+            <Button type="button" title={selectedNode?.pinned ? "取消固定" : "固定对象"} aria-label={selectedNode?.pinned ? "取消固定" : "固定对象"} className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-sm hover:bg-white/5" disabled={!state.desktop || !selectedNode} onClick={actions.toggleSelectedPinned}>{selectedNode?.pinned ? <PinOff size={16} aria-hidden="true" /> : <Pin size={16} aria-hidden="true" />}{selectedNode?.pinned ? "取消固定" : "固定"}</Button>
+            <Button type="button" title="移动到真实分组" aria-label="移动到真实分组" className="h-10 rounded-xl border border-white/10 px-3 text-sm hover:bg-white/5" disabled={!state.desktop || !selectedNode || !state.groupTargetId} onClick={actions.moveSelectedToGroup}>移动</Button>
+            <IconButton label="隐藏对象" type="button" title="隐藏对象" aria-label="隐藏对象" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10" disabled={!state.desktop || !selectedNode} onClick={actions.hideSelectedNode}><EyeOff size={16} aria-hidden="true" /></IconButton>
           </div>
           {canvas.hiddenNodes.length > 0 ? (
             <div className="flex gap-2">
-              <Select ref={hiddenRestoreSelectRef} aria-label="恢复隐藏对象" className="h-10 min-w-0 flex-1 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100" value={state.effectiveHiddenTargetId} onChange={(event) => actions.setHiddenTargetId(event.target.value)} disabled={!state.desktop}>
+              <Select ref={hiddenRestoreSelectRef} aria-label="恢复隐藏对象" className="h-10 min-w-0 flex-1 rounded-xl border border-white/10 bg-[#151a20] px-3 text-sm text-zinc-100" value={state.effectiveHiddenTargetId} onChange={(event) => actions.setHiddenTargetId(event.target.value)} disabled={!state.desktop}>
                 {canvas.hiddenNodes.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
               </Select>
-              <IconButton label="恢复隐藏对象" type="button" title="恢复隐藏对象" aria-label="恢复隐藏对象" className="grid h-10 w-10 place-items-center rounded-md border border-white/10" disabled={!state.desktop || !state.effectiveHiddenTargetId} onClick={actions.restoreHiddenNode}><Eye size={16} aria-hidden="true" /></IconButton>
+              <IconButton label="恢复隐藏对象" type="button" title="恢复隐藏对象" aria-label="恢复隐藏对象" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10" disabled={!state.desktop || !state.effectiveHiddenTargetId} onClick={actions.restoreHiddenNode}><Eye size={16} aria-hidden="true" /></IconButton>
             </div>
           ) : null}
         </div>
-      </section>
+      </Card>
 
       <div className="flex flex-wrap items-center gap-2" aria-label="当前对象操作">
         <Button type="button" className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm hover:bg-white/5" disabled={!selectedNode || state.loading} onClick={() => selectedNode && actions.focusBranch(selectedNode.id)}>

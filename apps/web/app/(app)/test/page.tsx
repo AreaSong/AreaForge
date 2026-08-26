@@ -1,6 +1,7 @@
 import { ArrowRight, ClipboardCheck, FileCheck2 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -48,11 +49,13 @@ export default async function TestPage() {
       </section>
       <section className="space-y-3">
         <SectionHeader title="检验规则" description="检验是证据，不是一次性的状态标签。" />
-        <ul className="divide-y divide-white/10 border-y border-white/10 text-sm leading-6 text-zinc-400">
-          <li className="py-3">复测结果会更新知识点的掌握状态，并安排下一次复测。</li>
-          <li className="py-3">模拟考试必须完成评分、失分、反馈和复盘，再进入确认中心。</li>
-          <li className="py-3">任何建议都先进入确认边界，不直接改写计划或阶段。</li>
-        </ul>
+        <Card variant="subtle" className="p-5">
+          <ul className="divide-y divide-white/5 text-sm leading-6 text-zinc-300">
+            <li className="py-2.5 first:pt-0 last:pb-0">复测结果会更新知识点的掌握状态，并安排下一次复测。</li>
+            <li className="py-2.5 first:pt-0 last:pb-0">模拟考试必须完成评分、失分、反馈和复盘，再进入确认中心。</li>
+            <li className="py-2.5 first:pt-0 last:pb-0">任何建议都先进入确认边界，不直接改写计划或阶段。</li>
+          </ul>
+        </Card>
       </section>
     </PageFrame>
   );
@@ -67,18 +70,25 @@ function TestEntry(props: {
   icon: React.ReactNode;
 }) {
   return (
-    <Link href={props.href} className="group flex min-h-36 flex-col justify-between border border-white/10 bg-white/[0.02] p-5 transition-colors hover:border-teal-300/40 hover:bg-teal-400/[0.04]">
-      <div className="flex items-start justify-between gap-4">
-        <span className="text-teal-300">{props.icon}</span>
-        <Badge tone={props.count > 0 ? "warning" : "neutral"}>{props.count} {props.countLabel}</Badge>
-      </div>
-      <div className="mt-6 flex items-end justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-lg font-medium text-white group-hover:text-teal-200">{props.title}</h2>
-          <p className="mt-1 text-sm leading-6 text-zinc-400">{props.description}</p>
+    <Link href={props.href} className="group block">
+      <Card
+        variant="master"
+        className="flex min-h-36 flex-col justify-between p-5 transition-all hover:border-teal-400/40 hover:shadow-[0_0_20px_rgba(45,212,191,0.15)]"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <span className="text-teal-300">{props.icon}</span>
+          <Badge tone={props.count > 0 ? "warning" : "neutral"}>
+            {props.count} {props.countLabel}
+          </Badge>
         </div>
-        <ArrowRight className="mb-1 shrink-0 text-zinc-500 group-hover:text-teal-300" size={18} aria-hidden="true" />
-      </div>
+        <div className="mt-6 flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-lg font-medium text-white group-hover:text-teal-200">{props.title}</h2>
+            <p className="mt-1 text-sm leading-6 text-zinc-400">{props.description}</p>
+          </div>
+          <ArrowRight className="mb-1 shrink-0 text-zinc-500 transition-colors group-hover:text-teal-300" size={18} aria-hidden="true" />
+        </div>
+      </Card>
     </Link>
   );
 }

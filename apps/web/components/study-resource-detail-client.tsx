@@ -17,6 +17,7 @@ import { KnowledgeNextAction } from "@/components/knowledge-next-action";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { EditorActionBar } from "@/components/ui/editor-actions";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
 import { Alert, PersistenceStatus } from "@/components/ui/feedback";
 import {
@@ -363,16 +364,16 @@ export function StudyResourceDetailClient(props: {
       {!editing ? (
         <ResourceFacts resource={resource} options={props.options} objectHref={objectHref} />
       ) : (
-        <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="resource-organize-heading">
+        <Card variant="master" className="space-y-4 p-5 sm:p-6" aria-labelledby="resource-organize-heading">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 id="resource-organize-heading" className="text-lg font-medium text-white">整理与关联</h2>
+            <h2 id="resource-organize-heading" className="text-lg font-semibold text-white">整理与关联</h2>
             <PersistenceStatus state={conflict ? "conflict" : pending ? "saving" : dirty ? "local-draft" : "clean"} />
           </div>
           <div className="af-content-grid-two grid gap-3">
-            <Field label="标题"><Input disabled={archived} className="bg-[#151a20] px-2" value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
-            <Field label="资料类型"><Select disabled={archived} className="bg-[#151a20] px-2" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></Field>
-            <Field label="主科目"><Select disabled={archived} className="bg-[#151a20] px-2" value={subjectId} onChange={(event) => setSubjectId(event.target.value)}><option value="">未选择</option>{props.options.subjects.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Select></Field>
-            <Field label="标签"><Input disabled={archived} className="bg-[#151a20] px-2" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="逗号分隔" /></Field>
+            <Field label="标题"><Input disabled={archived} className="rounded-xl bg-[#151a20] px-3" value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
+            <Field label="资料类型"><Select disabled={archived} className="rounded-xl bg-[#151a20] px-3" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></Field>
+            <Field label="主科目"><Select disabled={archived} className="rounded-xl bg-[#151a20] px-3" value={subjectId} onChange={(event) => setSubjectId(event.target.value)}><option value="">未选择</option>{props.options.subjects.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Select></Field>
+            <Field label="标签"><Input disabled={archived} className="rounded-xl bg-[#151a20] px-3" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="逗号分隔" /></Field>
           </div>
           <div className="af-content-grid-two grid gap-3">
             <MultiSelect label="关联任务" values={taskIds} options={props.options.tasks} disabled={archived} onChange={setTaskIds} />
@@ -392,10 +393,16 @@ export function StudyResourceDetailClient(props: {
             onSecondary={requestCancelEditing}
             hint="保存后更新资料元数据与关联；放弃编辑会清除本机草稿。"
           /> : null}
-        </section>
+        </Card>
       )}
 
-      <section className="space-y-3 border-t border-white/10 pt-5"><h2 className="text-lg font-medium text-white">统一复习</h2><div className="flex flex-wrap gap-2"><Input aria-label="首次复习日期" disabled={archived} type="date" className="!w-auto bg-[#151a20] px-2" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} /><Button type="button" variant="secondary" disabled={archived || pending || !reviewDate} onClick={() => void scheduleReview()}>设置首次复习日期</Button></div></section>
+      <Card variant="subtle" className="space-y-3 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-white">统一复习</h2>
+        <div className="flex flex-wrap gap-2">
+          <Input aria-label="首次复习日期" disabled={archived} type="date" className="!w-auto rounded-xl bg-[#151a20] px-3" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} />
+          <Button type="button" variant="secondary" disabled={archived || pending || !reviewDate} onClick={() => void scheduleReview()}>设置首次复习日期</Button>
+        </div>
+      </Card>
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {lifecycleRetry ? <Button type="button" variant="secondary" className="border-amber-300/30 text-amber-200" disabled={pending} onClick={() => void toggleArchive(lifecycleRetry)}>再次提交{lifecycleRetry === "archive" ? "归档" : "恢复"}</Button> : null}
       {conflict && !conflictOpen ? <Button type="button" variant="ghost" size="sm" className="h-auto px-0 text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理资料版本冲突</Button> : null}

@@ -1,7 +1,8 @@
 import { Archive, ArchiveRestore, ArrowRight, Plus, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Button, IconButton } from "@/components/ui/button";
-import { Input, Select, Textarea } from "@/components/ui/field";
+import { Card } from "@/components/ui/card";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { SectionHeader } from "@/components/ui/page";
 import type { SimulationLossReasonDto, SyllabusOptionNodeDto } from "@/lib/contracts";
 import {
@@ -76,12 +77,15 @@ function SubjectResultFields(props: {
   ];
 
   return (
-    <section className="border-y border-white/10 py-4">
-      <SectionHeader title={`${props.subjectName}分科结果`} />
-      <div className="af-five-field-grid mt-3 grid gap-3">
+    <Card variant="master" className="p-5 sm:p-6 space-y-4">
+      <SectionHeader
+        title={`${props.subjectName} 分科结果`}
+        description="录入卷面满分、目标分、实际得分、用时与未作答题数。"
+      />
+      <div className="af-five-field-grid mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {fields.map(([field, label, step, min]) => (
-          <label key={field} className="min-w-0 text-sm text-zinc-400">
-            {label}
+          <label key={field} className="min-w-0 text-sm text-zinc-300">
+            <span className="block text-xs font-medium text-zinc-400">{label}</span>
             <Input
               type="number"
               step={step}
@@ -89,22 +93,23 @@ function SubjectResultFields(props: {
               value={props.active[field]}
               disabled={props.disabled}
               onChange={(event) => props.onUpdateField(field, Number(event.target.value))}
-              className="mt-1 h-11"
+              className="mt-1 h-11 bg-white/[0.03] text-white"
             />
           </label>
         ))}
       </div>
-      <label className="mt-3 block text-sm text-zinc-400">
-        分科总结
+      <Field label="分科总结" htmlFor={`subject-summary-${props.active.subjectId}`}>
         <Textarea
+          id={`subject-summary-${props.active.subjectId}`}
           value={props.active.summary}
           disabled={props.disabled}
           onChange={(event) => props.onUpdateSummary(event.target.value)}
+          placeholder={`概括 ${props.subjectName} 本场发挥情况...`}
           controlHeight="sm"
-          className="mt-1"
+          className="bg-white/[0.03] text-white"
         />
-      </label>
-    </section>
+      </Field>
+    </Card>
   );
 }
 
@@ -121,15 +126,24 @@ function LossItemsPanel(props: {
   onMutateLossItem: (item: SimulationLossItemDraft, action: LossItemAction) => void;
 }) {
   return (
-    <section className="border-y border-white/10 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-medium text-white">结构化失分</h2>
-        <Button type="button" variant="ghost" size="sm" onClick={props.onAddLossItem}>
-          <Plus aria-hidden="true" size={16} />新增失分
+    <Card variant="master" className="p-5 sm:p-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-4">
+        <div>
+          <h2 className="text-base font-semibold text-white">结构化失分</h2>
+          <p className="mt-0.5 text-xs text-zinc-400">
+            归因失分原因与考纲关联，形成精确补救动作。
+          </p>
+        </div>
+        <Button type="button" variant="secondary" size="sm" onClick={props.onAddLossItem}>
+          <Plus aria-hidden="true" size={15} />
+          新增失分
         </Button>
       </div>
-      <div className="mt-3 space-y-3">
-        {props.activeLossItems.length === 0 ? <p className="text-sm text-zinc-500">暂无结构化失分。</p> : null}
+
+      <div className="space-y-3">
+        {props.activeLossItems.length === 0 ? (
+          <p className="py-2 text-sm text-zinc-500">暂无结构化失分条目，点击上方“新增失分”开始记录。</p>
+        ) : null}
         {props.activeLossItems.map((item) => (
           <LossItemRow
             key={item.id ?? item.clientKey}
@@ -144,25 +158,39 @@ function LossItemsPanel(props: {
           />
         ))}
       </div>
+
       {props.archivedLossItems.length > 0 ? (
-        <details className="mt-4 border-t border-white/10 pt-3">
-          <summary className="cursor-pointer text-sm text-zinc-400">已归档失分（{props.archivedLossItems.length}）</summary>
+        <details className="mt-4 border-t border-white/5 pt-3">
+          <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200">
+            已归档失分（{props.archivedLossItems.length}）
+          </summary>
           <div className="mt-3 space-y-2">
             {props.archivedLossItems.map((item) => (
-              <div key={item.id ?? item.clientKey} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 p-3 text-sm">
+              <div
+                key={item.id ?? item.clientKey}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-sm"
+              >
                 <span className="min-w-0 text-zinc-400">
                   {simulationLossReasons.find((reason) => reason.value === item.reason)?.label ?? item.reason}
-                  {` · ${item.lostScore} 分`}{item.note ? ` · ${item.note}` : ""}
+                  {` · ${item.lostScore} 分`}
+                  {item.note ? ` · ${item.note}` : ""}
                 </span>
-                <Button type="button" variant="secondary" size="sm" disabled={props.busy || !item.id} onClick={() => props.onMutateLossItem(item, "restore")}>
-                  <ArchiveRestore aria-hidden="true" size={16} />恢复
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={props.busy || !item.id}
+                  onClick={() => props.onMutateLossItem(item, "restore")}
+                >
+                  <ArchiveRestore aria-hidden="true" size={15} />
+                  恢复
                 </Button>
               </div>
             ))}
           </div>
         </details>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -178,25 +206,33 @@ function LossItemRow(props: {
 }) {
   const item = props.item;
   return (
-    <div className="af-loss-entry-grid grid min-w-0 gap-2 rounded-md border border-white/10 p-3">
+    <div className="af-loss-entry-grid grid min-w-0 gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
       <Select
         aria-label="失分原因"
         value={item.reason}
         disabled={props.busy}
         onChange={(event) => props.onUpdate(item.clientKey, { reason: event.target.value as SimulationLossReasonDto })}
-        className="h-11"
+        className="h-11 bg-white/[0.03] text-white"
       >
-        {simulationLossReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+        {simulationLossReasons.map((reason) => (
+          <option key={reason.value} value={reason.value}>
+            {reason.label}
+          </option>
+        ))}
       </Select>
       <Select
         aria-label="考纲节点"
         value={item.syllabusNodeId ?? ""}
         disabled={props.busy}
         onChange={(event) => props.onUpdate(item.clientKey, { syllabusNodeId: event.target.value || null })}
-        className="h-11"
+        className="h-11 bg-white/[0.03] text-white"
       >
         <option value="">不关联节点</option>
-        {props.nodes.map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}
+        {props.nodes.map((node) => (
+          <option key={node.id} value={node.id}>
+            {node.title}
+          </option>
+        ))}
       </Select>
       <Input
         aria-label="失分值"
@@ -206,7 +242,7 @@ function LossItemRow(props: {
         value={item.lostScore}
         disabled={props.busy}
         onChange={(event) => props.onUpdate(item.clientKey, { lostScore: Number(event.target.value) })}
-        className="h-11"
+        className="h-11 bg-white/[0.03] text-white"
       />
       <Input
         aria-label="失分备注"
@@ -215,28 +251,78 @@ function LossItemRow(props: {
         disabled={props.busy}
         onChange={(event) => props.onUpdate(item.clientKey, { note: event.target.value })}
         placeholder="备注"
-        className="h-11"
+        className="h-11 bg-white/[0.03] text-white placeholder:text-zinc-600"
       />
       <div className="flex min-h-11 flex-wrap items-center justify-end gap-1">
         {item.id ? (
           <>
-            {!item.dirty ? item.mistakeId ? (
-              <Link href={`/knowledge/mistakes/${item.mistakeId}?returnTo=${encodeURIComponent(`/test/simulations/${props.examId}`)}`} className="inline-flex h-10 items-center gap-1 px-2 text-xs text-teal-200">打开错题<ArrowRight aria-hidden="true" size={14} /></Link>
-            ) : (
-              <Link href={`/knowledge/mistakes?create=1&simulationLossItemId=${item.id}`} className="inline-flex h-10 items-center gap-1 px-2 text-xs text-teal-200">转为错题<ArrowRight aria-hidden="true" size={14} /></Link>
+            {!item.dirty ? (
+              item.mistakeId ? (
+                <Link
+                  href={`/knowledge/mistakes/${item.mistakeId}?returnTo=${encodeURIComponent(`/test/simulations/${props.examId}`)}`}
+                  className="inline-flex h-10 items-center gap-1 rounded-lg px-2 text-xs font-medium text-teal-300 transition-colors hover:bg-white/[0.05] hover:text-teal-200"
+                >
+                  打开错题
+                  <ArrowRight aria-hidden="true" size={14} />
+                </Link>
+              ) : (
+                <Link
+                  href={`/knowledge/mistakes?create=1&simulationLossItemId=${item.id}`}
+                  className="inline-flex h-10 items-center gap-1 rounded-lg px-2 text-xs font-medium text-teal-300 transition-colors hover:bg-white/[0.05] hover:text-teal-200"
+                >
+                  转为错题
+                  <ArrowRight aria-hidden="true" size={14} />
+                </Link>
+              )
             ) : null}
-            <IconButton label="保存失分" disabled={props.busy || !item.dirty} onClick={() => props.onMutate(item, "save")} className="text-teal-300 disabled:opacity-40"><Save aria-hidden="true" size={17} /></IconButton>
-            <IconButton label="归档失分" title={item.dirty ? "请先保存修改" : "归档失分"} disabled={props.busy || item.dirty} onClick={() => props.onMutate(item, "archive")} className="text-red-300 disabled:opacity-40"><Archive aria-hidden="true" size={17} /></IconButton>
+            <IconButton
+              label="保存失分"
+              disabled={props.busy || !item.dirty}
+              onClick={() => props.onMutate(item, "save")}
+              className="text-teal-300 disabled:opacity-40"
+            >
+              <Save aria-hidden="true" size={17} />
+            </IconButton>
+            <IconButton
+              label="归档失分"
+              title={item.dirty ? "请先保存修改" : "归档失分"}
+              disabled={props.busy || item.dirty}
+              onClick={() => props.onMutate(item, "archive")}
+              className="text-red-300 disabled:opacity-40"
+            >
+              <Archive aria-hidden="true" size={17} />
+            </IconButton>
           </>
         ) : props.active.subjectResultId ? (
           <>
-            <IconButton label="创建失分" disabled={props.busy} onClick={() => props.onMutate(item, "save")} className="text-teal-300 disabled:opacity-40"><Save aria-hidden="true" size={17} /></IconButton>
-            <IconButton label="移除未保存失分" disabled={props.busy} onClick={() => props.onRemove(item.clientKey)} className="text-red-300 disabled:opacity-40"><Trash2 aria-hidden="true" size={17} /></IconButton>
+            <IconButton
+              label="创建失分"
+              disabled={props.busy}
+              onClick={() => props.onMutate(item, "save")}
+              className="text-teal-300 disabled:opacity-40"
+            >
+              <Save aria-hidden="true" size={17} />
+            </IconButton>
+            <IconButton
+              label="移除未保存失分"
+              disabled={props.busy}
+              onClick={() => props.onRemove(item.clientKey)}
+              className="text-red-300 disabled:opacity-40"
+            >
+              <Trash2 aria-hidden="true" size={17} />
+            </IconButton>
           </>
         ) : (
           <>
             <span className="px-1 text-xs text-zinc-500">随分科保存</span>
-            <IconButton label="移除未保存失分" disabled={props.busy} onClick={() => props.onRemove(item.clientKey)} className="text-red-300 disabled:opacity-40"><Trash2 aria-hidden="true" size={17} /></IconButton>
+            <IconButton
+              label="移除未保存失分"
+              disabled={props.busy}
+              onClick={() => props.onRemove(item.clientKey)}
+              className="text-red-300 disabled:opacity-40"
+            >
+              <Trash2 aria-hidden="true" size={17} />
+            </IconButton>
           </>
         )}
       </div>
@@ -254,21 +340,44 @@ export function SimulationAnalysisFields(props: {
   onReviewTextChange: (value: string) => void;
 }) {
   return (
-    <section className="border-y border-white/10 py-4">
-      <h2 className="font-medium text-white">完成分析</h2>
-      <p className="mt-1 text-sm text-zinc-500">记录整场状态与结论，作为确认前的最后核对。</p>
-      <label className="mt-3 block text-sm text-zinc-400">
-        心态
-        <Textarea value={props.mindset} disabled={props.disabled} onChange={(event) => props.onMindsetChange(event.target.value)} controlHeight="sm" className="mt-1" />
-      </label>
-      <label className="mt-3 block text-sm text-zinc-400">
-        整场总结
-        <Textarea value={props.summary} disabled={props.disabled} onChange={(event) => props.onSummaryChange(event.target.value)} controlHeight="sm" className="mt-1" />
-      </label>
-      <label className="mt-3 block text-sm text-zinc-400">
-        复盘
-        <Textarea value={props.reviewText} disabled={props.disabled} onChange={(event) => props.onReviewTextChange(event.target.value)} placeholder="这次考试为什么得到这个结果，下一次具体如何调整" controlHeight="md" className="mt-1 placeholder:text-zinc-600" />
-      </label>
-    </section>
+    <Card variant="master" className="p-5 sm:p-6 space-y-4">
+      <SectionHeader
+        title="完成分析"
+        description="记录整场状态与结论，作为确认前的最后核对。"
+      />
+      <Field label="心态" htmlFor="simulation-mindset">
+        <Textarea
+          id="simulation-mindset"
+          value={props.mindset}
+          disabled={props.disabled}
+          onChange={(event) => props.onMindsetChange(event.target.value)}
+          controlHeight="sm"
+          placeholder="记录临场心态、焦虑或疲劳情况..."
+          className="bg-white/[0.03] text-white"
+        />
+      </Field>
+      <Field label="整场总结" htmlFor="simulation-summary">
+        <Textarea
+          id="simulation-summary"
+          value={props.summary}
+          disabled={props.disabled}
+          onChange={(event) => props.onSummaryChange(event.target.value)}
+          controlHeight="sm"
+          placeholder="整场模拟综合发挥与核心得失..."
+          className="bg-white/[0.03] text-white"
+        />
+      </Field>
+      <Field label="复盘" htmlFor="simulation-review">
+        <Textarea
+          id="simulation-review"
+          value={props.reviewText}
+          disabled={props.disabled}
+          onChange={(event) => props.onReviewTextChange(event.target.value)}
+          placeholder="这次考试为什么得到这个结果，下一次具体如何调整"
+          controlHeight="md"
+          className="bg-white/[0.03] text-white placeholder:text-zinc-600"
+        />
+      </Field>
+    </Card>
   );
 }

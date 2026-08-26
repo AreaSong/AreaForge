@@ -1,16 +1,28 @@
 "use client";
 
-import { Checkbox, Textarea, Input } from "@/components/ui/field";
-import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
-import { mutationFeedback } from "@/lib/client/mutation-feedback";
-
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Save } from "lucide-react";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, SectionCard } from "@/components/ui/card";
+import { Input, Textarea } from "@/components/ui/field";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { PageHeader, SectionHeader } from "@/components/ui/page";
 import { WorkspaceSubjectManager } from "@/components/workspace-subject-manager";
+import { WorkspaceSetupSection } from "@/components/workspace-setup-section";
+import {
+  isExamWorkspaceDto,
+  isWorkspaceEditDraft,
+  isWorkspaceSetupDraft,
+  toWorkspaceEditDraft,
+  workspaceEditDraftsEqual,
+  type WorkspaceConflict,
+  type WorkspaceEditDraft,
+  type WorkspaceSetupDraft,
+} from "@/components/workspace-settings-support";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+import { mutationFeedback } from "@/lib/client/mutation-feedback";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -59,7 +71,7 @@ export function WorkspaceSettingsClient(props: {
   const savedWorkspaceBaseline = useRef<WorkspaceEditDraft | null>(
     activeWorkspace ? toWorkspaceEditDraft(activeWorkspace) : null,
   );
-  const [step, setStep] = useState<"goal" | "takeover">(props.setupMode ? "goal" : "goal");
+  const [step, setStep] = useState<"goal" | "takeover">("goal");
   const [name, setName] = useState("考研工作区");
   const [stableKey, setStableKey] = useState("ws-primary");
   const [targetExamDate, setTargetExamDate] = useState("");
@@ -78,6 +90,8 @@ export function WorkspaceSettingsClient(props: {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [setupDraftReady, setSetupDraftReady] = useState(false);
+
+  const activeSubjects = props.subjects.filter((item) => !item.archivedAt);
 
   useEffect(() => {
     if (!props.setupMode) return;
@@ -111,9 +125,7 @@ export function WorkspaceSettingsClient(props: {
   }, [include408, name, props.setupMode, setupDraftKey, setupDraftReady, stableKey, step, subjectKey, subjectName, targetExamDate]);
 
   useEffect(() => {
-    if (!activeWorkspace || !workspaceEditDraftKey || props.setupMode) {
-      return;
-    }
+    if (!activeWorkspace || !workspaceEditDraftKey || props.setupMode) return;
     const timer = window.setTimeout(() => {
       const baseline = toWorkspaceEditDraft(activeWorkspace);
       const draft = loadPrivateBusinessDraft(workspaceEditDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isWorkspaceEditDraft);
@@ -148,15 +160,7 @@ export function WorkspaceSettingsClient(props: {
       return;
     }
     savePrivateBusinessDraft(workspaceEditDraftKey, draft);
-  }, [
-    activeWorkspace,
-    editName,
-    editStageSummary,
-    editTargetDate,
-    workspaceDraftBaseRevision,
-    workspaceDraftSourceKey,
-    workspaceEditDraftKey,
-  ]);
+  }, [activeWorkspace, editName, editStageSummary, editTargetDate, workspaceDraftBaseRevision, workspaceDraftSourceKey, workspaceEditDraftKey]);
 
   async function completeFirstUseSetup(takeover: boolean) {
     if (pending) return;
@@ -204,7 +208,9 @@ export function WorkspaceSettingsClient(props: {
 
   async function saveWorkspace() {
     if (!activeWorkspace || pending) return;
-    setPending(true); setError(null); setWorkspaceMergeNotice(null);
+    setPending(true);
+    setError(null);
+    setWorkspaceMergeNotice(null);
     try {
       const result = await updateExamWorkspace(activeWorkspace.id, {
         expectedRevision: workspaceDraftBaseRevision,
@@ -275,14 +281,17 @@ export function WorkspaceSettingsClient(props: {
   }
 
   async function runActivateWorkspace(workspace: ExamWorkspaceDto) {
-    setPending(true); setError(null);
+    setPending(true);
+    setError(null);
     try {
       const result = await activateExamWorkspace(workspace.id, workspace.revision);
       if (isUnauthorized(result)) return redirectToLoginWithCurrentLocation();
       if (!result.ok) {
-        setError(mutationFeedback(result, "切换工作区失败").message); return;
+        setError(mutationFeedback(result, "切换工作区失败").message);
+        return;
       }
-      router.replace("/today"); router.refresh();
+      router.replace("/today");
+      router.refresh();
     } catch {
       setError("网络不可用，工作区未切换；恢复网络后请显式重试。");
     } finally {
@@ -291,210 +300,179 @@ export function WorkspaceSettingsClient(props: {
   }
 
   return (
-    <section className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
-        eyebrow={props.setupMode || !props.activeId ? "首次配置" : "设置"}
-        title={props.setupMode || !props.activeId ? "建立考试工作区" : "工作区与科目"}
-        description={props.setupMode || !props.activeId ? "确认考试目标和首批科目，再决定是否沿用已有学习数据。" : "管理当前考试目标、科目归属和可切换的工作区。"}
-        status={activeWorkspace && !props.setupMode ? <div className="flex flex-wrap gap-2"><Badge tone="success">当前：{activeWorkspace.name}</Badge><Badge>{props.subjects.filter((item) => !item.archivedAt).length} 个科目</Badge></div> : undefined}
+        eyebrow={props.setupMode || !props.activeId ? "首次配置" : "设置 / 考试与科目"}
+        title={props.setupMode || !props.activeId ? "建立考试工作区" : "考试与科目"}
+        description={props.setupMode || !props.activeId
+          ? "确认考试目标和首批科目，再决定是否沿用已有学习数据。"
+          : "管理当前考试目标、科目归属和可切换的工作区。"}
+        status={activeWorkspace && !props.setupMode ? (
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="success">当前：{activeWorkspace.name}</Badge>
+            <Badge>{activeSubjects.length} 个科目</Badge>
+          </div>
+        ) : undefined}
       />
 
-      {props.setupMode || !props.activeId ? (
-        <>
-          <ol className="af-divided-grid-two grid border-y border-white/10" aria-label="工作区设置进度">
-            <SetupStep number={1} title="考试目标与科目" description="确定工作区和首批科目" active={step === "goal"} complete={step === "takeover"} />
-            <SetupStep number={2} title="已有数据处理" description="确认沿用或全新开始" active={step === "takeover"} complete={false} />
-          </ol>
-          <Alert tone="warning">完成前不会创建工作区，也不会移动任何已有学习数据。</Alert>
-        </>
-      ) : null}
-
-      {props.setupMode && step === "goal" ? (
-        <section className="space-y-4 border-b border-white/10 pb-5">
-          <SectionHeader title="考试目标与首批科目" description="这些信息决定后续任务、知识和复盘的数据归属。公共课、408 和专业课都在这里管理。" />
-          <div className="af-content-grid-two grid gap-4">
-          <label className="af-content-span-all block text-sm">
-            <span className="text-zinc-400">工作区名称</span>
-            <Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label className="block text-sm">
-            <span className="text-zinc-400">目标考试日</span>
-            <Input type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={targetExamDate} onChange={(e) => setTargetExamDate(e.target.value)} />
-          </label>
-          <label className="block text-sm">
-            <span className="text-zinc-400">首个科目</span>
-            <Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={subjectName} onChange={(e) => setSubjectName(e.target.value)} />
-          </label>
-          </div>
-          <label className="flex items-start gap-3 border-y border-white/10 px-1 py-3 text-sm text-zinc-300">
-            <Checkbox className="mt-1" checked={include408} onChange={(event) => setInclude408(event.target.checked)} />
-            <span><span className="block text-white">同时创建 408 四科</span><span className="mt-1 block text-xs text-zinc-500">数据结构、计算机组成原理、操作系统和计算机网络会自动归入 408 分组。</span></span>
-          </label>
-          <details className="text-sm text-zinc-500">
-            <summary className="cursor-pointer">高级选项</summary>
-            <div className="af-content-grid-two mt-2 grid gap-3">
-              <label>工作区内部标识<Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-zinc-300" value={stableKey} onChange={(event) => setStableKey(event.target.value)} /></label>
-              <label>首个科目内部标识<Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-zinc-300" value={subjectKey} onChange={(event) => setSubjectKey(event.target.value)} /></label>
-            </div>
-          </details>
-          <div className="af-action-cluster">
-            <Button type="button" variant="primary" size="lg" onClick={() => setStep("takeover")}>下一步：检查已有数据</Button>
-            <ButtonLink href="/today" variant="ghost" size="lg">取消</ButtonLink>
-          </div>
-        </section>
-      ) : step === "takeover" ? (
-        <section className="space-y-4 border-b border-white/10 pb-5">
-          <SectionHeader title="确认已有数据处理方式" description="沿用只会接管预览中允许的科目；归属冲突项不会移动。" />
-          {props.takeover ? (
-            <div className="space-y-2 border-y border-white/10 py-4 text-sm text-zinc-400">
-              <p>可沿用 {props.takeover.eligibleCount} 个已有科目：{props.takeover.eligibleSubjects.map((subject) => subject.name).join("、") || "无"}。</p>
-              {props.takeover.unresolvedCount > 0 || props.takeover.crossOwnerBlockedCount > 0 ? (
-                <p className="text-amber-200">另有 {props.takeover.unresolvedCount} 个待确认，{props.takeover.crossOwnerBlockedCount} 个因归属冲突被阻止，本次不会移动。</p>
-              ) : null}
-              <p>选择沿用时，已有数学和 408 科目不会重复创建；其他新科目仍按上一步设置创建。</p>
-            </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
+        {/* Left Column (Aside) */}
+        <aside className="space-y-5">
+          {props.setupMode || !props.activeId ? (
+            <Card variant="master" className="space-y-4">
+              <CardHeader className="space-y-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-teal-300">配置流程</span>
+                <CardTitle className="text-base">建立备考目标</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-0 text-sm">
+                <ol className="space-y-2">
+                  <li className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-colors ${step === "goal" ? "border-teal-400/40 bg-teal-500/10 text-teal-200" : "border-white/5 bg-white/[0.02] text-zinc-400"}`}>
+                    <span className="grid size-6 place-items-center rounded-full border border-current text-xs font-semibold">1</span>
+                    <span className="font-medium text-xs">考试目标与首批科目</span>
+                  </li>
+                  <li className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-colors ${step === "takeover" ? "border-teal-400/40 bg-teal-500/10 text-teal-200" : "border-white/5 bg-white/[0.02] text-zinc-400"}`}>
+                    <span className="grid size-6 place-items-center rounded-full border border-current text-xs font-semibold">2</span>
+                    <span className="font-medium text-xs">已有数据处理方式</span>
+                  </li>
+                </ol>
+                <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs leading-relaxed text-amber-200">
+                  完成前不会创建工作区，也不会移动任何已有学习数据。
+                </div>
+              </CardContent>
+            </Card>
           ) : (
-            <p role="alert" className="text-sm text-amber-200">
-              旧数据预览暂时不可用。刷新后再沿用，或明确选择新建工作区且不移动旧数据。
-            </p>
+            <>
+              {activeWorkspace ? (
+                <Card variant="master" className="space-y-4">
+                  <CardHeader className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-teal-300">当前工作区</span>
+                      <Badge tone="success">生效中</Badge>
+                    </div>
+                    <CardTitle className="text-lg">{activeWorkspace.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-0 text-sm">
+                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-2 text-xs text-zinc-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500">目标考试日</span>
+                        <span className="font-medium text-white">{activeWorkspace.targetExamDate ? activeWorkspace.targetExamDate.slice(0, 10) : "未设置"}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500">使用中科目</span>
+                        <span className="font-medium text-teal-300">{activeSubjects.length} 个</span>
+                      </div>
+                      {activeWorkspace.stageSummary ? (
+                        <div className="pt-2 border-t border-white/5 text-zinc-400">
+                          <span className="block text-zinc-500 mb-1">阶段摘要</span>
+                          <p className="line-clamp-3 leading-relaxed">{activeWorkspace.stageSummary}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              <Card variant="subtle" className="space-y-3">
+                <CardHeader className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">其他工作区</CardTitle>
+                    <Badge>{props.workspaces.length} 个</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 text-xs">
+                  <ul className="space-y-2">
+                    {props.workspaces.map((ws) => (
+                      <li key={ws.id} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-white/5 bg-white/[0.02]">
+                        <span className="truncate font-medium text-zinc-300">{ws.name}</span>
+                        {ws.id !== props.activeId ? (
+                          <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => void activateWorkspace(ws)}>
+                            设为当前
+                          </Button>
+                        ) : (
+                          <Badge tone="success">使用中</Badge>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </>
           )}
-          <div className="af-action-cluster">
-            <Button type="button" variant="primary" size="lg" loading={pending} loadingLabel="创建中..." disabled={!canUseTakeoverPreview(props.takeover)} onClick={() => void completeFirstUseSetup(true)}>沿用已有数据并完成</Button>
-            <Button type="button" variant="secondary" size="lg" disabled={pending} onClick={() => void completeFirstUseSetup(false)}>全新建立，不沿用</Button>
-            <Button type="button" variant="ghost" size="lg" disabled={pending} onClick={() => setStep("goal")}>返回修改</Button>
-            <ButtonLink href="/today" variant="ghost" size="lg">取消</ButtonLink>
-          </div>
-        </section>
-      ) : null}
+        </aside>
 
-      {activeWorkspace && !props.setupMode ? (
-        <section className="space-y-4 border-b border-white/10 pb-5">
-          <SectionHeader title="当前考试目标" description="调整名称、目标日期和当前阶段摘要。" />
-          <div className="af-content-grid-two grid gap-3">
-            <label className="text-sm text-zinc-400">名称<Input className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-white" value={editName} onChange={(event) => setEditName(event.target.value)} /></label>
-            <label className="text-sm text-zinc-400">目标考试日<Input type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2 text-white" value={editTargetDate} onChange={(event) => setEditTargetDate(event.target.value)} /></label>
-          </div>
-          <label className="block text-sm text-zinc-400">阶段摘要<Textarea className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] p-2 text-white" value={editStageSummary} onChange={(event) => setEditStageSummary(event.target.value)} /></label>
-          <Button type="button" variant="primary" loading={pending} loadingLabel="保存中..." onClick={() => void saveWorkspace()}>保存考试目标</Button>
-          {workspaceConflict ? (
-            <div className="space-y-2 border-l-2 border-amber-300 pl-3 text-sm text-amber-100" role="status">
-              <p>服务端最新版本为 r{workspaceConflict.latest.revision}；冲突字段：{workspaceConflict.conflictFields.join("、")}。</p>
-              <dl className="grid gap-1 text-xs text-zinc-300">
-                <div><dt className="inline text-zinc-500">服务端名称：</dt><dd className="inline">{workspaceConflict.latest.name}</dd></div>
-                <div><dt className="inline text-zinc-500">服务端目标日：</dt><dd className="inline">{workspaceConflict.latest.targetExamDate ? isoToShanghaiDateInput(workspaceConflict.latest.targetExamDate) : "未设置"}</dd></div>
-                <div><dt className="inline text-zinc-500">服务端阶段摘要：</dt><dd className="inline">{workspaceConflict.latest.stageSummary || "未设置"}</dd></div>
-              </dl>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" className="h-9 rounded-md border border-white/10 px-3 text-xs" onClick={adoptLatestWorkspace}>采用服务端最新状态</Button>
-                <Button type="button" className="h-9 rounded-md border border-amber-300/50 px-3 text-xs" onClick={keepLocalWorkspaceDraft}>保留本地输入并重新确认</Button>
-              </div>
-            </div>
+        {/* Right Column (Main) */}
+        <main className="space-y-6 min-w-0">
+          {props.setupMode ? (
+            <WorkspaceSetupSection
+              step={step}
+              setStep={setStep}
+              name={name}
+              setName={setName}
+              stableKey={stableKey}
+              setStableKey={setStableKey}
+              targetExamDate={targetExamDate}
+              setTargetExamDate={setTargetExamDate}
+              subjectName={subjectName}
+              setSubjectName={setSubjectName}
+              subjectKey={subjectKey}
+              setSubjectKey={setSubjectKey}
+              include408={include408}
+              setInclude408={setInclude408}
+              takeover={props.takeover}
+              pending={pending}
+              onComplete={completeFirstUseSetup}
+            />
           ) : null}
-          {workspaceMergeNotice ? <p className="text-sm text-teal-200" role="status">{workspaceMergeNotice}</p> : null}
-        </section>
-      ) : null}
 
-      {activeWorkspace && !props.setupMode ? (
-        <div className="space-y-3">
-          <div className="rounded-md border border-teal-300/20 bg-teal-300/[0.04] px-3 py-2 text-xs leading-5 text-zinc-400">
-            <span className="font-medium text-teal-200">科目管理入口：</span>
-            公共课直接添加到当前考试工作区；408 使用预置分组；专业课请新建自定义分组并在其中添加科目。分组和科目均可编辑、排序、归档和恢复。
-          </div>
-          <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
-        </div>
-      ) : null}
+          {!props.setupMode && activeWorkspace ? (
+            <>
+              <SectionCard variant="master" className="space-y-5">
+                <SectionHeader title="当前考试目标" description="调整名称、目标日期和当前阶段摘要。" />
+                <div className="af-content-grid-two grid gap-4">
+                  <label className="text-sm font-medium text-zinc-300">
+                    名称
+                    <Input className="mt-1.5" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  </label>
+                  <label className="text-sm font-medium text-zinc-300">
+                    目标考试日
+                    <Input type="date" className="mt-1.5" value={editTargetDate} onChange={(e) => setEditTargetDate(e.target.value)} />
+                  </label>
+                </div>
+                <label className="block text-sm font-medium text-zinc-300">
+                  阶段摘要
+                  <Textarea className="mt-1.5 min-h-20" value={editStageSummary} onChange={(e) => setEditStageSummary(e.target.value)} />
+                </label>
+                <div className="flex items-center gap-3">
+                  <Button type="button" variant="primary" loading={pending} loadingLabel="保存中..." onClick={() => void saveWorkspace()}>
+                    <Save className="size-4" />保存考试目标
+                  </Button>
+                  {workspaceMergeNotice ? <span className="text-sm text-teal-300" role="status">{workspaceMergeNotice}</span> : null}
+                </div>
 
-      <section className="space-y-3 border-t border-white/10 pt-5 text-sm">
-        <SectionHeader title="其他工作区" description="切换后会返回今日行动中心；已有活动保护仍然生效。" meta={<Badge>{props.workspaces.length} 个</Badge>} />
-        <ul className="mt-2 space-y-1 text-zinc-400">
-          {props.workspaces.map((workspace) => (
-            <li key={workspace.id} className="af-action-grid grid gap-3 rounded-md border border-white/10 p-2">
-              <span className="min-w-0 break-words">{workspace.name}{workspace.id === props.activeId ? " · 当前使用" : workspace.status === "ARCHIVED" ? " · 已归档" : ""}</span>
-              {workspace.id !== props.activeId ? <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => void activateWorkspace(workspace)}>设为当前</Button> : <Badge tone="success">当前使用</Badge>}
-            </li>
-          ))}
-        </ul>
-      </section>
+                {workspaceConflict ? (
+                  <div className="space-y-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-3 text-sm text-amber-100" role="status">
+                    <p className="font-semibold">服务端最新版本为 r{workspaceConflict.latest.revision}；冲突字段：{workspaceConflict.conflictFields.join("、")}。</p>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <Button type="button" variant="secondary" size="sm" onClick={adoptLatestWorkspace}>采用服务端最新状态</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={keepLocalWorkspaceDraft}>保留本地输入并重新确认</Button>
+                    </div>
+                  </div>
+                ) : null}
+              </SectionCard>
 
-      {error ? <Alert tone="danger">{error}</Alert> : null}
-    </section>
+              <div className="space-y-3">
+                <div className="rounded-xl border border-teal-300/20 bg-teal-300/[0.04] p-3 text-xs leading-relaxed text-zinc-300">
+                  <strong className="text-teal-200">科目管理入口：</strong>
+                  公共课直接添加到当前考试工作区；408 使用预置分组；专业课请新建自定义分组并在其中添加科目。分组和科目均可编辑、排序、归档和恢复。
+                </div>
+                <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
+              </div>
+            </>
+          ) : null}
+
+          {error ? <Alert tone="danger">{error}</Alert> : null}
+        </main>
+      </div>
+    </div>
   );
-}
-
-function SetupStep(props: { number: number; title: string; description: string; active: boolean; complete: boolean }) {
-  return (
-    <li aria-current={props.active ? "step" : undefined} className={`flex min-h-20 items-center gap-3 px-4 py-3 ${props.active ? "bg-white/[0.04]" : ""}`}>
-      <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs ${props.complete ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : props.active ? "border-teal-400/50 text-teal-200" : "border-white/10 text-zinc-600"}`}>{props.complete ? "✓" : props.number}</span>
-      <span><span className={`block text-sm font-medium ${props.active || props.complete ? "text-white" : "text-zinc-500"}`}>{props.title}</span><span className="block text-xs text-zinc-500">{props.description}</span></span>
-    </li>
-  );
-}
-
-interface WorkspaceSetupDraft {
-  step: "goal" | "takeover";
-  name: string;
-  stableKey: string;
-  targetExamDate: string;
-  subjectName: string;
-  subjectKey: string;
-  include408: boolean;
-}
-
-interface WorkspaceEditDraft {
-  name: string;
-  targetExamDate: string;
-  stageSummary: string;
-  baseRevision: number;
-}
-
-interface WorkspaceConflict {
-  latest: ExamWorkspaceDto;
-  conflictFields: string[];
-}
-
-function isWorkspaceSetupDraft(value: unknown): value is WorkspaceSetupDraft {
-  if (!value || typeof value !== "object") return false;
-  const draft = value as Partial<WorkspaceSetupDraft>;
-  return (draft.step === "goal" || draft.step === "takeover")
-    && typeof draft.name === "string"
-    && typeof draft.stableKey === "string"
-    && typeof draft.targetExamDate === "string"
-    && typeof draft.subjectName === "string"
-    && typeof draft.subjectKey === "string"
-    && typeof draft.include408 === "boolean";
-}
-
-function toWorkspaceEditDraft(workspace: ExamWorkspaceDto): WorkspaceEditDraft {
-  return {
-    name: workspace.name,
-    targetExamDate: workspace.targetExamDate ? isoToShanghaiDateInput(workspace.targetExamDate) : "",
-    stageSummary: workspace.stageSummary ?? "",
-    baseRevision: workspace.revision,
-  };
-}
-
-function workspaceEditDraftsEqual(left: WorkspaceEditDraft, right: WorkspaceEditDraft): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function isWorkspaceEditDraft(value: unknown): value is WorkspaceEditDraft {
-  if (!value || typeof value !== "object") return false;
-  const draft = value as Partial<WorkspaceEditDraft>;
-  return typeof draft.name === "string"
-    && typeof draft.targetExamDate === "string"
-    && typeof draft.stageSummary === "string"
-    && Number.isInteger(draft.baseRevision)
-    && (draft.baseRevision ?? 0) > 0;
-}
-
-function isExamWorkspaceDto(value: unknown): value is ExamWorkspaceDto {
-  if (!value || typeof value !== "object") return false;
-  const workspace = value as Partial<ExamWorkspaceDto>;
-  return typeof workspace.id === "string"
-    && typeof workspace.name === "string"
-    && (workspace.targetExamDate === null || typeof workspace.targetExamDate === "string")
-    && (workspace.stageSummary === null || typeof workspace.stageSummary === "string")
-    && (workspace.status === "ACTIVE" || workspace.status === "ARCHIVED")
-    && Number.isInteger(workspace.revision)
-    && (workspace.revision ?? 0) > 0;
 }

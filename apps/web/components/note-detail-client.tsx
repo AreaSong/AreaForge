@@ -24,6 +24,7 @@ import { NoteDetailDialogs } from "@/components/note-detail-dialogs";
 import { SafeMarkdownView } from "@/components/safe-markdown-view";
 import { EditorActionBar } from "@/components/ui/editor-actions";
 import { Button, IconButton } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { PersistenceStatus } from "@/components/ui/feedback";
 import { NoteEditor, NoteRelations, ReviewHistory } from "@/components/note-detail-sections";
 import {
@@ -437,10 +438,10 @@ export function NoteDetailClient(props: {
           />
         </div>
       ) : (
-        <section aria-labelledby="note-content-heading" className="min-w-0">
+        <Card variant="master" className="min-w-0 p-5 sm:p-6" aria-labelledby="note-content-heading">
           <h2 id="note-content-heading" className="sr-only">卡片正文</h2>
           <SafeMarkdownView nodes={props.markdownNodes} />
-        </section>
+        </Card>
       )}
 
       <NoteRelations note={note} readOnly={props.readOnly} />

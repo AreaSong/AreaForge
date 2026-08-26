@@ -18,6 +18,7 @@ import {
 import { buildSyllabusConflictComparisons } from "@/components/syllabus-manager-support";
 import { SyllabusTreeNode } from "@/components/syllabus-manager-tree-node";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { Select } from "@/components/ui/field";
 import { Toolbar } from "@/components/ui/page";
@@ -49,12 +50,13 @@ export function SyllabusManagerView({ controller }: { controller: SyllabusManage
         ) : null}
       </Toolbar>
 
-      <section className="min-w-0 rounded-lg border border-white/10 bg-[#101419] p-5">
+      <Card variant="master" className="min-w-0 p-5 sm:p-6">
         <WorkbenchHeading controller={controller} />
         <WorkbenchSummary controller={controller} />
         <StatusFilters controller={controller} />
         <SyllabusNodeList controller={controller} />
-      </section>
+      </Card>
+
 
       <ConflictResolutionModal
         open={conflict !== null}
@@ -95,11 +97,17 @@ function WorkbenchHeading({ controller }: { controller: SyllabusManagerControlle
 function WorkbenchSummary({ controller }: { controller: SyllabusManagerController }) {
   const { workbench } = controller;
   return (
-    <div className="mt-5 border-y border-white/10 py-4">
-      <div className="af-metric-grid-three grid gap-3">
-        <SummaryMetric label="覆盖率" value={`${workbench.selectedSummary.coverageRate}%`} />
-        <SummaryMetric label="验证率" value={`${workbench.selectedSummary.verificationRate}%`} />
-        <SummaryMetric label="风险等级" value={labelMapRisk(workbench.selectedSummary.riskLevel)} />
+    <div className="mt-5 border-y border-white/10 py-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card variant="subtle" className="p-3.5">
+          <SummaryMetric label="覆盖率" value={`${workbench.selectedSummary.coverageRate}%`} />
+        </Card>
+        <Card variant="subtle" className="p-3.5">
+          <SummaryMetric label="验证率" value={`${workbench.selectedSummary.verificationRate}%`} />
+        </Card>
+        <Card variant="subtle" className="p-3.5">
+          <SummaryMetric label="风险等级" value={labelMapRisk(workbench.selectedSummary.riskLevel)} />
+        </Card>
       </div>
       <RecommendedMapFilters controller={controller} />
       <div className="mt-4 grid gap-2 text-sm text-zinc-300">

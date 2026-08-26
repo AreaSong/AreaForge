@@ -3,6 +3,7 @@ import { Download, FileText } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/field";
+import { Card } from "@/components/ui/card";
 import type { NoteDto, NoteEditorOptionsDto } from "@/lib/contracts";
 import { formatBytes, formatDate, formatDateTime, formatTaskStatus } from "@/lib/formatters";
 import {
@@ -23,8 +24,8 @@ export function NoteEditor(props: {
   onChange: <K extends keyof NoteDetailDraft>(field: K, value: NoteDetailDraft[K]) => void;
 }) {
   return (
-    <section className="space-y-4" aria-labelledby="note-editor-heading">
-      <h2 id="note-editor-heading" className="text-lg font-medium text-white">编辑卡片</h2>
+    <Card variant="master" className="space-y-4 p-5 sm:p-6" aria-labelledby="note-editor-heading">
+      <h2 id="note-editor-heading" className="text-lg font-semibold text-white">编辑卡片</h2>
       <div className="af-content-grid-two grid gap-3">
         <Field label="标题">
           <Input id={props.titleInputId} disabled={props.disabled} value={props.draft.title} onChange={(event) => props.onChange("title", event.target.value)} className={noteEditorInputClass} />
@@ -65,9 +66,9 @@ export function NoteEditor(props: {
         <MultiSelect label="关联资料" values={props.draft.resourceIds} options={props.options.resources.map((resource) => ({ id: resource.id, title: resource.title, disabled: Boolean(resource.archivedAt) }))} disabled={props.disabled} onChange={(values) => props.onChange("resourceIds", values)} />
       </div>
       <Field label="Markdown 正文">
-        <Textarea disabled={props.disabled} value={props.draft.content} onChange={(event) => props.onChange("content", event.target.value)} className="min-h-72 w-full bg-[#151a20] px-3 py-2 font-mono text-sm leading-6 text-zinc-100" />
+        <Textarea disabled={props.disabled} value={props.draft.content} onChange={(event) => props.onChange("content", event.target.value)} className="min-h-72 w-full rounded-xl bg-[#151a20] px-3 py-2 font-mono text-sm leading-6 text-zinc-100" />
       </Field>
-    </section>
+    </Card>
   );
 }
 
@@ -84,23 +85,23 @@ export function ReviewHistory(props: {
 }) {
   const schedule = props.note.reviewSchedule;
   return (
-    <section id="note-review-section" className="scroll-mt-6 border-t border-white/10 pt-5" aria-labelledby="note-review-heading">
+    <Card variant="subtle" id="note-review-section" className="scroll-mt-6 p-5 sm:p-6" aria-labelledby="note-review-heading">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="note-review-heading" className="text-lg font-medium text-white">复习排期与历史</h2>
-        {schedule && !props.readOnly ? <Link className="text-sm text-teal-300 hover:underline" href={`/knowledge/reviews/${schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`}>打开排期详情</Link> : null}
+        <h2 id="note-review-heading" className="text-lg font-semibold text-white">复习排期与历史</h2>
+        {schedule && !props.readOnly ? <Link className="text-sm font-medium text-teal-300 hover:underline" href={`/knowledge/reviews/${schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`}>打开排期详情</Link> : null}
       </div>
-      {schedule ? <p className="mt-2 text-sm text-zinc-400">{schedule.status === "ACTIVE" ? "进行中" : "已暂停"} · {schedule.dueDate ? `到期 ${formatDate(schedule.dueDate)}` : "未设置日期"} · 连续通过 {schedule.consecutivePassCount}</p> : <p className="mt-2 text-sm text-zinc-500">尚未建立复习排期。</p>}
+      {schedule ? <p className="mt-2 text-sm text-zinc-300">{schedule.status === "ACTIVE" ? "进行中" : "已暂停"} · {schedule.dueDate ? `到期 ${formatDate(schedule.dueDate)}` : "未设置日期"} · 连续通过 {schedule.consecutivePassCount}</p> : <p className="mt-2 text-sm text-zinc-500">尚未建立复习排期。</p>}
       {!props.archived && props.scheduleCanBeCreated ? (
         <div className="mt-3 flex flex-wrap gap-2">
           <Input aria-label="复习日期" type="date" disabled={props.pending} value={props.reviewDate} onChange={(event) => props.onReviewDateChange(event.target.value)} className={`${noteEditorInputClass} !w-auto`} />
           <Button type="button" variant="secondary" disabled={props.pending || !props.reviewDate} onClick={props.onSchedule} className="text-teal-200">{schedule ? "重新排期" : "设置首次复习"}</Button>
         </div>
       ) : null}
-      <ol className="mt-4 space-y-3">
-        {schedule?.events.map((event) => <li key={event.id} className="border-l border-white/10 pl-3 text-sm text-zinc-300"><span className="text-zinc-100">{reviewResultLabel(event.result)}</span> · {event.durationSeconds} 秒 · {formatDateTime(event.confirmedAt)}{event.correctedEventId ? <span className="ml-2 text-xs text-amber-300">更正事件</span> : null}{event.note ? <p className="mt-1 text-zinc-500">{event.note}</p> : null}</li>)}
+      <ol className="mt-4 space-y-2.5">
+        {schedule?.events.map((event) => <li key={event.id} className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-sm text-zinc-300"><div className="flex flex-wrap items-center gap-2"><span className="font-medium text-zinc-100">{reviewResultLabel(event.result)}</span><span className="text-xs text-zinc-500">· {event.durationSeconds} 秒 · {formatDateTime(event.confirmedAt)}</span>{event.correctedEventId ? <span className="text-xs text-amber-300">（更正事件）</span> : null}</div>{event.note ? <p className="mt-1 text-xs text-zinc-400">{event.note}</p> : null}</li>)}
         {schedule && schedule.events.length === 0 ? <li className="text-sm text-zinc-500">尚无复习事件。</li> : null}
       </ol>
-    </section>
+    </Card>
   );
 }
 
@@ -117,7 +118,7 @@ function MultiSelect(props: {
 }) {
   return (
     <Field label={props.label}>
-      <Select multiple disabled={props.disabled} value={props.values} onChange={(event) => props.onChange(Array.from(event.currentTarget.selectedOptions, (option) => option.value).sort())} className="min-h-28 bg-[#151a20] p-2 text-zinc-100">
+      <Select multiple disabled={props.disabled} value={props.values} onChange={(event) => props.onChange(Array.from(event.currentTarget.selectedOptions, (option) => option.value).sort())} className="min-h-28 rounded-xl bg-[#151a20] p-2 text-zinc-100">
         {props.options.map((option) => <option key={option.id} value={option.id} disabled={option.disabled}>{option.title}{option.disabled ? "（已归档）" : ""}</option>)}
       </Select>
     </Field>
@@ -131,9 +132,9 @@ export function RelationRow({ label, children }: { label: string; children: Reac
 export function NoteRelations(props: { note: NoteDto; readOnly: boolean }) {
   const { note } = props;
   return (
-    <section className="af-content-grid-two grid min-w-0 gap-6 border-t border-white/10 pt-5" aria-labelledby="note-relations-heading">
+    <Card variant="subtle" className="af-content-grid-two grid min-w-0 gap-6 p-5 sm:p-6" aria-labelledby="note-relations-heading">
       <div>
-        <h2 id="note-relations-heading" className="text-lg font-medium text-white">学习关联</h2>
+        <h2 id="note-relations-heading" className="text-lg font-semibold text-white">学习关联</h2>
         <dl className="mt-3 space-y-3 text-sm">
           <RelationRow label="主考纲">
             {note.syllabusNodeId ? props.readOnly ? note.syllabusNodeTitle : <Link className="text-teal-300 hover:underline" href={`/knowledge/syllabi/${note.syllabusNodeId}`}>{note.syllabusNodeTitle}</Link> : "未关联"}
@@ -158,18 +159,18 @@ export function NoteRelations(props: { note: NoteDto; readOnly: boolean }) {
         </dl>
       </div>
       <div>
-        <h2 className="text-lg font-medium text-white">附件</h2>
+        <h2 className="text-lg font-semibold text-white">附件</h2>
         <ul className="mt-3 space-y-2">
           {note.attachments.map((attachment) => (
-            <li key={attachment.id} className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 pb-2 text-sm">
+            <li key={attachment.id} className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-2.5 text-sm">
               <span className="min-w-0"><span className="flex items-center gap-2 truncate text-zinc-200"><FileText size={15} aria-hidden />{attachment.originalName}</span><span className="text-xs text-zinc-500">{formatBytes(attachment.sizeBytes)}</span></span>
-              <a href={attachment.downloadApiPath} aria-label={`下载 ${attachment.originalName}`} title="下载附件" className="grid size-9 shrink-0 place-items-center rounded-md border border-white/10 text-teal-300"><Download size={15} aria-hidden /></a>
+              <a href={attachment.downloadApiPath} aria-label={`下载 ${attachment.originalName}`} title="下载附件" className="grid size-8 shrink-0 place-items-center rounded-md border border-white/10 text-teal-300 hover:bg-white/10"><Download size={14} aria-hidden /></a>
             </li>
           ))}
           {note.attachments.length === 0 ? <li className="text-sm text-zinc-500">暂无附件。</li> : null}
         </ul>
       </div>
-    </section>
+    </Card>
   );
 }
 

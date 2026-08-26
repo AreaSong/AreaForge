@@ -97,7 +97,7 @@ export function NoteLibraryView({ controller }: { controller: NoteLibraryControl
           {visibleNotes.length === 0 ? <EmptyState title={initialQuery ? "没有匹配的卡片" : "还没有卡片"} description={initialQuery ? "尝试修改搜索词或清除筛选。" : "计时结束后的最小产出可以在这里沉淀下来。"} /> : null}
           {visibleNotes.length > 0 && filteredNotes.length === 0 ? <EmptyState title="当前筛选没有结果" description="调整筛选条件，或清除筛选查看全部卡片。" action={<Button type="button" size="sm" onClick={() => applyListFilters({ subject: "all", node: "all", mastery: "all", review: "all" })}>清除筛选</Button>} /> : null}
           {filteredNotes.length > 0 ? (
-            <div className="divide-y divide-white/10 border-y border-white/10">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredNotes.map((note) => {
                 const upload = attachmentOperations.get(note.id);
                 return <NoteLibraryItem key={note.id} note={note} uploading={upload.pending} uploadError={upload.error} onUpload={(file) => void uploadAttachment(note.id, file)} />;

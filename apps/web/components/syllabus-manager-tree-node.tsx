@@ -24,6 +24,7 @@ import {
 } from "@/components/syllabus-manager-tree-node-hooks";
 import type { SyllabusTreeNodeProps } from "@/components/syllabus-manager-types";
 import { Badge } from "@/components/ui/feedback";
+import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/field";
 import type { SyllabusNodeStatusDto } from "@/lib/contracts";
 import { ArrowRight, ChevronRight } from "lucide-react";
@@ -57,7 +58,7 @@ export function SyllabusTreeNode({
   }
 
   return (
-    <article className="min-w-0 rounded-md border border-white/10 bg-[#151a20] p-4">
+    <Card variant="master" className="min-w-0 p-4 sm:p-5 transition-all hover:border-white/20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -66,25 +67,25 @@ export function SyllabusTreeNode({
             <Badge tone={getStatusTone(node.status)}>{labelStatus(node.status)}</Badge>
             {labelMapCell(node.mapSignal.cellStatus) !== labelStatus(node.status) ? <Badge>{labelMapCell(node.mapSignal.cellStatus)}</Badge> : null}
           </div>
-          <h3 className="mt-2 min-w-0 break-words font-medium text-white">{node.title}</h3>
-          <p className="mt-1 text-xs text-zinc-500">
+          <h3 className="mt-2 min-w-0 break-words text-base font-semibold text-white">{node.title}</h3>
+          <p className="mt-1 text-xs text-zinc-400">
             进度 {node.actualMinutes} / {node.targetMinutes} 分钟 · 证据 {node.masteryProof.evidenceCount} 条 · 最近证据 {labelEvidenceFreshness(node.evidence.daysSinceLastEvidence)}
           </p>
           <p className="mt-2 break-words text-sm leading-6 text-zinc-300">{node.mapSignal.nextAction}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Select aria-label={`更新 ${node.title} 状态`} className="max-w-full" value={node.status} onChange={(event) => updateStatus(event.target.value as SyllabusNodeStatusDto)} disabled={pending}>
+          <Select aria-label={`更新 ${node.title} 状态`} className="max-w-full rounded-xl" value={node.status} onChange={(event) => updateStatus(event.target.value as SyllabusNodeStatusDto)} disabled={pending}>
             <StatusOptions />
           </Select>
-          <ListDetailLink href={`/knowledge/syllabi/${node.id}`} focusId={`syllabus-${node.id}`} className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05]">
+          <ListDetailLink href={`/knowledge/syllabi/${node.id}`} focusId={`syllabus-${node.id}`} className="inline-flex h-9 items-center gap-1 rounded-xl px-2.5 text-xs font-medium text-teal-300 hover:bg-white/[0.05]">
             打开详情
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </ListDetailLink>
         </div>
       </div>
 
       <details className="mt-3 border-t border-white/10 pt-3">
-        <summary className="cursor-pointer text-sm text-zinc-400 hover:text-zinc-200">管理掌握证明与复测</summary>
+        <summary className="cursor-pointer text-xs font-medium text-zinc-400 hover:text-zinc-200">管理掌握证明与复测</summary>
         <div className="mt-3">
           <MasteryControls node={node} controller={mastery} pending={pending} />
         </div>
@@ -102,8 +103,8 @@ export function SyllabusTreeNode({
         <div className="mt-3 grid gap-1 text-xs text-zinc-500">
           {node.mapSignal.reasons.slice(0, 2).map((reason) => <p key={reason}>{reason}</p>)}
         </div>
-        <div className="mt-3 h-2 rounded-md bg-white/10">
-          <div className="h-2 rounded-md bg-teal-400" style={{ width: `${progress}%` }} />
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.5)] transition-all duration-300" style={{ width: `${progress}%` }} />
         </div>
         <p className="mt-3 text-xs text-zinc-500">
           显式条件 {explicitConditionCount} / {masteryConditionOptions.length} · 显式证据 {node.masteryEvidence.length} · 复测 {node.masteryRetests.length} · {labelEvidenceSource(node.evidence.source)}
@@ -124,7 +125,7 @@ export function SyllabusTreeNode({
           ))}
         </div>
       ) : null}
-    </article>
+    </Card>
   );
 }
 

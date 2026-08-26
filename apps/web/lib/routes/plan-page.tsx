@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { PlanRollingClient } from "@/components/plan-rolling-client";
 import { TaskDetailClient } from "@/components/task-detail-client";
+import { ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { ApiError } from "@/lib/api/responses";
@@ -32,20 +34,22 @@ export default async function TodayPlanPage({
 
   if (data.setupRequired) {
     return (
-      <section className="space-y-4">
-        <h1 className="text-2xl font-semibold text-white">投入安排</h1>
+      <Card variant="master" className="p-8 text-center space-y-4">
+        <h1 className="text-2xl font-bold text-white">投入安排</h1>
         <p className="text-sm text-zinc-400">需要先设置考试工作区。</p>
-        <Link href="/settings/exams?setup=1" className="text-teal-300 hover:underline">
-          设置考试目标
-        </Link>
-      </section>
+        <div>
+          <ButtonLink href="/settings/exams?setup=1" variant="primary">
+            设置考试目标
+          </ButtonLink>
+        </div>
+      </Card>
     );
   }
 
   const closeDetailHref = buildPlanHref(params);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PlanRollingClient
         initial={data.plan}
         subjects={data.subjects}
@@ -81,10 +85,12 @@ export default async function TodayPlanPage({
           />
         ) : null}
       />
-      <details className="border-t border-white/10 pt-4">
-        <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300">AI 投入草稿</summary>
-        <div className="mt-3"><AiDraftPanel endpoint="plan" userId={user.id} /></div>
-      </details>
+      <Card variant="subtle" className="p-4">
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-zinc-400 hover:text-zinc-200">AI 投入草稿</summary>
+          <div className="mt-3"><AiDraftPanel endpoint="plan" userId={user.id} /></div>
+        </details>
+      </Card>
     </div>
   );
 }

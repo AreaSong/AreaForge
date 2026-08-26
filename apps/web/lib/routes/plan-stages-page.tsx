@@ -5,6 +5,7 @@ import { StageDraftActions, StageDraftCreateAction } from "@/components/stage-dr
 import { StagePlanCreateForm } from "@/components/stage-plan-create-form";
 import { StageMilestoneManager } from "@/components/stage-milestone-manager";
 import { ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -57,52 +58,63 @@ export default async function StageOverviewPage({
         status={plan ? <Badge tone={plan.status === "active" ? "success" : "neutral"}>{plan.status === "active" ? "当前计划生效中" : "历史阶段"}</Badge> : <Badge tone="warning">尚未建立阶段</Badge>}
       />
 
-      <section className="af-action-grid grid gap-6 border-b border-white/10 pb-7">
+      <Card variant="accent" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6">
         <div className="min-w-0">
           <p className="text-xs font-medium text-teal-300">当前唯一下一行动</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">{nextAction.label}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{nextAction.detail}</p>
         </div>
-        <ButtonLink href={nextAction.href} variant="primary" size="lg" className="af-container-action">{nextAction.label}<ArrowRight size={16} aria-hidden="true" /></ButtonLink>
-      </section>
+        <ButtonLink href={nextAction.href} variant="primary" size="lg" className="shrink-0">
+          {nextAction.label}<ArrowRight size={16} aria-hidden="true" />
+        </ButtonLink>
+      </Card>
 
       {plan ? (
         <section className="space-y-4">
           <SectionHeader title="当前生效计划" description="这是阶段源事实；待确认建议只有在你确认后才会更新这里。" />
-          <div className="af-review-summary-grid grid gap-6 border-y border-white/10 py-5">
+          <Card variant="master" className="space-y-5 p-6">
             <div className="min-w-0">
-              <p className="text-lg font-medium text-white">{plan.name}</p>
+              <p className="text-xl font-semibold text-white">{plan.name}</p>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">{plan.goal}</p>
             </div>
-            <StageMetric icon={<CalendarClock size={16} aria-hidden="true" />} label="剩余时间" value={remainingDays(plan.endDate)} />
-            <StageMetric icon={<Flag size={16} aria-hidden="true" />} label="进行中里程碑" value={`${activeMilestones.length} 项`} />
-            <StageMetric icon={<Target size={16} aria-hidden="true" />} label="阶段周期" value={`${formatDateMonthDay(plan.startDate)} - ${formatDateMonthDay(plan.endDate)}`} compact />
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <StageMetric icon={<CalendarClock size={16} aria-hidden="true" />} label="剩余时间" value={remainingDays(plan.endDate)} />
+              <StageMetric icon={<Flag size={16} aria-hidden="true" />} label="进行中里程碑" value={`${activeMilestones.length} 项`} />
+              <StageMetric icon={<Target size={16} aria-hidden="true" />} label="阶段周期" value={`${formatDateMonthDay(plan.startDate)} - ${formatDateMonthDay(plan.endDate)}`} compact />
+            </div>
+          </Card>
         </section>
       ) : (
         <section id="create-stage-plan" className="space-y-4 scroll-mt-24">
           <SectionHeader title="创建当前阶段" description="建立目标、日期和模式后，再把阶段拆成里程碑。" />
-          <StagePlanCreateForm initialStartDate={toDateInput(new Date())} initialEndDate={shiftShanghaiDateInput(toDateInput(new Date()), 90)} />
+          <Card variant="master" className="p-6">
+            <StagePlanCreateForm initialStartDate={toDateInput(new Date())} initialEndDate={shiftShanghaiDateInput(toDateInput(new Date()), 90)} />
+          </Card>
         </section>
       )}
 
       {draft ? (
-        <section id="pending-stage-draft" className="scroll-mt-24 space-y-5 border-y border-amber-400/25 bg-amber-500/[0.04] px-4 py-5 sm:px-5" aria-labelledby="pending-stage-draft-heading">
+        <Card
+          id="pending-stage-draft"
+          variant="accent"
+          className="scroll-mt-24 space-y-5 p-6 border-amber-400/25 shadow-[0_0_16px_rgba(251,191,36,0.12)]"
+          aria-labelledby="pending-stage-draft-heading"
+        >
           <SectionHeader title="待确认阶段建议" description="这是待确认草稿，不是当前生效计划。" meta={<Badge tone="warning">需要你的决定</Badge>} />
-          <div className="af-content-grid-inspector grid gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
             <div>
               <h2 id="pending-stage-draft-heading" className="text-base font-medium leading-7 text-zinc-100">{draft.riskConclusion}</h2>
               <p className="mt-2 text-sm leading-6 text-zinc-400">下一阶段重点：{draft.nextStageEmphasis}</p>
               {draft.focusSubjects.length ? <p className="mt-2 text-sm text-zinc-500">重点科目：{draft.focusSubjects.join("、")}</p> : null}
             </div>
-            <div className="af-responsive-aside text-xs leading-5 text-zinc-500">
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-xs leading-5 text-zinc-400">
               <p>确认后更新当前阶段，并把任务调整写入投入草稿。</p>
               <p className="mt-2">现有任务不会被直接修改，入箱草稿仍需逐项转为正式任务。</p>
-              <p className="mt-2">来源：{draft.sourceReportDecisionId ? `周期复盘 ${draft.sourceReportDecisionId.slice(0, 8)}` : "当前工作区规则"}</p>
+              <p className="mt-2 text-zinc-500">来源：{draft.sourceReportDecisionId ? `周期复盘 ${draft.sourceReportDecisionId.slice(0, 8)}` : "当前工作区规则"}</p>
             </div>
           </div>
           <StageDraftActions draft={draft} />
-        </section>
+        </Card>
       ) : null}
 
       {!draft && plan ? (
@@ -124,7 +136,7 @@ export default async function StageOverviewPage({
 
       <section className="space-y-4">
         <SectionHeader title="继续判断阶段状态" description="趋势和报告提供证据，模拟考试提供结构化失分；它们不会自动改写当前计划。" />
-        <nav className="af-divided-grid-three grid border-y border-white/10" aria-label="阶段相关入口">
+        <nav className="grid grid-cols-1 sm:grid-cols-3 gap-3" aria-label="阶段相关入口">
           <StageLink href="/test/simulations" label="模拟与失分" icon={<ClipboardList size={17} aria-hidden="true" />} />
           <StageLink href="/roadmap/stages/trend?window=7" label="学习趋势" icon={<BarChart3 size={17} aria-hidden="true" />} />
           <StageLink href="/roadmap/reviews" label="周期复盘" icon={<FileChartColumn size={17} aria-hidden="true" />} />
@@ -137,9 +149,9 @@ export default async function StageOverviewPage({
 function LatestStageDecision({ result, returnTo }: { result: StageAdjustmentDecisionReplay; returnTo: string }) {
   const inbox = result.inboxResult;
   return (
-    <section className="space-y-4 border-b border-white/10 pb-6" aria-labelledby="latest-stage-decision">
+    <Card variant="master" className="space-y-4 p-5" aria-labelledby="latest-stage-decision">
       <SectionHeader title="最近阶段处理结果" description="这是最近一次已结束决策，不是待确认建议。" meta={<Badge tone={result.status === "applied" ? "success" : "neutral"}>{result.status === "applied" ? "已应用" : "已拒绝"}</Badge>} />
-      <div className="af-action-grid grid gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="min-w-0">
           <p id="latest-stage-decision" className="text-sm leading-6 text-zinc-300">{result.draft.riskConclusion}</p>
           <p className="mt-1 text-xs text-zinc-500">
@@ -147,17 +159,36 @@ function LatestStageDecision({ result, returnTo }: { result: StageAdjustmentDeci
             {inbox ? ` · 入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}` : ""}
           </p>
         </div>
-        {result.status === "applied" && inbox && inbox.createdCount > 0 ? <ButtonLink className="af-container-action" href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary"><ClipboardList size={15} aria-hidden="true" />处理入箱草稿</ButtonLink> : null}
-        {result.status === "applied" && inbox && inbox.createdCount === 0 && inbox.reusedCount > 0 ? <ButtonLink className="af-container-action" href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看投入草稿</ButtonLink> : null}
+        {result.status === "applied" && inbox && inbox.createdCount > 0 ? <ButtonLink className="shrink-0" href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary"><ClipboardList size={15} aria-hidden="true" />处理入箱草稿</ButtonLink> : null}
+        {result.status === "applied" && inbox && inbox.createdCount === 0 && inbox.reusedCount > 0 ? <ButtonLink className="shrink-0" href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="secondary"><ClipboardList size={15} aria-hidden="true" />查看投入草稿</ButtonLink> : null}
       </div>
-    </section>
+    </Card>
   );
 }
 
 function StageMetric({ icon, label, value, compact = false }: { icon: React.ReactNode; label: string; value: string; compact?: boolean }) {
-  return <div className="border-l border-white/10 pl-3"><p className="flex items-center gap-2 text-xs text-zinc-500">{icon}{label}</p><p className={`mt-2 font-medium text-zinc-100 ${compact ? "text-sm leading-6" : "text-xl"}`}>{value}</p></div>;
+  return (
+    <Card variant="subtle" className="p-4">
+      <p className="flex items-center gap-2 text-xs text-zinc-400">{icon}{label}</p>
+      <p className={`mt-2 font-semibold text-zinc-100 ${compact ? "text-sm leading-6" : "text-xl"}`}>{value}</p>
+    </Card>
+  );
 }
-function StageLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) { return <Link href={href} className="flex items-center justify-between gap-3 px-4 py-4 text-sm text-zinc-300 hover:bg-white/5 hover:text-white"><span className="flex items-center gap-2">{icon}{label}</span><ArrowRight size={15} aria-hidden="true" /></Link>; }
+
+function StageLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
+  return (
+    <Link href={href} className="block group">
+      <Card variant="subtle" className="flex items-center justify-between gap-3 p-4 transition-all duration-200 group-hover:border-teal-400/40 group-hover:bg-white/[0.04]">
+        <span className="flex items-center gap-2.5 text-sm font-medium text-zinc-200 group-hover:text-white">
+          <span className="text-teal-300">{icon}</span>
+          {label}
+        </span>
+        <ArrowRight size={15} className="text-zinc-500 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-teal-300" aria-hidden="true" />
+      </Card>
+    </Link>
+  );
+}
+
 function remainingDays(endDate: string) { const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000); return days > 0 ? `${days} 天` : days === 0 ? "今天结束" : "已结束"; }
 function safeReturnTo(value?: string) { if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return undefined; return value; }
 function stageOverviewHref(query: { createMilestone?: string; returnTo?: string }): string {

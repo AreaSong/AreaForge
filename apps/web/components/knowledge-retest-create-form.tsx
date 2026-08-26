@@ -1,12 +1,14 @@
 "use client";
 
 import { createKnowledgeRetest } from "@/lib/api/knowledge-retest";
-import { ArrowLeft, ClipboardCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
-import { Alert } from "@/components/ui/feedback";
+import { PinnedActionBar } from "@/components/ui/pinned-action-bar";
+import { Card } from "@/components/ui/card";
+import { Alert, Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select } from "@/components/ui/field";
 import { getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
@@ -100,39 +102,119 @@ export function KnowledgeRetestCreateForm({ points, returnTo = "/test/retests" }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
-        <Link href={returnTo} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />返回专项复测</Link>
-        <span className="inline-flex items-center gap-2 text-xs text-zinc-500"><ClipboardCheck size={15} aria-hidden="true" />{selected.length} 个知识点</span>
-      </div>
-      <div className="af-content-grid-two grid gap-4">
-        <Field label="复测名称" htmlFor="knowledge-retest-title">
-          <Input id="knowledge-retest-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} className="h-11 bg-[var(--af-surface-raised)] text-white" />
-        </Field>
-        <Field label="复测方法" htmlFor="knowledge-retest-method">
-          <Select id="knowledge-retest-method" value={method} onChange={(event) => setMethod(event.target.value)} className="h-11 bg-[var(--af-surface-raised)] text-white">
-            <option>主动回忆 + 讲解</option>
-            <option>基础题</option>
-            <option>变式应用</option>
-            <option>限时综合应用</option>
-          </Select>
-        </Field>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-white">选择知识点</p>
-        <div className="mt-3 divide-y divide-white/10 border-y border-white/10">
-          {points.map((point) => (
-            <label key={point.id} className="flex cursor-pointer items-start gap-3 py-3">
-              <Checkbox checked={selected.includes(point.id)} onChange={() => toggle(point.id)} className="mt-1 accent-teal-300" />
-              <span className="min-w-0"><span className="block text-sm text-white">{point.title}</span><span className="mt-1 block text-xs text-zinc-500">{point.subject.name} · {masteryStatusLabel(point.masteryStatus)}{point.needsRetest ? " · 待复测" : ""}</span></span>
-            </label>
-          ))}
+    <div className="space-y-6 pb-24">
+      <Card variant="master" className="p-5 sm:p-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <Link href={returnTo} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors">
+            <ArrowLeft size={16} aria-hidden="true" />
+            返回专项复测
+          </Link>
+          <Badge tone={selected.length > 0 ? "info" : "neutral"} className="inline-flex items-center gap-1.5">
+            <ClipboardCheck size={14} aria-hidden="true" />
+            已选 {selected.length} 个知识点
+          </Badge>
         </div>
-        {!points.length ? <Alert tone="warning">还没有知识点，先在知识点工作台创建对象。</Alert> : null}
-      </div>
-      {error ? <Alert tone="danger">{error}</Alert> : null}
-      <Button className="af-container-action" type="button" variant="primary" size="lg" onClick={submit} loading={pending} disabled={!points.length}>安排并开始复测</Button>
-      {conflict && !conflictOpen ? <Button type="button" variant="ghost" size="sm" onClick={prepareRetry}>保留输入并重试</Button> : null}
+
+        <div className="af-content-grid-two grid gap-4">
+          <Field label="复测名称" htmlFor="knowledge-retest-title">
+            <Input
+              id="knowledge-retest-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              maxLength={160}
+              className="h-11 bg-white/[0.03] text-white"
+            />
+          </Field>
+          <Field label="复测方法" htmlFor="knowledge-retest-method">
+            <Select
+              id="knowledge-retest-method"
+              value={method}
+              onChange={(event) => setMethod(event.target.value)}
+              className="h-11 bg-white/[0.03] text-white"
+            >
+              <option>主动回忆 + 讲解</option>
+              <option>基础题</option>
+              <option>变式应用</option>
+              <option>限时综合应用</option>
+            </Select>
+          </Field>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-white">选择知识点</p>
+            <span className="text-xs text-zinc-400">可选多个知识点合并检验</span>
+          </div>
+          {points.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {points.map((point) => {
+                const isChecked = selected.includes(point.id);
+                return (
+                  <label
+                    key={point.id}
+                    className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
+                      isChecked
+                        ? "border-teal-400/50 bg-teal-500/[0.08]"
+                        : "border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      onChange={() => toggle(point.id)}
+                      className="mt-0.5"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-sm font-medium transition-colors ${isChecked ? "text-teal-200" : "text-white group-hover:text-zinc-100"}`}>
+                        {point.title}
+                      </span>
+                      <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-zinc-400">
+                        <span>{point.subject.name}</span>
+                        <span>·</span>
+                        <span>{masteryStatusLabel(point.masteryStatus)}</span>
+                        {point.needsRetest ? <Badge tone="warning" className="text-[10px] px-1 py-0">待复测</Badge> : null}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          ) : (
+            <Alert tone="warning">还没有知识点，先在知识点工作台创建对象。</Alert>
+          )}
+        </div>
+
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+      </Card>
+
+      <PinnedActionBar
+        mode="sticky"
+        left={
+          <div className="flex items-center gap-2 text-xs text-zinc-400">
+            <CheckCircle2 size={15} className="text-teal-400" aria-hidden="true" />
+            <span>已选 <strong className="text-white">{selected.length}</strong> 个检验对象</span>
+          </div>
+        }
+        right={
+          <div className="flex items-center gap-2">
+            {conflict && !conflictOpen ? (
+              <Button type="button" variant="ghost" size="sm" onClick={prepareRetry}>
+                保留输入并重试
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              onClick={submit}
+              loading={pending}
+              disabled={!points.length || selected.length === 0}
+            >
+              安排并开始复测
+            </Button>
+          </div>
+        }
+      />
+
       <ConflictResolutionModal
         open={conflictOpen && Boolean(conflict)}
         title="安排复测发生冲突"

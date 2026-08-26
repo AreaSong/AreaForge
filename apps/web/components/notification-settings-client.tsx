@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { sanitizeForegroundNotificationRoute } from "@areaforge/core";
+import { Bell, Send, ShieldCheck } from "lucide-react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { sendNotificationTest, updateNotificationPreferences } from "@/lib/api/notification";
 import {
@@ -15,7 +16,10 @@ import { classifyApiFailure } from "@/lib/client/api-errors";
 import type { NotificationPreferenceDto } from "@/lib/contracts";
 import { getBrowserStoragePort } from "@/lib/client/storage-port";
 import { Button } from "@/components/ui/button";
+import { Card, SectionCard } from "@/components/ui/card";
 import { Checkbox, Select } from "@/components/ui/field";
+import { Alert, Badge } from "@/components/ui/feedback";
+import { SectionHeader } from "@/components/ui/page";
 
 const SHOW_TITLE_KEY = "af.notification.showSpecificTitle";
 
@@ -183,134 +187,153 @@ export function NotificationSettingsClient(props: { userId: string; initial: Not
 
   return (
     <>
-    <div className="space-y-4 rounded-lg border border-white/10 p-4">
-      <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <Checkbox
-          checked={pref.reviewDueEnabled}
-          onChange={(event) => setPref((prev) => ({ ...prev, reviewDueEnabled: event.target.checked }))}
+      <SectionCard variant="master" className="space-y-5">
+        <SectionHeader
+          title="提醒偏好设置"
+          description="浏览器通知只在页面打开时发送；权限拒绝只降级，不循环请求。"
+          meta={
+            <Badge tone={permission === "granted" ? "success" : permission === "denied" ? "danger" : "neutral"}>
+              权限：{permission === "granted" ? "已授权" : permission === "denied" ? "已拒绝" : permission === "unsupported" ? "不支持" : "待授权"}
+            </Badge>
+          }
         />
-        复习到期提醒
-      </label>
-      <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <Checkbox
-          checked={pref.planStartEnabled}
-          onChange={(event) => setPref((prev) => ({ ...prev, planStartEnabled: event.target.checked }))}
-        />
-        计划开始提醒
-      </label>
-      <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <Checkbox
-          checked={pref.eveningReviewEnabled}
-          onChange={(event) => setPref((prev) => ({ ...prev, eveningReviewEnabled: event.target.checked }))}
-        />
-        晚间复盘提醒
-      </label>
-      <div className="grid gap-3 border-t border-white/10 pt-4">
-        <NotificationWindowRow label="复习到期时间窗" start={pref.reviewDueWindowStart} end={pref.reviewDueWindowEnd} onChange={(start, end) => setPref((current) => ({ ...current, reviewDueWindowStart: start, reviewDueWindowEnd: end }))}/>
-        <NotificationWindowRow label="计划开始时间窗" start={pref.planStartWindowStart} end={pref.planStartWindowEnd} onChange={(start, end) => setPref((current) => ({ ...current, planStartWindowStart: start, planStartWindowEnd: end }))}/>
-        <NotificationWindowRow label="晚间复盘时间窗" start={pref.eveningReviewWindowStart} end={pref.eveningReviewWindowEnd} onChange={(start, end) => setPref((current) => ({ ...current, eveningReviewWindowStart: start, eveningReviewWindowEnd: end }))}/>
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
+
+        <div className="space-y-3 rounded-xl border border-white/5 bg-white/[0.02] p-4">
+          <label className="flex items-center gap-2.5 text-sm font-medium text-zinc-200">
+            <Checkbox
+              checked={pref.reviewDueEnabled}
+              onChange={(event) => setPref((prev) => ({ ...prev, reviewDueEnabled: event.target.checked }))}
+            />
+            复习到期提醒
+          </label>
+          <label className="flex items-center gap-2.5 text-sm font-medium text-zinc-200">
+            <Checkbox
+              checked={pref.planStartEnabled}
+              onChange={(event) => setPref((prev) => ({ ...prev, planStartEnabled: event.target.checked }))}
+            />
+            计划开始提醒
+          </label>
+          <label className="flex items-center gap-2.5 text-sm font-medium text-zinc-200">
+            <Checkbox
+              checked={pref.eveningReviewEnabled}
+              onChange={(event) => setPref((prev) => ({ ...prev, eveningReviewEnabled: event.target.checked }))}
+            />
+            晚间复盘提醒
+          </label>
+        </div>
+
+        <div className="grid gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
+          <NotificationWindowRow label="复习到期时间窗" start={pref.reviewDueWindowStart} end={pref.reviewDueWindowEnd} onChange={(start, end) => setPref((current) => ({ ...current, reviewDueWindowStart: start, reviewDueWindowEnd: end }))}/>
+          <NotificationWindowRow label="计划开始时间窗" start={pref.planStartWindowStart} end={pref.planStartWindowEnd} onChange={(start, end) => setPref((current) => ({ ...current, planStartWindowStart: start, planStartWindowEnd: end }))}/>
+          <NotificationWindowRow label="晚间复盘时间窗" start={pref.eveningReviewWindowStart} end={pref.eveningReviewWindowEnd} onChange={(start, end) => setPref((current) => ({ ...current, eveningReviewWindowStart: start, eveningReviewWindowEnd: end }))}/>
+
+          <div className="pt-2 border-t border-white/5 space-y-3">
+            <label className="flex items-center gap-2.5 text-sm font-medium text-zinc-200">
+              <Checkbox
+                checked={pref.quietHoursStart !== null && pref.quietHoursEnd !== null}
+                onChange={(event) => setPref((current) => ({
+                  ...current,
+                  quietHoursStart: event.target.checked ? 22 : null,
+                  quietHoursEnd: event.target.checked ? 7 : null,
+                }))}
+              />
+              启用安静时段
+            </label>
+            {pref.quietHoursStart !== null && pref.quietHoursEnd !== null ? (
+              <NotificationWindowRow label="安静时段（可跨午夜）" start={pref.quietHoursStart} end={pref.quietHoursEnd} onChange={(start, end) => setPref((current) => ({ ...current, quietHoursStart: start, quietHoursEnd: end }))}/>
+            ) : null}
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2.5 text-sm text-zinc-300">
           <Checkbox
-            checked={pref.quietHoursStart !== null && pref.quietHoursEnd !== null}
-            onChange={(event) => setPref((current) => ({
-              ...current,
-              quietHoursStart: event.target.checked ? 22 : null,
-              quietHoursEnd: event.target.checked ? 7 : null,
-            }))}
+            checked={showSpecificTitle}
+            onChange={(event) => {
+              const next = event.target.checked;
+              setShowSpecificTitle(next);
+              getBrowserStoragePort("local")?.setItem(SHOW_TITLE_KEY, next ? "1" : "0");
+            }}
           />
-          启用安静时段
+          当前设备显示具体标题（本地偏好，不跨设备同步）
         </label>
-        {pref.quietHoursStart !== null && pref.quietHoursEnd !== null ? (
-          <NotificationWindowRow label="安静时段（可跨午夜）" start={pref.quietHoursStart} end={pref.quietHoursEnd} onChange={(start, end) => setPref((current) => ({ ...current, quietHoursStart: start, quietHoursEnd: end }))}/>
-        ) : null}
-      </div>
-      <label className="flex items-center gap-2 text-sm text-zinc-300">
-        <Checkbox
-          checked={showSpecificTitle}
-          onChange={(event) => {
-            const next = event.target.checked;
-            setShowSpecificTitle(next);
-            getBrowserStoragePort("local")?.setItem(SHOW_TITLE_KEY, next ? "1" : "0");
-          }}
-        />
-        当前设备显示具体标题（本地偏好，不跨设备）
-      </label>
-      <p className="text-xs text-zinc-500">
-        浏览器权限：{permission === "unsupported" ? "不支持" : permission}
-      </p>
-      {error ? (
-        <p className="text-sm text-red-300" role="alert" aria-live="assertive" aria-atomic="true">
-          {error}
-        </p>
-      ) : null}
-      {message ? (
-        <p className="text-sm text-emerald-300" role="status" aria-live="polite" aria-atomic="true">
-          {message}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="primary"
-          type="button"
-          disabled={pending}
-          className="h-10 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black disabled:opacity-50"
-          onClick={() => startTransition(() => void save())}
-        >
-          保存提醒偏好
-        </Button>
-        <Button
-          variant="secondary"
-          type="button"
-          className="h-10 rounded-md border border-white/10 px-4 text-sm text-zinc-200"
-          onClick={() => void requestPermissionOnce()}
-        >
-          请求通知权限
-        </Button>
-        <Select aria-label="测试通知类别" className="h-10 !w-auto rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-200" value={testCategory} onChange={(event) => setTestCategory(event.target.value as typeof testCategory)}>
-          <option value="review">复习到期</option>
-          <option value="plan">计划开始</option>
-          <option value="evening">晚间复盘</option>
-        </Select>
-        <Button
-          variant="secondary"
-          type="button"
-          className="h-10 rounded-md border border-white/10 px-4 text-sm text-zinc-200"
-          onClick={() => void sendTest()}
-        >
-          测试通知
-        </Button>
-      </div>
-    </div>
-    <ConflictResolutionModal
-      open={conflict !== null}
-      title="提醒偏好已在其他页面更新"
-      description="本地修改和服务端最新值都已保留。请选择采用服务端，或以最新 revision 为基线人工合并后再次保存。"
-      conflictFields={conflict?.conflictFields ?? []}
-      comparisons={conflict ? notificationConflictComparisons(conflict) : []}
-      onAdoptServer={() => {
-        if (!conflict) return;
-        setPref(conflict.latest);
-        setSavedPref(conflict.latest);
-        setConflict(null);
-        setError(null);
-        setMessage("已采用服务端最新提醒偏好");
-      }}
-      onManualMerge={() => {
-        if (!conflict) return;
-        setPref({ ...conflict.submitted, revision: conflict.latest.revision });
-        setSavedPref(conflict.latest);
-        setConflict(null);
-        setError("已前移到服务端最新 revision 并保留本地修改；请检查后再次点击保存，不会自动重放");
-      }}
-    />
+
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+        {message ? <Alert tone="success">{message}</Alert> : null}
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <Button
+            variant="primary"
+            type="button"
+            disabled={pending}
+            onClick={() => startTransition(() => void save())}
+          >
+            保存提醒偏好
+          </Button>
+
+          {permission !== "granted" ? (
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => void requestPermissionOnce()}
+            >
+              <Bell className="size-4" />
+              请求通知权限
+            </Button>
+          ) : null}
+
+          <div className="flex items-center gap-2">
+            <Select
+              aria-label="测试通知类别"
+              className="h-10 w-auto"
+              value={testCategory}
+              onChange={(event) => setTestCategory(event.target.value as typeof testCategory)}
+            >
+              <option value="review">复习到期</option>
+              <option value="plan">计划开始</option>
+              <option value="evening">晚间复盘</option>
+            </Select>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => void sendTest()}
+            >
+              <Send className="size-4" />
+              测试通知
+            </Button>
+          </div>
+        </div>
+      </SectionCard>
+
+      <ConflictResolutionModal
+        open={conflict !== null}
+        title="提醒偏好已在其他页面更新"
+        description="本地修改和服务端最新值都已保留。请选择采用服务端，或以最新 revision 为基线人工合并后再次保存。"
+        conflictFields={conflict?.conflictFields ?? []}
+        comparisons={conflict ? notificationConflictComparisons(conflict) : []}
+        onAdoptServer={() => {
+          if (!conflict) return;
+          setPref(conflict.latest);
+          setSavedPref(conflict.latest);
+          setConflict(null);
+          setError(null);
+          setMessage("已采用服务端最新提醒偏好");
+        }}
+        onManualMerge={() => {
+          if (!conflict) return;
+          setPref({ ...conflict.submitted, revision: conflict.latest.revision });
+          setSavedPref(conflict.latest);
+          setConflict(null);
+          setError("已前移到服务端最新 revision 并保留本地修改；请检查后再次点击保存，不会自动重放");
+        }}
+      />
     </>
   );
 }
 
 function NotificationWindowRow(props: { label: string; start: number; end: number; onChange: (start: number, end: number) => void }) {
   return (
-    <div className="af-time-window-grid grid gap-2">
-      <span className="text-sm text-zinc-400">{props.label}</span>
+    <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr_1fr] items-center gap-3">
+      <span className="text-xs font-medium text-zinc-400">{props.label}</span>
       <HourSelect label={`${props.label}开始`} value={props.start} onChange={(value) => props.onChange(value, props.end)}/>
       <HourSelect label={`${props.label}结束`} value={props.end} onChange={(value) => props.onChange(props.start, value)}/>
     </div>
@@ -319,7 +342,7 @@ function NotificationWindowRow(props: { label: string; start: number; end: numbe
 
 function HourSelect(props: { label: string; value: number; onChange: (value: number) => void }) {
   return (
-    <Select aria-label={props.label} className="h-10 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-200" value={props.value} onChange={(event) => props.onChange(Number(event.target.value))}>
+    <Select aria-label={props.label} className="h-10" value={props.value} onChange={(event) => props.onChange(Number(event.target.value))}>
       {Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
     </Select>
   );

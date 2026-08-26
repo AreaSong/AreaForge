@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PlanInboxClient } from "@/components/plan-inbox-client";
+import { ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { findActiveWorkspaceOrNull } from "@/lib/study/exam-workspace-service";
 import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
@@ -15,12 +17,15 @@ export default async function TodayInboxPage({ searchParams }: { searchParams: P
   const workspace = await findActiveWorkspaceOrNull(user.id);
   if (!workspace) {
     return (
-      <section className="space-y-3">
-        <h1 className="text-2xl font-semibold text-white">收件箱</h1>
-        <Link href="/settings/exams?setup=1" className="text-teal-300 hover:underline">
-          先设置考试目标
-        </Link>
-      </section>
+      <Card variant="master" className="p-8 text-center space-y-4">
+        <h1 className="text-2xl font-bold text-white">收件箱</h1>
+        <p className="text-sm text-zinc-400">需要先设置考试目标工作区。</p>
+        <div>
+          <ButtonLink href="/settings/exams?setup=1" variant="primary">
+            先设置考试目标
+          </ButtonLink>
+        </div>
+      </Card>
     );
   }
   const query = await searchParams;

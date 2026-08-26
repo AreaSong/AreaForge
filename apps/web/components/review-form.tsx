@@ -7,6 +7,7 @@ import { useEffect, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { DailyReviewResult } from "@/components/daily-review-result";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { EditorActionBar } from "@/components/ui/editor-actions";
 import { Alert, PersistenceStatus } from "@/components/ui/feedback";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -189,81 +190,83 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
   return (
     <>
       {baseline ? <DailyReviewResult review={baseline} inboxItem={inboxItem} /> : null}
-      <section className="space-y-5" aria-labelledby="review-judgement-heading">
+      <section className="space-y-6 pb-20" aria-labelledby="review-judgement-heading">
         <SectionHeader
           title={baseline ? "调整今天的判断" : "留下今天的判断"}
           description="事实已经由系统记录；这里保留你的判断，不让数据替你下结论。"
           meta={<PersistenceStatus state={conflict ? "conflict" : saving || isPending ? "saving" : dirty ? "local-draft" : saved ? "saved" : "clean"} />}
         />
         <form onSubmit={submit} className="space-y-6">
-          <fieldset className="af-content-grid-two grid gap-4 border-b border-white/10 pb-6">
-            <legend id="review-judgement-heading" className="mb-3 text-sm font-medium text-teal-300">1. 推进与偏差</legend>
-            <Field label="今天实际推进了什么" htmlFor="daily-review-summary">
-              <Textarea
-                id="daily-review-summary"
-                name="summary"
-                className="min-h-28 bg-[#0d1117]"
-                placeholder="用自己的话概括真正推进的内容"
-                value={fields.summary}
-                onChange={(event) => setFields((current) => ({ ...current, summary: event.target.value }))}
-                required
-              />
-            </Field>
-            <Field label="哪里偏离了计划" htmlFor="daily-review-lost-control">
-              <Textarea
-                id="daily-review-lost-control"
-                name="lostControl"
-                className="min-h-28 bg-[#0d1117]"
-                placeholder="没有明显偏差可以留空"
-                value={fields.lostControl}
-                onChange={(event) => setFields((current) => ({ ...current, lostControl: event.target.value }))}
-              />
-            </Field>
-          </fieldset>
+          <Card variant="master" className="p-6 space-y-4">
+            <h2 id="review-judgement-heading" className="text-sm font-semibold text-teal-300">1. 推进与偏差</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="今天实际推进了什么" htmlFor="daily-review-summary">
+                <Textarea
+                  id="daily-review-summary"
+                  name="summary"
+                  className="min-h-28"
+                  placeholder="用自己的话概括真正推进的内容"
+                  value={fields.summary}
+                  onChange={(event) => setFields((current) => ({ ...current, summary: event.target.value }))}
+                  required
+                />
+              </Field>
+              <Field label="哪里偏离了计划" htmlFor="daily-review-lost-control">
+                <Textarea
+                  id="daily-review-lost-control"
+                  name="lostControl"
+                  className="min-h-28"
+                  placeholder="没有明显偏差可以留空"
+                  value={fields.lostControl}
+                  onChange={(event) => setFields((current) => ({ ...current, lostControl: event.target.value }))}
+                />
+              </Field>
+            </div>
+          </Card>
 
-          <fieldset className="af-content-grid-compact grid gap-4 border-b border-white/10 pb-6">
-            <legend className="mb-3 text-sm font-medium text-teal-300">2. 保留有效动作</legend>
-            <Field label="明天应该继续做什么" htmlFor="daily-review-keep-action">
-              <Input
-                id="daily-review-keep-action"
-                name="keepAction"
-                className="h-11 bg-[#0d1117]"
-                placeholder="只保留一个真正有效的动作"
-                value={fields.keepAction}
-                onChange={(event) => setFields((current) => ({ ...current, keepAction: event.target.value }))}
-                required
-              />
-            </Field>
-            <Field label="当前状态" htmlFor="daily-review-mood">
-              <Select
-                id="daily-review-mood"
-                name="mood"
-                className="h-11 bg-[#0d1117]"
-                value={fields.mood}
-                onChange={(event) => setFields((current) => ({ ...current, mood: event.target.value }))}
-              >
-                <option value="">不记录</option>
-                {hasLegacyMood ? <option value={currentMood}>当前记录：{currentMood}</option> : null}
-                {moodOptions.map((mood) => <option key={mood} value={mood}>{mood}</option>)}
-              </Select>
-            </Field>
-          </fieldset>
+          <Card variant="master" className="p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-teal-300">2. 保留有效动作与当前状态</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="明天应该继续做什么" htmlFor="daily-review-keep-action">
+                <Input
+                  id="daily-review-keep-action"
+                  name="keepAction"
+                  placeholder="只保留一个真正有效的动作"
+                  value={fields.keepAction}
+                  onChange={(event) => setFields((current) => ({ ...current, keepAction: event.target.value }))}
+                  required
+                />
+              </Field>
+              <Field label="当前状态" htmlFor="daily-review-mood">
+                <Select
+                  id="daily-review-mood"
+                  name="mood"
+                  value={fields.mood}
+                  onChange={(event) => setFields((current) => ({ ...current, mood: event.target.value }))}
+                >
+                  <option value="">不记录</option>
+                  {hasLegacyMood ? <option value={currentMood}>当前记录：{currentMood}</option> : null}
+                  {moodOptions.map((mood) => <option key={mood} value={mood}>{mood}</option>)}
+                </Select>
+              </Field>
+            </div>
+          </Card>
 
-          <fieldset className="rounded-md border border-teal-400/25 bg-teal-400/[0.05] p-4">
-            <legend className="px-1 text-sm font-medium text-teal-200">3. 确定明日最低行动</legend>
-            <Field label="即使状态不好，明天也必须完成的一个动作" htmlFor="daily-review-tomorrow-minimum" className="mt-1">
+          <Card variant="accent" className="p-6 space-y-3 border-teal-500/30 shadow-[0_0_16px_rgba(45,212,191,0.15)]">
+            <h2 className="text-sm font-semibold text-teal-200">3. 确定明日最低行动</h2>
+            <Field label="即使状态不好，明天也必须完成的一个动作" htmlFor="daily-review-tomorrow-minimum">
               <Input
                 id="daily-review-tomorrow-minimum"
                 name="tomorrowMinimum"
-                className="h-12 bg-[#0d1117] text-base"
+                className="text-base"
                 placeholder="例如：完成极限基础练习 20 题"
                 value={fields.tomorrowMinimum}
                 onChange={(event) => setFields((current) => ({ ...current, tomorrowMinimum: event.target.value }))}
                 required
               />
             </Field>
-            <p className="mt-2 text-xs leading-5 text-zinc-400">保存后会进入投入草稿，由你补全科目和预计时长，再转为正式任务。</p>
-          </fieldset>
+            <p className="text-xs leading-relaxed text-zinc-400">保存后会进入投入草稿，由你补全科目和预计时长，再转为正式任务。</p>
+          </Card>
 
           <EditorActionBar
             primaryType="submit"

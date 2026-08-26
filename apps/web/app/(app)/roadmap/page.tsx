@@ -1,6 +1,7 @@
 import { ArrowRight, BarChart3, ClipboardList, Flag, Inbox } from "lucide-react";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 
@@ -24,24 +25,38 @@ export default function RoadmapOverviewPage() {
       />
       <section className="space-y-4">
         <SectionHeader title="路线工作台" description="四个视图共享同一套路线状态，详情页沿用这里的二级导航。" />
-        <div className="af-content-grid-two grid gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {WORKBENCHS.map((item) => {
             const Icon = item.icon;
             return (
-              <Link key={item.href} href={item.href} className="group flex min-h-32 items-start justify-between gap-4 border border-white/10 bg-white/[0.02] p-5 hover:border-teal-300/40 hover:bg-teal-300/[0.04]">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-teal-300"><Icon size={18} aria-hidden="true" /><h2 className="font-medium text-white group-hover:text-teal-200">{item.title}</h2></div>
-                  <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p>
-                </div>
-                <ArrowRight size={17} className="mt-1 shrink-0 text-zinc-600 group-hover:text-teal-300" aria-hidden="true" />
+              <Link key={item.href} href={item.href} className="block group">
+                <Card variant="master" className="flex min-h-32 items-start justify-between gap-4 p-5 transition-all duration-200 group-hover:border-teal-400/40 group-hover:shadow-[0_0_20px_rgba(45,212,191,0.15)]">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2.5 text-teal-300">
+                      <div className="grid size-8 place-items-center rounded-lg bg-teal-400/10 text-teal-300 transition-colors group-hover:bg-teal-400/20">
+                        <Icon size={18} aria-hidden="true" />
+                      </div>
+                      <h2 className="text-base font-semibold text-white transition-colors group-hover:text-teal-200">{item.title}</h2>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p>
+                  </div>
+                  <ArrowRight size={17} className="mt-1 shrink-0 text-zinc-500 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-teal-300" aria-hidden="true" />
+                </Card>
               </Link>
             );
           })}
         </div>
       </section>
-      <section className="af-action-grid grid gap-3 border-t border-white/10 pt-6">
-        <div><h2 className="font-medium text-white">统一确认中心</h2><p className="mt-1 text-sm text-zinc-500">报告、阶段建议、模拟考试、专项复测和 AI 草稿都在这里完成最终决定。</p></div>
-        <ButtonLink className="af-container-action" href="/confirmations" variant="secondary">打开确认中心<ArrowRight size={15} aria-hidden="true" /></ButtonLink>
+      <section className="pt-2">
+        <Card variant="subtle" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-white">统一确认中心</h2>
+            <p className="mt-1 text-sm text-zinc-400">报告、阶段建议、模拟考试、专项复测和 AI 草稿都在这里完成最终决定。</p>
+          </div>
+          <ButtonLink className="shrink-0" href="/confirmations" variant="secondary" size="md">
+            打开确认中心<ArrowRight size={15} aria-hidden="true" />
+          </ButtonLink>
+        </Card>
       </section>
     </PageFrame>
   );

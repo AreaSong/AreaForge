@@ -155,7 +155,7 @@ export function PlanRollingCreateDrawer(props: {
         size="lg"
         type="button"
         disabled={props.pending || props.creatingTask || props.sourceResourceArchived}
-        className="mt-3 h-11 rounded-md bg-teal-500/90 px-4 text-sm font-medium text-black disabled:opacity-60"
+        className="mt-4 w-full"
         onClick={props.onCreate}
       >
         {props.creatingTask ? "创建中..." : "新建任务"}

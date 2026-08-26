@@ -12,6 +12,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { PinnedActionBar } from "@/components/ui/pinned-action-bar";
+import { Card } from "@/components/ui/card";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -186,91 +188,232 @@ export function KnowledgeRetestDetailClient({ initial, userId, returnTo = "/test
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
-        {embeddedInWorkbench ? <span className="text-xs text-zinc-500">公共窗口 · 专项复测</span> : <Link href={returnTo} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />{getReturnContextLabel(returnTo, "返回专项复测")}</Link>}
-        <Badge tone={retest.status === "CLOSED" ? "success" : retest.status === "PENDING_REVIEW" ? "warning" : "info"}>{statusLabel(retest.status, retest.result)}</Badge>
-      </div>
-      <div><h1 className="text-2xl font-semibold text-white">{retest.title}</h1><p className="mt-2 text-sm text-zinc-400">{retest.method} · {retest.pointCount} 个知识点</p></div>
-      {error ? <Alert tone="danger">{error}</Alert> : null}
-      {retest.status === "DRAFT" ? <Button type="button" variant="primary" onClick={start} loading={pending}>开始复测</Button> : null}
-      {retest.status === "IN_PROGRESS" && retest.timerSessionId ? (
-        <StudyActivityTimer
-          userId={userId}
-          sessionId={retest.timerSessionId}
-          theme="review"
-          label="专项复测计时"
-          initialNow={initialNow}
-          onFinished={() => {
-            setRetest((current) => ({ ...current, timerSessionId: null }));
-            setTimerCloseoutPending(true);
-          }}
-        />
-      ) : null}
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-white">逐点结果</h2>
-        <div className="divide-y divide-white/10 border-y border-white/10">
-          {points.map((point, index) => (
-            <div key={point.id} className="af-retest-entry-grid grid min-w-0 gap-3 py-4">
-              <div>
-                <p className="text-sm font-medium text-white">{index + 1}. {point.title}</p>
-                <Textarea
-                  aria-label={`${point.title}个人反馈`}
-                  value={point.note ?? ""}
-                  onChange={(event) => updatePoint(point.id, { note: event.target.value })}
-                  placeholder="个人反馈：哪里清楚、哪里仍然卡住"
-                  maxLength={2000}
-                  controlHeight="sm"
-                  className="mt-2 bg-[var(--af-surface-raised)] text-sm text-white placeholder:text-zinc-600"
-                  disabled={retest.status !== "IN_PROGRESS" || Boolean(retest.timerSessionId)}
-                />
-              </div>
-              <Select
-                aria-label={`${point.title}结果`}
-                value={point.result ?? ""}
-                onChange={(event) => updatePoint(point.id, { result: (event.target.value || null) as KnowledgeRetestResultDto | null })}
-                className="min-w-0 bg-[var(--af-surface-raised)] px-2 text-sm text-white"
-                disabled={retest.status !== "IN_PROGRESS" || Boolean(retest.timerSessionId)}
+    <div className="space-y-6 pb-24">
+      <Card variant="master" className="p-5 sm:p-6 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+          {embeddedInWorkbench ? (
+            <span className="text-xs text-zinc-500">公共窗口 · 专项复测</span>
+          ) : (
+            <Link
+              href={returnTo}
+              className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+              {getReturnContextLabel(returnTo, "返回专项复测")}
+            </Link>
+          )}
+          <Badge
+            tone={
+              retest.status === "CLOSED"
+                ? "success"
+                : retest.status === "PENDING_REVIEW"
+                  ? "warning"
+                  : "info"
+            }
+          >
+            {statusLabel(retest.status, retest.result)}
+          </Badge>
+        </div>
+
+        <div>
+          <h1 className="text-2xl font-semibold text-white">{retest.title}</h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            {retest.method} · {retest.pointCount} 个知识点
+          </p>
+        </div>
+
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+
+        {retest.status === "DRAFT" ? (
+          <div className="pt-2">
+            <Button type="button" variant="primary" size="lg" onClick={start} loading={pending}>
+              开始复测
+            </Button>
+          </div>
+        ) : null}
+
+        {retest.status === "IN_PROGRESS" && retest.timerSessionId ? (
+          <div className="pt-2">
+            <StudyActivityTimer
+              userId={userId}
+              sessionId={retest.timerSessionId}
+              theme="review"
+              label="专项复测计时"
+              initialNow={initialNow}
+              onFinished={() => {
+                setRetest((current) => ({ ...current, timerSessionId: null }));
+                setTimerCloseoutPending(true);
+              }}
+            />
+          </div>
+        ) : null}
+      </Card>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium text-white">逐点结果</h2>
+          <span className="text-xs text-zinc-400">
+            共 {points.length} 个检验点
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          {points.map((point, index) => {
+            const isCompleted = Boolean(point.result && point.score != null && point.note?.trim());
+            return (
+              <Card
+                key={point.id}
+                variant="subtle"
+                className={`p-4 sm:p-5 space-y-3 transition-all ${
+                  isCompleted ? "border-teal-500/20" : ""
+                }`}
               >
-                <option value="">选择结果</option>
-                <option value="PASSED">通过</option>
-                <option value="PARTIAL">部分掌握</option>
-                <option value="FAILED">未通过</option>
-              </Select>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={point.score ?? ""}
-                onChange={(event) => updatePoint(point.id, { score: event.target.value ? Number(event.target.value) : null })}
-                placeholder="量化分数"
-                aria-label={`${point.title}量化分数`}
-                className="min-w-0 bg-[var(--af-surface-raised)] px-2 text-sm text-white placeholder:text-zinc-600"
-                disabled={retest.status !== "IN_PROGRESS" || Boolean(retest.timerSessionId)}
-              />
-            </div>
-          ))}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-white">
+                    {index + 1}. {point.title}
+                  </p>
+                  {point.result ? (
+                    <Badge tone={point.result === "PASSED" ? "success" : point.result === "PARTIAL" ? "warning" : "neutral"}>
+                      {point.result === "PASSED" ? "通过" : point.result === "PARTIAL" ? "部分掌握" : "未通过"}
+                      {point.score != null ? ` · ${point.score}分` : ""}
+                    </Badge>
+                  ) : null}
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_160px_120px]">
+                  <div>
+                    <Textarea
+                      aria-label={`${point.title}个人反馈`}
+                      value={point.note ?? ""}
+                      onChange={(event) => updatePoint(point.id, { note: event.target.value })}
+                      placeholder="个人反馈：哪里清楚、哪里仍然卡住"
+                      maxLength={2000}
+                      controlHeight="sm"
+                      className="bg-white/[0.03] text-sm text-white placeholder:text-zinc-600"
+                      disabled={retest.status !== "IN_PROGRESS" || Boolean(retest.timerSessionId)}
+                    />
+                  </div>
+                  <div>
+                    <Select
+                      aria-label={`${point.title}结果`}
+                      value={point.result ?? ""}
+                      onChange={(event) =>
+                        updatePoint(point.id, {
+                          result: (event.target.value || null) as KnowledgeRetestResultDto | null,
+                        })
+                      }
+                      className="h-11 min-w-0 bg-white/[0.03] px-2 text-sm text-white"
+                      disabled={retest.status !== "IN_PROGRESS" || Boolean(retest.timerSessionId)}
+                    >
+                      <option value="">选择结果</option>
+                      <option value="PASSED">通过</option>
+                      <option value="PARTIAL">部分掌握</option>
+                      <option value="FAILED">未通过</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={point.score ?? ""}
+                      onChange={(event) =>
+                        updatePoint(point.id, {
+                          score: event.target.value ? Number(event.target.value) : null,
+                        })
+                      }
+                      placeholder="量化分数"
+                      aria-label={`${point.title}量化分数`}
+                      className="h-11 min-w-0 bg-white/[0.03] px-2 text-sm text-white placeholder:text-zinc-600"
+                      disabled={retest.status !== "IN_PROGRESS" || Boolean(retest.timerSessionId)}
+                    />
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       </section>
+
       {retest.status === "IN_PROGRESS" && !retest.timerSessionId ? (
-        <section className="space-y-3">
+        <Card variant="master" className="p-5 sm:p-6 space-y-4">
+          <h2 className="text-base font-semibold text-white">复测总结与复盘</h2>
           <Field label="复测总结" htmlFor="knowledge-retest-summary">
-            <Textarea id="knowledge-retest-summary" value={summary} onChange={(event) => setSummary(event.target.value)} maxLength={4000} className="bg-[var(--af-surface-raised)] text-white" />
+            <Textarea
+              id="knowledge-retest-summary"
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+              maxLength={4000}
+              placeholder="概括本次复测整体掌握情况..."
+              className="bg-white/[0.03] text-white"
+            />
           </Field>
           <Field label="复盘" htmlFor="knowledge-retest-review">
-            <Textarea id="knowledge-retest-review" value={reviewText} onChange={(event) => setReviewText(event.target.value)} maxLength={4000} className="min-h-28 bg-[var(--af-surface-raised)] text-white" />
+            <Textarea
+              id="knowledge-retest-review"
+              value={reviewText}
+              onChange={(event) => setReviewText(event.target.value)}
+              maxLength={4000}
+              placeholder="记录具体错因与后续加固动作..."
+              className="min-h-28 bg-white/[0.03] text-white"
+            />
           </Field>
-          <Button type="button" variant="primary" onClick={submit} loading={pending}>提交复测，进入确认</Button>
-        </section>
+        </Card>
       ) : null}
-      {retest.status === "PENDING_REVIEW" ? <section className="space-y-3 border border-amber-300/20 bg-amber-400/5 p-4"><p className="text-sm text-amber-100">结果、总结和复盘已保存。确认后才会更新知识点掌握状态，并安排下一次复测。</p><Button type="button" variant="primary" onClick={confirm} loading={pending}><BadgeCheck size={16} aria-hidden="true" />确认并更新掌握状态</Button></section> : null}
-      {retest.status === "CLOSED" ? <Alert tone="success">已确认。下一次复测：{retest.nextDueAt ? formatDatePadded(retest.nextDueAt) : "待安排"}。</Alert> : null}
+
+      {retest.status === "PENDING_REVIEW" ? (
+        <Card variant="accent" className="p-5 sm:p-6 space-y-4">
+          <div>
+            <h2 className="text-base font-semibold text-white">等待确认掌握状态</h2>
+            <p className="mt-1 text-sm text-zinc-300">
+              结果、总结和复盘已保存。确认后才会更新知识点掌握状态，并安排下一次复测。
+            </p>
+          </div>
+          <Button type="button" variant="primary" size="lg" onClick={confirm} loading={pending}>
+            <BadgeCheck size={16} aria-hidden="true" />
+            确认并更新掌握状态
+          </Button>
+        </Card>
+      ) : null}
+
+      {retest.status === "CLOSED" ? (
+        <Alert tone="success">
+          已确认。下一次复测：{retest.nextDueAt ? formatDatePadded(retest.nextDueAt) : "待安排"}。
+        </Alert>
+      ) : null}
+
+      {retest.status === "IN_PROGRESS" && !retest.timerSessionId ? (
+        <PinnedActionBar
+          mode="sticky"
+          left={
+            <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <span>
+                已评定{" "}
+                <strong className="text-white">
+                  {points.filter((p) => Boolean(p.result && p.score != null && p.note?.trim())).length}
+                </strong>{" "}
+                / {points.length} 个知识点
+              </span>
+            </div>
+          }
+          right={
+            <Button type="button" variant="primary" size="lg" onClick={submit} loading={pending}>
+              提交复测，进入确认
+            </Button>
+          }
+        />
+      ) : null}
+
       {conflict && !conflictOpen ? (
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={() => setConflictOpen(true)}>处理复测冲突</Button>
-          <Button type="button" variant="ghost" size="sm" onClick={retryOnLatest}>保留输入并重试</Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setConflictOpen(true)}>
+            处理复测冲突
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={retryOnLatest}>
+            保留输入并重试
+          </Button>
         </div>
       ) : null}
+
       <ConflictResolutionModal
         open={conflictOpen && Boolean(conflict)}
         title="专项复测版本冲突"

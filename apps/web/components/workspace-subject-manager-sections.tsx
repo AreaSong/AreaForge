@@ -42,10 +42,19 @@ export function SubjectRow(props: {
 
   if (props.editing) {
     return (
-      <div className="space-y-3 p-3">
+      <div className="space-y-3 p-3 bg-white/[0.02] rounded-xl border border-white/10">
         <div className="af-content-grid-two grid gap-3">
-          <label className="text-sm text-zinc-400">名称<Input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 bg-[#151a20] px-3 text-white" /></label>
-          <label className="text-sm text-zinc-400">分组<Select value={effectiveGroupId} onChange={(event) => setGroupId(event.target.value)} className="mt-1 bg-[#151a20] px-3 text-white"><option value="">不分组</option>{props.activeGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</Select></label>
+          <label className="text-sm text-zinc-400">
+            名称
+            <Input value={name} onChange={(event) => setName(event.target.value)} className="mt-1" />
+          </label>
+          <label className="text-sm text-zinc-400">
+            分组
+            <Select value={effectiveGroupId} onChange={(event) => setGroupId(event.target.value)} className="mt-1">
+              <option value="">不分组</option>
+              {props.activeGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+            </Select>
+          </label>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -53,8 +62,12 @@ export function SubjectRow(props: {
             <ColorSwatches colors={subjectColors} value={color} onChange={setColor} label="科目颜色" />
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="secondary" size="sm" disabled={props.pending} onClick={props.onCancel}><X size={15} aria-hidden="true" />取消</Button>
-            <Button type="button" variant="primary" size="sm" disabled={props.pending || !name.trim()} onClick={() => void props.onSave({ name, color, groupId: effectiveGroupId || null })}><Save size={15} aria-hidden="true" />保存</Button>
+            <Button type="button" variant="secondary" size="sm" disabled={props.pending} onClick={props.onCancel}>
+              <X size={15} aria-hidden="true" />取消
+            </Button>
+            <Button type="button" variant="primary" size="sm" disabled={props.pending || !name.trim()} onClick={() => void props.onSave({ name, color, groupId: effectiveGroupId || null })}>
+              <Save size={15} aria-hidden="true" />保存
+            </Button>
           </div>
         </div>
       </div>
@@ -63,8 +76,8 @@ export function SubjectRow(props: {
 
   const group = props.groups.find((item) => item.id === props.subject.groupId);
   return (
-    <div className="flex flex-wrap items-center gap-3 p-3">
-      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: props.subject.color }} aria-hidden="true" />
+    <div className="flex flex-wrap items-center gap-3 p-3 transition-colors hover:bg-white/[0.02]">
+      <span className="size-3.5 shrink-0 rounded-full ring-2 ring-white/10" style={{ backgroundColor: props.subject.color }} aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="break-words text-sm font-medium text-zinc-100">{props.subject.name}</p>
         <p className="mt-0.5 text-xs text-zinc-500">
@@ -96,8 +109,10 @@ export function GroupManager(props: {
   const activeGroupIds = props.groups.filter((group) => !group.archivedAt).map((group) => group.id);
 
   return (
-    <details className="rounded-md border border-white/10 p-3">
-      <summary className="cursor-pointer text-sm font-medium text-zinc-300">管理分组（{props.groups.filter((group) => !group.archivedAt).length}）</summary>
+    <details className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+      <summary className="cursor-pointer text-sm font-medium text-zinc-300 hover:text-white transition-colors">
+        管理分组（{props.groups.filter((group) => !group.archivedAt).length}）
+      </summary>
       <div className="mt-4 space-y-4">
         <ul className="divide-y divide-white/10">
           {props.groups.map((group) => (
@@ -109,11 +124,13 @@ export function GroupManager(props: {
                     autoFocus
                     value={editingName}
                     onChange={(event) => setEditingName(event.target.value)}
-                    className="mt-1 h-9 w-full max-w-sm bg-[#151a20] px-3 text-sm text-white"
+                    className="mt-1 h-9 w-full max-w-sm text-sm"
                   />
                 </label>
               ) : (
-                <span className={group.archivedAt ? "text-zinc-600" : "text-zinc-300"}>{group.name}{group.archivedAt ? " · 已归档" : ""}</span>
+                <span className={group.archivedAt ? "text-zinc-600" : "text-zinc-300"}>
+                  {group.name}{group.archivedAt ? " · 已归档" : ""}
+                </span>
               )}
               <div className="flex gap-1">
                 {editingId === group.id ? (
@@ -142,9 +159,17 @@ export function GroupManager(props: {
           ))}
         </ul>
         <div className="af-action-grid grid gap-2">
-          <Input value={props.newName} onChange={(event) => props.onNameChange(event.target.value)} placeholder="新分组名称" className="bg-[#151a20] px-3 text-sm text-white" />
-          <Button type="button" disabled={props.pending || !props.newName.trim()} onClick={props.onAdd}><Plus size={15} aria-hidden="true" />添加分组</Button>
-          <details className="af-content-span-all text-xs text-zinc-500"><summary className="cursor-pointer">高级选项</summary><label className="mt-2 block max-w-md">内部标识<Input value={props.newKey} onChange={(event) => props.onKeyChange(event.target.value)} className="mt-1 h-9 bg-[#151a20] px-3" /></label></details>
+          <Input value={props.newName} onChange={(event) => props.onNameChange(event.target.value)} placeholder="新分组名称" className="text-sm" />
+          <Button type="button" variant="secondary" disabled={props.pending || !props.newName.trim()} onClick={props.onAdd}>
+            <Plus size={15} aria-hidden="true" />添加分组
+          </Button>
+          <details className="af-content-span-all text-xs text-zinc-500">
+            <summary className="cursor-pointer">高级选项</summary>
+            <label className="mt-2 block max-w-md">
+              内部标识
+              <Input value={props.newKey} onChange={(event) => props.onKeyChange(event.target.value)} className="mt-1 h-9" />
+            </label>
+          </details>
         </div>
       </div>
     </details>

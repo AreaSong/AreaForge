@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { Search } from "lucide-react";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { createTask as createStudyTask } from "@/lib/api/tasks";
@@ -268,55 +269,61 @@ export function PlanRollingClient(props: {
         </p>
       ) : null}
 
-      <form
-        className="af-plan-filter-grid grid min-w-0 gap-2 border-y border-white/10 py-3"
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          pushQuery({ q: searchQuery.trim() || undefined });
-        }}
-      >
-        <label className="relative min-w-0">
-          <span className="sr-only">搜索任务</span>
-          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-zinc-500" aria-hidden="true" />
-          <Input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="搜索七日任务"
-            className="h-10 w-full rounded-md border border-white/10 bg-[#101419] pl-9 pr-3 text-sm text-white"
-          />
-        </label>
-        <label>
-          <span className="sr-only">科目筛选</span>
-          <Select className="h-10 w-full rounded-md border border-white/10 bg-[#101419] px-3 text-sm text-zinc-200" value={props.query.subjectId ?? ""} onChange={(event) => pushQuery({ subjectId: event.target.value || undefined })}>
-            <option value="">全部科目</option>
-            {props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-          </Select>
-        </label>
-        <label>
-          <span className="sr-only">状态筛选</span>
-          <Select className="h-10 w-full rounded-md border border-white/10 bg-[#101419] px-3 text-sm text-zinc-200" value={props.query.status ?? ""} onChange={(event) => pushQuery({ status: event.target.value || undefined })}>
-            <option value="">全部状态</option>
-            <option value="todo">待开始</option>
-            <option value="in_progress">进行中</option>
-            <option value="deferred">已延期</option>
-            <option value="done">已完成</option>
-          </Select>
-        </label>
-        <Button type="submit" variant="secondary">搜索</Button>
-      </form>
+      <Card variant="subtle" className="p-3.5">
+        <form
+          className="af-plan-filter-grid grid min-w-0 gap-2.5"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            pushQuery({ q: searchQuery.trim() || undefined });
+          }}
+        >
+          <label className="relative min-w-0">
+            <span className="sr-only">搜索任务</span>
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-zinc-500" aria-hidden="true" />
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="搜索七日任务"
+              className="h-10 w-full pl-9 pr-3 text-sm"
+            />
+          </label>
+          <label>
+            <span className="sr-only">科目筛选</span>
+            <Select className="h-10 w-full px-3 text-sm text-zinc-200" value={props.query.subjectId ?? ""} onChange={(event) => pushQuery({ subjectId: event.target.value || undefined })}>
+              <option value="">全部科目</option>
+              {props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+            </Select>
+          </label>
+          <label>
+            <span className="sr-only">状态筛选</span>
+            <Select className="h-10 w-full px-3 text-sm text-zinc-200" value={props.query.status ?? ""} onChange={(event) => pushQuery({ status: event.target.value || undefined })}>
+              <option value="">全部状态</option>
+              <option value="todo">待开始</option>
+              <option value="in_progress">进行中</option>
+              <option value="deferred">已延期</option>
+              <option value="done">已完成</option>
+            </Select>
+          </label>
+          <Button type="submit" variant="secondary">搜索</Button>
+        </form>
+      </Card>
 
       <div className={props.detailPanel ? "af-plan-layout-grid grid min-h-0 min-w-0 gap-5" : "space-y-5"}>
         <div className="min-w-0 space-y-5">
-          <div className={`af-horizontal-scroll gap-2 overflow-x-auto pb-2 ${props.detailPanel ? "flex" : "af-plan-date-strip-wide-hidden flex"}`} tabIndex={0} aria-label="日期条" data-horizontal-scroll="date-strip">
+          <div className={`gap-2 overflow-x-auto pb-2 ${props.detailPanel ? "flex" : "af-plan-date-strip-wide-hidden flex"}`} tabIndex={0} aria-label="日期条" data-horizontal-scroll="date-strip">
             {props.initial.days.map((day) => (
               <Button
                 variant="ghost"
                 size="sm"
                 key={day.date}
                 type="button"
-                className={`!h-auto shrink-0 rounded-md border px-3 py-2 text-xs ${selectedDate === day.date ? "border-teal-400/50 bg-teal-400/5 text-teal-200" : "border-white/10 text-zinc-400"}`}
+                className={`!h-auto shrink-0 rounded-xl border px-3.5 py-2 text-xs transition-all ${
+                  selectedDate === day.date
+                    ? "border-teal-500/30 bg-teal-400/10 text-teal-200 shadow-[0_0_12px_rgba(45,212,191,0.15)] font-medium"
+                    : "border-white/5 bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-white"
+                }`}
                 onClick={() => pushQuery({ date: day.date })}
               >
                 {formatPlanDay(day.date)} · {day.tasks.length}
@@ -334,31 +341,33 @@ export function PlanRollingClient(props: {
             />
           ) : (
             <>
-              <div className="af-horizontal-scroll af-plan-seven-day gap-3 overflow-x-auto pb-2" tabIndex={0} aria-label="七天列" data-horizontal-scroll="seven-day-plan">
+              <div className="af-plan-seven-day gap-3 overflow-x-auto pb-2 flex" tabIndex={0} aria-label="七天列" data-horizontal-scroll="seven-day-plan">
                 {props.initial.days.map((day) => (
-                  <section key={day.date} className="af-plan-day-column flex-1 rounded-md border border-white/10 bg-[#101419] p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <h2 className="text-sm font-medium text-zinc-200">{formatPlanDay(day.date)}</h2>
-                      <span className="text-xs text-zinc-600">{day.tasks.length}</span>
+                  <Card key={day.date} variant="subtle" className="af-plan-day-column flex-1 min-w-[190px] p-3.5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-white/5">
+                        <h2 className="text-xs font-semibold text-zinc-200">{formatPlanDay(day.date)}</h2>
+                        <span className="text-[11px] font-medium text-zinc-500 rounded px-1.5 py-0.5 bg-white/5">{day.tasks.length}</span>
+                      </div>
+                      {day.tasks.length ? (
+                        <ul className="mt-3 space-y-2">
+                          {day.tasks.map((task) => (
+                            <li key={task.id} className="rounded-xl border border-white/10 bg-[#0e1619]/90 p-2.5 shadow-sm transition-colors hover:border-teal-400/40">
+                              <ListDetailLink
+                                href={withReturnTo(`/roadmap/allocation/tasks/${task.id}`, currentPlanHref)}
+                                desktopHref={desktopTaskHref(task.id)}
+                                focusId={`plan-task-desktop-${day.date}-${task.id}`}
+                                className="block break-words text-xs font-medium text-white hover:text-teal-300"
+                              >
+                                {task.title}
+                              </ListDetailLink>
+                              <p className="mt-1 text-[11px] text-zinc-400">{task.subjectName} · {task.estimatedMinutes} 分</p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : <p className="mt-6 text-center text-xs text-zinc-600">暂无任务</p>}
                     </div>
-                    {day.tasks.length ? (
-                      <ul className="mt-3 space-y-2">
-                        {day.tasks.map((task) => (
-                          <li key={task.id} className="rounded-md border border-white/5 bg-black/10 p-2">
-                            <ListDetailLink
-                              href={withReturnTo(`/roadmap/allocation/tasks/${task.id}`, currentPlanHref)}
-                              desktopHref={desktopTaskHref(task.id)}
-                              focusId={`plan-task-desktop-${day.date}-${task.id}`}
-                              className="block break-words text-sm text-white hover:text-teal-300"
-                            >
-                              {task.title}
-                            </ListDetailLink>
-                            <p className="mt-1 text-xs text-zinc-500">{task.subjectName} · {task.estimatedMinutes} 分</p>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : <p className="mt-5 text-xs text-zinc-600">暂无任务</p>}
-                  </section>
+                  </Card>
                 ))}
               </div>
               <div className="af-plan-day-list">
@@ -375,27 +384,27 @@ export function PlanRollingClient(props: {
           )}
 
           {props.initial.debt.length > 0 ? (
-            <section className="rounded-md border border-amber-400/20 bg-amber-500/5 p-4">
+            <Card variant="accent" className="border-amber-400/25 shadow-[0_0_16px_rgba(251,191,36,0.1)] p-5 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-amber-100">待处理欠账</h2>
-                <span className="text-xs text-amber-200/60">{props.initial.debt.length}</span>
+                <h2 className="text-sm font-semibold text-amber-100">待处理欠账</h2>
+                <span className="text-xs font-medium text-amber-200/80 rounded px-2 py-0.5 bg-amber-400/10">{props.initial.debt.length}</span>
               </div>
-              <ul className="mt-3 divide-y divide-amber-200/10">
+              <ul className="divide-y divide-amber-200/10">
                 {props.initial.debt.map((task) => (
-                  <li key={task.id} className="py-2 first:pt-0 last:pb-0">
+                  <li key={task.id} className="py-2.5 first:pt-0 last:pb-0">
                     <ListDetailLink
                       href={withReturnTo(`/roadmap/allocation/tasks/${task.id}`, currentPlanHref)}
                       desktopHref={desktopTaskHref(task.id)}
                       focusId={`plan-debt-${task.id}`}
-                      className="block text-sm text-white hover:text-teal-300"
+                      className="block text-sm font-medium text-white hover:text-teal-300"
                     >
                       {task.title}
                     </ListDetailLink>
-                    <p className="mt-1 text-xs text-amber-100/50">{task.subjectName} · 原计划 {formatShortDate(task.plannedDate)}</p>
+                    <p className="mt-1 text-xs text-amber-100/60">{task.subjectName} · 原计划 {formatShortDate(task.plannedDate)}</p>
                   </li>
                 ))}
               </ul>
-            </section>
+            </Card>
           ) : null}
         </div>
 

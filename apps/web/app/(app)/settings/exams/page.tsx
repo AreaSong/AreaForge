@@ -29,7 +29,7 @@ export default async function SettingsExamsPage({
   const takeover = await previewWorkspaceTakeover(user.id).catch(() => null);
 
   return (
-    <PageFrame variant="dashboard-wide">
+    <PageFrame variant="dashboard-wide" className="space-y-6">
       <WorkspaceSettingsClient
         userId={user.id}
         workspaces={workspaces}

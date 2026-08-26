@@ -4,11 +4,13 @@ import { isUnauthorized } from "@/lib/client/api-errors";
 import { mutationFeedback } from "@/lib/client/mutation-feedback";
 
 import { createMistake } from "@/lib/api/mistakes";
-import { AlertCircle, ArrowRight, Play, Plus } from "lucide-react";
+import { AlertCircle, Play, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
+import { useRestoreListReturn } from "@/components/list-return-context";
+import { MistakeCard } from "@/components/mistake-card";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/field";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { Drawer } from "@/components/ui/overlays";
@@ -28,7 +30,7 @@ import {
 } from "@/lib/client/private-business-drafts";
 import type { MistakeCauseDto, MistakeDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/contracts";
 import type { MistakeCreatePrefillDto } from "@/lib/contracts";
-import { formatDateTime, isShanghaiDateInputError, shanghaiDateTimeInputToIso } from "@/lib/formatters";
+import { isShanghaiDateInputError, shanghaiDateTimeInputToIso } from "@/lib/formatters";
 import {
   buildMistakeListHref,
   CauseOptions,
@@ -37,13 +39,10 @@ import {
   isMistakeCauseFilter,
   isMistakeFormDraft,
   isMistakeReviewFilter,
-  labelCause,
-  labelResult,
   matchesMistakeReview,
   OverviewMetric,
   recentFailures,
   recentPassRate,
-  reviewSummary,
   type MistakeFormDraft,
   type MistakeListFilters,
 } from "@/components/mistake-library-support";
@@ -409,12 +408,20 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
           </div>
         </div>
 
-        <dl className="af-metric-grid-four mt-5 grid gap-2" aria-label="错题掌握概览">
-          <OverviewMetric label="错题总数" value={`${mistakes.length}`} />
-          <OverviewMetric label="今日到期" value={`${mistakes.filter((mistake) => matchesMistakeReview(mistake, "due")).length}`} />
-          <OverviewMetric label="最近通过" value={`${recentPassRate(mistakes)}%`} />
-          <OverviewMetric label="最近失败" value={`${recentFailures(mistakes)}`} />
-        </dl>
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="错题掌握概览">
+          <Card variant="subtle" className="p-3.5">
+            <OverviewMetric label="错题总数" value={`${mistakes.length}`} />
+          </Card>
+          <Card variant="subtle" className="p-3.5">
+            <OverviewMetric label="今日到期" value={`${mistakes.filter((mistake) => matchesMistakeReview(mistake, "due")).length}`} />
+          </Card>
+          <Card variant="subtle" className="p-3.5">
+            <OverviewMetric label="最近通过" value={`${recentPassRate(mistakes)}%`} />
+          </Card>
+          <Card variant="subtle" className="p-3.5">
+            <OverviewMetric label="最近失败" value={`${recentFailures(mistakes)}`} />
+          </Card>
+        </div>
 
         <Toolbar className="mt-5" label="错题筛选">
           <Select aria-label="筛选错题科目" className="!w-auto" value={mistakeSubjectFilter} onChange={(event) => applyListFilters({ subject: event.target.value, node: "all" })}>
@@ -445,39 +452,13 @@ export function MistakeLibrary({ userId, subjects, nodes, mistakes, initialSubje
             <EmptyState title={initialQuery ? "没有匹配的错题" : "还没有错题"} description={initialQuery ? "尝试修改搜索词或清除筛选。" : "这里会成为考纲节点“薄弱”和“掌握证明”的证据来源。"} />
           ) : null}
           {mistakes.length > 0 && filteredMistakes.length === 0 ? <EmptyState title="当前筛选没有结果" description="调整筛选条件，或清除筛选查看全部错题。" action={<Button type="button" size="sm" onClick={() => applyListFilters({ subject: "all", node: "all", cause: "all", review: "all" })}>清除筛选</Button>} /> : null}
-          {filteredMistakes.length > 0 ? <div className="divide-y divide-white/10 border-y border-white/10">{filteredMistakes.map((mistake) => (
-            <article key={mistake.id} className="min-w-0 py-4">
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs text-zinc-500">{mistake.subjectName}</p>
-                    <Badge tone={mistake.cause === "unknown" ? "warning" : "info"}>{labelCause(mistake.cause)}</Badge>
-                    {reviewSummary(mistake) ? <Badge tone="warning">复习 {reviewSummary(mistake)}</Badge> : null}
-                    {mistake.archivedAt ? <Badge>已归档</Badge> : null}
-                  </div>
-                  <h3 className="mt-2 break-words font-medium text-white">{mistake.title}</h3>
-                  <p className="mt-1 text-xs text-zinc-500">{mistake.syllabusNodeTitle ?? "未关联考纲"}</p>
-                </div>
-                <ListDetailLink
-                  href={`/knowledge/mistakes/${mistake.id}`}
-                  focusId={`mistake-${mistake.id}`}
-                  className="inline-flex h-10 shrink-0 items-center gap-1 self-end rounded-md px-2 text-sm text-teal-300 hover:bg-white/[0.05] sm:self-auto"
-                >
-                  打开详情
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </ListDetailLink>
-              </div>
-              <p className="mt-3 max-h-12 overflow-hidden whitespace-pre-wrap text-sm leading-6 text-zinc-300">
-                {mistake.questionText || "这条历史错题还没有完整题面。"}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
-                {mistake.source ? <span>来源：{mistake.source}</span> : null}
-                <span>作答 {mistake.attemptCount} 次{mistake.attempts[0] ? ` · 最近${labelResult(mistake.attempts[0].result)}` : ""}</span>
-                <span>更新：{formatDateTime(mistake.updatedAt)}</span>
-              </div>
-              {mistake.cause === "unknown" || !mistake.correctIdea?.trim() ? <p className="mt-3 text-xs text-amber-200">待补全错因和正确思路后才能进入快速复习。</p> : null}
-            </article>
-          ))}</div> : null}
+          {filteredMistakes.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredMistakes.map((mistake) => (
+                <MistakeCard key={mistake.id} mistake={mistake} />
+              ))}
+            </div>
+          ) : null}
         </div>
       </SectionSurface>
     </>

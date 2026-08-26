@@ -17,6 +17,7 @@ import type { ConfirmationActionDto, ConfirmationItemDto } from "@/lib/contracts
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
+import { PinnedActionBar } from "@/components/ui/pinned-action-bar";
 
 type Decision = "confirm" | "reject";
 
@@ -163,36 +164,90 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
   }
 
   return (
-    <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="confirmation-action-heading">
-      <div>
-        <h2 id="confirmation-action-heading" className="text-base font-medium text-zinc-100">处理这项确认</h2>
-        <p className="mt-1 text-sm leading-6 text-zinc-500">确认会冻结当前事实；驳回或作废不会静默删除来源记录。</p>
-      </div>
-      {action.kind === "knowledge_retest" ? (
-        <div className="af-action-cluster">
-          <Button type="button" variant="primary" size="lg" loading={pending === "confirm_retest"} disabled={pending !== null || !action.ready} onClick={() => void executeRetest("confirm_retest")}>
-            <CheckCircle2 size={16} aria-hidden="true" />确认复测并更新掌握
-          </Button>
-          <Button type="button" variant="danger" size="lg" disabled={pending !== null || !action.ready} onClick={() => setRejectOpen(true)}>
-            <XCircle size={16} aria-hidden="true" />作废复测
-          </Button>
-        </div>
-      ) : (
-        <div className="af-action-cluster">
-          <Button type="button" variant="primary" size="lg" loading={pending === "confirm"} disabled={pending !== null || (action.kind === "simulation" && !action.ready)} onClick={() => void execute("confirm")}>
-            <CheckCircle2 size={16} aria-hidden="true" />确认并冻结
-          </Button>
-          {action.kind === "periodic_report" || action.kind === "stage_adjustment" ? (
-            <Button type="button" variant="danger" size="lg" disabled={pending !== null} onClick={() => setRejectOpen(true)}>
-              <XCircle size={16} aria-hidden="true" />驳回
-            </Button>
-          ) : null}
-        </div>
-      )}
-      {action.kind === "simulation" && !action.ready ? <p className="text-sm text-amber-200">请先回到模拟考试详情补齐结果、复盘和个人反馈。</p> : null}
-      {action.kind === "knowledge_retest" && !action.ready ? <p className="text-sm text-amber-200">当前复测尚未提交完整结果，请先回到专项复测详情。</p> : null}
+    <div className="space-y-4">
       {notice ? <Alert tone="success">{notice}</Alert> : null}
       {error ? <Alert tone="danger">{error}</Alert> : null}
+      {action.kind === "simulation" && !action.ready ? (
+        <Alert tone="warning">请先回到模拟考试详情补齐结果、复盘和个人反馈。</Alert>
+      ) : null}
+      {action.kind === "knowledge_retest" && !action.ready ? (
+        <Alert tone="warning">当前复测尚未提交完整结果，请先回到专项复测详情。</Alert>
+      ) : null}
+
+      <PinnedActionBar
+        mode="sticky"
+        className="mt-6"
+        left={
+          <div className="flex flex-col gap-0.5 text-xs text-zinc-400">
+            <span className="font-medium text-zinc-200">
+              {action.kind === "knowledge_retest" ? "复测掌握度决策" : "确认将冻结当前事实"}
+            </span>
+            <span className="text-[11px] text-zinc-500">
+              {action.kind === "knowledge_retest"
+                ? "作废后不会更新掌握度状态"
+                : "驳回或作废不会静默删除来源记录"}
+            </span>
+          </div>
+        }
+        right={
+          <div className="flex flex-wrap items-center gap-2">
+            {action.kind === "knowledge_retest" ? (
+              <>
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="md"
+                  disabled={pending !== null || !action.ready}
+                  onClick={() => setRejectOpen(true)}
+                >
+                  <XCircle size={15} aria-hidden="true" />
+                  作废复测
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  className="shadow-[0_0_16px_rgba(45,212,191,0.35)]"
+                  loading={pending === "confirm_retest"}
+                  disabled={pending !== null || !action.ready}
+                  onClick={() => void executeRetest("confirm_retest")}
+                >
+                  <CheckCircle2 size={15} aria-hidden="true" />
+                  确认复测并更新掌握
+                </Button>
+              </>
+            ) : (
+              <>
+                {action.kind === "periodic_report" || action.kind === "stage_adjustment" ? (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="md"
+                    disabled={pending !== null}
+                    onClick={() => setRejectOpen(true)}
+                  >
+                    <XCircle size={15} aria-hidden="true" />
+                    驳回
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  className="shadow-[0_0_16px_rgba(45,212,191,0.35)]"
+                  loading={pending === "confirm"}
+                  disabled={pending !== null || (action.kind === "simulation" && !action.ready)}
+                  onClick={() => void execute("confirm")}
+                >
+                  <CheckCircle2 size={15} aria-hidden="true" />
+                  确认并冻结
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      />
+
       <Modal open={rejectOpen} title={action.kind === "knowledge_retest" ? "确认作废复测" : "确认不可逆驳回"} onClose={() => setRejectOpen(false)} allowEscape={false}>
         <div className="space-y-4 text-sm text-zinc-300">
           <p>{action.kind === "knowledge_retest" ? "作废后不会更新任何知识点掌握状态；如需检验，之后请重新安排复测。" : "驳回后该建议进入终态，不会自动修改正式计划或阶段。"}</p>
@@ -218,7 +273,7 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
         adoptLabel="采用服务端版本"
         mergeLabel="保留命令并重试"
       />
-    </section>
+    </div>
   );
 
   async function adoptConflictServerVersion() {

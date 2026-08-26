@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/overlays";
 import { Button } from "@/components/ui/button";
+import { Card, SectionCard } from "@/components/ui/card";
 import { ColorSwatches } from "@/components/ui/color-swatches";
 import { Input, Select } from "@/components/ui/field";
 import { classifyApiFailure } from "@/lib/client/api-errors";
@@ -214,16 +215,18 @@ export function WorkspaceSubjectManager(props: {
   }
 
   return (
-    <section className="space-y-5" aria-labelledby="subject-manager-title">
+    <SectionCard variant="master" className="space-y-5" aria-labelledby="subject-manager-title">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-3">
         <div>
           <h2 id="subject-manager-title" className="text-base font-semibold text-white">科目与分组</h2>
           <p className="mt-1 text-sm text-zinc-400">管理学习内容的归属。归档会保留历史记录，并暂停相关复习排期。</p>
         </div>
-        <span className="text-xs text-zinc-500">{activeSubjects.length} 个使用中</span>
+        <span className="text-xs font-medium text-teal-300 bg-teal-500/10 px-2.5 py-1 rounded-full border border-teal-500/20">
+          {activeSubjects.length} 个使用中
+        </span>
       </div>
 
-      <div className="divide-y divide-white/10 rounded-md border border-white/10">
+      <div className="divide-y divide-white/10 rounded-xl border border-white/10 bg-white/[0.01]">
         {activeSubjects.map((subject, index) => (
           <SubjectRow
             key={`${subject.id}:${subject.name}:${subject.color}:${subject.groupId ?? "none"}`}
@@ -247,22 +250,22 @@ export function WorkspaceSubjectManager(props: {
         {activeSubjects.length === 0 ? <p className="p-4 text-sm text-zinc-500">还没有可用科目。</p> : null}
       </div>
 
-      <div className="af-form-action-grid grid gap-3 border-l-2 border-teal-400/40 pl-4">
-        <label className="text-sm text-zinc-400">
+      <Card variant="subtle" className="af-form-action-grid grid gap-3 border-l-2 border-teal-400/40 p-4">
+        <label className="text-sm text-zinc-300 font-medium">
           新科目名称
           <Input
             value={newSubjectName}
             onChange={(event) => setNewSubjectName(event.target.value)}
             placeholder="例如：线性代数"
-            className="mt-1 bg-[#151a20] px-3 text-white"
+            className="mt-1.5"
           />
         </label>
-        <label className="text-sm text-zinc-400">
+        <label className="text-sm text-zinc-300 font-medium">
           分组
           <Select
             value={newSubjectGroupId}
             onChange={(event) => setNewSubjectGroupId(event.target.value)}
-            className="mt-1 bg-[#151a20] px-3 text-white"
+            className="mt-1.5"
           >
             <option value="">不分组</option>
             {activeGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
@@ -279,17 +282,19 @@ export function WorkspaceSubjectManager(props: {
         </Button>
         <ColorSwatches colors={subjectColors} value={newSubjectColor} onChange={setNewSubjectColor} label="科目颜色" className="af-form-span-main" />
         <details className="af-content-span-all text-sm text-zinc-500">
-          <summary className="inline-flex cursor-pointer items-center gap-1">高级选项 <ChevronDown size={14} aria-hidden="true" /></summary>
+          <summary className="inline-flex cursor-pointer items-center gap-1 hover:text-zinc-300 transition-colors">
+            高级选项 <ChevronDown size={14} aria-hidden="true" />
+          </summary>
           <label className="mt-2 block max-w-md">
             内部标识
             <Input
               value={newSubjectKey}
               onChange={(event) => setNewSubjectKey(event.target.value)}
-              className="mt-1 h-9 w-full rounded-md border border-white/10 bg-[#151a20] px-3 text-zinc-300"
+              className="mt-1 h-9 w-full text-sm"
             />
           </label>
         </details>
-      </div>
+      </Card>
 
       <GroupManager
         groups={props.groups}
@@ -303,8 +308,10 @@ export function WorkspaceSubjectManager(props: {
       />
 
       {archivedSubjects.length > 0 ? (
-        <details className="rounded-md border border-white/10 p-3">
-          <summary className="cursor-pointer text-sm text-zinc-400">已归档科目（{archivedSubjects.length}）</summary>
+        <details className="rounded-xl border border-white/10 bg-white/[0.01] p-3.5">
+          <summary className="cursor-pointer text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
+            已归档科目（{archivedSubjects.length}）
+          </summary>
           <ul className="mt-3 space-y-2">
             {archivedSubjects.map((subject) => (
               <li key={subject.id} className="flex items-center justify-between gap-3 text-sm text-zinc-500">
@@ -312,10 +319,11 @@ export function WorkspaceSubjectManager(props: {
                 <Button
                   type="button"
                   variant="secondary"
+                  size="sm"
                   disabled={pending}
                   onClick={() => void updateSubject(subject, { archived: false }, "科目已恢复。")}
                 >
-                  <RotateCcw size={15} aria-hidden="true" />恢复
+                  <RotateCcw size={14} aria-hidden="true" />恢复
                 </Button>
               </li>
             ))}
@@ -346,6 +354,6 @@ export function WorkspaceSubjectManager(props: {
           </div>
         </div>
       </Modal>
-    </section>
+    </SectionCard>
   );
 }

@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { Checkbox } from "@/components/ui/field";
 import { SectionHeader } from "@/components/ui/page";
@@ -29,11 +30,13 @@ export function SimulationRemediationSection(props: SimulationRemediationSection
     return (
       <Alert
         tone={props.readyForConfirmation ? "info" : "warning"}
-        title={props.readyForConfirmation
-          ? "结果已完整，等待确认中心处理"
-          : props.hasStructuredResults
-            ? "下一步：补齐并保存复盘"
-            : "下一步：录入分科成绩"}
+        title={
+          props.readyForConfirmation
+            ? "结果已完整，等待确认中心处理"
+            : props.hasStructuredResults
+              ? "下一步：补齐并保存复盘"
+              : "下一步：录入分科成绩"
+        }
       >
         {props.readyForConfirmation
           ? "结果、失分、个人反馈和复盘已保存。请进入确认中心完成最终确认，确认后考试事实才会冻结。"
@@ -46,53 +49,79 @@ export function SimulationRemediationSection(props: SimulationRemediationSection
 
   const pending = props.remediations.filter((item) => !item.inboxItemId);
   return (
-    <section className="space-y-4 border-b border-white/10 pb-5">
+    <Card variant="master" className="p-5 sm:p-6 space-y-4">
       <SectionHeader
         title="选择补救动作"
         description="考试事实已经冻结。只选择需要进入计划的补救，系统不会自动创建正式任务。"
         meta={<Badge tone="success">事实已确认</Badge>}
       />
       {props.remediations.length > 0 ? (
-        <div className="af-content-grid-two grid gap-2">
-          {props.remediations.map((item) => (
-            <label key={item.originKey} className="flex min-w-0 items-start gap-3 border border-white/10 p-3 text-sm hover:border-white/20">
-              <Checkbox
-                className="mt-1"
-                disabled={Boolean(item.inboxItemId)}
-                checked={Boolean(item.inboxItemId) || props.selectedOriginKeys.includes(item.originKey)}
-                onChange={(event) => props.onSelectionChange((keys) => event.target.checked
-                  ? Array.from(new Set([...keys, item.originKey]))
-                  : keys.filter((key) => key !== item.originKey))}
-              />
-              <span className="min-w-0">
-                <span className="flex flex-wrap items-center gap-2 text-white">
-                  {item.subjectName} · {simulationLossReasons.find((reason) => reason.value === item.reason)?.label}
-                  {item.inboxStatus ? (
-                    <Badge tone={item.inboxStatus === "CONVERTED" ? "success" : item.inboxStatus === "DISMISSED" ? "neutral" : "info"}>
-                      {remediationInboxStatusLabel(item.inboxStatus)}
-                    </Badge>
-                  ) : null}
+        <div className="af-content-grid-two grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {props.remediations.map((item) => {
+            const isChecked = Boolean(item.inboxItemId) || props.selectedOriginKeys.includes(item.originKey);
+            const isDisabled = Boolean(item.inboxItemId);
+            return (
+              <label
+                key={item.originKey}
+                className={`group flex min-w-0 items-start gap-3 rounded-xl border p-3.5 transition-all ${
+                  isDisabled
+                    ? "border-white/5 bg-white/[0.01] opacity-75 cursor-default"
+                    : isChecked
+                      ? "cursor-pointer border-teal-400/40 bg-teal-500/[0.06]"
+                      : "cursor-pointer border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
+                }`}
+              >
+                <Checkbox
+                  className="mt-0.5"
+                  disabled={isDisabled}
+                  checked={isChecked}
+                  onChange={(event) =>
+                    props.onSelectionChange((keys) =>
+                      event.target.checked
+                        ? Array.from(new Set([...keys, item.originKey]))
+                        : keys.filter((key) => key !== item.originKey),
+                    )
+                  }
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-2 font-medium text-white">
+                    <span>
+                      {item.subjectName} · {simulationLossReasons.find((reason) => reason.value === item.reason)?.label}
+                    </span>
+                    {item.inboxStatus ? (
+                      <Badge tone={item.inboxStatus === "CONVERTED" ? "success" : item.inboxStatus === "DISMISSED" ? "neutral" : "info"}>
+                        {remediationInboxStatusLabel(item.inboxStatus)}
+                      </Badge>
+                    ) : null}
+                  </span>
+                  <span className="mt-1 block text-xs text-zinc-400">
+                    失分：{item.lostScore} 分{item.syllabusNodeTitle ? ` · ${item.syllabusNodeTitle}` : ""}
+                  </span>
                 </span>
-                <span className="mt-1 block text-xs text-zinc-500">
-                  {item.lostScore} 分{item.syllabusNodeTitle ? ` · ${item.syllabusNodeTitle}` : ""}
-                </span>
-              </span>
-            </label>
-          ))}
+              </label>
+            );
+          })}
         </div>
       ) : (
-        <Alert tone="success" title="没有待安排的结构化补救">考试事实已完成，可回到阶段概览判断是否需要调整下一阶段。</Alert>
+        <Alert tone="success" title="没有待安排的结构化补救">
+          考试事实已完成，可回到阶段概览判断是否需要调整下一阶段。
+        </Alert>
       )}
       <RemediationActions {...props} pendingCount={pending.length} />
-    </section>
+    </Card>
   );
 }
 
 function SimulationLinks({ returnTo, primaryLabel }: { returnTo: string; primaryLabel: string }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary" size="sm">{primaryLabel}<ArrowRight size={15} /></ButtonLink>
-      <ButtonLink href={withReturnTo("/roadmap/stages", returnTo)} variant="secondary" size="sm">重新评估阶段</ButtonLink>
+      <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary" size="sm">
+        {primaryLabel}
+        <ArrowRight size={15} aria-hidden="true" />
+      </ButtonLink>
+      <ButtonLink href={withReturnTo("/roadmap/stages", returnTo)} variant="secondary" size="sm">
+        重新评估阶段
+      </ButtonLink>
     </div>
   );
 }
@@ -107,9 +136,23 @@ function RemediationActions(props: SimulationRemediationSectionProps & { pending
   }
   if (props.pendingCount > 0) {
     return (
-      <div className="af-action-cluster">
-        <Button type="button" variant="primary" size="lg" loading={props.busy} loadingLabel="送入中..." disabled={props.selectedOriginKeys.length === 0} onClick={props.onAdd}>将选中补救送入收件箱</Button>
-        {!props.embeddedInWorkbench ? <ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="ghost" size="lg">返回阶段总览</ButtonLink> : null}
+      <div className="af-action-cluster pt-2 flex flex-wrap gap-3">
+        <Button
+          type="button"
+          variant="primary"
+          size="lg"
+          loading={props.busy}
+          loadingLabel="送入中..."
+          disabled={props.selectedOriginKeys.length === 0}
+          onClick={props.onAdd}
+        >
+          将选中补救送入收件箱
+        </Button>
+        {!props.embeddedInWorkbench ? (
+          <ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="ghost" size="lg">
+            返回阶段总览
+          </ButtonLink>
+        ) : null}
       </div>
     );
   }
@@ -120,5 +163,9 @@ function RemediationActions(props: SimulationRemediationSectionProps & { pending
       </Alert>
     );
   }
-  return <ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="ghost" size="lg">返回阶段总览</ButtonLink>;
+  return (
+    <ButtonLink href={withReturnTo("/roadmap/stages", props.returnTo)} variant="ghost" size="lg">
+      返回阶段总览
+    </ButtonLink>
+  );
 }

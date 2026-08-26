@@ -8,11 +8,12 @@ import { useMemo, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
 import { Button, ButtonLink, IconButton } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Select } from "@/components/ui/field";
 import { Badge, EmptyState } from "@/components/ui/feedback";
 import { Metric } from "@/components/ui/metric";
-import { PageHeader, SectionHeader } from "@/components/ui/page";
+import { PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import {
   formatDate,
   formatDateKey,
@@ -61,54 +62,63 @@ export function ReviewScheduleQueue(props: {
         description="一次只处理一个到期对象，确认后继续下一项。"
       />
 
-      <section className="af-review-summary-grid grid gap-4 border-b border-white/10 pb-6">
-        <div className="min-w-0">
-          <div className="flex items-end justify-between gap-3 text-sm"><span className="text-zinc-400">今日进度（全部）</span><span className="text-zinc-200">{props.summary.completedTodayCount} / {totalToday}</span></div>
-          <div className="mt-2 h-2 overflow-hidden rounded bg-white/10" role="progressbar" aria-label="今日复习进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
-            <div className="h-full bg-teal-400" style={{ width: `${progress}%` }} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card variant="subtle" className="p-3.5">
+          <div className="flex items-end justify-between gap-3 text-xs text-zinc-400">
+            <span>今日进度（全部）</span>
+            <span className="text-zinc-200">{props.summary.completedTodayCount} / {totalToday}</span>
           </div>
-        </div>
-        <dl className="contents">
+          <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label="今日复习进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+            <div className="h-full rounded-full bg-teal-400 transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+        </Card>
+        <Card variant="subtle" className="p-3.5">
           <Metric
             label="已逾期"
             value={<span className={`font-normal ${props.summary.overdueCount ? "text-amber-200" : "text-white"}`}>{props.summary.overdueCount} 项</span>}
             valueSize="lg"
-            className="border-l border-white/10 !p-0 !pl-3"
+            layout="compact"
           />
+        </Card>
+        <Card variant="subtle" className="p-3.5">
           <Metric
             label="今日到期"
             value={<span className="font-normal text-white">{props.summary.dueTodayCount} 项</span>}
             valueSize="lg"
-            className="border-l border-white/10 !p-0 !pl-3"
+            layout="compact"
           />
+        </Card>
+        <Card variant="subtle" className="p-3.5">
           <Metric
             label="预计剩余（每项 5 分钟）"
             value={<span className="font-normal text-white">{filteredDueItems.length * 5} 分钟</span>}
             valueSize="lg"
-            className="border-l border-white/10 !p-0 !pl-3"
+            layout="compact"
           />
-        </dl>
-      </section>
+        </Card>
+      </div>
 
-      <section className="flex flex-wrap items-end gap-3 border-b border-white/10 pb-5" aria-label="复习队列筛选">
-        <label className="min-w-0 flex-1 text-xs text-zinc-500 sm:flex-none">对象<Select aria-label="复习对象筛选" className="mt-1 !px-2 sm:w-auto" value={targetFilter} onChange={(event) => setTargetFilter(event.target.value as "all" | "MISTAKE")}><option value="all">全部对象</option><option value="MISTAKE">仅错题</option></Select></label>
-        <label className="min-w-0 flex-1 text-xs text-zinc-500 sm:flex-none">最近结果<Select aria-label="复习结果筛选" className="mt-1 !px-2 sm:w-auto" value={resultFilter} onChange={(event) => setResultFilter(event.target.value as "all" | "FAILED" | "PARTIAL")}><option value="all">全部结果</option><option value="FAILED">最近未通过</option><option value="PARTIAL">最近部分掌握</option></Select></label>
+      <Toolbar label="复习队列筛选">
+        <label className="flex items-center gap-2 text-xs text-zinc-400">对象<Select aria-label="复习对象筛选" className="!h-9 !w-auto rounded-xl bg-[#0b0e12] px-2 text-xs text-zinc-200" value={targetFilter} onChange={(event) => setTargetFilter(event.target.value as "all" | "MISTAKE")}><option value="all">全部对象</option><option value="MISTAKE">仅错题</option></Select></label>
+        <label className="flex items-center gap-2 text-xs text-zinc-400">最近结果<Select aria-label="复习结果筛选" className="!h-9 !w-auto rounded-xl bg-[#0b0e12] px-2 text-xs text-zinc-200" value={resultFilter} onChange={(event) => setResultFilter(event.target.value as "all" | "FAILED" | "PARTIAL")}><option value="all">全部结果</option><option value="FAILED">最近未通过</option><option value="PARTIAL">最近部分掌握</option></Select></label>
         <p className="text-xs text-zinc-500">筛选只改变当前队列视图，不会改变排期。</p>
-      </section>
+      </Toolbar>
 
       {next ? (
-        <section className="af-content-grid-two grid gap-4 border-b border-white/10 pb-6">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-teal-300">下一项</p>
-            <h2 className="mt-1 truncate text-xl font-medium text-white">{next.target.title}</h2>
-            <p className="mt-1 text-sm text-zinc-400">{next.target.subtitle} · {dueLabel(next.schedule.dueDate)}</p>
+        <Card variant="accent" className="p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wider text-teal-300">下一项</p>
+              <h2 className="mt-1.5 truncate text-xl font-semibold text-white">{next.target.title}</h2>
+              <p className="mt-1 text-xs text-zinc-400">{next.target.subtitle} · {dueLabel(next.schedule.dueDate)}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <ButtonLink href={withReturnTo(next.target.canonicalHref, returnTo)} variant="ghost" size="sm"><ExternalLink size={15} aria-hidden />查看对象</ButtonLink>
+              <ButtonLink href={quickReviewHref(next.schedule.id)} variant="primary"><Play size={15} aria-hidden />开始复习</ButtonLink>
+              <QuickDeferActions item={next} />
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <ButtonLink href={withReturnTo(next.target.canonicalHref, returnTo)} variant="ghost"><ExternalLink size={15} aria-hidden />查看对象</ButtonLink>
-            <ButtonLink href={quickReviewHref(next.schedule.id)} variant="primary"><Play size={15} aria-hidden />开始复习</ButtonLink>
-            <QuickDeferActions item={next} />
-          </div>
-        </section>
+        </Card>
       ) : (
         <EmptyState title="当前复习已清空" description="没有到期且可执行的复习对象。可以查看近期结果，或回到知识概览继续整理证据。" action={<ButtonLink href="/knowledge" variant="secondary">返回知识概览</ButtonLink>} />
       )}
@@ -139,37 +149,70 @@ export function ReviewScheduleQueue(props: {
 
 function QueueList(props: { empty: string; children: React.ReactNode }) {
   const hasItems = Array.isArray(props.children) ? props.children.length > 0 : Boolean(props.children);
-  return (
-    <ul className="divide-y divide-white/10 border-y border-white/10">
-      {hasItems ? props.children : <li className="px-1 py-8 text-sm text-zinc-500">{props.empty}</li>}
-    </ul>
+  return hasItems ? (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {props.children}
+    </div>
+  ) : (
+    <EmptyState title="队列为空" description={props.empty} />
   );
 }
 
 function ScheduleRow({ item, paused = false }: { item: ReviewQueueItemDto; paused?: boolean }) {
   const { schedule, target } = item;
   return (
-    <li className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <Card variant="master" className="flex flex-col justify-between p-4 sm:p-5 transition-all hover:border-white/20">
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2"><p className="truncate font-medium text-zinc-100">{target.title}</p>{paused ? <Badge>已暂停</Badge> : isOverdue(schedule.dueDate) ? <Badge tone="warning">已逾期</Badge> : isToday(schedule.dueDate) ? <Badge tone="info">今日到期</Badge> : <Badge>待复习</Badge>}</div>
-        <p className="mt-1 text-xs text-zinc-500">{target.subtitle} · {paused ? pauseReason(schedule.pausedReason) : dueLabel(schedule.dueDate)} · 连续通过 {schedule.consecutivePassCount} 次</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {paused ? <Badge>已暂停</Badge> : isOverdue(schedule.dueDate) ? <Badge tone="warning">已逾期</Badge> : isToday(schedule.dueDate) ? <Badge tone="info">今日到期</Badge> : <Badge>待复习</Badge>}
+        </div>
+        <h3 className="mt-2 truncate text-base font-semibold text-white">{target.title}</h3>
+        <p className="mt-1 text-xs text-zinc-400">{target.subtitle} · {paused ? pauseReason(schedule.pausedReason) : dueLabel(schedule.dueDate)} · 连续通过 {schedule.consecutivePassCount} 次</p>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <Link href={withReturnTo(target.canonicalHref, returnTo)} className="grid size-9 place-items-center rounded-md text-zinc-400 hover:bg-white/[0.06] hover:text-white" title="查看对象" aria-label={`查看 ${target.title}`}><ExternalLink size={16} aria-hidden /></Link>
-        {!paused ? <ButtonLink href={quickReviewHref(schedule.id)} variant="primary" size="sm"><Play size={14} aria-hidden />开始</ButtonLink> : null}
-        {!paused ? <QuickDeferActions item={item} /> : null}
-        <ListDetailLink href={detailHref(schedule.id)} focusId={`review-detail-${schedule.id}`} className="grid size-9 place-items-center rounded-md text-teal-300 hover:bg-white/[0.06]"><span className="sr-only">查看 {target.title} 的排期详情</span><ArrowRight size={16} aria-hidden /></ListDetailLink>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-3">
+        <div className="flex items-center gap-1.5">
+          <Link href={withReturnTo(target.canonicalHref, returnTo)} className="grid size-8 place-items-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-white" title="查看对象" aria-label={`查看 ${target.title}`}><ExternalLink size={15} aria-hidden /></Link>
+          <ListDetailLink href={detailHref(schedule.id)} focusId={`review-detail-${schedule.id}`} className="grid size-8 place-items-center rounded-lg text-teal-300 hover:bg-white/[0.06]"><span className="sr-only">查看 {target.title} 的排期详情</span><ArrowRight size={15} aria-hidden /></ListDetailLink>
+        </div>
+        <div className="flex items-center gap-2">
+          {!paused ? <QuickDeferActions item={item} /> : null}
+          {!paused ? <ButtonLink href={quickReviewHref(schedule.id)} variant="primary" size="sm"><Play size={14} aria-hidden />开始</ButtonLink> : null}
+        </div>
       </div>
-    </li>
+    </Card>
   );
 }
 
 function BridgedRow({ item }: { item: BridgedReviewScheduleDto }) {
-  return <li className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="truncate font-medium text-zinc-100">{item.target.title}</p><p className="mt-1 text-xs text-zinc-500">{item.target.subtitle} · 已转为正式任务，结果由任务闭环确认</p><p className="mt-2 text-sm text-zinc-300">{item.canonicalTask.title} · {formatTaskStatus(item.canonicalTask.status)}</p></div><ButtonLink href={taskHref(item.canonicalTask.href)} variant="secondary" size="sm">打开任务<ArrowRight size={14} aria-hidden /></ButtonLink></li>;
+  return (
+    <Card variant="master" className="flex flex-col justify-between p-4 sm:p-5">
+      <div className="min-w-0">
+        <h3 className="truncate text-base font-semibold text-white">{item.target.title}</h3>
+        <p className="mt-1 text-xs text-zinc-400">{item.target.subtitle} · 已转为正式任务，结果由任务闭环确认</p>
+        <p className="mt-2 text-sm text-zinc-300">{item.canonicalTask.title} · {formatTaskStatus(item.canonicalTask.status)}</p>
+      </div>
+      <div className="mt-4 flex justify-end border-t border-white/5 pt-3">
+        <ButtonLink href={taskHref(item.canonicalTask.href)} variant="secondary" size="sm">打开任务<ArrowRight size={14} aria-hidden /></ButtonLink>
+      </div>
+    </Card>
+  );
 }
 
 function RecentRow({ event }: { event: RecentReviewEventDto }) {
-  return <li className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate font-medium text-zinc-100">{event.target.title}</p><Badge tone={event.result === "PASSED" ? "success" : event.result === "PARTIAL" ? "warning" : "danger"}>{resultLabel(event.result)}</Badge></div><p className="mt-1 text-xs text-zinc-500">{event.target.subtitle} · {formatDuration(event.durationSeconds)} · 下次 {formatDate(event.nextDueDate)}</p></div><ButtonLink href={detailHref(event.schedule.id)} variant="ghost" size="sm"><Clock3 size={14} aria-hidden />查看历史</ButtonLink></li>;
+  return (
+    <Card variant="master" className="flex flex-col justify-between p-4 sm:p-5">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={event.result === "PASSED" ? "success" : event.result === "PARTIAL" ? "warning" : "danger"}>{resultLabel(event.result)}</Badge>
+        </div>
+        <h3 className="mt-2 truncate text-base font-semibold text-white">{event.target.title}</h3>
+        <p className="mt-1 text-xs text-zinc-400">{event.target.subtitle} · {formatDuration(event.durationSeconds)} · 下次 {formatDate(event.nextDueDate)}</p>
+      </div>
+      <div className="mt-4 flex justify-end border-t border-white/5 pt-3">
+        <ButtonLink href={detailHref(event.schedule.id)} variant="ghost" size="sm"><Clock3 size={14} aria-hidden />查看历史</ButtonLink>
+      </div>
+    </Card>
+  );
 }
 
 function QuickDeferActions({ item }: { item: ReviewQueueItemDto }) {

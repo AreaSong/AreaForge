@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/field";
 import type { StudyResourceDto, StudyResourceEditorOptionsDto } from "@/lib/contracts";
 import { formatBytes } from "@/lib/formatters";
@@ -19,8 +20,8 @@ export function ResourceFacts(props: {
   const subject = props.options.subjects.find((option) => option.id === props.resource.subjectId)?.name ?? "未分科";
   return (
     <>
-      <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="resource-facts-heading">
-        <h2 id="resource-facts-heading" className="text-lg font-medium text-white">资料事实</h2>
+      <Card variant="master" className="space-y-4 p-5 sm:p-6" aria-labelledby="resource-facts-heading">
+        <h2 id="resource-facts-heading" className="text-lg font-semibold text-white">资料事实</h2>
         <dl className="af-detail-facts-grid grid min-w-0 gap-x-6 gap-y-4 text-sm">
           <Fact label="来源" value={sourceTypeLabel(props.resource.sourceType)} />
           <Fact label="整理状态" value={organizeStatusLabel(props.resource.organizeStatus)} />
@@ -33,16 +34,16 @@ export function ResourceFacts(props: {
           {props.resource.sourceType === "FILE" ? <Fact label="文件大小" value={formatBytes(props.resource.sizeBytes)} /> : null}
           <Fact label="标签" value={props.resource.tags.join("、") || "无标签"} />
         </dl>
-      </section>
-      <section className="space-y-4 border-t border-white/10 pt-5" aria-labelledby="resource-associations-heading">
-        <h2 id="resource-associations-heading" className="text-lg font-medium text-white">学习关联</h2>
+      </Card>
+      <Card variant="subtle" className="space-y-4 p-5 sm:p-6" aria-labelledby="resource-associations-heading">
+        <h2 id="resource-associations-heading" className="text-lg font-semibold text-white">学习关联</h2>
         <div className="af-content-grid-two grid gap-4">
           <AssociationLinks label="任务" ids={props.resource.taskIds} options={props.options.tasks} hrefFor={(id) => withReturnTo(`/roadmap/allocation/tasks/${id}`, props.objectHref)} />
           <AssociationLinks label="知识卡片" ids={props.resource.noteIds} options={props.options.notes} hrefFor={(id) => withReturnTo(`/knowledge/cards/${id}`, props.objectHref)} />
           <AssociationLinks label="错题" ids={props.resource.mistakeIds} options={props.options.mistakes} hrefFor={(id) => withReturnTo(`/knowledge/mistakes/${id}`, props.objectHref)} />
           <AssociationLinks label="考纲节点" ids={props.resource.syllabusNodeIds} options={props.options.syllabusNodes} hrefFor={(id) => withReturnTo(`/knowledge/syllabi/${id}`, props.objectHref)} />
         </div>
-      </section>
+      </Card>
     </>
   );
 }

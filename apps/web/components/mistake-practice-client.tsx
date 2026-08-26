@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Checkbox, Radio, Select, Textarea } from "@/components/ui/field";
 import { Alert, Badge, EmptyState } from "@/components/ui/feedback";
 import { PageHeader, SectionHeader } from "@/components/ui/page";
@@ -282,13 +283,13 @@ export function MistakePracticeClient(props: {
       description="到期错题优先，再用最近失败题填满本轮。练习结果会写入作答历史，但不会自动改动复习排期。"
       back={<Link href="/knowledge/mistakes" className="inline-flex items-center gap-1 text-sm text-teal-300 hover:underline"><ArrowLeft size={15} aria-hidden />返回错题</Link>}
     />
-    <section className="af-metric-grid-three grid gap-4 border-b border-white/10 pb-6">
+    <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <Stat label="可练习错题" value={`${readyCount} 题`} />
       <Stat label="当前筛选" value={`${candidates.length} 题`} />
       <Stat label="排序规则" value="到期 → 失败 → 其他" />
     </section>
     <section className="af-content-grid-sidebar grid min-w-0 gap-6">
-      <div className="space-y-4">
+      <Card variant="master" className="space-y-5 p-5 sm:p-6">
         <SectionHeader title="设置本轮练习" description="范围只影响本轮抽题，不会改变错题本或排期。" />
         <div className="af-content-grid-two grid gap-3">
           <label className="text-sm text-zinc-400">科目<Select aria-label="练习科目" className={inputClass} value={subjectId} onChange={(event) => { setSubjectId(event.target.value); setSyllabusNodeId(""); }}><option value="">全部科目</option>{props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</Select></label>
@@ -297,15 +298,20 @@ export function MistakePracticeClient(props: {
           <label className="text-sm text-zinc-400">抽题范围<Select aria-label="抽题范围" className={inputClass} value={pool} onChange={(event) => setPool(event.target.value as MistakePracticePool)}><option value="mixed">混合优先</option><option value="failed">最近失败</option><option value="due">已到期</option><option value="unscheduled">未设置复习</option></Select></label>
           <label className="text-sm text-zinc-400">本轮题量<Select aria-label="本轮题量" className={inputClass} value={count} onChange={(event) => setCount(event.target.value)}><option value="5">5 题</option><option value="10">10 题</option><option value="50">全部（最多 50 题）</option></Select></label>
         </div>
-        {candidates.length === 0 ? <EmptyState title="当前没有可练习错题" description="请补全历史错题，或调整练习范围。" /> : <div className="rounded-md border border-white/10 bg-[#101419] p-4"><p className="text-sm text-zinc-300">本轮将练习 {Math.min(candidates.length, Number(count))} 题。</p><div className="mt-3 flex flex-wrap gap-2">{candidates.slice(0, 5).map((mistake) => <Badge key={mistake.id} tone={isDue(mistake) ? "warning" : hasRecentFailure(mistake) ? "danger" : "info"}>{mistake.title}</Badge>)}{candidates.length > 5 ? <Badge>还有 {candidates.length - 5} 题</Badge> : null}</div></div>}
+        {candidates.length === 0 ? <EmptyState title="当前没有可练习错题" description="请补全历史错题，或调整练习范围。" /> : <div className="rounded-xl border border-white/10 bg-[#151a20]/80 p-4"><p className="text-sm text-zinc-300">本轮将练习 {Math.min(candidates.length, Number(count))} 题。</p><div className="mt-3 flex flex-wrap gap-2">{candidates.slice(0, 5).map((mistake) => <Badge key={mistake.id} tone={isDue(mistake) ? "warning" : hasRecentFailure(mistake) ? "danger" : "info"}>{mistake.title}</Badge>)}{candidates.length > 5 ? <Badge>还有 {candidates.length - 5} 题</Badge> : null}</div></div>}
         {error ? <Alert tone="danger">{error}</Alert> : null}
         {notice ? <Alert tone="success">{notice}</Alert> : null}
         <Button type="button" variant="primary" size="lg" disabled={candidates.length === 0} onClick={startPractice}><Play size={16} aria-hidden />开始本轮练习</Button>
-      </div>
-      <aside className="af-responsive-aside space-y-3 text-sm text-zinc-400">
-        <p className="text-xs font-medium text-teal-300">本轮规则</p>
-        <ul className="space-y-2 leading-6"><li>先完成独立作答，再揭示答案。</li><li>每题结果单独保存，可中途关闭后从错题详情继续。</li><li>练习不会自动调整排期。</li><li>结束后可打开失败题详情，确认下一次复习日期。</li></ul>
-      </aside>
+      </Card>
+      <Card variant="subtle" className="af-responsive-aside space-y-3 p-5 text-sm text-zinc-400">
+        <p className="text-xs font-semibold uppercase tracking-wider text-teal-300">本轮规则</p>
+        <ul className="space-y-2.5 leading-6">
+          <li className="flex items-start gap-2"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-teal-400/80" /><span>先完成独立作答，再揭示答案。</span></li>
+          <li className="flex items-start gap-2"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-teal-400/80" /><span>每题结果单独保存，可中途关闭后从错题详情继续。</span></li>
+          <li className="flex items-start gap-2"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-teal-400/80" /><span>练习不会自动调整排期。</span></li>
+          <li className="flex items-start gap-2"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-teal-400/80" /><span>结束后可打开失败题详情，确认下一次复习日期。</span></li>
+        </ul>
+      </Card>
     </section>
   </div>;
 }
@@ -335,16 +341,49 @@ function PracticeQuestion(props: {
   const { current } = props;
   return <div className="mx-auto w-full max-w-4xl space-y-6">
     <PageHeader eyebrow={`错题练习 · ${props.index + 1} / ${props.total}`} title={current.title} description={`${current.subjectName} · ${current.syllabusNodeTitle ?? "未关联考纲"}`} back={<Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="inline-flex !h-auto items-center gap-1 !border-0 !p-0 text-sm text-teal-300 hover:underline"><ArrowLeft size={15} aria-hidden />退出本轮</Button>} />
-    <div className="h-2 overflow-hidden rounded bg-white/10" role="progressbar" aria-label="练习进度" aria-valuemin={0} aria-valuemax={props.total} aria-valuenow={props.index + 1}><div className="h-full bg-teal-400" style={{ width: `${((props.index + 1) / props.total) * 100}%` }} /></div>
-    <section className="space-y-4 rounded-lg border border-white/10 bg-[#101419] p-5 sm:p-7">
-      <div><p className="text-xs text-zinc-500">题面</p><div className="mt-2 whitespace-pre-wrap text-base leading-8 text-zinc-100">{current.questionText}</div></div>
+    <div className="h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label="练习进度" aria-valuemin={0} aria-valuemax={props.total} aria-valuenow={props.index + 1}><div className="h-full rounded-full bg-teal-400 transition-all duration-300" style={{ width: `${((props.index + 1) / props.total) * 100}%` }} /></div>
+    <Card variant="master" className="space-y-5 p-6 sm:p-7">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-teal-300">题面</p>
+        <div className="mt-2 whitespace-pre-wrap text-base leading-8 text-zinc-100">{current.questionText}</div>
+      </div>
       {!props.revealed ? <>
-        <fieldset className="flex flex-wrap gap-2 border-t border-white/10 pt-4"><legend className="mb-2 text-sm text-zinc-400">作答方式</legend>{([['TEXT', '文字作答'], ['PAPER_OR_ORAL', '纸上 / 口头']] as const).map(([value, label]) => <label key={value} className={`flex h-10 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm ${props.answerMode === value ? "border-teal-300/50 bg-teal-300/10 text-teal-100" : "border-white/10 text-zinc-300"}`}><Radio name="practice-answer-mode" value={value} checked={props.answerMode === value} onChange={() => props.onAnswerModeChange(value)} />{label}</label>)}</fieldset>
-        {props.answerMode === "TEXT" ? <Textarea aria-label="练习作答" controlHeight="lg" className="leading-6" value={props.answerText} onChange={(event) => props.onAnswerTextChange(event.target.value)} placeholder="写下答案或关键步骤" /> : <label className="flex items-center gap-3 rounded-md border border-white/10 p-4 text-sm text-zinc-200"><Checkbox checked={props.paperCompleted} onChange={(event) => props.onPaperCompletedChange(event.target.checked)} />我已在纸上或口头完成独立作答</label>}
+        <fieldset className="flex flex-wrap gap-2 border-t border-white/10 pt-4"><legend className="mb-2 text-sm text-zinc-400">作答方式</legend>{([['TEXT', '文字作答'], ['PAPER_OR_ORAL', '纸上 / 口头']] as const).map(([value, label]) => <label key={value} className={`flex h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors ${props.answerMode === value ? "border-teal-400/50 bg-teal-400/10 text-teal-100 shadow-[0_0_12px_rgba(45,212,191,0.1)]" : "border-white/10 bg-white/[0.02] text-zinc-300 hover:bg-white/[0.05]"}`}><Radio name="practice-answer-mode" value={value} checked={props.answerMode === value} onChange={() => props.onAnswerModeChange(value)} />{label}</label>)}</fieldset>
+        {props.answerMode === "TEXT" ? <Textarea aria-label="练习作答" controlHeight="lg" className="rounded-xl leading-6" value={props.answerText} onChange={(event) => props.onAnswerTextChange(event.target.value)} placeholder="写下答案或关键步骤" /> : <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-200"><Checkbox checked={props.paperCompleted} onChange={(event) => props.onPaperCompletedChange(event.target.checked)} />我已在纸上或口头完成独立作答</label>}
         <Button type="button" variant="primary" disabled={props.answerMode === "TEXT" ? !props.answerText.trim() : !props.paperCompleted} onClick={props.onReveal}><Eye size={16} aria-hidden />查看答案与思路</Button>
-      </> : <div className="space-y-4 border-t border-white/10 pt-4"><div className="af-content-grid-two grid gap-4"><div><p className="text-xs text-zinc-500">标准答案</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{current.correctAnswer || "未记录标准答案"}</p></div><div><p className="text-xs text-zinc-500">正确思路</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{current.correctIdea}</p></div></div><fieldset className="flex flex-wrap gap-2"><legend className="mb-2 w-full text-sm text-zinc-400">本次结果</legend>{([['PASSED', '通过'], ['PARTIAL', '部分掌握'], ['FAILED', '未通过']] as const).map(([value, label]) => <label key={value} className={`flex h-10 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm ${props.result === value ? "border-teal-300/50 bg-teal-300/10 text-teal-100" : "border-white/10 text-zinc-300"}`}><Radio name="practice-result" value={value} checked={props.result === value} onChange={() => props.onResultChange(value)} />{label}</label>)}</fieldset><Textarea aria-label="练习复盘备注" controlHeight="md" className="leading-6" value={props.note} onChange={(event) => props.onNoteChange(event.target.value)} placeholder="记录卡点、遗漏或下次注意事项" /><div className="flex flex-wrap gap-2"><Button type="button" variant="primary" disabled={props.pending} onClick={props.onSave}><Save size={16} aria-hidden />{props.pending ? "保存中" : props.index + 1 === props.total ? "保存并完成练习" : "保存并进入下一题"}</Button><Button type="button" variant="ghost" onClick={props.onBackToAnswer}><RotateCcw size={15} aria-hidden />重新核对作答</Button></div></div>}
+      </> : <div className="space-y-5 border-t border-white/10 pt-4">
+        <div className="af-content-grid-two grid gap-4">
+          <Card variant="subtle" className="p-4">
+            <p className="text-xs font-semibold text-zinc-400">标准答案</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-100">{current.correctAnswer || "未记录标准答案"}</p>
+          </Card>
+          <Card variant="subtle" className="p-4">
+            <p className="text-xs font-semibold text-teal-300">正确思路</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-100">{current.correctIdea}</p>
+          </Card>
+        </div>
+        <fieldset className="flex flex-wrap gap-2">
+          <legend className="mb-2 w-full text-sm text-zinc-400">本次结果</legend>
+          {([['PASSED', '通过'], ['PARTIAL', '部分掌握'], ['FAILED', '未通过']] as const).map(([value, label]) => (
+            <label key={value} className={`flex h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-colors ${props.result === value ? "border-teal-400/50 bg-teal-400/10 text-teal-100 shadow-[0_0_12px_rgba(45,212,191,0.1)]" : "border-white/10 bg-white/[0.02] text-zinc-300 hover:bg-white/[0.05]"}`}>
+              <Radio name="practice-result" value={value} checked={props.result === value} onChange={() => props.onResultChange(value)} />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+        <Textarea aria-label="练习复盘备注" controlHeight="md" className="rounded-xl leading-6" value={props.note} onChange={(event) => props.onNoteChange(event.target.value)} placeholder="记录卡点、遗漏或下次注意事项" />
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="primary" disabled={props.pending} onClick={props.onSave}>
+            <Save size={16} aria-hidden />
+            {props.pending ? "保存中" : props.index + 1 === props.total ? "保存并完成练习" : "保存并进入下一题"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={props.onBackToAnswer}>
+            <RotateCcw size={15} aria-hidden />重新核对作答
+          </Button>
+        </div>
+      </div>}
       {props.error ? <Alert tone="danger">{props.error}</Alert> : null}
-    </section>
+    </Card>
   </div>;
 }
 
@@ -352,10 +391,53 @@ function PracticeSummary({ results, onAgain }: { results: PracticeResult[]; onAg
   const passed = results.filter((item) => item.attempt.result === "PASSED").length;
   const partial = results.filter((item) => item.attempt.result === "PARTIAL").length;
   const failed = results.filter((item) => item.attempt.result === "FAILED").length;
-  return <div className="mx-auto w-full max-w-4xl space-y-6"><PageHeader eyebrow="练习完成" title="本轮结果" description="作答历史已经保存。排期没有自动改变，失败或部分掌握的题目可进入详情后确认下一次复习。" /><section className="af-metric-grid-three grid gap-3"><Stat label="通过" value={`${passed} 题`} /><Stat label="部分掌握" value={`${partial} 题`} /><Stat label="未通过" value={`${failed} 题`} /></section><section className="space-y-3"><SectionHeader title="本轮明细" description="优先处理未通过和部分掌握的题目。" /><ul className="divide-y divide-white/10 border-y border-white/10">{results.map((item) => <li key={item.attempt.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-words font-medium text-zinc-100">{item.mistake.title}</p><Badge tone={item.attempt.result === "PASSED" ? "success" : item.attempt.result === "PARTIAL" ? "warning" : "danger"}>{resultLabel(item.attempt.result)}</Badge></div><p className="mt-1 text-xs text-zinc-500">{item.mistake.subjectName} · {item.attempt.answerMode === "TEXT" ? "文字作答" : "纸上 / 口头"}</p></div><ButtonLink href={`${withReturnTo(`/knowledge/mistakes/${item.mistake.id}`, "/knowledge/mistakes/practice")}#mistake-schedule-section`} variant="ghost" size="sm">打开详情<ArrowRight size={14} aria-hidden /></ButtonLink></li>)}</ul></section><div className="flex flex-wrap gap-2"><Button type="button" variant="primary" onClick={onAgain}><RotateCcw size={15} aria-hidden />再来一轮</Button><ButtonLink href="/knowledge/mistakes" variant="secondary"><ArrowLeft size={15} aria-hidden />返回错题本</ButtonLink></div></div>;
+  return (
+    <div className="mx-auto w-full max-w-4xl space-y-6">
+      <PageHeader eyebrow="练习完成" title="本轮结果" description="作答历史已经保存。排期没有自动改变，失败或部分掌握的题目可进入详情后确认下一次复习。" />
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label="通过" value={`${passed} 题`} />
+        <Stat label="部分掌握" value={`${partial} 题`} />
+        <Stat label="未通过" value={`${failed} 题`} />
+      </section>
+      <section className="space-y-4">
+        <SectionHeader title="本轮明细" description="优先处理未通过和部分掌握的题目。" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {results.map((item) => (
+            <Card key={item.attempt.id} variant="master" className="flex flex-col justify-between p-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={item.attempt.result === "PASSED" ? "success" : item.attempt.result === "PARTIAL" ? "warning" : "danger"}>
+                    {resultLabel(item.attempt.result)}
+                  </Badge>
+                  <span className="text-xs text-zinc-400">{item.mistake.subjectName}</span>
+                  <span className="text-xs text-zinc-500">· {item.attempt.answerMode === "TEXT" ? "文字作答" : "纸上 / 口头"}</span>
+                </div>
+                <p className="mt-2.5 break-words font-medium text-white">{item.mistake.title}</p>
+              </div>
+              <div className="mt-4 flex items-center justify-end border-t border-white/5 pt-3">
+                <ButtonLink href={`${withReturnTo(`/knowledge/mistakes/${item.mistake.id}`, "/knowledge/mistakes/practice")}#mistake-schedule-section`} variant="ghost" size="sm" className="inline-flex items-center gap-1 text-xs text-teal-300 hover:text-teal-200">
+                  打开详情<ArrowRight size={14} aria-hidden />
+                </ButtonLink>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="primary" onClick={onAgain}><RotateCcw size={15} aria-hidden />再来一轮</Button>
+        <ButtonLink href="/knowledge/mistakes" variant="secondary"><ArrowLeft size={15} aria-hidden />返回错题本</ButtonLink>
+      </div>
+    </div>
+  );
 }
 
-function Stat({ label, value }: { label: string; value: string }) { return <Metric label={label} value={value} valueSize="lg" className="border-l border-white/10 !p-0 !pl-3" />; }
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <Card variant="subtle" className="p-4">
+      <Metric label={label} value={value} valueSize="2xl" layout="compact" />
+    </Card>
+  );
+}
 function CauseOptions() { return <><option value="unknown">未分类</option><option value="concept_confusion">概念混淆</option><option value="formula_unfamiliar">公式不熟</option><option value="wrong_approach">方法错误</option><option value="careless">粗心</option><option value="time_pressure">时间压力</option><option value="unfamiliar_pattern">题型陌生</option></>; }
 function resultLabel(value: Result) { return value === "PASSED" ? "通过" : value === "PARTIAL" ? "部分掌握" : "未通过"; }
 function createSessionId() { return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`; }

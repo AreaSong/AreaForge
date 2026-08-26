@@ -1,6 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/feedback";
 import { Select } from "@/components/ui/field";
 import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
 
@@ -195,22 +197,28 @@ export function TaskDetailClient(props: {
 
   return (
     <section className="space-y-6 pb-4">
-      <div className="space-y-3">
-        {props.embedded && props.closeHref ? (
-          <BackToListLink fallbackHref={props.closeHref} className="inline-flex h-9 items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200">
-            <X className="h-4 w-4" aria-hidden="true" />
-            关闭详情
-          </BackToListLink>
-        ) : (
-          <BackToListLink fallbackHref={sourceHref} className="text-sm text-zinc-400 hover:text-zinc-200">
-            {taskSourceLabel(sourceHref)}
-          </BackToListLink>
-        )}
+      <Card variant="master" className="p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          {props.embedded && props.closeHref ? (
+            <BackToListLink fallbackHref={props.closeHref} className="inline-flex h-8 items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors">
+              <X className="h-4 w-4" aria-hidden="true" />
+              关闭详情
+            </BackToListLink>
+          ) : (
+            <BackToListLink fallbackHref={sourceHref} className="text-xs text-zinc-400 hover:text-teal-300 transition-colors">
+              ← {taskSourceLabel(sourceHref)}
+            </BackToListLink>
+          )}
+          <Badge tone={task.status === "done" ? "success" : task.status === "in_progress" ? "info" : "neutral"}>
+            {formatTaskStatus(task.status)}
+          </Badge>
+        </div>
+
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-2">
-            <DetailHeading level={props.embedded ? 2 : 1} className={`break-words font-semibold text-white ${props.embedded ? "text-2xl" : "text-3xl"}`}>{task.title}</DetailHeading>
-            <p className="text-sm text-zinc-400">
-              {task.subjectName} · {formatTaskStatus(task.status)} · 预计 {task.estimatedMinutes} 分钟 · 已投入 {task.actualMinutes} 分钟
+            <DetailHeading level={props.embedded ? 2 : 1} className={`break-words font-bold text-white ${props.embedded ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl"}`}>{task.title}</DetailHeading>
+            <p className="text-xs sm:text-sm text-zinc-400">
+              {task.subjectName} · 预计 {task.estimatedMinutes} 分钟 · 已投入 {task.actualMinutes} 分钟
             </p>
           </div>
           {editable ? (
@@ -218,7 +226,8 @@ export function TaskDetailClient(props: {
               {task.status === "deferred" ? (
                 <Button
                   type="button"
-                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:opacity-50 sm:flex-none"
+                  variant="primary"
+                  size="md"
                   disabled={pendingAction !== null}
                   onClick={() => void recoverTask()}
                 >
@@ -228,7 +237,8 @@ export function TaskDetailClient(props: {
               ) : (
                 <Button
                   type="button"
-                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:opacity-50 sm:flex-none"
+                  variant="primary"
+                  size="md"
                   disabled={pendingAction !== null}
                   onClick={() => void startTask()}
                 >
@@ -239,7 +249,8 @@ export function TaskDetailClient(props: {
               {!editing ? (
                 <Button
                   type="button"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200"
+                  variant="secondary"
+                  size="md"
                   onClick={() => setEditing(true)}
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
@@ -249,8 +260,9 @@ export function TaskDetailClient(props: {
             </div>
           ) : null}
         </div>
+
         {props.detail.readOnly || terminal || props.detail.subjectArchived ? (
-          <p role="status" className="border-l-2 border-zinc-500 pl-3 text-sm text-zinc-400">
+          <p role="status" className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs text-zinc-400">
             {props.detail.readOnly
               ? `“${props.detail.workspaceName}”已归档，本页只读保留历史；不会进入当前推荐或写事务。`
               : props.detail.subjectArchived
@@ -258,23 +270,25 @@ export function TaskDetailClient(props: {
                 : "任务已进入终态，本页只读保留关联与行动历史。"}
           </p>
         ) : null}
-      </div>
+      </Card>
 
       {editing ? (
-        <TaskDetailEditor
-          snapshot={props.detail.updateSnapshot}
-          subjects={props.subjects}
-          syllabusNodes={props.syllabusNodes}
-          milestones={props.milestones}
-          stagePlans={props.stagePlans}
-          knowledgePoints={props.knowledgePoints}
-          onCancel={() => setEditing(false)}
-          onSaved={() => {
-            setEditing(false);
-            setNotice("任务已保存");
-            router.refresh();
-          }}
-        />
+        <Card variant="master" className="p-6">
+          <TaskDetailEditor
+            snapshot={props.detail.updateSnapshot}
+            subjects={props.subjects}
+            syllabusNodes={props.syllabusNodes}
+            milestones={props.milestones}
+            stagePlans={props.stagePlans}
+            knowledgePoints={props.knowledgePoints}
+            onCancel={() => setEditing(false)}
+            onSaved={() => {
+              setEditing(false);
+              setNotice("任务已保存");
+              router.refresh();
+            }}
+          />
+        </Card>
       ) : null}
 
       {editable && props.detail.reviewSchedule ? (
@@ -285,9 +299,9 @@ export function TaskDetailClient(props: {
         />
       ) : null}
 
-      <section aria-labelledby="task-relations-heading" className="space-y-3 border-t border-white/10 pt-5">
-        <h2 id="task-relations-heading" className="text-lg font-semibold text-white">关联</h2>
-        <dl className="af-content-grid-two grid gap-3 text-sm">
+      <Card variant="subtle" className="p-6 space-y-4" aria-labelledby="task-relations-heading">
+        <h2 id="task-relations-heading" className="text-base font-semibold text-white">关联</h2>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <RelationItem label="主考纲节点">
             {task.syllabusNodeId ? (
               props.detail.readOnly
@@ -314,48 +328,48 @@ export function TaskDetailClient(props: {
             ) : "无"}
           </RelationItem>
         </dl>
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2 text-xs pt-2 border-t border-white/5">
           <p className="text-zinc-500">相关考纲节点</p>
           {props.detail.relatedSyllabusNodes.length ? (
             <ul className="flex flex-wrap gap-2">
               {props.detail.relatedSyllabusNodes.map((node) => (
                 <li key={node.id}>
                   {props.detail.readOnly
-                    ? <span className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300">{node.title}{node.archivedAt ? "（已归档）" : ""}</span>
-                    : <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={withReturnTo(`/knowledge/syllabi/${node.id}`, sourceHref)}>
+                    ? <span className="inline-flex rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-zinc-300">{node.title}{node.archivedAt ? "（已归档）" : ""}</span>
+                    : <Link className="inline-flex rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-zinc-300 hover:border-teal-400/40 hover:text-teal-200 transition-colors" href={withReturnTo(`/knowledge/syllabi/${node.id}`, sourceHref)}>
                         {node.title}{node.archivedAt ? "（已归档）" : ""}
                       </Link>}
                 </li>
               ))}
             </ul>
-          ) : <p className="text-zinc-400">未关联</p>}
+          ) : <p className="text-zinc-500">未关联</p>}
         </div>
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2 text-xs pt-2 border-t border-white/5">
           <p className="text-zinc-500">关联知识点</p>
           {props.detail.knowledgePoints.length ? (
             <ul className="flex flex-wrap gap-2">
               {props.detail.knowledgePoints.map((point) => (
                 <li key={point.id}>
-                  <Link className="inline-flex rounded-md border border-white/10 px-2 py-1 text-zinc-300 hover:text-teal-200" href={withReturnTo(`/knowledge/points/${point.id}`, sourceHref)}>
+                  <Link className="inline-flex rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-zinc-300 hover:border-teal-400/40 hover:text-teal-200 transition-colors" href={withReturnTo(`/knowledge/points/${point.id}`, sourceHref)}>
                     {point.title}
                   </Link>
                 </li>
               ))}
             </ul>
-          ) : <p className="text-zinc-400">未关联</p>}
+          ) : <p className="text-zinc-500">未关联</p>}
         </div>
         {props.detail.childTasks.length ? (
-          <div className="space-y-2 text-sm">
+          <div className="space-y-2 text-xs pt-2 border-t border-white/5">
             <p className="text-zinc-500">拆分子任务</p>
             <ul className="space-y-1">{props.detail.childTasks.map((child) => <li key={child.id}><TaskLink task={child} returnTo={sourceHref} /></li>)}</ul>
           </div>
         ) : null}
-      </section>
+      </Card>
 
-      <section aria-labelledby="task-dependencies-heading" className="space-y-4 border-t border-white/10 pt-5">
+      <Card variant="subtle" className="p-6 space-y-4" aria-labelledby="task-dependencies-heading">
         <div className="flex items-center gap-2">
-          <Link2 className="h-5 w-5 text-teal-300" aria-hidden="true" />
-          <h2 id="task-dependencies-heading" className="text-lg font-semibold text-white">任务依赖</h2>
+          <Link2 className="h-4 w-4 text-teal-300" aria-hidden="true" />
+          <h2 id="task-dependencies-heading" className="text-base font-semibold text-white">任务依赖</h2>
         </div>
         <DependencyList
           label="前置任务"
@@ -376,11 +390,11 @@ export function TaskDetailClient(props: {
           onMutate={mutateDependency}
         />
         {editable ? (
-          <form className="af-form-action-grid grid gap-2" onSubmit={createDependency}>
+          <form className="af-form-action-grid grid gap-2 pt-2 border-t border-white/5" onSubmit={createDependency}>
             <label className="sr-only" htmlFor="task-dependency-candidate">新增前置任务</label>
             <Select
               id="task-dependency-candidate"
-              className="h-11 min-w-0 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-white"
+              className="h-10 min-w-0 px-3 text-xs"
               value={candidateId}
               onChange={(event) => setCandidateId(event.target.value)}
             >
@@ -391,7 +405,7 @@ export function TaskDetailClient(props: {
             </Select>
             <Select
               aria-label="依赖类型"
-              className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-white"
+              className="h-10 px-3 text-xs"
               value={candidateType}
               onChange={(event) => setCandidateType(event.target.value as "SOFT" | "HARD")}
             >
@@ -400,22 +414,25 @@ export function TaskDetailClient(props: {
             </Select>
             <Button
               type="submit"
-              className="h-11 rounded-md border border-teal-300/30 px-3 text-sm text-teal-200 disabled:opacity-50"
+              variant="secondary"
+              size="md"
               disabled={!candidateId || pendingAction !== null}
             >
               关联
             </Button>
           </form>
         ) : null}
-      </section>
+      </Card>
 
-      <TaskHistory detail={props.detail} />
+      <Card variant="subtle" className="p-6">
+        <TaskHistory detail={props.detail} />
+      </Card>
 
       {task.reviewText ? (
-        <section className="space-y-2 border-t border-white/10 pt-5">
-          <h2 className="text-lg font-semibold text-white">任务复盘</h2>
+        <Card variant="subtle" className="p-6 space-y-2">
+          <h2 className="text-base font-semibold text-white">任务复盘</h2>
           <p className="whitespace-pre-wrap break-words text-sm leading-6 text-zinc-300">{task.reviewText}</p>
-        </section>
+        </Card>
       ) : null}
 
       {error ? <p role="alert" className="text-sm text-red-200">{error}</p> : null}

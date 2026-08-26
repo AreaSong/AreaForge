@@ -14,6 +14,7 @@ import { KnowledgeObjectDetailHeader } from "@/components/knowledge-object-detai
 import { SyllabusDetailEditor } from "@/components/syllabus-detail-editor";
 import { SyllabusRetestForm } from "@/components/syllabus-retest-form";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/field";
 import { Metric } from "@/components/ui/metric";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -266,28 +267,34 @@ function Overview(props: {
 }) {
   return (
     <div className="space-y-5">
-      <dl className="af-metric-grid-three grid gap-3">
-        <Metric label="目标投入" value={<span className="font-normal text-white">{props.node.targetMinutes} 分钟</span>} valueSize="lg" className="border-l border-white/10 !p-0 !pl-3" />
-        <Metric label="实际投入" value={<span className="font-normal text-white">{props.node.actualMinutes} 分钟</span>} valueSize="lg" className="border-l border-white/10 !p-0 !pl-3" />
-        <Metric label="风险" value={<span className="font-normal text-white">{riskLabel(props.node.masteryProof.risk)}</span>} valueSize="lg" className="border-l border-white/10 !p-0 !pl-3" />
-      </dl>
-      <section className="space-y-3 border-t border-white/10 pt-5">
-        <h2 className="font-medium text-white">统一复习</h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card variant="subtle" className="p-4">
+          <Metric label="目标投入" value={<span className="font-normal text-white">{props.node.targetMinutes} 分钟</span>} valueSize="lg" layout="compact" />
+        </Card>
+        <Card variant="subtle" className="p-4">
+          <Metric label="实际投入" value={<span className="font-normal text-white">{props.node.actualMinutes} 分钟</span>} valueSize="lg" layout="compact" />
+        </Card>
+        <Card variant="subtle" className="p-4">
+          <Metric label="风险" value={<span className="font-normal text-white">{riskLabel(props.node.masteryProof.risk)}</span>} valueSize="lg" layout="compact" />
+        </Card>
+      </div>
+      <Card variant="subtle" className="space-y-3 p-5">
+        <h2 className="font-semibold text-white">统一复习</h2>
         {props.schedule ? (
           <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
             <span>{props.schedule.status === "ACTIVE" ? "活动排期" : "已暂停"} · {props.schedule.dueDate ? formatDate(props.schedule.dueDate) : "未设置日期"}</span>
-            <Link className="text-teal-300 hover:underline" href={`/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`}>管理排期</Link>
+            <Link className="text-sm font-medium text-teal-300 hover:underline" href={`/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`}>管理排期</Link>
             {props.schedule.status === "PAUSED" && props.schedule.pausedReason === "TARGET_ARCHIVED" ? <span className="text-amber-200">恢复节点不会自动恢复排期，请在排期页重新选择日期。</span> : null}
           </div>
         ) : props.archived ? (
           <p className="text-sm text-zinc-500">归档节点不能创建新排期。</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            <Input aria-label="首次复习日期" type="date" value={props.reviewDate} onChange={(event) => props.onReviewDateChange(event.target.value)} className="!w-auto !px-2" />
-            <Button type="button" disabled={props.pending || !props.reviewDate} onClick={props.onSchedule} className="h-10 rounded-md border border-white/10 px-3 text-sm text-zinc-200 disabled:opacity-50">设置首次复习日期</Button>
+            <Input aria-label="首次复习日期" type="date" value={props.reviewDate} onChange={(event) => props.onReviewDateChange(event.target.value)} className="!w-auto !px-3 rounded-xl" />
+            <Button type="button" variant="secondary" disabled={props.pending || !props.reviewDate} onClick={props.onSchedule} className="text-teal-200">设置首次复习日期</Button>
           </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }
@@ -305,26 +312,26 @@ function NextAction(props: {
     : null;
 
   return (
-    <section className="rounded-lg border border-teal-300/20 bg-teal-300/5 p-4 sm:p-5" aria-labelledby="syllabus-next-action-heading">
+    <Card variant="accent" className="p-5 sm:p-6" aria-labelledby="syllabus-next-action-heading">
       <div className="af-toolbar-split flex min-w-0 gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-teal-200">下一行动</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-teal-300">下一行动</p>
           <h2 id="syllabus-next-action-heading" className="mt-1 text-lg font-semibold text-white">{props.node.mapSignal.nextAction}</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-300">{props.node.masteryProof.nextAction}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {props.archived ? (
-            <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-400">已归档 · 只读</span>
+            <span className="rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-400">已归档 · 只读</span>
           ) : props.reviewDue ? (
-            <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">已到期 · 待复测</span>
+            <span className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">已到期 · 待复测</span>
           ) : scheduleHref ? (
-            <Link href={scheduleHref} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-100 hover:bg-teal-300/10">
+            <Link href={scheduleHref} className="inline-flex h-10 items-center gap-2 rounded-xl border border-teal-300/30 px-3.5 text-sm font-medium text-teal-100 transition-colors hover:bg-teal-300/10">
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
               查看复习排期
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           ) : (
-            <Link href={taskHref} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300">
+            <Link href={taskHref} className="inline-flex h-10 items-center gap-2 rounded-xl bg-teal-400 px-3.5 text-sm font-medium text-[#071011] transition-colors hover:bg-teal-300">
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
               安排最小学习任务
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -332,7 +339,7 @@ function NextAction(props: {
           )}
         </div>
       </div>
-    </section>
+    </Card>
   );
 }
 
