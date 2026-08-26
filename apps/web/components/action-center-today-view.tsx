@@ -53,6 +53,13 @@ export function ActionCenterTodayView({
             creatingMinimumTask={state.creatingMinimumTask}
             onCreateMinimumTask={actions.createMinimumTask}
           />
+          <SubjectTimerList
+            today={today}
+            onStart={(subjectId) => {
+              actions.chooseSubject(subjectId);
+              actions.setConfirmOpen(true);
+            }}
+          />
           <TodayQueue
             queueTabs={state.queueTabs}
             activeQueue={state.activeQueue}
@@ -63,13 +70,6 @@ export function ActionCenterTodayView({
 
         <div className="min-w-0 space-y-6">
           <TodayLearningSummary today={today} />
-          <SubjectTimerList
-            today={today}
-            onStart={(subjectId) => {
-              actions.chooseSubject(subjectId);
-              actions.setConfirmOpen(true);
-            }}
-          />
         </div>
       </div>
 
@@ -228,8 +228,8 @@ function TodayRecommendation({
 }) {
   return (
     <Card variant="accent" padding="lg" className="relative overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <div className="flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-400/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-teal-300">
             <Sparkles className="size-3.5 text-teal-300" aria-hidden="true" />
             <span>当前推荐行动</span>
@@ -249,53 +249,52 @@ function TodayRecommendation({
         ) : null}
       </div>
 
-      {today.recommendation ? (
-        <div className="mt-3 space-y-2">
-          <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-            {today.recommendation.title}
-          </h2>
-          <p className="max-w-3xl text-sm leading-relaxed text-zinc-300">
-            {today.recommendation.reason}
-          </p>
-          {today.recommendation.softDependencyHint ? (
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200">
-              <AlertCircle
-                className="size-4 shrink-0 text-amber-400"
-                aria-hidden="true"
-              />
-              <span>{today.recommendation.softDependencyHint}</span>
-            </div>
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-1">
+          {today.recommendation ? (
+            <>
+              <h2 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+                {today.recommendation.title}
+              </h2>
+              <p className="line-clamp-2 text-xs leading-relaxed text-zinc-300">
+                {today.recommendation.reason}
+              </p>
+              {today.recommendation.softDependencyHint ? (
+                <div className="mt-1.5 flex items-center gap-1.5 rounded-md border border-amber-400/20 bg-amber-400/5 px-2.5 py-1 text-xs text-amber-200">
+                  <AlertCircle className="size-3.5 shrink-0 text-amber-400" aria-hidden="true" />
+                  <span className="truncate">{today.recommendation.softDependencyHint}</span>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-xs text-zinc-400">暂无推荐行动。可以立即创建今天的最小任务开启专注。</p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href={withTodayReturnTo(today.primaryActionHref)}
+            className={buttonClassName({
+              variant: "primary",
+              size: "sm",
+              className:
+                "shadow-[0_0_20px_rgba(45,212,191,0.35)] active:scale-[0.98]",
+            })}
+          >
+            {today.primaryActionLabel}
+          </Link>
+          {today.queuesEmpty ? (
+            <Button
+              type="button"
+              disabled={creatingMinimumTask}
+              variant="secondary"
+              size="sm"
+              onClick={() => void onCreateMinimumTask()}
+            >
+              {creatingMinimumTask ? "创建中..." : "直接开始 25m"}
+            </Button>
           ) : null}
         </div>
-      ) : (
-        <div className="mt-3 text-sm text-zinc-400">
-          暂无推荐行动。可以立即创建今天的最小任务开启专注。
-        </div>
-      )}
-
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Link
-          href={withTodayReturnTo(today.primaryActionHref)}
-          className={buttonClassName({
-            variant: "primary",
-            size: "lg",
-            className:
-              "shadow-[0_0_20px_rgba(45,212,191,0.35)] active:scale-[0.98]",
-          })}
-        >
-          {today.primaryActionLabel}
-        </Link>
-        {today.queuesEmpty ? (
-          <Button
-            type="button"
-            disabled={creatingMinimumTask}
-            variant="secondary"
-            size="lg"
-            onClick={() => void onCreateMinimumTask()}
-          >
-            {creatingMinimumTask ? "创建并启动中..." : "直接开始 25 分钟"}
-          </Button>
-        ) : null}
       </div>
     </Card>
   );

@@ -177,53 +177,53 @@ export function TodayLearningSummary({ today }: { today: ActionCenterTodayDto })
   const maxHourly = Math.max(0, ...hourlySlots);
 
   return (
-    <SectionCard variant="master" padding="md" className="space-y-4" aria-labelledby="today-summary-heading">
+    <SectionCard variant="master" padding="md" className="space-y-3.5" aria-labelledby="today-summary-heading">
       <SectionHeader
         title={today.isToday ? "今日学习闭环" : `${today.studyDate} 学习闭环`}
         description="先看实际投入和有效产出，再看计划状态。"
       />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
         <Card variant="subtle" padding="sm" className="flex flex-col justify-between">
-          <span className="text-xs font-medium text-zinc-400">实际投入</span>
-          <span className="mt-2 text-xl font-bold tracking-tight text-white">{today.learningLoop.totalMinutes}<span className="ml-1 text-xs font-normal text-zinc-400">分</span></span>
+          <span className="text-[11px] font-medium text-zinc-400">实际投入</span>
+          <span className="mt-1.5 text-lg font-bold tracking-tight text-white">{today.learningLoop.totalMinutes}<span className="ml-0.5 text-[10px] font-normal text-zinc-400">分</span></span>
         </Card>
         <Card variant="subtle" padding="sm" className="flex flex-col justify-between">
-          <span className="text-xs font-medium text-zinc-400">有效学习</span>
-          <span className="mt-2 text-xl font-bold tracking-tight text-teal-300">{today.learningLoop.effectiveMinutes}<span className="ml-1 text-xs font-normal text-zinc-400">分</span></span>
+          <span className="text-[11px] font-medium text-zinc-400">有效学习</span>
+          <span className="mt-1.5 text-lg font-bold tracking-tight text-teal-300">{today.learningLoop.effectiveMinutes}<span className="ml-0.5 text-[10px] font-normal text-zinc-400">分</span></span>
         </Card>
         <Card variant="subtle" padding="sm" className="flex flex-col justify-between">
-          <span className="text-xs font-medium text-zinc-400">有效段数</span>
-          <span className="mt-2 text-xl font-bold tracking-tight text-white">{today.learningLoop.effectiveSessionCount}<span className="ml-1 text-xs font-normal text-zinc-400">段</span></span>
+          <span className="text-[11px] font-medium text-zinc-400">有效段数</span>
+          <span className="mt-1.5 text-lg font-bold tracking-tight text-white">{today.learningLoop.effectiveSessionCount}<span className="ml-0.5 text-[10px] font-normal text-zinc-400">段</span></span>
         </Card>
         <Card variant="subtle" padding="sm" className="flex flex-col justify-between">
-          <span className="text-xs font-medium text-zinc-400">低效补充</span>
-          <span className="mt-2 text-xl font-bold tracking-tight text-amber-300">{today.learningLoop.lowConversionCount}<span className="ml-1 text-xs font-normal text-zinc-400">次</span></span>
+          <span className="text-[11px] font-medium text-zinc-400">低效补充</span>
+          <span className="mt-1.5 text-lg font-bold tracking-tight text-amber-300">{today.learningLoop.lowConversionCount}<span className="ml-0.5 text-[10px] font-normal text-zinc-400">次</span></span>
         </Card>
       </div>
-      <div className="space-y-2.5 rounded-xl border border-white/5 bg-white/[0.01] p-3 text-xs text-zinc-400">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>计划 <strong className="text-zinc-200">{today.learningLoop.plannedTaskCount}</strong> 项 · 已完成 <strong className="text-emerald-300">{today.learningLoop.completedTaskCount}</strong> 项</span>
-          <span>搁置/跳过 <strong className="text-zinc-300">{today.learningLoop.deferredTaskCount}</strong> 项</span>
+      <div className="space-y-2 rounded-lg border border-white/5 bg-white/[0.01] p-2.5 text-xs text-zinc-400">
+        <div className="flex flex-wrap items-center justify-between gap-1 text-[11px]">
+          <span>计划 <strong className="text-zinc-200 font-medium">{today.learningLoop.plannedTaskCount}</strong> 项 · 已完成 <strong className="text-emerald-300 font-medium">{today.learningLoop.completedTaskCount}</strong> 项</span>
+          <span>搁置/跳过 <strong className="text-zinc-300 font-medium">{today.learningLoop.deferredTaskCount}</strong> 项</span>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-1.5">
-          <span>复盘状态：<strong className={today.learningLoop.reviewSubmitted ? "text-teal-300" : "text-amber-300"}>{today.learningLoop.reviewSubmitted ? "已收口" : "未收口"}</strong></span>
-          <span className="truncate max-w-[200px] text-zinc-300">下一动作：{today.learningLoop.nextAction ?? "本日尚未留下下一动作"}</span>
+        <div className="flex flex-wrap items-center justify-between gap-1 border-t border-white/5 pt-1.5 text-[11px]">
+          <span>复盘状态：<strong className={today.learningLoop.reviewSubmitted ? "text-teal-300 font-medium" : "text-amber-300 font-medium"}>{today.learningLoop.reviewSubmitted ? "已收口" : "未收口"}</strong></span>
+          <span className="truncate max-w-[180px] text-zinc-300 font-medium">下一动作：{today.learningLoop.nextAction ?? "本日尚未留下"}</span>
         </div>
         <div className="space-y-1 border-t border-white/5 pt-2">
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-[10px]">
             <span className="flex items-center gap-1.5 font-medium text-zinc-300">
               <span className="size-1.5 rounded-full bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.8)]" /> 24小时时段分布
             </span>
-            <span className="font-mono text-[10px] text-zinc-500">{maxHourly > 0 ? `高峰 ${maxHourly}m/h` : "全天待激活"}</span>
+            <span className="font-mono text-[9px] text-zinc-500">{maxHourly > 0 ? `高峰 ${maxHourly}m/h` : "全天待激活"}</span>
           </div>
-          <HourlyHeatbar hourlyMinutes={hourlySlots} height={20} />
+          <HourlyHeatbar hourlyMinutes={hourlySlots} height={18} />
         </div>
         <div className="space-y-1 border-t border-white/5 pt-2">
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-[10px]">
             <span className="flex items-center gap-1.5 font-medium text-zinc-300">
               <span className="size-1.5 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]" /> 学科投入占比
             </span>
-            <span className="font-mono text-[10px] text-zinc-500">共 {activeSubjectCount} 科投入</span>
+            <span className="font-mono text-[9px] text-zinc-500">共 {activeSubjectCount} 科投入</span>
           </div>
           <SubjectProportionBar items={subjectProportionItems} totalMinutes={today.learningLoop.totalMinutes} height={5} showLegend={true} />
         </div>
@@ -242,62 +242,67 @@ export function SubjectTimerList({ today, onStart }: { today: ActionCenterTodayD
         variant="ghost"
         fullWidth
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between gap-3 !p-4 text-left hover:!bg-white/[0.02]"
+        className="flex w-full items-center justify-between gap-3 !px-3.5 !py-2.5 text-left hover:!bg-white/[0.02]"
         aria-expanded={isOpen}
       >
-        <span className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-100">
-          <TimerReset className="size-4 text-teal-400" aria-hidden="true" />
-          临时专注计时
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-100">
+          <TimerReset className="size-3.5 text-teal-400" aria-hidden="true" />
+          临时专注计时 · 各科目直达
+          <span className="font-normal text-[11px] text-zinc-500">（点击直接开始计时）</span>
         </span>
-        <span className="flex items-center gap-2 text-xs text-zinc-500">
-          <span>不建任务时使用</span>
-          <ChevronDown className={`size-4 text-zinc-400 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+        <span className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+          <span>共 {today.subjectTimers.subjects.length} 科目</span>
+          <ChevronDown className={`size-3.5 text-zinc-400 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
         </span>
       </Button>
 
       {isOpen ? (
-        <div className="space-y-3 border-t border-white/5 p-4 pt-2">
-          <div className="grid grid-cols-1 gap-2.5">
+        <div className="space-y-2.5 border-t border-white/5 p-3 pt-2.5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
             {today.subjectTimers.subjects.map((subject) => {
               const maxRecent = Math.max(1, ...today.subjectTimers.subjects.map((s) => s.last7EffectiveMinutes));
               const progressPct = Math.min(100, Math.round((subject.last7EffectiveMinutes / maxRecent) * 100));
               const sparklineData = getSubjectSparklineData(subject);
 
               return (
-                <Card key={subject.subjectId} variant="subtle" padding="sm" className="flex flex-col justify-between gap-2.5">
-                  <div className="flex items-start justify-between gap-2">
+                <Card
+                  key={subject.subjectId}
+                  variant="subtle"
+                  padding="none"
+                  className="group flex flex-col justify-between p-2.5 transition-colors hover:border-teal-500/30 hover:bg-white/[0.04]"
+                >
+                  <div className="flex items-start justify-between gap-1.5">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <StatusDot status={subject.canStart ? "active" : "idle"} size="xs" />
-                        <p className="truncate text-sm font-semibold text-white">{subject.title}</p>
-                        {subject.groupTitle ? <CompactBadge tone="zinc" size="xs">{subject.groupTitle}</CompactBadge> : null}
+                        <p className="truncate text-xs font-semibold text-white group-hover:text-teal-200">{subject.title}</p>
                       </div>
-                      <p className="mt-1 font-mono text-xs text-zinc-400">
-                        {today.studyDate} {subject.todayEffectiveMinutes} 分 · 近 7 日 {subject.last7EffectiveMinutes} 分
-                      </p>
-                      {subject.contextSummary ? (
-                        <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{subject.contextSummary}</p>
-                      ) : null}
+                      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
+                        <span>今日 <strong className="text-teal-300 font-normal">{subject.todayEffectiveMinutes}m</strong></span>
+                        <span className="text-zinc-600">·</span>
+                        <span>7日 {subject.last7EffectiveMinutes}m</span>
+                      </div>
                     </div>
-                    <Button type="button" disabled={!subject.canStart} variant="secondary" size="sm" onClick={() => onStart(subject.subjectId)}>
+                    <Button
+                      type="button"
+                      disabled={!subject.canStart}
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0 !h-6 !px-2 !py-0 !text-[11px] hover:border-teal-400/40 hover:text-teal-300"
+                      onClick={() => onStart(subject.subjectId)}
+                    >
                       开始
                     </Button>
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-500">
-                      <span className="flex items-center gap-1 text-zinc-400 font-medium">
-                        <span className="size-1 rounded-full bg-teal-400" />
-                        7日投入热度
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <MiniSparkline data={sparklineData} width={75} height={14} strokeWidth={1.2} />
-                        <span className="font-mono text-zinc-400">{subject.last7EffectiveMinutes} 分</span>
-                      </div>
+                  <div className="mt-2 space-y-0.5 border-t border-white/5 pt-1.5">
+                    <div className="flex items-center justify-between text-[9px] text-zinc-500">
+                      <span>7日投入热度</span>
+                      <MiniSparkline data={sparklineData} width={50} height={10} strokeWidth={1} />
                     </div>
-                    <div className="h-1 w-full overflow-hidden rounded-full bg-white/5">
+                    <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/5">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-teal-500/60 to-teal-300 transition-all duration-300"
+                        className="h-full rounded-full bg-gradient-to-r from-teal-500/60 to-teal-300"
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
@@ -308,10 +313,11 @@ export function SubjectTimerList({ today, onStart }: { today: ActionCenterTodayD
           </div>
 
           {today.subjectTimers.groups.length > 0 ? (
-            <div className="flex flex-wrap gap-2 border-t border-white/5 pt-2.5">
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-2 text-[11px] text-zinc-500">
+              <span className="font-medium text-zinc-400">分类汇总：</span>
               {today.subjectTimers.groups.map((group) => (
-                <span key={group.groupId} className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1 text-xs text-zinc-400">
-                  {group.title}合计 · {group.todayEffectiveMinutes} 分
+                <span key={group.groupId} className="rounded border border-white/5 bg-white/[0.02] px-2 py-0.5 text-[10px] text-zinc-400">
+                  {group.title} · <strong className="text-zinc-200 font-normal">{group.todayEffectiveMinutes}m</strong>
                 </span>
               ))}
             </div>
