@@ -210,6 +210,6 @@ test("Zero-Scroll Viewport: main container isolates overflow while shell headers
   const shellSource = loadSource("components/app-shell.tsx");
 
   // Full canvas pages vs standard scrollable pages
-  assert.match(shellSource, /fullCanvasPage \? "overflow-y-auto" : "overflow-y-auto px-4 py-5/);
+  assert.match(shellSource, /fullCanvasPage \? "overflow-y-auto" : "overflow-y-auto px-3\.5 py-3/);
   assert.match(shellSource, /min-h-0 min-w-0 flex-1/);
 });

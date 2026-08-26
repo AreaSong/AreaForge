@@ -146,7 +146,7 @@ export function AppShell(props: {
             <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col">
               <main
                 id="main-content"
-                className={`af-shell-main min-h-0 min-w-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-4 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-6 xl:px-8 xl:py-6"}`}
+                className={`af-shell-main min-h-0 min-w-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-3.5 py-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 xl:px-6"}`}
                 data-ai-page-context="true"
                 data-layout-region="page-content"
                 data-immersive-content={immersive ? "true" : undefined}

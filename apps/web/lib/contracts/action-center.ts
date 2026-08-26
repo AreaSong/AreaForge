@@ -47,5 +47,6 @@ export interface ActionCenterTodayDto {
     lowConversionCount: number;
     reviewSubmitted: boolean;
     nextAction: string | null;
+    hourlyMinutes?: number[];
   };
 }

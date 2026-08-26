@@ -49,3 +49,18 @@ export interface TakeoverPreviewDto {
     name: string;
   }>;
 }
+
+export interface WorkspaceCapacityMetrics {
+  activeSubjectCount: number;
+  syllabusNodeCount: number;
+  knowledgePointCount: number;
+  noteCount: number;
+  mistakeCount: number;
+  sessionCount: number;
+  totalSessionMinutes: number;
+  totalEffectiveMinutes: number;
+  totalSessionHoursFormatted: string;
+  attachmentCount: number;
+  totalAttachmentBytes: number;
+  totalAttachmentBytesFormatted: string;
+}

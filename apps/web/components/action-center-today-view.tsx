@@ -2,6 +2,8 @@ import Link from "next/link";
 import {
   AlertCircle,
   CalendarDays,
+  Clock,
+  Compass,
   Sparkles,
 } from "lucide-react";
 import type { ActionCenterTodayController } from "@/components/action-center-today-controller";
@@ -17,6 +19,7 @@ import { Button, buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/field";
+import { CompactBadge, StatusDot } from "@/components/ui/micro-charts";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { PinnedActionBar } from "@/components/ui/pinned-action-bar";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -225,10 +228,19 @@ function TodayRecommendation({
 }) {
   return (
     <Card variant="accent" padding="lg" className="relative overflow-hidden">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-400/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-teal-300">
-          <Sparkles className="size-3.5 text-teal-300" aria-hidden="true" />
-          <span>当前推荐行动</span>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-400/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-teal-300">
+            <Sparkles className="size-3.5 text-teal-300" aria-hidden="true" />
+            <span>当前推荐行动</span>
+          </div>
+          <CompactBadge variant="glow" size="xs">P0/今日首要</CompactBadge>
+          <span className="flex items-center gap-1">
+            <StatusDot status="active" pulse size="xs" />
+            <span className="font-mono text-[10px] text-teal-300">LIVE</span>
+          </span>
+          <CompactBadge variant="primary" size="xs" icon={<Clock className="size-2.5" />}>⏱ 45m · 10pt</CompactBadge>
+          <CompactBadge tone="zinc" size="xs" icon={<Compass className="size-2.5" />}>考纲主线</CompactBadge>
         </div>
         {today.workspace?.name ? (
           <span className="text-xs font-medium text-zinc-400">
@@ -261,7 +273,7 @@ function TodayRecommendation({
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
           href={withTodayReturnTo(today.primaryActionHref)}
           className={buttonClassName({

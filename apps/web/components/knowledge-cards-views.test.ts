@@ -118,3 +118,97 @@ test("Knowledge Reviews & Imports Architecture: Queue & Import Workbench use Car
   assert.match(importWorkbenchSource, /<Card[\s\S]*variant="subtle"/);
   assert.match(importWorkbenchSource, /<Card[\s\S]*variant="master"/);
 });
+
+test("Milestone M3: Micro-Badge Clusters & Tightened Padding on NoteCard, MistakeCard, and KnowledgePointCard", () => {
+  const noteCardSource = loadSource("components/note-card.tsx");
+  const mistakeCardSource = loadSource("components/mistake-card.tsx");
+  const pointCardSource = loadSource("components/knowledge-point-card.tsx");
+  const badgeSource = loadSource("components/knowledge-micro-badges.tsx");
+
+  // 1. Tightened padding p-3.5 sm:p-4
+  assert.match(noteCardSource, /p-3\.5 sm:p-4/);
+  assert.match(mistakeCardSource, /p-3\.5 sm:p-4/);
+  assert.match(pointCardSource, /p-3\.5 sm:p-4/);
+
+  // 2. Micro-badge components integrated
+  assert.match(noteCardSource, /<NoteMicroBadgeCluster/);
+  assert.match(mistakeCardSource, /<MistakeMicroBadgeCluster/);
+  assert.match(pointCardSource, /可信度/);
+
+  // 3. Badge cluster contains required metric badges
+  assert.match(badgeSource, /作答:\s*\{attemptCount\}次/);
+  assert.match(badgeSource, /正答:\s*\{passRate\}%/);
+  assert.match(badgeSource, /均耗:\s*\{avgDurationSeconds\}s/);
+  assert.match(badgeSource, /★\s*\{starRating\}星/);
+  assert.match(badgeSource, /天前复习/);
+});
+
+test("Milestone M3: Ebbinghaus Review Retention Distribution Bar Component", () => {
+  const distributionSource = loadSource("components/knowledge-ebbinghaus-distribution.tsx");
+
+  // 1. Master card with interval distribution
+  assert.match(distributionSource, /<Card[\s\S]*variant="master"/);
+  assert.match(distributionSource, /艾宾浩斯复习留存曲线与周期分布/);
+
+  // 2. Contains 6 interval segments
+  assert.match(distributionSource, /逾期待复习/);
+  assert.match(distributionSource, /1-2 天内到期/);
+  assert.match(distributionSource, /3-7 天内到期/);
+  assert.match(distributionSource, /8-14 天内到期/);
+  assert.match(distributionSource, /15-30 天内到期/);
+  assert.match(distributionSource, />30 天 \/ 稳固掌握/);
+
+  // 3. Contains 7-day retention metric and review queue action
+  assert.match(distributionSource, /7日留存/);
+  assert.match(distributionSource, /\/knowledge\/reviews/);
+});
+
+test("Milestone M3: Subject Mastery Panel with Stacked Bars and Pure SVG MiniRadar", () => {
+  const masteryPanelSource = loadSource("components/knowledge-subject-mastery-panel.tsx");
+
+  // 1. Stacked bars for multi-state mastery
+  assert.match(masteryPanelSource, /科目掌握度全景分布/);
+  assert.match(masteryPanelSource, /bg-emerald-500/); // Stable
+  assert.match(masteryPanelSource, /bg-sky-500/);     // Learning
+  assert.match(masteryPanelSource, /bg-amber-500/);   // Needs Retest
+  assert.match(masteryPanelSource, /bg-zinc-700\/60/); // Untouched
+
+  // 2. Pure SVG MiniRadar with polygon and axes
+  assert.match(masteryPanelSource, /<svg[\s\S]*viewBox="0 0 200 200"/);
+  assert.match(masteryPanelSource, /<polygon/);
+  assert.match(masteryPanelSource, /radarGradient/);
+  assert.match(masteryPanelSource, /覆盖率/);
+  assert.match(masteryPanelSource, /熟练度/);
+  assert.match(masteryPanelSource, /留存率/);
+  assert.match(masteryPanelSource, /复测率/);
+  assert.match(masteryPanelSource, /深度/);
+});
+
+test("Milestone M3: Top 5 High-Frequency Weak Points Ranking with 1-Click Retest Trigger", () => {
+  const weakRankingSource = loadSource("components/knowledge-weak-points-ranking.tsx");
+
+  // 1. High-frequency weak points header and ranking
+  assert.match(weakRankingSource, /高频薄弱考点 Top 5/);
+  assert.match(weakRankingSource, /rank === 1/);
+
+  // 2. 1-Click Retest trigger CTA
+  assert.match(weakRankingSource, /安排复测/);
+  assert.match(weakRankingSource, /\/test\/retests\/new/);
+});
+
+test("Milestone M3: Knowledge Overview Page Integrates Complete Analytics Deck", () => {
+  const overviewSource = loadSource("lib/routes/knowledge-overview-page.tsx");
+
+  // 1. Integrates all 3 analytics components
+  assert.match(overviewSource, /<KnowledgeEbbinghausDistribution/);
+  assert.match(overviewSource, /<KnowledgeSubjectMasteryPanel/);
+  assert.match(overviewSource, /<KnowledgeWeakPointsRanking/);
+
+  // 2. 5-KPI Tiles and quick gateways
+  assert.match(overviewSource, /知识资产/);
+  assert.match(overviewSource, /今日待复习/);
+  assert.match(overviewSource, /综合掌握率/);
+  assert.match(overviewSource, /薄弱节点/);
+  assert.match(overviewSource, /7日留存率/);
+});
+

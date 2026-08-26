@@ -94,3 +94,25 @@ test("ActionCenterTodayView Architecture: Sticky PinnedActionBar docks at viewpo
   assert.match(viewSource, /快速复盘/);
   assert.match(viewSource, /开始今日推荐/);
 });
+
+test("ActionCenterTodayView High-Density Overhaul: Micro-Charts & Visual Cues Integration", () => {
+  const supportSource = loadSource("components/action-center-today-support.tsx");
+  const viewSource = loadSource("components/action-center-today-view.tsx");
+
+  // 1. HourlyHeatbar 24-slot distribution bar in Learning Loop summary
+  assert.match(supportSource, /<HourlyHeatbar[\s\S]*hourlyMinutes=\{hourlySlots\}/);
+  assert.match(supportSource, /24小时时段分布/);
+
+  // 2. SubjectProportionBar in Learning Loop summary
+  assert.match(supportSource, /<SubjectProportionBar[\s\S]*items=\{subjectProportionItems\}/);
+  assert.match(supportSource, /学科投入占比/);
+
+  // 3. MiniSparkline 7-day inline trendline in SubjectTimerList
+  assert.match(supportSource, /<MiniSparkline[\s\S]*data=\{sparklineData\}/);
+
+  // 4. CompactBadge & StatusDot in QueueList and Recommendation Hero
+  assert.match(supportSource, /<CompactBadge[\s\S]*tone=\{priorityTone\}/);
+  assert.match(supportSource, /<StatusDot[\s\S]*status=\{isUrgent \? "warning" : "idle"\}/);
+  assert.match(viewSource, /<CompactBadge variant="glow" size="xs">P0\/今日首要<\/CompactBadge>/);
+  assert.match(viewSource, /<StatusDot status="active" pulse size="xs" \/>/);
+});

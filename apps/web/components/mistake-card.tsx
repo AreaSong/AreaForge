@@ -3,16 +3,32 @@ import { ListDetailLink } from "@/components/list-return-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
 import { labelCause, labelResult, reviewSummary } from "@/components/mistake-library-support";
+import { calculateStarRating, getDaysAgo, isNextReviewDueToday, isNextReviewOverdue, MistakeMicroBadgeCluster } from "@/components/knowledge-micro-badges";
 import type { MistakeDto } from "@/lib/contracts";
 import { formatDateTime } from "@/lib/formatters";
 
 export function MistakeCard({ mistake }: { mistake: MistakeDto }) {
   const needsCompletion = mistake.cause === "unknown" || !mistake.correctIdea?.trim();
+  const attempts = mistake.attempts ?? [];
+  const reviewHistory = mistake.reviewHistory ?? [];
+  const attemptCount = mistake.attemptCount || attempts.length || reviewHistory.length;
+  const passedAttempts = attempts.filter((a) => a.result === "PASSED").length + reviewHistory.filter((r) => r.result === "PASSED").length;
+  const totalRecorded = attempts.length + reviewHistory.length;
+  const passRate = totalRecorded > 0 ? Math.round((passedAttempts / totalRecorded) * 100) : null;
+  const totalDuration = attempts.reduce((sum, a) => sum + (a.durationSeconds || 0), 0) + reviewHistory.reduce((sum, r) => sum + (r.durationSeconds || 0), 0);
+  const avgDurationSeconds = totalRecorded > 0 ? Math.round(totalDuration / totalRecorded) : null;
+  const consecutivePassCount = mistake.reviewSchedule?.consecutivePassCount ?? 0;
+  const starRating = calculateStarRating(mistake.cause === "unknown" ? "unknown" : "partial", consecutivePassCount);
+
+  const lastTouch = mistake.lastAttemptAt || attempts[0]?.attemptedAt || reviewHistory[0]?.confirmedAt || mistake.updatedAt;
+  const daysSinceReview = getDaysAgo(lastTouch);
+  const isOverdue = isNextReviewOverdue(mistake.nextReviewAt);
+  const isDueToday = isNextReviewDueToday(mistake.nextReviewAt);
 
   return (
-    <Card variant="master" className="flex flex-col justify-between p-5 transition-all hover:border-white/20">
+    <Card variant="master" className="flex flex-col justify-between p-3.5 sm:p-4 transition-all hover:border-white/20">
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-medium text-zinc-400">{mistake.subjectName}</span>
           <Badge tone={mistake.cause === "unknown" ? "warning" : "danger"}>
             {labelCause(mistake.cause)}
@@ -20,9 +36,26 @@ export function MistakeCard({ mistake }: { mistake: MistakeDto }) {
           {reviewSummary(mistake) ? <Badge tone="warning">复习 {reviewSummary(mistake)}</Badge> : null}
           {mistake.archivedAt ? <Badge>已归档</Badge> : null}
         </div>
-        <h3 className="mt-2.5 break-words text-base font-semibold text-white">{mistake.title}</h3>
+
+        {/* Micro-Badges Cluster */}
+        <div className="mt-2">
+          <MistakeMicroBadgeCluster
+            metrics={{
+              attemptCount,
+              passRate,
+              avgDurationSeconds,
+              consecutivePassCount,
+              starRating,
+              daysSinceReview,
+              isDueToday,
+              isOverdue,
+            }}
+          />
+        </div>
+
+        <h3 className="mt-2.5 break-words text-sm font-semibold text-white sm:text-base">{mistake.title}</h3>
         <p className="mt-1 text-xs text-zinc-400">{mistake.syllabusNodeTitle ?? "未关联考纲"}</p>
-        <p className="mt-3 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-zinc-300">
+        <p className="mt-2.5 line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-zinc-300 sm:text-sm sm:leading-6">
           {mistake.questionText || "这条历史错题还没有完整题面。"}
         </p>
       </div>

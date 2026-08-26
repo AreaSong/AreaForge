@@ -172,6 +172,7 @@ export async function getActionCenterToday(
           effectiveMinutes: true,
           isEffective: true,
           isLowConversion: true,
+          startedAt: true,
         },
       }),
     ]);
@@ -415,6 +416,16 @@ export async function getActionCenterToday(
   const fallbackEffectiveSessionCount = completedSessions.filter((session) => session.isEffective).length;
   const fallbackLowConversionCount = completedSessions.filter((session) => session.isLowConversion).length;
 
+  const hourlyMinutes = Array(24).fill(0);
+  for (const session of completedSessions) {
+    if (session.isEffective && session.startedAt) {
+      const hour = new Date(session.startedAt).getHours();
+      if (hour >= 0 && hour < 24) {
+        hourlyMinutes[hour] += session.effectiveMinutes;
+      }
+    }
+  }
+
   return {
     studyDate: day.key,
     isToday: day.key === todayRange.key,
@@ -441,6 +452,7 @@ export async function getActionCenterToday(
       lowConversionCount: snapshot?.lowConversionCount ?? fallbackLowConversionCount,
       reviewSubmitted: snapshot?.reviewSubmitted ?? false,
       nextAction: completedSessions.find((session) => session.nextAction?.trim())?.nextAction?.trim() ?? null,
+      hourlyMinutes,
     },
   };
 }

@@ -197,13 +197,13 @@ test("Stress Test: cardClassName exhaustive Cartesian product (variants x paddin
       }
 
       if (padding === "none") {
-        assert.ok(!cls.includes("p-3") && !cls.includes("p-4") && !cls.includes("p-5"));
+        assert.ok(!cls.includes("p-2.5") && !cls.includes("p-3.5") && !cls.includes("p-4"));
       } else if (padding === "sm") {
-        assert.ok(cls.includes("p-3 sm:p-4"));
+        assert.ok(cls.includes("p-2.5 sm:p-3"));
       } else if (padding === "md") {
-        assert.ok(cls.includes("p-4 sm:p-5"));
+        assert.ok(cls.includes("p-3.5 sm:p-4.5"));
       } else if (padding === "lg") {
-        assert.ok(cls.includes("p-5 sm:p-6 lg:p-8"));
+        assert.ok(cls.includes("p-4 sm:p-5"));
       }
     }
   }
@@ -212,7 +212,7 @@ test("Stress Test: cardClassName exhaustive Cartesian product (variants x paddin
 test("Stress Test: cardClassName boundary, undefined, and malformed inputs", () => {
   // Empty invocation
   const def = cardClassName();
-  assert.equal(def, "min-w-0 rounded-2xl border border-white/10 bg-[#0e1619]/90 shadow-lg p-4 sm:p-5");
+  assert.equal(def, "min-w-0 rounded-2xl border border-white/10 bg-[#0e1619]/90 shadow-lg p-3.5 sm:p-4.5");
 
   // Undefined props
   const undef = cardClassName({ variant: undefined, padding: undefined, className: undefined });
@@ -225,7 +225,7 @@ test("Stress Test: cardClassName boundary, undefined, and malformed inputs", () 
 
   // Invalid / unknown padding fallback
   const invalidPadding = cardClassName({ padding: "colossal" as unknown as CardPadding });
-  assert.ok(invalidPadding.includes("p-4 sm:p-5"), "Invalid padding should cleanly fall back to md");
+  assert.ok(invalidPadding.includes("p-3.5 sm:p-4.5"), "Invalid padding should cleanly fall back to md");
   assert.ok(!invalidPadding.includes("undefined"));
 
   // Malformed className with excessive whitespace, tabs, and newlines
@@ -296,7 +296,7 @@ test("Stress Test: Card polymorphic 'as' element rendering across all allowed ta
     assert.equal(el.props["aria-label"], `Card label ${tag}`);
     assert.equal(el.props.children, `Content for ${tag}`);
     assert.ok(el.props.className.includes("rounded-xl"));
-    assert.ok(el.props.className.includes("p-3 sm:p-4"));
+    assert.ok(el.props.className.includes("p-2.5 sm:p-3"));
   }
 });
 
@@ -428,14 +428,14 @@ test("Stress Test: Deeply nested Card and Subcomponent tree construction", () =>
   assert.equal(nestedSubtle.type, "article");
   assert.ok(nestedSubtle.props.className.includes("rounded-xl"));
   assert.ok(nestedSubtle.props.className.includes("bg-white/[0.02]"));
-  assert.ok(nestedSubtle.props.className.includes("p-3 sm:p-4"));
+  assert.ok(nestedSubtle.props.className.includes("p-2.5 sm:p-3"));
 
   const nestedAccent = content.props.children[1];
   assert.equal(nestedAccent.type, "aside");
   assert.ok(nestedAccent.props.className.includes("rounded-2xl"));
   assert.ok(nestedAccent.props.className.includes("border-teal-500/20"));
   assert.ok(nestedAccent.props.className.includes("shadow-[0_0_16px_rgba(45,212,191,0.15)]"));
-  assert.ok(nestedAccent.props.className.includes("p-4 sm:p-5"));
+  assert.ok(nestedAccent.props.className.includes("p-3.5 sm:p-4.5"));
 });
 
 test("Stress Test: Semantic helper components forward all props identically", () => {
