@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   Clock3,
-  CornerDownLeft,
   Maximize2,
   Moon,
   Play,
@@ -18,28 +17,30 @@ import { formatClockDuration } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { activitySourcePath } from "@/lib/navigation/activity-route";
 import type { GlobalCommandDefinition } from "@/lib/navigation/command-palette";
-import type { DynamicIslandCapsuleKind, DynamicIslandCapsuleState } from "./dynamic-island";
+import type { DynamicIslandCapsuleState } from "./dynamic-island-types";
+import {
+  DynamicIslandHub,
+  HubSupervisionOverview,
+  HubFlowStopwatchPanel,
+  HubConfirmationClosureGuide,
+  HubCommandPaletteList,
+  HubViewModeTabs,
+  type HubViewMode,
+  type DynamicIslandHubProps,
+} from "./dynamic-island-hub";
+import { getCapsuleGlowStyle } from "./dynamic-island-glow";
 
-export function getCapsuleGlowStyle(kind: DynamicIslandCapsuleKind, isOpen: boolean): string {
-  if (isOpen) return "";
-  switch (kind) {
-    case "live_session_running":
-      return "border-teal-500/40 shadow-[0_0_20px_rgba(45,212,191,0.22)] ring-1 ring-teal-400/20 hover:border-teal-400/60";
-    case "live_session_closing":
-      return "border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.2)] ring-1 ring-emerald-400/20 hover:border-emerald-400/60";
-    case "activity_paused":
-      return "border-emerald-500/35 shadow-[0_0_16px_rgba(52,211,153,0.15)] ring-1 ring-emerald-500/20 hover:border-emerald-400/50";
-    case "recovery_active":
-      return "border-amber-400/40 shadow-[0_0_18px_rgba(251,191,36,0.18)] ring-1 ring-amber-400/20 hover:border-amber-400/60";
-    case "evening_review_due":
-      return "border-indigo-400/40 shadow-[0_0_18px_rgba(129,140,248,0.2)] ring-1 ring-indigo-400/20 hover:border-indigo-300/60";
-    case "sync_issue":
-      return "border-amber-400/35 shadow-[0_0_16px_rgba(251,191,36,0.12)] hover:border-amber-400/50";
-    case "idle":
-    default:
-      return "border-white/10 hover:border-teal-400/30 hover:bg-white/[0.04]";
-  }
-}
+export {
+  DynamicIslandHub,
+  HubSupervisionOverview,
+  HubFlowStopwatchPanel,
+  HubConfirmationClosureGuide,
+  HubCommandPaletteList,
+  HubViewModeTabs,
+  getCapsuleGlowStyle,
+};
+
+export type { HubViewMode, DynamicIslandHubProps };
 
 export function DynamicIslandHeroDrawer(props: {
   capsuleState: DynamicIslandCapsuleState;
@@ -219,40 +220,5 @@ export function DynamicIslandCommandList(props: {
   onSelectIndex: (idx: number) => void;
   onExecuteCommand: (cmd: GlobalCommandDefinition) => void;
 }) {
-  const { commands, selectedIndex, onSelectIndex, onExecuteCommand } = props;
-
-  return (
-    <div className="max-h-60 overflow-y-auto space-y-0.5 focus-scrollbar pt-1">
-      {commands.length > 0 ? (
-        commands.map((cmd, idx) => {
-          const isSelected = idx === selectedIndex;
-          return (
-            <div
-              key={cmd.id}
-              onClick={() => onExecuteCommand(cmd)}
-              onMouseEnter={() => onSelectIndex(idx)}
-              className={`flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
-                isSelected ? "bg-teal-500/15 text-teal-200 ring-1 ring-teal-400/30" : "text-zinc-300 hover:bg-white/5"
-              }`}
-              role="option"
-              aria-selected={isSelected}
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="font-medium text-white truncate">{cmd.label}</span>
-                <span className="hidden sm:inline text-[11px] text-zinc-500 truncate">{cmd.description}</span>
-              </div>
-              {isSelected ? (
-                <span className="flex items-center gap-1 text-[10px] font-mono text-teal-400 shrink-0">
-                  <span>跳转</span>
-                  <CornerDownLeft size={11} />
-                </span>
-              ) : null}
-            </div>
-          );
-        })
-      ) : (
-        <div className="py-5 text-center text-xs text-zinc-500">未找到匹配的结果或命令</div>
-      )}
-    </div>
-  );
+  return <HubCommandPaletteList {...props} />;
 }

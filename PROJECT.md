@@ -1,86 +1,54 @@
-# Project: AreaForge Dynamic Island Status Capsule Engine & Banner Purification
+# Project: AreaForge Dynamic Island (Global Multi-State Fluid Architecture & Morphing Floating Hub)
 
 ## Architecture
-- **Global Supervision Nervous System**: `DynamicIsland` & `GlobalTopBar` (`apps/web/components/`)
-  - Polymorphic Status Capsule Engine acting as a unified cross-page status indicator with strict priority evaluation:
-    `Live Session (P0) > Closing Session (P1) > Activity Paused (P2) > Recovery Mode (P3) > Evening Review Due (P4) > Offline Sync (P5) > Clean Idle (P6)`.
-- **In-Page Banner Purification**:
-  - Elimination of all full-width static banners (`TodayStatusBar` in `/today`, redundant warning cards in `/knowledge`, `/roadmap/stages`, `/settings/exams`).
-  - Zero layout shift, 100% vertical space release for 1080p / 900p / 768p viewports.
-- **Strict Alert Layering**:
-  - Tier 1 (Global Supervision): 100% Top-Fixed Dynamic Island.
-  - Tier 2 (Scoped Micro-Feedback): Co-located form validation & inline error alerts.
-  - Tier 3 (Conflict/Confirmation): Dedicated modals.
+- **Obsidian Glass Shell**: Obsidian capsule `bg-[#090e12]/98 backdrop-blur-2xl` at `z-[var(--af-layer-modal)]` (120), fine dividers `border-r/border-l border-white/10`, micro-glow tone rings (Teal, Emerald, Amber, Indigo), and 60fps native CSS cubic-bezier transitions.
+- **State Pool & Priority Engine**: Multi-state collector (`useDynamicIslandStatePool`) aggregating live sessions, breakpoint pauses, recovery stages, evening review deadlines, offline sync queues, and pending confirmations into a deterministic priority order (P0 to P7).
+- **Smart Ticker Carousel**: Smooth auto-rotation carousel (6s cadence) with breathing pagination dots, hover/focus pause, and cross-state transition animations.
+- **Independent 3-Segment Partitions**:
+  - Left Zone: Status tag / Ticker carousel -> opens Status Hub / Mission Details.
+  - Middle Zone: Search input & ⌘K badge -> focuses search & opens Command Palette.
+  - Right Zone: Direct contextual quick action (1-click Instant Resume, Closeout link, Sync retry, Stopwatch).
+- **Morphing Floating Hub**: 60fps Gaussian blurred console structuring 4 comprehensive panels: (1) 督战全景状态, (2) 专注心流秒表, (3) 待确认与晚间收口指引, (4) 全键盘命令搜索列表.
+- **Scene-Adaptive Morphology**: Fluid transformation between Daily Idle Capsule, Live Session Flow Stopwatch (`🟢 LIVE | 科目名 | ⏱ 00:24:32 | ⏸`), and Full Search Bar.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| F1 | Polymorphic Capsule Data Model & Priority Resolver | TypeScript discriminated union and priority evaluation for 6 discrete island states (`live_session_running`, `live_session_closing`, `activity_paused`, `recovery_active`, `evening_review_due`, `sync_issue`, `idle`) | M1 | ORIGINAL_REQUEST §R1 |
-| F2 | Dynamic Island & GlobalTopBar Capsule Rendering | Glowing micro-capsules (Amber for Recovery, Emerald/Amber for Paused with 1-click resume, Twilight Indigo for Evening Review, Teal for Live Session, Discrete for Sync) and expanded Hero drawers | M1 | ORIGINAL_REQUEST §R1 |
-| F3 | One-Click Resume & Quick Workflow Hooks | Direct resume action from paused capsule in Dynamic Island without route navigation; direct recovery & evening review modal triggers | M1 | ORIGINAL_REQUEST §R1 |
-| F4 | `/today` Action Center Banner Elimination | Complete removal of `TodayStatusBar` from `/today`; upward shift of `TodayRecommendation` & `TodayLearningSummary` | M2 | ORIGINAL_REQUEST §R2 |
-| F5 | `/knowledge`, `/roadmap`, `/settings` Banner Purification | Removal of static alert banners and redundant cards across knowledge, roadmap stages, settings exams | M2 | ORIGINAL_REQUEST §R2 |
-| F6 | Focus Workspace & Clean Alert Layering | Retaining inline form feedback in `/focus` while keeping main cockpit clean and linked with Dynamic Island | M3 | ORIGINAL_REQUEST §R3 |
-| F7 | Unit & Adversarial Test Suite Expansion | Adding `dynamic-island-capsules.test.ts`, updating `m1-challenger2-deep-adversarial.test.ts`, and verifying all 607 web tests | M4 | ORIGINAL_REQUEST §Acceptance Criteria |
-| F8 | Playwright Multi-Viewport Visual Verification | Capturing and verifying 1080p, 900p, 768p screenshots for all capsule states and cleaned pages | M4 | ORIGINAL_REQUEST §Acceptance Criteria |
+| 1 | Multi-State State Pool Collector | Collects concurrent active session, recovery, evening review, sync, and confirmations | M1 | Survey / R1 |
+| 2 | Priority Engine Weighting | Deterministic prioritization (P0 Live > P1 Closing > P2 Paused > P3 Recovery > P4 Evening > P5 Sync > P6 Confirmations > P7 Idle) | M1 | Survey / R1 |
+| 3 | State Invariant & Fuzzing Engine | Mathematical invariants and random permutation test suites for concurrent states | M1 | Survey / R1 |
+| 4 | Three-Segment Capsule Layout | Fine dividers `border-white/10`, tone micro-glows, obsidian glass styling | M2 | Survey / R1 |
+| 5 | Three Independent Click Partitions | Left -> Status Hub, Middle -> Search Focus, Right -> Direct Instant Action | M2 | Survey / R1 |
+| 6 | Smart Ticker Carousel | 6s auto-rotation, breathing pagination dots, hover & focus pause | M2 | Survey / R1 |
+| 7 | Morphing Floating Hub Shell | 60fps backdrop-blur-2xl dark console with smooth height unfolding | M3 | Survey / R2 |
+| 8 | Hub: 督战全景状态 Panel | Overview of all active missions & one-click recovery / sync actions | M3 | Survey / R2 |
+| 9 | Hub: 专注心流秒表 Panel | Live immersion stopwatch, breakpoint resume, fullscreen controls | M3 | Survey / R2 |
+| 10 | Hub: 待确认与晚间收口 Panel | Pending confirmations badge & evening review checklist | M3 | Survey / R2 |
+| 11 | Hub: 全键盘命令搜索 Panel | Global command palette with fuzzy search & keyboard navigation | M3 | Survey / R2 |
+| 12 | Scene-Adaptive Fluid Morphology | Daily Idle -> Live Flow Stopwatch (`🟢 LIVE | 科目名 | ⏱ 00:24:32 | ⏸`) -> Full Search | M3 | Survey / R3 |
+| 13 | 4-Tier Test Suite | Comprehensive unit/integration coverage for Tiers 1-4 | M4 | Survey / Acceptance |
+| 14 | Playwright Multi-Viewport Visual Suite | Automated screenshot capture across 1080p, 900p, 768p, 390x844 viewports | M4 | Survey / Acceptance |
+| 15 | Adversarial Coverage Hardening | White-box stress testing, gap analysis, edge-case coverage (Tier 5) | M4 | Survey / Dual Track |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Dynamic Island Status Capsule Engine | Implement polymorphic state resolver, 5 capsule styles (Recovery, Paused + 1-click resume, Evening Review, Live Session, Sync), and hook integration in `DynamicIsland` & `GlobalTopBar` | none | DONE |
-| M2 | Core Page Banner Elimination & Layout Uplift | Purge `TodayStatusBar` from `/today`, remove redundant static alert bars from `/knowledge`, `/roadmap/stages`, `/settings/exams` | M1 | DONE |
-| M3 | Alert Layering & Inline Micro-Feedback | Ensure clean boundary between global status in Dynamic Island and local inline error feedback across forms | M2 | DONE |
-| M4 | Test Suite & Playwright Visual Verification | Unit tests for capsule engine, update adversarial tests, run `typecheck` + `test`, and capture Playwright multi-viewport visual screenshots | M3 | DONE |
-
-## Interface Contracts
-### `DynamicIsland` ↔ `GlobalTopBar` ↔ `AppShell`
-```typescript
-export type IslandStatusKind =
-  | "live_session_running"
-  | "live_session_closing"
-  | "activity_paused"
-  | "recovery_active"
-  | "evening_review_due"
-  | "sync_issue"
-  | "idle";
-
-export interface DynamicIslandProps {
-  userId: string;
-  activeSession: StudySessionDto | null;
-  offlineSession: StudySessionDto | null;
-  quickReviewClaim: QuickReviewActivityClaim | null;
-  syncState?: FocusOfflineSyncState;
-  onRetrySync?: () => void;
-  onOpenAction: (action: GlobalCommandAction) => void;
-  compactOnNarrow?: boolean;
-  commands?: readonly GlobalCommandDefinition[];
-  recovery?: {
-    active: boolean;
-    stage: number;
-    targetMinutes: number;
-    reason?: string;
-    onOpen?: () => void;
-  } | null;
-  eveningReview?: {
-    due: boolean;
-    minimumActionDone: boolean;
-    dailyReviewDone: boolean;
-    onOpen?: () => void;
-  } | null;
-  onResumeSession?: (sessionId: string) => Promise<void>;
-}
-```
+| M1 | Multi-State Pool & Priority Engine | State types, concurrent collector, priority calculator, invariant unit tests | None | DONE |
+| M2 | Smart Ticker & 3-Segment Interactive Capsule | Independent click partitions, 6s Smart Ticker with breathing dots, glow tokens, action dispatcher | M1 | DONE |
+| M3 | Morphing Floating Hub & Scene-Adaptive Morphology | 60fps Gaussian blur console with 4 structured panels, fluid capsule morphing (Idle / Live / Search) | M2 | DONE |
+| M4 | E2E Testing Suite, Playwright Visuals & Adversarial Hardening | Full 4-Tier test pass (100% green), Playwright multi-viewport visual screenshots, Tier 5 hardening | M3, TEST_READY | DONE |
 
 ## Code Layout
-- `apps/web/components/dynamic-island.tsx`: Dynamic Island component container with search input, command palette, and drawer triggers (408 lines).
-- `apps/web/components/dynamic-island-segments.tsx`: Polymorphic capsule left & right segments with glow tokens and 1-click resume (275 lines).
-- `apps/web/components/dynamic-island-drawer.tsx`: Hero pull-down drawers with state-specific controls and command palette list (259 lines).
-- `apps/web/components/global-top-bar.tsx`: Top bar layout linking app shell status to dynamic island.
-- `apps/web/components/app-shell.tsx`: Root shell passing recovery, evening review, and active/paused session status to top bar.
-- `apps/web/components/action-center-today-view.tsx`: `/today` view with `TodayStatusBar` completely removed.
-- `apps/web/lib/routes/knowledge-overview-page.tsx`: `/knowledge` overview with bottom weak point banner removed.
-- `apps/web/lib/routes/plan-stages-page.tsx`: `/roadmap/stages` with static suggestion alert removed.
-- `apps/web/components/workspace-settings-client.tsx`: `/settings/exams` with static note box removed.
-- `apps/web/components/dynamic-island-capsules.test.ts`: 12 unit tests for capsule engine state resolution.
-- `apps/web/components/m1-challenger2-deep-adversarial.test.ts`: Adversarial test for banner elimination.
-- `scripts/ops/capture-capsule-island-screenshots.ts`: Playwright visual screenshot script.
+- `apps/web/components/dynamic-island-types.ts` — Shared state types, priority weights, and view models. (DONE)
+- `apps/web/components/dynamic-island-state-engine.ts` — Multi-state collector, priority resolver, and invariant helpers. (DONE)
+- `apps/web/components/dynamic-island-state-engine.test.ts` — Priority and multi-state unit tests. (DONE)
+- `apps/web/components/dynamic-island-ticker.ts` — Smart Ticker hook (auto-rotation, pause on hover/focus). (DONE)
+- `apps/web/components/dynamic-island-glow.ts` — Capsule micro-glow style calculation. (DONE)
+- `apps/web/components/dynamic-island-segments.tsx` — Partitioned Left, Middle, and Right interactive segments. (DONE)
+- `apps/web/components/dynamic-island-hub.tsx` — Morphing Floating Hub 60fps console and structured sub-panels. (DONE)
+- `apps/web/components/dynamic-island-hub.test.ts` — Unit tests for hub panels and tab switching. (DONE)
+- `apps/web/components/dynamic-island.tsx` — Main Dynamic Island orchestrator & scene-adaptive capsule shell. (DONE)
+- `apps/web/components/dynamic-island-capsules.test.ts` — Full unit & integration test suite. (DONE)
+- `apps/web/components/dynamic-island-m4-adversarial.test.ts` — Tier 5 Adversarial test suite. (DONE)
+- `scripts/ops/capture-capsule-island-screenshots.ts` — Playwright visual screenshot automation. (DONE)
+- `TEST_READY.md` — Test suite publish signal & coverage summary. (DONE)
