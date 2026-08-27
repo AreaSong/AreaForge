@@ -72,23 +72,23 @@ export function getCapsuleLiquidMorphClass(
 
   switch (phase) {
     case "idle_split":
-      return `rounded-[18px] relative h-9 flex-1 cursor-pointer ${baseTransitions} duration-200`;
+      return `rounded-[18px] relative min-h-9 flex-1 cursor-pointer ${baseTransitions} duration-200`;
     case "idle_single":
-      return `rounded-[18px] relative h-9 w-full flex-1 cursor-pointer ${baseTransitions} duration-200`;
+      return `rounded-[18px] relative min-h-9 w-full flex-1 cursor-pointer ${baseTransitions} duration-200`;
     case "merging_p1":
-      return `rounded-[18px] relative h-9 w-full flex-1 cursor-pointer ${baseTransitions} duration-[400ms] af-capsule-merged`;
+      return `rounded-[18px] relative min-h-9 w-full flex-1 cursor-pointer ${baseTransitions} duration-[400ms] af-capsule-merged`;
     case "expanded_p2":
-      return `rounded-[20px] absolute top-0 left-0 right-0 w-full z-20 ${baseTransitions} duration-[320ms] ring-1 ring-white/10`;
+      return `rounded-[20px] relative min-h-9 w-full flex-1 z-20 ${baseTransitions} duration-[320ms] ring-1 ring-white/10`;
     case "collapsing_p1":
-      return `rounded-[18px] absolute top-0 left-0 right-0 w-full z-20 ${baseTransitions} duration-[260ms] ring-1 ring-white/10`;
+      return `rounded-[18px] relative min-h-9 w-full flex-1 z-20 ${baseTransitions} duration-[260ms] ring-1 ring-white/10`;
     case "detaching_p2":
-      return `rounded-[18px] relative h-9 flex-1 cursor-pointer ${baseTransitions} duration-[360ms]`;
+      return `rounded-[18px] relative min-h-9 flex-1 cursor-pointer ${baseTransitions} duration-[360ms]`;
     default:
       return isOpen
-        ? "rounded-[20px] absolute top-0 left-0 right-0 w-full z-20"
+        ? "rounded-[20px] relative min-h-9 w-full flex-1 z-20 ring-1 ring-white/10"
         : hasSatellite
-          ? "rounded-[18px] relative h-9 flex-1 cursor-pointer"
-          : "rounded-[18px] relative h-9 w-full flex-1 cursor-pointer";
+          ? "rounded-[18px] relative min-h-9 flex-1 cursor-pointer"
+          : "rounded-[18px] relative min-h-9 w-full flex-1 cursor-pointer";
   }
 }
 

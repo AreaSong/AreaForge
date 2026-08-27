@@ -84,7 +84,7 @@ describe("Dynamic Island Liquid Morph Engine: Capsule Liquid Morph Classes", () 
   it("applies obsidian glass card styling in expanded_p2 mode", () => {
     const cls = getCapsuleLiquidMorphClass("expanded_p2", true, true);
     assert.ok(cls.includes("rounded-[20px]"));
-    assert.ok(cls.includes("absolute"));
+    assert.ok(cls.includes("relative"));
     assert.ok(cls.includes("duration-[320ms]"));
     assert.ok(cls.includes("ring-1 ring-white/10"));
   });

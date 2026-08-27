@@ -198,6 +198,8 @@ export function isInputElement(el: Element | null): boolean {
 
 function useDynamicIslandKeyboard(
   isOpen: boolean,
+  isExpanded: boolean,
+  isMerging: boolean,
   setIsOpen: (open: boolean) => void,
   fastForwardToExpanded: () => void,
   requestClose: () => void,
@@ -238,8 +240,8 @@ function useDynamicIslandKeyboard(
       // 3. Escape key collapses the dynamic island
       if (e.key === "Escape" && isOpen) {
         e.preventDefault();
-        setIsOpen(false);
         requestClose();
+        setIsOpen(false);
         inputRef.current?.blur();
         setQuery("");
         return;
@@ -248,26 +250,25 @@ function useDynamicIslandKeyboard(
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, setIsOpen, fastForwardToExpanded, requestClose, setViewMode, setQuery, inputRef]);
+  }, [isOpen, isExpanded, isMerging, fastForwardToExpanded, requestClose, setViewMode, setQuery, inputRef]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen && !isExpanded && !isMerging) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
         requestClose();
         setQuery("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, setIsOpen, requestClose, setQuery, containerRef]);
+  }, [isOpen, isExpanded, isMerging, requestClose, setQuery, containerRef]);
 }
 
 export function DynamicIsland(props: DynamicIslandProps) {
+  const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<HubViewMode>("search");
-  const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [swappedPrimaryKind, setSwappedPrimaryKind] = useState<
     DynamicIslandCapsuleKind | DynamicIslandStateKind | null
@@ -306,6 +307,8 @@ export function DynamicIsland(props: DynamicIslandProps) {
 
   useDynamicIslandKeyboard(
     isOpen,
+    morph.isExpanded,
+    morph.isMerging,
     setIsOpen,
     morph.fastForwardToExpanded,
     morph.requestClose,
@@ -379,14 +382,14 @@ export function DynamicIsland(props: DynamicIslandProps) {
       ref={containerRef}
       {...ticker.containerProps}
       onWheel={handleWheel}
-      className="relative mx-auto flex h-9 w-full min-w-0 max-w-[32rem] items-center justify-center gap-2 z-[var(--af-layer-modal)]"
+      className="relative mx-auto flex h-9 w-full min-w-0 max-w-[32rem] items-start justify-center gap-2 z-[var(--af-layer-modal)]"
     >
       {/* Main Capsule */}
       <div
         className={`overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           morph.capsuleMorphClass
         } ${
-          isOpen && morph.isExpanded
+          (isOpen || morph.isExpanded || morph.isCollapsing)
             ? "rounded-[20px] border-teal-500/40 shadow-[0_0_32px_rgba(45,212,191,0.18)] " + expandedAuraClass
             : `rounded-[18px] ${containerGlowClass}`
         }`}
@@ -411,7 +414,7 @@ export function DynamicIsland(props: DynamicIslandProps) {
           onKeyDown={handleInputKeyDown}
           onClearQuery={() => { setQuery(""); inputRef.current?.focus(); }}
           inputRef={inputRef}
-          isOpen={isOpen}
+          isOpen={isOpen || morph.isExpanded || morph.isCollapsing}
           isResuming={isResuming}
           isPausing={isPausing}
           elapsedSeconds={elapsedSeconds}
