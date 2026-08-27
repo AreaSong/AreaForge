@@ -563,10 +563,10 @@ export function DynamicIsland(props: DynamicIslandProps) {
     >
       {/* Main Capsule */}
       <div
-        className={`relative overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen
-            ? "rounded-[20px] border-teal-500/40 shadow-[0_0_32px_rgba(45,212,191,0.18)] ring-1 ring-white/10 w-full " + expandedAuraClass
-            : `rounded-[18px] flex-1 cursor-pointer ${containerGlowClass}`
+            ? "rounded-[20px] border-teal-500/40 shadow-[0_0_32px_rgba(45,212,191,0.18)] absolute top-0 left-0 right-0 ring-1 ring-white/10 w-full z-20 " + expandedAuraClass
+            : `rounded-[18px] relative h-9 flex-1 cursor-pointer ${containerGlowClass}`
         }`}
         onClick={
           !isOpen
