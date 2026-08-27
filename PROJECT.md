@@ -1,58 +1,75 @@
-# Project: AreaForge Dynamic Island Ultra (Global Multi-State Fluid Architecture & Morphing Floating Hub)
+# Project: AreaForge Dynamic Island Two-Phase Liquid Morph & Merge Animation System
 
 ## Architecture
-- **Obsidian Glass Shell**: Obsidian capsule `bg-[#090e12]/98 backdrop-blur-2xl` at `z-[var(--af-layer-modal)]` (120), fine dividers `border-r/border-l border-white/10`, 60fps native CSS cubic-bezier Apple spring transitions (`cubic-bezier(0.16, 1, 0.3, 1)`).
-- **Context-Aware Anti-Redundancy Engine**: Route context (`pathname`) propagation from `AppShell` -> `GlobalTopBar` -> `DynamicIsland` -> `useDynamicIslandStatePool` / `collectDynamicIslandStates`. Route-specific state suppression:
-  - On `/focus`: suppress stopwatch (`live_session_running`, `live_session_closing`, `activity_paused`) -> pure search capsule / next state. Rise when navigating away.
-  - On `/today`: suppress `recovery_active` -> pure search capsule / next state. Rise when navigating away.
-  - On `/roadmap/reviews` (`/roadmap/reviews*`): suppress `evening_review_due` -> pure search capsule / next state. Rise when navigating away.
-- **Dual-Task Island & Satellite Bubble Morphing**: When multiple unsuppressed states exist (`activeStates.length >= 2`), automatically splits into `[Main Capsule]` + `[Independent Glowing Satellite Bubble]` (exclamation mark `!` layout).
-  - Satellite Bubble click / wheel swipe triggers 60fps Fluid Swap Morph, exchanging dominant and satellite focus.
-  - Clicking Main Capsule opens the Morphing Floating Hub or navigates to route.
-- **State-Synced Dynamic Aura & Theming Engine**: Morphing Console Hub border, shadow aura, default active tab, highlight & action buttons are 100% color-synced with active dominant state:
-  - 🌙 晚间收口: Twilight Indigo (`#6366f1`, `border-indigo-500/30`, `shadow-[0_12px_40px_rgba(99,102,241,0.22)]`), default tab 🌙 晚间指引, indigo accents.
-  - ⚡ 精力恢复: Amber Gold (`#f59e0b`, `border-amber-500/30`, `shadow-[0_12px_40px_rgba(245,158,11,0.22)]`), default tab ⚡ 督战全景, amber accents.
-  - 🟢 专注计时: Geek Teal / Green (`#14b8a6`, `border-teal-500/30`, `shadow-[0_12px_40px_rgba(20,184,166,0.22)]`), default tab ⏱ 专注心流, teal accents.
-  - 🔍 纯命令搜索: Pure Dark Glass & Silver Glow (`#94a3b8`, `border-white/10`, `shadow-[0_12px_40px_rgba(0,0,0,0.5)]`), default tab 🔍 命令搜索.
-- **Hover Quick Actions & Global ⌘K Keyboard Penetration**:
-  - Hovering on focus stopwatch capsule reveals `[ ⏸ 暂停 ]` and `[ 🏁 收口 ]` micro-action pills with `stopPropagation`.
-  - Global `⌘K` or `/` expands into full Command Palette with spring physics; `Esc` collapses back smoothly.
+The Dynamic Island Ultra system provides desktop-class contextual awareness and interaction across the AreaForge shell. It integrates an 8-tier priority state machine (P0 `live_session_running` through P7 `idle`), route-aware anti-redundancy suppression (`/focus`, `/today`, `/roadmap/reviews`), and state-synced dynamic aura theming (`teal`, `amber`, `indigo`, `silver`).
+
+This project introduces a **Two-Phase Liquid Morph & Merge and Reverse Elastic Detach Animation Engine**:
+1. **Forward Animation Pipeline**:
+   - **Phase 1 (Horizontal Liquid Merge, 220ms)**: When clicking the main capsule in dual-task mode, the capsule stretches rightward with `cubic-bezier(0.16, 1, 0.3, 1)` while the satellite bubble moves leftward and fuses into the capsule edge, forming a single unbroken wide pill.
+   - **Phase 2 (Vertical Expansion, 300ms)**: The merged pill smoothly expands vertically into the Obsidian Glass console (`grid-rows-[0fr->1fr]`) and illuminates with the state-synced Dynamic Aura glow.
+2. **Reverse Animation Pipeline**:
+   - **Phase 1 (Vertical Collapse, 250ms)**: Pressing `Esc` or clicking outside folds the Obsidian Glass console vertically back into a single-line merged pill.
+   - **Phase 2 (Elastic Droplet Detach, 240ms)**: The right edge contracts while the satellite circle elastically pinches off and springs out to the right (`cubic-bezier(0.34, 1.56, 0.64, 1)`), restoring the dual-task exclamation layout `[ Capsule ]  ( Bubble )`.
+3. **State Machine Hook (`useLiquidMorphState`)**:
+   - FSM with 6 explicit phases: `idle_split`, `idle_single`, `merging_p1`, `expanded_p2`, `collapsing_p1`, `detaching_p2`.
+   - Dedicated lifecycle timers with instant keyboard shortcut bypass (`⌘K` fast-forward to `expanded_p2`).
 
 ## Feature Inventory
-| # | Feature | Description | Milestone | Source |
-|---|---------|-------------|-----------|--------|
-| 1 | Route Context & Anti-Redundancy Engine | Route propagation and suppression (`/focus`, `/today`, `/roadmap/reviews`) | M1 | Survey / R1 |
-| 2 | State Priority Engine & Dual-Task Sorting | Deterministic priority resolution & multi-state dual selection | M1 | Survey / R1, R2 |
-| 3 | State-Synced Dynamic Aura Tokens | 4 synchronized theme profiles (Indigo, Amber, Teal, Silver) | M1 | Survey / R3 |
-| 4 | Dual-Task Exclamation Satellite Bubble | `[Main Capsule] + [Bubble]` split, click & wheel fluid swap morph | M2 | Survey / R2 |
-| 5 | Hover Micro-Actions on Stopwatch | Floating `[ ⏸ 暂停 ]` and `[ 🏁 收口 ]` with event isolation | M2 | Survey / R4 |
-| 6 | Global ⌘K / / / Esc Keyboard Penetration | Global shortcut capture and smooth fluid expansion/collapse | M2 | Survey / R4 |
-| 7 | Morphing Floating Hub Theming & Tab Sync | 100% color-synced borders, aura glow, default active tab selection | M3 | Survey / R3 |
-| 8 | Global TopBar & AppShell Plumbing | Forward `pathname` and global state props to Dynamic Island | M3 | Survey / R1 |
-| 9 | 5-Tier Unit & Integration Test Suite | Comprehensive unit/integration coverage for Tiers 1-4 + Tier 5 | M4 | Survey / Acceptance |
-| 10 | Playwright 1080p Visual Verification Suite | Automated screenshot capture for all 14 visual scenarios | M4 | Survey / Acceptance |
+| # | Feature | Description | Milestone | Source | Status |
+|---|---|---|---|---|---|
+| 1 | Two-Phase Forward Liquid Merge & Expand | Horizontal liquid stretch (220ms) fusing satellite circle, followed by vertical accordion expansion (300ms) into Obsidian Glass hub | M1 | ORIGINAL_REQUEST §R1 | DONE |
+| 2 | Reverse Vertical Collapse & Elastic Detach | Vertical collapse (250ms) to single-row merged capsule, followed by elastic spring droplet detachment (240ms) restoring exclamation mark | M2 | ORIGINAL_REQUEST §R2 | DONE |
+| 3 | Route-Aware Anti-Redundancy & Aura Sync | Preserve `/focus`, `/today`, `/roadmap/reviews` suppression and 4-tone aura theme synchronization | M3 | ORIGINAL_REQUEST §R3 | DONE |
+| 4 | Dual Track Test & Visual Proof Pipeline | 100% pass on `pnpm typecheck`, `pnpm --filter @areaforge/web test` (828/828 pass), Docker slot 1 deploy & Playwright screenshot capture (19/19) | M4 | ORIGINAL_REQUEST §Acceptance Criteria | DONE |
 
 ## Milestones
-| # | Name | Scope | Dependencies | Status |
-|---|------|-------|-------------|--------|
-| M1 | State Engine, Anti-Redundancy & Dynamic Aura Tokens | Route context suppression predicates, state pool collector, dynamic aura theme definitions, state engine unit tests | None | DONE |
-| M2 | Dual-Task Bubble, Hover Micro-Actions & Keyboard Penetration | Exclamation satellite bubble split, 60fps fluid swap morph, stopwatch hover micro-action pills, global ⌘K/Esc handlers | M1 | DONE |
-| M3 | Dynamic Aura Morphing Hub & Shell Plumbing | Color-synced Morphing Floating Hub, default tab activation, GlobalTopBar/AppShell route forwarding | M2 | DONE |
-| M4 | 100% Test Pass, Tier 5 Adversarial Hardening & Playwright Visuals | Full 5-tier test execution, Tier 5 stress suite, Playwright 1080p screenshot suite | M3, TEST_READY | DONE |
+| # | Name | Scope | Dependencies | Status | Key Outputs |
+|---|---|---|---|---|---|
+| M1 | Liquid Morph State Engine & Forward Pipeline | Implement `dynamic-island-morph.ts` (FSM, timings, classes), update `dynamic-island.tsx` and `dynamic-island-segments.tsx` for 2-phase merge | none | DONE | `dynamic-island-morph.ts`, `globals.css` (.af-satellite-fusing, .af-capsule-merged) |
+| M2 | Reverse Collapse & Elastic Detach Physics | Implement reverse fold & droplet separation spring keyframes, rapid toggle safety, keyboard shortcut fast-forward | M1 | DONE | `@keyframes af-satellite-elastic-detach`, `fastForwardToExpanded` |
+| M3 | Anti-Redundancy & Aura Sync Integrity | Verify routing suppression across all routes, ensure 100% aura color harmony, modularize complexity ≤ 500 lines | M1, M2 | DONE | `dynamic-island-helpers.tsx` modularized, `dynamic-island.tsx` at 476 lines |
+| M4 | Test Coverage & Playwright Visual Verification | Unit test suites (`dynamic-island-morph.test.ts`, `dynamic-island-morph-stress.test.ts`), Docker slot 1 refresh, Playwright multi-frame liquid capture | M1, M2, M3 | DONE | 828/828 unit tests pass, 19/19 1080p screenshots verified in `output/screenshots/dynamic-island-ultra/` |
+
+## Interface Contracts
+### `dynamic-island-morph.ts` ↔ `dynamic-island.tsx`
+```typescript
+export type LiquidMorphPhase =
+  | "idle_split"
+  | "idle_single"
+  | "merging_p1"
+  | "expanded_p2"
+  | "collapsing_p1"
+  | "detaching_p2";
+
+export interface UseLiquidMorphOptions {
+  hasSatellite: boolean;
+  isOpen: boolean;
+  onOpenStateChange: (open: boolean) => void;
+}
+
+export interface UseLiquidMorphResult {
+  phase: LiquidMorphPhase;
+  isMerging: boolean;
+  isExpanded: boolean;
+  isCollapsing: boolean;
+  isDetaching: boolean;
+  isSolidMergedCapsule: boolean;
+  shouldRenderSatellite: boolean;
+  satelliteClass: string;
+  capsuleClass: string;
+  triggerOpen: (targetViewMode?: string) => void;
+  triggerClose: () => void;
+  fastForwardOpen: (targetViewMode?: string) => void;
+}
+```
 
 ## Code Layout
-- `apps/web/components/dynamic-island-types.ts` — Shared state types, priority weights, aura tokens, and view models.
-- `apps/web/components/dynamic-island-state-engine.ts` — Multi-state collector, route suppression predicates, priority resolver.
-- `apps/web/components/dynamic-island-state-engine.test.ts` — Unit tests for priority, route suppression, and multi-state dual selection.
-- `apps/web/components/dynamic-island-glow.ts` — Dynamic Aura theme definitions and glow style calculation.
-- `apps/web/components/dynamic-island-segments.tsx` — Main capsule, satellite bubble, and hover micro-action components.
-- `apps/web/components/dynamic-island-ticker.ts` — Smart Ticker hook (auto-rotation, pause on hover/focus).
-- `apps/web/components/dynamic-island-hub.tsx` — Morphing Floating Hub 60fps console with dynamic aura and default tab sync.
-- `apps/web/components/dynamic-island-hub.test.ts` — Unit tests for hub dynamic aura, panels, and tab switching.
-- `apps/web/components/dynamic-island.tsx` — Dynamic Island Ultra orchestrator, keyboard handlers, and dual-task morphing shell.
-- `apps/web/components/global-topbar.tsx` — Forward `pathname` to Dynamic Island.
-- `apps/web/components/app-shell.tsx` — Forward `pathname` to GlobalTopBar.
-- `apps/web/components/dynamic-island-capsules.test.ts` — Integration tests for dual-task bubble, hover actions, and keyboard shortcuts.
-- `apps/web/components/dynamic-island-m4-adversarial.test.ts` — Tier 5 Adversarial stress test suite.
-- `scripts/ops/capture-capsule-island-screenshots.ts` — Playwright visual screenshot automation.
-- `TEST_READY.md` — E2E test suite publish signal & coverage summary.
+- `apps/web/components/dynamic-island-morph.ts`: Core liquid morph FSM hook and timing tokens (235 lines).
+- `apps/web/components/dynamic-island-helpers.tsx`: Modular helper subcomponents and elapsed time hooks (279 lines).
+- `apps/web/components/dynamic-island.tsx`: Root Dynamic Island container component (476 lines).
+- `apps/web/components/dynamic-island-segments.tsx`: Satellite bubble and capsule segment rendering (644 lines).
+- `apps/web/components/dynamic-island-glow.ts`: State-synced dynamic aura tokens and classes (417 lines).
+- `apps/web/components/dynamic-island-hub.tsx`: Expanded Obsidian Glass console panel (894 lines).
+- `apps/web/components/dynamic-island-morph.test.ts`: FSM unit tests (176 lines).
+- `apps/web/components/dynamic-island-morph-stress.test.ts`: 18 stress suites and 10,000-iteration monkey fuzzing tests (920 lines).
+- `scripts/ops/capture-capsule-island-screenshots.ts`: Playwright automated frame capture script (774 lines).

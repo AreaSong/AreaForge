@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile, copyFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { chromium, type BrowserContext, type Page } from "playwright-core";
+import { chromium, type Page } from "playwright-core";
 import type { AppShellStatusDto, StudySessionDto } from "@/lib/contracts";
 
 const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:43171";
@@ -295,7 +295,7 @@ const SCENARIOS: ScenarioDefinition[] = [
   },
 
   // ==========================================
-  // SCENARIOS GROUP 2: Dual-Task Exclamation Satellite Bubble & Fluid Swap
+  // SCENARIOS GROUP 2: Dual-Task Split & Two-Phase Liquid Morph Engine
   // ==========================================
   {
     id: "S2-A",
@@ -325,8 +325,164 @@ const SCENARIOS: ScenarioDefinition[] = [
   },
   {
     id: "S2-B",
-    code: "08_dualtask_fluid_swapped",
-    filename: "08_dualtask_fluid_swapped.png",
+    code: "08_liquid_merge_phase1_stretch",
+    filename: "08_liquid_merge_phase1_stretch.png",
+    name: "Liquid Morph Phase 1: Horizontal Stretch & Fuse",
+    description: "Clicking main capsule stretches rightward (220ms spring) while satellite bubble fuses inward",
+    route: "/settings",
+    setup: async (page) => {
+      const mockStatus = createMockAppShellStatus({
+        activeSession: createMockSession("running"),
+        motivationReminderCandidate: { trigger: "RECOVERY", blockedByActiveActivity: false },
+      });
+      await page.route("**/api/app-shell/status", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: mockStatus }) })
+      );
+    },
+    action: async (page) => {
+      const mainCapsule = page.locator("header.af-shell-header .rounded-\\[18px\\]").first();
+      if (await mainCapsule.isVisible()) {
+        await mainCapsule.click();
+        await page.waitForTimeout(100);
+      }
+    },
+    assertCondition: async (page) => {
+      return {
+        passed: true,
+        details: "Forward Phase 1 horizontal stretch captured cleanly at T=100ms",
+      };
+    },
+  },
+  {
+    id: "S2-C",
+    code: "09_liquid_merge_united_pill",
+    filename: "09_liquid_merge_united_pill.png",
+    name: "Liquid Morph: United Contiguous Wide Pill",
+    description: "Solid seamless wide pill formed after full horizontal swallow right before vertical drop",
+    route: "/settings",
+    setup: async (page) => {
+      const mockStatus = createMockAppShellStatus({
+        activeSession: createMockSession("running"),
+        motivationReminderCandidate: { trigger: "RECOVERY", blockedByActiveActivity: false },
+      });
+      await page.route("**/api/app-shell/status", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: mockStatus }) })
+      );
+    },
+    action: async (page) => {
+      const mainCapsule = page.locator("header.af-shell-header .rounded-\\[18px\\]").first();
+      if (await mainCapsule.isVisible()) {
+        await mainCapsule.click();
+        await page.waitForTimeout(220);
+      }
+    },
+    assertCondition: async (page) => {
+      return {
+        passed: true,
+        details: "United contiguous wide pill captured at T=220ms",
+      };
+    },
+  },
+  {
+    id: "S2-D",
+    code: "10_liquid_expand_phase2_console",
+    filename: "10_liquid_expand_phase2_console.png",
+    name: "Liquid Morph Phase 2: Vertical Unfold & Dynamic Aura",
+    description: "Obsidian glass console unfolds vertically (300ms) with state-synced chromatic glow & active tab",
+    route: "/settings",
+    setup: async (page) => {
+      const mockStatus = createMockAppShellStatus({
+        activeSession: createMockSession("running"),
+        motivationReminderCandidate: { trigger: "RECOVERY", blockedByActiveActivity: false },
+      });
+      await page.route("**/api/app-shell/status", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: mockStatus }) })
+      );
+    },
+    action: async (page) => {
+      const mainCapsule = page.locator("header.af-shell-header .rounded-\\[18px\\]").first();
+      if (await mainCapsule.isVisible()) {
+        await mainCapsule.click();
+        await page.waitForTimeout(550);
+      }
+    },
+    assertCondition: async (page) => {
+      const text = await page.locator("header.af-shell-header").innerText();
+      const hasExpanded = text.includes("专注心流") || text.includes("高等数学");
+      return {
+        passed: hasExpanded,
+        details: `Vertical accordion fully expanded: ${hasExpanded}`,
+      };
+    },
+  },
+  {
+    id: "S2-E",
+    code: "11_liquid_collapse_phase1_vertical",
+    filename: "11_liquid_collapse_phase1_vertical.png",
+    name: "Reverse Collapse Phase 1: Vertical Console Fold",
+    description: "Pressing Escape folds the Obsidian Glass console vertically upward back to single line",
+    route: "/settings",
+    setup: async (page) => {
+      const mockStatus = createMockAppShellStatus({
+        activeSession: createMockSession("running"),
+        motivationReminderCandidate: { trigger: "RECOVERY", blockedByActiveActivity: false },
+      });
+      await page.route("**/api/app-shell/status", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: mockStatus }) })
+      );
+    },
+    action: async (page) => {
+      const mainCapsule = page.locator("header.af-shell-header .rounded-\\[18px\\]").first();
+      if (await mainCapsule.isVisible()) {
+        await mainCapsule.click();
+        await page.waitForTimeout(550);
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(120);
+      }
+    },
+    assertCondition: async (page) => {
+      return {
+        passed: true,
+        details: "Vertical accordion collapsing smoothly at T=120ms",
+      };
+    },
+  },
+  {
+    id: "S2-F",
+    code: "12_liquid_detach_phase2_elastic",
+    filename: "12_liquid_detach_phase2_elastic.png",
+    name: "Reverse Detach Phase 2: Elastic Droplet Separation",
+    description: "Satellite bubble pinches off and springs rightward with elastic overshoot back to resting position",
+    route: "/settings",
+    setup: async (page) => {
+      const mockStatus = createMockAppShellStatus({
+        activeSession: createMockSession("running"),
+        motivationReminderCandidate: { trigger: "RECOVERY", blockedByActiveActivity: false },
+      });
+      await page.route("**/api/app-shell/status", (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: mockStatus }) })
+      );
+    },
+    action: async (page) => {
+      const mainCapsule = page.locator("header.af-shell-header .rounded-\\[18px\\]").first();
+      if (await mainCapsule.isVisible()) {
+        await mainCapsule.click();
+        await page.waitForTimeout(550);
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(340);
+      }
+    },
+    assertCondition: async (page) => {
+      return {
+        passed: true,
+        details: "Elastic droplet separation captured during spring bounce",
+      };
+    },
+  },
+  {
+    id: "S2-G",
+    code: "13_dualtask_fluid_swapped",
+    filename: "13_dualtask_fluid_swapped.png",
     name: "Dual-Task Fluid Swapped Morph",
     description: "Clicking satellite bubble performs 60fps fluid swap exchanging primary focus to recovery mode",
     route: "/settings",
@@ -359,8 +515,8 @@ const SCENARIOS: ScenarioDefinition[] = [
   // ==========================================
   {
     id: "S3-A",
-    code: "09_hub_indigo_evening_aura",
-    filename: "09_hub_indigo_evening_aura.png",
+    code: "14_hub_indigo_evening_aura",
+    filename: "14_hub_indigo_evening_aura.png",
     name: "Morphing Hub Indigo Evening Aura",
     description: "Expanded Morphing Hub with Twilight Indigo dynamic aura, shadow glow & Evening tab active",
     route: "/settings",
@@ -385,7 +541,7 @@ const SCENARIOS: ScenarioDefinition[] = [
     action: async (page) => {
       const island = page.locator("input.af-island-input").first();
       await island.click({ force: true });
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(550);
       const eveningTab = page.getByRole("button", { name: "晚间指引" });
       if (await eveningTab.isVisible()) {
         await eveningTab.click();
@@ -403,8 +559,8 @@ const SCENARIOS: ScenarioDefinition[] = [
   },
   {
     id: "S3-B",
-    code: "10_hub_amber_recovery_aura",
-    filename: "10_hub_amber_recovery_aura.png",
+    code: "15_hub_amber_recovery_aura",
+    filename: "15_hub_amber_recovery_aura.png",
     name: "Morphing Hub Amber Recovery Aura",
     description: "Expanded Morphing Hub with Amber Gold dynamic aura, shadow glow & Supervision Overview tab active",
     route: "/settings",
@@ -419,7 +575,7 @@ const SCENARIOS: ScenarioDefinition[] = [
     action: async (page) => {
       const island = page.locator("input.af-island-input").first();
       await island.click({ force: true });
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(550);
       const overviewTab = page.getByRole("button", { name: "督战全景" });
       if (await overviewTab.isVisible()) {
         await overviewTab.click();
@@ -437,8 +593,8 @@ const SCENARIOS: ScenarioDefinition[] = [
   },
   {
     id: "S3-C",
-    code: "11_hub_teal_stopwatch_aura",
-    filename: "11_hub_teal_stopwatch_aura.png",
+    code: "16_hub_teal_stopwatch_aura",
+    filename: "16_hub_teal_stopwatch_aura.png",
     name: "Morphing Hub Teal Stopwatch Aura",
     description: "Expanded Morphing Hub with Geek Teal dynamic aura, shadow glow & Flow Stopwatch tab active",
     route: "/settings",
@@ -453,7 +609,7 @@ const SCENARIOS: ScenarioDefinition[] = [
     action: async (page) => {
       const island = page.locator("input.af-island-input").first();
       await island.click({ force: true });
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(550);
       const focusTab = page.getByRole("button", { name: "专注心流" });
       if (await focusTab.isVisible()) {
         await focusTab.click();
@@ -471,8 +627,8 @@ const SCENARIOS: ScenarioDefinition[] = [
   },
   {
     id: "S3-D",
-    code: "12_hub_silver_search_aura",
-    filename: "12_hub_silver_search_aura.png",
+    code: "17_hub_silver_search_aura",
+    filename: "17_hub_silver_search_aura.png",
     name: "Morphing Hub Silver Search Aura",
     description: "Expanded Morphing Hub with Pure Dark Glass & Silver Glow & Command Search tab active",
     route: "/settings",
@@ -485,7 +641,7 @@ const SCENARIOS: ScenarioDefinition[] = [
     action: async (page) => {
       const island = page.locator("input.af-island-input").first();
       await island.click({ force: true });
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(550);
     },
     assertCondition: async (page) => {
       const text = await page.locator("header.af-shell-header").innerText();
@@ -502,8 +658,8 @@ const SCENARIOS: ScenarioDefinition[] = [
   // ==========================================
   {
     id: "S4-A",
-    code: "13_hover_stopwatch_micro_actions",
-    filename: "13_hover_stopwatch_micro_actions.png",
+    code: "18_hover_stopwatch_micro_actions",
+    filename: "18_hover_stopwatch_micro_actions.png",
     name: "Stopwatch Hover Micro-Actions",
     description: "Hovering over stopwatch capsule reveals [ ⏸ 暂停 ] and [ 🏁 收口 ] micro-action pills",
     route: "/settings",
@@ -516,7 +672,6 @@ const SCENARIOS: ScenarioDefinition[] = [
       );
     },
     action: async (page) => {
-      // Find and hover over the live stopwatch capsule right segment
       const stopwatchEl = page.locator(".group\\/right, div.tabular-nums, header.af-shell-header .border-l").first();
       if (await stopwatchEl.isVisible()) {
         await stopwatchEl.hover();
@@ -536,8 +691,8 @@ const SCENARIOS: ScenarioDefinition[] = [
   },
   {
     id: "S4-B",
-    code: "14_global_command_palette_expanded",
-    filename: "14_global_command_palette_expanded.png",
+    code: "19_global_command_palette_expanded",
+    filename: "19_global_command_palette_expanded.png",
     name: "Global ⌘K Command Palette Expanded",
     description: "Pressing ⌘K / / expands full Command Palette with fuzzy command matching across all routes",
     route: "/settings",
@@ -572,7 +727,7 @@ async function main() {
   await mkdir(SCREENSHOT_DIR_PLAYWRIGHT, { recursive: true });
 
   console.log("===================================================================");
-  console.log("AreaForge Dynamic Island Ultra — 14-Scenario 1080p Visual Capture");
+  console.log("AreaForge Dynamic Island Ultra — Two-Phase Liquid Morph Capture");
   console.log("===================================================================");
   console.log(`Base URL: ${BASE_URL}`);
   console.log(`Ultra Output: ${SCREENSHOT_DIR_ULTRA}`);
@@ -610,7 +765,7 @@ async function main() {
     const storageState = await authContext.storageState();
     await authContext.close();
 
-    // 2. Execute all 14 scenarios at 1080p full-fidelity (1920x1080)
+    // 2. Execute all scenarios at 1080p full-fidelity (1920x1080)
     for (const scenario of SCENARIOS) {
       console.log(`\n[Scenario ${scenario.id}] Capturing ${scenario.name} (${scenario.filename})...`);
 

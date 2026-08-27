@@ -38,6 +38,7 @@ export interface SatelliteBubbleProps {
   onSwapFluidFocus?: (kind: DynamicIslandCapsuleKind | DynamicIslandStateKind) => void;
   onSwap?: () => void;
   className?: string;
+  animationClass?: string;
 }
 
 export function SatelliteBubble({
@@ -46,6 +47,7 @@ export function SatelliteBubble({
   onSwapFluidFocus,
   onSwap,
   className,
+  animationClass,
 }: SatelliteBubbleProps) {
   const item = satelliteItem;
   const kind: DynamicIslandCapsuleKind = item?.kind ?? satelliteState?.kind ?? "idle";
@@ -116,7 +118,7 @@ export function SatelliteBubble({
       tabIndex={0}
       title={tooltipText}
       aria-label={tooltipText}
-      className={`size-9 sm:size-[38px] rounded-full shrink-0 flex items-center justify-center cursor-pointer select-none bg-[#090e12]/98 backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-105 active:scale-95 ${glowClass} ${className ?? ""}`}
+      className={`size-9 sm:size-[38px] rounded-full shrink-0 flex items-center justify-center cursor-pointer select-none bg-[#090e12]/98 backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-105 active:scale-95 ${glowClass} ${animationClass ?? ""} ${className ?? ""}`}
     >
       {renderIcon()}
     </div>

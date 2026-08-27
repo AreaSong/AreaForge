@@ -6,23 +6,15 @@ import {
   useEffect,
   useMemo,
   useCallback,
-  useSyncExternalStore,
-  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
 } from "react";
-import { useRouter } from "next/navigation";
-import { getTimerElapsedSeconds } from "@areaforge/core";
 import {
   clampCommandIndex,
   GLOBAL_COMMANDS,
   filterGlobalCommands,
-  getGlobalCommandHref,
-  resolveGlobalCommand,
   type GlobalCommandAction,
   type GlobalCommandDefinition,
 } from "@/lib/navigation/command-palette";
-import { postStudySessionCommand } from "@/lib/api/session";
-import { getClientDeviceHeaders } from "@/lib/client/device-identity";
-import { publishActivityStatus } from "@/lib/client/activity-status";
 import {
   DynamicIslandHub,
   MorphingFloatingHub,
@@ -87,6 +79,29 @@ import {
   type UseDynamicIslandTickerOptions,
   type UseDynamicIslandTickerResult,
 } from "./dynamic-island-ticker";
+import {
+  useLiquidMorphState,
+  getCapsuleLiquidMorphClass,
+  getSatelliteLiquidClass,
+  getLiquidFoldAnimationClass,
+  isReducedMotionPreferred,
+  LIQUID_TIMINGS,
+  type LiquidMorphPhase,
+  type UseLiquidMorphOptions,
+  type UseLiquidMorphResult,
+} from "./dynamic-island-morph";
+import {
+  subscribeNow,
+  getNowSnapshot,
+  getServerNowSnapshot,
+  useDynamicIslandElapsed,
+  resolveOverviewMode,
+  useDynamicIslandHandlers,
+  useDirectResumeSession,
+  useDirectPauseSession,
+  DynamicIslandCollapsedBar,
+  DynamicIslandExpandedFold,
+} from "./dynamic-island-helpers";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
 import type { StudySessionDto } from "@/lib/contracts";
 import {
@@ -135,6 +150,11 @@ export {
   createIdleStateItem, collectDynamicIslandActiveStates, sortActiveStatesByPriority,
   getDominantState, resolveDominantState, resolveDualTaskStates, computeDynamicIslandStatePool, collectDynamicIslandStatePool,
   validateStatePoolInvariants, resolveDynamicIslandState, PRIORITY_WEIGHTS, IDLE_STATE_ITEM,
+  useLiquidMorphState, getCapsuleLiquidMorphClass, getSatelliteLiquidClass, getLiquidFoldAnimationClass,
+  isReducedMotionPreferred, LIQUID_TIMINGS,
+  subscribeNow, getNowSnapshot, getServerNowSnapshot, useDynamicIslandElapsed,
+  resolveOverviewMode, useDynamicIslandHandlers, useDirectResumeSession, useDirectPauseSession,
+  DynamicIslandCollapsedBar, DynamicIslandExpandedFold,
 };
 
 export type {
@@ -144,37 +164,10 @@ export type {
   DynamicIslandCapsuleKind, DynamicIslandStateKind, DynamicIslandSyncState, DynamicIslandTone, DynamicIslandRecoveryProps,
   DynamicIslandEveningReviewProps, DynamicIslandQuickAction, DynamicIslandActiveItem,
   DynamicIslandStatePool, DualTaskResolutionResult, CollectDynamicIslandStatesInput, DynamicIslandStateEngineInput,
-  DynamicIslandCapsuleState,
+  DynamicIslandCapsuleState, LiquidMorphPhase, UseLiquidMorphOptions, UseLiquidMorphResult,
 };
 
 export const DYNAMIC_ISLAND_SEARCH_PLACEHOLDER = "搜索或输入命令… ⌘K";
-
-const serverNowSnapshot = 0;
-let nowSnapshot = serverNowSnapshot;
-let nowTimer: number | null = null;
-const nowListeners = new Set<() => void>();
-
-function subscribeNow(listener: () => void): () => void {
-  nowListeners.add(listener);
-  if (nowTimer === null && typeof window !== "undefined") {
-    nowSnapshot = Date.now();
-    listener();
-    nowTimer = window.setInterval(() => {
-      nowSnapshot = Date.now();
-      for (const currentListener of nowListeners) currentListener();
-    }, 1_000);
-  }
-  return () => {
-    nowListeners.delete(listener);
-    if (nowListeners.size === 0 && nowTimer !== null) {
-      window.clearInterval(nowTimer);
-      nowTimer = null;
-    }
-  };
-}
-
-function getNowSnapshot(): number { return nowSnapshot; }
-function getServerNowSnapshot(): number { return serverNowSnapshot; }
 
 export interface DynamicIslandProps {
   userId: string;
@@ -194,25 +187,24 @@ export interface DynamicIslandProps {
   pathname?: string | null;
 }
 
-function isInputElement(el: Element | null): boolean {
+export function isInputElement(el: Element | null): boolean {
   if (!el) return false;
   const tagName = el.tagName?.toUpperCase();
   if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT") {
     return true;
   }
-  if ((el as HTMLElement).isContentEditable) {
-    return true;
-  }
-  return false;
+  return Boolean((el as HTMLElement).isContentEditable);
 }
 
 function useDynamicIslandKeyboard(
   isOpen: boolean,
   setIsOpen: (open: boolean) => void,
+  fastForwardToExpanded: () => void,
+  requestClose: () => void,
   setViewMode: (mode: HubViewMode) => void,
   setQuery: (query: string) => void,
-  inputRef: React.RefObject<HTMLInputElement | null>,
-  containerRef: React.RefObject<HTMLDivElement | null>
+  inputRef: RefObject<HTMLInputElement | null>,
+  containerRef: RefObject<HTMLDivElement | null>
 ) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -223,6 +215,7 @@ function useDynamicIslandKeyboard(
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setIsOpen(true);
+        fastForwardToExpanded();
         setViewMode("search");
         setTimeout(() => {
           inputRef.current?.focus();
@@ -234,6 +227,7 @@ function useDynamicIslandKeyboard(
       if (e.key === "/" && !isInput && !isOpen) {
         e.preventDefault();
         setIsOpen(true);
+        fastForwardToExpanded();
         setViewMode("search");
         setTimeout(() => {
           inputRef.current?.focus();
@@ -245,6 +239,7 @@ function useDynamicIslandKeyboard(
       if (e.key === "Escape" && isOpen) {
         e.preventDefault();
         setIsOpen(false);
+        requestClose();
         inputRef.current?.blur();
         setQuery("");
         return;
@@ -253,221 +248,20 @@ function useDynamicIslandKeyboard(
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, setIsOpen, setViewMode, setQuery, inputRef]);
+  }, [isOpen, setIsOpen, fastForwardToExpanded, requestClose, setViewMode, setQuery, inputRef]);
 
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
+        requestClose();
         setQuery("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, setIsOpen, setQuery, containerRef]);
-}
-
-function useDynamicIslandElapsed(
-  activeSession: StudySessionDto | null,
-  offlineSession: StudySessionDto | null
-): { session: StudySessionDto | null; elapsedSeconds: number } {
-  const now = useSyncExternalStore(subscribeNow, getNowSnapshot, getServerNowSnapshot);
-  const session = activeSession || offlineSession;
-
-  const elapsedSeconds = session
-    ? getTimerElapsedSeconds({
-        status: session.status === "running" ? "running" : session.status === "paused" ? "paused" : "completed",
-        startedAt: new Date(session.startedAt),
-        pausedAt: session.pausedAt ? new Date(session.pausedAt) : undefined,
-        endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
-        accumulatedPauseSeconds: session.accumulatedPauseSeconds,
-        now: new Date(now),
-      })
-    : 0;
-
-  return { session, elapsedSeconds };
-}
-
-function resolveOverviewMode(kind: DynamicIslandCapsuleKind): HubViewMode {
-  if (kind === "live_session_running" || kind === "activity_paused" || kind === "live_session_closing") {
-    return "focus";
-  }
-  if (kind === "evening_review_due" || kind === "confirmations_pending") {
-    return "closure";
-  }
-  return "overview";
-}
-
-function useDynamicIslandHandlers(
-  query: string,
-  setQuery: (q: string) => void,
-  commands: readonly GlobalCommandDefinition[],
-  selectedIndex: number,
-  setActiveIndex: React.Dispatch<React.SetStateAction<number>>,
-  setIsOpen: (o: boolean) => void,
-  setViewMode: (m: HubViewMode) => void,
-  inputRef: React.RefObject<HTMLInputElement | null>,
-  onOpenAction: (a: GlobalCommandAction) => void
-) {
-  const router = useRouter();
-
-  function executeCommand(command: GlobalCommandDefinition) {
-    const resolved = resolveGlobalCommand(query, commands);
-    const execution = resolved?.definition.id === command.id
-      ? resolved.execution : { rawQuery: query, argumentText: "", args: [], namedArgs: {} };
-    const href = getGlobalCommandHref(command, execution);
-    if (href) router.push(href);
-    if (command.action) onOpenAction(command.action);
-    setIsOpen(false);
-    setQuery("");
-    inputRef.current?.blur();
-  }
-
-  function handleInputKeyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((prev) => (commands.length ? (prev + 1) % commands.length : 0));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((prev) => (commands.length ? (prev - 1 + commands.length) % commands.length : 0));
-    } else if (e.key === "Enter" && commands[selectedIndex]) {
-      e.preventDefault();
-      executeCommand(commands[selectedIndex]);
-    }
-  }
-
-  return { executeCommand, handleInputKeyDown };
-}
-
-function useDirectResumeSession(
-  userId: string,
-  currentItem: DynamicIslandActiveItem,
-  session: StudySessionDto | null,
-  onResumeSession?: (id: string) => Promise<void>
-) {
-  const [isResuming, setIsResuming] = useState(false);
-
-  async function handleDirectResume(e?: React.MouseEvent) {
-    e?.stopPropagation();
-    const resumeSession = currentItem.session || session;
-    if (!resumeSession?.id || isResuming) return;
-    setIsResuming(true);
-    try {
-      if (onResumeSession) {
-        await onResumeSession(resumeSession.id);
-      } else {
-        const res = await postStudySessionCommand(resumeSession.id, "resume", {}, getClientDeviceHeaders());
-        if (res.ok && res.body?.session) publishActivityStatus(userId, res.body.session);
-      }
-    } finally {
-      setIsResuming(false);
-    }
-  }
-
-  return { isResuming, handleDirectResume };
-}
-
-function useDirectPauseSession(
-  userId: string,
-  currentItem: DynamicIslandActiveItem,
-  session: StudySessionDto | null
-) {
-  const [isPausing, setIsPausing] = useState(false);
-
-  async function handleDirectPause(e?: React.MouseEvent) {
-    e?.stopPropagation();
-    const pauseSession = currentItem.session || session;
-    if (!pauseSession?.id || isPausing) return;
-    setIsPausing(true);
-    try {
-      const res = await postStudySessionCommand(pauseSession.id, "pause", {}, getClientDeviceHeaders());
-      if (res.ok && res.body?.session) publishActivityStatus(userId, res.body.session);
-    } finally {
-      setIsPausing(false);
-    }
-  }
-
-  return { isPausing, handleDirectPause };
-}
-
-function DynamicIslandCollapsedBar(props: {
-  currentItem: DynamicIslandActiveItem;
-  tickerTotalStates: number;
-  tickerCurrentIndex: number;
-  query: string;
-  onQueryChange: (q: string) => void;
-  onOpenSearch: () => void;
-  onKeyDown: (e: ReactKeyboardEvent<HTMLInputElement>) => void;
-  onClearQuery: () => void;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  isOpen: boolean;
-  isResuming: boolean;
-  isPausing?: boolean;
-  elapsedSeconds: number;
-  onOpenOverview: (e?: React.MouseEvent) => void;
-  onOpenFocus: (e?: React.MouseEvent) => void;
-  onDirectResume: (e?: React.MouseEvent) => Promise<void>;
-  onDirectPause?: (e?: React.MouseEvent) => Promise<void>;
-  onRetrySync?: () => void;
-  onCloseDrawer: () => void;
-}) {
-  return (
-    <div className="flex h-9 w-full min-w-0 items-center justify-between gap-2 px-3 text-xs">
-      <CapsuleLeftSegment
-        activeItem={props.currentItem}
-        activeCount={props.tickerTotalStates}
-        tickerIndex={props.tickerCurrentIndex}
-        onOpenOverview={props.onOpenOverview}
-        onTriggerOpen={props.onOpenOverview}
-      />
-      <CapsuleCenterSegment
-        query={props.query}
-        onQueryChange={props.onQueryChange}
-        onOpenSearch={props.onOpenSearch}
-        onKeyDown={props.onKeyDown}
-        onClearQuery={props.onClearQuery}
-        inputRef={props.inputRef}
-        activeKind={props.currentItem.kind}
-      />
-      <CapsuleRightSegment
-        activeItem={props.currentItem}
-        isOpen={props.isOpen}
-        isResuming={props.isResuming}
-        isPausing={props.isPausing}
-        elapsedSeconds={props.elapsedSeconds}
-        onTriggerOpen={props.onOpenOverview}
-        onOpenFocus={props.onOpenFocus}
-        onDirectResume={props.onDirectResume}
-        onDirectPause={props.onDirectPause}
-        onRetrySync={props.onRetrySync}
-        onCloseDrawer={props.onCloseDrawer}
-      />
-    </div>
-  );
-}
-
-function DynamicIslandExpandedFold(props: {
-  isOpen: boolean;
-  hubProps: DynamicIslandHubProps;
-}) {
-  return (
-    <div
-      className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        props.isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 pointer-events-none"
-      }`}
-    >
-      <div className="overflow-hidden">
-        <div
-          className={`px-3 pb-3 pt-2 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            props.isOpen ? "translate-y-0" : "-translate-y-2"
-          }`}
-        >
-          <MorphingFloatingHub {...props.hubProps} />
-        </div>
-      </div>
-    </div>
-  );
+  }, [isOpen, setIsOpen, requestClose, setQuery, containerRef]);
 }
 
 export function DynamicIsland(props: DynamicIslandProps) {
@@ -483,8 +277,6 @@ export function DynamicIsland(props: DynamicIslandProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { session, elapsedSeconds } = useDynamicIslandElapsed(props.activeSession, props.offlineSession);
   const pendingConfirmations = props.pendingConfirmationsCount ?? props.confirmationsCount ?? 0;
-
-  useDynamicIslandKeyboard(isOpen, setIsOpen, setViewMode, setQuery, inputRef, containerRef);
 
   const pool = useMemo(
     () => computeDynamicIslandStatePool({
@@ -504,6 +296,25 @@ export function DynamicIsland(props: DynamicIslandProps) {
     [pool.activeStates, props.pathname, swappedPrimaryKind]
   );
 
+  const hasSatellite = Boolean(dualTask.satellite);
+
+  const morph = useLiquidMorphState({
+    hasSatellite,
+    isOpen,
+    onOpenChange: setIsOpen,
+  });
+
+  useDynamicIslandKeyboard(
+    isOpen,
+    setIsOpen,
+    morph.fastForwardToExpanded,
+    morph.requestClose,
+    setViewMode,
+    setQuery,
+    inputRef,
+    containerRef
+  );
+
   const handleSwapFluidFocus = useCallback(
     (targetKind?: DynamicIslandCapsuleKind | DynamicIslandStateKind) => {
       if (!dualTask.satellite) return;
@@ -515,12 +326,10 @@ export function DynamicIsland(props: DynamicIslandProps) {
     [dualTask.satellite, dualTask.dominant]
   );
 
-  const hasSatellite = Boolean(dualTask.satellite) && !isOpen;
-
   // Wheel swipe gesture for fluid swap
   const wheelLockRef = useRef(false);
   const handleWheel = (e: React.WheelEvent) => {
-    if (wheelLockRef.current || !hasSatellite || !dualTask.satellite) return;
+    if (wheelLockRef.current || !dualTask.satellite || isOpen) return;
     if (Math.abs(e.deltaY) > 20 || Math.abs(e.deltaX) > 20) {
       wheelLockRef.current = true;
       handleSwapFluidFocus(dualTask.satellite.kind);
@@ -533,11 +342,11 @@ export function DynamicIsland(props: DynamicIslandProps) {
   const ticker = useDynamicIslandTicker({
     activeStates: pool.activeStates,
     fallbackItem: dualTask.dominant || pool.dominantState,
-    isExternallyPaused: isOpen,
+    isExternallyPaused: isOpen || morph.isMerging,
   });
 
   const currentItem =
-    hasSatellite || swappedPrimaryKind ? dualTask.dominant || ticker.currentItem : ticker.currentItem;
+    dualTask.satellite || swappedPrimaryKind ? dualTask.dominant || ticker.currentItem : ticker.currentItem;
 
   const commands = useMemo(() => filterGlobalCommands(query, props.commands ?? GLOBAL_COMMANDS), [props.commands, query]);
   const selectedIndex = clampCommandIndex(activeIndex, commands.length);
@@ -554,6 +363,17 @@ export function DynamicIsland(props: DynamicIslandProps) {
   const containerGlowClass = getCapsuleGlowStyle(currentItem.kind, isOpen);
   const expandedAuraClass = getExpandedHubAuraClass(currentItem.kind);
 
+  const handleCapsuleClick = () => {
+    if (!isOpen && !morph.isMerging) {
+      morph.requestOpen();
+      const targetTab = getDefaultTabForStateKind(currentItem.kind);
+      setViewMode(targetTab);
+      if (targetTab === "search") {
+        setTimeout(() => inputRef.current?.focus(), 10);
+      }
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -564,30 +384,30 @@ export function DynamicIsland(props: DynamicIslandProps) {
       {/* Main Capsule */}
       <div
         className={`overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isOpen
-            ? "rounded-[20px] border-teal-500/40 shadow-[0_0_32px_rgba(45,212,191,0.18)] absolute top-0 left-0 right-0 ring-1 ring-white/10 w-full z-20 " + expandedAuraClass
-            : `rounded-[18px] relative h-9 flex-1 cursor-pointer ${containerGlowClass}`
+          morph.capsuleMorphClass
+        } ${
+          isOpen && morph.isExpanded
+            ? "rounded-[20px] border-teal-500/40 shadow-[0_0_32px_rgba(45,212,191,0.18)] " + expandedAuraClass
+            : `rounded-[18px] ${containerGlowClass}`
         }`}
-        onClick={
-          !isOpen
-            ? () => {
-                setIsOpen(true);
-                const targetTab = getDefaultTabForStateKind(currentItem.kind);
-                setViewMode(targetTab);
-                if (targetTab === "search") {
-                  setTimeout(() => inputRef.current?.focus(), 10);
-                }
-              }
-            : undefined
-        }
+        onClick={handleCapsuleClick}
       >
         <DynamicIslandCollapsedBar
           currentItem={currentItem}
           tickerTotalStates={ticker.totalStates}
           tickerCurrentIndex={ticker.currentIndex}
           query={query}
-          onQueryChange={(q) => { setQuery(q); setActiveIndex(0); if (!isOpen) setIsOpen(true); setViewMode("search"); }}
-          onOpenSearch={() => { setIsOpen(true); setViewMode("search"); inputRef.current?.focus(); }}
+          onQueryChange={(q) => {
+            setQuery(q);
+            setActiveIndex(0);
+            if (!isOpen) morph.fastForwardToExpanded();
+            setViewMode("search");
+          }}
+          onOpenSearch={() => {
+            morph.fastForwardToExpanded();
+            setViewMode("search");
+            inputRef.current?.focus();
+          }}
           onKeyDown={handleInputKeyDown}
           onClearQuery={() => { setQuery(""); inputRef.current?.focus(); }}
           inputRef={inputRef}
@@ -595,20 +415,29 @@ export function DynamicIsland(props: DynamicIslandProps) {
           isResuming={isResuming}
           isPausing={isPausing}
           elapsedSeconds={elapsedSeconds}
-          onOpenOverview={(e) => { e?.stopPropagation(); setIsOpen(true); setViewMode(resolveOverviewMode(currentItem.kind)); }}
-          onOpenFocus={(e) => { e?.stopPropagation(); setIsOpen(true); setViewMode("focus"); }}
+          onOpenOverview={(e) => {
+            e?.stopPropagation();
+            morph.requestOpen();
+            setViewMode(resolveOverviewMode(currentItem.kind));
+          }}
+          onOpenFocus={(e) => {
+            e?.stopPropagation();
+            morph.requestOpen();
+            setViewMode("focus");
+          }}
           onDirectResume={handleDirectResume}
           onDirectPause={handleDirectPause}
           onRetrySync={props.onRetrySync}
-          onCloseDrawer={() => setIsOpen(false)}
+          onCloseDrawer={morph.requestClose}
         />
         <DynamicIslandExpandedFold
           isOpen={isOpen}
+          phase={morph.phase}
           hubProps={{
             isOpen,
             viewMode,
             onViewModeChange: setViewMode,
-            onClose: () => setIsOpen(false),
+            onClose: morph.requestClose,
             activeStates: pool.activeStates,
             dominantState: currentItem,
             elapsedSeconds,
@@ -633,9 +462,10 @@ export function DynamicIsland(props: DynamicIslandProps) {
       </div>
 
       {/* Satellite Bubble (Exclamation Mark ! Layout) */}
-      {hasSatellite && dualTask.satellite ? (
+      {morph.isRenderedSatellite && dualTask.satellite ? (
         <SatelliteBubble
           satelliteItem={dualTask.satellite}
+          animationClass={morph.satelliteAnimationClass}
           onSwapFluidFocus={handleSwapFluidFocus}
           onSwap={() => handleSwapFluidFocus(dualTask.satellite?.kind)}
         />
