@@ -13,6 +13,33 @@ export type DynamicIslandCapsuleKind =
   | "confirmations_pending"
   | "idle";
 
+export type DynamicIslandStateKind =
+  | DynamicIslandCapsuleKind
+  | "command_search";
+
+export type DynamicIslandStateItem = DynamicIslandActiveItem;
+
+export type DynamicIslandAuraTheme = "indigo" | "amber" | "teal" | "silver";
+
+export type DynamicIslandHubTab =
+  | "status"
+  | "stopwatch"
+  | "evening"
+  | "search"
+  | "overview"
+  | "focus"
+  | "closure";
+
+export interface DualTaskResolutionResult {
+  dominant: DynamicIslandStateItem;
+  satellite: DynamicIslandStateItem | null;
+  allUnsuppressed: DynamicIslandStateItem[];
+  unsuppressedCount?: number;
+}
+
+export type DualTaskStateResolution = DualTaskResolutionResult;
+export type DynamicIslandDualTaskState = DualTaskResolutionResult;
+
 export type DynamicIslandSyncState = FocusOfflineSyncState | ShellSyncState;
 
 export type DynamicIslandTone = "teal" | "emerald" | "amber" | "indigo" | "rose" | "zinc";
@@ -69,6 +96,7 @@ export interface DynamicIslandStatePool {
 }
 
 export interface CollectDynamicIslandStatesInput {
+  pathname?: string | null;
   activeSession?: StudySessionDto | null;
   offlineSession?: StudySessionDto | null;
   syncState?: DynamicIslandSyncState;
@@ -121,3 +149,4 @@ export const IDLE_STATE_ITEM: DynamicIslandActiveItem = {
     type: "search",
   },
 };
+

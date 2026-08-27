@@ -8,17 +8,23 @@ import {
   CapsuleCenterSegment,
   CapsuleRightSegment,
   CapsuleBreathingDots,
+  SatelliteBubble,
 } from "./dynamic-island-segments";
 import {
   resolveDynamicIslandState,
   computeDynamicIslandStatePool,
+  resolveDualTaskStates,
   type DynamicIslandCapsuleState,
   type DynamicIslandCapsuleKind,
   type DynamicIslandRecoveryProps,
   type DynamicIslandEveningReviewProps,
   type DynamicIslandSyncState,
 } from "./dynamic-island";
-import { getCapsuleGlowStyle, getCapsuleGlowClass } from "./dynamic-island-glow";
+import {
+  getCapsuleGlowStyle,
+  getCapsuleGlowClass,
+  getSatelliteBubbleGlowClass,
+} from "./dynamic-island-glow";
 import { formatClockDuration } from "@/lib/formatters";
 import { getTimerElapsedSeconds } from "@areaforge/core";
 import type { StudySessionDto } from "@/lib/contracts";
@@ -773,3 +779,330 @@ test("Morphology: Dynamic Island source verifies keyboard event bindings and mod
   assert.match(source, /onViewModeChange/);
   assert.match(source, /DynamicIslandHub/);
 });
+
+// ============================================================================
+// SUITE 8: Dual-Task Exclamation Layout Rendering (2+ Unsuppressed States)
+// ============================================================================
+
+test("Dual-Task Layout: resolveDualTaskStates yields Dominant and Satellite when 2+ unsuppressed states exist", () => {
+  const runningSession = createMockSession("running", { subjectName: "高等数学" });
+  const pool = computeDynamicIslandStatePool({
+    activeSession: runningSession,
+    recovery: { active: true, stage: 2, targetMinutes: 60 },
+    eveningReview: { due: true, minimumActionDone: false, dailyReviewDone: false },
+  });
+
+  const result = resolveDualTaskStates(pool.activeStates, "/roadmap");
+  assert.ok(result.dominant, "Must have dominant state");
+  assert.ok(result.satellite, "Must have satellite state");
+  assert.equal(result.dominant.kind, "live_session_running");
+  assert.equal(result.satellite.kind, "recovery_active");
+  assert.equal(result.allUnsuppressed.length, 3);
+  assert.equal(result.unsuppressedCount, 3);
+});
+
+test("Dual-Task Layout: SatelliteBubble renders 38px/36px glowing circular bubble with state-synced glow tokens", () => {
+  const recoveryBubble = SatelliteBubble({
+    satelliteState: { kind: "recovery_active", stage: 2, targetMinutes: 60 },
+    onSwapFluidFocus: () => {},
+  }) as React.ReactElement<{ className?: string; title?: string; role?: string; "aria-label"?: string }>;
+
+  assert.ok(recoveryBubble, "Recovery satellite bubble must render");
+  const className = recoveryBubble.props.className ?? "";
+  assert.ok(className.includes("rounded-full"), "Satellite bubble must be circular (rounded-full)");
+  assert.ok(className.includes("shrink-0"), "Satellite bubble must be shrink-0");
+  assert.ok(className.includes("border-amber-400"), "Recovery bubble must use amber glow border");
+  assert.ok(className.includes("shadow-[0_0_16px_rgba(245,158,11,0.45)]"), "Recovery bubble must have amber shadow glow");
+  assert.equal(recoveryBubble.props.role, "button");
+  assert.ok(recoveryBubble.props.title?.includes("恢复第2阶"));
+
+  const eveningBubble = SatelliteBubble({
+    satelliteState: { kind: "evening_review_due", minimumActionDone: true, dailyReviewDone: false },
+    onSwapFluidFocus: () => {},
+  }) as React.ReactElement<{ className?: string; title?: string }>;
+
+  assert.ok(eveningBubble, "Evening review satellite bubble must render");
+  const eveningClass = eveningBubble.props.className ?? "";
+  assert.ok(eveningClass.includes("border-indigo-400"), "Evening bubble must use indigo glow border");
+  assert.ok(eveningClass.includes("shadow-[0_0_16px_rgba(99,102,241,0.45)]"), "Evening bubble must have indigo shadow glow");
+  assert.ok(eveningBubble.props.title?.includes("晚间复盘"));
+});
+
+test("Dual-Task Layout: SatelliteBubble renders state-distinct icons across all dynamic island kinds", () => {
+  const states: DynamicIslandCapsuleKind[] = [
+    "live_session_running",
+    "live_session_closing",
+    "activity_paused",
+    "recovery_active",
+    "evening_review_due",
+    "sync_issue",
+    "confirmations_pending",
+  ];
+
+  for (const kind of states) {
+    const bubble = SatelliteBubble({
+      satelliteState: {
+        kind,
+        stage: 1,
+        pendingConfirmationsCount: 3,
+      },
+      onSwapFluidFocus: () => {},
+    }) as React.ReactElement<{ children?: React.ReactNode }>;
+
+    assert.ok(bubble, `SatelliteBubble must render for ${kind}`);
+    assert.ok(bubble.props.children, `SatelliteBubble for ${kind} must render an icon child`);
+  }
+});
+
+test("Dual-Task Layout: DynamicIsland shell layout wires exclamation mark flex structure", () => {
+  const source = loadSource("components/dynamic-island.tsx");
+
+  assert.match(source, /resolveDualTaskStates/);
+  assert.match(source, /hasSatellite/);
+  assert.match(source, /SatelliteBubble/);
+  assert.match(source, /gap-2/);
+  assert.match(source, /handleSwapFluidFocus/);
+  assert.match(source, /onWheel=\{handleWheel\}/);
+});
+
+// ============================================================================
+// SUITE 9: Fluid Swap Morph on Click and Wheel Swipe
+// ============================================================================
+
+test("Fluid Swap: Clicking SatelliteBubble invokes onSwapFluidFocus with stopPropagation", () => {
+  let swappedKind: string | null = null;
+  let onSwapCalled = false;
+  let propagationStopped = false;
+
+  const bubble = SatelliteBubble({
+    satelliteState: { kind: "recovery_active", stage: 1, targetMinutes: 30 },
+    onSwapFluidFocus: (kind) => {
+      swappedKind = kind;
+    },
+    onSwap: () => {
+      onSwapCalled = true;
+    },
+  }) as React.ReactElement<{ onClick?: (e: { stopPropagation: () => void }) => void }>;
+
+  assert.ok(bubble);
+  assert.equal(typeof bubble.props.onClick, "function");
+
+  bubble.props.onClick?.({
+    stopPropagation: () => {
+      propagationStopped = true;
+    },
+  });
+
+  assert.equal(propagationStopped, true, "Clicking SatelliteBubble must call stopPropagation");
+  assert.equal(swappedKind, "recovery_active", "onSwapFluidFocus must receive satellite kind");
+  assert.equal(onSwapCalled, true, "onSwap callback must be invoked");
+});
+
+test("Fluid Swap: Scrolling wheel on SatelliteBubble triggers focus swap with stopPropagation", () => {
+  let swappedKind: string | null = null;
+  let propagationStopped = false;
+
+  const bubble = SatelliteBubble({
+    satelliteState: { kind: "evening_review_due" },
+    onSwapFluidFocus: (kind) => {
+      swappedKind = kind;
+    },
+  }) as React.ReactElement<{ onWheel?: (e: { stopPropagation: () => void }) => void }>;
+
+  assert.ok(bubble);
+  assert.equal(typeof bubble.props.onWheel, "function");
+
+  bubble.props.onWheel?.({
+    stopPropagation: () => {
+      propagationStopped = true;
+    },
+  });
+
+  assert.equal(propagationStopped, true, "Wheel on SatelliteBubble must call stopPropagation");
+  assert.equal(swappedKind, "evening_review_due");
+});
+
+test("Fluid Swap: resolveDualTaskStates swaps dominant and satellite when swappedPrimaryKind is set", () => {
+  const runningSession = createMockSession("running", { subjectName: "数学分析" });
+  const pool = computeDynamicIslandStatePool({
+    activeSession: runningSession,
+    recovery: { active: true, stage: 1, targetMinutes: 30 },
+  });
+
+  // Default state: live session dominant, recovery satellite
+  const defaultDual = resolveDualTaskStates(pool.activeStates);
+  assert.equal(defaultDual.dominant.kind, "live_session_running");
+  assert.equal(defaultDual.satellite?.kind, "recovery_active");
+
+  // After swap: recovery becomes dominant, live session becomes satellite
+  const swappedDual = resolveDualTaskStates(pool.activeStates, null, "recovery_active");
+  assert.equal(swappedDual.dominant.kind, "recovery_active");
+  assert.equal(swappedDual.satellite?.kind, "live_session_running");
+
+  // Re-swap: live session restored to dominant
+  const restoredDual = resolveDualTaskStates(pool.activeStates, null, "live_session_running");
+  assert.equal(restoredDual.dominant.kind, "live_session_running");
+  assert.equal(restoredDual.satellite?.kind, "recovery_active");
+});
+
+test("Fluid Swap: Dynamic Island container wheel swipe gesture recognizes delta thresholds and triggers fluid swap", () => {
+  const dynamicIslandSource = loadSource("components/dynamic-island.tsx");
+
+  assert.match(dynamicIslandSource, /Math\.abs\(e\.deltaY\)\s*>\s*20\s*\|\|\s*Math\.abs\(e\.deltaX\)\s*>\s*20/);
+  assert.match(dynamicIslandSource, /wheelLockRef\.current\s*=\s*true/);
+  assert.match(dynamicIslandSource, /setTimeout\([\s\S]*350\)/);
+});
+
+// ============================================================================
+// SUITE 10: Stopwatch Hover Micro-Actions & Stop Propagation
+// ============================================================================
+
+test("Hover Micro-Actions: Live session running renders [ ⏸ 暂停 ] and [ 🏁 收口 ] micro-action buttons", () => {
+  const session = createMockSession("running", { subjectName: "高等数学" });
+  let pauseTriggered = false;
+  let closeoutTriggered = false;
+
+  const element = CapsuleRightSegment({
+    capsuleState: { kind: "live_session_running", session, elapsedSeconds: 1500 },
+    isOpen: false,
+    isResuming: false,
+    isPausing: false,
+    elapsedSeconds: 1500,
+    onDirectPause: () => {
+      pauseTriggered = true;
+    },
+    onDirectCloseout: () => {
+      closeoutTriggered = true;
+    },
+  }) as React.ReactElement<{ children?: React.ReactNode[] }>;
+
+  assert.ok(element);
+  const children = React.Children.toArray(element.props.children);
+  assert.equal(children.length, 2, "Right segment must render default clock view + hover actions view");
+
+  // First child is default clock view
+  const clockContainer = children[0] as React.ReactElement<{ className?: string }>;
+  assert.ok(clockContainer.props.className?.includes("group-hover/right:opacity-0"), "Clock fades out on hover");
+
+  // Second child is hover micro-actions container
+  const hoverContainer = children[1] as React.ReactElement<{ children?: React.ReactNode[] }>;
+  assert.ok(hoverContainer.props.children);
+  const hoverButtons = React.Children.toArray(hoverContainer.props.children);
+  assert.equal(hoverButtons.length, 2, "Must have pause button and closeout link");
+});
+
+test("Hover Micro-Actions: Pause button click calls stopPropagation and triggers onDirectPause", () => {
+  const session = createMockSession("running");
+  let pauseCalled = false;
+  let propagationStopped = false;
+
+  const element = CapsuleRightSegment({
+    capsuleState: { kind: "live_session_running", session, elapsedSeconds: 1200 },
+    isOpen: false,
+    onDirectPause: () => {
+      pauseCalled = true;
+    },
+  }) as React.ReactElement<{ children?: React.ReactNode[] }>;
+
+  const children = React.Children.toArray(element.props.children);
+  const hoverContainer = children[1] as React.ReactElement<{ children?: React.ReactNode[] }>;
+  const hoverButtons = React.Children.toArray(hoverContainer.props.children);
+  const pauseButton = hoverButtons[0] as React.ReactElement<{ onClick?: (e: { stopPropagation: () => void }) => void }>;
+
+  assert.ok(pauseButton, "Pause button must exist in hover container");
+  assert.equal(typeof pauseButton.props.onClick, "function");
+
+  pauseButton.props.onClick?.({
+    stopPropagation: () => {
+      propagationStopped = true;
+    },
+  });
+
+  assert.equal(propagationStopped, true, "Pause button click must stop propagation");
+  assert.equal(pauseCalled, true, "onDirectPause must be called");
+});
+
+test("Hover Micro-Actions: Closeout link click calls stopPropagation and onCloseDrawer", () => {
+  const session = createMockSession("running");
+  let closeoutCalled = false;
+  let drawerClosed = false;
+  let propagationStopped = false;
+
+  const element = CapsuleRightSegment({
+    capsuleState: { kind: "live_session_running", session, elapsedSeconds: 1200 },
+    isOpen: false,
+    onDirectCloseout: () => {
+      closeoutCalled = true;
+    },
+    onCloseDrawer: () => {
+      drawerClosed = true;
+    },
+  }) as React.ReactElement<{ children?: React.ReactNode[] }>;
+
+  const children = React.Children.toArray(element.props.children);
+  const hoverContainer = children[1] as React.ReactElement<{ children?: React.ReactNode[] }>;
+  const hoverButtons = React.Children.toArray(hoverContainer.props.children);
+  const closeoutLink = hoverButtons[1] as React.ReactElement<{ onClick?: (e: { stopPropagation: () => void }) => void }>;
+
+  assert.ok(closeoutLink, "Closeout link must exist in hover container");
+  assert.equal(typeof closeoutLink.props.onClick, "function");
+
+  closeoutLink.props.onClick?.({
+    stopPropagation: () => {
+      propagationStopped = true;
+    },
+  });
+
+  assert.equal(propagationStopped, true, "Closeout click must stop propagation");
+  assert.equal(closeoutCalled, true, "onDirectCloseout must be called");
+  assert.equal(drawerClosed, true, "onCloseDrawer must be called");
+});
+
+test("Hover Micro-Actions: When isOpen is true, hover actions are suppressed and '正在学习' status is rendered", () => {
+  const session = createMockSession("running");
+  const element = CapsuleRightSegment({
+    capsuleState: { kind: "live_session_running", session, elapsedSeconds: 1200 },
+    isOpen: true,
+  }) as React.ReactElement<{ children?: React.ReactNode[] }>;
+
+  assert.ok(element);
+  const children = React.Children.toArray(element.props.children);
+  assert.equal(children.length, 1, "Only single status element rendered when open");
+  const statusSpan = children[0] as React.ReactElement<{ children?: React.ReactNode[] }>;
+  const textChild = React.Children.toArray(statusSpan.props.children).find(
+    (c) => React.isValidElement(c) && (c.props as { children?: React.ReactNode })?.children === "正在学习"
+  );
+  assert.ok(textChild, "Must display '正在学习' status pill");
+});
+
+// ============================================================================
+// SUITE 11: Global Keyboard Penetration (⌘K, /, Esc)
+// ============================================================================
+
+test("Global Keyboard Penetration: Dynamic Island source verifies metaKey+K, Ctrl+K, forward slash, and Escape bindings", () => {
+  const source = loadSource("components/dynamic-island.tsx");
+
+  assert.match(source, /\(e\.metaKey\s*\|\|\s*e\.ctrlKey\)\s*&&\s*e\.key\.toLowerCase\(\)\s*===\s*["']k["']/);
+  assert.match(source, /e\.key\s*===\s*["']\/["']/);
+  assert.match(source, /isInputElement/);
+  assert.match(source, /e\.key\s*===\s*["']Escape["']/);
+  assert.match(source, /window\.addEventListener\(["']keydown["']/);
+});
+
+test("Global Keyboard Penetration: isInputElement helper correctly identifies text inputs and ignores normal content", () => {
+  const source = loadSource("components/dynamic-island.tsx");
+
+  assert.match(source, /INPUT/);
+  assert.match(source, /TEXTAREA/);
+  assert.match(source, /SELECT/);
+  assert.match(source, /isContentEditable/);
+});
+
+test("Global Keyboard Penetration: Escape key handler resets query and smoothly collapses open console", () => {
+  const source = loadSource("components/dynamic-island.tsx");
+
+  assert.match(source, /if\s*\(e\.key\s*===\s*["']Escape["']\s*&&\s*isOpen\)/);
+  assert.match(source, /setIsOpen\(false\)/);
+  assert.match(source, /setQuery\(["']["']\)/);
+});
+

@@ -10,8 +10,15 @@ import {
   HubConfirmationClosureGuide,
   HubCommandPaletteList,
   DynamicIslandHub,
+  MorphingFloatingHub,
+  normalizeHubTab,
   type HubViewMode,
 } from "./dynamic-island-hub";
+import {
+  getAuraStyles,
+  getAuraThemeForStateKind,
+  getDefaultTabForStateKind,
+} from "./dynamic-island-glow";
 import type { DynamicIslandActiveItem } from "./dynamic-island-types";
 import { GLOBAL_COMMANDS, type GlobalCommandDefinition } from "@/lib/navigation/command-palette";
 import type { StudySessionDto } from "@/lib/contracts";
@@ -552,4 +559,161 @@ test("Visual Aesthetic & Layout: Dynamic Island Hub source code enforces Gaussia
   assert.match(hubSource, /HubFlowStopwatchPanel/);
   assert.match(hubSource, /HubConfirmationClosureGuide/);
   assert.match(hubSource, /HubCommandPaletteList/);
+});
+
+// ============================================================================
+// SUITE 7: Dynamic Aura Theming Across 4 States
+// ============================================================================
+
+test("Dynamic Aura: State kind maps accurately to 4 chromatic themes and default tabs", () => {
+  // 1. Indigo (evening review due)
+  assert.equal(getAuraThemeForStateKind("evening_review_due"), "indigo");
+  assert.equal(getDefaultTabForStateKind("evening_review_due"), "evening");
+  const indigoStyles = getAuraStyles("indigo");
+  assert.match(indigoStyles.tabActiveClass, /bg-indigo-500\/20/);
+  assert.match(indigoStyles.tabActiveClass, /text-indigo-200/);
+  assert.match(indigoStyles.tabActiveClass, /border-indigo-400\/40/);
+  assert.match(indigoStyles.tabActiveClass, /shadow-\[0_0_12px_rgba\(99,102,241,0\.25\)\]/);
+  assert.match(indigoStyles.hubBorderClass, /border-indigo-500\/40/);
+
+  // 2. Amber (recovery active, sync issue, confirmations pending)
+  assert.equal(getAuraThemeForStateKind("recovery_active"), "amber");
+  assert.equal(getAuraThemeForStateKind("sync_issue"), "amber");
+  assert.equal(getAuraThemeForStateKind("confirmations_pending"), "amber");
+  assert.equal(getDefaultTabForStateKind("recovery_active"), "status");
+  const amberStyles = getAuraStyles("amber");
+  assert.match(amberStyles.tabActiveClass, /bg-amber-500\/20/);
+  assert.match(amberStyles.tabActiveClass, /text-amber-200/);
+  assert.match(amberStyles.tabActiveClass, /border-amber-400\/40/);
+  assert.match(amberStyles.tabActiveClass, /shadow-\[0_0_12px_rgba\(245,158,11,0\.25\)\]/);
+  assert.match(amberStyles.hubBorderClass, /border-amber-500\/40/);
+
+  // 3. Teal (running session, closing session, paused activity)
+  assert.equal(getAuraThemeForStateKind("live_session_running"), "teal");
+  assert.equal(getAuraThemeForStateKind("live_session_closing"), "teal");
+  assert.equal(getAuraThemeForStateKind("activity_paused"), "teal");
+  assert.equal(getDefaultTabForStateKind("live_session_running"), "stopwatch");
+  const tealStyles = getAuraStyles("teal");
+  assert.match(tealStyles.tabActiveClass, /bg-teal-500\/20/);
+  assert.match(tealStyles.tabActiveClass, /text-teal-200/);
+  assert.match(tealStyles.tabActiveClass, /border-teal-400\/40/);
+  assert.match(tealStyles.tabActiveClass, /shadow-\[0_0_12px_rgba\(20,184,166,0\.25\)\]/);
+  assert.match(tealStyles.hubBorderClass, /border-teal-500\/40/);
+
+  // 4. Silver (idle, command search, fallback)
+  assert.equal(getAuraThemeForStateKind("idle"), "silver");
+  assert.equal(getAuraThemeForStateKind("command_search"), "silver");
+  assert.equal(getDefaultTabForStateKind("idle"), "search");
+  const silverStyles = getAuraStyles("silver");
+  assert.match(silverStyles.tabActiveClass, /bg-white\/10/);
+  assert.match(silverStyles.tabActiveClass, /text-white/);
+  assert.match(silverStyles.tabActiveClass, /border-white\/20/);
+  assert.match(silverStyles.tabActiveClass, /shadow-\[0_0_12px_rgba\(255,255,255,0\.08\)\]/);
+});
+
+test("HubViewModeTabs: Applies state-synced chromatic theme styling to active tab pill", () => {
+  const themes = [
+    { theme: "indigo" as const, expectedClass: "bg-indigo-500/20" },
+    { theme: "amber" as const, expectedClass: "bg-amber-500/20" },
+    { theme: "teal" as const, expectedClass: "bg-teal-500/20" },
+    { theme: "silver" as const, expectedClass: "bg-white/10" },
+  ];
+
+  for (const { theme, expectedClass } of themes) {
+    const element = HubViewModeTabs({
+      viewMode: "overview",
+      onViewModeChange: () => {},
+      activeStatesCount: 1,
+      hasRunningSession: false,
+      pendingConfirmationsCount: 0,
+      eveningDue: false,
+      auraTheme: theme,
+    }) as React.ReactElement<{ children?: React.ReactNode[] }>;
+
+    const children = React.Children.toArray(element.props.children) as Array<
+      React.ReactElement<{ className?: string }>
+    >;
+    const activeTab = children[1]; // overview tab
+    assert.ok(activeTab.props.className?.includes(expectedClass), `Active tab must contain ${expectedClass} for theme ${theme}`);
+  }
+});
+
+// ============================================================================
+// SUITE 8: Tab Normalization & MorphingFloatingHub Alias
+// ============================================================================
+
+test("normalizeHubTab: Normalizes canonical and legacy tab identifiers", () => {
+  assert.equal(normalizeHubTab("status"), "overview");
+  assert.equal(normalizeHubTab("overview"), "overview");
+  assert.equal(normalizeHubTab("stopwatch"), "focus");
+  assert.equal(normalizeHubTab("focus"), "focus");
+  assert.equal(normalizeHubTab("evening"), "closure");
+  assert.equal(normalizeHubTab("closure"), "closure");
+  assert.equal(normalizeHubTab("search"), "search");
+  assert.equal(normalizeHubTab(null), "search");
+  assert.equal(normalizeHubTab(undefined), "search");
+});
+
+test("MorphingFloatingHub: Export alias identity to DynamicIslandHub", () => {
+  assert.equal(MorphingFloatingHub, DynamicIslandHub, "MorphingFloatingHub must be identical to DynamicIslandHub");
+});
+
+// ============================================================================
+// SUITE 9: Pathname Propagation Plumbing Contract
+// ============================================================================
+
+test("Pathname Propagation: AppShell forwards pathname to GlobalTopBar", () => {
+  const appShellSource = loadSource("components/app-shell.tsx");
+  assert.match(appShellSource, /<GlobalTopBar[\s\S]*pathname=\{pathname\}/, "AppShell must forward pathname to GlobalTopBar");
+});
+
+test("Pathname Propagation: GlobalTopBar forwards pathname to DynamicIsland", () => {
+  const topBarSource = loadSource("components/global-top-bar.tsx");
+  assert.match(topBarSource, /<DynamicIsland[\s\S]*pathname=\{props\.pathname\}/, "GlobalTopBar must forward pathname to DynamicIsland");
+  assert.match(topBarSource, /pathname\?: string \| null/, "GlobalTopBarProps must accept optional pathname");
+});
+
+test("Pathname Propagation: DynamicIsland forwards pathname to computeDynamicIslandStatePool and hubProps", () => {
+  const islandSource = loadSource("components/dynamic-island.tsx");
+  assert.match(islandSource, /pathname:\s*props\.pathname/, "DynamicIsland must pass pathname to computeDynamicIslandStatePool");
+  assert.match(islandSource, /pathname:\s*props\.pathname/, "DynamicIsland must pass pathname to hubProps");
+});
+
+// ============================================================================
+// SUITE 10: Dynamic Aura Command Palette Theming
+// ============================================================================
+
+test("HubCommandPaletteList: Applies chromatic aura styling to selected command and jump tag", () => {
+  const testCommands: GlobalCommandDefinition[] = [
+    { id: "cmd-01", label: "打开今日行动", description: "回到今天的下一行动", aliases: ["today"], href: "/today" },
+  ];
+
+  const themes = [
+    { theme: "indigo" as const, expectedClass: "bg-indigo-500/15", expectedTag: "text-indigo-400" },
+    { theme: "amber" as const, expectedClass: "bg-amber-500/15", expectedTag: "text-amber-400" },
+    { theme: "teal" as const, expectedClass: "bg-teal-500/15", expectedTag: "text-teal-400" },
+    { theme: "silver" as const, expectedClass: "bg-white/10", expectedTag: "text-zinc-300" },
+  ];
+
+  for (const { theme, expectedClass, expectedTag } of themes) {
+    const element = HubCommandPaletteList({
+      commands: testCommands,
+      selectedIndex: 0,
+      onSelectIndex: () => {},
+      onExecuteCommand: () => {},
+      auraTheme: theme,
+    }) as React.ReactElement<{ children?: React.ReactNode[] }>;
+
+    const children = React.Children.toArray(element.props.children) as Array<
+      React.ReactElement<{ className?: string; children?: React.ReactNode[] }>
+    >;
+    const selectedItem = children[0];
+    assert.ok(selectedItem.props.className?.includes(expectedClass), `Selected item must contain ${expectedClass} for theme ${theme}`);
+
+    const subChildren = React.Children.toArray(selectedItem.props.children) as Array<
+      React.ReactElement<{ className?: string }>
+    >;
+    const jumpTag = subChildren[1];
+    assert.ok(jumpTag.props.className?.includes(expectedTag), `Jump tag must contain ${expectedTag} for theme ${theme}`);
+  }
 });

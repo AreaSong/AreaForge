@@ -12,17 +12,25 @@ import {
   getPriorityWeight,
   clampTimerDuration,
   validateStatePoolInvariants,
+  isStateSuppressedOnRoute,
+  filterStatesByRouteContext,
+  resolveDualTaskStates,
 } from "./dynamic-island-state-engine";
+import {
+  getAuraThemeForStateKind,
+  getAuraThemeFromKind,
+  getDefaultTabForStateKind,
+  getDefaultHubTabForKind,
+  getAuraStyles,
+  DYNAMIC_ISLAND_AURA_THEMES,
+} from "./dynamic-island-glow";
 import {
   PRIORITY_WEIGHTS,
   type DynamicIslandCapsuleKind,
-  type DynamicIslandActiveItem,
-  type DynamicIslandStatePool,
   type DynamicIslandRecoveryProps,
   type DynamicIslandEveningReviewProps,
   type DynamicIslandSyncState,
   type CollectDynamicIslandStatesInput,
-  type DynamicIslandStateEngineInput,
 } from "./dynamic-island-types";
 import type { StudySessionDto } from "@/lib/contracts";
 
@@ -611,7 +619,7 @@ test("M1 Boundary: Malformed recovery stages normalize to minimum valid stage", 
   assert.equal(poolNegative.dominantState.targetMinutes, 30);
 });
 
-test("M1 Helper functions: getPriorityWeight, createIdleStateItem, resolveDominantState", () => {
+test("M1 Helper functions: getPriorityWeight, createIdleStateItem, resolveDominantState, sortActiveStatesByPriority, collectDynamicIslandStatePool", () => {
   assert.equal(getPriorityWeight("live_session_running"), 1000);
   assert.equal(getPriorityWeight("live_session_closing"), 900);
   assert.equal(getPriorityWeight("activity_paused"), 800);
@@ -627,6 +635,18 @@ test("M1 Helper functions: getPriorityWeight, createIdleStateItem, resolveDomina
 
   const dominant = resolveDominantState([]);
   assert.equal(dominant.kind, "idle");
+  assert.equal(getDominantState([]).kind, "idle");
+
+  const unsorted = [
+    { ...idle, id: "1", priorityWeight: 400 },
+    { ...idle, id: "2", priorityWeight: 900 },
+  ];
+  const sorted = sortActiveStatesByPriority(unsorted);
+  assert.equal(sorted[0].priorityWeight, 900);
+  assert.equal(sorted[1].priorityWeight, 400);
+
+  const pool = collectDynamicIslandStatePool({});
+  assert.equal(pool.dominantState.kind, "idle");
 });
 
 test("M1 Backward Compatibility: resolveDynamicIslandState returns compatible DynamicIslandCapsuleState", () => {
@@ -726,3 +746,494 @@ test("M1 Lifecycle Simulation: Day flow through multiple concurrent states", () 
   assert.equal(pool.activeStates.length, 0);
   assert.equal(pool.hasConcurrency, false);
 });
+
+// ============================================================================
+// SUITE 6: Route Anti-Redundancy Suppression Engine (R1)
+// ============================================================================
+
+test("M1 Route Suppression: /focus suppresses running, closing, and paused stopwatch sessions", () => {
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/focus"), true);
+  assert.equal(isStateSuppressedOnRoute("live_session_closing", "/focus"), true);
+  assert.equal(isStateSuppressedOnRoute("activity_paused", "/focus"), true);
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/focus"), false);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/focus"), false);
+  assert.equal(isStateSuppressedOnRoute("sync_issue", "/focus"), false);
+  assert.equal(isStateSuppressedOnRoute("confirmations_pending", "/focus"), false);
+  assert.equal(isStateSuppressedOnRoute("idle", "/focus"), false);
+});
+
+test("M1 Route Suppression: /focus returns idle when only running session exists", () => {
+  const session = createMockSession("running");
+  const pool = computeDynamicIslandStatePool({
+    activeSession: session,
+    pathname: "/focus",
+  });
+
+  assert.equal(pool.activeStates.length, 0);
+  assert.equal(pool.dominantState.kind, "idle");
+  assert.equal(pool.hasConcurrency, false);
+});
+
+test("M1 Route Suppression: /focus falls back to recovery_active when running session and recovery coexist", () => {
+  const session = createMockSession("running");
+  const pool = computeDynamicIslandStatePool({
+    activeSession: session,
+    recovery: { active: true, stage: 2, targetMinutes: 60 },
+    pathname: "/focus",
+  });
+
+  assert.equal(pool.activeStates.length, 1);
+  assert.equal(pool.dominantState.kind, "recovery_active");
+  assert.equal(pool.dominantState.priorityWeight, 700);
+});
+
+test("M1 Route Suppression: /focus falls back to evening_review_due when running session and evening review coexist", () => {
+  const session = createMockSession("running");
+  const pool = computeDynamicIslandStatePool({
+    activeSession: session,
+    eveningReview: { due: true, minimumActionDone: true, dailyReviewDone: false },
+    pathname: "/focus",
+  });
+
+  assert.equal(pool.activeStates.length, 1);
+  assert.equal(pool.dominantState.kind, "evening_review_due");
+  assert.equal(pool.dominantState.priorityWeight, 600);
+});
+
+test("M1 Route Suppression: /today suppresses recovery_active while keeping stopwatch and evening review", () => {
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/today"), true);
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("live_session_closing", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("activity_paused", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("sync_issue", "/today"), false);
+});
+
+test("M1 Route Suppression: /today returns idle when only recovery mode is active", () => {
+  const pool = computeDynamicIslandStatePool({
+    recovery: { active: true, stage: 1, targetMinutes: 30 },
+    pathname: "/today",
+  });
+
+  assert.equal(pool.activeStates.length, 0);
+  assert.equal(pool.dominantState.kind, "idle");
+});
+
+test("M1 Route Suppression: /today preserves live running session when running and recovery coexist", () => {
+  const session = createMockSession("running");
+  const pool = computeDynamicIslandStatePool({
+    activeSession: session,
+    recovery: { active: true, stage: 1, targetMinutes: 30 },
+    pathname: "/today",
+  });
+
+  assert.equal(pool.activeStates.length, 1);
+  assert.equal(pool.dominantState.kind, "live_session_running");
+  assert.equal(pool.dominantState.priorityWeight, 1000);
+});
+
+test("M1 Route Suppression: /roadmap/reviews and subpaths suppress evening_review_due", () => {
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/roadmap/reviews"), true);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/roadmap/reviews/daily"), true);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/roadmap/reviews/weekly"), true);
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/roadmap/reviews"), false);
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/roadmap/reviews"), false);
+});
+
+test("M1 Route Suppression: /roadmap/reviews returns idle when only evening review is due", () => {
+  const pool = computeDynamicIslandStatePool({
+    eveningReview: { due: true, minimumActionDone: false, dailyReviewDone: false },
+    pathname: "/roadmap/reviews",
+  });
+
+  assert.equal(pool.activeStates.length, 0);
+  assert.equal(pool.dominantState.kind, "idle");
+});
+
+test("M1 Route Suppression: Neutral routes (/dashboard, /tasks, /, null) suppress no states", () => {
+  const neutralPaths = ["/", "/dashboard", "/tasks", "/syllabus", "/analytics", "/settings", null, undefined, ""];
+  const allKinds: DynamicIslandCapsuleKind[] = [
+    "live_session_running",
+    "live_session_closing",
+    "activity_paused",
+    "recovery_active",
+    "evening_review_due",
+    "sync_issue",
+    "confirmations_pending",
+    "idle",
+  ];
+
+  for (const pathname of neutralPaths) {
+    for (const kind of allKinds) {
+      assert.equal(
+        isStateSuppressedOnRoute(kind, pathname),
+        false,
+        `Kind ${kind} must NOT be suppressed on neutral route ${pathname}`
+      );
+    }
+  }
+});
+
+test("M1 Route Suppression: Path matching normalizes trailing slashes, query strings, and hashes safely", () => {
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/focus/"), true);
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/focus?view=compact#timer"), true);
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/focus-workbench"), false);
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/today/action-1?step=2"), true);
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/today-review"), false);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/roadmap/reviews/daily?mode=strict"), true);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/roadmap/reviews-archive"), false);
+});
+
+test("M1 Route Suppression: filterStatesByRouteContext removes suppressed states correctly", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30 };
+  const rawStates = collectDynamicIslandActiveStates({ activeSession: session, recovery });
+
+  const onFocus = filterStatesByRouteContext(rawStates, "/focus");
+  assert.equal(onFocus.length, 1);
+  assert.equal(onFocus[0].kind, "recovery_active");
+
+  const onToday = filterStatesByRouteContext(rawStates, "/today");
+  assert.equal(onToday.length, 1);
+  assert.equal(onToday[0].kind, "live_session_running");
+
+  const onDashboard = filterStatesByRouteContext(rawStates, "/dashboard");
+  assert.equal(onDashboard.length, 2);
+
+  const empty = filterStatesByRouteContext([], "/dashboard");
+  assert.deepEqual(empty, []);
+});
+
+// ============================================================================
+// SUITE 7: Dual-Task State Resolution Engine & Fluid Swap (R2)
+// ============================================================================
+
+test("M1 Dual-Task: [live_session_running, recovery_active] on /dashboard resolves dominant=running, satellite=recovery", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 2, targetMinutes: 60 };
+
+  const dual = resolveDualTaskStates(
+    collectDynamicIslandActiveStates({ activeSession: session, recovery }),
+    "/dashboard"
+  );
+
+  assert.equal(dual.dominant.kind, "live_session_running");
+  assert.equal(dual.dominant.priorityWeight, 1000);
+  assert.ok(dual.satellite);
+  assert.equal(dual.satellite?.kind, "recovery_active");
+  assert.equal(dual.satellite?.priorityWeight, 700);
+  assert.equal(dual.allUnsuppressed.length, 2);
+});
+
+test("M1 Dual-Task: [live_session_running, recovery_active] on /focus resolves dominant=recovery, satellite=null", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30 };
+
+  const dual = resolveDualTaskStates(
+    collectDynamicIslandActiveStates({ activeSession: session, recovery }),
+    "/focus"
+  );
+
+  assert.equal(dual.dominant.kind, "recovery_active");
+  assert.equal(dual.dominant.priorityWeight, 700);
+  assert.equal(dual.satellite, null, "Stopwatch is suppressed on /focus, leaving only 1 state -> satellite must be null");
+  assert.equal(dual.allUnsuppressed.length, 1);
+});
+
+test("M1 Dual-Task: [live_session_running, recovery_active] on /today resolves dominant=running, satellite=null", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30 };
+
+  const dual = resolveDualTaskStates(
+    collectDynamicIslandActiveStates({ activeSession: session, recovery }),
+    "/today"
+  );
+
+  assert.equal(dual.dominant.kind, "live_session_running");
+  assert.equal(dual.dominant.priorityWeight, 1000);
+  assert.equal(dual.satellite, null, "Recovery is suppressed on /today, leaving only 1 state -> satellite must be null");
+  assert.equal(dual.allUnsuppressed.length, 1);
+});
+
+test("M1 Dual-Task: [running, recovery, evening] on /dashboard resolves dominant=running, satellite=recovery, allUnsuppressed.length=3", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30 };
+  const eveningReview: DynamicIslandEveningReviewProps = { due: true, minimumActionDone: false, dailyReviewDone: false };
+
+  const dual = resolveDualTaskStates(
+    collectDynamicIslandActiveStates({ activeSession: session, recovery, eveningReview }),
+    "/dashboard"
+  );
+
+  assert.equal(dual.allUnsuppressed.length, 3);
+  assert.equal(dual.dominant.kind, "live_session_running");
+  assert.equal(dual.satellite?.kind, "recovery_active");
+});
+
+test("M1 Dual-Task: Fluid Swap with swappedPrimaryKind promotes satellite to dominant correctly", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 2, targetMinutes: 60 };
+
+  const dualSwapped = resolveDualTaskStates(
+    collectDynamicIslandActiveStates({ activeSession: session, recovery }),
+    "/dashboard",
+    "recovery_active" // user clicked satellite bubble
+  );
+
+  // Dominant is promoted to recovery_active
+  assert.equal(dualSwapped.dominant.kind, "recovery_active");
+  assert.equal(dualSwapped.dominant.priorityWeight, 700);
+
+  // Satellite is demoted to live_session_running
+  assert.ok(dualSwapped.satellite);
+  assert.equal(dualSwapped.satellite?.kind, "live_session_running");
+  assert.equal(dualSwapped.satellite?.priorityWeight, 1000);
+});
+
+test("M1 Dual-Task: Fluid Swap with 3 states promotes selected satellite and assigns default primary as satellite", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 2, targetMinutes: 60 };
+  const eveningReview: DynamicIslandEveningReviewProps = { due: true, minimumActionDone: true, dailyReviewDone: false };
+
+  const dual = resolveDualTaskStates(
+    collectDynamicIslandActiveStates({ activeSession: session, recovery, eveningReview }),
+    "/dashboard",
+    "evening_review_due"
+  );
+
+  assert.equal(dual.dominant.kind, "evening_review_due");
+  assert.equal(dual.satellite?.kind, "live_session_running");
+});
+
+test("M1 Dual-Task: Invalid swappedPrimaryKind degrades safely to default priority dominant", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30 };
+
+  const dual = resolveDualTaskStates(
+    collectDynamicIslandActiveStates({ activeSession: session, recovery }),
+    "/dashboard",
+    "sync_issue" // not present in active states
+  );
+
+  assert.equal(dual.dominant.kind, "live_session_running");
+  assert.equal(dual.satellite?.kind, "recovery_active");
+});
+
+test("M1 Dual-Task: Single state or empty pool ignores swappedPrimaryKind and keeps satellite null", () => {
+  const session = createMockSession("running");
+
+  const dualSingle = resolveDualTaskStates(
+    collectDynamicIslandActiveStates({ activeSession: session }),
+    "/dashboard",
+    "recovery_active"
+  );
+  assert.equal(dualSingle.dominant.kind, "live_session_running");
+  assert.equal(dualSingle.satellite, null);
+
+  const dualEmpty = resolveDualTaskStates([], "/dashboard", "live_session_running");
+  assert.equal(dualEmpty.dominant.kind, "idle");
+  assert.equal(dualEmpty.satellite, null);
+});
+
+// ============================================================================
+// SUITE 8: State-Synced Dynamic Aura Theme & Default Tab Mapping (R3)
+// ============================================================================
+
+test("M1 Dynamic Aura: State kind to Aura theme mapping (indigo, amber, teal, silver)", () => {
+  assert.equal(getAuraThemeForStateKind("evening_review_due"), "indigo");
+  assert.equal(getAuraThemeForStateKind("recovery_active"), "amber");
+  assert.equal(getAuraThemeForStateKind("live_session_running"), "teal");
+  assert.equal(getAuraThemeForStateKind("live_session_closing"), "teal");
+  assert.equal(getAuraThemeForStateKind("activity_paused"), "teal");
+  assert.equal(getAuraThemeForStateKind("sync_issue"), "amber");
+  assert.equal(getAuraThemeForStateKind("confirmations_pending"), "amber");
+  assert.equal(getAuraThemeForStateKind("idle"), "silver");
+  assert.equal(getAuraThemeForStateKind("command_search"), "silver");
+  assert.equal(getAuraThemeForStateKind("unknown_state" as DynamicIslandCapsuleKind), "silver");
+  assert.equal(getAuraThemeFromKind("evening_review_due"), "indigo");
+});
+
+test("M1 Dynamic Aura: State kind to default hub tab mapping (evening, status, stopwatch, search)", () => {
+  assert.equal(getDefaultTabForStateKind("evening_review_due"), "evening");
+  assert.equal(getDefaultTabForStateKind("recovery_active"), "status");
+  assert.equal(getDefaultTabForStateKind("live_session_running"), "stopwatch");
+  assert.equal(getDefaultTabForStateKind("live_session_closing"), "stopwatch");
+  assert.equal(getDefaultTabForStateKind("activity_paused"), "stopwatch");
+  assert.equal(getDefaultTabForStateKind("sync_issue"), "status");
+  assert.equal(getDefaultTabForStateKind("confirmations_pending"), "status");
+  assert.equal(getDefaultTabForStateKind("idle"), "search");
+  assert.equal(getDefaultTabForStateKind("command_search"), "search");
+  assert.equal(getDefaultHubTabForKind("evening_review_due"), "evening");
+});
+
+test("M1 Dynamic Aura: Style tokens contain valid border, shadow, and button classes per theme", () => {
+  const indigoSpec = getAuraStyles("indigo");
+  assert.match(indigoSpec.borderClass, /border-indigo/);
+  assert.match(indigoSpec.shadowAura, /rgba\(99,\s*102,\s*241/);
+  assert.match(indigoSpec.accentButton, /bg-indigo-500/);
+
+  const amberSpec = getAuraStyles("amber");
+  assert.match(amberSpec.borderClass, /border-amber/);
+  assert.match(amberSpec.shadowAura, /rgba\(245,\s*158,\s*11/);
+  assert.match(amberSpec.accentButton, /bg-amber-500/);
+
+  const tealSpec = getAuraStyles("teal");
+  assert.match(tealSpec.borderClass, /border-teal/);
+  assert.match(tealSpec.shadowAura, /rgba\(20,\s*184,\s*166/);
+  assert.match(tealSpec.accentButton, /bg-teal-500/);
+
+  const silverSpec = getAuraStyles("silver");
+  assert.match(silverSpec.borderClass, /border-white\/10/);
+
+  assert.equal(DYNAMIC_ISLAND_AURA_THEMES.indigo.theme, "indigo");
+  assert.equal(DYNAMIC_ISLAND_AURA_THEMES.amber.theme, "amber");
+  assert.equal(DYNAMIC_ISLAND_AURA_THEMES.teal.theme, "teal");
+  assert.equal(DYNAMIC_ISLAND_AURA_THEMES.silver.theme, "silver");
+});
+
+// ============================================================================
+// SUITE 9: Route-Aware Lifecycle Transitions & 5,000-Iteration Fuzzing Invariants
+// ============================================================================
+
+test("M1 Route Lifecycle: User navigates across /focus, /today, /roadmap/reviews, and /dashboard with active states", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30 };
+  const eveningReview: DynamicIslandEveningReviewProps = { due: true, minimumActionDone: true, dailyReviewDone: false };
+
+  const rawStates = collectDynamicIslandActiveStates({
+    activeSession: session,
+    recovery,
+    eveningReview,
+  });
+
+  // 1. User on /dashboard: all 3 unsuppressed, dominant = running, satellite = recovery
+  const dashDual = resolveDualTaskStates(rawStates, "/dashboard");
+  assert.equal(dashDual.allUnsuppressed.length, 3);
+  assert.equal(dashDual.dominant.kind, "live_session_running");
+  assert.equal(dashDual.satellite?.kind, "recovery_active");
+
+  // 2. User navigates to /focus: stopwatch suppressed -> dominant = recovery, satellite = evening
+  const focusDual = resolveDualTaskStates(rawStates, "/focus");
+  assert.equal(focusDual.allUnsuppressed.length, 2);
+  assert.equal(focusDual.dominant.kind, "recovery_active");
+  assert.equal(focusDual.satellite?.kind, "evening_review_due");
+
+  // 3. User navigates to /today: recovery suppressed -> dominant = running, satellite = evening
+  const todayDual = resolveDualTaskStates(rawStates, "/today");
+  assert.equal(todayDual.allUnsuppressed.length, 2);
+  assert.equal(todayDual.dominant.kind, "live_session_running");
+  assert.equal(todayDual.satellite?.kind, "evening_review_due");
+
+  // 4. User navigates to /roadmap/reviews: evening suppressed -> dominant = running, satellite = recovery
+  const reviewDual = resolveDualTaskStates(rawStates, "/roadmap/reviews");
+  assert.equal(reviewDual.allUnsuppressed.length, 2);
+  assert.equal(reviewDual.dominant.kind, "live_session_running");
+  assert.equal(reviewDual.satellite?.kind, "recovery_active");
+});
+
+test("M1 Fuzzing Invariant: 5000 random multi-route permutations satisfy all dual-task invariants", () => {
+  const routes = [
+    "/focus",
+    "/focus/",
+    "/focus?view=compact",
+    "/today",
+    "/today/action-1",
+    "/roadmap/reviews",
+    "/roadmap/reviews/daily",
+    "/dashboard",
+    "/tasks",
+    "/syllabus",
+    "/",
+    null,
+    undefined,
+  ];
+
+  const statuses: Array<"running" | "closing" | "paused" | "completed" | null> = [
+    "running",
+    "closing",
+    "paused",
+    "completed",
+    null,
+  ];
+  const syncStates: Array<DynamicIslandSyncState | undefined> = [
+    "current",
+    "deferred",
+    "pending",
+    "offline",
+    "blocked",
+    "unavailable",
+    undefined,
+  ];
+  const booleanChoices = [true, false];
+  const confirmationCounts = [0, 1, 3, null, undefined];
+
+  for (let i = 0; i < 5000; i++) {
+    const route = routes[Math.floor(Math.random() * routes.length)];
+    const activeStatus = statuses[Math.floor(Math.random() * statuses.length)];
+    const activeSession = activeStatus ? createMockSession(activeStatus) : null;
+    const syncState = syncStates[Math.floor(Math.random() * syncStates.length)];
+    const recoveryActive = booleanChoices[Math.floor(Math.random() * booleanChoices.length)];
+    const eveningDue = booleanChoices[Math.floor(Math.random() * booleanChoices.length)];
+    const pendingConfirmations = confirmationCounts[Math.floor(Math.random() * confirmationCounts.length)] ?? undefined;
+
+    const rawStates = collectDynamicIslandActiveStates({
+      activeSession,
+      syncState,
+      recovery: recoveryActive ? { active: true, stage: 1, targetMinutes: 30 } : null,
+      eveningReview: eveningDue ? { due: true, minimumActionDone: false, dailyReviewDone: false } : null,
+      pendingConfirmationsCount: pendingConfirmations,
+    });
+
+    const dual = resolveDualTaskStates(rawStates, route);
+
+    // INVARIANT 1: dominant is ALWAYS non-null and defined
+    assert.ok(dual.dominant, `Iteration ${i}: dominant must not be null/undefined`);
+
+    // INVARIANT 2: If allUnsuppressed.length === 0 -> dominant is idle and satellite is null
+    if (dual.allUnsuppressed.length === 0) {
+      assert.equal(dual.dominant.kind, "idle", `Iteration ${i}: empty unsuppressed pool must yield idle dominant`);
+      assert.equal(dual.satellite, null, `Iteration ${i}: empty unsuppressed pool must have null satellite`);
+    }
+
+    // INVARIANT 3: If allUnsuppressed.length === 1 -> dominant is item 0 and satellite is null
+    if (dual.allUnsuppressed.length === 1) {
+      assert.equal(dual.dominant.id, dual.allUnsuppressed[0].id, `Iteration ${i}: 1 state must be dominant`);
+      assert.equal(dual.satellite, null, `Iteration ${i}: 1 state must have null satellite`);
+    }
+
+    // INVARIANT 4: If allUnsuppressed.length >= 2 -> dominant and satellite are non-null and distinct
+    if (dual.allUnsuppressed.length >= 2) {
+      assert.ok(dual.satellite, `Iteration ${i}: >=2 states must have satellite`);
+      assert.notEqual(dual.dominant.id, dual.satellite?.id, `Iteration ${i}: dominant and satellite must have different ids`);
+      assert.ok(
+        dual.allUnsuppressed.some((s) => s.id === dual.dominant.id),
+        `Iteration ${i}: dominant must belong to unsuppressed states`
+      );
+      assert.ok(
+        dual.allUnsuppressed.some((s) => s.id === dual.satellite?.id),
+        `Iteration ${i}: satellite must belong to unsuppressed states`
+      );
+    }
+
+    // INVARIANT 5: Neither dominant nor satellite (if present) is suppressed on the current route
+    if (dual.dominant.kind !== "idle") {
+      assert.equal(
+        isStateSuppressedOnRoute(dual.dominant.kind, route),
+        false,
+        `Iteration ${i}: dominant kind '${dual.dominant.kind}' was illegally present on route '${route}'`
+      );
+    }
+    if (dual.satellite) {
+      assert.equal(
+        isStateSuppressedOnRoute(dual.satellite.kind, route),
+        false,
+        `Iteration ${i}: satellite kind '${dual.satellite.kind}' was illegally present on route '${route}'`
+      );
+    }
+
+    // INVARIANT 6: Pure functional idempotence
+    const rerun = resolveDualTaskStates(rawStates, route);
+    assert.deepEqual(dual, rerun, `Iteration ${i}: resolveDualTaskStates must be purely idempotent`);
+  }
+});
+

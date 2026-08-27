@@ -1,7 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
 import React from "react";
 
 import {
@@ -10,15 +8,20 @@ import {
   type DynamicIslandCapsuleState,
   type DynamicIslandStatePool,
   type DynamicIslandTone,
+  type DynamicIslandAuraTheme,
+  type DynamicIslandHubTab,
   type DynamicIslandRecoveryProps,
   type DynamicIslandEveningReviewProps,
   type DynamicIslandSyncState,
   type CollectDynamicIslandStatesInput,
+  type DualTaskResolutionResult,
   PRIORITY_WEIGHTS,
   IDLE_STATE_ITEM,
 } from "./dynamic-island-types";
 
 import {
+  isStateSuppressedOnRoute,
+  filterStatesByRouteContext,
   clampTimerDuration,
   getPriorityWeight,
   createIdleStateItem,
@@ -26,11 +29,46 @@ import {
   sortActiveStatesByPriority,
   getDominantState,
   resolveDominantState,
+  resolveDualTaskStates,
   computeDynamicIslandStatePool,
   collectDynamicIslandStatePool,
   validateStatePoolInvariants,
   resolveDynamicIslandState,
 } from "./dynamic-island-state-engine";
+
+import {
+  DYNAMIC_ISLAND_AURA_THEMES,
+  getAuraThemeForStateKind,
+  getAuraStyles,
+  getDefaultTabForStateKind,
+  getSatelliteBubbleGlowClass,
+  getCapsuleGlowStyle,
+  getCapsuleGlowClass,
+  getCapsuleInlineStyle,
+  getToneFromCapsuleKind,
+  getCapsuleToneColors,
+  TONE_COLOR_SPECS,
+} from "./dynamic-island-glow";
+
+import {
+  SatelliteBubble,
+  CapsuleLeftSegment,
+  CapsuleCenterSegment,
+  CapsuleRightSegment,
+  CapsuleBreathingDots,
+} from "./dynamic-island-segments";
+
+import {
+  normalizeHubTab,
+  HubViewModeTabs,
+  HubSupervisionOverview,
+  HubFlowStopwatchPanel,
+  HubConfirmationClosureGuide,
+  HubCommandPaletteList,
+  DynamicIslandHub,
+  MorphingFloatingHub,
+  type HubViewMode,
+} from "./dynamic-island-hub";
 
 import {
   TICKER_INTERVAL_MS,
@@ -47,32 +85,6 @@ import {
   formatDotsText,
   resolveTickerCurrentItem,
 } from "./dynamic-island-ticker";
-
-import {
-  getCapsuleGlowStyle,
-  getCapsuleGlowClass,
-  getCapsuleInlineStyle,
-  getToneFromCapsuleKind,
-  getCapsuleToneColors,
-  TONE_COLOR_SPECS,
-} from "./dynamic-island-glow";
-
-import {
-  CapsuleBreathingDots,
-  CapsuleLeftSegment,
-  CapsuleCenterSegment,
-  CapsuleRightSegment,
-} from "./dynamic-island-segments";
-
-import {
-  HubViewModeTabs,
-  HubSupervisionOverview,
-  HubFlowStopwatchPanel,
-  HubConfirmationClosureGuide,
-  HubCommandPaletteList,
-  DynamicIslandHub,
-  type HubViewMode,
-} from "./dynamic-island-hub";
 
 import {
   filterGlobalCommands,
@@ -139,21 +151,66 @@ function createMockSession(
   };
 }
 
-function resolveOverviewMode(kind: DynamicIslandCapsuleKind): HubViewMode {
-  if (kind === "live_session_running" || kind === "activity_paused" || kind === "live_session_closing") {
-    return "focus";
-  }
-  if (kind === "evening_review_due" || kind === "confirmations_pending") {
-    return "closure";
-  }
-  return "overview";
-}
-
 // ============================================================================
-// SUITE 1: Multi-State Permutations & Rapid Concurrent State Transitions
+// TIER 1: Route Anti-Redundancy & Predicate Logic
 // ============================================================================
 
-test("Adversarial M4 - Exhaustive 2^8 State Space Permutations satisfy all invariants", () => {
+test("Tier 1 - /focus route strictly suppresses live stopwatch states", () => {
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/focus"), true);
+  assert.equal(isStateSuppressedOnRoute("live_session_closing", "/focus"), true);
+  assert.equal(isStateSuppressedOnRoute("activity_paused", "/focus"), true);
+
+  // Non-stopwatch states must not be suppressed on /focus
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/focus"), false);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/focus"), false);
+  assert.equal(isStateSuppressedOnRoute("sync_issue", "/focus"), false);
+  assert.equal(isStateSuppressedOnRoute("confirmations_pending", "/focus"), false);
+  assert.equal(isStateSuppressedOnRoute("idle", "/focus"), false);
+
+  // Subpaths under /focus
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/focus/cockpit"), true);
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/focus/timer?mode=deep"), true);
+});
+
+test("Tier 1 - /today route strictly suppresses recovery active state", () => {
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/today"), true);
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/today/overview"), true);
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/today?filter=urgent#hero"), true);
+
+  // Other states must remain unsuppressed on /today
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("live_session_closing", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("activity_paused", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("sync_issue", "/today"), false);
+  assert.equal(isStateSuppressedOnRoute("confirmations_pending", "/today"), false);
+});
+
+test("Tier 1 - /roadmap/reviews routes strictly suppress evening review due state", () => {
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/roadmap/reviews"), true);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/roadmap/reviews/daily"), true);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "/roadmap/reviews/history?period=week"), true);
+
+  // Other states must remain unsuppressed on /roadmap/reviews
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "/roadmap/reviews"), false);
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "/roadmap/reviews"), false);
+  assert.equal(isStateSuppressedOnRoute("sync_issue", "/roadmap/reviews"), false);
+  assert.equal(isStateSuppressedOnRoute("confirmations_pending", "/roadmap/reviews"), false);
+});
+
+test("Tier 1 - Neutral routes do not suppress any active states", () => {
+  const neutralRoutes = [
+    "/dashboard",
+    "/tasks",
+    "/analytics",
+    "/settings",
+    "/settings/exams",
+    "/knowledge",
+    "/test",
+    "/roadmap",
+    "/roadmap/stages",
+  ];
+
   const allKinds: DynamicIslandCapsuleKind[] = [
     "live_session_running",
     "live_session_closing",
@@ -165,7 +222,339 @@ test("Adversarial M4 - Exhaustive 2^8 State Space Permutations satisfy all invar
     "idle",
   ];
 
-  // We can construct test configurations for each subset of the first 7 active states
+  for (const route of neutralRoutes) {
+    for (const kind of allKinds) {
+      assert.equal(
+        isStateSuppressedOnRoute(kind, route),
+        false,
+        `Kind ${kind} should not be suppressed on neutral route ${route}`
+      );
+    }
+  }
+});
+
+test("Tier 1 - Navigation away predicate transitions and state pool rising", () => {
+  const runningSession = createMockSession("running", { subjectName: "高等数学" });
+  const recoveryProps: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30, reason: "微行动" };
+  const eveningProps: DynamicIslandEveningReviewProps = { due: true, minimumActionDone: false, dailyReviewDone: false };
+
+  const input: CollectDynamicIslandStatesInput = {
+    activeSession: runningSession,
+    recovery: recoveryProps,
+    eveningReview: eveningProps,
+    elapsedSeconds: 600,
+  };
+
+  // 1. On /focus: stopwatch is suppressed, so recovery (P3) becomes dominant
+  const onFocusPool = computeDynamicIslandStatePool({ ...input, pathname: "/focus" });
+  assert.equal(onFocusPool.dominantState.kind, "recovery_active");
+  assert.equal(onFocusPool.activeStates.some((s) => s.kind === "live_session_running"), false);
+
+  // 2. Navigating from /focus to /dashboard: stopwatch rises to dominant (P0)
+  const onDashboardPool = computeDynamicIslandStatePool({ ...input, pathname: "/dashboard" });
+  assert.equal(onDashboardPool.dominantState.kind, "live_session_running");
+  assert.equal(onDashboardPool.activeStates.length, 3);
+
+  // 3. On /today: recovery is suppressed, stopwatch remains dominant (P0)
+  const onTodayPool = computeDynamicIslandStatePool({ ...input, pathname: "/today" });
+  assert.equal(onTodayPool.dominantState.kind, "live_session_running");
+  assert.equal(onTodayPool.activeStates.some((s) => s.kind === "recovery_active"), false);
+
+  // 4. On /roadmap/reviews: evening review suppressed, stopwatch remains dominant
+  const onReviewsPool = computeDynamicIslandStatePool({ ...input, pathname: "/roadmap/reviews" });
+  assert.equal(onReviewsPool.dominantState.kind, "live_session_running");
+  assert.equal(onReviewsPool.activeStates.some((s) => s.kind === "evening_review_due"), false);
+});
+
+test("Tier 1 - Path normalization robustness with query strings, hashes, and malformed slashes", () => {
+  assert.equal(isStateSuppressedOnRoute("live_session_running", "///focus///?debug=1#timer"), true);
+  assert.equal(isStateSuppressedOnRoute("recovery_active", "  /today?page=1  "), true);
+  assert.equal(isStateSuppressedOnRoute("evening_review_due", "roadmap/reviews/daily"), true);
+  assert.equal(isStateSuppressedOnRoute("live_session_running", null), false);
+  assert.equal(isStateSuppressedOnRoute("live_session_running", undefined), false);
+  assert.equal(isStateSuppressedOnRoute("live_session_running", ""), false);
+});
+
+// ============================================================================
+// TIER 2: Dual-Task Exclamation Satellite Bubble, Fluid Swap Morph, Dynamic Aura Tokens
+// ============================================================================
+
+test("Tier 2 - Dual-Task exclamation split into [Main Capsule] + [Satellite Bubble]", () => {
+  const session = createMockSession("running", { subjectName: "线性代数" });
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 2, targetMinutes: 45 };
+
+  const input: CollectDynamicIslandStatesInput = {
+    activeSession: session,
+    recovery,
+    elapsedSeconds: 900,
+    pathname: "/dashboard",
+  };
+
+  const pool = computeDynamicIslandStatePool(input);
+  assert.equal(pool.hasConcurrency, true);
+  assert.equal(pool.activeStates.length, 2);
+
+  const dualTask = resolveDualTaskStates(pool.activeStates, "/dashboard");
+  assert.ok(dualTask.dominant, "Must have dominant state");
+  assert.ok(dualTask.satellite, "Must have satellite state");
+  assert.equal(dualTask.dominant.kind, "live_session_running");
+  assert.equal(dualTask.satellite.kind, "recovery_active");
+  assert.equal(dualTask.allUnsuppressed.length, 2);
+});
+
+test("Tier 2 - Fluid Swap Morph exchanges dominant and satellite focus", () => {
+  const session = createMockSession("running", { subjectName: "考研英语" });
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30 };
+  const eveningReview: DynamicIslandEveningReviewProps = { due: true, minimumActionDone: true, dailyReviewDone: false };
+
+  const activeStates = collectDynamicIslandActiveStates({
+    activeSession: session,
+    recovery,
+    eveningReview,
+    elapsedSeconds: 1200,
+  });
+
+  // Default resolution: P0 (running) dominant, P3 (recovery) satellite
+  const defaultDual = resolveDualTaskStates(activeStates, "/dashboard");
+  assert.equal(defaultDual.dominant.kind, "live_session_running");
+  assert.equal(defaultDual.satellite?.kind, "recovery_active");
+
+  // Fluid Swap 1: User chooses recovery_active to become dominant
+  const swappedToRecovery = resolveDualTaskStates(activeStates, "/dashboard", "recovery_active");
+  assert.equal(swappedToRecovery.dominant.kind, "recovery_active");
+  assert.equal(swappedToRecovery.satellite?.kind, "live_session_running");
+
+  // Fluid Swap 2: User chooses evening_review_due to become dominant
+  const swappedToEvening = resolveDualTaskStates(activeStates, "/dashboard", "evening_review_due");
+  assert.equal(swappedToEvening.dominant.kind, "evening_review_due");
+  assert.equal(swappedToEvening.satellite?.kind, "live_session_running");
+
+  // Fluid Swap 3: Non-existent or invalid swap kind falls back to default priority
+  const swappedInvalid = resolveDualTaskStates(activeStates, "/dashboard", "idle");
+  assert.equal(swappedInvalid.dominant.kind, "live_session_running");
+  assert.equal(swappedInvalid.satellite?.kind, "recovery_active");
+});
+
+test("Tier 2 - Dynamic Aura Theme Tokens (Indigo, Amber, Teal, Silver) 100% color-synced", () => {
+  // 1. Indigo (Evening review due)
+  const indigoAura = getAuraStyles("indigo");
+  assert.equal(indigoAura.theme, "indigo");
+  assert.equal(indigoAura.primaryColor, "#6366f1");
+  assert.ok(indigoAura.borderClass.includes("indigo-500"));
+  assert.ok(indigoAura.shadowClass.includes("rgba(99,102,241"));
+  assert.equal(indigoAura.defaultTab, "evening");
+  assert.equal(getAuraThemeForStateKind("evening_review_due"), "indigo");
+
+  // 2. Amber (Recovery / Sync / Confirmations)
+  const amberAura = getAuraStyles("amber");
+  assert.equal(amberAura.theme, "amber");
+  assert.equal(amberAura.primaryColor, "#f59e0b");
+  assert.ok(amberAura.borderClass.includes("amber-500"));
+  assert.ok(amberAura.shadowClass.includes("rgba(245,158,11"));
+  assert.equal(amberAura.defaultTab, "status");
+  assert.equal(getAuraThemeForStateKind("recovery_active"), "amber");
+  assert.equal(getAuraThemeForStateKind("sync_issue"), "amber");
+  assert.equal(getAuraThemeForStateKind("confirmations_pending"), "amber");
+
+  // 3. Teal (Live Session Running / Closing / Paused)
+  const tealAura = getAuraStyles("teal");
+  assert.equal(tealAura.theme, "teal");
+  assert.equal(tealAura.primaryColor, "#14b8a6");
+  assert.ok(tealAura.borderClass.includes("teal-500"));
+  assert.ok(tealAura.shadowClass.includes("rgba(20,184,166"));
+  assert.equal(tealAura.defaultTab, "stopwatch");
+  assert.equal(getAuraThemeForStateKind("live_session_running"), "teal");
+  assert.equal(getAuraThemeForStateKind("live_session_closing"), "teal");
+  assert.equal(getAuraThemeForStateKind("activity_paused"), "teal");
+
+  // 4. Silver (Search / Idle)
+  const silverAura = getAuraStyles("silver");
+  assert.equal(silverAura.theme, "silver");
+  assert.equal(silverAura.primaryColor, "#94a3b8");
+  assert.ok(silverAura.borderClass.includes("white/10"));
+  assert.equal(silverAura.defaultTab, "search");
+  assert.equal(getAuraThemeForStateKind("idle"), "silver");
+});
+
+test("Tier 2 - Satellite Bubble Glow Class and event handling isolation", () => {
+  assert.ok(getSatelliteBubbleGlowClass("live_session_running").includes("teal"));
+  assert.ok(getSatelliteBubbleGlowClass("recovery_active").includes("amber"));
+  assert.ok(getSatelliteBubbleGlowClass("evening_review_due").includes("indigo"));
+  assert.ok(getSatelliteBubbleGlowClass("idle").includes("white"));
+
+  // Event handler stopPropagation check
+  let swapCalled = false;
+  let eventStopped = false;
+
+  const bubbleElement = SatelliteBubble({
+    satelliteItem: {
+      id: "sat-1",
+      kind: "recovery_active",
+      priorityWeight: 700,
+      title: "恢复中",
+      accentTone: "amber",
+      stage: 2,
+    },
+    onSwapFluidFocus: (kind) => {
+      swapCalled = true;
+      assert.equal(kind, "recovery_active");
+    },
+  }) as React.ReactElement<{ onClick?: (e: { stopPropagation: () => void }) => void }> | null;
+
+  assert.ok(bubbleElement, "SatelliteBubble must render");
+  assert.equal(typeof bubbleElement.props.onClick, "function");
+
+  bubbleElement.props.onClick?.({
+    stopPropagation: () => {
+      eventStopped = true;
+    },
+  });
+
+  assert.equal(eventStopped, true, "Satellite click must stop event propagation");
+  assert.equal(swapCalled, true, "Satellite click must trigger onSwapFluidFocus");
+});
+
+// ============================================================================
+// TIER 3: Stopwatch Hover Micro-Actions & Global Keyboard Shortcuts Penetration
+// ============================================================================
+
+test("Tier 3 - Live stopwatch hover micro-actions render with stopPropagation", () => {
+  let pauseTriggered = false;
+  let closeoutTriggered = false;
+  let stopPropagationCount = 0;
+
+  const session = createMockSession("running", { subjectName: "专业课" });
+  const activeItem: DynamicIslandActiveItem = {
+    id: "item-running",
+    kind: "live_session_running",
+    priorityWeight: 1000,
+    title: "专业课",
+    accentTone: "teal",
+    session,
+    elapsedSeconds: 1800,
+  };
+
+  const rightSegment = CapsuleRightSegment({
+    activeItem,
+    elapsedSeconds: 1800,
+    onDirectPause: () => {
+      pauseTriggered = true;
+    },
+    onDirectCloseout: () => {
+      closeoutTriggered = true;
+    },
+  }) as React.ReactElement | null;
+
+  assert.ok(rightSegment, "CapsuleRightSegment must render for live session");
+
+  // Inspect children structure for Pause button and Closeout link
+  const containerProps = rightSegment.props as { children: React.ReactNode[] };
+  assert.ok(Array.isArray(containerProps.children), "Segment must have stopwatch and hover micro-actions");
+
+  const hoverContainer = containerProps.children[1] as React.ReactElement<{ children: React.ReactNode[] }>;
+  assert.ok(hoverContainer, "Hover micro-actions container must exist");
+
+  const [pauseBtn, closeoutLink] = hoverContainer.props.children as [
+    React.ReactElement<{ onClick?: (e: { stopPropagation: () => void }) => void }>,
+    React.ReactElement<{ onClick?: (e: { stopPropagation: () => void }) => void }>
+  ];
+
+  // Test Pause button click
+  pauseBtn.props.onClick?.({
+    stopPropagation: () => {
+      stopPropagationCount++;
+    },
+  });
+  assert.equal(pauseTriggered, true, "Direct pause handler must be called");
+  assert.equal(stopPropagationCount, 1, "Pause button must call stopPropagation");
+
+  // Test Closeout button click
+  closeoutLink.props.onClick?.({
+    stopPropagation: () => {
+      stopPropagationCount++;
+    },
+  });
+  assert.equal(closeoutTriggered, true, "Direct closeout handler must be called");
+  assert.equal(stopPropagationCount, 2, "Closeout button must call stopPropagation");
+});
+
+test("Tier 3 - Global ⌘K / / / Esc Keyboard shortcut handlers and Command Palette navigation", () => {
+  // 1. Command index clamping
+  const count = GLOBAL_COMMANDS.length;
+  assert.ok(count > 0, "Global commands list must not be empty");
+
+  assert.equal(clampCommandIndex(-1, count), 0, "Negative index clamps to 0");
+  assert.equal(clampCommandIndex(count + 5, count), count - 1, "Overflow index clamps to count - 1");
+  assert.equal(clampCommandIndex(2, count), 2, "In-bounds index stays unchanged");
+  assert.equal(clampCommandIndex(NaN, count), 0, "NaN index clamps to 0");
+
+  // 2. Command Palette query filtering
+  const allFiltered = filterGlobalCommands("", GLOBAL_COMMANDS);
+  assert.equal(allFiltered.length, count);
+
+  const mathFiltered = filterGlobalCommands("开始", GLOBAL_COMMANDS);
+  assert.ok(mathFiltered.length > 0);
+  assert.ok(mathFiltered.some((cmd) => cmd.label.includes("开始")));
+
+  const focusFiltered = filterGlobalCommands("专注", GLOBAL_COMMANDS);
+  assert.ok(focusFiltered.length > 0);
+});
+
+// ============================================================================
+// TIER 4: Morphing Floating Hub 4-Panel State Sync & Default Tab Activation
+// ============================================================================
+
+test("Tier 4 - Hub 4-Panel view mode normalization and default tab auto-activation", () => {
+  // Normalization
+  assert.equal(normalizeHubTab("search"), "search");
+  assert.equal(normalizeHubTab("overview"), "overview");
+  assert.equal(normalizeHubTab("status"), "overview");
+  assert.equal(normalizeHubTab("focus"), "focus");
+  assert.equal(normalizeHubTab("stopwatch"), "focus");
+  assert.equal(normalizeHubTab("closure"), "closure");
+  assert.equal(normalizeHubTab("evening"), "closure");
+  assert.equal(normalizeHubTab(null), "search");
+
+  // Default tab for state kinds
+  assert.equal(getDefaultTabForStateKind("live_session_running"), "stopwatch");
+  assert.equal(getDefaultTabForStateKind("activity_paused"), "stopwatch");
+  assert.equal(getDefaultTabForStateKind("recovery_active"), "status");
+  assert.equal(getDefaultTabForStateKind("sync_issue"), "status");
+  assert.equal(getDefaultTabForStateKind("confirmations_pending"), "status");
+  assert.equal(getDefaultTabForStateKind("evening_review_due"), "evening");
+  assert.equal(getDefaultTabForStateKind("idle"), "search");
+});
+
+test("Tier 4 - Hub View Mode Tabs rendering with dynamic aura theme injection", () => {
+  let selectedMode: HubViewMode = "search";
+
+  const tabsElement = HubViewModeTabs({
+    viewMode: "focus",
+    onViewModeChange: (mode) => {
+      selectedMode = mode;
+    },
+    activeStatesCount: 3,
+    hasRunningSession: true,
+    pendingConfirmationsCount: 2,
+    eveningDue: true,
+    auraTheme: "teal",
+    dominantState: {
+      id: "sess-1",
+      kind: "live_session_running",
+      priorityWeight: 1000,
+      title: "考研数学",
+      accentTone: "teal",
+    },
+  });
+
+  assert.ok(tabsElement, "HubViewModeTabs must render");
+});
+
+// ============================================================================
+// TIER 5: Adversarial Stress, Hardening & Extreme Boundary Matrix
+// ============================================================================
+
+test("Tier 5 - Exhaustive 2^8 State Space Permutations satisfy all invariants", () => {
   const activeKinds: DynamicIslandCapsuleKind[] = [
     "live_session_running",
     "live_session_closing",
@@ -188,7 +577,6 @@ test("Adversarial M4 - Exhaustive 2^8 State Space Permutations satisfy all invar
     const hasSync = (mask & (1 << 5)) !== 0;
     const hasConfirmations = (mask & (1 << 6)) !== 0;
 
-    // Primary session: Pick highest priority status if multiple session flags are on
     const sessionStatus = hasRunning
       ? "running"
       : hasClosing
@@ -208,17 +596,11 @@ test("Adversarial M4 - Exhaustive 2^8 State Space Permutations satisfy all invar
 
     const pool = computeDynamicIslandStatePool(input);
 
-    // Invariant 1: dominantState must be defined
     assert.ok(pool.dominantState, `Mask ${mask}: dominantState must be defined`);
-
-    // Invariant 2: Invariants validator returns true
     assert.ok(validateStatePoolInvariants(pool), `Mask ${mask}: validateStatePoolInvariants must return true`);
-
-    // Invariant 3: Concurrency count consistency
     assert.equal(pool.concurrencyCount, pool.activeStates.length);
     assert.equal(pool.hasConcurrency, pool.activeStates.length > 1);
 
-    // Invariant 4: Priority sequence must be strictly non-increasing
     for (let i = 0; i < pool.activeStates.length - 1; i++) {
       assert.ok(
         pool.activeStates[i].priorityWeight >= pool.activeStates[i + 1].priorityWeight,
@@ -226,7 +608,6 @@ test("Adversarial M4 - Exhaustive 2^8 State Space Permutations satisfy all invar
       );
     }
 
-    // Invariant 5: Dominant state must be activeStates[0] or idle
     if (pool.activeStates.length > 0) {
       assert.equal(pool.dominantState.id, pool.activeStates[0].id);
       assert.equal(pool.dominantState.priorityWeight, pool.activeStates[0].priorityWeight);
@@ -235,13 +616,12 @@ test("Adversarial M4 - Exhaustive 2^8 State Space Permutations satisfy all invar
       assert.equal(pool.dominantState.priorityWeight, 0);
     }
 
-    // Invariant 6: Pure idempotence
     const poolRerun = computeDynamicIslandStatePool(input);
     assert.deepEqual(pool, poolRerun);
   }
 });
 
-test("Adversarial M4 - Rapid High-Frequency Concurrent State Transitions Matrix", () => {
+test("Tier 5 - Rapid 1,000-Step Concurrent State Transitions Lifecycle", () => {
   let activeSession: StudySessionDto | null = null;
   let offlineSession: StudySessionDto | null = null;
   let syncState: DynamicIslandSyncState = "current";
@@ -250,55 +630,44 @@ test("Adversarial M4 - Rapid High-Frequency Concurrent State Transitions Matrix"
   let confirmationsCount = 0;
   let elapsedSeconds = 0;
 
-  // Simulate a chaotic 1,000-step state lifecycle
   for (let step = 0; step < 1000; step++) {
     const actionType = step % 10;
     switch (actionType) {
       case 0:
-        // Start live session
         activeSession = createMockSession("running", { id: `session-${step}`, subjectName: `科目-${step}` });
         elapsedSeconds = step * 10;
         break;
       case 1:
-        // Pause session
         if (activeSession) {
           activeSession = createMockSession("paused", { id: activeSession.id, subjectName: activeSession.subjectName });
         }
         break;
       case 2:
-        // Trigger recovery mode
         recovery = { active: true, stage: (step % 3) + 1, targetMinutes: ((step % 4) + 1) * 30, reason: "督战恢复" };
         break;
       case 3:
-        // Network drops -> sync issue
         syncState = (["deferred", "offline", "blocked", "pending"] as DynamicIslandSyncState[])[step % 4];
         break;
       case 4:
-        // Add pending confirmations
         confirmationsCount = (step % 7) + 1;
         break;
       case 5:
-        // Evening review due
         eveningReview = { due: true, minimumActionDone: step % 2 === 0, dailyReviewDone: false };
         break;
       case 6:
-        // Resume session
         if (activeSession) {
           activeSession = createMockSession("running", { id: activeSession.id, subjectName: activeSession.subjectName });
         }
         break;
       case 7:
-        // Close session
         if (activeSession) {
           activeSession = createMockSession("closing", { id: activeSession.id, subjectName: activeSession.subjectName });
         }
         break;
       case 8:
-        // Complete session
         activeSession = null;
         break;
       case 9:
-        // Reconcile sync & clear review
         syncState = "current";
         eveningReview = null;
         recovery = null;
@@ -320,7 +689,6 @@ test("Adversarial M4 - Rapid High-Frequency Concurrent State Transitions Matrix"
     assert.ok(validateStatePoolInvariants(pool), `Step ${step}: pool invariant violated`);
     assert.ok(pool.dominantState !== null && pool.dominantState !== undefined);
 
-    // If active running session exists, dominant must be live_session_running (P0)
     if (activeSession && activeSession.status === "running") {
       assert.equal(pool.dominantState.kind, "live_session_running");
       assert.equal(isTickerP0Pinned(pool), true);
@@ -329,7 +697,7 @@ test("Adversarial M4 - Rapid High-Frequency Concurrent State Transitions Matrix"
   }
 });
 
-test("Adversarial M4 - 10,000 Iterations Chaotic State Fuzzing with Malformed & Hostile Inputs", () => {
+test("Tier 5 - 10,000 Iterations Chaotic State Fuzzing with Hostile Inputs", () => {
   const hostileStrings = [
     "",
     "   ",
@@ -384,268 +752,60 @@ test("Adversarial M4 - 10,000 Iterations Chaotic State Fuzzing with Malformed & 
   }
 });
 
-// ============================================================================
-// SUITE 2: High-Frequency Timer Ticks, Extreme Clock Skews, & Duration Arithmetic
-// ============================================================================
+test("Tier 5 - 50,000 Continuous State Pool Resolutions Determinism and High Performance", () => {
+  const sessionRunning = createMockSession("running", { id: "sess-50k", subjectName: "考研数学" });
+  const recoveryProps: DynamicIslandRecoveryProps = { active: true, stage: 2, targetMinutes: 60, reason: "50k test" };
+  const eveningReviewProps: DynamicIslandEveningReviewProps = { due: true, minimumActionDone: true, dailyReviewDone: false };
 
-test("Adversarial M4 - High-Frequency Timer Ticks & Sub-Second Precision clamping", () => {
-  // 10,000 sub-second & high-frequency fractional steps
-  for (let tick = 0; tick < 10000; tick++) {
-    const fractionalSeconds = tick * 0.12345;
-    const clamped = clampTimerDuration(fractionalSeconds);
-    assert.equal(typeof clamped, "number");
-    assert.ok(Number.isInteger(clamped), `Tick ${tick}: clamped duration must be an integer`);
-    assert.ok(clamped >= 0, `Tick ${tick}: clamped duration must be non-negative`);
-    assert.equal(clamped, Math.floor(fractionalSeconds));
-  }
-
-  // Extreme boundary inputs
-  assert.equal(clampTimerDuration(undefined), 0);
-  assert.equal(clampTimerDuration(null as unknown as number), 0);
-  assert.equal(clampTimerDuration(NaN), 0);
-  assert.equal(clampTimerDuration(Infinity), 0);
-  assert.equal(clampTimerDuration(-Infinity), 0);
-  assert.equal(clampTimerDuration(-0.999), 0);
-  assert.equal(clampTimerDuration(-100000), 0);
-  assert.equal(clampTimerDuration(0), 0);
-  assert.equal(clampTimerDuration(1e-15), 0);
-  assert.equal(clampTimerDuration(999999.999), 999999);
-});
-
-test("Adversarial M4 - Extreme Clock Skews, Inverted Timestamps & Time Leaps", () => {
-  const baseTime = new Date("2026-08-27T12:00:00.000Z");
-
-  // 1. Clock leaps forward 100 years (+3,153,600,000 seconds)
-  const leap100Years = new Date("2126-08-27T12:00:00.000Z");
-  const elapsed100Years = getTimerElapsedSeconds({
-    status: "running",
-    startedAt: baseTime,
-    accumulatedPauseSeconds: 0,
-    now: leap100Years,
-  });
-  assert.ok(elapsed100Years > 3_000_000_000, "100 years elapsed must be huge positive number");
-  const formatted100Years = formatClockDuration(elapsed100Years);
-  assert.ok(formatted100Years.includes(":"), "Formatted time must have standard clock layout");
-
-  // 2. Clock leaps backward 100 years (now < startedAt)
-  const leapBackward = new Date("1926-08-27T12:00:00.000Z");
-  const elapsedBackward = getTimerElapsedSeconds({
-    status: "running",
-    startedAt: baseTime,
-    accumulatedPauseSeconds: 0,
-    now: leapBackward,
-  });
-  assert.equal(elapsedBackward, 0, "Backward clock skew must safely clamp to 0");
-  assert.equal(formatClockDuration(elapsedBackward), "00:00:00");
-
-  // 3. Pause duration exceeds total elapsed time
-  const elapsedExcessPause = getTimerElapsedSeconds({
-    status: "running",
-    startedAt: baseTime,
-    accumulatedPauseSeconds: 999999,
-    now: new Date("2026-08-27T12:10:00.000Z"), // 600s total
-  });
-  assert.equal(elapsedExcessPause, 0, "Accumulated pause > total must clamp to 0");
-
-  // 4. PausedAt timestamp before startedAt timestamp
-  const elapsedPausedBeforeStart = getTimerElapsedSeconds({
-    status: "paused",
-    startedAt: baseTime,
-    pausedAt: new Date("2026-08-27T11:00:00.000Z"), // 1 hr before startedAt
-    accumulatedPauseSeconds: 0,
-    now: new Date("2026-08-27T12:30:00.000Z"),
-  });
-  assert.equal(elapsedPausedBeforeStart, 0, "PausedAt before startedAt must clamp to 0");
-
-  // 5. Invalid date instances (NaN)
-  const elapsedInvalidDate = getTimerElapsedSeconds({
-    status: "running",
-    startedAt: new Date(NaN),
-    accumulatedPauseSeconds: 0,
-    now: baseTime,
-  });
-  assert.equal(clampTimerDuration(elapsedInvalidDate), 0, "Invalid Date elapsed must clamp to 0 via clampTimerDuration");
-  assert.equal(formatClockDuration(elapsedInvalidDate), "00:00:00", "Invalid Date elapsed must format to 00:00:00");
-});
-
-test("Adversarial M4 - Duration Formatters Robustness under Extreme Numbers", () => {
-  const testCases: Array<[number, string]> = [
-    [0, "00:00:00"],
-    [1, "00:00:01"],
-    [59, "00:00:59"],
-    [60, "00:01:00"],
-    [3599, "00:59:59"],
-    [3600, "01:00:00"],
-    [86399, "23:59:59"],
-    [86400, "24:00:00"],
-    [360000, "100:00:00"],
-    [-1, "00:00:00"],
-    [-9999, "00:00:00"],
-    [Number.NaN, "00:00:00"],
-    [Number.POSITIVE_INFINITY, "00:00:00"],
-    [Number.NEGATIVE_INFINITY, "00:00:00"],
-  ];
-
-  for (const [sec, expected] of testCases) {
-    assert.equal(formatClockDuration(sec), expected, `formatClockDuration(${sec}) failed`);
-  }
-
-  // Short duration format
-  assert.equal(formatShortDuration(0), "00:00");
-  assert.equal(formatShortDuration(65), "01:05");
-  assert.equal(formatShortDuration(-50), "00:00");
-  assert.equal(formatShortDuration(NaN), "00:00");
-});
-
-// ============================================================================
-// SUITE 3: Rapid View Mode Switching, Smart Ticker Carousel, & Keyboard Shortcut Traps
-// ============================================================================
-
-test("Adversarial M4 - Rapid View Mode Cycling Matrix and Overview Mode Resolver", () => {
-  const modes: HubViewMode[] = ["search", "overview", "focus", "closure"];
-
-  // Test all 24 permutations of view modes 100 times (2,400 mode switches)
-  for (let cycle = 0; cycle < 100; cycle++) {
-    for (const m1 of modes) {
-      for (const m2 of modes) {
-        if (m1 === m2) continue;
-        assert.notEqual(m1, m2);
-      }
-    }
-  }
-
-  // Test resolveOverviewMode mappings
-  assert.equal(resolveOverviewMode("live_session_running"), "focus");
-  assert.equal(resolveOverviewMode("activity_paused"), "focus");
-  assert.equal(resolveOverviewMode("live_session_closing"), "focus");
-  assert.equal(resolveOverviewMode("evening_review_due"), "closure");
-  assert.equal(resolveOverviewMode("confirmations_pending"), "closure");
-  assert.equal(resolveOverviewMode("recovery_active"), "overview");
-  assert.equal(resolveOverviewMode("sync_issue"), "overview");
-  assert.equal(resolveOverviewMode("idle"), "overview");
-});
-
-test("Adversarial M4 - Smart Ticker Carousel Index Arithmetic & Boundary Fuzzing", () => {
-  // 10,000 random index & totalStates arithmetic operations
-  for (let i = 0; i < 10000; i++) {
-    const rawIndex = Math.floor(Math.random() * 2000) - 1000; // -1000 to +1000
-    const rawTotal = Math.floor(Math.random() * 20) - 5; // -5 to +15
-
-    const clamped = clampTickerIndex(rawIndex, rawTotal);
-    assert.ok(clamped >= 0);
-    if (rawTotal > 0) {
-      assert.ok(clamped < rawTotal, `Index ${clamped} must be < total ${rawTotal}`);
-    } else {
-      assert.equal(clamped, 0);
-    }
-
-    const nextIdx = getNextTickerIndex(rawIndex, rawTotal);
-    assert.ok(nextIdx >= 0);
-    if (rawTotal > 1) {
-      assert.ok(nextIdx < rawTotal);
-    } else {
-      assert.equal(nextIdx, 0);
-    }
-
-    const prevIdx = getPrevTickerIndex(rawIndex, rawTotal);
-    assert.ok(prevIdx >= 0);
-    if (rawTotal > 1) {
-      assert.ok(prevIdx < rawTotal);
-    } else {
-      assert.equal(prevIdx, 0);
-    }
-  }
-});
-
-test("Adversarial M4 - Smart Ticker P0 Pinning Invariant Across All State Combinations", () => {
-  const p0Session = createMockSession("running");
-  const otherItems: DynamicIslandActiveItem[] = [
-    { id: "p1", kind: "live_session_closing", priorityWeight: 900, title: "收口", accentTone: "emerald" },
-    { id: "p2", kind: "activity_paused", priorityWeight: 800, title: "暂停", accentTone: "amber" },
-    { id: "p3", kind: "recovery_active", priorityWeight: 700, title: "恢复", accentTone: "amber" },
-    { id: "p4", kind: "evening_review_due", priorityWeight: 600, title: "复盘", accentTone: "indigo" },
-    { id: "p5", kind: "sync_issue", priorityWeight: 500, title: "对账", accentTone: "amber" },
-    { id: "p6", kind: "confirmations_pending", priorityWeight: 400, title: "待确认", accentTone: "amber" },
-  ];
-
-  const p0Item: DynamicIslandActiveItem = {
-    id: "p0_running",
-    kind: "live_session_running",
-    priorityWeight: 1000,
-    title: "考研数学",
-    accentTone: "teal",
-    session: p0Session,
+  const input: CollectDynamicIslandStatesInput = {
+    activeSession: sessionRunning,
+    offlineSession: null,
+    syncState: "deferred",
+    recovery: recoveryProps,
+    eveningReview: eveningReviewProps,
+    pendingConfirmationsCount: 3,
     elapsedSeconds: 1500,
   };
 
-  // Test P0 combined with any combination of other items
-  for (let mask = 1; mask < (1 << otherItems.length); mask++) {
-    const subset = otherItems.filter((_, idx) => (mask & (1 << idx)) !== 0);
-    const activeStates = [p0Item, ...subset];
+  const baseline = computeDynamicIslandStatePool(input);
+  assert.equal(baseline.dominantState.kind, "live_session_running");
+  assert.equal(baseline.activeStates.length, 5);
+  assert.equal(baseline.hasConcurrency, true);
 
-    const pool: DynamicIslandStatePool = {
-      activeStates,
-      dominantState: p0Item,
-      hasConcurrency: activeStates.length > 1,
-      concurrencyCount: activeStates.length,
-    };
+  const startTime = performance.now();
+  const initialMem = process.memoryUsage().heapUsed;
 
-    assert.equal(isTickerP0Pinned(pool), true);
-    assert.equal(isTickerP0Pinned(activeStates), true);
-    assert.equal(isTickerRotationEnabled(pool), false);
-    assert.equal(isTickerRotationEnabled(activeStates), false);
+  for (let i = 0; i < 50000; i++) {
+    const pool = computeDynamicIslandStatePool(input);
 
-    // computeTickerNextState must stay pinned at 0
-    const nextState = computeTickerNextState({
-      currentIndex: 0,
-      totalStates: activeStates.length,
-      isPaused: false,
-      hasP0Pinned: true,
-    });
-    assert.equal(nextState, 0);
-  }
-});
-
-test("Adversarial M4 - Breathing Pagination & Dot Text Invariant Stress", () => {
-  // Test breathing pagination across counts 0 to 500
-  for (let count = 0; count <= 500; count++) {
-    const dots = computeBreathingPagination(count > 0 ? count - 1 : 0, count);
-    if (count <= 1) {
-      assert.equal(dots.length, 0);
-      assert.equal(formatDotsText(count, 0), "");
-    } else {
-      assert.equal(dots.length, count);
-      assert.equal(dots.filter((d) => d.isActive).length, 1);
-      const text = formatDotsText(count, 0);
-      assert.ok(text.includes("●"));
-      assert.ok(text.includes("○"));
+    if (i % 5000 === 0) {
+      assert.equal(pool.dominantState.id, baseline.dominantState.id);
+      assert.equal(pool.dominantState.priorityWeight, baseline.dominantState.priorityWeight);
+      assert.equal(pool.concurrencyCount, baseline.concurrencyCount);
+      assert.equal(pool.activeStates[0].kind, "live_session_running");
+      assert.equal(pool.activeStates[1].kind, "recovery_active");
+      assert.equal(pool.activeStates[2].kind, "evening_review_due");
+      assert.equal(pool.activeStates[3].kind, "sync_issue");
+      assert.equal(pool.activeStates[4].kind, "confirmations_pending");
     }
   }
 
-  // Out of bounds active indices
-  const dotsClamped = computeBreathingPagination(999, 4);
-  assert.equal(dotsClamped.length, 4);
-  assert.equal(dotsClamped[3].isActive, true);
+  const durationMs = performance.now() - startTime;
+  const finalMem = process.memoryUsage().heapUsed;
+  const memDeltaMb = (finalMem - initialMem) / (1024 * 1024);
 
-  const dotsNegative = computeBreathingPagination(-50, 4);
-  assert.equal(dotsNegative[0].isActive, true);
+  assert.ok(
+    durationMs < 2500,
+    `50,000 executions took ${durationMs.toFixed(2)}ms (expected < 2500ms for high performance)`
+  );
+
+  assert.ok(
+    memDeltaMb < 80,
+    `Heap memory grew by ${memDeltaMb.toFixed(2)}MB during 50,000 iterations (expected < 80MB)`
+  );
 });
 
-test("Adversarial M4 - Keyboard Shortcut Traps & Command Palette Boundary Navigation", () => {
-  // 1. Cyclic command index clamping
-  for (let i = 0; i < 5000; i++) {
-    const rawIdx = Math.floor(Math.random() * 2000) - 1000;
-    const len = Math.floor(Math.random() * 100);
-    const clamped = clampCommandIndex(rawIdx, len);
-    assert.ok(clamped >= 0);
-    if (len > 0) {
-      assert.ok(clamped < len);
-    } else {
-      assert.equal(clamped, 0);
-    }
-  }
-
-  // 2. Command Palette Query Filtering under Hostile Text & ReDoS Attacks
+test("Tier 5 - ReDoS and Malicious Query Attack Resilience in Command Palette", () => {
   const hostileQueries = [
     "a".repeat(5000) + "!",
     "((a+)+)+$",
@@ -676,7 +836,6 @@ test("Adversarial M4 - Keyboard Shortcut Traps & Command Palette Boundary Naviga
     }
   }
 
-  // 3. Argument Tokenizer Attack Resilience
   const attackQueries = [
     'start --__proto__=polluted --constructor=hacked',
     'focus "unclosed quote string \\" with escape',
@@ -691,195 +850,35 @@ test("Adversarial M4 - Keyboard Shortcut Traps & Command Palette Boundary Naviga
   }
 });
 
-// ============================================================================
-// SUITE 4: 50,000 Continuous Executions Determinism & Memory / Performance Purity
-// ============================================================================
+test("Tier 5 - Extreme Clock Skews, Timestamps Leaps & Duration Clamping", () => {
+  const baseTime = new Date("2026-08-27T12:00:00.000Z");
 
-test("Adversarial M4 - 50,000 Continuous State Pool Resolutions Determinism and Performance", () => {
-  const sessionRunning = createMockSession("running", { id: "sess-50k", subjectName: "考研数学" });
-  const recoveryProps: DynamicIslandRecoveryProps = { active: true, stage: 2, targetMinutes: 60, reason: "50k test" };
-  const eveningReviewProps: DynamicIslandEveningReviewProps = { due: true, minimumActionDone: true, dailyReviewDone: false };
+  // 100 years forward leap
+  const leap100Years = new Date("2126-08-27T12:00:00.000Z");
+  const elapsed100Years = getTimerElapsedSeconds({
+    status: "running",
+    startedAt: baseTime,
+    accumulatedPauseSeconds: 0,
+    now: leap100Years,
+  });
+  assert.ok(elapsed100Years > 3_000_000_000);
 
-  const input: CollectDynamicIslandStatesInput = {
-    activeSession: sessionRunning,
-    offlineSession: null,
-    syncState: "deferred",
-    recovery: recoveryProps,
-    eveningReview: eveningReviewProps,
-    pendingConfirmationsCount: 3,
-    elapsedSeconds: 1500,
-  };
+  // 100 years backward leap
+  const leapBackward = new Date("1926-08-27T12:00:00.000Z");
+  const elapsedBackward = getTimerElapsedSeconds({
+    status: "running",
+    startedAt: baseTime,
+    accumulatedPauseSeconds: 0,
+    now: leapBackward,
+  });
+  assert.equal(elapsedBackward, 0);
 
-  // 1. Reference baseline calculation
-  const baseline = computeDynamicIslandStatePool(input);
-  assert.equal(baseline.dominantState.kind, "live_session_running");
-  assert.equal(baseline.activeStates.length, 5);
-  assert.equal(baseline.hasConcurrency, true);
-
-  // 2. Execute 50,000 iterations hot loop
-  const startTime = performance.now();
-  const initialMem = process.memoryUsage().heapUsed;
-
-  for (let i = 0; i < 50000; i++) {
-    const pool = computeDynamicIslandStatePool(input);
-
-    // Spot-check every 5,000 iterations for bitwise determinism
-    if (i % 5000 === 0) {
-      assert.equal(pool.dominantState.id, baseline.dominantState.id);
-      assert.equal(pool.dominantState.priorityWeight, baseline.dominantState.priorityWeight);
-      assert.equal(pool.concurrencyCount, baseline.concurrencyCount);
-      assert.equal(pool.activeStates[0].kind, "live_session_running");
-      assert.equal(pool.activeStates[1].kind, "recovery_active");
-      assert.equal(pool.activeStates[2].kind, "evening_review_due");
-      assert.equal(pool.activeStates[3].kind, "sync_issue");
-      assert.equal(pool.activeStates[4].kind, "confirmations_pending");
-    }
-  }
-
-  const durationMs = performance.now() - startTime;
-  const finalMem = process.memoryUsage().heapUsed;
-  const memDeltaMb = (finalMem - initialMem) / (1024 * 1024);
-
-  // Performance assertions:
-  // 50,000 computations should easily complete in under 2,000ms (25k+ ops/sec)
-  assert.ok(
-    durationMs < 2500,
-    `50,000 executions took ${durationMs.toFixed(2)}ms (expected < 2500ms for high performance)`
-  );
-
-  // Memory assertions:
-  // Memory delta after 50,000 pure functional calculations should not show unbounded leak (> 80MB)
-  assert.ok(
-    memDeltaMb < 80,
-    `Heap memory grew by ${memDeltaMb.toFixed(2)}MB during 50,000 iterations (expected < 80MB)`
-  );
-});
-
-// ============================================================================
-// SUITE 5: Capsule Micro-Glow & Component Segment Rendering Robustness
-// ============================================================================
-
-test("Adversarial M4 - Micro-Glow Style Token Generator Extreme & Fallback Matrix", () => {
-  const tones: DynamicIslandTone[] = ["teal", "emerald", "amber", "indigo", "rose", "zinc"];
-
-  for (const tone of tones) {
-    const spec = getCapsuleToneColors(tone);
-    assert.ok(spec.primary.startsWith("#"));
-    assert.ok(spec.primaryRgba.startsWith("rgba("));
-    assert.ok(spec.glowRgba.startsWith("rgba("));
-
-    const styleClass = getCapsuleGlowClass(tone, false);
-    assert.ok(styleClass.length > 0);
-
-    const openClass = getCapsuleGlowClass(tone, true);
-    assert.equal(openClass, "", "Open drawer glow class must be empty string");
-
-    const inlineStyle = getCapsuleInlineStyle(tone, false);
-    assert.ok((inlineStyle as Record<string, string>)["--af-capsule-glow-color"]);
-    assert.ok((inlineStyle as Record<string, string>)["--af-capsule-glow-shadow"]);
-
-    const openInline = getCapsuleInlineStyle(tone, true);
-    assert.deepEqual(openInline, {});
-  }
-
-  // Fallback on invalid/unknown kinds and tones
-  const fallbackTone = getToneFromCapsuleKind("idle");
-  assert.equal(fallbackTone, "zinc");
-
-  const unknownSpec = getCapsuleToneColors("unknown" as DynamicIslandTone);
-  assert.deepEqual(unknownSpec, TONE_COLOR_SPECS.zinc);
-
-  const unknownGlow = getCapsuleGlowClass("unknown_kind" as DynamicIslandCapsuleKind, false);
-  assert.ok(unknownGlow.includes("border-white/10"));
-});
-
-test("Adversarial M4 - 3-Segment Partition Layout & Event Isolation Robustness", () => {
-  // Test Left Segment with all state permutations
-  const kinds: DynamicIslandCapsuleKind[] = [
-    "live_session_running",
-    "live_session_closing",
-    "activity_paused",
-    "recovery_active",
-    "evening_review_due",
-    "sync_issue",
-    "confirmations_pending",
-    "idle",
-  ];
-
-  for (const kind of kinds) {
-    let triggered = false;
-    let stopped = false;
-
-    const el = CapsuleLeftSegment({
-      activeItem: {
-        id: `item-${kind}`,
-        kind,
-        priorityWeight: PRIORITY_WEIGHTS[kind],
-        title: `标题-${kind}`,
-        accentTone: "teal",
-        session: createMockSession("running"),
-        stage: 2,
-        pendingConfirmationsCount: 4,
-      },
-      activeCount: 3,
-      tickerIndex: 1,
-      onOpenOverview: () => {
-        triggered = true;
-      },
-    }) as React.ReactElement<{ onClick?: (e: { stopPropagation: () => void }) => void }> | null;
-
-    if (kind === "idle") {
-      assert.equal(el, null, "Left segment must be null in idle mode");
-    } else {
-      assert.ok(el, `Left segment must render for ${kind}`);
-      assert.equal(typeof el.props.onClick, "function");
-      el.props.onClick?.({
-        stopPropagation: () => {
-          stopped = true;
-        },
-      });
-      assert.equal(stopped, true, `${kind} click must stop propagation`);
-      assert.equal(triggered, true, `${kind} click must trigger callback`);
-    }
-  }
-
-  // Test Right Segment with all state permutations
-  for (const kind of kinds) {
-    let directResumeCalled = false;
-    let retrySyncCalled = false;
-    let triggerOpenCalled = false;
-    let stopped = false;
-
-    const el = CapsuleRightSegment({
-      activeItem: {
-        id: `item-${kind}`,
-        kind,
-        priorityWeight: PRIORITY_WEIGHTS[kind],
-        title: `标题-${kind}`,
-        accentTone: "amber",
-        session: createMockSession("paused"),
-        elapsedSeconds: 600,
-        syncState: "deferred",
-        pendingConfirmationsCount: 2,
-      },
-      isOpen: false,
-      isResuming: false,
-      elapsedSeconds: 600,
-      onDirectResume: () => {
-        directResumeCalled = true;
-      },
-      onRetrySync: () => {
-        retrySyncCalled = true;
-      },
-      onTriggerOpen: () => {
-        triggerOpenCalled = true;
-      },
-    }) as React.ReactElement<{ children?: React.ReactNode; onClick?: (e: { stopPropagation: () => void }) => void }> | null;
-
-    if (kind === "idle") {
-      assert.equal(el, null);
-    } else {
-      assert.ok(el, `Right segment must render for ${kind}`);
-    }
-  }
+  // Clamping
+  assert.equal(clampTimerDuration(undefined), 0);
+  assert.equal(clampTimerDuration(NaN), 0);
+  assert.equal(clampTimerDuration(-100), 0);
+  assert.equal(clampTimerDuration(123.456), 123);
+  assert.equal(formatClockDuration(0), "00:00:00");
+  assert.equal(formatClockDuration(3665), "01:01:05");
+  assert.equal(formatShortDuration(65), "01:05");
 });

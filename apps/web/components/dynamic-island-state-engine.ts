@@ -4,10 +4,80 @@ import {
   type DynamicIslandActiveItem,
   type DynamicIslandCapsuleKind,
   type DynamicIslandCapsuleState,
+  type DynamicIslandStateKind,
   type DynamicIslandStatePool,
+  type DualTaskResolutionResult,
   IDLE_STATE_ITEM,
   PRIORITY_WEIGHTS,
 } from "./dynamic-island-types";
+
+/**
+ * Checks if a specific dynamic island state kind should be suppressed on the given route.
+ * Follows the "Context-Aware Anti-Redundancy" rule:
+ * - /focus: suppresses stopwatch (live_session_running, live_session_closing, activity_paused)
+ * - /today: suppresses recovery mode (recovery_active)
+ * - /roadmap/reviews or /roadmap/reviews/*: suppresses evening review due (evening_review_due)
+ *
+ * @param kind - The dynamic island state/capsule kind
+ * @param pathname - The current route pathname
+ * @returns boolean indicating whether the state should be suppressed
+ */
+export function isStateSuppressedOnRoute(
+  kind: DynamicIslandCapsuleKind | DynamicIslandStateKind,
+  pathname?: string | null
+): boolean {
+  if (!pathname || typeof pathname !== "string") {
+    return false;
+  }
+
+  // Strip query parameters, hash fragments, and normalize leading/trailing slashes
+  const rawPath = pathname.split("?")[0].split("#")[0].trim();
+  const normalized = rawPath.replace(/^\/+/, "/").replace(/\/+$/, "") || "/";
+  const cleanPath = normalized.startsWith("/") ? normalized : `/${normalized}`;
+
+  // 1. /focus suppression: live stopwatch states
+  if (cleanPath === "/focus" || cleanPath.startsWith("/focus/")) {
+    return (
+      kind === "live_session_running" ||
+      kind === "live_session_closing" ||
+      kind === "activity_paused"
+    );
+  }
+
+  // 2. /today suppression: recovery active
+  if (cleanPath === "/today" || cleanPath.startsWith("/today/")) {
+    return kind === "recovery_active";
+  }
+
+  // 3. /roadmap/reviews or /roadmap/reviews/* suppression: evening review due
+  if (cleanPath === "/roadmap/reviews" || cleanPath.startsWith("/roadmap/reviews/")) {
+    return kind === "evening_review_due";
+  }
+
+  return false;
+}
+
+/**
+ * Filters dynamic island active states by route suppression rules.
+ * Preserves the priority sorting of remaining unsuppressed states.
+ *
+ * @param states - Array of active state items
+ * @param pathname - Current route pathname
+ * @returns Array of unsuppressed active state items
+ */
+export function filterStatesByRouteContext(
+  states: readonly DynamicIslandActiveItem[],
+  pathname?: string | null
+): DynamicIslandActiveItem[] {
+  if (!states || states.length === 0) {
+    return [];
+  }
+  if (!pathname || typeof pathname !== "string") {
+    return [...states];
+  }
+
+  return states.filter((item) => !isStateSuppressedOnRoute(item.kind, pathname));
+}
 
 /**
  * Normalizes duration in seconds by flooring floating points and clamping negative / invalid values to 0.
@@ -212,13 +282,80 @@ export function getDominantState(
 export const resolveDominantState = getDominantState;
 
 /**
- * Main state engine function computing the full multi-state pool.
+ * Resolves dual-task state representation (Dominant Main Capsule + Satellite Bubble).
+ * Handles route-aware anti-redundancy filtering, sorting, and user-initiated fluid swap.
+ *
+ * @param states - Array of active items
+ * @param pathname - Current route pathname for anti-redundancy suppression
+ * @param swappedPrimaryKind - Optional state kind chosen by user to become dominant (fluid swap)
+ * @returns DualTaskResolutionResult object with dominant, satellite, and unsuppressed states
+ */
+export function resolveDualTaskStates(
+  states: readonly DynamicIslandActiveItem[],
+  pathname?: string | null,
+  swappedPrimaryKind?: DynamicIslandCapsuleKind | DynamicIslandStateKind | null
+): DualTaskResolutionResult {
+  const unsuppressed = filterStatesByRouteContext(states, pathname);
+  const sorted = sortActiveStatesByPriority(unsuppressed);
+  const unsuppressedCount = sorted.length;
+
+  // Case 0: No unsuppressed states -> Idle dominant, null satellite
+  if (unsuppressedCount === 0) {
+    return {
+      dominant: createIdleStateItem(),
+      satellite: null,
+      allUnsuppressed: [],
+      unsuppressedCount: 0,
+    };
+  }
+
+  // Case 1: Exactly 1 unsuppressed state -> Single dominant, null satellite
+  if (unsuppressedCount === 1) {
+    return {
+      dominant: sorted[0],
+      satellite: null,
+      allUnsuppressed: sorted,
+      unsuppressedCount: 1,
+    };
+  }
+
+  // Case 2: >= 2 unsuppressed states -> Dual-task mode
+  // If user requested a swap, select that state as dominant and the top/other as satellite
+  if (swappedPrimaryKind) {
+    const targetIdx = sorted.findIndex((s) => s.kind === swappedPrimaryKind);
+    if (targetIdx !== -1) {
+      const dominant = sorted[targetIdx];
+      const satellite = targetIdx === 0 ? sorted[1] : sorted[0];
+      return {
+        dominant,
+        satellite,
+        allUnsuppressed: sorted,
+        unsuppressedCount,
+      };
+    }
+  }
+
+  // Default dual-task: highest priority is dominant, 2nd highest is satellite
+  return {
+    dominant: sorted[0],
+    satellite: sorted[1],
+    allUnsuppressed: sorted,
+    unsuppressedCount,
+  };
+}
+
+/**
+ * Main state engine function computing the full multi-state pool,
+ * incorporating route context suppression.
  */
 export function computeDynamicIslandStatePool(
   input: CollectDynamicIslandStatesInput
 ): DynamicIslandStatePool {
   const rawStates = collectDynamicIslandActiveStates(input ?? {});
-  const sortedStates = sortActiveStatesByPriority(rawStates);
+  const filteredStates = input?.pathname
+    ? filterStatesByRouteContext(rawStates, input.pathname)
+    : rawStates;
+  const sortedStates = sortActiveStatesByPriority(filteredStates);
   const dominantState = getDominantState(sortedStates);
 
   return {
@@ -233,6 +370,7 @@ export function computeDynamicIslandStatePool(
  * Alias for computeDynamicIslandStatePool.
  */
 export const collectDynamicIslandStatePool = computeDynamicIslandStatePool;
+
 
 /**
  * Validates invariant consistency of a computed DynamicIslandStatePool.

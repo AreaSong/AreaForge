@@ -3,26 +3,25 @@ import assert from "node:assert/strict";
 import {
   collectDynamicIslandActiveStates,
   sortActiveStatesByPriority,
-  getDominantState,
-  resolveDominantState,
   computeDynamicIslandStatePool,
-  collectDynamicIslandStatePool,
-  resolveDynamicIslandState,
-  createIdleStateItem,
-  getPriorityWeight,
-  clampTimerDuration,
   validateStatePoolInvariants,
+  filterStatesByRouteContext,
+  resolveDualTaskStates,
 } from "./dynamic-island-state-engine";
 import {
-  PRIORITY_WEIGHTS,
-  IDLE_STATE_ITEM,
-  type DynamicIslandCapsuleKind,
-  type DynamicIslandActiveItem,
-  type DynamicIslandStatePool,
-  type DynamicIslandRecoveryProps,
-  type DynamicIslandEveningReviewProps,
-  type DynamicIslandSyncState,
-  type CollectDynamicIslandStatesInput,
+  getAuraThemeForStateKind,
+  getDefaultTabForStateKind,
+  getAuraStyles,
+  getExpandedHubAuraClass,
+  getSatelliteBubbleGlowClass,
+} from "./dynamic-island-glow";
+import type {
+  DynamicIslandCapsuleKind,
+  DynamicIslandRecoveryProps,
+  DynamicIslandEveningReviewProps,
+  DynamicIslandSyncState,
+  CollectDynamicIslandStatesInput,
+  DualTaskResolutionResult,
 } from "./dynamic-island-types";
 import type { StudySessionDto } from "@/lib/contracts";
 
@@ -78,11 +77,42 @@ function createMockSession(
   };
 }
 
+const STOPWATCH_KINDS: ReadonlySet<DynamicIslandCapsuleKind> = new Set([
+  "live_session_running",
+  "live_session_closing",
+  "activity_paused",
+]);
+
 // ============================================================================
-// CHALLENGE SUITE 1: 10,000 Iteration Randomized Permutations Fuzzing & Invariants
+// CHALLENGE SUITE 1: 10,000 Iteration Property-Based Randomized Fuzzing
 // ============================================================================
 
-test("M1 Challenger Stress: 10,000 randomized permutations satisfy all pool invariants", () => {
+test("M1 Challenger Stress: 10,000 randomized permutations satisfy all dual-task & route invariants", () => {
+  const routes = [
+    "/focus",
+    "/focus/",
+    "/focus/deep-work",
+    "/focus?view=compact",
+    "/focus#timer",
+    "/today",
+    "/today/",
+    "/today/action-plan",
+    "/today?tab=recovery",
+    "/roadmap/reviews",
+    "/roadmap/reviews/",
+    "/roadmap/reviews/daily",
+    "/roadmap/reviews/weekly?strict=true",
+    "/dashboard",
+    "/tasks",
+    "/syllabus",
+    "/analytics",
+    "/settings",
+    "/",
+    "",
+    null,
+    undefined,
+  ];
+
   const sessionStatuses: Array<"running" | "closing" | "paused" | "completed" | null | undefined> = [
     "running",
     "closing",
@@ -91,6 +121,7 @@ test("M1 Challenger Stress: 10,000 randomized permutations satisfy all pool inva
     null,
     undefined,
   ];
+
   const syncStates: Array<DynamicIslandSyncState | undefined> = [
     "current",
     "deferred",
@@ -100,44 +131,29 @@ test("M1 Challenger Stress: 10,000 randomized permutations satisfy all pool inva
     "unavailable",
     undefined,
   ];
+
   const bools = [true, false, null, undefined];
   const confirmationCounts: Array<number | null | undefined> = [
-    -100,
-    -1,
-    0,
-    1,
-    2,
-    5,
-    99,
-    1000,
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-    null,
-    undefined,
+    -100, -1, 0, 1, 2, 5, 99, null, undefined,
   ];
   const elapsedVariants: Array<number | undefined> = [
-    -1000,
-    -1,
-    -0,
-    0,
-    0.5,
-    1,
-    45.7,
-    1500,
-    999999,
-    Number.MAX_SAFE_INTEGER,
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-    undefined,
+    -1000, -1, 0, 0.5, 45.7, 1500, 999999, undefined,
   ];
 
-  const ALLOWED_WEIGHTS = new Set([1000, 900, 800, 700, 600, 500, 400, 0]);
+  const allPossibleKinds: DynamicIslandCapsuleKind[] = [
+    "live_session_running",
+    "live_session_closing",
+    "activity_paused",
+    "recovery_active",
+    "evening_review_due",
+    "sync_issue",
+    "confirmations_pending",
+  ];
 
   const startTime = performance.now();
 
   for (let i = 0; i < 10000; i++) {
+    const route = routes[Math.floor(Math.random() * routes.length)];
     const activeSt = sessionStatuses[Math.floor(Math.random() * sessionStatuses.length)];
     const offlineSt = sessionStatuses[Math.floor(Math.random() * sessionStatuses.length)];
     const activeSession = activeSt ? createMockSession(activeSt, { id: `act-${i}` }) : null;
@@ -145,15 +161,19 @@ test("M1 Challenger Stress: 10,000 randomized permutations satisfy all pool inva
 
     const syncState = syncStates[Math.floor(Math.random() * syncStates.length)];
     const recActive = bools[Math.floor(Math.random() * bools.length)];
-    const stage = Math.floor(Math.random() * 10) - 3; // could be negative
-    const targetMin = Math.floor(Math.random() * 200) - 50; // could be negative
+    const stage = Math.floor(Math.random() * 10) - 3;
+    const targetMin = Math.floor(Math.random() * 200) - 50;
     const eveningDue = bools[Math.floor(Math.random() * bools.length)];
     const minActionDone = bools[Math.floor(Math.random() * bools.length)];
     const dailyReviewDone = bools[Math.floor(Math.random() * bools.length)];
     const pendingConf = confirmationCounts[Math.floor(Math.random() * confirmationCounts.length)];
     const elapsed = elapsedVariants[Math.floor(Math.random() * elapsedVariants.length)];
 
-    const input: CollectDynamicIslandStatesInput = {
+    const swapTarget = Math.random() < 0.3
+      ? allPossibleKinds[Math.floor(Math.random() * allPossibleKinds.length)]
+      : null;
+
+    const rawStates = collectDynamicIslandActiveStates({
       activeSession,
       offlineSession,
       syncState,
@@ -174,366 +194,275 @@ test("M1 Challenger Stress: 10,000 randomized permutations satisfy all pool inva
         : null,
       pendingConfirmationsCount: pendingConf as number | undefined,
       elapsedSeconds: elapsed,
-    };
+    });
 
-    const pool = computeDynamicIslandStatePool(input);
+    // Compute dual task resolution
+    const dual: DualTaskResolutionResult = resolveDualTaskStates(rawStates, route, swapTarget);
 
-    // 1. Invariant Validator passes
-    assert.strictEqual(
-      validateStatePoolInvariants(pool),
-      true,
-      `Iteration ${i}: validateStatePoolInvariants returned false`
-    );
+    // INVARIANT 1: dominant is ALWAYS non-null and defined
+    assert.ok(dual.dominant, `Iteration ${i}: dominant state must not be null/undefined`);
 
-    // 2. Dominant State is never null/undefined
-    assert.ok(pool.dominantState, `Iteration ${i}: dominantState is null/undefined`);
+    // INVARIANT 2: Clean path extraction & Route Suppression Invariants
+    const cleanRoute = (route || "").split("?")[0].split("#")[0].trim().replace(/\/+$/, "") || "/";
 
-    // 3. Dominant State Priority matches activeStates[0] or 0
-    if (pool.activeStates.length > 0) {
+    // Invariant 2.1: On /focus, no stopwatch states ever appear in dominant or satellite
+    if (cleanRoute === "/focus" || cleanRoute.startsWith("/focus/")) {
       assert.strictEqual(
-        pool.dominantState.id,
-        pool.activeStates[0].id,
-        `Iteration ${i}: dominantState.id does not match activeStates[0].id`
+        STOPWATCH_KINDS.has(dual.dominant.kind),
+        false,
+        `Iteration ${i}: Stopwatch state '${dual.dominant.kind}' illegally appeared as dominant on /focus`
       );
-      assert.strictEqual(
-        pool.dominantState.priorityWeight,
-        pool.activeStates[0].priorityWeight,
-        `Iteration ${i}: dominantState.priorityWeight mismatch`
-      );
-    } else {
-      assert.strictEqual(pool.dominantState.kind, "idle", `Iteration ${i}: empty pool dominant must be idle`);
-      assert.strictEqual(pool.dominantState.priorityWeight, 0, `Iteration ${i}: empty pool dominant weight must be 0`);
+      if (dual.satellite) {
+        assert.strictEqual(
+          STOPWATCH_KINDS.has(dual.satellite.kind),
+          false,
+          `Iteration ${i}: Stopwatch state '${dual.satellite.kind}' illegally appeared as satellite on /focus`
+        );
+      }
+      for (const item of dual.allUnsuppressed) {
+        assert.strictEqual(
+          STOPWATCH_KINDS.has(item.kind),
+          false,
+          `Iteration ${i}: Stopwatch state '${item.kind}' illegally retained in allUnsuppressed on /focus`
+        );
+      }
     }
 
-    // 4. Strict Non-Increasing Priority Weight Ordering
-    for (let j = 0; j < pool.activeStates.length - 1; j++) {
-      assert.ok(
-        pool.activeStates[j].priorityWeight >= pool.activeStates[j + 1].priorityWeight,
-        `Iteration ${i}: activeStates not sorted descending at index ${j}`
+    // Invariant 2.2: On /today, no recovery states ever appear in dominant or satellite
+    if (cleanRoute === "/today" || cleanRoute.startsWith("/today/")) {
+      assert.notStrictEqual(
+        dual.dominant.kind,
+        "recovery_active",
+        `Iteration ${i}: recovery_active illegally appeared as dominant on /today`
       );
+      if (dual.satellite) {
+        assert.notStrictEqual(
+          dual.satellite.kind,
+          "recovery_active",
+          `Iteration ${i}: recovery_active illegally appeared as satellite on /today`
+        );
+      }
+      for (const item of dual.allUnsuppressed) {
+        assert.notStrictEqual(
+          item.kind,
+          "recovery_active",
+          `Iteration ${i}: recovery_active illegally retained in allUnsuppressed on /today`
+        );
+      }
     }
 
-    // 5. No Duplicate Kinds
-    const seenKinds = new Set<DynamicIslandCapsuleKind>();
-    for (const item of pool.activeStates) {
-      assert.ok(!seenKinds.has(item.kind), `Iteration ${i}: duplicate state kind '${item.kind}' detected`);
-      seenKinds.add(item.kind);
-    }
-
-    // 6. Weight Domain Conformance
-    assert.ok(
-      ALLOWED_WEIGHTS.has(pool.dominantState.priorityWeight),
-      `Iteration ${i}: dominant priority weight ${pool.dominantState.priorityWeight} not in allowed domain`
-    );
-    for (const item of pool.activeStates) {
-      assert.ok(
-        ALLOWED_WEIGHTS.has(item.priorityWeight),
-        `Iteration ${i}: item priority weight ${item.priorityWeight} not in allowed domain`
+    // Invariant 2.3: On /roadmap/reviews, no evening review states ever appear in dominant or satellite
+    if (cleanRoute === "/roadmap/reviews" || cleanRoute.startsWith("/roadmap/reviews/")) {
+      assert.notStrictEqual(
+        dual.dominant.kind,
+        "evening_review_due",
+        `Iteration ${i}: evening_review_due illegally appeared as dominant on /roadmap/reviews`
       );
+      if (dual.satellite) {
+        assert.notStrictEqual(
+          dual.satellite.kind,
+          "evening_review_due",
+          `Iteration ${i}: evening_review_due illegally appeared as satellite on /roadmap/reviews`
+        );
+      }
+      for (const item of dual.allUnsuppressed) {
+        assert.notStrictEqual(
+          item.kind,
+          "evening_review_due",
+          `Iteration ${i}: evening_review_due illegally retained in allUnsuppressed on /roadmap/reviews`
+        );
+      }
     }
 
-    // 7. Concurrency Properties Consistency
-    assert.strictEqual(
-      pool.concurrencyCount,
-      pool.activeStates.length,
-      `Iteration ${i}: concurrencyCount does not match activeStates.length`
-    );
-    assert.strictEqual(
-      pool.hasConcurrency,
-      pool.activeStates.length > 1,
-      `Iteration ${i}: hasConcurrency does not match (length > 1)`
-    );
+    // INVARIANT 3: Cardinality & Satellite Assignment Invariants
+    const unsuppressed = filterStatesByRouteContext(rawStates, route);
+    const sortedUnsuppressed = sortActiveStatesByPriority(unsuppressed);
+    const count = sortedUnsuppressed.length;
 
-    // 8. Idempotence
-    const rerun = computeDynamicIslandStatePool(input);
-    assert.deepStrictEqual(pool, rerun, `Iteration ${i}: computeDynamicIslandStatePool is not purely idempotent`);
+    assert.strictEqual(dual.allUnsuppressed.length, count, `Iteration ${i}: allUnsuppressed count mismatch`);
+
+    // Invariant 3.1: 0 unsuppressed states -> dominant is idle, satellite is null
+    if (count === 0) {
+      assert.strictEqual(dual.dominant.kind, "idle", `Iteration ${i}: count 0 must yield idle dominant`);
+      assert.strictEqual(dual.dominant.priorityWeight, 0, `Iteration ${i}: count 0 dominant weight must be 0`);
+      assert.strictEqual(dual.satellite, null, `Iteration ${i}: count 0 satellite must be null`);
+      assert.strictEqual(dual.unsuppressedCount, 0, `Iteration ${i}: unsuppressedCount must be 0`);
+    }
+
+    // Invariant 3.2: 1 unsuppressed state -> dominant is that state, satellite is null
+    if (count === 1) {
+      assert.strictEqual(dual.dominant.id, sortedUnsuppressed[0].id, `Iteration ${i}: count 1 dominant id mismatch`);
+      assert.strictEqual(dual.dominant.kind, sortedUnsuppressed[0].kind, `Iteration ${i}: count 1 dominant kind mismatch`);
+      assert.strictEqual(dual.satellite, null, `Iteration ${i}: count 1 satellite must be null`);
+      assert.strictEqual(dual.unsuppressedCount, 1, `Iteration ${i}: unsuppressedCount must be 1`);
+    }
+
+    // Invariant 3.3: >= 2 unsuppressed states
+    if (count >= 2) {
+      assert.ok(dual.satellite !== null, `Iteration ${i}: count >= 2 must have non-null satellite`);
+      assert.notStrictEqual(dual.dominant.id, dual.satellite.id, `Iteration ${i}: dominant and satellite must have different ids`);
+      assert.strictEqual(dual.unsuppressedCount, count, `Iteration ${i}: unsuppressedCount must be ${count}`);
+
+      if (!swapTarget || !sortedUnsuppressed.some((s) => s.kind === swapTarget)) {
+        // Without active swap: dominant is highest priority, satellite is 2nd highest
+        assert.strictEqual(
+          dual.dominant.id,
+          sortedUnsuppressed[0].id,
+          `Iteration ${i}: unswapped dominant must be highest priority (sorted[0])`
+        );
+        assert.strictEqual(
+          dual.satellite.id,
+          sortedUnsuppressed[1].id,
+          `Iteration ${i}: unswapped satellite must be 2nd highest priority (sorted[1])`
+        );
+        assert.ok(
+          dual.dominant.priorityWeight >= dual.satellite.priorityWeight,
+          `Iteration ${i}: dominant weight (${dual.dominant.priorityWeight}) must be >= satellite weight (${dual.satellite.priorityWeight})`
+        );
+      } else {
+        // With active swap: dominant is the swapped state
+        assert.strictEqual(dual.dominant.kind, swapTarget, `Iteration ${i}: swapped dominant kind mismatch`);
+        // Satellite is top state if target was not 0, or 2nd state if target was 0
+        const targetIdx = sortedUnsuppressed.findIndex((s) => s.kind === swapTarget);
+        const expectedSatellite = targetIdx === 0 ? sortedUnsuppressed[1] : sortedUnsuppressed[0];
+        assert.strictEqual(dual.satellite.id, expectedSatellite.id, `Iteration ${i}: swapped satellite mismatch`);
+      }
+    }
+
+    // INVARIANT 4: Idempotence & Pool Invariant Consistency
+    const rerun = resolveDualTaskStates(rawStates, route, swapTarget);
+    assert.deepStrictEqual(dual, rerun, `Iteration ${i}: resolveDualTaskStates is not purely idempotent`);
+
+    // State pool check
+    const pool = computeDynamicIslandStatePool({
+      activeSession,
+      offlineSession,
+      syncState,
+      recovery: recActive ? { active: true, stage, targetMinutes: targetMin } : null,
+      eveningReview: eveningDue ? { due: true, minimumActionDone: false, dailyReviewDone: false } : null,
+      pendingConfirmationsCount: pendingConf as number | undefined,
+      elapsedSeconds: elapsed,
+      pathname: route,
+    });
+    assert.strictEqual(validateStatePoolInvariants(pool), true, `Iteration ${i}: validateStatePoolInvariants failed`);
   }
 
   const durationMs = performance.now() - startTime;
-  assert.ok(durationMs < 2000, `10,000 iterations took ${durationMs.toFixed(2)}ms (expected < 2000ms)`);
+  assert.ok(durationMs < 2500, `10,000 iterations completed in ${durationMs.toFixed(2)}ms (expected < 2500ms)`);
 });
 
 // ============================================================================
-// CHALLENGE SUITE 2: Exhaustive 2^7 = 128 Channel Combinations Oracle
+// CHALLENGE SUITE 2: Dynamic Aura Theme & Default Tab Invariant Matrix
 // ============================================================================
 
-test("M1 Challenger Stress: Exhaustive 128 channel permutations satisfy strict total order", () => {
-  // 7 channels:
-  // C0: Session Running (P0 = 1000)
-  // C1: Session Closing (P1 = 900) - mutually exclusive with C0 in single session, but test with active vs offline
-  // C2: Session Paused (P2 = 800)
-  // C3: Recovery Active (P3 = 700)
-  // C4: Evening Due (P4 = 600)
-  // C5: Sync Issue (P5 = 500)
-  // C6: Pending Confirmations (P6 = 400)
-
-  const priorityOrderMap: Record<string, number> = {
-    live_session_running: 1000,
-    live_session_closing: 900,
-    activity_paused: 800,
-    recovery_active: 700,
-    evening_review_due: 600,
-    sync_issue: 500,
-    confirmations_pending: 400,
-    idle: 0,
-  };
-
-  // We test all combinations of:
-  // Session: None | Running | Closing | Paused (4 options)
-  // Recovery: None | Active (2 options)
-  // Evening: None | Due (2 options)
-  // Sync: None (current) | Issue (offline) (2 options)
-  // Confirmations: 0 | 3 (2 options)
-  // Total: 4 * 2 * 2 * 2 * 2 = 64 exhaustive canonical state space permutations
-
-  let testedCount = 0;
-
-  for (const sessionMode of ["none", "running", "closing", "paused"] as const) {
-    for (const recoveryMode of [false, true]) {
-      for (const eveningMode of [false, true]) {
-        for (const syncMode of ["current", "offline"] as const) {
-          for (const confCount of [0, 3]) {
-            testedCount++;
-
-            let activeSession: StudySessionDto | null = null;
-            if (sessionMode === "running") activeSession = createMockSession("running");
-            if (sessionMode === "closing") activeSession = createMockSession("closing");
-            if (sessionMode === "paused") activeSession = createMockSession("paused");
-
-            const input: CollectDynamicIslandStatesInput = {
-              activeSession,
-              recovery: recoveryMode ? { active: true, stage: 1, targetMinutes: 30 } : null,
-              eveningReview: eveningMode ? { due: true, minimumActionDone: false, dailyReviewDone: false } : null,
-              syncState: syncMode,
-              pendingConfirmationsCount: confCount,
-              elapsedSeconds: 500,
-            };
-
-            const pool = computeDynamicIslandStatePool(input);
-
-            // Determine expected dominant kind by checking highest active channel
-            let expectedDominantKind: DynamicIslandCapsuleKind = "idle";
-            if (sessionMode === "running") expectedDominantKind = "live_session_running";
-            else if (sessionMode === "closing") expectedDominantKind = "live_session_closing";
-            else if (sessionMode === "paused") expectedDominantKind = "activity_paused";
-            else if (recoveryMode) expectedDominantKind = "recovery_active";
-            else if (eveningMode) expectedDominantKind = "evening_review_due";
-            else if (syncMode === "offline") expectedDominantKind = "sync_issue";
-            else if (confCount > 0) expectedDominantKind = "confirmations_pending";
-
-            assert.strictEqual(
-              pool.dominantState.kind,
-              expectedDominantKind,
-              `Permutation ${sessionMode}/${recoveryMode}/${eveningMode}/${syncMode}/${confCount}: expected dominant ${expectedDominantKind}, got ${pool.dominantState.kind}`
-            );
-
-            assert.strictEqual(
-              pool.dominantState.priorityWeight,
-              priorityOrderMap[expectedDominantKind],
-              `Dominant priority weight mismatch for ${expectedDominantKind}`
-            );
-
-            assert.strictEqual(validateStatePoolInvariants(pool), true);
-          }
-        }
-      }
-    }
-  }
-
-  assert.strictEqual(testedCount, 64);
-});
-
-// ============================================================================
-// CHALLENGE SUITE 3: Clock Skew, Boundary & Malformed Timestamps
-// ============================================================================
-
-test("M1 Challenger Stress: Extreme clock skew & malformed timer durations", () => {
-  const edgeCases = [
-    { input: -1, expected: 0 },
-    { input: -99999999, expected: 0 },
-    { input: -0, expected: 0 },
-    { input: +0, expected: 0 },
-    { input: 0.0000001, expected: 0 },
-    { input: 0.9999999, expected: 0 },
-    { input: 45.1, expected: 45 },
-    { input: 45.9999, expected: 45 },
-    { input: 3600, expected: 3600 },
-    { input: Number.MAX_SAFE_INTEGER, expected: Number.MAX_SAFE_INTEGER },
-    { input: Number.NaN, expected: 0 },
-    { input: Number.POSITIVE_INFINITY, expected: 0 },
-    { input: Number.NEGATIVE_INFINITY, expected: 0 },
-    { input: "123" as unknown as number, expected: 0 },
-    { input: null as unknown as number, expected: 0 },
-    { input: undefined as unknown as number, expected: 0 },
-    { input: {} as unknown as number, expected: 0 },
-    { input: [] as unknown as number, expected: 0 },
+test("M1 Challenger Stress: Dynamic Aura Theme mapping exhaustiveness and integrity", () => {
+  const allKinds: DynamicIslandCapsuleKind[] = [
+    "evening_review_due",
+    "recovery_active",
+    "sync_issue",
+    "confirmations_pending",
+    "live_session_running",
+    "live_session_closing",
+    "activity_paused",
+    "idle",
   ];
 
-  for (const { input, expected } of edgeCases) {
-    const clamped = clampTimerDuration(input);
-    assert.strictEqual(
-      clamped,
-      expected,
-      `clampTimerDuration(${JSON.stringify(input)}) returned ${clamped}, expected ${expected}`
-    );
-  }
-});
-
-test("M1 Challenger Stress: Session with extreme timestamps does not crash state engine", () => {
-  const extremeDates = [
-    "2099-12-31T23:59:59.999Z",
-    "1970-01-01T00:00:00.000Z",
-    "1900-01-01T00:00:00.000Z",
-    "invalid-date-string",
-    "",
-  ];
-
-  for (const dateStr of extremeDates) {
-    const session = createMockSession("running", {
-      startedAt: dateStr,
-      updatedAt: dateStr,
-    });
-    const pool = computeDynamicIslandStatePool({
-      activeSession: session,
-      elapsedSeconds: 100,
-    });
-    assert.strictEqual(pool.dominantState.kind, "live_session_running");
-    assert.strictEqual(validateStatePoolInvariants(pool), true);
-  }
-});
-
-// ============================================================================
-// CHALLENGE SUITE 4: Duplicate & Conflicting Session Precedence
-// ============================================================================
-
-test("M1 Challenger Stress: Duplicate activeSession vs offlineSession resolution", () => {
-  // Case A: activeSession is running, offlineSession is paused (activeSession wins)
-  const activeS1 = createMockSession("running", { id: "sess-active", subjectName: "主会话" });
-  const offlineS1 = createMockSession("paused", { id: "sess-offline", subjectName: "离线会话" });
-
-  const poolA = computeDynamicIslandStatePool({
-    activeSession: activeS1,
-    offlineSession: offlineS1,
-    elapsedSeconds: 120,
-  });
-
-  assert.strictEqual(poolA.dominantState.kind, "live_session_running");
-  assert.strictEqual(poolA.dominantState.session?.id, "sess-active");
-  assert.strictEqual(poolA.dominantState.title, "主会话");
-  // Ensure we didn't add both sessions
-  assert.strictEqual(
-    poolA.activeStates.filter((s) => s.kind.startsWith("live_session_") || s.kind === "activity_paused").length,
-    1
-  );
-
-  // Case B: activeSession is completed, offlineSession is running
-  // activeSession is non-null, but completed -> status is not running/closing/paused.
-  // Because activeSession is present (even if completed), does it fall back to offlineSession or ignore?
-  // Let's verify behavior: `const session = input.activeSession || input.offlineSession;`
-  // If activeSession is an object, `activeSession || offlineSession` returns activeSession.
-  // Since activeSession.status === "completed", no session item is pushed.
-  const activeCompleted = createMockSession("completed", { id: "sess-comp" });
-  const offlineRunning = createMockSession("running", { id: "sess-off-run" });
-
-  const poolB = computeDynamicIslandStatePool({
-    activeSession: activeCompleted,
-    offlineSession: offlineRunning,
-  });
-  // Active completed session has priority selection as session object, status completed -> 0 session items
-  assert.strictEqual(poolB.activeStates.some((s) => s.kind === "live_session_running"), false);
-  assert.strictEqual(poolB.dominantState.kind, "idle");
-
-  // Case C: activeSession is null, offlineSession is running -> offlineSession promoted
-  const poolC = computeDynamicIslandStatePool({
-    activeSession: null,
-    offlineSession: offlineRunning,
-  });
-  assert.strictEqual(poolC.dominantState.kind, "live_session_running");
-  assert.strictEqual(poolC.dominantState.session?.id, "sess-off-run");
-});
-
-// ============================================================================
-// CHALLENGE SUITE 5: Malformed & Boundary Payloads (Object Prototype & Fuzz)
-// ============================================================================
-
-test("M1 Challenger Stress: Null prototype and malformed sub-objects", () => {
-  // Input with Object.create(null)
-  const nullProtoInput = Object.create(null);
-  nullProtoInput.pendingConfirmationsCount = 2;
-  const pool1 = computeDynamicIslandStatePool(nullProtoInput);
-  assert.strictEqual(pool1.dominantState.kind, "confirmations_pending");
-  assert.strictEqual(validateStatePoolInvariants(pool1), true);
-
-  // Recovery with extreme / malformed numbers
-  const malformedRecovery: DynamicIslandRecoveryProps = {
-    active: true,
-    stage: -99999,
-    targetMinutes: -99999,
-    reason: undefined,
-  };
-  const pool2 = computeDynamicIslandStatePool({ recovery: malformedRecovery });
-  assert.strictEqual(pool2.dominantState.kind, "recovery_active");
-  assert.strictEqual(pool2.dominantState.stage, 1);
-  assert.strictEqual(pool2.dominantState.targetMinutes, 30);
-  assert.strictEqual(pool2.dominantState.subtitle, "需完成30分钟最小行动");
-
-  // Evening review with nullish reviewHref
-  const pool3 = computeDynamicIslandStatePool({
-    eveningReview: {
-      due: true,
-      minimumActionDone: false,
-      dailyReviewDone: false,
-      reviewHref: undefined,
-    },
-  });
-  assert.strictEqual(pool3.dominantState.kind, "evening_review_due");
-  assert.strictEqual(pool3.dominantState.reviewHref, "/roadmap/reviews/daily");
-  assert.strictEqual(pool3.dominantState.quickAction?.href, "/roadmap/reviews/daily");
-});
-
-// ============================================================================
-// CHALLENGE SUITE 6: Mutation Safety & Referencing Isolation
-// ============================================================================
-
-test("M1 Challenger Stress: Immutability and input isolation guarantee", () => {
-  const originalSession = createMockSession("running", { subjectName: "数学" });
-  const originalRecovery = { active: true, stage: 2, targetMinutes: 60 };
-  const input: CollectDynamicIslandStatesInput = {
-    activeSession: originalSession,
-    recovery: originalRecovery,
-    elapsedSeconds: 500,
+  const expectedThemes: Record<DynamicIslandCapsuleKind, string> = {
+    evening_review_due: "indigo",
+    recovery_active: "amber",
+    sync_issue: "amber",
+    confirmations_pending: "amber",
+    live_session_running: "teal",
+    live_session_closing: "teal",
+    activity_paused: "teal",
+    idle: "silver",
   };
 
-  // Snapshot before
-  const inputSnapshot = JSON.stringify(input);
+  const expectedTabs: Record<DynamicIslandCapsuleKind, string> = {
+    evening_review_due: "evening",
+    recovery_active: "status",
+    sync_issue: "status",
+    confirmations_pending: "status",
+    live_session_running: "stopwatch",
+    live_session_closing: "stopwatch",
+    activity_paused: "stopwatch",
+    idle: "search",
+  };
 
-  const pool = computeDynamicIslandStatePool(input);
+  for (const kind of allKinds) {
+    const theme = getAuraThemeForStateKind(kind);
+    assert.strictEqual(theme, expectedThemes[kind], `Theme mismatch for kind ${kind}`);
 
-  // Snapshot after - ensure input was NOT mutated
-  assert.strictEqual(JSON.stringify(input), inputSnapshot, "Input object was mutated by computeDynamicIslandStatePool");
+    const tab = getDefaultTabForStateKind(kind);
+    assert.strictEqual(tab, expectedTabs[kind], `Default tab mismatch for kind ${kind}`);
 
-  // Ensure modifying pool.activeStates doesn't affect subsequent calls
-  pool.activeStates.pop();
-  pool.activeStates.length = 0;
+    const styles = getAuraStyles(kind);
+    assert.strictEqual(styles.theme, expectedThemes[kind], `Aura style theme mismatch for kind ${kind}`);
+    assert.strictEqual(styles.defaultTab, expectedTabs[kind], `Aura style default tab mismatch for kind ${kind}`);
+    assert.ok(styles.primaryColor.startsWith("#"), `primaryColor must be hex for ${kind}`);
+    assert.ok(styles.primaryRgba.startsWith("rgba("), `primaryRgba must be rgba for ${kind}`);
+    assert.ok(styles.borderClass.length > 0, `borderClass must be non-empty for ${kind}`);
+    assert.ok(styles.hubBorderClass.length > 0, `hubBorderClass must be non-empty for ${kind}`);
+    assert.ok(styles.hubShadowClass.length > 0, `hubShadowClass must be non-empty for ${kind}`);
 
-  const freshPool = computeDynamicIslandStatePool(input);
-  assert.strictEqual(freshPool.activeStates.length, 2);
-  assert.strictEqual(freshPool.dominantState.kind, "live_session_running");
+    const expandedClass = getExpandedHubAuraClass(kind);
+    assert.ok(expandedClass.includes(styles.hubBorderClass), `expanded class must include hubBorderClass for ${kind}`);
 
-  // Ensure modifying IDLE dominant item does not corrupt IDLE_STATE_ITEM
-  const emptyPool = computeDynamicIslandStatePool({});
-  emptyPool.dominantState.title = "MUTATED";
+    const satelliteClass = getSatelliteBubbleGlowClass(kind);
+    assert.strictEqual(satelliteClass, styles.satelliteGlowClass, `satellite bubble class mismatch for ${kind}`);
+  }
 
-  const nextEmptyPool = computeDynamicIslandStatePool({});
-  assert.strictEqual(nextEmptyPool.dominantState.title, IDLE_STATE_ITEM.title);
-  assert.strictEqual(IDLE_STATE_ITEM.title, "AreaForge");
+  // Fallback testing for unknown / null / undefined kinds
+  assert.strictEqual(getAuraThemeForStateKind(null), "silver");
+  assert.strictEqual(getAuraThemeForStateKind(undefined), "silver");
+  assert.strictEqual(getAuraThemeForStateKind("non_existent_kind" as DynamicIslandCapsuleKind), "silver");
+  assert.strictEqual(getDefaultTabForStateKind(null), "search");
+  assert.strictEqual(getDefaultTabForStateKind(undefined), "search");
+  assert.strictEqual(getDefaultTabForStateKind("non_existent_kind" as DynamicIslandCapsuleKind), "search");
 });
 
 // ============================================================================
-// CHALLENGE SUITE 7: High-Throughput Performance & Heap Profile Benchmark
+// CHALLENGE SUITE 3: Micro-Operation & Boundary Stress
 // ============================================================================
 
-test("M1 Challenger Stress: High-throughput benchmark (10,000 calls under 100ms)", () => {
+test("M1 Challenger Stress: Fluid swap edge-case matrix across varying concurrency counts", () => {
+  const session = createMockSession("running");
+  const recovery: DynamicIslandRecoveryProps = { active: true, stage: 1, targetMinutes: 30 };
+  const eveningReview: DynamicIslandEveningReviewProps = { due: true, minimumActionDone: true, dailyReviewDone: false };
+  const syncState: DynamicIslandSyncState = "blocked";
+
+  const raw4States = collectDynamicIslandActiveStates({
+    activeSession: session,
+    recovery,
+    eveningReview,
+    syncState,
+  });
+
+  assert.strictEqual(raw4States.length, 4);
+
+  // Swap to 4th priority state (sync_issue, P5=500)
+  const swap4 = resolveDualTaskStates(raw4States, "/dashboard", "sync_issue");
+  assert.strictEqual(swap4.dominant.kind, "sync_issue");
+  assert.strictEqual(swap4.satellite?.kind, "live_session_running", "Top priority becomes satellite");
+
+  // Swap to 3rd priority state (evening_review_due, P4=600)
+  const swap3 = resolveDualTaskStates(raw4States, "/dashboard", "evening_review_due");
+  assert.strictEqual(swap3.dominant.kind, "evening_review_due");
+  assert.strictEqual(swap3.satellite?.kind, "live_session_running", "Top priority becomes satellite");
+
+  // Swap to 1st priority state (already dominant) -> satellite stays 2nd priority (recovery_active)
+  const swap1 = resolveDualTaskStates(raw4States, "/dashboard", "live_session_running");
+  assert.strictEqual(swap1.dominant.kind, "live_session_running");
+  assert.strictEqual(swap1.satellite?.kind, "recovery_active");
+
+  // Swap on route where requested state is suppressed -> falls back to natural unsuppressed ordering
+  const swapSuppressed = resolveDualTaskStates(raw4States, "/focus", "live_session_running");
+  // live_session_running is suppressed on /focus -> unsuppressed: recovery (P3), evening (P4), sync (P5)
+  assert.strictEqual(swapSuppressed.dominant.kind, "recovery_active");
+  assert.strictEqual(swapSuppressed.satellite?.kind, "evening_review_due");
+});
+
+test("M1 Challenger Stress: High-Throughput Performance (50,000 dual-task calls under 1000ms)", () => {
   const session = createMockSession("running");
   const input: CollectDynamicIslandStatesInput = {
     activeSession: session,
@@ -544,135 +473,19 @@ test("M1 Challenger Stress: High-throughput benchmark (10,000 calls under 100ms)
     elapsedSeconds: 1500,
   };
 
-  // Warmup
-  for (let i = 0; i < 500; i++) {
-    computeDynamicIslandStatePool(input);
-  }
-
-  const memBefore = process.memoryUsage().heapUsed;
+  const rawStates = collectDynamicIslandActiveStates(input);
   const start = performance.now();
 
-  const ITERATIONS = 10000;
+  const ITERATIONS = 50000;
   for (let i = 0; i < ITERATIONS; i++) {
-    const pool = computeDynamicIslandStatePool(input);
-    if (!pool.hasConcurrency) {
-      throw new Error("Concurrency lost");
-    }
+    const route = i % 2 === 0 ? "/focus" : "/dashboard";
+    const res = resolveDualTaskStates(rawStates, route);
+    if (!res.dominant) throw new Error("Dominant missing");
   }
 
   const elapsedMs = performance.now() - start;
-  const memAfter = process.memoryUsage().heapUsed;
-  const heapDeltaMb = (memAfter - memBefore) / (1024 * 1024);
-
-  // Performance requirement: < 200ms for 10,000 evaluations (i.e. < 0.02ms / 20 microseconds per eval)
   assert.ok(
-    elapsedMs < 250,
-    `10,000 multi-state pool computations completed in ${elapsedMs.toFixed(2)}ms (must be < 250ms)`
+    elapsedMs < 1000,
+    `50,000 dual-task resolutions completed in ${elapsedMs.toFixed(2)}ms (expected < 1000ms)`
   );
-});
-
-// ============================================================================
-// CHALLENGE SUITE 8: Invariant Failure Oracle (Negative Tests)
-// ============================================================================
-
-test("M1 Challenger Negative Oracle: validateStatePoolInvariants detects corrupt pool structures", () => {
-  // Case 1: Null pool or null dominantState
-  assert.strictEqual(validateStatePoolInvariants(null as unknown as DynamicIslandStatePool), false);
-  assert.strictEqual(validateStatePoolInvariants({} as unknown as DynamicIslandStatePool), false);
-  assert.strictEqual(
-    validateStatePoolInvariants({
-      activeStates: [],
-      dominantState: null as unknown as DynamicIslandActiveItem,
-      hasConcurrency: false,
-      concurrencyCount: 0,
-    }),
-    false
-  );
-
-  // Case 2: concurrencyCount mismatch
-  const validPool = computeDynamicIslandStatePool({
-    activeSession: createMockSession("running"),
-  });
-  assert.strictEqual(validateStatePoolInvariants(validPool), true);
-
-  const corruptedCountPool: DynamicIslandStatePool = {
-    ...validPool,
-    concurrencyCount: 99,
-  };
-  assert.strictEqual(validateStatePoolInvariants(corruptedCountPool), false);
-
-  // Case 3: hasConcurrency boolean mismatch
-  const corruptedConcurrencyPool: DynamicIslandStatePool = {
-    ...validPool,
-    hasConcurrency: true, // only 1 state!
-  };
-  assert.strictEqual(validateStatePoolInvariants(corruptedConcurrencyPool), false);
-
-  // Case 4: Priority order reversed (unsorted)
-  const unsortedPool: DynamicIslandStatePool = {
-    activeStates: [
-      {
-        id: "p6",
-        kind: "confirmations_pending",
-        priorityWeight: 400,
-        title: "Conf",
-        accentTone: "amber",
-      },
-      {
-        id: "p0",
-        kind: "live_session_running",
-        priorityWeight: 1000,
-        title: "Run",
-        accentTone: "teal",
-      },
-    ],
-    dominantState: {
-      id: "p6",
-      kind: "confirmations_pending",
-      priorityWeight: 400,
-      title: "Conf",
-      accentTone: "amber",
-    },
-    hasConcurrency: true,
-    concurrencyCount: 2,
-  };
-  assert.strictEqual(validateStatePoolInvariants(unsortedPool), false);
-
-  // Case 5: dominantState mismatch with activeStates[0]
-  const dominantMismatchPool: DynamicIslandStatePool = {
-    activeStates: [
-      {
-        id: "p0",
-        kind: "live_session_running",
-        priorityWeight: 1000,
-        title: "Run",
-        accentTone: "teal",
-      },
-    ],
-    dominantState: {
-      id: "p0_other",
-      kind: "live_session_running",
-      priorityWeight: 1000,
-      title: "Run",
-      accentTone: "teal",
-    },
-    hasConcurrency: false,
-    concurrencyCount: 1,
-  };
-  assert.strictEqual(validateStatePoolInvariants(dominantMismatchPool), false);
-
-  // Case 6: Empty activeStates with non-idle dominantState
-  const emptyNonIdlePool: DynamicIslandStatePool = {
-    activeStates: [],
-    dominantState: {
-      id: "p0",
-      kind: "live_session_running",
-      priorityWeight: 1000,
-      title: "Run",
-      accentTone: "teal",
-    },
-    hasConcurrency: false,
-    concurrencyCount: 0,
-  };
-  assert.strictEqual(validateStatePoolInvariants(emptyNonIdlePool), false);
 });

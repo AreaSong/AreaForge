@@ -25,8 +25,8 @@ const toneClass: Record<string, string> = {
   red: "border-red-400/50 text-red-200",
 };
 
-export function GlobalTopBar(props: {
-  pathname: string;
+export interface GlobalTopBarProps {
+  pathname?: string | null;
   userId: string;
   statusTone: string;
   statusSummary: string;
@@ -43,7 +43,9 @@ export function GlobalTopBar(props: {
   recovery?: DynamicIslandRecoveryProps | null;
   eveningReview?: DynamicIslandEveningReviewProps | null;
   onResumeSession?: (sessionId: string) => Promise<void>;
-}) {
+}
+
+export function GlobalTopBar(props: GlobalTopBarProps) {
   const { openTool } = useGlobalTools();
   const statusToneClass = toneClass[props.statusTone] ?? toneClass.gray;
 
@@ -98,6 +100,7 @@ export function GlobalTopBar(props: {
 
         <div className="col-span-2 row-start-2 min-w-0 max-[359px]:col-span-1 max-[359px]:col-start-1 max-[359px]:row-start-2 max-[359px]:w-9 lg:col-span-1 lg:col-start-2 lg:row-start-1">
           <DynamicIsland
+            pathname={props.pathname}
             userId={props.userId}
             activeSession={props.activeSession}
             offlineSession={props.offlineSession}
@@ -113,7 +116,7 @@ export function GlobalTopBar(props: {
         </div>
 
         <div className="col-start-2 row-start-1 flex min-w-0 shrink-0 items-center justify-end gap-1 max-[359px]:col-span-1 max-[359px]:col-start-2 max-[359px]:row-start-2 sm:gap-1.5 lg:col-start-3 lg:row-start-1">
-          <GlobalConfirmationCenter pathname={props.pathname} userId={props.userId} />
+          <GlobalConfirmationCenter pathname={props.pathname ?? ""} userId={props.userId} />
           <GlobalAiAssistant userId={props.userId} placement="header" />
           <Button
             type="button"

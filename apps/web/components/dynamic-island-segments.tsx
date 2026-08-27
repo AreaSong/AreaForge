@@ -7,12 +7,14 @@ import {
   CornerDownLeft,
   Moon,
   Play,
+  Pause,
   RefreshCw,
   Zap,
   ArrowRight,
   Search,
   Command,
   X,
+  Square,
 } from "lucide-react";
 import { formatClockDuration } from "@/lib/formatters";
 import { Button, IconButton } from "@/components/ui/button";
@@ -22,7 +24,104 @@ import type {
   DynamicIslandActiveItem,
   DynamicIslandCapsuleKind,
   DynamicIslandCapsuleState,
+  DynamicIslandStateKind,
 } from "./dynamic-island-types";
+import { getSatelliteBubbleGlowClass } from "./dynamic-island-glow";
+
+// ============================================================================
+// SatelliteBubble: Exclamation mark satellite bubble for dual-task morphing
+// ============================================================================
+
+export interface SatelliteBubbleProps {
+  satelliteItem?: DynamicIslandActiveItem | null;
+  satelliteState?: DynamicIslandCapsuleState | null;
+  onSwapFluidFocus?: (kind: DynamicIslandCapsuleKind | DynamicIslandStateKind) => void;
+  onSwap?: () => void;
+  className?: string;
+}
+
+export function SatelliteBubble({
+  satelliteItem,
+  satelliteState,
+  onSwapFluidFocus,
+  onSwap,
+  className,
+}: SatelliteBubbleProps) {
+  const item = satelliteItem;
+  const kind: DynamicIslandCapsuleKind = item?.kind ?? satelliteState?.kind ?? "idle";
+  if (kind === "idle" && !item && !satelliteState) return null;
+
+  const session = item?.session ?? satelliteState?.session;
+  const stage = item?.stage ?? satelliteState?.stage ?? 1;
+  const pendingCount =
+    item?.pendingConfirmationsCount ?? satelliteState?.pendingConfirmationsCount ?? 0;
+
+  const glowClass = getSatelliteBubbleGlowClass(kind);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSwapFluidFocus?.(kind);
+    onSwap?.();
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+    onSwapFluidFocus?.(kind);
+    onSwap?.();
+  };
+
+  const tooltipText = (() => {
+    if (item?.title) return `${item.title} (点击对调为主焦点)`;
+    if (kind === "live_session_running") return `⏱ ${session?.subjectName || "专注学习"} 进行中，点击切换为主视角`;
+    if (kind === "live_session_closing") return "待收口沉淀，点击切换为主视角";
+    if (kind === "activity_paused") return `⏸ ${session?.subjectName || "专注学习"} 暂停中，点击切换为主视角`;
+    if (kind === "recovery_active") return `⚡ 精力恢复第${stage}阶，点击切换为主视角`;
+    if (kind === "evening_review_due") return "🌙 晚间复盘待收口，点击切换为主视角";
+    if (kind === "sync_issue") return "离线待对账，点击切换为主视角";
+    if (kind === "confirmations_pending") return `${pendingCount}项待确认，点击切换为主视角`;
+    return "点击切换焦点";
+  })();
+
+  const renderIcon = () => {
+    switch (kind) {
+      case "live_session_running":
+        return <Clock3 size={15} className="text-teal-300 animate-pulse shrink-0" />;
+      case "live_session_closing":
+        return <Square size={13} className="text-emerald-300 fill-emerald-300/40 shrink-0" />;
+      case "activity_paused":
+        return <Pause size={13} className="text-amber-300 fill-amber-300/40 shrink-0" />;
+      case "recovery_active":
+        return <Zap size={15} className="text-amber-400 animate-pulse fill-amber-400/40 shrink-0" />;
+      case "evening_review_due":
+        return <Moon size={15} className="text-indigo-300 fill-indigo-400/30 shrink-0" />;
+      case "sync_issue":
+        return <RefreshCw size={13} className="text-amber-400 animate-spin shrink-0" />;
+      case "confirmations_pending":
+        return pendingCount > 0 ? (
+          <span className="text-[11px] font-bold text-amber-300 leading-none">{pendingCount}</span>
+        ) : (
+          <Zap size={13} className="text-amber-300 shrink-0" />
+        );
+      case "idle":
+      default:
+        return <span className="size-2 rounded-full bg-white/60" />;
+    }
+  };
+
+  return (
+    <div
+      onClick={handleClick}
+      onWheel={handleWheel}
+      role="button"
+      tabIndex={0}
+      title={tooltipText}
+      aria-label={tooltipText}
+      className={`size-9 sm:size-[38px] rounded-full shrink-0 flex items-center justify-center cursor-pointer select-none bg-[#090e12]/98 backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-105 active:scale-95 ${glowClass} ${className ?? ""}`}
+    >
+      {renderIcon()}
+    </div>
+  );
+}
 
 // ============================================================================
 // CapsuleBreathingDots: Multi-state carousel pagination indicator
@@ -297,10 +396,13 @@ export interface CapsuleRightSegmentProps {
   capsuleState?: DynamicIslandCapsuleState;
   isOpen?: boolean;
   isResuming?: boolean;
+  isPausing?: boolean;
   elapsedSeconds?: number;
   onTriggerOpen?: () => void;
   onOpenFocus?: (e?: React.MouseEvent) => void;
   onDirectResume?: (e?: React.MouseEvent) => void;
+  onDirectPause?: (e?: React.MouseEvent) => void;
+  onDirectCloseout?: (e?: React.MouseEvent) => void;
   onRetrySync?: () => void;
   onCloseDrawer?: () => void;
   className?: string;
@@ -312,10 +414,13 @@ export function CapsuleRightSegment(props: CapsuleRightSegmentProps) {
     capsuleState,
     isOpen = false,
     isResuming = false,
+    isPausing = false,
     elapsedSeconds = 0,
     onTriggerOpen,
     onOpenFocus,
     onDirectResume,
+    onDirectPause,
+    onDirectCloseout,
     onRetrySync,
     onCloseDrawer,
     className,
@@ -326,26 +431,76 @@ export function CapsuleRightSegment(props: CapsuleRightSegmentProps) {
   const elapsed = activeItem?.elapsedSeconds ?? elapsedSeconds;
 
   if (kind === "live_session_running" && session) {
-    return (
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          (onOpenFocus ?? onTriggerOpen)?.(e);
-        }}
-        className={`flex shrink-0 items-center gap-1.5 pl-2.5 text-xs font-medium border-l border-white/10 hover:text-teal-100 transition-colors cursor-pointer select-none ${className ?? ""}`}
-        title={isOpen ? "当前学习状态" : "点击展开控制"}
-      >
-        {isOpen ? (
+    if (isOpen) {
+      return (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            (onOpenFocus ?? onTriggerOpen)?.(e);
+          }}
+          className={`flex shrink-0 items-center gap-1.5 pl-2.5 text-xs font-medium border-l border-white/10 hover:text-teal-100 transition-colors cursor-pointer select-none ${className ?? ""}`}
+          title="当前学习状态"
+        >
           <span className="inline-flex items-center gap-1.5 text-teal-300 font-semibold">
             <span className="size-1.5 rounded-full bg-teal-400 animate-pulse" />
             <span>正在学习</span>
           </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 font-mono font-bold text-teal-300 tabular-nums">
-            <Clock3 size={13} className="text-teal-400 shrink-0" />
-            <span>{formatClockDuration(elapsed)}</span>
-          </span>
-        )}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className={`group/right relative flex shrink-0 items-center pl-2.5 text-xs font-medium border-l border-white/10 select-none ${className ?? ""}`}
+      >
+        {/* Default Stopwatch Display */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            (onOpenFocus ?? onTriggerOpen)?.(e);
+          }}
+          className="flex items-center gap-1.5 font-mono font-bold text-teal-300 tabular-nums cursor-pointer transition-opacity duration-150 group-hover/right:opacity-0"
+          title="点击展开专注控制"
+        >
+          <Clock3 size={13} className="text-teal-400 shrink-0" />
+          <span>{formatClockDuration(elapsed)}</span>
+        </div>
+
+        {/* Hover Micro-Actions: [ ⏸ 暂停 ] [ 🏁 收口 ] */}
+        <div className="absolute inset-y-0 right-0 hidden items-center gap-1 opacity-0 transition-opacity duration-150 group-hover/right:flex group-hover/right:opacity-100 z-10">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={isPausing}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDirectPause?.(e);
+            }}
+            className="flex !h-6 items-center !gap-1 rounded bg-amber-400/20 !px-1.5 !py-0.5 text-[10px] font-semibold text-amber-200 hover:bg-amber-400/30 !border-0 cursor-pointer shadow-[0_0_8px_rgba(251,191,36,0.2)]"
+            title="快速暂停专注"
+          >
+            {isPausing ? (
+              <RefreshCw size={10} className="animate-spin" />
+            ) : (
+              <Pause size={10} className="fill-current" />
+            )}
+            <span>暂停</span>
+          </Button>
+          <Link
+            href={session ? activitySourcePath(session) : "/focus"}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDirectCloseout?.(e);
+              onCloseDrawer?.();
+            }}
+            className="flex h-6 items-center gap-1 rounded bg-teal-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-teal-200 hover:bg-teal-400/30 border-0 cursor-pointer shadow-[0_0_8px_rgba(45,212,191,0.2)]"
+            title="前往结束收口"
+          >
+            <Square size={10} className="fill-current" />
+            <span>收口</span>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -390,6 +545,19 @@ export function CapsuleRightSegment(props: CapsuleRightSegmentProps) {
           {isResuming ? <RefreshCw size={10} className="animate-spin" /> : <Play size={10} className="fill-current" />}
           <span>继续</span>
         </Button>
+        <Link
+          href={session ? activitySourcePath(session) : "/focus"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDirectCloseout?.(e);
+            onCloseDrawer?.();
+          }}
+          className="hidden sm:flex h-6 items-center gap-0.5 rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-zinc-300 hover:bg-white/10 hover:text-white border-0 transition-colors"
+          title="前往结束收口"
+        >
+          <Square size={9} className="fill-current" />
+          <span>收口</span>
+        </Link>
       </div>
     );
   }
