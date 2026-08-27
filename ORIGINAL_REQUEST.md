@@ -45,3 +45,44 @@ Integrity mode: development
 - [ ] `pnpm typecheck` 全项目 0 错误；
 - [ ] `pnpm --filter @areaforge/web test` 全量单元测试 100% 绿灯；
 - [ ] Playwright 自动化截取全站高密度重构后的多视口对比图。
+
+## Follow-up — 2026-08-27T03:20:42+08:00
+
+全量排查并重构 AreaForge 系统中散落的页面级粗暴横幅提醒（Status Banners / Alerts / Notifications），统一由全局顶部【搜索灵动岛（Dynamic Island）】进行联动接管与轻量胶囊化展示，净化页面视觉空间，实现全局跨页面的沉浸式督战感知。
+
+Working directory: `/Users/as/Ai-Project/project/AreaForge`
+Integrity mode: development
+
+## Requirements
+
+### R1. 全局顶部灵动岛状态胶囊系统升级 (Dynamic Island Status Capsule Engine)
+- 在 `DynamicIsland` 与 `GlobalTopBar` 中扩展多态状态感知槽位：
+  - **恢复模式状态（Recovery Status）**：展示琥珀色发光胶囊（如 `⚡ 恢复第3阶 · 需完成最小行动`），点击可直接呼出恢复工作流或平滑展开面板；
+  - **活动暂停状态（Activity Paused）**：展示青绿微光胶囊（如 `⏸ 活动暂停中 · 可继续`），支持一键恢复；
+  - **晚间提醒与收口状态（Evening Review Due）**：展示暮光微光胶囊（如 `🌙 晚间复盘待收口`），点击快速打开收口工作流；
+  - **离线与同步状态（Sync & Connectivity）**：在灵动岛内自然指示，无需侵入正文。
+
+### R2. 核心业务页面内粗暴横贯 Banner 全量净化 (Eliminate In-Page Static Banners)
+- **`/today` 今日行动中心**：彻底移除页面顶部突兀的黄色/蓝色横贯 `TodayStatusBar`，将状态上移至灵动岛；
+- **`/focus` 专注工作台**：移除冗余的静态大横幅提示，状态与断点倒计时统一由灵动岛与专注状态胶囊联动；
+- **`/knowledge`、`/test`、`/roadmap`、`/settings`**：排查并移除各页面顶部占位粗暴的静态状态条，统一联动灵动岛调度。
+
+### R3. 表单级局部错误与全局系统状态的清晰分层 (Clear Alert Layering)
+- **全局状态/督战提醒**：100% 转移至顶栏灵动岛，不占页面高度；
+- **表单输入校验与局部致命错误（Form Validation / Fatal Errors）**：保留为组件级紧凑提示（Inline Micro Feedback），不与全局灵动岛混淆。
+
+## Acceptance Criteria
+
+### 1. 页面清爽度与空间释放
+- [ ] `/today` 页面及全站各核心入口彻底消灭破坏沉浸感的横贯长条 Banner，正文内容自然上提；
+- [ ] 在 1080p、900p、768p 分辨率下，首屏视觉呈现纯净深色工作台质感。
+
+### 2. 灵动岛联动交互与全局感知
+- [ ] 在不同全局状态（恢复模式、暂停状态、晚间待收口）下，顶栏灵动岛均能精准展示对应发光胶囊并支持点击交互；
+- [ ] 计时运行（Live Session）与全局状态提醒之间具备清晰的平滑过渡与折叠优先级。
+
+### 3. 工程与自动化测试质量
+- [ ] `pnpm typecheck` 0 错误；
+- [ ] `pnpm --filter @areaforge/web test` 全量测试 100% 绿灯；
+- [ ] Playwright 自动化截取灵动岛在多种状态下的渲染与各业务页面净化后的整体视觉。
+

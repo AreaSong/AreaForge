@@ -266,6 +266,8 @@ test("Challenger 1 - AST Primitive Boundary: Zero unauthorized raw primitives in
     "components/secondary-navigation.tsx",
     "components/shared-study-toolbar.tsx",
     "components/dynamic-island.tsx",
+    "components/dynamic-island-segments.tsx",
+    "components/dynamic-island-drawer.tsx",
     "components/window-dock.tsx",
     "components/global-confirmation-center.tsx",
     "components/focus-evidence-forms.tsx",

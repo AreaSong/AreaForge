@@ -309,14 +309,22 @@ test("Today Action Center: Recovery Details handles EXPIRED and ACTIVE states cl
   assert.match(source, /href="\/roadmap\/allocation"/);
 });
 
-test("Today Action Center: Status Bar renders three discrete tones for recovery, pause, and evening", () => {
-  const source = loadSource("components/action-center-today-view.tsx");
+test("Today Action Center: In-page status banner is eliminated and unified into Dynamic Island capsule engine", () => {
+  const todaySource = loadSource("components/action-center-today-view.tsx");
+  const islandSource = loadSource("components/dynamic-island.tsx") + loadSource("components/dynamic-island-segments.tsx");
 
-  // 1. StatusBar tones and messages
-  assert.match(source, /status === "recovery_minimum" \? "warning" : "info"/);
-  assert.match(source, /活动已暂停，可继续当前行动/);
-  assert.match(source, /恢复模式：先完成一个最小行动/);
-  assert.match(source, /晚间提醒：最低行动或复盘尚未闭环/);
+  // 1. In-page TodayStatusBar is eliminated
+  assert.doesNotMatch(todaySource, /TodayStatusBar/);
+  assert.doesNotMatch(todaySource, /today\.statusBar/);
+
+  // 2. Dynamic Island houses polymorphic status capsules (recovery, pause, evening review, live session)
+  assert.match(islandSource, /kind === "recovery_active"/);
+  assert.match(islandSource, /⚡ 恢复第/);
+  assert.match(islandSource, /kind === "activity_paused"/);
+  assert.match(islandSource, /暂停中/);
+  assert.match(islandSource, /kind === "evening_review_due"/);
+  assert.match(islandSource, /🌙 晚间复盘待收口/);
+  assert.match(islandSource, /kind === "live_session_running"/);
 });
 
 // ============================================================================

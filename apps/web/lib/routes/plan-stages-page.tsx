@@ -6,7 +6,7 @@ import { StagePlanCreateForm } from "@/components/stage-plan-create-form";
 import { StageMilestoneManager } from "@/components/stage-milestone-manager";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Alert, Badge } from "@/components/ui/feedback";
+import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatDateKey, formatDateMonthDay, formatDateTime, shiftShanghaiDateInput } from "@/lib/formatters";
@@ -71,7 +71,11 @@ export default async function StageOverviewPage({
 
       {plan ? (
         <section className="space-y-4">
-          <SectionHeader title="当前生效计划" description="这是阶段源事实；待确认建议只有在你确认后才会更新这里。" />
+          <SectionHeader
+            title="当前生效计划"
+            description="这是阶段源事实；待确认建议只有在你确认后才会更新这里。"
+            action={!draft ? <StageDraftCreateAction stagePlanId={plan.id} label={latestRejectedDraft ? "重新评估" : "生成调整建议"} /> : null}
+          />
           <Card variant="master" className="space-y-5 p-6">
             <div className="min-w-0">
               <p className="text-xl font-semibold text-white">{plan.name}</p>
@@ -115,12 +119,6 @@ export default async function StageOverviewPage({
           </div>
           <StageDraftActions draft={draft} />
         </Card>
-      ) : null}
-
-      {!draft && plan ? (
-        <Alert tone={latestRejectedDraft ? "neutral" : "info"} title={latestRejectedDraft ? "上一版建议已拒绝" : "当前没有待确认建议"} action={<StageDraftCreateAction stagePlanId={plan.id} label={latestRejectedDraft ? "重新评估" : "生成调整建议"} />}>
-          {latestRejectedDraft ? "重新评估会生成独立的新版本，不会恢复上一版。" : "需要重新评估时，可根据当前执行、复盘与模拟数据生成一份本地规则草稿。"}
-        </Alert>
       ) : null}
 
       {plan ? (

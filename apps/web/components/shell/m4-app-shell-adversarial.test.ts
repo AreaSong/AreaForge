@@ -34,6 +34,8 @@ test("M4 Boundary Oracle: App Shell components have zero raw button/input debt p
     "components/secondary-navigation.tsx",
     "components/shared-study-toolbar.tsx",
     "components/dynamic-island.tsx",
+    "components/dynamic-island-segments.tsx",
+    "components/dynamic-island-drawer.tsx",
     "components/window-dock.tsx",
     "components/global-confirmation-center.tsx",
     "components/focus-evidence-forms.tsx",
@@ -149,7 +151,7 @@ test("WindowDock Stress: window titles with extreme length are bounded by max-wi
 
 test("Multi-Viewport Defense: Topbar and Statusbar text truncation prevents horizontal page expansion", () => {
   const topbarSource = loadSource("components/global-top-bar.tsx");
-  const islandSource = loadSource("components/dynamic-island.tsx");
+  const islandSource = loadSource("components/dynamic-island.tsx") + loadSource("components/dynamic-island-segments.tsx");
 
   // Topbar status summary truncation
   assert.match(topbarSource, /max-w-52 truncate text-zinc-500/);

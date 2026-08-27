@@ -6,7 +6,12 @@ import { BrandMark } from "@/components/brand-logo";
 import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { CONFIRMATION_WINDOW_EVENT, GlobalConfirmationCenter } from "@/components/global-confirmation-center";
 import { GlobalQuickCreate } from "@/components/global-quick-create";
-import { DynamicIsland } from "@/components/dynamic-island";
+import { 
+  DynamicIsland, 
+  type DynamicIslandRecoveryProps, 
+  type DynamicIslandEveningReviewProps,
+  type DynamicIslandSyncState
+} from "@/components/dynamic-island";
 import { useGlobalTools } from "@/components/global-tool-system";
 import type { GlobalCommandAction } from "@/lib/navigation/command-palette";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
@@ -28,11 +33,16 @@ export function GlobalTopBar(props: {
   activeSession: StudySessionDto | null;
   offlineSession: StudySessionDto | null;
   quickReviewClaim: QuickReviewActivityClaim | null;
+  syncState?: DynamicIslandSyncState;
+  onRetrySync?: () => void;
   onOpenStatus: () => void;
   statusOpen: boolean;
   onOpenMotivationHelp: () => void;
   hasMotivationReminder: boolean;
   onOpenNavigation: () => void;
+  recovery?: DynamicIslandRecoveryProps | null;
+  eveningReview?: DynamicIslandEveningReviewProps | null;
+  onResumeSession?: (sessionId: string) => Promise<void>;
 }) {
   const { openTool } = useGlobalTools();
   const statusToneClass = toneClass[props.statusTone] ?? toneClass.gray;
@@ -92,6 +102,11 @@ export function GlobalTopBar(props: {
             activeSession={props.activeSession}
             offlineSession={props.offlineSession}
             quickReviewClaim={props.quickReviewClaim}
+            syncState={props.syncState}
+            onRetrySync={props.onRetrySync}
+            recovery={props.recovery}
+            eveningReview={props.eveningReview}
+            onResumeSession={props.onResumeSession}
             onOpenAction={handleGlobalAction}
             compactOnNarrow
           />

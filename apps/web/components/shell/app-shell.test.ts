@@ -162,7 +162,7 @@ test("DynamicIsland: 60fps silky smooth transition tokens and obsidian glass bod
 });
 
 test("DynamicIsland: session status badges and pulse animations", () => {
-  const islandSource = loadSource("components/dynamic-island.tsx");
+  const islandSource = loadSource("components/dynamic-island.tsx") + loadSource("components/dynamic-island-segments.tsx");
 
   assert.match(islandSource, /session\.status === "running"[\s\S]*\? "bg-teal-400 animate-pulse"/);
   assert.match(islandSource, /: session\.status === "closing"[\s\S]*\? "bg-emerald-400"/);

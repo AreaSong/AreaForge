@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { GlobalRecoveryHelp } from "@/components/global-recovery-help";
 import { GlobalToolLayer, useGlobalTools } from "@/components/global-tool-system";
 import { GlobalSessionCloseout } from "@/components/global-session-closeout";
@@ -21,6 +21,10 @@ import { SharedMobileNavigation } from "@/components/shared-mobile-navigation";
 import { TabletNavigationDrawer } from "@/components/tablet-navigation-drawer";
 import { Modal } from "@/components/ui/overlays";
 import { APP_NAVIGATION_ITEMS, getCanonicalRoute } from "@/lib/navigation/app-navigation";
+import { postStudySessionCommand } from "@/lib/api/session";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
+import { publishActivityStatus } from "@/lib/client/activity-status";
+import { syncFocusOfflineQueue } from "@/lib/client/focus-offline-store";
 import type { AppShellStatusDto } from "@/lib/contracts";
 
 const toneClass: Record<string, string> = {
@@ -85,6 +89,45 @@ export function AppShell(props: {
     setLightOpen((current) => !current);
   }
 
+  const handleResumeSession = useCallback(async (sessionId: string) => {
+    try {
+      const response = await postStudySessionCommand(sessionId, "resume", {}, getClientDeviceHeaders());
+      if (response.ok && response.body?.session) {
+        publishActivityStatus(props.userId, response.body.session);
+      }
+    } catch (err) {
+      console.error("Failed to resume session from AppShell", err);
+    }
+  }, [props.userId]);
+
+  const handleRetrySync = useCallback(() => {
+    void syncFocusOfflineQueue(props.userId);
+  }, [props.userId]);
+
+  const recoveryProps = useMemo(() => {
+    const isRecoveryCandidate = status.motivationReminderCandidate?.trigger === "RECOVERY";
+    const hasActiveRecovery = isRecoveryCandidate || recovery.hasAutomaticReminder;
+    return {
+      active: hasActiveRecovery,
+      stage: 1,
+      targetMinutes: 30,
+      onOpen: () => void recovery.open(),
+    };
+  }, [status.motivationReminderCandidate, recovery]);
+
+  const eveningReviewProps = useMemo(() => {
+    const todayClosureLight = displayStatus.lights.find((light) => light.kind === "todayClosure");
+    const isDue = status.notificationCandidates?.eveningReview || (todayClosureLight?.tone === "amber");
+    const minimumActionDone = todayClosureLight ? !todayClosureLight.summary.includes("最低行动尚未完成") : true;
+    const dailyReviewDone = todayClosureLight ? !todayClosureLight.summary.includes("晚间复盘尚未完成") : true;
+    return {
+      due: Boolean(isDue),
+      minimumActionDone,
+      dailyReviewDone,
+      reviewHref: todayClosureLight?.action?.href ?? "/roadmap/reviews/daily",
+    };
+  }, [displayStatus.lights, status.notificationCandidates]);
+
   return (
     <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100" data-layout-region="app-shell">
       <a
@@ -105,6 +148,11 @@ export function AppShell(props: {
             activeSession={status.activeSession}
             offlineSession={offlineFocusSession}
             quickReviewClaim={quickReviewClaim}
+            syncState={syncState}
+            onRetrySync={handleRetrySync}
+            recovery={recoveryProps}
+            eveningReview={eveningReviewProps}
+            onResumeSession={handleResumeSession}
             onOpenStatus={openStatusLight}
             statusOpen={lightOpen}
             onOpenMotivationHelp={() => void recovery.open()}

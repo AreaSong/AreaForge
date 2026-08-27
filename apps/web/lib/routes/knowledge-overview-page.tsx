@@ -2,7 +2,6 @@ import {
   ArrowRight,
   BookOpen,
   BookOpenCheck,
-  CircleAlert,
   FileText,
   HelpCircle,
   Layers,
@@ -206,16 +205,6 @@ export default async function KnowledgeOverviewPage() {
           />
         )}
       </section>
-
-      {/* Weak Nodes Callout */}
-      {overview.weakNodes > 0 ? (
-        <Card variant="subtle" className="border-amber-400/30 bg-amber-400/[0.04] p-3.5 sm:p-4">
-          <p className="flex items-center gap-2 text-xs sm:text-sm text-amber-200">
-            <CircleAlert size={16} className="shrink-0 text-amber-400" aria-hidden />
-            <span>还有 {overview.weakNodes} 个考纲薄弱节点，完成到期复习后再前往考纲进行补强。</span>
-          </p>
-        </Card>
-      ) : null}
     </PageFrame>
   );
 }

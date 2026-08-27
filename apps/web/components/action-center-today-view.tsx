@@ -44,8 +44,6 @@ export function ActionCenterTodayView({
         action={<TodayDatePicker studyDate={today.studyDate} />}
       />
 
-      {today.statusBar ? <TodayStatusBar status={today.statusBar} /> : null}
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] items-start">
         <div className="min-w-0 space-y-6">
           <TodayRecommendation
@@ -198,22 +196,6 @@ function TodayDatePicker({ studyDate }: { studyDate: string }) {
         查看日期
       </Button>
     </form>
-  );
-}
-
-function TodayStatusBar({
-  status,
-}: {
-  status: NonNullable<ActionCenterTodayDto["statusBar"]>;
-}) {
-  return (
-    <Alert tone={status === "recovery_minimum" ? "warning" : "info"}>
-      {status === "paused_activity"
-        ? "活动已暂停，可继续当前行动。"
-        : status === "recovery_minimum"
-          ? "恢复模式：先完成一个最小行动。"
-          : "晚间提醒：最低行动或复盘尚未闭环。"}
-    </Alert>
   );
 }
 

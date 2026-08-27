@@ -460,13 +460,7 @@ export function WorkspaceSettingsClient(props: {
                 ) : null}
               </SectionCard>
 
-              <div className="space-y-3">
-                <div className="rounded-xl border border-teal-300/20 bg-teal-300/[0.04] p-3 text-xs leading-relaxed text-zinc-300">
-                  <strong className="text-teal-200">科目管理入口：</strong>
-                  公共课直接添加到当前考试工作区；408 使用预置分组；专业课请新建自定义分组并在其中添加科目。分组和科目均可编辑、排序、归档和恢复。
-                </div>
-                <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
-              </div>
+              <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
             </>
           ) : null}
 
