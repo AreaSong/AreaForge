@@ -403,13 +403,13 @@ export function DynamicIsland(props: DynamicIslandProps) {
           onQueryChange={(q) => {
             setQuery(q);
             setActiveIndex(0);
-            if (!isOpen) morph.fastForwardToExpanded();
+            if (!isOpen) morph.requestOpen();
             setViewMode("search");
           }}
           onOpenSearch={() => {
-            morph.fastForwardToExpanded();
+            if (!isOpen) morph.requestOpen();
             setViewMode("search");
-            inputRef.current?.focus();
+            setTimeout(() => inputRef.current?.focus(), 50);
           }}
           onKeyDown={handleInputKeyDown}
           onClearQuery={() => { setQuery(""); inputRef.current?.focus(); }}
