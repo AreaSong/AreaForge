@@ -40,23 +40,25 @@ export interface UseLiquidMorphResult {
 export function isReducedMotionPreferred(): boolean {
   if (typeof window === "undefined") return false;
   const mediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-  const hasAttribute = document.documentElement.getAttribute("data-af-motion") === "reduce";
+  const hasAttribute = typeof document !== "undefined" && document.documentElement?.getAttribute("data-af-motion") === "reduce";
   return Boolean(mediaQuery?.matches || hasAttribute);
 }
 
-export function getSatelliteLiquidClass(phase: LiquidMorphPhase, hasSatellite: boolean): string {
+export function getSatelliteLiquidClass(phase: LiquidMorphPhase, hasSatellite: boolean = true): string {
   if (!hasSatellite) return "hidden opacity-0 pointer-events-none";
   switch (phase) {
     case "idle_split":
-      return "opacity-100 transform-none";
+      return "opacity-100 transform-none af-satellite-visible";
+    case "idle_single":
+      return "hidden opacity-0 pointer-events-none";
     case "merging_p1":
       return "af-satellite-fusing pointer-events-none";
     case "expanded_p2":
+      return "hidden opacity-0 pointer-events-none";
     case "collapsing_p1":
-      return "opacity-0 pointer-events-none scale-50 -translate-x-4";
+      return "hidden opacity-0 pointer-events-none";
     case "detaching_p2":
-      return "af-satellite-detaching";
-    case "idle_single":
+      return "af-satellite-detaching pointer-events-none";
     default:
       return "hidden opacity-0 pointer-events-none";
   }
