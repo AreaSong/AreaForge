@@ -301,23 +301,17 @@ export function DynamicIsland(props: DynamicIslandProps) {
   return (
     <div
       ref={containerRef}
-      className="relative mx-auto flex h-9 w-full min-w-0 max-w-[34rem] items-center justify-center z-[var(--af-layer-modal)]"
+      className="relative mx-auto flex h-9 w-full min-w-0 max-w-[32rem] items-center justify-center z-[var(--af-layer-modal)]"
     >
       <div
-        className={`absolute top-0 left-0 right-0 overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`absolute top-0 left-0 right-0 overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen
-            ? "rounded-[22px] border-teal-500/40 shadow-[0_0_32px_rgba(45,212,191,0.18)] ring-1 ring-white/10 max-w-[34rem]"
-            : `rounded-full cursor-pointer ${containerGlowClass} ${
-                capsuleState.kind === "live_session_running"
-                  ? "max-w-[30rem]"
-                  : capsuleState.kind !== "idle"
-                  ? "max-w-[28rem]"
-                  : "max-w-[20rem]"
-              }`
+            ? "rounded-[20px] border-teal-500/40 shadow-[0_0_32px_rgba(45,212,191,0.18)] ring-1 ring-white/10"
+            : `rounded-[18px] cursor-pointer ${containerGlowClass}`
         }`}
         onClick={!isOpen ? triggerFocusAndOpen : undefined}
       >
-        <div className="flex h-9 w-full min-w-0 items-center justify-between gap-1.5 px-2.5 text-xs">
+        <div className="flex h-9 w-full min-w-0 items-center justify-between gap-2 px-3 text-xs">
           <CapsuleLeftSegment
             capsuleState={capsuleState}
             onTriggerOpen={triggerFocusAndOpen}
