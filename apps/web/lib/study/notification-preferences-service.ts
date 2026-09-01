@@ -1,21 +1,9 @@
 import { prisma } from "@areaforge/db";
 import { buildForegroundNotificationPayload, type ForegroundNotificationCategory } from "@areaforge/core";
 import { ApiError } from "@/lib/api/responses";
+import type { NotificationPreferenceDto } from "@/lib/contracts/notification";
 
-export interface NotificationPreferenceDto {
-  reviewDueEnabled: boolean;
-  planStartEnabled: boolean;
-  eveningReviewEnabled: boolean;
-  reviewDueWindowStart: number;
-  reviewDueWindowEnd: number;
-  planStartWindowStart: number;
-  planStartWindowEnd: number;
-  eveningReviewWindowStart: number;
-  eveningReviewWindowEnd: number;
-  quietHoursStart: number | null;
-  quietHoursEnd: number | null;
-  revision: number;
-}
+export type { NotificationPreferenceDto } from "@/lib/contracts/notification";
 
 const DEFAULT_PREFERENCE: NotificationPreferenceDto = {
   reviewDueEnabled: true,

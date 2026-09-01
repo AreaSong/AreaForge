@@ -1,5 +1,6 @@
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type { ReportDecisionConflictLatest } from "@/lib/contracts/report-decisions";
 import {
   getPeriodicReport,
   getPeriodicReportDecisionContext,
@@ -10,18 +11,13 @@ import {
 } from "./reports-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
 import { createPlanInboxItemWithResult, type PlanInboxWriteResult } from "./plan-inbox-service";
-import type { PlanInboxWriteSummaryDto } from "./types";
+import type { PlanInboxWriteSummaryDto } from "@/lib/contracts";
+
+export type { ReportDecisionConflictLatest } from "@/lib/contracts/report-decisions";
 
 type ReportDecisionClient = PrismaClient | Prisma.TransactionClient;
 
 const reportWorkbench = "/roadmap/reviews";
-
-export interface ReportDecisionConflictLatest {
-  kind: "periodic-report-decision";
-  report: PeriodicReportDto;
-  decision: PeriodicReportDecisionDto | null;
-  sourceConflict?: unknown;
-}
 
 export type PeriodicReportDecisionAction = "confirm" | "reject";
 

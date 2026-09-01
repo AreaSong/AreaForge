@@ -1,3 +1,5 @@
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
+
 export interface MotivationReminderPreference {
   enabled: boolean;
   windowStart: number;
@@ -19,7 +21,7 @@ export function motivationReminderPreferenceKey(userId: string): string {
 export function readMotivationReminderPreference(userId: string): MotivationReminderPreference {
   if (typeof window === "undefined") return DEFAULT_MOTIVATION_REMINDER_PREFERENCE;
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(motivationReminderPreferenceKey(userId)) ?? "null") as unknown;
+    const parsed = JSON.parse(getBrowserStoragePort("local")?.getItem(motivationReminderPreferenceKey(userId)) ?? "null") as unknown;
     return isMotivationReminderPreference(parsed) ? parsed : DEFAULT_MOTIVATION_REMINDER_PREFERENCE;
   } catch {
     return DEFAULT_MOTIVATION_REMINDER_PREFERENCE;
@@ -28,7 +30,7 @@ export function readMotivationReminderPreference(userId: string): MotivationRemi
 
 export function writeMotivationReminderPreference(userId: string, value: MotivationReminderPreference): void {
   if (!isMotivationReminderPreference(value)) return;
-  window.localStorage.setItem(motivationReminderPreferenceKey(userId), JSON.stringify(value));
+  getBrowserStoragePort("local")?.setItem(motivationReminderPreferenceKey(userId), JSON.stringify(value));
   window.dispatchEvent(new CustomEvent(MOTIVATION_REMINDER_PREFERENCE_EVENT, { detail: { userId } }));
 }
 

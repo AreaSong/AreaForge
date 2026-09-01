@@ -208,9 +208,11 @@ function implementationFiles(): string[] {
   return [
     "apps/web/lib/study/concurrency.ts",
     "apps/web/lib/study/check-in-service.ts",
-    "apps/web/lib/study/service.ts",
+    "apps/web/lib/study/session-command-service.ts",
+    "apps/web/lib/study/session-lifecycle-service.ts",
     "apps/web/lib/study/simulation-service.ts",
     "apps/web/lib/study/task-debt-reorder-service.ts",
+    "apps/web/lib/study/task-command-service.ts",
   ];
 }
 

@@ -8,6 +8,11 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  MotivationItemDto,
+  MotivationNextDto,
+  MotivationVaultField,
+} from "@/lib/contracts/knowledge-library";
 import { getStudyDayRange } from "./date";
 import {
   buildPersistentCreateFingerprint,
@@ -16,34 +21,11 @@ import {
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
 
-export interface MotivationItemDto {
-  id: string;
-  type: MotivationItemType;
-  title: string;
-  body: string | null;
-  externalUrl: string | null;
-  vaultSourceId: string | null;
-  tags: string[];
-  enabled: boolean;
-  sortOrder: number;
-  revision: number;
-  archivedAt: string | null;
-  updatedAt: string;
-}
-
-export interface MotivationNextDto {
-  item: MotivationItemDto | null;
-  recoveryActions: MotivationRecoveryAction[];
-  reminderAllowed: boolean;
-  reminderReason: "manual" | "ok" | "interval" | "daily_cap" | "empty" | "active_activity" | "no_trigger";
-}
-
-export type MotivationVaultField =
-  | "whyStarted"
-  | "neverReturnTo"
-  | "futureSelf"
-  | "messageToFuture"
-  | "firstSimulationDiary";
+export type {
+  MotivationItemDto,
+  MotivationNextDto,
+  MotivationVaultField,
+} from "@/lib/contracts/knowledge-library";
 
 const motivationLockNamespace = 2026072701;
 const recoveryActions: MotivationRecoveryAction[] = ["CONTINUE", "START_5_MIN", "MINIMUM_TASK"];

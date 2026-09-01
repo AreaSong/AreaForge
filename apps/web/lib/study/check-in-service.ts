@@ -10,6 +10,7 @@ import {
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { getStudyDayRange } from "./date";
 import { activityBucket } from "./activity-metrics";
+import type { CheckInV2Dto } from "@/lib/contracts/check-in";
 
 type CheckInDbClient = PrismaClient | Prisma.TransactionClient;
 type CheckInWriteClient = Prisma.TransactionClient;
@@ -35,26 +36,7 @@ interface CheckInRecord {
   minimumActionSource?: string;
 }
 
-export interface CheckInV2Dto {
-  id: string;
-  workspaceId: string | null;
-  studyDate: string;
-  completedMinimumAction: boolean;
-  totalMinutes: number;
-  effectiveMinutes: number;
-  effectiveSessionCount: number;
-  taskCompletionRate: number;
-  reviewSubmitted: boolean;
-  lowEfficiency: boolean;
-  lowConversionCount: number;
-  sourceVersion: number;
-  reviewCount: number;
-  reviewSeconds: number;
-  passedCount: number;
-  partialCount: number;
-  failedCount: number;
-  minimumActionSource: MinimumActionSource;
-}
+export type { CheckInV2Dto } from "@/lib/contracts/check-in";
 
 export async function refreshCheckInSnapshotForDate(
   targetDate: Date,

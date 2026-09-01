@@ -30,17 +30,17 @@ import {
   normalizeIdempotencyKey,
   type PersistentCreateCommand,
 } from "./persistent-idempotency";
+import type {
+  PlanInboxFormOptions,
+  PlanInboxItemDto,
+  PlanInboxWriteResult,
+} from "@/lib/contracts/plan-inbox";
 
 type PlanInboxRow = Prisma.PlanInboxItemGetPayload<{ include: { dependencyRefs: true } }>;
 
 const planInboxWorkbench = "/roadmap/allocation/drafts";
 
-export interface PlanInboxWriteResult {
-  item: PlanInboxItemDto;
-  created: boolean;
-  reused: boolean;
-  superseded: PlanInboxItemDto[];
-}
+export type { PlanInboxWriteResult } from "@/lib/contracts/plan-inbox";
 
 export interface CreatePlanInboxItemInput {
   stableKey: string;
@@ -67,44 +67,7 @@ export type CreateUserPlanInboxItemInput = Omit<
   clientRequestKey: string;
 };
 
-export interface PlanInboxDependencyRefDto {
-  id: string;
-  targetType: "TASK" | "INBOX_STABLE_REF";
-  dependencyType: TaskDependencyType;
-  taskId: string | null;
-  importBatchId: string | null;
-  planStableKey: string | null;
-  planOriginVersion: number | null;
-}
-
-export interface PlanInboxItemDto {
-  id: string;
-  workspaceId: string;
-  stableKey: string;
-  sourceStableKey: string;
-  originKey: string;
-  originVersion: number;
-  originType: string;
-  originSnapshot: unknown;
-  status: PlanInboxItemStatus;
-  title: string;
-  subjectId: string | null;
-  plannedDate: string | null;
-  estimatedMinutes: number | null;
-  priority: string | null;
-  type: string | null;
-  planMilestoneId: string | null;
-  primaryNodeId: string | null;
-  relatedNodeIds: string[];
-  dependencyRefs: PlanInboxDependencyRefDto[];
-  missingFields: string[];
-  requiredMilestoneKey: string | null;
-  revision: number;
-  convertedTaskId: string | null;
-  supersededByItemId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type { PlanInboxDependencyRefDto, PlanInboxItemDto } from "@/lib/contracts/plan-inbox";
 
 interface PlanInboxRelationConflictLatest {
   kind: "plan-inbox-relations";
@@ -971,13 +934,7 @@ export async function convertPlanInboxItem(
   }));
 }
 
-export interface PlanInboxFormOptions {
-  subjects: Array<{ id: string; name: string }>;
-  nodes: Array<{ id: string; subjectId: string; title: string }>;
-  milestones: Array<{ id: string; subjectId: string | null; title: string }>;
-  tasks: Array<{ id: string; subjectId: string; subjectName: string; title: string }>;
-  stagePlans: Array<{ id: string; name: string }>;
-}
+export type { PlanInboxFormOptions } from "@/lib/contracts/plan-inbox";
 
 export async function getPlanInboxFormOptions(actorId: string): Promise<PlanInboxFormOptions> {
   const workspace = await resolveActiveWorkspace(actorId);

@@ -13,6 +13,8 @@ const bodySchema = z.object({
   durationSeconds: z.number().int().positive(),
   nextDueDate: z.string().min(1).optional(),
   note: z.string().max(2000).nullable().optional(),
+  answerMode: z.enum(["TEXT", "PAPER_OR_ORAL"]).optional(),
+  answerText: z.string().trim().max(10000).nullable().optional(),
 });
 
 export async function POST(

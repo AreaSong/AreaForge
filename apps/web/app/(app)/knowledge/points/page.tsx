@@ -3,9 +3,9 @@ import { KnowledgePointsWorkbench } from "@/components/knowledge-points-workbenc
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
-import { listSubjects } from "@/lib/study/service";
+import { listSubjects } from "@/lib/study/study-query-service";
 import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
-import { MASTERY_STATUS_OPTIONS, type MasteryStatus } from "@/lib/study/mastery-status";
+import { MASTERY_STATUS_OPTIONS, type MasteryStatus } from "@/lib/knowledge/mastery-status";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/knowledge/points");

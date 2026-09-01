@@ -1,4 +1,5 @@
 export type ActivityBucket = "study" | "review" | "test";
+import type { ActivityBreakdown } from "@/lib/contracts/activity";
 
 export interface ActivityMetricSession {
   activityKind?: string | null;
@@ -8,18 +9,7 @@ export interface ActivityMetricSession {
   startedAt?: Date | string;
 }
 
-export interface ActivityBreakdown {
-  studyMinutes: number;
-  reviewMinutes: number;
-  testMinutes: number;
-  totalMinutes: number;
-  effectiveStudyMinutes: number;
-  effectiveReviewMinutes: number;
-  effectiveTestMinutes: number;
-  studySessionCount: number;
-  reviewSessionCount: number;
-  testSessionCount: number;
-}
+export type { ActivityBreakdown } from "@/lib/contracts/activity";
 
 export function activityBucket(input: Pick<ActivityMetricSession, "activityKind" | "activityMode">): ActivityBucket {
   if (input.activityMode === "SIMULATION") return "test";

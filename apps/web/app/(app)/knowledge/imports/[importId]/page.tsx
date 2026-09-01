@@ -1,3 +1,4 @@
+import { Textarea } from "@/components/ui/field";
 import { ArrowLeft, BookOpen, Download } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { LearningTreeBatchArchiveButton } from "@/components/learning-tree-import-history";
@@ -6,6 +7,7 @@ import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader, SectionHeader, Toolbar } from "@/components/ui/page";
 import { ApiError } from "@/lib/api/responses";
 import { getCurrentUser } from "@/lib/auth/session";
+import { formatDateTime } from "@/lib/formatters";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { getLearningTreeImport } from "@/lib/study/learning-tree-service";
 
@@ -36,7 +38,7 @@ export default async function KnowledgeImportDetailPage({
       <PageHeader
         eyebrow="学习树导入结果"
         title="导入批次"
-        description={`${scopeLabel(batch.scope)} · ${new Date(batch.confirmedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`}
+        description={`${scopeLabel(batch.scope)} · ${formatDateTime(batch.confirmedAt)}`}
         back={<ButtonLink href={returnTo} variant="ghost" size="sm"><ArrowLeft size={16} aria-hidden />返回导入历史</ButtonLink>}
         status={<div className="flex flex-wrap gap-2"><Badge tone="success">已应用 {appliedCount}</Badge><Badge>已跳过 {skippedCount}</Badge><Badge>共 {batch.items.length} 项</Badge></div>}
         action={<ButtonLink href="/knowledge/syllabi" variant="primary"><BookOpen size={16} aria-hidden />查看考纲结果</ButtonLink>}
@@ -69,7 +71,7 @@ export default async function KnowledgeImportDetailPage({
       </section>
       <details className="border-t border-white/10 pt-4">
         <summary className="cursor-pointer text-sm text-zinc-300">技术校验信息</summary>
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <dl className="af-content-grid-two mt-4 grid gap-3 text-sm">
           <div><dt className="text-zinc-500">协议 / 解析器</dt><dd className="text-zinc-300">{batch.protocolVersion} / {batch.parserVersion}</dd></div>
           <div><dt className="text-zinc-500">学习树根版本</dt><dd className="text-zinc-300">{batch.rootRevision}</dd></div>
           <div><dt className="text-zinc-500">源 SHA-256</dt><dd className="break-all text-zinc-300">{batch.sourceSha256}</dd></div>
@@ -77,7 +79,7 @@ export default async function KnowledgeImportDetailPage({
         </dl>
         <details className="mt-4 border-t border-white/10 pt-3">
           <summary className="cursor-pointer text-sm text-zinc-300">查看规范化源版本</summary>
-          <textarea className="mt-3 min-h-80 w-full rounded-md border border-white/10 bg-[#101419] p-3 font-mono text-xs text-zinc-300" readOnly value={batch.canonicalMarkdown} aria-label="规范化学习树 Markdown" />
+          <Textarea className="mt-3 min-h-80 w-full rounded-md border border-white/10 bg-[#101419] p-3 font-mono text-xs text-zinc-300" readOnly value={batch.canonicalMarkdown} aria-label="规范化学习树 Markdown" />
         </details>
       </details>
     </PageFrame>

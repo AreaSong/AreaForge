@@ -1,4 +1,5 @@
 import type { AutoApplyPolicy, UpdateAction, UpdateCenterStatus } from "./update-center";
+import { formatDateTime as formatSharedDateTime } from "@/lib/formatters";
 
 type UpdateOperationStatus = NonNullable<UpdateCenterStatus["lastOperation"]>["status"];
 
@@ -94,7 +95,7 @@ export function normalizedTag(version: string): string {
 
 export function formatDateTime(value: string | null): string {
   if (!value) return "未知";
-  return new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+  return formatSharedDateTime(value);
 }
 
 export function shortHash(value: string | null | undefined): string {

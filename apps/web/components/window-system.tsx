@@ -30,9 +30,10 @@ import {
   type WindowRegistryState,
   type WindowVersionStamp,
   type WindowWorkState,
-} from "@/lib/study/window-system-state";
+} from "@/lib/client/window-system-state";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
 
-export type { WindowClosePolicy, WindowInstance, WindowWorkState } from "@/lib/study/window-system-state";
+export type { WindowClosePolicy, WindowInstance, WindowWorkState } from "@/lib/client/window-system-state";
 export type WindowSizePreset = "medium" | "large" | "wide";
 
 export interface WindowDefinition {
@@ -83,14 +84,16 @@ function legacyStorageKey(userId: string): string {
 function readPersistedRegistry(userId: string): WindowRegistryState {
   if (typeof window === "undefined") return emptyWindowRegistry();
   try {
-    const raw = window.localStorage.getItem(storageKey(userId));
+    const localStorage = getBrowserStoragePort("local");
+    const sessionStorage = getBrowserStoragePort("session");
+    const raw = localStorage?.getItem(storageKey(userId));
     if (raw) {
       const parsed = JSON.parse(raw) as unknown;
       if (isV2RegistryShape(parsed)) return normalizeWindowRegistry(parsed);
     }
 
-    const legacyRaw = window.localStorage.getItem(legacyStorageKey(userId))
-      ?? window.sessionStorage.getItem(legacyStorageKey(userId));
+    const legacyRaw = localStorage?.getItem(legacyStorageKey(userId))
+      ?? sessionStorage?.getItem(legacyStorageKey(userId));
     return legacyRaw ? migrateLegacyWindowRegistry(JSON.parse(legacyRaw) as unknown) : emptyWindowRegistry();
   } catch {
     return emptyWindowRegistry();
@@ -100,7 +103,7 @@ function readPersistedRegistry(userId: string): WindowRegistryState {
 function persistRegistry(userId: string, state: WindowRegistryState): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(storageKey(userId), JSON.stringify(state));
+    getBrowserStoragePort("local")?.setItem(storageKey(userId), JSON.stringify(state));
   } catch {
     // Window recovery is best effort and must never block business actions.
   }
@@ -136,8 +139,11 @@ function WindowSystemProviderState(props: { userId: string; children: React.Reac
   }, []);
 
   const restoreFocus = useCallback((key: string) => {
-    const target = restoreFocusRef.current.get(key);
+    const rememberedTarget = restoreFocusRef.current.get(key);
     restoreFocusRef.current.delete(key);
+    const target = rememberedTarget?.isConnected
+      ? rememberedTarget
+      : document.querySelector<HTMLElement>("[data-window-focus-fallback]");
     if (!target) return;
     window.setTimeout(() => {
       if (target.isConnected && !target.hasAttribute("disabled")) target.focus({ preventScroll: true });

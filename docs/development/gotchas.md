@@ -76,7 +76,7 @@
 - 触发：首页多个 Server Component 区块独立调用 `getTodayDashboard` 等聚合服务。
 - 根因：服务端组件树里每次调用都独立执行，Prisma 不会自动去重。
 - 规避：聚合服务用 React `cache()` 包一层请求级共享副本；注意共享副本内部不要既取当前时间又允许外部传时间点（表面积不一致会导致同请求两份结果）。
-- 关联：`apps/web/lib/study/service.ts`、优化轮修复记录。
+- 关联：`apps/web/lib/study/dashboard-query-service.ts`、优化轮修复记录。
 
 ### 选择器场景复用全量证据树查询，页面数据获取过度
 

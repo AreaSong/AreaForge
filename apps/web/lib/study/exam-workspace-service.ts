@@ -8,59 +8,11 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type { ExamWorkspaceDto, SubjectGroupDto, TakeoverPreviewDto, WorkspaceSubjectDto } from "@/lib/contracts/workspace";
 
 export const workspaceLockNamespace = 2026072112;
 
-export interface ExamWorkspaceDto {
-  id: string;
-  stableKey: string;
-  name: string;
-  targetExamDate: string | null;
-  stageSummary: string | null;
-  status: "ACTIVE" | "ARCHIVED";
-  revision: number;
-  archivedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SubjectGroupDto {
-  id: string;
-  workspaceId: string;
-  stableKey: string;
-  name: string;
-  sortOrder: number;
-  archivedAt: string | null;
-}
-
-export interface WorkspaceSubjectDto {
-  id: string;
-  workspaceId: string | null;
-  groupId: string | null;
-  stableKey: string;
-  legacyCode: string | null;
-  name: string;
-  color: string;
-  sortOrder: number;
-  archivedAt: string | null;
-  legacyScope: boolean;
-}
-
-export interface TakeoverPreviewDto {
-  eligibleCount: number;
-  unresolvedCount: number;
-  crossOwnerBlockedCount: number;
-  affectedDateCount: number;
-  affectedPeriodCount: number;
-  eligibleSubjectIds: string[];
-  unresolvedSubjectIds: string[];
-  eligibleSubjects: Array<{
-    id: string;
-    stableKey: string;
-    legacyCode: WorkspaceSubjectDto["legacyCode"];
-    name: string;
-  }>;
-}
+export type { ExamWorkspaceDto, SubjectGroupDto, TakeoverPreviewDto, WorkspaceSubjectDto } from "@/lib/contracts/workspace";
 
 type MoveDirection = "UP" | "DOWN";
 

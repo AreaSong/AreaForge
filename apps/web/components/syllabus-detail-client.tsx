@@ -1,5 +1,10 @@
 "use client";
 
+import { Button, IconButton } from "@/components/ui/button";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
+import { setSyllabusNodeArchiveState } from "@/lib/api/syllabus";
+import { createReviewSchedule } from "@/lib/api/review-schedule";
 import { Archive, ArrowRight, BookOpenCheck, CalendarCheck, Pencil, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,11 +14,16 @@ import { KnowledgeObjectDetailHeader } from "@/components/knowledge-object-detai
 import { SyllabusDetailEditor } from "@/components/syllabus-detail-editor";
 import { SyllabusRetestForm } from "@/components/syllabus-retest-form";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/field";
+import { Metric } from "@/components/ui/metric";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-import { masteryStatusLabel } from "@/lib/study/mastery-status";
-import type { ReviewScheduleDto } from "@/lib/study/review-schedule-service";
-import type { SyllabusNodeDto, SyllabusOptionNodeDto } from "@/lib/study/types";
+import { masteryStatusLabel } from "@/lib/knowledge/mastery-status";
+import { formatDate, formatDateTime, shanghaiDateInputToIso } from "@/lib/formatters";
+import type { ReviewScheduleDto } from "@/lib/contracts";
+import type { SyllabusNodeDto, SyllabusOptionNodeDto } from "@/lib/contracts";
 
 type DetailView = "overview" | "evidence" | "retests";
 type ArchiveIntent = "archive" | "restore";
@@ -65,13 +75,9 @@ export function SyllabusDetailClient(props: {
     setPending(intent);
     setMessage(null);
     try {
-      const response = await fetch(`/api/syllabus/nodes/${props.node.id}/${intent}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedRevision: props.node.revision }),
-      });
-      const body = await readNodeResponse(response);
-      if (response.status === 401) {
+      const response = await setSyllabusNodeArchiveState(props.node.id, intent, props.node.revision);
+      const body = response.body;
+      if (isUnauthorized(response)) {
         redirectToLoginWithCurrentLocation();
         return;
       }
@@ -80,7 +86,7 @@ export function SyllabusDetailClient(props: {
         return;
       }
       if (!response.ok) {
-        if (response.status === 409 && isSyllabusNodeDto(body?.latest)) {
+        if (isConflict(response) && isSyllabusNodeDto(body?.latest)) {
           setConflict({ intent, latest: body.latest, conflictFields: body.conflictFields ?? ["revision"] });
         }
         setMessage(body?.error ?? `${intent === "archive" ? "归档" : "恢复"}失败，当前状态没有改变。`);
@@ -104,17 +110,13 @@ export function SyllabusDetailClient(props: {
     setPending("schedule");
     setMessage(null);
     try {
-      const response = await fetch("/api/review-schedules", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetType: "SYLLABUS_NODE",
-          syllabusNodeId: props.node.id,
-          dueDate: shanghaiDateToIso(reviewDate),
-        }),
+      const response = await createReviewSchedule({
+        targetType: "SYLLABUS_NODE",
+        syllabusNodeId: props.node.id,
+        dueDate: shanghaiDateInputToIso(reviewDate),
       });
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      if (response.status === 401) {
+      const body = response.body;
+      if (isUnauthorized(response)) {
         redirectToLoginWithCurrentLocation();
         return;
       }
@@ -155,27 +157,27 @@ export function SyllabusDetailClient(props: {
           </>}
         actions={<>
           {archived ? (
-            <button type="button" disabled={Boolean(pending)} onClick={() => void changeArchiveState("restore")} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50">
+            <Button type="button" disabled={Boolean(pending)} onClick={() => void changeArchiveState("restore")} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50">
               <RotateCcw size={16} aria-hidden />{pending === "restore" ? "恢复中" : "恢复节点"}
-            </button>
+            </Button>
           ) : editing || retesting ? null : reviewDue && props.schedule ? (
             <Link href={`/knowledge/reviews/${props.schedule.id}/run?returnTo=${encodeURIComponent(objectHref)}`} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black">
               <BookOpenCheck size={16} aria-hidden />开始复测
             </Link>
           ) : (
-            <button ref={editButtonRef} type="button" disabled={Boolean(pending)} onClick={() => { setEditing(true); setRetesting(false); }} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50">
+            <Button ref={editButtonRef} type="button" disabled={Boolean(pending)} onClick={() => { setEditing(true); setRetesting(false); }} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-500 px-3 text-sm font-medium text-black disabled:opacity-50">
               <Pencil size={16} aria-hidden />编辑节点
-            </button>
+            </Button>
           )}
           {!archived && !reviewDue && !editing && !retesting ? (
-            <button type="button" title="记录复测" aria-label="记录复测" onClick={() => { setView("retests"); setRetesting(true); setEditing(false); }} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-200">
+            <IconButton label="记录复测" type="button" title="记录复测" aria-label="记录复测" onClick={() => { setView("retests"); setRetesting(true); setEditing(false); }} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-200">
               <BookOpenCheck size={16} aria-hidden />
-            </button>
+            </IconButton>
           ) : null}
           {!archived && !editing && !retesting ? (
-            <button type="button" title="归档节点" aria-label="归档节点" disabled={Boolean(pending)} onClick={() => setArchiveConfirmationOpen(true)} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-50">
+            <IconButton label="归档节点" type="button" title="归档节点" aria-label="归档节点" disabled={Boolean(pending)} onClick={() => setArchiveConfirmationOpen(true)} className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-300 disabled:opacity-50">
               <Archive size={16} aria-hidden />
-            </button>
+            </IconButton>
           ) : null}
         </>}
       />
@@ -201,20 +203,23 @@ export function SyllabusDetailClient(props: {
         />
       ) : null}
 
-      <nav className="inline-flex max-w-full rounded-md border border-white/10 p-1" aria-label="考纲详情视图">
-        {(["overview", "evidence", "retests"] as DetailView[]).map((item) => (
-          <button key={item} type="button" aria-pressed={view === item} onClick={() => setView(item)} className={`h-9 rounded px-3 text-sm ${view === item ? "bg-white/10 text-white" : "text-zinc-400"}`}>
-            {item === "overview" ? "概览" : item === "evidence" ? "证据" : "复测"}
-          </button>
-        ))}
-      </nav>
+      <SegmentedControl
+        value={view}
+        options={[
+          { value: "overview", label: "概览" },
+          { value: "evidence", label: "证据" },
+          { value: "retests", label: "复测" },
+        ]}
+        onChange={setView}
+        label="考纲详情视图"
+      />
 
       {view === "overview" ? <Overview node={props.node} schedule={props.schedule} archived={archived} reviewDate={reviewDate} pending={Boolean(pending)} returnHref={objectHref} onReviewDateChange={setReviewDate} onSchedule={() => void scheduleReview()} /> : null}
       {view === "evidence" ? <EvidenceView node={props.node} /> : null}
       {view === "retests" ? (
         <section className="space-y-4">
           {retesting && !archived ? <SyllabusRetestForm nodeId={props.node.id} onCancel={() => setRetesting(false)} onSaved={() => refreshAfterEdit("复测记录已保存。")}/> : null}
-          {!retesting && !archived ? <button type="button" onClick={() => setRetesting(true)} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200"><BookOpenCheck size={16} aria-hidden />记录复测</button> : null}
+          {!retesting && !archived ? <Button type="button" onClick={() => setRetesting(true)} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm text-zinc-200"><BookOpenCheck size={16} aria-hidden />记录复测</Button> : null}
           <RetestHistory items={props.node.masteryRetests} />
         </section>
       ) : null}
@@ -262,28 +267,34 @@ function Overview(props: {
 }) {
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 sm:grid-cols-3">
-        <Metric label="目标投入" value={`${props.node.targetMinutes} 分钟`} />
-        <Metric label="实际投入" value={`${props.node.actualMinutes} 分钟`} />
-        <Metric label="风险" value={riskLabel(props.node.masteryProof.risk)} />
-      </section>
-      <section className="space-y-3 border-t border-white/10 pt-5">
-        <h2 className="font-medium text-white">统一复习</h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card variant="subtle" className="p-4">
+          <Metric label="目标投入" value={<span className="font-normal text-white">{props.node.targetMinutes} 分钟</span>} valueSize="lg" layout="compact" />
+        </Card>
+        <Card variant="subtle" className="p-4">
+          <Metric label="实际投入" value={<span className="font-normal text-white">{props.node.actualMinutes} 分钟</span>} valueSize="lg" layout="compact" />
+        </Card>
+        <Card variant="subtle" className="p-4">
+          <Metric label="风险" value={<span className="font-normal text-white">{riskLabel(props.node.masteryProof.risk)}</span>} valueSize="lg" layout="compact" />
+        </Card>
+      </div>
+      <Card variant="subtle" className="space-y-3 p-5">
+        <h2 className="font-semibold text-white">统一复习</h2>
         {props.schedule ? (
           <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
-            <span>{props.schedule.status === "ACTIVE" ? "活动排期" : "已暂停"} · {props.schedule.dueDate ? new Date(props.schedule.dueDate).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }) : "未设置日期"}</span>
-            <Link className="text-teal-300 hover:underline" href={`/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`}>管理排期</Link>
+            <span>{props.schedule.status === "ACTIVE" ? "活动排期" : "已暂停"} · {props.schedule.dueDate ? formatDate(props.schedule.dueDate) : "未设置日期"}</span>
+            <Link className="text-sm font-medium text-teal-300 hover:underline" href={`/knowledge/reviews/${props.schedule.id}?returnTo=${encodeURIComponent(props.returnHref)}`}>管理排期</Link>
             {props.schedule.status === "PAUSED" && props.schedule.pausedReason === "TARGET_ARCHIVED" ? <span className="text-amber-200">恢复节点不会自动恢复排期，请在排期页重新选择日期。</span> : null}
           </div>
         ) : props.archived ? (
           <p className="text-sm text-zinc-500">归档节点不能创建新排期。</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            <input aria-label="首次复习日期" type="date" value={props.reviewDate} onChange={(event) => props.onReviewDateChange(event.target.value)} className="h-10 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm text-zinc-100" />
-            <button type="button" disabled={props.pending || !props.reviewDate} onClick={props.onSchedule} className="h-10 rounded-md border border-white/10 px-3 text-sm text-zinc-200 disabled:opacity-50">设置首次复习日期</button>
+            <Input aria-label="首次复习日期" type="date" value={props.reviewDate} onChange={(event) => props.onReviewDateChange(event.target.value)} className="!w-auto !px-3 rounded-xl" />
+            <Button type="button" variant="secondary" disabled={props.pending || !props.reviewDate} onClick={props.onSchedule} className="text-teal-200">设置首次复习日期</Button>
           </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }
@@ -301,26 +312,26 @@ function NextAction(props: {
     : null;
 
   return (
-    <section className="rounded-lg border border-teal-300/20 bg-teal-300/5 p-4 sm:p-5" aria-labelledby="syllabus-next-action-heading">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <Card variant="accent" className="p-5 sm:p-6" aria-labelledby="syllabus-next-action-heading">
+      <div className="af-toolbar-split flex min-w-0 gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-teal-200">下一行动</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-teal-300">下一行动</p>
           <h2 id="syllabus-next-action-heading" className="mt-1 text-lg font-semibold text-white">{props.node.mapSignal.nextAction}</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-300">{props.node.masteryProof.nextAction}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {props.archived ? (
-            <span className="rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-400">已归档 · 只读</span>
+            <span className="rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-400">已归档 · 只读</span>
           ) : props.reviewDue ? (
-            <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">已到期 · 待复测</span>
+            <span className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">已到期 · 待复测</span>
           ) : scheduleHref ? (
-            <Link href={scheduleHref} className="inline-flex h-10 items-center gap-2 rounded-md border border-teal-300/30 px-3 text-sm text-teal-100 hover:bg-teal-300/10">
+            <Link href={scheduleHref} className="inline-flex h-10 items-center gap-2 rounded-xl border border-teal-300/30 px-3.5 text-sm font-medium text-teal-100 transition-colors hover:bg-teal-300/10">
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
               查看复习排期
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           ) : (
-            <Link href={taskHref} className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-400 px-3 text-sm font-medium text-[#071011] hover:bg-teal-300">
+            <Link href={taskHref} className="inline-flex h-10 items-center gap-2 rounded-xl bg-teal-400 px-3.5 text-sm font-medium text-[#071011] transition-colors hover:bg-teal-300">
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
               安排最小学习任务
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -328,23 +339,23 @@ function NextAction(props: {
           )}
         </div>
       </div>
-    </section>
+    </Card>
   );
 }
 
 function EvidenceView({ node }: { node: SyllabusNodeDto }) {
   return (
     <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="任务" value={`${node.evidence.taskCount}`} />
-        <Metric label="计时" value={`${node.evidence.sessionCount}`} />
-        <Metric label="卡片" value={`${node.evidence.noteCount}`} />
-        <Metric label="错题" value={`${node.evidence.mistakeCount}`} />
-      </div>
+      <dl className="af-metric-grid-four grid gap-3">
+        <Metric label="任务" value={<span className="font-normal text-white">{node.evidence.taskCount}</span>} valueSize="lg" className="border-l border-white/10 !p-0 !pl-3" />
+        <Metric label="计时" value={<span className="font-normal text-white">{node.evidence.sessionCount}</span>} valueSize="lg" className="border-l border-white/10 !p-0 !pl-3" />
+        <Metric label="卡片" value={<span className="font-normal text-white">{node.evidence.noteCount}</span>} valueSize="lg" className="border-l border-white/10 !p-0 !pl-3" />
+        <Metric label="错题" value={<span className="font-normal text-white">{node.evidence.mistakeCount}</span>} valueSize="lg" className="border-l border-white/10 !p-0 !pl-3" />
+      </dl>
       <div className="border-t border-white/10 pt-5">
         <h2 className="font-medium text-white">显式掌握证据</h2>
         <ul className="mt-3 space-y-3">
-          {node.masteryEvidence.map((evidence) => <li key={evidence.id} className="text-sm text-zinc-300"><span className="text-white">{evidence.sourceLabel}</span>{evidence.summary ? ` · ${evidence.summary}` : ""} · {new Date(evidence.createdAt).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}</li>)}
+          {node.masteryEvidence.map((evidence) => <li key={evidence.id} className="text-sm text-zinc-300"><span className="text-white">{evidence.sourceLabel}</span>{evidence.summary ? ` · ${evidence.summary}` : ""} · {formatDate(evidence.createdAt)}</li>)}
           {node.masteryEvidence.length === 0 ? <li className="text-sm text-zinc-500">尚无显式证据。</li> : null}
         </ul>
       </div>
@@ -357,23 +368,17 @@ function RetestHistory({ items }: { items: SyllabusNodeDto["masteryRetests"] }) 
     <section className="border-t border-white/10 pt-5">
       <h2 className="font-medium text-white">复测历史</h2>
       <ul className="mt-3 space-y-3">
-        {items.map((retest) => <li key={retest.id} className="text-sm text-zinc-300"><span className="text-white">{retestLabel(retest.result)}</span> · {new Date(retest.testedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}{retest.score ? ` · ${retest.score}` : ""}{retest.summary ? <p className="mt-1 text-zinc-500">{retest.summary}</p> : null}</li>)}
+        {items.map((retest) => <li key={retest.id} className="text-sm text-zinc-300"><span className="text-white">{retestLabel(retest.result)}</span> · {formatDateTime(retest.testedAt)}{retest.score ? ` · ${retest.score}` : ""}{retest.summary ? <p className="mt-1 text-zinc-500">{retest.summary}</p> : null}</li>)}
         {items.length === 0 ? <li className="text-sm text-zinc-500">尚无复测记录。</li> : null}
       </ul>
     </section>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) { return <div className="border-l border-white/10 pl-3"><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-lg text-white">{value}</p></div>; }
-function shanghaiDateToIso(value: string): string { return new Date(`${value}T00:00:00+08:00`).toISOString(); }
 function kindLabel(value: SyllabusNodeDto["kind"]): string { return ({ subject: "科目", chapter: "章节", topic: "知识点", problem_type: "题型专题" })[value]; }
 function statusLabel(value: SyllabusNodeDto["status"]): string { return ({ not_started: "未开始", learning: "学习中", covered: "已覆盖", needs_review: "待复习", mastered: "已掌握", weak: "薄弱", deferred: "延期" })[value]; }
 function riskLabel(value: SyllabusNodeDto["masteryProof"]["risk"]): string { return ({ no_evidence: "无证据", thin_evidence: "证据偏少", stale_evidence: "证据过旧", ready: "证据就绪" })[value]; }
 function retestLabel(value: SyllabusNodeDto["masteryRetests"][number]["result"]): string { return ({ passed: "通过", partial: "部分通过", failed: "未通过" })[value]; }
-
-async function readNodeResponse(response: Response): Promise<{ error?: string; latest?: unknown; conflictFields?: string[] } | null> {
-  return response.json().catch(() => null) as Promise<{ error?: string; latest?: unknown; conflictFields?: string[] } | null>;
-}
 
 function isSyllabusNodeDto(value: unknown): value is SyllabusNodeDto {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;

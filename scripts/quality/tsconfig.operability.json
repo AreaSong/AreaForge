@@ -21,6 +21,8 @@
     "../ops/data-integrity-doctor.ts",
     "../ops/ops006-production-evidence-preflight.ts",
     "../ops/residual-promotion-preview.ts",
+    "../ops/responsive-layout-browser-matrix.ts",
+    "../ops/web-governance-browser-interactions.ts",
     "../ops/v11-accessibility-suite.ts",
     "../ops/v11-browser-evidence.ts",
     "../ops/v11-browser-fixtures.ts",

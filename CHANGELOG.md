@@ -8,6 +8,28 @@
 
 暂无。
 
+## [1.2.0] - 2026-09-01
+
+本节为 `v1.2.0` 发布候选说明；当前尚未创建 tag 或 GitHub Release，也未执行 production apply。最新稳定 Release 仍为 `v1.1.2`，生产与回滚基线仍为 `v1.1.1`。
+
+### Added
+
+- 增加全局 Dynamic Island 状态胶囊、活动卫星气泡、命令面板和跨页面状态接力，统一承接恢复、计时、晚间收口与同步提示。
+- 增加错题 v2 学习证据闭环：结构化题面/答案/原因、持久作答记录、笔记关联、模拟失分来源关联和专项练习入口。
+- 增加 Web 共享边界与浏览器治理门禁，覆盖 API adapter、DTO、UI 原语、浏览器存储、异步操作门和组件复杂度。
+
+### Changed
+
+- 全站核心工作台改为高信息密度、容器查询驱动的响应式布局，压缩工具栏和无效留白，并统一 8pt 间距与卡片层级。
+- 今日、知识、检验、路线和设置工作台补充紧凑指标、微型可视化、窄屏等价布局和恢复路径。
+- Prisma schema 增加第 36 条 additive migration；本地候选只允许隔离 apply/repeat 验证，不授权生产 migration。
+- 全部 AreaForge workspace package version 统一提升到 `1.2.0`。
+
+### Security
+
+- 保持 AI 外呼显式授权、最小化 payload、Provider 密钥服务端加密和附件私有鉴权边界；本次不扩大 AI 数据范围或附件生命周期权限。
+- 保持 Web runtime 禁止执行服务器命令、稳定 Release 必须签名并使用不可变镜像 digest、`AREAFORGE_AUTO_APPLY=none` 的边界。
+
 ## [1.1.2] - 2026-08-11
 
 本版本完成学习行动中心的完整收口并已形成稳定 GitHub Release；发布不表示生产已更新，生产与回滚目标仍保持 `v1.1.1`，且 `AREAFORGE_AUTO_APPLY=none` 不变。
@@ -156,7 +178,8 @@
 - 恢复模式：规则触发与手动触发的最小任务恢复流程。
 - 私有交付：Docker Compose 生产编排、备份与恢复流程、GitHub Release 服务器侧自动更新器。
 
-[Unreleased]: https://github.com/AreaSong/AreaForge/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/AreaSong/AreaForge/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/AreaSong/AreaForge/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/AreaSong/AreaForge/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/AreaSong/AreaForge/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/AreaSong/AreaForge/compare/v0.1.9...v1.1.0

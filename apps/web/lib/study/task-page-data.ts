@@ -2,7 +2,7 @@ import "server-only";
 
 import { listPlanMilestones } from "./plan-milestone-service";
 import { listStagePlans } from "./stage-service";
-import { listSubjects } from "./service";
+import { listSubjects } from "./study-query-service";
 import { listSyllabusOptionsShared } from "./syllabus-service";
 import { listKnowledgePoints } from "./knowledge-point-service";
 import { listOwnedTaskDependencies } from "./task-dependency-service";

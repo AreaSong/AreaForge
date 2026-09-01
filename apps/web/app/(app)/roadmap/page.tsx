@@ -1,47 +1,81 @@
-import { ArrowRight, BarChart3, ClipboardList, Flag, Inbox } from "lucide-react";
-import Link from "next/link";
-import { ButtonLink } from "@/components/ui/button";
-import { PageFrame, PageHeader, SectionHeader } from "@/components/ui/page";
+import { redirect } from "next/navigation";
+import { PageFrame, PageHeader } from "@/components/ui/page";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
+import { getAnalyticsSummaryShared } from "@/lib/study/analytics-service";
+import { findActiveWorkspaceOrNull, listWorkspaceSubjects } from "@/lib/study/exam-workspace-service";
+import { listPlanMilestones } from "@/lib/study/plan-milestone-service";
+import { listStagePlans } from "@/lib/study/stage-service";
+import { getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";
+import { RoadmapBudgetConversionTable } from "@/components/roadmap/roadmap-budget-conversion";
+import { RoadmapSyllabusMatrix } from "@/components/roadmap/roadmap-syllabus-matrix";
+import { RoadmapTimelineGantt } from "@/components/roadmap/roadmap-timeline-gantt";
+import { RoadmapWorkbenchLaunchers } from "@/components/roadmap/roadmap-workbench-launchers";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/roadmap");
 
-const WORKBENCHS = [
-  { href: "/roadmap/allocation", title: "投入安排", description: "把长期方向落成可开始的投入，任务只是上下文，不替代学习结果。", icon: ClipboardList },
-  { href: "/roadmap/allocation/drafts", title: "投入草稿", description: "处理复盘、考试和 AI 生成的待确认投入草稿。", icon: Inbox },
-  { href: "/roadmap/stages", title: "阶段", description: "观察当前阶段、里程碑和待确认调整。", icon: Flag },
-  { href: "/roadmap/reviews", title: "周期复盘", description: "按周/月回看事实，再决定下一周期的动作。", icon: BarChart3 },
-] as const;
+export default async function RoadmapOverviewPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
 
-export default function RoadmapOverviewPage() {
+  const [activeWorkspace, stagePlans, milestones, syllabusOverview, analytics] = await Promise.all([
+    findActiveWorkspaceOrNull(user.id),
+    listStagePlans(user.id),
+    listPlanMilestones(user.id),
+    getSyllabusMapOverviewShared(user.id),
+    getAnalyticsSummaryShared(user.id),
+  ]);
+
+  const subjects = activeWorkspace ? await listWorkspaceSubjects(user.id, activeWorkspace.id) : [];
+
   return (
-    <PageFrame variant="dashboard-wide">
+    <PageFrame variant="dashboard-wide" className="space-y-4">
       <PageHeader
         eyebrow="路线"
-        title="长期路线"
-        description="从当前事实判断下一步，不把计划本身当成学习成果。"
+        title="长期路线全景看板"
+        description="从当前事实判断下一步，甘特阶段推进、考纲覆盖矩阵与投入转化全景可视。"
       />
-      <section className="space-y-4">
-        <SectionHeader title="路线工作台" description="四个视图共享同一套路线状态，详情页沿用这里的二级导航。" />
-        <div className="grid gap-3 md:grid-cols-2">
-          {WORKBENCHS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.href} href={item.href} className="group flex min-h-32 items-start justify-between gap-4 border border-white/10 bg-white/[0.02] p-5 hover:border-teal-300/40 hover:bg-teal-300/[0.04]">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-teal-300"><Icon size={18} aria-hidden="true" /><h2 className="font-medium text-white group-hover:text-teal-200">{item.title}</h2></div>
-                  <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p>
-                </div>
-                <ArrowRight size={17} className="mt-1 shrink-0 text-zinc-600 group-hover:text-teal-300" aria-hidden="true" />
-              </Link>
-            );
-          })}
-        </div>
+
+      {/* 1. Dense Gantt-Style Stage & Milestone Timeline */}
+      <section aria-labelledby="roadmap-gantt-section">
+        <h2 id="roadmap-gantt-section" className="sr-only">阶段甘特轴与里程碑</h2>
+        <RoadmapTimelineGantt
+          stages={stagePlans}
+          milestones={milestones}
+          subjects={subjects}
+        />
       </section>
-      <section className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6">
-        <div><h2 className="font-medium text-white">统一确认中心</h2><p className="mt-1 text-sm text-zinc-500">报告、阶段建议、模拟考试、专项复测和 AI 草稿都在这里完成最终决定。</p></div>
-        <ButtonLink href="/confirmations" variant="secondary">打开确认中心<ArrowRight size={15} aria-hidden="true" /></ButtonLink>
+
+      {/* 2. Syllabus Matrix & Budget Conversion Grid (adaptive container grid-cols-1 @[78rem]:grid-cols-2 gap-4 replacing legacy grid-cols-1 md:grid-cols-2 gap-4) */}
+      <div className="@container grid grid-cols-1 @[78rem]:grid-cols-2 gap-4">
+        {/* 2. Syllabus Total Coverage & Mastery Stacked Progress Bar */}
+        <section aria-labelledby="roadmap-syllabus-section" className="min-w-0">
+          <h2 id="roadmap-syllabus-section" className="sr-only">考纲全景复习覆盖与掌握矩阵</h2>
+          <RoadmapSyllabusMatrix
+            overview={syllabusOverview}
+            subjects={subjects}
+          />
+        </section>
+
+        {/* 3. Subject Budget vs. Actual Study Time Conversion Table */}
+        <section aria-labelledby="roadmap-budget-section" className="min-w-0">
+          <h2 id="roadmap-budget-section" className="sr-only">科目预算与实际投入转化对比</h2>
+          <RoadmapBudgetConversionTable
+            analytics={analytics}
+            syllabusOverview={syllabusOverview}
+            subjects={subjects}
+          />
+        </section>
+      </div>
+
+      {/* 4. Compact Quick Launchers Grid */}
+      <section aria-labelledby="roadmap-launchers-section">
+        <h2 id="roadmap-launchers-section" className="sr-only">路线工作台入口</h2>
+        <RoadmapWorkbenchLaunchers
+          milestonesCount={milestones.length}
+          stagesCount={stagePlans.length}
+        />
       </section>
     </PageFrame>
   );

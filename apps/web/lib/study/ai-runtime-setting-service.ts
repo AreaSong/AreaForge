@@ -1,16 +1,11 @@
 import { prisma } from "@areaforge/db";
 import { getAuthEnv } from "@/lib/auth/env";
 import { ApiError } from "@/lib/api/responses";
+import type { AiRuntimeSettingStatus } from "@/lib/contracts/ai";
+
+export type { AiRuntimeSettingStatus } from "@/lib/contracts/ai";
 
 export const aiRuntimeSettingId = "global";
-
-export interface AiRuntimeSettingStatus {
-  webEnabled: boolean;
-  serverEnabled: boolean;
-  effectiveEnabled: boolean;
-  revision: number;
-  updatedAt: string | null;
-}
 
 export interface AiRuntimeSettingInput {
   enabled: boolean;

@@ -71,7 +71,7 @@ flowchart TB
 
 ## 页面清单
 
-以下 48 条记录与 `apps/web/lib/navigation/canonical-routes.ts`、实际 `page.tsx` 文件由同一门禁校验。
+以下 49 条记录与 `apps/web/lib/navigation/canonical-routes.ts`、实际 `page.tsx` 文件由同一门禁校验。
 
 | 路由 | 名称 | 职责 |
 |---|---|---|
@@ -90,6 +90,7 @@ flowchart TB
 | `/knowledge/cards` | 知识卡片 | 笔记/卡片扫描、创建和掌握筛选 |
 | `/knowledge/cards/[noteId]` | 知识卡片详情 | 当前卡片编辑、附件、复习排期和关联 |
 | `/knowledge/mistakes` | 错题 | 错题扫描、筛选和创建 |
+| `/knowledge/mistakes/practice` | 错题练习 | 按到期、最近未通过和其他完整错题抽题，逐题作答并保存历史 |
 | `/knowledge/mistakes/[mistakeId]` | 错题详情 | 当前错题、错因、复习和修正 |
 | `/knowledge/reviews` | 统一复习 | 单一到期队列和进度 |
 | `/knowledge/reviews/[scheduleId]` | 复习排期详情 | 当前排期、对象事实、复习历史和可执行入口 |
@@ -141,7 +142,7 @@ flowchart TB
 
 - `(app)/layout.tsx` 统一校验会话，未登录回 `/login`。
 - `/login` 已登录访问回 `/focus`。
-- `apps/web/lib/navigation/canonical-routes.ts` 是 48 个 canonical 页面的声明式契约，记录工作台、导航层级、PageFrame、工具栏、返回兜底和安全查询参数；`apps/web/lib/navigation/app-navigation.ts` 只负责把该契约投影成导航、标题、面包屑和 `returnTo` 行为。
+- `apps/web/lib/navigation/canonical-routes.ts` 是 49 个 canonical 页面的声明式契约，记录工作台、导航层级、PageFrame、工具栏、返回兜底和安全查询参数；`apps/web/lib/navigation/app-navigation.ts` 只负责把该契约投影成导航、标题、面包屑和 `returnTo` 行为。
 - 非法来源、外部来源和已移除旧路径统一回 `/focus`。
 
 新增、删除页面或调整主导航时，必须同步本文档、`docs/development/feature-traceability.md` 和对应验证脚本。

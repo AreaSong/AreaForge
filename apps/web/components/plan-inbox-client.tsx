@@ -1,14 +1,20 @@
 "use client";
 
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { planInboxOriginLabel } from "@/components/plan-inbox-origin";
-import { buttonClassName } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/feedback";
+import { transitionPlanInboxItem } from "@/lib/api/plan-inbox";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import { formatDate } from "@/lib/formatters";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
+import type { PlanInboxItemDto } from "@/lib/contracts";
 
 type Status = "OPEN" | "DISMISSED" | "CONVERTED";
 type TransitionAction = "dismiss" | "reopen";
@@ -35,24 +41,20 @@ export function PlanInboxClient({ items: initialItems, status, returnTo = "/road
     setError(null);
     setPendingItemId(item.id);
     try {
-      const response = await fetch(`/api/plan-inbox/${item.id}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedRevision: item.revision }),
-      });
-      const body = await response.json().catch(() => null) as { item?: unknown; error?: string; conflictFields?: string[]; latest?: unknown; workbench?: string } | null;
-      if (response.status === 401) {
+      const result = await transitionPlanInboxItem(item.id, action, item.revision);
+      const body = result.body;
+      if (isUnauthorized(result)) {
         setError("登录已过期，当前状态没有改变。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
       }
-      if (response.status === 404) {
+      if (result.status === 404) {
         router.replace(returnTo);
         return;
       }
-      if (!response.ok || !isPlanInboxItemDto(body?.item)) {
+      if (!result.ok || !isPlanInboxItemDto(body?.item)) {
         setError(body?.error ?? "操作失败，当前状态没有改变；请显式重试。");
-        if (response.status === 409 && isPlanInboxItemDto(body?.latest)) {
+        if (isConflict(result) && isPlanInboxItemDto(body?.latest)) {
           setConflict({
             submitted: item,
             latest: body.latest,
@@ -83,45 +85,140 @@ export function PlanInboxClient({ items: initialItems, status, returnTo = "/road
   }
 
   return (
-    <section className="space-y-4">
-      <div><h1 className="text-2xl font-semibold text-white">投入草稿</h1><p className="mt-1 text-sm text-zinc-400">补全草稿后，由你确认转换为正式行动。</p></div>
-      {sourceReturnTo ? <Link href={sourceReturnTo} className="inline-flex text-sm text-zinc-400 hover:text-zinc-200">返回当前草稿</Link> : null}
-      <nav aria-label="收件箱状态" className="flex flex-wrap gap-2">
-        {(["OPEN", "DISMISSED", "CONVERTED"] as const).map((value) => <Link key={value} href={withInboxStatus(returnTo, value)} aria-current={status === value ? "page" : undefined} className={`h-10 rounded-md border px-3 text-sm leading-10 ${status === value ? "border-teal-400/50 bg-teal-400/10 text-teal-200" : "border-white/10 text-zinc-300"}`}>{value === "OPEN" ? "待处理" : value === "DISMISSED" ? "已忽略" : "已转换"}</Link>)}
-      </nav>
-      {items.length === 0 ? (
-        <div className="border-y border-white/10 py-6">
-          <p className="text-sm text-zinc-400">{status === "OPEN" ? "当前没有待处理草稿。" : "此状态下没有项目。"}</p>
-          <Link href={status === "OPEN" ? "/today" : withInboxStatus(returnTo, "OPEN")} className="mt-3 inline-flex h-10 items-center text-sm text-teal-300 hover:text-teal-200">
-            {status === "OPEN" ? "回到今日，查看下一行动" : "返回待处理草稿"}
-          </Link>
+    <section className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">投入草稿</h1>
+          <p className="mt-1 text-sm text-zinc-400">补全草稿后，由你确认转换为正式行动。</p>
         </div>
+        {sourceReturnTo ? <Link href={sourceReturnTo} className="inline-flex text-sm text-teal-300 hover:underline">返回当前草稿</Link> : null}
+      </div>
+
+      <nav aria-label="收件箱状态" className="flex flex-wrap gap-2">
+        {(["OPEN", "DISMISSED", "CONVERTED"] as const).map((value) => (
+          <Link
+            key={value}
+            href={withInboxStatus(returnTo, value)}
+            aria-current={status === value ? "page" : undefined}
+            className={`h-10 rounded-xl border px-4 text-xs font-medium leading-10 transition-all ${
+              status === value
+                ? "border-teal-500/30 bg-teal-400/10 text-teal-200 shadow-[0_0_12px_rgba(45,212,191,0.15)]"
+                : "border-white/5 bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-white"
+            }`}
+          >
+            {value === "OPEN" ? "待处理" : value === "DISMISSED" ? "已忽略" : "已转换"}
+          </Link>
+        ))}
+      </nav>
+
+      {items.length === 0 ? (
+        <Card variant="subtle" className="p-8 text-center space-y-3">
+          <p className="text-sm text-zinc-400">{status === "OPEN" ? "当前没有待处理草稿。" : "此状态下没有项目。"}</p>
+          <div>
+            <ButtonLink
+              href={status === "OPEN" ? "/today" : withInboxStatus(returnTo, "OPEN")}
+              variant="secondary"
+              size="sm"
+            >
+              {status === "OPEN" ? "回到今日，查看下一行动" : "返回待处理草稿"}
+            </ButtonLink>
+          </div>
+        </Card>
       ) : (
-        <ul className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {items.map((item) => (
-            <li key={item.id} className="rounded-md border border-white/10 bg-[#101419] p-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><p className="font-medium text-white">{item.title || "未命名草稿"}</p><p className="mt-1 text-xs text-zinc-500">{planInboxOriginLabel(item.originType)} · {new Date(item.updatedAt).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}</p></div>
-                <span className={`rounded-sm px-2 py-1 text-xs ${item.missingFields.length ? "bg-amber-400/10 text-amber-200" : "bg-emerald-400/10 text-emerald-200"}`}>{item.missingFields.length ? `缺 ${item.missingFields.length} 项` : "字段完整"}</span>
-              </div>
-              {item.supersededByItemId ? <p className="mt-2 text-xs text-amber-200">此版本已被替代，只能查看历史。</p> : null}
-              <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                {item.status === "OPEN" && !item.supersededByItemId ? (
-                  <Link href={withReturnTo(`/roadmap/allocation/drafts/${item.id}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>
-                    {item.missingFields.length ? "补全并转换" : "确认并转换"}
-                  </Link>
+            <Card key={item.id} variant="master" className="flex flex-col justify-between p-5 space-y-4">
+              <div className="space-y-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-xs font-medium text-teal-300">
+                    {planInboxOriginLabel(item.originType)}
+                  </span>
+                  <Badge tone={item.missingFields.length ? "warning" : "success"}>
+                    {item.missingFields.length ? `缺 ${item.missingFields.length} 项` : "字段完整"}
+                  </Badge>
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-white break-words">
+                    {item.title || "未命名草稿"}
+                  </h2>
+                  <p className="mt-1 text-xs text-zinc-500">{formatDate(item.updatedAt)}</p>
+                </div>
+                {item.supersededByItemId ? (
+                  <p className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-2 text-xs text-amber-200">
+                    此版本已被替代，只能查看历史。
+                  </p>
                 ) : null}
-                {item.status === "OPEN" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className={buttonClassName({ variant: "ghost", size: "sm" })} onClick={() => void transition(item, "dismiss")}>忽略</button> : null}
-                {item.status === "DISMISSED" && !item.supersededByItemId ? <button type="button" disabled={Boolean(pendingItemId)} className={buttonClassName({ variant: "secondary", size: "sm" })} onClick={() => void transition(item, "reopen")}>恢复草稿</button> : null}
-                {item.convertedTaskId ? <Link href={withReturnTo(`/roadmap/allocation/tasks/${item.convertedTaskId}`, returnTo)} className={buttonClassName({ variant: "primary", size: "sm" })}>打开任务</Link> : null}
-                {item.status !== "OPEN" || item.supersededByItemId ? <Link href={withReturnTo(`/roadmap/allocation/drafts/${item.id}`, returnTo)} className={buttonClassName({ variant: "ghost", size: "sm" })}>查看记录</Link> : null}
               </div>
-            </li>
+
+              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/5">
+                {item.status === "OPEN" && !item.supersededByItemId ? (
+                  <ButtonLink
+                    href={withReturnTo(`/roadmap/allocation/drafts/${item.id}`, returnTo)}
+                    variant="primary"
+                    size="sm"
+                  >
+                    {item.missingFields.length ? "补全并转换" : "确认并转换"}
+                  </ButtonLink>
+                ) : null}
+                {item.status === "OPEN" && !item.supersededByItemId ? (
+                  <Button
+                    type="button"
+                    disabled={Boolean(pendingItemId)}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void transition(item, "dismiss")}
+                  >
+                    忽略
+                  </Button>
+                ) : null}
+                {item.status === "DISMISSED" && !item.supersededByItemId ? (
+                  <Button
+                    type="button"
+                    disabled={Boolean(pendingItemId)}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void transition(item, "reopen")}
+                  >
+                    恢复草稿
+                  </Button>
+                ) : null}
+                {item.convertedTaskId ? (
+                  <ButtonLink
+                    href={withReturnTo(`/roadmap/allocation/tasks/${item.convertedTaskId}`, returnTo)}
+                    variant="primary"
+                    size="sm"
+                  >
+                    打开任务
+                  </ButtonLink>
+                ) : null}
+                {item.status !== "OPEN" || item.supersededByItemId ? (
+                  <ButtonLink
+                    href={withReturnTo(`/roadmap/allocation/drafts/${item.id}`, returnTo)}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    查看记录
+                  </ButtonLink>
+                ) : null}
+              </div>
+            </Card>
           ))}
-        </ul>
+        </div>
       )}
+
       {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
-      {conflict && !conflictOpen ? <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理收件箱状态冲突</button> : null}
+      {conflict && !conflictOpen ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="!h-auto !border-0 !p-0 text-sm text-amber-200 underline"
+          onClick={() => setConflictOpen(true)}
+        >
+          处理收件箱状态冲突
+        </Button>
+      ) : null}
+
       <ConflictResolutionModal
         open={conflictOpen && Boolean(conflict)}
         title="处理收件箱状态冲突"

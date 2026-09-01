@@ -11,10 +11,14 @@ import {
   type ClientDeviceIdentity,
 } from "@/lib/client/device-identity";
 import { getNavigationTrail, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
-import type { StudySessionDevicePresenceDto, StudySessionDto } from "@/lib/study/types";
-import { isActivitySourcePath } from "@/lib/study/activity-route";
+import type { StudySessionDevicePresenceDto, StudySessionDto } from "@/lib/contracts";
+import { isActivitySourcePath } from "@/lib/navigation/activity-route";
+import { formatClockTimeMillis } from "@/lib/formatters";
 import { WindowDock } from "@/components/window-dock";
 import { useWindowSystem } from "@/components/window-system";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
+import { Button, IconButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
 
 const RECENT_PAGE_KEY = "af.navigation.previous.v2";
 
@@ -74,7 +78,7 @@ function publishPreviousPage(currentHref: string): void {
   const current = sanitizeReturnPath(currentHref);
   let raw: string | null = null;
   try {
-    raw = window.sessionStorage.getItem(RECENT_PAGE_KEY);
+    raw = getBrowserStoragePort("session")?.getItem(RECENT_PAGE_KEY) ?? null;
   } catch {
     previousPageSnapshot = null;
   }
@@ -83,7 +87,7 @@ function publishPreviousPage(currentHref: string): void {
   const previous = previousTrail.at(-1);
   previousPageSnapshot = previous && previousHref ? { href: previousHref, label: previous.label } : null;
   try {
-    window.sessionStorage.setItem(RECENT_PAGE_KEY, current);
+    getBrowserStoragePort("session")?.setItem(RECENT_PAGE_KEY, current);
   } catch {
     // The toolbar remains usable without a recent-page hint.
   }
@@ -202,15 +206,17 @@ export function GlobalContextStatusBar(props: {
 
   return (
     <footer
-      className="af-shared-toolbar relative z-[var(--af-layer-shell-chrome)] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)] px-2 py-1 text-xs sm:px-6 xl:px-8"
+      className="af-shared-toolbar relative z-[var(--af-layer-shell-chrome)] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)]/75 px-2 py-0.5 text-xs backdrop-blur-md sm:px-6 xl:px-8"
       data-layout-region="global-context-status-bar"
       data-global-ai-ui="true"
     >
-      <div className="grid h-8 min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto] items-center gap-2">
+      <div className="grid h-[26px] min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto] items-center gap-2">
         <div className="flex min-w-0 items-center gap-1.5" data-status-region="persistent">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
-            className="hidden h-7 min-w-0 shrink items-center gap-1.5 rounded-md px-1.5 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200 lg:inline-flex"
+            className="hidden !h-6 min-w-0 shrink items-center gap-1.5 rounded-md !px-1.5 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200 lg:inline-flex"
             onClick={(event) => {
               lastDetailsTriggerRef.current = event.currentTarget;
               setDetailsSide("left");
@@ -220,13 +226,15 @@ export function GlobalContextStatusBar(props: {
             aria-expanded={detailsOpen}
             aria-controls={detailsId}
           >
-            <Monitor size={13} aria-hidden="true" />
+            <Monitor size={12} aria-hidden="true" />
             <span className="max-w-36 truncate">本机 · {deviceIdentity?.label ?? "当前设备"}</span>
-          </button>
+          </Button>
           {otherDeviceCount > 0 ? (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
-              className={`hidden h-7 min-w-0 shrink items-center gap-1.5 rounded-md px-1.5 hover:bg-white/[0.06] lg:inline-flex ${activeOtherDeviceCount > 0 ? "text-amber-200" : "text-zinc-500"}`}
+              className={`hidden !h-6 min-w-0 shrink items-center gap-1.5 rounded-md !px-1.5 hover:bg-white/[0.06] lg:inline-flex ${activeOtherDeviceCount > 0 ? "text-amber-200" : "text-zinc-500"}`}
               onClick={(event) => {
                 lastDetailsTriggerRef.current = event.currentTarget;
                 setDetailsSide("left");
@@ -238,17 +246,17 @@ export function GlobalContextStatusBar(props: {
             >
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${activeOtherDeviceCount > 0 ? "bg-amber-300" : "bg-zinc-600"}`} aria-hidden="true" />
               <span>其他设备 {otherDeviceCount}</span>
-            </button>
+            </Button>
           ) : null}
           {previousPage && previousPage.href !== currentHref ? (
             <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面" aria-label={`返回刚才的页面：${previousPage.label}`}>
-              <ArrowLeft size={13} aria-hidden="true" />
+              <ArrowLeft size={12} aria-hidden="true" />
               <span className="hidden max-w-40 truncate min-[420px]:inline">刚才：{previousPage.label}</span>
             </Link>
           ) : null}
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-2 overflow-visible" data-status-region="work">
+        <div className="flex min-w-0 items-center justify-end gap-2 overflow-visible outline-none" data-status-region="work" data-window-focus-fallback="true" tabIndex={-1} aria-label="后台窗口">
           {closeoutStatusLabel ? (
             <span className="hidden min-w-0 shrink items-center gap-1.5 text-amber-200 sm:inline-flex" role="status">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" aria-hidden="true" />
@@ -260,9 +268,11 @@ export function GlobalContextStatusBar(props: {
 
         <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 text-zinc-500" data-status-region="system">
           {attentionLights.length > 0 ? (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
-              className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs hover:bg-white/[0.06] ${hasRedAttention ? "border-red-300/25 text-red-200" : "border-amber-300/20 text-amber-200"}`}
+              className={`inline-flex !h-6 shrink-0 items-center gap-1 rounded-md border !px-1.5 text-xs hover:bg-white/[0.06] ${hasRedAttention ? "border-red-300/25 text-red-200" : "border-amber-300/20 text-amber-200"}`}
               onClick={(event) => {
                 lastDetailsTriggerRef.current = event.currentTarget;
                 setDetailsSide("right");
@@ -272,13 +282,15 @@ export function GlobalContextStatusBar(props: {
               aria-expanded={detailsOpen}
               aria-controls={detailsId}
             >
-              <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
+              <AlertTriangle size={12} className="shrink-0" aria-hidden="true" />
               <span className="hidden min-[420px]:inline">{attentionLights.length}</span>
-            </button>
+            </Button>
           ) : null}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
-            className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-1.5 hover:bg-white/[0.06] ${props.syncState === "current" ? "text-zinc-500 hover:text-zinc-200" : "text-amber-200"}`}
+            className={`inline-flex !h-6 shrink-0 items-center gap-1.5 rounded-md !px-1.5 hover:bg-white/[0.06] ${props.syncState === "current" ? "text-zinc-500 hover:text-zinc-200" : "text-amber-200"}`}
             onClick={(event) => {
               lastDetailsTriggerRef.current = event.currentTarget;
               setDetailsSide("right");
@@ -288,11 +300,11 @@ export function GlobalContextStatusBar(props: {
             aria-expanded={detailsOpen}
             aria-controls={detailsId}
           >
-            {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
+            {props.syncState === "current" ? <Wifi size={12} aria-hidden="true" /> : <CloudOff size={12} aria-hidden="true" />}
             <span className="hidden min-[360px]:inline">{syncLabel}</span>
-          </button>
+          </Button>
           <span className="hidden shrink-0 items-center gap-1 text-zinc-600 xl:inline-flex">
-            <Clock3 size={13} aria-hidden="true" />
+            <Clock3 size={12} aria-hidden="true" />
             <LiveMillisecondClock initialTime={props.serverTime} className="inline-block w-[12ch] font-mono tabular-nums" />
           </span>
         </div>
@@ -301,9 +313,9 @@ export function GlobalContextStatusBar(props: {
         <div ref={detailsRef} id={detailsId} className={`absolute bottom-[calc(100%+0.5rem)] z-[var(--af-layer-shell-popover)] w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-white/15 bg-[#101419] p-4 text-sm shadow-2xl ${detailsSide === "left" ? "left-4" : "right-4"}`} role="dialog" aria-modal="false" aria-labelledby={`${detailsId}-title`}>
           <div className="flex items-center gap-3">
             <h2 id={`${detailsId}-title`} className="min-w-0 flex-1 font-medium text-zinc-100">设备与系统状态</h2>
-            <button type="button" className="inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200" onClick={() => { setDetailsOpen(false); lastDetailsTriggerRef.current?.focus({ preventScroll: true }); }} aria-label="关闭系统状态详情">
+            <IconButton label="关闭系统状态详情" type="button" size="sm" className="inline-flex !size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200" onClick={() => { setDetailsOpen(false); lastDetailsTriggerRef.current?.focus({ preventScroll: true }); }}>
               <X size={15} aria-hidden="true" />
-            </button>
+            </IconButton>
           </div>
           <div className="mt-3 space-y-3">
             {attentionLights.map((light) => (
@@ -324,7 +336,7 @@ export function GlobalContextStatusBar(props: {
             >
               <label htmlFor={`${detailsId}-device-label`} className="text-xs text-zinc-500">本机名称</label>
               <div className="mt-1.5 flex min-w-0 gap-2">
-                <input
+                <Input
                   id={`${detailsId}-device-label`}
                   value={deviceLabelDraft}
                   onChange={(event) => setDeviceLabelDraft(event.target.value)}
@@ -332,16 +344,18 @@ export function GlobalContextStatusBar(props: {
                   className="h-9 min-w-0 flex-1 rounded-md border border-white/10 bg-black/20 px-3 text-sm text-zinc-100 outline-none focus:border-teal-300/60"
                   placeholder={deviceIdentity?.detectedLabel ?? "当前设备"}
                 />
-                <button type="submit" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-teal-300 px-3 text-xs font-medium text-slate-950 hover:bg-teal-200">
+                <Button type="submit" variant="primary" size="sm" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-teal-300 px-3 text-xs font-medium text-slate-950 hover:bg-teal-200">
                   <Save size={13} aria-hidden="true" />保存
-                </button>
+                </Button>
               </div>
               <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-xs text-zinc-600">
                 <span className="truncate">自动识别：{deviceIdentity?.detectedLabel ?? "当前设备"}</span>
                 {deviceIdentity && deviceIdentity.label !== deviceIdentity.detectedLabel ? (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     type="button"
-                    className="inline-flex shrink-0 items-center gap-1 text-zinc-500 hover:text-zinc-200"
+                    className="inline-flex !h-auto shrink-0 items-center gap-1 !border-0 !p-0 text-zinc-500 hover:text-zinc-200"
                     onClick={() => {
                       const identity = setClientDeviceLabel("");
                       setDeviceIdentity(identity);
@@ -349,7 +363,7 @@ export function GlobalContextStatusBar(props: {
                     }}
                   >
                     <RotateCcw size={12} aria-hidden="true" />使用自动名称
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             </form>
@@ -414,19 +428,10 @@ const LiveMillisecondClock = memo(function LiveMillisecondClock(props: {
   );
 });
 
-const clockTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
-  timeZone: "Asia/Shanghai",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  fractionalSecondDigits: 3,
-  hourCycle: "h23",
-});
-
 function formatClockTime(value: string | Date): string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "";
-  return clockTimeFormatter.format(parsed);
+  return formatClockTimeMillis(parsed);
 }
 
 function presenceTextForPresence(presence: StudySessionDevicePresenceDto, now: Date): string {

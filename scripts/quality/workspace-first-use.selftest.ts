@@ -4,7 +4,7 @@ import {
   canUseTakeoverPreview,
   nextAvailableGeneratedKey,
   workspaceSetupErrorMessage,
-} from "../../apps/web/lib/study/workspace-first-use";
+} from "../../apps/web/lib/workspace/first-use";
 
 const defaults = buildFirstUseSubjects({
   subjectKey: "advanced-math",

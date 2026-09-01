@@ -1,30 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  buildForegroundNotificationPayload,
-  sanitizeForegroundNotificationRoute,
-  selectMobileTopLight,
-  selectForegroundNotifications,
-} from "@areaforge/core";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useState, useCallback, useMemo } from "react";
 import { GlobalRecoveryHelp } from "@/components/global-recovery-help";
 import { GlobalToolLayer, useGlobalTools } from "@/components/global-tool-system";
-import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import {
-  subscribeQuickReviewActivity,
-  type QuickReviewActivityClaim,
-} from "@/lib/client/quick-review-activity";
-import {
-  isLocalFocusSessionId,
-  readFocusOfflineSnapshot,
-  subscribeFocusOfflineSync,
-  syncFocusOfflineQueue,
-} from "@/lib/client/focus-offline-store";
-import { getClientDeviceHeaders } from "@/lib/client/device-identity";
 import { GlobalSessionCloseout } from "@/components/global-session-closeout";
 import { WindowDiscardDialog, WindowLayer } from "@/components/window-layer";
+import { useForegroundNotifications } from "@/components/use-foreground-notifications";
+import { useShellActivityStatus } from "@/components/use-shell-activity-status";
+import { useShellLayoutPreferences } from "@/components/use-shell-layout-preferences";
 import { useShellRecovery } from "@/components/use-shell-recovery";
 import { WorkbenchBreadcrumbActions } from "@/components/workbench-breadcrumb-actions";
 import { GlobalContextStatusBar } from "@/components/shared-study-toolbar";
@@ -33,18 +18,14 @@ import { PageToolbar } from "@/components/page-toolbar";
 import { PrimaryNavigation } from "@/components/primary-navigation";
 import { SecondaryNavigation } from "@/components/secondary-navigation";
 import { SharedMobileNavigation } from "@/components/shared-mobile-navigation";
+import { TabletNavigationDrawer } from "@/components/tablet-navigation-drawer";
 import { Modal } from "@/components/ui/overlays";
-import { subscribeActivityStatus } from "@/lib/client/activity-status";
 import { APP_NAVIGATION_ITEMS, getCanonicalRoute } from "@/lib/navigation/app-navigation";
-import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
-import {
-  isRenderableFocusSession,
-  projectLocalFocusStatus,
-  projectLocalQuickReviewStatus,
-  readRenderableOfflineFocusSession,
-  toShellSyncState,
-  type ShellSyncState,
-} from "@/lib/study/app-shell-projection";
+import { postStudySessionCommand } from "@/lib/api/session";
+import { getClientDeviceHeaders } from "@/lib/client/device-identity";
+import { publishActivityStatus } from "@/lib/client/activity-status";
+import { syncFocusOfflineQueue } from "@/lib/client/focus-offline-store";
+import type { AppShellStatusDto } from "@/lib/contracts";
 
 const toneClass: Record<string, string> = {
   gray: "border-zinc-600 text-zinc-400",
@@ -62,17 +43,27 @@ export function AppShell(props: {
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const [status, setStatus] = useState(props.initialStatus);
-  const [syncState, setSyncState] = useState<ShellSyncState>("current");
   const [lightOpen, setLightOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [secondaryCollapsed, setSecondaryCollapsed] = useState(false);
-  const [quickReviewClaim, setQuickReviewClaim] = useState<QuickReviewActivityClaim | null>(null);
-  const [offlineFocusSession, setOfflineFocusSession] = useState<AppShellStatusDto["activeSession"]>(null);
+  const [tabletNavigationOpen, setTabletNavigationOpen] = useState(false);
   const { openTool } = useGlobalTools();
-  const serverActiveSessionRef = useRef<AppShellStatusDto["activeSession"]>(props.initialStatus.activeSession);
-  const statusRefreshRevisionRef = useRef(0);
+  const {
+    status,
+    syncState,
+    quickReviewClaim,
+    offlineFocusSession,
+    currentActivitySession,
+    displayStatus,
+  } = useShellActivityStatus({
+    initialStatus: props.initialStatus,
+    pathname,
+    userId: props.userId,
+  });
+  const {
+    sidebarCollapsed,
+    secondaryCollapsed,
+    toggleSidebar,
+    toggleSecondary,
+  } = useShellLayoutPreferences();
   const immersive = pathname.endsWith("/run");
   const fullCanvasPage = immersive || pathname === "/focus" || pathname === "/knowledge/canvas" || pathname.endsWith("/preview");
   const suppressDistractions = immersive || pathname === "/focus";
@@ -92,263 +83,50 @@ export function AppShell(props: {
   // the review task remains focused without losing global recovery and window
   // controls.
   const showSecondaryNavigation = !immersive && secondaryNavigationItems.length > 0;
-  const displaySession = status.activeSession ?? offlineFocusSession;
-  const displayStatus = projectLocalFocusStatus(projectLocalQuickReviewStatus(status, quickReviewClaim), displaySession);
-  const activeSessionId = status.activeSession?.id;
-  const activeSessionStatus = status.activeSession?.status;
-  const currentActivitySession = status.activeSession ?? offlineFocusSession;
-
-  const refreshShellStatus = useCallback(async () => {
-    const revision = ++statusRefreshRevisionRef.current;
-    try {
-      const response = await fetch("/api/app-shell/status", { headers: getClientDeviceHeaders(), cache: "no-store" });
-      if (response.status === 401) {
-        redirectToLoginWithCurrentLocation();
-        return;
-      }
-      if (!response.ok) throw new Error("APP_SHELL_STATUS_UNAVAILABLE");
-      const body = (await response.json()) as { status: AppShellStatusDto };
-      if (revision !== statusRefreshRevisionRef.current) return;
-      serverActiveSessionRef.current = body.status.activeSession;
-      setStatus(body.status);
-      if (body.status.activeSession) {
-        // 服务端活动是权威状态，不能被过期的本地展示快照覆盖。
-        setOfflineFocusSession(null);
-      }
-      setSyncState((current) => current === "pending" || current === "blocked" || current === "deferred" ? current : "current");
-    } catch {
-      if (revision === statusRefreshRevisionRef.current) {
-        setSyncState(navigator.onLine ? "unavailable" : "offline");
-      }
-    }
-  }, []);
-
-  useEffect(() => subscribeQuickReviewActivity(props.userId, setQuickReviewClaim), [props.userId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const refreshOfflineSession = async () => {
-      const snapshot = await readFocusOfflineSnapshot(props.userId);
-      const session = snapshot?.session && isRenderableFocusSession(snapshot.session)
-        && (isLocalFocusSessionId(snapshot.session.id) || !navigator.onLine)
-        ? snapshot.session
-        : null;
-      if (cancelled) return;
-      // A server result wins over an earlier local read. This prevents a slow
-      // IndexedDB callback from resurrecting an activity that the server has
-      // already replaced or completed.
-      if (serverActiveSessionRef.current !== null) {
-        setOfflineFocusSession(null);
-        return;
-      }
-      setOfflineFocusSession(session);
-      if (snapshot && snapshot.syncState !== "current") setSyncState(toShellSyncState(snapshot.syncState));
-    };
-    void refreshOfflineSession();
-    const onConnectivityChange = () => void refreshOfflineSession();
-    window.addEventListener("online", onConnectivityChange);
-    window.addEventListener("offline", onConnectivityChange);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("online", onConnectivityChange);
-      window.removeEventListener("offline", onConnectivityChange);
-    };
-  }, [props.userId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const sync = () => {
-      void syncFocusOfflineQueue(props.userId).then((result) => {
-        if (!cancelled) setSyncState(toShellSyncState(result.state));
-      }).catch(() => {
-        if (!cancelled) setSyncState(navigator.onLine ? "unavailable" : "offline");
-      });
-    };
-    sync();
-    window.addEventListener("online", sync);
-    const interval = window.setInterval(sync, 15_000);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("online", sync);
-      window.clearInterval(interval);
-    };
-  }, [props.userId]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeFocusOfflineSync((event: Event) => {
-      const detail = (event as CustomEvent<{ userId?: string; state?: string; session?: AppShellStatusDto["activeSession"] | null }>).detail;
-      if (detail?.userId !== props.userId || detail.session === undefined) return;
-      if (detail.state) setSyncState(toShellSyncState(detail.state));
-      const session = detail.session;
-      if (session && isLocalFocusSessionId(session.id)) {
-        if (serverActiveSessionRef.current !== null) return;
-        setOfflineFocusSession(isRenderableFocusSession(session) ? session : null);
-        return;
-      }
-      if (!session) {
-        if (serverActiveSessionRef.current !== null) return;
-        void readRenderableOfflineFocusSession(props.userId).then((localSession) => {
-          if (serverActiveSessionRef.current === null) setOfflineFocusSession(localSession);
-        });
-        return;
-      }
-      serverActiveSessionRef.current = isRenderableFocusSession(session) ? session : null;
-      setOfflineFocusSession(null);
-      setStatus((current) => ({
-        ...current,
-        activeSession: isRenderableFocusSession(session)
-          ? session
-          : null,
-      }));
-    });
-    return unsubscribe;
-  }, [props.userId]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeActivityStatus((event: Event) => {
-      const detail = (event as CustomEvent<{ userId?: string; session?: AppShellStatusDto["activeSession"] | null }>).detail;
-      if (detail?.userId !== props.userId || detail.session === undefined) return;
-      const session = detail.session && isRenderableFocusSession(detail.session) ? detail.session : null;
-      serverActiveSessionRef.current = session;
-      setStatus((current) => ({ ...current, activeSession: session }));
-      if (session) {
-        setOfflineFocusSession(null);
-      } else {
-        // An activity completion event must clear the derived activity light as
-        // well as the session slot; the next server projection supplies any
-        // just-completed or recovery state that may apply.
-        setStatus((current) => ({
-          ...current,
-          activeSession: null,
-          lights: current.lights.map((light) => light.kind === "activity"
-            ? { ...light, tone: "gray", summary: "无活动", action: null }
-            : light),
-          mobileTop: selectMobileTopLight(current.lights.map((light) => light.kind === "activity"
-            ? { ...light, tone: "gray", summary: "无活动", action: null }
-            : light)),
-        }));
-        setOfflineFocusSession(null);
-      }
-      void refreshShellStatus();
-    });
-    return unsubscribe;
-  }, [props.userId, refreshShellStatus]);
-
-  useEffect(() => {
-    if (!activeSessionId || (activeSessionStatus !== "running" && activeSessionStatus !== "paused" && activeSessionStatus !== "closing")) return;
-    let cancelled = false;
-    const heartbeat = async () => {
-      try {
-        const response = await fetch(`/api/study-sessions/${encodeURIComponent(activeSessionId)}/heartbeat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
-          body: "{}",
-          cache: "no-store",
-        });
-        const body = await response.json().catch(() => null) as { session?: AppShellStatusDto["activeSession"] } | null;
-        if (!cancelled && response.ok && body && body.session !== undefined) {
-          serverActiveSessionRef.current = body.session ?? null;
-          setStatus((current) => ({ ...current, activeSession: body.session ?? null }));
-        }
-      } catch {
-        // The shell's status refresh remains the fallback when the heartbeat is unavailable.
-      }
-    };
-    void heartbeat();
-    const interval = window.setInterval(heartbeat, 15_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [activeSessionId, activeSessionStatus]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setSidebarCollapsed(readLocalStorage("af.sidebar.collapsed") === "1");
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setSecondaryCollapsed(readLocalStorage("af.sidebar.secondary.collapsed") === "1");
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  function toggleSidebar() {
-    setSidebarCollapsed((current) => {
-      const next = !current;
-      writeLocalStorage("af.sidebar.collapsed", next ? "1" : "0");
-      return next;
-    });
-  }
-
-  function toggleSecondary() {
-    setSecondaryCollapsed((current) => {
-      const next = !current;
-      writeLocalStorage("af.sidebar.secondary.collapsed", next ? "1" : "0");
-      return next;
-    });
-  }
+  useForegroundNotifications({ status, suppressDistractions });
 
   function openStatusLight() {
     setLightOpen((current) => !current);
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    const refresh = () => {
-      if (!cancelled) void refreshShellStatus();
-    };
-    const onOnline = () => refresh();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-    refresh();
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") void refresh();
-    }, 60_000);
-    window.addEventListener("online", onOnline);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      window.removeEventListener("online", onOnline);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [pathname, refreshShellStatus]);
+  const handleResumeSession = useCallback(async (sessionId: string) => {
+    try {
+      const response = await postStudySessionCommand(sessionId, "resume", {}, getClientDeviceHeaders());
+      if (response.ok && response.body?.session) {
+        publishActivityStatus(props.userId, response.body.session);
+      }
+    } catch (err) {
+      console.error("Failed to resume session from AppShell", err);
+    }
+  }, [props.userId]);
 
-  useEffect(() => {
-    if (suppressDistractions || document.visibilityState !== "visible" || !("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-    const shanghaiNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
-    const categories = selectForegroundNotifications({
-      hour: shanghaiNow.getUTCHours(),
-      preference: status.notificationPreference,
-      candidates: status.notificationCandidates,
-    });
-    const date = shanghaiNow.toISOString().slice(0, 10);
-    const category = categories.find((candidate) => {
-      const key = `af.notification.sent.${status.workspaceId ?? "setup"}.${date}.${candidate}`;
-      return readLocalStorage(key) !== "1";
-    });
-    if (!category) return;
-    const dedupeKey = `af.notification.sent.${status.workspaceId ?? "setup"}.${date}.${category}`;
-    const payload = buildForegroundNotificationPayload(category);
-    const showSpecificTitle = readLocalStorage("af.notification.showSpecificTitle") === "1";
-    const notification = new Notification(showSpecificTitle ? payload.title : "AreaForge 提醒", {
-      body: payload.body,
-      tag: payload.tag,
-      data: payload.data,
-    });
-    writeLocalStorage(dedupeKey, "1");
-    notification.onclick = () => {
-      window.focus();
-      router.push(sanitizeForegroundNotificationRoute(payload.data.route));
-      notification.close();
+  const handleRetrySync = useCallback(() => {
+    void syncFocusOfflineQueue(props.userId);
+  }, [props.userId]);
+
+  const recoveryProps = useMemo(() => {
+    const isRecoveryCandidate = status.motivationReminderCandidate?.trigger === "RECOVERY";
+    const hasActiveRecovery = isRecoveryCandidate || recovery.hasAutomaticReminder;
+    return {
+      active: hasActiveRecovery,
+      stage: 1,
+      targetMinutes: 30,
+      onOpen: () => void recovery.open(),
     };
-  }, [suppressDistractions, router, status]);
+  }, [status.motivationReminderCandidate, recovery]);
+
+  const eveningReviewProps = useMemo(() => {
+    const todayClosureLight = displayStatus.lights.find((light) => light.kind === "todayClosure");
+    const isDue = status.notificationCandidates?.eveningReview || (todayClosureLight?.tone === "amber");
+    const minimumActionDone = todayClosureLight ? !todayClosureLight.summary.includes("最低行动尚未完成") : true;
+    const dailyReviewDone = todayClosureLight ? !todayClosureLight.summary.includes("晚间复盘尚未完成") : true;
+    return {
+      due: Boolean(isDue),
+      minimumActionDone,
+      dailyReviewDone,
+      reviewHref: todayClosureLight?.action?.href ?? "/roadmap/reviews/daily",
+    };
+  }, [displayStatus.lights, status.notificationCandidates]);
 
   return (
     <div className="af-app-shell h-dvh overflow-hidden bg-[var(--af-canvas)] text-zinc-100" data-layout-region="app-shell">
@@ -370,13 +148,26 @@ export function AppShell(props: {
             activeSession={status.activeSession}
             offlineSession={offlineFocusSession}
             quickReviewClaim={quickReviewClaim}
+            syncState={syncState}
+            onRetrySync={handleRetrySync}
+            recovery={recoveryProps}
+            eveningReview={eveningReviewProps}
+            onResumeSession={handleResumeSession}
             onOpenStatus={openStatusLight}
             statusOpen={lightOpen}
             onOpenMotivationHelp={() => void recovery.open()}
             hasMotivationReminder={recovery.hasAutomaticReminder}
+            onOpenNavigation={() => setTabletNavigationOpen(true)}
+          />
+          <TabletNavigationDrawer
+            open={tabletNavigationOpen}
+            pathname={pathname}
+            email={props.email}
+            userId={props.userId}
+            onClose={() => setTabletNavigationOpen(false)}
           />
           {showSecondaryNavigation && activeNavigationItem ? (
-            <nav className="shrink-0 overflow-x-auto px-4 pt-3 pb-1 sm:px-6 xl:px-8 lg:hidden" aria-label={`${activeNavigationItem.label}子导航`} data-layout-region="secondary-mobile-navigation">
+            <nav className="af-secondary-compact-navigation shrink-0 overflow-x-auto px-4 pt-3 pb-1 sm:px-6 xl:px-8" tabIndex={0} aria-label={`${activeNavigationItem.label}子导航`} data-layout-region="secondary-mobile-navigation">
               <div className="flex min-w-max gap-2 whitespace-nowrap">
                 {secondaryNavigationItems.map((child) => (
                   <Link
@@ -403,7 +194,7 @@ export function AppShell(props: {
             <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col">
               <main
                 id="main-content"
-                className={`af-shell-main min-h-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 xl:py-6"}`}
+                className={`af-shell-main min-h-0 min-w-0 flex-1 ${fullCanvasPage ? "overflow-y-auto" : "overflow-y-auto px-3 py-2 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-2.5 xl:px-5"}`}
                 data-ai-page-context="true"
                 data-layout-region="page-content"
                 data-immersive-content={immersive ? "true" : undefined}
@@ -455,20 +246,4 @@ export function AppShell(props: {
       </Modal>
     </div>
   );
-}
-
-function readLocalStorage(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeLocalStorage(key: string, value: string): void {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Optional shell preferences must not block the main workflow.
-  }
 }

@@ -1,11 +1,13 @@
 "use client";
 
+import { IconButton } from "@/components/ui/button";
+import { useFocusScope, usePortalReady } from "@/components/ui/focus-scope";
+import { OverlayBackdrop } from "@/components/ui/overlays";
 import { Maximize2, X } from "lucide-react";
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useId,
   useMemo,
   useRef,
@@ -38,15 +40,6 @@ interface GlobalToolSystemValue {
 }
 
 const GlobalToolSystemContext = createContext<GlobalToolSystemValue | null>(null);
-
-const focusableSelector = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  '[tabindex]:not([tabindex="-1"])',
-].join(",");
 
 const sizeClass: Record<GlobalToolSize, string> = {
   compact: "md:w-[20rem]",
@@ -134,34 +127,18 @@ export function GlobalToolLayer() {
   const titleId = useId();
   const panelRef = useRef<HTMLElement>(null);
   const definition = activeKey ? getToolDefinition(activeKey) : null;
+  const portalReady = usePortalReady();
+  const active = definition !== null && portalReady;
 
-  useEffect(() => {
-    if (!definition) return;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const focusInitial = () => (panel.querySelector<HTMLElement>(focusableSelector) ?? panel).focus({ preventScroll: true });
-    const timer = window.setTimeout(focusInitial, 0);
-    const onFocusIn = (event: FocusEvent) => {
-      if (!panel.contains(event.target as Node)) focusInitial();
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeTool();
-        return;
-      }
-      if (event.key === "Tab") trapFocus(event, panel);
-    };
-    document.addEventListener("focusin", onFocusIn);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener("focusin", onFocusIn);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [activeKey, closeTool, definition]);
+  useFocusScope({
+    active,
+    panelRef,
+    allowEscape: true,
+    onEscape: closeTool,
+    restoreFocus: false,
+  });
 
-  if (!definition || typeof document === "undefined") return null;
+  if (!active || !definition) return null;
   const toolSize = definition.size ?? "medium";
 
   return createPortal(
@@ -171,8 +148,7 @@ export function GlobalToolLayer() {
       data-layout-region="global-tool-layer"
       data-global-ai-ui="true"
     >
-      <button
-        type="button"
+      <OverlayBackdrop
         className="absolute inset-0 cursor-default"
         tabIndex={-1}
         aria-hidden="true"
@@ -184,35 +160,33 @@ export function GlobalToolLayer() {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`absolute inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] flex max-h-[min(72dvh,44rem)] min-h-0 flex-col overflow-hidden rounded-lg border border-white/15 bg-[#101419] shadow-2xl shadow-black/60 md:inset-x-auto md:bottom-auto md:right-6 md:top-[4.75rem] md:max-h-[min(76dvh,48rem)] ${sizeClass[toolSize]}`}
+        className={`af-global-tool-panel absolute flex min-h-0 flex-col overflow-hidden rounded-lg border border-white/15 bg-[#101419] shadow-2xl shadow-black/60 ${sizeClass[toolSize]}`}
       >
         <header className="flex h-11 shrink-0 items-center gap-2 border-b border-white/10 bg-[#0d1117] px-3">
           <h2 id={titleId} className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-100">{definition.title}</h2>
           {definition.onExpand ? (
-            <button
-              type="button"
-              className="inline-flex size-8 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white"
+            <IconButton
+              label={`将${definition.title}展开为工作窗口`}
+              className="!size-8 text-zinc-400 hover:bg-white/10 hover:text-white"
               onClick={() => {
                 closeTool(false);
                 definition.onExpand?.();
               }}
-              aria-label={`将${definition.title}展开为工作窗口`}
               title="展开为工作窗口"
             >
               <Maximize2 size={15} aria-hidden="true" />
-            </button>
+            </IconButton>
           ) : null}
-          <button
-            type="button"
-            className="inline-flex size-8 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white"
+          <IconButton
+            label={`关闭${definition.title}`}
+            className="!size-8 text-zinc-400 hover:bg-white/10 hover:text-white"
             onClick={() => closeTool()}
-            aria-label={`关闭${definition.title}`}
             title="关闭"
           >
             <X size={16} aria-hidden="true" />
-          </button>
+          </IconButton>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4">{definition.render()}</div>
+        <div className="af-responsive-surface min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4">{definition.render()}</div>
       </section>
     </div>,
     document.body,
@@ -223,21 +197,4 @@ export function useGlobalTools(): GlobalToolSystemValue {
   const value = useContext(GlobalToolSystemContext);
   if (!value) throw new Error("useGlobalTools must be used inside GlobalToolProvider");
   return value;
-}
-
-function trapFocus(event: KeyboardEvent, panel: HTMLElement): void {
-  const focusable = Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector));
-  if (focusable.length === 0) {
-    event.preventDefault();
-    panel.focus({ preventScroll: true });
-    return;
-  }
-  const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
-  if (event.shiftKey && currentIndex <= 0) {
-    event.preventDefault();
-    focusable[focusable.length - 1]?.focus({ preventScroll: true });
-  } else if (!event.shiftKey && currentIndex === focusable.length - 1) {
-    event.preventDefault();
-    focusable[0]?.focus({ preventScroll: true });
-  }
 }

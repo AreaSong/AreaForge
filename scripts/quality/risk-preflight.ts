@@ -14,6 +14,32 @@ interface CheckResult {
 const root = process.cwd();
 const checks: CheckResult[] = [];
 
+const actionCenterTodaySurfacePaths = [
+  "apps/web/components/action-center-today.tsx",
+  "apps/web/components/action-center-today-controller.ts",
+  "apps/web/components/action-center-today-support.tsx",
+  "apps/web/components/action-center-today-view.tsx",
+] as const;
+
+const syllabusManagerSurfacePaths = [
+  "apps/web/components/syllabus-manager.tsx",
+  "apps/web/components/syllabus-manager-command-runtime.ts",
+  "apps/web/components/syllabus-manager-controller.ts",
+  "apps/web/components/syllabus-manager-create-controller.ts",
+  "apps/web/components/syllabus-manager-create-drawer.tsx",
+  "apps/web/components/syllabus-manager-filter-controls.tsx",
+  "apps/web/components/syllabus-manager-history.tsx",
+  "apps/web/components/syllabus-manager-labels.tsx",
+  "apps/web/components/syllabus-manager-node-controller.ts",
+  "apps/web/components/syllabus-manager-support.ts",
+  "apps/web/components/syllabus-manager-tree-forms.tsx",
+  "apps/web/components/syllabus-manager-tree-node-hooks.ts",
+  "apps/web/components/syllabus-manager-tree-node.tsx",
+  "apps/web/components/syllabus-manager-types.ts",
+  "apps/web/components/syllabus-manager-view.tsx",
+  "apps/web/components/syllabus-manager-workbench-controller.ts",
+] as const;
+
 const packageDocs = [
   "docs/development/attachment-upload-access-design.md",
   "docs/development/structured-state-migration-design.md",
@@ -440,7 +466,10 @@ function checkSecondStageStillBeforePackageD(): void {
   const simulationService = readIfExists("apps/web/lib/study/simulation-service.ts");
   const stageService = readIfExists("apps/web/lib/study/stage-service.ts");
   const simulationPage = readIfExists("apps/web/app/(app)/test/simulations/page.tsx");
-  const reportsService = readIfExists("apps/web/lib/study/reports-service.ts");
+  const reportsService = [
+    readIfExists("apps/web/lib/study/reports-service.ts"),
+    readIfExists("apps/web/lib/contracts/reports.ts"),
+  ].join("\n");
   const reportsPage = readIfExists("apps/web/lib/routes/review-reports-page.tsx");
   const taskPanel = readIfExists("apps/web/components/task-panel.tsx");
   const taskDebtDocs = readIfExists("docs/modules/task-debt.md");
@@ -895,10 +924,13 @@ function checkPackageDCompletedBatchEvidence(
     const riskRoute = readIfExists(riskRoutePath);
     const syllabusSurface = readIfExists("apps/web/app/(app)/knowledge/syllabi/page.tsx")
       + readIfExists("apps/web/components/syllabus-panel.tsx")
-      + readIfExists("apps/web/components/syllabus-manager.tsx");
+      + readFiles(syllabusManagerSurfacePaths);
     const notesSurface = readIfExists("apps/web/app/(app)/knowledge/cards/page.tsx")
       + readIfExists("apps/web/components/notes-panel.tsx")
-      + readIfExists("apps/web/components/note-library.tsx");
+      + readFiles([
+        "apps/web/components/note-library.tsx",
+        "apps/web/components/note-library-view.tsx",
+      ]);
     const simulationSurface = readIfExists("apps/web/app/(app)/test/simulations/page.tsx");
     const riskRouteMethods = getExportedRouteMethods(riskRoute);
     const unexpectedRiskRouteMethods = riskRouteMethods.filter((method) => method !== "GET").map((method) => `${riskRoutePath}:${method}`);
@@ -1287,7 +1319,7 @@ function checkStructuredMigrationDesign(): void {
 function checkMasteryProofBasicImplementation(): void {
   const schema = readIfExists("apps/web/lib/study/schemas.ts");
   const route = readIfExists("apps/web/app/api/syllabus/nodes/[id]/route.ts");
-  const syllabusManager = readIfExists("apps/web/components/syllabus-manager.tsx");
+  const syllabusManager = readFiles(syllabusManagerSurfacePaths);
   const service = readIfExists("apps/web/lib/study/syllabus-service.ts");
   const coreTests = readIfExists("packages/core/src/index.test.ts");
   const masteryDoc = readIfExists("docs/modules/mastery-proof.md");
@@ -1337,7 +1369,7 @@ function checkMasteryProofBasicImplementation(): void {
     'status: "mastered"',
     "masteryLevel: targetMasteryLevel",
     "masteryConditions: selectedConditions",
-    'type="checkbox"',
+    "<Checkbox",
     "保存证明",
   ].filter((term) => !syllabusManager.includes(term));
   if (!hasMasteryProofSubmissionGuard(syllabusManager)) {
@@ -1815,13 +1847,20 @@ function checkPackageBBatchBoundaries(): void {
       || content.includes("RecoveryStateControls")
     );
   });
-  const recoveryService = readIfExists("apps/web/lib/study/service.ts");
-  const recoveryTypes = readIfExists("apps/web/lib/study/types.ts");
+  const recoveryService = [
+    readIfExists("apps/web/lib/study/recovery-state-service.ts"),
+    readIfExists("apps/web/lib/study/dashboard-query-service.ts"),
+  ].join("\n");
+  const recoveryTypes = [
+    readIfExists("apps/web/lib/contracts/recovery.ts"),
+    readIfExists("apps/web/lib/contracts/dashboard.ts"),
+    readIfExists("apps/web/lib/contracts/action-center.ts"),
+  ].join("\n");
   const recoverySchemas = readIfExists("apps/web/lib/study/schemas.ts");
   const dashboardRoute = readIfExists("apps/web/app/api/dashboard/today/route.ts");
   const homePage = readIfExists("apps/web/app/page.tsx");
   const todayPage = readIfExists("apps/web/app/(app)/today/page.tsx");
-  const actionCenterToday = readIfExists("apps/web/components/action-center-today.tsx");
+  const actionCenterToday = readFiles(actionCenterTodaySurfacePaths);
   const homeRedirectsToToday = homePage.includes('redirect("/today")');
   const batch3RuntimeSignals = [
     {
@@ -1909,9 +1948,10 @@ function checkPackageBBatchBoundaries(): void {
     ].some((token) => content.includes(token));
   });
   const syllabusService = readIfExists("apps/web/lib/study/syllabus-service.ts");
-  const syllabusTypes = readIfExists("apps/web/lib/study/types.ts");
+  const syllabusTypes = readIfExists("apps/web/lib/contracts/syllabus.ts");
   const syllabusSchemas = readIfExists("apps/web/lib/study/schemas.ts");
-  const syllabusManager = readIfExists("apps/web/components/syllabus-manager.tsx");
+  const syllabusManager = readFiles(syllabusManagerSurfacePaths);
+  const syllabusApi = readIfExists("apps/web/lib/api/syllabus.ts");
   const batch4RuntimeSignals = [
     {
       label: "Mastery additive migration",
@@ -1961,9 +2001,9 @@ function checkPackageBBatchBoundaries(): void {
     },
     {
       label: "syllabus UI persists mastery records",
-      ok: ["masteryEvidence", "masteryRetests", "/mastery-evidence", "/mastery-retests"].every((token) =>
+      ok: ["masteryEvidence", "masteryRetests", "addSyllabusMasteryEvidence", "addSyllabusMasteryRetest"].every((token) =>
         syllabusManager.includes(token),
-      ),
+      ) && ["/mastery-evidence", "/mastery-retests"].every((token) => syllabusApi.includes(token)),
     },
   ];
   const missingBatch4Signals = batch4RuntimeSignals.filter((signal) => !signal.ok).map((signal) => signal.label);
@@ -1998,15 +2038,23 @@ function checkPackageBBatchBoundaries(): void {
       "SimulationSubjectResultDto",
     ].some((token) => content.includes(token));
   });
-  const studyRuntimeTextForBatchB = listFiles("apps/web/lib/study")
-    .filter((file) => file.endsWith(".ts"))
-    .map((file) => readIfExists(file))
-    .join("\n");
+  const studyRuntimeTextForBatchB = [
+    ...listFiles("apps/web/lib/study")
+      .filter((file) => file.endsWith(".ts"))
+      .map((file) => readIfExists(file)),
+    readIfExists("apps/web/lib/contracts/simulation.ts"),
+  ].join("\n");
   const simulationService = readIfExists("apps/web/lib/study/simulation-service.ts");
-  const studyTypes = readIfExists("apps/web/lib/study/types.ts");
+  const studyTypes = readIfExists("apps/web/lib/contracts/simulation.ts");
   const studySchemas = readIfExists("apps/web/lib/study/schemas.ts");
-  const simulationWorkbench = readIfExists("apps/web/components/simulation-workbench.tsx");
+  const simulationWorkbench = readFiles([
+    "apps/web/components/simulation-workbench.tsx",
+    "apps/web/components/simulation-workbench-model.ts",
+    "apps/web/components/simulation-workbench-exam-sections.tsx",
+    "apps/web/components/simulation-workbench-stage-section.tsx",
+  ]);
   const simulationPage = readIfExists("apps/web/app/(app)/test/simulations/page.tsx");
+  const simulationApi = readIfExists("apps/web/lib/api/simulation.ts");
   const batch5RuntimeSignals = [
     {
       label: "SimulationExam additive migration",
@@ -2053,7 +2101,9 @@ function checkPackageBBatchBoundaries(): void {
     },
     {
       label: "simulation UI prefers structured exams while preserving page",
-      ok: `${simulationWorkbench}\n${simulationPage}`.includes("/api/simulation/exams"),
+      ok: simulationWorkbench.includes("createSimulationExam")
+        && simulationWorkbench.includes("SimulationExamDto")
+        && simulationApi.includes("/api/simulation/exams"),
     },
   ];
   const missingBatch5Signals = batch5RuntimeSignals.filter((signal) => !signal.ok).map((signal) => signal.label);
@@ -2290,15 +2340,13 @@ function checkAttachmentStillBeforePackageA(): void {
         : `found premature attachment upload UI/API surface: ${prematureUploadUiFiles.join(", ")}`,
   });
 
-  const dtoText = [
-    readIfExists("apps/web/lib/study/types.ts"),
-    readIfExists("apps/web/lib/study/notes-service.ts"),
-  ].join("\n");
-  const dtoLeaksUri = dtoText.includes("uri: string;") || dtoText.includes("uri: attachment.uri");
-  const dtoHasDownloadPath = dtoText.includes("downloadApiPath");
+  const dtoText = readIfExists("apps/web/lib/contracts/note.ts");
+  const attachmentDtoBlock = dtoText.match(/export interface AttachmentDto \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const dtoLeaksUri = /\buri\s*\??\s*:/.test(attachmentDtoBlock);
+  const dtoHasDownloadPath = attachmentDtoBlock.includes("downloadApiPath");
   checks.push({
     name: "Package A attachment DTO boundary",
-    ok: !dtoLeaksUri && dtoHasDownloadPath,
+    ok: attachmentDtoBlock.length > 0 && !dtoLeaksUri && dtoHasDownloadPath,
     detail: !dtoLeaksUri && dtoHasDownloadPath
       ? "attachment DTO exposes a future API path and does not leak internal uri metadata"
       : "attachment DTO should expose downloadApiPath and omit internal uri metadata",
@@ -2309,7 +2357,12 @@ function hasPackageAImplementationEvidence(): boolean {
   const uploadRoute = readIfExists("apps/web/app/api/notes/[noteId]/attachments/route.ts");
   const downloadRoute = readIfExists("apps/web/app/api/attachments/[id]/route.ts");
   const service = readIfExists("apps/web/lib/study/attachments-service.ts");
-  const ui = readIfExists("apps/web/components/note-library.tsx");
+  const ui = readFiles([
+    "apps/web/components/note-card.tsx",
+    "apps/web/components/note-library.tsx",
+    "apps/web/components/note-library-item.tsx",
+  ]);
+  const uploadAdapter = readIfExists("apps/web/lib/api/uploads.ts");
 
   // OPS-007 确认后上传改为有界流式 multipart + PENDING intent + staging/rename + READY CAS。
   return [
@@ -2332,9 +2385,9 @@ function hasPackageAImplementationEvidence(): boolean {
       "failIntentWithCompensation",
       "O_NOFOLLOW",
     ].every((token) => service.includes(token)) &&
-    ["type=\"file\"", "new FormData", "downloadApiPath", "/api/notes/"].every((token) =>
-      ui.includes(token),
-    );
+    ["type=\"file\"", "new FormData", "downloadApiPath"].every((token) => ui.includes(token)) &&
+    ui.includes("uploadNoteAttachment") &&
+    uploadAdapter.includes("/api/notes/");
 }
 
 function checkAiStillBeforePackageC(): void {
@@ -2649,7 +2702,11 @@ function checkV11AiProviderPreferenceBoundary(): void {
   const preferenceRoute = readIfExists("apps/web/app/api/ai/preferences/route.ts");
   const stageAiCompatibilityRoute = readIfExists("apps/web/app/api/stage-adjustment-drafts/ai/route.ts");
   const settingsPage = readIfExists("apps/web/app/(app)/settings/ai/page.tsx");
-  const settingsClient = readIfExists("apps/web/components/ai-settings-client.tsx");
+  const settingsClient = readFiles([
+    "apps/web/components/ai-settings-client.tsx",
+    "apps/web/components/ai-settings-sections.tsx",
+    "apps/web/components/ai-settings-modals.tsx",
+  ]);
   const routes = [
     "apps/web/app/api/ai/discipline/route.ts",
     "apps/web/app/api/ai/daily-review/route.ts",
@@ -2775,6 +2832,10 @@ function escapeRegExp(value: string): string {
 function readIfExists(file: string): string {
   const filePath = resolve(file);
   return existsSync(filePath) ? readFileSync(filePath, "utf8") : "";
+}
+
+function readFiles(files: readonly string[]): string {
+  return files.map((file) => readIfExists(file)).join("\n");
 }
 
 function fileExists(file: string): boolean {

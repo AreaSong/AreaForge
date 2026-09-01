@@ -14,7 +14,7 @@ export default async function SettingsSystemPage() {
   const updateStatus = await getUpdateCenterStatus();
 
   return (
-    <PageFrame variant="dashboard-wide">
+    <PageFrame variant="dashboard-wide" className="space-y-6">
       <PageHeader
         eyebrow="设置 / 系统"
         title="系统设置"

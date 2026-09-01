@@ -4,7 +4,6 @@ import {
   defaultNodePosition,
   isKnowledgeCanvasCursor,
   isKnowledgeCanvasEntityType,
-  type KnowledgeCanvasEdgeInput,
   type KnowledgeCanvasEntityType,
   type KnowledgeCanvasNodeLayoutInput,
 } from "@areaforge/core";
@@ -15,66 +14,21 @@ import type { KnowledgeCanvasLayoutConflictSnapshot } from "./knowledge-canvas-c
 import {
   queryKnowledgeCanvasIndexPage,
   queryKnowledgeCanvasStaleLayoutCandidates,
-  type KnowledgeCanvasIndexLoadStats,
 } from "./knowledge-canvas-query";
 
-export interface KnowledgeCanvasNodeDto {
-  id: string;
-  entityType: KnowledgeCanvasEntityType;
-  entityId: string;
-  label: string;
-  subjectId: string | null;
-  parentId: string | null;
-  href: string | null;
-  x: number | null;
-  y: number | null;
-  collapsed: boolean;
-  pinned: boolean;
-  hidden: boolean;
-  contextOnly: boolean;
-}
+import { calculateMasteryConfidence } from "@/lib/knowledge/mastery-status";
+import type {
+  KnowledgeCanvasLayoutDto,
+  KnowledgeCanvasNodeDto,
+  KnowledgeCanvasQueryDto,
+} from "@/lib/contracts/knowledge-canvas";
 
-export interface KnowledgeCanvasEdgeDto {
-  id: string;
-  sourceId: string;
-  targetId: string;
-  kind: KnowledgeCanvasEdgeInput["kind"];
-}
-
-export interface KnowledgeCanvasLayoutDto {
-  workspaceId: string;
-  revision: number;
-  viewportX: number;
-  viewportY: number;
-  viewportZoom: number;
-  hasSavedLayout: boolean;
-  updatedAt: string;
-  staleLayoutCandidates: Array<{ entityType: KnowledgeCanvasEntityType; entityId: string }>;
-}
-
-export interface KnowledgeCanvasQueryDto {
-  workspaceId: string;
-  focusId: string;
-  depth: number;
-  syncedAt: string;
-  nodes: KnowledgeCanvasNodeDto[];
-  hiddenNodes: KnowledgeCanvasNodeDto[];
-  edges: KnowledgeCanvasEdgeDto[];
-  list: Array<{ id: string; entityType: KnowledgeCanvasEntityType; label: string; href: string | null; subjectId: string | null }>;
-  nextCursor: string | null;
-  truncated: boolean;
-  graphNodeCount: number;
-  graphEdgeCount: number;
-  pageContextTruncated: boolean;
-  loadStats: KnowledgeCanvasIndexLoadStats & {
-    layoutRowsRead: number;
-    staleLayoutRowsRead: number;
-  };
-  filterOptions: {
-    subjects: Array<{ id: string; label: string }>;
-  };
-  layout: KnowledgeCanvasLayoutDto;
-}
+export type {
+  KnowledgeCanvasEdgeDto,
+  KnowledgeCanvasLayoutDto,
+  KnowledgeCanvasNodeDto,
+  KnowledgeCanvasQueryDto,
+} from "@/lib/contracts/knowledge-canvas";
 
 type KnowledgeCanvasLayoutWriteInput = {
   workspaceId: string;
@@ -575,20 +529,7 @@ export async function getKnowledgeOverview(actorId: string) {
     mistakeLinks: { none: {} },
     syllabusNodeLinks: { none: {} },
   } as const;
-  const [
-    dueReviews,
-    weakNodes,
-    pendingResources,
-    importCount,
-    noteCount,
-    mistakeCount,
-    nextReview,
-    nextWeakNode,
-    nextPendingResource,
-    latestImport,
-    recentNotes,
-    recentMistakes,
-  ] = await Promise.all([
+  const queryResults = await Promise.all([
     prisma.reviewSchedule.count({
       where: {
         workspaceId: workspace.id,
@@ -649,7 +590,235 @@ export async function getKnowledgeOverview(actorId: string) {
       orderBy: { updatedAt: "desc" },
       take: 4,
     }),
+    prisma.reviewSchedule.findMany({
+      where: { workspaceId: workspace.id, status: "ACTIVE" },
+      select: {
+        id: true,
+        dueDate: true,
+        consecutivePassCount: true,
+      },
+    }),
+    prisma.reviewEvent.findMany({
+      where: { reviewSchedule: { workspaceId: workspace.id } },
+      select: { result: true, confirmedAt: true, durationSeconds: true },
+      orderBy: { confirmedAt: "desc" },
+      take: 100,
+    }),
+    prisma.subject.findMany({
+      where: { workspaceId: workspace.id, archivedAt: null },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        primaryKnowledgePoints: {
+          where: { archivedAt: null },
+          select: {
+            id: true,
+            masteryState: true,
+            _count: { select: { evidence: true, sessionLinks: true, retestLinks: true } },
+          },
+        },
+      },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.knowledgePoint.findMany({
+      where: {
+        workspaceId: workspace.id,
+        archivedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        masteryState: true,
+        updatedAt: true,
+        primarySubject: { select: { name: true, color: true } },
+        _count: { select: { evidence: true, sessionLinks: true, retestLinks: true } },
+      },
+      orderBy: [{ masteryState: "desc" }, { updatedAt: "asc" }],
+      take: 50,
+    }),
   ]);
+
+  const [
+    dueReviews,
+    weakNodes,
+    pendingResources,
+    importCount,
+    noteCount,
+    mistakeCount,
+    nextReview,
+    nextWeakNode,
+    nextPendingResource,
+    latestImport,
+    recentNotes,
+    recentMistakes,
+    allReviewSchedules,
+    recentReviewEvents,
+    allSubjectsWithPoints,
+    allCandidateWeakPoints,
+  ] = queryResults;
+
+  const now = Date.now();
+  const msPerDay = 24 * 60 * 60 * 1000;
+  let overdue = 0;
+  let d1_2 = 0;
+  let d3_7 = 0;
+  let d8_14 = 0;
+  let d15_30 = 0;
+  let d30_plus = 0;
+
+  for (const schedule of allReviewSchedules) {
+    if (!schedule.dueDate || schedule.consecutivePassCount >= 4) {
+      d30_plus += 1;
+      continue;
+    }
+    const diffDays = (schedule.dueDate.getTime() - now) / msPerDay;
+    if (diffDays <= 0) {
+      overdue += 1;
+    } else if (diffDays <= 2) {
+      d1_2 += 1;
+    } else if (diffDays <= 7) {
+      d3_7 += 1;
+    } else if (diffDays <= 14) {
+      d8_14 += 1;
+    } else if (diffDays <= 30) {
+      d15_30 += 1;
+    } else {
+      d30_plus += 1;
+    }
+  }
+
+  const completedReviews = recentReviewEvents.length;
+  const passedCount = recentReviewEvents.filter((e) => e.result === "PASSED").length;
+  const retentionRate7d = completedReviews > 0 ? Math.round((passedCount / completedReviews) * 100) : 100;
+
+  const ebbinghausStats = {
+    overdue,
+    d1_2,
+    d3_7,
+    d8_14,
+    d15_30,
+    d30_plus,
+    total: allReviewSchedules.length,
+    retentionRate7d,
+    completedReviews,
+  };
+
+  let totalAllPoints = 0;
+  let stableAll = 0;
+  let initialAll = 0;
+  let learningAll = 0;
+  let weakAll = 0;
+  let untouchedAll = 0;
+  let totalConfidence = 0;
+  let retestedPointsCount = 0;
+
+  const subjectMastery = allSubjectsWithPoints.map((s) => {
+    const pts = s.primaryKnowledgePoints;
+    const totalPoints = pts.length;
+    totalAllPoints += totalPoints;
+
+    let stableCount = 0;
+    let initialCount = 0;
+    let learningCount = 0;
+    let weakCount = 0;
+    let untouchedCount = 0;
+
+    for (const p of pts) {
+      const conf = calculateMasteryConfidence({
+        evidenceCount: p._count.evidence,
+        sessionCount: p._count.sessionLinks,
+        passedRetestCount: p._count.retestLinks,
+      });
+      totalConfidence += conf;
+      if (p._count.retestLinks > 0) retestedPointsCount += 1;
+
+      if (p.masteryState === "STABLE_MASTERY") {
+        stableCount += 1;
+        stableAll += 1;
+      } else if (p.masteryState === "INITIAL_MASTERY") {
+        initialCount += 1;
+        initialAll += 1;
+      } else if (p.masteryState === "LEARNING") {
+        learningCount += 1;
+        learningAll += 1;
+      } else if (p.masteryState === "NEEDS_RETEST") {
+        weakCount += 1;
+        weakAll += 1;
+      } else {
+        untouchedCount += 1;
+        untouchedAll += 1;
+      }
+    }
+
+    const masteryRate = totalPoints > 0
+      ? Math.round(((stableCount * 1.0 + initialCount * 0.7 + learningCount * 0.3) / totalPoints) * 100)
+      : 0;
+
+    return {
+      subjectId: s.id,
+      subjectName: s.name,
+      subjectColor: s.color,
+      totalPoints,
+      stableCount,
+      initialCount,
+      learningCount,
+      weakCount,
+      untouchedCount,
+      masteryRate,
+    };
+  });
+
+  const overallMasteryRate = totalAllPoints > 0
+    ? Math.round(((stableAll * 1.0 + initialAll * 0.7 + learningAll * 0.3) / totalAllPoints) * 100)
+    : 0;
+
+  const coverageRate = totalAllPoints > 0
+    ? Math.round(((totalAllPoints - untouchedAll) / totalAllPoints) * 100)
+    : 0;
+
+  const retestRate = totalAllPoints > 0
+    ? Math.min(100, Math.round((retestedPointsCount / Math.max(weakAll + stableAll, 1)) * 100))
+    : 70;
+
+  const avgDepth = totalAllPoints > 0
+    ? Math.round(totalConfidence / totalAllPoints)
+    : 65;
+
+  const radarDimensions = [
+    { label: "覆盖率", value: coverageRate },
+    { label: "熟练度", value: overallMasteryRate },
+    { label: "留存率", value: retentionRate7d },
+    { label: "复测率", value: retestRate },
+    { label: "深度", value: avgDepth },
+  ];
+
+  const topWeakPoints = allCandidateWeakPoints
+    .map((p) => {
+      const conf = calculateMasteryConfidence({
+        evidenceCount: p._count.evidence,
+        sessionCount: p._count.sessionLinks,
+        passedRetestCount: p._count.retestLinks,
+      });
+      const severity =
+        (100 - conf) +
+        (p.masteryState === "NEEDS_RETEST" ? 50 : p.masteryState === "UNTOUCHED" ? 20 : 0);
+
+      return {
+        id: p.id,
+        title: p.title,
+        subjectName: p.primarySubject?.name ?? "通用",
+        subjectColor: p.primarySubject?.color ?? "#14b8a6",
+        masteryState: p.masteryState,
+        masteryConfidence: conf,
+        needsRetest: p.masteryState === "NEEDS_RETEST" || conf < 60,
+        retestCount: p._count.retestLinks,
+        updatedAt: p.updatedAt.toISOString(),
+        severity,
+      };
+    })
+    .sort((a, b) => b.severity - a.severity)
+    .slice(0, 5);
 
   const nextAction = nextReview
     ? {
@@ -673,6 +842,11 @@ export async function getKnowledgeOverview(actorId: string) {
     pendingResources,
     recentImports: importCount,
     nextAction,
+    ebbinghausStats,
+    subjectMastery,
+    radarDimensions,
+    overallMasteryRate,
+    topWeakPoints,
     recentEvidence: [
       ...recentNotes.map((note) => ({
         id: note.id,
@@ -697,6 +871,7 @@ export async function getKnowledgeOverview(actorId: string) {
       noteCount,
       mistakeCount,
       resourceCount: pendingResources,
+      totalKnowledgePoints: totalAllPoints,
     },
   };
 }

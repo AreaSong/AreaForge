@@ -1,12 +1,16 @@
 "use client";
 
+import { createDailyReview, updateDailyReview } from "@/lib/api/daily-review";
 import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { DailyReviewResult } from "@/components/daily-review-result";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { EditorActionBar } from "@/components/ui/editor-actions";
 import { Alert, PersistenceStatus } from "@/components/ui/feedback";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { SectionHeader } from "@/components/ui/page";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
@@ -17,8 +21,9 @@ import {
   SHORT_PRIVATE_DRAFT_TTL_MS,
 } from "@/lib/client/private-business-drafts";
 import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
-import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
-import type { DailyReviewDto } from "@/lib/study/types";
+import type { PlanInboxItemDto } from "@/lib/contracts";
+import type { DailyReviewDto } from "@/lib/contracts";
+import { classifyApiFailure } from "@/lib/client/api-errors";
 
 interface ReviewFormProps {
   userId: string;
@@ -52,7 +57,6 @@ interface ReviewConflict {
 }
 
 const moodOptions = ["焦虑", "麻木", "想她", "自责", "有斗志", "很累", "平静", "失控"] as const;
-const fieldClass = "mt-2 w-full rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100 outline-none transition focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/10";
 
 export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem: initialInboxItem }: ReviewFormProps) {
   const router = useRouter();
@@ -121,23 +125,24 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
     };
     savePrivateBusinessDraft(draftKey, submission);
     const commandScope = reviewCommandScope(userId, workspaceId, studyDayKey, baseline);
-    const payload = {
-      ...(baseline ? { expectedRevision: baseline.revision } : {}),
-      ...submission.fields,
-    };
+    const payload = submission.fields;
 
     try {
-      const response = await fetch(baseline ? `/api/daily-reviews/${baseline.id}` : "/api/daily-reviews", {
-        method: baseline ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...payload,
-          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "daily-review", payload),
-        }),
+      const idempotencyKey = getOrCreateIdempotencyKey(commandScope, "daily-review", {
+        ...(baseline ? { expectedRevision: baseline.revision } : {}),
+        ...payload,
       });
-      const body = (await response.json().catch(() => null)) as ReviewResponseBody | null;
+      const response = baseline
+        ? await updateDailyReview(baseline.id, {
+            ...payload,
+            expectedRevision: baseline.revision,
+            idempotencyKey,
+          })
+        : await createDailyReview({ ...payload, idempotencyKey });
+      const body = response.body;
+      const failure = classifyApiFailure(response);
 
-      if (response.status === 401) {
+      if (failure.kind === "unauthorized") {
         setError("登录已过期，复盘草稿已保留。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
@@ -148,7 +153,7 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
         router.replace("/roadmap/reviews/daily");
         return;
       }
-      if (response.status === 409 && isDailyReviewDto(body?.latest)) {
+      if (failure.kind === "conflict" && isDailyReviewDto(body?.latest)) {
         completeIdempotentCommand(commandScope);
         setConflict({
           submitted: submission,
@@ -185,81 +190,83 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
   return (
     <>
       {baseline ? <DailyReviewResult review={baseline} inboxItem={inboxItem} /> : null}
-      <section className="space-y-5" aria-labelledby="review-judgement-heading">
+      <section className="space-y-6 pb-20" aria-labelledby="review-judgement-heading">
         <SectionHeader
           title={baseline ? "调整今天的判断" : "留下今天的判断"}
           description="事实已经由系统记录；这里保留你的判断，不让数据替你下结论。"
           meta={<PersistenceStatus state={conflict ? "conflict" : saving || isPending ? "saving" : dirty ? "local-draft" : saved ? "saved" : "clean"} />}
         />
         <form onSubmit={submit} className="space-y-6">
-          <fieldset className="grid gap-4 border-b border-white/10 pb-6 sm:grid-cols-2">
-            <legend id="review-judgement-heading" className="mb-3 text-sm font-medium text-teal-300">1. 推进与偏差</legend>
-            <label className="block text-sm text-zinc-200">
-              今天实际推进了什么
-              <textarea
-                className={`${fieldClass} min-h-28 py-2`}
-                name="summary"
-                placeholder="用自己的话概括真正推进的内容"
-                value={fields.summary}
-                onChange={(event) => setFields((current) => ({ ...current, summary: event.target.value }))}
-                required
-              />
-            </label>
-            <label className="block text-sm text-zinc-200">
-              哪里偏离了计划
-              <textarea
-                className={`${fieldClass} min-h-28 py-2`}
-                name="lostControl"
-                placeholder="没有明显偏差可以留空"
-                value={fields.lostControl}
-                onChange={(event) => setFields((current) => ({ ...current, lostControl: event.target.value }))}
-              />
-            </label>
-          </fieldset>
+          <Card variant="master" className="p-6 space-y-4">
+            <h2 id="review-judgement-heading" className="text-sm font-semibold text-teal-300">1. 推进与偏差</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="今天实际推进了什么" htmlFor="daily-review-summary">
+                <Textarea
+                  id="daily-review-summary"
+                  name="summary"
+                  className="min-h-28"
+                  placeholder="用自己的话概括真正推进的内容"
+                  value={fields.summary}
+                  onChange={(event) => setFields((current) => ({ ...current, summary: event.target.value }))}
+                  required
+                />
+              </Field>
+              <Field label="哪里偏离了计划" htmlFor="daily-review-lost-control">
+                <Textarea
+                  id="daily-review-lost-control"
+                  name="lostControl"
+                  className="min-h-28"
+                  placeholder="没有明显偏差可以留空"
+                  value={fields.lostControl}
+                  onChange={(event) => setFields((current) => ({ ...current, lostControl: event.target.value }))}
+                />
+              </Field>
+            </div>
+          </Card>
 
-          <fieldset className="grid gap-4 border-b border-white/10 pb-6 sm:grid-cols-[minmax(0,1fr)_220px]">
-            <legend className="mb-3 text-sm font-medium text-teal-300">2. 保留有效动作</legend>
-            <label className="block text-sm text-zinc-200">
-              明天应该继续做什么
-              <input
-                className={`${fieldClass} h-11`}
-                name="keepAction"
-                placeholder="只保留一个真正有效的动作"
-                value={fields.keepAction}
-                onChange={(event) => setFields((current) => ({ ...current, keepAction: event.target.value }))}
-                required
-              />
-            </label>
-            <label className="block text-sm text-zinc-200">
-              当前状态
-              <select
-                className={`${fieldClass} h-11`}
-                name="mood"
-                value={fields.mood}
-                onChange={(event) => setFields((current) => ({ ...current, mood: event.target.value }))}
-              >
-                <option value="">不记录</option>
-                {hasLegacyMood ? <option value={currentMood}>当前记录：{currentMood}</option> : null}
-                {moodOptions.map((mood) => <option key={mood} value={mood}>{mood}</option>)}
-              </select>
-            </label>
-          </fieldset>
+          <Card variant="master" className="p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-teal-300">2. 保留有效动作与当前状态</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="明天应该继续做什么" htmlFor="daily-review-keep-action">
+                <Input
+                  id="daily-review-keep-action"
+                  name="keepAction"
+                  placeholder="只保留一个真正有效的动作"
+                  value={fields.keepAction}
+                  onChange={(event) => setFields((current) => ({ ...current, keepAction: event.target.value }))}
+                  required
+                />
+              </Field>
+              <Field label="当前状态" htmlFor="daily-review-mood">
+                <Select
+                  id="daily-review-mood"
+                  name="mood"
+                  value={fields.mood}
+                  onChange={(event) => setFields((current) => ({ ...current, mood: event.target.value }))}
+                >
+                  <option value="">不记录</option>
+                  {hasLegacyMood ? <option value={currentMood}>当前记录：{currentMood}</option> : null}
+                  {moodOptions.map((mood) => <option key={mood} value={mood}>{mood}</option>)}
+                </Select>
+              </Field>
+            </div>
+          </Card>
 
-          <fieldset className="rounded-md border border-teal-400/25 bg-teal-400/[0.05] p-4">
-            <legend className="px-1 text-sm font-medium text-teal-200">3. 确定明日最低行动</legend>
-            <label className="mt-1 block text-sm text-zinc-200">
-              即使状态不好，明天也必须完成的一个动作
-              <input
-                className={`${fieldClass} h-12 text-base`}
+          <Card variant="accent" className="p-6 space-y-3 border-teal-500/30 shadow-[0_0_16px_rgba(45,212,191,0.15)]">
+            <h2 className="text-sm font-semibold text-teal-200">3. 确定明日最低行动</h2>
+            <Field label="即使状态不好，明天也必须完成的一个动作" htmlFor="daily-review-tomorrow-minimum">
+              <Input
+                id="daily-review-tomorrow-minimum"
                 name="tomorrowMinimum"
+                className="text-base"
                 placeholder="例如：完成极限基础练习 20 题"
                 value={fields.tomorrowMinimum}
                 onChange={(event) => setFields((current) => ({ ...current, tomorrowMinimum: event.target.value }))}
                 required
               />
-            </label>
-            <p className="mt-2 text-xs leading-5 text-zinc-400">保存后会进入投入草稿，由你补全科目和预计时长，再转为正式任务。</p>
-          </fieldset>
+            </Field>
+            <p className="text-xs leading-relaxed text-zinc-400">保存后会进入投入草稿，由你补全科目和预计时长，再转为正式任务。</p>
+          </Card>
 
           <EditorActionBar
             primaryType="submit"
@@ -275,9 +282,9 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
           {error ? <Alert tone="danger">{error}</Alert> : null}
         </div>
         {conflict && !conflictOpen ? (
-          <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>
+          <Button type="button" variant="ghost" size="sm" className="!h-auto !min-h-0 !px-0 !py-0 !text-sm !font-normal text-amber-200 hover:!bg-transparent hover:underline" onClick={() => setConflictOpen(true)}>
             处理复盘版本冲突
-          </button>
+          </Button>
         ) : null}
       </section>
     <ConflictResolutionModal
@@ -306,15 +313,6 @@ export function ReviewForm({ userId, workspaceId, studyDayKey, review, inboxItem
     />
     </>
   );
-}
-
-interface ReviewResponseBody {
-  review?: unknown;
-  inboxItem?: unknown;
-  error?: string;
-  latest?: unknown;
-  conflictFields?: string[];
-  workbench?: string;
 }
 
 function fieldsFromReview(review: DailyReviewDto | null): ReviewFields {

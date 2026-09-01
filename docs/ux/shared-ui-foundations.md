@@ -62,6 +62,32 @@
 - 内置业务文案、权限判断或路由目标。
 - 为单一页面提前抽象复杂配置系统。
 
+## 公共能力与解耦边界
+
+公共能力只承载稳定、可复用且可独立测试的语义；页面不得复制已经登记的稳定语义，也不得用兼容门面绕过 owner 边界：
+
+| 能力 | canonical 实现 | 责任 | 明确不负责 |
+|---|---|---|---|
+| UI 原语 | `apps/web/components/ui/**`（含 `Field`、`Input`、`Select`、`Textarea`、`Metric`、`Button`、Overlay） | 尺寸、可访问性、响应式排列、焦点与状态呈现 | 业务 API、权限、领域文案与路由决定；业务 TSX 不得重新声明非豁免 raw 控件 |
+| 纯格式化 | `apps/web/lib/formatters.ts` | 日期、时长、数字和展示标签的纯函数 | 读取浏览器或服务端状态 |
+| API transport（传输层） | `apps/web/lib/api/client.ts` 与 `apps/web/lib/api/*.ts` | 统一请求、JSON 解析、结果类型、幂等头和 domain endpoint path | 浏览器组件或 client adapter 直接调用 `fetch`、解析 `response.json()` 或自行拼接领域端点 |
+| API 错误边界 | `apps/web/lib/client/api-errors.ts` | 统一识别 `401`、`409`、字段错误和服务端错误码 | 自动覆盖用户输入、绕过确认或替领域决定冲突恢复动作 |
+| 本机草稿与存储端口 | `apps/web/lib/client/draft-store.ts` + `storage-port.ts` | TTL、版本 envelope、校验、清理和存储不可用时的内存回退 | 把本机草稿当成服务端成功，或允许组件直接访问浏览器 storage global |
+| 客户端操作门 | `apps/web/lib/client/operation-gates.ts` | latest-wins 请求代际和同步互斥批次 identity；拒绝迟到响应、重复启动与过期释放 | 取消服务端事务、替领域冻结提交快照，或用 ref 状态直接驱动渲染 |
+| 领域契约 | `apps/web/lib/contracts/**` | 浏览器/服务端共享 DTO 与 confirm-only 字段 | 引入 React、Next、Prisma、浏览器 API 或 legacy service |
+| 领域服务 | `apps/web/lib/study/*-service.ts` | 鉴权后的业务读写、CAS、幂等和审计边界 | 依赖组件、client 状态或直接决定页面布局 |
+| 组件复杂度策略 | `scripts/quality/web-component-complexity.ts` | 非测试 TSX 文件的 500 行硬上限和超长函数观察输出 | 把 50 行函数 observation 当成硬门禁，或用 legacy budget 永久容纳超大组件 |
+
+依赖方向固定为：`页面/组件 -> API adapter -> route -> domain service -> canonical DTO`；共享 UI 原语只能被页面和领域组件消费，不能反向依赖 API 或领域服务。`401` 统一进入登录回跳，`409` 必须保留用户输入并提供采用服务端版本或重试路径，字段错误就地绑定到 `Field`。组件和 client 不能直接访问 `window/globalThis.localStorage`、`sessionStorage`，也不能显式比较 response `status` 的 `401/409`。
+
+`apps/web/lib/contracts/study.ts`、`apps/web/lib/study/service.ts` 和 `apps/web/lib/study/types.ts` 是已移除的旧兼容门面，不得恢复、重新导入或登记为公共能力。能力清单见 `docs/architecture/web-shared-capability-inventory.json`；清单使用父范围归档，避免同一目录及其子文件重复登记。新增公共能力必须先证明至少三个稳定消费者，并补充单测与边界门禁。
+
+异步工作流必须把“显示 pending”和“接受响应”分开：按钮禁用由 React state 驱动，同步操作门只在事件入口和响应提交点判定 identity。AI 预览/生成、手动恢复内容加载使用 latest-wins；资料上传/重复处理使用互斥批次。请求开始后冻结输入、token、context/storage key 或上传 metadata 快照；输入、路由 context、表单 key 或批次变化会使旧响应失效，迟到响应不得写入新上下文或释放新批次。
+
+带 CAS revision 的编辑草稿必须持久化 `schemaVersion`、`baseRevision` 和字段值。恢复时 revision 不一致进入显式冲突，旧无版本草稿可以读取但不能直接提交；采用服务端版本或人工合并更新基线后，用户仍需再次显式保存。列表选择项的 React identity、删除 identity 与去重 fingerprint 分离，短哈希只能用于展示或索引，不能单独决定对象等价。
+
+静态治理使用 `pnpm web:shared-boundary`、`pnpm web:api-parser-boundary`、`pnpm web:ui-primitives-boundary`、`pnpm web:client-boundary` 和 `pnpm web:component-complexity`。前三类 legacy debt budget 保持为空；非测试 TSX 的 500 行上限是硬门禁，单函数超过 50 行只产生 observation/warning，作为继续拆分的审查信号，不单独阻断验证。
+
 ### `packages/ui`
 
 `packages/ui` 只保留平台无关的稳定 token 和类型，不在只有一个 Web 消费者时迁入 React 组件。出现 PWA、桌面端或其他真实消费者后，再评估提取无 Next.js 依赖的共享组件。
@@ -101,7 +127,13 @@
 - 基础间距序列为 `4 / 8 / 12 / 16 / 24 / 32px`。
 - 页面区块间距默认 `24px`，紧密字段组 `12px`，同类操作间距 `8px`。
 - 默认边框为一像素低对比边界；选中态改变边界和背景，不能引发布局位移。
-- 阴影只用于浮层和需要从画布抬起的临时表面，普通页面区块不用阴影。
+- 阴影：为主操作按钮等焦点元素引入品牌色的柔和环境光（Drop shadow/Glow）。悬浮层使用标准深色阴影。普通页面内容区保持扁平。
+
+### 动画与材质 (Rich Aesthetics)
+
+- **微动效 (Micro-animations)**：操作元素需具备平滑过渡（`transition-all`）和点击反馈（`active:scale-[0.98]`）。
+- **页面入场**：主容器（如 `PageFrame`）支持通过 `animate-fade-in-up` 提供柔和的入场动效。
+- **毛玻璃 (Glassmorphism)**：固定层（如顶栏、停靠栏）使用 `backdrop-blur-md` 配合半透明背景（如 75%）以强化空间纵深，非悬浮元素避免使用。
 
 ### 字体层级
 
@@ -325,9 +357,34 @@ AI、报告和阶段建议统一显示“建议/草稿”身份，并保留 `req
 | 范围 | 公共行为 |
 |---|---|
 | `< 768px` | 单列、底部一级导航、详情独立页面、主控件 `44px` |
-| `768-1023px` | 单列或紧凑两栏，侧栏转抽屉，工具栏允许换行 |
-| `1024-1439px` | 固定侧栏，可用两栏 ListDetail |
-| `>= 1440px` | 全宽 dashboard、三轨 split-view、完整工具栏 |
+| `768-1023px` | 单列或紧凑两栏，一级/二级导航进入抽屉或紧凑页签，工具栏允许分行 |
+| `1024-1439px` | 可折叠一级导航，二级导航按内容预算常驻或进入抽屉，可用两栏 ListDetail |
+| `>= 1440px` | 允许全宽 dashboard、三轨 split-view、完整工具栏 |
+
+### 布局判定层次
+
+- 视口媒体查询只负责 App Shell、一级导航、全局顶栏和移动安全区。
+- `PageFrame`、dashboard、ListDetail、筛选栏和辅助栏基于父容器实际宽度重排，优先使用 CSS container query；不能因为 viewport 达到 `1024px` 就假设三级内容仍有桌面宽度。
+- `ResizeObserver` 只用于工具栏动作、Dock 等需要读取真实子项宽度的收纳算法；普通栏数切换不增加 JavaScript 布局状态。
+- 布局必须由明确的 `minmax()`、最小轨道宽度和 gap 预算决定，不用某个页面独有的魔法断点补洞。
+
+公共轨道预算如下：
+
+| 模式 | 最小预算 | 不满足时 |
+|---|---|---|
+| dashboard 主列 + 辅列 | 主列 `28rem`、辅列 `18rem`，另加 gap | 辅列移到主列下方 |
+| ListDetail | 列表 `18rem`、详情 `28rem`，另加 gap | 只显示列表或独立详情，不压缩成两个窄栏 |
+| 三轨工作台 | 每条轨道声明自己的最小宽度，总预算满足后才启用 | 先收起辅助轨，再退回 ListDetail |
+| content-focus | 内容 `min(100%, 60rem)`，表单正文使用更窄可读行宽 | 保持单列，动作纵向排列 |
+
+这些数值是共享默认值；特殊工作区可以在不降低主控件可用性、不制造页面横向溢出的前提下声明更大的最小预算，不能声明更小预算来强塞更多栏。
+
+### 滚动与高度
+
+- 页面根节点不得产生横向滚动。确需横向比较的日期带、数据表或时间轴必须放入命名滚动区，并显示可继续滚动的边缘提示；当前项进入时自动滚入视口，键盘用户可以聚焦并滚动该区域。
+- 横向滚动不能成为访问主操作的唯一方式；主动作、错误反馈和当前选中状态必须在初始视口内可见。
+- App Shell 是视口高度唯一所有者，使用动态视口单位和 `min-height: 0` 传递可用高度。页面组件不得再使用 `100vh`、`h-screen` 或 `min-h-screen` 创建第二个视口。
+- 常规页面由 Shell 内容区滚动；`workspace-full` 由工作区根节点在 `h-full min-h-0` 内管理画布、检查器或正文滚动。浮层可有独立内部滚动，但打开时锁住背后滚动。
 
 - 固定格式区域使用 `grid-template-columns`、`minmax()`、`aspect-ratio` 或明确 min/max，动态内容不能推动工具栏和计数器位移。
 - 任何断点下都不能出现页面级横向溢出、按钮文字裁切或内容互相遮挡。

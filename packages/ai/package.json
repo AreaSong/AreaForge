@@ -1,6 +1,6 @@
 {
   "name": "@areaforge/ai",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -11,6 +11,7 @@
     "test": "tsx --test src/index.test.ts"
   },
   "dependencies": {
+    "@areaforge/core": "workspace:*",
     "zod": "^4.2.1"
   },
   "devDependencies": {

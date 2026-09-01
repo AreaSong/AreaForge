@@ -1,0 +1,163 @@
+{
+  "timestamp": "2026-09-01T07:07:13.746Z",
+  "testPoolUrl": "http://127.0.0.1:43171",
+  "viewports": [
+    {
+      "name": "macbook14-1440",
+      "width": 1440,
+      "height": 900,
+      "pages": [
+        {
+          "route": "/today",
+          "screenshotPath": "/Users/as/Ai-Project/project/AreaForge/output/playwright/macbook14/macbook14-1440_today.png",
+          "measurements": {
+            "summaryCardsCount": 4,
+            "sampleSummaryCard": {
+              "width": 154,
+              "height": 74
+            },
+            "timerCardsCount": 0,
+            "sampleTimerCard": {
+              "width": 310,
+              "height": 120
+            },
+            "badgesCountOnRecCard": 2,
+            "nestingDepthMax": 2,
+            "toolbars": {
+              "topBarHeight": 53,
+              "pageToolbarHeight": 39,
+              "statusBarHeight": 53,
+              "combinedHeight": 145,
+              "compressionPercentage": 8.8
+            }
+          },
+          "passed": false
+        },
+        {
+          "route": "/knowledge",
+          "screenshotPath": "/Users/as/Ai-Project/project/AreaForge/output/playwright/macbook14/macbook14-1440_knowledge.png",
+          "measurements": {
+            "cardsCount": 0,
+            "gridCols": 1,
+            "sampleCard": {
+              "width": 240,
+              "height": 180,
+              "badgesCount": 2
+            },
+            "maxBadgesPerCard": 2,
+            "hasDecorativeIcons": false
+          },
+          "passed": true
+        },
+        {
+          "route": "/test",
+          "screenshotPath": "/Users/as/Ai-Project/project/AreaForge/output/playwright/macbook14/macbook14-1440_test.png",
+          "measurements": {
+            "kpiTilesCount": 5,
+            "tableHeaders": [
+              "#",
+              "考点 / 模块名称",
+              "科目",
+              "累计失分",
+              "主要死因"
+            ],
+            "hasTextTruncation": false
+          },
+          "passed": true
+        },
+        {
+          "route": "/roadmap",
+          "screenshotPath": "/Users/as/Ai-Project/project/AreaForge/output/playwright/macbook14/macbook14-1440_roadmap.png",
+          "measurements": {
+            "columnCount": 7,
+            "hasHorizontalScroll": false,
+            "containerWidth": 964,
+            "tableWidth": 964
+          },
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "macbook14-1512",
+      "width": 1512,
+      "height": 982,
+      "pages": [
+        {
+          "route": "/today",
+          "screenshotPath": "/Users/as/Ai-Project/project/AreaForge/output/playwright/macbook14/macbook14-1512_today.png",
+          "measurements": {
+            "summaryCardsCount": 4,
+            "sampleSummaryCard": {
+              "width": 164,
+              "height": 74
+            },
+            "timerCardsCount": 0,
+            "sampleTimerCard": {
+              "width": 310,
+              "height": 120
+            },
+            "badgesCountOnRecCard": 2,
+            "nestingDepthMax": 2,
+            "toolbars": {
+              "topBarHeight": 53,
+              "pageToolbarHeight": 39,
+              "statusBarHeight": 53,
+              "combinedHeight": 145,
+              "compressionPercentage": 8.8
+            }
+          },
+          "passed": false
+        },
+        {
+          "route": "/knowledge",
+          "screenshotPath": "/Users/as/Ai-Project/project/AreaForge/output/playwright/macbook14/macbook14-1512_knowledge.png",
+          "measurements": {
+            "cardsCount": 0,
+            "gridCols": 1,
+            "sampleCard": {
+              "width": 240,
+              "height": 180,
+              "badgesCount": 2
+            },
+            "maxBadgesPerCard": 2,
+            "hasDecorativeIcons": false
+          },
+          "passed": true
+        },
+        {
+          "route": "/test",
+          "screenshotPath": "/Users/as/Ai-Project/project/AreaForge/output/playwright/macbook14/macbook14-1512_test.png",
+          "measurements": {
+            "kpiTilesCount": 5,
+            "tableHeaders": [
+              "#",
+              "考点 / 模块名称",
+              "科目",
+              "累计失分",
+              "主要死因"
+            ],
+            "hasTextTruncation": false
+          },
+          "passed": true
+        },
+        {
+          "route": "/roadmap",
+          "screenshotPath": "/Users/as/Ai-Project/project/AreaForge/output/playwright/macbook14/macbook14-1512_roadmap.png",
+          "measurements": {
+            "columnCount": 7,
+            "hasHorizontalScroll": false,
+            "containerWidth": 1036,
+            "tableWidth": 1036
+          },
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalChecks": 8,
+    "passedChecks": 6,
+    "failedChecks": 2
+  }
+}

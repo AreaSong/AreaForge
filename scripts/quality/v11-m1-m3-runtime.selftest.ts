@@ -19,7 +19,7 @@ import {
 } from "../../apps/web/lib/study/plan-inbox-service";
 import { createPlanMilestone, updatePlanMilestone } from "../../apps/web/lib/study/plan-milestone-service";
 import { startRecoveryV2 } from "../../apps/web/lib/study/recovery-v2-service";
-import { createStudyTask } from "../../apps/web/lib/study/service";
+import { createStudyTask } from "../../apps/web/lib/study/task-command-service";
 import { createTaskDependency } from "../../apps/web/lib/study/task-dependency-service";
 import { ApiError } from "../../apps/web/lib/api/responses";
 

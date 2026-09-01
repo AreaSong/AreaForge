@@ -3,7 +3,7 @@ import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { createKnowledgePointSchema } from "@/lib/study/schemas";
 import { createKnowledgePoint, listKnowledgePoints } from "@/lib/study/knowledge-point-service";
-import { MASTERY_STATUS_OPTIONS, type MasteryStatus } from "@/lib/study/mastery-status";
+import { MASTERY_STATUS_OPTIONS, type MasteryStatus } from "@/lib/knowledge/mastery-status";
 
 export const dynamic = "force-dynamic";
 

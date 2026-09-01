@@ -1,5 +1,9 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  MistakeCreatePrefillDto,
+  OwnedMistakeDetailDto,
+} from "@/lib/contracts/knowledge-library";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import {
@@ -9,7 +13,12 @@ import {
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
-import type { MistakeCauseDto, MistakeDto } from "./types";
+import type { MistakeAttemptDto, MistakeCauseDto, MistakeDto } from "@/lib/contracts";
+
+export type {
+  MistakeCreatePrefillDto,
+  OwnedMistakeDetailDto,
+} from "@/lib/contracts/knowledge-library";
 
 type DbMistakeCause =
   | "UNKNOWN"
@@ -25,10 +34,14 @@ export interface CreateMistakeInput {
   subjectId: string;
   syllabusNodeId?: string | null;
   title: string;
+  questionText: string;
   source?: string | null;
   cause: MistakeCauseDto;
+  causeNote?: string | null;
+  correctAnswer?: string | null;
   correctIdea?: string | null;
   nextReviewAt?: string | null;
+  simulationLossItemId?: string | null;
 }
 
 export interface UpdateMistakeInput {
@@ -36,20 +49,18 @@ export interface UpdateMistakeInput {
   subjectId?: string;
   syllabusNodeId?: string | null;
   title?: string;
+  questionText?: string;
   source?: string | null;
   cause?: MistakeCauseDto;
+  causeNote?: string | null;
+  correctAnswer?: string | null;
   correctIdea?: string | null;
   nextReviewAt?: string | null;
 }
 
-export interface OwnedMistakeDetailDto {
-  mistake: MistakeDto;
-  readOnly: boolean;
-  subjectArchived: boolean;
-  workspaceName: string;
-}
 
 const mistakeDetailInclude = {
+  _count: { select: { attempts: true } },
   subject: true,
   syllabusNode: true,
   reviewSchedules: {
@@ -59,6 +70,18 @@ const mistakeDetailInclude = {
       },
     },
     orderBy: [{ createdAt: "desc" }],
+  },
+  attempts: {
+    orderBy: [{ attemptedAt: "desc" as const }, { id: "desc" as const }],
+    take: 50,
+  },
+  noteLinks: {
+    include: { note: { select: { id: true, title: true } } },
+    orderBy: [{ createdAt: "asc" as const }],
+  },
+  studyResourceLinks: {
+    include: { resource: { select: { id: true, title: true } } },
+    orderBy: [{ createdAt: "asc" as const }],
   },
 } satisfies Prisma.MistakeInclude;
 
@@ -79,9 +102,16 @@ export async function listMistakes(actorId: string, options?: { q?: string }): P
   const mistakes = await prisma.mistake.findMany({
     where: {
       subject: { workspaceId: workspace.id },
-      ...(query ? { title: { contains: query, mode: "insensitive" as const } } : {}),
+      ...(query ? {
+        OR: [
+          { title: { contains: query, mode: "insensitive" as const } },
+          { questionText: { contains: query, mode: "insensitive" as const } },
+          { source: { contains: query, mode: "insensitive" as const } },
+        ],
+      } : {}),
     },
     include: {
+      _count: { select: { attempts: true } },
       subject: true,
       syllabusNode: true,
       reviewSchedules: {
@@ -96,12 +126,59 @@ export async function listMistakes(actorId: string, options?: { q?: string }): P
         },
         orderBy: [{ createdAt: "desc" }],
       },
+      attempts: {
+        orderBy: [{ attemptedAt: "desc" }, { id: "desc" }],
+        take: 5,
+      },
+      noteLinks: {
+        include: { note: { select: { id: true, title: true } } },
+        orderBy: [{ createdAt: "asc" }],
+      },
+      studyResourceLinks: {
+        include: { resource: { select: { id: true, title: true } } },
+        orderBy: [{ createdAt: "asc" }],
+      },
     },
     orderBy: [{ nextReviewAt: "asc" }, { updatedAt: "desc" }],
     take: 200,
   });
 
   return mistakes.map(serializeMistake);
+}
+
+export async function getMistakeCreatePrefill(
+  actorId: string,
+  simulationLossItemId: string,
+): Promise<MistakeCreatePrefillDto | null> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  const item = await prisma.simulationLossItem.findFirst({
+    where: {
+      id: simulationLossItemId,
+      archivedAt: null,
+      simulationSubjectResult: { simulationExam: { workspaceId: workspace.id } },
+    },
+    include: {
+      simulationSubjectResult: {
+        include: {
+          subject: { select: { id: true, name: true } },
+          simulationExam: { select: { name: true } },
+        },
+      },
+    },
+  });
+  if (!item) return null;
+  const note = item.note?.trim() ?? "";
+  return {
+    simulationLossItemId: item.id,
+    linkedMistakeId: item.mistakeId,
+    subjectId: item.simulationSubjectResult.subject.id,
+    syllabusNodeId: item.syllabusNodeId,
+    title: note ? `模拟失分：${note.slice(0, 160)}` : `模拟失分：${simulationLossReasonLabel(item.reason)}`,
+    questionText: note,
+    source: `${item.simulationSubjectResult.simulationExam.name} · ${item.simulationSubjectResult.subject.name} · 失分 ${item.lostScore} 分`,
+    cause: simulationReasonToMistakeCause(item.reason),
+    causeNote: note,
+  };
 }
 
 export async function getMistakeById(id: string, actorId: string): Promise<MistakeDto | null> {
@@ -129,10 +206,14 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
     subjectId: input.subjectId,
     syllabusNodeId: input.syllabusNodeId ?? null,
     title: input.title,
+    questionText: input.questionText.trim(),
     source: input.source ?? null,
     cause: input.cause,
+    causeNote: input.causeNote?.trim() ?? null,
+    correctAnswer: input.correctAnswer?.trim() ?? null,
     correctIdea: input.correctIdea?.trim() ?? null,
     nextReviewAt: input.nextReviewAt ?? null,
+    simulationLossItemId: input.simulationLossItemId ?? null,
   });
   return prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
@@ -164,13 +245,31 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
       throw new ApiError("MISTAKE_INCOMPLETE", 400);
     }
 
+    const simulationLossItem = input.simulationLossItemId
+      ? await tx.simulationLossItem.findFirst({
+        where: {
+          id: input.simulationLossItemId,
+          simulationSubjectResult: { simulationExam: { workspaceId: workspace.id } },
+        },
+        select: { id: true, mistakeId: true, simulationSubjectResult: { select: { subjectId: true } } },
+      })
+      : null;
+    if (input.simulationLossItemId && !simulationLossItem) throw new ApiError("SIMULATION_LOSS_ITEM_NOT_FOUND", 404);
+    if (simulationLossItem?.mistakeId) throw new ApiError("SIMULATION_LOSS_ITEM_ALREADY_LINKED", 409);
+    if (simulationLossItem && simulationLossItem.simulationSubjectResult.subjectId !== input.subjectId) {
+      throw new ApiError("SIMULATION_LOSS_ITEM_SUBJECT_MISMATCH", 409);
+    }
+
     const created = await tx.mistake.create({
       data: {
         subjectId: input.subjectId,
         syllabusNodeId: input.syllabusNodeId ?? null,
         title: input.title,
+        questionText: input.questionText.trim(),
         source: input.source ?? null,
         cause: toDbCause(input.cause),
+        causeNote: input.causeNote?.trim() || null,
+        correctAnswer: input.correctAnswer?.trim() || null,
         correctIdea: input.correctIdea.trim(),
         nextReviewAt: input.nextReviewAt ? new Date(input.nextReviewAt) : null,
       },
@@ -179,6 +278,14 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
         syllabusNode: true,
       },
     });
+
+    if (simulationLossItem) {
+      const linked = await tx.simulationLossItem.updateMany({
+        where: { id: simulationLossItem.id, mistakeId: null },
+        data: { mistakeId: created.id },
+      });
+      if (linked.count !== 1) throw new ApiError("SIMULATION_LOSS_ITEM_ALREADY_LINKED", 409);
+    }
 
     const result = serializeMistake(created);
     await recordPersistentCreateResult(tx, command, created.id, {
@@ -228,7 +335,7 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
       });
     }
 
-    const existingComplete = isCompleteMistake(existing.cause, existing.correctIdea);
+    const existingComplete = isCompleteMistake(existing.questionText, existing.cause, existing.correctIdea);
     const nonCompletionFields = changedNonCompletionFields(input);
     if (!existingComplete && nonCompletionFields.length > 0) {
       throw new ApiError("MISTAKE_COMPLETION_ONLY", 409, {
@@ -242,10 +349,11 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
     const nextCorrectIdea = input.correctIdea === undefined
       ? existing.correctIdea
       : input.correctIdea?.trim() || null;
-    if (!isCompleteMistake(nextCause, nextCorrectIdea)) {
+    const nextQuestionText = input.questionText === undefined ? existing.questionText : input.questionText.trim();
+    if (!isCompleteMistake(nextQuestionText, nextCause, nextCorrectIdea)) {
       throw new ApiError(existingComplete ? "MISTAKE_INCOMPLETE" : "MISTAKE_COMPLETION_REQUIRED", existingComplete ? 400 : 409, {
         latest,
-        conflictFields: ["cause", "correctIdea"],
+        conflictFields: ["questionText", "cause", "correctIdea"],
         workbench: "/knowledge/mistakes",
       });
     }
@@ -271,8 +379,11 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
         subjectId: input.subjectId,
         syllabusNodeId: input.syllabusNodeId,
         title: input.title,
+        questionText: input.questionText,
         source: input.source,
         cause: input.cause ? toDbCause(input.cause) : undefined,
+        causeNote: input.causeNote === undefined ? undefined : input.causeNote,
+        correctAnswer: input.correctAnswer === undefined ? undefined : input.correctAnswer,
         correctIdea: input.correctIdea === undefined ? undefined : nextCorrectIdea,
         nextReviewAt: input.nextReviewAt === undefined ? undefined : input.nextReviewAt ? new Date(input.nextReviewAt) : null,
       },
@@ -294,6 +405,53 @@ export async function archiveMistake(id: string, expectedUpdatedAt: string, acto
 
 export async function restoreMistake(id: string, expectedUpdatedAt: string, actorId: string): Promise<MistakeDto> {
   return mutateMistakeArchiveState(id, expectedUpdatedAt, actorId, false);
+}
+
+export async function updateMistakeLinks(
+  id: string,
+  input: { expectedUpdatedAt: string; noteIds: string[]; resourceIds: string[] },
+  actorId: string,
+): Promise<MistakeDto> {
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const existing = await loadMistakeDetail(tx, id, workspace.id);
+    if (!existing) throw new ApiError("MISTAKE_NOT_FOUND", 404);
+    if (existing.archivedAt) throw new ApiError("MISTAKE_ARCHIVED", 409);
+    if (existing.subject.archivedAt) throw new ApiError("SUBJECT_ARCHIVED", 409);
+
+    const expectedUpdatedAt = parseExpectedUpdatedAt(input.expectedUpdatedAt);
+    if (existing.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+      throw mistakeConflict("MISTAKE_UPDATED_AT_CONFLICT", serializeMistake(existing), input as UpdateMistakeInput);
+    }
+
+    const [notes, resources] = await Promise.all([
+      tx.note.findMany({ where: { id: { in: input.noteIds }, subject: { workspaceId: workspace.id } }, select: { id: true } }),
+      tx.studyResource.findMany({ where: { id: { in: input.resourceIds }, workspaceId: workspace.id }, select: { id: true } }),
+    ]);
+    if (notes.length !== new Set(input.noteIds).size) throw new ApiError("NOTE_NOT_FOUND", 404);
+    if (resources.length !== new Set(input.resourceIds).size) throw new ApiError("STUDY_RESOURCE_NOT_FOUND", 404);
+
+    const claimed = await tx.mistake.updateMany({
+      where: { id, updatedAt: expectedUpdatedAt, archivedAt: null, subject: { workspaceId: workspace.id, archivedAt: null } },
+      data: { updatedAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      const raced = await loadMistakeDetail(tx, id, workspace.id);
+      if (!raced) throw new ApiError("MISTAKE_NOT_FOUND", 404);
+      throw mistakeConflict("MISTAKE_UPDATED_AT_CONFLICT", serializeMistake(raced), input as UpdateMistakeInput);
+    }
+
+    await tx.noteMistakeLink.deleteMany({ where: { mistakeId: id } });
+    await tx.studyResourceMistakeLink.deleteMany({ where: { mistakeId: id } });
+    if (input.noteIds.length) {
+      await tx.noteMistakeLink.createMany({ data: input.noteIds.map((noteId) => ({ noteId, mistakeId: id })), skipDuplicates: true });
+    }
+    if (input.resourceIds.length) {
+      await tx.studyResourceMistakeLink.createMany({ data: input.resourceIds.map((resourceId) => ({ resourceId, mistakeId: id })), skipDuplicates: true });
+    }
+    await audit(actorId, "MISTAKE_LINKS_UPDATED", "Mistake", id, tx);
+    return serializeMistake(await loadMistakeDetailOrThrow(tx, id, workspace.id));
+  });
 }
 
 async function mutateMistakeArchiveState(
@@ -359,8 +517,8 @@ function parseExpectedUpdatedAt(value: string): Date {
   return parsed;
 }
 
-function isCompleteMistake(cause: DbMistakeCause, correctIdea: string | null): boolean {
-  return cause !== "UNKNOWN" && Boolean(correctIdea?.trim());
+function isCompleteMistake(questionText: string | null, cause: DbMistakeCause, correctIdea: string | null): boolean {
+  return Boolean(questionText?.trim()) && cause !== "UNKNOWN" && Boolean(correctIdea?.trim());
 }
 
 function changedNonCompletionFields(input: UpdateMistakeInput): string[] {
@@ -387,8 +545,11 @@ function mistakeConflictFields(input: UpdateMistakeInput, latest: MistakeDto): s
     input.subjectId !== undefined && input.subjectId !== latest.subjectId ? "subjectId" : null,
     input.syllabusNodeId !== undefined && input.syllabusNodeId !== latest.syllabusNodeId ? "syllabusNodeId" : null,
     input.title !== undefined && input.title !== latest.title ? "title" : null,
+    input.questionText !== undefined && (input.questionText.trim() || null) !== latest.questionText ? "questionText" : null,
     input.source !== undefined && input.source !== latest.source ? "source" : null,
     input.cause !== undefined && input.cause !== latest.cause ? "cause" : null,
+    input.causeNote !== undefined && (input.causeNote?.trim() || null) !== latest.causeNote ? "causeNote" : null,
+    input.correctAnswer !== undefined && (input.correctAnswer?.trim() || null) !== latest.correctAnswer ? "correctAnswer" : null,
     input.correctIdea !== undefined && (input.correctIdea?.trim() || null) !== latest.correctIdea ? "correctIdea" : null,
     input.nextReviewAt !== undefined && input.nextReviewAt !== latest.nextReviewAt ? "nextReviewAt" : null,
   ].filter((field): field is string => field !== null);
@@ -438,8 +599,11 @@ function serializeMistake(mistake: {
   subjectId: string;
   syllabusNodeId: string | null;
   title: string;
+  questionText: string | null;
   source: string | null;
   cause: DbMistakeCause;
+  causeNote: string | null;
+  correctAnswer: string | null;
   correctIdea: string | null;
   nextReviewAt: Date | null;
   archivedAt: Date | null;
@@ -452,6 +616,19 @@ function serializeMistake(mistake: {
   syllabusNode?: {
     title: string;
   } | null;
+  attempts?: Array<{
+    id: string;
+    reviewEventId: string | null;
+    answerMode: string;
+    answerText: string | null;
+    result: string;
+    durationSeconds: number | null;
+    note: string | null;
+    attemptedAt: Date;
+  }>;
+  _count?: { attempts: number };
+  noteLinks?: Array<{ id: string; note: { id: string; title: string } }>;
+  studyResourceLinks?: Array<{ id: string; resource: { id: string; title: string } }>;
   reviewSchedules?: Array<{
     id: string;
     status: string;
@@ -487,13 +664,21 @@ function serializeMistake(mistake: {
     syllabusNodeId: mistake.syllabusNodeId,
     syllabusNodeTitle: mistake.syllabusNode?.title ?? null,
     title: mistake.title,
+    questionText: mistake.questionText,
     source: mistake.source,
     cause: fromDbCause(mistake.cause),
+    causeNote: mistake.causeNote,
+    correctAnswer: mistake.correctAnswer,
     correctIdea: mistake.correctIdea,
     nextReviewAt: mistake.nextReviewAt?.toISOString() ?? null,
     archivedAt: mistake.archivedAt?.toISOString() ?? null,
     createdAt: mistake.createdAt.toISOString(),
     updatedAt: mistake.updatedAt.toISOString(),
+    attemptCount: mistake._count?.attempts ?? mistake.attempts?.length ?? 0,
+    lastAttemptAt: mistake.attempts?.[0]?.attemptedAt.toISOString() ?? null,
+    attempts: (mistake.attempts ?? []).map(serializeAttempt),
+    noteLinks: (mistake.noteLinks ?? []).map((link) => ({ id: link.id, noteId: link.note.id, title: link.note.title })),
+    resourceLinks: (mistake.studyResourceLinks ?? []).map((link) => ({ id: link.id, resourceId: link.resource.id, title: link.resource.title })),
     reviewSchedule: reviewSchedule ? {
       id: reviewSchedule.id,
       status: reviewSchedule.status as "ACTIVE" | "PAUSED",
@@ -519,12 +704,58 @@ function serializeMistake(mistake: {
   };
 }
 
+function serializeAttempt(attempt: {
+  id: string;
+  reviewEventId: string | null;
+  answerMode: string;
+  answerText: string | null;
+  result: string;
+  durationSeconds: number | null;
+  note: string | null;
+  attemptedAt: Date;
+}): MistakeAttemptDto {
+  return {
+    id: attempt.id,
+    reviewEventId: attempt.reviewEventId,
+    answerMode: attempt.answerMode as MistakeAttemptDto["answerMode"],
+    answerText: attempt.answerText,
+    result: attempt.result as MistakeAttemptDto["result"],
+    durationSeconds: attempt.durationSeconds,
+    note: attempt.note,
+    attemptedAt: attempt.attemptedAt.toISOString(),
+  };
+}
+
 function toDbCause(cause: MistakeCauseDto): DbMistakeCause {
   return cause.toUpperCase() as DbMistakeCause;
 }
 
 function fromDbCause(cause: DbMistakeCause): MistakeCauseDto {
   return cause.toLowerCase() as MistakeCauseDto;
+}
+
+function simulationReasonToMistakeCause(reason: string): Exclude<MistakeCauseDto, "unknown"> {
+  if (reason === "CONCEPT_GAP" || reason === "READING_COMPREHENSION") return "concept_confusion";
+  if (reason === "MEMORY_FORMULA") return "formula_unfamiliar";
+  if (reason === "CALCULATION_CARELESS") return "careless";
+  if (reason === "TIME_ALLOCATION" || reason === "UNANSWERED") return "time_pressure";
+  if (reason === "UNFAMILIAR_PATTERN") return "unfamiliar_pattern";
+  return "wrong_approach";
+}
+
+function simulationLossReasonLabel(reason: string): string {
+  return ({
+    CONCEPT_GAP: "概念缺口",
+    MEMORY_FORMULA: "公式记忆",
+    METHOD_ERROR: "方法错误",
+    CALCULATION_CARELESS: "计算粗心",
+    TIME_ALLOCATION: "时间分配",
+    READING_COMPREHENSION: "审题理解",
+    UNFAMILIAR_PATTERN: "题型陌生",
+    MINDSET: "临场心态",
+    UNANSWERED: "未作答",
+    OTHER: "其他失分",
+  } as Record<string, string>)[reason] ?? "模拟失分";
 }
 
 async function audit(actorId: string, action: string, entityType: string, entityId: string, client: Prisma.TransactionClient): Promise<void> {

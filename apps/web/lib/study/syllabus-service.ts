@@ -20,7 +20,7 @@ import {
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
-import { calculateMasteryConfidence, syllabusMasteryStatusView } from "./mastery-status";
+import { calculateMasteryConfidence, syllabusMasteryStatusView } from "@/lib/knowledge/mastery-status";
 import type {
   MasteryEvidenceTypeDto,
   MasteryLevelDto,
@@ -30,7 +30,7 @@ import type {
   SyllabusNodeKindDto,
   SyllabusNodeStatusDto,
   SyllabusOptionNodeDto,
-} from "./types";
+} from "@/lib/contracts";
 
 type DbSyllabusNodeKind = "SUBJECT" | "CHAPTER" | "TOPIC" | "PROBLEM_TYPE";
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";

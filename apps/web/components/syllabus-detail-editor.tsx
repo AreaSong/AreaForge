@@ -1,5 +1,10 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Checkbox, Select, Input } from "@/components/ui/field";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
+import { updateSyllabusNode } from "@/lib/api/syllabus";
 import { Save, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { MasteryProofCondition } from "@areaforge/core";
@@ -20,13 +25,13 @@ import {
   masteryStatusLabel,
   syllabusLevelForMasteryStatus,
   type MasteryStatus,
-} from "@/lib/study/mastery-status";
+} from "@/lib/knowledge/mastery-status";
 import type {
   SyllabusNodeDto,
   SyllabusNodeKindDto,
   SyllabusNodeStatusDto,
   SyllabusOptionNodeDto,
-} from "@/lib/study/types";
+} from "@/lib/contracts";
 
 interface SyllabusEditValues {
   parentId: string;
@@ -121,32 +126,24 @@ export function SyllabusDetailEditor(props: {
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch(`/api/syllabus/nodes/${props.node.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expectedRevision: baseline.revision,
-          parentId: values.parentId || null,
-          title: values.title,
-          kind: values.kind,
-          status: values.status,
-          masteryLevel: values.masteryStatus ? syllabusLevelForMasteryStatus(values.masteryStatus) : null,
-          masteryConditions: values.masteryConditions,
-          sortOrder: values.sortOrder,
-          targetMinutes: values.targetMinutes,
-        }),
+      const response = await updateSyllabusNode(props.node.id, {
+        expectedRevision: baseline.revision,
+        parentId: values.parentId || null,
+        title: values.title,
+        kind: values.kind,
+        status: values.status,
+        masteryLevel: values.masteryStatus ? syllabusLevelForMasteryStatus(values.masteryStatus) : null,
+        masteryConditions: values.masteryConditions,
+        sortOrder: values.sortOrder,
+        targetMinutes: values.targetMinutes,
       });
-      const body = (await response.json().catch(() => null)) as {
-        error?: string;
-        latest?: unknown;
-        conflictFields?: string[];
-      } | null;
-      if (response.status === 401) {
+      const body = response.body;
+      if (isUnauthorized(response)) {
         savePrivateBusinessDraft<SyllabusEditDraft>(draftKey, { baseRevision: baseline.revision, values });
         redirectToLoginWithCurrentLocation();
         return;
       }
-      if (response.status === 409 && isSyllabusNodeDto(body?.latest)) {
+      if (isConflict(response) && isSyllabusNodeDto(body?.latest)) {
         savePrivateBusinessDraft<SyllabusEditDraft>(draftKey, { baseRevision: baseline.revision, values });
         setConflict({ baseline, latest: body.latest, conflictFields: body?.conflictFields ?? ["revision"] });
         return;
@@ -174,53 +171,53 @@ export function SyllabusDetailEditor(props: {
             <PersistenceStatus state={conflict || draftNeedsRebase ? "conflict" : saving ? "saving" : dirty ? "local-draft" : "clean"} />
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="af-content-grid-two grid gap-4">
           <label className="grid gap-2 text-sm text-zinc-300 md:col-span-2">
             标题
-            <input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.title} maxLength={120} required onChange={(event) => setValues((current) => ({ ...current, title: event.target.value }))} />
+            <Input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.title} maxLength={120} required onChange={(event) => setValues((current) => ({ ...current, title: event.target.value }))} />
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             父节点
-            <select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.parentId} onChange={(event) => setValues((current) => ({ ...current, parentId: event.target.value }))}>
+            <Select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.parentId} onChange={(event) => setValues((current) => ({ ...current, parentId: event.target.value }))}>
               <option value="">作为根节点</option>
               {values.parentId && !options.some((option) => option.id === values.parentId) ? <option value={values.parentId}>当前父节点（已归档或不可选）</option> : null}
               {options.map((option) => <option key={option.id} value={option.id}>{`${"  ".repeat(option.depth)}${option.title}`}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             节点类型
-            <select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.kind} onChange={(event) => setValues((current) => ({ ...current, kind: event.target.value as SyllabusNodeKindDto }))}>
+            <Select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.kind} onChange={(event) => setValues((current) => ({ ...current, kind: event.target.value as SyllabusNodeKindDto }))}>
               <option value="subject">科目</option><option value="chapter">章节</option><option value="topic">知识点</option><option value="problem_type">题型专题</option>
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             状态
-            <select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.status} onChange={(event) => setValues((current) => ({ ...current, status: event.target.value as SyllabusNodeStatusDto }))}>
+            <Select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.status} onChange={(event) => setValues((current) => ({ ...current, status: event.target.value as SyllabusNodeStatusDto }))}>
               <option value="not_started">未开始</option><option value="learning">学习中</option><option value="covered">已覆盖</option><option value="needs_review">待复习</option><option value="mastered">已掌握</option><option value="weak">薄弱</option><option value="deferred">延期</option>
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             掌握状态
-            <select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.masteryStatus} onChange={(event) => setValues((current) => ({ ...current, masteryStatus: event.target.value as MasteryStatus | "" }))}>
+            <Select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" value={values.masteryStatus} onChange={(event) => setValues((current) => ({ ...current, masteryStatus: event.target.value as MasteryStatus | "" }))}>
               <option value="">未记录</option>
               {MASTERY_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{masteryStatusLabel(status)}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             排序
-            <input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" type="number" min={0} max={100000} value={values.sortOrder} onChange={(event) => setValues((current) => ({ ...current, sortOrder: Number(event.target.value) }))} />
+            <Input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" type="number" min={0} max={100000} value={values.sortOrder} onChange={(event) => setValues((current) => ({ ...current, sortOrder: Number(event.target.value) }))} />
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">
             目标分钟
-            <input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" type="number" min={0} max={100000} value={values.targetMinutes} onChange={(event) => setValues((current) => ({ ...current, targetMinutes: Number(event.target.value) }))} />
+            <Input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white" type="number" min={0} max={100000} value={values.targetMinutes} onChange={(event) => setValues((current) => ({ ...current, targetMinutes: Number(event.target.value) }))} />
           </label>
         </div>
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium text-zinc-200">掌握证明条件</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="af-content-grid-two grid gap-2">
             {masteryConditions.map((condition) => (
               <label key={condition.value} className="flex items-center gap-2 text-sm text-zinc-400">
-                <input className="h-4 w-4 accent-teal-400" type="checkbox" checked={values.masteryConditions.includes(condition.value)} onChange={() => toggleCondition(condition.value)} />
+                <Checkbox checked={values.masteryConditions.includes(condition.value)} onChange={() => toggleCondition(condition.value)} />
                 {condition.label}
               </label>
             ))}
@@ -230,17 +227,17 @@ export function SyllabusDetailEditor(props: {
           <div className="space-y-3 rounded-md border border-amber-300/20 bg-amber-300/10 p-3 text-sm text-amber-100">
             <p>服务端已在草稿保存后更新。请核对当前输入，再明确选择是否基于 r{baseline.revision} 继续。</p>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="h-10 rounded-md border border-amber-200/30 px-3" onClick={() => {
+              <Button type="button" className="h-10 rounded-md border border-amber-200/30 px-3" onClick={() => {
                 setDraftNeedsRebase(false);
                 setError(null);
                 savePrivateBusinessDraft<SyllabusEditDraft>(draftKey, { baseRevision: baseline.revision, values });
-              }}>以最新版本为基线</button>
-              <button type="button" className="h-10 px-3" onClick={() => {
+              }}>以最新版本为基线</Button>
+              <Button type="button" className="h-10 px-3" onClick={() => {
                 setValues(valuesFromNode(baseline));
                 setDraftNeedsRebase(false);
                 setError(null);
                 removePrivateBusinessDraft(draftKey);
-              }}>放弃旧草稿</button>
+              }}>放弃旧草稿</Button>
             </div>
           </div>
         ) : null}
@@ -259,7 +256,7 @@ export function SyllabusDetailEditor(props: {
       </form>
 
       <Modal open={closeConfirmationOpen} title="保留未保存的节点编辑？" onClose={() => setCloseConfirmationOpen(false)}>
-        <div className="space-y-4 text-sm text-zinc-300"><p>当前输入已保存在本设备。关闭编辑不会写入服务端。</p><div className="flex justify-end gap-2"><button type="button" className="h-10 px-3" onClick={() => setCloseConfirmationOpen(false)}>继续编辑</button><button type="button" className="h-10 rounded-md border border-white/10 px-3" onClick={props.onCancel}>关闭并保留草稿</button></div></div>
+        <div className="space-y-4 text-sm text-zinc-300"><p>当前输入已保存在本设备。关闭编辑不会写入服务端。</p><div className="flex justify-end gap-2"><Button type="button" className="h-10 px-3" onClick={() => setCloseConfirmationOpen(false)}>继续编辑</Button><Button type="button" className="h-10 rounded-md border border-white/10 px-3" onClick={props.onCancel}>关闭并保留草稿</Button></div></div>
       </Modal>
       <ConflictResolutionModal
         open={Boolean(conflict)}

@@ -1,5 +1,7 @@
 "use client";
 
+import { getBrowserStoragePort, type StoragePort } from "@/lib/client/storage-port";
+
 const DEVICE_ID_KEY = "areaforge.client-device-id.v1";
 const DEVICE_LABEL_KEY = "areaforge.client-device-label.v1";
 const DEVICE_IDENTITY_CHANGED_EVENT = "areaforge:device-identity-changed";
@@ -16,23 +18,31 @@ export interface ClientDeviceIdentity {
  * Keep device identity deliberately coarse: it is only used to explain which
  * client owns the shared timer, not to fingerprint the browser.
  */
-export function getClientDeviceIdentity(): ClientDeviceIdentity {
-  if (typeof window === "undefined") return { id: "server", label: "当前设备", detectedLabel: "当前设备" };
+export function getClientDeviceIdentity(storage?: StoragePort | null): ClientDeviceIdentity {
+  if (typeof window === "undefined" && storage === undefined) {
+    return { id: "server", label: "当前设备", detectedLabel: "当前设备" };
+  }
+
+  const storagePort = storage ?? getBrowserLocalStorage();
 
   let id: string | null = null;
-  try {
-    id = window.localStorage.getItem(DEVICE_ID_KEY);
-  } catch {
-    // A private browsing context may reject storage; use an in-memory identity.
+  if (storagePort) {
+    try {
+      id = storagePort.getItem(DEVICE_ID_KEY);
+    } catch {
+      // A private browsing context may reject storage; use an in-memory identity.
+    }
   }
   if (!id || !isSafeDeviceId(id)) {
     id = volatileDeviceId ?? createDeviceId();
     volatileDeviceId = id;
-    try {
-      window.localStorage.setItem(DEVICE_ID_KEY, id);
-    } catch {
-      // A private browsing context may reject storage. The in-memory ID is
-      // still sufficient for the current page lifecycle.
+    if (storagePort) {
+      try {
+        storagePort.setItem(DEVICE_ID_KEY, id);
+      } catch {
+        // A private browsing context may reject storage. The in-memory ID is
+        // still sufficient for the current page lifecycle.
+      }
     }
   } else {
     // 后续存储不可用时，仍保留已持久化的设备身份。
@@ -40,28 +50,31 @@ export function getClientDeviceIdentity(): ClientDeviceIdentity {
   }
 
   const detectedLabel = detectDeviceLabel();
-  return { id, label: readDeviceLabel() ?? detectedLabel, detectedLabel };
+  return { id, label: readDeviceLabel(storagePort) ?? detectedLabel, detectedLabel };
 }
 
-export function getClientDeviceHeaders(): Record<string, string> {
-  const identity = getClientDeviceIdentity();
+export function getClientDeviceHeaders(storage?: StoragePort | null): Record<string, string> {
+  const identity = getClientDeviceIdentity(storage);
   return {
     "x-areaforge-device-id": identity.id,
     "x-areaforge-device-label": identity.label,
   };
 }
 
-export function setClientDeviceLabel(value: string): ClientDeviceIdentity {
+export function setClientDeviceLabel(value: string, storage?: StoragePort | null): ClientDeviceIdentity {
   const label = normalizeClientDeviceLabel(value);
   volatileDeviceLabel = label;
-  try {
-    if (label) window.localStorage.setItem(DEVICE_LABEL_KEY, label);
-    else window.localStorage.removeItem(DEVICE_LABEL_KEY);
-  } catch {
-    // Keep the user-selected name for the current page lifecycle.
+  const storagePort = storage ?? getBrowserLocalStorage();
+  if (storagePort) {
+    try {
+      if (label) storagePort.setItem(DEVICE_LABEL_KEY, label);
+      else storagePort.removeItem(DEVICE_LABEL_KEY);
+    } catch {
+      // Keep the user-selected name for the current page lifecycle.
+    }
   }
-  window.dispatchEvent(new Event(DEVICE_IDENTITY_CHANGED_EVENT));
-  return getClientDeviceIdentity();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(DEVICE_IDENTITY_CHANGED_EVENT));
+  return getClientDeviceIdentity(storagePort);
 }
 
 export function subscribeClientDeviceIdentity(listener: () => void): () => void {
@@ -93,14 +106,19 @@ function isSafeDeviceId(value: string): boolean {
   return value.length >= 8 && value.length <= 100 && /^[A-Za-z0-9:_-]+$/.test(value);
 }
 
-function readDeviceLabel(): string | null {
+function readDeviceLabel(storage: StoragePort | null): string | null {
+  if (!storage) return volatileDeviceLabel;
   try {
-    const stored = normalizeClientDeviceLabel(window.localStorage.getItem(DEVICE_LABEL_KEY) ?? "");
+    const stored = normalizeClientDeviceLabel(storage.getItem(DEVICE_LABEL_KEY) ?? "");
     if (stored) volatileDeviceLabel = stored;
     return stored ?? volatileDeviceLabel;
   } catch {
     return volatileDeviceLabel;
   }
+}
+
+function getBrowserLocalStorage(): StoragePort | null {
+  return getBrowserStoragePort("local");
 }
 
 function detectDeviceLabel(): string {

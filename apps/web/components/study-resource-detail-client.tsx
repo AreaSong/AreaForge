@@ -1,5 +1,12 @@
 "use client";
 
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
+import { createReviewSchedule } from "@/lib/api/review-schedule";
+import {
+  setStudyResourceArchiveState,
+  updateStudyResource,
+} from "@/lib/api/study-resource";
 import { Archive, ArrowRight, CalendarCheck, Download, ExternalLink, Eye, Pencil, RotateCcw, Save, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +16,9 @@ import { KnowledgeObjectDetailHeader } from "@/components/knowledge-object-detai
 import { KnowledgeNextAction } from "@/components/knowledge-next-action";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { EditorActionBar } from "@/components/ui/editor-actions";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input, Select } from "@/components/ui/field";
 import { Alert, PersistenceStatus } from "@/components/ui/feedback";
 import {
   loadPrivateBusinessDraft,
@@ -19,25 +29,29 @@ import {
 } from "@/lib/client/private-business-drafts";
 import { useUnsavedChangesWarning } from "@/lib/client/use-unsaved-changes-warning";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-import type { StudyResourceDto, StudyResourceEditorOptionsDto } from "@/lib/study/study-resource-service";
+import type { StudyResourceDto, StudyResourceEditorOptionsDto } from "@/lib/contracts";
+import { shanghaiDateInputToIso } from "@/lib/formatters";
+import {
+  categories,
+  Field,
+  isStudyResourceDto,
+  MultiSelect,
+  organizeStatusLabel,
+  resourceConflictComparisons,
+  ResourceFacts,
+  sourceTypeLabel,
+  splitTags,
+} from "@/components/study-resource-detail-client-parts";
+import {
+  isStoredResourceDetailDraft,
+  resourceDetailDraftsEqual,
+  restoreResourceDetailDraft,
+  toResourceDetailDraft,
+  type ResourceDetailDraft,
+  type ResourceDetailValues,
+} from "@/components/study-resource-detail-draft";
 
 const previewableTypes = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp", "text/markdown"]);
-const categories = [
-  ["TEXTBOOK", "教材/讲义"], ["COURSE", "课程资料"], ["EXERCISE", "习题/题集"],
-  ["PAST_PAPER", "真题/模拟"], ["SOLUTION", "题解/解析"], ["SUMMARY", "总结/速查"],
-  ["IMAGE", "截图/图片"], ["OTHER", "其他"],
-] as const;
-
-interface ResourceDetailDraft {
-  title: string;
-  category: string;
-  subjectId: string;
-  tags: string;
-  taskIds: string[];
-  noteIds: string[];
-  mistakeIds: string[];
-  syllabusNodeIds: string[];
-}
 
 export function StudyResourceDetailClient(props: {
   userId: string;
@@ -60,7 +74,7 @@ export function StudyResourceDetailClient(props: {
   const [reviewDate, setReviewDate] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [baseRevision, setBaseRevision] = useState(resource.revision);
+  const [baseRevision, setBaseRevision] = useState<number | null>(resource.revision);
   const [conflict, setConflict] = useState<{
     latest: StudyResourceDto;
     conflictFields: string[];
@@ -72,7 +86,7 @@ export function StudyResourceDetailClient(props: {
   const [editing, setEditing] = useState(false);
   const [confirmation, setConfirmation] = useState<"archive" | "discard" | null>(null);
   const archived = Boolean(resource.archivedAt);
-  const currentDraft = { title, category, subjectId, tags, taskIds, noteIds, mistakeIds, syllabusNodeIds };
+  const currentDraft: ResourceDetailValues = { title, category, subjectId, tags, taskIds, noteIds, mistakeIds, syllabusNodeIds };
   const dirty = !resourceDetailDraftsEqual(currentDraft, savedBaseline);
   const objectHref = props.returnTo
     ? withReturnTo(`/knowledge/resources/${resource.id}`, props.returnTo)
@@ -82,26 +96,35 @@ export function StudyResourceDetailClient(props: {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const draft = loadPrivateBusinessDraft(formDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isResourceDetailDraft);
-      if (draft) {
-        setTitle(draft.title);
-        setCategory(draft.category);
-        setSubjectId(draft.subjectId);
-        setTags(draft.tags);
-        setTaskIds(draft.taskIds);
-        setNoteIds(draft.noteIds);
-        setMistakeIds(draft.mistakeIds);
-        setSyllabusNodeIds(draft.syllabusNodeIds);
+      const stored = loadPrivateBusinessDraft(formDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isStoredResourceDetailDraft);
+      if (stored) {
+        const draft = restoreResourceDetailDraft(stored, props.resource.revision);
+        setTitle(draft.values.title);
+        setCategory(draft.values.category);
+        setSubjectId(draft.values.subjectId);
+        setTags(draft.values.tags);
+        setTaskIds(draft.values.taskIds);
+        setNoteIds(draft.values.noteIds);
+        setMistakeIds(draft.values.mistakeIds);
+        setSyllabusNodeIds(draft.values.syllabusNodeIds);
+        setBaseRevision(draft.baseRevision);
         setEditing(true);
+        if (draft.status !== "current") {
+          setConflict({ latest: props.resource, conflictFields: ["revision"], action: "edit" });
+          setConflictOpen(true);
+          setError(draft.status === "legacy"
+            ? "已恢复旧版本机草稿，但其服务端基线未知；请人工比较后再保存。"
+            : `本机草稿基于 r${draft.baseRevision}，服务端当前为 r${props.resource.revision}；请人工比较后再保存。`);
+        }
       }
       setDraftReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [formDraftKey]);
+  }, [formDraftKey, props.resource]);
 
   useEffect(() => {
     if (!draftReady || archived) return;
-    const currentDraft = {
+    const currentDraft: ResourceDetailValues = {
       title,
       category,
       subjectId,
@@ -111,28 +134,44 @@ export function StudyResourceDetailClient(props: {
       mistakeIds,
       syllabusNodeIds,
     };
-    if (resourceDetailDraftsEqual(currentDraft, savedBaseline)) {
+    if (!conflict && resourceDetailDraftsEqual(currentDraft, savedBaseline)) {
       removePrivateBusinessDraft(formDraftKey);
       return;
     }
-    savePrivateBusinessDraft<ResourceDetailDraft>(formDraftKey, currentDraft);
-  }, [archived, category, draftReady, formDraftKey, mistakeIds, noteIds, savedBaseline, subjectId, syllabusNodeIds, tags, taskIds, title]);
+    savePrivateBusinessDraft<ResourceDetailDraft>(formDraftKey, {
+      schemaVersion: 1,
+      baseRevision,
+      values: currentDraft,
+    });
+  }, [archived, baseRevision, category, conflict, draftReady, formDraftKey, mistakeIds, noteIds, savedBaseline, subjectId, syllabusNodeIds, tags, taskIds, title]);
 
   async function save() {
     if (pending || archived) return;
+    if (baseRevision === null || conflict) {
+      setError("本机草稿尚未与服务端版本对齐，请先在冲突窗口选择服务端版本或人工合并。");
+      if (conflict) setConflictOpen(true);
+      return;
+    }
     setPending(true); setError(null);
     try {
-      const metadata = await fetch(`/api/study-resources/${resource.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, category, subjectId: subjectId || null, tags: splitTags(tags), taskIds, noteIds, mistakeIds, syllabusNodeIds, expectedRevision: baseRevision }),
+      const metadata = await updateStudyResource(resource.id, {
+        title,
+        category,
+        subjectId: subjectId || null,
+        tags: splitTags(tags),
+        taskIds,
+        noteIds,
+        mistakeIds,
+        syllabusNodeIds,
+        expectedRevision: baseRevision,
       });
-      const body = await metadata.json().catch(() => null) as { resource?: StudyResourceDto; error?: string; latest?: StudyResourceDto; conflictFields?: string[] } | null;
-      if (metadata.status === 401) {
+      const body = metadata.body;
+      if (isUnauthorized(metadata)) {
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!metadata.ok) {
-        if (metadata.status === 409 && isStudyResourceDto(body?.latest)) {
+        if (isConflict(metadata) && isStudyResourceDto(body?.latest)) {
           setConflict({ latest: body.latest, conflictFields: body.conflictFields ?? ["revision"], action: "edit" });
           setConflictOpen(true);
         }
@@ -196,23 +235,19 @@ export function StudyResourceDetailClient(props: {
 
   async function toggleArchive(requestedAction?: "archive" | "restore") {
     if (pending) return;
+    if (baseRevision === null || conflict) {
+      setError("本机草稿尚未与服务端版本对齐，请先处理版本冲突再改变资料状态。");
+      if (conflict) setConflictOpen(true);
+      return;
+    }
     const action = requestedAction ?? (archived ? "restore" : "archive");
     setPending(true); setError(null);
     try {
-      const response = await fetch(`/api/study-resources/${resource.id}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedRevision: baseRevision }),
-      });
-      const body = await response.json().catch(() => null) as {
-        resource?: StudyResourceDto;
-        latest?: StudyResourceDto;
-        conflictFields?: string[];
-        error?: string;
-      } | null;
-      if (response.status === 401) return redirectToLoginWithCurrentLocation();
+      const response = await setStudyResourceArchiveState(resource.id, action, baseRevision);
+      const body = response.body;
+      if (isUnauthorized(response)) return redirectToLoginWithCurrentLocation();
       if (!response.ok || !body?.resource) {
-        if (response.status === 409 && isStudyResourceDto(body?.latest)) {
+        if (isConflict(response) && isStudyResourceDto(body?.latest)) {
           setConflict({ latest: body.latest, conflictFields: body.conflictFields ?? ["revision", "archivedAt"], action });
           setConflictOpen(true);
         }
@@ -241,6 +276,9 @@ export function StudyResourceDetailClient(props: {
     setNoteIds(draft.noteIds);
     setMistakeIds(draft.mistakeIds);
     setSyllabusNodeIds(draft.syllabusNodeIds);
+    setBaseRevision(resource.revision);
+    setConflict(null);
+    setConflictOpen(false);
     removePrivateBusinessDraft(formDraftKey);
     setError(null);
     setEditing(false);
@@ -255,13 +293,14 @@ export function StudyResourceDetailClient(props: {
     if (!reviewDate || archived || pending) return;
     setPending(true); setError(null);
     try {
-      const response = await fetch("/api/review-schedules", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetType: "STUDY_RESOURCE", studyResourceId: resource.id, dueDate: new Date(`${reviewDate}T00:00:00+08:00`).toISOString() }),
+      const response = await createReviewSchedule({
+        targetType: "STUDY_RESOURCE",
+        studyResourceId: resource.id,
+        dueDate: shanghaiDateInputToIso(reviewDate),
       });
-      if (response.status === 401) return redirectToLoginWithCurrentLocation();
+      if (isUnauthorized(response)) return redirectToLoginWithCurrentLocation();
       if (!response.ok) {
-        const body = await response.json().catch(() => null) as { error?: string } | null;
+        const body = response.body;
         setError(body?.error ?? "设置复习日期失败，当前排期没有改变；请显式重试。");
         return;
       }
@@ -298,13 +337,13 @@ export function StudyResourceDetailClient(props: {
               </a>
             ) : null}
             {!archived && !editing ? (
-              <button type="button" onClick={() => setEditing(true)} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm">
+              <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
                 <Pencil size={16} aria-hidden />整理资料
-              </button>
+              </Button>
             ) : null}
-            {!editing ? <button type="button" disabled={pending} onClick={() => archived ? void toggleArchive() : setConfirmation("archive")} className="inline-flex h-10 items-center gap-2 rounded-md border border-white/10 px-3 text-sm disabled:opacity-50">
+            {!editing ? <Button type="button" variant="secondary" disabled={pending} onClick={() => archived ? void toggleArchive() : setConfirmation("archive")}>
               {archived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}{archived ? "恢复资料" : "归档资料"}
-            </button> : null}
+            </Button> : null}
           </>
         )}
       />
@@ -325,18 +364,18 @@ export function StudyResourceDetailClient(props: {
       {!editing ? (
         <ResourceFacts resource={resource} options={props.options} objectHref={objectHref} />
       ) : (
-        <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="resource-organize-heading">
+        <Card variant="master" className="space-y-4 p-5 sm:p-6" aria-labelledby="resource-organize-heading">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 id="resource-organize-heading" className="text-lg font-medium text-white">整理与关联</h2>
+            <h2 id="resource-organize-heading" className="text-lg font-semibold text-white">整理与关联</h2>
             <PersistenceStatus state={conflict ? "conflict" : pending ? "saving" : dirty ? "local-draft" : "clean"} />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="标题"><input disabled={archived} className="h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
-            <Field label="资料类型"><select disabled={archived} className="h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-            <Field label="主科目"><select disabled={archived} className="h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={subjectId} onChange={(event) => setSubjectId(event.target.value)}><option value="">未选择</option>{props.options.subjects.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></Field>
-            <Field label="标签"><input disabled={archived} className="h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="逗号分隔" /></Field>
+          <div className="af-content-grid-two grid gap-3">
+            <Field label="标题"><Input disabled={archived} className="rounded-xl bg-[#151a20] px-3" value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
+            <Field label="资料类型"><Select disabled={archived} className="rounded-xl bg-[#151a20] px-3" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></Field>
+            <Field label="主科目"><Select disabled={archived} className="rounded-xl bg-[#151a20] px-3" value={subjectId} onChange={(event) => setSubjectId(event.target.value)}><option value="">未选择</option>{props.options.subjects.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Select></Field>
+            <Field label="标签"><Input disabled={archived} className="rounded-xl bg-[#151a20] px-3" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="逗号分隔" /></Field>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="af-content-grid-two grid gap-3">
             <MultiSelect label="关联任务" values={taskIds} options={props.options.tasks} disabled={archived} onChange={setTaskIds} />
             <MultiSelect label="关联卡片" values={noteIds} options={props.options.notes} disabled={archived} onChange={setNoteIds} />
             <MultiSelect label="关联错题" values={mistakeIds} options={props.options.mistakes} disabled={archived} onChange={setMistakeIds} />
@@ -354,13 +393,19 @@ export function StudyResourceDetailClient(props: {
             onSecondary={requestCancelEditing}
             hint="保存后更新资料元数据与关联；放弃编辑会清除本机草稿。"
           /> : null}
-        </section>
+        </Card>
       )}
 
-      <section className="space-y-3 border-t border-white/10 pt-5"><h2 className="text-lg font-medium text-white">统一复习</h2><div className="flex flex-wrap gap-2"><input aria-label="首次复习日期" disabled={archived} type="date" className="h-10 rounded-md border border-white/10 bg-[#151a20] px-2 text-sm" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} /><button type="button" disabled={archived || pending || !reviewDate} onClick={() => void scheduleReview()} className="h-10 rounded-md border border-white/10 px-3 text-sm disabled:opacity-50">设置首次复习日期</button></div></section>
+      <Card variant="subtle" className="space-y-3 p-5 sm:p-6">
+        <h2 className="text-lg font-semibold text-white">统一复习</h2>
+        <div className="flex flex-wrap gap-2">
+          <Input aria-label="首次复习日期" disabled={archived} type="date" className="!w-auto rounded-xl bg-[#151a20] px-3" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} />
+          <Button type="button" variant="secondary" disabled={archived || pending || !reviewDate} onClick={() => void scheduleReview()}>设置首次复习日期</Button>
+        </div>
+      </Card>
       {error ? <Alert tone="danger">{error}</Alert> : null}
-      {lifecycleRetry ? <button type="button" className="h-10 rounded-md border border-amber-300/30 px-3 text-sm text-amber-200" disabled={pending} onClick={() => void toggleArchive(lifecycleRetry)}>再次提交{lifecycleRetry === "archive" ? "归档" : "恢复"}</button> : null}
-      {conflict && !conflictOpen ? <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理资料版本冲突</button> : null}
+      {lifecycleRetry ? <Button type="button" variant="secondary" className="border-amber-300/30 text-amber-200" disabled={pending} onClick={() => void toggleArchive(lifecycleRetry)}>再次提交{lifecycleRetry === "archive" ? "归档" : "恢复"}</Button> : null}
+      {conflict && !conflictOpen ? <Button type="button" variant="ghost" size="sm" className="h-auto px-0 text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理资料版本冲突</Button> : null}
       <ConfirmationDialog
         open={confirmation !== null}
         title={confirmation === "archive" ? "归档这份资料？" : "放弃本机编辑？"}
@@ -393,128 +438,4 @@ export function StudyResourceDetailClient(props: {
       />
     </article>
   );
-}
-
-function ResourceFacts(props: {
-  resource: StudyResourceDto;
-  options: StudyResourceEditorOptionsDto;
-  objectHref: string;
-}) {
-  const subject = props.options.subjects.find((option) => option.id === props.resource.subjectId)?.name ?? "未分科";
-  return (
-    <>
-      <section className="space-y-3 border-t border-white/10 pt-5" aria-labelledby="resource-facts-heading">
-        <h2 id="resource-facts-heading" className="text-lg font-medium text-white">资料事实</h2>
-        <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <Fact label="来源" value={sourceTypeLabel(props.resource.sourceType)} />
-          <Fact label="整理状态" value={organizeStatusLabel(props.resource.organizeStatus)} />
-          <Fact label="资料类型" value={categoryLabel(props.resource.category)} />
-          <Fact label="主科目" value={subject} />
-          <Fact label={props.resource.sourceType === "FILE" ? "文件名" : "来源站点"} value={props.resource.sourceType === "FILE" ? props.resource.originalName ?? "未记录" : props.resource.displayHost ?? "未记录"} />
-          {props.resource.sourceType === "FILE" ? <Fact label="文件大小" value={formatFileSize(props.resource.sizeBytes)} /> : null}
-          <Fact label="标签" value={props.resource.tags.join("、") || "无标签"} />
-        </dl>
-      </section>
-      <section className="space-y-4 border-t border-white/10 pt-5" aria-labelledby="resource-associations-heading">
-        <h2 id="resource-associations-heading" className="text-lg font-medium text-white">学习关联</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <AssociationLinks label="任务" ids={props.resource.taskIds} options={props.options.tasks} hrefFor={(id) => withReturnTo(`/roadmap/allocation/tasks/${id}`, props.objectHref)} />
-          <AssociationLinks label="知识卡片" ids={props.resource.noteIds} options={props.options.notes} hrefFor={(id) => withReturnTo(`/knowledge/cards/${id}`, props.objectHref)} />
-          <AssociationLinks label="错题" ids={props.resource.mistakeIds} options={props.options.mistakes} hrefFor={(id) => withReturnTo(`/knowledge/mistakes/${id}`, props.objectHref)} />
-          <AssociationLinks label="考纲节点" ids={props.resource.syllabusNodeIds} options={props.options.syllabusNodes} hrefFor={(id) => withReturnTo(`/knowledge/syllabi/${id}`, props.objectHref)} />
-        </div>
-      </section>
-    </>
-  );
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><dt className="text-zinc-500">{label}</dt><dd className="mt-1 break-words text-zinc-200">{value}</dd></div>;
-}
-
-function AssociationLinks(props: {
-  label: string;
-  ids: string[];
-  options: Array<{ id: string; title: string }>;
-  hrefFor: (id: string) => string;
-}) {
-  const optionById = new Map(props.options.map((option) => [option.id, option.title]));
-  return (
-    <div>
-      <p className="text-sm text-zinc-500">{props.label}</p>
-      {props.ids.length ? <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{props.ids.map((id) => <Link key={id} href={props.hrefFor(id)} className="break-words text-sm text-teal-300 hover:underline">{optionById.get(id) ?? "查看关联对象"}</Link>)}</div> : <p className="mt-1 text-sm text-zinc-300">未关联</p>}
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="text-sm text-zinc-400"><span>{label}</span><span className="mt-1 block">{children}</span></label>; }
-
-function MultiSelect(props: { label: string; values: string[]; options: Array<{ id: string; title: string }>; disabled: boolean; onChange: (values: string[]) => void }) {
-  return <label className="text-sm text-zinc-400"><span>{props.label}</span><select multiple disabled={props.disabled} className="mt-1 min-h-24 w-full rounded-md border border-white/10 bg-[#151a20] p-2 text-zinc-200" value={props.values} onChange={(event) => props.onChange(Array.from(event.currentTarget.selectedOptions, (option) => option.value))}>{props.options.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</select></label>;
-}
-
-function splitTags(value: string) { return value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean).slice(0, 20); }
-
-function sourceTypeLabel(value: StudyResourceDto["sourceType"]) { return value === "FILE" ? "文件资料" : "链接资料"; }
-
-function organizeStatusLabel(value: StudyResourceDto["organizeStatus"]) {
-  if (value === "READY_FOR_USE") return "可使用";
-  if (value === "ARCHIVED") return "已归档";
-  return "待整理";
-}
-
-function categoryLabel(value: string) { return categories.find(([key]) => key === value)?.[1] ?? value; }
-
-function formatFileSize(value: number | null) {
-  if (value === null) return "未记录";
-  if (value < 1_024) return `${value} B`;
-  if (value < 1_048_576) return `${(value / 1_024).toFixed(1)} KB`;
-  return `${(value / 1_048_576).toFixed(1)} MB`;
-}
-
-function toResourceDetailDraft(resource: StudyResourceDto): ResourceDetailDraft {
-  return {
-    title: resource.title,
-    category: resource.category,
-    subjectId: resource.subjectId ?? "",
-    tags: resource.tags.join("，"),
-    taskIds: resource.taskIds,
-    noteIds: resource.noteIds,
-    mistakeIds: resource.mistakeIds,
-    syllabusNodeIds: resource.syllabusNodeIds,
-  };
-}
-
-function resourceDetailDraftsEqual(left: ResourceDetailDraft, right: ResourceDetailDraft): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function isResourceDetailDraft(value: unknown): value is ResourceDetailDraft {
-  if (!value || typeof value !== "object") return false;
-  const draft = value as Partial<ResourceDetailDraft>;
-  return [draft.title, draft.category, draft.subjectId, draft.tags].every((field) => typeof field === "string")
-    && [draft.taskIds, draft.noteIds, draft.mistakeIds, draft.syllabusNodeIds]
-      .every((ids) => Array.isArray(ids) && ids.every((id) => typeof id === "string"));
-}
-
-function isStudyResourceDto(value: unknown): value is StudyResourceDto {
-  if (!value || typeof value !== "object") return false;
-  const resource = value as Partial<StudyResourceDto>;
-  return typeof resource.id === "string" && typeof resource.revision === "number" && typeof resource.title === "string"
-    && Array.isArray(resource.tags) && Array.isArray(resource.taskIds) && Array.isArray(resource.noteIds)
-    && Array.isArray(resource.mistakeIds) && Array.isArray(resource.syllabusNodeIds);
-}
-
-function resourceConflictComparisons(local: ResourceDetailDraft, latest?: StudyResourceDto) {
-  return [
-    { field: "revision", label: "revision", local: "本地基线", server: latest?.revision },
-    { field: "title", label: "标题", local: local.title, server: latest?.title },
-    { field: "category", label: "资料类型", local: local.category, server: latest?.category },
-    { field: "subjectId", label: "主科目", local: local.subjectId || null, server: latest?.subjectId },
-    { field: "tags", label: "标签", local: splitTags(local.tags), server: latest?.tags },
-    { field: "taskIds", label: "关联任务", local: local.taskIds, server: latest?.taskIds },
-    { field: "noteIds", label: "关联卡片", local: local.noteIds, server: latest?.noteIds },
-    { field: "mistakeIds", label: "关联错题", local: local.mistakeIds, server: latest?.mistakeIds },
-    { field: "syllabusNodeIds", label: "关联考纲", local: local.syllabusNodeIds, server: latest?.syllabusNodeIds },
-  ];
 }

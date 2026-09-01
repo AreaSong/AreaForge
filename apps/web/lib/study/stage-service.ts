@@ -4,6 +4,12 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  StageAdjustmentConflictLatest,
+  StageAdjustmentDecisionReplay,
+  StageAdjustmentDecisionResult,
+  StagePlanConflictLatest,
+} from "@/lib/contracts/simulation";
 import { getAnalyticsSummary } from "./analytics-service";
 import { daysUntil, getStudyDayRange } from "./date";
 import { finalExamDate, simulationDate } from "./exam-dates";
@@ -13,7 +19,7 @@ import type {
   StageAdjustmentDraftRecordDto,
   StageAdjustmentTaskActionDto,
   StagePlanDto,
-} from "./types";
+} from "@/lib/contracts";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import {
   buildPersistentCreateFingerprint,
@@ -21,6 +27,13 @@ import {
   normalizeIdempotencyKey,
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
+
+export type {
+  StageAdjustmentConflictLatest,
+  StageAdjustmentDecisionReplay,
+  StageAdjustmentDecisionResult,
+  StagePlanConflictLatest,
+} from "@/lib/contracts/simulation";
 
 const defaultStageGoal = "2026 年 12 月同步全真自测";
 const stageWorkbench = "/roadmap/stages";
@@ -41,34 +54,6 @@ export interface SaveStagePlanInput {
 export interface CreateStageAdjustmentDraftInput {
   idempotencyKey: string;
   stagePlanId?: string | null;
-}
-
-export interface StageAdjustmentDecisionResult {
-  draft: StageAdjustmentDraftRecordDto;
-  stageDraftId: string;
-  inboxResult: PlanInboxWriteSummaryDto;
-}
-
-export interface StageAdjustmentDecisionReplay {
-  draft: StageAdjustmentDraftRecordDto;
-  status: "applied" | "rejected";
-  decidedAt: string | null;
-  inboxResult: PlanInboxWriteSummaryDto | null;
-}
-
-export interface StagePlanConflictLatest {
-  kind: "stage-plan";
-  plan: StagePlanDto | null;
-  commandState?: "conflict" | "result_unavailable" | "workspace_changed";
-  sourceConflict?: unknown;
-}
-
-export interface StageAdjustmentConflictLatest {
-  kind: "stage-adjustment-decision";
-  draft: StageAdjustmentDraftRecordDto | null;
-  stagePlan: StagePlanDto | null;
-  commandState?: "conflict" | "result_unavailable" | "workspace_changed";
-  sourceConflict?: unknown;
 }
 
 export async function listStagePlans(actorId?: string): Promise<StagePlanDto[]> {

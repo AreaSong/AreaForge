@@ -1,59 +1,93 @@
 "use client";
 
-import { BookOpen, Play } from "lucide-react";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { BookOpen, ListTodo, Play } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Alert } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/field";
 import { FocusSessionClient } from "@/components/focus-session-client";
+import {
+  FocusHeroDial,
+  SubjectTileGrid,
+} from "@/components/focus-launcher-views";
 import {
   createLocalFocusSession,
   createFocusStartIdempotencyKey,
   clearFocusOfflineSnapshot,
   enqueueFocusCommand,
+  getFocusOfflineConflict,
   isLocalFocusSessionId,
   publishFocusSyncEvent,
   readFocusOfflineSnapshot,
   removeFocusCommand,
+  resolveFocusOfflineConflict,
+  retryDeferredFocusCommands,
   saveFocusOfflineSnapshot,
   subscribeFocusOfflineSync,
   syncFocusOfflineQueue,
   type FocusOfflineSnapshot,
 } from "@/lib/client/focus-offline-store";
 import { readActiveStudySession } from "@/lib/client/active-study-session";
+import { useEntityOperationMap } from "@/lib/client/use-entity-operation-map";
+import { startStudySession } from "@/lib/api/session";
 import { getClientDeviceHeaders, getClientDeviceIdentity } from "@/lib/client/device-identity";
 import { shouldUseOfflineFocusSnapshot } from "@/lib/client/focus-launcher-state";
-import type { StudySessionDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/study/types";
-import type { KnowledgePointDto } from "@/lib/study/knowledge-point-service";
+import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
+import type { FocusLauncherSummaryDto, StudySessionDto, StudyTaskDto, SubjectDto, SyllabusOptionNodeDto } from "@/lib/contracts";
+import type { KnowledgePointDto } from "@/lib/contracts";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+import { FocusStartConflictModal, type FocusStartConflict } from "@/components/focus-start-conflict-modal";
 
-export function FocusLauncher({ subjects, userId, returnTo, contextOptions, initialNow, commandMode, commandText }: { subjects: SubjectDto[]; userId: string; returnTo: string; initialNow: string; commandMode?: "now"; commandText?: string; contextOptions: { tasks: StudyTaskDto[]; syllabusNodes: SyllabusOptionNodeDto[]; knowledgePoints: KnowledgePointDto[] } }) {
+export function FocusLauncher({
+  subjects,
+  userId,
+  returnTo,
+  contextOptions,
+  initialNow,
+  commandMode,
+  commandText,
+  launcherSummary,
+}: {
+  subjects: SubjectDto[];
+  userId: string;
+  returnTo: string;
+  initialNow: string;
+  commandMode?: "now";
+  commandText?: string;
+  contextOptions: { tasks: StudyTaskDto[]; syllabusNodes: SyllabusOptionNodeDto[]; knowledgePoints: KnowledgePointDto[] };
+  launcherSummary?: FocusLauncherSummaryDto | null;
+}) {
   const subjectRef = useRef<HTMLSelectElement>(null);
   const [subjectId, setSubjectId] = useState("");
+  const [durationPreset, setDurationPreset] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [offlineSnapshot, setOfflineSnapshot] = useState<FocusOfflineSnapshot | null>(null);
   const [inlineSession, setInlineSession] = useState<StudySessionDto | null>(null);
+  const [startConflict, setStartConflict] = useState<FocusStartConflict | null>(null);
+  const [startConflictOpen, setStartConflictOpen] = useState(false);
   const offlineSnapshotRef = useRef<FocusOfflineSnapshot | null>(null);
+  const startOperations = useEntityOperationMap<"start">();
+  const startBusy = startOperations.get("start").pending || isPending;
 
+  const selectedSubject = useMemo(() => subjects.find((item) => item.id === subjectId) ?? null, [subjects, subjectId]);
+  const relatedSubjectTasks = useMemo(() => {
+    if (!selectedSubject) return [];
+    return contextOptions.tasks.filter((task) => task.subjectId === selectedSubject.id && task.status !== "done");
+  }, [selectedSubject, contextOptions.tasks]);
   useEffect(() => {
     offlineSnapshotRef.current = offlineSnapshot;
   }, [offlineSnapshot]);
-
   useEffect(() => {
     if (commandMode !== "now") return;
     const timer = window.setTimeout(() => subjectRef.current?.focus(), 0);
     return () => window.clearTimeout(timer);
   }, [commandMode]);
-
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       const snapshot = await readFocusOfflineSnapshot(userId);
       if (cancelled) return;
-
-      // A server snapshot can outlive the real session after a completed
-      // closeout. When online, the authoritative activity endpoint must win;
-      // otherwise a stale closing snapshot traps the user on the old detail
-      // page and prevents a fresh focus session from starting.
       if (navigator.onLine && snapshot && !isLocalFocusSessionId(snapshot.session.id)) {
         try {
           const active = await readActiveStudySession();
@@ -72,8 +106,6 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions, init
           }
           if (snapshotDecision === "clear-stale") await clearFocusOfflineSnapshot(userId);
         } catch {
-          // Keep the snapshot as a best-effort recovery path if the activity
-          // endpoint is temporarily unavailable.
           if (snapshot.session.status !== "completed") {
             offlineSnapshotRef.current = null;
             setOfflineSnapshot(null);
@@ -82,7 +114,6 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions, init
           }
         }
       }
-
       if (!cancelled && snapshot && (
         isLocalFocusSessionId(snapshot.session.id)
         || (!navigator.onLine && (snapshot.session.status === "running" || snapshot.session.status === "paused" || snapshot.session.status === "closing"))
@@ -95,7 +126,24 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions, init
     void load();
     const onSync = (event: Event) => {
       const detail = (event as CustomEvent<{ userId?: string; state?: string; session?: StudySessionDto | null }>).detail;
-      if (detail?.userId !== userId || !detail.session) return;
+      if (detail?.userId !== userId) return;
+      if (detail.state === "blocked") {
+        void getFocusOfflineConflict(userId).then((record) => {
+          if (!record) return;
+          const localSession = record.localSession ?? offlineSnapshotRef.current?.session;
+          if (!localSession) return;
+          setStartConflict({
+            localSession,
+            latest: detail.session ?? record.latestSession,
+            commandId: record.command.id,
+            localSessionId: record.command.localSessionId,
+            conflictFields: ["status", "updatedAt", "device", "timeline"],
+          });
+          setStartConflictOpen(true);
+        });
+        return;
+      }
+      if (!detail.session) return;
       if (isLocalFocusSessionId(detail.session.id)) {
         const current = offlineSnapshotRef.current;
         if (!current) return;
@@ -103,15 +151,11 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions, init
         offlineSnapshotRef.current = next;
         setOfflineSnapshot(next);
       } else if (detail.session.status === "running" || detail.session.status === "paused" || detail.session.status === "closing") {
-        // The session client owns local-to-server reconciliation. Remounting
-        // it here could reset an in-progress closeout draft or conflict view.
         if (offlineSnapshotRef.current && isLocalFocusSessionId(offlineSnapshotRef.current.session.id)) return;
         offlineSnapshotRef.current = null;
         setOfflineSnapshot(null);
         setInlineSession(detail.session);
       } else {
-        // Keep the mounted session client through server-side completion so it
-        // can finish evidence handoff after a local session is remapped.
         if (offlineSnapshotRef.current && isLocalFocusSessionId(offlineSnapshotRef.current.session.id)) return;
         offlineSnapshotRef.current = null;
         setOfflineSnapshot(null);
@@ -123,139 +167,331 @@ export function FocusLauncher({ subjects, userId, returnTo, contextOptions, init
       unsubscribe();
     };
   }, [userId]);
-
-  if (inlineSession) {
-    return (
-      <FocusSessionClient
-        userId={userId}
-        session={inlineSession}
-        activeConflictId={null}
-        returnTo={returnTo}
-        initialNow={initialNow}
-        initialEvidenceReceipts={[]}
-        contextOptions={contextOptions}
-        embeddedInWorkbench
-      />
-    );
-  }
-
-  if (offlineSnapshot && isLocalFocusSessionId(offlineSnapshot.session.id)) {
-    return (
-      <FocusSessionClient
-        userId={userId}
-        session={offlineSnapshot.session}
-        activeConflictId={null}
-        returnTo={returnTo}
-        initialNow={initialNow}
-        initialEvidenceReceipts={[]}
-        contextOptions={contextOptions}
-        offlineOnly
-        embeddedInWorkbench
-      />
-    );
-  }
-
-  function start() {
+  const start = useCallback(() => {
     if (!subjectId) {
       setError("开始学习前必须选择科目。");
       return;
     }
+    const generation = startOperations.tryBegin("start");
+    if (generation === null) return;
     setError(null);
     startTransition(async () => {
-      const subject = subjects.find((item) => item.id === subjectId);
-      if (!subject) return;
-      const device = getClientDeviceIdentity();
-      const localSession = createLocalFocusSession({
-        userId,
-        subjectId: subject.id,
-        subjectName: subject.name,
-        clientDeviceId: device.id,
-        clientDeviceLabel: device.label,
-      });
-      const startBody = {
-        idempotencyKey: createFocusStartIdempotencyKey(),
-        startedAt: localSession.startedAt,
-        subjectId,
-        startSource: "SUBJECT_SHORTCUT",
-        clientDeviceId: device.id,
-        clientDeviceLabel: device.label,
-      };
-      const queuedStart = await enqueueFocusCommand({
-        userId,
-        localSessionId: localSession.id,
-        action: "start",
-        body: startBody,
-      });
       try {
-        const response = await fetch("/api/study-sessions/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...getClientDeviceHeaders() },
-          body: JSON.stringify(queuedStart.body),
+        const subject = subjects.find((item) => item.id === subjectId);
+        if (!subject) return;
+        const device = getClientDeviceIdentity();
+        const localSession = createLocalFocusSession({
+          userId,
+          subjectId: subject.id,
+          subjectName: subject.name,
+          clientDeviceId: device.id,
+          clientDeviceLabel: device.label,
         });
-        const body = await response.json().catch(() => null) as { session?: StudySessionDto; latest?: StudySessionDto; error?: string } | null;
-        if (!response.ok) {
-          const active = body?.latest;
-          if (response.status === 409 && active?.id) {
+        const startBody = {
+          idempotencyKey: createFocusStartIdempotencyKey(),
+          startedAt: localSession.startedAt,
+          subjectId: subject.id,
+          startSource: "SUBJECT_SHORTCUT",
+          clientDeviceId: device.id,
+          clientDeviceLabel: device.label,
+        };
+        const queuedStart = await enqueueFocusCommand({
+          userId,
+          localSessionId: localSession.id,
+          action: "start",
+          body: startBody,
+        });
+        try {
+          const result = await startStudySession(queuedStart.body, getClientDeviceHeaders());
+          const body = result.body;
+          if (!result.ok) {
+            const active = body?.latest;
+            if (isUnauthorized(result)) {
+              await saveFocusOfflineSnapshot(userId, localSession, "deferred", 1);
+              await resolveFocusOfflineConflict({
+                userId,
+                localSessionId: localSession.id,
+                commandId: queuedStart.id,
+                resolution: "defer",
+              });
+              setError("登录已过期，开始命令已保留。重新登录后请回到开始学习页面显式重试。");
+              redirectToLoginWithCurrentLocation();
+              return;
+            }
+            if (isConflict(result) && active?.id) {
+              await saveFocusOfflineSnapshot(userId, localSession, "pending", 1);
+              const conflict: FocusStartConflict = {
+                localSession,
+                latest: active,
+                commandId: queuedStart.id,
+                localSessionId: localSession.id,
+                conflictFields: body?.conflictFields ?? ["activeSession", "status"],
+              };
+              setStartConflict(conflict);
+              setStartConflictOpen(true);
+              setError("当前已有活动学习。开始命令与本地记录已保留，请明确采用当前活动或保留命令重试。");
+              return;
+            }
+            if (result.status < 500 && typeof navigator !== "undefined" && navigator.onLine) {
+              await removeFocusCommand(queuedStart.id);
+              setError(body?.error === "SUBJECT_REQUIRED" ? "开始学习前必须选择科目。" : "无法开始学习，请稍后重试。");
+              return;
+            }
+            throw new TypeError("开始请求未送达");
+          }
+          if (body?.session?.id) {
             await removeFocusCommand(queuedStart.id);
             offlineSnapshotRef.current = null;
             setOfflineSnapshot(null);
-            setInlineSession(active);
+            setInlineSession(body.session);
+            publishFocusSyncEvent(userId, "current", body.session);
             return;
           }
-          if (response.status < 500 && typeof navigator !== "undefined" && navigator.onLine) {
-            await removeFocusCommand(queuedStart.id);
-            setError(body?.error === "SUBJECT_REQUIRED" ? "开始学习前必须选择科目。" : "无法开始学习，请稍后重试。");
+          throw new TypeError("开始响应缺少活动");
+        } catch (requestError) {
+          if (!(requestError instanceof TypeError) && (typeof navigator === "undefined" || navigator.onLine)) {
+            setError("无法开始学习，请稍后重试。");
             return;
           }
-          throw new TypeError("开始请求未送达");
+          const syncState = typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline";
+          await saveFocusOfflineSnapshot(userId, localSession, syncState, 1);
+          const nextSnapshot: FocusOfflineSnapshot = { userId, session: localSession, savedAt: new Date().toISOString(), syncState, pendingCount: 1 };
+          offlineSnapshotRef.current = nextSnapshot;
+          setInlineSession(null);
+          setOfflineSnapshot(nextSnapshot);
+          publishFocusSyncEvent(userId, syncState, localSession);
         }
-        if (body?.session?.id) {
-          await removeFocusCommand(queuedStart.id);
-          offlineSnapshotRef.current = null;
-          setOfflineSnapshot(null);
-          setInlineSession(body.session);
-          publishFocusSyncEvent(userId, "current", body.session);
-          return;
-        }
-        throw new TypeError("开始响应缺少活动");
-      } catch (requestError) {
-        if (!(requestError instanceof TypeError) && (typeof navigator === "undefined" || navigator.onLine)) {
-          setError("无法开始学习，请稍后重试。");
-          return;
-        }
-        const syncState = typeof navigator !== "undefined" && navigator.onLine ? "pending" : "offline";
-        await saveFocusOfflineSnapshot(userId, localSession, syncState, 1);
-        const nextSnapshot: FocusOfflineSnapshot = { userId, session: localSession, savedAt: new Date().toISOString(), syncState, pendingCount: 1 };
-        offlineSnapshotRef.current = nextSnapshot;
-        setInlineSession(null);
-        setOfflineSnapshot(nextSnapshot);
-        publishFocusSyncEvent(userId, syncState, localSession);
+      } finally {
+        startOperations.succeed("start", generation);
       }
     });
+  }, [startOperations, subjectId, subjects, userId]);
+  async function adoptStartConflict() {
+    if (!startConflict) return;
+    if (!startConflict.latest) {
+      setStartConflictOpen(false);
+      setError("服务端没有可采用的活动版本，请刷新后确认当前状态；开始命令仍保留。");
+      return;
+    }
+    await resolveFocusOfflineConflict({
+      userId,
+      localSessionId: startConflict.localSessionId,
+      commandId: startConflict.commandId,
+      resolution: "adopt-server",
+    });
+    offlineSnapshotRef.current = null;
+    setOfflineSnapshot(null);
+    setStartConflict(null);
+    setStartConflictOpen(false);
+    setInlineSession(startConflict.latest);
+    setError("已采用当前服务端活动，原开始命令未重放。");
   }
-
+  async function retryStartConflict() {
+    if (!startConflict) return;
+    await resolveFocusOfflineConflict({
+      userId,
+      localSessionId: startConflict.localSessionId,
+      commandId: startConflict.commandId,
+      resolution: "defer",
+    });
+    setStartConflictOpen(false);
+    setStartConflict(null);
+    setError("开始命令已保留，正在执行你明确触发的重试；若仍冲突会再次停在这里。");
+    await retryDeferredFocusCommands(userId, startConflict.localSessionId);
+    await syncFocusOfflineQueue(userId);
+  }
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (event.key >= "1" && event.key <= "9") {
+        const index = parseInt(event.key, 10) - 1;
+        if (subjects[index]) {
+          setSubjectId(subjects[index].id);
+          setError(null);
+        }
+      } else if (event.key === "ArrowLeft" || event.key === "[") {
+        event.preventDefault();
+        setDurationPreset((prev) => Math.max(0, prev - 5));
+      } else if (event.key === "ArrowRight" || event.key === "]") {
+        event.preventDefault();
+        setDurationPreset((prev) => Math.min(180, prev + 5));
+      } else if (event.key === "Enter" && subjectId && !startBusy) {
+        start();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [subjects, subjectId, startBusy, start]);
+  if (inlineSession) {
+    return (
+      <div className="h-full min-h-0 w-full animate-[fade-in_0.25s_ease-out]">
+        <FocusSessionClient
+          userId={userId}
+          session={inlineSession}
+          activeConflictId={null}
+          returnTo={returnTo}
+          initialNow={initialNow}
+          initialEvidenceReceipts={[]}
+          contextOptions={contextOptions}
+          embeddedInWorkbench
+        />
+        <FocusStartConflictModal
+          conflict={startConflict}
+          open={startConflictOpen}
+          onClose={() => setStartConflictOpen(false)}
+          onAdopt={() => void adoptStartConflict()}
+          onRetry={() => void retryStartConflict()}
+        />
+      </div>
+    );
+  }
+  if (offlineSnapshot && isLocalFocusSessionId(offlineSnapshot.session.id)) {
+    return (
+      <div className="h-full min-h-0 w-full animate-[fade-in_0.25s_ease-out]">
+        <FocusSessionClient
+          userId={userId}
+          session={offlineSnapshot.session}
+          activeConflictId={null}
+          returnTo={returnTo}
+          initialNow={initialNow}
+          initialEvidenceReceipts={[]}
+          contextOptions={contextOptions}
+          offlineOnly
+          embeddedInWorkbench
+        />
+        <FocusStartConflictModal
+          conflict={startConflict}
+          open={startConflictOpen}
+          onClose={() => setStartConflictOpen(false)}
+          onAdopt={() => void adoptStartConflict()}
+          onRetry={() => void retryStartConflict()}
+        />
+      </div>
+    );
+  }
   return (
-    <div className="h-full min-h-0 w-full">
-      <div className="grid h-full min-h-0 lg:grid-cols-[minmax(0,1.5fr)_minmax(20rem,0.5fr)]">
-        <section className="flex min-h-[34rem] flex-col items-center justify-center border-b border-white/10 px-5 py-12 text-center lg:border-b-0 lg:border-r">
-          <p className="text-sm font-medium text-teal-300">开始学习</p>
-          <div className="relative mt-8 grid size-64 place-items-center rounded-full border border-white/15 bg-[#101419] shadow-[0_0_0_12px_rgba(255,255,255,0.02)] sm:size-72">
-            <span className="absolute inset-5 rounded-full border border-white/10" aria-hidden="true" />
-            <span className="absolute bottom-1/2 left-1/2 h-[42%] w-px origin-bottom -translate-x-1/2 rotate-0 bg-teal-300" aria-hidden="true" />
-            <span className="absolute bottom-1/2 left-1/2 size-3 -translate-x-1/2 translate-y-1/2 rounded-full bg-teal-300" aria-hidden="true" />
-            <div className="relative z-10"><p className="font-mono text-5xl font-semibold tabular-nums text-white sm:text-6xl">00:00:00</p><p className="mt-3 text-sm text-zinc-500">选择科目后开始计时</p></div>
-          </div>
-          <p className="mt-8 max-w-lg text-sm leading-6 text-zinc-500">不预设目标时长，也不要求先绑定任务或考纲。先把注意力交给当前科目，学习结束后再用收口和复测判断掌握情况。</p>
-        </section>
-        <aside className="flex items-start px-5 py-10 sm:px-8 lg:items-center">
-          <div className="w-full max-w-md space-y-6">
-            <div><BookOpen className="size-6 text-teal-300" aria-hidden="true" /><h1 className="mt-4 text-2xl font-semibold text-white">今天先学什么？</h1><p className="mt-2 text-sm leading-6 text-zinc-400">科目是开始学习的唯一必选项。具体学了什么，结束后再按实际情况记录。</p>{commandMode === "now" ? <p className="mt-3 text-xs text-teal-200">已识别“立即开始”命令{commandText ? `：${commandText}` : ""}，选择科目后启动计时。</p> : null}</div>
-            <label className="grid gap-2 text-sm text-zinc-300">科目<select ref={subjectRef} value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="h-12 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" disabled={!subjects.length}><option value="">选择科目</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
-            {!subjects.length ? <Alert tone="warning" title="还没有可用科目">先到设置 → 考试与科目添加至少一个科目。</Alert> : null}
+    <div className="af-focus-launcher-scroll h-full min-h-0 w-full p-2.5 sm:p-4 lg:p-5">
+      <div className="af-focus-launcher-grid grid min-h-full w-full gap-4 sm:gap-5">
+        {/* Main Hero Focus Cockpit */}
+        <FocusHeroDial
+          selectedSubject={selectedSubject}
+          summary={launcherSummary}
+          durationPreset={durationPreset}
+          onPresetChange={setDurationPreset}
+          tasks={contextOptions.tasks}
+        />
+        {/* Action & Configuration Panel */}
+        <aside className="af-focus-config flex min-h-[32rem] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 sm:p-5 lg:p-6">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 focus-scrollbar">
+            <div>
+              <div className="flex items-center gap-2 text-teal-300">
+                <BookOpen className="size-4 sm:size-5" aria-hidden="true" />
+                <span className="text-[11px] sm:text-xs font-medium uppercase tracking-wider">Focus Setup</span>
+              </div>
+              <h1 className="mt-2 text-xl sm:text-2xl font-semibold text-white">今天先学什么？</h1>
+              <p className="mt-1 text-xs sm:text-sm leading-relaxed text-zinc-400">
+                科目是开始学习的唯一必选项。具体学了什么，结束后再按实际情况沉淀。
+              </p>
+              {commandMode === "now" ? (
+                <p className="mt-2 rounded-md bg-teal-500/10 border border-teal-500/20 px-3 py-1.5 text-xs text-teal-200">
+                  已识别“立即开始”命令{commandText ? `：${commandText}` : ""}，选定科目后即刻启动计时。
+                </p>
+              ) : null}
+            </div>
+            {/* Quick Subject Tiles */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="focus-subject-select" className="text-xs sm:text-sm font-medium text-zinc-300">
+                  选择科目 <span className="text-[11px] sm:text-xs text-zinc-500">(按数字键 1-{Math.min(subjects.length, 9)} 快捷选择)</span>
+                </label>
+              </div>
+              <SubjectTileGrid
+                subjects={subjects}
+                subjectId={subjectId}
+                onSelect={(id) => {
+                  setSubjectId(id);
+                  setError(null);
+                }}
+                tasks={contextOptions.tasks}
+              />
+              {/* Accessible Hidden/Native Select fallback */}
+              <Select
+                id="focus-subject-select"
+                ref={subjectRef}
+                value={subjectId}
+                onChange={(event) => {
+                  setSubjectId(event.target.value);
+                  setError(null);
+                }}
+                className="sr-only"
+                disabled={!subjects.length}
+                aria-label="科目"
+              >
+                <option value="">选择科目</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            {/* Contextual Tasks Reference Peek (Optional) */}
+            {selectedSubject && relatedSubjectTasks.length > 0 ? (
+              <div className="rounded-xl border border-white/10 bg-[var(--af-surface)] p-3">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-300">
+                  <ListTodo className="size-3.5 text-teal-300" aria-hidden="true" />
+                  <span>今日待办参考 ({relatedSubjectTasks.length})</span>
+                </div>
+                <ul className="mt-2 space-y-1">
+                  {relatedSubjectTasks.slice(0, 3).map((task) => (
+                    <li key={task.id} className="flex items-center justify-between text-xs text-zinc-400">
+                      <span className="truncate pr-2">• {task.title}</span>
+                      {task.estimatedMinutes ? (
+                        <span className="shrink-0 text-zinc-500">{task.estimatedMinutes}m</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {!subjects.length ? (
+              <Alert tone="warning" title="还没有可用科目">
+                先到设置 → 考试与科目添加至少一个科目。
+              </Alert>
+            ) : null}
             {error ? <Alert tone="danger">{error}</Alert> : null}
-            <Button type="button" variant="primary" size="lg" className="w-full" onClick={start} loading={isPending} disabled={!subjects.length || !subjectId}><Play size={17} aria-hidden />开始学习</Button>
-            <p className="text-xs leading-5 text-zinc-600">同一用户无论打开多少个计时器页，都会回到当前唯一的活动计时。</p>
           </div>
+          <div className="shrink-0 pt-3 space-y-2 border-t border-white/5">
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              className={`w-full h-11 sm:h-12 text-sm sm:text-base font-medium transition-all duration-200 ${
+                selectedSubject
+                  ? "hover:scale-[1.01] active:scale-[0.98] shadow-[0_0_24px_rgba(45,212,191,0.25)] hover:shadow-[0_0_36px_rgba(45,212,191,0.45)] ring-1 ring-teal-400/40"
+                  : "shadow-[0_0_16px_rgba(45,212,191,0.1)]"
+              }`}
+              onClick={start}
+              loading={startBusy}
+              disabled={!subjects.length || !subjectId}
+            >
+              <Play className="size-4 fill-current transition-transform group-hover:scale-110" aria-hidden="true" />
+              {selectedSubject
+                ? `开始【${selectedSubject.name}】专注`
+                : "开始学习"}
+            </Button>
+            <p className="text-center text-[11px] sm:text-xs leading-normal text-zinc-500">
+              多标签页与设备自动单实例互斥 · 离开页面计时后台继续
+            </p>
+          </div>
+          <FocusStartConflictModal
+            conflict={startConflict}
+            open={startConflictOpen}
+            onClose={() => setStartConflictOpen(false)}
+            onAdopt={() => void adoptStartConflict()}
+            onRetry={() => void retryStartConflict()}
+          />
         </aside>
       </div>
     </div>

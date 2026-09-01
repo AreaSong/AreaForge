@@ -31,6 +31,7 @@
 - `architecture/ai-boundary.md`：AI 调用边界。
 - `architecture/file-storage.md`：附件存储策略。
 - `architecture/deployment.md`：部署架构。
+- `architecture/web-shared-capability-inventory.json`：Web 共享能力、owner、契约路径和专项验证命令的机器清单；由共享边界门禁校验 schema、路径与依赖方向。
 
 ## 模块
 

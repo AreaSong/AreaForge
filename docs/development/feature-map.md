@@ -41,7 +41,7 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `module.auth` | 单管理员登录与会话 | done | `packages/auth`、`/api/auth/*`、`AuthSession` | scrypt 口令 + 会话；`lastSeenAt` 5 分钟节流写 |
-| `module.dashboard-today` | 今日作战台聚合 | done | `apps/web/lib/study/service.ts` | React `cache()` 消除首页重复查询编排 |
+| `module.dashboard-today` | 今日作战台聚合 | done | `apps/web/lib/study/dashboard-query-service.ts` | React `cache()` 消除首页重复查询编排 |
 | `module.countdown` | 双节点倒计时 | done | `apps/web/lib/study/exam-dates.ts` | 2026/2027 节点单一事实源，与冲刺主题联动 |
 | `module.tasks` | 每日任务 | done | `/api/tasks`、`StudyTask` | 今日任务表单写入已有 `StudyTask.type` |
 | `module.task-debt` | 任务债务 | done | `StudyTask.debtStatus`、`TaskDebtEvent`、complete/defer/drop/recover/split/convert-review API | 自动阶段联动/批量应用需另行确认 |

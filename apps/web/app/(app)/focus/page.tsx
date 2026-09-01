@@ -4,8 +4,9 @@ import { FocusSessionClient } from "@/components/focus-session-client";
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata, sanitizeReturnPath, withReturnTo } from "@/lib/navigation/app-navigation";
-import { activitySourcePath } from "@/lib/study/activity-route";
-import { getActiveStudySession, getStudySessionById, listStudySessionEvidenceReceipts, listSubjects, listStudyTasks } from "@/lib/study/service";
+import { activitySourcePath } from "@/lib/navigation/activity-route";
+import { getActiveStudySession, getStudySessionById, listStudySessionEvidenceReceipts } from "@/lib/study/session-query-service";
+import { getFocusLauncherSummary, listStudyTasks, listSubjects } from "@/lib/study/study-query-service";
 import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
 import { listSyllabusOptions } from "@/lib/study/syllabus-service";
 
@@ -17,12 +18,13 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
   if (!user) redirect("/login");
   const query = await searchParams;
   const returnTo = sanitizeReturnPath(query.returnTo ?? "/today");
-  const [activeSession, subjects, tasks, syllabusNodes, knowledgePoints] = await Promise.all([
+  const [activeSession, subjects, tasks, syllabusNodes, knowledgePoints, launcherSummary] = await Promise.all([
     getActiveStudySession(user.id),
     listSubjects(user.id),
     listStudyTasks(user.id),
     listSyllabusOptions(user.id),
     listKnowledgePoints(user.id),
+    getFocusLauncherSummary(user.id),
   ]);
   if (activeSession && activeSession.activityMode !== "FREE_STUDY") {
     redirect(withReturnTo(activitySourcePath(activeSession), returnTo));
@@ -48,7 +50,16 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
   }
   return (
     <PageFrame variant="workspace-full">
-      <FocusLauncher subjects={subjects} userId={user.id} returnTo={returnTo} initialNow={new Date().toISOString()} contextOptions={{ tasks, syllabusNodes, knowledgePoints }} commandMode={query.mode === "now" ? "now" : undefined} commandText={query.command} />
+      <FocusLauncher
+        subjects={subjects}
+        userId={user.id}
+        returnTo={returnTo}
+        initialNow={new Date().toISOString()}
+        contextOptions={{ tasks, syllabusNodes, knowledgePoints }}
+        launcherSummary={launcherSummary}
+        commandMode={query.mode === "now" ? "now" : undefined}
+        commandText={query.command}
+      />
     </PageFrame>
   );
 }

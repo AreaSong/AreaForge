@@ -30,6 +30,7 @@ export default async function TaskDetailPage({ params, searchParams }: {
 
   return (
     <TaskDetailClient
+      key={pageData.detail.task.id}
       detail={pageData.detail}
       dependencies={pageData.dependencies}
       subjects={pageData.subjects}

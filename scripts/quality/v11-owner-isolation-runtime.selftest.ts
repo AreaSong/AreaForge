@@ -3,12 +3,14 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../../packages/db/src/index";
 import { ApiError } from "../../apps/web/lib/api/responses";
 import { createNoteAttachment } from "../../apps/web/lib/study/attachments-service";
+import { createMistakeAttempt } from "../../apps/web/lib/study/mistake-attempt-service";
 import {
   createMistake,
   getMistakeById,
   getOwnedMistakeDetail,
   listMistakes,
   updateMistake,
+  updateMistakeLinks,
 } from "../../apps/web/lib/study/mistakes-service";
 import {
   archiveNote,
@@ -74,17 +76,17 @@ import {
 } from "../../apps/web/lib/study/exam-workspace-service";
 import {
   createStudyTask,
-  getActiveStudySession,
-  getTodayReview,
-  getTodayDashboard,
-  listStudyTasks,
-  listSubjects,
-  pauseStudySession,
-  saveTodayReview,
-  startStudySession,
-  updateDailyReview,
   updateStudyTask,
-} from "../../apps/web/lib/study/service";
+} from "../../apps/web/lib/study/task-command-service";
+import { getTodayDashboard } from "../../apps/web/lib/study/dashboard-query-service";
+import {
+  getTodayReview,
+  saveTodayReview,
+  updateDailyReview,
+} from "../../apps/web/lib/study/daily-review-service";
+import { pauseStudySession, startStudySession } from "../../apps/web/lib/study/session-lifecycle-service";
+import { getActiveStudySession } from "../../apps/web/lib/study/session-query-service";
+import { listStudyTasks, listSubjects } from "../../apps/web/lib/study/study-query-service";
 import { getStudyTaskDetail } from "../../apps/web/lib/study/task-detail-service";
 
 const checks: string[] = [];
@@ -142,6 +144,34 @@ try {
   assert.deepEqual((await listMistakes(own.userId)).map((row) => row.id), [ownMistake.id]);
   assert.deepEqual((await listPlanInboxItems(own.userId)).map((row) => row.id), [ownInbox.id]);
   checks.push("owner_scoped_lists");
+
+  const ownCompleteMistake = await createMistake({
+    idempotencyKey: `owner-mistake-v2-${randomUUID()}`,
+    subjectId: own.subjectId,
+    title: "owner mistake v2",
+    questionText: "owner-only question",
+    cause: "concept_confusion",
+    correctIdea: "owner-only idea",
+  }, own.userId);
+  await rejectsApi(() => createMistakeAttempt(otherMistake.id, {
+    idempotencyKey: `cross-owner-attempt-${randomUUID()}`,
+    answerMode: "PAPER_OR_ORAL",
+    result: "FAILED",
+  }, own.userId), "MISTAKE_NOT_FOUND");
+  await rejectsApi(() => updateMistakeLinks(ownCompleteMistake.id, {
+    expectedUpdatedAt: ownCompleteMistake.updatedAt,
+    noteIds: [otherNote.id],
+    resourceIds: [],
+  }, own.userId), "NOTE_NOT_FOUND");
+  const otherResource = await prisma.studyResource.create({
+    data: { workspaceId: other.workspaceId, subjectId: other.subjectId, stableKey: `other-resource-${randomUUID()}`, title: "other resource", sourceType: "LINK", externalUrl: "https://example.com/other" },
+  });
+  await rejectsApi(() => updateMistakeLinks(ownCompleteMistake.id, {
+    expectedUpdatedAt: ownCompleteMistake.updatedAt,
+    noteIds: [],
+    resourceIds: [otherResource.id],
+  }, own.userId), "STUDY_RESOURCE_NOT_FOUND");
+  checks.push("mistake_v2_owner_isolation");
 
   assert.deepEqual((await listSyllabusOptions(own.userId)).map((row) => row.id), [ownNode.id]);
   assert.deepEqual((await getSyllabusMapOverview(own.userId)).nodes.map((row) => row.id), [ownNode.id]);
@@ -222,6 +252,7 @@ try {
     idempotencyKey: `owner-cross-mistake-${randomUUID()}`,
     subjectId: other.subjectId,
     title: "cross owner mistake",
+    questionText: "cross owner question",
     cause: "unknown",
   }, own.userId), "SUBJECT_NOT_FOUND");
   checks.push("foreign_parent_creation_rejected");
@@ -453,6 +484,7 @@ async function verifyArchivedSubjectBoundary(seed: Awaited<ReturnType<typeof see
     subjectId: subject.id,
     syllabusNodeId: node.id,
     title: "archived mistake",
+    questionText: "archived mistake question",
     cause: "concept_confusion",
     correctIdea: "historical correction",
   }, seed.userId);
@@ -631,6 +663,7 @@ async function verifyArchivedWritesRejected(
     idempotencyKey: `owner-blocked-mistake-${randomUUID()}`,
     subjectId: scenario.subjectId,
     title: "blocked archived mistake",
+    questionText: "blocked archived mistake question",
     cause: "concept_confusion",
     correctIdea: "blocked",
   }, actorId), "SUBJECT_ARCHIVED");

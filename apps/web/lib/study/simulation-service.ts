@@ -12,12 +12,18 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  SimulationRemediationDto,
+  SimulationStageDraftDto,
+  SimulationWorkspaceDto,
+} from "@/lib/contracts/simulation";
 import { getAnalyticsSummary } from "./analytics-service";
 import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { applyTaskCas } from "./concurrency";
 import { daysUntil } from "./date";
 import { finalExamDate, simulationDate } from "./exam-dates";
-import { completeConfiguredActivitySessionInTx, getMotivationVault, getMotivationVaultShared, saveMotivationVault } from "./service";
+import { completeConfiguredActivitySessionInTx } from "./session-command-service";
+import { getMotivationVault, getMotivationVaultShared, saveMotivationVault } from "./motivation-vault-service";
 import { activeTimerSessionId } from "./activity-session-state";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
@@ -35,10 +41,14 @@ import type {
   MotivationVaultDto,
   SimulationExamDto,
   SimulationLossItemDto,
-  StageAdjustmentDraftRecordDto,
-  StagePlanDto,
   StudyTaskDto,
-} from "./types";
+} from "@/lib/contracts";
+
+export type {
+  SimulationRemediationDto,
+  SimulationStageDraftDto,
+  SimulationWorkspaceDto,
+} from "@/lib/contracts/simulation";
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type SimulationDbClient = PrismaClient | Prisma.TransactionClient;
@@ -132,38 +142,6 @@ export interface SimulationLossItemMutationResult {
     examRevision: number;
     examStatus: SimulationExamDto["status"];
   };
-}
-
-export interface SimulationStageDraftDto {
-  simulationNode: {
-    title: string;
-    date: string;
-    daysToSimulation: number;
-    isPhaseNode: true;
-  };
-  readiness: SimulationReadinessSummary;
-  draft: {
-    status: "local_rule_fallback";
-    riskConclusion: string;
-    focusSubjects: string[];
-    intensityAdjustment: string;
-    modeRecommendation: "recovery" | "strengthening" | "simulation_window" | "steady";
-    taskActions: string[];
-    risk: StageAdjustmentDraft["risk"];
-    taskIntensity: StageAdjustmentDraft["taskIntensity"];
-    requiresUserConfirmation: true;
-    canAutoApply: false;
-    privacyBoundary: string;
-  };
-}
-
-export interface SimulationWorkspaceDto {
-  exams: SimulationExamDto[];
-  tasks: StudyTaskDto[];
-  stage: SimulationStageDraftDto;
-  stagePlans: StagePlanDto[];
-  stageAdjustmentDrafts: StageAdjustmentDraftRecordDto[];
-  motivationVault: MotivationVaultDto | null;
 }
 
 export async function getSimulationWorkspace(actorId: string, now = new Date()): Promise<SimulationWorkspaceDto> {
@@ -867,21 +845,6 @@ async function lossItemConflict(tx: Prisma.TransactionClient, lossItemId: string
   });
 }
 
-export interface SimulationRemediationDto {
-  originKey: string;
-  subjectResultId: string;
-  subjectId: string;
-  subjectName: string;
-  reason: SimulationLossReason;
-  syllabusNodeId: string | null;
-  syllabusNodeTitle: string | null;
-  lostScore: number;
-  itemIds: string[];
-  originVersion: number;
-  inboxItemId: string | null;
-  inboxStatus: "OPEN" | "DISMISSED" | "CONVERTED" | null;
-}
-
 export interface SimulationRemediationSelection {
   originKey: string;
   originVersion: number;
@@ -1497,6 +1460,7 @@ function serializeSimulationExam(exam: {
       syllabusNodeId: string | null;
       lostScore: number;
       note: string | null;
+      mistakeId: string | null;
       revision: number;
       archivedAt: Date | null;
       syllabusNode: { title: string } | null;
@@ -1577,6 +1541,7 @@ function serializeLossItem(item: {
   syllabusNodeId: string | null;
   lostScore: number;
   note: string | null;
+  mistakeId: string | null;
   revision: number;
   archivedAt: Date | null;
   syllabusNode: { title: string } | null;
@@ -1588,6 +1553,7 @@ function serializeLossItem(item: {
     syllabusNodeTitle: item.syllabusNode?.title ?? null,
     lostScore: item.lostScore,
     note: item.note,
+    mistakeId: item.mistakeId,
     revision: item.revision,
     archivedAt: item.archivedAt?.toISOString() ?? null,
   };

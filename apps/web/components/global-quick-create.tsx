@@ -1,5 +1,6 @@
 "use client";
 
+import { IconButton } from "@/components/ui/button";
 import { FilePlus2, ListTree, NotebookPen, Plus, SquareCheckBig, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -16,7 +17,8 @@ export function GlobalQuickCreate() {
   }), [closeTool, registerTool]);
 
   return (
-    <button
+    <IconButton
+      label="快捷创建"
       type="button"
       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/5"
       onClick={(event) => toggleTool("quick-create", event.currentTarget)}
@@ -25,7 +27,7 @@ export function GlobalQuickCreate() {
       title="快捷创建"
     >
       <Plus size={17} aria-hidden="true" />
-    </button>
+    </IconButton>
   );
 }
 

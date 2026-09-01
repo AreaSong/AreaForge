@@ -226,35 +226,39 @@ assert.ok(draftService.includes("确认后才可能外呼 provider"));
 
 const settingsPage = read("apps/web/app/(app)/settings/ai/page.tsx");
 const settingsClient = read("apps/web/components/ai-settings-client.tsx");
+const settingsSections = read("apps/web/components/ai-settings-sections.tsx");
+const settingsModals = read("apps/web/components/ai-settings-modals.tsx");
 const aiDraftPanel = read("apps/web/components/ai-draft-panel.tsx");
+const aiDraftWorkflow = read("apps/web/components/use-ai-draft-workflow.ts");
+const aiDraftPanelView = read("apps/web/components/ai-draft-panel-view.tsx");
 assert.ok(settingsPage.includes("readAiProviderPreference(await cookies())"));
-assert.ok(settingsClient.includes('role="switch"'));
-assert.ok(settingsClient.includes("保存 AI 设置"));
-assert.ok(settingsClient.includes("<Modal"));
-assert.ok(settingsClient.includes("确认开启外部 Provider"));
-assert.ok(settingsClient.includes("确认关闭外部 Provider"));
+assert.ok(settingsSections.includes('role="switch"'));
+assert.ok(settingsSections.includes("保存 AI 设置"));
+assert.ok(settingsModals.includes("<Modal"));
+assert.ok(settingsModals.includes("确认开启外部 Provider"));
+assert.ok(settingsModals.includes("确认关闭外部 Provider"));
 assert.ok(settingsClient.includes("startTransition(saveConfirmedPreference)"));
 assert.ok(settingsClient.includes("restoreSaveFocusRef.current = true"));
 assert.ok(settingsClient.includes("saveButtonRef.current?.focus()"));
-assert.ok(settingsClient.includes("aria-disabled={!changed || pending}"));
+assert.ok(settingsSections.includes("aria-disabled={!props.preferenceChanged || props.preferencePending}"));
 assert.ok(
-  settingsClient.indexOf('role="switch"') < settingsClient.indexOf("AI_ENABLED") &&
-    settingsClient.indexOf("AI_ENABLED") < settingsClient.indexOf("隐私边界：") &&
-    settingsClient.indexOf("隐私边界：") < settingsClient.indexOf("保存 AI 设置"),
+  settingsSections.indexOf("checked={props.runtimeEnabled}") < settingsSections.indexOf("AI_ENABLED") &&
+    settingsSections.indexOf("AI_ENABLED") < settingsSections.indexOf("隐私边界：") &&
+    settingsSections.indexOf("隐私边界：") < settingsSections.indexOf("保存 AI 设置"),
   "settings order must remain switch -> provider/binding status -> privacy -> save",
 );
 assert.doesNotMatch(settingsClient, /startTransition\(\(\) => void saveConfirmedPreference\(\)\)/);
 assert.match(
   settingsClient,
-  /if \(response\.status === 401\) \{\s+closeConfirmModal\(\);\s+setError\([\s\S]+?setReauthRequired\(true\);/,
+  /const failure = classifyApiFailure\(result\);\s+closeConfirmModal\(\);\s+setError\([\s\S]+?if \(failure\.kind === "unauthorized"\) setReauthRequired\(true\);/,
 );
 assert.equal(settingsClient.includes("redirectToLoginWithCurrentLocation"), false);
-assert.ok(settingsClient.includes("在新标签页重新登录"));
-assert.ok(settingsClient.includes('href="/login?returnTo=%2Fsettings%2Fai"'));
-assert.ok(settingsClient.includes('target="_blank"'));
+assert.ok(settingsSections.includes("在新标签页重新登录"));
+assert.ok(settingsSections.includes('href="/login?returnTo=%2Fsettings%2Fai"'));
+assert.ok(settingsSections.includes('target="_blank"'));
 assert.match(
   settingsClient,
-  /if \(!response\.ok \|\| !isAiProviderPreference\([\s\S]+?closeConfirmModal\(\);[\s\S]+?setError\(/,
+  /if \(!isAiProviderPreference\(payload\?\.preference\)\) \{\s+closeConfirmModal\(\);\s+setError\(/,
 );
 assert.match(
   settingsClient,
@@ -262,11 +266,12 @@ assert.match(
 );
 assert.equal(settingsClient.includes("AI_API_KEY"), false);
 assert.equal(settingsClient.includes("AI_PAYLOAD_BINDING_SECRET"), false);
-assert.ok(aiDraftPanel.includes('typeof response.payload.note !== "string"'));
-assert.ok(aiDraftPanel.includes("setPreviewNote(response.payload.note)"));
-assert.ok(aiDraftPanel.includes('<p role="status"'));
-assert.ok(aiDraftPanel.includes('title="本次生成输入预览"'));
+assert.ok(aiDraftWorkflow.includes('typeof response.body.note !== "string"'));
+assert.ok(aiDraftWorkflow.includes("previewNote: previewBody.note"));
+assert.ok(aiDraftPanelView.includes('<p role="status"'));
+assert.ok(aiDraftPanelView.includes('title="本次生成输入预览"'));
 assert.equal(aiDraftPanel.includes('title="将发送以下内容"'), false);
+assert.equal(aiDraftPanelView.includes('title="将发送以下内容"'), false);
 
 console.log(
   `v1.1 AI provider preference selftest passed (${aiRoutes.length} gated AI POST routes + compatibility re-export).`,

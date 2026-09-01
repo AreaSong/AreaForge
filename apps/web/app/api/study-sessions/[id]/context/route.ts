@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { updateSessionContextSchema } from "@/lib/study/schemas";
-import { updateStudySessionContext } from "@/lib/study/service";
+import { updateStudySessionContext } from "@/lib/study/session-lifecycle-service";
 
 export const dynamic = "force-dynamic";
 

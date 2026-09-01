@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { saveMotivationVaultSchema } from "@/lib/study/schemas";
-import { getMotivationVault, saveMotivationVault } from "@/lib/study/service";
+import { getMotivationVault, saveMotivationVault } from "@/lib/study/motivation-vault-service";
 
 export const dynamic = "force-dynamic";
 

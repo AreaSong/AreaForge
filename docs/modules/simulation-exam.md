@@ -37,7 +37,7 @@
 - `SimulationSubjectResult.blankQuestionCount`：科目空题数量。
 - `SimulationSubjectResult.lossReasons`：科目失分原因。
 - `SimulationSubjectResult.summary`：科目总结。
-- `SimulationLossItem`：结构化失分事实，保存原因、考纲节点、失分值、备注、版本和归档状态。
+- `SimulationLossItem`：结构化失分事实，保存原因、考纲节点、失分值、备注、版本、归档状态和可选错题来源关联。
 - `StagePlan`：阶段计划，保存阶段目标、时间边界、模式和状态。
 - `StageAdjustmentDraft`：阶段调整草稿，保存本地规则建议、风险结论、重点科目、任务强度、建议动作和确认状态。
 
@@ -53,6 +53,7 @@
 - 阶段草稿 API：`GET/POST /api/simulation/stage-adjustment-drafts`、`POST /api/simulation/stage-adjustment-drafts/ai`、`POST /api/simulation/stage-adjustment-drafts/:id/confirm`、`POST /api/simulation/stage-adjustment-drafts/:id/reject`。
 - canonical 页面为 `/test/simulations`。列表优先继续最近未完成考试，再展示已确认历史和独立创建区；详情按录分、确认事实、补救入箱三步推进。
 - 已确认考试的补救先进入 `/roadmap/allocation/drafts` 补全并显式转为任务；全部补救已入箱、已忽略或已转任务时，详情显示完成态并提供投入草稿与阶段重评两个出口，不再显示重复发送命令。两条路径都不自动修改既有任务或阶段计划。
+- 已保存且未归档的失分项可打开错题预填表单；用户补齐题面和正确思路后才创建，创建与失分项关联位于同一事务。取消表单不写数据，已关联条目只显示打开现有错题。
 - 长期 AI 阶段草稿只走显式触发，成功只写 `StageAdjustmentDraft.source="ai"`，失败回退本地规则；模拟考试、阶段计划和首页状态主题共用统一长期风险 DTO。
 
 ## 不在当前范围

@@ -7,29 +7,13 @@ import { prisma } from "@areaforge/db";
 import { getStudyDayRange } from "./date";
 import { findActiveWorkspaceOrNull } from "./exam-workspace-service";
 import { listWorkspaceCheckIns } from "./check-in-service";
-import { getActiveStudySession } from "./service";
-import { getNotificationPreferences, type NotificationPreferenceDto } from "./notification-preferences-service";
-import type { StudySessionDto } from "./types";
+import { getActiveStudySession } from "./session-query-service";
+import { getNotificationPreferences } from "./notification-preferences-service";
+import type { StudySessionDto } from "@/lib/contracts";
+import type { AppShellStatusDto } from "@/lib/contracts/app-shell";
+import type { NotificationPreferenceDto } from "@/lib/contracts/notification";
 
-export interface AppShellStatusDto extends AppShellStatusProjection {
-  serverTime: string;
-  setupRequired: boolean;
-  workspaceId: string | null;
-  reviewExecutableCount: number;
-  reviewBridgedCount: number;
-  defaultSubjectId: string | null;
-  notificationPreference: NotificationPreferenceDto;
-  notificationCandidates: {
-    reviewDue: boolean;
-    planStart: boolean;
-    eveningReview: boolean;
-  };
-  motivationReminderCandidate: {
-    trigger: "RECOVERY" | "LOW_CONVERSION" | null;
-    blockedByActiveActivity: boolean;
-  };
-  activeSession: StudySessionDto | null;
-}
+export type { AppShellStatusDto } from "@/lib/contracts/app-shell";
 
 function serializeStatus(
   projection: AppShellStatusProjection,

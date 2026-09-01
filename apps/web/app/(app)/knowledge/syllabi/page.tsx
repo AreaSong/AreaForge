@@ -5,7 +5,7 @@ import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getLongTermRiskSummary } from "@/lib/study/long-term-risk-service";
-import { listSubjects } from "@/lib/study/service";
+import { listSubjects } from "@/lib/study/study-query-service";
 import { filterSyllabusTreeByQuery, getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";
 
 export const dynamic = "force-dynamic";

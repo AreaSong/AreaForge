@@ -1,27 +1,10 @@
 import { prisma, type Prisma } from "@areaforge/db";
+import type { DailyReviewFactsDto } from "@/lib/contracts/daily-review";
 import { getStudyDayRange } from "./date";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
-import type { StudySessionEvidenceReceiptDto, StudySessionEvidenceTypeDto } from "./types";
+import type { StudySessionEvidenceReceiptDto, StudySessionEvidenceTypeDto } from "@/lib/contracts";
 
-export interface DailyReviewFactsDto {
-  studyDayKey: string;
-  totalMinutes: number;
-  effectiveMinutes: number;
-  effectiveSessionCount: number;
-  lowConversionCount: number;
-  plannedTaskCount: number;
-  completedTaskCount: number;
-  confirmedReviewCount: number;
-  evidenceCounts: Record<StudySessionEvidenceTypeDto, number>;
-  evidence: StudySessionEvidenceReceiptDto[];
-  subjects: Array<{
-    id: string;
-    name: string;
-    color: string;
-    effectiveMinutes: number;
-    sessionCount: number;
-  }>;
-}
+export type { DailyReviewFactsDto } from "@/lib/contracts/daily-review";
 
 export async function getDailyReviewFacts(actorId: string, targetDate = new Date()): Promise<DailyReviewFactsDto> {
   const workspace = await resolveActiveWorkspace(actorId);

@@ -6,14 +6,15 @@ import {
   type LongTermRiskWeakNodeInput,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
+import type { LongTermRiskSummaryDto } from "@/lib/contracts/analytics";
 import { getAnalyticsSummaryShared } from "./analytics-service";
 import { daysUntil } from "./date";
 import { finalExamDate, simulationDate } from "./exam-dates";
-import { getTodayDashboardShared } from "./service";
+import { getTodayDashboardShared } from "./dashboard-query-service";
 import { getSyllabusMapOverviewShared } from "./syllabus-service";
-import type { SyllabusNodeDto } from "./types";
+import type { SyllabusNodeDto } from "@/lib/contracts";
 
-export type LongTermRiskSummaryDto = LongTermRiskSummary;
+export type { LongTermRiskSummaryDto } from "@/lib/contracts/analytics";
 
 export async function getLongTermRiskSummary(actorId: string): Promise<LongTermRiskSummaryDto> {
   // 走请求级共享副本：与页面主查询及 AI 建议复用同一份 dashboard/analytics/考纲地图。

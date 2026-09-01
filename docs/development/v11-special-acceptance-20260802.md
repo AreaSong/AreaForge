@@ -39,7 +39,7 @@
 这些是审计发现，不应被本记录的专项通过项覆盖：
 
 - `FocusSessionPage` 仍直接导入 Prisma；`packages/db` 的边界门禁当前只禁止 deep import，未强制页面/组件不直连数据库。
-- `apps/web/lib/study/service.ts`、`learning-tree-service.ts`、`syllabus-manager.tsx` 等文件远超仓库质量阈值，领域服务和客户端状态仍过度集中。
+- 2026-08-02 审计时的 `apps/web/lib/study/service.ts`（历史路径，后续已拆分）、`learning-tree-service.ts`、`syllabus-manager.tsx` 等文件远超仓库质量阈值，当时领域服务和客户端状态仍过度集中。
 - 恢复模式的“5 分钟启动”与反假学习 `<25` 分钟判定冲突；专注收口仍有占位产出文本绕过真实产出检查的风险。
 - 旧 `/reports`、`/simulation` 和部分旧工作台仍保留不可达实现；完整周期报告、债务重排和阶段 AI 建议的当前可见入口与文档存在收敛差异。
 - 每日复盘稳定主导航、AI 每日复盘/明日计划建议的用户工作流、专注证据接力回执仍需产品闭环验收。

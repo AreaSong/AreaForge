@@ -1,9 +1,13 @@
 "use client";
 
+import { createStagePlan } from "@/lib/api/stage";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
+import { Alert } from "@/components/ui/feedback";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
@@ -11,8 +15,14 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
-import type { StagePlanConflictLatest } from "@/lib/study/stage-service";
-import type { StagePlanDto } from "@/lib/study/types";
+import type { StagePlanConflictLatest } from "@/lib/contracts";
+import type { StagePlanDto } from "@/lib/contracts";
+import { classifyApiFailure } from "@/lib/client/api-errors";
+import {
+  isShanghaiDateInputError,
+  isValidShanghaiDateRangeInput,
+  shanghaiDateRangeInputToIso,
+} from "@/lib/formatters";
 
 const commandScope = "stage-plan:create";
 const formDraftKey = "areaforge.command.stage-plan.create-draft";
@@ -41,14 +51,6 @@ interface StagePlanConflict {
   latest: StagePlanConflictLatest;
   fields: string[];
   submitted: StagePlanPayload;
-}
-
-interface StagePlanResponse {
-  error?: string;
-  plan?: StagePlanDto;
-  latest?: unknown;
-  conflictFields?: string[];
-  workbench?: string;
 }
 
 export function StagePlanCreateForm(props: { initialStartDate: string; initialEndDate: string }) {
@@ -112,31 +114,28 @@ export function StagePlanCreateForm(props: { initialStartDate: string; initialEn
     }
     setError(null);
     setNotice(null);
-    const payload = currentPayload();
-    const submitted = firstSubmittedPayload && samePayload(firstSubmittedPayload, payload)
-      ? firstSubmittedPayload
-      : payload;
-    setFirstSubmittedPayload(submitted);
-    setDirty(true);
-    savePrivateBusinessDraft<StagePlanFormDraft>(formDraftKey, currentDraft(submitted));
     setSaving(true);
     try {
-      const response = await fetch("/api/stage-plans", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...submitted,
-          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "stage-plan", submitted),
-        }),
+      const payload = currentPayload();
+      const submitted = firstSubmittedPayload && samePayload(firstSubmittedPayload, payload)
+        ? firstSubmittedPayload
+        : payload;
+      setFirstSubmittedPayload(submitted);
+      setDirty(true);
+      savePrivateBusinessDraft<StagePlanFormDraft>(formDraftKey, currentDraft(submitted));
+      const response = await createStagePlan({
+        ...submitted,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "stage-plan", submitted),
       });
-      const body = (await response.json().catch(() => null)) as StagePlanResponse | null;
-      if (response.status === 401) {
+      const body = response.body;
+      const failure = classifyApiFailure(response);
+      if (failure.kind === "unauthorized") {
         setError("登录已过期，阶段计划草稿与命令已保留。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok) {
-        if (response.status === 409 && isStagePlanConflictLatest(body?.latest)) {
+        if (failure.kind === "conflict" && isStagePlanConflictLatest(body?.latest)) {
           setConflict({ latest: body.latest, fields: body.conflictFields ?? [], submitted });
           setConflictOpen(true);
         }
@@ -153,20 +152,23 @@ export function StagePlanCreateForm(props: { initialStartDate: string; initialEn
       setDirty(false);
       setFirstSubmittedPayload(null);
       startTransition(() => router.refresh());
-    } catch {
-      setError("网络结果未知，阶段计划草稿与命令仍保留；请先核对服务端状态，再显式重试。");
+    } catch (caught) {
+      setError(isShanghaiDateInputError(caught)
+        ? "阶段起止日期无效，或结束日期早于开始日期；请重新选择。"
+        : "网络结果未知，阶段计划草稿与命令仍保留；请先核对服务端状态，再显式重试。");
     } finally {
       setSaving(false);
     }
   }
 
   function currentPayload(): StagePlanPayload {
+    const range = shanghaiDateRangeInputToIso(startDate, endDate);
     return {
       baseRevision,
       name,
       goal,
-      startDate: toIsoDate(startDate),
-      endDate: toIsoDate(endDate),
+      startDate: range.start,
+      endDate: range.end,
       mode,
       status: "active",
     };
@@ -214,16 +216,26 @@ export function StagePlanCreateForm(props: { initialStartDate: string; initialEn
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-sm text-zinc-300">阶段名称<input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" maxLength={160} onChange={(event) => { setName(event.target.value); markEdited(); }} required value={name}/></label>
-        <label className="grid gap-1 text-sm text-zinc-300">阶段模式<select className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" onChange={(event) => { setMode(event.target.value as StagePlanDto["mode"]); markEdited(); }} value={mode}><option value="maintain">维持</option><option value="recovery">恢复</option><option value="strengthen">强化</option><option value="sprint">冲刺</option></select></label>
-        <label className="grid gap-1 text-sm text-zinc-300">开始日期<input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" onChange={(event) => { setStartDate(event.target.value); markEdited(); }} required type="date" value={startDate}/></label>
-        <label className="grid gap-1 text-sm text-zinc-300">结束日期<input className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-zinc-100" min={startDate} onChange={(event) => { setEndDate(event.target.value); markEdited(); }} required type="date" value={endDate}/></label>
+      <div className="af-content-grid-two grid gap-3">
+        <Field label="阶段名称" htmlFor="stage-plan-name">
+          <Input id="stage-plan-name" className="h-11 bg-[#0d1117]" maxLength={160} onChange={(event) => { setName(event.target.value); markEdited(); }} required value={name} />
+        </Field>
+        <Field label="阶段模式" htmlFor="stage-plan-mode">
+          <Select id="stage-plan-mode" className="h-11 bg-[#0d1117]" onChange={(event) => { setMode(event.target.value as StagePlanDto["mode"]); markEdited(); }} value={mode}><option value="maintain">维持</option><option value="recovery">恢复</option><option value="strengthen">强化</option><option value="sprint">冲刺</option></Select>
+        </Field>
+        <Field label="开始日期" htmlFor="stage-plan-start-date">
+          <Input id="stage-plan-start-date" className="h-11 bg-[#0d1117]" onChange={(event) => { setStartDate(event.target.value); markEdited(); }} required type="date" value={startDate} />
+        </Field>
+        <Field label="结束日期" htmlFor="stage-plan-end-date">
+          <Input id="stage-plan-end-date" className="h-11 bg-[#0d1117]" min={startDate} onChange={(event) => { setEndDate(event.target.value); markEdited(); }} required type="date" value={endDate} />
+        </Field>
       </div>
-      <label className="grid gap-1 text-sm text-zinc-300">阶段目标<textarea className="min-h-24 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-zinc-100" maxLength={2000} onChange={(event) => { setGoal(event.target.value); markEdited(); }} required value={goal}/></label>
-      <button className="h-11 w-fit rounded-md bg-teal-400 px-4 text-sm font-medium text-[#071011] disabled:opacity-60" disabled={pending || saving} type="submit">{saving ? "创建中..." : "创建阶段计划"}</button>
-      {notice ? <p role="status" className="text-sm text-teal-200">{notice}</p> : null}
-      {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
+      <Field label="阶段目标" htmlFor="stage-plan-goal">
+        <Textarea id="stage-plan-goal" className="bg-[#0d1117]" maxLength={2000} onChange={(event) => { setGoal(event.target.value); markEdited(); }} required value={goal} />
+      </Field>
+      <Button className="af-container-action h-11" disabled={pending || saving} loading={saving} loadingLabel="创建中..." type="submit" variant="primary">创建阶段计划</Button>
+      {notice ? <Alert tone="success">{notice}</Alert> : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
       <ConflictResolutionModal
         open={conflictOpen && Boolean(conflict)}
@@ -262,8 +274,7 @@ function isStagePlanFormDraft(value: unknown): value is StagePlanFormDraft {
   return (draft.baseRevision === null || typeof draft.baseRevision === "number")
     && typeof draft.name === "string"
     && typeof draft.goal === "string"
-    && typeof draft.startDate === "string"
-    && typeof draft.endDate === "string"
+    && isValidShanghaiDateRangeInput(draft.startDate, draft.endDate)
     && ["maintain", "recovery", "strengthen", "sprint"].includes(draft.mode ?? "")
     && (draft.firstSubmittedPayload === null || isStagePlanPayload(draft.firstSubmittedPayload));
 }
@@ -282,10 +293,6 @@ function isStagePlanPayload(value: unknown): value is StagePlanPayload {
 
 function samePayload(left: StagePlanPayload, right: StagePlanPayload): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function toIsoDate(value: string): string {
-  return new Date(`${value}T00:00:00+08:00`).toISOString();
 }
 
 function labelStagePlanError(error?: string): string {

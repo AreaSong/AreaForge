@@ -1,8 +1,13 @@
 "use client";
 
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { correctReviewEvent, type ReviewResult } from "@/lib/api/review-actions";
 import {
   loadPrivateBusinessDraft,
   redirectToLoginWithCurrentLocation,
@@ -10,9 +15,9 @@ import {
   savePrivateBusinessDraft,
   SHORT_PRIVATE_DRAFT_TTL_MS,
 } from "@/lib/client/private-business-drafts";
-import type { ReviewEventDto } from "@/lib/study/review-schedule-service";
+import type { ReviewEventDto } from "@/lib/contracts";
 
-type Result = "PASSED" | "PARTIAL" | "FAILED";
+type Result = ReviewResult;
 
 export function ReviewEventCorrection(props: { event: ReviewEventDto; scheduleRevision: number }) {
   const router = useRouter();
@@ -50,19 +55,15 @@ export function ReviewEventCorrection(props: { event: ReviewEventDto; scheduleRe
     setError(null);
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/review-events/${props.event.id}/corrections`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          idempotencyKey,
-          expectedRevision: baseRevision,
-          result,
-          nextDueDate: nextDueDate || undefined,
-          note: note || undefined,
-        }),
+      const response = await correctReviewEvent(props.event.id, {
+        idempotencyKey,
+        expectedRevision: baseRevision,
+        result,
+        nextDueDate: nextDueDate || undefined,
+        note: note || undefined,
       });
-      const body = await response.json().catch(() => null) as { error?: string; latest?: unknown; conflictFields?: string[]; workbench?: string } | null;
-      if (response.status === 401) {
+      const body = response.body;
+      if (isUnauthorized(response)) {
         setError("登录已过期，更正输入与命令身份仍保留；重新登录后请显式重试。");
         return redirectToLoginWithCurrentLocation();
       }
@@ -72,7 +73,7 @@ export function ReviewEventCorrection(props: { event: ReviewEventDto; scheduleRe
         return;
       }
       if (!response.ok) {
-        if (response.status === 409) {
+      if (isConflict(response)) {
           setConflict({ latest: body?.latest, conflictFields: body?.conflictFields ?? ["revision"] });
           setConflictOpen(true);
         }
@@ -113,18 +114,18 @@ export function ReviewEventCorrection(props: { event: ReviewEventDto; scheduleRe
   }
 
   if (!open) {
-    return <button type="button" className="mt-2 text-xs text-teal-300 hover:underline" onClick={() => setOpen(true)}>更正最新结果</button>;
+    return <Button type="button" variant="ghost" size="sm" className="mt-2 !h-auto !min-h-0 !px-0 !py-0 !text-xs !font-normal text-teal-300 hover:!bg-transparent hover:underline" onClick={() => setOpen(true)}>更正最新结果</Button>;
   }
 
   return (
     <div className="mt-3 space-y-3 rounded-md border border-white/10 bg-black/20 p-3">
       <p className="text-xs text-zinc-400">更正会追加新事件，原事件保持不变，时长沿用 {props.event.durationSeconds} 秒。</p>
-      <label className="block text-sm">结果<select className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={result} onChange={(event) => setResult(event.target.value as Result)}><option value="PASSED">通过</option><option value="PARTIAL">部分</option><option value="FAILED">失败</option></select></label>
-      <label className="block text-sm">下次日期（可选）<input type="date" className="mt-1 h-10 w-full rounded-md border border-white/10 bg-[#151a20] px-2" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} /></label>
-      <label className="block text-sm">更正备注<textarea className="mt-1 min-h-20 w-full rounded-md border border-white/10 bg-[#151a20] px-2 py-2" value={note} onChange={(event) => setNote(event.target.value)} /></label>
-      <div className="flex gap-2"><button type="button" disabled={submitting} className="h-10 rounded-md bg-teal-500/90 px-3 text-sm font-medium text-black disabled:opacity-50" onClick={() => void submit()}>{submitting ? "提交中..." : "提交更正"}</button><button type="button" className="h-10 rounded-md border border-white/10 px-3 text-sm" onClick={() => setOpen(false)}>取消</button></div>
+      <Field label="结果" htmlFor="review-correction-result"><Select id="review-correction-result" className="mt-1" value={result} onChange={(event) => setResult(event.target.value as Result)}><option value="PASSED">通过</option><option value="PARTIAL">部分</option><option value="FAILED">失败</option></Select></Field>
+      <Field label="下次日期（可选）" htmlFor="review-correction-next-due"><Input id="review-correction-next-due" type="date" className="mt-1" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} /></Field>
+      <Field label="更正备注" htmlFor="review-correction-note"><Textarea id="review-correction-note" className="mt-1" controlHeight="sm" value={note} onChange={(event) => setNote(event.target.value)} /></Field>
+      <div className="flex gap-2"><Button type="button" variant="primary" loading={submitting} loadingLabel="提交中..." onClick={() => void submit()}>提交更正</Button><Button type="button" variant="secondary" onClick={() => setOpen(false)}>取消</Button></div>
       {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
-      {conflict && !conflictOpen ? <button type="button" className="text-sm text-amber-200 underline" onClick={() => setConflictOpen(true)}>处理更正冲突</button> : null}
+      {conflict && !conflictOpen ? <Button type="button" variant="ghost" size="sm" className="!h-auto !min-h-0 !px-0 !py-0 !text-sm !font-normal text-amber-200 hover:!bg-transparent hover:underline" onClick={() => setConflictOpen(true)}>处理更正冲突</Button> : null}
       <ConflictResolutionModal
         open={conflictOpen && Boolean(conflict)}
         title="合并复习更正冲突"

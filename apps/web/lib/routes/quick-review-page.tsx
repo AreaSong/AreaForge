@@ -2,11 +2,11 @@ import { redirect } from "next/navigation";
 import { QuickReviewClient } from "@/components/quick-review-client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getReviewSchedule, type ReviewScheduleDto } from "@/lib/study/review-schedule-service";
-import { getActiveStudySession } from "@/lib/study/service";
+import { getActiveStudySession } from "@/lib/study/session-query-service";
 import { getRouteMetadata, sanitizeReturnPath } from "@/lib/navigation/app-navigation";
 import { ApiError } from "@/lib/api/responses";
 import { getReviewTarget } from "@/lib/study/review-target-service";
-import { isKnowledgeReviewActivityForSchedule } from "@/lib/study/activity-route";
+import { isKnowledgeReviewActivityForSchedule } from "@/lib/navigation/activity-route";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/knowledge/reviews/schedule/run");

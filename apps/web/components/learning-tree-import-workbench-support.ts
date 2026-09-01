@@ -3,7 +3,8 @@ import {
   type LearningTreeImportSelectionSnapshot,
 } from "@areaforge/core";
 import { getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
-import type { LearningTreePreviewDto } from "@/lib/study/learning-tree-service";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
+import type { LearningTreePreviewDto } from "@/lib/contracts";
 import type { LearningTreeScopeView } from "@/components/learning-tree-import-workbench-view";
 
 type Selection = LearningTreeImportSelection;
@@ -51,7 +52,7 @@ export function persistLearningTreeImportDraft(userId: string, value: {
   selectionSnapshot: LearningTreeImportSelectionSnapshot | null;
 }): void {
   try {
-    window.localStorage.setItem(learningTreeImportDraftKey(userId), JSON.stringify({
+    getBrowserStoragePort("local")?.setItem(learningTreeImportDraftKey(userId), JSON.stringify({
       version: 2,
       userId,
       updatedAt: Date.now(),

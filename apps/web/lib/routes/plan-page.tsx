@@ -3,18 +3,15 @@ import { notFound, redirect } from "next/navigation";
 import { AiDraftPanel } from "@/components/ai-draft-panel";
 import { PlanRollingClient } from "@/components/plan-rolling-client";
 import { TaskDetailClient } from "@/components/task-detail-client";
+import { ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getPlanRolling } from "@/lib/study/plan-rolling-service";
-import { listPlanMilestones } from "@/lib/study/plan-milestone-service";
-import { listStagePlans } from "@/lib/study/stage-service";
-import { listSyllabusOptionsShared } from "@/lib/study/syllabus-service";
-import { findActiveWorkspaceOrNull, listWorkspaceSubjects } from "@/lib/study/exam-workspace-service";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { ApiError } from "@/lib/api/responses";
-import { getStudyResource, type StudyResourceDto } from "@/lib/study/study-resource-service";
-import { loadTaskPageData } from "@/lib/study/task-page-data";
-import type { SyllabusOptionNodeDto } from "@/lib/study/types";
-import { listKnowledgePoints } from "@/lib/study/knowledge-point-service";
+import {
+  loadPlanPageData,
+  type PlanPageSearchParams,
+} from "@/lib/study/plan-page-data";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/roadmap/allocation");
@@ -22,78 +19,46 @@ export const metadata = getRouteMetadata("/roadmap/allocation");
 export default async function TodayPlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; subjectId?: string; status?: string; q?: string; createMinimum?: string; resourceId?: string; syllabusNodeId?: string; taskId?: string }>;
+  searchParams: Promise<PlanPageSearchParams>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const params = await searchParams;
-  const plan = await getPlanRolling(user.id, {
-    date: params.date,
-    subjectId: params.subjectId,
-    status: params.status,
-    q: params.q,
-  });
+  let data: Awaited<ReturnType<typeof loadPlanPageData>>;
+  try {
+    data = await loadPlanPageData(user.id, params);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) notFound();
+    throw error;
+  }
 
-  if (plan.setupRequired) {
+  if (data.setupRequired) {
     return (
-      <section className="space-y-4">
-        <h1 className="text-2xl font-semibold text-white">投入安排</h1>
+      <Card variant="master" className="p-8 text-center space-y-4">
+        <h1 className="text-2xl font-bold text-white">投入安排</h1>
         <p className="text-sm text-zinc-400">需要先设置考试工作区。</p>
-        <Link href="/settings/exams?setup=1" className="text-teal-300 hover:underline">
-          设置考试目标
-        </Link>
-      </section>
+        <div>
+          <ButtonLink href="/settings/exams?setup=1" variant="primary">
+            设置考试目标
+          </ButtonLink>
+        </div>
+      </Card>
     );
   }
 
-  const workspace = await findActiveWorkspaceOrNull(user.id);
-  const [subjects, syllabusNodes, milestones, stagePlans, knowledgePoints] = workspace ? await Promise.all([
-    listWorkspaceSubjects(user.id, workspace.id),
-    listSyllabusOptionsShared(user.id),
-    listPlanMilestones(user.id),
-    listStagePlans(user.id),
-    listKnowledgePoints(user.id),
-  ]) : [[], [], [], [], []];
-  let sourceResource: StudyResourceDto | null = null;
-  if (params.resourceId) {
-    try {
-      sourceResource = await getStudyResource(user.id, params.resourceId);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) notFound();
-      throw error;
-    }
-  }
-  const sourceNodeIds = sourceResource?.syllabusNodeIds.filter((nodeId) =>
-    flattenSyllabusOptions(syllabusNodes).some((node) => node.id === nodeId && node.subjectId === sourceResource?.subjectId),
-  ) ?? [];
-  let selectedTaskData: Awaited<ReturnType<typeof loadTaskPageData>> | null = null;
-  if (params.taskId) {
-    try {
-      selectedTaskData = await loadTaskPageData(user.id, params.taskId);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) notFound();
-      throw error;
-    }
-  }
   const closeDetailHref = buildPlanHref(params);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PlanRollingClient
-        initial={plan}
-        subjects={subjects.filter((subject) => !subject.archivedAt).map((subject) => ({ id: subject.id, name: subject.name }))}
-        syllabusNodes={syllabusNodes}
-        milestones={milestones}
-        stagePlans={stagePlans}
-        knowledgePoints={knowledgePoints}
+        initial={data.plan}
+        subjects={data.subjects}
+        syllabusNodes={data.syllabusNodes}
+        milestones={data.milestones}
+        stagePlans={data.stagePlans}
+        knowledgePoints={data.knowledgePoints}
         createMinimum={params.createMinimum === "1"}
-        sourceResource={sourceResource ? {
-          id: sourceResource.id,
-          title: sourceResource.title,
-          subjectId: sourceResource.subjectId,
-          syllabusNodeId: sourceNodeIds.length === 1 ? sourceNodeIds[0] ?? null : null,
-          archived: Boolean(sourceResource.archivedAt),
-        } : null}
+        sourceResource={data.sourceResource}
         query={{
           date: params.date,
           subjectId: params.subjectId,
@@ -104,25 +69,28 @@ export default async function TodayPlanPage({
         }}
         detailTaskId={params.taskId}
         closeDetailHref={closeDetailHref}
-        detailPanel={selectedTaskData ? (
+        detailPanel={data.selectedTaskData ? (
           <TaskDetailClient
-            detail={selectedTaskData.detail}
-            dependencies={selectedTaskData.dependencies}
-            subjects={selectedTaskData.subjects}
-            syllabusNodes={selectedTaskData.syllabusNodes}
-            milestones={selectedTaskData.milestones}
-            stagePlans={selectedTaskData.stagePlans}
-            knowledgePoints={selectedTaskData.knowledgePoints}
-            dependencyCandidates={selectedTaskData.dependencyCandidates}
+            key={data.selectedTaskData.detail.task.id}
+            detail={data.selectedTaskData.detail}
+            dependencies={data.selectedTaskData.dependencies}
+            subjects={data.selectedTaskData.subjects}
+            syllabusNodes={data.selectedTaskData.syllabusNodes}
+            milestones={data.selectedTaskData.milestones}
+            stagePlans={data.selectedTaskData.stagePlans}
+            knowledgePoints={data.selectedTaskData.knowledgePoints}
+            dependencyCandidates={data.selectedTaskData.dependencyCandidates}
             embedded
             closeHref={closeDetailHref}
           />
         ) : null}
       />
-      <details className="border-t border-white/10 pt-4">
-        <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300">AI 投入草稿</summary>
-        <div className="mt-3"><AiDraftPanel endpoint="plan" userId={user.id} /></div>
-      </details>
+      <Card variant="subtle" className="p-4">
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-zinc-400 hover:text-zinc-200">AI 投入草稿</summary>
+          <div className="mt-3"><AiDraftPanel endpoint="plan" userId={user.id} /></div>
+        </details>
+      </Card>
     </div>
   );
 }
@@ -142,8 +110,4 @@ function buildPlanHref(params: {
   }
   const serialized = query.toString();
   return `/roadmap/allocation${serialized ? `?${serialized}` : ""}`;
-}
-
-function flattenSyllabusOptions(nodes: SyllabusOptionNodeDto[]): SyllabusOptionNodeDto[] {
-  return nodes.flatMap((node) => [node, ...flattenSyllabusOptions(node.children)]);
 }

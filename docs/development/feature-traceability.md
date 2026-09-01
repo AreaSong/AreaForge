@@ -31,6 +31,7 @@
 | 考纲进度树 | 已完成 | `/knowledge/syllabi`、`/api/syllabus/*`、Markdown 导入 | 附件和自动状态更新后增强 |
 | 知识点掌握状态 | 已完成 | `SyllabusNode.status`、`masteryLevel`、`/knowledge/syllabi` 状态筛选、节点卡片和最近证据时间；Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`，显式证据优先并保留 `_count` fallback；Package D Batch D4 已接入长期风险只读 DTO | 更细结构化复习历史或自动计划应用需单独确认 |
 | 知识点掌握证明基础版 | 已完成 | `packages/core/src/mastery-proof.ts`；`/knowledge/syllabi` 节点可选择目标掌握等级、勾选并保存掌握条件；`PATCH /api/syllabus/nodes/:id` 用显式证据或 `_count` fallback 校验，失败返回 `MASTERY_PROOF_REQUIRED`，成功写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent`；`POST /api/syllabus/nodes/:id/mastery-evidence` 写入证据引用；`POST /api/syllabus/nodes/:id/mastery-retests` 写入复测记录，`failed/partial` 不自动降级；Package B Batch 4 已完成 | 更复杂证据图谱和复习历史分析后续增强 |
+| 错题 v2 学习证据闭环 | 隔离已实现 | `Mistake.questionText/correctAnswer/causeNote`、`MistakeAttempt`、`NoteMistakeLink`、模拟失分来源关联；`POST /api/mistakes/:id/attempts`、`PATCH /api/mistakes/:id/links`；详情独立作答与历史，`/knowledge/mistakes/practice` 混合排序练习，`/knowledge/reviews` 对象/结果筛选与 CAS 快捷延期；统一复习事务双写，模拟失分预填创建；全新隔离库 36 migrations、M6 runtime 与 owner-isolation runtime 通过 | 尚未执行生产 migration、部署或 Release；OCR、AI 批改、自动判分、账户导出不在范围 |
 | 笔记与资料上传（知识卡片） | 已完成 | 知识卡片（底层 Note）API/UI 已有；按科目、节点、掌握状态和复习提醒筛选已有；Package A 已完成 noteId 绑定 PDF/PNG/JPEG/WebP 上传、`UPLOAD_DIR` 私有落盘、metadata/hash/URI 写入、鉴权下载、`/knowledge/cards` 附件 UI 和补偿/对账烟测 | `tasks/done/0004-mvp-syllabus-notes-upload.md` |
 | 情绪与状态记录基础版 | 已完成 | `tasks/done/0010-motivation-emotion-stage.md` | 完整情绪历史表暂不做 |
 | 恢复模式基础版 | 已完成 | `createRecoveryPlan`、`rankRecoveryTaskCandidates`、首页 `visibleRecoveryTasks` 和恢复原因；Package B Batch 3 已新增 `RecoveryState`、`POST /api/recovery-states/manual`、完成/取消恢复 API、dashboard active 状态优先和规则触发幂等记录；首页计时器聚焦恢复候选，任务面板保留完整任务列表；Package D D4 已把恢复/主题信号纳入长期风险只读闭环 | 未来若自动应用恢复任务或阶段调整，需单独确认 |
@@ -62,7 +63,7 @@
 
 ## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为规格源。`v1.1.0` 已发布并进入生产；`v1.1.1` 已发布并完成受控 production apply。当前 checkout 正在准备 `v1.1.2` 签名 Release 候选；候选证据和 Release 不改变既有生产事实，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为学习闭环规格源；`v1.2.0` 的体验与发布边界见 `workflow/versions/v1.2-high-density-workbench.md`。`v1.1.0` 已发布并进入生产，`v1.1.1` 已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但未 production apply。当前 checkout 正在准备 `v1.2.0` 候选；候选证据不改变既有生产事实，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
@@ -80,7 +81,8 @@
 | 动机 / 通知 / 四类 AI 草稿 | 已完成 | `/settings/profile` 按动机封存、当前设备提醒、可展示内容库组织，AI 草稿降为低频显式入口；通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET`；专项记录已复核档案、通知、AI、体验设置页面 | 不保存 prompt/raw response/history/token/cost/provider trace；真实 Provider key smoke 未执行 |
 | 外部 Provider 当前账户配置、Web 全局开关与浏览器偏好 | 已完成 | `/settings/ai` 支持 Web 全局开关、当前账户 Provider 的更新/删除/合成测试和当前浏览器授权；鉴权 `GET|PATCH /api/ai/runtime`、`GET|PATCH|DELETE /api/ai/provider`、`POST /api/ai/provider/test` 与 `GET|PATCH /api/ai/preferences`；`AiRuntimeSetting` 审计、AES-256-GCM 密文、fingerprint、密钥不回显，八条鉴权 POST route 统一 gate | 当前实现已完成本地代码与迁移验收；真实 Provider key smoke、生产 migration/备份密文生命周期仍未验收；`AI_ENABLED` 保留为服务端硬闸门 |
 | 模拟结构化失分 / 报告阶段入箱 | 已完成 | 分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升；模拟 UI 按“录分 -> 失分分析并确认事实 -> 补救入箱”推进，确认后只读，并回读每条补救的 Inbox 状态以阻止刷新后重复发送；Inbox 显示人类可读来源和考试回链，并接力阶段重评；报告与阶段完成态区分新增、复用和零草稿，报告确认后直达计划收件箱并接力阶段建议，阶段确认后再次把派生动作入箱，所有确认边界均不自动修改现有任务 | 不自动修改现有任务 |
-| 完整 minor Release | 已完成 | `v1.1.0` Release/tag；`v1.1.1` Release/admission/签名资产、Web 受控 production apply 与 verified production runtime identity；tag 本身没有 GPG signature | `AREAFORGE_AUTO_APPLY=none` 与 residual 状态保持不变 |
+| 完整 minor Release | 已完成 | `v1.1.0`、`v1.1.1`、`v1.1.2` Release 历史保持不变，既有完整 minor Release 证据仍然有效 | `AREAFORGE_AUTO_APPLY=none` 与 residual 状态保持不变；production apply 另行确认 |
+| v1.2.0 发布候选 | 隔离已实现 | 当前 package 版本已统一为 `1.2.0`，候选范围、additive migration、完整门禁、本地测试池、PR/CI 与 squash 合并按 `workflow/versions/v1.2-high-density-workbench.md` 执行；tag/Release 需绑定最终 main commit 后单独确认 | 本阶段不执行 Release tag、生产 migration、生产更新、备份恢复或自动应用策略变更 |
 
 ## 暂缓项
 

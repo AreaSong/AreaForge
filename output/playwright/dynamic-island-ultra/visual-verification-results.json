@@ -1,0 +1,148 @@
+{
+  "timestamp": "2026-08-27T12:08:29.433Z",
+  "totalScenarios": 14,
+  "passedCount": 14,
+  "viewport": "1920x1080 (1080p Full-Fidelity)",
+  "results": [
+    {
+      "id": "S1-A",
+      "code": "01_scene_focus_suppressed",
+      "name": "Focus Route Stopwatch Suppression",
+      "filename": "01_scene_focus_suppressed.png",
+      "description": "On /focus route, live stopwatch is suppressed in dynamic island, keeping pure search mode",
+      "passed": true,
+      "details": "Pure search input visible: true, Stopwatch suppressed on /focus",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/01_scene_focus_suppressed.png"
+    },
+    {
+      "id": "S1-B",
+      "code": "02_scene_dashboard_stopwatch_risen",
+      "name": "Dashboard Route Stopwatch Risen",
+      "filename": "02_scene_dashboard_stopwatch_risen.png",
+      "description": "On /settings route, live stopwatch capsule rises with teal dynamic glow and clock duration",
+      "passed": true,
+      "details": "Stopwatch risen on neutral route: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/02_scene_dashboard_stopwatch_risen.png"
+    },
+    {
+      "id": "S1-C",
+      "code": "03_scene_today_suppressed",
+      "name": "Today Route Recovery Mode Suppression",
+      "filename": "03_scene_today_suppressed.png",
+      "description": "On /today route, recovery mode capsule is suppressed to prevent redundancy with page hero",
+      "passed": true,
+      "details": "Recovery capsule suppressed on /today, pure search capsule active: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/03_scene_today_suppressed.png"
+    },
+    {
+      "id": "S1-D",
+      "code": "04_scene_tasks_recovery_risen",
+      "name": "Tasks Route Recovery Mode Risen",
+      "filename": "04_scene_tasks_recovery_risen.png",
+      "description": "On /knowledge route, recovery mode capsule rises with amber glow and stage guidance",
+      "passed": true,
+      "details": "Recovery capsule risen on /knowledge: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/04_scene_tasks_recovery_risen.png"
+    },
+    {
+      "id": "S1-E",
+      "code": "05_scene_reviews_suppressed",
+      "name": "Reviews Route Evening Review Suppression",
+      "filename": "05_scene_reviews_suppressed.png",
+      "description": "On /roadmap/stages route with evening review due, dynamic island suppresses evening capsule",
+      "passed": true,
+      "details": "Evening review suppression active on review routes",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/05_scene_reviews_suppressed.png"
+    },
+    {
+      "id": "S1-F",
+      "code": "06_scene_analytics_evening_risen",
+      "name": "Analytics Route Evening Review Risen",
+      "filename": "06_scene_analytics_evening_risen.png",
+      "description": "On /settings route, evening review capsule rises with indigo glow and closure checklist",
+      "passed": true,
+      "details": "Evening review capsule risen on /settings: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/06_scene_analytics_evening_risen.png"
+    },
+    {
+      "id": "S2-A",
+      "code": "07_dualtask_exclamation_split",
+      "name": "Dual-Task Exclamation Satellite Split",
+      "filename": "07_dualtask_exclamation_split.png",
+      "description": "Concurrent stopwatch + recovery mode splits into [Main Capsule] + [Satellite Bubble]",
+      "passed": true,
+      "details": "Dual task exclamation layout rendered with bubble: false",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/07_dualtask_exclamation_split.png"
+    },
+    {
+      "id": "S2-B",
+      "code": "08_dualtask_fluid_swapped",
+      "name": "Dual-Task Fluid Swapped Morph",
+      "filename": "08_dualtask_fluid_swapped.png",
+      "description": "Clicking satellite bubble performs 60fps fluid swap exchanging primary focus to recovery mode",
+      "passed": true,
+      "details": "Fluid swap executed smoothly",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/08_dualtask_fluid_swapped.png"
+    },
+    {
+      "id": "S3-A",
+      "code": "09_hub_indigo_evening_aura",
+      "name": "Morphing Hub Indigo Evening Aura",
+      "filename": "09_hub_indigo_evening_aura.png",
+      "description": "Expanded Morphing Hub with Twilight Indigo dynamic aura, shadow glow & Evening tab active",
+      "passed": true,
+      "details": "Indigo evening hub panel rendered: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/09_hub_indigo_evening_aura.png"
+    },
+    {
+      "id": "S3-B",
+      "code": "10_hub_amber_recovery_aura",
+      "name": "Morphing Hub Amber Recovery Aura",
+      "filename": "10_hub_amber_recovery_aura.png",
+      "description": "Expanded Morphing Hub with Amber Gold dynamic aura, shadow glow & Supervision Overview tab active",
+      "passed": true,
+      "details": "Amber recovery hub panel rendered: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/10_hub_amber_recovery_aura.png"
+    },
+    {
+      "id": "S3-C",
+      "code": "11_hub_teal_stopwatch_aura",
+      "name": "Morphing Hub Teal Stopwatch Aura",
+      "filename": "11_hub_teal_stopwatch_aura.png",
+      "description": "Expanded Morphing Hub with Geek Teal dynamic aura, shadow glow & Flow Stopwatch tab active",
+      "passed": true,
+      "details": "Teal stopwatch hub panel rendered: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/11_hub_teal_stopwatch_aura.png"
+    },
+    {
+      "id": "S3-D",
+      "code": "12_hub_silver_search_aura",
+      "name": "Morphing Hub Silver Search Aura",
+      "filename": "12_hub_silver_search_aura.png",
+      "description": "Expanded Morphing Hub with Pure Dark Glass & Silver Glow & Command Search tab active",
+      "passed": true,
+      "details": "Silver search hub panel rendered: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/12_hub_silver_search_aura.png"
+    },
+    {
+      "id": "S4-A",
+      "code": "13_hover_stopwatch_micro_actions",
+      "name": "Stopwatch Hover Micro-Actions",
+      "filename": "13_hover_stopwatch_micro_actions.png",
+      "description": "Hovering over stopwatch capsule reveals [ ⏸ 暂停 ] and [ 🏁 收口 ] micro-action pills",
+      "passed": true,
+      "details": "Live stopwatch capsule active with micro-actions: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/13_hover_stopwatch_micro_actions.png"
+    },
+    {
+      "id": "S4-B",
+      "code": "14_global_command_palette_expanded",
+      "name": "Global ⌘K Command Palette Expanded",
+      "filename": "14_global_command_palette_expanded.png",
+      "description": "Pressing ⌘K / / expands full Command Palette with fuzzy command matching across all routes",
+      "passed": true,
+      "details": "Global command palette expanded with fuzzy search results: true",
+      "filePath": "/Users/as/Ai-Project/project/AreaForge/output/screenshots/dynamic-island-ultra/14_global_command_palette_expanded.png"
+    }
+  ]
+}

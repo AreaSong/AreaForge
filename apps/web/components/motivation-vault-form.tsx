@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
 import { Button } from "@/components/ui/button";
+import { Card, SectionCard } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/field";
 import { Alert } from "@/components/ui/feedback";
 import { SectionHeader } from "@/components/ui/page";
+import { saveMotivationVault } from "@/lib/api/motivation";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
   loadPrivateBusinessDraft,
@@ -15,7 +18,9 @@ import {
   removePrivateBusinessDraft,
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
-import type { MotivationVaultDto } from "@/lib/study/types";
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+import type { MotivationVaultDto } from "@/lib/contracts";
+import { formatDateTime } from "@/lib/formatters";
 
 interface MotivationVaultFormProps {
   userId: string;
@@ -107,28 +112,19 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
       const submission: MotivationVaultDraft = { baseUpdatedAt: savedAt, fields: structuredClone(fields) };
       savePrivateBusinessDraft(draftKey, submission);
       const commandScope = `motivation-vault:${userId}`;
-      const response = await fetch("/api/motivation-vault", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...submission.fields,
-          expectedUpdatedAt: submission.baseUpdatedAt,
-          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "motivation-vault", submission),
-        }),
+      const response = await saveMotivationVault({
+        ...submission.fields,
+        expectedUpdatedAt: submission.baseUpdatedAt,
+        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "motivation-vault", submission),
       });
-      if (response.status === 401) {
+      if (isUnauthorized(response)) {
         setError("登录已过期，草稿已保留。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {
-          error?: string;
-          latest?: MotivationVaultDto | null;
-          conflictFields?: string[];
-          workbench?: string;
-        } | null;
-        if (response.status === 409 && body && "latest" in body) {
+        const body = response.body;
+        if (isConflict(response) && body && "latest" in body) {
           setConflict({
             submitted: submission,
             latest: isMotivationVaultDto(body.latest) ? body.latest : null,
@@ -139,7 +135,11 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
         return;
       }
 
-      const body = (await response.json()) as { vault: MotivationVaultDto };
+      const body = response.body;
+      if (!body?.vault) {
+        setError("服务端未返回已保存的动机档案，草稿仍保留");
+        return;
+      }
       completeIdempotentCommand(commandScope);
       setSavedAt(body.vault.updatedAt);
       const nextFields = fieldsFromVault(body.vault);
@@ -160,13 +160,13 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
 
   return (
     <>
-    <section className="space-y-5">
-      <SectionHeader
-        title="动机封存"
-        description="这些内容只在关键节点由你主动使用。未保存的输入会保留在当前浏览器，发生版本冲突时不会自动覆盖。"
-        meta={savedAt ? <span className="text-xs text-zinc-500">上次保存 {new Date(savedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</span> : null}
-      />
-      <form className="grid gap-4 lg:grid-cols-2" onSubmit={submit}>
+      <SectionCard variant="master" className="space-y-5">
+        <SectionHeader
+          title="动机封存"
+          description="这些内容只在关键节点由你主动使用。未保存的输入会保留在当前浏览器，发生版本冲突时不会自动覆盖。"
+          meta={savedAt ? <span className="text-xs text-zinc-400">上次保存 {formatDateTime(savedAt)}</span> : null}
+        />
+        <form className="af-content-grid-two grid gap-4" onSubmit={submit}>
           <MotivationTextarea
             label="为什么开始"
             value={whyStarted}
@@ -201,62 +201,55 @@ export function MotivationVaultForm({ userId, vault }: MotivationVaultFormProps)
             onChange={setFirstSimulationDiary}
             placeholder="第一次全真自测后再回来补这一段"
             disabled={saving}
-            className="lg:col-span-2"
+            className="af-content-span-all"
           />
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            loading={saving || isPending}
-            loadingLabel="正在保存"
-            disabled={isPending || saving}
-            className="w-full sm:w-fit lg:col-span-2"
-          >
-            <Save className="h-4 w-4" aria-hidden="true" />
-            保存封存内容
-          </Button>
-      </form>
+          <div className="af-content-span-all pt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              loading={saving || isPending}
+              loadingLabel="正在保存"
+              disabled={isPending || saving}
+              className="w-full sm:w-auto"
+            >
+              <Save className="h-4 w-4" aria-hidden="true" />
+              保存封存内容
+            </Button>
+          </div>
+        </form>
 
-      {error ? <Alert tone="danger">{error}</Alert> : null}
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+      </SectionCard>
 
-      <details className="border-t border-white/10 pt-4">
-        <summary className="cursor-pointer text-sm font-medium text-zinc-300">查看动机内容的唤醒原则</summary>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Principle title="连续失守" body="当连续性断裂时，只短暂回看一次原因，然后回到恢复任务。" />
-          <Principle title="重大复盘" body="当复盘暴露结构性问题时，用动机校准方向，不用它替代行动。" />
-          <Principle title="全真自测" body="第一次全真自测前后，用它确认这次模拟的意义和下一阶段压力。" />
-          <Principle title="危险期" body="风险等级升高时唤醒底层理由，但不把敏感内容放到首页常驻展示。" />
-        </div>
-      </details>
-    </section>
-    <ConflictResolutionModal
-      open={conflict !== null}
-      title="动机档案已在其他页面更新"
-      description="本地草稿和服务端最新值都已保留。系统不会自动覆盖或重放，请检查差异后决定下一步。"
-      conflictFields={conflict?.conflictFields ?? []}
-      comparisons={conflict ? motivationVaultComparisons(conflict, savedFields) : []}
-      onAdoptServer={() => {
-        if (!conflict) return;
-        const next = fieldsFromVault(conflict.latest);
-        setWhyStarted(next.whyStarted);
-        setNeverReturnTo(next.neverReturnTo);
-        setFutureSelf(next.futureSelf);
-        setMessageToFuture(next.messageToFuture);
-        setFirstSimulationDiary(next.firstSimulationDiary);
-        setSavedFields(next);
-        setSavedAt(conflict.latest?.updatedAt ?? null);
-        removePrivateBusinessDraft(draftKey);
-        setConflict(null);
-        setError(null);
-      }}
-      onManualMerge={() => {
-        if (!conflict) return;
-        setSavedFields(fieldsFromVault(conflict.latest));
-        setSavedAt(conflict.latest?.updatedAt ?? null);
-        setConflict(null);
-        setError("已采用服务端最新基线并保留本地输入；合并后请再次点击保存，不会自动重放");
-      }}
-    />
+      <ConflictResolutionModal
+        open={conflict !== null}
+        title="动机档案已在其他页面更新"
+        description="本地草稿和服务端最新值都已保留。系统不会自动覆盖或重放，请检查差异后决定下一步。"
+        conflictFields={conflict?.conflictFields ?? []}
+        comparisons={conflict ? motivationVaultComparisons(conflict, savedFields) : []}
+        onAdoptServer={() => {
+          if (!conflict) return;
+          const next = fieldsFromVault(conflict.latest);
+          setWhyStarted(next.whyStarted);
+          setNeverReturnTo(next.neverReturnTo);
+          setFutureSelf(next.futureSelf);
+          setMessageToFuture(next.messageToFuture);
+          setFirstSimulationDiary(next.firstSimulationDiary);
+          setSavedFields(next);
+          setSavedAt(conflict.latest?.updatedAt ?? null);
+          removePrivateBusinessDraft(draftKey);
+          setConflict(null);
+          setError(null);
+        }}
+        onManualMerge={() => {
+          if (!conflict) return;
+          setSavedFields(fieldsFromVault(conflict.latest));
+          setSavedAt(conflict.latest?.updatedAt ?? null);
+          setConflict(null);
+          setError("已采用服务端最新基线并保留本地输入；合并后请再次点击保存，不会自动重放");
+        }}
+      />
     </>
   );
 }
@@ -329,24 +322,16 @@ function MotivationTextarea({
   className?: string;
 }) {
   return (
-    <label className={`grid gap-2 text-sm text-zinc-300 ${className ?? ""}`}>
+    <label className={`grid gap-2 text-sm font-medium text-zinc-300 ${className ?? ""}`}>
       <span>{label}</span>
-      <textarea
-        className="min-h-24 rounded-md border border-white/10 bg-[#0d1117] px-3 py-2 text-sm leading-6 text-zinc-100"
+      <Textarea
+        controlHeight="md"
+        className="min-h-24"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         disabled={disabled}
       />
     </label>
-  );
-}
-
-function Principle({ title, body }: { title: string; body: string }) {
-  return (
-    <article className="border-l-2 border-teal-400/30 pl-3">
-      <h3 className="font-medium text-white">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-zinc-400">{body}</p>
-    </article>
   );
 }

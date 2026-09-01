@@ -7,7 +7,7 @@ import { getCanonicalRoute, getNavigationTrail, isContentDetailPath, sanitizeRet
 import { getConfirmationWindowRouteRequest } from "@/lib/navigation/confirmation-route";
 import { getSourceContextLabel } from "@/lib/navigation/return-context";
 import { getWorkbenchFallback } from "@/lib/navigation/workbench-context";
-import { activitySourcePath, isKnowledgeReviewActivityForSchedule } from "@/lib/study/activity-route";
+import { activitySourcePath, isKnowledgeReviewActivityForSchedule } from "@/lib/navigation/activity-route";
 
 test("navigation trails keep reused secondary labels and object depth", () => {
   assert.deepEqual(getNavigationTrail("/roadmap/allocation"), [
@@ -149,38 +149,47 @@ test("simulation detail falls back to its list instead of itself", () => {
 
 test("global shell owns the activity slot, command palette, status bar, and confirmation window", () => {
   const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
+  const shellActivity = readFileSync(resolve(process.cwd(), "components/use-shell-activity-status.ts"), "utf8");
   const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
   const topbar = readFileSync(resolve(process.cwd(), "components/global-top-bar.tsx"), "utf8");
   const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
+  const confirmationAdapter = readFileSync(resolve(process.cwd(), "lib/api/confirmation.ts"), "utf8");
   const confirmationRoute = readFileSync(resolve(process.cwd(), "app/api/confirmations/route.ts"), "utf8");
   const focusLauncher = readFileSync(resolve(process.cwd(), "components/focus-launcher.tsx"), "utf8");
   const focusSession = readFileSync(resolve(process.cwd(), "components/focus-session-client.tsx"), "utf8");
+  const focusCommand = readFileSync(resolve(process.cwd(), "components/focus-session-command.ts"), "utf8");
   assert.match(shell, /<GlobalTopBar/);
-  assert.match(shell, /readFocusOfflineSnapshot/);
-  assert.match(topbar, /<GlobalActivitySlot/);
-  assert.match(topbar, /<GlobalCommandPalette/);
+  assert.match(shell, /useShellActivityStatus/);
+  assert.match(shellActivity, /readFocusOfflineSnapshot/);
+  assert.match(topbar, /<DynamicIsland/);
   assert.match(shell, /offlineSession=\{offlineFocusSession\}/);
   assert.match(topbar, /<GlobalConfirmationCenter/);
   assert.match(toolbar, /data-layout-region="global-context-status-bar"/);
   assert.doesNotMatch(toolbar, /activitySourcePath\(active\)/);
-  assert.match(confirmation, /\/api\/confirmations\?filter=pending/);
+  assert.match(confirmation, /listConfirmationViews/);
+  assert.doesNotMatch(confirmation, /\bfetch\s*\(/);
+  assert.match(confirmationAdapter, /export async function listConfirmationViews/);
+  assert.match(confirmationAdapter, /`\/api\/confirmations\?\$\{search\.toString\(\)\}`/);
   assert.match(confirmation, /aria-label="确认中心视图"/);
   assert.match(confirmation, /onFilterChange/);
   assert.doesNotMatch(confirmation, /打开完整确认中心/);
   assert.match(confirmationRoute, /listConfirmationItems\(user\.id, filter\)/);
   assert.match(focusLauncher, /publishFocusSyncEvent\(userId, syncState, localSession\)/);
-  assert.match(focusSession, /publishFocusSyncEvent\(props\.userId, "pending", projected\)/);
+  assert.match(focusSession, /executeFocusSessionCommand/);
+  assert.match(focusCommand, /publish: publishFocusSyncEvent/);
+  assert.match(focusCommand, /queueProjectedSession\(dependencies, userId, session, action, body, "pending"\)/);
+  assert.match(focusCommand, /dependencies\.publish\(userId, syncState, projected\)/);
 });
 
-test("global top bar keeps activity on the left and the command trigger content-only", () => {
+test("global top bar keeps activity in the dynamic island and status summary on the left", () => {
   const topbar = readFileSync(resolve(process.cwd(), "components/global-top-bar.tsx"), "utf8");
+  const island = readFileSync(resolve(process.cwd(), "components/dynamic-island.tsx"), "utf8");
   const activitySlot = readFileSync(resolve(process.cwd(), "components/global-activity-slot.tsx"), "utf8");
   const commandPalette = readFileSync(resolve(process.cwd(), "components/global-command-palette.tsx"), "utf8");
   const confirmation = readFileSync(resolve(process.cwd(), "components/global-confirmation-center.tsx"), "utf8");
   const assistant = readFileSync(resolve(process.cwd(), "components/global-ai-assistant.tsx"), "utf8");
-  assert.match(topbar, /hasActivity = Boolean\(props\.activeSession \|\| props\.offlineSession \|\| props\.quickReviewClaim\)/);
-  assert.match(topbar, /hasActivity \? \(\s*<GlobalActivitySlot/);
-  assert.match(topbar, /trigger=\{<span className="text-zinc-500">搜索或输入命令…<\/span>\}/);
+  assert.match(topbar, /<DynamicIsland/);
+  assert.match(island, /搜索或输入命令/);
   assert.doesNotMatch(topbar, /trigger=\{<GlobalActivitySlot/);
   assert.match(topbar, /lg:grid-cols-\[minmax\(13rem,1fr\)_minmax\(14rem,42rem\)_minmax\(13rem,1fr\)\]/);
   assert.doesNotMatch(topbar, /sm:grid-cols-\[minmax\(0,1fr\)_minmax\(14rem,42rem\)_auto\]/);
@@ -241,9 +250,9 @@ test("page templates and immersive pages retain stable layout contracts", () => 
   assert.match(shell, /const canonicalRoute = getCanonicalRoute\(pathname\)/);
   assert.match(shell, /const showPageToolbar = canonicalRoute\?\.shell !== "app" \|\| canonicalRoute\.toolbar !== "none"/);
   assert.match(shell, /\{showPageToolbar \? \([\s\S]*?<PageToolbar>[\s\S]*?<WorkbenchBreadcrumbActions/);
-  assert.match(pageToolbar, /min-h-14/);
+  assert.match(pageToolbar, /min-h-(?:\[38px\]|9\.5|14)/);
   assert.match(pageToolbar, /border-b border-white\/10/);
-  assert.match(pageToolbar, /px-4 py-2/);
+  assert.match(pageToolbar, /px-4 py-(?:1|2)/);
   assert.doesNotMatch(pageToolbar, /\bmt-3\b|\bborder-t\b|\bpt-3\b/);
   assert.match(shell, /const fullCanvasPage = immersive \|\|/);
   assert.match(shell, /const showSecondaryNavigation = !immersive/);
@@ -268,16 +277,17 @@ test("recovery window refresh uses a stable close callback", () => {
 
 test("status and page-action surfaces keep narrow viewport boundaries", () => {
   const toolbar = readFileSync(resolve(process.cwd(), "components/shared-study-toolbar.tsx"), "utf8");
+  const formatters = readFileSync(resolve(process.cwd(), "lib/formatters.ts"), "utf8");
   const dock = readFileSync(resolve(process.cwd(), "components/window-dock.tsx"), "utf8");
   const pageActions = readFileSync(resolve(process.cwd(), "components/workbench-breadcrumb-actions.tsx"), "utf8");
-  assert.match(toolbar, /window\.sessionStorage\.getItem\(RECENT_PAGE_KEY\)/);
-  assert.match(toolbar, /grid h-8 min-w-0 grid-cols-\[minmax\(0,auto\)_minmax\(0,1fr\)_auto\]/);
+  assert.match(toolbar, /getBrowserStoragePort\("session"\)\?\.getItem\(RECENT_PAGE_KEY\)/);
+  assert.match(toolbar, /grid h-(?:\[26px\]|6\.5|8) min-w-0 grid-cols-\[minmax\(0,auto\)_minmax\(0,1fr\)_auto\]/);
   assert.match(toolbar, /data-status-region="persistent"/);
   assert.match(toolbar, /data-status-region="work"/);
   assert.match(toolbar, /data-status-region="system"/);
   assert.match(toolbar, /本机 · \{deviceIdentity\?\.label/);
   assert.match(toolbar, /其他设备 \{otherDeviceCount\}/);
-  assert.match(toolbar, /hidden h-7 min-w-0 shrink items-center[\s\S]*lg:inline-flex[\s\S]*其他设备 \{otherDeviceCount\}/);
+  assert.match(toolbar, /hidden !?h-(?:6|6\.5|7|\[24px\]|\[26px\]) min-w-0 shrink items-center[\s\S]*lg:inline-flex[\s\S]*其他设备 \{otherDeviceCount\}/);
   const persistentRegionIndex = toolbar.indexOf('data-status-region="persistent"');
   const localDeviceIndex = toolbar.indexOf('aria-label={`本机：');
   const otherDeviceIndex = toolbar.indexOf('aria-label={`其他设备');
@@ -295,7 +305,8 @@ test("status and page-action surfaces keep narrow viewport boundaries", () => {
   assert.match(toolbar, /function LiveMillisecondClock/);
   assert.match(toolbar, /data-live-clock="millisecond"/);
   assert.match(toolbar, /window\.requestAnimationFrame\(update\)/);
-  assert.match(toolbar, /fractionalSecondDigits: 3/);
+  assert.match(toolbar, /formatClockTimeMillis/);
+  assert.match(formatters, /fractionalSecondDigits: 3/);
   assert.match(toolbar, /font-mono tabular-nums/);
   assert.match(pageActions, /w-72 min-w-0 max-w-\[calc\(100vw-2rem\)\]/);
   assert.match(pageActions, /\["ArrowDown", "ArrowUp", "Home", "End"\]/);
@@ -391,18 +402,21 @@ test("global tools refresh async content while only durable work enters the wind
 test("work windows render through a global modal portal instead of the L3 content container", () => {
   const shell = readFileSync(resolve(process.cwd(), "components/app-shell.tsx"), "utf8");
   const layer = readFileSync(resolve(process.cwd(), "components/window-layer.tsx"), "utf8");
+  const focusScope = readFileSync(resolve(process.cwd(), "components/ui/focus-scope.ts"), "utf8");
   const tools = readFileSync(resolve(process.cwd(), "components/global-tool-system.tsx"), "utf8");
   assert.match(shell, /<GlobalToolLayer \/>/);
   assert.match(shell, /<WindowLayer \/>/);
   assert.match(layer, /createPortal\(/);
   assert.match(layer, /fixed inset-0/);
   assert.match(layer, /backdrop-blur-\[2px\]/);
-  assert.match(layer, /event\.target\.closest\("\[data-window-backdrop\]"\)[\s\S]*minimizeWindow\(foregroundWindowKey\)/);
+  assert.match(layer, /usePortalReady\(\)/);
+  assert.match(layer, /useFocusScope\(\{[\s\S]*allowEscape: true,[\s\S]*onEscape: foregroundWindowKey \? \(\) => minimizeWindow\(foregroundWindowKey\)/);
+  assert.match(focusScope, /event\.key === "Escape" && input\.allowEscape && onEscapeRef\.current/);
+  assert.match(layer, /<OverlayBackdrop/);
   assert.match(layer, /data-window-backdrop="true"/);
   assert.match(layer, /aria-label="返回页面并最小化窗口"/);
   assert.match(layer, /onPointerDown=\{\(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*minimizeWindow\(foreground\.key\)/);
   assert.match(layer, /onClick=\{\(\) => minimizeWindow\(foreground\.key\)\}/);
-  assert.match(layer, /event\.key === "Escape"[\s\S]*minimizeWindow\(foregroundWindowKey\)/);
   assert.match(tools, /GlobalToolProvider/);
   assert.match(tools, /data-layout-region="global-tool-layer"/);
 });

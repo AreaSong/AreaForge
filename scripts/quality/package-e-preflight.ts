@@ -358,11 +358,13 @@ function checkPackageScriptsBoundary(): void {
 }
 
 function checkWebRuntimeOpsBoundary(): void {
-  const files = [
+  const webSourceFiles = [
     ...listFiles("apps/web/app"),
     ...listFiles("apps/web/lib"),
     ...listFiles("apps/web/components"),
   ].filter((file) => /\.(ts|tsx)$/.test(file));
+  const testOnlyFiles = webSourceFiles.filter(isWebTestFile);
+  const files = webSourceFiles.filter((file) => !isWebTestFile(file));
   const forbiddenPatterns = [
     { label: "child_process", pattern: /\bchild_process\b/ },
     { label: "execSync", pattern: /\bexecSync\b/ },
@@ -384,9 +386,13 @@ function checkWebRuntimeOpsBoundary(): void {
     name: "web runtime ops boundary",
     ok: matches.length === 0,
     detail: matches.length === 0
-      ? "web runtime contains no deploy, backup, restore, or migration command execution surface"
+      ? `web runtime contains no deploy, backup, restore, or migration command execution surface; excluded ${testOnlyFiles.length} conventionally named test-only files`
       : `found forbidden ops surface: ${matches.join(", ")}`,
   });
+}
+
+function isWebTestFile(file: string): boolean {
+  return /(?:^|\/)__tests__(?:\/|$)/.test(file) || /\.(?:test|spec)\.(?:ts|tsx)$/.test(file);
 }
 
 function read(file: string): string {

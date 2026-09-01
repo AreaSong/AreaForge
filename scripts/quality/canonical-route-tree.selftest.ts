@@ -53,7 +53,7 @@ const removedFiles = [
 
 const missingCanonical = canonicalFiles.filter((file) => !existsSync(resolve(file)));
 assert.deepEqual(missingCanonical, [], `canonical route files are missing: ${missingCanonical.join(", ")}`);
-assert.equal(CANONICAL_ROUTES.length, 48, "canonical route manifest must contain all 48 pages");
+assert.equal(CANONICAL_ROUTES.length, 49, "canonical route manifest must contain all 49 pages");
 assert.equal(new Set(CANONICAL_ROUTES.map((route) => route.path)).size, CANONICAL_ROUTES.length, "canonical route paths must be unique");
 
 const actualPageFiles = listPageFiles(resolve("apps/web/app"));

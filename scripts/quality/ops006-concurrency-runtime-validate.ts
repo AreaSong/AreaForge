@@ -6,9 +6,11 @@ const migrationRelativePath = "prisma/migrations/20260718010000_add_active_sessi
 const implementationFiles = [
   "apps/web/lib/study/concurrency.ts",
   "apps/web/lib/study/check-in-service.ts",
-  "apps/web/lib/study/service.ts",
+  "apps/web/lib/study/session-command-service.ts",
+  "apps/web/lib/study/session-lifecycle-service.ts",
   "apps/web/lib/study/simulation-service.ts",
   "apps/web/lib/study/task-debt-reorder-service.ts",
+  "apps/web/lib/study/task-command-service.ts",
 ];
 const requiredCheckIds = [
   "migration.apply_verify_negative_fixtures",

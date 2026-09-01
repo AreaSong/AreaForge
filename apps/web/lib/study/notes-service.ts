@@ -1,17 +1,27 @@
 import { isNoteKind, normalizeRelatedNodeIds } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type {
+  NoteEditorOptionsDto,
+  OwnedNoteDetailDto,
+} from "@/lib/contracts/knowledge-library";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { serializeAttachment } from "./attachments-service";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
+import { fromDbTaskStatus } from "./task-serializer";
 import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
   normalizeIdempotencyKey,
   recordPersistentCreateResult,
 } from "./persistent-idempotency";
-import type { NoteDto, NoteMasteryStatusDto } from "./types";
+import type { NoteDto, NoteMasteryStatusDto } from "@/lib/contracts";
+
+export type {
+  NoteEditorOptionsDto,
+  OwnedNoteDetailDto,
+} from "@/lib/contracts/knowledge-library";
 
 export interface CreateNoteInput {
   idempotencyKey: string;
@@ -41,20 +51,6 @@ export interface UpdateNoteInput {
   content?: string;
   masteryStatus?: NoteMasteryStatusDto | null;
   nextReviewAt?: string | null;
-}
-
-export interface NoteEditorOptionsDto {
-  subjects: Array<{ id: string; name: string; archivedAt: string | null }>;
-  tasks: Array<{ id: string; subjectId: string; title: string; status: string }>;
-  syllabusNodes: Array<{ id: string; subjectId: string; title: string; archivedAt: string | null }>;
-  resources: Array<{ id: string; title: string; archivedAt: string | null }>;
-}
-
-export interface OwnedNoteDetailDto {
-  note: NoteDto;
-  readOnly: boolean;
-  subjectArchived: boolean;
-  workspaceName: string;
 }
 
 const noteCoreInclude = {
@@ -172,7 +168,7 @@ export async function getNoteEditorOptions(actorId: string): Promise<NoteEditorO
       ...subject,
       archivedAt: subject.archivedAt?.toISOString() ?? null,
     })),
-    tasks,
+    tasks: tasks.map((task) => ({ ...task, status: fromDbTaskStatus(task.status) })),
     syllabusNodes: syllabusNodes.map((node) => ({
       ...node,
       archivedAt: node.archivedAt?.toISOString() ?? null,

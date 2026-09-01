@@ -15,71 +15,27 @@ import { getStudyDayRange } from "./date";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { applyRecoveryV2CheckInProgressInTx } from "./recovery-v2-service";
+import { persistMistakeAttemptInTx } from "./mistake-attempt-service";
+import { fromDbTaskStatus } from "./task-serializer";
+import type {
+  BridgedReviewScheduleDto,
+  RecentReviewEventDto,
+  ReviewEventDto,
+  ReviewQueueItemDto,
+  ReviewQueueTargetDto,
+  ReviewScheduleDto,
+  ReviewWorkbenchSummaryDto,
+} from "@/lib/contracts/review";
 
-export interface ReviewScheduleDto {
-  id: string;
-  workspaceId: string;
-  targetType: ReviewTargetType;
-  noteId: string | null;
-  mistakeId: string | null;
-  studyResourceId: string | null;
-  syllabusNodeId: string | null;
-  status: "ACTIVE" | "PAUSED";
-  dueDate: string | null;
-  pausedReason: string | null;
-  consecutivePassCount: number;
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ReviewEventDto {
-  id: string;
-  reviewScheduleId: string;
-  result: ReviewResult;
-  durationSeconds: number;
-  confirmedAt: string;
-  learningDate: string;
-  nextDueDate: string;
-  consecutivePassDelta: number;
-  correctedEventId: string | null;
-  note: string | null;
-  appliedRevision: number;
-}
-
-export interface BridgedReviewScheduleDto {
-  schedule: ReviewScheduleDto;
-  target: ReviewQueueTargetDto;
-  canonicalTask: {
-    id: string;
-    title: string;
-    status: "TODO" | "IN_PROGRESS" | "DEFERRED";
-    href: string;
-  };
-}
-
-export interface RecentReviewEventDto extends ReviewEventDto {
-  schedule: Pick<ReviewScheduleDto, "id" | "targetType">;
-  target: ReviewQueueTargetDto;
-}
-
-export interface ReviewQueueTargetDto {
-  title: string;
-  subtitle: string;
-  canonicalHref: string;
-}
-
-export interface ReviewQueueItemDto {
-  schedule: ReviewScheduleDto;
-  target: ReviewQueueTargetDto;
-}
-
-export interface ReviewWorkbenchSummaryDto {
-  overdueCount: number;
-  dueTodayCount: number;
-  completedTodayCount: number;
-  completedTodaySeconds: number;
-}
+export type {
+  BridgedReviewScheduleDto,
+  RecentReviewEventDto,
+  ReviewEventDto,
+  ReviewQueueItemDto,
+  ReviewQueueTargetDto,
+  ReviewScheduleDto,
+  ReviewWorkbenchSummaryDto,
+} from "@/lib/contracts/review";
 
 type Tx = Prisma.TransactionClient;
 
@@ -159,7 +115,7 @@ export async function listReviewSchedules(
       workspaceId: workspace.id,
       ...(options?.status ? { status: options.status } : {}),
       ...(options?.dueBefore
-        ? { dueDate: { lte: options.dueBefore }, status: "ACTIVE" }
+        ? { dueDate: { lt: options.dueBefore }, status: "ACTIVE" }
         : {}),
       ...(options?.excludeBridged
         ? { bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } } }
@@ -179,7 +135,7 @@ export async function listReviewQueueItems(
     where: {
       workspaceId: workspace.id,
       ...(options?.status ? { status: options.status } : {}),
-      ...(options?.dueBefore ? { dueDate: { lte: options.dueBefore }, status: "ACTIVE" } : {}),
+      ...(options?.dueBefore ? { dueDate: { lt: options.dueBefore }, status: "ACTIVE" } : {}),
       ...(options?.excludeBridged
         ? { bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } } }
         : {}),
@@ -203,7 +159,7 @@ export async function getReviewWorkbenchSummary(
   };
   const [overdueCount, dueTodayCount, completed] = await Promise.all([
     prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { lt: today.start } } }),
-    prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { gte: today.start, lte: today.end } } }),
+    prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { gte: today.start, lt: today.end } } }),
     prisma.reviewEvent.aggregate({
       where: {
         reviewSchedule: { workspaceId: workspace.id },
@@ -245,10 +201,25 @@ export async function listBridgedReviewSchedules(actorId: string): Promise<Bridg
     canonicalTask: {
       id: task.id,
       title: task.title,
-      status: task.status as "TODO" | "IN_PROGRESS" | "DEFERRED",
+      status: fromDbBridgeTaskStatus(task.status),
       href: `/roadmap/allocation/tasks/${task.id}`,
     },
   })));
+}
+
+function fromDbBridgeTaskStatus(
+  status: Parameters<typeof fromDbTaskStatus>[0],
+): BridgedReviewScheduleDto["canonicalTask"]["status"] {
+  const normalized = fromDbTaskStatus(status);
+  switch (normalized) {
+    case "todo":
+    case "in_progress":
+    case "deferred":
+      return normalized;
+    case "done":
+    case "skipped":
+      throw new Error(`Inactive task ${status} leaked into the active review bridge query`);
+  }
 }
 
 export async function listRecentReviewEvents(actorId: string, limit = 12): Promise<RecentReviewEventDto[]> {
@@ -268,15 +239,15 @@ export async function listRecentReviewEvents(actorId: string, limit = 12): Promi
 
 const reviewQueueTargetInclude = {
   note: { select: { id: true, title: true, kind: true, subject: { select: { name: true } } } },
-  mistake: { select: { id: true, title: true, subject: { select: { name: true } } } },
+  mistake: { select: { id: true, title: true, subject: { select: { name: true } }, attempts: { select: { result: true, attemptedAt: true }, orderBy: [{ attemptedAt: "desc" }, { id: "desc" }], take: 1 } } },
   studyResource: { select: { id: true, title: true, category: true, subject: { select: { name: true } } } },
   syllabusNode: { select: { id: true, title: true, kind: true, subject: { select: { name: true } } } },
-} as const;
+} satisfies Prisma.ReviewScheduleInclude;
 
 function serializeQueueTarget(row: {
   targetType: string;
   note: { id: string; title: string; kind: string; subject: { name: string } } | null;
-  mistake: { id: string; title: string; subject: { name: string } } | null;
+  mistake: { id: string; title: string; subject: { name: string }; attempts?: Array<{ result: string; attemptedAt: Date }> } | null;
   studyResource: { id: string; title: string; category: string; subject: { name: string } | null } | null;
   syllabusNode: { id: string; title: string; kind: string; subject: { name: string } } | null;
 }): ReviewQueueTargetDto {
@@ -284,7 +255,14 @@ function serializeQueueTarget(row: {
     return { title: row.note.title, subtitle: `${row.note.subject.name} · 知识卡片`, canonicalHref: `/knowledge/cards/${row.note.id}` };
   }
   if (row.targetType === "MISTAKE" && row.mistake) {
-    return { title: row.mistake.title, subtitle: `${row.mistake.subject.name} · 错题复测`, canonicalHref: `/knowledge/mistakes/${row.mistake.id}` };
+    const latestAttempt = row.mistake.attempts?.[0];
+    return {
+      title: row.mistake.title,
+      subtitle: `${row.mistake.subject.name} · 错题复测`,
+      canonicalHref: `/knowledge/mistakes/${row.mistake.id}`,
+      latestResult: latestAttempt?.result as ReviewResult | undefined ?? null,
+      latestAttemptAt: latestAttempt?.attemptedAt.toISOString() ?? null,
+    };
   }
   if (row.targetType === "STUDY_RESOURCE" && row.studyResource) {
     return { title: row.studyResource.title, subtitle: `${row.studyResource.subject?.name ?? "未分科"} · 学习资料`, canonicalHref: `/knowledge/resources/${row.studyResource.id}` };
@@ -306,7 +284,7 @@ export async function getNextDueReviewScheduleId(
       workspaceId: workspace.id,
       id: { not: currentScheduleId },
       status: "ACTIVE",
-      dueDate: { lte: today.end },
+      dueDate: { lt: today.end },
       bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
     },
     orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
@@ -542,6 +520,8 @@ type ConfirmReviewInput = {
   durationSeconds: number;
   nextDueDate?: string;
   note?: string | null;
+  answerMode?: "TEXT" | "PAPER_OR_ORAL";
+  answerText?: string | null;
 };
 
 async function confirmReviewEventInTx(
@@ -573,12 +553,15 @@ async function confirmReviewEventInTx(
   const nextDueDate = input.nextDueDate
     ? getStudyDayRange(new Date(input.nextDueDate)).start
     : addShanghaiLearningDays(learningDay.start, suggestedDays);
-  const fingerprint = buildReviewRequestFingerprint({
+  const baseFingerprint = buildReviewRequestFingerprint({
     result: input.result,
     durationSeconds: input.durationSeconds,
     nextDueDateKey: input.nextDueDate ? getStudyDayRange(nextDueDate).key : "AUTO",
     note: input.note,
   });
+  const fingerprint = schedule.targetType === "MISTAKE"
+    ? `${baseFingerprint}|attempt:${createHash("sha256").update(JSON.stringify({ answerMode: input.answerMode ?? null, answerText: input.answerText?.trim() || null })).digest("hex")}`
+    : baseFingerprint;
 
   const existingEvent = await tx.reviewEvent.findUnique({
     where: {
@@ -638,6 +621,12 @@ async function confirmReviewEventInTx(
     });
   }
   await assertReviewTargetComplete(tx, schedule);
+  if (schedule.targetType === "MISTAKE") {
+    if (!input.answerMode) throw new ApiError("MISTAKE_ATTEMPT_MODE_REQUIRED", 400);
+    if (input.answerMode === "TEXT" && !input.answerText?.trim()) throw new ApiError("MISTAKE_ATTEMPT_ANSWER_REQUIRED", 400);
+  } else if (input.answerMode || input.answerText) {
+    throw new ApiError("REVIEW_ATTEMPT_TARGET_MISMATCH", 400);
+  }
 
   const event = await tx.reviewEvent.create({
     data: {
@@ -656,6 +645,17 @@ async function confirmReviewEventInTx(
       actorId,
     },
   });
+
+  if (schedule.targetType === "MISTAKE" && schedule.mistakeId && input.answerMode) {
+    await persistMistakeAttemptInTx(tx, actorId, workspaceId, schedule.mistakeId, {
+      idempotencyKey: input.idempotencyKey,
+      answerMode: input.answerMode,
+      answerText: input.answerText,
+      result: input.result,
+      durationSeconds: input.durationSeconds,
+      note: input.note,
+    }, event.id);
+  }
 
   const updated = await tx.reviewSchedule.update({
     where: { id: schedule.id },
@@ -1201,6 +1201,7 @@ async function assertTargetOwned(
       where: { id: input.mistakeId, subject: { workspaceId } },
       select: {
         archivedAt: true,
+        questionText: true,
         cause: true,
         correctIdea: true,
         subject: { select: { archivedAt: true } },
@@ -1208,8 +1209,8 @@ async function assertTargetOwned(
     });
     if (!mistake || mistake.archivedAt) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     if (mistake.subject.archivedAt) throw subjectArchivedReviewError();
-    if (mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
-      throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, { conflictFields: ["cause", "correctIdea"] });
+    if (!mistake.questionText?.trim() || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
+      throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, { conflictFields: ["questionText", "cause", "correctIdea"] });
     }
     return;
   }
@@ -1295,15 +1296,15 @@ async function assertReviewTargetComplete(
   if (!schedule.mistakeId) return;
   const mistake = await tx.mistake.findUnique({
     where: { id: schedule.mistakeId },
-    select: { cause: true, correctIdea: true },
+    select: { questionText: true, cause: true, correctIdea: true },
   });
-  if (!mistake || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
+  if (!mistake || !mistake.questionText?.trim() || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
     throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, {
       latest: {
         schedule: serializeSchedule(schedule),
         target: { targetType: "MISTAKE", canPass: false },
       },
-      conflictFields: ["cause", "correctIdea"],
+      conflictFields: ["questionText", "cause", "correctIdea"],
     });
   }
 }

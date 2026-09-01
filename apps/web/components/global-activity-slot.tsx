@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { getTimerElapsedSeconds } from "@areaforge/core";
 import { isLocalFocusSessionId } from "@/lib/client/focus-offline-store";
-import { activityLabel, activitySourcePath } from "@/lib/study/activity-route";
+import { activityLabel, activitySourcePath } from "@/lib/navigation/activity-route";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
-import type { StudySessionDto } from "@/lib/study/types";
+import type { StudySessionDto } from "@/lib/contracts";
+import { formatClockDuration } from "@/lib/formatters";
 
 const serverNowSnapshot = 0;
 // Keep the first client snapshot identical to the server snapshot. The real
@@ -60,7 +61,7 @@ export function GlobalActivitySlot(props: {
           <Link
             href={activity.href}
             className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-white/[0.06] sm:gap-2 sm:px-3 lg:min-w-[13rem] ${activity.themeClass}`}
-            aria-label={`${activity.kindLabel}：${activity.subjectLabel}，${formatDuration(activity.elapsedSeconds)}，${activity.statusLabel}`}
+            aria-label={`${activity.kindLabel}：${activity.subjectLabel}，${formatClockDuration(activity.elapsedSeconds)}，${activity.statusLabel}`}
             title="打开当前唯一活动"
           >
             <ActivityContent activity={activity} />
@@ -87,7 +88,7 @@ function ActivityContent({ activity }: { activity: Activity }) {
       <activity.Icon size={15} className={`shrink-0 ${activity.iconClass}`} aria-hidden="true" />
       <span className="hidden max-w-20 truncate sm:inline">{activity.kindLabel}</span>
       <span className="max-w-24 truncate text-zinc-200 sm:max-w-32">{activity.subjectLabel}</span>
-      <span className="font-mono tabular-nums text-teal-200">{formatDuration(activity.elapsedSeconds)}</span>
+      <span className="font-mono tabular-nums text-teal-200">{formatClockDuration(activity.elapsedSeconds)}</span>
       <span className="hidden text-zinc-500 sm:inline">{activity.statusLabel}</span>
     </>
   );
@@ -182,12 +183,4 @@ function activityTheme(session: StudySessionDto): string {
   if (session.activityMode === "RETEST") return "border-orange-300/40 bg-orange-300/[0.08] text-orange-100";
   if (session.activityMode === "KNOWLEDGE_REVIEW") return "border-sky-300/40 bg-sky-300/[0.08] text-sky-100";
   return "border-teal-300/35 bg-teal-300/[0.06] text-teal-100";
-}
-
-function formatDuration(seconds: number): string {
-  const safe = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(safe / 3_600);
-  const minutes = Math.floor((safe % 3_600) / 60);
-  const remaining = safe % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
 }

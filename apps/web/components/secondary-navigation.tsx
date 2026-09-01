@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { AppNavigationItem } from "@/lib/navigation/app-navigation";
+import { IconButton } from "@/components/ui/button";
 
 export function SecondaryNavigation(props: {
   pathname: string;
@@ -38,23 +39,24 @@ export function SecondaryNavigation(props: {
       aria-label={`${props.workbench.label}二级导航`}
       data-navigation-level="secondary"
       data-layout-region="secondary-navigation"
-      className={`hidden min-h-0 shrink-0 flex-col border-r border-white/[0.07] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] lg:flex ${props.collapsed ? "w-[52px] px-1.5" : "w-[216px] px-3"}`}
+      className={`af-secondary-navigation-rail hidden min-h-0 shrink-0 flex-col border-r border-l border-r-white/[0.07] border-l-black/40 shadow-[-4px_0_12px_rgba(0,0,0,0.3)_inset] bg-[var(--af-surface-subtle)]/45 py-5 transition-[width] min-[1440px]:flex ${props.collapsed ? "w-[52px] px-1.5" : "w-[216px] px-3"}`}
     >
       <div className={`mb-5 flex items-center ${props.collapsed ? "justify-center" : "justify-between gap-2 px-2"}`}>
         <div className={props.collapsed ? "sr-only" : "min-w-0 border-l-2 border-teal-300/40 pl-2 text-xs font-medium text-zinc-500"}>
           <span className="truncate">{props.workbench.label}内容</span>
         </div>
-        <button
+        <IconButton
+          label={props.collapsed ? "展开二级导航" : "收起二级导航"}
           type="button"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200"
+          size="sm"
+          className="inline-flex !size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white/10 hover:text-zinc-200"
           onClick={props.onToggle}
-          aria-label={props.collapsed ? "展开二级导航" : "收起二级导航"}
           title={props.collapsed ? "展开二级导航" : "收起二级导航"}
           aria-expanded={!props.collapsed}
           aria-controls="secondary-navigation"
         >
           {props.collapsed ? <PanelRightOpen size={16} aria-hidden="true" /> : <PanelRightClose size={16} aria-hidden="true" />}
-        </button>
+        </IconButton>
       </div>
       <nav id="secondary-navigation" className="min-h-0 overflow-y-auto" aria-label={`${props.workbench.label}业务导航`}>
         <div className="flex flex-col gap-1">
@@ -66,7 +68,7 @@ export function SecondaryNavigation(props: {
                 href={child.href}
                 aria-current={navigationAriaCurrent(props.pathname, child)}
                 title={props.collapsed ? child.label : undefined}
-                className={`flex min-w-0 items-center rounded-md border-l-2 py-2.5 text-sm transition-colors ${props.collapsed ? "justify-center px-2" : "gap-2.5 px-3"} ${active ? "border-teal-300/80 bg-teal-300/[0.07] text-teal-200" : "border-transparent text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}
+                className={`group flex min-w-0 items-center rounded-md border-l-2 py-2.5 text-sm transition-all duration-300 ease-out ${props.collapsed ? "justify-center px-2" : "gap-2.5 px-3"} ${active ? "border-teal-300 shadow-[-2px_0_8px_rgba(45,212,191,0.15)] bg-gradient-to-r from-teal-400/[0.06] to-transparent text-teal-200" : "border-transparent text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}
               >
                 <SecondaryNavigationIcon href={child.href} />
                 <span className={props.collapsed ? "sr-only" : "truncate"}>{child.label}</span>
@@ -86,7 +88,7 @@ function navigationAriaCurrent(pathname: string, item: { href: string; match: (p
 
 function SecondaryNavigationIcon({ href }: { href: string }) {
   const Icon = SECONDARY_NAVIGATION_ICONS[href] ?? Settings;
-  return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
+  return <Icon className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" aria-hidden="true" />;
 }
 
 const SECONDARY_NAVIGATION_ICONS: Record<string, LucideIcon> = {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { recoverTaskSchema } from "@/lib/study/schemas";
-import { recoverStudyTask } from "@/lib/study/service";
+import { recoverStudyTask } from "@/lib/study/task-command-service";
 
 export const dynamic = "force-dynamic";
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
+
 import { ArrowRight, CheckCircle2, ClipboardList, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -8,6 +10,10 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { Modal } from "@/components/ui/overlays";
 import {
+  decidePeriodicReport,
+  type ReportDecisionAction,
+} from "@/lib/api/reports";
+import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
   redirectToLoginWithCurrentLocation,
@@ -15,14 +21,12 @@ import {
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
 import { selectReportDecisionBaseline } from "@/lib/client/versioned-conflict-baseline";
+import { useVersionedDecisionCommand } from "@/lib/client/use-versioned-decision-command";
+import { useKeyedDraftHydration } from "@/lib/client/use-keyed-draft-hydration";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-import type { ReportDecisionConflictLatest } from "@/lib/study/report-decisions-service";
-import type {
-  PeriodicReportDecisionDto,
-  PeriodicReportDto,
-} from "@/lib/study/reports-service";
-
-type ReportDecisionAction = "confirm" | "reject";
+import { formatDateTime } from "@/lib/formatters";
+import type { ReportDecisionConflictLatest } from "@/lib/contracts";
+import type { PeriodicReportDto } from "@/lib/contracts";
 
 interface ReportDecisionPayload {
   kind: PeriodicReportDto["kind"];
@@ -43,39 +47,52 @@ interface ReportDecisionConflict {
   fields: string[];
 }
 
-interface ReportDecisionResponse {
-  decision?: PeriodicReportDecisionDto;
-  error?: string;
-  latest?: unknown;
-  conflictFields?: string[];
-  workbench?: string;
-}
-
 export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }: { report: PeriodicReportDto; returnTo?: string }) {
   const router = useRouter();
   const [baselineOverride, setBaselineOverride] = useState<PeriodicReportDto | null>(null);
-  const [command, setCommand] = useState<ReportDecisionCommand | null>(null);
+  const decisionCommand = useVersionedDecisionCommand<ReportDecisionCommand>();
+  const {
+    command,
+    pending: decisionPending,
+    begin: beginDecision,
+    succeed: succeedDecision,
+    fail: failDecision,
+    clearError: clearDecisionError,
+    restore: restoreDecision,
+  } = decisionCommand;
   const [conflict, setConflict] = useState<ReportDecisionConflict | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
   const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [isDeciding, setIsDeciding] = useState(false);
   const baseline = selectReportDecisionBaseline(report, baselineOverride);
   const commandKey = reportDecisionCommandKey(baseline.id);
+  const {
+    begin: beginHydration,
+    isCurrent: isHydrationCurrent,
+    complete: completeHydration,
+    cancel: cancelHydration,
+  } = useKeyedDraftHydration(commandKey);
   const decision = baseline.decision;
+  const isDeciding = decisionPending;
   const disabled = isPending || isDeciding || Boolean(decision ?? baseline.decision);
 
   useEffect(() => {
+    const token = beginHydration();
     const timer = window.setTimeout(() => {
+      if (!isHydrationCurrent(token)) return;
       const restored = loadPrivateBusinessDraft(commandKey, LONG_PRIVATE_DRAFT_TTL_MS, isReportDecisionCommand);
-      if (!restored) return;
-      if (baseline.decision?.status === actionStatus(restored.action)) {
-        removePrivateBusinessDraft(commandKey);
+      if (!restored) {
+        completeHydration(token);
         return;
       }
-      setCommand(restored);
+      if (baseline.decision?.status === actionStatus(restored.action)) {
+        removePrivateBusinessDraft(commandKey);
+        completeHydration(token);
+        return;
+      }
+      restoreDecision(restored);
       if (restored.baseRevision !== baseline.revision) {
         setConflict({
           command: restored,
@@ -83,12 +100,17 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
           fields: ["revision"],
         });
         setConflictOpen(true);
+        completeHydration(token);
         return;
       }
       setNotice("检测到尚未完成的报告决策，请确认当前版本后显式重试。");
+      completeHydration(token);
     }, 0);
-    return () => window.clearTimeout(timer);
-  }, [baseline, commandKey]);
+    return () => {
+      window.clearTimeout(timer);
+      cancelHydration(token);
+    };
+  }, [baseline, beginHydration, cancelHydration, commandKey, completeHydration, isHydrationCurrent, restoreDecision]);
 
   async function decide(action: ReportDecisionAction) {
     if (isDeciding) return;
@@ -101,33 +123,31 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
     const activeCommand = command?.action === action && command.baseRevision === baseline.revision
       ? command
       : createReportCommand(action, baseline);
-    setCommand(activeCommand);
+    const generation = beginDecision(activeCommand);
+    if (generation === null) return;
     savePrivateBusinessDraft(commandKey, activeCommand);
-    setIsDeciding(true);
     try {
-      const response = await fetch(`/api/reports/${encodeURIComponent(baseline.id)}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(activeCommand.firstSubmittedPayload),
-      });
-      const body = (await response.json().catch(() => null)) as ReportDecisionResponse | null;
-      if (response.status === 401) {
+      const response = await decidePeriodicReport(baseline.id, action, activeCommand.firstSubmittedPayload);
+      const body = response.body;
+      if (isUnauthorized(response)) {
         setError("登录已过期，报告决策命令已保留。重新登录后请显式重试。");
+        failDecision(generation, "登录已过期，报告决策命令已保留。重新登录后请显式重试。");
         redirectToLoginWithCurrentLocation();
         return;
       }
       if (!response.ok) {
-        if (response.status === 409 && isReportDecisionConflictLatest(body?.latest)) {
+        if (isConflict(response) && isReportDecisionConflictLatest(body?.latest)) {
           setConflict({ command: activeCommand, latest: body.latest, fields: body.conflictFields ?? [] });
           setConflictOpen(true);
         }
         setError(labelDecisionError(body?.error));
+        failDecision(generation, labelDecisionError(body?.error));
         if (response.status === 404 && body?.workbench) router.push(body.workbench);
         return;
       }
 
       removePrivateBusinessDraft(commandKey);
-      setCommand(null);
+      succeedDecision(generation);
       if (body?.decision) setBaselineOverride({ ...baseline, decision: body.decision });
       const inbox = body?.decision?.inboxResult;
       const counts = inbox ? `入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}，替代 ${inbox.supersededCount}` : "";
@@ -137,15 +157,15 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
       startTransition(() => router.refresh());
     } catch {
       setError("网络结果未知，报告决策命令已保留；恢复网络后请先核对服务端状态，再显式重试。");
-    } finally {
-      setIsDeciding(false);
+      failDecision(generation, "网络结果未知，报告决策命令已保留；恢复网络后请先核对服务端状态，再显式重试。");
     }
   }
 
   function adoptServerVersion() {
     if (!conflict) return;
     removePrivateBusinessDraft(commandKey);
-    setCommand(null);
+    restoreDecision(null);
+    clearDecisionError();
     setBaselineOverride(conflict.latest.report);
     setConflict(null);
     setConflictOpen(false);
@@ -161,7 +181,7 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
     const nextCommandKey = reportDecisionCommandKey(latest.id);
     if (nextCommandKey !== commandKey) removePrivateBusinessDraft(commandKey);
     savePrivateBusinessDraft(nextCommandKey, next);
-    setCommand(next);
+    restoreDecision(next);
     setBaselineOverride(latest);
     setConflict(null);
     setConflictOpen(false);
@@ -176,7 +196,7 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
       aria-labelledby="report-decision-heading"
       data-confirmation-boundary="不会修改现有任务或 StagePlan"
     >
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+      <div className="af-action-grid grid gap-5">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 id="report-decision-heading" className="text-lg font-medium text-zinc-100">确认下周期策略</h2>
@@ -189,7 +209,7 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
           </p>
         </div>
         {!decision ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="af-action-cluster">
             <Button variant="primary" size="lg" loading={isDeciding && command?.action === "confirm"} disabled={disabled} onClick={() => void decide("confirm")} type="button">
               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />确认本报告并送入收件箱
             </Button>
@@ -201,7 +221,7 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
       </div>
 
       {decision ? (
-        <div className="mt-5 grid gap-5 border-t border-white/10 pt-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="af-action-grid mt-5 grid gap-5 border-t border-white/10 pt-5">
           <div className="min-w-0">
             <p className="text-sm font-medium text-zinc-100">
               {decision.status === "confirmed"
@@ -213,11 +233,11 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
                 : "本期报告已驳回，没有应用任何调整"}
             </p>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
-              {new Date(decision.decidedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
+              {formatDateTime(decision.decidedAt)}
               {decision.status === "confirmed" ? ` · 入箱新增 ${decision.inboxResult.createdCount}，复用 ${decision.inboxResult.reusedCount}，替代 ${decision.inboxResult.supersededCount}` : " · 需要调整时请在阶段概览重新评估"}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="af-action-cluster">
             {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
             {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看投入草稿</ButtonLink> : null}
             {decision.stageDraftId ? <ButtonLink href="/roadmap/stages" variant="secondary">审阅阶段建议<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
@@ -233,8 +253,8 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
         <div className="space-y-4 text-sm text-zinc-300">
           <p>驳回后当前周期决策进入终态，不能恢复、确认或再次驳回。重新评估必须生成新版本。</p>
           <div className="flex justify-end gap-2">
-            <button type="button" className="h-10 rounded-md border border-white/10 px-3" onClick={() => setRejectConfirmOpen(false)}>取消</button>
-            <button type="button" className="h-10 rounded-md bg-rose-500 px-3 font-medium text-white" onClick={() => { setRejectConfirmOpen(false); void decide("reject"); }}>确认驳回</button>
+            <Button type="button" variant="secondary" size="md" onClick={() => setRejectConfirmOpen(false)}>取消</Button>
+            <Button type="button" variant="danger" size="md" onClick={() => { setRejectConfirmOpen(false); void decide("reject"); }}>确认驳回</Button>
           </div>
         </div>
       </Modal>

@@ -1,21 +1,17 @@
-import { parseSafeMarkdown, type SafeMarkdownNode } from "@areaforge/core";
+import { parseSafeMarkdown } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import type { ReviewTargetDto } from "@/lib/contracts/review-target";
+import {
+  knowledgeCardDetailRoute,
+  mistakeDetailRoute,
+  studyResourceDetailRoute,
+  syllabusNodeDetailRoute,
+} from "@/lib/navigation/route-helpers";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
-import { masteryStatusForSyllabusLevel, masteryStatusLabel, type SyllabusMasteryPersistenceLevel } from "./mastery-status";
+import { masteryStatusForSyllabusLevel, masteryStatusLabel, type SyllabusMasteryPersistenceLevel } from "@/lib/knowledge/mastery-status";
 
-export interface ReviewTargetDto {
-  id: string;
-  subjectId: string | null;
-  type: "NOTE" | "MISTAKE" | "STUDY_RESOURCE" | "SYLLABUS_NODE";
-  title: string;
-  subtitle: string;
-  canonicalHref: string;
-  body: SafeMarkdownNode[];
-  revealTitle: string | null;
-  revealBody: SafeMarkdownNode[];
-  canPass: boolean;
-}
+export type { ReviewTargetDto } from "@/lib/contracts/review-target";
 
 export async function getReviewTarget(actorId: string, scheduleId: string): Promise<ReviewTargetDto> {
   const workspace = await resolveActiveWorkspace(actorId);
@@ -43,7 +39,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       type: "NOTE",
       title: note.title,
       subtitle: `${note.subject.name} · ${noteKindLabel(note.kind)}`,
-      canonicalHref: `/knowledge/cards/${note.id}`,
+      canonicalHref: knowledgeCardDetailRoute(note.id),
       body: parseSafeMarkdown(note.content),
       revealTitle: null,
       revealBody: [],
@@ -59,6 +55,8 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
     if (!mistake) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
     const revealText = [
       `错因：${mistake.cause}`,
+      mistake.causeNote ? `\n\n错因说明：${mistake.causeNote}` : "",
+      mistake.correctAnswer ? `\n\n标准答案：${mistake.correctAnswer}` : "",
       mistake.correctIdea ? `\n\n正确思路：${mistake.correctIdea}` : "\n\n正确思路尚未记录。",
     ].join("");
     return {
@@ -67,11 +65,11 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       type: "MISTAKE",
       title: mistake.title,
       subtitle: `${mistake.subject.name} · 错题复测`,
-      canonicalHref: `/knowledge/mistakes/${mistake.id}`,
-      body: parseSafeMarkdown(mistake.source || mistake.title),
-      revealTitle: "错因与正确思路",
+      canonicalHref: mistakeDetailRoute(mistake.id),
+      body: parseSafeMarkdown(mistake.questionText || mistake.title),
+      revealTitle: "标准答案、错因与正确思路",
       revealBody: parseSafeMarkdown(revealText),
-      canPass: mistake.cause !== "UNKNOWN" && Boolean(mistake.correctIdea?.trim()),
+      canPass: Boolean(mistake.questionText?.trim()) && mistake.cause !== "UNKNOWN" && Boolean(mistake.correctIdea?.trim()),
     };
   }
 
@@ -95,7 +93,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       type: "STUDY_RESOURCE",
       title: resource.title,
       subtitle: `${resource.subject?.name ?? "未分科"} · ${resourceCategoryLabel(resource.category)}`,
-      canonicalHref: `/knowledge/resources/${resource.id}`,
+      canonicalHref: studyResourceDetailRoute(resource.id),
       body: parseSafeMarkdown(`${source}${tags}`),
       revealTitle: null,
       revealBody: [],
@@ -115,7 +113,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       type: "SYLLABUS_NODE",
       title: node.title,
       subtitle: `${node.subject.name} · ${syllabusKindLabel(node.kind)}`,
-      canonicalHref: `/knowledge/syllabi/${node.id}`,
+      canonicalHref: syllabusNodeDetailRoute(node.id),
       body: parseSafeMarkdown(`当前状态：${syllabusStatusLabel(node.status)}\n\n掌握状态：${masteryStatusLabel(masteryStatusForSyllabusLevel(node.masteryLevel ? node.masteryLevel.toLowerCase() as SyllabusMasteryPersistenceLevel : null))}`),
       revealTitle: null,
       revealBody: [],

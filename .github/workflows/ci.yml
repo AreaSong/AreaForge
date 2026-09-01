@@ -119,6 +119,12 @@ jobs:
       - name: Governance preflight
         run: pnpm governance:preflight
 
+      - name: Web governance preflight
+        run: pnpm web:governance:preflight
+
+      - name: Web governance selftests
+        run: pnpm web:governance:selftest
+
       - name: Tasks workflow doctor
         run: pnpm tasks:doctor
 

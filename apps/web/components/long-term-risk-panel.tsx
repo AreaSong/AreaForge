@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowRight, ClipboardList, ShieldCheck } from "lucide-react";
-import type { LongTermRiskSummaryDto } from "@/lib/study/long-term-risk-service";
+import type { LongTermRiskSummaryDto } from "@/lib/contracts";
 
 interface LongTermRiskPanelProps {
   summary: LongTermRiskSummaryDto;

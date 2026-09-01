@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { Drawer } from "@/components/ui/overlays";
+import { Button } from "@/components/ui/button";
 import { PRIMARY_WORKBENCH_ITEMS, UTILITY_NAV_ITEM } from "@/lib/navigation/app-navigation";
 
 export function SharedMobileNavigation(props: { pathname: string; email: string; userId: string }) {
@@ -23,7 +24,7 @@ export function SharedMobileNavigation(props: { pathname: string; email: string;
   return (
     <>
       <nav
-        className="af-shell-nav z-[var(--af-layer-shell-base)] shrink-0 overflow-hidden border-t border-white/10 bg-[#0d1117]/95 px-1 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
+        className="af-mobile-primary-navigation af-shell-nav z-[var(--af-layer-shell-base)] shrink-0 overflow-hidden border-t border-white/10 bg-[#0d1117]/95 px-1 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur"
         aria-label="移动导航"
         data-layout-region="mobile-primary-navigation"
       >
@@ -43,16 +44,17 @@ export function SharedMobileNavigation(props: { pathname: string; email: string;
               </Link>
             );
           })}
-          <button
+          <Button
+            variant="ghost"
             type="button"
-            className={`flex h-12 min-w-0 flex-1 basis-0 flex-col items-center justify-center gap-1 rounded-md px-0.5 text-center text-[11px] whitespace-nowrap ${utilityActive ? "text-teal-300" : "text-zinc-400"}`}
+            className={`!flex !h-12 !shrink min-w-0 flex-1 basis-0 flex-col items-center justify-center gap-1 rounded-md px-0.5 text-center text-[11px] whitespace-nowrap ${utilityActive ? "text-teal-300" : "text-zinc-400"}`}
             onClick={() => setDrawerOpen(true)}
             aria-label="打开工具与设置"
             aria-expanded={drawerOpen}
           >
             <Menu className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="max-[279px]:sr-only">更多</span>
-          </button>
+          </Button>
         </div>
       </nav>
 

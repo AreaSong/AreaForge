@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { finishRecoveryStateSchema } from "@/lib/study/schemas";
-import { cancelRecoveryState } from "@/lib/study/service";
+import { cancelRecoveryState } from "@/lib/study/recovery-state-service";
 
 export const dynamic = "force-dynamic";
 

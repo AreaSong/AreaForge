@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { evaluateAutomaticMotivationGate } from "@areaforge/core";
 import {
   MOTIVATION_REMINDER_PREFERENCE_EVENT,
   motivationReminderPreferenceKey,
   readMotivationReminderPreference,
 } from "@/lib/client/motivation-reminder-preference";
-import type { AppShellStatusDto } from "@/lib/study/app-shell-service";
+import { requestMotivationNext } from "@/lib/api/motivation";
+import type { AppShellStatusDto } from "@/lib/contracts";
+import { getBrowserStoragePort } from "@/lib/client/storage-port";
+import { createLatestOperationGate } from "@/lib/client/operation-gates";
 
 export function useShellRecovery(input: {
   userId: string;
@@ -17,10 +20,14 @@ export function useShellRecovery(input: {
   openTool: (key: "recovery-help") => void;
 }) {
   const { userId, workspaceId, suppressDistractions, reminderCandidate, openTool } = input;
-  const [source, setSource] = useState<"manual" | "automatic">("manual");
-  const [error, setError] = useState<string | null>(null);
-  const [line, setLine] = useState<string | null>(null);
-  const [url, setUrl] = useState<string | null>(null);
+  const [automaticContent, setAutomaticContent] = useState<RecoveryContent>(EMPTY_RECOVERY_CONTENT);
+  const [manualContent, setManualContent] = useState<RecoveryContent>(EMPTY_RECOVERY_CONTENT);
+  const [manualActive, setManualActive] = useState(false);
+  const manualRequestGateRef = useRef(createLatestOperationGate());
+
+  useEffect(() => () => {
+    manualRequestGateRef.current.invalidate();
+  }, []);
 
   useEffect(() => {
     if (suppressDistractions || !workspaceId) return;
@@ -45,24 +52,19 @@ export function useShellRecovery(input: {
       if (Number.isFinite(nextEligibleAt) && nextEligibleAt > Date.now()) return;
 
       try {
-        const response = await fetch("/api/motivation/next", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "automatic" }),
-        });
-        const body = (await response.json().catch(() => null)) as
-          | { item?: { title?: string; body?: string | null; externalUrl?: string | null } | null; reminderAllowed?: boolean }
-          | null;
+        const response = await requestMotivationNext("automatic");
+        const body = response.body;
         if (!response.ok || cancelled) return;
 
         const cooldown = body?.reminderAllowed ? 4 * 60 * 60 * 1000 : 15 * 60 * 1000;
         writeLocalStorage(cooldownKey, String(Date.now() + cooldown));
         if (!body?.reminderAllowed || !body.item) return;
 
-        setError(null);
-        setLine(body.item.body ?? body.item.title ?? null);
-        setUrl(body.item.externalUrl ?? null);
-        setSource("automatic");
+        setAutomaticContent({
+          error: null,
+          line: body.item.body ?? body.item.title ?? null,
+          url: body.item.externalUrl ?? null,
+        });
         // Automatic motivation stays non-blocking. The toolbar marks the
         // available reminder; only an explicit user action opens the tool.
       } catch {
@@ -92,41 +94,57 @@ export function useShellRecovery(input: {
   }, [reminderCandidate, suppressDistractions, userId, workspaceId]);
 
   const open = useCallback(async () => {
-    setError(null);
-    setLine(null);
-    setUrl(null);
-    setSource("manual");
+    const requestToken = manualRequestGateRef.current.begin();
+    setManualActive(true);
+    setManualContent(EMPTY_RECOVERY_CONTENT);
     openTool("recovery-help");
     try {
-      const response = await fetch("/api/motivation/next", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "manual" }),
-      });
-      const body = (await response.json().catch(() => null)) as
-        | { item?: { title?: string; body?: string | null; externalUrl?: string | null }; error?: string }
-        | null;
+      const response = await requestMotivationNext("manual");
+      if (!manualRequestGateRef.current.isCurrent(requestToken)) return;
+      const body = response.body;
       if (!response.ok) {
-        setError(body?.error ?? "无法加载动机内容");
+        setManualContent({ error: body?.error ?? "无法加载动机内容", line: null, url: null });
         return;
       }
       if (body?.item) {
-        setLine(body.item.body ?? body.item.title ?? null);
-        setUrl(body.item.externalUrl ?? null);
+        setManualContent({
+          error: null,
+          line: body.item.body ?? body.item.title ?? null,
+          url: body.item.externalUrl ?? null,
+        });
       } else {
-        setLine("内容库为空。可到设置 → 档案添加语录。");
+        setManualContent({ error: null, line: "内容库为空。可到设置 → 档案添加语录。", url: null });
       }
     } catch {
-      setError("无法加载动机内容");
+      if (manualRequestGateRef.current.isCurrent(requestToken)) {
+        setManualContent({ error: "无法加载动机内容", line: null, url: null });
+      }
+    } finally {
+      manualRequestGateRef.current.finish(requestToken);
     }
   }, [openTool]);
 
-  return { source, error, line, url, open, hasAutomaticReminder: source === "automatic" && Boolean(line || url) };
+  const automaticAvailable = Boolean(automaticContent.line || automaticContent.url);
+  const selected = manualActive ? manualContent : automaticContent;
+  return {
+    source: manualActive || !automaticAvailable ? "manual" as const : "automatic" as const,
+    ...selected,
+    open,
+    hasAutomaticReminder: !manualActive && automaticAvailable,
+  };
 }
+
+interface RecoveryContent {
+  error: string | null;
+  line: string | null;
+  url: string | null;
+}
+
+const EMPTY_RECOVERY_CONTENT: RecoveryContent = { error: null, line: null, url: null };
 
 function readLocalStorage(key: string): string | null {
   try {
-    return window.localStorage.getItem(key);
+    return getBrowserStoragePort("local")?.getItem(key) ?? null;
   } catch {
     return null;
   }
@@ -134,7 +152,7 @@ function readLocalStorage(key: string): string | null {
 
 function writeLocalStorage(key: string, value: string): void {
   try {
-    window.localStorage.setItem(key, value);
+    getBrowserStoragePort("local")?.setItem(key, value);
   } catch {
     // Optional cooldown state must not block recovery.
   }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
-import { resumeStudySession } from "@/lib/study/service";
+import { resumeStudySession } from "@/lib/study/session-lifecycle-service";
 import { sessionCommandSchema } from "@/lib/study/schemas";
 
 export const dynamic = "force-dynamic";

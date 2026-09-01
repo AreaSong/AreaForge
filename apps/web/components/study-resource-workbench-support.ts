@@ -3,7 +3,13 @@ import {
   loadPrivateBusinessDraft,
   LONG_PRIVATE_DRAFT_TTL_MS,
 } from "@/lib/client/private-business-drafts";
-import type { StudyResourceDto, StagingUploadResult } from "@/lib/study/study-resource-service";
+import type {
+  ResolveUploadRequest,
+  UploadResolutionLatest,
+} from "@/lib/api/uploads";
+import type { StudyResourceDto, StagingUploadResult } from "@/lib/contracts";
+
+export type UploadResolutionRequest = ResolveUploadRequest;
 
 export type UploadItem = {
   key: string;
@@ -16,24 +22,6 @@ export type UploadItem = {
   resultTitle?: string;
   error?: string;
   submittedSnapshot?: UploadResolutionRequest;
-};
-
-export type UploadResolutionRequest = {
-  attachmentId: string;
-  decision: "reuse" | "copy" | "skip";
-  reuseResourceId?: string;
-  title: string;
-  subjectId: string | null;
-  category: string;
-  tags: string[];
-};
-
-type UploadResolutionLatest = {
-  attachmentId: string;
-  decision: "reuse" | "copy" | "skip";
-  resourceId: string | null;
-  resource: StudyResourceDto | null;
-  request: UploadResolutionRequest | null;
 };
 
 export type UploadResolutionConflict = {
@@ -120,6 +108,11 @@ export function mergePendingUploads(current: UploadItem[], restored: UploadItem[
   return merged.slice(0, 5);
 }
 
+export function mergeUploadItemUpdates(current: UploadItem[], updates: UploadItem[]): UploadItem[] {
+  const updatesByKey = new Map(updates.map((item) => [item.key, item]));
+  return current.map((item) => updatesByKey.get(item.key) ?? item);
+}
+
 export function isResourceFormDraft(value: unknown): value is ResourceFormDraft {
   if (!value || typeof value !== "object") return false;
   const draft = value as Partial<ResourceFormDraft>;
@@ -188,7 +181,7 @@ function isUploadResolutionRequest(value: unknown): value is UploadResolutionReq
     Array.isArray(candidate.tags) && candidate.tags.every((tag) => typeof tag === "string");
 }
 
-function isStudyResourceDto(value: unknown): value is StudyResourceDto {
+export function isStudyResourceDto(value: unknown): value is StudyResourceDto {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<StudyResourceDto>;
   return typeof candidate.id === "string" && typeof candidate.revision === "number" && typeof candidate.title === "string";

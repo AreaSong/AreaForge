@@ -1,5 +1,7 @@
 "use client";
 
+import { Button, IconButton } from "@/components/ui/button";
+import { useUpdateCenterController } from "@/components/use-update-center-controller";
 import {
   CheckCircle2,
   Clock3,
@@ -11,51 +13,44 @@ import {
   UploadCloud,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import type { UpdateAction, UpdateCenterStatus } from "@/lib/system/update-center";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { UpdateCenterStatus } from "@/lib/system/update-center";
 import { getUpdateCenterHealth } from "@/lib/system/update-center-health";
 import {
-  isPendingOperation,
   labelAction,
   labelAutoApply,
-  labelError,
   labelOperationStatus,
-  labelQueued,
-  mergeFallbackOperation,
   normalizedTag,
   formatDateTime,
   shortHash,
 } from "@/lib/system/update-center-ui";
-import {
-  acknowledgeUpdateRequestIdempotencyKey,
-  bindUpdateRequestIdempotencyRequest,
-  buildUpdateRequestIdempotencyIntent,
-  reuseUpdateRequestIdempotencyKey,
-  settleUpdateRequestIdempotencyFromOperation,
-  shouldAcknowledgeUpdateRequestAttempt,
-} from "@/lib/system/update-request-idempotency";
 
 interface UpdateVersionPopoverProps {
   initialStatus: UpdateCenterStatus;
 }
 
-type NoticeTone = "success" | "danger";
-
 export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProps) {
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState(initialStatus);
-  const [notice, setNotice] = useState<{ tone: NoticeTone; text: string } | null>(null);
-  const [isPending, startTransition] = useTransition();
   const popoverRef = useRef<HTMLDivElement>(null);
-  const pendingIdempotencyKeys = useRef(new Map<string, string>());
+  const {
+    status,
+    notice,
+    isPending,
+    mutationLocked,
+    statusConclusionsUnverified,
+    mutationStatusUnavailable,
+    refreshStatus,
+    queueCheck,
+    confirmApply,
+    confirmRollback,
+  } = useUpdateCenterController(initialStatus, {
+    pollingEnabled: open,
+    statusReadNetworkFailureMessage: "网络暂时不可用，请稍后重试。",
+    statusReadFailureMessage: "状态重新读取失败。",
+  });
   const tone = useMemo(() => getTone(status), [status]);
-  const statusHealth = getUpdateCenterHealth(status);
-  const statusConclusionsUnverified = statusHealth === "unknown" || statusHealth === "stale";
-  const mutationStatusUnavailable = statusHealth === "blocked" || statusHealth === "unknown" || statusHealth === "stale";
   const ToneIcon = tone.icon;
   const releaseUrl = status.releaseUrl ?? "https://github.com/AreaSong/AreaForge/releases";
-  const operationId = status.lastOperation?.id;
-  const operationStatus = status.lastOperation?.status;
 
   useEffect(() => {
     if (!open) return;
@@ -78,149 +73,9 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open || !operationId || !isPendingOperation(operationStatus)) return;
-
-    let cancelled = false;
-    let polls = 0;
-    let timer: number | undefined;
-    const poll = async () => {
-      if (cancelled || polls >= 12) return;
-      polls += 1;
-      try {
-        const response = await fetch("/api/system/update-status", { cache: "no-store" });
-        const body = (await response.json().catch(() => null)) as { status?: UpdateCenterStatus } | null;
-        if (!cancelled && response.ok && body?.status) {
-          settleUpdateRequestIdempotencyFromOperation(pendingIdempotencyKeys.current, body.status.lastOperation);
-          setStatus(body.status);
-          if (isPendingOperation(body.status.lastOperation?.status)) {
-            timer = window.setTimeout(poll, 5_000);
-          }
-        }
-      } catch {
-        if (!cancelled && polls < 12) timer = window.setTimeout(poll, 5_000);
-      }
-    };
-
-    timer = window.setTimeout(poll, 5_000);
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [open, operationId, operationStatus]);
-
-  async function refreshStatus(options?: {
-    clearNotice?: boolean;
-    fallbackOperation?: UpdateCenterStatus["lastOperation"];
-  }) {
-    if (options?.clearNotice ?? true) setNotice(null);
-    try {
-      const response = await fetch("/api/system/update-status", { cache: "no-store" });
-      const body = (await response.json().catch(() => null)) as { status?: UpdateCenterStatus; error?: string } | null;
-      if (!response.ok || !body?.status) {
-        setNotice({ tone: "danger", text: "状态重新读取失败。" });
-        return;
-      }
-      settleUpdateRequestIdempotencyFromOperation(pendingIdempotencyKeys.current, body.status.lastOperation);
-      setStatus(mergeFallbackOperation(body.status, options?.fallbackOperation ?? null));
-    } catch {
-      setNotice({ tone: "danger", text: "网络暂时不可用，请稍后重试。" });
-    }
-  }
-
-  function queue(action: UpdateAction, options?: { tag?: string }) {
-    const health = getUpdateCenterHealth(status);
-    if (action !== "check" && (health === "blocked" || health === "unknown" || health === "stale")) {
-      setNotice({
-        tone: "danger",
-        text: status.blocker ?? "当前版本状态未验证或已过期，请先检查更新后再提交变更请求。",
-      });
-      return;
-    }
-    const confirmedSnapshotHash = status.snapshotHash;
-    if (action !== "check" && !confirmedSnapshotHash) {
-      setNotice({ tone: "danger", text: "当前状态快照未通过校验，请先检查更新。" });
-      return;
-    }
-    const requestIntent = buildUpdateRequestIdempotencyIntent({
-      action,
-      tag: options?.tag,
-      confirmedSnapshotHash,
-    });
-    const idempotencyKey = reuseUpdateRequestIdempotencyKey(
-      pendingIdempotencyKeys.current,
-      requestIntent,
-      () => crypto.randomUUID(),
-    );
-    setNotice(null);
-    startTransition(async () => {
-      const payload = action === "apply"
-        ? { action, tag: options?.tag, confirmedSnapshotHash, idempotencyKey }
-        : confirmedSnapshotHash
-          ? { action, confirmedSnapshotHash, idempotencyKey }
-          : { action, idempotencyKey };
-      try {
-        const response = await fetch("/api/system/update-requests", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const body = (await response.json().catch(() => null)) as {
-          request?: NonNullable<UpdateCenterStatus["lastOperation"]>;
-          error?: string;
-        } | null;
-        const queuedOperation = body?.request ?? null;
-        if (queuedOperation?.id) {
-          bindUpdateRequestIdempotencyRequest(requestIntent, idempotencyKey, queuedOperation.id);
-        }
-        if (shouldAcknowledgeUpdateRequestAttempt({
-          responseOk: response.ok,
-          responseStatus: response.status,
-          responseBody: body,
-        })) {
-          acknowledgeUpdateRequestIdempotencyKey(pendingIdempotencyKeys.current, requestIntent, idempotencyKey);
-        }
-        if (!response.ok) {
-          setNotice({ tone: "danger", text: labelError(body?.error ?? "REQUEST_FAILED") });
-          return;
-        }
-        if (!queuedOperation) {
-          setNotice({ tone: "danger", text: "请求响应不完整，请先重新读取状态，不要重复提交。" });
-          return;
-        }
-        setStatus((current) => mergeFallbackOperation(current, queuedOperation));
-        await refreshStatus({ clearNotice: false, fallbackOperation: queuedOperation });
-        setNotice(queuedOperation.publishDurability === "uncertain"
-          ? { tone: "danger", text: queuedOperation.message ?? "请求可能已入队，请先重新读取状态，不要重复提交。" }
-          : { tone: "success", text: labelQueued(action) });
-      } catch {
-        setNotice({ tone: "danger", text: "网络暂时不可用，请重新读取状态后再提交请求。" });
-      }
-    });
-  }
-
-  function confirmApply() {
-    const tag = status.latestVersion ? normalizedTag(status.latestVersion) : undefined;
-    if (!tag || !status.updateAvailable) {
-      setNotice({ tone: "danger", text: "当前没有可应用的新版本。" });
-      return;
-    }
-    if (!window.confirm(`确认提交更新请求：${tag}？`)) return;
-    queue("apply", { tag });
-  }
-
-  function confirmRollback() {
-    if (!status.rollback.available) {
-      setNotice({ tone: "danger", text: "当前没有可回退版本。" });
-      return;
-    }
-    if (!window.confirm(`确认提交回退请求：${status.rollback.targetVersion ?? "上一版本"}？`)) return;
-    queue("rollback");
-  }
-
   return (
     <div className="relative" ref={popoverRef}>
-      <button
+      <Button
         aria-controls="update-version-popover"
         aria-expanded={open}
         className={`inline-flex h-11 items-center gap-2 rounded-md border px-2.5 text-xs font-medium transition hover:bg-white/10 sm:h-8 ${tone.buttonClass}`}
@@ -229,7 +84,7 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
       >
         <ToneIcon className="h-3.5 w-3.5" aria-hidden="true" />
         {normalizedTag(status.currentVersion)}
-      </button>
+      </Button>
 
       {open ? (
         <div
@@ -242,16 +97,17 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
               <p className="mt-3 text-3xl font-semibold text-white">{normalizedTag(status.currentVersion)}</p>
               <p className={`mt-2 text-sm ${tone.textClass}`}>{tone.label}</p>
             </div>
-            <button
+            <IconButton
+              label="重新读取版本状态"
               aria-label="重新读取版本状态"
               className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isPending}
-              onClick={() => startTransition(refreshStatus)}
+              onClick={refreshStatus}
               title="重新读取版本状态"
               type="button"
             >
               <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`} aria-hidden="true" />
-            </button>
+            </IconButton>
           </div>
 
           <div className="mt-4 grid gap-2 text-sm">
@@ -265,15 +121,15 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
           {statusConclusionsUnverified ? (
             <div className="mt-4 rounded-md border border-amber-300/20 bg-amber-300/[0.06] p-3">
               <p className="text-xs leading-5 text-zinc-400">重新读取只获取现有状态。检查更新后，agent 才会重新验证更新与回退结论。</p>
-              <button
+              <Button
                 className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-amber-300 px-2 text-xs font-medium text-[#17130a] disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isPending}
-                onClick={() => queue("check")}
+                disabled={isPending || mutationLocked}
+                onClick={queueCheck}
                 type="button"
               >
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                 检查更新
-              </button>
+              </Button>
             </div>
           ) : null}
 
@@ -301,15 +157,15 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             {statusConclusionsUnverified ? null : (
-              <button
+              <Button
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-2 text-xs text-zinc-100 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isPending}
-                onClick={() => queue("check")}
+                disabled={isPending || mutationLocked}
+                onClick={queueCheck}
                 type="button"
               >
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                 检查更新
-              </button>
+              </Button>
             )}
             <a
               className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/10 px-2 text-xs text-zinc-100 hover:bg-white/10"
@@ -320,7 +176,7 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               查看发布
             </a>
-            <button
+            <Button
               className={`inline-flex h-11 items-center justify-center gap-2 rounded-md px-2 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${statusConclusionsUnverified ? "border border-white/10 text-zinc-400" : "bg-teal-400 text-[#071011]"}`}
               disabled={isPending || mutationStatusUnavailable || !status.latestVersion || !status.updateAvailable}
               onClick={confirmApply}
@@ -328,8 +184,8 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
             >
               <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
               应用更新
-            </button>
-            <button
+            </Button>
+            <Button
               className={`inline-flex h-11 items-center justify-center gap-2 rounded-md border px-2 text-xs disabled:cursor-not-allowed disabled:opacity-60 ${statusConclusionsUnverified ? "border-white/10 text-zinc-400" : "border-amber-300/30 text-amber-100 hover:bg-amber-300/10"}`}
               disabled={isPending || mutationStatusUnavailable || !status.rollback.available}
               onClick={confirmRollback}
@@ -337,7 +193,7 @@ export function UpdateVersionPopover({ initialStatus }: UpdateVersionPopoverProp
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               版本回退
-            </button>
+            </Button>
           </div>
 
           <Link
@@ -410,4 +266,3 @@ function getTone(status: UpdateCenterStatus) {
     textClass: "text-zinc-400",
   };
 }
-

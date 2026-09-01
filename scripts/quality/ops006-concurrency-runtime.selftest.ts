@@ -12,14 +12,16 @@ import {
   convertStudyTaskToReview,
   deferStudyTask,
   dropStudyTask,
-  endStudySession,
-  pauseStudySession,
   recoverStudyTask,
-  resumeStudySession,
   splitStudyTask,
-  startStudySession,
   updateStudyTask,
-} from "../../apps/web/lib/study/service";
+} from "../../apps/web/lib/study/task-command-service";
+import { endStudySession } from "../../apps/web/lib/study/session-command-service";
+import {
+  pauseStudySession,
+  resumeStudySession,
+  startStudySession,
+} from "../../apps/web/lib/study/session-lifecycle-service";
 import { completeSimulationTask } from "../../apps/web/lib/study/simulation-service";
 import { applyTaskDebtReorder } from "../../apps/web/lib/study/task-debt-reorder-service";
 
@@ -552,9 +554,11 @@ function createRecord() {
       implementationSha256: sha256([
         "apps/web/lib/study/concurrency.ts",
         "apps/web/lib/study/check-in-service.ts",
-        "apps/web/lib/study/service.ts",
+        "apps/web/lib/study/session-command-service.ts",
+        "apps/web/lib/study/session-lifecycle-service.ts",
         "apps/web/lib/study/simulation-service.ts",
         "apps/web/lib/study/task-debt-reorder-service.ts",
+        "apps/web/lib/study/task-command-service.ts",
       ].map((file) => readFileSync(path.join(root, file))).join("\n")),
     },
     checks,

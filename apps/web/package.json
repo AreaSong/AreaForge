@@ -1,12 +1,12 @@
 {
   "name": "@areaforge/web",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test lib/study/*.test.ts lib/navigation/*.test.ts",
+    "test": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test 'app/login/**/*.test.ts' 'components/**/*.test.ts' 'lib/api/**/*.test.ts' 'lib/client/**/*.test.ts' 'lib/knowledge/**/*.test.ts' 'lib/navigation/**/*.test.ts' 'lib/study/**/*.test.ts'",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },

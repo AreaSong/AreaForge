@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
-import type { PlanInboxItemDto } from "@/lib/study/plan-inbox-service";
+import type { PlanInboxItemDto } from "@/lib/contracts";
 
 const originLabels: Record<string, string> = {
   DAILY_REVIEW_MINIMUM: "来自今日复盘",

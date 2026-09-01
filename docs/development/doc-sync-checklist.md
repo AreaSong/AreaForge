@@ -40,6 +40,8 @@
 - 本轮若踩到满足录入门槛（可复现/代价高/代码看不出，2/3 通过）的新坑，是否已按「触发/根因/规避/关联」格式追加 `docs/development/gotchas.md`；与 residual 台账、FAQ、error-recovery-matrix 重叠的内容是否回链而非复制。
 - 新 API 是否同步 `docs/architecture/api-surface.md`。
 - 新表或字段是否同步 `docs/architecture/data-model.md`。
+- Web 共享 UI、API adapter、client storage/error/operation gate、DTO contract、domain service 或组件复杂度策略变化时，是否同步 `docs/architecture/web-shared-capability-inventory.json`、`docs/ux/shared-ui-foundations.md`、`docs/ux/application-shell-and-workbench-layouts.md`、`apps/web/README.md`、`apps/web/AGENTS.md` 和验证矩阵；清单是否通过 JSON parse 与 `pnpm web:shared-boundary` schema/path/重叠校验。
+- Web 共享能力门禁是否仍保持三类 legacy debt budget（非豁免 raw UI、直接浏览器 storage、显式 `401/409`）为空，`apps/web/lib/contracts/study.ts`、`apps/web/lib/study/service.ts`、`apps/web/lib/study/types.ts` 禁止恢复，非测试 TSX 500 行硬上限与函数 50 行 observation/warning 语义没有混淆；是否运行五个专项 gate、对应 selftest 和 `pnpm web:governance:typecheck`。
 - 品牌素材、Logo、图标或静态资产入口变化是否同步 `assets/brand/brand-manifest.json`、`docs/architecture/project-structure.md`、`docs/ux/brand-assets.md` 和必要的 README 导航，并准确区分当前 checkout 已接入、线上版本已发布与生产已更新三种状态。
 - 上传、附件、AI、认证、部署变化是否同步安全文档。
 - 上传、附件、`UPLOAD_DIR`、文件对账、备份/恢复或上传目录迁移变化是否同步 `docs/architecture/file-storage.md`、`docs/security/file-ai-safety.md`、`docs/deployment/backup-restore.md` 和 `areaforge-file-storage-safety`。

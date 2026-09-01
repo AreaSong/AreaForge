@@ -3,7 +3,7 @@ import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { getDailyReviewMinimumInboxItem } from "@/lib/study/plan-inbox-service";
 import { updateReviewSchema } from "@/lib/study/schemas";
-import { updateDailyReview } from "@/lib/study/service";
+import { updateDailyReview } from "@/lib/study/daily-review-service";
 
 export const dynamic = "force-dynamic";
 

@@ -14,129 +14,29 @@ import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
-import { aggregateActivityBreakdown, activityBucket, type ActivityBreakdown } from "./activity-metrics";
-import type { PlanInboxWriteSummaryDto, StageAdjustmentDraftRecordDto, StagePlanDto } from "./types";
-
-const shanghaiOffsetMs = 8 * 60 * 60 * 1000;
-const dayMs = 24 * 60 * 60 * 1000;
-
-export type PeriodicReportKind = "week" | "month";
-
-export interface PeriodicSubjectShareDto {
-  subjectId: string;
-  subjectName: string;
-  subjectColor: string;
-  totalMinutes: number;
-  effectiveMinutes: number;
-  share: number;
-  debtCount: number;
-  mistakeCount: number;
-  activity: ActivityBreakdown;
-}
+import { aggregateActivityBreakdown, activityBucket } from "./activity-metrics";
+import type { PlanInboxWriteSummaryDto } from "@/lib/contracts";
+import type {
+  PeriodicReportDecisionDto,
+  PeriodicReportDto,
+  PeriodicReportKind,
+  PeriodicReportsDto,
+  PeriodicSubjectShareDto,
+} from "@/lib/contracts/reports";
 
 type PeriodicNextCycleDraftDto = ReturnType<typeof createPeriodicNextCycleDraft>;
 type PeriodicDecisionSnapshotDto = ReturnType<typeof createPeriodicReportDecisionSnapshot>;
 
-export interface PeriodicReportDecisionDto {
-  id: string;
-  kind: PeriodicReportKind;
-  range: {
-    start: string;
-    end: string;
-  };
-  status: "confirmed" | "rejected";
-  reportSnapshot: PeriodicDecisionSnapshotDto;
-  nextCycleDraft: PeriodicNextCycleDraftDto | null;
-  canAutoApply: false;
-  requiresUserConfirmation: true;
-  decidedAt: string;
-  actorId: string | null;
-  stageDraftId: string | null;
-  inboxResult: PlanInboxWriteSummaryDto;
-  alreadyDecided?: boolean;
-}
+const shanghaiOffsetMs = 8 * 60 * 60 * 1000;
+const dayMs = 24 * 60 * 60 * 1000;
 
-export interface PeriodicReportDto {
-  id: string;
-  revision: number;
-  kind: PeriodicReportKind;
-  title: string;
-  range: {
-    start: string;
-    end: string;
-    days: number;
-  };
-  metrics: {
-    totalMinutes: number;
-    effectiveMinutes: number;
-    taskCompletionRate: number;
-    taskCount: number;
-    completedTaskCount: number;
-    debtCount: number;
-    lowConversionCount: number;
-    reviewCompletionRate: number;
-    reviewCount: number;
-    mistakesCreatedCount: number;
-    mistakeReviewUpdateCount: number;
-    dueNoteCount: number;
-    weakNodeCount: number;
-    activity: ActivityBreakdown;
-  };
-  subjectShares: PeriodicSubjectShareDto[];
-  debtPreview: Array<{
-    id: string;
-    title: string;
-    subjectName: string;
-    plannedDate: string;
-  }>;
-  weakness: {
-    title: string;
-    detail: string;
-    source: "syllabus_node" | "debt_subject" | "zero_effective_subject" | "low_conversion" | "simulation_loss" | "none";
-    severity: "critical" | "high" | "medium" | "low" | "clear";
-    reasons: string[];
-    subjectName?: string;
-    syllabusNodeTitle?: string;
-  };
-  strategy: {
-    mustPressIssue: string;
-    nextActions: string[];
-    stageAdjustment: string;
-    theme: "recovery" | "strengthening" | "sprint" | "steady";
-    calmConclusion: string;
-    canAutoApply: false;
-    requiresUserConfirmation: true;
-  };
-  aiDraft: {
-    status: "local_rule_fallback";
-    title: string;
-    content: string;
-    reason: string;
-    canAutoApply: false;
-    requiresUserConfirmation: true;
-  };
-  stagePersistence: {
-    planApiPath: "/api/simulation/stage-plans";
-    draftApiPath: "/api/simulation/stage-adjustment-drafts";
-    latestPlan: StagePlanDto | null;
-    latestDraft: StageAdjustmentDraftRecordDto | null;
-    canAutoApply: false;
-    requiresUserConfirmation: true;
-  };
-  decisionPreview: {
-    status: "read_only_preview";
-    snapshot: PeriodicDecisionSnapshotDto;
-    nextCycleDraft: PeriodicNextCycleDraftDto;
-    canAutoApply: false;
-    requiresUserConfirmation: true;
-  };
-  decision: PeriodicReportDecisionDto | null;
-}
-
-export interface PeriodicReportsDto {
-  week: PeriodicReportDto;
-  month: PeriodicReportDto;
-}
+export type {
+  PeriodicReportDecisionDto,
+  PeriodicReportDto,
+  PeriodicReportKind,
+  PeriodicReportsDto,
+  PeriodicSubjectShareDto,
+} from "@/lib/contracts/reports";
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
