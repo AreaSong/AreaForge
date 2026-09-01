@@ -63,7 +63,7 @@
 
 ## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为学习闭环规格源；`v1.2.0` 的体验与发布边界见 `workflow/versions/v1.2-high-density-workbench.md`。`v1.1.0` 已发布并进入生产，`v1.1.1` 已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但未 production apply。当前 checkout 正在准备 `v1.2.0` 候选；候选证据不改变既有生产事实，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为学习闭环规格源；`v1.2.0` 的体验与发布边界见 `workflow/versions/v1.2-high-density-workbench.md`。`v1.1.0` 已发布并进入生产，`v1.1.1` 已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但未 production apply，`v1.2.0` 已形成稳定 Release 但未 production apply。Release 资产证据不改变既有生产事实，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
@@ -82,7 +82,7 @@
 | 外部 Provider 当前账户配置、Web 全局开关与浏览器偏好 | 已完成 | `/settings/ai` 支持 Web 全局开关、当前账户 Provider 的更新/删除/合成测试和当前浏览器授权；鉴权 `GET|PATCH /api/ai/runtime`、`GET|PATCH|DELETE /api/ai/provider`、`POST /api/ai/provider/test` 与 `GET|PATCH /api/ai/preferences`；`AiRuntimeSetting` 审计、AES-256-GCM 密文、fingerprint、密钥不回显，八条鉴权 POST route 统一 gate | 当前实现已完成本地代码与迁移验收；真实 Provider key smoke、生产 migration/备份密文生命周期仍未验收；`AI_ENABLED` 保留为服务端硬闸门 |
 | 模拟结构化失分 / 报告阶段入箱 | 已完成 | 分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升；模拟 UI 按“录分 -> 失分分析并确认事实 -> 补救入箱”推进，确认后只读，并回读每条补救的 Inbox 状态以阻止刷新后重复发送；Inbox 显示人类可读来源和考试回链，并接力阶段重评；报告与阶段完成态区分新增、复用和零草稿，报告确认后直达计划收件箱并接力阶段建议，阶段确认后再次把派生动作入箱，所有确认边界均不自动修改现有任务 | 不自动修改现有任务 |
 | 完整 minor Release | 已完成 | `v1.1.0`、`v1.1.1`、`v1.1.2` Release 历史保持不变，既有完整 minor Release 证据仍然有效 | `AREAFORGE_AUTO_APPLY=none` 与 residual 状态保持不变；production apply 另行确认 |
-| v1.2.0 发布候选 | 已完成 | 第一阶段已统一 package version 为 `1.2.0`，完成 additive migration 隔离验证、完整门禁、本地测试池与浏览器验收；PR #49 经 CI run `33505174259` 成功后 squash 合并为产品代码 commit `c8b5acf241bcaada59c6b469fd562d4fe400d521`，该 commit 的 main push CI run `33506280124` 也已成功，PR #51 随后完成状态文档收口 | tag/Release 仍需在独立确认时 fresh readback 当前 main HEAD；本阶段未执行生产 migration、生产更新、备份恢复或自动应用策略变更 |
+| v1.2.0 稳定 Release | 已完成 | 第一阶段统一 package version、完成 additive migration 隔离验证、完整门禁、本地测试池与浏览器验收；PR CI run `33505174259` 与 main push CI run `33506280124` 成功，fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 已创建 annotated tag `v1.2.0`；Release workflow run `33521890241`、签名资产、SBOM、provenance、checksum 与 immutable digest 严格验证见 `docs/development/release-supply-chain-v1.2.0.md` | 未执行生产 migration、生产更新、备份恢复、回滚、写入型 smoke 或自动应用策略变更；`AF-RISK-SC-001`/`AF-RISK-SC-002` 等 residual 保持待人工复核 |
 
 ## 暂缓项
 

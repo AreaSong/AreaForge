@@ -10,7 +10,7 @@
 
 ## [1.2.0] - 2026-09-01
 
-本节为 `v1.2.0` 发布候选说明；当前尚未创建 tag 或 GitHub Release，也未执行 production apply。最新稳定 Release 仍为 `v1.1.2`，生产与回滚基线仍为 `v1.1.1`。
+`v1.2.0` 已创建 annotated tag 并发布稳定 GitHub Release；Release workflow 与签名资产已严格验证，但尚未执行 production apply。生产与回滚基线仍为 `v1.1.1`，`AREAFORGE_AUTO_APPLY=none` 未改变。
 
 ### Added
 

@@ -95,7 +95,7 @@
 - `development/operations-lifecycle.md` / `development/operations-lifecycle.json`：active/draft SLO、incident transition 与 capability lifecycle 的只读机器契约；使用 `pnpm ops:lifecycle:selftest`、`pnpm ops:lifecycle:validate` 和 `pnpm ops:lifecycle:typecheck` 校验，不证明生产 SLO 已达成。
 - `development/post-release-observation-template.json` / `development/post-release-observation-v0.1.7.json`：Release 后 D14 technical/incident/error-budget gate 与 D30 product-review gate 的独立观察记录；绑定 release identity 和 release record `{path,sha256}`，使用 `pnpm release:post-observation:validate` / `status` 校验与投影。现有 `v0.1.7` 文件仅是历史观察记录，不能冒充当前生产 `v1.1.1` 的 observation；不改写历史发布记录、不关闭 residual。
 - `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:gate`：长期运营完成声明前的严格 live evidence gate，集中校验 OPS-001、OPS-004、OPS-005、OPS-006 production evidence、与 OPS-006 after-doctor 同 SHA/hash 的 data-integrity record、可校验 Release 发布记录、strict 签名 Release 供应链和新鲜 UX 记录。
-- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：schema v3 只读长期运营证据快照；当前生产事实为 `v1.1.1`，但该工具仍默认读取 `v0.1.9` 历史证据，因此在默认输入更新前只能显示历史缺口，不能证明当前生产；历史归档使用 `--shape-only`，不替代 live gate、生产 smoke 或 residual 人工关闭。
+- `development/long-term-operability-control-plane.md` 中的 `pnpm ops:long-term:snapshot`：schema v3 只读长期运营证据快照；当前生产事实为 `v1.1.1`，最新稳定 Release 为 `v1.2.0`，但该工具仍默认读取 `v0.1.9` 历史运行证据，因此在默认输入更新前只能显示历史缺口，不能证明当前生产；历史归档使用 `--shape-only`，不替代 live gate、生产 smoke 或 residual 人工关闭。
 - `development/long-term-evidence-snapshot-v0.1.7-20260712.json`：`schemaVersion=1` 的历史非 ready 快照，状态为 `needs_live_evidence`；schema v2 也只保留为 OPS-006 doctor 接入前的历史非 ready 格式，当前格式为 schema v3。
 - `development/release-train.md`：功能进入线上时的版本、GitHub Release、签名资产、updater、smoke、回滚目标、发布记录和残余风险固定路径。
 - `pnpm release:closeout:audit -- --version <X.Y.Z>`：版本级只读 closeout 交叉审计，校验 Release、供应链、运行证据、rollback target 与 residual 台账的一致性；输出需再用 `pnpm release:closeout:audit:validate <audit.json>` 校验。
@@ -154,7 +154,7 @@
 - `development/release-v0.1.9-record.md` / `development/release-supply-chain-v0.1.9.md`：历史生产基线 `v0.1.9` 的 updater apply、redacted backup/smoke/rollback 摘要和 strict 签名供应链证据；不证明当前 `v1.1.0` 生产健康。
 - `development/release-v0.1.7-record.md`：受保护的历史回滚目标证据，不替代当前生产发布记录。
 - `development/release-v1.1.0-candidate-record.md`：`v1.1.0` 发布前冻结候选的历史完成记录；只绑定当时 source commit，不能证明当前发布后修复工作树或当前生产健康。
-- `development/release-v1.1.2-artifact-record.md` / `development/release-supply-chain-v1.1.2.md`：最新稳定 `v1.1.2` GitHub Release 的工件边界、不可变镜像 digest、checksum 和签名资产证据；不证明 production apply、生产健康或 residual 关闭。`v1.1.1` 对应文件保留为历史证据。
+- `development/release-v1.2.0-record.md` / `development/release-supply-chain-v1.2.0.md`：最新稳定 `v1.2.0` GitHub Release 的工件边界、不可变镜像 digest、checksum、签名、SBOM 和 provenance 证据；标明 production-evidence-pending，不证明 production apply、生产健康或 residual 关闭。`v1.1.2`、`v1.1.1` 对应文件保留为历史证据。
 - `development/release-record-template.md`：后续每个线上版本使用的标准 Release 证据记录模板。
 - `development/release-supply-chain-record-template.md`：下一次签名 Release / CI 的 SBOM、provenance、签名和 Actions pinning 证据记录模板。
 - `development/github-release-updater-design.md`：GitHub Release 自动更新器设计。

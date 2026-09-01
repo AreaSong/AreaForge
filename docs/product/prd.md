@@ -82,7 +82,7 @@ AI 可生成复盘建议和明日任务建议，但不能覆盖原始记录。
 - 三队列（推荐、到期复习、最小任务）互斥展示；空队列可创建当天最小任务并立即开始。
 - 复盘、报告、阶段、模拟与显式 AI 建议只形成草稿或进入计划收件箱，由用户确认后转正式任务。
 
-上述能力仍须完成当前候选的 runtime、桌面/移动体验、无障碍与 Release admission 验证，不能表述为线上已可用。权威交互与数据契约见 `workflow/versions/v1.1-learning-action-center.md`；实现状态见 `docs/development/feature-traceability.md`。
+上述能力已在 `v1.2.0` 候选中完成 runtime、桌面/移动体验、无障碍与 Release admission 验证，并随稳定 Release 发布；这不表示已完成 production apply，线上可用性仍以生产运行证据为准。权威交互与数据契约见 `workflow/versions/v1.1-learning-action-center.md`；实现状态见 `docs/development/feature-traceability.md`。
 
 ## 成功标准
 

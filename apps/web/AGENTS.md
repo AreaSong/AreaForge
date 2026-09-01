@@ -14,9 +14,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 当前状态：
 
-- 最新稳定 GitHub Release 为 `v1.1.2` / commit `5df38417b701f3511d06db235c5b94755ca03aba`；Release workflow、签名资产与不可变镜像 digest 已严格验证。
-- 当前 checkout 的 package version 为 `1.2.0`，正在准备本地验证、PR 与 CI；`v1.2.0` tag、Release 和 production apply 均未执行。
-- 当前生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；`v1.1.2` 发布未触发 production apply。
+- 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；Release workflow、签名资产与不可变镜像 digest 已严格验证。
+- 当前 checkout 的 package version 为 `1.2.0`，`v1.2.0` annotated tag 和稳定 Release 已发布；production apply 尚未执行。
+- 当前生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；`v1.2.0` 发布未触发 production apply。
 - Package A-E 和 docs 100% 当前证据已闭环。
 - Web 版本中心只能提交受控检查、应用、回退或策略请求；服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。

@@ -2,9 +2,9 @@
 
 `apps/web` 是 AreaForge 的 Next.js 私有 Web 应用。它承载开始学习、今日、知识、检验、路线、确认中心、设置以及版本中心 UI。
 
-最新稳定 GitHub Release 为 `v1.1.2`；公网 `https://forge.areasong.top/` 生产和回滚基线仍为 `v1.1.1`。本次发布未执行 production apply；Web 运行时仍只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
+最新稳定 GitHub Release 为 `v1.2.0`；公网 `https://forge.areasong.top/` 生产和回滚基线仍为 `v1.1.1`。本次 `v1.2.0` 发布未执行 production apply；Web 运行时仍只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
 
-当前 checkout 的 package version 为 `1.2.0`，处于本地验证、PR 与 CI 阶段；尚未创建 `v1.2.0` tag 或 GitHub Release，也不表示生产已更新。
+当前 checkout 的 package version 为 `1.2.0`，对应已发布的 `v1.2.0` 稳定 Release；生产仍未更新，生产证据与 Release 工件证据保持分离。
 
 ## Getting Started
 
