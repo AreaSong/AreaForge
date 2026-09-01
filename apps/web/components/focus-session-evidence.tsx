@@ -100,8 +100,10 @@ export function EvidenceWorkspace(props: {
 
                       <div className="flex shrink-0 items-center gap-1.5">
                         {props.onEditReceipt && receipt.evidenceType !== "retest" ? (
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="ghost"
                             onClick={() => props.onEditReceipt?.(receipt)}
                             className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all ${
                               isEditing
@@ -113,12 +115,14 @@ export function EvidenceWorkspace(props: {
                           >
                             <Pencil className="size-3 shrink-0" />
                             <span>更改</span>
-                          </button>
+                          </Button>
                         ) : null}
 
                         {props.onDeleteReceipt ? (
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="ghost"
                             onClick={() => props.onDeleteReceipt?.(receipt)}
                             className="inline-flex items-center gap-1 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-500/25 hover:text-rose-200 transition-all"
                             title="删除此条证据"
@@ -126,7 +130,7 @@ export function EvidenceWorkspace(props: {
                           >
                             <Trash2 className="size-3 shrink-0" />
                             <span>删除</span>
-                          </button>
+                          </Button>
                         ) : null}
                       </div>
                     </li>

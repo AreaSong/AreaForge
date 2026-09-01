@@ -76,9 +76,9 @@ test("cardClassName and dictionary records: generate expected classes for all va
   assert.ok(cardVariantClasses.subtle.includes("rounded-xl"));
   assert.ok(cardVariantClasses.accent.includes("shadow-[0_0_16px_rgba(45,212,191,0.15)]"));
   assert.equal(cardPaddingClasses.none, "");
-  assert.equal(cardPaddingClasses.sm, "p-2.5 sm:p-3");
-  assert.equal(cardPaddingClasses.md, "p-3.5 sm:p-4.5");
-  assert.equal(cardPaddingClasses.lg, "p-4 sm:p-5");
+  assert.equal(cardPaddingClasses.sm, "p-3");
+  assert.equal(cardPaddingClasses.md, "p-4 sm:p-5");
+  assert.equal(cardPaddingClasses.lg, "p-5 sm:p-6");
 
   // Default master variant + md padding
   const defaultClass = cardClassName();
@@ -86,7 +86,7 @@ test("cardClassName and dictionary records: generate expected classes for all va
   assert.ok(defaultClass.includes("bg-[#0e1619]/90"));
   assert.ok(defaultClass.includes("border-white/10"));
   assert.ok(defaultClass.includes("shadow-lg"));
-  assert.ok(defaultClass.includes("p-3.5 sm:p-4.5"));
+  assert.ok(defaultClass.includes("p-4 sm:p-5"));
 
   // Subtle variant
   const subtleClass = cardClassName({ variant: "subtle" });
@@ -102,8 +102,8 @@ test("cardClassName and dictionary records: generate expected classes for all va
 
   // Padding variations
   assert.ok(cardClassName({ padding: "none" }).endsWith("shadow-lg"));
-  assert.ok(cardClassName({ padding: "sm" }).includes("p-2.5 sm:p-3"));
-  assert.ok(cardClassName({ padding: "lg" }).includes("p-4 sm:p-5"));
+  assert.ok(cardClassName({ padding: "sm" }).includes("p-3"));
+  assert.ok(cardClassName({ padding: "lg" }).includes("p-5 sm:p-6"));
 
   // Custom class concatenation
   const custom = cardClassName({ variant: "master", className: "extra-class" });

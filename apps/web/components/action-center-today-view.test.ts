@@ -22,10 +22,9 @@ test("ActionCenterTodayView Architecture: Recommendation Hero uses Accent Dark C
   const viewSource = loadSource("components/action-center-today-view.tsx");
 
   // 1. Accent card wrapper with glowing hero banner
-  assert.match(viewSource, /<Card[\s\S]*variant="accent"[\s\S]*padding="lg"/);
-  assert.match(viewSource, /border-teal-500\/30/);
-  assert.match(viewSource, /bg-teal-400\/10/);
+  assert.match(viewSource, /<Card[\s\S]*variant="accent"[\s\S]*padding="md"/);
   assert.match(viewSource, /text-teal-300/);
+  assert.match(viewSource, /CompactBadge variant="glow"/);
 
   // 2. Primary CTA button with 20px teal outer glow
   assert.match(viewSource, /shadow-\[0_0_20px_rgba\(45,212,191,0\.35\)\]/);
@@ -38,9 +37,9 @@ test("ActionCenterTodayView Architecture: Learning Loop Data Board uses Master S
   // 1. Master SectionCard container
   assert.match(supportSource, /<SectionCard[\s\S]*variant="master"[\s\S]*padding="md"/);
 
-  // 2. 4-card subtle grid tokens
-  assert.match(supportSource, /grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4/);
-  assert.match(supportSource, /<Card[\s\S]*variant="subtle"[\s\S]*padding="sm"/);
+  // 2. 4-item metric strip grid tokens
+  assert.match(supportSource, /grid grid-cols-2 gap-2\.5 @\[36rem\]:grid-cols-4/);
+  assert.match(supportSource, /rounded-xl border border-white\/5 bg-white\/\[0\.03\] p-3/);
 
   // 3. Metric dimensions
   assert.match(supportSource, /实际投入/);
@@ -53,7 +52,7 @@ test("ActionCenterTodayView Architecture: QueueList uses 2-column responsive tas
   const supportSource = loadSource("components/action-center-today-support.tsx");
 
   // 1. 2-column responsive grid replacing flat divide-y
-  assert.match(supportSource, /grid grid-cols-1 gap-3\.5 md:grid-cols-2/);
+  assert.match(supportSource, /grid grid-cols-1 gap-3 md:grid-cols-2/);
   assert.match(supportSource, /<Card[\s\S]*variant="subtle"[\s\S]*padding="md"/);
   assert.match(supportSource, /hover:border-white\/10 hover:bg-white\/\[0\.04\]/);
 
@@ -62,7 +61,7 @@ test("ActionCenterTodayView Architecture: QueueList uses 2-column responsive tas
   assert.match(supportSource, /item\.softDependencyHint/);
 
   // 3. Subtle Card empty state
-  assert.match(supportSource, /<Card variant="subtle" padding="lg"/);
+  assert.match(supportSource, /<Card variant="subtle" padding="md"/);
   assert.match(supportSource, /当前推荐之外没有待办/);
 });
 
@@ -71,6 +70,7 @@ test("ActionCenterTodayView Architecture: SubjectTimerList uses Master Card and 
 
   // 1. Master Card disclosure container
   assert.match(supportSource, /<Card variant="master" padding="none"/);
+  assert.match(supportSource, /grid grid-cols-1 gap-2 @\[28rem\]:grid-cols-2 @\[52rem\]:grid-cols-3/);
   assert.match(supportSource, /临时专注计时/);
 
   // 2. 7-day momentum progress bar
@@ -110,9 +110,9 @@ test("ActionCenterTodayView High-Density Overhaul: Micro-Charts & Visual Cues In
   // 3. MiniSparkline 7-day inline trendline in SubjectTimerList
   assert.match(supportSource, /<MiniSparkline[\s\S]*data=\{sparklineData\}/);
 
-  // 4. CompactBadge & StatusDot in QueueList and Recommendation Hero
+  // 4. CompactBadge in QueueList and Recommendation Hero
   assert.match(supportSource, /<CompactBadge[\s\S]*tone=\{priorityTone\}/);
-  assert.match(supportSource, /<StatusDot[\s\S]*status=\{isUrgent \? "warning" : "idle"\}/);
-  assert.match(viewSource, /<CompactBadge variant="glow" size="xs">P0\/今日首要<\/CompactBadge>/);
-  assert.match(viewSource, /<StatusDot status="active" pulse size="xs" \/>/);
+  assert.match(viewSource, /<CompactBadge variant="glow" size="xs">今日首要<\/CompactBadge>/);
+  assert.match(viewSource, /推荐行动/);
+  assert.match(viewSource, /45m · 10pt/);
 });

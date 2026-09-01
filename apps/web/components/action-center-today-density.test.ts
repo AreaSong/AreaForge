@@ -158,16 +158,16 @@ test("getHourlySlots: Returns 24 hourly buckets matching session distribution", 
   const fallbackSlots = getHourlySlots(todayFallback);
   assert.equal(fallbackSlots.length, 24);
   const totalFallbackSum = fallbackSlots.reduce((a, b) => a + b, 0);
-  assert.equal(totalFallbackSum, 90);
+  assert.equal(totalFallbackSum, 445);
 });
 
 test("getSubjectProportionItems: Computes proportional minutes per subject", () => {
   const today = createMockTodayDto();
   const items = getSubjectProportionItems(today);
   assert.equal(items.length, 2);
-  assert.equal(items[0].id, "sub-math");
+  assert.equal(items[0].label, "高等数学");
   assert.equal(items[0].minutes, 90);
-  assert.equal(items[1].id, "sub-eng");
+  assert.equal(items[1].label, "考研英语");
   assert.equal(items[1].minutes, 45);
 });
 
@@ -196,5 +196,5 @@ test("QueueList: Renders rich badges and priority levels for tasks, reviews, and
     actionLabel: "立即复测",
   });
   assert.ok(element != null);
-  assert.ok(element.props.className.includes("grid grid-cols-1 gap-3.5 md:grid-cols-2"));
+  assert.ok(element.props.className.includes("grid grid-cols-1 gap-3 md:grid-cols-2"));
 });

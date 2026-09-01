@@ -203,13 +203,13 @@ test("cardClassName: boundary and fallback robustness", () => {
   // Undefined options defaults to master variant and md padding
   assert.equal(
     cardClassName(),
-    "min-w-0 rounded-2xl border border-white/10 bg-[#0e1619]/90 shadow-lg p-3.5 sm:p-4.5"
+    "min-w-0 rounded-2xl border border-white/10 bg-[#0e1619]/90 shadow-lg p-4 sm:p-5"
   );
 
   // Empty options object
   assert.equal(
     cardClassName({}),
-    "min-w-0 rounded-2xl border border-white/10 bg-[#0e1619]/90 shadow-lg p-3.5 sm:p-4.5"
+    "min-w-0 rounded-2xl border border-white/10 bg-[#0e1619]/90 shadow-lg p-4 sm:p-5"
   );
 
   // All variants
@@ -219,9 +219,9 @@ test("cardClassName: boundary and fallback robustness", () => {
 
   // All paddings
   assert.ok(cardClassName({ padding: "none" }).endsWith("shadow-lg"));
-  assert.ok(cardClassName({ padding: "sm" }).includes("p-2.5 sm:p-3"));
-  assert.ok(cardClassName({ padding: "md" }).includes("p-3.5 sm:p-4.5"));
-  assert.ok(cardClassName({ padding: "lg" }).includes("p-4 sm:p-5"));
+  assert.ok(cardClassName({ padding: "sm" }).includes("p-3"));
+  assert.ok(cardClassName({ padding: "md" }).includes("p-4 sm:p-5"));
+  assert.ok(cardClassName({ padding: "lg" }).includes("p-5 sm:p-6"));
 
   // Invalid / unknown variant fallback
   // @ts-expect-error Testing runtime fallback for untyped consumers
@@ -231,7 +231,7 @@ test("cardClassName: boundary and fallback robustness", () => {
   // Invalid / unknown padding fallback
   // @ts-expect-error Testing runtime fallback for untyped consumers
   const invalidPad = cardClassName({ padding: "unknown-pad" });
-  assert.ok(invalidPad.includes("p-3.5 sm:p-4.5"));
+  assert.ok(invalidPad.includes("p-4 sm:p-5"));
 
   // Whitespace collapse
   const collapsed = cardClassName({
@@ -241,7 +241,7 @@ test("cardClassName: boundary and fallback robustness", () => {
   });
   assert.equal(
     collapsed,
-    "min-w-0 rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-5 flex flex-col gap-4"
+    "min-w-0 rounded-xl border border-white/5 bg-white/[0.02] p-5 sm:p-6 flex flex-col gap-4"
   );
 });
 

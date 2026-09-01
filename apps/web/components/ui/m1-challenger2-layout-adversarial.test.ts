@@ -163,14 +163,14 @@ test("Adversarial Card: verifies compact padding tokens (sm, md, lg, none) acros
       if (padding === "none") {
         assert.ok(!className.includes("p-"));
       } else if (padding === "sm") {
-        assert.ok(className.includes("p-2.5 sm:p-3"));
-        assert.ok(!className.includes("p-3 sm:p-4"));
+        assert.ok(className.includes("p-3"));
+        assert.ok(!className.includes("p-2.5"));
       } else if (padding === "md") {
-        assert.ok(className.includes("p-3.5 sm:p-4.5"));
-        assert.ok(!className.includes("p-4 sm:p-5"));
-      } else if (padding === "lg") {
         assert.ok(className.includes("p-4 sm:p-5"));
-        assert.ok(!className.includes("p-5 sm:p-6 lg:p-8"));
+        assert.ok(!className.includes("p-3.5"));
+      } else if (padding === "lg") {
+        assert.ok(className.includes("p-5 sm:p-6"));
+        assert.ok(!className.includes("p-4 sm:p-5"));
       }
     }
   }
@@ -194,9 +194,9 @@ test("Adversarial Card: nested card compositions do not compound padding excessi
   });
 
   assert.equal(outerCard.type, "div");
-  assert.ok(outerCard.props.className.includes("p-3.5 sm:p-4.5"));
+  assert.ok(outerCard.props.className.includes("p-4 sm:p-5"));
   const innerCard = outerCard.props.children[1].props.children;
-  assert.ok(innerCard.props.className.includes("p-2.5 sm:p-3"));
+  assert.ok(innerCard.props.className.includes("p-3"));
   assert.ok(innerCard.props.className.includes("bg-white/[0.02]"));
 });
 
@@ -452,9 +452,9 @@ test("Confinement Stress: AppShell root and main container prevent horizontal vi
   assert.ok(shellContent.includes("min-h-0"), "AppShell main container must contain min-h-0");
 
   // 3. Compact main padding
-  assert.ok(shellContent.includes("px-3.5 py-3"), "AppShell mobile padding must be px-3.5 py-3");
-  assert.ok(shellContent.includes("sm:px-5 sm:py-4"), "AppShell sm padding must be sm:px-5 sm:py-4");
-  assert.ok(shellContent.includes("xl:px-6"), "AppShell xl padding must be xl:px-6");
+  assert.ok(shellContent.includes("px-3 py-2"), "AppShell mobile padding must be px-3 py-2");
+  assert.ok(shellContent.includes("sm:px-4 sm:py-2.5"), "AppShell sm padding must be sm:px-4 sm:py-2.5");
+  assert.ok(shellContent.includes("xl:px-5"), "AppShell xl padding must be xl:px-5");
   assert.ok(!shellContent.includes("xl:px-8 xl:py-6"), "AppShell must not contain old xl:px-8 xl:py-6");
 });
 

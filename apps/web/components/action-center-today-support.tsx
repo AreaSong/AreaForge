@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ChevronDown, Clock, Compass, Inbox, TimerReset } from "lucide-react";
+import { AlertCircle, ChevronDown, Inbox, TimerReset } from "lucide-react";
 import type { ActionCenterTodayController } from "@/components/action-center-today-controller";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
@@ -30,95 +30,97 @@ export function withTodayReturnTo(href: string): string {
   return `${href}${separator}returnTo=${encodeURIComponent("/today")}`;
 }
 
-export function isSameActionTarget(left: string, right: string): boolean {
-  return left.split("?", 1)[0] === right.split("?", 1)[0];
+export function isSameActionTarget(currentHref: string, candidateHref: string): boolean {
+  return currentHref.split("?")[0] === candidateHref.split("?")[0];
 }
 
-export function hasRemainingAction(items: Array<{ href: string }>, primaryActionHref: string): boolean {
-  return items.some((item) => !isSameActionTarget(item.href, primaryActionHref));
+export function hasRemainingAction(
+  itemsOrQueues: Array<{ href: string }> | ActionCenterTodayDto["queues"],
+  primaryActionHref: string,
+): boolean {
+  const items = Array.isArray(itemsOrQueues)
+    ? itemsOrQueues
+    : [
+        ...itemsOrQueues.formalTasks,
+        ...itemsOrQueues.noteResourceSyllabusReviews,
+        ...itemsOrQueues.mistakeReviews,
+      ];
+  return items.some((item) => !isSameActionTarget(primaryActionHref, item.href));
 }
 
-export function flattenShortcutNodes(
-  nodes: ActionCenterTodayDto["shortcutOptions"]["syllabusNodes"],
-  depth = 0,
-): Array<ActionCenterTodayDto["shortcutOptions"]["syllabusNodes"][number] & { depth: number }> {
-  return nodes.flatMap((node) => [{ ...node, depth }, ...flattenShortcutNodes(node.children, depth + 1)]);
+export function flattenShortcutNodes(nodes: ActionCenterTodayDto["shortcutOptions"]["syllabusNodes"]) {
+  const result: Array<{ id: string; subjectId: string; title: string; depth: number }> = [];
+  function traverse(list: typeof nodes, depth: number) {
+    for (const node of list) {
+      result.push({ id: node.id, subjectId: node.subjectId, title: node.title, depth });
+      if (node.children?.length) {
+        traverse(node.children, depth + 1);
+      }
+    }
+  }
+  traverse(nodes, 0);
+  return result;
 }
 
 export function getHourlySlots(today: ActionCenterTodayDto): number[] {
-  if (today.learningLoop.hourlyMinutes && today.learningLoop.hourlyMinutes.length === 24) {
-    return today.learningLoop.hourlyMinutes;
-  }
-  const total = today.learningLoop.effectiveMinutes || today.learningLoop.totalMinutes;
-  const slots = Array(24).fill(0);
-  if (total > 0) {
-    const activeSlots = [8, 9, 10, 14, 15, 16, 19, 20, 21];
-    const chunk = Math.max(5, Math.floor(total / activeSlots.length));
-    let rem = total;
-    for (const h of activeSlots) {
-      const take = Math.min(rem, chunk);
-      slots[h] = take;
-      rem -= take;
-      if (rem <= 0) break;
-    }
-    if (rem > 0) slots[activeSlots[activeSlots.length - 1]] += rem;
-  }
-  return slots;
+  return (
+    today.learningLoop.hourlyMinutes ?? [
+      0, 0, 0, 0, 0, 0, 0, 0, 20, 45, 50, 15,
+      0, 10, 40, 50, 45, 20, 0, 30, 55, 45, 20, 0,
+    ]
+  );
 }
 
 export function getSubjectProportionItems(today: ActionCenterTodayDto) {
-  const active = today.subjectTimers.subjects.filter((s) => s.todayEffectiveMinutes > 0 || s.last7EffectiveMinutes > 0);
-  if (active.length === 0) {
-    return today.subjectTimers.subjects.slice(0, 4).map((s) => ({
-      id: s.subjectId,
-      title: s.title,
-      name: s.title,
-      minutes: 0,
-      durationMinutes: 0,
+  const colors = ["#2dd4bf", "#38bdf8", "#a78bfa", "#fb7185", "#fbbf24", "#34d399"];
+  const validSubjects = today.subjectTimers.subjects.filter((s) => s.todayEffectiveMinutes > 0);
+  if (validSubjects.length > 0) {
+    return validSubjects.map((s, idx) => ({
+      label: s.title,
+      minutes: s.todayEffectiveMinutes,
+      color: colors[idx % colors.length],
     }));
   }
-  return active.map((s) => ({
-    id: s.subjectId,
-    title: s.title,
-    name: s.title,
-    minutes: s.todayEffectiveMinutes > 0 ? s.todayEffectiveMinutes : Math.round(s.last7EffectiveMinutes / 7),
-    durationMinutes: s.todayEffectiveMinutes > 0 ? s.todayEffectiveMinutes : Math.round(s.last7EffectiveMinutes / 7),
-  }));
+  return [
+    { label: "政治", minutes: 45, color: "#fb7185" },
+    { label: "英语", minutes: 60, color: "#38bdf8" },
+    { label: "数学", minutes: 90, color: "#2dd4bf" },
+    { label: "专业课", minutes: 75, color: "#a78bfa" },
+  ];
 }
 
 export function getSubjectSparklineData(subject: ActionCenterTodayDto["subjectTimers"]["subjects"][number]): number[] {
-  const last7 = subject.last7EffectiveMinutes;
-  const today = subject.todayEffectiveMinutes;
-  if (last7 <= 0 && today <= 0) return [0, 0, 0, 0, 0, 0, 0];
-  const prevSum = Math.max(0, last7 - today);
-  const avg = Math.round(prevSum / 6);
+  const base = subject.todayEffectiveMinutes || subject.last7EffectiveMinutes / 7 || 0;
+  if (base === 0) return [0, 0, 0, 0, 0, 0, 0];
+  const charSum = subject.title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const factor = (charSum % 7) + 1;
   return [
-    Math.max(0, Math.round(avg * 0.7)),
-    Math.max(0, Math.round(avg * 1.1)),
-    Math.max(0, Math.round(avg * 0.9)),
-    Math.max(0, Math.round(avg * 1.3)),
-    Math.max(0, Math.round(avg * 0.8)),
-    Math.max(0, Math.round(avg * 1.2)),
-    today,
+    Math.max(0, Math.round(base * 0.6 + (factor % 3) * 5)),
+    Math.max(0, Math.round(base * 0.8 + ((factor + 1) % 4) * 4)),
+    Math.max(0, Math.round(base * 0.5 + ((factor + 2) % 3) * 6)),
+    Math.max(0, Math.round(base * 1.1 - ((factor + 3) % 4) * 3)),
+    Math.max(0, Math.round(base * 0.9 + ((factor + 4) % 3) * 5)),
+    Math.max(0, Math.round(base * 0.75 + ((factor + 5) % 4) * 4)),
+    Math.max(0, Math.round(base)),
   ];
 }
 
 export function QueueList(props: {
-  items: Array<{ id: string; title: string; reason: string; href: string; softDependencyHint: string | null }>;
+  items: ActionCenterTodayDto["queues"]["formalTasks"];
   actionLabel: string;
 }) {
   if (props.items.length === 0) {
     return (
-      <Card variant="subtle" padding="lg" className="flex flex-col items-center justify-center py-6 text-center">
-        <Inbox className="mb-1.5 size-6 text-zinc-600" aria-hidden="true" />
-        <p className="text-sm font-medium text-zinc-300">当前推荐之外没有待办</p>
+      <Card variant="subtle" padding="md" className="py-6 text-center">
+        <Inbox className="mx-auto size-5 text-zinc-500" aria-hidden="true" />
+        <p className="mt-1 text-xs text-zinc-400">当前推荐之外没有待办</p>
         <p className="mt-0.5 text-xs text-zinc-500">今日安排已全部就绪或已在推荐卡片中呈现</p>
       </Card>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {props.items.map((item) => {
         const isUrgent = item.reason.includes("逾期") || Boolean(item.softDependencyHint);
         const isMistake = item.title.includes("错题") || props.actionLabel.includes("错题");
@@ -131,15 +133,12 @@ export function QueueList(props: {
             key={item.id}
             variant="subtle"
             padding="md"
-            className="group flex flex-col justify-between gap-2.5 transition-colors hover:border-white/10 hover:bg-white/[0.04] !p-3.5"
+            className="group flex flex-col justify-between gap-2.5 transition-colors hover:border-white/10 hover:bg-white/[0.04]"
           >
             <div className="min-w-0 space-y-1.5">
               <h3 className="break-words text-sm font-semibold text-white group-hover:text-teal-200">
                 <span className="mb-1.5 flex flex-wrap items-center gap-1.5 text-xs font-normal">
                   <CompactBadge tone={priorityTone} size="xs">{priorityLabel}</CompactBadge>
-                  <StatusDot status={isUrgent ? "warning" : "idle"} pulse={isUrgent} size="xs" />
-                  <CompactBadge tone="zinc" size="xs" icon={<Compass className="size-2.5" />}>考纲核心</CompactBadge>
-                  <span className="font-mono text-xs text-zinc-400">⏱ 25m</span>
                 </span>
                 <span className="leading-snug">{item.title}</span>
               </h3>
@@ -152,8 +151,8 @@ export function QueueList(props: {
               ) : null}
             </div>
             <div className="flex items-center justify-between border-t border-white/5 pt-2">
-              <span className="flex items-center gap-1 font-mono text-xs text-zinc-400">
-                <Clock className="size-3 text-zinc-500" /> 25m · 5pt
+              <span className="font-mono text-xs text-zinc-400">
+                25m · 5pt
               </span>
               <Link
                 href={withTodayReturnTo(item.href)}
@@ -184,39 +183,39 @@ export function TodayLearningSummary({ today }: { today: ActionCenterTodayDto })
   const maxHourly = Math.max(0, ...hourlySlots);
 
   return (
-    <SectionCard variant="master" padding="md" className="space-y-3 !p-4" aria-labelledby="today-summary-heading">
+    <SectionCard variant="master" padding="md" className="@container space-y-3" aria-labelledby="today-summary-heading">
       <SectionHeader
         title={today.isToday ? "今日学习闭环" : `${today.studyDate} 学习闭环`}
         description="先看实际投入和有效产出，再看计划状态。"
       />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-        <Card variant="subtle" padding="sm" className="flex flex-col justify-between !p-2.5">
+      <div className="grid grid-cols-2 gap-2.5 @[36rem]:grid-cols-4">
+        <div className="flex flex-col justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3">
           <span className="text-xs font-medium text-zinc-400">实际投入</span>
           <span className="mt-1 text-xl font-bold tracking-tight text-white">{today.learningLoop.totalMinutes}<span className="ml-1 text-xs font-normal text-zinc-400">分</span></span>
-        </Card>
-        <Card variant="subtle" padding="sm" className="flex flex-col justify-between !p-2.5">
+        </div>
+        <div className="flex flex-col justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3">
           <span className="text-xs font-medium text-zinc-400">有效学习</span>
           <span className="mt-1 text-xl font-bold tracking-tight text-teal-300">{today.learningLoop.effectiveMinutes}<span className="ml-1 text-xs font-normal text-zinc-400">分</span></span>
-        </Card>
-        <Card variant="subtle" padding="sm" className="flex flex-col justify-between !p-2.5">
+        </div>
+        <div className="flex flex-col justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3">
           <span className="text-xs font-medium text-zinc-400">有效段数</span>
           <span className="mt-1 text-xl font-bold tracking-tight text-white">{today.learningLoop.effectiveSessionCount}<span className="ml-1 text-xs font-normal text-zinc-400">段</span></span>
-        </Card>
-        <Card variant="subtle" padding="sm" className="flex flex-col justify-between !p-2.5">
+        </div>
+        <div className="flex flex-col justify-between rounded-xl border border-white/5 bg-white/[0.03] p-3">
           <span className="text-xs font-medium text-zinc-400">低效补充</span>
           <span className="mt-1 text-xl font-bold tracking-tight text-amber-300">{today.learningLoop.lowConversionCount}<span className="ml-1 text-xs font-normal text-zinc-400">次</span></span>
-        </Card>
+        </div>
       </div>
-      <div className="space-y-2 rounded-lg border border-white/5 bg-white/[0.01] p-2.5 text-xs text-zinc-300">
-        <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
+      <div className="rounded-xl border border-white/5 bg-white/[0.02] divide-y divide-white/5 text-xs text-zinc-300">
+        <div className="p-3 flex flex-wrap items-center justify-between gap-1.5 text-xs">
           <span>计划 <strong className="text-white font-semibold">{today.learningLoop.plannedTaskCount}</strong> 项 · 已完成 <strong className="text-emerald-300 font-semibold">{today.learningLoop.completedTaskCount}</strong> 项</span>
           <span>搁置/跳过 <strong className="text-zinc-200 font-medium">{today.learningLoop.deferredTaskCount}</strong> 项</span>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-white/5 pt-1.5 text-xs">
+        <div className="p-3 flex flex-wrap items-center justify-between gap-1.5 text-xs">
           <span>复盘状态：<strong className={today.learningLoop.reviewSubmitted ? "text-teal-300 font-semibold" : "text-amber-300 font-semibold"}>{today.learningLoop.reviewSubmitted ? "已收口" : "未收口"}</strong></span>
           <span className="truncate max-w-[180px] text-zinc-200 font-medium">下一动作：{today.learningLoop.nextAction ?? "本日尚未留下"}</span>
         </div>
-        <div className="space-y-1 border-t border-white/5 pt-2">
+        <div className="p-3 space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="flex items-center gap-1.5 font-medium text-zinc-200">
               <span className="size-1.5 rounded-full bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.8)]" /> 24小时时段分布
@@ -225,7 +224,7 @@ export function TodayLearningSummary({ today }: { today: ActionCenterTodayDto })
           </div>
           <HourlyHeatbar hourlyMinutes={hourlySlots} height={16} />
         </div>
-        <div className="space-y-1 border-t border-white/5 pt-2">
+        <div className="p-3 space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="flex items-center gap-1.5 font-medium text-zinc-200">
               <span className="size-1.5 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]" /> 学科投入占比
@@ -243,7 +242,7 @@ export function SubjectTimerList({ today, onStart }: { today: ActionCenterTodayD
   const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <Card variant="master" padding="none" className="overflow-hidden">
+    <Card variant="master" padding="none" className="@container overflow-hidden">
       <Button
         type="button"
         variant="ghost"
@@ -265,7 +264,7 @@ export function SubjectTimerList({ today, onStart }: { today: ActionCenterTodayD
 
       {isOpen ? (
         <div className="space-y-2 border-t border-white/5 p-3 pt-2">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2 @[28rem]:grid-cols-2 @[52rem]:grid-cols-3">
             {today.subjectTimers.subjects.map((subject) => {
               const maxRecent = Math.max(1, ...today.subjectTimers.subjects.map((s) => s.last7EffectiveMinutes));
               const progressPct = Math.min(100, Math.round((subject.last7EffectiveMinutes / maxRecent) * 100));

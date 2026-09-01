@@ -109,17 +109,19 @@ export default async function KnowledgeOverviewPage() {
       </Card>
 
       {/* High-Density 5-KPI Tiles Row */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-        {signals.map((signal) => (
-          <Link key={signal.label} href={signal.href} className="group transition-transform active:scale-[0.98]">
-            <Card
-              variant="subtle"
-              className="h-full p-3 transition-colors group-hover:border-teal-500/30 group-hover:bg-white/[0.04] sm:p-3.5"
-            >
-              <Metric label={signal.label} value={signal.value} detail={signal.note} layout="compact" valueSize="xl" />
-            </Card>
-          </Link>
-        ))}
+      <div className="@container">
+        <div className="grid grid-cols-2 gap-3 @[36rem]:grid-cols-3 @[60rem]:grid-cols-4 @[78rem]:grid-cols-5">
+          {signals.map((signal) => (
+            <Link key={signal.label} href={signal.href} className="group transition-transform active:scale-[0.98]">
+              <Card
+                variant="subtle"
+                className="h-full p-3 transition-colors group-hover:border-teal-500/30 group-hover:bg-white/[0.04] sm:p-3.5"
+              >
+                <Metric label={signal.label} value={signal.value} detail={signal.note} layout="compact" valueSize="xl" />
+              </Card>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* SECTION 1: Ebbinghaus Review Retention Distribution Bar */}
@@ -136,28 +138,30 @@ export default async function KnowledgeOverviewPage() {
       </div>
 
       {/* SECTION 3: Quick Sub-view Gateways */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-        {gateways.map((gw) => {
-          const Icon = gw.icon;
-          return (
-            <Link
-              key={gw.label}
-              href={gw.href}
-              className="group flex flex-col justify-between rounded-xl border border-white/10 bg-[#0e1619]/90 p-3 transition-all hover:border-teal-400/30 hover:bg-white/[0.04] active:scale-[0.98]"
-            >
-              <div className="flex items-center justify-between">
-                <Icon size={16} className="text-teal-400 transition-colors group-hover:text-teal-300" aria-hidden />
-                <span className="font-mono text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">
-                  {gw.count}
-                </span>
-              </div>
-              <div className="mt-2.5">
-                <p className="text-xs font-semibold text-white group-hover:text-teal-200">{gw.label}</p>
-                <p className="text-[10.5px] text-zinc-500 truncate">{gw.desc}</p>
-              </div>
-            </Link>
-          );
-        })}
+      <div className="@container">
+        <div className="grid grid-cols-2 gap-3 @[36rem]:grid-cols-3 @[60rem]:grid-cols-4 @[78rem]:grid-cols-5">
+          {gateways.map((gw) => {
+            const Icon = gw.icon;
+            return (
+              <Link
+                key={gw.label}
+                href={gw.href}
+                className="group flex flex-col justify-between rounded-xl border border-white/10 bg-[#0e1619]/90 p-3 transition-all hover:border-teal-400/30 hover:bg-white/[0.04] active:scale-[0.98]"
+              >
+                <div className="flex items-center justify-between">
+                  <Icon size={16} className="text-teal-400 transition-colors group-hover:text-teal-300" aria-hidden />
+                  <span className="font-mono text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">
+                    {gw.count}
+                  </span>
+                </div>
+                <div className="mt-2.5">
+                  <p className="text-xs font-semibold text-white group-hover:text-teal-200">{gw.label}</p>
+                  <p className="text-[10.5px] text-zinc-500 truncate">{gw.desc}</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* SECTION 4: Recent Learning Evidence Grid */}

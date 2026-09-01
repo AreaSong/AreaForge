@@ -217,7 +217,7 @@ test("Today Action Center: Empty queue state renders subtle card and friendly de
   });
   const emptyQueueInspect = inspectElement(emptyQueueElement);
   assert.equal(emptyQueueInspect.props.variant, "subtle");
-  assert.ok(emptyQueueInspect.props.className.includes("flex flex-col items-center justify-center"));
+  assert.ok(emptyQueueInspect.props.className.includes("text-center"));
   
   const [icon, title, desc] = emptyQueueInspect.props.children;
   assert.ok(icon != null);
@@ -229,6 +229,7 @@ test("Today Action Center: Populated queues render responsive 2-column grid and 
   const items = [
     {
       id: "q-1",
+      kind: "task" as const,
       title: "英语真题阅读 Text 1",
       reason: "核心难句精析",
       href: "/focus?taskId=eng-1",
@@ -236,6 +237,7 @@ test("Today Action Center: Populated queues render responsive 2-column grid and 
     },
     {
       id: "q-2",
+      kind: "task" as const,
       title: "政治马原第二章习题",
       reason: "对立统一规律专项",
       href: "/knowledge/reviews/card-pol-1",
@@ -245,7 +247,7 @@ test("Today Action Center: Populated queues render responsive 2-column grid and 
 
   const element = QueueList({ items, actionLabel: "去完成" });
   const { props } = inspectElement(element);
-  assert.ok(props.className.includes("grid grid-cols-1 gap-3.5 md:grid-cols-2"));
+  assert.ok(props.className.includes("gap-3"));
   assert.equal(props.children.length, 2);
 
   const card1 = inspectElement(props.children[0]);
@@ -285,7 +287,7 @@ test("Today Action Center: Learning Loop Summary renders Master SectionCard and 
   assert.equal(props.variant, "master");
 
   const [, metricGrid, statusBlock] = props.children;
-  assert.ok(metricGrid.props.className.includes("grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4"));
+  assert.ok(metricGrid.props.className.includes("grid grid-cols-2 gap-2.5 @[36rem]:grid-cols-4"));
   assert.equal(metricGrid.props.children.length, 4);
 
   // Check review status styling

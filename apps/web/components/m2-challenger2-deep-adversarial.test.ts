@@ -7,11 +7,8 @@ import { MistakeCard } from "./mistake-card";
 import { KnowledgePointCard } from "./knowledge-point-card";
 import { StudyResourceCard } from "./study-resource-card";
 import {
-  isDue,
   isPracticeReady,
-  hasRecentFailure,
   selectMistakePracticeCandidates,
-  type MistakePracticePool,
 } from "@/lib/knowledge/mistake-practice";
 import {
   masteryStatusLabel,
@@ -22,11 +19,6 @@ import type {
   MistakeDto,
   KnowledgePointDto,
   StudyResourceDto,
-  ReviewQueueItemDto,
-  ReviewWorkbenchSummaryDto,
-  SyllabusNodeStatusDto,
-  SubjectDto,
-  SyllabusOptionNodeDto,
 } from "@/lib/contracts";
 
 function loadSource(relPath: string): string {
@@ -162,7 +154,7 @@ test("NoteCard: Resilient to missing optional fields, zero attachments, and uplo
   const [topSection, bottomSection] = props.children;
   // Check top section: syllabusNodeTitle fallback
   const topChildren = topSection.props.children;
-  assert.equal(topChildren[2].props.children, "未关联考纲");
+  assert.equal(topChildren[3].props.children, "未关联考纲");
 
   // Check bottom section: upload error role="alert"
   const details = bottomSection.props.children[1];

@@ -1,5 +1,3 @@
-import { CheckCircle, Clock, History, Star } from "lucide-react";
-
 export interface NoteCardMetrics {
   attemptCount: number;
   passRate: number | null;
@@ -79,70 +77,30 @@ export function NoteMicroBadgeCluster({ metrics }: { metrics: NoteCardMetrics })
   const { attemptCount, passRate, avgDurationSeconds, starRating, daysSinceReview, isDueToday, isOverdue } = metrics;
 
   return (
-    <div className="flex flex-wrap items-center gap-1 text-[10.5px]">
-      {/* 作答次数 */}
-      <span
-        title={`已作答复习 ${attemptCount} 次`}
-        className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5 font-mono text-zinc-300"
-      >
-        <History size={10.5} className="text-zinc-400" aria-hidden />
-        <span>作答: {attemptCount}次</span>
-      </span>
-
-      {/* 正答率 */}
-      {passRate !== null ? (
-        <span
-          title={`历史正答率 ${passRate}%`}
-          className={`inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 font-mono ${
-            passRate >= 80
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-              : passRate >= 60
-                ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
-                : "border-amber-500/30 bg-amber-500/10 text-amber-300"
-          }`}
-        >
-          <CheckCircle size={10.5} aria-hidden />
-          <span>正答: {passRate}%</span>
-        </span>
-      ) : null}
-
-      {/* 均耗 */}
-      {avgDurationSeconds !== null && avgDurationSeconds > 0 ? (
-        <span
-          title={`平均单重复习耗时 ${avgDurationSeconds} 秒`}
-          className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5 font-mono text-zinc-300"
-        >
-          <Clock size={10.5} className="text-zinc-400" aria-hidden />
-          <span>均耗: {avgDurationSeconds}s</span>
-        </span>
-      ) : null}
-
-      {/* 重要度星级 */}
-      <span
-        title={`熟练/重要度等级 ★${starRating}`}
-        className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-mono text-amber-300"
-      >
-        <Star size={10.5} className="fill-amber-400 text-amber-400" aria-hidden />
-        <span>★ {starRating}星</span>
-      </span>
-
-      {/* 复习距今天数 */}
+    <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-zinc-400">
       {isOverdue ? (
-        <span className="inline-flex items-center gap-0.5 rounded border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 font-mono text-rose-300">
+        <span className="inline-flex items-center gap-1 font-semibold text-rose-400">
+          <span className="size-1.5 rounded-full bg-rose-400 shadow-[0_0_6px_rgba(244,63,94,0.8)]" />
           <span>逾期待复习</span>
         </span>
       ) : isDueToday ? (
-        <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-mono text-amber-300">
+        <span className="inline-flex items-center gap-1 font-semibold text-amber-400">
+          <span className="size-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
           <span>今日到期</span>
         </span>
       ) : daysSinceReview !== null ? (
-        <span
-          title={`距上次复习/更新 ${daysSinceReview} 天`}
-          className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5 font-mono text-zinc-400"
-        >
-          <span>{daysSinceReview === 0 ? "今日已复习" : `${daysSinceReview}天前复习`}</span>
+        <span>{daysSinceReview === 0 ? "今日已复习" : `${daysSinceReview}天前复习`}</span>
+      ) : null}
+      <span>作答: {attemptCount}次</span>
+      {passRate !== null ? (
+        <span className={passRate >= 80 ? "text-emerald-400" : passRate >= 60 ? "text-sky-400" : "text-amber-400"}>
+          正答: {passRate}%
         </span>
       ) : null}
+      {avgDurationSeconds !== null && avgDurationSeconds > 0 ? (
+        <span>均耗: {avgDurationSeconds}s</span>
+      ) : null}
+      <span className="text-amber-300">★ {starRating}星</span>
     </div>
   );
 }
@@ -154,70 +112,30 @@ export function MistakeMicroBadgeCluster({ metrics }: { metrics: MistakeCardMetr
   const { attemptCount, passRate, avgDurationSeconds, starRating, daysSinceReview, isDueToday, isOverdue } = metrics;
 
   return (
-    <div className="flex flex-wrap items-center gap-1 text-[10.5px]">
-      {/* 作答次数 */}
-      <span
-        title={`已作答纠错 ${attemptCount} 次`}
-        className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5 font-mono text-zinc-300"
-      >
-        <History size={10.5} className="text-zinc-400" aria-hidden />
-        <span>作答: {attemptCount}次</span>
-      </span>
-
-      {/* 正答率 */}
-      {passRate !== null ? (
-        <span
-          title={`纠错正答率 ${passRate}%`}
-          className={`inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 font-mono ${
-            passRate >= 80
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-              : passRate >= 50
-                ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                : "border-rose-500/30 bg-rose-500/10 text-rose-300"
-          }`}
-        >
-          <CheckCircle size={10.5} aria-hidden />
-          <span>正答: {passRate}%</span>
-        </span>
-      ) : null}
-
-      {/* 均耗 */}
-      {avgDurationSeconds !== null && avgDurationSeconds > 0 ? (
-        <span
-          title={`平均纠错耗时 ${avgDurationSeconds} 秒`}
-          className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5 font-mono text-zinc-300"
-        >
-          <Clock size={10.5} className="text-zinc-400" aria-hidden />
-          <span>均耗: {avgDurationSeconds}s</span>
-        </span>
-      ) : null}
-
-      {/* 难度/星级 */}
-      <span
-        title={`难度/考频评级 ★${starRating}`}
-        className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-mono text-amber-300"
-      >
-        <Star size={10.5} className="fill-amber-400 text-amber-400" aria-hidden />
-        <span>★ {starRating}星</span>
-      </span>
-
-      {/* 复习状态 */}
+    <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-zinc-400">
       {isOverdue ? (
-        <span className="inline-flex items-center gap-0.5 rounded border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 font-mono text-rose-300">
+        <span className="inline-flex items-center gap-1 font-semibold text-rose-400">
+          <span className="size-1.5 rounded-full bg-rose-400 shadow-[0_0_6px_rgba(244,63,94,0.8)]" />
           <span>逾期待复习</span>
         </span>
       ) : isDueToday ? (
-        <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-mono text-amber-300">
+        <span className="inline-flex items-center gap-1 font-semibold text-amber-400">
+          <span className="size-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
           <span>今日到期</span>
         </span>
       ) : daysSinceReview !== null ? (
-        <span
-          title={`距上次纠错/复习 ${daysSinceReview} 天`}
-          className="inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5 font-mono text-zinc-400"
-        >
-          <span>{daysSinceReview === 0 ? "今日已复习" : `${daysSinceReview}天前复习`}</span>
+        <span>{daysSinceReview === 0 ? "今日已复习" : `${daysSinceReview}天前复习`}</span>
+      ) : null}
+      <span>作答: {attemptCount}次</span>
+      {passRate !== null ? (
+        <span className={passRate >= 80 ? "text-emerald-400" : passRate >= 50 ? "text-amber-400" : "text-rose-400"}>
+          正答: {passRate}%
         </span>
       ) : null}
+      {avgDurationSeconds !== null && avgDurationSeconds > 0 ? (
+        <span>均耗: {avgDurationSeconds}s</span>
+      ) : null}
+      <span className="text-amber-300">★ {starRating}星</span>
     </div>
   );
 }

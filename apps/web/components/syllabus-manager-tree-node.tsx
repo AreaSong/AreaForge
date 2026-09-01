@@ -35,6 +35,7 @@ export function SyllabusTreeNode({
   onAddMasteryEvidence,
   onAddMasteryRetest,
   pendingCommand,
+  depth = 0,
 }: SyllabusTreeNodeProps) {
   const pending = pendingCommand?.startsWith(`${node.id}:`) ?? false;
   const mastery = useSyllabusMasteryControls(node, onUpdate);
@@ -57,8 +58,13 @@ export function SyllabusTreeNode({
     void onUpdate(node.id, { status: nextStatus });
   }
 
-  return (
-    <Card variant="master" className="min-w-0 p-4 sm:p-5 transition-all hover:border-white/20">
+  const isChild = depth > 0;
+  const containerClasses = isChild
+    ? "min-w-0 rounded-xl border border-white/5 bg-white/[0.02] p-3.5 sm:p-4 transition-all hover:bg-white/[0.04] hover:border-white/10"
+    : "min-w-0 p-4 sm:p-5 transition-all hover:border-white/20";
+
+  const nodeContent = (
+    <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -121,10 +127,21 @@ export function SyllabusTreeNode({
               onAddMasteryEvidence={onAddMasteryEvidence}
               onAddMasteryRetest={onAddMasteryRetest}
               pendingCommand={pendingCommand}
+              depth={depth + 1}
             />
           ))}
         </div>
       ) : null}
+    </>
+  );
+
+  if (isChild) {
+    return <div className={containerClasses}>{nodeContent}</div>;
+  }
+
+  return (
+    <Card variant="master" className={containerClasses}>
+      {nodeContent}
     </Card>
   );
 }

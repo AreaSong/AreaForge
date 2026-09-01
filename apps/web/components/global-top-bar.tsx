@@ -63,7 +63,7 @@ export function GlobalTopBar(props: GlobalTopBarProps) {
 
   return (
     <header
-      className="af-shell-header z-[var(--af-layer-shell-base)] shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/75 px-4 py-3 backdrop-blur-md max-[359px]:px-2 max-[359px]:py-2 sm:px-6 xl:px-8"
+      className="af-shell-header z-[var(--af-layer-shell-base)] shrink-0 border-b border-white/10 bg-[color:var(--af-canvas)]/75 px-4 py-1.5 backdrop-blur-md max-[359px]:px-2 max-[359px]:py-1 sm:px-6 xl:px-8"
       data-layout-region="global-top-bar"
       data-global-ai-ui="true"
     >
@@ -72,33 +72,33 @@ export function GlobalTopBar(props: GlobalTopBarProps) {
           <IconButton
             label="打开导航"
             type="button"
-            className="af-tablet-navigation-trigger inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/[0.06]"
+            className="af-tablet-navigation-trigger inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-white/10 text-zinc-300 hover:bg-white/[0.06]"
             onClick={props.onOpenNavigation}
             aria-label="打开导航"
             title="打开导航"
           >
-            <Menu size={17} aria-hidden="true" />
+            <Menu size={16} aria-hidden="true" />
           </IconButton>
           <div className="flex shrink-0 items-center gap-2 lg:hidden max-[359px]:hidden">
-            <BrandMark size={20} />
+            <BrandMark size={18} />
             <span className="hidden text-sm text-teal-300 min-[360px]:inline">AreaForge</span>
           </div>
           <div className="min-w-0 flex-1 lg:flex lg:items-center">
             <Button
               type="button"
-              className="inline-flex h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 text-xs text-zinc-200 hover:bg-white/[0.07] sm:px-3"
+              className="inline-flex h-8 min-w-0 max-w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 text-xs text-zinc-200 hover:bg-white/[0.07] sm:px-3"
               onClick={props.onOpenStatus}
               aria-label={`今日状态：${accessibleSummary(props.statusSummary)}`}
               aria-expanded={props.statusOpen}
             >
-              <Activity size={15} className={statusToneClass} aria-hidden="true" />
+              <Activity size={14} className={statusToneClass} aria-hidden="true" />
               <span className="shrink-0">今日状态</span>
               <span className="max-w-52 truncate text-zinc-500">{props.statusSummary}</span>
             </Button>
           </div>
         </div>
 
-        <div className="col-span-2 row-start-2 min-w-0 max-[359px]:col-span-1 max-[359px]:col-start-1 max-[359px]:row-start-2 max-[359px]:w-9 lg:col-span-1 lg:col-start-2 lg:row-start-1">
+        <div className="col-span-2 row-start-2 min-w-0 max-[359px]:col-span-1 max-[359px]:col-start-1 max-[359px]:row-start-2 max-[359px]:w-8 lg:col-span-1 lg:col-start-2 lg:row-start-1">
           <DynamicIsland
             pathname={props.pathname}
             userId={props.userId}
@@ -120,12 +120,12 @@ export function GlobalTopBar(props: GlobalTopBarProps) {
           <GlobalAiAssistant userId={props.userId} placement="header" />
           <Button
             type="button"
-            className={`relative inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border px-2.5 text-xs hover:bg-white/5 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0 sm:px-3 ${props.hasMotivationReminder ? "border-amber-300/35 text-amber-100" : "border-white/10 text-zinc-300"}`}
+            className={`relative inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border px-2.5 text-xs hover:bg-white/5 max-[359px]:w-8 max-[359px]:justify-center max-[359px]:px-0 sm:px-3 ${props.hasMotivationReminder ? "border-amber-300/35 text-amber-100" : "border-white/10 text-zinc-300"}`}
             onClick={props.onOpenMotivationHelp}
             aria-label="我学不下去了"
             title="我学不下去了"
           >
-            <TriangleAlert size={16} aria-hidden="true" />
+            <TriangleAlert size={15} aria-hidden="true" />
             {props.hasMotivationReminder ? <span className="absolute right-1 top-1 size-1.5 rounded-full bg-amber-300" aria-hidden="true" /> : null}
             <span className="hidden min-[1720px]:inline">我学不下去了</span>
           </Button>

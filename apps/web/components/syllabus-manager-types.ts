@@ -96,4 +96,5 @@ export interface SyllabusTreeNodeProps {
   onAddMasteryEvidence: (id: string, body: AddMasteryEvidenceBody) => Promise<boolean>;
   onAddMasteryRetest: (id: string, body: AddMasteryRetestBody) => Promise<boolean>;
   pendingCommand: string | null;
+  depth?: number;
 }

@@ -1,6 +1,5 @@
-import { AlertTriangle, BookOpen, CheckCircle2, ChevronRight, Layers, Sparkles } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/feedback";
 import type { SyllabusMapOverviewDto, WorkspaceSubjectDto } from "@/lib/contracts";
 
 export interface RoadmapSyllabusMatrixProps {
@@ -46,39 +45,29 @@ export function RoadmapSyllabusMatrix({
   const subjectEntries = Object.entries(overview.summaryBySubject || {});
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3.5 sm:p-4 text-zinc-100 shadow-xl backdrop-blur-md space-y-3.5">
+    <div className="@container rounded-2xl border border-white/10 bg-[#0e1619]/90 p-4 sm:p-5 text-zinc-100 shadow-xl backdrop-blur-md space-y-3.5">
       {/* Header with Title and KPI Badges */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-teal-500/10 text-teal-300 border border-teal-500/20">
-            <BookOpen size={16} aria-hidden="true" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-white">考纲全景复习覆盖与掌握矩阵</h2>
-            <p className="text-xs text-zinc-400">
-              全科考纲总览 · 复测验证闭环与薄弱风险实时分布
-            </p>
-          </div>
+      <div className="flex flex-col @[36rem]:flex-row @[36rem]:items-center justify-between gap-3 border-b border-white/5 pb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-white">考纲全景复习覆盖与掌握矩阵</h2>
+          <p className="text-xs text-zinc-400">
+            全科考纲总览 · 复测验证闭环与薄弱风险实时分布
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap text-xs">
-          <div className="flex items-center gap-1.5 rounded-lg border border-teal-500/20 bg-teal-500/10 px-2.5 py-1 text-teal-300">
-            <span className="text-[11px] text-zinc-400">总覆盖率:</span>
-            <strong className="font-semibold text-white font-mono">{summary.coverageRate}%</strong>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-300">
-            <span className="text-[11px] text-zinc-400">深度验证率:</span>
-            <strong className="font-semibold text-white font-mono">{summary.verificationRate}%</strong>
-          </div>
+        <div className="flex items-center gap-3 flex-wrap text-xs font-mono text-zinc-400">
+          <span>总覆盖率: <strong className="font-semibold text-white font-mono">{summary.coverageRate}%</strong></span>
+          <span>·</span>
+          <span>深度验证率: <strong className="font-semibold text-emerald-300 font-mono">{summary.verificationRate}%</strong></span>
           {riskCount > 0 && (
-            <div className="flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-rose-300">
-              <AlertTriangle size={12} />
-              <span>{riskCount} 风险节点</span>
-            </div>
+            <>
+              <span>·</span>
+              <span className="text-rose-400 font-semibold">{riskCount} 风险节点</span>
+            </>
           )}
           <Link
             href="/knowledge/syllabi"
-            className="text-xs text-teal-400 hover:text-teal-300 transition-colors flex items-center gap-0.5 ml-1"
+            className="text-xs text-teal-300 hover:text-teal-200 transition-colors flex items-center gap-0.5 ml-1 font-sans"
           >
             考纲树 <ChevronRight size={13} />
           </Link>
@@ -88,8 +77,7 @@ export function RoadmapSyllabusMatrix({
       {/* Stacked Overall Progress Bar & Legend */}
       <div className="space-y-2 rounded-xl border border-white/5 bg-[#090d0f] p-2.5">
         <div className="flex items-center justify-between text-xs text-zinc-300">
-          <span className="font-medium flex items-center gap-1.5">
-            <Layers size={13} className="text-teal-400" />
+          <span className="font-medium">
             全科总纲进度 ({totalNodes} 节点)
           </span>
           <span className="font-mono text-zinc-400">
@@ -165,7 +153,7 @@ export function RoadmapSyllabusMatrix({
       {subjectEntries.length > 0 && (
         <div className="space-y-2 pt-1">
           <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">分科考纲推进概况</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 @[30rem]:grid-cols-2 @[52rem]:grid-cols-3 gap-2.5">
             {subjectEntries.map(([subjectId, subSummary]) => {
               const subject = subjectMap.get(subjectId);
               const subjectName = subject ? subject.name : `科目 (${subjectId.slice(0, 6)})`;
@@ -224,7 +212,6 @@ export function RoadmapSyllabusMatrix({
       {/* Next Actions & Focus Suggestions */}
       {summary.nextActions && summary.nextActions.length > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-teal-950/20 px-3 py-2 text-xs text-teal-200">
-          <Sparkles size={14} className="text-teal-400 shrink-0" />
           <span className="text-zinc-400 shrink-0 font-medium">推荐行动:</span>
           <p className="truncate text-teal-200">{summary.nextActions[0]}</p>
         </div>

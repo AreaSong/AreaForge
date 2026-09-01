@@ -1,4 +1,4 @@
-import { Calendar, CheckCircle2, Clock, Flag, Milestone as MilestoneIcon, Sparkles } from "lucide-react";
+import { Milestone as MilestoneIcon } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/feedback";
 import type { PlanMilestoneDto, StagePlanDto, WorkspaceSubjectDto } from "@/lib/contracts";
@@ -50,37 +50,28 @@ export function RoadmapTimelineGantt({
   const modeInfo = activeStage ? getStageModeLabel(activeStage.mode) : { label: "未设阶段", tone: "neutral" as const };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3.5 sm:p-4 text-zinc-100 shadow-xl backdrop-blur-md">
+    <div className="@container rounded-2xl border border-white/10 bg-[#0e1619]/90 p-4 sm:p-5 text-zinc-100 shadow-xl backdrop-blur-md">
       {/* Header Info Row */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-teal-500/10 text-teal-300 border border-teal-500/20">
-            <Flag size={16} aria-hidden="true" />
+      <div className="flex flex-col @[34rem]:flex-row @[34rem]:items-center justify-between gap-3 border-b border-white/5 pb-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-sm font-semibold text-white truncate">
+              {activeStage ? activeStage.name : "长期阶段与里程碑甘特轴"}
+            </h2>
+            <Badge tone={modeInfo.tone}>{modeInfo.label}</Badge>
+            {activeStage?.status === "active" && (
+              <Badge tone="success">进行中</Badge>
+            )}
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-sm font-semibold text-white truncate">
-                {activeStage ? activeStage.name : "长期阶段与里程碑甘特轴"}
-              </h2>
-              <Badge tone={modeInfo.tone}>{modeInfo.label}</Badge>
-              {activeStage?.status === "active" && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-300 border border-emerald-500/20">
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  进行中
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 text-xs text-zinc-400 truncate">
-              {activeStage?.goal ? activeStage.goal : "掌控长期推进节奏，阶段目标与里程碑关键路径可视化"}
-            </p>
-          </div>
+          <p className="mt-0.5 text-xs text-zinc-400 truncate">
+            {activeStage?.goal ? activeStage.goal : "掌控长期推进节奏，阶段目标与里程碑关键路径可视化"}
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
-          <div className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-1.5 text-zinc-300">
-            <CheckCircle2 size={13} className="text-teal-400" />
-            <span>里程碑: <strong className="text-white">{completedMilestonesCount}</strong>/{activeMilestones.length}</span>
-          </div>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="font-mono text-zinc-400">
+            里程碑: <strong className="text-white font-semibold">{completedMilestonesCount}</strong>/{activeMilestones.length}
+          </span>
           <Link
             href="/roadmap/stages"
             className="rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1.5 text-xs font-medium text-teal-300 hover:bg-teal-500/20 transition-colors"
@@ -173,7 +164,7 @@ export function RoadmapTimelineGantt({
                   key={pt.milestone.id}
                   className="absolute top-1 transform -translate-x-1/2 flex flex-col items-center group cursor-pointer"
                   style={{ left: `${pt.positionPercent}%` }}
-                  title={`${pt.milestone.stableKey}: ${pt.milestone.title} (${pt.targetDateFormatted}, ${
+                  title={`${pt.milestone.stableKey}: ${pt.milestone.title} (${subject ? `${subject.name} · ` : ""}${pt.targetDateFormatted}, ${
                     pt.isCompleted ? "已达成" : pt.daysUntil < 0 ? "已逾期" : `剩余 ${pt.daysUntil} 天`
                   })`}
                 >
@@ -203,7 +194,7 @@ export function RoadmapTimelineGantt({
 
         {/* Milestone Critical Path Quick List */}
         {activeMilestones.length > 0 && (
-          <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+          <div className="mt-2 flex flex-col @[28rem]:flex-row @[28rem]:items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
             <span className="text-[11px] font-medium text-zinc-400 shrink-0 flex items-center gap-1">
               <MilestoneIcon size={12} className="text-teal-400" />
               关键里程碑:

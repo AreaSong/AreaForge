@@ -623,7 +623,7 @@ test("Tier 5 - Exhaustive 2^8 State Space Permutations satisfy all invariants", 
 
 test("Tier 5 - Rapid 1,000-Step Concurrent State Transitions Lifecycle", () => {
   let activeSession: StudySessionDto | null = null;
-  let offlineSession: StudySessionDto | null = null;
+  const offlineSession: StudySessionDto | null = null;
   let syncState: DynamicIslandSyncState = "current";
   let recovery: DynamicIslandRecoveryProps | null = null;
   let eveningReview: DynamicIslandEveningReviewProps | null = null;

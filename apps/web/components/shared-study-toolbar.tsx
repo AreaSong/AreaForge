@@ -206,17 +206,17 @@ export function GlobalContextStatusBar(props: {
 
   return (
     <footer
-      className="af-shared-toolbar relative z-[var(--af-layer-shell-chrome)] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)]/75 px-2 py-1 text-xs backdrop-blur-md sm:px-6 xl:px-8"
+      className="af-shared-toolbar relative z-[var(--af-layer-shell-chrome)] shrink-0 border-t border-white/10 bg-[var(--af-surface-subtle)]/75 px-2 py-0.5 text-xs backdrop-blur-md sm:px-6 xl:px-8"
       data-layout-region="global-context-status-bar"
       data-global-ai-ui="true"
     >
-      <div className="grid h-8 min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto] items-center gap-2">
+      <div className="grid h-[26px] min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto] items-center gap-2">
         <div className="flex min-w-0 items-center gap-1.5" data-status-region="persistent">
           <Button
             variant="ghost"
             size="sm"
             type="button"
-            className="hidden !h-7 min-w-0 shrink items-center gap-1.5 rounded-md !px-1.5 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200 lg:inline-flex"
+            className="hidden !h-6 min-w-0 shrink items-center gap-1.5 rounded-md !px-1.5 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200 lg:inline-flex"
             onClick={(event) => {
               lastDetailsTriggerRef.current = event.currentTarget;
               setDetailsSide("left");
@@ -226,7 +226,7 @@ export function GlobalContextStatusBar(props: {
             aria-expanded={detailsOpen}
             aria-controls={detailsId}
           >
-            <Monitor size={13} aria-hidden="true" />
+            <Monitor size={12} aria-hidden="true" />
             <span className="max-w-36 truncate">本机 · {deviceIdentity?.label ?? "当前设备"}</span>
           </Button>
           {otherDeviceCount > 0 ? (
@@ -234,7 +234,7 @@ export function GlobalContextStatusBar(props: {
               variant="ghost"
               size="sm"
               type="button"
-              className={`hidden !h-7 min-w-0 shrink items-center gap-1.5 rounded-md !px-1.5 hover:bg-white/[0.06] lg:inline-flex ${activeOtherDeviceCount > 0 ? "text-amber-200" : "text-zinc-500"}`}
+              className={`hidden !h-6 min-w-0 shrink items-center gap-1.5 rounded-md !px-1.5 hover:bg-white/[0.06] lg:inline-flex ${activeOtherDeviceCount > 0 ? "text-amber-200" : "text-zinc-500"}`}
               onClick={(event) => {
                 lastDetailsTriggerRef.current = event.currentTarget;
                 setDetailsSide("left");
@@ -250,7 +250,7 @@ export function GlobalContextStatusBar(props: {
           ) : null}
           {previousPage && previousPage.href !== currentHref ? (
             <Link href={previousPage.href} className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500 hover:text-zinc-200" title="返回刚才的页面" aria-label={`返回刚才的页面：${previousPage.label}`}>
-              <ArrowLeft size={13} aria-hidden="true" />
+              <ArrowLeft size={12} aria-hidden="true" />
               <span className="hidden max-w-40 truncate min-[420px]:inline">刚才：{previousPage.label}</span>
             </Link>
           ) : null}
@@ -272,7 +272,7 @@ export function GlobalContextStatusBar(props: {
               variant="ghost"
               size="sm"
               type="button"
-              className={`inline-flex !h-7 shrink-0 items-center gap-1 rounded-md border !px-2 text-xs hover:bg-white/[0.06] ${hasRedAttention ? "border-red-300/25 text-red-200" : "border-amber-300/20 text-amber-200"}`}
+              className={`inline-flex !h-6 shrink-0 items-center gap-1 rounded-md border !px-1.5 text-xs hover:bg-white/[0.06] ${hasRedAttention ? "border-red-300/25 text-red-200" : "border-amber-300/20 text-amber-200"}`}
               onClick={(event) => {
                 lastDetailsTriggerRef.current = event.currentTarget;
                 setDetailsSide("right");
@@ -282,7 +282,7 @@ export function GlobalContextStatusBar(props: {
               aria-expanded={detailsOpen}
               aria-controls={detailsId}
             >
-              <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
+              <AlertTriangle size={12} className="shrink-0" aria-hidden="true" />
               <span className="hidden min-[420px]:inline">{attentionLights.length}</span>
             </Button>
           ) : null}
@@ -290,7 +290,7 @@ export function GlobalContextStatusBar(props: {
             variant="ghost"
             size="sm"
             type="button"
-            className={`inline-flex !h-7 shrink-0 items-center gap-1.5 rounded-md !px-1.5 hover:bg-white/[0.06] ${props.syncState === "current" ? "text-zinc-500 hover:text-zinc-200" : "text-amber-200"}`}
+            className={`inline-flex !h-6 shrink-0 items-center gap-1.5 rounded-md !px-1.5 hover:bg-white/[0.06] ${props.syncState === "current" ? "text-zinc-500 hover:text-zinc-200" : "text-amber-200"}`}
             onClick={(event) => {
               lastDetailsTriggerRef.current = event.currentTarget;
               setDetailsSide("right");
@@ -300,11 +300,11 @@ export function GlobalContextStatusBar(props: {
             aria-expanded={detailsOpen}
             aria-controls={detailsId}
           >
-            {props.syncState === "current" ? <Wifi size={13} aria-hidden="true" /> : <CloudOff size={13} aria-hidden="true" />}
+            {props.syncState === "current" ? <Wifi size={12} aria-hidden="true" /> : <CloudOff size={12} aria-hidden="true" />}
             <span className="hidden min-[360px]:inline">{syncLabel}</span>
           </Button>
           <span className="hidden shrink-0 items-center gap-1 text-zinc-600 xl:inline-flex">
-            <Clock3 size={13} aria-hidden="true" />
+            <Clock3 size={12} aria-hidden="true" />
             <LiveMillisecondClock initialTime={props.serverTime} className="inline-block w-[12ch] font-mono tabular-nums" />
           </span>
         </div>

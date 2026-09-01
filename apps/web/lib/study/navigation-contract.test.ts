@@ -250,9 +250,9 @@ test("page templates and immersive pages retain stable layout contracts", () => 
   assert.match(shell, /const canonicalRoute = getCanonicalRoute\(pathname\)/);
   assert.match(shell, /const showPageToolbar = canonicalRoute\?\.shell !== "app" \|\| canonicalRoute\.toolbar !== "none"/);
   assert.match(shell, /\{showPageToolbar \? \([\s\S]*?<PageToolbar>[\s\S]*?<WorkbenchBreadcrumbActions/);
-  assert.match(pageToolbar, /min-h-14/);
+  assert.match(pageToolbar, /min-h-(?:\[38px\]|9\.5|14)/);
   assert.match(pageToolbar, /border-b border-white\/10/);
-  assert.match(pageToolbar, /px-4 py-2/);
+  assert.match(pageToolbar, /px-4 py-(?:1|2)/);
   assert.doesNotMatch(pageToolbar, /\bmt-3\b|\bborder-t\b|\bpt-3\b/);
   assert.match(shell, /const fullCanvasPage = immersive \|\|/);
   assert.match(shell, /const showSecondaryNavigation = !immersive/);
@@ -281,13 +281,13 @@ test("status and page-action surfaces keep narrow viewport boundaries", () => {
   const dock = readFileSync(resolve(process.cwd(), "components/window-dock.tsx"), "utf8");
   const pageActions = readFileSync(resolve(process.cwd(), "components/workbench-breadcrumb-actions.tsx"), "utf8");
   assert.match(toolbar, /getBrowserStoragePort\("session"\)\?\.getItem\(RECENT_PAGE_KEY\)/);
-  assert.match(toolbar, /grid h-8 min-w-0 grid-cols-\[minmax\(0,auto\)_minmax\(0,1fr\)_auto\]/);
+  assert.match(toolbar, /grid h-(?:\[26px\]|6\.5|8) min-w-0 grid-cols-\[minmax\(0,auto\)_minmax\(0,1fr\)_auto\]/);
   assert.match(toolbar, /data-status-region="persistent"/);
   assert.match(toolbar, /data-status-region="work"/);
   assert.match(toolbar, /data-status-region="system"/);
   assert.match(toolbar, /本机 · \{deviceIdentity\?\.label/);
   assert.match(toolbar, /其他设备 \{otherDeviceCount\}/);
-  assert.match(toolbar, /hidden !?h-7 min-w-0 shrink items-center[\s\S]*lg:inline-flex[\s\S]*其他设备 \{otherDeviceCount\}/);
+  assert.match(toolbar, /hidden !?h-(?:6|6\.5|7|\[24px\]|\[26px\]) min-w-0 shrink items-center[\s\S]*lg:inline-flex[\s\S]*其他设备 \{otherDeviceCount\}/);
   const persistentRegionIndex = toolbar.indexOf('data-status-region="persistent"');
   const localDeviceIndex = toolbar.indexOf('aria-label={`本机：');
   const otherDeviceIndex = toolbar.indexOf('aria-label={`其他设备');

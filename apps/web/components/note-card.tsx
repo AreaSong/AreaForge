@@ -35,7 +35,7 @@ export function NoteCard({
   const isDueToday = isNextReviewDueToday(note.nextReviewAt);
 
   return (
-    <Card variant="master" className="flex flex-col justify-between p-3.5 sm:p-4 transition-all hover:border-white/20">
+    <Card variant="master" className="flex flex-col justify-between p-4 sm:p-5 transition-all hover:border-white/20">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-medium text-zinc-400">{note.subjectName}</span>
@@ -43,22 +43,23 @@ export function NoteCard({
           {note.nextReviewAt ? <Badge tone="warning">复习 {formatDate(note.nextReviewAt)}</Badge> : null}
         </div>
 
-        <h3 className="mt-2.5 break-words text-sm font-semibold text-white sm:text-base">
-          <span className="mb-1.5 block">
-            <NoteMicroBadgeCluster
-              metrics={{
-                attemptCount,
-                passRate,
-                avgDurationSeconds,
-                consecutivePassCount,
-                starRating,
-                daysSinceReview,
-                isDueToday,
-                isOverdue,
-              }}
-            />
-          </span>
-          <span>{note.title}</span>
+        <div className="mt-2">
+          <NoteMicroBadgeCluster
+            metrics={{
+              attemptCount,
+              passRate,
+              avgDurationSeconds,
+              consecutivePassCount,
+              starRating,
+              daysSinceReview,
+              isDueToday,
+              isOverdue,
+            }}
+          />
+        </div>
+
+        <h3 className="mt-2 break-words text-sm font-semibold text-white sm:text-base">
+          {note.title}
         </h3>
         <p className="mt-1 text-xs text-zinc-400">{note.syllabusNodeTitle ?? "未关联考纲"}</p>
         <p className="mt-2.5 line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-zinc-300 sm:text-sm sm:leading-6">
@@ -87,7 +88,7 @@ export function NoteCard({
             <FileText className="h-3.5 w-3.5" aria-hidden="true" />
             <span>附件 ({note.attachments.length})</span>
           </summary>
-          <div className="mt-2 rounded-xl border border-white/10 bg-[#0d1117]/80 p-3">
+          <div className="mt-2 space-y-2 border-t border-white/5 pt-2">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-medium text-zinc-200">附件管理</p>
@@ -110,12 +111,12 @@ export function NoteCard({
               </label>
             </div>
             {note.attachments.length > 0 ? (
-              <div className="mt-2 grid gap-1.5">
+              <div className="divide-y divide-white/5 border-t border-white/5">
                 {note.attachments.map((attachment) => (
-                  <div key={attachment.id} className="flex flex-col gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div key={attachment.id} className="flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <p className="truncate text-xs text-zinc-200">{attachment.originalName}</p>
-                      <p className="text-[10px] text-zinc-500">{attachment.mimeType} / {formatBytes(attachment.sizeBytes)}</p>
+                      <p className="text-[10px] font-mono text-zinc-500">{attachment.mimeType} / {formatBytes(attachment.sizeBytes)}</p>
                     </div>
                     <a className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-white/10 px-2 text-[11px] text-zinc-200 hover:bg-white/10" href={attachment.downloadApiPath}>
                       <Download className="h-3 w-3" aria-hidden="true" />
@@ -124,8 +125,8 @@ export function NoteCard({
                   </div>
                 ))}
               </div>
-            ) : <p className="mt-2 text-xs text-zinc-500">还没有附件。</p>}
-            {uploadError ? <p className="mt-2 text-xs text-red-300" role="alert">{uploadError}</p> : null}
+            ) : <p className="pt-2 text-xs text-zinc-500">还没有附件。</p>}
+            {uploadError ? <p className="pt-2 text-xs text-red-300" role="alert">{uploadError}</p> : null}
           </div>
         </details>
       </div>

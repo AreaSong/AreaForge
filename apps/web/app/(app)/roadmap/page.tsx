@@ -47,10 +47,10 @@ export default async function RoadmapOverviewPage() {
         />
       </section>
 
-      {/* 2. Syllabus Matrix & Budget Conversion Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 2. Syllabus Matrix & Budget Conversion Grid (adaptive container grid-cols-1 @[78rem]:grid-cols-2 gap-4 replacing legacy grid-cols-1 md:grid-cols-2 gap-4) */}
+      <div className="@container grid grid-cols-1 @[78rem]:grid-cols-2 gap-4">
         {/* 2. Syllabus Total Coverage & Mastery Stacked Progress Bar */}
-        <section aria-labelledby="roadmap-syllabus-section">
+        <section aria-labelledby="roadmap-syllabus-section" className="min-w-0">
           <h2 id="roadmap-syllabus-section" className="sr-only">考纲全景复习覆盖与掌握矩阵</h2>
           <RoadmapSyllabusMatrix
             overview={syllabusOverview}
@@ -59,7 +59,7 @@ export default async function RoadmapOverviewPage() {
         </section>
 
         {/* 3. Subject Budget vs. Actual Study Time Conversion Table */}
-        <section aria-labelledby="roadmap-budget-section">
+        <section aria-labelledby="roadmap-budget-section" className="min-w-0">
           <h2 id="roadmap-budget-section" className="sr-only">科目预算与实际投入转化对比</h2>
           <RoadmapBudgetConversionTable
             analytics={analytics}

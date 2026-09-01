@@ -125,10 +125,10 @@ test("Milestone M3: Micro-Badge Clusters & Tightened Padding on NoteCard, Mistak
   const pointCardSource = loadSource("components/knowledge-point-card.tsx");
   const badgeSource = loadSource("components/knowledge-micro-badges.tsx");
 
-  // 1. Tightened padding p-3.5 sm:p-4
-  assert.match(noteCardSource, /p-3\.5 sm:p-4/);
-  assert.match(mistakeCardSource, /p-3\.5 sm:p-4/);
-  assert.match(pointCardSource, /p-3\.5 sm:p-4/);
+  // 1. Standardized 8pt padding p-4 sm:p-5
+  assert.match(noteCardSource, /p-4 sm:p-5/);
+  assert.match(mistakeCardSource, /p-4 sm:p-5/);
+  assert.match(pointCardSource, /p-4 sm:p-5/);
 
   // 2. Micro-badge components integrated
   assert.match(noteCardSource, /<NoteMicroBadgeCluster/);
@@ -204,11 +204,12 @@ test("Milestone M3: Knowledge Overview Page Integrates Complete Analytics Deck",
   assert.match(overviewSource, /<KnowledgeSubjectMasteryPanel/);
   assert.match(overviewSource, /<KnowledgeWeakPointsRanking/);
 
-  // 2. 5-KPI Tiles and quick gateways
+  // 2. 5-KPI Tiles and quick gateways with container queries
   assert.match(overviewSource, /知识资产/);
   assert.match(overviewSource, /今日待复习/);
   assert.match(overviewSource, /综合掌握率/);
   assert.match(overviewSource, /薄弱节点/);
   assert.match(overviewSource, /7日留存率/);
+  assert.match(overviewSource, /grid grid-cols-2 gap-3 @\[36rem\]:grid-cols-3 @\[60rem\]:grid-cols-4 @\[78rem\]:grid-cols-5/);
 });
 

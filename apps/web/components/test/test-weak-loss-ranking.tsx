@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertCircle, AlertTriangle, ArrowRight, BookOpen, ChevronRight, HelpCircle, PieChart, Sparkles, Target, Zap } from "lucide-react";
+import { BookOpen, ChevronRight, PieChart, Zap } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/feedback";
 import { CompactBadge } from "@/components/ui/micro-charts";
 import {
   getLossReasonMeta,
@@ -29,25 +28,20 @@ export function TestWeakLossRanking({
   const hasDistribution = distribution.items.length > 0;
 
   return (
-    <div className={`grid grid-cols-1 gap-4 lg:grid-cols-12 ${className}`.trim()}>
-      {/* 1. Left Panel: Weak Module Loss Ranking Table (7 cols on lg) */}
+    <div className={`@container grid grid-cols-1 gap-4 @[64rem]:grid-cols-12 ${className}`.trim()}>
+      {/* 1. Left Panel: Weak Module Loss Ranking Table (7 cols on @[64rem]) */}
       <Card
         variant="master"
-        className="lg:col-span-7 p-3.5 sm:p-4 bg-[#0e1619]/90 border border-white/10 flex flex-col justify-between"
+        className="@[64rem]:col-span-7 p-4 sm:p-5 bg-[#0e1619]/90 border border-white/10 flex flex-col justify-between"
       >
         <div>
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-md border border-rose-500/30 bg-rose-500/10 text-rose-300">
-                <AlertTriangle size={15} aria-hidden="true" />
-              </span>
-              <div>
-                <h2 className="text-sm font-semibold text-white">薄弱模块失分排行榜</h2>
-                <p className="text-[11px] text-zinc-400">
-                  按模考丢分严重程度排序的 Top 5 重点突破考点
-                </p>
-              </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white">薄弱模块失分排行榜</h2>
+              <p className="text-[11px] text-zinc-400">
+                按模考丢分严重程度排序的 Top 5 重点突破考点
+              </p>
             </div>
 
             <Link
@@ -65,12 +59,12 @@ export function TestWeakLossRanking({
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/5 text-[11px] font-mono text-zinc-500">
-                    <th className="pb-2 pl-1 w-8">#</th>
+                    <th className="pb-2 pl-1 w-7">#</th>
                     <th className="pb-2 font-medium">考点 / 模块名称</th>
-                    <th className="pb-2 font-medium w-20">科目</th>
-                    <th className="pb-2 font-medium text-right w-24">累计失分</th>
-                    <th className="pb-2 font-medium text-center w-20">主要死因</th>
-                    <th className="pb-2 font-medium text-right pr-1 w-20">动作</th>
+                    <th className="pb-2 font-medium w-14 sm:w-16">科目</th>
+                    <th className="pb-2 font-medium text-right w-18 sm:w-20">累计失分</th>
+                    <th className="pb-2 font-medium text-center w-16 sm:w-18">主要死因</th>
+                    <th className="pb-2 font-medium text-right pr-1 w-14 sm:w-16">动作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-sans">
@@ -99,12 +93,12 @@ export function TestWeakLossRanking({
                         </td>
 
                         {/* Title & Notes */}
-                        <td className="py-2.5 pr-2">
-                          <div className="font-medium text-zinc-200 group-hover:text-white transition-colors truncate max-w-[200px] sm:max-w-[240px]">
+                        <td className="py-2.5 pr-2 min-w-0">
+                          <div className="font-medium text-zinc-200 group-hover:text-white transition-colors truncate">
                             {item.title}
                           </div>
                           {item.notes[0] ? (
-                            <div className="text-[10px] text-zinc-500 truncate max-w-[200px] sm:max-w-[240px]">
+                            <div className="text-[10px] text-zinc-500 truncate">
                               {item.notes[0]}
                             </div>
                           ) : (
@@ -178,24 +172,19 @@ export function TestWeakLossRanking({
         </div>
       </Card>
 
-      {/* 2. Right Panel: Loss Reason Distribution Bar & Legend (5 cols on lg) */}
+      {/* 2. Right Panel: Loss Reason Distribution Bar & Legend (5 cols on @[64rem]) */}
       <Card
         variant="master"
-        className="lg:col-span-5 p-3.5 sm:p-4 bg-[#0e1619]/90 border border-white/10 flex flex-col justify-between"
+        className="@[64rem]:col-span-5 p-4 sm:p-5 bg-[#0e1619]/90 border border-white/10 flex flex-col justify-between"
       >
         <div>
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-300">
-                <PieChart size={15} aria-hidden="true" />
-              </span>
-              <div>
-                <h2 className="text-sm font-semibold text-white">失分原因结构分布</h2>
-                <p className="text-[11px] text-zinc-400">
-                  全真模拟考丢分溯源比例（概念/计算/时间等）
-                </p>
-              </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white">失分原因结构分布</h2>
+              <p className="text-[11px] text-zinc-400">
+                全真模拟考丢分溯源比例（概念/计算/时间等）
+              </p>
             </div>
 
             <span className="text-[11px] font-mono text-zinc-400">
@@ -236,13 +225,13 @@ export function TestWeakLossRanking({
               </div>
 
               {/* Loss Reason Breakdown List */}
-              <div className="space-y-1.5 divide-y divide-white/5">
+              <div className="divide-y divide-white/5">
                 {distribution.items.map((item) => {
                   const isSelected = selectedReason === item.reason;
                   return (
                     <div
                       key={item.reason}
-                      className={`flex items-center justify-between pt-1.5 first:pt-0 cursor-pointer p-1 rounded transition-colors ${
+                      className={`flex items-center justify-between py-2 cursor-pointer transition-colors px-1 rounded ${
                         isSelected ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"
                       }`}
                       onClick={() =>

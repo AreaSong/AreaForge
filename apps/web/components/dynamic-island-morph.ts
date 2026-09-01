@@ -116,31 +116,45 @@ export function useLiquidMorphState(options: UseLiquidMorphOptions): UseLiquidMo
     return hasSatellite ? "idle_split" : "idle_single";
   });
 
-  const timer1Ref = useRef<number | null>(null);
-  const timer2Ref = useRef<number | null>(null);
-  const prevIsOpenRef = useRef(isOpen);
-  const prevHasSatelliteRef = useRef(hasSatellite);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) {
+      if (phase !== "expanded_p2") {
+        if (isReducedMotionPreferred()) {
+          setPhase("expanded_p2");
+        } else if (hasSatellite) {
+          setPhase("merging_p1");
+        } else {
+          setPhase("expanded_p2");
+        }
+      }
+    } else {
+      if (phase !== "idle_split" && phase !== "idle_single") {
+        if (isReducedMotionPreferred()) {
+          setPhase(hasSatellite ? "idle_split" : "idle_single");
+        } else {
+          setPhase("collapsing_p1");
+        }
+      }
+    }
+  }
 
-  const clearAllTimers = useCallback(() => {
-    if (timer1Ref.current !== null) {
-      window.clearTimeout(timer1Ref.current);
-      timer1Ref.current = null;
+  const [prevHasSatellite, setPrevHasSatellite] = useState(hasSatellite);
+  if (hasSatellite !== prevHasSatellite) {
+    setPrevHasSatellite(hasSatellite);
+    if (!isOpen && (phase === "idle_split" || phase === "idle_single")) {
+      setPhase(hasSatellite ? "idle_split" : "idle_single");
     }
-    if (timer2Ref.current !== null) {
-      window.clearTimeout(timer2Ref.current);
-      timer2Ref.current = null;
-    }
-  }, []);
+  }
 
   const fastForwardToExpanded = useCallback(() => {
-    clearAllTimers();
     setPhase("expanded_p2");
     onOpenChange?.(true);
-  }, [clearAllTimers, onOpenChange]);
+  }, [onOpenChange]);
 
   const requestOpen = useCallback(() => {
     if (phase === "expanded_p2") return;
-    clearAllTimers();
     onOpenChange?.(true);
 
     if (isReducedMotionPreferred()) {
@@ -150,18 +164,13 @@ export function useLiquidMorphState(options: UseLiquidMorphOptions): UseLiquidMo
 
     if (hasSatellite) {
       setPhase("merging_p1");
-      timer1Ref.current = window.setTimeout(() => {
-        setPhase("expanded_p2");
-        timer1Ref.current = null;
-      }, LIQUID_TIMINGS.MERGE_P1_MS);
     } else {
       setPhase("expanded_p2");
     }
-  }, [clearAllTimers, hasSatellite, onOpenChange, phase]);
+  }, [hasSatellite, onOpenChange, phase]);
 
   const requestClose = useCallback(() => {
     if (phase === "idle_split" || phase === "idle_single") return;
-    clearAllTimers();
     onOpenChange?.(false);
 
     if (isReducedMotionPreferred()) {
@@ -170,45 +179,32 @@ export function useLiquidMorphState(options: UseLiquidMorphOptions): UseLiquidMo
     }
 
     setPhase("collapsing_p1");
-    timer1Ref.current = window.setTimeout(() => {
-      if (hasSatellite) {
-        setPhase("detaching_p2");
-        timer2Ref.current = window.setTimeout(() => {
-          setPhase("idle_split");
-          timer2Ref.current = null;
-        }, LIQUID_TIMINGS.DETACH_P2_MS);
-      } else {
-        setPhase("idle_single");
-      }
-      timer1Ref.current = null;
-    }, LIQUID_TIMINGS.COLLAPSE_P1_MS);
-  }, [clearAllTimers, hasSatellite, onOpenChange, phase]);
+  }, [hasSatellite, onOpenChange, phase]);
 
   useEffect(() => {
-    // Detect external isOpen changes (e.g. from parent or shortcuts)
-    if (isOpen !== prevIsOpenRef.current) {
-      prevIsOpenRef.current = isOpen;
-      if (isOpen) {
-        requestOpen();
-      } else {
-        requestClose();
-      }
+    if (phase === "merging_p1") {
+      const timer = window.setTimeout(() => {
+        setPhase("expanded_p2");
+      }, LIQUID_TIMINGS.MERGE_P1_MS);
+      return () => window.clearTimeout(timer);
     }
-  }, [isOpen, requestOpen, requestClose]);
-
-  useEffect(() => {
-    // Synchronize resting state if satellite presence changes while closed
-    if (hasSatellite !== prevHasSatelliteRef.current) {
-      prevHasSatelliteRef.current = hasSatellite;
-      if (!isOpen && (phase === "idle_split" || phase === "idle_single")) {
-        setPhase(hasSatellite ? "idle_split" : "idle_single");
-      }
+    if (phase === "collapsing_p1") {
+      const timer = window.setTimeout(() => {
+        if (hasSatellite) {
+          setPhase("detaching_p2");
+        } else {
+          setPhase("idle_single");
+        }
+      }, LIQUID_TIMINGS.COLLAPSE_P1_MS);
+      return () => window.clearTimeout(timer);
     }
-  }, [hasSatellite, isOpen, phase]);
-
-  useEffect(() => {
-    return () => clearAllTimers();
-  }, [clearAllTimers]);
+    if (phase === "detaching_p2") {
+      const timer = window.setTimeout(() => {
+        setPhase("idle_split");
+      }, LIQUID_TIMINGS.DETACH_P2_MS);
+      return () => window.clearTimeout(timer);
+    }
+  }, [hasSatellite, phase]);
 
   const isExpanded = phase === "expanded_p2";
   const isMerging = phase === "merging_p1";

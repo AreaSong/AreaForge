@@ -2,16 +2,9 @@
 
 import React from "react";
 import {
-  AlertCircle,
   ArrowRight,
   CheckCircle2,
-  ChevronRight,
-  ClipboardCheck,
-  Clock,
-  FileCheck2,
-  Flame,
   Plus,
-  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -32,41 +25,34 @@ export function TestPendingQueue({ queue, className = "" }: TestPendingQueueProp
   return (
     <Card
       variant="master"
-      className={`p-3.5 sm:p-4 bg-[#0e1619]/90 border border-white/10 flex flex-col justify-between ${className}`.trim()}
+      className={`p-4 sm:p-5 bg-[#0e1619]/90 border border-white/10 flex flex-col justify-between ${className}`.trim()}
     >
       <div>
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-300">
-              <Zap size={15} aria-hidden="true" />
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-white">今日待测与待收口队列</h2>
-                {hasItems ? (
-                  <Badge tone={overdueCount > 0 ? "warning" : "neutral"} className="font-mono">
-                    {queue.length} 项待办
-                  </Badge>
-                ) : null}
-              </div>
-              <p className="text-[11px] text-zinc-400">
-                到期专项复测与未收口全真模考的即时行动中心
-              </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-white">今日待测与待收口队列</h2>
+              {hasItems ? (
+                <Badge tone={overdueCount > 0 ? "warning" : "neutral"} className="font-mono">
+                  {queue.length} 项待办
+                </Badge>
+              ) : null}
             </div>
+            <p className="text-[11px] text-zinc-400">
+              到期专项复测与未收口全真模考的即时行动中心
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 text-xs font-mono">
             {overdueCount > 0 ? (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-400 font-mono">
-                <Flame size={13} className="animate-pulse" />
+              <span className="text-rose-400 font-semibold">
                 {overdueCount} 项已逾期
               </span>
             ) : null}
 
             {draftCount > 0 ? (
-              <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-mono">
-                <Clock size={13} />
+              <span className="text-amber-400 font-medium">
                 {draftCount} 场模考待确认
               </span>
             ) : null}
@@ -75,85 +61,67 @@ export function TestPendingQueue({ queue, className = "" }: TestPendingQueueProp
 
         {/* Queue Items List */}
         {hasItems ? (
-          <div className="mt-3 space-y-2 max-h-[340px] overflow-y-auto pr-1">
+          <div className="mt-3 divide-y divide-white/5 max-h-[340px] overflow-y-auto pr-1">
             {queue.map((item) => {
               const isRetest = item.kind === "retest";
 
               return (
                 <div
                   key={`${item.kind}-${item.id}`}
-                  className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/[0.02] p-2.5 hover:border-teal-400/30 hover:bg-white/[0.04] transition-all"
+                  className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2.5 hover:bg-white/[0.02] transition-colors"
                 >
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    {/* Item Kind Icon */}
-                    <span
-                      className={`flex size-7 shrink-0 items-center justify-center rounded-md mt-0.5 ${
-                        isRetest
-                          ? "border border-teal-500/20 bg-teal-500/10 text-teal-300"
-                          : "border border-amber-500/20 bg-amber-500/10 text-amber-300"
-                      }`}
-                    >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Due Badge */}
+                      <CompactBadge
+                        tone={
+                          item.dueStatus === "overdue"
+                            ? "rose"
+                            : item.dueStatus === "in_progress"
+                              ? "teal"
+                              : item.dueStatus === "draft_pending"
+                                ? "amber"
+                                : "sky"
+                        }
+                        size="xs"
+                      >
+                        {item.dueText}
+                      </CompactBadge>
+
+                      {/* Title */}
+                      <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-teal-200 transition-colors truncate max-w-[240px] sm:max-w-[360px]">
+                        {isRetest ? item.title : item.name}
+                      </h4>
+                    </div>
+
+                    {/* Sub metadata */}
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
                       {isRetest ? (
-                        <ClipboardCheck size={14} aria-hidden="true" />
+                        <>
+                          <span>{item.method}</span>
+                          <span>·</span>
+                          <span>{item.pointCount} 个知识点</span>
+                          {item.pointTitles.length > 0 ? (
+                            <span className="truncate text-zinc-500 max-w-[180px]">
+                              ({item.pointTitles.slice(0, 2).join(", ")}
+                              {item.pointTitles.length > 2 ? "..." : ""})
+                            </span>
+                          ) : null}
+                        </>
                       ) : (
-                        <FileCheck2 size={14} aria-hidden="true" />
+                        <>
+                          <span>全真模考</span>
+                          <span>·</span>
+                          <span>{item.subjectCount} 科成绩已录入</span>
+                          <span>·</span>
+                          <span className="text-amber-400/90">待完成失分分析与事实冻结</span>
+                        </>
                       )}
-                    </span>
-
-                    {/* Title & Metadata */}
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {/* Due Badge */}
-                        <CompactBadge
-                          tone={
-                            item.dueStatus === "overdue"
-                              ? "rose"
-                              : item.dueStatus === "in_progress"
-                                ? "teal"
-                                : item.dueStatus === "draft_pending"
-                                  ? "amber"
-                                  : "sky"
-                          }
-                          size="xs"
-                        >
-                          {item.dueText}
-                        </CompactBadge>
-
-                        {/* Title */}
-                        <h4 className="text-xs font-semibold text-zinc-200 group-hover:text-teal-200 transition-colors truncate max-w-[220px] sm:max-w-[320px]">
-                          {isRetest ? item.title : item.name}
-                        </h4>
-                      </div>
-
-                      {/* Sub metadata */}
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
-                        {isRetest ? (
-                          <>
-                            <span>{item.method}</span>
-                            <span>·</span>
-                            <span>{item.pointCount} 个知识点</span>
-                            {item.pointTitles.length > 0 ? (
-                              <span className="truncate text-zinc-500 max-w-[180px]">
-                                ({item.pointTitles.slice(0, 2).join(", ")}
-                                {item.pointTitles.length > 2 ? "..." : ""})
-                              </span>
-                            ) : null}
-                          </>
-                        ) : (
-                          <>
-                            <span>全真模考</span>
-                            <span>·</span>
-                            <span>{item.subjectCount} 科成绩已录入</span>
-                            <span>·</span>
-                            <span className="text-amber-400/90">待完成失分分析与事实冻结</span>
-                          </>
-                        )}
-                      </div>
                     </div>
                   </div>
 
                   {/* 1-Click Instant Action CTA Button */}
-                  <div className="flex items-center justify-end shrink-0 sm:self-center pt-1 sm:pt-0 border-t border-white/5 sm:border-t-0">
+                  <div className="flex items-center justify-end shrink-0 sm:self-center pt-1 sm:pt-0">
                     <Link
                       href={item.actionUrl}
                       className="inline-flex items-center gap-1 rounded-md border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-300 hover:bg-teal-500/20 hover:border-teal-400/50 hover:shadow-[0_0_12px_rgba(45,212,191,0.2)] transition-all"

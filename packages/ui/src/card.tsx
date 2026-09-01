@@ -12,9 +12,9 @@ export const cardVariantClasses: Record<CardVariant, string> = {
 
 export const cardPaddingClasses: Record<CardPadding, string> = {
   none: "",
-  sm: "p-2.5 sm:p-3",
-  md: "p-3.5 sm:p-4.5",
-  lg: "p-4 sm:p-5",
+  sm: "p-3",
+  md: "p-4 sm:p-5",
+  lg: "p-5 sm:p-6",
 };
 
 export interface CardClassNameOptions {

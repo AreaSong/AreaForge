@@ -4,9 +4,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  Compass,
-  Sparkles,
 } from "lucide-react";
 import type { ActionCenterTodayController } from "@/components/action-center-today-controller";
 import {
@@ -22,7 +19,7 @@ import { Button, buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/field";
-import { CompactBadge, StatusDot } from "@/components/ui/micro-charts";
+import { CompactBadge } from "@/components/ui/micro-charts";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { PinnedActionBar } from "@/components/ui/pinned-action-bar";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -47,7 +44,7 @@ export function ActionCenterTodayView({
         action={<TodayDatePicker studyDate={today.studyDate} isToday={today.isToday} />}
       />
 
-      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_380px] items-start">
+      <div className="@container grid grid-cols-1 gap-3.5 @[56rem]:grid-cols-[1fr_360px] @[80rem]:grid-cols-[1fr_380px] items-start">
         <div className="min-w-0 space-y-3">
           <TodayRecommendation
             today={today}
@@ -244,26 +241,16 @@ function TodayRecommendation({
   onCreateMinimumTask: () => Promise<void>;
 }) {
   return (
-    <Card variant="accent" padding="lg" className="relative overflow-hidden !p-3.5 sm:!p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <div className="flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-400/10 px-2.5 py-0.5 text-xs font-semibold tracking-wider text-teal-300">
-            <Sparkles className="size-3.5 text-teal-300" aria-hidden="true" />
-            <span>当前推荐行动</span>
-          </div>
-          <CompactBadge variant="glow" size="xs">P0/今日首要</CompactBadge>
-          <span className="flex items-center gap-1">
-            <StatusDot status="active" pulse size="xs" />
-            <span className="font-mono text-xs text-teal-300">LIVE</span>
-          </span>
-          <CompactBadge variant="primary" size="xs" icon={<Clock className="size-2.5" />}>⏱ 45m · 10pt</CompactBadge>
-          <CompactBadge tone="zinc" size="xs" icon={<Compass className="size-2.5" />}>考纲主线</CompactBadge>
+    <Card variant="accent" padding="md" className="relative overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-teal-300">推荐行动</span>
+          <CompactBadge variant="glow" size="xs">今日首要</CompactBadge>
         </div>
-        {today.workspace?.name ? (
-          <span className="text-xs font-medium text-zinc-400">
-            {today.workspace.name}
-          </span>
-        ) : null}
+        <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
+          <span>45m · 10pt</span>
+          {today.workspace?.name ? <span>· {today.workspace.name}</span> : null}
+        </div>
       </div>
 
       <div className="mt-2.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

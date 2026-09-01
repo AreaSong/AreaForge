@@ -26,7 +26,7 @@ export function MistakeCard({ mistake }: { mistake: MistakeDto }) {
   const isDueToday = isNextReviewDueToday(mistake.nextReviewAt);
 
   return (
-    <Card variant="master" className="flex flex-col justify-between p-3.5 sm:p-4 transition-all hover:border-white/20">
+    <Card variant="master" className="flex flex-col justify-between p-4 sm:p-5 transition-all hover:border-white/20">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-medium text-zinc-400">{mistake.subjectName}</span>

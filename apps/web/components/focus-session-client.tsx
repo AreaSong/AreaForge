@@ -8,22 +8,14 @@ import type {
   FocusContext,
   FocusContextOptions,
   FocusEvidenceReceipt,
-  FocusEvidenceType,
 } from "@/components/focus-session-panels";
-import { linkFocusSessionEvidence, setFocusEvidenceFlowOpen } from "@/lib/client/focus-evidence";
 import { focusRequestErrorMessage } from "@/lib/client/focus-session";
 import {
-  getFocusOfflineConflict,
   isLocalFocusSessionId,
-  resolveFocusOfflineConflict,
-  retryDeferredFocusCommands,
-  syncFocusOfflineQueue,
   type FocusOfflineSyncState,
 } from "@/lib/client/focus-offline-store";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import { addLowConversionToInbox as addLowConversionToInboxCommand } from "@/lib/api/plan-inbox";
-import { archiveNote } from "@/lib/api/notes";
-import { archiveMistake } from "@/lib/api/mistakes";
 import type { StudySessionDto } from "@/lib/contracts";
 import { isUnauthorized } from "@/lib/client/api-errors";
 import { mutationFeedback } from "@/lib/client/mutation-feedback";
@@ -41,10 +33,9 @@ import {
 } from "@/components/focus-session-command";
 import { useFocusSessionEffects } from "@/components/focus-session-effects";
 import { useEntityOperationMap } from "@/lib/client/use-entity-operation-map";
-import {
-  FocusSessionWorkspace,
-  type FocusSessionConflict,
-} from "@/components/focus-session-workspace";
+import { FocusSessionWorkspace } from "@/components/focus-session-workspace";
+import { useFocusSessionOfflineConflicts } from "@/components/focus-session-conflict-hooks";
+import { useFocusEvidenceManager } from "@/components/focus-session-evidence-hooks";
 
 export function FocusSessionClient(props: {
   userId: string;
@@ -60,17 +51,16 @@ export function FocusSessionClient(props: {
   const router = useRouter();
   const [session, setSession] = useState(props.session);
   const currentSessionRef = useRef(props.session);
-  currentSessionRef.current = session;
+  useEffect(() => {
+    currentSessionRef.current = session;
+  }, [session]);
+
   const [now, setNow] = useState(() => new Date(props.initialNow));
   const [phase, setPhase] = useState<FocusPhase>(() => initialFocusPhase(props.session));
   const [error, setError] = useState<string | null>(null);
   const [closeoutError, setCloseoutError] = useState<string | null>(null);
-  const [conflict, setConflict] = useState<FocusSessionConflict | null>(null);
-  const [conflictOpen, setConflictOpen] = useState(false);
   const commandKeys = useRef<Record<string, string>>({});
   const [lowConversionAdded, setLowConversionAdded] = useState(false);
-  const [activeEvidenceType, setActiveEvidenceType] = useState<FocusEvidenceType>("note");
-  const [evidenceReceipts, setEvidenceReceipts] = useState(props.initialEvidenceReceipts);
   const [draft, setDraft] = useState<FocusCloseoutDraft>(defaultFocusCloseoutDraft);
   const [draftReady, setDraftReady] = useState(false);
   const [syncState, setSyncState] = useState<FocusOfflineSyncState>(props.offlineOnly ? "pending" : "current");
@@ -78,30 +68,58 @@ export function FocusSessionClient(props: {
   const commandOperations = useEntityOperationMap<"session">();
   const [activeCommand, setActiveCommand] = useState<FocusSessionCommandAction | null>(null);
 
-  // Monotonic elapsed time guard to prevent any backward time jump
-  const monotonicMaxElapsedRef = useRef(0);
-  const prevSessionIdRef = useRef(session.id);
-
-  useEffect(() => {
-    if (prevSessionIdRef.current !== session.id) {
-      monotonicMaxElapsedRef.current = 0;
-      prevSessionIdRef.current = session.id;
+  const clearCommandKeys = useCallback((action: "start" | "pause" | "resume" | "end" | "context") => {
+    if (action === "start") return;
+    for (const key of Object.keys(commandKeys.current)) {
+      if (key.startsWith(`${action}:`)) delete commandKeys.current[key];
     }
-  }, [session.id]);
+  }, []);
 
-  const loadOfflineConflict = useCallback(async (open: boolean, latestOverride?: StudySessionDto | null) => {
-    const record = await getFocusOfflineConflict(props.userId);
-    if (!record) return;
-    setConflict({
-      latest: latestOverride ?? record.latestSession ?? (!isLocalFocusSessionId(currentSessionRef.current.id) ? currentSessionRef.current : undefined),
-      localSession: record.localSession,
-      conflictFields: ["status", "updatedAt", "device", "timeline"],
-      action: record.command.action,
-      commandId: record.command.id,
-      localSessionId: record.command.localSessionId,
-    });
-    if (open && record.command.state === "blocked") setConflictOpen(true);
-  }, [props.userId]);
+  const {
+    conflict,
+    setConflict,
+    conflictOpen,
+    setConflictOpen,
+    loadOfflineConflict,
+    adoptLatestSession,
+    deferOfflineConflict,
+    abandonOfflineConflict,
+    retryDeferredConflict,
+    mergeDraftOntoLatestSession,
+  } = useFocusSessionOfflineConflicts({
+    userId: props.userId,
+    currentSessionRef,
+    queuedOfflineRef,
+    setSession,
+    setNow,
+    setPhase,
+    setSyncState,
+    setError,
+    onClearCommandKeys: clearCommandKeys,
+    router,
+  });
+
+  const {
+    activeEvidenceType,
+    setActiveEvidenceType,
+    evidenceReceipts,
+    editingReceipt,
+    openEvidenceFlow,
+    completeEvidenceFlow,
+    linkEvidence,
+    handleEditReceipt,
+    handleCancelEditEvidence,
+    handleUpdateEvidence,
+    handleDeleteReceipt,
+  } = useFocusEvidenceManager({
+    userId: props.userId,
+    session,
+    initialEvidenceReceipts: props.initialEvidenceReceipts,
+    setSession,
+    setNow,
+    setPhase,
+    setError,
+  });
 
   useFocusSessionEffects({
     userId: props.userId,
@@ -128,7 +146,7 @@ export function FocusSessionClient(props: {
         : "idle";
 
   const elapsedSeconds = useMemo(() => {
-    const computed = getTimerElapsedSeconds({
+    return getTimerElapsedSeconds({
       status: timerStatus,
       startedAt: new Date(session.startedAt),
       pausedAt: session.pausedAt ? new Date(session.pausedAt) : undefined,
@@ -136,12 +154,6 @@ export function FocusSessionClient(props: {
       accumulatedPauseSeconds: session.accumulatedPauseSeconds,
       now,
     });
-
-    if (timerStatus === "running" || timerStatus === "paused") {
-      monotonicMaxElapsedRef.current = Math.max(monotonicMaxElapsedRef.current, computed);
-      return monotonicMaxElapsedRef.current;
-    }
-    return computed;
   }, [now, session, timerStatus]);
 
   const timerLabel = session.status === "running" ? "正计时" : session.status === "paused" ? "已暂停" : session.status === "closing" ? "已冻结，待收口" : "已结束";
@@ -282,92 +294,6 @@ export function FocusSessionClient(props: {
     }
   }
 
-  async function adoptLatestSession() {
-    if (!conflict?.latest) {
-      setConflictOpen(false);
-      router.refresh();
-      return;
-    }
-    if (conflict.commandId && conflict.localSessionId) {
-      await resolveFocusOfflineConflict({
-        userId: props.userId,
-        localSessionId: conflict.localSessionId,
-        commandId: conflict.commandId,
-        resolution: "adopt-server",
-      });
-    }
-    setSession(conflict.latest);
-    setNow(new Date());
-    clearCommandKeys(conflict.action);
-    if (conflict.latest.status === "completed") setPhase(initialFocusPhase(conflict.latest));
-    setConflict(null);
-    setConflictOpen(false);
-    queuedOfflineRef.current = false;
-    setSyncState("current");
-    setError("已采用服务端最新活动状态；旧离线命令已按你的选择停止同步。");
-  }
-
-  async function deferOfflineConflict() {
-    if (!conflict?.commandId || !conflict.localSessionId) return;
-    await resolveFocusOfflineConflict({
-      userId: props.userId,
-      localSessionId: conflict.localSessionId,
-      commandId: conflict.commandId,
-      resolution: "defer",
-    });
-    setConflictOpen(false);
-    setSyncState("deferred");
-    setError("已保留离线记录，稍后可从这里显式重新对账；系统不会自动覆盖当前活动。");
-  }
-
-  async function abandonOfflineConflict() {
-    if (!conflict?.commandId || !conflict.localSessionId) return;
-    const latest = await resolveFocusOfflineConflict({
-      userId: props.userId,
-      localSessionId: conflict.localSessionId,
-      commandId: conflict.commandId,
-      resolution: "abandon",
-    });
-    if (latest) {
-      setSession(latest);
-      setNow(new Date());
-    }
-    setConflict(null);
-    setConflictOpen(false);
-    queuedOfflineRef.current = false;
-    setSyncState("current");
-    setError("已明确放弃旧离线命令；服务端当前活动仍保留。");
-  }
-
-  async function retryDeferredConflict() {
-    const record = await getFocusOfflineConflict(props.userId);
-    if (!record || record.command.state !== "deferred") {
-      setSyncState("current");
-      return;
-    }
-    await retryDeferredFocusCommands(props.userId, record.command.localSessionId);
-    setSyncState("pending");
-    await syncFocusOfflineQueue(props.userId);
-    await loadOfflineConflict(true);
-  }
-
-  function mergeDraftOntoLatestSession() {
-    if (!conflict?.latest) return;
-    setSession(conflict.latest);
-    setNow(new Date());
-    clearCommandKeys(conflict.action);
-    setConflict(null);
-    setConflictOpen(false);
-    setError("已以服务端最新状态重建命令基线；本地草稿仍保留，请检查后显式重试。");
-  }
-
-  function clearCommandKeys(action: "start" | "pause" | "resume" | "end" | "context") {
-    if (action === "start") return;
-    for (const key of Object.keys(commandKeys.current)) {
-      if (key.startsWith(`${action}:`)) delete commandKeys.current[key];
-    }
-  }
-
   async function addLowConversionToInbox() {
     setError(null);
     try {
@@ -385,82 +311,6 @@ export function FocusSessionClient(props: {
       setLowConversionAdded(true);
     } catch (err) {
       setError(focusRequestErrorMessage(err, "加入收件箱失败"));
-    }
-  }
-
-  function openEvidenceFlow() {
-    if (isLocalFocusSessionId(session.id)) {
-      setFocusEvidenceFlowOpen(props.userId, session.id, true);
-      setError("当前收口仍在本机，联网同步后会自动进入证据接力；当前不会伪造服务端证据。");
-      setPhase("complete");
-      return;
-    }
-    setFocusEvidenceFlowOpen(props.userId, session.id, true);
-    setPhase("evidence");
-  }
-
-  function completeEvidenceFlow() {
-    setFocusEvidenceFlowOpen(props.userId, session.id, false);
-    setPhase("complete");
-  }
-
-  async function linkEvidence(input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) {
-    const body = await linkFocusSessionEvidence(session, input);
-    setSession(body.session);
-    setNow(new Date());
-    setEvidenceReceipts((current) => current.some((receipt) =>
-      receipt.evidenceType === body.receipt.evidenceType && receipt.evidenceId === body.receipt.evidenceId)
-      ? current
-      : [...current, body.receipt]);
-  }
-
-  const [editingReceipt, setEditingReceipt] = useState<FocusEvidenceReceipt | null>(null);
-
-  function handleEditReceipt(receipt: FocusEvidenceReceipt) {
-    setEditingReceipt(receipt);
-    setActiveEvidenceType(receipt.evidenceType);
-  }
-
-  function handleCancelEditEvidence() {
-    setEditingReceipt(null);
-  }
-
-  function handleUpdateEvidence(updatedReceipt: FocusEvidenceReceipt) {
-    setEvidenceReceipts((current) =>
-      current.map((r) =>
-        r.evidenceId === updatedReceipt.evidenceId && r.evidenceType === updatedReceipt.evidenceType
-          ? updatedReceipt
-          : r,
-      ),
-    );
-    setEditingReceipt(null);
-  }
-
-  async function handleDeleteReceipt(receipt: FocusEvidenceReceipt) {
-    try {
-      if (receipt.evidenceType === "note") {
-        void archiveNote(receipt.evidenceId, { expectedRevision: 1 }).catch(() => undefined);
-      } else if (receipt.evidenceType === "mistake") {
-        void archiveMistake(receipt.evidenceId, { expectedUpdatedAt: new Date().toISOString() }).catch(() => undefined);
-      }
-    } catch {
-      // Best-effort remote archival
-    }
-
-    setEvidenceReceipts((current) => {
-      const next = current.filter((r) => r.evidenceId !== receipt.evidenceId);
-      const hasRemainingNote = next.some((r) => r.evidenceType === "note");
-      const hasRemainingMistake = next.some((r) => r.evidenceType === "mistake");
-      setSession((prev) => ({
-        ...prev,
-        producedNote: hasRemainingNote,
-        producedMistake: hasRemainingMistake,
-      }));
-      return next;
-    });
-
-    if (editingReceipt?.evidenceId === receipt.evidenceId) {
-      setEditingReceipt(null);
     }
   }
 
