@@ -24,7 +24,7 @@
 当前进度快照（详情以各版本计划的状态标头为准）：
 
 - 最新稳定 GitHub Release 为 `v1.1.2` / commit `5df38417b701f3511d06db235c5b94755ca03aba`；生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。
-- 仓库 package version 为 `1.2.0`；PR #49 已 squash 合并到 `main` commit `c8b5acf241bcaada59c6b469fd562d4fe400d521`，PR CI run `33505174259` 与 main push CI run `33506280124` 均成功。尚未创建 `v1.2.0` tag 或 Release，本阶段不包含 production apply。
+- 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并为 commit `c8b5acf241bcaada59c6b469fd562d4fe400d521`，PR CI run `33505174259` 与该 commit 的 main push CI run `33506280124` 均成功，PR #51 已完成合并状态文档收口。尚未创建 `v1.2.0` tag 或 Release；后续 tag 目标必须在独立确认时 fresh readback 当前 main HEAD，本阶段不包含 production apply。
 - `versions/v1.1-learning-action-center.md` 的发布后修复已完成 SC-002/SC-004、browser/compatibility、受保护 PR、Release 资产校验和 Web 受控 production apply。更新后 Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；`AREAFORGE_AUTO_APPLY=none` 与 residual 状态未改变。
 - 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
 - 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口。
