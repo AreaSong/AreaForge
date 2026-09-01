@@ -42,8 +42,8 @@
 | AF-RISK-OPS-007 | `tasks/active/0021-attachment-staging-intent.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
 | AF-RISK-OPS-008 | `tasks/active/0022-updater-phase-journal-hold.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
 | AF-RISK-SC-004 | `tasks/backlog/0023-github-main-protection.md`、`tasks/active/0035-v11-batch11-minor-release.md` | 历史远端实施已 `closed-evidence`；Batch 11 只承接 v1.1 admission 所需 fresh readback/controlled PR，不自动改变 residual 状态 |
-| AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md`、`tasks/active/0037-v12-release-preparation.md` | active；v1.2 任务只重采 current-bound 体验证据，不自动改变 residual 状态 |
+| AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md`、`tasks/done/0037-v12-release-preparation.md` | active；v1.2 任务只重采 current-bound 体验证据，不自动改变 residual 状态 |
 | AF-RISK-DATA-001 | `tasks/done/0029-v11-batch5-resources-import-confirm.md` | Batch 5 已完成；生命周期已接受，residual 不自动关闭 |
-| AF-RISK-SC-002 | `tasks/active/0035-v11-batch11-minor-release.md`、`tasks/active/0037-v12-release-preparation.md` | active；v1.2 PR/Release 前须重采匹配 commit 的 CI/供应链证据；不自动改变 residual 状态 |
+| AF-RISK-SC-002 | `tasks/active/0035-v11-batch11-minor-release.md`、`tasks/done/0037-v12-release-preparation.md` | active；v1.2 第一阶段已重采匹配 commit 的 CI/供应链证据，后续 Release 仍须绑定最终 tag；不自动改变 residual 状态 |
 
 其他 residual 的 `taskRefs=[]`。`AF-RISK-REL-001` 使用已有历史 accepted exception，不使用 task promotion waiver；接受例外不等于 executable task，也不授权 patch 自动应用。

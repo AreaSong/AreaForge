@@ -97,7 +97,7 @@
       ],
       "taskRefs": [
         "tasks/active/0035-v11-batch11-minor-release.md",
-        "tasks/active/0037-v12-release-preparation.md"
+        "tasks/done/0037-v12-release-preparation.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
@@ -257,7 +257,7 @@
       "taskRefs": [
         "tasks/active/0024-ux-residual-closure-review.md",
         "tasks/done/0034-v11-batch10-stage-simulation-loop.md",
-        "tasks/active/0037-v12-release-preparation.md"
+        "tasks/done/0037-v12-release-preparation.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
