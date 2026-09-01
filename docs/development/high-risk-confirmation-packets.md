@@ -1707,3 +1707,47 @@ pnpm ops:ops-001:preflight
 明确确认句（已确认）：
 
 > 确认按上述范围实现本地 Web AI 全局开关；保留 `AI_ENABLED` 服务端硬闸门，不暴露服务端密钥，不执行生产部署。
+
+## v1.2.0 发布准备、additive migration 验证与默认分支合并确认包
+
+本确认包只覆盖 `v1.2.0` 第一阶段：版本与源事实同步、一次性本地 PostgreSQL additive migration 验证、完整本地门禁、测试池浏览器验收、PR/CI 和 squash 合并。它不创建 tag、GitHub Release 或 GHCR 镜像，也不触碰生产。
+
+影响：
+
+- `feature/ui-optimization` 相对 `main` 单向领先 29 个提交，候选覆盖 964 个文件和高密度工作台、Dynamic Island、错题 v2、API、测试与 CI 门禁。
+- Prisma schema 增加第 36 条 migration：`Mistake` additive 字段、`MistakeAttempt`、`NoteMistakeLink` 和 `SimulationLossItem.mistakeId`。
+- 根与全部 AreaForge workspace package version 统一为 `1.2.0`。
+- PR CI 成功后 squash 合并并推送 `main`；最终 default-branch commit 将成为后续 tag 确认的不可变候选身份。
+
+风险：
+
+- migration SQL、Prisma schema 或 repeat deploy 不一致会阻断未来 migration image。
+- 大范围 UI、焦点、异步状态和 API 边界可能产生跨页面回归；旧截图和旧测试池 fingerprint 不能作为当前证据。
+- CI 新增 Web governance gate；本地通过但 CI 失败时不得合并。
+- 直接创建 tag 会触发 Release workflow 和 GHCR 发布，因此本确认明确排除 tag/Release。
+
+验证：
+
+- 使用全新一次性 PostgreSQL 16 顺序 apply 36 条 migration，并执行 repeat deploy 与 schema/约束读回；不连接生产或现有开发库。
+- 运行 `pnpm check`、release train、governance、supply-chain selftest、docs/risk/ops readiness、audit、secret scan 与 `git diff --check`。
+- 使用 `pnpm dev:test:refresh` 更新固定测试池，并复用 `pnpm dev:test:latest -- --json` 返回 URL 完成桌面/移动响应式与治理交互证据。
+- 创建 PR，等待匹配候选 commit 的 GitHub CI 成功后才允许 squash merge。
+
+回滚：
+
+- PR 前保持 `main` 不变；本地验证失败只删除本轮精确一次性数据库和测试池临时构建状态。
+- squash merge 后、tag 前发现问题时使用普通 revert，不 force-push 或重写共享历史。
+- 本阶段没有生产 migration；不得执行数据库/uploads restore。未来生产 additive migration 失败时的应用回滚与备份恢复必须另行确认。
+
+不包含：
+
+- 不创建或推送 `v1.2.0` tag，不触发 GitHub Release workflow，不发布 GHCR 镜像。
+- 不执行生产 updater apply、生产 migration、backup/restore、rollback、Nginx/compose/timer/队列操作或 Web 更新请求。
+- 不扩大 AI payload、Provider key 权限、附件生命周期、数据保留/删除范围，不修改 `AREAFORGE_AUTO_APPLY=none`。
+- 不重新打开或关闭 residual，不读取、打印、复制或提交 secrets、生产 `.env`、数据库 URL、备份、附件内容或 AI prompt/raw response。
+
+**确认状态（2026-09-01）**：用户已明确确认以下第一阶段范围；最终 tag/Release 必须在 squash merge 后以真实 `main` commit SHA 重新确认。
+
+明确确认句（已确认）：
+
+> 确认按 v1.2.0 执行第一阶段：准备发布、验证 additive migration 和完整门禁、创建 PR，CI 通过后 squash 合并并推送 main；不执行 Release tag、生产 migration、生产更新、备份恢复或自动应用策略变更。

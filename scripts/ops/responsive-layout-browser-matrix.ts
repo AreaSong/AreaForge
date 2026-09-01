@@ -309,6 +309,7 @@ async function inspectRoute(
   let failure: string | null = null;
   let navigationCompleted = false;
   let navigationError: unknown = null;
+  await installReadOnlyRouteStubs(page, templatePath);
   page.on("response", (candidate) => {
     const request = candidate.request();
     if (!request.isNavigationRequest() || request.frame() !== page.mainFrame()) return;
@@ -398,6 +399,21 @@ async function inspectRoute(
     passed,
     failure,
   };
+}
+
+async function installReadOnlyRouteStubs(page: Page, templatePath: string): Promise<void> {
+  if (templatePath !== "/knowledge/reviews/[scheduleId]/run") return;
+  await page.route("**/api/study-sessions/start", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ session: null }),
+    });
+  });
 }
 
 function isExpectedTransitionFinalPath(page: Page, templatePath: string, targetPath: string): boolean {

@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { cloneFixture, cleanupG8SelftestFixture, createG8SelftestFixture } from "./g8-browser-evidence-selftest-fixture";
@@ -8,8 +8,23 @@ const root = mkdtempSync(path.join(tmpdir(), "areaforge-responsive-g8-validator-
 const fixture = createG8SelftestFixture(root);
 
 try {
+  const runnerSource = readFileSync(path.join(process.cwd(), "scripts/ops/responsive-layout-browser-matrix.ts"), "utf8");
+  if (!runnerSource.includes('page.route("**/api/study-sessions/start"')) {
+    throw new Error("responsive matrix runner must intercept quick-review session start to preserve businessWrites=false");
+  }
   expectValid(validateResponsiveLayoutBrowserMatrix(fixture.responsive, fixture.binding), "valid responsive value");
   expectValid(validateResponsiveLayoutBrowserMatrixFile(path.relative(root, fixture.responsivePath), fixture.binding), "valid responsive file");
+
+  const interceptedQuickReview = cloneFixture(fixture.responsive);
+  for (const result of interceptedQuickReview.results as Array<Record<string, unknown>>) {
+    if (result.templatePath === "/knowledge/reviews/[scheduleId]/run") {
+      result.finalPath = "/knowledge/reviews/test-review-schedule/run";
+    }
+  }
+  expectValid(
+    validateResponsiveLayoutBrowserMatrix(interceptedQuickReview, fixture.binding),
+    "intercepted quick-review route remains admissible",
+  );
 
   const summary = cloneFixture(fixture.responsive);
   (summary.summary as Record<string, unknown>).passed = 342;

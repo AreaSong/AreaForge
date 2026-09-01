@@ -2358,6 +2358,7 @@ function hasPackageAImplementationEvidence(): boolean {
   const downloadRoute = readIfExists("apps/web/app/api/attachments/[id]/route.ts");
   const service = readIfExists("apps/web/lib/study/attachments-service.ts");
   const ui = readFiles([
+    "apps/web/components/note-card.tsx",
     "apps/web/components/note-library.tsx",
     "apps/web/components/note-library-item.tsx",
   ]);

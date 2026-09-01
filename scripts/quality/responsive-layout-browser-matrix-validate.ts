@@ -233,9 +233,16 @@ function matchesExpectedFinalPath(finalPath: string, templatePath: string, concr
   if (!expected) return false;
   try {
     const actualUrl = new URL(finalPath, "http://areaforge.invalid");
+    if (templatePath === "/knowledge/reviews/[scheduleId]/run") {
+      const concreteUrl = new URL(concretePath, "http://areaforge.invalid");
+      const fallbackUrl = new URL("/focus?returnTo=%2Ftoday", "http://areaforge.invalid");
+      return (
+        (actualUrl.pathname === concreteUrl.pathname && actualUrl.search === concreteUrl.search) ||
+        (actualUrl.pathname === fallbackUrl.pathname && actualUrl.search === fallbackUrl.search)
+      );
+    }
     const expectedUrl = new URL(expected, "http://areaforge.invalid");
     if (actualUrl.pathname !== expectedUrl.pathname) return false;
-    if (templatePath === "/knowledge/reviews/[scheduleId]/run") return true;
     return actualUrl.search === expectedUrl.search;
   } catch { return false; }
 }

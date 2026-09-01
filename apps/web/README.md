@@ -4,7 +4,7 @@
 
 最新稳定 GitHub Release 为 `v1.1.2`；公网 `https://forge.areasong.top/` 生产和回滚基线仍为 `v1.1.1`。本次发布未执行 production apply；Web 运行时仍只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
 
-当前 checkout 的 package version 为 `1.1.2`，对应已发布并完成严格资产校验的稳定 GitHub Release；这不表示生产已更新。
+当前 checkout 的 package version 为 `1.2.0`，处于本地验证、PR 与 CI 阶段；尚未创建 `v1.2.0` tag 或 GitHub Release，也不表示生产已更新。
 
 ## Getting Started
 
