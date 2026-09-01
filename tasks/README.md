@@ -15,7 +15,7 @@
 - 各任务的真实状态、阻塞点和等待条件写在任务文件的 `status`、`phase` 和 `blockers` 字段里，用 `pnpm tasks:doctor` 校验；`backlog/` 中保留的跨批次任务是稳定入口或未来增强承接，不代表对应主线仍未完成。
 - 学习行动中心阶段包见 `docs/development/v11-phase-packages.md`；Batch 0 任务 `tasks/active/0025-v11-batch0-doc-sync.md`，Batch 3–10 已完成见 `tasks/done/0027-*` 至 `0034-*`，`v1.1.0` 与 Batch 11 的 `v1.1.1` 修复 Release/production apply 均已完成。`tasks/active/0035-v11-batch11-minor-release.md` 已完成 `v1.1.2` 稳定 Release，继续保留 production apply 的独立确认边界；Batch 1–2 历史复核入口保留在 `tasks/backlog/0026-*`。
 - 响应式布局系统与 49 条 canonical 页面迁移由 `tasks/active/0036-responsive-layout-system.md` 承接；响应式 R1-R6 保留历史 local-verified 证据，共享能力 G0-G5、复杂异步一致性 B6、当前 checkout 的 G6 浏览器证据与文档同步 G7 已完成。G6 当前证据为 v2 responsive/governance artifact 与 pair validator 结果，详见任务文件；旧 `responsive-r6` 截图不计入 G6。本地收口不改变既有功能完成、Release 或 production apply 状态。
-- `v1.2.0` 发布准备由 `tasks/active/0037-v12-release-preparation.md` 承接；当前只授权版本与文档同步、additive migration 隔离验证、完整本地门禁、测试池浏览器验收、PR/CI 和 squash 合并，最终 tag/Release 与 production apply 分别需要后续独立确认。
+- `v1.2.0` 发布准备第一阶段已由 `tasks/done/0037-v12-release-preparation.md` 完成：版本与文档同步、additive migration 隔离验证、完整本地门禁、测试池浏览器验收、PR/CI 和 squash 合并均已闭环；最终 tag/Release 与 production apply 分别需要后续独立确认。
 - 长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准，task-facing 视图见 `indexes/residuals.md`；current blocker、accepted exception 和逐项证据状态以台账为源事实。
 - 仓库候选版本与生产基线见根 README 状态节和 `docs/development/operational-readiness.md`。
 
