@@ -1,4 +1,4 @@
-import { getBrowserStoragePort } from "@/lib/client/storage-port";
+import { getBrowserStoragePort } from "../client/storage-port";
 
 const UPDATE_REQUEST_IDEMPOTENCY_STORAGE_KEY = "areaforge.update-request.pending.v2";
 
