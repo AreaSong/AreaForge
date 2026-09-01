@@ -8,7 +8,7 @@
 
 ## 当前基线
 
-- 当前默认分支：package version 为 `1.2.0`；PR #49 已在 CI run `33505174259` 成功后 squash 合并为 `main` commit `c8b5acf241bcaada59c6b469fd562d4fe400d521`，main push CI run `33506280124` 也已成功。尚未创建 `v1.2.0` tag、Release 或 GHCR 镜像。最新稳定 GitHub Release 仍为 `v1.1.2`，指向 commit `5df38417b701f3511d06db235c5b94755ca03aba`，workflow run `31459420245` 成功，严格供应链资产校验通过；`v1.2.0` 候选不改变当前生产事实。
+- 当前默认分支：package version 为 `1.2.0`；PR #49 已在 CI run `33505174259` 成功后 squash 合并为产品代码 commit `c8b5acf241bcaada59c6b469fd562d4fe400d521`，该 commit 的 main push CI run `33506280124` 也已成功，PR #51 随后完成状态文档收口。尚未创建 `v1.2.0` tag、Release 或 GHCR 镜像；后续 tag 目标必须在独立确认时 fresh readback 当前 main HEAD。最新稳定 GitHub Release 仍为 `v1.1.2`，指向 commit `5df38417b701f3511d06db235c5b94755ca03aba`，workflow run `31459420245` 成功，严格供应链资产校验通过；`v1.2.0` 候选不改变当前生产事实。
 - 线上地址：`https://forge.areasong.top/`
 - 生产基线：`1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；公网 health 已于 2026-08-01 只读验证。
 - 生产 Web 镜像：`ghcr.io/areasong/areaforge-web:v1.1.1@sha256:46f32025693d3d7a16585984d77c9c6c4b6a2603456bad92c223dd1147a9daeb`。

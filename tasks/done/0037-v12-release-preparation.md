@@ -94,4 +94,4 @@ releaseRequired: true
 - Web 治理交互 `governance-g8-v1.2.0-20260901-final3b`：7/7 场景通过；业务写请求均为 route-intercepted，未产生本地业务写入，pair validator 通过。
 - 上述浏览器证据均绑定当前候选提交、`1.2.0` runtime identity 和产品体验源指纹；证据目录为本地生成物，不作为发布资产提交。
 - PR #49 的最终 head `4e8ce38d1eb4a1b12c0ae382574946976fc05b67` 通过 CI run `33505174259`，随后 squash 合并到 `main` commit `c8b5acf241bcaada59c6b469fd562d4fe400d521`。
-- main push CI run `33506280124` 通过；未创建 `v1.2.0` tag、GitHub Release 或 GHCR 资产，未触碰生产 migration、生产更新、备份恢复、自动应用策略或 residual 状态。
+- 产品代码 commit `c8b5acf241bcaada59c6b469fd562d4fe400d521` 的 main push CI run `33506280124` 通过，PR #51 随后完成状态文档收口；未来 tag 目标必须 fresh readback 当时的 main HEAD。未创建 `v1.2.0` tag、GitHub Release 或 GHCR 资产，未触碰生产 migration、生产更新、备份恢复、自动应用策略或 residual 状态。
