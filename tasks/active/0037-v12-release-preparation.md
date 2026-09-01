@@ -18,6 +18,7 @@ validation:
   - pnpm release:workflow:policy:selftest
   - pnpm release:closeout:binding:selftest
   - pnpm ops:ops-005:local:selftest
+  - pnpm package-e:preflight
   - pnpm governance:preflight
   - pnpm github-release-updater:preflight
   - pnpm shellcheck:updater
@@ -89,6 +90,7 @@ releaseRequired: true
 - 36 条 Prisma migration 在隔离 PostgreSQL 16 数据库中首次 apply 与重复 deploy 均通过；验证库已删除，未触碰生产或共享开发数据库。
 - `pnpm check` 通过：Web 测试 868 项通过，lint 0 errors，生产构建通过。
 - `pnpm ops:ops-005:local:selftest` 通过；Node/tsx 自测使用可独立解析的相对 client boundary 导入。
+- `pnpm package-e:preflight` 通过；Web runtime ops boundary 仅扫描生产源文件，按约定排除 `*.test.*`、`*.spec.*` 与 `__tests__` 测试文件，运行时代码的 deploy/backup/restore/migration 禁区保持不变。
 - 响应式浏览器矩阵 `responsive-g8-v1.2.0-20260901`：49 路由 × 7 视口 = 343/343，通过；原生 125% 缩放 5/5，通过；错误与溢出均为 0。
 - Web 治理交互 `governance-g8-v1.2.0-20260901`：7/7 场景通过；业务写请求均为 route-intercepted，未产生本地业务写入。
 - 上述浏览器证据均绑定当前候选提交、`1.2.0` runtime identity 和产品体验源指纹；证据目录为本地生成物，不作为发布资产提交。
