@@ -89,6 +89,7 @@
 
 发布与供应链记录：
 
+- `release-v1.2.0-record.md`、`release-supply-chain-v1.2.0.md`：最新稳定 Release 的 release-only 记录与 strict 供应链证据；production-evidence-pending，不改变生产 `v1.1.1` 或 residual 台账。
 - `release-v1.1.2-artifact-record.md`、`release-supply-chain-v1.1.2.md`
 - `release-v1.1.1-artifact-record.md`、`release-supply-chain-v1.1.1.md`
 - `release-v0.1.7-record.md`、`release-supply-chain-v0.1.7.md`

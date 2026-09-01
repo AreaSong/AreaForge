@@ -19,12 +19,12 @@
 - `versions/optimization-20260720-long-term-operations.md`：2026-07-20 长期运营优化轮（非发布版本计划，已完成）：到期 residual 复核、四路独立审查修复、轻量门禁借鉴与 UX 证据重采。
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
 - `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 与发布后修复 `v1.1.1` 均已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但尚未执行 production apply。
-- `versions/v1.2-high-density-workbench.md`：高密度专业工作台、Dynamic Island、错题 v2 和 Web 共享治理的 `v1.2.0` 发布候选；第一阶段已完成本地验证、PR、CI 与 squash 合并，tag、Release 或 production apply 仍未授权。
+- `versions/v1.2-high-density-workbench.md`：高密度专业工作台、Dynamic Island、错题 v2 和 Web 共享治理的 `v1.2.0`；第一阶段本地验证、PR、CI 与 squash 合并已完成，第二阶段 annotated tag 与稳定 Release 已发布，production apply 仍待独立确认。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
-- 最新稳定 GitHub Release 为 `v1.1.2` / commit `5df38417b701f3511d06db235c5b94755ca03aba`；生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。
-- 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并为 commit `c8b5acf241bcaada59c6b469fd562d4fe400d521`，PR CI run `33505174259` 与该 commit 的 main push CI run `33506280124` 均成功，PR #51 已完成合并状态文档收口。尚未创建 `v1.2.0` tag 或 Release；后续 tag 目标必须在独立确认时 fresh readback 当前 main HEAD，本阶段不包含 production apply。
+- 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。
+- 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并，PR CI run `33505174259` 与 main push CI run `33506280124` 均成功；随后从 fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 创建并推送 annotated tag `v1.2.0`，Release workflow run `33521890241` 成功并发布稳定 Release。production apply、生产 migration、备份恢复、回滚、写入型 smoke、自动应用策略和 residual 状态变更均未执行。
 - `versions/v1.1-learning-action-center.md` 的发布后修复已完成 SC-002/SC-004、browser/compatibility、受保护 PR、Release 资产校验和 Web 受控 production apply。更新后 Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；`AREAFORGE_AUTO_APPLY=none` 与 residual 状态未改变。
 - 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
 - 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口。
